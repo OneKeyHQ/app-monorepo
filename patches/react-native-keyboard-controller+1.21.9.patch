@@ -1,8 +1,16 @@
 diff --git a/node_modules/react-native-keyboard-controller/android/src/main/java/com/reactnativekeyboardcontroller/modules/statusbar/StatusBarManagerCompatModuleImpl.kt b/node_modules/react-native-keyboard-controller/android/src/main/java/com/reactnativekeyboardcontroller/modules/statusbar/StatusBarManagerCompatModuleImpl.kt
-index a3c84b0..e34ffa2 100644
+index a3c84b0..d109b49 100644
 --- a/node_modules/react-native-keyboard-controller/android/src/main/java/com/reactnativekeyboardcontroller/modules/statusbar/StatusBarManagerCompatModuleImpl.kt
 +++ b/node_modules/react-native-keyboard-controller/android/src/main/java/com/reactnativekeyboardcontroller/modules/statusbar/StatusBarManagerCompatModuleImpl.kt
-@@ -97,13 +97,18 @@ class StatusBarManagerCompatModuleImpl(
+@@ -5,6 +5,7 @@ import android.animation.ValueAnimator
+ import android.annotation.SuppressLint
+ import android.app.Activity
+ import android.os.Build
++import android.view.WindowInsetsController
+ import androidx.core.view.WindowInsetsCompat
+ import androidx.core.view.WindowInsetsControllerCompat
+ import com.facebook.react.bridge.ReactApplicationContext
+@@ -97,13 +98,30 @@ class StatusBarManagerCompatModuleImpl(
    }
  
    fun setStyle(style: String) {
@@ -12,11 +20,22 @@ index a3c84b0..e34ffa2 100644
 -
 -    UiThreadUtil.runOnUiThread {
 -      getController()?.isAppearanceLightStatusBars = style == "dark-content"
--    }
 +    // OneKey patch: React Native's StatusBarModule already supports edge-to-edge.
 +    // The compat controller below leaves dark icons on Android 12-14 once the
 +    // window is edge-to-edge, so always let React Native apply the style.
-+    return original.setStyle(style)
++    original.setStyle(style)
++    // On Android 11 React Native writes the legacy SYSTEM_UI_FLAG_LIGHT_STATUS_BAR,
++    // which the platform ignores once anything (e.g. the navigation bar appearance)
++    // used WindowInsetsController on the window. Mirror the style there as well.
++    if (Build.VERSION.SDK_INT == Build.VERSION_CODES.R) {
++      UiThreadUtil.runOnUiThread {
++        mReactContext.currentActivity?.window?.insetsController?.setSystemBarsAppearance(
++          if (style == "dark-content") WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS else 0,
++          WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS,
++        )
++      }
+     }
++    return
 +
 +    // if (!isEnabled()) {
 +    //   return original.setStyle(style)

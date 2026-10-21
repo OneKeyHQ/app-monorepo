@@ -1,9 +1,9 @@
 diff --git a/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/NativeStackGestureController.kt b/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/NativeStackGestureController.kt
 new file mode 100644
-index 0000000..5a76f5d
+index 0000000..f40dbb1
 --- /dev/null
 +++ b/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/NativeStackGestureController.kt
-@@ -0,0 +1,433 @@
+@@ -0,0 +1,442 @@
 +package com.swmansion.rnscreens
 +
 +import android.animation.Animator
@@ -26,6 +26,8 @@ index 0000000..5a76f5d
 +import android.view.animation.Transformation
 +import android.view.animation.TranslateAnimation
 +import android.view.inputmethod.InputMethodManager
++import android.webkit.WebView
++import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
 +import com.facebook.react.bridge.Arguments
 +import com.facebook.react.bridge.WritableMap
 +import com.facebook.react.uimanager.UIManagerHelper
@@ -91,7 +93,9 @@ index 0000000..5a76f5d
 +            }
 +            if (distance > slop && distance > cross * 1.2f) {
 +                val root = top?.fragment?.view ?: return false
-+                if (canScrollAt(root, event.x - root.left, event.y - root.top)) {
++                // Hit-test where the drag began: by the time it passes the slop the finger may
++                // already be over different content (e.g. moved from a header into a WebView).
++                if (canScrollAt(root, downX - root.left, downY - root.top)) {
 +                    eligible = false
 +                    return false
 +                }
@@ -180,8 +184,13 @@ index 0000000..5a76f5d
 +
 +    private fun canScrollAt(view: View, x: Float, y: Float): Boolean {
 +        if (view.visibility != View.VISIBLE) return false
-+        // A parent must not dismiss an entire flow before its nested stack can handle the gesture.
-+        if (view is ScreenStack && view !== stack && view.hasVerticalDismissStack()) return true
++        // A parent must not dismiss an entire flow before its nested stack can handle the
++        // gesture, nor while the nested screen on top opted out of gestures.
++        if (view is ScreenStack && view !== stack && view.blocksAncestorDismiss()) return true
++        // Pull-to-refresh and web content own vertical drags. A WebView only reports its main
++        // frame scroll, so inner scroll containers and page-handled drags are invisible here.
++        if (view is SwipeRefreshLayout && view.isEnabled) return true
++        if (view is WebView) return true
 +        if (view is ViewGroup) {
 +            for (index in view.childCount - 1 downTo 0) {
 +                val child = view.getChildAt(index)
@@ -494,7 +503,7 @@ index 0fcccb3..99d9506 100644
      }
  
 diff --git a/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenStack.kt b/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenStack.kt
-index 9f9f864..708c629 100644
+index 9f9f864..bb8dd11 100644
 --- a/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenStack.kt
 +++ b/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenStack.kt
 @@ -3,6 +3,7 @@ package com.swmansion.rnscreens
@@ -505,7 +514,7 @@ index 9f9f864..708c629 100644
  import android.view.View
  import com.facebook.react.bridge.ReactContext
  import com.facebook.react.uimanager.UIManagerHelper
-@@ -34,6 +35,39 @@ class ScreenStack(
+@@ -34,6 +35,44 @@ class ScreenStack(
      private var childrenDrawingOrderStrategy: ChildrenDrawingOrderStrategy? = null
      private var disappearingTransitioningChildren: MutableList<View> = ArrayList()
  
@@ -531,6 +540,11 @@ index 9f9f864..708c629 100644
 +    internal fun hasVerticalDismissStack(): Boolean =
 +        gestureController.hasVerticalDismissStack()
 +
++    // An ancestor stack must not dismiss its screen while this nested stack can handle the
++    // vertical gesture itself, or while its top screen explicitly disabled gestures.
++    internal fun blocksAncestorDismiss(): Boolean =
++        hasVerticalDismissStack() || topScreen?.isGestureEnabled == false
++
 +    override fun onInterceptTouchEvent(event: MotionEvent): Boolean =
 +        gestureController.intercept(event) || super.onInterceptTouchEvent(event)
 +
@@ -545,7 +559,7 @@ index 9f9f864..708c629 100644
      var goingForward = false
  
      /**
-@@ -179,6 +213,7 @@ class ScreenStack(
+@@ -179,6 +218,7 @@ class ScreenStack(
                  .firstOrNull()
                  ?.takeUnless { it === newTop }
          currentVisibleBottom = visibleBottom
@@ -553,7 +567,7 @@ index 9f9f864..708c629 100644
  
          var shouldUseOpenAnimation = true
          var stackAnimation: StackAnimation? = null
-@@ -256,7 +291,7 @@ class ScreenStack(
+@@ -256,7 +296,7 @@ class ScreenStack(
  
          createTransaction().let { transaction ->
              if (stackAnimation != null) {
@@ -562,7 +576,7 @@ index 9f9f864..708c629 100644
              }
  
              // Remove all screens that are currently on stack, but should be dismissed, because they're
-@@ -419,6 +454,7 @@ class ScreenStack(
+@@ -419,6 +459,7 @@ class ScreenStack(
      private fun performDraw(op: DrawingOp) {
          // Canvas parameter can not be null here https://developer.android.com/reference/android/view/ViewGroup#drawChild(android.graphics.Canvas,%20android.view.View,%20long)
          // So if we are passing null here, we would crash anyway

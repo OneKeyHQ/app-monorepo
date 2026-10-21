@@ -1,16 +1,19 @@
 diff --git a/node_modules/@react-navigation/native-stack/lib/module/views/NativeStackView.native.js b/node_modules/@react-navigation/native-stack/lib/module/views/NativeStackView.native.js
-index a21f04f..faf360f 100644
+index a21f04f..c9141af 100644
 --- a/node_modules/@react-navigation/native-stack/lib/module/views/NativeStackView.native.js
 +++ b/node_modules/@react-navigation/native-stack/lib/module/views/NativeStackView.native.js
-@@ -243,9 +243,8 @@ const SceneView = ({
+@@ -242,10 +242,10 @@ const SceneView = ({
+         fullScreenSwipeEnabled: fullScreenGestureEnabled,
          fullScreenSwipeShadowEnabled: fullScreenGestureShadowEnabled,
          freezeOnBlur: freezeOnBlur,
-         gestureEnabled: Platform.OS === 'android' ?
+-        gestureEnabled: Platform.OS === 'android' ?
 -        // This prop enables handling of system back gestures on Android
 -        // Since we handle them in JS side, we disable this
 -        false : gestureEnabled,
-+        // OneKey patch: opt-in vertical dismiss gestures are settled and removed natively.
-+        gestureEnabled ?? false : gestureEnabled,
++        // OneKey patch: forward the option on Android too. Native screens default to
++        // enabled; only vertical dismiss gestures act on it, and an explicit false on a
++        // nested screen also blocks its ancestor modal from being dragged away.
++        gestureEnabled: gestureEnabled,
          homeIndicatorHidden: autoHideHomeIndicator,
          hideKeyboardOnSwipe: keyboardHandlingEnabled,
          navigationBarColor: navigationBarColor,
@@ -31,21 +34,25 @@ index 492390b..a2da541 100644
  //# sourceMappingURL=useHeaderConfigProps.js.map
 \ No newline at end of file
 diff --git a/node_modules/@react-navigation/native-stack/src/views/NativeStackView.native.tsx b/node_modules/@react-navigation/native-stack/src/views/NativeStackView.native.tsx
-index e694525..a014901 100644
+index e694525..c35e673 100644
 --- a/node_modules/@react-navigation/native-stack/src/views/NativeStackView.native.tsx
 +++ b/node_modules/@react-navigation/native-stack/src/views/NativeStackView.native.tsx
-@@ -370,9 +370,8 @@ const SceneView = ({
+@@ -369,11 +369,10 @@ const SceneView = ({
+           fullScreenSwipeShadowEnabled={fullScreenGestureShadowEnabled}
            freezeOnBlur={freezeOnBlur}
            gestureEnabled={
-             Platform.OS === 'android'
+-            Platform.OS === 'android'
 -              ? // This prop enables handling of system back gestures on Android
 -                // Since we handle them in JS side, we disable this
 -                false
-+              ? // OneKey patch: opt-in vertical dismiss gestures are settled and removed natively.
-+                (gestureEnabled ?? false)
-               : gestureEnabled
+-              : gestureEnabled
++            // OneKey patch: forward the option on Android too. Native screens default to
++            // enabled; only vertical dismiss gestures act on it, and an explicit false on a
++            // nested screen also blocks its ancestor modal from being dragged away.
++            gestureEnabled
            }
            homeIndicatorHidden={autoHideHomeIndicator}
+           hideKeyboardOnSwipe={keyboardHandlingEnabled}
 diff --git a/node_modules/@react-navigation/native-stack/src/views/useHeaderConfigProps.tsx b/node_modules/@react-navigation/native-stack/src/views/useHeaderConfigProps.tsx
 index 14a0093..e2c4870 100644
 --- a/node_modules/@react-navigation/native-stack/src/views/useHeaderConfigProps.tsx
