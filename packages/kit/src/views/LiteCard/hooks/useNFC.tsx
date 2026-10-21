@@ -262,6 +262,9 @@ export default function useNFC() {
   );
   const createNFCConnection = useCallback(
     (callback: () => void) => async () => {
+      // Home mounts this hook; load the NFC-only animation on connection.
+      const { default: searchingAnimation } =
+        await import('@onekeyhq/kit/assets/animations/connect_onekeylite_searching.json');
       if (platformEnv.isNativeAndroid) {
         willCloseDialogInstance.current = Dialog.show({
           title: intl.formatMessage({
@@ -272,10 +275,7 @@ export default function useNFC() {
           }),
           showFooter: false,
           renderContent: (
-            <LottieView
-              source={require('@onekeyhq/kit/assets/animations/connect_onekeylite_searching.json')}
-              height={205}
-            />
+            <LottieView source={searchingAnimation} height={205} />
           ),
         });
         callback();
@@ -288,12 +288,7 @@ export default function useNFC() {
         description: intl.formatMessage({
           id: ETranslations.hardware_place_onekey_lite_close_to_phone_desc,
         }),
-        renderContent: (
-          <LottieView
-            source={require('@onekeyhq/kit/assets/animations/connect_onekeylite_searching.json')}
-            height={205}
-          />
-        ),
+        renderContent: <LottieView source={searchingAnimation} height={205} />,
         onConfirmText: intl.formatMessage({ id: ETranslations.global_connect }),
         onConfirm: ({ preventClose }) => {
           preventClose();
