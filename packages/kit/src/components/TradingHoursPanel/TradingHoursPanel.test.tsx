@@ -108,3 +108,48 @@ it.each(['ondo', 'xstock', 'bstock'])(
     ).toBeNull();
   },
 );
+
+it('keeps the generic copy for a US listing through a closure', () => {
+  jest.useFakeTimers();
+  jest.setSystemTime(new Date('2026-11-26T15:00:00Z'));
+  mockStatus = { open: false, session: 'CLOSED', reason: 'holiday' };
+  render(
+    <TradingHoursTrigger
+      stock={{
+        title: 'AAPL',
+        subtitle: 'Apple',
+        source: 'bstock',
+        sourceLogoUri: '',
+        isUSListing: true,
+        isOpen: true,
+      }}
+      renderTrigger={<span>status</span>}
+    />,
+  );
+
+  expect(
+    screen.getByText(ETranslations.trading_hours_description),
+  ).toBeTruthy();
+  expect(
+    screen.queryByText(ETranslations.trading_hours_closed_tradable_description),
+  ).toBeNull();
+});
+
+it('opens no US trading hours for a non-US listing', () => {
+  render(
+    <TradingHoursTrigger
+      stock={{
+        title: 'TCENT',
+        subtitle: 'Tencent',
+        source: 'xstock',
+        sourceLogoUri: '',
+        isUSListing: false,
+        isOpen: true,
+      }}
+      renderTrigger={<span>status</span>}
+    />,
+  );
+
+  expect(screen.getByText('status')).toBeTruthy();
+  expect(screen.queryByTestId('trading-hours-panel')).toBeNull();
+});

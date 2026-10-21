@@ -5,6 +5,8 @@ import { fireEvent, render, screen } from '@testing-library/react';
 
 import SwapCommonInfoItem from '@onekeyhq/kit/src/views/Swap/components/SwapCommonInfoItem';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
+import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
 import type {
   IDustSweepReason,
   IDustSweepToken,
@@ -17,6 +19,8 @@ import { initialDustSweepState } from '../stateMachine';
 import { DustSweepResult, DustSweepSummary } from './DustSweepSummary';
 
 import type { IDustSweepState } from '../stateMachine';
+
+let mockLocale = 'en-US';
 
 jest.mock('@onekeyhq/components', () => {
   function MockStack({
@@ -36,11 +40,13 @@ jest.mock('@onekeyhq/components', () => {
     children,
     testID,
     disabled,
+    loading,
     onPress,
     accessibilityLabel,
   }: PropsWithChildren<{
     testID?: string;
     disabled?: boolean;
+    loading?: boolean;
     onPress?: () => void;
     accessibilityLabel?: string;
   }>) {
@@ -49,6 +55,7 @@ jest.mock('@onekeyhq/components', () => {
         type="button"
         data-testid={testID}
         disabled={disabled}
+        data-loading={loading ? 'true' : 'false'}
         onClick={onPress}
         aria-label={accessibilityLabel}
       >
@@ -81,7 +88,37 @@ jest.mock('@onekeyhq/components', () => {
       </div>
     ),
     SizableText: MockStack,
-    Skeleton: () => <div data-testid="skeleton" />,
+    NumberSizeableText: ({
+      children,
+      formatter,
+      formatterOptions,
+    }: INumberFormatProps & { children: string }) => {
+      const { numberFormatAsRenderText } = jest.requireActual<
+        typeof import('@onekeyhq/shared/src/utils/numberUtils')
+      >('@onekeyhq/shared/src/utils/numberUtils');
+      const { useMemo } = jest.requireActual<typeof import('react')>('react');
+      const parts = useMemo(
+        () =>
+          numberFormatAsRenderText(children, { formatter, formatterOptions }),
+        [children, formatter, formatterOptions, numberFormatAsRenderText],
+      );
+      return (
+        <span>
+          {typeof parts === 'string'
+            ? parts
+            : parts.map((part, index) =>
+                typeof part === 'string' ? (
+                  part
+                ) : (
+                  <sub key={index}>{part.value}</sub>
+                ),
+              )}
+        </span>
+      );
+    },
+    Skeleton: ({ testID }: { testID?: string }) => (
+      <div data-testid={testID ?? 'skeleton'} />
+    ),
     Stack: MockStack,
     Tooltip: () => null,
     XStack: MockStack,
@@ -89,7 +126,9 @@ jest.mock('@onekeyhq/components', () => {
   };
 });
 jest.mock('react-intl', () => ({
+  ...jest.requireActual<typeof import('react-intl')>('react-intl'),
   useIntl: () => ({
+    locale: mockLocale,
     formatMessage: (
       { id }: { id: string },
       values?: Record<string, string | number>,
@@ -103,7 +142,7 @@ jest.mock('react-native-reanimated', () => ({
   FadeIn: { duration: () => undefined },
 }));
 jest.mock('@onekeyhq/kit/src/components/Token', () => ({
-  Token: () => null,
+  Token: () => <span data-testid="receive-token" />,
 }));
 jest.mock(
   '@onekeyhq/kit/src/views/Swap/components/PreSwapConfirmResult',
@@ -153,30 +192,148 @@ let mockCurrent: { nativeToken: typeof nativeToken } | undefined = {
 let mockSelected = [selectedToken];
 let mockProviderInfo: ISwapProviderInfo | undefined = configuredProvider;
 let mockLoadStatus: 'loading' | 'ready' | 'error' = 'ready';
+let mockAssetStatus: 'refreshing' | 'ready' | 'error' = 'ready';
+let mockSelecting = true;
+let mockSessionState = initialDustSweepState;
 let mockSelectedValueUsd = '10';
 const mockStart = jest.fn();
+const mockRetryAssets = jest.fn();
 jest.mock('../DustSweepProvider', () => ({
   useDustSweep: () => ({
-    session: { state: initialDustSweepState, leaving: false },
-    selecting: true,
+    session: { state: mockSessionState, leaving: false },
+    selecting: mockSelecting,
     current: mockCurrent,
     selected: mockSelected,
     providerInfo: mockProviderInfo,
     selectedValueUsd: mockSelectedValueUsd,
-    canStart: mockSelected.length > 0,
+    canStart:
+      mockSelected.length > 0 &&
+      mockAssetStatus === 'ready' &&
+      mockLoadStatus === 'ready',
     isFocused: true,
     loadStatus: mockLoadStatus,
+    assetStatus: mockAssetStatus,
     start: mockStart,
+    retryAssets: mockRetryAssets,
   }),
 }));
 
 beforeEach(() => {
+  mockLocale = 'en-US';
+  appLocale.setLocale(mockLocale, appLocale.intl.messages);
   mockCurrent = { nativeToken };
   mockSelected = [selectedToken];
   mockProviderInfo = configuredProvider;
   mockLoadStatus = 'ready';
+  mockAssetStatus = 'ready';
+  mockSelecting = true;
+  mockSessionState = initialDustSweepState;
   mockSelectedValueUsd = '10';
   jest.clearAllMocks();
+});
+
+afterEach(() => appLocale.setLocale('en-US', appLocale.intl.messages));
+
+it.each([true, false])(
+  'shows a loading button and token skeleton until initial assets arrive (desktop=%s)',
+  (desktop) => {
+    mockCurrent = undefined;
+    mockSelected = [];
+    mockLoadStatus = 'loading';
+    mockAssetStatus = 'refreshing';
+    const { rerender } = render(
+      <DustSweepSummary
+        desktop={desktop}
+        onDone={jest.fn()}
+        onDetails={jest.fn()}
+      />,
+    );
+    const action = screen.getByTestId('dust-sweep-action');
+    expect(action.getAttribute('data-loading')).toBe('true');
+    expect(action.textContent).toBe('');
+    expect(action.hasAttribute('disabled')).toBe(true);
+    expect(action.getAttribute('aria-label')).toBe(
+      ETranslations.global_syncing,
+    );
+    expect(screen.getByTestId('dust-sweep-receive-token-loading')).toBeTruthy();
+    expect(screen.queryByTestId('receive-token')).toBeNull();
+    fireEvent.click(action);
+    expect(mockStart).not.toHaveBeenCalled();
+
+    mockCurrent = { nativeToken };
+    mockSelected = [selectedToken];
+    mockLoadStatus = 'ready';
+    mockAssetStatus = 'ready';
+    rerender(
+      <DustSweepSummary
+        desktop={desktop}
+        onDone={jest.fn()}
+        onDetails={jest.fn()}
+      />,
+    );
+    expect(
+      screen.getByTestId('dust-sweep-action').getAttribute('data-loading'),
+    ).toBe('false');
+    expect(screen.getByTestId('dust-sweep-action').textContent).toContain(
+      ETranslations.button_convert_tokens_estimated_amount,
+    );
+    expect(screen.queryByTestId('dust-sweep-receive-token-loading')).toBeNull();
+    expect(screen.getByTestId('receive-token')).toBeTruthy();
+  },
+);
+
+it.each([true, false])(
+  'keeps the known token while refreshing cached assets with a loading-only button (desktop=%s)',
+  (desktop) => {
+    mockAssetStatus = 'refreshing';
+    render(
+      <DustSweepSummary
+        desktop={desktop}
+        onDone={jest.fn()}
+        onDetails={jest.fn()}
+      />,
+    );
+    expect(
+      screen.getByTestId('dust-sweep-action').getAttribute('data-loading'),
+    ).toBe('true');
+    expect(screen.getByTestId('dust-sweep-action').textContent).toBe('');
+    expect(screen.queryByTestId('dust-sweep-receive-token-loading')).toBeNull();
+    expect(screen.getByTestId('receive-token')).toBeTruthy();
+  },
+);
+
+it.each([true, false])(
+  'retains error retry without a loading button or token skeleton (desktop=%s)',
+  (desktop) => {
+    mockAssetStatus = 'error';
+    render(
+      <DustSweepSummary
+        desktop={desktop}
+        onDone={jest.fn()}
+        onDetails={jest.fn()}
+      />,
+    );
+    const action = screen.getByTestId('dust-sweep-action');
+    expect(action.getAttribute('data-loading')).toBe('false');
+    expect(action.hasAttribute('disabled')).toBe(false);
+    expect(action.textContent).toContain(ETranslations.global_retry);
+    expect(screen.queryByTestId('dust-sweep-receive-token-loading')).toBeNull();
+    fireEvent.click(action);
+    expect(mockRetryAssets).toHaveBeenCalledTimes(1);
+    expect(mockStart).not.toHaveBeenCalled();
+  },
+);
+
+it('keeps the completed action out of loading during a background refresh', () => {
+  mockSelecting = false;
+  mockSessionState = completedState([{ key: 'done', status: 'success' }]);
+  mockAssetStatus = 'refreshing';
+  mockLoadStatus = 'loading';
+  render(<DustSweepSummary desktop onDone={jest.fn()} onDetails={jest.fn()} />);
+  const action = screen.getByTestId('dust-sweep-action');
+  expect(action.getAttribute('data-loading')).toBe('false');
+  expect(action.textContent).toBe(ETranslations.global_done);
+  expect(screen.queryByTestId('dust-sweep-receive-token-loading')).toBeNull();
 });
 
 it.each([true, false])(
@@ -358,6 +515,92 @@ it('formats received USD to two decimal places without padding native amounts', 
   );
   expect(screen.getByText('$10.00')).toBeTruthy();
 });
+
+it.each([true, false])(
+  'preserves a tiny received amount using the shared balance subscript (desktop=%s)',
+  (desktop) => {
+    render(
+      <DustSweepResult
+        desktop={desktop}
+        state={{
+          phase: 'completed',
+          snapshot: {
+            id: 'completed',
+            networkId: 'evm--1',
+            accountId: 'account',
+            address: '0xuser',
+            nativeToken,
+            slippage: 5,
+            tokens: [selectedToken],
+          },
+          items: [
+            {
+              token: selectedToken,
+              status: 'success',
+              receivedAmount: '0.0000001234',
+            },
+          ],
+        }}
+      />,
+    );
+    const amount = screen.getByTestId('dust-sweep-result-amount');
+    expect(amount.textContent).toBe('+0.061234 ETH');
+    expect(amount.querySelector('sub')?.textContent).toBe('6');
+  },
+);
+
+it('uses the same subscript formatter for a tiny receive estimate', () => {
+  mockSelectedValueUsd = '0.0001234';
+  render(<DustSweepSummary desktop onDone={jest.fn()} onDetails={jest.fn()} />);
+  const amount = screen.getByTestId('dust-sweep-receive-amount');
+  expect(amount.textContent).toBe('0.061234 ETH');
+  expect(amount.querySelector('sub')?.textContent).toBe('6');
+});
+
+it.each(['result', 'estimate'] as const)(
+  'updates the cached %s formatter when the token symbol or locale changes',
+  (mode) => {
+    const state = completedState([{ key: 'done', status: 'success' }]);
+    state.items[0].receivedAmount = '1234.5';
+    mockSelectedValueUsd = '1234500';
+    const view = (symbol: string) => {
+      const token = { ...nativeToken, symbol };
+      if (mode === 'result') {
+        return (
+          <DustSweepResult
+            desktop
+            state={{
+              ...state,
+              snapshot: state.snapshot && {
+                ...state.snapshot,
+                nativeToken: token,
+              },
+            }}
+          />
+        );
+      }
+      mockCurrent = { nativeToken: token };
+      return (
+        <DustSweepSummary desktop onDone={jest.fn()} onDetails={jest.fn()} />
+      );
+    };
+    const { rerender } = render(view('ETH'));
+    const testId =
+      mode === 'result'
+        ? 'dust-sweep-result-amount'
+        : 'dust-sweep-receive-amount';
+    const prefix = mode === 'result' ? '+' : '';
+    expect(screen.getByTestId(testId).textContent).toBe(`${prefix}1,234.5 ETH`);
+
+    rerender(view('BNB'));
+    expect(screen.getByTestId(testId).textContent).toBe(`${prefix}1,234.5 BNB`);
+
+    mockLocale = 'de-DE';
+    appLocale.setLocale(mockLocale, appLocale.intl.messages);
+    rerender(view('BNB'));
+    expect(screen.getByTestId(testId).textContent).toBe(`${prefix}1.234,5 BNB`);
+  },
+);
 
 function completedState(
   items: {
