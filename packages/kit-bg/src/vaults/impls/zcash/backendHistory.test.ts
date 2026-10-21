@@ -305,6 +305,38 @@ describe('normalizeZcashBackendHistoryTx', () => {
     });
     expect(tx.from).toBe('t1sender');
     expect(tx.shieldedCounterparty).toBeUndefined();
+    expect(tx.sends).toEqual([]);
+  });
+
+  it('leaves a transparent receive from another t1 to show its sender', () => {
+    // The indexer's receive row for a t1 -> t1 payment: no sends, sender in `from`.
+    const row = {
+      ...base,
+      type: EOnChainHistoryTxType.Receive,
+      from: 't1sender',
+      to: 't1own',
+      value: '0.00005',
+      sends: [],
+      receives: [
+        {
+          type: EOnChainHistoryTransferType.Transfer,
+          from: 't1sender',
+          to: 't1own',
+          amount: '0.00005',
+          token: '',
+          key: 'zec--0_',
+          label: '',
+          isOwn: true,
+        },
+      ],
+    };
+    const tx = normalizeZcashBackendHistoryTx(row);
+    expect(tx).toBe(row);
+    expect(
+      tx.sends.some(
+        (send) => send.type === EOnChainHistoryTransferType.Shielded,
+      ),
+    ).toBe(false);
   });
 
   it('marks only the shielded side of the built action', () => {
