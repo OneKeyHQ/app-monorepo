@@ -61,6 +61,7 @@ export type IModalPerpParamList = {
     fill: IFill;
     builderFeeRate?: number;
     pairName?: string;
+    sourceSimpleMarketCoin?: string;
   };
   [EModalPerpRoutes.MobilePerpSimpleMarket]: {
     coin: string;

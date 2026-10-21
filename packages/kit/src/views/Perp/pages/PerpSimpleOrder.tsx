@@ -409,7 +409,14 @@ function SimpleOrderContent() {
       return { ...data, accountAddress };
     },
     [accountAddress],
-    { undefinedResultIfError: true },
+    {
+      undefinedResultIfError: true,
+      checkIsFocused: true,
+      revalidateOnFocus: true,
+      revalidateOnReconnect: true,
+      pollingInterval: accountAddress ? 30_000 : undefined,
+      runImmediatelyOnPollingIntervalChange: true,
+    },
   );
   const mode = assetData?.leverage.type;
   const position = positions.find(

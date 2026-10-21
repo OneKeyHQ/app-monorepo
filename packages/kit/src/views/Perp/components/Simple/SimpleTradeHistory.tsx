@@ -123,7 +123,11 @@ export function SimpleTradeHistory({ coin }: { coin?: string }) {
                 onPress={() =>
                   navigation.pushModal(EModalRoutes.PerpModal, {
                     screen: EModalPerpRoutes.PerpTradeHistoryDetails,
-                    params: { fill: trade, builderFeeRate },
+                    params: {
+                      fill: trade,
+                      builderFeeRate,
+                      sourceSimpleMarketCoin: coin,
+                    },
                   })
                 }
               >
