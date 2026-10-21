@@ -164,7 +164,9 @@ export type ILocalWalletFrozenReason =
   // Held by a send that is not confirmed yet, or its change.
   | 'pendingSend'
   // Cannot be shown unspent until the account's password confirms it.
-  | 'needsPassword';
+  | 'needsPassword'
+  // Change too small to be worth its own fee; wallets skip it when sending.
+  | 'smallChange';
 
 export type ILocalWalletFrozenPart = {
   reason: ILocalWalletFrozenReason;

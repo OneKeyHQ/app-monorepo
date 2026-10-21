@@ -87,7 +87,10 @@ type IRuntimeBalancePool = {
   pendingChange: number;
   pendingSpendable: number;
   locked: number;
+  // Leaves out notes worth <= the ZIP-317 marginal fee; those are `uneconomic`.
   total: number;
+  // Absent before runtime 0.1.0-alpha.7.
+  uneconomic?: number;
 };
 
 type IRuntimeBalance = {
@@ -488,8 +491,13 @@ export function readBalance(
     // The amounts already read are useful, but cannot be presented as totals.
   }
 
+  // Dust change still belongs to the user, so it counts toward what is shown;
+  // note selection skips it, so it never counts toward spendable.
+  const poolTotal = (pool: IRuntimeBalancePool) =>
+    BigInt(pool.total) + BigInt(pool.uneconomic ?? 0);
+
   // Runtime reports each pool separately (a fact); summing into a total is a policy decision made here.
-  const shielded = BigInt(raw.orchard.total) + BigInt(raw.ironwood.total);
+  const shielded = poolTotal(raw.orchard) + poolTotal(raw.ironwood);
   const pendingChange =
     BigInt(raw.orchard.pendingChange) + BigInt(raw.ironwood.pendingChange);
   const pendingSpendable =
@@ -503,7 +511,8 @@ export function readBalance(
     pendingChange: String(pool.pendingChange),
     pendingSpendable: String(pool.pendingSpendable),
     locked: String(pool.locked),
-    total: String(pool.total),
+    total: poolTotal(pool).toString(),
+    uneconomic: String(pool.uneconomic ?? 0),
   });
 
   const shieldedSpendable =
@@ -516,8 +525,8 @@ export function readBalance(
     spendable: spendable.toString(),
     pendingChange: pendingChange.toString(),
     pendingSpendable: pendingSpendable.toString(),
-    orchardBalance: String(raw.orchard.total),
-    ironwoodBalance: String(raw.ironwood.total),
+    orchardBalance: poolTotal(raw.orchard).toString(),
+    ironwoodBalance: poolTotal(raw.ironwood).toString(),
     shieldedSpendable: shieldedSpendable.toString(),
     poolsDetail: {
       orchard: poolDetail(raw.orchard),
