@@ -973,3 +973,10 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries â€
 **Root Cause**: The unknown receive token was mounted before its data existed. Asset refresh only changed the action label, and the button never received its loading prop.
 **Fix**: Show a token skeleton while assets are loading and the token identity is unknown. Use a spinner-only button for initial loading and cached-asset refresh, retain a known cached token, and preserve error retry and completed actions.
 **Catchable by**: Section 6: cover cold load, cache refresh, transition to ready, refresh failure and completed-state background refresh; Section 8: inspect actual spinner and skeleton rendering.
+
+## Case: Dust Sweep selected network remained clipped in the horizontal strip
+**Date**: 2026-10-21 | **Platforms**: Horizontal Dust Sweep network selector
+**Symptom**: Selecting a partially visible network at the end of the strip left its chip cut off by the viewport.
+**Root Cause**: The plain horizontal ScrollView had no selected-item layout registration or scroll behavior.
+**Fix**: Reuse Swap's ScrollableFilterBar, pass the selected network ID, and register each chip's layout under that same ID. Preserve the existing chip appearance, execution lock and compact network menu.
+**Catchable by**: Section 8: click clipped chips near both edges, verify complete visibility after scrolling, and repeat after viewport resizing; confirm execution cannot change the network.

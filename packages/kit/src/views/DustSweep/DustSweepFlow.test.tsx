@@ -142,6 +142,10 @@ jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   },
 }));
 jest.mock('@onekeyhq/shared/src/errors', () => ({ OneKeyLocalError: Error }));
+jest.mock('@onekeyhq/kit/src/components/ScrollableFilterBar', () => ({
+  ScrollableFilterBar: ({ children }: PropsWithChildren) => <>{children}</>,
+  useScrollableFilterBar: () => ({ handleItemLayout: jest.fn() }),
+}));
 jest.mock('@onekeyhq/kit/src/components/TabPageHeader', () => ({
   TabPageHeader: () => <span data-testid="tab-page-header" />,
 }));
