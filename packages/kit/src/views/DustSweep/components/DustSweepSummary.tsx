@@ -194,12 +194,14 @@ export function DustSweepSummary({
   } = model;
   const { state } = session;
   const assetSyncError = selecting && assetStatus === 'error';
-  const assetsSyncing = selecting && assetStatus === 'refreshing';
+  const assetsLoading =
+    selecting && (loadStatus === 'loading' || assetStatus === 'refreshing');
   const intl = useIntl();
   const formatFiat = useDustSweepFiatFormatter();
   const { totals, completed, unknown, progress } =
     getDustSweepPresentation(state);
   const nativeToken = state.snapshot?.nativeToken ?? current?.nativeToken;
+  const receiveTokenLoading = assetsLoading && !nativeToken;
   // Before converting, estimate from the selection's market value (as Rabby
   // does) so it always matches the action label; afterwards show what arrived.
   const nativePrice = new BigNumber(nativeToken?.price ?? NaN);
@@ -254,8 +256,6 @@ export function DustSweepSummary({
   } else if (state.phase === 'paused') {
     label = intl.formatMessage({ id: ETranslations.global_continue });
     onPress = session.resume;
-  } else if (assetsSyncing) {
-    label = intl.formatMessage({ id: ETranslations.global_syncing });
   } else if (assetSyncError) {
     label = `${intl.formatMessage({ id: ETranslations.global_sync_error })} · ${intl.formatMessage({ id: ETranslations.global_retry })}`;
     onPress = model.retryAssets;
@@ -300,12 +300,18 @@ export function DustSweepSummary({
             </SizableText>
           ) : null}
           <XStack height={desktop ? 72 : 60} alignItems="center" gap="$2">
-            <Token
-              size="md"
-              tokenImageUri={nativeToken?.logoURI}
-              networkId={nativeToken?.networkId}
-              showNetworkIcon
-            />
+            {receiveTokenLoading ? (
+              <Stack testID="dust-sweep-receive-token-loading">
+                <Skeleton width="$8" height="$8" radius="round" />
+              </Stack>
+            ) : (
+              <Token
+                size="md"
+                tokenImageUri={nativeToken?.logoURI}
+                networkId={nativeToken?.networkId}
+                showNetworkIcon
+              />
+            )}
             {nativeToken ? (
               <SizableText size="$bodyLgMedium">
                 {nativeToken.symbol}
@@ -501,7 +507,15 @@ export function DustSweepSummary({
           height={DUST_SWEEP_ACTION_HEIGHT}
           minHeight={DUST_SWEEP_ACTION_HEIGHT}
           variant="primary"
+          loading={assetsLoading}
+          childrenAsText={!assetsLoading}
+          accessibilityLabel={
+            assetsLoading
+              ? intl.formatMessage({ id: ETranslations.global_syncing })
+              : undefined
+          }
           disabled={
+            assetsLoading ||
             session.leaving ||
             model.stopping ||
             state.phase === 'left' ||
@@ -510,7 +524,7 @@ export function DustSweepSummary({
           }
           onPress={onPress}
         >
-          {label}
+          {assetsLoading ? null : label}
         </Button>
       </XStack>
     </YStack>

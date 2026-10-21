@@ -37,11 +37,13 @@ jest.mock('@onekeyhq/components', () => {
     children,
     testID,
     disabled,
+    loading,
     onPress,
     accessibilityLabel,
   }: PropsWithChildren<{
     testID?: string;
     disabled?: boolean;
+    loading?: boolean;
     onPress?: () => void;
     accessibilityLabel?: string;
   }>) {
@@ -50,6 +52,7 @@ jest.mock('@onekeyhq/components', () => {
         type="button"
         data-testid={testID}
         disabled={disabled}
+        data-loading={loading ? 'true' : 'false'}
         onClick={onPress}
         aria-label={accessibilityLabel}
       >
@@ -108,7 +111,9 @@ jest.mock('@onekeyhq/components', () => {
         </span>
       );
     },
-    Skeleton: () => <div data-testid="skeleton" />,
+    Skeleton: ({ testID }: { testID?: string }) => (
+      <div data-testid={testID ?? 'skeleton'} />
+    ),
     Stack: MockStack,
     Tooltip: () => null,
     XStack: MockStack,
@@ -130,7 +135,7 @@ jest.mock('react-native-reanimated', () => ({
   FadeIn: { duration: () => undefined },
 }));
 jest.mock('@onekeyhq/kit/src/components/Token', () => ({
-  Token: () => null,
+  Token: () => <span data-testid="receive-token" />,
 }));
 jest.mock(
   '@onekeyhq/kit/src/views/Swap/components/PreSwapConfirmResult',
@@ -180,20 +185,29 @@ let mockCurrent: { nativeToken: typeof nativeToken } | undefined = {
 let mockSelected = [selectedToken];
 let mockProviderInfo: ISwapProviderInfo | undefined = configuredProvider;
 let mockLoadStatus: 'loading' | 'ready' | 'error' = 'ready';
+let mockAssetStatus: 'refreshing' | 'ready' | 'error' = 'ready';
+let mockSelecting = true;
+let mockSessionState = initialDustSweepState;
 let mockSelectedValueUsd = '10';
 const mockStart = jest.fn();
+const mockRetryAssets = jest.fn();
 jest.mock('../DustSweepProvider', () => ({
   useDustSweep: () => ({
-    session: { state: initialDustSweepState, leaving: false },
-    selecting: true,
+    session: { state: mockSessionState, leaving: false },
+    selecting: mockSelecting,
     current: mockCurrent,
     selected: mockSelected,
     providerInfo: mockProviderInfo,
     selectedValueUsd: mockSelectedValueUsd,
-    canStart: mockSelected.length > 0,
+    canStart:
+      mockSelected.length > 0 &&
+      mockAssetStatus === 'ready' &&
+      mockLoadStatus === 'ready',
     isFocused: true,
     loadStatus: mockLoadStatus,
+    assetStatus: mockAssetStatus,
     start: mockStart,
+    retryAssets: mockRetryAssets,
   }),
 }));
 
@@ -202,8 +216,113 @@ beforeEach(() => {
   mockSelected = [selectedToken];
   mockProviderInfo = configuredProvider;
   mockLoadStatus = 'ready';
+  mockAssetStatus = 'ready';
+  mockSelecting = true;
+  mockSessionState = initialDustSweepState;
   mockSelectedValueUsd = '10';
   jest.clearAllMocks();
+});
+
+it.each([true, false])(
+  'shows a loading button and token skeleton until initial assets arrive (desktop=%s)',
+  (desktop) => {
+    mockCurrent = undefined;
+    mockSelected = [];
+    mockLoadStatus = 'loading';
+    mockAssetStatus = 'refreshing';
+    const { rerender } = render(
+      <DustSweepSummary
+        desktop={desktop}
+        onDone={jest.fn()}
+        onDetails={jest.fn()}
+      />,
+    );
+    const action = screen.getByTestId('dust-sweep-action');
+    expect(action.getAttribute('data-loading')).toBe('true');
+    expect(action.textContent).toBe('');
+    expect(action.hasAttribute('disabled')).toBe(true);
+    expect(action.getAttribute('aria-label')).toBe(
+      ETranslations.global_syncing,
+    );
+    expect(screen.getByTestId('dust-sweep-receive-token-loading')).toBeTruthy();
+    expect(screen.queryByTestId('receive-token')).toBeNull();
+    fireEvent.click(action);
+    expect(mockStart).not.toHaveBeenCalled();
+
+    mockCurrent = { nativeToken };
+    mockSelected = [selectedToken];
+    mockLoadStatus = 'ready';
+    mockAssetStatus = 'ready';
+    rerender(
+      <DustSweepSummary
+        desktop={desktop}
+        onDone={jest.fn()}
+        onDetails={jest.fn()}
+      />,
+    );
+    expect(
+      screen.getByTestId('dust-sweep-action').getAttribute('data-loading'),
+    ).toBe('false');
+    expect(screen.getByTestId('dust-sweep-action').textContent).toContain(
+      ETranslations.button_convert_tokens_estimated_amount,
+    );
+    expect(screen.queryByTestId('dust-sweep-receive-token-loading')).toBeNull();
+    expect(screen.getByTestId('receive-token')).toBeTruthy();
+  },
+);
+
+it.each([true, false])(
+  'keeps the known token while refreshing cached assets with a loading-only button (desktop=%s)',
+  (desktop) => {
+    mockAssetStatus = 'refreshing';
+    render(
+      <DustSweepSummary
+        desktop={desktop}
+        onDone={jest.fn()}
+        onDetails={jest.fn()}
+      />,
+    );
+    expect(
+      screen.getByTestId('dust-sweep-action').getAttribute('data-loading'),
+    ).toBe('true');
+    expect(screen.getByTestId('dust-sweep-action').textContent).toBe('');
+    expect(screen.queryByTestId('dust-sweep-receive-token-loading')).toBeNull();
+    expect(screen.getByTestId('receive-token')).toBeTruthy();
+  },
+);
+
+it.each([true, false])(
+  'retains error retry without a loading button or token skeleton (desktop=%s)',
+  (desktop) => {
+    mockAssetStatus = 'error';
+    render(
+      <DustSweepSummary
+        desktop={desktop}
+        onDone={jest.fn()}
+        onDetails={jest.fn()}
+      />,
+    );
+    const action = screen.getByTestId('dust-sweep-action');
+    expect(action.getAttribute('data-loading')).toBe('false');
+    expect(action.hasAttribute('disabled')).toBe(false);
+    expect(action.textContent).toContain(ETranslations.global_retry);
+    expect(screen.queryByTestId('dust-sweep-receive-token-loading')).toBeNull();
+    fireEvent.click(action);
+    expect(mockRetryAssets).toHaveBeenCalledTimes(1);
+    expect(mockStart).not.toHaveBeenCalled();
+  },
+);
+
+it('keeps the completed action out of loading during a background refresh', () => {
+  mockSelecting = false;
+  mockSessionState = completedState([{ key: 'done', status: 'success' }]);
+  mockAssetStatus = 'refreshing';
+  mockLoadStatus = 'loading';
+  render(<DustSweepSummary desktop onDone={jest.fn()} onDetails={jest.fn()} />);
+  const action = screen.getByTestId('dust-sweep-action');
+  expect(action.getAttribute('data-loading')).toBe('false');
+  expect(action.textContent).toBe(ETranslations.global_done);
+  expect(screen.queryByTestId('dust-sweep-receive-token-loading')).toBeNull();
 });
 
 it.each([true, false])(

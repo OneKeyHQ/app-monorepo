@@ -966,3 +966,10 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries â€
 **Root Cause**: Validation shared ordinary Swap's positive-value boundary rather than enforcing the newly required Dust Sweep minimum.
 **Fix**: Define a Dust Sweep-only 5â€“50% range, disable confirmation outside it, and reject invalid values at the state setter so snapshots retain the same valid slippage shown in the UI.
 **Catchable by**: Section 6: exercise values immediately below and at both bounds, direct setter calls, and the slippage captured by the submission snapshot.
+
+## Case: Dust Sweep loading used status text and an unknown-token fallback
+**Date**: 2026-10-21 | **Platforms**: Shared Dust Sweep summary UI
+**Symptom**: Initial loading displayed a generic coin fallback and a disabled action labeled as syncing instead of a loading button.
+**Root Cause**: The unknown receive token was mounted before its data existed. Asset refresh only changed the action label, and the button never received its loading prop.
+**Fix**: Show a token skeleton while assets are loading and the token identity is unknown. Use a spinner-only button for initial loading and cached-asset refresh, retain a known cached token, and preserve error retry and completed actions.
+**Catchable by**: Section 6: cover cold load, cache refresh, transition to ready, refresh failure and completed-state background refresh; Section 8: inspect actual spinner and skeleton rendering.
