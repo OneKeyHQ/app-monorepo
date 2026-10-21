@@ -93,6 +93,8 @@ export const ipcMessageKeys = {
   // webview — channel name lives in `shared/src/consts/desktopIpcChannels`
   // so non-app packages can subscribe without importing from `apps/desktop`.
   WEBVIEW_NEW_WINDOW: EDesktopIpcChannel.WEBVIEW_NEW_WINDOW,
+  PRIME_STRIPE_RESOURCE_FORBIDDEN:
+    EDesktopIpcChannel.PRIME_STRIPE_RESOURCE_FORBIDDEN,
 
   // notification
   NOTIFICATION_SET_BADGE_WINDOWS: 'notification/setBadge/windows',

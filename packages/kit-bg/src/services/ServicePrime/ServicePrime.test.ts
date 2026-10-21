@@ -1012,6 +1012,166 @@ describe('ServicePrime.apiLogoutPrimeUserDevice logging', () => {
   });
 });
 
+describe('ServicePrime.apiRemovePrimeForTest', () => {
+  const devSettingsGet = jest.mocked(devSettingsPersistAtom.get);
+  const params = { $$devOnlyPassword: VALID_DEV_ONLY_PASSWORD };
+  const confirmingUser = { expectedOneKeyUserId: 'user-a' };
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    devSettingsGet.mockResolvedValue({ enabled: true, settings: {} });
+    mockPrimePersistAtom.get.mockResolvedValue({
+      isLoggedIn: true,
+      onekeyUserId: 'user-a',
+    });
+    mockReadPersistedAccessTokenBySessionSourceStrict.mockResolvedValue({
+      status: 'ok',
+      accessToken: 'token-a',
+    });
+  });
+
+  afterEach(() => {
+    devSettingsGet.mockResolvedValue({ enabled: false, settings: {} });
+    mockPrimePersistAtom.get.mockImplementation(async () => ({}));
+    mockReadPersistedAccessTokenBySessionSourceStrict.mockResolvedValue({
+      status: 'ok',
+      accessToken: 'persisted-access-token',
+    });
+  });
+
+  function createRemovalService() {
+    const result = createService();
+    const { service, simpleDbPrime } = result;
+    simpleDbPrime.getActiveAuthToken.mockResolvedValue('token-a');
+    simpleDbPrime.getAuthSessionSource.mockResolvedValue(
+      EPrimeAuthSessionSource.KeylessOAuth,
+    );
+    simpleDbPrime.getAuthStateGeneration.mockResolvedValue(3);
+    const post = jest.fn(async () => undefined);
+    service.getPrimeClient = jest.fn(async () => ({ post }));
+    const refresh = jest.fn(async () => ({
+      serverUserInfo: { userId: 'user-a' },
+      primeSubscription: { isActive: false },
+    }));
+    service.apiFetchPrimeUserInfo = refresh;
+    return { ...result, post, refresh };
+  }
+
+  it('posts without a body using the confirming session, then refreshes the entitlement', async () => {
+    const { service, post, refresh } = createRemovalService();
+    await expect(
+      service.apiRemovePrimeForTest(params, confirmingUser),
+    ).resolves.toBeUndefined();
+    expect(post).toHaveBeenCalledTimes(1);
+    expect(post).toHaveBeenCalledWith(
+      '/prime/v1/user/test/remove-prime',
+      undefined,
+      { headers: { 'X-Onekey-Request-Token': 'token-a' } },
+    );
+    expect(refresh).toHaveBeenCalledWith({ forceRefresh: true });
+    expect(post.mock.invocationCallOrder[0]).toBeLessThan(
+      refresh.mock.invocationCallOrder[0],
+    );
+  });
+
+  it('rejects direct calls outside developer mode', async () => {
+    const { service, post } = createRemovalService();
+    devSettingsGet.mockResolvedValue({ enabled: false, settings: {} });
+    await expect(
+      service.apiRemovePrimeForTest(params, confirmingUser),
+    ).rejects.toThrow('Developer mode is required');
+    expect(post).not.toHaveBeenCalled();
+  });
+
+  it('checks the developer password in the method body', async () => {
+    const { service, post } = createRemovalService();
+    await expect(
+      service.apiRemovePrimeForTest(
+        { $$devOnlyPassword: 'wrong-password' },
+        confirmingUser,
+      ),
+    ).rejects.toThrow(/devOnlyPassword is wrong/);
+    expect(post).not.toHaveBeenCalled();
+  });
+
+  it('rejects an account switch after opening the confirmation', async () => {
+    const { service, post } = createRemovalService();
+    mockPrimePersistAtom.get.mockResolvedValue({
+      isLoggedIn: true,
+      onekeyUserId: 'user-b',
+    });
+    await expect(
+      service.apiRemovePrimeForTest(params, confirmingUser),
+    ).rejects.toThrow('OneKey ID changed');
+    expect(post).not.toHaveBeenCalled();
+  });
+
+  it('rechecks the session after obtaining the client and before sending', async () => {
+    const { service, simpleDbPrime, post } = createRemovalService();
+    service.getPrimeClient = jest.fn(async () => {
+      simpleDbPrime.getAuthStateGeneration.mockResolvedValue(4);
+      return { post };
+    });
+    await expect(
+      service.apiRemovePrimeForTest(params, confirmingUser),
+    ).rejects.toThrow('OneKey ID changed');
+    expect(post).not.toHaveBeenCalled();
+  });
+
+  it('propagates server allowlist errors without refreshing or claiming success', async () => {
+    const { service, post, refresh } = createRemovalService();
+    post.mockRejectedValueOnce(new Error('Email not allowed'));
+    await expect(
+      service.apiRemovePrimeForTest(params, confirmingUser),
+    ).rejects.toThrow('Email not allowed');
+    expect(refresh).not.toHaveBeenCalled();
+  });
+
+  it('does not refresh a replacement session when the user changes during removal', async () => {
+    const { service, simpleDbPrime, post, refresh } = createRemovalService();
+    post.mockImplementationOnce(async () => {
+      simpleDbPrime.getAuthStateGeneration.mockResolvedValue(4);
+    });
+    await expect(
+      service.apiRemovePrimeForTest(params, confirmingUser),
+    ).rejects.toThrow('OneKey ID changed');
+    expect(refresh).not.toHaveBeenCalled();
+  });
+
+  it('propagates a failed refresh instead of claiming removal was confirmed', async () => {
+    const { service, refresh } = createRemovalService();
+    refresh.mockRejectedValueOnce(new Error('Refresh failed'));
+    await expect(
+      service.apiRemovePrimeForTest(params, confirmingUser),
+    ).rejects.toThrow('Refresh failed');
+  });
+
+  it('rejects success when the refreshed subscription remains active', async () => {
+    const { service, refresh } = createRemovalService();
+    refresh.mockResolvedValueOnce({
+      serverUserInfo: { userId: 'user-a' },
+      primeSubscription: { isActive: true },
+    });
+    await expect(
+      service.apiRemovePrimeForTest(params, confirmingUser),
+    ).rejects.toThrow('Prime removal could not be confirmed');
+  });
+
+  it('rejects a session change while refreshing the entitlement', async () => {
+    const { service, simpleDbPrime, refresh } = createRemovalService();
+    refresh.mockImplementationOnce(async () => {
+      simpleDbPrime.getAuthStateGeneration.mockResolvedValue(4);
+      return {
+        serverUserInfo: { userId: 'user-a' },
+        primeSubscription: { isActive: false },
+      };
+    });
+    await expect(
+      service.apiRemovePrimeForTest(params, confirmingUser),
+    ).rejects.toThrow('OneKey ID changed');
+  });
+});
+
 describe('ServicePrime.apiResetInfiniSubscription', () => {
   const userA = {
     isLoggedIn: true,
