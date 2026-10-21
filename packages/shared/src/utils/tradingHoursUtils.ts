@@ -488,12 +488,7 @@ function isEffectiveUSMarketHalt({
  */
 const ONDO_US_MARKET_STOCK_SOURCES = new Set(['ondo', 'coingecko']);
 
-/**
- * Only Ondo-issued stock tokens follow the US-session trading model this
- * feature describes (OK-58043). xStocks and other providers run 7×24 with no
- * open/closed distinction, so they keep the legacy open/closed badge and get
- * no trading-hours entry.
- */
+/** Identifies Ondo sources for issuer-specific token behavior. */
 export function isOndoUSMarketStock(
   source: string | undefined | null,
 ): boolean {
@@ -502,9 +497,8 @@ export function isOndoUSMarketStock(
 }
 
 /**
- * Single source of truth for a stock token's displayed market status.
- * Returns undefined for non-Ondo issuers (callers fall back to the legacy
- * two-state badge) and for tokens without stock signals.
+ * Single source of truth for a stock's displayed US market status, independent
+ * of the token issuer. Returns undefined when stock signals are unavailable.
  *
  * Signal priority:
  *   1. per-stock halt (`isPaused`) → Halted, regardless of `isOpen` — the
@@ -525,21 +519,16 @@ export function isOndoUSMarketStock(
  * weekends are detectable locally, holidays are not.
  */
 export function resolveUSMarketStatusVariant({
-  source,
   isOpen,
   isPaused,
   status,
   now = new Date(),
 }: {
-  source?: string;
   isOpen?: boolean;
   isPaused?: boolean;
   status?: IFetchUSMarketStatusResult;
   now?: Date;
 }): EUSMarketStatusVariant | undefined {
-  if (!isOndoUSMarketStock(source)) {
-    return undefined;
-  }
   // The cycle computation is Intl-heavy — compute it lazily, at most once,
   // and only on the paths that need a session/gap decision.
   let cachedTradingHours: IUSMarketTradingHours | undefined;

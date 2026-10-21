@@ -1,13 +1,25 @@
 import { appApiClient } from '@onekeyhq/shared/src/appApiClient/appApiClient';
+import type { IMarketTokenListResponse } from '@onekeyhq/shared/types/marketV2';
 
 import {
   fetchMarketAssetListLight,
   fetchMarketBasicConfigLight,
   fetchMarketTokenListBatchLight,
+  fetchMarketTokenListLight,
 } from './marketLightApi';
 
 const mockGet = jest.fn();
 const mockPost = jest.fn();
+const mockFetchBootstrapSeed = jest.fn<
+  Promise<IMarketTokenListResponse & { __fromSeed: true }>,
+  []
+>();
+
+jest.mock('./marketHomeTokenListSeed', () => ({
+  fetchMarketHomeTokenListSeed: () => mockFetchBootstrapSeed(),
+  shouldUseMarketHomeTokenListBootstrapSeed: () => true,
+  preloadMarketHomeTokenListSeed: jest.fn(),
+}));
 
 jest.mock('@onekeyhq/shared/src/appApiClient/appApiClient', () => ({
   appApiClient: {
@@ -43,6 +55,53 @@ describe('marketLightApi', () => {
       post: mockPost,
     } as unknown as Awaited<ReturnType<typeof appApiClient.getClient>>);
   });
+
+  it('uses bootstrap rows for the default trending query while refreshing remotely', async () => {
+    const seed: IMarketTokenListResponse & { __fromSeed: true } = {
+      list: [{ address: '', name: 'Seed Token', symbol: 'SEED', decimals: 8 }],
+      total: 20,
+      __fromSeed: true,
+    };
+    mockFetchBootstrapSeed.mockResolvedValueOnce(seed);
+    mockGet.mockReturnValueOnce(new Promise(() => undefined));
+
+    await expect(
+      fetchMarketTokenListLight({
+        networkId: '',
+        type: 'trending',
+        timeFrame: '2',
+        minLiquidity: 5000,
+      }),
+    ).resolves.toEqual(seed);
+
+    expect(mockFetchBootstrapSeed).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([
+    { sortBy: 'v24hUSD', sortType: 'desc' as const },
+    { sortBy: 'marketCap', sortType: 'desc' as const },
+    { page: 2 },
+    { timeFrame: '4' },
+    { networkId: 'evm--1' },
+  ])(
+    'does not substitute default-order seed rows into a different query: %j',
+    async (query) => {
+      const remote: IMarketTokenListResponse = { list: [], total: 0 };
+      mockGet.mockResolvedValueOnce({ data: { data: remote } });
+
+      await expect(
+        fetchMarketTokenListLight({
+          networkId: '',
+          type: 'trending',
+          timeFrame: '2',
+          minLiquidity: 5000,
+          ...query,
+        }),
+      ).resolves.toEqual(remote);
+
+      expect(mockFetchBootstrapSeed).not.toHaveBeenCalled();
+    },
+  );
 
   it('fetches Top Coins without the background API', async () => {
     const data = { list: [], total: 0 };
