@@ -247,6 +247,48 @@ describe('resolveUSMarketStatusVariant', () => {
     ).toBe(EUSMarketStatusVariant.Closed);
   });
 
+  it('shows no US status for a non-US listing', () => {
+    // The stock feed reports a US session for HK listings too.
+    expect(
+      resolveUSMarketStatusVariant({
+        isUSListing: false,
+        isOpen: true,
+        status: status('OVERNIGHT'),
+      }),
+    ).toBeUndefined();
+    expect(
+      resolveUSMarketStatusVariant({
+        isUSListing: false,
+        isOpen: false,
+        isPaused: true,
+      }),
+    ).toBeUndefined();
+  });
+
+  it('reads a US listing as closed through a market-wide closure', () => {
+    // A retained detail can still say isOpen while the market has closed;
+    // the listing itself is never the 7×24 instrument Open247 describes.
+    expect(
+      resolveUSMarketStatusVariant({
+        isUSListing: true,
+        isOpen: true,
+        status: status('CLOSED'),
+      }),
+    ).toBe(EUSMarketStatusVariant.Closed);
+    // Clock fallback: Saturday noon New York, status unavailable.
+    expect(
+      resolveUSMarketStatusVariant({
+        isUSListing: true,
+        isOpen: true,
+        now: new Date('2026-01-17T17:00:00Z'),
+      }),
+    ).toBe(EUSMarketStatusVariant.Closed);
+    // Tokens keep the 7×24 reading.
+    expect(
+      resolveUSMarketStatusVariant({ isOpen: true, status: status('CLOSED') }),
+    ).toBe(EUSMarketStatusVariant.Open247);
+  });
+
   it('returns undefined without stock signals', () => {
     expect(resolveUSMarketStatusVariant({})).toBeUndefined();
     expect(
