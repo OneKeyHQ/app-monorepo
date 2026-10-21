@@ -13,12 +13,15 @@ import {
 import type { IXmrHistoryItem } from '@onekeyhq/kit-bg/src/vaults/impls/xmr/types';
 import XmrVault from '@onekeyhq/kit-bg/src/vaults/impls/xmr/Vault';
 import ZcashVault from '@onekeyhq/kit-bg/src/vaults/impls/zcash/Vault';
+import { getViewingKeyFingerprint } from '@onekeyhq/kit-bg/src/vaults/localWallet/viewingKeyFingerprint';
 import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
 import { EDecodedTxActionType } from '@onekeyhq/shared/types/tx';
 
 const own = 'synthetic-own';
 const recipient = 'synthetic-recipient';
 const accountId = 'synthetic-account';
+const viewingKey = 'synthetic-spend:synthetic-view';
+const vkFp = getViewingKeyFingerprint({ networkId: 'xmr--0', viewingKey });
 
 async function decodeXmrHistory(
   item: IXmrHistoryItem,
@@ -43,7 +46,7 @@ it.each([null, 100])(
     let recordedOutgoing: string | undefined;
     const api = {
       listAccounts: async () =>
-        JSON.stringify({ items: [{ accountId: 7, uuid: accountId }] }),
+        JSON.stringify({ items: [{ accountId: 7, uuid: vkFp }] }),
       verifySignedTransaction: jest.fn(async () => 'synthetic-tx'),
       broadcastTransaction: jest.fn(
         async (
@@ -82,7 +85,19 @@ it.each([null, 100])(
       networkId: 'xmr--0',
       getXmrRuntimeApi: async () => api,
       getXmrNetwork: async () => 'mainnet' as const,
-      backgroundApi: { simpleDb: { privacyChainJournal: entity } },
+      backgroundApi: {
+        simpleDb: {
+          privacyChainJournal: entity,
+          // The runtime identity is named by the stored key's fingerprint.
+          privacyChainKeys: {
+            getKey: async () => ({
+              networkId: 'xmr--0',
+              vkFp,
+              sealed: { format: 'plain', value: viewingKey },
+            }),
+          },
+        },
+      },
     });
     // The runtime fixture records the same field that the Rust wire history returns.
     await vault.broadcastTransaction({

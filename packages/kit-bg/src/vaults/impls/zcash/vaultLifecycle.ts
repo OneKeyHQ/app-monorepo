@@ -64,7 +64,10 @@ import type {
   IZcashPendingRescan,
   IZcashPrivacyModeStateView,
 } from '../../../dbs/simple/entity/SimpleDbEntityZcash';
-import type { ILocalWalletCapability } from '../../localWallet/types';
+import type {
+  ILocalWalletCapability,
+  ILocalWalletRetainedIdentity,
+} from '../../localWallet/types';
 import type { IRescanLocalWalletFrom } from '../../types';
 
 async function listZcashCleanupAccountIds(vault: Vault): Promise<string[]> {
@@ -89,8 +92,8 @@ async function removeZcashAccountState(
   });
 }
 
-// Without its key nothing can name the runtime account; the next prepare
-// purges it once every remaining key reads.
+// Without its key nothing can name the runtime account; the orphan cleanup
+// purges it once every key it must keep reads.
 async function purgeZcashRuntimeAccount(
   vault: Vault,
   accountId: string,
@@ -165,6 +168,9 @@ export function getLocalWalletCapability(vault: Vault): ILocalWalletCapability {
       },
     },
     listAccounts: () => vault.listLocalWalletAccounts(),
+    listScanDataAccountIds: () =>
+      vault.backgroundApi.simpleDb.zcash.listScanDataAccountIds(),
+    purgeRuntimeOrphans: (params) => zcashPurgeRuntimeOrphans(vault, params),
     listSendPools: (params) => vault.listLocalWalletSendPools(params),
     prewarmSend: (params) => vault.prewarmLocalWalletSend(params),
     getAccountAliases: (params) => vault.getLocalWalletAccountAliases(params),
@@ -450,31 +456,50 @@ export async function getLocalWalletAccountAliases(
   );
 }
 
-// The runtime purges every account missing from this list, so it is given
-// only when every stored account's key was read; otherwise nothing is purged.
-async function listZcashRetainedUfvks(
+// Orphan cleanup: the runtime drops every account whose UFVK is not retained.
+// Runs under the scan lane, never behind a held one (it may be stuck).
+export async function zcashPurgeRuntimeOrphans(
   vault: Vault,
-): Promise<{ retainedUfvks: string[] } | undefined> {
-  try {
-    const [accountIds, owned] = await Promise.all([
-      vault.backgroundApi.simpleDb.zcash.listAccountIds(),
-      vault.backgroundApi.simpleDb.zcash.listAccountMetas(),
-    ]);
-    if (owned.length !== accountIds.length) {
-      return undefined;
-    }
-    const ufvks: string[] = [];
-    for (const { accountId, meta } of owned) {
-      // eslint-disable-next-line no-await-in-loop
-      ufvks.push(await vault.zcashGetAccountUfvk({ accountId, meta }));
-    }
-    return { retainedUfvks: uniq(ufvks) };
-  } catch (e) {
-    console.log('[zcash] runtime purge skipped: a viewing key is unreadable', {
-      ...zcashDescribeError(e),
-    });
-    return undefined;
+  { retained }: { retained: ILocalWalletRetainedIdentity[] },
+): Promise<boolean> {
+  const syncMutex = getZcashSyncMutex(ZCASH_NETWORK_MAIN);
+  if (syncMutex.isLocked()) {
+    return false;
   }
+  return syncMutex.runExclusive(async () => {
+    const metas = await vault.backgroundApi.simpleDb.zcash.listAccountMetas();
+    const metaVkFps = new Map(
+      metas.map(({ accountId, meta }) => [accountId, meta.vkFp]),
+    );
+    // A key that names another identity than its account record is a broken
+    // setup; nothing is purged until Repair settles it.
+    if (
+      retained.some(
+        ({ accountId, vkFp }) =>
+          metaVkFps.has(accountId) && metaVkFps.get(accountId) !== vkFp,
+      )
+    ) {
+      return false;
+    }
+    // The runtime opens its database through an account; use one the scan
+    // registers anyway, so this registers nothing new.
+    const { accounts } = await vault.listLocalWalletAccounts();
+    const retainedIds = new Set(retained.map(({ accountId }) => accountId));
+    const opener = accounts.find(
+      ({ accountId, syncEnabled }) => syncEnabled && retainedIds.has(accountId),
+    );
+    if (!opener) {
+      return false;
+    }
+    const account = await vault.zcashGetWalletAccount({
+      accountId: opener.accountId,
+    });
+    const api = await vault.zcashGetApi();
+    await api.prepareWalletAccounts([account], {
+      retainedUfvks: uniq(retained.map(({ viewingKey }) => viewingKey)),
+    });
+    return true;
+  });
 }
 
 export async function zcashPrepareAccounts(
@@ -494,10 +519,8 @@ export async function zcashPrepareAccounts(
   }
   await vault.zcashHealOutOfRangeBirthdays({ accountIds, accounts, chainTip });
   const api = await vault.zcashGetApi();
-  await api.prepareWalletAccounts(
-    accounts,
-    await listZcashRetainedUfvks(vault),
-  );
+  // No purge here: orphans go only through the gated cleanup.
+  await api.prepareWalletAccounts(accounts);
 
   // A later alias can register the same UFVK with an earlier birthday than already registered; detect and repair via the durable journal.
   const groups = new Map<
