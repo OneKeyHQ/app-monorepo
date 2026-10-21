@@ -931,3 +931,24 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries â€
 **Root Cause**: Edge reservation checked platform and fullscreen state without checking history in the current stack; parent modal dismissal can make `canGoBack()` true even at the inner stack root.
 **Fix**: Subscribe to the current stack index and reserve the edge only when it has a previous screen, while retaining the fullscreen exemption.
 **Catchable by**: Section 8: compare a modal root with a pushed detail, including a parent that can go back; verify edge interactions, swipe-back and fullscreen separately.
+
+## Case: Android R8 mapping upload ignored the Sentry upload flag
+**Date**: 2026-10-21 | **Platforms**: Android Release (build tooling)
+**Symptom**: Enabling R8 added a ProGuard mapping upload that could require Sentry credentials even when the build set `SENTRY_DISABLE_AUTO_UPLOAD=true`.
+**Root Cause**: The Sentry Gradle mapping upload setting did not read the existing upload-disable environment flag.
+**Fix**: Bind `autoUploadProguardMapping` to that flag while preserving mapping generation and the default upload behavior when the flag is absent.
+**Catchable by**: Inspect the configured Prod/Google mapping upload command with the flag set and unset; verify that disabled builds use `--no-upload` and retain mapping output.
+
+## Case: R8 Release builds broke Detox instrumentation and performance sessions
+**Date**: 2026-10-21 | **Platforms**: Android Release (Detox instrumentation; isolated main/background JS runtimes)
+**Symptom**: Debug instrumentation could not access reflected or shared Release APIs after R8; the test server connection was blocked, and performance runs could not create a host-side session.
+**Root Cause**: The instrumentation APK relies on app-provided classes and members that R8 can rename or remove. Release cleartext restrictions also block Detox loopback traffic and the performance monitor's emulator-host address `10.0.2.2`.
+**Fix**: Only for `detoxBuild=true`, append Detox and shared-API keep rules and a network configuration allowing localhost, 127.0.0.1 and 10.0.2.2. Select only `DetoxTest` from the Debug test APK; ordinary Release keeps its existing network policy and R8 rules.
+**Catchable by**: Run Release Detox navigation and relaunch checks, and the existing performance guard with `PERF_MARK_NAME=app:start` to require a real session and startup mark. Inspect flag-on/off Gradle inputs and the ordinary Release merged manifest; a connected Detox smoke test alone does not prove performance reporting works.
+
+## Case: Native startup graph exceeded its main UI code budget
+**Date**: 2026-10-21 | **Platforms**: iOS/Android (main UI JS startup graph)
+**Symptom**: The Native startup budget CI check reported 14,680,541 bytes against a 14,680,064-byte limit, exceeding the unchanged 14 MiB budget by 477 bytes.
+**Root Cause**: The eager UI graph included the approximately 171 KiB Lite card search animation through synchronous JSON requires, even though it is only needed when starting an NFC connection.
+**Fix**: Dynamically import that animation inside the existing async connection callback, before showing the dialog or starting NFC. Keep Android's immediate connection and iOS's confirmation behavior.
+**Catchable by**: Build the iOS union graph with native background enabled and check the existing main/background budgets. Verify Android starts after the animation is loaded and iOS starts only after confirmation; retain the animation in an emitted lazy segment.
