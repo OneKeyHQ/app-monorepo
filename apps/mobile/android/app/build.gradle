@@ -25,6 +25,8 @@ def shouldAutoUploadSentryNativeSymbols =
     System.getenv('SENTRY_DISABLE_NATIVE_DEBUG_UPLOAD') != 'true'
 
 sentry {
+    autoUploadProguardMapping = System.getenv('SENTRY_DISABLE_AUTO_UPLOAD') != 'true'
+
     // Enables or disables the automatic configuration of Native Symbols
     // for Sentry. This executes sentry-cli automatically so
     // you don't need to do it manually.
