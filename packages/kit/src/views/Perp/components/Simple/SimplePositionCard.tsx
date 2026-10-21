@@ -60,14 +60,15 @@ export function SimplePositionCard({ item }: { item: IPerpsAssetPosition }) {
         <YStack gap="$1.5">
           <XStack
             justifyContent="space-between"
-            alignItems="center"
+            alignItems="baseline"
             gap="$3"
             flexWrap="wrap"
           >
-            <XStack gap="$2" alignItems="center" flexShrink={1}>
+            <XStack gap="$2" alignItems="baseline" flexShrink={1}>
               <XStack
                 w="$4"
                 h="$4"
+                alignSelf="center"
                 justifyContent="center"
                 alignItems="center"
                 bg={side === 'long' ? '$bgAccent' : '$bgCriticalStrong'}
@@ -105,7 +106,11 @@ export function SimplePositionCard({ item }: { item: IPerpsAssetPosition }) {
             </SizableText>
           </XStack>
           <YStack gap="$1.5">
-            <XStack alignItems="center" justifyContent="space-between" gap="$3">
+            <XStack
+              alignItems="baseline"
+              justifyContent="space-between"
+              gap="$3"
+            >
               <SizableText
                 flex={1}
                 size="$heading2xl"
@@ -131,7 +136,11 @@ export function SimplePositionCard({ item }: { item: IPerpsAssetPosition }) {
                 {`${pnl.gt(0) ? '+' : ''}${simpleUsd(position.unrealizedPnl)}`}
               </SizableText>
             </XStack>
-            <XStack alignItems="center" justifyContent="space-between" gap="$3">
+            <XStack
+              alignItems="baseline"
+              justifyContent="space-between"
+              gap="$3"
+            >
               <SizableText
                 flex={1}
                 size="$bodySm"
