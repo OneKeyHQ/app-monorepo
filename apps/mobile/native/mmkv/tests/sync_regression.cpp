@@ -50,6 +50,7 @@ static std::atomic<bool> attempting = false;
 static std::atomic<bool> finished = false;
 static std::mutex gate;
 static std::condition_variable wake;
+static std::chrono::milliseconds observationTimeout = 100ms;
 extern "C" int fsync(int fd) {
     auto real = reinterpret_cast<int (*)(int)>(dlsym(RTLD_NEXT, "fsync"));
     if (!active) return real(fd);
@@ -67,9 +68,9 @@ extern "C" int fsync(int fd) {
         std::unique_lock<std::mutex> lock(gate);
         attempting = true;
         wake.notify_all();
-        // The writer must be excluded for the whole data/CRC barrier. A bounded
-        // wait observes the real Core lock; the join below detects deadlocks.
-        interleaved = wake.wait_for(lock, 100ms, [] { return finished.load(); });
+        // Writers/close must wait for the barrier; unrelated cached lookups must
+        // proceed. Observe the actual lock with a bounded completion window.
+        interleaved = wake.wait_for(lock, observationTimeout, [] { return finished.load(); });
     }
     return result;
 }
@@ -121,6 +122,7 @@ static void reset() {
     interruptOpen = false;
     interruptFsync = interruptMsync = race = interleaved = false;
     attempting = finished = false;
+    observationTimeout = 100ms;
 }
 int main() {
     char pattern[] = "/tmp/pr13971-core-test.XXXXXX";
@@ -155,6 +157,31 @@ int main() {
     check(metadata.m_actualSize <= dataSnapshot.size() - 4 &&
           crc32(0, reinterpret_cast<const Bytef *>(dataSnapshot.data() + 4), metadata.m_actualSize) == metadata.m_crcDigest,
           "captured fsync snapshots have matching data/CRC");
+    reset();
+    auto unrelated = TestMMKV::mmkvWithID("unrelated-cached");
+    race = true; active = true; observationTimeout = 2s;
+    std::atomic<bool> foundCached = false;
+    std::thread lookup([&] {
+        { std::unique_lock<std::mutex> lock(gate); wake.wait(lock, [] { return attempting.load(); }); }
+        foundCached = TestMMKV::mmkvWithID("unrelated-cached") == unrelated;
+        finished = true; wake.notify_all();
+    });
+    result = barrier("healthy"); lookup.join();
+    check(result == 0 && foundCached && interleaved,
+          "unrelated cached factory lookup completes during the paused flush");
+    reset(); unrelated->close();
+    auto closing = TestMMKV::mmkvWithID("close-during-flush");
+    closing->set(std::string("fixture"), TEST_KEY);
+    race = true; active = true;
+    std::thread closer([&] {
+        { std::unique_lock<std::mutex> lock(gate); wake.wait(lock, [] { return attempting.load(); }); }
+        closing->close();
+        finished = true; wake.notify_all();
+    });
+    result = barrier("close-during-flush"); closer.join();
+    check(result == 0 && finished && !interleaved,
+          "concurrent close waits for both flushes before destroying the instance");
+    reset();
     bool descriptorsClosed = true;
     for (int stage : {1, 2}) {
         int before = descriptorCount();
@@ -216,7 +243,7 @@ int main() {
         if (error != 0 && error != ENOENT) ++unexpected;
     }
     creator.join();
-    check(unexpected == 0, "concurrent factory/close and existing-only sync share registry lifetime lock");
+    check(unexpected == 0, "concurrent factory/close cannot invalidate an existing-only sync");
 #else
     std::cout << "SKIP concurrent close stress: baseline factory returns an unpinned pointer" << std::endl;
 #endif

@@ -46,19 +46,20 @@ index 5955d6c..f8ef82e 100644
  
      /**
 diff --git a/Core/MMKV.cpp b/Core/MMKV.cpp
-index fb20d9e..f96d7ca 100755
+index fb20d9e..e2ac48e 100755
 --- a/Core/MMKV.cpp
 +++ b/Core/MMKV.cpp
-@@ -41,6 +41,8 @@
+@@ -41,6 +41,9 @@
  #include <cstring>
  #include <unordered_set>
  #include <cassert>
 +#include <cerrno>
 +#include <memory>
++#include <mutex>
  
  #if defined(__aarch64__) && defined(__linux__) && !defined (MMKV_OHOS)
  #    include <asm/hwcap.h>
-@@ -1216,6 +1218,56 @@ void MMKV::sync(SyncFlag flag) {
+@@ -1216,6 +1219,59 @@ void MMKV::sync(SyncFlag flag) {
      m_metaFile->msync(flag);
  }
  
@@ -67,9 +68,9 @@ index fb20d9e..f96d7ca 100755
 +    if (mmapID.empty() || !g_instanceLock) {
 +        return EINVAL;
 +    }
-+    // Match creation/close/remove/restore lock order and pin the cached instance.
++    // Match creation/close/remove/restore lock order while pinning the instance.
 +    // This entry point never invokes a factory or reloads missing storage.
-+    SCOPED_LOCK(g_instanceLock);
++    std::unique_lock<ThreadLock> registryLock(*g_instanceLock);
 +    if (!g_instanceDic) {
 +        return EINVAL;
 +    }
@@ -92,6 +93,9 @@ index fb20d9e..f96d7ca 100755
 +        }
 +    };
 +    std::unique_ptr<FileLock, decltype(unlockProcess)> processLock(kv->m_fileLock, unlockProcess);
++    // removeStorage takes its process lock before close acquires the instance
++    // lock. Acquire both here before handing off registry ownership.
++    registryLock.unlock();
 +    int error = kv->m_file->validateMappedPath();
 +    if (!error) {
 +        error = kv->m_metaFile->validateMappedPath();

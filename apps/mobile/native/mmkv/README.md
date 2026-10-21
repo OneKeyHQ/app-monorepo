@@ -2,9 +2,13 @@
 
 The native migration bridges use `syncExisting` to report flush failures through
 the existing `MMKV_SYNC_FAILED` Promise rejection. Both native JS runtimes share
-the same MMKV Core; the check holds Core's registry/lifetime lock, instance write
-lock and applicable process lock through both data/CRC flushes. A bridge-only
-mutex would not exclude writers in NitroMmkv or other native consumers.
+the same MMKV Core. The check finds the cached instance under the registry lock
+and acquires its instance write lock and applicable process lock before releasing
+the registry lock. It holds the instance/process locks through both data/CRC
+flushes without keeping the registry locked during I/O. Existing close/remove
+paths still wait for the instance lock before destroying it, and may themselves
+hold the registry lock while waiting. A bridge-only mutex would not exclude
+writers in NitroMmkv or other native consumers.
 
 The check only accepts an already initialized default-root instance. It does not
 invoke a creating factory or reload missing files. It checks the mapped file's
@@ -70,8 +74,9 @@ ctest --test-dir /tmp/onekey-mmkv-tests --output-on-failure
 The C++ tests use the actual patched Core with syscall fault injection and
 temporary fixture stores. They cover both flush stages, interruption retries,
 descriptor cleanup, cold/warm missing files, replaced inodes, ordinary empty
-initialization, writer exclusion, matching data/CRC snapshots and concurrent
-creation/close. Host tests do not replace platform App builds or device tests,
+initialization, writer exclusion, matching data/CRC snapshots, unrelated cached
+lookups during a paused flush, and concurrent creation/close. Host tests do not
+replace platform App builds or device tests,
 and captured syscall snapshots do not simulate a physical power cut.
 
 `apps/mobile/e2e/native-storage-sync.native-harness.ts` exercises the real NitroMmkv
