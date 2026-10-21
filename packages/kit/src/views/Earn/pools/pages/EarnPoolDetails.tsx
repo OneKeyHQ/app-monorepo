@@ -52,6 +52,7 @@ import {
   usePoolOverview,
   usePoolShare,
 } from '../components/PoolOverview';
+import { getPoolPairIconWidth } from '../components/PoolPairIcon';
 import { PoolPositionCard } from '../components/PoolPositionCard';
 import { PoolStatsStrip } from '../components/PoolStats';
 import { PoolTopPositions } from '../components/PoolTopPositions';
@@ -92,7 +93,7 @@ function PoolDetailsSkeleton() {
   return (
     <YStack px="$pagePadding" gap="$5" py="$4">
       <XStack gap="$4" ai="center">
-        <Skeleton w="$20" h="$12" borderRadius="$full" />
+        <Skeleton w={getPoolPairIconWidth('lg')} h="$10" borderRadius="$full" />
         <YStack gap="$2">
           <Skeleton w="$40" h="$7" />
           <Skeleton w="$32" h="$4" />

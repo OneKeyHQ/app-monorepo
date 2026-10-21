@@ -18,6 +18,7 @@ import { sortPools } from '../poolsFilter';
 import { PoolsNavigation } from '../poolsNavigation';
 import { PoolsQueries, usePoolsQuery } from '../poolsQueries';
 
+import { getPoolPairIconWidth } from './PoolPairIcon';
 import { PoolListRow } from './PoolsDiscoverList';
 
 const MAX_HOME_POOLS = 4;
@@ -48,7 +49,11 @@ function EarnPoolsHomeSectionSkeleton() {
       <YStack gap={EARN_LIST_ROW_GAP}>
         {Array.from({ length: 3 }).map((_, index) => (
           <XStack key={index} px="$1" py="$2" ai="center" gap="$3">
-            <Skeleton width="$14" height="$8" radius="round" />
+            <Skeleton
+              width={getPoolPairIconWidth()}
+              height="$8"
+              radius="round"
+            />
             <Skeleton width={96} height={24} borderRadius="$2" />
             <YStack flex={1} />
             <Skeleton width={88} height={24} borderRadius="$2" />

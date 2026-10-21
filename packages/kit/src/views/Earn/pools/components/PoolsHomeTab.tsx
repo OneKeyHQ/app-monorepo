@@ -30,6 +30,7 @@ import {
 import { PoolsQueries, usePoolsQuery } from '../poolsQueries';
 import { usePoolFavorites } from '../usePoolFavorites';
 
+import { getPoolPairIconWidth } from './PoolPairIcon';
 import {
   PoolListRow,
   PoolsDiscoverTable,
@@ -49,7 +50,7 @@ export function PoolsListSkeleton({ rows = 6 }: { rows?: number }) {
     <YStack px="$5" gap="$3" py="$2">
       {Array.from({ length: rows }).map((_, index) => (
         <XStack key={index} minHeight="$12" ai="center" gap="$3">
-          <Skeleton w="$16" h="$10" borderRadius="$full" />
+          <Skeleton w={getPoolPairIconWidth()} h="$8" borderRadius="$full" />
           <YStack flex={1} gap="$1.5">
             <Skeleton h="$4" w="$28" />
             <Skeleton h="$4" w="$36" />

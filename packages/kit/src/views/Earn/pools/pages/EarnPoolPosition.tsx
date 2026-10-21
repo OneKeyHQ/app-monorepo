@@ -34,6 +34,7 @@ import type {
 import { EarnPageContainer } from '../../components/EarnPageContainer';
 import { EarnProviderMirror } from '../../EarnProviderMirror';
 import { PoolHeader } from '../components/PoolHeader';
+import { getPoolPairIconWidth } from '../components/PoolPairIcon';
 import {
   PoolPositionActionsFooter,
   usePoolPositionActions,
@@ -373,7 +374,7 @@ function PositionSkeleton() {
   return (
     <YStack px="$pagePadding" gap="$5" py="$4">
       <XStack gap="$4" ai="center">
-        <Skeleton w="$14" h="$14" borderRadius="$full" />
+        <Skeleton w={getPoolPairIconWidth('lg')} h="$10" borderRadius="$full" />
         <Skeleton w="$48" h="$8" />
       </XStack>
       <Skeleton w="100%" h={220} borderRadius="$4" />
