@@ -579,6 +579,9 @@ export interface ISwapStep {
   orderId?: string;
   errorMessage?: string;
   canRetry?: boolean;
+  // Set when a sponsored direct send ended result-unknown (OK-64746): the tx
+  // may already be on chain, so this review must not retry or confirm again.
+  submitResultUnknown?: boolean;
   shouldWaitApproved?: boolean;
   isResetApprove?: boolean;
   skipSendTransAction?: boolean;
@@ -616,6 +619,7 @@ export interface ISwapGasInfo {
   gasAccountEligible?: boolean;
   gasAccountQuote?: IGasAccountQuote;
   gasAccountScenarioReason?: string;
+  gasAccountSkipReason?: string;
   // Raw megafuel eligibility kept for the external-wallet promo hint
   // (OK-61254). The effective sponsor state above is stripped at the estimate
   // source for external-wallet accounts — they always pay the real fee — but
@@ -1370,7 +1374,10 @@ export const SwapPercentageInputStageForNative = [25, 50, 75, 100];
 export const SwapLimitPriceInputStageBuyForNative = [0, -20, -50];
 export const SwapLimitPriceInputStageSellForNative = [0, 20, 50, 100];
 
-export const SwapBuildUseMultiplePopoversNetworkIds = ['tron--0x2b6653dc'];
+export const SwapBuildUseMultiplePopoversNetworkIds = [
+  'tron--0x2b6653dc',
+  'evm--81457',
+];
 
 export const SwapBuildShouldFallBackNetworkIds = ['tron--0x2b6653dc'];
 

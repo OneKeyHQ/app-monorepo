@@ -285,6 +285,39 @@ describe('ServiceReferralCode Swap rebate API', () => {
     expect(error.autoToast).toBe(false);
   });
 
+  test('aggregates invitee rewards per module and isolates failures', async () => {
+    const { service, backgroundApi } = createService();
+    const perpsData = { totalBonus: '2', undistributed: '1', history: [] };
+    const earnData = { distributed: [], undistributed: [] };
+    jest
+      .spyOn(service, 'getPerpsInviteeRewards')
+      .mockResolvedValue(perpsData as any);
+    jest
+      .spyOn(service, 'getSwapInviteeRewards')
+      .mockRejectedValue(new Error('swap unavailable'));
+    backgroundApi.serviceStaking = {
+      getEarnSummaryV2: jest.fn().mockResolvedValue(earnData),
+    };
+
+    await expect(
+      service.getInviteeRewardsOverview({ walletAddress: '0xAbC' }),
+    ).resolves.toEqual({
+      perps: { status: 'success', data: perpsData },
+      swap: { status: 'error' },
+      earn: { status: 'success', data: earnData },
+    });
+
+    expect(service.getPerpsInviteeRewards).toHaveBeenCalledWith({
+      walletAddress: '0xAbC',
+    });
+    expect(service.getSwapInviteeRewards).toHaveBeenCalledWith({
+      walletAddress: '0xAbC',
+    });
+    expect(backgroundApi.serviceStaking.getEarnSummaryV2).toHaveBeenCalledWith(
+      expect.objectContaining({ accountAddress: '0xAbC' }),
+    );
+  });
+
   test('resolves the current logical account EVM address from its indexed account', async () => {
     const { service, backgroundApi } = createService();
     backgroundApi.serviceNetwork.getGlobalDeriveTypeOfNetwork.mockResolvedValue(

@@ -2,10 +2,14 @@ import { createIntl } from 'react-intl';
 
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { LOCALE_LOADERS } from '@onekeyhq/shared/src/locale/localeLoaders';
-import type { IDustSweepReason } from '@onekeyhq/shared/types/swap/dustSweep';
+import type {
+  IDustSweepItem,
+  IDustSweepReason,
+} from '@onekeyhq/shared/types/swap/dustSweep';
 
 import {
   dustSweepReasonMessageIds,
+  getDustSweepItemReasonMessage,
   getDustSweepReasonMessage,
 } from './DustSweepTokenRow';
 
@@ -20,7 +24,43 @@ jest.mock('@onekeyhq/kit/src/views/Swap/components/PreSwapStep', () => ({
 }));
 
 describe('Dust Sweep reason messages', () => {
-  it('uses provider text only for noQuote and keeps the localized fallback otherwise', async () => {
+  it('shows trusted failed-transaction details and hides raw internal errors', async () => {
+    const messages = await LOCALE_LOADERS['en-US']();
+    const intl = createIntl({ locale: 'en-US', messages });
+    const failed: IDustSweepItem = {
+      token: {
+        key: 'dust',
+        networkId: 'sol--101',
+        contractAddress: 'token',
+        symbol: 'DUST',
+        decimals: 6,
+        amount: '1',
+        valueUsd: '1',
+        suspicious: false,
+      },
+      status: 'failed',
+      reason: 'txFailed',
+      message: 'Internal execution details',
+    };
+    expect(getDustSweepItemReasonMessage(intl, failed)).toBe(
+      messages[dustSweepReasonMessageIds.txFailed],
+    );
+    expect(
+      getDustSweepItemReasonMessage(intl, {
+        ...failed,
+        providerErrorMessage: 'Please increase slippage',
+      }),
+    ).toBe('Please increase slippage');
+    expect(
+      getDustSweepItemReasonMessage(intl, {
+        ...failed,
+        reason: 'unknown',
+        providerErrorMessage: 'Internal execution details',
+      }),
+    ).toBe(messages[dustSweepReasonMessageIds.unknown]);
+  });
+
+  it('uses provider quote errors and keeps the localized fallback for unknown errors', async () => {
     const messages = await LOCALE_LOADERS['en-US']();
     const intl = createIntl({ locale: 'en-US', messages });
     expect(

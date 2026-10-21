@@ -27,7 +27,6 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EUSMarketStatusVariant,
   getUSMarketNextOpenCountdown,
-  isOndoUSMarketStock,
   resolveUSMarketStatusVariant,
 } from '@onekeyhq/shared/src/utils/tradingHoursUtils';
 import type { IMarketStockInfo } from '@onekeyhq/shared/types/marketV2';
@@ -438,11 +437,9 @@ const STOCK_MARKET_STATUS_CHIPS: Record<
 };
 
 /**
- * Market status chip for tokenized stocks (see OK-58043). Only Ondo tokens
- * follow the US-session model, so only they get a chip (sessions, closed,
- * halted); other issuers (e.g. xStocks run 7×24 with no open/closed
- * distinction) show no badge at all. The chip describes the underlying
- * market only — it no longer implies whether trading is disabled (OK-58986).
+ * Market status chip for tokenized stocks of every issuer (see OK-58043).
+ * The chip describes the underlying market only; it does not determine
+ * whether the token can trade (OK-58986).
  * Pass `disableTooltip` when the chip is used as a popover trigger (e.g. the
  * trading-hours panel) — the wrapping trigger owns the press, so the hover
  * tooltip must not compete with it.
@@ -471,25 +468,25 @@ const StockIsOpenBadge = memo(
     showLastUpdate?: boolean;
   }) => {
     const intl = useIntl();
-    const { source, isOpen, isPaused, description } = stock;
+    const { isUSListing, isOpen, isPaused, description } = stock;
     // Every isOpen === true resolution (paused or not) may need the backend
     // status — the 60s poll is also what re-runs the memo below, unfreezing
     // gap-transient variants once the gap ends. Other isOpen values resolve
     // clock-free (Closed / Halted / no chip), so skip the fetch for them.
     const marketStatus = useUSMarketStatus({
-      enabled: isOndoUSMarketStock(source) && isOpen === true,
+      enabled: isOpen === true && isUSListing !== false,
     });
     // The offline fallback path runs Intl-heavy clock math — don't redo it on
     // unrelated parent re-renders.
     const variant = useMemo(
       () =>
         resolveUSMarketStatusVariant({
-          source,
+          isUSListing,
           isOpen,
           isPaused,
           status: marketStatus,
         }),
-      [source, isOpen, isPaused, marketStatus],
+      [isUSListing, isOpen, isPaused, marketStatus],
     );
 
     // Outside regular trading the share price is frozen, so the inline chip
@@ -668,8 +665,7 @@ StockIsOpenBadge.displayName = 'StockIsOpenBadge';
 /**
  * Standard entry composition used by every trading-hours surface: the status
  * chip wired to open the panel (hover popover on desktop, bottom-sheet dialog
- * on native/small screens). Renders nothing for tokens without a stock;
- * non-Ondo issuers render no chip (see StockIsOpenBadge).
+ * on native/small screens). Renders nothing for tokens without stock data.
  */
 const StockMarketStatusBadge = memo(
   ({
