@@ -13,7 +13,7 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { ETranslations, ETranslationsMock } from '@onekeyhq/shared/src/locale';
 import {
   EAccountManagerStacksRoutes,
   EModalRoutes,
@@ -69,7 +69,6 @@ export function LocalWalletPoolStatus({
         <YStack gap="$4">
           <PrivacyEnableDisclosure
             hasRecommendedMonth={typeof hintTimestamp === 'number'}
-            isTempWallet={lw.isTempWallet}
           />
           <BirthdayDialogForm
             formRef={formRef}
@@ -148,9 +147,12 @@ export function LocalWalletPoolStatus({
 
   const isPaused = lw.state?.paused === true;
 
-  let disabledDescriptionId: ETranslations =
+  let disabledDescriptionId: ETranslations | ETranslationsMock =
     ETranslations.privacy_balance_privacy_off__desc;
-  if (lw.isUnsupportedWallet) {
+  if (lw.isTempWallet) {
+    disabledDescriptionId =
+      ETranslationsMock.privacy_temp_wallet_unavailable__desc;
+  } else if (lw.isUnsupportedWallet) {
     disabledDescriptionId =
       ETranslations.privacy_balance_wallet_not_supported__desc;
   } else if (isPaused) {
@@ -190,7 +192,10 @@ export function LocalWalletPoolStatus({
                 size="$bodySm"
                 color="$textSubdued"
               >
-                {intl.formatMessage({ id: disabledDescriptionId })}
+                {intl.formatMessage({
+                  id: disabledDescriptionId,
+                  defaultMessage: disabledDescriptionId,
+                })}
               </SizableText>
             </YStack>
           </XStack>

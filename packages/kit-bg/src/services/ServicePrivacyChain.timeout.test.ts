@@ -87,7 +87,10 @@ describe('Privacy sync timeout recovery', () => {
       },
       {
         backgroundApi: {
-          serviceAccount: { getDBAccountSafe: async () => ({ id: 'account' }) },
+          serviceAccount: {
+            getDBAccountSafe: async () => ({ id: 'account' }),
+            getWalletSafe: async () => ({ isTemp: false }),
+          },
         },
         deviceIsCellular: false,
         syncTickRunning: false,
@@ -221,7 +224,10 @@ describe('Privacy sync failure backoff', () => {
       },
       {
         backgroundApi: {
-          serviceAccount: { getDBAccountSafe: async () => ({ id: 'account' }) },
+          serviceAccount: {
+            getDBAccountSafe: async () => ({ id: 'account' }),
+            getWalletSafe: async () => ({ isTemp: false }),
+          },
         },
         deviceIsCellular: false,
         syncTickRunning: false,

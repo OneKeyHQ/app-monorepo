@@ -205,7 +205,6 @@ export function useLocalWalletPool({
   const ownAccountData = useAccountData(
     accountData ? {} : { networkId, accountId },
   );
-  const { wallet } = ownAccountData;
   const { account, vaultSettings } = accountData ?? ownAccountData;
   const settings = vaultSettings?.localWallet;
   // Whether this chain has a local wallet at all. Deliberately NOT `balanceShape === 'pooled'`:
@@ -218,16 +217,18 @@ export function useLocalWalletPool({
 
   // Read from the chain rather than inferred from the account id: Monero has no hardware
   // keyring, so a hardware account there can never scan despite looking scannable.
-  const { result: isWalletSupported } = usePromiseResult(
+  const { result: accountSupport } = usePromiseResult(
     async () => {
       if (!hasPooledBalance || !accountId) return undefined;
-      return backgroundApiProxy.servicePrivacyChain.isLocalWalletAccountSupported(
+      return backgroundApiProxy.servicePrivacyChain.getLocalWalletAccountSupport(
         { networkId, accountId },
       );
     },
     [hasPooledBalance, accountId, networkId],
     { undefinedResultIfReRun: true },
   );
+  const isWalletSupported =
+    accountSupport === undefined ? undefined : accountSupport === 'supported';
   const isUnsupportedWallet = isWalletSupported === false;
 
   // Privacy settings open in a retained modal, so invalidate on this event even without a focus change.
@@ -629,8 +630,8 @@ export function useLocalWalletPool({
     hasAttemptedBalance,
     busy,
     accountName: account?.name,
-    // A wallet the user chose not to save: enabling still writes a viewing key to disk.
-    isTempWallet: wallet?.isTemp === true,
+    // A wallet the user chose not to keep: unsupported, with its own reason.
+    isTempWallet: accountSupport === 'tempWallet',
     refresh,
     enableAccount,
     disableAccount,

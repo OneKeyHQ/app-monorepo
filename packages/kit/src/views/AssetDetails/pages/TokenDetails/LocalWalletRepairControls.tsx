@@ -74,10 +74,8 @@ export function readEnableBirthday(
 // account is already scanning by then.
 export function PrivacyEnableDisclosure({
   hasRecommendedMonth,
-  isTempWallet = false,
 }: {
   hasRecommendedMonth: boolean;
-  isTempWallet?: boolean;
 }) {
   const intl = useIntl();
   return (
@@ -85,13 +83,6 @@ export function PrivacyEnableDisclosure({
       <SizableText size="$bodyMd">
         {intl.formatMessage({ id: ETranslations.privacy_enable__desc })}
       </SizableText>
-      {isTempWallet ? (
-        <SizableText size="$bodySm" color="$textCaution">
-          {intl.formatMessage({
-            id: ETranslations.privacy_enable_temp_wallet__msg,
-          })}
-        </SizableText>
-      ) : null}
       {hasRecommendedMonth ? (
         <SizableText size="$bodySm" color="$textSubdued">
           {intl.formatMessage({

@@ -96,6 +96,7 @@ function createService({
           })),
           getAllWallets: jest.fn(async () => ({ wallets: [] })),
           getAccount: jest.fn(async () => ({ address: '4synthetic' })),
+          getWalletSafe: async () => ({ isTemp: false }),
         },
       },
       enableMutexByNetwork: new Map(),

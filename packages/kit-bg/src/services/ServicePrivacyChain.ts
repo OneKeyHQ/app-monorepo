@@ -11,6 +11,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { ETranslationsMock } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -63,6 +64,7 @@ import type {
   ILocalWalletAccountAddresses,
   ILocalWalletAccountBalance,
   ILocalWalletAccountState,
+  ILocalWalletAccountSupport,
   ILocalWalletCapability,
   ILocalWalletPoolDescriptor,
   ILocalWalletReviewedTransaction,
@@ -121,8 +123,8 @@ export type ILocalWalletAccountListItem = {
   walletId: string;
   walletName: string;
   networkId: string;
-  // The wallet was created with 'do not save'. Enabling still writes a viewing
-  // key to disk, so the enable flow has to disclose that before opting in.
+  // The wallet was created with 'do not save': listed, but never scannable
+  // (see isTempWalletAccount).
   walletIsTemp: boolean;
   // Set when the chain has more than one derive type: two accounts at the same
   // index (e.g. Monero "Trezor" and "Cake Wallet") share a name otherwise.
@@ -342,6 +344,7 @@ class ServicePrivacyChain extends ServiceBase {
     });
     if (stored) return stored;
     if (!accountUtils.isHdAccount({ accountId })) return undefined;
+    if (await this.isTempWalletAccount({ accountId })) return undefined;
     // Account-bound: deriving needs the account's keyring.
     const vault = await vaultFactory.getVault({ networkId, accountId });
     const derive = vault.getLocalWalletCapability()?.deriveViewingKey;
@@ -367,12 +370,10 @@ class ServicePrivacyChain extends ServiceBase {
     for (const networkId of await this.getLocalWalletNetworkIds()) {
       // eslint-disable-next-line no-await-in-loop
       const vault = await vaultFactory.getChainOnlyVault({ networkId });
-      const { accounts } =
-        // eslint-disable-next-line no-await-in-loop
-        await requireLocalWalletCapability(vault).listAccounts();
-      const accountIds = accounts
-        .filter(({ syncEnabled }) => syncEnabled)
-        .map(({ accountId }) => accountId);
+      const capability = requireLocalWalletCapability(vault);
+      // eslint-disable-next-line no-await-in-loop
+      const accounts = await this.listScannableAccounts(capability);
+      const accountIds = accounts.map(({ accountId }) => accountId);
       if (
         accountIds.length &&
         // eslint-disable-next-line no-await-in-loop
@@ -1063,10 +1064,7 @@ class ServicePrivacyChain extends ServiceBase {
           const vault = await vaultFactory.getChainOnlyVault({ networkId });
           const capability = requireLocalWalletCapability(vault);
           // eslint-disable-next-line no-await-in-loop
-          const { accounts: storedAccounts } = await capability.listAccounts();
-          const accounts = storedAccounts.filter(
-            ({ syncEnabled }) => syncEnabled,
-          );
+          const accounts = await this.listScannableAccounts(capability);
           if (accounts.length === 0) {
             prunableNetworkIds.add(networkId);
             notCandidate[networkId] = 'no-enabled-accounts';
@@ -1639,6 +1637,7 @@ class ServicePrivacyChain extends ServiceBase {
     daysAgo?: number;
     forceReset?: boolean;
   }): Promise<void> {
+    await this.assertNotTempWalletAccount(params.accountId);
     let mutex = this.repairMutexByAccount.get(params.accountId);
     if (!mutex) {
       mutex = new Mutex();
@@ -1826,6 +1825,11 @@ class ServicePrivacyChain extends ServiceBase {
           // eslint-disable-next-line no-continue
           continue;
         }
+        // eslint-disable-next-line no-await-in-loop
+        if (await this.isTempWalletAccount({ accountId })) {
+          // eslint-disable-next-line no-continue
+          continue;
+        }
         // Aliases share one runtime account; the first repair already purges it
         // and clears all alias history, so skip repeats here.
         const runtimeAccountKey = `${networkId}:${accountRuntimeKey}`;
@@ -1865,25 +1869,87 @@ class ServicePrivacyChain extends ServiceBase {
     return capability;
   }
 
+  private async isTempWallet(walletId: string): Promise<boolean> {
+    const wallet = await this.backgroundApi.serviceAccount.getWalletSafe({
+      walletId,
+      withoutRefill: true,
+    });
+    return wallet?.isTemp === true;
+  }
+
+  // A wallet the user chose not to keep never scans: that would leave its
+  // viewing key and scan data on disk. Read live, since "Keep accessible"
+  // can flip it either way.
+  async isTempWalletAccount({
+    accountId,
+  }: {
+    accountId: string;
+  }): Promise<boolean> {
+    return this.isTempWallet(
+      accountUtils.getWalletIdFromAccountId({ accountId }),
+    );
+  }
+
+  private async assertNotTempWalletAccount(accountId: string): Promise<void> {
+    if (await this.isTempWalletAccount({ accountId })) {
+      throw new OneKeyLocalError({
+        message: ETranslationsMock.privacy_temp_wallet_unavailable__desc,
+        autoToast: true,
+      });
+    }
+  }
+
+  // The accounts a pass may work on: opted in and not in a temp wallet.
+  private async listScannableAccounts(capability: ILocalWalletCapability) {
+    const { accounts } = await capability.listAccounts();
+    const isTempByWalletId = new Map<string, boolean>();
+    const scannable: typeof accounts = [];
+    for (const account of accounts) {
+      if (!account.syncEnabled) {
+        // eslint-disable-next-line no-continue
+        continue;
+      }
+      const walletId = accountUtils.getWalletIdFromAccountId({
+        accountId: account.accountId,
+      });
+      let isTemp = isTempByWalletId.get(walletId);
+      if (isTemp === undefined) {
+        // eslint-disable-next-line no-await-in-loop
+        isTemp = await this.isTempWallet(walletId);
+        isTempByWalletId.set(walletId, isTemp);
+      }
+      if (!isTemp) {
+        scannable.push(account);
+      }
+    }
+    return scannable;
+  }
+
   /**
-   * Whether this account's wallet type can use local-wallet scanning at
-   * all. Checked via the chain's keyringMap, so hardware/watch-only/
-   * imported accounts aren't offered a toggle their keyring would refuse.
+   * Whether this account can use local-wallet scanning at all. Wallet type
+   * is checked via the chain's keyringMap, so hardware/watch-only/imported
+   * accounts aren't offered a toggle their keyring would refuse.
    */
   @backgroundMethod()
-  async isLocalWalletAccountSupported({
+  async getLocalWalletAccountSupport({
     networkId,
     accountId,
   }: {
     networkId: string;
     accountId: string;
-  }): Promise<boolean> {
+  }): Promise<ILocalWalletAccountSupport> {
     const settings = await getVaultSettings({ networkId });
     if (!settings.localWallet) {
-      return false;
+      return 'unsupported';
     }
     const vault = await vaultFactory.getChainOnlyVault({ networkId });
-    return vault.supportsAccountWalletType({ accountId });
+    if (!vault.supportsAccountWalletType({ accountId })) {
+      return 'unsupported';
+    }
+    if (await this.isTempWalletAccount({ accountId })) {
+      return 'tempWallet';
+    }
+    return 'supported';
   }
 
   @backgroundMethod()
@@ -1905,7 +1971,15 @@ class ServicePrivacyChain extends ServiceBase {
     accountId: string;
   }): Promise<ILocalWalletAccountState> {
     const capability = await this.requireAccountCapability(networkId);
-    return capability.getAccountState({ accountId });
+    const state = await capability.getAccountState({ accountId });
+    // Reads as off: the scheduler skips it, so nothing would back "on".
+    if (
+      (state.enabled || state.paused) &&
+      (await this.isTempWalletAccount({ accountId }))
+    ) {
+      return { ...state, enabled: false, paused: false };
+    }
+    return state;
   }
 
   enableMutexByNetwork = new Map<string, Mutex>();
@@ -1934,6 +2008,7 @@ class ServicePrivacyChain extends ServiceBase {
     await this.getEnableMutex(networkId).runExclusive(async () => {
       await this.pendingLocalDataDropRetry;
       const capability = await this.requireAccountCapability(networkId);
+      await this.assertNotTempWalletAccount(accountId);
       await this.assertEnabledAccountLimit({
         networkId,
         accountId,
@@ -2136,6 +2211,7 @@ class ServicePrivacyChain extends ServiceBase {
     accountId: string;
   }): Promise<void> {
     const capability = await this.requireAccountCapability(networkId);
+    await this.assertNotTempWalletAccount(accountId);
     await capability.retryAccountSetup({ accountId });
   }
 
@@ -2158,7 +2234,10 @@ class ServicePrivacyChain extends ServiceBase {
     }
     // Paused accounts still hold address material, but handing it out would
     // let a payment land in a pool nothing is scanning -- gate on scan state.
-    const state = await capability.getAccountState({ accountId });
+    const state = await this.getLocalWalletAccountState({
+      networkId,
+      accountId,
+    });
     if (!state.enabled) {
       return { ...addresses, privateAddress: undefined };
     }
@@ -2480,8 +2559,7 @@ class ServicePrivacyChain extends ServiceBase {
       for (const networkId of await this.getLocalWalletNetworkIds()) {
         const vault = await vaultFactory.getChainOnlyVault({ networkId });
         const capability = requireLocalWalletCapability(vault);
-        const { accounts } = await capability.listAccounts();
-        const enabled = accounts.filter(({ syncEnabled }) => syncEnabled);
+        const enabled = await this.listScannableAccounts(capability);
         if (enabled.length === 0) {
           // eslint-disable-next-line no-continue
           continue;

@@ -421,6 +421,9 @@ describe('pending local data drop retry', () => {
       enableMutexByNetwork: new Map<string, Mutex>(),
       pendingLocalDataDropRetry: retry.promise,
       requireAccountCapability: async () => ({ enableAccount }),
+      backgroundApi: {
+        serviceAccount: { getWalletSafe: async () => ({ isTemp: false }) },
+      },
     });
 
     const enable = service.enableLocalWalletAccount({
