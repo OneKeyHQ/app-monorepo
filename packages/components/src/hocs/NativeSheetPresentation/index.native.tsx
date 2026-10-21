@@ -4,6 +4,9 @@ import {
   OverlayView,
   useNestedOverlayLevel,
 } from '@onekeyfe/react-native-native-overlay';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useTheme } from '../../hooks/useStyle';
 
@@ -12,6 +15,9 @@ import type {
   IOverlayBackdrop,
   IOverlaySheetOptions,
 } from '@onekeyfe/react-native-native-overlay';
+
+const FIT_GESTURE_ROOT_STYLE = { flexGrow: 0, flexShrink: 1 } as const;
+const MEASURED_GESTURE_ROOT_STYLE = { flex: 1 } as const;
 
 export function NativeSheetPresentation({
   open,
@@ -99,7 +105,19 @@ export function NativeSheetPresentation({
       onClose={onClose}
       testID={testID}
     >
-      {children}
+      {platformEnv.isNativeAndroid ? (
+        <GestureHandlerRootView
+          style={
+            height === undefined
+              ? FIT_GESTURE_ROOT_STYLE
+              : MEASURED_GESTURE_ROOT_STYLE
+          }
+        >
+          {children}
+        </GestureHandlerRootView>
+      ) : (
+        children
+      )}
     </OverlayView>
   );
 }

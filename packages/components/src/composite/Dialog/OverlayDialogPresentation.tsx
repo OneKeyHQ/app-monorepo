@@ -3,6 +3,7 @@ import type { ComponentProps, PropsWithChildren } from 'react';
 
 import { OverlayView } from '@onekeyfe/react-native-native-overlay';
 import { useWindowDimensions } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -24,6 +25,7 @@ const SHEET_CORNER_RADIUS = 24;
 const CENTER_SIDE_GUTTER = 20;
 const CENTER_THEME_DARK = { outlineColor: '$neutral5' } as const;
 const CENTER_CARD_STYLE = { outlineStyle: 'solid' } as const;
+const GESTURE_ROOT_FIT_STYLE = { flexGrow: 0, flexShrink: 1 } as const;
 
 export type IOverlayDialogCardProps = Omit<
   ComponentProps<typeof ThemeableStack>,
@@ -116,6 +118,17 @@ export function OverlayDialogPresentation({
   const handlePresented = useCallback(() => {
     if (isSheet) onAnimationComplete?.({ open: true });
   }, [isSheet, onAnimationComplete]);
+  const needsGestureRoot = platformEnv.isNativeAndroid && !page;
+  const centerContent = platformEnv.isNative ? (
+    // Yoga measures the card in AtMost mode, so `flex: 1` children
+    // collapse; a ScrollView measures its content unconstrained, as
+    // the Tamagui dialog did.
+    <ScrollView bounces={false} keyboardShouldPersistTaps="handled">
+      {children}
+    </ScrollView>
+  ) : (
+    children
+  );
 
   return (
     <OverlayView
@@ -141,7 +154,13 @@ export function OverlayDialogPresentation({
           borderCurve="continuous"
           overflow="hidden"
         >
-          {children}
+          {needsGestureRoot ? (
+            <GestureHandlerRootView style={GESTURE_ROOT_FIT_STYLE}>
+              {children}
+            </GestureHandlerRootView>
+          ) : (
+            children
+          )}
         </ThemeableStack>
       ) : (
         // The card is the overlay root's direct child, centered by auto
@@ -166,15 +185,12 @@ export function OverlayDialogPresentation({
           style={CENTER_CARD_STYLE}
           {...cardProps}
         >
-          {platformEnv.isNative ? (
-            // Yoga measures the card in AtMost mode, so `flex: 1` children
-            // collapse; a ScrollView measures its content unconstrained, as
-            // the Tamagui dialog did.
-            <ScrollView bounces={false} keyboardShouldPersistTaps="handled">
-              {children}
-            </ScrollView>
+          {needsGestureRoot ? (
+            <GestureHandlerRootView style={GESTURE_ROOT_FIT_STYLE}>
+              {centerContent}
+            </GestureHandlerRootView>
           ) : (
-            children
+            centerContent
           )}
         </ThemeableStack>
       )}
