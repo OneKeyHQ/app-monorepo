@@ -77,6 +77,14 @@ describe('zcashUserMessage', () => {
     expect(message).toBe(ETranslations.privacy_error_sync_data__msg);
   });
 
+  it('asks for an app update when the database is from a newer app', () => {
+    expect(
+      zcashUserMessage(
+        runtimeError('DATABASE_TOO_NEW', { unknownMigrations: 1 }),
+      ),
+    ).toBe(ETranslations.database_read_error_update_app__msg);
+  });
+
   // NOT_INITIALIZED copy would read "still syncing" forever.
   it('tells an outdated WebView apart from a runtime still starting', () => {
     expect(
