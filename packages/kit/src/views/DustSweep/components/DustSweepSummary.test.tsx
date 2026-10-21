@@ -5,6 +5,7 @@ import { fireEvent, render, screen } from '@testing-library/react';
 
 import SwapCommonInfoItem from '@onekeyhq/kit/src/views/Swap/components/SwapCommonInfoItem';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
 import type {
   IDustSweepReason,
@@ -18,6 +19,8 @@ import { initialDustSweepState } from '../stateMachine';
 import { DustSweepResult, DustSweepSummary } from './DustSweepSummary';
 
 import type { IDustSweepState } from '../stateMachine';
+
+let mockLocale = 'en-US';
 
 jest.mock('@onekeyhq/components', () => {
   function MockStack({
@@ -93,10 +96,12 @@ jest.mock('@onekeyhq/components', () => {
       const { numberFormatAsRenderText } = jest.requireActual<
         typeof import('@onekeyhq/shared/src/utils/numberUtils')
       >('@onekeyhq/shared/src/utils/numberUtils');
-      const parts = numberFormatAsRenderText(children, {
-        formatter,
-        formatterOptions,
-      });
+      const { useMemo } = jest.requireActual<typeof import('react')>('react');
+      const parts = useMemo(
+        () =>
+          numberFormatAsRenderText(children, { formatter, formatterOptions }),
+        [children, formatter, formatterOptions, numberFormatAsRenderText],
+      );
       return (
         <span>
           {typeof parts === 'string'
@@ -121,7 +126,9 @@ jest.mock('@onekeyhq/components', () => {
   };
 });
 jest.mock('react-intl', () => ({
+  ...jest.requireActual<typeof import('react-intl')>('react-intl'),
   useIntl: () => ({
+    locale: mockLocale,
     formatMessage: (
       { id }: { id: string },
       values?: Record<string, string | number>,
@@ -212,6 +219,8 @@ jest.mock('../DustSweepProvider', () => ({
 }));
 
 beforeEach(() => {
+  mockLocale = 'en-US';
+  appLocale.setLocale(mockLocale, appLocale.intl.messages);
   mockCurrent = { nativeToken };
   mockSelected = [selectedToken];
   mockProviderInfo = configuredProvider;
@@ -222,6 +231,8 @@ beforeEach(() => {
   mockSelectedValueUsd = '10';
   jest.clearAllMocks();
 });
+
+afterEach(() => appLocale.setLocale('en-US', appLocale.intl.messages));
 
 it.each([true, false])(
   'shows a loading button and token skeleton until initial assets arrive (desktop=%s)',
@@ -545,6 +556,51 @@ it('uses the same subscript formatter for a tiny receive estimate', () => {
   expect(amount.textContent).toBe('0.061234 ETH');
   expect(amount.querySelector('sub')?.textContent).toBe('6');
 });
+
+it.each(['result', 'estimate'] as const)(
+  'updates the cached %s formatter when the token symbol or locale changes',
+  (mode) => {
+    const state = completedState([{ key: 'done', status: 'success' }]);
+    state.items[0].receivedAmount = '1234.5';
+    mockSelectedValueUsd = '1234500';
+    const view = (symbol: string) => {
+      const token = { ...nativeToken, symbol };
+      if (mode === 'result') {
+        return (
+          <DustSweepResult
+            desktop
+            state={{
+              ...state,
+              snapshot: state.snapshot && {
+                ...state.snapshot,
+                nativeToken: token,
+              },
+            }}
+          />
+        );
+      }
+      mockCurrent = { nativeToken: token };
+      return (
+        <DustSweepSummary desktop onDone={jest.fn()} onDetails={jest.fn()} />
+      );
+    };
+    const { rerender } = render(view('ETH'));
+    const testId =
+      mode === 'result'
+        ? 'dust-sweep-result-amount'
+        : 'dust-sweep-receive-amount';
+    const prefix = mode === 'result' ? '+' : '';
+    expect(screen.getByTestId(testId).textContent).toBe(`${prefix}1,234.5 ETH`);
+
+    rerender(view('BNB'));
+    expect(screen.getByTestId(testId).textContent).toBe(`${prefix}1,234.5 BNB`);
+
+    mockLocale = 'de-DE';
+    appLocale.setLocale(mockLocale, appLocale.intl.messages);
+    rerender(view('BNB'));
+    expect(screen.getByTestId(testId).textContent).toBe(`${prefix}1.234,5 BNB`);
+  },
+);
 
 function completedState(
   items: {

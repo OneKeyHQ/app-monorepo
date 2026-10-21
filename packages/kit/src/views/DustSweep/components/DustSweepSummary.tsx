@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import type { ReactNode } from 'react';
 
 import BigNumber from 'bignumber.js';
@@ -63,6 +64,10 @@ export function DustSweepResult({
     success: ETranslations.title_dust_swept,
   }[outcome];
   const token = state.snapshot?.nativeToken;
+  const amountFormatterOptions = useMemo(
+    () => ({ showPlusMinusSigns: true, tokenSymbol: token?.symbol }),
+    [token?.symbol],
+  );
   const amountUnavailable = totals.receiptUnavailable || !hasSuccess;
   const value =
     totals.receiptUnavailable || !hasSuccess || !token?.price
@@ -119,14 +124,12 @@ export function DustSweepResult({
                   `— ${token?.symbol ?? ''}`
                 ) : (
                   <NumberSizeableText
+                    key={intl.locale}
                     size="$heading5xl"
                     fontSize={40}
                     lineHeight={48}
                     formatter="balance"
-                    formatterOptions={{
-                      showPlusMinusSigns: true,
-                      tokenSymbol: token?.symbol,
-                    }}
+                    formatterOptions={amountFormatterOptions}
                   >
                     {totals.receivedAmount}
                   </NumberSizeableText>
@@ -201,6 +204,10 @@ export function DustSweepSummary({
   const { totals, completed, unknown, progress } =
     getDustSweepPresentation(state);
   const nativeToken = state.snapshot?.nativeToken ?? current?.nativeToken;
+  const receiveFormatterOptions = useMemo(
+    () => ({ tokenSymbol: nativeToken?.symbol }),
+    [nativeToken?.symbol],
+  );
   const receiveTokenLoading = assetsLoading && !nativeToken;
   // Before converting, estimate from the selection's market value (as Rabby
   // does) so it always matches the action label; afterwards show what arrived.
@@ -223,9 +230,10 @@ export function DustSweepSummary({
       `— ${nativeToken.symbol}`
     ) : (
       <NumberSizeableText
+        key={intl.locale}
         size="$bodyLgMedium"
         formatter="balance"
-        formatterOptions={{ tokenSymbol: nativeToken.symbol }}
+        formatterOptions={receiveFormatterOptions}
       >
         {amount}
       </NumberSizeableText>
