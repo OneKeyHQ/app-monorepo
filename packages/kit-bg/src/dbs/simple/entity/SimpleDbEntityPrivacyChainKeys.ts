@@ -3,6 +3,7 @@ import { z } from 'zod';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
+import { PRIVACY_CHAIN_VIEWING_KEY_MISMATCH } from '../../../vaults/localWallet/viewingKeyMismatch';
 import { SimpleDbEntityBase } from '../base/SimpleDbEntityBase';
 
 // The only copy of each privacy chain account's viewing key (Zcash UFVK,
@@ -33,18 +34,6 @@ const keyRecordSchema = z.object({
     value: z.string().min(1),
   }),
 });
-
-// Tagged property, so callers need not match on message text.
-export const PRIVACY_CHAIN_VIEWING_KEY_MISMATCH =
-  'privacyChainViewingKeyMismatch';
-
-export function isPrivacyChainViewingKeyMismatchError(e: unknown): boolean {
-  return (
-    !!e &&
-    typeof e === 'object' &&
-    (e as Record<string, unknown>)[PRIVACY_CHAIN_VIEWING_KEY_MISMATCH] === true
-  );
-}
 
 function parseKeyRecord(record: unknown): IPrivacyChainKeyRecord | undefined {
   const result = keyRecordSchema.safeParse(record);

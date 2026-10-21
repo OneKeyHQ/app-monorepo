@@ -1,13 +1,12 @@
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
+import { localWalletText } from './messages';
+import { getViewingKeyFingerprint } from './viewingKeyFingerprint';
 import {
   PRIVACY_CHAIN_VIEWING_KEY_MISMATCH,
   isPrivacyChainViewingKeyMismatchError,
-} from '../../dbs/simple/entity/SimpleDbEntityPrivacyChainKeys';
-
-import { localWalletText } from './messages';
-import { getViewingKeyFingerprint } from './viewingKeyFingerprint';
+} from './viewingKeyMismatch';
 
 import type { IBackgroundApi } from '../../apis/IBackgroundApi';
 
