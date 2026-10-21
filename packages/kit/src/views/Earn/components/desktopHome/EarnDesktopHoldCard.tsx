@@ -394,48 +394,14 @@ export function EarnDesktopHoldCard({
   const intl = useIntl();
   const media = useMedia();
   const isWide = media.gtMd;
-  const [{ hideValue: isHidden }] = useSettingsValuePersistAtom();
   const [isExpanded, setIsExpanded] = useState(false);
   const shown = isExpanded ? rows : rows.slice(0, ROW_LIMIT);
   const moreCount = rows.length - ROW_LIMIT;
-  // Every row deposited at its best rate
-  const yearlyUsd = rows
-    .reduce(
-      (sum, row) =>
-        sum.plus(
-          new BigNumber(row.fiatValueUsd).times(row.offers[0].apr).div(100),
-        ),
-      new BigNumber(0),
-    )
-    .toFixed();
   return (
     <CardFrame>
       <SizableText size="$bodyMdMedium" color="$textSubdued">
         {intl.formatMessage({ id: ETranslations.earns_on_your_holding__title })}
       </SizableText>
-      <XStack ai="baseline" gap="$1.5" mt="$0.5">
-        <SizableText size="$bodyLg" color="$textSubdued">
-          {EARN_DESKTOP_DEMO_COPY.upTo}
-        </SizableText>
-        <Currency
-          hideValue
-          size="$headingXl"
-          fontWeight={500}
-          formatter="value"
-          sourceCurrency={USD_CURRENCY_ID}
-          numberOfLines={1}
-          y={
-            isHidden
-              ? Math.round(getFontSize('$headingXl') * ASTERISK_DROP)
-              : undefined
-          }
-        >
-          {yearlyUsd}
-        </Currency>
-        <SizableText size="$bodyLg" color="$textSubdued">
-          {EARN_DESKTOP_DEMO_COPY.aYear}
-        </SizableText>
-      </XStack>
       {isWide ? (
         <XStack h="$8" ai="center" gap={ROW_GAP} mt="$3">
           <Stack {...COLUMNS.asset}>
@@ -520,9 +486,6 @@ export function EarnDesktopHoldCardSkeleton() {
   return (
     <CardFrame>
       <SkeletonLine height={20} width={150} barHeight={14} />
-      <YStack mt="$0.5">
-        <SkeletonLine height={28} width={160} barHeight={20} />
-      </YStack>
       {isWide ? (
         <XStack h="$8" ai="center" gap={ROW_GAP} mt="$3">
           <Stack {...COLUMNS.asset}>
