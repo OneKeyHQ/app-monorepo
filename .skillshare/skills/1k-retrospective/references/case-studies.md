@@ -980,3 +980,10 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries â€
 **Root Cause**: The plain horizontal ScrollView had no selected-item layout registration or scroll behavior.
 **Fix**: Reuse Swap's ScrollableFilterBar, pass the selected network ID, and register each chip's layout under that same ID. Preserve the existing chip appearance, execution lock and compact network menu.
 **Catchable by**: Section 8: click clipped chips near both edges, verify complete visibility after scrolling, and repeat after viewport resizing; confirm execution cannot change the network.
+
+## Case: Home startup included on-demand NFC dialog animations
+**Date**: 2026-10-21 | **Platforms**: Native main UI JS runtime
+**Symptom**: The Native startup size gate failed although the module-count budget passed. The CI report exceeded 14 MiB by 477 bytes; local absolute source paths made the same graph larger.
+**Root Cause**: Home backup and import hooks synchronously reached two OneKey Lite animation JSON files used only inside NFC dialogs. Keeping require calls inside callbacks did not remove these assets from Metro's synchronous dependency graph.
+**Fix**: Load a display-only animation component through the existing LazyLoad boundary. Keep dialog dimensions reserved outside that boundary and retain all NFC event, permission, confirmation and connection callbacks unchanged.
+**Catchable by**: Section 6: check Android immediate connection and transfer events, iOS confirmation, both animation sources and dimensions; Section 8: rebuild the Union graph, prove the JSON assets moved out of main startup, and run both runtime budgets plus architecture and stable module-ID checks without relaxing limits.

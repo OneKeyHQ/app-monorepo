@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
+import type { ComponentProps } from 'react';
 
 import LiteCard, { CardErrors } from '@onekeyfe/react-native-lite-card';
 import { useIntl } from 'react-intl';
@@ -6,15 +7,38 @@ import { Alert } from 'react-native';
 
 import {
   Dialog,
-  LottieView,
   RichSizeableText,
   SizableText,
+  Stack,
 } from '@onekeyhq/components';
 import type { IDialogInstance } from '@onekeyhq/components';
+import LazyLoad from '@onekeyhq/shared/src/lazyLoad';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import type { LiteCardNFCAnimation } from '../components/LiteCardNFCAnimation';
 import type { CallbackError, CardInfo } from '@onekeyfe/react-native-lite-card';
+
+// NFC dialog animations are not needed by the Home backup entry at startup.
+const LazyLiteCardNFCAnimation = LazyLoad<
+  ComponentProps<typeof LiteCardNFCAnimation>
+>(
+  () =>
+    import('../components/LiteCardNFCAnimation').then((module) => ({
+      default: module.LiteCardNFCAnimation,
+    })),
+  undefined,
+  null,
+);
+
+function NFCAnimation(props: ComponentProps<typeof LiteCardNFCAnimation>) {
+  // Preserve dialog geometry while the animation segment loads.
+  return (
+    <Stack height={props.height}>
+      <LazyLiteCardNFCAnimation {...props} />
+    </Stack>
+  );
+}
 
 enum ENFCEventCode {
   CONNECTED = 1,
@@ -44,12 +68,7 @@ export default function useNFC() {
           id: ETranslations.hardware_device_connected_keep_card_in_place,
         }),
         showFooter: false,
-        renderContent: (
-          <LottieView
-            source={require('@onekeyhq/kit/assets/animations/connect_onekeylite_connecting.json')}
-            height={225}
-          />
-        ),
+        renderContent: <NFCAnimation state="connecting" height={225} />,
       });
     },
     [intl],
@@ -271,12 +290,7 @@ export default function useNFC() {
             id: ETranslations.hardware_keep_lite_placed_until_found,
           }),
           showFooter: false,
-          renderContent: (
-            <LottieView
-              source={require('@onekeyhq/kit/assets/animations/connect_onekeylite_searching.json')}
-              height={205}
-            />
-          ),
+          renderContent: <NFCAnimation state="searching" height={205} />,
         });
         callback();
         return;
@@ -288,12 +302,7 @@ export default function useNFC() {
         description: intl.formatMessage({
           id: ETranslations.hardware_place_onekey_lite_close_to_phone_desc,
         }),
-        renderContent: (
-          <LottieView
-            source={require('@onekeyhq/kit/assets/animations/connect_onekeylite_searching.json')}
-            height={205}
-          />
-        ),
+        renderContent: <NFCAnimation state="searching" height={205} />,
         onConfirmText: intl.formatMessage({ id: ETranslations.global_connect }),
         onConfirm: ({ preventClose }) => {
           preventClose();

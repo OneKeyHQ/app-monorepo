@@ -24090,6 +24090,7 @@
     "packages/kit/src/views/LightningNetwork/pages/Webln/WeblnMakeInvoiceModal.tsx": 23747,
     "packages/kit/src/views/LightningNetwork/pages/Webln/WeblnSendPaymentModal.tsx": 6412,
     "packages/kit/src/views/LightningNetwork/testIDs.ts": 17088,
+    "packages/kit/src/views/LiteCard/components/LiteCardNFCAnimation.tsx": 1397,
     "packages/kit/src/views/LiteCard/components/PasswordKeyboard.tsx": 19917,
     "packages/kit/src/views/LiteCard/hooks/useLiteCard.tsx": 12698,
     "packages/kit/src/views/LiteCard/hooks/useNFC.tsx": 1391,
