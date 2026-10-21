@@ -3,6 +3,7 @@ import type { IDecodedTxExtraCosmos } from '@onekeyhq/core/src/chains/cosmos/typ
 import type { IDecodedTxExtraDnx } from '@onekeyhq/core/src/chains/dnx/types';
 import type { IDecodedTxExtraLightning } from '@onekeyhq/core/src/chains/lightning/types';
 import type { IDecodedTxExtraSol } from '@onekeyhq/core/src/chains/sol/types';
+import type { IDecodedTxExtraStarknet } from '@onekeyhq/core/src/chains/starknet/types';
 import type { IDecodedTxExtraStellar } from '@onekeyhq/core/src/chains/stellar/types';
 import type { IDecodedTxExtraTon } from '@onekeyhq/core/src/chains/ton/types';
 import type { IDecodedTxExtraTron } from '@onekeyhq/core/src/chains/tron/types';
@@ -121,7 +122,8 @@ export type IDecodedTxExtraInfo =
   | IDecodedTxExtraSol
   | IDecodedTxExtraCosmos
   | IDecodedTxExtraTon
-  | IDecodedTxExtraStellar;
+  | IDecodedTxExtraStellar
+  | IDecodedTxExtraStarknet;
 
 export type IDecodedTx = {
   txid: string; // blockHash
