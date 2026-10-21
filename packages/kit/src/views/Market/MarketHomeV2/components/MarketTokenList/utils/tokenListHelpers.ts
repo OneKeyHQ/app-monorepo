@@ -16,6 +16,16 @@ export function marketTokenKey(item: IMarketToken) {
     : `${item.networkId}:${(item.address || '').toLowerCase()}:${item.isNative ? 1 : 0}`;
 }
 
+const MARKET_ROW_KEY_MAX_LENGTH = 256;
+
+// A token's id is its row key in the Market lists. NativeList on web throws
+// on a key with leading or trailing whitespace or over 256 characters, which
+// takes the whole app down, and server names and symbols can bring either
+// (a trending token came with a symbol ending in a space)
+export function toMarketRowKey(raw: string) {
+  return raw.trim().slice(0, MARKET_ROW_KEY_MAX_LENGTH).trimEnd();
+}
+
 // Helper function to check if token is native and get normalized address for matching
 // Only uses fallback address length check when isNative field is not present (undefined)
 // This ensures online data with isNative field won't use fallback logic
@@ -356,7 +366,9 @@ export function transformApiItemToToken(
       });
 
   return {
-    id: `${item.address}${item.name}${tokenNetworkLogoUri}${item.symbol}`,
+    id: toMarketRowKey(
+      `${item.address}${item.name}${tokenNetworkLogoUri}${item.symbol}`,
+    ),
     name: item.name,
     symbol: item.symbol,
     address: item.address,

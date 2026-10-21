@@ -132,6 +132,7 @@ jest.mock('../utils/tokenListHelpers', () => {
         ? `perps:${item.perpsCoin}`
         : `${item.networkId}:${(item.address || '').toLowerCase()}:${item.isNative ? 1 : 0}`;
     },
+    toMarketRowKey: (raw: string) => raw.trim().slice(0, 256).trimEnd(),
     transformApiItemToToken: jest.fn(
       (item: ITokenItem, options: ITransformOptions) => {
         const tokenNetworkId = item.networkId || options.chainId;

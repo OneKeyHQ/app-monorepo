@@ -7,6 +7,7 @@ import {
   shouldShowStockSubtitleForTokens,
   shouldUseStockMetadataColumnsForTokens,
   sortMarketTokenListData,
+  toMarketRowKey,
   transformApiItemToToken,
 } from './tokenListHelpers';
 
@@ -585,4 +586,25 @@ test('does not treat an underlying ticker as a stock id', () => {
     { chainId: 'evm--1', networkLogoUri: '' },
   );
   expect(token.stockId).toBeUndefined();
+});
+
+describe('toMarketRowKey', () => {
+  test('drops the spaces a server name or symbol leaves at either end', () => {
+    expect(toMarketRowKey('9BB6NFEcjBToken https://logo/sol.pngTOKEN ')).toBe(
+      '9BB6NFEcjBToken https://logo/sol.pngTOKEN',
+    );
+    expect(toMarketRowKey(' TOKEN')).toBe('TOKEN');
+  });
+
+  test('keeps a clean id as it is', () => {
+    expect(toMarketRowKey('0x42a1Some Token Name TOKEN')).toBe(
+      '0x42a1Some Token Name TOKEN',
+    );
+  });
+
+  test('stays within 256 characters without ending in a space', () => {
+    const key = toMarketRowKey(`${'a'.repeat(255)} tail`);
+    expect(key).toBe('a'.repeat(255));
+    expect(toMarketRowKey('x'.repeat(300))).toHaveLength(256);
+  });
 });

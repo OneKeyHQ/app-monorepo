@@ -30,6 +30,7 @@ import {
   getNativeTokenInfo,
   getNetworkLogoUri,
   normalizeStockMetadataValue,
+  toMarketRowKey,
   transformApiItemToToken,
 } from '../utils/tokenListHelpers';
 
@@ -428,7 +429,7 @@ export function useMarketWatchlistTokenList({
     const map = new Map<string, IMarketToken>();
     for (const t of tokens) {
       map.set(t.name, {
-        id: `perps_${t.name}`,
+        id: toMarketRowKey(`perps_${t.name}`),
         name: t.displayName,
         symbol: t.displayName,
         address: '',
