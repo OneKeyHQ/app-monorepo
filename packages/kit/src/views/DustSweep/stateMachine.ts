@@ -3,7 +3,6 @@ import BigNumber from 'bignumber.js';
 import type {
   IDustSweepItem,
   IDustSweepItemStatus,
-  IDustSweepQuoteFailure,
   IDustSweepReason,
   IDustSweepSnapshot,
 } from '@onekeyhq/shared/types/swap/dustSweep';
@@ -28,10 +27,16 @@ type IDustSweepAction =
   | {
       type: 'start';
       snapshot: IDustSweepSnapshot;
-      unavailable?: Record<string, IDustSweepQuoteFailure>;
     }
   | {
-      type: 'pause' | 'resume' | 'reset' | 'leave' | 'left' | 'leaveBlocked';
+      type:
+        | 'pause'
+        | 'resume'
+        | 'stop'
+        | 'reset'
+        | 'leave'
+        | 'left'
+        | 'leaveBlocked';
     }
   | {
       type: 'approvalBroadcast';
@@ -73,31 +78,25 @@ export function dustSweepReducer(
   action: IDustSweepAction,
 ): IDustSweepState {
   switch (action.type) {
+    // Every selected token is submitted and quoted on its own turn.
     case 'start':
-      if (
-        state.phase !== 'selecting' ||
-        !action.snapshot.tokens.some(
-          (token) => !action.unavailable?.[token.key],
-        )
-      )
+      if (state.phase !== 'selecting' || !action.snapshot.tokens.length)
         return state;
       return {
         phase: 'running',
         snapshot: action.snapshot,
-        items: action.snapshot.tokens.map((token) =>
-          action.unavailable?.[token.key]
-            ? {
-                token,
-                status: 'skipped',
-                ...action.unavailable[token.key],
-              }
-            : { token, status: 'waiting' },
-        ),
+        items: action.snapshot.tokens.map((token) => ({
+          token,
+          status: 'waiting',
+        })),
       };
     case 'pause':
       return state.phase === 'running' ? { ...state, phase: 'paused' } : state;
     case 'resume':
       return state.phase === 'paused' ? { ...state, phase: 'running' } : state;
+    // Stop gives up the remaining tokens and goes back to selection.
+    case 'stop':
+      return state.phase === 'paused' ? initialDustSweepState : state;
     case 'reset':
       return state.phase === 'completed' || state.phase === 'selecting'
         ? initialDustSweepState
@@ -167,6 +166,11 @@ export function dustSweepReducer(
   }
 }
 
+// Skipped or failed: what the result calls "not converted".
+export function isDustSweepItemNotConverted(item: IDustSweepItem) {
+  return item.status === 'skipped' || item.status === 'failed';
+}
+
 export function getDustSweepTotals(items: IDustSweepItem[]) {
   const success = items.filter((item) => item.status === 'success');
   return {
@@ -174,6 +178,7 @@ export function getDustSweepTotals(items: IDustSweepItem[]) {
     successCount: success.length,
     skippedCount: items.filter((item) => item.status === 'skipped').length,
     failedCount: items.filter((item) => item.status === 'failed').length,
+    notConvertedCount: items.filter(isDustSweepItemNotConverted).length,
     settledCount: items.filter(isDustSweepItemTerminal).length,
     receivedAmount: success
       .reduce(

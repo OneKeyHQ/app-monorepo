@@ -28,7 +28,7 @@ import {
 import { ESwapSlippageSegmentKey } from '@onekeyhq/shared/types/swap/types';
 
 import { useDustSweep } from '../DustSweepProvider';
-import { isValidDustSweepSlippage } from '../utils/candidates';
+import { getDustSweepSlippageNotice } from '../utils/candidates';
 
 // Preset cell widths from the Figma slippage popover (150px with 1px dividers).
 const SLIPPAGE_PRESETS = [
@@ -51,19 +51,20 @@ function SlippageEditor({
   const intl = useIntl();
   const [draft, setDraft] = useState(initialValue.toString());
   const [inputFocused, setInputFocused] = useState(false);
-  const valid = isValidDustSweepSlippage(draft);
   const inputHeight = mobile ? 44 : 38;
+  const notice = getDustSweepSlippageNotice(draft);
+  const valid = notice !== 'invalid';
   let message: string | undefined;
-  if (!valid) {
+  if (notice === 'invalid') {
     message = intl.formatMessage({
       id: ETranslations.slippage_tolerance_error_message,
     });
-  } else if (Number(draft) <= swapSlippageWillFailMinValue) {
+  } else if (notice === 'tooLow') {
     message = intl.formatMessage(
       { id: ETranslations.slippage_tolerance_warning_message_2 },
       { number: swapSlippageWillFailMinValue },
     );
-  } else if (Number(draft) >= swapSlippageWillAheadMinValue) {
+  } else if (notice === 'tooHigh') {
     message = intl.formatMessage(
       { id: ETranslations.slippage_tolerance_warning_message_1 },
       { number: swapSlippageWillAheadMinValue },

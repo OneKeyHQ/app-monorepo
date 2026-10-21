@@ -37,7 +37,7 @@ export function useDustSweepReconciliation({
   params: IDustSweepRouteParams;
   networks: IDustSweepNetwork[];
   setNetworks: Dispatch<SetStateAction<IDustSweepNetwork[]>>;
-  onRefreshed: TOnRefreshed;
+  onRefreshed?: TOnRefreshed;
 }) {
   const scope = useMemo(
     () => ({
@@ -97,9 +97,7 @@ export function useDustSweepReconciliation({
               getDustSweepNetworkOwner(network) === key ? updated : network,
             ),
           );
-          // Even unchanged balances need a new quote after a finished batch.
-          // The caller decides whether this owner is still active.
-          onRefreshed(key);
+          onRefreshed?.(key);
           setState((previous) => ({
             ...previous,
             entries: {
@@ -148,8 +146,16 @@ export function useDustSweepReconciliation({
   );
 
   const reconcile = useCallback(
-    (batch: IDustSweepState) => {
-      if (batch.phase !== 'completed' || !batch.snapshot) return;
+    (
+      batch: IDustSweepState,
+      { isStopped = false }: { isStopped?: boolean } = {},
+    ) => {
+      if (activeScope.current !== scope || !batch.snapshot) return;
+      if (
+        batch.phase !== 'completed' &&
+        !(isStopped && batch.phase === 'paused')
+      )
+        return;
       if (scope.processed.has(batch.snapshot.id)) return;
       scope.processed.add(batch.snapshot.id);
       // Failed swaps and approvals can spend gas even without a successful swap.

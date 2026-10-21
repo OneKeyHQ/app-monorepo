@@ -199,11 +199,17 @@ const snapshot: IDustSweepSnapshot = {
 };
 type IModel = Pick<
   ReturnType<typeof useDustSweep>,
-  'session' | 'selecting' | 'isFocused' | 'start' | 'sweepAgain'
+  | 'session'
+  | 'selecting'
+  | 'isFocused'
+  | 'start'
+  | 'sweepAgain'
+  | 'networks'
+  | 'loadStatus'
 >;
 const ModelContext = createContext<IModel | undefined>(undefined);
 function TestProvider({ children }: PropsWithChildren) {
-  const session = useDustSweepSession([]);
+  const session = useDustSweepSession([], { minRunMs: 0 });
   const isFocused = useIsFocused();
   useEffect(() => {
     mockProviderMounts += 1;
@@ -218,6 +224,8 @@ function TestProvider({ children }: PropsWithChildren) {
       selecting: session.state.phase === 'selecting',
       start: () => session.start(snapshot),
       sweepAgain: () => session.reset(),
+      networks: [],
+      loadStatus: 'ready',
     }),
     [isFocused, session],
   );

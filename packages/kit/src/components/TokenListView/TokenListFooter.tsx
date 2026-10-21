@@ -15,7 +15,6 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
-import { useActiveAccountDustSweep } from '@onekeyhq/kit/src/views/DustSweep/hooks/useNavigateToDustSweep';
 import { useSettingsValuePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { isAgg } from '@onekeyhq/kit-bg/src/states/jotai/contexts/tokenList/cellsPure/pure';
 import { SEARCH_KEY_MIN_LENGTH } from '@onekeyhq/shared/src/consts/walletConsts';
@@ -29,6 +28,7 @@ import {
   EModalRoutes,
 } from '@onekeyhq/shared/src/routes';
 import { isTokenSelectorDappToken } from '@onekeyhq/shared/src/utils/tokenSelectorFilterUtils';
+import { sumFiatValuesFromTokens } from '@onekeyhq/shared/src/utils/tokenValueUtils';
 import type { IAccountToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
@@ -48,10 +48,9 @@ import {
   meta,
   subcell,
 } from '../../states/jotai/contexts/tokenList/cells/projection';
+import { Currency } from '../Currency';
 
 import { useTokenListViewContext } from './TokenListViewContext';
-
-import type { GestureResponderEvent } from 'react-native';
 
 type IProps = {
   tableLayout?: boolean;
@@ -73,8 +72,6 @@ function TokenListFooter(props: IProps) {
     plainMode,
   } = props;
   const navigation = useAppNavigation();
-  const { canDustSweep, isDustSweepRefreshing, openDustSweep } =
-    useActiveAccountDustSweep();
   const {
     activeAccount: {
       account,
@@ -85,15 +82,6 @@ function TokenListFooter(props: IProps) {
       indexedAccount,
     },
   } = useActiveAccount({ num: 0 });
-
-  const handleOnPressDustSweep = useCallback(
-    (event: GestureResponderEvent) => {
-      // The row itself opens the low-value list.
-      event.stopPropagation();
-      void openDustSweep('lowValueRow');
-    },
-    [openDustSweep],
-  );
 
   const [{ hideValue }] = useSettingsValuePersistAtom();
 
@@ -122,6 +110,7 @@ function TokenListFooter(props: IProps) {
   const {
     smallBalanceIds,
     nonZeroIds,
+    smallBalanceFiatValue: smallBalanceTokensFiatValue,
     generation: listStructureGeneration,
   } = listStructure;
 
@@ -193,6 +182,43 @@ function TokenListFooter(props: IProps) {
     nonZeroIdsSet,
   ]);
 
+  // Record<$key, ITokenFiat> for the given ids — aggregate ids resolve through
+  // the derived aggCell, normal ids through cell.
+  const getFiatMap = useCallback(
+    (ids: readonly string[]) => {
+      const map: Record<string, ITokenFiat> = {};
+      for (const id of ids) {
+        const aggregate = isAgg(id, store.get(meta(store, id)));
+        const fiat = store.get(
+          aggregate ? aggCell(store, id) : cell(store, id),
+        );
+        if (fiat) {
+          map[id] = fiat;
+        }
+      }
+      return map;
+    },
+    [store],
+  );
+
+  // The BG total covers every small-balance token; when filters hide some of
+  // them, re-sum the rows actually listed. The BG total changes on every fiat
+  // tick, so it also keys the re-sum.
+  const displayedSmallBalanceFiatValue = useMemo(() => {
+    if (filteredSmallBalanceTokens === smallBalanceTokens) {
+      return smallBalanceTokensFiatValue;
+    }
+    return sumFiatValuesFromTokens(
+      filteredSmallBalanceTokens,
+      getFiatMap(filteredSmallBalanceTokens.map((token) => token.$key)),
+    ).toFixed();
+  }, [
+    filteredSmallBalanceTokens,
+    smallBalanceTokens,
+    smallBalanceTokensFiatValue,
+    getFiatMap,
+  ]);
+
   const filteredRiskyTokens = useMemo(() => {
     if (riskyOwnerKey !== currentOwnerKey) {
       return [];
@@ -232,16 +258,7 @@ function TokenListFooter(props: IProps) {
     // its own isolated store via refresh*, and a wrong shape renders blank
     // balances.
 
-    // map: Record<$key, ITokenFiat> for the small-balance ids — aggregate ids
-    // resolve through the derived aggCell, normal ids through cell.
-    const smallBalanceTokenListMap: Record<string, ITokenFiat> = {};
-    for (const id of smallBalanceIds) {
-      const aggregate = isAgg(id, store.get(meta(store, id)));
-      const fiat = store.get(aggregate ? aggCell(store, id) : cell(store, id));
-      if (fiat) {
-        smallBalanceTokenListMap[id] = fiat;
-      }
-    }
+    const smallBalanceTokenListMap = getFiatMap(smallBalanceIds);
 
     // nested aggregate fiat map: Record<aggKey, Record<networkId, ITokenFiat>>
     // for the aggregate small-balance ids, read from the per-network sub-cells
@@ -298,6 +315,7 @@ function TokenListFooter(props: IProps) {
     indexedAccount?.id,
     smallBalanceTokens.length,
     smallBalanceIds,
+    getFiatMap,
     store,
     listStructure.aggMembership,
     navigation,
@@ -493,23 +511,22 @@ function TokenListFooter(props: IProps) {
               />
             ) : null}
           </XStack>
-          {canDustSweep ? (
-            // Sized to its content so the label on the left truncates instead of overlapping.
-            <Button
-              testID="token-list-footer-dust-sweep"
-              size="small"
-              variant="secondary"
-              icon="BroomOutline"
-              flexShrink={0}
-              disabled={isDustSweepRefreshing}
-              accessibilityLabel={intl.formatMessage({
-                id: ETranslations.title_dust_sweep,
-              })}
-              onPress={handleOnPressDustSweep}
+          <XStack
+            flexGrow={1}
+            flexBasis={0}
+            justifyContent="flex-end"
+            alignItems="center"
+          >
+            <Currency
+              size={tableLayout ? '$bodyMdMedium' : '$bodyLgMedium'}
+              formatter="value"
+              sourceCurrency="usd"
+              textAlign="right"
+              hideValue
             >
-              {intl.formatMessage({ id: ETranslations.out_title_dust_sweep })}
-            </Button>
-          ) : null}
+              {displayedSmallBalanceFiatValue}
+            </Currency>
+          </XStack>
         </ListItem>
       ) : null}
       {!isSearchMode && filteredRiskyTokens.length > 0 ? (
