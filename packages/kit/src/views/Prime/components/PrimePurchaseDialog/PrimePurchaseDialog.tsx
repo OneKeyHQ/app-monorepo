@@ -4,16 +4,30 @@ import { useCallback, useRef, useState } from 'react';
 import { useIntl } from 'react-intl';
 
 import type { IActionListItemProps } from '@onekeyhq/components';
-import { Dialog, Skeleton, Stack, YStack } from '@onekeyhq/components';
+import {
+  Dialog,
+  Icon,
+  SizableText,
+  Skeleton,
+  Stack,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import type { IListItemTextProps } from '@onekeyhq/kit/src/components/ListItem';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import { MultipleClickStack } from '@onekeyhq/kit/src/components/MultipleClickStack';
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import googlePlayService from '@onekeyhq/shared/src/googlePlayService/googlePlayService';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import type { IPrimePaymentMethod } from '@onekeyhq/shared/src/logger/scopes/prime/scenes/subscription';
+import type {
+  IPrimeCardCheckoutFlow,
+  IPrimePaymentMethod,
+} from '@onekeyhq/shared/src/logger/scopes/prime/scenes/subscription';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   isPrimeAppleStorePayment,
@@ -22,12 +36,14 @@ import {
 } from '@onekeyhq/shared/src/prime/primePaymentCapabilities';
 import type { EPrimeFeatures } from '@onekeyhq/shared/src/routes/prime';
 
+import { getPrimeCardCheckoutMode } from '../../hooks/primeCardCheckoutMode';
 import {
   getPrimeInfiniPaymentEntryGuard,
   getPrimeInfiniPendingPaymentContext,
 } from '../../hooks/primeInfiniExternalCheckoutGuard';
 import { usePrimeInfiniPurchase } from '../../hooks/usePrimeInfiniPurchase';
 import { usePrimePayment } from '../../hooks/usePrimePayment';
+import { usePrimeWebCheckoutPurchase } from '../../hooks/usePrimeWebCheckoutPurchase';
 import { showPrimeInfiniPaymentErrorToast } from '../../primeInfiniPaymentError';
 import { logPrimeInfiniPaymentFlow } from '../../primeInfiniPaymentLogger';
 import { ensurePrimePurchaseEligible } from '../../primePurchaseEligibility';
@@ -35,6 +51,11 @@ import {
   finishPrimeSubscriptionPurchaseSuccess,
   preparePrimeSubscriptionPurchaseSuccess,
 } from '../../primeSubscriptionPurchaseSuccess';
+import { getPrimeEmbeddedCheckoutFallbackTrigger } from '../../purchasesSdk/primeEmbeddedCheckoutFallback';
+import {
+  beginStripePaymentElementAttempt,
+  getStripePaymentElementState,
+} from '../../purchasesSdk/stripePaymentElementHealth';
 import { showPrimeInfiniWaitingDialog } from '../PrimeInfiniWaitingDialog';
 
 import { PrimeSubscriptionPlans } from './PrimeSubscriptionPlans';
@@ -109,12 +130,19 @@ function PrimePaymentMethodItems({
 }: {
   methods: IPrimePaymentMethodOption[];
   freeTrial?: IPackageFreeTrial;
-  onSelect: (method: IPrimePaymentMethodKey) => Promise<boolean>;
+  onSelect: (
+    method: IPrimePaymentMethodKey,
+    forceHostedCardCheckout?: boolean,
+  ) => Promise<boolean>;
 }) {
   const intl = useIntl();
+  const [forceHostedCardCheckout, setForceHostedCardCheckout] = useState(false);
   const [pendingMethod, setPendingMethod] = useState<IPrimePaymentMethodKey>();
   const pendingMethodRef = useRef<IPrimePaymentMethodKey | undefined>(
     undefined,
+  );
+  const supportsHostedCardCheckout = methods.some(
+    (method) => method.key === 'webStripe',
   );
   // Android can show native and Web checkout together. A trial belongs only
   // to the offering source that reported it, so never copy it to both rows.
@@ -156,7 +184,7 @@ function PrimePaymentMethodItems({
         setPendingMethod(undefined);
       };
       try {
-        const didStart = await onSelect(method);
+        const didStart = await onSelect(method, forceHostedCardCheckout);
         if (!didStart) {
           clearPendingMethod();
         }
@@ -167,10 +195,29 @@ function PrimePaymentMethodItems({
         throw error;
       }
     },
-    [onSelect],
+    [forceHostedCardCheckout, onSelect],
   );
   return (
     <>
+      {supportsHostedCardCheckout ? (
+        <Dialog.Header>
+          <MultipleClickStack
+            key={String(forceHostedCardCheckout)}
+            testID="prime-payment-method-title"
+            onPress={() => {
+              if (!pendingMethodRef.current) {
+                setForceHostedCardCheckout((previous) => !previous);
+              }
+            }}
+          >
+            <Dialog.Title>
+              {intl.formatMessage({
+                id: ETranslations.prime_payment_method__title,
+              })}
+            </Dialog.Title>
+          </MultipleClickStack>
+        </Dialog.Header>
+      ) : null}
       {methods.map((method) => (
         <ListItem
           key={method.key}
@@ -178,6 +225,31 @@ function PrimePaymentMethodItems({
           icon={method.icon}
           testID={method.testID ?? `prime-payment-method-${method.key}`}
           title={intl.formatMessage({ id: method.label })}
+          renderItemText={
+            method.key === 'webStripe' && forceHostedCardCheckout
+              ? (textProps: IListItemTextProps) => (
+                  <ListItem.Text
+                    {...textProps}
+                    primary={
+                      <XStack alignItems="center" gap="$1">
+                        <SizableText
+                          size="$bodyLgMedium"
+                          {...textProps.primaryTextProps}
+                        >
+                          {intl.formatMessage({ id: method.label })}
+                        </SizableText>
+                        <Icon
+                          name="ArrowTopRightOutline"
+                          size="$4"
+                          color="$iconSubdued"
+                          testID="prime-card-hosted-checkout-icon"
+                        />
+                      </XStack>
+                    }
+                  />
+                )
+              : undefined
+          }
           subtitle={getMethodSubtitle(method)}
           disabled={Boolean(pendingMethod)}
           isLoading={pendingMethod === method.key}
@@ -202,6 +274,11 @@ export function usePrimePurchaseCallback({
   const intl = useIntl();
 
   const purchaseByWebviewUnchecked = usePurchasePackageWebview();
+  const {
+    purchaseByHostedLink,
+    fallbackToHostedLink,
+    resumePendingHostedCheckout,
+  } = usePrimeWebCheckoutPurchase();
   const { purchaseByCrypto: purchaseByCryptoUnchecked } =
     usePrimeInfiniPurchase({ networkId });
 
@@ -239,13 +316,37 @@ export function usePrimePurchaseCallback({
         | undefined;
       try {
         const purchaseUserId = user?.onekeyUserId;
-        const purchaseResult = await purchasePackageWeb?.({
-          subscriptionPeriod: selectedSubscriptionPeriod,
-          email: supabaseUser?.email || '',
-          locale: intl.locale,
-          currency,
-          featureName,
-        });
+        if (await resumePendingHostedCheckout()) {
+          return;
+        }
+        beginStripePaymentElementAttempt();
+        let purchaseResult:
+          | Awaited<ReturnType<NonNullable<typeof purchasePackageWeb>>>
+          | undefined;
+        try {
+          purchaseResult = await purchasePackageWeb?.({
+            subscriptionPeriod: selectedSubscriptionPeriod,
+            email: supabaseUser?.email || '',
+            locale: intl.locale,
+            currency,
+            featureName,
+          });
+        } catch (error) {
+          const fallbackTrigger = getPrimeEmbeddedCheckoutFallbackTrigger({
+            error,
+            paymentElementState: getStripePaymentElementState(),
+          });
+          if (!fallbackTrigger) {
+            throw error;
+          }
+          void fallbackToHostedLink({
+            trigger: fallbackTrigger,
+            selectedSubscriptionPeriod,
+            currency,
+            featureName,
+          });
+          return;
+        }
         if (
           purchaseUserId &&
           purchaseResult?.customerInfo.entitlements.active.Prime?.isActive
@@ -264,7 +365,14 @@ export function usePrimePurchaseCallback({
         await finishPrimeSubscriptionPurchaseSuccess(successfulPurchase);
       }
     },
-    [intl.locale, purchasePackageWeb, supabaseUser?.email, user?.onekeyUserId],
+    [
+      resumePendingHostedCheckout,
+      fallbackToHostedLink,
+      intl.locale,
+      purchasePackageWeb,
+      supabaseUser?.email,
+      user?.onekeyUserId,
+    ],
   );
 
   const purchaseByNative = useCallback(
@@ -323,12 +431,16 @@ export function usePrimePurchaseCallback({
       // logged in each concrete channel branch instead of when the payment
       // method picker is shown. The crypto path logs it inside
       // usePrimeInfiniPurchase with paymentMethod: 'crypto'.
-      const logSubscribeIntent = (paymentMethod: IPrimePaymentMethod) => {
+      const logSubscribeIntent = (
+        paymentMethod: IPrimePaymentMethod,
+        cardCheckoutFlow?: IPrimeCardCheckoutFlow,
+      ) => {
         defaultLogger.prime.subscription.primeSubscribeIntent({
           subscriptionPeriod: selectedSubscriptionPeriod,
           featureName,
           currency,
           paymentMethod,
+          cardCheckoutFlow,
         });
       };
       const startCryptoPayment = async ({
@@ -551,7 +663,7 @@ export function usePrimePurchaseCallback({
             <PrimePaymentMethodItems
               methods={paymentMethods}
               freeTrial={freeTrial}
-              onSelect={async (method) => {
+              onSelect={async (method, forceHostedCardCheckout) => {
                 const pendingResult = await continuePendingCryptoPayment({
                   beforeContinue: async () => {
                     await paymentMethodDialog.close();
@@ -577,19 +689,32 @@ export function usePrimePurchaseCallback({
                     featureName,
                   });
                 } else if (method === 'webview') {
-                  logSubscribeIntent('stripe');
+                  logSubscribeIntent('stripe', 'embedded');
                   void purchaseByWebviewUnchecked({
                     selectedSubscriptionPeriod,
                     currency,
                     featureName,
-                  });
+                  }).catch(errorToastUtils.toastIfError);
                 } else if (method === 'webStripe') {
-                  logSubscribeIntent('stripe');
-                  void purchaseByWebStripeUnchecked({
-                    selectedSubscriptionPeriod,
-                    currency,
-                    featureName,
-                  });
+                  if (
+                    forceHostedCardCheckout ||
+                    (await getPrimeCardCheckoutMode()) === 'hostedLink'
+                  ) {
+                    // Logs its own intent; the extension popup only hands
+                    // the plan off to the expand tab.
+                    void purchaseByHostedLink({
+                      selectedSubscriptionPeriod,
+                      currency,
+                      featureName,
+                    });
+                  } else {
+                    logSubscribeIntent('stripe', 'embedded');
+                    void purchaseByWebStripeUnchecked({
+                      selectedSubscriptionPeriod,
+                      currency,
+                      featureName,
+                    }).catch(errorToastUtils.toastIfError);
+                  }
                 } else {
                   logPrimeInfiniPaymentFlow({
                     stage: 'paymentMethod',
@@ -617,6 +742,7 @@ export function usePrimePurchaseCallback({
       intl,
       onPurchase,
       purchaseByCryptoUnchecked,
+      purchaseByHostedLink,
       purchaseByNativeUnchecked,
       purchaseByWebStripeUnchecked,
       purchaseByWebviewUnchecked,

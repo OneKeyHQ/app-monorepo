@@ -716,4 +716,52 @@ describe('native market listing favorites', () => {
       leadingAction: undefined,
     });
   });
+
+  it('opens the favorite menu on long press, except in travel mode', () => {
+    const renderStockList = () =>
+      render(
+        <MobileMarketNativeStockList
+          selectedCategoryId="all"
+          listContainerProps={{ paddingBottom: 20 }}
+        />,
+      );
+
+    renderStockList();
+    expect(mockNativeSnapshot?.rows[0]).toMatchObject({
+      key: 'AAPL',
+      longPressActionKey: 'favorite-menu',
+    });
+
+    mockTravelMode = true;
+    try {
+      renderStockList();
+      expect(mockNativeSnapshot?.rows[0]).toMatchObject({ key: 'AAPL' });
+      expect(
+        (mockNativeSnapshot?.rows[0] as { longPressActionKey?: string })
+          .longPressActionKey,
+      ).toBeUndefined();
+    } finally {
+      mockTravelMode = false;
+    }
+  });
+
+  it('mounts the new native favorite menu through the global overlay host', () => {
+    jest.clearAllMocks();
+    render(
+      <MobileMarketNativeStockList
+        selectedCategoryId="all"
+        listContainerProps={{ paddingBottom: 20 }}
+      />,
+    );
+
+    act(() => {
+      mockRowAction?.({ actionKey: 'favorite-menu', rowKey: 'AAPL' });
+    });
+    expect(mockPortalRender).toHaveBeenCalledTimes(1);
+    expect(mockPortalRender.mock.calls[0][0]).toBe('global');
+    const menu = mockPortalRender.mock.calls[0][1] as ReactElement<{
+      isInWatchlist: boolean;
+    }>;
+    expect(menu.props.isInWatchlist).toBe(false);
+  });
 });

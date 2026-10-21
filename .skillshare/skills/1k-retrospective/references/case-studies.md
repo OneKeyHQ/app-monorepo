@@ -874,3 +874,31 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries â€
 **Root Cause**: The iOS collapsible tabs header defaults to a white background. The native chart toolbar is transparent, so its dark-theme white text and icons were drawn over that white header.
 **Fix**: Set this page's collapsible header background to the current `bgApp` theme color and update it when the theme changes.
 **Catchable by**: Section 8: open Perps detail with the native chart in dark and light themes, verify the interval/settings toolbar is visible and usable, and recheck after switching themes and reopening the page.
+
+## Case: Swap keyboard percentage shortcuts disappeared after remount (OK-64938)
+**Date**: 2026-10-20 | **Platforms**: iOS (main UI runtime and native input accessory views)
+**Symptom**: The percentage shortcuts above the keyboard disappeared after leaving and reopening Swap.
+**Root Cause**: Fabric recycling cleared the native input's accessory ID while retaining the previous React props. Reusing the same prop value after remount skipped the native setter, leaving the input unbound to the accessory view.
+**Fix**: Derive an accessory ID from `useId` in the mounted input-pair owner and pass the same ID to both inputs and the accessory view. Keep it stable during that mount and distinct after remount.
+**Catchable by**: Section 8: focus both amount inputs, use percentage shortcuts, then leave and reopen Swap with the keyboard hidden and shown; verify the shortcuts still render and update the intended amount.
+
+## Case: Swap stock-position hover corners were clipped (OK-64536)
+**Date**: 2026-10-20 | **Platforms**: Desktop and web (single-runtime stock panel; associated iOS path checked)
+**Symptom**: The stock-position row's rounded hover background was cut off at the sides.
+**Root Cause**: The table extended into the card gutter, but the animated reveal's overflow clip remained inside that gutter and cut through the row corners.
+**Fix**: Expand the reveal boundary to include the table gutters while keeping the title and token columns aligned. Offset the parent gap on the outer wrapper and include the visible gap in the measured content, preserving zero-height collapse and empty-state spacing.
+**Catchable by**: Section 8: inspect the actual hover background and clipping geometry with a position, click the row, and compare the surrounding spacing with no positions; component existence alone does not verify the corners.
+
+## Case: Swap modal action labels wrapped despite available width (OK-64452)
+**Date**: 2026-10-20 | **Platforms**: Desktop and web (single-runtime modal action layout; associated iOS path checked)
+**Symptom**: Long action labels wrapped because the action button was constrained to the width of the smaller savings badge.
+**Root Cause**: The badge measurement supplied both the action's width and minimum width, preventing the label from determining its natural width.
+**Fix**: Use the measured badge width only as a minimum and let the action content determine its width. Preserve loading, disabled, and changing-badge states.
+**Catchable by**: Section 8: compare long labels against shorter badges and changing badge values, including loading and disabled actions; verify text width and alignment in the real modal.
+
+## Case: Swap account-discovery cache invalidated on network presentation changes
+**Date**: 2026-10-20 | **Platforms**: Desktop and web (single runtime); native and extension consumers (main UI runtime)
+**Symptom**: Cached token rows could return to a whole-list skeleton when network order or selected-chain derive metadata changed; account-only cached rows could also lack network badges.
+**Root Cause**: The wallet-wide discovery key depended on presentation order and selected-chain derive resolution. The account-only fallback also omitted network-logo metadata already available in the network list.
+**Fix**: Normalize network-set keys, invalidate discovery on the actual global derive-change generation, and fill missing network logos in the account-only fallback. Existing hook tests cover reorder stability and explicit derive invalidation. These retained changes do not eliminate individual-image placeholder flicker or establish that all token-selector image issues are resolved.
+**Catchable by**: Section 5: distinguish cache identity changes from presentation changes; verify populated-list continuity, account switches, explicit invalidation, and late responses separately from individual-image loading.

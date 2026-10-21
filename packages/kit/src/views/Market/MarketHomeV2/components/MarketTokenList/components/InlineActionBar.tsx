@@ -9,8 +9,10 @@ const DISMISS_GUARD_DELAY = 350;
 const SHOW_DELAY = 500;
 
 type IInlineActionBarProps = {
-  isFirstItem: boolean;
-  onMoveToTop: () => void;
+  isFirstItem?: boolean;
+  // Omitted outside the Favorites list, which leaves only the star button.
+  onMoveToTop?: () => void;
+  isInWatchlist?: boolean;
   onToggleWatchlist: () => void;
   onDismiss: () => void;
   anchor?: {
@@ -19,6 +21,7 @@ type IInlineActionBarProps = {
   };
 };
 
+const ACTION_BUTTON_WIDTH = 46;
 const ACTION_BAR_WIDTH = 94;
 const ACTION_BAR_HEIGHT = 44;
 const ACTION_BAR_SAFE_MARGIN = 16;
@@ -32,8 +35,9 @@ const DISMISS_BACKDROP = {
 } as const;
 
 function InlineActionBar({
-  isFirstItem,
+  isFirstItem = false,
   onMoveToTop,
+  isInWatchlist = true,
   onToggleWatchlist,
   onDismiss,
   anchor,
@@ -65,13 +69,15 @@ function InlineActionBar({
 
   const handleMoveToTop = useCallback(() => {
     if (isFirstItem) return;
-    onMoveToTop();
+    onMoveToTop?.();
   }, [isFirstItem, onMoveToTop]);
 
   const handleToggleWatchlist = useCallback(() => {
     onToggleWatchlist();
   }, [onToggleWatchlist]);
 
+  const showMoveToTop = Boolean(onMoveToTop);
+  const barWidth = showMoveToTop ? ACTION_BAR_WIDTH : ACTION_BUTTON_WIDTH;
   const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
   // Place action bar above anchor point (anchor as bottom-center)
   const top = Math.max(
@@ -86,8 +92,8 @@ function InlineActionBar({
   const left = Math.max(
     ACTION_BAR_SAFE_MARGIN,
     Math.min(
-      (anchor?.x ?? screenWidth / 2) - ACTION_BAR_WIDTH / 2,
-      screenWidth - ACTION_BAR_SAFE_MARGIN - ACTION_BAR_WIDTH,
+      (anchor?.x ?? screenWidth / 2) - barWidth / 2,
+      screenWidth - ACTION_BAR_SAFE_MARGIN - barWidth,
     ),
   );
 
@@ -104,7 +110,7 @@ function InlineActionBar({
         position="absolute"
         top={top}
         left={left}
-        width={ACTION_BAR_WIDTH}
+        width={barWidth}
         height={ACTION_BAR_HEIGHT}
         borderRadius={12}
         alignItems="center"
@@ -112,33 +118,37 @@ function InlineActionBar({
         opacity={isVisible ? 1 : 0}
         style={{ backgroundColor: ACTION_BAR_BG }}
       >
-        {/* Move to top button */}
-        <Stack
-          width={46}
-          height={44}
-          alignItems="center"
-          justifyContent="center"
-          opacity={isFirstItem ? 0.3 : 1}
-          onPress={(e) => {
-            e.stopPropagation();
-            handleMoveToTop();
-          }}
-        >
-          <Icon name="AlignTopOutline" size="$5" color="$whiteA12" />
-        </Stack>
+        {showMoveToTop ? (
+          <>
+            {/* Move to top button */}
+            <Stack
+              width={ACTION_BUTTON_WIDTH}
+              height={44}
+              alignItems="center"
+              justifyContent="center"
+              opacity={isFirstItem ? 0.3 : 1}
+              onPress={(e) => {
+                e.stopPropagation();
+                handleMoveToTop();
+              }}
+            >
+              <Icon name="AlignTopOutline" size="$5" color="$whiteA12" />
+            </Stack>
 
-        {/* Divider */}
-        <Stack
-          height={24}
-          style={{
-            width: StyleSheet.hairlineWidth,
-            backgroundColor: ACTION_BAR_DIVIDER,
-          }}
-        />
+            {/* Divider */}
+            <Stack
+              height={24}
+              style={{
+                width: StyleSheet.hairlineWidth,
+                backgroundColor: ACTION_BAR_DIVIDER,
+              }}
+            />
+          </>
+        ) : null}
 
         {/* Toggle watchlist button */}
         <Stack
-          width={46}
+          width={ACTION_BUTTON_WIDTH}
           height={44}
           alignItems="center"
           justifyContent="center"
@@ -147,7 +157,11 @@ function InlineActionBar({
             handleToggleWatchlist();
           }}
         >
-          <Icon name="StarSolid" size="$5" style={{ color: '#F8E71C' }} />
+          {isInWatchlist ? (
+            <Icon name="StarSolid" size="$5" style={{ color: '#F8E71C' }} />
+          ) : (
+            <Icon name="StarOutline" size="$5" color="$whiteA12" />
+          )}
         </Stack>
       </XStack>
     </OverlayView>

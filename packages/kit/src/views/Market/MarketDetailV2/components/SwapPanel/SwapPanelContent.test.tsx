@@ -5,6 +5,8 @@ import type { ReactNode } from 'react';
 import { fireEvent, render, screen } from '@testing-library/react';
 import BigNumber from 'bignumber.js';
 
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+
 import { ESwapDirection } from './hooks/useTradeType';
 import {
   type ISwapPanelContentProps,
@@ -158,9 +160,13 @@ jest.mock('./components/TokenInputSection', () => ({
         {
           tradeType,
           stockDetailDesktopLayout,
+          selectedToken,
+          selectedTokenLoading,
         }: {
           tradeType: ESwapDirection;
           stockDetailDesktopLayout?: boolean;
+          selectedToken?: ISwapPanelContentProps['paymentTokenDisplay'];
+          selectedTokenLoading?: boolean;
         },
         ref,
       ) => {
@@ -172,6 +178,8 @@ jest.mock('./components/TokenInputSection', () => ({
         tokenInputSectionMock({
           tradeType,
           stockDetailDesktopLayout,
+          selectedToken,
+          selectedTokenLoading,
           setValue,
         });
         return <div data-testid="token-input" />;
@@ -183,9 +191,8 @@ jest.mock('./components/RateDisplay', () => ({
   RateDisplay: () => <div data-testid="rate-display" />,
 }));
 
-jest.mock('./components/SellForSelector', () => ({
-  __esModule: true,
-  default: () => <div data-testid="sell-selector" />,
+jest.mock('./components/TokenInputSection/TokenSelectorPopover', () => ({
+  TokenSelectorPopover: () => null,
 }));
 
 jest.mock('./components/SlippageSetting', () => ({
@@ -301,6 +308,52 @@ describe('SwapPanelContent', () => {
     swapActionsStateMock.mockReset();
     swapQuoteResultMock.mockReset();
     swapStockHeaderRightActionContainerMock.mockReset();
+  });
+
+  it('passes pending payment selection to Buy and displays the resolved default immediately', () => {
+    const props = createProps();
+    const cachedToken = props.swapPanel.paymentToken;
+    props.swapPanel.paymentToken = undefined;
+    props.paymentTokenDisplayLoading = true;
+    const { rerender } = render(<SwapPanelContent {...props} />);
+    expect(tokenInputSectionMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        tradeType: ESwapDirection.BUY,
+        selectedToken: undefined,
+        selectedTokenLoading: true,
+      }),
+    );
+    props.paymentTokenDisplay = cachedToken;
+    props.paymentTokenDisplayLoading = false;
+    tokenInputSectionMock.mockClear();
+    rerender(<SwapPanelContent {...props} />);
+    expect(tokenInputSectionMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        tradeType: ESwapDirection.BUY,
+        selectedToken: cachedToken,
+        selectedTokenLoading: false,
+      }),
+    );
+  });
+
+  it('shows Sell payment loading only until a token is available', () => {
+    const props = createProps();
+    props.swapPanel.tradeType = ESwapDirection.SELL;
+    const cachedToken = props.swapPanel.paymentToken;
+    props.swapPanel.paymentToken = undefined;
+    props.paymentTokenDisplayLoading = true;
+    const { rerender } = render(<SwapPanelContent {...props} />);
+    let sellRow = screen.getByText(
+      ETranslations.promode_limit_sell_for,
+    ).parentElement;
+    expect(sellRow?.querySelector('[data-testid="skeleton"]')).not.toBeNull();
+    props.paymentTokenDisplay = cachedToken;
+    rerender(<SwapPanelContent {...props} />);
+    sellRow = screen.getByText(
+      ETranslations.promode_limit_sell_for,
+    ).parentElement;
+    expect(sellRow?.querySelector('[data-testid="skeleton"]')).toBeNull();
+    expect(sellRow?.textContent).toContain('USDC');
   });
 
   it('routes the main action button to the review swap handler', () => {

@@ -259,7 +259,7 @@ export function DesktopLayout({
     [accountAddress, networkId, tokenAddress],
   );
 
-  const { portfolioData, isRefreshing } = usePortfolioData({
+  const { portfolioData, isRefreshing, isPortfolioPending } = usePortfolioData({
     tokenAddress,
     networkId,
     accountAddress: shouldUseStockDesktopLayout ? undefined : accountAddress,
@@ -689,6 +689,7 @@ export function DesktopLayout({
         swapInputDraftKey={swapInputDraftKey}
         portfolioData={portfolioData}
         isRefreshing={isRefreshing}
+        isPortfolioPending={isPortfolioPending}
         isBTCNetwork={isBTCNetwork}
         isBTCMainnet={isBTCMainnet}
         tokenLogoUrl={tokenDetail?.logoUrl}

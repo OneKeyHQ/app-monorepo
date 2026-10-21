@@ -36,11 +36,16 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { EWatchlistFrom } from '@onekeyhq/shared/src/logger/scopes/dex';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
+import { getMarketWatchlistKey } from '@onekeyhq/shared/src/utils/marketWatchlistIdentity';
 import { parseDexCoin } from '@onekeyhq/shared/src/utils/perpsUtils';
 import type { IMarketWatchListItemV2 } from '@onekeyhq/shared/types/market';
 import type { IMarketStockInfo } from '@onekeyhq/shared/types/marketV2';
 
+import { useWatchListV2Action } from '../../../components/watchListHooksV2';
 import { usePerpsNavigation } from '../../../hooks/usePerpsNavigation';
 import { MarketTestIDs } from '../../../testIDs';
 import { useMarketPerpsTokenList } from '../MarketPerpsList/hooks/useMarketPerpsTokenList';
@@ -536,6 +541,187 @@ function prewarmTokenDetail(item: IMarketToken) {
   prewarmMarketTokenImages(item);
 }
 
+type IFavoriteMenuTarget = Omit<IMarketWatchListItemV2, 'sortIndex'> & {
+  symbol: string;
+};
+
+function tokenToFavoriteMenuTarget(item: IMarketToken): IFavoriteMenuTarget {
+  if (item.perpsCoin) {
+    return {
+      chainId: '',
+      contractAddress: '',
+      perpsCoin: item.perpsCoin,
+      symbol: item.symbol,
+    };
+  }
+  // Listings are keyed by assetId / stockId alone, like MarketStarV2.
+  const isListing = Boolean(item.assetId || item.stockId);
+  return {
+    chainId: isListing ? '' : item.networkId,
+    contractAddress: isListing ? '' : item.address,
+    isNative: item.isNative,
+    assetId: item.assetId,
+    stockId: item.stockId,
+    symbol: item.symbol,
+  };
+}
+
+function getFavoriteMenuAnchorPoint(anchor?: NativeListActionAnchor) {
+  if (!anchor) return undefined;
+  return {
+    x: Dimensions.get('window').width * 0.48,
+    y:
+      (anchor.windowPoint?.y ??
+        anchor.windowRect.y + anchor.windowRect.height / 2) - 4,
+  };
+}
+
+/**
+ * Long-press menu for the non-Favorites lists: a single star that adds the
+ * row to Favorites (hollow) or removes it when it is already there (solid).
+ */
+// Favorites are hidden in travel mode (no stars, no Favorites tab), so the
+// long-press shortcut to them is too.
+function isFavoriteMenuEnabled() {
+  return (
+    travelModeManager.getRuntimeEnvironmentSync().profile.kind !== 'travel-mode'
+  );
+}
+
+function useNativeFavoriteMenu(listRef: RefObject<NativeListRef | null>) {
+  const intl = useIntl();
+  const watchListActions = useWatchListV2Action();
+  // The perps wrappers report failures on their own and return nothing, so
+  // perps go through the atom actions to know whether to confirm.
+  const rawWatchListActions = useWatchListV2Actions();
+  const [{ data: watchListData, isMounted }] = useMarketWatchListV2Atom();
+  const portalRef = useRef<IPortalManager | null>(null);
+  const menuAnchorRef = useRef<NativeListActionAnchor | undefined>(undefined);
+  const stateRef = useRef({ watchListActions, watchListData, isMounted });
+  stateRef.current = { watchListActions, watchListData, isMounted };
+
+  const close = useCallback(
+    (restoreFocus = true) => {
+      const anchor = menuAnchorRef.current;
+      if (anchor) {
+        listRef.current?.setActionAnchorState({
+          token: anchor.token,
+          open: false,
+          restoreFocus,
+        });
+      }
+      menuAnchorRef.current = undefined;
+      portalRef.current?.destroy();
+      portalRef.current = null;
+    },
+    [listRef],
+  );
+
+  const toggleFavorite = useCallback(
+    async (target: IFavoriteMenuTarget, isInWatchlist: boolean) => {
+      const { watchListActions: actions } = stateRef.current;
+      const { symbol, ...item } = target;
+      if (item.perpsCoin) {
+        try {
+          if (isInWatchlist) {
+            await rawWatchListActions.current.removePerpsFromWatchListV2(
+              item.perpsCoin,
+            );
+          } else {
+            await rawWatchListActions.current.addPerpsIntoWatchListV2(
+              item.perpsCoin,
+            );
+          }
+        } catch {
+          Toast.error({
+            title: intl.formatMessage({
+              id: ETranslations.global_an_error_occurred,
+            }),
+          });
+          return;
+        }
+      } else if (isInWatchlist) {
+        const removed = await actions.removeFromWatchListV2(
+          item.chainId,
+          item.contractAddress,
+          { assetId: item.assetId, stockId: item.stockId },
+        );
+        if (!removed) return;
+        defaultLogger.dex.watchlist.dexRemoveFromWatchlist({
+          network: item.chainId,
+          tokenSymbol: symbol,
+          tokenContract: item.contractAddress,
+          removeFrom: EWatchlistFrom.Homepage,
+        });
+      } else {
+        const added = await actions.addIntoWatchListV2([item]);
+        if (!added) return;
+        defaultLogger.dex.watchlist.dexAddToWatchlist({
+          network: item.chainId,
+          tokenSymbol: symbol,
+          tokenContract: item.contractAddress,
+          addFrom: EWatchlistFrom.Homepage,
+        });
+      }
+      Toast.success({
+        title: intl.formatMessage({
+          id: isInWatchlist
+            ? ETranslations.market_remove_from_watchlist
+            : ETranslations.market_add_to_watchlist,
+        }),
+      });
+    },
+    [intl, rawWatchListActions],
+  );
+
+  const show = useCallback(
+    (target: IFavoriteMenuTarget, anchor?: NativeListActionAnchor) => {
+      close(false);
+      if (!isFavoriteMenuEnabled() || !stateRef.current.isMounted) return;
+      const targetKey = getMarketWatchlistKey(target);
+      const isInWatchlist = stateRef.current.watchListData.some(
+        (item) => getMarketWatchlistKey(item) === targetKey,
+      );
+      menuAnchorRef.current = anchor;
+      if (anchor) {
+        listRef.current?.setActionAnchorState({
+          token: anchor.token,
+          open: true,
+        });
+      }
+      Haptics.impact(ImpactFeedbackStyle.Medium);
+      portalRef.current = mountImperativeOverlay({
+        target: 'global',
+        node: (
+          <InlineActionBar
+            isInWatchlist={isInWatchlist}
+            anchor={getFavoriteMenuAnchorPoint(anchor)}
+            onToggleWatchlist={() => {
+              close();
+              // Travel mode can switch on while the bar is open.
+              if (!isFavoriteMenuEnabled()) return;
+              void toggleFavorite(target, isInWatchlist);
+            }}
+            onDismiss={() => close()}
+          />
+        ),
+      });
+    },
+    [close, listRef, toggleFavorite],
+  );
+
+  const onActionAnchorInvalidated = useCallback(
+    (event: ActionAnchorInvalidatedEvent) => {
+      if (event.token === menuAnchorRef.current?.token) close(false);
+    },
+    [close],
+  );
+
+  useEffect(() => () => close(false), [close]);
+
+  return { show, onActionAnchorInvalidated };
+}
+
 type ISharedListProps = {
   listContainerProps: {
     emptyContentPaddingTop?: number;
@@ -587,16 +773,24 @@ function MobileMarketNativeTokenListImpl({
       onStockDataChange?.(selectedCategory, isStockData);
     }
   }, [isStockData, onStockDataChange, selectedCategory]);
+  const isFavoriteMenuOn = isFavoriteMenuEnabled();
   const rows = useMemo(
     () =>
-      result.data.map((item) => buildTokenMarketRow({ item, presentation })),
-    [presentation, result.data],
+      result.data.map((item) =>
+        buildTokenMarketRow({
+          item,
+          presentation,
+          favoriteMenu: isFavoriteMenuOn,
+        }),
+      ),
+    [isFavoriteMenuOn, presentation, result.data],
   );
   const itemsByKey = useMemo(
     () => new Map(result.data.map((item) => [marketTokenKey(item), item])),
     [result.data],
   );
   const badgeInfo = useNativeMarketBadgeInfo(listRef);
+  const favoriteMenu = useNativeFavoriteMenu(listRef);
   const handleRowAction = useCallback(
     (event: RowActionEvent) => {
       if (event.actionKey === 'retry') {
@@ -613,6 +807,8 @@ function MobileMarketNativeTokenListImpl({
         prewarmTokenDetail(item);
       } else if (event.actionKey === 'token-tags') {
         badgeInfo.openTokenTags(item, event.anchor);
+      } else if (event.actionKey === 'favorite-menu') {
+        favoriteMenu.show(tokenToFavoriteMenuTarget(item), event.anchor);
       } else if (
         event.actionKey === 'open-detail' &&
         !shouldSuppressItemPress?.()
@@ -628,11 +824,19 @@ function MobileMarketNativeTokenListImpl({
     },
     [
       badgeInfo,
+      favoriteMenu,
       itemsByKey,
       result,
       shouldSuppressItemPress,
       toMarketDetailPage,
     ],
+  );
+  const onTokenListAnchorInvalidated = useCallback(
+    (event: ActionAnchorInvalidatedEvent) => {
+      favoriteMenu.onActionAnchorInvalidated(event);
+      badgeInfo.onActionAnchorInvalidated(event);
+    },
+    [badgeInfo, favoriteMenu],
   );
   const showSkeleton =
     (Boolean(result.isLoading) && result.data.length === 0) ||
@@ -654,7 +858,7 @@ function MobileMarketNativeTokenListImpl({
         contentPaddingBottom={listContainerProps.paddingBottom}
         emptyContentHeight={listContainerProps.emptyContentHeight}
         onRowAction={handleRowAction}
-        onActionAnchorInvalidated={badgeInfo.onActionAnchorInvalidated}
+        onActionAnchorInvalidated={onTokenListAnchorInvalidated}
         onEndReached={() => {
           if (
             result.canLoadMore &&
@@ -961,15 +1165,23 @@ function MobileMarketNativeStockListImpl({
   const result = useMarketStockList({
     category: selectedCategoryId === 'all' ? undefined : selectedCategoryId,
   });
+  const isFavoriteMenuOn = isFavoriteMenuEnabled();
   const rows = useMemo(
     () =>
-      result.items.map((item) => buildStockMarketRow({ item, presentation })),
-    [presentation, result.items],
+      result.items.map((item) =>
+        buildStockMarketRow({
+          item,
+          presentation,
+          favoriteMenu: isFavoriteMenuOn,
+        }),
+      ),
+    [isFavoriteMenuOn, presentation, result.items],
   );
   const itemsByKey = useMemo(
     () => new Map(result.items.map((item) => [item.stockId, item])),
     [result.items],
   );
+  const favoriteMenu = useNativeFavoriteMenu(listRef);
   const handleRowAction = useCallback(
     (event: RowActionEvent) => {
       if (event.actionKey === 'retry') {
@@ -989,6 +1201,16 @@ function MobileMarketNativeStockListImpl({
           isStockRoute: true,
           layout: 'mobile',
         });
+      } else if (event.actionKey === 'favorite-menu') {
+        favoriteMenu.show(
+          {
+            chainId: '',
+            contractAddress: '',
+            stockId: item.stockId,
+            symbol: item.symbol,
+          },
+          event.anchor,
+        );
       } else if (
         event.actionKey === 'open-detail' &&
         !shouldSuppressItemPress?.()
@@ -996,7 +1218,13 @@ function MobileMarketNativeStockListImpl({
         void toMarketStockDetailPage(item);
       }
     },
-    [itemsByKey, result, shouldSuppressItemPress, toMarketStockDetailPage],
+    [
+      favoriteMenu,
+      itemsByKey,
+      result,
+      shouldSuppressItemPress,
+      toMarketStockDetailPage,
+    ],
   );
   return (
     <NativeMarketList
@@ -1018,6 +1246,7 @@ function MobileMarketNativeStockListImpl({
       emptyContentHeight={listContainerProps.emptyContentHeight}
       testID={MarketTestIDs.stockList}
       onRowAction={handleRowAction}
+      onActionAnchorInvalidated={favoriteMenu.onActionAnchorInvalidated}
       onEndReached={() => {
         if (
           result.canLoadMore &&
@@ -1052,14 +1281,23 @@ function MobileMarketNativeTopCoinsListImpl({
   const presentation = useMarketNativeListPresentation();
   const { data, handleItemPress, isLoading, isError, refresh } =
     useMarketTopCoins({ categoryId: selectedCategoryId, dataCacheRef });
+  const isFavoriteMenuOn = isFavoriteMenuEnabled();
   const rows = useMemo(
-    () => data.map((item) => buildTopCoinMarketRow({ item, presentation })),
-    [data, presentation],
+    () =>
+      data.map((item) =>
+        buildTopCoinMarketRow({
+          item,
+          presentation,
+          favoriteMenu: isFavoriteMenuOn,
+        }),
+      ),
+    [isFavoriteMenuOn, data, presentation],
   );
   const itemsByKey = useMemo(
     () => new Map(data.map((item) => [item.assetId, item])),
     [data],
   );
+  const favoriteMenu = useNativeFavoriteMenu(listRef);
   const handleRowAction = useCallback(
     (event: RowActionEvent) => {
       if (event.actionKey === 'retry') {
@@ -1067,15 +1305,31 @@ function MobileMarketNativeTopCoinsListImpl({
         return;
       }
       const item = event.rowKey ? itemsByKey.get(event.rowKey) : undefined;
-      if (
-        item &&
+      if (!item) return;
+      if (event.actionKey === 'favorite-menu') {
+        favoriteMenu.show(
+          {
+            chainId: '',
+            contractAddress: '',
+            assetId: item.assetId,
+            symbol: item.symbol.toUpperCase(),
+          },
+          event.anchor,
+        );
+      } else if (
         event.actionKey === 'open-detail' &&
         !shouldSuppressItemPress?.()
       ) {
         void handleItemPress(item);
       }
     },
-    [handleItemPress, itemsByKey, refresh, shouldSuppressItemPress],
+    [
+      favoriteMenu,
+      handleItemPress,
+      itemsByKey,
+      refresh,
+      shouldSuppressItemPress,
+    ],
   );
   return (
     <NativeMarketList
@@ -1091,6 +1345,7 @@ function MobileMarketNativeTopCoinsListImpl({
       contentPaddingBottom={listContainerProps.paddingBottom}
       emptyContentHeight={listContainerProps.emptyContentHeight}
       onRowAction={handleRowAction}
+      onActionAnchorInvalidated={favoriteMenu.onActionAnchorInvalidated}
     />
   );
 }
@@ -1118,9 +1373,17 @@ function MobileMarketNativePerpsListImpl({
     dataCacheRef,
     selectedCategoryId,
   });
+  const isFavoriteMenuOn = isFavoriteMenuEnabled();
   const rows = useMemo(
-    () => tokens.map((item) => buildPerpsMarketRow({ item, presentation })),
-    [presentation, tokens],
+    () =>
+      tokens.map((item) =>
+        buildPerpsMarketRow({
+          item,
+          presentation,
+          favoriteMenu: isFavoriteMenuOn,
+        }),
+      ),
+    [isFavoriteMenuOn, presentation, tokens],
   );
   const itemsByKey = useMemo(
     () =>
@@ -1130,6 +1393,7 @@ function MobileMarketNativePerpsListImpl({
     [tokens],
   );
   const badgeInfo = useNativeMarketBadgeInfo(listRef);
+  const favoriteMenu = useNativeFavoriteMenu(listRef);
   const handleRowAction = useCallback(
     (event: RowActionEvent) => {
       if (event.actionKey === 'retry') {
@@ -1140,6 +1404,16 @@ function MobileMarketNativePerpsListImpl({
       if (!item) return;
       if (event.actionKey === 'perps-dex-info') {
         badgeInfo.openPerpsDex(item.dexLabel, event.anchor);
+      } else if (event.actionKey === 'favorite-menu') {
+        favoriteMenu.show(
+          {
+            chainId: '',
+            contractAddress: '',
+            perpsCoin: item.name,
+            symbol: item.displayName,
+          },
+          event.anchor,
+        );
       } else if (
         event.actionKey === 'open-detail' &&
         !shouldSuppressItemPress?.()
@@ -1147,7 +1421,21 @@ function MobileMarketNativePerpsListImpl({
         navigateToPerps(item.name);
       }
     },
-    [badgeInfo, itemsByKey, navigateToPerps, refresh, shouldSuppressItemPress],
+    [
+      badgeInfo,
+      favoriteMenu,
+      itemsByKey,
+      navigateToPerps,
+      refresh,
+      shouldSuppressItemPress,
+    ],
+  );
+  const onPerpsListAnchorInvalidated = useCallback(
+    (event: ActionAnchorInvalidatedEvent) => {
+      favoriteMenu.onActionAnchorInvalidated(event);
+      badgeInfo.onActionAnchorInvalidated(event);
+    },
+    [badgeInfo, favoriteMenu],
   );
   return (
     <Stack ref={badgeInfo.containerRef} flex={1}>
@@ -1164,7 +1452,7 @@ function MobileMarketNativePerpsListImpl({
         emptyContentHeight={listContainerProps.emptyContentHeight}
         testID={MarketTestIDs.perpsList}
         onRowAction={handleRowAction}
-        onActionAnchorInvalidated={badgeInfo.onActionAnchorInvalidated}
+        onActionAnchorInvalidated={onPerpsListAnchorInvalidated}
       />
       <NativeMarketBadgeInfo info={badgeInfo.info} onClose={badgeInfo.close} />
     </Stack>

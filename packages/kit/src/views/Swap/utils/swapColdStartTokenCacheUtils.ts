@@ -8,6 +8,7 @@ import {
   isSwapSelectedTokensColdStartContextMatched,
 } from '@onekeyhq/shared/src/utils/swapColdStartCacheSnapshotUtils';
 import type { ISwapSelectedTokensColdStartContext } from '@onekeyhq/shared/src/utils/swapColdStartCacheSnapshotUtils';
+import { getSwapNetworkDefaultTokenPair } from '@onekeyhq/shared/src/utils/swapEntryUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import {
@@ -20,7 +21,10 @@ import type {
   ISwapNetwork,
   ISwapToken,
 } from '@onekeyhq/shared/types/swap/types';
-import { ESwapTabSwitchType } from '@onekeyhq/shared/types/swap/types';
+import {
+  ESwapSource,
+  ESwapTabSwitchType,
+} from '@onekeyhq/shared/types/swap/types';
 
 export {
   buildSwapSelectedTokensColdStartAccountKey,
@@ -336,14 +340,42 @@ export function shouldClearSwapSelectedTokensOnHomeAccountUpdate({
   );
 }
 
+export function shouldSyncSwapAutomaticDefaultNetwork({
+  cachedContext,
+  selectedAccount,
+  swapType,
+}: {
+  cachedContext?: ISwapSelectedTokensColdStartContext;
+  selectedAccount?: IAccountSelectorSelectedAccount;
+  swapType?: ESwapTabSwitchType;
+}) {
+  return Boolean(
+    cachedContext?.defaultTokenSeed &&
+    (swapType ?? cachedContext.swapType) === ESwapTabSwitchType.SWAP &&
+    cachedContext.networkId &&
+    selectedAccount?.networkId &&
+    cachedContext.networkId !== selectedAccount.networkId &&
+    !isSwapColdStartAllNetworkContextNetworkId(cachedContext.networkId) &&
+    !isSwapColdStartAllNetworkContextNetworkId(selectedAccount.networkId) &&
+    isSwapSelectedTokensColdStartOwnerMatchedWithSelectedAccountIgnoringDeriveType(
+      {
+        cachedContext,
+        selectedAccount,
+      },
+    ),
+  );
+}
+
 export function shouldHandleSwapColdStartHomeAccountUpdate({
   cachedContext,
+  swapType,
   eventPayload,
   hasSelectedTokens,
   initialSelectedTokensSynced,
   preserveSelectedTokens,
 }: {
   cachedContext?: ISwapSelectedTokensColdStartContext;
+  swapType?: ESwapTabSwitchType;
   eventPayload: {
     selectedAccount?: IAccountSelectorSelectedAccount;
     sceneName: EAccountSelectorSceneName;
@@ -355,6 +387,16 @@ export function shouldHandleSwapColdStartHomeAccountUpdate({
 }) {
   if (preserveSelectedTokens) {
     return false;
+  }
+
+  if (
+    shouldSyncSwapAutomaticDefaultNetwork({
+      cachedContext,
+      selectedAccount: eventPayload.selectedAccount,
+      swapType,
+    })
+  ) {
+    return true;
   }
 
   if (initialSelectedTokensSynced) {
@@ -486,29 +528,6 @@ export function getSwapDefaultToTokenForSwapType({
   return toToken ?? getBridgeDefaultToTokenForFromToken(fromToken);
 }
 
-export function getSwapNetworkDefaultTokenPair(network?: ISwapNetwork) {
-  const fromToken = network?.defaultSelectTokenDetail?.from;
-  const toToken = network?.defaultSelectTokenDetail?.to;
-  if (
-    !network ||
-    !fromToken ||
-    !toToken ||
-    fromToken.networkId !== network.networkId ||
-    toToken.networkId !== network.networkId ||
-    !fromToken.symbol ||
-    !toToken.symbol ||
-    typeof fromToken.contractAddress !== 'string' ||
-    typeof toToken.contractAddress !== 'string' ||
-    !Number.isFinite(fromToken.decimals) ||
-    !Number.isFinite(toToken.decimals) ||
-    equalTokenNoCaseSensitive({ token1: fromToken, token2: toToken })
-  ) {
-    return undefined;
-  }
-
-  return { fromToken, toToken };
-}
-
 export function buildSwapDefaultSelectedTokensForNetwork({
   networkId,
   swapType: preferredSwapType,
@@ -521,16 +540,6 @@ export function buildSwapDefaultSelectedTokensForNetwork({
   defaultConfigStatus?: ISwapDefaultConfigStatus;
 }) {
   if (!networkId || preferredSwapType === ESwapTabSwitchType.STOCK) {
-    return undefined;
-  }
-
-  if (
-    shouldWaitForSwapDefaultConfig({
-      networkId,
-      swapType: preferredSwapType,
-      defaultConfigStatus,
-    })
-  ) {
     return undefined;
   }
 
@@ -839,6 +848,30 @@ export function buildSwapInitParamsConsumptionKey(params?: ISwapInitParams) {
     return undefined;
   }
 
+  const isAutomaticMarketPair =
+    params.swapSource === ESwapSource.MARKET &&
+    (!params.swapTabSwitchType ||
+      params.swapTabSwitchType === ESwapTabSwitchType.SWAP ||
+      params.swapTabSwitchType === ESwapTabSwitchType.BRIDGE);
+  const marketToken = isAutomaticMarketPair ? params.importToToken : undefined;
+  const fixedMarketToken =
+    isAutomaticMarketPair && params.marketSwapDirection === 'from'
+      ? params.importFromToken
+      : marketToken;
+  if (
+    params.marketSwapDirection &&
+    fixedMarketToken &&
+    !fixedMarketToken.isStock
+  ) {
+    // A default counterpart refresh is not a new Market navigation intent.
+    return [
+      params.fromAmount ?? '',
+      params.swapSource,
+      params.marketSwapDirection,
+      buildSwapInitTokenConsumptionKey(fixedMarketToken),
+    ].join('|');
+  }
+
   return [
     params.fromAmount ?? '',
     buildSwapInitTokenConsumptionKey(params.importFromToken),
@@ -910,6 +943,7 @@ export function isSwapSelectedTokensColdStartContextValidForAccountNetworkSync({
 
 export function shouldSyncSwapSelectedAccountOnHomeAccountUpdate({
   cachedContext,
+  swapType,
   eventPayload,
   hasSelectedTokens,
   importNetworkId,
@@ -918,6 +952,7 @@ export function shouldSyncSwapSelectedAccountOnHomeAccountUpdate({
   swapSelectedAccount,
 }: {
   cachedContext?: ISwapSelectedTokensColdStartContext;
+  swapType?: ESwapTabSwitchType;
   eventPayload: {
     selectedAccount?: IAccountSelectorSelectedAccount;
     sceneName: EAccountSelectorSceneName;
@@ -951,6 +986,16 @@ export function shouldSyncSwapSelectedAccountOnHomeAccountUpdate({
     )
   ) {
     return false;
+  }
+
+  if (
+    shouldSyncSwapAutomaticDefaultNetwork({
+      cachedContext,
+      selectedAccount: eventPayload.selectedAccount,
+      swapType,
+    })
+  ) {
+    return true;
   }
 
   if (hasSelectedTokens) {

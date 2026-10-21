@@ -7,6 +7,13 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ERootRoutes } from '@onekeyhq/shared/src/routes';
 
 import {
+  FullScreenPushNavigator,
+  IOSFullScreenNavigator,
+  ModalNavigator,
+  OnboardingNavigator,
+  WebViewNavigator,
+} from './LazyRootNavigators';
+import {
   fullModalRouterPathConfig,
   fullScreenPushRouterPathConfig,
   modalRouterPathConfig,
@@ -16,33 +23,6 @@ import {
 import { TabNavigator } from './Tab/Navigator';
 import { useTabRouterConfig } from './Tab/router';
 import { withOverlayPageHost } from './withOverlayPageHost';
-
-const ModalNavigator = LazyLoad(async () => {
-  const { ModalNavigator: Component } = await import('./Modal/Navigator');
-  return { default: Component };
-});
-
-const IOSFullScreenNavigator = LazyLoad(async () => {
-  const { IOSFullScreenNavigator: Component } =
-    await import('./Modal/Navigator');
-  return { default: Component };
-});
-
-const FullScreenPushNavigator = LazyLoad(async () => {
-  const { FullScreenPushNavigator: Component } =
-    await import('./Modal/Navigator');
-  return { default: Component };
-});
-
-const OnboardingNavigator = LazyLoad(async () => {
-  const { OnboardingNavigator: Component } = await import('./Modal/Navigator');
-  return { default: Component };
-});
-
-const WebViewNavigator = LazyLoad(async () => {
-  const { WebViewNavigator: Component } = await import('./WebView/Navigator');
-  return { default: Component };
-});
 
 const buildPermissionRouter = () => {
   const PromptWebDeviceAccessPage = LazyLoad(
