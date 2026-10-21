@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useBulkExportHistorySupportedNetworksPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import { getPresetNetworks } from '@onekeyhq/shared/src/config/presetNetworks';
+import networkUtils, {
+  isEnabledNetworksInAllNetworks,
+} from '@onekeyhq/shared/src/utils/networkUtils';
 import type {
   IAccountTransactionRange,
   IFetchAccountTransactionRangeResp,
@@ -11,6 +14,21 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import { resolveDefaultSelectedNetworkIds } from '../utils/resolveDefaultSelectedNetworkIds';
 
 import type { IBulkExportHistoryAccountNetworkCompatibility } from '../utils/bulkExportHistoryAccountUtils';
+
+const PRESET_TESTNET_NETWORK_IDS = new Set(
+  getPresetNetworks()
+    .filter((network) => network.isTestnet)
+    .map((network) => network.id),
+);
+
+type IAllNetworksToggleState =
+  | { status: 'loading' }
+  | {
+      status: 'ready';
+      enabledNetworks: Record<string, boolean>;
+      disabledNetworks: Record<string, boolean>;
+    }
+  | { status: 'unavailable' };
 
 export function useBulkExportHistorySupportedNetworks({
   homeNetworkId,
@@ -191,6 +209,52 @@ export function useBulkExportHistorySupportedNetworks({
     unfilteredSupportedNetworkIds,
   ]);
 
+  const [allNetworksToggle, setAllNetworksToggle] =
+    useState<IAllNetworksToggleState>({ status: 'loading' });
+
+  useEffect(() => {
+    let cancelled = false;
+    const loadAllNetworksToggle = async () => {
+      try {
+        const state =
+          await backgroundApiProxy.serviceAllNetwork.getAllNetworksState();
+        if (cancelled) {
+          return;
+        }
+        setAllNetworksToggle({
+          status: 'ready',
+          enabledNetworks: state.enabledNetworks,
+          disabledNetworks: state.disabledNetworks,
+        });
+      } catch {
+        if (!cancelled) {
+          setAllNetworksToggle({ status: 'unavailable' });
+        }
+      }
+    };
+    void loadAllNetworksToggle();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const enabledNetworkIds = useMemo(() => {
+    if (allNetworksToggle.status === 'loading') {
+      return undefined;
+    }
+    if (allNetworksToggle.status === 'unavailable') {
+      return supportedNetworkIds;
+    }
+    return supportedNetworkIds.filter((networkId) =>
+      isEnabledNetworksInAllNetworks({
+        networkId,
+        isTestnet: PRESET_TESTNET_NETWORK_IDS.has(networkId),
+        enabledNetworks: allNetworksToggle.enabledNetworks,
+        disabledNetworks: allNetworksToggle.disabledNetworks,
+      }),
+    );
+  }, [allNetworksToggle, supportedNetworkIds]);
+
   useEffect(() => {
     let cancelled = false;
 
@@ -249,6 +313,7 @@ export function useBulkExportHistorySupportedNetworks({
                 homeNetworkId,
                 initialSelectedNetworkIds,
                 supportedNetworkIds,
+                enabledNetworkIds,
               });
 
         const isChanged =
@@ -262,11 +327,16 @@ export function useBulkExportHistorySupportedNetworks({
         return nextValue;
       });
     },
-    [homeNetworkId, initialSelectedNetworkIds, supportedNetworkIds],
+    [
+      enabledNetworkIds,
+      homeNetworkId,
+      initialSelectedNetworkIds,
+      supportedNetworkIds,
+    ],
   );
 
   useEffect(() => {
-    if (!isNetworkCompatibilityReady) {
+    if (!isNetworkCompatibilityReady || enabledNetworkIds === undefined) {
       return;
     }
 
@@ -280,6 +350,7 @@ export function useBulkExportHistorySupportedNetworks({
       homeNetworkId,
       initialSelectedNetworkIds,
       supportedNetworkIds,
+      enabledNetworkIds,
     });
 
     setSelectedNetworkIdsState((prev) => {
@@ -306,6 +377,7 @@ export function useBulkExportHistorySupportedNetworks({
     homeNetworkId,
     initialSelectedNetworkIds,
     supportedNetworkIds,
+    enabledNetworkIds,
     isNetworkCompatibilityReady,
   ]);
 
@@ -369,7 +441,8 @@ export function useBulkExportHistorySupportedNetworks({
     isLoading:
       (!isRangeRequestFinished && unfilteredSupportedNetworkIds.length === 0) ||
       (isRangeLoading && !rangeResp) ||
-      !isNetworkCompatibilityReady,
+      !isNetworkCompatibilityReady ||
+      enabledNetworkIds === undefined,
     isRangeLoading,
     hasRangeError:
       (hasRangeError && !rangeResp) || hasNetworkCompatibilityError,

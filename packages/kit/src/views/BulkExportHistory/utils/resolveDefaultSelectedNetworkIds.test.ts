@@ -73,4 +73,34 @@ describe('resolveDefaultSelectedNetworkIds', () => {
       }),
     ).toEqual([networkIds.eth]);
   });
+
+  it('does not default an all-networks export to ETH when ETH is turned off', () => {
+    expect(
+      resolveDefaultSelectedNetworkIds({
+        homeNetworkId: networkIds.onekeyall,
+        supportedNetworkIds: [networkIds.btc, networkIds.eth, networkIds.sol],
+        enabledNetworkIds: [networkIds.btc, networkIds.sol],
+      }),
+    ).toEqual([networkIds.btc]);
+  });
+
+  it('skips a turned-off network when ETH cannot be exported', () => {
+    expect(
+      resolveDefaultSelectedNetworkIds({
+        homeNetworkId: networkIds.onekeyall,
+        supportedNetworkIds: [networkIds.btc, networkIds.sol],
+        enabledNetworkIds: [networkIds.sol],
+      }),
+    ).toEqual([networkIds.sol]);
+  });
+
+  it('selects nothing when every exportable network is turned off', () => {
+    expect(
+      resolveDefaultSelectedNetworkIds({
+        homeNetworkId: networkIds.onekeyall,
+        supportedNetworkIds: [networkIds.eth],
+        enabledNetworkIds: [],
+      }),
+    ).toEqual([]);
+  });
 });

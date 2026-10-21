@@ -5,10 +5,13 @@ export function resolveDefaultSelectedNetworkIds({
   homeNetworkId,
   initialSelectedNetworkIds,
   supportedNetworkIds,
+  enabledNetworkIds,
 }: {
   homeNetworkId?: string;
   initialSelectedNetworkIds?: string[];
   supportedNetworkIds: string[];
+  // Networks still turned on in All Networks. Omit to skip that filter.
+  enabledNetworkIds?: string[];
 }) {
   const networkIdsMap = getNetworkIdsMap();
 
@@ -26,22 +29,30 @@ export function resolveDefaultSelectedNetworkIds({
     }
   }
 
-  // All-networks home has no single current network. Default to ETH so a
-  // casual export does not include every enabled network.
+  // Automatic defaults stay inside networks the All Networks view still
+  // shows. A missing list means that filter is not available yet.
+  const enabledSet = enabledNetworkIds ? new Set(enabledNetworkIds) : undefined;
+  const candidates = enabledSet
+    ? supportedNetworkIds.filter((networkId) => enabledSet.has(networkId))
+    : supportedNetworkIds;
+
+  // All-networks home has no single current network. Default to ETH when it
+  // is still enabled, so a casual export does not include every network or
+  // one the user turned off.
   if (networkUtils.isAllNetwork({ networkId: homeNetworkId })) {
-    if (supportedNetworkIds.includes(networkIdsMap.eth)) {
+    if (candidates.includes(networkIdsMap.eth)) {
       return [networkIdsMap.eth];
     }
-    return [supportedNetworkIds[0]];
+    return candidates[0] ? [candidates[0]] : [];
   }
 
   if (homeNetworkId && supportedNetworkIds.includes(homeNetworkId)) {
     return [homeNetworkId];
   }
 
-  if (supportedNetworkIds.includes(networkIdsMap.eth)) {
+  if (candidates.includes(networkIdsMap.eth)) {
     return [networkIdsMap.eth];
   }
 
-  return [supportedNetworkIds[0]];
+  return candidates[0] ? [candidates[0]] : [];
 }
