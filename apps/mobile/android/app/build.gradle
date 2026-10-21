@@ -111,7 +111,7 @@ react {
 /**
  * Set this to true to Run Proguard on Release builds to minify the Java bytecode.
  */
-def enableProguardInReleaseBuilds = (findProperty('android.enableProguardInReleaseBuilds') ?: false).toBoolean()
+def enableProguardInReleaseBuilds = (findProperty('android.enableProguardInReleaseBuilds') ?: true).toBoolean()
 
 /**
  * give correct results when using with locales other than en-US. Note that
@@ -233,7 +233,7 @@ android {
             signingConfig signingConfigs.debug
             shrinkResources (findProperty('android.enableShrinkResourcesInReleaseBuilds')?.toBoolean() ?: false)
             minifyEnabled enableProguardInReleaseBuilds
-            proguardFiles getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro"
+            proguardFiles getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro"
             crunchPngs (findProperty('android.enablePngCrunchInReleaseBuilds')?.toBoolean() ?: true)
             ndk {
                 abiFilters "arm64-v8a"
@@ -268,6 +268,14 @@ android {
 
     // @onekeyfe/react-native-app-update: replace with noop stub for non-prod flavors
     applicationVariants.configureEach { variant ->
+        // Neither flavor uses Amazon billing; its store module disables R8 optimization globally.
+        variant.compileConfiguration.exclude group: 'com.revenuecat.purchases', module: 'purchases-store-amazon'
+        variant.runtimeConfiguration.exclude group: 'com.revenuecat.purchases', module: 'purchases-store-amazon'
+        if (variant.flavorName == "google") {
+            // Billing brings Location transitively; neither the app nor its runtime dependencies use it.
+            variant.compileConfiguration.exclude group: 'com.google.android.gms', module: 'play-services-location'
+            variant.runtimeConfiguration.exclude group: 'com.google.android.gms', module: 'play-services-location'
+        }
         if (variant.flavorName != "prod") {
             variant.compileConfiguration.resolutionStrategy.dependencySubstitution {
                 substitute project(':onekeyfe_react-native-app-update') using project(':app-update-noop')

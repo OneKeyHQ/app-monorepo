@@ -5,6 +5,7 @@ import { debounce, isString } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import {
+  Button,
   Page,
   Popover,
   SizableText,
@@ -40,14 +41,12 @@ import type {
   TextInputFocusEventData,
 } from 'react-native';
 
-function TokenList() {
+type ITokenListParams =
+  IModalAssetListParamList[EModalAssetListRoutes.TokenList];
+
+function TokenListContent({ params }: { params: ITokenListParams }) {
   const navigation = useAppNavigation();
   const intl = useIntl();
-
-  const route =
-    useRoute<
-      RouteProp<IModalAssetListParamList, EModalAssetListRoutes.TokenList>
-    >();
 
   const {
     accountId,
@@ -68,7 +67,7 @@ function TokenList() {
     accountAddress,
     allAggregateTokenMap,
     searchKeyLengthThreshold,
-  } = route.params;
+  } = params;
   const { tokens, map: tokenMap, keys } = tokenList;
 
   // full-delete PR-7: feed the TokenListView wrapper its display maps from the
@@ -200,6 +199,48 @@ function TokenList() {
       </Page.Body>
     </Page>
   );
+}
+
+function TokenList() {
+  const route =
+    useRoute<
+      RouteProp<IModalAssetListParamList, EModalAssetListRoutes.TokenList>
+    >();
+  const navigation = useAppNavigation();
+  const intl = useIntl();
+
+  // An orphaned modal can select this default route without account params.
+  // Keep it recoverable without mounting account-dependent token content.
+  if (!route.params) {
+    return (
+      <Page>
+        <Page.Header />
+        <Page.Body>
+          <YStack
+            flex={1}
+            alignItems="center"
+            justifyContent="center"
+            gap="$4"
+            p="$5"
+          >
+            <SizableText textAlign="center">
+              {intl.formatMessage({
+                id: ETranslations.global_unknown_error_retry_message,
+              })}
+            </SizableText>
+            <Button
+              testID="token-list-missing-params-back"
+              onPress={() => navigation.popToMainRoute()}
+            >
+              {intl.formatMessage({ id: ETranslations.global_back })}
+            </Button>
+          </YStack>
+        </Page.Body>
+      </Page>
+    );
+  }
+
+  return <TokenListContent params={route.params} />;
 }
 
 const TokenListWithProvider = memo(withTokenListProvider(TokenList));
