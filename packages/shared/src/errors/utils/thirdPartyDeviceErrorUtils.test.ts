@@ -42,6 +42,35 @@ import {
 } from './thirdPartyDeviceErrorUtils';
 
 describe('convertThirdPartyDeviceError', () => {
+  it('shows system Bluetooth removal guidance for a stale Ledger pairing', () => {
+    const error = convertThirdPartyDeviceError(
+      {
+        code: ThirdPartyHwErrorCode.BleBondInvalid,
+        error: 'Ledger Bluetooth pairing is no longer valid',
+        recovery: { scope: 'search-target' },
+      },
+      { vendor: EHardwareVendor.ledger },
+    );
+
+    expect(error.code).toBe(ThirdPartyHwErrorCode.BleBondInvalid);
+    expect(error.key).toBe(ETranslations.trezor_ble_bond_invalid__msg);
+    expect(error.autoToast).toBe(true);
+    expect(error.payload?.recovery).toEqual({ scope: 'search-target' });
+  });
+
+  it('keeps ordinary Ledger pairing failures apart from stale system pairings', () => {
+    const error = convertThirdPartyDeviceError(
+      {
+        code: ThirdPartyHwErrorCode.BlePairingTimeout,
+        error: 'Ledger Bluetooth pairing failed',
+      },
+      { vendor: EHardwareVendor.ledger },
+    );
+
+    expect(error.code).toBe(ThirdPartyHwErrorCode.BlePairingTimeout);
+    expect(error.key).toBe(ETranslations.hardware_bluetooth_pairing_failed);
+  });
+
   it.each([
     [
       ThirdPartyHwErrorCode.SolanaBlindSigningRequired,
