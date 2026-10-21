@@ -30,10 +30,12 @@ const runtime = {
 };
 
 let mockBusy = false;
-const mockForgetStaleFirst = jest.fn<void, [string]>();
+const mockForgetStaleFirst = jest.fn<void, [string[] | undefined]>();
 jest.mock('./runtime', () => ({
-  forgetXmrStaleFirstAccount: (accountId: string) =>
-    mockForgetStaleFirst(accountId),
+  forgetXmrStaleFirst: (accountIds?: string[]) =>
+    mockForgetStaleFirst(accountIds),
+  // Every account here shares one view key.
+  getXmrRuntimeUuid: async () => 'fp-shared',
   getXmrRuntime: async () => runtime,
   getXmrLocalRuntime: async () => runtime,
   getXmrIdentityId: async () => '3',
@@ -47,6 +49,9 @@ jest.mock('./runtime', () => ({
 
 function build(stored: { birthdayHeight?: number } = {}) {
   const calls: string[] = [];
+  const rotateAccountEpochs = jest.fn(async () => {
+    calls.push('rotate');
+  });
   const completed: { birthdayHeight?: number }[] = [];
   const notify = jest.fn(async () => undefined);
   const disabled: { resumeFromHeight?: number }[] = [];
@@ -61,6 +66,9 @@ function build(stored: { birthdayHeight?: number } = {}) {
       simpleDb: {
         privacyChainState: {
           getAccountEpoch: async () => 'e1',
+          rotateAccountEpochs,
+          // An alias sharing this account's key.
+          listAccountIds: async () => ['acc', 'alias'],
           beginXmrEnable: async () => calls.push('beginEnable'),
           completeXmrEnable: async (params: { birthdayHeight?: number }) => {
             calls.push('completeEnable');
@@ -86,6 +94,7 @@ function build(stored: { birthdayHeight?: number } = {}) {
     completed,
     notify,
     disabled,
+    rotateAccountEpochs,
   };
 }
 
@@ -157,12 +166,22 @@ describe('xmr enableAccount', () => {
     runtime.addAccount.mockImplementationOnce(async () =>
       JSON.stringify({ accountId: 3, birthdayHeight: 3_500_000 }),
     );
-    const { capability, completed } = build({ birthdayHeight: 3_500_000 });
+    const { capability, completed, rotateAccountEpochs } = build({
+      birthdayHeight: 3_500_000,
+    });
+    runtime.rewindTo.mockImplementationOnce(async () => {
+      // Caches of the identity's data are stale before it goes.
+      expect(rotateAccountEpochs).toHaveBeenCalledWith({
+        accountIds: ['acc', 'alias'],
+      });
+      return '{}';
+    });
     await capability.enableAccount({
       accountId: 'acc',
       birthdayHeight: 3_000_000,
     });
     expect(runtime.rewindTo).toHaveBeenCalledWith('3', '2999999', String(TIP));
+    expect(mockForgetStaleFirst).toHaveBeenCalledWith(['acc', 'alias']);
     expect(completed).toEqual([
       { accountId: 'acc', birthdayHeight: 3_000_000 },
     ]);
