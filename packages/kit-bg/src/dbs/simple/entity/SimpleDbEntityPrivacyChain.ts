@@ -23,7 +23,8 @@ export interface IPrivacyChainDB {
   // to spend it for any chain. Absent means not allowed.
   allowCellularSync?: boolean;
   // Networks whose scan database an app reset failed to delete. Rewritten
-  // after the reset clears this store so the next reset retries them.
+  // after the reset clears this store; the next launch and the next reset
+  // retry them.
   pendingLocalDataDrop?: string[];
   // accountId -> the chain's viewing material (Zcash UFVK, Monero view key
   // pair); `value` is opaque here, its chain owns the format. Read and written
@@ -83,6 +84,21 @@ export class SimpleDbEntityPrivacyChain extends SimpleDbEntityBase<IPrivacyChain
     await this.setRawData((rawData) => ({
       ...rawData,
       pendingLocalDataDrop: networkIds,
+    }));
+  }
+
+  // Removes only the given networks: a reset may have marked others since
+  // they were read.
+  async removePendingLocalDataDrop({
+    networkIds,
+  }: {
+    networkIds: string[];
+  }): Promise<void> {
+    await this.setRawData((rawData) => ({
+      ...rawData,
+      pendingLocalDataDrop: (rawData?.pendingLocalDataDrop ?? []).filter(
+        (networkId) => !networkIds.includes(networkId),
+      ),
     }));
   }
 

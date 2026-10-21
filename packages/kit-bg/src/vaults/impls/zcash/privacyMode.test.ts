@@ -1,3 +1,5 @@
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+
 const mockGetChainOnlyVault = jest.fn();
 const mockGetVault = jest.fn();
 
@@ -261,6 +263,59 @@ describe('Zcash Privacy Mode privacy lifecycle', () => {
         .invocationCallOrder[0],
     );
     expect(zcashRetryLocalWalletSetup).toHaveBeenCalledTimes(1);
+  });
+});
+
+// The settings page turns an account off before deleting its data. Deleting
+// on its own refuses any state but a settled "off".
+describe('Zcash Privacy Mode delete after turning the account off', () => {
+  it.each([
+    ['enabled', { intent: 'on', birthdayHeight: 2_000_000 }],
+    [
+      'interrupted while enabling',
+      {
+        intent: 'on',
+        birthdayHeight: 2_000_000,
+        operation: { type: 'enable', requestedAt: 1 },
+      },
+    ],
+  ] as const)('deletes an account that was %s', async (_, initial) => {
+    const { backgroundApi, service } = createService();
+    let state: Record<string, unknown> = { ...initial };
+    backgroundApi.simpleDb.zcash.getPrivacyModeState.mockImplementation(
+      async () => state,
+    );
+    backgroundApi.simpleDb.zcash.beginPrivacyModeDisable.mockImplementation(
+      async () => {
+        state = { ...state, operation: { type: 'disable', requestedAt: 2 } };
+      },
+    );
+    backgroundApi.simpleDb.zcash.completePrivacyModeDisable.mockImplementation(
+      async () => {
+        const { operation: _operation, ...rest } = state;
+        state = { ...rest, intent: 'off' };
+      },
+    );
+    const deleteLocalPrivacyData = jest.fn(async () => {
+      if (state.intent !== 'off' || state.operation !== undefined) {
+        throw new OneKeyLocalError('Privacy Mode changed while deleting');
+      }
+    });
+    mockGetChainOnlyVault.mockResolvedValue({
+      deleteLocalPrivacyData,
+      getLocalWalletCapability: () => ({
+        getSyncProgress: async () => undefined,
+      }),
+    });
+
+    await service.disablePrivacyMode({ networkId: 'zec--0', accountId });
+    await service.deleteLocalPrivacyData({ networkId: 'zec--0', accountId });
+
+    expect(state.intent).toBe('off');
+    expect(
+      backgroundApi.simpleDb.zcash.completePrivacyModeDisable,
+    ).toHaveBeenCalledTimes(1);
+    expect(deleteLocalPrivacyData).toHaveBeenCalledWith({ accountId });
   });
 });
 

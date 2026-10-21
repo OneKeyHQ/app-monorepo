@@ -83,13 +83,14 @@ function createService({
           getCachedPassword: jest.fn(async () => cachedPassword),
         },
         serviceAccount: {
-          getDBAccountSafe: jest.fn(async ({ accountId }) =>
-            liveAccountIds.includes(accountId) ? { id: accountId } : undefined,
-          ),
+          getAllAccounts: jest.fn(async () => ({
+            accounts: liveAccountIds.map((id) => ({ id })),
+          })),
           getAllWallets: jest.fn(async () => ({ wallets: [] })),
           getAccount: jest.fn(async () => ({ address: '4synthetic' })),
         },
       },
+      enableMutexByNetwork: new Map(),
       getLocalWalletNetworkIds: async () => [],
       forEachLocalWalletCapability: async () => undefined,
     },
@@ -204,7 +205,10 @@ describe('Privacy chain viewing key store', () => {
         removeLastBalances,
       } = createService();
       Object.assign(service, {
-        requireAccountCapability: async () => ({ deleteAccountData }),
+        requireAccountCapability: async () => ({
+          deleteAccountData,
+          getAccountState: async () => ({ enabled: false }),
+        }),
       });
       mockGetVaultSettings.mockResolvedValue({
         localWallet: { viewingKeyRetention },
