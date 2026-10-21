@@ -274,6 +274,21 @@ function DepositedLine({ value }: { value: number }) {
   );
 }
 
+// An offer's deposit in the open list's Deposited column
+function DepositedValue({ value }: { value: number }) {
+  const [settings] = useSettingsPersistAtom();
+  return (
+    <NumberSizeableTextWrapper
+      hideValue
+      size="$bodyLgMedium"
+      formatter="value"
+      formatterOptions={{ currency: settings.currencyInfo.symbol }}
+    >
+      {value}
+    </NumberSizeableTextWrapper>
+  );
+}
+
 function TokenOffers({
   row,
   lendingOffers,
@@ -284,6 +299,10 @@ function TokenOffers({
   deposits: IEarnDesktopPortfolioDeposits;
 }) {
   const intl = useIntl();
+  const media = useMedia();
+  // The Network and balance columns show from md up; below, a deposit sits
+  // under its rate
+  const isWide = media.gtMd;
   const navigation = useAppNavigation();
   const { activeAccount } = useActiveAccount({ num: 0 });
   const accountId = activeAccount.account?.id;
@@ -337,6 +356,26 @@ function TokenOffers({
           }));
     return [...protocolRows, ...lendingRows].toSorted((a, b) => b.apr - a.apr);
   }, [isFixedRate, lendingOffers, protocols]);
+
+  // What each offer holds of the token
+  const depositByKey = useMemo(
+    () =>
+      new Map(
+        offers.map((offer) => [
+          offer.key,
+          offer.kind === 'lending'
+            ? (offer.offer.depositedFiatValue ?? 0)
+            : (findPositionDeposit(deposits, {
+                provider: offer.item.provider.name,
+                networkId: offer.item.network.networkId,
+                symbol: asset.symbol,
+                vault: offer.item.provider.vault,
+              }) ?? 0),
+        ]),
+      ),
+    [asset.symbol, deposits, offers],
+  );
+  const hasDeposits = [...depositByKey.values()].some((value) => value > 0);
 
   const handleProtocolPress = useCallback(
     (item: IStakeProtocolListItem) => {
@@ -418,7 +457,15 @@ function TokenOffers({
             {intl.formatMessage({ id: ETranslations.global_protocol })}
           </HeaderLabel>
         </Stack>
-        <Stack {...COLUMNS.network} {...WIDE_ONLY} />
+        {/* The offers show their network on the logo, so the column holds
+            what each one has of the user's */}
+        <Stack {...COLUMNS.network} {...WIDE_ONLY}>
+          {hasDeposits ? (
+            <HeaderLabel>
+              {intl.formatMessage({ id: ETranslations.earn_deposited })}
+            </HeaderLabel>
+          ) : null}
+        </Stack>
         <Stack {...COLUMNS.balance} {...WIDE_ONLY}>
           <HeaderLabel align="right">
             {intl.formatMessage({ id: ETranslations.earn_tvl })}
@@ -432,6 +479,7 @@ function TokenOffers({
         <Stack w="$5" />
       </XStack>
       {offers.map((offer) => {
+        const deposited = depositByKey.get(offer.key) ?? 0;
         if (offer.kind === 'lending') {
           const { offer: lending } = offer;
           return (
@@ -451,12 +499,11 @@ function TokenOffers({
                   <SizableText size="$bodyLgMedium" numberOfLines={1}>
                     {lending.marketLabel}
                   </SizableText>
-                  {lending.depositedFiatValue ? (
-                    <DepositedLine value={lending.depositedFiatValue} />
-                  ) : null}
                 </YStack>
               </XStack>
-              <Stack {...COLUMNS.network} {...WIDE_ONLY} />
+              <Stack {...COLUMNS.network} {...WIDE_ONLY}>
+                {deposited > 0 ? <DepositedValue value={deposited} /> : null}
+              </Stack>
               <Stack {...COLUMNS.balance} {...WIDE_ONLY}>
                 <SizableText size="$bodyLgMedium" numberOfLines={1}>
                   {lending.tvlText ?? '-'}
@@ -466,6 +513,9 @@ function TokenOffers({
                 <SizableText size="$bodyLgMedium">
                   {`${new BigNumber(lending.apy).toFixed(2)}%`}
                 </SizableText>
+                {!isWide && deposited > 0 ? (
+                  <DepositedLine value={deposited} />
+                ) : null}
               </Stack>
               <Stack w="$5" />
             </OfferRowFrame>
@@ -475,13 +525,11 @@ function TokenOffers({
         const providerName =
           normalizeToEarnProvider(item.provider.name) ?? item.provider.name;
         const isRedeem = item.aprInfo?.button?.type === 'redeem';
-        // Which offer holds the token's deposit
-        const deposited = findPositionDeposit(deposits, {
-          provider: item.provider.name,
-          networkId: item.network.networkId,
-          symbol: asset.symbol,
-          vault: item.provider.vault,
-        });
+        // The vault under the protocol, as the Protocols page names it; a
+        // fixed-rate offer, titled by its maturity, gets the server's line
+        const subtitle = isFixedRate
+          ? item.provider.description || providerName
+          : item.provider.vaultName;
         return (
           <OfferRowFrame
             key={offer.key}
@@ -518,19 +566,20 @@ function TokenOffers({
                     </Badge>
                   ))}
                 </XStack>
-                {deposited ? <DepositedLine value={deposited} /> : null}
-                {!deposited && item.provider.vaultName && !isFixedRate ? (
+                {subtitle ? (
                   <SizableText
                     size="$bodySm"
                     color="$textSubdued"
                     numberOfLines={1}
                   >
-                    {item.provider.vaultName}
+                    {subtitle}
                   </SizableText>
                 ) : null}
               </YStack>
             </XStack>
-            <Stack {...COLUMNS.network} {...WIDE_ONLY} />
+            <Stack {...COLUMNS.network} {...WIDE_ONLY}>
+              {deposited > 0 ? <DepositedValue value={deposited} /> : null}
+            </Stack>
             <Stack {...COLUMNS.balance} {...WIDE_ONLY}>
               <EarnText
                 size="$bodyLgMedium"
@@ -554,6 +603,9 @@ function TokenOffers({
                   }}
                 />
               )}
+              {!isWide && deposited > 0 ? (
+                <DepositedLine value={deposited} />
+              ) : null}
             </Stack>
             <Stack w="$5" />
           </OfferRowFrame>

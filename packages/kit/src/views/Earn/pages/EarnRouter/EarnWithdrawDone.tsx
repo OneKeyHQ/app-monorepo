@@ -1,4 +1,5 @@
 import BigNumber from 'bignumber.js';
+import { noop } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import { Icon, Page, SizableText, XStack, YStack } from '@onekeyhq/components';
@@ -6,9 +7,10 @@ import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeab
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
+import { ProtocolSwitchRow } from '../../../Staking/components/UniversalStake';
 import { EARN_DESKTOP_DEMO_COPY } from '../../components/desktopHome/earnDesktopHomeCopy';
 
-import { OfferSummary, getOfferName } from './EarnRouterOffer';
+import { buildOfferRowProps, getOfferName } from './EarnRouterOffer';
 
 import type { IEarnDesktopHoldOffer } from '../../components/desktopHome/earnDesktopHome.utils';
 
@@ -70,18 +72,14 @@ export function EarnWithdrawDone({
               </SizableText>
             ) : null}
           </YStack>
-          <XStack
+          {/* The offer as the deposit modal's protocol row shows it */}
+          <ProtocolSwitchRow
             testID="earn-withdraw-better-offer"
-            ai="center"
-            gap="$3"
-            px="$3"
-            py="$2.5"
-            bg="$bgSubdued"
-            borderRadius="$3"
-            borderCurve="continuous"
-          >
-            <OfferSummary offer={offer} />
-          </XStack>
+            {...buildOfferRowProps(offer)}
+            isSwitchEnabled={false}
+            showChevron={false}
+            onPress={noop}
+          />
         </YStack>
       </YStack>
       <Page.Footer

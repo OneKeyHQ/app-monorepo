@@ -272,6 +272,17 @@ export const StakeSection = ({
   // The start amount goes to the first form shown. One opened by picking
   // another token in Pay with starts empty, as before
   const [startAmount, setStartAmount] = useState(initialAmount);
+  // Under the deposit modal's protocol switcher, another protocol remounts
+  // the input below; it starts from what was typed, so the amount stays put
+  const typedAmountRef = useRef(initialAmount);
+  const handleAmountChange = useCallback(
+    (value: string) => {
+      typedAmountRef.current = value;
+      onAmountChange?.(value);
+    },
+    [onAmountChange],
+  );
+  const inputStartAmount = offerSwitch ? typedAmountRef.current : startAmount;
   const [ownPayKey, setOwnPayKey] = useState<string>();
   const payKey = payWith?.onSelectedKeyChange ? payWith.selectedKey : ownPayKey;
   const setPayKey = payWith?.onSelectedKeyChange ?? setOwnPayKey;
@@ -301,6 +312,7 @@ export const StakeSection = ({
       selectedKey: payToken?.key,
       onSelect: (item) => {
         setStartAmount(undefined);
+        typedAmountRef.current = undefined;
         setPayKey(item.key);
       },
     });
@@ -1061,8 +1073,8 @@ export const StakeSection = ({
         isInModalContext={isInModalContext}
         summaryRequest={paySummaryRequest}
         showApyDetail={showApyDetail}
-        initialAmount={startAmount}
-        onAmountChange={onAmountChange}
+        initialAmount={inputStartAmount}
+        onAmountChange={handleAmountChange}
         protocolSwitch={
           protocolSwitchConfig ? (
             <ProtocolSwitcher
@@ -1092,9 +1104,9 @@ export const StakeSection = ({
           }
           balance={tokenInfo?.balanceParsed ?? ''}
           maxBalance={effectiveMaxBalance}
-          initialAmount={startAmount}
+          initialAmount={inputStartAmount}
           offerSwitch={offerSwitch}
-          onAmountChange={onAmountChange}
+          onAmountChange={handleAmountChange}
           onTokenSelectorPress={hasPayTokens ? handleOpenPayWith : undefined}
           inputTitle={payInputTitle}
           showSwapOrBridge={!canPayWith}
@@ -1143,9 +1155,9 @@ export const StakeSection = ({
             effectiveStakeTokenInfo?.token?.decimals
           }
           balance={effectiveStakeTokenInfo?.balanceParsed ?? ''}
-          initialAmount={startAmount}
+          initialAmount={inputStartAmount}
           offerSwitch={offerSwitch}
-          onAmountChange={onAmountChange}
+          onAmountChange={handleAmountChange}
           tokenImageUri={
             effectiveStakeTokenInfo?.token.logoURI || fallbackTokenImageUri
           }

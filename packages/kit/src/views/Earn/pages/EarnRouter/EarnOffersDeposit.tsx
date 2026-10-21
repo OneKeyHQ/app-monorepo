@@ -1,17 +1,11 @@
 import type { ReactNode, RefObject } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import type { IElement } from '@onekeyhq/components';
-import {
-  Popover,
-  SizableText,
-  XStack,
-  YStack,
-  useMedia,
-} from '@onekeyhq/components';
+import { Accordion, SizableText, YStack } from '@onekeyhq/components';
+import { ANIMATE_ONLY_OPACITY } from '@onekeyhq/components/src/utils/animationConstants';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
@@ -21,10 +15,7 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 
-import {
-  ProtocolSwitchRow,
-  getProtocolAprDisplay,
-} from '../../../Staking/components/UniversalStake';
+import { ProtocolSwitchRow } from '../../../Staking/components/UniversalStake';
 import { useEarnAccount } from '../../../Staking/hooks/useEarnAccount';
 import {
   ManagePositionContent,
@@ -32,179 +23,196 @@ import {
 } from '../../../Staking/pages/ManagePosition/components/ManagePositionContent';
 import { EManagePositionType } from '../../../Staking/pages/ManagePosition/hooks/useManagePage';
 import { buildKeyboardPressProps } from '../../components/desktopHome/earnDesktopPressable';
-import { EarnAprSuffixText } from '../../components/EarnAprSuffixText';
 
-import {
-  OfferSummary,
-  getOfferLogo,
-  getOfferName,
-  getOfferSubtitle,
-  getOfferTvl,
-  useEarnRouterOffers,
-} from './EarnRouterOffer';
+import { buildOfferRowProps, useEarnRouterOffers } from './EarnRouterOffer';
 
 import type { IHeaderRightViewProps } from '../../../Staking/pages/ManagePosition/components/HeaderRight';
 import type { IManagePositionPayWith } from '../../../Staking/pages/ManagePosition/components/ManagePositionContent';
 import type { IEarnDesktopHoldOffer } from '../../components/desktopHome/earnDesktopHome.utils';
 
-// An item of the protocol switcher's list, for an offer
+// An offer under the switcher's row when the list is open: the same row,
+// its rate lined up with the one above, so a pick moves up into its place
+// as it is
 function OfferSwitcherItem({
   offer,
   networkLogoURI,
-  isSelected,
   onSelect,
-  focusSelectedRef,
+  focusRef,
 }: {
   offer: IEarnDesktopHoldOffer;
   networkLogoURI?: string;
-  isSelected: boolean;
   onSelect: (offer: IEarnDesktopHoldOffer) => void;
-  focusSelectedRef: RefObject<boolean>;
+  // Set for the first row when the list opens from the keyboard
+  focusRef?: RefObject<boolean>;
 }) {
   const handlePress = useCallback(() => onSelect(offer), [offer, onSelect]);
   const rowRef = useRef<IElement>(null);
-  // Opened from the keyboard, the chosen offer takes focus: the list leaves
-  // it on the row that opened it
   useEffect(() => {
-    if (isSelected && focusSelectedRef.current) {
-      focusSelectedRef.current = false;
+    if (focusRef?.current) {
+      focusRef.current = false;
       rowRef.current?.focus();
     }
-  }, [focusSelectedRef, isSelected]);
+  }, [focusRef]);
   return (
-    <XStack
+    <ProtocolSwitchRow
       ref={rowRef}
       testID={`earn-offer-${offer.key}`}
-      role="button"
-      aria-pressed={isSelected}
-      userSelect="none"
-      alignItems="center"
-      gap="$3"
-      px="$2"
-      py="$2"
-      mx="$1"
-      borderRadius="$2"
-      bg={isSelected ? '$bgActive' : '$transparent'}
-      hoverStyle={{ bg: isSelected ? '$bgActive' : '$bgHover' }}
-      pressStyle={{ bg: isSelected ? '$bgActive' : '$bgHover' }}
+      {...buildOfferRowProps(offer)}
+      networkLogoURI={networkLogoURI}
+      isSwitchEnabled
+      showChevron={false}
+      chevronSpace
       onPress={handlePress}
-      {...buildKeyboardPressProps(handlePress)}
-    >
-      <OfferSummary offer={offer} networkLogoURI={networkLogoURI} />
-    </XStack>
-  );
-}
-
-// The rate as the protocol switcher's row writes it: with its unit, and
-// struck through when the protocol no longer pays it
-function OfferSwitchRate({ offer }: { offer: IEarnDesktopHoldOffer }) {
-  if (offer.kind === 'lending') {
-    return (
-      <EarnAprSuffixText
-        text={`${new BigNumber(offer.offer.apy).toFixed(2)}% APY`}
-        size="$headingLg"
-      />
-    );
-  }
-  const display = getProtocolAprDisplay({ protocol: offer.item });
-  if (!display) {
-    return null;
-  }
-  return display.textDecorationLine === 'line-through' ? (
-    <SizableText
-      size="$headingLg"
-      color={display.color}
-      textDecorationLine="line-through"
-    >
-      {display.text}
-    </SizableText>
-  ) : (
-    <EarnAprSuffixText
-      text={display.text}
-      size="$headingLg"
-      color={display.color}
+      keyboardProps={buildKeyboardPressProps(handlePress)}
     />
   );
 }
 
+type IListKeyEvent = {
+  key: string;
+  preventDefault: () => void;
+  stopPropagation: () => void;
+};
+
+const OFFER_LIST_VALUE = 'offers';
+const OFFER_LIST_HIDDEN_STYLE = { opacity: 0 } as const;
+
 // The deposit modal's protocol switcher, for the token's offers on one
-// network: lending markets and Fixed Income among them. With one offer it is
-// the row alone, naming the protocol a position's modal is for
+// network: lending markets and Fixed Income among them. Its row unfolds the
+// other offers under itself, in the same panel, and they fold back once one
+// is picked. With one offer it is the row alone, naming the protocol a
+// position's modal is for
 export function EarnOfferSwitcher({
   offers,
   selected,
   networkLogoURI,
+  isOpen = false,
+  listedWithout,
+  onOpenChange,
   onSelect,
 }: {
   offers: IEarnDesktopHoldOffer[];
   selected: IEarnDesktopHoldOffer;
   networkLogoURI?: string;
+  // Held by the modal: a pick can swap the form this sits in, and the list
+  // folds after that, from where it was
+  isOpen?: boolean;
+  // The offer the row showed as the list opened, left out of it until it
+  // folds, so the rows under the pointer stay put
+  listedWithout?: string;
+  onOpenChange?: (isOpen: boolean) => void;
   onSelect?: (offer: IEarnDesktopHoldOffer) => void;
 }) {
-  const intl = useIntl();
-  const media = useMedia();
-  const [isOpen, setIsOpen] = useState(false);
-  const focusSelectedRef = useRef(false);
-  const canSwitch = offers.length > 1;
-  const handleKeyboardOpen = useCallback(() => {
-    focusSelectedRef.current = true;
-    setIsOpen(true);
-  }, []);
-  const tvl = getOfferTvl(selected);
-  const trigger = (
+  const focusFirstRef = useRef(false);
+  const rowRef = useRef<IElement>(null);
+  const canSwitch = offers.length > 1 && Boolean(onSelect);
+  const handleToggle = useCallback(
+    () => onOpenChange?.(!isOpen),
+    [isOpen, onOpenChange],
+  );
+  const handleKeyboardToggle = useCallback(() => {
+    focusFirstRef.current = !isOpen;
+    onOpenChange?.(!isOpen);
+  }, [isOpen, onOpenChange]);
+  const handlePick = useCallback(
+    (offer: IEarnDesktopHoldOffer) => onSelect?.(offer),
+    [onSelect],
+  );
+  // Escape folds an open list back to its row. The modal closes as the key
+  // comes up, so the list takes that
+  const handleListKeyUp = useCallback(
+    (event: IListKeyEvent) => {
+      if (event.key !== 'Escape') {
+        return;
+      }
+      event.preventDefault();
+      event.stopPropagation();
+      onOpenChange?.(false);
+      rowRef.current?.focus();
+    },
+    [onOpenChange],
+  );
+  const row = (
     <ProtocolSwitchRow
+      ref={rowRef}
       testID="earn-offer-switch"
-      logoURI={getOfferLogo(selected)}
+      {...buildOfferRowProps(selected)}
       networkLogoURI={networkLogoURI}
-      name={getOfferName(selected)}
-      subtitle={getOfferSubtitle(selected)}
-      aprElement={<OfferSwitchRate offer={selected} />}
-      tvlText={tvl || undefined}
       isSwitchEnabled={canSwitch}
       showChevron={canSwitch}
-      // The Popover around it does the opening
-      onPress={() => {}}
+      isExpanded={canSwitch ? isOpen : undefined}
+      onPress={handleToggle}
       keyboardProps={buildKeyboardPressProps(
-        canSwitch ? handleKeyboardOpen : undefined,
+        canSwitch ? handleKeyboardToggle : undefined,
       )}
     />
   );
   if (!canSwitch) {
-    return trigger;
+    return row;
   }
+  const hiddenKey = listedWithout ?? selected.key;
+  const listed = offers.filter((offer) => offer.key !== hiddenKey);
   return (
-    <Popover
-      title={intl.formatMessage({ id: ETranslations.defi_select_protocol })}
-      placement="bottom-end"
-      open={isOpen}
-      onOpenChange={setIsOpen}
-      renderTrigger={trigger}
-      floatingPanelProps={{ w: 360, p: '$0' }}
-      renderContent={({ closePopover }) => (
-        <YStack
-          gap="$1"
-          minHeight={90}
-          {...(media.gtMd ? { p: '$1', pb: '$2' } : { px: '$3', pb: '$8' })}
-        >
-          <YStack gap="$0.5">
-            {offers.map((offer) => (
-              <OfferSwitcherItem
-                key={offer.key}
-                offer={offer}
-                networkLogoURI={networkLogoURI}
-                isSelected={offer.key === selected.key}
-                onSelect={(next) => {
-                  onSelect?.(next);
-                  closePopover();
-                }}
-                focusSelectedRef={focusSelectedRef}
-              />
-            ))}
-          </YStack>
-        </YStack>
-      )}
-    />
+    <YStack
+      bg="$bgSubdued"
+      borderRadius="$2"
+      borderCurve="continuous"
+      onKeyUp={isOpen ? handleListKeyUp : undefined}
+    >
+      <Accordion
+        type="single"
+        collapsible
+        value={isOpen ? OFFER_LIST_VALUE : ''}
+        onValueChange={(value: string) =>
+          onOpenChange?.(value === OFFER_LIST_VALUE)
+        }
+      >
+        <Accordion.Item value={OFFER_LIST_VALUE}>
+          {row}
+          <Accordion.HeightAnimator transition="quick">
+            <Accordion.Content
+              unstyled
+              transition="quick"
+              animateOnly={ANIMATE_ONLY_OPACITY}
+              enterStyle={OFFER_LIST_HIDDEN_STYLE}
+              exitStyle={OFFER_LIST_HIDDEN_STYLE}
+            >
+              {listed.map((offer, index) => (
+                <OfferSwitcherItem
+                  key={offer.key}
+                  offer={offer}
+                  networkLogoURI={networkLogoURI}
+                  onSelect={handlePick}
+                  focusRef={index === 0 ? focusFirstRef : undefined}
+                />
+              ))}
+            </Accordion.Content>
+          </Accordion.HeightAnimator>
+        </Accordion.Item>
+      </Accordion>
+    </YStack>
   );
+}
+
+// The list's fold (the quick transition, 150 ms) and a frame to spare
+const APPLY_AFTER_FOLD_MS = 180;
+
+// The form a protocol fills, as ManagePositionContent picks it. A switch
+// within one form keeps it, typed amount and all: it shows the last
+// protocol's figures, its button waiting, until the new ones arrive. A
+// protocol that fills another form starts it over with what was typed
+function getOfferFormKind(offer: IEarnDesktopHoldOffer, symbol: string) {
+  if (offer.kind === 'lending') {
+    return 'normal';
+  }
+  if (earnUtils.isPendleProvider({ providerName: offer.item.provider.name })) {
+    return 'pendle';
+  }
+  const normalizedSymbol = symbol.toLowerCase();
+  if (normalizedSymbol === 'usde' || normalizedSymbol === 'ada') {
+    return normalizedSymbol;
+  }
+  return 'normal';
 }
 
 type IOfferFormParams = {
@@ -375,22 +383,54 @@ export function EarnOffersDeposit({
     }
   }, [pickedKey, selected]);
 
-  // Each offer starts its form over; what was typed goes with it
+  // An offer filling another form starts it over; what was typed goes with it
   const typedAmountRef = useRef(amount ?? '');
   const [startAmount, setStartAmount] = useState(amount);
   const handleAmountChange = useCallback((value: string) => {
     typedAmountRef.current = value;
   }, []);
+  // A pick shows in the switcher's row at once and the list folds under it;
+  // the form takes the pick once the list is shut. An offer that fills
+  // another form swaps the one the switcher sits in, and an open list would
+  // be built again mid-fold
+  const [isListOpen, setIsListOpen] = useState(false);
+  const [listedWithout, setListedWithout] = useState<string>();
+  const [shownKey, setShownKey] = useState<string>();
+  const shown = useMemo(
+    () => offers.find((offer) => offer.key === shownKey) ?? selected,
+    [offers, selected, shownKey],
+  );
+  const applyTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(
+    undefined,
+  );
+  useEffect(() => () => clearTimeout(applyTimerRef.current), []);
+  const handleListOpenChange = useCallback(
+    (open: boolean) => {
+      if (open) {
+        setListedWithout(shown?.key);
+      }
+      setIsListOpen(open);
+    },
+    [shown?.key],
+  );
   const handleSelect = useCallback((offer: IEarnDesktopHoldOffer) => {
-    setStartAmount(typedAmountRef.current || undefined);
-    setPickedKey(offer.key);
+    setShownKey(offer.key);
+    setIsListOpen(false);
+    clearTimeout(applyTimerRef.current);
+    applyTimerRef.current = setTimeout(() => {
+      setStartAmount(typedAmountRef.current || undefined);
+      setPickedKey(offer.key);
+    }, APPLY_AFTER_FOLD_MS);
   }, []);
 
-  const offerSwitch = selected ? (
+  const offerSwitch = shown ? (
     <EarnOfferSwitcher
       offers={offers}
-      selected={selected}
+      selected={shown}
       networkLogoURI={network?.logoURI}
+      isOpen={isListOpen}
+      listedWithout={listedWithout}
+      onOpenChange={handleListOpenChange}
       onSelect={handleSelect}
     />
   ) : null;
@@ -421,7 +461,7 @@ export function EarnOffersDeposit({
   }
   return (
     <OfferDepositForm
-      key={selected.key}
+      key={getOfferFormKind(selected, symbol)}
       offer={selected}
       symbol={symbol}
       networkId={networkId}

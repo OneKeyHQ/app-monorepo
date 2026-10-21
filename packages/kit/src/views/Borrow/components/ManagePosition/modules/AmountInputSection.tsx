@@ -88,13 +88,16 @@ export function AmountInputSection({ title }: IAmountInputSectionProps) {
     [intl],
   );
 
+  // A supply spends the wallet's own balance, so it keeps the wallet icon
+  // while the market's cap is still loading rather than reading "Available"
+  // for a moment
   const balanceProps = useMemo(
     () => ({
       value: balance,
-      iconText: maxBalance ? undefined : balanceIconText,
+      iconText: maxBalance || action === 'supply' ? undefined : balanceIconText,
       onPress: amountInputDisabled ? undefined : onMax,
     }),
-    [balance, maxBalance, balanceIconText, amountInputDisabled, onMax],
+    [balance, maxBalance, action, balanceIconText, amountInputDisabled, onMax],
   );
 
   // Value props

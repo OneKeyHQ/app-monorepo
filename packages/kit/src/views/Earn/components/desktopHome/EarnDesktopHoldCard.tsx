@@ -17,7 +17,6 @@ import {
 import { Currency } from '@onekeyhq/kit/src/components/Currency';
 import { NetworkAvatar } from '@onekeyhq/kit/src/components/NetworkAvatar/NetworkAvatar';
 import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeableTextWrapper';
-import { Token } from '@onekeyhq/kit/src/components/Token';
 import { convertFiat } from '@onekeyhq/kit/src/utils/fiatConvert';
 import {
   useCurrencyPersistAtom,
@@ -220,10 +219,12 @@ function HoldRow({
         {isWide ? (
           <>
             <XStack {...COLUMNS.asset} ai="center" gap="$3">
-              <Token
+              {/* The chain on the token too, as every token row under the
+                  hero shows it */}
+              <SurfaceToken
                 size="md"
                 tokenImageUri={row.token.logoURI || row.asset.logoURI}
-                borderRadius="$full"
+                networkId={row.networkId}
               />
               <YStack flex={1} minWidth={0}>
                 <SizableText size="$bodyLgMedium" numberOfLines={1}>

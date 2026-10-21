@@ -1,4 +1,4 @@
-import type { PropsWithChildren, ReactElement, ReactNode } from 'react';
+import type { PropsWithChildren, ReactElement, ReactNode, Ref } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
@@ -6,7 +6,11 @@ import { useIntl } from 'react-intl';
 import { Keyboard, StyleSheet } from 'react-native';
 import { useDebouncedCallback } from 'use-debounce';
 
-import type { IDialogInstance, IXStackProps } from '@onekeyhq/components';
+import type {
+  IDialogInstance,
+  IElement,
+  IXStackProps,
+} from '@onekeyhq/components';
 import {
   Accordion,
   Alert,
@@ -24,7 +28,10 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
-import { ANIMATE_ONLY_OPACITY } from '@onekeyhq/components/src/utils/animationConstants';
+import {
+  ANIMATE_ONLY_OPACITY,
+  ANIMATE_ONLY_TRANSFORM,
+} from '@onekeyhq/components/src/utils/animationConstants';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type { IAmountInputFormItemProps } from '@onekeyhq/kit/src/components/AmountInput';
 import {
@@ -267,21 +274,34 @@ export function ProtocolSwitchRow({
   isLoading,
   isSwitchEnabled,
   showChevron,
+  isExpanded,
+  chevronSpace,
+  nameAccessory,
   onPress,
   testID,
   keyboardProps,
+  ref,
 }: {
   logoURI?: string;
   networkLogoURI?: string;
   name: string;
+  // Badges after the name
+  nameAccessory?: ReactNode;
   subtitle?: string;
   aprElement: ReactNode;
   tvlText?: string;
   isLoading?: boolean;
   isSwitchEnabled: boolean;
   showChevron: boolean;
+  // Set when the row opens its list in place under itself rather than in a
+  // popover: the chevron turns with the list
+  isExpanded?: boolean;
+  // The chevron's room left empty, so a row listed under a switch row lines
+  // its rate up with the one above
+  chevronSpace?: boolean;
   onPress: () => void;
   testID?: string;
+  ref?: Ref<IElement>;
   // A tab stop with Enter and Space, where a Popover around it opens on a
   // click only
   keyboardProps?: Pick<
@@ -289,10 +309,29 @@ export function ProtocolSwitchRow({
     'tabIndex' | 'onKeyDown' | 'focusVisibleStyle'
   >;
 }) {
+  let nameLine: ReactNode = (
+    <SizableText size="$bodyLgMedium" numberOfLines={1} flex={1}>
+      {name}
+    </SizableText>
+  );
+  if (isLoading && !name) {
+    nameLine = <Skeleton h="$5" w={96} borderRadius="$2" />;
+  } else if (nameAccessory) {
+    nameLine = (
+      <XStack ai="center" gap="$1.5" minWidth={0}>
+        <SizableText size="$bodyLgMedium" numberOfLines={1} flexShrink={1}>
+          {name}
+        </SizableText>
+        {nameAccessory}
+      </XStack>
+    );
+  }
   return (
     <XStack
+      ref={ref}
       testID={testID}
       role={isSwitchEnabled ? 'button' : undefined}
+      aria-expanded={isSwitchEnabled ? isExpanded : undefined}
       userSelect={isSwitchEnabled ? 'none' : undefined}
       alignItems="center"
       justifyContent="space-between"
@@ -309,13 +348,7 @@ export function ProtocolSwitchRow({
       <XStack flex={1} minWidth={0} gap="$3" alignItems="center">
         <ProtocolImage logoURI={logoURI} networkLogoURI={networkLogoURI} />
         <YStack flex={1} minWidth={0} gap="$0.5">
-          {isLoading && !name ? (
-            <Skeleton h="$5" w={96} borderRadius="$2" />
-          ) : (
-            <SizableText size="$bodyLgMedium" numberOfLines={1} flex={1}>
-              {name}
-            </SizableText>
-          )}
+          {nameLine}
           {subtitle ? (
             <SizableText size="$bodyMd" color="$textSubdued" numberOfLines={1}>
               {subtitle}
@@ -332,7 +365,22 @@ export function ProtocolSwitchRow({
             </SizableText>
           ) : null}
         </YStack>
-        {showChevron ? (
+        {showChevron && isExpanded !== undefined ? (
+          // As the form's Details row turns its chevron
+          <YStack
+            transition="quick"
+            animateOnly={ANIMATE_ONLY_TRANSFORM}
+            rotate={isExpanded ? '180deg' : '0deg'}
+          >
+            <Icon
+              name="ChevronDownSmallSolid"
+              color={isSwitchEnabled ? '$iconSubdued' : '$iconDisabled'}
+              size="$5"
+            />
+          </YStack>
+        ) : null}
+        {!showChevron && chevronSpace ? <Stack w="$5" h="$5" /> : null}
+        {showChevron && isExpanded === undefined ? (
           <Icon
             name="ChevronGrabberVerSolid"
             color={isSwitchEnabled ? '$iconSubdued' : '$iconDisabled'}

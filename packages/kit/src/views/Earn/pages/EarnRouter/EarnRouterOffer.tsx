@@ -3,7 +3,7 @@ import { useMemo } from 'react';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
-import { Badge, SizableText, XStack, YStack } from '@onekeyhq/components';
+import { Badge, SizableText } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
@@ -11,18 +11,14 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { getEarnProviderDisplayName } from '@onekeyhq/shared/types/earn/earnProvider.constants';
 import type { IStakeProtocolListItem } from '@onekeyhq/shared/types/staking';
 
-import {
-  ProtocolImage,
-  formatTvl,
-} from '../../../Staking/components/ProtocolDisplayShared';
+import { formatTvl } from '../../../Staking/components/ProtocolDisplayShared';
+import { getProtocolAprDisplay } from '../../../Staking/components/UniversalStake';
 import {
   collectLendingOffers,
   collectNetworkOffers,
 } from '../../components/desktopHome/earnDesktopHome.utils';
 import { useEarnDesktopMarkets } from '../../components/desktopHome/useEarnDesktopHomeData';
 import { EarnAprSuffixText } from '../../components/EarnAprSuffixText';
-import { getProtocolAprText } from '../../components/showProtocolListDialog';
-import { getProtocolAprColor } from '../../components/showProtocolListDialog.utils';
 
 import type { IEarnDesktopHoldOffer } from '../../components/desktopHome/earnDesktopHome.utils';
 
@@ -93,78 +89,74 @@ export const getOfferTvl = (offer: IEarnDesktopHoldOffer) =>
     ? offer.offer.tvlText
     : formatTvl(offer.item.provider.tvl);
 
-export function OfferRate({ offer }: { offer: IEarnDesktopHoldOffer }) {
+// What sets the offer apart, after its name: a fixed rate, and the
+// protocol's own tags such as a bonus
+export function OfferBadges({ offer }: { offer: IEarnDesktopHoldOffer }) {
+  const intl = useIntl();
+  const badges = offer.kind === 'protocol' ? offer.item.provider.badges : [];
+  if (!offer.isFixedRate && !badges?.length) {
+    return null;
+  }
+  return (
+    <>
+      {offer.isFixedRate ? (
+        <Badge badgeType="default" badgeSize="sm">
+          <Badge.Text>
+            {intl.formatMessage({ id: ETranslations.defi_fixed_rate })}
+          </Badge.Text>
+        </Badge>
+      ) : null}
+      {badges?.map((badge) => (
+        <Badge key={badge.tag} badgeType={badge.badgeType} badgeSize="sm">
+          <Badge.Text>{badge.tag}</Badge.Text>
+        </Badge>
+      ))}
+    </>
+  );
+}
+
+// The rate as the protocol switcher's row writes it: with its unit, and
+// struck through when the protocol no longer pays it
+function OfferSwitchRate({ offer }: { offer: IEarnDesktopHoldOffer }) {
   if (offer.kind === 'lending') {
     return (
       <EarnAprSuffixText
-        text={`${new BigNumber(offer.offer.apy).toFixed(2)}%`}
+        text={`${new BigNumber(offer.offer.apy).toFixed(2)}% APY`}
+        size="$headingLg"
       />
     );
   }
-  return (
+  const display = getProtocolAprDisplay({ protocol: offer.item });
+  if (!display) {
+    return null;
+  }
+  return display.textDecorationLine === 'line-through' ? (
+    <SizableText
+      size="$headingLg"
+      color={display.color}
+      textDecorationLine="line-through"
+    >
+      {display.text}
+    </SizableText>
+  ) : (
     <EarnAprSuffixText
-      text={getProtocolAprText(offer.item)}
-      color={getProtocolAprColor(offer.item.aprInfo)}
+      text={display.text}
+      size="$headingLg"
+      color={display.color}
     />
   );
 }
 
-// The protocol switcher's item, so the list reads like the one the deposit
-// modal opens
-export function OfferSummary({
-  offer,
-  networkLogoURI,
-}: {
-  offer: IEarnDesktopHoldOffer;
-  networkLogoURI?: string;
-}) {
-  const intl = useIntl();
-  const subtitle = getOfferSubtitle(offer);
+// An offer as the deposit modal's protocol rows show it: the switcher's row,
+// the offers it unfolds, and the better rate after a withdrawal
+export function buildOfferRowProps(offer: IEarnDesktopHoldOffer) {
   const tvl = getOfferTvl(offer);
-  return (
-    <>
-      <ProtocolImage
-        logoURI={getOfferLogo(offer)}
-        networkLogoURI={networkLogoURI}
-      />
-      <YStack flex={1} minWidth={0} gap="$0.5">
-        <XStack ai="center" gap="$1.5" minWidth={0}>
-          <SizableText size="$bodyLgMedium" numberOfLines={1} flexShrink={1}>
-            {getOfferName(offer)}
-          </SizableText>
-          {offer.isFixedRate ? (
-            <Badge badgeType="default" badgeSize="sm">
-              <Badge.Text>
-                {intl.formatMessage({ id: ETranslations.defi_fixed_rate })}
-              </Badge.Text>
-            </Badge>
-          ) : null}
-          {offer.kind === 'protocol'
-            ? offer.item.provider.badges?.map((badge) => (
-                <Badge
-                  key={badge.tag}
-                  badgeType={badge.badgeType}
-                  badgeSize="sm"
-                >
-                  <Badge.Text>{badge.tag}</Badge.Text>
-                </Badge>
-              ))
-            : null}
-        </XStack>
-        {subtitle ? (
-          <SizableText size="$bodySm" color="$textSubdued" numberOfLines={1}>
-            {subtitle}
-          </SizableText>
-        ) : null}
-      </YStack>
-      <YStack ai="flex-end" gap="$0.5" flexShrink={0}>
-        <OfferRate offer={offer} />
-        {tvl ? (
-          <SizableText size="$bodySm" color="$textSubdued">
-            {`TVL ${tvl}`}
-          </SizableText>
-        ) : null}
-      </YStack>
-    </>
-  );
+  return {
+    logoURI: getOfferLogo(offer),
+    name: getOfferName(offer),
+    nameAccessory: <OfferBadges offer={offer} />,
+    subtitle: getOfferSubtitle(offer),
+    aprElement: <OfferSwitchRate offer={offer} />,
+    tvlText: tvl || undefined,
+  };
 }
