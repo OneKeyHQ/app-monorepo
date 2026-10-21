@@ -28,7 +28,6 @@ import {
   EModalRoutes,
 } from '@onekeyhq/shared/src/routes';
 import { isTokenSelectorDappToken } from '@onekeyhq/shared/src/utils/tokenSelectorFilterUtils';
-import { sumFiatValuesFromTokens } from '@onekeyhq/shared/src/utils/tokenValueUtils';
 import type { IAccountToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
@@ -48,6 +47,7 @@ import {
   meta,
   subcell,
 } from '../../states/jotai/contexts/tokenList/cells/projection';
+import { useTokenFiatSubtotal } from '../../states/jotai/contexts/tokenList/cells/useTokenFiatSubtotal';
 import { Currency } from '../Currency';
 
 import { useTokenListViewContext } from './TokenListViewContext';
@@ -112,6 +112,7 @@ function TokenListFooter(props: IProps) {
     nonZeroIds,
     smallBalanceFiatValue: smallBalanceTokensFiatValue,
     generation: listStructureGeneration,
+    ownerKey: listStructureOwnerKey,
   } = listStructure;
 
   // Reconstruct the small-balance rows from the home meta cells. Each row is an
@@ -127,10 +128,10 @@ function TokenListFooter(props: IProps) {
       }
     }
     return rows;
-    // listStructureGeneration is the structure identity; smallBalanceIds is
-    // captured at the same generation. store is stable for the provider.
+    // Generations restart on owner changes, which also replace the per-key
+    // atoms. Both fields identify the metadata and cells for these rows.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [store, listStructureGeneration]);
+  }, [store, listStructureOwnerKey, listStructureGeneration]);
 
   // `keys` is only a change/identity token downstream (used as the modal's
   // list-version string), so the joined small-balance ids are sufficient.
@@ -201,23 +202,17 @@ function TokenListFooter(props: IProps) {
     [store],
   );
 
-  // The BG total covers every small-balance token; when filters hide some of
-  // them, re-sum the rows actually listed. The BG total changes on every fiat
-  // tick, so it also keys the re-sum.
-  const displayedSmallBalanceFiatValue = useMemo(() => {
-    if (filteredSmallBalanceTokens === smallBalanceTokens) {
-      return smallBalanceTokensFiatValue;
-    }
-    return sumFiatValuesFromTokens(
-      filteredSmallBalanceTokens,
-      getFiatMap(filteredSmallBalanceTokens.map((token) => token.$key)),
-    ).toFixed();
-  }, [
-    filteredSmallBalanceTokens,
-    smallBalanceTokens,
-    smallBalanceTokensFiatValue,
-    getFiatMap,
-  ]);
+  // Visible and hidden fiat can offset while the BG total stays unchanged.
+  // Subscribe to the filtered cells instead of using that total as a price tick.
+  const filteredSmallBalanceFiatValue = useTokenFiatSubtotal(
+    filteredSmallBalanceTokens === smallBalanceTokens
+      ? undefined
+      : filteredSmallBalanceTokens,
+  );
+  const displayedSmallBalanceFiatValue =
+    filteredSmallBalanceTokens === smallBalanceTokens
+      ? smallBalanceTokensFiatValue
+      : filteredSmallBalanceFiatValue;
 
   const filteredRiskyTokens = useMemo(() => {
     if (riskyOwnerKey !== currentOwnerKey) {
