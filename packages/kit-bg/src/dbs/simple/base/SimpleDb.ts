@@ -416,6 +416,32 @@ export class SimpleDb {
     return value;
   }
 
+  get starknetPrivacy() {
+    const value = createLazyServiceProxy({
+      serviceName: 'simpleDb@starknetPrivacy',
+      loader: () =>
+        import('../entity/SimpleDbEntityStarknetPrivacy').then(
+          ({ SimpleDbEntityStarknetPrivacy }) =>
+            new SimpleDbEntityStarknetPrivacy(),
+        ),
+    });
+    Object.defineProperty(this, 'starknetPrivacy', { value });
+    return value;
+  }
+
+  get starknetPrivacyConfig() {
+    const value = createLazyServiceProxy({
+      serviceName: 'simpleDb@starknetPrivacyConfig',
+      loader: () =>
+        import('../entity/SimpleDbEntityStarknetPrivacyConfig').then(
+          ({ SimpleDbEntityStarknetPrivacyConfig }) =>
+            new SimpleDbEntityStarknetPrivacyConfig(),
+        ),
+    });
+    Object.defineProperty(this, 'starknetPrivacyConfig', { value });
+    return value;
+  }
+
   get feeInfo() {
     const value = createLazyServiceProxy({
       serviceName: 'simpleDb@feeInfo',

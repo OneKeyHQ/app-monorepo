@@ -1293,6 +1293,8 @@ const validDeriveTypesList = [
   'BIP44',
   'kaspaOfficial',
   'cake',
+  'starknetOpenZeppelin',
+  'starknetOkx',
 ] as const satisfies readonly IAccountDeriveTypes[];
 
 // Compile-time guard: ensures every IAccountDeriveTypes member is present in

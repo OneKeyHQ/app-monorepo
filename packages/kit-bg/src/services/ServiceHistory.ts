@@ -74,6 +74,7 @@ import type {
   ITransferRecipient,
 } from '@onekeyhq/shared/types/history';
 import { EOnChainHistoryTxStatus } from '@onekeyhq/shared/types/history';
+import { EStrk20OptInStatus } from '@onekeyhq/shared/types/starknetPrivacy';
 import type { ISwapTxHistory } from '@onekeyhq/shared/types/swap/types';
 import { ESwapTxHistoryStatus } from '@onekeyhq/shared/types/swap/types';
 import type {
@@ -909,6 +910,49 @@ class ServiceHistory extends ServiceBase {
       if (event.level !== 'critical') return;
       this.memoizedFetchBtcReplaceState.clear();
     });
+  }
+
+  /**
+   * Shielded-pool rows, when the chain has a pool and the account has opted in.
+   * Failures are swallowed: the protocol's own indexer being down must not blank
+   * the transparent history beside it. The list is note-anchored and incomplete
+   * by construction, which the UI has to say rather than hide.
+   */
+  private async fetchPrivacyPoolHistoryTxs({
+    accountId,
+    networkId,
+  }: {
+    accountId: string;
+    networkId: string;
+  }): Promise<IAccountHistoryTx[]> {
+    try {
+      // getVaultSettings is a permanently memoized module read, so this costs a
+      // resolved promise rather than any I/O on chains without a pool.
+      const vaultSettings =
+        await this.backgroundApi.serviceNetwork.getVaultSettings({ networkId });
+      if (!vaultSettings.privacyPool) {
+        return [];
+      }
+      // Read the record directly instead of going through getAccountPrivacyState:
+      // that would resolve the remote config and build a vault just to look at
+      // optInStatus, on every history fetch for this chain.
+      const record = await simpleDb.starknetPrivacy.findAccountRecord({
+        networkId,
+        accountId,
+      });
+      if (record?.optInStatus !== EStrk20OptInStatus.Registered) {
+        return [];
+      }
+      const { txs } =
+        await this.backgroundApi.serviceStarknetPrivacy.fetchPrivateHistory({
+          networkId,
+          accountId,
+        });
+      return txs;
+    } catch (error) {
+      console.error('fetchPrivacyPoolHistoryTxs failed:', error);
+      return [];
+    }
   }
 
   private async attachPrivateSendDisplayStatus(
@@ -1899,12 +1943,24 @@ class ServiceHistory extends ServiceBase {
       onChainHistoryTxs = updateResult.allMergedOnChainHistoryTxs;
     }
 
+    // Shielded-pool rows are an additional SOURCE, not a decoration, so they
+    // join the union rather than riding a post-merge decorator. The guard is
+    // cheap and single-network only: the descriptor is absent on every chain but
+    // the one that has a pool, and All Networks has no single account to read.
+    const privacyTxs = isAllNetworks
+      ? []
+      : await this.fetchPrivacyPoolHistoryTxs({ accountId, networkId });
+
     // Merge the locally pending transactions, confirmed transactions, and on-chain history to return
 
     let result = unionBy(
       [
         ...finalPendingTxs,
-        ...[...confirmedTxsToSave, ...onChainHistoryTxs].toSorted(
+        ...[
+          ...confirmedTxsToSave,
+          ...onChainHistoryTxs,
+          ...privacyTxs,
+        ].toSorted(
           (b, a) =>
             (a.decodedTx.updatedAt ?? a.decodedTx.createdAt ?? 0) -
             (b.decodedTx.updatedAt ?? b.decodedTx.createdAt ?? 0),
@@ -2793,11 +2849,16 @@ class ServiceHistory extends ServiceBase {
       networkId,
     });
 
-    const isCustomNetwork =
-      await this.backgroundApi.serviceNetwork.isCustomNetwork({
+    const [isCustomNetwork, vaultSettings] = await Promise.all([
+      this.backgroundApi.serviceNetwork.isCustomNetwork({
         networkId,
-      });
-    if (isCustomNetwork) {
+      }),
+      this.backgroundApi.serviceNetwork.getVaultSettings({ networkId }),
+    ]);
+    // serverHistoryUnsupported: the backend has no indexer for this chain, so
+    // there is nothing to ask it for. Locally-built pending txs are merged in
+    // by the caller and still show.
+    if (isCustomNetwork || vaultSettings.serverHistoryUnsupported) {
       return {
         txs: [],
         addressMap: {},
