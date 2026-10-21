@@ -36,7 +36,7 @@ import {
   buildKeyboardPressProps,
   usePressableSurface,
 } from './earnDesktopPressable';
-import { EARN_DESKTOP_TILE_SURFACES } from './useEarnDesktopSurfaces';
+import { useEarnDesktopSurfaces } from './useEarnDesktopSurfaces';
 
 import type {
   IEarnDesktopHoldOffer,
@@ -189,10 +189,9 @@ function HoldRow({
   onPress: () => void;
 }) {
   const intl = useIntl();
-  const { surface, handlers } = usePressableSurface(
-    true,
-    EARN_DESKTOP_TILE_SURFACES,
-  );
+  // The cards' steps: at rest a tile is the card color, never the hover or
+  // open-row color the Earn table below uses
+  const { surface, handlers } = usePressableSurface(true);
   const [best] = row.offers;
   const symbol = row.token.symbol;
   const fixedLine = best.isFixedRate ? (
@@ -440,7 +439,11 @@ export function EarnDesktopHoldCard({
             onPress={() => setIsExpanded((prev) => !prev)}
           />
         </XStack>
-      ) : null}
+      ) : (
+        // The room the "N more" line leaves under its text, so the next
+        // section starts as far below a short list
+        <YStack h="$3" />
+      )}
     </YStack>
   );
 }
@@ -477,6 +480,7 @@ function SkeletonPair({ top, bottom }: { top: number; bottom: number }) {
 export function EarnDesktopHoldCardSkeleton() {
   const media = useMedia();
   const isWide = media.gtMd;
+  const surfaces = useEarnDesktopSurfaces();
   return (
     <YStack mt="$4">
       <SkeletonLine height={28} width={200} barHeight={20} />
@@ -507,7 +511,7 @@ export function EarnDesktopHoldCardSkeleton() {
             px="$4"
             borderRadius="$3"
             borderCurve="continuous"
-            bg={EARN_DESKTOP_TILE_SURFACES.rest}
+            bg={surfaces.rest}
           >
             {isWide ? (
               <>

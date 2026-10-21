@@ -330,6 +330,10 @@ export function EarnDesktopHome({
       !isFixedRateLoading &&
       isMarketsLoaded,
   });
+  // What the tiles slot shows: the holdings section (loading or loaded) or,
+  // for a wallet with nothing to earn on, the offer cards
+  const showsHoldings =
+    (!hasNoWallet && !hold.isLoaded) || hold.rows.length > 0;
 
   const [tab, setTab] = useState<IHomeTab>('earn');
   const [heroHeight, setHeroHeight] = useState<number>();
@@ -393,8 +397,8 @@ export function EarnDesktopHome({
   return (
     <PortfolioPendingTxsProvider value={pendingTxsValue}>
       <YStack px="$pagePadding" pt="$2" pb="$10">
-        {/* Spacing groups the page: the hero and the tiles are your money and
-            sit close; browsing starts after a wider gap */}
+        {/* Sections sit the same distance apart: from the last line of one to
+            the title of the next is 48 px, here and before the tabs below */}
         <YStack gap="$8">
           {/* The banner card is as tall as the hero beside it; its dots, when
               there are several banners, sit below. The row must not stretch
@@ -442,12 +446,14 @@ export function EarnDesktopHome({
             // the page padding back; capped, it stays on the page's left edge.
             // It counts as tall as its card, dots included when there are
             // several; the room it keeps under them hangs into the gap, so
-            // the card below follows as closely as the banner follows the hero
+            // the offer cards below follow as closely as the banner follows
+            // the hero. The holdings section is a titled section of its own
+            // and keeps the full gap, as on wide screens
             <YStack
               mx="$-5"
               maxWidth={BANNER_WIDTH}
               mt="$-3"
-              mb="$-3"
+              mb={showsHoldings ? 0 : '$-3'}
               h={
                 stackedBannerCardHeight +
                 (bannerCount > 1 ? BANNER_DOTS_HEIGHT : 0)
@@ -481,7 +487,9 @@ export function EarnDesktopHome({
             onOpenHoldRow={handleOpenHoldRow}
           />
         </YStack>
-        <YStack id={BROWSE_ANCHOR_ID} gap="$5" mt="$16">
+        {/* 28 px, plus the room under the "N more" line and over the tab
+            labels in their boxes, makes the same 48 px */}
+        <YStack id={BROWSE_ANCHOR_ID} gap="$5" mt="$7">
           <HomeTabs value={tab} onChange={setTab} />
           {tab === 'earn' ? (
             <EarnDesktopEarnTab

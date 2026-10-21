@@ -9,10 +9,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useEarnDesktopSurfaces } from './useEarnDesktopSurfaces';
 
-import type {
-  IEarnDesktopSurface,
-  IEarnDesktopSurfaces,
-} from './useEarnDesktopSurfaces';
+import type { IEarnDesktopSurface } from './useEarnDesktopSurfaces';
 
 type IKeyboardEvent = {
   key: string;
@@ -55,15 +52,10 @@ export function buildKeyboardPressProps(
 
 /**
  * The card color under a pressable surface as it is hovered and pressed. The
- * steps are opaque, so rings drawn in this color around icons stay hidden. A
- * surface with steps of its own, a tile on the page, passes them in.
+ * steps are opaque, so rings drawn in this color around icons stay hidden.
  */
-export function usePressableSurface(
-  isPressable: boolean,
-  ownSurfaces?: IEarnDesktopSurfaces,
-) {
-  const cardSurfaces = useEarnDesktopSurfaces();
-  const surfaces = ownSurfaces ?? cardSurfaces;
+export function usePressableSurface(isPressable: boolean) {
+  const surfaces = useEarnDesktopSurfaces();
   const [isHovered, setIsHovered] = useState(false);
   const [isPressed, setIsPressed] = useState(false);
   let surface = surfaces.rest;
