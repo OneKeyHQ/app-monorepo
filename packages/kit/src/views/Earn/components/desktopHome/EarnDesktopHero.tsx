@@ -20,11 +20,14 @@ import {
 } from '@onekeyhq/components';
 import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeableTextWrapper';
 import { Token } from '@onekeyhq/kit/src/components/Token';
+import { convertFiat } from '@onekeyhq/kit/src/utils/fiatConvert';
 import {
   settingsValuePersistAtom,
+  useCurrencyPersistAtom,
   useSettingsPersistAtom,
   useSettingsValuePersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { USD_CURRENCY_ID } from '@onekeyhq/shared/src/consts/currencyConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { EarnTestIDs } from '../../testIDs';
@@ -213,6 +216,7 @@ function ProtocolSplitSkeleton() {
   );
 }
 
+// Where the hero's total sits: by protocol, or without positions, by token
 function ProtocolSplit({ shares }: { shares: IEarnDesktopShares }) {
   const restValue =
     shares.total - shares.top.reduce((sum, item) => sum + item.value, 0);
@@ -259,6 +263,7 @@ export function EarnDesktopHero({
   earnings24h,
   borrowInterest24h,
   shares,
+  readyToEarn,
   isLoading,
   isRefreshing,
   hasPositions,
@@ -275,6 +280,16 @@ export function EarnDesktopHero({
   earnings24h: string;
   borrowInterest24h: number;
   shares: IEarnDesktopShares;
+  /**
+   * Without positions: what the wallet's tokens that can earn here are
+   * worth, about what they would earn in a year at their rows' rates (USD),
+   * and the split by token. The hero shows these in place of a zero
+   */
+  readyToEarn?: {
+    valueUsd: number;
+    yearlyUsd: number;
+    shares: IEarnDesktopShares;
+  };
   /** Until every source has answered for this account once */
   isLoading: boolean;
   isRefreshing?: boolean;
@@ -303,13 +318,30 @@ export function EarnDesktopHero({
     earnings - borrowInterest24h,
     isActive && !isHidden && !isLoading,
   );
+  const [{ currencyMap }] = useCurrencyPersistAtom();
+  const isReadyToEarn = !isLoading && !hasPositions && Boolean(readyToEarn);
+  const toShownCurrency = (usd: number) =>
+    new BigNumber(
+      convertFiat({
+        value: usd,
+        sourceCurrency: USD_CURRENCY_ID,
+        targetCurrency: settings.currencyInfo.id,
+        currencyMap,
+      }),
+    ).toNumber() || 0;
+  const shownValue =
+    isReadyToEarn && readyToEarn
+      ? toShownCurrency(readyToEarn.valueUsd)
+      : value;
   const handleToggleHideValue = useCallback(async () => {
     const current = await settingsValuePersistAtom.get();
     await settingsValuePersistAtom.set({ hideValue: !current.hideValue });
   }, []);
-  const label = intl.formatMessage({
-    id: ETranslations.defi_net_worth,
-  });
+  const label = isReadyToEarn
+    ? EARN_DESKTOP_DEMO_COPY.readyToEarn
+    : intl.formatMessage({
+        id: ETranslations.defi_net_worth,
+      });
 
   // The size comes from an unseen copy of the total at 64px: the text scales
   // with its size, so the largest size that fits is known in one step, with
@@ -320,8 +352,7 @@ export function EarnDesktopHero({
   if (heroWidth && fullWidth) {
     const fits = (size: ITotalFontSize) =>
       (fullWidth * size) / TOTAL_FONT_SIZE +
-        ENTRY_PADDING_WIDTH +
-        CHEVRON_SIZE[size].px +
+        (isReadyToEarn ? 0 : ENTRY_PADDING_WIDTH + CHEVRON_SIZE[size].px) +
         (onRefresh ? REFRESH_WIDTH : 0) +
         (size > fontSize ? GROW_SPARE_WIDTH : 0) <=
       heroWidth;
@@ -382,11 +413,64 @@ export function EarnDesktopHero({
     );
   }
 
+  if (isReadyToEarn && readyToEarn) {
+    const yearly = toShownCurrency(readyToEarn.yearlyUsd);
+    // Under a cent the value formatter writes "< 0.01", a bound already, so
+    // no "≈" goes in front, as on the rows below
+    const isUnderCent = yearly > 0 && yearly < 0.01;
+    earningsRow = (
+      <XStack ai="center" gap="$1.5">
+        <XStack ai="baseline" gap="$1">
+          {isHidden || !isUnderCent ? (
+            <SizableText size="$bodyMdMedium">≈</SizableText>
+          ) : null}
+          <NumberSizeableTextWrapper
+            hideValue
+            size="$bodyMdMedium"
+            formatter="value"
+            formatterOptions={{ currency }}
+            y={
+              isHidden
+                ? Math.round(getFontSize('$bodyMdMedium') * ASTERISK_DROP)
+                : undefined
+            }
+          >
+            {String(yearly)}
+          </NumberSizeableTextWrapper>
+        </XStack>
+        <SizableText size="$bodyMd" color="$textSubdued">
+          {EARN_DESKTOP_DEMO_COPY.aYear}
+        </SizableText>
+        <Popover
+          placement="bottom-start"
+          renderTrigger={
+            <IconButton
+              testID="earn-desktop-ready-to-earn-info"
+              hotKey
+              aria-label={intl.formatMessage({ id: ETranslations.global_info })}
+              variant="tertiary"
+              size="small"
+              icon="InfoCircleOutline"
+            />
+          }
+          title={EARN_DESKTOP_DEMO_COPY.readyToEarn}
+          renderContent={
+            <SizableText px="$pagePadding" py="$4">
+              {EARN_DESKTOP_DEMO_COPY.readyToEarnInfo}
+            </SizableText>
+          }
+        />
+      </XStack>
+    );
+  }
+
   let split: ReactNode = null;
   if (isLoading) {
     split = <ProtocolSplitSkeleton />;
   } else if (shares.top.length) {
     split = <ProtocolSplit shares={shares} />;
+  } else if (isReadyToEarn && readyToEarn?.shares.top.length) {
+    split = <ProtocolSplit shares={readyToEarn.shares} />;
   }
 
   return (
@@ -418,7 +502,7 @@ export function EarnDesktopHero({
           }
         >
           <TotalValue
-            value={value}
+            value={shownValue}
             currency={currency}
             fontSize={TOTAL_FONT_SIZE}
             isHidden={isHidden}
@@ -458,47 +542,65 @@ export function EarnDesktopHero({
         ) : (
           // The refresh button follows the total, as on the wallet home
           <XStack ai="center" gap="$3" alignSelf="flex-start" maxWidth="100%">
-            <XStack
-              testID={EarnTestIDs.portfolioEntry}
-              role="button"
-              aria-label={label}
-              ai="center"
-              gap="$1"
-              minWidth={0}
-              flexShrink={1}
-              pl="$2.5"
-              ml="$-2.5"
-              py="$1"
-              my="$-1"
-              borderRadius="$3"
-              cursor="pointer"
-              userSelect="none"
-              hoverStyle={{ bg: '$bgHover' }}
-              pressStyle={{ bg: '$bgActive' }}
-              onPress={onOpenPortfolio}
-              {...buildKeyboardPressProps(onOpenPortfolio)}
-            >
-              {/* Every size keeps the 48px line, so nothing below moves */}
+            {isReadyToEarn ? (
+              // Not a way into My portfolio, which has nothing yet
               <YStack
+                testID="earn-desktop-ready-to-earn"
                 h={TOTAL_FONT_SIZE}
                 jc="center"
                 minWidth={0}
                 flexShrink={1}
               >
                 <TotalValue
-                  value={value}
+                  value={shownValue}
                   currency={currency}
                   fontSize={fontSize}
                   isHidden={isHidden}
                 />
               </YStack>
-              <Icon
-                name="ChevronRightSmallOutline"
-                size={CHEVRON_SIZE[fontSize].token}
-                color="$iconSubdued"
-                flexShrink={0}
-              />
-            </XStack>
+            ) : (
+              <XStack
+                testID={EarnTestIDs.portfolioEntry}
+                role="button"
+                aria-label={label}
+                ai="center"
+                gap="$1"
+                minWidth={0}
+                flexShrink={1}
+                pl="$2.5"
+                ml="$-2.5"
+                py="$1"
+                my="$-1"
+                borderRadius="$3"
+                cursor="pointer"
+                userSelect="none"
+                hoverStyle={{ bg: '$bgHover' }}
+                pressStyle={{ bg: '$bgActive' }}
+                onPress={onOpenPortfolio}
+                {...buildKeyboardPressProps(onOpenPortfolio)}
+              >
+                {/* Every size keeps the 48px line, so nothing below moves */}
+                <YStack
+                  h={TOTAL_FONT_SIZE}
+                  jc="center"
+                  minWidth={0}
+                  flexShrink={1}
+                >
+                  <TotalValue
+                    value={value}
+                    currency={currency}
+                    fontSize={fontSize}
+                    isHidden={isHidden}
+                  />
+                </YStack>
+                <Icon
+                  name="ChevronRightSmallOutline"
+                  size={CHEVRON_SIZE[fontSize].token}
+                  color="$iconSubdued"
+                  flexShrink={0}
+                />
+              </XStack>
+            )}
             {onRefresh ? (
               <IconButton
                 testID="earn-desktop-refresh"

@@ -9,6 +9,7 @@ import type { IAccountToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 
 import {
   buildHoldRows,
+  buildHoldingShares,
   buildLoanOffers,
   buildMarketCard,
   buildOfferRows,
@@ -24,6 +25,7 @@ import {
   parseCompactFiatText,
   pickTileOffers,
   sumBorrowedFiat,
+  sumHoldRows,
   sumPortfolioDeposits,
   sumWalletHoldings,
 } from './earnDesktopHome.utils';
@@ -1212,5 +1214,67 @@ describe('buildHoldRows', () => {
     expect(rows[0].offers.map((offer) => [offer.kind, offer.apr])).toEqual([
       ['protocol', 4.58],
     ]);
+  });
+});
+
+describe('ready to earn', () => {
+  const earnAsset = (symbol: string) =>
+    ({
+      symbol,
+      name: symbol,
+      logoURI: '',
+      protocols: [],
+    }) as unknown as IEarnAvailableAsset;
+  const rows = buildHoldRows({
+    groups: [
+      {
+        accountId: 'a',
+        networkId: 'evm--42161',
+        tokens: [walletToken('USDC', 'arb_usdc')],
+        map: { arb_usdc: walletFiat('300', '300') },
+      },
+      {
+        accountId: 'a',
+        networkId: 'evm--1',
+        tokens: [
+          walletToken('USDC', 'eth_usdc'),
+          walletToken('USDT', 'eth_usdt'),
+        ],
+        map: {
+          eth_usdc: walletFiat('100', '100'),
+          eth_usdt: walletFiat('50', '50'),
+        },
+      },
+      {
+        accountId: 'a',
+        networkId: 'evm--56',
+        tokens: [walletToken('U', 'bsc_u')],
+        map: { bsc_u: walletFiat('30', '30') },
+      },
+    ],
+    assets: [earnAsset('USDC'), earnAsset('USDT'), earnAsset('U')],
+    protocolsBySymbol: new Map([
+      ['usdc', [protocol('spark', 'evm--1', '5')]],
+      ['usdt', [protocol('spark', 'evm--1', '4')]],
+      ['u', [protocol('lista', 'evm--56', '10')]],
+    ]),
+    lendingOffers: new Map([['usdc', [lending('aave', 'evm--42161', '2')]]]),
+  });
+
+  it('sums what the rows are worth and earn in a year at their rates', () => {
+    expect(rows).toHaveLength(4);
+    expect(sumHoldRows(rows)).toEqual({ valueUsd: 480, yearlyUsd: 16 });
+    expect(sumHoldRows([])).toEqual({ valueUsd: 0, yearlyUsd: 0 });
+  });
+
+  it('splits by token across networks, the rest together', () => {
+    const shares = buildHoldingShares({ rows, topCount: 2 });
+    // USDC on Arbitrum and Ethereum is one share
+    expect(shares.top.map((share) => [share.name, share.percent])).toEqual([
+      ['USDC', 83],
+      ['USDT', 10],
+    ]);
+    expect(shares.rest).toEqual({ count: 1, percent: 7 });
+    expect(shares.total).toBe(480);
   });
 });

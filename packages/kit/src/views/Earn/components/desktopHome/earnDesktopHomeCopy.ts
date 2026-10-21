@@ -13,4 +13,8 @@ export const EARN_DESKTOP_DEMO_COPY = {
   // against the rate the withdrawal left
   earnMoreOn: (symbol: string) => `Earn more on ${symbol}`,
   paysRate: (protocol: string, rate: string) => `${protocol} pays ${rate}`,
+  // The hero without positions: the wallet's tokens that can earn here
+  readyToEarn: 'Ready to earn',
+  readyToEarnInfo:
+    'What the tokens under Earns on your holding are worth, and about what they would earn in a year, each at the rate its row shows. Rates change.',
 };

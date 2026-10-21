@@ -421,7 +421,16 @@ export function buildProtocolShares({
     });
   });
 
-  const sorted = [...byProvider.values()].toSorted((a, b) => b.value - a.value);
+  return rankShares(byProvider.values(), topCount);
+}
+
+// The bar's legend: the biggest shares by name and the rest together, the
+// percents adding up to 100
+function rankShares(
+  items: Iterable<Omit<IEarnDesktopShare, 'percent'>>,
+  topCount: number,
+): IEarnDesktopShares {
+  const sorted = [...items].toSorted((a, b) => b.value - a.value);
   const total = sorted.reduce((sum, item) => sum + item.value, 0);
   if (total <= 0) {
     return { top: [], total: 0 };
@@ -434,7 +443,6 @@ export function buildProtocolShares({
   if (!restItems.length) {
     return { top, total };
   }
-  // The legend's numbers add up to 100
   const restPercent = Math.max(
     0,
     100 - top.reduce((sum, item) => sum + item.percent, 0),
@@ -444,6 +452,49 @@ export function buildProtocolShares({
     rest: { count: restItems.length, percent: restPercent },
     total,
   };
+}
+
+// The hero's bar without positions: the tokens that can earn here, by token
+// across networks, by what they are worth
+export function buildHoldingShares({
+  rows,
+  topCount = 3,
+}: {
+  rows: IEarnDesktopHoldRow[];
+  topCount?: number;
+}): IEarnDesktopShares {
+  const byToken = new Map<string, Omit<IEarnDesktopShare, 'percent'>>();
+  rows.forEach((row) => {
+    const value = toNumber(row.fiatValueUsd);
+    if (value <= 0) {
+      return;
+    }
+    const key = row.token.symbol.toUpperCase();
+    const current = byToken.get(key);
+    byToken.set(key, {
+      key,
+      name: current?.name ?? row.token.symbol,
+      logoURI: current?.logoURI ?? (row.token.logoURI || row.asset.logoURI),
+      value: (current?.value ?? 0) + value,
+    });
+  });
+  return rankShares(byToken.values(), topCount);
+}
+
+// What the same rows are worth, and about what they would earn in a year,
+// each at the rate its row shows, in USD
+export function sumHoldRows(rows: IEarnDesktopHoldRow[]) {
+  return rows.reduce(
+    (sum, row) => {
+      const value = toNumber(row.fiatValueUsd);
+      const apr = row.offers[0] ? toNumber(row.offers[0].apr) : 0;
+      return {
+        valueUsd: sum.valueUsd + value,
+        yearlyUsd: sum.yearlyUsd + (value * apr) / 100,
+      };
+    },
+    { valueUsd: 0, yearlyUsd: 0 },
+  );
 }
 
 // ---------- Tiles ----------

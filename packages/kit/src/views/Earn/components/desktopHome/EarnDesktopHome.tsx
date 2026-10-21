@@ -29,12 +29,14 @@ import { EarnDesktopBorrowTab } from './EarnDesktopBorrowTab';
 import { EarnDesktopEarnTab } from './EarnDesktopEarnTab';
 import { EarnDesktopHero } from './EarnDesktopHero';
 import {
+  buildHoldingShares,
   buildProtocolShares,
   collectLendingOffers,
   computeNetWorth,
   deriveLendingSupply,
   estimateBorrowInterest24h,
   sumBorrowedFiat,
+  sumHoldRows,
   sumPortfolioDeposits,
 } from './earnDesktopHome.utils';
 import { buildKeyboardPressProps } from './earnDesktopPressable';
@@ -303,10 +305,6 @@ export function EarnDesktopHome({
     investments.length > 0 ||
     lending.lendingTotal > 0 ||
     accountMarkets.loans.length > 0;
-  // Partial sums are wrong numbers: the hero waits for the portfolio and the
-  // markets, and then shows at once
-  const isHeroLoading =
-    !hasNoWallet && (!isPortfolioSettled || !accountMarkets.isLoaded);
 
   // A list that has not been asked for yet counts as loading, so nothing
   // reads it as empty
@@ -330,6 +328,25 @@ export function EarnDesktopHome({
       !isFixedRateLoading &&
       isMarketsLoaded,
   });
+  // Without positions the hero shows what the wallet's tokens that can earn
+  // here are worth, from the rows of Earns on your holding
+  const readyToEarn = useMemo(() => {
+    if (hasPositions || !hold.isLoaded || !hold.rows.length) {
+      return undefined;
+    }
+    return {
+      ...sumHoldRows(hold.rows),
+      shares: buildHoldingShares({ rows: hold.rows }),
+    };
+  }, [hasPositions, hold.isLoaded, hold.rows]);
+  // Partial sums are wrong numbers: the hero waits for the portfolio and the
+  // markets, and without positions for the wallet's rows too, so it never
+  // shows a zero first; then it shows at once
+  const isHeroLoading =
+    !hasNoWallet &&
+    (!isPortfolioSettled ||
+      !accountMarkets.isLoaded ||
+      (!hasPositions && !hold.isLoaded));
   // What the tiles slot shows: the holdings section (loading or loaded) or,
   // for a wallet with nothing to earn on, the offer cards
   const showsHoldings =
@@ -409,6 +426,7 @@ export function EarnDesktopHome({
               earnings24h={earnings24h}
               borrowInterest24h={borrowInterest24h}
               shares={shares}
+              readyToEarn={readyToEarn}
               isLoading={isHeroLoading}
               isRefreshing={isRefreshing}
               hasPositions={hasPositions}
