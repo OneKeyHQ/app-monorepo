@@ -18,6 +18,7 @@ import { EAvailableAssetsTypeEnum } from '@onekeyhq/shared/types/earn';
 import type { IBorrowMarketItem } from '@onekeyhq/shared/types/staking';
 
 import { BorrowNavigation } from '../../../Borrow/borrowUtils';
+import { EarnNavigation } from '../../earnUtils';
 import { mergeSimpleEarnWithStakingAssets } from '../../utils/availableAssetsUtils';
 import { EarnHomeBanner } from '../EarnHomeBanner';
 import { FAQContent } from '../FAQContent';
@@ -336,17 +337,15 @@ export function EarnDesktopHome({
     setTab('earn');
     scrollToBrowse();
   }, [scrollToBrowse]);
-  const handleOpenToken = useCallback(
-    (symbol: string) => {
-      setTab('earn');
-      setFocusRequest((prev) => ({ symbol, nonce: (prev?.nonce ?? 0) + 1 }));
-      scrollToBrowse();
-    },
-    [scrollToBrowse],
-  );
+  // A held token opens every way to earn on it, on the network it sits on
   const handleOpenHoldRow = useCallback(
-    (row: IEarnDesktopHoldRow) => handleOpenToken(row.asset.symbol),
-    [handleOpenToken],
+    (row: IEarnDesktopHoldRow) =>
+      EarnNavigation.pushToEarnRouter(navigation, {
+        symbol: row.asset.symbol,
+        networkId: row.networkId,
+        logoURI: row.asset.logoURI || row.token.logoURI,
+      }),
+    [navigation],
   );
   const handleOpenBorrow = useCallback(
     (market?: IBorrowMarketItem) => {
@@ -424,7 +423,10 @@ export function EarnDesktopHome({
             // off the gap, so the card follows as closely as the banner
             // follows the hero
             <YStack mx="$-5" mt="$-3" mb="$-8">
-              <EarnHomeBanner banners={bannerList} isLoading={isBannerLoading} />
+              <EarnHomeBanner
+                banners={bannerList}
+                isLoading={isBannerLoading}
+              />
             </YStack>
           ) : null}
           <EarnDesktopTiles

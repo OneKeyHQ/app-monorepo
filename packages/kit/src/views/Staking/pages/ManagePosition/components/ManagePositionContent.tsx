@@ -83,6 +83,8 @@ export interface IManagePositionContentProps {
   providerLogoUri?: string;
   stakeProtocolSwitchConfig?: IManagePositionProtocolSwitchConfig;
   suppressPlatformBonus?: boolean;
+  // Only the deposit side: no Withdraw tab (the Earn Router page)
+  depositOnly?: boolean;
 
   // Optional callbacks
   onCreateAddress?: () => Promise<void>;
@@ -103,10 +105,12 @@ const ManageSectionShell = ({
   isPendleProvider,
   hasProtocolSwitch,
   isInModalContext,
+  depositOnly,
 }: {
   type: EManagePositionType;
   symbol: string;
   defaultTab?: 'deposit' | 'withdraw';
+  depositOnly?: boolean;
   fallbackTokenImageUri?: string;
   isPendleProvider: boolean;
   // Trending entry (with a protocol switcher) renders a different card stack
@@ -143,7 +147,9 @@ const ManageSectionShell = ({
   }, [intl, type]);
 
   const activeIndex = defaultTab === 'withdraw' ? 1 : 0;
-  const tabLabels = [primaryLabel, secondaryLabel];
+  const tabLabels = depositOnly
+    ? [primaryLabel]
+    : [primaryLabel, secondaryLabel];
   let activeLabel = activeIndex === 1 ? secondaryLabel : primaryLabel;
   if (isPendleProvider) {
     activeLabel = intl.formatMessage({ id: ETranslations.content__amount });
@@ -480,6 +486,7 @@ export function ManagePositionContent({
   providerLogoUri,
   stakeProtocolSwitchConfig,
   suppressPlatformBonus,
+  depositOnly,
   onCreateAddress,
   onStakeWithdrawSuccess,
   isInModalContext = false,
@@ -918,6 +925,7 @@ export function ManagePositionContent({
         })}
         hasProtocolSwitch={Boolean(stakeProtocolSwitchConfig)}
         isInModalContext={isInModalContext}
+        depositOnly={depositOnly}
       />
     );
   }
@@ -960,6 +968,7 @@ export function ManagePositionContent({
         showApyDetail={showApyDetail}
         ongoingValidator={ongoingValidator}
         managePageData={managePageData}
+        depositOnly={depositOnly}
       />
     );
   }
@@ -1060,6 +1069,7 @@ export function ManagePositionContent({
       suppressPlatformBonus={suppressPlatformBonus}
       ongoingValidator={ongoingValidator}
       managePageData={managePageData}
+      depositOnly={depositOnly}
     />
   );
 }

@@ -964,6 +964,58 @@ export type IEarnDesktopHoldRow = {
   offers: IEarnDesktopHoldOffer[];
 };
 
+// What Earn offers for one token on one network, the best rate first: the
+// protocol list's offers there (redeem-only ones left out) and the lending
+// markets' supply the list doesn't already carry
+export function collectNetworkOffers({
+  networkId,
+  protocols,
+  lendingOffers,
+}: {
+  networkId: string;
+  protocols: IStakeProtocolListItem[];
+  lendingOffers: IEarnDesktopLendingOffer[];
+}): IEarnDesktopHoldOffer[] {
+  const protocolOffers = protocols
+    .filter(
+      (item) =>
+        item.network.networkId === networkId &&
+        item.aprInfo?.button?.type !== 'redeem',
+    )
+    .map((item) => ({
+      kind: 'protocol' as const,
+      key: `${networkId}-${item.provider.name}-${item.provider.vault ?? ''}`,
+      apr: parseAprPercentValue(item.provider.aprWithoutFee),
+      isFixedRate: isFixedRateProtocol(item),
+      item,
+    }));
+  // A market the protocol list already carries must not count twice
+  const listed = new Set(
+    protocolOffers.map((offer) =>
+      (
+        normalizeToEarnProvider(offer.item.provider.name) ??
+        offer.item.provider.name
+      ).toLowerCase(),
+    ),
+  );
+  const lendingRows = lendingOffers
+    .filter(
+      (offer) =>
+        offer.market.networkId === networkId &&
+        !listed.has(offer.market.provider.toLowerCase()),
+    )
+    .map((offer) => ({
+      kind: 'lending' as const,
+      key: offer.key,
+      apr: parseAprPercentValue(offer.apy),
+      isFixedRate: false as const,
+      offer,
+    }));
+  return [...protocolOffers, ...lendingRows]
+    .filter((offer) => offer.apr > 0)
+    .toSorted((a, b) => b.apr - a.apr);
+}
+
 // Each token the wallet holds, one row per network, with what Earn offers
 // for it on that same network; the most valuable first. A token with nothing
 // to earn where it sits is left out, since earning it means moving it first
@@ -1009,47 +1061,11 @@ export function buildHoldRows({
       if (!amount.isFinite() || amount.lte(0)) {
         return;
       }
-      const protocolOffers = (protocolsBySymbol.get(symbolKey) ?? [])
-        .filter(
-          (item) =>
-            item.network.networkId === networkId &&
-            item.aprInfo?.button?.type !== 'redeem',
-        )
-        .map((item) => ({
-          kind: 'protocol' as const,
-          key: `${networkId}-${item.provider.name}-${item.provider.vault ?? ''}`,
-          apr: parseAprPercentValue(item.provider.aprWithoutFee),
-          isFixedRate: isFixedRateProtocol(item),
-          item,
-        }));
-      // A market the protocol list already carries must not count twice
-      const listed = new Set(
-        protocolOffers.map((offer) =>
-          (
-            normalizeToEarnProvider(offer.item.provider.name) ??
-            offer.item.provider.name
-          ).toLowerCase(),
-        ),
-      );
-      const lendingRows = (lendingOffers.get(symbolKey) ?? [])
-        .filter(
-          (offer) =>
-            offer.market.networkId === networkId &&
-            !listed.has(offer.market.provider.toLowerCase()),
-        )
-        .map((offer) => ({
-          kind: 'lending' as const,
-          key: offer.key,
-          apr: parseAprPercentValue(offer.apy),
-          isFixedRate: false as const,
-          offer,
-        }));
-      const offers: IEarnDesktopHoldOffer[] = [
-        ...protocolOffers,
-        ...lendingRows,
-      ]
-        .filter((offer) => offer.apr > 0)
-        .toSorted((a, b) => b.apr - a.apr);
+      const offers = collectNetworkOffers({
+        networkId,
+        protocols: protocolsBySymbol.get(symbolKey) ?? [],
+        lendingOffers: lendingOffers.get(symbolKey) ?? [],
+      });
       if (!offers.length) {
         return;
       }

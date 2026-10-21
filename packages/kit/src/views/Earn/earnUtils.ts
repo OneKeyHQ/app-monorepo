@@ -143,7 +143,8 @@ export async function safePushToEarnRoute(
     route === ETabEarnRoutes.EarnProtocolTokens ||
     route === ETabEarnRoutes.EarnProtocols ||
     route === ETabEarnRoutes.EarnProtocolDetails ||
-    route === ETabEarnRoutes.EarnProtocolDetailsShare;
+    route === ETabEarnRoutes.EarnProtocolDetailsShare ||
+    route === ETabEarnRoutes.EarnRouter;
   if (shouldSwitchToEarnMode) {
     appEventBus.emit(EAppEventBusNames.SwitchEarnMode, { mode: 'earn' });
   }
@@ -496,6 +497,13 @@ export const EarnNavigation = {
     },
   ) {
     void safePushToEarnRoute(navigation, ETabEarnRoutes.EarnProtocols, params);
+  },
+
+  pushToEarnRouter(
+    navigation: IAppNavigation,
+    params: ITabEarnParamList[ETabEarnRoutes.EarnRouter],
+  ) {
+    void safePushToEarnRoute(navigation, ETabEarnRoutes.EarnRouter, params);
   },
 
   // Tokens home (OK-58505/OK-58562/OK-58508)

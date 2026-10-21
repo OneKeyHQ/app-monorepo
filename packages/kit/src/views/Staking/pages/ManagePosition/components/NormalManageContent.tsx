@@ -77,6 +77,8 @@ interface INormalManageContentProps {
   managePageData?: IEarnManagePageResponse;
   type?: EManagePositionType;
   preferManagePageActionText?: boolean;
+  // The Earn Router page deposits only; withdrawing has an entry of its own
+  depositOnly?: boolean;
 }
 
 export function NormalManageContent({
@@ -113,6 +115,7 @@ export function NormalManageContent({
   managePageData,
   type = EManagePositionType.Staking,
   preferManagePageActionText = false,
+  depositOnly,
 }: INormalManageContentProps) {
   const intl = useIntl();
   const useBorrowApi = useMemo(
@@ -565,6 +568,10 @@ export function NormalManageContent({
   ]);
 
   const tabNames = useMemo(() => tabData.map((item) => item.title), [tabData]);
+  const visibleTabNames = useMemo(
+    () => (depositOnly ? tabNames.slice(0, 1) : tabNames),
+    [depositOnly, tabNames],
+  );
 
   const initialTabName = useMemo(() => {
     if (defaultTab === 'withdraw') return tabNames[1];
@@ -574,12 +581,22 @@ export function NormalManageContent({
   const focusedTab = useSharedValue(initialTabName);
 
   useEffect(() => {
+    if (depositOnly) {
+      return;
+    }
     if (depositDisabled && selectedTabIndex === 0) {
       setSelectedTabIndex(1);
       focusedTab.value = tabNames[1];
       onTabChange?.('withdraw');
     }
-  }, [depositDisabled, selectedTabIndex, focusedTab, tabNames, onTabChange]);
+  }, [
+    depositOnly,
+    depositDisabled,
+    selectedTabIndex,
+    focusedTab,
+    tabNames,
+    onTabChange,
+  ]);
 
   const isWithdrawOrder = useMemo(() => {
     return (
@@ -691,7 +708,7 @@ export function NormalManageContent({
         <Tabs.TabBar
           divider={false}
           onTabPress={handleTabChange}
-          tabNames={tabNames}
+          tabNames={visibleTabNames}
           focusedTab={focusedTab}
           renderItem={({ name, isFocused }) => {
             const isDisabled = shouldDisablePrimaryTab && name === tabNames[0];
@@ -786,7 +803,7 @@ export function NormalManageContent({
           onQuoteRefreshingChange={handleStakeQuoteRefreshingChange}
         />
       ) : null}
-      {selectedTabIndex === 1 ? (
+      {selectedTabIndex === 1 && !depositOnly ? (
         <WithdrawSection
           accountId={earnAccount?.accountId || ''}
           networkId={networkId}
