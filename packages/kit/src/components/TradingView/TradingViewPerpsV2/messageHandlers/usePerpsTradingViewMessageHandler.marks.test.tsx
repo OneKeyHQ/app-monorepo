@@ -104,7 +104,13 @@ it('localizes embedded history, request responses and live marks without losing 
   };
   const { result, rerender, unmount } = renderHook(
     () =>
-      usePerpsTradingViewMessageHandler({ symbol: 'SOL', userAddress, webRef }),
+      usePerpsTradingViewMessageHandler({
+        symbol: 'SOL',
+        userAddress,
+        webRef,
+        chartInstanceKey: 'chart',
+        onAccountMarksRebuild: jest.fn(),
+      }),
     {
       wrapper: ({ children }: { children: ReactNode }) => (
         <IntlProvider locale={locale} messages={messages}>

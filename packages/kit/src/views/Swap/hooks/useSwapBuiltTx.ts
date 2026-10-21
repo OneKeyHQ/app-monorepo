@@ -155,6 +155,7 @@ import {
   validateSwapBtcOutputs,
 } from '../utils/swapBalanceUtils';
 import {
+  applyEvmThorSwapGasLimit,
   canReuseSwapReviewGasInfo,
   isSwapGasSponsored,
   shouldRequestSwapGasAccount,
@@ -2235,11 +2236,15 @@ export function useSwapBuildTx({
               swapInfo,
             );
           }
-          const gasParseInfo = buildGasInfo(
-            gasRes,
-            gasRes.common,
-            estimateFeeParams.estimateFeeParams,
-          );
+          const gasParseInfo = applyEvmThorSwapGasLimit({
+            networkId,
+            buildTx: unsignedTx.swapInfo?.swapBuildResData,
+            gasInfo: buildGasInfo(
+              gasRes,
+              gasRes.common,
+              estimateFeeParams.estimateFeeParams,
+            ),
+          });
           try {
             lastTxRes = await updateUnsignedTxAndSendTx({
               isApprove,
@@ -4084,11 +4089,15 @@ export function useSwapBuildTx({
               JSON.stringify(unsignedTx.encodedTx ?? ''),
               swapInfo,
             );
-            const gasParseInfo = buildGasInfo(
-              gasRes,
-              gasRes.common,
-              estimateFeeParams.estimateFeeParams,
-            );
+            const gasParseInfo = applyEvmThorSwapGasLimit({
+              networkId,
+              buildTx: unsignedTx.swapInfo?.swapBuildResData,
+              gasInfo: buildGasInfo(
+                gasRes,
+                gasRes.common,
+                estimateFeeParams.estimateFeeParams,
+              ),
+            });
             gasFeeInfos = [
               ...gasFeeInfos,
               {
