@@ -74,7 +74,7 @@ const stopPropagation = (event: { stopPropagation: () => void }) =>
 const ASTERISK_DROP = 0.16;
 
 // The best offer's rate, colored the way the table colors it
-function OfferRate({
+export function OfferRate({
   offer,
   size = '$bodyLgMedium',
 }: {

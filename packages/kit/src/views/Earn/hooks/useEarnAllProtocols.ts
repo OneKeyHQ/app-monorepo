@@ -219,6 +219,8 @@ export function useEarnAllProtocols() {
   return {
     providers: result ?? [],
     isLoading: isLoading === true && !result,
+    /** The list has answered at least once, with rows or an error */
+    isSettled: isLoading === false || result !== undefined,
     refresh,
   };
 }

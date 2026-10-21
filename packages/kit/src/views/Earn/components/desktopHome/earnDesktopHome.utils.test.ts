@@ -8,9 +8,10 @@ import type {
 import type { IAccountToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 
 import {
-  buildBorrowOffers,
   buildHoldRows,
+  buildLoanOffers,
   buildMarketCard,
+  buildOfferRows,
   buildProtocolShares,
   collectLendingOffers,
   collectNetworkOffers,
@@ -466,9 +467,9 @@ describe('buildMarketCard', () => {
   });
 });
 
-describe('buildBorrowOffers', () => {
-  it('ranks assets across markets and picks the cheapest market', () => {
-    const offers = buildBorrowOffers([
+describe('buildLoanOffers', () => {
+  it('ranks the most borrowed assets, each where supplying pays most', () => {
+    const offers = buildLoanOffers([
       {
         market: market('aave', 'evm--1', 'Aave Core Instance'),
         reserves: reserves({
@@ -476,21 +477,54 @@ describe('buildBorrowOffers', () => {
             { symbol: 'ETH', apy: '1.96', total: '$4.18B' },
             { symbol: 'USDC', apy: '4.59', total: '$2.24B' },
           ],
+          supply: [
+            { symbol: 'ETH', apy: '1.3', canBeCollateral: true },
+            { symbol: 'USDC', apy: '3.87', canBeCollateral: true },
+          ],
         }),
       },
       {
         market: market('aave', 'evm--42161', 'Aave Arbitrum Market'),
         reserves: reserves({
           borrow: [{ symbol: 'USDC', apy: '3.42', total: '$167.60M' }],
+          supply: [{ symbol: 'USDC', apy: '2.49', canBeCollateral: true }],
+        }),
+      },
+      {
+        market: market('kamino', 'sol--101', 'Main Market'),
+        reserves: reserves({
+          borrow: [{ symbol: 'USDC', apy: '5.89', total: '$123.14M' }],
+          supply: [{ symbol: 'USDC', apy: '4.33', canBeCollateral: true }],
         }),
       },
     ]);
+    // The supply rate, not the borrow rate, and Kamino pays most for USDC
     expect(
-      offers.map((offer) => [offer.symbol, offer.marketLabel, offer.apy]),
+      offers.map((offer) => [offer.symbol, offer.market.networkId, offer.apy]),
     ).toEqual([
-      ['ETH', 'Aave Core', '1.96'],
-      ['USDC', 'Aave Arbitrum', '3.42'],
+      ['ETH', 'evm--1', '1.3'],
+      ['USDC', 'sol--101', '4.33'],
     ]);
+  });
+
+  it('leaves out an asset no market pays to supply', () => {
+    expect(
+      buildLoanOffers([
+        {
+          market: market('aave', 'evm--1', 'Aave Core Instance'),
+          reserves: reserves({
+            borrow: [
+              { symbol: 'GHO', apy: '5.2', total: '$300.00M' },
+              { symbol: 'USDT', apy: '4.34', total: '$2.49B' },
+            ],
+            supply: [
+              { symbol: 'GHO', apy: '0', canBeCollateral: false },
+              { symbol: 'USDT', apy: '3.38', canBeCollateral: true },
+            ],
+          }),
+        },
+      ]).map((offer) => offer.symbol),
+    ).toEqual(['USDT']);
   });
 });
 
@@ -832,6 +866,111 @@ const lending = (provider: string, networkId: string, apy: string) =>
     logoURI: '',
     apy,
   }) as IEarnDesktopLendingOffer;
+
+describe('buildOfferRows', () => {
+  const asset = (symbol: string, networkIds: string[]) =>
+    ({
+      symbol,
+      name: symbol,
+      logoURI: '',
+      protocols: networkIds.map((networkId) => ({
+        networkId,
+        provider: 'x',
+      })),
+    }) as unknown as IEarnAvailableAsset;
+  const withTvl = (
+    item: IStakeProtocolListItem,
+    tvl: string,
+    extra: Record<string, unknown> = {},
+  ) =>
+    ({
+      ...item,
+      provider: { ...item.provider, tvl, ...extra },
+    }) as unknown as IStakeProtocolListItem;
+
+  it('makes a row per network with the TVL of the offers there', () => {
+    const rows = buildOfferRows({
+      assets: [asset('USDT', ['evm--1', 'evm--56'])],
+      protocolsBySymbol: new Map([
+        [
+          'usdt',
+          [
+            withTvl(protocol('spark', 'evm--1', '6.07'), '$664.54M'),
+            withTvl(protocol('morpho', 'evm--1', '2.12'), '$5.46M'),
+            withTvl(protocol('bitway', 'evm--56', '7.5'), '$1.50M'),
+          ],
+        ],
+      ]),
+      lendingOffers: new Map(),
+      isFixedRate: false,
+    });
+    expect(
+      rows.map((row) => [row.networkId, row.offers[0].apr, row.tvl]),
+    ).toEqual([
+      ['evm--1', 6.07, 670_000_000],
+      ['evm--56', 7.5, 1_500_000],
+    ]);
+  });
+
+  it('counts withdraw-only protocols for neither rate nor TVL', () => {
+    const [row] = buildOfferRows({
+      assets: [asset('ETH', ['evm--1'])],
+      protocolsBySymbol: new Map([
+        [
+          'eth',
+          [
+            withTvl(protocol('lido', 'evm--1', '2.9'), '$24.09B', {
+              group: 'withdrawOnly',
+            }),
+            withTvl(protocol('everstake', 'evm--1', '2.57'), '$1.26B'),
+          ],
+        ],
+      ]),
+      lendingOffers: new Map(),
+      isFixedRate: false,
+    });
+    expect([row.offers[0].apr, row.tvl]).toEqual([2.57, 1_260_000_000]);
+  });
+
+  it('keeps fixed-rate offers for Fixed Income alone', () => {
+    const protocols = new Map([
+      [
+        'usde',
+        [
+          withTvl(protocol('ethena', 'evm--1', '4.28'), '$1.52M'),
+          withTvl(protocol('pendle', 'evm--1', '9.1'), '$40.00M'),
+        ],
+      ],
+    ]);
+    const rate = (isFixedRate: boolean) =>
+      buildOfferRows({
+        assets: [asset('USDe', ['evm--1'])],
+        protocolsBySymbol: protocols,
+        lendingOffers: new Map(),
+        isFixedRate,
+      }).map((row) => row.offers.map((offer) => offer.apr));
+    expect(rate(false)).toEqual([[4.28]]);
+    expect(rate(true)).toEqual([[9.1]]);
+  });
+
+  it('adds lending rates but not their reserves to the TVL', () => {
+    const [row] = buildOfferRows({
+      assets: [asset('USDC', ['evm--1'])],
+      protocolsBySymbol: new Map([
+        ['usdc', [withTvl(protocol('spark', 'evm--1', '3.1'), '$300.00M')]],
+      ]),
+      lendingOffers: new Map([
+        ['usdc', [{ ...lending('aave', 'evm--1', '3.87'), tvlText: '$3.00B' }]],
+      ]),
+      isFixedRate: false,
+    });
+    expect([row.offers[0].kind, row.offers[0].apr, row.tvl]).toEqual([
+      'lending',
+      3.87,
+      300_000_000,
+    ]);
+  });
+});
 
 describe('collectNetworkOffers', () => {
   const redeemOnly = { aprInfo: { button: { type: 'redeem' } } };

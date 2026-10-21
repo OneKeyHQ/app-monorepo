@@ -569,12 +569,15 @@ function TokenRow({
   onToggle,
   lendingOffers,
   deposits,
+  isFixedIncomeOnly,
 }: {
   row: IEarnTableRow;
   isOpen: boolean;
   onToggle: (key: string) => void;
   lendingOffers?: IEarnDesktopLendingOffer[];
   deposits: IEarnDesktopPortfolioDeposits;
+  /** The Fixed Income filter is on, so every row is fixed rate */
+  isFixedIncomeOnly: boolean;
 }) {
   const intl = useIntl();
   const surfaces = useEarnDesktopSurfaces();
@@ -636,8 +639,10 @@ function TokenRow({
             </XStack>
             {/* Fixed rate reads as the token's second line rather than a
                 pill after its name, so the names keep one straight edge.
-                Fixed-rate rows never show a deposit, so the line is free */}
-            {row.isFixedRate ? (
+                Fixed-rate rows never show a deposit, so the line is free.
+                Under the Fixed Income filter it would say the same on every
+                row, so it goes */}
+            {row.isFixedRate && !isFixedIncomeOnly ? (
               <SizableText size="$bodySm" color="$textSubdued">
                 {intl.formatMessage({ id: ETranslations.defi_fixed_rate })}
               </SizableText>
@@ -961,6 +966,7 @@ export function EarnDesktopEarnTab({
                     row.asset.symbol.toLowerCase(),
                   )}
                   deposits={deposits}
+                  isFixedIncomeOnly={category === 'fixedIncome'}
                 />
               ))}
         </YStack>

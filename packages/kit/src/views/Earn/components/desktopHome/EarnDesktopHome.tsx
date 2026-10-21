@@ -482,6 +482,7 @@ export function EarnDesktopHome({
             fixedRateAssets={fixedRateAssets}
             isTrendingLoading={isAssetsLoading}
             isFixedRateLoading={isFixedRateLoading}
+            lendingOffers={lendingOffers}
             onOpenBorrow={handleOpenBorrow}
             onOpenTokens={handleOpenTokens}
             onOpenHoldRow={handleOpenHoldRow}

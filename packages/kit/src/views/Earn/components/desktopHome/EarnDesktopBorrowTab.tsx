@@ -145,7 +145,8 @@ function MarketCard({
         ) : null}
         <YStack flexGrow={1} minHeight="$2" />
         <XStack pt="$4" ai="center" jc="space-between">
-          <SizableText size="$bodySm" color="$textSubdued">
+          {/* A caption like "Borrow APY" above, in the table labels' weight */}
+          <SizableText size="$bodySmMedium" color="$textSubdued">
             {intl.formatMessage({ id: ETranslations.defi_collateral })}
           </SizableText>
           <CollateralStack card={card} ringColor={surface} />

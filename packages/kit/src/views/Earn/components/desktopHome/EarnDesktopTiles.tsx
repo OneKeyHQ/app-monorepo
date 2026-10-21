@@ -1,4 +1,4 @@
-import type { ComponentProps, ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import { useMemo, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
@@ -13,25 +13,24 @@ import {
   YStack,
   useMedia,
 } from '@onekeyhq/components';
-import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import type { IEarnAvailableAsset } from '@onekeyhq/shared/types/earn';
 import { EAvailableAssetsTypeEnum } from '@onekeyhq/shared/types/earn';
+import type { IStakeProtocolListItem } from '@onekeyhq/shared/types/staking';
 
 import { buildBorrowMarketKey } from '../../../Borrow/borrowMarketKey';
 import { EarnNavigation } from '../../earnUtils';
+import { useEarnAllProtocols } from '../../hooks/useEarnAllProtocols';
 import { useNavigateToEarnAsset } from '../../hooks/useNavigateToEarnAsset';
-import { parseAprPercentValue } from '../../utils/availableAssetsUtils';
-import { AprText } from '../AprText';
 
 import {
   EarnDesktopHoldCard,
   EarnDesktopHoldCardSkeleton,
+  OfferRate,
 } from './EarnDesktopHoldCard';
-import { buildBorrowOffers } from './earnDesktopHome.utils';
-import { EARN_DESKTOP_DEMO_COPY } from './earnDesktopHomeCopy';
+import { buildLoanOffers, buildOfferRows } from './earnDesktopHome.utils';
 import {
   EarnDesktopSurfaceProvider,
   SurfaceToken,
@@ -42,49 +41,15 @@ import { useEarnDesktopSurfaces } from './useEarnDesktopSurfaces';
 
 import type {
   IEarnDesktopHoldRow,
+  IEarnDesktopLendingOffer,
+  IEarnDesktopLoanOffer,
   IEarnDesktopMarketReserves,
   IEarnDesktopOfferKind,
+  IEarnDesktopOfferRow,
 } from './earnDesktopHome.utils';
 
 const ROW_LIMIT = 3;
 const ROW_HEIGHT = 50;
-
-// The best rate an asset shows, the way AprText picks its text
-function getAssetMaxApr(asset: {
-  aprWithoutFee?: string;
-  apr?: string;
-  aprInfo?: IEarnAvailableAsset['aprInfo'];
-  maxAprInfo?: IEarnAvailableAsset['maxAprInfo'];
-}) {
-  return Math.max(
-    parseAprPercentValue(asset.maxAprInfo?.normal?.text),
-    parseAprPercentValue(asset.aprInfo?.highlight?.text),
-    parseAprPercentValue(asset.aprInfo?.normal?.text),
-    parseAprPercentValue(asset.aprWithoutFee || asset.apr),
-  );
-}
-
-// The color AprText gives an asset's rate: the server's highlight or range
-// color (a bonus, say), else plain text. Rates are offers, so this code never
-// paints them green on its own; green is for money already earned
-function getAssetRateColor(asset: {
-  aprInfo?: IEarnAvailableAsset['aprInfo'];
-  minAprInfo?: IEarnAvailableAsset['minAprInfo'];
-  maxAprInfo?: IEarnAvailableAsset['maxAprInfo'];
-}): ComponentProps<typeof SizableText>['color'] {
-  if (asset.minAprInfo?.normal?.text && asset.maxAprInfo?.normal?.text) {
-    return (
-      asset.minAprInfo.normal.color ||
-      asset.maxAprInfo.normal.color ||
-      asset.aprInfo?.normal?.color ||
-      '$text'
-    );
-  }
-  if (asset.aprInfo?.highlight) {
-    return asset.aprInfo.highlight.color || '$textSuccess';
-  }
-  return asset.aprInfo?.normal?.color || '$text';
-}
 
 const formatPercent = (value: number | string) =>
   `${new BigNumber(value).toFixed(2)}%`;
@@ -160,19 +125,6 @@ function TileHead({ title, onPress }: { title: string; onPress?: () => void }) {
           color={isHovered ? '$icon' : '$iconSubdued'}
         />
       ) : null}
-    </XStack>
-  );
-}
-
-function TileRateValue({ prefix, value }: { prefix: string; value: number }) {
-  return (
-    <XStack ai="baseline" gap="$1.5">
-      <SizableText size="$bodyLg" color="$textSubdued">
-        {prefix}
-      </SizableText>
-      <SizableText size="$headingXl" fontWeight={500} numberOfLines={1}>
-        {formatPercent(value)}
-      </SizableText>
     </XStack>
   );
 }
@@ -254,32 +206,12 @@ function RowText({
   );
 }
 
-function RowUpTo({
-  value,
-  color = '$text',
-}: {
-  value: number;
-  color?: ComponentProps<typeof SizableText>['color'];
-}) {
-  return (
-    <XStack ai="baseline" gap="$1">
-      <SizableText size="$bodySm" color="$textSubdued">
-        {EARN_DESKTOP_DEMO_COPY.upTo}
-      </SizableText>
-      <SizableText size="$bodyMdMedium" color={color}>
-        {formatPercent(value)}
-      </SizableText>
-    </XStack>
-  );
-}
-
 // A loaded tile's boxes, so the row keeps its height when the data lands
 function TileSkeleton() {
   return (
     <TileFrame>
       <Skeleton w={88} h={14} my={3} borderRadius="$2" />
-      <Skeleton w={96} h={20} my={4} borderRadius="$2" />
-      <YStack mt="$3">
+      <YStack mt="$2">
         {Array.from({ length: ROW_LIMIT }).map((_, index) => (
           <XStack key={index} ai="center" gap="$2.5" h={ROW_HEIGHT}>
             <Skeleton w="$8" h="$8" radius="round" />
@@ -296,57 +228,59 @@ function TileSkeleton() {
 
 // ---------- Offers for empty tiles ----------
 
-function AssetOfferRow({
-  asset,
+// A token on one network: its chain on the icon, the best rate there
+function NetworkOfferRow({
+  row,
   onPress,
 }: {
-  asset: IEarnAvailableAsset;
+  row: IEarnDesktopOfferRow;
   onPress: () => void;
 }) {
+  const [best] = row.offers;
+  const symbol = earnUtils.getDisplaySymbol(row.asset);
+  // The rate shown is the best offer's, so its badge (a bonus) is too
+  const badge =
+    best.kind === 'protocol' ? best.item.provider.badges?.[0] : undefined;
   return (
     <TileRow
+      testID={`earn-desktop-offer-${row.networkId}-${row.asset.symbol}`}
       onPress={onPress}
       icon={
-        <Token size="md" tokenImageUri={asset.logoURI} borderRadius="$full" />
+        <SurfaceToken
+          size="md"
+          tokenImageUri={row.asset.logoURI}
+          networkId={row.networkId}
+        />
       }
       primary={
         <XStack ai="center" gap="$1.5" minWidth={0}>
           <SizableText size="$bodyMdMedium" numberOfLines={1} flexShrink={1}>
-            {earnUtils.getDisplaySymbol(asset)}
+            {symbol}
           </SizableText>
-          {asset.badges?.slice(0, 1).map((badge) => (
-            <Badge key={badge.tag} badgeType={badge.badgeType} badgeSize="sm">
+          {badge ? (
+            <Badge badgeType={badge.badgeType} badgeSize="sm">
               <Badge.Text>{badge.tag}</Badge.Text>
             </Badge>
-          ))}
+          ) : null}
         </XStack>
       }
       secondary={
-        distinctName(asset.name, earnUtils.getDisplaySymbol(asset)) ? (
-          <RowText subdued>{asset.name}</RowText>
+        distinctName(row.asset.name, symbol) ? (
+          <RowText subdued>{row.asset.name}</RowText>
         ) : undefined
       }
-      right={
-        // A row has room for one number, so a range shows its top
-        asset.minAprInfo?.normal?.text && asset.maxAprInfo?.normal?.text ? (
-          <RowUpTo
-            value={getAssetMaxApr(asset)}
-            color={getAssetRateColor(asset)}
-          />
-        ) : (
-          <AprText asset={asset} size="$bodyMdMedium" hideSuffix />
-        )
-      }
+      right={<OfferRate offer={best} size="$bodyMdMedium" />}
     />
   );
 }
 
 type IOfferLists = {
-  trending: IEarnAvailableAsset[];
-  fixed: IEarnAvailableAsset[];
-  borrowOffers: ReturnType<typeof buildBorrowOffers>;
+  trending: IEarnDesktopOfferRow[];
+  fixed: IEarnDesktopOfferRow[];
+  loans: IEarnDesktopLoanOffer[];
 };
 
+// A card is its title over three rows; the rows say the rates
 function OfferTile({
   kind,
   lists,
@@ -361,7 +295,7 @@ function OfferTile({
   const intl = useIntl();
   const navigation = useAppNavigation();
   const navigateToAsset = useNavigateToEarnAsset();
-  const { trending, fixed, borrowOffers } = lists;
+  const { trending, fixed, loans } = lists;
 
   if (kind === 'trending') {
     if (!trending.length) {
@@ -375,17 +309,16 @@ function OfferTile({
           })}
           onPress={onOpenTokens}
         />
-        <TileRateValue
-          prefix={EARN_DESKTOP_DEMO_COPY.upTo}
-          value={Math.max(...trending.map(getAssetMaxApr))}
-        />
-        <YStack mt="$3">
-          {trending.map((asset) => (
-            <AssetOfferRow
-              key={asset.symbol}
-              asset={asset}
+        <YStack mt="$2">
+          {trending.map((row) => (
+            <NetworkOfferRow
+              key={row.key}
+              row={row}
               onPress={() =>
-                void navigateToAsset(asset, EAvailableAssetsTypeEnum.SimpleEarn)
+                void navigateToAsset(
+                  row.asset,
+                  EAvailableAssetsTypeEnum.SimpleEarn,
+                )
               }
             />
           ))}
@@ -404,17 +337,16 @@ function OfferTile({
           title={intl.formatMessage({ id: ETranslations.earn_fixed_income })}
           onPress={() => EarnNavigation.pushToEarnFixedRateTokens(navigation)}
         />
-        <TileRateValue
-          prefix={EARN_DESKTOP_DEMO_COPY.upTo}
-          value={getAssetMaxApr(fixed[0])}
-        />
-        <YStack mt="$3">
-          {fixed.map((asset) => (
-            <AssetOfferRow
-              key={asset.symbol}
-              asset={asset}
+        <YStack mt="$2">
+          {fixed.map((row) => (
+            <NetworkOfferRow
+              key={row.key}
+              row={row}
               onPress={() =>
-                void navigateToAsset(asset, EAvailableAssetsTypeEnum.FixedRate)
+                void navigateToAsset(
+                  row.asset,
+                  EAvailableAssetsTypeEnum.FixedRate,
+                )
               }
             />
           ))}
@@ -424,25 +356,20 @@ function OfferTile({
   }
 
   if (kind === 'borrow') {
-    if (!borrowOffers.length) {
+    if (!loans.length) {
       return <TileSkeleton />;
     }
     return (
       <TileFrame>
         <TileHead
-          title={intl.formatMessage({ id: ETranslations.global_borrow })}
+          title={intl.formatMessage({ id: ETranslations.earn_loans__action })}
           onPress={() => onOpenBorrow()}
         />
-        <TileRateValue
-          prefix={EARN_DESKTOP_DEMO_COPY.from}
-          value={Math.min(
-            ...borrowOffers.map((offer) => Number(offer.apy) || 0),
-          )}
-        />
-        <YStack mt="$3">
-          {borrowOffers.map((offer) => (
+        <YStack mt="$2">
+          {loans.map((offer) => (
             <TileRow
               key={`${buildBorrowMarketKey(offer.market)}-${offer.reserveAddress}`}
+              testID={`earn-desktop-loan-${offer.market.networkId}-${offer.symbol}`}
               onPress={() => onOpenBorrow(offer.market)}
               icon={
                 <SurfaceToken
@@ -490,6 +417,7 @@ export function EarnDesktopTiles({
   fixedRateAssets,
   isTrendingLoading,
   isFixedRateLoading,
+  lendingOffers,
   onOpenBorrow,
   onOpenTokens,
   onOpenHoldRow,
@@ -504,21 +432,58 @@ export function EarnDesktopTiles({
   fixedRateAssets: IEarnAvailableAsset[];
   isTrendingLoading: boolean;
   isFixedRateLoading: boolean;
+  lendingOffers: Map<string, IEarnDesktopLendingOffer[]>;
   onOpenBorrow: (market?: IEarnDesktopMarketReserves['market']) => void;
   onOpenTokens: () => void;
   onOpenHoldRow: (row: IEarnDesktopHoldRow) => void;
 }) {
   const media = useMedia();
-  const offerLists = useMemo<IOfferLists>(
-    () => ({
-      trending: trendingAssets.slice(0, ROW_LIMIT),
-      fixed: fixedRateAssets
-        .toSorted((a, b) => getAssetMaxApr(b) - getAssetMaxApr(a))
+  // Every protocol's rate and TVL in one list, the one the Earn table reads.
+  // Trending and Fixed Income wait for it: without it their rows would be
+  // the lending rates alone, in no order
+  const { providers, isSettled: isProtocolsSettled } = useEarnAllProtocols();
+  const protocolsBySymbol = useMemo(() => {
+    const bySymbol = new Map<string, IStakeProtocolListItem[]>();
+    providers.forEach(({ tokens }) =>
+      tokens.forEach(({ symbol, item }) => {
+        const key = symbol.toLowerCase();
+        bySymbol.set(key, [...(bySymbol.get(key) ?? []), item]);
+      }),
+    );
+    return bySymbol;
+  }, [providers]);
+  const offerLists = useMemo<IOfferLists>(() => {
+    const loans = buildLoanOffers(markets, ROW_LIMIT);
+    if (!protocolsBySymbol.size) {
+      return { trending: [], fixed: [], loans };
+    }
+    return {
+      // The most deposited first; Fixed Income's best rate first
+      trending: buildOfferRows({
+        assets: trendingAssets,
+        protocolsBySymbol,
+        lendingOffers,
+        isFixedRate: false,
+      })
+        .toSorted((a, b) => b.tvl - a.tvl)
         .slice(0, ROW_LIMIT),
-      borrowOffers: buildBorrowOffers(markets, ROW_LIMIT),
-    }),
-    [fixedRateAssets, markets, trendingAssets],
-  );
+      fixed: buildOfferRows({
+        assets: fixedRateAssets,
+        protocolsBySymbol,
+        lendingOffers,
+        isFixedRate: true,
+      })
+        .toSorted((a, b) => b.offers[0].apr - a.offers[0].apr)
+        .slice(0, ROW_LIMIT),
+      loans,
+    };
+  }, [
+    fixedRateAssets,
+    lendingOffers,
+    markets,
+    protocolsBySymbol,
+    trendingAssets,
+  ]);
 
   if (isLoading) {
     return <EarnDesktopHoldCardSkeleton />;
@@ -537,13 +502,17 @@ export function EarnDesktopTiles({
   // shimmering forever
   const isOfferUnavailable = (kind: IEarnDesktopOfferKind) => {
     if (kind === 'trending') {
-      return !offerLists.trending.length && !isTrendingLoading;
+      return (
+        !offerLists.trending.length && !isTrendingLoading && isProtocolsSettled
+      );
     }
     if (kind === 'fixedIncome') {
-      return !offerLists.fixed.length && !isFixedRateLoading;
+      return (
+        !offerLists.fixed.length && !isFixedRateLoading && isProtocolsSettled
+      );
     }
     if (kind === 'borrow') {
-      return !offerLists.borrowOffers.length && isMarketsLoaded;
+      return !offerLists.loans.length && isMarketsLoaded;
     }
     return true;
   };

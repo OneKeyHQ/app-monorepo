@@ -5,6 +5,7 @@ import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import tokenRebaseUtils from '@onekeyhq/shared/src/utils/tokenRebaseUtils';
 import type { IEarnAvailableAsset } from '@onekeyhq/shared/types/earn';
 import { normalizeToEarnProvider } from '@onekeyhq/shared/types/earn/earnProvider.constants';
+import { EStakeProtocolGroupEnum } from '@onekeyhq/shared/types/staking';
 import type {
   IBorrowMarketItem,
   IBorrowReserveItem,
@@ -17,7 +18,10 @@ import { getBorrowMarketLabel } from '../../../Borrow/borrowMarketDisplayName';
 import { buildBorrowMarketKey } from '../../../Borrow/borrowMarketKey';
 import { filterUnsupportedAaveNativeReserveAssets } from '../../../Borrow/components/borrowRepayPosition.utils';
 import { isBorrowAssetVisible } from '../../../Borrow/components/collateralControls.utils';
-import { parseAprPercentValue } from '../../utils/availableAssetsUtils';
+import {
+  parseAprPercentValue,
+  parseFormattedLiquidityValue,
+} from '../../utils/availableAssetsUtils';
 import { resolveUniquePortfolioClaimSourceIdentity } from '../../utils/portfolioClaimUtils';
 
 import type { IPortfolioClaimProtocolIdentity } from '../../utils/portfolioClaimUtils';
@@ -823,45 +827,59 @@ export function buildMarketCard(
   };
 }
 
-export type IEarnDesktopBorrowOffer = IEarnDesktopBorrowRow & {
+export type IEarnDesktopLoanOffer = {
+  reserveAddress: string;
+  symbol: string;
+  logoURI: string;
+  /** The supply rate */
+  apy: string;
   market: IBorrowMarketItem;
   marketLabel: string;
 };
 
-// The empty Loans tile: the most borrowed assets across markets, each at the
-// market that lends it cheapest.
-export function buildBorrowOffers(
+// The empty Loans card: the most borrowed assets across markets, since
+// borrowing is what pays the lenders, each at the market that pays the most
+// to supply it
+export function buildLoanOffers(
   markets: IEarnDesktopMarketReserves[],
   count = 3,
-): IEarnDesktopBorrowOffer[] {
+): IEarnDesktopLoanOffer[] {
   const bySymbol = new Map<
     string,
-    { total: number; cheapest: IEarnDesktopBorrowOffer }
+    { total: number; best?: IEarnDesktopLoanOffer }
   >();
   markets.forEach((entry) => {
     const card = buildMarketCard(entry, Number.MAX_SAFE_INTEGER);
+    const supplyBySymbol = new Map(
+      filterUnsupportedAaveNativeReserveAssets({
+        assets: entry.reserves?.supply?.assets,
+        networkId: entry.market.networkId,
+        providerName: entry.market.provider,
+      }).map((asset) => [asset.token.symbol.toLowerCase(), asset]),
+    );
     card.topBorrow.forEach((row) => {
       const key = row.symbol.toLowerCase();
-      const offer: IEarnDesktopBorrowOffer = {
-        ...row,
-        market: entry.market,
-        marketLabel: card.label,
-      };
-      const current = bySymbol.get(key);
-      if (!current) {
-        bySymbol.set(key, { total: row.totalBorrowed, cheapest: offer });
-        return;
-      }
+      const current = bySymbol.get(key) ?? { total: 0 };
       current.total += row.totalBorrowed;
-      if (toNumber(row.apy) < toNumber(current.cheapest.apy)) {
-        current.cheapest = offer;
+      const supply = supplyBySymbol.get(key);
+      const apy = supply?.apyDetail?.apy;
+      if (supply && apy && toNumber(apy) > toNumber(current.best?.apy)) {
+        current.best = {
+          reserveAddress: supply.reserveAddress,
+          symbol: supply.token.symbol,
+          logoURI: supply.token.logoURI,
+          apy,
+          market: entry.market,
+          marketLabel: card.label,
+        };
       }
+      bySymbol.set(key, current);
     });
   });
   return [...bySymbol.values()]
     .toSorted((a, b) => b.total - a.total)
-    .slice(0, count)
-    .map((item) => item.cheapest);
+    .flatMap((item) => (item.best ? [item.best] : []))
+    .slice(0, count);
 }
 
 // ---------- Lending supply as Earn offers ----------
@@ -1090,4 +1108,76 @@ export function buildHoldRows({
   return rows.toSorted(
     (a, b) => Number(b.fiatValueUsd) - Number(a.fiatValueUsd),
   );
+}
+
+// ---------- Offer cards ----------
+
+/** A listed token on one network, with what Earn offers for it there */
+export type IEarnDesktopOfferRow = {
+  key: string;
+  asset: IEarnAvailableAsset;
+  networkId: string;
+  /** The best rate first */
+  offers: IEarnDesktopHoldOffer[];
+  /** USD in the protocol list's offers there */
+  tvl: number;
+};
+
+// TVL the way the Protocols page totals it
+const getProtocolTvl = (item: IStakeProtocolListItem) =>
+  parseFormattedLiquidityValue(
+    item.provider.totalFiatValue || item.provider.tvl || item.tvl?.text,
+  );
+
+// The offer cards' rows: a listed token once per network it earns on, with
+// the offers of the card's kind there. Withdraw-only protocols take no
+// deposits, so they count for neither the rate nor the TVL. The TVL is the
+// protocol list's alone: a lending market's reserve holds collateral too, and
+// ETH and WETH share one
+export function buildOfferRows({
+  assets,
+  protocolsBySymbol,
+  lendingOffers,
+  isFixedRate,
+}: {
+  assets: IEarnAvailableAsset[];
+  /** Every protocol row, keyed by lowercased symbol */
+  protocolsBySymbol: Map<string, IStakeProtocolListItem[]>;
+  lendingOffers: Map<string, IEarnDesktopLendingOffer[]>;
+  /** Fixed Income's rows keep the fixed-rate offers, the others the rest */
+  isFixedRate: boolean;
+}): IEarnDesktopOfferRow[] {
+  const rows = new Map<string, IEarnDesktopOfferRow>();
+  assets.forEach((asset) => {
+    const symbolKey = asset.symbol.toLowerCase();
+    const protocols = (protocolsBySymbol.get(symbolKey) ?? []).filter(
+      (item) => item.provider.group !== EStakeProtocolGroupEnum.WithdrawOnly,
+    );
+    asset.protocols.forEach(({ networkId }) => {
+      const key = `${symbolKey}|${networkId}`;
+      if (rows.has(key)) {
+        return;
+      }
+      const offers = collectNetworkOffers({
+        networkId,
+        protocols,
+        lendingOffers: isFixedRate ? [] : (lendingOffers.get(symbolKey) ?? []),
+      }).filter((offer) => offer.isFixedRate === isFixedRate);
+      if (!offers.length) {
+        return;
+      }
+      rows.set(key, {
+        key,
+        asset,
+        networkId,
+        offers,
+        tvl: offers.reduce(
+          (sum, offer) =>
+            offer.kind === 'protocol' ? sum + getProtocolTvl(offer.item) : sum,
+          0,
+        ),
+      });
+    });
+  });
+  return Array.from(rows.values());
 }
