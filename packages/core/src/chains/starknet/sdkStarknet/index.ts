@@ -40,7 +40,16 @@ export const ARGENT_ACCOUNT_CLASS_HASH =
 export const OKX_ACCOUNT_CLASS_HASH =
   '0x1c0bb51e2ce73dc007601a1e7725453627254016c28f118251a71bbb0507fcb';
 
-export type IStarknetAccountContract = 'argent' | 'openZeppelin' | 'okx';
+// TEMP(starknet-oz017): remove once funds are off OpenZeppelin v0.17.0 accounts
+export const OPENZEPPELIN_V017_ACCOUNT_CLASS_HASH =
+  '0x540d7f5ec7ecf317e68d48564934cb99259781b1ee3cedbbc37ec5337f8e688';
+
+export type IStarknetAccountContract =
+  | 'argent'
+  | 'openZeppelin'
+  | 'okx'
+  // TEMP(starknet-oz017): remove once funds are off OpenZeppelin v0.17.0 accounts
+  | 'openZeppelinV017';
 
 // The default derive type carries no encoding and is the Argent account
 export function getAccountContractByEncoding(
@@ -51,6 +60,10 @@ export function getAccountContractByEncoding(
   }
   if (addressEncoding === EAddressEncodings.STARKNET_OKX) {
     return 'okx';
+  }
+  // TEMP(starknet-oz017): remove once funds are off OpenZeppelin v0.17.0 accounts
+  if (addressEncoding === EAddressEncodings.STARKNET_OZ_V017) {
+    return 'openZeppelinV017';
   }
   return 'argent';
 }
@@ -240,6 +253,10 @@ export function getAccountDeployParams(
     constructorCalldata = toFeltArray([salt, '0']);
   } else {
     classHash = OPENZEPPELIN_ACCOUNT_CLASS_HASH;
+    // TEMP(starknet-oz017): remove once funds are off OpenZeppelin v0.17.0 accounts
+    if (accountContract === 'openZeppelinV017') {
+      classHash = OPENZEPPELIN_V017_ACCOUNT_CLASS_HASH;
+    }
     // hex felts recompile to the same values, so the address is unchanged
     constructorCalldata = toFeltArray(CallData.compile({ publicKey: salt }));
   }
@@ -383,6 +400,8 @@ export default {
   ARGENT_SEED_KEY_PATH,
   OKX_ACCOUNT_CLASS_HASH,
   OPENZEPPELIN_ACCOUNT_CLASS_HASH,
+  // TEMP(starknet-oz017): remove once funds are off OpenZeppelin v0.17.0 accounts
+  OPENZEPPELIN_V017_ACCOUNT_CLASS_HASH,
   buildExecuteCalldata,
   calculateDeployAccountTxHash,
   calculateInvokeTxHash,
