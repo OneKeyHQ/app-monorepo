@@ -12,10 +12,8 @@ import type { IntlShape } from 'react-intl';
 
 /**
  * The public stock endpoint describes the underlying listing, not the token
- * that wraps it, so it carries no issuer. `source` and `isPaused` have to be
- * threaded in from the token variant the page is showing — without a source
- * `resolveUSMarketStatusVariant` resolves to undefined and the market status
- * badge silently renders nothing.
+ * that wraps it. Preserve the selected token's issuer and pause metadata
+ * alongside the listing's market status.
  */
 export function buildStockInfoFromPublicDetail(
   detail: IMarketStockPublicDetail,
