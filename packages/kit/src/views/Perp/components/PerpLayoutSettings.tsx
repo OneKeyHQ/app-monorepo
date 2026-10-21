@@ -4,9 +4,11 @@ import { useIntl } from 'react-intl';
 
 import {
   Dialog,
+  ESwitchSize,
   Icon,
   SizableText,
   Stack,
+  Switch,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -247,7 +249,54 @@ export function PerpLayoutSettingsEntry({
   );
 }
 
-export function PerpLayoutSettingsContent() {
+export function PerpPositionActionsSettingsContent() {
+  const intl = useIntl();
+  const [settings, setSettings] = usePerpsCustomSettingsAtom();
+  const actions = [
+    { key: 'add', label: ETranslations.add_position__action },
+    { key: 'tpsl', label: ETranslations.perp_position_tp_sl_short },
+    { key: 'close', label: ETranslations.perp_position_close_short },
+    { key: 'reverse', label: 'Reverse' },
+  ] as const;
+  return (
+    <YStack gap="$5" testID={PerpTestIDs.PositionActionsSettingsDialog}>
+      <SizableText size="$bodyMd" color="$textSubdued">
+        Choose which buttons to show. Disabled buttons are hidden. Changes are
+        saved automatically.
+      </SizableText>
+      {actions.map(({ key, label }) => (
+        <XStack
+          key={key}
+          gap="$4"
+          justifyContent="space-between"
+          alignItems="center"
+        >
+          <SizableText size="$bodyLgMedium" flexShrink={1}>
+            {key === 'reverse' ? 'Reverse' : intl.formatMessage({ id: label })}
+          </SizableText>
+          <Switch
+            testID={PerpTestIDs.PositionActionSwitch(key)}
+            size={ESwitchSize.large}
+            value={settings.positionActionVisibility?.[key] !== false}
+            onChange={(value) =>
+              setSettings((previous) => ({
+                ...previous,
+                positionActionVisibility: {
+                  ...previous.positionActionVisibility,
+                  [key]: value,
+                },
+              }))
+            }
+          />
+        </XStack>
+      ))}
+    </YStack>
+  );
+}
+
+export function PerpLayoutSettingsContent({
+  onOpenPositionActions,
+}: { onOpenPositionActions?: () => void } = {}) {
   const copy = useLayoutSettingsCopy();
   const [perpsCustomSettings, setPerpsCustomSettings] =
     usePerpsCustomSettingsAtom();
@@ -265,6 +314,20 @@ export function PerpLayoutSettingsContent() {
 
   return (
     <YStack testID={PerpTestIDs.MobileLayoutSettingsPage} width="100%">
+      <XStack
+        px="$5"
+        py="$4"
+        gap="$3"
+        alignItems="center"
+        onPress={onOpenPositionActions}
+        cursor="pointer"
+        testID={PerpTestIDs.PositionActionsSettingsButton}
+      >
+        <SizableText size="$bodyLgMedium" flex={1}>
+          Position action buttons
+        </SizableText>
+        <Icon name="ChevronRightOutline" size="$4" color="$iconSubdued" />
+      </XStack>
       <YStack px="$5" pt="$2" pb="$6" gap="$3">
         <SizableText size="$bodyLgMedium" color="$text">
           {copy.sectionTitle}
@@ -292,7 +355,7 @@ export function PerpLayoutSettingsContent() {
 }
 
 export function showPerpLayoutSettingsDialog({ title }: { title: string }) {
-  return Dialog.show({
+  const dialog = Dialog.show({
     title,
     showFooter: false,
     contentContainerProps: {
@@ -303,8 +366,23 @@ export function showPerpLayoutSettingsDialog({ title }: { title: string }) {
     },
     renderContent: (
       <PerpsProviderMirror>
-        <PerpLayoutSettingsContent />
+        <PerpLayoutSettingsContent
+          onOpenPositionActions={() => {
+            void Promise.resolve(dialog.close()).then(() => {
+              Dialog.show({
+                title: 'Position action buttons',
+                showFooter: false,
+                renderContent: (
+                  <PerpsProviderMirror>
+                    <PerpPositionActionsSettingsContent />
+                  </PerpsProviderMirror>
+                ),
+              });
+            });
+          }}
+        />
       </PerpsProviderMirror>
     ),
   });
+  return dialog;
 }

@@ -7,6 +7,7 @@ import { fireEvent, render, within } from '@testing-library/react';
 import {
   PerpLayoutSettingsContent,
   PerpLayoutSettingsEntry,
+  PerpPositionActionsSettingsContent,
   showPerpLayoutSettingsDialog,
 } from './PerpLayoutSettings';
 
@@ -16,6 +17,9 @@ const mockLayoutSettingsTourVisited = jest.fn();
 
 let mockChartPosition: 'top' | 'bottom' | 'hidden' | undefined = 'bottom';
 let mockLayoutSettingsIsFirstVisit = true;
+let mockPositionActionVisibility:
+  | Partial<Record<'add' | 'tpsl' | 'close' | 'reverse', boolean>>
+  | undefined;
 
 jest.mock('react-intl', () => ({
   useIntl: () => ({
@@ -73,6 +77,23 @@ jest.mock('@onekeyhq/components', () => {
 
   return {
     Dialog: { show: mockDialogShow },
+    ESwitchSize: { large: 'large' },
+    Switch: ({
+      value,
+      onChange,
+      testID,
+    }: {
+      value: boolean;
+      onChange: (value: boolean) => void;
+      testID: string;
+    }) => (
+      <input
+        type="checkbox"
+        checked={value}
+        onChange={(event) => onChange(event.target.checked)}
+        data-testid={testID}
+      />
+    ),
     Icon: ({ name }: { name: string }) => <span data-icon={name} />,
     SizableText: ({ children }: { children?: ReactNode }) => (
       <span>{children}</span>
@@ -95,6 +116,7 @@ jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
   usePerpsCustomSettingsAtom: () => [
     {
       chartPosition: mockChartPosition,
+      positionActionVisibility: mockPositionActionVisibility,
       showChartLines: true,
       showTradeMarks: true,
       skipOrderConfirm: false,
@@ -116,6 +138,7 @@ jest.mock('../PerpsProviderMirror', () => ({
 describe('PerpLayoutSettings', () => {
   beforeEach(() => {
     mockChartPosition = 'bottom';
+    mockPositionActionVisibility = undefined;
     mockSetPerpsCustomSettings.mockReset();
     mockOnOpen.mockReset();
     mockLayoutSettingsTourVisited.mockReset();
@@ -212,6 +235,55 @@ describe('PerpLayoutSettings', () => {
     expect(update({ chartPosition: 'bottom', untouched: true })).toEqual({
       chartPosition: 'top',
       untouched: true,
+    });
+  });
+});
+
+describe('position action settings', () => {
+  beforeEach(() => {
+    mockPositionActionVisibility = undefined;
+    mockSetPerpsCustomSettings.mockReset();
+  });
+  it('opens the button settings entry', () => {
+    const onOpen = jest.fn();
+    const view = render(
+      <PerpLayoutSettingsContent onOpenPositionActions={onOpen} />,
+    );
+    fireEvent.click(view.getByTestId('perp-position-actions-settings-button'));
+    expect(onOpen).toHaveBeenCalledTimes(1);
+  });
+  it('defaults every action to visible for old preferences', () => {
+    const view = render(<PerpPositionActionsSettingsContent />);
+    expect(
+      view
+        .getAllByRole('checkbox')
+        .every((input) => (input as HTMLInputElement).checked),
+    ).toBe(true);
+  });
+  it('preserves other settings and allows disabling the final visible action', () => {
+    mockPositionActionVisibility = {
+      add: false,
+      tpsl: false,
+      close: false,
+      reverse: true,
+    };
+    const view = render(<PerpPositionActionsSettingsContent />);
+    fireEvent.click(view.getByTestId('perp-position-action-switch-reverse'));
+    const previous = {
+      chartPosition: 'top',
+      positionActionVisibility: mockPositionActionVisibility,
+    };
+    const update = mockSetPerpsCustomSettings.mock.calls[0][0] as (
+      current: typeof previous,
+    ) => typeof previous;
+    expect(update(previous)).toEqual({
+      chartPosition: 'top',
+      positionActionVisibility: {
+        add: false,
+        tpsl: false,
+        close: false,
+        reverse: false,
+      },
     });
   });
 });

@@ -78,6 +78,7 @@ function PerpPositionsList({
     ETranslations.perp_position_market,
     ETranslations.perp_position_limit,
   ].map((id) => intl.formatMessage({ id }));
+  actionLabels.push('Reverse');
   const layoutRectsRef = useRef<
     Record<string, IPerpsMobileLayoutTraceRect | undefined>
   >({});
