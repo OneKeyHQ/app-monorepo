@@ -1795,10 +1795,15 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
   @backgroundMethod()
   async cancelTwapOrder(
     params: ICancelTwapOrderParams,
+    options: IOrderAccountGuardOptions = {},
   ): Promise<ITwapCancelResponse> {
+    const expectedAccountAddress =
+      await this._resolveExpectedAccountAddress(options);
     await this.checkAccountCanTrade();
 
-    const client = await this.getExchangeClientForTrading();
+    const client = await this.getExchangeClientForTrading({
+      expectedAccountAddress,
+    });
     const context = await this._buildLogContext();
     const requestPayload = {
       assetId: params.assetId,
@@ -1807,12 +1812,13 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
     const startedAt = Date.now();
 
     try {
-      const response = await convertHyperLiquidResponse(() =>
-        client.twapCancel({
+      const response = await convertHyperLiquidResponse(() => {
+        this._assertExchangeUserAddress(expectedAccountAddress);
+        return client.twapCancel({
           a: params.assetId,
           t: params.twapId,
-        }),
-      );
+        });
+      });
       defaultLogger.perp.hyperliquid.twapCancel({
         ...context,
         request: requestPayload,

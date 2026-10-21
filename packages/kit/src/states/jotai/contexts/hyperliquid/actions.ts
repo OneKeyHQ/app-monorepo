@@ -3547,6 +3547,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       params: {
         assetId: number;
         twapId: number;
+        expectedAccountAddress?: string;
       },
     ) => {
       return withToast({
@@ -3557,11 +3558,28 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
                 assetId: params.assetId,
                 twapId: params.twapId,
               },
+              { expectedAccountAddress: params.expectedAccountAddress },
             );
+
+          if (params.expectedAccountAddress) {
+            const activeAccount = await perpsActiveAccountAtom.get();
+            if (
+              normalizePerpsAccountAddress(activeAccount.accountAddress) !==
+              normalizePerpsAccountAddress(params.expectedAccountAddress)
+            )
+              return result;
+          }
+
+          const prev = get(perpsActiveTwapOrdersAtom());
+          if (
+            params.expectedAccountAddress &&
+            normalizePerpsAccountAddress(prev.accountAddress) !==
+              normalizePerpsAccountAddress(params.expectedAccountAddress)
+          )
+            return result;
 
           this.canceledTwapIds.add(params.twapId);
 
-          const prev = get(perpsActiveTwapOrdersAtom());
           const twapOrders = this.filterCanceledTwapOrders(prev.twapOrders);
           set(perpsActiveTwapOrdersAtom(), {
             ...prev,
