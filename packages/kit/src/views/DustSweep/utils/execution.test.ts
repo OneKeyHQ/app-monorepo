@@ -8,6 +8,7 @@ import type {
   prepareMarketDirectUnsignedTx,
   sendMarketDirectUnsignedTxs,
 } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/hooks/marketDirectSendTx';
+import { buildSwapReviewState } from '@onekeyhq/kit/src/views/Swap/utils/buildSwapReviewState';
 import type { getSwapRequiredNativeBalanceAmount } from '@onekeyhq/kit/src/views/Swap/utils/swapBalanceUtils';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
@@ -16,7 +17,13 @@ import type {
   IDustSweepSnapshot,
   IDustSweepToken,
 } from '@onekeyhq/shared/types/swap/dustSweep';
-import { ESwapTxHistoryStatus } from '@onekeyhq/shared/types/swap/types';
+import {
+  EProtocolOfExchange,
+  ESwapQuoteKind,
+  ESwapStepType,
+  ESwapTabSwitchType,
+  ESwapTxHistoryStatus,
+} from '@onekeyhq/shared/types/swap/types';
 import type {
   IFetchQuoteResult,
   ISwapApproveAllowanceResponse,
@@ -41,6 +48,7 @@ const mockEstimateApprovals: jest.MockedFunction<
   typeof estimateMarketApproveGasInfos
 > = jest.fn();
 const mockHistory = jest.fn();
+const mockBlockNotification = jest.fn();
 const mockBalance = jest.fn();
 const mockGasRequirement: jest.MockedFunction<
   typeof getSwapRequiredNativeBalanceAmount
@@ -49,6 +57,7 @@ const mockGasRequirement: jest.MockedFunction<
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
   default: {
+    serviceNotification: { blockNotificationForTxId: mockBlockNotification },
     serviceSwap: {
       fetchApproveAllowanceForDisplay: mockAllowance,
       fetchBuildTx: mockBuild,
@@ -248,6 +257,7 @@ describe('Dust Sweep serial execution boundaries', () => {
       gasInfos: params.approveUnsignedTxArr.map(() => createGasEntry()),
     }));
     mockHistory.mockReset().mockResolvedValue(undefined);
+    mockBlockNotification.mockReset().mockResolvedValue(undefined);
     mockBalance
       .mockReset()
       .mockResolvedValue({ isSufficient: true, balance: '100' });
@@ -405,6 +415,7 @@ describe('Dust Sweep serial execution boundaries', () => {
         expect(mockFetchQuote).toHaveBeenCalledTimes(1);
         expect(mockBuild).toHaveBeenCalledTimes(1);
         expect(mockSend).toHaveBeenCalledTimes(1);
+        expect(mockBlockNotification).not.toHaveBeenCalled();
       }
       return {
         state: ESwapTxHistoryStatus.SUCCESS,
@@ -435,6 +446,11 @@ describe('Dust Sweep serial execution boundaries', () => {
     });
     expect(mockSend.mock.calls[1][0].gasInfos).toBeUndefined();
     expect(mockSend.mock.calls[1][0].approveUnsignedTxArr).toBeUndefined();
+    expect(mockBlockNotification).toHaveBeenCalledTimes(1);
+    expect(mockBlockNotification).toHaveBeenCalledWith({
+      networkId: snapshot.networkId,
+      tx: 'swap',
+    });
     expect(mockTxState).toHaveBeenLastCalledWith(
       expect.objectContaining({ orderId: 'after', ctx: { order: 'after' } }),
     );
@@ -1380,6 +1396,283 @@ describe('Dust Sweep serial execution boundaries', () => {
     expect(mockHistory).not.toHaveBeenCalled();
   });
 
+  it.each([
+    { protocol: EProtocolOfExchange.LIMIT },
+    { protocol: EProtocolOfExchange.STOCK },
+    { protocol: EProtocolOfExchange.PRIVATE_SEND },
+    { kind: ESwapQuoteKind.BUY },
+  ])(
+    'rejects a build with a mismatched trade contract: %j',
+    async (contract) => {
+      mockBuild.mockResolvedValue({
+        result: { ...createQuote(), ...contract },
+      });
+      const options = createOptions();
+      await expect(executeDustSweepItem(options)).rejects.toMatchObject({
+        reason: 'unknown',
+      });
+      expect(mockPayload).not.toHaveBeenCalled();
+      expect(mockAllowance).not.toHaveBeenCalled();
+      expect(mockSend).not.toHaveBeenCalled();
+      expect(options.onSigning).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each([false, true])(
+    'suppresses notifications before deferred sender post-processing completes (post-processing failure=%s)',
+    async (fails) => {
+      let releaseSender = () => {};
+      const postProcessing = new Promise<void>((resolve) => {
+        releaseSender = resolve;
+      });
+      let observeBroadcast = () => {};
+      const broadcast = new Promise<void>((resolve) => {
+        observeBroadcast = resolve;
+      });
+      mockBlockNotification.mockReturnValue(new Promise(() => {}));
+      mockSend.mockImplementationOnce(async (params) => {
+        await sendTransaction(params);
+        observeBroadcast();
+        await postProcessing;
+        if (fails)
+          throw new OneKeyLocalError('History unavailable after broadcast');
+        return [];
+      });
+      const options = createOptions();
+      const completion = executeDustSweepItem(options);
+      try {
+        await broadcast;
+        expect(mockBlockNotification).toHaveBeenCalledTimes(1);
+        expect(mockBlockNotification).toHaveBeenCalledWith({
+          networkId: snapshot.networkId,
+          tx: 'swap',
+        });
+        expect(options.onBroadcast).toHaveBeenCalledWith('swap');
+        expect(mockHistory).not.toHaveBeenCalled();
+      } finally {
+        releaseSender();
+        await completion;
+      }
+      await expect(completion).resolves.toMatchObject({ status: 'success' });
+      expect(mockSend).toHaveBeenCalledTimes(1);
+      expect(mockBlockNotification).toHaveBeenCalledTimes(1);
+      expect(mockHistory).toHaveBeenCalledTimes(1);
+    },
+  );
+
+  it.each([false, true])(
+    'suppresses same-chain transfer notifications after broadcast (notification failure=%s)',
+    async (fails) => {
+      if (fails)
+        mockBlockNotification.mockRejectedValue(
+          new Error('Notification unavailable'),
+        );
+      mockSend.mockImplementation(async (params) => {
+        expect(mockBlockNotification).not.toHaveBeenCalled();
+        return sendTransaction(params);
+      });
+      await expect(
+        executeDustSweepItem(createOptions()),
+      ).resolves.toMatchObject({ status: 'success' });
+      expect(mockBlockNotification).toHaveBeenCalledWith({
+        networkId: snapshot.networkId,
+        tx: 'swap',
+      });
+      expect(mockHistory).toHaveBeenCalledTimes(1);
+    },
+  );
+
+  describe.each([
+    ['evm--1', 'ETH', 18],
+    ['tron--0x2b6653dc', 'TRX', 6],
+  ] as const)(
+    '%s approval response contract',
+    (networkId, symbol, decimals) => {
+      it.each([
+        'absent',
+        'explicit-approved',
+        'missing-target',
+        'unapproved',
+        'conflicting-approved',
+        'final-gas-reject',
+      ] as const)('handles approval metadata: %s', async (approvalState) => {
+        const networkToken = { ...token, networkId };
+        const networkSnapshot = {
+          ...snapshot,
+          networkId,
+          tokens: [networkToken],
+          nativeToken: { ...snapshot.nativeToken, networkId, symbol, decimals },
+        };
+        let approvedInfo: IFetchQuoteResult['approvedInfo'];
+        if (approvalState === 'unapproved')
+          approvedInfo = { isApproved: false };
+        else if (
+          approvalState === 'explicit-approved' ||
+          approvalState === 'conflicting-approved'
+        )
+          approvedInfo = { isApproved: true };
+        const quote: IFetchQuoteResult = {
+          ...createQuote(),
+          fromTokenInfo: networkToken,
+          toTokenInfo: networkSnapshot.nativeToken,
+          allowanceResult:
+            approvalState === 'missing-target' ||
+            approvalState === 'conflicting-approved'
+              ? { allowanceTarget: '', amount: token.amount }
+              : undefined,
+          approvedInfo,
+        };
+        mockFetchQuote.mockResolvedValue(quote);
+        mockBuild.mockResolvedValue({ result: quote });
+        mockGasRequirement.mockReturnValue({
+          token: networkSnapshot.nativeToken,
+          amount: '0.1',
+          reserveAmount: '0.1',
+          includesFromAmount: false,
+        });
+        const options = {
+          ...createOptions(),
+          token: networkToken,
+          snapshot: networkSnapshot,
+        };
+        if (approvalState === 'final-gas-reject') {
+          mockBalance.mockImplementation(async ({ token: checked }) => ({
+            isSufficient: !checked.isNative,
+            balance: '0',
+          }));
+          await expect(executeDustSweepItem(options)).rejects.toMatchObject({
+            reason: 'insufficientGas',
+          });
+          expect(options.onSigning).not.toHaveBeenCalled();
+        } else if (
+          approvalState !== 'absent' &&
+          approvalState !== 'explicit-approved'
+        ) {
+          await expect(executeDustSweepItem(options)).rejects.toMatchObject({
+            reason: 'unknown',
+          });
+          expect(mockSend).not.toHaveBeenCalled();
+          expect(options.onSigning).not.toHaveBeenCalled();
+        } else {
+          const ordinarySwap = buildSwapReviewState({
+            accountId: snapshot.accountId,
+            networkId,
+            quoteResult: quote,
+            swapType: ESwapTabSwitchType.SWAP,
+            supportPreBuild: false,
+            texts: {
+              wrap: 'Wrap',
+              approveAndSwap: 'Approve and swap',
+              approveAndSign: 'Approve and sign',
+              revokeApprove: 'Revoke',
+              approveToken: 'Approve',
+              approveTokenWithTarget: 'Approve',
+              signAndSubmit: 'Sign and submit',
+              sign: 'Sign',
+              confirmSwap: 'Confirm',
+              swap: 'Swap',
+            },
+          });
+          expect(ordinarySwap.steps.map((step) => step.type)).toEqual([
+            ESwapStepType.SEND_TX,
+          ]);
+          await expect(executeDustSweepItem(options)).resolves.toMatchObject({
+            status: 'success',
+          });
+          expect(mockSend).toHaveBeenCalledTimes(1);
+          const params = mockSend.mock.calls[0][0];
+          expect(params.buildUnsignedParams.approveInfo).toBeUndefined();
+          expect(mockGasRequirement).toHaveBeenCalledWith(
+            expect.objectContaining({
+              networkId,
+              fromToken: networkToken,
+              fromAmount: networkToken.amount,
+            }),
+          );
+          expect(mockBalance).toHaveBeenCalledWith(
+            expect.objectContaining({
+              token: networkSnapshot.nativeToken,
+              amount: '0.1',
+            }),
+          );
+        }
+        expect(mockAllowance).not.toHaveBeenCalled();
+        expect(mockPrepare).not.toHaveBeenCalled();
+      });
+    },
+  );
+
+  it.each([false, true])(
+    'reserves actual Solana ATA rent before signing (sponsored=%s)',
+    async (sponsored) => {
+      const solToken = { ...token, networkId: 'sol--101' };
+      const solSnapshot = {
+        ...snapshot,
+        networkId: solToken.networkId,
+        tokens: [solToken],
+        nativeToken: {
+          ...snapshot.nativeToken,
+          networkId: solToken.networkId,
+          symbol: 'SOL',
+          decimals: 9,
+        },
+      };
+      const quote = {
+        ...createQuote(),
+        fromTokenInfo: solToken,
+        toTokenInfo: solSnapshot.nativeToken,
+        allowanceResult: undefined,
+      };
+      mockFetchQuote.mockResolvedValue(quote);
+      mockBuild.mockResolvedValue({ result: quote });
+      mockGasRequirement.mockImplementation(
+        jest.requireActual<
+          typeof import('@onekeyhq/kit/src/views/Swap/utils/swapBalanceUtils')
+        >('@onekeyhq/kit/src/views/Swap/utils/swapBalanceUtils')
+          .getSwapRequiredNativeBalanceAmount,
+      );
+      mockBalance.mockImplementation(async ({ token: checked, amount }) => ({
+        isSufficient: !checked.isNative || Number(amount) <= 0.001,
+        balance: checked.isNative ? '0.001' : solToken.amount,
+      }));
+      const gas: IMarketGasInfoEntry = {
+        encodeTx: {},
+        gasInfo: {
+          common: {
+            baseFee: '0.00002',
+            feeDecimals: 9,
+            feeSymbol: 'SOL',
+            nativeDecimals: 9,
+            nativeSymbol: 'SOL',
+          },
+          feeSol: { computeUnitPrice: '0' },
+          payer: sponsored ? 'megafuel' : 'user',
+        },
+      };
+      mockSend.mockImplementation(async (params) => {
+        await params.validateFinalGasInfos?.(
+          [gas],
+          [{ encodedTx: {}, solanaRent: '0.002' }],
+        );
+        return sendTransaction({ ...params, validateFinalGasInfos: undefined });
+      });
+      const options = {
+        ...createOptions(),
+        token: solToken,
+        snapshot: solSnapshot,
+      };
+      await expect(executeDustSweepItem(options)).rejects.toMatchObject({
+        reason: 'insufficientGas',
+      });
+      expect(mockBalance).toHaveBeenCalledWith(
+        expect.objectContaining({ amount: sponsored ? '0.002' : '0.00202' }),
+      );
+      expect(options.onSigning).not.toHaveBeenCalled();
+      expect(options.onBroadcast).not.toHaveBeenCalled();
+      expect(mockPrepare).not.toHaveBeenCalled();
+    },
+  );
+
   it('does not apply EVM value semantics to a Tron payload', async () => {
     const tronToken = { ...token, networkId: 'tron--0x2b6653dc' };
     const tronSnapshot = {
@@ -1491,6 +1784,7 @@ describe('Dust Sweep serial execution boundaries', () => {
         expect(options.onSigning).toHaveBeenCalledTimes(1);
         expect(options.onSubmissionError).toHaveBeenCalledWith(message);
         expect(options.onBroadcast).not.toHaveBeenCalled();
+        expect(mockBlockNotification).not.toHaveBeenCalled();
         expect(options.onPrepared).not.toHaveBeenCalled();
         expect(mockHistory).not.toHaveBeenCalled();
         await jest.advanceTimersByTimeAsync(3000);
@@ -1499,6 +1793,11 @@ describe('Dust Sweep serial execution boundaries', () => {
         });
         expect(options.onBroadcast).toHaveBeenCalledTimes(1);
         expect(options.onBroadcast).toHaveBeenCalledWith(txId);
+        expect(mockBlockNotification).toHaveBeenCalledTimes(1);
+        expect(mockBlockNotification).toHaveBeenCalledWith({
+          networkId: snapshot.networkId,
+          tx: txId,
+        });
         expect(mockHistory).toHaveBeenCalledTimes(1);
         expect(mockHistory).toHaveBeenCalledWith(
           expect.objectContaining({ txId }),
