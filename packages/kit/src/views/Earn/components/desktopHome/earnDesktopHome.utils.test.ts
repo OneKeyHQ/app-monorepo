@@ -13,6 +13,7 @@ import {
   buildMarketCard,
   buildProtocolShares,
   collectLendingOffers,
+  collectNetworkOffers,
   collectTileRows,
   computeNetWorth,
   deriveLendingSupply,
@@ -805,6 +806,169 @@ describe('collectTileRows', () => {
   });
 });
 
+const protocol = (
+  provider: string,
+  networkId: string,
+  apr: string,
+  extra: Partial<IStakeProtocolListItem> = {},
+) =>
+  ({
+    provider: {
+      name: provider,
+      vault: `${provider}-vault`,
+      aprWithoutFee: apr,
+    },
+    network: { networkId, name: networkId, logoURI: '' },
+    isEarning: false,
+    ...extra,
+  }) as unknown as IStakeProtocolListItem;
+const lending = (provider: string, networkId: string, apy: string) =>
+  ({
+    key: `${provider}:${networkId}:usdc`,
+    market: market(provider, networkId, provider),
+    marketLabel: provider,
+    reserveAddress: 'usdc',
+    symbol: 'USDC',
+    logoURI: '',
+    apy,
+  }) as IEarnDesktopLendingOffer;
+
+describe('collectNetworkOffers', () => {
+  const redeemOnly = { aprInfo: { button: { type: 'redeem' } } };
+
+  it('lists the offers on the given network, the best rate first', () => {
+    // USDC on Ethereum, as the 10-21 test wallet holds it
+    const offers = collectNetworkOffers({
+      networkId: 'evm--1',
+      protocols: [
+        protocol('morpho', 'evm--1', '3.82'),
+        protocol('morpho', 'evm--8453', '6.3'),
+        protocol('spark', 'evm--1', '5.42'),
+      ],
+      lendingOffers: [
+        lending('aave', 'evm--42161', '2.37'),
+        lending('aave', 'evm--1', '3.85'),
+      ],
+    });
+    expect(offers.map((offer) => [offer.kind, offer.key, offer.apr])).toEqual([
+      ['protocol', 'evm--1-spark-spark-vault', 5.42],
+      ['lending', 'aave:evm--1:usdc', 3.85],
+      ['protocol', 'evm--1-morpho-morpho-vault', 3.82],
+    ]);
+  });
+
+  it('leaves out redeem-only offers and rates of 0 or below', () => {
+    const offers = collectNetworkOffers({
+      networkId: 'evm--1',
+      protocols: [
+        protocol('spark', 'evm--1', '5.42'),
+        protocol('morpho', 'evm--1', '6.1', redeemOnly),
+        protocol('bitway', 'evm--1', '0'),
+        protocol('falcon', 'evm--1', '-0.4'),
+      ],
+      lendingOffers: [lending('aave', 'evm--1', '0.00')],
+    });
+    expect(offers.map((offer) => offer.key)).toEqual([
+      'evm--1-spark-spark-vault',
+    ]);
+  });
+
+  it('lists a lending market the protocol list carries only once', () => {
+    // Kamino USDC has a staking config, so the list carries the market
+    expect(
+      collectNetworkOffers({
+        networkId: 'sol--101',
+        protocols: [protocol('Kamino', 'sol--101', '4.58')],
+        lendingOffers: [lending('kamino', 'sol--101', '6.10')],
+      }).map((offer) => [offer.kind, offer.apr]),
+    ).toEqual([['protocol', 4.58]]);
+    // normalizeToEarnProvider reads the list's "staked" as Lista
+    expect(
+      collectNetworkOffers({
+        networkId: 'evm--56',
+        protocols: [protocol('staked', 'evm--56', '2.1')],
+        lendingOffers: [lending('lista', 'evm--56', '3.4')],
+      }).map((offer) => offer.kind),
+    ).toEqual(['protocol']);
+  });
+
+  it('keeps a lending market whose protocol entry is left out', () => {
+    const kamino = lending('kamino', 'sol--101', '6.10');
+    expect(
+      collectNetworkOffers({
+        networkId: 'sol--101',
+        protocols: [protocol('kamino', 'sol--101', '0')],
+        lendingOffers: [kamino],
+      }).map((offer) => [offer.kind, offer.apr]),
+    ).toEqual([['lending', 6.1]]);
+    expect(
+      collectNetworkOffers({
+        networkId: 'sol--101',
+        protocols: [protocol('kamino', 'sol--101', '4.58', redeemOnly)],
+        lendingOffers: [kamino],
+      }).map((offer) => [offer.kind, offer.apr]),
+    ).toEqual([['lending', 6.1]]);
+    // The same provider on another network doesn't hide it either
+    expect(
+      collectNetworkOffers({
+        networkId: 'evm--1',
+        protocols: [protocol('aave', 'evm--42161', '2.9')],
+        lendingOffers: [lending('aave', 'evm--1', '3.85')],
+      }).map((offer) => [offer.kind, offer.apr]),
+    ).toEqual([['lending', 3.85]]);
+  });
+
+  it.each([
+    ['Pendle', undefined, true],
+    ['Pendle', null, true],
+    ['pendle', 'simpleEarn', false],
+    ['Pendle', 'staking', true],
+    ['Falcon', ' fixedRate ', true],
+    ['Ethena', undefined, false],
+  ] as const)(
+    'reads %s with category %p as fixed rate: %p',
+    (provider, category, isFixedRate) => {
+      const item = protocol(provider, 'evm--1', '7.85');
+      const [offer] = collectNetworkOffers({
+        networkId: 'evm--1',
+        protocols: [{ ...item, provider: { ...item.provider, category } }],
+        lendingOffers: [],
+      });
+      expect(offer.isFixedRate).toBe(isFixedRate);
+    },
+  );
+
+  it('keys each offer by where it deposits', () => {
+    // USDe on Ethereum: a Pendle market, an offer without a vault, and Aave
+    const core = market('aave', 'evm--1', 'Aave Core Instance');
+    const ethena = protocol('ethena', 'evm--1', '4.8');
+    const offers = collectNetworkOffers({
+      networkId: 'evm--1',
+      protocols: [
+        protocol('pendle', 'evm--1', '7.85'),
+        { ...ethena, provider: { ...ethena.provider, vault: undefined } },
+      ],
+      lendingOffers:
+        collectLendingOffers({
+          markets: [
+            {
+              market: core,
+              reserves: reserves({
+                borrow: [],
+                supply: [{ symbol: 'USDe', apy: '2.9', canBeCollateral: true }],
+              }),
+            },
+          ],
+        }).get('usde') ?? [],
+    });
+    expect(offers.map((offer) => [offer.key, offer.isFixedRate])).toEqual([
+      ['evm--1-pendle-pendle-vault', true],
+      ['evm--1-ethena-', false],
+      [`aave:evm--1:${core.marketAddress}:supply-USDe`, false],
+    ]);
+  });
+});
+
 describe('buildHoldRows', () => {
   const earnAsset = (symbol: string) =>
     ({
@@ -813,32 +977,6 @@ describe('buildHoldRows', () => {
       logoURI: '',
       protocols: [],
     }) as unknown as IEarnAvailableAsset;
-  const protocol = (
-    provider: string,
-    networkId: string,
-    apr: string,
-    extra: Partial<IStakeProtocolListItem> = {},
-  ) =>
-    ({
-      provider: {
-        name: provider,
-        vault: `${provider}-vault`,
-        aprWithoutFee: apr,
-      },
-      network: { networkId, name: networkId, logoURI: '' },
-      isEarning: false,
-      ...extra,
-    }) as unknown as IStakeProtocolListItem;
-  const lending = (provider: string, networkId: string, apy: string) =>
-    ({
-      key: `${provider}:${networkId}:usdc`,
-      market: market(provider, networkId, provider),
-      marketLabel: provider,
-      reserveAddress: 'usdc',
-      symbol: 'USDC',
-      logoURI: '',
-      apy,
-    }) as IEarnDesktopLendingOffer;
 
   it('lists a token once per network with the offers on that network', () => {
     // The 10-21 test wallet: USDC on Arbitrum, Ethereum and Avalanche

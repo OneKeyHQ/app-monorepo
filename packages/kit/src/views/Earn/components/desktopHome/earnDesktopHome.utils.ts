@@ -965,8 +965,8 @@ export type IEarnDesktopHoldRow = {
 };
 
 // What Earn offers for one token on one network, the best rate first: the
-// protocol list's offers there (redeem-only ones left out) and the lending
-// markets' supply the list doesn't already carry
+// protocol list's offers there (redeem-only and zero-rate ones left out) and
+// the lending markets' supply the list doesn't already offer
 export function collectNetworkOffers({
   networkId,
   protocols,
@@ -988,8 +988,10 @@ export function collectNetworkOffers({
       apr: parseAprPercentValue(item.provider.aprWithoutFee),
       isFixedRate: isFixedRateProtocol(item),
       item,
-    }));
-  // A market the protocol list already carries must not count twice
+    }))
+    .filter((offer) => offer.apr > 0);
+  // A market the protocol list already offers must not count twice; an
+  // entry left out above doesn't hide it
   const listed = new Set(
     protocolOffers.map((offer) =>
       (
@@ -1010,10 +1012,9 @@ export function collectNetworkOffers({
       apr: parseAprPercentValue(offer.apy),
       isFixedRate: false as const,
       offer,
-    }));
-  return [...protocolOffers, ...lendingRows]
-    .filter((offer) => offer.apr > 0)
-    .toSorted((a, b) => b.apr - a.apr);
+    }))
+    .filter((offer) => offer.apr > 0);
+  return [...protocolOffers, ...lendingRows].toSorted((a, b) => b.apr - a.apr);
 }
 
 // Each token the wallet holds, one row per network, with what Earn offers
