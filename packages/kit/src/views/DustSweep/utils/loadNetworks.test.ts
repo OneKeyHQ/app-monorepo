@@ -268,10 +268,81 @@ describe('loadDustSweepNetworks request ownership', () => {
     );
     expect(result.partialError).toBe(true);
     expect(result.failedNetworkIds).toEqual([ethereum.networkId]);
+    expect(result.failedNetworks).toEqual([ethereum]);
     expect(result.networks.map((entry) => entry.network.networkId)).toEqual([
       otherNetwork.networkId,
     ]);
   });
+
+  it.each(['ECONNABORTED', 'ERR_NETWORK', 40_001])(
+    'recovers a transient asset error %s once without retrying healthy networks',
+    async (code) => {
+      serviceSwap.getSwapProviderManager.mockResolvedValueOnce([
+        {
+          ...okxProvider(),
+          supportSingleSwapNetworks: [ethereum, otherNetwork],
+        },
+      ]);
+      serviceToken.fetchAccountTokens.mockRejectedValueOnce(
+        Object.assign(new Error('Temporary asset dependency failure'), {
+          code,
+        }),
+      );
+      const result = await loadDustSweepNetworks(
+        params,
+        new AbortController().signal,
+      );
+      expect(result.partialError).toBe(false);
+      expect(result.networks).toHaveLength(2);
+      expect(
+        serviceToken.fetchAccountTokens.mock.calls.map(([p]) => p.networkId),
+      ).toEqual([
+        ethereum.networkId,
+        otherNetwork.networkId,
+        ethereum.networkId,
+      ]);
+    },
+  );
+
+  it('retains failed network identity after the bounded retry is exhausted', async () => {
+    serviceSwap.getSwapProviderManager.mockResolvedValueOnce([
+      { ...okxProvider(), supportSingleSwapNetworks: [ethereum, otherNetwork] },
+    ]);
+    const response = await serviceToken.fetchAccountTokens({
+      accountId: params.accountId,
+      networkId: ethereum.networkId,
+      flag: 'dust-sweep',
+    });
+    serviceToken.fetchAccountTokens.mockClear();
+    serviceToken.fetchAccountTokens.mockImplementation(async (p) => {
+      if (p.networkId === ethereum.networkId)
+        throw Object.assign(new Error('timeout'), { code: 'ECONNABORTED' });
+      return response;
+    });
+    const result = await loadDustSweepNetworks(
+      params,
+      new AbortController().signal,
+    );
+    expect(result.failedNetworks).toEqual([ethereum]);
+    expect(result.partialError).toBe(true);
+    expect(result.networks.map((entry) => entry.network.networkId)).toEqual([
+      otherNetwork.networkId,
+    ]);
+    expect(serviceToken.fetchAccountTokens.mock.calls).toHaveLength(3);
+  });
+
+  it.each(['ERR_CANCELED', 40_056, 401])(
+    'does not retry cancellation or a definite rejection %s',
+    async (code) => {
+      serviceToken.fetchAccountTokens.mockRejectedValueOnce(
+        Object.assign(new Error('Unavailable'), { code }),
+      );
+      await expect(
+        loadDustSweepNetworks(params, new AbortController().signal),
+      ).rejects.toThrow('Unable to load balances');
+      expect(serviceToken.fetchAccountTokens.mock.calls).toHaveLength(1);
+    },
+  );
 
   it('forces a post-trade round without joining an older in-flight load', async () => {
     const old =

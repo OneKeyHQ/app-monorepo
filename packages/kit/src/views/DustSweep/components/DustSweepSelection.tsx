@@ -39,6 +39,7 @@ export function DustSweepSelection({ desktop }: { desktop: boolean }) {
     refreshStatus,
     assetStatus,
     partialError,
+    failedNetworks,
     toggle,
     toggleAll,
     addHidden,
@@ -221,8 +222,11 @@ export function DustSweepSelection({ desktop }: { desktop: boolean }) {
               ))}
         </YStack>
         {selecting && !loading && (loadStatus === 'error' || partialError) ? (
-          <YStack p="$5" gap="$4">
+          <YStack testID="dust-sweep-load-error" p="$5" gap="$4">
             <SizableText>
+              {failedNetworks?.length
+                ? `${failedNetworks.map((network) => network.name).join(', ')} · `
+                : ''}
               {intl.formatMessage({ id: ETranslations.global_network_error })}
             </SizableText>
             <Button testID="dust-sweep-retry" onPress={retry}>

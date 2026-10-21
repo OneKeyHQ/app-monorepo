@@ -9,7 +9,9 @@ import {
   buildUnifiedSwapProviderManagers,
   getDenySwapProviderString,
 } from '@onekeyhq/shared/src/utils/swapProviderManagerUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { sumTokenGroupsFiatValueIgnoringUnavailable } from '@onekeyhq/shared/src/utils/tokenValueUtils';
+import { isTransientNetworkLikeError } from '@onekeyhq/shared/src/utils/transientNetworkErrorUtils';
 import type {
   IDustSweepNetwork,
   IDustSweepRouteParams,
@@ -79,6 +81,22 @@ async function loadQuietly<T>(load: () => Promise<T>) {
   }
 }
 
+async function loadAssetQuietly<T>(load: () => Promise<T>) {
+  try {
+    return await loadQuietly(load);
+  } catch (error) {
+    // Only read-only asset queries may retry the onchain dependency error.
+    // Never retry validation failures or transaction submission here.
+    if (
+      !isTransientNetworkLikeError(error) &&
+      (error as { code?: number } | undefined)?.code !== 40_001
+    )
+      throw error;
+    await timerUtils.wait(300);
+    return loadQuietly(load);
+  }
+}
+
 export async function loadDustSweepEntryCapabilities(
   {
     fetchNetworks,
@@ -118,6 +136,7 @@ type IDustSweepNetworksResult = {
   partialError: boolean;
   providerInfo?: ISwapProviderInfo;
   failedNetworkIds?: string[];
+  failedNetworks?: ISwapNetwork[];
 };
 
 type IDustSweepNetworkLoad = {
@@ -187,7 +206,7 @@ async function loadDustSweepNetworkAssets({
   isManualRefresh: boolean;
 }): Promise<IDustSweepNetwork> {
   const [response, native] = await Promise.all([
-    loadQuietly(() =>
+    loadAssetQuietly(() =>
       backgroundApiProxy.serviceToken.fetchAccountTokens({
         accountId: entry.accountId,
         networkId: entry.network.networkId,
@@ -201,7 +220,7 @@ async function loadDustSweepNetworkAssets({
         isManualRefresh,
       }),
     ),
-    loadQuietly(() =>
+    loadAssetQuietly(() =>
       backgroundApiProxy.serviceToken.getNativeToken({
         accountId: entry.accountId,
         networkId: entry.network.networkId,
@@ -375,6 +394,9 @@ async function loadDustSweepNetworksInternal(
           failedNetworkIds: entries
             .filter((_, index) => results[index].status === 'rejected')
             .map((entry) => entry.network.networkId),
+          failedNetworks: entries
+            .filter((_, index) => results[index].status === 'rejected')
+            .map((entry) => entry.network),
         }
       : {}),
   };

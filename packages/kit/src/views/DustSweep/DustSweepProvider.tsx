@@ -25,6 +25,7 @@ import type {
   IDustSweepToken,
 } from '@onekeyhq/shared/types/swap/dustSweep';
 import type { ISwapProviderInfo } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
+import type { ISwapNetwork } from '@onekeyhq/shared/types/swap/types';
 
 import {
   getDustSweepNetworkOwner,
@@ -108,6 +109,7 @@ function useDustSweepController(params: IDustSweepRouteParams) {
     partialError: boolean;
     freshOwners: Set<string>;
     providerInfo?: ISwapProviderInfo;
+    failedNetworks?: ISwapNetwork[];
   }>();
   const currentLoad =
     loadState?.scope === loadParams && loadState.refresh === refresh
@@ -251,6 +253,7 @@ function useDustSweepController(params: IDustSweepRouteParams) {
           partialError: result.partialError,
           freshOwners: new Set(result.networks.map(getDustSweepNetworkOwner)),
           providerInfo: result.providerInfo,
+          failedNetworks: result.failedNetworks,
         });
       })
       .catch(() => {
@@ -525,6 +528,7 @@ function useDustSweepController(params: IDustSweepRouteParams) {
     assetStatus,
     retryAssets,
     partialError,
+    failedNetworks: currentLoad?.failedNetworks,
     providerInfo,
     threshold: preferences.threshold,
     slippage,
