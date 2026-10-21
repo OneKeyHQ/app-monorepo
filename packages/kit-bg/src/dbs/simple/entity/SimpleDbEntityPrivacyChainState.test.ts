@@ -1,6 +1,9 @@
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
-import { SimpleDbEntityPrivacyChainState } from './SimpleDbEntityPrivacyChainState';
+import {
+  SimpleDbEntityPrivacyChainState,
+  isSameZcashPendingRescan,
+} from './SimpleDbEntityPrivacyChainState';
 
 import type {
   IPrivacyChainStateDB,
@@ -1243,7 +1246,7 @@ describe('privacy chain state: epoch', () => {
     await expect(epochOf(entity, 'account')).resolves.toBe(created);
   });
 
-  it('renews it when local data is deleted, a rescan is journaled, or on request', async () => {
+  it('renews it when local data is deleted or on request, not when a rescan is journaled', async () => {
     const entity = createEntity();
     await enableZcash(entity, 'account');
     const seen = new Set([await epochOf(entity, 'account')]);
@@ -1261,7 +1264,10 @@ describe('privacy chain state: epoch', () => {
         requestedAt: 1,
       },
     });
-    await expectNew();
+    // The purge that applies the journal rotates, right before it runs.
+    await expect(epochOf(entity, 'account')).resolves.toBe(
+      [...seen][seen.size - 1],
+    );
     await entity.rotateAccountEpochs({ accountIds: ['account', 'missing'] });
     await expectNew();
     await entity.clearAccountScanData({ accountId: 'account' });
@@ -1460,5 +1466,79 @@ describe('privacy chain state: runtime orphan marker', () => {
     await expect(entity.hasRuntimeOrphans({ networkId: ZEC })).resolves.toBe(
       true,
     );
+  });
+});
+
+describe('privacy chain state: A5 review follow-ups', () => {
+  // A height repair carries `birthdayTimestamp: undefined`; the stored one
+  // has no such key.
+  it('matches a repair whatever undefined keys it carries', async () => {
+    const entity = createEntity();
+    await enableZcash(entity, 'account');
+    const repair = {
+      birthdayHeight: 1900,
+      birthdaySource: 'manual-height' as const,
+      birthdayTimestamp: undefined,
+      requestedAt: 1,
+    };
+    await entity.saveZcashPendingRescan({ accountId: 'account', repair });
+    const [stored] = await entity.listZcashPendingRescans({ networkId: ZEC });
+    expect(isSameZcashPendingRescan(stored.repair, repair)).toBe(true);
+    expect(
+      isSameZcashPendingRescan(stored.repair, { ...repair, requestedAt: 2 }),
+    ).toBe(false);
+
+    await entity.removeZcashPendingRescan({
+      accountId: 'account',
+      expectedRepair: repair,
+    });
+    await expect(
+      entity.listZcashPendingRescans({ networkId: ZEC }),
+    ).resolves.toEqual([]);
+  });
+
+  it('recommends the creation month to a never-enabled account of a fresh wallet', async () => {
+    const entity = createEntity();
+    await entity.saveWalletCreationProvenance({
+      walletId: 'hd-1',
+      isFreshlyGeneratedMnemonic: true,
+      createdAt: 1_700_000_000_000,
+    });
+
+    await expect(
+      entity.getZcashPrivacyModeState({ accountId: "hd-1--m/44'/133'/0'" }),
+    ).resolves.toEqual({
+      intent: 'off',
+      birthdayMonthHint: {
+        timestamp: 1_700_000_000_000,
+        source: 'created-wallet',
+      },
+    });
+    await expect(
+      entity.getZcashPrivacyModeState({ accountId: "hd-2--m/44'/133'/0'" }),
+    ).resolves.toEqual({ intent: 'off' });
+  });
+
+  it('accepts a setup write when only an epoch rotation happened meanwhile', async () => {
+    const entity = createEntity();
+    await entity.beginZcashPrivacyModeEnable({
+      networkId: ZEC,
+      accountId: 'account',
+      birthdayHeight: 2000,
+    });
+    const observed = await entity.getZcashPrivacyModeState({
+      accountId: 'account',
+    });
+    // updatedAt moves; nothing the setup acted on does.
+    await new Promise((resolve) => setTimeout(resolve, 2));
+    await entity.rotateAccountEpochs({ accountIds: ['account'] });
+
+    await expect(
+      entity.saveZcashAccountMeta({
+        accountId: 'account',
+        meta: zcashMeta(),
+        expectedPrivacyModeState: observed,
+      }),
+    ).resolves.toBeUndefined();
   });
 });

@@ -8,7 +8,9 @@ import { SimpleDbEntityBase } from '../base/SimpleDbEntityBase';
 
 // Scan state of every privacy chain account, the wallet facts it needs, and
 // the device-wide settings. Read on every scan turn, so it stays small: keys,
-// journals and caches live in their own entities.
+// journals and caches live in their own entities. Evolve the record schema
+// additively (new optional fields only): an older bundle after a hot-update
+// rollback reads a record it can't parse as off.
 
 // ---------------------------------------------------------------------------
 // Chain views. Callers keep these shapes; the record below is what is stored.
@@ -410,6 +412,24 @@ function buildZcashPendingRescan(
   });
 }
 
+// Undefined keys don't count: a stored repair has none, the caller's may.
+export function isSameZcashPendingRescan(
+  left: IZcashPendingRescan | undefined,
+  right: IZcashPendingRescan | undefined,
+): boolean {
+  return isEqual(compact(left), compact(right));
+}
+
+// A CAS compares what the caller acted on; `updatedAt` also moves on writes
+// that change none of it (epoch rotation, rescan journal).
+function zcashStateViewForCas(
+  view: IZcashPrivacyModeStateView | undefined,
+): Omit<IZcashPrivacyModeStateView, 'updatedAt'> | undefined {
+  if (!view) return undefined;
+  const { updatedAt: _updatedAt, ...guarded } = compact(view);
+  return guarded;
+}
+
 function buildXmrView(
   record: IPrivacyChainAccountRecord,
 ): IXmrAccountScanState {
@@ -779,7 +799,9 @@ export class SimpleDbEntityPrivacyChainState extends SimpleDbEntityBase<IPrivacy
 
   // Accounts whose scan data the runtime keeps. A malformed record may be
   // one of them. Undefined when nothing was read (no state yet, or masked by
-  // Travel Mode): never the same as none.
+  // Travel Mode): never the same as none. Any state at all (a device
+  // setting, a wallet fact) gives [] instead, so [] is not proof by itself
+  // that the runtime holds nothing.
   async listScanDataAccountIds({
     networkId,
   }: {
@@ -916,10 +938,22 @@ export class SimpleDbEntityPrivacyChainState extends SimpleDbEntityBase<IPrivacy
   }: {
     accountId: string;
   }): Promise<IZcashPrivacyModeStateView> {
-    const found = await this.readAccountRecord(accountId);
-    return found
-      ? buildZcashStateView(found.record, found.wallet)
-      : { intent: 'off' };
+    const raw = await this.getRawData();
+    const record = parseAccountRecord(raw?.accounts?.[accountId]);
+    if (record) {
+      return buildZcashStateView(
+        record,
+        parseWalletRecord(raw?.wallets?.[record.walletId]),
+      );
+    }
+    // Never enabled: a fresh wallet still recommends its creation month.
+    const walletId = accountUtils.getWalletIdFromAccountId({ accountId });
+    return compact({
+      intent: 'off' as const,
+      birthdayMonthHint: zcashWalletMonthHint(
+        parseWalletRecord(raw?.wallets?.[walletId]),
+      ),
+    });
   }
 
   async isZcashPrivacyModeEnabled({
@@ -1252,8 +1286,10 @@ export class SimpleDbEntityPrivacyChainState extends SimpleDbEntityBase<IPrivacy
       if (
         (expectedPrivacyModeState !== undefined &&
           !isEqual(
-            record ? buildZcashStateView(record, wallet) : undefined,
-            compact(expectedPrivacyModeState),
+            zcashStateViewForCas(
+              record ? buildZcashStateView(record, wallet) : undefined,
+            ),
+            zcashStateViewForCas(expectedPrivacyModeState),
           )) ||
         (expectedMeta !== undefined &&
           !isEqual(
@@ -1330,7 +1366,7 @@ export class SimpleDbEntityPrivacyChainState extends SimpleDbEntityBase<IPrivacy
     );
   }
 
-  // Journaled before the scanned data is purged; the purge makes a new epoch.
+  // Journaled before the scanned data is purged; the purge rotates the epoch.
   async saveZcashPendingRescan({
     accountId,
     repair,
@@ -1343,7 +1379,6 @@ export class SimpleDbEntityPrivacyChainState extends SimpleDbEntityBase<IPrivacy
       if (!record) return;
       writeAccount(state, accountId, {
         ...record,
-        epoch: createEpoch(),
         scan: {
           ...record.scan,
           rescan: {
@@ -1372,9 +1407,9 @@ export class SimpleDbEntityPrivacyChainState extends SimpleDbEntityBase<IPrivacy
       if (!record?.scan.rescan) return;
       if (
         expectedRepair !== undefined &&
-        !isEqual(
+        !isSameZcashPendingRescan(
           buildZcashPendingRescan(record.scan.rescan),
-          compact(expectedRepair),
+          expectedRepair,
         )
       ) {
         return;

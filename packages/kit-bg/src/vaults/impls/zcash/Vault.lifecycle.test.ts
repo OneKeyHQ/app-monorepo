@@ -41,6 +41,8 @@ describe('Zcash local lifecycle operations do not depend on pending history', ()
             getZcashPrivacyModeState: async () => ({ intent: 'off' }),
             isZcashPrivacyModeEnabled: async () => true,
             listZcashAccountMetas: async () => [{ accountId, meta: account }],
+            listZcashMetaAccountIds: async () => [accountId],
+            listAccountIds: async () => [accountId],
             listZcashPendingRescans: async () => [{ accountId, repair }],
             listScanDataAccountIds: async () => [],
             clearAccountScanData,
@@ -109,8 +111,13 @@ describe('Zcash local lifecycle operations do not depend on pending history', ()
         accountId: f.accountId,
         expectedRepair: f.repair,
       });
-      // Epochs are the lifecycle executor's, before it calls these.
-      expect(f.rotateAccountEpochs).not.toHaveBeenCalled();
+      // Delete and rewind leave epochs to the lifecycle executor; the
+      // journaled rescan and the rebuild destroy data on their own, so they
+      // rotate right before it goes.
+      expect(f.rotateAccountEpochs.mock.calls).toEqual([
+        [{ accountIds: [f.accountId] }],
+        [{ accountIds: [f.accountId] }],
+      ]);
       // Host records are the executor's too.
       expect(f.clearAccountScanData).not.toHaveBeenCalled();
     },
@@ -127,6 +134,42 @@ describe('Zcash local lifecycle operations do not depend on pending history', ()
       f.vault.zcashDeleteRuntimeAccount({ accountId: f.accountId }),
     ).rejects.toBe(error);
     expect(f.clearAccountScanData).not.toHaveBeenCalled();
+  });
+
+  // A height repair from the caller carries `birthdayTimestamp: undefined`;
+  // the journal read back has no such key. It must apply on this turn.
+  it('applies a journaled repair whose caller copy has undefined keys', async () => {
+    const f = fixture('pending');
+    await f.vault.applyPendingRescan({
+      accountId: f.accountId,
+      repair: { ...f.repair, birthdayTimestamp: undefined },
+    });
+    expect(f.purgeWallet).toHaveBeenCalledTimes(1);
+  });
+
+  it('rotates the epochs of every alias right before the rescan purge', async () => {
+    const f = fixture('pending');
+    f.purgeWallet.mockImplementationOnce(async () => {
+      expect(f.rotateAccountEpochs).toHaveBeenCalledWith({
+        accountIds: [f.accountId],
+      });
+    });
+    await f.vault.applyPendingRescan({
+      accountId: f.accountId,
+      repair: f.repair,
+    });
+    expect(f.purgeWallet).toHaveBeenCalledTimes(1);
+  });
+
+  it('rotates every account of the network before rebuilding the database', async () => {
+    const f = fixture('pending');
+    f.dropWalletDatabase.mockImplementationOnce(async () => {
+      expect(f.rotateAccountEpochs).toHaveBeenCalledWith({
+        accountIds: [f.accountId],
+      });
+    });
+    await zcashRebuildRuntimeDatabase(f.vault);
+    expect(f.dropWalletDatabase).toHaveBeenCalledTimes(1);
   });
 
   it('sets a rescan height without fetching a live chain tip', async () => {
