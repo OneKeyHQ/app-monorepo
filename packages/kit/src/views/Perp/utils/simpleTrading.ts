@@ -2,7 +2,21 @@ import BigNumber from 'bignumber.js';
 
 import { formatHlPrice } from '@onekeyhq/shared/src/utils/perpsUtils';
 
+import { validateAmountInput } from '../../../utils/validateAmountInput';
 import { convertPerpsSizeDisplayValueToToken } from '../components/TradingPanel/inputs/sizeInputConversion';
+
+export function validateSimpleAmountInput(
+  value: string,
+  decimals: number,
+  inputUnit: 'token' | 'usd' | 'margin',
+  previousValue = '',
+) {
+  if (!validateAmountInput(value, decimals)) return false;
+  if (inputUnit === 'token' || value.split('.')[0].length <= 12) return true;
+
+  // Match Pro's fiat limit while allowing an older oversized draft to be erased.
+  return value.length < previousValue.length && previousValue.startsWith(value);
+}
 
 export function getSimpleSliderAmount({
   percent,
