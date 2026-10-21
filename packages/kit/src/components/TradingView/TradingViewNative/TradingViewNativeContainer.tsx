@@ -240,6 +240,7 @@ type ITradingViewNativeContentProps = ITradingViewNativeProps & {
 const TradingViewNativeContent = memo(
   ({
     testID,
+    active,
     defaultBackgroundColor,
     source,
     priceDecimalPlaces,
@@ -444,6 +445,7 @@ const TradingViewNativeContent = memo(
       handleVisiblePointRangeChange,
       viewportRequest,
     } = useTradingViewNativeKLine({
+      active,
       onRealtimePoint: handleRealtimePoint,
       source,
       storageNamespace,

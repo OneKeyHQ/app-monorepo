@@ -1685,10 +1685,12 @@ function getDataState({
 }
 
 export function useTradingViewNativeKLine({
+  active = true,
   onRealtimePoint,
   source,
   storageNamespace,
 }: {
+  active?: boolean;
   onRealtimePoint?: (point: IMarketTokenKLineDataPoint) => void;
   source: ITradingViewNativeSource;
   storageNamespace?: ITradingViewNativeStorageNamespace;
@@ -2066,8 +2068,11 @@ export function useTradingViewNativeKLine({
     historyBoundaryAvailableTimeRange,
     setHistoryBoundaryAvailableTimeRange,
   ] = useState<IHistoryBoundaryAvailableTimeRange | null>(null);
-  const [isVisible, setIsVisible] = useState(() => getCurrentVisibilityState());
-  const isVisibleRef = useRef(isVisible);
+  const [isAppVisible, setIsAppVisible] = useState(() =>
+    getCurrentVisibilityState(),
+  );
+  const isVisible = active && isAppVisible;
+  const isVisibleRef = useRef(isAppVisible);
   const [historyRefreshRevision, setHistoryRefreshRevision] = useState(0);
   const [realtimeRetryRevision, setRealtimeRetryRevision] = useState(0);
   const [subscriberId] = useState(() => {
@@ -2134,7 +2139,7 @@ export function useTradingViewNativeKLine({
       name: 'visibility.initial',
     });
     isVisibleRef.current = currentVisibility;
-    setIsVisible(currentVisibility);
+    setIsAppVisible(currentVisibility);
     return onVisibilityStateChange((nextVisibility) => {
       const wasVisible = isVisibleRef.current;
       emitTradingViewNativeDebugEvent({
@@ -2142,7 +2147,7 @@ export function useTradingViewNativeKLine({
         name: 'visibility.changed',
       });
       isVisibleRef.current = nextVisibility;
-      setIsVisible(nextVisibility);
+      setIsAppVisible(nextVisibility);
       if (!wasVisible && nextVisibility) {
         setHistoryRefreshRevision((current) => current + 1);
       }

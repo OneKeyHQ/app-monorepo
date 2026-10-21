@@ -137,6 +137,7 @@ function filterTwapSliceFillsFromTrades({
 
 interface IPerpTradesHistoryListProps {
   isMobile?: boolean;
+  sourceSimpleMarketCoin?: string;
   useTabsList?: boolean;
   filters?: ITradeHistoryFilters;
   onMarketOptionsChange?: (options: IFundingHistoryMarketOption[]) => void;
@@ -144,6 +145,7 @@ interface IPerpTradesHistoryListProps {
 
 function PerpTradesHistoryList({
   isMobile,
+  sourceSimpleMarketCoin,
   useTabsList,
   filters = DEFAULT_FILTERS,
   onMarketOptionsChange,
@@ -357,6 +359,7 @@ function PerpTradesHistoryList({
       navigation.push(EModalPerpRoutes.PerpTradeHistoryDetails, {
         fill,
         builderFeeRate,
+        sourceSimpleMarketCoin,
         pairName: getTradeHistoryPairName({
           coin: fill.coin,
           spotPairDisplayMap,
@@ -364,7 +367,13 @@ function PerpTradesHistoryList({
         }),
       });
     },
-    [navigation, builderFeeRate, spotPairDisplayMap, paymentTokens],
+    [
+      navigation,
+      builderFeeRate,
+      sourceSimpleMarketCoin,
+      spotPairDisplayMap,
+      paymentTokens,
+    ],
   );
 
   const renderTradesHistoryRow = useCallback(
