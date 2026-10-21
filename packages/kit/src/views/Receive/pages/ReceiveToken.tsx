@@ -50,7 +50,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { getVendorProfile } from '@onekeyhq/shared/src/hardware/config/vendorProfile';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { ETranslations, ETranslationsMock } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
@@ -92,6 +92,12 @@ import {
 } from '../../../hooks/useDeriveTypesCollapseState';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useWalletBanner } from '../../../hooks/useWalletBanner';
+import {
+  isStrk20Registered,
+  useStarknetPrivacyAccountState,
+  useStarknetPrivacyAvailability,
+} from '../../StarknetPrivacy/hooks/useStarknetPrivacy';
+import { formatMockMessage } from '../../StarknetPrivacy/utils/starknetPrivacyUtils';
 import { ReceiveCard, ReceiveCardCell } from '../components/ReceiveCard';
 import { ReceivePrivacyPromotion } from '../components/ReceivePrivacyPromotion';
 import { ReceivePrivacySyncStatus } from '../components/ReceivePrivacyStatus';
@@ -319,6 +325,21 @@ function ReceiveToken() {
     routeToken?.address,
     routeToken?.isNative,
   ]);
+
+  const hasPrivacyPool = Boolean(vaultSettings?.privacyPool);
+  const { isAvailable: isPrivacyAvailable } = useStarknetPrivacyAvailability({
+    networkId,
+    accountId,
+    enabled: hasPrivacyPool,
+  });
+  const { state: privacyState } = useStarknetPrivacyAccountState({
+    networkId,
+    accountId,
+    enabled: isPrivacyAvailable,
+  });
+  // a sender can only choose private when this account is registered
+  const showPrivacyReceiveNote =
+    isPrivacyAvailable && isStrk20Registered(privacyState);
 
   // Server overrides for the arrival ETA and protocol-standard label.
   // Resolves to undefined on fetch failure so the bundled defaults apply.
@@ -2324,6 +2345,18 @@ function ReceiveToken() {
                     ),
                   }}
                 />
+              </SizableText>
+            ) : null}
+            {showPrivacyReceiveNote ? (
+              <SizableText
+                size="$bodyMd"
+                color="$textSubdued"
+                textAlign="center"
+              >
+                {formatMockMessage(
+                  intl,
+                  ETranslationsMock.starknet_privacy_receive_note,
+                )}
               </SizableText>
             ) : null}
           </YStack>

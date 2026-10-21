@@ -33,6 +33,7 @@ import { useSearchKeyAtom } from '../../states/jotai/contexts/historyList';
 import { openExplorerAddressUrl } from '../../utils/explorerUtils';
 import useActiveTabDAppInfo from '../../views/DAppConnection/hooks/useActiveTabDAppInfo';
 import { withBrowserProvider } from '../../views/Discovery/pages/Browser/WithBrowserProvider';
+import { StarknetPrivacyHistoryNote } from '../../views/StarknetPrivacy/components/StarknetPrivacyHistoryNote';
 import AddressTypeSelector from '../AddressTypeSelector/AddressTypeSelector';
 import { EmptySearch } from '../Empty';
 import { EmptyHistory } from '../Empty/EmptyHistory';
@@ -134,6 +135,12 @@ const ListFooterComponent = ({
     );
   }
 
+  // Chains with a privacy pool contribute history rows the protocol cannot
+  // vouch for; the note renders itself away when the account never opted in.
+  const privacyNote = vaultSettings?.privacyPool ? (
+    <StarknetPrivacyHistoryNote networkId={networkId} accountId={accountId} />
+  ) : null;
+
   // The "view on block explorer" button is the permanent end-of-list affordance
   // — show it whenever the list has any items and the user has truly bottomed
   // out (no more pages to fetch locally). Hide while pagination is in flight
@@ -201,6 +208,7 @@ const ListFooterComponent = ({
             </Button>
           )}
         </YStack>
+        {privacyNote}
         <Stack h="$5" />
         {addPaddingOnListFooter ? <Stack h="$16" /> : null}
       </>
@@ -209,6 +217,7 @@ const ListFooterComponent = ({
 
   return (
     <>
+      {privacyNote}
       <Stack h="$5" />
       {addPaddingOnListFooter ? <Stack h="$16" /> : null}
     </>

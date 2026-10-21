@@ -8,6 +8,7 @@ import {
   IMPL_COSMOS,
   IMPL_DNX,
   IMPL_SOL,
+  IMPL_STARKNET,
   IMPL_TON,
   IMPL_TRON,
   IMPL_XRP,
@@ -18,6 +19,7 @@ import TxExtraInfoAlgo from './ExtraInfoAlgo';
 import TxExtraInfoCosmos from './ExtraInfoCosmos';
 import TxExtraInfoDnx from './ExtraInfoDnx';
 import TxExtraInfoSol from './ExtraInfoSol';
+import TxExtraInfoStarknet from './ExtraInfoStarknet';
 import TxExtraInfoTon from './ExtraInfoTon';
 import TxExtraInfoTron from './ExtraInfoTron';
 import TxExtraInfoXrp from './ExtraInfoXrp';
@@ -62,6 +64,9 @@ export function getTxExtraInfo({ impl }: { impl: string }) {
       break;
     case IMPL_ALGO:
       component = TxExtraInfoAlgo;
+      break;
+    case IMPL_STARKNET:
+      component = TxExtraInfoStarknet;
       break;
     default:
       break;

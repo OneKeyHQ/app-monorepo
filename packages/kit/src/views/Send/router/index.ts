@@ -50,6 +50,11 @@ const CoinControlPage = LazyLoadPage(
   () => import('@onekeyhq/kit/src/views/Send/pages/CoinControl'),
 );
 
+const StarknetPrivateTransfer = LazyLoadPage(
+  () =>
+    import('@onekeyhq/kit/src/views/StarknetPrivacy/pages/StarknetPrivateTransfer'),
+);
+
 export const ModalSendStack: IModalFlowNavigatorConfig<
   EModalSendRoutes,
   IModalSendParamList
@@ -94,5 +99,9 @@ export const ModalSendStack: IModalFlowNavigatorConfig<
   {
     name: EModalSendRoutes.CoinControl,
     component: CoinControlPage,
+  },
+  {
+    name: EModalSendRoutes.SendStarknetPrivateTransfer,
+    component: StarknetPrivateTransfer,
   },
 ];

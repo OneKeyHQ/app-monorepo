@@ -9,6 +9,7 @@ import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import {
   useCustomRpcStatusAtom,
+  useDecodedTxsAtom,
   useNativeTokenInfoAtom,
   usePayWithTokenInfoAtom,
   usePreCheckTxStatusAtom,
@@ -20,19 +21,25 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/signatureConfirm';
 import { showCustomRpcFallbackDialog } from '@onekeyhq/kit/src/views/Send/components/CustomRpcFallbackDialog';
 import { useGasAccountAnalyticsContext } from '@onekeyhq/kit/src/views/SignatureConfirm/hooks/useGasAccountAnalyticsContext';
+import {
+  formatMockMessage,
+  readStarknetPrivacyBlock,
+} from '@onekeyhq/kit/src/views/StarknetPrivacy/utils/starknetPrivacyUtils';
 import type { ITransferPayload } from '@onekeyhq/kit-bg/src/vaults/types';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
+import { IMPL_STARKNET } from '@onekeyhq/shared/src/engine/engineConsts';
 import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { ETranslations, ETranslationsMock } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EModalReceiveRoutes, EModalRoutes } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { ESendFeeStatus } from '@onekeyhq/shared/types/fee';
 import type { IGasAccountScenario } from '@onekeyhq/shared/types/fee';
+import { EStrk20WarningCode } from '@onekeyhq/shared/types/starknetPrivacy';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
 interface IProps {
@@ -58,6 +65,9 @@ function TxConfirmAlert(props: IProps) {
   const [payWithTokenInfo] = usePayWithTokenInfoAtom();
   const [tronResourceRentalInfo] = useTronResourceRentalInfoAtom();
   const [customRpcStatus] = useCustomRpcStatusAtom();
+  const [{ decodedTxs }] = useDecodedTxsAtom();
+  const isStarknetNetwork =
+    networkUtils.getNetworkImpl({ networkId }) === IMPL_STARKNET;
   const { updateCustomRpcStatus, clearCustomRpcStatus } =
     useSignatureConfirmActions().current;
   const gasAccountAnalyticsContext = useGasAccountAnalyticsContext({
@@ -372,6 +382,61 @@ function TxConfirmAlert(props: IProps) {
       );
     }
 
+    // Starknet STRK20 private transfers. Keyed off the impl rather than
+    // getNetworkIdsMap() so mainnet, sepolia and a custom Starknet RPC all
+    // match, mirroring the Tron branch below.
+    if (isStarknetNetwork) {
+      const privacy = readStarknetPrivacyBlock(decodedTxs?.[0]?.extraInfo);
+      if (!privacy) {
+        return null;
+      }
+      const privacyAlerts: { title: string; type: IAlertType }[] = [];
+      // the fee this tx was built with, read from chain at build time
+      const feeDecimals = network?.feeMeta?.decimals;
+      if (privacy.protocolFee && feeDecimals !== undefined) {
+        privacyAlerts.push({
+          title: formatMockMessage(
+            intl,
+            ETranslationsMock.starknet_privacy_banner_protocol_fee,
+            {
+              amount: new BigNumber(privacy.protocolFee)
+                .shiftedBy(-feeDecimals)
+                .toFixed(),
+            },
+          ),
+          type: 'info',
+        });
+      }
+      if (privacy.kind === 'deposit') {
+        privacyAlerts.push({
+          title: formatMockMessage(
+            intl,
+            ETranslationsMock.starknet_privacy_banner_screening_window,
+          ),
+          type: 'info',
+        });
+      }
+      for (const warning of privacy.warnings ?? []) {
+        privacyAlerts.push({
+          title:
+            warning.code === EStrk20WarningCode.UserLinkage
+              ? formatMockMessage(
+                  intl,
+                  ETranslationsMock.starknet_privacy_warning_user_linkage,
+                )
+              : warning.message,
+          type: 'warning',
+        });
+      }
+      return (
+        <>
+          {privacyAlerts.map((alert, index) => (
+            <Alert key={index} type={alert.type} title={alert.title} />
+          ))}
+        </>
+      );
+    }
+
     if (networkUtils.isTronNetworkByNetworkId(networkId)) {
       const alerts: {
         title: string;
@@ -414,8 +479,11 @@ function TxConfirmAlert(props: IProps) {
     return null;
   }, [
     accountId,
+    decodedTxs,
     intl,
     networkId,
+    isStarknetNetwork,
+    network?.feeMeta?.decimals,
     sendSelectedFeeInfo?.totalNative,
     transferPayload?.isTronResourceAutoClaimed,
     transferPayload?.tokenInfo,

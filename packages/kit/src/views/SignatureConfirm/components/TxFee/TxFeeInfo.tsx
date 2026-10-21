@@ -566,6 +566,7 @@ function TxFeeInfo(props: IProps) {
               feeDot: r.feeDot ? [r.feeDot] : undefined,
               feeBudget: r.feeBudget ? [r.feeBudget] : undefined,
               feeNeoN3: r.feeNeoN3 ? [r.feeNeoN3] : undefined,
+              feeStarknet: r.feeStarknet ? [r.feeStarknet] : undefined,
             },
             e,
           };
@@ -1138,6 +1139,7 @@ function TxFeeInfo(props: IProps) {
         txFee.feeDot?.length ||
         txFee.feeBudget?.length ||
         txFee.feeNeoN3?.length ||
+        txFee.feeStarknet?.length ||
         0;
 
       for (let i = 0; i < feeLength; i += 1) {
@@ -1153,6 +1155,7 @@ function TxFeeInfo(props: IProps) {
           feeDot: txFee.feeDot?.[i],
           feeBudget: txFee.feeBudget?.[i],
           feeNeoN3: txFee.feeNeoN3?.[i],
+          feeStarknet: txFee.feeStarknet?.[i],
         };
 
         if (useDappFeeAndNotEditFee && network) {
