@@ -239,7 +239,7 @@ function MarketDetailWatchlistSidebarImpl({
       appEventBus.off(EAppEventBusNames.MarketWatchListV2Changed, refresh);
     };
   }, [watchListActions]);
-  const { data, isLoading, isError, refetch } = useMarketWatchlistTokenList({
+  const { data, isLoading, isError, refetchAll } = useMarketWatchlistTokenList({
     watchlist: watchListData ?? [],
     pageSize: Math.max(watchListData?.length ?? 0, 1),
     pollingInterval: TOKEN_SELECTOR_POLLING_INTERVAL,
@@ -344,9 +344,14 @@ function MarketDetailWatchlistSidebarImpl({
     [assetId, handleItemPress, networkId, stockId, tokenAddress],
   );
 
-  const isWatchlistEmpty =
-    isMounted && !isLoading && !isError && groups.all.length === 0;
+  // Empty means nothing is stored, not nothing loaded: on desktop and web a
+  // failed request leaves the hook without rows and without `isError`, so
+  // favorites that are stored but came back with no rows read as a failed
+  // load rather than an empty watchlist.
+  const storedCount = watchListData?.length ?? 0;
+  const isWatchlistEmpty = isMounted && storedCount === 0;
   const showSkeleton = !isMounted || (isLoading && data.length === 0);
+  const isLoadFailed = data.length === 0 && (isError || storedCount > 0);
 
   const tableHeader = (
     <XStack
@@ -401,7 +406,7 @@ function MarketDetailWatchlistSidebarImpl({
         ))}
       </YStack>
     );
-  } else if (isError && data.length === 0) {
+  } else if (isLoadFailed) {
     content = (
       <YStack flex={1} alignItems="center" justifyContent="center" gap="$2">
         <SizableText color="$textSubdued">
@@ -413,7 +418,7 @@ function MarketDetailWatchlistSidebarImpl({
           testID="market-detail-watchlist-sidebar-retry"
           size="small"
           variant="tertiary"
-          onPress={() => refetch()}
+          onPress={() => void refetchAll()}
         >
           {intl.formatMessage({ id: ETranslations.global_retry })}
         </Button>

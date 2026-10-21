@@ -1,7 +1,5 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
-
-import { Dimensions } from 'react-native';
 
 import { Stack, XStack } from '@onekeyhq/components';
 import { useMarketWatchListV2Atom } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
@@ -61,14 +59,15 @@ export function MarketDetailWatchlistSidebarFrame({
   }
   const dockedOpen = savedDockedOpen ?? defaultDockedOpen ?? false;
   const [overlayOpen, setOverlayOpen] = useState(false);
-  // Seeded from the window so the first paint already picks the right mode;
-  // a narrow window would otherwise flash the docked sidebar (and start its
-  // fetch) before the first layout pass turns it into the overlay.
-  const [frameWidth, setFrameWidth] = useState(
-    () => Dimensions.get('window').width,
-  );
+  // The mode waits for the frame's own width: the window's also counts the
+  // app navigation, so seeding from it could mount the docked sidebar (and
+  // start its fetch) only to turn it into a closed overlay one layout later.
+  // Until then neither sidebar nor the header toggle renders.
+  const [frameWidth, setFrameWidth] = useState<number | undefined>(undefined);
+  const isReady = frameWidth !== undefined;
 
   const mode: IMarketDetailWatchlistSidebarMode =
+    frameWidth === undefined ||
     frameWidth >= MARKET_DETAIL_WATCHLIST_SIDEBAR_DOCK_MIN_WIDTH
       ? 'docked'
       : 'overlay';
@@ -78,9 +77,14 @@ export function MarketDetailWatchlistSidebarFrame({
     setFrameWidth(event.nativeEvent.layout.width);
   }, []);
 
+  // Only an open the user asks for slides in; a docked sidebar that is
+  // already open when the page appears shows in place.
+  const [animateDockedEnter, setAnimateDockedEnter] = useState(false);
+
   const setOpen = useCallback(
     (open: boolean) => {
       if (mode === 'docked') {
+        if (open) setAnimateDockedEnter(true);
         setPersist((prev) => ({ ...prev, open }));
       } else {
         setOverlayOpen(open);
@@ -93,24 +97,17 @@ export function MarketDetailWatchlistSidebarFrame({
 
   const contextValue = useMemo<IMarketDetailWatchlistSidebarContextValue>(
     () => ({
+      isReady,
       mode,
       isOpen,
       toggle: () => setOpen(!isOpen),
       close,
     }),
-    [close, isOpen, mode, setOpen],
+    [close, isOpen, isReady, mode, setOpen],
   );
 
-  // A docked sidebar that is already open when the page appears shows in
-  // place; only a later open slides it in.
-  const hasMountedRef = useRef(false);
-  useEffect(() => {
-    hasMountedRef.current = true;
-  }, []);
-  const animateEnter = hasMountedRef.current;
-
-  const showDocked = !hidden && mode === 'docked' && isOpen;
-  const showOverlay = !hidden && mode === 'overlay' && isOpen;
+  const showDocked = isReady && !hidden && mode === 'docked' && isOpen;
+  const showOverlay = isReady && !hidden && mode === 'overlay' && isOpen;
 
   return (
     <MarketDetailWatchlistSidebarContext.Provider value={contextValue}>
@@ -122,7 +119,7 @@ export function MarketDetailWatchlistSidebarFrame({
             testID="market-detail-watchlist-sidebar-docked"
             transition={SLIDE_TRANSITION}
             animateOnly={SLIDE_ANIMATE_ONLY}
-            enterStyle={animateEnter ? DOCKED_ENTER_STYLE : undefined}
+            enterStyle={animateDockedEnter ? DOCKED_ENTER_STYLE : undefined}
           >
             <MarketDetailWatchlistSidebar onClose={close} />
           </Stack>

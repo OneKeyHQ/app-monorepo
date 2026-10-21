@@ -8,6 +8,8 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 export type IMarketDetailWatchlistSidebarMode = 'docked' | 'overlay';
 
 export interface IMarketDetailWatchlistSidebarContextValue {
+  // False until the frame has measured its width and picked a mode.
+  isReady: boolean;
   mode: IMarketDetailWatchlistSidebarMode;
   isOpen: boolean;
   toggle: () => void;
@@ -47,7 +49,11 @@ function SidebarToggleButton({
 // button steps aside rather than sit beside a second close control.
 export function MarketDetailWatchlistSidebarToggle() {
   const sidebar = useMarketDetailWatchlistSidebar();
-  if (!sidebar || (sidebar.mode === 'docked' && sidebar.isOpen)) {
+  if (
+    !sidebar ||
+    !sidebar.isReady ||
+    (sidebar.mode === 'docked' && sidebar.isOpen)
+  ) {
     return null;
   }
   return <SidebarToggleButton sidebar={sidebar} />;

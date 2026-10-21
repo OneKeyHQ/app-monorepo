@@ -753,6 +753,8 @@ export function useMarketWatchlistTokenList({
     loadMore,
     refresh,
     refetch: platformEnv.isNative ? refetch : refetchData,
+    // Retries spot, perps and listings on every platform.
+    refetchAll: refetch,
     sortBy,
     sortType,
     setSortBy,
