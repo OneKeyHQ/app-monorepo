@@ -146,9 +146,10 @@ function DustSweepRollingAmount({
     const list: IRollingSegment[] = [];
     (typeof parts === 'string' ? [parts] : parts).forEach((part) => {
       if (typeof part === 'string' || part.type === 'decimal') {
-        [...(typeof part === 'string' ? part : part.value)].forEach((char) =>
-          list.push({ kind: 'char', char }),
-        );
+        // Formatted amounts are ASCII digits, signs and separators only.
+        (typeof part === 'string' ? part : part.value)
+          .split('')
+          .forEach((char) => list.push({ kind: 'char', char }));
       } else {
         list.push({ kind: 'sub', value: part.value });
       }
@@ -429,9 +430,13 @@ export function DustSweepResult({
 export function DustSweepSummary({
   desktop,
   onDetails,
+  onLeave,
 }: {
   desktop: boolean;
   onDetails: () => void;
+  // The mobile live sheet covers the page's back control; it offers Leave
+  // while a submission is unknown (the sweep can neither finish nor stop).
+  onLeave?: () => void;
 }) {
   const model = useDustSweep();
   const {
@@ -698,6 +703,18 @@ export function DustSweepSummary({
       ) : null}
       {desktop ? <Stack flex={1} /> : <Stack height={MOBILE_ACTION_GAP} />}
       <XStack gap="$2.5">
+        {unknown && onLeave ? (
+          <Button
+            testID="dust-sweep-leave"
+            flex={1}
+            height={DUST_SWEEP_ACTION_HEIGHT}
+            minHeight={DUST_SWEEP_ACTION_HEIGHT}
+            disabled={session.leaving}
+            onPress={onLeave}
+          >
+            {intl.formatMessage({ id: ETranslations.sweep_leave_dust_sweep })}
+          </Button>
+        ) : null}
         {/* Paused: Stop gives up the remaining tokens, Continue resumes. */}
         {state.phase === 'paused' && !unknown ? (
           <Button

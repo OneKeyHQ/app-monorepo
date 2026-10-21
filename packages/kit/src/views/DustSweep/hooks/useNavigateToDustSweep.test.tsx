@@ -150,3 +150,46 @@ it('drops a held tap when the account changes before the refresh completes', asy
   await act(async () => undefined);
   expect(mockNavigate).not.toHaveBeenCalled();
 });
+
+it('holds a tap right after Home regains focus until that revalidation has run', async () => {
+  mockFocused = false;
+  const { result, rerender } = renderHook(() => useActiveAccountDustSweep(), {
+    wrapper,
+  });
+  // Focus is back, but the idle-scheduled revalidation has not started yet.
+  mockFocused = true;
+  rerender();
+  act(() => {
+    void result.current.openDustSweep('tokenListHeader');
+  });
+  expect(mockNavigate).not.toHaveBeenCalled();
+
+  mockCapabilities = { result: supported, isLoading: true };
+  rerender();
+  expect(mockNavigate).not.toHaveBeenCalled();
+  mockCapabilities = { result: supported, isLoading: false };
+  rerender();
+  await waitFor(() => expect(mockNavigate).toHaveBeenCalledTimes(1));
+});
+
+it('releases a held tap if the focus revalidation never starts', async () => {
+  jest.useFakeTimers();
+  try {
+    mockFocused = false;
+    const { result, rerender } = renderHook(() => useActiveAccountDustSweep(), {
+      wrapper,
+    });
+    mockFocused = true;
+    rerender();
+    act(() => {
+      void result.current.openDustSweep('tokenListHeader');
+    });
+    expect(mockNavigate).not.toHaveBeenCalled();
+    await act(async () => {
+      jest.advanceTimersByTime(3000);
+    });
+    expect(mockNavigate).toHaveBeenCalledTimes(1);
+  } finally {
+    jest.useRealTimers();
+  }
+});

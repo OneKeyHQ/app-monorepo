@@ -689,6 +689,26 @@ it('keeps the completed mobile result in the live sheet without a Details entry'
   expect(execute).toHaveBeenCalledTimes(1);
 });
 
+it('offers Leave in the mobile live sheet when a submission is unknown', async () => {
+  mockNative = true;
+  mockActualResults = true;
+  execute.mockImplementation(async ({ onSigning }) => {
+    onSigning();
+    throw new DustSweepUnknownSubmission();
+  });
+  mountFlow();
+  await act(async () => fireEvent.click(activeTestId('dust-sweep-action')));
+  // The sheet covers the header back; Leave is the reachable way out and it
+  // goes through the existing leave confirmation.
+  expect(liveSheetCalls()).toHaveLength(1);
+  fireEvent.click(activeTestId('dust-sweep-leave'));
+  expect(otherDialogCalls()).toHaveLength(1);
+  expect(confirmDialog().description).toContain(
+    ETranslations.wallet_transaction_maybe_already_submitted_check_activity__msg,
+  );
+  expect(execute).toHaveBeenCalledTimes(1);
+});
+
 it('keeps pending mobile Details and Done from resetting or restarting the session', async () => {
   mockNative = true;
   mockActualResults = true;

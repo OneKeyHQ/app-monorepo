@@ -169,6 +169,7 @@ function DustSweepDetailsDialog({
 type IDustSweepLiveSnapshot = {
   model: ReturnType<typeof useDustSweep>;
   onDetails: () => void;
+  onLeave: () => void;
 };
 
 // Dialogs render outside the page tree, so the live sheet reads the latest
@@ -181,7 +182,8 @@ function createDustSweepLiveStore(initial: IDustSweepLiveSnapshot) {
     set: (next: IDustSweepLiveSnapshot) => {
       if (
         next.model === snapshot.model &&
-        next.onDetails === snapshot.onDetails
+        next.onDetails === snapshot.onDetails &&
+        next.onLeave === snapshot.onLeave
       )
         return;
       snapshot = next;
@@ -203,7 +205,7 @@ function DustSweepLiveSheet({
 }: {
   store: ReturnType<typeof createDustSweepLiveStore>;
 }) {
-  const { model, onDetails } = useSyncExternalStore(
+  const { model, onDetails, onLeave } = useSyncExternalStore(
     store.subscribe,
     store.get,
     store.get,
@@ -214,7 +216,11 @@ function DustSweepLiveSheet({
   if (!model.selecting) lastSweep.current = model;
   return (
     <DustSweepScreenProvider value={lastSweep.current}>
-      <DustSweepSummary desktop={false} onDetails={onDetails} />
+      <DustSweepSummary
+        desktop={false}
+        onDetails={onDetails}
+        onLeave={onLeave}
+      />
     </DustSweepScreenProvider>
   );
 }
@@ -461,11 +467,13 @@ function DustSweepPageContent() {
     },
     [desktop],
   );
+  // Wrapped so the press event is never passed to exit() as an action.
+  const onBack = useCallback(() => exit(), [exit]);
   const [liveStore] = useState(() =>
-    createDustSweepLiveStore({ model, onDetails }),
+    createDustSweepLiveStore({ model, onDetails, onLeave: onBack }),
   );
   useLayoutEffect(() => {
-    liveStore.set({ model, onDetails });
+    liveStore.set({ model, onDetails, onLeave: onBack });
   });
   const liveSheet = useRef<ReturnType<typeof Dialog.show> | undefined>(
     undefined,
@@ -506,8 +514,6 @@ function DustSweepPageContent() {
     },
     [],
   );
-  // Wrapped so the press event is never passed to exit() as an action.
-  const onBack = useCallback(() => exit(), [exit]);
   // The Home tab top bar (with its back button) is only rendered on the tab
   // route, so a Swap modal widened to desktop width keeps its own back control.
   const overlay = useIsOverlayPage();

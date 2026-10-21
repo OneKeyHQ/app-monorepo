@@ -6,6 +6,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from 'react';
 
@@ -49,6 +50,8 @@ const DustSweepEntryCapabilitiesContext =
     isFocused: true,
   });
 
+const FOCUS_REVALIDATION_TIMEOUT_MS = 3000;
+
 export function DustSweepEntryCapabilitiesProvider({
   children,
   isFocused,
@@ -70,6 +73,39 @@ export function DustSweepEntryCapabilitiesProvider({
       undefinedResultIfError: true,
     },
   );
+  // Focus revalidation starts on an idle callback, so right after Home
+  // regains focus `isLoading` is still false while the rules may be stale.
+  // Treat them as stale from the focus until that revalidation has run.
+  const [staleSinceFocus, setStaleSinceFocus] = useState(false);
+  const wasUnfocused = useRef(!isFocused);
+  const sawRevalidation = useRef(false);
+  useEffect(() => {
+    if (!isFocused) {
+      wasUnfocused.current = true;
+      return;
+    }
+    if (!wasUnfocused.current) return;
+    wasUnfocused.current = false;
+    sawRevalidation.current = false;
+    setStaleSinceFocus(true);
+  }, [isFocused]);
+  useEffect(() => {
+    if (!staleSinceFocus) return;
+    if (isLoading) {
+      sawRevalidation.current = true;
+      return;
+    }
+    if (sawRevalidation.current) setStaleSinceFocus(false);
+  }, [isLoading, staleSinceFocus]);
+  useEffect(() => {
+    if (!staleSinceFocus) return undefined;
+    // Never hold the entry if a revalidation is skipped.
+    const timer = setTimeout(
+      () => setStaleSinceFocus(false),
+      FOCUS_REVALIDATION_TIMEOUT_MS,
+    );
+    return () => clearTimeout(timer);
+  }, [staleSinceFocus]);
   const supportedNetworkIds = useMemo(
     () => result && new Set(result.map((network) => network.networkId)),
     [result],
@@ -79,10 +115,10 @@ export function DustSweepEntryCapabilitiesProvider({
       supportedNetworkIds,
       // Keep the existing entry mounted while capabilities revalidate, but
       // prevent navigation until the destination rules are current.
-      isRefreshing: Boolean(result && isLoading),
+      isRefreshing: Boolean(result && (isLoading || staleSinceFocus)),
       isFocused,
     }),
-    [isFocused, isLoading, result, supportedNetworkIds],
+    [isFocused, isLoading, result, staleSinceFocus, supportedNetworkIds],
   );
   return createElement(
     DustSweepEntryCapabilitiesContext.Provider,
