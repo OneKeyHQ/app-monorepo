@@ -8,27 +8,30 @@ import type { IAccountToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 
 import { useTokenListContextData } from '../atoms';
 
-import { aggCell, cell, meta } from './projection';
+import { aggCell, cell, ensureStoreProjection, meta } from './projection';
 
 export function useTokenFiatSubtotal(tokens?: IAccountToken[]): string {
   // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
   const store = useTokenListContextData().store!;
-  const subtotalAtom = useMemo(
-    () =>
-      atom((get) => {
-        if (!tokens?.length) return '0';
-        const map: Record<string, ITokenFiat> = {};
-        for (const token of tokens) {
-          const aggregate = isAgg(token.$key, get(meta(store, token.$key)));
-          const fiat = get(
-            aggregate ? aggCell(store, token.$key) : cell(store, token.$key),
-          );
-          if (fiat) map[token.$key] = fiat;
-        }
-        return sumFiatValuesFromTokens(tokens, map).toFixed();
-      }),
-    [store, tokens],
-  );
+  const subtotalAtom = useMemo(() => {
+    const { valuationUpdating } = ensureStoreProjection(store);
+    let lastValue = '0';
+    return atom((get) => {
+      if (!tokens?.length) return '0';
+      // Detach cell dependencies until the complete synchronous frame lands.
+      if (get(valuationUpdating)) return lastValue;
+      const map: Record<string, ITokenFiat> = {};
+      for (const token of tokens) {
+        const aggregate = isAgg(token.$key, get(meta(store, token.$key)));
+        const fiat = get(
+          aggregate ? aggCell(store, token.$key) : cell(store, token.$key),
+        );
+        if (fiat) map[token.$key] = fiat;
+      }
+      lastValue = sumFiatValuesFromTokens(tokens, map).toFixed();
+      return lastValue;
+    });
+  }, [store, tokens]);
 
   return useAtomValue(subtotalAtom, { store });
 }

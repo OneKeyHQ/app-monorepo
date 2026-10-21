@@ -175,7 +175,9 @@ function TokenListFooter(props: IProps) {
       );
     }
 
-    return resultTokens;
+    return resultTokens.length === smallBalanceTokens.length
+      ? smallBalanceTokens
+      : resultTokens;
   }, [
     smallBalanceTokens,
     hideZeroBalanceTokens,
