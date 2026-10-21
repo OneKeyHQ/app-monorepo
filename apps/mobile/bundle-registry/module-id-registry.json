@@ -26678,6 +26678,8 @@
     "packages/shared/src/modules3rdParty/intercom/index.native.ts": 13177,
     "packages/shared/src/modules3rdParty/intercom/utils.ts": 13814,
     "packages/shared/src/modules3rdParty/localization/index.ts": 24241,
+    "packages/shared/src/modules3rdParty/onramper/canUseHeadless.native.ts": 16216,
+    "packages/shared/src/modules3rdParty/onramper/credentials.native.ts": 3999,
     "packages/shared/src/modules3rdParty/onramper/index.native.ts": 24400,
     "packages/shared/src/modules3rdParty/onramper/mock.ts": 15598,
     "packages/shared/src/modules3rdParty/onramper/orderStatus.ts": 16184,

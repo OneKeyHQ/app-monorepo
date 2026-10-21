@@ -10,12 +10,7 @@ export * from './type';
 export * from './quotePricing';
 export * from './orderStatus';
 export * from './utils';
-
-// The Headless SDK is native-iOS-only. Web/desktop always report unsupported so
-// the branch helper routes to the existing web widget.
-export function canUseHeadless(): boolean {
-  return false;
-}
+export { canUseHeadless } from './canUseHeadless';
 
 // Never called on web (the page is native-only); present so the shared import
 // resolves on every platform.
