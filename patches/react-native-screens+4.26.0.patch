@@ -36,6 +36,33 @@ index 0fcccb3..99d9506 100644
          }
      }
  
+diff --git a/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenStack.kt b/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenStack.kt
+index 9f9f864..bc6631b 100644
+--- a/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenStack.kt
++++ b/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenStack.kt
+@@ -3,6 +3,7 @@ package com.swmansion.rnscreens
+ import android.content.Context
+ import android.graphics.Canvas
+ import android.os.Build
++import android.util.Log
+ import android.view.View
+ import com.facebook.react.bridge.ReactContext
+ import com.facebook.react.uimanager.UIManagerHelper
+@@ -83,7 +84,13 @@ class ScreenStack(
+             return
+         }
+ 
+-        super.endViewTransition(view)
++        // OneKey patch: guard against RecyclerView ItemAnimator tmp-detach recycling crash during screen detach
++        // super.endViewTransition(view)
++        try {
++            super.endViewTransition(view)
++        } catch (e: IllegalArgumentException) {
++            Log.w(TAG, "Suppressed IllegalArgumentException during endViewTransition", e)
++        }
+ 
+         disappearingTransitioningChildren.remove(view)
+ 
 diff --git a/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenViewManager.kt b/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenViewManager.kt
 index 4cb201b..b1583b2 100644
 --- a/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenViewManager.kt
@@ -1299,13 +1326,6 @@ index e0efef1..ec673a7 100644
      statusBarAnimation?: string | undefined;
      statusBarStyle?: string | undefined;
      statusBarTranslucent?: boolean | undefined;
-@@ -81,4 +83,4 @@ export interface NativeProps extends ViewProps {
- }
- declare const _default: import("react-native").HostComponent<NativeProps>;
- export default _default;
--//# sourceMappingURL=ModalScreenNativeComponent.d.ts.map
-\ No newline at end of file
-+//# sourceMappingURL=ModalScreenNativeComponent.d.ts.map
 diff --git a/node_modules/react-native-screens/lib/typescript/fabric/ScreenNativeComponent.d.ts b/node_modules/react-native-screens/lib/typescript/fabric/ScreenNativeComponent.d.ts
 index 9fe6da7..893d720 100644
 --- a/node_modules/react-native-screens/lib/typescript/fabric/ScreenNativeComponent.d.ts
@@ -1319,13 +1339,6 @@ index 9fe6da7..893d720 100644
      statusBarAnimation?: string | undefined;
      statusBarStyle?: string | undefined;
      statusBarTranslucent?: boolean | undefined;
-@@ -82,4 +84,4 @@ export interface NativeProps extends ViewProps {
- }
- declare const _default: import("react-native").HostComponent<NativeProps>;
- export default _default;
--//# sourceMappingURL=ScreenNativeComponent.d.ts.map
-\ No newline at end of file
-+//# sourceMappingURL=ScreenNativeComponent.d.ts.map
 diff --git a/node_modules/react-native-screens/lib/typescript/types.d.ts b/node_modules/react-native-screens/lib/typescript/types.d.ts
 index 10a3134..29c8e23 100644
 --- a/node_modules/react-native-screens/lib/typescript/types.d.ts
@@ -1341,13 +1354,6 @@ index 10a3134..29c8e23 100644
      /**
       * Describes heights where a sheet can rest.
       * Works only when `presentation` is set to `formSheet`.
-@@ -1228,4 +1232,4 @@ export interface GestureProviderProps extends GestureProps {
-     gestureDetectorBridge: React.MutableRefObject<GestureDetectorBridge>;
- }
- export {};
--//# sourceMappingURL=types.d.ts.map
-\ No newline at end of file
-+//# sourceMappingURL=types.d.ts.map
 diff --git a/node_modules/react-native-screens/src/components/FullWindowOverlay.tsx b/node_modules/react-native-screens/src/components/FullWindowOverlay.tsx
 index 711a012..c042779 100644
 --- a/node_modules/react-native-screens/src/components/FullWindowOverlay.tsx
