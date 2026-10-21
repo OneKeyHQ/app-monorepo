@@ -10,6 +10,8 @@ interface IMockExchangeClient {
   order: jest.Mock;
   modify: jest.Mock;
   updateLeverage: jest.Mock;
+  twapCancel: jest.Mock;
+  cancel: jest.Mock;
 }
 
 const mockExchangeClients: IMockExchangeClient[] = [];
@@ -30,6 +32,14 @@ jest.mock('@nktkas/hyperliquid', () => ({
             type: 'order',
             data: { statuses: [{ resting: { oid: 1 } }] },
           },
+        }),
+        cancel: jest.fn().mockResolvedValue({
+          status: 'ok',
+          response: { type: 'cancel', data: { statuses: ['success'] } },
+        }),
+        twapCancel: jest.fn().mockResolvedValue({
+          status: 'ok',
+          response: { type: 'twapCancel', data: { status: 'success' } },
         }),
         updateLeverage: jest
           .fn()
@@ -236,6 +246,54 @@ describe('ServiceHyperliquidExchange account guard', () => {
     ).rejects.toThrow(accountChangedMessage);
     for (const client of mockExchangeClients)
       expect(client.updateLeverage).not.toHaveBeenCalled();
+  });
+
+  it.each(['order', 'twap'] as const)(
+    'rejects stale %s cancellation when background has already switched accounts',
+    async (kind) => {
+      await switchTo(ADDRESS_B);
+      const options = { expectedAccountAddress: ADDRESS_A };
+      const pending =
+        kind === 'order'
+          ? service.cancelOrder([{ assetId: 0, oid: 7 }], options)
+          : service.cancelTwapOrder({ assetId: 0, twapId: 7 }, options);
+      await expect(pending).rejects.toThrow(accountChangedMessage);
+      for (const client of mockExchangeClients) {
+        expect(client.cancel).not.toHaveBeenCalled();
+        expect(client.twapCancel).not.toHaveBeenCalled();
+      }
+    },
+  );
+
+  it('cancels TWAP for the expected account', async () => {
+    await service.cancelTwapOrder(
+      { assetId: 0, twapId: 7 },
+      { expectedAccountAddress: ADDRESS_A },
+    );
+    expect(mockExchangeClients[0].twapCancel).toHaveBeenCalledWith({
+      a: 0,
+      t: 7,
+    });
+  });
+
+  it('rejects TWAP cancellation if the account switches during log preparation', async () => {
+    jest
+      .spyOn(
+        service as unknown as { _buildLogContext: () => Promise<object> },
+        '_buildLogContext',
+      )
+      .mockImplementationOnce(async () => {
+        await switchTo(ADDRESS_B);
+        return {};
+      });
+    await expect(
+      service.cancelTwapOrder(
+        { assetId: 0, twapId: 7 },
+        { expectedAccountAddress: ADDRESS_A },
+      ),
+    ).rejects.toThrow(accountChangedMessage);
+    for (const client of mockExchangeClients)
+      expect(client.twapCancel).not.toHaveBeenCalled();
   });
 
   it('signs an add-position order with the confirmed account', async () => {

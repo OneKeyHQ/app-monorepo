@@ -83,6 +83,7 @@ export function useOpenOrderActions(accountScopedAddress?: string | null) {
         assertCurrentAccount();
         await actions.current
           .cancelOrder({
+            expectedAccountAddress: accountScopedAddress ?? undefined,
             orders: [
               {
                 assetId: tokenInfo.assetId,
@@ -102,7 +103,13 @@ export function useOpenOrderActions(accountScopedAddress?: string | null) {
         });
       }
     },
-    [actions, assertCurrentAccount, ensureTradingEnabled, intl],
+    [
+      accountScopedAddress,
+      actions,
+      assertCurrentAccount,
+      ensureTradingEnabled,
+      intl,
+    ],
   );
 
   const handleCancelTwapOrder = useCallback(
@@ -127,6 +134,7 @@ export function useOpenOrderActions(accountScopedAddress?: string | null) {
           .cancelTwapOrder({
             assetId: symbolMeta.assetId,
             twapId: order.twapId,
+            expectedAccountAddress: accountScopedAddress ?? undefined,
           })
           .catch(() => undefined);
       } catch (error) {
@@ -140,7 +148,13 @@ export function useOpenOrderActions(accountScopedAddress?: string | null) {
         });
       }
     },
-    [actions, assertCurrentAccount, ensureTradingEnabled, intl],
+    [
+      accountScopedAddress,
+      actions,
+      assertCurrentAccount,
+      ensureTradingEnabled,
+      intl,
+    ],
   );
 
   const resolveChaseTargetPrice = useCallback(
