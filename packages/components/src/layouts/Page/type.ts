@@ -30,9 +30,8 @@ export type IBasicPageProps = PropsWithChildren<
      */
     safeAreaEnabled?: boolean;
     /** @platform native
-     * @description Lazy load. The default value is false.
-     * Mainly used to reduce stuttering when heavy rendering Native pages.
-     * If the page doesn't have much content on initial render, this doesn't need to be enabled.
+     * @description Currently has no effect: native pages render their content
+     * immediately behind native page transitions. Kept for existing callers.
      * @default false
      */
     lazyLoad?: boolean;
