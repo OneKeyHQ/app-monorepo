@@ -114,6 +114,9 @@ jest.mock('../../utils/swapStepHistory', () => ({
   reconcileSwapStepWithHistory: jest.fn(),
 }));
 jest.mock('../../utils/swapReviewState', () => ({
+  ...jest.requireActual<typeof import('../../utils/swapReviewState')>(
+    '../../utils/swapReviewState',
+  ),
   NATIVE_BTC_MIN_SLIPPAGE_PERCENTAGE: 1,
   invalidateSwapReviewForSlippageChange: jest.fn(),
   shouldShowSwapReviewToAmountSkeleton: () => false,
