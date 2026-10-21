@@ -691,7 +691,9 @@ export interface IPerpsInviteeRewardHistoryItem {
 export interface IPerpsInviteeRewardsResponse {
   history: IPerpsInviteeRewardHistoryItem[];
   token: IPerpsInviteeRewardToken;
+  /** Distributed amount. Unlike Swap, this does not include `undistributed`. */
   totalBonus: string;
+  /** Confirmed reward amount that has not been distributed yet. */
   undistributed: string;
 }
 

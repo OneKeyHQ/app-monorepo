@@ -174,8 +174,14 @@ function hasNoRewards(overview?: IInviteeRewardsOverview) {
   ) {
     return false;
   }
-  const isZero = (data: { totalBonus: string; history: unknown[] }) =>
-    !new BigNumber(data.totalBonus).gt(0) && !data.history.length;
+  const isZero = (data: {
+    totalBonus: string;
+    undistributed: string;
+    history: unknown[];
+  }) =>
+    !new BigNumber(data.totalBonus).gt(0) &&
+    !new BigNumber(data.undistributed).gt(0) &&
+    !data.history.length;
   return (
     isZero(perps.data) && isZero(swap.data) && !getEarnTokens(earn.data).length
   );
@@ -291,7 +297,13 @@ function getModuleRow(
   }
   const { totalBonus, undistributed, token } = result.data;
   const unpaidAmount = new BigNumber(undistributed);
-  const paidAmount = new BigNumber(totalBonus).minus(unpaidAmount);
+  // Swap's total already includes the undistributed amount. Perps' total is
+  // only what was paid. Its detail dialog adds the undistributed amount
+  // beside that total.
+  const paidAmount =
+    module === 'swap'
+      ? new BigNumber(totalBonus).minus(unpaidAmount)
+      : new BigNumber(totalBonus);
   // Product detail dialogs still show the token.
   return {
     module,

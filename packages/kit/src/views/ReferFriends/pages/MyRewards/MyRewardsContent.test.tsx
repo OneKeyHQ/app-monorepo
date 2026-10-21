@@ -359,7 +359,7 @@ describe('MyRewardsContent', () => {
         .getByTestId('my-rewards-summary-card')
         .querySelectorAll('[data-source-currency="usd"]'),
     ).map((node) => node.textContent);
-    expect(figures).toEqual(['17', '13', '4']);
+    expect(figures).toEqual(['18', '14', '4']);
   });
 
   it('shows the total, its parts and the payout address on compact layouts', () => {
@@ -379,7 +379,7 @@ describe('MyRewardsContent', () => {
     const figures = Array.from(
       summary.querySelectorAll('[data-source-currency="usd"]'),
     ).map((node) => node.textContent);
-    expect(figures).toEqual(['17', '13', '4']);
+    expect(figures).toEqual(['18', '14', '4']);
     // The address has its own row, so the info popover leaves it out.
     expect(
       summary.querySelectorAll('[data-testid="my-rewards-copy-address"]'),
@@ -409,7 +409,7 @@ describe('MyRewardsContent', () => {
     };
     render(<MyRewardsContent />);
     const perps = screen.getByTestId('my-rewards-module-perps');
-    expect(perps.textContent).toContain('1.5 ETH');
+    expect(perps.textContent).toContain('2 ETH');
     expect(perps.textContent).toContain('0.5 ETH');
     expect(perps.querySelectorAll('[data-source-currency="usd"]')).toHaveLength(
       0,
@@ -426,14 +426,21 @@ describe('MyRewardsContent', () => {
   it('splits each product into paid and unpaid and isolates a failure', () => {
     render(<MyRewardsContent />);
     const perps = screen.getByTestId('my-rewards-module-perps');
-    expect(perps.textContent).toContain('4');
-    expect(perps.textContent).toContain('1');
+    expect(
+      Array.from(perps.querySelectorAll('[data-source-currency="usd"]')).map(
+        (node) => node.textContent,
+      ),
+    ).toEqual(['5', '1']);
     expect(screen.getByTestId('my-rewards-copy-address')).toBeTruthy();
     expect(perps.querySelectorAll('[data-source-currency="usd"]')).toHaveLength(
       2,
     );
     const swap = screen.getByTestId('my-rewards-module-swap');
-    expect(swap.textContent).toContain('9');
+    expect(
+      Array.from(swap.querySelectorAll('[data-source-currency="usd"]')).map(
+        (node) => node.textContent,
+      ),
+    ).toEqual(['9', '3']);
     expect(swap.querySelectorAll('[data-source-currency="usd"]')).toHaveLength(
       2,
     );
@@ -748,6 +755,41 @@ describe('MyRewardsContent', () => {
     expect(screen.queryByTestId('my-rewards-module-perps')).toBeNull();
     expect(mockPerksHomeShown).toHaveBeenCalledWith({
       status: 'empty',
+      entry: 'route',
+    });
+  });
+
+  it('keeps an unpaid Perps reward out of the empty state', () => {
+    const empty = {
+      totalBonus: '0',
+      undistributed: '0',
+      token: { symbol: 'USDC', logoURI: '' },
+      history: [],
+    };
+    mockOverviewResult = {
+      result: {
+        perps: {
+          status: 'success',
+          data: { ...empty, undistributed: '1' },
+        },
+        swap: { status: 'success', data: empty },
+        earn: {
+          status: 'success',
+          data: { distributed: [], undistributed: [] },
+        },
+      },
+      isLoading: false,
+    };
+    render(<MyRewardsContent />);
+    expect(screen.queryByTestId('perks-placeholder')).toBeNull();
+    const perps = screen.getByTestId('my-rewards-module-perps');
+    expect(
+      Array.from(perps.querySelectorAll('[data-source-currency="usd"]')).map(
+        (node) => node.textContent,
+      ),
+    ).toEqual(['1']);
+    expect(mockPerksHomeShown).toHaveBeenCalledWith({
+      status: 'has_rewards',
       entry: 'route',
     });
   });
