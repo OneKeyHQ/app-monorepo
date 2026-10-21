@@ -239,6 +239,7 @@ async function openExpandTab(
 }
 
 const BROWSER_SESSION_ID_STORAGE_KEY = 'onekeyBrowserSessionId';
+let browserSessionIdRequest: Promise<string | undefined> | undefined;
 
 async function readOrCreateBrowserSessionId(
   sessionStorage: chrome.storage.SessionStorageArea,
@@ -257,22 +258,37 @@ async function readOrCreateBrowserSessionId(
 // and its pages. chrome.storage.session is cleared when the browser exits, so
 // a new id marks persisted tab / window ids as stale.
 async function getBrowserSessionId(): Promise<string | undefined> {
-  const sessionStorage = globalThis.chrome?.storage?.session;
-  if (!sessionStorage) {
+  // All UI callers go through ServiceApp, so the background owns creation
+  // even when Web Locks are unavailable. UI-local promises cannot coordinate
+  // separate extension runtimes.
+  if (!platformEnv.isExtensionBackground) {
     return undefined;
   }
-  try {
-    // The background and extension pages share one origin, so a Web Lock
-    // keeps contexts that start at the same time from writing different ids.
-    const locks = globalThis.navigator?.locks;
-    if (locks) {
-      return await locks.request(BROWSER_SESSION_ID_STORAGE_KEY, () =>
-        readOrCreateBrowserSessionId(sessionStorage),
-      );
+  if (browserSessionIdRequest) {
+    return browserSessionIdRequest;
+  }
+  const request = (async () => {
+    const sessionStorage = globalThis.chrome?.storage?.session;
+    if (!sessionStorage) {
+      return undefined;
     }
-    return await readOrCreateBrowserSessionId(sessionStorage);
-  } catch {
-    return undefined;
+    try {
+      const locks = globalThis.navigator?.locks;
+      if (locks) {
+        return await locks.request(BROWSER_SESSION_ID_STORAGE_KEY, () =>
+          readOrCreateBrowserSessionId(sessionStorage),
+        );
+      }
+      return await readOrCreateBrowserSessionId(sessionStorage);
+    } catch {
+      return undefined;
+    }
+  })();
+  browserSessionIdRequest = request;
+  try {
+    return await request;
+  } finally {
+    browserSessionIdRequest = undefined;
   }
 }
 

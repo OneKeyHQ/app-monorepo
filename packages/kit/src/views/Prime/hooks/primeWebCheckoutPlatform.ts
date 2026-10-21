@@ -29,6 +29,15 @@ import type { ISubscriptionPeriod } from './usePrimePaymentTypes';
 
 const PRIME_ENTITLEMENT_ID = 'Prime';
 
+async function getExtensionBrowserSessionId() {
+  try {
+    return await backgroundApiProxy.serviceApp.getExtensionBrowserSessionId();
+  } catch {
+    // Tab identity tracking remains optional while the background starts.
+    return undefined;
+  }
+}
+
 async function configurePurchasesSdk({
   onekeyUserId,
   isSandbox,
@@ -114,7 +123,7 @@ function getCurrentExtensionWindowId() {
 export async function getUsablePrimeWebCheckoutExtensionContext(
   session: IPrimeWebCheckoutPendingSession,
 ): Promise<IPrimeWebCheckoutExtensionContext | undefined> {
-  const browserSessionId = await extUtils.getBrowserSessionId();
+  const browserSessionId = await getExtensionBrowserSessionId();
   return browserSessionId &&
     session.extension?.browserSessionId === browserSessionId
     ? session.extension
@@ -219,7 +228,7 @@ async function openExtensionCheckoutTab({
   url: string;
   replacedSession?: IPrimeWebCheckoutPendingSession;
 }) {
-  const browserSessionId = await extUtils.getBrowserSessionId();
+  const browserSessionId = await getExtensionBrowserSessionId();
   const usableExtension =
     await getUsablePrimeWebCheckoutExtensionContext(session);
   const initiator = usableExtension ?? (await getExtensionCheckoutInitiator());

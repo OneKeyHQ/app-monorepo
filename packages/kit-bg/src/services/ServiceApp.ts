@@ -413,6 +413,11 @@ class ServiceApp extends ServiceBase {
   }
 
   @backgroundMethod()
+  async getExtensionBrowserSessionId() {
+    return extUtils.getBrowserSessionId();
+  }
+
+  @backgroundMethod()
   async openExtensionMarketTokenDetail(params: {
     tokenAddress: string;
     network: string;

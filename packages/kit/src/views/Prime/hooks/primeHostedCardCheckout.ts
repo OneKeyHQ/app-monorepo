@@ -35,7 +35,6 @@ import {
 import {
   buildPrimeWebPurchaseLinkUrl,
   getPrimeWebPurchaseLinkConfig,
-  parsePrimeWebPurchaseLinkPackage,
 } from './primeWebPurchaseLink';
 
 import type { ISubscriptionPeriod } from './usePrimePaymentTypes';
@@ -49,7 +48,7 @@ export type IPrimeHostedCardCheckoutParams = {
   selectedSubscriptionPeriod: ISubscriptionPeriod;
   currency?: string;
   featureName?: EPrimeFeatures;
-  // Android only: resolved by the web-embed checkout, where purchases-js runs.
+  // Legacy bridge hint; package selection is independently resolved by the host.
   purchasePackage?: unknown;
   // Set when this checkout replaces a failed embedded Stripe checkout.
   fallbackFrom?: IPrimeEmbeddedCheckoutFallbackTrigger;
@@ -104,7 +103,6 @@ export async function startPrimeHostedCardCheckout({
   selectedSubscriptionPeriod,
   currency,
   featureName,
-  purchasePackage: providedPurchasePackage,
   fallbackFrom,
 }: IPrimeHostedCardCheckoutParams) {
   try {
@@ -168,25 +166,13 @@ export async function startPrimeHostedCardCheckout({
     }
 
     const config = getPrimeWebPurchaseLinkConfig({ isSandbox: isSandboxKey });
-    let purchasePackage;
-    if (providedPurchasePackage === undefined) {
-      purchasePackage = await resolvePrimeWebCheckoutPackage({
-        config,
-        onekeyUserId,
-        isSandbox: isSandboxKey,
-        currency,
-        subscriptionPeriod: selectedSubscriptionPeriod,
-      });
-    } else {
-      purchasePackage = parsePrimeWebPurchaseLinkPackage({
-        config,
-        subscriptionPeriod: selectedSubscriptionPeriod,
-        value: providedPurchasePackage,
-      });
-      if (!purchasePackage) {
-        throw new OneKeyLocalError('Invalid Prime web checkout package');
-      }
-    }
+    const purchasePackage = await resolvePrimeWebCheckoutPackage({
+      config,
+      onekeyUserId,
+      isSandbox: isSandboxKey,
+      currency,
+      subscriptionPeriod: selectedSubscriptionPeriod,
+    });
     const platform = getPrimeWebCheckoutPlatform();
     const checkoutUrl = buildPrimeWebPurchaseLinkUrl({
       config,
@@ -339,24 +325,27 @@ const SUBSCRIPTION_PERIODS = new Set<string>(['P1Y', 'P1M']);
 const PRIME_FEATURES = new Set<string>(Object.values(EPrimeFeatures));
 
 // Android: the web-embed checkout page asks the native host to continue in
-// the hosted checkout. The page only supplies the plan and package; the
-// user and email come from the host's own route params.
+// the hosted checkout. The host pins identity, plan and currency to its route
+// and independently resolves the RevenueCat package before opening the link.
 export async function handlePrimeHostedCardCheckoutFallbackRequest({
   params,
   routePrimeUserId,
   routePrimeUserEmail,
+  routeSubscriptionPeriod,
+  routeCurrency,
   intl,
 }: {
   params: unknown;
   routePrimeUserId: unknown;
   routePrimeUserEmail: unknown;
+  routeSubscriptionPeriod: unknown;
+  routeCurrency?: unknown;
   intl: IntlShape;
 }) {
   const {
     trigger,
     onekeyUserId,
     subscriptionPeriod,
-    currency,
     featureName,
     purchasePackage,
   } = (params ?? {}) as Record<string, unknown>;
@@ -365,6 +354,7 @@ export async function handlePrimeHostedCardCheckoutFallbackRequest({
     !FALLBACK_TRIGGERS.has(trigger) ||
     typeof subscriptionPeriod !== 'string' ||
     !SUBSCRIPTION_PERIODS.has(subscriptionPeriod) ||
+    subscriptionPeriod !== routeSubscriptionPeriod ||
     typeof routePrimeUserId !== 'string' ||
     !routePrimeUserId ||
     onekeyUserId !== routePrimeUserId
@@ -378,7 +368,7 @@ export async function handlePrimeHostedCardCheckoutFallbackRequest({
     email:
       typeof routePrimeUserEmail === 'string' ? routePrimeUserEmail : undefined,
     selectedSubscriptionPeriod: subscriptionPeriod as ISubscriptionPeriod,
-    currency: typeof currency === 'string' ? currency : undefined,
+    currency: typeof routeCurrency === 'string' ? routeCurrency : undefined,
     featureName:
       typeof featureName === 'string' && PRIME_FEATURES.has(featureName)
         ? (featureName as EPrimeFeatures)

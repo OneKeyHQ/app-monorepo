@@ -1,4 +1,5 @@
 /* cspell:ignore Discardable */
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type { IPrimeWebCheckoutPendingSession } from '@onekeyhq/shared/types/prime/primeTypes';
 
 import { openPrimeWebCheckoutPage } from './primeWebCheckoutPlatform';
@@ -12,6 +13,7 @@ const mockOpenUrlInTab = jest.fn<
 const mockUpdateContext = jest.fn<Promise<void>, [unknown]>(
   async () => undefined,
 );
+const mockGetBrowserSessionId = jest.fn(async () => 'browser-1');
 
 jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   __esModule: true,
@@ -20,7 +22,6 @@ jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
 jest.mock('@onekeyhq/shared/src/utils/extUtils', () => ({
   __esModule: true,
   default: {
-    getBrowserSessionId: async () => 'browser-1',
     focusTab: (id: number) => mockFocusTab(id),
     openUrlInTab: (url: string, options: { tabId?: number }) =>
       mockOpenUrlInTab(url, options),
@@ -29,6 +30,9 @@ jest.mock('@onekeyhq/shared/src/utils/extUtils', () => ({
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
   default: {
+    serviceApp: {
+      getExtensionBrowserSessionId: () => mockGetBrowserSessionId(),
+    },
     simpleDb: {
       prime: {
         updateWebCheckoutPendingSessionExtensionContext: (params: unknown) =>
@@ -111,7 +115,21 @@ it('reopens the recorded checkout by focusing it when tab URL fields are unavail
   await expect(openPrimeWebCheckoutPage(session)).resolves.toBe('opened');
 
   expect(mockFocusTab).toHaveBeenCalledWith(12);
+  expect(mockGetBrowserSessionId).toHaveBeenCalled();
   expect(mockOpenUrlInTab).not.toHaveBeenCalled();
+});
+
+it('opens a fresh checkout safely when the background session ID is temporarily unavailable', async () => {
+  mockGetBrowserSessionId.mockRejectedValueOnce(
+    new OneKeyLocalError('Background starting'),
+  );
+
+  await expect(openPrimeWebCheckoutPage(session)).resolves.toBe('opened');
+
+  expect(mockFocusTab).not.toHaveBeenCalled();
+  expect(mockOpenUrlInTab).toHaveBeenCalledWith(session.checkoutUrl, {
+    tabId: undefined,
+  });
 });
 
 it('focuses a visible hosted form without reloading or resetting its payment fields', async () => {

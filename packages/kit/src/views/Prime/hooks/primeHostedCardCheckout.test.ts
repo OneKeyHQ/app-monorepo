@@ -3,6 +3,7 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type { IPrimeWebCheckoutPendingSession } from '@onekeyhq/shared/types/prime/primeTypes';
 
 import {
+  handlePrimeHostedCardCheckoutFallbackRequest,
   resumePendingPrimeHostedCardCheckout,
   startPrimeHostedCardCheckout,
 } from './primeHostedCardCheckout';
@@ -41,6 +42,13 @@ const mockPlatformEnv = { isExtensionUiPopup: false };
 const mockOpenExpandTab = jest.fn<Promise<void>, [unknown]>();
 const mockClosePopup = jest.fn<void, []>();
 const mockTrackFailure = jest.fn<void, [unknown]>();
+const mockResolvePackage = jest.fn(async () => ({
+  packageId: '$rc_annual',
+  offeringId: 'Sandbox_testing',
+  subscriptionPeriod: 'P1Y' as const,
+  amount: 99,
+  currency: 'USD',
+}));
 
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
@@ -122,13 +130,7 @@ jest.mock('./primeWebCheckout', () => ({
   logPrimeWebCheckoutSessionFlow: jest.fn(),
   openPrimeWebCheckoutPage: (session: unknown, options: unknown) =>
     mockOpenPage(session, options),
-  resolvePrimeWebCheckoutPackage: async () => ({
-    packageId: '$rc_annual',
-    offeringId: 'Sandbox_testing',
-    subscriptionPeriod: 'P1Y',
-    amount: 99,
-    currency: 'USD',
-  }),
+  resolvePrimeWebCheckoutPackage: () => mockResolvePackage(),
 }));
 
 const intl = { formatMessage: jest.fn(() => '') } as unknown as IntlShape;
@@ -196,6 +198,64 @@ describe('startPrimeHostedCardCheckout', () => {
       replacedSession: undefined,
     });
     expect(mockShowWaitingDialog).toHaveBeenCalledWith({ session });
+  });
+
+  it('uses the host-resolved package when bridge data mislabels a monthly package as annual', async () => {
+    await startPrimeHostedCardCheckout({
+      intl,
+      onekeyUserId: 'user-1',
+      selectedSubscriptionPeriod: 'P1Y',
+      purchasePackage: {
+        packageId: '$rc_monthly',
+        offeringId: 'Sandbox_testing',
+        subscriptionPeriod: 'P1Y',
+        amount: 0.01,
+        currency: 'JPY',
+      },
+    });
+
+    const { session } = mockAcquirePendingSession.mock.calls[0][0];
+    expect(session).toMatchObject({
+      packageId: '$rc_annual',
+      subscriptionPeriod: 'P1Y',
+      amount: 99,
+      currency: 'USD',
+      checkoutUrl,
+    });
+  });
+
+  it('does not use a bridge package after trusted package resolution fails', async () => {
+    mockResolvePackage.mockRejectedValueOnce(
+      new OneKeyLocalError('Offering unavailable'),
+    );
+
+    await startPrimeHostedCardCheckout({
+      intl,
+      onekeyUserId: 'user-1',
+      selectedSubscriptionPeriod: 'P1Y',
+      purchasePackage: previousSession,
+    });
+
+    expect(mockAcquirePendingSession).not.toHaveBeenCalled();
+    expect(mockOpenPage).not.toHaveBeenCalled();
+    expect(mockToastError).toHaveBeenCalledTimes(1);
+  });
+
+  it('refuses a bridge request that changes the host-selected billing period', async () => {
+    await handlePrimeHostedCardCheckoutFallbackRequest({
+      intl,
+      routePrimeUserId: 'user-1',
+      routePrimeUserEmail: 'a@example.com',
+      routeSubscriptionPeriod: 'P1Y',
+      params: {
+        trigger: 'checkoutError',
+        onekeyUserId: 'user-1',
+        subscriptionPeriod: 'P1M',
+      },
+    });
+
+    expect(mockResolvePackage).not.toHaveBeenCalled();
+    expect(mockOpenPage).not.toHaveBeenCalled();
   });
 
   it('reports popup handoff failure without rejecting or starting a checkout', async () => {

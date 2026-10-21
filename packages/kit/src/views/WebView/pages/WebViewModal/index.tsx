@@ -253,6 +253,8 @@ export default function WebViewModal() {
             params: data.params,
             routePrimeUserId: hashRouteQueryParams?.primeUserId,
             routePrimeUserEmail: hashRouteQueryParams?.primeUserEmail,
+            routeSubscriptionPeriod: hashRouteQueryParams?.subscriptionPeriod,
+            routeCurrency: hashRouteQueryParams?.currency,
             intl,
           });
         })();
@@ -283,6 +285,8 @@ export default function WebViewModal() {
       hashRoutePath,
       hashRouteQueryParams?.primeUserEmail,
       hashRouteQueryParams?.primeUserId,
+      hashRouteQueryParams?.subscriptionPeriod,
+      hashRouteQueryParams?.currency,
       intl,
       isWebEmbed,
       navigation,
