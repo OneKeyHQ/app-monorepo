@@ -10,6 +10,7 @@ import {
   getSimpleLimitPricePreset,
   getSimpleOrderPreview,
   getSimpleSliderAmount,
+  validateSimpleAmountInput,
 } from './simpleTrading';
 
 const orderMetadata = {
@@ -261,6 +262,54 @@ describe('simple order preview', () => {
 });
 
 describe('simple margin keypad', () => {
+  it.each(['usd', 'margin'] as const)(
+    'limits %s to 12 integer digits without consuming decimal precision',
+    (unit) => {
+      expect(validateSimpleAmountInput('999999999999.99', 2, unit)).toBe(true);
+      expect(validateSimpleAmountInput('999999999999.', 2, unit)).toBe(true);
+      expect(validateSimpleAmountInput('1000000000000', 2, unit)).toBe(false);
+      expect(validateSimpleAmountInput('1.001', 2, unit)).toBe(false);
+      expect(validateSimpleAmountInput('', 2, unit)).toBe(true);
+      expect(validateSimpleAmountInput('1e12', 2, unit)).toBe(false);
+    },
+  );
+  it('rejects a keypad digit beyond the fiat limit but permits backspace', () => {
+    const value = '222222222222';
+    expect(
+      validateSimpleAmountInput(
+        applySimpleAmountKey(value, '2'),
+        2,
+        'usd',
+        value,
+      ),
+    ).toBe(false);
+    expect(
+      validateSimpleAmountInput(
+        applySimpleAmountKey(value, 'backspace'),
+        2,
+        'usd',
+        value,
+      ),
+    ).toBe(true);
+  });
+  it('allows deleting a legacy oversized draft without allowing it to grow', () => {
+    const value = '2222222222222222.22';
+    expect(
+      validateSimpleAmountInput(value.slice(0, -1), 2, 'margin', value),
+    ).toBe(true);
+    expect(validateSimpleAmountInput(`${value}2`, 2, 'margin', value)).toBe(
+      false,
+    );
+    expect(validateSimpleAmountInput('3333333333333', 2, 'margin', value)).toBe(
+      false,
+    );
+  });
+  it('matches Pro token precision without adding a fiat integer limit', () => {
+    expect(validateSimpleAmountInput('1234567890123.12345', 5, 'token')).toBe(
+      true,
+    );
+    expect(validateSimpleAmountInput('0.123456', 5, 'token')).toBe(false);
+  });
   it.each([
     ['', '.', '0.'],
     ['0', '7', '7'],

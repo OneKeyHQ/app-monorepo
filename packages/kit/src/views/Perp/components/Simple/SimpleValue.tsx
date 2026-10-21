@@ -5,6 +5,7 @@ export function SimpleValue({
   label,
   value,
   compact = false,
+  singleLine = false,
   showChevron = true,
   actionIcon,
   onPress,
@@ -14,6 +15,7 @@ export function SimpleValue({
   label: string;
   value: string;
   compact?: boolean;
+  singleLine?: boolean;
   showChevron?: boolean;
   actionIcon?: IIconProps['name'];
   onPress?: () => void;
@@ -30,11 +32,11 @@ export function SimpleValue({
       gap="$3"
       minHeight={compact ? 32 : 40}
       alignItems="center"
-      flexWrap="wrap"
+      flexWrap={singleLine ? 'nowrap' : 'wrap'}
       alignContent="center"
       justifyContent="space-between"
     >
-      <XStack gap="$3" alignItems="center" flexShrink={1}>
+      <XStack gap="$3" alignItems="center" flexShrink={singleLine ? 0 : 1}>
         <SizableText
           size={compact ? '$bodyMd' : '$bodyLg'}
           color="$textSubdued"
@@ -42,10 +44,27 @@ export function SimpleValue({
           {label}
         </SizableText>
       </XStack>
-      <XStack gap="$2" alignItems="center">
+      <XStack
+        gap="$2"
+        alignItems="center"
+        {...(singleLine && {
+          flex: 1,
+          minWidth: 0,
+          justifyContent: 'flex-end',
+        })}
+      >
         <SizableText
           size={compact ? '$bodyMdMedium' : '$bodyLgMedium'}
           color="$text"
+          {...(singleLine && {
+            flexShrink: 1,
+            minWidth: 0,
+            numberOfLines: 1,
+            adjustsFontSizeToFit: true,
+            minimumFontScale: 0.65,
+            textAlign: 'right',
+            accessibilityLabel: value,
+          })}
         >
           {value}
         </SizableText>
