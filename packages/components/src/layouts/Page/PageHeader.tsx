@@ -1,5 +1,11 @@
 import { useCallback, useLayoutEffect, useMemo, useRef } from 'react';
+import type { ReactNode } from 'react';
 
+import {
+  OverlayPageHostScope,
+  OverlayPageOwnerScope,
+  useOverlayPageScope,
+} from '@onekeyfe/react-native-native-overlay';
 import { useNavigation } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
@@ -72,6 +78,31 @@ function shallowEqualHeaderOptions(
     }
   }
   return true;
+}
+
+function restoreHeaderPageScope<T extends (...args: never[]) => unknown>(
+  renderHeader: T,
+  hostKey: string,
+  ownerKey: string,
+): T {
+  return ((...args: Parameters<T>) => {
+    const rendered = renderHeader(...args);
+    if (
+      rendered === null ||
+      rendered === undefined ||
+      typeof rendered === 'boolean' ||
+      typeof rendered === 'function'
+    ) {
+      return rendered;
+    }
+    return (
+      <OverlayPageHostScope hostKey={hostKey}>
+        <OverlayPageOwnerScope ownerKey={ownerKey}>
+          {rendered as ReactNode}
+        </OverlayPageOwnerScope>
+      </OverlayPageHostScope>
+    );
+  }) as T;
 }
 
 const usePageHeaderReloadOptions = () => {
@@ -157,6 +188,57 @@ const usePageHeaderReloadOptions = () => {
 function PageHeader(props: IPageHeaderProps) {
   const pageHeaderReload = usePageHeaderReloadOptions();
   const nextReloadOptions = pageHeaderReload.reload(props);
+  const { hostKey, ownerKey } = useOverlayPageScope();
+  const headerLeft = nextReloadOptions.headerLeft;
+  const headerRight = nextReloadOptions.headerRight;
+  const headerTitle = nextReloadOptions.headerTitle;
+  const scopedHeaderLeft = useMemo(
+    () =>
+      !platformEnv.isNative &&
+      hostKey &&
+      ownerKey &&
+      typeof headerLeft === 'function'
+        ? restoreHeaderPageScope(headerLeft, hostKey, ownerKey)
+        : headerLeft,
+    [headerLeft, hostKey, ownerKey],
+  );
+  const scopedHeaderRight = useMemo(
+    () =>
+      !platformEnv.isNative &&
+      hostKey &&
+      ownerKey &&
+      typeof headerRight === 'function'
+        ? restoreHeaderPageScope(headerRight, hostKey, ownerKey)
+        : headerRight,
+    [headerRight, hostKey, ownerKey],
+  );
+  const scopedHeaderTitle = useMemo(
+    () =>
+      !platformEnv.isNative &&
+      hostKey &&
+      ownerKey &&
+      typeof headerTitle === 'function'
+        ? restoreHeaderPageScope(headerTitle, hostKey, ownerKey)
+        : headerTitle,
+    [headerTitle, hostKey, ownerKey],
+  );
+  const nextScopedReloadOptions =
+    scopedHeaderLeft === headerLeft &&
+    scopedHeaderRight === headerRight &&
+    scopedHeaderTitle === headerTitle
+      ? nextReloadOptions
+      : {
+          ...nextReloadOptions,
+          ...(scopedHeaderLeft !== headerLeft && {
+            headerLeft: scopedHeaderLeft,
+          }),
+          ...(scopedHeaderRight !== headerRight && {
+            headerRight: scopedHeaderRight,
+          }),
+          ...(scopedHeaderTitle !== headerTitle && {
+            headerTitle: scopedHeaderTitle,
+          }),
+        };
 
   // `reload()` returns a brand-new object on every render. Feeding that fresh
   // reference into the layout effect below (and into `navigation.setOptions`)
@@ -166,14 +248,14 @@ function PageHeader(props: IPageHeaderProps) {
   // "Maximum update depth exceeded". Keep the previous reference whenever the
   // resolved options are shallowly equal, so the effect dependency only changes
   // when the options actually change.
-  const reloadOptionsRef = useRef(nextReloadOptions);
+  const reloadOptionsRef = useRef(nextScopedReloadOptions);
   if (
     !shallowEqualHeaderOptions(
       reloadOptionsRef.current as Record<string, unknown>,
-      nextReloadOptions as Record<string, unknown>,
+      nextScopedReloadOptions as Record<string, unknown>,
     )
   ) {
-    reloadOptionsRef.current = nextReloadOptions;
+    reloadOptionsRef.current = nextScopedReloadOptions;
   }
   const reloadOptions = reloadOptionsRef.current;
 
