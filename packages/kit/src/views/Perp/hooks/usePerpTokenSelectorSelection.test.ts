@@ -5,11 +5,19 @@ import { act, renderHook } from '@testing-library/react';
 import { EModalPerpRoutes } from '@onekeyhq/shared/src/routes/perp';
 
 import { usePerpTokenSelectorSelection } from './usePerpTokenSelectorSelection';
+import { useSimpleMarketFocus } from './useSimpleMarketFocus';
 
+let mockRouteNames = [EModalPerpRoutes.MobileTokenSelector];
+let mockInstrument = { mode: 'perp', coin: 'BTC' };
 const mockNavigation = {
   isFocused: jest.fn(() => true),
   popStack: jest.fn(),
   replace: jest.fn(),
+  navigate: jest.fn(),
+  getState: () => ({
+    index: mockRouteNames.length - 1,
+    routes: mockRouteNames.map((name) => ({ name })),
+  }),
 };
 const mockSettings = { mobileTradingMode: 'simple' };
 const mockProof = { source: 'token-selector' };
@@ -18,6 +26,7 @@ const mockActions = {
   switchTradeInstrument: jest.fn(async () => true),
 };
 const mockToast = jest.fn();
+const mockActionsRef = { current: mockActions };
 
 jest.mock('@react-navigation/core', () => ({
   useNavigation: () => mockNavigation,
@@ -28,7 +37,8 @@ jest.mock('@onekeyhq/kit/src/hooks/useAppNavigation', () => ({
   default: () => mockNavigation,
 }));
 jest.mock('@onekeyhq/kit/src/states/jotai/contexts/hyperliquid', () => ({
-  useHyperliquidActions: () => ({ current: mockActions }),
+  useHyperliquidActions: () => mockActionsRef,
+  useActiveTradeInstrumentAtom: () => [mockInstrument],
 }));
 jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
   usePerpsCustomSettingsAtom: () => [mockSettings],
@@ -52,12 +62,53 @@ function setup() {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockRouteNames = [EModalPerpRoutes.MobileTokenSelector];
+  mockInstrument = { mode: 'perp', coin: 'BTC' };
   mockNavigation.isFocused.mockReturnValue(true);
   mockSettings.mobileTradingMode = 'simple';
   mockActions.switchTradeInstrument.mockResolvedValue(true);
   mockActions.captureInstrumentSwitchSubscriptionProof.mockResolvedValue(
     mockProof,
   );
+});
+
+it('returns a selector choice to the existing market instead of stacking a second detail', async () => {
+  mockRouteNames = [
+    EModalPerpRoutes.MobilePerpSimpleMarket,
+    EModalPerpRoutes.MobileTokenSelector,
+  ];
+  const { result } = setup();
+  await act(async () => {
+    await result.current('ETH');
+  });
+  expect(mockNavigation.navigate).toHaveBeenCalledWith(
+    EModalPerpRoutes.MobilePerpSimpleMarket,
+    { coin: 'ETH' },
+  );
+  expect(mockNavigation.replace).not.toHaveBeenCalled();
+  expect(mockNavigation.popStack).not.toHaveBeenCalled();
+});
+
+it('restores the route instrument on return from Go to trade without changing a hidden market', async () => {
+  const { rerender } = renderHook(
+    ({ focused }) => useSimpleMarketFocus('BTC', focused),
+    { initialProps: { focused: true } },
+  );
+  expect(mockActions.switchTradeInstrument).not.toHaveBeenCalled();
+  mockInstrument = { mode: 'perp', coin: 'ETH' };
+  rerender({ focused: false });
+  expect(mockActions.switchTradeInstrument).not.toHaveBeenCalled();
+  await act(async () => {
+    rerender({ focused: true });
+  });
+  expect(mockActions.switchTradeInstrument).toHaveBeenCalledTimes(1);
+  expect(mockActions.switchTradeInstrument).toHaveBeenCalledWith({
+    mode: 'perp',
+    coin: 'BTC',
+  });
+  mockInstrument = { mode: 'perp', coin: 'BTC' };
+  rerender({ focused: true });
+  expect(mockActions.switchTradeInstrument).toHaveBeenCalledTimes(1);
 });
 
 it('opens the exact HIP-3 contract only after its switch succeeds', async () => {

@@ -18,7 +18,8 @@ export function usePerpTokenSelectorSelection({
   spotUniverses: ISpotUniverse[];
 }) {
   const navigation = useAppNavigation();
-  const { isFocused } = useNavigation();
+  const nativeNavigation = useNavigation();
+  const { isFocused } = nativeNavigation;
   const actions = useHyperliquidActions();
   const [settings] = usePerpsCustomSettingsAtom();
   const selectingRef = useRef(false);
@@ -50,7 +51,17 @@ export function usePerpTokenSelectorSelection({
           subscriptionRecoveryProof,
         });
         if (openSimpleMarket && switched && isFocused()) {
-          navigation.replace(EModalPerpRoutes.MobilePerpSimpleMarket, { coin });
+          const state = nativeNavigation.getState();
+          const previous = state?.routes[state.index - 1];
+          if (previous?.name === EModalPerpRoutes.MobilePerpSimpleMarket) {
+            navigation.navigate(EModalPerpRoutes.MobilePerpSimpleMarket, {
+              coin,
+            });
+          } else {
+            navigation.replace(EModalPerpRoutes.MobilePerpSimpleMarket, {
+              coin,
+            });
+          }
         }
       } catch (error) {
         errorToastUtils.toastIfError(error);
@@ -62,6 +73,7 @@ export function usePerpTokenSelectorSelection({
     [
       actions,
       isFocused,
+      nativeNavigation,
       navigation,
       onLoadingChange,
       settings.mobileTradingMode,
