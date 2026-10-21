@@ -27,7 +27,9 @@ import {
 } from '../utils/swapReviewRebuildStateMachine';
 import {
   ESwapReviewApproveTransactionSource,
+  buildSwapStepFailurePatch,
   getSwapReviewApproveTransaction,
+  hasSwapStepSubmitResultUnknown,
   updateSwapReviewStep,
 } from '../utils/swapReviewState';
 
@@ -70,6 +72,9 @@ function mergeReviewStateSteps(prevSteps: ISwapStep[], nextSteps: ISwapStep[]) {
 
     if (typeof prevStep.canRetry !== 'undefined') {
       mergedStep.canRetry = prevStep.canRetry;
+    }
+    if (prevStep.submitResultUnknown) {
+      mergedStep.submitResultUnknown = true;
     }
 
     return mergedStep;
@@ -373,6 +378,11 @@ export function useSwapReviewActions({
       if (!steps.length) {
         return;
       }
+      // A result-unknown sponsored send already happened in this review: the
+      // tx may be on chain, so nothing here may run again (OK-64746).
+      if (hasSwapStepSubmitResultUnknown(steps)) {
+        return;
+      }
 
       const currentAdapter = adapterRef.current;
       const currentIntl = intlRef.current;
@@ -504,10 +514,17 @@ export function useSwapReviewActions({
               break;
             }
           } catch (error) {
-            markStepFailed(
-              i,
-              error instanceof Error ? error.message : undefined,
-            );
+            updateStep(i, {
+              stepSubTitle: undefined,
+              ...buildSwapStepFailurePatch({
+                error,
+                errorMessage:
+                  error instanceof Error ? error.message : undefined,
+                resultUnknownMessage: currentIntl.formatMessage({
+                  id: ETranslations.wallet_transaction_maybe_already_submitted_check_activity__msg,
+                }),
+              }),
+            });
             break;
           }
         }

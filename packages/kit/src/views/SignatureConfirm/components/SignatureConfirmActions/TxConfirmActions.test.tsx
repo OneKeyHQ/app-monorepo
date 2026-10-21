@@ -18,11 +18,16 @@ const mockFooterActions = jest.fn<null, [IFooterActions]>(() => null);
 const mockBatchSend = jest.fn<Promise<unknown>, [unknown]>();
 const mockNavigation = { pop: jest.fn(), popStack: jest.fn() };
 const mockDappApprove = { resolve: jest.fn(), reject: jest.fn() };
-const mockUnsignedTxs = [{ encodedTx: { value: '0x1' }, nonce: 1 }];
+const mockUnsignedTxs = [
+  { uuid: 'tx-uuid-1', encodedTx: { value: '0x1' }, nonce: 1 },
+];
+// Tx uuids latched after a result-unknown Gas Account send (OK-64746).
+const mockLatchedTxUuids = new Set<string>();
 const mockActions = {
   updateEffectiveFeePayer: jest.fn(),
   updateGasAccountTemporarilyDisabled: jest.fn(),
   resetGasAccountTemporarilyDisabled: jest.fn(),
+  markGasAccountSubmitResultUnknown: jest.fn(),
   updateGasAccountUiState: jest.fn(),
   resetGasAccountUiState: jest.fn(),
   updateSendFeeStatus: jest.fn(),
@@ -107,6 +112,8 @@ jest.mock('@onekeyhq/kit/src/states/jotai/contexts/signatureConfirm', () => ({
   useGasAccountUiStateAtom: () => [
     { selectedPayer: 'gasAccount', gasAccountQuote: { quoteId: 'quote-1' } },
   ],
+  useIsGasAccountSubmitResultUnknown: (txUuid?: string) =>
+    mockLatchedTxUuids.has(txUuid ?? ''),
   useMegafuelEligibleAtom: () => [{}],
   useUnsignedTxsAtom: () => [mockUnsignedTxs],
   useNativeTokenInfoAtom: () => [{ isLoading: false }],
@@ -276,6 +283,75 @@ describe('TxConfirmActions Gas Account failure exit', () => {
     });
     expect(onCancel).toHaveBeenCalledTimes(1);
     expect(mockBatchSend).not.toHaveBeenCalled();
+  });
+});
+
+describe('TxConfirmActions result-unknown latch', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockLatchedTxUuids.clear();
+  });
+  afterEach(() => {
+    cleanup();
+  });
+
+  const renderScreen = (onFail?: jest.Mock) =>
+    render(
+      <TxConfirmActions
+        accountId="hd-1--0"
+        networkId="evm--1"
+        securityCheckConfirmation="none"
+        securityCheckAcknowledgementKey="tx-1"
+        onFail={onFail}
+      />,
+    );
+
+  it.each([90_200, 90_205, 90_219])(
+    'latches the tx after error %s instead of touching the quote',
+    async (code) => {
+      mockBatchSend.mockRejectedValue(
+        Object.assign(new Error('execute failed'), { code }),
+      );
+      const onFail = jest.fn();
+      renderScreen(onFail);
+
+      await act(async () => {
+        await expect(getFooterActions().onConfirm?.()).rejects.toThrow(
+          'execute failed',
+        );
+      });
+
+      expect(
+        mockActions.markGasAccountSubmitResultUnknown,
+      ).toHaveBeenCalledWith('tx-uuid-1');
+      expect(mockActions.resetGasAccountUiState).not.toHaveBeenCalled();
+      expect(mockActions.updateGasAccountUiState).not.toHaveBeenCalled();
+      expect(onFail).toHaveBeenCalledTimes(1);
+      expect(mockNavigation.pop).not.toHaveBeenCalled();
+      expect(mockNavigation.popStack).not.toHaveBeenCalled();
+    },
+  );
+
+  it('does not latch on a refresh code that sent nothing', async () => {
+    mockBatchSend.mockRejectedValue(
+      Object.assign(new Error('nonce changed'), { code: 40_209 }),
+    );
+    renderScreen();
+
+    await act(async () => {
+      await getFooterActions().onConfirm?.();
+    });
+
+    expect(
+      mockActions.markGasAccountSubmitResultUnknown,
+    ).not.toHaveBeenCalled();
+  });
+
+  it('keeps confirm disabled once the tx is latched', () => {
+    mockLatchedTxUuids.add('tx-uuid-1');
+    renderScreen();
+
+    expect(getFooterActions().confirmButtonProps?.disabled).toBe(true);
   });
 });
 
