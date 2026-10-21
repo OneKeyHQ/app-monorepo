@@ -46,6 +46,9 @@ export function zcashUserMessage(e: unknown): string | null {
       return text(ETranslations.privacy_error_build_failed__msg);
     case 'DATABASE_ERROR':
       return text(ETranslations.privacy_error_sync_data__msg);
+    // Written by a newer app; the runtime refuses it rather than migrate down.
+    case 'DATABASE_TOO_NEW':
+      return text(ETranslations.database_read_error_update_app__msg);
     case 'LIGHTWALLETD_NOT_CONFIGURED':
       return text(ETranslations.privacy_error_no_node__msg);
     case 'STORAGE_UNSUPPORTED':
