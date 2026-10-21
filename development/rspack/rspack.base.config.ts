@@ -295,12 +295,13 @@ const buildBasePlugins: (
     Buffer: ['buffer', 'Buffer'],
     process: require.resolve('process/browser'),
   }),
-  platform === 'web-embed' &&
+  ['web-embed', 'web', 'desktop'].includes(platform) &&
     new rspack.NormalModuleReplacementPlugin(
       /worker-rspack-loader[\\/]dist[\\/]runtime[\\/]inline\.js$/,
       (resource) => {
         // Both client-scanning chains keep their Worker entry in a `sdk`
-        // directory and both reach OPFS through the Blob URL's origin.
+        // directory, reach OPFS through the Blob URL's origin and need the
+        // page's release values.
         if (
           /[\\/](zcash[\\/]sdkZcash|xmr[\\/]sdkXmrRuntime)[\\/]sdk$/.test(
             resource.context,
