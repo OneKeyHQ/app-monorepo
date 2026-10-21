@@ -22,8 +22,8 @@ describe('Zcash private send submission', () => {
       networkId: 'zec--0',
       backgroundApi: {
         simpleDb: {
-          zcash: {
-            isPrivacyModeEnabled: async () => true,
+          privacyChainState: {
+            isZcashPrivacyModeEnabled: async () => true,
           },
         },
       },

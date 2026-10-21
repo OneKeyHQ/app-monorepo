@@ -159,7 +159,7 @@ describe('xmr history for an account that never enabled scanning', () => {
       networkId: 'xmr--0',
       backgroundApi: {
         simpleDb: {
-          xmr: { getAccountState: jest.fn(getAccountState) },
+          privacyChainState: { getXmrAccountState: jest.fn(getAccountState) },
           localHistory: {
             getAccountLocalHistoryConfirmedTxs: jest.fn(async () => cached),
             getAccountLocalHistoryPendingTxs: jest.fn(async () => []),

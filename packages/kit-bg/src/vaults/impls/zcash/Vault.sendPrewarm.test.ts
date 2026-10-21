@@ -27,7 +27,11 @@ describe('Zcash send public-parameter warm-up', () => {
       intent: privacyEnabled ? 'on' : 'off',
     }));
     const vault = Object.assign(Object.create(Vault.prototype) as Vault, {
-      backgroundApi: { simpleDb: { zcash: { getPrivacyModeState } } },
+      backgroundApi: {
+        simpleDb: {
+          privacyChainState: { getZcashPrivacyModeState: getPrivacyModeState },
+        },
+      },
     });
     const prewarmPczt = jest.fn(async () => undefined);
     const api = jest.spyOn(vault, 'zcashGetApi').mockResolvedValue({

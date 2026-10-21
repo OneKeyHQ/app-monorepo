@@ -21,7 +21,6 @@ import { seedFromHdCredentialAsync } from '@onekeyhq/core/src/secret';
 import type { ISignedTxPro } from '@onekeyhq/core/src/types';
 import { getPbkdf2KdfParamsForNonDbTx } from '@onekeyhq/shared/src/appCrypto/modules/pbkdf2';
 import { NotImplemented, OneKeyLocalError } from '@onekeyhq/shared/src/errors';
-import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 
 import { KeyringHd as KeyringHdBtc } from '../btc/KeyringHd';
@@ -47,7 +46,6 @@ import type {
   IExportAccountSecretKeysResult,
   IGetPrivateKeysParams,
   IGetPrivateKeysResult,
-  IPrepareHdAccountsParams,
   ISignTransactionParams,
 } from '../../types';
 
@@ -97,9 +95,10 @@ export class KeyringHd extends KeyringHdBtc {
     }
     const zcashVault = this.vault as Vault;
 
-    const meta = await this.backgroundApi.simpleDb.zcash.getAccountMeta({
-      accountId,
-    });
+    const meta =
+      await this.backgroundApi.simpleDb.privacyChainState.getZcashAccountMeta({
+        accountId,
+      });
     if (!meta) {
       throw new OneKeyLocalError(
         'zcash: shielded account meta missing (use retryLocalWalletSetup to retry)',
@@ -115,9 +114,11 @@ export class KeyringHd extends KeyringHdBtc {
     const lifecycleMutex = getZcashLifecycleMutex(meta.vkFp);
     return lifecycleMutex.runExclusive(async () => {
       const privacyModeEnabled =
-        await this.backgroundApi.simpleDb.zcash.isPrivacyModeEnabled({
-          accountId,
-        });
+        await this.backgroundApi.simpleDb.privacyChainState.isZcashPrivacyModeEnabled(
+          {
+            accountId,
+          },
+        );
       if (!privacyModeEnabled) {
         throw new OneKeyLocalError(
           'zcash: Privacy Mode was disabled before signing completed',
@@ -294,9 +295,10 @@ export class KeyringHd extends KeyringHdBtc {
   }): Promise<void> {
     const vault = this.vault as Vault;
     const api = await vault.zcashGetApi();
-    const meta = await this.backgroundApi.simpleDb.zcash.getAccountMeta({
-      accountId: vault.accountId,
-    });
+    const meta =
+      await this.backgroundApi.simpleDb.privacyChainState.getZcashAccountMeta({
+        accountId: vault.accountId,
+      });
     const keys = meta
       ? {
           ...meta,
@@ -376,40 +378,6 @@ export class KeyringHd extends KeyringHdBtc {
     );
   }
 
-  override async prepareAccounts(
-    params: IPrepareHdAccountsParams,
-  ): Promise<IDBAccount[]> {
-    const accounts = await super.prepareAccounts(params);
-    for (const account of accounts) {
-      // eslint-disable-next-line no-await-in-loop
-      await this.initializePrivacyModeOff({ account });
-    }
-    return accounts;
-  }
-
-  private async initializePrivacyModeOff({ account }: { account: IDBAccount }) {
-    const walletId = accountUtils.getWalletIdFromAccountId({
-      accountId: account.id,
-    });
-    const [isFreshlyGeneratedMnemonic, walletCreatedAt] = await Promise.all([
-      this.backgroundApi.simpleDb.zcash.getWalletFreshMnemonic({ walletId }),
-      this.backgroundApi.simpleDb.zcash.getWalletCreatedAtTimestamp({
-        walletId,
-      }),
-    ]);
-    const birthdayMonthHint =
-      isFreshlyGeneratedMnemonic && typeof walletCreatedAt === 'number'
-        ? {
-            timestamp: walletCreatedAt,
-            source: 'created-wallet' as const,
-          }
-        : undefined;
-    await this.backgroundApi.simpleDb.zcash.initializePrivacyModeOff({
-      accountId: account.id,
-      birthdayMonthHint,
-    });
-  }
-
   // Explicit, password-gated setup for an account whose enable operation was
   // persisted by ServicePrivacyChain. Account creation never enters this path.
   async retryLocalWalletSetup({
@@ -419,9 +387,11 @@ export class KeyringHd extends KeyringHdBtc {
   }): Promise<void> {
     const accountId = this.vault.accountId;
     const privacyModeState =
-      await this.backgroundApi.simpleDb.zcash.getPrivacyModeState({
-        accountId,
-      });
+      await this.backgroundApi.simpleDb.privacyChainState.getZcashPrivacyModeState(
+        {
+          accountId,
+        },
+      );
     if (
       privacyModeState.intent !== 'on' &&
       privacyModeState.operation?.type !== 'enable'

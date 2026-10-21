@@ -2,7 +2,7 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 import { SimpleDbEntityPrivacyChainCache } from '../../../dbs/simple/entity/SimpleDbEntityPrivacyChainCache';
 import { SimpleDbEntityPrivacyChainKeys } from '../../../dbs/simple/entity/SimpleDbEntityPrivacyChainKeys';
-import { SimpleDbEntityXmr } from '../../../dbs/simple/entity/SimpleDbEntityXmr';
+import { SimpleDbEntityPrivacyChainState } from '../../../dbs/simple/entity/SimpleDbEntityPrivacyChainState';
 import { getViewingKeyFingerprint } from '../../localWallet/viewingKeyFingerprint';
 import {
   getLocalWalletViewingKey,
@@ -142,8 +142,33 @@ function memoryEntity<T>(entity: T): T {
   return entity;
 }
 
+type IScanStateKind = 'on' | 'paused' | 'enabling' | 'deleted-data';
+
+// Builds each state through the entity's own operations.
+async function seedScanState(
+  xmr: SimpleDbEntityPrivacyChainState,
+  accountId: string,
+  kind: IScanStateKind,
+  birthdayHeight = 10,
+) {
+  await xmr.beginXmrEnable({
+    networkId: NETWORK_ID,
+    accountId,
+    birthdayHeight,
+  });
+  if (kind === 'enabling') return;
+  await xmr.completeXmrEnable({ accountId });
+  if (kind === 'paused') {
+    await xmr.beginXmrDisable({ accountId, resumeFromHeight: 10 });
+    await xmr.completeXmrDisable({ accountId });
+  }
+  if (kind === 'deleted-data') {
+    await xmr.removeXmrAccount({ accountId, keepBirthday: true });
+  }
+}
+
 function createHarness() {
-  const xmr = memoryEntity(new SimpleDbEntityXmr());
+  const xmr = memoryEntity(new SimpleDbEntityPrivacyChainState());
   const privacyChainKeys = memoryEntity(new SimpleDbEntityPrivacyChainKeys());
   const backgroundApi = {
     servicePrivacyChain: {
@@ -151,7 +176,7 @@ function createHarness() {
       onLocalWalletAccountsChanged: jest.fn(async () => undefined),
     },
     simpleDb: {
-      xmr,
+      privacyChainState: xmr,
       privacyChainKeys,
       privacyChainCache: memoryEntity(new SimpleDbEntityPrivacyChainCache()),
       privacyChainJournal: {
@@ -285,10 +310,7 @@ describe('xmr runtime identity named by viewing key', () => {
   it('adopts an identity still named by its old account id, sends included', async () => {
     const { capability, saveKey, xmr } = createHarness();
     await saveKey(ALIAS_A, SHARED_KEY);
-    await xmr.setAccountState({
-      accountId: ALIAS_A,
-      state: { intent: 'on', birthdayHeight: 3_700_000 },
-    });
+    await seedScanState(xmr, ALIAS_A, 'on', 3_700_000);
     mockRuntime.identities.push({
       id: 7,
       uuid: ALIAS_A,
@@ -382,19 +404,10 @@ describe('xmr runtime orphan purge', () => {
     await expect(capability.listScanDataAccountIds?.()).resolves.toBe(
       undefined,
     );
-    await xmr.setAccountState({ accountId: 'on', state: { intent: 'on' } });
-    await xmr.setAccountState({
-      accountId: 'paused',
-      state: { intent: 'off', resumeFromHeight: 10 },
-    });
-    await xmr.setAccountState({
-      accountId: 'enabling',
-      state: { intent: 'on', operation: { type: 'enable', startedAt: 1 } },
-    });
-    await xmr.setAccountState({
-      accountId: 'deleted-data',
-      state: { intent: 'off', birthdayHeight: 10 },
-    });
+    await seedScanState(xmr, 'on', 'on');
+    await seedScanState(xmr, 'paused', 'paused');
+    await seedScanState(xmr, 'enabling', 'enabling');
+    await seedScanState(xmr, 'deleted-data', 'deleted-data');
     await expect(capability.listScanDataAccountIds?.()).resolves.toEqual([
       'on',
       'paused',

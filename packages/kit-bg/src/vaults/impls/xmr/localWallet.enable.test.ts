@@ -59,21 +59,21 @@ function build(stored: { birthdayHeight?: number } = {}) {
     }),
     backgroundApi: {
       simpleDb: {
-        xmr: {
-          beginEnable: async () => calls.push('beginEnable'),
-          completeEnable: async (params: { birthdayHeight?: number }) => {
+        privacyChainState: {
+          beginXmrEnable: async () => calls.push('beginEnable'),
+          completeXmrEnable: async (params: { birthdayHeight?: number }) => {
             calls.push('completeEnable');
             completed.push(params);
           },
-          getAccountState: async () => ({
+          getXmrAccountState: async () => ({
             intent: 'on',
             operation: undefined,
             ...stored,
           }),
-          beginDisable: async (params: { resumeFromHeight?: number }) => {
+          beginXmrDisable: async (params: { resumeFromHeight?: number }) => {
             disabled.push(params);
           },
-          completeDisable: async () => undefined,
+          completeXmrDisable: async () => undefined,
         },
       },
       servicePrivacyChain: { onLocalWalletAccountsChanged: notify },

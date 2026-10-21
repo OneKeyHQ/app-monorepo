@@ -29,8 +29,8 @@ describe('Zcash private history when the runtime read fails', () => {
       networkId: 'zec--0',
       backgroundApi: {
         simpleDb: {
-          zcash: {
-            getPrivacyModeState: async () => ({ intent: 'on' }),
+          privacyChainState: {
+            getZcashPrivacyModeState: async () => ({ intent: 'on' }),
           },
           privacyChainJournal: {
             listTransparentPendingTxs: async () => [],
@@ -160,8 +160,8 @@ describe('Zcash transparent send the backend has not seen yet', () => {
       networkId: 'zec--0',
       backgroundApi: {
         simpleDb: {
-          zcash: {
-            getPrivacyModeState: async () => ({ intent: 'off' }),
+          privacyChainState: {
+            getZcashPrivacyModeState: async () => ({ intent: 'off' }),
           },
           privacyChainJournal: {
             listTransparentPendingTxs: async () =>

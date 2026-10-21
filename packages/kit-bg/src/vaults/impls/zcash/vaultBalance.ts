@@ -601,9 +601,11 @@ export async function zcashGetBalanceSafe(
     return null;
   }
   const privacyModeState =
-    await vault.backgroundApi.simpleDb.zcash.getPrivacyModeState({
-      accountId: vault.accountId,
-    });
+    await vault.backgroundApi.simpleDb.privacyChainState.getZcashPrivacyModeState(
+      {
+        accountId: vault.accountId,
+      },
+    );
   if (privacyModeState.intent !== 'on') {
     return null;
   }
@@ -654,9 +656,11 @@ export async function fetchAccountDetails(
   params: IFetchServerAccountDetailsParams,
 ): Promise<IFetchServerAccountDetailsResponse> {
   const privacyModeState =
-    await vault.backgroundApi.simpleDb.zcash.getPrivacyModeState({
-      accountId: params.accountId || vault.accountId,
-    });
+    await vault.backgroundApi.simpleDb.privacyChainState.getZcashPrivacyModeState(
+      {
+        accountId: params.accountId || vault.accountId,
+      },
+    );
   if (privacyModeState.intent !== 'on') {
     return vault.baseFetchAccountDetails(params);
   }
@@ -694,9 +698,11 @@ export async function fetchTokenList(
   params: IFetchServerTokenListParams,
 ): Promise<IFetchServerTokenListResponse> {
   const privacyModeState =
-    await vault.backgroundApi.simpleDb.zcash.getPrivacyModeState({
-      accountId: params.accountId || vault.accountId,
-    });
+    await vault.backgroundApi.simpleDb.privacyChainState.getZcashPrivacyModeState(
+      {
+        accountId: params.accountId || vault.accountId,
+      },
+    );
   if (privacyModeState.intent !== 'on') {
     return vault.baseFetchTokenList(params);
   }
@@ -893,9 +899,11 @@ export async function fetchTokenDetails(
   params: IFetchServerTokenDetailParams,
 ): Promise<IFetchServerTokenDetailResponse> {
   const privacyModeState =
-    await vault.backgroundApi.simpleDb.zcash.getPrivacyModeState({
-      accountId: params.accountId || vault.accountId,
-    });
+    await vault.backgroundApi.simpleDb.privacyChainState.getZcashPrivacyModeState(
+      {
+        accountId: params.accountId || vault.accountId,
+      },
+    );
   if (privacyModeState.intent !== 'on') {
     return vault.zcashFetchTransparentTokenDetails(params);
   }

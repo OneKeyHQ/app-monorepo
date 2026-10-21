@@ -55,10 +55,10 @@ import type { SimpleDbEntityPerp } from '../entity/SimpleDbEntityPerp';
 import type { SimpleDbEntityPrime } from '../entity/SimpleDbEntityPrime';
 import type { SimpleDbEntityPrimeFreeTrial } from '../entity/SimpleDbEntityPrimeFreeTrial';
 import type { SimpleDbEntityPrimeTransfer } from '../entity/SimpleDbEntityPrimeTransfer';
-import type { SimpleDbEntityPrivacyChain } from '../entity/SimpleDbEntityPrivacyChain';
 import type { SimpleDbEntityPrivacyChainCache } from '../entity/SimpleDbEntityPrivacyChainCache';
 import type { SimpleDbEntityPrivacyChainJournal } from '../entity/SimpleDbEntityPrivacyChainJournal';
 import type { SimpleDbEntityPrivacyChainKeys } from '../entity/SimpleDbEntityPrivacyChainKeys';
+import type { SimpleDbEntityPrivacyChainState } from '../entity/SimpleDbEntityPrivacyChainState';
 import type { SimpleDbEntityReceiveArrivalConfig } from '../entity/SimpleDbEntityReceiveArrivalConfig';
 import type { SimpleDbEntityRecentNetworks } from '../entity/SimpleDbEntityRecentNetworks';
 import type { SimpleDbEntityReferralCode } from '../entity/SimpleDbEntityReferralCode';
@@ -75,8 +75,6 @@ import type { SimpleDbEntityV4MigrationResult } from '../entity/SimpleDbEntityV4
 import type { SimpleDbEntityWalletBanner } from '../entity/SimpleDbEntityWalletBanner';
 import type { SimpleDbEntityWalletConnectPay } from '../entity/SimpleDbEntityWalletConnectPay';
 import type { SimpleDbEntityWalletStatus } from '../entity/SimpleDbEntityWalletStatus';
-import type { SimpleDbEntityXmr } from '../entity/SimpleDbEntityXmr';
-import type { SimpleDbEntityZcash } from '../entity/SimpleDbEntityZcash';
 
 export class SimpleDbProxy
   extends BackgroundServiceProxyBase
@@ -180,9 +178,9 @@ export class SimpleDbProxy
 
   lightning = this._createProxyService('lightning') as SimpleDbEntityLightning;
 
-  privacyChain = this._createProxyService(
-    'privacyChain',
-  ) as SimpleDbEntityPrivacyChain;
+  privacyChainState = this._createProxyService(
+    'privacyChainState',
+  ) as SimpleDbEntityPrivacyChainState;
 
   privacyChainCache = this._createProxyService(
     'privacyChainCache',
@@ -195,10 +193,6 @@ export class SimpleDbProxy
   privacyChainJournal = this._createProxyService(
     'privacyChainJournal',
   ) as SimpleDbEntityPrivacyChainJournal;
-
-  zcash = this._createProxyService('zcash') as SimpleDbEntityZcash;
-
-  xmr = this._createProxyService('xmr') as SimpleDbEntityXmr;
 
   feeInfo = this._createProxyService('feeInfo') as SimpleDbEntityFeeInfo;
 

@@ -27,8 +27,8 @@ function createVault({ pausedMetaVkFp = 'fp-paused' } = {}) {
     networkId: 'zec--0',
     backgroundApi: {
       simpleDb: {
-        zcash: {
-          listAccountMetas: async () => [
+        privacyChainState: {
+          listZcashAccountMetas: async () => [
             { accountId: LIVE, meta: { vkFp: 'fp-live' } },
             { accountId: PAUSED, meta: { vkFp: pausedMetaVkFp } },
           ],

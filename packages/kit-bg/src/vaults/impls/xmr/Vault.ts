@@ -1021,9 +1021,10 @@ export default class Vault extends VaultBase {
   // state read is not proof of "never", so it keeps the runtime read.
   private async xmrIsHistoryNeverEnabled(accountId: string): Promise<boolean> {
     try {
-      const state = await this.backgroundApi.simpleDb.xmr.getAccountState({
-        accountId,
-      });
+      const state =
+        await this.backgroundApi.simpleDb.privacyChainState.getXmrAccountState({
+          accountId,
+        });
       return state.intent !== 'on' && state.resumeFromHeight === undefined;
     } catch {
       return false;

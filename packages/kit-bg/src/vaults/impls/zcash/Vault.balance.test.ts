@@ -78,9 +78,8 @@ describe('Zcash independent transparent balance availability', () => {
         networkId: 'zec--0',
         backgroundApi: {
           simpleDb: {
-            privacyChain: {},
-            zcash: {
-              getPrivacyModeState: jest
+            privacyChainState: {
+              getZcashPrivacyModeState: jest
                 .fn()
                 .mockResolvedValue({ intent: 'on' }),
             },
@@ -136,10 +135,9 @@ describe('Zcash independent transparent balance availability', () => {
         networkId: 'zec--0',
         backgroundApi: {
           simpleDb: {
-            privacyChain: {},
             privacyChainCache: memoryCache(),
-            zcash: {
-              getPrivacyModeState: jest
+            privacyChainState: {
+              getZcashPrivacyModeState: jest
                 .fn()
                 .mockResolvedValue({ intent: 'on' }),
             },
@@ -182,9 +180,10 @@ describe('Zcash independent transparent balance availability', () => {
       networkId: 'zec--0',
       backgroundApi: {
         simpleDb: {
-          privacyChain: {},
-          zcash: {
-            getPrivacyModeState: jest.fn().mockResolvedValue({ intent: 'off' }),
+          privacyChainState: {
+            getZcashPrivacyModeState: jest
+              .fn()
+              .mockResolvedValue({ intent: 'off' }),
           },
         },
         serviceAccount: {
@@ -344,10 +343,11 @@ describe('Zcash transparent balance saved for the next open', () => {
       networkId: 'zec--0',
       backgroundApi: {
         simpleDb: {
-          privacyChain: {},
           privacyChainCache,
-          zcash: {
-            getPrivacyModeState: jest.fn().mockResolvedValue({ intent: 'on' }),
+          privacyChainState: {
+            getZcashPrivacyModeState: jest
+              .fn()
+              .mockResolvedValue({ intent: 'on' }),
           },
         },
         serviceAccount: {
@@ -609,8 +609,10 @@ describe('Zcash send pools read the private balance fresh', () => {
       backgroundApi: {
         simpleDb: {
           privacyChainCache,
-          zcash: {
-            getPrivacyModeState: jest.fn().mockResolvedValue({ intent: 'on' }),
+          privacyChainState: {
+            getZcashPrivacyModeState: jest
+              .fn()
+              .mockResolvedValue({ intent: 'on' }),
           },
         },
         serviceAccount: {

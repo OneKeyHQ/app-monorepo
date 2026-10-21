@@ -19,8 +19,8 @@ describe('Zcash transparent history auth headers', () => {
       networkId: 'zec--0',
       backgroundApi: {
         simpleDb: {
-          zcash: {
-            getAccountMeta: async () => ({ transparentAddress: 't1-own' }),
+          privacyChainState: {
+            getZcashAccountMeta: async () => ({ transparentAddress: 't1-own' }),
           },
           localHistory: {
             getAccountLocalHistoryConfirmedTxs: async () => [],

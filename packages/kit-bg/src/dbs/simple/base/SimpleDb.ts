@@ -325,15 +325,16 @@ export class SimpleDb {
     return value;
   }
 
-  get privacyChain() {
+  get privacyChainState() {
     const value = createLazyServiceProxy({
-      serviceName: 'simpleDb@privacyChain',
+      serviceName: 'simpleDb@privacyChainState',
       loader: () =>
-        import('../entity/SimpleDbEntityPrivacyChain').then(
-          ({ SimpleDbEntityPrivacyChain }) => new SimpleDbEntityPrivacyChain(),
+        import('../entity/SimpleDbEntityPrivacyChainState').then(
+          ({ SimpleDbEntityPrivacyChainState }) =>
+            new SimpleDbEntityPrivacyChainState(),
         ),
     });
-    Object.defineProperty(this, 'privacyChain', { value });
+    Object.defineProperty(this, 'privacyChainState', { value });
     return value;
   }
 
@@ -373,30 +374,6 @@ export class SimpleDb {
         ),
     });
     Object.defineProperty(this, 'privacyChainJournal', { value });
-    return value;
-  }
-
-  get zcash() {
-    const value = createLazyServiceProxy({
-      serviceName: 'simpleDb@zcash',
-      loader: () =>
-        import('../entity/SimpleDbEntityZcash').then(
-          ({ SimpleDbEntityZcash }) => new SimpleDbEntityZcash(),
-        ),
-    });
-    Object.defineProperty(this, 'zcash', { value });
-    return value;
-  }
-
-  get xmr() {
-    const value = createLazyServiceProxy({
-      serviceName: 'simpleDb@xmr',
-      loader: () =>
-        import('../entity/SimpleDbEntityXmr').then(
-          ({ SimpleDbEntityXmr }) => new SimpleDbEntityXmr(),
-        ),
-    });
-    Object.defineProperty(this, 'xmr', { value });
     return value;
   }
 

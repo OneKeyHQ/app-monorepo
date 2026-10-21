@@ -28,7 +28,7 @@ import Vault from './Vault';
 import { isTerminalTransparentHistoryStatus } from './vaultUtils';
 
 import type { IEncodedTxZcash } from './types';
-import type { IZcashAccountMeta } from '../../../dbs/simple/entity/SimpleDbEntityZcash';
+import type { IZcashAccountMeta } from '../../../dbs/simple/entity/SimpleDbEntityPrivacyChainState';
 
 describe('Zcash Transparent Mode runtime boundary', () => {
   const accountId = "hd-1--m/44'/133'/0'";
@@ -39,9 +39,8 @@ describe('Zcash Transparent Mode runtime boundary', () => {
       networkId: 'zec--0',
       backgroundApi: {
         simpleDb: {
-          privacyChain: {},
-          zcash: {
-            getPrivacyModeState: jest.fn(async () => ({ intent: 'off' })),
+          privacyChainState: {
+            getZcashPrivacyModeState: jest.fn(async () => ({ intent: 'off' })),
           },
         },
         // Our transparent output is the address Receive displays.
@@ -306,7 +305,6 @@ describe('Zcash hardware account address authority', () => {
       networkId: 'zec--0',
       backgroundApi: {
         simpleDb: {
-          privacyChain: {},
           privacyChainKeys: {
             getKey: jest.fn(async () => ({
               networkId: 'zec--0',
@@ -314,9 +312,9 @@ describe('Zcash hardware account address authority', () => {
               sealed: { format: 'plain', value: deviceUfvk },
             })),
           },
-          zcash: {
-            getAccountMeta: jest.fn(async () => meta),
-            saveAccountMeta: jest.fn(async () => undefined),
+          privacyChainState: {
+            getZcashAccountMeta: jest.fn(async () => meta),
+            saveZcashAccountMeta: jest.fn(async () => undefined),
           },
         },
       },
@@ -375,7 +373,7 @@ describe('Zcash hardware account address authority', () => {
         lightwalletdUrl: '',
       });
       expect(
-        vault.backgroundApi.simpleDb.zcash.saveAccountMeta,
+        vault.backgroundApi.simpleDb.privacyChainState.saveZcashAccountMeta,
       ).toHaveBeenCalledWith(
         expect.objectContaining({ accountId, expectedMeta: oldMeta }),
       );
@@ -393,9 +391,8 @@ describe('Zcash hardware transparent send', () => {
       keyring: Object.create(KeyringHardware.prototype) as KeyringHardware,
       backgroundApi: {
         simpleDb: {
-          privacyChain: {},
-          zcash: {
-            getPrivacyModeState: jest.fn(async () => ({ intent: 'off' })),
+          privacyChainState: {
+            getZcashPrivacyModeState: jest.fn(async () => ({ intent: 'off' })),
           },
         },
       },
@@ -475,9 +472,8 @@ describe('Zcash private history detail routing', () => {
       networkId: params.networkId,
       backgroundApi: {
         simpleDb: {
-          privacyChain: {},
-          zcash: {
-            getPrivacyModeState: jest.fn(async () => ({ intent: 'on' })),
+          privacyChainState: {
+            getZcashPrivacyModeState: jest.fn(async () => ({ intent: 'on' })),
           },
         },
       },
@@ -683,7 +679,9 @@ describe('Zcash transparent history address resolution', () => {
       accountId,
       networkId: 'zec--0',
       backgroundApi: {
-        simpleDb: { zcash: { getAccountMeta: jest.fn(async () => null) } },
+        simpleDb: {
+          privacyChainState: { getZcashAccountMeta: jest.fn(async () => null) },
+        },
         serviceAccount: {
           getDBAccountSafe: jest.fn(async () =>
             address ? { id: accountId, address } : undefined,
@@ -754,9 +752,8 @@ describe('Zcash history detail pool split', () => {
       networkId: baseParams.networkId,
       backgroundApi: {
         simpleDb: {
-          privacyChain: {},
-          zcash: {
-            getPrivacyModeState: jest.fn(async () => ({ intent: 'on' })),
+          privacyChainState: {
+            getZcashPrivacyModeState: jest.fn(async () => ({ intent: 'on' })),
           },
         },
       },

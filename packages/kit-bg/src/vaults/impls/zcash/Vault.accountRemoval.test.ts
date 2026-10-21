@@ -39,12 +39,12 @@ describe('Zcash cleanup of a deleted account', () => {
       networkId: 'zec--0',
       backgroundApi: {
         simpleDb: {
-          zcash: {
-            getAccountMeta: async ({ accountId }: { accountId: string }) =>
+          privacyChainState: {
+            getZcashAccountMeta: async ({ accountId }: { accountId: string }) =>
               metas.get(accountId),
-            listAccountMetas: async () =>
+            listZcashAccountMetas: async () =>
               [...metas].map(([accountId, meta]) => ({ accountId, meta })),
-            removeAccountState,
+            removeAccount: removeAccountState,
           },
           privacyChainJournal: { removeZcashTransparentAccount },
           privacyChainKeys: { removeKeys },

@@ -179,9 +179,9 @@ function createZcashRawDetailFixture() {
               IAccountHistoryTx[]
             > => [],
           },
-          zcash: {
-            getPrivacyModeState: async () => ({ intent: 'off' }),
-            getAccountMeta: async () => undefined,
+          privacyChainState: {
+            getZcashPrivacyModeState: async () => ({ intent: 'off' }),
+            getZcashAccountMeta: async () => undefined,
           },
         },
         serviceAccount: {

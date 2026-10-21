@@ -9,7 +9,7 @@ import { ZCASH_NETWORK_MAIN } from '@onekeyhq/core/src/chains/zcash/sdkZcash/con
 
 import Vault from './Vault';
 
-import type { IZcashPrivacyModeStateView } from '../../../dbs/simple/entity/SimpleDbEntityZcash';
+import type { IZcashPrivacyModeStateView } from '../../../dbs/simple/entity/SimpleDbEntityPrivacyChainState';
 
 it('refreshes queued scans and serializes enable rescans with every active key', async () => {
   const states: Record<string, IZcashPrivacyModeStateView> = {
@@ -52,9 +52,12 @@ it('refreshes queued scans and serializes enable rescans with every active key',
       backgroundApi: {
         servicePrivacyChain: { isLocalWalletScanAllowed: async () => true },
         simpleDb: {
-          zcash: {
-            getPrivacyModeState: async ({ accountId }: { accountId: string }) =>
-              states[accountId],
+          privacyChainState: {
+            getZcashPrivacyModeState: async ({
+              accountId,
+            }: {
+              accountId: string;
+            }) => states[accountId],
           },
         },
       },
@@ -147,9 +150,12 @@ it('keeps a queued peer scan behind recovery admission until the recovering key 
     backgroundApi: {
       servicePrivacyChain: { isLocalWalletScanAllowed: async () => true },
       simpleDb: {
-        zcash: {
-          getPrivacyModeState: async ({ accountId }: { accountId: string }) =>
-            states[accountId],
+        privacyChainState: {
+          getZcashPrivacyModeState: async ({
+            accountId,
+          }: {
+            accountId: string;
+          }) => states[accountId],
         },
       },
     },
@@ -213,11 +219,14 @@ it('scans without an account whose viewing key cannot be read', async () => {
     backgroundApi: {
       servicePrivacyChain: { isLocalWalletScanAllowed: async () => true },
       simpleDb: {
-        zcash: {
-          getPrivacyModeState: async ({ accountId }: { accountId: string }) =>
-            states[accountId],
-          getAccountMeta: async () => undefined,
-          markPrivacyModeScanExcluded,
+        privacyChainState: {
+          getZcashPrivacyModeState: async ({
+            accountId,
+          }: {
+            accountId: string;
+          }) => states[accountId],
+          getZcashAccountMeta: async () => undefined,
+          markZcashScanExcluded: markPrivacyModeScanExcluded,
         },
       },
     },

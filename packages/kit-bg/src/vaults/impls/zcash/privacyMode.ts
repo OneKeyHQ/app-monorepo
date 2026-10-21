@@ -18,7 +18,7 @@ import {
 
 import type VaultZcash from './Vault';
 import type { IBackgroundApi } from '../../../apis/IBackgroundApi';
-import type { IZcashAccountMeta } from '../../../dbs/simple/entity/SimpleDbEntityZcash';
+import type { IZcashAccountMeta } from '../../../dbs/simple/entity/SimpleDbEntityPrivacyChainState';
 import type { VaultBaseChainOnly } from '../../base/VaultBase';
 import type { ILocalWalletCapability } from '../../localWallet/types';
 import type { IRescanLocalWalletFrom } from '../../types';
@@ -37,7 +37,7 @@ function requireLocalWalletCapability(
 
 // Zcash's per-account Privacy Mode lifecycle behind the local-wallet
 // capability: enable, disable and the viewing metadata they settle. The
-// operation mutexes and the journal live in simpleDb.zcash.
+// operation journal lives in simpleDb.privacyChainState.
 export class ZcashPrivacyMode {
   private readonly backgroundApi: IBackgroundApi;
 
@@ -74,7 +74,9 @@ export class ZcashPrivacyMode {
   }
 
   async getPrivacyModeState({ accountId }: { accountId: string }) {
-    return this.backgroundApi.simpleDb.zcash.getPrivacyModeState({ accountId });
+    return this.backgroundApi.simpleDb.privacyChainState.getZcashPrivacyModeState(
+      { accountId },
+    );
   }
 
   async enablePrivacyMode(params: {
@@ -102,16 +104,21 @@ export class ZcashPrivacyMode {
     await this.assertZcashAccountContext({ networkId, accountId });
     const hasExplicitBirthday =
       birthdayHeight !== undefined || birthdayTimestamp !== undefined;
-    const state = await this.backgroundApi.simpleDb.zcash.getPrivacyModeState({
-      accountId,
-    });
+    const state =
+      await this.backgroundApi.simpleDb.privacyChainState.getZcashPrivacyModeState(
+        {
+          accountId,
+        },
+      );
     if (
       !hasExplicitBirthday &&
       state.intent === 'on' &&
       state.operation === undefined
     ) {
       const existingMeta =
-        await this.backgroundApi.simpleDb.zcash.getAccountMeta({ accountId });
+        await this.backgroundApi.simpleDb.privacyChainState.getZcashAccountMeta(
+          { accountId },
+        );
       if (
         existingMeta &&
         (await hasZcashAccountViewingKey({
@@ -147,9 +154,10 @@ export class ZcashPrivacyMode {
 
     // Viewing keys need the seed (password) or the device; metadata already on
     // disk (e.g. resuming a paused account) needs neither prompt.
-    const existingMeta = await this.backgroundApi.simpleDb.zcash.getAccountMeta(
-      { accountId },
-    );
+    const existingMeta =
+      await this.backgroundApi.simpleDb.privacyChainState.getZcashAccountMeta({
+        accountId,
+      });
     // A process can stop after persisting the birthday intent but before the
     // durable runtime repair. A retry must still reconcile that intent.
     const needsBirthdayUpdate =
@@ -188,12 +196,15 @@ export class ZcashPrivacyMode {
       }
     }
     await this.assertZcashAccountContext({ networkId, accountId });
-    await this.backgroundApi.simpleDb.zcash.beginPrivacyModeEnable({
-      accountId,
-      birthdayHeight: selectedBirthdayHeight,
-      birthdayTimestamp: selectedBirthdayTimestamp,
-      resetResumeFromHeight: hasExplicitBirthday || needsBirthdayUpdate,
-    });
+    await this.backgroundApi.simpleDb.privacyChainState.beginZcashPrivacyModeEnable(
+      {
+        networkId,
+        accountId,
+        birthdayHeight: selectedBirthdayHeight,
+        birthdayTimestamp: selectedBirthdayTimestamp,
+        resetResumeFromHeight: hasExplicitBirthday || needsBirthdayUpdate,
+      },
+    );
 
     try {
       const vault = (await vaultFactory.getVault({
@@ -213,9 +224,12 @@ export class ZcashPrivacyMode {
           await vault.zcashRetryLocalWalletSetup({ password });
         }
       }
-      const meta = await this.backgroundApi.simpleDb.zcash.getAccountMeta({
-        accountId,
-      });
+      const meta =
+        await this.backgroundApi.simpleDb.privacyChainState.getZcashAccountMeta(
+          {
+            accountId,
+          },
+        );
       if (!meta) {
         throw new OneKeyLocalError(
           'zcash: viewing metadata was not persisted during privacy setup',
@@ -250,16 +264,21 @@ export class ZcashPrivacyMode {
         onPrepared: async () => {
           const settings = await getVaultSettings({ networkId });
           await this.assertZcashAccountContext({ networkId, accountId });
-          await this.backgroundApi.simpleDb.zcash.completePrivacyModeEnable({
-            accountId,
-            maxEnabledAccounts: settings.localWallet?.maxEnabledAccounts,
-          });
+          await this.backgroundApi.simpleDb.privacyChainState.completeZcashPrivacyModeEnable(
+            {
+              accountId,
+              maxEnabledAccounts: settings.localWallet?.maxEnabledAccounts,
+            },
+          );
         },
       });
     } catch (error) {
-      await this.backgroundApi.simpleDb.zcash.cancelPendingPrivacyModeEnables({
-        accountId,
-      });
+      await this.backgroundApi.simpleDb.privacyChainState.cancelZcashPendingEnables(
+        {
+          networkId,
+          accountId,
+        },
+      );
       throw error;
     }
     // The account is already on and past rollback; a notification failure
@@ -297,20 +316,24 @@ export class ZcashPrivacyMode {
     accountId: string;
   }): Promise<void> {
     await this.assertZcashAccountContext({ networkId, accountId });
-    const meta = await this.backgroundApi.simpleDb.zcash.getAccountMeta({
-      accountId,
-    });
+    const meta =
+      await this.backgroundApi.simpleDb.privacyChainState.getZcashAccountMeta({
+        accountId,
+      });
     const lifecycleMutex = getZcashLifecycleMutex(meta?.vkFp ?? accountId);
     await lifecycleMutex.runExclusive(async () => {
-      const state = await this.backgroundApi.simpleDb.zcash.getPrivacyModeState(
-        {
-          accountId,
-        },
-      );
+      const state =
+        await this.backgroundApi.simpleDb.privacyChainState.getZcashPrivacyModeState(
+          {
+            accountId,
+          },
+        );
       if (state.intent !== 'on' || state.operation !== undefined) {
-        await this.backgroundApi.simpleDb.zcash.completePrivacyModeDisable({
-          accountId,
-        });
+        await this.backgroundApi.simpleDb.privacyChainState.completeZcashPrivacyModeDisable(
+          {
+            accountId,
+          },
+        );
         return;
       }
       const vault = (await vaultFactory.getChainOnlyVault({
@@ -325,16 +348,20 @@ export class ZcashPrivacyMode {
           'zcash: privacy birthday is missing while disabling',
         );
       }
-      await this.backgroundApi.simpleDb.zcash.beginPrivacyModeDisable({
-        accountId,
-        resumeFromHeight: getPrivacyModeResumeFromHeight({
-          progress,
-          birthdayHeight,
-        }),
-      });
-      await this.backgroundApi.simpleDb.zcash.completePrivacyModeDisable({
-        accountId,
-      });
+      await this.backgroundApi.simpleDb.privacyChainState.beginZcashPrivacyModeDisable(
+        {
+          accountId,
+          resumeFromHeight: getPrivacyModeResumeFromHeight({
+            progress,
+            birthdayHeight,
+          }),
+        },
+      );
+      await this.backgroundApi.simpleDb.privacyChainState.completeZcashPrivacyModeDisable(
+        {
+          accountId,
+        },
+      );
     });
     await this.backgroundApi.servicePrivacyChain.onLocalWalletAccountsChanged({
       networkId,
@@ -354,9 +381,11 @@ export class ZcashPrivacyMode {
     await getZcashPrivacyModeOperationMutex(accountId).runExclusive(
       async () => {
         const state =
-          await this.backgroundApi.simpleDb.zcash.getPrivacyModeState({
-            accountId,
-          });
+          await this.backgroundApi.simpleDb.privacyChainState.getZcashPrivacyModeState(
+            {
+              accountId,
+            },
+          );
         if (state.intent === 'on' && state.operation === undefined) {
           await this.disablePrivacyModeImpl({ networkId, accountId });
         }
@@ -392,9 +421,11 @@ export class ZcashPrivacyMode {
       return undefined;
     }
     const privacyModeEnabled =
-      await this.backgroundApi.simpleDb.zcash.isPrivacyModeEnabled({
-        accountId,
-      });
+      await this.backgroundApi.simpleDb.privacyChainState.isZcashPrivacyModeEnabled(
+        {
+          accountId,
+        },
+      );
     if (!privacyModeEnabled) {
       return undefined;
     }

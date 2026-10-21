@@ -6,7 +6,7 @@ jest.mock('../../../dbs/local/localDbInstance', () => ({
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
-import { SimpleDbEntityZcash } from '../../../dbs/simple/entity/SimpleDbEntityZcash';
+import { SimpleDbEntityPrivacyChainState } from '../../../dbs/simple/entity/SimpleDbEntityPrivacyChainState';
 
 import Vault from './Vault';
 
@@ -14,42 +14,45 @@ it.each([false, true])(
   'applies an explicit birthday durably before enabling (purge interrupted: %s)',
   async (interrupt) => {
     const accountId = 'account';
+    const networkId = 'zec--0';
     let saved: unknown = null;
-    const entity = new SimpleDbEntityZcash();
+    const entity = new SimpleDbEntityPrivacyChainState();
     (entity as { appStorage: unknown }).appStorage = {
       getItem: async () => saved,
       setItem: async (_key: string, value: unknown) => {
         saved = value;
       },
     };
-    await entity.beginPrivacyModeEnable({
+    await entity.beginZcashPrivacyModeEnable({
+      networkId,
       accountId,
       birthdayHeight: 2_000_000,
     });
-    await entity.saveAccountMeta({
+    await entity.saveZcashAccountMeta({
       accountId,
       meta: {
         vkFp: 'a'.repeat(32),
         unifiedAddress: 'u1',
         transparentAddress: 't1',
-        seedFingerprintHex: '00',
+        seedFingerprintHex: '00'.repeat(32),
         hdIndex: 0,
         birthdayHeight: 2_000_000,
         createdAt: 1,
       },
     });
-    await entity.completePrivacyModeEnable({ accountId });
-    await entity.markPrivacyModeScanExcluded({
+    await entity.completeZcashPrivacyModeEnable({ accountId });
+    await entity.markZcashScanExcluded({
       accountId,
       fromHeight: 2_000_000,
     });
-    await entity.beginPrivacyModeDisable({
+    await entity.beginZcashPrivacyModeDisable({
       accountId,
       resumeFromHeight: 2_500_000,
     });
-    await entity.completePrivacyModeDisable({ accountId });
+    await entity.completeZcashPrivacyModeDisable({ accountId });
     const birthdayTimestamp = Date.now() - 90 * 24 * 60 * 60 * 1000;
-    await entity.beginPrivacyModeEnable({
+    await entity.beginZcashPrivacyModeEnable({
+      networkId,
       accountId,
       birthdayTimestamp,
       resetResumeFromHeight: true,
@@ -58,8 +61,8 @@ it.each([false, true])(
     let registered = false;
     const purge = jest.fn(async () => {
       const [meta, pending] = await Promise.all([
-        entity.getAccountMeta({ accountId }),
-        entity.listPendingRescans(),
+        entity.getZcashAccountMeta({ accountId }),
+        entity.listZcashPendingRescans({ networkId }),
       ]);
       expect(meta?.birthdayTimestamp).toBe(birthdayTimestamp);
       expect(meta?.birthdayHeight).toBe(pending[0].repair.birthdayHeight);
@@ -68,16 +71,18 @@ it.each([false, true])(
     });
     const vault = Object.create(Vault.prototype) as Vault;
     Object.assign(vault, {
+      networkId,
       backgroundApi: {
-        simpleDb: { zcash: entity },
+        simpleDb: { privacyChainState: entity },
         serviceAccount: { getDBAccountSafe: async () => ({ id: accountId }) },
       },
       listLocalWalletAccounts: async () => ({
         accounts: [{ accountId, runtimeKey: 'main', syncEnabled: false }],
       }),
-      zcashGetAccountMeta: async () => entity.getAccountMeta({ accountId }),
+      zcashGetAccountMeta: async () =>
+        entity.getZcashAccountMeta({ accountId }),
       zcashGetWalletAccount: async () => ({
-        ...(await entity.getAccountMeta({ accountId })),
+        ...(await entity.getZcashAccountMeta({ accountId })),
         network: 'main',
       }),
       zcashGetApi: async () => ({ purgeWallet: purge }),
@@ -101,7 +106,10 @@ it.each([false, true])(
       },
     });
     const onPrepared = jest.fn(() =>
-      entity.completePrivacyModeEnable({ accountId, maxEnabledAccounts: 5 }),
+      entity.completeZcashPrivacyModeEnable({
+        accountId,
+        maxEnabledAccounts: 5,
+      }),
     );
     const first = vault.zcashPreparePrivacyModeAccount({
       accountId,
@@ -111,10 +119,13 @@ it.each([false, true])(
     });
     if (interrupt) {
       await expect(first).rejects.toThrow('synthetic process interruption');
-      expect(await entity.listPendingRescans()).toHaveLength(1);
-      await entity.cancelPendingPrivacyModeEnables({ accountId });
-      const meta = await entity.getAccountMeta({ accountId });
-      await entity.beginPrivacyModeEnable({
+      expect(await entity.listZcashPendingRescans({ networkId })).toHaveLength(
+        1,
+      );
+      await entity.cancelZcashPendingEnables({ networkId, accountId });
+      const meta = await entity.getZcashAccountMeta({ accountId });
+      await entity.beginZcashPrivacyModeEnable({
+        networkId,
         accountId,
         birthdayHeight: meta?.birthdayHeight,
       });
@@ -129,10 +140,12 @@ it.each([false, true])(
         }),
       ).rejects.toThrow('synthetic wallet busy');
       expect(onPrepared).not.toHaveBeenCalled();
-      expect((await entity.getPrivacyModeState({ accountId })).intent).toBe(
-        'off',
+      expect(
+        (await entity.getZcashPrivacyModeState({ accountId })).intent,
+      ).toBe('off');
+      expect(await entity.listZcashPendingRescans({ networkId })).toHaveLength(
+        1,
       );
-      expect(await entity.listPendingRescans()).toHaveLength(1);
       await vault.zcashPreparePrivacyModeAccount({
         accountId,
         fromHeight: meta?.birthdayHeight ?? 0,
@@ -141,20 +154,21 @@ it.each([false, true])(
     } else {
       await first;
     }
-    const meta = await entity.getAccountMeta({ accountId });
+    const meta = await entity.getZcashAccountMeta({ accountId });
     expect(meta?.birthdayHeight).not.toBe(2_000_000);
     expect(requests).toEqual([meta?.birthdayHeight]);
-    expect(await entity.listPendingRescans()).toEqual([]);
-    expect(await entity.getPrivacyModeState({ accountId })).toMatchObject({
+    expect(await entity.listZcashPendingRescans({ networkId })).toEqual([]);
+    expect(await entity.getZcashPrivacyModeState({ accountId })).toMatchObject({
       intent: 'on',
       birthdayHeight: meta?.birthdayHeight,
       birthdayTimestamp,
     });
     expect(
-      (await entity.getPrivacyModeState({ accountId })).resumeFromHeight,
+      (await entity.getZcashPrivacyModeState({ accountId })).resumeFromHeight,
     ).toBeUndefined();
     expect(
-      (await entity.getPrivacyModeState({ accountId })).scanExcludedFromHeight,
+      (await entity.getZcashPrivacyModeState({ accountId }))
+        .scanExcludedFromHeight,
     ).toBeUndefined();
   },
 );
