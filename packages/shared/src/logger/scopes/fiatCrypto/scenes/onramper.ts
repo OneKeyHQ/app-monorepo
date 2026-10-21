@@ -411,6 +411,14 @@ export class OnramperScene extends BaseScene {
     return params;
   }
 
+  // The `completed` write failed (background bridge / storage): the user is
+  // kept on the review card with the order id instead of an empty detail.
+  @LogToServer()
+  @LogToLocal()
+  public orderSubmitFailed(params: { transactionId: string; error: string }) {
+    return params;
+  }
+
   @LogToServer()
   @LogToLocal()
   public orderDiscarded(params: {

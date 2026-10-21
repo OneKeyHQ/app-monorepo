@@ -271,6 +271,58 @@ describe('ServiceFiatCrypto headless buy orders', () => {
     expect(store.get('01M3')?.paymentSeen).toBe(true);
   });
 
+  test('addHeadlessBuyOrder surfaces an authorized checkout whose failure overtook its metadata lookups', async () => {
+    const { service, store, backgroundApi } = createService([]);
+    let releaseAccount: (account: { name: string }) => void = () => undefined;
+    backgroundApi.serviceAccount.getAccount.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          releaseAccount = resolve;
+        }),
+    );
+    const adding = service.addHeadlessBuyOrder(baseOrder());
+    await flushPromises();
+    // Apple Pay was authorized and the checkout then failed, both while the
+    // account name was still being read: neither event found a record.
+    await service.markHeadlessBuyOrderPaymentSeen({ transactionId: '01M3' });
+    await service.discardHeadlessBuyOrder({
+      transactionId: '01M3',
+      reason: 'failed',
+    });
+    expect(store.has('01M3')).toBe(false);
+    releaseAccount({ name: 'Account 1' });
+    await adding;
+    // Money may have moved: the order is visible right away, not only once
+    // the 24 h rule surfaces it as timed out.
+    expect(store.get('01M3')).toMatchObject({
+      paymentSeen: true,
+      submittedAt: T0 + 1000,
+      status: EHeadlessBuyOrderStatus.Processing,
+      accountName: 'Account 1',
+    });
+  });
+
+  test('addHeadlessBuyOrder drops a record whose cancellation overtook its metadata lookups', async () => {
+    const { service, store, backgroundApi } = createService([]);
+    let releaseAccount: (account: { name: string }) => void = () => undefined;
+    backgroundApi.serviceAccount.getAccount.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          releaseAccount = resolve;
+        }),
+    );
+    const adding = service.addHeadlessBuyOrder(baseOrder());
+    await flushPromises();
+    await service.discardHeadlessBuyOrder({
+      transactionId: '01M3',
+      reason: 'cancelled',
+    });
+    releaseAccount({ name: 'Account 1' });
+    await adding;
+    // Nothing was paid: the late insert must not leave a hidden record behind.
+    expect(store.has('01M3')).toBe(false);
+  });
+
   test('discardHeadlessBuyOrder removes only hidden orders that never saw a payment', async () => {
     const { service, store } = createService([
       baseOrder(),

@@ -311,14 +311,37 @@ function HeadlessBuyPage() {
   );
 
   const handleCompleted = useCallback(
-    (event: IOnramperEvent) => {
+    async (event: IOnramperEvent) => {
       // No id would mean an SDK older than 1.2.1; keep a local record anyway
       // so the user still gets an order page (status stays Processing).
       const transactionId = event.transactionId ?? `local-${Date.now()}`;
-      void backgroundApiProxy.serviceFiatCrypto.markHeadlessBuyOrderSubmitted({
-        transactionId,
-        order: buildOrderParamsRef.current(transactionId),
-      });
+      // Awaited: the detail page reads the store the moment it mounts, and
+      // when the pre-payment record never landed this call still has to build
+      // and insert it — resetting onto the detail early shows "No results".
+      try {
+        await backgroundApiProxy.serviceFiatCrypto.markHeadlessBuyOrderSubmitted(
+          {
+            transactionId,
+            order: buildOrderParamsRef.current(transactionId),
+          },
+        );
+      } catch (error) {
+        // No record to open a detail for: keep the review card (the purchase
+        // summary) on screen and surface the id so support can find the order.
+        defaultLogger.fiatCrypto.onramper.orderSubmitFailed({
+          transactionId,
+          error: error instanceof Error ? error.message : String(error),
+        });
+        Toast.error({
+          title: intl.formatMessage({
+            id: ETranslations.global_an_error_occurred,
+          }),
+          message: `${intl.formatMessage({
+            id: ETranslations.buy_order_id__title,
+          })}: ${transactionId}`,
+        });
+        return;
+      }
       // Bypass the review leave guard first: the reset below removes this
       // screen and fires beforeRemove. Then WIPE the buy flow from the modal
       // stack instead of pushing — the native pay button is consumed, so
@@ -337,7 +360,7 @@ function HeadlessBuyPage() {
         }),
       );
     },
-    [navigation],
+    [navigation, intl],
   );
 
   const {

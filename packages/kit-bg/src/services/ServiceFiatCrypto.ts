@@ -386,6 +386,12 @@ class ServiceFiatCrypto extends ServiceBase {
   // lookups. The insert that follows folds the flag into the record.
   private paymentSeenBeforeRecord = new Set<string>();
 
+  // Ids whose checkout was cancelled / failed before their record landed: on
+  // iOS a `failed` can follow `paymentAuthorized` while addHeadlessBuyOrder
+  // is still resolving metadata. The insert that follows replays the discard,
+  // so an authorized order is surfaced at once instead of by the 24 h rule.
+  private abandonedBeforeRecord = new Map<string, 'cancelled' | 'failed'>();
+
   private emitHeadlessBuyOrdersChanged() {
     appEventBus.emit(EAppEventBusNames.HeadlessBuyOrdersChanged, undefined);
   }
@@ -408,18 +414,18 @@ class ServiceFiatCrypto extends ServiceBase {
     // The `completed` fallback may have written (and submitted) this id while
     // the metadata lookups above were in flight; never overwrite it.
     const inserted = await this.insertHeadlessBuyOrder(order);
-    if (!inserted) {
-      return;
+    if (inserted) {
+      defaultLogger.fiatCrypto.onramper.orderRecorded({
+        networkId: order.networkId,
+        tokenSymbol: order.tokenSymbol,
+        transactionId: order.transactionId,
+        amount: order.fiatAmount,
+        ramp: order.providerName,
+        entryFrom: order.entryFrom,
+      });
+      this.emitHeadlessBuyOrdersChanged();
     }
-    defaultLogger.fiatCrypto.onramper.orderRecorded({
-      networkId: order.networkId,
-      tokenSymbol: order.tokenSymbol,
-      transactionId: order.transactionId,
-      amount: order.fiatAmount,
-      ramp: order.providerName,
-      entryFrom: order.entryFrom,
-    });
-    this.emitHeadlessBuyOrdersChanged();
+    await this.replayAbandonedCheckout(order.transactionId);
   }
 
   private async buildHeadlessBuyOrder(
@@ -573,8 +579,46 @@ class ServiceFiatCrypto extends ServiceBase {
     reason: 'cancelled' | 'failed';
   }): Promise<void> {
     const { simpleDb } = this.backgroundApi;
+    // Noted before the read so an insert racing with this call replays the
+    // discard whichever side finishes first.
+    this.abandonedBeforeRecord.set(transactionId, reason);
     const order = await simpleDb.headlessBuyOrders.getOrder({ transactionId });
-    if (!order || order.submittedAt !== undefined) {
+    if (!order) {
+      // No record yet: addHeadlessBuyOrder replays this once its insert lands.
+      return;
+    }
+    this.abandonedBeforeRecord.delete(transactionId);
+    await this.settleAbandonedHeadlessBuyOrder({ order, reason });
+  }
+
+  // Applies a cancel / failure that found no record when it arrived, now that
+  // the record exists. Safe to run alongside the original call: the removal
+  // is conditional inside the storage lock and the submit is idempotent.
+  private async replayAbandonedCheckout(transactionId: string): Promise<void> {
+    const reason = this.abandonedBeforeRecord.get(transactionId);
+    if (reason === undefined) {
+      return;
+    }
+    this.abandonedBeforeRecord.delete(transactionId);
+    const order = await this.backgroundApi.simpleDb.headlessBuyOrders.getOrder({
+      transactionId,
+    });
+    if (!order) {
+      return;
+    }
+    await this.settleAbandonedHeadlessBuyOrder({ order, reason });
+  }
+
+  private async settleAbandonedHeadlessBuyOrder({
+    order,
+    reason,
+  }: {
+    order: IHeadlessBuyOrder;
+    reason: 'cancelled' | 'failed';
+  }): Promise<void> {
+    const { simpleDb } = this.backgroundApi;
+    const { transactionId } = order;
+    if (order.submittedAt !== undefined) {
       return;
     }
     if (!order.paymentSeen) {
