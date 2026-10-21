@@ -10478,9 +10478,9 @@ __metadata:
     ethereumjs-util: "npm:7.1.5"
     js-conflux-sdk: "npm:^2.1.12"
     near-api-js: "npm:^2.1.4"
-    onekey-monero-runtime: "npm:0.1.0-alpha.6"
-    onekey-zcash-keys: "npm:0.1.0-alpha.6"
-    onekey-zcash-runtime: "npm:0.1.0-alpha.6"
+    onekey-monero-runtime: "npm:0.1.0-alpha.7"
+    onekey-zcash-keys: "npm:0.1.0-alpha.7"
+    onekey-zcash-runtime: "npm:0.1.0-alpha.7"
     ripple-keypairs: "npm:^1.3.1"
     tonweb-mnemonic: "npm:^1.0.1"
     tronweb: "npm:^6.1.0"
@@ -39763,24 +39763,24 @@ __metadata:
   languageName: node
   linkType: hard
 
-"onekey-monero-runtime@npm:0.1.0-alpha.6":
-  version: 0.1.0-alpha.6
-  resolution: "onekey-monero-runtime@npm:0.1.0-alpha.6"
-  checksum: 10/8d0f03d8982d363e93b9078b8d04efcbcd5889630fdc18a2a88b460968e7c153e579cbb7d3e84f050867a6ad6815417e90646bec755de78cf64750426f313d64
+"onekey-monero-runtime@npm:0.1.0-alpha.7":
+  version: 0.1.0-alpha.7
+  resolution: "onekey-monero-runtime@npm:0.1.0-alpha.7"
+  checksum: 10/dbe9cb10d4fc5e82f5f2919de0772a566ee31415dd8471780f7cb22915baff4929dc9d71b8412d024ff61932efac530c385d57a26fced00188c89797ac4d6465
   languageName: node
   linkType: hard
 
-"onekey-zcash-keys@npm:0.1.0-alpha.6":
-  version: 0.1.0-alpha.6
-  resolution: "onekey-zcash-keys@npm:0.1.0-alpha.6"
-  checksum: 10/18e9d5c30d49b94635b5a11cfa8db2c89ae03572f3ed9a290d244d6ca136fbabdac02effa463b4aa6fed0775eb3b9ec9a2e2329e3bd484e8cee456298cb36d65
+"onekey-zcash-keys@npm:0.1.0-alpha.7":
+  version: 0.1.0-alpha.7
+  resolution: "onekey-zcash-keys@npm:0.1.0-alpha.7"
+  checksum: 10/25baef5e7bccd1d5a4234b82cb45a2803f9d732e4698735537255fc635089523c7dd27a54213ca57ba3e9ade70fa290e158b8da41b8380ea3cadba5420c851c9
   languageName: node
   linkType: hard
 
-"onekey-zcash-runtime@npm:0.1.0-alpha.6":
-  version: 0.1.0-alpha.6
-  resolution: "onekey-zcash-runtime@npm:0.1.0-alpha.6"
-  checksum: 10/1b40c200451b5142c28fc5bbe805297b3323bca2aae8ee27ae8d8f5e96f4282b91ea19fb4fa80c7014a00167a72f0cf3e2120b4dcf1c397513dd8d4241204394
+"onekey-zcash-runtime@npm:0.1.0-alpha.7":
+  version: 0.1.0-alpha.7
+  resolution: "onekey-zcash-runtime@npm:0.1.0-alpha.7"
+  checksum: 10/9a42585b9d1e344cb8764f9e362804aee3352d10a3f87f0bc1cafcda82b8b5d005efbd3a292693ee52c7e401667887720b012c4e60213eac115b7a1205d1319f
   languageName: node
   linkType: hard
 
