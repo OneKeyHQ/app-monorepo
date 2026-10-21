@@ -3,7 +3,11 @@
 import { act, renderHook } from '@testing-library/react';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { EModalRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
+import {
+  EModalRoutes,
+  ERootRoutes,
+  ETabRoutes,
+} from '@onekeyhq/shared/src/routes';
 import { EModalPerpRoutes } from '@onekeyhq/shared/src/routes/perp';
 
 import { usePerpsNavigation } from './usePerpsNavigation';
@@ -13,6 +17,8 @@ const mockNavigation = {
   pushModal: jest.fn(),
 };
 let mockRouteKey: string | undefined;
+let mockRootName: string = ERootRoutes.Main;
+let mockActiveTab: string = ETabRoutes.Market;
 const mockConfig = { perpDisabled: false, perpTabShowWeb: false };
 const mockMedia = { gtMd: false };
 const mockSettings = {
@@ -41,6 +47,15 @@ jest.mock('@onekeyhq/components', () => ({
   rootNavigationRef: {
     current: {
       getCurrentRoute: () => (mockRouteKey ? { key: mockRouteKey } : undefined),
+      getRootState: () => ({
+        index: 0,
+        routes: [
+          {
+            name: mockRootName,
+            state: { index: 0, routes: [{ name: mockActiveTab }] },
+          },
+        ],
+      }),
     },
   },
 }));
@@ -98,6 +113,11 @@ describe('market entry into Perps', () => {
     jest.useFakeTimers();
     jest.clearAllMocks();
     mockRouteKey = undefined;
+    mockRootName = ERootRoutes.Main;
+    mockActiveTab = ETabRoutes.Market;
+    mockNavigation.switchTab.mockImplementation((tab: ETabRoutes) => {
+      mockActiveTab = tab;
+    });
     mockConfig.perpDisabled = false;
     mockConfig.perpTabShowWeb = false;
     mockMedia.gtMd = false;
@@ -129,6 +149,7 @@ describe('market entry into Perps', () => {
   it('does not open Easy details after leaving during asset selection', async () => {
     mockService.changeActiveAsset.mockImplementationOnce(async () => {
       mockRouteKey = 'wallet-home';
+      mockActiveTab = ETabRoutes.Home;
     });
     await navigate();
     expect(mockNavigation.pushModal).not.toHaveBeenCalled();
@@ -138,6 +159,7 @@ describe('market entry into Perps', () => {
   it('does not open Easy details after leaving during settings hydration', async () => {
     mockSettings.get.mockImplementationOnce(async () => {
       mockRouteKey = 'wallet-home';
+      mockActiveTab = ETabRoutes.Home;
       return { mobileTradingMode: 'simple' };
     });
     await navigate();
@@ -150,6 +172,28 @@ describe('market entry into Perps', () => {
     expect(mockService.changeActiveAsset).toHaveBeenCalledWith({
       coin: 'STRK',
     });
+    expect(mockNavigation.pushModal).not.toHaveBeenCalled();
+  });
+
+  it('opens Easy details when lazy tab mounting changes the leaf key', async () => {
+    mockNavigation.switchTab.mockImplementationOnce((tab: ETabRoutes) => {
+      mockActiveTab = tab;
+      mockRouteKey = 'perp-tab';
+    });
+    mockService.changeActiveAsset.mockImplementationOnce(async () => {
+      mockRouteKey = 'perp-mounted-page';
+    });
+    await navigate();
+    expect(mockEmit).toHaveBeenCalled();
+    expect(mockNavigation.pushModal).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not push details over a newly opened modal', async () => {
+    mockSettings.get.mockImplementationOnce(async () => {
+      mockRootName = ERootRoutes.Modal;
+      return { mobileTradingMode: 'simple' };
+    });
+    await navigate();
     expect(mockNavigation.pushModal).not.toHaveBeenCalled();
   });
 
