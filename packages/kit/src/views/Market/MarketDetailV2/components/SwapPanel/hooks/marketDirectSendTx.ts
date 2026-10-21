@@ -41,6 +41,7 @@ import { calculateFeeForSend } from '@onekeyhq/shared/src/utils/feeUtils';
 import { applyCustomPriorityFeeToGasInfo } from '@onekeyhq/shared/src/utils/marketPresetFeeUtils';
 import type {
   IEstimateFeeParams,
+  IEstimateGasResp,
   IFeeAlgo,
   IFeeCkb,
   IFeeDot,
@@ -101,7 +102,10 @@ type IMarketDirectSendParams = {
   customPriorityFee?: IMarketPresetPriorityFeeOverride;
   tronResourceRentalInfo?: ITronResourceRentalInfo;
   useDefaultRpc?: boolean;
-  validateFinalGasInfos?: (gasInfos: IMarketGasInfoEntry[]) => Promise<void>;
+  validateFinalGasInfos?: (
+    gasInfos: IMarketGasInfoEntry[],
+    unsignedTxs?: IUnsignedTxPro[],
+  ) => Promise<void>;
   gasAccountAnalytics?: {
     fiatCurrency?: string;
     nativeBalance?: string;
@@ -198,6 +202,7 @@ function buildGasInfo(
     feeAlgo?: IFeeAlgo[];
     feeDot?: IFeeDot[];
     feeBudget?: IFeeSui[];
+    megafuelEligible?: IEstimateGasResp['megafuelEligible'];
     payer?: IGasPayer;
     gasAccountEligible?: boolean;
     gasAccountQuote?: IGasAccountQuote;
@@ -232,10 +237,10 @@ function buildGasInfo(
     customPriorityFee,
     estimateFeeParams,
   });
-  // Carry Gas Account sponsorship result from estimate-fee so the send path can
-  // attach the broadcast quoteId for sponsored Market Pro swaps.
+  // Preserve both sponsorship formats, including MegaFuel responses without payer.
   return {
     ...gasInfo,
+    megafuelEligible: gasRes.megafuelEligible,
     payer: gasRes.payer,
     gasAccountEligible: gasRes.gasAccountEligible,
     gasAccountQuote: gasRes.gasAccountQuote,
@@ -1496,7 +1501,7 @@ export async function sendMarketDirectUnsignedTxs({
     }
   }
 
-  await validateFinalGasInfos?.(gasInfosFinal);
+  await validateFinalGasInfos?.(gasInfosFinal, unsignedTxArr);
 
   for (const [unsignedTxIndex, unsignedTxItem] of unsignedTxArr.entries()) {
     const gasInfoEntry = findGasInfo(gasInfosFinal, unsignedTxItem.encodedTx);
@@ -1540,6 +1545,7 @@ export async function sendMarketDirectUnsignedTxs({
                       }
                     : item,
                 ),
+                unsignedTxArr.slice(unsignedTxIndex),
               )
           : undefined,
         gasAccountAnalytics,
