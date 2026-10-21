@@ -14,6 +14,9 @@ function getStyles(): string {
     /* Mirrors LightweightChartPulseDot on web/desktop. */
     #pulse { position: absolute; width: 8px; height: 8px; margin: -4px 0 0 -4px; pointer-events: none; display: none; z-index: 5; }
     #pulse > div { position: absolute; inset: 0; border-radius: 50%; }
+    #scrub-tooltip { position: absolute; display: none; pointer-events: none; z-index: 5; width: 120px; padding: 6px 8px; border: 1px solid; border-radius: 8px; font-family: sans-serif; }
+    #scrub-time { font-size: 12px; line-height: 16px; white-space: nowrap; }
+    #scrub-price { font-size: 14px; line-height: 20px; font-weight: 500; white-space: nowrap; }
     #pulse .ring { animation: okChartPulseRing 1.4s ease-out infinite; }
     #pulse .dot { animation: okChartPulseDot 1.4s ease-in-out infinite; }
     @keyframes okChartPulseRing { 0% { transform: scale(1); opacity: 0.5; } 100% { transform: scale(2.4); opacity: 0; } }
@@ -613,6 +616,41 @@ function getChartInitScript(): string {
           window.secondaryPointSeries = null;
         }
       }
+      function createNativeScrubLine(nextConfig) {
+        var renderer = {
+          draw: function(target) {
+            target.useMediaCoordinateSpace(function(scope) {
+              var ctx = scope.context;
+              var points = nextConfig.secondaryLineData || [];
+              var time = window.nativeScrubTime;
+              var started = false;
+              ctx.save();
+              ctx.strokeStyle = nextConfig.secondaryLineColor;
+              ctx.lineWidth = getNormalizedLineWidth(nextConfig.secondaryLineWidth, 2);
+              ctx.lineCap = 'round';
+              ctx.lineJoin = 'round';
+              ctx.beginPath();
+              for (var i = 0; i < points.length; i += 1) {
+                var point = points[i];
+                if (time !== undefined && point.time > Number(time)) break;
+                var x = window.chart.timeScale().timeToCoordinate(point.time);
+                var y = window.series.priceToCoordinate(point.value);
+                if (x === null || y === null) continue;
+                if (started) ctx.lineTo(x, y);
+                else ctx.moveTo(x, y);
+                started = true;
+              }
+              ctx.stroke();
+              ctx.restore();
+            });
+          },
+        };
+        var views = [{
+          zOrder: function() { return 'top'; },
+          renderer: function() { return renderer; },
+        }];
+        return { paneViews: function() { return views; } };
+      }
       // Rebuild both series when the primary data or chart options change.
       //
       // lightweight-charts 5.2 keeps a stale copy of its time points after a
@@ -646,7 +684,13 @@ function getChartInitScript(): string {
         window.series.applyOptions(getLastValueSeriesOptions(nextConfig));
         window.series.setData(Array.isArray(nextConfig.data) ? nextConfig.data : []);
         syncReferenceLine(nextConfig);
-        syncSecondarySeries(nextConfig);
+        // Cursor-layer primitives repaint with the crosshair, without making
+        // setData invalidate and redraw the expensive static dotted area.
+        if (nextConfig.nativeScrubOptions) {
+          window.series.attachPrimitive(createNativeScrubLine(nextConfig));
+        } else {
+          syncSecondarySeries(nextConfig);
+        }
       }
       // Price formatter: use a serializable formatter type in WebView, otherwise default %
       // NOTE: Keep in sync with formatChartUsdPrice in shared/src/utils/perpsUtils.ts
@@ -769,6 +813,9 @@ function getChartInitScript(): string {
       window.secondaryPointSeries = null;
       window.applyChartConfig = function(nextConfig) {
         if (!nextConfig || !window.chart) return;
+        window.nativeScrubTime = undefined;
+        var tooltip = document.getElementById('scrub-tooltip');
+        if (tooltip) tooltip.style.display = 'none';
         window.latestChartConfig = nextConfig;
         window.chart.applyOptions(getChartOptions(nextConfig));
         rebuildSeries(nextConfig);
@@ -789,7 +836,38 @@ function getEventHandlers(): string {
       var _isTouch = 'ontouchstart' in window;
       var _lastDataTime = 0;
 
+      function updateNativeScrub(message) {
+        var nextConfig = window.latestChartConfig;
+        var options = nextConfig.nativeScrubOptions;
+        if (!options) return;
+        var time = message.time;
+        window.nativeScrubTime = time;
+        var tooltip = document.getElementById('scrub-tooltip');
+        var label = options.labels[time];
+        if (!label || message.x === undefined || message.y === undefined) {
+          tooltip.style.display = 'none';
+          return;
+        }
+        document.getElementById('scrub-time').textContent = label.time;
+        var price = document.getElementById('scrub-price');
+        price.textContent = label.price || '';
+        price.style.display = label.price === undefined ? 'none' : 'block';
+        price.style.fontSize = options.largePrice ? '16px' : '14px';
+        price.style.marginTop = options.largePrice ? '2px' : '0';
+        price.style.color = options.textColor;
+        document.getElementById('scrub-time').style.color = options.timeColor;
+        tooltip.style.backgroundColor = options.backgroundColor;
+        tooltip.style.borderColor = options.borderColor;
+        var left = message.x < container.clientWidth / 2 ? message.x + 10 : message.x - 130;
+        tooltip.style.left = Math.min(Math.max(left, 8), container.clientWidth - 128) + 'px';
+        tooltip.style.top = Math.max(8, message.y - 56) + 'px';
+        tooltip.style.display = 'block';
+      }
+
       chart.subscribeCrosshairMove((param) => {
+        // Series updates recalculate the crosshair without a touch. Sending
+        // those back to React creates a second round trip for every step.
+        if (window.latestChartConfig.nativeScrubOptions && param.time !== undefined && !param.sourceEvent) return;
         let message;
         var primarySeries = window.series;
         var extraSeries = window.secondarySeries;
@@ -810,10 +888,12 @@ function getEventHandlers(): string {
             x: param.point.x,
             y: param.point.y,
           };
-          window.ReactNativeWebView.postMessage(JSON.stringify(message));
         } else {
           if (_isTouch && (Date.now() - _lastDataTime < 300)) { return; }
           message = { type: 'hover', time: undefined, price: undefined, secondaryPrice: undefined, x: undefined, y: undefined };
+        }
+        updateNativeScrub(message);
+        if (window.latestChartConfig.notifyOnHover !== false) {
           window.ReactNativeWebView.postMessage(JSON.stringify(message));
         }
       });
@@ -867,6 +947,7 @@ export function generateChartHTML(config: ILightweightChartConfig): string {
 <body>
   <div id="chart"></div>
   <div id="pulse"><div class="ring"></div><div class="dot"></div></div>
+  <div id="scrub-tooltip"><div id="scrub-time"></div><div id="scrub-price"></div></div>
   <script>${getChartScript(config)}</script>
 </body>
 </html>`;

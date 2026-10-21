@@ -8,6 +8,7 @@ import { NumberSizeableText, SizableText, Stack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
+import { numberFormatAsRaw } from '@onekeyhq/shared/src/utils/numberUtils';
 import type { IMarketTokenChart } from '@onekeyhq/shared/types/market';
 
 import { LightweightChart } from '../LightweightChart';
@@ -19,7 +20,10 @@ import {
 } from '../LightweightChart/utils/formatChartPrice';
 import { getChartPriceFormatBase } from '../LightweightChart/utils/priceFormatBase';
 
-import type { ILightweightChartReferenceLine } from '../LightweightChart/types';
+import type {
+  ILightweightChartNativeScrubOptions,
+  ILightweightChartReferenceLine,
+} from '../LightweightChart/types';
 
 const PRICE_SCALE_MARGINS = { top: 0.12, bottom: 0.1 } as const;
 // Kept in sync with `priceScaleMinimumWidth` below, so the price axis reserves
@@ -267,7 +271,7 @@ export function StockPriceLineChart({
   // moves; only the solid overlay drawn on top of it is cut at the cursor.
   const hoveredTime = hoverData?.time;
   const solidData = useMemo(() => {
-    if (hoveredTime === undefined) {
+    if (platformEnv.isNativeAndroid || hoveredTime === undefined) {
       return data;
     }
     const upToCursor = data.filter(([time]) => time <= hoveredTime);
@@ -275,6 +279,56 @@ export function StockPriceLineChart({
     // chart mid-scrub, so it always keeps at least the first point.
     return upToCursor.length > 0 ? upToCursor : data.slice(0, 1);
   }, [data, hoveredTime]);
+
+  const nativeScrubOptions = useMemo<
+    ILightweightChartNativeScrubOptions | undefined
+  >(() => {
+    if (!platformEnv.isNativeAndroid) return undefined;
+    return {
+      labels: Object.fromEntries(
+        data.map(([time, price]) => {
+          const parts = numberFormatAsRaw(String(price), {
+            formatter: 'price',
+            formatterOptions: HOVER_PRICE_FORMATTER_OPTIONS,
+          });
+          const priceLabel =
+            typeof parts === 'string'
+              ? parts
+              : parts
+                  .map((part) =>
+                    typeof part === 'string'
+                      ? part
+                      : String(part.value).replace(/[0-9]/g, (digit) =>
+                          '₀₁₂₃₄₅₆₇₈₉'.charAt(Number(digit)),
+                        ),
+                  )
+                  .join('');
+          return [
+            time,
+            {
+              time: formatDate(new Date(time * 1000), {
+                formatTemplate: HOVER_TIME_FORMAT_TEMPLATE,
+              }),
+              price: hoverLabelShowsPrice ? priceLabel : undefined,
+            },
+          ];
+        }),
+      ),
+      backgroundColor: theme.bg.val,
+      borderColor: theme.borderSubdued.val,
+      textColor: theme.text.val,
+      timeColor: theme.textDisabled.val,
+      largePrice: hoverLabelLargePrice,
+    };
+  }, [
+    data,
+    hoverLabelShowsPrice,
+    hoverLabelLargePrice,
+    theme.bg.val,
+    theme.borderSubdued.val,
+    theme.text.val,
+    theme.textDisabled.val,
+  ]);
 
   // Held in a ref so an inline parent callback cannot make the reporting effect
   // fire on every render.
@@ -374,9 +428,14 @@ export function StockPriceLineChart({
         priceScaleFormat={priceScaleFormat}
         fontSize={11}
         useTimeScaleTickMarkWithoutUnit
-        onHover={handleHover}
+        nativeScrubOptions={nativeScrubOptions}
+        onHover={
+          platformEnv.isNativeAndroid && !onHoverChange
+            ? undefined
+            : handleHover
+        }
       />
-      {hoverData && tooltipPosition ? (
+      {!platformEnv.isNativeAndroid && hoverData && tooltipPosition ? (
         <Stack
           testID="stock-price-line-chart-hover-label"
           position="absolute"

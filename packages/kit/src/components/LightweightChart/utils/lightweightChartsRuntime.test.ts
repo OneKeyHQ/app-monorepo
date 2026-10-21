@@ -78,6 +78,7 @@ it('updates the native scrub overlay without rebuilding the primary series or re
     `${seriesSource}\n${html.slice(applyStart, applyEnd)}\nwindow.applyChartConfig(config);`,
     {
       window: page,
+      document: { getElementById: () => null },
       config,
       LightweightCharts: { LineSeries: {} },
       createPrimarySeries,
@@ -111,6 +112,145 @@ it('updates the native scrub overlay without rebuilding the primary series or re
   page.applyChartConfig({ ...config, data: config.data.slice(0, 2) });
   expect(createPrimarySeries).toHaveBeenCalledTimes(2);
   expect(fitContent).toHaveBeenCalledTimes(2);
+});
+
+it('updates Android scrub visuals without bridge messages or series data updates', () => {
+  const config: ILightweightChartConfig = {
+    data: [1, 2, 3].map((time) => ({
+      time: time as UTCTimestamp,
+      value: time,
+    })),
+    secondaryLineData: [1, 2, 3].map((time) => ({
+      time: time as UTCTimestamp,
+      value: time,
+    })),
+    lineWidth: 1,
+    theme: {
+      bgColor: 'transparent',
+      textSubduedColor: '#999',
+      lineColor: '#080',
+      topColor: 'transparent',
+      bottomColor: 'transparent',
+    },
+    notifyOnHover: false,
+    nativeScrubOptions: {
+      labels: { '2': { time: '2026/10/21, 09:30', price: '$0.0₆12' } },
+      backgroundColor: '#fff',
+      borderColor: '#ddd',
+      textColor: '#111',
+      timeColor: '#999',
+      largePrice: true,
+    },
+  };
+  type IHoverEvent = {
+    time?: number;
+    point?: { x: number; y: number };
+    sourceEvent?: object;
+    seriesData?: Map<object, { value: number }>;
+  };
+  let handleCrosshair: (event: IHoverEvent) => void = () => {};
+  const primary = { priceToCoordinate: (price: number) => price * 10 };
+  const postMessage = jest.fn();
+  const overlay = {
+    setData: jest.fn(() => handleCrosshair({ time: 2 })),
+  };
+  const page = {
+    latestChartConfig: config,
+    series: primary,
+    secondarySeries: overlay,
+    nativeScrubTime: undefined as string | undefined,
+    chart: {
+      timeScale: () => ({ timeToCoordinate: (time: number) => time * 20 }),
+    },
+    ReactNativeWebView: { postMessage },
+  };
+  const elements: Record<
+    string,
+    { style: Record<string, string>; textContent: string }
+  > = Object.fromEntries(
+    ['scrub-tooltip', 'scrub-time', 'scrub-price'].map((id) => [
+      id,
+      { style: {}, textContent: '' },
+    ]),
+  );
+  const html = generateChartHTML(config);
+  const start = html.indexOf("var _isTouch = 'ontouchstart' in window;");
+  const end = html.indexOf('window.repaintChart = function', start);
+  let now = 1000;
+  runInNewContext(html.slice(start, end), {
+    window: page,
+    container: { clientWidth: 400 },
+    document: { getElementById: (id: string) => elements[id] },
+    chart: {
+      subscribeCrosshairMove: (callback: typeof handleCrosshair) => {
+        handleCrosshair = callback;
+      },
+    },
+    Date: { now: () => now },
+  });
+
+  for (let index = 0; index < 60; index += 1) {
+    handleCrosshair({
+      time: 2,
+      point: { x: 250 + index, y: 100 },
+      sourceEvent: {},
+      seriesData: new Map([[primary, { value: 2 }]]),
+    });
+  }
+  expect(postMessage).not.toHaveBeenCalled();
+  expect(overlay.setData).not.toHaveBeenCalled();
+  expect(page.nativeScrubTime).toBe('2');
+  expect(elements['scrub-time'].textContent).toBe('2026/10/21, 09:30');
+  expect(elements['scrub-price'].textContent).toBe('$0.0₆12');
+  expect(elements['scrub-tooltip'].style).toMatchObject({
+    display: 'block',
+    left: '179px',
+    top: '44px',
+    backgroundColor: '#fff',
+  });
+  const context = {
+    save: jest.fn(),
+    restore: jest.fn(),
+    beginPath: jest.fn(),
+    moveTo: jest.fn(),
+    lineTo: jest.fn(),
+    stroke: jest.fn(),
+  };
+  const primitiveSource = html.slice(
+    html.indexOf('function createNativeScrubLine'),
+    html.indexOf('// Rebuild both series'),
+  );
+  const draw = runInNewContext(
+    `${primitiveSource}\ncreateNativeScrubLine(config).paneViews()[0].renderer().draw`,
+    {
+      config,
+      window: page,
+      getNormalizedLineWidth: () => 2,
+    },
+  ) as (target: {
+    useMediaCoordinateSpace: (
+      callback: (scope: { context: typeof context }) => void,
+    ) => void;
+  }) => void;
+  const target = {
+    useMediaCoordinateSpace: (
+      callback: (scope: { context: typeof context }) => void,
+    ) => callback({ context }),
+  };
+  draw(target);
+  expect(context.moveTo).toHaveBeenLastCalledWith(20, 10);
+  expect(context.lineTo).toHaveBeenCalledTimes(1);
+  expect(context.lineTo).toHaveBeenLastCalledWith(40, 20);
+  context.lineTo.mockClear();
+  now += 500;
+  handleCrosshair({});
+  expect(elements['scrub-tooltip'].style.display).toBe('none');
+  expect(page.nativeScrubTime).toBeUndefined();
+  draw(target);
+  expect(context.lineTo).toHaveBeenCalledTimes(2);
+  expect(context.lineTo).toHaveBeenLastCalledWith(60, 30);
+  expect(overlay.setData).not.toHaveBeenCalled();
+  expect(postMessage).not.toHaveBeenCalled();
 });
 
 describe('getLightweightChartsRuntimeScriptTag', () => {
