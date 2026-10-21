@@ -4,8 +4,7 @@ yarn jest packages/kit-bg/src/dbs/simple/entity/SimpleDbEntityBroadcastRecords.t
 import type { ISignedTxPro } from '@onekeyhq/core/src/types';
 
 import {
-  BROADCAST_RECORDS_MAX_AMBIGUOUS_COUNT,
-  BROADCAST_RECORDS_MAX_BROADCAST_COUNT,
+  BROADCAST_RECORDS_MAX_COUNT_PER_CLASS,
   SimpleDbEntityBroadcastRecords,
 } from './SimpleDbEntityBroadcastRecords';
 
@@ -75,7 +74,7 @@ describe('SimpleDbEntityBroadcastRecords', () => {
     expect(data.records.u1.attemptedAt).toBe(10);
   });
 
-  it('drops the oldest settled records beyond the broadcast cap', async () => {
+  it('drops the oldest settled records beyond the per-class cap', async () => {
     const entity = new SimpleDbEntityBroadcastRecords();
     const setRawData = jest
       .spyOn(entity, 'setRawData')
@@ -84,7 +83,7 @@ describe('SimpleDbEntityBroadcastRecords', () => {
     fill(
       existing,
       'u',
-      BROADCAST_RECORDS_MAX_BROADCAST_COUNT,
+      BROADCAST_RECORDS_MAX_COUNT_PER_CLASS,
       buildSettledRecord,
       1000,
     );
@@ -93,24 +92,27 @@ describe('SimpleDbEntityBroadcastRecords', () => {
     const data = await applyBuilder(setRawData, { records: existing });
 
     expect(Object.keys(data.records)).toHaveLength(
-      BROADCAST_RECORDS_MAX_BROADCAST_COUNT,
+      BROADCAST_RECORDS_MAX_COUNT_PER_CLASS,
     );
     expect(data.records.u0).toBeUndefined();
     expect(data.records.newest).toBeDefined();
   });
 
-  it('evicts settled records before a broadcast one that still awaits its bookkeeping', async () => {
+  it('never lets a broadcast record awaiting its bookkeeping count against settled ones', async () => {
     const entity = new SimpleDbEntityBroadcastRecords();
     const setRawData = jest
       .spyOn(entity, 'setRawData')
       .mockResolvedValue(undefined);
+    // A batch whose bookkeeping failed on one item, then a full cap worth of
+    // settled sends: every settled record a retry replays must survive, and
+    // the pending one is not pushed out by the successes either.
     const existing: Record<string, IBroadcastRecord> = {
       awaitingBookkeeping: buildBroadcastRecord('awaitingBookkeeping', 1),
     };
     fill(
       existing,
       'u',
-      BROADCAST_RECORDS_MAX_BROADCAST_COUNT + 20,
+      BROADCAST_RECORDS_MAX_COUNT_PER_CLASS - 1,
       buildSettledRecord,
       1000,
     );
@@ -120,13 +122,13 @@ describe('SimpleDbEntityBroadcastRecords', () => {
 
     expect(data.records.awaitingBookkeeping).toBeDefined();
     expect(data.records.newest).toBeDefined();
+    expect(data.records.u0).toBeDefined();
     expect(Object.keys(data.records)).toHaveLength(
-      BROADCAST_RECORDS_MAX_BROADCAST_COUNT,
+      BROADCAST_RECORDS_MAX_COUNT_PER_CLASS + 1,
     );
-    expect(data.records.u0).toBeUndefined();
   });
 
-  it('never lets successes evict an ambiguous record, even the oldest one', async () => {
+  it('caps every class independently by its own newer records', async () => {
     const entity = new SimpleDbEntityBroadcastRecords();
     const setRawData = jest
       .spyOn(entity, 'setRawData')
@@ -139,14 +141,14 @@ describe('SimpleDbEntityBroadcastRecords', () => {
     fill(
       existing,
       's',
-      BROADCAST_RECORDS_MAX_BROADCAST_COUNT + 20,
+      BROADCAST_RECORDS_MAX_COUNT_PER_CLASS + 20,
       buildSettledRecord,
       1000,
     );
     fill(
       existing,
       'b',
-      BROADCAST_RECORDS_MAX_BROADCAST_COUNT + 20,
+      BROADCAST_RECORDS_MAX_COUNT_PER_CLASS + 20,
       buildBroadcastRecord,
       5000,
     );
@@ -156,11 +158,19 @@ describe('SimpleDbEntityBroadcastRecords', () => {
 
     expect(data.records.ambiguous).toBeDefined();
     expect(data.records.newest).toBeDefined();
-    const broadcastKept = Object.values(data.records).filter(
-      (record) => record.isBroadcast,
+    const settledKept = Object.values(data.records).filter(
+      (record) => record.isSettled,
     );
-    expect(broadcastKept).toHaveLength(BROADCAST_RECORDS_MAX_BROADCAST_COUNT);
-    expect(broadcastKept.every((record) => !record.isSettled)).toBe(true);
+    const pendingKept = Object.values(data.records).filter(
+      (record) => record.isBroadcast && !record.isSettled,
+    );
+    expect(settledKept).toHaveLength(BROADCAST_RECORDS_MAX_COUNT_PER_CLASS);
+    expect(pendingKept).toHaveLength(BROADCAST_RECORDS_MAX_COUNT_PER_CLASS);
+    // Only the oldest of each class went, never a record of another class.
+    expect(data.records.s0).toBeUndefined();
+    expect(data.records.s20).toBeDefined();
+    expect(data.records.b0).toBeUndefined();
+    expect(data.records.b20).toBeDefined();
   });
 
   it('caps ambiguous records only by newer ambiguous records', async () => {
@@ -172,7 +182,7 @@ describe('SimpleDbEntityBroadcastRecords', () => {
     fill(
       existing,
       'a',
-      BROADCAST_RECORDS_MAX_AMBIGUOUS_COUNT,
+      BROADCAST_RECORDS_MAX_COUNT_PER_CLASS,
       buildRecord,
       1000,
     );
@@ -181,7 +191,7 @@ describe('SimpleDbEntityBroadcastRecords', () => {
     const data = await applyBuilder(setRawData, { records: existing });
 
     expect(Object.keys(data.records)).toHaveLength(
-      BROADCAST_RECORDS_MAX_AMBIGUOUS_COUNT,
+      BROADCAST_RECORDS_MAX_COUNT_PER_CLASS,
     );
     expect(data.records.a0).toBeUndefined();
     expect(data.records.a1).toBeDefined();

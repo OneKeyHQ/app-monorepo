@@ -26,23 +26,33 @@ export interface IBroadcastRecordsDb {
   records: Record<string, IBroadcastRecord>;
 }
 
-// Every record carries a signed payload, so each class of record is bounded
-// by count, and eviction never takes the record a retry depends on:
-// - An ambiguous record (this runtime never got a txid) is what a retry asks
-//   the chain about. Only newer ambiguous records can push it out, never
-//   successes, so a bulk send cannot drop an early timeout before Retry is
-//   even available; the cap covers the largest batch the UI can produce.
-// - A record that reached the network is replayed on retry. Settled ones go
-//   first; one still awaiting the batch loop's bookkeeping is evicted only
-//   when newer unsettled broadcasts alone fill the cap.
+// Every record carries a signed payload, so the store is bounded by count,
+// per class, and a record is only ever evicted by newer records of its own
+// class. The cap is the largest batch the UI can produce (a CSV import of
+// 500 rows, one tx per row in the many-senders mode), so a complete batch
+// always fits and eviction never takes the record a retry depends on:
+// - An ambiguous record (this runtime never got a txid) is what a retry
+//   asks the chain about. Only newer ambiguous records can push it out, so
+//   a bulk send cannot drop an early timeout before Retry is even available.
+// - A broadcast record still awaiting the batch loop's bookkeeping is
+//   replayed and then settled on retry; successes never squeeze it out.
+// - A settled record is replayed so a retry of a landed tx is not signed
+//   again (the caller's sent list does not survive the bridge on extension
+//   and native). Pending records never count against it; only newer settled
+//   records, from later batches or direct sends, can evict it.
 // Nothing expires by age: a retry can only come from a UI that still holds
 // the unsigned tx, and the chain, not the clock, decides whether a payload
 // is still live.
-export const BROADCAST_RECORDS_MAX_AMBIGUOUS_COUNT = 500;
-export const BROADCAST_RECORDS_MAX_BROADCAST_COUNT = 100;
+export const BROADCAST_RECORDS_MAX_COUNT_PER_CLASS = 500;
 
 function newestFirst(a: IBroadcastRecord, b: IBroadcastRecord): number {
   return b.attemptedAt - a.attemptedAt;
+}
+
+function keepNewest(records: IBroadcastRecord[]): IBroadcastRecord[] {
+  return records
+    .toSorted(newestFirst)
+    .slice(0, BROADCAST_RECORDS_MAX_COUNT_PER_CLASS);
 }
 
 function trimRecords(
@@ -60,20 +70,11 @@ function trimRecords(
       ambiguous.push(record);
     }
   }
-  const keptBroadcast = broadcastUnsettled
-    .toSorted(newestFirst)
-    .slice(0, BROADCAST_RECORDS_MAX_BROADCAST_COUNT);
-  keptBroadcast.push(
-    ...settled
-      .toSorted(newestFirst)
-      .slice(0, BROADCAST_RECORDS_MAX_BROADCAST_COUNT - keptBroadcast.length),
-  );
   const kept: Record<string, IBroadcastRecord> = {};
   for (const record of [
-    ...ambiguous
-      .toSorted(newestFirst)
-      .slice(0, BROADCAST_RECORDS_MAX_AMBIGUOUS_COUNT),
-    ...keptBroadcast,
+    ...keepNewest(ambiguous),
+    ...keepNewest(broadcastUnsettled),
+    ...keepNewest(settled),
   ]) {
     kept[record.uuid] = record;
   }
