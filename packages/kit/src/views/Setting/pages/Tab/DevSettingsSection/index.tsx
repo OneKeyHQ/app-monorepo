@@ -53,7 +53,6 @@ import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
 import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
 import { navigateToReferralLanding } from '@onekeyhq/kit/src/routes/config/deeplink/referralLandingLink';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
-import { WebEmbedDevConfig } from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/WebEmbed';
 import { getPrimeFreeTrialQuotaOfUser } from '@onekeyhq/kit/src/views/Prime/utils/primeFreeTrialAccess';
 import {
   usePrimeFreeTrialAtom,
@@ -2524,16 +2523,21 @@ const BaseDevSettingsSection = () => {
                       animateOnly={ANIMATE_ONLY_OPACITY}
                       exitStyle={{ opacity: 0 }}
                     >
-                      <SectionPressItem
-                        icon="BrowserOutline"
-                        title="WebEmbedDevConfig"
-                        onPress={() => {
-                          Dialog.cancel({
-                            title: 'WebEmbedDevConfig',
-                            renderContent: <WebEmbedDevConfig />,
-                          });
-                        }}
-                      />
+                      {process.env.NODE_ENV !== 'production' &&
+                      platformEnv.isDev ? (
+                        <SectionPressItem
+                          icon="BrowserOutline"
+                          title="WebEmbedDevConfig"
+                          onPress={async () => {
+                            const { WebEmbedDevConfig } =
+                              await import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/WebEmbed');
+                            Dialog.cancel({
+                              title: 'WebEmbedDevConfig',
+                              renderContent: <WebEmbedDevConfig />,
+                            });
+                          }}
+                        />
+                      ) : null}
                       <SectionFieldItem
                         icon="ApiConnectionOutline"
                         name="disableWebEmbedApi"
