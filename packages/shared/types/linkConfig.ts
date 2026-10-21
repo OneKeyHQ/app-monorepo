@@ -1,10 +1,15 @@
 export const PRIME_GIFT_CLAIM_SUCCESS_LINK_SLOT =
   'pro2_prime_claim_success' as const;
 
+// Campaign banners on the referral Perks tab, configured in Utility link
+// config like the Prime gift claim page.
+export const REFERRAL_PERKS_BANNER_LINK_SLOT = 'referral_perks_banner' as const;
+
 export type ILinkConfigSlot =
   | 'hardware_faqs'
   | 'hardware_getstarteds'
-  | typeof PRIME_GIFT_CLAIM_SUCCESS_LINK_SLOT;
+  | typeof PRIME_GIFT_CLAIM_SUCCESS_LINK_SLOT
+  | typeof REFERRAL_PERKS_BANNER_LINK_SLOT;
 
 export type ILinkConfigItem = {
   linkId: string;

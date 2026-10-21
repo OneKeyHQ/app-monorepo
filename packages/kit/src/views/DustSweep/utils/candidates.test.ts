@@ -7,6 +7,7 @@ import type {
 import {
   buildDustSweepCandidates,
   filterDustSweepCandidates,
+  getDustSweepSlippageNotice,
   isValidDustSweepSlippage,
 } from './candidates';
 
@@ -174,13 +175,28 @@ describe('Dust Sweep candidate eligibility', () => {
   );
   it.each([
     ['0', false],
-    ['0.1', true],
+    ['0.1', false],
+    ['4.999', false],
     ['5', true],
     ['50', true],
     ['50.01', false],
     ['', false],
     ['Infinity', false],
+    ['NaN', false],
   ])('validates slippage %s', (value, valid) => {
     expect(isValidDustSweepSlippage(value)).toBe(valid);
   });
+});
+
+it.each([
+  ['5', undefined],
+  ['10', undefined],
+  ['10.01', 'tooHigh'],
+  ['20', 'tooHigh'],
+  ['0.05', 'tooLow'],
+  ['4.999', 'tooLow'],
+  ['0', 'tooLow'],
+  ['51', 'invalid'],
+] as const)('gives slippage %s the %s notice', (value, notice) => {
+  expect(getDustSweepSlippageNotice(value)).toBe(notice);
 });

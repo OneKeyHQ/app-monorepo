@@ -902,3 +902,95 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries â€
 **Root Cause**: The wallet-wide discovery key depended on presentation order and selected-chain derive resolution. The account-only fallback also omitted network-logo metadata already available in the network list.
 **Fix**: Normalize network-set keys, invalidate discovery on the actual global derive-change generation, and fill missing network logos in the account-only fallback. Existing hook tests cover reorder stability and explicit derive invalidation. These retained changes do not eliminate individual-image placeholder flicker or establish that all token-selector image issues are resolved.
 **Catchable by**: Section 5: distinguish cache identity changes from presentation changes; verify populated-list continuity, account switches, explicit invalidation, and late responses separately from individual-image loading.
+
+
+## Case: Market chart gesture ownership and independent Simple layout (OK-64931, OK-65115, OK-64930)
+**Date**: 2026-10-21 | **Platforms**: iOS, mobile layouts
+**Symptom**: Chart touches blocked iOS swipe-back, Pro indicators expanded the Simple chart, and the Simple toggle overlapped the TradingView toolbar.
+**Root Cause**: Chart and page recognizers owned the navigation edge, Simple reused Pro pane height, and an absolute toggle overlay competed with toolbar controls.
+**Fix**: Reserve the logical start edge consistently in header, native chart, price-axis and WebView gestures; preserve a 280pt plot plus 48pt controls; use the toolbar's existing right-control slot. Verify the installed native-stack implementation before interpreting start/end response bounds.
+**Catchable by**: Section 4: Update every consumer of shared contracts; Section 7: Verify real navigation and independent chart modes on iOS, including RTL.
+
+## Case: Stock status and trading-hours panel disagreed on holidays
+**Date**: 2026-10-21 | **Platforms**: iOS, Android, web, desktop
+**Symptom**: Non-Ondo stocks hid valid market status; after enabling all issuers, a holiday's 24/7 badge could open a panel highlighting regular trading.
+**Root Cause**: Issuer guards suppressed valid stock signals, while the panel's session resolver received no backend market status and fell back to clock-only session math.
+**Fix**: Remove issuer filtering and feed the panel the existing cached US market-status hook, retaining clock fallback when unavailable. Cover status updates and weekday closures for Ondo, xStocks and bstock.
+**Catchable by**: Section 4: Trace data from API through every display consumer; Section 7: Compare badge and panel states for holidays and issuer variants.
+
+## Case: Web Market bootstrap seed stopped matching default Trending order
+**Date**: 2026-10-21 | **Platforms**: web
+**Symptom**: Market cold-start CI reported missing business/list readiness despite injecting a token seed.
+**Root Cause**: Trending switched to API default sorting, but seed acquisition and both runtime matching checks still required explicit volume-descending sorting.
+**Fix**: Align the build seed query, synchronous first-frame initialization and light API seed matching with the default order; keep explicitly sorted queries isolated. Verify regression tests and the production cold-start budget.
+**Catchable by**: Section 4: Update every producer and consumer when query identity changes; Section 7: Verify first-frame rendering with unavailable network requests.
+
+## Case: Market modal root unnecessarily reserved the swipe-back edge
+**Date**: 2026-10-21 | **Platforms**: iOS (main UI runtime)
+**Symptom**: Chart and header gestures ignored the first 32pt when Swap Pro opened Market detail as a modal root, which had no horizontal back gesture.
+**Root Cause**: Edge reservation checked platform and fullscreen state without checking history in the current stack; parent modal dismissal can make `canGoBack()` true even at the inner stack root.
+**Fix**: Subscribe to the current stack index and reserve the edge only when it has a previous screen, while retaining the fullscreen exemption.
+**Catchable by**: Section 8: compare a modal root with a pushed detail, including a parent that can go back; verify edge interactions, swipe-back and fullscreen separately.
+
+## Case: Dust Sweep default network disagreed with displayed order (OK-65143)
+**Date**: 2026-10-21 | **Platforms**: Shared Dust Sweep UI
+**Symptom**: Dust Sweep opened on a network below the first displayed network, and a provisional cached choice could remain after fresh data changed the order.
+**Root Cause**: The list used total balances for ordering, while automatic selection separately ranked balances below the current dust threshold. A cached automatic choice could also become sticky.
+**Fix**: Derive the default from the first displayed network and let provisional defaults follow fresh ordering. Preserve explicit route choices, manual selection, and the executing snapshot.
+**Catchable by**: Section 4: use the displayed order as the default-selection source; Section 5: distinguish provisional defaults from user-owned state; Section 8: verify entry, re-entry, cache-to-fresh refresh, and threshold changes.
+
+## Case: Dust Sweep approval handling diverged from ordinary Swap (OK-65087)
+**Date**: 2026-10-21 | **Platforms**: Shared EVM/Tron execution and gas adapter; Desktop pre-sign runtime checks
+**Symptom**: Valid EVM/Tron quotes without approval metadata stopped with an unknown error before estimation. Review also found that the shared gas adapter dropped the legacy MegaFuel eligibility marker.
+**Root Cause**: Dust Sweep treated absent approval instructions as malformed instead of following ordinary Swap's estimation path. The gas adapter preserved newer payer fields but omitted `megafuelEligible`.
+**Fix**: Continue quotes with absent approval instructions through actual estimation and prechecks, retain rejection of explicitly malformed instructions, and preserve the legacy sponsorship marker in the shared gas result.
+**Catchable by**: Section 4: compare approval and sponsorship contracts across consumers; Section 6: cover absent, valid, malformed and contradictory approval fields plus marker-only sponsorship responses; Section 8: verify real quote/build and prechecks with an explicit stop before signing. These checks do not establish broadcast success or native runtime acceptance.
+
+## Case: Dust Sweep notification suppression waited for post-broadcast work (OK-65087)
+**Date**: 2026-10-21 | **Platforms**: Shared Dust Sweep execution
+**Symptom**: A same-chain transfer notification could arrive while decoding or history persistence was still running after a successful swap broadcast.
+**Root Cause**: Notification suppression started after the shared sender returned, although its broadcast callback already provided the transaction ID before awaited post-processing.
+**Fix**: Request suppression from the swap broadcast callback without waiting for the notification service. Use the same path for a recovered hash only after its broadcast is confirmed; keep approval hashes separate.
+**Catchable by**: Section 6: defer or reject post-broadcast processing and leave notification suppression pending; assert suppression starts before sender completion, settlement still completes, and recovery does not suppress unconfirmed or approval hashes.
+
+## Case: Dust Sweep rounded tiny nonzero receipts to zero
+**Date**: 2026-10-21 | **Platforms**: Shared Dust Sweep preview and result UI
+**Symptom**: A completed conversion could show `+0 BNB` while its fiat value was below the minimum display unit.
+**Root Cause**: Both receive displays rounded raw decimal strings to six decimal places. The state and receipt retained their precision, but tiny positive amounts disappeared at the presentation boundary.
+**Fix**: Pass raw amounts to the shared balance formatter used by Earn client amounts. Reuse its leading-zero subscript rendering for both preview and result while preserving zero and unavailable states.
+**Catchable by**: Section 6: render a tiny positive receipt and selection estimate through the real formatter, assert the subscript and significant digits, and retain normal, zero and unavailable cases.
+
+## Case: Dust Sweep custom slippage did not enforce the requested preset floor
+**Date**: 2026-10-21 | **Platforms**: Shared Dust Sweep settings and controller
+**Symptom**: Although the default and smallest preset were 5%, custom input and the raw controller setter could still select lower values.
+**Root Cause**: Validation shared ordinary Swap's positive-value boundary rather than enforcing the newly required Dust Sweep minimum.
+**Fix**: Define a Dust Sweep-only 5â€“50% range, disable confirmation outside it, and reject invalid values at the state setter so snapshots retain the same valid slippage shown in the UI.
+**Catchable by**: Section 6: exercise values immediately below and at both bounds, direct setter calls, and the slippage captured by the submission snapshot.
+
+## Case: Dust Sweep loading used status text and an unknown-token fallback
+**Date**: 2026-10-21 | **Platforms**: Shared Dust Sweep summary UI
+**Symptom**: Initial loading displayed a generic coin fallback and a disabled action labeled as syncing instead of a loading button.
+**Root Cause**: The unknown receive token was mounted before its data existed. Asset refresh only changed the action label, and the button never received its loading prop.
+**Fix**: Show a token skeleton while assets are loading and the token identity is unknown. Use a spinner-only button for initial loading and cached-asset refresh, retain a known cached token, and preserve error retry and completed actions.
+**Catchable by**: Section 6: cover cold load, cache refresh, transition to ready, refresh failure and completed-state background refresh; Section 8: inspect actual spinner and skeleton rendering.
+
+## Case: Dust Sweep selected network remained clipped in the horizontal strip
+**Date**: 2026-10-21 | **Platforms**: Horizontal Dust Sweep network selector
+**Symptom**: Selecting a partially visible network at the end of the strip left its chip cut off by the viewport.
+**Root Cause**: The plain horizontal ScrollView had no selected-item layout registration or scroll behavior.
+**Fix**: Reuse Swap's ScrollableFilterBar, pass the selected network ID, and register each chip's layout under that same ID. Preserve the existing chip appearance, execution lock and compact network menu.
+**Catchable by**: Section 8: click clipped chips near both edges, verify complete visibility after scrolling, and repeat after viewport resizing; confirm execution cannot change the network.
+
+## Case: Home startup included on-demand NFC dialog animations
+**Date**: 2026-10-21 | **Platforms**: Native main UI JS runtime
+**Symptom**: The Native startup size gate failed although the module-count budget passed. The CI report exceeded 14 MiB by 477 bytes; local absolute source paths made the same graph larger.
+**Root Cause**: Home backup and import hooks synchronously reached two OneKey Lite animation JSON files used only inside NFC dialogs. Keeping require calls inside callbacks did not remove these assets from Metro's synchronous dependency graph.
+**Fix**: Load a display-only animation component through the existing LazyLoad boundary. Keep dialog dimensions reserved outside that boundary and retain all NFC event, permission, confirmation and connection callbacks unchanged.
+**Catchable by**: Section 6: check Android immediate connection and transfer events, iOS confirmation, both animation sources and dimensions; Section 8: rebuild the Union graph, prove the JSON assets moved out of main startup, and run both runtime budgets plus architecture and stable module-ID checks without relaxing limits.
+
+## Case: Dust Sweep balance formatting invalidated its cache on every render
+**Date**: 2026-10-21 | **Platforms**: Shared Dust Sweep preview and result UI
+**Symptom**: Unrelated summary renders recomputed balance formatting even when the amount and token symbol were unchanged.
+**Root Cause**: Inline formatter options changed object identity on every parent render. The shared numeric component uses that identity as a formatting memo dependency, while its locale is read globally rather than listed in the memo dependencies.
+**Fix**: Memoize each options object by token symbol and key the numeric component by the current locale so language changes rebuild the cached numeric output. Keep the shared formatter and amount calculations unchanged.
+**Catchable by**: Section 6: trace the shared formatter's memo dependencies and rerender both receipt and estimate with changed token symbols and locale-specific decimal/group separators while the raw amount stays fixed.

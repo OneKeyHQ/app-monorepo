@@ -23,7 +23,6 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   IDustSweepItem,
-  IDustSweepQuoteFailure,
   IDustSweepReason,
   IDustSweepToken,
 } from '@onekeyhq/shared/types/swap/dustSweep';
@@ -49,8 +48,11 @@ export function getDustSweepReasonMessage(
   nativeTokenSymbol?: string,
   providerErrorMessage?: string,
 ) {
-  if (reason === 'noQuote' && providerErrorMessage?.trim())
-    return providerErrorMessage;
+  if (
+    (reason === 'noQuote' || reason === 'txFailed') &&
+    providerErrorMessage?.trim()
+  )
+    return providerErrorMessage.trim();
   if (reason === 'insufficientGas') {
     const symbol = nativeTokenSymbol?.trim();
     return symbol
@@ -65,13 +67,26 @@ export function getDustSweepReasonMessage(
   return intl.formatMessage({ id: dustSweepReasonMessageIds[reason] });
 }
 
+// The reason a token row shows; the result breakdown groups by the same text.
+export function getDustSweepItemReasonMessage(
+  intl: ReturnType<typeof useIntl>,
+  item: IDustSweepItem,
+  nativeTokenSymbol?: string,
+) {
+  return getDustSweepReasonMessage(
+    intl,
+    item.reason ?? 'unknown',
+    nativeTokenSymbol,
+    item.providerErrorMessage,
+  );
+}
+
 const DustSweepTokenRowBase = ({
   token,
   selected,
   item,
   paused,
   onToggle,
-  quoteFailure,
   nativeTokenSymbol,
 }: {
   token?: IDustSweepToken;
@@ -79,22 +94,19 @@ const DustSweepTokenRowBase = ({
   item?: IDustSweepItem;
   paused?: boolean;
   onToggle?: (key: string) => void;
-  quoteFailure?: IDustSweepQuoteFailure;
   nativeTokenSymbol?: string;
 }) => {
   const intl = useIntl();
-  const reasonText = getDustSweepReasonMessage(
-    intl,
-    item?.reason ?? quoteFailure?.reason ?? 'unknown',
-    nativeTokenSymbol,
-    item?.providerErrorMessage ?? quoteFailure?.providerErrorMessage,
-  );
-  const reasonDescription =
-    item?.status === 'unknown'
-      ? intl.formatMessage({ id: ETranslations.swap_review_tx_pending })
-      : reasonText;
-  const unverified = !!token?.suspicious && !item && !quoteFailure;
-  let statusLabel = quoteFailure ? reasonText : token?.name;
+  let reasonDescription: string | undefined;
+  if (item)
+    reasonDescription =
+      item.submissionErrorMessage ||
+      (item.status === 'unknown'
+        ? intl.formatMessage({ id: ETranslations.swap_review_tx_pending })
+        : getDustSweepItemReasonMessage(intl, item, nativeTokenSymbol));
+  // Errors only surface once the sweep starts, as the leading status icon.
+  const unverified = !!token?.suspicious && !item;
+  let statusLabel = token?.name;
   if (unverified)
     statusLabel = intl.formatMessage({ id: ETranslations.global_unverified });
   if (item?.status === 'preparing')
@@ -107,7 +119,10 @@ const DustSweepTokenRowBase = ({
     statusLabel = intl.formatMessage({ id: ETranslations.global_pending });
   let statusIcon;
   if (item) {
-    if (['preparing', 'signing', 'broadcasted'].includes(item.status))
+    if (
+      ['preparing', 'signing', 'broadcasted'].includes(item.status) &&
+      !item.submissionErrorMessage
+    )
       statusIcon = (
         <SwapStepStatusIcon isLoading success={false} failed={false} />
       );
@@ -115,20 +130,25 @@ const DustSweepTokenRowBase = ({
       statusIcon = (
         <SwapStepStatusIcon isLoading={false} success failed={false} />
       );
-    else if (['failed', 'skipped', 'unknown'].includes(item.status))
+    else if (
+      ['failed', 'skipped', 'unknown'].includes(item.status) ||
+      item.submissionErrorMessage
+    )
       statusIcon = (
         <Tooltip
           renderTrigger={
             <IconButton
               testID={`dust-sweep-reason-${token?.key}`}
               icon={
-                item.status === 'unknown'
+                item.status === 'unknown' && !item.submissionErrorMessage
                   ? 'ClockTimeHistoryOutline'
-                  : 'XCircleSolid'
+                  : 'InfoCircleSolid'
               }
               iconProps={{
                 color:
-                  item.status === 'unknown' ? '$iconSubdued' : '$iconCritical',
+                  item.status === 'unknown' && !item.submissionErrorMessage
+                    ? '$iconSubdued'
+                    : '$iconCritical',
               }}
               size="small"
               variant="tertiary"
@@ -136,7 +156,8 @@ const DustSweepTokenRowBase = ({
               my={0}
               p={0}
               width={20}
-              height={32}
+              height={20}
+              minHeight={20}
               hitSlop={12}
               accessibilityLabel={reasonDescription}
               onPress={
@@ -246,7 +267,6 @@ const DustSweepTokenRowBase = ({
               size="$bodyMd"
               color="$textSubdued"
               sourceCurrency="usd"
-              targetCurrency="usd"
               formatter="value"
             >
               {token.valueUsd}

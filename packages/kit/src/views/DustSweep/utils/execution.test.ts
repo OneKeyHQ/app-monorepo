@@ -8,14 +8,22 @@ import type {
   prepareMarketDirectUnsignedTx,
   sendMarketDirectUnsignedTxs,
 } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/hooks/marketDirectSendTx';
+import { buildSwapReviewState } from '@onekeyhq/kit/src/views/Swap/utils/buildSwapReviewState';
 import type { getSwapRequiredNativeBalanceAmount } from '@onekeyhq/kit/src/views/Swap/utils/swapBalanceUtils';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
+import { withBroadcastTxContext } from '@onekeyhq/shared/src/errors/utils/broadcastTxErrorUtils';
 import type {
   IDustSweepSnapshot,
   IDustSweepToken,
 } from '@onekeyhq/shared/types/swap/dustSweep';
-import { ESwapTxHistoryStatus } from '@onekeyhq/shared/types/swap/types';
+import {
+  EProtocolOfExchange,
+  ESwapQuoteKind,
+  ESwapStepType,
+  ESwapTabSwitchType,
+  ESwapTxHistoryStatus,
+} from '@onekeyhq/shared/types/swap/types';
 import type {
   IFetchQuoteResult,
   ISwapApproveAllowanceResponse,
@@ -40,6 +48,7 @@ const mockEstimateApprovals: jest.MockedFunction<
   typeof estimateMarketApproveGasInfos
 > = jest.fn();
 const mockHistory = jest.fn();
+const mockBlockNotification = jest.fn();
 const mockBalance = jest.fn();
 const mockGasRequirement: jest.MockedFunction<
   typeof getSwapRequiredNativeBalanceAmount
@@ -48,6 +57,7 @@ const mockGasRequirement: jest.MockedFunction<
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
   default: {
+    serviceNotification: { blockNotificationForTxId: mockBlockNotification },
     serviceSwap: {
       fetchApproveAllowanceForDisplay: mockAllowance,
       fetchBuildTx: mockBuild,
@@ -152,6 +162,7 @@ function createOptions() {
     onPrepared: jest.fn(),
     onApprovalBroadcast: jest.fn(),
     onBroadcast: jest.fn(),
+    onSubmissionError: jest.fn(),
     generateSwapHistoryItem: jest.fn(),
   };
 }
@@ -246,6 +257,7 @@ describe('Dust Sweep serial execution boundaries', () => {
       gasInfos: params.approveUnsignedTxArr.map(() => createGasEntry()),
     }));
     mockHistory.mockReset().mockResolvedValue(undefined);
+    mockBlockNotification.mockReset().mockResolvedValue(undefined);
     mockBalance
       .mockReset()
       .mockResolvedValue({ isSufficient: true, balance: '100' });
@@ -403,6 +415,7 @@ describe('Dust Sweep serial execution boundaries', () => {
         expect(mockFetchQuote).toHaveBeenCalledTimes(1);
         expect(mockBuild).toHaveBeenCalledTimes(1);
         expect(mockSend).toHaveBeenCalledTimes(1);
+        expect(mockBlockNotification).not.toHaveBeenCalled();
       }
       return {
         state: ESwapTxHistoryStatus.SUCCESS,
@@ -433,6 +446,11 @@ describe('Dust Sweep serial execution boundaries', () => {
     });
     expect(mockSend.mock.calls[1][0].gasInfos).toBeUndefined();
     expect(mockSend.mock.calls[1][0].approveUnsignedTxArr).toBeUndefined();
+    expect(mockBlockNotification).toHaveBeenCalledTimes(1);
+    expect(mockBlockNotification).toHaveBeenCalledWith({
+      networkId: snapshot.networkId,
+      tx: 'swap',
+    });
     expect(mockTxState).toHaveBeenLastCalledWith(
       expect.objectContaining({ orderId: 'after', ctx: { order: 'after' } }),
     );
@@ -1378,6 +1396,283 @@ describe('Dust Sweep serial execution boundaries', () => {
     expect(mockHistory).not.toHaveBeenCalled();
   });
 
+  it.each([
+    { protocol: EProtocolOfExchange.LIMIT },
+    { protocol: EProtocolOfExchange.STOCK },
+    { protocol: EProtocolOfExchange.PRIVATE_SEND },
+    { kind: ESwapQuoteKind.BUY },
+  ])(
+    'rejects a build with a mismatched trade contract: %j',
+    async (contract) => {
+      mockBuild.mockResolvedValue({
+        result: { ...createQuote(), ...contract },
+      });
+      const options = createOptions();
+      await expect(executeDustSweepItem(options)).rejects.toMatchObject({
+        reason: 'unknown',
+      });
+      expect(mockPayload).not.toHaveBeenCalled();
+      expect(mockAllowance).not.toHaveBeenCalled();
+      expect(mockSend).not.toHaveBeenCalled();
+      expect(options.onSigning).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each([false, true])(
+    'suppresses notifications before deferred sender post-processing completes (post-processing failure=%s)',
+    async (fails) => {
+      let releaseSender = () => {};
+      const postProcessing = new Promise<void>((resolve) => {
+        releaseSender = resolve;
+      });
+      let observeBroadcast = () => {};
+      const broadcast = new Promise<void>((resolve) => {
+        observeBroadcast = resolve;
+      });
+      mockBlockNotification.mockReturnValue(new Promise(() => {}));
+      mockSend.mockImplementationOnce(async (params) => {
+        await sendTransaction(params);
+        observeBroadcast();
+        await postProcessing;
+        if (fails)
+          throw new OneKeyLocalError('History unavailable after broadcast');
+        return [];
+      });
+      const options = createOptions();
+      const completion = executeDustSweepItem(options);
+      try {
+        await broadcast;
+        expect(mockBlockNotification).toHaveBeenCalledTimes(1);
+        expect(mockBlockNotification).toHaveBeenCalledWith({
+          networkId: snapshot.networkId,
+          tx: 'swap',
+        });
+        expect(options.onBroadcast).toHaveBeenCalledWith('swap');
+        expect(mockHistory).not.toHaveBeenCalled();
+      } finally {
+        releaseSender();
+        await completion;
+      }
+      await expect(completion).resolves.toMatchObject({ status: 'success' });
+      expect(mockSend).toHaveBeenCalledTimes(1);
+      expect(mockBlockNotification).toHaveBeenCalledTimes(1);
+      expect(mockHistory).toHaveBeenCalledTimes(1);
+    },
+  );
+
+  it.each([false, true])(
+    'suppresses same-chain transfer notifications after broadcast (notification failure=%s)',
+    async (fails) => {
+      if (fails)
+        mockBlockNotification.mockRejectedValue(
+          new Error('Notification unavailable'),
+        );
+      mockSend.mockImplementation(async (params) => {
+        expect(mockBlockNotification).not.toHaveBeenCalled();
+        return sendTransaction(params);
+      });
+      await expect(
+        executeDustSweepItem(createOptions()),
+      ).resolves.toMatchObject({ status: 'success' });
+      expect(mockBlockNotification).toHaveBeenCalledWith({
+        networkId: snapshot.networkId,
+        tx: 'swap',
+      });
+      expect(mockHistory).toHaveBeenCalledTimes(1);
+    },
+  );
+
+  describe.each([
+    ['evm--1', 'ETH', 18],
+    ['tron--0x2b6653dc', 'TRX', 6],
+  ] as const)(
+    '%s approval response contract',
+    (networkId, symbol, decimals) => {
+      it.each([
+        'absent',
+        'explicit-approved',
+        'missing-target',
+        'unapproved',
+        'conflicting-approved',
+        'final-gas-reject',
+      ] as const)('handles approval metadata: %s', async (approvalState) => {
+        const networkToken = { ...token, networkId };
+        const networkSnapshot = {
+          ...snapshot,
+          networkId,
+          tokens: [networkToken],
+          nativeToken: { ...snapshot.nativeToken, networkId, symbol, decimals },
+        };
+        let approvedInfo: IFetchQuoteResult['approvedInfo'];
+        if (approvalState === 'unapproved')
+          approvedInfo = { isApproved: false };
+        else if (
+          approvalState === 'explicit-approved' ||
+          approvalState === 'conflicting-approved'
+        )
+          approvedInfo = { isApproved: true };
+        const quote: IFetchQuoteResult = {
+          ...createQuote(),
+          fromTokenInfo: networkToken,
+          toTokenInfo: networkSnapshot.nativeToken,
+          allowanceResult:
+            approvalState === 'missing-target' ||
+            approvalState === 'conflicting-approved'
+              ? { allowanceTarget: '', amount: token.amount }
+              : undefined,
+          approvedInfo,
+        };
+        mockFetchQuote.mockResolvedValue(quote);
+        mockBuild.mockResolvedValue({ result: quote });
+        mockGasRequirement.mockReturnValue({
+          token: networkSnapshot.nativeToken,
+          amount: '0.1',
+          reserveAmount: '0.1',
+          includesFromAmount: false,
+        });
+        const options = {
+          ...createOptions(),
+          token: networkToken,
+          snapshot: networkSnapshot,
+        };
+        if (approvalState === 'final-gas-reject') {
+          mockBalance.mockImplementation(async ({ token: checked }) => ({
+            isSufficient: !checked.isNative,
+            balance: '0',
+          }));
+          await expect(executeDustSweepItem(options)).rejects.toMatchObject({
+            reason: 'insufficientGas',
+          });
+          expect(options.onSigning).not.toHaveBeenCalled();
+        } else if (
+          approvalState !== 'absent' &&
+          approvalState !== 'explicit-approved'
+        ) {
+          await expect(executeDustSweepItem(options)).rejects.toMatchObject({
+            reason: 'unknown',
+          });
+          expect(mockSend).not.toHaveBeenCalled();
+          expect(options.onSigning).not.toHaveBeenCalled();
+        } else {
+          const ordinarySwap = buildSwapReviewState({
+            accountId: snapshot.accountId,
+            networkId,
+            quoteResult: quote,
+            swapType: ESwapTabSwitchType.SWAP,
+            supportPreBuild: false,
+            texts: {
+              wrap: 'Wrap',
+              approveAndSwap: 'Approve and swap',
+              approveAndSign: 'Approve and sign',
+              revokeApprove: 'Revoke',
+              approveToken: 'Approve',
+              approveTokenWithTarget: 'Approve',
+              signAndSubmit: 'Sign and submit',
+              sign: 'Sign',
+              confirmSwap: 'Confirm',
+              swap: 'Swap',
+            },
+          });
+          expect(ordinarySwap.steps.map((step) => step.type)).toEqual([
+            ESwapStepType.SEND_TX,
+          ]);
+          await expect(executeDustSweepItem(options)).resolves.toMatchObject({
+            status: 'success',
+          });
+          expect(mockSend).toHaveBeenCalledTimes(1);
+          const params = mockSend.mock.calls[0][0];
+          expect(params.buildUnsignedParams.approveInfo).toBeUndefined();
+          expect(mockGasRequirement).toHaveBeenCalledWith(
+            expect.objectContaining({
+              networkId,
+              fromToken: networkToken,
+              fromAmount: networkToken.amount,
+            }),
+          );
+          expect(mockBalance).toHaveBeenCalledWith(
+            expect.objectContaining({
+              token: networkSnapshot.nativeToken,
+              amount: '0.1',
+            }),
+          );
+        }
+        expect(mockAllowance).not.toHaveBeenCalled();
+        expect(mockPrepare).not.toHaveBeenCalled();
+      });
+    },
+  );
+
+  it.each([false, true])(
+    'reserves actual Solana ATA rent before signing (sponsored=%s)',
+    async (sponsored) => {
+      const solToken = { ...token, networkId: 'sol--101' };
+      const solSnapshot = {
+        ...snapshot,
+        networkId: solToken.networkId,
+        tokens: [solToken],
+        nativeToken: {
+          ...snapshot.nativeToken,
+          networkId: solToken.networkId,
+          symbol: 'SOL',
+          decimals: 9,
+        },
+      };
+      const quote = {
+        ...createQuote(),
+        fromTokenInfo: solToken,
+        toTokenInfo: solSnapshot.nativeToken,
+        allowanceResult: undefined,
+      };
+      mockFetchQuote.mockResolvedValue(quote);
+      mockBuild.mockResolvedValue({ result: quote });
+      mockGasRequirement.mockImplementation(
+        jest.requireActual<
+          typeof import('@onekeyhq/kit/src/views/Swap/utils/swapBalanceUtils')
+        >('@onekeyhq/kit/src/views/Swap/utils/swapBalanceUtils')
+          .getSwapRequiredNativeBalanceAmount,
+      );
+      mockBalance.mockImplementation(async ({ token: checked, amount }) => ({
+        isSufficient: !checked.isNative || Number(amount) <= 0.001,
+        balance: checked.isNative ? '0.001' : solToken.amount,
+      }));
+      const gas: IMarketGasInfoEntry = {
+        encodeTx: {},
+        gasInfo: {
+          common: {
+            baseFee: '0.00002',
+            feeDecimals: 9,
+            feeSymbol: 'SOL',
+            nativeDecimals: 9,
+            nativeSymbol: 'SOL',
+          },
+          feeSol: { computeUnitPrice: '0' },
+          payer: sponsored ? 'megafuel' : 'user',
+        },
+      };
+      mockSend.mockImplementation(async (params) => {
+        await params.validateFinalGasInfos?.(
+          [gas],
+          [{ encodedTx: {}, solanaRent: '0.002' }],
+        );
+        return sendTransaction({ ...params, validateFinalGasInfos: undefined });
+      });
+      const options = {
+        ...createOptions(),
+        token: solToken,
+        snapshot: solSnapshot,
+      };
+      await expect(executeDustSweepItem(options)).rejects.toMatchObject({
+        reason: 'insufficientGas',
+      });
+      expect(mockBalance).toHaveBeenCalledWith(
+        expect.objectContaining({ amount: sponsored ? '0.002' : '0.00202' }),
+      );
+      expect(options.onSigning).not.toHaveBeenCalled();
+      expect(options.onBroadcast).not.toHaveBeenCalled();
+      expect(mockPrepare).not.toHaveBeenCalled();
+    },
+  );
+
   it('does not apply EVM value semantics to a Tron payload', async () => {
     const tronToken = { ...token, networkId: 'tron--0x2b6653dc' };
     const tronSnapshot = {
@@ -1446,6 +1741,341 @@ describe('Dust Sweep serial execution boundaries', () => {
       DustSweepUserCanceled,
     );
   });
+
+  it.each([ESwapTxHistoryStatus.SUCCESS, ESwapTxHistoryStatus.FAILED])(
+    'resolves a nonce API error from the exact signed hash to %s without resending',
+    async (state) => {
+      jest.useFakeTimers();
+      const controller = new AbortController();
+      const txId = `0x${'12'.repeat(32)}`;
+      const message = 'Nonce (265) has already been used; next nonce is 266';
+      mockSend.mockImplementationOnce(async (params) => {
+        await params.onBeforeSignAndSend?.();
+        expect(params.preserveBroadcastTxIdOnError).toBe(true);
+        throw withBroadcastTxContext(
+          Object.assign(new Error(message), {
+            className: EOneKeyErrorClassNames.OneKeyServerApiError,
+            code: 40_024,
+          }),
+          { networkId: snapshot.networkId, txId },
+        );
+      });
+      mockTxState
+        .mockResolvedValueOnce({ state: ESwapTxHistoryStatus.PENDING })
+        .mockResolvedValueOnce({
+          state,
+          dealReceiveAmount: '0.009',
+          blockNumber:
+            state === ESwapTxHistoryStatus.FAILED ? 12_345 : undefined,
+        })
+        .mockResolvedValue({ state: ESwapTxHistoryStatus.PENDING });
+      const options = { ...createOptions(), signal: controller.signal };
+      let outcome: unknown;
+      const completion = executeDustSweepItem(options).then(
+        (result) => {
+          outcome = result;
+        },
+        (error: unknown) => {
+          outcome = error;
+        },
+      );
+      try {
+        await jest.advanceTimersByTimeAsync(0);
+        expect(options.onSigning).toHaveBeenCalledTimes(1);
+        expect(options.onSubmissionError).toHaveBeenCalledWith(message);
+        expect(options.onBroadcast).not.toHaveBeenCalled();
+        expect(mockBlockNotification).not.toHaveBeenCalled();
+        expect(options.onPrepared).not.toHaveBeenCalled();
+        expect(mockHistory).not.toHaveBeenCalled();
+        await jest.advanceTimersByTimeAsync(3000);
+        expect(outcome).toMatchObject({
+          status: state === ESwapTxHistoryStatus.SUCCESS ? 'success' : 'failed',
+        });
+        expect(options.onBroadcast).toHaveBeenCalledTimes(1);
+        expect(options.onBroadcast).toHaveBeenCalledWith(txId);
+        expect(mockBlockNotification).toHaveBeenCalledTimes(1);
+        expect(mockBlockNotification).toHaveBeenCalledWith({
+          networkId: snapshot.networkId,
+          tx: txId,
+        });
+        expect(mockHistory).toHaveBeenCalledTimes(1);
+        expect(mockHistory).toHaveBeenCalledWith(
+          expect.objectContaining({ txId }),
+        );
+        expect(mockTxState).toHaveBeenCalledTimes(2);
+        expect(
+          mockTxState.mock.calls.every(([params]) => params.txId === txId),
+        ).toBe(true);
+        expect(mockSend).toHaveBeenCalledTimes(1);
+        expect(jest.getTimerCount()).toBe(0);
+      } finally {
+        controller.abort();
+        await completion;
+        jest.useRealTimers();
+      }
+    },
+  );
+
+  describe.each(['swap', 'approval'] as const)('recovered %s hash', (kind) => {
+    const txId = `0x${'34'.repeat(32)}`;
+    const message = 'Nonce (265) has already been used; next nonce is 266';
+
+    beforeEach(() => {
+      if (kind === 'approval') {
+        mockAllowance.mockResolvedValueOnce(
+          createAllowance({ isApproved: false, approveAmounted: '0' }),
+        );
+      }
+      mockSend.mockImplementationOnce(async (params) => {
+        await params.onBeforeSignAndSend?.();
+        throw withBroadcastTxContext(
+          Object.assign(new OneKeyLocalError(message), {
+            className: EOneKeyErrorClassNames.OneKeyServerApiError,
+            code: 40_024,
+          }),
+          { networkId: snapshot.networkId, txId },
+        );
+      });
+    });
+
+    it.each([
+      { scenario: 'pending', blockNumber: undefined },
+      ...[undefined, 0, -1, 0.5, Number.NaN, Number.POSITIVE_INFINITY].map(
+        (blockNumber) => ({
+          scenario: 'failed-without-valid-block',
+          blockNumber,
+        }),
+      ),
+      { scenario: 'transport-error', blockNumber: undefined },
+      { scenario: 'hung-read', blockNumber: undefined },
+    ])(
+      'blocks within 60 seconds for $scenario (blockNumber=$blockNumber) without recording a broadcast or resending',
+      async ({ scenario, blockNumber }) => {
+        jest.useFakeTimers();
+        const controller = new AbortController();
+        const options = { ...createOptions(), signal: controller.signal };
+        let resolveRead:
+          | ((value: Awaited<ReturnType<typeof mockTxState>>) => void)
+          | undefined;
+        if (scenario === 'pending') {
+          mockTxState.mockResolvedValue({
+            state: ESwapTxHistoryStatus.PENDING,
+          });
+        } else if (scenario === 'failed-without-valid-block') {
+          mockTxState.mockResolvedValue({
+            state: ESwapTxHistoryStatus.FAILED,
+            blockNumber,
+          });
+        } else if (scenario === 'transport-error') {
+          mockTxState.mockRejectedValue(
+            new OneKeyLocalError('RPC unavailable'),
+          );
+        } else {
+          mockTxState.mockImplementation(
+            () =>
+              new Promise((resolve) => {
+                resolveRead = resolve;
+              }),
+          );
+        }
+        let outcome: unknown;
+        const completion = executeDustSweepItem(options).then(
+          (result) => {
+            outcome = result;
+          },
+          (error: unknown) => {
+            outcome = error;
+          },
+        );
+        try {
+          await jest.advanceTimersByTimeAsync(59_999);
+          expect(outcome).toBeUndefined();
+          await jest.advanceTimersByTimeAsync(1);
+          expect(outcome).toBeInstanceOf(DustSweepUnknownSubmission);
+          expect(outcome).toMatchObject({ submissionErrorMessage: message });
+          expect(controller.signal.aborted).toBe(false);
+          expect(options.onSigning).toHaveBeenCalledTimes(1);
+          expect(options.onSubmissionError).toHaveBeenCalledWith(message);
+          expect(options.onBroadcast).not.toHaveBeenCalled();
+          expect(options.onApprovalBroadcast).not.toHaveBeenCalled();
+          expect(options.onPrepared).not.toHaveBeenCalled();
+          expect(mockHistory).not.toHaveBeenCalled();
+          expect(mockSend).toHaveBeenCalledTimes(1);
+          expect(
+            mockTxState.mock.calls.every(([params]) => params.txId === txId),
+          ).toBe(true);
+          const pollsAtDeadline = mockTxState.mock.calls.length;
+          resolveRead?.({ state: ESwapTxHistoryStatus.SUCCESS });
+          await jest.advanceTimersByTimeAsync(60_000);
+          expect(mockTxState).toHaveBeenCalledTimes(pollsAtDeadline);
+          expect(mockHistory).not.toHaveBeenCalled();
+          expect(options.onBroadcast).not.toHaveBeenCalled();
+          expect(options.onApprovalBroadcast).not.toHaveBeenCalled();
+          expect(mockSend).toHaveBeenCalledTimes(1);
+          expect(jest.getTimerCount()).toBe(0);
+        } finally {
+          controller.abort();
+          await completion;
+          jest.useRealTimers();
+        }
+      },
+    );
+
+    it('cleans up its confirmation deadline when its parent aborts', async () => {
+      jest.useFakeTimers();
+      const controller = new AbortController();
+      const options = { ...createOptions(), signal: controller.signal };
+      mockTxState.mockImplementation(() => new Promise(() => {}));
+      const completion = executeDustSweepItem(options).catch(
+        (error: unknown) => error,
+      );
+      try {
+        await jest.advanceTimersByTimeAsync(0);
+        expect(mockTxState).toHaveBeenCalledTimes(1);
+        controller.abort();
+        const outcome: unknown = await completion;
+        expect(outcome).toBeInstanceOf(DustSweepUnknownSubmission);
+        expect(outcome).toMatchObject({ submissionErrorMessage: message });
+        expect(jest.getTimerCount()).toBe(0);
+        await jest.advanceTimersByTimeAsync(60_000);
+        expect(mockTxState).toHaveBeenCalledTimes(1);
+        expect(options.onBroadcast).not.toHaveBeenCalled();
+        expect(options.onApprovalBroadcast).not.toHaveBeenCalled();
+        expect(options.onPrepared).not.toHaveBeenCalled();
+        expect(mockHistory).not.toHaveBeenCalled();
+        expect(mockSend).toHaveBeenCalledTimes(1);
+      } finally {
+        controller.abort();
+        await completion;
+        jest.useRealTimers();
+      }
+    });
+  });
+
+  it.each([ESwapTxHistoryStatus.SUCCESS, ESwapTxHistoryStatus.FAILED])(
+    'confirms a recovered approval as %s before retaining it or signing a swap',
+    async (state) => {
+      jest.useFakeTimers();
+      const controller = new AbortController();
+      const txId = `0x${'56'.repeat(32)}`;
+      mockAllowance.mockResolvedValueOnce(
+        createAllowance({ isApproved: false, approveAmounted: '0' }),
+      );
+      mockSend.mockImplementationOnce(async (params) => {
+        await params.onBeforeSignAndSend?.();
+        throw withBroadcastTxContext(new OneKeyLocalError('timeout'), {
+          networkId: snapshot.networkId,
+          txId,
+        });
+      });
+      mockTxState
+        .mockResolvedValueOnce({ state: ESwapTxHistoryStatus.PENDING })
+        .mockResolvedValueOnce({
+          state,
+          blockNumber:
+            state === ESwapTxHistoryStatus.FAILED ? 12_345 : undefined,
+        });
+      const options = { ...createOptions(), signal: controller.signal };
+      let outcome: unknown;
+      const completion = executeDustSweepItem(options).then(
+        (result) => {
+          outcome = result;
+        },
+        (error: unknown) => {
+          outcome = error;
+        },
+      );
+      try {
+        await jest.advanceTimersByTimeAsync(0);
+        expect(options.onApprovalBroadcast).not.toHaveBeenCalled();
+        expect(options.onPrepared).not.toHaveBeenCalled();
+        expect(options.onBroadcast).not.toHaveBeenCalled();
+        expect(mockHistory).not.toHaveBeenCalled();
+        expect(mockSend).toHaveBeenCalledTimes(1);
+        await jest.advanceTimersByTimeAsync(3000);
+        expect(options.onApprovalBroadcast).toHaveBeenCalledTimes(1);
+        expect(options.onApprovalBroadcast).toHaveBeenCalledWith([txId]);
+        expect(options.onBroadcast).not.toHaveBeenCalledWith(txId);
+        expect(
+          mockTxState.mock.calls.filter(([params]) => params.txId === txId),
+        ).toHaveLength(2);
+        if (state === ESwapTxHistoryStatus.SUCCESS) {
+          expect(outcome).toMatchObject({ status: 'success' });
+          expect(options.onBroadcast).toHaveBeenCalledWith('swap');
+          expect(mockSend).toHaveBeenCalledTimes(2);
+          expect(mockHistory).toHaveBeenCalledTimes(1);
+          expect(mockHistory).toHaveBeenCalledWith(
+            expect.objectContaining({ txId: 'swap' }),
+          );
+        } else {
+          expect(outcome).toBeInstanceOf(DustSweepSkip);
+          expect(outcome).toMatchObject({ reason: 'txFailed' });
+          expect(options.onBroadcast).not.toHaveBeenCalled();
+          expect(mockSend).toHaveBeenCalledTimes(1);
+          expect(mockHistory).not.toHaveBeenCalled();
+        }
+        expect(jest.getTimerCount()).toBe(0);
+      } finally {
+        controller.abort();
+        await completion;
+        jest.useRealTimers();
+      }
+    },
+  );
+
+  it('preserves the API message but blocks a submission with no usable signed hash', async () => {
+    const message = 'Nonce (265) has already been used';
+    mockSend.mockImplementationOnce(async (params) => {
+      await params.onBeforeSignAndSend?.();
+      throw Object.assign(new Error(message), {
+        className: EOneKeyErrorClassNames.OneKeyServerApiError,
+        code: 40_024,
+      });
+    });
+    await expect(executeDustSweepItem(createOptions())).rejects.toMatchObject({
+      submissionErrorMessage: message,
+    });
+    expect(mockTxState).not.toHaveBeenCalled();
+    expect(mockSend).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([false, true])(
+    'does not classify an EVM slippage response as a Solana rejection (hash: %s)',
+    async (hasHash) => {
+      const txId = `0x${'78'.repeat(32)}`;
+      mockSend.mockImplementationOnce(async (params) => {
+        await params.onBeforeSignAndSend?.();
+        const error = Object.assign(new Error('Slippage exceeded'), {
+          className: EOneKeyErrorClassNames.OneKeyServerApiError,
+          code: 40_036,
+        });
+        throw hasHash
+          ? withBroadcastTxContext(error, {
+              networkId: snapshot.networkId,
+              txId,
+            })
+          : error;
+      });
+      const options = createOptions();
+      const operation = executeDustSweepItem(options);
+      if (hasHash) {
+        await expect(operation).resolves.toMatchObject({ status: 'success' });
+        expect(mockTxState).toHaveBeenCalledWith(
+          expect.objectContaining({ txId }),
+        );
+        expect(options.onBroadcast).toHaveBeenCalledWith(txId);
+        expect(mockHistory).toHaveBeenCalledTimes(1);
+      } else {
+        await expect(operation).rejects.toBeInstanceOf(
+          DustSweepUnknownSubmission,
+        );
+        expect(mockTxState).not.toHaveBeenCalled();
+        expect(options.onBroadcast).not.toHaveBeenCalled();
+        expect(mockHistory).not.toHaveBeenCalled();
+      }
+      expect(mockSend).toHaveBeenCalledTimes(1);
+    },
+  );
 
   it('keeps a broadcast successful when the send history write fails', async () => {
     mockSend.mockImplementation(async (params: ISendParams) => {

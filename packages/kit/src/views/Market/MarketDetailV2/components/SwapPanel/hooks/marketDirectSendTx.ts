@@ -32,11 +32,16 @@ import {
   BATCH_SEND_TXS_FEE_UP_RATIO_FOR_SWAP,
 } from '@onekeyhq/shared/src/consts/walletConsts';
 import { OneKeyError } from '@onekeyhq/shared/src/errors';
+import {
+  EGasAccountRequestStage,
+  markGasAccountRequestStage,
+} from '@onekeyhq/shared/src/errors/utils/gasAccountErrorUtils';
 import type { IGasAccountAnalyticsContext } from '@onekeyhq/shared/src/logger/scopes/transaction/types';
 import { calculateFeeForSend } from '@onekeyhq/shared/src/utils/feeUtils';
 import { applyCustomPriorityFeeToGasInfo } from '@onekeyhq/shared/src/utils/marketPresetFeeUtils';
 import type {
   IEstimateFeeParams,
+  IEstimateGasResp,
   IFeeAlgo,
   IFeeCkb,
   IFeeDot,
@@ -78,6 +83,7 @@ export type IMarketGasInfoEntry = {
 export class MarketDirectFeeOverflowError extends OneKeyError {}
 
 type IMarketDirectSendParams = {
+  preserveBroadcastTxIdOnError?: boolean;
   rejectFeeInfoOverflow?: boolean;
   onBeforeSignAndSend?: () => void | Promise<void>;
   onBroadcast?: (signedTx: ISendTxOnSuccessData['signedTx']) => void;
@@ -96,7 +102,10 @@ type IMarketDirectSendParams = {
   customPriorityFee?: IMarketPresetPriorityFeeOverride;
   tronResourceRentalInfo?: ITronResourceRentalInfo;
   useDefaultRpc?: boolean;
-  validateFinalGasInfos?: (gasInfos: IMarketGasInfoEntry[]) => Promise<void>;
+  validateFinalGasInfos?: (
+    gasInfos: IMarketGasInfoEntry[],
+    unsignedTxs?: IUnsignedTxPro[],
+  ) => Promise<void>;
   gasAccountAnalytics?: {
     fiatCurrency?: string;
     nativeBalance?: string;
@@ -193,10 +202,12 @@ function buildGasInfo(
     feeAlgo?: IFeeAlgo[];
     feeDot?: IFeeDot[];
     feeBudget?: IFeeSui[];
+    megafuelEligible?: IEstimateGasResp['megafuelEligible'];
     payer?: IGasPayer;
     gasAccountEligible?: boolean;
     gasAccountQuote?: IGasAccountQuote;
     gasAccountScenarioReason?: string;
+    gasAccountSkipReason?: string;
   },
   gasCommon: {
     baseFee?: string;
@@ -226,14 +237,15 @@ function buildGasInfo(
     customPriorityFee,
     estimateFeeParams,
   });
-  // Carry Gas Account sponsorship result from estimate-fee so the send path can
-  // attach the broadcast quoteId for sponsored Market Pro swaps.
+  // Preserve both sponsorship formats, including MegaFuel responses without payer.
   return {
     ...gasInfo,
+    megafuelEligible: gasRes.megafuelEligible,
     payer: gasRes.payer,
     gasAccountEligible: gasRes.gasAccountEligible,
     gasAccountQuote: gasRes.gasAccountQuote,
     gasAccountScenarioReason: gasRes.gasAccountScenarioReason,
+    gasAccountSkipReason: gasRes.gasAccountSkipReason,
   };
 }
 
@@ -1213,6 +1225,7 @@ async function updateUnsignedTxAndSendTx({
   gasAccountAnalytics,
   onBeforeSignAndSend,
   onBroadcast,
+  preserveBroadcastTxIdOnError,
   rejectFeeInfoOverflow,
 }: {
   shouldReportSendError?: IMarketDirectSendParams['shouldReportSendError'];
@@ -1227,6 +1240,7 @@ async function updateUnsignedTxAndSendTx({
   gasAccountAnalytics?: IMarketDirectSendParams['gasAccountAnalytics'];
   onBeforeSignAndSend?: IMarketDirectSendParams['onBeforeSignAndSend'];
   onBroadcast?: IMarketDirectSendParams['onBroadcast'];
+  preserveBroadcastTxIdOnError?: boolean;
   rejectFeeInfoOverflow?: boolean;
 }): Promise<ISendTxOnSuccessData> {
   const feeInfo = buildMarketGasInfoFeeInfo(gasInfo);
@@ -1343,6 +1357,7 @@ async function updateUnsignedTxAndSendTx({
           await onBeforeSignAndSend?.();
           return backgroundApiProxy.serviceSend.signAndSendTransaction({
             ...sendTxParams,
+            preserveBroadcastTxIdOnError,
             gasAccountUiState: uiState,
           });
         },
@@ -1425,6 +1440,7 @@ export async function sendMarketDirectUnsignedTxs({
   gasAccountAnalytics,
   onBeforeSignAndSend,
   onBroadcast,
+  preserveBroadcastTxIdOnError,
   rejectFeeInfoOverflow,
 }: IMarketDirectSendParams): Promise<ISendTxOnSuccessData[]> {
   if (!accountId || !networkId || !accountAddress) {
@@ -1465,20 +1481,27 @@ export async function sendMarketDirectUnsignedTxs({
     needFreshGasForSponsor ||
     !unsignedTxArr.every((tx) => findGasInfo(gasInfosFinal, tx.encodedTx))
   ) {
-    gasInfosFinal = await resolveMarketGasInfos({
-      analyticsSwapInfo,
-      accountAddress,
-      accountId,
-      networkId,
-      unsignedTx,
-      approveUnsignedTxArr,
-      networkFeeLevel,
-      customPriorityFee,
-      quoteResult,
-    });
+    try {
+      gasInfosFinal = await resolveMarketGasInfos({
+        analyticsSwapInfo,
+        accountAddress,
+        accountId,
+        networkId,
+        unsignedTx,
+        approveUnsignedTxArr,
+        networkFeeLevel,
+        customPriorityFee,
+        quoteResult,
+      });
+    } catch (error) {
+      // Nothing was signed or broadcast yet. Tag the failure so the caller's
+      // catch does not read a result-unknown sponsor code (90200/90205/90219)
+      // returned by estimate-fee as "the tx may already be submitted".
+      throw markGasAccountRequestStage(error, EGasAccountRequestStage.Estimate);
+    }
   }
 
-  await validateFinalGasInfos?.(gasInfosFinal);
+  await validateFinalGasInfos?.(gasInfosFinal, unsignedTxArr);
 
   for (const [unsignedTxIndex, unsignedTxItem] of unsignedTxArr.entries()) {
     const gasInfoEntry = findGasInfo(gasInfosFinal, unsignedTxItem.encodedTx);
@@ -1496,6 +1519,7 @@ export async function sendMarketDirectUnsignedTxs({
         rejectFeeInfoOverflow,
         onBeforeSignAndSend,
         onBroadcast,
+        preserveBroadcastTxIdOnError,
         shouldReportSendError,
         accountId,
         networkId,
@@ -1521,6 +1545,7 @@ export async function sendMarketDirectUnsignedTxs({
                       }
                     : item,
                 ),
+                unsignedTxArr.slice(unsignedTxIndex),
               )
           : undefined,
         gasAccountAnalytics,
