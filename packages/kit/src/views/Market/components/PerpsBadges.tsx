@@ -692,6 +692,7 @@ const StockMarketStatusBadge = memo(
     variant?: 'badge' | 'inline';
     showLastUpdate?: boolean;
   }) => {
+    const [openAfterLoad, setOpenAfterLoad] = useState(false);
     if (!stock) {
       return null;
     }
@@ -703,9 +704,28 @@ const StockMarketStatusBadge = memo(
         showLastUpdate={showLastUpdate}
       />
     );
+    if (stock.isUSListing === false) {
+      return trigger;
+    }
     return (
-      <Suspense fallback={trigger}>
-        <TradingHoursTrigger stock={stock} renderTrigger={trigger} />
+      <Suspense
+        fallback={
+          <Stack
+            cursor="pointer"
+            onPress={(event) => {
+              event.stopPropagation();
+              setOpenAfterLoad(true);
+            }}
+          >
+            {trigger}
+          </Stack>
+        }
+      >
+        <TradingHoursTrigger
+          stock={stock}
+          renderTrigger={trigger}
+          defaultOpen={openAfterLoad}
+        />
       </Suspense>
     );
   },

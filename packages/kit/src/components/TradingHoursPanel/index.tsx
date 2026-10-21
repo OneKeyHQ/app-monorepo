@@ -562,11 +562,13 @@ function getNodeRect(node: unknown): DOMRect | null {
 function TradingHoursHoverPopover({
   stock,
   renderTrigger,
+  defaultOpen = false,
 }: {
   stock: IMarketStockInfo;
   renderTrigger: ReactNode;
+  defaultOpen?: boolean;
 }) {
-  const [isOpen, setIsOpen] = useState(false);
+  const [isOpen, setIsOpen] = useState(defaultOpen);
   const triggerRef = useRef<unknown>(null);
   const contentRef = useRef<unknown>(null);
 
@@ -697,12 +699,23 @@ function TradingHoursHoverPopover({
 export function TradingHoursTrigger({
   stock,
   renderTrigger,
+  defaultOpen = false,
 }: {
   stock: IMarketStockInfo;
   renderTrigger: ReactNode;
+  defaultOpen?: boolean;
 }) {
   const media = useMedia();
   const useSheetDialog = platformEnv.isNative || media.md;
+  const openOnLoad = useRef(defaultOpen);
+  useEffect(() => {
+    if (openOnLoad.current) {
+      openOnLoad.current = false;
+      if (useSheetDialog && stock.isUSListing !== false) {
+        showTradingHoursDialog(stock);
+      }
+    }
+  }, [stock, useSheetDialog]);
 
   // US trading hours describe nothing about a non-US listing.
   if (stock.isUSListing === false) {
@@ -726,6 +739,10 @@ export function TradingHoursTrigger({
   }
 
   return (
-    <TradingHoursHoverPopover stock={stock} renderTrigger={renderTrigger} />
+    <TradingHoursHoverPopover
+      stock={stock}
+      renderTrigger={renderTrigger}
+      defaultOpen={openOnLoad.current}
+    />
   );
 }

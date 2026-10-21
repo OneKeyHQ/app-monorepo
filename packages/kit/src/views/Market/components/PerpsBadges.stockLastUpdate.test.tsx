@@ -1,7 +1,7 @@
 /** @jest-environment jsdom */
-import type { PropsWithChildren, ReactNode } from 'react';
+import type { MouseEventHandler, PropsWithChildren } from 'react';
 
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { resolveUSMarketStatusVariant } from '@onekeyhq/shared/src/utils/tradingHoursUtils';
@@ -14,22 +14,34 @@ jest.mock('react-intl', () => ({
   useIntl: () => ({ formatMessage: ({ id }: { id: string }) => id }),
 }));
 
+const mockShowTradingHoursDialog = jest.fn();
+
 jest.mock('@onekeyhq/components', () => ({
+  Dialog: {
+    show: (...args: unknown[]) => {
+      mockShowTradingHoursDialog(...args);
+    },
+  },
   Icon: () => null,
   Image: () => null,
   SizableText: ({ children }: PropsWithChildren) => <span>{children}</span>,
-  Stack: ({ children }: PropsWithChildren) => <div>{children}</div>,
+  Stack: ({
+    children,
+    onPress,
+  }: PropsWithChildren<{ onPress?: MouseEventHandler<HTMLButtonElement> }>) => (
+    <button type="button" onClick={onPress}>
+      {children}
+    </button>
+  ),
   XStack: ({ children }: PropsWithChildren) => <div>{children}</div>,
   YStack: ({ children }: PropsWithChildren) => <div>{children}</div>,
-  useMedia: () => ({ gtMd: true }),
+  useMedia: () => ({ md: true }),
   LazyTooltip: () => null,
   LazyPopover: () => null,
 }));
 
-jest.mock('@onekeyhq/kit/src/components/TradingHoursPanel', () => ({
-  TradingHoursTrigger: ({ renderTrigger }: { renderTrigger: ReactNode }) => (
-    <div data-testid="trading-hours-trigger">{renderTrigger}</div>
-  ),
+jest.mock('@onekeyhq/kit/src/hooks/useInterval', () => ({
+  useInterval: () => undefined,
 }));
 
 jest.mock('@onekeyhq/kit/src/hooks/useFormatDate', () => ({
@@ -94,17 +106,39 @@ describe('StockIsOpenBadge last update segment', () => {
     jest.useRealTimers();
   });
 
-  it('keeps the status visible while the trading-hours trigger loads', async () => {
+  it('opens trading hours after loading without opening the parent token selector', async () => {
     mockResolveVariant.mockReturnValue(EUSMarketStatusVariant.Closed);
-    render(<StockMarketStatusBadge stock={stock} />);
-
-    expect(
-      screen.getByText(ETranslations.trading_hours_market_closed),
-    ).toBeTruthy();
-    const trigger = await screen.findByTestId('trading-hours-trigger');
-    expect(trigger.textContent).toContain(
-      ETranslations.trading_hours_market_closed,
+    const openTokenSelector = jest.fn();
+    const { rerender } = render(
+      <div
+        role="button"
+        tabIndex={0}
+        onKeyDown={openTokenSelector}
+        onClick={openTokenSelector}
+      >
+        <StockMarketStatusBadge stock={stock} />
+      </div>,
     );
+
+    fireEvent.click(
+      screen.getByText(ETranslations.trading_hours_market_closed),
+    );
+    expect(openTokenSelector).not.toHaveBeenCalled();
+    await waitFor(() =>
+      expect(mockShowTradingHoursDialog).toHaveBeenCalledTimes(1),
+    );
+
+    rerender(
+      <div
+        role="button"
+        tabIndex={0}
+        onKeyDown={openTokenSelector}
+        onClick={openTokenSelector}
+      >
+        <StockMarketStatusBadge stock={{ ...stock, isOpen: true }} />
+      </div>,
+    );
+    expect(mockShowTradingHoursDialog).toHaveBeenCalledTimes(1);
   });
 
   it.each(['ondo', 'xstock', 'bstock'])(
