@@ -78,7 +78,6 @@ export function DustSweepResult({
         .easing(Easing.out(Easing.cubic))
         .withInitialValues({ transform: [{ translateY: 24 }] });
   const allFailed = outcome === 'failed';
-  const completed = state.phase === 'completed';
   return (
     <Stack width="100%" flexShrink={0}>
       <Animated.View entering={entering} style={{ width: '100%' }}>
@@ -136,17 +135,14 @@ export function DustSweepResult({
           <DustSweepResultBreakdown state={state} collapsible={!desktop} />
           {desktop ? null : (
             <YStack width="100%" mt="$6" gap="$2.5">
-              {/* Details only while a submission is still unconfirmed. */}
-              {completed ? null : (
-                <Button
-                  testID="dust-sweep-view-details"
-                  height={46}
-                  minHeight={46}
-                  onPress={onDetails}
-                >
-                  {intl.formatMessage({ id: ETranslations.global_details })}
-                </Button>
-              )}
+              <Button
+                testID="dust-sweep-view-details"
+                height={46}
+                minHeight={46}
+                onPress={onDetails}
+              >
+                {intl.formatMessage({ id: ETranslations.global_details })}
+              </Button>
               <Button
                 testID="dust-sweep-result-again"
                 height={46}

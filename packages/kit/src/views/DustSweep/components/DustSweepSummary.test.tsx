@@ -421,14 +421,16 @@ it('shows an all-failed desktop result with expanded reasons and no amount', () 
   expect(screen.queryByTestId('dust-sweep-result-again')).toBeNull();
 });
 
-it('collapses mobile skip reasons behind the Skipped row and offers Done', () => {
+it('collapses mobile skip reasons and keeps Details available before Done', () => {
   const onAgain = jest.fn();
+  const onDetails = jest.fn();
   render(
     <DustSweepResult
       state={completedState([
         { key: 'a', status: 'skipped', reason: 'noQuote' },
       ])}
       onAgain={onAgain}
+      onDetails={onDetails}
     />,
   );
 
@@ -438,7 +440,9 @@ it('collapses mobile skip reasons behind the Skipped row and offers Done', () =>
   fireEvent.click(screen.getByTestId('dust-sweep-result-skipped'));
   expect(screen.queryByTestId('dust-sweep-skip-reasons')).toBeNull();
 
-  expect(screen.queryByTestId('dust-sweep-view-details')).toBeNull();
+  fireEvent.click(screen.getByTestId('dust-sweep-view-details'));
+  expect(onDetails).toHaveBeenCalledTimes(1);
+  expect(onAgain).not.toHaveBeenCalled();
   expect(screen.getByTestId('dust-sweep-result-again').textContent).toBe(
     ETranslations.global_done,
   );

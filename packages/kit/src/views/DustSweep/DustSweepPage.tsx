@@ -146,9 +146,7 @@ function DustSweepResultDialog({
     <ScrollView maxHeight={maxHeight}>
       <DustSweepResult
         state={state}
-        onDetails={
-          state.phase === 'completed' ? onClose : () => setShowDetails(true)
-        }
+        onDetails={() => setShowDetails(true)}
         onAgain={state.phase === 'completed' ? onAgain : onClose}
       />
     </ScrollView>
@@ -381,10 +379,7 @@ function DustSweepPageContent() {
     },
     [state, sweepAgain, visibleLeaveDialog],
   );
-  const onDetails = useCallback(
-    () => showResult(state.phase !== 'completed'),
-    [showResult, state.phase],
-  );
+  const onDetails = useCallback(() => showResult(true), [showResult]);
   useEffect(() => {
     if (
       desktop ||
