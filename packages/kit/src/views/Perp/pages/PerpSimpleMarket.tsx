@@ -424,31 +424,12 @@ function SimpleMarketContent() {
           {currentPosition ? (
             <>
               <Button
-                testID="perps-simple-add-position"
-                flex={1}
-                size="medium"
-                minHeight={48}
-                borderRadius="$full"
-                variant="secondary"
-                disabled={!valid || submitting}
-                onPress={() =>
-                  order(
-                    currentPosition.position.coin,
-                    new BigNumber(currentPosition.position.szi).gt(0)
-                      ? 'long'
-                      : 'short',
-                  )
-                }
-              >
-                {intl.formatMessage({ id: ETranslations.add_position__action })}
-              </Button>
-              <Button
                 testID="perps-simple-close-position"
                 flex={1}
                 size="medium"
                 minHeight={48}
                 borderRadius="$full"
-                variant="primary"
+                variant="secondary"
                 disabled={!valid || submitting}
                 onPress={() =>
                   showClosePositionDialog({
@@ -461,6 +442,25 @@ function SimpleMarketContent() {
                 {intl.formatMessage({
                   id: ETranslations.perp_position_close_short,
                 })}
+              </Button>
+              <Button
+                testID="perps-simple-add-position"
+                flex={1}
+                size="medium"
+                minHeight={48}
+                borderRadius="$full"
+                variant="primary"
+                disabled={!valid || submitting}
+                onPress={() =>
+                  order(
+                    currentPosition.position.coin,
+                    new BigNumber(currentPosition.position.szi).gt(0)
+                      ? 'long'
+                      : 'short',
+                  )
+                }
+              >
+                {intl.formatMessage({ id: ETranslations.add_position__action })}
               </Button>
             </>
           ) : (
