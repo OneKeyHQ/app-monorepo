@@ -8,6 +8,7 @@ jest.mock('../../../dbs/local/localDbInstance', () => ({
 
 import type { IXmrRuntimeApi } from '@onekeyhq/core/src/chains/xmr/sdkXmrRuntime';
 import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
+import { ETranslationsMock } from '@onekeyhq/shared/src/locale/enum/translationsMock';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 
 import { getViewingKeyFingerprint } from '../../localWallet/viewingKeyFingerprint';
@@ -166,6 +167,20 @@ describe('xmr send: building', () => {
       key: ETranslations.send_error_insufficient_balance,
       info: { token: 'XMR' },
     });
+  });
+
+  it('words a runtime Worker that never started', async () => {
+    const { vault, runtime } = createVault();
+    jest.spyOn(runtime, 'prepareTransaction').mockRejectedValue(
+      Object.assign(new Error('xmr worker: handshake timed out'), {
+        data: { privacyChainRuntimeFailure: 'handshake' },
+      }),
+    );
+    await expect(
+      vault.buildUnsignedTx({
+        transfersInfo: [{ from: PRIMARY, to: RECIPIENT, amount: '0.001' }],
+      } as never),
+    ).rejects.toThrow(ETranslationsMock.privacy_error_runtime_unavailable__msg);
   });
 
   it('refuses a recipient that is not a Monero address on this network', async () => {

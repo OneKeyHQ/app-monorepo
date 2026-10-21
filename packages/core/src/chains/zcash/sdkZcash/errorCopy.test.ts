@@ -1,5 +1,6 @@
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
+import { ETranslationsMock } from '@onekeyhq/shared/src/locale/enum/translationsMock';
 import { loadLocaleMessages } from '@onekeyhq/shared/src/locale/localeLoaders';
 
 import { toUserFacingZcashError, zcashUserMessage } from './errorCopy';
@@ -154,4 +155,22 @@ it('names the node reason for a rejected broadcast', () => {
   ).toBe(
     `${ETranslations.privacy_error_broadcast_rejected__msg} (bad-txns-expired)`,
   );
+});
+
+// QA: a Worker that crashed at load surfaced "handshake timed out" (no code)
+// and the enable dialog said nothing.
+it('words a Worker that never started for the user, with a toast', () => {
+  const crashed = Object.assign(
+    new Error('zcash worker: handshake timed out'),
+    {
+      data: { privacyChainRuntimeFailure: 'handshake' },
+    },
+  );
+  expect(zcashUserMessage(crashed)).toBe(
+    ETranslationsMock.privacy_error_runtime_unavailable__msg,
+  );
+  expect(toUserFacingZcashError(crashed)).toMatchObject({
+    message: ETranslationsMock.privacy_error_runtime_unavailable__msg,
+    autoToast: true,
+  });
 });

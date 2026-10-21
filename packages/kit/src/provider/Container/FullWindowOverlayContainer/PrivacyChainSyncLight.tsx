@@ -15,10 +15,12 @@ import {
   useMedia,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
+import type { IIconProps, IKeyOfIcons } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useIsCellularNetwork } from '@onekeyhq/kit/src/hooks/useIsCellularNetwork';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
+  formatPrivacyChainSyncError,
   formatPrivacyChainSyncProgress,
   getPrivacyChainBackfillProgress,
   getPrivacyChainScanRegionLabelId,
@@ -55,7 +57,13 @@ function KeepScreenAwake() {
 // Always-on control for the foreground scan pace: lives app-wide, not on a page, since the pace outlives it.
 function BasicPrivacyChainSyncLight() {
   const [
-    { boostingNetworkIds, dataBlockedNetworkIds, pausedNetworkIds, progress },
+    {
+      boostingNetworkIds,
+      dataBlockedNetworkIds,
+      pausedNetworkIds,
+      progress,
+      syncErrorByNetworkId,
+    },
   ] = usePrivacyChainAtom();
   // Anchored opposite the toasts (Toast/Toaster.tsx), so a transient toast never lands on top of this persistent control.
   const intl = useIntl();
@@ -187,8 +195,14 @@ function BasicPrivacyChainSyncLight() {
     scanRegionHints,
     entry?.backfillScannedHeight,
   );
+  // A failing sync must not read as "Preparing" forever.
+  const syncErrorText = isPaused
+    ? undefined
+    : formatPrivacyChainSyncError(syncErrorByNetworkId[networkId], intl);
   let detailLine: string;
-  if (entry) {
+  if (syncErrorText) {
+    detailLine = [networkName, syncErrorText].filter(Boolean).join(' · ');
+  } else if (entry) {
     detailLine = [
       networkName,
       formatPrivacyChainSyncProgress({
@@ -205,6 +219,18 @@ function BasicPrivacyChainSyncLight() {
     detailLine = [networkName, connection].filter(Boolean).join(' · ');
   } else {
     detailLine = intl.formatMessage({ id: ETranslations.global_preparing });
+  }
+
+  let lightIcon: IKeyOfIcons = 'RefreshCcwOutline';
+  let lightIconColor: IIconProps['color'] = isRunning
+    ? '$iconInfo'
+    : '$iconSubdued';
+  if (syncErrorText) {
+    lightIcon = 'ErrorOutline';
+    lightIconColor = '$iconCaution';
+  } else if (isPaused || isHeldByData) {
+    // Two bars mean stopped by the user or the data gate; the background pace is still scanning, just slowly.
+    lightIcon = 'PauseOutline';
   }
 
   return (
@@ -240,14 +266,7 @@ function BasicPrivacyChainSyncLight() {
         pointerEvents="box-none"
       >
         <XStack gap="$2.5" alignItems="center" pointerEvents="box-none">
-          <Icon
-            // Two bars mean stopped by the user or the data gate; the background pace is still scanning, just slowly.
-            name={
-              isPaused || isHeldByData ? 'PauseOutline' : 'RefreshCcwOutline'
-            }
-            size="$5"
-            color={isRunning ? '$iconInfo' : '$iconSubdued'}
-          />
+          <Icon name={lightIcon} size="$5" color={lightIconColor} />
           <YStack flex={1} gap="$0.5">
             <SizableText size="$bodyMdMedium">{stateLabel}</SizableText>
             {detailLine ? (

@@ -29,6 +29,7 @@ import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useRouteIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import {
   formatPrivacyChainRemainingBlocks,
+  formatPrivacyChainSyncError,
   formatPrivacyChainSyncProgress,
   getPrivacyChainBackfillProgress,
   getPrivacyChainScanRegionLabelId,
@@ -49,6 +50,7 @@ import {
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type {
   ILocalWalletSlotUsage,
+  ILocalWalletSyncErrorKind,
   ILocalWalletSyncProgress,
 } from '@onekeyhq/kit-bg/src/vaults/localWallet/types';
 import { IMPL_ZCASH } from '@onekeyhq/shared/src/engine/engineConsts';
@@ -255,6 +257,7 @@ function PrivacyChainNetworkSections({
   isPaused,
   isHeldByData,
   isStorageUnsupported,
+  syncError,
   progress,
   endpointUrl,
   endpointDefaultUrl,
@@ -267,6 +270,7 @@ function PrivacyChainNetworkSections({
   isPaused: boolean;
   isHeldByData: boolean;
   isStorageUnsupported: boolean;
+  syncError: ILocalWalletSyncErrorKind | undefined;
   progress: Record<string, ILocalWalletSyncProgress>;
   endpointUrl: string | undefined;
   endpointDefaultUrl: string | undefined;
@@ -327,8 +331,13 @@ function PrivacyChainNetworkSections({
       backfilling: Boolean(behind),
     }),
   });
+  // Only while it is meant to be syncing; the scheduler keeps retrying.
+  const isMeantToSync = (enabledAccountCount ?? 0) > 0 && !isPaused;
+  const syncErrorText = isMeantToSync
+    ? formatPrivacyChainSyncError(syncError, intl)
+    : undefined;
   let stateIcon: IKeyOfIcons = 'RefreshCcwOutline';
-  if (isStorageUnsupported) {
+  if (isStorageUnsupported || syncErrorText) {
     stateIcon = 'ErrorOutline';
   } else if (enabledAccountCount === 0 || isPaused) {
     stateIcon = 'PauseOutline';
@@ -382,7 +391,11 @@ function PrivacyChainNetworkSections({
         icon={stateIcon}
         title={stateLabel}
         // Before figures arrive the row stays "— / —": unknown, not missing.
-        subtitle={enabledAccountCount === 0 ? undefined : detail || '— / —'}
+        subtitle={
+          enabledAccountCount === 0
+            ? undefined
+            : syncErrorText || detail || '— / —'
+        }
       >
         {!isStorageUnsupported &&
         enabledAccountCount !== undefined &&
@@ -632,6 +645,7 @@ export default function PrivacyNetworkSettings({
       dataBlockedNetworkIds,
       pausedNetworkIds,
       storageUnsupportedNetworkIds,
+      syncErrorByNetworkId,
       progress,
     },
   ] = usePrivacyChainAtom();
@@ -766,11 +780,19 @@ export default function PrivacyNetworkSettings({
 
   const enableAccount = useCallback(
     async (entry: IPrivacyAccountEntry) => {
-      const usage =
-        await backgroundApiProxy.servicePrivacyChain.getLocalWalletSlotUsage({
+      // Unreadable counts as room: enable enforces the limit itself and
+      // reports its own failure, so the switch never stalls silently.
+      const usage = await backgroundApiProxy.servicePrivacyChain
+        .getLocalWalletSlotUsage({
           networkId: entry.networkId,
-        });
-      if (entry.enabled || usage.max === undefined || usage.used < usage.max) {
+        })
+        .catch(() => undefined);
+      if (
+        !usage ||
+        entry.enabled ||
+        usage.max === undefined ||
+        usage.used < usage.max
+      ) {
         await startAccount(entry);
         return;
       }
@@ -1069,6 +1091,7 @@ export default function PrivacyNetworkSettings({
                 isStorageUnsupported={storageUnsupportedNetworkIds.includes(
                   soleNetworkId,
                 )}
+                syncError={syncErrorByNetworkId[soleNetworkId]}
                 progress={shownProgress}
                 endpointUrl={networkInfo?.endpointUrl}
                 endpointDefaultUrl={networkInfo?.endpointDefaultUrl}

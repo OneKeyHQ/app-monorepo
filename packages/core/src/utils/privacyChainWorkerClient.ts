@@ -19,6 +19,41 @@ import type {
 
 const DEFAULT_HANDSHAKE_TIMEOUT_MS = 15_000;
 
+/**
+ * Tags a carrier failure (the Worker never answered, crashed or was torn
+ * down) as opposed to a runtime error. Kept in `data`, which every carrier
+ * bridge forwards; `code` would read as a runtime error code.
+ */
+export type IPrivacyChainRuntimeFailure =
+  | 'handshake'
+  | 'crashed'
+  | 'invalidResponse'
+  | 'reset'
+  | 'storage';
+
+function runtimeFailureError(
+  message: string,
+  failure: IPrivacyChainRuntimeFailure,
+): OneKeyLocalError {
+  return new OneKeyLocalError({
+    message,
+    data: { privacyChainRuntimeFailure: failure },
+  });
+}
+
+export function getPrivacyChainRuntimeFailure(
+  error: unknown,
+): IPrivacyChainRuntimeFailure | undefined {
+  if (typeof error !== 'object' || error === null) return undefined;
+  const data = (error as { data?: unknown }).data;
+  if (typeof data !== 'object' || data === null) return undefined;
+  const failure = (data as { privacyChainRuntimeFailure?: unknown })
+    .privacyChainRuntimeFailure;
+  return typeof failure === 'string'
+    ? (failure as IPrivacyChainRuntimeFailure)
+    : undefined;
+}
+
 type IPendingCall = {
   resolve: (result: unknown) => void;
   reject: (error: Error) => void;
@@ -146,7 +181,10 @@ export function createPrivacyChainWorkerClient<TApi>(options: {
         new Promise<void>((_, reject) => {
           timer = setTimeout(() => {
             reject(
-              new OneKeyLocalError(`${label} worker: handshake timed out`),
+              runtimeFailureError(
+                `${label} worker: handshake timed out`,
+                'handshake',
+              ),
             );
           }, handshakeTimeoutMs);
         }),
@@ -154,7 +192,7 @@ export function createPrivacyChainWorkerClient<TApi>(options: {
     } catch (error) {
       dispose(
         current,
-        new OneKeyLocalError(`${label} worker: handshake failed`),
+        runtimeFailureError(`${label} worker: handshake failed`, 'handshake'),
       );
       throw error;
     } finally {
@@ -295,24 +333,28 @@ export function createPrivacyChainWorkerClient<TApi>(options: {
         // never let a poisoned database serve another request.
         dispose(
           current,
-          new OneKeyLocalError(`${label} worker: storage failed`),
+          runtimeFailureError(`${label} worker: storage failed`, 'storage'),
         );
       }
     };
     current.worker.onerror = (event) => {
       dispose(
         current,
-        new OneKeyLocalError(
+        runtimeFailureError(
           event?.message
             ? `${label} worker: crashed: ${event.message}`
             : `${label} worker: crashed`,
+          'crashed',
         ),
       );
     };
     current.worker.onmessageerror = () => {
       dispose(
         current,
-        new OneKeyLocalError(`${label} worker: invalid response`),
+        runtimeFailureError(
+          `${label} worker: invalid response`,
+          'invalidResponse',
+        ),
       );
     };
     state = current;
@@ -328,7 +370,7 @@ export function createPrivacyChainWorkerClient<TApi>(options: {
       if (state !== current) {
         // Torn down while this call waited to start; the replacement Worker
         // never saw the state the caller was reasoning about.
-        throw new OneKeyLocalError(`${label} worker: carrier reset`);
+        throw runtimeFailureError(`${label} worker: carrier reset`, 'reset');
       }
       return callWorker(current, method, args);
     };
@@ -345,7 +387,10 @@ export function createPrivacyChainWorkerClient<TApi>(options: {
     },
     reset: () => {
       if (state) {
-        dispose(state, new OneKeyLocalError(`${label} worker: carrier reset`));
+        dispose(
+          state,
+          runtimeFailureError(`${label} worker: carrier reset`, 'reset'),
+        );
       }
     },
   };

@@ -15,6 +15,7 @@ import {
 import { parseXmrViewingKeyPair } from '@onekeyhq/core/src/chains/xmr/viewingKeys';
 import type { IXmrViewingKeyPair } from '@onekeyhq/core/src/chains/xmr/viewingKeys';
 import type { ISignedTxPro, IUnsignedTxPro } from '@onekeyhq/core/src/types';
+import { getPrivacyChainRuntimeFailure } from '@onekeyhq/core/src/utils/privacyChainWorkerClient';
 import {
   XMR_DECIMALS,
   XMR_DEFAULT_FEE_PRIORITY,
@@ -26,6 +27,7 @@ import {
   OneKeyLocalError,
 } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
+import { ETranslationsMock } from '@onekeyhq/shared/src/locale/enum/translationsMock';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import { gateLocalWalletHistoryTx } from '@onekeyhq/shared/src/utils/privacyChainHistoryAddressGate';
@@ -155,6 +157,11 @@ async function readXmrNodeNetwork(url: string): Promise<string | undefined> {
 
 /** Maps runtime errors to actionable messages; anything not ours passes through. */
 function toXmrUserFacingError(error: unknown): unknown {
+  if (getPrivacyChainRuntimeFailure(error)) {
+    return new OneKeyLocalError(
+      ETranslationsMock.privacy_error_runtime_unavailable__msg,
+    );
+  }
   const runtime = readXmrRuntimeError(error);
   if (!runtime) return error;
   // `detail` is untranslated, log-only, but the only clue to why a node failed.

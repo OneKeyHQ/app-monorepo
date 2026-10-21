@@ -1,10 +1,11 @@
 import { createIntl } from 'react-intl';
 
 import type { ILocalWalletSyncProgress } from '@onekeyhq/kit-bg/src/vaults/localWallet/types';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { ETranslations, ETranslationsMock } from '@onekeyhq/shared/src/locale';
 
 import {
   formatPrivacyChainRemainingBlocks,
+  formatPrivacyChainSyncError,
   formatPrivacyChainSyncProgress,
   getPrivacyChainBackfillProgress,
   getPrivacyChainSyncLabel,
@@ -176,4 +177,27 @@ it('shows priority scan work advancing while the contiguous cursor stays still',
       intl,
     ),
   ).toBe('');
+});
+
+describe('formatPrivacyChainSyncError', () => {
+  const intl = createIntl({ locale: 'en' });
+
+  it('says nothing when the last sync did not fail', () => {
+    expect(formatPrivacyChainSyncError(undefined, intl)).toBeUndefined();
+  });
+
+  it('uses the node copy for an unreachable node', () => {
+    expect(formatPrivacyChainSyncError('nodeUnreachable', intl)).toBe(
+      ETranslations.privacy_error_node_unreachable__msg,
+    );
+  });
+
+  it('asks for a restart when the runtime is gone', () => {
+    expect(formatPrivacyChainSyncError('runtimeUnavailable', intl)).toBe(
+      ETranslationsMock.privacy_error_runtime_unavailable__msg,
+    );
+    expect(formatPrivacyChainSyncError('failed', intl)).toBe(
+      ETranslationsMock.privacy_sync_failed_retrying__msg,
+    );
+  });
 });

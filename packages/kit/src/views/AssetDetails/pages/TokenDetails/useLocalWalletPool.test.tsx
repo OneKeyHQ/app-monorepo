@@ -45,6 +45,7 @@ const mockGetBalance = jest.fn<
   Promise<ILocalWalletAccountBalance>,
   [IAccountParams]
 >();
+const mockEnableAccount = jest.fn<Promise<void>, [IAccountParams]>();
 
 jest.mock('@onekeyhq/shared/src/eventBus/appEventBus', () => ({
   appEventBus: {
@@ -71,6 +72,8 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
       getLocalWalletAccountBalance: (params: IAccountParams) =>
         mockGetBalance(params),
       getLocalWalletSyncProgress: async () => undefined,
+      enableLocalWalletAccount: (params: IAccountParams) =>
+        mockEnableAccount(params),
       // jest hoists this factory above the `var` declarations below.
       // eslint-disable-next-line @typescript-eslint/no-use-before-define
       getLocalWalletAccountSupport: async () => mockWalletSupport,
@@ -82,6 +85,8 @@ jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => {
   const { atom } = jest.requireActual<typeof import('jotai')>('jotai');
   const privacyChainAtomValue = atom({
     storageUnsupportedNetworkIds: [] as string[],
+    pausedNetworkIds: [] as string[],
+    syncErrorByNetworkId: {} as Record<string, string>,
   });
   return { privacyChainAtom: { atom: () => privacyChainAtomValue } };
 });
@@ -147,7 +152,10 @@ jest.mock('@onekeyhq/shared/src/utils/timerUtils', () => ({
 jest.mock('react-intl', () => ({
   useIntl: () => ({ formatMessage: ({ id }: { id: string }) => id }),
 }));
-jest.mock('@onekeyhq/kit/src/utils/privacyChainSyncDisplay', () => ({}));
+jest.mock('@onekeyhq/kit/src/utils/privacyChainSyncDisplay', () => ({
+  formatPrivacyChainSyncError: (kind?: string) =>
+    kind ? `sync-error:${kind}` : undefined,
+}));
 jest.mock('@onekeyhq/shared/src/utils/dateUtils', () => ({}));
 jest.mock('@onekeyhq/shared/src/utils/privacyChainSyncPolicy', () => ({
   PRIVACY_CHAIN_SYNC_POLL_MS: 5000,
@@ -275,11 +283,17 @@ describe('useLocalWalletPool with account data from the caller', () => {
   });
 });
 
+const setPublishedScanState = (state: Partial<IPrivacyChainScanState>) =>
+  getDefaultStore().set(privacyChainAtom.atom(), {
+    storageUnsupportedNetworkIds: [],
+    pausedNetworkIds: [],
+    syncErrorByNetworkId: {},
+    ...state,
+  } as IPrivacyChainScanState);
+
 describe('useLocalWalletPool on a device that cannot store the database', () => {
   const setStorageUnsupportedNetworkIds = (networkIds: string[]) =>
-    getDefaultStore().set(privacyChainAtom.atom(), {
-      storageUnsupportedNetworkIds: networkIds,
-    } as IPrivacyChainScanState);
+    setPublishedScanState({ storageUnsupportedNetworkIds: networkIds });
   afterEach(() => {
     setStorageUnsupportedNetworkIds([]);
   });
@@ -291,6 +305,53 @@ describe('useLocalWalletPool on a device that cannot store the database', () => 
     expect(result.current.syncStatusText).toBe(
       'privacy_error_webview_outdated__msg',
     );
+  });
+});
+
+// Background failures never toast; the sync row is where they show.
+describe('useLocalWalletPool after a failed background sync', () => {
+  afterEach(() => {
+    setPublishedScanState({});
+  });
+
+  it('says why instead of showing stale figures', async () => {
+    setPublishedScanState({
+      syncErrorByNetworkId: { [props.networkId]: 'runtimeUnavailable' },
+    });
+    const { result } = renderHook(useLocalWalletPool, { initialProps: props });
+    await flushReads();
+    expect(result.current.syncStatusText).toBe('sync-error:runtimeUnavailable');
+  });
+
+  it('stays quiet about it while the network is paused', async () => {
+    setPublishedScanState({
+      pausedNetworkIds: [props.networkId],
+      syncErrorByNetworkId: { [props.networkId]: 'nodeUnreachable' },
+    });
+    const { result } = renderHook(useLocalWalletPool, { initialProps: props });
+    await flushReads();
+    expect(result.current.syncStatusText).toBeNull();
+  });
+});
+
+describe('useLocalWalletPool enable failure', () => {
+  // The rejection carries the toast (autoToast from the background); the
+  // hook must hand it back and release the button.
+  it('rejects and ends the busy state', async () => {
+    const failure = new Error('privacy runtime unavailable');
+    mockEnableAccount.mockRejectedValueOnce(failure);
+    const { result } = renderHook(useLocalWalletPool, { initialProps: props });
+    await flushReads();
+
+    let settled: Promise<void> | undefined;
+    act(() => {
+      settled = result.current.enableAccount({ birthdayTimestamp: 1 });
+    });
+    expect(result.current.busy).toBe(true);
+    await act(async () => {
+      await expect(settled).rejects.toBe(failure);
+    });
+    expect(result.current.busy).toBe(false);
   });
 });
 

@@ -82,6 +82,7 @@ import {
 } from '../../../hooks/useDeriveTypesCollapseState';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useWalletBanner } from '../../../hooks/useWalletBanner';
+import { SetupRepairControl } from '../../AssetDetails/pages/TokenDetails/LocalWalletRepairControls';
 import { ReceiveCard, ReceiveCardCell } from '../components/ReceiveCard';
 import { ReceiveQRCode } from '../components/ReceiveQRCode';
 import {
@@ -340,17 +341,30 @@ function ReceiveToken() {
   // QR / copy / share all follow displayAddress. On-device address
   // verification must target the currently displayed form.
   const localWalletAddressForms = vaultSettings?.localWallet?.addressForms;
-  const { result: localWalletAddresses } = usePromiseResult(async () => {
-    if (!localWalletAddressForms || !currentAccount?.id || !network?.id) {
-      return undefined;
-    }
-    return backgroundApiProxy.servicePrivacyChain.getLocalWalletAccountAddresses(
-      {
-        networkId: network.id,
-        accountId: currentAccount.id,
-      },
-    );
-  }, [localWalletAddressForms, network?.id, currentAccount?.id]);
+  const { result: localWalletAddressRead, run: reloadLocalWalletAddresses } =
+    usePromiseResult(async () => {
+      if (!localWalletAddressForms || !currentAccount?.id || !network?.id) {
+        return undefined;
+      }
+      try {
+        return {
+          addresses:
+            await backgroundApiProxy.servicePrivacyChain.getLocalWalletAccountAddresses(
+              {
+                networkId: network.id,
+                accountId: currentAccount.id,
+              },
+            ),
+        };
+      } catch (error) {
+        // Shown as a retry below instead of an empty page.
+        console.error('[privacyChain] receive address read failed', {
+          error: error instanceof Error ? error.message : '',
+        });
+        return { addresses: undefined, failed: true };
+      }
+    }, [localWalletAddressForms, network?.id, currentAccount?.id]);
+  const localWalletAddresses = localWalletAddressRead?.addresses;
   const [requestedAddressForm, setReceiveAddressForm] = useState<
     'public' | 'private'
   >(localWalletAddressForm ?? 'public');
@@ -368,6 +382,10 @@ function ReceiveToken() {
     receiveAddressForm === 'private' &&
     localWalletAddresses !== undefined &&
     !localWalletPrivateAddress;
+  const isPrivateReceiveFailed =
+    !!localWalletAddressForms &&
+    receiveAddressForm === 'private' &&
+    localWalletAddressRead?.failed === true;
 
   let displayAddress = currentAccount?.address ?? '';
   if (isBtcUsedAddressVerifyMode) {
@@ -2009,6 +2027,30 @@ function ReceiveToken() {
               {renderQrCodeCell()}
               {shouldShowAddress ? renderAddressCell() : null}
             </ReceiveCard>
+          ) : null}
+          {isPrivateReceiveFailed && currentAccount && network ? (
+            <YStack
+              testID="receive-local-wallet-address-failed"
+              gap="$3"
+              alignItems="center"
+            >
+              <SizableText
+                size="$bodyMd"
+                color="$textCaution"
+                textAlign="center"
+              >
+                {intl.formatMessage({
+                  id: ETranslations.privacy_error_setup_incomplete__msg,
+                })}
+              </SizableText>
+              <SetupRepairControl
+                networkId={network.id}
+                accountId={currentAccount.id}
+                onDone={() => {
+                  void reloadLocalWalletAddresses();
+                }}
+              />
+            </YStack>
           ) : null}
           {isPrivateReceiveUnavailable && network ? (
             <YStack gap="$3" alignItems="center">

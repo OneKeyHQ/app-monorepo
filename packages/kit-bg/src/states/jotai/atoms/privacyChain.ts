@@ -1,7 +1,10 @@
 import { EAtomNames } from '../atomNames';
 import { globalAtom } from '../utils';
 
-import type { ILocalWalletSyncProgress } from '../../../vaults/localWallet/types';
+import type {
+  ILocalWalletSyncErrorKind,
+  ILocalWalletSyncProgress,
+} from '../../../vaults/localWallet/types';
 
 // Live scan state published by the scheduler after each pass; not persisted.
 
@@ -17,6 +20,8 @@ export type IPrivacyChainScanState = {
   // Networks whose runtime cannot store its database here (outdated WebView);
   // not retried this session.
   storageUnsupportedNetworkIds: string[];
+  // Networks whose last background sync failed; cleared by the next success.
+  syncErrorByNetworkId: Record<string, ILocalWalletSyncErrorKind>;
 };
 
 export const { target: privacyChainAtom, use: usePrivacyChainAtom } =
@@ -29,5 +34,6 @@ export const { target: privacyChainAtom, use: usePrivacyChainAtom } =
       dataBlockedNetworkIds: [],
       pausedNetworkIds: [],
       storageUnsupportedNetworkIds: [],
+      syncErrorByNetworkId: {},
     },
   });
