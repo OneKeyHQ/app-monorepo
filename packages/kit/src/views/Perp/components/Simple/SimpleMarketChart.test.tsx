@@ -126,19 +126,34 @@ jest.mock(
     const React = jest.requireActual('react') as typeof import('react');
     return {
       TradingViewNative: ({
+        active,
         source,
         mobileToolbarExtra,
       }: {
+        active: boolean;
         source: { coin: string };
         mobileToolbarExtra?: ReactNode;
       }) => {
+        const [viewport, setViewport] = React.useState('latest');
         React.useEffect(() => {
+          if (!active) return;
           mockSubscribe(source.coin);
           return () => {
             mockUnsubscribe(source.coin);
           };
-        }, [source.coin]);
-        return <div data-testid="candle-chart">{mobileToolbarExtra}</div>;
+        }, [active, source.coin]);
+        return (
+          <div data-testid="candle-chart">
+            <button
+              type="button"
+              data-testid="chart-pan"
+              onClick={() => setViewport('historical')}
+            >
+              {viewport}
+            </button>
+            {mobileToolbarExtra}
+          </div>
+        );
       },
     };
   },
@@ -147,7 +162,7 @@ jest.mock(
 beforeEach(() => jest.clearAllMocks());
 
 it.each([true, false])(
-  'releases candles on blur and restores the selected mode on focus (native: %s)',
+  'pauses candles on blur while retaining the viewport on focus (native: %s)',
   (isNative) => {
     (platformEnv as { isNative: boolean }).isNative = isNative;
     const { getByTestId, queryByTestId, rerender } = render(
@@ -156,15 +171,17 @@ it.each([true, false])(
     fireEvent.click(getByTestId('perps-simple-chart-mode-toggle'));
     expect(mockSubscribe).toHaveBeenCalledTimes(1);
     expect(mockSubscribe).toHaveBeenCalledWith('BTC');
+    fireEvent.click(getByTestId('chart-pan'));
 
     rerender(<SimpleMarketChart coin="BTC" active={false} />);
-    expect(queryByTestId('candle-chart')).toBeNull();
+    expect(getByTestId('chart-pan').textContent).toBe('historical');
     expect(queryByTestId('perps-simple-market-chart')).toBeNull();
     expect(mockUnsubscribe).toHaveBeenCalledTimes(1);
     expect(mockUnsubscribe).toHaveBeenCalledWith('BTC');
 
     rerender(<SimpleMarketChart coin="BTC" active />);
     expect(getByTestId('candle-chart')).toBeTruthy();
+    expect(getByTestId('chart-pan').textContent).toBe('historical');
     expect(mockSubscribe).toHaveBeenCalledTimes(2);
     fireEvent.click(getByTestId('perps-simple-chart-mode-toggle'));
     expect(getByTestId('perps-simple-market-chart')).toBeTruthy();

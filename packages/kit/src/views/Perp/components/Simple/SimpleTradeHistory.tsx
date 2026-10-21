@@ -51,7 +51,7 @@ export function SimpleTradeHistory({ coin }: { coin?: string }) {
   const showMore = () =>
     navigation.pushModal(EModalRoutes.PerpModal, {
       screen: EModalPerpRoutes.PerpTradersHistoryList,
-      params: { initialTab: 'Trades', coin },
+      params: { initialTab: 'Trades', coin, sourceSimpleMarketCoin: coin },
     });
 
   return (

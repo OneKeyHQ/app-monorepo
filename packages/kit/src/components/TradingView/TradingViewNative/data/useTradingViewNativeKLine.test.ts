@@ -310,6 +310,57 @@ describe('TradingViewNative K-line data state machine', () => {
     jest.restoreAllMocks();
   });
 
+  it('pauses an inactive chart and resumes without replacing its historical data', async () => {
+    mockFetchHistory.mockResolvedValue(buildResponse(100, 1_000_000));
+    const { result, rerender } = renderHook(
+      ({ active }) =>
+        useTradingViewNativeKLine({
+          active,
+          source: {
+            kind: 'hyperliquid',
+            coin: 'BTC',
+            environment: 'mainnet',
+          },
+        }),
+      { initialProps: { active: true } },
+    );
+    await waitFor(() => expect(result.current.points).toHaveLength(1));
+    expect(mockSubscribeRealtime).toHaveBeenCalledTimes(1);
+    const points = result.current.points;
+    const staleListener = realtimePointListener;
+    rerender({ active: false });
+    await waitFor(() => expect(mockUnsubscribe).toHaveBeenCalledTimes(1));
+    act(() => staleListener?.(buildResponse(200, 1_003_600).points[0]));
+    expect(result.current.points).toBe(points);
+    rerender({ active: true });
+    await waitFor(() => expect(mockSubscribeRealtime).toHaveBeenCalledTimes(2));
+    expect(result.current.points).toBe(points);
+    expect(mockFetchHistory).toHaveBeenCalledTimes(1);
+    pushRealtimePoint(buildResponse(200, 1_003_600).points[0]);
+    await waitFor(() => expect(result.current.points).toHaveLength(2));
+  });
+
+  it('pauses polling while inactive and resumes it on focus', async () => {
+    jest.useFakeTimers();
+    mockFetchHistory.mockResolvedValue(buildResponse(100, 1_000_000));
+    const { rerender } = renderHook(
+      ({ active }) =>
+        useTradingViewNativeKLine({
+          active,
+          source: { kind: 'asset', assetId: 'BTC' },
+        }),
+      { initialProps: { active: true } },
+    );
+    await act(async () => jest.advanceTimersByTimeAsync(0));
+    expect(mockFetchHistory).toHaveBeenCalledTimes(1);
+    rerender({ active: false });
+    await act(async () => jest.advanceTimersByTimeAsync(60_000));
+    expect(mockFetchHistory).toHaveBeenCalledTimes(1);
+    rerender({ active: true });
+    await act(async () => jest.advanceTimersByTimeAsync(30_000));
+    expect(mockFetchHistory).toHaveBeenCalledTimes(2);
+  });
+
   it('stops after one empty stock scan and allows a manual retry', async () => {
     jest.useFakeTimers();
     const fetchStock = jest.mocked(fetchMarketStockKLineData);

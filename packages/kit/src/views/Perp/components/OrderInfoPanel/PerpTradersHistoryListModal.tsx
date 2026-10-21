@@ -295,6 +295,7 @@ export function PerpTradersHistoryListModal() {
                 </XStack>
                 <PerpTradesHistoryList
                   isMobile
+                  sourceSimpleMarketCoin={route.params?.sourceSimpleMarketCoin}
                   useTabsList={false}
                   filters={tradeHistoryFilters.filters}
                   onMarketOptionsChange={
