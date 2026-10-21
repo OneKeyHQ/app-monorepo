@@ -414,18 +414,15 @@ it('drops chain data without clearing device-wide privacy preferences', async ()
   const dropWalletDatabase = jest.fn().mockResolvedValue(undefined);
   const clearZcash = jest.fn().mockResolvedValue(undefined);
   const clearPrivacyChain = jest.fn().mockResolvedValue(undefined);
-  const removeScanStartPrompted = jest.fn().mockResolvedValue(undefined);
   const vault = Object.assign(Object.create(Vault.prototype) as Vault, {
     zcashGetApi: async () => ({ dropWalletDatabase }),
     backgroundApi: {
       simpleDb: {
         zcash: {
-          listCleanupAccountIds: async () => ['zcash-account'],
           clearRawData: clearZcash,
         },
         privacyChain: {
           clearRawData: clearPrivacyChain,
-          removeScanStartPrompted,
         },
       },
     },
@@ -433,8 +430,43 @@ it('drops chain data without clearing device-wide privacy preferences', async ()
   await vault.getLocalWalletCapability().dropLocalData?.();
   expect(dropWalletDatabase).toHaveBeenCalledTimes(1);
   expect(clearZcash).toHaveBeenCalledTimes(1);
-  expect(removeScanStartPrompted).toHaveBeenCalledWith({
-    accountId: 'zcash-account',
-  });
   expect(clearPrivacyChain).not.toHaveBeenCalled();
+});
+
+describe('zcash chain tip for month-based birthday estimates', () => {
+  function createVault(tip: number | null) {
+    const setChainTip = jest.fn().mockResolvedValue(undefined);
+    const vault = Object.assign(Object.create(Vault.prototype) as Vault, {
+      networkId: 'zec--0',
+      getLocalWalletChainTip: async () => tip,
+      backgroundApi: {
+        simpleDb: {
+          privacyChainCache: {
+            getChainTip: async () => undefined,
+            setChainTip,
+          },
+        },
+      },
+    });
+    return { vault, setChainTip };
+  }
+
+  it('saves the tip the scheduler fetches', async () => {
+    const { vault, setChainTip } = createVault(3_100_000);
+    await expect(vault.getLocalWalletCapability().getChainTip()).resolves.toBe(
+      3_100_000,
+    );
+    expect(setChainTip).toHaveBeenCalledWith({
+      networkId: 'zec--0',
+      height: 3_100_000,
+    });
+  });
+
+  it('saves nothing when no tip was learned', async () => {
+    const { vault, setChainTip } = createVault(null);
+    await expect(
+      vault.getLocalWalletCapability().getChainTip(),
+    ).resolves.toBeNull();
+    expect(setChainTip).not.toHaveBeenCalled();
+  });
 });

@@ -23,7 +23,10 @@ import type { IDeviceSharedCallParams } from '@onekeyhq/shared/types/device';
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
 import { getPrivacyModeResumeFromHeight } from '../../../services/PrivacyModeState';
-import { getLastLocalWalletChainTip } from '../../localWallet/privacyChainCacheStore';
+import {
+  getLastLocalWalletChainTip,
+  saveLastLocalWalletChainTip,
+} from '../../localWallet/privacyChainCacheStore';
 
 import {
   clampZcashBirthdayHeight,
@@ -79,7 +82,18 @@ export function getLocalWalletCapability(vault: Vault): ILocalWalletCapability {
     listSendPools: (params) => vault.listLocalWalletSendPools(params),
     prewarmSend: (params) => vault.prewarmLocalWalletSend(params),
     getAccountAliases: (params) => vault.getLocalWalletAccountAliases(params),
-    getChainTip: () => vault.getLocalWalletChainTip(),
+    getChainTip: async () => {
+      const tip = await vault.getLocalWalletChainTip();
+      // Gives month-based birthday estimates a tip without a node call.
+      if (tip !== null) {
+        await saveLastLocalWalletChainTip({
+          backgroundApi: vault.backgroundApi,
+          networkId: vault.networkId,
+          height: tip,
+        });
+      }
+      return tip;
+    },
     onWalletCreated: (params) => vault.onPrivacyWalletCreated(params),
     resumePendingOperations: () => vault.resumePendingPrivacyOperations(),
     gcWalletState: (params) => vault.gcPrivacyWalletState(params),
@@ -121,15 +135,6 @@ export function getLocalWalletCapability(vault: Vault): ILocalWalletCapability {
       const api = await vault.zcashGetApi();
       await api.dropWalletDatabase(ZCASH_NETWORK_MAIN);
       // Host journals describe the database just deleted; clear them too or they drift out of sync.
-      const accountIds =
-        await vault.backgroundApi.simpleDb.zcash.listCleanupAccountIds();
-      await Promise.all(
-        accountIds.map((accountId) =>
-          vault.backgroundApi.simpleDb.privacyChain.removeScanStartPrompted({
-            accountId,
-          }),
-        ),
-      );
       await vault.backgroundApi.simpleDb.zcash.clearRawData();
     },
     clearPendingSends: () =>
