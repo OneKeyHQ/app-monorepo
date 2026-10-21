@@ -41,6 +41,7 @@ import { calculateFeeForSend } from '@onekeyhq/shared/src/utils/feeUtils';
 import { applyCustomPriorityFeeToGasInfo } from '@onekeyhq/shared/src/utils/marketPresetFeeUtils';
 import type {
   IEstimateFeeParams,
+  IEstimateGasResp,
   IFeeAlgo,
   IFeeCkb,
   IFeeDot,
@@ -201,6 +202,7 @@ function buildGasInfo(
     feeAlgo?: IFeeAlgo[];
     feeDot?: IFeeDot[];
     feeBudget?: IFeeSui[];
+    megafuelEligible?: IEstimateGasResp['megafuelEligible'];
     payer?: IGasPayer;
     gasAccountEligible?: boolean;
     gasAccountQuote?: IGasAccountQuote;
@@ -235,10 +237,10 @@ function buildGasInfo(
     customPriorityFee,
     estimateFeeParams,
   });
-  // Carry Gas Account sponsorship result from estimate-fee so the send path can
-  // attach the broadcast quoteId for sponsored Market Pro swaps.
+  // Preserve both sponsorship formats, including MegaFuel responses without payer.
   return {
     ...gasInfo,
+    megafuelEligible: gasRes.megafuelEligible,
     payer: gasRes.payer,
     gasAccountEligible: gasRes.gasAccountEligible,
     gasAccountQuote: gasRes.gasAccountQuote,

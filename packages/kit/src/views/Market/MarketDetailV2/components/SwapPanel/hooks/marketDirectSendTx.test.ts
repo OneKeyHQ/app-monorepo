@@ -100,6 +100,8 @@ const {
 } = require('./marketDirectSendTx') as typeof import('./marketDirectSendTx');
 const { createSwapReviewAnalytics } =
   require('@onekeyhq/kit/src/views/Swap/utils/swapReviewAnalytics') as typeof import('@onekeyhq/kit/src/views/Swap/utils/swapReviewAnalytics');
+const { isSwapGasSponsored } =
+  require('@onekeyhq/kit/src/views/Swap/utils/swapGasUtils') as typeof import('@onekeyhq/kit/src/views/Swap/utils/swapGasUtils');
 
 function createUnsignedTx(
   overrides: Partial<IUnsignedTxPro> = {},
@@ -300,6 +302,73 @@ describe('marketDirectSendTx', () => {
       }),
     );
   });
+
+  it.each([true, false])(
+    'preserves MegaFuel eligibility without a payer field (sponsorable=%s)',
+    async (sponsorable) => {
+      const unsignedTx = createUnsignedTx();
+      const megafuelEligible = { sponsorable, sponsorName: 'MegaFuel' };
+      mockPrepareSendConfirmUnsignedTx.mockResolvedValue(unsignedTx);
+      mockEstimateFee.mockResolvedValue({
+        ...createEstimateFeeResult(),
+        megafuelEligible,
+      });
+
+      const { gasInfos } = await estimateMarketDirectGasInfos({
+        accountId: 'account',
+        accountAddress: '0xuser',
+        networkId: 'evm--56',
+        buildUnsignedParams: {
+          accountId: 'account',
+          networkId: 'evm--56',
+          encodedTx: unsignedTx.encodedTx,
+        },
+      });
+
+      expect(gasInfos).toHaveLength(1);
+      expect(gasInfos[0].gasInfo.megafuelEligible).toEqual(megafuelEligible);
+      expect(gasInfos[0].gasInfo.payer).toBeUndefined();
+      expect(isSwapGasSponsored(gasInfos[0].gasInfo)).toBe(sponsorable);
+    },
+  );
+
+  it.each(['evm--1', 'tron--0x2b6653dc'])(
+    'stops a swap without approval metadata when the send-time estimate rejects (%s)',
+    async (networkId) => {
+      const unsignedTx = createSponsoredUnsignedTx();
+      if (unsignedTx.swapInfo) {
+        unsignedTx.swapInfo.swapBuildResData.result.gasAccountEnabled = false;
+        unsignedTx.swapInfo.swapBuildResData.result.gasLimit = 243_000;
+      }
+      const onBeforeSignAndSend = jest.fn();
+      mockPrepareSendConfirmUnsignedTx.mockResolvedValue(unsignedTx);
+      mockEstimateFee.mockRejectedValue(new Error('Insufficient allowance'));
+
+      await expect(
+        sendMarketDirectUnsignedTxs({
+          accountId: 'account',
+          accountAddress: '0xuser',
+          networkId,
+          buildUnsignedParams: {
+            accountId: 'account',
+            networkId,
+            encodedTx: unsignedTx.encodedTx,
+            swapInfo: unsignedTx.swapInfo,
+          },
+          onBeforeSignAndSend,
+        }),
+      ).rejects.toThrow('Insufficient allowance');
+
+      expect(mockEstimateFee).toHaveBeenCalledTimes(1);
+      expect(mockBatchEstimateFee).not.toHaveBeenCalled();
+      expect(mockUpdateUnsignedTx).not.toHaveBeenCalled();
+      expect(mockPrecheckUnsignedTxs).not.toHaveBeenCalled();
+      expect(mockVerifyTransaction).not.toHaveBeenCalled();
+      expect(mockPreActionsBeforeSending).not.toHaveBeenCalled();
+      expect(onBeforeSignAndSend).not.toHaveBeenCalled();
+      expect(mockSignAndSendTransaction).not.toHaveBeenCalled();
+    },
+  );
 
   it('estimates the approved swap instead of reusing its pre-approval provider gas limit', async () => {
     const unsignedTx = createSponsoredUnsignedTx();

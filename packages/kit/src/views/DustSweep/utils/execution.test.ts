@@ -415,6 +415,7 @@ describe('Dust Sweep serial execution boundaries', () => {
         expect(mockFetchQuote).toHaveBeenCalledTimes(1);
         expect(mockBuild).toHaveBeenCalledTimes(1);
         expect(mockSend).toHaveBeenCalledTimes(1);
+        expect(mockBlockNotification).not.toHaveBeenCalled();
       }
       return {
         state: ESwapTxHistoryStatus.SUCCESS,
@@ -445,6 +446,11 @@ describe('Dust Sweep serial execution boundaries', () => {
     });
     expect(mockSend.mock.calls[1][0].gasInfos).toBeUndefined();
     expect(mockSend.mock.calls[1][0].approveUnsignedTxArr).toBeUndefined();
+    expect(mockBlockNotification).toHaveBeenCalledTimes(1);
+    expect(mockBlockNotification).toHaveBeenCalledWith({
+      networkId: snapshot.networkId,
+      tx: 'swap',
+    });
     expect(mockTxState).toHaveBeenLastCalledWith(
       expect.objectContaining({ orderId: 'after', ctx: { order: 'after' } }),
     );
@@ -1413,6 +1419,48 @@ describe('Dust Sweep serial execution boundaries', () => {
   );
 
   it.each([false, true])(
+    'suppresses notifications before deferred sender post-processing completes (post-processing failure=%s)',
+    async (fails) => {
+      let releaseSender = () => {};
+      const postProcessing = new Promise<void>((resolve) => {
+        releaseSender = resolve;
+      });
+      let observeBroadcast = () => {};
+      const broadcast = new Promise<void>((resolve) => {
+        observeBroadcast = resolve;
+      });
+      mockBlockNotification.mockReturnValue(new Promise(() => {}));
+      mockSend.mockImplementationOnce(async (params) => {
+        await sendTransaction(params);
+        observeBroadcast();
+        await postProcessing;
+        if (fails)
+          throw new OneKeyLocalError('History unavailable after broadcast');
+        return [];
+      });
+      const options = createOptions();
+      const completion = executeDustSweepItem(options);
+      try {
+        await broadcast;
+        expect(mockBlockNotification).toHaveBeenCalledTimes(1);
+        expect(mockBlockNotification).toHaveBeenCalledWith({
+          networkId: snapshot.networkId,
+          tx: 'swap',
+        });
+        expect(options.onBroadcast).toHaveBeenCalledWith('swap');
+        expect(mockHistory).not.toHaveBeenCalled();
+      } finally {
+        releaseSender();
+        await completion;
+      }
+      await expect(completion).resolves.toMatchObject({ status: 'success' });
+      expect(mockSend).toHaveBeenCalledTimes(1);
+      expect(mockBlockNotification).toHaveBeenCalledTimes(1);
+      expect(mockHistory).toHaveBeenCalledTimes(1);
+    },
+  );
+
+  it.each([false, true])(
     'suppresses same-chain transfer notifications after broadcast (notification failure=%s)',
     async (fails) => {
       if (fails)
@@ -1736,6 +1784,7 @@ describe('Dust Sweep serial execution boundaries', () => {
         expect(options.onSigning).toHaveBeenCalledTimes(1);
         expect(options.onSubmissionError).toHaveBeenCalledWith(message);
         expect(options.onBroadcast).not.toHaveBeenCalled();
+        expect(mockBlockNotification).not.toHaveBeenCalled();
         expect(options.onPrepared).not.toHaveBeenCalled();
         expect(mockHistory).not.toHaveBeenCalled();
         await jest.advanceTimersByTimeAsync(3000);
@@ -1744,6 +1793,11 @@ describe('Dust Sweep serial execution boundaries', () => {
         });
         expect(options.onBroadcast).toHaveBeenCalledTimes(1);
         expect(options.onBroadcast).toHaveBeenCalledWith(txId);
+        expect(mockBlockNotification).toHaveBeenCalledTimes(1);
+        expect(mockBlockNotification).toHaveBeenCalledWith({
+          networkId: snapshot.networkId,
+          tx: txId,
+        });
         expect(mockHistory).toHaveBeenCalledTimes(1);
         expect(mockHistory).toHaveBeenCalledWith(
           expect.objectContaining({ txId }),

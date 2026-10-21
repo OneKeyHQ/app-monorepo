@@ -645,6 +645,13 @@ export async function executeDustSweepItem(
     signal,
   );
   let txId: string | undefined;
+  const retainSwapBroadcast = (id: string) => {
+    txId = id;
+    void backgroundApiProxy.serviceNotification
+      .blockNotificationForTxId({ networkId: snapshot.networkId, tx: id })
+      .catch(() => undefined);
+    onBroadcast(id);
+  };
   let confirmedRecovery: IFetchSwapTxHistoryStatusResponse | undefined;
   const fetchSwapState = (id: string) =>
     backgroundApiProxy.serviceSwap.fetchTxState({
@@ -781,10 +788,7 @@ export async function executeDustSweepItem(
           await checkInputAndOtherFeeBalances(buildRes.result, options);
         },
         onBeforeSignAndSend,
-        onBroadcast: (signed) => {
-          txId = signed.txid;
-          onBroadcast(signed.txid);
-        },
+        onBroadcast: (signed) => retainSwapBroadcast(signed.txid),
       });
     } catch (error) {
       const context = getBroadcastTxContext(error, snapshot.networkId);
@@ -796,8 +800,7 @@ export async function executeDustSweepItem(
         signal,
         message,
       });
-      txId = context.txId;
-      onBroadcast(txId);
+      retainSwapBroadcast(context.txId);
     }
   } catch (error) {
     if (!txId) {
@@ -823,9 +826,6 @@ export async function executeDustSweepItem(
   }
   if (!txId) throw new DustSweepUnknownSubmission();
   const { execution } = prepared;
-  void backgroundApiProxy.serviceNotification
-    .blockNotificationForTxId({ networkId: snapshot.networkId, tx: txId })
-    .catch(() => undefined);
   await completeBroadcastedSwapSuccess({
     txId,
     swapInfo: execution.swapInfo,
