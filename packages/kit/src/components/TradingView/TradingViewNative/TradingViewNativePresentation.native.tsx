@@ -6,7 +6,13 @@ import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 
 import { Stack } from '@onekeyhq/components';
 
-import type { ITradingViewNativePresentationProps } from './TradingViewNativePresentation';
+import type {
+  IPushTradingViewNativeFullscreenModal,
+  ITradingViewNativePresentationProps,
+} from './TradingViewNativePresentation';
+
+export const pushTradingViewNativeFullscreenModal: IPushTradingViewNativeFullscreenModal =
+  () => false;
 
 const FullscreenChart = memo(
   ({ children }: Pick<ITradingViewNativePresentationProps, 'children'>) => (
@@ -90,4 +96,8 @@ export function TradingViewNativePresentation({
   useLayoutEffect(() => () => updateLayer(id, null), [id]);
 
   return isFullscreen ? null : children;
+}
+
+export function TradingViewNativeFullscreenPage() {
+  return null;
 }

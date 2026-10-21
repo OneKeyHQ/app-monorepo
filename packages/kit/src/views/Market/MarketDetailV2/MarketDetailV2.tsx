@@ -13,6 +13,7 @@ import { useFocusEffect, useIsFocused } from '@react-navigation/native';
 import type { IPageScreenProps } from '@onekeyhq/components';
 import {
   Page,
+  rootNavigationRef,
   useIsModalPage,
   useMedia,
   usePreventRemove,
@@ -26,6 +27,7 @@ import {
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { MARKET_TOP_COINS_CATEGORY_ID } from '@onekeyhq/shared/src/consts/marketConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { ERootRoutes } from '@onekeyhq/shared/src/routes';
 import type {
   ETabMarketRoutes,
   ITabMarketParamList,
@@ -311,12 +313,14 @@ function MarketDetail({
   const headerHeightCacheKey = useHeaderHeightCacheKey();
   const inlineHeaderHeightRef = useRef(headerHeight);
   const preserveInlineHeader =
-    platformEnv.isNativeIOS && !platformEnv.isNativeIOSPad && isChartFullscreen;
+    platformEnv.isNativeIOS &&
+    !platformEnv.isNativeIOSPad &&
+    (isChartFullscreen || !isRouteFocused);
   if (!preserveInlineHeader) {
     inlineHeaderHeightRef.current = headerHeight;
   }
-  // Ignore the hidden phone header's landscape measurements. On exit, let the
-  // existing settle window adopt the live portrait height, even if it changed.
+  // Keep the portrait header until the detail regains focus. The fullscreen
+  // flag clears before UIKit has finished restoring the portrait geometry.
   const { paddingTop: settledHeaderHeight, isSettled: isHeaderHeightSettled } =
     useSettledHeaderHeight(inlineHeaderHeightRef.current, {
       enabled: usesTranslucentHeader,
@@ -480,6 +484,7 @@ function MarketDetailV2(
       return;
     }
     navigation.setOptions({
+      orientation: platformEnv.isNativeIOSPad ? 'default' : 'portrait',
       gestureEnabled: true,
       fullScreenGestureEnabled: false,
       gestureResponseDistance: {
@@ -488,9 +493,26 @@ function MarketDetailV2(
     });
   }, [navigation]);
 
+  useLayoutEffect(() => {
+    if (!platformEnv.isNativeIOS || !effectiveIsChartFullscreen) return;
+    // Keep the underlying detail intact while its native fullscreen page opens.
+    const ownerId = createHideTabBarOwnerId('market-chart-fullscreen');
+    requestHideTabBar(ownerId);
+    return () => releaseHideTabBar(ownerId);
+  }, [effectiveIsChartFullscreen]);
+
   useFocusEffect(
     useCallback(() => {
       return () => {
+        const routes = rootNavigationRef.current?.getState().routes;
+        if (
+          platformEnv.isNativeIOS &&
+          routes?.some(
+            (route) => route.name === ERootRoutes.TradingViewNativeFullscreen,
+          )
+        ) {
+          return;
+        }
         handleChartFullscreenChange(false);
       };
     }, [handleChartFullscreenChange]),

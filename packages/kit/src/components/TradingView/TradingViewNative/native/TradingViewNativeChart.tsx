@@ -1,6 +1,7 @@
 import {
   memo,
   useCallback,
+  useContext,
   useEffect,
   useLayoutEffect,
   useMemo,
@@ -42,6 +43,8 @@ import {
 } from '../chartConstants';
 import { IndicatorPaneHandles } from '../indicatorPanes/IndicatorPaneHandles';
 import { useIndicatorPanes } from '../indicatorPanes/useIndicatorPanes';
+import { TradingViewNativeChartActiveContext } from '../TradingViewNativeChartActiveContext';
+import { TradingViewNativeChartReadyContext } from '../TradingViewNativeChartReadyContext';
 import { getTradingViewNativeChartComponentPriceAxisLabel } from '../utils/chartComponentTree';
 import { getTradingViewNativeIndicatorPriceAxisLabel } from '../utils/chartIndicators';
 import {
@@ -170,6 +173,8 @@ export const TradingViewNativeChart = memo(
       width: 0,
     });
     const canvasSize = useSharedValue({ width: 0, height: 0 });
+    const isActive = useContext(TradingViewNativeChartActiveContext);
+    const onChartReady = useContext(TradingViewNativeChartReadyContext);
     const [chartWidth, setChartWidth] = useState(0);
     const subIndicatorPanesStructureKey =
       getTradingViewNativeSubIndicatorPanesStructureKey(subIndicatorPanes);
@@ -177,10 +182,8 @@ export const TradingViewNativeChart = memo(
       chartPictureVersion,
       chartType,
     });
-    const [{ runtime: chartRuntime, decayOffset }] = useState(() => {
-      if (runtimeRef?.current) {
-        return runtimeRef.current;
-      }
+    const [chartSession] = useState(() => {
+      const previousSession = runtimeRef?.current;
       const runtime = makeMutable(
         createTradingViewNativeChartRuntime({
           candleIntervalSeconds,
@@ -197,11 +200,39 @@ export const TradingViewNativeChart = memo(
         }),
       );
       const session = { runtime, decayOffset: makeMutable(0) };
+      if (previousSession) {
+        // The fullscreen layer keeps the inline canvas mounted underneath.
+        // Keep their sizes independent and transfer the viewport on the UI
+        // runtime without deserializing the candle history back into JS.
+        scheduleOnUI(() => {
+          'worklet';
+          runtime.value = {
+            ...previousSession.runtime.value,
+            size: { width: 0, height: 0 },
+          };
+          session.decayOffset.value = previousSession.decayOffset.value;
+        });
+      }
       if (runtimeRef) {
         runtimeRef.current = session;
       }
       return session;
     });
+    const { runtime: chartRuntime, decayOffset } = chartSession;
+    useLayoutEffect(() => {
+      if (!isActive || !runtimeRef || runtimeRef.current === chartSession)
+        return;
+      const previous = runtimeRef.current;
+      runtimeRef.current = chartSession;
+      if (!previous) return;
+      // Returning to the retained inline canvas must not paint an empty frame.
+      scheduleOnUI(() => {
+        'worklet';
+        const size = chartRuntime.value.size;
+        chartRuntime.value = { ...previous.runtime.value, size };
+        decayOffset.value = previous.decayOffset.value;
+      });
+    }, [chartRuntime, chartSession, decayOffset, isActive, runtimeRef]);
     const {
       controller: drawingController,
       drawings,
@@ -481,7 +512,16 @@ export const TradingViewNativeChart = memo(
     ]);
 
     const picture = useDerivedValue(() => {
-      const runtime = chartRuntime.value;
+      // Draw against this frame's canvas bounds, before the gesture runtime's
+      // resize reaction catches up. Otherwise rotation exposes an old-sized scene.
+      const runtime = resizeTradingViewNativeChartRuntime(
+        chartRuntime.value,
+        {
+          width: Math.round(canvasSize.value.width),
+          height: Math.round(canvasSize.value.height),
+        },
+        priceAxisWidth.value,
+      );
       return createTradingViewNativeSkiaPicture({
         drawings: enableDrawings ? drawings.value : undefined,
         onScene: (scene) => {
@@ -540,6 +580,35 @@ export const TradingViewNativeChart = memo(
       timeAxisHeight,
       watermarkOpacity,
     ]);
+
+    useAnimatedReaction(
+      () =>
+        onChartReady
+          ? { size: canvasSize.value, picture: picture.value }
+          : null,
+      (current, previous) => {
+        if (
+          !onChartReady ||
+          !current ||
+          current.size.width <= 0 ||
+          current.size.height <= 0 ||
+          (previous?.size.width === current.size.width &&
+            previous.size.height === current.size.height)
+        ) {
+          return;
+        }
+        // Let Skia submit the picture before revealing the native screen.
+        requestAnimationFrame(() => {
+          if (
+            canvasSize.value.width === current.size.width &&
+            canvasSize.value.height === current.size.height
+          ) {
+            scheduleOnRN(onChartReady);
+          }
+        });
+      },
+      [onChartReady],
+    );
 
     const handleChartWidthChange = useCallback((nextChartWidth: number) => {
       setChartWidth((currentChartWidth) =>

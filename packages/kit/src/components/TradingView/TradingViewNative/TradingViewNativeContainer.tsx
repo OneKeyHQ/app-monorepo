@@ -25,6 +25,7 @@ import {
   useSwapTradingViewIndicatorSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { stableStringify } from '@onekeyhq/shared/src/utils/stringUtils';
 import { TRADING_VIEW_NATIVE_THEME_COLORS } from '@onekeyhq/shared/types/tradingViewNative';
@@ -76,7 +77,10 @@ import { TradingViewNativeChart } from './TradingViewNativeChart';
 import { TradingViewNativeChartControlsContainer } from './TradingViewNativeChartControlsContainer';
 import { TradingViewNativeChartSettingsButton } from './TradingViewNativeChartSettingsButton';
 import { TradingViewNativeFullscreenButton } from './TradingViewNativeFullscreenButton';
-import { TradingViewNativePresentation } from './TradingViewNativePresentation';
+import {
+  TradingViewNativePresentation,
+  pushTradingViewNativeFullscreenModal,
+} from './TradingViewNativePresentation';
 import { useTradingViewNativeChartComponents } from './useTradingViewNativeChartComponents';
 import {
   useTradingViewNativeChartSettings,
@@ -731,13 +735,18 @@ const TradingViewNativeContent = memo(
     }>(undefined);
     const openMobileIndicatorSettings = useCallback(
       (indicator?: ITradingViewNativeAnyIndicator) => {
-        navigation.pushModal(EModalRoutes.MarketModal, {
+        const params = {
           screen: EModalMarketRoutes.MarketIndicatorSettings,
           params: {
             storageNamespace: storageNamespace ?? 'market',
             indicatorId: indicator,
           },
-        });
+        };
+        if (
+          pushTradingViewNativeFullscreenModal(EModalRoutes.MarketModal, params)
+        )
+          return;
+        navigation.pushModal(EModalRoutes.MarketModal, params);
       },
       [navigation, storageNamespace],
     );
@@ -777,7 +786,7 @@ const TradingViewNativeContent = memo(
       (indicator?: ITradingViewNativeAnyIndicator) => {
         if (nativeControlsLayoutMode !== 'desktop') {
           pendingIndicatorSettingsRef.current = undefined;
-          if (isNativeChartFullscreen) {
+          if (isNativeChartFullscreen && !platformEnv.isNativeIOS) {
             pendingIndicatorSettingsRef.current = {
               dataProviderKey,
               indicator,
@@ -937,7 +946,11 @@ const TradingViewNativeContent = memo(
       onNativeIndicatorQuickBarChange?.(
         resolveTradingViewNativeIndicatorQuickBarState({
           isAvailabilityResolved: true,
-          quickBar: isNativeChartFullscreen ? null : nativeIndicatorQuickBar,
+          // The iOS fullscreen page covers the intact inline chart and quick bar.
+          quickBar:
+            isNativeChartFullscreen && !platformEnv.isNativeIOS
+              ? null
+              : nativeIndicatorQuickBar,
         }),
       );
     }, [

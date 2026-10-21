@@ -874,7 +874,9 @@ export function MobileLayout({
           horizontalSwipeThreshold={36}
         >
           <YStack>
-            <DelayedFreeze freeze={isChartFullscreen}>
+            <DelayedFreeze
+              freeze={isChartFullscreen && !platformEnv.isNativeIOS}
+            >
               <InformationPanel mobileDetailKind={detailKind} />
             </DelayedFreeze>
           </YStack>
@@ -1248,7 +1250,6 @@ export function MobileLayout({
         display={
           isChartFullscreen && !platformEnv.isNativeIOS ? 'none' : undefined
         }
-        opacity={isChartFullscreen && platformEnv.isNativeIOS ? 0 : 1}
         pointerEvents={isChartFullscreen ? 'none' : 'auto'}
         accessibilityElementsHidden={isChartFullscreen}
         overflow="hidden"
@@ -1257,7 +1258,7 @@ export function MobileLayout({
         <YStack flex={1} overflow="hidden" onLayout={handlePageViewportLayout}>
           <MobileInformationTabs
             containerWidth={layoutPageWidth}
-            freezeContent={isChartFullscreen}
+            freezeContent={isChartFullscreen && !platformEnv.isNativeIOS}
             onScrollEnd={noop}
             renderHeader={renderInformationHeader}
             pendingHeader={informationHeader}
@@ -1271,7 +1272,7 @@ export function MobileLayout({
             isMarketAssetDetailLoading={isMarketAssetDetailLoading}
           />
         </YStack>
-        <DelayedFreeze freeze={isChartFullscreen}>
+        <DelayedFreeze freeze={isChartFullscreen && !platformEnv.isNativeIOS}>
           {swapPanelFooter}
         </DelayedFreeze>
       </YStack>

@@ -141,23 +141,7 @@ describe('TradingViewNative screen orientation', () => {
     expect(mockLockAsync).toHaveBeenLastCalledWith('PORTRAIT_UP');
   });
 
-  it('uses system landscape on iPhone and restores portrait on exit', () => {
-    platformEnv.isNativeAndroid = false;
-    platformEnv.isNativeIOS = true;
-    const { rerender } = render(
-      <TradingViewNative source={source} isNativeChartFullscreen />,
-    );
-    expect(mockLockAsync).toHaveBeenLastCalledWith('LANDSCAPE');
-    expect(mockStatusBar).toHaveBeenLastCalledWith(
-      expect.objectContaining({ hidden: true }),
-    );
-    mockStatusBar.mockClear();
-    rerender(<TradingViewNative source={source} />);
-    expect(mockLockAsync).toHaveBeenLastCalledWith('PORTRAIT_UP');
-    expect(mockStatusBar).not.toHaveBeenCalled();
-  });
-
-  it('keeps the iPhone canvas fullscreen until portrait dimensions commit', async () => {
+  it('lets the native iPhone page own orientation and dismissal', () => {
     platformEnv.isNativeAndroid = false;
     platformEnv.isNativeIOS = true;
     mockWindowDimensions.width = 844;
@@ -170,35 +154,15 @@ describe('TradingViewNative screen orientation', () => {
         onNativeChartFullscreenChange={onFullscreenChange}
       />,
     );
-    let finishRotation: (() => void) | undefined;
-    mockLockAsync.mockImplementationOnce(
-      () =>
-        new Promise<void>((resolve) => {
-          finishRotation = resolve;
-        }),
-    );
     act(() =>
       mockContainer.mock.calls
         .at(-1)?.[0]
         .onNativeChartFullscreenChange?.(false),
     );
-    expect(mockLockAsync).toHaveBeenLastCalledWith('PORTRAIT_UP');
-    expect(onFullscreenChange).not.toHaveBeenCalled();
-    await act(async () => finishRotation?.());
-    expect(onFullscreenChange).not.toHaveBeenCalled();
-    mockWindowDimensions.width = 390;
-    mockWindowDimensions.height = 844;
-    rerender(
-      <TradingViewNative
-        source={source}
-        isNativeChartFullscreen
-        onNativeChartFullscreenChange={onFullscreenChange}
-      />,
-    );
     expect(onFullscreenChange).toHaveBeenCalledWith(false);
-    mockLockAsync.mockClear();
     rerender(<TradingViewNative source={source} />);
     expect(mockLockAsync).not.toHaveBeenCalled();
+    expect(mockStatusBar).not.toHaveBeenCalled();
   });
 
   it.each([

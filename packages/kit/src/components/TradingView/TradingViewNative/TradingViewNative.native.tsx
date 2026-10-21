@@ -1,4 +1,4 @@
-import { useCallback, useLayoutEffect, useRef, useState } from 'react';
+import { useLayoutEffect, useRef } from 'react';
 
 import * as ScreenOrientation from 'expo-screen-orientation';
 import { noop } from 'lodash';
@@ -45,73 +45,26 @@ export function TradingViewNative(props: ITradingViewNativeProps) {
   const isFullscreen = Boolean(props.isNativeChartFullscreen);
   const { onNativeChartFullscreenChange } = props;
   const onFullscreenChangeRef = useRef(onNativeChartFullscreenChange);
-  const fullscreenRequestRef = useRef(0);
-  const portraitRestoredRef = useRef(false);
-  const [isExitingFullscreen, setIsExitingFullscreen] = useState(false);
   useLayoutEffect(() => {
     onFullscreenChangeRef.current = onNativeChartFullscreenChange;
   }, [onNativeChartFullscreenChange]);
   const { height, width } = useWindowDimensions();
   const isAndroid = platformEnv.isNativeAndroid === true;
-  const shouldHideStatusBar =
-    (platformEnv.isNativeIOS && !platformEnv.isNativeIOSPad && isFullscreen) ||
-    shouldHideTradingViewNativeStatusBar({
-      height,
-      isAndroid,
-      isFullscreen,
-      isSpanningWindow: isAndroid && isSpanning(),
-      width,
-    });
-  const handleFullscreenChange = useCallback(
-    (nextFullscreen: boolean) => {
-      fullscreenRequestRef.current += 1;
-      const request = fullscreenRequestRef.current;
-      if (
-        platformEnv.isNativeIOS &&
-        !platformEnv.isNativeIOSPad &&
-        isFullscreen &&
-        !nextFullscreen
-      ) {
-        // Keep the same window-hosted canvas until RN commits portrait bounds.
-        // lockAsync only submits the request; it does not wait for that layout.
-        setIsExitingFullscreen(true);
-        void ScreenOrientation.lockAsync(
-          ScreenOrientation.OrientationLock.PORTRAIT_UP,
-        ).catch(() => {
-          if (request === fullscreenRequestRef.current) {
-            onFullscreenChangeRef.current?.(false);
-          }
-        });
-        return;
-      }
-      if (isExitingFullscreen && nextFullscreen) {
-        lockScreenOrientation(ScreenOrientation.OrientationLock.LANDSCAPE);
-      }
-      setIsExitingFullscreen(false);
-      onFullscreenChangeRef.current?.(nextFullscreen);
-    },
-    [isExitingFullscreen, isFullscreen],
-  );
-  useLayoutEffect(() => {
-    if (isFullscreen && isExitingFullscreen && height >= width) {
-      portraitRestoredRef.current = true;
-      setIsExitingFullscreen(false);
-      onFullscreenChangeRef.current?.(false);
-    }
-  }, [height, isExitingFullscreen, isFullscreen, width]);
-
+  const shouldHideStatusBar = shouldHideTradingViewNativeStatusBar({
+    height,
+    isAndroid,
+    isFullscreen,
+    isSpanningWindow: isAndroid && isSpanning(),
+    width,
+  });
   useLayoutEffect(() => {
     if (!isFullscreen) {
       return;
     }
 
     let isActive = true;
-    portraitRestoredRef.current = false;
-    setIsExitingFullscreen(false);
-    // Rotate phones through the system while preserving iPad's window policy.
-    const shouldManageOrientation =
-      platformEnv.isNativeAndroid ||
-      (platformEnv.isNativeIOS && !platformEnv.isNativeIOSPad);
+    // The iOS fullscreen page owns its orientation through native-stack.
+    const shouldManageOrientation = platformEnv.isNativeAndroid;
     const shouldUseCurrentAndroidWindow =
       shouldUseCurrentAndroidWindowForFullscreen();
     if (shouldManageOrientation && !shouldUseCurrentAndroidWindow) {
@@ -135,9 +88,8 @@ export function TradingViewNative(props: ITradingViewNativeProps) {
 
     return () => {
       isActive = false;
-      fullscreenRequestRef.current += 1;
       appStateSubscription.remove();
-      if (shouldManageOrientation && !portraitRestoredRef.current) {
+      if (shouldManageOrientation) {
         lockScreenOrientation(
           getDefaultOrientationLock(shouldUseCurrentAndroidWindow),
         );
@@ -148,10 +100,7 @@ export function TradingViewNative(props: ITradingViewNativeProps) {
   return (
     <>
       {shouldHideStatusBar ? <StatusBar hidden /> : null}
-      <TradingViewNativeContainer
-        {...props}
-        onNativeChartFullscreenChange={handleFullscreenChange}
-      />
+      <TradingViewNativeContainer {...props} />
     </>
   );
 }
