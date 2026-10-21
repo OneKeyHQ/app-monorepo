@@ -648,6 +648,7 @@ export function MobileLayout({
   // the main tab bar, so they use the actual page viewport.
   const usesMeasuredPageViewport =
     platformEnv.isNativeIOS || (platformEnv.isNativeAndroid && isModalPage);
+  const preservesAndroidTabHeight = platformEnv.isNativeAndroid && !isModalPage;
   const layoutHeight =
     usesMeasuredPageViewport && pageViewportHeight > 0
       ? pageViewportHeight
@@ -1249,21 +1250,27 @@ export function MobileLayout({
         bg="$bgApp"
       >
         <YStack flex={1} overflow="hidden" onLayout={handlePageViewportLayout}>
-          <MobileInformationTabs
-            containerWidth={layoutPageWidth}
-            freezeContent={isChartFullscreen && !platformEnv.isNativeIOS}
-            onScrollEnd={noop}
-            renderHeader={renderInformationHeader}
-            pendingHeader={informationHeader}
-            scrollEnabled={!isChartFullscreen && !isTradingViewScrollLocked}
-            portfolioData={portfolioData}
-            isRefreshing={isRefreshing}
-            isPortfolioPending={isPortfolioPending}
-            tokenLogoUrl={tokenDetail?.logoUrl}
-            detailKind={detailKind}
-            marketAssetDetail={marketAssetDetail}
-            isMarketAssetDetailLoading={isMarketAssetDetailLoading}
-          />
+          {/* Let the viewport shrink around the keyboard without resizing its tabs. */}
+          <YStack
+            flex={preservesAndroidTabHeight ? undefined : 1}
+            height={preservesAndroidTabHeight ? layoutHeight : undefined}
+          >
+            <MobileInformationTabs
+              containerWidth={layoutPageWidth}
+              freezeContent={isChartFullscreen && !platformEnv.isNativeIOS}
+              onScrollEnd={noop}
+              renderHeader={renderInformationHeader}
+              pendingHeader={informationHeader}
+              scrollEnabled={!isChartFullscreen && !isTradingViewScrollLocked}
+              portfolioData={portfolioData}
+              isRefreshing={isRefreshing}
+              isPortfolioPending={isPortfolioPending}
+              tokenLogoUrl={tokenDetail?.logoUrl}
+              detailKind={detailKind}
+              marketAssetDetail={marketAssetDetail}
+              isMarketAssetDetailLoading={isMarketAssetDetailLoading}
+            />
+          </YStack>
         </YStack>
         <DelayedFreeze freeze={isChartFullscreen && !platformEnv.isNativeIOS}>
           {swapPanelFooter}
