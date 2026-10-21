@@ -350,6 +350,19 @@ export class SimpleDb {
     return value;
   }
 
+  get privacyChainKeys() {
+    const value = createLazyServiceProxy({
+      serviceName: 'simpleDb@privacyChainKeys',
+      loader: () =>
+        import('../entity/SimpleDbEntityPrivacyChainKeys').then(
+          ({ SimpleDbEntityPrivacyChainKeys }) =>
+            new SimpleDbEntityPrivacyChainKeys(),
+        ),
+    });
+    Object.defineProperty(this, 'privacyChainKeys', { value });
+    return value;
+  }
+
   get privacyChainJournal() {
     const value = createLazyServiceProxy({
       serviceName: 'simpleDb@privacyChainJournal',

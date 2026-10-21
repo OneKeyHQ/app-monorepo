@@ -2,7 +2,9 @@ import addressFixtures from '@onekeyhq/core/src/chains/zcash/sdkZcash/unifiedAdd
 import { EConfirmOnDeviceType } from '@onekeyhq/shared/types/device';
 
 import { EDBAccountType } from '../../../dbs/local/consts';
+import { SimpleDbEntityPrivacyChainKeys } from '../../../dbs/simple/entity/SimpleDbEntityPrivacyChainKeys';
 import { KeyringHardwareBase } from '../../base/KeyringHardwareBase';
+import { getViewingKeyFingerprint } from '../../localWallet/viewingKeyFingerprint';
 
 import { KeyringHardware } from './KeyringHardware';
 import { zcashUserOperationsActive } from './vaultUtils';
@@ -89,6 +91,18 @@ function createSeedFingerprintStore(initial: Record<string, string> = {}) {
   };
 }
 
+function createKeysStore() {
+  let saved: unknown = null;
+  const entity = new SimpleDbEntityPrivacyChainKeys();
+  (entity as { appStorage: unknown }).appStorage = {
+    getItem: async () => saved,
+    setItem: async (_key: string, value: unknown) => {
+      saved = value;
+    },
+  };
+  return entity;
+}
+
 function createKeyring({
   sdk,
   vault,
@@ -112,7 +126,9 @@ function createKeyring({
   return Object.assign(Object.create(KeyringHardware.prototype), {
     vault: {
       accountId: 'hw-1--acc',
+      networkId: 'zec--0',
       zcashGetApi: mockGetZcashApi,
+      zcashGetAccountUfvk: async () => 'ufvk-1',
       zcashResolveLightwalletdUrl: async () => 'https://custom.lwd:443',
       zcashParseTransparentOutputs: async () => [],
       ...vault,
@@ -124,6 +140,7 @@ function createKeyring({
           ...simpleDbZcash,
         },
         privacyChainJournal: { ...journal },
+        privacyChainKeys: createKeysStore(),
       },
       serviceAccount: {
         getDBAccountSafe: jest.fn().mockResolvedValue({ id: 'hw-1--acc' }),
@@ -320,7 +337,7 @@ describe('Zcash KeyringHardware', () => {
       sdk: { zcashSignPczt },
       vault,
       simpleDbZcash: {
-        getAccountMeta: jest.fn().mockResolvedValue({ ufvk: 'ufvk-1' }),
+        getAccountMeta: jest.fn().mockResolvedValue({ vkFp: 'a'.repeat(32) }),
         isPrivacyModeEnabled: jest.fn().mockResolvedValue(true),
       },
     });
@@ -374,7 +391,7 @@ describe('Zcash KeyringHardware', () => {
       },
       vault,
       simpleDbZcash: {
-        getAccountMeta: jest.fn().mockResolvedValue({ ufvk: 'ufvk-1' }),
+        getAccountMeta: jest.fn().mockResolvedValue({ vkFp: 'a'.repeat(32) }),
         isPrivacyModeEnabled: jest.fn().mockResolvedValue(true),
       },
     });
@@ -595,11 +612,15 @@ describe('Zcash KeyringHardware', () => {
         },
       ],
     });
+    const vkFp = getViewingKeyFingerprint({
+      networkId: 'zec--0',
+      viewingKey: 'uview1device',
+    });
     expect(saveAccountMeta).toHaveBeenCalledWith({
       accountId: 'hw-1--acc',
       expectedPrivacyModeState: { intent: 'on', birthdayHeight: 2_500_000 },
       meta: expect.objectContaining({
-        ufvk: 'uview1device',
+        vkFp,
         unifiedAddress: 'u1device',
         // The device UA still includes a P2PKH receiver, so the app's
         // Orchard-only derivation is kept beside it.
@@ -610,6 +631,25 @@ describe('Zcash KeyringHardware', () => {
         birthdayHeight: 2_500_000,
         birthdaySource: 'manual-height',
       }),
+    });
+    // The device's UFVK goes only to the viewing key store.
+    expect(JSON.stringify(saveAccountMeta.mock.calls)).not.toContain(
+      'uview1device',
+    );
+    await expect(
+      (
+        keyring as unknown as {
+          backgroundApi: {
+            simpleDb: { privacyChainKeys: SimpleDbEntityPrivacyChainKeys };
+          };
+        }
+      ).backgroundApi.simpleDb.privacyChainKeys.getKey({
+        accountId: 'hw-1--acc',
+      }),
+    ).resolves.toEqual({
+      networkId: 'zec--0',
+      vkFp,
+      sealed: { format: 'plain', value: 'uview1device' },
     });
     // One seed per hardware wallet: the fingerprint is kept per wallet.
     await expect(

@@ -24,6 +24,10 @@ import {
   saveLastLocalWalletChainTip,
 } from '../../localWallet/privacyChainCacheStore';
 import { runBoundedSyncTurn } from '../../localWallet/syncTurn';
+import {
+  removeLocalWalletViewingKeys,
+  removeNetworkLocalWalletViewingKeys,
+} from '../../localWallet/viewingKeyStore';
 
 import {
   estimateXmrBirthdayHeight,
@@ -129,6 +133,11 @@ export function buildXmrLocalWalletCapability(
     await vault.backgroundApi.simpleDb.privacyChainJournal.removeXmrSentAccount(
       { accountId },
     );
+    // The next enable derives it again.
+    await removeLocalWalletViewingKeys({
+      backgroundApi: vault.backgroundApi,
+      accountIds: [accountId],
+    });
   };
 
   const rewindLocalAccount = async (accountId: string, fromHeight: number) => {
@@ -761,6 +770,10 @@ export function buildXmrLocalWalletCapability(
       }
       await simpleDb().clearRawData();
       await vault.backgroundApi.simpleDb.privacyChainJournal.clearXmrSent();
+      await removeNetworkLocalWalletViewingKeys({
+        backgroundApi: vault.backgroundApi,
+        networkId: vault.networkId,
+      });
     },
 
     async getSyncProgress({

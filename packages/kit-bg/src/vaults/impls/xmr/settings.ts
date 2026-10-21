@@ -137,8 +137,6 @@ const settings: IVaultSettings = {
     hideAddressOnTokenDetails: true,
     blockTimeSeconds: XMR_TARGET_BLOCK_SECONDS,
     maxEnabledAccounts: XMR_MAX_ENABLED_ACCOUNTS,
-    // Receive needs the view key whether or not scanning is on.
-    viewingKeyRetention: 'until-account-removed',
     withholdAddressFromBackend: true,
   },
 

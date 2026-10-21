@@ -12,16 +12,15 @@ export interface IPrivacyChainDB {
   // after the reset clears this store; the next launch and the next reset
   // retry them.
   pendingLocalDataDrop?: string[];
-  // accountId -> the chain's viewing material (Zcash UFVK, Monero view key
-  // pair); `value` is opaque here, its chain owns the format. Read and written
-  // only through vaults/localWallet/viewingKeyStore.ts.
-  viewingKeys?: Record<string, IPrivacyChainViewingKeyRecord>;
 }
 
-export type IPrivacyChainViewingKeyRecord = {
-  networkId: string;
-  value: string;
-};
+// Builders write back known fields only, so a dropped field does not live on.
+function pickKnownFields(rawData: IPrivacyChainDB | null | undefined) {
+  return {
+    allowCellularSync: rawData?.allowCellularSync,
+    pendingLocalDataDrop: rawData?.pendingLocalDataDrop,
+  };
+}
 
 export class SimpleDbEntityPrivacyChain extends SimpleDbEntityBase<IPrivacyChainDB> {
   entityName = 'privacyChain';
@@ -39,7 +38,7 @@ export class SimpleDbEntityPrivacyChain extends SimpleDbEntityBase<IPrivacyChain
     networkIds: string[];
   }): Promise<void> {
     await this.setRawData((rawData) => ({
-      ...rawData,
+      ...pickKnownFields(rawData),
       pendingLocalDataDrop: networkIds,
     }));
   }
@@ -52,55 +51,11 @@ export class SimpleDbEntityPrivacyChain extends SimpleDbEntityBase<IPrivacyChain
     networkIds: string[];
   }): Promise<void> {
     await this.setRawData((rawData) => ({
-      ...rawData,
+      ...pickKnownFields(rawData),
       pendingLocalDataDrop: (rawData?.pendingLocalDataDrop ?? []).filter(
         (networkId) => !networkIds.includes(networkId),
       ),
     }));
-  }
-
-  async getViewingKey({
-    accountId,
-  }: {
-    accountId: string;
-  }): Promise<IPrivacyChainViewingKeyRecord | undefined> {
-    const rawData = await this.getRawData();
-    return rawData?.viewingKeys?.[accountId];
-  }
-
-  async setViewingKey({
-    accountId,
-    record,
-  }: {
-    accountId: string;
-    record: IPrivacyChainViewingKeyRecord;
-  }): Promise<void> {
-    await this.setRawData((rawData) => ({
-      ...rawData,
-      viewingKeys: { ...rawData?.viewingKeys, [accountId]: record },
-    }));
-  }
-
-  async removeViewingKeys({
-    accountIds,
-  }: {
-    accountIds: string[];
-  }): Promise<void> {
-    await this.setRawData((rawData) => {
-      if (!accountIds.some((id) => rawData?.viewingKeys?.[id])) {
-        return rawData ?? {};
-      }
-      const viewingKeys = { ...rawData?.viewingKeys };
-      accountIds.forEach((id) => {
-        delete viewingKeys[id];
-      });
-      return { ...rawData, viewingKeys };
-    });
-  }
-
-  async listViewingKeyAccountIds(): Promise<string[]> {
-    const rawData = await this.getRawData();
-    return Object.keys(rawData?.viewingKeys ?? {});
   }
 
   async getAllowCellularSync(): Promise<boolean> {
@@ -110,7 +65,7 @@ export class SimpleDbEntityPrivacyChain extends SimpleDbEntityBase<IPrivacyChain
 
   async setAllowCellularSync({ allow }: { allow: boolean }): Promise<void> {
     await this.setRawData((rawData) => ({
-      ...rawData,
+      ...pickKnownFields(rawData),
       allowCellularSync: allow,
     }));
   }

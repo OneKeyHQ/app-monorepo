@@ -1,5 +1,7 @@
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
+import { getViewingKeyFingerprint } from '../../localWallet/viewingKeyFingerprint';
+
 const mockGetChainOnlyVault = jest.fn();
 const mockGetVault = jest.fn();
 
@@ -17,6 +19,10 @@ const { ZcashPrivacyMode } =
   require('./privacyMode') as typeof import('./privacyMode');
 
 const accountId = "hd-1--m/44'/133'/0'";
+const syntheticVkFp = getViewingKeyFingerprint({
+  networkId: 'zec--0',
+  viewingKey: 'synthetic-ufvk',
+});
 
 function createService({
   impl = 'zec',
@@ -54,8 +60,15 @@ function createService({
         beginPrivacyModeDisable: jest.fn(),
         completePrivacyModeDisable: jest.fn(),
         getAccountMeta: jest.fn().mockResolvedValue({
-          ufvk: 'synthetic-ufvk',
+          vkFp: syntheticVkFp,
           birthdayHeight: 2_000_000,
+        }),
+      },
+      privacyChainKeys: {
+        getKey: jest.fn().mockResolvedValue({
+          networkId: 'zec--0',
+          vkFp: syntheticVkFp,
+          sealed: { format: 'plain', value: 'synthetic-ufvk' },
         }),
       },
     },
@@ -197,7 +210,7 @@ describe('Zcash Privacy Mode privacy lifecycle', () => {
       intent: 'on',
       birthdayHeight: 2_000_000,
     });
-    const mutex = getZcashLifecycleMutex('synthetic-ufvk');
+    const mutex = getZcashLifecycleMutex(syntheticVkFp);
     const getSyncProgress = jest.fn(async () => {
       expect(mutex.isLocked()).toBe(true);
       return undefined;
@@ -224,7 +237,7 @@ describe('Zcash Privacy Mode privacy lifecycle', () => {
     // second read is the post-derivation check inside the service.
     backgroundApi.simpleDb.zcash.getAccountMeta
       .mockResolvedValueOnce(undefined)
-      .mockResolvedValue({ ufvk: 'synthetic-ufvk', birthdayHeight: 2_000_000 });
+      .mockResolvedValue({ vkFp: syntheticVkFp, birthdayHeight: 2_000_000 });
     const syncGroup = jest
       .fn()
       .mockResolvedValue({ synced: true, backfillRemaining: true });
@@ -323,7 +336,7 @@ describe('Zcash Privacy Mode enable failure cleanup', () => {
     const { backgroundApi, service } = createService();
     backgroundApi.simpleDb.zcash.getAccountMeta
       .mockResolvedValueOnce(undefined)
-      .mockResolvedValue({ ufvk: 'synthetic-ufvk', birthdayHeight: 2_000_000 });
+      .mockResolvedValue({ vkFp: syntheticVkFp, birthdayHeight: 2_000_000 });
     mockGetVault.mockResolvedValue({
       zcashRetryLocalWalletSetup: jest
         .fn()
@@ -375,6 +388,54 @@ describe('Zcash Privacy Mode enable failure cleanup', () => {
     ).toHaveBeenCalledWith({ accountId, maxEnabledAccounts: 5 });
   });
 
+  it('derives the key again when a paused account lost it', async () => {
+    const { backgroundApi, service } = createService();
+    backgroundApi.simpleDb.zcash.getPrivacyModeState.mockResolvedValue({
+      intent: 'off',
+      birthdayHeight: 2_000_000,
+      resumeFromHeight: 2_500_000,
+    });
+    backgroundApi.simpleDb.privacyChainKeys.getKey.mockResolvedValue(undefined);
+    const zcashRetryLocalWalletSetup = jest.fn();
+    mockGetVault.mockResolvedValue({
+      zcashRetryLocalWalletSetup,
+      zcashPreparePrivacyModeAccount: jest.fn(
+        async ({ onPrepared }: { onPrepared: () => Promise<void> }) =>
+          onPrepared(),
+      ),
+    });
+
+    await service.enablePrivacyMode({ networkId: 'zec--0', accountId });
+
+    expect(
+      backgroundApi.servicePassword.promptPasswordVerifyByAccount,
+    ).toHaveBeenCalledTimes(1);
+    expect(zcashRetryLocalWalletSetup).toHaveBeenCalledWith({
+      password: 'test-password',
+    });
+  });
+
+  it('repairs an enabled account whose key is gone instead of returning early', async () => {
+    const { backgroundApi, service } = createService();
+    backgroundApi.simpleDb.zcash.getPrivacyModeState.mockResolvedValue({
+      intent: 'on',
+      birthdayHeight: 2_000_000,
+    });
+    backgroundApi.simpleDb.privacyChainKeys.getKey.mockResolvedValue(undefined);
+    const zcashRetryLocalWalletSetup = jest.fn();
+    mockGetVault.mockResolvedValue({
+      zcashRetryLocalWalletSetup,
+      zcashPreparePrivacyModeAccount: jest.fn(
+        async ({ onPrepared }: { onPrepared: () => Promise<void> }) =>
+          onPrepared(),
+      ),
+    });
+
+    await service.enablePrivacyMode({ networkId: 'zec--0', accountId });
+
+    expect(zcashRetryLocalWalletSetup).toHaveBeenCalledTimes(1);
+  });
+
   it('does not report a failed notification as a failed enable', async () => {
     const { backgroundApi, service } = createService();
     mockGetVault.mockResolvedValue({
@@ -422,7 +483,7 @@ it.each([false, true])(
       backgroundApi.simpleDb.zcash.getAccountMeta
         .mockResolvedValueOnce(undefined)
         .mockResolvedValue({
-          ufvk: 'synthetic-ufvk',
+          vkFp: syntheticVkFp,
           birthdayHeight: 1_800_000,
           birthdayTimestamp,
         });

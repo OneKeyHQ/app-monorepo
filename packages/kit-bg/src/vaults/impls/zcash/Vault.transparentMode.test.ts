@@ -20,6 +20,7 @@ import {
 } from '@onekeyhq/shared/types/history';
 import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
 
+import { getViewingKeyFingerprint } from '../../localWallet/viewingKeyFingerprint';
 import VaultBtc from '../btc/Vault';
 
 import { KeyringHardware } from './KeyringHardware';
@@ -284,8 +285,12 @@ describe('Zcash Transparent Mode runtime boundary', () => {
 });
 
 describe('Zcash hardware account address authority', () => {
+  const deviceUfvk = 'uview1-device';
   const storedMeta = {
-    ufvk: 'uview1-device',
+    vkFp: getViewingKeyFingerprint({
+      networkId: 'zec--0',
+      viewingKey: deviceUfvk,
+    }),
     unifiedAddress: 'u1-device',
     transparentAddress: 't1-device',
     addressSchemeVersion: ZCASH_ADDRESS_SCHEME_VERSION,
@@ -302,6 +307,13 @@ describe('Zcash hardware account address authority', () => {
       backgroundApi: {
         simpleDb: {
           privacyChain: {},
+          privacyChainKeys: {
+            getKey: jest.fn(async () => ({
+              networkId: 'zec--0',
+              vkFp: storedMeta.vkFp,
+              sealed: { format: 'plain', value: deviceUfvk },
+            })),
+          },
           zcash: {
             getAccountMeta: jest.fn(async () => meta),
             saveAccountMeta: jest.fn(async () => undefined),
@@ -359,7 +371,7 @@ describe('Zcash hardware account address authority', () => {
       });
       expect(deriveAddressFromUfvk).toHaveBeenCalledWith({
         network: 'main',
-        ufvk: oldMeta.ufvk,
+        ufvk: deviceUfvk,
         lightwalletdUrl: '',
       });
       expect(

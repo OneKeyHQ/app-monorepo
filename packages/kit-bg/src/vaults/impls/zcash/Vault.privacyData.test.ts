@@ -17,6 +17,7 @@ import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusName
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { SimpleDbEntityZcash } from '../../../dbs/simple/entity/SimpleDbEntityZcash';
+import { getViewingKeyFingerprint } from '../../localWallet/viewingKeyFingerprint';
 
 import { getZcashLifecycleMutex } from './lifecycle';
 import { ZcashPrivacyMode } from './privacyMode';
@@ -41,9 +42,14 @@ describe('Zcash local privacy data deletion', () => {
   const aliasAccountId = "hd-2--m/44'/133'/0'";
   const ufvk = 'same-ufvk';
 
+  const vkFp = getViewingKeyFingerprint({
+    networkId: 'zec--0',
+    viewingKey: ufvk,
+  });
+
   function createMeta(): IZcashAccountMeta {
     return {
-      ufvk,
+      vkFp,
       unifiedAddress: 'u1-address',
       transparentAddress: 't1-address',
       addressSchemeVersion: ZCASH_ADDRESS_SCHEME_VERSION,
@@ -93,6 +99,13 @@ describe('Zcash local privacy data deletion', () => {
               { accountId: aliasAccountId, meta },
             ]),
             removeAccountMeta,
+          },
+          privacyChainKeys: {
+            getKey: jest.fn(async () => ({
+              networkId: 'zec--0',
+              vkFp,
+              sealed: { format: 'plain', value: ufvk },
+            })),
           },
         },
       },
@@ -178,6 +191,21 @@ describe('Zcash local privacy data deletion', () => {
 
     expect(purgeWallet).toHaveBeenCalledTimes(1);
     expect(purgeWallet).toHaveBeenCalledWith(expect.objectContaining({ ufvk }));
+    expect(removeAccountMeta).toHaveBeenCalledWith({ accountId });
+  });
+
+  // Deleting is one way out of a broken setup, so a lost key must not block it.
+  it('deletes the data of an account whose key can no longer be read', async () => {
+    const { purgeWallet, removeAccountMeta, vault } = createVault({
+      intent: 'off',
+    });
+    (
+      vault.backgroundApi.simpleDb.privacyChainKeys.getKey as jest.Mock
+    ).mockResolvedValue(undefined);
+
+    await vault.deleteLocalPrivacyData({ accountId });
+
+    expect(purgeWallet).not.toHaveBeenCalled();
     expect(removeAccountMeta).toHaveBeenCalledWith({ accountId });
   });
 });
@@ -284,7 +312,7 @@ describe('Zcash queued rescan deletion boundary', () => {
   it('does not restore metadata removed while waiting for the lifecycle lock', async () => {
     const accountId = 'synthetic-rescan-account';
     const meta: IZcashAccountMeta = {
-      ufvk: 'synthetic-rescan-ufvk',
+      vkFp: 'e'.repeat(32),
       unifiedAddress: 'synthetic-ua',
       transparentAddress: 'synthetic-transparent',
       seedFingerprintHex: '00',
@@ -335,7 +363,7 @@ describe('Zcash queued rescan deletion boundary', () => {
     });
     const save = jest.spyOn(zcash, 'saveAccountMeta');
     const runtime = jest.spyOn(vault, 'zcashGetApi');
-    const release = await getZcashLifecycleMutex(meta.ufvk).acquire();
+    const release = await getZcashLifecycleMutex(meta.vkFp).acquire();
     const pending = (
       vault as unknown as {
         applyPendingRescan: (params: {
@@ -415,7 +443,9 @@ it('drops chain data without clearing device-wide privacy preferences', async ()
   const clearPrivacyChain = jest.fn().mockResolvedValue(undefined);
   const clearZcashTransparent = jest.fn().mockResolvedValue(undefined);
   const clearXmrSent = jest.fn().mockResolvedValue(undefined);
+  const removeNetworkKeys = jest.fn().mockResolvedValue(undefined);
   const vault = Object.assign(Object.create(Vault.prototype) as Vault, {
+    networkId: 'zec--0',
     zcashGetApi: async () => ({ dropWalletDatabase }),
     backgroundApi: {
       simpleDb: {
@@ -426,6 +456,7 @@ it('drops chain data without clearing device-wide privacy preferences', async ()
           clearRawData: clearPrivacyChain,
         },
         privacyChainJournal: { clearZcashTransparent, clearXmrSent },
+        privacyChainKeys: { removeNetworkKeys },
       },
     },
   });
@@ -433,6 +464,8 @@ it('drops chain data without clearing device-wide privacy preferences', async ()
   expect(dropWalletDatabase).toHaveBeenCalledTimes(1);
   expect(clearZcash).toHaveBeenCalledTimes(1);
   expect(clearZcashTransparent).toHaveBeenCalledTimes(1);
+  // The UFVKs go with the database; other chains keep theirs.
+  expect(removeNetworkKeys).toHaveBeenCalledWith({ networkId: 'zec--0' });
   expect(clearXmrSent).not.toHaveBeenCalled();
   expect(clearPrivacyChain).not.toHaveBeenCalled();
 });

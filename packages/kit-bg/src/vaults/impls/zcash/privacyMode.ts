@@ -10,6 +10,7 @@ import { getPrivacyModeResumeFromHeight } from '../../../services/PrivacyModeSta
 import { vaultFactory } from '../../factory';
 import { getVaultSettings } from '../../settings';
 
+import { hasZcashAccountViewingKey } from './accountMeta';
 import {
   getZcashLifecycleMutex,
   getZcashPrivacyModeOperationMutex,
@@ -111,7 +112,15 @@ export class ZcashPrivacyMode {
     ) {
       const existingMeta =
         await this.backgroundApi.simpleDb.zcash.getAccountMeta({ accountId });
-      if (existingMeta) {
+      if (
+        existingMeta &&
+        (await hasZcashAccountViewingKey({
+          backgroundApi: this.backgroundApi,
+          networkId,
+          accountId,
+          vkFp: existingMeta.vkFp,
+        }))
+      ) {
         return;
       }
     }
@@ -149,7 +158,14 @@ export class ZcashPrivacyMode {
         (selectedBirthdayHeight !== undefined
           ? selectedBirthdayHeight !== existingMeta.birthdayHeight
           : selectedBirthdayTimestamp !== existingMeta.birthdayTimestamp));
-    const needsViewingKeyDerivation = !existingMeta?.birthdayHeight;
+    const needsViewingKeyDerivation =
+      !existingMeta?.birthdayHeight ||
+      !(await hasZcashAccountViewingKey({
+        backgroundApi: this.backgroundApi,
+        networkId,
+        accountId,
+        vkFp: existingMeta.vkFp,
+      }));
     const walletId = accountUtils.getWalletIdFromAccountId({ accountId });
     const isHwWallet = accountUtils.isHwWallet({ walletId });
     let password: string | undefined;
@@ -284,7 +300,7 @@ export class ZcashPrivacyMode {
     const meta = await this.backgroundApi.simpleDb.zcash.getAccountMeta({
       accountId,
     });
-    const lifecycleMutex = getZcashLifecycleMutex(meta?.ufvk ?? accountId);
+    const lifecycleMutex = getZcashLifecycleMutex(meta?.vkFp ?? accountId);
     await lifecycleMutex.runExclusive(async () => {
       const state = await this.backgroundApi.simpleDb.zcash.getPrivacyModeState(
         {

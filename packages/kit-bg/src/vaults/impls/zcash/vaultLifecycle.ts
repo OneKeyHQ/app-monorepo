@@ -27,6 +27,10 @@ import {
   getLastLocalWalletChainTip,
   saveLastLocalWalletChainTip,
 } from '../../localWallet/privacyChainCacheStore';
+import {
+  removeLocalWalletViewingKeys,
+  removeNetworkLocalWalletViewingKeys,
+} from '../../localWallet/viewingKeyStore';
 
 import {
   clampZcashBirthdayHeight,
@@ -35,6 +39,8 @@ import {
 import { KeyringHardware } from './KeyringHardware';
 import {
   ZCASH_PROCESS_STARTED_AT,
+  forgetZcashLifecycleMutex,
+  getZcashAccountLifecycleMutex,
   getZcashLifecycleMutex,
   getZcashSyncMutex,
 } from './lifecycle';
@@ -44,6 +50,7 @@ import {
   ZCASH_WORKER_RESET_TIMEOUT_MS,
   createZcashSetupIncompleteError,
   isZcashRuntimeDatabaseBroken,
+  isZcashSetupIncompleteError,
   zcashDescribeError,
   zcashLastPrivateHistory,
   zcashUserOperationsActive,
@@ -76,6 +83,40 @@ async function removeZcashAccountState(
   await vault.backgroundApi.simpleDb.privacyChainJournal.removeZcashTransparentAccount(
     { accountId },
   );
+  await removeLocalWalletViewingKeys({
+    backgroundApi: vault.backgroundApi,
+    accountIds: [accountId],
+  });
+}
+
+// Without its key nothing can name the runtime account; the next prepare
+// purges it once every remaining key reads.
+async function purgeZcashRuntimeAccount(
+  vault: Vault,
+  accountId: string,
+): Promise<void> {
+  let account: IZcashWalletAccount;
+  try {
+    account = await vault.zcashGetWalletAccount({ accountId });
+  } catch (e) {
+    if (isZcashSetupIncompleteError(e)) {
+      return;
+    }
+    throw e;
+  }
+  const api = await vault.zcashGetApi();
+  await api.purgeWallet(account);
+}
+
+// Run once the identity's last holder let go of the mutex.
+async function forgetZcashLifecycleMutexIfUnused(
+  vault: Vault,
+  vkFp: string,
+): Promise<void> {
+  const metas = await vault.backgroundApi.simpleDb.zcash.listAccountMetas();
+  if (!metas.some(({ meta }) => meta.vkFp === vkFp)) {
+    forgetZcashLifecycleMutex(vkFp);
+  }
 }
 
 // Uses the last saved tip: an older tip only keeps more sends, and the
@@ -181,6 +222,10 @@ export function getLocalWalletCapability(vault: Vault): ILocalWalletCapability {
       // Host journals describe the database just deleted; clear them too or they drift out of sync.
       await vault.backgroundApi.simpleDb.zcash.clearRawData();
       await vault.backgroundApi.simpleDb.privacyChainJournal.clearZcashTransparent();
+      await removeNetworkLocalWalletViewingKeys({
+        backgroundApi: vault.backgroundApi,
+        networkId: vault.networkId,
+      });
     },
     clearPendingSends: (params) => clearZcashPendingSends(vault, params),
     setDiagnosticsEnabled: (params) => vault.zcashSetPerfTrace(params),
@@ -341,13 +386,16 @@ export async function listLocalWalletAccounts(vault: Vault): Promise<{
   cleanupAccountIds: string[];
   storedAccountIds: string[];
 }> {
-  const [accountIds, enabledAccountIds, { wallets }] = await Promise.all([
-    vault.backgroundApi.simpleDb.zcash.listAccountIds(),
-    vault.backgroundApi.simpleDb.zcash.listPrivacyModeEnabledAccountIds(),
-    vault.backgroundApi.serviceAccount.getWallets({
-      nestedHiddenWallets: false,
-    }),
-  ]);
+  const [accountIds, metas, enabledAccountIds, { wallets }] = await Promise.all(
+    [
+      vault.backgroundApi.simpleDb.zcash.listAccountIds(),
+      vault.backgroundApi.simpleDb.zcash.listAccountMetas(),
+      vault.backgroundApi.simpleDb.zcash.listPrivacyModeEnabledAccountIds(),
+      vault.backgroundApi.serviceAccount.getWallets({
+        nestedHiddenWallets: false,
+      }),
+    ],
+  );
   const enabled = new Set(enabledAccountIds);
   // A locked or unsaved ('do not save') wallet does not scan, but keeps its admission slot and resumes once saved and unlocked.
   const scannableWalletIds = new Set(
@@ -360,14 +408,12 @@ export async function listLocalWalletAccounts(vault: Vault): Promise<{
     syncEnabled: boolean;
     slotEnabled: boolean;
   }[] = [];
-  for (const accountId of accountIds) {
-    // eslint-disable-next-line no-await-in-loop
-    const account = await vault.zcashGetWalletAccount({ accountId });
+  for (const { accountId, meta } of metas) {
     accounts.push({
       accountId,
       // One database per network across every seed; the scheduler key must match that domain for one tip to mean one scan turn.
-      runtimeKey: account.network,
-      accountRuntimeKey: account.ufvk,
+      runtimeKey: ZCASH_NETWORK_MAIN,
+      accountRuntimeKey: meta.vkFp,
       slotEnabled: enabled.has(accountId),
       syncEnabled:
         enabled.has(accountId) &&
@@ -400,8 +446,35 @@ export async function getLocalWalletAccountAliases(
   }
   const metas = await vault.backgroundApi.simpleDb.zcash.listAccountMetas();
   return metas.flatMap((item) =>
-    item.meta.ufvk === targetMeta.ufvk ? [item.accountId] : [],
+    item.meta.vkFp === targetMeta.vkFp ? [item.accountId] : [],
   );
+}
+
+// The runtime purges every account missing from this list, so it is given
+// only when every stored account's key was read; otherwise nothing is purged.
+async function listZcashRetainedUfvks(
+  vault: Vault,
+): Promise<{ retainedUfvks: string[] } | undefined> {
+  try {
+    const [accountIds, owned] = await Promise.all([
+      vault.backgroundApi.simpleDb.zcash.listAccountIds(),
+      vault.backgroundApi.simpleDb.zcash.listAccountMetas(),
+    ]);
+    if (owned.length !== accountIds.length) {
+      return undefined;
+    }
+    const ufvks: string[] = [];
+    for (const { accountId, meta } of owned) {
+      // eslint-disable-next-line no-await-in-loop
+      ufvks.push(await vault.zcashGetAccountUfvk({ accountId, meta }));
+    }
+    return { retainedUfvks: uniq(ufvks) };
+  } catch (e) {
+    console.log('[zcash] runtime purge skipped: a viewing key is unreadable', {
+      ...zcashDescribeError(e),
+    });
+    return undefined;
+  }
 }
 
 export async function zcashPrepareAccounts(
@@ -421,10 +494,10 @@ export async function zcashPrepareAccounts(
   }
   await vault.zcashHealOutOfRangeBirthdays({ accountIds, accounts, chainTip });
   const api = await vault.zcashGetApi();
-  const owned = await vault.backgroundApi.simpleDb.zcash.listAccountMetas();
-  await api.prepareWalletAccounts(accounts, {
-    retainedUfvks: Array.from(new Set(owned.map(({ meta }) => meta.ufvk))),
-  });
+  await api.prepareWalletAccounts(
+    accounts,
+    await listZcashRetainedUfvks(vault),
+  );
 
   // A later alias can register the same UFVK with an earlier birthday than already registered; detect and repair via the durable journal.
   const groups = new Map<
@@ -791,13 +864,22 @@ export async function syncLocalWalletGroupImpl(
           accountId: candidate.accountId,
         });
       states.set(candidate.accountId, state);
+      const isPreparing =
+        candidate.accountId === prepareAccountId &&
+        state.operation?.type === 'enable';
       if (
         candidate.runtimeKey === ZCASH_NETWORK_MAIN &&
         ((candidate.syncEnabled &&
           state.intent === 'on' &&
-          state.operation === undefined) ||
-          (candidate.accountId === prepareAccountId &&
-            state.operation?.type === 'enable'))
+          state.operation === undefined &&
+          // One account whose key can't be read waits for Repair like a
+          // hidden one, instead of stopping every other account's scan.
+          // eslint-disable-next-line no-await-in-loop
+          (await vault.zcashHasAccountViewingKey({
+            accountId: candidate.accountId,
+            vkFp: candidate.accountRuntimeKey,
+          }))) ||
+          isPreparing)
       ) {
         activeAccountIds.push(candidate.accountId);
         activeViewingKeys.add(candidate.accountRuntimeKey);
@@ -943,7 +1025,10 @@ export async function resetLocalWallet(
   zcashLastPrivateHistory.delete(accountId);
   if (scope === 'cache') {
     const account = await vault.zcashGetWalletAccount({ accountId });
-    const lifecycleMutex = getZcashLifecycleMutex(account.ufvk);
+    const lifecycleMutex = getZcashAccountLifecycleMutex({
+      networkId: vault.networkId,
+      ufvk: account.ufvk,
+    });
     await lifecycleMutex.runExclusive(async () => {
       const api = await vault.zcashGetApi();
       await api.purgeWallet(account);
@@ -954,14 +1039,14 @@ export async function resetLocalWallet(
     accountId,
   });
   if (targetMeta) {
-    const lifecycleMutex = getZcashLifecycleMutex(targetMeta.ufvk);
+    const lifecycleMutex = getZcashLifecycleMutex(targetMeta.vkFp);
     // The app account is gone; funds remain on chain and a re-import scans them back.
     await lifecycleMutex.runExclusive(async () => {
       const metas = await vault.backgroundApi.simpleDb.zcash.listAccountMetas();
       for (const item of metas) {
         if (
           item.accountId === accountId ||
-          item.meta.ufvk !== targetMeta.ufvk
+          item.meta.vkFp !== targetMeta.vkFp
         ) {
           // eslint-disable-next-line no-continue
           continue;
@@ -978,11 +1063,10 @@ export async function resetLocalWallet(
           return;
         }
       }
-      const account = await vault.zcashGetWalletAccount({ accountId });
-      const api = await vault.zcashGetApi();
-      await api.purgeWallet(account);
+      await purgeZcashRuntimeAccount(vault, accountId);
       await removeZcashAccountState(vault, accountId);
     });
+    await forgetZcashLifecycleMutexIfUnused(vault, targetMeta.vkFp);
     return;
   }
   // Nothing can locate a runtime account anymore; drop any orphaned host-only records found during cleanup.
@@ -1004,7 +1088,7 @@ export async function deleteLocalPrivacyData(
   if (!targetMeta) {
     return;
   }
-  const lifecycleMutex = getZcashLifecycleMutex(targetMeta.ufvk);
+  const lifecycleMutex = getZcashLifecycleMutex(targetMeta.vkFp);
   await lifecycleMutex.runExclusive(async () => {
     const privacyModeState =
       await vault.backgroundApi.simpleDb.zcash.getPrivacyModeState({
@@ -1023,7 +1107,7 @@ export async function deleteLocalPrivacyData(
     for (const alias of aliases) {
       if (
         alias.accountId === accountId ||
-        alias.meta.ufvk !== targetMeta.ufvk
+        alias.meta.vkFp !== targetMeta.vkFp
       ) {
         // eslint-disable-next-line no-continue
         continue;
@@ -1053,9 +1137,7 @@ export async function deleteLocalPrivacyData(
       }
     }
     if (!hasLiveAlias) {
-      const account = await vault.zcashGetWalletAccount({ accountId });
-      const api = await vault.zcashGetApi();
-      await api.purgeWallet(account);
+      await purgeZcashRuntimeAccount(vault, accountId);
     }
     // removeAccountMeta deliberately keeps mode/birthday so a later enable can rederive the UFVK and reuse the recovery month.
     await vault.backgroundApi.simpleDb.zcash.removeAccountMeta({ accountId });
@@ -1064,6 +1146,7 @@ export async function deleteLocalPrivacyData(
       { networkId: vault.networkId, accountId },
     );
   });
+  await forgetZcashLifecycleMutexIfUnused(vault, targetMeta.vkFp);
 }
 
 // Retries a shielded-meta derivation that never completed; only call on a full account-bound vault (has a keyring).
@@ -1177,7 +1260,7 @@ export async function applyPendingRescan(
     });
     return;
   }
-  const lifecycleMutex = getZcashLifecycleMutex(meta.ufvk);
+  const lifecycleMutex = getZcashLifecycleMutex(meta.vkFp);
   await lifecycleMutex.runExclusive(async () => {
     const [currentMeta, pendingRescans, owner] = await Promise.all([
       vault.backgroundApi.simpleDb.zcash.getAccountMeta({ accountId }),
@@ -1190,7 +1273,7 @@ export async function applyPendingRescan(
     if (
       !owner ||
       !currentMeta ||
-      currentMeta.ufvk !== meta.ufvk ||
+      currentMeta.vkFp !== meta.vkFp ||
       !isEqual(pending, repair)
     ) {
       return;

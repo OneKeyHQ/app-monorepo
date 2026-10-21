@@ -8,7 +8,7 @@ import type { IZcashAccountMeta } from '../../../dbs/simple/entity/SimpleDbEntit
 
 function createContext(metaOverrides: Partial<IZcashAccountMeta> = {}) {
   const meta: IZcashAccountMeta = {
-    ufvk: 'synthetic-viewing-key',
+    vkFp: 'a'.repeat(32),
     unifiedAddress: 'synthetic-old-private-address',
     transparentAddress: 'synthetic-transparent-address',
     seedFingerprintHex: 'synthetic-fingerprint',
@@ -74,7 +74,7 @@ describe('Zcash address policy cache', () => {
     const { store, meta, refresh } = createContext();
     const otherMeta: IZcashAccountMeta = {
       ...meta,
-      ufvk: 'synthetic-other-viewing-key',
+      vkFp: 'b'.repeat(32),
       unifiedAddress: 'synthetic-other-private-address',
       transparentAddress: 'synthetic-other-transparent-address',
       hdIndex: 1,

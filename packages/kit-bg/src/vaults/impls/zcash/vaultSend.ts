@@ -40,7 +40,10 @@ import type { IDecodedTx } from '@onekeyhq/shared/types/tx';
 
 import { localWalletText } from '../../localWallet/messages';
 
-import { getZcashLifecycleMutex } from './lifecycle';
+import {
+  getZcashAccountLifecycleMutex,
+  getZcashLifecycleMutex,
+} from './lifecycle';
 import { parseZcashTransaction } from './transactionReview';
 import {
   ZCASH_DISPLAY_FEE_ZAT,
@@ -493,7 +496,7 @@ export async function zcashAttachPczt(
       'zcash: shielded account meta missing (use retryLocalWalletSetup to retry)',
     );
   }
-  const lifecycleMutex = getZcashLifecycleMutex(meta.ufvk);
+  const lifecycleMutex = getZcashLifecycleMutex(meta.vkFp);
   return lifecycleMutex.runExclusive(async () => {
     const privacyModeEnabled =
       await vault.backgroundApi.simpleDb.zcash.isPrivacyModeEnabled({
@@ -679,7 +682,10 @@ export async function broadcastTransaction(
     accountId: vault.accountId,
   });
   const api = await vault.zcashGetApi();
-  const lifecycleMutex = getZcashLifecycleMutex(account.ufvk);
+  const lifecycleMutex = getZcashAccountLifecycleMutex({
+    networkId: vault.networkId,
+    ufvk: account.ufvk,
+  });
   const sendResult = await lifecycleMutex.runExclusive(async () => {
     const privacyModeEnabled =
       await vault.backgroundApi.simpleDb.zcash.isPrivacyModeEnabled({
