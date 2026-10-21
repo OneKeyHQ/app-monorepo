@@ -208,6 +208,7 @@ async function checkNativeGasBalance(
   gasInfos: IMarketGasInfoEntry[],
   options: IExecutionOptions,
   quote?: IFetchQuoteResult,
+  unsignedTxs: IUnsignedTxPro[] = [],
 ) {
   assertActive(options.signal);
   const requirement = getSwapRequiredNativeBalanceAmount({
@@ -216,6 +217,9 @@ async function checkNativeGasBalance(
     fromToken: options.token,
     fromAmount: options.token.amount,
     otherFeeInfos: quote?.fee?.otherFeeInfos,
+    solanaRent: unsignedTxs
+      .reduce((sum, tx) => sum.plus(tx.solanaRent ?? 0), new BigNumber(0))
+      .toFixed(),
   });
   if (requirement) {
     await checkBalance(requirement.token, requirement.amount, options, true);
@@ -228,14 +232,19 @@ async function prepareAllowanceInfos(
   requiredInputAmount = options.token.amount,
 ): Promise<IApproveInfo[]> {
   const { snapshot, token, signal } = options;
+  if (quote.allowanceResult && !quote.allowanceResult.allowanceTarget)
+    throw new DustSweepSkip('unknown');
   const spender =
     quote.allowanceResult?.allowanceTarget ??
     quote.approvedInfo?.allowanceTarget;
   if (!spender) {
     if (quote.approvedInfo?.isApproved) return [];
+    // Like Swap, quotes without approval metadata continue to the actual
+    // transaction estimate and checks before sending.
     if (
-      networkUtils.isEvmNetwork({ networkId: snapshot.networkId }) ||
-      networkUtils.isTronNetworkByNetworkId(snapshot.networkId)
+      (networkUtils.isEvmNetwork({ networkId: snapshot.networkId }) ||
+        networkUtils.isTronNetworkByNetworkId(snapshot.networkId)) &&
+      quote.approvedInfo
     )
       throw new DustSweepSkip('unknown');
     return [];
@@ -636,6 +645,13 @@ export async function executeDustSweepItem(
     signal,
   );
   let txId: string | undefined;
+  const retainSwapBroadcast = (id: string) => {
+    txId = id;
+    void backgroundApiProxy.serviceNotification
+      .blockNotificationForTxId({ networkId: snapshot.networkId, tx: id })
+      .catch(() => undefined);
+    onBroadcast(id);
+  };
   let confirmedRecovery: IFetchSwapTxHistoryStatusResponse | undefined;
   const fetchSwapState = (id: string) =>
     backgroundApiProxy.serviceSwap.fetchTxState({
@@ -762,15 +778,17 @@ export async function executeDustSweepItem(
             : undefined,
           swapInfo: execution.swapInfo,
         },
-        validateFinalGasInfos: async (gasInfos) => {
-          await checkNativeGasBalance(gasInfos, options, buildRes.result);
+        validateFinalGasInfos: async (gasInfos, unsignedTxs) => {
+          await checkNativeGasBalance(
+            gasInfos,
+            options,
+            buildRes.result,
+            unsignedTxs,
+          );
           await checkInputAndOtherFeeBalances(buildRes.result, options);
         },
         onBeforeSignAndSend,
-        onBroadcast: (signed) => {
-          txId = signed.txid;
-          onBroadcast(signed.txid);
-        },
+        onBroadcast: (signed) => retainSwapBroadcast(signed.txid),
       });
     } catch (error) {
       const context = getBroadcastTxContext(error, snapshot.networkId);
@@ -782,8 +800,7 @@ export async function executeDustSweepItem(
         signal,
         message,
       });
-      txId = context.txId;
-      onBroadcast(txId);
+      retainSwapBroadcast(context.txId);
     }
   } catch (error) {
     if (!txId) {

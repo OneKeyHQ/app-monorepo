@@ -378,4 +378,111 @@ export class OnramperScene extends BaseScene {
   }) {
     return params;
   }
+
+  // ---------------------------------------------------------------------------
+  // Order status (device-local record + wallet-side lookup)
+  // ---------------------------------------------------------------------------
+
+  // A transaction id was published by the SDK (before Apple Pay) and the
+  // order was written to the local store, hidden until submitted.
+  @LogToServer()
+  @LogToLocal()
+  public orderRecorded(params: {
+    networkId: string;
+    tokenSymbol: string;
+    transactionId: string;
+    amount: number;
+    ramp?: string;
+    entryFrom?: string;
+  }) {
+    return params;
+  }
+
+  // `completed` arrived: the order became visible. `recordedBeforePayment`
+  // false means the pre-payment record was missing and had to be recreated.
+  @LogToServer()
+  @LogToLocal()
+  public orderSubmitted(params: {
+    networkId: string;
+    tokenSymbol: string;
+    transactionId: string;
+    recordedBeforePayment: boolean;
+  }) {
+    return params;
+  }
+
+  // The `completed` write failed (background bridge / storage): the user is
+  // kept on the review card with the order id instead of an empty detail.
+  @LogToServer()
+  @LogToLocal()
+  public orderSubmitFailed(params: { transactionId: string; error: string }) {
+    return params;
+  }
+
+  // `completed` landed after the user had left the checkout screen: the detail
+  // page is not opened (the order stays reachable from the orders entry).
+  @LogToServer()
+  @LogToLocal()
+  public orderDetailSkipped(params: { transactionId: string }) {
+    return params;
+  }
+
+  @LogToServer()
+  @LogToLocal()
+  public orderDiscarded(params: {
+    transactionId: string;
+    reason: 'cancelled' | 'failed' | 'timeout' | 'backendFailed';
+  }) {
+    return params;
+  }
+
+  @LogToServer()
+  @LogToLocal()
+  public orderStatusUpdated(params: {
+    transactionId: string;
+    from: string;
+    to: string;
+    rawStatus?: string;
+    hasTxHash: boolean;
+    timedOut?: boolean;
+  }) {
+    return params;
+  }
+
+  @LogToLocal({ level: 'error' })
+  public orderStatusFetchFailed(params: {
+    transactionId: string;
+    code?: number;
+    status?: number;
+    errorMessage?: string;
+  }) {
+    return params;
+  }
+
+  @LogToServer()
+  @LogToLocal()
+  public ordersEntryPressed(params: {
+    source: 'icon' | 'banner' | 'reminder';
+    processingCount: number;
+  }) {
+    return params;
+  }
+
+  @LogToServer()
+  @LogToLocal()
+  public orderSupportPressed(params: {
+    transactionId: string;
+    status: string;
+  }) {
+    return params;
+  }
+
+  @LogToServer()
+  @LogToLocal()
+  public orderTxHashPressed(params: {
+    transactionId: string;
+    networkId: string;
+  }) {
+    return params;
+  }
 }

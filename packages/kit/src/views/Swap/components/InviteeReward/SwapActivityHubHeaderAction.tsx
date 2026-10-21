@@ -1,8 +1,7 @@
 import type { ComponentProps } from 'react';
 
 import { ActivityHubAction } from '@onekeyhq/kit/src/components/ActivityHub';
-
-import { useSwapInviteeRewardAction } from './hooks/useSwapInviteeRewardAction';
+import { useOpenPerksTab } from '@onekeyhq/kit/src/hooks/useReferFriends';
 
 export function SwapActivityHubHeaderAction({
   testID = 'swap-invitee-reward-top-nav-button',
@@ -11,14 +10,14 @@ export function SwapActivityHubHeaderAction({
   ComponentProps<typeof ActivityHubAction>,
   'source' | 'onOpenInviteeReward' | 'copyAsUrl'
 >) {
-  const { showSwapInviteeReward } = useSwapInviteeRewardAction();
+  const openPerksTab = useOpenPerksTab();
 
   return (
     <ActivityHubAction
       source="Swap"
       copyAsUrl
       testID={testID}
-      onOpenInviteeReward={showSwapInviteeReward}
+      onOpenInviteeReward={openPerksTab}
       {...rest}
     />
   );
