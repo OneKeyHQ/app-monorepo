@@ -5,9 +5,13 @@
 
 import type { ReactElement, ReactNode } from 'react';
 
-import { Dialog } from '.';
+import { Dialog, useInTabDialog } from '.';
+
+import { renderHook } from '@testing-library/react';
 
 import { renderToContainer } from './renderToContainer';
+
+const mockPageScope: { hostKey?: string; ownerKey?: string } = {};
 
 jest.mock('./OverlayDialogPresentation', () => ({
   OverlayDialogPresentation: ({
@@ -18,9 +22,15 @@ jest.mock('./OverlayDialogPresentation', () => ({
     open: boolean;
   }) => (open ? <div data-testid="overlay-dialog">{children}</div> : null),
 }));
+jest.mock('@react-navigation/native', () => ({
+  NavigationRouteContext: jest
+    .requireActual<typeof import('react')>('react')
+    .createContext(undefined),
+}));
+
 jest.mock('@onekeyfe/react-native-native-overlay', () => ({
   useNestedOverlayLevel: () => 'modal',
-  useOverlayPageScope: () => ({}),
+  useOverlayPageScope: () => mockPageScope,
 }));
 
 jest.mock('react-intl', () => ({
@@ -73,12 +83,14 @@ jest.mock('../../hocs', () => {
     EPortalContainerConstantName: {
       FULL_WINDOW_OVERLAY_PORTAL: 'FULL_WINDOW_OVERLAY_PORTAL',
       APP_STATE_LOCK_CONTAINER_OVERLAY: 'APP_STATE_LOCK_CONTAINER_OVERLAY',
+      PASSWORD_VERIFY_CONTAINER_PORTAL: 'PASSWORD_VERIFY_CONTAINER_PORTAL',
     },
     Portal: {
       Render: jest.fn(() => manager),
       Constant: {
         FULL_WINDOW_OVERLAY_PORTAL: 'FULL_WINDOW_OVERLAY_PORTAL',
         APP_STATE_LOCK_CONTAINER_OVERLAY: 'APP_STATE_LOCK_CONTAINER_OVERLAY',
+        PASSWORD_VERIFY_CONTAINER_PORTAL: 'PASSWORD_VERIFY_CONTAINER_PORTAL',
       },
     },
     usePageType: () => undefined,
@@ -163,4 +175,75 @@ describe('Dialog.show closing lifecycle', () => {
       jest.useRealTimers();
     }
   });
+
+  it('releases a page-removed dialog even when its close guard never forwards onClose', () => {
+    const onClose = jest.fn();
+    const instance = Dialog.show({
+      overlayPage: { hostKey: 'main', ownerKey: 'perp' },
+      onBeforeClose: () => false,
+      onClose,
+    });
+    const element = jest
+      .mocked(renderToContainer)
+      .mock.calls.at(-1)?.[1] as ReactElement<{ onExited: () => void }>;
+    const manager = jest.mocked(renderToContainer).mock.results.at(-1)
+      ?.value as {
+      destroy: jest.Mock;
+    };
+
+    element.props.onExited();
+    element.props.onExited();
+    expect(manager.destroy).toHaveBeenCalledTimes(1);
+    expect(onClose).toHaveBeenCalledTimes(1);
+    expect(instance.isExist()).toBe(false);
+  });
+
+  it('finishes a lock dialog once when its host unmounts', async () => {
+    const onClose = jest.fn();
+    const onCloseStart = jest.fn();
+    const instance = Dialog.show({
+      portalContainer: LOCK_CONTAINER,
+      onClose,
+      onCloseStart,
+    });
+    const hostUnavailable = jest
+      .mocked(renderToContainer)
+      .mock.calls.at(-1)?.[3];
+    hostUnavailable?.();
+    await instance.close();
+    expect(onClose).toHaveBeenCalledTimes(1);
+    expect(onCloseStart).not.toHaveBeenCalled();
+  });
 });
+
+it('rejects a page dialog without a source page instead of opening globally', () => {
+  jest.mocked(renderToContainer).mockClear();
+  const { result } = renderHook(() => useInTabDialog());
+  expect(() => result.current.show({})).toThrow('source host and owner');
+  expect(renderToContainer).not.toHaveBeenCalled();
+});
+
+it.each([false, true])(
+  'routes a page hook to its source owner with native=%s',
+  (native) => {
+    const platformEnv = jest.requireMock<{
+      __platformEnv: { isNative: boolean };
+    }>('@onekeyhq/shared/src/platformEnv').__platformEnv;
+    platformEnv.isNative = native;
+    mockPageScope.hostKey = 'main';
+    mockPageScope.ownerKey = 'perp';
+    try {
+      const { result } = renderHook(() => useInTabDialog());
+      const instance = result.current.show({});
+      expect(jest.mocked(renderToContainer).mock.calls.at(-1)?.[2]).toEqual({
+        hostKey: 'main',
+        ownerKey: 'perp',
+      });
+      void instance.close();
+    } finally {
+      platformEnv.isNative = true;
+      delete mockPageScope.hostKey;
+      delete mockPageScope.ownerKey;
+    }
+  },
+);

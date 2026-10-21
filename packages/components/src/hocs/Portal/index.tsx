@@ -84,10 +84,9 @@ function renderToPortal(
   };
 }
 
-// Mount roots for imperative overlay APIs (`Dialog.show`, `Toast.show`,
-// `ActionList.show`, `useInPageDialog`; the lock and password containers pick
-// the dialog's level). What mounts there must render its own `OverlayView`;
-// declarative content does not belong in them.
+// Legacy overlay container names remain for compatibility with callers that
+// specify a dialog level. Their React content mounts through the imperative
+// overlay registry; only ordinary Portal slots such as SUGGESTION_LIST remain.
 const OVERLAY_MOUNT_ROOTS: ReadonlySet<EPortalContainerConstantName> = new Set([
   EPortalContainerConstantName.FULL_WINDOW_OVERLAY_PORTAL,
   EPortalContainerConstantName.TOASTER_OVERLAY_PORTAL,

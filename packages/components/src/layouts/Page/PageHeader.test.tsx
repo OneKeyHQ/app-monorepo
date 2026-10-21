@@ -12,6 +12,7 @@ const mockSetOptions = jest.fn();
 const mockNavigation = { setOptions: mockSetOptions };
 const explicitHeaderStyle = { backgroundColor: '#191919' };
 const pageScope = { hostKey: 'main', ownerKey: 'perp' };
+let mockNoGlass = false;
 
 jest.mock('@react-navigation/native', () => ({
   useNavigation: () => mockNavigation,
@@ -76,7 +77,10 @@ jest.mock('../../hooks', () => ({
 }));
 
 jest.mock('../../primitives/Button/GlassHeaderContext', () => ({
-  toNoGlassHeaderItems: () => undefined,
+  toNoGlassHeaderItems: (renderHeader: () => ReactNode) =>
+    mockNoGlass
+      ? () => [{ type: 'custom', element: <>{renderHeader()}</> }]
+      : undefined,
   wrapHeaderRenderInGlass: (renderHeader: unknown) => renderHeader,
 }));
 
@@ -107,6 +111,7 @@ describe('PageHeader', () => {
   beforeEach(() => {
     mockSetOptions.mockClear();
     platformEnv.isNative = false;
+    mockNoGlass = false;
   });
 
   it('preserves the navigator header style when the page does not override it', () => {
@@ -144,18 +149,29 @@ describe('PageHeader', () => {
     );
   });
 
-  it.each(['headerLeft', 'headerRight', 'headerTitle'] as const)(
-    'restores the source page scope for a detached %s callback',
-    (slot) => {
-      render(
-        <MockScopeContext.Provider value={pageScope}>
-          <PageHeader {...{ [slot]: renderScopeProbe }} />
-        </MockScopeContext.Provider>,
-      );
+  it.each([false, true])(
+    'restores the source page scope for detached header callbacks with native=%s',
+    (native) => {
+      platformEnv.isNative = native;
+      for (const slot of [
+        'headerLeft',
+        'headerRight',
+        'headerTitle',
+      ] as const) {
+        const { unmount } = render(
+          <MockScopeContext.Provider value={pageScope}>
+            <PageHeader {...{ [slot]: renderScopeProbe }} />
+          </MockScopeContext.Provider>,
+        );
 
-      const callback = mockSetOptions.mock.calls[0][0][slot] as () => ReactNode;
-      render(<>{callback()}</>);
-      expect(screen.getByText('main/perp')).toBeTruthy();
+        const callback = mockSetOptions.mock.calls.at(-1)?.[0][
+          slot
+        ] as () => ReactNode;
+        const detached = render(<>{callback()}</>);
+        expect(screen.getByText('main/perp')).toBeTruthy();
+        unmount();
+        detached.unmount();
+      }
     },
   );
 
@@ -175,8 +191,25 @@ describe('PageHeader', () => {
     expect(mockSetOptions).toHaveBeenCalledTimes(1);
   });
 
+  it('restores native scope before the no-glass header transform', () => {
+    platformEnv.isNative = true;
+    mockNoGlass = true;
+    render(
+      <MockScopeContext.Provider value={pageScope}>
+        <PageHeader headerRight={renderScopeProbe} headerRightNoGlass />
+      </MockScopeContext.Provider>,
+    );
+    const options = mockSetOptions.mock.calls[0][0] as {
+      headerRight: unknown;
+      unstable_headerRightItems: () => { element: ReactNode }[];
+    };
+    expect(options.headerRight).toBeUndefined();
+    render(<>{options.unstable_headerRightItems()[0].element}</>);
+    expect(screen.getByText('main/perp')).toBeTruthy();
+  });
+
   it.each([
-    { native: true, scope: pageScope },
+    { native: true, scope: { hostKey: 'main' } },
     { native: false, scope: { hostKey: 'main' } },
   ])(
     'keeps header callbacks unchanged with native=$native and scope=$scope',

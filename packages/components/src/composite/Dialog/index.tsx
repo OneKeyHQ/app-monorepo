@@ -1,6 +1,7 @@
 import type { ComponentProps, ForwardedRef } from 'react';
 import {
   cloneElement,
+  createContext,
   createRef,
   forwardRef,
   useCallback,
@@ -17,6 +18,7 @@ import {
   useNestedOverlayLevel,
   useOverlayPageScope,
 } from '@onekeyfe/react-native-native-overlay';
+import { NavigationRouteContext } from '@react-navigation/native';
 import { FocusScope } from '@tamagui/focus-scope';
 import { setStringAsync } from 'expo-clipboard';
 import { isNil } from 'lodash';
@@ -28,6 +30,7 @@ import Animated, {
 import { initialWindowMetrics } from 'react-native-safe-area-context';
 
 import { useMedia } from '@onekeyhq/components/src/hooks/useStyle';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors/errors/localError';
 import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import {
   createLazyModuleComponent,
@@ -44,7 +47,6 @@ import { SheetGrabber } from '../../content/SheetGrabber';
 import {
   EPageType,
   EPortalContainerConstantName,
-  Portal,
   usePageType,
 } from '../../hocs';
 import {
@@ -571,6 +573,20 @@ function DialogFrame({
   );
 }
 
+type ICustomDialogMount = Pick<
+  IDialogContainerProps,
+  | 'overlayLevel'
+  | 'overlayPage'
+  | 'onExited'
+  | 'onClose'
+  | 'onBeforeClose'
+  | 'isExist'
+>;
+
+const CustomDialogMountContext = createContext<ICustomDialogMount | undefined>(
+  undefined,
+);
+
 function BaseDialogContainer(
   {
     onOpen,
@@ -591,7 +607,44 @@ function BaseDialogContainer(
   }: IDialogContainerProps,
   ref: ForwardedRef<IDialogInstance>,
 ) {
-  assertOverlayProps('Dialog', props);
+  const customMount = useContext(CustomDialogMountContext);
+  const ownOnExited = props.onExited;
+  const effectiveOnBeforeClose = onBeforeClose ?? customMount?.onBeforeClose;
+  const effectiveIsExist = isExist ?? customMount?.isExist;
+  const forwardOnClose = useCallback(
+    async (extra?: { flag?: string }) => {
+      if (customMount && onClose !== customMount.onClose) {
+        try {
+          await onClose(extra);
+        } finally {
+          await customMount.onClose(extra);
+        }
+      } else {
+        await onClose(extra);
+      }
+    },
+    [customMount, onClose],
+  );
+  const forwardOnExited = useCallback(() => {
+    if (customMount && ownOnExited !== customMount.onExited) {
+      try {
+        ownOnExited?.();
+      } finally {
+        customMount.onExited?.();
+      }
+    } else {
+      ownOnExited?.();
+    }
+  }, [customMount, ownOnExited]);
+  const presentationProps = customMount
+    ? {
+        ...props,
+        overlayLevel: customMount.overlayLevel,
+        overlayPage: customMount.overlayPage,
+        onExited: forwardOnExited,
+      }
+    : props;
+  assertOverlayProps('Dialog', presentationProps);
   const [isOpenState, changeIsOpenState] = useState(true);
   const isControlled = !isNil(open);
   const isOpen = isControlled ? open : isOpenState;
@@ -612,7 +665,7 @@ function BaseDialogContainer(
         return pendingCloseRef.current;
       }
       const close = async () => {
-        if (onBeforeClose && !(await onBeforeClose(extra))) {
+        if (effectiveOnBeforeClose && !(await effectiveOnBeforeClose(extra))) {
           return;
         }
         if (
@@ -625,19 +678,25 @@ function BaseDialogContainer(
         onCloseRequested?.();
         changeIsOpen(false);
         void Keyboard.dismissWithDelay(50);
-        await onClose(extra);
+        await forwardOnClose(extra);
       };
       pendingCloseRef.current = close().finally(() => {
         pendingCloseRef.current = undefined;
       });
       return pendingCloseRef.current;
     },
-    [changeIsOpen, onClose, props.trackID, onBeforeClose, onCloseRequested],
+    [
+      changeIsOpen,
+      forwardOnClose,
+      props.trackID,
+      effectiveOnBeforeClose,
+      onCloseRequested,
+    ],
   );
 
   const handleIsExist = useCallback(
-    () => (isExist ? isExist() : false),
-    [isExist],
+    () => (effectiveIsExist ? effectiveIsExist() : false),
+    [effectiveIsExist],
   );
 
   // `Dialog.Form` registers itself onto `formRef` from a lazily loaded module,
@@ -722,19 +781,21 @@ function BaseDialogContainer(
     [headerProps],
   );
   return (
-    <DialogContext.Provider value={contextValue}>
-      <DialogHeaderContext.Provider value={headerContextValue}>
-        <DialogFrame
-          contextValue={contextValue}
-          open={isOpen}
-          onOpen={handleOpen}
-          renderContent={renderContent}
-          onClose={handleClose}
-          title={title}
-          {...props}
-        />
-      </DialogHeaderContext.Provider>
-    </DialogContext.Provider>
+    <CustomDialogMountContext.Provider value={undefined}>
+      <DialogContext.Provider value={contextValue}>
+        <DialogHeaderContext.Provider value={headerContextValue}>
+          <DialogFrame
+            contextValue={contextValue}
+            open={isOpen}
+            onOpen={handleOpen}
+            renderContent={renderContent}
+            onClose={handleClose}
+            title={title}
+            {...presentationProps}
+          />
+        </DialogHeaderContext.Provider>
+      </DialogContext.Provider>
+    </CustomDialogMountContext.Provider>
   );
 }
 
@@ -785,6 +846,32 @@ function dialogShow({
     | undefined;
 
   let dialogInstance: IDialogInstance | undefined;
+  let closeStarted = false;
+  let finalized = false;
+
+  const overlayPage =
+    portalContainer ===
+      EPortalContainerConstantName.APP_STATE_LOCK_CONTAINER_OVERLAY ||
+    portalContainer ===
+      EPortalContainerConstantName.PASSWORD_VERIFY_CONTAINER_PORTAL
+      ? undefined
+      : props.overlayPage;
+
+  const finalize = (extra?: { flag?: string }) => {
+    if (finalized) {
+      return;
+    }
+    finalized = true;
+    instanceRef = undefined;
+    portalRef?.current.destroy();
+    portalRef = undefined;
+    if (dialogInstance) {
+      removeDialogInstance(dialogInstance);
+      dialogInstance = undefined;
+    }
+    void Keyboard.dismissWithDelay(50);
+    void onClose?.(extra);
+  };
 
   // The overlay reports the end of its exit animation; the portal is
   // unmounted then instead of after a fixed delay. The fallback covers a
@@ -796,6 +883,9 @@ function dialogShow({
     exited = true;
     exitWaiters.forEach((resolve) => resolve());
     exitWaiters = [];
+    if (!closeStarted) {
+      finalize();
+    }
   };
   const waitForExit = () =>
     exited
@@ -805,27 +895,15 @@ function dialogShow({
           setTimeout(resolve, DIALOG_EXIT_FALLBACK_MS);
         });
 
-  const buildForwardOnClose =
-    (options: {
-      onClose?: (extra?: { flag?: string }) => void | Promise<void>;
-    }) =>
-    async (extra?: { flag?: string }) => {
-      onCloseStart?.();
-      await waitForExit();
-      if (instanceRef) {
-        instanceRef = undefined;
-      }
-      if (portalRef) {
-        portalRef.current.destroy();
-        portalRef = undefined;
-      }
-      if (dialogInstance) {
-        removeDialogInstance(dialogInstance);
-        dialogInstance = undefined;
-      }
-      void Keyboard.dismissWithDelay(50);
-      void options.onClose?.(extra);
-    };
+  const buildForwardOnClose = () => async (extra?: { flag?: string }) => {
+    if (finalized) {
+      return;
+    }
+    closeStarted = true;
+    onCloseStart?.();
+    await waitForExit();
+    finalize(extra);
+  };
   const overlayLevel =
     props.overlayLevel ?? overlayLevelForContainer(portalContainer);
   // eslint-disable-next-line react-perf/jsx-no-new-function-as-prop
@@ -833,44 +911,74 @@ function dialogShow({
   const element = (() => {
     if (dialogContainer) {
       const e = dialogContainer({ ref: instanceRef });
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-      // const newOnClose = buildForwardOnClose({ onClose: e.props.onClose });
-      const newOnClose = buildForwardOnClose({ onClose });
-      const newProps = {
-        ...props,
-        ...e.props,
+      const newOnClose = buildForwardOnClose();
+      // oxlint-disable-next-line react-perf/jsx-no-new-object-as-prop -- this imperative call creates one stable mount value
+      const mount = {
         overlayLevel,
+        overlayPage,
         onExited: handleExited,
         onClose: newOnClose,
+        onBeforeClose: props.onBeforeClose,
+        isExist,
       };
-      return cloneElement(e, newProps);
+      const customDialog =
+        e.type === DialogContainer
+          ? cloneElement(e, {
+              ...props,
+              ...e.props,
+              overlayLevel,
+              overlayPage,
+              onExited: e.props.onExited ?? handleExited,
+              onClose: e.props.onClose ?? newOnClose,
+              isExist,
+            })
+          : e;
+      return (
+        // oxlint-disable-next-line react/jsx-no-constructed-context-values -- the imperative mount value is stable for this dialog lifetime
+        <CustomDialogMountContext.Provider value={mount}>
+          {customDialog}
+        </CustomDialogMountContext.Provider>
+      );
     }
     return (
       <DialogContainer
         ref={instanceRef}
         {...props}
         overlayLevel={overlayLevel}
+        overlayPage={overlayPage}
         onExited={handleExited}
-        onClose={buildForwardOnClose({ onClose })}
+        onClose={buildForwardOnClose()}
         isExist={isExist}
       />
     );
   })();
 
   portalRef = {
-    current: portalContainer
-      ? renderToContainer(portalContainer, element)
-      : Portal.Render(Portal.Constant.FULL_WINDOW_OVERLAY_PORTAL, element),
+    current: renderToContainer(
+      portalContainer ??
+        EPortalContainerConstantName.FULL_WINDOW_OVERLAY_PORTAL,
+      element,
+      overlayPage,
+      () => {
+        if (
+          portalContainer ===
+            EPortalContainerConstantName.APP_STATE_LOCK_CONTAINER_OVERLAY ||
+          !instanceRef?.current
+        ) {
+          finalize();
+        }
+      },
+    ),
   };
-  const close = async (extra?: { flag?: string }, times = 0) => {
-    if (times > 10) {
+  const close = async (extra?: { flag?: string }) => {
+    if (finalized) {
       return;
     }
     if (!instanceRef?.current) {
-      setTimeout(() => {
-        void close(extra, times + 1);
-      }, 10);
-      return Promise.resolve();
+      closeStarted = true;
+      onCloseStart?.();
+      finalize(extra);
+      return;
     }
     return instanceRef?.current?.close(extra);
   };
@@ -968,6 +1076,7 @@ export type IDialogLoadingProps = {
   title?: string;
   description?: string;
   showExitButton?: boolean;
+  overlayPage?: IDialogShowProps['overlayPage'];
 };
 function dialogLoading(props: IDialogLoadingProps) {
   return dialogShow({
@@ -1013,6 +1122,7 @@ export const useInPageDialog = (dialogType?: EInPageDialogType) => {
   const navigatorPortalId = useModalNavigatorContextPortalId();
   const { pagePortalId } = usePageContext();
   const pageType = usePageType();
+  const route = useContext(NavigationRouteContext);
   const type = useMemo(() => {
     if (dialogType) {
       return dialogType;
@@ -1039,7 +1149,8 @@ export const useInPageDialog = (dialogType?: EInPageDialogType) => {
 
   // The page's overlay host and owner: the dialog renders as a page overlay
   // (hidden while the page is covered) wherever its portal lives.
-  const { hostKey, ownerKey } = useOverlayPageScope();
+  const { hostKey, ownerKey: scopedOwnerKey } = useOverlayPageScope();
+  const ownerKey = scopedOwnerKey ?? route?.key;
   const basicDialogProps = useMemo(
     () => ({
       testID: portalId,
@@ -1047,34 +1158,46 @@ export const useInPageDialog = (dialogType?: EInPageDialogType) => {
     }),
     [hostKey, ownerKey, portalId],
   );
+  const requirePage = useCallback(() => {
+    if (!basicDialogProps.overlayPage) {
+      throw new OneKeyLocalError(
+        'Page dialog requires a source host and owner',
+      );
+    }
+    return basicDialogProps.overlayPage;
+  }, [basicDialogProps.overlayPage]);
   return useMemo(
     () => ({
       show: (props: IDialogShowFunctionProps) => {
         return dialogShow({
           ...basicDialogProps,
           ...props,
+          overlayPage: requirePage(),
         });
       },
       confirm: (props: IDialogConfirmProps) => {
         return dialogConfirm({
           ...basicDialogProps,
           ...props,
+          overlayPage: requirePage(),
         });
       },
       cancel: (props: IDialogCancelProps) => {
         return dialogConfirm({
           ...basicDialogProps,
           ...props,
+          overlayPage: requirePage(),
         });
       },
       loading: (props: IDialogLoadingProps) => {
         return dialogLoading({
           ...basicDialogProps,
           ...props,
+          overlayPage: requirePage(),
         });
       },
     }),
-    [basicDialogProps],
+    [basicDialogProps, requirePage],
   );
 };
 

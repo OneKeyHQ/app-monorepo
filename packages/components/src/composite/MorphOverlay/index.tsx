@@ -47,11 +47,11 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { IconButton } from '../../actions/IconButton';
 import { publishToastTopObstruction } from '../../actions/Toast/topObstruction';
 import { easeInFn, easeOutFn } from '../../content/deviceScene';
-import { Portal } from '../../hocs';
 import { useReanimatedKeyboardAnimation } from '../../hooks/useKeyboardController';
 import { useSafeAreaInsets } from '../../hooks/useLayout';
 import { useMedia } from '../../hooks/useStyle';
 import { Stack } from '../../primitives';
+import { ImperativeOverlayMountBody } from '../../shared/imperativeOverlayMount';
 import { usableWindowBottom } from '../../utils/usableWindowBottom';
 
 import { dynamicIslandRect } from './dynamicIsland';
@@ -1445,7 +1445,7 @@ export function MorphOverlay<T>({
     // Support button's in-app browser) cannot rise above it — so a
     // driver navigating away must drop the stage first, the discipline
     // the dialogs themselves follow.
-    <Portal.Body container={Portal.Constant.HARDWARE_UI_STATE_DIALOG}>
+    <ImperativeOverlayMountBody target="hardware-stage">
       {/* collapsable={false}: RN 0.86 Fabric flattens this layout-only
           box-none layer out of the native hierarchy, and the flattened
           path loses hit-testing for the whole subtree — the stage draws
@@ -1577,6 +1577,6 @@ export function MorphOverlay<T>({
           </Animated.View>
         </GestureDetector>
       </Stack>
-    </Portal.Body>
+    </ImperativeOverlayMountBody>
   );
 }

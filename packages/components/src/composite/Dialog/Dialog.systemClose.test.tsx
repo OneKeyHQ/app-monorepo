@@ -63,6 +63,12 @@ jest.mock('../../hooks', () => ({
   useKeyboardEventWithoutNavigation: jest.fn(),
   useSafeAreaInsets: () => ({ top: 0, bottom: 0 }),
 }));
+jest.mock('@react-navigation/native', () => ({
+  NavigationRouteContext: jest
+    .requireActual<typeof import('react')>('react')
+    .createContext(undefined),
+}));
+
 jest.mock('@onekeyfe/react-native-native-overlay', () => ({
   useNestedOverlayLevel: () => 'modal',
   useOverlayPageScope: () => ({}),

@@ -3,10 +3,10 @@
  * @jest-environment-options {"customExportConditions": ["node", "node-addons"]}
  */
 
-import type { HTMLAttributes, ReactNode } from 'react';
+import type { HTMLAttributes, ReactElement, ReactNode } from 'react';
 import { createRef, useEffect } from 'react';
 
-import { DialogContainer } from '.';
+import { Dialog, DialogContainer } from '.';
 
 import {
   act,
@@ -17,21 +17,61 @@ import {
 } from '@testing-library/react';
 import { useForm } from 'react-hook-form';
 
+import { renderToContainer } from './renderToContainer';
+
 import type { IDialogInstance } from './type';
 
 let mockIsSheet = false;
 const mockClose = jest.fn(() => Promise.resolve());
 const mockPeriodInput = <input aria-label="Period" />;
+const mockNoopDialogClose = async () => undefined;
+const mockNestedDialog = (
+  <DialogContainer
+    testID="nested-dialog"
+    showHeader={false}
+    showFooter={false}
+    onClose={mockNoopDialogClose}
+  />
+);
+let mockPresentation:
+  | {
+      page?: { hostKey: string; ownerKey: string };
+      onExited?: () => void;
+      level: string;
+    }
+  | undefined;
+const mockPresentations: Array<{
+  page?: { hostKey: string; ownerKey: string };
+  testID?: string;
+}> = [];
 
 jest.mock('./OverlayDialogPresentation', () => ({
   OverlayDialogPresentation: ({
     children,
     open,
+    page,
+    onExited,
+    level,
+    testID,
   }: {
     children?: ReactNode;
     open: boolean;
-  }) => (open ? <div data-testid="overlay-dialog">{children}</div> : null),
+    page?: { hostKey: string; ownerKey: string };
+    onExited?: () => void;
+    level: string;
+    testID?: string;
+  }) => {
+    mockPresentation = { page, onExited, level };
+    mockPresentations.push({ page, testID });
+    return open ? <div data-testid="overlay-dialog">{children}</div> : null;
+  },
 }));
+jest.mock('@react-navigation/native', () => ({
+  NavigationRouteContext: jest
+    .requireActual<typeof import('react')>('react')
+    .createContext(undefined),
+}));
+
 jest.mock('@onekeyfe/react-native-native-overlay', () => ({
   useNestedOverlayLevel: () => 'modal',
   useOverlayPageScope: () => ({}),
@@ -45,6 +85,38 @@ jest.mock('@onekeyhq/components', () => {
     useMedia: () => ({ md: mockIsSheet }),
     AnimatePresence: Wrapper,
   };
+});
+
+it('does not pass a custom dialog mount into nested dialog content', () => {
+  mockPresentations.length = 0;
+  Dialog.show({
+    overlayPage: { hostKey: 'main', ownerKey: 'perp' },
+    dialogContainer: ({ ref }) => (
+      <div>
+        <DialogContainer
+          ref={ref}
+          testID="outer-dialog"
+          showHeader={false}
+          showFooter={false}
+          onClose={mockNoopDialogClose}
+          renderContent={mockNestedDialog}
+        />
+      </div>
+    ),
+  });
+  const element = jest
+    .mocked(renderToContainer)
+    .mock.calls.at(-1)?.[1] as ReactElement;
+  const mounted = render(element);
+  expect(mockPresentations).toContainEqual({
+    page: { hostKey: 'main', ownerKey: 'perp' },
+    testID: 'outer-dialog',
+  });
+  expect(mockPresentations).toContainEqual({
+    page: undefined,
+    testID: 'nested-dialog',
+  });
+  mounted.unmount();
 });
 
 jest.mock('../../primitives', () => {
@@ -104,7 +176,13 @@ jest.mock('../../content/Keyboard', () => ({
   Keyboard: { dismissWithDelay: jest.fn() },
 }));
 jest.mock('../../content/SheetGrabber', () => ({ SheetGrabber: () => null }));
-jest.mock('../../hocs', () => ({}));
+jest.mock('../../hocs', () => ({
+  EPortalContainerConstantName: {
+    FULL_WINDOW_OVERLAY_PORTAL: 'window',
+    APP_STATE_LOCK_CONTAINER_OVERLAY: 'lock',
+    PASSWORD_VERIFY_CONTAINER_PORTAL: 'secure',
+  },
+}));
 jest.mock('../../hooks', () => ({
   useBackHandler: jest.fn(),
   useKeyboardEventWithoutNavigation: jest.fn(),
@@ -125,7 +203,46 @@ jest.mock('./Header', () => {
   };
 });
 jest.mock('./DialogScrollView', () => ({}));
-jest.mock('./renderToContainer', () => ({}));
+jest.mock('./renderToContainer', () => ({
+  renderToContainer: jest.fn(() => ({ destroy: jest.fn(), update: jest.fn() })),
+}));
+
+it('keeps a wrapped custom dialog page-scoped and forwards both close callbacks', async () => {
+  const ownClose = jest.fn(async () => undefined);
+  const onClose = jest.fn();
+  const dialog = Dialog.show({
+    overlayPage: { hostKey: 'main', ownerKey: 'perp' },
+    dialogContainer: ({ ref }) => (
+      <div data-testid="theme-wrapper">
+        <DialogContainer
+          ref={ref}
+          showHeader={false}
+          showFooter={false}
+          onClose={ownClose}
+        />
+      </div>
+    ),
+    onClose,
+  });
+  const element = jest
+    .mocked(renderToContainer)
+    .mock.calls.at(-1)?.[1] as ReactElement;
+  const mounted = render(element);
+  expect(mockPresentation?.page).toEqual({ hostKey: 'main', ownerKey: 'perp' });
+  expect(mockPresentation?.level).toBe('modal');
+  let closing!: Promise<void>;
+  act(() => {
+    closing = Promise.resolve(dialog.close());
+  });
+  await waitFor(() => expect(ownClose).toHaveBeenCalledTimes(1));
+  expect(onClose).not.toHaveBeenCalled();
+  act(() => mockPresentation?.onExited?.());
+  await act(async () => {
+    await closing;
+  });
+  expect(onClose).toHaveBeenCalledTimes(1);
+  mounted.unmount();
+});
 
 it('notifies dismissal before waiting for the close animation', async () => {
   const dialogRef = createRef<IDialogInstance>();

@@ -11,15 +11,8 @@ jest.mock('react-native', () =>
   jest.requireActual<typeof import('react-native')>('react-native-web'),
 );
 
-jest.mock('@onekeyhq/components', () => ({
-  Portal: {
-    Container: ({ name }: { name: string }) => (
-      <div data-testid="portal-container" data-name={name} />
-    ),
-    Constant: {
-      APP_STATE_LOCK_CONTAINER_OVERLAY: 'APP_STATE_LOCK_CONTAINER_OVERLAY',
-    },
-  },
+jest.mock('@onekeyhq/components/src/shared/imperativeOverlayMount', () => ({
+  ImperativeOverlayMountHost: () => <div data-testid="imperative-lock-host" />,
 }));
 
 // jsdom has no Web Animations; the lock host does not animate, but the web
@@ -35,7 +28,7 @@ beforeAll(() => {
 });
 
 describe('AppStateContainer (web)', () => {
-  it('hosts the lock screen and its dialog portal in the lock overlay layer', async () => {
+  it('hosts the lock screen and imperative dialogs in the lock overlay layer', async () => {
     render(
       <AppStateContainer>
         <div data-testid="lock-screen" />
@@ -46,19 +39,16 @@ describe('AppStateContainer (web)', () => {
     });
 
     const lockScreen = document.querySelector('[data-testid="lock-screen"]');
-    const portalContainer = document.querySelector(
-      '[data-testid="portal-container"]',
-    );
-    expect(portalContainer?.getAttribute('data-name')).toBe(
-      'APP_STATE_LOCK_CONTAINER_OVERLAY',
+    const lockHost = document.querySelector(
+      '[data-testid="imperative-lock-host"]',
     );
 
     const bodyChildren = Array.from(document.body.children);
     const lockRoot = bodyChildren.find((child) => child.contains(lockScreen));
     expect(lockRoot?.getAttribute('data-onekey-overlay-layer')).toBe('lock');
-    // A dialog rendered into the portal has to end up in the same body child as
+    // A dialog rendered into the host has to end up in the same body child as
     // the lock screen: the lock screen marks every *other* body child inert, so
     // a dialog that lands beside it is visible but unusable. (OK-62416)
-    expect(lockRoot?.contains(portalContainer as Node)).toBe(true);
+    expect(lockRoot?.contains(lockHost as Node)).toBe(true);
   });
 });

@@ -180,14 +180,11 @@ jest.mock('react-native', () => ({
 jest.mock('@onekeyhq/components', () => ({
   Stack: ({ children }: PropsWithChildren) => <div>{children}</div>,
   useTheme: () => mockTheme,
-  Portal: {
-    Render: (name: unknown, element: unknown) =>
-      mockPortalRender(name, element),
-    Constant: { FULL_WINDOW_OVERLAY_PORTAL: 'window' },
-  },
   Haptics: { impact: jest.fn() },
   ImpactFeedbackStyle: { Medium: 1 },
   Toast: { success: jest.fn() },
+  mountImperativeOverlay: ({ node }: { node: unknown }) =>
+    mockPortalRender('global', node),
 }));
 jest.mock('../MarketTokenList/hooks/useMarketTokenList', () => ({
   useMarketTokenList: () => ({

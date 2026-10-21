@@ -220,4 +220,6 @@ export type IDialogFormProps = PropsWithChildren<{
 export type IRenderToContainer = (
   container: EPortalContainerConstantName,
   element: ReactElement,
+  page?: { hostKey: string; ownerKey: string },
+  onPageUnavailable?: () => void,
 ) => IPortalManager;

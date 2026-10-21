@@ -120,6 +120,12 @@ jest.mock('./OverlayDialogPresentation', () => ({
     </div>
   ),
 }));
+jest.mock('@react-navigation/native', () => ({
+  NavigationRouteContext: jest
+    .requireActual<typeof import('react')>('react')
+    .createContext(undefined),
+}));
+
 jest.mock('@onekeyfe/react-native-native-overlay', () => ({
   useNestedOverlayLevel: () => 'modal',
   useOverlayPageScope: () => ({}),

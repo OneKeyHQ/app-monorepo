@@ -1,4 +1,5 @@
-import { Portal, ShowToastProvider, Toaster } from '@onekeyhq/components';
+import { Toaster } from '@onekeyhq/components';
+import { ImperativeOverlayMountHost } from '@onekeyhq/components/src/shared/imperativeOverlayMount';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { ScreenshotBranding } from '../../../components/ScreenshotBranding';
@@ -10,22 +11,22 @@ import { HardwareStageOverlayContainer } from './HardwareStageOverlayContainer';
 import { ToastOverlayContainer } from './ToastOverlayContainer';
 import { TradingViewNativeDebugPanelContainer } from './TradingViewNativeDebugPanelContainer';
 
-// Every overlay here hosts itself in a native overlay level; this only mounts
-// them and the imperative mount roots (`Dialog.show`, `ActionList.show`).
+// The React hosts stay outside frozen screens. Each overlay still owns its
+// native level and presentation through the SDK.
 export function FullWindowOverlayContainer() {
   return (
     <>
       <TradingViewNativeFullscreenHost />
-      <Portal.Container name={Portal.Constant.FULL_WINDOW_OVERLAY_PORTAL} />
+      <ImperativeOverlayMountHost target="global" />
+      <ImperativeOverlayMountHost target="page" />
       {/* The hardware stage renders in the native `hardware` overlay level:
           above dialogs and sheets (including native modal pages the flows
           start on), below password prompts, toasts and the lock screen. */}
       <HardwareStageOverlayContainer>
-        <Portal.Container name={Portal.Constant.HARDWARE_UI_STATE_DIALOG} />
+        <ImperativeOverlayMountHost target="hardware-stage" />
       </HardwareStageOverlayContainer>
       {/* Custom toasts (Toast.show) host themselves in the native `toast`
-          overlay level; the portal they render through can live anywhere. */}
-      <ShowToastProvider />
+          overlay level. */}
       {/* The message toasts: the native `toast` level keeps them above
           dialogs, sheets and the hardware stage on every platform. */}
       <ToastOverlayContainer>

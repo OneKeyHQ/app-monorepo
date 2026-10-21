@@ -60,11 +60,9 @@ jest.mock('../../actions/IconButton', () => ({
   IconButton:
     jest.requireActual<typeof import('react-native')>('react-native').Pressable,
 }));
-jest.mock('../../hocs', () => ({
-  Portal: {
-    Body: ({ children }: { children: ReactNode }) => children,
-    Constant: { HARDWARE_UI_STATE_DIALOG: 'stage' },
-  },
+jest.mock('../../shared/imperativeOverlayMount', () => ({
+  ImperativeOverlayMountBody: ({ children }: { children: ReactNode }) =>
+    children,
 }));
 jest.mock('../../hooks/useLayout', () => ({
   useSafeAreaInsets: () => ({ top: 0, right: 0, bottom: 0, left: 0 }),

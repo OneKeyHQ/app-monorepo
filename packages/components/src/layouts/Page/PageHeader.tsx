@@ -187,48 +187,36 @@ const usePageHeaderReloadOptions = () => {
  */
 function PageHeader(props: IPageHeaderProps) {
   const pageHeaderReload = usePageHeaderReloadOptions();
-  const nextReloadOptions = pageHeaderReload.reload(props);
   const { hostKey, ownerKey } = useOverlayPageScope();
-  const headerLeft = nextReloadOptions.headerLeft;
-  const headerRight = nextReloadOptions.headerRight;
-  const headerTitle = nextReloadOptions.headerTitle;
+  const { headerLeft, headerRight, headerTitle } = props;
   const scopedHeaderLeft = useMemo(
     () =>
-      !platformEnv.isNative &&
-      hostKey &&
-      ownerKey &&
-      typeof headerLeft === 'function'
+      hostKey && ownerKey && typeof headerLeft === 'function'
         ? restoreHeaderPageScope(headerLeft, hostKey, ownerKey)
         : headerLeft,
     [headerLeft, hostKey, ownerKey],
   );
   const scopedHeaderRight = useMemo(
     () =>
-      !platformEnv.isNative &&
-      hostKey &&
-      ownerKey &&
-      typeof headerRight === 'function'
+      hostKey && ownerKey && typeof headerRight === 'function'
         ? restoreHeaderPageScope(headerRight, hostKey, ownerKey)
         : headerRight,
     [headerRight, hostKey, ownerKey],
   );
   const scopedHeaderTitle = useMemo(
     () =>
-      !platformEnv.isNative &&
-      hostKey &&
-      ownerKey &&
-      typeof headerTitle === 'function'
+      hostKey && ownerKey && typeof headerTitle === 'function'
         ? restoreHeaderPageScope(headerTitle, hostKey, ownerKey)
         : headerTitle,
     [headerTitle, hostKey, ownerKey],
   );
-  const nextScopedReloadOptions =
+  const scopedProps =
     scopedHeaderLeft === headerLeft &&
     scopedHeaderRight === headerRight &&
     scopedHeaderTitle === headerTitle
-      ? nextReloadOptions
+      ? props
       : {
-          ...nextReloadOptions,
+          ...props,
           ...(scopedHeaderLeft !== headerLeft && {
             headerLeft: scopedHeaderLeft,
           }),
@@ -239,6 +227,7 @@ function PageHeader(props: IPageHeaderProps) {
             headerTitle: scopedHeaderTitle,
           }),
         };
+  const nextReloadOptions = pageHeaderReload.reload(scopedProps);
 
   // `reload()` returns a brand-new object on every render. Feeding that fresh
   // reference into the layout effect below (and into `navigation.setOptions`)
@@ -248,14 +237,14 @@ function PageHeader(props: IPageHeaderProps) {
   // "Maximum update depth exceeded". Keep the previous reference whenever the
   // resolved options are shallowly equal, so the effect dependency only changes
   // when the options actually change.
-  const reloadOptionsRef = useRef(nextScopedReloadOptions);
+  const reloadOptionsRef = useRef(nextReloadOptions);
   if (
     !shallowEqualHeaderOptions(
       reloadOptionsRef.current as Record<string, unknown>,
-      nextScopedReloadOptions as Record<string, unknown>,
+      nextReloadOptions as Record<string, unknown>,
     )
   ) {
-    reloadOptionsRef.current = nextScopedReloadOptions;
+    reloadOptionsRef.current = nextReloadOptions;
   }
   const reloadOptions = reloadOptionsRef.current;
 

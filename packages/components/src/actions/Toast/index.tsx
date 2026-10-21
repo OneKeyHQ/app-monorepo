@@ -9,7 +9,6 @@ import { dismissKeyboard } from '@onekeyhq/shared/src/keyboard';
 import type { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { Portal } from '../../hocs';
 import { useSettingConfig } from '../../hocs/Provider/hooks/useProviderValue';
 import { usePageWidth } from '../../hooks/usePage';
 import { useMedia } from '../../hooks/useStyle';
@@ -22,6 +21,7 @@ import {
   YStack,
 } from '../../primitives';
 import { Spinner } from '../../primitives/Spinner/Spinner';
+import { mountImperativeOverlay } from '../../shared/imperativeOverlayMount';
 
 import { ShowCustom, ShowToasterClose } from './ShowCustom';
 import { dismissToast, showMessage } from './showMessage';
@@ -480,27 +480,25 @@ export const Toast = {
       exitResolvers = [];
     };
     portalRef = {
-      current: Portal.Render(
-        Portal.Constant.TOASTER_OVERLAY_PORTAL,
-        <ShowCustom
-          ref={instanceRef}
-          onClose={handleClose}
-          onExited={handleExited}
-          {...others}
-        >
-          {children}
-        </ShowCustom>,
-      ),
+      current: mountImperativeOverlay({
+        target: 'global',
+        node: (
+          <ShowCustom
+            ref={instanceRef}
+            onClose={handleClose}
+            onExited={handleExited}
+            {...others}
+          >
+            {children}
+          </ShowCustom>
+        ),
+      }),
     };
-    const close = async (extra?: { flag?: string }, times = 0) => {
-      if (times > 10) {
-        return;
-      }
+    const close = async (extra?: { flag?: string }) => {
       if (!instanceRef?.current) {
-        setTimeout(() => {
-          void close(extra, times + 1);
-        }, 10);
-        return Promise.resolve();
+        closeExtra = extra;
+        handleExited();
+        return;
       }
       return instanceRef?.current?.close(extra);
     };
@@ -520,8 +518,8 @@ export type IToast = typeof Toast;
 export { useToaster } from './ShowCustom';
 export type { IShowToasterProps } from './ShowCustom';
 
-// Custom toasts host themselves in the native `toast` overlay level; this
-// only mounts the portal `Toast.show` renders into.
+// Kept for callers that still mount the provider; the app host now owns the
+// React mount point for custom toasts.
 export function ShowToastProvider() {
-  return <Portal.Container name={Portal.Constant.TOASTER_OVERLAY_PORTAL} />;
+  return null;
 }

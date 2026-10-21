@@ -1,9 +1,11 @@
-import { useContext, useEffect } from 'react';
-import type { PropsWithChildren } from 'react';
+import { useContext, useEffect, useMemo, useRef } from 'react';
+import type { PropsWithChildren, ReactNode } from 'react';
 
 import {
+  OverlayPageHostScope,
   OverlayPageOwnerScope,
   overlayStore,
+  useOverlayPageScope,
 } from '@onekeyfe/react-native-native-overlay';
 import {
   NavigationContext,
@@ -11,6 +13,12 @@ import {
 } from '@react-navigation/native';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
+import { PageTypeContext } from '../../hocs/PageType/context';
+import { ModalNavigatorContext } from '../../hooks/useModalNavigatorContext';
+import { registerImperativeOverlayPage } from '../../shared/imperativeOverlayMount';
+
+import { PageContext } from './PageContext';
 
 import type { NavigationProp, ParamListBase } from '@react-navigation/native';
 
@@ -54,7 +62,66 @@ function isOwnerActiveWithinHost(navigation: INavigation, ownerKey: string) {
 export function PageOverlayOwner({ children }: PropsWithChildren) {
   const route = useContext(NavigationRouteContext);
   const navigation = useContext(NavigationContext) as INavigation | undefined;
+  const { hostKey } = useOverlayPageScope();
+  const pageContext = useContext(PageContext);
+  const pageTypeContext = useContext(PageTypeContext);
+  const modalNavigatorContext = useContext(ModalNavigatorContext);
   const ownerKey = route?.key;
+  const wrap = useMemo(
+    () => (node: ReactNode) =>
+      hostKey && ownerKey ? (
+        <OverlayPageHostScope hostKey={hostKey}>
+          <OverlayPageOwnerScope ownerKey={ownerKey}>
+            <NavigationContext.Provider value={navigation}>
+              <NavigationRouteContext.Provider value={route}>
+                <PageTypeContext.Provider value={pageTypeContext}>
+                  <ModalNavigatorContext.Provider value={modalNavigatorContext}>
+                    <PageContext.Provider value={pageContext}>
+                      {node}
+                    </PageContext.Provider>
+                  </ModalNavigatorContext.Provider>
+                </PageTypeContext.Provider>
+              </NavigationRouteContext.Provider>
+            </NavigationContext.Provider>
+          </OverlayPageOwnerScope>
+        </OverlayPageHostScope>
+      ) : null,
+    [
+      hostKey,
+      ownerKey,
+      navigation,
+      route,
+      pageTypeContext,
+      modalNavigatorContext,
+      pageContext,
+    ],
+  );
+  const registrationRef = useRef<
+    ReturnType<typeof registerImperativeOverlayPage> | undefined
+  >(undefined);
+  const wrapRef = useRef(wrap);
+  wrapRef.current = wrap;
+
+  useEffect(() => {
+    if (!hostKey || !ownerKey) {
+      return;
+    }
+    const registration = registerImperativeOverlayPage(
+      { hostKey, ownerKey },
+      wrapRef.current,
+    );
+    registrationRef.current = registration;
+    return () => {
+      if (registrationRef.current === registration) {
+        registrationRef.current = undefined;
+      }
+      registration.unregister();
+    };
+  }, [hostKey, ownerKey]);
+
+  useEffect(() => {
+    registrationRef.current?.update(wrap);
+  }, [wrap]);
 
   useEffect(() => {
     if (!ownerKey || !navigation) {

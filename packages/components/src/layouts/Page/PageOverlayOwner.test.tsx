@@ -18,6 +18,8 @@ import type { NavigationProp, ParamListBase } from '@react-navigation/native';
 
 const mockSetPageVisible = jest.fn();
 jest.mock('@onekeyfe/react-native-native-overlay', () => ({
+  useOverlayPageScope: () => ({}),
+  OverlayPageHostScope: ({ children }: { children?: ReactNode }) => children,
   overlayStore: {
     setPageVisible: (...args: unknown[]) => {
       mockSetPageVisible(...args);

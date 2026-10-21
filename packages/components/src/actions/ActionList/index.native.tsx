@@ -18,7 +18,6 @@ import {
 } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 
 import { Divider } from '../../content/Divider';
-import { Portal } from '../../hocs';
 import { ModalNavigatorContext, useModalNavigatorContext } from '../../hooks';
 import { PageContext, usePageContext } from '../../layouts/Page/PageContext';
 import {
@@ -33,6 +32,7 @@ import {
 } from '../../primitives';
 import { useSharedPress } from '../../primitives/Button/useEvent';
 import { assertOverlayProps } from '../../shared/assertOverlayProps';
+import { mountImperativeOverlay } from '../../shared/imperativeOverlayMount';
 import { LazyPopover } from '../LazyPopover';
 import { Shortcut } from '../Shortcut';
 import { Trigger } from '../Trigger';
@@ -605,16 +605,18 @@ const showActionList = (
   const modalCtxValue =
     modalNavigatorContext || FALLBACK_MODAL_NAVIGATOR_CONTEXT;
   const pageCtxValue = pageContextValue || FALLBACK_PAGE_CONTEXT;
-  ref = Portal.Render(
-    Portal.Constant.FULL_WINDOW_OVERLAY_PORTAL,
-    // oxlint-disable-next-line react/jsx-no-constructed-context-values -- imperative Portal.Render, not a component render
-    <ModalNavigatorContext.Provider value={modalCtxValue}>
-      {/* oxlint-disable-next-line react/jsx-no-constructed-context-values */}
-      <PageContext.Provider value={pageCtxValue}>
-        {content}
-      </PageContext.Provider>
-    </ModalNavigatorContext.Provider>,
-  );
+  ref = mountImperativeOverlay({
+    target: 'global',
+    node: (
+      // oxlint-disable-next-line react/jsx-no-constructed-context-values -- imperative mount, not a component render
+      <ModalNavigatorContext.Provider value={modalCtxValue}>
+        {/* oxlint-disable-next-line react/jsx-no-constructed-context-values */}
+        <PageContext.Provider value={pageCtxValue}>
+          {content}
+        </PageContext.Provider>
+      </ModalNavigatorContext.Provider>
+    ),
+  });
   return {
     close: lifecycle.close,
     closeImmediately: lifecycle.closeImmediately,

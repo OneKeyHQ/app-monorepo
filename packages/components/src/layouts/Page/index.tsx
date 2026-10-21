@@ -2,8 +2,6 @@ import { useMemo, useRef } from 'react';
 
 import { withStaticProperties } from '@onekeyhq/components/src/shared/tamagui';
 
-import { Portal } from '../../hocs';
-
 import { PageBody } from './PageBody';
 import { PageBackButton, PageClose, PageCloseButton } from './PageClose';
 import { PageContainer } from './PageContainer';
@@ -31,10 +29,6 @@ export type {
   IPageContentContainerProps,
   IPageContentContainerLayout,
 } from './type';
-
-function PagePortal({ pagePortalId }: { pagePortalId: string }) {
-  return pagePortalId ? <Portal.Container name={pagePortalId} /> : null;
-}
 
 const DEFAULT_SCROLL_PROPS = { showsVerticalScrollIndicator: false };
 
@@ -90,7 +84,6 @@ function PageProvider({
             >
               {children}
             </PageContainer>
-            <PagePortal pagePortalId={pagePortalId} />
           </PageOverlayOwner>
         </PageContext.Provider>
       )}

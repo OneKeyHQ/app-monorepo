@@ -3,7 +3,7 @@ import type { PropsWithChildren } from 'react';
 
 import { OverlayView } from '@onekeyfe/react-native-native-overlay';
 
-import { Portal } from '@onekeyhq/components';
+import { ImperativeOverlayMountHost } from '@onekeyhq/components/src/shared/imperativeOverlayMount';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -22,10 +22,8 @@ const HOST_ANIMATION: IOverlayAnimation = {
 /**
  * Hosts the lock screen in the native `lock` overlay level: above every
  * dialog, sheet, hardware stage, password prompt and toast, which stay open
- * underneath instead of being closed. Its dialog portal lives in the same
- * host, so dialogs opened from the lock screen (forgot passcode, export
- * logs) render in the `lock` level above it — and, on web, inside the same
- * `document.body` child that the lock screen keeps interactive (OK-62416).
+ * underneath instead of being closed. Dialogs opened from the lock screen
+ * use their own overlay level above it.
  */
 export function AppStateContainer({ children }: PropsWithChildren) {
   // The WalletConnect modal is its own Android window above the app and its
@@ -47,9 +45,7 @@ export function AppStateContainer({ children }: PropsWithChildren) {
       testID="app-state-lock-overlay"
     >
       {children}
-      <Portal.Container
-        name={Portal.Constant.APP_STATE_LOCK_CONTAINER_OVERLAY}
-      />
+      <ImperativeOverlayMountHost target="lock" />
     </OverlayView>
   );
 }
