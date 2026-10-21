@@ -53,3 +53,14 @@ export function buildReferralLinks({
         : `${inviteUrl}${link.pathSuffix}`,
   }));
 }
+
+export function buildHardwareShopInviteUrl(inviteUrl: string) {
+  if (!inviteUrl) {
+    return '';
+  }
+  return (
+    buildReferralLinks({ inviteUrl, webAppUrl: '' }).find(
+      (link) => link.subject === 'HardwareSales',
+    )?.url ?? ''
+  );
+}
