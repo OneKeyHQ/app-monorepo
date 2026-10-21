@@ -44,13 +44,17 @@ const MONTH_INDEX: Record<string, number> = {
 };
 
 /**
- * The server sends the maturity only as text ("26 Nov 2026"). Pendle markets
- * expire at 00:00 UTC on that day.
+ * The server sends the maturity only as a date, as "26 Nov 2026" today; the
+ * ISO "2026-11-26" is read as well. Pendle markets expire at 00:00 UTC on
+ * that day.
  */
 export function parseMaturityDate(text?: string): number | undefined {
-  const match = /^(\d{1,2})\s+([A-Za-z]{3})[A-Za-z]*\.?\s+(\d{4})$/.exec(
-    text?.trim() ?? '',
-  );
+  const value = text?.trim() ?? '';
+  const iso = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (iso) {
+    return Date.UTC(Number(iso[1]), Number(iso[2]) - 1, Number(iso[3]));
+  }
+  const match = /^(\d{1,2})\s+([A-Za-z]{3})[A-Za-z]*\.?\s+(\d{4})$/.exec(value);
   if (!match) {
     return undefined;
   }

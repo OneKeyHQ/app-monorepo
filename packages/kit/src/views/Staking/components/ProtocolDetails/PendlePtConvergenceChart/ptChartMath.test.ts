@@ -36,9 +36,14 @@ describe('parseMaturityDate', () => {
     expect(parseMaturityDate(' 30 Dec 2027 ')).toBe(Date.UTC(2027, 11, 30));
   });
 
+  it('reads an ISO date as 00:00 UTC of that day', () => {
+    expect(parseMaturityDate('2026-11-26')).toBe(MATURITY_MS);
+    expect(parseMaturityDate(' 2027-12-30 ')).toBe(Date.UTC(2027, 11, 30));
+  });
+
   it('gives up on any other format', () => {
     expect(parseMaturityDate(undefined)).toBeUndefined();
-    expect(parseMaturityDate('2026-11-26')).toBeUndefined();
+    expect(parseMaturityDate('11/26/2026')).toBeUndefined();
     expect(parseMaturityDate('26 Foo 2026')).toBeUndefined();
   });
 
@@ -49,6 +54,13 @@ describe('parseMaturityDate', () => {
     expect(
       resolveMaturityTime({
         maturityDate: '26 Nov 2026',
+        remainingDays: 37,
+        now: NOW_MS,
+      }),
+    ).toBe(MATURITY_MS);
+    expect(
+      resolveMaturityTime({
+        maturityDate: '2026-11-26',
         remainingDays: 37,
         now: NOW_MS,
       }),
