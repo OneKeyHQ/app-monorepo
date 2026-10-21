@@ -30,7 +30,7 @@ export class KeyringImported extends KeyringImportedBtc {
       this.vault as Vault
     ).zcashPrepareFreshTransparentRequest({ encodedTx });
     return signTransparentTransaction({
-      journal: this.backgroundApi.simpleDb.zcash,
+      journal: this.backgroundApi.simpleDb.privacyChainJournal,
       accountId: this.vault.accountId,
       encodedTx,
       request,

@@ -543,7 +543,7 @@ export class KeyringHardware extends KeyringHardwareBase {
       throw new OneKeyLocalError('zcash: hardware signing account changed');
     }
     return signTransparentTransaction({
-      journal: this.backgroundApi.simpleDb.zcash,
+      journal: this.backgroundApi.simpleDb.privacyChainJournal,
       accountId,
       encodedTx,
       request,

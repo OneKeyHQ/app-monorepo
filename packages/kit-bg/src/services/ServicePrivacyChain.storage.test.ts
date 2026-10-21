@@ -5,6 +5,7 @@ import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
 import type { IRuntimeEnvironment } from '@onekeyhq/shared/src/travelMode/runtimeEnvironment';
 
 import { SimpleDbEntityPrivacyChain } from '../dbs/simple/entity/SimpleDbEntityPrivacyChain';
+import { SimpleDbEntityPrivacyChainJournal } from '../dbs/simple/entity/SimpleDbEntityPrivacyChainJournal';
 
 jest.mock('@onekeyhq/shared/src/background/backgroundDecorators', () => {
   const actual = jest.requireActual<
@@ -50,6 +51,26 @@ function accountRow(id: string) {
 function createPrivacyChainDb(initial?: unknown) {
   let saved: unknown = initial ?? null;
   const entity = new SimpleDbEntityPrivacyChain();
+  (entity as { appStorage: unknown }).appStorage = {
+    getItem: jest.fn(async () => saved),
+    setItem: jest.fn(async (_key: string, value: unknown) => {
+      saved = value;
+    }),
+  };
+  return entity;
+}
+
+function createJournalDb(accountIds: string[] = []) {
+  let saved: unknown = {
+    data: {
+      zcashTransparent: {},
+      xmrSent: Object.fromEntries(
+        accountIds.map((id) => [id, { tx: { recipient: `4${id}` } }]),
+      ),
+    },
+    updatedAt: 1,
+  };
+  const entity = new SimpleDbEntityPrivacyChainJournal();
   (entity as { appStorage: unknown }).appStorage = {
     getItem: jest.fn(async () => saved),
     setItem: jest.fn(async (_key: string, value: unknown) => {
@@ -105,6 +126,11 @@ describe('removed-account gc', () => {
       updatedAt: 1,
     });
     const removeLastBalances = jest.fn(async () => undefined);
+    const privacyChainJournal = createJournalDb([
+      liveAccountId,
+      removedAccountId,
+      hiddenAccountId,
+    ]);
     mockGetChainOnlyVault.mockResolvedValue({
       getLocalWalletCapability: () => ({
         listAccounts: async () => ({
@@ -138,6 +164,7 @@ describe('removed-account gc', () => {
             ],
             removeLastBalances,
           },
+          privacyChainJournal,
         },
       },
       getLocalWalletNetworkIds: async () => [networkId],
@@ -151,6 +178,7 @@ describe('removed-account gc', () => {
       reset,
       gcWalletState,
       privacyChain,
+      privacyChainJournal,
       removeLastBalances,
     };
   }
@@ -165,10 +193,16 @@ describe('removed-account gc', () => {
   });
 
   it('purges nothing when the account list cannot be read', async () => {
-    const { service, reset, gcWalletState, privacyChain, removeLastBalances } =
-      createGcHarness(async () => {
-        throw new OneKeyLocalError('database is locked');
-      });
+    const {
+      service,
+      reset,
+      gcWalletState,
+      privacyChain,
+      privacyChainJournal,
+      removeLastBalances,
+    } = createGcHarness(async () => {
+      throw new OneKeyLocalError('database is locked');
+    });
 
     await service.gcRemovedAccounts();
 
@@ -180,14 +214,24 @@ describe('removed-account gc', () => {
       removedAccountId,
       hiddenAccountId,
     ]);
+    await expect(privacyChainJournal.listAccountIds()).resolves.toEqual([
+      liveAccountId,
+      removedAccountId,
+      hiddenAccountId,
+    ]);
     expect(service.gcRunning).toBe(false);
   });
 
   it('purges an account that is definitely gone', async () => {
-    const { service, reset, privacyChain, removeLastBalances } =
-      createGcHarness(async () => ({
-        accounts: [accountRow(liveAccountId), accountRow(hiddenAccountId)],
-      }));
+    const {
+      service,
+      reset,
+      privacyChain,
+      privacyChainJournal,
+      removeLastBalances,
+    } = createGcHarness(async () => ({
+      accounts: [accountRow(liveAccountId), accountRow(hiddenAccountId)],
+    }));
 
     await service.gcRemovedAccounts();
 
@@ -203,6 +247,10 @@ describe('removed-account gc', () => {
     expect(removeLastBalances).toHaveBeenCalledWith({
       accountIds: [removedAccountId],
     });
+    await expect(privacyChainJournal.listAccountIds()).resolves.toEqual([
+      liveAccountId,
+      hiddenAccountId,
+    ]);
   });
 
   it('keeps a hidden or locked passphrase wallet account', async () => {
@@ -298,6 +346,7 @@ describe('removed-account gc', () => {
             listLastBalanceAccountIds: async () => [],
             removeLastBalances: jest.fn(),
           },
+          privacyChainJournal: createJournalDb(),
         },
       },
       getLocalWalletNetworkIds: async () => [networkId],

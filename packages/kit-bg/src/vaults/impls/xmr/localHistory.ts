@@ -18,7 +18,10 @@ import type {
 import { XMR_POOL_IDS } from './types';
 
 import type { IXmrHistoryItem } from './types';
-import type { IXmrSentAmount } from '../../../dbs/simple/entity/SimpleDbEntityXmr';
+import type {
+  IXmrSentAmount,
+  IXmrSentRecord,
+} from '../../../dbs/simple/entity/SimpleDbEntityPrivacyChainJournal';
 
 function getXmrHistoryStatus(item: IXmrHistoryItem): EDecodedTxStatus {
   if (item.height !== null) {
@@ -57,6 +60,20 @@ export function buildXmrLocalHistoryDetail({
     confirmations: getXmrConfirmations(item, chainTip),
     timestamp: item.timestamp ?? undefined,
   } as IOnChainHistoryTx;
+}
+
+// The history row's view of a sent record: amounts only as a recorded pair.
+export function toXmrSentAmount(
+  record: IXmrSentRecord | undefined,
+): IXmrSentAmount | undefined {
+  if (record?.amountAtomic === undefined || record.feeAtomic === undefined) {
+    return undefined;
+  }
+  return {
+    amountAtomic: record.amountAtomic,
+    feeAtomic: record.feeAtomic,
+    ...(record.outcomeUnknown ? { broadcastOutcomeUnknown: true } : {}),
+  };
 }
 
 export async function buildXmrLocalHistoryTx({

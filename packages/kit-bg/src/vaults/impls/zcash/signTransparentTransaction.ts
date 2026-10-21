@@ -11,7 +11,7 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 
 import type { IEncodedTxZcash } from './types';
-import type { SimpleDbEntityZcash } from '../../../dbs/simple/entity/SimpleDbEntityZcash';
+import type { SimpleDbEntityPrivacyChainJournal } from '../../../dbs/simple/entity/SimpleDbEntityPrivacyChainJournal';
 
 // The outputs the signed transaction actually pays, checked against what the
 // user reviewed. Inputs, fee and expiry echo the request and prove nothing on
@@ -56,7 +56,7 @@ export async function signTransparentTransaction({
   parseOutputs,
 }: {
   journal: Pick<
-    SimpleDbEntityZcash,
+    SimpleDbEntityPrivacyChainJournal,
     | 'reserveTransparentOutpoints'
     | 'saveTransparentPendingTx'
     | 'releaseTransparentReservation'

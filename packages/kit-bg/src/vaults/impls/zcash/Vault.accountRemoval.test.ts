@@ -16,6 +16,7 @@ describe('Zcash cleanup of a deleted account', () => {
   function createVault(otherAccountStillExists: boolean) {
     const purgeWallet = jest.fn(async () => undefined);
     const removeAccountState = jest.fn(async () => undefined);
+    const removeZcashTransparentAccount = jest.fn(async () => undefined);
     const vault = Object.assign(Object.create(Vault.prototype) as Vault, {
       networkId: 'zec--0',
       backgroundApi: {
@@ -28,6 +29,7 @@ describe('Zcash cleanup of a deleted account', () => {
             ],
             removeAccountState,
           },
+          privacyChainJournal: { removeZcashTransparentAccount },
         },
         serviceAccount: {
           getDBAccountSafe: async ({ accountId }: { accountId: string }) =>
@@ -39,24 +41,45 @@ describe('Zcash cleanup of a deleted account', () => {
       zcashGetWalletAccount: async () => ({ ufvk }),
       zcashGetApi: async () => ({ purgeWallet }),
     });
-    return { vault, purgeWallet, removeAccountState };
+    return {
+      vault,
+      purgeWallet,
+      removeAccountState,
+      removeZcashTransparentAccount,
+    };
   }
 
   it('removes its runtime data even with a transaction in flight', async () => {
-    const { vault, purgeWallet, removeAccountState } = createVault(false);
+    const {
+      vault,
+      purgeWallet,
+      removeAccountState,
+      removeZcashTransparentAccount,
+    } = createVault(false);
 
     await vault.resetLocalWallet({ accountId: 'deleted', scope: 'all' });
 
     expect(purgeWallet).toHaveBeenCalledWith({ ufvk });
     expect(removeAccountState).toHaveBeenCalledWith({ accountId: 'deleted' });
+    expect(removeZcashTransparentAccount).toHaveBeenCalledWith({
+      accountId: 'deleted',
+    });
   });
 
   it('keeps runtime data another account with the same key still uses', async () => {
-    const { vault, purgeWallet, removeAccountState } = createVault(true);
+    const {
+      vault,
+      purgeWallet,
+      removeAccountState,
+      removeZcashTransparentAccount,
+    } = createVault(true);
 
     await vault.resetLocalWallet({ accountId: 'deleted', scope: 'all' });
 
     expect(purgeWallet).not.toHaveBeenCalled();
     expect(removeAccountState).toHaveBeenCalledWith({ accountId: 'deleted' });
+    expect(removeZcashTransparentAccount).toHaveBeenCalledWith({
+      accountId: 'deleted',
+    });
   });
 });

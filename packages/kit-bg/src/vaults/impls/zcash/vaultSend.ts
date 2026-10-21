@@ -630,11 +630,13 @@ export async function broadcastTransaction(
         'Zcash transparent signed transaction is incomplete',
       );
     }
-    await vault.backgroundApi.simpleDb.zcash.authorizeTransparentPendingTx({
-      accountId: vault.accountId,
-      txid: expectedTxid,
-      rawTx: signedTx.rawTx,
-    });
+    await vault.backgroundApi.simpleDb.privacyChainJournal.authorizeTransparentPendingTx(
+      {
+        accountId: vault.accountId,
+        txid: expectedTxid,
+        rawTx: signedTx.rawTx,
+      },
+    );
     let broadcast: ISignedTxPro;
     try {
       broadcast = await vault.zcashBroadcastTransparentViaBackend(params);
@@ -661,7 +663,7 @@ export async function broadcastTransaction(
         { expectedTxid, actualTxid: broadcast.txid },
       );
     }
-    await vault.backgroundApi.simpleDb.zcash
+    await vault.backgroundApi.simpleDb.privacyChainJournal
       .markTransparentPendingTxAccepted({
         accountId: vault.accountId,
         txid: expectedTxid,

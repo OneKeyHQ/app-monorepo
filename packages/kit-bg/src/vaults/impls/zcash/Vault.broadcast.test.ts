@@ -4,13 +4,13 @@ jest.mock('../../../dbs/local/localDbInstance', () => ({
   default: {},
 }));
 
-import { SimpleDbEntityZcash } from '../../../dbs/simple/entity/SimpleDbEntityZcash';
+import { SimpleDbEntityPrivacyChainJournal } from '../../../dbs/simple/entity/SimpleDbEntityPrivacyChainJournal';
 import VaultBtc from '../btc/Vault';
 
 import Vault from './Vault';
 
 import type { IEncodedTxZcash } from './types';
-import type { IZcashTransparentPendingTx } from '../../../dbs/simple/entity/SimpleDbEntityZcash';
+import type { IZcashTransparentPendingTx } from '../../../dbs/simple/entity/SimpleDbEntityPrivacyChainJournal';
 
 const accountId = "hd-1--m/44'/133'/0'";
 const txid = '11'.repeat(32);
@@ -38,8 +38,8 @@ const params = {
 
 async function createVault(broadcastAuthorized?: boolean) {
   let saved: unknown = null;
-  const zcash = new SimpleDbEntityZcash();
-  (zcash as { appStorage: unknown }).appStorage = {
+  const journalDb = new SimpleDbEntityPrivacyChainJournal();
+  (journalDb as { appStorage: unknown }).appStorage = {
     getItem: async () => saved,
     setItem: async (_key: string, value: unknown) => {
       saved = value;
@@ -55,12 +55,12 @@ async function createVault(broadcastAuthorized?: boolean) {
     broadcastState: 'unknown',
     ...(broadcastAuthorized === undefined ? {} : { broadcastAuthorized }),
   };
-  await zcash.saveTransparentPendingTx({ accountId, tx });
+  await journalDb.saveTransparentPendingTx({ accountId, tx });
   const vault = Object.assign(Object.create(Vault.prototype) as Vault, {
     accountId,
     networkId: params.networkId,
     backgroundApi: {
-      simpleDb: { zcash },
+      simpleDb: { privacyChainJournal: journalDb },
       serviceAccount: {
         getDBAccount: async () => ({
           id: accountId,
@@ -69,7 +69,7 @@ async function createVault(broadcastAuthorized?: boolean) {
       },
     },
   });
-  return { vault, zcash, tx };
+  return { vault, journalDb, tx };
 }
 
 describe('Zcash transparent broadcast authorization', () => {
@@ -78,18 +78,20 @@ describe('Zcash transparent broadcast authorization', () => {
   });
 
   it('persists authorization before transport and retains it with acceptance', async () => {
-    const { vault, zcash } = await createVault(false);
+    const { vault, journalDb } = await createVault(false);
     jest
       .spyOn(VaultBtc.prototype, 'broadcastTransaction')
       .mockImplementation(async () => {
-        const [pending] = await zcash.listTransparentPendingTxs({ accountId });
+        const [pending] = await journalDb.listTransparentPendingTxs({
+          accountId,
+        });
         expect(pending.broadcastAuthorized).toBe(true);
         expect(pending.rawTx).toBe(rawTx);
         return signedTx;
       });
 
     await expect(vault.broadcastTransaction(params)).resolves.toEqual(signedTx);
-    const [pending] = await zcash.listTransparentPendingTxs({ accountId });
+    const [pending] = await journalDb.listTransparentPendingTxs({ accountId });
     expect(pending).toMatchObject({
       broadcastAuthorized: true,
       broadcastState: 'accepted',
@@ -98,7 +100,7 @@ describe('Zcash transparent broadcast authorization', () => {
   });
 
   it('keeps a timed-out broadcast pending with an unknown outcome and never resubmits it', async () => {
-    const { vault, zcash } = await createVault(false);
+    const { vault, journalDb } = await createVault(false);
     const transport = jest
       .spyOn(VaultBtc.prototype, 'broadcastTransaction')
       .mockRejectedValueOnce(new Error('transport timeout'))
@@ -109,7 +111,7 @@ describe('Zcash transparent broadcast authorization', () => {
       txid: signedTx.txid,
       broadcastOutcomeUnknown: true,
     });
-    const [pending] = await zcash.listTransparentPendingTxs({ accountId });
+    const [pending] = await journalDb.listTransparentPendingTxs({ accountId });
     expect(pending).toMatchObject({
       broadcastAuthorized: true,
       broadcastState: 'unknown',
@@ -133,8 +135,8 @@ describe('Zcash transparent broadcast authorization', () => {
   });
 
   it('does not submit bytes that differ from the durable signed record', async () => {
-    const { vault, zcash, tx } = await createVault(false);
-    await zcash.saveTransparentPendingTx({
+    const { vault, journalDb, tx } = await createVault(false);
+    await journalDb.saveTransparentPendingTx({
       accountId,
       tx: { ...tx, rawTx: 'different-signed-bytes' },
     });
@@ -145,7 +147,7 @@ describe('Zcash transparent broadcast authorization', () => {
     );
     expect(transport).not.toHaveBeenCalled();
     expect(
-      (await zcash.listTransparentPendingTxs({ accountId }))[0]
+      (await journalDb.listTransparentPendingTxs({ accountId }))[0]
         .broadcastAuthorized,
     ).toBe(false);
   });

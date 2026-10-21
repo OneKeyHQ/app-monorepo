@@ -622,6 +622,9 @@ function WebPerpsSpotDustingSetting() {
 
 function DataSection({ onRequestClose }: { onRequestClose: () => void }) {
   const intl = useIntl();
+  const {
+    activeAccount: { network, account, indexedAccount },
+  } = useActiveAccount({ num: 0 });
 
   // Mirror the settings ClearAppCache "Swap history" option behind a destructive
   // confirm: clearCacheOnApp({ swapHistory }) → serviceSwap.cleanSwapHistoryItems().
@@ -668,7 +671,15 @@ function DataSection({ onRequestClose }: { onRequestClose: () => void }) {
         tone: 'destructive',
         onConfirmText: intl.formatMessage({ id: ETranslations.global_clear }),
         onConfirm: async () => {
-          await backgroundApiProxy.serviceSetting.clearPendingTransaction();
+          await backgroundApiProxy.serviceSetting.clearPendingTransaction({
+            selectedAccount: network
+              ? {
+                  networkId: network.id,
+                  accountId: account?.id,
+                  indexedAccountId: indexedAccount?.id,
+                }
+              : undefined,
+          });
           appEventBus.emit(
             EAppEventBusNames.ClearLocalHistoryPendingTxs,
             undefined,
@@ -679,7 +690,7 @@ function DataSection({ onRequestClose }: { onRequestClose: () => void }) {
         },
       });
     }, 150);
-  }, [intl, onRequestClose]);
+  }, [account?.id, indexedAccount?.id, intl, network, onRequestClose]);
 
   return (
     <YStack w="100%">

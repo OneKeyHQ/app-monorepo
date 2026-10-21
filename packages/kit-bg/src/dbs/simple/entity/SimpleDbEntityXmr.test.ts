@@ -30,30 +30,6 @@ describe('Monero simple db entity', () => {
       intent: 'on',
     });
   });
-  it('preserves legacy recipients and persists payment and fee separately', async () => {
-    const entity = createEntity();
-    await entity.recordSentRecipient({
-      accountId: 'account',
-      txid: 'legacy',
-      recipient: 'own-two',
-    });
-    await entity.recordSentRecipient({
-      accountId: 'account',
-      txid: 'new',
-      recipient: 'own-two',
-      amountAtomic: '1000000000000',
-      feeAtomic: '30000000',
-    });
-    expect(await entity.getSentRecipients({ accountId: 'account' })).toEqual({
-      legacy: 'own-two',
-      new: 'own-two',
-    });
-    expect(await entity.getSentAmounts({ accountId: 'account' })).toEqual({
-      new: { amountAtomic: '1000000000000', feeAtomic: '30000000' },
-    });
-    await entity.removeAccount({ accountId: 'account' });
-    expect(await entity.getSentAmounts({ accountId: 'account' })).toEqual({});
-  });
   // Re-enabling after a local data delete must not start at tip and miss
   // older funds; removing the account itself keeps nothing.
   it('keeps only the birthday when local data is deleted', async () => {
