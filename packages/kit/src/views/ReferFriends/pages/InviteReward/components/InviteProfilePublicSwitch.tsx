@@ -23,14 +23,19 @@ export function InviteProfilePublicSwitch() {
     undefined,
   );
   const value = pendingValue ?? user.inviteProfilePublic === true;
+  const expectedOneKeyUserId = user.onekeyUserId;
 
   const handleChange = useCallback(
     async (next: boolean) => {
+      if (!expectedOneKeyUserId) {
+        return;
+      }
       setPendingValue(next);
       try {
         const success =
           await backgroundApiProxy.servicePrime.updateInviteProfilePublic({
             enabled: next,
+            expectedOneKeyUserId,
           });
         if (!success) {
           Toast.error({
@@ -51,7 +56,7 @@ export function InviteProfilePublicSwitch() {
         setPendingValue(undefined);
       }
     },
-    [intl],
+    [expectedOneKeyUserId, intl],
   );
 
   return (
@@ -71,7 +76,7 @@ export function InviteProfilePublicSwitch() {
       <Switch
         size={ESwitchSize.small}
         value={value}
-        disabled={pendingValue !== undefined}
+        disabled={pendingValue !== undefined || !expectedOneKeyUserId}
         testID={ReferFriendsTestIDs.inviteProfilePublicSwitch}
         onChange={(next) => {
           void handleChange(next);

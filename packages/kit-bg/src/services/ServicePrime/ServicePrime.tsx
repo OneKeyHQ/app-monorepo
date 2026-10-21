@@ -494,6 +494,23 @@ type IOneKeyIdAuthSnapshot = {
   authStateGeneration: number;
 };
 
+// A non-boolean is not a decision. GET /user/info turns an omitted field
+// into false before this runs; other payloads keep the same user's value.
+function resolveInviteProfilePublic({
+  incoming,
+  previous,
+  isSameUser,
+}: {
+  incoming: unknown;
+  previous: boolean | undefined;
+  isSameUser: boolean;
+}): boolean | undefined {
+  if (typeof incoming === 'boolean') {
+    return incoming;
+  }
+  return isSameUser ? previous : undefined;
+}
+
 class ServicePrime extends ServiceBase {
   private primeGiftMutex = new Semaphore(1);
 
@@ -728,6 +745,13 @@ class ServicePrime extends ServiceBase {
   private createInfiniPurchaseUserChangedError() {
     return new OneKeyLocalError({
       message: 'Prime purchase user changed',
+      autoToast: false,
+    });
+  }
+
+  private createInviteProfilePublicUserChangedError() {
+    return new OneKeyLocalError({
+      message: 'Invite profile consent user changed',
       autoToast: false,
     });
   }
@@ -4536,14 +4560,22 @@ class ServicePrime extends ServiceBase {
         : undefined;
 
     if (serverUserInfo) {
-      return this.mergeDefinedPrimeServerUserInfo({
-        serverUserInfo,
-        profile,
-      });
+      return {
+        ...this.mergeDefinedPrimeServerUserInfo({
+          serverUserInfo,
+          profile,
+        }),
+        // Only this response decides consent. An omitted field is off, and
+        // a profile value must not replace it.
+        inviteProfilePublic: serverUserInfo.inviteProfilePublic === true,
+      };
     }
 
     if (this.isCompletePrimeServerUserInfo(profile)) {
-      return profile;
+      return {
+        ...profile,
+        inviteProfilePublic: undefined,
+      };
     }
 
     if (serverUserInfoResult.status === 'rejected') {
@@ -4647,9 +4679,16 @@ class ServicePrime extends ServiceBase {
         ...v,
         avatar: serverUserInfo?.avatar,
         nickname: serverUserInfo?.nickname,
-        // GET /user/info is the source of truth. An omitted field means the
-        // user has not authorized public display, so do not keep a stale true.
-        inviteProfilePublic: serverUserInfo?.inviteProfilePublic,
+        // Only a boolean is a decision. GET /user/info already normalized an
+        // omitted field to false; other callers leave a non-boolean untouched.
+        inviteProfilePublic: resolveInviteProfilePublic({
+          incoming: serverUserInfo?.inviteProfilePublic,
+          previous: v.inviteProfilePublic,
+          isSameUser:
+            Boolean(serverUserId) &&
+            (v.onekeyUserId === serverUserId ||
+              v.onekeyAccount?.onekeyUserId === serverUserId),
+        }),
         email: userEmail,
         displayEmail,
         onekeyUserId: serverUserId,
@@ -4737,9 +4776,11 @@ class ServicePrime extends ServiceBase {
         avatar: loginResponse.avatar ?? (isSameUser ? v.avatar : undefined),
         nickname:
           loginResponse.nickname ?? (isSameUser ? v.nickname : undefined),
-        inviteProfilePublic:
-          loginResponse.inviteProfilePublic ??
-          (isSameUser ? v.inviteProfilePublic : undefined),
+        inviteProfilePublic: resolveInviteProfilePublic({
+          incoming: loginResponse.inviteProfilePublic,
+          previous: v.inviteProfilePublic,
+          isSameUser,
+        }),
         email: userEmail,
         displayEmail,
         onekeyUserId: onekeyAccount.onekeyUserId,
@@ -6258,31 +6299,48 @@ class ServicePrime extends ServiceBase {
   }
 
   @backgroundMethod()
-  async updateInviteProfilePublic({ enabled }: { enabled: boolean }) {
-    // Send only this field. Omitted avatar and nickname stay unchanged.
-    const beforeUserId = (await primePersistAtom.get()).onekeyUserId;
+  async updateInviteProfilePublic({
+    enabled,
+    expectedOneKeyUserId,
+  }: {
+    enabled: boolean;
+    expectedOneKeyUserId: string;
+  }) {
+    const createStateChangedError = () =>
+      this.createInviteProfilePublicUserChangedError();
+    const authSnapshot = await this.captureOneKeyIdAuthSnapshot({
+      expectedOneKeyUserId,
+      createStateChangedError,
+    });
     const client = await this.getPrimeClient();
+    await this.assertOneKeyIdAuthSnapshot({
+      snapshot: authSnapshot,
+      createStateChangedError,
+    });
+    // Send only this field. Omitted avatar and nickname stay unchanged.
     const result = await client.put<IApiClientResponse<{ success: boolean }>>(
       `/prime/v1/user/info`,
       {
         inviteProfilePublic: enabled,
       },
+      this.getOneKeyIdAuthSnapshotRequestConfig(authSnapshot),
     );
-    const success = result.data.code === 0;
-    if (!success) {
+    if (result.data.code !== 0) {
       return false;
     }
-    if (beforeUserId) {
-      await primePersistAtom.set((current) => {
-        if (current.onekeyUserId !== beforeUserId) {
-          return current;
-        }
-        return {
-          ...current,
-          inviteProfilePublic: enabled,
-        };
-      });
-    }
+    await this.assertOneKeyIdAuthSnapshot({
+      snapshot: authSnapshot,
+      createStateChangedError,
+    });
+    await primePersistAtom.set((current) => {
+      if (current.onekeyUserId !== expectedOneKeyUserId) {
+        return current;
+      }
+      return {
+        ...current,
+        inviteProfilePublic: enabled,
+      };
+    });
     this.clearPrimeUserInfoCache();
     setTimeout(() => {
       void this.apiFetchPrimeUserInfo();
