@@ -329,10 +329,7 @@ function StockPriceHeader({
     formatPriceChangeDisplay(priceChangePercent);
   const stockStatus = useMemo<IMarketStockInfo | undefined>(() => {
     if (!stockDetail) return tokenDetail?.stock;
-    // The public stock feed describes the underlying listing and carries no
-    // issuer, so the badge's source has to come from the token wrapping it —
-    // without one `resolveUSMarketStatusVariant` returns no variant and the
-    // badge renders nothing at all.
+    // Combine the listing's market status with the selected token's metadata.
     return buildStockInfoFromPublicDetail(stockDetail, {
       source: tokenDetail?.stock?.source ?? selectedTokenVariant?.issuer,
       isPaused:

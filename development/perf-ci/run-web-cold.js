@@ -913,9 +913,6 @@ function aggregateRuns(runs, initialScripts) {
     ),
     consoleErrorCount: sum(runs.map((run) => run.consoleErrorCount)),
     fixtureRequestCount: sum(runs.map((run) => run.fixtureRequestCount)),
-    fixtureFallbackRequestCount: sum(
-      runs.map((run) => run.fixtureFallbackRequestCount),
-    ),
     recordedRequestCount: sum(runs.map((run) => run.recordedRequestCount)),
     stubbedRequestCount: sum(runs.map((run) => run.stubbedRequestCount)),
     blockedRequestCount: sum(runs.map((run) => run.blockedRequestCount)),
@@ -927,7 +924,7 @@ function aggregateRuns(runs, initialScripts) {
   };
 }
 
-function checkRunHealth(summary, scenario) {
+function checkRunHealth(summary, scenario, networkMode) {
   const checks = [
     {
       name: 'rendered',
@@ -950,7 +947,12 @@ function checkRunHealth(summary, scenario) {
       expected: summary.runCount,
     });
   }
-  if (booleanEnv('PERF_WEB_COLD_FAIL_ON_BLOCKED_REQUESTS')) {
+  // A blocked request means the page ran without data it asked for, so the
+  // sample may only measure a shell. Set the env to 0 to report it instead.
+  if (
+    networkMode === 'fixtures' &&
+    process.env.PERF_WEB_COLD_FAIL_ON_BLOCKED_REQUESTS !== '0'
+  ) {
     checks.push({
       name: 'blockedRequests',
       pass: summary.blockedRequestCount === 0,
@@ -1114,7 +1116,7 @@ function printReport({
   );
   // eslint-disable-next-line no-console
   console.log(
-    `network ${networkMode} fixture/fallback/recorded/stubbed/blocked/websockets: ${summary.fixtureRequestCount} / ${summary.fixtureFallbackRequestCount} / ${summary.recordedRequestCount} / ${summary.stubbedRequestCount} / ${summary.blockedRequestCount} / ${summary.websocketCount}`,
+    `network ${networkMode} fixture/recorded/stubbed/blocked/websockets: ${summary.fixtureRequestCount} / ${summary.recordedRequestCount} / ${summary.stubbedRequestCount} / ${summary.blockedRequestCount} / ${summary.websocketCount}`,
   );
   for (const item of blockedRequests.slice(0, 20)) {
     // eslint-disable-next-line no-console
@@ -1381,7 +1383,7 @@ async function main() {
 
       const summary = aggregateRuns(runs, initialScripts);
       const budgetChecks = checkBudgets(summary, budgets);
-      const healthChecks = checkRunHealth(summary, scenario);
+      const healthChecks = checkRunHealth(summary, scenario, networkMode);
       const blockedRequests = describeBlockedRequests(runs);
       const scenarioOutput = {
         name: scenario.name,
@@ -1409,11 +1411,20 @@ async function main() {
       });
     }
 
-    network.recorder?.write();
+    const recordFailures = network.recorder?.failures() || [];
+    if (recordFailures.length) {
+      for (const failure of recordFailures) {
+        log(`record failed: ${failure.request} (${failure.reason})`);
+      }
+      log(`recording failed; ${fixturePath} was not changed`);
+      process.exitCode = 1;
+    } else {
+      network.recorder?.write();
+    }
     const totalBlockedRequests = sum(
       scenarioOutputs.map((item) => item.summary.blockedRequestCount),
     );
-    if (totalBlockedRequests > 0) {
+    if (totalBlockedRequests > 0 && networkMode === 'fixtures') {
       log(
         `${totalBlockedRequests} outbound request(s) had no fixture and were blocked; see scenarios[].blockedRequests. If a page needs one, re-record with yarn perf:web:cold:record (development/perf-ci/README.md).`,
       );

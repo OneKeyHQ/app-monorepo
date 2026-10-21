@@ -31,8 +31,7 @@ import { resolveDisplayedStockPriceMode } from '../hooks/useStockPriceSource';
 
 import { MARKET_SIMPLE_CHART_RANGE_LABEL_IDS } from './components/marketSimpleChartConstants';
 
-// Fallback when the host has no measured Pro height (web). Native hosts pass
-// the Pro block height so switching modes does not move the content below.
+// Keep Simple compact and independent of Pro's indicator panes.
 const MOBILE_SIMPLE_CHART_HEIGHT = 280;
 // The range row mirrors the Pro interval bar (TradingViewChartControls on a
 // non-compact mobile layout): 8pt padding, 30pt pills, at least 42pt wide.
@@ -104,11 +103,8 @@ export function MobileChartModeControl() {
 
 export function MobileSimpleChart({
   marketAssetId,
-  height,
 }: {
   marketAssetId?: string;
-  // Total height of the block, range row included. Matches the Pro block.
-  height?: number;
 }) {
   const [selectedRange, setRange] = useState<IStockSimpleChartRange>('1D');
   const { stockId, isStockDetailError } = useStockDetail();
@@ -133,7 +129,6 @@ export function MobileSimpleChart({
       range={range}
       chartRanges={chartRanges}
       onRangeChange={setRange}
-      height={height}
       modeControl={<MobileChartModeControl />}
     >
       <StockSimpleChart

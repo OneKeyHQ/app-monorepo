@@ -1,3 +1,4 @@
+import type { ContextType } from 'react';
 import {
   useCallback,
   useEffect,
@@ -8,10 +9,15 @@ import {
 } from 'react';
 
 import { useHeaderHeight } from '@react-navigation/elements';
-import { useFocusEffect, useIsFocused } from '@react-navigation/native';
+import {
+  useFocusEffect,
+  useIsFocused,
+  useNavigationState,
+} from '@react-navigation/native';
 
 import type { IPageScreenProps } from '@onekeyhq/components';
 import {
+  HeaderScrollGestureContext,
   Page,
   useIsModalPage,
   useMedia,
@@ -68,6 +74,8 @@ import {
 } from './utils/marketDetailPreview';
 
 import type { NavigationAction } from '@react-navigation/routers';
+
+const MARKET_DETAIL_BACK_SWIPE_EDGE_WIDTH = 32;
 
 function normalizeRouteBooleanParam(
   value: boolean | string | undefined,
@@ -391,6 +399,7 @@ function MarketDetailV2(
   >,
 ) {
   const { navigation } = props;
+  const hasPreviousScreen = useNavigationState((state) => state.index > 0);
   const stockId =
     'stockId' in props.route.params ? props.route.params.stockId : undefined;
   const stockPreview = buildMarketStockDetailPreview({
@@ -429,6 +438,20 @@ function MarketDetailV2(
   );
   const effectiveIsChartFullscreen =
     supportsChartFullscreen && isChartFullscreen;
+  const headerScrollGestureContext = useMemo<
+    ContextType<typeof HeaderScrollGestureContext>
+  >(
+    () => ({
+      gestures: [],
+      excludeStartEdgeWidth:
+        platformEnv.isNativeIOS &&
+        hasPreviousScreen &&
+        !effectiveIsChartFullscreen
+          ? MARKET_DETAIL_BACK_SWIPE_EDGE_WIDTH
+          : 0,
+    }),
+    [effectiveIsChartFullscreen, hasPreviousScreen],
+  );
   const handleChartFullscreenChange = useCallback(
     (isFullscreen: boolean) => {
       setIsChartFullscreen(isFullscreen);
@@ -473,9 +496,11 @@ function MarketDetailV2(
     }
     navigation.setOptions({
       gestureEnabled: true,
-      fullScreenGestureEnabled: false,
+      fullScreenGestureEnabled: true,
+      // Native stack checks the touch position after activation. Leave room
+      // for the initial movement beyond the 32-point edge reserved by children.
       gestureResponseDistance: {
-        start: 20,
+        end: MARKET_DETAIL_BACK_SWIPE_EDGE_WIDTH * 2,
       },
     });
   }, [navigation]);
@@ -514,7 +539,7 @@ function MarketDetailV2(
   );
 
   return (
-    <>
+    <HeaderScrollGestureContext.Provider value={headerScrollGestureContext}>
       <TradingViewEmbedGlobalPreload />
       <AccountSelectorProviderMirror
         config={{
@@ -542,7 +567,7 @@ function MarketDetailV2(
           </StockDetailProvider>
         </MarketWatchListProviderMirrorV2>
       </AccountSelectorProviderMirror>
-    </>
+    </HeaderScrollGestureContext.Provider>
   );
 }
 
