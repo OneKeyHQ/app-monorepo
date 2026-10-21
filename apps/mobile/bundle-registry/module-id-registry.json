@@ -23707,6 +23707,7 @@
     "packages/kit/src/views/DustSweep/utils/candidates.ts": 4282,
     "packages/kit/src/views/DustSweep/utils/execution.ts": 13030,
     "packages/kit/src/views/DustSweep/utils/loadNetworks.ts": 2901,
+    "packages/kit/src/views/DustSweep/utils/navigateToDustSweep.ts": 3163,
     "packages/kit/src/views/DustSweep/utils/quote.ts": 14690,
     "packages/kit/src/views/DustSweep/utils/skipReasons.ts": 7864,
     "packages/kit/src/views/Earn/EarnHome.tsx": 11546,

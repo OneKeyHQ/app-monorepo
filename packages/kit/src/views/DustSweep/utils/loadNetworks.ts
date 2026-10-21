@@ -79,15 +79,26 @@ async function loadQuietly<T>(load: () => Promise<T>) {
   }
 }
 
-export async function loadDustSweepEntryCapabilities({
-  fetchNetworks,
-  fetchProviders,
-  getSavedProviders,
-}: {
-  fetchNetworks: () => Promise<ISwapNetwork[]>;
-  fetchProviders: () => Promise<ISwapServiceProvider[]>;
-  getSavedProviders: () => Promise<ISwapProviderManager[]>;
-}) {
+export async function loadDustSweepEntryCapabilities(
+  {
+    fetchNetworks,
+    fetchProviders,
+    getSavedProviders,
+  }: {
+    fetchNetworks: () => Promise<ISwapNetwork[]>;
+    fetchProviders: () => Promise<ISwapServiceProvider[]>;
+    getSavedProviders: () => Promise<ISwapProviderManager[]>;
+  } = {
+    fetchNetworks: () =>
+      backgroundApiProxy.serviceSwap.fetchSwapNetworks({
+        autoHandleError: false,
+      }),
+    fetchProviders: () =>
+      backgroundApiProxy.serviceSwap.getSwapProviderManager(),
+    getSavedProviders: () =>
+      backgroundApiProxy.simpleDb.swapConfigs.getSwapProviderManager(),
+  },
+) {
   // Silence each branch independently: Promise.all may reject before another
   // branch fails, but that later error still reaches the proxy toast handler.
   const [networks, providers, savedProviders] = await Promise.all([
