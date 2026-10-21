@@ -6,9 +6,6 @@
  * Measures a production build with a fresh browser context, browser cache
  * disabled, and service workers blocked. This intentionally models first visit
  * cost rather than returning-user SW/cache behavior.
- *
- * API calls are answered from recorded fixtures by default so the gate does
- * not depend on live services; see lib/webColdNetwork.js.
  */
 
 const fs = require('fs');
@@ -31,17 +28,6 @@ const {
   withRepoNodeBin,
 } = require('./lib/exec');
 const { startStaticServer } = require('./lib/staticServer');
-const {
-  DEFAULT_FIXTURE_PATH,
-  createFixtureStore,
-  createRecorder,
-  installNetworkIsolation,
-  isolatedChromiumArgs,
-  readFixtureFile,
-  resolveNetworkMode,
-  resolveRecordSource,
-  summarizeNetworkStats,
-} = require('./lib/webColdNetwork');
 const { classifyPageErrors } = require('./lib/webColdPageErrors');
 
 const MB = 1024 * 1024;
@@ -533,7 +519,6 @@ async function runOne({
   waitAfterLoadMs,
   businessTimeoutMs,
   navigationTimeoutMs,
-  network,
   log,
 }) {
   const context = await browser.newContext({
@@ -554,35 +539,11 @@ async function runOne({
   let cpuProfilePath = null;
 
   try {
-    const networkStats = await installNetworkIsolation({
-      context,
-      mode: network.mode,
-      localOrigin: new URL(url).origin,
-      fixtureStore: network.fixtureStore,
-      recorder: network.recorder,
-      scenarioName: scenario.name,
-      latencyMs: network.latencyMs,
-    });
     await context.addInitScript((enabled) => {
       if (!enabled) return;
       globalThis.__onekeyMarketReactPerfProbe = true;
       globalThis.__onekeyMarketReactPerf = [];
     }, enableReactProbe);
-    // Tab preloading follows navigator.hardwareConcurrency, so a workstation
-    // loads more chunks than the 4-vCPU CI runner. Set this to 4 to reproduce
-    // CI script counts locally.
-    const hardwareConcurrency = numberEnv(
-      'PERF_WEB_COLD_HARDWARE_CONCURRENCY',
-      0,
-    );
-    if (hardwareConcurrency) {
-      await context.addInitScript((value) => {
-        Object.defineProperty(Navigator.prototype, 'hardwareConcurrency', {
-          configurable: true,
-          get: () => value,
-        });
-      }, hardwareConcurrency);
-    }
     await context.addInitScript(installMetricObservers);
 
     const page = await context.newPage();
@@ -853,8 +814,6 @@ async function runOne({
         decodedBodySize: entry.decodedBodySize,
         transferSize: entry.transferSize,
       })),
-      ...summarizeNetworkStats(networkStats),
-      network: networkStats,
       failedRequests,
       badResponses,
       pageErrors,
@@ -912,14 +871,6 @@ function aggregateRuns(runs, initialScripts) {
       runs.map((run) => run.ignoredNetworkPageErrorCount),
     ),
     consoleErrorCount: sum(runs.map((run) => run.consoleErrorCount)),
-    fixtureRequestCount: sum(runs.map((run) => run.fixtureRequestCount)),
-    fixtureFallbackRequestCount: sum(
-      runs.map((run) => run.fixtureFallbackRequestCount),
-    ),
-    recordedRequestCount: sum(runs.map((run) => run.recordedRequestCount)),
-    stubbedRequestCount: sum(runs.map((run) => run.stubbedRequestCount)),
-    blockedRequestCount: sum(runs.map((run) => run.blockedRequestCount)),
-    websocketCount: sum(runs.map((run) => run.websocketCount)),
     largestPreLcpScriptDecodedBytes: median(
       runs.map((run) => run.largestPreLcpScriptDecodedBytes),
     ),
@@ -950,35 +901,7 @@ function checkRunHealth(summary, scenario) {
       expected: summary.runCount,
     });
   }
-  if (booleanEnv('PERF_WEB_COLD_FAIL_ON_BLOCKED_REQUESTS')) {
-    checks.push({
-      name: 'blockedRequests',
-      pass: summary.blockedRequestCount === 0,
-      actual: summary.blockedRequestCount,
-      expected: 0,
-    });
-  }
   return checks;
-}
-
-function describeBlockedRequests(runs) {
-  const counts = new Map();
-  for (const run of runs) {
-    for (const item of run.network?.blocked || []) {
-      let target = item.url;
-      try {
-        const parsed = new URL(item.url);
-        target = `${parsed.host}${parsed.pathname}`;
-      } catch {
-        // keep the raw URL
-      }
-      const key = `${item.method} ${target} (${item.resourceType}, ${item.reason})`;
-      counts.set(key, (counts.get(key) || 0) + 1);
-    }
-  }
-  return [...counts.entries()]
-    .toSorted((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
-    .map(([key, count]) => ({ request: key, count }));
 }
 
 function checkBudgets(summary, budgets) {
@@ -1035,8 +958,6 @@ function printReport({
   healthChecks,
   runs,
   initialScripts,
-  networkMode,
-  blockedRequests,
 }) {
   const budgetLine = (name, formatValue) => {
     const check = budgetChecks.find((item) => item.name === name);
@@ -1112,14 +1033,6 @@ function printReport({
   console.log(
     `rendered/pageErrors/ignoredNetworkPageErrors/consoleErrors: ${summary.renderedRunCount}/${summary.runCount} / ${summary.blockingPageErrorCount} / ${summary.ignoredNetworkPageErrorCount} / ${summary.consoleErrorCount}`,
   );
-  // eslint-disable-next-line no-console
-  console.log(
-    `network ${networkMode} fixture/fallback/recorded/stubbed/blocked/websockets: ${summary.fixtureRequestCount} / ${summary.fixtureFallbackRequestCount} / ${summary.recordedRequestCount} / ${summary.stubbedRequestCount} / ${summary.blockedRequestCount} / ${summary.websocketCount}`,
-  );
-  for (const item of blockedRequests.slice(0, 20)) {
-    // eslint-disable-next-line no-console
-    console.log(`  blocked x${item.count}: ${item.request}`);
-  }
   // eslint-disable-next-line no-console
   console.log(
     `largest pre-LCP script: ${formatBytes(
@@ -1294,43 +1207,6 @@ async function main() {
   const budgetConfig = loadBudgetConfig(repoRoot);
   const scenarios = parseScenarios();
   const initialScripts = parseInitialScriptFiles(buildDir);
-  const networkMode = resolveNetworkMode();
-  const fixturePath =
-    process.env.PERF_WEB_COLD_FIXTURES_PATH || DEFAULT_FIXTURE_PATH;
-  const fixtureFile =
-    networkMode === 'fixtures' ? readFixtureFile(fixturePath) : null;
-  if (fixtureFile && !fixtureFile.entries.length) {
-    throw new Error(
-      `no API fixtures in ${fixturePath}; record them with yarn perf:web:cold:record`,
-    );
-  }
-  const network = {
-    mode: networkMode,
-    fixturePath: networkMode === 'live' ? null : fixturePath,
-    fixtureSource: fixtureFile?.source ?? null,
-    fixtureRecordedAt: fixtureFile?.recordedAt ?? null,
-    fixtureStore: fixtureFile ? createFixtureStore(fixtureFile) : null,
-    recorder:
-      networkMode === 'record'
-        ? createRecorder({
-            fixturePath,
-            source: resolveRecordSource(),
-            fresh: booleanEnv('PERF_WEB_COLD_RECORD_FRESH'),
-            log,
-          })
-        : null,
-    latencyMs: Math.max(
-      0,
-      Number(process.env.PERF_WEB_COLD_API_LATENCY_MS) || 0,
-    ),
-  };
-  log(
-    `network mode: ${networkMode}${
-      network.fixtureStore
-        ? ` (${network.fixtureStore.size} fixtures from ${network.fixtureSource}, recorded ${network.fixtureRecordedAt}, latency ${network.latencyMs} ms)`
-        : ''
-    }${network.recorder ? ` (recording from ${network.recorder.source})` : ''}`,
-  );
   const staticServer = await startStaticServer({ rootDir: buildDir });
   const executablePath = findChromiumExecutable();
   const browser = await chromium.launch({
@@ -1342,7 +1218,6 @@ async function main() {
       '--disable-background-networking',
       '--disable-background-timer-throttling',
       '--disable-renderer-backgrounding',
-      ...isolatedChromiumArgs(networkMode),
     ],
   });
 
@@ -1373,7 +1248,6 @@ async function main() {
               'PERF_WEB_COLD_NAVIGATION_TIMEOUT_MS',
               60_000,
             ),
-            network,
             log,
           }),
         );
@@ -1382,7 +1256,6 @@ async function main() {
       const summary = aggregateRuns(runs, initialScripts);
       const budgetChecks = checkBudgets(summary, budgets);
       const healthChecks = checkRunHealth(summary, scenario);
-      const blockedRequests = describeBlockedRequests(runs);
       const scenarioOutput = {
         name: scenario.name,
         path: scenario.path,
@@ -1390,7 +1263,6 @@ async function main() {
         budgets,
         budgetChecks,
         healthChecks,
-        blockedRequests,
         summary,
         runs,
       };
@@ -1404,19 +1276,7 @@ async function main() {
         healthChecks,
         runs,
         initialScripts,
-        networkMode,
-        blockedRequests,
       });
-    }
-
-    network.recorder?.write();
-    const totalBlockedRequests = sum(
-      scenarioOutputs.map((item) => item.summary.blockedRequestCount),
-    );
-    if (totalBlockedRequests > 0) {
-      log(
-        `${totalBlockedRequests} outbound request(s) had no fixture and were blocked; see scenarios[].blockedRequests. If a page needs one, re-record with yarn perf:web:cold:record (development/perf-ci/README.md).`,
-      );
     }
 
     const firstScenario = scenarioOutputs[0];
@@ -1449,15 +1309,6 @@ async function main() {
       repoRoot,
       buildDir,
       profileDir: booleanEnv('PERF_WEB_COLD_CPU_PROFILE') ? profileDir : null,
-      network: {
-        mode: network.mode,
-        fixturePath: network.fixturePath,
-        fixtureSource: network.fixtureSource,
-        fixtureRecordedAt: network.fixtureRecordedAt,
-        recordSource: network.recorder?.source ?? null,
-        latencyMs: network.latencyMs,
-        blockedRequestCount: totalBlockedRequests,
-      },
       budgetConfig,
       startupGraphBudget,
       legacyTopLevelFieldsNote,

@@ -134,65 +134,7 @@ yarn perf:web:cold
 
 # optional: narrow the cold matrix while investigating
 PERF_WEB_COLD_SCENARIOS=perps,swap,defi,refer-friends yarn perf:web:cold --headed
-
-# match the 4-vCPU CI runner on a bigger machine (see "Web cold network fixtures")
-PERF_WEB_COLD_HARDWARE_CONCURRENCY=4 yarn perf:web:cold --skip-build
 ```
-
-#### Web cold network fixtures
-
-`yarn perf:web:cold` does not call live services. Every request that leaves the
-local static server is handled by `lib/webColdNetwork.js`:
-
-- API calls are answered from `fixtures/web-cold-api.json`, matched by method,
-  host, path, sorted query (minus `timestamp`) and JSON body. A GET whose query
-  differs falls back to a response recorded for the same path.
-- Images get a 1x1 PNG, iframes an empty page, analytics
-  (`/utility/v1/track/*`) a success body, and WebSockets an open socket that
-  never answers.
-- Anything else is aborted and counted as blocked.
-
-Chromium also runs with `--no-proxy-server` and a host resolver rule that fails
-every lookup except `127.0.0.1`, so a request the route misses cannot reach a
-real host either; it is counted as blocked with reason `not-routed`.
-
-Blocked requests are listed per scenario in the console and in
-`scenarios[].blockedRequests` / `runs[].network.blocked` of the report. They do
-not fail the job unless `PERF_WEB_COLD_FAIL_ON_BLOCKED_REQUESTS=1`. A new entry
-there usually means a page gained an API dependency: re-record (below), and if
-the host is new, add it to `RECORDABLE_HOST_PATTERNS` first.
-
-Options:
-
-- `PERF_WEB_COLD_NETWORK=fixtures|record|live` (default `fixtures`). `live`
-  restores the old behavior (real APIs, real analytics); use it only for manual
-  checks.
-- `PERF_WEB_COLD_API_LATENCY_MS` (default `0`): fixed delay before each fixture
-  response.
-- `PERF_WEB_COLD_FIXTURES_PATH`: use another fixture file.
-- `PERF_WEB_COLD_HARDWARE_CONCURRENCY`: overrides `navigator.hardwareConcurrency`.
-  Tab preloading follows it, so on an 8+ core machine more chunks load and
-  `scriptCount` / `jsDecodedBytes` read higher than on CI. Set `4` to reproduce
-  CI numbers.
-
-Re-record the fixtures when an endpoint changes or a scenario starts showing
-blocked requests:
-
-```bash
-yarn perf:web:cold:record
-# when production is not reachable from your network
-PERF_WEB_COLD_RECORD_SOURCE=test yarn perf:web:cold:record --skip-build
-# one scenario only; entries of the other scenarios are kept
-PERF_WEB_COLD_SCENARIOS=perps yarn perf:web:cold:record --skip-build
-```
-
-The script runs every scenario twice in record mode, once with the CI device
-profile and once with this machine's, holding each page for 20 s so late
-requests are captured. API calls are fetched from Node and written back to the
-fixture file; images, iframes and analytics are stubbed as above and never
-recorded. `PERF_WEB_COLD_RECORD_SOURCE=test` fetches the same paths from
-`*.onekeytest.com` but keeps the production URL in the key. The repository is
-public: review the diff and make sure the file only holds public API data.
 
 Budget CI also writes AI-oriented diagnostic artifacts next to the raw reports:
 

@@ -279,7 +279,6 @@ function createWebColdAiHints({ report, buildDir, repoRoot }) {
       failedHealthChecks: (scenario.healthChecks || []).filter(
         (check) => !check.pass,
       ),
-      blockedRequests: (scenario.blockedRequests || []).slice(0, 20),
       representativeRunIndex: run?.runIndex || null,
       scriptCount: run?.scriptCount ?? null,
       rawResourceCount: run?.rawResourceCount ?? null,
@@ -336,7 +335,6 @@ function createWebColdAiHints({ report, buildDir, repoRoot }) {
         'uniqueScriptCount is the count of distinct normalized JavaScript resource URLs after de-duplication.',
       'Warnings are still budget regressions. Do not silence failures by changing thresholds or workflow env values.',
       'If failedHealthChecks is non-empty, fix page rendering/readiness first because budget samples may be invalid.',
-      `Network mode: ${report.network?.mode || 'live'}. In fixtures mode API calls are answered from development/perf-ci/fixtures/web-cold-api.json; scenarios[].blockedRequests lists outbound requests with no fixture. If a page now depends on one of them, re-record with yarn perf:web:cold:record instead of changing budgets.`,
     ],
     reportPath: report.reportPath || null,
     buildDir,
@@ -652,12 +650,6 @@ function renderAiHintsMarkdown(hints) {
       if (scenario.failedHealthChecks?.length) {
         lines.push('- failed health checks:');
         lines.push(markdownHealthRows(scenario.failedHealthChecks));
-      }
-      if (scenario.blockedRequests?.length) {
-        lines.push('- blocked outbound requests (no fixture):');
-        for (const item of limitRows(scenario.blockedRequests, 10)) {
-          lines.push(`  - ${item.count}x ${item.request}`);
-        }
       }
       const scriptMetrics = [
         `budget scripts(raw): ${scenario.scriptCount ?? 'n/a'}`,
