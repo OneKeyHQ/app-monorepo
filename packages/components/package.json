@@ -7,7 +7,7 @@
     "**/*.css"
   ],
   "dependencies": {
-    "@onekeyfe/react-native-bottom-tabs": "6.7.0-alpha.339",
+    "@onekeyfe/react-native-bottom-tabs": "6.7.0-alpha.341",
     "@onekeyfe/react-native-native-sheet": "6.7.0-alpha.339",
     "@onekeyfe/react-native-scroll-guard": "6.7.0-alpha.339",
     "@onekeyfe/react-native-segment-slider": "6.7.0-alpha.339",
