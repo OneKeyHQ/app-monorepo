@@ -339,6 +339,7 @@ type IDustSweepNetworkContexts = Awaited<
 async function loadDustSweepNetworksInternal(
   params: IDustSweepRouteParams,
   contexts: Promise<IDustSweepNetworkContexts>,
+  isManualRefresh: boolean,
 ): Promise<IDustSweepNetworksResult> {
   const { entries, providerInfo } = await contexts;
   const limit = pLimit(4);
@@ -348,7 +349,7 @@ async function loadDustSweepNetworksInternal(
         loadDustSweepNetworkAssets({
           entry,
           indexedAccountId: params.indexedAccountId,
-          isManualRefresh: false,
+          isManualRefresh,
         }),
       ),
     ),
@@ -425,15 +426,17 @@ export function loadDustSweepNetworks(
   params: IDustSweepRouteParams,
   signal: AbortSignal,
   onCache?: (networks: IDustSweepNetwork[]) => void,
+  { isManualRefresh = false }: { isManualRefresh?: boolean } = {},
 ) {
   const key = getLoadKey(params);
-  let load = inFlightLoads.get(key);
+  // A return from Swap must not reuse a request started before the trade.
+  let load = isManualRefresh ? undefined : inFlightLoads.get(key);
   if (!load) {
     // Discovery and the network round are shared across quick re-entry. Each
     // consumer independently decides whether its cached preview is still useful.
     const contexts = loadDustSweepNetworkContexts(params);
     load = {
-      fresh: loadDustSweepNetworksInternal(params, contexts),
+      fresh: loadDustSweepNetworksInternal(params, contexts, isManualRefresh),
       cached: loadCachedDustSweepNetworks(contexts).catch(() => []),
     };
     inFlightLoads.set(key, load);

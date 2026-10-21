@@ -273,6 +273,30 @@ describe('loadDustSweepNetworks request ownership', () => {
     ]);
   });
 
+  it('forces a post-trade round without joining an older in-flight load', async () => {
+    const old =
+      deferred<Awaited<ReturnType<typeof serviceToken.fetchAccountTokens>>>();
+    serviceToken.fetchAccountTokens.mockReturnValueOnce(old.promise);
+    const previous = loadDustSweepNetworks(
+      params,
+      new AbortController().signal,
+    );
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    const fresh = await loadDustSweepNetworks(
+      params,
+      new AbortController().signal,
+      undefined,
+      { isManualRefresh: true },
+    );
+    expect(serviceToken.fetchAccountTokens.mock.calls).toHaveLength(2);
+    expect(
+      serviceToken.fetchAccountTokens.mock.calls[1][0].isManualRefresh,
+    ).toBe(true);
+    old.resolve(await serviceToken.fetchAccountTokens.mock.results[1].value);
+    await previous;
+    expect(fresh.partialError).toBe(false);
+  });
+
   it('force-refreshes an existing network without rediscovering accounts or providers', async () => {
     const initial = await loadDustSweepNetworks(
       params,

@@ -14,6 +14,8 @@ import BigNumber from 'bignumber.js';
 import { useRouteIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import { useDustSweepPreferencesPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusNames';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type {
   IDustSweepNetwork,
@@ -86,10 +88,22 @@ function useDustSweepController(params: IDustSweepRouteParams) {
       },
       [loadParams],
     );
-  const [refresh, setRefresh] = useState(0);
+  const [refresh, setRefresh] = useState({ isManualRefresh: false });
+  const [invalidation, setInvalidation] = useState<{
+    scope: typeof loadParams;
+  }>();
+  const consumedInvalidation = useRef(invalidation);
+  const pendingInvalidation =
+    invalidation?.scope === loadParams &&
+    consumedInvalidation.current !== invalidation;
+  const focusState = useRef({
+    scope: loadParams,
+    focused: isFocused,
+    visited: isFocused,
+  });
   const [loadState, setLoadState] = useState<{
     scope: typeof loadParams;
-    refresh: number;
+    refresh: typeof refresh;
     status: 'refreshing' | 'idle' | 'error';
     partialError: boolean;
     freshOwners: Set<string>;
@@ -143,6 +157,56 @@ function useDustSweepController(params: IDustSweepRouteParams) {
     reconcile,
     refresh: refreshAssets,
   } = reconciliation;
+  const reconciling = reconciliation.isRefreshing();
+  useEffect(() => {
+    const invalidate = () => {
+      fullLoadPending.current = true;
+      setInvalidation({ scope: loadParams });
+    };
+    appEventBus.on(EAppEventBusNames.SwapTxHistoryStatusUpdate, invalidate);
+    return () => {
+      appEventBus.off(EAppEventBusNames.SwapTxHistoryStatusUpdate, invalidate);
+    };
+  }, [loadParams]);
+  useEffect(() => {
+    const previous = focusState.current;
+    if (
+      previous.scope === loadParams &&
+      previous.visited &&
+      !previous.focused &&
+      isFocused
+    ) {
+      fullLoadPending.current = true;
+      setInvalidation({ scope: loadParams });
+    }
+    focusState.current = {
+      scope: loadParams,
+      focused: isFocused,
+      visited: isFocused || (previous.scope === loadParams && previous.visited),
+    };
+  }, [isFocused, loadParams]);
+  useEffect(() => {
+    if (
+      !pendingInvalidation ||
+      !isFocused ||
+      !selecting ||
+      refreshStatus === 'refreshing' ||
+      reconciling
+    )
+      return;
+    consumedInvalidation.current = invalidation;
+    networkChoiceScope.current = loadParams;
+    fullLoadPending.current = true;
+    setRefresh({ isManualRefresh: true });
+  }, [
+    invalidation,
+    isFocused,
+    loadParams,
+    pendingInvalidation,
+    reconciling,
+    refreshStatus,
+    selecting,
+  ]);
   useEffect(() => {
     if (executionScope.current === loadParams) reconcile(session.state);
   }, [loadParams, reconcile, session.state]);
@@ -159,12 +223,17 @@ function useDustSweepController(params: IDustSweepRouteParams) {
     let freshSettled = false;
     const isCurrent = () =>
       !controller.signal.aborted && activeLoadParams.current === loadParams;
-    void loadDustSweepNetworks(loadParams, controller.signal, (cached) => {
-      if (!isCurrent() || freshSettled) return;
-      // A retry retains the displayed snapshot and user choices. Its cache
-      // must not roll back a live or post-transaction asset reconciliation.
-      setNetworks((previous) => (previous.length ? previous : cached));
-    })
+    void loadDustSweepNetworks(
+      loadParams,
+      controller.signal,
+      (cached) => {
+        if (!isCurrent() || freshSettled) return;
+        // A retry retains the displayed snapshot and user choices. Its cache
+        // must not roll back a live or post-transaction asset reconciliation.
+        setNetworks((previous) => (previous.length ? previous : cached));
+      },
+      refresh,
+    )
       .then((result) => {
         freshSettled = true;
         if (!isCurrent()) return;
@@ -257,7 +326,10 @@ function useDustSweepController(params: IDustSweepRouteParams) {
     assetStatus = refreshStatus === 'refreshing' ? 'refreshing' : 'error';
   }
   const assetsReady =
-    hasFreshAssets && assetStatus === 'ready' && refreshStatus === 'idle';
+    hasFreshAssets &&
+    assetStatus === 'ready' &&
+    refreshStatus === 'idle' &&
+    !pendingInvalidation;
   const sweptKeys = currentReconciliation?.sweptKeys;
   useEffect(() => {
     if (!selecting || !currentNetworkId || currentNetworkId === networkId)
@@ -427,9 +499,10 @@ function useDustSweepController(params: IDustSweepRouteParams) {
     if (selecting && !reconciliation.isRefreshing()) {
       // Claim before React renders so a same-event local retry cannot race it.
       fullLoadPending.current = true;
-      setRefresh((value) => value + 1);
+      consumedInvalidation.current = invalidation;
+      setRefresh({ isManualRefresh: true });
     }
-  }, [selecting, reconciliation]);
+  }, [invalidation, selecting, reconciliation]);
   const retryAssets = useCallback(() => {
     if (!selecting || assetStatus !== 'error' || fullLoadPending.current)
       return;

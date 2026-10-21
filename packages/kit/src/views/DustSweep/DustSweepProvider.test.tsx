@@ -5,6 +5,8 @@ import type { PropsWithChildren } from 'react';
 
 import { act, renderHook, waitFor } from '@testing-library/react';
 
+import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusNames';
 import type {
   IDustSweepItem,
   IDustSweepNetwork,
@@ -14,7 +16,10 @@ import type {
   IDustSweepToken,
 } from '@onekeyhq/shared/types/swap/dustSweep';
 import type { ISwapProviderInfo } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
-import { EProtocolOfExchange } from '@onekeyhq/shared/types/swap/types';
+import {
+  EProtocolOfExchange,
+  ESwapTxHistoryStatus,
+} from '@onekeyhq/shared/types/swap/types';
 
 import { DustSweepProvider, useDustSweep } from './DustSweepProvider';
 import {
@@ -64,6 +69,11 @@ jest.mock('./utils/loadNetworks', () => ({
 jest.mock('./hooks/useDustSweepSession', () => ({
   useDustSweepSession: jest.fn(),
 }));
+jest.mock('@onekeyhq/shared/src/eventBus/appEventBus', () => {
+  const { EventEmitter } =
+    jest.requireActual<typeof import('events')>('events');
+  return { appEventBus: new EventEmitter() };
+});
 
 const mockLoadNetworks = jest.mocked(loadDustSweepNetworks);
 const mockRefreshNetwork = jest.mocked(refreshDustSweepNetwork);
@@ -202,6 +212,118 @@ describe('Dust Sweep Provider request and selection ownership', () => {
       networks: [base, ethereum],
       partialError: false,
     });
+  });
+
+  it('force-refreshes after returning without changing the network or manual selection', async () => {
+    const { result, rerender } = renderController();
+    await waitFor(() => expect(result.current.canStart).toBe(true));
+    act(() => result.current.selectThreshold(100));
+    act(() => {
+      result.current.toggle(base.tokens[1].key);
+      result.current.setSlippage(10);
+    });
+    expect(result.current.selected).toEqual([base.tokens[0]]);
+    expect(mockLoadNetworks).toHaveBeenCalledTimes(1);
+    mockFocused = false;
+    rerender();
+    const updated = {
+      ...base,
+      tokens: [
+        { ...base.tokens[0], amount: '0.3', valueUsd: '0.6' },
+        base.tokens[1],
+        { ...base.tokens[0], key: 'new-token' },
+      ],
+      balanceUsd: '1',
+    };
+    mockLoadNetworks.mockResolvedValueOnce({
+      networks: [ethereum, updated],
+      partialError: false,
+    });
+    mockFocused = true;
+    rerender();
+    await waitFor(() => expect(result.current.current).toBe(updated));
+    expect(mockLoadNetworks).toHaveBeenCalledTimes(2);
+    expect(mockLoadNetworks.mock.calls[1][3]).toEqual({
+      isManualRefresh: true,
+    });
+    expect(result.current.selected).toEqual([updated.tokens[0]]);
+    expect(result.current.slippage).toBe(10);
+    expect(result.current.threshold).toBe(100);
+    expect(result.current.canStart).toBe(true);
+  });
+
+  it('coalesces trade events during a pending load into a fresh round and blocks stale submission', async () => {
+    const first = deferredLoad();
+    const second = deferredLoad();
+    mockLoadNetworks
+      .mockReturnValueOnce(first.promise)
+      .mockReturnValueOnce(second.promise);
+    const { result } = renderController();
+    act(() => mockLoadNetworks.mock.calls[0][2]?.([ethereum]));
+    act(() => {
+      for (let i = 0; i < 3; i += 1)
+        appEventBus.emit(EAppEventBusNames.SwapTxHistoryStatusUpdate, {
+          status: ESwapTxHistoryStatus.SUCCESS,
+        });
+      result.current.start();
+    });
+    expect(mockLoadNetworks).toHaveBeenCalledTimes(1);
+    expect(result.current.session.state.snapshot).toBeUndefined();
+    await act(async () => {
+      first.resolve({ networks: [ethereum], partialError: false });
+      await first.promise;
+    });
+    expect(mockLoadNetworks).toHaveBeenCalledTimes(2);
+    expect(result.current.canStart).toBe(false);
+    expect(mockLoadNetworks.mock.calls[1][3]).toEqual({
+      isManualRefresh: true,
+    });
+    await act(async () => {
+      second.resolve({ networks: [base], partialError: false });
+      await second.promise;
+    });
+    expect(result.current.canStart).toBe(true);
+  });
+
+  it('defers hidden trade events until focus returns', async () => {
+    const { result, rerender } = renderController();
+    await waitFor(() => expect(result.current.canStart).toBe(true));
+    mockFocused = false;
+    rerender();
+    act(() => {
+      appEventBus.emit(EAppEventBusNames.SwapTxHistoryStatusUpdate, {
+        status: ESwapTxHistoryStatus.SUCCESS,
+      });
+    });
+    expect(mockLoadNetworks).toHaveBeenCalledTimes(1);
+    mockFocused = true;
+    rerender();
+    await waitFor(() => expect(mockLoadNetworks).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(result.current.canStart).toBe(true));
+  });
+
+  it('keeps an executing or paused snapshot intact and refreshes after stopping', async () => {
+    const { result, rerender } = renderController();
+    await waitFor(() => expect(result.current.canStart).toBe(true));
+    act(() => {
+      result.current.start();
+    });
+    const snapshot = result.current.session.state.snapshot;
+    mockFocused = false;
+    rerender();
+    act(() => {
+      appEventBus.emit(EAppEventBusNames.SwapTxHistoryStatusUpdate, {
+        status: ESwapTxHistoryStatus.SUCCESS,
+      });
+      result.current.session.pause();
+    });
+    mockFocused = true;
+    rerender();
+    expect(result.current.session.state.snapshot).toBe(snapshot);
+    expect(result.current.session.state.phase).toBe('paused');
+    expect(mockLoadNetworks).toHaveBeenCalledTimes(1);
+    await act(async () => result.current.stop());
+    await waitFor(() => expect(mockLoadNetworks).toHaveBeenCalledTimes(2));
   });
 
   it.each([0, 0.1, 4.999, 50.01, NaN, Infinity])(
