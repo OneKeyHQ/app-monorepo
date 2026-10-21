@@ -1356,6 +1356,19 @@ class ServiceSend extends ServiceBase {
           }
           throw error;
         }
+        if (!signOnly && unsignedTx.uuid) {
+          // The chunk is on chain from here on. Announce it before the local
+          // bookkeeping below, which can still throw: the caller's sent list
+          // never crosses the bridge and the result is withheld when the
+          // batch rejects, so this event is what the confirm page marks the
+          // chunk as sent from.
+          appEventBus.emit(EAppEventBusNames.BatchSendTxBroadcasted, {
+            uuid: unsignedTx.uuid,
+            txid: signedTx.txid,
+            networkId,
+            accountId,
+          });
+        }
         const decodedTx = await this.buildDecodedTx({
           networkId,
           accountId,
@@ -1444,19 +1457,8 @@ class ServiceSend extends ServiceBase {
           }
         }
 
-        if (!signOnly && unsignedTx.uuid) {
-          if (successfullySentTxs) {
-            successfullySentTxs.push(unsignedTx.uuid);
-          }
-          // The push above never reaches the caller across the bridge and
-          // the result is withheld when a later chunk throws; the confirm
-          // page marks this chunk as sent from the event instead.
-          appEventBus.emit(EAppEventBusNames.BatchSendTxBroadcasted, {
-            uuid: unsignedTx.uuid,
-            txid: signedTx.txid,
-            networkId,
-            accountId,
-          });
+        if (!signOnly && unsignedTx.uuid && successfullySentTxs) {
+          successfullySentTxs.push(unsignedTx.uuid);
         }
       }
     }

@@ -667,6 +667,24 @@ describe('ServiceSend.batchSignAndSendTransaction retry after partial failure', 
     ]);
   });
 
+  it('announces a broadcast chunk even when its local bookkeeping fails afterwards', async () => {
+    const { service, backgroundApi } = makeService();
+    const unsignedTxs = [buildUnsignedTx('u0'), buildUnsignedTx('u1')];
+    backgroundApi.serviceHistory.saveSendConfirmHistoryTxs.mockRejectedValueOnce(
+      new OneKeyLocalError('history db locked'),
+    );
+
+    await expect(batchSend(service, unsignedTxs)).rejects.toThrow(
+      'history db locked',
+    );
+
+    // The chunk is on chain and a retry will replay it, so the review page
+    // must hear about it regardless of what the bookkeeping did.
+    expect(announcedBroadcasts()).toEqual([
+      { uuid: 'u0', txid: signatureOf('u0'), networkId, accountId },
+    ]);
+  });
+
   it('announces nothing for a sign-only batch', async () => {
     const { service } = makeService();
     const unsignedTxs = [buildUnsignedTx('u0'), buildUnsignedTx('u1')];
