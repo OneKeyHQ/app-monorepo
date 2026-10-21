@@ -181,6 +181,16 @@ function HeadlessBuyPage() {
   // review-mode leave interception below lets that removal through.
   const allowLeaveRef = useRef(false);
 
+  // Cleared on unmount so a checkout completion that resolves after the user
+  // closed the modal does not navigate (see handleCompleted).
+  const isMountedRef = useRef(true);
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+
   // Resolve the route token from the network's buy list — only when the entry
   // passed just an address (the list fetch is wasted otherwise).
   const { result: buyTokens } = usePromiseResult(
@@ -342,6 +352,14 @@ function HeadlessBuyPage() {
         });
         return;
       }
+      // The write above is a background round trip; in review the leave guard
+      // only returns to input, so a second close during that window dismisses
+      // the modal. The order is stored and reachable from the orders entry —
+      // resetting now would replace whatever screen the user moved on to.
+      if (!isMountedRef.current || !reactNavigation.isFocused()) {
+        defaultLogger.fiatCrypto.onramper.orderDetailSkipped({ transactionId });
+        return;
+      }
       // Bypass the review leave guard first: the reset below removes this
       // screen and fires beforeRemove. Then WIPE the buy flow from the modal
       // stack instead of pushing — the native pay button is consumed, so
@@ -360,7 +378,7 @@ function HeadlessBuyPage() {
         }),
       );
     },
-    [navigation, intl],
+    [navigation, reactNavigation, intl],
   );
 
   const {

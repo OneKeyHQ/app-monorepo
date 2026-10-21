@@ -419,6 +419,14 @@ export class OnramperScene extends BaseScene {
     return params;
   }
 
+  // `completed` landed after the user had left the checkout screen: the detail
+  // page is not opened (the order stays reachable from the orders entry).
+  @LogToServer()
+  @LogToLocal()
+  public orderDetailSkipped(params: { transactionId: string }) {
+    return params;
+  }
+
   @LogToServer()
   @LogToLocal()
   public orderDiscarded(params: {
