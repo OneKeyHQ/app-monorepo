@@ -1,3 +1,5 @@
+import { Semaphore } from 'async-mutex';
+
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
 import {
   backgroundClass,
@@ -7,6 +9,7 @@ import {
   isAvailable,
   logoutFromGoogleDrive,
 } from '@onekeyhq/shared/src/cloudfs';
+import { PRIME_WEB_PURCHASE_LINK_PRODUCTION } from '@onekeyhq/shared/src/consts/primeConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import {
   EAppEventBusNames,
@@ -34,6 +37,11 @@ import resetUtils from '@onekeyhq/shared/src/utils/resetUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type { IMarketTokenDetailPreview } from '@onekeyhq/shared/types/marketV2';
+import type {
+  IPrimeWebCheckoutExtensionContext,
+  IPrimeWebCheckoutOpenOptions,
+  IPrimeWebCheckoutPendingSession,
+} from '@onekeyhq/shared/types/prime/primeTypes';
 
 import localDb from '../dbs/local/localDb';
 import {
@@ -53,6 +61,64 @@ import ServiceBase from './ServiceBase';
 import { biologyAuthUtils } from './ServicePassword/biologyAuthUtils';
 
 import type { ISimpleDBAppStatus } from '../dbs/simple/entity/SimpleDbEntityAppStatus';
+
+type IExtensionPrimeWebCheckoutParams = Pick<
+  IPrimeWebCheckoutPendingSession,
+  'onekeyUserId' | 'checkoutId'
+> &
+  IPrimeWebCheckoutOpenOptions & {
+    initiator: Pick<
+      IPrimeWebCheckoutExtensionContext,
+      'initiatorKind' | 'initiatorTabId' | 'initiatorWindowId'
+    >;
+  };
+
+// Only the background owns this critical section; extension UIs have separate
+// heaps. Persist the chosen tab before letting another surface look it up.
+const extensionPrimeWebCheckoutTabMutex = new Semaphore(1);
+
+function getExtensionCheckoutTab(tabId: number) {
+  return new Promise<chrome.tabs.Tab | undefined>((resolve) => {
+    chrome.tabs.get(tabId, (tab) => {
+      void chrome.runtime.lastError;
+      resolve(tab);
+    });
+  });
+}
+
+function isMatchingCheckoutPageUrl(
+  url: string | undefined,
+  checkoutUrl: string,
+) {
+  if (!url) {
+    return false;
+  }
+  try {
+    const current = new URL(url);
+    const expected = new URL(checkoutUrl);
+    // Keep all payment parameters, including duplicate values. Prefill and
+    // attribution may differ without changing the identity of the payment.
+    for (const candidate of [current, expected]) {
+      for (const key of Array.from(candidate.searchParams.keys())) {
+        if (key === 'email' || key.startsWith('utm_')) {
+          candidate.searchParams.delete(key);
+        }
+      }
+      candidate.searchParams.sort();
+    }
+    return (
+      !current.username &&
+      !current.password &&
+      current.origin ===
+        new URL(PRIME_WEB_PURCHASE_LINK_PRODUCTION.baseUrl).origin &&
+      current.origin === expected.origin &&
+      current.pathname === expected.pathname &&
+      current.searchParams.toString() === expected.searchParams.toString()
+    );
+  } catch {
+    return false;
+  }
+}
 
 @backgroundClass()
 class ServiceApp extends ServiceBase {
@@ -415,6 +481,130 @@ class ServiceApp extends ServiceBase {
   @backgroundMethod()
   async getExtensionBrowserSessionId() {
     return extUtils.getBrowserSessionId();
+  }
+
+  private async getCurrentExtensionPrimeWebCheckout({
+    onekeyUserId,
+    checkoutId,
+  }: Pick<IPrimeWebCheckoutPendingSession, 'onekeyUserId' | 'checkoutId'>) {
+    const session =
+      await this.backgroundApi.simpleDb.prime.getWebCheckoutPendingSession({
+        onekeyUserId,
+      });
+    const user = await this.backgroundApi.servicePrime.getLocalUserInfo();
+    if (
+      !session ||
+      session.checkoutId !== checkoutId ||
+      session.onekeyUserId !== onekeyUserId ||
+      session.platform !== 'extension' ||
+      !user.isLoggedIn ||
+      user.onekeyUserId !== onekeyUserId
+    ) {
+      throw new OneKeyLocalError('Prime web checkout session changed');
+    }
+    return session;
+  }
+
+  @backgroundMethod()
+  async openExtensionPrimeWebCheckout(
+    params: IExtensionPrimeWebCheckoutParams,
+  ): Promise<number> {
+    if (!platformEnv.isExtensionBackground) {
+      throw new OneKeyLocalError(
+        'Prime checkout tabs must be opened by the extension background',
+      );
+    }
+    return extensionPrimeWebCheckoutTabMutex.runExclusive(async () => {
+      const browserSessionId = await extUtils.getBrowserSessionId();
+      if (!browserSessionId) {
+        throw new OneKeyLocalError(
+          'Prime checkout browser session unavailable',
+        );
+      }
+      // Never use the caller's stale session snapshot to decide tab ownership.
+      const session = await this.getCurrentExtensionPrimeWebCheckout(params);
+      if (
+        !isMatchingCheckoutPageUrl(session.checkoutUrl, session.checkoutUrl)
+      ) {
+        throw new OneKeyLocalError('Invalid Prime checkout URL');
+      }
+      const extension =
+        session.extension?.browserSessionId === browserSessionId
+          ? session.extension
+          : undefined;
+      const currentTabId = extension?.checkoutTabId;
+      if (currentTabId !== undefined) {
+        const currentTab = await getExtensionCheckoutTab(currentTabId);
+        const currentUrl = currentTab?.pendingUrl || currentTab?.url;
+        await this.getCurrentExtensionPrimeWebCheckout(params);
+        // Without tabs/host permission URL fields may be hidden. Focus only
+        // our recorded tab; never rewrite a hidden URL or reset an active form.
+        if (
+          currentTab &&
+          (!currentUrl ||
+            isMatchingCheckoutPageUrl(currentUrl, session.checkoutUrl)) &&
+          (await extUtils.focusTab(currentTabId))
+        ) {
+          await this.getCurrentExtensionPrimeWebCheckout(params);
+          return currentTabId;
+        }
+      }
+
+      const replacedSession = params.replacedSession;
+      const replacedTabId =
+        replacedSession?.onekeyUserId === session.onekeyUserId &&
+        replacedSession.extension?.browserSessionId === browserSessionId
+          ? replacedSession.extension.checkoutTabId
+          : undefined;
+      let reusableTabId: number | undefined;
+      if (replacedTabId !== undefined && replacedSession) {
+        const replacedTab = await getExtensionCheckoutTab(replacedTabId);
+        if (
+          isMatchingCheckoutPageUrl(
+            replacedTab?.pendingUrl || replacedTab?.url,
+            replacedSession.checkoutUrl,
+          )
+        ) {
+          reusableTabId = replacedTabId;
+        }
+      }
+      await this.getCurrentExtensionPrimeWebCheckout(params);
+      const url = params.email
+        ? `${session.checkoutUrl}${session.checkoutUrl.includes('?') ? '&' : '?'}email=${encodeURIComponent(params.email)}`
+        : session.checkoutUrl;
+      const checkoutTab = await extUtils.openUrlInTab(url, {
+        tabId: reusableTabId,
+      });
+      if (checkoutTab?.id === undefined) {
+        throw new OneKeyLocalError('Failed to open the checkout tab');
+      }
+      const checkoutTabId = checkoutTab.id;
+      try {
+        await this.getCurrentExtensionPrimeWebCheckout(params);
+        const didUpdate =
+          await this.backgroundApi.simpleDb.prime.updateWebCheckoutPendingSessionExtensionContext(
+            {
+              onekeyUserId: session.onekeyUserId,
+              checkoutId: session.checkoutId,
+              extension: {
+                ...(extension ?? params.initiator),
+                checkoutTabId,
+                browserSessionId,
+              },
+            },
+          );
+        if (!didUpdate) {
+          throw new OneKeyLocalError('Prime web checkout session changed');
+        }
+        await this.getCurrentExtensionPrimeWebCheckout(params);
+        return checkoutTabId;
+      } catch (error) {
+        // A failed context write or account/session change must not leave a
+        // payable tab that cannot be authenticated by the return handler.
+        await extUtils.removeTab(checkoutTabId);
+        throw error;
+      }
+    });
   }
 
   @backgroundMethod()

@@ -6,7 +6,6 @@ import {
 import type { IPrimeWebPurchaseLinkConfig } from '@onekeyhq/shared/src/consts/primeConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import extUtils from '@onekeyhq/shared/src/utils/extUtils';
 import openUrlUtils from '@onekeyhq/shared/src/utils/openUrlUtils';
 import type {
   IPrimeWebCheckoutExtensionContext,
@@ -18,7 +17,6 @@ import { loadPurchasesSdkWeb } from '../purchasesSdk/purchasesSdkWebLoader';
 
 import primePaymentUtils from './primePaymentUtils';
 import {
-  isPrimeWebPurchaseLinkPageUrl,
   resolvePrimeWebPurchaseLinkPackage,
   withPrimeWebPurchaseLinkEmail,
 } from './primeWebPurchaseLink';
@@ -168,117 +166,6 @@ async function getExtensionCheckoutInitiator(): Promise<IPrimeWebCheckoutExtensi
   };
 }
 
-function getExtensionTab(tabId: number) {
-  return new Promise<chrome.tabs.Tab | undefined>((resolve) => {
-    chrome.tabs.get(tabId, (tab) => {
-      void chrome.runtime.lastError;
-      resolve(tab);
-    });
-  });
-}
-
-function isMatchingCheckoutPageUrl(
-  url: string | undefined,
-  checkoutUrl: string,
-) {
-  if (!url || !isPrimeWebPurchaseLinkPageUrl(url)) {
-    return false;
-  }
-  try {
-    const current = new URL(url);
-    const expected = new URL(checkoutUrl);
-    // Preserve the link, OneKey ID and payment parameters, including duplicate
-    // query values. Email prefill and attribution do not identify the payment.
-    for (const candidate of [current, expected]) {
-      for (const key of Array.from(candidate.searchParams.keys())) {
-        if (key === 'email' || key.startsWith('utm_')) {
-          candidate.searchParams.delete(key);
-        }
-      }
-      candidate.searchParams.sort();
-    }
-    return (
-      !current.username &&
-      !current.password &&
-      current.origin === expected.origin &&
-      current.pathname === expected.pathname &&
-      current.searchParams.toString() === expected.searchParams.toString()
-    );
-  } catch {
-    return false;
-  }
-}
-
-// Only replace a tab that still belongs to the recorded checkout.
-async function isReusableCheckoutTab(
-  tabId: number | undefined,
-  checkoutUrl: string | undefined,
-) {
-  if (tabId === undefined || !checkoutUrl) return false;
-  const tab = await getExtensionTab(tabId);
-  return isMatchingCheckoutPageUrl(tab?.pendingUrl || tab?.url, checkoutUrl);
-}
-
-async function openExtensionCheckoutTab({
-  session,
-  url,
-  replacedSession,
-}: {
-  session: IPrimeWebCheckoutPendingSession;
-  url: string;
-  replacedSession?: IPrimeWebCheckoutPendingSession;
-}) {
-  const browserSessionId = await getExtensionBrowserSessionId();
-  const usableExtension =
-    await getUsablePrimeWebCheckoutExtensionContext(session);
-  const initiator = usableExtension ?? (await getExtensionCheckoutInitiator());
-  const currentTabId = usableExtension?.checkoutTabId;
-  if (currentTabId !== undefined) {
-    const currentTab = await getExtensionTab(currentTabId);
-    const currentUrl = currentTab?.pendingUrl || currentTab?.url;
-    // Chrome hides URL fields without tabs/host permission. Focusing our
-    // recorded tab is safe and preserves any in-flight card or 3DS form.
-    // Never rewrite an unknown URL or a tab visibly navigated elsewhere.
-    if (
-      currentTab &&
-      (!currentUrl ||
-        isMatchingCheckoutPageUrl(currentUrl, session.checkoutUrl)) &&
-      (await extUtils.focusTab(currentTabId))
-    ) {
-      return;
-    }
-  }
-  // Reuses the tab of this checkout, or of the checkout it replaces, so only
-  // one hosted checkout stays open.
-  const replacedTabId = replacedSession
-    ? (await getUsablePrimeWebCheckoutExtensionContext(replacedSession))
-        ?.checkoutTabId
-    : undefined;
-  let reusableTabId: number | undefined;
-  if (
-    await isReusableCheckoutTab(replacedTabId, replacedSession?.checkoutUrl)
-  ) {
-    reusableTabId = replacedTabId;
-  }
-  const checkoutTab = await extUtils.openUrlInTab(url, {
-    tabId: reusableTabId,
-  });
-  if (checkoutTab?.id === undefined) {
-    throw new OneKeyLocalError('Failed to open the checkout tab');
-  }
-  await backgroundApiProxy.simpleDb.prime.updateWebCheckoutPendingSessionExtensionContext(
-    {
-      onekeyUserId: session.onekeyUserId,
-      checkoutId: session.checkoutId,
-      extension: {
-        ...initiator,
-        checkoutTabId: checkoutTab.id,
-        browserSessionId,
-      },
-    },
-  );
-}
-
 // Opens (or reopens) the hosted checkout page. 'navigatedAway' means this
 // page is unloading; the return page resumes the checkout.
 export async function openPrimeWebCheckoutPage(
@@ -287,7 +174,13 @@ export async function openPrimeWebCheckoutPage(
 ): Promise<'opened' | 'navigatedAway'> {
   const url = withPrimeWebPurchaseLinkEmail(session.checkoutUrl, email);
   if (platformEnv.isExtension) {
-    await openExtensionCheckoutTab({ session, url, replacedSession });
+    await backgroundApiProxy.serviceApp.openExtensionPrimeWebCheckout({
+      onekeyUserId: session.onekeyUserId,
+      checkoutId: session.checkoutId,
+      initiator: await getExtensionCheckoutInitiator(),
+      email,
+      replacedSession,
+    });
     return 'opened';
   }
   if (platformEnv.isDesktop) {
