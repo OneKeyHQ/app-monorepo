@@ -14,6 +14,20 @@ describe('fetch-market-home-token-seed', () => {
     globalThis.fetch = originalFetch;
   });
 
+  test('fetches the default Trending order without explicit sorting', () => {
+    const url = new URL(createSeedUrl('https://utility.example.test'));
+    expect(url.pathname).toBe('/utility/v2/market/token/list');
+    expect(Object.fromEntries(url.searchParams)).toEqual({
+      networkId: '',
+      page: '1',
+      limit: '20',
+      minLiquidity: '5000',
+      type: 'trending',
+      timeFrame: '2',
+      currency: 'usd',
+    });
+  });
+
   test('reads the app version from .env.version', () => {
     const envVersionFile = path.resolve(__dirname, '../../..', '.env.version');
     const expectedVersion = fs
@@ -22,16 +36,6 @@ describe('fetch-market-home-token-seed', () => {
       ?.trim();
 
     expect(readAppVersion()).toBe(expectedVersion);
-  });
-
-  test('requests the same API default order as the initial trending list', () => {
-    const url = new URL(createSeedUrl('https://utility.example.test'));
-
-    expect(url.pathname).toBe('/utility/v2/market/token/list');
-    expect(url.searchParams.get('type')).toBe('trending');
-    expect(url.searchParams.get('timeFrame')).toBe('2');
-    expect(url.searchParams.has('sortBy')).toBe(false);
-    expect(url.searchParams.has('sortType')).toBe(false);
   });
 
   test('sends the app version header when fetching the seed', async () => {

@@ -232,34 +232,74 @@ describe('useMarketTokenList initial data', () => {
     jest.mocked(getMarketHomeTokenListSeedForInit).mockReset();
   });
 
-  it('renders bootstrap rows for API-default trending before its remote request completes', async () => {
+  afterEach(() => {
+    swrCacheUtils.clearAll();
+    swrCacheUtils.flushNow();
+  });
+
+  it('paints the default Trending seed before the remote response arrives', async () => {
     const seed = {
       ...createResponse('0xseed', 'Seed Token', 'SEED'),
       __fromSeed: true,
     };
-    jest.mocked(getMarketHomeTokenListSeedForInit).mockReturnValueOnce(seed);
-    mockFetchMarketTokenList.mockReturnValue(new Promise(() => undefined));
-
-    const { result } = renderHook(() =>
-      useMarketTokenList({
+    const remoteRequest = createDeferred<IMarketTokenListResponse>();
+    jest.mocked(getMarketHomeTokenListSeedForInit).mockReturnValue(seed);
+    mockFetchMarketTokenList
+      .mockResolvedValueOnce(seed)
+      .mockReturnValue(remoteRequest.promise);
+    const renderedTokenIds: string[][] = [];
+    const { result } = renderHook(() => {
+      const value = useMarketTokenList({
         networkId: 'onekeyall--0',
+        pollingInterval: 0,
         type: 'trending',
         timeRange: '1h',
         useApiDefaultSort: true,
-        pollingInterval: 0,
-      }),
-    );
+      });
+      renderedTokenIds.push(value.data.map((item) => item.id));
+      return value;
+    });
 
+    expect(renderedTokenIds[0]).toEqual(['0xseed']);
     await waitFor(() =>
-      expect(result.current.data.map((token) => token.symbol)).toEqual([
-        'SEED',
-      ]),
+      expect(mockFetchMarketTokenList).toHaveBeenCalledWith(
+        expect.objectContaining({
+          networkId: '',
+          sortBy: undefined,
+          sortType: undefined,
+        }),
+        { forceRemote: true },
+      ),
+    );
+    await act(async () => {
+      remoteRequest.resolve(
+        createResponse('0xremote', 'Remote Token', 'REMOTE'),
+      );
+      await remoteRequest.promise;
+    });
+    await waitFor(() =>
+      expect(result.current.data.map((item) => item.id)).toEqual(['0xremote']),
     );
   });
 
-  afterEach(() => {
-    swrCacheUtils.clearAll();
-    swrCacheUtils.flushNow();
+  it('does not show the default Trending seed for an explicitly sorted query', () => {
+    jest.mocked(getMarketHomeTokenListSeedForInit).mockReturnValue({
+      ...createResponse('0xseed', 'Seed Token', 'SEED'),
+      __fromSeed: true,
+    });
+    mockFetchMarketTokenList.mockReturnValue(
+      createDeferred<IMarketTokenListResponse>().promise,
+    );
+    const { result } = renderHook(() =>
+      useMarketTokenList({
+        networkId: 'onekeyall--0',
+        pollingInterval: 0,
+        type: 'trending',
+        timeRange: '1h',
+      }),
+    );
+
+    expect(result.current.data).toEqual([]);
   });
 
   it('keeps the switching skeleton until a successful response is transformed', async () => {

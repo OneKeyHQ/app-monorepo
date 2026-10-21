@@ -3,6 +3,7 @@ import type { PropsWithChildren } from 'react';
 
 import { render, screen } from '@testing-library/react';
 
+import type { resolveUSMarketStatusVariant } from '@onekeyhq/shared/src/utils/tradingHoursUtils';
 import { EUSMarketStatusVariant } from '@onekeyhq/shared/src/utils/tradingHoursUtils';
 import type { IMarketStockInfo } from '@onekeyhq/shared/types/marketV2';
 
@@ -40,7 +41,10 @@ jest.mock('@onekeyhq/kit/src/hooks/useUSMarketStatus', () => ({
   useUSMarketStatus: () => undefined,
 }));
 
-const mockResolveVariant = jest.fn<EUSMarketStatusVariant | undefined, []>();
+const mockResolveVariant = jest.fn<
+  EUSMarketStatusVariant | undefined,
+  [Parameters<typeof resolveUSMarketStatusVariant>[0]]
+>();
 
 jest.mock('@onekeyhq/shared/src/utils/tradingHoursUtils', () => {
   const actual = jest.requireActual<
@@ -48,8 +52,9 @@ jest.mock('@onekeyhq/shared/src/utils/tradingHoursUtils', () => {
   >('@onekeyhq/shared/src/utils/tradingHoursUtils');
   return {
     ...actual,
-    isOndoUSMarketStock: () => true,
-    resolveUSMarketStatusVariant: () => mockResolveVariant(),
+    resolveUSMarketStatusVariant: (
+      params: Parameters<typeof actual.resolveUSMarketStatusVariant>[0],
+    ) => mockResolveVariant(params),
   };
 });
 
@@ -83,7 +88,26 @@ function renderBadge(overrides?: Partial<IMarketStockInfo>) {
 describe('StockIsOpenBadge last update segment', () => {
   afterEach(() => {
     mockResolveVariant.mockReset();
+    jest.useRealTimers();
   });
+
+  it.each(['ondo', 'xstock', 'bstock'])(
+    'shows the underlying market status for %s',
+    (source) => {
+      jest.useFakeTimers();
+      jest.setSystemTime(new Date('2026-01-15T15:00:00Z'));
+      const actual = jest.requireActual<
+        typeof import('@onekeyhq/shared/src/utils/tradingHoursUtils')
+      >('@onekeyhq/shared/src/utils/tradingHoursUtils');
+      mockResolveVariant.mockImplementation(
+        actual.resolveUSMarketStatusVariant,
+      );
+
+      renderBadge({ source, isOpen: true });
+
+      expect(screen.getByText('trading_hours.regular_market')).toBeTruthy();
+    },
+  );
 
   it.each([
     EUSMarketStatusVariant.Closed,
