@@ -1295,6 +1295,8 @@ const validDeriveTypesList = [
   'cake',
   'starknetOpenZeppelin',
   'starknetOkx',
+  // TEMP(starknet-oz017): remove once funds are off OpenZeppelin v0.17.0 accounts
+  'starknetOpenZeppelinV017',
 ] as const satisfies readonly IAccountDeriveTypes[];
 
 // Compile-time guard: ensures every IAccountDeriveTypes member is present in

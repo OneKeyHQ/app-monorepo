@@ -384,6 +384,8 @@ export default class Vault extends VaultBase {
     const suffixed = [
       EAddressEncodings.STARKNET_OZ,
       EAddressEncodings.STARKNET_OKX,
+      // TEMP(starknet-oz017): remove once funds are off OpenZeppelin v0.17.0 accounts
+      EAddressEncodings.STARKNET_OZ_V017,
     ];
     return suffixed.find((encoding) => this.accountId.endsWith(encoding));
   }

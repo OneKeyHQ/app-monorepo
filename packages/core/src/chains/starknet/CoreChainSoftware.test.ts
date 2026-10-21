@@ -842,3 +842,43 @@ describe('Starknet OKX derive type', () => {
     expect(result.address).toBe(okxAccount0.address);
   });
 });
+
+// TEMP(starknet-oz017): remove once funds are off OpenZeppelin v0.17.0 accounts.
+// The addresses are the OZ v0.17.0 vectors this file locked before the switch
+// to v1.0.0 (starknet@10.8.0, same keys as hdAccounts above).
+describe('Starknet OpenZeppelin v0.17.0 derive type (temporary)', () => {
+  const v017Accounts = [
+    {
+      ...hdAccounts[0],
+      address:
+        '0x0157d9497dee8bbdc5e6a968a96a2408d10c6bf6cfe2b4509602952429d094ec',
+    },
+    {
+      ...hdAccounts[1],
+      address:
+        '0x0262f49363b614f0cbb5b7f6cb879a933b332b89cddc164e602d7d62fd1cfba4',
+    },
+  ];
+
+  it('derives the old v0.17.0 addresses from the same OpenZeppelin keys', async () => {
+    await coreTestsUtils.expectGetAddressFromHdOk({
+      coreApi: new CoreChainHd(),
+      networkInfo,
+      hdAccounts: v017Accounts,
+      hdAccountTemplate,
+      hdCredential,
+      addressEncoding: EAddressEncodings.STARKNET_OZ_V017,
+    });
+  });
+
+  it('deploys with the v0.17.0 class', () => {
+    const params = sdkStarknet.getAccountDeployParams(
+      v017Accounts[0].publicKey,
+      'openZeppelinV017',
+    );
+    expect(params.classHash).toBe(
+      sdkStarknet.OPENZEPPELIN_V017_ACCOUNT_CLASS_HASH,
+    );
+    expect(params.contractAddress).toBe(v017Accounts[0].address);
+  });
+});

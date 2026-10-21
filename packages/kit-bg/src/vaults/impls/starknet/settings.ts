@@ -20,6 +20,8 @@ export type IAccountDeriveInfoMapStarknet = IAccountDeriveInfoMapBase & {
   default: IAccountDeriveInfo;
   starknetOpenZeppelin: IAccountDeriveInfo;
   starknetOkx: IAccountDeriveInfo;
+  // TEMP(starknet-oz017): remove once funds are off OpenZeppelin v0.17.0 accounts
+  starknetOpenZeppelinV017: IAccountDeriveInfo;
 };
 export type IAccountDeriveTypesStarknet = keyof IAccountDeriveInfoMapStarknet;
 
@@ -56,6 +58,17 @@ const accountDeriveInfo: IAccountDeriveInfoMapStarknet = {
     addressEncoding: EAddressEncodings.STARKNET_OKX,
     idSuffix: EAddressEncodings.STARKNET_OKX,
     desc: 'OKX Wallet account',
+    useAddressEncodingDerive: true,
+  },
+  // TEMP(starknet-oz017): remove once funds are off OpenZeppelin v0.17.0 accounts
+  starknetOpenZeppelinV017: {
+    namePrefix: 'STRK OZ v0.17',
+    label: 'OpenZeppelin v0.17',
+    template: `m/44'/${COINTYPE_STARKNET}'/0'/0/${INDEX_PLACEHOLDER}`,
+    coinType: COINTYPE_STARKNET,
+    addressEncoding: EAddressEncodings.STARKNET_OZ_V017,
+    idSuffix: EAddressEncodings.STARKNET_OZ_V017,
+    desc: 'OpenZeppelin v0.17.0 account (temporary, to move funds out)',
     useAddressEncodingDerive: true,
   },
 };
