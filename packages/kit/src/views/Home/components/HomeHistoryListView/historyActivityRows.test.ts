@@ -540,6 +540,32 @@ describe('Home history shielded endpoints', () => {
     expect(result.row.description).toBe('Transparent pool');
   });
 
+  it("shows another account's t1 as the sender of a transparent receive", () => {
+    const sender = `t1${'S'.repeat(33)}`;
+    const tx = history(
+      [],
+      [{ ...transfer('1'), from: sender, to: T1, isOwn: true }],
+    );
+    tx.decodedTx.owner = T1;
+    tx.decodedTx.payload = {
+      type: EOnChainHistoryTxType.Receive,
+      value: '1',
+      label: '',
+    };
+    const result = gatedRow({
+      history: tx,
+      tableLayout: false,
+      isUTXO: true,
+      localWallet,
+      localWalletAddresses: { publicAddress: T1, privateAddress: U1 },
+      hideValue: false,
+      currency: '$',
+      intl,
+    });
+    expect(result.address).toBe(sender);
+    expect(result.row.description).not.toBe('Shielded');
+  });
+
   it('shows a transparent multi-address count as text, on BTC as before', () => {
     const count = intl.formatMessage(
       { id: ETranslations.global_count_addresses },
