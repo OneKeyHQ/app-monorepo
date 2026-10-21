@@ -1,16 +1,22 @@
 /** @jest-environment jsdom */
-import { createContext, useContext, useEffect, useMemo } from 'react';
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useMemo,
+  useSyncExternalStore,
+} from 'react';
 import type { ComponentType, PropsWithChildren, ReactNode } from 'react';
 
 import {
   BaseNavigationContainer,
   CommonActions,
+  NavigationContext,
   type ParamListBase,
   StackRouter,
   createNavigationContainerRef,
   createNavigatorFactory,
   useIsFocused,
-  useNavigation,
   useNavigationBuilder,
 } from '@react-navigation/core';
 import { act, fireEvent, render, screen, within } from '@testing-library/react';
@@ -167,7 +173,19 @@ jest.mock('react-native-reanimated', () => ({
   useSharedValue: () => ({ value: 0 }),
   useAnimatedStyle: () => ({}),
   cancelAnimation: jest.fn(),
+  withTiming: (value: number) => value,
+  withSequence: (...values: number[]) => values[values.length - 1],
   FadeIn: { duration: () => undefined },
+  LinearTransition: { duration: () => undefined },
+}));
+jest.mock('@react-navigation/elements', () => ({
+  useHeaderHeight: () => 0,
+  getDefaultHeaderHeight: () => 0,
+}));
+jest.mock('@onekeyhq/shared/src/tabBar/hideTabBarRequests', () => ({
+  createHideTabBarOwnerId: (scope: string) => scope,
+  requestHideTabBar: jest.fn(),
+  releaseHideTabBar: jest.fn(),
 }));
 jest.mock('@onekeyhq/kit/src/components/Token', () => ({ Token: () => null }));
 jest.mock('@onekeyhq/kit/src/components/Token/TokenGroup', () => ({
@@ -319,9 +337,12 @@ jest.mock('./DustSweepProvider', () => ({
   useDustSweep: () => useContext(ModelContext),
 }));
 
-function Summary({ onDone }: { onDone: () => void }) {
+const ref = createNavigationContainerRef<ParamListBase>();
+function Summary() {
   const model = useDustSweep();
-  const navigation = useNavigation();
+  // Inside the mobile live sheet there is no navigator; back then goes through
+  // the container like the header back would.
+  const navigation = useContext(NavigationContext);
   return (
     <>
       <span>{`${model.session.state.phase}:${model.isFocused ? 'focused' : 'hidden'}`}</span>
@@ -343,11 +364,11 @@ function Summary({ onDone }: { onDone: () => void }) {
       <button type="button" onClick={model.session.resume}>
         Continue
       </button>
-      <button type="button" onClick={() => navigation.goBack()}>
+      <button
+        type="button"
+        onClick={() => (navigation ? navigation.goBack() : ref.goBack())}
+      >
         Local back
-      </button>
-      <button type="button" onClick={onDone}>
-        Done
       </button>
     </>
   );
@@ -359,19 +380,7 @@ jest.mock('./components/DustSweepSummary', () => {
   return {
     ...actual,
     DustSweepSummary: (props: Parameters<typeof actual.DustSweepSummary>[0]) =>
-      mockActualResults ? (
-        <actual.DustSweepSummary {...props} />
-      ) : (
-        <Summary {...props} />
-      ),
-    DustSweepResult: (props: Parameters<typeof actual.DustSweepResult>[0]) =>
-      mockActualResults ? (
-        <actual.DustSweepResult {...props} />
-      ) : (
-        <Button testID="dust-result-again" onPress={props.onAgain}>
-          Result again
-        </Button>
-      ),
+      mockActualResults ? <actual.DustSweepSummary {...props} /> : <Summary />,
   };
 });
 jest.mock('./components/DustSweepSelection', () => ({
@@ -399,33 +408,35 @@ function Modal() {
     </ModalStack.Navigator>
   );
 }
-const ref = createNavigationContainerRef<ParamListBase>();
 function mountFlow(modal = false) {
   return render(
-    <BaseNavigationContainer
-      ref={ref}
-      initialState={{
-        index: 1,
-        routes: [
-          { name: 'Home' },
-          {
-            name: modal ? 'Modal' : 'Dust',
-            params: {
-              walletId: 'wallet',
-              accountId: 'account',
-              entry: 'lowValueRow',
+    <>
+      <BaseNavigationContainer
+        ref={ref}
+        initialState={{
+          index: 1,
+          routes: [
+            { name: 'Home' },
+            {
+              name: modal ? 'Modal' : 'Dust',
+              params: {
+                walletId: 'wallet',
+                accountId: 'account',
+                entry: 'lowValueRow',
+              },
             },
-          },
-        ],
-      }}
-    >
-      <ParentStack.Navigator>
-        <ParentStack.Screen name="Home" component={Home} />
-        <ParentStack.Screen name="Dust" component={DustSweepPage} />
-        <ParentStack.Screen name="Modal" component={Modal} />
-        <ParentStack.Screen name="Other" component={Home} />
-      </ParentStack.Navigator>
-    </BaseNavigationContainer>,
+          ],
+        }}
+      >
+        <ParentStack.Navigator>
+          <ParentStack.Screen name="Home" component={Home} />
+          <ParentStack.Screen name="Dust" component={DustSweepPage} />
+          <ParentStack.Screen name="Modal" component={Modal} />
+          <ParentStack.Screen name="Other" component={Home} />
+        </ParentStack.Navigator>
+      </BaseNavigationContainer>
+      <LiveSheetHost />
+    </>,
   );
 }
 function flowRoutes() {
@@ -459,10 +470,36 @@ async function completeItem({
   onBroadcast('tx');
   return success;
 }
+const LIVE_SHEET = 'dust-sweep-live-sheet';
+let mockLiveSheet: ReactNode = null;
+const mockLiveSheetListeners = new Set<() => void>();
+function setMockLiveSheet(content: ReactNode) {
+  mockLiveSheet = content;
+  mockLiveSheetListeners.forEach((listener) => listener());
+}
+function LiveSheetHost() {
+  const content = useSyncExternalStore(
+    (listener) => {
+      mockLiveSheetListeners.add(listener);
+      return () => {
+        mockLiveSheetListeners.delete(listener);
+      };
+    },
+    () => mockLiveSheet,
+  );
+  return content ? <div data-testid="live-sheet-host">{content}</div> : null;
+}
+// Dialogs other than the mobile live sheet (leave confirmation, details).
+function otherDialogCalls() {
+  return mockDialog.mock.calls.filter(([props]) => props.testID !== LIVE_SHEET);
+}
 function confirmDialog() {
-  const props = mockDialog.mock.calls.at(-1)?.[0];
+  const props = otherDialogCalls().at(-1)?.[0];
   if (!props) throw new OneKeyLocalError('Expected leave confirmation');
   return props;
+}
+function liveSheetCalls() {
+  return mockDialog.mock.calls.filter(([props]) => props.testID === LIVE_SHEET);
 }
 const dialogInstance = {
   close: mockDialogClose,
@@ -479,14 +516,20 @@ beforeEach(() => {
   mockNative = false;
   mockOverlay = true;
   mockActualResults = false;
+  mockLiveSheet = null;
   mockDialog.mockImplementation((props) => {
     let closed = false;
+    // The live sheet stays mounted in the test's dialog host, like the real
+    // one, so its actions are reachable while the sweep runs.
+    const content = props.testID === LIVE_SHEET ? props.renderContent : null;
+    if (content) setMockLiveSheet(content);
     return {
       close: async () => {
         if (closed || (props.onBeforeClose && !(await props.onBeforeClose())))
           return;
         closed = true;
         props.onCloseStart?.();
+        if (content && mockLiveSheet === content) setMockLiveSheet(null);
         await mockDialogClose();
         await props.onClose?.();
       },
@@ -591,19 +634,21 @@ it('preserves an ancestor reset destination after confirmation instead of replac
   expect(ref.getCurrentRoute()?.name).toBe('Other');
 });
 
-it('opens completion once for the focused execution screen and does not start from hidden selection', async () => {
+it('keeps the mobile result in place and does not start from hidden selection', async () => {
   mockDesktop = false;
   execute.mockImplementation(completeItem);
   mountFlow();
   await act(async () => fireEvent.click(activeButton('Convert twice')));
-  expect(mockDialog).toHaveBeenCalledTimes(1);
-  expect(mockDialog.mock.calls[0][0].testID).toBe('dust-sweep-result-sheet');
-  const hiddenConvert = screen
-    .getAllByRole('button', { name: 'Convert twice', hidden: true })
-    .find((element) => element.closest('[hidden]'));
-  if (!hiddenConvert)
-    throw new OneKeyLocalError('Expected retained selection screen');
-  fireEvent.click(hiddenConvert);
+  // The sweep runs in the live sheet; nothing else is opened.
+  expect(liveSheetCalls()).toHaveLength(1);
+  expect(otherDialogCalls()).toHaveLength(0);
+  // The retained selection screen no longer renders its footer, so it has no
+  // Convert action to start another sweep from.
+  expect(
+    screen
+      .queryAllByRole('button', { name: 'Convert twice', hidden: true })
+      .filter((element) => element.closest('[hidden]')),
+  ).toHaveLength(0);
   expect(execute).toHaveBeenCalledTimes(1);
   expect(flowRoutes()).toHaveLength(2);
 });
@@ -616,76 +661,26 @@ function activeTestId(testID: string) {
   return element;
 }
 
-it('opens completed mobile Details, returns to the result, and resets only once on Done', async () => {
+it('keeps the completed mobile result in the live sheet without a Details entry', async () => {
   mockNative = true;
   mockActualResults = true;
-  const failure = 'Provider rejected this token: detailed failure reason';
   execute.mockImplementation(async ({ onSigning, onBroadcast }) => {
     onSigning();
     onBroadcast('failed-transaction');
-    return { status: 'failed', message: failure };
+    return { status: 'failed', message: 'Provider rejected this token' };
   });
   mountFlow();
   await act(async () => fireEvent.click(activeTestId('dust-sweep-action')));
-  const result = render(<>{confirmDialog().renderContent}</>);
-  const resultScreen = within(result.container);
-
-  fireEvent.click(resultScreen.getByTestId('dust-sweep-view-details'));
-  expect(resultScreen.getByTestId('dust-sweep-details')).toBeTruthy();
-  expect(resultScreen.getByText(failure)).toBeTruthy();
-  expect(resultScreen.getByTestId('dust-sweep-tx-a')).toBeTruthy();
-  expect(mockAgain).not.toHaveBeenCalled();
-  expect(mockDialogClose).not.toHaveBeenCalled();
-  expect(execute).toHaveBeenCalledTimes(1);
-
-  fireEvent.click(resultScreen.getByTestId('dust-sweep-details-back'));
-  expect(resultScreen.getByTestId('dust-sweep-result')).toBeTruthy();
-  expect(resultScreen.queryByTestId('dust-sweep-details')).toBeNull();
-  const done = resultScreen.getByTestId('dust-sweep-result-again');
-  await act(async () => {
-    fireEvent.click(done);
-    fireEvent.click(done);
-  });
-  expect(mockAgain).toHaveBeenCalledTimes(1);
-  expect(mockDialogClose).toHaveBeenCalledTimes(1);
-  expect(flowRoutes()?.map((route) => route.name)).toEqual(['Selection']);
-  expect(execute).toHaveBeenCalledTimes(1);
-});
-
-it('reopens completed mobile Details from the footer after dismissing the result', async () => {
-  mockNative = true;
-  mockActualResults = true;
-  execute.mockImplementation(completeItem);
-  mountFlow();
-  await act(async () => fireEvent.click(activeTestId('dust-sweep-action')));
-  const dialogResult = mockDialog.mock.results[0];
-  if (dialogResult.type !== 'return')
-    throw new OneKeyLocalError('Expected a mounted result dialog');
-  await act(async () => dialogResult.value.close());
-
-  fireEvent.click(activeTestId('dust-sweep-reopen-details'));
-  const result = render(<>{confirmDialog().renderContent}</>);
-  const resultScreen = within(result.container);
-  expect(resultScreen.getByTestId('dust-sweep-details')).toBeTruthy();
-  expect(resultScreen.getByTestId('dust-sweep-tx-a')).toBeTruthy();
-  expect(mockDialog).toHaveBeenCalledTimes(2);
+  expect(activeTestId('dust-sweep-result')).toBeTruthy();
+  // Per-token reasons live on the token rows; the footer only offers Done.
+  expect(
+    screen
+      .queryAllByTestId('dust-sweep-view-details')
+      .filter((item) => !item.closest('[hidden]')),
+  ).toHaveLength(0);
+  expect(otherDialogCalls()).toHaveLength(0);
   expect(mockAgain).not.toHaveBeenCalled();
   expect(execute).toHaveBeenCalledTimes(1);
-
-  fireEvent.click(resultScreen.getByTestId('dust-sweep-details-back'));
-  expect(resultScreen.getByTestId('dust-sweep-result')).toBeTruthy();
-  fireEvent.click(resultScreen.getByTestId('dust-sweep-view-details'));
-  await act(async () =>
-    fireEvent.click(resultScreen.getByTestId('dust-sweep-details-done')),
-  );
-  expect(mockDialogClose).toHaveBeenCalledTimes(2);
-  expect(mockAgain).not.toHaveBeenCalled();
-  expect(activeTestId('dust-sweep-reopen-details')).toBeTruthy();
-  expect(execute).toHaveBeenCalledTimes(1);
-  expect(flowRoutes()?.map((route) => route.name)).toEqual([
-    'Selection',
-    'Execution',
-  ]);
 });
 
 it('keeps pending mobile Details and Done from resetting or restarting the session', async () => {
@@ -705,12 +700,8 @@ it('keeps pending mobile Details and Done from resetting or restarting the sessi
     resultScreen.getByText(ETranslations.swap_review_tx_pending),
   ).toBeTruthy();
 
-  fireEvent.click(resultScreen.getByTestId('dust-sweep-details-back'));
-  fireEvent.click(resultScreen.getByTestId('dust-sweep-view-details'));
-  expect(resultScreen.getByTestId('dust-sweep-details')).toBeTruthy();
-  fireEvent.click(resultScreen.getByTestId('dust-sweep-details-back'));
   await act(async () =>
-    fireEvent.click(resultScreen.getByTestId('dust-sweep-result-again')),
+    fireEvent.click(resultScreen.getByTestId('dust-sweep-details-done')),
   );
 
   expect(mockDialogClose).toHaveBeenCalledTimes(1);
@@ -722,19 +713,32 @@ it('keeps pending mobile Details and Done from resetting or restarting the sessi
   ]);
 });
 
-it.each(['Done', 'Local back'])(
-  'bubbles completed %s through a modal whose owning Dust route is at index zero',
-  async (button) => {
-    execute.mockImplementation(completeItem);
-    mountFlow(true);
-    await act(async () => fireEvent.click(activeButton('Convert twice')));
-    expect(ref.getRootState().routes[1].state?.index).toBe(0);
-    fireEvent.click(activeButton(button));
-    expect(ref.getCurrentRoute()?.name).toBe('Home');
-    expect(mockProviderUnmounts).toBe(1);
-    expect(mockDialog).not.toHaveBeenCalled();
-  },
-);
+it('bubbles completed Back through a modal whose owning Dust route is at index zero', async () => {
+  execute.mockImplementation(completeItem);
+  mountFlow(true);
+  await act(async () => fireEvent.click(activeButton('Convert twice')));
+  expect(ref.getRootState().routes[1].state?.index).toBe(0);
+  fireEvent.click(activeButton('Local back'));
+  expect(ref.getCurrentRoute()?.name).toBe('Home');
+  expect(mockProviderUnmounts).toBe(1);
+  expect(mockDialog).not.toHaveBeenCalled();
+});
+
+it('returns completed mobile Done to token selection in the same session', async () => {
+  mockNative = true;
+  mockActualResults = true;
+  execute.mockImplementation(completeItem);
+  mountFlow();
+  await act(async () => fireEvent.click(activeTestId('dust-sweep-action')));
+  expect(activeTestId('dust-sweep-action').textContent).toBe(
+    ETranslations.global_done,
+  );
+  fireEvent.click(activeTestId('dust-sweep-action'));
+  expect(mockAgain).toHaveBeenCalledTimes(1);
+  expect(flowRoutes()?.map((route) => route.name)).toEqual(['Selection']);
+  expect(ref.getCurrentRoute()?.name).toBe('Selection');
+  expect(mockProviderUnmounts).toBe(0);
+});
 
 it('bubbles selection Back through the first modal screen without starting execution', () => {
   mountFlow(true);
@@ -753,19 +757,20 @@ it('allows Cancel, waits for signing on Leave, then exits the whole native modal
     return pending.promise;
   });
   mountFlow(true);
-  fireEvent.click(activeButton('Convert twice'));
+  await act(async () => fireEvent.click(activeButton('Convert twice')));
   fireEvent.click(activeButton('Local back'));
   const canceled = confirmDialog();
   expect(canceled.description).toContain(ETranslations.swap_review_tx_pending);
   expect(canceled.onBeforeClose?.()).toBe(true);
   act(() => canceled.onCloseStart?.());
   await act(async () => canceled.onConfirm?.(dialogInstance));
-  expect(screen.getByText('running:focused')).toBeTruthy();
   await act(async () => canceled.onClose?.());
+  // The live sheet steps aside for the leave dialog and returns afterwards.
+  expect(screen.getByText('running:focused')).toBeTruthy();
   expect(execute.mock.calls[0][0].signal.aborted).toBe(false);
   expect(ref.getCurrentRoute()?.name).toBe('Execution');
   fireEvent.click(activeButton('Local back'));
-  expect(mockDialog).toHaveBeenCalledTimes(2);
+  expect(otherDialogCalls()).toHaveLength(2);
   const confirmed = confirmDialog();
   let leaving: ReturnType<NonNullable<IDialogShowProps['onConfirm']>>;
   act(() => {
@@ -821,24 +826,23 @@ it('closes obsolete dialogs and ignores their callbacks after Again starts a new
     return second.promise;
   });
   mountFlow();
-  fireEvent.click(activeButton('Convert twice'));
+  await act(async () => fireEvent.click(activeButton('Convert twice')));
   fireEvent.click(activeButton('Local back'));
   const oldLeave = confirmDialog();
   const leaveClosing = deferred<void>();
   mockDialogClose.mockImplementationOnce(() => leaveClosing.promise);
+  // The live sheet already closed for the leave dialog; completion now closes
+  // the leave dialog itself.
+  const closesBefore = mockDialogClose.mock.calls.length;
   await act(async () => first.resolve(success));
-  expect(mockDialogClose).toHaveBeenCalledTimes(1);
-  expect(mockDialog).toHaveBeenCalledTimes(1);
+  expect(mockDialogClose.mock.calls.length - closesBefore).toBe(1);
+  expect(otherDialogCalls()).toHaveLength(1);
   await act(async () => oldLeave.onConfirm?.(dialogInstance));
-  expect(screen.getByText('completed:focused')).toBeTruthy();
   await act(async () => leaveClosing.resolve());
-  expect(mockDialog.mock.calls.at(-1)?.[0].testID).toBe(
-    'dust-sweep-result-sheet',
-  );
-  render(<>{confirmDialog().renderContent}</>);
-  const closing = deferred<void>();
-  mockDialogClose.mockImplementationOnce(() => closing.promise);
-  fireEvent.click(activeButton('Result again'));
+  // The completed sweep comes back in the live sheet; no other dialog opens.
+  expect(screen.getByText('completed:focused')).toBeTruthy();
+  expect(otherDialogCalls()).toHaveLength(1);
+  fireEvent.click(activeButton('Again'));
   expect(ref.getCurrentRoute()?.name).toBe('Selection');
   fireEvent.click(activeButton('Convert twice'));
   await act(async () => oldLeave.onConfirm?.(dialogInstance));
@@ -846,8 +850,7 @@ it('closes obsolete dialogs and ignores their callbacks after Again starts a new
   expect(execute.mock.calls[1][0].signal.aborted).toBe(false);
   expect(screen.getByText('running:focused')).toBeTruthy();
   await act(async () => second.resolve(success));
-  fireEvent.click(activeButton('Result again'));
   expect(ref.getCurrentRoute()?.name).toBe('Execution');
   expect(screen.getByText('completed:focused')).toBeTruthy();
-  await act(async () => closing.resolve());
+  expect(otherDialogCalls()).toHaveLength(1);
 });

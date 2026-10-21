@@ -4,13 +4,13 @@ import {
   createElement,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
+  useState,
 } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { useMedia } from '@onekeyhq/components';
-import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -38,12 +38,15 @@ export function isDustSweepNetworkSupported({
 type IDustSweepEntryCapabilities = {
   supportedNetworkIds?: ReadonlySet<string>;
   isRefreshing: boolean;
+  // Home tab and route are both focused.
+  isFocused: boolean;
 };
 
 const DustSweepEntryCapabilitiesContext =
   createContext<IDustSweepEntryCapabilities>({
     supportedNetworkIds: undefined,
     isRefreshing: false,
+    isFocused: true,
   });
 
 export function DustSweepEntryCapabilitiesProvider({
@@ -77,8 +80,9 @@ export function DustSweepEntryCapabilitiesProvider({
       // Keep the existing entry mounted while capabilities revalidate, but
       // prevent navigation until the destination rules are current.
       isRefreshing: Boolean(result && isLoading),
+      isFocused,
     }),
-    [isLoading, result, supportedNetworkIds],
+    [isFocused, isLoading, result, supportedNetworkIds],
   );
   return createElement(
     DustSweepEntryCapabilitiesContext.Provider,
@@ -88,8 +92,6 @@ export function DustSweepEntryCapabilitiesProvider({
 }
 
 export function useNavigateToDustSweep() {
-  const navigation = useAppNavigation();
-  const media = useMedia();
   const intl = useIntl();
 
   return useCallback(
@@ -98,21 +100,16 @@ export function useNavigateToDustSweep() {
     ) => {
       const { navigateToDustSweep } =
         await import('../utils/navigateToDustSweep');
-      await navigateToDustSweep({
-        params,
-        intl,
-        navigation,
-        isLargeScreen: media.gtMd,
-      });
+      await navigateToDustSweep({ params, intl });
     },
-    [intl, media.gtMd, navigation],
+    [intl],
   );
 }
 
 // Entry points that open Dust Sweep for the active Home account.
 export function useActiveAccountDustSweep() {
   const navigateToDustSweep = useNavigateToDustSweep();
-  const { supportedNetworkIds, isRefreshing } = useContext(
+  const { supportedNetworkIds, isRefreshing, isFocused } = useContext(
     DustSweepEntryCapabilitiesContext,
   );
   const {
@@ -133,20 +130,16 @@ export function useActiveAccountDustSweep() {
       isAllNetworks: network?.isAllNetworks,
       supportedNetworkIds,
     });
-  const openDustSweep = useCallback(
-    (entry: IDustSweepEntry) => {
-      if (!canDustSweep || isRefreshing) return undefined;
-      return navigateToDustSweep({
+  const navigate = useCallback(
+    (entry: IDustSweepEntry) =>
+      navigateToDustSweep({
         accountId: account?.id,
         walletId,
         indexedAccountId: indexedAccount?.id,
         networkId: network?.isAllNetworks ? undefined : network?.id,
         entry,
-      });
-    },
+      }),
     [
-      canDustSweep,
-      isRefreshing,
       navigateToDustSweep,
       account?.id,
       walletId,
@@ -155,9 +148,44 @@ export function useActiveAccountDustSweep() {
       network?.isAllNetworks,
     ],
   );
+  // Capabilities revalidate whenever Home regains focus (e.g. back from Dust
+  // Sweep). Keep the entry looking enabled meanwhile; a tap during the refresh
+  // waits for it and opens only if Home is still focused on the same account
+  // and network, and that account is still supported.
+  const scopeKey = [
+    walletId,
+    account?.id,
+    indexedAccount?.id,
+    network?.id,
+  ].join('|');
+  const [pendingEntry, setPendingEntry] = useState<{
+    entry: IDustSweepEntry;
+    scopeKey: string;
+  }>();
+  const openDustSweep = useCallback(
+    (entry: IDustSweepEntry) => {
+      if (!canDustSweep) return undefined;
+      if (isRefreshing) {
+        setPendingEntry({ entry, scopeKey });
+        return undefined;
+      }
+      return navigate(entry);
+    },
+    [canDustSweep, isRefreshing, navigate, scopeKey],
+  );
+  useEffect(() => {
+    if (!pendingEntry) return;
+    // Leaving Home or switching account/network drops the queued tap.
+    if (!isFocused || pendingEntry.scopeKey !== scopeKey) {
+      setPendingEntry(undefined);
+      return;
+    }
+    if (isRefreshing) return;
+    setPendingEntry(undefined);
+    if (canDustSweep) void navigate(pendingEntry.entry);
+  }, [canDustSweep, isFocused, isRefreshing, navigate, pendingEntry, scopeKey]);
   return {
     canDustSweep,
-    isDustSweepRefreshing: isRefreshing,
     openDustSweep,
   };
 }

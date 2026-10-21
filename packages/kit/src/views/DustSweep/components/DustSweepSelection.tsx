@@ -1,3 +1,5 @@
+import { useEffect, useRef } from 'react';
+
 import { useIntl } from 'react-intl';
 
 import {
@@ -10,19 +12,24 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import type { IScrollViewRef } from '@onekeyhq/components';
 import { SWAP_DESKTOP_CARD_SHADOW_WEB_STYLE } from '@onekeyhq/kit/src/views/Swap/utils/swapDesktopCardShadow';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { useDustSweep } from '../DustSweepProvider';
+import { getDustSweepPresentation } from '../stateMachine';
 import { getDustSweepHiddenThreshold } from '../utils/candidates';
 
 import { DustSweepFilters } from './DustSweepFilters';
 import { DUST_SWEEP_ACTION_HEIGHT } from './DustSweepSummary';
 import { DustSweepTokenRow } from './DustSweepTokenRow';
 
-// One fixed desktop height for every step (Add anyway, sweeping, result) so
-// the cards never jump; longer lists scroll inside.
-const DUST_SWEEP_DESKTOP_CARD_HEIGHT = 712;
+// Desktop cards fill the window height between these bounds. The height only
+// depends on the window, so it stays the same for every step (Add anyway,
+// sweeping, result) and longer lists scroll inside. Below the minimum, which
+// still fits the completed result, the page scrolls instead.
+export const DUST_SWEEP_DESKTOP_CARD_MAX_HEIGHT = 712;
+export const DUST_SWEEP_DESKTOP_CARD_MIN_HEIGHT = 520;
 // The mobile direction circle straddles the list / footer border.
 export const DUST_SWEEP_MOBILE_DIRECTION_SIZE = 36;
 
@@ -47,6 +54,23 @@ export function DustSweepSelection({ desktop }: { desktop: boolean }) {
   const rows = selecting
     ? visible
     : session.state.items.map((item) => item.token);
+  // While sweeping, keep the token being converted in view: the list scrolls
+  // so that row sits about a third of the way down.
+  const scrollRef = useRef<IScrollViewRef>(null);
+  const rowOffsets = useRef<Record<number, number>>({});
+  const viewportHeight = useRef(0);
+  const { active } = getDustSweepPresentation(session.state);
+  const activeIndex =
+    selecting || !active ? -1 : session.state.items.indexOf(active);
+  useEffect(() => {
+    if (activeIndex < 0) return;
+    const offset = rowOffsets.current[activeIndex];
+    if (offset === undefined) return;
+    scrollRef.current?.scrollTo({
+      y: Math.max(0, offset - viewportHeight.current / 3),
+      animated: true,
+    });
+  }, [activeIndex]);
   const selectableVisibleCount = visible.filter(
     (token) => !token.suspicious,
   ).length;
@@ -83,8 +107,10 @@ export function DustSweepSelection({ desktop }: { desktop: boolean }) {
               flexShrink: 0,
             })}
       >
+        {/* A step below the token rows (16/14): it is a secondary prompt, and
+            the title matches the 14px "Add anyway" button beside it. */}
         <YStack flex={1}>
-          <SizableText size="$bodyLg">
+          <SizableText size="$bodyMd">
             {intl.formatMessage(
               { id: ETranslations.sweep_hidden_tokens_below_amount },
               {
@@ -123,13 +149,11 @@ export function DustSweepSelection({ desktop }: { desktop: boolean }) {
             borderRadius: '$5',
             // Same halo as the desktop Swap cards.
             '$platform-web': SWAP_DESKTOP_CARD_SHADOW_WEB_STYLE,
-            height: DUST_SWEEP_DESKTOP_CARD_HEIGHT,
-            maxHeight: '100%',
           }
         : {})}
     >
       {desktop ? (
-        // Mirrors the "You receive" label position in the summary card.
+        // Mirrors the "Estimate received" label position in the summary card.
         <SizableText
           size="$bodyMd"
           color="$textSubdued"
@@ -143,7 +167,11 @@ export function DustSweepSelection({ desktop }: { desktop: boolean }) {
         </SizableText>
       ) : null}
       <ScrollView
+        ref={scrollRef}
         flex={1}
+        onLayout={(event) => {
+          viewportHeight.current = event.nativeEvent.layout.height;
+        }}
         contentContainerStyle={{
           paddingTop: desktop ? 8 : 0,
           paddingBottom: 16,
@@ -183,25 +211,31 @@ export function DustSweepSelection({ desktop }: { desktop: boolean }) {
               <DustSweepTokenRow key={index} />
             ))
           : rows.map((token, index) => (
-              <DustSweepTokenRow
+              <Stack
                 key={token.key}
-                token={token}
-                nativeTokenSymbol={
-                  selecting
-                    ? current?.nativeToken.symbol
-                    : session.state.snapshot?.nativeToken.symbol
-                }
-                selected={selected.some((item) => item.key === token.key)}
-                item={selecting ? undefined : session.state.items[index]}
-                paused={
-                  session.state.phase === 'paused'
-                    ? session.state.items.findIndex(
-                        (item) => item.status === 'waiting',
-                      ) === index
-                    : false
-                }
-                onToggle={toggle}
-              />
+                onLayout={(event) => {
+                  rowOffsets.current[index] = event.nativeEvent.layout.y;
+                }}
+              >
+                <DustSweepTokenRow
+                  token={token}
+                  nativeTokenSymbol={
+                    selecting
+                      ? current?.nativeToken.symbol
+                      : session.state.snapshot?.nativeToken.symbol
+                  }
+                  selected={selected.some((item) => item.key === token.key)}
+                  item={selecting ? undefined : session.state.items[index]}
+                  paused={
+                    session.state.phase === 'paused'
+                      ? session.state.items.findIndex(
+                          (item) => item.status === 'waiting',
+                        ) === index
+                      : false
+                  }
+                  onToggle={toggle}
+                />
+              </Stack>
             ))}
         {selecting && !loading && (loadStatus === 'error' || partialError) ? (
           <YStack p="$5" gap="$4">
