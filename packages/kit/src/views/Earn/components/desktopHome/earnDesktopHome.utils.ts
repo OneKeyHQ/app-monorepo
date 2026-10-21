@@ -1011,8 +1011,9 @@ const MIN_HEALTH_FACTOR = 1.1;
 
 /**
  * What the collateral earns less what the loan costs, a year, over what the
- * position is worth after the loan: (S - B x LTV) / (1 - LTV). Aave's Net APY,
- * which the Borrow page shows for a position, works the same way
+ * position is worth after the loan: (S - B x LTV) / (1 - LTV), as Aave's app
+ * works out a position's Net APY. The Borrow page's Net APY comes from the
+ * server, whose formula the client doesn't see
  */
 export function getLoanNetApy({
   supplyApy,
