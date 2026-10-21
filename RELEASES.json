@@ -49,5 +49,21 @@
       "#13926"
     ],
     "notes": "feat(earn): phone My portfolio on the positions endpoint (OK-61377) (#13825), fix: batch Pendle portfolios and reserve Arc gas (OK-64509) (#13866), ci: enable release startup checks and align Native/Web names (#13881), fix: ellipsize long hardware portfolio names (#13901), fix: polish DeFi mobile banner copy, glass and loading (OK-64693) (#13907), fix: refresh vendored Stripe.js for Prime card checkout (#13914), fix: track swap review funnel and latency (OK-64692) (#13923), fix: prevent excessive iOS text auto-sizing (#13926)"
+  },
+  {
+    "seq": 4,
+    "commit": "ab1b01e69d3634c1132d8f821e954fb3ef55b354",
+    "date": "2026-10-20T10:21:11Z",
+    "prs": [
+      "#13809",
+      "#13816",
+      "#13832",
+      "#13878",
+      "#13954",
+      "#13972",
+      "#13995",
+      "#14007"
+    ],
+    "notes": "feat: align Market detail search tabs｜OK-64088 (#13809), fix: keep Perps chart across account switches (OK-63967) (#13816), fix: upgrade Hyperliquid SDK and TWAP orders (OK-59156) (#13832), fix: Solana hardware/QR signing silently fails after the 30s blockhash window(OK-64580) (#13878), fix: estimate Blast swap gas after approval (OK-64627) (#13954), fix: refresh Swap prices and honor gas limits (OK-64895, OK-64754) (#13972), feat: clarify address risk check results for 6.6.1 (#13995), fix: handle unknown hardware wallet avatars (#14007)"
   }
 ]
