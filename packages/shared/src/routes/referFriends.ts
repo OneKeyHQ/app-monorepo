@@ -7,9 +7,14 @@ import type {
 
 export type IReferralPageTab = 'invite' | 'benefits';
 
+// How this Perks visit was opened. Omitted on the route means a deep link
+// or a restored tab.
+export type IPerksOpenEntry = 'tabs' | 'cross_link' | 'activity_hub';
+
 export interface IInviteRewardRouteParams {
   showRewardDistributionHistory?: boolean;
   tab?: IReferralPageTab;
+  perksEntry?: IPerksOpenEntry;
 }
 
 export interface IBtcRewardCodeInfoParam {
@@ -46,6 +51,8 @@ export type IModalReferFriendsParamList = {
   [EModalReferFriendsRoutes.ReferAFriend]: {
     utmSource?: string;
     code?: string;
+    tab?: IReferralPageTab;
+    perksEntry?: IPerksOpenEntry;
   };
   [EModalReferFriendsRoutes.InvitedByFriend]: {
     code: string;
