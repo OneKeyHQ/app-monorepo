@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { CommonActions, useNavigation, useRoute } from '@react-navigation/core';
+import { useIntl } from 'react-intl';
 import Animated, {
   FadeIn,
   FadeOut,
@@ -13,10 +14,12 @@ import {
   ActionList,
   Button,
   HeaderIconButton,
+  Icon,
   Page,
   SizableText,
   Stack,
   Toast,
+  XStack,
   YStack,
   usePreventRemove,
 } from '@onekeyhq/components';
@@ -29,6 +32,7 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { validateAmountInput } from '@onekeyhq/kit/src/utils/validateAmountInput';
 import { SendAutoSizeAmountInput } from '@onekeyhq/kit/src/views/Send/components/SendAutoSizeAmountInput';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { IOnramperLogContext } from '@onekeyhq/shared/src/logger/scopes/fiatCrypto/scenes/onramper';
 import type {
@@ -38,6 +42,8 @@ import type {
 import { EModalFiatCryptoRoutes } from '@onekeyhq/shared/src/routes';
 import type { IModalFiatCryptoParamList } from '@onekeyhq/shared/src/routes';
 import { openFiatCryptoUrl } from '@onekeyhq/shared/src/utils/openUrlUtils';
+import { EHeadlessBuyEntry } from '@onekeyhq/shared/types/fiatCrypto';
+import type { IAddHeadlessBuyOrderParams } from '@onekeyhq/shared/types/fiatCrypto';
 
 import { BuyActionZone } from '../../components/Headless/BuyActionZone';
 import { CheckoutInfoCard } from '../../components/Headless/CheckoutInfoCard';
@@ -53,6 +59,7 @@ import { PresetRow } from '../../components/Headless/PresetRow';
 import { getProviderDisplayName } from '../../components/Headless/ProviderLogo';
 import { EBuyActionState } from '../../components/Headless/types';
 import { useOnramperCheckout } from '../../components/Headless/useOnramperCheckout';
+import { useHeadlessBuyOrders } from '../../hooks/useHeadlessBuyOrders';
 
 import type { RouteProp } from '@react-navigation/core';
 
@@ -91,6 +98,7 @@ function HeadlessBuyPage() {
   const { networkId, accountId, tokenAddress, token, entryFrom } = route.params;
   const navigation = useAppNavigation();
   const reactNavigation = useNavigation();
+  const intl = useIntl();
 
   const [amountText, setAmountText] = useState('');
   const [mode, setMode] = useState<IBuyMode>('input');
@@ -173,6 +181,16 @@ function HeadlessBuyPage() {
   // review-mode leave interception below lets that removal through.
   const allowLeaveRef = useRef(false);
 
+  // Cleared on unmount so a checkout completion that resolves after the user
+  // closed the modal does not navigate (see handleCompleted).
+  const isMountedRef = useRef(true);
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+
   // Resolve the route token from the network's buy list — only when the entry
   // passed just an address (the list fetch is wasted otherwise).
   const { result: buyTokens } = usePromiseResult(
@@ -241,31 +259,6 @@ function HeadlessBuyPage() {
     [networkId],
   );
 
-  // USD market price of the token, from OneKey's own feed — the review card
-  // prices the payout with it. Deliberately NOT derived from the Onramper
-  // quote: the SDK's `rate` is exactly payout/amount echoed back (verified on
-  // device 2026-07-17), so it can never reveal spread or a bad quote.
-  const { result: marketPrice } = usePromiseResult(async () => {
-    try {
-      const detail =
-        await backgroundApiProxy.serviceMarketV2.fetchMarketTokenDetailByTokenAddress(
-          // Route params, not activeToken: identical values (the token is
-          // matched by this address), and this endpoint is un-memoized — an
-          // activeToken dep would duplicate the HTTP call once the list
-          // resolves.
-          tokenAddress,
-          networkId,
-          { skipConvertCurrency: true, autoHandleError: false },
-        );
-      const price = Number(detail?.data?.token?.price);
-      return Number.isFinite(price) && price > 0 ? price : undefined;
-    } catch {
-      // No market price (long-tail token / endpoint hiccup): the card hides
-      // the parenthetical instead of substituting a different-meaning number.
-      return undefined;
-    }
-  }, [tokenAddress, networkId]);
-
   // The address actually used for quoting; also shown on the review card so
   // the user can confirm the destination before paying.
   const effectiveAddress = address;
@@ -281,12 +274,96 @@ function HeadlessBuyPage() {
   // the ref is assigned right after the hook call below.
   const quoteRef = useRef<IOnramperQuote | undefined>(undefined);
 
+  // Snapshot of everything the order record needs. Read through a ref by the
+  // dep-free SDK callbacks so a stale closure can never record stale figures.
+  const buildOrderParams = (
+    transactionId: string,
+  ): IAddHeadlessBuyOrderParams => ({
+    transactionId,
+    accountId,
+    networkId: activeToken?.networkId ?? networkId,
+    address: effectiveAddress ?? '',
+    tokenSymbol: activeToken?.symbol ?? '',
+    tokenAddress: activeToken?.address ?? tokenAddress,
+    tokenLogoURI: activeToken?.icon,
+    fiatAmount: amount,
+    fiatCurrency: 'usd',
+    payout: quoteRef.current?.payout,
+    networkFee: quoteRef.current?.networkFee,
+    transactionFee: quoteRef.current?.transactionFee,
+    providerName: selectedProvider ?? quoteRef.current?.ramp,
+    entryFrom,
+  });
+  const buildOrderParamsRef = useRef(buildOrderParams);
+  buildOrderParamsRef.current = buildOrderParams;
+
+  // Order lifecycle → background store (product spec 2026-10-16): record on
+  // the first transaction id (before Apple Pay), note payment authorization,
+  // drop the hidden record on cancel / pre-payment failure.
+  const handleTransactionCreated = useCallback((transactionId: string) => {
+    void backgroundApiProxy.serviceFiatCrypto.addHeadlessBuyOrder(
+      buildOrderParamsRef.current(transactionId),
+    );
+  }, []);
+  const handlePaymentAuthorized = useCallback((transactionId: string) => {
+    void backgroundApiProxy.serviceFiatCrypto.markHeadlessBuyOrderPaymentSeen({
+      transactionId,
+    });
+  }, []);
+  const handleCheckoutAbandoned = useCallback(
+    (transactionId: string, reason: 'cancelled' | 'failed') => {
+      void backgroundApiProxy.serviceFiatCrypto.discardHeadlessBuyOrder({
+        transactionId,
+        reason,
+      });
+    },
+    [],
+  );
+
   const handleCompleted = useCallback(
-    (event: IOnramperEvent) => {
+    async (event: IOnramperEvent) => {
+      // No id would mean an SDK older than 1.2.1; keep a local record anyway
+      // so the user still gets an order page (status stays Processing).
+      const transactionId = event.transactionId ?? `local-${Date.now()}`;
+      // Awaited: the detail page reads the store the moment it mounts, and
+      // when the pre-payment record never landed this call still has to build
+      // and insert it — resetting onto the detail early shows "No results".
+      try {
+        await backgroundApiProxy.serviceFiatCrypto.markHeadlessBuyOrderSubmitted(
+          {
+            transactionId,
+            order: buildOrderParamsRef.current(transactionId),
+          },
+        );
+      } catch (error) {
+        // No record to open a detail for: keep the review card (the purchase
+        // summary) on screen and surface the id so support can find the order.
+        defaultLogger.fiatCrypto.onramper.orderSubmitFailed({
+          transactionId,
+          error: error instanceof Error ? error.message : String(error),
+        });
+        Toast.error({
+          title: intl.formatMessage({
+            id: ETranslations.global_an_error_occurred,
+          }),
+          message: `${intl.formatMessage({
+            id: ETranslations.buy_order_id__title,
+          })}: ${transactionId}`,
+        });
+        return;
+      }
+      // The write above is a background round trip; in review the leave guard
+      // only returns to input, so a second close during that window dismisses
+      // the modal. The order is stored and reachable from the orders entry —
+      // resetting now would replace whatever screen the user moved on to.
+      if (!isMountedRef.current || !reactNavigation.isFocused()) {
+        defaultLogger.fiatCrypto.onramper.orderDetailSkipped({ transactionId });
+        return;
+      }
       // Bypass the review leave guard first: the reset below removes this
       // screen and fires beforeRemove. Then WIPE the buy flow from the modal
       // stack instead of pushing — the native pay button is consumed, so
-      // back must not be able to reach it; the success page becomes the only
+      // back must not be able to reach it; the order detail becomes the only
       // route in the stack.
       allowLeaveRef.current = true;
       navigation.dispatch(
@@ -294,32 +371,14 @@ function HeadlessBuyPage() {
           index: 0,
           routes: [
             {
-              name: EModalFiatCryptoRoutes.HeadlessBuySuccess,
-              params: {
-                fiatAmount: amount,
-                tokenSymbol: activeToken?.symbol ?? '',
-                networkId: activeToken?.networkId ?? networkId,
-                networkName: activeNetwork?.name,
-                payout: quoteRef.current?.payout,
-                providerName: selectedProvider ?? quoteRef.current?.ramp,
-                address: effectiveAddress,
-                transactionId: event.transactionId,
-              },
+              name: EModalFiatCryptoRoutes.HeadlessBuyOrderDetail,
+              params: { transactionId, fromCheckout: true },
             },
           ],
         }),
       );
     },
-    [
-      navigation,
-      amount,
-      activeToken?.symbol,
-      activeToken?.networkId,
-      networkId,
-      activeNetwork?.name,
-      selectedProvider,
-      effectiveAddress,
-    ],
+    [navigation, reactNavigation, intl],
   );
 
   const {
@@ -359,6 +418,9 @@ function HeadlessBuyPage() {
     buttonStyle: HEADLESS_BUY_BUTTON_STYLE,
     entryFrom,
     onCompleted: handleCompleted,
+    onTransactionCreated: handleTransactionCreated,
+    onPaymentAuthorized: handlePaymentAuthorized,
+    onCheckoutAbandoned: handleCheckoutAbandoned,
   });
   quoteRef.current = quote;
   getLogContextRef.current = getLogContext;
@@ -460,6 +522,40 @@ function HeadlessBuyPage() {
     }),
     [heroError],
   );
+
+  // Same-token order still processing (direct entries skip the Buy tab's
+  // banner, and this is where a repeat purchase is most likely). Shown in the
+  // error line below the amount; a live quote error takes priority.
+  const { processingOrders } = useHeadlessBuyOrders({
+    // The Buy tab just refreshed on its own mount; direct entries have not.
+    refreshOnMount: entryFrom !== EHeadlessBuyEntry.BuyTokenList,
+  });
+  const sameTokenOrder = useMemo(() => {
+    const tokenNetworkId = activeToken?.networkId ?? networkId;
+    const addr = (activeToken?.address ?? tokenAddress).toLowerCase();
+    return processingOrders.find(
+      (o) =>
+        o.networkId === tokenNetworkId && o.tokenAddress.toLowerCase() === addr,
+    );
+  }, [
+    processingOrders,
+    activeToken?.networkId,
+    activeToken?.address,
+    networkId,
+    tokenAddress,
+  ]);
+  const openSameTokenOrder = useCallback(() => {
+    if (!sameTokenOrder) {
+      return;
+    }
+    defaultLogger.fiatCrypto.onramper.ordersEntryPressed({
+      source: 'reminder',
+      processingCount: processingOrders.length,
+    });
+    navigation.push(EModalFiatCryptoRoutes.HeadlessBuyOrderDetail, {
+      transactionId: sameTokenOrder.transactionId,
+    });
+  }, [sameTokenOrder, processingOrders.length, navigation]);
 
   // The ≈crypto line under the amount: live payout from the quote, a skeleton
   // while a quote is in flight (avoids showing a stale figure for the newly
@@ -597,16 +693,49 @@ function HeadlessBuyPage() {
                   // $8 = two $bodySm lines (2 × $4 lineHeight, same s() scale);
                   // numberOfLines truncates copy that outgrows the slot.
                   <Stack h="$8" jc="center" alignSelf="stretch">
-                    <Animated.View style={heroErrorStyle}>
-                      <SizableText
-                        size="$bodySm"
-                        color="$textCritical"
-                        textAlign="center"
-                        numberOfLines={2}
+                    {!heroError && sameTokenOrder ? (
+                      <XStack
+                        testID="headless-buy-order-reminder"
+                        ai="center"
+                        jc="center"
+                        gap="$1"
+                        onPress={openSameTokenOrder}
+                        cursor="pointer"
+                        pressStyle={{ opacity: 0.6 }}
                       >
-                        {lastHeroErrorRef.current ?? ''}
-                      </SizableText>
-                    </Animated.View>
+                        <Stack
+                          w="$1.5"
+                          h="$1.5"
+                          borderRadius="$full"
+                          bg="$iconInfo"
+                        />
+                        <SizableText
+                          size="$bodySm"
+                          color="$textSubdued"
+                          numberOfLines={1}
+                        >
+                          {intl.formatMessage({
+                            id: ETranslations.buy_order_in_progress_same_token__msg,
+                          })}
+                        </SizableText>
+                        <Icon
+                          name="ChevronRightSmallOutline"
+                          size="$4"
+                          color="$iconSubdued"
+                        />
+                      </XStack>
+                    ) : (
+                      <Animated.View style={heroErrorStyle}>
+                        <SizableText
+                          size="$bodySm"
+                          color="$textCritical"
+                          textAlign="center"
+                          numberOfLines={2}
+                        >
+                          {lastHeroErrorRef.current ?? ''}
+                        </SizableText>
+                      </Animated.View>
+                    )}
                   </Stack>
                 }
                 width="100%"
@@ -633,7 +762,7 @@ function HeadlessBuyPage() {
                   networkId={activeToken?.networkId ?? networkId}
                   networkName={activeNetwork?.name}
                   isQuoting={isQuoting}
-                  marketPrice={marketPrice}
+                  fiatAmount={amount}
                   payout={quote?.payout}
                   networkFee={quote?.networkFee}
                   transactionFee={quote?.transactionFee}
