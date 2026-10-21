@@ -86,6 +86,12 @@ export function Tooltip({
 
   const level = useNestedOverlayLevel();
   const triggerRef = useRef<View | null>(null);
+  const [trigger, setTrigger] = useState<View | null>(null);
+  const handleTriggerRef = useCallback((node: View | null) => {
+    triggerRef.current = node;
+    setTrigger(node);
+  }, []);
+  const positionTriggerRef = useMemo(() => ({ current: trigger }), [trigger]);
   const panelRef = useRef<HTMLDivElement | null>(null);
   const [panel, setPanel] = useState<HTMLDivElement | null>(null);
   const handlePanelRef = useCallback((node: HTMLDivElement | null) => {
@@ -95,7 +101,7 @@ export function Tooltip({
 
   const reposition = useAnchoredPosition({
     open: isOpen,
-    triggerRef,
+    triggerRef: positionTriggerRef,
     panel,
     placement,
     offset: TOOLTIP_OFFSET,
@@ -133,8 +139,8 @@ export function Tooltip({
     handleTriggerMouseLeave,
   };
   useEffect(() => {
-    const trigger = triggerRef.current as unknown as HTMLElement | null;
-    if (!trigger?.addEventListener) {
+    const triggerNode = trigger as unknown as HTMLElement | null;
+    if (!triggerNode?.addEventListener) {
       return;
     }
     const onPointerEnter = (event: PointerEvent) => {
@@ -167,25 +173,25 @@ export function Tooltip({
     const onFocusIn = () => {
       if (
         !handlersRef.current.disabled &&
-        trigger.matches(':focus-visible, :has(:focus-visible)')
+        triggerNode.matches(':focus-visible, :has(:focus-visible)')
       ) {
         requestOpenChangeRef.current(true);
       }
     };
     const onFocusOut = () => requestOpenChangeRef.current(false);
-    trigger.addEventListener('pointerenter', onPointerEnter);
-    trigger.addEventListener('pointerleave', onPointerLeave);
-    trigger.addEventListener('pointerdown', onPointerDown);
-    trigger.addEventListener('focusin', onFocusIn);
-    trigger.addEventListener('focusout', onFocusOut);
+    triggerNode.addEventListener('pointerenter', onPointerEnter);
+    triggerNode.addEventListener('pointerleave', onPointerLeave);
+    triggerNode.addEventListener('pointerdown', onPointerDown);
+    triggerNode.addEventListener('focusin', onFocusIn);
+    triggerNode.addEventListener('focusout', onFocusOut);
     return () => {
-      trigger.removeEventListener('pointerenter', onPointerEnter);
-      trigger.removeEventListener('pointerleave', onPointerLeave);
-      trigger.removeEventListener('pointerdown', onPointerDown);
-      trigger.removeEventListener('focusin', onFocusIn);
-      trigger.removeEventListener('focusout', onFocusOut);
+      triggerNode.removeEventListener('pointerenter', onPointerEnter);
+      triggerNode.removeEventListener('pointerleave', onPointerLeave);
+      triggerNode.removeEventListener('pointerdown', onPointerDown);
+      triggerNode.removeEventListener('focusin', onFocusIn);
+      triggerNode.removeEventListener('focusout', onFocusOut);
     };
-  }, []);
+  }, [trigger]);
 
   // Interactive (`hovering`) tooltips stay open while the pointer is over the
   // content; the others let the pointer pass through.
@@ -252,7 +258,7 @@ export function Tooltip({
   return (
     <TooltipContext.Provider value={contextValue}>
       <Stack
-        ref={triggerRef}
+        ref={handleTriggerRef}
         asChild={triggerAsChild}
         disabled={disabled}
         onPress={onPress}

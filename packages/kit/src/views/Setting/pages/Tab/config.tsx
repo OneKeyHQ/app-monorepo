@@ -1087,14 +1087,16 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                       },
                     }
                   : undefined,
-                {
-                  id: 'dev-mode',
-                  icon: 'CodeOutline',
-                  title: intl.formatMessage({
-                    id: ETranslations.global_dev_mode,
-                  }),
-                  renderElement: <DevSettingsSection />,
-                },
+                devSettings.enabled
+                  ? {
+                      id: 'dev-mode',
+                      icon: 'CodeOutline',
+                      title: intl.formatMessage({
+                        id: ETranslations.global_dev_mode,
+                      }),
+                      renderElement: <DevSettingsSection />,
+                    }
+                  : undefined,
               ],
             ],
           }
