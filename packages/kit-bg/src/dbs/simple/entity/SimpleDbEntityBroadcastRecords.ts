@@ -1,6 +1,7 @@
 import { omit } from 'lodash';
 
 import type { ISignedTxPro } from '@onekeyhq/core/src/types';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import { SimpleDbEntityBase } from '../base/SimpleDbEntityBase';
 
@@ -24,20 +25,35 @@ export interface IBroadcastRecordsDb {
   records: Record<string, IBroadcastRecord>;
 }
 
-// Only recent uuids are ever retried; keep the store small since every
-// record carries a signed payload.
-export const BROADCAST_RECORDS_MAX_COUNT = 100;
+// Every record carries a signed payload, so the store is kept small, but
+// only settled records are evicted by count. A record whose outcome is still
+// open (not broadcast, or broadcast without bookkeeping) is exactly what a
+// retry needs; dropping it by count would let a >100-item bulk send push an
+// early ambiguous failure out before Retry is even available, and the retry
+// would then sign a second tx. Open records expire by age instead, long after
+// any Solana blockhash they carry has lapsed.
+export const BROADCAST_RECORDS_MAX_SETTLED_COUNT = 100;
+export const BROADCAST_RECORDS_UNSETTLED_RETENTION_MS =
+  timerUtils.getTimeDurationMs({ day: 7 });
 
 function trimRecords(
   records: Record<string, IBroadcastRecord>,
+  now: number,
 ): Record<string, IBroadcastRecord> {
-  const entries = Object.values(records);
-  if (entries.length <= BROADCAST_RECORDS_MAX_COUNT) {
-    return records;
-  }
-  entries.sort((a, b) => b.attemptedAt - a.attemptedAt);
   const kept: Record<string, IBroadcastRecord> = {};
-  for (const record of entries.slice(0, BROADCAST_RECORDS_MAX_COUNT)) {
+  const settled: IBroadcastRecord[] = [];
+  for (const record of Object.values(records)) {
+    if (record.isSettled) {
+      settled.push(record);
+    } else if (
+      now - record.attemptedAt <
+      BROADCAST_RECORDS_UNSETTLED_RETENTION_MS
+    ) {
+      kept[record.uuid] = record;
+    }
+  }
+  settled.sort((a, b) => b.attemptedAt - a.attemptedAt);
+  for (const record of settled.slice(0, BROADCAST_RECORDS_MAX_SETTLED_COUNT)) {
     kept[record.uuid] = record;
   }
   return kept;
@@ -55,10 +71,13 @@ export class SimpleDbEntityBroadcastRecords extends SimpleDbEntityBase<IBroadcas
 
   async upsertRecord(record: IBroadcastRecord): Promise<void> {
     await this.setRawData((rawData) => ({
-      records: trimRecords({
-        ...rawData?.records,
-        [record.uuid]: record,
-      }),
+      records: trimRecords(
+        {
+          ...rawData?.records,
+          [record.uuid]: record,
+        },
+        Date.now(),
+      ),
     }));
   }
 
