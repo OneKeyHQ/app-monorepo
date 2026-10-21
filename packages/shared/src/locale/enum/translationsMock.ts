@@ -43,5 +43,6 @@ export enum ETranslationsMock {
   privacy_error_identity_mismatch__msg = 'This account’s privacy data was set up with a different key. Turn off privacy mode, delete its privacy data, then turn privacy mode on again.',
   privacy_error_runtime_unavailable__msg = 'Privacy sync isn’t responding. Restart the app and try again.',
   privacy_sync_failed_retrying__msg = 'Sync failed. Retrying automatically.',
+  privacy_balance_small_change__msg = 'Includes {amount} of small change that’s too small to send on its own.',
   // ----------------------------------------------
 }

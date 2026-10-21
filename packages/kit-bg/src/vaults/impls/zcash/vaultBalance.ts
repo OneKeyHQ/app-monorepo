@@ -500,6 +500,7 @@ export async function getLocalWalletAccountBalance(
       'confirming',
       zat(detail.pendingChange).plus(detail.pendingSpendable),
     ),
+    ...frozenPart('smallChange', zat(detail.uneconomic)),
   ];
 
   const transparentSpendable = transparent.spendable;

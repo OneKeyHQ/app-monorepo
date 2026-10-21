@@ -8,11 +8,13 @@ import type {
   ILocalWalletFrozenPart,
   ILocalWalletFrozenReason,
 } from '@onekeyhq/kit-bg/src/vaults/localWallet/types';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { ETranslations, ETranslationsMock } from '@onekeyhq/shared/src/locale';
 
-// Existing labels where they say it; only the password case needs its own.
+import type { IntlShape } from 'react-intl';
+
+// Existing labels where they say it; password and small change need sentences.
 const REASON_LABELS: Record<
-  Exclude<ILocalWalletFrozenReason, 'needsPassword'>,
+  Exclude<ILocalWalletFrozenReason, 'needsPassword' | 'smallChange'>,
   ETranslations
 > = {
   pendingSend: ETranslations.global_pending,
@@ -24,7 +26,31 @@ const REASON_ORDER: ILocalWalletFrozenReason[] = [
   'needsPassword',
   'pendingSend',
   'confirming',
+  'smallChange',
 ];
+
+function frozenLineText(
+  intl: IntlShape,
+  reason: ILocalWalletFrozenReason,
+  amount: string,
+) {
+  if (reason === 'needsPassword') {
+    return intl.formatMessage(
+      { id: ETranslations.privacy_balance_needs_verifying__msg },
+      { amount },
+    );
+  }
+  if (reason === 'smallChange') {
+    return intl.formatMessage(
+      {
+        id: ETranslationsMock.privacy_balance_small_change__msg,
+        defaultMessage: ETranslationsMock.privacy_balance_small_change__msg,
+      },
+      { amount },
+    );
+  }
+  return `${intl.formatMessage({ id: REASON_LABELS[reason] })} ${amount}`;
+}
 
 // Asks for the password and confirms funds a view-only scan cannot prove
 // unspent (Monero key images).
@@ -98,18 +124,11 @@ export function LocalWalletFrozenLines({
             flex={1}
             numberOfLines={2}
           >
-            {reason === 'needsPassword'
-              ? intl.formatMessage(
-                  {
-                    id: ETranslations.privacy_balance_needs_verifying__msg,
-                  },
-                  {
-                    amount: symbol ? `${amountParsed} ${symbol}` : amountParsed,
-                  },
-                )
-              : `${intl.formatMessage({ id: REASON_LABELS[reason] })} ${
-                  symbol ? `${amountParsed} ${symbol}` : amountParsed
-                }`}
+            {frozenLineText(
+              intl,
+              reason,
+              symbol ? `${amountParsed} ${symbol}` : amountParsed,
+            )}
           </SizableText>
           {reason === 'needsPassword' ? (
             <Button
