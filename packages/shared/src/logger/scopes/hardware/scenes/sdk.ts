@@ -138,6 +138,20 @@ export class HardwareSDKScene extends BaseScene {
     return params;
   }
 
+  /** BLE scan results with the color letter Pro 2 / Neo advertise
+   *  (bleColorCode, absent when unknown). */
+  @LogToLocal({ level: 'info' })
+  public bleSearchDevicesColor(params: {
+    devices: Array<{
+      connectId: string | null;
+      name: string;
+      deviceType: IDeviceType;
+      bleColorCode?: string;
+    }>;
+  }) {
+    return params;
+  }
+
   @LogToConsole()
   public uiEvent(type: string, payload: any) {
     const logPayload = buildHardwareUiEventLogPayload(payload);

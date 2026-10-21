@@ -2380,6 +2380,22 @@ class ServiceHardware extends ServiceBase {
         'searchDevices response: ',
         JSON.stringify(response),
       );
+      if (response?.success) {
+        const bleDevices = response.payload.filter(
+          (device) =>
+            device.commType === 'ble' || device.commType === 'electron-ble',
+        );
+        if (bleDevices.length) {
+          defaultLogger.hardware.sdkLog.bleSearchDevicesColor({
+            devices: bleDevices.map((device) => ({
+              connectId: device.connectId,
+              name: device.name,
+              deviceType: device.deviceType,
+              bleColorCode: device.bleColorCode,
+            })),
+          });
+        }
+      }
 
       // Linux may surface missing udev rules either through libusb or Chromium
       // WebUSB errors, depending on the active transport path.
