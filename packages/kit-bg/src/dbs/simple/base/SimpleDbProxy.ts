@@ -58,6 +58,7 @@ import type { SimpleDbEntityPrimeTransfer } from '../entity/SimpleDbEntityPrimeT
 import type { SimpleDbEntityPrivacyChain } from '../entity/SimpleDbEntityPrivacyChain';
 import type { SimpleDbEntityPrivacyChainCache } from '../entity/SimpleDbEntityPrivacyChainCache';
 import type { SimpleDbEntityPrivacyChainJournal } from '../entity/SimpleDbEntityPrivacyChainJournal';
+import type { SimpleDbEntityPrivacyChainKeys } from '../entity/SimpleDbEntityPrivacyChainKeys';
 import type { SimpleDbEntityReceiveArrivalConfig } from '../entity/SimpleDbEntityReceiveArrivalConfig';
 import type { SimpleDbEntityRecentNetworks } from '../entity/SimpleDbEntityRecentNetworks';
 import type { SimpleDbEntityReferralCode } from '../entity/SimpleDbEntityReferralCode';
@@ -186,6 +187,10 @@ export class SimpleDbProxy
   privacyChainCache = this._createProxyService(
     'privacyChainCache',
   ) as SimpleDbEntityPrivacyChainCache;
+
+  privacyChainKeys = this._createProxyService(
+    'privacyChainKeys',
+  ) as SimpleDbEntityPrivacyChainKeys;
 
   privacyChainJournal = this._createProxyService(
     'privacyChainJournal',

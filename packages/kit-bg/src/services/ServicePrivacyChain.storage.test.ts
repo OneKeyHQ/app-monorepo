@@ -6,6 +6,7 @@ import type { IRuntimeEnvironment } from '@onekeyhq/shared/src/travelMode/runtim
 
 import { SimpleDbEntityPrivacyChain } from '../dbs/simple/entity/SimpleDbEntityPrivacyChain';
 import { SimpleDbEntityPrivacyChainJournal } from '../dbs/simple/entity/SimpleDbEntityPrivacyChainJournal';
+import { SimpleDbEntityPrivacyChainKeys } from '../dbs/simple/entity/SimpleDbEntityPrivacyChainKeys';
 
 jest.mock('@onekeyhq/shared/src/background/backgroundDecorators', () => {
   const actual = jest.requireActual<
@@ -51,6 +52,32 @@ function accountRow(id: string) {
 function createPrivacyChainDb(initial?: unknown) {
   let saved: unknown = initial ?? null;
   const entity = new SimpleDbEntityPrivacyChain();
+  (entity as { appStorage: unknown }).appStorage = {
+    getItem: jest.fn(async () => saved),
+    setItem: jest.fn(async (_key: string, value: unknown) => {
+      saved = value;
+    }),
+  };
+  return entity;
+}
+
+function createKeysDb(accountIds: string[]) {
+  let saved: unknown = {
+    data: {
+      keys: Object.fromEntries(
+        accountIds.map((id) => [
+          id,
+          {
+            networkId,
+            vkFp: 'a'.repeat(32),
+            sealed: { format: 'plain', value: id },
+          },
+        ]),
+      ),
+    },
+    updatedAt: 1,
+  };
+  const entity = new SimpleDbEntityPrivacyChainKeys();
   (entity as { appStorage: unknown }).appStorage = {
     getItem: jest.fn(async () => saved),
     setItem: jest.fn(async (_key: string, value: unknown) => {
@@ -115,16 +142,11 @@ describe('removed-account gc', () => {
   ) {
     const reset = jest.fn(async () => undefined);
     const gcWalletState = jest.fn(async () => undefined);
-    const privacyChain = createPrivacyChainDb({
-      data: {
-        viewingKeys: {
-          [liveAccountId]: { networkId, value: 'live' },
-          [removedAccountId]: { networkId, value: 'removed' },
-          [hiddenAccountId]: { networkId, value: 'hidden' },
-        },
-      },
-      updatedAt: 1,
-    });
+    const privacyChainKeys = createKeysDb([
+      liveAccountId,
+      removedAccountId,
+      hiddenAccountId,
+    ]);
     const removeLastBalances = jest.fn(async () => undefined);
     const privacyChainJournal = createJournalDb([
       liveAccountId,
@@ -156,7 +178,7 @@ describe('removed-account gc', () => {
       backgroundApi: {
         serviceAccount,
         simpleDb: {
-          privacyChain,
+          privacyChainKeys,
           privacyChainCache: {
             listLastBalanceAccountIds: async () => [
               liveAccountId,
@@ -177,7 +199,7 @@ describe('removed-account gc', () => {
       serviceAccount,
       reset,
       gcWalletState,
-      privacyChain,
+      privacyChainKeys,
       privacyChainJournal,
       removeLastBalances,
     };
@@ -197,7 +219,7 @@ describe('removed-account gc', () => {
       service,
       reset,
       gcWalletState,
-      privacyChain,
+      privacyChainKeys,
       privacyChainJournal,
       removeLastBalances,
     } = createGcHarness(async () => {
@@ -209,7 +231,7 @@ describe('removed-account gc', () => {
     expect(reset).not.toHaveBeenCalled();
     expect(gcWalletState).not.toHaveBeenCalled();
     expect(removeLastBalances).not.toHaveBeenCalled();
-    await expect(privacyChain.listViewingKeyAccountIds()).resolves.toEqual([
+    await expect(privacyChainKeys.listAccountIds()).resolves.toEqual([
       liveAccountId,
       removedAccountId,
       hiddenAccountId,
@@ -226,7 +248,7 @@ describe('removed-account gc', () => {
     const {
       service,
       reset,
-      privacyChain,
+      privacyChainKeys,
       privacyChainJournal,
       removeLastBalances,
     } = createGcHarness(async () => ({
@@ -240,7 +262,7 @@ describe('removed-account gc', () => {
       accountId: removedAccountId,
       scope: 'all',
     });
-    await expect(privacyChain.listViewingKeyAccountIds()).resolves.toEqual([
+    await expect(privacyChainKeys.listAccountIds()).resolves.toEqual([
       liveAccountId,
       hiddenAccountId,
     ]);
@@ -271,7 +293,7 @@ describe('removed-account gc', () => {
 
   // Deleting an HD account removes its indexed account but leaves its rows.
   it('purges an account whose HD account was deleted', async () => {
-    const { service, reset, privacyChain } = createGcHarness(
+    const { service, reset, privacyChainKeys } = createGcHarness(
       async () => ({
         accounts: [
           accountRow(liveAccountId),
@@ -291,7 +313,7 @@ describe('removed-account gc', () => {
       accountId: removedAccountId,
       scope: 'all',
     });
-    await expect(privacyChain.listViewingKeyAccountIds()).resolves.toEqual([
+    await expect(privacyChainKeys.listAccountIds()).resolves.toEqual([
       liveAccountId,
       hiddenAccountId,
     ]);
@@ -341,7 +363,7 @@ describe('removed-account gc', () => {
       backgroundApi: {
         serviceAccount,
         simpleDb: {
-          privacyChain: createPrivacyChainDb(),
+          privacyChainKeys: createKeysDb([]),
           privacyChainCache: {
             listLastBalanceAccountIds: async () => [],
             removeLastBalances: jest.fn(),
@@ -592,12 +614,14 @@ describe.each(['zec--0', 'xmr--0'])(
         }),
       };
       mockGetVaultSettings.mockResolvedValue({ localWallet: {} });
+      const privacyChainKeys = createKeysDb([liveAccountId, hiddenAccountId]);
       const service = createService({
+        backgroundApi: { simpleDb: { privacyChainKeys } },
         enableMutexByNetwork: new Map<string, Mutex>(),
         requireAccountCapability: async () => capability,
         forgetCachedLocalWalletBalance: jest.fn(async () => undefined),
       });
-      return { service, capability, calls };
+      return { service, capability, calls, privacyChainKeys };
     }
 
     it('turns an enabled account off before deleting', async () => {
@@ -626,9 +650,10 @@ describe.each(['zec--0', 'xmr--0'])(
     });
 
     it('deletes an account that is already off directly', async () => {
-      const { service, capability, calls } = createDeleteHarness({
-        enabled: false,
-      });
+      const { service, capability, calls, privacyChainKeys } =
+        createDeleteHarness({
+          enabled: false,
+        });
 
       await service.deleteLocalWalletAccountData({
         networkId: chainNetworkId,
@@ -637,6 +662,10 @@ describe.each(['zec--0', 'xmr--0'])(
 
       expect(capability.disableAccount).not.toHaveBeenCalled();
       expect(calls).toEqual(['delete']);
+      // The viewing key goes with the data on both chains; others stay.
+      await expect(privacyChainKeys.listAccountIds()).resolves.toEqual([
+        hiddenAccountId,
+      ]);
     });
 
     it('does not delete when turning the account off fails', async () => {
@@ -652,6 +681,26 @@ describe.each(['zec--0', 'xmr--0'])(
         }),
       ).rejects.toThrow('birthday missing');
       expect(capability.deleteAccountData).not.toHaveBeenCalled();
+    });
+
+    it('keeps the viewing key when deleting the data fails', async () => {
+      const { service, capability, privacyChainKeys } = createDeleteHarness({
+        enabled: false,
+      });
+      capability.deleteAccountData.mockRejectedValueOnce(
+        new Error('runtime busy'),
+      );
+
+      await expect(
+        service.deleteLocalWalletAccountData({
+          networkId: chainNetworkId,
+          accountId: liveAccountId,
+        }),
+      ).rejects.toThrow('runtime busy');
+      await expect(privacyChainKeys.listAccountIds()).resolves.toEqual([
+        liveAccountId,
+        hiddenAccountId,
+      ]);
     });
 
     it('waits for an enable already in progress', async () => {

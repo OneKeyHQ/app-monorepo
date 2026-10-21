@@ -3,10 +3,18 @@ import type { IZcashDeriveAddressFromUfvkResult } from '@onekeyhq/core/src/chain
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 
+import { getViewingKeyFingerprint } from '../../localWallet/viewingKeyFingerprint';
+import {
+  getLocalWalletViewingKey,
+  isLocalWalletViewingKeyMismatchError,
+  saveLocalWalletViewingKey,
+} from '../../localWallet/viewingKeyStore';
+
 import {
   clampZcashBirthdayHeight,
   estimateZcashBirthdayHeight,
 } from './birthday';
+import { createZcashSetupIncompleteError } from './vaultUtils';
 
 import type { IBackgroundApi } from '../../../apis/IBackgroundApi';
 import type { IDBAccount } from '../../../dbs/local/types';
@@ -25,30 +33,120 @@ export type IZcashDerivedViewingMeta = {
   seedFingerprintHex: string;
 };
 
+// The UFVK the meta names, from the viewing key store. A missing key, or one
+// that no longer matches, is an unfinished setup: Repair derives it again.
+export async function getZcashAccountUfvk({
+  backgroundApi,
+  networkId,
+  accountId,
+  meta,
+}: {
+  backgroundApi: IBackgroundApi;
+  networkId: string;
+  accountId: string;
+  meta: IZcashAccountMeta;
+}): Promise<string> {
+  const key = await getLocalWalletViewingKey({
+    backgroundApi,
+    networkId,
+    accountId,
+  });
+  if (!key || key.vkFp !== meta.vkFp) {
+    throw createZcashSetupIncompleteError();
+  }
+  return key.value;
+}
+
+export async function hasZcashAccountViewingKey({
+  backgroundApi,
+  networkId,
+  accountId,
+  vkFp,
+}: {
+  backgroundApi: IBackgroundApi;
+  networkId: string;
+  accountId: string;
+  vkFp: string;
+}): Promise<boolean> {
+  const key = await getLocalWalletViewingKey({
+    backgroundApi,
+    networkId,
+    accountId,
+  });
+  return key?.vkFp === vkFp;
+}
+
+// The UFVK goes to the viewing key store before the meta naming it, so a meta
+// on disk always has its key unless the store lost it. A key that differs
+// from the one already named stops setup: the identity never switches.
+async function saveZcashViewingKey({
+  backgroundApi,
+  networkId,
+  accountId,
+  ufvk,
+  expectedVkFp,
+}: {
+  backgroundApi: IBackgroundApi;
+  networkId: string;
+  accountId: string;
+  ufvk: string;
+  expectedVkFp?: string;
+}): Promise<string> {
+  if (
+    expectedVkFp !== undefined &&
+    getViewingKeyFingerprint({ networkId, viewingKey: ufvk }) !== expectedVkFp
+  ) {
+    throw createZcashSetupIncompleteError();
+  }
+  try {
+    const { vkFp } = await saveLocalWalletViewingKey({
+      backgroundApi,
+      networkId,
+      accountId,
+      value: ufvk,
+    });
+    return vkFp;
+  } catch (error) {
+    if (isLocalWalletViewingKeyMismatchError(error)) {
+      throw createZcashSetupIncompleteError();
+    }
+    throw error;
+  }
+}
+
 // Shared by the software and hardware keyrings, which differ only in where the
 // viewing material comes from (seed vs device).
 export async function resolveAndSaveZcashAccountMeta({
   backgroundApi,
+  networkId,
   account,
   derive,
 }: {
   backgroundApi: IBackgroundApi;
+  networkId: string;
   account: IDBAccount;
   derive: (params: {
     hdIndex: number;
   }) => Promise<IZcashDerivedViewingMeta & { chainTip: number | null }>;
 }): Promise<void> {
   const hdIndex = checkIsDefined(account.pathIndex);
-  const [existing, privacyModeState] = await Promise.all([
+  const [existing, privacyModeState, storedKey] = await Promise.all([
     backgroundApi.simpleDb.zcash.getAccountMeta({ accountId: account.id }),
     backgroundApi.simpleDb.zcash.getPrivacyModeState({
       accountId: account.id,
     }),
+    getLocalWalletViewingKey({
+      backgroundApi,
+      networkId,
+      accountId: account.id,
+    }),
   ]);
-  if (existing?.birthdayHeight) {
+  const keyMatchesMeta = !!existing && storedKey?.vkFp === existing.vkFp;
+  if (existing?.birthdayHeight && keyMatchesMeta) {
     return;
   }
   if (
+    !existing?.birthdayHeight &&
     privacyModeState.birthdayHeight === undefined &&
     privacyModeState.birthdayTimestamp === undefined
   ) {
@@ -64,6 +162,17 @@ export async function resolveAndSaveZcashAccountMeta({
     }))
   ) {
     throw new OneKeyLocalError('zcash: account removed during privacy setup');
+  }
+  const vkFp = await saveZcashViewingKey({
+    backgroundApi,
+    networkId,
+    accountId: account.id,
+    ufvk: derived.ufvk,
+    expectedVkFp: existing?.vkFp,
+  });
+  if (existing?.birthdayHeight) {
+    // Only the key was missing; the meta already names it.
+    return;
   }
 
   let birthdayHeight: number;
@@ -94,7 +203,7 @@ export async function resolveAndSaveZcashAccountMeta({
     accountId: account.id,
     expectedPrivacyModeState: privacyModeState,
     meta: {
-      ufvk: derived.ufvk,
+      vkFp,
       unifiedAddress: derived.unifiedAddress,
       derivedUnifiedAddress: derived.derivedUnifiedAddress,
       transparentAddress: derived.transparentAddress,
@@ -161,7 +270,7 @@ export async function refreshZcashAccountAddressCache({
   } catch (error) {
     const current = await store.getAccountMeta({ accountId });
     if (
-      current?.ufvk === meta.ufvk &&
+      current?.vkFp === meta.vkFp &&
       current.addressSchemeVersion === ZCASH_ADDRESS_SCHEME_VERSION &&
       current.unifiedAddress === refreshed.unifiedAddress &&
       current.transparentAddress === refreshed.transparentAddress &&

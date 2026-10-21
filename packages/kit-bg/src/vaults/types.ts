@@ -282,8 +282,6 @@ export type IVaultSettings = {
       toHeight: number;
       labelId: ETranslations;
     }[];
-    // Whether viewingKeyStore entries are also dropped with local privacy data.
-    viewingKeyRetention: 'until-account-removed' | 'with-local-data';
     // Scan cost scales with active viewing keys; aliases sharing one count once.
     maxEnabledAccounts?: number;
     // Fee is fixed by protocol (ZIP-317), so fee >= amount is not an overpay.

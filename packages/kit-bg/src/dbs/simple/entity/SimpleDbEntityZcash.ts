@@ -54,10 +54,11 @@ export type IZcashPrivacyModeStateView = Partial<IZcashPrivacyModeState> & {
 };
 
 // Viewing-level Zcash account metadata (exposure equivalent to an xpub);
-// local-only, never cloud-synced. The spending key is re-derived from the
-// mnemonic at sign time, never stored here.
+// local-only, never cloud-synced. The UFVK itself lives in the viewing key
+// store; the spending key is re-derived from the mnemonic at sign time.
 export interface IZcashAccountMeta {
-  ufvk: string;
+  // Fingerprint of the account's UFVK: the key read back must match it.
+  vkFp: string;
   unifiedAddress: string;
   // Hardware only: the app's own derivation when it differs from the
   // device-displayed address (the device UA also carries P2PKH).
@@ -100,7 +101,8 @@ const zcashStoredDataSchema = z
     accounts: z.record(
       z
         .object({
-          ufvk: z.string().min(1),
+          // A record without one reads as missing; see readAccountMeta.
+          vkFp: z.string().optional(),
           unifiedAddress: z.string().min(1),
           derivedUnifiedAddress: z.string().min(1).optional(),
           transparentAddress: z.string().min(1),
@@ -123,6 +125,18 @@ const zcashStoredDataSchema = z
     pendingRescans: z.record(z.object({}).passthrough()).optional(),
   })
   .passthrough();
+
+const VIEWING_KEY_FINGERPRINT_PATTERN = /^[0-9a-f]{32}$/;
+
+// A record from before viewing keys moved out has no fingerprint; it reads as
+// an unfinished setup, which the next enable or repair derives again.
+function readAccountMeta(
+  meta: IZcashAccountMeta | undefined,
+): IZcashAccountMeta | undefined {
+  return meta && VIEWING_KEY_FINGERPRINT_PATTERN.test(meta.vkFp ?? '')
+    ? meta
+    : undefined;
+}
 
 export class SimpleDbEntityZcash extends SimpleDbEntityBase<IZcashDB> {
   entityName = 'zcash';
@@ -335,7 +349,7 @@ export class SimpleDbEntityZcash extends SimpleDbEntityBase<IZcashDB> {
         );
       }
       if (maxEnabledAccounts !== undefined) {
-        const targetKey = rawData?.accounts?.[accountId]?.ufvk;
+        const targetKey = readAccountMeta(rawData?.accounts?.[accountId])?.vkFp;
         if (!targetKey) {
           throw new OneKeyLocalError(
             'zcash: viewing identity missing during enable',
@@ -344,11 +358,11 @@ export class SimpleDbEntityZcash extends SimpleDbEntityBase<IZcashDB> {
         const enabledKeys = new Set(
           Object.entries(rawData?.privacyModeAccounts ?? {}).flatMap(
             ([id, state]) => {
-              const ufvk = rawData?.accounts?.[id]?.ufvk;
+              const vkFp = readAccountMeta(rawData?.accounts?.[id])?.vkFp;
               return state.intent === 'on' &&
                 state.operation === undefined &&
-                ufvk
-                ? [ufvk]
+                vkFp
+                ? [vkFp]
                 : [];
             },
           ),
@@ -567,28 +581,13 @@ export class SimpleDbEntityZcash extends SimpleDbEntityBase<IZcashDB> {
     return Object.keys(rawData?.privacyModeAccounts ?? {});
   }
 
-  async listActiveViewingKeys(): Promise<string[]> {
-    const rawData = await this.getRawData();
-    const activeViewingKeys = Object.entries(
-      rawData?.privacyModeAccounts ?? {},
-    ).flatMap(([accountId, state]) => {
-      const meta = rawData?.accounts?.[accountId];
-      return state.intent === 'on' &&
-        state.operation === undefined &&
-        meta?.ufvk
-        ? [meta.ufvk]
-        : [];
-    });
-    return Array.from(new Set(activeViewingKeys)).toSorted();
-  }
-
   async getAccountMeta({
     accountId,
   }: {
     accountId: string;
   }): Promise<IZcashAccountMeta | undefined> {
     const rawData = await this.getRawData();
-    return rawData?.accounts?.[accountId];
+    return readAccountMeta(rawData?.accounts?.[accountId]);
   }
 
   async listAccountIds(): Promise<string[]> {
@@ -611,10 +610,12 @@ export class SimpleDbEntityZcash extends SimpleDbEntityBase<IZcashDB> {
     { accountId: string; meta: IZcashAccountMeta }[]
   > {
     const rawData = await this.getRawData();
-    return Object.entries(rawData?.accounts ?? {}).map(([accountId, meta]) => ({
-      accountId,
-      meta,
-    }));
+    return Object.entries(rawData?.accounts ?? {}).flatMap(
+      ([accountId, stored]) => {
+        const meta = readAccountMeta(stored);
+        return meta ? [{ accountId, meta }] : [];
+      },
+    );
   }
 
   async removeAccountMeta({ accountId }: { accountId: string }) {

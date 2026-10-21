@@ -5,7 +5,6 @@ import type { ISignedMessagePro, ISignedTxPro } from '@onekeyhq/core/src/types';
 import { NotImplemented } from '@onekeyhq/shared/src/errors';
 
 import { KeyringHdBase } from '../../base/KeyringHdBase';
-import { saveLocalWalletViewingKey } from '../../localWallet/viewingKeyStore';
 
 import type { IDBAccount } from '../../../dbs/local/types';
 import type {
@@ -27,18 +26,12 @@ export class KeyringHd extends KeyringHdBase {
     params: IPrepareHdAccountsParams,
   ): Promise<IDBAccount[]> {
     // coreApi derives the primary address plus `spendPub:viewPriv`; the view
-    // key goes to the viewing key store, never onto the account record.
-    // Scan state is created lazily when the user opts in.
+    // key is dropped here and stored only when the user enables scanning
+    // (ServicePrivacyChain.enableLocalWalletAccount), so a derived account
+    // that is never enabled leaves nothing behind.
     const accounts = await this.basePrepareAccountsHd(params);
     for (const account of accounts) {
       const { spendPublicKeyHex } = parseXmrViewingKeyPair(account.pub ?? '');
-      // eslint-disable-next-line no-await-in-loop
-      await saveLocalWalletViewingKey({
-        backgroundApi: this.backgroundApi,
-        networkId: this.vault.networkId,
-        accountId: account.id,
-        value: account.pub ?? '',
-      });
       account.pub = spendPublicKeyHex;
     }
     return accounts;

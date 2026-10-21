@@ -110,9 +110,6 @@ const settings: IVaultSettings = {
     // Each account adds a trial-decryption key checked against every block
     // (linear cost); 5 keeps low-end devices usable.
     maxEnabledAccounts: 5,
-    // Deleting local privacy data also removes the UFVK, so nothing on the
-    // device can read the account's shielded history afterwards.
-    viewingKeyRetention: 'with-local-data',
     addressForms: {
       publicLabel: ETranslations.privacy_receive_transparent_address__title,
       privateLabel: ETranslations.privacy_receive_private_address__title,

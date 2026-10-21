@@ -68,7 +68,11 @@ import { getLocalWalletHistoryAddressGate } from '../../localWallet/historyAddre
 import { localWalletText } from '../../localWallet/messages';
 import VaultBtc from '../btc/Vault';
 
-import { refreshZcashAccountAddressCache } from './accountMeta';
+import {
+  getZcashAccountUfvk,
+  hasZcashAccountViewingKey,
+  refreshZcashAccountAddressCache,
+} from './accountMeta';
 import {
   markZcashBackendShieldedCounterparty,
   normalizeZcashBackendHistoryTx,
@@ -277,11 +281,41 @@ export default class Vault extends VaultBtc {
         const api = await this.zcashGetApi();
         return api.deriveAddressFromUfvk({
           network: ZCASH_NETWORK_MAIN,
-          ufvk: meta.ufvk,
+          ufvk: await this.zcashGetAccountUfvk({ accountId, meta }),
           // Address derivation is offline and does not use a node endpoint.
           lightwalletdUrl: '',
         });
       },
+    });
+  }
+
+  async zcashGetAccountUfvk({
+    accountId,
+    meta,
+  }: {
+    accountId: string;
+    meta: IZcashAccountMeta;
+  }): Promise<string> {
+    return getZcashAccountUfvk({
+      backgroundApi: this.backgroundApi,
+      networkId: this.networkId,
+      accountId,
+      meta,
+    });
+  }
+
+  async zcashHasAccountViewingKey({
+    accountId,
+    vkFp,
+  }: {
+    accountId: string;
+    vkFp: string;
+  }): Promise<boolean> {
+    return hasZcashAccountViewingKey({
+      backgroundApi: this.backgroundApi,
+      networkId: this.networkId,
+      accountId,
+      vkFp,
     });
   }
 
@@ -305,7 +339,7 @@ export default class Vault extends VaultBtc {
     return {
       network: ZCASH_NETWORK_MAIN,
       lightwalletdUrl: await this.zcashResolveLightwalletdUrl(),
-      ufvk: meta.ufvk,
+      ufvk: await this.zcashGetAccountUfvk({ accountId, meta }),
       seedFingerprintHex: meta.seedFingerprintHex,
       hdIndex: meta.hdIndex,
       birthdayHeight: meta.birthdayHeight,

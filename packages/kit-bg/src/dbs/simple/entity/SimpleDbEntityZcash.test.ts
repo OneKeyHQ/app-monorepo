@@ -22,7 +22,7 @@ describe('SimpleDbEntityZcash account cleanup', () => {
     const entity = createEntity({
       accounts: {
         account: {
-          ufvk: 'ufvk',
+          vkFp: 'a'.repeat(32),
           unifiedAddress: 'u1',
           transparentAddress: 't1',
           seedFingerprintHex: 'fingerprint',
@@ -41,7 +41,7 @@ describe('SimpleDbEntityZcash account cleanup', () => {
 
 describe('SimpleDbEntityZcash privacy mode', () => {
   const meta = {
-    ufvk: 'ufvk-shared',
+    vkFp: 'b'.repeat(32),
     unifiedAddress: 'u1',
     transparentAddress: 't1',
     seedFingerprintHex: 'fingerprint',
@@ -77,7 +77,9 @@ describe('SimpleDbEntityZcash privacy mode', () => {
     await expect(
       entity.isPrivacyModeEnabled({ accountId: 'account' }),
     ).resolves.toBe(false);
-    await expect(entity.listActiveViewingKeys()).resolves.toEqual([]);
+    await expect(entity.listPrivacyModeEnabledAccountIds()).resolves.toEqual(
+      [],
+    );
   });
 
   it('persists an off account and its recommended creation month', async () => {
@@ -151,15 +153,17 @@ describe('SimpleDbEntityZcash privacy mode', () => {
       entity.isPrivacyModeEnabled({ accountId: 'account' }),
     ).resolves.toBe(false);
     await entity.saveAccountMeta({ accountId: 'account', meta });
-    await expect(entity.listActiveViewingKeys()).resolves.toEqual([]);
+    await expect(entity.listPrivacyModeEnabledAccountIds()).resolves.toEqual(
+      [],
+    );
 
     await entity.completePrivacyModeEnable({ accountId: 'account' });
 
     await expect(
       entity.isPrivacyModeEnabled({ accountId: 'account' }),
     ).resolves.toBe(true);
-    await expect(entity.listActiveViewingKeys()).resolves.toEqual([
-      'ufvk-shared',
+    await expect(entity.listPrivacyModeEnabledAccountIds()).resolves.toEqual([
+      'account',
     ]);
   });
 
@@ -220,7 +224,7 @@ describe('SimpleDbEntityZcash privacy mode', () => {
     ).resolves.toEqual({ intent: 'off' });
   });
 
-  it('deduplicates enabled aliases by UFVK', async () => {
+  it('counts enabled aliases of one viewing key once', async () => {
     const entity = createEntity({ accounts: {} });
     for (const accountId of ['account-1', 'account-2']) {
       // eslint-disable-next-line no-await-in-loop
@@ -233,11 +237,15 @@ describe('SimpleDbEntityZcash privacy mode', () => {
       // eslint-disable-next-line no-await-in-loop
       await entity.saveAccountMeta({ accountId, meta });
       // eslint-disable-next-line no-await-in-loop
-      await entity.completePrivacyModeEnable({ accountId });
+      await entity.completePrivacyModeEnable({
+        accountId,
+        maxEnabledAccounts: 1,
+      });
     }
 
-    await expect(entity.listActiveViewingKeys()).resolves.toEqual([
-      'ufvk-shared',
+    await expect(entity.listPrivacyModeEnabledAccountIds()).resolves.toEqual([
+      'account-1',
+      'account-2',
     ]);
   });
 
@@ -340,7 +348,7 @@ describe('SimpleDbEntityZcash atomic enable admission', () => {
       await entity.saveAccountMeta({
         accountId,
         meta: {
-          ufvk: `key-${index}`,
+          vkFp: String(index).repeat(32),
           unifiedAddress: 'u1',
           transparentAddress: 't1',
           seedFingerprintHex: '00',
@@ -376,7 +384,7 @@ describe('SimpleDbEntityZcash atomic enable admission', () => {
     await entity.saveAccountMeta({
       accountId: 'alias',
       meta: {
-        ufvk: 'key-0',
+        vkFp: '0'.repeat(32),
         unifiedAddress: 'u1',
         transparentAddress: 't1',
         seedFingerprintHex: '00',
@@ -465,7 +473,7 @@ describe('SimpleDbEntityZcash interrupted operations', () => {
 describe('SimpleDbEntityZcash hardware seed fingerprint', () => {
   const fingerprint = 'ab'.repeat(32);
   const meta = {
-    ufvk: 'ufvk',
+    vkFp: 'c'.repeat(32),
     unifiedAddress: 'u1',
     transparentAddress: 't1',
     seedFingerprintHex: fingerprint,
@@ -505,5 +513,58 @@ describe('SimpleDbEntityZcash hardware seed fingerprint', () => {
     await expect(
       entity.getWalletSeedFingerprint({ walletId: 'hw-1' }),
     ).rejects.toThrow();
+  });
+});
+
+// The UFVK's only host copy is the viewing key store.
+describe('SimpleDbEntityZcash viewing key ownership', () => {
+  const meta = {
+    vkFp: 'd'.repeat(32),
+    unifiedAddress: 'u1',
+    transparentAddress: 't1',
+    seedFingerprintHex: '00',
+    hdIndex: 0,
+    birthdayHeight: 2000,
+    createdAt: 1,
+  };
+
+  it('stores no viewing key in the account meta', async () => {
+    const entity = createEntity({ accounts: {} });
+    await entity.saveAccountMeta({ accountId: 'account', meta });
+
+    const raw = await entity.getRawData();
+    expect(raw?.accounts.account).toEqual(meta);
+    expect(JSON.stringify(raw)).not.toContain('ufvk');
+  });
+
+  it('tolerates a leftover ufvk and reads a meta without a fingerprint as missing', async () => {
+    const entity = createEntity({
+      accounts: {
+        current: { ...meta, ufvk: 'uview1leftover' } as typeof meta,
+        old: {
+          ufvk: 'uview1old',
+          unifiedAddress: 'u1',
+          transparentAddress: 't1',
+          seedFingerprintHex: '00',
+          hdIndex: 1,
+          createdAt: 1,
+        } as unknown as typeof meta,
+      },
+    });
+
+    await expect(
+      entity.getAccountMeta({ accountId: 'current' }),
+    ).resolves.toMatchObject({ vkFp: meta.vkFp });
+    await expect(
+      entity.getAccountMeta({ accountId: 'old' }),
+    ).resolves.toBeUndefined();
+    await expect(entity.listAccountMetas()).resolves.toEqual([
+      { accountId: 'current', meta: expect.objectContaining(meta) },
+    ]);
+    // Cleanup still reaches the unreadable record.
+    await expect(entity.listCleanupAccountIds()).resolves.toEqual([
+      'current',
+      'old',
+    ]);
   });
 });

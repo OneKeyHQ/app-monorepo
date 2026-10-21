@@ -29,7 +29,7 @@ it.each([false, true])(
     await entity.saveAccountMeta({
       accountId,
       meta: {
-        ufvk: 'birthday-fixture',
+        vkFp: 'a'.repeat(32),
         unifiedAddress: 'u1',
         transparentAddress: 't1',
         seedFingerprintHex: '00',

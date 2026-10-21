@@ -320,9 +320,10 @@ class ServicePrivacyChain extends ServiceBase {
   }
 
   // Viewing material for an account, rebuilt from the mnemonic when missing
-  // (Prime transfer, cloud restore) with a cached password only;
-  // never prompts. Undefined while locked: the next use after unlock fills it,
-  // so unlock itself does no per-account work for users without these chains.
+  // (deleted local data, Prime transfer, cloud restore) with a cached password
+  // only; never prompts. Undefined while locked: the next use after unlock
+  // fills it, so unlock itself does no per-account work for users without
+  // these chains.
   async ensureLocalWalletViewingKey({
     networkId,
     accountId,
@@ -330,31 +331,58 @@ class ServicePrivacyChain extends ServiceBase {
     networkId: string;
     accountId: string;
   }): Promise<string | undefined> {
+    const key = await this.obtainLocalWalletViewingKey({
+      networkId,
+      accountId,
+      promptForPassword: false,
+    });
+    return key?.value;
+  }
+
+  // `created`: no key was stored before this call. Prompting is for the
+  // user's own enable only.
+  private async obtainLocalWalletViewingKey({
+    networkId,
+    accountId,
+    promptForPassword,
+  }: {
+    networkId: string;
+    accountId: string;
+    promptForPassword: boolean;
+  }): Promise<{ value: string; created: boolean } | undefined> {
     const stored = await getLocalWalletViewingKey({
       backgroundApi: this.backgroundApi,
       networkId,
       accountId,
     });
-    if (stored) return stored;
+    if (stored) return { value: stored.value, created: false };
     if (!accountUtils.isHdAccount({ accountId })) return undefined;
     if (await this.isTempWalletAccount({ accountId })) return undefined;
     // Account-bound: deriving needs the account's keyring.
     const vault = await vaultFactory.getVault({ networkId, accountId });
     const derive = vault.getLocalWalletCapability()?.deriveViewingKey;
     if (!derive) return undefined;
-    const password =
+    let password =
       (await this.backgroundApi.servicePassword.hasCachedPassword())
         ? await this.backgroundApi.servicePassword.getCachedPassword()
         : undefined;
+    if (!password && promptForPassword) {
+      ({ password } =
+        await this.backgroundApi.servicePassword.promptPasswordVerifyByAccount({
+          accountId,
+          reason: EReasonForNeedPassword.CreateTransaction,
+        }));
+    }
     if (!password) return undefined;
     const value = await derive({ accountId, password });
+    // A derived key that differs from the stored identity stops here.
     await saveLocalWalletViewingKey({
       backgroundApi: this.backgroundApi,
       networkId,
       accountId,
       value,
     });
-    return value;
+    return { value, created: true };
   }
 
   // Called as soon as a password is cached (unlock, or any prompt): work that
@@ -2049,6 +2077,15 @@ class ServicePrivacyChain extends ServiceBase {
         accountId,
         capability,
       });
+      // A chain whose key comes from the mnemonic stores it from enable on,
+      // never for an account that was only derived.
+      const viewingKey = capability.deriveViewingKey
+        ? await this.obtainLocalWalletViewingKey({
+            networkId,
+            accountId,
+            promptForPassword: true,
+          })
+        : undefined;
       try {
         await capability.enableAccount({
           accountId,
@@ -2056,10 +2093,40 @@ class ServicePrivacyChain extends ServiceBase {
           birthdayTimestamp,
         });
       } catch (error) {
+        if (viewingKey?.created) {
+          await this.forgetUnusedLocalWalletViewingKey({
+            capability,
+            accountId,
+          });
+        }
         await this.noteStorageUnsupported(networkId, error);
         throw error;
       }
     });
+  }
+
+  // An enable that never started leaves no key behind; one journaled as
+  // pending keeps it for the retry.
+  private async forgetUnusedLocalWalletViewingKey({
+    capability,
+    accountId,
+  }: {
+    capability: ILocalWalletCapability;
+    accountId: string;
+  }): Promise<void> {
+    try {
+      const state = await capability.getAccountState({ accountId });
+      if (!state.enabled && state.pendingOperation === undefined) {
+        await removeLocalWalletViewingKeys({
+          backgroundApi: this.backgroundApi,
+          accountIds: [accountId],
+        });
+      }
+    } catch (e) {
+      console.error('[privacy-chain] could not drop an unused viewing key', {
+        error: e instanceof Error ? e.message : String(e),
+      });
+    }
   }
 
   // Ceiling counts distinct viewing keys, not app accounts -- aliases
@@ -2309,15 +2376,14 @@ class ServicePrivacyChain extends ServiceBase {
         await capability.disableAccount({ accountId });
       }
       await capability.deleteAccountData({ accountId });
-    });
-    await this.forgetCachedLocalWalletBalance({ networkId, accountId });
-    const settings = await getVaultSettings({ networkId });
-    if (settings.localWallet?.viewingKeyRetention === 'with-local-data') {
+      // The key goes too, as the UI says; the next enable derives it again.
+      // Inside the lock, so it cannot remove a key an enable just stored.
       await removeLocalWalletViewingKeys({
         backgroundApi: this.backgroundApi,
         accountIds: [accountId],
       });
-    }
+    });
+    await this.forgetCachedLocalWalletBalance({ networkId, accountId });
   }
 
   // The shared token and account-value caches hold the composed balance,

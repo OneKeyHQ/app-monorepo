@@ -111,7 +111,8 @@ export class KeyringHd extends KeyringHdBtc {
         'zcash: unsigned PCZT missing; build and review the transaction again',
       );
     }
-    const lifecycleMutex = getZcashLifecycleMutex(meta.ufvk);
+    const ufvk = await zcashVault.zcashGetAccountUfvk({ accountId, meta });
+    const lifecycleMutex = getZcashLifecycleMutex(meta.vkFp);
     return lifecycleMutex.runExclusive(async () => {
       const privacyModeEnabled =
         await this.backgroundApi.simpleDb.zcash.isPrivacyModeEnabled({
@@ -122,7 +123,7 @@ export class KeyringHd extends KeyringHdBtc {
           'zcash: Privacy Mode was disabled before signing completed',
         );
       }
-      const review = getZcashPcztReviewRequest(encodedTx, meta.ufvk);
+      const review = getZcashPcztReviewRequest(encodedTx, ufvk);
       if (await isZcashHardwarePreviewEnabled(this.backgroundApi)) {
         const api = await zcashVault.zcashGetApi();
         printZcashShieldedHardwarePreview({
@@ -296,17 +297,25 @@ export class KeyringHd extends KeyringHdBtc {
     const meta = await this.backgroundApi.simpleDb.zcash.getAccountMeta({
       accountId: vault.accountId,
     });
-    const keys = meta ?? {
-      ...(await api.deriveAccount({
-        network: ZCASH_NETWORK_MAIN,
-        orchardSkHex: bytesToHex(secrets.orchardSk),
-        accountXpub: secrets.accountXpub,
-        hdIndex: request.accountIndex,
-        lightwalletdUrl: await vault.zcashResolveLightwalletdUrl(),
-      })),
-      seedFingerprintHex: secrets.seedFingerprintHex,
-      hdIndex: request.accountIndex,
-    };
+    const keys = meta
+      ? {
+          ...meta,
+          ufvk: await vault.zcashGetAccountUfvk({
+            accountId: vault.accountId,
+            meta,
+          }),
+        }
+      : {
+          ...(await api.deriveAccount({
+            network: ZCASH_NETWORK_MAIN,
+            orchardSkHex: bytesToHex(secrets.orchardSk),
+            accountXpub: secrets.accountXpub,
+            hdIndex: request.accountIndex,
+            lightwalletdUrl: await vault.zcashResolveLightwalletdUrl(),
+          })),
+          seedFingerprintHex: secrets.seedFingerprintHex,
+          hdIndex: request.accountIndex,
+        };
     const { xpub } = await api.deriveTransparentXpubFromUfvk({
       network: request.network,
       ufvk: keys.ufvk,
@@ -451,6 +460,7 @@ export class KeyringHd extends KeyringHdBtc {
     const secretsHdIndex = checkIsDefined(account.pathIndex);
     await resolveAndSaveZcashAccountMeta({
       backgroundApi: this.backgroundApi,
+      networkId: this.vault.networkId,
       account,
       derive: async ({ hdIndex }) => {
         if (hdIndex !== secretsHdIndex) {

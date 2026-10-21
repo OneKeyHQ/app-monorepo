@@ -67,6 +67,7 @@ it('refreshes queued scans and serializes enable rescans with every active key',
         })),
       }),
       zcashResumePendingRescans: async () => undefined,
+      zcashHasAccountViewingKey: async () => true,
       zcashPrepareAccounts,
       zcashGetWalletAccount: async () => ({ ufvk: 'a' }),
       zcashGetApi: async () => ({
@@ -160,6 +161,7 @@ it('keeps a queued peer scan behind recovery admission until the recovering key 
       })),
     }),
     zcashResumePendingRescans: async () => undefined,
+    zcashHasAccountViewingKey: async () => true,
     zcashPrepareAccounts: async ({ accountIds }: { accountIds: string[] }) =>
       accountIds.map((ufvk) => ({ ufvk })),
     zcashGetWalletAccount: async () => ({ ufvk: 'a' }),
@@ -189,4 +191,65 @@ it('keeps a queued peer scan behind recovery admission until the recovering key 
   await Promise.all([enable, peer]);
   expect(syncWallet.mock.calls[0][1].activeUfvks).toEqual(['a', 'b']);
   expect(discovered.has('note-a')).toBe(true);
+});
+
+// A key the store lost waits for Repair; the other accounts keep scanning.
+it('scans without an account whose viewing key cannot be read', async () => {
+  const states: Record<string, IZcashPrivacyModeStateView> = {
+    a: { intent: 'on' },
+    lost: { intent: 'on', birthdayHeight: 2_000_000 },
+  };
+  const syncWallet = jest.fn(
+    async (_account: unknown, _options: { activeUfvks: string[] }) => ({
+      stateChanged: false,
+    }),
+  );
+  const zcashPrepareAccounts = jest.fn(
+    async ({ accountIds }: { accountIds: string[] }) =>
+      accountIds.map((id) => ({ ufvk: id })),
+  );
+  const markPrivacyModeScanExcluded = jest.fn(async () => undefined);
+  const vault = Object.assign(Object.create(Vault.prototype) as Vault, {
+    backgroundApi: {
+      servicePrivacyChain: { isLocalWalletScanAllowed: async () => true },
+      simpleDb: {
+        zcash: {
+          getPrivacyModeState: async ({ accountId }: { accountId: string }) =>
+            states[accountId],
+          getAccountMeta: async () => undefined,
+          markPrivacyModeScanExcluded,
+        },
+      },
+    },
+    listLocalWalletAccounts: async () => ({
+      accounts: Object.keys(states).map((accountId) => ({
+        accountId,
+        runtimeKey: ZCASH_NETWORK_MAIN,
+        accountRuntimeKey: accountId,
+        syncEnabled: true,
+      })),
+    }),
+    zcashResumePendingRescans: async () => undefined,
+    zcashHasAccountViewingKey: async ({ accountId }: { accountId: string }) =>
+      accountId !== 'lost',
+    getLocalWalletSyncProgress: async () => ({ birthdayHeight: null }),
+    zcashPrepareAccounts,
+    zcashGetWalletAccount: async () => ({ ufvk: 'a' }),
+    zcashGetApi: async () => ({ syncWallet }),
+  });
+
+  await expect(
+    vault.syncLocalWalletGroup({ accountIds: ['a', 'lost'] }),
+  ).resolves.toMatchObject({ synced: true });
+
+  expect(zcashPrepareAccounts).toHaveBeenCalledWith({
+    accountIds: ['a'],
+    chainTip: undefined,
+  });
+  expect(syncWallet.mock.calls[0][1].activeUfvks).toEqual(['a']);
+  // Its scan resumes from here once Repair restores the key.
+  expect(markPrivacyModeScanExcluded).toHaveBeenCalledWith({
+    accountId: 'lost',
+    fromHeight: 2_000_000,
+  });
 });
