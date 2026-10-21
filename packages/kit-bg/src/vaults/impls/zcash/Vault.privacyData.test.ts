@@ -101,6 +101,10 @@ describe('Zcash local privacy data deletion', () => {
               { accountId, meta },
               { accountId: aliasAccountId, meta },
             ]),
+            listZcashMetaAccountIds: jest.fn(async () => [
+              accountId,
+              aliasAccountId,
+            ]),
             listScanDataAccountIds: jest.fn(async () =>
               Object.entries(states).flatMap(([id, state]) =>
                 holdsScanData(state) ? [id] : [],

@@ -470,11 +470,15 @@ export function buildXmrLocalWalletCapability(
       // outputs, so their spends were never checked.
       let runtimeBirthday = added.birthdayHeight;
       if (chosen && runtimeBirthday !== undefined && height < runtimeBirthday) {
+        // Aliases share the scanned data this drops.
+        const aliases = await getAccountAliases({ accountId });
+        await stateDb().rotateAccountEpochs({ accountIds: aliases });
         await api.rewindTo(
           runtimeId,
           String(Math.max(height - 1, 0)),
           String(chainTip),
         );
+        forgetXmrStaleFirst(aliases);
         runtimeBirthday = height;
       }
 

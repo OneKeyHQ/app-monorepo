@@ -25,9 +25,11 @@ describe('Zcash runtime deletion of an account', () => {
     otherHoldsScanData = true,
     keyReadable = true,
     scanListReadable = true,
+    malformedHolder = false,
   }: {
     otherAccountStillExists?: boolean;
     otherHoldsScanData?: boolean;
+    malformedHolder?: boolean;
     keyReadable?: boolean;
     scanListReadable?: boolean;
   } = {}) {
@@ -45,9 +47,18 @@ describe('Zcash runtime deletion of an account', () => {
               metas.get(accountId),
             listZcashAccountMetas: async () =>
               [...metas].map(([accountId, meta]) => ({ accountId, meta })),
+            // A record that can't be read is listed, but has no meta view.
+            listZcashMetaAccountIds: async () => [
+              ...metas.keys(),
+              ...(malformedHolder ? ['malformed'] : []),
+            ],
             listScanDataAccountIds: async () => {
               if (!scanListReadable) return undefined;
-              return otherHoldsScanData ? ['deleted', 'other'] : ['deleted'];
+              return [
+                'deleted',
+                ...(otherHoldsScanData ? ['other'] : []),
+                ...(malformedHolder ? ['malformed'] : []),
+              ];
             },
           },
         },
@@ -124,6 +135,17 @@ describe('Zcash runtime deletion of an account', () => {
 
   it('keeps the data and reports possible orphans when holders are unknown', async () => {
     const { vault, purgeWallet } = createVault({ scanListReadable: false });
+
+    await expect(
+      vault.zcashDeleteRuntimeAccount({ accountId: 'deleted' }),
+    ).resolves.toEqual({ orphaned: true });
+
+    expect(purgeWallet).not.toHaveBeenCalled();
+  });
+
+  // Like XMR: an unreadable record may be an alias, so it counts as one.
+  it('keeps the data while another record that holds scan data is unreadable', async () => {
+    const { vault, purgeWallet } = createVault({ malformedHolder: true });
 
     await expect(
       vault.zcashDeleteRuntimeAccount({ accountId: 'deleted' }),

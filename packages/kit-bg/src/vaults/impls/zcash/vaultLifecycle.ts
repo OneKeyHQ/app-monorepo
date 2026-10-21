@@ -1,4 +1,4 @@
-import { isEqual, uniq } from 'lodash';
+import { uniq } from 'lodash';
 
 import {
   ZCASH_LIGHTWALLETD_MAINNET,
@@ -22,6 +22,7 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IDeviceSharedCallParams } from '@onekeyhq/shared/types/device';
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
+import { isSameZcashPendingRescan } from '../../../dbs/simple/entity/SimpleDbEntityPrivacyChainState';
 import { getPrivacyModeResumeFromHeight } from '../../../services/PrivacyModeState';
 import {
   getLastLocalWalletChainTip,
@@ -837,8 +838,13 @@ export async function syncLocalWalletGroup(
   }
 }
 
-// Corrupted databases can be rebuilt without reading their transaction history.
+// Corrupted databases can be rebuilt without reading their transaction
+// history. Every account's scanned data goes, so every epoch rotates first.
 export async function zcashRebuildRuntimeDatabase(vault: Vault): Promise<void> {
+  const stateDb = vault.backgroundApi.simpleDb.privacyChainState;
+  await stateDb.rotateAccountEpochs({
+    accountIds: await stateDb.listAccountIds({ networkId: vault.networkId }),
+  });
   const api = await vault.zcashGetApi();
   await api.dropWalletDatabase(ZCASH_NETWORK_MAIN);
 }
@@ -1105,12 +1111,21 @@ export async function zcashDeleteRuntimeAccount(
     return { orphaned: false };
   }
   return getZcashLifecycleMutex(targetMeta.vkFp).runExclusive(async () => {
-    const [metas, holders] = await Promise.all([
+    const [metas, metaAccountIds, holders] = await Promise.all([
       stateDb.listZcashAccountMetas({ networkId: vault.networkId }),
+      stateDb.listZcashMetaAccountIds({ networkId: vault.networkId }),
       stateDb.listScanDataAccountIds({ networkId: vault.networkId }),
     ]);
-    // Unreadable: an alias can't be ruled out, so the data stays.
-    if (!holders) {
+    // Unreadable, or a record that may be an alias but can't be read: an
+    // alias can't be ruled out, so the data stays for the orphan pass.
+    const readableIds = new Set(metas.map((item) => item.accountId));
+    if (
+      !holders ||
+      metaAccountIds.some(
+        (id) =>
+          id !== accountId && !readableIds.has(id) && holders.includes(id),
+      )
+    ) {
       return { orphaned: true };
     }
     for (const item of metas) {
@@ -1265,7 +1280,7 @@ export async function applyPendingRescan(
       !owner ||
       !currentMeta ||
       currentMeta.vkFp !== meta.vkFp ||
-      !isEqual(pending, repair)
+      !isSameZcashPendingRescan(pending, repair)
     ) {
       return;
     }
@@ -1282,6 +1297,10 @@ export async function applyPendingRescan(
       },
     });
     const account = await vault.zcashGetWalletAccount({ accountId });
+    // Aliases share the scanned data this purges.
+    await vault.backgroundApi.simpleDb.privacyChainState.rotateAccountEpochs({
+      accountIds: await vault.getLocalWalletAccountAliases({ accountId }),
+    });
     const api = await vault.zcashGetApi();
     await api.purgeWallet(account);
     await vault.backgroundApi.simpleDb.privacyChainState.removeZcashPendingRescan(
