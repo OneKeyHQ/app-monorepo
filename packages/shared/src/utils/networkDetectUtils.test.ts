@@ -451,6 +451,54 @@ describe('Network Detection by Private Key', () => {
     });
   });
 
+  describe('Starknet - Stark Felt Private Key', () => {
+    test('detects Starknet for a 0x + 64 hex key below 2^251', async () => {
+      // Real Stark private key: grindKey of m/44'/9004'/0'/0/0 from the
+      // shared test mnemonic, zero-padded to 64 hex the way wallets export it
+      const privateKey =
+        '0x0188ec73b904cda31f0a1152ee14542d0ab7ac1ae3ec7a9a3c4f38bd0b3579d6';
+      const result = await networkDetectUtils.detectNetworkByPrivateKey({
+        privateKey,
+      });
+      expect(result.networks).toContainEqual(
+        networkDetectUtils.buildDetectedNetwork(presetNetworksMap.starknet),
+      );
+      expect(result.networks).toContainEqual(
+        networkDetectUtils.buildDetectedNetwork(
+          presetNetworksMap.starknetSepolia,
+        ),
+      );
+      // still offered for the chains that already claimed this format
+      expect(result.networks).toContainEqual(
+        networkDetectUtils.buildDetectedNetwork(presetNetworksMap.eth),
+      );
+    });
+
+    test('does not offer Starknet when the key exceeds the Stark field', async () => {
+      const privateKey =
+        '0xf357470894ac56d21893d045001e207509bbeae7b9004d08ab099a60176c376a';
+      const result = await networkDetectUtils.detectNetworkByPrivateKey({
+        privateKey,
+      });
+      expect(result.networks).not.toContainEqual(
+        networkDetectUtils.buildDetectedNetwork(presetNetworksMap.starknet),
+      );
+      expect(result.networks).toContainEqual(
+        networkDetectUtils.buildDetectedNetwork(presetNetworksMap.eth),
+      );
+    });
+
+    test('does not offer Starknet for a 0x + 40 hex EVM address-shaped key', async () => {
+      const privateKey = '0x1959f5f4979c5cd87d5cb75c678c770515cb5e0e';
+      const result = await networkDetectUtils.detectNetworkByPrivateKey({
+        privateKey,
+      });
+      expect(result.networks).not.toContainEqual(
+        networkDetectUtils.buildDetectedNetwork(presetNetworksMap.starknet),
+      );
+    });
+  });
+
   describe('Edge Cases', () => {
     test('returns empty array for empty string', async () => {
       const privateKey = '';

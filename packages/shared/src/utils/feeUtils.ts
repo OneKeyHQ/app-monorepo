@@ -109,6 +109,54 @@ export function calculateNeoN3TotalFee({ feeInfo }: { feeInfo: IFeeInfoUnit }) {
     .shiftedBy(-feeDecimals);
 }
 
+// Sum of maxAmount * maxPricePerUnit over the three resource bounds, in FRI,
+// not yet shifted by feeDecimals. Shared by the max (worst-case) and min
+// (overallFee-backed) Starknet fee calculations below.
+function sumStarknetResourceBoundsFee({ feeInfo }: { feeInfo: IFeeInfoUnit }) {
+  const { l1Gas, l2Gas, l1DataGas } = feeInfo.feeStarknet ?? {};
+  return [l1Gas, l2Gas, l1DataGas].reduce(
+    (total, resource) =>
+      resource
+        ? total.plus(
+            new BigNumber(resource.maxAmount).times(resource.maxPricePerUnit),
+          )
+        : total,
+    new BigNumber(0),
+  );
+}
+
+// All amounts are decimal strings in FRI (STRK base unit).
+// Worst-case bound: sum of the three resource bounds plus deployAccountFee.
+export function calculateStarknetTotalFee({
+  feeInfo,
+}: {
+  feeInfo: IFeeInfoUnit;
+}) {
+  const { feeDecimals } = feeInfo.common;
+  const { deployAccountFee } = feeInfo.feeStarknet ?? {};
+  return sumStarknetResourceBoundsFee({ feeInfo })
+    .plus(deployAccountFee ?? 0)
+    .shiftedBy(-feeDecimals);
+}
+
+// Display minimum: the node's overall_fee estimates for both legs, each
+// falling back to its resource-bounds sum (same as the max) when absent.
+export function calculateStarknetMinFee({
+  feeInfo,
+}: {
+  feeInfo: IFeeInfoUnit;
+}) {
+  const { feeDecimals } = feeInfo.common;
+  const { overallFee, deployAccountFee, deployAccountOverallFee } =
+    feeInfo.feeStarknet ?? {};
+  const baseFee = overallFee
+    ? new BigNumber(overallFee)
+    : sumStarknetResourceBoundsFee({ feeInfo });
+  return baseFee
+    .plus(deployAccountOverallFee ?? deployAccountFee ?? 0)
+    .shiftedBy(-feeDecimals);
+}
+
 export function calculateTotalFeeRange({
   feeInfo,
   txSize,
@@ -291,6 +339,17 @@ export function calculateTotalFeeRange({
       min: nanToZeroString(max),
       max: nanToZeroString(max),
       minForDisplay: nanToZeroString(max),
+      maxForDisplay: nanToZeroString(max),
+    };
+  }
+
+  if (feeInfo.feeStarknet) {
+    const max = calculateStarknetTotalFee({ feeInfo });
+    const min = calculateStarknetMinFee({ feeInfo });
+    return {
+      min: nanToZeroString(min),
+      max: nanToZeroString(max),
+      minForDisplay: nanToZeroString(min),
       maxForDisplay: nanToZeroString(max),
     };
   }
