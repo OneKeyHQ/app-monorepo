@@ -157,13 +157,6 @@ export function LightweightChart({
   );
   const latestConfigRef = useRef(nativeConfig);
   latestConfigRef.current = nativeConfig;
-  const appliedConfigRef = useRef<
-    | {
-        data: ILightweightChartConfig['data'];
-        optionsKey: string;
-      }
-    | undefined
-  >(undefined);
   // Bumped on every recovery: it keys the WebView, so recovery is a remount.
   // Android does not let a WebView whose renderer is gone be reused, so a new
   // source on the old instance can stay blank; a fresh instance is the only
@@ -260,43 +253,18 @@ export function LightweightChart({
 
   // Update chart when data changes
   useEffect(() => {
-    if (!webViewReady) {
-      appliedConfigRef.current = undefined;
-      return;
-    }
-    if (webViewRef.current) {
-      const {
-        data: primaryData,
-        secondaryLineData: lineData,
-        secondaryPointData: pointData,
-        ...options
-      } = nativeConfig;
-      const optionsKey = JSON.stringify(options);
-      const overlayOnly =
-        appliedConfigRef.current?.data === primaryData &&
-        appliedConfigRef.current.optionsKey === optionsKey;
-      // Scrubbing changes only the solid overlay. Keep the primary series and
-      // time scale intact, and send only the overlay across the WebView bridge.
-      const configPayload = overlayOnly
-        ? {
-            secondaryLineData: lineData ?? [],
-            secondaryPointData: pointData ?? [],
-          }
-        : nativeConfig;
-      const applyMethod = overlayOnly
-        ? 'applyChartSecondaryData'
-        : 'applyChartConfig';
+    if (webViewReady && webViewRef.current) {
       const updateScript = `
         (function() {
-          const newConfig = ${JSON.stringify(configPayload)};
-          if (typeof window.${applyMethod} === 'function') {
-            window.${applyMethod}(newConfig);
+          window.__onekeyFormatChartPrice = ${formatChartPriceSource};
+          const newConfig = ${JSON.stringify(nativeConfig)};
+          if (typeof window.applyChartConfig === 'function') {
+            window.applyChartConfig(newConfig);
           }
         })();
         true;
       `;
       webViewRef.current.injectJavaScript(updateScript);
-      appliedConfigRef.current = { data: primaryData, optionsKey };
     }
   }, [nativeConfig, webViewReady]);
 

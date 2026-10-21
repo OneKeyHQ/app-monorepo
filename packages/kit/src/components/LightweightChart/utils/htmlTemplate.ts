@@ -588,34 +588,6 @@ function getChartInitScript(): string {
           crosshairMarkerVisible: false,
         };
       }
-      function syncSecondarySeries(nextConfig) {
-        var hasLine = Array.isArray(nextConfig.secondaryLineData) && nextConfig.secondaryLineData.length > 0;
-        var hasPoints = hasLine && Array.isArray(nextConfig.secondaryPointData) && nextConfig.secondaryPointData.length > 0;
-        if (hasLine) {
-          if (!window.secondarySeries) {
-            window.secondarySeries = window.chart.addSeries(
-              LightweightCharts.LineSeries,
-              getSecondarySeriesOptions(nextConfig)
-            );
-          }
-          window.secondarySeries.setData(nextConfig.secondaryLineData);
-        } else if (window.secondarySeries) {
-          window.chart.removeSeries(window.secondarySeries);
-          window.secondarySeries = null;
-        }
-        if (hasPoints) {
-          if (!window.secondaryPointSeries) {
-            window.secondaryPointSeries = window.chart.addSeries(
-              LightweightCharts.LineSeries,
-              getSecondaryPointSeriesOptions(nextConfig)
-            );
-          }
-          window.secondaryPointSeries.setData(nextConfig.secondaryPointData);
-        } else if (window.secondaryPointSeries) {
-          window.chart.removeSeries(window.secondaryPointSeries);
-          window.secondaryPointSeries = null;
-        }
-      }
       function createNativeScrubLine(nextConfig) {
         var renderer = {
           draw: function(target) {
@@ -651,7 +623,7 @@ function getChartInitScript(): string {
         }];
         return { paneViews: function() { return views; } };
       }
-      // Rebuild both series when the primary data or chart options change.
+      // Rebuilds both series from scratch on every apply.
       //
       // lightweight-charts 5.2 keeps a stale copy of its time points after a
       // single-series setData whose times did not change: the fast path swaps
@@ -688,8 +660,25 @@ function getChartInitScript(): string {
         // setData invalidate and redraw the expensive static dotted area.
         if (nextConfig.nativeScrubOptions) {
           window.series.attachPrimitive(createNativeScrubLine(nextConfig));
-        } else {
-          syncSecondarySeries(nextConfig);
+        } else if (
+          Array.isArray(nextConfig.secondaryLineData) &&
+          nextConfig.secondaryLineData.length > 0
+        ) {
+          window.secondarySeries = window.chart.addSeries(
+            LightweightCharts.LineSeries,
+            getSecondarySeriesOptions(nextConfig)
+          );
+          window.secondarySeries.setData(nextConfig.secondaryLineData);
+          if (
+            Array.isArray(nextConfig.secondaryPointData) &&
+            nextConfig.secondaryPointData.length > 0
+          ) {
+            window.secondaryPointSeries = window.chart.addSeries(
+              LightweightCharts.LineSeries,
+              getSecondaryPointSeriesOptions(nextConfig)
+            );
+            window.secondaryPointSeries.setData(nextConfig.secondaryPointData);
+          }
         }
       }
       // Price formatter: use a serializable formatter type in WebView, otherwise default %
@@ -821,11 +810,6 @@ function getChartInitScript(): string {
         rebuildSeries(nextConfig);
         window.chart.timeScale().fitContent();
         window.updatePulseDot();
-      };
-      window.applyChartSecondaryData = function(secondaryData) {
-        if (!window.chart || !window.latestChartConfig) return;
-        Object.assign(window.latestChartConfig, secondaryData);
-        syncSecondarySeries(window.latestChartConfig);
       };
       window.applyChartConfig(config);
   `.trim();
