@@ -93,13 +93,23 @@ function BasicPrivacyChainSyncLight() {
     };
   }, [isCellular]);
 
-  const { result: scanRegionHints } = usePromiseResult(async () => {
-    if (!networkId) return undefined;
-    const settings = await backgroundApiProxy.serviceNetwork.getVaultSettings({
-      networkId,
-    });
-    return settings.localWallet?.scanRegionHints;
-  }, [networkId]);
+  // The overlay is never the focused screen, and the shown chain switches as
+  // progress changes; key each lookup by its network so a stale one is ignored.
+  const { result: scanRegionHintsResult } = usePromiseResult(
+    async () => {
+      if (!networkId) return undefined;
+      const settings = await backgroundApiProxy.serviceNetwork.getVaultSettings(
+        { networkId },
+      );
+      return { networkId, hints: settings.localWallet?.scanRegionHints };
+    },
+    [networkId],
+    { checkIsFocused: false },
+  );
+  const scanRegionHints =
+    scanRegionHintsResult?.networkId === networkId
+      ? scanRegionHintsResult?.hints
+      : undefined;
 
   const onPause = useCallback(() => {
     for (const id of activeNetworkIds) {
@@ -119,13 +129,21 @@ function BasicPrivacyChainSyncLight() {
     }
   }, [pausedNetworkIds]);
 
-  const { result: networkName } = usePromiseResult(async () => {
-    if (!networkId) return undefined;
-    const network = await backgroundApiProxy.serviceNetwork.getNetworkSafe({
-      networkId,
-    });
-    return network?.name;
-  }, [networkId]);
+  const { result: networkNameResult } = usePromiseResult(
+    async () => {
+      if (!networkId) return undefined;
+      const network = await backgroundApiProxy.serviceNetwork.getNetworkSafe({
+        networkId,
+      });
+      return { networkId, name: network?.name };
+    },
+    [networkId],
+    { checkIsFocused: false },
+  );
+  const networkName =
+    networkNameResult?.networkId === networkId
+      ? networkNameResult?.name
+      : undefined;
 
   const onAllowCellular = useCallback(() => {
     void backgroundApiProxy.servicePrivacyChain.setAllowCellularSync({
