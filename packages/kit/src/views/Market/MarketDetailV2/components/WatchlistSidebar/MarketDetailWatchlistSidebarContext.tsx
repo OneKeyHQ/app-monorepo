@@ -35,7 +35,7 @@ function SidebarToggleButton({
       icon="StarListOutline"
       variant="tertiary"
       size="medium"
-      title={intl.formatMessage({ id: ETranslations.global_favorites })}
+      title={intl.formatMessage({ id: ETranslations.market_open_favorites })}
       onPress={sidebar.toggle}
     />
   );
