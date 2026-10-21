@@ -313,7 +313,9 @@ function TradingHoursContent({
   // 7×24 instrument while the market is closed (the "24/7" chip state): the
   // subtitle switches to the dedicated around-the-clock copy, which also
   // makes the generic risk notice redundant.
-  const is247TradableClosed = activeRow === 'closed' && stock.isOpen === true;
+  // A US listing is never 7×24; its `isOpen` only disagrees when stale.
+  const is247TradableClosed =
+    activeRow === 'closed' && stock.isOpen === true && !stock.isUSListing;
 
   const weekendSpanText = useMemo(() => {
     const formatWeekendBoundary = (instant: number) =>
@@ -701,6 +703,11 @@ export function TradingHoursTrigger({
 }) {
   const media = useMedia();
   const useSheetDialog = platformEnv.isNative || media.md;
+
+  // US trading hours describe nothing about a non-US listing.
+  if (stock.isUSListing === false) {
+    return <>{renderTrigger}</>;
+  }
 
   if (useSheetDialog) {
     return (
