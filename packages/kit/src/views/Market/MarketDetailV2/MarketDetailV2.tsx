@@ -9,7 +9,11 @@ import {
 } from 'react';
 
 import { useHeaderHeight } from '@react-navigation/elements';
-import { useFocusEffect, useIsFocused } from '@react-navigation/native';
+import {
+  useFocusEffect,
+  useIsFocused,
+  useNavigationState,
+} from '@react-navigation/native';
 
 import type { IPageScreenProps } from '@onekeyhq/components';
 import {
@@ -395,6 +399,7 @@ function MarketDetailV2(
   >,
 ) {
   const { navigation } = props;
+  const hasPreviousScreen = useNavigationState((state) => state.index > 0);
   const stockId =
     'stockId' in props.route.params ? props.route.params.stockId : undefined;
   const stockPreview = buildMarketStockDetailPreview({
@@ -439,11 +444,13 @@ function MarketDetailV2(
     () => ({
       gestures: [],
       excludeStartEdgeWidth:
-        platformEnv.isNativeIOS && !effectiveIsChartFullscreen
+        platformEnv.isNativeIOS &&
+        hasPreviousScreen &&
+        !effectiveIsChartFullscreen
           ? MARKET_DETAIL_BACK_SWIPE_EDGE_WIDTH
           : 0,
     }),
-    [effectiveIsChartFullscreen],
+    [effectiveIsChartFullscreen, hasPreviousScreen],
   );
   const handleChartFullscreenChange = useCallback(
     (isFullscreen: boolean) => {

@@ -924,3 +924,10 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries â€
 **Root Cause**: Trending switched to API default sorting, but seed acquisition and both runtime matching checks still required explicit volume-descending sorting.
 **Fix**: Align the build seed query, synchronous first-frame initialization and light API seed matching with the default order; keep explicitly sorted queries isolated. Verify regression tests and the production cold-start budget.
 **Catchable by**: Section 4: Update every producer and consumer when query identity changes; Section 7: Verify first-frame rendering with unavailable network requests.
+
+## Case: Market modal root unnecessarily reserved the swipe-back edge
+**Date**: 2026-10-21 | **Platforms**: iOS (main UI runtime)
+**Symptom**: Chart and header gestures ignored the first 32pt when Swap Pro opened Market detail as a modal root, which had no horizontal back gesture.
+**Root Cause**: Edge reservation checked platform and fullscreen state without checking history in the current stack; parent modal dismissal can make `canGoBack()` true even at the inner stack root.
+**Fix**: Subscribe to the current stack index and reserve the edge only when it has a previous screen, while retaining the fullscreen exemption.
+**Catchable by**: Section 8: compare a modal root with a pushed detail, including a parent that can go back; verify edge interactions, swipe-back and fullscreen separately.
