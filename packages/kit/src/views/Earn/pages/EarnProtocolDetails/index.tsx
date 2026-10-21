@@ -831,6 +831,9 @@ const DetailsPartComponent = ({
     symbol,
     provider,
     vault,
+    // After the details, as when the APY chart fetched its own: a page that
+    // failed to load requests the history once Refresh brings them in.
+    enabled: detailInfo !== undefined,
   });
   // The rules chart waits for the history once, then draws with or without it.
   const isApyHistoryLoading = isChartLoading !== false && !chartData;

@@ -96,7 +96,11 @@ export function useEarnApyHistory({
   symbol,
   provider,
   vault,
-}: IEarnApyHistoryParams) {
+  enabled,
+}: IEarnApyHistoryParams & {
+  /** Requests wait for this. Once it has been true for a market, they don't. */
+  enabled: boolean;
+}) {
   const isPendleProvider = useMemo(
     () => earnUtils.isPendleProvider({ providerName: provider }),
     [provider],
@@ -109,9 +113,19 @@ export function useEarnApyHistory({
   const requestKeyRef = useRef(requestKey);
   requestKeyRef.current = requestKey;
   const settledRequestKeyRef = useRef<string | undefined>(undefined);
+  // Stays enabled for these inputs, so reloading the details keeps the
+  // history.
+  const enabledRequestKeyRef = useRef<string | undefined>(undefined);
+  if (enabled) {
+    enabledRequestKeyRef.current = requestKey;
+  }
+  const isEnabled = enabledRequestKeyRef.current === requestKey;
 
   const { result } = usePromiseResult(
     async () => {
+      if (!isEnabled) {
+        return undefined;
+      }
       const startedRequestKey = requestKeyRef.current;
       try {
         return {
@@ -131,7 +145,7 @@ export function useEarnApyHistory({
         }
       }
     },
-    [networkId, symbol, provider, vault, isPendleProvider],
+    [networkId, symbol, provider, vault, isPendleProvider, isEnabled],
     // Re-renders when the request fails too, so a chart waiting on the
     // history can leave its skeleton.
     { watchLoading: true },

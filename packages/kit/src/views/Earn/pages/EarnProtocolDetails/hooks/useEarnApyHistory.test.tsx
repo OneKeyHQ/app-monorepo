@@ -77,6 +77,7 @@ const marketA = {
   symbol: 'sUSDe',
   provider: 'pendle',
   vault: '0xaaa',
+  enabled: true,
 };
 const marketB = { ...marketA, symbol: 'USDG', vault: '0xbbb' };
 
@@ -92,6 +93,28 @@ describe('useEarnApyHistory', () => {
 
   afterEach(() => {
     jest.clearAllMocks();
+  });
+
+  it('requests the history once the details are in, and keeps it while they reload', async () => {
+    const { result, rerender } = renderHook(
+      (props: typeof marketA) => useEarnApyHistory(props),
+      { initialProps: { ...marketA, enabled: false } },
+    );
+    await act(async () => {});
+    expect(mockGetUnderlyingApyHistory).not.toHaveBeenCalled();
+    expect(result.current.isChartLoading).toBe(true);
+
+    rerender(marketA);
+    await act(async () => {
+      requests['0xaaa'].resolve(historyOf('5.09'));
+    });
+    await waitFor(() => expect(result.current.chartData).toBeDefined());
+
+    // The details reload after an account switch, for one.
+    rerender({ ...marketA, enabled: false });
+    await act(async () => {});
+    expect(mockGetUnderlyingApyHistory).toHaveBeenCalledTimes(1);
+    expect(result.current.chartData?.impliedApyHistory?.[0]?.apy).toBe('5.09');
   });
 
   it('drops the previous market’s history while the next one loads', async () => {
