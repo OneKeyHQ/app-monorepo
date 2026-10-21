@@ -298,6 +298,8 @@ type IModel = Pick<
   | 'selectedValueUsd'
   | 'canStart'
   | 'assetStatus'
+  | 'stop'
+  | 'stopping'
 >;
 const ModelContext = createContext<IModel | undefined>(undefined);
 function TestProvider({ children }: PropsWithChildren) {
@@ -325,6 +327,10 @@ function TestProvider({ children }: PropsWithChildren) {
       selectedValueUsd: '1',
       canStart: true,
       assetStatus: 'ready',
+      stop: async () => {
+        await session.stop();
+      },
+      stopping: session.stopping,
     }),
     [isFocused, session],
   );
@@ -707,6 +713,29 @@ it('offers Leave in the mobile live sheet when a submission is unknown', async (
     ETranslations.wallet_transaction_maybe_already_submitted_check_activity__msg,
   );
   expect(execute).toHaveBeenCalledTimes(1);
+});
+
+it('offers Leave in the mobile live sheet while Stop waits for a pending item', async () => {
+  mockNative = true;
+  mockActualResults = true;
+  const pending = deferred<IResult>();
+  execute.mockImplementation(async ({ onSigning, onBroadcast }) => {
+    onSigning();
+    onBroadcast('pending-transaction');
+    return pending.promise;
+  });
+  mountFlow();
+  await act(async () => fireEvent.click(activeTestId('dust-sweep-action')));
+  // Pause, then Stop: Stop waits for the broadcast item, which stays pending.
+  await act(async () => fireEvent.click(activeTestId('dust-sweep-action')));
+  await act(async () => fireEvent.click(activeTestId('dust-sweep-stop')));
+  expect(liveSheetCalls()).toHaveLength(1);
+  fireEvent.click(activeTestId('dust-sweep-leave'));
+  expect(otherDialogCalls()).toHaveLength(1);
+  expect(confirmDialog().description).toContain(
+    ETranslations.swap_review_tx_pending,
+  );
+  await act(async () => pending.resolve(success));
 });
 
 it('keeps pending mobile Details and Done from resetting or restarting the session', async () => {

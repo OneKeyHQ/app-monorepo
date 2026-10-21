@@ -527,6 +527,10 @@ export function DustSweepSummary({
     onPress = session.pause;
   }
   const converting = !selecting && !completed && !unknown;
+  // The live sheet hides the header back. Stop waits for a broadcast item to
+  // settle, which may never happen offline, so Leave (it aborts) stays
+  // reachable there, in place of the Continue that is disabled meanwhile.
+  const leaveWhileStopping = model.stopping && Boolean(onLeave);
   const { height: windowHeight } = useWindowDimensions();
   const result = <DustSweepResult state={state} desktop={desktop} />;
   // Desktop is a card; the mobile selection footer sits on the list with a top
@@ -703,7 +707,7 @@ export function DustSweepSummary({
       ) : null}
       {desktop ? <Stack flex={1} /> : <Stack height={MOBILE_ACTION_GAP} />}
       <XStack gap="$2.5">
-        {unknown && onLeave ? (
+        {(unknown || leaveWhileStopping) && onLeave ? (
           <Button
             testID="dust-sweep-leave"
             flex={1}
@@ -729,35 +733,37 @@ export function DustSweepSummary({
             {intl.formatMessage({ id: ETranslations.button_stop_conversion })}
           </Button>
         ) : null}
-        <Button
-          testID="dust-sweep-action"
-          flex={1}
-          height={DUST_SWEEP_ACTION_HEIGHT}
-          minHeight={DUST_SWEEP_ACTION_HEIGHT}
-          // Pause stays quiet while tokens convert; every other step is the
-          // primary action.
-          variant={
-            converting && state.phase !== 'paused' ? 'secondary' : 'primary'
-          }
-          loading={assetsLoading}
-          childrenAsText={!assetsLoading}
-          accessibilityLabel={
-            assetsLoading
-              ? intl.formatMessage({ id: ETranslations.global_syncing })
-              : undefined
-          }
-          disabled={
-            assetsLoading ||
-            session.leaving ||
-            model.stopping ||
-            state.phase === 'left' ||
-            (selecting && loadStatus !== 'ready') ||
-            (selecting && !canStart && !assetSyncError)
-          }
-          onPress={onPress}
-        >
-          {assetsLoading ? null : label}
-        </Button>
+        {leaveWhileStopping ? null : (
+          <Button
+            testID="dust-sweep-action"
+            flex={1}
+            height={DUST_SWEEP_ACTION_HEIGHT}
+            minHeight={DUST_SWEEP_ACTION_HEIGHT}
+            // Pause stays quiet while tokens convert; every other step is the
+            // primary action.
+            variant={
+              converting && state.phase !== 'paused' ? 'secondary' : 'primary'
+            }
+            loading={assetsLoading}
+            childrenAsText={!assetsLoading}
+            accessibilityLabel={
+              assetsLoading
+                ? intl.formatMessage({ id: ETranslations.global_syncing })
+                : undefined
+            }
+            disabled={
+              assetsLoading ||
+              session.leaving ||
+              model.stopping ||
+              state.phase === 'left' ||
+              (selecting && loadStatus !== 'ready') ||
+              (selecting && !canStart && !assetSyncError)
+            }
+            onPress={onPress}
+          >
+            {assetsLoading ? null : label}
+          </Button>
+        )}
       </XStack>
     </YStack>
   );
