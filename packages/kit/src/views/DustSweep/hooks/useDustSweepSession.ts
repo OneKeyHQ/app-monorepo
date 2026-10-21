@@ -149,6 +149,8 @@ export function useDustSweepSession(
                 : undefined,
             reason: result.status === 'failed' ? 'txFailed' : undefined,
             message: result.status === 'failed' ? result.message : undefined,
+            providerErrorMessage:
+              result.status === 'failed' ? result.message : undefined,
           });
           defaultLogger.dex.dustSweep.dustSweepItemResult({
             network: snapshot.networkId,
