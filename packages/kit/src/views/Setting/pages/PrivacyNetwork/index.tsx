@@ -52,7 +52,7 @@ import type {
   ILocalWalletSyncProgress,
 } from '@onekeyhq/kit-bg/src/vaults/localWallet/types';
 import { IMPL_ZCASH } from '@onekeyhq/shared/src/engine/engineConsts';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { ETranslations, ETranslationsMock } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalSettingRoutes } from '@onekeyhq/shared/src/routes/setting';
@@ -506,6 +506,7 @@ type IPrivacyAccountEntry = {
   birthdayHintTimestamp?: number;
   birthdayHeight?: number;
   earliestBirthdayHeight?: number;
+  // Never scannable: shown without a switch (see isTempWalletAccount).
   walletIsTemp: boolean;
   deriveLabel?: string;
 };
@@ -704,7 +705,6 @@ export default function PrivacyNetworkSettings({
               hasRecommendedMonth={
                 typeof entry.birthdayHintTimestamp === 'number'
               }
-              isTempWallet={entry.walletIsTemp}
             />
             <BirthdayDialogForm
               formRef={formRef}
@@ -958,6 +958,9 @@ export default function PrivacyNetworkSettings({
     if (entry.operation) {
       status = intl.formatMessage({ id: ETranslations.global_processing });
     }
+    if (entry.walletIsTemp) {
+      status = intl.formatMessage({ id: ETranslations.global_not_available });
+    }
     return (
       <YStack
         key={entry.accountId}
@@ -977,23 +980,40 @@ export default function PrivacyNetworkSettings({
             .filter(Boolean)
             .join(' · ')}
         >
-          <Switch
-            testID={`privacy-network-switch-${entry.accountId}`}
-            size={ESwitchSize.small}
-            value={entry.enabled || entry.operation === 'enable'}
-            disabled={busy}
-            onChange={(next) => {
-              if (next) {
-                void enableAccount(entry);
-              } else {
-                void disableAccount(entry);
-              }
-            }}
-          />
+          {entry.walletIsTemp ? null : (
+            <Switch
+              testID={`privacy-network-switch-${entry.accountId}`}
+              size={ESwitchSize.small}
+              value={entry.enabled || entry.operation === 'enable'}
+              disabled={busy}
+              onChange={(next) => {
+                if (next) {
+                  void enableAccount(entry);
+                } else {
+                  void disableAccount(entry);
+                }
+              }}
+            />
+          )}
         </ListItem>
         {/* belongs to the account above, not to the list */}
         <YStack testID={`privacy-network-account-detail-${entry.accountId}`}>
           <Divider mx="$4" />
+          {entry.walletIsTemp ? (
+            <SizableText
+              testID={`privacy-network-temp-wallet-${entry.accountId}`}
+              px="$5"
+              py="$3"
+              size="$bodySm"
+              color="$textSubdued"
+            >
+              {intl.formatMessage({
+                id: ETranslationsMock.privacy_temp_wallet_unavailable__desc,
+                defaultMessage:
+                  ETranslationsMock.privacy_temp_wallet_unavailable__desc,
+              })}
+            </SizableText>
+          ) : null}
           {entry.enabled ? (
             <ListItem
               mx="$0"

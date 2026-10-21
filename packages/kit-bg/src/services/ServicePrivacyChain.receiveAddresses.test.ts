@@ -60,7 +60,11 @@ describe('Local wallet receive addresses', () => {
           accountId: string;
         }) => Promise<{ publicAddress: string; privateAddress?: string }>;
       },
-      { backgroundApi: {} },
+      {
+        backgroundApi: {
+          serviceAccount: { getWalletSafe: async () => ({ isTemp: false }) },
+        },
+      },
     );
   }
 

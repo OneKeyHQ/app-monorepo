@@ -84,7 +84,9 @@ describe('Privacy Mode enabled-account ceiling', () => {
         }) => Promise<void>;
       },
       {
-        backgroundApi: {},
+        backgroundApi: {
+          serviceAccount: { getWalletSafe: async () => ({ isTemp: false }) },
+        },
         enableMutexByNetwork: new Map<string, Mutex>(),
         storageUnsupportedNetworkIds: new Set<string>(),
       },

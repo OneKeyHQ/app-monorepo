@@ -112,6 +112,7 @@ describe('Privacy transaction history cache clear', () => {
             getDBAccountSafe: async ({ accountId }: { accountId: string }) => ({
               id: accountId,
             }),
+            getWalletSafe: async () => ({ isTemp: false }),
           },
         },
       },
