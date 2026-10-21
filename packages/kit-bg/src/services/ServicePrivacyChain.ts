@@ -865,9 +865,10 @@ class ServicePrivacyChain extends ServiceBase {
         // eslint-disable-next-line no-await-in-loop
         const vault = await vaultFactory.getChainOnlyVault({ networkId });
         const capability = requireLocalWalletCapability(vault);
-        // eslint-disable-next-line no-await-in-loop
-        const { cleanupAccountIds } = await capability.listAccounts();
-        if (cleanupAccountIds.length > 0) {
+        const { cleanupAccountIds, storedAccountIds = cleanupAccountIds } =
+          // eslint-disable-next-line no-await-in-loop
+          await capability.listAccounts();
+        if (storedAccountIds.length > 0) {
           console.log('[privacy-chain] pending wipe skipped: network in use', {
             networkId,
           });
@@ -1475,8 +1476,7 @@ class ServicePrivacyChain extends ServiceBase {
   // Mode, whose masked database reads as empty.
   private async readStoredAccountIds(): Promise<Set<string> | undefined> {
     try {
-      const environment = await travelModeManager.getRuntimeEnvironment();
-      if (environment.persistence.kind === 'masked') {
+      if (await this.isPersistenceMasked()) {
         return undefined;
       }
       const [{ accounts }, { indexedAccounts }] = await Promise.all([
@@ -1501,6 +1501,11 @@ class ServicePrivacyChain extends ServiceBase {
     }
   }
 
+  private async isPersistenceMasked(): Promise<boolean> {
+    const environment = await travelModeManager.getRuntimeEnvironment();
+    return environment.persistence.kind === 'masked';
+  }
+
   async gcRemovedAccounts() {
     if (this.gcRunning) {
       this.gcRequested = true;
@@ -1508,73 +1513,88 @@ class ServicePrivacyChain extends ServiceBase {
     }
     this.gcRunning = true;
     try {
-      // Purging is irreversible, so only a definite "not on disk" counts as
-      // removed; without that answer the whole pass waits for the next one.
-      const storedAccountIds = await this.readStoredAccountIds();
-      if (!storedAccountIds) {
-        return;
-      }
+      // Candidates are listed before accounts are read: data written after
+      // the read belongs to an account the read already saw.
+      const networks: {
+        networkId: string;
+        capability: ILocalWalletCapability;
+        cleanupAccountIds: string[];
+      }[] = [];
       for (const networkId of await this.getLocalWalletNetworkIds()) {
-        let capability: ILocalWalletCapability;
-        let cleanupAccountIds: string[];
         try {
           const vault = await vaultFactory.getChainOnlyVault({ networkId });
-          capability = requireLocalWalletCapability(vault);
-          ({ cleanupAccountIds } = await capability.listAccounts());
+          const capability = requireLocalWalletCapability(vault);
+          const { cleanupAccountIds } = await capability.listAccounts();
+          networks.push({ networkId, capability, cleanupAccountIds });
         } catch (e) {
           // One chain that cannot list its accounts must not stop the others.
           console.error('[privacy-chain] gc list failed', {
             networkId,
             error: e instanceof Error ? e.message : String(e),
           });
-          // eslint-disable-next-line no-continue
-          continue;
-        }
-        for (const accountId of cleanupAccountIds) {
-          if (storedAccountIds.has(accountId)) {
-            // eslint-disable-next-line no-continue
-            continue;
-          }
-          try {
-            await capability.reset({ accountId, scope: 'all' });
-            await this.backgroundApi.simpleDb.privacyChain.removeScanStartPrompted(
-              { accountId },
-            );
-            await privacyChainAtom.set((value) => {
-              const progress = Object.fromEntries(
-                Object.entries(value.progress).filter(
-                  ([key]) => key !== `${networkId}:${accountId}`,
-                ),
-              );
-              return { ...value, progress };
-            });
-          } catch (e) {
-            console.error('[privacy-chain] gc purge failed', {
-              networkId,
-              accountId,
-              e,
-            });
-          }
         }
       }
-      const orphanViewingKeys = (
-        await listLocalWalletViewingKeyAccountIds({
-          backgroundApi: this.backgroundApi,
-        })
-      ).filter((accountId) => !storedAccountIds.has(accountId));
-      await removeLocalWalletViewingKeys({
+      const viewingKeyAccountIds = await listLocalWalletViewingKeyAccountIds({
         backgroundApi: this.backgroundApi,
-        accountIds: orphanViewingKeys,
       });
-      const orphanLastBalances = (
-        await listLastLocalWalletBalanceAccountIds({
-          backgroundApi: this.backgroundApi,
-        })
-      ).filter((accountId) => !storedAccountIds.has(accountId));
-      await removeLastLocalWalletBalances({
+      const lastBalanceAccountIds = await listLastLocalWalletBalanceAccountIds({
         backgroundApi: this.backgroundApi,
-        accountIds: orphanLastBalances,
       });
+      const hasCandidates =
+        networks.some(({ cleanupAccountIds }) => cleanupAccountIds.length) ||
+        viewingKeyAccountIds.length > 0 ||
+        lastBalanceAccountIds.length > 0;
+      if (hasCandidates) {
+        // Purging is irreversible, so only a definite "not on disk" counts as
+        // removed; without that answer the whole pass waits for the next one.
+        const storedAccountIds = await this.readStoredAccountIds();
+        if (!storedAccountIds) {
+          return;
+        }
+        for (const { networkId, capability, cleanupAccountIds } of networks) {
+          for (const accountId of cleanupAccountIds) {
+            if (storedAccountIds.has(accountId)) {
+              // eslint-disable-next-line no-continue
+              continue;
+            }
+            try {
+              await capability.reset({ accountId, scope: 'all' });
+              await this.backgroundApi.simpleDb.privacyChain.removeScanStartPrompted(
+                { accountId },
+              );
+              await privacyChainAtom.set((value) => {
+                const progress = Object.fromEntries(
+                  Object.entries(value.progress).filter(
+                    ([key]) => key !== `${networkId}:${accountId}`,
+                  ),
+                );
+                return { ...value, progress };
+              });
+            } catch (e) {
+              console.error('[privacy-chain] gc purge failed', {
+                networkId,
+                accountId,
+                e,
+              });
+            }
+          }
+        }
+        await removeLocalWalletViewingKeys({
+          backgroundApi: this.backgroundApi,
+          accountIds: viewingKeyAccountIds.filter(
+            (accountId) => !storedAccountIds.has(accountId),
+          ),
+        });
+        await removeLastLocalWalletBalances({
+          backgroundApi: this.backgroundApi,
+          accountIds: lastBalanceAccountIds.filter(
+            (accountId) => !storedAccountIds.has(accountId),
+          ),
+        });
+      } else if (await this.isPersistenceMasked()) {
+        // A masked database lists no wallets either.
+        return;
+      }
       // Passes survivors, not casualties: getWallets() hides locked passphrase
       // wallets, which are still live and must keep their state.
       const { wallets } =
