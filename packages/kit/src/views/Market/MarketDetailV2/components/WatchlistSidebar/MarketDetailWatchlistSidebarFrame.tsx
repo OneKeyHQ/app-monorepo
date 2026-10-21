@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 
 import { Dimensions } from 'react-native';
@@ -26,6 +26,17 @@ import type { LayoutChangeEvent } from 'react-native';
 const MARKET_DETAIL_NARROWEST_CONTENT_WIDTH = 952;
 export const MARKET_DETAIL_WATCHLIST_SIDEBAR_DOCK_MIN_WIDTH =
   MARKET_DETAIL_WATCHLIST_SIDEBAR_WIDTH + MARKET_DETAIL_NARROWEST_CONTENT_WIDTH;
+
+// Opening slides the sidebar in from the left (a transform, on the 200ms
+// `fast` preset) in both modes; closing is instant. Animating the docked
+// column's width instead relaid the chart out every frame.
+const SLIDE_TRANSITION = 'fast';
+const SLIDE_ANIMATE_ONLY: string[] = ['transform'];
+const DOCKED_ENTER_STYLE = { x: -MARKET_DETAIL_WATCHLIST_SIDEBAR_WIDTH };
+// The overlay starts fully out of view, its shadow included.
+const OVERLAY_ENTER_STYLE = {
+  x: -(MARKET_DETAIL_WATCHLIST_SIDEBAR_WIDTH + 32),
+};
 
 export function MarketDetailWatchlistSidebarFrame({
   hidden,
@@ -90,14 +101,29 @@ export function MarketDetailWatchlistSidebarFrame({
     [close, isOpen, mode, setOpen],
   );
 
+  // A docked sidebar that is already open when the page appears shows in
+  // place; only a later open slides it in.
+  const hasMountedRef = useRef(false);
+  useEffect(() => {
+    hasMountedRef.current = true;
+  }, []);
+  const animateEnter = hasMountedRef.current;
+
   const showDocked = !hidden && mode === 'docked' && isOpen;
   const showOverlay = !hidden && mode === 'overlay' && isOpen;
 
   return (
     <MarketDetailWatchlistSidebarContext.Provider value={contextValue}>
-      <XStack flex={1} minWidth={0} onLayout={handleLayout}>
+      {/* Clips the sidebar while it slides, so it never draws over the app's
+          own navigation to the left. */}
+      <XStack flex={1} minWidth={0} overflow="hidden" onLayout={handleLayout}>
         {showDocked ? (
-          <Stack testID="market-detail-watchlist-sidebar-docked">
+          <Stack
+            testID="market-detail-watchlist-sidebar-docked"
+            transition={SLIDE_TRANSITION}
+            animateOnly={SLIDE_ANIMATE_ONLY}
+            enterStyle={animateEnter ? DOCKED_ENTER_STYLE : undefined}
+          >
             <MarketDetailWatchlistSidebar onClose={close} />
           </Stack>
         ) : null}
@@ -113,6 +139,9 @@ export function MarketDetailWatchlistSidebarFrame({
               top={0}
               bottom={0}
               zIndex={10}
+              transition={SLIDE_TRANSITION}
+              animateOnly={SLIDE_ANIMATE_ONLY}
+              enterStyle={OVERLAY_ENTER_STYLE}
             >
               <MarketDetailWatchlistSidebar
                 elevated
