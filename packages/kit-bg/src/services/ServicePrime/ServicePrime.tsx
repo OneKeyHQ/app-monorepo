@@ -6379,6 +6379,55 @@ class ServicePrime extends ServiceBase {
     });
   }
 
+  @backgroundMethod()
+  @toastIfError()
+  async apiRemovePrimeForTest(
+    params: IBackgroundMethodWithDevOnlyPassword,
+    { expectedOneKeyUserId }: { expectedOneKeyUserId: string },
+  ): Promise<void> {
+    checkDevOnlyPassword(params, 'apiRemovePrimeForTest');
+    const devSettings = await devSettingsPersistAtom.get();
+    if (!devSettings.enabled) {
+      throw new OneKeyLocalError('Developer mode is required');
+    }
+    const createStateChangedError = () =>
+      new OneKeyLocalError('OneKey ID changed; reopen the confirmation');
+    const snapshot = await this.captureOneKeyIdAuthSnapshot({
+      expectedOneKeyUserId,
+      createStateChangedError,
+    });
+    const client = await this.getPrimeClient();
+    await this.assertOneKeyIdAuthSnapshot({
+      snapshot,
+      createStateChangedError,
+    });
+    // The server enforces the test environment and email allowlist. Use the
+    // configured Prime client so authentication and API errors stay standard.
+    await client.post(
+      '/prime/v1/user/test/remove-prime',
+      undefined,
+      this.getOneKeyIdAuthSnapshotRequestConfig(snapshot),
+    );
+    this.clearPrimeUserInfoCache();
+    await this.assertOneKeyIdAuthSnapshot({
+      snapshot,
+      createStateChangedError,
+    });
+    const { serverUserInfo, primeSubscription } =
+      await this.apiFetchPrimeUserInfo({
+        forceRefresh: true,
+      });
+    await this.assertOneKeyIdAuthSnapshot({
+      snapshot,
+      createStateChangedError,
+    });
+    if (!serverUserInfo || primeSubscription?.isActive) {
+      throw new OneKeyLocalError(
+        'Removal requested, but Prime removal could not be confirmed. Refresh the account and try again.',
+      );
+    }
+  }
+
   // Intentionally @backgroundMethod() and not @backgroundMethodForDev(): this
   // entry is reachable from a production build, so a dev-only decorator would
   // be a wrong description of it. Its password wrapper also only guards the

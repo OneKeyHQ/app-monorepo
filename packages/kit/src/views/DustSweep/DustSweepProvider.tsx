@@ -7,7 +7,7 @@ import {
   useRef,
   useState,
 } from 'react';
-import type { PropsWithChildren } from 'react';
+import type { Dispatch, PropsWithChildren, SetStateAction } from 'react';
 
 import BigNumber from 'bignumber.js';
 
@@ -20,36 +20,32 @@ import type {
   IDustSweepRouteParams,
   IDustSweepSnapshot,
   IDustSweepThreshold,
+  IDustSweepToken,
 } from '@onekeyhq/shared/types/swap/dustSweep';
 import type { ISwapProviderInfo } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 
-import { useDustSweepPreview } from './hooks/useDustSweepPreview';
+import {
+  getDustSweepNetworkOwner,
+  useDustSweepReconciliation,
+} from './hooks/useDustSweepReconciliation';
 import { useDustSweepSession } from './hooks/useDustSweepSession';
-import { filterDustSweepCandidates } from './utils/candidates';
+import {
+  DUST_SWEEP_THRESHOLDS,
+  filterDustSweepCandidates,
+  isDustSweepBelowGasThreshold,
+} from './utils/candidates';
 import { loadDustSweepNetworks } from './utils/loadNetworks';
+
+import type { IDustSweepState } from './stateMachine';
+
+// Added below-gas tokens are listed but left for the user to tick.
+function isDefaultSelected(token: IDustSweepToken) {
+  return !token.suspicious && !isDustSweepBelowGasThreshold(token);
+}
 
 function useDustSweepController(params: IDustSweepRouteParams) {
   const isFocused = useRouteIsFocused();
   const [preferences, setPreferences] = useDustSweepPreferencesPersistAtom();
-  const [networks, setNetworks] = useState<IDustSweepNetwork[]>([]);
-  const [loadStatus, setLoadStatus] = useState<'loading' | 'ready' | 'error'>(
-    'loading',
-  );
-  const [partialError, setPartialError] = useState(false);
-  const [refresh, setRefresh] = useState(0);
-  const [networkId, setNetworkId] = useState(params.networkId);
-  const [networksWithHidden, setNetworksWithHidden] = useState<Set<string>>(
-    () => new Set(),
-  );
-  const [selection, setSelection] = useState<Set<string>>();
-  const [slippage, setSlippage] = useState(5);
-  const [previewRevision, setPreviewRevision] = useState(0);
-  const visited = useRef(false);
-  const firstVisit = useRef(true);
-  const hiddenReported = useRef(false);
-  const session = useDustSweepSession(networks);
-  const { reset: resetSession, start: startSession } = session;
-  const selecting = session.state.phase === 'selecting';
   const loadParams = useMemo(
     () => ({
       walletId: params.walletId,
@@ -66,65 +62,223 @@ function useDustSweepController(params: IDustSweepRouteParams) {
       params.walletId,
     ],
   );
-  const [providerMetadata, setProviderMetadata] = useState<{
-    loadParams: typeof loadParams;
-    refresh: number;
-    info?: ISwapProviderInfo;
+  const [networkState, setNetworkState] = useState<{
+    scope: typeof loadParams;
+    networks: IDustSweepNetwork[];
   }>();
-  // Invalidate during render so a new account cannot briefly display the
-  // previous load's provider before the effect starts its replacement request.
-  const providerInfo =
-    providerMetadata?.loadParams === loadParams &&
-    providerMetadata.refresh === refresh &&
-    loadStatus === 'ready'
-      ? providerMetadata.info
+  const networks = useMemo(
+    () => (networkState?.scope === loadParams ? networkState.networks : []),
+    [networkState, loadParams],
+  );
+  const setNetworks: Dispatch<SetStateAction<IDustSweepNetwork[]>> =
+    useCallback(
+      (update) => {
+        setNetworkState((previous) => {
+          const current =
+            previous?.scope === loadParams ? previous.networks : [];
+          return {
+            scope: loadParams,
+            networks: typeof update === 'function' ? update(current) : update,
+          };
+        });
+      },
+      [loadParams],
+    );
+  const [refresh, setRefresh] = useState(0);
+  const [loadState, setLoadState] = useState<{
+    scope: typeof loadParams;
+    refresh: number;
+    status: 'refreshing' | 'idle' | 'error';
+    partialError: boolean;
+    freshOwners: Set<string>;
+    providerInfo?: ISwapProviderInfo;
+  }>();
+  const currentLoad =
+    loadState?.scope === loadParams && loadState.refresh === refresh
+      ? loadState
       : undefined;
+  const refreshStatus = currentLoad?.status ?? 'refreshing';
+  let loadStatus: 'loading' | 'ready' | 'error' = 'loading';
+  if (networks.length || refreshStatus === 'idle') loadStatus = 'ready';
+  else if (refreshStatus === 'error') loadStatus = 'error';
+  const partialError = refreshStatus === 'error' || !!currentLoad?.partialError;
+  const providerInfo = currentLoad?.providerInfo;
+  const fullLoadPending = useRef(true);
+  const [networkId, setNetworkId] = useState(params.networkId);
+  const networkChoiceScope = useRef<typeof loadParams | undefined>(undefined);
+  // Add anyway applies to every network until the user leaves Dust Sweep.
+  const [includeHidden, setIncludeHidden] = useState(false);
+  const [selectionState, setSelection] = useState<{
+    scope: IDustSweepRouteParams;
+    keys: Set<string>;
+  }>();
+  const [slippage, setSlippage] = useState(5);
+  const visited = useRef(false);
+  const firstVisit = useRef(true);
+  const session = useDustSweepSession(networks);
+  const {
+    reset: resetSession,
+    start: startSession,
+    stop: stopSession,
+  } = session;
+  const selecting = session.state.phase === 'selecting';
+  const canSelectNetwork = selecting || session.state.phase === 'completed';
+  const selection =
+    selectionState?.scope === loadParams ? selectionState.keys : undefined;
+  const activeLoadParams = useRef(loadParams);
+  activeLoadParams.current = loadParams;
+  const executionScope = useRef<typeof loadParams | undefined>(undefined);
+  const reconciliation = useDustSweepReconciliation({
+    params: loadParams,
+    networks,
+    setNetworks,
+  });
+  const {
+    markFullLoadReady,
+    reconcile,
+    refresh: refreshAssets,
+  } = reconciliation;
+  useEffect(() => {
+    if (executionScope.current === loadParams) reconcile(session.state);
+  }, [loadParams, reconcile, session.state]);
   useEffect(() => {
     const controller = new AbortController();
-    setLoadStatus('loading');
-    setProviderMetadata(undefined);
-    void loadDustSweepNetworks(loadParams, controller.signal)
+    fullLoadPending.current = true;
+    setLoadState({
+      scope: loadParams,
+      refresh,
+      status: 'refreshing',
+      partialError: false,
+      freshOwners: new Set(),
+    });
+    let freshSettled = false;
+    const isCurrent = () =>
+      !controller.signal.aborted && activeLoadParams.current === loadParams;
+    void loadDustSweepNetworks(loadParams, controller.signal, (cached) => {
+      if (!isCurrent() || freshSettled) return;
+      // A retry retains the displayed snapshot and user choices. Its cache
+      // must not roll back a live or post-transaction asset reconciliation.
+      setNetworks((previous) => (previous.length ? previous : cached));
+    })
       .then((result) => {
-        if (controller.signal.aborted) return;
-        setNetworks(result.networks);
-        setProviderMetadata({ loadParams, refresh, info: result.providerInfo });
-        setPartialError(result.partialError);
-        setLoadStatus('ready');
+        freshSettled = true;
+        if (!isCurrent()) return;
+        setNetworks((previous) => [
+          ...result.networks,
+          ...previous.filter((entry) =>
+            result.failedNetworkIds?.includes(entry.network.networkId),
+          ),
+        ]);
+        markFullLoadReady(result.networks);
+        setLoadState({
+          scope: loadParams,
+          refresh,
+          status: 'idle',
+          partialError: result.partialError,
+          freshOwners: new Set(result.networks.map(getDustSweepNetworkOwner)),
+          providerInfo: result.providerInfo,
+        });
       })
       .catch(() => {
-        if (!controller.signal.aborted) setLoadStatus('error');
+        freshSettled = true;
+        if (isCurrent())
+          setLoadState({
+            scope: loadParams,
+            refresh,
+            status: 'error',
+            partialError: true,
+            freshOwners: new Set(),
+          });
+      })
+      .finally(() => {
+        if (isCurrent()) fullLoadPending.current = false;
       });
     return () => controller.abort();
-  }, [loadParams, refresh]);
-  const orderedNetworks = useMemo(
+  }, [loadParams, markFullLoadReady, refresh, setNetworks]);
+  // Network pickers hide chains with a $0.00 balance or nothing to sweep under
+  // the largest threshold preset. The list deliberately stays the same when the
+  // threshold changes (product decision); a network with nothing under the
+  // selected threshold shows the empty state. An explicitly requested network
+  // still resolves below and shows its empty state.
+  const selectableNetworks = useMemo(() => {
+    const maxThreshold = Math.max(...DUST_SWEEP_THRESHOLDS);
+    return networks.filter(
+      (entry) =>
+        entry.tokens.some((token) =>
+          new BigNumber(token.valueUsd).lt(maxThreshold),
+        ) && new BigNumber(entry.balanceUsd).decimalPlaces(2).gt(0),
+    );
+  }, [networks]);
+  // Pickers list chains by the displayed network balance.
+  const visibleNetworks = useMemo(
     () =>
-      networks
-        .map((entry) => ({
-          ...entry,
-          valueUsd: entry.tokens
-            .filter((token) =>
-              new BigNumber(token.valueUsd).lt(preferences.threshold),
-            )
-            .reduce((sum, token) => sum.plus(token.valueUsd), new BigNumber(0))
-            .toFixed(),
-        }))
-        .toSorted(
-          (a, b) => new BigNumber(b.valueUsd).comparedTo(a.valueUsd) ?? 0,
-        ),
-    [networks, preferences.threshold],
+      selectableNetworks.toSorted(
+        (a, b) => new BigNumber(b.balanceUsd).comparedTo(a.balanceUsd) ?? 0,
+      ),
+    [selectableNetworks],
   );
-  const current =
-    orderedNetworks.find((entry) => entry.network.networkId === networkId) ??
-    (selecting ? orderedNetworks[0] : undefined);
+  // The default selection is the chain with the most dust under the current
+  // threshold; ties keep the loaded order.
+  const defaultNetwork = useMemo(() => {
+    let best: IDustSweepNetwork | undefined;
+    let bestDustUsd = new BigNumber(-1);
+    // Only picker-eligible networks can be chosen automatically; when none
+    // qualify, nothing is selected and the empty state shows.
+    for (const entry of selectableNetworks) {
+      const dustUsd = entry.tokens
+        .filter((token) =>
+          new BigNumber(token.valueUsd).lt(preferences.threshold),
+        )
+        .reduce((sum, token) => sum.plus(token.valueUsd), new BigNumber(0));
+      if (dustUsd.gt(bestDustUsd)) {
+        best = entry;
+        bestDustUsd = dustUsd;
+      }
+    }
+    return best;
+  }, [selectableNetworks, preferences.threshold]);
+  const chosenNetwork = networks.find(
+    (entry) => entry.network.networkId === networkId,
+  );
+  // A provisional cache default must not pin an empty chain after refresh.
+  // Explicit user/route choices and execution keep their selected network.
+  const keepChosenNetwork =
+    chosenNetwork &&
+    (!selecting ||
+      !!params.networkId ||
+      networkChoiceScope.current === loadParams ||
+      selectableNetworks.includes(chosenNetwork));
+  let current = selecting ? defaultNetwork : undefined;
+  if (keepChosenNetwork) current = chosenNetwork;
+  // An explicitly requested network stays visible (first) in the picker while
+  // it is selected, even when the rules above would hide it.
+  const pickerNetworks = useMemo(
+    () =>
+      current && !visibleNetworks.includes(current)
+        ? [current, ...visibleNetworks]
+        : visibleNetworks,
+    [current, visibleNetworks],
+  );
   const currentNetworkId = current?.network.networkId;
-  const includeHidden =
-    !!currentNetworkId && networksWithHidden.has(currentNetworkId);
+  const currentReconciliation = current
+    ? reconciliation.entries[getDustSweepNetworkOwner(current)]
+    : undefined;
+  const hasFreshAssets =
+    !!current &&
+    !!currentLoad?.freshOwners.has(getDustSweepNetworkOwner(current));
+  let assetStatus: 'refreshing' | 'ready' | 'error' =
+    currentReconciliation?.status ?? 'ready';
+  if (!hasFreshAssets && (current || refreshStatus !== 'idle')) {
+    assetStatus = refreshStatus === 'refreshing' ? 'refreshing' : 'error';
+  }
+  const assetsReady =
+    hasFreshAssets && assetStatus === 'ready' && refreshStatus === 'idle';
+  const sweptKeys = currentReconciliation?.sweptKeys;
   useEffect(() => {
     if (!selecting || !currentNetworkId || currentNetworkId === networkId)
       return;
     setNetworkId(currentNetworkId);
     setSelection(undefined);
-    hiddenReported.current = false;
   }, [currentNetworkId, networkId, selecting]);
   const { visible, hidden } = useMemo(
     () =>
@@ -135,20 +289,18 @@ function useDustSweepController(params: IDustSweepRouteParams) {
       ),
     [current, preferences.threshold, includeHidden],
   );
-  const selectableHidden = useMemo(
-    () => hidden.filter((token) => !token.suspicious),
-    [hidden],
-  );
   const selected = useMemo(
     () =>
       visible.filter((token) =>
-        selection ? selection.has(token.key) : !token.suspicious,
+        selection
+          ? selection.has(token.key)
+          : isDefaultSelected(token) && !sweptKeys?.has(token.key),
       ),
-    [visible, selection],
+    [visible, selection, sweptKeys],
   );
   const snapshot = useMemo<IDustSweepSnapshot | undefined>(
     () =>
-      current && selecting
+      current && selecting && assetsReady
         ? {
             id: `${current.accountId}:${current.address}:${current.network.networkId}:${slippage}:${current.denySingleSwapProvider ?? ''}:${selected.map((token) => `${token.key}=${token.amount}`).join('|')}`,
             accountId: current.accountId,
@@ -161,24 +313,16 @@ function useDustSweepController(params: IDustSweepRouteParams) {
             denySingleSwapProvider: current.denySingleSwapProvider,
           }
         : undefined,
-    [current, selecting, slippage, selected],
+    [current, selecting, assetsReady, slippage, selected],
   );
-  const preview = useDustSweepPreview(snapshot, {
-    enabled: selecting && isFocused && loadStatus === 'ready',
-    revision: previewRevision,
-  });
-  const canStart =
-    selecting &&
-    isFocused &&
-    loadStatus === 'ready' &&
-    (preview.status === 'ready' || preview.status === 'partial') &&
-    preview.quotedCount > 0;
-  const quotedValueUsd = selected
-    .filter((token) => preview.availableKeys.includes(token.key))
+  // Nothing is quoted while selecting: every selected token is submitted and
+  // quoted on its own turn, and one without a quote is skipped then.
+  const canStart = selecting && isFocused && assetsReady && selected.length > 0;
+  const selectedValueUsd = selected
     .reduce((sum, token) => sum.plus(token.valueUsd), new BigNumber(0))
     .toFixed();
   useEffect(() => {
-    if (loadStatus !== 'ready' || visited.current) return;
+    if (refreshStatus !== 'idle' || visited.current) return;
     visited.current = true;
     defaultLogger.dex.dustSweep.dustSweepPageVisited({
       page: 'select',
@@ -187,43 +331,46 @@ function useDustSweepController(params: IDustSweepRouteParams) {
       hiddenTokenCount: hidden.length,
     });
     firstVisit.current = false;
-  }, [loadStatus, params.entry, visible.length, hidden.length]);
+  }, [refreshStatus, params.entry, visible.length, hidden.length]);
   const selectNetwork = useCallback(
     (id: string) => {
-      if (!selecting) return;
+      if (!canSelectNetwork) return;
+      if (!selecting) resetSession();
+      networkChoiceScope.current = loadParams;
       setNetworkId(id);
       setSelection(undefined);
-      hiddenReported.current = false;
     },
-    [selecting],
+    [canSelectNetwork, resetSession, selecting, loadParams],
   );
   const selectThreshold = useCallback(
     (threshold: IDustSweepThreshold) => {
       if (!selecting) return;
+      networkChoiceScope.current = loadParams;
       setPreferences((value) => ({ ...value, threshold }));
       setSelection(undefined);
     },
-    [selecting, setPreferences],
+    [selecting, setPreferences, loadParams],
   );
   const toggle = useCallback(
     (key: string) => {
       if (!selecting) return;
+      networkChoiceScope.current = loadParams;
       setSelection((value) => {
+        const currentSelection =
+          value?.scope === loadParams ? value.keys : undefined;
         const next = new Set(
-          value ??
-            visible
-              .filter((token) => !token.suspicious)
-              .map((token) => token.key),
+          currentSelection ?? selected.map((token) => token.key),
         );
         if (next.has(key)) next.delete(key);
         else next.add(key);
-        return next;
+        return { scope: loadParams, keys: next };
       });
     },
-    [selecting, visible],
+    [selecting, selected, loadParams],
   );
   const toggleAll = useCallback(() => {
     if (!selecting) return;
+    networkChoiceScope.current = loadParams;
     const selectableKeys = visible
       .filter((token) => !token.suspicious)
       .map((token) => token.key);
@@ -236,79 +383,97 @@ function useDustSweepController(params: IDustSweepRouteParams) {
     } else {
       selectableKeys.forEach((key) => selectedKeys.add(key));
     }
-    setSelection(selectedKeys);
-  }, [selecting, selected, visible]);
+    setSelection({ scope: loadParams, keys: selectedKeys });
+  }, [selecting, selected, visible, loadParams]);
   const addHidden = useCallback(() => {
-    if (!selecting || includeHidden || !currentNetworkId) return;
-    setSelection(
-      new Set([...selected, ...selectableHidden].map((token) => token.key)),
-    );
-    setNetworksWithHidden((value) => new Set(value).add(currentNetworkId));
-    if (!hiddenReported.current) {
-      hiddenReported.current = true;
-      defaultLogger.dex.dustSweep.dustSweepAddHidden({
-        hiddenCount: hidden.length,
+    if (!selecting || includeHidden) return;
+    networkChoiceScope.current = loadParams;
+    setIncludeHidden(true);
+    defaultLogger.dex.dustSweep.dustSweepAddHidden({
+      hiddenCount: hidden.length,
+    });
+  }, [selecting, includeHidden, hidden.length, loadParams]);
+  // Keep unconverted choices even if the balance index still lists spent tokens.
+  const retainUnconvertedSelection = useCallback(
+    (batch: IDustSweepState) => {
+      if (executionScope.current !== loadParams) {
+        setSelection(undefined);
+        return;
+      }
+      setSelection({
+        scope: loadParams,
+        keys: new Set(
+          batch.items
+            .filter((item) => item.status !== 'success')
+            .map((item) => item.token.key),
+        ),
       });
-    }
-  }, [
-    selecting,
-    includeHidden,
-    currentNetworkId,
-    selected,
-    selectableHidden,
-    hidden.length,
-  ]);
+      visited.current = false;
+    },
+    [loadParams],
+  );
   const sweepAgain = useCallback(() => {
-    if (
-      session.state.phase !== 'completed' &&
-      session.state.phase !== 'selecting'
-    )
-      return;
+    if (session.state.phase !== 'completed') return;
+    retainUnconvertedSelection(session.state);
     resetSession();
-    setSelection(undefined);
-    setNetworksWithHidden(new Set());
-    hiddenReported.current = false;
-    setRefresh((value) => value + 1);
-    setNetworks([]);
-    setLoadStatus('loading');
-    visited.current = false;
-  }, [resetSession, session.state.phase]);
+  }, [resetSession, retainUnconvertedSelection, session.state]);
+  const stop = useCallback(async () => {
+    await stopSession((batch) => {
+      if (
+        activeLoadParams.current !== loadParams ||
+        executionScope.current !== loadParams
+      )
+        return;
+      reconcile(batch, { isStopped: true });
+      retainUnconvertedSelection(batch);
+    });
+  }, [loadParams, reconcile, retainUnconvertedSelection, stopSession]);
   const start = useCallback(() => {
-    if (snapshot && canStart)
-      return startSession(snapshot, preview.unavailable);
-    return undefined;
-  }, [snapshot, canStart, preview.unavailable, startSession]);
-  const retryPreview = useCallback(() => {
-    if (
-      selecting &&
-      isFocused &&
-      selected.length &&
-      loadStatus === 'ready' &&
-      preview.status !== 'loading' &&
-      preview.status !== 'refreshing'
-    )
-      setPreviewRevision((value) => value + 1);
-  }, [selecting, isFocused, selected.length, loadStatus, preview.status]);
+    if (!snapshot || !canStart || fullLoadPending.current) return undefined;
+    executionScope.current = loadParams;
+    networkChoiceScope.current = loadParams;
+    setSelection({
+      scope: loadParams,
+      keys: new Set(snapshot.tokens.map((token) => token.key)),
+    });
+    return startSession(snapshot);
+  }, [snapshot, canStart, loadParams, startSession]);
+  const retry = useCallback(() => {
+    if (selecting && !reconciliation.isRefreshing()) {
+      // Claim before React renders so a same-event local retry cannot race it.
+      fullLoadPending.current = true;
+      setRefresh((value) => value + 1);
+    }
+  }, [selecting, reconciliation]);
+  const retryAssets = useCallback(() => {
+    if (!selecting || assetStatus !== 'error' || fullLoadPending.current)
+      return;
+    if (hasFreshAssets && current) refreshAssets(current);
+    else retry();
+  }, [selecting, current, assetStatus, hasFreshAssets, refreshAssets, retry]);
   return {
     params,
-    networks: orderedNetworks,
+    networks: pickerNetworks,
     current,
     visible,
     hidden,
     selected,
     includeHidden,
-    quotedValueUsd,
+    selectedValueUsd,
     canStart,
     isFocused,
     loadStatus,
+    refreshStatus,
+    assetStatus,
+    retryAssets,
     partialError,
     providerInfo,
     threshold: preferences.threshold,
     slippage,
     setSlippage,
-    preview,
     session,
     selecting,
+    canSelectNetwork,
     toggle,
     toggleAll,
     addHidden,
@@ -316,10 +481,9 @@ function useDustSweepController(params: IDustSweepRouteParams) {
     selectThreshold,
     start,
     sweepAgain,
-    retry: () => {
-      if (selecting) setRefresh((value) => value + 1);
-    },
-    retryPreview,
+    stop,
+    stopping: session.stopping,
+    retry,
   };
 }
 

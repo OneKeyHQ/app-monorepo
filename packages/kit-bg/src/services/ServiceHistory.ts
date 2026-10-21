@@ -2499,8 +2499,10 @@ class ServiceHistory extends ServiceBase {
           const vault = await vaultFactory.getVault({ networkId, accountId });
           return await vault.getDroppedPendingTxs({ pendingTxs: txs });
         } catch (error) {
+          // Keep account identifiers out of the log; the network is enough
+          // to attribute the failure.
           console.error(
-            `Failed to check dropped pending txs for account ${accountId}:`,
+            `Failed to check dropped pending txs on ${networkId}:`,
             error,
           );
           return [];

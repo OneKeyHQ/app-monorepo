@@ -91,8 +91,9 @@ export interface ILightweightChartConfig {
   priceScaleMinimumWidth?: number;
   priceFormatterType?: ILightweightChartPriceFormatterType;
   compactPriceMaxCharacters?: number;
-  // Stock detail axis. Prices at or above $1 keep two decimals (`$341.70`).
-  priceScaleFormat?: 'stock';
+  // `stock`: prices at or above $1 keep two decimals (`$341.70`).
+  // `full`: $1 to $1M print in full (`$2,377.04`, whole-dollar ticks `$2,540`).
+  priceScaleFormat?: 'stock' | 'full';
   priceFormatterPrecision?: number;
   priceFormatterTickStep?: number;
   fontSize?: number;
@@ -158,8 +159,9 @@ export interface ILightweightChartProps {
   // Native WebView only. Custom formatter functions cannot cross the WebView
   // boundary, so callers can opt into a serializable percent precision.
   compactPriceMaxCharacters?: number;
-  // Stock detail axis. Prices at or above $1 keep two decimals (`$341.70`).
-  priceScaleFormat?: 'stock';
+  // `stock`: prices at or above $1 keep two decimals (`$341.70`).
+  // `full`: $1 to $1M print in full (`$2,377.04`, whole-dollar ticks `$2,540`).
+  priceScaleFormat?: 'stock' | 'full';
   priceFormatterPrecision?: number;
   priceFormatterTickStep?: number;
   fontSize?: number;

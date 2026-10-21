@@ -5,6 +5,7 @@ import { useIntl } from 'react-intl';
 import {
   Button,
   Dialog,
+  Divider,
   Icon,
   IconButton,
   Popover,
@@ -14,7 +15,10 @@ import {
   YStack,
   useMedia,
 } from '@onekeyhq/components';
-import { SlippageInput } from '@onekeyhq/kit/src/components/SlippageSettingDialog';
+import {
+  SLIPPAGE_INPUT_FOCUS_BORDER_COLOR,
+  SlippageInput,
+} from '@onekeyhq/kit/src/components/SlippageSettingDialog';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
@@ -24,7 +28,14 @@ import {
 import { ESwapSlippageSegmentKey } from '@onekeyhq/shared/types/swap/types';
 
 import { useDustSweep } from '../DustSweepProvider';
-import { isValidDustSweepSlippage } from '../utils/candidates';
+import { getDustSweepSlippageNotice } from '../utils/candidates';
+
+// Preset cell widths from the Figma slippage popover (150px with 1px dividers).
+const SLIPPAGE_PRESETS = [
+  { value: 5, width: 44 },
+  { value: 10, width: 51 },
+  { value: 20, width: 53 },
+];
 
 function SlippageEditor({
   initialValue,
@@ -39,19 +50,21 @@ function SlippageEditor({
 }) {
   const intl = useIntl();
   const [draft, setDraft] = useState(initialValue.toString());
-  const valid = isValidDustSweepSlippage(draft);
+  const [inputFocused, setInputFocused] = useState(false);
   const inputHeight = mobile ? 44 : 38;
+  const notice = getDustSweepSlippageNotice(draft);
+  const valid = notice !== 'invalid';
   let message: string | undefined;
-  if (!valid) {
+  if (notice === 'invalid') {
     message = intl.formatMessage({
       id: ETranslations.slippage_tolerance_error_message,
     });
-  } else if (Number(draft) <= swapSlippageWillFailMinValue) {
+  } else if (notice === 'tooLow') {
     message = intl.formatMessage(
       { id: ETranslations.slippage_tolerance_warning_message_2 },
       { number: swapSlippageWillFailMinValue },
     );
-  } else if (Number(draft) >= swapSlippageWillAheadMinValue) {
+  } else if (notice === 'tooHigh') {
     message = intl.formatMessage(
       { id: ETranslations.slippage_tolerance_warning_message_1 },
       { number: swapSlippageWillAheadMinValue },
@@ -110,28 +123,50 @@ function SlippageEditor({
             autoFocus: true,
             size: mobile ? 'large' : 'medium',
             height: inputHeight,
-            containerProps: { flex: 1, minWidth: 0, height: inputHeight },
+            onFocus: () => setInputFocused(true),
+            onBlur: () => setInputFocused(false),
+            // Same input styling as the Swap review slippage editor.
+            containerProps: {
+              flex: 1,
+              minWidth: 0,
+              height: inputHeight,
+              borderRadius: '$3',
+              bg: '$bgStrong',
+              borderColor: inputFocused
+                ? SLIPPAGE_INPUT_FOCUS_BORDER_COLOR
+                : '$borderStrong',
+              borderWidth: inputFocused ? 1.5 : '$px',
+            },
           }}
         />
-        <XStack width={150} bg="$bgStrong" borderRadius="$3" overflow="hidden">
-          {[5, 10, 20].map((value, index) => (
-            <Button
-              testID={`dust-sweep-slippage-${value}`}
-              key={value}
-              flex={1}
-              height={inputHeight}
-              minHeight={inputHeight}
-              borderRadius={0}
-              variant="tertiary"
-              mx={0}
-              my={0}
-              borderLeftWidth={index ? 1 : 0}
-              borderColor="$borderSubdued"
-              px={0}
-              onPress={() => setDraft(value.toString())}
-            >
-              {value}%
-            </Button>
+        {/* Same preset row pattern as the Swap review slippage editor. */}
+        <XStack height={inputHeight}>
+          {SLIPPAGE_PRESETS.map(({ value, width }, index) => (
+            <XStack key={value}>
+              {index ? <Divider vertical /> : null}
+              <Button
+                testID={`dust-sweep-slippage-${value}`}
+                variant="secondary"
+                width={width}
+                height={inputHeight}
+                minHeight={inputHeight}
+                px={0}
+                mx={0}
+                my={0}
+                borderTopLeftRadius={index === 0 ? '$3' : 0}
+                borderBottomLeftRadius={index === 0 ? '$3' : 0}
+                borderTopRightRadius={
+                  index === SLIPPAGE_PRESETS.length - 1 ? '$3' : 0
+                }
+                borderBottomRightRadius={
+                  index === SLIPPAGE_PRESETS.length - 1 ? '$3' : 0
+                }
+                childrenAsText={false}
+                onPress={() => setDraft(value.toString())}
+              >
+                <SizableText size="$bodyMd">{`${value}%`}</SizableText>
+              </Button>
+            </XStack>
           ))}
         </XStack>
       </XStack>
@@ -151,6 +186,9 @@ function SlippageEditor({
         variant="primary"
         height={mobile ? 50 : 38}
         minHeight={mobile ? 50 : 38}
+        // Desktop popover uses the 8px radius from the Figma design. Passing
+        // borderRadius={undefined} would drop the default pill radius on mobile.
+        {...(!mobile && { borderRadius: '$2' })}
         disabled={!valid}
         onPress={() => onConfirm(Number(draft))}
       >
@@ -197,7 +235,11 @@ export function DustSweepSlippage() {
       mx={0}
       my={0}
       size="small"
-      p={0}
+      childrenAsText={false}
+      py={0}
+      pl="$1.5"
+      // The chevron's view box already supplies the trailing visual inset.
+      pr={0}
       height={20}
       minHeight={20}
       onPress={mobile ? openEditor : undefined}

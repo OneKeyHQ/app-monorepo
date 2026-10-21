@@ -3,18 +3,28 @@ import { useIntl } from 'react-intl';
 import {
   Button,
   Checkbox,
+  Illustration,
   ScrollView,
   SizableText,
+  Stack,
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import { SWAP_DESKTOP_CARD_SHADOW_WEB_STYLE } from '@onekeyhq/kit/src/views/Swap/utils/swapDesktopCardShadow';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { useDustSweep } from '../DustSweepProvider';
 import { getDustSweepHiddenThreshold } from '../utils/candidates';
 
 import { DustSweepFilters } from './DustSweepFilters';
+import { DUST_SWEEP_ACTION_HEIGHT } from './DustSweepSummary';
 import { DustSweepTokenRow } from './DustSweepTokenRow';
+
+// One fixed desktop height for every step (Add anyway, sweeping, result) so
+// the cards never jump; longer lists scroll inside.
+const DUST_SWEEP_DESKTOP_CARD_HEIGHT = 712;
+// The mobile direction circle straddles the list / footer border.
+export const DUST_SWEEP_MOBILE_DIRECTION_SIZE = 36;
 
 export function DustSweepSelection({ desktop }: { desktop: boolean }) {
   const {
@@ -22,22 +32,21 @@ export function DustSweepSelection({ desktop }: { desktop: boolean }) {
     visible,
     hidden,
     selected,
-    includeHidden,
     selecting,
     session,
     loadStatus,
+    refreshStatus,
+    assetStatus,
     partialError,
     toggle,
     toggleAll,
     addHidden,
     retry,
-    preview,
   } = useDustSweep();
   const intl = useIntl();
   const rows = selecting
     ? visible
     : session.state.items.map((item) => item.token);
-  const desktopCardHeight = includeHidden ? 712 : 592;
   const selectableVisibleCount = visible.filter(
     (token) => !token.suspicious,
   ).length;
@@ -48,7 +57,59 @@ export function DustSweepSelection({ desktop }: { desktop: boolean }) {
     selectedVisibleCount === selectableVisibleCount && !!selectableVisibleCount;
   if (selectedVisibleCount > 0 && selectedVisibleCount < selectableVisibleCount)
     selectAllValue = 'indeterminate';
-  const loading = selecting && loadStatus === 'loading';
+  const loading =
+    selecting &&
+    !rows.length &&
+    (loadStatus === 'loading' ||
+      refreshStatus === 'refreshing' ||
+      assetStatus === 'refreshing');
+  const hiddenRow =
+    selecting && !loading && hidden.length ? (
+      <XStack
+        testID="dust-sweep-hidden"
+        px="$5"
+        gap="$3"
+        alignItems="center"
+        // Desktop pins the row to the card bottom, centered on the same line as
+        // the summary card's action button (which sits 20px above the edge).
+        {...(desktop
+          ? { height: DUST_SWEEP_ACTION_HEIGHT, mb: '$5', flexShrink: 0 }
+          : // Mobile pins it above the footer, clear of the direction circle
+            // half that overlaps the list.
+            {
+              minHeight: 60,
+              py: '$2',
+              mb: DUST_SWEEP_MOBILE_DIRECTION_SIZE / 2,
+              flexShrink: 0,
+            })}
+      >
+        <YStack flex={1}>
+          <SizableText size="$bodyLg">
+            {intl.formatMessage(
+              { id: ETranslations.sweep_hidden_tokens_below_amount },
+              {
+                count: hidden.length,
+                amount: `$${getDustSweepHiddenThreshold(current?.network.networkId ?? '')}`,
+              },
+            )}
+          </SizableText>
+          <SizableText size="$bodySm" color="$textSubdued">
+            {intl.formatMessage({
+              id: ETranslations.sweep_gas_fees_exceed_value,
+            })}
+          </SizableText>
+        </YStack>
+        <Button
+          testID="dust-sweep-add-hidden"
+          size="small"
+          height={30}
+          borderRadius="$full"
+          onPress={addHidden}
+        >
+          {intl.formatMessage({ id: ETranslations.sweep_add_anyway })}
+        </Button>
+      </XStack>
+    ) : null;
   return (
     <YStack
       testID="dust-sweep-list"
@@ -60,11 +121,27 @@ export function DustSweepSelection({ desktop }: { desktop: boolean }) {
             borderWidth: 1,
             borderColor: '$borderSubdued',
             borderRadius: '$5',
-            height: selecting ? desktopCardHeight : 540,
+            // Same halo as the desktop Swap cards.
+            '$platform-web': SWAP_DESKTOP_CARD_SHADOW_WEB_STYLE,
+            height: DUST_SWEEP_DESKTOP_CARD_HEIGHT,
             maxHeight: '100%',
           }
         : {})}
     >
+      {desktop ? (
+        // Mirrors the "You receive" label position in the summary card.
+        <SizableText
+          size="$bodyMd"
+          color="$textSubdued"
+          height={20}
+          px="$5"
+          mt="$5"
+        >
+          {intl.formatMessage({
+            id: ETranslations.wallet_approval_select_tokens,
+          })}
+        </SizableText>
+      ) : null}
       <ScrollView
         flex={1}
         contentContainerStyle={{
@@ -79,20 +156,23 @@ export function DustSweepSelection({ desktop }: { desktop: boolean }) {
             px="$5"
             gap="$3"
             alignItems="center"
-            opacity={selecting ? 1 : 0.4}
+            // While sweeping it keeps its look but can't be changed.
+            cursor={selecting ? undefined : 'not-allowed'}
           >
-            <Checkbox
-              testID="dust-sweep-select-all"
-              value={selectAllValue}
-              width={20}
-              height={20}
-              minHeight={20}
-              flexShrink={0}
-              borderRadius={6}
-              containerProps={{ py: '$1', flexShrink: 0 }}
-              disabled={!selecting || loading || !selectableVisibleCount}
-              onChange={toggleAll}
-            />
+            <Stack pointerEvents={selecting ? 'auto' : 'none'}>
+              <Checkbox
+                testID="dust-sweep-select-all"
+                value={selectAllValue}
+                width={20}
+                height={20}
+                minHeight={20}
+                flexShrink={0}
+                borderRadius={6}
+                containerProps={{ py: '$1', flexShrink: 0 }}
+                disabled={selecting && (loading || !selectableVisibleCount)}
+                onChange={toggleAll}
+              />
+            </Stack>
             <SizableText size="$bodyLgMedium">
               {intl.formatMessage({ id: ETranslations.label_select_all })}
             </SizableText>
@@ -113,9 +193,6 @@ export function DustSweepSelection({ desktop }: { desktop: boolean }) {
                 }
                 selected={selected.some((item) => item.key === token.key)}
                 item={selecting ? undefined : session.state.items[index]}
-                quoteFailure={
-                  selecting ? preview.unavailable[token.key] : undefined
-                }
                 paused={
                   session.state.phase === 'paused'
                     ? session.state.items.findIndex(
@@ -136,13 +213,16 @@ export function DustSweepSelection({ desktop }: { desktop: boolean }) {
             </Button>
           </YStack>
         ) : null}
-        {!loading && loadStatus === 'ready' && !partialError && !rows.length ? (
+        {!loading &&
+        loadStatus === 'ready' &&
+        refreshStatus === 'idle' &&
+        !partialError &&
+        !rows.length ? (
           <YStack height={330} justifyContent="center" px="$10" gap="$1">
+            {/* Same illustration as the wallet's empty token list. */}
+            <Illustration name="QuestionMark" alignSelf="center" mb="$2" />
             <SizableText size="$bodyLgMedium" textAlign="center">
-              {intl.formatMessage(
-                { id: ETranslations.sweep_no_small_balances_on_network },
-                { network: current?.network.name ?? '' },
-              )}
+              {intl.formatMessage({ id: ETranslations.empty_noMatchingTokens })}
             </SizableText>
             <SizableText size="$bodyMd" color="$textSubdued" textAlign="center">
               {intl.formatMessage({
@@ -151,43 +231,8 @@ export function DustSweepSelection({ desktop }: { desktop: boolean }) {
             </SizableText>
           </YStack>
         ) : null}
-        {selecting && !loading && hidden.length ? (
-          <XStack
-            testID="dust-sweep-hidden"
-            minHeight={60}
-            px="$5"
-            py="$2"
-            gap="$3"
-            alignItems="center"
-          >
-            <YStack flex={1}>
-              <SizableText size="$bodyLg">
-                {intl.formatMessage(
-                  { id: ETranslations.sweep_hidden_tokens_below_amount },
-                  {
-                    count: hidden.length,
-                    amount: `$${getDustSweepHiddenThreshold(current?.network.networkId ?? '')}`,
-                  },
-                )}
-              </SizableText>
-              <SizableText size="$bodySm" color="$textSubdued">
-                {intl.formatMessage({
-                  id: ETranslations.sweep_gas_fees_exceed_value,
-                })}
-              </SizableText>
-            </YStack>
-            <Button
-              testID="dust-sweep-add-hidden"
-              size="small"
-              height={30}
-              borderRadius="$full"
-              onPress={addHidden}
-            >
-              {intl.formatMessage({ id: ETranslations.sweep_add_anyway })}
-            </Button>
-          </XStack>
-        ) : null}
       </ScrollView>
+      {hiddenRow}
     </YStack>
   );
 }

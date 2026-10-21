@@ -56,6 +56,9 @@ permissions:
   contents: read
 
 env:
+  # Release artifacts must ship the licensed brand font; fonts-sync fails
+  # instead of falling back to the open-source face.
+  ONEKEY_REQUIRE_PRIVATE_FONTS: '1'
   ONEKEY_ALLOW_SKIP_GPG_VERIFICATION: ${{ github.event.inputs.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION || 'false' }}
   NOTIFY_RELEASE: ${{ github.event.inputs.notify_release || 'false' }}
   UPLOAD_MAS_TO_TESTFLIGHT: ${{ github.event.inputs.upload_mas_to_testflight || 'true' }}
@@ -63,6 +66,14 @@ env:
   SOURCE_REF_NAME: ${{ github.event.inputs.source_ref_name || github.ref_name }}
 
 jobs:
+  # Fetches the licensed brand font without running repository code; build
+  # jobs below restore it from an encrypted artifact.
+  private-fonts:
+    uses: ./.github/workflows/private-fonts.yml
+    secrets:
+      PRIVATE_FONTS_TOKEN: ${{ secrets.PRIVATE_FONTS_TOKEN }}
+      PRIVATE_FONTS_ARTIFACT_KEY: ${{ secrets.PRIVATE_FONTS_ARTIFACT_KEY }}
+
   # ──────────────────────────────────────────────────
   # Stage 1: Build renderer once on ubuntu
   # ──────────────────────────────────────────────────
@@ -74,6 +85,8 @@ jobs:
       source_ref_name: ${{ github.event.inputs.source_ref_name || github.ref_name }}
       ONEKEY_ALLOW_SKIP_GPG_VERIFICATION: ${{ github.event.inputs.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION || 'false' }}
     secrets:
+      PRIVATE_FONTS_TOKEN: ${{ secrets.PRIVATE_FONTS_TOKEN }}
+      PRIVATE_FONTS_ARTIFACT_KEY: ${{ secrets.PRIVATE_FONTS_ARTIFACT_KEY }}
       COVALENT_KEY: ${{ secrets.COVALENT_KEY }}
       SENTRY_TOKEN: ${{ secrets.SENTRY_TOKEN }}
       SENTRY_DSN_REACT_NATIVE: ${{ secrets.SENTRY_DSN_REACT_NATIVE }}
@@ -92,7 +105,7 @@ jobs:
   # macOS runner: Mac DMG + MAS
   # ═══════════════════════════════════════════════════
   package-mac:
-    needs: renderer
+    needs: [renderer, private-fonts]
     runs-on: macos-26
     strategy:
       matrix:
@@ -106,6 +119,43 @@ jobs:
         uses: actions/checkout@v4
         with:
           lfs: true
+
+      # Restore the private brand font fetched by the trusted `private-fonts` job
+      # (no App key here; the artifact key only decrypts fonts). fonts:sync
+# verifies the result against this checkout's brand.lock.json.
+      - name: Restore private fonts
+        if: needs.private-fonts.outputs.artifact != ''
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: ${{ needs.private-fonts.outputs.artifact }}
+          path: ${{ runner.temp }}/private-fonts-artifact
+
+      - name: Decrypt private fonts
+        if: needs.private-fonts.outputs.artifact != ''
+        shell: bash
+        env:
+          FONTS_KEY: ${{ secrets.PRIVATE_FONTS_ARTIFACT_KEY }}
+        run: |
+          set -euo pipefail
+          dir="${RUNNER_TEMP}/onekey-private-fonts"
+          node -e "
+            const crypto = require('crypto');
+            const fs = require('fs');
+            const path = require('path');
+            const [input, dir] = process.argv.slice(1);
+            const blob = fs.readFileSync(input);
+            const decipher = crypto.createDecipheriv('aes-256-gcm', Buffer.from(process.env.FONTS_KEY, 'hex'), blob.subarray(0, 12));
+            decipher.setAuthTag(blob.subarray(12, 28));
+            const bundle = JSON.parse(Buffer.concat([decipher.update(blob.subarray(28)), decipher.final()]).toString());
+            fs.rmSync(dir, { recursive: true, force: true });
+            fs.mkdirSync(dir, { recursive: true });
+            for (const [name, data] of Object.entries(bundle)) {
+              if (!/^[a-z]+\.ttf$/.test(name)) throw new Error('unexpected font entry ' + name);
+              fs.writeFileSync(path.join(dir, name), Buffer.from(data, 'base64'));
+            }
+          " "${RUNNER_TEMP}/private-fonts-artifact/private-fonts.enc" "$dir"
+          rm -rf "${RUNNER_TEMP}/private-fonts-artifact"
+          echo "ONEKEY_PRIVATE_FONTS_DIR=$dir" >> "$GITHUB_ENV"
 
       - name: Run Shared Env Setup
         uses: ./.github/actions/shared-env
@@ -422,7 +472,7 @@ jobs:
   # Windows runner: Win NSIS + WinMS (Microsoft Store)
   # ═══════════════════════════════════════════════════
   package-win:
-    needs: renderer
+    needs: [renderer, private-fonts]
     permissions:
       contents: read
       id-token: write
@@ -446,6 +496,43 @@ jobs:
         uses: actions/checkout@v4
         with:
           lfs: true
+
+      # Restore the private brand font fetched by the trusted `private-fonts` job
+      # (no App key here; the artifact key only decrypts fonts). fonts:sync
+# verifies the result against this checkout's brand.lock.json.
+      - name: Restore private fonts
+        if: needs.private-fonts.outputs.artifact != ''
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: ${{ needs.private-fonts.outputs.artifact }}
+          path: ${{ runner.temp }}/private-fonts-artifact
+
+      - name: Decrypt private fonts
+        if: needs.private-fonts.outputs.artifact != ''
+        shell: bash
+        env:
+          FONTS_KEY: ${{ secrets.PRIVATE_FONTS_ARTIFACT_KEY }}
+        run: |
+          set -euo pipefail
+          dir="${RUNNER_TEMP}/onekey-private-fonts"
+          node -e "
+            const crypto = require('crypto');
+            const fs = require('fs');
+            const path = require('path');
+            const [input, dir] = process.argv.slice(1);
+            const blob = fs.readFileSync(input);
+            const decipher = crypto.createDecipheriv('aes-256-gcm', Buffer.from(process.env.FONTS_KEY, 'hex'), blob.subarray(0, 12));
+            decipher.setAuthTag(blob.subarray(12, 28));
+            const bundle = JSON.parse(Buffer.concat([decipher.update(blob.subarray(28)), decipher.final()]).toString());
+            fs.rmSync(dir, { recursive: true, force: true });
+            fs.mkdirSync(dir, { recursive: true });
+            for (const [name, data] of Object.entries(bundle)) {
+              if (!/^[a-z]+\.ttf$/.test(name)) throw new Error('unexpected font entry ' + name);
+              fs.writeFileSync(path.join(dir, name), Buffer.from(data, 'base64'));
+            }
+          " "${RUNNER_TEMP}/private-fonts-artifact/private-fonts.enc" "$dir"
+          rm -rf "${RUNNER_TEMP}/private-fonts-artifact"
+          echo "ONEKEY_PRIVATE_FONTS_DIR=$dir" >> "$GITHUB_ENV"
 
       - name: Run Shared Env Setup
         uses: ./.github/actions/shared-env
@@ -835,7 +922,7 @@ jobs:
   # Linux runner: AppImage + Snap (amd64 + arm64)
   # ═══════════════════════════════════════════════════
   package-linux:
-    needs: renderer
+    needs: [renderer, private-fonts]
     strategy:
       matrix:
         node-version: [24.x]
@@ -856,6 +943,43 @@ jobs:
         uses: actions/checkout@v4
         with:
           lfs: true
+
+      # Restore the private brand font fetched by the trusted `private-fonts` job
+      # (no App key here; the artifact key only decrypts fonts). fonts:sync
+# verifies the result against this checkout's brand.lock.json.
+      - name: Restore private fonts
+        if: needs.private-fonts.outputs.artifact != ''
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: ${{ needs.private-fonts.outputs.artifact }}
+          path: ${{ runner.temp }}/private-fonts-artifact
+
+      - name: Decrypt private fonts
+        if: needs.private-fonts.outputs.artifact != ''
+        shell: bash
+        env:
+          FONTS_KEY: ${{ secrets.PRIVATE_FONTS_ARTIFACT_KEY }}
+        run: |
+          set -euo pipefail
+          dir="${RUNNER_TEMP}/onekey-private-fonts"
+          node -e "
+            const crypto = require('crypto');
+            const fs = require('fs');
+            const path = require('path');
+            const [input, dir] = process.argv.slice(1);
+            const blob = fs.readFileSync(input);
+            const decipher = crypto.createDecipheriv('aes-256-gcm', Buffer.from(process.env.FONTS_KEY, 'hex'), blob.subarray(0, 12));
+            decipher.setAuthTag(blob.subarray(12, 28));
+            const bundle = JSON.parse(Buffer.concat([decipher.update(blob.subarray(28)), decipher.final()]).toString());
+            fs.rmSync(dir, { recursive: true, force: true });
+            fs.mkdirSync(dir, { recursive: true });
+            for (const [name, data] of Object.entries(bundle)) {
+              if (!/^[a-z]+\.ttf$/.test(name)) throw new Error('unexpected font entry ' + name);
+              fs.writeFileSync(path.join(dir, name), Buffer.from(data, 'base64'));
+            }
+          " "${RUNNER_TEMP}/private-fonts-artifact/private-fonts.enc" "$dir"
+          rm -rf "${RUNNER_TEMP}/private-fonts-artifact"
+          echo "ONEKEY_PRIVATE_FONTS_DIR=$dir" >> "$GITHUB_ENV"
 
       - name: Install dependencies
         run: |
@@ -958,6 +1082,15 @@ jobs:
         run: echo "dir=${{ github.workspace }}/.yarn" >> "$GITHUB_OUTPUT"
 
       - name: Install Dep
+        id: dependencies
+        if: runner.arch == 'X64'
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NODE_OPTIONS: '--max_old_space_size=8192'
+        uses: ./.github/actions/install-dependencies
+
+      - name: Install Dep (ARM64)
+        if: runner.arch != 'X64'
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NODE_OPTIONS: '--max_old_space_size=8192'
@@ -1112,3 +1245,7 @@ jobs:
           [[ "${{ steps.phase2_snap.outcome }}" == "success" && "${{ steps.install_snap_runtime_integrity.outcome }}" != "success" ]] && exit 1
           [[ "${{ steps.phase2_snap.outcome }}" == "success" && "${{ steps.linux_runtime_integrity.outcome }}" != "success" ]] && exit 1
           exit 0
+
+      - name: Unmount dependency image
+        if: always() && runner.arch == 'X64' && steps.dependencies.outcome != 'skipped'
+        run: python3 .github/scripts/ci-dependencies.py cleanup

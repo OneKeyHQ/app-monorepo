@@ -1,44 +1,45 @@
 import { useIntl } from 'react-intl';
 
+import { Button, ScrollView, Skeleton, XStack } from '@onekeyhq/components';
+import { Currency } from '@onekeyhq/kit/src/components/Currency';
 import {
-  Button,
-  ScrollView,
-  SizableText,
-  Skeleton,
-  XStack,
-} from '@onekeyhq/components';
-import { NetworkAvatar } from '@onekeyhq/kit/src/components/NetworkAvatar';
+  NetworkAvatar,
+  NetworkAvatarBase,
+} from '@onekeyhq/kit/src/components/NetworkAvatar';
 import { NetworksFilterItem } from '@onekeyhq/kit/src/components/NetworksFilterItem';
 import useConfigurableChainSelector from '@onekeyhq/kit/src/views/ChainSelector/hooks/useChainSelector';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { useDustSweep } from '../DustSweepProvider';
+import { DUST_SWEEP_THRESHOLDS } from '../utils/candidates';
 
 export function DustSweepNetworks({ desktop = false }: { desktop?: boolean }) {
-  const { networks, current, selecting, selectNetwork, loadStatus } =
+  const { networks, current, canSelectNetwork, selectNetwork, loadStatus } =
     useDustSweep();
   const intl = useIntl();
   const openChainSelector = useConfigurableChainSelector();
   const title = intl.formatMessage({ id: ETranslations.global_select_network });
-  const networkSelectionDisabled = !selecting || !networks.length;
+  const networkSelectionDisabled = !canSelectNetwork || !networks.length;
   if (desktop)
     return (
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
         flexGrow={0}
-        height={32}
-        minHeight={32}
+        height={36}
+        minHeight={36}
+        // While sweeping the chips keep their look but can't be changed.
+        cursor={canSelectNetwork ? undefined : 'not-allowed'}
       >
         <XStack
-          height={32}
+          height={36}
           alignItems="center"
           gap="$2"
-          opacity={selecting ? 1 : 0.4}
+          pointerEvents={canSelectNetwork ? 'auto' : 'none'}
         >
           {loadStatus === 'loading' && !networks.length
             ? [0, 1, 2, 3].map((key) => (
-                <Skeleton key={key} width={136} height={32} radius="round" />
+                <Skeleton key={key} width={96} height={36} radius="round" />
               ))
             : null}
           {networks.map((entry) => (
@@ -48,20 +49,36 @@ export function DustSweepNetworks({ desktop = false }: { desktop?: boolean }) {
               key={entry.network.networkId}
               testID={`dust-sweep-network-${entry.network.networkId}`}
               size="small"
-              height={32}
+              height={36}
+              px="$2"
               borderRadius="$full"
               variant={entry === current ? 'secondary' : 'tertiary'}
               borderWidth={1}
               borderColor="$borderSubdued"
-              disabled={!selecting}
+              accessibilityLabel={entry.network.name}
               onPress={() => selectNetwork(entry.network.networkId)}
             >
-              <XStack gap="$1" alignItems="center">
-                <NetworkAvatar networkId={entry.network.networkId} size="$4" />
-                <SizableText size="$bodyMd">{entry.network.name}</SizableText>
-                <SizableText size="$bodyMd" color="$textSubdued">
-                  ${Number(entry.valueUsd).toFixed(2)}
-                </SizableText>
+              <XStack gap="$1.5" alignItems="center">
+                {/* The execution route remounts these chips; keep their loaded
+                    logos instead of waiting for another network lookup. */}
+                {entry.network.logoURI ? (
+                  <NetworkAvatarBase
+                    logoURI={entry.network.logoURI}
+                    size="$6"
+                  />
+                ) : (
+                  <NetworkAvatar
+                    networkId={entry.network.networkId}
+                    size="$6"
+                  />
+                )}
+                <Currency
+                  size="$bodyMdMedium"
+                  sourceCurrency="usd"
+                  formatter="value"
+                >
+                  {entry.balanceUsd}
+                </Currency>
               </XStack>
             </Button>
           ))}
@@ -75,21 +92,23 @@ export function DustSweepNetworks({ desktop = false }: { desktop?: boolean }) {
       accessibilityLabel={current?.network.name ?? title}
       accessibilityState={{ disabled: networkSelectionDisabled }}
       networkImageUri={current?.network.logoURI}
-      networkImageSize="$4"
+      networkImageSize="$6"
       keepNetworkImageSize
-      networkName={current?.network.shortcode ?? title}
+      // Icon only once a network is selected; the name stays in the a11y label.
+      networkName={current ? undefined : title}
       networkNameProps={{ size: '$bodyMd', color: '$text', flexShrink: 1 }}
       iconAfter="ChevronDownSmallOutline"
-      width={108}
-      height={30}
+      height={36}
+      px="$2"
       py={0}
       gap="$1"
       alignItems="center"
       borderRadius="$full"
       borderColor="$transparent"
       bg="$bgStrong"
-      disabled={networkSelectionDisabled}
+      disabled={!networks.length}
       focusable={!networkSelectionDisabled}
+      cursor={networkSelectionDisabled ? 'not-allowed' : 'pointer'}
       onPress={
         networkSelectionDisabled
           ? undefined
@@ -115,20 +134,22 @@ export function DustSweepFilters({ desktop }: { desktop: boolean }) {
       px="$5"
       alignItems="center"
       justifyContent="space-between"
-      opacity={selecting ? 1 : 0.4}
     >
-      <XStack gap="$1">
-        {([1, 10, 100] as const).map((amount) => (
+      <XStack
+        gap="$1"
+        cursor={selecting ? undefined : 'not-allowed'}
+        pointerEvents={selecting ? 'auto' : 'none'}
+      >
+        {DUST_SWEEP_THRESHOLDS.map((amount) => (
           <Button
             mx={0}
             my={0}
             testID={`dust-sweep-threshold-${amount}`}
             key={amount}
             size="small"
-            height={30}
+            height={36}
             px="$3"
             borderRadius="$full"
-            disabled={!selecting}
             variant={threshold === amount ? 'secondary' : 'tertiary'}
             onPress={() => selectThreshold(amount)}
           >{`<$${amount}`}</Button>

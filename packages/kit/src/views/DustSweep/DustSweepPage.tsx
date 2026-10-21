@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { usePreventRemove, useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -18,6 +18,7 @@ import {
   Dialog,
   Icon,
   IconButton,
+  NavBackButton,
   Page,
   ScrollView,
   SizableText,
@@ -28,13 +29,21 @@ import {
   useMedia,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
+import { useIsOverlayPage } from '@onekeyhq/components/src/hocs/PageType';
+import { TabPageHeader } from '@onekeyhq/kit/src/components/TabPageHeader';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { ETabRoutes } from '@onekeyhq/shared/src/routes';
+import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IDustSweepRouteParams } from '@onekeyhq/shared/types/swap/dustSweep';
 
 import { DustSweepDetails } from './components/DustSweepDetails';
 import { DustSweepNetworks } from './components/DustSweepFilters';
-import { DustSweepSelection } from './components/DustSweepSelection';
+import {
+  DUST_SWEEP_MOBILE_DIRECTION_SIZE,
+  DustSweepSelection,
+} from './components/DustSweepSelection';
 import {
   DustSweepResult,
   DustSweepSummary,
@@ -44,6 +53,16 @@ import { DustSweepProvider, useDustSweep } from './DustSweepProvider';
 import { getDustSweepPresentation } from './stateMachine';
 
 import type { NavigationAction, RouteProp } from '@react-navigation/core';
+
+// Desktop layout: two equal-width cards with the direction arrow in its own
+// gap column, 12px clear of both.
+const DESKTOP_COLUMN_GAP = 64;
+const DESKTOP_DIRECTION_SIZE = 40;
+
+function useDustSweepDesktopLayout() {
+  const media = useMedia();
+  return !platformEnv.isNative && media.gtMd;
+}
 
 function DustSweepDirectionIcon({
   desktop = false,
@@ -123,12 +142,11 @@ function DustSweepResultDialog({
       />
     );
   return (
-    <ScrollView maxHeight={Math.min(420, maxHeight)}>
+    // The sheet grows with the expanded skip reasons, up to the screen.
+    <ScrollView maxHeight={maxHeight}>
       <DustSweepResult
         state={state}
-        onDetails={
-          state.phase === 'completed' ? onClose : () => setShowDetails(true)
-        }
+        onDetails={() => setShowDetails(true)}
         onAgain={state.phase === 'completed' ? onAgain : onClose}
       />
     </ScrollView>
@@ -136,11 +154,11 @@ function DustSweepResultDialog({
 }
 
 function DustSweepPageContent() {
-  const { session, selecting, sweepAgain, isFocused } = useDustSweep();
+  const { session, selecting, sweepAgain, isFocused, networks, loadStatus } =
+    useDustSweep();
   const intl = useIntl();
   const { exit, continueRemoval, execution } = useDustSweepFlow();
-  const media = useMedia();
-  const desktop = !platformEnv.isNative && media.gtMd;
+  const desktop = useDustSweepDesktopLayout();
   const [approvedRemovalAction, setApprovedRemovalAction] = useState<
     NavigationAction | undefined
   >(undefined);
@@ -361,10 +379,7 @@ function DustSweepPageContent() {
     },
     [state, sweepAgain, visibleLeaveDialog],
   );
-  const onDetails = useCallback(
-    () => showResult(state.phase !== 'completed'),
-    [showResult, state.phase],
-  );
+  const onDetails = useCallback(() => showResult(true), [showResult]);
   useEffect(() => {
     if (
       desktop ||
@@ -394,6 +409,11 @@ function DustSweepPageContent() {
     [desktop],
   );
   const onDone = useCallback(() => exit(), [exit]);
+  // The Home tab top bar (with its back button) is only rendered on the tab
+  // route, so a Swap modal widened to desktop width keeps its own back control.
+  const overlay = useIsOverlayPage();
+  // A wallet with no assets has no network chips, so drop the empty row.
+  const showNetworks = loadStatus === 'loading' || networks.length > 0;
   return (
     <Page testID="dust-sweep-page" scrollEnabled={desktop}>
       <Page.Header
@@ -403,70 +423,61 @@ function DustSweepPageContent() {
       />
       <Page.Body>
         {desktop ? (
-          <YStack
-            flex={1}
-            width="100%"
-            maxWidth={1048}
-            alignSelf="center"
-            pt={56}
-            pb="$6"
-            px={44}
-          >
-            <XStack height={28} alignItems="center" position="relative" mb={14}>
-              <IconButton
-                testID="dust-sweep-back"
-                icon="ChevronLeftOutline"
-                variant="tertiary"
-                position="absolute"
-                left={-44}
-                mx={0}
-                my={0}
-                accessibilityLabel={intl.formatMessage({
-                  id: ETranslations.global_back,
-                })}
-                onPress={onDone}
-              />
-              <SizableText size="$headingLg">{title}</SizableText>
+          // Title spacing matches other desktop Home sub pages (ApprovalListPage);
+          // mb matches the 30px gap below the network chips.
+          <Page.Container flex={1} pb="$6">
+            <XStack mt="$8" mb={30} alignItems="center" gap="$2">
+              {overlay ? (
+                <IconButton
+                  testID="dust-sweep-back"
+                  icon="ChevronLeftOutline"
+                  variant="tertiary"
+                  mx={0}
+                  my={0}
+                  accessibilityLabel={intl.formatMessage({
+                    id: ETranslations.global_back,
+                  })}
+                  onPress={onDone}
+                />
+              ) : null}
+              <SizableText size="$heading2xl">{title}</SizableText>
             </XStack>
-            <DustSweepNetworks desktop />
-            <XStack
-              mt={30}
-              flex={1}
-              alignItems="flex-start"
-              gap="$6"
-              position="relative"
-            >
-              <YStack width="54.8%" maxHeight="100%">
+            {showNetworks ? <DustSweepNetworks desktop /> : null}
+            {/* Stretch so the summary card always matches the token list card height. */}
+            <XStack mt={showNetworks ? 30 : 0} flex={1} alignItems="stretch">
+              <YStack flex={1} flexBasis={0} minWidth={0}>
                 <DustSweepSelection desktop />
               </YStack>
-              <YStack flex={1}>
+              <Stack
+                width={DESKTOP_COLUMN_GAP}
+                alignItems="center"
+                justifyContent="center"
+              >
+                <Stack
+                  width={DESKTOP_DIRECTION_SIZE}
+                  height={DESKTOP_DIRECTION_SIZE}
+                  borderWidth={1}
+                  borderColor="$borderSubdued"
+                  bg="$bgApp"
+                  borderRadius="$full"
+                  alignItems="center"
+                  justifyContent="center"
+                >
+                  <DustSweepDirectionIcon
+                    desktop
+                    running={isFocused && state.phase === 'running'}
+                  />
+                </Stack>
+              </Stack>
+              <YStack flex={1} flexBasis={0} minWidth={0}>
                 <DustSweepSummary
                   desktop
                   onDone={onDone}
                   onDetails={onDetails}
                 />
               </YStack>
-              <Stack
-                position="absolute"
-                left="54.8%"
-                x={-6}
-                top={252}
-                width={36}
-                height={36}
-                borderWidth={1}
-                borderColor="$borderSubdued"
-                bg="$bgApp"
-                borderRadius="$full"
-                alignItems="center"
-                justifyContent="center"
-              >
-                <DustSweepDirectionIcon
-                  desktop
-                  running={isFocused && state.phase === 'running'}
-                />
-              </Stack>
             </XStack>
-          </YStack>
+          </Page.Container>
         ) : (
           <YStack flex={1} minHeight={0}>
             <DustSweepSelection desktop={false} />
@@ -484,10 +495,10 @@ function DustSweepPageContent() {
             <Stack
               position="absolute"
               left="50%"
-              x={-18}
-              top={-18}
-              width={36}
-              height={36}
+              x={-DUST_SWEEP_MOBILE_DIRECTION_SIZE / 2}
+              top={-DUST_SWEEP_MOBILE_DIRECTION_SIZE / 2}
+              width={DUST_SWEEP_MOBILE_DIRECTION_SIZE}
+              height={DUST_SWEEP_MOBILE_DIRECTION_SIZE}
               borderWidth={1}
               borderColor="$borderSubdued"
               bg="$bgApp"
@@ -506,10 +517,33 @@ function DustSweepPageContent() {
   );
 }
 
+// Same top bar as other desktop Home sub pages (e.g. ApprovalListPage).
+function DustSweepDesktopHeader() {
+  const navigation = useAppNavigation();
+  const handleBackPress = useCallback(() => {
+    navigation.pop();
+  }, [navigation]);
+  const customHeaderLeft = useMemo(
+    () => <NavBackButton onPress={handleBackPress} />,
+    [handleBackPress],
+  );
+  return (
+    <TabPageHeader
+      sceneName={EAccountSelectorSceneName.home}
+      tabRoute={ETabRoutes.SubPage}
+      customHeaderLeftItems={customHeaderLeft}
+    />
+  );
+}
+
 export default function DustSweepPage() {
   const route =
     useRoute<RouteProp<{ DustSweep: IDustSweepRouteParams }, 'DustSweep'>>();
   const intl = useIntl();
+  const desktop = useDustSweepDesktopLayout();
+  // The Home tab top bar only belongs to the tab route, not to the Swap modal
+  // (e.g. a modal opened at a narrow width and then widened).
+  const overlay = useIsOverlayPage();
   if (!route.params?.walletId || !route.params.accountId) {
     return (
       <Page>
@@ -531,7 +565,11 @@ export default function DustSweepPage() {
       key={`${route.params.walletId}:${route.params.indexedAccountId ?? ''}:${route.params.accountId}:${route.params.networkId ?? ''}`}
       params={route.params}
     >
-      <Page.Header headerShown={false} />
+      {desktop && !overlay ? (
+        <DustSweepDesktopHeader />
+      ) : (
+        <Page.Header headerShown={false} />
+      )}
       <DustSweepFlow component={DustSweepPageContent} />
     </DustSweepProvider>
   );

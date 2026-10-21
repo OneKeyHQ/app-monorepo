@@ -41,7 +41,10 @@ import {
 } from '@onekeyhq/kit/src/components/TabletHomeContainer';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
-import { useDeriveTypesCollapseState } from '@onekeyhq/kit/src/hooks/useDeriveTypesCollapseState';
+import {
+  canDeriveTypesCollapse,
+  useDeriveTypesCollapseState,
+} from '@onekeyhq/kit/src/hooks/useDeriveTypesCollapseState';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { openTokenDetailsUrl } from '@onekeyhq/kit/src/utils/explorerUtils';
 import type {
@@ -58,6 +61,7 @@ import type {
   IModalAssetDetailsParamList,
 } from '@onekeyhq/shared/src/routes/assetDetails';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { waitAsync } from '@onekeyhq/shared/src/utils/promiseUtils';
 import {
   buildTokenListMapKey,
@@ -545,15 +549,52 @@ function TokenDetailsView() {
   // accountId is whichever derive type the merged Home row happened to carry,
   // so the default type's account is used instead. An entry that passes no
   // indexed account never gets one here, so it is never collapsed.
+  const collapseNetworkId = tokenInfo.networkId ?? networkId;
+  const [collapseRevision, setCollapseRevision] = useState(0);
   const {
     isReady: isCollapseStateReady,
     defaultNetworkAccount: collapsedNetworkAccount,
   } = useDeriveTypesCollapseState({
-    networkId: tokenInfo.networkId ?? networkId,
+    networkId: collapseNetworkId,
     walletId,
     indexedAccountId,
     enabled: !!indexedAccountId,
+    revision: collapseRevision,
   });
+  // The default address type can change while this page is open, e.g. from
+  // the address type menu of the receive page above it. Whether the account
+  // collapses depends on that default, so the page decides again on every
+  // change, collapsed or not, even while the previous decision is pending.
+  const followsDefaultType =
+    !!indexedAccountId &&
+    canDeriveTypesCollapse({ networkId: collapseNetworkId, walletId });
+  useEffect(() => {
+    if (!followsDefaultType) {
+      return;
+    }
+    const networkImpl = networkUtils.getNetworkImpl({
+      networkId: collapseNetworkId,
+    });
+    const onGlobalDeriveTypeUpdate = ({
+      networkImpl: updatedImpl,
+    }: {
+      networkImpl: string;
+    }) => {
+      if (updatedImpl === networkImpl) {
+        setCollapseRevision((revision) => revision + 1);
+      }
+    };
+    appEventBus.on(
+      EAppEventBusNames.GlobalDeriveTypeUpdate,
+      onGlobalDeriveTypeUpdate,
+    );
+    return () => {
+      appEventBus.off(
+        EAppEventBusNames.GlobalDeriveTypeUpdate,
+        onGlobalDeriveTypeUpdate,
+      );
+    };
+  }, [followsDefaultType, collapseNetworkId]);
 
   const listViewContentContainerStyle = useMemo(() => ({ pt: '$5' }), []);
 
@@ -850,6 +891,8 @@ function TokenDetailsView() {
     if (collapsedNetworkAccount) {
       return (
         <TokenDetailsViews
+          // A new default type is another account: start its views fresh.
+          key={collapsedNetworkAccount.account.id}
           accountId={collapsedNetworkAccount.account.id}
           networkId={tokenInfo.networkId ?? networkId}
           walletId={walletId}
@@ -931,6 +974,8 @@ function TokenDetailsView() {
     intl,
   ]);
 
+  const tokenSymbol =
+    tokenInfo.commonSymbol ?? tokenInfo.symbol ?? tokenInfo.name ?? '';
   const headerTitle = useCallback(() => {
     return (
       <XStack alignItems="center" gap="$2">
@@ -943,7 +988,7 @@ function TokenDetailsView() {
           networkId={networkId}
         />
         <SizableText size="$headingLg" numberOfLines={1}>
-          {tokenInfo.commonSymbol ?? tokenInfo.symbol ?? tokenInfo.name ?? ''}
+          {tokenSymbol}
         </SizableText>
         {!isLoadingTokens &&
         !isLoading &&
@@ -958,9 +1003,7 @@ function TokenDetailsView() {
     );
   }, [
     tokenInfo.logoURI,
-    tokenInfo.commonSymbol,
-    tokenInfo.symbol,
-    tokenInfo.name,
+    tokenSymbol,
     tokenInfo.isAggregateToken,
     effectiveTokenInfo.networkName,
     isAggregateTokenUnavailable,
@@ -1007,6 +1050,7 @@ function TokenDetailsView() {
         symbol={activeFooterToken?.symbol}
         tokenAddress={activeFooterToken?.address}
         tokenImageUri={activeFooterToken?.logoURI}
+        tokenSymbol={tokenSymbol}
       />
     </Page>
   );

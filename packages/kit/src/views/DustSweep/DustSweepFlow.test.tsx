@@ -13,7 +13,7 @@ import {
   useNavigation,
   useNavigationBuilder,
 } from '@react-navigation/core';
-import { act, fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen, within } from '@testing-library/react';
 
 import type { IDialogShowProps } from '@onekeyhq/components/src/composite/Dialog/type';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
@@ -70,6 +70,8 @@ let mockProviderUnmounts = 0;
 let mockDesktop = true;
 let mockNative = false;
 let mockOverlay = true;
+let mockActualResults = false;
+const mockAgain = jest.fn();
 const mockDialogClose = jest.fn().mockResolvedValue(undefined);
 
 function Box({ children, testID }: PropsWithChildren<{ testID?: string }>) {
@@ -98,14 +100,22 @@ jest.mock('@onekeyhq/components', () => ({
       Header back
     </Button>
   ),
-  Page: Object.assign(Box, { Header: () => null, Body: Box, Footer: Box }),
+  Page: Object.assign(Box, {
+    Header: () => null,
+    Body: Box,
+    Footer: Box,
+    Container: Box,
+  }),
   Stack: Box,
   XStack: Box,
   YStack: Box,
   ScrollView: Box,
   SizableText: Box,
+  Button,
   Icon: () => null,
   IconButton: Button,
+  Divider: () => null,
+  Skeleton: () => null,
   useMedia: () => ({ gtMd: mockDesktop }),
   useSafeAreaInsets: () => ({ top: 0, bottom: 0 }),
   Dialog: { show: (props: IDialogShowProps) => mockDialog(props) },
@@ -120,6 +130,13 @@ jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   },
 }));
 jest.mock('@onekeyhq/shared/src/errors', () => ({ OneKeyLocalError: Error }));
+jest.mock('@onekeyhq/kit/src/components/TabPageHeader', () => ({
+  TabPageHeader: () => <span data-testid="tab-page-header" />,
+}));
+jest.mock('@onekeyhq/kit/src/hooks/useAppNavigation', () => ({
+  __esModule: true,
+  default: () => ({ pop: jest.fn() }),
+}));
 jest.mock('react-intl', () => ({
   useIntl: () => ({ formatMessage: ({ id }: { id: string }) => id }),
 }));
@@ -134,6 +151,49 @@ jest.mock('react-native-reanimated', () => ({
   useSharedValue: () => ({ value: 0 }),
   useAnimatedStyle: () => ({}),
   cancelAnimation: jest.fn(),
+  FadeIn: { duration: () => undefined },
+}));
+jest.mock('@onekeyhq/kit/src/components/Token', () => ({ Token: () => null }));
+jest.mock('@onekeyhq/kit/src/components/Token/TokenGroup', () => ({
+  TokenGroup: () => null,
+}));
+jest.mock('@onekeyhq/kit/src/components/Currency', () => ({
+  Currency: () => null,
+}));
+jest.mock('@onekeyhq/kit/src/views/Swap/components/PreSwapStep', () => ({
+  SwapStepStatusIcon: () => null,
+}));
+jest.mock(
+  '@onekeyhq/kit/src/views/Swap/components/PreSwapConfirmResult',
+  () => ({
+    SwapTransactionResultStatus: () => null,
+  }),
+);
+jest.mock('@onekeyhq/kit/src/views/Swap/components/SwapCommonInfoItem', () => ({
+  __esModule: true,
+  default: () => null,
+}));
+jest.mock(
+  '@onekeyhq/kit/src/views/Swap/components/SwapProviderInfoItem',
+  () => ({
+    __esModule: true,
+    default: () => null,
+  }),
+);
+jest.mock('./components/DustSweepSlippage', () => ({
+  DustSweepSlippage: () => null,
+}));
+jest.mock('./components/DustSweepTokenRow', () => ({
+  ...jest.requireActual<typeof import('./components/DustSweepTokenRow')>(
+    './components/DustSweepTokenRow',
+  ),
+  DustSweepTokenRow: () => null,
+}));
+jest.mock('./hooks/useDustSweepFiatFormatter', () => ({
+  useDustSweepFiatFormatter: () => (value: string) => `$${value}`,
+}));
+jest.mock('@onekeyhq/kit/src/utils/explorerUtils', () => ({
+  openTransactionDetailsUrl: jest.fn(),
 }));
 jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
   defaultLogger: {
@@ -187,11 +247,21 @@ const snapshot: IDustSweepSnapshot = {
 };
 type IModel = Pick<
   ReturnType<typeof useDustSweep>,
-  'session' | 'selecting' | 'isFocused' | 'start' | 'sweepAgain'
+  | 'session'
+  | 'selecting'
+  | 'isFocused'
+  | 'start'
+  | 'sweepAgain'
+  | 'networks'
+  | 'loadStatus'
+  | 'selected'
+  | 'selectedValueUsd'
+  | 'canStart'
+  | 'assetStatus'
 >;
 const ModelContext = createContext<IModel | undefined>(undefined);
 function TestProvider({ children }: PropsWithChildren) {
-  const session = useDustSweepSession([]);
+  const session = useDustSweepSession([], { minRunMs: 0 });
   const isFocused = useIsFocused();
   useEffect(() => {
     mockProviderMounts += 1;
@@ -205,7 +275,16 @@ function TestProvider({ children }: PropsWithChildren) {
       isFocused,
       selecting: session.state.phase === 'selecting',
       start: () => session.start(snapshot),
-      sweepAgain: () => session.reset(),
+      sweepAgain: () => {
+        mockAgain();
+        session.reset();
+      },
+      networks: [],
+      loadStatus: 'ready',
+      selected: snapshot.tokens,
+      selectedValueUsd: '1',
+      canStart: true,
+      assetStatus: 'ready',
     }),
     [isFocused, session],
   );
@@ -257,19 +336,30 @@ function Summary({ onDone }: { onDone: () => void }) {
     </>
   );
 }
-jest.mock('./components/DustSweepSummary', () => ({
-  DustSweepSummary: Summary,
-  DustSweepResult: ({ onAgain }: { onAgain: () => void }) => (
-    <Button testID="dust-result-again" onPress={onAgain}>
-      Result again
-    </Button>
-  ),
-}));
+jest.mock('./components/DustSweepSummary', () => {
+  const actual = jest.requireActual<
+    typeof import('./components/DustSweepSummary')
+  >('./components/DustSweepSummary');
+  return {
+    ...actual,
+    DustSweepSummary: (props: Parameters<typeof actual.DustSweepSummary>[0]) =>
+      mockActualResults ? (
+        <actual.DustSweepSummary {...props} />
+      ) : (
+        <Summary {...props} />
+      ),
+    DustSweepResult: (props: Parameters<typeof actual.DustSweepResult>[0]) =>
+      mockActualResults ? (
+        <actual.DustSweepResult {...props} />
+      ) : (
+        <Button testID="dust-result-again" onPress={props.onAgain}>
+          Result again
+        </Button>
+      ),
+  };
+});
 jest.mock('./components/DustSweepSelection', () => ({
   DustSweepSelection: () => null,
-}));
-jest.mock('./components/DustSweepDetails', () => ({
-  DustSweepDetails: () => null,
 }));
 jest.mock('./components/DustSweepFilters', () => ({
   DustSweepNetworks: () => null,
@@ -287,7 +377,7 @@ function Modal() {
         initialParams={{
           walletId: 'wallet',
           accountId: 'account',
-          entry: 'walletMore',
+          entry: 'lowValueRow',
         }}
       />
     </ModalStack.Navigator>
@@ -307,7 +397,7 @@ function mountFlow(modal = false) {
             params: {
               walletId: 'wallet',
               accountId: 'account',
-              entry: 'walletMore',
+              entry: 'lowValueRow',
             },
           },
         ],
@@ -372,6 +462,7 @@ beforeEach(() => {
   mockDesktop = true;
   mockNative = false;
   mockOverlay = true;
+  mockActualResults = false;
   mockDialog.mockImplementation((props) => {
     let closed = false;
     return {
@@ -501,6 +592,120 @@ it('opens completion once for the focused execution screen and does not start fr
   expect(flowRoutes()).toHaveLength(2);
 });
 
+function activeTestId(testID: string) {
+  const element = screen
+    .getAllByTestId(testID)
+    .find((item) => !item.closest('[hidden]'));
+  if (!element) throw new OneKeyLocalError(`Expected active ${testID}`);
+  return element;
+}
+
+it('opens completed mobile Details, returns to the result, and resets only once on Done', async () => {
+  mockNative = true;
+  mockActualResults = true;
+  const failure = 'Provider rejected this token: detailed failure reason';
+  execute.mockImplementation(async ({ onSigning, onBroadcast }) => {
+    onSigning();
+    onBroadcast('failed-transaction');
+    return { status: 'failed', message: failure };
+  });
+  mountFlow();
+  await act(async () => fireEvent.click(activeTestId('dust-sweep-action')));
+  const result = render(<>{confirmDialog().renderContent}</>);
+  const resultScreen = within(result.container);
+
+  fireEvent.click(resultScreen.getByTestId('dust-sweep-view-details'));
+  expect(resultScreen.getByTestId('dust-sweep-details')).toBeTruthy();
+  expect(resultScreen.getByText(failure)).toBeTruthy();
+  expect(resultScreen.getByTestId('dust-sweep-tx-a')).toBeTruthy();
+  expect(mockAgain).not.toHaveBeenCalled();
+  expect(mockDialogClose).not.toHaveBeenCalled();
+  expect(execute).toHaveBeenCalledTimes(1);
+
+  fireEvent.click(resultScreen.getByTestId('dust-sweep-details-back'));
+  expect(resultScreen.getByTestId('dust-sweep-result')).toBeTruthy();
+  expect(resultScreen.queryByTestId('dust-sweep-details')).toBeNull();
+  const done = resultScreen.getByTestId('dust-sweep-result-again');
+  await act(async () => {
+    fireEvent.click(done);
+    fireEvent.click(done);
+  });
+  expect(mockAgain).toHaveBeenCalledTimes(1);
+  expect(mockDialogClose).toHaveBeenCalledTimes(1);
+  expect(flowRoutes()?.map((route) => route.name)).toEqual(['Selection']);
+  expect(execute).toHaveBeenCalledTimes(1);
+});
+
+it('reopens completed mobile Details from the footer after dismissing the result', async () => {
+  mockNative = true;
+  mockActualResults = true;
+  execute.mockImplementation(completeItem);
+  mountFlow();
+  await act(async () => fireEvent.click(activeTestId('dust-sweep-action')));
+  const dialogResult = mockDialog.mock.results[0];
+  if (dialogResult.type !== 'return')
+    throw new OneKeyLocalError('Expected a mounted result dialog');
+  await act(async () => dialogResult.value.close());
+
+  fireEvent.click(activeTestId('dust-sweep-reopen-details'));
+  const result = render(<>{confirmDialog().renderContent}</>);
+  const resultScreen = within(result.container);
+  expect(resultScreen.getByTestId('dust-sweep-details')).toBeTruthy();
+  expect(resultScreen.getByTestId('dust-sweep-tx-a')).toBeTruthy();
+  expect(mockDialog).toHaveBeenCalledTimes(2);
+  expect(mockAgain).not.toHaveBeenCalled();
+  expect(execute).toHaveBeenCalledTimes(1);
+
+  fireEvent.click(resultScreen.getByTestId('dust-sweep-details-back'));
+  expect(resultScreen.getByTestId('dust-sweep-result')).toBeTruthy();
+  fireEvent.click(resultScreen.getByTestId('dust-sweep-view-details'));
+  await act(async () =>
+    fireEvent.click(resultScreen.getByTestId('dust-sweep-details-done')),
+  );
+  expect(mockDialogClose).toHaveBeenCalledTimes(2);
+  expect(mockAgain).not.toHaveBeenCalled();
+  expect(activeTestId('dust-sweep-reopen-details')).toBeTruthy();
+  expect(execute).toHaveBeenCalledTimes(1);
+  expect(flowRoutes()?.map((route) => route.name)).toEqual([
+    'Selection',
+    'Execution',
+  ]);
+});
+
+it('keeps pending mobile Details and Done from resetting or restarting the session', async () => {
+  mockNative = true;
+  mockActualResults = true;
+  execute.mockImplementation(async ({ onSigning }) => {
+    onSigning();
+    throw new DustSweepUnknownSubmission();
+  });
+  mountFlow();
+  await act(async () => fireEvent.click(activeTestId('dust-sweep-action')));
+  fireEvent.click(activeTestId('dust-sweep-action'));
+  const result = render(<>{confirmDialog().renderContent}</>);
+  const resultScreen = within(result.container);
+  expect(resultScreen.getByTestId('dust-sweep-details')).toBeTruthy();
+  expect(
+    resultScreen.getByText(ETranslations.swap_review_tx_pending),
+  ).toBeTruthy();
+
+  fireEvent.click(resultScreen.getByTestId('dust-sweep-details-back'));
+  fireEvent.click(resultScreen.getByTestId('dust-sweep-view-details'));
+  expect(resultScreen.getByTestId('dust-sweep-details')).toBeTruthy();
+  fireEvent.click(resultScreen.getByTestId('dust-sweep-details-back'));
+  await act(async () =>
+    fireEvent.click(resultScreen.getByTestId('dust-sweep-result-again')),
+  );
+
+  expect(mockDialogClose).toHaveBeenCalledTimes(1);
+  expect(mockAgain).not.toHaveBeenCalled();
+  expect(execute).toHaveBeenCalledTimes(1);
+  expect(flowRoutes()?.map((route) => route.name)).toEqual([
+    'Selection',
+    'Execution',
+  ]);
+});
+
 it.each(['Done', 'Local back'])(
   'bubbles completed %s through a modal whose owning Dust route is at index zero',
   async (button) => {
@@ -569,6 +774,20 @@ it('provides a visible parent Back on the initial nested page for native tab ent
   fireEvent.click(activeButton('Header back'));
   expect(ref.getCurrentRoute()?.name).toBe('Home');
   expect(execute).not.toHaveBeenCalled();
+});
+
+it('shows the Home tab top bar on the desktop tab route', () => {
+  mockOverlay = false;
+  mountFlow();
+  expect(screen.queryByTestId('tab-page-header')).toBeTruthy();
+  expect(screen.queryByTestId('dust-sweep-back')).toBeNull();
+});
+
+it('keeps a back control in a desktop-width modal without the Home tab top bar', () => {
+  mountFlow();
+  expect(screen.queryByTestId('tab-page-header')).toBeNull();
+  fireEvent.click(screen.getByTestId('dust-sweep-back'));
+  expect(ref.getCurrentRoute()?.name).toBe('Home');
 });
 
 it('closes obsolete dialogs and ignores their callbacks after Again starts a new session', async () => {

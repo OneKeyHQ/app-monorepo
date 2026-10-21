@@ -129,6 +129,7 @@ export enum EAppEventBusNames {
   PrimeAuthSessionSourceCommitted = 'PrimeAuthSessionSourceCommitted',
   IdentityLifecycleCommitted = 'IdentityLifecycleCommitted',
   PrimeSubscriptionPurchaseSuccess = 'PrimeSubscriptionPurchaseSuccess',
+  PrimeWebCheckoutReturned = 'PrimeWebCheckoutReturned',
   PrimeGiftRedeemed = 'PrimeGiftRedeemed',
   PrimeExceedDeviceLimit = 'PrimeExceedDeviceLimit',
   PrimeDeviceLogout = 'PrimeDeviceLogout',

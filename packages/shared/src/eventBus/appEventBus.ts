@@ -552,6 +552,9 @@ export interface IAppEventBusPayload {
     // state, preventing another Extension Home runtime from winning the race.
     claimId?: string;
   };
+  // Emitted by the extension background when the hosted card checkout page
+  // returns, so the waiting surface re-checks RevenueCat immediately.
+  [EAppEventBusNames.PrimeWebCheckoutReturned]: { checkoutId: string };
   [EAppEventBusNames.PrimeGiftRedeemed]: { serialNo: string };
   [EAppEventBusNames.PrimeExceedDeviceLimit]: undefined;
   [EAppEventBusNames.PrimeDeviceLogout]: {

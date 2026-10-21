@@ -719,4 +719,32 @@ describe('native market listing favorites', () => {
       leadingAction: undefined,
     });
   });
+
+  it('opens the favorite menu on long press, except in travel mode', () => {
+    const renderStockList = () =>
+      render(
+        <MobileMarketNativeStockList
+          selectedCategoryId="all"
+          listContainerProps={{ paddingBottom: 20 }}
+        />,
+      );
+
+    renderStockList();
+    expect(mockNativeSnapshot?.rows[0]).toMatchObject({
+      key: 'AAPL',
+      longPressActionKey: 'favorite-menu',
+    });
+
+    mockTravelMode = true;
+    try {
+      renderStockList();
+      expect(mockNativeSnapshot?.rows[0]).toMatchObject({ key: 'AAPL' });
+      expect(
+        (mockNativeSnapshot?.rows[0] as { longPressActionKey?: string })
+          .longPressActionKey,
+      ).toBeUndefined();
+    } finally {
+      mockTravelMode = false;
+    }
+  });
 });

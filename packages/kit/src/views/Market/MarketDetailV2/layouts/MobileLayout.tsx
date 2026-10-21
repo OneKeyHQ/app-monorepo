@@ -2,6 +2,7 @@ import {
   cloneElement,
   isValidElement,
   useCallback,
+  useContext,
   useEffect,
   useMemo,
   useRef,
@@ -19,6 +20,7 @@ import {
   DelayedFreeze,
   Divider,
   EInPageDialogType,
+  HeaderScrollGestureContext,
   HeaderScrollGestureWrapper,
   IconButton,
   ScrollView,
@@ -320,6 +322,7 @@ function MobileMarketTradingView({
       intervalStorageNamespace={intervalStorageNamespace}
       pageWidth={pageWidth}
       nativeControlsLayoutMode="mobile"
+      mobileToolbarExtra={<MobileChartModeControl />}
       onChartSwitch={onChartSwitch}
       onNativeIndicatorQuickBarChange={onNativeIndicatorQuickBarChange}
       onNativeSubIndicatorCountChange={onNativeSubIndicatorCountChange}
@@ -590,7 +593,7 @@ export function MobileLayout({
     [accountAddress, networkId, tokenAddress],
   );
 
-  const { portfolioData, isRefreshing } = usePortfolioData({
+  const { portfolioData, isRefreshing, isPortfolioPending } = usePortfolioData({
     tokenAddress,
     networkId,
     accountAddress,
@@ -607,6 +610,7 @@ export function MobileLayout({
   const dialogRef = useRef<IDialogInstance>(null);
 
   const { height: windowHeight, width: windowWidth } = useWindowDimensions();
+  const { excludeStartEdgeWidth } = useContext(HeaderScrollGestureContext);
   const [containerWidth, setContainerWidth] = useState(0);
   const pageViewportCacheKey = getPageViewportCacheKey({
     windowWidth,
@@ -912,14 +916,7 @@ export function MobileLayout({
               simultaneousWithNativeGesture
               cancelChildTouches={false}
             >
-              <MobileSimpleChart
-                marketAssetId={marketTokenId}
-                height={
-                  typeof tradingViewHeight === 'number'
-                    ? tradingViewHeight
-                    : undefined
-                }
-              />
+              <MobileSimpleChart marketAssetId={marketTokenId} />
             </HeaderScrollGestureWrapper>
           ) : null}
           {isSimpleChart ? null : (
@@ -1072,15 +1069,11 @@ export function MobileLayout({
                       decimal={marketTradingViewParams.decimal}
                       dataSource={marketTradingViewParams.dataSource}
                       pageWidth={layoutPageWidth}
+                      mobileToolbarExtra={<MobileChartModeControl />}
                       onChartSwitch={onChartSwitch}
                     />
                   );
                 })()}
-                {isTradingViewNative ? null : (
-                  <Stack position="absolute" top={8} right={48} zIndex={4}>
-                    <MobileChartModeControl />
-                  </Stack>
-                )}
               </Stack>
             </HeaderScrollGestureWrapper>
           )}
@@ -1093,10 +1086,10 @@ export function MobileLayout({
             <View
               style={{
                 position: 'absolute',
-                left: 0,
+                start: 0,
                 top: 50,
                 bottom: 0,
-                width: 20,
+                width: excludeStartEdgeWidth,
                 zIndex: 9999,
               }}
             />
@@ -1105,6 +1098,7 @@ export function MobileLayout({
       </YStack>
     );
   }, [
+    excludeStartEdgeWidth,
     accountMarksContext,
     chartHeaderLogoUrl,
     chartHeaderSymbol,
@@ -1135,7 +1129,6 @@ export function MobileLayout({
     priceMode,
     tradingViewNativeSource,
     tradingViewChartHeight,
-    tradingViewHeight,
   ]);
 
   const renderInformationHeader = useCallback(
@@ -1157,6 +1150,7 @@ export function MobileLayout({
               scrollEnabled={!isChartFullscreen && !isTradingViewScrollLocked}
               portfolioData={portfolioData}
               isRefreshing={isRefreshing}
+              isPortfolioPending={isPortfolioPending}
               tokenLogoUrl={tokenDetail?.logoUrl}
               detailKind={detailKind}
               marketAssetDetail={marketAssetDetail}
@@ -1176,6 +1170,7 @@ export function MobileLayout({
       isTradingViewScrollLocked,
       portfolioData,
       isRefreshing,
+      isPortfolioPending,
       tokenDetail?.logoUrl,
       detailKind,
       marketAssetDetail,
@@ -1250,6 +1245,7 @@ export function MobileLayout({
                 storeName={EJotaiContextStoreNames.marketWatchListV2}
               >
                 <LazySwapPanelWrap
+                  isStock={swapToken.isStock}
                   onCloseDialog={() => dialogRef.current?.close()}
                 />
               </MarketWatchListProviderMirrorV2>

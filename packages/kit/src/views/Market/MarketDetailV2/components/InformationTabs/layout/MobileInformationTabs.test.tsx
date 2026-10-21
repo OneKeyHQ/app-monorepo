@@ -58,6 +58,12 @@ jest.mock('@onekeyhq/shared/src/utils/networkUtils', () => ({
 jest.mock('@onekeyhq/kit/src/hooks/useTabContainerWidth', () => ({
   useTabContainerWidth: () => 390,
 }));
+jest.mock('../../../hooks/useMarketDetailPositionTab', () => ({
+  useMarketDetailPositionTab: () => ({
+    preferPosition: false,
+    recordTabChange: jest.fn(),
+  }),
+}));
 jest.mock('../../../hooks/useTokenDetail', () => ({
   useTokenDetail: () => ({ networkId: 'evm--1', isNative: true }),
 }));
