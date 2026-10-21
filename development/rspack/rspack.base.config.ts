@@ -909,8 +909,15 @@ export function createBaseConfig({
           },
         },
         {
+          // Desktop's chain Worker entries: a standalone same-origin file. Its
+          // own child compilation keeps the Worker out of the SRI chunk graph,
+          // and the CSP rules out a Blob.
+          test: /SdkDesktop\.worker\.js$/,
+          use: { loader: 'worker-rspack-loader' },
+        },
+        {
           test: /\.worker\.(js|ts)$/,
-          exclude: /SdkInline\.worker\.js$/,
+          exclude: /Sdk(Inline|Desktop)\.worker\.js$/,
           use: {
             loader: 'worker-rspack-loader',
             options: {
