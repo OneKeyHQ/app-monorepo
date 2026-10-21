@@ -295,6 +295,52 @@ describe('normalizeZcashBackendHistoryTx', () => {
     ]);
   });
 
+  it('keeps the shielded source the indexer lists itself', () => {
+    const backendShielded = {
+      type: EOnChainHistoryTransferType.Shielded,
+      label: 'Shielded',
+      address: '',
+      from: '',
+      to: '',
+      token: '',
+      key: 'zec--0_',
+      amount: '0.028312',
+      isOwn: false,
+    };
+    const tx = normalizeZcashBackendHistoryTx({
+      ...base,
+      type: EOnChainHistoryTxType.Receive,
+      sends: [backendShielded],
+      receives: [],
+    });
+    expect(tx.shieldedCounterparty).toBe('from');
+    expect(tx.sends).toEqual([backendShielded]);
+  });
+
+  it('keeps the shielded destination the indexer lists itself', () => {
+    const backendShielded = {
+      type: EOnChainHistoryTransferType.Shielded,
+      label: 'Shielded',
+      address: '',
+      from: '',
+      to: '',
+      token: '',
+      key: 'zec--0_',
+      amount: '0.5',
+      isOwn: false,
+    };
+    const tx = normalizeZcashBackendHistoryTx({
+      ...base,
+      type: EOnChainHistoryTxType.Send,
+      from: 't1own',
+      to: '',
+      sends: [],
+      receives: [backendShielded],
+    });
+    expect(tx.shieldedCounterparty).toBe('to');
+    expect(tx.receives).toEqual([backendShielded]);
+  });
+
   it('keeps an address the indexer did report on the shielded side', () => {
     const tx = normalizeZcashBackendHistoryTx({
       ...base,

@@ -194,25 +194,27 @@ function shieldedCounterparty(amount: string): IOnChainHistoryTxTransfer {
 export function normalizeZcashBackendHistoryTx(
   tx: IOnChainHistoryTx,
 ): IOnChainHistoryTx {
-  if (locallyRestoredRows.has(tx)) return tx;
+  if (locallyRestoredRows.has(tx) || tx.shieldedCounterparty) return tx;
   const sends = tx.sends ?? [];
   const receives = tx.receives ?? [];
-  // The indexer lists no sends on any receive; only an empty `from` means the
-  // sender was shielded.
+  const isShieldedEntry = (transfer: IOnChainHistoryTxTransfer) =>
+    transfer.type === EOnChainHistoryTransferType.Shielded;
+  // Older indexer rows list no sends on a receive; newer ones list the shielded
+  // side themselves. Either way only an empty `from` means a shielded sender.
   if (
     tx.type === EOnChainHistoryTxType.Receive &&
-    sends.length === 0 &&
+    sends.every(isShieldedEntry) &&
     !tx.from
   ) {
     return {
       ...tx,
       shieldedCounterparty: 'from',
-      sends: [shieldedCounterparty(tx.value ?? '0')],
+      sends: sends.length ? sends : [shieldedCounterparty(tx.value ?? '0')],
     };
   }
   if (
     tx.type === EOnChainHistoryTxType.Send &&
-    receives.every((receive) => receive.isOwn)
+    receives.every((receive) => receive.isOwn || isShieldedEntry(receive))
   ) {
     // Change returns to the sending t1, so an indexer row "to" itself paid a
     // shielded address (a true t1 -> same t1 transfer reads the same way).
@@ -221,7 +223,9 @@ export function normalizeZcashBackendHistoryTx(
       ...tx,
       to,
       ...(to ? {} : { shieldedCounterparty: 'to' as const }),
-      receives: [...receives, shieldedCounterparty(tx.value ?? '0')],
+      receives: receives.some(isShieldedEntry)
+        ? receives
+        : [...receives, shieldedCounterparty(tx.value ?? '0')],
     };
   }
   return tx;
