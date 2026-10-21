@@ -43,6 +43,22 @@ const MONTH_INDEX: Record<string, number> = {
   dec: 11,
 };
 
+// Date.UTC rolls a day the month doesn't have over, so 30 Feb would read as
+// 2 March.
+function getUtcMidnight(
+  year: number,
+  month: number,
+  day: number,
+): number | undefined {
+  const time = Date.UTC(year, month, day);
+  const date = new Date(time);
+  return date.getUTCFullYear() === year &&
+    date.getUTCMonth() === month &&
+    date.getUTCDate() === day
+    ? time
+    : undefined;
+}
+
 /**
  * The server sends the maturity only as a date, as "26 Nov 2026" today; the
  * ISO "2026-11-26" is read as well. Pendle markets expire at 00:00 UTC on
@@ -52,7 +68,7 @@ export function parseMaturityDate(text?: string): number | undefined {
   const value = text?.trim() ?? '';
   const iso = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
   if (iso) {
-    return Date.UTC(Number(iso[1]), Number(iso[2]) - 1, Number(iso[3]));
+    return getUtcMidnight(Number(iso[1]), Number(iso[2]) - 1, Number(iso[3]));
   }
   const match = /^(\d{1,2})\s+([A-Za-z]{3})[A-Za-z]*\.?\s+(\d{4})$/.exec(value);
   if (!match) {
@@ -62,7 +78,7 @@ export function parseMaturityDate(text?: string): number | undefined {
   if (month === undefined) {
     return undefined;
   }
-  return Date.UTC(Number(match[3]), month, Number(match[1]));
+  return getUtcMidnight(Number(match[3]), month, Number(match[1]));
 }
 
 export function resolveMaturityTime({

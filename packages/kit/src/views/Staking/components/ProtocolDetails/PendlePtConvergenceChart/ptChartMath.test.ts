@@ -47,6 +47,20 @@ describe('parseMaturityDate', () => {
     expect(parseMaturityDate('26 Foo 2026')).toBeUndefined();
   });
 
+  it('gives up on a day the month does not have', () => {
+    expect(parseMaturityDate('2026-02-30')).toBeUndefined();
+    expect(parseMaturityDate('30 Feb 2026')).toBeUndefined();
+    expect(parseMaturityDate('2026-13-01')).toBeUndefined();
+    expect(parseMaturityDate('29 Feb 2028')).toBe(Date.UTC(2028, 1, 29));
+    expect(
+      resolveMaturityTime({
+        maturityDate: '2026-02-30',
+        remainingDays: 37,
+        now: NOW_MS,
+      }),
+    ).toBe(NOW_MS + 37 * DAY_MS);
+  });
+
   it('falls back to the days left when the date cannot be read', () => {
     expect(
       resolveMaturityTime({ maturityDate: '', remainingDays: 37, now: NOW_MS }),
