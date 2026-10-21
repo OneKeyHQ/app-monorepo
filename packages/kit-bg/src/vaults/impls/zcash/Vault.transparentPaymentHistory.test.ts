@@ -149,6 +149,8 @@ function createVault(initial = localPayment()) {
         zcash: {
           getAccountMeta: async () => null,
           getPrivacyModeState: async () => ({ intent: 'off' }),
+        },
+        privacyChainJournal: {
           listTransparentPendingTxs: async () => [],
         },
         localHistory: {

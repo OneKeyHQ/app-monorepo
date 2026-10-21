@@ -19,26 +19,6 @@ export type IZcashPendingRescan = {
   requestedAt: number;
 };
 
-export type IZcashTransparentOutpoint = { txid: string; vout: number };
-
-export type IZcashTransparentReservation = {
-  ownerId: string;
-  createdAt: number;
-  expiryHeight: number;
-};
-
-export type IZcashTransparentPendingTx = {
-  ownerId: string;
-  rawTx: string;
-  txid: string;
-  spentOutpoints: IZcashTransparentOutpoint[];
-  expiryHeight: number;
-  createdAt: number;
-  broadcastState: 'accepted' | 'unknown';
-  // A signature alone is not authorization to submit or recover by rebroadcast.
-  broadcastAuthorized?: boolean;
-};
-
 export type IZcashPrivacyModeIntent = 'off' | 'on';
 
 export type IZcashPrivacyModeOperation =
@@ -113,14 +93,6 @@ export interface IZcashDB {
   // Durable repair journal: resumes a process death between purging the
   // wasm cache and saving the new birthday.
   pendingRescans?: Record<string, IZcashPendingRescan>;
-  transparentReservations?: Record<
-    string,
-    Record<string, IZcashTransparentReservation>
-  >;
-  transparentPendingTxs?: Record<
-    string,
-    Record<string, IZcashTransparentPendingTx>
-  >;
 }
 
 const zcashStoredDataSchema = z
@@ -149,12 +121,6 @@ const zcashStoredDataSchema = z
       .record(z.string().regex(/^[0-9a-f]{64}$/))
       .optional(),
     pendingRescans: z.record(z.object({}).passthrough()).optional(),
-    transparentReservations: z
-      .record(z.record(z.object({}).passthrough()))
-      .optional(),
-    transparentPendingTxs: z
-      .record(z.record(z.object({}).passthrough()))
-      .optional(),
   })
   .passthrough();
 
@@ -637,8 +603,6 @@ export class SimpleDbEntityZcash extends SimpleDbEntityBase<IZcashDB> {
         ...Object.keys(rawData?.accounts ?? {}),
         ...Object.keys(rawData?.privacyModeAccounts ?? {}),
         ...Object.keys(rawData?.pendingRescans ?? {}),
-        ...Object.keys(rawData?.transparentReservations ?? {}),
-        ...Object.keys(rawData?.transparentPendingTxs ?? {}),
       ]),
     );
   }
@@ -679,22 +643,14 @@ export class SimpleDbEntityZcash extends SimpleDbEntityBase<IZcashDB> {
       const accounts = { ...rawData?.accounts };
       const pendingRescans = { ...rawData?.pendingRescans };
       const privacyModeAccounts = { ...rawData?.privacyModeAccounts };
-      const transparentReservations = {
-        ...rawData?.transparentReservations,
-      };
-      const transparentPendingTxs = { ...rawData?.transparentPendingTxs };
       delete accounts[accountId];
       delete pendingRescans[accountId];
       delete privacyModeAccounts[accountId];
-      delete transparentReservations[accountId];
-      delete transparentPendingTxs[accountId];
       return {
         ...rawData,
         accounts,
         pendingRescans,
         privacyModeAccounts,
-        transparentReservations,
-        transparentPendingTxs,
       };
     });
   }
@@ -847,280 +803,6 @@ export class SimpleDbEntityZcash extends SimpleDbEntityBase<IZcashDB> {
         ...rawData,
         accounts: rawData?.accounts ?? {},
         pendingRescans,
-      };
-    });
-  }
-
-  async reserveTransparentOutpoints({
-    accountId,
-    ownerId,
-    outpoints,
-    currentHeight,
-    expiryHeight,
-  }: {
-    accountId: string;
-    ownerId: string;
-    outpoints: IZcashTransparentOutpoint[];
-    currentHeight: number;
-    expiryHeight: number;
-  }): Promise<void> {
-    await this.setRawData((rawData) => {
-      const transparentReservations = Object.fromEntries(
-        Object.entries(rawData?.transparentReservations ?? {}).map(
-          ([storedAccountId, reservations]) => [
-            storedAccountId,
-            { ...reservations },
-          ],
-        ),
-      );
-      for (const reservations of Object.values(transparentReservations)) {
-        for (const [key, reservation] of Object.entries(reservations)) {
-          if (reservation.expiryHeight < currentHeight) {
-            delete reservations[key];
-          }
-        }
-      }
-      const reservations = transparentReservations[accountId] ?? {};
-      for (const outpoint of outpoints) {
-        const key = `${outpoint.txid}:${outpoint.vout}`;
-        const existing = Object.values(transparentReservations)
-          .map((storedReservations) => storedReservations[key])
-          .find(Boolean);
-        if (existing && existing.ownerId !== ownerId) {
-          const error = new OneKeyLocalError(
-            'zcash: a selected transparent input is already reserved',
-          );
-          Object.assign(error, {
-            code: 'UTXO_ALREADY_RESERVED',
-            params: { outpoint: key },
-          });
-          throw error;
-        }
-        reservations[key] = { ownerId, createdAt: Date.now(), expiryHeight };
-      }
-      return {
-        ...rawData,
-        accounts: rawData?.accounts ?? {},
-        transparentReservations: {
-          ...transparentReservations,
-          [accountId]: reservations,
-        },
-      };
-    });
-  }
-
-  async releaseTransparentReservation({
-    accountId,
-    ownerId,
-  }: {
-    accountId: string;
-    ownerId: string;
-  }): Promise<void> {
-    await this.setRawData((rawData) => {
-      if (!rawData?.transparentReservations?.[accountId]) {
-        return rawData ?? { accounts: {} };
-      }
-      const reservations = {
-        ...rawData?.transparentReservations?.[accountId],
-      };
-      for (const [key, reservation] of Object.entries(reservations)) {
-        if (reservation.ownerId === ownerId) {
-          delete reservations[key];
-        }
-      }
-      return {
-        ...rawData,
-        accounts: rawData?.accounts ?? {},
-        transparentReservations: {
-          ...rawData?.transparentReservations,
-          [accountId]: reservations,
-        },
-      };
-    });
-  }
-
-  async saveTransparentPendingTx({
-    accountId,
-    tx,
-    requireLiveReservation,
-  }: {
-    accountId: string;
-    tx: IZcashTransparentPendingTx;
-    requireLiveReservation?: boolean;
-  }): Promise<void> {
-    await this.setRawData((rawData) => {
-      if (requireLiveReservation) {
-        const reservations = rawData?.transparentReservations?.[accountId];
-        if (
-          tx.spentOutpoints.length === 0 ||
-          tx.spentOutpoints.some((outpoint) => {
-            const reservation =
-              reservations?.[`${outpoint.txid}:${outpoint.vout}`];
-            return (
-              reservation?.ownerId !== tx.ownerId ||
-              reservation.expiryHeight !== tx.expiryHeight
-            );
-          })
-        ) {
-          throw new OneKeyLocalError(
-            'zcash: transparent signing reservation was removed or replaced',
-          );
-        }
-      }
-      return {
-        ...rawData,
-        accounts: rawData?.accounts ?? {},
-        transparentPendingTxs: {
-          ...rawData?.transparentPendingTxs,
-          [accountId]: {
-            ...rawData?.transparentPendingTxs?.[accountId],
-            [tx.txid]: tx,
-          },
-        },
-      };
-    });
-  }
-
-  async listTransparentPendingTxs({
-    accountId,
-  }: {
-    accountId: string;
-  }): Promise<IZcashTransparentPendingTx[]> {
-    const rawData = await this.getRawData();
-    return Object.values(rawData?.transparentPendingTxs?.[accountId] ?? {});
-  }
-
-  // Outpoints a signed or signing transaction still spends; a new selection
-  // must skip them until that transaction settles or expires.
-  async listTransparentOutpointsInUse({
-    accountId,
-    currentHeight,
-  }: {
-    accountId: string;
-    currentHeight?: number;
-  }): Promise<Set<string>> {
-    const rawData = await this.getRawData();
-    const keys = new Set(
-      Object.entries(rawData?.transparentReservations?.[accountId] ?? {})
-        .filter(
-          ([, reservation]) =>
-            currentHeight === undefined ||
-            reservation.expiryHeight >= currentHeight,
-        )
-        .map(([key]) => key),
-    );
-    for (const tx of Object.values(
-      rawData?.transparentPendingTxs?.[accountId] ?? {},
-    )) {
-      for (const { txid, vout } of tx.spentOutpoints) {
-        keys.add(`${txid}:${vout}`);
-      }
-    }
-    return keys;
-  }
-
-  async authorizeTransparentPendingTx({
-    accountId,
-    txid,
-    rawTx,
-  }: {
-    accountId: string;
-    txid: string;
-    rawTx: string;
-  }): Promise<void> {
-    await this.setRawData((rawData) => {
-      const pending = rawData?.transparentPendingTxs?.[accountId];
-      const tx = pending?.[txid];
-      if (!tx || tx.rawTx !== rawTx) {
-        throw new OneKeyLocalError(
-          'zcash: signed transaction journal mismatch',
-        );
-      }
-      return {
-        ...rawData,
-        accounts: rawData?.accounts ?? {},
-        transparentPendingTxs: {
-          ...rawData?.transparentPendingTxs,
-          [accountId]: {
-            ...pending,
-            [txid]: { ...tx, broadcastAuthorized: true },
-          },
-        },
-      };
-    });
-  }
-
-  async markTransparentPendingTxAccepted({
-    accountId,
-    txid,
-  }: {
-    accountId: string;
-    txid: string;
-  }): Promise<void> {
-    await this.setRawData((rawData) => {
-      const pending = {
-        ...rawData?.transparentPendingTxs?.[accountId],
-      };
-      const tx = pending[txid];
-      if (tx) {
-        pending[txid] = { ...tx, broadcastState: 'accepted' };
-      }
-      return {
-        ...rawData,
-        accounts: rawData?.accounts ?? {},
-        transparentPendingTxs: {
-          ...rawData?.transparentPendingTxs,
-          [accountId]: pending,
-        },
-      };
-    });
-  }
-
-  // Settings "Clear pending transactions": release every signed or reserved
-  // input, as BTC keeps no local input locks.
-  async clearTransparentPendingState(): Promise<void> {
-    await this.setRawData((rawData) => ({
-      ...rawData,
-      accounts: rawData?.accounts ?? {},
-      transparentPendingTxs: {},
-      transparentReservations: {},
-    }));
-  }
-
-  async settleTransparentPendingTx({
-    accountId,
-    txid,
-  }: {
-    accountId: string;
-    txid: string;
-  }): Promise<void> {
-    await this.setRawData((current) => {
-      const pending = {
-        ...current?.transparentPendingTxs?.[accountId],
-      };
-      const reservations = {
-        ...current?.transparentReservations?.[accountId],
-      };
-      const ownerId = pending[txid]?.ownerId;
-      delete pending[txid];
-      if (ownerId) {
-        for (const [key, reservation] of Object.entries(reservations)) {
-          if (reservation.ownerId === ownerId) {
-            delete reservations[key];
-          }
-        }
-      }
-      return {
-        ...current,
-        accounts: current?.accounts ?? {},
-        transparentPendingTxs: {
-          ...current?.transparentPendingTxs,
-          [accountId]: pending,
-        },
-        transparentReservations: {
-          ...current?.transparentReservations,
-          [accountId]: reservations,
-        },
       };
     });
   }

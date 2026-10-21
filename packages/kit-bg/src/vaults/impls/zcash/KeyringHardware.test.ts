@@ -93,11 +93,13 @@ function createKeyring({
   sdk,
   vault,
   simpleDbZcash,
+  journal,
   serviceAccount,
 }: {
   sdk: Record<string, jest.Mock>;
   vault?: Record<string, unknown>;
   simpleDbZcash?: Record<string, jest.Mock>;
+  journal?: Record<string, jest.Mock>;
   serviceAccount?: Record<string, jest.Mock>;
 }) {
   jest
@@ -121,6 +123,7 @@ function createKeyring({
           ...createSeedFingerprintStore(),
           ...simpleDbZcash,
         },
+        privacyChainJournal: { ...journal },
       },
       serviceAccount: {
         getDBAccountSafe: jest.fn().mockResolvedValue({ id: 'hw-1--acc' }),
@@ -446,15 +449,18 @@ describe('Zcash KeyringHardware', () => {
       };
       mockGetZcashApi.mockResolvedValue(api);
       const simpleDbZcash = {
+        getAccountMeta: jest.fn(),
+        isPrivacyModeEnabled: jest.fn().mockResolvedValue(false),
+      };
+      const journal = {
         reserveTransparentOutpoints: jest.fn(),
         saveTransparentPendingTx: jest.fn(),
         releaseTransparentReservation: jest.fn(),
-        getAccountMeta: jest.fn(),
-        isPrivacyModeEnabled: jest.fn().mockResolvedValue(false),
       };
       const keyring = createKeyring({
         sdk,
         simpleDbZcash,
+        journal,
         vault: {
           zcashPrepareFreshTransparentRequest: jest
             .fn()
@@ -489,7 +495,7 @@ describe('Zcash KeyringHardware', () => {
         originalPcztHex: 'aabb',
         signedPcztHex: 'ccdd',
       });
-      expect(simpleDbZcash.saveTransparentPendingTx).toHaveBeenCalledWith({
+      expect(journal.saveTransparentPendingTx).toHaveBeenCalledWith({
         accountId: 'hw-1--acc',
         requireLiveReservation: true,
         tx: expect.objectContaining({
@@ -497,14 +503,12 @@ describe('Zcash KeyringHardware', () => {
           broadcastAuthorized: false,
         }),
       });
-      expect(
-        simpleDbZcash.releaseTransparentReservation,
-      ).not.toHaveBeenCalled();
+      expect(journal.releaseTransparentReservation).not.toHaveBeenCalled();
       sdk.zcashSignPczt.mockResolvedValue({
         success: false,
         payload: { code: 800, error: 'Action cancelled by user' },
       });
-      simpleDbZcash.saveTransparentPendingTx.mockClear();
+      journal.saveTransparentPendingTx.mockClear();
       await expect(
         keyring.signTransaction({
           unsignedTx: {
@@ -521,8 +525,8 @@ describe('Zcash KeyringHardware', () => {
           deviceParams,
         } as never),
       ).rejects.toBeDefined();
-      expect(simpleDbZcash.saveTransparentPendingTx).not.toHaveBeenCalled();
-      expect(simpleDbZcash.releaseTransparentReservation).toHaveBeenCalledWith({
+      expect(journal.saveTransparentPendingTx).not.toHaveBeenCalled();
+      expect(journal.releaseTransparentReservation).toHaveBeenCalledWith({
         accountId: 'hw-1--acc',
         ownerId: 'owner',
       });
@@ -839,8 +843,8 @@ describe('Zcash KeyringHardware transparent signing', () => {
         accountId,
         zcashPrepareFreshTransparentRequest: jest.fn(async () => request),
       },
-      simpleDbZcash: {
-        ...fingerprintStore,
+      simpleDbZcash: { ...fingerprintStore },
+      journal: {
         reserveTransparentOutpoints,
         releaseTransparentReservation,
         saveTransparentPendingTx,

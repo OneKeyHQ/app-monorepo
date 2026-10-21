@@ -44,7 +44,7 @@ it.each([1, 3])(
       accountId: 'a',
       backgroundApi: {
         simpleDb: {
-          zcash: {
+          privacyChainJournal: {
             listTransparentPendingTxs: async () => [],
           },
         },

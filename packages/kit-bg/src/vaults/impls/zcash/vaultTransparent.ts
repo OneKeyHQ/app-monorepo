@@ -45,7 +45,7 @@ import type { IDBUtxoAccount } from '../../../dbs/local/types';
 import type { IBuildEncodedTxParams } from '../../types';
 
 // Backend blocks past expiry before an unmined send is dropped; covers indexer lag and shallow reorgs.
-const ZCASH_TRANSPARENT_DROP_MARGIN_BLOCKS = 10;
+export const ZCASH_TRANSPARENT_DROP_MARGIN_BLOCKS = 10;
 
 // Only OneKey backend data decides: its tip must pass the signed expiry by the
 // margin and its complete snapshot must not show the tx mined. Only then is the
@@ -73,9 +73,11 @@ export async function zcashDropExpiredTransparentSends(
   },
 ): Promise<void> {
   const pending =
-    await vault.backgroundApi.simpleDb.zcash.listTransparentPendingTxs({
-      accountId,
-    });
+    await vault.backgroundApi.simpleDb.privacyChainJournal.listTransparentPendingTxs(
+      {
+        accountId,
+      },
+    );
   const expiryByTxid = new Map(
     pending.map((tx) => [tx.txid.toLowerCase(), tx.expiryHeight]),
   );
@@ -133,10 +135,12 @@ export async function zcashDropExpiredTransparentSends(
   // failures are retryable.
   await Promise.all(
     [...expired].map((txid) =>
-      vault.backgroundApi.simpleDb.zcash.settleTransparentPendingTx({
-        accountId,
-        txid,
-      }),
+      vault.backgroundApi.simpleDb.privacyChainJournal.settleTransparentPendingTx(
+        {
+          accountId,
+          txid,
+        },
+      ),
     ),
   );
 }
@@ -192,9 +196,11 @@ async function zcashOwnFundedTxids(
 ): Promise<Set<string>> {
   try {
     const [journal, cachedHistory] = await Promise.all([
-      vault.backgroundApi.simpleDb.zcash.listTransparentPendingTxs({
-        accountId: account.id,
-      }),
+      vault.backgroundApi.simpleDb.privacyChainJournal.listTransparentPendingTxs(
+        {
+          accountId: account.id,
+        },
+      ),
       loadCachedLocalWalletHistory({
         backgroundApi: vault.backgroundApi,
         networkId: vault.networkId,
@@ -322,7 +328,7 @@ export async function zcashFetchFreshTransparentUtxos(
   // Expired unsigned reservations stop blocking inputs; signed journals remain in use until settled.
   const inUse = new Set(
     [
-      ...(await vault.backgroundApi.simpleDb.zcash.listTransparentOutpointsInUse(
+      ...(await vault.backgroundApi.simpleDb.privacyChainJournal.listTransparentOutpointsInUse(
         { accountId: account.id, currentHeight: targetHeight },
       )),
     ].map((key) => key.toLowerCase()),

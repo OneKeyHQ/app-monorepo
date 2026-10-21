@@ -30,8 +30,10 @@ describe('Zcash private history when the runtime read fails', () => {
       backgroundApi: {
         simpleDb: {
           zcash: {
-            listTransparentPendingTxs: async () => [],
             getPrivacyModeState: async () => ({ intent: 'on' }),
+          },
+          privacyChainJournal: {
+            listTransparentPendingTxs: async () => [],
           },
           localHistory: {
             getAccountLocalHistoryConfirmedTxs: async () => [],
@@ -160,6 +162,8 @@ describe('Zcash transparent send the backend has not seen yet', () => {
         simpleDb: {
           zcash: {
             getPrivacyModeState: async () => ({ intent: 'off' }),
+          },
+          privacyChainJournal: {
             listTransparentPendingTxs: async () =>
               withJournal
                 ? [

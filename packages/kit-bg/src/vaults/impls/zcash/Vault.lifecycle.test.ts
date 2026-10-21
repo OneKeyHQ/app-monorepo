@@ -44,11 +44,13 @@ describe('Zcash local lifecycle operations do not depend on pending history', ()
             isPrivacyModeEnabled: async () => true,
             listAccountMetas: async () => [],
             listPendingRescans: async () => [{ accountId, repair }],
-            listTransparentPendingTxs: async () =>
-              (await readPending()).map((txid) => ({ txid })),
             removeAccountMeta,
             saveAccountMeta,
             removePendingRescan,
+          },
+          privacyChainJournal: {
+            listTransparentPendingTxs: async () =>
+              (await readPending()).map((txid) => ({ txid })),
           },
         },
       },

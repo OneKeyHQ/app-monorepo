@@ -125,6 +125,10 @@ export function buildXmrLocalWalletCapability(
     }
     forgetXmrStaleFirstAccount(accountId);
     await simpleDb().removeAccount({ accountId, keepBirthday });
+    // Recorded recipients would otherwise outlive the data the user deleted.
+    await vault.backgroundApi.simpleDb.privacyChainJournal.removeXmrSentAccount(
+      { accountId },
+    );
   };
 
   const rewindLocalAccount = async (accountId: string, fromHeight: number) => {
@@ -756,6 +760,7 @@ export function buildXmrLocalWalletCapability(
         await deleteXmrDatabase(await vault.getXmrNetwork());
       }
       await simpleDb().clearRawData();
+      await vault.backgroundApi.simpleDb.privacyChainJournal.clearXmrSent();
     },
 
     async getSyncProgress({

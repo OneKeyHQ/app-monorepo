@@ -387,13 +387,31 @@ class ServiceSetting extends ServiceBase {
     defaultLogger.setting.page.clearData({ action: 'Cache' });
   }
 
+  // Privacy-chain send locks are cleared only for `selectedAccount`, never
+  // app-wide.
   @backgroundMethod()
-  public async clearPendingTransaction() {
+  public async clearPendingTransaction(params?: {
+    selectedAccount?: {
+      networkId: string;
+      accountId?: string;
+      indexedAccountId?: string;
+    };
+  }) {
     await this.backgroundApi.serviceHistory.clearLocalHistoryPendingTxs();
     await this.backgroundApi.serviceSwap.cleanSwapHistoryItems([
       ESwapTxHistoryStatus.CANCELING,
       ESwapTxHistoryStatus.PENDING,
     ]);
+    if (params?.selectedAccount) {
+      // A failure here must not undo the general clear above.
+      try {
+        await this.backgroundApi.servicePrivacyChain.clearSelectedAccountLocalWalletPendingSends(
+          params.selectedAccount,
+        );
+      } catch (error) {
+        console.error('Failed to clear local wallet pending sends:', error);
+      }
+    }
     defaultLogger.setting.page.clearData({ action: 'Pending txn' });
   }
 

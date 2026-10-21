@@ -34,6 +34,7 @@ import {
 } from '@onekeyhq/shared/types/tx';
 
 import { SimpleDbEntityLocalHistory } from '../../../dbs/simple/entity/SimpleDbEntityLocalHistory';
+import { SimpleDbEntityPrivacyChainJournal } from '../../../dbs/simple/entity/SimpleDbEntityPrivacyChainJournal';
 import { SimpleDbEntityZcash } from '../../../dbs/simple/entity/SimpleDbEntityZcash';
 import VaultBtc from '../btc/Vault';
 
@@ -114,13 +115,13 @@ describe('expired transparent send reconciliation', () => {
   let networkFetch: jest.Mock;
 
   async function fixture() {
-    const zcash = inMemory(new SimpleDbEntityZcash());
+    const journalDb = inMemory(new SimpleDbEntityPrivacyChainJournal());
     const localHistory = inMemory(new SimpleDbEntityLocalHistory());
     await localHistory.saveLocalHistoryTxs({
       ...historyParams,
       pendingTxs: [localSend()],
     });
-    await zcash.saveTransparentPendingTx({
+    await journalDb.saveTransparentPendingTx({
       accountId,
       tx: {
         txid,
@@ -142,7 +143,11 @@ describe('expired transparent send reconciliation', () => {
       networkId: historyParams.networkId,
       accountId,
       backgroundApi: {
-        simpleDb: { zcash, localHistory },
+        simpleDb: {
+          zcash: inMemory(new SimpleDbEntityZcash()),
+          privacyChainJournal: journalDb,
+          localHistory,
+        },
         serviceToken: { getToken: async () => undefined },
         serviceAccount: { getDBAccount: async () => ({ address: 't1-own' }) },
       },
@@ -164,8 +169,8 @@ describe('expired transparent send reconciliation', () => {
       return rows?.filter((tx) => tx.decodedTx.txid === txid) ?? [];
     };
     const inUse = async () =>
-      zcash.listTransparentOutpointsInUse({ accountId });
-    return { vault, zcash, localHistory, backend, read, inUse };
+      journalDb.listTransparentOutpointsInUse({ accountId });
+    return { vault, journalDb, localHistory, backend, read, inUse };
   }
 
   beforeEach(() => {
@@ -197,15 +202,15 @@ describe('expired transparent send reconciliation', () => {
   ])(
     'keeps the send pending and its inputs locked when %s',
     async (_case, tipHeight, snapshotComplete) => {
-      const { zcash, localHistory, backend, read, inUse } = await fixture();
+      const { journalDb, localHistory, backend, read, inUse } = await fixture();
       Object.assign(backend, { tipHeight, snapshotComplete });
       const rows = await read();
       expect(rows.map((tx) => tx.decodedTx.status)).toEqual([
         EDecodedTxStatus.Pending,
       ]);
-      expect(await zcash.listTransparentPendingTxs({ accountId })).toHaveLength(
-        1,
-      );
+      expect(
+        await journalDb.listTransparentPendingTxs({ accountId }),
+      ).toHaveLength(1);
       expect(await inUse()).toEqual(
         new Set([`${spentOutpoint.txid}:${spentOutpoint.vout}`]),
       );
@@ -221,7 +226,7 @@ describe('expired transparent send reconciliation', () => {
   ])(
     'drops an expired send when the backend %s and releases its inputs',
     async (_case, txs) => {
-      const { zcash, localHistory, backend, read, inUse } = await fixture();
+      const { journalDb, localHistory, backend, read, inUse } = await fixture();
       Object.assign(backend, { txs, tipHeight: expiryHeight + 11 });
       const rows = await read();
       expect(rows.map((tx) => tx.decodedTx)).toEqual([
@@ -231,7 +236,9 @@ describe('expired transparent send reconciliation', () => {
           createdAt: 1,
         }),
       ]);
-      expect(await zcash.listTransparentPendingTxs({ accountId })).toEqual([]);
+      expect(await journalDb.listTransparentPendingTxs({ accountId })).toEqual(
+        [],
+      );
       expect(await inUse()).toEqual(new Set());
       expect(
         await localHistory.getAccountLocalHistoryPendingTxs(historyParams),
@@ -245,9 +252,9 @@ describe('expired transparent send reconciliation', () => {
   );
 
   it('never resubmits an unknown-outcome send on history reads', async () => {
-    const { zcash, backend, read, inUse } = await fixture();
-    const [journal] = await zcash.listTransparentPendingTxs({ accountId });
-    await zcash.saveTransparentPendingTx({
+    const { journalDb, backend, read, inUse } = await fixture();
+    const [journal] = await journalDb.listTransparentPendingTxs({ accountId });
+    await journalDb.saveTransparentPendingTx({
       accountId,
       tx: { ...journal, broadcastState: 'unknown' },
     });
@@ -264,7 +271,7 @@ describe('expired transparent send reconciliation', () => {
       ]);
     }
     expect(transport).not.toHaveBeenCalled();
-    expect(await zcash.listTransparentPendingTxs({ accountId })).toEqual([
+    expect(await journalDb.listTransparentPendingTxs({ accountId })).toEqual([
       expect.objectContaining({ broadcastState: 'unknown' }),
     ]);
     expect(await inUse()).toEqual(
@@ -290,7 +297,7 @@ describe('expired transparent send reconciliation', () => {
   });
 
   it('never drops a send the backend reports in a block while still pending', async () => {
-    const { zcash, backend, read, inUse } = await fixture();
+    const { journalDb, backend, read, inUse } = await fixture();
     Object.assign(backend, {
       txs: [row(txid, EDecodedTxStatus.Pending, { block: expiryHeight - 1 })],
       tipHeight: expiryHeight + 500,
@@ -299,16 +306,16 @@ describe('expired transparent send reconciliation', () => {
     expect(rows.map((tx) => tx.decodedTx.status)).not.toContain(
       EDecodedTxStatus.Dropped,
     );
-    expect(await zcash.listTransparentPendingTxs({ accountId })).toHaveLength(
-      1,
-    );
+    expect(
+      await journalDb.listTransparentPendingTxs({ accountId }),
+    ).toHaveLength(1);
     expect(await inUse()).toEqual(
       new Set([`${spentOutpoint.txid}:${spentOutpoint.vout}`]),
     );
   });
 
   it('drops an expired send only once an indexed block passes expiry + 10', async () => {
-    const { vault, zcash, read } = await fixture();
+    const { vault, journalDb, read } = await fixture();
     const indexed: IOnChainHistoryTx[] = [];
     const mined = (tx: string, block: number, confirmations: number) =>
       ({
@@ -355,15 +362,17 @@ describe('expired transparent send reconciliation', () => {
     expect((await read()).map((tx) => tx.decodedTx.status)).toEqual([
       EDecodedTxStatus.Pending,
     ]);
-    expect(await zcash.listTransparentPendingTxs({ accountId })).toHaveLength(
-      1,
-    );
+    expect(
+      await journalDb.listTransparentPendingTxs({ accountId }),
+    ).toHaveLength(1);
 
     indexed.unshift(mined('02', expiryHeight + 11, 1));
     expect((await read()).map((tx) => tx.decodedTx.status)).toEqual([
       EDecodedTxStatus.Dropped,
     ]);
-    expect(await zcash.listTransparentPendingTxs({ accountId })).toEqual([]);
+    expect(await journalDb.listTransparentPendingTxs({ accountId })).toEqual(
+      [],
+    );
   });
 
   it('keeps a dropped send dropped on later polls past the 50-row cache', async () => {
@@ -388,17 +397,19 @@ describe('expired transparent send reconciliation', () => {
   });
 
   it('persists the dropped row before releasing the journal', async () => {
-    const { zcash, localHistory, backend, read } = await fixture();
+    const { journalDb, localHistory, backend, read } = await fixture();
     backend.tipHeight = expiryHeight + 11;
     jest
       .spyOn(localHistory, 'batchUpdateLocalHistoryTxs')
       .mockRejectedValueOnce(new Error('storage unavailable'));
     await read();
-    expect(await zcash.listTransparentPendingTxs({ accountId })).toHaveLength(
-      1,
-    );
+    expect(
+      await journalDb.listTransparentPendingTxs({ accountId }),
+    ).toHaveLength(1);
     await read();
-    expect(await zcash.listTransparentPendingTxs({ accountId })).toEqual([]);
+    expect(await journalDb.listTransparentPendingTxs({ accountId })).toEqual(
+      [],
+    );
   });
 
   it('lists a pending send once when the backend reports its txid in another case', async () => {
@@ -486,9 +497,9 @@ describe('expired transparent send reconciliation', () => {
     });
   });
 
-  it('releases every journal and reservation when pending transactions are cleared', async () => {
-    const { zcash, inUse } = await fixture();
-    await zcash.reserveTransparentOutpoints({
+  it('keeps the accepted send but releases an unsigned reservation when pending transactions are cleared', async () => {
+    const { journalDb, inUse } = await fixture();
+    await journalDb.reserveTransparentOutpoints({
       accountId,
       ownerId: 'unsigned',
       outpoints: [{ txid: 'cc'.repeat(32), vout: 1 }],
@@ -496,8 +507,21 @@ describe('expired transparent send reconciliation', () => {
       expiryHeight: 1000,
     });
     expect((await inUse()).size).toBe(2);
-    await zcash.clearTransparentPendingState();
-    expect(await zcash.listTransparentPendingTxs({ accountId })).toEqual([]);
+    await journalDb.clearTransparentPendingSends({ accountId });
+    expect(
+      await journalDb.listTransparentPendingTxs({ accountId }),
+    ).toHaveLength(1);
+    expect(await inUse()).toEqual(
+      new Set([`${spentOutpoint.txid}:${spentOutpoint.vout}`]),
+    );
+    // Once the accepted send can no longer be mined, it is released too.
+    await journalDb.clearTransparentPendingSends({
+      accountId,
+      expiredBeforeHeight: expiryHeight + 1,
+    });
+    expect(await journalDb.listTransparentPendingTxs({ accountId })).toEqual(
+      [],
+    );
     expect(await inUse()).toEqual(new Set());
   });
 });

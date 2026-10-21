@@ -393,6 +393,8 @@ describe('Zcash transparent send amount intent', () => {
             privacyChain: {},
             zcash: {
               getPrivacyModeState: async () => ({ intent: 'off' }),
+            },
+            privacyChainJournal: {
               listTransparentPendingTxs: async () => [],
             },
           },

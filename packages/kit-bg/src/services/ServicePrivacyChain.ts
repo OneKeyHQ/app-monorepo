@@ -906,6 +906,75 @@ class ServicePrivacyChain extends ServiceBase {
     return ids;
   }
 
+  // "Clear pending transactions" for one account; no other account's locks
+  // or signed sends are touched.
+  async clearLocalWalletPendingSends({
+    networkId,
+    accountId,
+  }: {
+    networkId: string;
+    accountId: string;
+  }): Promise<void> {
+    if (!(await this.getLocalWalletNetworkIds()).includes(networkId)) {
+      return;
+    }
+    const vault = await vaultFactory.getChainOnlyVault({ networkId });
+    await requireLocalWalletCapability(vault).clearPendingSends?.({
+      networkId,
+      accountId,
+    });
+  }
+
+  // The settings action for the selected account. On All Networks that is
+  // the selected account's own account on each privacy chain.
+  async clearSelectedAccountLocalWalletPendingSends({
+    networkId,
+    accountId,
+    indexedAccountId,
+  }: {
+    networkId: string;
+    accountId?: string;
+    indexedAccountId?: string;
+  }): Promise<void> {
+    const targets: { networkId: string; accountId: string }[] = [];
+    if (!networkUtils.isAllNetwork({ networkId })) {
+      if (accountId) {
+        targets.push({ networkId, accountId });
+      }
+    } else if (indexedAccountId) {
+      for (const localWalletNetworkId of await this.getLocalWalletNetworkIds()) {
+        try {
+          const { networkAccounts } =
+            // eslint-disable-next-line no-await-in-loop
+            await this.backgroundApi.serviceAccount.getNetworkAccountsInSameIndexedAccountIdWithDeriveTypes(
+              {
+                networkId: localWalletNetworkId,
+                indexedAccountId,
+                excludeEmptyAccount: true,
+              },
+            );
+          for (const { account } of networkAccounts) {
+            if (account) {
+              targets.push({
+                networkId: localWalletNetworkId,
+                accountId: account.id,
+              });
+            }
+          }
+        } catch (e) {
+          console.error('[privacy-chain] could not resolve pending sends', {
+            networkId: localWalletNetworkId,
+            error: e instanceof Error ? e.message : String(e),
+          });
+        }
+      }
+    }
+    for (const target of targets) {
+      // eslint-disable-next-line no-await-in-loop
+      await this.clearLocalWalletPendingSends(target);
+    }
+  }
+
   @backgroundMethod()
   async markLocalDataDropPending({
     networkIds,
@@ -1478,10 +1547,22 @@ class ServicePrivacyChain extends ServiceBase {
       const lastBalanceAccountIds = await listLastLocalWalletBalanceAccountIds({
         backgroundApi: this.backgroundApi,
       });
+      // An unreadable journal must not stop the rest of GC; it is retried
+      // on the next pass.
+      const journalAccountIds =
+        await this.backgroundApi.simpleDb.privacyChainJournal
+          .listAccountIds()
+          .catch((e: unknown) => {
+            console.error('[privacy-chain] gc could not read the journal', {
+              error: e instanceof Error ? e.message : String(e),
+            });
+            return [];
+          });
       const hasCandidates =
         networks.some(({ cleanupAccountIds }) => cleanupAccountIds.length) ||
         viewingKeyAccountIds.length > 0 ||
-        lastBalanceAccountIds.length > 0;
+        lastBalanceAccountIds.length > 0 ||
+        journalAccountIds.length > 0;
       if (hasCandidates) {
         // Purging is irreversible, so only a definite "not on disk" counts as
         // removed; without that answer the whole pass waits for the next one.
@@ -1523,6 +1604,11 @@ class ServicePrivacyChain extends ServiceBase {
         await removeLastLocalWalletBalances({
           backgroundApi: this.backgroundApi,
           accountIds: lastBalanceAccountIds.filter(
+            (accountId) => !storedAccountIds.has(accountId),
+          ),
+        });
+        await this.backgroundApi.simpleDb.privacyChainJournal.removeAccounts({
+          accountIds: journalAccountIds.filter(
             (accountId) => !storedAccountIds.has(accountId),
           ),
         });

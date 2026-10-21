@@ -67,7 +67,10 @@ function createVault({
     networkId: 'zec--0',
     backgroundApi: {
       simpleDb: {
-        zcash: { listTransparentOutpointsInUse, listTransparentPendingTxs },
+        privacyChainJournal: {
+          listTransparentOutpointsInUse,
+          listTransparentPendingTxs,
+        },
         localHistory: {
           getAccountLocalHistoryConfirmedTxs,
           getAccountLocalHistoryPendingTxs: async () => [],

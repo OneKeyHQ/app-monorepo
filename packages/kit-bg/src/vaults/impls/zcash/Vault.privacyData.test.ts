@@ -88,7 +88,6 @@ describe('Zcash local privacy data deletion', () => {
               const state = states[id];
               return state?.intent === 'on' && state.operation === undefined;
             }),
-            listTransparentPendingTxs: jest.fn(async () => []),
             listAccountMetas: jest.fn(async () => [
               { accountId, meta },
               { accountId: aliasAccountId, meta },
@@ -414,6 +413,8 @@ it('drops chain data without clearing device-wide privacy preferences', async ()
   const dropWalletDatabase = jest.fn().mockResolvedValue(undefined);
   const clearZcash = jest.fn().mockResolvedValue(undefined);
   const clearPrivacyChain = jest.fn().mockResolvedValue(undefined);
+  const clearZcashTransparent = jest.fn().mockResolvedValue(undefined);
+  const clearXmrSent = jest.fn().mockResolvedValue(undefined);
   const vault = Object.assign(Object.create(Vault.prototype) as Vault, {
     zcashGetApi: async () => ({ dropWalletDatabase }),
     backgroundApi: {
@@ -424,13 +425,64 @@ it('drops chain data without clearing device-wide privacy preferences', async ()
         privacyChain: {
           clearRawData: clearPrivacyChain,
         },
+        privacyChainJournal: { clearZcashTransparent, clearXmrSent },
       },
     },
   });
   await vault.getLocalWalletCapability().dropLocalData?.();
   expect(dropWalletDatabase).toHaveBeenCalledTimes(1);
   expect(clearZcash).toHaveBeenCalledTimes(1);
+  expect(clearZcashTransparent).toHaveBeenCalledTimes(1);
+  expect(clearXmrSent).not.toHaveBeenCalled();
   expect(clearPrivacyChain).not.toHaveBeenCalled();
+});
+
+describe('zcash clear pending sends', () => {
+  function createVault(tip: number | undefined) {
+    const clearTransparentPendingSends = jest.fn().mockResolvedValue(undefined);
+    const vault = Object.assign(Object.create(Vault.prototype) as Vault, {
+      networkId: 'zec--0',
+      backgroundApi: {
+        simpleDb: {
+          privacyChainCache: { getChainTip: async () => tip },
+          privacyChainJournal: { clearTransparentPendingSends },
+        },
+      },
+    });
+    return { vault, clearTransparentPendingSends };
+  }
+
+  it('clears only the given account, counting expiry past the drop margin', async () => {
+    const { vault, clearTransparentPendingSends } = createVault(1000);
+    await vault
+      .getLocalWalletCapability()
+      .clearPendingSends?.({ networkId: 'zec--0', accountId: 'account' });
+    expect(clearTransparentPendingSends).toHaveBeenCalledWith({
+      accountId: 'account',
+      expiredBeforeHeight: 990,
+    });
+  });
+
+  it('expires nothing without a saved tip', async () => {
+    const { vault, clearTransparentPendingSends } = createVault(undefined);
+    await vault
+      .getLocalWalletCapability()
+      .clearPendingSends?.({ networkId: 'zec--0', accountId: 'account' });
+    expect(clearTransparentPendingSends).toHaveBeenCalledWith({
+      accountId: 'account',
+      expiredBeforeHeight: undefined,
+    });
+  });
+
+  it('refuses another network', async () => {
+    const { vault, clearTransparentPendingSends } = createVault(1000);
+    await expect(
+      vault
+        .getLocalWalletCapability()
+        .clearPendingSends?.({ networkId: 'xmr--0', accountId: 'account' }),
+    ).rejects.toThrow('another network');
+    expect(clearTransparentPendingSends).not.toHaveBeenCalled();
+  });
 });
 
 describe('zcash chain tip for month-based birthday estimates', () => {
