@@ -27,6 +27,7 @@ import {
   ThirdPartyNetworkError,
   ThirdPartySecureChannelError,
 } from '../errors/thirdPartyHardwareErrors';
+import { EOneKeyErrorClassNames } from '../types/errorTypes';
 
 import { convertDeviceError } from './deviceErrorUtils';
 import { toPlainErrorObject } from './errorUtils';
@@ -691,6 +692,22 @@ describe('filterThirdPartyHwCreateFailureToasts', () => {
 
     expect(filterThirdPartyHwCreateFailureToasts([first, muted])).toEqual([
       first,
+    ]);
+  });
+
+  it('keeps a hardware failure whose autoToast the device stage cleared', () => {
+    const pathForbidden = {
+      error: {
+        code: ThirdPartyHwErrorCode.DevicePathForbidden,
+        className: EOneKeyErrorClassNames.OneKeyHardwareError,
+        $isHardwareError: true,
+        message: 'Path not supported',
+        autoToast: false,
+      },
+    };
+
+    expect(filterThirdPartyHwCreateFailureToasts([pathForbidden])).toEqual([
+      pathForbidden,
     ]);
   });
 

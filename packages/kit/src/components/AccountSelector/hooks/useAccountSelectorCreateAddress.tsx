@@ -41,8 +41,12 @@ import { AccountSelectorTestIDs } from '../testIDs';
 import { useCreateQrWallet } from './useCreateQrWallet';
 
 export function useAccountSelectorCreateAddress() {
-  const { serviceAccount, serviceBatchCreateAccount, serviceHardwareUI } =
-    backgroundApiProxy;
+  const {
+    serviceAccount,
+    serviceBatchCreateAccount,
+    serviceHardwareUI,
+    serviceNetwork,
+  } = backgroundApiProxy;
   const intl = useIntl();
   const callAccountSelectorAction = useAccountSelectorLazyAction();
   const { createQrWalletAccount } = useCreateQrWallet();
@@ -193,13 +197,43 @@ export function useAccountSelectorCreateAddress() {
             ? filterThirdPartyHwCreateFailureToasts(failedList)
             : failedList;
           for (const failedAccount of failedListForToast) {
-            Toast.error({
-              title: isThirdPartyPassphraseAlwaysOnDeviceErrorCode(
+            if (
+              isThirdPartyPassphraseAlwaysOnDeviceErrorCode(
                 failedAccount.error.code,
               )
-                ? ETranslations.hardware_third_party_passphrase_always_on_device
-                : failedAccount.error.message || 'Unknown error',
-            });
+            ) {
+              Toast.error({
+                title:
+                  ETranslations.hardware_third_party_passphrase_always_on_device,
+              });
+            } else if (isThirdPartyHw) {
+              // Other chains may have succeeded, so name the chain that failed.
+              const network = await serviceNetwork.getNetwork({
+                networkId: failedAccount.networkId,
+              });
+              const deriveTypeInfo =
+                await serviceNetwork.getDeriveInfoOfNetwork({
+                  networkId: failedAccount.networkId,
+                  deriveType: failedAccount.deriveType,
+                });
+              Toast.error({
+                title: intl.formatMessage(
+                  {
+                    id: ETranslations.feedback_hw_create_unsupported_address_title,
+                  },
+                  {
+                    network: network?.name || failedAccount.networkId,
+                    addressType:
+                      deriveTypeInfo?.label || failedAccount.deriveType,
+                  },
+                ),
+                message: failedAccount.error.message || 'Unknown error',
+              });
+            } else {
+              Toast.error({
+                title: failedAccount.error.message || 'Unknown error',
+              });
+            }
           }
         }
 
@@ -367,6 +401,7 @@ export function useAccountSelectorCreateAddress() {
       serviceAccount,
       serviceBatchCreateAccount,
       serviceHardwareUI,
+      serviceNetwork,
     ],
   );
 
