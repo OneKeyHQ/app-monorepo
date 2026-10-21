@@ -13,7 +13,8 @@ import type { IntlShape } from 'react-intl';
 /**
  * The public stock endpoint describes the underlying listing, not the token
  * that wraps it. Preserve the selected token's issuer and pause metadata
- * alongside the listing's market status.
+ * alongside the listing's market status. `tags` names the listing market;
+ * without it the listing is left unknown rather than guessed.
  */
 export function buildStockInfoFromPublicDetail(
   detail: IMarketStockPublicDetail,
@@ -23,6 +24,7 @@ export function buildStockInfoFromPublicDetail(
     title: detail.symbol,
     subtitle: detail.name,
     source: tokenStockInfo?.source,
+    isUSListing: detail.tags ? detail.tags.includes('US') : undefined,
     isPaused: tokenStockInfo?.isPaused,
     sourceLogoUri: detail.logoUrl,
     isOpen: detail.marketStatus?.isOpen,
