@@ -1349,7 +1349,7 @@ class ServicePrimeFreeTrial extends ServiceBase {
     return ends.length ? Math.min(...ends) : undefined;
   }
 
-  private retryResults = new Set<string>();
+  private retryResults = new Map<string, IPrimeFreeTrialUsageResult>();
 
   private recordRetryResult({
     featureId,
@@ -1361,11 +1361,17 @@ class ServicePrimeFreeTrial extends ServiceBase {
     result: IPrimeFreeTrialUsageResult;
   }) {
     const key = this.getUsageCacheKey(featureId, attemptId);
-    if (this.retryResults.has(key)) return;
-    this.retryResults.add(key);
+    const previousResult = this.retryResults.get(key);
+    if (
+      previousResult === 'success' ||
+      (previousResult && result !== 'success')
+    ) {
+      return;
+    }
+    this.retryResults.set(key, result);
     // Bound analytics-only memory; no quota or durable usage state changes.
     if (this.retryResults.size > 1000) {
-      const oldest = this.retryResults.values().next().value;
+      const oldest = this.retryResults.keys().next().value;
       if (oldest) this.retryResults.delete(oldest);
     }
     logPrimeFreeTrialResult({
@@ -1374,6 +1380,7 @@ class ServicePrimeFreeTrial extends ServiceBase {
       stage: 'retry',
       source: 'client',
       result,
+      ...(previousResult ? { previousResult } : {}),
     });
   }
 

@@ -659,7 +659,6 @@ export function usePrimeFeatureAccess() {
     ): Promise<IPrimeFeatureAccessResult> => {
       if (
         params.trackAttempt === false ||
-        params.loginOnly ||
         isPrimeSubscriptionActive ||
         isPrimeFreeTrialTravelMode()
       ) {

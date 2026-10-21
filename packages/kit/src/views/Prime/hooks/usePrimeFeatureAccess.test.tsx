@@ -888,6 +888,73 @@ describe('free-trial access analytics', () => {
     mockIsPrimeSubscriptionActive.mockResolvedValue(false);
   });
 
+  it.each([0, 1])(
+    'records a history entry with %i uses as access, never completed usage',
+    async (remaining) => {
+      setSnapshot(quotaWith(remaining, EPrimeFeatures.AddressRiskCheck));
+      const result = renderAccessHook();
+      await act(async () => {
+        await expect(
+          result.current.ensureFeatureAccess({
+            featureId: EPrimeFeatures.AddressRiskCheck,
+            loginOnly: true,
+          }),
+        ).resolves.toEqual({ granted: true, entitlementSource: 'freeTrial' });
+      });
+      expect(mockTrialAttempt).toHaveBeenCalledTimes(1);
+      expect(mockTrialResult).toHaveBeenCalledTimes(1);
+      expect(mockTrialResult).toHaveBeenCalledWith(
+        expect.objectContaining({
+          featureId: EPrimeFeatures.AddressRiskCheck,
+          stage: 'access',
+          result: 'granted',
+          source: 'client',
+        }),
+      );
+      expect(mockRefreshQuota).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each(['cancelled', 'failed'] as const)(
+    'records a %s login at a history entry',
+    async (outcome) => {
+      setSnapshot(undefined);
+      mockIsLoggedIn.mockResolvedValue(false);
+      mockGetPublicConfig.mockResolvedValue(undefined);
+      mockLoginOneKeyId.mockRejectedValueOnce(
+        outcome === 'cancelled'
+          ? new PrimeLoginDialogCancelError()
+          : new Error('login failed'),
+      );
+      const result = renderAccessHook();
+      await act(async () => {
+        await result.current.ensureFeatureAccess({
+          featureId: EPrimeFeatures.AddressRiskCheck,
+          loginOnly: true,
+        });
+      });
+      expect(mockTrialAttempt).toHaveBeenCalledTimes(1);
+      expect(mockTrialResult).toHaveBeenCalledTimes(1);
+      expect(mockTrialResult).toHaveBeenCalledWith(
+        expect.objectContaining({ stage: 'access', result: outcome }),
+      );
+    },
+  );
+
+  it('does not count an extension history continuation as another entry', async () => {
+    setSnapshot(quotaWith(0, EPrimeFeatures.AddressRiskCheck));
+    const result = renderAccessHook();
+    await act(async () => {
+      await result.current.ensureFeatureAccess({
+        featureId: EPrimeFeatures.AddressRiskCheck,
+        loginOnly: true,
+        trackAttempt: false,
+      });
+    });
+    expect(mockTrialAttempt).not.toHaveBeenCalled();
+    expect(mockTrialResult).not.toHaveBeenCalled();
+  });
+
   it.each([
     'BulkCopyAddresses',
     'BulkSend',
