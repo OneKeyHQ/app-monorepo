@@ -580,12 +580,15 @@ function TokenRow({
         onPress={handleToggle}
         onHoverIn={() => setIsHovered(true)}
         onHoverOut={() => setIsHovered(false)}
-        // The row's own hover wash would lift an open token off the card its
-        // offers share, so an open row answers with its chevron only
+        // Opening a token pins the row's hover color as the card's header
+        // strip; closing it lets the color go
         {...(isOpen
           ? {
-              hoverStyle: { bg: '$transparent' },
-              pressStyle: { bg: '$transparent' },
+              bg: '$bgHover',
+              borderTopLeftRadius: '$4',
+              borderTopRightRadius: '$4',
+              borderBottomLeftRadius: 0,
+              borderBottomRightRadius: 0,
             }
           : undefined)}
         {...buildKeyboardPressProps(handleToggle)}
