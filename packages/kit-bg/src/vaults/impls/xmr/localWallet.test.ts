@@ -63,7 +63,8 @@ const mockGetIdentityId = jest.fn(async () => '3');
 const mockGetRuntimeUuid = jest.fn(
   async (accountId: string): Promise<string | undefined> => `fp-${accountId}`,
 );
-const mockSetAccountState = jest.fn(async () => undefined);
+const mockUpdateXmrBirthday = jest.fn(async () => undefined);
+const mockRotateEpochs = jest.fn(async () => undefined);
 const mockDeleteXmrDatabase = jest.fn(async (_network: string) => undefined);
 const mockForgetStaleFirst = jest.fn<void, [string]>();
 const mockRemoveAccount = jest.fn(async () => undefined);
@@ -135,19 +136,21 @@ function capability(intent: 'on' | 'off' = 'on', birthdayHeight?: number) {
         privacyChainCache,
         privacyChainJournal: mockJournal,
         privacyChainKeys: mockKeys,
-        xmr: {
-          getAccountState: async () => ({
+        privacyChainState: {
+          getXmrAccountState: async () => ({
             intent,
             operation: undefined,
             birthdayHeight,
           }),
-          hasAnyAccountState: async () => mockHasAnyAccountState,
-          listEnabledAccountIds: async () => ['acc'],
+          listScanDataAccountIds: async () =>
+            mockHasAnyAccountState ? ['acc'] : [],
+          listXmrEnabledAccountIds: async () => ['acc'],
           listAccountIds: async () => ['acc'],
-          beginDisable: jest.fn(async () => undefined),
-          completeDisable: jest.fn(async () => undefined),
-          setAccountState: mockSetAccountState,
-          removeAccount: mockRemoveAccount,
+          beginXmrDisable: jest.fn(async () => undefined),
+          completeXmrDisable: jest.fn(async () => undefined),
+          updateXmrBirthday: mockUpdateXmrBirthday,
+          rotateAccountEpochs: mockRotateEpochs,
+          removeXmrAccount: mockRemoveAccount,
         },
       },
     },
@@ -462,47 +465,54 @@ describe('xmr rescans include their starting block', () => {
   beforeEach(() => runtime.rewindTo.mockClear());
 
   it('rescans the birthday block on a cache reset', async () => {
+    mockRotateEpochs.mockClear();
     await capability('on', 3_700_000).reset({
       accountId: 'acc',
       scope: 'cache',
     });
     expect(runtime.rewindTo).toHaveBeenCalledWith('3', '3699999', '3767827');
+    // A new epoch is on disk before the scanned data is dropped.
+    expect(mockRotateEpochs).toHaveBeenCalledWith({ accountIds: ['acc'] });
+    expect(mockRotateEpochs.mock.invocationCallOrder[0]).toBeLessThan(
+      runtime.rewindTo.mock.invocationCallOrder[0],
+    );
     // A step in flight must not answer with the pre-rewind values.
     expect(mockForgetStaleFirst).toHaveBeenCalledWith('acc');
   });
 
   it('rescans the chosen block on a rescan from a height', async () => {
+    mockRotateEpochs.mockClear();
     await capability().rescan({
       accountId: 'acc',
       from: { type: 'height', height: 3_700_000 },
     });
     expect(runtime.rewindTo).toHaveBeenCalledWith('3', '3699999', '3767827');
+    expect(mockRotateEpochs).toHaveBeenCalledWith({ accountIds: ['acc'] });
     // A step in flight must not answer with the pre-rewind values.
     expect(mockForgetStaleFirst).toHaveBeenCalledWith('acc');
   });
 
   // An earlier start widens what the account covers.
   it('moves the birthday back to an earlier rescan start', async () => {
-    mockSetAccountState.mockClear();
+    mockUpdateXmrBirthday.mockClear();
     await capability('on', 3_700_000).rescan({
       accountId: 'acc',
       from: { type: 'height', height: 3_600_000 },
     });
-    expect(mockSetAccountState).toHaveBeenCalledWith({
-      accountId: 'acc',
-      state: expect.objectContaining({ birthdayHeight: 3_600_000 }),
-    });
+    expect(mockUpdateXmrBirthday).toHaveBeenCalledWith(
+      expect.objectContaining({ accountId: 'acc', birthdayHeight: 3_600_000 }),
+    );
   });
 
   // The runtime keeps everything scanned before a later start; storing the
   // later height would drop those funds the next time the database is rebuilt.
   it('keeps the earlier birthday on a later rescan start', async () => {
-    mockSetAccountState.mockClear();
+    mockUpdateXmrBirthday.mockClear();
     await capability('on', 3_600_000).rescan({
       accountId: 'acc',
       from: { type: 'height', height: 3_700_000 },
     });
-    expect(mockSetAccountState).not.toHaveBeenCalled();
+    expect(mockUpdateXmrBirthday).not.toHaveBeenCalled();
   });
 });
 
@@ -556,9 +566,11 @@ describe('xmr storage reset', () => {
         simpleDb: {
           privacyChainJournal: mockJournal,
           privacyChainKeys: mockKeys,
-          xmr: {
-            listEnabledAccountIds: async () => ['acc-1', 'acc-2'],
-            getAccountState: async () => ({
+          privacyChainState: {
+            listXmrEnabledAccountIds: async () => ['acc-1', 'acc-2'],
+            listScanDataAccountIds: async () => ['acc-1', 'acc-2', 'paused'],
+            rotateAccountEpochs: mockRotateEpochs,
+            getXmrAccountState: async () => ({
               intent: 'on',
               birthdayHeight: 3_600_000,
             }),
@@ -566,9 +578,18 @@ describe('xmr storage reset', () => {
         },
       },
     } as unknown as Vault);
+    mockRotateEpochs.mockClear();
+    mockDeleteXmrDatabase.mockClear();
     await cap.resetStorage?.();
 
     expect(mockDeleteXmrDatabase).toHaveBeenCalledWith('mainnet');
+    // Paused accounts lose their scanned data too, so they get a new epoch.
+    expect(mockRotateEpochs).toHaveBeenCalledWith({
+      accountIds: ['acc-1', 'acc-2', 'paused'],
+    });
+    expect(mockRotateEpochs.mock.invocationCallOrder[0]).toBeLessThan(
+      mockDeleteXmrDatabase.mock.invocationCallOrder[0],
+    );
     expect(runtime.addAccount.mock.calls).toEqual([
       [
         'fp-acc-1',
@@ -614,16 +635,18 @@ describe('xmr delete after turning the account off', () => {
           privacyChainCache,
           privacyChainJournal: mockJournal,
           privacyChainKeys: mockKeys,
-          xmr: {
-            getAccountState: async () => state,
-            beginDisable: async () => {
+          privacyChainState: {
+            getXmrAccountState: async () => state,
+            beginXmrDisable: async () => {
               state = { ...state, operation: { type: 'disable' } };
             },
-            completeDisable: async () => {
+            completeXmrDisable: async () => {
               state = { ...state, intent: 'off', operation: undefined };
             },
             listAccountIds: async () => ['acc'],
-            removeAccount: async () => {
+            listScanDataAccountIds: async () => ['acc'],
+            rotateAccountEpochs: mockRotateEpochs,
+            removeXmrAccount: async () => {
               state = { intent: 'off', birthdayHeight: 3_600_000 };
             },
           },
@@ -668,8 +691,8 @@ describe('xmr sync registers an enabled account the runtime lost', () => {
         simpleDb: {
           privacyChainJournal: mockJournal,
           privacyChainKeys: mockKeys,
-          xmr: {
-            getAccountState: async () => ({
+          privacyChainState: {
+            getXmrAccountState: async () => ({
               intent: 'on',
               birthdayHeight: 3_700_000,
             }),
@@ -793,6 +816,37 @@ describe('xmr local data delete keeps the birthday', () => {
   });
 });
 
+// Nothing read (no state, or Travel Mode) is not "no other holder": an
+// identity another account may share stays for orphan cleanup to judge.
+it('xmr keeps the runtime identity when the state cannot say who holds it', async () => {
+  runtime.removeAccount.mockClear();
+  mockRemoveAccount.mockClear();
+  const cap = buildXmrLocalWalletCapability({
+    networkId: 'xmr--0',
+    getXmrNetwork: async () => 'mainnet',
+    backgroundApi: {
+      simpleDb: {
+        privacyChainCache,
+        privacyChainJournal: mockJournal,
+        privacyChainKeys: mockKeys,
+        privacyChainState: {
+          listScanDataAccountIds: async () => undefined,
+          rotateAccountEpochs: mockRotateEpochs,
+          removeXmrAccount: mockRemoveAccount,
+        },
+      },
+    },
+  } as unknown as Vault);
+
+  await cap.deleteAccountData({ accountId: 'acc' });
+
+  expect(runtime.removeAccount).not.toHaveBeenCalled();
+  expect(mockRemoveAccount).toHaveBeenCalledWith({
+    accountId: 'acc',
+    keepBirthday: true,
+  });
+});
+
 describe('xmr local management while offline', () => {
   afterEach(() => {
     mockOnlineRuntime.mockReset().mockResolvedValue(runtime);
@@ -904,7 +958,7 @@ describe('xmr app reset wipe', () => {
         simpleDb: {
           privacyChainJournal: mockJournal,
           privacyChainKeys: mockKeys,
-          xmr: { clearRawData },
+          privacyChainState: { removeNetworkAccounts: clearRawData },
         },
       },
     } as unknown as Vault);
@@ -912,7 +966,7 @@ describe('xmr app reset wipe', () => {
     await cap.dropLocalData?.();
 
     expect(mockDeleteXmrDatabase).toHaveBeenCalledWith('mainnet');
-    expect(clearRawData).toHaveBeenCalledTimes(1);
+    expect(clearRawData).toHaveBeenCalledWith({ networkId: 'xmr--0' });
     expect(mockJournal.clearXmrSent).toHaveBeenCalledTimes(1);
     expect(mockKeys.removeNetworkKeys).toHaveBeenCalledWith({
       networkId: 'xmr--0',

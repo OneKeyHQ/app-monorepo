@@ -48,8 +48,18 @@ export async function getLocalWalletViewingKey({
   return { value, vkFp: record.vkFp };
 }
 
-// Refuses to replace a stored key with a different one: the caller stops with
-// the setup-incomplete error instead of switching the account's identity.
+function createViewingKeyMismatchError(): OneKeyLocalError {
+  return Object.assign(
+    new OneKeyLocalError(
+      localWalletText(ETranslations.privacy_error_setup_incomplete__msg),
+    ),
+    { [PRIVACY_CHAIN_VIEWING_KEY_MISMATCH]: true },
+  );
+}
+
+// Refuses a key that differs from the stored one or from the identity the
+// account's scan state names: the caller stops with the setup-incomplete
+// error instead of switching the account's identity.
 export async function saveLocalWalletViewingKey({
   backgroundApi,
   networkId,
@@ -65,6 +75,14 @@ export async function saveLocalWalletViewingKey({
     throw new OneKeyLocalError('privacy chain: empty viewing key');
   }
   const vkFp = getViewingKeyFingerprint({ networkId, viewingKey: value });
+  const expectedVkFp =
+    await backgroundApi.simpleDb.privacyChainState.getAccountVkFp({
+      networkId,
+      accountId,
+    });
+  if (expectedVkFp !== undefined && expectedVkFp !== vkFp) {
+    throw createViewingKeyMismatchError();
+  }
   try {
     await backgroundApi.simpleDb.privacyChainKeys.saveKey({
       accountId,
@@ -74,12 +92,7 @@ export async function saveLocalWalletViewingKey({
     if (!isPrivacyChainViewingKeyMismatchError(error)) {
       throw error;
     }
-    throw Object.assign(
-      new OneKeyLocalError(
-        localWalletText(ETranslations.privacy_error_setup_incomplete__msg),
-      ),
-      { [PRIVACY_CHAIN_VIEWING_KEY_MISMATCH]: true },
-    );
+    throw createViewingKeyMismatchError();
   }
   return { value, vkFp };
 }

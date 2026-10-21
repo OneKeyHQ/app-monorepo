@@ -35,7 +35,7 @@ import {
 
 import { SimpleDbEntityLocalHistory } from '../../../dbs/simple/entity/SimpleDbEntityLocalHistory';
 import { SimpleDbEntityPrivacyChainJournal } from '../../../dbs/simple/entity/SimpleDbEntityPrivacyChainJournal';
-import { SimpleDbEntityZcash } from '../../../dbs/simple/entity/SimpleDbEntityZcash';
+import { SimpleDbEntityPrivacyChainState } from '../../../dbs/simple/entity/SimpleDbEntityPrivacyChainState';
 import VaultBtc from '../btc/Vault';
 
 import Vault from './Vault';
@@ -144,7 +144,7 @@ describe('expired transparent send reconciliation', () => {
       accountId,
       backgroundApi: {
         simpleDb: {
-          zcash: inMemory(new SimpleDbEntityZcash()),
+          privacyChainState: inMemory(new SimpleDbEntityPrivacyChainState()),
           privacyChainJournal: journalDb,
           localHistory,
         },
@@ -568,7 +568,7 @@ describe('backend tip from the transparent history snapshot', () => {
       networkId: historyParams.networkId,
       backgroundApi: {
         simpleDb: {
-          zcash: { getAccountMeta: async () => null },
+          privacyChainState: { getZcashAccountMeta: async () => null },
           localHistory: {
             getAccountLocalHistoryConfirmedTxs: async () => [],
             getAccountLocalHistoryPendingTxs: async () => [],

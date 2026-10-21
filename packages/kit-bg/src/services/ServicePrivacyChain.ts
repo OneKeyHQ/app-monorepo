@@ -603,7 +603,7 @@ class ServicePrivacyChain extends ServiceBase {
 
   async isPrivacySyncOnCellularAllowed(): Promise<boolean> {
     this.allowCellularSyncCache =
-      await this.backgroundApi.simpleDb.privacyChain.getAllowCellularSync();
+      await this.backgroundApi.simpleDb.privacyChainState.getAllowCellularSync();
     return this.allowCellularSyncCache;
   }
 
@@ -633,7 +633,7 @@ class ServicePrivacyChain extends ServiceBase {
   }: {
     allow: boolean;
   }): Promise<void> {
-    await this.backgroundApi.simpleDb.privacyChain.setAllowCellularSync({
+    await this.backgroundApi.simpleDb.privacyChainState.setAllowCellularSync({
       allow,
     });
     this.allowCellularSyncCache = allow;
@@ -768,7 +768,7 @@ class ServicePrivacyChain extends ServiceBase {
     let pendingDrop: string[] | undefined;
     try {
       pendingDrop =
-        await this.backgroundApi.simpleDb.privacyChain.getPendingLocalDataDrop();
+        await this.backgroundApi.simpleDb.privacyChainState.getPendingLocalDataDrop();
     } catch (e) {
       console.error('[privacy-chain] could not read pending wipes', {
         error: e instanceof Error ? e.message : String(e),
@@ -865,7 +865,7 @@ class ServicePrivacyChain extends ServiceBase {
     let pending: string[];
     try {
       pending =
-        await this.backgroundApi.simpleDb.privacyChain.getPendingLocalDataDrop();
+        await this.backgroundApi.simpleDb.privacyChainState.getPendingLocalDataDrop();
     } catch (e) {
       console.error('[privacy-chain] could not read pending wipes', {
         error: e instanceof Error ? e.message : String(e),
@@ -902,7 +902,7 @@ class ServicePrivacyChain extends ServiceBase {
       return;
     }
     try {
-      await this.backgroundApi.simpleDb.privacyChain.removePendingLocalDataDrop(
+      await this.backgroundApi.simpleDb.privacyChainState.removePendingLocalDataDrop(
         { networkIds: droppedNetworkIds },
       );
     } catch (e) {
@@ -1011,9 +1011,11 @@ class ServicePrivacyChain extends ServiceBase {
   }: {
     networkIds: string[];
   }): Promise<void> {
-    await this.backgroundApi.simpleDb.privacyChain.setPendingLocalDataDrop({
-      networkIds,
-    });
+    await this.backgroundApi.simpleDb.privacyChainState.setPendingLocalDataDrop(
+      {
+        networkIds,
+      },
+    );
   }
 
   localWalletNetworkIdsCache: string[] | undefined;

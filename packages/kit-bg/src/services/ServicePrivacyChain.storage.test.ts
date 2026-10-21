@@ -4,9 +4,9 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
 import type { IRuntimeEnvironment } from '@onekeyhq/shared/src/travelMode/runtimeEnvironment';
 
-import { SimpleDbEntityPrivacyChain } from '../dbs/simple/entity/SimpleDbEntityPrivacyChain';
 import { SimpleDbEntityPrivacyChainJournal } from '../dbs/simple/entity/SimpleDbEntityPrivacyChainJournal';
 import { SimpleDbEntityPrivacyChainKeys } from '../dbs/simple/entity/SimpleDbEntityPrivacyChainKeys';
+import { SimpleDbEntityPrivacyChainState } from '../dbs/simple/entity/SimpleDbEntityPrivacyChainState';
 
 jest.mock('@onekeyhq/shared/src/background/backgroundDecorators', () => {
   const actual = jest.requireActual<
@@ -51,7 +51,7 @@ function accountRow(id: string) {
 
 function createPrivacyChainDb(initial?: unknown) {
   let saved: unknown = initial ?? null;
-  const entity = new SimpleDbEntityPrivacyChain();
+  const entity = new SimpleDbEntityPrivacyChainState();
   (entity as { appStorage: unknown }).appStorage = {
     getItem: jest.fn(async () => saved),
     setItem: jest.fn(async (_key: string, value: unknown) => {
@@ -448,7 +448,7 @@ describe('pending local data drop retry', () => {
       }),
     });
     const service = createService({
-      backgroundApi: { simpleDb: { privacyChain } },
+      backgroundApi: { simpleDb: { privacyChainState: privacyChain } },
     });
     return { service, privacyChain, dropLocalData };
   }
@@ -503,7 +503,7 @@ describe('pending local data drop retry', () => {
     ]);
   });
 
-  // A new Zcash account records privacy mode 'off', which holds no data.
+  // A record left by a cancelled enable or a deletion holds no data.
   it('wipes a network whose accounts hold no stored data', async () => {
     const { service, dropLocalData } = createRetryHarness({
       pending: [networkId],

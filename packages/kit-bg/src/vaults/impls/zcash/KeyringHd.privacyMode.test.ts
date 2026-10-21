@@ -1,4 +1,5 @@
 import { seedFromHdCredentialAsync } from '@onekeyhq/core/src/secret';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 import { KeyringHd as KeyringHdBtc } from '../btc/KeyringHd';
 
@@ -24,7 +25,8 @@ describe('Zcash KeyringHd privacy mode setup', () => {
     jest.restoreAllMocks();
   });
 
-  it('creates transparent accounts without deriving shielded metadata', async () => {
+  // Only an enable records scan state; a derived or saved account leaves none.
+  it('creates transparent accounts without deriving or recording privacy state', async () => {
     const account = {
       id: "hd-1--m/44'/133'/0'/0/0",
       pathIndex: 0,
@@ -32,21 +34,18 @@ describe('Zcash KeyringHd privacy mode setup', () => {
     const prepareAccounts = jest
       .spyOn(KeyringHdBtc.prototype, 'prepareAccounts')
       .mockResolvedValue([account] as never);
-    const initializePrivacyModeOff = jest.fn().mockResolvedValue(undefined);
-    const getWalletFreshMnemonic = jest.fn().mockResolvedValue(true);
-    const getWalletCreatedAtTimestamp = jest
-      .fn()
-      .mockResolvedValue(1_700_000_000_000);
-    const keyring = Object.assign(Object.create(KeyringHd.prototype), {
-      backgroundApi: {
-        simpleDb: {
-          zcash: {
-            getWalletFreshMnemonic,
-            getWalletCreatedAtTimestamp,
-            initializePrivacyModeOff,
-          },
+    const privacyChainState = new Proxy(
+      {},
+      {
+        get: (_target, method) => {
+          throw new OneKeyLocalError(
+            `unexpected privacy state access: ${String(method)}`,
+          );
         },
       },
+    );
+    const keyring = Object.assign(Object.create(KeyringHd.prototype), {
+      backgroundApi: { simpleDb: { privacyChainState } },
     }) as KeyringHd;
 
     await expect(keyring.prepareAccounts({} as never)).resolves.toEqual([
@@ -56,42 +55,5 @@ describe('Zcash KeyringHd privacy mode setup', () => {
     expect(prepareAccounts).toHaveBeenCalledTimes(1);
     // Account creation never decrypts the seed for Zcash key material.
     expect(seedFromHdCredentialAsync).not.toHaveBeenCalled();
-    expect(getWalletFreshMnemonic).toHaveBeenCalledWith({ walletId: 'hd-1' });
-    expect(initializePrivacyModeOff).toHaveBeenCalledWith({
-      accountId: account.id,
-      birthdayMonthHint: {
-        timestamp: 1_700_000_000_000,
-        source: 'created-wallet',
-      },
-    });
-  });
-
-  it('does not substitute the later account creation time for a missing wallet creation month', async () => {
-    const account = {
-      id: "hd-2--m/44'/133'/0'/0/0",
-      pathIndex: 0,
-    };
-    jest
-      .spyOn(KeyringHdBtc.prototype, 'prepareAccounts')
-      .mockResolvedValue([account] as never);
-    const initializePrivacyModeOff = jest.fn().mockResolvedValue(undefined);
-    const keyring = Object.assign(Object.create(KeyringHd.prototype), {
-      backgroundApi: {
-        simpleDb: {
-          zcash: {
-            getWalletFreshMnemonic: jest.fn().mockResolvedValue(true),
-            getWalletCreatedAtTimestamp: jest.fn().mockResolvedValue(undefined),
-            initializePrivacyModeOff,
-          },
-        },
-      },
-    }) as KeyringHd;
-
-    await keyring.prepareAccounts({} as never);
-
-    expect(initializePrivacyModeOff).toHaveBeenCalledWith({
-      accountId: account.id,
-      birthdayMonthHint: undefined,
-    });
   });
 });

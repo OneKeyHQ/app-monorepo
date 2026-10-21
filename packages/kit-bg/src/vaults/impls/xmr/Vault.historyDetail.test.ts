@@ -48,7 +48,9 @@ describe('xmr history detail', () => {
       networkId: 'xmr--0',
       xmrListHistoryItems,
       backgroundApi: {
-        simpleDb: { xmr: { getAccountState: async () => state } },
+        simpleDb: {
+          privacyChainState: { getXmrAccountState: async () => state },
+        },
         servicePrivacyChain: {
           getLocalWalletSyncProgress: async () => ({ chainTip }),
         },

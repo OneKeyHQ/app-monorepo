@@ -31,7 +31,9 @@ it.each([
       networkId: 'zec--0',
       backgroundApi: {
         simpleDb: {
-          zcash: { getPrivacyModeState: async () => ({ intent: 'on' }) },
+          privacyChainState: {
+            getZcashPrivacyModeState: async () => ({ intent: 'on' }),
+          },
         },
         // The self-payment reached the u1 that Receive displays.
         servicePrivacyChain: {

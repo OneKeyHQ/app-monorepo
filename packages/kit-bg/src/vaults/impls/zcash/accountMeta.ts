@@ -20,8 +20,8 @@ import type { IBackgroundApi } from '../../../apis/IBackgroundApi';
 import type { IDBAccount } from '../../../dbs/local/types';
 import type {
   IZcashAccountMeta,
-  SimpleDbEntityZcash,
-} from '../../../dbs/simple/entity/SimpleDbEntityZcash';
+  SimpleDbEntityPrivacyChainState,
+} from '../../../dbs/simple/entity/SimpleDbEntityPrivacyChainState';
 
 export type IZcashDerivedViewingMeta = {
   ufvk: string;
@@ -131,8 +131,10 @@ export async function resolveAndSaveZcashAccountMeta({
 }): Promise<void> {
   const hdIndex = checkIsDefined(account.pathIndex);
   const [existing, privacyModeState, storedKey] = await Promise.all([
-    backgroundApi.simpleDb.zcash.getAccountMeta({ accountId: account.id }),
-    backgroundApi.simpleDb.zcash.getPrivacyModeState({
+    backgroundApi.simpleDb.privacyChainState.getZcashAccountMeta({
+      accountId: account.id,
+    }),
+    backgroundApi.simpleDb.privacyChainState.getZcashPrivacyModeState({
       accountId: account.id,
     }),
     getLocalWalletViewingKey({
@@ -199,7 +201,7 @@ export async function resolveAndSaveZcashAccountMeta({
         ? 'fresh-wallet'
         : 'restore-month';
   }
-  await backgroundApi.simpleDb.zcash.saveAccountMeta({
+  await backgroundApi.simpleDb.privacyChainState.saveZcashAccountMeta({
     accountId: account.id,
     expectedPrivacyModeState: privacyModeState,
     meta: {
@@ -225,13 +227,16 @@ export async function refreshZcashAccountAddressCache({
   deriveAddresses,
 }: {
   accountId: string;
-  store: Pick<SimpleDbEntityZcash, 'getAccountMeta' | 'saveAccountMeta'>;
+  store: Pick<
+    SimpleDbEntityPrivacyChainState,
+    'getZcashAccountMeta' | 'saveZcashAccountMeta'
+  >;
   isHardware: boolean;
   deriveAddresses: (
     meta: IZcashAccountMeta,
   ) => Promise<IZcashDeriveAddressFromUfvkResult>;
 }): Promise<IZcashAccountMeta | undefined> {
-  const meta = await store.getAccountMeta({ accountId });
+  const meta = await store.getZcashAccountMeta({ accountId });
   if (!meta || meta.addressSchemeVersion === ZCASH_ADDRESS_SCHEME_VERSION) {
     return meta;
   }
@@ -262,13 +267,13 @@ export async function refreshZcashAccountAddressCache({
   };
   try {
     // A concurrent delete or repair must not be overwritten by this read.
-    await store.saveAccountMeta({
+    await store.saveZcashAccountMeta({
       accountId,
       meta: refreshed,
       expectedMeta: meta,
     });
   } catch (error) {
-    const current = await store.getAccountMeta({ accountId });
+    const current = await store.getZcashAccountMeta({ accountId });
     if (
       current?.vkFp === meta.vkFp &&
       current.addressSchemeVersion === ZCASH_ADDRESS_SCHEME_VERSION &&

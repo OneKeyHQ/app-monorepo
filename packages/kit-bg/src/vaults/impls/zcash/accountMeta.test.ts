@@ -1,7 +1,7 @@
 import { ZCASH_ADDRESS_SCHEME_VERSION } from '@onekeyhq/core/src/chains/zcash/sdkZcash/constants';
 
 import { SimpleDbEntityPrivacyChainKeys } from '../../../dbs/simple/entity/SimpleDbEntityPrivacyChainKeys';
-import { SimpleDbEntityZcash } from '../../../dbs/simple/entity/SimpleDbEntityZcash';
+import { SimpleDbEntityPrivacyChainState } from '../../../dbs/simple/entity/SimpleDbEntityPrivacyChainState';
 import { getViewingKeyFingerprint } from '../../localWallet/viewingKeyFingerprint';
 import { getLocalWalletViewingKey } from '../../localWallet/viewingKeyStore';
 
@@ -25,7 +25,7 @@ function withMemoryStorage<T extends object>(entity: T): T {
 }
 
 function createContext() {
-  const zcash = withMemoryStorage(new SimpleDbEntityZcash());
+  const zcash = withMemoryStorage(new SimpleDbEntityPrivacyChainState());
   const privacyChainKeys = withMemoryStorage(
     new SimpleDbEntityPrivacyChainKeys(),
   );
@@ -34,14 +34,14 @@ function createContext() {
     async (): Promise<IDBAccount | undefined> => account,
   );
   const backgroundApi = {
-    simpleDb: { zcash, privacyChainKeys },
+    simpleDb: { privacyChainState: zcash, privacyChainKeys },
     serviceAccount: { getDBAccountSafe },
   } as unknown as IBackgroundApi;
   const derived = {
     ufvk: 'synthetic-ufvk',
     unifiedAddress: 'synthetic-ua',
     transparentAddress: 'synthetic-transparent',
-    seedFingerprintHex: '00',
+    seedFingerprintHex: '00'.repeat(32),
     chainTip: 3_500_000,
   };
   const readKey = () =>
@@ -56,7 +56,8 @@ function createContext() {
 describe('Zcash viewing metadata derivation lifecycle', () => {
   it('does not recreate state deleted while viewing-key derivation is pending', async () => {
     const { account, backgroundApi, zcash, derived } = createContext();
-    await zcash.beginPrivacyModeEnable({
+    await zcash.beginZcashPrivacyModeEnable({
+      networkId,
       accountId: account.id,
       birthdayHeight: 3_000_000,
     });
@@ -67,21 +68,22 @@ describe('Zcash viewing metadata derivation lifecycle', () => {
         backgroundApi,
         networkId,
         derive: async () => {
-          await zcash.removeAccountState({ accountId: account.id });
+          await zcash.removeAccount({ accountId: account.id });
           return derived;
         },
       }),
     ).rejects.toThrow('privacy state changed during setup');
     await expect(
-      zcash.getAccountMeta({ accountId: account.id }),
+      zcash.getZcashAccountMeta({ accountId: account.id }),
     ).resolves.toBeUndefined();
-    await expect(zcash.listCleanupAccountIds()).resolves.toEqual([]);
+    await expect(zcash.listAccountIds({ networkId })).resolves.toEqual([]);
   });
 
   it('does not write metadata for a removed App account before GC runs', async () => {
     const { account, backgroundApi, zcash, derived, getDBAccountSafe } =
       createContext();
-    await zcash.beginPrivacyModeEnable({
+    await zcash.beginZcashPrivacyModeEnable({
+      networkId,
       accountId: account.id,
       birthdayHeight: 3_000_000,
     });
@@ -96,13 +98,14 @@ describe('Zcash viewing metadata derivation lifecycle', () => {
       }),
     ).rejects.toThrow('account removed during privacy setup');
     await expect(
-      zcash.getAccountMeta({ accountId: account.id }),
+      zcash.getZcashAccountMeta({ accountId: account.id }),
     ).resolves.toBeUndefined();
   });
 
   it('persists a derivation when the account and captured enable intent still exist', async () => {
     const { account, backgroundApi, zcash, derived, readKey } = createContext();
-    await zcash.beginPrivacyModeEnable({
+    await zcash.beginZcashPrivacyModeEnable({
+      networkId,
       accountId: account.id,
       birthdayHeight: 3_000_000,
     });
@@ -118,7 +121,7 @@ describe('Zcash viewing metadata derivation lifecycle', () => {
       networkId,
       viewingKey: derived.ufvk,
     });
-    const meta = await zcash.getAccountMeta({ accountId: account.id });
+    const meta = await zcash.getZcashAccountMeta({ accountId: account.id });
     expect(meta).toMatchObject({
       vkFp,
       birthdayHeight: 3_000_000,
@@ -133,7 +136,8 @@ describe('Zcash viewing metadata derivation lifecycle', () => {
 
   it('derives a missing key again and keeps the meta that names it', async () => {
     const { account, backgroundApi, zcash, derived, readKey } = createContext();
-    await zcash.beginPrivacyModeEnable({
+    await zcash.beginZcashPrivacyModeEnable({
+      networkId,
       accountId: account.id,
       birthdayHeight: 3_000_000,
     });
@@ -143,7 +147,7 @@ describe('Zcash viewing metadata derivation lifecycle', () => {
       networkId,
       derive: async () => derived,
     });
-    const meta = await zcash.getAccountMeta({ accountId: account.id });
+    const meta = await zcash.getZcashAccountMeta({ accountId: account.id });
     await backgroundApi.simpleDb.privacyChainKeys.removeKeys({
       accountIds: [account.id],
     });
@@ -159,13 +163,14 @@ describe('Zcash viewing metadata derivation lifecycle', () => {
     expect(derive).toHaveBeenCalledTimes(1);
     await expect(readKey()).resolves.toMatchObject({ value: derived.ufvk });
     await expect(
-      zcash.getAccountMeta({ accountId: account.id }),
+      zcash.getZcashAccountMeta({ accountId: account.id }),
     ).resolves.toEqual(meta);
   });
 
   it('stops with setup incomplete when a re-derived key differs from the stored identity', async () => {
     const { account, backgroundApi, zcash, derived, readKey } = createContext();
-    await zcash.beginPrivacyModeEnable({
+    await zcash.beginZcashPrivacyModeEnable({
+      networkId,
       accountId: account.id,
       birthdayHeight: 3_000_000,
     });
@@ -175,7 +180,7 @@ describe('Zcash viewing metadata derivation lifecycle', () => {
       networkId,
       derive: async () => derived,
     });
-    const meta = await zcash.getAccountMeta({ accountId: account.id });
+    const meta = await zcash.getZcashAccountMeta({ accountId: account.id });
     await backgroundApi.simpleDb.privacyChainKeys.removeKeys({
       accountIds: [account.id],
     });
@@ -189,15 +194,59 @@ describe('Zcash viewing metadata derivation lifecycle', () => {
 
     expect(isZcashSetupIncompleteError(error)).toBe(true);
     await expect(
-      zcash.getAccountMeta({ accountId: account.id }),
+      zcash.getZcashAccountMeta({ accountId: account.id }),
     ).resolves.toEqual(meta);
     // The mismatched key is not adopted.
     await expect(readKey()).resolves.toBeUndefined();
   });
 
+  it('stops with setup incomplete when a key derived after local-data deletion differs from the state identity', async () => {
+    const { account, backgroundApi, zcash, derived, readKey } = createContext();
+    await zcash.beginZcashPrivacyModeEnable({
+      networkId,
+      accountId: account.id,
+      birthdayHeight: 3_000_000,
+    });
+    await resolveAndSaveZcashAccountMeta({
+      account,
+      backgroundApi,
+      networkId,
+      derive: async () => derived,
+    });
+    // Delete-local-data drops the metadata and the key; the state keeps the
+    // identity they named.
+    await zcash.removeZcashAccountMeta({ accountId: account.id });
+    await backgroundApi.simpleDb.privacyChainKeys.removeKeys({
+      accountIds: [account.id],
+    });
+
+    const error = await resolveAndSaveZcashAccountMeta({
+      account,
+      backgroundApi,
+      networkId,
+      derive: async () => ({ ...derived, ufvk: 'another-ufvk' }),
+    }).catch((e: unknown) => e);
+
+    expect(isZcashSetupIncompleteError(error)).toBe(true);
+    await expect(readKey()).resolves.toBeUndefined();
+    await expect(
+      zcash.getZcashAccountMeta({ accountId: account.id }),
+    ).resolves.toBeUndefined();
+
+    // The same key is accepted again.
+    await resolveAndSaveZcashAccountMeta({
+      account,
+      backgroundApi,
+      networkId,
+      derive: async () => derived,
+    });
+    await expect(readKey()).resolves.toMatchObject({ value: derived.ufvk });
+  });
+
   it('stops with setup incomplete when the device returns a key other than the stored one', async () => {
     const { account, backgroundApi, zcash, derived, readKey } = createContext();
-    await zcash.beginPrivacyModeEnable({
+    await zcash.beginZcashPrivacyModeEnable({
+      networkId,
       accountId: account.id,
       birthdayHeight: 3_000_000,
     });
@@ -220,7 +269,7 @@ describe('Zcash viewing metadata derivation lifecycle', () => {
 
     expect(isZcashSetupIncompleteError(error)).toBe(true);
     await expect(
-      zcash.getAccountMeta({ accountId: account.id }),
+      zcash.getZcashAccountMeta({ accountId: account.id }),
     ).resolves.toBeUndefined();
     await expect(readKey()).resolves.toMatchObject({ value: 'first' });
   });

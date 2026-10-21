@@ -51,15 +51,19 @@ function createService({
       assertEnabledAccountLimit: jest.fn(async () => undefined),
     },
     simpleDb: {
-      zcash: {
-        getPrivacyModeState: jest.fn().mockResolvedValue({ intent: 'off' }),
-        isPrivacyModeEnabled: jest.fn().mockResolvedValue(privacyModeEnabled),
-        beginPrivacyModeEnable: jest.fn(),
-        completePrivacyModeEnable: jest.fn(),
-        cancelPendingPrivacyModeEnables: jest.fn(),
-        beginPrivacyModeDisable: jest.fn(),
-        completePrivacyModeDisable: jest.fn(),
-        getAccountMeta: jest.fn().mockResolvedValue({
+      privacyChainState: {
+        getZcashPrivacyModeState: jest
+          .fn()
+          .mockResolvedValue({ intent: 'off' }),
+        isZcashPrivacyModeEnabled: jest
+          .fn()
+          .mockResolvedValue(privacyModeEnabled),
+        beginZcashPrivacyModeEnable: jest.fn(),
+        completeZcashPrivacyModeEnable: jest.fn(),
+        cancelZcashPendingEnables: jest.fn(),
+        beginZcashPrivacyModeDisable: jest.fn(),
+        completeZcashPrivacyModeDisable: jest.fn(),
+        getZcashAccountMeta: jest.fn().mockResolvedValue({
           vkFp: syntheticVkFp,
           birthdayHeight: 2_000_000,
         }),
@@ -103,7 +107,7 @@ describe('Zcash Privacy Mode context and receive gating', () => {
       backgroundApi.servicePassword.promptPasswordVerifyByAccount,
     ).not.toHaveBeenCalled();
     expect(
-      backgroundApi.simpleDb.zcash.beginPrivacyModeEnable,
+      backgroundApi.simpleDb.privacyChainState.beginZcashPrivacyModeEnable,
     ).not.toHaveBeenCalled();
   });
 
@@ -118,7 +122,7 @@ describe('Zcash Privacy Mode context and receive gating', () => {
       }),
     ).rejects.toThrow('existing HD or hardware account');
     expect(
-      backgroundApi.simpleDb.zcash.beginPrivacyModeEnable,
+      backgroundApi.simpleDb.privacyChainState.beginZcashPrivacyModeEnable,
     ).not.toHaveBeenCalled();
   });
 
@@ -135,7 +139,7 @@ describe('Zcash Privacy Mode context and receive gating', () => {
       }),
     ).rejects.toThrow('existing HD or hardware account');
     expect(
-      backgroundApi.simpleDb.zcash.beginPrivacyModeEnable,
+      backgroundApi.simpleDb.privacyChainState.beginZcashPrivacyModeEnable,
     ).not.toHaveBeenCalled();
   });
 
@@ -206,10 +210,12 @@ describe('Zcash Privacy Mode UI reads during an account operation', () => {
 describe('Zcash Privacy Mode privacy lifecycle', () => {
   it('disables with a real non-reentrant lifecycle mutex and releases it for the next operation', async () => {
     const { backgroundApi, service } = createService();
-    backgroundApi.simpleDb.zcash.getPrivacyModeState.mockResolvedValue({
-      intent: 'on',
-      birthdayHeight: 2_000_000,
-    });
+    backgroundApi.simpleDb.privacyChainState.getZcashPrivacyModeState.mockResolvedValue(
+      {
+        intent: 'on',
+        birthdayHeight: 2_000_000,
+      },
+    );
     const mutex = getZcashLifecycleMutex(syntheticVkFp);
     const getSyncProgress = jest.fn(async () => {
       expect(mutex.isLocked()).toBe(true);
@@ -226,7 +232,7 @@ describe('Zcash Privacy Mode privacy lifecycle', () => {
 
     expect(getSyncProgress).toHaveBeenCalledTimes(2);
     expect(
-      backgroundApi.simpleDb.zcash.completePrivacyModeDisable,
+      backgroundApi.simpleDb.privacyChainState.completeZcashPrivacyModeDisable,
     ).toHaveBeenCalledTimes(2);
     expect(mutex.isLocked()).toBe(false);
   });
@@ -235,7 +241,7 @@ describe('Zcash Privacy Mode privacy lifecycle', () => {
     const { backgroundApi, service } = createService();
     // First enable: no viewing metadata yet, so derivation must run. The
     // second read is the post-derivation check inside the service.
-    backgroundApi.simpleDb.zcash.getAccountMeta
+    backgroundApi.simpleDb.privacyChainState.getZcashAccountMeta
       .mockResolvedValueOnce(undefined)
       .mockResolvedValue({ vkFp: syntheticVkFp, birthdayHeight: 2_000_000 });
     const syncGroup = jest
@@ -266,13 +272,13 @@ describe('Zcash Privacy Mode privacy lifecycle', () => {
       expect.objectContaining({ accountId, fromHeight: 2_000_000 }),
     );
     expect(
-      backgroundApi.simpleDb.zcash.completePrivacyModeEnable,
+      backgroundApi.simpleDb.privacyChainState.completeZcashPrivacyModeEnable,
     ).toHaveBeenCalledWith({ accountId, maxEnabledAccounts: 5 });
     expect(
       zcashPreparePrivacyModeAccount.mock.invocationCallOrder[0],
     ).toBeLessThan(
-      backgroundApi.simpleDb.zcash.completePrivacyModeEnable.mock
-        .invocationCallOrder[0],
+      backgroundApi.simpleDb.privacyChainState.completeZcashPrivacyModeEnable
+        .mock.invocationCallOrder[0],
     );
     expect(zcashRetryLocalWalletSetup).toHaveBeenCalledTimes(1);
   });
@@ -294,15 +300,15 @@ describe('Zcash Privacy Mode delete after turning the account off', () => {
   ] as const)('deletes an account that was %s', async (_, initial) => {
     const { backgroundApi, service } = createService();
     let state: Record<string, unknown> = { ...initial };
-    backgroundApi.simpleDb.zcash.getPrivacyModeState.mockImplementation(
+    backgroundApi.simpleDb.privacyChainState.getZcashPrivacyModeState.mockImplementation(
       async () => state,
     );
-    backgroundApi.simpleDb.zcash.beginPrivacyModeDisable.mockImplementation(
+    backgroundApi.simpleDb.privacyChainState.beginZcashPrivacyModeDisable.mockImplementation(
       async () => {
         state = { ...state, operation: { type: 'disable', requestedAt: 2 } };
       },
     );
-    backgroundApi.simpleDb.zcash.completePrivacyModeDisable.mockImplementation(
+    backgroundApi.simpleDb.privacyChainState.completeZcashPrivacyModeDisable.mockImplementation(
       async () => {
         const { operation: _operation, ...rest } = state;
         state = { ...rest, intent: 'off' };
@@ -325,7 +331,7 @@ describe('Zcash Privacy Mode delete after turning the account off', () => {
 
     expect(state.intent).toBe('off');
     expect(
-      backgroundApi.simpleDb.zcash.completePrivacyModeDisable,
+      backgroundApi.simpleDb.privacyChainState.completeZcashPrivacyModeDisable,
     ).toHaveBeenCalledTimes(1);
     expect(deleteLocalPrivacyData).toHaveBeenCalledWith({ accountId });
   });
@@ -334,7 +340,7 @@ describe('Zcash Privacy Mode delete after turning the account off', () => {
 describe('Zcash Privacy Mode enable failure cleanup', () => {
   it('clears only the failed enable operation when viewing setup rejects', async () => {
     const { backgroundApi, service } = createService();
-    backgroundApi.simpleDb.zcash.getAccountMeta
+    backgroundApi.simpleDb.privacyChainState.getZcashAccountMeta
       .mockResolvedValueOnce(undefined)
       .mockResolvedValue({ vkFp: syntheticVkFp, birthdayHeight: 2_000_000 });
     mockGetVault.mockResolvedValue({
@@ -352,10 +358,10 @@ describe('Zcash Privacy Mode enable failure cleanup', () => {
     ).rejects.toThrow('setup failed');
 
     expect(
-      backgroundApi.simpleDb.zcash.cancelPendingPrivacyModeEnables,
-    ).toHaveBeenCalledWith({ accountId });
+      backgroundApi.simpleDb.privacyChainState.cancelZcashPendingEnables,
+    ).toHaveBeenCalledWith({ networkId: 'zec--0', accountId });
     expect(
-      backgroundApi.simpleDb.zcash.completePrivacyModeEnable,
+      backgroundApi.simpleDb.privacyChainState.completeZcashPrivacyModeEnable,
     ).not.toHaveBeenCalled();
   });
 
@@ -363,11 +369,13 @@ describe('Zcash Privacy Mode enable failure cleanup', () => {
     const { backgroundApi, service } = createService();
     // A pause keeps birthday, resume cursor and viewing metadata, so there is
     // nothing to derive and no seed to unlock.
-    backgroundApi.simpleDb.zcash.getPrivacyModeState.mockResolvedValue({
-      intent: 'off',
-      birthdayHeight: 2_000_000,
-      resumeFromHeight: 2_500_000,
-    });
+    backgroundApi.simpleDb.privacyChainState.getZcashPrivacyModeState.mockResolvedValue(
+      {
+        intent: 'off',
+        birthdayHeight: 2_000_000,
+        resumeFromHeight: 2_500_000,
+      },
+    );
     const zcashRetryLocalWalletSetup = jest.fn();
     mockGetVault.mockResolvedValue({
       zcashRetryLocalWalletSetup,
@@ -384,17 +392,19 @@ describe('Zcash Privacy Mode enable failure cleanup', () => {
     ).not.toHaveBeenCalled();
     expect(zcashRetryLocalWalletSetup).not.toHaveBeenCalled();
     expect(
-      backgroundApi.simpleDb.zcash.completePrivacyModeEnable,
+      backgroundApi.simpleDb.privacyChainState.completeZcashPrivacyModeEnable,
     ).toHaveBeenCalledWith({ accountId, maxEnabledAccounts: 5 });
   });
 
   it('derives the key again when a paused account lost it', async () => {
     const { backgroundApi, service } = createService();
-    backgroundApi.simpleDb.zcash.getPrivacyModeState.mockResolvedValue({
-      intent: 'off',
-      birthdayHeight: 2_000_000,
-      resumeFromHeight: 2_500_000,
-    });
+    backgroundApi.simpleDb.privacyChainState.getZcashPrivacyModeState.mockResolvedValue(
+      {
+        intent: 'off',
+        birthdayHeight: 2_000_000,
+        resumeFromHeight: 2_500_000,
+      },
+    );
     backgroundApi.simpleDb.privacyChainKeys.getKey.mockResolvedValue(undefined);
     const zcashRetryLocalWalletSetup = jest.fn();
     mockGetVault.mockResolvedValue({
@@ -417,10 +427,12 @@ describe('Zcash Privacy Mode enable failure cleanup', () => {
 
   it('repairs an enabled account whose key is gone instead of returning early', async () => {
     const { backgroundApi, service } = createService();
-    backgroundApi.simpleDb.zcash.getPrivacyModeState.mockResolvedValue({
-      intent: 'on',
-      birthdayHeight: 2_000_000,
-    });
+    backgroundApi.simpleDb.privacyChainState.getZcashPrivacyModeState.mockResolvedValue(
+      {
+        intent: 'on',
+        birthdayHeight: 2_000_000,
+      },
+    );
     backgroundApi.simpleDb.privacyChainKeys.getKey.mockResolvedValue(undefined);
     const zcashRetryLocalWalletSetup = jest.fn();
     mockGetVault.mockResolvedValue({
@@ -461,10 +473,10 @@ describe('Zcash Privacy Mode enable failure cleanup', () => {
     // Completing the enable already cleared the pending operation the
     // rollback keys on.
     expect(
-      backgroundApi.simpleDb.zcash.completePrivacyModeEnable,
+      backgroundApi.simpleDb.privacyChainState.completeZcashPrivacyModeEnable,
     ).toHaveBeenCalledTimes(1);
     expect(
-      backgroundApi.simpleDb.zcash.cancelPendingPrivacyModeEnables,
+      backgroundApi.simpleDb.privacyChainState.cancelZcashPendingEnables,
     ).not.toHaveBeenCalled();
   });
 });
@@ -474,13 +486,15 @@ it.each([false, true])(
   async (retained) => {
     const { backgroundApi, service } = createService();
     const birthdayTimestamp = 1_700_000_000_000;
-    backgroundApi.simpleDb.zcash.getPrivacyModeState.mockResolvedValue({
-      intent: 'off',
-      birthdayHeight: 2_000_000,
-      resumeFromHeight: 2_500_000,
-    });
+    backgroundApi.simpleDb.privacyChainState.getZcashPrivacyModeState.mockResolvedValue(
+      {
+        intent: 'off',
+        birthdayHeight: 2_000_000,
+        resumeFromHeight: 2_500_000,
+      },
+    );
     if (!retained) {
-      backgroundApi.simpleDb.zcash.getAccountMeta
+      backgroundApi.simpleDb.privacyChainState.getZcashAccountMeta
         .mockResolvedValueOnce(undefined)
         .mockResolvedValue({
           vkFp: syntheticVkFp,
@@ -502,8 +516,9 @@ it.each([false, true])(
       birthdayTimestamp,
     });
     expect(
-      backgroundApi.simpleDb.zcash.beginPrivacyModeEnable,
+      backgroundApi.simpleDb.privacyChainState.beginZcashPrivacyModeEnable,
     ).toHaveBeenCalledWith({
+      networkId: 'zec--0',
       accountId,
       birthdayHeight: undefined,
       birthdayTimestamp,
@@ -523,10 +538,12 @@ it.each([false, true])(
 it('reconciles persisted birthday intent after interruption before runtime repair', async () => {
   const { backgroundApi, service } = createService();
   const birthdayTimestamp = 1_700_000_000_000;
-  backgroundApi.simpleDb.zcash.getPrivacyModeState.mockResolvedValue({
-    intent: 'off',
-    birthdayTimestamp,
-  });
+  backgroundApi.simpleDb.privacyChainState.getZcashPrivacyModeState.mockResolvedValue(
+    {
+      intent: 'off',
+      birthdayTimestamp,
+    },
+  );
   const prepare = jest.fn(
     async ({ onPrepared }: { onPrepared: () => Promise<void> }) => onPrepared(),
   );

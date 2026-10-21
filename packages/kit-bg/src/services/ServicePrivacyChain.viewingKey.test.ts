@@ -2,6 +2,7 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { SimpleDbEntityPrivacyChainKeys } from '../dbs/simple/entity/SimpleDbEntityPrivacyChainKeys';
+import { SimpleDbEntityPrivacyChainState } from '../dbs/simple/entity/SimpleDbEntityPrivacyChainState';
 import { getViewingKeyFingerprint } from '../vaults/localWallet/viewingKeyFingerprint';
 import {
   getLocalWalletViewingKey,
@@ -44,6 +45,18 @@ const ServicePrivacyChain = require('./ServicePrivacyChain')
 const networkId = 'xmr--0';
 const hdAccountId = 'hd-1--0';
 
+function createStateDb() {
+  let saved: unknown = null;
+  const entity = new SimpleDbEntityPrivacyChainState();
+  (entity as { appStorage: unknown }).appStorage = {
+    getItem: jest.fn(async () => saved),
+    setItem: jest.fn(async (_key: string, value: unknown) => {
+      saved = value;
+    }),
+  };
+  return entity;
+}
+
 function createKeysDb() {
   let saved: unknown = null;
   const entity = new SimpleDbEntityPrivacyChainKeys();
@@ -71,6 +84,7 @@ function createService({
   lastBalanceAccountIds?: string[];
 } = {}) {
   const privacyChainKeys = createKeysDb();
+  const privacyChainState = createStateDb();
   const removeAccountTokenList = jest.fn(async () => undefined);
   const removeAccountNetworkValue = jest.fn(async () => undefined);
   const removeLastBalances = jest.fn(async () => undefined);
@@ -81,6 +95,7 @@ function createService({
   const backgroundApi = {
     simpleDb: {
       privacyChainKeys,
+      privacyChainState,
       localTokens: { removeAccountTokenList },
       accountValue: { removeAccountNetworkValue },
       privacyChainCache: {
@@ -131,6 +146,7 @@ function createService({
     service,
     backgroundApi,
     privacyChainKeys,
+    privacyChainState,
     promptPasswordVerifyByAccount,
     removeAccountTokenList,
     removeAccountNetworkValue,
@@ -274,6 +290,37 @@ describe('Privacy chain viewing key store', () => {
     await expect(
       privacyChainKeys.getKey({ accountId: hdAccountId }),
     ).resolves.toEqual(stored);
+  });
+
+  // The scan state keeps the identity after the key is deleted with the
+  // local data; a key derived later must still be that one.
+  it('stops with the setup-incomplete error when a derived key differs from the state identity', async () => {
+    mockGetVault.mockResolvedValue({
+      getLocalWalletCapability: () => ({
+        deriveViewingKey: async () => 'derived',
+      }),
+    });
+    const { service, privacyChainKeys, privacyChainState } = createService({
+      cachedPassword: 'pw',
+    });
+    await privacyChainState.beginXmrEnable({
+      networkId,
+      accountId: hdAccountId,
+      birthdayHeight: 3_000_000,
+    });
+    await privacyChainState.completeXmrEnable({
+      accountId: hdAccountId,
+      vkFp: getViewingKeyFingerprint({ networkId, viewingKey: 'original' }),
+    });
+
+    const error = await service
+      .ensureLocalWalletViewingKey({ networkId, accountId: hdAccountId })
+      .catch((e: unknown) => e);
+
+    expect(isLocalWalletViewingKeyMismatchError(error)).toBe(true);
+    await expect(
+      privacyChainKeys.getKey({ accountId: hdAccountId }),
+    ).resolves.toBeUndefined();
   });
 
   it('drops viewing keys and saved balances of removed accounts', async () => {

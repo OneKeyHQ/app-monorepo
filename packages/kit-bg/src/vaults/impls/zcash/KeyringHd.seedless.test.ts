@@ -114,8 +114,8 @@ function createKeyring({
         getDevSetting: jest.fn(async () => ({ enabled: false })),
       },
       simpleDb: {
-        zcash: {
-          getPrivacyModeState: jest.fn(async () => ({ intent: 'on' })),
+        privacyChainState: {
+          getZcashPrivacyModeState: jest.fn(async () => ({ intent: 'on' })),
         },
       },
       serviceAccount: {

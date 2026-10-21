@@ -169,14 +169,15 @@ Three tiers, decided by what a leak exposes:
 - Treat a viewing key read as async and possibly empty. HD accounts implement
   the capability's `deriveViewingKey`; `ServicePrivacyChain.ensureLocalWalletViewingKey`
   rebuilds a missing copy with a cached password (never prompts).
-- Lifecycle is generic: account removal and app reset clear it;
-  `settings.localWallet.viewingKeyRetention` says whether deleting local
-  privacy data clears it too (`with-local-data`) or not
-  (`until-account-removed`, when receive needs it).
+- Lifecycle is generic: account removal, deleting local privacy data and
+  app reset clear it.
+- Scan state (intent, enable/disable journal, birthday, resume height,
+  per-chain fields, epoch) lives in one record per enabled account in
+  `simpleDb.privacyChainState`; its `vkFp` is the identity the stored key
+  must match. Records are validated one at a time, so a bad one reads as
+  not enabled without breaking the others.
 - SimpleDb fields need no `LOCAL_DB_VERSION` bump; keep each entity's zod
   schema in step.
-- Exception: the Zcash UFVK is stored in `simpleDb.zcash.accounts`
-  (`IZcashAccountMeta.ufvk`), not in the viewing-key store.
 
 ### Structurally impossible (set product expectations, not bugs)
 
