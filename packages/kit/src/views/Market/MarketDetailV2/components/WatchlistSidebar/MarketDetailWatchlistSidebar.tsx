@@ -32,7 +32,10 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IMarketWatchListItemV2 } from '@onekeyhq/shared/types/market';
 
-import { useMarketHomeTokenListWebSocket } from '../../../MarketHomeV2/components/MarketTokenList/hooks/useMarketHomeTokenListWebSocket';
+import {
+  MARKET_HOME_WS_MAX_SUBSCRIPTIONS,
+  useMarketHomeTokenListWebSocket,
+} from '../../../MarketHomeV2/components/MarketTokenList/hooks/useMarketHomeTokenListWebSocket';
 import { useMarketWatchlistTokenList } from '../../../MarketHomeV2/components/MarketTokenList/hooks/useMarketWatchlistTokenList';
 import { useToDetailPage } from '../../../MarketHomeV2/components/MarketTokenList/hooks/useToMarketDetailPage';
 import { useWatchlistFilteredGroups } from '../../../MarketHomeV2/components/MarketTokenList/hooks/useWatchlistFilteredGroups';
@@ -242,12 +245,17 @@ function MarketDetailWatchlistSidebarImpl({
     pollingInterval: TOKEN_SELECTOR_POLLING_INTERVAL,
   });
   // Live ticks on top of the poll, as the Market Favorites tab gets them: the
-  // same subscription hook, only while this detail page is the focused one.
-  // A favorites list is short, so every row subscribes rather than just the
-  // rows in view.
+  // same subscription hook, only while this detail page is the focused one,
+  // and under the same cap. The watchlist has no size limit, so only its first
+  // rows subscribe; the rest stay on the poll.
   const isFocused = useIsFocused();
+  const subscriptionTokens = useMemo(
+    () => data.slice(0, MARKET_HOME_WS_MAX_SUBSCRIPTIONS),
+    [data],
+  );
   const liveData = useMarketHomeTokenListWebSocket({
     tokens: data,
+    subscriptionTokens,
     enabled: isFocused && (platformEnv.isDesktop || platformEnv.isWeb),
   });
   const groups = useWatchlistFilteredGroups(liveData);
