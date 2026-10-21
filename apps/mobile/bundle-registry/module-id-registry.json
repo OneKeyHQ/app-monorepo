@@ -25039,6 +25039,7 @@
     "packages/kit/src/views/Perp/hooks/useShowGuide.ts": 5398,
     "packages/kit/src/views/Perp/hooks/useShowPortfolio.ts": 15962,
     "packages/kit/src/views/Perp/hooks/useShowPositionShare.ts": 1298,
+    "packages/kit/src/views/Perp/hooks/useSimpleMarketFocus.ts": 23498,
     "packages/kit/src/views/Perp/hooks/useSpotMetaMaps.ts": 9466,
     "packages/kit/src/views/Perp/hooks/useTradeHistoryFilters.ts": 18164,
     "packages/kit/src/views/Perp/hooks/useTradingCalculationsForSide.ts": 14281,
