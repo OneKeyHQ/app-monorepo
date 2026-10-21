@@ -1,7 +1,6 @@
 import { omit } from 'lodash';
 
 import type { ISignedTxPro } from '@onekeyhq/core/src/types';
-import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import { SimpleDbEntityBase } from '../base/SimpleDbEntityBase';
 
@@ -17,7 +16,9 @@ export interface IBroadcastRecord {
   attemptedAt: number;
   // A node returned a txid for it.
   isBroadcast: boolean;
-  // The post-broadcast bookkeeping (signature record, local history) ran.
+  // Nothing is left to gate for this record: the batch loop's post-broadcast
+  // bookkeeping (signature record, local history) ran, or the caller owns
+  // that bookkeeping (direct send) and only ever replays the signed result.
   isSettled: boolean;
 }
 
@@ -25,35 +26,55 @@ export interface IBroadcastRecordsDb {
   records: Record<string, IBroadcastRecord>;
 }
 
-// Every record carries a signed payload, so the store is kept small, but
-// only settled records are evicted by count. A record whose outcome is still
-// open (not broadcast, or broadcast without bookkeeping) is exactly what a
-// retry needs; dropping it by count would let a >100-item bulk send push an
-// early ambiguous failure out before Retry is even available, and the retry
-// would then sign a second tx. Open records expire by age instead, long after
-// any Solana blockhash they carry has lapsed.
-export const BROADCAST_RECORDS_MAX_SETTLED_COUNT = 100;
-export const BROADCAST_RECORDS_UNSETTLED_RETENTION_MS =
-  timerUtils.getTimeDurationMs({ day: 7 });
+// Every record carries a signed payload, so each class of record is bounded
+// by count, and eviction never takes the record a retry depends on:
+// - An ambiguous record (this runtime never got a txid) is what a retry asks
+//   the chain about. Only newer ambiguous records can push it out, never
+//   successes, so a bulk send cannot drop an early timeout before Retry is
+//   even available; the cap covers the largest batch the UI can produce.
+// - A record that reached the network is replayed on retry. Settled ones go
+//   first; one still awaiting the batch loop's bookkeeping is evicted only
+//   when newer unsettled broadcasts alone fill the cap.
+// Nothing expires by age: a retry can only come from a UI that still holds
+// the unsigned tx, and the chain, not the clock, decides whether a payload
+// is still live.
+export const BROADCAST_RECORDS_MAX_AMBIGUOUS_COUNT = 500;
+export const BROADCAST_RECORDS_MAX_BROADCAST_COUNT = 100;
+
+function newestFirst(a: IBroadcastRecord, b: IBroadcastRecord): number {
+  return b.attemptedAt - a.attemptedAt;
+}
 
 function trimRecords(
   records: Record<string, IBroadcastRecord>,
-  now: number,
 ): Record<string, IBroadcastRecord> {
-  const kept: Record<string, IBroadcastRecord> = {};
+  const ambiguous: IBroadcastRecord[] = [];
+  const broadcastUnsettled: IBroadcastRecord[] = [];
   const settled: IBroadcastRecord[] = [];
   for (const record of Object.values(records)) {
     if (record.isSettled) {
       settled.push(record);
-    } else if (
-      now - record.attemptedAt <
-      BROADCAST_RECORDS_UNSETTLED_RETENTION_MS
-    ) {
-      kept[record.uuid] = record;
+    } else if (record.isBroadcast) {
+      broadcastUnsettled.push(record);
+    } else {
+      ambiguous.push(record);
     }
   }
-  settled.sort((a, b) => b.attemptedAt - a.attemptedAt);
-  for (const record of settled.slice(0, BROADCAST_RECORDS_MAX_SETTLED_COUNT)) {
+  const keptBroadcast = broadcastUnsettled
+    .toSorted(newestFirst)
+    .slice(0, BROADCAST_RECORDS_MAX_BROADCAST_COUNT);
+  keptBroadcast.push(
+    ...settled
+      .toSorted(newestFirst)
+      .slice(0, BROADCAST_RECORDS_MAX_BROADCAST_COUNT - keptBroadcast.length),
+  );
+  const kept: Record<string, IBroadcastRecord> = {};
+  for (const record of [
+    ...ambiguous
+      .toSorted(newestFirst)
+      .slice(0, BROADCAST_RECORDS_MAX_AMBIGUOUS_COUNT),
+    ...keptBroadcast,
+  ]) {
     kept[record.uuid] = record;
   }
   return kept;
@@ -71,13 +92,10 @@ export class SimpleDbEntityBroadcastRecords extends SimpleDbEntityBase<IBroadcas
 
   async upsertRecord(record: IBroadcastRecord): Promise<void> {
     await this.setRawData((rawData) => ({
-      records: trimRecords(
-        {
-          ...rawData?.records,
-          [record.uuid]: record,
-        },
-        Date.now(),
-      ),
+      records: trimRecords({
+        ...rawData?.records,
+        [record.uuid]: record,
+      }),
     }));
   }
 

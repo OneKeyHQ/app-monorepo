@@ -571,6 +571,42 @@ describe('ServiceSend.batchSignAndSendTransaction retry after partial failure', 
     expect(broadcastTxids(vault)).toEqual([signatureOf('u0')]);
   });
 
+  it('settles a direct send as soon as the node accepts it, so the store stays bounded', async () => {
+    const store = createBroadcastRecordsStore();
+    const { service } = makeService(store);
+
+    await service.signAndSendTransaction({
+      accountId,
+      networkId,
+      unsignedTx: buildUnsignedTx('u0'),
+      signOnly: false,
+    });
+
+    expect(store.records.get('u0')).toMatchObject({
+      isBroadcast: true,
+      isSettled: true,
+    });
+  });
+
+  it('keeps a batch record unsettled until the loop finished its bookkeeping', async () => {
+    const store = createBroadcastRecordsStore();
+    const { service, backgroundApi } = makeService(store);
+    backgroundApi.serviceHistory.saveSendConfirmHistoryTxs.mockRejectedValueOnce(
+      new Error('history write failed'),
+    );
+
+    await expect(batchSend(service, [buildUnsignedTx('u0')])).rejects.toThrow(
+      'history write failed',
+    );
+    expect(store.records.get('u0')).toMatchObject({
+      isBroadcast: true,
+      isSettled: false,
+    });
+
+    await batchSend(service, [buildUnsignedTx('u0')]);
+    expect(store.records.get('u0')).toMatchObject({ isSettled: true });
+  });
+
   it('keeps the record across a background runtime restart', async () => {
     const store = createBroadcastRecordsStore();
     const first = makeService(store);

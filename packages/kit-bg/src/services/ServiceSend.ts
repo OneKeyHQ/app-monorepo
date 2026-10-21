@@ -158,12 +158,18 @@ class ServiceSend extends ServiceBase {
     });
   }
 
+  // `isSettled` is set at once for direct callers (swap, perps deposit,
+  // market quick send): their retry only replays the signed result, and the
+  // batch loop's bookkeeping never runs for them, so nothing is left to gate
+  // and the record can be evicted like any other settled one.
   private async rememberBroadcastAccepted({
     unsignedTx,
     signedTx,
+    isSettled,
   }: {
     unsignedTx: IUnsignedTxPro;
     signedTx: ISignedTxPro;
+    isSettled: boolean;
   }) {
     if (!unsignedTx.uuid) {
       return;
@@ -171,6 +177,7 @@ class ServiceSend extends ServiceBase {
     await this.broadcastRecords.updateRecord(unsignedTx.uuid, {
       signedTx,
       isBroadcast: true,
+      ...(isSettled ? { isSettled: true } : {}),
     });
   }
 
@@ -229,8 +236,13 @@ class ServiceSend extends ServiceBase {
     if (status === ESignedTxBroadcastStatus.Unknown) {
       // Chains without a verdict keep their previous retry behavior: a tx
       // the node accepted is replayed, one that never got a txid is signed
-      // again byte-for-byte and deduplicated by the network.
-      return record.isBroadcast ? record : undefined;
+      // again byte-for-byte and deduplicated by the network. That record
+      // can never be used, so drop it instead of letting it fill the store.
+      if (!record.isBroadcast) {
+        await this.broadcastRecords.deleteRecord(uuid);
+        return undefined;
+      }
+      return record;
     }
     if (!record.isBroadcast) {
       await this.broadcastRecords.updateRecord(uuid, { isBroadcast: true });
@@ -1135,9 +1147,15 @@ class ServiceSend extends ServiceBase {
           ),
         });
       }
+      // The batch loop settles its records itself once its bookkeeping ran.
+      const isSettledOnAccept = !skipBroadcastRecordCheck;
       if (!txid) {
         if (vaultSettings.withoutBroadcastTxId) {
-          await this.rememberBroadcastAccepted({ unsignedTx, signedTx });
+          await this.rememberBroadcastAccepted({
+            unsignedTx,
+            signedTx,
+            isSettled: isSettledOnAccept,
+          });
           return signedTx;
         }
         throw new OneKeyLocalError('Broadcast transaction failed.');
@@ -1146,6 +1164,7 @@ class ServiceSend extends ServiceBase {
       await this.rememberBroadcastAccepted({
         unsignedTx,
         signedTx: broadcastedTx,
+        isSettled: isSettledOnAccept,
       });
       return broadcastedTx;
     }
