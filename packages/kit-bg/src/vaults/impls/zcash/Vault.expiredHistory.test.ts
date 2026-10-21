@@ -28,7 +28,10 @@ import type {
   IAccountHistoryTx,
   IOnChainHistoryTx,
 } from '@onekeyhq/shared/types/history';
-import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
+import {
+  EDecodedTxActionType,
+  EDecodedTxStatus,
+} from '@onekeyhq/shared/types/tx';
 
 import { SimpleDbEntityLocalHistory } from '../../../dbs/simple/entity/SimpleDbEntityLocalHistory';
 import { SimpleDbEntityZcash } from '../../../dbs/simple/entity/SimpleDbEntityZcash';
@@ -396,6 +399,91 @@ describe('expired transparent send reconciliation', () => {
     );
     await read();
     expect(await zcash.listTransparentPendingTxs({ accountId })).toEqual([]);
+  });
+
+  it('lists a pending send once when the backend reports its txid in another case', async () => {
+    const { vault, backend } = await fixture();
+    Object.assign(backend, {
+      txs: [row(txid.toUpperCase(), EDecodedTxStatus.Pending)],
+      tipHeight: expiryHeight,
+    });
+    const rows = await vault.fetchAccountHistoryFromLocal({
+      accountId,
+      ...historyParams,
+    });
+    expect(
+      rows?.filter((tx) => tx.decodedTx.txid.toLowerCase() === txid),
+    ).toHaveLength(1);
+  });
+
+  describe('own addresses in the history cache', () => {
+    const legacyChange = `t1${'H'.repeat(33)}`;
+    const spendsLegacyChange = {
+      actions: [
+        {
+          type: EDecodedTxActionType.ASSET_TRANSFER,
+          assetTransfer: {
+            from: legacyChange,
+            to: 't1-other',
+            sends: [{ from: legacyChange, to: '', isOwn: true }],
+            receives: [{ from: '', to: 't1-other', isOwn: false }],
+          },
+        },
+      ],
+    } as unknown as Partial<IAccountHistoryTx['decodedTx']>;
+    const expectGated = (rows: IAccountHistoryTx[]) => {
+      expect(rows.length).toBeGreaterThan(0);
+      expect(JSON.stringify(rows)).not.toContain(legacyChange);
+      for (const tx of rows) {
+        expect(tx.decodedTx.actions[0].assetTransfer?.sends[0]).toMatchObject({
+          from: '',
+          isOwn: true,
+          shieldedFrom: { isOwn: true },
+        });
+      }
+    };
+
+    it('stores backend rows with undisplayed own addresses hidden', async () => {
+      const { vault, backend, localHistory, read } = await fixture();
+      Object.assign(vault.backgroundApi, {
+        servicePrivacyChain: {
+          getLocalWalletAccountAddresses: async () => ({
+            publicAddress: 't1-own',
+          }),
+        },
+      });
+      backend.txs = [
+        row('cc'.repeat(32), EDecodedTxStatus.Confirmed, spendsLegacyChange),
+      ];
+      await read();
+      expectGated(
+        (
+          await localHistory.getAccountLocalHistoryConfirmedTxs(historyParams)
+        ).filter((tx) => tx.decodedTx.txid === 'cc'.repeat(32)),
+      );
+    });
+
+    it('stores a dropped row with undisplayed own addresses hidden', async () => {
+      const { vault, localHistory } = await fixture();
+      await vault.zcashDropExpiredTransparentSends({
+        accountId,
+        historyParams,
+        cachedHistory: [
+          {
+            ...localSend(),
+            decodedTx: { ...localSend().decodedTx, ...spendsLegacyChange },
+          },
+        ],
+        backendTipHeight: expiryHeight + 11,
+        backendStatuses: new Map(),
+        backendMinedTxids: new Set(),
+        addressGate: { addresses: { publicAddress: 't1-own' } },
+      });
+      const dropped = (
+        await localHistory.getAccountLocalHistoryConfirmedTxs(historyParams)
+      ).filter((tx) => tx.decodedTx.status === EDecodedTxStatus.Dropped);
+      expectGated(dropped);
+    });
   });
 
   it('releases every journal and reservation when pending transactions are cleared', async () => {
