@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import { StyleSheet } from 'react-native';
+import { Platform, StyleSheet } from 'react-native';
 import { useReducedMotion } from 'react-native-reanimated';
 
 import {
@@ -92,6 +92,16 @@ const BANNER_INFO_GLASS_EDGE_COLORS = [
 ];
 const BANNER_INFO_GLASS_EDGE_START = { x: 0, y: 0 } as const;
 const BANNER_INFO_GLASS_EDGE_END = { x: 1, y: 0 } as const;
+// Web: the element carrying the backdrop-filter takes the bottom radii too.
+// Inside a second rounded clip (the desktop app's content panel) Chromium
+// stops clipping the blur to the wrapper's corners, and they show square
+const BANNER_INFO_GLASS_CONTENT_STYLE = Platform.select({
+  web: {
+    flex: 1,
+    borderBottomLeftRadius: '$3',
+    borderBottomRightRadius: '$3',
+  } as const,
+});
 // Half of $bodyMdMedium's extra leading (20 - 14 = 6), which iOS places
 // entirely above the glyphs. Paint-only, so no script can be clipped by it.
 const BANNER_BUTTON_LABEL_NUDGE = {
@@ -176,6 +186,7 @@ function EarnHomeBannerInfoGlass() {
         borderBottomLeftRadius="$3"
         borderBottomRightRadius="$3"
         overflow="hidden"
+        contentStyle={BANNER_INFO_GLASS_CONTENT_STYLE}
       />
       <Stack
         position="absolute"
