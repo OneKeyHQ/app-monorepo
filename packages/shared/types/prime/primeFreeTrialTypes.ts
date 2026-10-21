@@ -218,6 +218,8 @@ export type IPrimeFreeTrialUsageRecord = {
   usageId: string;
   // Client analytics correlation only; never sent to the metering endpoint.
   analyticsAttemptId?: string;
+  // Actual client outcome may outlive an already accepted metering result.
+  analyticsResult?: IPrimeFreeTrialUsageResult;
   // Local time of the start request
   startedAt: number;
   // Server reservation expiry; undefined when the start result is unknown

@@ -13,7 +13,7 @@ The client emits two distinct events through the existing decorated Prime logger
 | `primeFreeTrialResult` | Same correlation fields, `result`, optional `rejectionSource: client/server`, optional `previousResult` | The corresponding access or business outcome |
 
 Stages are `access`, `execution`, and `retry`. Count attempts/results within a
-stage and deduplicate by `attemptId`; do not sum stages as unique users or unique tool invocations. If a late broadcast upgrades an unsettled bulk failure to success, the correction explicitly includes `previousResult`. Use the latest result for that attempt, not two completions. A successful
+stage and deduplicate by `attemptId`; do not sum stages as unique users or unique tool invocations. If a late broadcast upgrades an unsettled bulk failure to success, the correction explicitly includes `previousResult`. Use the latest result for that attempt, not two completions. Even if an earlier failed finish was already accepted for accounting, a real late broadcast corrects analytics only; the accepted bill and quota remain unchanged. The separate analytics outcome is persisted to deduplicate repeated broadcasts. A successful
 access gate reports `granted`, never `success`. A stale Prime projection that
 becomes unlimited reports `unlimited`. Login cancellation, login failure, changed
 context, and extension hand-off remain distinguishable.
@@ -51,7 +51,8 @@ Translation tracks in-flight analytics separately from the active WebView. A
 restore, navigation, or tab close does not claim that an already-sent request was
 cancelled. A late billed response reports success for its original attempt ID;
 late responses cannot restore, stop, or report UI success on a replacement page.
-Concurrent responses are aggregated before the request group is settled. A
+Concurrent responses are aggregated before the request group is settled. If a later request group delivers billed translations after an earlier failure,
+the same attempt receives an explicit success correction. A
 later quota pause in an already successful streaming session retains the
 existing exhausted-feedback event; it is not a second completion event.
 

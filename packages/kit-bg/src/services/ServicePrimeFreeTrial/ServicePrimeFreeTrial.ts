@@ -1138,7 +1138,7 @@ class ServicePrimeFreeTrial extends ServiceBase {
           wasGranted =
             current?.analyticsAttemptId !== undefined ||
             current?.expiresAt !== undefined;
-          previousResult = current?.result;
+          previousResult = current?.analyticsResult ?? current?.result;
           changed = true;
           return {
             ...base,
@@ -1148,6 +1148,7 @@ class ServicePrimeFreeTrial extends ServiceBase {
               base.expiresAt ??
               base.startedAt + PRIME_FREE_TRIAL_RESERVATION_TTL_MS[featureId],
             result,
+            analyticsResult: wasGranted ? result : base.analyticsResult,
             resultAt: now,
             nextReportAt: undefined,
           };
@@ -1206,6 +1207,45 @@ class ServicePrimeFreeTrial extends ServiceBase {
       existing.result === 'success' ||
       (existing.result && result !== 'success')
     ) {
+      if (
+        result === 'success' &&
+        existing.reportedAt &&
+        existing.result !== 'success' &&
+        existing.analyticsResult !== 'success'
+      ) {
+        // An accepted finish remains final for accounting. Analytics still
+        // records the real late broadcast, once, independently of that bill.
+        try {
+          let previousResult: IPrimeFreeTrialUsageResult | undefined;
+          let corrected = false;
+          const record =
+            await this.backgroundApi.simpleDb.primeFreeTrial.updateUsageRecord(
+              { onekeyUserId: existing.onekeyUserId, featureId, usageId },
+              (current) => {
+                if (
+                  !current?.reportedAt ||
+                  current.result === 'success' ||
+                  current.analyticsResult === 'success'
+                )
+                  return current;
+                previousResult = current.analyticsResult ?? current.result;
+                corrected = true;
+                return { ...current, analyticsResult: 'success' };
+              },
+            );
+          if (corrected)
+            logPrimeFreeTrialResult({
+              featureId,
+              attemptId: record?.analyticsAttemptId ?? usageId,
+              stage: 'execution',
+              source: 'client',
+              result: 'success',
+              previousResult,
+            });
+        } catch {
+          this.trace({ featureId, stage: 'lateUsageSuccessAnalytics' });
+        }
+      }
       return;
     }
     await this.recordUsageResult({

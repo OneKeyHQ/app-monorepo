@@ -327,6 +327,39 @@ describe('useWebViewTranslate free-trial stop', () => {
     expect(mockApiTranslate).not.toHaveBeenCalled();
   });
 
+  it('corrects an earlier failed request group when the streaming session later delivers billed translations', async () => {
+    mockApiTranslate
+      .mockResolvedValueOnce({
+        translations: ['original'],
+        hasBilledBatch: false,
+      })
+      .mockResolvedValueOnce({
+        translations: ['translated'],
+        hasBilledBatch: true,
+      });
+    const { sessionId, unmount } = await startSession(jest.fn(), {
+      entitlementSource: 'freeTrial',
+    });
+    await act(async () => {
+      request(sessionId, 'tr_early_failure', ['original']);
+      await flush();
+    });
+    await act(async () => {
+      request(sessionId, 'tr_later_success', ['later']);
+      await flush();
+    });
+    expect(mockTrialResult).toHaveBeenCalledTimes(2);
+    expect(mockTrialResult).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        result: 'success',
+        previousResult: 'failed',
+        attemptId: sessionId,
+      }),
+    );
+    unmount();
+    expect(mockTrialResult).toHaveBeenCalledTimes(2);
+  });
+
   it('writes billed translations back, then stops without restoring', async () => {
     const onFreeTrialUnavailable = jest.fn();
     mockApiTranslate.mockResolvedValueOnce({

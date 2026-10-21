@@ -6,7 +6,11 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EPrimeFeatures } from '@onekeyhq/shared/src/routes/prime';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
-import { createPrimeFreeTrialAttempt } from '@onekeyhq/shared/src/utils/primeFreeTrialAnalytics';
+import {
+  createPrimeFreeTrialAttempt,
+  logPrimeFreeTrialResult,
+} from '@onekeyhq/shared/src/utils/primeFreeTrialAnalytics';
+import type { IPrimeFreeTrialAttemptResult } from '@onekeyhq/shared/src/utils/primeFreeTrialAnalytics';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 import {
@@ -296,6 +300,7 @@ export function useWebViewTranslate({
         failed: boolean;
         ended: boolean;
         error?: IPrimeFreeTrialError;
+        result?: IPrimeFreeTrialAttemptResult;
       }
     >(),
   );
@@ -306,18 +311,34 @@ export function useWebViewTranslate({
       if (!state) return;
       state.ended ||= ended;
       if (state.pending) return;
-      if (state.billed) state.attempt.finish('success');
+      let result: IPrimeFreeTrialAttemptResult;
+      if (state.billed) result = 'success';
       else if (state.error)
-        state.attempt.finish(
+        result =
           state.error.code === PRIME_FREE_TRIAL_QUOTA_EXHAUSTED_CODE
             ? 'exhausted'
-            : 'notOpen',
-          'server',
-        );
-      else if (state.failed) state.attempt.finish('failed');
-      else if (state.ended) state.attempt.finish('cancelled');
+            : 'notOpen';
+      else if (state.failed) result = 'failed';
+      else if (state.ended) result = 'cancelled';
       else return;
-      trialAttemptsRef.current.delete(sessionId);
+      if (!state.result) {
+        state.attempt.finish(
+          result,
+          state.error && !state.billed ? 'server' : undefined,
+        );
+        state.result = result;
+      } else if (state.result !== 'success' && result === 'success') {
+        logPrimeFreeTrialResult({
+          featureId: EPrimeFeatures.DAppTranslate,
+          attemptId: sessionId,
+          stage: 'execution',
+          source: 'client',
+          result,
+          previousResult: state.result,
+        });
+        state.result = result;
+      }
+      if (state.ended) trialAttemptsRef.current.delete(sessionId);
     },
     [],
   );

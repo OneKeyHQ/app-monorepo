@@ -1044,6 +1044,38 @@ describe('ServicePrimeFreeTrial', () => {
       );
     });
 
+    it('reports a real late broadcast even after failed settlement was accepted, without changing accounting', async () => {
+      mockTrialResult.mockClear();
+      const { service, simpleDb } = createService();
+      seedStartedUsage(simpleDb, { usageId: 'usage-settled-before-broadcast' });
+      const key = 'user-a__BulkSend__usage-settled-before-broadcast';
+      const record = simpleDb.records.get(key);
+      expect(record).toBeDefined();
+      if (!record) return;
+      record.result = 'failed';
+      record.reportedAt = Date.now();
+      record.analyticsAttemptId = 'attempt-settled-before-broadcast';
+      const usage = {
+        featureId: EPrimeFeatures.BulkSend as const,
+        usageId: record.usageId,
+      };
+      await service.markBroadcastSuccess(usage);
+      await service.markBroadcastSuccess(usage);
+      expect(mockTrialResult).toHaveBeenCalledTimes(1);
+      expect(mockTrialResult).toHaveBeenCalledWith(
+        expect.objectContaining({
+          result: 'success',
+          previousResult: 'failed',
+          attemptId: 'attempt-settled-before-broadcast',
+        }),
+      );
+      expect(simpleDb.records.get(key)).toMatchObject({
+        result: 'failed',
+        reportedAt: record.reportedAt,
+      });
+      expect(mockOneKeyIdClient.post).not.toHaveBeenCalled();
+    });
+
     it('tracks a retry broadcast once without another reservation or consumption', async () => {
       mockTrialResult.mockClear();
       const { service, simpleDb } = createService();
