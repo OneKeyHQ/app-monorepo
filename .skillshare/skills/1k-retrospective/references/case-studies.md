@@ -952,3 +952,10 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries â€
 **Root Cause**: Notification suppression started after the shared sender returned, although its broadcast callback already provided the transaction ID before awaited post-processing.
 **Fix**: Request suppression from the swap broadcast callback without waiting for the notification service. Use the same path for a recovered hash only after its broadcast is confirmed; keep approval hashes separate.
 **Catchable by**: Section 6: defer or reject post-broadcast processing and leave notification suppression pending; assert suppression starts before sender completion, settlement still completes, and recovery does not suppress unconfirmed or approval hashes.
+
+## Case: Dust Sweep rounded tiny nonzero receipts to zero
+**Date**: 2026-10-21 | **Platforms**: Shared Dust Sweep preview and result UI
+**Symptom**: A completed conversion could show `+0 BNB` while its fiat value was below the minimum display unit.
+**Root Cause**: Both receive displays rounded raw decimal strings to six decimal places. The state and receipt retained their precision, but tiny positive amounts disappeared at the presentation boundary.
+**Fix**: Pass raw amounts to the shared balance formatter used by Earn client amounts. Reuse its leading-zero subscript rendering for both preview and result while preserving zero and unavailable states.
+**Catchable by**: Section 6: render a tiny positive receipt and selection estimate through the real formatter, assert the subscript and significant digits, and retain normal, zero and unavailable cases.

@@ -1,3 +1,5 @@
+import type { ReactNode } from 'react';
+
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 import Animated, {
@@ -12,6 +14,7 @@ import {
   Divider,
   Icon,
   IconButton,
+  NumberSizeableText,
   SizableText,
   Skeleton,
   Stack,
@@ -37,10 +40,6 @@ import type { IDustSweepState } from '../stateMachine';
 // Height of the summary action button; the desktop hidden-tokens row aligns to it.
 export const DUST_SWEEP_ACTION_HEIGHT = 46;
 
-function formatAmount(amount: string, decimals: number) {
-  return new BigNumber(amount).decimalPlaces(decimals).toFormat();
-}
-
 export function DustSweepResult({
   state,
   desktop = false,
@@ -64,10 +63,7 @@ export function DustSweepResult({
     success: ETranslations.title_dust_swept,
   }[outcome];
   const token = state.snapshot?.nativeToken;
-  const amount =
-    totals.receiptUnavailable || !hasSuccess
-      ? '—'
-      : `+${formatAmount(totals.receivedAmount, 6)}`;
+  const amountUnavailable = totals.receiptUnavailable || !hasSuccess;
   const value =
     totals.receiptUnavailable || !hasSuccess || !token?.price
       ? '—'
@@ -119,7 +115,22 @@ export function DustSweepResult({
                 mt={desktop ? 6 : 8}
                 numberOfLines={1}
               >
-                {amount} {token?.symbol}
+                {amountUnavailable ? (
+                  `— ${token?.symbol ?? ''}`
+                ) : (
+                  <NumberSizeableText
+                    size="$heading5xl"
+                    fontSize={40}
+                    lineHeight={48}
+                    formatter="balance"
+                    formatterOptions={{
+                      showPlusMinusSigns: true,
+                      tokenSymbol: token?.symbol,
+                    }}
+                  >
+                    {totals.receivedAmount}
+                  </NumberSizeableText>
+                )}
               </SizableText>
               <SizableText
                 size="$bodyLgMedium"
@@ -203,12 +214,20 @@ export function DustSweepSummary({
     : totals.receiptUnavailable || unknown;
   // No receive token means no network to sweep on (e.g. a wallet with no
   // assets), so show zero instead of placeholders.
-  let receiveAmount = '0.00';
+  let receiveAmount: ReactNode = '0.00';
   let receiveValue = formatFiat('0');
   if (nativeToken) {
-    receiveAmount = `${amountUnavailable ? '—' : formatAmount(amount, 6)} ${
-      nativeToken.symbol
-    }`;
+    receiveAmount = amountUnavailable ? (
+      `— ${nativeToken.symbol}`
+    ) : (
+      <NumberSizeableText
+        size="$bodyLgMedium"
+        formatter="balance"
+        formatterOptions={{ tokenSymbol: nativeToken.symbol }}
+      >
+        {amount}
+      </NumberSizeableText>
+    );
     if (selecting) receiveValue = formatFiat(selectedValueUsd);
     else
       receiveValue =
@@ -304,7 +323,11 @@ export function DustSweepSummary({
                 </>
               ) : (
                 <>
-                  <SizableText size="$bodyLgMedium" height={24}>
+                  <SizableText
+                    testID="dust-sweep-receive-amount"
+                    size="$bodyLgMedium"
+                    height={24}
+                  >
                     {receiveAmount}
                   </SizableText>
                   <SizableText size="$bodyMd" color="$textSubdued" height={20}>

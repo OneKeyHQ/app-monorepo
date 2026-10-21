@@ -111,6 +111,18 @@ jest.mock('@onekeyhq/components', () => ({
   YStack: Box,
   ScrollView: Box,
   SizableText: Box,
+  NumberSizeableText: ({
+    children,
+    formatterOptions,
+  }: {
+    children: string;
+    formatterOptions?: { tokenSymbol?: string; showPlusMinusSigns?: boolean };
+  }) => (
+    <span>
+      {formatterOptions?.showPlusMinusSigns ? '+' : ''}
+      {children} {formatterOptions?.tokenSymbol}
+    </span>
+  ),
   Button,
   Icon: () => null,
   IconButton: Button,

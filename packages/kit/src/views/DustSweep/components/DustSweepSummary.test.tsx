@@ -5,6 +5,7 @@ import { fireEvent, render, screen } from '@testing-library/react';
 
 import SwapCommonInfoItem from '@onekeyhq/kit/src/views/Swap/components/SwapCommonInfoItem';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
 import type {
   IDustSweepReason,
   IDustSweepToken,
@@ -81,6 +82,32 @@ jest.mock('@onekeyhq/components', () => {
       </div>
     ),
     SizableText: MockStack,
+    NumberSizeableText: ({
+      children,
+      formatter,
+      formatterOptions,
+    }: INumberFormatProps & { children: string }) => {
+      const { numberFormatAsRenderText } = jest.requireActual<
+        typeof import('@onekeyhq/shared/src/utils/numberUtils')
+      >('@onekeyhq/shared/src/utils/numberUtils');
+      const parts = numberFormatAsRenderText(children, {
+        formatter,
+        formatterOptions,
+      });
+      return (
+        <span>
+          {typeof parts === 'string'
+            ? parts
+            : parts.map((part, index) =>
+                typeof part === 'string' ? (
+                  part
+                ) : (
+                  <sub key={index}>{part.value}</sub>
+                ),
+              )}
+        </span>
+      );
+    },
     Skeleton: () => <div data-testid="skeleton" />,
     Stack: MockStack,
     Tooltip: () => null,
@@ -357,6 +384,47 @@ it('formats received USD to two decimal places without padding native amounts', 
     '+0.01 ETH',
   );
   expect(screen.getByText('$10.00')).toBeTruthy();
+});
+
+it.each([true, false])(
+  'preserves a tiny received amount using the shared balance subscript (desktop=%s)',
+  (desktop) => {
+    render(
+      <DustSweepResult
+        desktop={desktop}
+        state={{
+          phase: 'completed',
+          snapshot: {
+            id: 'completed',
+            networkId: 'evm--1',
+            accountId: 'account',
+            address: '0xuser',
+            nativeToken,
+            slippage: 5,
+            tokens: [selectedToken],
+          },
+          items: [
+            {
+              token: selectedToken,
+              status: 'success',
+              receivedAmount: '0.0000001234',
+            },
+          ],
+        }}
+      />,
+    );
+    const amount = screen.getByTestId('dust-sweep-result-amount');
+    expect(amount.textContent).toBe('+0.061234 ETH');
+    expect(amount.querySelector('sub')?.textContent).toBe('6');
+  },
+);
+
+it('uses the same subscript formatter for a tiny receive estimate', () => {
+  mockSelectedValueUsd = '0.0001234';
+  render(<DustSweepSummary desktop onDone={jest.fn()} onDetails={jest.fn()} />);
+  const amount = screen.getByTestId('dust-sweep-receive-amount');
+  expect(amount.textContent).toBe('0.061234 ETH');
+  expect(amount.querySelector('sub')?.textContent).toBe('6');
 });
 
 function completedState(
