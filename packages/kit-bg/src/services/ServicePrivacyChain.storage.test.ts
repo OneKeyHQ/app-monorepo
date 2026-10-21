@@ -274,6 +274,61 @@ describe('removed-account gc', () => {
     expect(reset).not.toHaveBeenCalled();
   });
 
+  function createEmptyGcHarness() {
+    const gcWalletState = jest.fn(async () => undefined);
+    mockGetChainOnlyVault.mockResolvedValue({
+      getLocalWalletCapability: () => ({
+        listAccounts: async () => ({ accounts: [], cleanupAccountIds: [] }),
+        reset: jest.fn(),
+      }),
+    });
+    const serviceAccount = {
+      getAllAccounts: jest.fn(async () => ({ accounts: [] })),
+      getAllIndexedAccounts: jest.fn(async () => ({ indexedAccounts: [] })),
+      getAllWallets: jest.fn(async () => ({ wallets: [] })),
+    };
+    const service = createService({
+      gcRunning: false,
+      gcRequested: false,
+      backgroundApi: {
+        serviceAccount,
+        simpleDb: {
+          privacyChain: createPrivacyChainDb(),
+          privacyChainCache: {
+            listLastBalanceAccountIds: async () => [],
+            removeLastBalances: jest.fn(),
+          },
+        },
+      },
+      getLocalWalletNetworkIds: async () => [networkId],
+      forEachLocalWalletCapability: async (
+        fn: (capability: unknown) => Promise<void>,
+      ) => fn({ gcWalletState }),
+    });
+    return { service, serviceAccount, gcWalletState };
+  }
+
+  it('reads no accounts when there is nothing to purge', async () => {
+    const { service, serviceAccount, gcWalletState } = createEmptyGcHarness();
+
+    await service.gcRemovedAccounts();
+
+    expect(serviceAccount.getAllAccounts).not.toHaveBeenCalled();
+    expect(serviceAccount.getAllIndexedAccounts).not.toHaveBeenCalled();
+    expect(gcWalletState).toHaveBeenCalledWith({ liveWalletIds: [] });
+  });
+
+  it('keeps wallet state while Travel Mode masks the database', async () => {
+    jest.spyOn(travelModeManager, 'getRuntimeEnvironment').mockResolvedValue({
+      persistence: { kind: 'masked' },
+    } as unknown as IRuntimeEnvironment);
+    const { service, gcWalletState } = createEmptyGcHarness();
+
+    await service.gcRemovedAccounts();
+
+    expect(gcWalletState).not.toHaveBeenCalled();
+  });
+
   it('purges nothing while Travel Mode masks the database', async () => {
     jest.spyOn(travelModeManager, 'getRuntimeEnvironment').mockResolvedValue({
       persistence: { kind: 'masked' },
@@ -294,10 +349,12 @@ describe('pending local data drop retry', () => {
   function createRetryHarness({
     pending,
     cleanupAccountIds = [],
+    storedAccountIds,
     dropLocalData = jest.fn(async () => undefined),
   }: {
     pending: string[];
     cleanupAccountIds?: string[];
+    storedAccountIds?: string[];
     dropLocalData?: jest.Mock;
   }) {
     const privacyChain = createPrivacyChainDb({
@@ -306,7 +363,11 @@ describe('pending local data drop retry', () => {
     });
     mockGetChainOnlyVault.mockResolvedValue({
       getLocalWalletCapability: () => ({
-        listAccounts: async () => ({ accounts: [], cleanupAccountIds }),
+        listAccounts: async () => ({
+          accounts: [],
+          cleanupAccountIds,
+          storedAccountIds,
+        }),
         dropLocalData,
       }),
     });
@@ -364,6 +425,31 @@ describe('pending local data drop retry', () => {
     await expect(privacyChain.getPendingLocalDataDrop()).resolves.toEqual([
       networkId,
     ]);
+  });
+
+  // A new Zcash account records privacy mode 'off', which holds no data.
+  it('wipes a network whose accounts hold no stored data', async () => {
+    const { service, dropLocalData } = createRetryHarness({
+      pending: [networkId],
+      cleanupAccountIds: [liveAccountId],
+      storedAccountIds: [],
+    });
+
+    await service.retryPendingLocalDataDrop();
+
+    expect(dropLocalData).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps a network an account stores data in', async () => {
+    const { service, dropLocalData } = createRetryHarness({
+      pending: [networkId],
+      cleanupAccountIds: [liveAccountId],
+      storedAccountIds: [liveAccountId],
+    });
+
+    await service.retryPendingLocalDataDrop();
+
+    expect(dropLocalData).not.toHaveBeenCalled();
   });
 
   it('starts from init without holding it up', async () => {

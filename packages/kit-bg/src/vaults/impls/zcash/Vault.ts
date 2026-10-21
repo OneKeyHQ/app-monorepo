@@ -384,6 +384,7 @@ export default class Vault extends VaultBtc {
       slotEnabled: boolean;
     }[];
     cleanupAccountIds: string[];
+    storedAccountIds: string[];
   }> {
     return zcashLifecycle.listLocalWalletAccounts(this);
   }
