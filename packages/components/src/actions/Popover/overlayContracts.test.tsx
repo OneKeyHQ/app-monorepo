@@ -4,7 +4,7 @@
  */
 /* cspell:ignore hoverable */
 // Test fixtures intentionally construct fresh props to exercise updates.
-/* oxlint-disable react-perf/jsx-no-new-object-as-prop, react-perf/jsx-no-jsx-as-prop */
+/* oxlint-disable react-perf/jsx-no-new-object-as-prop, react-perf/jsx-no-jsx-as-prop, react-perf/jsx-no-new-function-as-prop */
 
 import type { ReactNode } from 'react';
 import { useState } from 'react';
@@ -26,6 +26,11 @@ import { ShowCustom } from '../Toast/ShowCustom';
 import { Popover as NativePopover } from './index.native';
 
 let mockNarrow = false;
+let mockNativeContentHeight = 100;
+let mockEmitContentSize = true;
+const mockNativeMeasureCallbacks: Array<
+  (x: number, y: number, width: number, height: number) => void
+> = [];
 jest.mock('../../utils/getFontSize', () => ({ NATIVE_HIT_SLOP: {} }));
 jest.mock('@onekeyhq/components/src/shared/tamagui', () => ({
   withStaticProperties: Object.assign,
@@ -92,14 +97,41 @@ jest.mock('../../layouts/ScrollView', () => ({
   ScrollView: ({
     children,
     onContentSizeChange,
+    innerViewRef,
   }: {
     children?: ReactNode;
     onContentSizeChange?: (w: number, h: number) => void;
+    innerViewRef?: {
+      current: {
+        measure: (
+          callback: (
+            x: number,
+            y: number,
+            width: number,
+            height: number,
+          ) => void,
+        ) => void;
+      } | null;
+    };
   }) => {
     const React = jest.requireActual<typeof import('react')>('react');
+    const contentHeight = mockNativeContentHeight;
+    const contentSizeChangeRef = React.useRef(onContentSizeChange);
+    contentSizeChangeRef.current = onContentSizeChange;
+    React.useLayoutEffect(() => {
+      if (innerViewRef) {
+        innerViewRef.current = {
+          measure: (callback) => {
+            mockNativeMeasureCallbacks.push(callback);
+          },
+        };
+      }
+    });
     React.useEffect(() => {
-      onContentSizeChange?.(300, 100);
-    }, [onContentSizeChange]);
+      if (mockEmitContentSize) {
+        contentSizeChangeRef.current?.(300, contentHeight);
+      }
+    }, [contentHeight]);
     return <div>{children}</div>;
   },
 }));
@@ -204,7 +236,16 @@ jest.mock('@onekeyfe/react-native-native-overlay', () => ({
 
 beforeEach(() => {
   mockNarrow = false;
+  mockNativeContentHeight = 100;
+  mockEmitContentSize = true;
+  mockNativeMeasureCallbacks.length = 0;
 });
+function resolveNativeMeasure(
+  callback: (x: number, y: number, width: number, height: number) => void,
+  height: number,
+) {
+  act(() => callback(0, 0, 300, height));
+}
 it('uses the requested percentage for a narrow web sheet', () => {
   mockNarrow = true;
   render(
@@ -254,6 +295,136 @@ it('keeps percentage height and guide blocking for native sheets', () => {
   expect(blocked.result.current).toBe(true);
   view.unmount();
   expect(blocked.result.current).toBe(false);
+});
+it('measures the new fit content when its renderer changes before the first size event settles', async () => {
+  const FirstContent = () => <div>First</div>;
+  const NextContent = () => <div>Next</div>;
+  const view = render(
+    <NativePopover
+      title="Fit"
+      open
+      renderTrigger={null}
+      renderContent={FirstContent}
+    />,
+  );
+  expect(mockNativeMeasureCallbacks.shift()).toBeDefined();
+  expect(screen.getByTestId('native-sheet').dataset.open).toBe('false');
+
+  view.rerender(
+    <NativePopover
+      title="Fit"
+      open
+      renderTrigger={null}
+      renderContent={NextContent}
+    />,
+  );
+  expect(mockNativeMeasureCallbacks).toHaveLength(1);
+  expect(screen.getByTestId('native-sheet').dataset.height).toBeUndefined();
+  resolveNativeMeasure(mockNativeMeasureCallbacks.shift()!, 100);
+  await waitFor(() => {
+    expect(screen.getByTestId('native-sheet').dataset.open).toBe('true');
+    expect(screen.getByTestId('native-sheet').dataset.height).toBe('138');
+  });
+  view.rerender(
+    <NativePopover
+      open
+      title="Unrelated title"
+      renderTrigger={null}
+      renderContent={NextContent}
+    />,
+  );
+  expect(mockNativeMeasureCallbacks).toHaveLength(0);
+});
+it('uses real content-size changes and ignores older measurements in the same generation', async () => {
+  mockEmitContentSize = false;
+  const StableContent = () => <div>Current</div>;
+  const view = render(
+    <NativePopover
+      title="Fit"
+      open
+      renderTrigger={null}
+      renderContent={StableContent}
+    />,
+  );
+  const oldMeasure = mockNativeMeasureCallbacks.shift();
+  expect(oldMeasure).toBeDefined();
+  mockEmitContentSize = true;
+  mockNativeContentHeight = 240;
+  view.rerender(
+    <NativePopover
+      title="Fit"
+      open
+      renderTrigger={null}
+      renderContent={StableContent}
+    />,
+  );
+  resolveNativeMeasure(oldMeasure!, 100);
+  await waitFor(() =>
+    expect(screen.getByTestId('native-sheet').dataset.height).toBe('278'),
+  );
+  mockNativeContentHeight = 280;
+  view.rerender(
+    <NativePopover
+      title="Fit"
+      open
+      renderTrigger={null}
+      renderContent={StableContent}
+    />,
+  );
+  await waitFor(() =>
+    expect(screen.getByTestId('native-sheet').dataset.height).toBe('318'),
+  );
+});
+it('ignores stale generation and closed measurements before a fit sheet reopens', async () => {
+  mockEmitContentSize = false;
+  const FirstContent = () => <div>First</div>;
+  const NextContent = () => <div>Next</div>;
+  const view = render(
+    <NativePopover
+      title="Fit"
+      open
+      keepChildrenMounted
+      renderTrigger={null}
+      renderContent={FirstContent}
+    />,
+  );
+  const firstMeasure = mockNativeMeasureCallbacks.shift();
+  view.rerender(
+    <NativePopover
+      title="Fit"
+      open
+      keepChildrenMounted
+      renderTrigger={null}
+      renderContent={NextContent}
+    />,
+  );
+  const nextMeasure = mockNativeMeasureCallbacks.shift();
+  resolveNativeMeasure(firstMeasure!, 100);
+  expect(screen.getByTestId('native-sheet').dataset.open).toBe('false');
+  view.rerender(
+    <NativePopover
+      title="Fit"
+      open={false}
+      keepChildrenMounted
+      renderTrigger={null}
+      renderContent={NextContent}
+    />,
+  );
+  resolveNativeMeasure(nextMeasure!, 200);
+  view.rerender(
+    <NativePopover
+      title="Fit"
+      open
+      keepChildrenMounted
+      renderTrigger={null}
+      renderContent={NextContent}
+    />,
+  );
+  expect(screen.getByTestId('native-sheet').dataset.open).toBe('false');
+  resolveNativeMeasure(mockNativeMeasureCallbacks.shift()!, 240);
+  await waitFor(() =>
+    expect(screen.getByTestId('native-sheet').dataset.height).toBe('278'),
+  );
 });
 it('blocks deferred guides only while the custom toast is open', () => {
   const blocked = renderHook(() => useIsDeferredGuideBlocked());

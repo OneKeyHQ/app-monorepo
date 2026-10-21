@@ -380,6 +380,8 @@ function RawPopover({
                 bg="$bg"
                 borderRadius="$3"
                 maxHeight="100%"
+                flexShrink={1}
+                minHeight={0}
                 overflow="hidden"
                 outlineColor="$neutral3"
                 outlineStyle="solid"

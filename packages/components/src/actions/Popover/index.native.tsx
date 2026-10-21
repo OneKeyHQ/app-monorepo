@@ -40,7 +40,7 @@ import { useNativePortalLifecycle } from './useNativePortalLifecycle';
 
 import type { IPopoverProps, IPopoverTooltip } from './type';
 import type { IIconButtonProps } from '../IconButton';
-import type { LayoutChangeEvent } from 'react-native';
+import type { LayoutChangeEvent, View } from 'react-native';
 
 const gtMdShFrameStyle = {
   minWidth: 400,
@@ -168,6 +168,8 @@ function RawPopover({
   const [sheetContentMeasurement, setSheetContentMeasurement] = useState<
     IStableContentHeightMeasurement | undefined
   >();
+  const sheetInnerViewRef = useRef<View>(null!);
+  const sheetMeasureRequestRef = useRef(0);
   const previousRenderContentRef = useRef(renderContent);
   const renderContentGenerationRef = useRef(0);
   if (previousRenderContentRef.current !== renderContent) {
@@ -200,6 +202,7 @@ function RawPopover({
   const handleSheetContentSizeChange = useCallback(
     (_width: number, height: number) => {
       if (renderContentGenerationRef.current === renderContentGeneration) {
+        sheetMeasureRequestRef.current += 1;
         sheetContentHeightSchedulerRef.current?.schedule(
           height,
           renderContentGeneration,
@@ -210,6 +213,26 @@ function RawPopover({
   );
   const isFitSheet =
     !sheetProps?.snapPointsMode || sheetProps.snapPointsMode === 'fit';
+  useIsomorphicLayoutEffect(() => {
+    if (isOpen && isFitSheet && sheetScrollContentHeight === undefined) {
+      sheetMeasureRequestRef.current += 1;
+      const request = sheetMeasureRequestRef.current;
+      sheetInnerViewRef.current?.measure((_x, _y, _width, height) => {
+        if (
+          request === sheetMeasureRequestRef.current &&
+          renderContentGeneration === renderContentGenerationRef.current
+        ) {
+          sheetContentHeightSchedulerRef.current?.schedule(
+            height,
+            renderContentGeneration,
+          );
+        }
+      });
+    }
+    return () => {
+      sheetMeasureRequestRef.current += 1;
+    };
+  }, [isFitSheet, isOpen, renderContentGeneration, sheetScrollContentHeight]);
   const nativeSheetMaxHeight = Math.floor(
     viewportHeight * FIT_SHEET_MAX_HEIGHT_RATIO,
   );
@@ -432,6 +455,7 @@ function RawPopover({
           mb={bottom || '$5'}
           maxHeight={sheetScrollViewMaxHeight}
           onContentSizeChange={handleSheetContentSizeChange}
+          innerViewRef={sheetInnerViewRef}
           borderCurve="continuous"
         >
           {content}
