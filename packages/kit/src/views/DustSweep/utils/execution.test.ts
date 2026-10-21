@@ -1740,6 +1740,44 @@ describe('Dust Sweep serial execution boundaries', () => {
     expect(mockSend).toHaveBeenCalledTimes(1);
   });
 
+  it.each([false, true])(
+    'does not classify an EVM slippage response as a Solana rejection (hash: %s)',
+    async (hasHash) => {
+      const txId = `0x${'78'.repeat(32)}`;
+      mockSend.mockImplementationOnce(async (params) => {
+        await params.onBeforeSignAndSend?.();
+        const error = Object.assign(new Error('Slippage exceeded'), {
+          className: EOneKeyErrorClassNames.OneKeyServerApiError,
+          code: 40_036,
+        });
+        throw hasHash
+          ? withBroadcastTxContext(error, {
+              networkId: snapshot.networkId,
+              txId,
+            })
+          : error;
+      });
+      const options = createOptions();
+      const operation = executeDustSweepItem(options);
+      if (hasHash) {
+        await expect(operation).resolves.toMatchObject({ status: 'success' });
+        expect(mockTxState).toHaveBeenCalledWith(
+          expect.objectContaining({ txId }),
+        );
+        expect(options.onBroadcast).toHaveBeenCalledWith(txId);
+        expect(mockHistory).toHaveBeenCalledTimes(1);
+      } else {
+        await expect(operation).rejects.toBeInstanceOf(
+          DustSweepUnknownSubmission,
+        );
+        expect(mockTxState).not.toHaveBeenCalled();
+        expect(options.onBroadcast).not.toHaveBeenCalled();
+        expect(mockHistory).not.toHaveBeenCalled();
+      }
+      expect(mockSend).toHaveBeenCalledTimes(1);
+    },
+  );
+
   it('keeps a broadcast successful when the send history write fails', async () => {
     mockSend.mockImplementation(async (params: ISendParams) => {
       await sendTransaction(params);

@@ -72,7 +72,7 @@ export function isDustSweepItemTerminal(item: IDustSweepItem) {
 const transitions: Record<IDustSweepItemStatus, IDustSweepItemStatus[]> = {
   waiting: ['preparing'],
   preparing: ['waiting', 'signing', 'skipped'],
-  signing: ['preparing', 'broadcasted', 'skipped', 'unknown'],
+  signing: ['preparing', 'broadcasted', 'failed', 'skipped', 'unknown'],
   broadcasted: ['success', 'failed'],
   unknown: ['broadcasted'],
   success: [],

@@ -124,6 +124,18 @@ function getSubmissionError(error: unknown, signing: boolean) {
     : error;
 }
 
+function isSolanaSlippageRejection(error: unknown, networkId: string) {
+  if (!networkUtils.isSolanaNetworkByNetworkId(networkId)) return false;
+  if (!error || typeof error !== 'object') return false;
+  const candidate = error as { className?: unknown; code?: unknown };
+  // Solana preflight rejects slippage violations with this API code. A
+  // transport error or an EVM nonce rejection does not establish this outcome.
+  return (
+    candidate.className === EOneKeyErrorClassNames.OneKeyServerApiError &&
+    candidate.code === 40_036
+  );
+}
+
 function assertActive(signal: AbortSignal) {
   if (signal.aborted) throw new OneKeyLocalError('Dust Sweep cancelled');
 }
@@ -775,6 +787,8 @@ export async function executeDustSweepItem(
     }
   } catch (error) {
     if (!txId) {
+      if (signing && isSolanaSlippageRejection(error, snapshot.networkId))
+        return { status: 'failed', message: getSubmissionErrorMessage(error) };
       if (error instanceof MarketDirectFeeOverflowError)
         throw new DustSweepSkip('unknown');
       if (error instanceof DustSweepPaused && !signing) throw error;
