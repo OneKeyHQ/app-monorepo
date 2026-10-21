@@ -41,5 +41,7 @@ export enum ETranslationsMock {
   privacy_history_private__label = 'Private',
   privacy_temp_wallet_unavailable__desc = 'Unavailable for hidden wallets that clear on app close. Turn on “Keep accessible” to use it.',
   privacy_error_identity_mismatch__msg = 'This account’s privacy data was set up with a different key. Turn off privacy mode, delete its privacy data, then turn privacy mode on again.',
+  privacy_error_runtime_unavailable__msg = 'Privacy sync isn’t responding. Restart the app and try again.',
+  privacy_sync_failed_retrying__msg = 'Sync failed. Retrying automatically.',
   // ----------------------------------------------
 }

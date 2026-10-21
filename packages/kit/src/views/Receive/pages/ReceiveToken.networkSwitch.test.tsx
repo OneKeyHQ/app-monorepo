@@ -526,6 +526,11 @@ jest.mock('../../../hooks/useWalletBanner', () => ({
   }),
 }));
 
+jest.mock(
+  '../../AssetDetails/pages/TokenDetails/LocalWalletRepairControls',
+  () => ({ SetupRepairControl: () => null }),
+);
+
 jest.mock('../components/ReceiveCard', () => {
   const React = jest.requireActual<typeof import('react')>('react');
   const Cell = ({ children }: { children?: ReactNode }) =>

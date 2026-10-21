@@ -43,6 +43,13 @@ import {
 } from '../vaults/localWallet/privacyChainCacheStore';
 import { isLocalWalletStorageUnsupportedError } from '../vaults/localWallet/storageSupport';
 import {
+  LOCAL_WALLET_CHAIN_TIP_TIMEOUT_MESSAGE,
+  LOCAL_WALLET_SYNC_TIMEOUT_MESSAGE,
+  getLocalWalletSyncErrorKind,
+  isLocalWalletRuntimeTimeoutError,
+  toastLocalWalletError,
+} from '../vaults/localWallet/userFacingError';
+import {
   getLocalWalletViewingKey,
   listLocalWalletViewingKeyAccountIds,
   removeLocalWalletViewingKeys,
@@ -80,6 +87,7 @@ import type {
   ILocalWalletReviewedTransaction,
   ILocalWalletSendPool,
   ILocalWalletSlotUsage,
+  ILocalWalletSyncErrorKind,
   ILocalWalletSyncProgress,
 } from '../vaults/localWallet/types';
 import type { IRescanLocalWalletFrom } from '../vaults/types';
@@ -340,6 +348,25 @@ class ServicePrivacyChain extends ServiceBase {
     }
   }
 
+  // Background failures surface in the status row and light, never as toasts.
+  async publishSyncError(
+    networkId: string,
+    kind: ILocalWalletSyncErrorKind | undefined,
+  ): Promise<void> {
+    await privacyChainAtom.set((value) => {
+      if (value.syncErrorByNetworkId[networkId] === kind) {
+        return value;
+      }
+      const syncErrorByNetworkId = { ...value.syncErrorByNetworkId };
+      if (kind) {
+        syncErrorByNetworkId[networkId] = kind;
+      } else {
+        delete syncErrorByNetworkId[networkId];
+      }
+      return { ...value, syncErrorByNetworkId };
+    });
+  }
+
   recordSyncFailure(runtimeStateKey: string) {
     const failures =
       (this.syncFailureBackoff.get(runtimeStateKey)?.failures ?? 0) + 1;
@@ -438,6 +465,7 @@ class ServicePrivacyChain extends ServiceBase {
   // The user asked to confirm funds that need the password: prompt even when
   // background work would not (re-enter-every-time is on, or nothing cached).
   @backgroundMethod()
+  @toastLocalWalletError()
   async verifyLocalWalletWithPassword({
     networkId,
     accountId,
@@ -526,6 +554,7 @@ class ServicePrivacyChain extends ServiceBase {
   }
 
   @backgroundMethod()
+  @toastLocalWalletError()
   async startForegroundBoost({
     networkId,
     accountId,
@@ -550,6 +579,8 @@ class ServicePrivacyChain extends ServiceBase {
     }
     if (trigger === 'manual-sync') {
       this.clearSyncFailureBackoff(networkId);
+      // The press is the retry; the next pass reports again if it fails.
+      await this.publishSyncError(networkId, undefined);
     }
     if (
       !shouldStartBoost({
@@ -609,6 +640,7 @@ class ServicePrivacyChain extends ServiceBase {
   // Unlike stopForegroundBoost, a pause outlasts page visits and only Sync
   // clears it. A paused network does no scanning at all.
   @backgroundMethod()
+  @toastLocalWalletError()
   async pauseLocalWalletScan({
     networkId,
   }: {
@@ -680,6 +712,7 @@ class ServicePrivacyChain extends ServiceBase {
   }
 
   @backgroundMethod()
+  @toastLocalWalletError()
   async setAllowCellularSync({ allow }: { allow: boolean }): Promise<void> {
     await this.setAllowPrivacySyncOnCellular({ allow });
   }
@@ -732,7 +765,12 @@ class ServicePrivacyChain extends ServiceBase {
       localWalletNetworkIds.includes(networkId),
     );
     if (!changed.length) return;
-    changed.forEach((networkId) => this.clearSyncFailureBackoff(networkId));
+    for (const networkId of changed) {
+      this.clearSyncFailureBackoff(networkId);
+      // The failure described the previous node.
+      // eslint-disable-next-line no-await-in-loop
+      await this.publishSyncError(networkId, undefined);
+    }
     this.scheduleBackgroundSync(0);
   }
 
@@ -1654,9 +1692,7 @@ class ServicePrivacyChain extends ServiceBase {
             new Promise<never>((_, reject) => {
               tipTimer = setTimeout(() => {
                 reject(
-                  new OneKeyLocalError(
-                    'privacy-chain: chain tip request timed out',
-                  ),
+                  new OneKeyLocalError(LOCAL_WALLET_CHAIN_TIP_TIMEOUT_MESSAGE),
                 );
               }, PRIVACY_CHAIN_TIP_REQUEST_TIMEOUT_MS);
             }),
@@ -1694,6 +1730,11 @@ class ServicePrivacyChain extends ServiceBase {
             networkId,
             ...describePrivacyChainError(e),
           });
+          // eslint-disable-next-line no-await-in-loop
+          await this.publishSyncError(
+            networkId,
+            getLocalWalletSyncErrorKind(e),
+          );
         }
       }
 
@@ -1747,9 +1788,7 @@ class ServicePrivacyChain extends ServiceBase {
                     return;
                   }
                   reject(
-                    new OneKeyLocalError(
-                      'privacy-chain: wallet-runtime sync timed out',
-                    ),
+                    new OneKeyLocalError(LOCAL_WALLET_SYNC_TIMEOUT_MESSAGE),
                   );
                 }, candidate.capability.syncPolicy.maxSyncDurationMs);
               };
@@ -1759,6 +1798,7 @@ class ServicePrivacyChain extends ServiceBase {
           anyStateChanged = !!result.stateChanged;
           if (result.synced) {
             this.syncFailureBackoff.delete(candidate.runtimeStateKey);
+            await this.publishSyncError(candidate.networkId, undefined);
             this.runtimeSyncState.set(candidate.runtimeStateKey, {
               accountSignature: candidate.accountSignature,
               lastChainTip:
@@ -1815,15 +1855,16 @@ class ServicePrivacyChain extends ServiceBase {
           retryNeeded = true;
           // The watchdog abandons the await, not the operation; quarantine
           // the losing promise below.
-          const isWatchdogTimeout =
-            e instanceof Error &&
-            (e.message.includes('wallet-runtime sync timed out') ||
-              e.message.includes('WebEmbed bridge call timeout'));
+          const isWatchdogTimeout = isLocalWalletRuntimeTimeoutError(e);
           if (!isWatchdogTimeout) {
             // Timeouts are held back by quarantine instead.
             this.recordSyncFailure(candidate.runtimeStateKey);
           }
           await this.noteStorageUnsupported(candidate.networkId, e);
+          await this.publishSyncError(
+            candidate.networkId,
+            getLocalWalletSyncErrorKind(e),
+          );
           if (isWatchdogTimeout) {
             const stuckSync = syncPromise;
             if (!stuckSync) {
@@ -1910,7 +1951,14 @@ class ServicePrivacyChain extends ServiceBase {
             );
           }),
         );
-        return { ...value, progress };
+        const syncErrorByNetworkId = Object.fromEntries(
+          Object.entries(value.syncErrorByNetworkId).filter(
+            ([networkId]) =>
+              !prunableNetworkIds.has(networkId) ||
+              liveNetworkIds.has(networkId),
+          ),
+        );
+        return { ...value, progress, syncErrorByNetworkId };
       });
       if (boostStateChanged) {
         await this.publishBoostingNetworks();
@@ -2447,6 +2495,7 @@ class ServicePrivacyChain extends ServiceBase {
   // bound, purges rebuildable cache, clears derived history. Never touches
   // keys or funds.
   @backgroundMethod()
+  @toastLocalWalletError()
   async repairLocalChainData(params: {
     networkId: string;
     accountId: string;
@@ -2458,6 +2507,7 @@ class ServicePrivacyChain extends ServiceBase {
   }
 
   @backgroundMethod()
+  @toastLocalWalletError()
   async resetLocalChainData(params: {
     networkId: string;
     accountId: string;
@@ -2472,6 +2522,7 @@ class ServicePrivacyChain extends ServiceBase {
   // Settings "Reset storage": every account holding scan data on the network
   // loses it, paused ones included, and scans again from its birthday.
   @backgroundMethod()
+  @toastLocalWalletError()
   async clearTransactionHistoryCache(params?: {
     networkId: string;
   }): Promise<void> {
@@ -2703,6 +2754,7 @@ class ServicePrivacyChain extends ServiceBase {
   }
 
   @backgroundMethod()
+  @toastLocalWalletError()
   async enableLocalWalletAccount({
     networkId,
     accountId,
@@ -2919,6 +2971,7 @@ class ServicePrivacyChain extends ServiceBase {
   }
 
   @backgroundMethod()
+  @toastLocalWalletError()
   async disableLocalWalletAccount({
     networkId,
     accountId,
@@ -2971,6 +3024,7 @@ class ServicePrivacyChain extends ServiceBase {
   }
 
   @backgroundMethod()
+  @toastLocalWalletError()
   async retryLocalWalletAccountSetup({
     networkId,
     accountId,
@@ -3029,6 +3083,7 @@ class ServicePrivacyChain extends ServiceBase {
   // it is turned off the way the switch does it first, since a sync still
   // scanning it would register it again behind the delete.
   @backgroundMethod()
+  @toastLocalWalletError()
   async deleteLocalWalletAccountData({
     networkId,
     accountId,
@@ -3103,6 +3158,7 @@ class ServicePrivacyChain extends ServiceBase {
 
   // Settings "Clear cache": saved balances, tips and in-memory copies. Never
   // the runtime's data: rescanning from the birthday can take days.
+  @toastLocalWalletError()
   async clearLocalWalletCaches(): Promise<void> {
     await this.runLocalWalletLifecycle({
       event: 'clearCache',
@@ -3568,6 +3624,7 @@ class ServicePrivacyChain extends ServiceBase {
   // Viewing-level repair; no keyring/password needed, so a chain-only vault
   // suffices.
   @backgroundMethod()
+  @toastLocalWalletError()
   async rescanFromDaysAgo({
     networkId,
     accountId,
@@ -3588,6 +3645,7 @@ class ServicePrivacyChain extends ServiceBase {
   // Same capability repair, given an explicit height -- the UI's "I know the
   // exact block" input mode.
   @backgroundMethod()
+  @toastLocalWalletError()
   async rescanFromHeight({
     networkId,
     accountId,

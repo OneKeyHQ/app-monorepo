@@ -17,6 +17,7 @@ type IPublished = {
   boostingNetworkIds: string[];
   dataBlockedNetworkIds: string[];
   pausedNetworkIds: string[];
+  syncErrorByNetworkId: Record<string, string>;
 };
 
 const mockEmptyState = (): IPublished => ({
@@ -24,6 +25,7 @@ const mockEmptyState = (): IPublished => ({
   boostingNetworkIds: [],
   dataBlockedNetworkIds: [],
   pausedNetworkIds: [],
+  syncErrorByNetworkId: {},
 });
 
 let mockPublished: IPublished = mockEmptyState();

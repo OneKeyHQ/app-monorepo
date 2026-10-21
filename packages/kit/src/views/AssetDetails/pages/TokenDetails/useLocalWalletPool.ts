@@ -14,6 +14,7 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/privacyChainPool';
 import {
   formatPrivacyChainRemainingBlocks,
+  formatPrivacyChainSyncError,
   formatPrivacyChainSyncProgress,
   getPrivacyChainScanRegionLabelId,
   getPrivacyChainSyncLabel,
@@ -524,16 +525,33 @@ export function useLocalWalletPool({
     [networkId],
   );
   const isStorageUnsupported = useAtomValue(isStorageUnsupportedAtom);
-  const syncStatusText = isStorageUnsupported
-    ? intl.formatMessage({
-        id: ETranslations.privacy_error_webview_outdated__msg,
-      })
-    : buildLocalWalletSyncStatusText({
+  const syncErrorAtom = useMemo(
+    () =>
+      // A paused network is not retrying, so its last failure is not news.
+      selectAtom(privacyChainAtom.atom(), (value) =>
+        value.pausedNetworkIds.includes(networkId)
+          ? undefined
+          : value.syncErrorByNetworkId[networkId],
+      ),
+    [networkId],
+  );
+  const syncError = useAtomValue(syncErrorAtom);
+  let syncStatusText: string | null;
+  if (isStorageUnsupported) {
+    syncStatusText = intl.formatMessage({
+      id: ETranslations.privacy_error_webview_outdated__msg,
+    });
+  } else {
+    // A failed background sync replaces the figures; it retries on its own.
+    syncStatusText =
+      formatPrivacyChainSyncError(syncError, intl) ??
+      buildLocalWalletSyncStatusText({
         syncProgress,
         settings,
         scanRatePerSec: scanRatePerSecRef.current,
         intl,
       });
+  }
 
   const runBusy = useCallback(async (fn: () => Promise<void>) => {
     setBusy(true);
