@@ -25726,6 +25726,7 @@
     "packages/kit/src/views/SignatureConfirm/hooks/txFeeOverflowConfirmPresence.ts": 7459,
     "packages/kit/src/views/SignatureConfirm/hooks/useGasAccountAnalyticsContext.ts": 6771,
     "packages/kit/src/views/SignatureConfirm/hooks/useHyperliquidReferralPromotion.ts": 15484,
+    "packages/kit/src/views/SignatureConfirm/hooks/useOneKeyIdIdentityChange.ts": 4317,
     "packages/kit/src/views/SignatureConfirm/hooks/usePreCheckFeeInfo.tsx": 12616,
     "packages/kit/src/views/SignatureConfirm/hooks/usePreCheckTokenBalance.ts": 14462,
     "packages/kit/src/views/SignatureConfirm/hooks/useTransactionSecurityCheck.ts": 12479,
