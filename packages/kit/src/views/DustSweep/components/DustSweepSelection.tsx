@@ -35,6 +35,7 @@ export function DustSweepSelection({ desktop }: { desktop: boolean }) {
     selecting,
     session,
     loadStatus,
+    refreshStatus,
     partialError,
     toggle,
     toggleAll,
@@ -206,7 +207,11 @@ export function DustSweepSelection({ desktop }: { desktop: boolean }) {
             </Button>
           </YStack>
         ) : null}
-        {!loading && loadStatus === 'ready' && !partialError && !rows.length ? (
+        {!loading &&
+        loadStatus === 'ready' &&
+        refreshStatus === 'idle' &&
+        !partialError &&
+        !rows.length ? (
           <YStack height={330} justifyContent="center" px="$10" gap="$1">
             {/* Same illustration as the wallet's empty token list. */}
             <Illustration name="QuestionMark" alignSelf="center" mb="$2" />

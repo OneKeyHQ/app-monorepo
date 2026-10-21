@@ -204,6 +204,431 @@ describe('Dust Sweep Provider request and selection ownership', () => {
     });
   });
 
+  it.each([
+    { description: 'partial', cached: [ethereum] },
+    { description: 'fully populated', cached: [ethereum, base] },
+  ])(
+    'displays a $description cache without making it executable',
+    async ({ cached }) => {
+      const fresh = deferredLoad();
+      mockLoadNetworks.mockReturnValueOnce(fresh.promise);
+      const { result } = renderController();
+      const onCache = mockLoadNetworks.mock.calls[0][2];
+
+      act(() => onCache?.(cached));
+
+      expect(result.current.loadStatus).toBe('ready');
+      expect(result.current.refreshStatus).toBe('refreshing');
+      expect(result.current.current).toBe(ethereum);
+      expect(result.current.visible).toEqual(ethereum.tokens);
+      expect(result.current.assetStatus).toBe('refreshing');
+      expect(result.current.providerInfo).toBeUndefined();
+      expect(result.current.canStart).toBe(false);
+      act(() => {
+        result.current.start();
+        result.current.retryAssets();
+      });
+      expect(result.current.session.state.snapshot).toBeUndefined();
+      expect(mockRefreshNetwork).not.toHaveBeenCalled();
+      expect(mockLoadNetworks).toHaveBeenCalledTimes(1);
+
+      await act(async () => {
+        fresh.resolve({ networks: cached, partialError: false, providerInfo });
+        await fresh.promise;
+      });
+
+      expect(result.current.refreshStatus).toBe('idle');
+      expect(result.current.assetStatus).toBe('ready');
+      expect(result.current.canStart).toBe(true);
+      expect(result.current.providerInfo).toEqual(providerInfo);
+    },
+  );
+
+  it('keeps an empty cache loading until the live empty result settles', async () => {
+    const fresh = deferredLoad();
+    mockLoadNetworks.mockReturnValueOnce(fresh.promise);
+    const { result } = renderController();
+
+    act(() => mockLoadNetworks.mock.calls[0][2]?.([]));
+
+    expect(result.current.loadStatus).toBe('loading');
+    expect(result.current.refreshStatus).toBe('refreshing');
+    expect(result.current.current).toBeUndefined();
+    expect(result.current.canStart).toBe(false);
+    await act(async () => {
+      fresh.resolve({ networks: [], partialError: false, providerInfo });
+      await fresh.promise;
+    });
+    expect(result.current.loadStatus).toBe('ready');
+    expect(result.current.refreshStatus).toBe('idle');
+    expect(result.current.assetStatus).toBe('ready');
+    expect(result.current.current).toBeUndefined();
+    expect(result.current.canStart).toBe(false);
+  });
+
+  it('settles a live account with no picker-eligible assets without an asset error', async () => {
+    mockLoadNetworks.mockResolvedValueOnce({
+      networks: [network('evm--1', ['100', '200'])],
+      partialError: false,
+      providerInfo,
+    });
+    const { result } = renderController();
+    await waitFor(() => expect(result.current.refreshStatus).toBe('idle'));
+
+    expect(result.current.loadStatus).toBe('ready');
+    expect(result.current.assetStatus).toBe('ready');
+    expect(result.current.current).toBeUndefined();
+    expect(result.current.partialError).toBe(false);
+    expect(result.current.canStart).toBe(false);
+  });
+
+  it('blocks a start in the same event that claims a full refresh', async () => {
+    const { result } = renderController();
+    await waitFor(() => expect(result.current.canStart).toBe(true));
+    const fresh = deferredLoad();
+    mockLoadNetworks.mockReturnValueOnce(fresh.promise);
+
+    act(() => {
+      result.current.retry();
+      result.current.start();
+    });
+
+    expect(result.current.selecting).toBe(true);
+    expect(result.current.session.state.snapshot).toBeUndefined();
+    expect(result.current.loadStatus).toBe('ready');
+    expect(result.current.refreshStatus).toBe('refreshing');
+    expect(result.current.canStart).toBe(false);
+    expect(mockLoadNetworks).toHaveBeenCalledTimes(2);
+    await act(async () => {
+      fresh.resolve({
+        networks: [ethereum],
+        partialError: false,
+        providerInfo,
+      });
+      await fresh.promise;
+    });
+    expect(result.current.canStart).toBe(true);
+  });
+
+  it('ignores a cache that arrives after live data, including during execution', async () => {
+    const fresh = deferredLoad();
+    mockLoadNetworks.mockReturnValueOnce(fresh.promise);
+    const { result } = renderController();
+    const onCache = mockLoadNetworks.mock.calls[0][2];
+    await act(async () => {
+      fresh.resolve({
+        networks: [ethereum],
+        partialError: false,
+        providerInfo,
+      });
+      await fresh.promise;
+    });
+
+    act(() => onCache?.([base]));
+    expect(result.current.current).toBe(ethereum);
+    expect(result.current.selected).toEqual(ethereum.tokens);
+    expect(result.current.canStart).toBe(true);
+    act(() => {
+      result.current.start();
+    });
+    const snapshot = result.current.session.state.snapshot;
+    expect(result.current.session.state.phase).toBe('running');
+
+    act(() => onCache?.([base]));
+    expect(result.current.current).toBe(ethereum);
+    expect(result.current.session.state.snapshot).toBe(snapshot);
+    expect(result.current.session.state.items[0].token).toBe(
+      ethereum.tokens[0],
+    );
+    act(() => result.current.session.pause());
+    act(() => onCache?.([base]));
+    expect(result.current.session.state.phase).toBe('paused');
+    expect(result.current.session.state.snapshot).toBe(snapshot);
+    expect(result.current.current).toBe(ethereum);
+  });
+
+  it('retains cached choices on failure and retry, then uses fresh amounts without selecting new tokens', async () => {
+    const cached = network('evm--1', ['8', '2']);
+    const fresh = deferredLoad();
+    const retried = deferredLoad();
+    mockLoadNetworks
+      .mockReturnValueOnce(fresh.promise)
+      .mockReturnValueOnce(retried.promise);
+    const { result } = renderController();
+    act(() => mockLoadNetworks.mock.calls[0][2]?.([cached]));
+    act(() => {
+      result.current.toggle(cached.tokens[1].key);
+      result.current.setSlippage(2);
+    });
+    expect(result.current.selected).toEqual([cached.tokens[0]]);
+    await act(async () => {
+      fresh.reject(new Error('Balances unavailable'));
+      await fresh.promise.catch(() => undefined);
+    });
+
+    expect(result.current.loadStatus).toBe('ready');
+    expect(result.current.refreshStatus).toBe('error');
+    expect(result.current.partialError).toBe(true);
+    expect(result.current.current).toBe(cached);
+    expect(result.current.selected).toEqual([cached.tokens[0]]);
+    expect(result.current.canStart).toBe(false);
+    act(() => result.current.retryAssets());
+    expect(mockLoadNetworks).toHaveBeenCalledTimes(2);
+    expect(mockRefreshNetwork).not.toHaveBeenCalled();
+    expect(result.current.loadStatus).toBe('ready');
+    expect(result.current.refreshStatus).toBe('refreshing');
+    expect(result.current.current).toBe(cached);
+    expect(result.current.selected).toEqual([cached.tokens[0]]);
+    act(() => mockLoadNetworks.mock.calls[1][2]?.([ethereum]));
+    expect(result.current.current).toBe(cached);
+
+    const added = network('evm--1', ['4', '3', '2']);
+    const updated = {
+      ...cached,
+      tokens: [{ ...added.tokens[0], amount: '0.5' }, added.tokens[2]],
+      balanceUsd: '6',
+    };
+    await act(async () => {
+      retried.resolve({
+        networks: [updated],
+        partialError: false,
+        providerInfo,
+      });
+      await retried.promise;
+    });
+
+    expect(result.current.current).toBe(updated);
+    expect(result.current.selected).toEqual([updated.tokens[0]]);
+    expect(result.current.slippage).toBe(2);
+    expect(result.current.canStart).toBe(true);
+    act(() => {
+      result.current.start();
+    });
+    expect(result.current.session.state.snapshot?.tokens).toEqual([
+      updated.tokens[0],
+    ]);
+    expect(result.current.session.state.snapshot?.tokens[0].amount).toBe('0.5');
+  });
+
+  it.each(['resolve', 'reject'] as const)(
+    'rejects stale cache and live data that later %ss through an A → B → A scope change',
+    async (outcome) => {
+      const first = deferredLoad();
+      const second = deferredLoad();
+      const third = deferredLoad();
+      mockLoadNetworks
+        .mockReturnValueOnce(first.promise)
+        .mockReturnValueOnce(second.promise)
+        .mockReturnValueOnce(third.promise);
+      let changeScope!: (params: IDustSweepRouteParams) => void;
+      function Wrapper({ children }: PropsWithChildren) {
+        const [params, setParams] = useState(routeParams);
+        changeScope = setParams;
+        return (
+          <DustSweepProvider params={params}>{children}</DustSweepProvider>
+        );
+      }
+      const { result } = renderHook(() => useDustSweep(), { wrapper: Wrapper });
+      const firstCache = mockLoadNetworks.mock.calls[0][2];
+      act(() => firstCache?.([ethereum]));
+      act(() => changeScope({ ...routeParams, accountId: 'account-b' }));
+      expect(mockLoadNetworks.mock.calls[0][1].aborted).toBe(true);
+      expect(result.current.current).toBeUndefined();
+      expect(result.current.loadStatus).toBe('loading');
+      act(() => mockLoadNetworks.mock.calls[1][2]?.([base]));
+      expect(result.current.current).toBe(base);
+      const secondCache = mockLoadNetworks.mock.calls[1][2];
+      act(() => changeScope(routeParams));
+      expect(result.current.current).toBeUndefined();
+      expect(result.current.canStart).toBe(false);
+
+      const latest = {
+        ...ethereum,
+        tokens: ethereum.tokens.map((token) => ({ ...token, amount: '0.3' })),
+      };
+      await act(async () => {
+        third.resolve({
+          networks: [latest],
+          partialError: false,
+          providerInfo,
+        });
+        await third.promise;
+      });
+      await act(async () => {
+        firstCache?.([ethereum]);
+        secondCache?.([base]);
+        if (outcome === 'resolve') {
+          first.resolve({ networks: [ethereum], partialError: true });
+        } else {
+          first.reject(new Error('Obsolete account load'));
+        }
+        second.resolve({ networks: [base], partialError: true });
+        await Promise.allSettled([first.promise, second.promise]);
+      });
+
+      expect(result.current.current).toBe(latest);
+      expect(result.current.selected).toEqual(latest.tokens);
+      expect(result.current.refreshStatus).toBe('idle');
+      expect(result.current.partialError).toBe(false);
+      expect(result.current.providerInfo).toEqual(providerInfo);
+      expect(result.current.canStart).toBe(true);
+    },
+  );
+
+  it('retains a failed network preview while allowing only fresh networks to start', async () => {
+    const fresh = deferredLoad();
+    const retry = deferredLoad();
+    mockLoadNetworks
+      .mockReturnValueOnce(fresh.promise)
+      .mockReturnValueOnce(retry.promise);
+    const { result } = renderController();
+    act(() => mockLoadNetworks.mock.calls[0][2]?.([ethereum, base]));
+    act(() => result.current.selectNetwork(base.network.networkId));
+    await act(async () => {
+      fresh.resolve({
+        networks: [ethereum],
+        partialError: true,
+        providerInfo,
+        failedNetworkIds: [base.network.networkId],
+      });
+      await fresh.promise;
+    });
+
+    expect(result.current.current).toBe(base);
+    expect(result.current.networks).toContain(ethereum);
+    expect(result.current.networks).toContain(base);
+    expect(result.current.loadStatus).toBe('ready');
+    expect(result.current.refreshStatus).toBe('idle');
+    expect(result.current.assetStatus).toBe('error');
+    expect(result.current.canStart).toBe(false);
+    act(() => result.current.selectNetwork(ethereum.network.networkId));
+    expect(result.current.canStart).toBe(true);
+    act(() => result.current.selectNetwork(base.network.networkId));
+    act(() => result.current.retryAssets());
+    expect(mockRefreshNetwork).not.toHaveBeenCalled();
+    expect(mockLoadNetworks).toHaveBeenCalledTimes(2);
+    expect(result.current.current).toBe(base);
+    await act(async () => {
+      retry.resolve({
+        networks: [ethereum, base],
+        partialError: false,
+        providerInfo,
+      });
+      await retry.promise;
+    });
+    expect(result.current.current).toBe(base);
+    expect(result.current.canStart).toBe(true);
+  });
+
+  it('does not let a late entry cache settle post-transaction refresh or restore swept selection', async () => {
+    const fresh = deferredLoad();
+    let resolveAssets!: (entry: IDustSweepNetwork) => void;
+    mockLoadNetworks.mockReturnValueOnce(fresh.promise);
+    mockRefreshNetwork.mockReturnValueOnce(
+      new Promise((resolve) => {
+        resolveAssets = resolve;
+      }),
+    );
+    const { result } = renderController();
+    const onCache = mockLoadNetworks.mock.calls[0][2];
+    act(() => onCache?.([ethereum]));
+    await act(async () => {
+      fresh.resolve({
+        networks: [ethereum],
+        partialError: false,
+        providerInfo,
+      });
+      await fresh.promise;
+    });
+    act(() => {
+      result.current.start();
+    });
+    act(() => mockComplete());
+    expect(result.current.assetStatus).toBe('refreshing');
+    act(() => result.current.sweepAgain());
+    act(() => {
+      onCache?.([base, ethereum]);
+      result.current.retry();
+      result.current.start();
+    });
+
+    expect(result.current.current).toBe(ethereum);
+    expect(result.current.assetStatus).toBe('refreshing');
+    expect(result.current.selected).toEqual([]);
+    expect(result.current.canStart).toBe(false);
+    expect(mockLoadNetworks).toHaveBeenCalledTimes(1);
+    expect(mockRefreshNetwork).toHaveBeenCalledTimes(1);
+    await act(async () => resolveAssets(ethereum));
+    expect(result.current.assetStatus).toBe('ready');
+    expect(result.current.selected).toEqual([]);
+    expect(result.current.canStart).toBe(false);
+    act(() => result.current.selectNetwork(ethereum.network.networkId));
+    expect(result.current.selected).toEqual([]);
+  });
+
+  it.each(['automatic', 'network', 'selection'] as const)(
+    'reconciles a cached default against live eligibility after an %s choice',
+    async (choice) => {
+      const fresh = deferredLoad();
+      mockLoadNetworks.mockReturnValueOnce(fresh.promise);
+      const { result } = renderController();
+      act(() => mockLoadNetworks.mock.calls[0][2]?.([ethereum, base]));
+      expect(result.current.current).toBe(ethereum);
+      if (choice === 'network') {
+        act(() => result.current.selectNetwork(ethereum.network.networkId));
+      } else if (choice === 'selection') {
+        act(() => result.current.toggle(ethereum.tokens[0].key));
+      }
+      const updatedEthereum = network('evm--1', ['100']);
+      await act(async () => {
+        fresh.resolve({
+          networks: [updatedEthereum, base],
+          partialError: false,
+          providerInfo,
+        });
+        await fresh.promise;
+      });
+
+      expect(result.current.current).toBe(
+        choice === 'automatic' ? base : updatedEthereum,
+      );
+      expect(result.current.selected).toEqual(
+        choice === 'automatic' ? [base.tokens[0]] : [],
+      );
+      expect(result.current.canStart).toBe(choice === 'automatic');
+    },
+  );
+
+  it('retries the full load when a failed cached preview has no current network', async () => {
+    const fresh = deferredLoad();
+    const retry = deferredLoad();
+    mockLoadNetworks
+      .mockReturnValueOnce(fresh.promise)
+      .mockReturnValueOnce(retry.promise);
+    const { result } = renderController();
+    act(() =>
+      mockLoadNetworks.mock.calls[0][2]?.([network('evm--1', ['100'])]),
+    );
+    await act(async () => {
+      fresh.reject(new Error('Balances unavailable'));
+      await fresh.promise.catch(() => undefined);
+    });
+
+    expect(result.current.loadStatus).toBe('ready');
+    expect(result.current.refreshStatus).toBe('error');
+    expect(result.current.current).toBeUndefined();
+    expect(result.current.assetStatus).toBe('error');
+    act(() => result.current.retryAssets());
+    expect(mockLoadNetworks).toHaveBeenCalledTimes(2);
+    expect(mockRefreshNetwork).not.toHaveBeenCalled();
+    await act(async () => {
+      retry.resolve({ networks: [base], partialError: false, providerInfo });
+      await retry.promise;
+    });
+    expect(result.current.current).toBe(base);
+    expect(result.current.canStart).toBe(true);
+  });
+
   it('recovers only refreshed owners and preserves swept tokens after a partial full load', async () => {
     mockRefreshNetwork.mockRejectedValueOnce(new Error('Refresh failed'));
     const onRefreshed = jest.fn();
@@ -853,13 +1278,13 @@ describe('Dust Sweep Provider request and selection ownership', () => {
         partialError: true,
       });
     const { result } = renderController();
-    await waitFor(() => expect(result.current.loadStatus).toBe('ready'));
+    await waitFor(() => expect(result.current.refreshStatus).toBe('idle'));
     expect(result.current.current?.network.networkId).toBe('evm--1');
     act(() => result.current.addHidden());
     expect(result.current.includeHidden).toBe(true);
 
     act(() => result.current.retry());
-    await waitFor(() => expect(result.current.loadStatus).toBe('ready'));
+    await waitFor(() => expect(result.current.refreshStatus).toBe('idle'));
 
     expect(result.current.current?.network.networkId).toBe('evm--8453');
     expect(result.current.current?.accountId).toBe(remainingNetwork.accountId);
@@ -877,12 +1302,12 @@ describe('Dust Sweep Provider request and selection ownership', () => {
       .mockResolvedValueOnce({ networks: [], partialError: false })
       .mockResolvedValueOnce({ networks: [base], partialError: false });
     const { result } = renderController();
-    await waitFor(() => expect(result.current.loadStatus).toBe('ready'));
+    await waitFor(() => expect(result.current.refreshStatus).toBe('idle'));
     act(() => result.current.toggle(ethereum.tokens[0].key));
     expect(result.current.selected).toEqual([]);
 
     act(() => result.current.retry());
-    await waitFor(() => expect(result.current.loadStatus).toBe('ready'));
+    await waitFor(() => expect(result.current.refreshStatus).toBe('idle'));
     expect(result.current.current).toBeUndefined();
     act(() => {
       result.current.start();
@@ -890,7 +1315,7 @@ describe('Dust Sweep Provider request and selection ownership', () => {
     expect(result.current.session.state.snapshot).toBeUndefined();
 
     act(() => result.current.retry());
-    await waitFor(() => expect(result.current.loadStatus).toBe('ready'));
+    await waitFor(() => expect(result.current.refreshStatus).toBe('idle'));
     expect(result.current.current?.network.networkId).toBe('evm--8453');
     expect(result.current.selected).toEqual([base.tokens[0]]);
   });
