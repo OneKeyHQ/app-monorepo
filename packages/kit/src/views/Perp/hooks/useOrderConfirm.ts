@@ -11,12 +11,14 @@ import {
   useTradingFormAtom,
   useTradingLoadingAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
-import { usePerpsActiveAccountAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  usePerpsActiveAccountAtom,
+  usePerpsTradingPreferencesAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   SCALE_ORDER_MAX_COUNT,
   SCALE_ORDER_MIN_COUNT,
-  SCALE_ORDER_MIN_NOTIONAL,
   buildScaleOrderLegs,
   getReduceOnlyOrderGuardError,
   getReduceOnlyPositionSnapshotError,
@@ -26,11 +28,24 @@ import {
   validateScaleOrderLegs,
 } from '@onekeyhq/shared/src/utils/hyperliquidScaleOrderUtils';
 import {
+  TWAP_MAX_DURATION_MINUTES,
+  TWAP_MIN_DURATION_MINUTES,
+  TWAP_MIN_ORDER_NOTIONAL,
+  formatTwapMinimumOrderNotional,
+  formatTwapPriceForOrder,
+  getTwapStopPriceErrorKey,
+  getTwapTriggerAbove,
+  isTwapStopPriceValid,
+  isTwapTotalNotionalValid,
+  isValidTwapDuration,
+} from '@onekeyhq/shared/src/utils/hyperliquidTwapUtils';
+import {
   formatPriceToSignificantDigits,
   formatSpotPriceToValid,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
 import { ETriggerOrderType } from '@onekeyhq/shared/types/hyperliquid/types';
 
+import { getPerpsMinimumOrderSuggestion } from '../components/TradingPanel/inputs/sizeInputConversion';
 import {
   type IPerpsMarketDataFreshness,
   shouldBlockPerpsTradingForMarketData,
@@ -38,15 +53,12 @@ import {
 import { resolveTpSlTriggerPx } from '../utils/resolveTpSlTriggerPx';
 import { getScaleOrderValidationErrorMessage } from '../utils/scaleOrderValidation';
 
+import { useActiveTradeDisplay } from './useActiveTradeDisplay';
 import { useOrderPrice } from './useOrderPrice';
 import { usePerpsMarketDataFreshness } from './usePerpsMarketDataFreshness';
 import { useTradingCalculationsForSide } from './useTradingCalculationsForSide';
 import { useTradingPrice } from './useTradingPrice';
-
-const TWAP_MIN_DURATION_MINUTES = 5;
-const TWAP_MAX_DURATION_MINUTES = 1440;
-const TWAP_ESTIMATED_SLICE_INTERVAL_SECONDS = 30;
-const TWAP_MIN_ORDER_NOTIONAL = Number(SCALE_ORDER_MIN_NOTIONAL);
+import { useTwapReferencePrice } from './useTwapReferencePrice';
 
 interface IUseOrderConfirmOptions {
   onSuccess?: () => void;
@@ -66,12 +78,21 @@ function useOrderConfirmWithMarketDataFreshness({
 }): IUseOrderConfirmReturn {
   const intl = useIntl();
   const [formData] = useTradingFormAtom();
+  const [tradingPreferences] = usePerpsTradingPreferencesAtom();
+  const { baseName } = useActiveTradeDisplay();
   const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
   const [currentUser] = usePerpsActiveAccountAtom();
   const [activePositionsValue] = usePerpsActivePositionAtom();
   const hyperliquidActions = useHyperliquidActions();
   const [isSubmitting] = useTradingLoadingAtom();
-  const { midPrice, midPriceBN } = useTradingPrice();
+  const { midPrice, midPriceBN } = useTradingPrice({
+    allowSpotMarkPriceFallback: formData.orderMode !== 'twap',
+  });
+  const { sizePriceBN: twapReferencePriceBN, markPriceBN: twapMarkPriceBN } =
+    useTwapReferencePrice({
+      midPriceBN,
+      enabled: formData.orderMode === 'twap',
+    });
   const shouldBlockForMarketData =
     shouldBlockPerpsTradingForMarketData(marketDataFreshness);
 
@@ -322,52 +343,130 @@ function useOrderConfirmWithMarketDataFreshness({
 
       if (formDataSnapshot.orderMode === 'twap') {
         const duration = Number(formDataSnapshot.twapDurationMinutes ?? 0);
-        if (
-          !Number.isInteger(duration) ||
-          duration < TWAP_MIN_DURATION_MINUTES ||
-          duration > TWAP_MAX_DURATION_MINUTES
-        ) {
+        if (!isValidTwapDuration(duration)) {
           Toast.error({
-            title: 'Order Failed',
-            message: `TWAP duration must be ${TWAP_MIN_DURATION_MINUTES}-${TWAP_MAX_DURATION_MINUTES} minutes`,
+            title: intl.formatMessage({ id: ETranslations.global_failed }),
+            message: intl.formatMessage(
+              { id: ETranslations.perp_twap_duration_range__msg },
+              {
+                min: TWAP_MIN_DURATION_MINUTES,
+                max: TWAP_MAX_DURATION_MINUTES,
+              },
+            ),
           });
           return;
         }
         const isSpotOrder = activeTradeInstrument.mode === 'spot';
+        const szDecimals = isSpotOrder
+          ? (activeTradeInstrument.universe?.baseSzDecimals ?? 2)
+          : (activeTradeInstrument.universe?.szDecimals ?? 2);
         const twapSize =
           side === 'long'
             ? longCalculations.computedSizeForSide
             : shortCalculations.computedSizeForSide;
-        if (!twapSize.isFinite() || twapSize.lte(0)) {
-          Toast.error({
-            title: 'Order Failed',
-            message: 'Order size is required',
-          });
-          return;
-        }
-        if (!midPriceBN.isFinite() || midPriceBN.lte(0)) {
-          Toast.error({
-            title: 'Order Failed',
-            message: 'Market price is not available. Please try again.',
-          });
-          return;
-        }
-        const estimatedSlices = Math.max(
-          1,
-          Math.ceil((duration * 60) / TWAP_ESTIMATED_SLICE_INTERVAL_SECONDS),
-        );
-        const averageSliceNotional = twapSize
-          .multipliedBy(midPriceBN)
-          .dividedBy(estimatedSlices);
+        const rawTriggerPrice = formDataSnapshot.twapTriggerPrice?.trim();
+        const rawStopPrice = formDataSnapshot.twapStopPrice?.trim();
         if (
-          !averageSliceNotional.isFinite() ||
-          averageSliceNotional.lt(TWAP_MIN_ORDER_NOTIONAL)
+          !twapReferencePriceBN.isFinite() ||
+          twapReferencePriceBN.lte(0) ||
+          ((rawTriggerPrice || rawStopPrice) &&
+            (!twapMarkPriceBN.isFinite() || twapMarkPriceBN.lte(0)))
         ) {
           Toast.error({
-            title: 'Order Failed',
-            message: intl.formatMessage({
-              id: ETranslations.perp_twap_small_slice__msg,
+            title: intl.formatMessage({
+              id: ETranslations.provider_unavailable,
             }),
+            message: intl.formatMessage({
+              id: ETranslations.global_an_error_occurred_desc,
+            }),
+          });
+          return;
+        }
+        const triggerPrice = formatTwapPriceForOrder({
+          price: rawTriggerPrice,
+          szDecimals,
+          assetType: isSpotOrder ? 'spot' : 'perp',
+        });
+        const triggerAbove = rawTriggerPrice
+          ? getTwapTriggerAbove({
+              triggerPrice: triggerPrice ?? '',
+              markPrice: twapMarkPriceBN,
+            })
+          : undefined;
+        if (rawTriggerPrice && typeof triggerAbove !== 'boolean') {
+          Toast.error({
+            title: intl.formatMessage({ id: ETranslations.global_failed }),
+            message:
+              triggerPrice && new BigNumber(triggerPrice).eq(twapMarkPriceBN)
+                ? intl.formatMessage({
+                    id: ETranslations.perps_trigger_price_equal_current,
+                  })
+                : intl.formatMessage({
+                    id: ETranslations.perps_input_trigger_price,
+                  }),
+          });
+          return;
+        }
+        const stopPrice = formatTwapPriceForOrder({
+          price: rawStopPrice,
+          szDecimals,
+          assetType: isSpotOrder ? 'spot' : 'perp',
+        });
+        if (rawStopPrice) {
+          if (
+            !stopPrice ||
+            !isTwapStopPriceValid({
+              isBuy: side === 'long',
+              stopPrice,
+              referencePrice: twapMarkPriceBN,
+              triggerPrice,
+            })
+          ) {
+            Toast.error({
+              title: intl.formatMessage({ id: ETranslations.global_failed }),
+              message: intl.formatMessage({
+                id: getTwapStopPriceErrorKey({
+                  isBuy: side === 'long',
+                  triggerPrice,
+                }),
+              }),
+            });
+            return;
+          }
+        }
+        if (
+          !isTwapTotalNotionalValid({
+            size: twapSize,
+            price: twapReferencePriceBN,
+            szDecimals,
+          })
+        ) {
+          const rawInputMode = tradingPreferences.sizeInputUnit ?? 'usd';
+          const minimumOrderSuggestion = getPerpsMinimumOrderSuggestion({
+            price: twapReferencePriceBN,
+            szDecimals,
+            minimumNotional: TWAP_MIN_ORDER_NOTIONAL,
+            inputMode:
+              isSpotOrder && rawInputMode === 'margin' ? 'usd' : rawInputMode,
+            leverage: isSpotOrder ? 1 : (formDataSnapshot.leverage ?? 1),
+            symbol: baseName,
+          });
+          Toast.error({
+            title: intl.formatMessage({ id: ETranslations.global_failed }),
+            message: minimumOrderSuggestion
+              ? intl.formatMessage(
+                  { id: ETranslations.perp_size_least },
+                  { amount: minimumOrderSuggestion.label },
+                )
+              : intl.formatMessage(
+                  { id: ETranslations.perp_twap_min_order_notional__msg },
+                  {
+                    amount: formatTwapMinimumOrderNotional({
+                      price: twapReferencePriceBN,
+                      szDecimals,
+                    }),
+                  },
+                ),
           });
           return;
         }
@@ -379,7 +478,7 @@ function useOrderConfirmWithMarketDataFreshness({
           });
           if (snapshotError) {
             Toast.error({
-              title: 'Order Failed',
+              title: intl.formatMessage({ id: ETranslations.global_failed }),
               message: snapshotError,
             });
             return;
@@ -401,7 +500,7 @@ function useOrderConfirmWithMarketDataFreshness({
           });
           if (reduceOnlyError) {
             Toast.error({
-              title: 'Order Failed',
+              title: intl.formatMessage({ id: ETranslations.global_failed }),
               message: reduceOnlyError,
             });
             return;
@@ -414,6 +513,8 @@ function useOrderConfirmWithMarketDataFreshness({
           price: '',
           bboPriceMode: null,
           hasTpsl: false,
+          twapTriggerPrice: triggerPrice ?? '',
+          twapStopPrice: stopPrice ?? '',
           twapReduceOnly: isSpotOrder ? false : formDataSnapshot.twapReduceOnly,
         };
 
@@ -422,7 +523,8 @@ function useOrderConfirmWithMarketDataFreshness({
           await hyperliquidActions.current.submitOrder({
             assetId: activeTradeInstrument.assetId,
             formData: effectiveFormData,
-            price: midPrice || '0',
+            price: twapReferencePriceBN.toFixed(),
+            twapTriggerAbove: triggerAbove,
           });
           options?.onSuccess?.();
         } catch (error) {
@@ -523,6 +625,8 @@ function useOrderConfirmWithMarketDataFreshness({
       activePositionsValue,
       currentUser?.accountAddress,
       formData,
+      tradingPreferences.sizeInputUnit,
+      baseName,
       hyperliquidActions,
       options,
       longCalculations.computedSizeForSide,
@@ -531,6 +635,8 @@ function useOrderConfirmWithMarketDataFreshness({
       shortOrderPrice,
       intl,
       shouldBlockForMarketData,
+      twapReferencePriceBN,
+      twapMarkPriceBN,
     ],
   );
 

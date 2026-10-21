@@ -1,23 +1,9 @@
-import BigNumber from 'bignumber.js';
-import { useIntl } from 'react-intl';
-import { StyleSheet } from 'react-native';
-
-import type { ColorTokens } from '@onekeyhq/components';
-import {
-  Divider,
-  Popover,
-  SizableText,
-  XStack,
-  YStack,
-} from '@onekeyhq/components';
+import { SizableText, XStack } from '@onekeyhq/components';
 import type { IBadgeType } from '@onekeyhq/components/src/content/Badge';
-import { formatKytRiskFactorCategory } from '@onekeyhq/kit/src/utils/kytRiskFactorUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
 import { EKytRiskLevel } from '@onekeyhq/shared/types/kyt';
-import type { IKytRiskFactor } from '@onekeyhq/shared/types/kyt';
 
 // CJK locales render dates in "年/月/日"-style, so use the localized long date
 // format (e.g. 2024年6月19日) to keep the day unit; other locales keep the
@@ -38,18 +24,6 @@ export function formatRiskCheckDate(
     formatTemplate: withTime ? `${datePart} HH:mm` : datePart,
   });
 }
-
-// Risk level → text color. Mirrors the receive-KYT detail page so both surfaces
-// share a consistent visual language.
-export const LEVEL_TEXT_COLOR: Record<EKytRiskLevel, ColorTokens> = {
-  [EKytRiskLevel.None]: '$textSuccess',
-  [EKytRiskLevel.Checking]: '$textSubdued',
-  [EKytRiskLevel.Failed]: '$textSubdued',
-  [EKytRiskLevel.Low]: '$textSuccess',
-  [EKytRiskLevel.Moderate]: '$textCaution',
-  [EKytRiskLevel.High]: '$textCaution',
-  [EKytRiskLevel.Severe]: '$textCritical',
-};
 
 // Risk level → badge type, used by recent/history list tags.
 export const LEVEL_BADGE_TYPE: Record<EKytRiskLevel, IBadgeType> = {
@@ -76,119 +50,16 @@ export const LEVEL_TITLE: Record<EKytRiskLevel, ETranslations> = {
 export function CardRow({
   label,
   children,
-  tooltip,
 }: {
   label: string;
   children: React.ReactNode;
-  tooltip?: string;
 }) {
   return (
     <XStack px="$4" py="$2.5" ai="center" jc="space-between" gap="$2">
-      <XStack ai="center" gap="$1" flexShrink={0}>
-        <SizableText size="$bodyMd" color="$textSubdued">
-          {label}
-        </SizableText>
-        {tooltip ? (
-          <Popover.Tooltip
-            title={label}
-            tooltip={tooltip}
-            placement="bottom"
-            iconSize="$4"
-            renderContent={
-              <YStack px="$5" pb="$5" pt={platformEnv.isNative ? '$0' : '$5'}>
-                <SizableText size="$bodyLg">{tooltip}</SizableText>
-              </YStack>
-            }
-          />
-        ) : null}
-      </XStack>
+      <SizableText size="$bodyMd" color="$textSubdued" flexShrink={0}>
+        {label}
+      </SizableText>
       {children}
     </XStack>
-  );
-}
-
-export function RiskFactorCard({ factor }: { factor: IKytRiskFactor }) {
-  const intl = useIntl();
-  const rows: { label: string; value: string; tooltip?: string }[] = [];
-  if (factor.entity) {
-    rows.push({
-      label: intl.formatMessage({
-        id: ETranslations.kyt_risk_factor_entity__title,
-      }),
-      value: factor.entity,
-    });
-  }
-  if (factor.exposureType) {
-    rows.push({
-      label: intl.formatMessage({
-        id: ETranslations.kyt_risk_factor_exposure__title,
-      }),
-      value: factor.exposureType,
-      tooltip: intl.formatMessage({
-        id: ETranslations.address_risk_check_exposure_type_tooltip__desc,
-      }),
-    });
-  }
-  if (factor.hops !== undefined) {
-    rows.push({
-      label: intl.formatMessage({
-        id: ETranslations.kyt_risk_factor_distance__title,
-      }),
-      value: intl.formatMessage(
-        { id: ETranslations.kyt_risk_factor_distance_hops__msg },
-        { count: factor.hops },
-      ),
-      tooltip: intl.formatMessage({
-        id: ETranslations.address_risk_check_distance_tooltip__desc,
-      }),
-    });
-  }
-  // Exposure amount and share are shown together on one "Exposure / Share" row.
-  const amountText =
-    factor.amountUsd !== undefined
-      ? `$${new BigNumber(factor.amountUsd).toFormat(2)}`
-      : undefined;
-  const percentText =
-    factor.percent !== undefined
-      ? `${new BigNumber(factor.percent).toFixed(2)}%`
-      : undefined;
-  const exposureShareValue = [amountText, percentText]
-    .filter(Boolean)
-    .join(' / ');
-  if (exposureShareValue) {
-    rows.push({
-      label: intl.formatMessage({
-        id: ETranslations.address_risk_check_exposure_share__title,
-      }),
-      value: exposureShareValue,
-      tooltip: intl.formatMessage({
-        id: ETranslations.address_risk_check_exposure_share_tooltip__desc,
-      }),
-    });
-  }
-
-  return (
-    <YStack
-      borderWidth={StyleSheet.hairlineWidth}
-      borderColor="$borderSubdued"
-      borderRadius="$3"
-      overflow="hidden"
-    >
-      <XStack px="$4" py="$2.5" bg="$bgSubdued">
-        <SizableText size="$bodyMdMedium">
-          {formatKytRiskFactorCategory({ category: factor.category, intl })}
-        </SizableText>
-      </XStack>
-      {rows.map((row) => (
-        <YStack key={row.label}>
-          <Divider />
-          <CardRow label={row.label} tooltip={row.tooltip}>
-            <SizableText size="$bodyMdMedium" textAlign="right">
-              {row.value}
-            </SizableText>
-          </CardRow>
-        </YStack>
-      ))}
-    </YStack>
   );
 }

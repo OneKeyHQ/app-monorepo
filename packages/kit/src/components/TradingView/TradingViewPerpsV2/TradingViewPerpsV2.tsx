@@ -34,6 +34,7 @@ import { TradingViewV2ChartControlsContainer } from '../TradingViewV2/components
 
 import { MESSAGE_TYPES } from './constants/messageTypes';
 import { useChartLines, useTradeUpdates } from './hooks';
+import { useChartOrderContext } from './hooks/useChartOrderContext';
 import { usePerpsNativeChartControls } from './hooks/usePerpsNativeChartControls';
 import { usePerpsTradingViewMessageHandler } from './messageHandlers';
 
@@ -334,13 +335,17 @@ export function TradingViewPerpsV2(
     activeTradeInstrument.mode === 'spot'
       ? activeTradeInstrument.universe?.baseSzDecimals
       : activeTradeInstrument.universe?.szDecimals;
+  const [accountMarksRevision, setAccountMarksRevision] = useState(0);
+  const rebuildChartForAccountMarks = useCallback(() => {
+    setAccountMarksRevision((revision) => revision + 1);
+  }, []);
   const _webviewKey = useMemo(() => {
     const themeKey =
       platformEnv.isDesktop || platformEnv.isNative ? '' : `${theme}-`;
-    return `${themeKey}${webviewKey || ''}${
+    return `${themeKey}${webviewKey || ''}-${accountMarksRevision}${
       reloadOnSymbolChange ? `-${symbol}` : ''
     }`;
-  }, [reloadOnSymbolChange, symbol, theme, webviewKey]);
+  }, [accountMarksRevision, reloadOnSymbolChange, symbol, theme, webviewKey]);
   const [chartLinesReadyWebviewKey, setChartLinesReadyWebviewKey] = useState<
     string | null
   >(null);
@@ -441,13 +446,12 @@ export function TradingViewPerpsV2(
       appEventBus.off(EAppEventBusNames.PerpsTvPriceScaleRefreshed, handler);
     };
   }, [displayCoin, displayPair]);
-  const prevSymbolRef = useRef(symbol);
-  useEffect(() => {
-    if (prevSymbolRef.current !== symbol) {
-      closeChartOrderDialog();
-      prevSymbolRef.current = symbol;
-    }
-  }, [closeChartOrderDialog, symbol]);
+  const chartOrderGenerationRef = useChartOrderContext({
+    accountAddress: userAddress?.toLowerCase() || undefined,
+    symbol,
+    chartInstanceKey: _webviewKey,
+    onInvalidate: closeChartOrderDialog,
+  });
 
   const { handleNavigation } = useNavigationHandler();
 
@@ -602,17 +606,24 @@ export function TradingViewPerpsV2(
       if (!Number.isFinite(oid)) return;
       if (!enablePerpsTradingUi) return;
 
+      const generation = chartOrderGenerationRef.current;
       // Message handler invokes this without await — swallow rejections to
       // avoid leaking them as unhandled; errors are already surfaced via
       // the enable-trading flow or cancelChartOrder.
       try {
         await ensureTradingEnabled();
+        if (generation !== chartOrderGenerationRef.current) return;
         await actions.current.cancelChartOrder({ oid });
       } catch {
         // intentional: toast owns the user-facing message
       }
     },
-    [actions, enablePerpsTradingUi, ensureTradingEnabled],
+    [
+      actions,
+      chartOrderGenerationRef,
+      enablePerpsTradingUi,
+      ensureTradingEnabled,
+    ],
   );
 
   const onOrderDraftCreate = useCallback(
@@ -627,6 +638,7 @@ export function TradingViewPerpsV2(
     async (payload: ITVChartOrderIntentPayload) => {
       if (!enablePerpsTradingUi) return;
 
+      const generation = chartOrderGenerationRef.current;
       // Fire-and-forget handler: self-own errors to avoid unhandled rejections.
       try {
         if (payload.intent === 'limitEntry') {
@@ -648,7 +660,7 @@ export function TradingViewPerpsV2(
             await backgroundApiProxy.serviceHyperliquid.getSymbolMeta({
               coin: payload.symbol,
             });
-          if (!meta) return;
+          if (!meta || generation !== chartOrderGenerationRef.current) return;
           if (payload.symbol !== latestSymbolRef.current) return;
           closeChartOrderDialog();
           chartOrderDialogRef.current = showSetTpslDialog({
@@ -665,6 +677,7 @@ export function TradingViewPerpsV2(
       }
     },
     [
+      chartOrderGenerationRef,
       closeChartOrderDialog,
       displayCoin,
       displayPair,
@@ -690,8 +703,10 @@ export function TradingViewPerpsV2(
         return;
       }
 
+      const generation = chartOrderGenerationRef.current;
       try {
         await ensureTradingEnabled();
+        if (generation !== chartOrderGenerationRef.current) return;
         await actions.current.amendChartOrder({
           coin: payload.symbol,
           oid,
@@ -709,13 +724,32 @@ export function TradingViewPerpsV2(
         });
       }
     },
-    [actions, enablePerpsTradingUi, ensureTradingEnabled, webRef],
+    [
+      actions,
+      chartOrderGenerationRef,
+      enablePerpsTradingUi,
+      ensureTradingEnabled,
+      webRef,
+    ],
   );
+
+  // Chart lines management (liquidation, position, orders)
+  const { hasAccountLinesRef } = useChartLines({
+    symbol,
+    szDecimals: szDecimals ?? 2,
+    userAddress,
+    webRef,
+    isReady: isChartLinesReady,
+    chartInstanceKey: _webviewKey,
+  });
 
   const { customReceiveHandler } = usePerpsTradingViewMessageHandler({
     symbol,
     userAddress,
     webRef,
+    chartInstanceKey: _webviewKey,
+    hasAccountLinesRef,
+    onAccountMarksRebuild: rebuildChartForAccountMarks,
     onChartReady,
     onChartLinesReady,
     onOrderCancel,
@@ -730,15 +764,6 @@ export function TradingViewPerpsV2(
     onNativeChartControlsConfigChange: enableNativeChartControls
       ? onNativeChartControlsConfigChange
       : undefined,
-  });
-
-  // Chart lines management (liquidation, position, orders)
-  useChartLines({
-    symbol,
-    szDecimals: szDecimals ?? 2,
-    userAddress,
-    webRef,
-    isReady: isChartLinesReady,
   });
 
   // trade update push
