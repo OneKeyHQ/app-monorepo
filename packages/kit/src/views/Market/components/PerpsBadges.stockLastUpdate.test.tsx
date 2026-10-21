@@ -1,13 +1,14 @@
 /** @jest-environment jsdom */
-import type { PropsWithChildren } from 'react';
+import type { PropsWithChildren, ReactNode } from 'react';
 
 import { render, screen } from '@testing-library/react';
 
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { resolveUSMarketStatusVariant } from '@onekeyhq/shared/src/utils/tradingHoursUtils';
 import { EUSMarketStatusVariant } from '@onekeyhq/shared/src/utils/tradingHoursUtils';
 import type { IMarketStockInfo } from '@onekeyhq/shared/types/marketV2';
 
-import { StockIsOpenBadge } from './PerpsBadges';
+import { StockIsOpenBadge, StockMarketStatusBadge } from './PerpsBadges';
 
 jest.mock('react-intl', () => ({
   useIntl: () => ({ formatMessage: ({ id }: { id: string }) => id }),
@@ -26,7 +27,9 @@ jest.mock('@onekeyhq/components', () => ({
 }));
 
 jest.mock('@onekeyhq/kit/src/components/TradingHoursPanel', () => ({
-  TradingHoursTrigger: () => null,
+  TradingHoursTrigger: ({ renderTrigger }: { renderTrigger: ReactNode }) => (
+    <div data-testid="trading-hours-trigger">{renderTrigger}</div>
+  ),
 }));
 
 jest.mock('@onekeyhq/kit/src/hooks/useFormatDate', () => ({
@@ -89,6 +92,19 @@ describe('StockIsOpenBadge last update segment', () => {
   afterEach(() => {
     mockResolveVariant.mockReset();
     jest.useRealTimers();
+  });
+
+  it('keeps the status visible while the trading-hours trigger loads', async () => {
+    mockResolveVariant.mockReturnValue(EUSMarketStatusVariant.Closed);
+    render(<StockMarketStatusBadge stock={stock} />);
+
+    expect(
+      screen.getByText(ETranslations.trading_hours_market_closed),
+    ).toBeTruthy();
+    const trigger = await screen.findByTestId('trading-hours-trigger');
+    expect(trigger.textContent).toContain(
+      ETranslations.trading_hours_market_closed,
+    );
   });
 
   it.each(['ondo', 'xstock', 'bstock'])(
