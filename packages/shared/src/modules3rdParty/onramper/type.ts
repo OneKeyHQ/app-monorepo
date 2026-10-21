@@ -50,8 +50,9 @@ export type IOnramperCheckoutRequest = {
 // fields are always present. There is no ETA field. Fees are denominated in the
 // source fiat. `rate` is crypto-per-fiat and equals payout/amount exactly
 // (device-verified 2026-07-17, coinbasepay: payout 0.05116585 / $100 →
-// rate 0.0005116585) — it carries no information beyond the quote itself, so
-// never use it to price the payout in fiat; use OneKey's own market feed.
+// rate 0.0005116585) — it carries no information beyond the quote itself. To
+// price the payout in fiat use getOnramperQuotePricing ((amount − fees) /
+// payout): that is the provider's own conversion rate, spread included.
 export type IOnramperQuote = {
   quoteId: string;
   ramp: string; // provider slug, e.g. 'coinbase'

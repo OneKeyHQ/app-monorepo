@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useMemo } from 'react';
 import type { ReactNode } from 'react';
 
 import type { IButtonProps } from '@onekeyhq/components';
@@ -6,21 +6,17 @@ import {
   ActivityHubAction,
   ActivityHubContent,
 } from '@onekeyhq/kit/src/components/ActivityHub';
+import { useOpenPerksTab } from '@onekeyhq/kit/src/hooks/useReferFriends';
 import { usePerpsCommonConfigPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
-import { useShowInviteeRewardModal } from './InviteeReward/hooks/useShowInviteeRewardModal';
-
 function usePerpsActivityHubProps() {
-  const { showInviteeRewardModal } = useShowInviteeRewardModal();
   const [{ perpConfigCommon }] = usePerpsCommonConfigPersistAtom();
   const campaigns = useMemo(
     () => perpConfigCommon?.activityCards ?? [],
     [perpConfigCommon?.activityCards],
   );
 
-  const handleOpenInviteeReward = useCallback(() => {
-    void showInviteeRewardModal();
-  }, [showInviteeRewardModal]);
+  const handleOpenInviteeReward = useOpenPerksTab();
 
   return { campaigns, handleOpenInviteeReward };
 }

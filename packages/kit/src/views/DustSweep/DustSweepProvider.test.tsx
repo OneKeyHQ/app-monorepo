@@ -204,12 +204,47 @@ describe('Dust Sweep Provider request and selection ownership', () => {
     });
   });
 
+  it.each([0, 0.1, 4.999, 50.01, NaN, Infinity])(
+    'rejects invalid slippage %s at the controller and keeps the submission at 5%%',
+    async (value) => {
+      const { result } = renderController();
+      await waitFor(() => expect(result.current.canStart).toBe(true));
+      act(() => result.current.setSlippage(value));
+      expect(result.current.slippage).toBe(5);
+      act(() => {
+        void result.current.start();
+      });
+      expect(result.current.session.state.snapshot?.slippage).toBe(5);
+    },
+  );
+
+  it.each([5, 10, 50])('submits the selected slippage %s%%', async (value) => {
+    const { result } = renderController();
+    await waitFor(() => expect(result.current.canStart).toBe(true));
+    act(() => result.current.setSlippage(value));
+    expect(result.current.slippage).toBe(value);
+    act(() => {
+      void result.current.start();
+    });
+    expect(result.current.session.state.snapshot?.slippage).toBe(value);
+  });
+
   it.each([
-    { description: 'partial', cached: [ethereum] },
-    { description: 'fully populated', cached: [ethereum, base] },
+    {
+      description: 'partial',
+      cached: [ethereum],
+      current: ethereum,
+      visible: ethereum.tokens,
+    },
+    {
+      description: 'fully populated',
+      cached: [ethereum, base],
+      current: base,
+      visible: [base.tokens[0]],
+    },
   ])(
     'displays a $description cache without making it executable',
-    async ({ cached }) => {
+    async ({ cached, current, visible }) => {
       const fresh = deferredLoad();
       mockLoadNetworks.mockReturnValueOnce(fresh.promise);
       const { result } = renderController();
@@ -219,8 +254,8 @@ describe('Dust Sweep Provider request and selection ownership', () => {
 
       expect(result.current.loadStatus).toBe('ready');
       expect(result.current.refreshStatus).toBe('refreshing');
-      expect(result.current.current).toBe(ethereum);
-      expect(result.current.visible).toEqual(ethereum.tokens);
+      expect(result.current.current).toBe(current);
+      expect(result.current.visible).toEqual(visible);
       expect(result.current.assetStatus).toBe('refreshing');
       expect(result.current.providerInfo).toBeUndefined();
       expect(result.current.canStart).toBe(false);
@@ -358,7 +393,7 @@ describe('Dust Sweep Provider request and selection ownership', () => {
     act(() => mockLoadNetworks.mock.calls[0][2]?.([cached]));
     act(() => {
       result.current.toggle(cached.tokens[1].key);
-      result.current.setSlippage(2);
+      result.current.setSlippage(10);
     });
     expect(result.current.selected).toEqual([cached.tokens[0]]);
     await act(async () => {
@@ -399,7 +434,7 @@ describe('Dust Sweep Provider request and selection ownership', () => {
 
     expect(result.current.current).toBe(updated);
     expect(result.current.selected).toEqual([updated.tokens[0]]);
-    expect(result.current.slippage).toBe(2);
+    expect(result.current.slippage).toBe(10);
     expect(result.current.canStart).toBe(true);
     act(() => {
       result.current.start();
@@ -572,7 +607,7 @@ describe('Dust Sweep Provider request and selection ownership', () => {
       const fresh = deferredLoad();
       mockLoadNetworks.mockReturnValueOnce(fresh.promise);
       const { result } = renderController();
-      act(() => mockLoadNetworks.mock.calls[0][2]?.([ethereum, base]));
+      act(() => mockLoadNetworks.mock.calls[0][2]?.([ethereum]));
       expect(result.current.current).toBe(ethereum);
       if (choice === 'network') {
         act(() => result.current.selectNetwork(ethereum.network.networkId));
@@ -671,9 +706,10 @@ describe('Dust Sweep Provider request and selection ownership', () => {
     );
     const { result } = renderController();
     await waitFor(() => expect(result.current.canStart).toBe(true));
+    act(() => result.current.selectNetwork(ethereum.network.networkId));
     act(() => {
       result.current.addHidden();
-      result.current.setSlippage(2);
+      result.current.setSlippage(10);
       result.current.selectThreshold(100);
     });
     act(() => result.current.toggle(ethereumWithHidden.tokens[1].key));
@@ -705,7 +741,7 @@ describe('Dust Sweep Provider request and selection ownership', () => {
     expect(result.current.networks).toContain(base);
     expect(result.current.providerInfo).toBe(providerInfo);
     expect(result.current.threshold).toBe(100);
-    expect(result.current.slippage).toBe(2);
+    expect(result.current.slippage).toBe(10);
     expect(result.current.includeHidden).toBe(true);
     expect(result.current.canStart).toBe(false);
     expect(mockLoadNetworks).toHaveBeenCalledTimes(1);
@@ -734,6 +770,7 @@ describe('Dust Sweep Provider request and selection ownership', () => {
     mockRefreshNetwork.mockRejectedValueOnce(new Error('offline'));
     const { result } = renderController();
     await waitFor(() => expect(result.current.canStart).toBe(true));
+    act(() => result.current.selectNetwork(ethereum.network.networkId));
     act(() => {
       result.current.start();
     });
@@ -765,6 +802,7 @@ describe('Dust Sweep Provider request and selection ownership', () => {
     );
     const { result } = renderController();
     await waitFor(() => expect(result.current.canStart).toBe(true));
+    act(() => result.current.selectNetwork(ethereum.network.networkId));
     act(() => {
       void result.current.start();
     });
@@ -801,6 +839,7 @@ describe('Dust Sweep Provider request and selection ownership', () => {
       );
       const { result } = renderController();
       await waitFor(() => expect(result.current.canStart).toBe(true));
+      act(() => result.current.selectNetwork(ethereum.network.networkId));
       act(() => result.current.toggle(source.tokens[0].key));
       expect(result.current.selected).toEqual([source.tokens[1]]);
       act(() => {
@@ -868,6 +907,7 @@ describe('Dust Sweep Provider request and selection ownership', () => {
     mockRefreshNetwork.mockResolvedValueOnce(empty);
     const { result } = renderController();
     await waitFor(() => expect(result.current.canStart).toBe(true));
+    act(() => result.current.selectNetwork(ethereum.network.networkId));
     act(() => {
       result.current.start();
     });
@@ -958,6 +998,7 @@ describe('Dust Sweep Provider request and selection ownership', () => {
       }
       const { result } = renderHook(() => useDustSweep(), { wrapper: Wrapper });
       await waitFor(() => expect(result.current.canStart).toBe(true));
+      act(() => result.current.selectNetwork(ethereum.network.networkId));
       act(() => {
         result.current.start();
       });
@@ -970,6 +1011,7 @@ describe('Dust Sweep Provider request and selection ownership', () => {
       );
       expect(signal.aborted).toBe(true);
       await act(async () => changeScope(routeParams));
+      act(() => result.current.selectNetwork(ethereum.network.networkId));
       await act(async () => {
         if (outcome === 'resolve')
           resolve({ ...ethereum, tokens: [], balanceUsd: '0' });
@@ -1148,6 +1190,7 @@ describe('Dust Sweep Provider request and selection ownership', () => {
   it('keeps network, account, and default selection aligned through A → B → A', async () => {
     const { result } = renderController();
     await waitFor(() => expect(result.current.loadStatus).toBe('ready'));
+    act(() => result.current.selectNetwork(ethereum.network.networkId));
     expect(result.current.current?.network.networkId).toBe('evm--1');
 
     act(() => result.current.toggle(ethereum.tokens[0].key));
@@ -1178,28 +1221,58 @@ describe('Dust Sweep Provider request and selection ownership', () => {
     });
   });
 
-  it('lists networks by balance, defaults to the most dust, and keeps the selection across thresholds', async () => {
+  it('defaults to the first network by balance and keeps the selection across thresholds', async () => {
     const { result } = renderController();
     await waitFor(() => expect(result.current.loadStatus).toBe('ready'));
     // Base holds the larger balance ($52) but Ethereum has more dust under $10.
-    expect(
-      result.current.networks.map((entry) => entry.network.networkId),
-    ).toEqual(['evm--8453', 'evm--1']);
-    expect(result.current.current?.network.networkId).toBe('evm--1');
+    expect(result.current.networks).toEqual([base, ethereum]);
+    expect(result.current.current).toBe(base);
+    expect(result.current.selected).toEqual([base.tokens[0]]);
 
     act(() => result.current.selectThreshold(100));
     expect(result.current.threshold).toBe(100);
-    expect(
-      result.current.networks.map((entry) => entry.network.networkId),
-    ).toEqual(['evm--8453', 'evm--1']);
-    expect(result.current.current?.network.networkId).toBe('evm--1');
-    expect(result.current.selected).toEqual(ethereum.tokens);
+    expect(result.current.networks).toEqual([base, ethereum]);
+    expect(result.current.current).toBe(base);
+    expect(result.current.selected).toEqual(base.tokens);
 
-    act(() => result.current.selectNetwork('evm--8453'));
+    act(() => result.current.selectNetwork('evm--1'));
     act(() => result.current.selectThreshold(10));
-    expect(result.current.current?.network.networkId).toBe('evm--8453');
-    expect(result.current.selected).toEqual([base.tokens[0]]);
+    expect(result.current.current).toBe(ethereum);
+    expect(result.current.selected).toEqual(ethereum.tokens);
   });
+
+  it.each(['automatic', 'network', 'selection', 'threshold'] as const)(
+    'reconciles a cached default against live network order after an %s choice',
+    async (choice) => {
+      const fresh = deferredLoad();
+      mockLoadNetworks.mockReturnValueOnce(fresh.promise);
+      const { result } = renderController();
+      act(() => mockLoadNetworks.mock.calls[0][2]?.([ethereum]));
+      expect(result.current.current).toBe(ethereum);
+      if (choice === 'network') {
+        act(() => result.current.selectNetwork(ethereum.network.networkId));
+      } else if (choice === 'selection') {
+        act(() => result.current.toggle(ethereum.tokens[0].key));
+      } else if (choice === 'threshold') {
+        act(() => result.current.selectThreshold(100));
+      }
+      await act(async () => {
+        fresh.resolve({ networks: [ethereum, base], partialError: false });
+        await fresh.promise;
+      });
+
+      expect(result.current.networks).toEqual([base, ethereum]);
+      if (choice === 'automatic') {
+        expect(result.current.current).toBe(base);
+        expect(result.current.selected).toEqual([base.tokens[0]]);
+      } else {
+        expect(result.current.current).toBe(ethereum);
+        expect(result.current.selected).toEqual(
+          choice === 'selection' ? [] : ethereum.tokens,
+        );
+      }
+    },
+  );
 
   it('hides networks with nothing to sweep or a $0.00 balance from the picker', async () => {
     const empty = network('evm--10', []);
@@ -1369,6 +1442,7 @@ describe('Dust Sweep Provider request and selection ownership', () => {
     });
     const { result } = renderController();
     await waitFor(() => expect(result.current.loadStatus).toBe('ready'));
+    act(() => result.current.selectNetwork(ethereum.network.networkId));
     expect(result.current.hidden).toHaveLength(1);
 
     act(() => result.current.addHidden());

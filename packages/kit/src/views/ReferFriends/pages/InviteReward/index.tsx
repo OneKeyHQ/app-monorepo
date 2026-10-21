@@ -28,7 +28,6 @@ import {
   showReferralShareDialog,
 } from '@onekeyhq/kit/src/views/ReferFriends/components/ReferralShare';
 import { useRedirectWhenNotLoggedIn } from '@onekeyhq/kit/src/views/ReferFriends/hooks/useRedirectWhenNotLoggedIn';
-import { BenefitsTabPlaceholder } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/BenefitsTabPlaceholder';
 import { useInviteLevelDetail } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/CurrentLevelCard/hooks/useCurrentLevelCard';
 import { getInviteEarningsState } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/getInviteEarningsState';
 import { InviteLevelPill } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/InviteLevelPill';
@@ -50,6 +49,8 @@ import {
   IS_BENEFITS_TAB_ENABLED,
   resolveReferralPageTab,
 } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/referralPageTab';
+import { useReferralTabCopy } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/referralTabCopy';
+import { useReferralTabSwitch } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/useReferralTabSwitch';
 import {
   getInviteCodeStepImageHeight,
   getInviteCodeStepImageWidth,
@@ -69,9 +70,14 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { ReferFriendsLoadError } from '../../components';
 import { ReferFriendsTestIDs } from '../../testIDs';
+import { MyRewardsContent } from '../MyRewards';
 import { useNavigateToRewardHistory } from '../RewardDistributionHistory/hooks/useNavigateToRewardHistory';
 
 import type { NativeScrollEvent, NativeSyntheticEvent } from 'react-native';
+
+// Short tabs fill the viewport, so the cross-link at their end rests at the
+// bottom.
+const SCROLL_FILL_STYLE = { flexGrow: 1 } as const;
 
 const ReferralPageHeader = memo(function ReferralPageHeader({
   activeTab,
@@ -87,7 +93,7 @@ const ReferralPageHeader = memo(function ReferralPageHeader({
   const renderHeaderTitle = useCallback(
     () => (
       <ReferralJobTabs
-        variant="header"
+        variant="compact"
         value={activeTab}
         onChange={onChangeTab}
       />
@@ -390,6 +396,7 @@ const InviteShareFooter = memo(function InviteShareFooter({
 });
 
 function InviteRewardPage() {
+  const tabCopy = useReferralTabCopy();
   const intl = useIntl();
   const { md } = useMedia();
   const pageCanvas = useInvitePageCanvas();
@@ -403,12 +410,8 @@ function InviteRewardPage() {
   const isCompactHeader = platformEnv.isNative || md;
   const activeTab = resolveReferralPageTab(route.params?.tab);
   const isInviteTab = activeTab === EReferralPageTab.invite;
-  const setActiveTab = useCallback(
-    (tab: IReferralPageTab) => {
-      navigation.setParams({ tab });
-    },
-    [navigation],
-  );
+  const { setActiveTab, openPerks, openInvite } =
+    useReferralTabSwitch(activeTab);
 
   useFocusEffect(
     useCallback(() => {
@@ -424,7 +427,8 @@ function InviteRewardPage() {
     ]),
   );
 
-  useRedirectWhenNotLoggedIn();
+  // Perks only needs a wallet address, so it stays open without OneKey ID.
+  useRedirectWhenNotLoggedIn({ tab: activeTab, enabled: isInviteTab });
 
   const [isFirstLoading, setIsFirstLoading] = useState(true);
   const [isRetrying, setIsRetrying] = useState(false);
@@ -483,19 +487,14 @@ function InviteRewardPage() {
     await Promise.allSettled([fetchSummaryInfo(), refreshLevelDetail()]);
   }, [fetchSummaryInfo, refreshLevelDetail]);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  // Both tabs take the pull gesture so pull-down behaves the same everywhere
-  // on the sheet; the benefits tab gets its own data with the Benefits PR.
   const handleRefresh = useCallback(async () => {
-    if (!isInviteTab) {
-      return;
-    }
     setIsRefreshing(true);
     try {
       await refreshAll();
     } finally {
       setIsRefreshing(false);
     }
-  }, [isInviteTab, refreshAll]);
+  }, [refreshAll]);
 
   // Exposure fires on first load and on every return to the invite tab, not
   // on the one-minute summary polling.
@@ -558,24 +557,36 @@ function InviteRewardPage() {
     body = (
       <ScrollView
         refreshControl={
-          <RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} />
+          isInviteTab ? (
+            <RefreshControl
+              refreshing={isRefreshing}
+              onRefresh={handleRefresh}
+            />
+          ) : undefined
         }
         onScroll={isCompactHeader ? handleScroll : undefined}
         scrollEventThrottle={16}
+        contentContainerStyle={SCROLL_FILL_STYLE}
       >
-        <Page.Container padded={false}>
+        <Page.Container padded={false} flex={1}>
           {summaryInfo ? (
             // Keep the invite tab mounted so switching tabs does not
             // refetch its data.
-            <YStack display={isInviteTab ? 'flex' : 'none'}>
+            <YStack display={isInviteTab ? 'flex' : 'none'} flex={1}>
               <InviteTabContent
                 summaryInfo={summaryInfo}
                 fetchSummaryInfo={fetchSummaryInfo}
                 levelDetail={levelDetail}
+                onOpenPerks={IS_BENEFITS_TAB_ENABLED ? openPerks : undefined}
               />
             </YStack>
           ) : null}
-          {isInviteTab ? null : <BenefitsTabPlaceholder />}
+          {isInviteTab ? null : (
+            <MyRewardsContent
+              entry={route.params?.perksEntry ?? 'route'}
+              onOpenInvite={openInvite}
+            />
+          )}
         </Page.Container>
       </ScrollView>
     );
@@ -624,7 +635,18 @@ function InviteRewardPage() {
                     {platformEnv.isWeb ? <LogoutButton /> : null}
                   </XStack>
                 </XStack>
-              ) : null}
+              ) : (
+                // Perks says whose rewards these are where the invite tab
+                // keeps its level and rules.
+                <SizableText
+                  size="$bodyMd"
+                  color="$textSubdued"
+                  numberOfLines={1}
+                  flexShrink={1}
+                >
+                  {tabCopy.perksIntro}
+                </SizableText>
+              )}
             </XStack>
           </Page.Container>
         )}

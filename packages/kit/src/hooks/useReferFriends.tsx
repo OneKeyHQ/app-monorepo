@@ -31,7 +31,11 @@ import {
   ETabReferFriendsRoutes,
   ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
-import type { IInviteRewardRouteParams } from '@onekeyhq/shared/src/routes';
+import type {
+  IInviteRewardRouteParams,
+  IPerksOpenEntry,
+  IReferralPageTab,
+} from '@onekeyhq/shared/src/routes';
 import { closeExtensionPopupAfterExpandTabOpen } from '@onekeyhq/shared/src/utils/extUtils';
 import {
   openUrlExternal,
@@ -129,6 +133,8 @@ export function useReplaceToReferFriends() {
     async (params?: {
       utmSource?: string;
       code?: string;
+      tab?: IReferralPageTab;
+      perksEntry?: IPerksOpenEntry;
       /** Skip isLoggedIn check when caller already knows login state */
       isLoggedIn?: boolean;
     }) => {
@@ -237,44 +243,53 @@ export const useReferFriends = () => {
     [toHardwareSalesRewardPage],
   );
 
-  const toReferFriendsPage = useCallback(async () => {
-    // ReferAFriend always redirects logged-in users to InviteReward, so route
-    // them there directly to avoid flashing the intro poster first.
-    const shouldShowInviteReward =
-      await backgroundApiProxy.servicePrime.isLoggedIn();
+  const toReferFriendsPage = useCallback(
+    async (params?: {
+      tab?: IReferralPageTab;
+      perksEntry?: IPerksOpenEntry;
+    }) => {
+      // ReferAFriend always redirects logged-in users to InviteReward, so route
+      // them there directly to avoid flashing the intro poster first.
+      const shouldShowInviteReward =
+        await backgroundApiProxy.servicePrime.isLoggedIn();
 
-    if (shouldOpenReferralInExtensionExpandTab) {
-      await openExtensionReferralInExpandTab(
-        shouldShowInviteReward
-          ? '/refer-friends/invite-reward'
-          : '/refer-friends',
-      );
-      return;
-    }
+      if (shouldOpenReferralInExtensionExpandTab) {
+        await openExtensionReferralInExpandTab(
+          shouldShowInviteReward
+            ? '/refer-friends/invite-reward'
+            : '/refer-friends',
+          params,
+        );
+        return;
+      }
 
-    if (shouldUseReferralModalNav) {
-      // Native: use Modal
-      navigation.pushModal(EModalRoutes.ReferFriendsModal, {
-        screen: shouldShowInviteReward
-          ? EModalReferFriendsRoutes.InviteReward
-          : EModalReferFriendsRoutes.ReferAFriend,
-      });
-    } else {
-      // Web / desktop: use Tab
-      navigation.switchTab(ETabRoutes.ReferFriends);
-      await timerUtils.wait(50);
-      rootNavigationRef.current?.reset({
-        index: 0,
-        routes: [
-          {
-            name: shouldShowInviteReward
-              ? ETabReferFriendsRoutes.TabInviteReward
-              : ETabReferFriendsRoutes.TabReferAFriend,
-          },
-        ],
-      });
-    }
-  }, [navigation]);
+      if (shouldUseReferralModalNav) {
+        // Native: use Modal
+        navigation.pushModal(EModalRoutes.ReferFriendsModal, {
+          screen: shouldShowInviteReward
+            ? EModalReferFriendsRoutes.InviteReward
+            : EModalReferFriendsRoutes.ReferAFriend,
+          params,
+        });
+      } else {
+        // Web / desktop: use Tab
+        navigation.switchTab(ETabRoutes.ReferFriends);
+        await timerUtils.wait(50);
+        rootNavigationRef.current?.reset({
+          index: 0,
+          routes: [
+            {
+              name: shouldShowInviteReward
+                ? ETabReferFriendsRoutes.TabInviteReward
+                : ETabReferFriendsRoutes.TabReferAFriend,
+              params,
+            },
+          ],
+        });
+      }
+    },
+    [navigation],
+  );
 
   const { copyText } = useClipboard();
 
@@ -528,3 +543,12 @@ export const useReferFriends = () => {
     ],
   );
 };
+
+// "My Rewards" in every activity hub lands on the Perks tab, so the rewards
+// from all products read in one place.
+export function useOpenPerksTab() {
+  const { toReferFriendsPage } = useReferFriends();
+  return useCallback(() => {
+    void toReferFriendsPage({ tab: 'benefits', perksEntry: 'activity_hub' });
+  }, [toReferFriendsPage]);
+}
