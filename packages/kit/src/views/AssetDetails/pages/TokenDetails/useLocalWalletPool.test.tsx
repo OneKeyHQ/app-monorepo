@@ -12,6 +12,7 @@ import type {
   ILocalWalletAccountAddresses,
   ILocalWalletAccountBalance,
   ILocalWalletAccountState,
+  ILocalWalletAccountSupport,
 } from '@onekeyhq/kit-bg/src/vaults/localWallet/types';
 import type { IVaultSettings } from '@onekeyhq/kit-bg/src/vaults/types';
 import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusNames';
@@ -72,7 +73,7 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
       getLocalWalletSyncProgress: async () => undefined,
       // jest hoists this factory above the `var` declarations below.
       // eslint-disable-next-line @typescript-eslint/no-use-before-define
-      isLocalWalletAccountSupported: async () => mockWalletSupported,
+      getLocalWalletAccountSupport: async () => mockWalletSupport,
     },
   },
 }));
@@ -96,9 +97,9 @@ jest.mock('@onekeyhq/kit/src/hooks/useAccountData', () => ({
 // Mutable so one test can describe a single-balance chain. Declared with
 // `var` because jest hoists the factory above `const` initialization.
 // Whether the chain has a keyring for this wallet type; a chain with no
-// hardware keyring (Monero) answers false for a hardware account.
+// hardware keyring (Monero) answers 'unsupported' for a hardware account.
 // eslint-disable-next-line no-var, vars-on-top
-var mockWalletSupported = true;
+var mockWalletSupport: ILocalWalletAccountSupport = 'supported';
 // eslint-disable-next-line no-var, vars-on-top
 var mockLocalWalletSettings: Record<string, unknown> = {
   balanceShape: 'pooled',
@@ -189,7 +190,7 @@ beforeEach(() => {
   jest.useFakeTimers();
   mockFocused = true;
   mockEnabled = true;
-  mockWalletSupported = true;
+  mockWalletSupport = 'supported';
   mockDisplay = undefined;
   mockListeners.clear();
   mockGetState.mockReset().mockImplementation(async () => ({
@@ -601,11 +602,11 @@ describe('a chain with one kind of balance still gets its local wallet UI', () =
  */
 describe('a wallet the chain cannot serve', () => {
   afterEach(() => {
-    mockWalletSupported = true;
+    mockWalletSupport = 'supported';
   });
 
   it('reports itself unsupported and settles immediately', async () => {
-    mockWalletSupported = false;
+    mockWalletSupport = 'unsupported';
     const { result } = renderHook(() =>
       useLocalWalletPool({
         networkId: 'xmr--0',
@@ -638,7 +639,7 @@ describe('a wallet the chain cannot serve', () => {
    * long enough to press.
    */
   it('is not ready until the support answer lands', () => {
-    mockWalletSupported = false;
+    mockWalletSupport = 'unsupported';
     const { result } = renderHook(() =>
       useLocalWalletPool({
         networkId: 'xmr--0',
@@ -648,6 +649,44 @@ describe('a wallet the chain cannot serve', () => {
     );
     expect(result.current.isWalletSupported).toBeUndefined();
     expect(result.current.isReady).toBe(false);
+  });
+
+  // A wallet the user chose not to keep is refused by the background; the
+  // page shows why instead of an Enable button that cannot work. The token
+  // page passes its own account data, so the answer must not depend on it.
+  it('reports a temp wallet as unsupported, with its own reason', async () => {
+    mockWalletSupport = 'tempWallet';
+    const { result } = renderHook(() =>
+      useLocalWalletPool({
+        networkId: 'zec--0',
+        accountId: 'hw-2c435a9b-passphrase--0',
+        poolId: 1,
+        accountData: {
+          account: undefined,
+          vaultSettings: {
+            localWallet: mockLocalWalletSettings,
+          } as unknown as IVaultSettings,
+        },
+      }),
+    );
+    await flushReads();
+    expect(result.current.isUnsupportedWallet).toBe(true);
+    expect(result.current.isTempWallet).toBe(true);
+    expect(result.current.isReady).toBe(true);
+  });
+
+  it('does not call a wallet of an unsupported type temp', async () => {
+    mockWalletSupport = 'unsupported';
+    const { result } = renderHook(() =>
+      useLocalWalletPool({
+        networkId: 'xmr--0',
+        accountId: 'hw-2c435a9b--0',
+        poolId: 1,
+      }),
+    );
+    await flushReads();
+    expect(result.current.isUnsupportedWallet).toBe(true);
+    expect(result.current.isTempWallet).toBe(false);
   });
 });
 

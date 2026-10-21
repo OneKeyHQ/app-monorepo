@@ -299,8 +299,10 @@ export async function listLocalWalletAccounts(vault: Vault): Promise<{
     }),
   ]);
   const enabled = new Set(enabledAccountIds);
-  // A 'do not save' wallet's viewing key stays on disk even though it's hidden; stop scanning it but keep its admission slot.
-  const visibleWalletIds = new Set(wallets.map((wallet) => wallet.id));
+  // A locked or unsaved ('do not save') wallet does not scan, but keeps its admission slot and resumes once saved and unlocked.
+  const scannableWalletIds = new Set(
+    wallets.flatMap((wallet) => (wallet.isTemp ? [] : [wallet.id])),
+  );
   const accounts: {
     accountId: string;
     runtimeKey: string;
@@ -319,7 +321,7 @@ export async function listLocalWalletAccounts(vault: Vault): Promise<{
       slotEnabled: enabled.has(accountId),
       syncEnabled:
         enabled.has(accountId) &&
-        visibleWalletIds.has(
+        scannableWalletIds.has(
           accountUtils.getWalletIdFromAccountId({ accountId }),
         ),
     });

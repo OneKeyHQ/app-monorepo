@@ -342,6 +342,9 @@ describe('Privacy held-on-mobile-data publish', () => {
       },
       {
         foregroundBoostRequestedByNetwork: {} as Record<string, boolean>,
+        backgroundApi: {
+          serviceAccount: { getWalletSafe: async () => ({ isTemp: false }) },
+        },
         getLocalWalletNetworkIds: async () => ['xmr--0'],
         publishBoostingNetworks: async () => undefined,
       },

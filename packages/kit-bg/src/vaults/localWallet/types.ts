@@ -134,6 +134,14 @@ export type ILocalWalletAccountState = {
   birthdayHintTimestamp?: number;
 };
 
+// Whether an account may use local scanning. 'unsupported': the network or
+// the account's wallet type cannot scan. 'tempWallet': a wallet the user chose
+// not to keep, whose viewing key and scan data must not land on disk.
+export type ILocalWalletAccountSupport =
+  | 'supported'
+  | 'unsupported'
+  | 'tempWallet';
+
 // Why part of a balance cannot be spent yet; the chain says which reason and
 // how much, the UI words it.
 export type ILocalWalletFrozenReason =

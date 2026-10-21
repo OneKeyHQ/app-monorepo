@@ -12,12 +12,21 @@ import Vault from './Vault';
 // A "do not save" hidden wallet is absent from getWallets() once its session
 // ends, while its viewing key stays in SimpleDB. Hidden identities must not
 // trial-decrypt blocks, but retain both recovery state and admission slots.
-function createVault({ visibleWalletIds }: { visibleWalletIds: string[] }) {
+function createVault({
+  visibleWalletIds,
+  tempWalletIds = [],
+}: {
+  visibleWalletIds: string[];
+  tempWalletIds?: string[];
+}) {
   return Object.assign(Object.create(Vault.prototype) as Vault, {
     backgroundApi: {
       serviceAccount: {
         getWallets: async () => ({
-          wallets: visibleWalletIds.map((id) => ({ id })),
+          wallets: visibleWalletIds.map((id) => ({
+            id,
+            isTemp: tempWalletIds.includes(id),
+          })),
         }),
       },
       simpleDb: {
@@ -60,6 +69,28 @@ describe('Zcash scanning follows hidden-wallet visibility', () => {
     const { accounts } = await vault.listLocalWalletAccounts();
 
     expect(accounts.every(({ syncEnabled }) => syncEnabled)).toBe(true);
+  });
+
+  // Unlocked but not kept: privacy is unavailable for it, so it does not scan
+  // either, and resumes like a re-unlocked wallet once it is kept.
+  it('does not scan an unlocked wallet the user chose not to keep', async () => {
+    const vault = createVault({
+      visibleWalletIds: ['hd-saved', 'hd-hidden'],
+      tempWalletIds: ['hd-hidden'],
+    });
+
+    const { accounts } = await vault.listLocalWalletAccounts();
+
+    expect(
+      accounts.map(({ accountId, syncEnabled, slotEnabled }) => [
+        accountId,
+        syncEnabled,
+        slotEnabled,
+      ]),
+    ).toEqual([
+      ['hd-saved--1', true, true],
+      ['hd-hidden--1', false, true],
+    ]);
   });
 
   it('keeps the account listed so its cache and slot bookkeeping survive', async () => {

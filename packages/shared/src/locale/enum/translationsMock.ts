@@ -39,5 +39,6 @@ export enum ETranslationsMock {
   privacy_history_pool__label = '{pool} pool',
   privacy_history_shielded__label = 'Shielded',
   privacy_history_private__label = 'Private',
+  privacy_temp_wallet_unavailable__desc = 'Unavailable for hidden wallets that clear on app close. Turn on “Keep accessible” to use it.',
   // ----------------------------------------------
 }
