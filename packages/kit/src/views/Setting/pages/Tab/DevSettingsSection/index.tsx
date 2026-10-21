@@ -148,6 +148,7 @@ import { SectionLoggerParityItem } from './SectionLoggerParityItem';
 import { SectionPressItem } from './SectionPressItem';
 import { SentryCrashSettings } from './SentryCrashSettings';
 import { showDevOnlyPasswordDialog } from './showDevOnlyPasswordDialog';
+import { SwapLiveActivityPanel } from './SwapLiveActivityPanel';
 import { TestAccountsDevSetting } from './TestAccountsDevSetting';
 
 const LazyNavigationDiagnosticsSection = LazyLoad(async () => {
@@ -1859,6 +1860,20 @@ const BaseDevSettingsSection = () => {
                           });
                         }}
                       />
+                      {platformEnv.isNativeIOS ? (
+                        <SectionPressItem
+                          icon="LabOutline"
+                          title="BTC Swap Live Activity"
+                          subtitle="OK-60951 · mock scenarios"
+                          testID="swap-live-activity-menu"
+                          onPress={() => {
+                            inPageDialog.cancel({
+                              title: 'BTC Swap Live Activity',
+                              renderContent: <SwapLiveActivityPanel />,
+                            });
+                          }}
+                        />
+                      ) : null}
                       {platformEnv.isNativeIOS ? (
                         <SectionPressItem
                           icon="LabOutline"

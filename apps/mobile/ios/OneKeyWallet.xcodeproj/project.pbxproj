@@ -44,6 +44,7 @@
 		AC86234A85826FB6BC60AF85 /* GeistMono-Medium.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 39B7886775EDB292CDA71277 /* GeistMono-Medium.ttf */; };
 		BB2F792D24A3F905000567C9 /* Expo.plist in Resources */ = {isa = PBXBuildFile; fileRef = BB2F792C24A3F905000567C9 /* Expo.plist */; };
 		BC4E04CB4BDBD5573D7E4AE2 /* LiveActivityDemoModule.m in Sources */ = {isa = PBXBuildFile; fileRef = 36EDB2D706DECF9B8E884F9D /* LiveActivityDemoModule.m */; };
+		BCA100000000000000000001 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = BCA100000000000000000002 /* Assets.xcassets */; };
 		C274DAC12AE2644400755275 /* NotificationService.m in Sources */ = {isa = PBXBuildFile; fileRef = C274DAC02AE2644400755275 /* NotificationService.m */; };
 		C274DAC52AE2644400755275 /* ServiceExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = C274DABD2AE2644400755275 /* ServiceExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		C76746FD99673C4A9D78D4A9 /* LiveActivityDemoModule.swift in Sources */ = {isa = PBXBuildFile; fileRef = B171DC0A2E96D0390FE7DA48 /* LiveActivityDemoModule.swift */; };
@@ -161,6 +162,7 @@
 		B171DC0A2E96D0390FE7DA48 /* LiveActivityDemoModule.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = OneKeyWallet/LiveActivityDemoModule.swift; sourceTree = "<group>"; };
 		B713FFEAAB53780C8C97C64A /* BrandSans-Medium.ttf */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = file; path = "BrandSans-Medium.ttf"; sourceTree = "<group>"; };
 		BB2F792C24A3F905000567C9 /* Expo.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = Expo.plist; sourceTree = "<group>"; };
+		BCA100000000000000000002 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		C274DABD2AE2644400755275 /* ServiceExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = ServiceExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		C274DABF2AE2644400755275 /* NotificationService.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = NotificationService.h; sourceTree = "<group>"; };
 		C274DAC02AE2644400755275 /* NotificationService.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = NotificationService.m; sourceTree = "<group>"; };
@@ -236,6 +238,7 @@
 		09A701888A2FFE83F4D0FF7E /* LiveActivity */ = {
 			isa = PBXGroup;
 			children = (
+				BCA100000000000000000002 /* Assets.xcassets */,
 				732BA7721B45B7207419DD35 /* LiveActivity.swift */,
 				5472198264B7103BEC627ADD /* Info.plist */,
 				F9700500D12A7501DEFC36AC /* LiveActivity.entitlements */,
@@ -586,6 +589,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				BCA100000000000000000001 /* Assets.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
