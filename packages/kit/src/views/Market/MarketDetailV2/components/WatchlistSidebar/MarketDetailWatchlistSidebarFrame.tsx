@@ -4,6 +4,7 @@ import type { ReactNode } from 'react';
 import { Dimensions } from 'react-native';
 
 import { Stack, XStack } from '@onekeyhq/components';
+import { useMarketWatchListV2Atom } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 import { useMarketDetailWatchlistSidebarPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
 import {
@@ -34,8 +35,20 @@ export function MarketDetailWatchlistSidebarFrame({
   hidden?: boolean;
   children: ReactNode;
 }) {
-  const [{ open: dockedOpen }, setPersist] =
+  const [{ open: savedDockedOpen }, setPersist] =
     useMarketDetailWatchlistSidebarPersistAtom();
+  const [{ data: watchListData, isMounted: isWatchListMounted }] =
+    useMarketWatchListV2Atom();
+  // Until the user picks a state, the sidebar opens for users who have
+  // favorites. The answer is fixed once the watchlist loads, so removing the
+  // last favorite from the open sidebar does not snap it shut.
+  const [defaultDockedOpen, setDefaultDockedOpen] = useState<
+    boolean | undefined
+  >(undefined);
+  if (defaultDockedOpen === undefined && isWatchListMounted) {
+    setDefaultDockedOpen((watchListData?.length ?? 0) > 0);
+  }
+  const dockedOpen = savedDockedOpen ?? defaultDockedOpen ?? false;
   const [overlayOpen, setOverlayOpen] = useState(false);
   // Seeded from the window so the first paint already picks the right mode;
   // a narrow window would otherwise flash the docked sidebar (and start its

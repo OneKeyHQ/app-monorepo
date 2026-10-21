@@ -169,7 +169,9 @@ export const {
 });
 
 export interface IMarketDetailWatchlistSidebarPersistAtom {
-  open: boolean;
+  // Unset until the user first opens or closes the sidebar; until then it
+  // opens only for users who have favorites.
+  open?: boolean;
 }
 
 // Whether the desktop detail pages dock the favorites sidebar. It only applies
@@ -181,7 +183,7 @@ export const {
 } = globalAtom<IMarketDetailWatchlistSidebarPersistAtom>({
   persist: true,
   name: EAtomNames.marketDetailWatchlistSidebarPersistAtom,
-  initialValue: { open: true },
+  initialValue: {},
 });
 
 export type IMarketPriceSource = 'share' | 'token';
