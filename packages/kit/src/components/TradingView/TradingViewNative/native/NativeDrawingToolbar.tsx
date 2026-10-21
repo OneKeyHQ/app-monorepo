@@ -35,7 +35,9 @@ import type { IChartDrawingsController } from '../drawings/useChartDrawings';
 
 type IIconName = keyof typeof TRADING_VIEW_DRAWING_ICONS;
 function DrawingScrollView(props: IScrollViewProps) {
-  const headerScrollGestures = useContext(HeaderScrollGestureContext);
+  const { gestures: headerScrollGestures } = useContext(
+    HeaderScrollGestureContext,
+  );
   const scrollGesture = useMemo(
     () =>
       Gesture.Native()

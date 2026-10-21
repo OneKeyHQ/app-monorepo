@@ -1,6 +1,7 @@
 /* cspell:ignore Infini infini INFINI */
 import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import type { EOAuthSocialLoginProvider } from '@onekeyhq/shared/src/consts/authConsts';
+import { PRIME_WEB_CHECKOUT_PENDING_SESSION_TTL_MS } from '@onekeyhq/shared/src/consts/primeConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
@@ -37,6 +38,8 @@ import {
   type IPrimeInfiniPendingPaymentSession,
   type IPrimeInfiniPendingPaymentSessionInput,
   type IPrimeInfiniPurchaseStatusSnapshot,
+  type IPrimeWebCheckoutExtensionContext,
+  type IPrimeWebCheckoutPendingSession,
 } from '@onekeyhq/shared/types/prime/primeTypes';
 
 import {
@@ -160,6 +163,11 @@ export interface ISimpleDBPrime {
     IPrimeInfiniSupersededPaymentSession[]
   >;
   identityLinkReportedAtByUserId?: Record<string, number>;
+  // One hosted card checkout per OneKey ID; a new checkout replaces the old.
+  webCheckoutPendingSessionByUserId?: Record<
+    string,
+    IPrimeWebCheckoutPendingSession
+  >;
   analyticsPrimeProfileReport?: {
     isOneKeyIdLoggedIn: boolean;
     isPrimeActive: boolean;
@@ -169,6 +177,34 @@ export interface ISimpleDBPrime {
 
 function isNonEmptyString(value: unknown): value is string {
   return typeof value === 'string' && value.trim().length > 0;
+}
+
+function isValidWebCheckoutPendingSession(
+  session: IPrimeWebCheckoutPendingSession | undefined,
+  { onekeyUserId, now }: { onekeyUserId: string; now: number },
+): session is IPrimeWebCheckoutPendingSession {
+  return Boolean(
+    session &&
+    session.onekeyUserId === onekeyUserId &&
+    isNonEmptyString(session.checkoutId) &&
+    isNonEmptyString(session.checkoutUrl) &&
+    Number.isFinite(session.startedAt) &&
+    session.startedAt <= now + 60_000 &&
+    now - session.startedAt < PRIME_WEB_CHECKOUT_PENDING_SESSION_TTL_MS,
+  );
+}
+
+function pruneWebCheckoutPendingSessions(
+  sessions: ISimpleDBPrime['webCheckoutPendingSessionByUserId'],
+  now: number,
+): Record<string, IPrimeWebCheckoutPendingSession> {
+  const nextSessions: Record<string, IPrimeWebCheckoutPendingSession> = {};
+  Object.entries(sessions ?? {}).forEach(([onekeyUserId, session]) => {
+    if (isValidWebCheckoutPendingSession(session, { onekeyUserId, now })) {
+      nextSessions[onekeyUserId] = session;
+    }
+  });
+  return nextSessions;
 }
 
 function isOptionalFiniteNumber(value: unknown) {
@@ -2459,6 +2495,146 @@ export class SimpleDbEntityPrime extends SimpleDbEntityBase<ISimpleDBPrime> {
       });
     }
     return markedSession;
+  }
+
+  @backgroundMethod()
+  async getWebCheckoutPendingSession({
+    onekeyUserId,
+  }: {
+    onekeyUserId: string;
+  }): Promise<IPrimeWebCheckoutPendingSession | undefined> {
+    if (!onekeyUserId) {
+      return undefined;
+    }
+    const rawData = await this.getRawData();
+    const session = rawData?.webCheckoutPendingSessionByUserId?.[onekeyUserId];
+    return isValidWebCheckoutPendingSession(session, {
+      onekeyUserId,
+      now: Date.now(),
+    })
+      ? session
+      : undefined;
+  }
+
+  // The read and write share the entity mutex, including across extension UIs.
+  @backgroundMethod()
+  async acquireWebCheckoutPendingSession({
+    session,
+  }: {
+    session: IPrimeWebCheckoutPendingSession;
+  }): Promise<{
+    session: IPrimeWebCheckoutPendingSession;
+    reused: boolean;
+    replacedSession?: IPrimeWebCheckoutPendingSession;
+  }> {
+    const now = Date.now();
+    if (
+      !isValidWebCheckoutPendingSession(session, {
+        onekeyUserId: session.onekeyUserId,
+        now,
+      })
+    ) {
+      throw new OneKeyLocalError('Invalid Prime web checkout session');
+    }
+    let acquisition:
+      | {
+          session: IPrimeWebCheckoutPendingSession;
+          reused: boolean;
+          replacedSession?: IPrimeWebCheckoutPendingSession;
+        }
+      | undefined;
+    await this.setRawData((rawData) => {
+      const sessions = pruneWebCheckoutPendingSessions(
+        rawData?.webCheckoutPendingSessionByUserId,
+        Date.now(),
+      );
+      const previousSession = sessions[session.onekeyUserId];
+      if (
+        previousSession?.platform === session.platform &&
+        previousSession.isSandbox === session.isSandbox
+      ) {
+        acquisition = { session: previousSession, reused: true };
+        return rawData ?? {};
+      }
+      acquisition = {
+        session,
+        reused: false,
+        replacedSession: previousSession,
+      };
+      return {
+        ...rawData,
+        webCheckoutPendingSessionByUserId: {
+          ...sessions,
+          [session.onekeyUserId]: session,
+        },
+      };
+    });
+    if (!acquisition) {
+      throw new OneKeyLocalError('Prime web checkout session was not acquired');
+    }
+    return acquisition;
+  }
+
+  // Records the extension tabs after the checkout tab exists. Ignored when
+  // another checkout replaced the session in the meantime.
+  @backgroundMethod()
+  async updateWebCheckoutPendingSessionExtensionContext({
+    onekeyUserId,
+    checkoutId,
+    extension,
+  }: {
+    onekeyUserId: string;
+    checkoutId: string;
+    extension: IPrimeWebCheckoutExtensionContext;
+  }): Promise<boolean> {
+    let didUpdate = false;
+    await this.setRawData((rawData) => {
+      const current =
+        rawData?.webCheckoutPendingSessionByUserId?.[onekeyUserId];
+      if (current?.checkoutId !== checkoutId) {
+        return rawData ?? {};
+      }
+      didUpdate = true;
+      return {
+        ...rawData,
+        webCheckoutPendingSessionByUserId: {
+          ...rawData?.webCheckoutPendingSessionByUserId,
+          [onekeyUserId]: { ...current, extension },
+        },
+      };
+    });
+    return didUpdate;
+  }
+
+  // Compare-and-clear: only the caller that removes the matching session may
+  // report the purchase result, so a checkout is never completed twice.
+  @backgroundMethod()
+  async clearWebCheckoutPendingSession({
+    onekeyUserId,
+    expectedCheckoutId,
+  }: {
+    onekeyUserId: string;
+    expectedCheckoutId: string;
+  }): Promise<boolean> {
+    if (!onekeyUserId || !expectedCheckoutId) {
+      return false;
+    }
+    let didClear = false;
+    await this.setRawData((rawData) => {
+      const current =
+        rawData?.webCheckoutPendingSessionByUserId?.[onekeyUserId];
+      if (current?.checkoutId !== expectedCheckoutId) {
+        return rawData ?? {};
+      }
+      const nextSessions = { ...rawData?.webCheckoutPendingSessionByUserId };
+      delete nextSessions[onekeyUserId];
+      didClear = true;
+      return {
+        ...rawData,
+        webCheckoutPendingSessionByUserId: nextSessions,
+      };
+    });
+    return didClear;
   }
 
   @backgroundMethod()

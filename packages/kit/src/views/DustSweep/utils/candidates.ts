@@ -5,6 +5,10 @@ import type {
   IDustSweepThreshold,
   IDustSweepToken,
 } from '@onekeyhq/shared/types/swap/dustSweep';
+import {
+  swapSlippageWillAheadMinValue,
+  swapSlippageWillFailMinValue,
+} from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import { ETokenRiskLevel } from '@onekeyhq/shared/types/swap/types';
 import type { IFetchAccountTokensResp } from '@onekeyhq/shared/types/token';
 
@@ -17,6 +21,14 @@ export const DUST_SWEEP_THRESHOLDS: readonly IDustSweepThreshold[] = [
 
 export function getDustSweepHiddenThreshold(networkId: string) {
   return networkId === 'evm--1' ? '0.1' : '0.01';
+}
+
+// Worth less than the gas to sweep it: hidden until the user adds them, and
+// never selected by default.
+export function isDustSweepBelowGasThreshold(token: IDustSweepToken) {
+  return new BigNumber(token.valueUsd).lt(
+    getDustSweepHiddenThreshold(token.networkId),
+  );
 }
 
 export function buildDustSweepCandidates(
@@ -94,11 +106,7 @@ export function filterDustSweepCandidates(
   const eligible = tokens.filter((token) =>
     new BigNumber(token.valueUsd).lt(threshold),
   );
-  const hidden = eligible.filter((token) =>
-    new BigNumber(token.valueUsd).lt(
-      getDustSweepHiddenThreshold(token.networkId),
-    ),
-  );
+  const hidden = eligible.filter(isDustSweepBelowGasThreshold);
   const hiddenKeys = new Set(hidden.map((token) => token.key));
   const visible = eligible.filter((token) => !hiddenKeys.has(token.key));
   return {
@@ -110,4 +118,15 @@ export function filterDustSweepCandidates(
 export function isValidDustSweepSlippage(value: string) {
   const number = new BigNumber(value);
   return number.isFinite() && number.gt(0) && number.lte(50);
+}
+
+// Dust Sweep only warns above 10%; 10% itself is a normal choice here.
+export function getDustSweepSlippageNotice(
+  value: string,
+): 'invalid' | 'tooLow' | 'tooHigh' | undefined {
+  if (!isValidDustSweepSlippage(value)) return 'invalid';
+  const number = new BigNumber(value);
+  if (number.lte(swapSlippageWillFailMinValue)) return 'tooLow';
+  if (number.gt(swapSlippageWillAheadMinValue)) return 'tooHigh';
+  return undefined;
 }
