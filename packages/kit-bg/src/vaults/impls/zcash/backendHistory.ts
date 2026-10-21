@@ -197,10 +197,16 @@ export function normalizeZcashBackendHistoryTx(
   if (locallyRestoredRows.has(tx)) return tx;
   const sends = tx.sends ?? [];
   const receives = tx.receives ?? [];
-  if (tx.type === EOnChainHistoryTxType.Receive && sends.length === 0) {
+  // The indexer lists no sends on any receive; only an empty `from` means the
+  // sender was shielded.
+  if (
+    tx.type === EOnChainHistoryTxType.Receive &&
+    sends.length === 0 &&
+    !tx.from
+  ) {
     return {
       ...tx,
-      ...(tx.from ? {} : { shieldedCounterparty: 'from' as const }),
+      shieldedCounterparty: 'from',
       sends: [shieldedCounterparty(tx.value ?? '0')],
     };
   }
