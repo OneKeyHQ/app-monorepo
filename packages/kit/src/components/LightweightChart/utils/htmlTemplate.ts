@@ -585,7 +585,35 @@ function getChartInitScript(): string {
           crosshairMarkerVisible: false,
         };
       }
-      // Rebuilds both series from scratch on every apply.
+      function syncSecondarySeries(nextConfig) {
+        var hasLine = Array.isArray(nextConfig.secondaryLineData) && nextConfig.secondaryLineData.length > 0;
+        var hasPoints = hasLine && Array.isArray(nextConfig.secondaryPointData) && nextConfig.secondaryPointData.length > 0;
+        if (hasLine) {
+          if (!window.secondarySeries) {
+            window.secondarySeries = window.chart.addSeries(
+              LightweightCharts.LineSeries,
+              getSecondarySeriesOptions(nextConfig)
+            );
+          }
+          window.secondarySeries.setData(nextConfig.secondaryLineData);
+        } else if (window.secondarySeries) {
+          window.chart.removeSeries(window.secondarySeries);
+          window.secondarySeries = null;
+        }
+        if (hasPoints) {
+          if (!window.secondaryPointSeries) {
+            window.secondaryPointSeries = window.chart.addSeries(
+              LightweightCharts.LineSeries,
+              getSecondaryPointSeriesOptions(nextConfig)
+            );
+          }
+          window.secondaryPointSeries.setData(nextConfig.secondaryPointData);
+        } else if (window.secondaryPointSeries) {
+          window.chart.removeSeries(window.secondaryPointSeries);
+          window.secondaryPointSeries = null;
+        }
+      }
+      // Rebuild both series when the primary data or chart options change.
       //
       // lightweight-charts 5.2 keeps a stale copy of its time points after a
       // single-series setData whose times did not change: the fast path swaps
@@ -618,26 +646,7 @@ function getChartInitScript(): string {
         window.series.applyOptions(getLastValueSeriesOptions(nextConfig));
         window.series.setData(Array.isArray(nextConfig.data) ? nextConfig.data : []);
         syncReferenceLine(nextConfig);
-        if (
-          Array.isArray(nextConfig.secondaryLineData) &&
-          nextConfig.secondaryLineData.length > 0
-        ) {
-          window.secondarySeries = window.chart.addSeries(
-            LightweightCharts.LineSeries,
-            getSecondarySeriesOptions(nextConfig)
-          );
-          window.secondarySeries.setData(nextConfig.secondaryLineData);
-          if (
-            Array.isArray(nextConfig.secondaryPointData) &&
-            nextConfig.secondaryPointData.length > 0
-          ) {
-            window.secondaryPointSeries = window.chart.addSeries(
-              LightweightCharts.LineSeries,
-              getSecondaryPointSeriesOptions(nextConfig)
-            );
-            window.secondaryPointSeries.setData(nextConfig.secondaryPointData);
-          }
-        }
+        syncSecondarySeries(nextConfig);
       }
       // Price formatter: use a serializable formatter type in WebView, otherwise default %
       // NOTE: Keep in sync with formatChartUsdPrice in shared/src/utils/perpsUtils.ts
@@ -765,6 +774,11 @@ function getChartInitScript(): string {
         rebuildSeries(nextConfig);
         window.chart.timeScale().fitContent();
         window.updatePulseDot();
+      };
+      window.applyChartSecondaryData = function(secondaryData) {
+        if (!window.chart || !window.latestChartConfig) return;
+        Object.assign(window.latestChartConfig, secondaryData);
+        syncSecondarySeries(window.latestChartConfig);
       };
       window.applyChartConfig(config);
   `.trim();

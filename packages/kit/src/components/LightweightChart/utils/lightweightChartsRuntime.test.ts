@@ -1,5 +1,6 @@
 import { runInNewContext } from 'vm';
 
+import type { ILightweightChartConfig } from '../types';
 import type { UTCTimestamp } from 'lightweight-charts';
 
 jest.mock('./lightweightChartsStandalone.text-js', () => {
@@ -29,6 +30,88 @@ const { resolveSerializablePriceFormatterType } = jest.requireActual<
 const { resolveSerializablePriceFormatterTickStep } = jest.requireActual<
   typeof import('./priceFormatterType')
 >('./priceFormatterType');
+
+it('updates the native scrub overlay without rebuilding the primary series or refitting', () => {
+  const config: ILightweightChartConfig = {
+    data: [1, 2, 3].map((time) => ({
+      time: time as UTCTimestamp,
+      value: time,
+    })),
+    secondaryLineData: [{ time: 1 as UTCTimestamp, value: 1 }],
+    lineWidth: 2,
+    theme: {
+      bgColor: 'transparent',
+      textSubduedColor: '#999999',
+      lineColor: '#00aa00',
+      topColor: 'transparent',
+      bottomColor: 'transparent',
+    },
+  };
+  const html = generateChartHTML(config);
+  const primary = { setData: jest.fn(), applyOptions: jest.fn() };
+  const overlay = { setData: jest.fn() };
+  const createPrimarySeries = jest.fn(() => primary);
+  const fitContent = jest.fn();
+  const chart = {
+    addSeries: jest.fn(() => overlay),
+    removeSeries: jest.fn(),
+    applyOptions: jest.fn(),
+    timeScale: () => ({ fitContent }),
+  };
+  const page = {
+    chart,
+    series: null,
+    secondarySeries: null,
+    secondaryPointSeries: null,
+    latestChartConfig: config,
+    applyChartConfig: (_config: ILightweightChartConfig) => {},
+    applyChartSecondaryData: (_data: Partial<ILightweightChartConfig>) => {},
+    updatePulseDot: jest.fn(),
+  };
+  const seriesSource = html.slice(
+    html.indexOf('function getSecondarySeriesOptions'),
+    html.indexOf('// Price formatter: use a serializable'),
+  );
+  const applyStart = html.indexOf('window.applyChartConfig = function');
+  const applyEnd = html.indexOf('window.applyChartConfig(config);', applyStart);
+  runInNewContext(
+    `${seriesSource}\n${html.slice(applyStart, applyEnd)}\nwindow.applyChartConfig(config);`,
+    {
+      window: page,
+      config,
+      LightweightCharts: { LineSeries: {} },
+      createPrimarySeries,
+      getPrimarySeriesType: () => 'area',
+      getPriceScalePosition: () => 'right',
+      getNormalizedLineWidth: (value: number | undefined, fallback: number) =>
+        value ?? fallback,
+      getLastValueSeriesOptions: () => ({}),
+      getChartOptions: () => ({}),
+      syncReferenceLine: jest.fn(),
+    },
+  );
+  for (let index = 0; index < 20; index += 1) {
+    page.applyChartSecondaryData({
+      secondaryLineData: config.data.slice(0, (index % 3) + 1),
+      secondaryPointData: [],
+    });
+  }
+  expect(createPrimarySeries).toHaveBeenCalledTimes(1);
+  expect(primary.setData).toHaveBeenCalledTimes(1);
+  expect(chart.removeSeries).not.toHaveBeenCalled();
+  expect(fitContent).toHaveBeenCalledTimes(1);
+  expect(overlay.setData).toHaveBeenCalledTimes(21);
+
+  page.applyChartSecondaryData({
+    secondaryLineData: [],
+    secondaryPointData: [],
+  });
+  expect(chart.removeSeries).toHaveBeenCalledWith(overlay);
+  expect(primary.setData).toHaveBeenCalledTimes(1);
+  page.applyChartConfig({ ...config, data: config.data.slice(0, 2) });
+  expect(createPrimarySeries).toHaveBeenCalledTimes(2);
+  expect(fitContent).toHaveBeenCalledTimes(2);
+});
 
 describe('getLightweightChartsRuntimeScriptTag', () => {
   it('loads the standalone runtime only when building the script tag', () => {
