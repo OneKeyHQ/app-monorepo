@@ -1,5 +1,6 @@
 import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 
+import { useIsFocused } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
 import {
@@ -28,8 +29,10 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IMarketWatchListItemV2 } from '@onekeyhq/shared/types/market';
 
+import { useMarketHomeTokenListWebSocket } from '../../../MarketHomeV2/components/MarketTokenList/hooks/useMarketHomeTokenListWebSocket';
 import { useMarketWatchlistTokenList } from '../../../MarketHomeV2/components/MarketTokenList/hooks/useMarketWatchlistTokenList';
 import { useToDetailPage } from '../../../MarketHomeV2/components/MarketTokenList/hooks/useToMarketDetailPage';
 import { useWatchlistFilteredGroups } from '../../../MarketHomeV2/components/MarketTokenList/hooks/useWatchlistFilteredGroups';
@@ -238,7 +241,16 @@ function MarketDetailWatchlistSidebarImpl({
     pageSize: Math.max(watchListData?.length ?? 0, 1),
     pollingInterval: TOKEN_SELECTOR_POLLING_INTERVAL,
   });
-  const groups = useWatchlistFilteredGroups(data);
+  // Live ticks on top of the poll, as the Market Favorites tab gets them: the
+  // same subscription hook, only while this detail page is the focused one.
+  // A favorites list is short, so every row subscribes rather than just the
+  // rows in view.
+  const isFocused = useIsFocused();
+  const liveData = useMarketHomeTokenListWebSocket({
+    tokens: data,
+    enabled: isFocused && (platformEnv.isDesktop || platformEnv.isWeb),
+  });
+  const groups = useWatchlistFilteredGroups(liveData);
   const listData = useMemo(
     () => sortTokens(filterWatchlistTokens(groups[filter], searchValue), sort),
     [groups, filter, searchValue, sort],
