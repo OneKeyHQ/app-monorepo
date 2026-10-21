@@ -220,6 +220,26 @@ function isUsdcSymbol(symbol: string | undefined) {
   return symbol?.toUpperCase() === 'USDC';
 }
 
+// USDC quantities are shown as wallet-currency dollars. Any other token stays
+// in its own units, so it cannot be added into the dollar total.
+function getTokenAmountValue(
+  raw: string,
+  symbol: string | undefined,
+): IRewardValue | undefined {
+  const amount = new BigNumber(raw);
+  if (!amount.isFinite() || !amount.gt(0)) {
+    return undefined;
+  }
+  if (isUsdcSymbol(symbol)) {
+    return { kind: 'amount', amount: amount.toFixed() };
+  }
+  return {
+    kind: 'text',
+    text: { text: symbol ? `${amount.toFixed()} ${symbol}` : amount.toFixed() },
+    extraCount: 0,
+  };
+}
+
 function getEarnValue(
   items: IEarnSummaryV2['distributed'] | IEarnSummaryV2['undistributed'],
 ): IRewardValue | undefined {
@@ -269,18 +289,18 @@ function getModuleRow(
   if (result.status !== 'success') {
     return { module, status: 'error' };
   }
-  const { totalBonus, undistributed } = result.data;
-  const unpaid = new BigNumber(undistributed);
-  const paid = new BigNumber(totalBonus).minus(unpaid);
-  // List figures are USDC amounts shown as USD in the wallet currency.
+  const { totalBonus, undistributed, token } = result.data;
+  const unpaidAmount = new BigNumber(undistributed);
+  const paidAmount = new BigNumber(totalBonus).minus(unpaidAmount);
   // Product detail dialogs still show the token.
   return {
     module,
     status: 'ready',
-    paid: paid.gt(0) ? { kind: 'amount', amount: paid.toFixed() } : undefined,
-    unpaid: unpaid.gt(0)
-      ? { kind: 'amount', amount: unpaid.toFixed() }
-      : undefined,
+    paid: getTokenAmountValue(
+      paidAmount.isFinite() ? paidAmount.toFixed() : '',
+      token?.symbol,
+    ),
+    unpaid: getTokenAmountValue(undistributed, token?.symbol),
   };
 }
 
@@ -293,8 +313,8 @@ function sumAmount(value: IRewardValue | undefined) {
   return value?.kind === 'amount' ? new BigNumber(value.amount) : undefined;
 }
 
-// The summary only adds up what it can: a failed product or an Earn figure
-// that is not an amount leaves the total unknown rather than understated.
+// The summary only adds up dollar amounts. A failed product, or a figure that
+// is still in token units, leaves the total unknown rather than understated.
 function getRewardTotals(rows: IModuleRow[]): IRewardTotals {
   if (rows.some((row) => row.status === 'loading')) {
     return { status: 'loading' };
@@ -327,26 +347,35 @@ interface IPayoutToken {
   logoURI?: string;
 }
 
-// Perps and Swap pay out in a token the overview names; when both name the
-// same token on the same network, the address note can say so. Earn's
-// summary carries no token, so it does not take part.
+function collectPayoutTokens(overview: IInviteeRewardsOverview) {
+  // A product that failed may pay something else, so the note cannot name a
+  // token. The same rule as the rebate total: a partial set is not usable.
+  if (
+    overview.perps.status !== 'success' ||
+    overview.swap.status !== 'success' ||
+    overview.earn.status !== 'success'
+  ) {
+    return undefined;
+  }
+  const moduleTokens = [overview.perps.data.token, overview.swap.data.token];
+  const earnTokens = getEarnTokens(overview.earn.data).map(
+    (item) => item.token,
+  );
+  return [...moduleTokens, ...earnTokens];
+}
+
+// Name a token only when every loaded reward pays that same token on the
+// same network. Earn items count too. Anything else uses the generic note.
 function getPayoutToken(
   overview?: IInviteeRewardsOverview,
 ): IPayoutToken | undefined {
-  if (!overview) {
-    return undefined;
-  }
-  const tokens = [overview.perps, overview.swap].flatMap((result) =>
-    result.status === 'success' && result.data.token?.symbol
-      ? [result.data.token]
-      : [],
-  );
-  const [first] = tokens;
+  const tokens = overview ? collectPayoutTokens(overview) : undefined;
+  const [first] = tokens ?? [];
   if (
-    !first ||
-    tokens.some(
+    !first?.symbol ||
+    tokens?.some(
       (token) =>
-        token.symbol !== first.symbol || token.networkId !== first.networkId,
+        token?.symbol !== first.symbol || token?.networkId !== first.networkId,
     )
   ) {
     return undefined;
@@ -1130,7 +1159,10 @@ function MyRewardsContentBody({
     walletAddress,
   ]);
 
-  if (!hasAccount) {
+  // Saved accounts arrive after the first paint. That window is loading,
+  // same as the analytics guard above, not an empty wallet.
+  const isAccountPending = accountReady === false;
+  if (!hasAccount && !isAccountPending) {
     return (
       <InviteeRewardNoWallet
         testID="my-rewards-onboarding"
@@ -1140,7 +1172,9 @@ function MyRewardsContentBody({
     );
   }
 
-  const isResolving = hasAccount && earnAccount === undefined;
+  const isResolving =
+    (!hasAccount && isAccountPending) ||
+    (hasAccount && earnAccount === undefined);
   const isUnsupported = hasAccount && !isResolving && !earnAccount;
   const isLoading = isResolving || Boolean(isLoadingOverview || !overview);
   const payout = isLoading ? undefined : getPayoutToken(overview);

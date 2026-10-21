@@ -12,6 +12,7 @@ let mockIsCompact = false;
 let mockActiveAccount: {
   account?: { id: string };
   indexedAccount?: { id: string };
+  ready?: boolean;
 };
 let mockEarnAccountResult: {
   result?: { accountId: string; accountAddress: string } | null;
@@ -386,6 +387,42 @@ describe('MyRewardsContent', () => {
     expect(summary.textContent).toContain('referral_perks_paid_to__title');
   });
 
+  it('keeps a non-USDC Perps amount in token units and leaves the total unknown', () => {
+    mockOverviewResult = {
+      ...mockOverviewResult,
+      result: {
+        ...mockOverviewResult.result!,
+        perps: {
+          status: 'success',
+          data: {
+            totalBonus: '2',
+            undistributed: '0.5',
+            token: { symbol: 'ETH', logoURI: '' },
+            history: [],
+          },
+        },
+        earn: {
+          status: 'success',
+          data: { distributed: [], undistributed: [] },
+        },
+      },
+    };
+    render(<MyRewardsContent />);
+    const perps = screen.getByTestId('my-rewards-module-perps');
+    expect(perps.textContent).toContain('1.5 ETH');
+    expect(perps.textContent).toContain('0.5 ETH');
+    expect(perps.querySelectorAll('[data-source-currency="usd"]')).toHaveLength(
+      0,
+    );
+    const swap = screen.getByTestId('my-rewards-module-swap');
+    expect(swap.querySelectorAll('[data-source-currency="usd"]')).toHaveLength(
+      2,
+    );
+    expect(screen.getByTestId('my-rewards-summary-card').textContent).toContain(
+      '--',
+    );
+  });
+
   it('splits each product into paid and unpaid and isolates a failure', () => {
     render(<MyRewardsContent />);
     const perps = screen.getByTestId('my-rewards-module-perps');
@@ -580,6 +617,112 @@ describe('MyRewardsContent', () => {
       screen.getByTestId('my-rewards-module-perps').textContent,
     ).not.toContain('4');
     expect(mockPerksHomeShown).toHaveBeenCalledTimes(1);
+  });
+
+  it('waits for saved accounts before showing the empty-wallet state', () => {
+    mockActiveAccount = { ready: false };
+    mockEarnAccountResult = { result: null, isLoading: true };
+    const { rerender } = render(<MyRewardsContent />);
+    expect(screen.queryByTestId('no-wallet')).toBeNull();
+    expect(screen.getByTestId('my-rewards-summary-card')).toBeTruthy();
+    expect(mockPerksHomeShown).not.toHaveBeenCalled();
+
+    mockActiveAccount = { ready: true };
+    rerender(<MyRewardsContent />);
+    expect(screen.getByTestId('no-wallet')).toBeTruthy();
+    expect(mockPerksHomeShown).toHaveBeenCalledWith({
+      status: 'no_wallet',
+      entry: 'route',
+    });
+  });
+
+  it('names a payout token only when every product pays that same token', () => {
+    const usdc = {
+      totalBonus: '1',
+      undistributed: '0',
+      token: { symbol: 'USDC', networkId: 'evm--1', logoURI: '' },
+      history: [],
+    };
+    mockOverviewResult = {
+      result: {
+        perps: { status: 'success', data: usdc },
+        swap: { status: 'success', data: usdc },
+        earn: {
+          status: 'success',
+          data: {
+            distributed: [
+              {
+                title: { text: '0.2 USDC' },
+                token: { symbol: 'USDC', networkId: 'evm--1' },
+              },
+            ],
+            undistributed: [],
+          },
+        },
+      },
+      isLoading: false,
+    };
+    const { rerender } = render(<MyRewardsContent />);
+    expect(screen.getByTestId('my-rewards-summary-card').textContent).toMatch(
+      /referral_perks_paid_in/,
+    );
+
+    mockOverviewResult = {
+      ...mockOverviewResult,
+      result: {
+        ...mockOverviewResult.result!,
+        earn: {
+          status: 'success',
+          data: {
+            distributed: [
+              {
+                title: { text: '0.5 ETH' },
+                token: { symbol: 'ETH', networkId: 'evm--1' },
+              },
+            ],
+            undistributed: [],
+          },
+        },
+      },
+    };
+    rerender(<MyRewardsContent />);
+    const summary = screen.getByTestId('my-rewards-summary-card').textContent;
+    expect(summary).toContain('referral_perks_paid_to_address__desc');
+    expect(summary).not.toContain('referral_perks_paid_in__desc');
+    expect(summary).not.toContain('referral_perks_paid_in_network__desc');
+  });
+
+  it('does not name a payout token when one product has no symbol', () => {
+    const usdc = {
+      totalBonus: '1',
+      undistributed: '0',
+      token: { symbol: 'USDC', networkId: 'evm--1', logoURI: '' },
+      history: [],
+    };
+    mockOverviewResult = {
+      result: {
+        perps: { status: 'success', data: usdc },
+        swap: {
+          status: 'success',
+          data: {
+            totalBonus: '1',
+            undistributed: '0',
+            token: { logoURI: '' },
+            history: [],
+          },
+        },
+        earn: {
+          status: 'success',
+          data: { distributed: [], undistributed: [] },
+        },
+      },
+      isLoading: false,
+    };
+    render(<MyRewardsContent />);
+    const summary = screen.getByTestId('my-rewards-summary-card').textContent;
+    expect(summary).toContain('referral_perks_paid_to_address__desc');
+    expect(summary).not.toContain('referral_perks_paid_in__desc');
+    expect(summary).not.toContain('referral_perks_paid_in_network__desc');
   });
 
   it('falls back to the perks placeholder when no module has rewards', () => {
