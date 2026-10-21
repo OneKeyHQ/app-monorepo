@@ -84,6 +84,7 @@ const mockGetTwapStates = jest.fn<
 >();
 const mockGetTwapHistory = jest.fn<Promise<HL.ITwapHistoryRecord[]>, []>();
 const mockGetTwapSliceFills = jest.fn<Promise<HL.ITwapSliceFill[]>, []>();
+const mockCancelTwapOrder = jest.fn<Promise<unknown>, unknown[]>();
 const mockPlaceTwapOrder = jest.fn<Promise<unknown>, [IPlaceTwapOrderParams]>();
 
 jest.mock('react-intl', () => ({
@@ -176,6 +177,7 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
   default: {
     serviceHyperliquidExchange: {
+      cancelTwapOrder: (...args: unknown[]) => mockCancelTwapOrder(...args),
       orderOpen: (...args: unknown[]) => mockOrderOpen(...args),
       updateLeverage: (...args: unknown[]) => mockUpdateLeverage(...args),
       placeTwapOrder: (params: IPlaceTwapOrderParams) =>
@@ -528,6 +530,58 @@ describe('useHyperliquidActions.loadTwapData', () => {
       );
     },
   );
+
+  it('forwards TWAP account binding and removes the canceled order', async () => {
+    mockCancelTwapOrder.mockReset().mockResolvedValue({ status: 'ok' });
+    mockGetTwapStates.mockResolvedValue(undefined);
+    const { store, result, existingOrders } = setup();
+    await act(async () =>
+      result.current.current.cancelTwapOrder({
+        assetId: 0,
+        twapId: 1,
+        expectedAccountAddress: accountAddress,
+      }),
+    );
+    expect(mockCancelTwapOrder).toHaveBeenCalledWith(
+      { assetId: 0, twapId: 1 },
+      { expectedAccountAddress: accountAddress },
+    );
+    expect(store.get(perpsActiveTwapOrdersAtom()).twapOrders).toEqual([
+      existingOrders[1],
+    ]);
+  });
+
+  it('preserves the new account orders when a TWAP cancel finishes after switching', async () => {
+    const pending = createDeferred<unknown>();
+    mockCancelTwapOrder.mockReset().mockReturnValue(pending.promise);
+    const { store, result, existingOrders } = setup();
+    const canceling = result.current.current.cancelTwapOrder({
+      assetId: 0,
+      twapId: 1,
+      expectedAccountAddress: accountAddress,
+    });
+    await waitFor(() => expect(mockCancelTwapOrder).toHaveBeenCalledTimes(1));
+    jest.spyOn(perpsActiveAccountAtom, 'get').mockResolvedValue({
+      ...activeAccount,
+      accountAddress: '0xdef0',
+    });
+    const newOrders = existingOrders.map((order) => ({
+      ...order,
+      state: { ...order.state, user: '0xdef0' as const },
+    }));
+    store.set(perpsActiveTwapOrdersAtom(), {
+      accountAddress: '0xdef0',
+      twapOrders: newOrders,
+      twapOrdersByCoin: {},
+    });
+    await act(async () => {
+      pending.resolve({ status: 'ok' });
+      await canceling;
+    });
+    expect(store.get(perpsActiveTwapOrdersAtom()).twapOrders).toEqual(
+      newOrders,
+    );
+  });
 
   it('accepts checksum-cased identity and preserves other-dex orders', async () => {
     mockGetTwapStates.mockResolvedValue({
