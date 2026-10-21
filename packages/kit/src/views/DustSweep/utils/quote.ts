@@ -22,6 +22,7 @@ import type {
   ISwapTokenBase,
 } from '@onekeyhq/shared/types/swap/types';
 import {
+  EProtocolOfExchange,
   EQuoteShowTipType,
   ESwapQuoteKind,
   ESwapQuoteSource,
@@ -97,6 +98,9 @@ export function getDustSweepQuoteRisk(
   )
     return 'noQuote';
   if (
+    (quote.protocol !== undefined &&
+      quote.protocol !== EProtocolOfExchange.SWAP) ||
+    (quote.kind !== undefined && quote.kind !== ESwapQuoteKind.SELL) ||
     token.networkId !== snapshot.networkId ||
     snapshot.nativeToken.networkId !== snapshot.networkId ||
     !isSameDustSweepToken({
