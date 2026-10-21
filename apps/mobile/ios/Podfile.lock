@@ -117,10 +117,6 @@ PODS:
     - ReactCommon/turbomodule/core
     - ReactNativeDependencies
     - Yoga
-  - Burnt (0.12.2):
-    - ExpoModulesCore
-    - SPAlert (~> 4.2)
-    - SPIndicator (~> 1.6)
   - ChartWebview (6.7.0-alpha.339):
     - hermes-engine
     - NitroModules
@@ -3794,8 +3790,6 @@ PODS:
     - ReactCommon/turbomodule/core
     - ReactNativeDependencies
     - Yoga
-  - SPAlert (4.2.0)
-  - SPIndicator (1.6.4)
   - SplitBundleLoader (6.7.0-alpha.339):
     - hermes-engine
     - RCTRequired
@@ -3854,7 +3848,6 @@ DEPENDENCIES:
   - "AutoSizeInput (from `../../../node_modules/@onekeyfe/react-native-auto-size-input`)"
   - "BackgroundThread (from `../../../node_modules/@onekeyfe/react-native-background-thread`)"
   - "BleUtils (from `../../../node_modules/@onekeyfe/react-native-ble-utils`)"
-  - Burnt (from `../../../node_modules/burnt/ios`)
   - "ChartWebview (from `../../../node_modules/@onekeyfe/react-native-chart-webview`)"
   - CloudFs (from `../../../node_modules/react-native-cloud-fs`)
   - "CloudKitModule (from `../../../node_modules/@onekeyfe/react-native-cloud-kit-module`)"
@@ -4070,8 +4063,6 @@ SPEC REPOS:
     - SDWebImageSVGCoder
     - SDWebImageWebPCoder
     - Sentry
-    - SPAlert
-    - SPIndicator
     - SSZipArchive
     - YttriumWrapper
     - ZXingObjC
@@ -4087,8 +4078,6 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/@onekeyfe/react-native-background-thread"
   BleUtils:
     :path: "../../../node_modules/@onekeyfe/react-native-ble-utils"
-  Burnt:
-    :path: "../../../node_modules/burnt/ios"
   ChartWebview:
     :path: "../../../node_modules/@onekeyfe/react-native-chart-webview"
   CloudFs:
@@ -4467,7 +4456,6 @@ SPEC CHECKSUMS:
   AutoSizeInput: 596c5cf18fe1a9a97ceead88a485dadf84170adb
   BackgroundThread: 06065736a268630163543d39e4cf02c3b83c96ee
   BleUtils: 4298cf76d7a3467d565338611656b99048a83e9b
-  Burnt: e3a3397e26172fca31a59bb27421475a58068836
   ChartWebview: cb37cab8fdf3b7652628f70eda30b3775148d369
   CloudFs: 73957ca8ed5d3035a3120b78d97cef2221557081
   CloudKitModule: 5eca7d409b2aac07e53fc08794e919eeecdc42ce
@@ -4669,8 +4657,6 @@ SPEC CHECKSUMS:
   Sentry: 7475eb7bf6a41d7505f46341706015ad2d1766b9
   Skeleton: 335e77018b8da8cf6683e0e925f11e3f64bbdc63
   SniConnect: 1255255066740c6cc1a7b62e8c6e05e82f19a8a7
-  SPAlert: 735da1f16a887e294719217572ce1f936d8c8782
-  SPIndicator: 93e0a4fb23de51294ac48e874c0f081a5e293e4f
   SplitBundleLoader: 0c575c7d2c7e16d7bb0aae0a047340628118451e
   SSZipArchive: c69881e8ac5521f0e622291387add5f60f30f3c4
   TcpSocket: 54622c899ac3105202eac36fa1699aa4d263a6a9
