@@ -51,6 +51,9 @@ function isDefaultSelected(token: IDustSweepToken) {
 function useDustSweepController(params: IDustSweepRouteParams) {
   const isFocused = useRouteIsFocused();
   const [preferences, setPreferences] = useDustSweepPreferencesPersistAtom();
+  const [localThreshold, setLocalThreshold] = useState<IDustSweepThreshold>();
+  // Native persistence echoes asynchronously; keep this page's choice immediate.
+  const threshold = localThreshold ?? preferences.threshold;
   const loadParams = useMemo(
     () => ({
       walletId: params.walletId,
@@ -344,10 +347,10 @@ function useDustSweepController(params: IDustSweepRouteParams) {
     () =>
       filterDustSweepCandidates(
         current?.tokens ?? [],
-        preferences.threshold,
+        threshold,
         includeHidden,
       ),
-    [current, preferences.threshold, includeHidden],
+    [current, threshold, includeHidden],
   );
   const selected = useMemo(
     () =>
@@ -403,11 +406,12 @@ function useDustSweepController(params: IDustSweepRouteParams) {
     [canSelectNetwork, resetSession, selecting, loadParams],
   );
   const selectThreshold = useCallback(
-    (threshold: IDustSweepThreshold) => {
+    (value: IDustSweepThreshold) => {
       if (!selecting) return;
       networkChoiceScope.current = loadParams;
-      setPreferences((value) => ({ ...value, threshold }));
+      setLocalThreshold(value);
       setSelection(undefined);
+      void setPreferences((previous) => ({ ...previous, threshold: value }));
     },
     [selecting, setPreferences, loadParams],
   );
@@ -530,7 +534,7 @@ function useDustSweepController(params: IDustSweepRouteParams) {
     partialError,
     failedNetworks: currentLoad?.failedNetworks,
     providerInfo,
-    threshold: preferences.threshold,
+    threshold,
     slippage,
     setSlippage,
     session,

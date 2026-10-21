@@ -1,7 +1,7 @@
 /** @jest-environment jsdom */
 
 import { useState } from 'react';
-import type { PropsWithChildren } from 'react';
+import type { Dispatch, PropsWithChildren, SetStateAction } from 'react';
 
 import { act, renderHook, waitFor } from '@testing-library/react';
 
@@ -35,10 +35,20 @@ import {
 
 import type { IDustSweepState } from './stateMachine';
 
+let mockDeferPreferences = false;
+const mockWritePreferences = jest.fn();
+let mockSetPreferences: Dispatch<
+  SetStateAction<{ threshold: IDustSweepThreshold }>
+>;
+
 function useMockPreferences() {
-  return useState<{ threshold: IDustSweepThreshold }>({
+  const result = useState<{ threshold: IDustSweepThreshold }>({
     threshold: 10,
   });
+  mockSetPreferences = result[1];
+  return mockDeferPreferences
+    ? ([result[0], mockWritePreferences] as const)
+    : result;
 }
 
 let mockFocused = true;
@@ -205,6 +215,7 @@ describe('Dust Sweep Provider request and selection ownership', () => {
     mockLoadNetworks.mockReset();
     mockRefreshNetwork.mockReset();
     mockFocused = true;
+    mockDeferPreferences = false;
     mockBatchSequence = 0;
     mockRefreshNetwork.mockImplementation(async ({ entry }) => entry);
     mockUseSession.mockImplementation(useMockSession);
@@ -1442,6 +1453,69 @@ describe('Dust Sweep Provider request and selection ownership', () => {
     expect(
       result.current.networks.map((entry) => entry.network.networkId),
     ).toEqual(['evm--8453', 'evm--42161']);
+  });
+
+  it('updates the threshold, candidates and selection before persistence echoes back', async () => {
+    mockDeferPreferences = true;
+    const { result } = renderController();
+    await waitFor(() => expect(result.current.canStart).toBe(true));
+    act(() => result.current.toggle(base.tokens[0].key));
+    expect(result.current.selected).toEqual([]);
+
+    act(() => result.current.selectThreshold(100));
+    expect(result.current.threshold).toBe(100);
+    expect(result.current.visible).toEqual(base.tokens);
+    expect(result.current.selected).toEqual(base.tokens);
+    expect(result.current.selectedValueUsd).toBe('52');
+    expect(mockWritePreferences).toHaveBeenCalledTimes(1);
+    expect(mockLoadNetworks).toHaveBeenCalledTimes(1);
+
+    act(() => mockSetPreferences({ threshold: 1 }));
+    expect(result.current.threshold).toBe(100);
+    expect(result.current.visible).toEqual(base.tokens);
+    expect(result.current.selected).toEqual(base.tokens);
+  });
+
+  it('keeps the last rapid threshold selection despite stale preference echoes', async () => {
+    mockDeferPreferences = true;
+    const { result } = renderController();
+    await waitFor(() => expect(result.current.canStart).toBe(true));
+
+    act(() => {
+      result.current.selectThreshold(100);
+      result.current.selectThreshold(1);
+      result.current.selectThreshold(10);
+    });
+    expect(result.current.threshold).toBe(10);
+    expect(result.current.visible).toEqual([base.tokens[0]]);
+    expect(mockWritePreferences).toHaveBeenCalledTimes(3);
+
+    act(() => mockSetPreferences({ threshold: 100 }));
+    expect(result.current.threshold).toBe(10);
+    expect(result.current.visible).toEqual([base.tokens[0]]);
+    act(() => mockSetPreferences({ threshold: 1 }));
+    expect(result.current.threshold).toBe(10);
+    expect(result.current.selected).toEqual([base.tokens[0]]);
+    expect(mockLoadNetworks).toHaveBeenCalledTimes(1);
+  });
+
+  it('uses hydrated preferences until the user chooses a threshold', async () => {
+    mockDeferPreferences = true;
+    const { result } = renderController();
+    await waitFor(() => expect(result.current.canStart).toBe(true));
+
+    act(() => mockSetPreferences({ threshold: 100 }));
+    expect(result.current.threshold).toBe(100);
+    expect(result.current.visible).toEqual(base.tokens);
+
+    act(() => result.current.selectThreshold(1));
+    expect(result.current.threshold).toBe(1);
+    expect(result.current.visible).toEqual([]);
+    expect(result.current.selectedValueUsd).toBe('0');
+    act(() => mockSetPreferences({ threshold: 10 }));
+    expect(result.current.threshold).toBe(1);
+    expect(result.current.visible).toEqual([]);
+    expect(mockLoadNetworks).toHaveBeenCalledTimes(1);
   });
 
   it('keeps an explicitly requested hidden network selected and visible in the picker', async () => {
