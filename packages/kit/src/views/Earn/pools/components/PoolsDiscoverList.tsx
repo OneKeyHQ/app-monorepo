@@ -32,7 +32,7 @@ import { PoolPairIcon } from './PoolPairIcon';
 import { POOLS_CATEGORY_LABELS, PoolsChip } from './PoolsFilterButton';
 import { PoolsSortHeader } from './PoolsSortHeader';
 import { PoolChangeText } from './PoolStats';
-import { PoolBadgeRow } from './PoolTags';
+import { PoolTags } from './PoolTags';
 
 import type { IPoolsCategory, IPoolsSortKey } from '../poolsFilter';
 
@@ -150,7 +150,10 @@ function ValueCell({
 const STAR_WIDTH = 32;
 const CHEVRON_WIDTH = 20;
 
-/** The pair, then fee, chain and DEX badges under it */
+/**
+ * The pair, then the fee and DEX badges under it. The chain is the badge on
+ * the pair icon.
+ */
 function PoolCell({ pool }: { pool: IPoolListItem }) {
   return (
     <XStack ai="center" gap="$3" minWidth={0} flexShrink={1}>
@@ -159,7 +162,7 @@ function PoolCell({ pool }: { pool: IPoolListItem }) {
         <SizableText size="$bodyLgMedium" numberOfLines={1}>
           {getPoolPairTitle(pool)}
         </SizableText>
-        <PoolBadgeRow pool={pool} />
+        <PoolTags pool={pool} />
       </YStack>
     </XStack>
   );

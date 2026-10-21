@@ -159,8 +159,8 @@ export function PoolBadgeRow({
 }
 
 /**
- * The line under a pool's name on pages that name the network elsewhere:
- * the badge row without the chain.
+ * The line under a pool's name wherever the network shows elsewhere, as a
+ * label or the pair icon's badge: the badge row without the chain.
  */
 export function PoolTags({
   pool,
