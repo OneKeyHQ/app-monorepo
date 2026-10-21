@@ -272,17 +272,16 @@ function HeaderLeftToolBarInput({
           open={translateIsOpen}
           onOpenChange={handleTranslateOpenChange}
           renderTrigger={<Stack />}
-          renderContent={({ closePopover }) => (
+          renderContent={
             <TranslatePopoverContent
               isTranslated={!!isTranslated}
               onTranslate={onTranslate ?? (() => {})}
               onRetranslate={onRetranslate}
               onTestAITranslateError={onTestAITranslateError}
-              closePopover={closePopover}
               showSettings={translateShowSettings}
               onShowSettingsChange={setTranslateShowSettings}
             />
-          )}
+          }
         />
       </Stack>
 

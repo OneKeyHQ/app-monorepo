@@ -26,6 +26,7 @@ jest.mock('@onekeyhq/shared/src/background/backgroundDecorators', () => ({
     d,
 }));
 
+const mockTrialResult = jest.fn();
 const mockOneKeyIdClient = {
   get: jest.fn(),
   post: jest.fn(),
@@ -111,7 +112,8 @@ jest.mock('@onekeyhq/shared/src/utils/timerUtils', () => ({
 jest.mock('@onekeyhq/shared/src/logger/logger', () => {
   const noopLogger = new Proxy(jest.fn(), {
     apply: () => undefined,
-    get: () => noopLogger,
+    get: (_target, key) =>
+      key === 'primeFreeTrialResult' ? mockTrialResult : noopLogger,
   });
   return { defaultLogger: noopLogger };
 });
@@ -941,6 +943,136 @@ describe('ServicePrimeFreeTrial', () => {
         reportAttempts: 0,
       });
     }
+
+    it.each(['success', 'failed', 'cancelled'] as const)(
+      'tracks the real %s once with the original client attempt id',
+      async (result) => {
+        mockTrialResult.mockClear();
+        const { service, simpleDb } = createService();
+        seedStartedUsage(simpleDb, { usageId: 'usage-analytics' });
+        const record = simpleDb.records.get(
+          'user-a__BulkSend__usage-analytics',
+        );
+        expect(record).toBeDefined();
+        if (!record) return;
+        record.analyticsAttemptId = 'attempt-analytics';
+        mockOneKeyIdClient.post.mockResolvedValue({
+          data: { data: { unlimited: false } },
+        });
+        if (result === 'success') {
+          await service.markUsageSuccess({
+            featureId: EPrimeFeatures.BulkSend,
+            usageId: record.usageId,
+          });
+          await service.markUsageSuccess({
+            featureId: EPrimeFeatures.BulkSend,
+            usageId: record.usageId,
+          });
+        } else {
+          await service.settleUsage({
+            featureId: EPrimeFeatures.BulkSend,
+            usageId: record.usageId,
+            result,
+          });
+          await service.settleUsage({
+            featureId: EPrimeFeatures.BulkSend,
+            usageId: record.usageId,
+            result,
+          });
+        }
+        expect(mockTrialResult).toHaveBeenCalledTimes(1);
+        expect(mockTrialResult).toHaveBeenCalledWith({
+          featureId: EPrimeFeatures.BulkSend,
+          attemptId: 'attempt-analytics',
+          stage: 'execution',
+          source: 'client',
+          result,
+        });
+      },
+    );
+
+    it.each(['failed', 'cancelled'] as const)(
+      'tracks a reused retry ending %s without releasing the charged usage',
+      async (result) => {
+        mockTrialResult.mockClear();
+        const { service, simpleDb } = createService();
+        seedStartedUsage(simpleDb, { usageId: 'usage-failed-retry' });
+        const record = simpleDb.records.get(
+          'user-a__BulkSend__usage-failed-retry',
+        );
+        expect(record).toBeDefined();
+        if (!record) return;
+        record.result = 'success';
+        record.reportedAt = Date.now();
+        const params = {
+          featureId: EPrimeFeatures.BulkSend as const,
+          usageId: record.usageId,
+          analyticsRetryAttemptId: 'retry-no-broadcast',
+          result,
+        };
+        await service.settleUsage(params);
+        await service.settleUsage(params);
+        expect(mockTrialResult).toHaveBeenCalledTimes(1);
+        expect(mockTrialResult).toHaveBeenCalledWith(
+          expect.objectContaining({ stage: 'retry', result }),
+        );
+        expect(mockOneKeyIdClient.post).not.toHaveBeenCalled();
+        expect(record.result).toBe('success');
+      },
+    );
+
+    it('identifies a late broadcast as a correction of an unsettled failure', async () => {
+      mockTrialResult.mockClear();
+      const { service, simpleDb } = createService();
+      seedStartedUsage(simpleDb, { usageId: 'usage-late-broadcast' });
+      mockOneKeyIdClient.post.mockReturnValue(new Promise(() => {}));
+      await service.settleUsage({
+        featureId: EPrimeFeatures.BulkSend,
+        usageId: 'usage-late-broadcast',
+        result: 'failed',
+      });
+      await service.markUsageSuccess({
+        featureId: EPrimeFeatures.BulkSend,
+        usageId: 'usage-late-broadcast',
+      });
+      expect(mockTrialResult).toHaveBeenCalledTimes(2);
+      expect(mockTrialResult).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          result: 'success',
+          previousResult: 'failed',
+        }),
+      );
+    });
+
+    it('tracks a retry broadcast once without another reservation or consumption', async () => {
+      mockTrialResult.mockClear();
+      const { service, simpleDb } = createService();
+      seedStartedUsage(simpleDb, { usageId: 'usage-analytics-retry' });
+      const record = simpleDb.records.get(
+        'user-a__BulkSend__usage-analytics-retry',
+      );
+      expect(record).toBeDefined();
+      if (!record) return;
+      record.result = 'success';
+      record.reportedAt = Date.now();
+      const usage = {
+        featureId: EPrimeFeatures.BulkSend as const,
+        usageId: record.usageId,
+        analyticsRetryAttemptId: 'retry-analytics',
+      };
+      await service.markBroadcastSuccess(usage);
+      await service.markBroadcastSuccess(usage);
+      await service.settleUsage({ ...usage, result: 'cancelled' });
+      expect(mockTrialResult).toHaveBeenCalledTimes(1);
+      expect(mockTrialResult).toHaveBeenCalledWith(
+        expect.objectContaining({
+          stage: 'retry',
+          result: 'success',
+          attemptId: 'retry-analytics',
+        }),
+      );
+      expect(mockOneKeyIdClient.post).not.toHaveBeenCalled();
+    });
 
     it('keeps success over later failed / cancelled and reports once', async () => {
       const { service, simpleDb } = createService();

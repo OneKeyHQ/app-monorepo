@@ -27040,6 +27040,7 @@
     "packages/shared/src/utils/portfolioArchive.ts": 9083,
     "packages/shared/src/utils/portfolioPayload.ts": 7776,
     "packages/shared/src/utils/portfolioTokenIcon.ts": 12045,
+    "packages/shared/src/utils/primeFreeTrialAnalytics.ts": 19191,
     "packages/shared/src/utils/primeFreeTrialUtils.ts": 18957,
     "packages/shared/src/utils/primeGiftVerifyError.ts": 22244,
     "packages/shared/src/utils/primeInfiniPaymentCacheUtils.ts": 6070,
