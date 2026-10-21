@@ -15,6 +15,7 @@ import {
   Skeleton,
   XStack,
   YStack,
+  getFontSize,
   useMedia,
 } from '@onekeyhq/components';
 import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeableTextWrapper';
@@ -63,6 +64,8 @@ const REFRESH_WIDTH = 12 + 36;
 const GROW_SPARE_WIDTH = 8;
 const MIN_TICK_MS = 1000;
 const MAX_TICK_MS = 60_000;
+// How far a hidden amount's asterisks drop, as a share of their size
+const ASTERISK_DROP = 0.16;
 
 // The total keeps moving between refreshes at the estimated daily change's
 // per-second rate. It shows cents only, so it re-renders about when the next
@@ -144,7 +147,11 @@ function TotalValue({
     // Asterisks sit at the cap height; lowered, they center on the line the
     // digits fill
     return (
-      <SizableText {...textProps} x={x} y={Math.round(fontSize * 0.16)}>
+      <SizableText
+        {...textProps}
+        x={x}
+        y={Math.round(fontSize * ASTERISK_DROP)}
+      >
         ****
       </SizableText>
     );
@@ -339,6 +346,11 @@ export function EarnDesktopHero({
             showPlusMinusSigns: earnings !== 0,
           }}
           color={isHidden ? '$textSubdued' : getNumberColor(earnings24h)}
+          y={
+            isHidden
+              ? Math.round(getFontSize('$bodyMdMedium') * ASTERISK_DROP)
+              : undefined
+          }
         >
           {earnings24h}
         </NumberSizeableTextWrapper>

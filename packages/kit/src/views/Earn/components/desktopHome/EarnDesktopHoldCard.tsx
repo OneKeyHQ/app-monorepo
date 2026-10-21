@@ -12,12 +12,19 @@ import {
   Stack,
   XStack,
   YStack,
+  getFontSize,
   useMedia,
 } from '@onekeyhq/components';
 import { Currency } from '@onekeyhq/kit/src/components/Currency';
 import { NetworkAvatar } from '@onekeyhq/kit/src/components/NetworkAvatar/NetworkAvatar';
 import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeableTextWrapper';
 import { Token } from '@onekeyhq/kit/src/components/Token';
+import { convertFiat } from '@onekeyhq/kit/src/utils/fiatConvert';
+import {
+  useCurrencyPersistAtom,
+  useSettingsPersistAtom,
+  useSettingsValuePersistAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { USD_CURRENCY_ID } from '@onekeyhq/shared/src/consts/currencyConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
@@ -60,6 +67,12 @@ const COLUMNS = {
   balance: column(1.4, 'flex-end'),
   apr: column(1.4, 'flex-end', 136),
 };
+const stopPropagation = (event: { stopPropagation: () => void }) =>
+  event.stopPropagation();
+// A hidden amount is asterisks, which sit at the cap height. Lowered by this
+// share of their size, as the hero lowers its own, they center on the line the
+// words beside them fill
+const ASTERISK_DROP = 0.16;
 
 // The best offer's rate, colored the way the table colors it
 function OfferRate({
@@ -93,15 +106,31 @@ function OfferRate({
 // What the balance would earn in a year at that rate
 function YearlyLine({ row }: { row: IEarnDesktopHoldRow }) {
   const [best] = row.offers;
+  const [{ currencyMap }] = useCurrencyPersistAtom();
+  const [{ currencyInfo }] = useSettingsPersistAtom();
+  const [{ hideValue: isHidden }] = useSettingsValuePersistAtom();
   const yearlyUsd = new BigNumber(row.fiatValueUsd)
     .times(best.apr)
     .div(100)
     .toFixed();
+  // Under a cent the value formatter writes "< 0.01", a bound already, so no
+  // "≈" goes in front. Hidden, every line keeps it, or its absence would tell
+  const yearly = new BigNumber(
+    convertFiat({
+      value: yearlyUsd,
+      sourceCurrency: USD_CURRENCY_ID,
+      targetCurrency: currencyInfo.id,
+      currencyMap,
+    }),
+  );
+  const isUnderCent = yearly.gt(0) && yearly.lt(0.01);
   return (
     <XStack ai="baseline" gap="$1">
-      <SizableText size="$bodySm" color="$textSubdued">
-        ≈
-      </SizableText>
+      {isHidden || !isUnderCent ? (
+        <SizableText size="$bodySm" color="$textSubdued">
+          ≈
+        </SizableText>
+      ) : null}
       <Currency
         hideValue
         size="$bodySm"
@@ -109,6 +138,11 @@ function YearlyLine({ row }: { row: IEarnDesktopHoldRow }) {
         formatter="value"
         sourceCurrency={USD_CURRENCY_ID}
         numberOfLines={1}
+        y={
+          isHidden
+            ? Math.round(getFontSize('$bodySm') * ASTERISK_DROP)
+            : undefined
+        }
       >
         {yearlyUsd}
       </Currency>
@@ -217,7 +251,10 @@ function HoldRow({
                 size="small"
                 variant="secondary"
                 // Button stops the press at itself, so the row under it does
-                // not open the same page a second time
+                // not open the same page a second time. Stopping the press-in
+                // too keeps the row at its hover color while the button is
+                // held, so only the button looks pressed
+                onPressIn={stopPropagation}
                 onPress={onPress}
               >
                 {intl.formatMessage({ id: ETranslations.earn_title })}
@@ -357,6 +394,7 @@ export function EarnDesktopHoldCard({
   const intl = useIntl();
   const media = useMedia();
   const isWide = media.gtMd;
+  const [{ hideValue: isHidden }] = useSettingsValuePersistAtom();
   const [isExpanded, setIsExpanded] = useState(false);
   const shown = isExpanded ? rows : rows.slice(0, ROW_LIMIT);
   const moreCount = rows.length - ROW_LIMIT;
@@ -386,6 +424,11 @@ export function EarnDesktopHoldCard({
           formatter="value"
           sourceCurrency={USD_CURRENCY_ID}
           numberOfLines={1}
+          y={
+            isHidden
+              ? Math.round(getFontSize('$headingXl') * ASTERISK_DROP)
+              : undefined
+          }
         >
           {yearlyUsd}
         </Currency>
@@ -442,23 +485,102 @@ export function EarnDesktopHoldCard({
   );
 }
 
-// The loaded card's boxes, so the page keeps its height when the rows land
+// A bar in a box of the loaded text's line height
+function SkeletonLine({
+  height,
+  width,
+  barHeight,
+}: {
+  height: number;
+  width: number;
+  barHeight: number;
+}) {
+  return (
+    <YStack h={height} jc="center">
+      <Skeleton w={width} h={barHeight} borderRadius="$2" />
+    </YStack>
+  );
+}
+
+// An amount over its second line, as the balance and rate columns show them
+function SkeletonPair({ top, bottom }: { top: number; bottom: number }) {
+  return (
+    <>
+      <SkeletonLine height={24} width={top} barHeight={16} />
+      <SkeletonLine height={16} width={bottom} barHeight={12} />
+    </>
+  );
+}
+
+// The loaded card's boxes, a full page of rows and the "N more" line
+// included, so the page keeps its height when the rows land
 export function EarnDesktopHoldCardSkeleton() {
+  const media = useMedia();
+  const isWide = media.gtMd;
   return (
     <CardFrame>
-      <Skeleton w={150} h={14} my={3} borderRadius="$2" />
-      <Skeleton w={160} h={20} my={4} borderRadius="$2" />
-      <YStack mt="$3" pb="$3">
-        {Array.from({ length: 3 }).map((_, index) => (
-          <XStack key={index} ai="center" gap="$3" h={ROW_HEIGHT}>
-            <Skeleton w="$10" h="$10" radius="round" />
-            <YStack flex={1} gap="$1.5">
-              <Skeleton w="30%" h={14} borderRadius="$2" />
-              <Skeleton w="18%" h={12} borderRadius="$2" />
-            </YStack>
-          </XStack>
-        ))}
+      <SkeletonLine height={20} width={150} barHeight={14} />
+      <YStack mt="$0.5">
+        <SkeletonLine height={28} width={160} barHeight={20} />
       </YStack>
+      {isWide ? (
+        <XStack h="$8" ai="center" gap={ROW_GAP} mt="$3">
+          <Stack {...COLUMNS.asset}>
+            <Skeleton w={40} h={12} borderRadius="$2" />
+          </Stack>
+          <Stack {...COLUMNS.network}>
+            <Skeleton w={52} h={12} borderRadius="$2" />
+          </Stack>
+          <Stack {...COLUMNS.balance}>
+            <Skeleton w={84} h={12} borderRadius="$2" />
+          </Stack>
+          <Stack {...COLUMNS.apr}>
+            <Skeleton w={52} h={12} borderRadius="$2" />
+          </Stack>
+          <Stack w={ACTION_WIDTH} flexShrink={0} />
+        </XStack>
+      ) : null}
+      <YStack mt={isWide ? 0 : '$2'}>
+        {Array.from({ length: ROW_LIMIT }).map((_, index) =>
+          isWide ? (
+            <XStack key={index} ai="center" gap={ROW_GAP} h={ROW_HEIGHT}>
+              <XStack {...COLUMNS.asset} ai="center" gap="$3">
+                <Skeleton w="$8" h="$8" radius="round" />
+                <Skeleton w={56} h={16} borderRadius="$2" />
+              </XStack>
+              <XStack {...COLUMNS.network} ai="center" gap="$2">
+                <Skeleton w="$5" h="$5" radius="round" />
+                <Skeleton w={64} h={14} borderRadius="$2" />
+              </XStack>
+              <YStack {...COLUMNS.balance}>
+                <SkeletonPair top={72} bottom={48} />
+              </YStack>
+              <YStack {...COLUMNS.apr}>
+                <SkeletonPair top={48} bottom={88} />
+              </YStack>
+              <XStack w={ACTION_WIDTH} flexShrink={0} jc="flex-end">
+                <Skeleton w={52} h={30} radius="round" />
+              </XStack>
+            </XStack>
+          ) : (
+            <XStack key={index} ai="center" gap={ROW_GAP} h={ROW_HEIGHT}>
+              <Skeleton w="$8" h="$8" radius="round" />
+              <YStack flex={1} minWidth={0}>
+                <SkeletonPair top={48} bottom={64} />
+              </YStack>
+              <YStack ai="flex-end">
+                <SkeletonPair top={72} bottom={48} />
+              </YStack>
+              <YStack ai="flex-end" minWidth={96}>
+                <SkeletonPair top={48} bottom={88} />
+              </YStack>
+            </XStack>
+          ),
+        )}
+      </YStack>
+      <XStack h={44} ai="center">
+        <Skeleton w={56} h={14} borderRadius="$2" />
+      </XStack>
     </CardFrame>
   );
 }

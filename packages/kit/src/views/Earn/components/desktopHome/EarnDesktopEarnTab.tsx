@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -94,8 +94,13 @@ const COLUMNS = {
   asset: column(3),
   network: column(1.4),
   balance: column(1.4, 'flex-end'),
-  // Wide enough for a range like "14.78% - 15.87%" on one line
-  apr: column(1.4, 'flex-end', 136),
+  // Wide enough for a range like "14.78% - 15.87%" on one line. In one column
+  // the rate takes only its own width, so the token's name and badge keep the
+  // rest of the row
+  apr: {
+    ...column(1.4, 'flex-end', 136),
+    $md: { flexGrow: 0, flexShrink: 0, flexBasis: 'auto', minWidth: 0 },
+  } as const,
 };
 // One column keeps the token and its rate; the network and the balance need
 // a wide row
@@ -120,8 +125,6 @@ type IEarnTableRow = {
   balanceFiatValueUsd?: string;
   tvl: number;
 };
-
-export type IEarnDesktopFocusRequest = { symbol: string; nonce: number };
 
 const shouldSendVault = (providerName: string) =>
   earnUtils.shouldSendEarnProtocolVault({ providerName });
@@ -714,8 +717,6 @@ export function EarnDesktopEarnTab({
   deposits,
   lendingOffers,
   walletHoldings,
-  focusRequest,
-  onFocusRequestHandled,
 }: {
   trendingAssets: IEarnAvailableAsset[];
   fixedRateAssets: IEarnAvailableAsset[];
@@ -723,8 +724,6 @@ export function EarnDesktopEarnTab({
   deposits: IEarnDesktopPortfolioDeposits;
   lendingOffers: Map<string, IEarnDesktopLendingOffer[]>;
   walletHoldings: Map<string, IEarnDesktopWalletHolding>;
-  focusRequest?: IEarnDesktopFocusRequest;
-  onFocusRequestHandled?: () => void;
 }) {
   const intl = useIntl();
   const [category, setCategory] = useState<ITokenCategory>('all');
@@ -874,18 +873,6 @@ export function EarnDesktopEarnTab({
       return true;
     });
   }, [categoryRows, searchText, selectedNetworkIds]);
-
-  // A row in the wallet tile opens its token here
-  useEffect(() => {
-    if (!focusRequest) {
-      return;
-    }
-    setCategory('all');
-    setSearchText('');
-    setSelectedNetworkIds([]);
-    setOpenKey(`earn:${focusRequest.symbol}`);
-    onFocusRequestHandled?.();
-  }, [focusRequest, onFocusRequestHandled]);
 
   const handleToggle = useCallback((key: string) => {
     setOpenKey((current) => (current === key ? undefined : key));

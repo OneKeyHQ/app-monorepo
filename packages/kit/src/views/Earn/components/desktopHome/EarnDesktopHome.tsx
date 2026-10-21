@@ -5,6 +5,7 @@ import { useIntl } from 'react-intl';
 
 import { SizableText, XStack, YStack, useMedia } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import {
   useEarnAtom,
   useEarnLoadingStatesAtom,
@@ -45,7 +46,6 @@ import {
   useEarnDesktopWalletHoldings,
 } from './useEarnDesktopHomeData';
 
-import type { IEarnDesktopFocusRequest } from './EarnDesktopEarnTab';
 import type { IEarnDesktopHoldRow } from './earnDesktopHome.utils';
 import type { IUseEarnPortfolioReturn } from '../../hooks/useEarnPortfolio';
 
@@ -53,11 +53,17 @@ type IHomeTab = 'earn' | 'loans';
 
 const BROWSE_ANCHOR_ID = 'earn-desktop-browse';
 const BANNER_WIDTH = 460;
+// The banner block's own room around its card, each side
+const BANNER_INSET = 20;
 // Until the hero has been measured
 const BANNER_CARD_HEIGHT = 232;
 // The banner art's own height: a shorter hero (an account without positions)
 // must not crop it
 const BANNER_MIN_HEIGHT = 200;
+// The banner art's proportions (700 x 400)
+const BANNER_ART_RATIO = 7 / 4;
+// Where the banner's dots, when there are several, end under its card
+const BANNER_DOTS_HEIGHT = 14;
 const EMPTY_ASSETS: IEarnAvailableAsset[] = [];
 
 function HomeTab({
@@ -177,6 +183,13 @@ export function EarnDesktopHome({
   const [{ availableAssetsByType = {} }] = useEarnAtom();
   const [loadingStates] = useEarnLoadingStatesAtom();
   const { investments, isSettled: isPortfolioSettled, refresh } = portfolioData;
+  const { activeAccount } = useActiveAccount({ num: 0 });
+  // With no wallet there is nothing held or deposited to wait for: the hero
+  // and the offer cards show as they are, not under a wallet's skeletons
+  const hasNoWallet =
+    activeAccount.ready &&
+    !activeAccount.account &&
+    !activeAccount.indexedAccount;
 
   const {
     marketList,
@@ -292,7 +305,8 @@ export function EarnDesktopHome({
     accountMarkets.loans.length > 0;
   // Partial sums are wrong numbers: the hero waits for the portfolio and the
   // markets, and then shows at once
-  const isHeroLoading = !isPortfolioSettled || !accountMarkets.isLoaded;
+  const isHeroLoading =
+    !hasNoWallet && (!isPortfolioSettled || !accountMarkets.isLoaded);
 
   // A list that has not been asked for yet counts as loading, so nothing
   // reads it as empty
@@ -319,12 +333,7 @@ export function EarnDesktopHome({
 
   const [tab, setTab] = useState<IHomeTab>('earn');
   const [heroHeight, setHeroHeight] = useState<number>();
-  const [focusRequest, setFocusRequest] = useState<IEarnDesktopFocusRequest>();
-  // Consumed once, so the Earn tab coming back does not replay it
-  const handleFocusRequestHandled = useCallback(
-    () => setFocusRequest(undefined),
-    [],
-  );
+  const [stackedBannerWidth, setStackedBannerWidth] = useState<number>();
 
   const scrollToBrowse = useCallback(() => {
     // This layout only renders on web and desktop, where the page's scroll
@@ -354,20 +363,29 @@ export function EarnDesktopHome({
     [navigation],
   );
 
-  const hasBannerContent =
-    isBannerLoading ||
-    bannerList.some(
-      (banner) =>
-        Boolean(banner.bannerId) && Boolean(banner.backgroundImage?.trim()),
-    );
-  // Beside the hero from 1024 up. At a phone's width it goes under the hero,
-  // as on the phone; in between, the hero needs the whole row
+  const bannerCount = bannerList.filter(
+    (banner) =>
+      Boolean(banner.bannerId) && Boolean(banner.backgroundImage?.trim()),
+  ).length;
+  const hasBannerContent = isBannerLoading || bannerCount > 0;
+  // Beside the hero from 1024 up. Below, the hero needs the whole row and the
+  // banner goes under it, as on the phone
   const hasBanner = media.gtLg && hasBannerContent;
-  const hasStackedBanner = !media.gtMd && hasBannerContent;
+  const hasStackedBanner = !media.gtLg && hasBannerContent;
   const bannerCardHeight = Math.max(
     heroHeight ?? BANNER_CARD_HEIGHT,
     BANNER_MIN_HEIGHT,
   );
+  // Under the hero the card keeps the art's proportions, so the art shows
+  // whole: as wide as the page, up to the width of the card beside the hero
+  // on a wide screen. Narrower than the art, it keeps the art's height, as
+  // the phone app does
+  const stackedBannerCardHeight = stackedBannerWidth
+    ? Math.max(
+        BANNER_MIN_HEIGHT,
+        Math.round((stackedBannerWidth - 2 * BANNER_INSET) / BANNER_ART_RATIO),
+      )
+    : BANNER_MIN_HEIGHT;
   const pendingTxsValue = useMemo(() => ({ onRefresh: refresh }), [refresh]);
 
   return (
@@ -419,20 +437,37 @@ export function EarnDesktopHome({
           </XStack>
           {hasStackedBanner ? (
             // The banner block pads itself out to the page edge, so it takes
-            // the page padding back. Below it, the room its dots keep comes
-            // off the gap, so the card follows as closely as the banner
-            // follows the hero
-            <YStack mx="$-5" mt="$-3" mb="$-8">
+            // the page padding back; capped, it stays on the page's left edge.
+            // It counts as tall as its card, dots included when there are
+            // several; the room it keeps under them hangs into the gap, so
+            // the card below follows as closely as the banner follows the hero
+            <YStack
+              mx="$-5"
+              maxWidth={BANNER_WIDTH}
+              mt="$-3"
+              mb="$-3"
+              h={
+                stackedBannerCardHeight +
+                (bannerCount > 1 ? BANNER_DOTS_HEIGHT : 0)
+              }
+              overflow="visible"
+              onLayout={(event) =>
+                setStackedBannerWidth(
+                  Math.round(event.nativeEvent.layout.width),
+                )
+              }
+            >
               <EarnHomeBanner
                 banners={bannerList}
                 isLoading={isBannerLoading}
+                cardHeight={stackedBannerCardHeight}
               />
             </YStack>
           ) : null}
           <EarnDesktopTiles
             holdRows={hold.rows}
             networkNames={hold.networkNames}
-            isLoading={!hold.isLoaded}
+            isLoading={!hasNoWallet && !hold.isLoaded}
             markets={markets}
             isMarketsLoaded={isMarketsLoaded}
             trendingAssets={trendingAssets}
@@ -454,8 +489,6 @@ export function EarnDesktopHome({
               deposits={portfolioDeposits}
               lendingOffers={lendingOffers}
               walletHoldings={wallet.holdings}
-              focusRequest={focusRequest}
-              onFocusRequestHandled={handleFocusRequestHandled}
             />
           ) : (
             <EarnDesktopBorrowTab

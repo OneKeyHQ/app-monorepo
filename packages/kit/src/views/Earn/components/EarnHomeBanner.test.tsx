@@ -97,6 +97,10 @@ jest.mock('@onekeyhq/components', () => {
 
 jest.mock('react-native', () => ({
   StyleSheet: { hairlineWidth: 1 },
+  Platform: {
+    OS: 'web',
+    select: (spec: Record<string, unknown>) => spec.web ?? spec.default,
+  },
 }));
 
 jest.mock('react-native-reanimated', () => ({
@@ -111,6 +115,12 @@ jest.mock('@onekeyhq/shared/src/utils/openUrlUtils', () => ({
 jest.mock('../../../routes/config/deeplink', () => ({
   handleDeepLinkUrl: jest.fn(),
   tryHandleOneKeyUniversalLink: jest.fn(),
+}));
+
+// The desktop layout's keyboard helper lives beside its token and network
+// pieces, which this test has no need to load
+jest.mock('./desktopHome/earnDesktopPressable', () => ({
+  buildKeyboardPressProps: () => undefined,
 }));
 
 describe('EarnHomeBanner', () => {

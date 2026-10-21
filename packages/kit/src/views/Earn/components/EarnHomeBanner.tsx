@@ -518,12 +518,12 @@ export function EarnHomeBanner({
   if (isLoading && validBanners.length === 0) {
     return (
       <YStack h={blockHeight} px={BANNER_CONTAINER_PADDING} pb="$3">
-        <Skeleton
-          h={cardHeight}
-          mx={BANNER_SHADOW_ROOM}
-          borderRadius="$3"
-          borderCurve="continuous"
-        />
+        {/* The card's inset goes on a box around the skeleton: a skeleton
+            takes its box's full width, so a margin on it would only shift it
+            past the card's right edge */}
+        <YStack px={BANNER_SHADOW_ROOM}>
+          <Skeleton h={cardHeight} borderRadius="$3" borderCurve="continuous" />
+        </YStack>
       </YStack>
     );
   }

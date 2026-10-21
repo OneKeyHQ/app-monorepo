@@ -273,8 +273,7 @@ function RowUpTo({
   );
 }
 
-// A loaded tile's boxes, its "N more" line included, so the row keeps its
-// height when the data lands
+// A loaded tile's boxes, so the row keeps its height when the data lands
 function TileSkeleton() {
   return (
     <TileFrame>
@@ -291,9 +290,6 @@ function TileSkeleton() {
           </XStack>
         ))}
       </YStack>
-      <XStack mt="auto" pt="$2">
-        <Skeleton w={56} h={14} my={3} borderRadius="$2" />
-      </XStack>
     </TileFrame>
   );
 }

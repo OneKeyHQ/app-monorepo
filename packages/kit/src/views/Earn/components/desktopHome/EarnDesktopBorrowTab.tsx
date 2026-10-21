@@ -144,13 +144,7 @@ function MarketCard({
           </XStack>
         ) : null}
         <YStack flexGrow={1} minHeight="$2" />
-        <XStack
-          pt="$3.5"
-          ai="center"
-          jc="space-between"
-          borderTopWidth={1}
-          borderTopColor="$borderSubdued"
-        >
+        <XStack pt="$4" ai="center" jc="space-between">
           <SizableText size="$bodySm" color="$textSubdued">
             {intl.formatMessage({ id: ETranslations.defi_collateral })}
           </SizableText>
@@ -179,19 +173,26 @@ export function EarnDesktopBorrowTab({
         .map((entry) => buildMarketCard(entry)),
     [markets],
   );
+  // Three across from 1024, two on a tablet, one a row on a phone, as the
+  // cards above the tabs
+  let perRow = 1;
+  if (media.gtLg) {
+    perRow = 3;
+  } else if (media.gtMd) {
+    perRow = 2;
+  }
   if (!cards.length) {
     // Cards sit as far apart as the tiles above the tabs
     return isLoaded ? (
       <EarnListEmptyState isFiltered={false} />
     ) : (
       <XStack gap="$4">
-        {Array.from({ length: 3 }).map((_, index) => (
+        {Array.from({ length: perRow }).map((_, index) => (
           <Skeleton key={index} flex={1} h={320} borderRadius="$5" />
         ))}
       </XStack>
     );
   }
-  const perRow = media.gtLg ? 3 : 2;
   const rows: IEarnDesktopMarketCard[][] = [];
   for (let index = 0; index < cards.length; index += perRow) {
     rows.push(cards.slice(index, index + perRow));
