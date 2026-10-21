@@ -114,6 +114,7 @@ react {
  * Set this to true to Run Proguard on Release builds to minify the Java bytecode.
  */
 def enableProguardInReleaseBuilds = (findProperty('android.enableProguardInReleaseBuilds') ?: true).toBoolean()
+def isDetoxBuild = (findProperty('detoxBuild') ?: 'false').toBoolean()
 
 /**
  * give correct results when using with locales other than en-US. Note that
@@ -236,9 +237,10 @@ android {
             shrinkResources (findProperty('android.enableShrinkResourcesInReleaseBuilds')?.toBoolean() ?: false)
             minifyEnabled enableProguardInReleaseBuilds
             proguardFiles getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro"
-            if ((findProperty('detoxBuild') ?: 'false').toBoolean()) {
+            if (isDetoxBuild) {
                 // Detox reflects into React Native; keep its test-only rules out of store builds.
                 proguardFile new File(repositoryRoot, "node_modules/detox/android/detox/proguard-rules-app.pro")
+                proguardFile "src/detox/proguard-rules.pro"
             }
             crunchPngs (findProperty('android.enablePngCrunchInReleaseBuilds')?.toBoolean() ?: true)
             ndk {
@@ -270,6 +272,11 @@ android {
     sourceSets {
         main.assets.srcDir(generatedSentryAssetsDir)
         debug.assets.srcDir(generatedDevShellAssetsDir)
+        if (isDetoxBuild) {
+            // Allow only the local Detox server in instrumented Release builds.
+            release.manifest.srcFile('src/detox/AndroidManifest.xml')
+            release.res.srcDir('src/detox/res')
+        }
     }
 
     // @onekeyfe/react-native-app-update: replace with noop stub for non-prod flavors

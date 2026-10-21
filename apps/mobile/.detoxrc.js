@@ -153,6 +153,8 @@ module.exports = {
 
     'android.emu.release': {
       type: 'android.apk',
+      // Other instrumentation tests target the Debug app and its resource classes.
+      launchArgs: { class: 'so.onekey.app.wallet.DetoxTest' },
       binaryPath: path.join(
         __dirname,
         'android/app/build/outputs/apk/prod/release/app-prod-release.apk',
