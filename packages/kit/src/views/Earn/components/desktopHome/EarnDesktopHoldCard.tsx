@@ -1,4 +1,3 @@
-import type { ReactNode } from 'react';
 import { useState } from 'react';
 
 import BigNumber from 'bignumber.js';
@@ -37,7 +36,7 @@ import {
   buildKeyboardPressProps,
   usePressableSurface,
 } from './earnDesktopPressable';
-import { useEarnDesktopSurfaces } from './useEarnDesktopSurfaces';
+import { EARN_DESKTOP_TILE_SURFACES } from './useEarnDesktopSurfaces';
 
 import type {
   IEarnDesktopHoldOffer,
@@ -46,7 +45,7 @@ import type {
 
 // Five rows, then the rest open in place
 const ROW_LIMIT = 5;
-const ROW_HEIGHT = 64;
+const ROW_HEIGHT = 68;
 const ROW_GAP = '$3';
 const ACTION_WIDTH = 72;
 // The table's proportions below, so the two lists read alike
@@ -190,7 +189,10 @@ function HoldRow({
   onPress: () => void;
 }) {
   const intl = useIntl();
-  const { surface, isActive, handlers } = usePressableSurface(true);
+  const { surface, handlers } = usePressableSurface(
+    true,
+    EARN_DESKTOP_TILE_SURFACES,
+  );
   const [best] = row.offers;
   const symbol = row.token.symbol;
   const fixedLine = best.isFixedRate ? (
@@ -206,11 +208,10 @@ function HoldRow({
         ai="center"
         gap={ROW_GAP}
         minHeight={ROW_HEIGHT}
-        px="$3"
-        mx="$-3"
+        px="$4"
         borderRadius="$3"
         borderCurve="continuous"
-        bg={isActive ? surface : undefined}
+        bg={surface}
         cursor="pointer"
         userSelect="none"
         onPress={onPress}
@@ -360,27 +361,42 @@ function MoreToggle({
   );
 }
 
-function CardFrame({ children }: { children: ReactNode }) {
-  const media = useMedia();
-  const surfaces = useEarnDesktopSurfaces();
+// The column labels, on the page over the tiles' content
+function HoldLabels() {
+  const intl = useIntl();
   return (
-    <YStack
-      bg={surfaces.rest}
-      borderRadius="$5"
-      borderCurve="continuous"
-      px={media.gtMd ? '$5' : '$4'}
-      pt="$4"
-      pb="$1"
-    >
-      {children}
-    </YStack>
+    <XStack h="$8" ai="center" gap={ROW_GAP} px="$4" mt="$3">
+      <Stack {...COLUMNS.asset}>
+        <HeaderLabel>
+          {intl.formatMessage({ id: ETranslations.global_asset })}
+        </HeaderLabel>
+      </Stack>
+      <Stack {...COLUMNS.network}>
+        <HeaderLabel>
+          {intl.formatMessage({ id: ETranslations.global_network })}
+        </HeaderLabel>
+      </Stack>
+      <Stack {...COLUMNS.balance}>
+        <HeaderLabel align="right">
+          {intl.formatMessage({ id: ETranslations.global_wallet_balance })}
+        </HeaderLabel>
+      </Stack>
+      <Stack {...COLUMNS.apr}>
+        <HeaderLabel align="right">
+          {intl.formatMessage({ id: ETranslations.defi_apr_apy })}
+        </HeaderLabel>
+      </Stack>
+      <Stack w={ACTION_WIDTH} flexShrink={0} />
+    </XStack>
   );
 }
 
 /**
  * Earns on your holding: what the wallet holds, a row per token per network,
- * with the best rate Earn has for it on that network. A row opens the deposit
- * page for that token on that network.
+ * with the best rate Earn has for it on that network. The title and labels
+ * stand on the page and every row is a tile of its own, so the section reads
+ * in layers instead of as one flat card. A row opens the deposit modal for that
+ * token on that network.
  */
 export function EarnDesktopHoldCard({
   rows,
@@ -398,36 +414,13 @@ export function EarnDesktopHoldCard({
   const shown = isExpanded ? rows : rows.slice(0, ROW_LIMIT);
   const moreCount = rows.length - ROW_LIMIT;
   return (
-    <CardFrame>
-      <SizableText size="$bodyMdMedium" color="$textSubdued">
+    // The wider gap above sets the title apart from the hero
+    <YStack mt="$4">
+      <SizableText size="$headingXl">
         {intl.formatMessage({ id: ETranslations.earns_on_your_holding__title })}
       </SizableText>
-      {isWide ? (
-        <XStack h="$8" ai="center" gap={ROW_GAP} mt="$3">
-          <Stack {...COLUMNS.asset}>
-            <HeaderLabel>
-              {intl.formatMessage({ id: ETranslations.global_asset })}
-            </HeaderLabel>
-          </Stack>
-          <Stack {...COLUMNS.network}>
-            <HeaderLabel>
-              {intl.formatMessage({ id: ETranslations.global_network })}
-            </HeaderLabel>
-          </Stack>
-          <Stack {...COLUMNS.balance}>
-            <HeaderLabel align="right">
-              {intl.formatMessage({ id: ETranslations.global_wallet_balance })}
-            </HeaderLabel>
-          </Stack>
-          <Stack {...COLUMNS.apr}>
-            <HeaderLabel align="right">
-              {intl.formatMessage({ id: ETranslations.defi_apr_apy })}
-            </HeaderLabel>
-          </Stack>
-          <Stack w={ACTION_WIDTH} flexShrink={0} />
-        </XStack>
-      ) : null}
-      <YStack mt={isWide ? 0 : '$2'}>
+      {isWide ? <HoldLabels /> : null}
+      <YStack gap="$2" mt={isWide ? '$1' : '$3'}>
         {shown.map((row) => (
           <HoldRow
             key={row.key}
@@ -439,15 +432,16 @@ export function EarnDesktopHoldCard({
         ))}
       </YStack>
       {moreCount > 0 ? (
-        <MoreToggle
-          count={moreCount}
-          isExpanded={isExpanded}
-          onPress={() => setIsExpanded((prev) => !prev)}
-        />
-      ) : (
-        <YStack h="$3" />
-      )}
-    </CardFrame>
+        // On the tiles' content edge, under the token icons
+        <XStack pl="$4">
+          <MoreToggle
+            count={moreCount}
+            isExpanded={isExpanded}
+            onPress={() => setIsExpanded((prev) => !prev)}
+          />
+        </XStack>
+      ) : null}
+    </YStack>
   );
 }
 
@@ -478,16 +472,16 @@ function SkeletonPair({ top, bottom }: { top: number; bottom: number }) {
   );
 }
 
-// The loaded card's boxes, a full page of rows and the "N more" line
+// The loaded section's boxes, a full page of tiles and the "N more" line
 // included, so the page keeps its height when the rows land
 export function EarnDesktopHoldCardSkeleton() {
   const media = useMedia();
   const isWide = media.gtMd;
   return (
-    <CardFrame>
-      <SkeletonLine height={20} width={150} barHeight={14} />
+    <YStack mt="$4">
+      <SkeletonLine height={28} width={200} barHeight={20} />
       {isWide ? (
-        <XStack h="$8" ai="center" gap={ROW_GAP} mt="$3">
+        <XStack h="$8" ai="center" gap={ROW_GAP} px="$4" mt="$3">
           <Stack {...COLUMNS.asset}>
             <Skeleton w={40} h={12} borderRadius="$2" />
           </Stack>
@@ -503,47 +497,58 @@ export function EarnDesktopHoldCardSkeleton() {
           <Stack w={ACTION_WIDTH} flexShrink={0} />
         </XStack>
       ) : null}
-      <YStack mt={isWide ? 0 : '$2'}>
-        {Array.from({ length: ROW_LIMIT }).map((_, index) =>
-          isWide ? (
-            <XStack key={index} ai="center" gap={ROW_GAP} h={ROW_HEIGHT}>
-              <XStack {...COLUMNS.asset} ai="center" gap="$3">
+      <YStack gap="$2" mt={isWide ? '$1' : '$3'}>
+        {Array.from({ length: ROW_LIMIT }).map((_, index) => (
+          <XStack
+            key={index}
+            ai="center"
+            gap={ROW_GAP}
+            h={ROW_HEIGHT}
+            px="$4"
+            borderRadius="$3"
+            borderCurve="continuous"
+            bg={EARN_DESKTOP_TILE_SURFACES.rest}
+          >
+            {isWide ? (
+              <>
+                <XStack {...COLUMNS.asset} ai="center" gap="$3">
+                  <Skeleton w="$8" h="$8" radius="round" />
+                  <Skeleton w={56} h={16} borderRadius="$2" />
+                </XStack>
+                <XStack {...COLUMNS.network} ai="center" gap="$2">
+                  <Skeleton w="$5" h="$5" radius="round" />
+                  <Skeleton w={64} h={14} borderRadius="$2" />
+                </XStack>
+                <YStack {...COLUMNS.balance}>
+                  <SkeletonPair top={72} bottom={48} />
+                </YStack>
+                <YStack {...COLUMNS.apr}>
+                  <SkeletonPair top={48} bottom={88} />
+                </YStack>
+                <XStack w={ACTION_WIDTH} flexShrink={0} jc="flex-end">
+                  <Skeleton w={52} h={30} radius="round" />
+                </XStack>
+              </>
+            ) : (
+              <>
                 <Skeleton w="$8" h="$8" radius="round" />
-                <Skeleton w={56} h={16} borderRadius="$2" />
-              </XStack>
-              <XStack {...COLUMNS.network} ai="center" gap="$2">
-                <Skeleton w="$5" h="$5" radius="round" />
-                <Skeleton w={64} h={14} borderRadius="$2" />
-              </XStack>
-              <YStack {...COLUMNS.balance}>
-                <SkeletonPair top={72} bottom={48} />
-              </YStack>
-              <YStack {...COLUMNS.apr}>
-                <SkeletonPair top={48} bottom={88} />
-              </YStack>
-              <XStack w={ACTION_WIDTH} flexShrink={0} jc="flex-end">
-                <Skeleton w={52} h={30} radius="round" />
-              </XStack>
-            </XStack>
-          ) : (
-            <XStack key={index} ai="center" gap={ROW_GAP} h={ROW_HEIGHT}>
-              <Skeleton w="$8" h="$8" radius="round" />
-              <YStack flex={1} minWidth={0}>
-                <SkeletonPair top={48} bottom={64} />
-              </YStack>
-              <YStack ai="flex-end">
-                <SkeletonPair top={72} bottom={48} />
-              </YStack>
-              <YStack ai="flex-end" minWidth={96}>
-                <SkeletonPair top={48} bottom={88} />
-              </YStack>
-            </XStack>
-          ),
-        )}
+                <YStack flex={1} minWidth={0}>
+                  <SkeletonPair top={48} bottom={64} />
+                </YStack>
+                <YStack ai="flex-end">
+                  <SkeletonPair top={72} bottom={48} />
+                </YStack>
+                <YStack ai="flex-end" minWidth={96}>
+                  <SkeletonPair top={48} bottom={88} />
+                </YStack>
+              </>
+            )}
+          </XStack>
+        ))}
       </YStack>
-      <XStack h={44} ai="center">
+      <XStack h={44} ai="center" pl="$4">
         <Skeleton w={56} h={14} borderRadius="$2" />
       </XStack>
-    </CardFrame>
+    </YStack>
   );
 }
