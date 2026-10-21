@@ -168,7 +168,8 @@ module.exports = {
         'cd android && ' +
         // Ensure perf monitor is enabled at bundle-time for Release bundles.
         'PERF_MONITOR_ENABLED=1 SENTRY_DISABLE_AUTO_UPLOAD=true ' +
-        './gradlew assembleProdRelease assembleProdDebugAndroidTest -DtestBuildType=debug',
+        './gradlew assembleProdRelease assembleProdDebugAndroidTest ' +
+        '-DtestBuildType=debug -PdetoxBuild=true',
     },
   },
 

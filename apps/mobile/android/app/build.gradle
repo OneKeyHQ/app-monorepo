@@ -236,6 +236,10 @@ android {
             shrinkResources (findProperty('android.enableShrinkResourcesInReleaseBuilds')?.toBoolean() ?: false)
             minifyEnabled enableProguardInReleaseBuilds
             proguardFiles getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro"
+            if ((findProperty('detoxBuild') ?: 'false').toBoolean()) {
+                // Detox reflects into React Native; keep its test-only rules out of store builds.
+                proguardFile new File(repositoryRoot, "node_modules/detox/android/detox/proguard-rules-app.pro")
+            }
             crunchPngs (findProperty('android.enablePngCrunchInReleaseBuilds')?.toBoolean() ?: true)
             ndk {
                 abiFilters "arm64-v8a"
