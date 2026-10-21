@@ -102,3 +102,41 @@ describe('LocalWalletPoolStatus for a temp wallet', () => {
     expect(screen.getByTestId('local-wallet-enable-button')).toBeTruthy();
   });
 });
+
+describe('LocalWalletPoolStatus for an identity mismatch', () => {
+  it('names the way out and offers Delete instead of Retry', () => {
+    render(
+      <LocalWalletPoolStatus
+        networkId="zec--0"
+        accountId="hd-1--0"
+        pool={pool({
+          enabled: true,
+          hasAttemptedBalance: true,
+          state: { enabled: true, paused: false, identityMismatch: true },
+        })}
+      />,
+    );
+
+    expect(
+      screen.getByTestId('local-wallet-identity-mismatch').textContent,
+    ).toContain('delete its privacy data');
+    expect(screen.getByTestId('local-wallet-identity-delete-btn')).toBeTruthy();
+  });
+
+  it('keeps Retry for an ordinary unfinished setup', () => {
+    render(
+      <LocalWalletPoolStatus
+        networkId="zec--0"
+        accountId="hd-1--0"
+        pool={pool({
+          enabled: true,
+          hasAttemptedBalance: true,
+          state: { enabled: true, paused: false },
+        })}
+      />,
+    );
+
+    expect(screen.queryByTestId('local-wallet-identity-mismatch')).toBeNull();
+    expect(screen.queryByTestId('local-wallet-identity-delete-btn')).toBeNull();
+  });
+});

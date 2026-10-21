@@ -87,10 +87,13 @@ export type ILocalWalletLifecycleSpec = {
   notify: boolean;
 };
 
+// 'settleEpoch' rotates once more after the runtime step: a read that took
+// the first new epoch may have seen data the runtime step then destroyed.
 export const LOCAL_WALLET_LIFECYCLE_STEPS = [
   'stopScheduling',
   'rotateEpoch',
   'runtime',
+  'settleEpoch',
   'hostRecords',
   'genericStorage',
   'memory',
@@ -116,7 +119,7 @@ const HOST_RECORD_CLASSES: ILocalWalletDataClass[] = [
 const STEP_CLASSES: Record<
   Exclude<
     ILocalWalletLifecycleStep,
-    'stopScheduling' | 'rotateEpoch' | 'notify'
+    'stopScheduling' | 'rotateEpoch' | 'settleEpoch' | 'notify'
   >,
   ILocalWalletDataClass[]
 > = {
@@ -279,6 +282,7 @@ export const LOCAL_WALLET_LIFECYCLE: Record<
 export type ILocalWalletLifecycleAction =
   | { step: 'stopScheduling'; mode: 'waitForTick' | 'halt' }
   | { step: 'rotateEpoch' }
+  | { step: 'settleEpoch' }
   | {
       step: 'runtime' | 'hostRecords' | 'genericStorage' | 'memory';
       dataClass: ILocalWalletDataClass;
@@ -297,7 +301,7 @@ export function planLocalWalletLifecycle(
       if (spec.stopScheduling !== 'none') {
         actions.push({ step, mode: spec.stopScheduling });
       }
-    } else if (step === 'rotateEpoch') {
+    } else if (step === 'rotateEpoch' || step === 'settleEpoch') {
       if (spec.rotateEpoch) actions.push({ step });
     } else if (step === 'notify') {
       if (spec.notify) actions.push({ step });

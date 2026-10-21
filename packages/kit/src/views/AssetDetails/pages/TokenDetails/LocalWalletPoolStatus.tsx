@@ -241,8 +241,37 @@ export function LocalWalletPoolStatus({
     );
   }
 
+  // Retry would derive the same other key again; only deleting local data
+  // lets the next enable adopt it.
+  const identityMismatch = lw.state?.identityMismatch === true;
+  const deleteForMismatch = identityMismatch ? (
+    <Button
+      testID="local-wallet-identity-delete-btn"
+      size="small"
+      variant="tertiary"
+      disabled={lw.busy}
+      onPress={handleDelete}
+    >
+      {intl.formatMessage({ id: ETranslations.global_delete })}
+    </Button>
+  ) : null;
+
   let balanceNote: React.ReactNode = null;
-  if (!lw.addresses && lw.hasAttemptedBalance) {
+  if (identityMismatch) {
+    balanceNote = (
+      <SizableText
+        testID="local-wallet-identity-mismatch"
+        size="$bodySm"
+        color="$textCaution"
+      >
+        {intl.formatMessage({
+          id: ETranslationsMock.privacy_error_identity_mismatch__msg,
+          defaultMessage:
+            ETranslationsMock.privacy_error_identity_mismatch__msg,
+        })}
+      </SizableText>
+    );
+  } else if (!lw.addresses && lw.hasAttemptedBalance) {
     balanceNote = (
       <SizableText size="$bodySm" color="$textCaution">
         {intl.formatMessage({
@@ -290,7 +319,9 @@ export function LocalWalletPoolStatus({
   const statusLine = (lw.pool ? balanceNote : null) ?? frozenLine ?? hintLine;
   // Repair controls only; the sync line and its settings shortcut live under the address (LocalWalletSyncRow).
   let syncActions: React.ReactNode = null;
-  if (settingsMode) {
+  if (settingsMode && identityMismatch) {
+    syncActions = deleteForMismatch;
+  } else if (settingsMode) {
     syncActions = lw.addresses ? (
       <ScanRepairControl
         networkId={networkId}
@@ -310,14 +341,18 @@ export function LocalWalletPoolStatus({
 
   // The note says "Tap Retry"; nothing else on the token page offers it, under the same condition statusLine uses.
   const setupIncomplete = !!lw.pool && !lw.addresses && lw.hasAttemptedBalance;
-  const inlineSetupRetry =
-    !settingsMode && setupIncomplete ? (
+  let inlineSetupRetry: React.ReactNode = null;
+  if (!settingsMode && identityMismatch) {
+    inlineSetupRetry = deleteForMismatch;
+  } else if (!settingsMode && setupIncomplete) {
+    inlineSetupRetry = (
       <SetupRepairControl
         networkId={networkId}
         accountId={accountId}
         onDone={lw.refresh}
       />
-    ) : null;
+    );
+  }
 
   return (
     <YStack pt="$3" gap="$2">

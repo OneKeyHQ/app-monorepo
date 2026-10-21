@@ -143,8 +143,11 @@ export function createZcashSetupIncompleteError(): Error {
 // The fix is the user's: turning privacy mode off and deleting the
 // account's local data lets the next enable set it up with this key.
 export function createZcashIdentityMismatchError(): Error {
+  // Shown from Retry and Enable, whose callers only log; a balance poll
+  // that hits it catches it in bg.
   const error = new OneKeyLocalError({
     message: ETranslationsMock.privacy_error_identity_mismatch__msg,
+    autoToast: true,
   });
   (error as unknown as Record<string, unknown>)[ZCASH_SETUP_INCOMPLETE] = true;
   return error;
