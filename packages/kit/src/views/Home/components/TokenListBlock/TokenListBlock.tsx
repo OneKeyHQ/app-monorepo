@@ -75,7 +75,10 @@ import {
 import { buildTapTimeHomeTokenMap } from '@onekeyhq/kit/src/states/jotai/contexts/tokenList/cells/tapTimeHomeMap';
 import { convertFiat } from '@onekeyhq/kit/src/utils/fiatConvert';
 import { useTokenManagement } from '@onekeyhq/kit/src/views/AssetList/hooks/useTokenManagement';
-import { useActiveAccountDustSweep } from '@onekeyhq/kit/src/views/DustSweep/hooks/useNavigateToDustSweep';
+import {
+  DustSweepEntryCapabilitiesProvider,
+  useActiveAccountDustSweep,
+} from '@onekeyhq/kit/src/views/DustSweep/hooks/useNavigateToDustSweep';
 import type { IDBAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type { ISimpleDBAggregateToken } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAggregateToken';
 import type { ICustomTokenDBStruct } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityCustomTokens';
@@ -272,7 +275,8 @@ const TokenListDustSweepAction = memo(function TokenListDustSweepAction({
   showLabel?: boolean;
 }) {
   const intl = useIntl();
-  const { canDustSweep, openDustSweep } = useActiveAccountDustSweep();
+  const { canDustSweep, isDustSweepRefreshing, openDustSweep } =
+    useActiveAccountDustSweep();
   const handlePress = useCallback(() => {
     void openDustSweep('tokenListHeader');
   }, [openDustSweep]);
@@ -288,6 +292,7 @@ const TokenListDustSweepAction = memo(function TokenListDustSweepAction({
         size="small"
         variant="secondary"
         icon="BroomOutline"
+        disabled={isDustSweepRefreshing}
         onPress={handlePress}
       >
         {intl.formatMessage({ id: ETranslations.out_title_dust_sweep })}
@@ -301,6 +306,7 @@ const TokenListDustSweepAction = memo(function TokenListDustSweepAction({
       variant="tertiary"
       icon="BroomOutline"
       title={intl.formatMessage({ id: ETranslations.title_dust_sweep })}
+      disabled={isDustSweepRefreshing}
       onPress={handlePress}
     />
   );
@@ -4224,17 +4230,21 @@ function TokenListBlock({
   ]);
 
   return (
-    <RichBlock
-      withTitleSeparator
-      title={intl.formatMessage({
-        id: ETranslations.global_universal_search_tabs_tokens,
-      })}
-      subTitle={renderSubTitle()}
-      headerActions={<TokenListDustSweepAction showLabel={tableLayout} />}
-      headerContainerProps={{ px: '$pagePadding' }}
-      content={renderContent()}
-      plainContentContainer
-    />
+    <DustSweepEntryCapabilitiesProvider
+      isFocused={Boolean(isFocused && isRouteFocused)}
+    >
+      <RichBlock
+        withTitleSeparator
+        title={intl.formatMessage({
+          id: ETranslations.global_universal_search_tabs_tokens,
+        })}
+        subTitle={renderSubTitle()}
+        headerActions={<TokenListDustSweepAction showLabel={tableLayout} />}
+        headerContainerProps={{ px: '$pagePadding' }}
+        content={renderContent()}
+        plainContentContainer
+      />
+    </DustSweepEntryCapabilitiesProvider>
   );
 }
 
