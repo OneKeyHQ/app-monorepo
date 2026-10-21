@@ -334,7 +334,10 @@ export function findNearestPointIndex(
     : low;
 }
 
-/** Whole steps from today, so the card reads one price per step. */
+/**
+ * Whole steps from today, so the card reads one price per step. Maturity
+ * rarely falls on a step, so the cursor can stop there too.
+ */
 export function snapToStep({
   time,
   now,
@@ -346,8 +349,13 @@ export function snapToStep({
   maturityTime: number;
   stepMs: number;
 }): number {
-  const snapped = now + Math.round((time - now) / stepMs) * stepMs;
-  return Math.min(Math.max(snapped, now), maturityTime);
+  const snapped = Math.min(
+    Math.max(now + Math.round((time - now) / stepMs) * stepMs, now),
+    maturityTime,
+  );
+  return Math.abs(maturityTime - time) < Math.abs(time - snapped)
+    ? maturityTime
+    : snapped;
 }
 
 export function formatPtRate(rate: number): string {

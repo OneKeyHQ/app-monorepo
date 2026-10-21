@@ -324,6 +324,24 @@ describe('helpers', () => {
     ).toBe(MATURITY_MS);
   });
 
+  it('reaches maturity when it falls between two steps', () => {
+    // 36.1 days left: the last whole step is day 36.
+    const base = {
+      now: NOW_MS,
+      maturityTime: NOW_MS + 36.1 * DAY_MS,
+      stepMs: DAY_MS,
+    };
+    expect(snapToStep({ ...base, time: base.maturityTime })).toBe(
+      base.maturityTime,
+    );
+    expect(snapToStep({ ...base, time: NOW_MS + 36.06 * DAY_MS })).toBe(
+      base.maturityTime,
+    );
+    expect(snapToStep({ ...base, time: NOW_MS + 36.04 * DAY_MS })).toBe(
+      NOW_MS + 36 * DAY_MS,
+    );
+  });
+
   it('formats rates and paths', () => {
     expect(formatPtRate(0.994_704_850_601)).toBe('0.9947');
     expect(formatPtRate(1)).toBe('1');
