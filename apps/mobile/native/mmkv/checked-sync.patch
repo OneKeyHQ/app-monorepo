@@ -1,0 +1,290 @@
+diff --git a/Android/MMKV/mmkv/src/main/cpp/native-bridge.cpp b/Android/MMKV/mmkv/src/main/cpp/native-bridge.cpp
+index d262652..9797817 100644
+--- a/Android/MMKV/mmkv/src/main/cpp/native-bridge.cpp
++++ b/Android/MMKV/mmkv/src/main/cpp/native-bridge.cpp
+@@ -802,6 +802,13 @@ MMKV_JNI void clearAll(JNIEnv *env, jobject instance) {
+     }
+ }
+ 
++MMKV_JNI jint syncExisting(JNIEnv *env, jclass type, jstring mmapID) {
++    if (!mmapID) {
++        return EINVAL;
++    }
++    return MMKV::syncExisting(jstring2string(env, mmapID));
++}
++
+ MMKV_JNI void sync(JNIEnv *env, jobject instance, jboolean sync) {
+     MMKV *kv = getMMKV(env, instance);
+     if (kv) {
+@@ -1230,6 +1237,7 @@ static JNINativeMethod g_methods[] = {
+     {"close", "()V", (void *) mmkv::close},
+     {"clearMemoryCache", "()V", (void *) mmkv::clearMemoryCache},
+     {"sync", "(Z)V", (void *) mmkv::sync},
++    {"syncExistingNative", "(Ljava/lang/String;)I", (void *) mmkv::syncExisting},
+     {"isFileValid", "(Ljava/lang/String;Ljava/lang/String;)Z", (void *) mmkv::isFileValid},
+     {"removeStorage", "(Ljava/lang/String;Ljava/lang/String;)Z", (void *) mmkv::removeStorage},
+     {"ashmemFD", "()I", (void *) mmkv::ashmemFD},
+diff --git a/Android/MMKV/mmkv/src/main/java/com/tencent/mmkv/MMKV.java b/Android/MMKV/mmkv/src/main/java/com/tencent/mmkv/MMKV.java
+index 5955d6c..f8ef82e 100644
+--- a/Android/MMKV/mmkv/src/main/java/com/tencent/mmkv/MMKV.java
++++ b/Android/MMKV/mmkv/src/main/java/com/tencent/mmkv/MMKV.java
+@@ -1357,6 +1357,16 @@ public class MMKV implements SharedPreferences, SharedPreferences.Editor {
+         sync(false);
+     }
+ 
++    /** Flush an existing default-root store; return 0 or a POSIX error number. */
++    public static int syncExisting(String mmapID) {
++        if (rootDir == null) {
++            throw new IllegalStateException("You should Call MMKV.initialize() first.");
++        }
++        return syncExistingNative(mmapID);
++    }
++
++    private static native int syncExistingNative(String mmapID);
++
+     private native void sync(boolean sync);
+ 
+     /**
+diff --git a/Core/MMKV.cpp b/Core/MMKV.cpp
+index fb20d9e..f96d7ca 100755
+--- a/Core/MMKV.cpp
++++ b/Core/MMKV.cpp
+@@ -41,6 +41,8 @@
+ #include <cstring>
+ #include <unordered_set>
+ #include <cassert>
++#include <cerrno>
++#include <memory>
+ 
+ #if defined(__aarch64__) && defined(__linux__) && !defined (MMKV_OHOS)
+ #    include <asm/hwcap.h>
+@@ -1216,6 +1218,56 @@ void MMKV::sync(SyncFlag flag) {
+     m_metaFile->msync(flag);
+ }
+ 
++#ifndef MMKV_WIN32
++int MMKV::syncExisting(const std::string &mmapID) {
++    if (mmapID.empty() || !g_instanceLock) {
++        return EINVAL;
++    }
++    // Match creation/close/remove/restore lock order and pin the cached instance.
++    // This entry point never invokes a factory or reloads missing storage.
++    SCOPED_LOCK(g_instanceLock);
++    if (!g_instanceDic) {
++        return EINVAL;
++    }
++    auto key = mmapedKVKey(mmapID, &g_realRootDir, true);
++    auto found = g_instanceDic->find(key);
++    if (found == g_instanceDic->end() || !found->second) {
++        return ENOENT;
++    }
++    auto kv = found->second;
++    SCOPED_LOCK(kv->m_lock);
++    if (kv->isReadOnly()) {
++        return EROFS;
++    }
++    if (kv->isMultiProcess() && !kv->m_fileLock->lock(ExclusiveLockType)) {
++        return errno ? errno : EIO;
++    }
++    auto unlockProcess = [kv](FileLock *lock) {
++        if (kv->isMultiProcess()) {
++            lock->unlock(ExclusiveLockType);
++        }
++    };
++    std::unique_ptr<FileLock, decltype(unlockProcess)> processLock(kv->m_fileLock, unlockProcess);
++    int error = kv->m_file->validateMappedPath();
++    if (!error) {
++        error = kv->m_metaFile->validateMappedPath();
++    }
++    if (!error) {
++        error = kv->m_file->syncChecked();
++    }
++    if (!error) {
++        error = kv->m_metaFile->syncChecked();
++    }
++    if (!error) {
++        error = kv->m_file->validateMappedPath();
++    }
++    if (!error) {
++        error = kv->m_metaFile->validateMappedPath();
++    }
++    return error;
++}
++#endif
++
+ void MMKV::lock() {
+     SCOPED_LOCK(m_lock);
+     m_exclusiveProcessLock->lock();
+diff --git a/Core/MMKV.h b/Core/MMKV.h
+index 0b2d8d2..77b1d5a 100755
+--- a/Core/MMKV.h
++++ b/Core/MMKV.h
+@@ -620,6 +620,12 @@ public:
+     // unless you worry about running out of battery
+     void sync(SyncFlag flag = MMKV_SYNC);
+ 
++#ifndef MMKV_WIN32
++    // Sync an already initialized default-root instance without creating or
++    // reloading it. Returns 0 on success, otherwise a POSIX error number.
++    static int syncExisting(const std::string &mmapID);
++#endif
++
+     // get exclusive access
+     void lock();
+     void unlock();
+diff --git a/Core/MemoryFile.cpp b/Core/MemoryFile.cpp
+index 8e08858..7038f35 100644
+--- a/Core/MemoryFile.cpp
++++ b/Core/MemoryFile.cpp
+@@ -236,7 +236,75 @@ bool MemoryFile::msync(SyncFlag syncFlag) {
+     return false;
+ }
+ 
++int MemoryFile::validateMappedPath() const {
++    if (!m_ptr || !m_size || !m_hasMappedIdentity) {
++        return EAGAIN;
++    }
++    struct stat pathStat = {};
++    int result;
++    do {
++        result = ::lstat(m_diskFile.getPath().c_str(), &pathStat);
++    } while (result < 0 && errno == EINTR);
++    if (result < 0) {
++        return errno;
++    }
++    if (!S_ISREG(pathStat.st_mode) || pathStat.st_dev != m_mappedDevice ||
++        pathStat.st_ino != m_mappedInode || pathStat.st_size < m_size) {
++        return ESTALE;
++    }
++    return 0;
++}
++
++int MemoryFile::syncChecked() {
++    if (m_readOnly) {
++        return EROFS;
++    }
++    int error = validateMappedPath();
++    if (error) {
++        return error;
++    }
++    // getFd() may reopen a mayfly descriptor with O_CREAT. Open the mapped
++    // inode independently without creation, and keep it pinned until fsync.
++    int fd;
++    do {
++        fd = ::open(m_diskFile.getPath().c_str(), O_RDWR | O_CLOEXEC | O_NOFOLLOW);
++    } while (fd < 0 && errno == EINTR);
++    if (fd < 0) {
++        return errno;
++    }
++    struct CloseDescriptor {
++        int fd;
++        ~CloseDescriptor() { ::close(fd); }
++    } closeDescriptor{fd};
++    struct stat diskStat = {};
++    int result;
++    do {
++        result = ::fstat(fd, &diskStat);
++    } while (result < 0 && errno == EINTR);
++    if (result < 0) {
++        return errno;
++    }
++    if (!S_ISREG(diskStat.st_mode) || diskStat.st_dev != m_mappedDevice ||
++        diskStat.st_ino != m_mappedInode || diskStat.st_size < m_size) {
++        return ESTALE;
++    }
++    do {
++        result = ::msync(m_ptr, m_size, MS_SYNC);
++    } while (result < 0 && errno == EINTR);
++    if (result < 0) {
++        return errno;
++    }
++    do {
++        result = ::fsync(fd);
++    } while (result < 0 && errno == EINTR);
++    if (result < 0) {
++        return errno;
++    }
++    return validateMappedPath();
++}
++
+ bool MemoryFile::mmapOrCleanup(FileLock *fileLock) {
++    m_hasMappedIdentity = false;
+     auto oldPtr = m_ptr;
+     auto mode = m_readOnly ? PROT_READ : (PROT_READ | PROT_WRITE);
+     m_ptr = (char *) ::mmap(m_ptr, m_size, mode, MAP_SHARED, m_diskFile.m_fd, 0);
+@@ -247,6 +315,16 @@ bool MemoryFile::mmapOrCleanup(FileLock *fileLock) {
+         doCleanMemoryCache(true);
+         return false;
+     }
++    struct stat mappedStat = {};
++    int statResult;
++    do {
++        statResult = ::fstat(m_diskFile.m_fd, &mappedStat);
++    } while (statResult < 0 && errno == EINTR);
++    if (statResult == 0) {
++        m_mappedDevice = mappedStat.st_dev;
++        m_mappedInode = mappedStat.st_ino;
++        m_hasMappedIdentity = true;
++    }
+     MMKVInfo("mmap to address [%p], oldPtr [%p], [%s]", m_ptr, oldPtr, m_diskFile.m_path.c_str());
+ 
+     if (m_isMayflyFD && fileLock) {
+diff --git a/Core/MemoryFile.h b/Core/MemoryFile.h
+index 42c22d5..566a3b0 100755
+--- a/Core/MemoryFile.h
++++ b/Core/MemoryFile.h
+@@ -130,6 +130,12 @@ class MemoryFile {
+     const bool m_readOnly;
+     const bool m_isMayflyFD;
+ 
++#ifndef MMKV_WIN32
++    uint64_t m_mappedDevice = 0;
++    uint64_t m_mappedInode = 0;
++    bool m_hasMappedIdentity = false;
++#endif
++
+     bool mmapOrCleanup(FileLock *fileLock);
+ 
+     void doCleanMemoryCache(bool forceClean);
+@@ -168,6 +174,12 @@ public:
+ 
+     bool msync(SyncFlag syncFlag);
+ 
++#ifndef MMKV_WIN32
++    // Caller holds the MMKV instance and process write locks.
++    int syncChecked();
++    int validateMappedPath() const;
++#endif
++
+     // call this if clearMemoryCache() has been called
+     void reloadFromFile(size_t expectedCapacity = 0);
+ 
+diff --git a/iOS/MMKV/MMKV/MMKV.h b/iOS/MMKV/MMKV/MMKV.h
+index 00100a9..28352ac 100644
+--- a/iOS/MMKV/MMKV/MMKV.h
++++ b/iOS/MMKV/MMKV/MMKV.h
+@@ -418,6 +418,9 @@ class MMKV;
+ 
+ /// you don't need to call this, really, I mean it
+ /// unless you worry about running out of battery
++// Flush an existing default-root store; return 0 or a POSIX error number.
+++ (int)syncExisting:(NSString *)mmapID;
++
+ - (void)sync;
+ - (void)async;
+ 
+diff --git a/iOS/MMKV/MMKV/libMMKV.mm b/iOS/MMKV/MMKV/libMMKV.mm
+index 4589879..0454aad 100644
+--- a/iOS/MMKV/MMKV/libMMKV.mm
++++ b/iOS/MMKV/MMKV/libMMKV.mm
+@@ -841,6 +841,10 @@ - (void)removeValuesForKeys:(NSArray *)arrKeys {
+     m_mmkv->removeValuesForKeys(arrKeys);
+ }
+ 
+++ (int)syncExisting:(NSString *)mmapID {
++    return mmkv::MMKV::syncExisting(mmapID.UTF8String ?: "");
++}
++
+ - (void)sync {
+     m_mmkv->sync(mmkv::MMKV_SYNC);
+ }

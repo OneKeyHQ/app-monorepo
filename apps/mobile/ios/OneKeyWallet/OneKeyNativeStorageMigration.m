@@ -2,9 +2,6 @@
 #import <MMKV/MMKV.h>
 #import <React/RCTBridgeModule.h>
 #import <UIKit/UIKit.h>
-#include <errno.h>
-#include <fcntl.h>
-#include <unistd.h>
 
 static NSString *const OneKeyMigrationLedgerPrefix = @"onekey_native_storage_migration_";
 static NSString *const OneKeyMigrationLedgerComplete = @"complete-v1";
@@ -212,46 +209,14 @@ RCT_REMAP_METHOD(syncMMKV,
     reject(@"MMKV_SYNC_FAILED", @"Unsupported MMKV instance", nil);
     return;
   }
-  MMKV *mmkv = [MMKV mmkvWithID:mmapID];
-  if (mmkv == nil) {
-    reject(@"MMKV_SYNC_FAILED", @"MMKV instance is unavailable", nil);
+  // Core pins the existing instance and holds its write locks through both
+  // checked flushes. This call never creates a store.
+  int failure = [MMKV syncExisting:mmapID];
+  if (failure != 0) {
+    reject(@"MMKV_SYNC_FAILED",
+           [NSString stringWithFormat:@"MMKV durability check failed; errno=%d", failure],
+           nil);
     return;
-  }
-  [mmkv sync];
-  // Core's void sync API does not return msync errors. Check both backing
-  // files before JS may commit its independent migration-complete ledger.
-  NSString *rootPath = [MMKV mmkvBasePath];
-  if (rootPath.length == 0) {
-    reject(@"MMKV_SYNC_FAILED", @"MMKV storage path is unavailable", nil);
-    return;
-  }
-  for (NSString *suffix in @[@"", @".crc"]) {
-    NSString *path = [rootPath stringByAppendingPathComponent:
-        [mmapID stringByAppendingString:suffix]];
-    int descriptor;
-    do {
-      descriptor = open(path.fileSystemRepresentation, O_RDWR | O_CLOEXEC);
-    } while (descriptor < 0 && errno == EINTR);
-    int failure = 0;
-    if (descriptor < 0) {
-      failure = errno;
-    } else {
-      int result;
-      do {
-        result = fsync(descriptor);
-      } while (result < 0 && errno == EINTR);
-      if (result < 0) {
-        failure = errno;
-      }
-      close(descriptor);
-    }
-    if (failure != 0) {
-      reject(@"MMKV_SYNC_FAILED",
-             [NSString stringWithFormat:@"MMKV durability check failed (%@); errno=%d",
-                 suffix.length == 0 ? @"data" : @"crc", failure],
-             nil);
-      return;
-    }
   }
   resolve(nil);
 }
