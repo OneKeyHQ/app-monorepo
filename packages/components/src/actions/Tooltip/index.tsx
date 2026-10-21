@@ -46,6 +46,7 @@ export function Tooltip({
   renderTrigger,
   renderContent,
   placement = 'bottom',
+  offset = TOOLTIP_OFFSET,
   shortcutKey,
   hovering,
   closeOnScroll,
@@ -104,7 +105,7 @@ export function Tooltip({
     triggerRef: positionTriggerRef,
     panel,
     placement,
-    offset: TOOLTIP_OFFSET,
+    offset,
     allowFlip: true,
   });
 

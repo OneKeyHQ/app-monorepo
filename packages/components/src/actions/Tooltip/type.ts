@@ -12,6 +12,7 @@ export interface ITooltipProps {
   renderTrigger: React.ReactNode;
   renderContent: React.ReactNode;
   placement?: Placement;
+  offset?: number;
   /** Controlled open state; requests then go to `onOpenChange`. */
   open?: boolean;
   onOpenChange?: (open: boolean) => void;

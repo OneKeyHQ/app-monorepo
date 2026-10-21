@@ -7,7 +7,11 @@ import { useState } from 'react';
 
 import { Tooltip } from '.';
 
-import { autoUpdate, computePosition } from '@floating-ui/dom';
+import {
+  autoUpdate,
+  computePosition,
+  offset as offsetMiddleware,
+} from '@floating-ui/dom';
 import { act, fireEvent, render, screen } from '@testing-library/react';
 
 jest.mock('../../primitives', () => {
@@ -40,7 +44,7 @@ jest.mock('@floating-ui/dom', () => ({
   }),
   computePosition: jest.fn(async () => ({ x: 10, y: 20 })),
   flip: () => ({}),
-  offset: () => ({}),
+  offset: jest.fn(() => ({})),
   shift: () => ({}),
   size: () => ({}),
 }));
@@ -157,6 +161,23 @@ it('reanchors the actual positioning hook to B while open and cleans up A', asyn
   await act(async () => {});
   view.unmount();
   expect(releaseB).toHaveBeenCalledTimes(1);
+});
+
+it('uses the default and supplied offsets, including zero and updates while open', () => {
+  const getLastOffset = () => jest.mocked(offsetMiddleware).mock.lastCall?.[0];
+  jest.mocked(offsetMiddleware).mockClear();
+  const view = render(
+    <Tooltip open renderTrigger="Trigger" renderContent="Hint" />,
+  );
+  expect(getLastOffset()).toBe(6);
+  view.rerender(
+    <Tooltip open offset={12} renderTrigger="Trigger" renderContent="Hint" />,
+  );
+  expect(getLastOffset()).toBe(12);
+  view.rerender(
+    <Tooltip open offset={0} renderTrigger="Trigger" renderContent="Hint" />,
+  );
+  expect(getLastOffset()).toBe(0);
 });
 it('ignores hover and touch open requests while disabled', () => {
   const onOpenChange = jest.fn();
