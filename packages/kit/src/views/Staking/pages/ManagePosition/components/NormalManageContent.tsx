@@ -717,56 +717,76 @@ export function NormalManageContent({
   return (
     <>
       <XStack jc="space-between" px="$5">
-        <Tabs.TabBar
-          divider={false}
-          onTabPress={handleTabChange}
-          tabNames={visibleTabNames}
-          focusedTab={focusedTab}
-          renderItem={({ name, isFocused }) => {
-            const isDisabled = shouldDisablePrimaryTab && name === tabNames[0];
-            let textColor: '$textDisabled' | '$text' | '$textSubdued' =
-              '$textSubdued';
-
-            if (isDisabled) {
-              textColor = '$textDisabled';
-            } else if (isFocused) {
-              textColor = '$text';
+        {visibleTabNames.length === 1 ? (
+          // One side alone (the router, or a modal opened for one action)
+          // gets a title on the tab's line, in line with the amount box's
+          // label, instead of a tab with nothing beside it to switch to
+          <SizableText
+            size="$headingMd"
+            letterSpacing={-0.15}
+            py="$1.5"
+            px="$3.5"
+            color={
+              shouldDisablePrimaryTab && visibleTabNames[0] === tabNames[0]
+                ? '$textDisabled'
+                : '$text'
             }
+          >
+            {visibleTabNames[0]}
+          </SizableText>
+        ) : (
+          <Tabs.TabBar
+            divider={false}
+            onTabPress={handleTabChange}
+            tabNames={visibleTabNames}
+            focusedTab={focusedTab}
+            renderItem={({ name, isFocused }) => {
+              const isDisabled =
+                shouldDisablePrimaryTab && name === tabNames[0];
+              let textColor: '$textDisabled' | '$text' | '$textSubdued' =
+                '$textSubdued';
 
-            return (
-              <XStack
-                px="$2"
-                py="$1.5"
-                mr="$1"
-                bg={isFocused ? '$bgActive' : '$bg'}
-                borderRadius="$2"
-                borderCurve="continuous"
-                opacity={isDisabled ? 0.4 : 1}
-                hoverStyle={
-                  !isFocused && !isDisabled
-                    ? {
-                        bg: '$bgHover',
-                      }
-                    : null
-                }
-                onPress={() => {
-                  if (isDisabled) {
-                    return;
+              if (isDisabled) {
+                textColor = '$textDisabled';
+              } else if (isFocused) {
+                textColor = '$text';
+              }
+
+              return (
+                <XStack
+                  px="$2"
+                  py="$1.5"
+                  mr="$1"
+                  bg={isFocused ? '$bgActive' : '$bg'}
+                  borderRadius="$2"
+                  borderCurve="continuous"
+                  opacity={isDisabled ? 0.4 : 1}
+                  hoverStyle={
+                    !isFocused && !isDisabled
+                      ? {
+                          bg: '$bgHover',
+                        }
+                      : null
                   }
-                  handleTabChange(name);
-                }}
-              >
-                <SizableText
-                  size="$headingMd"
-                  color={textColor}
-                  letterSpacing={-0.15}
+                  onPress={() => {
+                    if (isDisabled) {
+                      return;
+                    }
+                    handleTabChange(name);
+                  }}
                 >
-                  {name}
-                </SizableText>
-              </XStack>
-            );
-          }}
-        />
+                  <SizableText
+                    size="$headingMd"
+                    color={textColor}
+                    letterSpacing={-0.15}
+                  >
+                    {name}
+                  </SizableText>
+                </XStack>
+              );
+            }}
+          />
+        )}
         <HeaderRight
           accountId={indicatorAccountId || earnAccount?.accountId}
           networkId={networkId}
