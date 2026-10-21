@@ -219,6 +219,9 @@ function mergeLiveOverride(
   }
   if (override.change24h !== undefined) {
     nextToken.change24h = override.change24h;
+    // Keep the raw value in step, so a row whose feed had no change ('-' or
+    // omitted) shows the live change instead of still reading as missing.
+    nextToken.priceChangeRaw = String(override.change24h);
     hasOverride = true;
   }
   if (override.marketCap !== undefined) {
