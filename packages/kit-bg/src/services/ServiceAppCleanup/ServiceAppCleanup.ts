@@ -221,6 +221,10 @@ class ServiceAppCleanup extends ServiceBase {
           'aggregateToken',
           simpleDb.aggregateToken.removeOrphanData({ validAccountIds }),
         ],
+        [
+          'starknetPrivacy',
+          simpleDb.starknetPrivacy.removeOrphanData({ validAccountIds }),
+        ],
       ];
       const results = await Promise.allSettled(tasks.map(([, p]) => p));
       results.forEach((r, i) => {

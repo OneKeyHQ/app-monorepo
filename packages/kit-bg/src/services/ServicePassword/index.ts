@@ -311,6 +311,9 @@ export default class ServicePassword extends ServiceBase {
     // For keyless mode, credentials can be re-read from storage without password.
     void this.backgroundApi.servicePrimeCloudSync.clearCachedSyncCredential();
     void this.backgroundApi.serviceKeylessCloudSync.clearKeylessCloudSyncCredentialCache();
+    // STRK20 viewing keys are derived secrets held in bg memory; nothing else
+    // clears them, so they would silently outlive the lock.
+    void this.backgroundApi.serviceStarknetPrivacy.clearViewingKeyCache();
     await this.clearCachedPrfMasterKey();
     await this.refreshHyperLiquidAgentPasswordStatus();
   }

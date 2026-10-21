@@ -202,6 +202,7 @@ class ServiceGas extends ServiceBase {
         };
       }),
       feeNeoN3: feeInfo.feeNeoN3,
+      feeStarknet: feeInfo.feeStarknet,
       megafuelEligible: feeInfo.megafuelEligible,
       payer: feeInfo.payer,
       gasAccountEligible: feeInfo.gasAccountEligible,

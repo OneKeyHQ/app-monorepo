@@ -27,6 +27,7 @@ import {
   IMPL_NOSTR,
   IMPL_SCDO,
   IMPL_SOL,
+  IMPL_STARKNET,
   IMPL_STELLAR,
   IMPL_SUI,
   IMPL_TBTC,
@@ -88,6 +89,7 @@ const settingsLoader: Record<
   [IMPL_NEO]: () => import('./impls/neo/settings'),
   [IMPL_AGGREGATE]: () => import('./impls/aggregate/settings'),
   [IMPL_STELLAR]: () => import('./impls/stellar/settings'),
+  [IMPL_STARKNET]: () => import('./impls/starknet/settings'),
 };
 
 function validateVaultSettings({
