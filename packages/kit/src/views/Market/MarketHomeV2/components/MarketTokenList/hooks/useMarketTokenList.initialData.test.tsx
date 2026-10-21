@@ -2,6 +2,7 @@
 
 import { act, render, renderHook, waitFor } from '@testing-library/react';
 
+import { getMarketHomeTokenListSeedForInit } from '@onekeyhq/kit/src/views/Market/utils/marketHomeTokenListSeed';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
@@ -77,7 +78,10 @@ jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
 
 jest.mock('@onekeyhq/shared/src/utils/networkUtils', () => ({
   __esModule: true,
-  default: { isAllNetwork: () => false },
+  default: {
+    isAllNetwork: ({ networkId }: { networkId: string }) =>
+      networkId === 'onekeyall--0',
+  },
 }));
 
 jest.mock('../utils/tokenListHelpers', () => {
@@ -225,6 +229,32 @@ describe('useMarketTokenList initial data', () => {
     mockFetchMarketTokenList.mockReset();
     mockTransformApiItemToToken.mockClear();
     mockTrackNetworkLoading.mockReset();
+    jest.mocked(getMarketHomeTokenListSeedForInit).mockReset();
+  });
+
+  it('renders bootstrap rows for API-default trending before its remote request completes', async () => {
+    const seed = {
+      ...createResponse('0xseed', 'Seed Token', 'SEED'),
+      __fromSeed: true,
+    };
+    jest.mocked(getMarketHomeTokenListSeedForInit).mockReturnValueOnce(seed);
+    mockFetchMarketTokenList.mockReturnValue(new Promise(() => undefined));
+
+    const { result } = renderHook(() =>
+      useMarketTokenList({
+        networkId: 'onekeyall--0',
+        type: 'trending',
+        timeRange: '1h',
+        useApiDefaultSort: true,
+        pollingInterval: 0,
+      }),
+    );
+
+    await waitFor(() =>
+      expect(result.current.data.map((token) => token.symbol)).toEqual([
+        'SEED',
+      ]),
+    );
   });
 
   afterEach(() => {
