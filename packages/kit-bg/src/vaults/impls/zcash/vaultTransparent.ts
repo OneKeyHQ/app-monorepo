@@ -24,8 +24,12 @@ import { EAddressEncodings } from '@onekeyhq/core/src/types';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import { LRUCache } from '@onekeyhq/shared/src/utils/cacheUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
+import { gateLocalWalletHistoryTx } from '@onekeyhq/shared/src/utils/privacyChainHistoryAddressGate';
+import type { ILocalWalletHistoryAddressGate } from '@onekeyhq/shared/src/utils/privacyChainHistoryAddressGate';
 import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
 import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
+
+import { loadCachedLocalWalletHistory } from '../../localWallet/cachedHistory';
 
 import {
   ZCASH_TRANSPARENT_P2PKH_SCRIPT_RE,
@@ -55,6 +59,7 @@ export async function zcashDropExpiredTransparentSends(
     backendTipHeight,
     backendStatuses,
     backendMinedTxids,
+    addressGate,
   }: {
     accountId: string;
     historyParams: { networkId: string; accountAddress: string; xpub?: string };
@@ -64,6 +69,7 @@ export async function zcashDropExpiredTransparentSends(
     backendStatuses: Map<string, EDecodedTxStatus>;
     // Rows the backend reports in a block, whatever their status says.
     backendMinedTxids: Set<string>;
+    addressGate: ILocalWalletHistoryAddressGate;
   },
 ): Promise<void> {
   const pending =
@@ -104,14 +110,16 @@ export async function zcashDropExpiredTransparentSends(
         tx.decodedTx.status === EDecodedTxStatus.Pending &&
         expired.has(tx.decodedTx.txid.toLowerCase()),
     )
-    .map((tx) => ({
-      ...tx,
-      decodedTx: {
-        ...tx.decodedTx,
-        status: EDecodedTxStatus.Dropped,
-        broadcastOutcomeUnknown: false,
-      },
-    }));
+    .map((tx) =>
+      gateLocalWalletHistoryTx(addressGate, {
+        ...tx,
+        decodedTx: {
+          ...tx.decodedTx,
+          status: EDecodedTxStatus.Dropped,
+          broadcastOutcomeUnknown: false,
+        },
+      }),
+    );
   if (rows.length) {
     await vault.backgroundApi.simpleDb.localHistory.batchUpdateLocalHistoryTxs([
       {
@@ -173,6 +181,43 @@ export function zcashNormalizeTransparentPath(
   const match = ZCASH_TRANSPARENT_PATH_RE.exec(derivationPath);
   if (!match || Number(match[1]) !== accountIndex) return undefined;
   return { derivationPath, internal: match[2] === '1' };
+}
+
+// Txids this account funded (upstream "trusted"): its unsettled signed sends,
+// this device's sends and rows whose inputs the backend marks as the account's.
+// Any failure proves nothing, so the untrusted threshold stays.
+async function zcashOwnFundedTxids(
+  vault: Vault,
+  account: IDBUtxoAccount,
+): Promise<Set<string>> {
+  try {
+    const [journal, cachedHistory] = await Promise.all([
+      vault.backgroundApi.simpleDb.zcash.listTransparentPendingTxs({
+        accountId: account.id,
+      }),
+      loadCachedLocalWalletHistory({
+        backgroundApi: vault.backgroundApi,
+        networkId: vault.networkId,
+        accountAddress: account.address,
+        xpub: account.xpubSegwit || account.xpub,
+      }),
+    ]);
+    const isOwnSend = (tx: IAccountHistoryTx) =>
+      (tx.isLocalCreated === true &&
+        (tx.decodedTx.encodedTx as IEncodedTxZcash | undefined)?.zcashMode ===
+          'transparent') ||
+      !!tx.decodedTx.actions?.some((action) =>
+        action.assetTransfer?.sends.some((send) => send.isOwn === true),
+      );
+    return new Set([
+      ...journal.map((tx) => tx.txid.toLowerCase()),
+      ...cachedHistory
+        .filter(isOwnSend)
+        .map((tx) => tx.decodedTx.txid.toLowerCase()),
+    ]);
+  } catch {
+    return new Set();
+  }
 }
 
 export async function zcashFetchFreshTransparentUtxos(
@@ -282,6 +327,13 @@ export async function zcashFetchFreshTransparentUtxos(
       )),
     ].map((key) => key.toLowerCase()),
   );
+  const ownFundedTxids = confirmedUtxos.some(
+    (utxo) =>
+      utxo.confirmations >= TRUSTED_CONFIRMATIONS &&
+      utxo.confirmations < UNTRUSTED_CONFIRMATIONS,
+  )
+    ? await zcashOwnFundedTxids(vault, account)
+    : new Set<string>();
   let coinbaseZat = new BigNumber(0);
   const seen = new Set<string>();
   const utxos: IZcashTransparentTxRequest['utxos'] = [];
@@ -323,9 +375,11 @@ export async function zcashFetchFreshTransparentUtxos(
       accountIndex,
     });
     const { scriptPubKey } = output;
-    const confirmationsRequired = normalizedPath?.internal
-      ? TRUSTED_CONFIRMATIONS
-      : UNTRUSTED_CONFIRMATIONS;
+    // Change goes to the receive address 0/0, so the path alone can't tell it apart from a deposit.
+    const confirmationsRequired =
+      normalizedPath?.internal || ownFundedTxids.has(utxo.txid.toLowerCase())
+        ? TRUSTED_CONFIRMATIONS
+        : UNTRUSTED_CONFIRMATIONS;
     if (
       coinbase !== false ||
       !normalizedPath ||

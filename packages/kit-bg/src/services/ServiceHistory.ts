@@ -2195,16 +2195,18 @@ class ServiceHistory extends ServiceBase {
       const localHistoryPendingTxs =
         await this.getAccountsLocalHistoryPendingTxs(allNetworksParams);
 
-      const result = unionBy(
-        [
-          ...localHistoryPendingTxs,
-          ...localHistoryConfirmedTxs.toSorted(
-            (b, a) =>
-              (a.decodedTx.updatedAt ?? a.decodedTx.createdAt ?? 0) -
-              (b.decodedTx.updatedAt ?? b.decodedTx.createdAt ?? 0),
-          ),
-        ],
-        (tx) => tx.id,
+      const result = await this.gateLocalWalletCachedHistoryTxs(
+        unionBy(
+          [
+            ...localHistoryPendingTxs,
+            ...localHistoryConfirmedTxs.toSorted(
+              (b, a) =>
+                (a.decodedTx.updatedAt ?? a.decodedTx.createdAt ?? 0) -
+                (b.decodedTx.updatedAt ?? b.decodedTx.createdAt ?? 0),
+            ),
+          ],
+          (tx) => tx.id,
+        ),
       );
 
       for (let i = 0; i < result.length; i += 1) {
@@ -2261,9 +2263,11 @@ class ServiceHistory extends ServiceBase {
       accountId,
     });
 
-    const result = unionBy(
-      [...localHistoryPendingTxs, ...localHistoryConfirmedTxs],
-      (tx) => tx.id,
+    const result = await this.gateLocalWalletCachedHistoryTxs(
+      unionBy(
+        [...localHistoryPendingTxs, ...localHistoryConfirmedTxs],
+        (tx) => tx.id,
+      ),
     );
 
     const resultWithPrivateSendDisplayStatus =
@@ -2936,6 +2940,48 @@ class ServiceHistory extends ServiceBase {
           privacyChainHistoryPoolIds: [poolId],
         },
       ];
+    });
+  }
+
+  // Cached rows skip the vault's history build, so local-wallet chains' rows
+  // face the same own-address gate here. A gate that can't be built hides
+  // every own address of that account; the rows stay.
+  private async gateLocalWalletCachedHistoryTxs(
+    txs: IAccountHistoryTx[],
+  ): Promise<IAccountHistoryTx[]> {
+    const localWalletNetworkIds = new Set<string>();
+    await Promise.all(
+      uniq(txs.map((tx) => tx.decodedTx.networkId)).map(async (id) => {
+        const localWallet = await this.backgroundApi.serviceNetwork
+          .getVaultSettings({ networkId: id })
+          .then((settings) => settings.localWallet)
+          .catch(() => undefined);
+        if (localWallet) localWalletNetworkIds.add(id);
+      }),
+    );
+    if (!localWalletNetworkIds.size) return txs;
+    const gateKey = (tx: IAccountHistoryTx) =>
+      `${tx.decodedTx.networkId}:${tx.decodedTx.accountId}`;
+    const gates = new Map<string, ILocalWalletHistoryAddressGate>();
+    await Promise.all(
+      uniqBy(
+        txs.filter((tx) => localWalletNetworkIds.has(tx.decodedTx.networkId)),
+        gateKey,
+      ).map(async (tx) => {
+        const { networkId, accountId } = tx.decodedTx;
+        gates.set(
+          gateKey(tx),
+          await getLocalWalletHistoryAddressGate({
+            backgroundApi: this.backgroundApi,
+            networkId,
+            accountId,
+          }).catch((): ILocalWalletHistoryAddressGate => ({})),
+        );
+      }),
+    );
+    return txs.map((tx) => {
+      const gate = gates.get(gateKey(tx));
+      return gate ? gateLocalWalletHistoryTx(gate, tx) : tx;
     });
   }
 

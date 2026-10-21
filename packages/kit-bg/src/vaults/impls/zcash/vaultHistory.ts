@@ -7,6 +7,8 @@ import type {
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { LRUCache } from '@onekeyhq/shared/src/utils/cacheUtils';
+import { gateLocalWalletHistoryTx } from '@onekeyhq/shared/src/utils/privacyChainHistoryAddressGate';
+import type { ILocalWalletHistoryAddressGate } from '@onekeyhq/shared/src/utils/privacyChainHistoryAddressGate';
 import {
   PRIVACY_CHAIN_PUBLIC_POOL_ID,
   appendMissingPrivacyChainHistoryTxs,
@@ -355,10 +357,14 @@ export async function fetchAccountHistoryFromLocal(
     accountAddress: string;
     xpub?: string;
     isManualRefresh?: boolean;
+    // Rows written to the shared history cache pass this gate first.
+    addressGate: ILocalWalletHistoryAddressGate;
   },
 ): Promise<IAccountHistoryTx[] | undefined> {
   // honor the explicit param; this.accountId is '' on a chain-only vault
   const accountId = params.accountId || vault.accountId;
+  const gateRows = (rows: IAccountHistoryTx[]) =>
+    rows.map((tx) => gateLocalWalletHistoryTx(params.addressGate, tx));
   let items: IZcashHistoryItem[];
   let historySnapshotIsComplete = true;
   let chainTip: number | null | undefined;
@@ -577,22 +583,24 @@ export async function fetchAccountHistoryFromLocal(
         accountAddress: params.accountAddress,
         xpub: params.xpub,
         // Only sends from this device; other backend Pending rows stay in the snapshot, as on BTC.
-        pendingTxs: publicTxs.filter(
-          (tx) =>
-            tx.decodedTx.status === EDecodedTxStatus.Pending &&
-            (journalTxids.has(tx.decodedTx.txid.toLowerCase()) ||
-              !!(tx.decodedTx.encodedTx as IEncodedTxZcash | undefined)
-                ?.zcashMode),
+        pendingTxs: gateRows(
+          publicTxs.filter(
+            (tx) =>
+              tx.decodedTx.status === EDecodedTxStatus.Pending &&
+              (journalTxids.has(tx.decodedTx.txid.toLowerCase()) ||
+                !!(tx.decodedTx.encodedTx as IEncodedTxZcash | undefined)
+                  ?.zcashMode),
+          ),
         ),
         // Local-only Dropped rows go first so the 50-row cap keeps them.
-        confirmedTxs: [
+        confirmedTxs: gateRows([
           ...cachedDropped.filter(
             (tx) => !publicTxids.has(tx.decodedTx.txid.toLowerCase()),
           ),
           ...publicTxs.filter(
             (tx) => tx.decodedTx.status !== EDecodedTxStatus.Pending,
           ),
-        ],
+        ]),
       });
       cacheSaved = true;
     } catch (e) {
@@ -619,6 +627,7 @@ export async function fetchAccountHistoryFromLocal(
           backendTipHeight: publicTipHeight,
           backendStatuses: observedTxs,
           backendMinedTxids: minedTxids,
+          addressGate: params.addressGate,
         });
       } catch (error) {
         console.error(
@@ -645,7 +654,11 @@ export async function fetchAccountHistoryFromLocal(
       (tx) =>
         (tx.decodedTx.status === EDecodedTxStatus.Dropped ||
           tx.decodedTx.status === EDecodedTxStatus.Pending) &&
-        !publicTxs.some((row) => row.decodedTx.txid === tx.decodedTx.txid),
+        !publicTxs.some(
+          (row) =>
+            row.decodedTx.txid.toLowerCase() ===
+            tx.decodedTx.txid.toLowerCase(),
+        ),
     ),
     ...publicTxs,
   ];

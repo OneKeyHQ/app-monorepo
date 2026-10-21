@@ -5,6 +5,8 @@ jest.mock('../../../dbs/local/localDbInstance', () => ({
 }));
 
 import type { IZcashParsedTransparentTransaction } from '@onekeyhq/core/src/chains/zcash/sdkZcash/types/sdk';
+import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
+import { EDecodedTxActionType } from '@onekeyhq/shared/types/tx';
 
 import VaultBtc from '../btc/Vault';
 
@@ -33,11 +35,15 @@ function createVault({
   ],
   raw = { [txid]: 'raw-transaction' },
   inUse = [],
+  journalTxids = [],
+  cachedHistory = [],
 }: {
   utxos?: (typeof utxo)[];
   parsed?: IZcashParsedTransparentTransaction[];
   raw?: Record<string, string>;
   inUse?: string[];
+  journalTxids?: string[];
+  cachedHistory?: IAccountHistoryTx[];
 } = {}) {
   const fetchAccountDetails = jest
     .spyOn(VaultBtc.prototype, 'fetchAccountDetails')
@@ -53,11 +59,19 @@ function createVault({
     );
   const parseTransparentTransactions = jest.fn().mockResolvedValue(parsed);
   const listTransparentOutpointsInUse = jest.fn(async () => new Set(inUse));
+  const listTransparentPendingTxs = jest.fn(async () =>
+    journalTxids.map((id) => ({ txid: id })),
+  );
+  const getAccountLocalHistoryConfirmedTxs = jest.fn(async () => cachedHistory);
   const vault = Object.assign(Object.create(Vault.prototype) as Vault, {
     networkId: 'zec--0',
     backgroundApi: {
       simpleDb: {
-        zcash: { listTransparentOutpointsInUse },
+        zcash: { listTransparentOutpointsInUse, listTransparentPendingTxs },
+        localHistory: {
+          getAccountLocalHistoryConfirmedTxs,
+          getAccountLocalHistoryPendingTxs: async () => [],
+        },
       },
       serviceSend: { getRawTransactions },
     },
@@ -74,6 +88,7 @@ function createVault({
     parseTransparentTransactions,
     fetchAccountDetails,
     listTransparentOutpointsInUse,
+    getAccountLocalHistoryConfirmedTxs,
   };
 }
 
@@ -260,4 +275,108 @@ it('does not select a zero-value output', async () => {
   });
   const result = await vault['zcashFetchFreshTransparentUtxos']();
   expect(result.utxos).toEqual([]);
+});
+
+describe('confirmations required for change on the receive address', () => {
+  // Change returns to 0/0, the same address deposits arrive at.
+  const recent = { ...utxo, confirmations: 3 };
+  const historyRow = ({
+    isLocalCreated,
+    zcashMode,
+    ownInput,
+  }: {
+    isLocalCreated?: boolean;
+    zcashMode?: string;
+    ownInput: boolean;
+  }) =>
+    ({
+      id: `zec--0_${txid}`,
+      isLocalCreated,
+      decodedTx: {
+        txid: txid.toUpperCase(),
+        encodedTx: zcashMode ? { zcashMode } : undefined,
+        actions: [
+          {
+            type: EDecodedTxActionType.ASSET_TRANSFER,
+            assetTransfer: {
+              from: '',
+              to: utxo.address,
+              sends: [{ from: '', to: '', isOwn: ownInput }],
+              receives: [{ from: '', to: utxo.address, isOwn: true }],
+            },
+          },
+        ],
+      },
+    }) as unknown as IAccountHistoryTx;
+  const spendable = async (options: Parameters<typeof createVault>[0]) =>
+    (await createVault(options).vault.zcashFetchFreshTransparentUtxos()).utxos;
+
+  it.each([
+    [
+      'this device sent it',
+      historyRow({
+        isLocalCreated: true,
+        zcashMode: 'transparent',
+        ownInput: false,
+      }),
+    ],
+    ['the backend marks an input as ours', historyRow({ ownInput: true })],
+  ])('spends own change at 3 confirmations when %s', async (_case, row) => {
+    expect(
+      await spendable({ utxos: [recent], cachedHistory: [row] }),
+    ).toHaveLength(1);
+  });
+
+  it('spends own change at 3 confirmations while its send is unsettled', async () => {
+    expect(
+      await spendable({ utxos: [recent], journalTxids: [txid.toUpperCase()] }),
+    ).toHaveLength(1);
+  });
+
+  it('waits 10 confirmations for a third-party deposit to the receive address', async () => {
+    const deposit = historyRow({ ownInput: false });
+    for (const confirmations of [3, 9]) {
+      // eslint-disable-next-line no-await-in-loop
+      const utxos = await spendable({
+        utxos: [{ ...utxo, confirmations }],
+        cachedHistory: [deposit],
+      });
+      expect(utxos).toEqual([]);
+      jest.restoreAllMocks();
+    }
+    expect(
+      await spendable({
+        utxos: [{ ...utxo, confirmations: 10 }],
+        cachedHistory: [deposit],
+      }),
+    ).toHaveLength(1);
+  });
+
+  it('waits 10 confirmations when ownership cannot be read', async () => {
+    const { vault, getAccountLocalHistoryConfirmedTxs } = createVault({
+      utxos: [recent],
+    });
+    getAccountLocalHistoryConfirmedTxs.mockRejectedValue(
+      new Error('storage unavailable'),
+    );
+    expect((await vault.zcashFetchFreshTransparentUtxos()).utxos).toEqual([]);
+  });
+
+  it('keeps 3 confirmations for internal change when ownership cannot be read', async () => {
+    const { vault, getAccountLocalHistoryConfirmedTxs } = createVault({
+      utxos: [{ ...recent, path: "m/44'/133'/0'/1/0" }],
+    });
+    getAccountLocalHistoryConfirmedTxs.mockRejectedValue(
+      new Error('storage unavailable'),
+    );
+    expect((await vault.zcashFetchFreshTransparentUtxos()).utxos).toHaveLength(
+      1,
+    );
+  });
+
+  it('reads no history when every UTXO is past 10 confirmations', async () => {
+    const { vault, getAccountLocalHistoryConfirmedTxs } = createVault();
+    await vault.zcashFetchFreshTransparentUtxos();
+    expect(getAccountLocalHistoryConfirmedTxs).not.toHaveBeenCalled();
+  });
 });
