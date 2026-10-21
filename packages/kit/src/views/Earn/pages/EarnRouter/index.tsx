@@ -25,6 +25,7 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   ETabEarnRoutes,
   ITabEarnParamList,
@@ -459,6 +460,14 @@ function EarnRouterPage({ route }: { route: IRouteProps }) {
   } else {
     body = (
       <YStack gap="$4">
+        {/* The web app's header has no title, and below gtSm the container
+            hides the breadcrumb and the title under it, so the page names its
+            token and network itself, as the details page does */}
+        {platformEnv.isWebDappMode && !media.gtSm ? (
+          <XStack px="$pagePadding" pt="$4">
+            {pageTitle}
+          </XStack>
+        ) : null}
         <YStack px="$5">
           <OfferSwitch
             offers={offers}

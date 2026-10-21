@@ -129,10 +129,10 @@ export function EarnPageContainer({
     headerLeftMaxWidth,
   ]);
 
-  const showBreadcrumb = useMemo(
-    () => breadcrumbProps && media.gtSm,
-    [breadcrumbProps, media],
-  );
+  // Read on every render: useMedia's object keeps its identity when the
+  // width changes, so a memo keyed on it kept the first width's answer (the
+  // breadcrumb and title stayed hidden after widening, shown after narrowing)
+  const showBreadcrumb = Boolean(breadcrumbProps) && media.gtSm;
   const showHeader = useMemo(() => header, [header]);
 
   // In WebDapp mode, always use TabPageHeader for consistent mobile layout
