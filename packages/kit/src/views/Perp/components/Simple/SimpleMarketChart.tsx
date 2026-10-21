@@ -211,8 +211,9 @@ export function SimpleMarketChart({
       mt="$-3"
       mb="$-4"
     >
-      {showCandles && active ? (
+      {showCandles ? (
         <TradingViewNative
+          active={active}
           testID="perps-simple-native-chart"
           defaultBackgroundColor={
             !fullscreen && themeVariant === 'light'

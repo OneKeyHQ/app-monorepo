@@ -8,6 +8,7 @@ export type ISubscriptionRecoveryProofSource =
   | 'route-focused'
   | 'token-selector'
   | 'trade-history-details'
+  | 'simple-market'
   | 'notification-navigation';
 
 export interface ISubscriptionRecoveryProof {
