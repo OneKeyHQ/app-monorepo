@@ -139,7 +139,9 @@ export function EarnDesktopHome({
   faqList,
   isFaqLoading,
   isActive,
+  isRefreshing,
   onOpenPortfolio,
+  onRefresh,
   onOpenLoans,
   onOpenProtocols,
   onRegisterRefresh,
@@ -154,7 +156,10 @@ export function EarnDesktopHome({
   faqList: Array<{ question: string; answer: string }>;
   isFaqLoading: boolean;
   isActive: boolean;
+  isRefreshing?: boolean;
   onOpenPortfolio: () => void;
+  /** The page's refresh, for the button beside Net Worth */
+  onRefresh?: () => void;
   onOpenLoans: () => void;
   onOpenProtocols: () => void;
   /** The page's refresh (pull or a settled Earn transaction) asks this too */
@@ -363,9 +368,11 @@ export function EarnDesktopHome({
               borrowInterest24h={borrowInterest24h}
               shares={shares}
               isLoading={isHeroLoading}
+              isRefreshing={isRefreshing}
               hasPositions={hasPositions}
               isActive={isActive}
               onOpenPortfolio={onOpenPortfolio}
+              onRefresh={onRefresh}
               onOpenTokens={handleOpenTokens}
               onOpenLoans={onOpenLoans}
               onOpenProtocols={onOpenProtocols}

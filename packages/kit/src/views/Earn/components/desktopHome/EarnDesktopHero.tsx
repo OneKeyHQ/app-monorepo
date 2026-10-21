@@ -39,26 +39,24 @@ import type { IEarnDesktopShares } from './earnDesktopHome.utils';
 const SHARE_COLORS = ['$neutral11', '$neutral9', '$neutral7'] as const;
 const REST_SHARE_COLOR = '$neutral5';
 const SECONDS_PER_DAY = 24 * 60 * 60;
-// A third over the wallet home's 48px balance, so Net Worth leads the page;
-// the line height matches the size. A total too long for the hero beside the
-// banner takes the largest of these that fits, the way a phone's auto-sizing
-// label shrinks, and keeps the 64px line
-const TOTAL_FONT_SIZES = [64, 60, 56, 52, 48, 44, 40] as const;
+// The wallet home's balance size, with the same line height. A total too long
+// for the hero beside the banner takes the largest of these that fits, the way
+// a phone's auto-sizing label shrinks, and keeps the 48px line
+const TOTAL_FONT_SIZES = [48, 44, 40] as const;
 type ITotalFontSize = (typeof TOTAL_FONT_SIZES)[number];
-const TOTAL_FONT_SIZE: ITotalFontSize = 64;
+const TOTAL_FONT_SIZE: ITotalFontSize = 48;
 const MIN_TOTAL_FONT_SIZE: ITotalFontSize = 40;
 // The chevron keeps about the same proportion to the number
 const CHEVRON_SIZE = {
-  64: { token: '$10', px: 40 },
-  60: { token: '$9', px: 36 },
-  56: { token: '$9', px: 36 },
-  52: { token: '$8', px: 32 },
   48: { token: '$8', px: 32 },
   44: { token: '$7', px: 28 },
   40: { token: '$6', px: 24 },
 } as const;
 // The entry's left padding and the gap before the chevron
 const ENTRY_PADDING_WIDTH = 14;
+// The refresh button after the entry (36px) and the gap before it, as the
+// wallet home places its own
+const REFRESH_WIDTH = 12 + 36;
 // Growing back needs this much room, so a total ticking over the edge of a
 // size does not flip between two
 const GROW_SPARE_WIDTH = 8;
@@ -251,9 +249,11 @@ export function EarnDesktopHero({
   borrowInterest24h,
   shares,
   isLoading,
+  isRefreshing,
   hasPositions,
   isActive,
   onOpenPortfolio,
+  onRefresh,
   onOpenTokens,
   onOpenLoans,
   onOpenProtocols,
@@ -265,10 +265,13 @@ export function EarnDesktopHero({
   shares: IEarnDesktopShares;
   /** Until every source has answered for this account once */
   isLoading: boolean;
+  isRefreshing?: boolean;
   /** Without positions there are no earnings to state */
   hasPositions: boolean;
   isActive: boolean;
   onOpenPortfolio: () => void;
+  /** The page's refresh, the one pulling down runs on the phone */
+  onRefresh?: () => void;
   onOpenTokens: () => void;
   onOpenLoans: () => void;
   onOpenProtocols: () => void;
@@ -305,6 +308,7 @@ export function EarnDesktopHero({
       (fullWidth * size) / TOTAL_FONT_SIZE +
         ENTRY_PADDING_WIDTH +
         CHEVRON_SIZE[size].px +
+        (onRefresh ? REFRESH_WIDTH : 0) +
         (size > fontSize ? GROW_SPARE_WIDTH : 0) <=
       heroWidth;
     const nextFontSize = TOTAL_FONT_SIZES.find(fits) ?? MIN_TOTAL_FONT_SIZE;
@@ -367,12 +371,10 @@ export function EarnDesktopHero({
   }
 
   return (
-    // Gaps tight enough that the 64px total leaves the hero, and the banner
-    // that takes its height, as tall as the 48px one did
     <YStack
       flex={1}
       minWidth={0}
-      gap="$4"
+      gap="$6"
       onLayout={(event) => {
         const { height, width } = event.nativeEvent.layout;
         setHeroWidth(Math.round(width));
@@ -428,43 +430,65 @@ export function EarnDesktopHero({
             highlight pads the number evenly: the chevron's own margin is its
             right side, and the negative margins keep the number in place */}
         {isLoading ? (
-          <SkeletonLine height={TOTAL_FONT_SIZE} width={240} barHeight={44} />
+          // The wallet home's balance skeleton
+          <SkeletonLine height={TOTAL_FONT_SIZE} width={209} barHeight={40} />
         ) : (
-          <XStack
-            testID={EarnTestIDs.portfolioEntry}
-            role="button"
-            aria-label={label}
-            ai="center"
-            gap="$1"
-            alignSelf="flex-start"
-            maxWidth="100%"
-            pl="$2.5"
-            ml="$-2.5"
-            py="$1"
-            my="$-1"
-            borderRadius="$3"
-            cursor="pointer"
-            userSelect="none"
-            hoverStyle={{ bg: '$bgHover' }}
-            pressStyle={{ bg: '$bgActive' }}
-            onPress={onOpenPortfolio}
-            {...buildKeyboardPressProps(onOpenPortfolio)}
-          >
-            {/* Every size keeps the 64px line, so nothing below moves */}
-            <YStack h={TOTAL_FONT_SIZE} jc="center" minWidth={0} flexShrink={1}>
-              <TotalValue
-                value={value}
-                currency={currency}
-                fontSize={fontSize}
-                isHidden={isHidden}
+          // The refresh button follows the total, as on the wallet home
+          <XStack ai="center" gap="$3" alignSelf="flex-start" maxWidth="100%">
+            <XStack
+              testID={EarnTestIDs.portfolioEntry}
+              role="button"
+              aria-label={label}
+              ai="center"
+              gap="$1"
+              minWidth={0}
+              flexShrink={1}
+              pl="$2.5"
+              ml="$-2.5"
+              py="$1"
+              my="$-1"
+              borderRadius="$3"
+              cursor="pointer"
+              userSelect="none"
+              hoverStyle={{ bg: '$bgHover' }}
+              pressStyle={{ bg: '$bgActive' }}
+              onPress={onOpenPortfolio}
+              {...buildKeyboardPressProps(onOpenPortfolio)}
+            >
+              {/* Every size keeps the 48px line, so nothing below moves */}
+              <YStack
+                h={TOTAL_FONT_SIZE}
+                jc="center"
+                minWidth={0}
+                flexShrink={1}
+              >
+                <TotalValue
+                  value={value}
+                  currency={currency}
+                  fontSize={fontSize}
+                  isHidden={isHidden}
+                />
+              </YStack>
+              <Icon
+                name="ChevronRightSmallOutline"
+                size={CHEVRON_SIZE[fontSize].token}
+                color="$iconSubdued"
+                flexShrink={0}
               />
-            </YStack>
-            <Icon
-              name="ChevronRightSmallOutline"
-              size={CHEVRON_SIZE[fontSize].token}
-              color="$iconSubdued"
-              flexShrink={0}
-            />
+            </XStack>
+            {onRefresh ? (
+              <IconButton
+                testID="earn-desktop-refresh"
+                hotKey
+                aria-label={intl.formatMessage({
+                  id: ETranslations.global_refresh,
+                })}
+                icon="RefreshCcwOutline"
+                variant="tertiary"
+                loading={isRefreshing}
+                onPress={onRefresh}
+              />
+            ) : null}
           </XStack>
         )}
         {earningsRow}

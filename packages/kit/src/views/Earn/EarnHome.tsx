@@ -449,6 +449,9 @@ function BasicEarnHome({
       refreshEarnDataRaw,
     ],
   );
+  const handleDesktopRefresh = useCallback(() => {
+    void refreshEarnData();
+  }, [refreshEarnData]);
 
   const pendingTxsFilter = useCallback((tx: IStakePendingTx) => {
     // Pendle redeem/unstake is recorded as Sell, but it should still trigger
@@ -819,7 +822,9 @@ function BasicEarnHome({
             faqList={faqList || []}
             isFaqLoading={isFaqLoading}
             isActive={isEarnContentActive}
+            isRefreshing={isOverviewRefreshing}
             onOpenPortfolio={handleOpenPortfolio}
+            onRefresh={handleDesktopRefresh}
             onOpenLoans={handleOpenBorrowHome}
             onOpenProtocols={handleOpenAllProtocols}
             onRegisterRefresh={handleRegisterDesktopRefresh}
