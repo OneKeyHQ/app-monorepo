@@ -468,24 +468,25 @@ const StockIsOpenBadge = memo(
     showLastUpdate?: boolean;
   }) => {
     const intl = useIntl();
-    const { isOpen, isPaused, description } = stock;
+    const { isUSListing, isOpen, isPaused, description } = stock;
     // Every isOpen === true resolution (paused or not) may need the backend
     // status — the 60s poll is also what re-runs the memo below, unfreezing
     // gap-transient variants once the gap ends. Other isOpen values resolve
     // clock-free (Closed / Halted / no chip), so skip the fetch for them.
     const marketStatus = useUSMarketStatus({
-      enabled: isOpen === true,
+      enabled: isOpen === true && isUSListing !== false,
     });
     // The offline fallback path runs Intl-heavy clock math — don't redo it on
     // unrelated parent re-renders.
     const variant = useMemo(
       () =>
         resolveUSMarketStatusVariant({
+          isUSListing,
           isOpen,
           isPaused,
           status: marketStatus,
         }),
-      [isOpen, isPaused, marketStatus],
+      [isUSListing, isOpen, isPaused, marketStatus],
     );
 
     // Outside regular trading the share price is frozen, so the inline chip

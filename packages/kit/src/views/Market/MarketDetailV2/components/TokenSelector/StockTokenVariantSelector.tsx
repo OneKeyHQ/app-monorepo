@@ -102,6 +102,23 @@ function isAlwaysOpenVariant(variant: IMarketStockTokenVariant) {
   return /^7\s*[x×]\s*24$/i.test(variant.tradingHours?.days?.trim() ?? '');
 }
 
+function AlwaysOpenTag() {
+  return (
+    <Stack
+      minWidth={36}
+      px="$1.5"
+      py="$0.5"
+      borderRadius="$1"
+      bg="$bgStrong"
+      alignItems="center"
+    >
+      <SizableText size="$bodyXsMedium" color="$textSubdued">
+        24/7
+      </SizableText>
+    </Stack>
+  );
+}
+
 function findVariantBalance({
   isBalanceResolved,
   portfolioData,
@@ -218,20 +235,7 @@ function StockTokenVariantRow({
           <SizableText size="$bodyMdMedium" numberOfLines={1} flexShrink={1}>
             {variant.symbol || variant.name || VALUE_FALLBACK}
           </SizableText>
-          {isAlwaysOpenVariant(variant) ? (
-            <Stack
-              minWidth={36}
-              px="$1.5"
-              py="$0.5"
-              borderRadius="$1"
-              bg="$bgStrong"
-              alignItems="center"
-            >
-              <SizableText size="$bodyXsMedium" color="$textSubdued">
-                24/7
-              </SizableText>
-            </Stack>
-          ) : null}
+          {isAlwaysOpenVariant(variant) ? <AlwaysOpenTag /> : null}
         </XStack>
         {balance ? (
           <NumberSizeableText
@@ -636,11 +640,18 @@ export function StockTokenVariantSelector({
           />
           <XStack alignItems="center" gap="$2">
             <YStack justifyContent="center" minWidth={0}>
-              <SizableText size="$headingMd" numberOfLines={1}>
-                {renderedSelectedVariant.symbol ||
-                  renderedSelectedVariant.name ||
-                  VALUE_FALLBACK}
-              </SizableText>
+              {/* Same 24/7 tag as the list row, so the always-open token stays
+                  marked after it is picked. */}
+              <XStack alignItems="center" gap="$1">
+                <SizableText size="$headingMd" numberOfLines={1} flexShrink={1}>
+                  {renderedSelectedVariant.symbol ||
+                    renderedSelectedVariant.name ||
+                    VALUE_FALLBACK}
+                </SizableText>
+                {isAlwaysOpenVariant(renderedSelectedVariant) ? (
+                  <AlwaysOpenTag />
+                ) : null}
+              </XStack>
               {/* Figma 26230:23833 — the issuer sits under the symbol so the
                   trigger names who backs the token, not just which one it is.
                   The compact (Trade) trigger shows it too so both surfaces
