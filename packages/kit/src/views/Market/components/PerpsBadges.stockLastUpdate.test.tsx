@@ -1,7 +1,7 @@
 /** @jest-environment jsdom */
 import type { MouseEventHandler, PropsWithChildren } from 'react';
 
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { resolveUSMarketStatusVariant } from '@onekeyhq/shared/src/utils/tradingHoursUtils';
@@ -106,38 +106,48 @@ describe('StockIsOpenBadge last update segment', () => {
     jest.useRealTimers();
   });
 
-  it('opens trading hours after loading without opening the parent token selector', async () => {
+  it('consumes loading presses once and cancels them when the stock changes', async () => {
     mockResolveVariant.mockReturnValue(EUSMarketStatusVariant.Closed);
     const openTokenSelector = jest.fn();
-    const { rerender } = render(
+    const badges = (first?: IMarketStockInfo, second?: IMarketStockInfo) => (
       <div
         role="button"
         tabIndex={0}
         onKeyDown={openTokenSelector}
         onClick={openTokenSelector}
       >
-        <StockMarketStatusBadge stock={stock} />
-      </div>,
+        <StockMarketStatusBadge stock={first} />
+        <StockMarketStatusBadge stock={second} />
+      </div>
     );
-
-    fireEvent.click(
-      screen.getByText(ETranslations.trading_hours_market_closed),
-    );
+    const { rerender } = render(badges(stock, stock));
+    screen
+      .getAllByText(ETranslations.trading_hours_market_closed)
+      .forEach((badge) => {
+        fireEvent.click(badge);
+      });
     expect(openTokenSelector).not.toHaveBeenCalled();
-    await waitFor(() =>
-      expect(mockShowTradingHoursDialog).toHaveBeenCalledTimes(1),
+
+    const replacement = { ...stock, title: 'TSLA', subtitle: 'Tesla' };
+    rerender(badges({ ...stock, isOpen: true }, replacement));
+    await act(async () => {
+      await import('@onekeyhq/kit/src/components/TradingHoursPanel');
+    });
+    expect(mockShowTradingHoursDialog).toHaveBeenCalledTimes(1);
+    expect(mockShowTradingHoursDialog).toHaveBeenCalledWith(
+      expect.objectContaining({
+        renderContent: expect.objectContaining({
+          props: expect.objectContaining({
+            stock: expect.objectContaining({ title: stock.title }),
+          }),
+        }),
+      }),
     );
 
-    rerender(
-      <div
-        role="button"
-        tabIndex={0}
-        onKeyDown={openTokenSelector}
-        onClick={openTokenSelector}
-      >
-        <StockMarketStatusBadge stock={{ ...stock, isOpen: true }} />
-      </div>,
-    );
+    rerender(badges(undefined, replacement));
+    rerender(badges(stock, replacement));
+    rerender(badges({ ...stock, isUSListing: false }, replacement));
+    rerender(badges(stock, replacement));
     expect(mockShowTradingHoursDialog).toHaveBeenCalledTimes(1);
   });
 

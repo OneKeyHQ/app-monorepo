@@ -692,7 +692,17 @@ const StockMarketStatusBadge = memo(
     variant?: 'badge' | 'inline';
     showLastUpdate?: boolean;
   }) => {
-    const [openAfterLoad, setOpenAfterLoad] = useState(false);
+    const stockKey =
+      stock && stock.isUSListing !== false
+        ? `${stock.source ?? ''}:${stock.stockId ?? stock.title ?? stock.subtitle}`
+        : undefined;
+    const [pendingStockKey, setPendingStockKey] = useState<string>();
+    useEffect(() => {
+      setPendingStockKey(undefined);
+    }, [stockKey]);
+    const handleDefaultOpenConsumed = useCallback(() => {
+      setPendingStockKey(undefined);
+    }, []);
     if (!stock) {
       return null;
     }
@@ -714,7 +724,7 @@ const StockMarketStatusBadge = memo(
             cursor="pointer"
             onPress={(event) => {
               event.stopPropagation();
-              setOpenAfterLoad(true);
+              setPendingStockKey(stockKey);
             }}
           >
             {trigger}
@@ -724,7 +734,8 @@ const StockMarketStatusBadge = memo(
         <TradingHoursTrigger
           stock={stock}
           renderTrigger={trigger}
-          defaultOpen={openAfterLoad}
+          defaultOpen={stockKey !== undefined && pendingStockKey === stockKey}
+          onDefaultOpenConsumed={handleDefaultOpenConsumed}
         />
       </Suspense>
     );

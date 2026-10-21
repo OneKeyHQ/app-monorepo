@@ -235,6 +235,51 @@ it.each([false, true])(
   },
 );
 
+it('keeps tracking when a live-tail refresh replaces its timestamp', () => {
+  const page = createNativeChartPage({
+    nativeScrubOptions: {
+      labels: { '3': { time: 'old tail', price: '$3' } },
+      backgroundColor: '#fff',
+      borderColor: '#ddd',
+      textColor: '#111',
+      timeColor: '#999',
+      largePrice: true,
+    },
+  });
+  page.hover({
+    time: 3,
+    point: { x: 150, y: 100 },
+    sourceEvent: {},
+    seriesData: new Map([[page.primary, { value: 3 }]]),
+  });
+  page.chart.removeSeries.mockImplementation(() => page.hover({}));
+  page.pageWindow.applyChartConfig({
+    ...page.config,
+    data: [1, 2, 4].map((time) => ({
+      time: time as UTCTimestamp,
+      value: time,
+    })),
+    nativeScrubOptions: {
+      ...page.config.nativeScrubOptions!,
+      labels: { '4': { time: 'new tail', price: '$4' } },
+    },
+  });
+  const refreshedHover = {
+    time: 4,
+    point: { x: 150, y: 100 },
+    seriesData: new Map([[page.primary, { value: 4 }]]),
+  };
+  page.hover(refreshedHover);
+  expect(document.getElementById('scrub-tooltip')?.style.display).toBe('block');
+  expect(document.getElementById('scrub-time')?.textContent).toBe('new tail');
+  expect(document.getElementById('scrub-price')?.textContent).toBe('$4');
+
+  page.hover({});
+  page.hover(refreshedHover);
+  expect(document.getElementById('scrub-tooltip')?.style.display).toBe('none');
+  expect(page.postMessage).not.toHaveBeenCalled();
+});
+
 it('draws an isolated price point on the native cursor layer', () => {
   const point = { time: 1 as UTCTimestamp, value: 3 };
   const page = createNativeChartPage({

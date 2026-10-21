@@ -700,10 +700,12 @@ export function TradingHoursTrigger({
   stock,
   renderTrigger,
   defaultOpen = false,
+  onDefaultOpenConsumed,
 }: {
   stock: IMarketStockInfo;
   renderTrigger: ReactNode;
   defaultOpen?: boolean;
+  onDefaultOpenConsumed?: () => void;
 }) {
   const media = useMedia();
   const useSheetDialog = platformEnv.isNative || media.md;
@@ -714,8 +716,9 @@ export function TradingHoursTrigger({
       if (useSheetDialog && stock.isUSListing !== false) {
         showTradingHoursDialog(stock);
       }
+      onDefaultOpenConsumed?.();
     }
-  }, [stock, useSheetDialog]);
+  }, [onDefaultOpenConsumed, stock, useSheetDialog]);
 
   // US trading hours describe nothing about a non-US listing.
   if (stock.isUSListing === false) {

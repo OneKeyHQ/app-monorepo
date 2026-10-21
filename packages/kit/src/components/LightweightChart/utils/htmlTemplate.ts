@@ -814,6 +814,7 @@ function getChartInitScript(): string {
       window.secondaryPointSeries = null;
       window.applyChartConfig = function(nextConfig) {
         if (!nextConfig || !window.chart) return;
+        if (!nextConfig.nativeScrubOptions) window.nativeScrubActive = false;
         if (!nextConfig.nativeScrubOptions || !nextConfig.nativeScrubOptions.labels[window.nativeScrubTime]) {
           window.nativeScrubTime = undefined;
           var tooltip = document.getElementById('scrub-tooltip');
@@ -869,7 +870,7 @@ function getEventHandlers(): string {
         // those back to React creates a second round trip for every step.
         var nativeScrub = window.latestChartConfig.nativeScrubOptions;
         var syntheticHover = nativeScrub && param.time !== undefined && !param.sourceEvent;
-        if (syntheticHover && window.nativeScrubTime === undefined) return;
+        if (syntheticHover && !window.nativeScrubActive) return;
         let message;
         var primarySeries = window.series;
         var extraSeries = window.secondarySeries;
@@ -879,6 +880,7 @@ function getEventHandlers(): string {
           return undefined;
         }
         if (param.time && param.seriesData?.size > 0 && param.point && primarySeries) {
+          if (nativeScrub && !syntheticHover) window.nativeScrubActive = true;
           _lastDataTime = Date.now();
           const primaryPrice = getSeriesValue(param.seriesData.get(primarySeries));
           const rawSecondary = extraSeries ? getSeriesValue(param.seriesData.get(extraSeries)) : undefined;
@@ -894,6 +896,7 @@ function getEventHandlers(): string {
           // Removing series during a refresh is not an exit from tracking.
           if (nativeScrub && window.applyingChartConfig) return;
           if (_isTouch && !nativeScrub && (Date.now() - _lastDataTime < 300)) { return; }
+          if (nativeScrub) window.nativeScrubActive = false;
           message = { type: 'hover', time: undefined, price: undefined, secondaryPrice: undefined, x: undefined, y: undefined };
         }
         updateNativeScrub(message);
