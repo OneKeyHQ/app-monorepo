@@ -860,8 +860,8 @@ export function buildXmrLocalWalletCapability(
       await deleteXmrDatabase(await vault.getXmrNetwork());
       const holders =
         (await stateDb().listScanDataAccountIds({ networkId })) ?? [];
-      // A failed registration keeps its state for a retry.
-      let firstError: Error | undefined;
+      // The database is gone either way. An account whose key is locked
+      // keeps its state: the next scan or resume registers it again.
       for (const accountId of holders) {
         try {
           // eslint-disable-next-line no-await-in-loop
@@ -871,16 +871,10 @@ export function buildXmrLocalWalletCapability(
             await registerIdentity(accountId, state.birthdayHeight);
           }
         } catch (error) {
-          firstError ??=
-            error instanceof Error
-              ? error
-              : new OneKeyLocalError(String(error));
+          console.warn('[xmr] account left to register on its next scan', {
+            error: error instanceof Error ? error.message : String(error),
+          });
         }
-      }
-      if (firstError) {
-        // The accumulator above contains only Error instances.
-        // eslint-disable-next-line no-throw-literal
-        throw firstError;
       }
     },
 

@@ -297,6 +297,9 @@ export function getLocalWalletCapability(vault: Vault): ILocalWalletCapability {
         birthdaySource: state.birthdaySource,
         birthdayTimestamp: state.birthdayTimestamp,
         birthdayHintTimestamp: state.birthdayMonthHint?.timestamp,
+        ...(zcashIdentityMismatchAccountIds.has(accountId)
+          ? { identityMismatch: true }
+          : {}),
       };
     },
     getAccountBalance: ({ accountId }) =>

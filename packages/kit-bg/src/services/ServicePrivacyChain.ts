@@ -801,37 +801,73 @@ class ServicePrivacyChain extends ServiceBase {
     walletIds?: string[];
     rescanFrom?: IRescanLocalWalletFrom;
   }): Promise<{ failedNetworkIds: string[] }> {
+    const plan = planLocalWalletLifecycle(event);
+    // Travel Mode masks the records but not the runtime's own storage: the
+    // event would destroy real scan data while everything naming it reads
+    // as absent. App Reset keeps its own gate, which finds no data there.
+    if (
+      event !== 'appReset' &&
+      plan.some(
+        (action) => 'dataClass' in action && action.dataClass === 'runtimeRows',
+      ) &&
+      (await this.isPersistenceMasked())
+    ) {
+      throw new OneKeyLocalError(
+        'privacy-chain: local scan data cannot change in Travel Mode',
+      );
+    }
     const failedNetworkIds = new Set<string>();
     const liveTargets = () =>
       targets.filter(
         ({ networkId }) => !networkId || !failedNetworkIds.has(networkId),
       );
-    for (const action of planLocalWalletLifecycle(event)) {
+    // Once runtime data is gone the rest is best-effort: stopping there
+    // would leave caches, progress and pages describing destroyed data.
+    let runtimeDone = false;
+    const runStep = async (step: string, run: () => Promise<void>) => {
+      try {
+        await run();
+      } catch (e) {
+        if (!runtimeDone) throw e;
+        console.error('[privacy-chain] lifecycle cleanup step failed', {
+          event,
+          step,
+          ...describePrivacyChainError(e),
+        });
+      }
+    };
+    for (const action of plan) {
       if (action.step === 'stopScheduling') {
         // eslint-disable-next-line no-await-in-loop
         await this.stopLocalWalletScheduling({ mode: action.mode, targets });
-      } else if (action.step === 'rotateEpoch') {
+      } else if (
+        action.step === 'rotateEpoch' ||
+        action.step === 'settleEpoch'
+      ) {
         // eslint-disable-next-line no-await-in-loop
-        await this.backgroundApi.simpleDb.privacyChainState.rotateAccountEpochs(
-          { accountIds: uniq(targets.flatMap(({ accountIds }) => accountIds)) },
+        await runStep(action.step, () =>
+          this.backgroundApi.simpleDb.privacyChainState.rotateAccountEpochs({
+            accountIds: uniq(targets.flatMap(({ accountIds }) => accountIds)),
+          }),
         );
       } else if (action.step === 'notify') {
         // eslint-disable-next-line no-await-in-loop
-        await this.notifyLocalWalletLifecycle({
-          event,
-          targets: liveTargets(),
-        });
+        await runStep(action.step, () =>
+          this.notifyLocalWalletLifecycle({ event, targets: liveTargets() }),
+        );
       } else {
         for (const target of liveTargets()) {
           try {
             // eslint-disable-next-line no-await-in-loop
-            await this.applyLocalWalletLifecycleEffect({
-              event,
-              action,
-              target,
-              walletIds,
-              rescanFrom,
-            });
+            await runStep(`${action.dataClass}:${action.effect}`, () =>
+              this.applyLocalWalletLifecycleEffect({
+                event,
+                action,
+                target,
+                walletIds,
+                rescanFrom,
+              }),
+            );
           } catch (e) {
             if (event !== 'appReset' || !target.networkId) {
               throw e;
@@ -843,14 +879,18 @@ class ServicePrivacyChain extends ServiceBase {
             });
           }
         }
+        if (action.step === 'runtime') {
+          runtimeDone = true;
+        }
       }
     }
     return { failedNetworkIds: [...failedNetworkIds] };
   }
 
-  // No timer survives this point; 'waitForTick' also stops the scan in
-  // flight, since deleting under it can leave the database (and its viewing
-  // keys) on disk.
+  // 'waitForTick' stops the scan in flight, since deleting under it can
+  // leave the database (and its viewing keys) on disk; its timers stay,
+  // because a reset blocks new ticks itself and a retry at startup must not
+  // cancel the first one. 'halt' stops every timer for good.
   private async stopLocalWalletScheduling({
     mode,
     targets,
@@ -858,11 +898,11 @@ class ServicePrivacyChain extends ServiceBase {
     mode: 'waitForTick' | 'halt';
     targets: ILocalWalletLifecycleTarget[];
   }): Promise<void> {
-    if (this.syncTimer) {
-      clearTimeout(this.syncTimer);
-      this.syncTimer = undefined;
-    }
     if (mode === 'halt') {
+      if (this.syncTimer) {
+        clearTimeout(this.syncTimer);
+        this.syncTimer = undefined;
+      }
       this.schedulingHalted = true;
       clearInterval(this.periodicSyncTimer);
       this.periodicSyncTimer = undefined;
@@ -1035,8 +1075,16 @@ class ServicePrivacyChain extends ServiceBase {
         return;
       case 'localHistory:delete':
         if (!networkId) return;
+        // Per account: one whose row is gone must not stop the others.
         await forEachAccount((accountId) =>
-          this.clearAccountLocalHistory({ networkId, accountId }),
+          this.clearAccountLocalHistory({ networkId, accountId }).catch(
+            (e: unknown) => {
+              console.error('[privacy-chain] could not clear local history', {
+                networkId,
+                ...describePrivacyChainError(e),
+              });
+            },
+          ),
         );
         return;
       case 'memoryCaches:delete':

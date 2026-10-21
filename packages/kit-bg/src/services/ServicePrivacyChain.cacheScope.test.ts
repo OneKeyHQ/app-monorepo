@@ -218,10 +218,12 @@ describe('Privacy storage reset when the database cannot be read', () => {
     await service.clearTransactionHistoryCache({ networkId: 'xmr--0' });
     expect(resetStorage).toHaveBeenCalledTimes(1);
     // Paused accounts lose their scan data too, so no saved balance survives;
-    // their epochs move before the database goes.
-    expect(harness.calls.slice(0, 3)).toEqual([
+    // their epochs move before the database goes, and once more after, for a
+    // read that took the first new epoch.
+    expect(harness.calls.slice(0, 4)).toEqual([
       'rotate:{"accountIds":["paused","on"]}',
       'resetStorage',
+      'rotate:{"accountIds":["paused","on"]}',
       'removeLastBalances:{"accountIds":["paused","on"]}',
     ]);
   });

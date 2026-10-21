@@ -227,6 +227,22 @@ describe('privacy chain lifecycle table', () => {
     }
   });
 
+  it('rotates again right after the runtime step of every event that rotates', () => {
+    for (const event of events) {
+      const steps = planLocalWalletLifecycle(event).map(({ step }) => step);
+      const rotates = steps.includes('rotateEpoch');
+      expect({ event, settles: steps.includes('settleEpoch') }).toEqual({
+        event,
+        settles: rotates,
+      });
+      if (rotates) {
+        expect(steps.lastIndexOf('runtime')).toBeLessThan(
+          steps.indexOf('settleEpoch'),
+        );
+      }
+    }
+  });
+
   it('stops scheduling only where data goes from under a running scan or the app restarts', () => {
     expect(
       events.filter(

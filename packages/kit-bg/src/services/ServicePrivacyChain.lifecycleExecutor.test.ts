@@ -1,7 +1,10 @@
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
+import type { IRuntimeEnvironment } from '@onekeyhq/shared/src/travelMode/runtimeEnvironment';
 
 import { SimpleDbEntityPrivacyChainCache } from '../dbs/simple/entity/SimpleDbEntityPrivacyChainCache';
 import { SimpleDbEntityPrivacyChainState } from '../dbs/simple/entity/SimpleDbEntityPrivacyChainState';
@@ -228,10 +231,19 @@ describe('privacy chain lifecycle executor', () => {
       if (spec.stopScheduling === 'waitForTick') expected.add('stopScheduling');
       expect([...new Set(calls)].toSorted()).toEqual([...expected].toSorted());
 
-      const steps = calls.map((name) =>
-        LOCAL_WALLET_LIFECYCLE_STEPS.indexOf(STEP_OF[name]),
+      // A rotation after the runtime step is the settling one.
+      const runtimeAt = calls.indexOf('runtimeRows');
+      const steps = calls.map((name, index) =>
+        LOCAL_WALLET_LIFECYCLE_STEPS.indexOf(
+          name === 'rotateEpoch' && runtimeAt !== -1 && index > runtimeAt
+            ? 'settleEpoch'
+            : STEP_OF[name],
+        ),
       );
       expect(steps).toEqual(steps.toSorted((a, b) => a - b));
+      expect(calls.filter((name) => name === 'rotateEpoch')).toHaveLength(
+        spec.rotateEpoch ? 2 : 0,
+      );
     },
   );
 
@@ -337,6 +349,123 @@ describe('privacy chain lifecycle executor', () => {
     expect(service.periodicSyncTimer).toBeUndefined();
     expect(service.schedulingHalted).toBe(true);
   });
+});
+
+// RV-a6 P3-2, P3-3 and P3-6.
+describe('privacy chain lifecycle executor: failures, timers and Travel Mode', () => {
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it('once runtime data is gone, a later failure still lets cleanup, memory and notify run', async () => {
+    const { service, capability, backgroundApi, calls } = createHarness();
+    jest.spyOn(console, 'error').mockImplementation(() => undefined);
+    (
+      backgroundApi.simpleDb.privacyChainCache.removeLastBalances as jest.Mock
+    ).mockRejectedValue(new Error('storage busy'));
+    // One account's row is gone, so its history can't be found.
+    (
+      backgroundApi.serviceAccount.getAccountAddressForApi as jest.Mock
+    ).mockImplementation(async ({ accountId: id }: { accountId: string }) => {
+      if (id === 'hd-gone--0') throw new OneKeyLocalError('account not found');
+      return 't1account';
+    });
+
+    await expect(
+      service.runLocalWalletLifecycle({
+        event: 'rescan',
+        targets: [
+          {
+            scope: 'accounts',
+            networkId,
+            capability,
+            accountIds: ['hd-gone--0', accountId],
+            runtimeAccountIds: [accountId],
+          },
+        ],
+      }),
+    ).resolves.toEqual({ failedNetworkIds: [] });
+
+    expect(
+      backgroundApi.simpleDb.localHistory.clearAccountLocalHistory,
+    ).toHaveBeenCalledTimes(1);
+    expect(calls).toContain('memoryCaches');
+    expect(service.backfillActiveByAccount[accountId]).toBe(true);
+    expect(service.scheduleBackgroundSync).toHaveBeenCalled();
+  });
+
+  it('a failure before the runtime step still stops the event', async () => {
+    const { service, capability, backgroundApi, calls } = createHarness();
+    (
+      backgroundApi.simpleDb.privacyChainState.rotateAccountEpochs as jest.Mock
+    ).mockRejectedValue(new Error('storage busy'));
+
+    await expect(
+      service.runLocalWalletLifecycle({
+        event: 'deleteLocalData',
+        targets: [targetFor('deleteLocalData', capability)],
+      }),
+    ).rejects.toThrow('storage busy');
+    expect(calls).toEqual([]);
+  });
+
+  it('the wipe retry at startup leaves the first scheduled tick in place', async () => {
+    const { service, capability } = createHarness();
+    const firstTick = setTimeout(() => undefined, 60_000);
+    service.syncTimer = firstTick;
+
+    await service.runLocalWalletLifecycle({
+      event: 'appReset',
+      targets: [targetFor('appReset', capability)],
+    });
+
+    expect(service.syncTimer).toBe(firstTick);
+    clearTimeout(firstTick);
+  });
+
+  function maskPersistence() {
+    return jest
+      .spyOn(travelModeManager, 'getRuntimeEnvironment')
+      .mockResolvedValue({
+        persistence: { kind: 'masked' },
+      } as unknown as IRuntimeEnvironment);
+  }
+
+  it.each([
+    'deleteAccount',
+    'deleteWallet',
+    'deleteLocalData',
+    'resetSyncStorage',
+    'rescan',
+  ] as const)(
+    '%s is refused while Travel Mode masks the records naming the data',
+    async (event) => {
+      const { service, capability, calls } = createHarness();
+      maskPersistence();
+
+      await expect(
+        service.runLocalWalletLifecycle({
+          event,
+          targets: [targetFor(event, capability)],
+        }),
+      ).rejects.toThrow('Travel Mode');
+      expect(calls).toEqual([]);
+    },
+  );
+
+  it.each(['appReset', 'travelMode', 'clearCache', 'disable'] as const)(
+    '%s still runs while persistence is masked',
+    async (event) => {
+      const { service, capability, calls } = createHarness();
+      maskPersistence();
+
+      await service.runLocalWalletLifecycle({
+        event,
+        targets: [targetFor(event, capability)],
+      });
+      expect(calls.length).toBeGreaterThan(0);
+    },
+  );
 });
 
 // B1: a stale-first write-back racing a destructive event. The cache must not
@@ -459,6 +588,41 @@ describe('privacy chain cache write-back racing a delete', () => {
         read: async () => 'live',
       }),
     ).resolves.toBeNull();
+  });
+
+  // RV-a6 P3-1: a read that takes the epoch the first rotation made, and
+  // reads the runtime before the rescan destroys its data.
+  it('refuses a write-back whose read started between the rotation and the rescan', async () => {
+    const { service, capability, backgroundApi, privacyChainState } =
+      createRealHarness();
+    await seedRecord(privacyChainState);
+    let finishRead: (value: string) => void = () => undefined;
+    let reading: Promise<unknown> = Promise.resolve();
+    (capability.rescan as jest.Mock).mockImplementation(async () => {
+      reading = readLocalWalletBalanceStaleFirst({
+        backgroundApi,
+        networkId,
+        accountId,
+        read: () =>
+          new Promise<string>((resolve) => {
+            finishRead = resolve;
+          }),
+      });
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      return { fromHeight: 1 };
+    });
+
+    await service.runLocalWalletLifecycle({
+      event: 'rescan',
+      targets: [targetFor('rescan', capability)],
+      rescanFrom: { type: 'height', height: 1 },
+    });
+    finishRead('balance from before the rescan');
+    await reading;
+
+    await expect(
+      backgroundApi.simpleDb.privacyChainCache.getLastBalance({ accountId }),
+    ).resolves.toBeUndefined();
   });
 
   it('a write-back racing a rescan of an alias is refused too', async () => {
