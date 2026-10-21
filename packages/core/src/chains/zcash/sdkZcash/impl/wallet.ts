@@ -148,7 +148,6 @@ async function purgeAccountsUnknownToHost(
     try {
       // eslint-disable-next-line no-await-in-loop
       await rt.removeAccount(uuid);
-      console.log('[zcash] purged runtime account unknown to host', { uuid });
     } catch (e) {
       // Failed storage cleanup is retried on the next prepare.
       console.error('[zcash] purge of unknown runtime account failed', {
@@ -333,9 +332,6 @@ export async function syncWallet(
   if (reorgRewoundTo !== null) {
     // Rewound ranges are queued again, so this pass ends with work still due.
     backfillRemaining = true;
-    console.log('[zcash] chain reorg handled, wallet rewound', {
-      rewoundTo: reorgRewoundTo,
-    });
   }
 
   const after = readScanMark(rt, account);
