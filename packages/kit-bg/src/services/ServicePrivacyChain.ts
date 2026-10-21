@@ -114,9 +114,6 @@ function describePrivacyChainError(error: unknown) {
   };
 }
 
-// Chain-agnostic singleton behind vaultSettings.localWallet: runs the
-// background sync scheduler, removed-account GC, and the only UI-callable
-// entry point into local-wallet vault capabilities.
 export type ILocalWalletAccountListItem = {
   accountId: string;
   accountName: string;
@@ -138,6 +135,9 @@ const PRIVACY_CHAIN_TIP_REQUEST_TIMEOUT_MS = 30_000;
 // Loading a runtime cold on mobile can take seconds; past this it is not coming.
 const PRIVACY_CHAIN_DROP_LOCAL_DATA_TIMEOUT_MS = 30_000;
 
+// Chain-agnostic singleton behind vaultSettings.localWallet: runs the
+// background sync scheduler, removed-account GC, and the only UI-callable
+// entry point into local-wallet vault capabilities.
 @backgroundClass()
 class ServicePrivacyChain extends ServiceBase {
   constructor({ backgroundApi }: { backgroundApi: IBackgroundApi }) {
@@ -221,8 +221,7 @@ class ServicePrivacyChain extends ServiceBase {
     }
     if (!this.initPromise) {
       this.initPromise = (async () => {
-        // Prime the cellular consent the synchronous gates read; left at its
-        // default, the first Sync after launch asked for consent already given.
+        // Prime the cellular-consent cache the synchronous gates read.
         await this.isPrivacySyncOnCellularAllowed().catch(() => false);
         await this.gcRemovedAccounts();
         // Not awaited: a runtime that is slow to load must not hold up init.
@@ -236,7 +235,6 @@ class ServicePrivacyChain extends ServiceBase {
           inMs: Math.max(0, this.earliestTickAt - Date.now()),
         });
         this.scheduleBackgroundSync(0);
-        // Rate and reasoning live in privacyChainSyncPolicy; this only runs it.
         this.periodicSyncTimer = setInterval(() => {
           this.scheduleBackgroundSync(0);
         }, PRIVACY_CHAIN_TIP_POLL_MS);
@@ -299,9 +297,7 @@ class ServicePrivacyChain extends ServiceBase {
   // progress never starts one.
   foregroundBoostRequestedByNetwork: Record<string, boolean> = {};
 
-  // Networks the user paused: stops scanning outright (not just the
-  // foreground pace) and survives a restart. Mirrors simpleDb so the
-  // scheduler can answer synchronously; primed in init().
+  // Networks the user paused; see pauseLocalWalletScan.
   boostPausedByNetwork: Record<string, boolean> = {};
 
   // Groups whose last turns failed: they skip picks until `untilMs` so a
@@ -327,7 +323,7 @@ class ServicePrivacyChain extends ServiceBase {
   }
 
   // Viewing material for an account, rebuilt from the mnemonic when missing
-  // (Prime transfer, cloud restore, older builds) with a cached password only;
+  // (Prime transfer, cloud restore) with a cached password only;
   // never prompts. Undefined while locked: the next use after unlock fills it,
   // so unlock itself does no per-account work for users without these chains.
   async ensureLocalWalletViewingKey({
@@ -486,12 +482,13 @@ class ServicePrivacyChain extends ServiceBase {
     accountId?: string;
     trigger: IPrivacyChainBoostTrigger;
   }): Promise<void> {
-    // What a trigger means is decided in privacyChainSyncPolicy, never here.
-    // This resolves the one FACT that policy needs and cannot see for itself.
+    // Trigger semantics live in shouldStartBoost; this only supplies the
+    // remaining-block count it cannot see.
     const remainingBlocks = await this.getPublishedRemainingBlocks({
       networkId,
       accountId,
     });
+    // The shared UI control is capability-based, so verify the network first.
     const localWalletNetworkIds = await this.getLocalWalletNetworkIds();
     if (!localWalletNetworkIds.includes(networkId)) {
       return;
@@ -511,8 +508,6 @@ class ServicePrivacyChain extends ServiceBase {
     }
     // Reached only by an explicit press, which IS the resume.
     delete this.boostPausedByNetwork[networkId];
-    // The shared UI control is capability-based, so verify the selected
-    // network before asking its vault to sync.
     const wasRequested = this.foregroundBoostRequestedByNetwork[networkId];
     this.foregroundBoostRequestedByNetwork[networkId] = true;
     if (!wasRequested) {
@@ -557,17 +552,15 @@ class ServicePrivacyChain extends ServiceBase {
     await this.publishBoostingNetworks();
   }
 
-  // Pausing is a STATEMENT distinct from stopForegroundBoost's lifecycle
-  // signal: it outlasts page visits and only Sync clears it. Stops the
-  // foreground pace only; background sync keeps running.
+  // Unlike stopForegroundBoost, a pause outlasts page visits and only Sync
+  // clears it. A paused network does no scanning at all.
   @backgroundMethod()
   async pauseLocalWalletScan({
     networkId,
   }: {
     networkId: string;
   }): Promise<void> {
-    // Session-scoped on purpose: resets to the default (scan on Wi-Fi, hold
-    // on metered data) on every restart.
+    // In memory only: a restart returns to default scanning.
     this.boostPausedByNetwork[networkId] = true;
     console.log('[privacy-chain:sched] scanning PAUSED by user', { networkId });
     await this.publishBoostingNetworks();
@@ -737,10 +730,8 @@ class ServicePrivacyChain extends ServiceBase {
   }
 
   // Wipes every client-side scan database before app storage clears (vault
-  // settings must still resolve). Each chain is wiped independently and
-  // time-bounded so one stuck runtime can't block the rest.
-  // Returns the networks whose wipe failed so the caller can mark them for
-  // retry after app storage clears.
+  // settings must still resolve). Each chain is time-bounded so one stuck
+  // runtime can't block the rest. Returns the networks whose wipe failed.
   @backgroundMethod()
   async dropAllLocalWalletData(): Promise<string[]> {
     if (this.syncTimer) {
@@ -966,8 +957,7 @@ class ServicePrivacyChain extends ServiceBase {
 
   syncTickRunning = false;
 
-  // Accounts whose last pass left backfill queued; read by the rescan door
-  // below to cap concurrent deep rescans.
+  // Accounts whose last pass left backfill queued.
   backfillActiveByAccount: Record<string, boolean> = {};
 
   runtimeSyncState = new Map<string, IPrivacyChainRuntimeState>();
@@ -1005,7 +995,7 @@ class ServicePrivacyChain extends ServiceBase {
   lastBackfillRuntimeStateKey: string | undefined;
 
   // A tick requested while one is running (account/network/cellular change)
-  // must not wait for the next 5-minute poll.
+  // must not wait for the next tip poll.
   syncTickRequested = false;
 
   syncTickStartedAt = 0;
@@ -1202,8 +1192,7 @@ class ServicePrivacyChain extends ServiceBase {
           ILocalWalletCapability['syncGroup']
         > | null = null;
         try {
-          // One bounded group turn (journal replay + registration + sync). A
-          // newly-added viewing key requeues only completed ranges.
+          // One bounded group turn (journal replay + registration + sync).
           syncPromise = privacyChainPerfSpan(
             'bg sync group',
             () =>
@@ -1308,9 +1297,8 @@ class ServicePrivacyChain extends ServiceBase {
           });
         } catch (e) {
           retryNeeded = true;
-          // The watchdog only abandons the await; it doesn't cancel the operation.
-          // Quarantine the losing promise below -- in-thread carriers must not
-          // swap leases and start a concurrent writer.
+          // The watchdog abandons the await, not the operation; quarantine
+          // the losing promise below.
           const isWatchdogTimeout =
             e instanceof Error &&
             (e.message.includes('wallet-runtime sync timed out') ||
@@ -1348,17 +1336,15 @@ class ServicePrivacyChain extends ServiceBase {
                 }
               })
               .catch((resetErr) => {
-                // Keep the group quarantined. A proxy timeout only abandons the
-                // caller's Promise and cannot prove the remote writer stopped.
+                // Stays quarantined: the remote writer may still be running.
                 console.error(
                   '[privacy-chain] carrier timeout recovery failed',
                   resetErr,
                 );
               });
           }
-          // `message` is only an opaque code; `params.operation`/`detail` carry the
-          // actual failing call and upstream text (incl. block height) -- needed
-          // since one bad account fails the whole group.
+          // `message` is an opaque code; `operation`/`detail` name the failing
+          // call, and one bad account fails the whole group.
           console.error('[privacy-chain] background sync failed', {
             networkId: candidate.networkId,
             accountIds: candidate.accountIds,
@@ -2780,10 +2766,7 @@ class ServicePrivacyChain extends ServiceBase {
     await this.publishBoostingNetworks();
   }
 
-  // One-time "where to start scanning" prompt flag lives in the shared
-  // privacy-chain store; only the chain-shaped answer stays with the chain.
-  // Debug door: per-read timing, for console use while reproducing a slow
-  // read. Not wired to any UI.
+  // Debug only: toggles per-read timing logs. Not wired to any UI.
   @backgroundMethod()
   async setPrivacyChainPerfTrace({
     networkId,
@@ -2798,6 +2781,7 @@ class ServicePrivacyChain extends ServiceBase {
     });
   }
 
+  // The one-time "where to start scanning" prompt flag.
   @backgroundMethod()
   async getScanStartPrompted({
     accountId,

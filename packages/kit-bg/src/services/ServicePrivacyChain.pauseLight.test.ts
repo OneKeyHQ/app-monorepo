@@ -196,13 +196,8 @@ describe('Privacy sync light pause state', () => {
     });
   });
 
-  /**
-   * **Regression.** Pausing from Settings, or after the page's boost request
-   * was cleared, used to publish nothing: `pausedNetworkIds` was derived from
-   * the requested set. The chain sat silently paused -- the scheduler skipped
-   * it entirely -- while the light stayed hidden and the Settings toggle,
-   * unable to see the pause, offered "pause" a second time.
-   */
+  // Pausing from Settings, or after the boost request cleared, must still
+  // publish: otherwise the chain sits silently paused with the light hidden.
   it('publishes a pause even when no boost was ever requested', async () => {
     const service = createService();
     await service.pauseLocalWalletScan({ networkId });
@@ -353,7 +348,7 @@ describe('Privacy held-on-mobile-data publish', () => {
     return service.foregroundBoostRequestedByNetwork['xmr--0'];
   }
 
-  // A synced chain has nothing to hold; marking it showed "boosting".
+  // A synced chain has nothing to hold; marking it would show "boosting".
   it('does not mark a synced chain as wanting to run', async () => {
     await expect(
       publishWith({ isTipCaughtUp: true, isBackfillComplete: true }),

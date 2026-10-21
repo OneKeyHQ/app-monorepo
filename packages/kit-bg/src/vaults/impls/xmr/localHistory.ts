@@ -92,8 +92,8 @@ export async function buildXmrLocalHistoryTx({
 }): Promise<IAccountHistoryTx> {
   const isSent = item.direction === 'out';
 
-  // An outgoing tx's own outputs include the change coming back, so the amount that left is spent minus returned.
-  // Until change is scanned that difference is the whole input set, so a send here uses the broadcast-time figure instead.
+  // Amount sent = spent minus returned change. Until change is scanned that is
+  // the whole input set, so a send from this device uses the broadcast figure.
   let atomic = new BigNumber(item.receivedAtomic);
   if (isSent) {
     atomic = item.outgoingAtomic
@@ -111,8 +111,8 @@ export async function buildXmrLocalHistoryTx({
           .toFixed()
       : amount;
 
-  // Own address goes on the side that fixes direction (buildTxActionDirection compares against it).
-  // Monero's design makes the counterparty generally undiscoverable: it has no address and is marked private.
+  // Own address fixes direction (buildTxActionDirection compares against it).
+  // The counterparty is undiscoverable on Monero, so it is marked private.
   const from = isSent ? ownAddress : '';
   const to = isSent ? recipient || '' : ownAddress;
   const own = { poolId: XMR_POOL_IDS.private, isOwn: true };
@@ -159,7 +159,7 @@ export async function buildXmrLocalHistoryTx({
     };
   }
 
-  // An unmined tx has no block time; without a stand-in it sorts to the bottom (sort key falls back to 0) and the newest transaction would appear oldest.
+  // An unmined tx has no block time; without a stand-in it would sort as oldest.
   const isPending = item.height === null;
   const timestampMs = item.timestamp
     ? item.timestamp * 1000
@@ -199,7 +199,7 @@ export async function buildXmrLocalHistoryTx({
       txid: item.txid,
     }),
     decodedTx,
-    // One pool: every Monero output is private; the generic per-pool plumbing just needs an id to key filters on.
+    // Every Monero output is private; per-pool filters still need an id.
     privacyChainHistoryPoolIds: [1],
   };
 }

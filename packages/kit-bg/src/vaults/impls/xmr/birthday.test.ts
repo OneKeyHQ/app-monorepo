@@ -29,11 +29,7 @@ describe('xmr birthday', () => {
     ).toBe(0);
   });
 
-  /**
-   * The bug this exists for: the enable dialog collects a month and nothing
-   * else, so a birthday that does not move the start block off the tip means
-   * the scan silently skips the user's whole history.
-   */
+  // A birthday that leaves the start at the tip silently skips all history.
   it('turns a chosen month into a height well below the tip', () => {
     const now = Date.UTC(2026, 8, 23);
     const chainTip = 3_768_162;

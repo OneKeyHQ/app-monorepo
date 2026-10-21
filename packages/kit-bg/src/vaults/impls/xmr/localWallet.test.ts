@@ -139,11 +139,6 @@ function capability(intent: 'on' | 'off' = 'on', birthdayHeight?: number) {
 }
 
 describe('xmr frozen balance', () => {
-  /**
-   * Each reason on its own line, so the one the user can act on -- the
-   * password check for outputs a watch-only scan cannot prove unspent -- is
-   * never buried in a list of everything that might apply.
-   */
   it('says why each part cannot be spent yet', async () => {
     const balance = await capability().getAccountBalance({ accountId: 'acc' });
     const expected = [
@@ -168,11 +163,7 @@ describe('xmr sync progress before the first block', () => {
     peek = { scannedToHeight: null, ranges: [] };
   });
 
-  /**
-   * Enabling queues birthday..tip but scans nothing until the scheduler's
-   * first pass. Reporting the scanned height as null then rendered no numbers
-   * at all -- on a page whose one job is to show that scanning is under way.
-   */
+  // Enabled but not yet scanned: progress must still show numbers.
   it('reports the queued range start as 0% rather than nothing', async () => {
     peek = {
       scannedToHeight: null,
@@ -204,8 +195,7 @@ describe('xmr sync progress before the first block', () => {
     expect(progress?.backfillProgress).toBeGreaterThan(0.5);
   });
 
-  // Resume stores the tip as the birthday while the runtime keeps the real
-  // one; measuring from the stored value pinned progress at 0%.
+  // Resume stores the tip as the birthday while the runtime keeps the real one.
   it("measures from the runtime's birthday, not the stored one", async () => {
     peek = {
       scannedToHeight: 3_400_000,
@@ -232,11 +222,7 @@ describe('xmr syncGroup turns', () => {
     mockPublish.mockClear();
   });
 
-  /**
-   * One 100-block step took 136 s on the built-in node and tripped the
-   * scheduler's 15 s watchdog, which quarantined the chain. A turn is small
-   * steps inside a budget instead, and it stops early once caught up.
-   */
+  // A turn is small steps inside the watchdog budget, ending early once caught up.
   it('steps in small batches until caught up', async () => {
     runtime.syncStep
       .mockImplementationOnce(async () =>
@@ -377,11 +363,7 @@ describe('xmr syncGroup turns', () => {
 });
 
 describe('xmr sync policy', () => {
-  /**
-   * The turn is composed from these numbers by runBoundedSyncTurn: the first
-   * step always runs, so an estimate that could not fit inside the watchdog
-   * would be run anyway and abandoned. Keep the estimate inside.
-   */
+  // runBoundedSyncTurn always runs the first step, so the estimate must fit.
   it('declares a step estimate that fits inside the turn budget', () => {
     const { syncPolicy } = capability();
     expect(syncPolicy.turn).toBeDefined();
@@ -391,11 +373,7 @@ describe('xmr sync policy', () => {
     expect(syncPolicy.turn?.stepBlocks).toBeGreaterThan(0);
   });
 
-  /**
-   * A large batch over a slow or proxied link can take minutes and still be
-   * fine. The watchdog only ends a turn that is stuck; the turn budget is what
-   * keeps Monero from starving the other chains.
-   */
+  // The watchdog only ends a stuck turn; the turn budget prevents starvation.
   it('lets a slow step finish instead of treating it as stuck', () => {
     const { syncPolicy } = capability();
     expect(syncPolicy.maxSyncDurationMs).toBeGreaterThan(
@@ -511,8 +489,7 @@ describe('xmr rescans include their starting block', () => {
   });
 });
 
-// The repair path clears history and progress of every alias; none meant it
-// cleared nothing and the stale 100% stayed until the next tip.
+// The repair path clears history and progress of every alias.
 it('xmr reports the account itself as its only alias', async () => {
   await expect(
     capability().getAccountAliases({ accountId: 'acc' }),

@@ -19,9 +19,8 @@ import Vault from './Vault';
 const ACCOUNT_ID = "hd-1--m/44'/128'/0'";
 const ADDRESS = '4-synthetic-primary-address';
 
-// undefined from a local-wallet vault sends the account's address to the
-// server history API (ServiceHistory falls through). Monero has no server
-// history, so an unanswerable runtime must fall back to the cached rows.
+// undefined would send the address to the server history API, so an
+// unanswerable runtime falls back to the cached rows.
 describe('xmr history when the runtime cannot answer', () => {
   it('returns the cached rows instead of undefined', async () => {
     const confirmed = [{ id: 'confirmed' }] as unknown as IAccountHistoryTx[];

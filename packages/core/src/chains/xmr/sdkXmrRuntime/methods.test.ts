@@ -10,14 +10,9 @@ import {
 import type { IXmrRuntimeApi } from '.';
 import type { IXmrRuntimeMethod } from './methods';
 
-/**
- * The method list is the contract four carriers forward through.
- *
- * A name missing from it is not a type error anywhere: the Worker client
- * simply never builds that method, and the call becomes `undefined is not a
- * function` — on one platform, at runtime, in whichever feature happened to
- * use it. These checks turn that into a compile failure instead.
- */
+// A name missing from the method list is not a type error anywhere: the call
+// just becomes `undefined is not a function` at runtime on one platform.
+// These checks turn that into a compile failure.
 
 // Export names of the installed `onekey-monero-runtime` glue, or `undefined`
 // when the package is not installed.
@@ -61,8 +56,6 @@ describe('xmr runtime method list', () => {
     expect(new Set(XMR_RUNTIME_METHODS).size).toBe(XMR_RUNTIME_METHODS.length);
   });
 
-  // The spend key stays inside the runtime: signing and key-image import take
-  // the BIP-32 key, and nothing hands a spend key across.
   it('forwards no method that returns or takes a spend key', () => {
     for (const method of [
       'spendScalar',
@@ -80,14 +73,8 @@ describe('xmr runtime method list', () => {
     expect(XMR_RUNTIME_U64_ARGS.importKeyImagesWithBip32Key).toEqual([0]);
   });
 
-  /**
-   * The wasm package is a build artifact, not something `yarn install`
-   * produces. When it is stale, every missing method fails the same way at
-   * runtime; naming them here says which rebuild is owed.
-   *
-   * Jest does not transform this ESM package, so it is read as text rather
-   * than required; a require that threw used to skip the check silently.
-   */
+  // The wasm package is a build artifact; naming missing methods says a
+  // rebuild is owed. Read as text because Jest does not transform this ESM.
   it('matches what the installed wasm package actually exports', () => {
     const exported = readInstalledRuntimeExports();
     // Only an absent package skips: a missing artifact is not a contract
@@ -101,12 +88,6 @@ describe('xmr runtime method list', () => {
   });
 });
 
-/**
- * A bigint cannot cross the extension or mobile bridge (both JSON), so the
- * app speaks decimal strings and the adapter converts right before the wasm.
- * The first `addAccount` on the extension died with "Could not serialize
- * message" before this existed.
- */
 describe('xmr runtime u64 coercion', () => {
   it('only names methods that exist', () => {
     const unknown = Object.keys(XMR_RUNTIME_U64_ARGS).filter(

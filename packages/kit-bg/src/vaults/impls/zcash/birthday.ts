@@ -4,8 +4,6 @@ import {
   ZCASH_TARGET_BLOCK_SECONDS,
 } from '@onekeyhq/shared/src/config/zcash';
 
-// Birthday policy stays separate from storage and network I/O.
-
 export const ZCASH_BLOCKS_PER_DAY = 1152;
 export const ZCASH_BIRTHDAY_SAFETY_BLOCKS = ZCASH_BLOCKS_PER_DAY;
 

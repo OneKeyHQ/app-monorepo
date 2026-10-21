@@ -1,10 +1,8 @@
 import { createWorkerHostRequester } from './privacyChainWorkerClient';
 
 /**
- * A node request relayed through the host must end. Before this bound, one
- * stalled connection -- or an extension background recycled mid-request, so
- * its reply never came -- left the runtime step waiting forever, and the
- * chain never scanned again until a restart.
+ * A relayed node request must end even if the host never replies (stalled
+ * connection, extension background recycled mid-request).
  */
 describe('worker host requester', () => {
   const listeners: ((event: MessageEvent) => void)[] = [];

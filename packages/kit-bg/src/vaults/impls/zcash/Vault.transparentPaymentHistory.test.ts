@@ -380,7 +380,7 @@ it.each([
   if (scenario === 'private cache') local.privacyChainHistorySide = 'private';
   const { vault } = createVault(local);
   const rows = await vault.fetchAccountHistoryFromLocal(params);
-  // Falls back to the backend's net transparent debit, as before.
+  // Falls back to the backend's net transparent debit.
   expect(rows?.[0].decodedTx.nativeAmountIsUnknown).not.toBe(true);
   expect(rows?.[0].decodedTx.nativeAmount).toBe('0.001');
   expect(rows?.[0].decodedTx.to).not.toBe(recipient);

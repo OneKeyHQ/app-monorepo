@@ -79,9 +79,8 @@ export type IZcashPrivacyModeStateView = Partial<IZcashPrivacyModeState> & {
 export interface IZcashAccountMeta {
   ufvk: string;
   unifiedAddress: string;
-  // Hardware only: what we derive from the device's own UFVK, kept to detect
-  // when the device's displayed address (currently also shows P2PKH) becomes
-  // byte-identical to ours.
+  // Hardware only: the app's own derivation when it differs from the
+  // device-displayed address (the device UA also carries P2PKH).
   derivedUnifiedAddress?: string;
   transparentAddress: string;
   // App-owned address derivation policy version, independent of pool upgrades.
@@ -99,8 +98,7 @@ export interface IZcashAccountMeta {
 
 export interface IZcashDB {
   accounts: Record<string, IZcashAccountMeta>;
-  // Missing records deliberately mean off; old dev data is never migrated
-  // into an enabled state.
+  // A missing record means off.
   privacyModeAccounts?: Record<string, IZcashPrivacyModeState>;
   // Per-wallet: true only for a freshly generated mnemonic. Absent means not
   // proven fresh -- the safe default for the birthday decision.

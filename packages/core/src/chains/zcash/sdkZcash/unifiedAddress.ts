@@ -126,7 +126,7 @@ export function getSupportedZcashUnifiedAddressReceiverTypes(
       }
       receiverTypes.push(type);
     }
-    // The shipped builder pays Unified recipients through Orchard only.
+    // Only a Unified address with an Orchard receiver is payable.
     return hasOrchard ? receiverTypes : undefined;
   } catch {
     return undefined;

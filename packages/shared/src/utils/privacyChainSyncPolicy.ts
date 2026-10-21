@@ -87,10 +87,10 @@ export function isTipLagWorthMentioning(
   return typeof lagBlocks === 'number' && lagBlocks > warningThresholdBlocks;
 }
 
-// Ceiling on staleness, not a fetch cost: reads a published jotai atom and
-// never enter the wallet's lane. One number for every surface so they show the same facts.
+// UI staleness ceiling: polls a published atom, never the wallet lane. Shared
+// by every surface so they show the same facts.
 export const PRIVACY_CHAIN_SYNC_POLL_MS = 8000;
 
-// Only a head-request cadence (no wallet lease) deciding how soon an
-// unwatched incoming payment is noticed; a waiting user's foreground boost preempts it.
+// Tip-only poll (no wallet lease): how soon an unwatched incoming payment is
+// noticed. A foreground boost preempts it.
 export const PRIVACY_CHAIN_TIP_POLL_MS = 300_000;

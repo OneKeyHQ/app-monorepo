@@ -120,7 +120,7 @@ describe('removed-account gc', () => {
       getAllIndexedAccounts: jest.fn(async () => ({
         indexedAccounts: indexedAccountIds.map((id) => ({ id })),
       })),
-      // The old per-id read reported every one of these as missing.
+      // A per-id read would report every one of these as missing.
       getDBAccountSafe: jest.fn(async () => undefined),
       getAllWallets: jest.fn(async () => ({ wallets: [] })),
     };

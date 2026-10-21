@@ -141,7 +141,7 @@ export async function getRuntime(): Promise<IRuntimeModule> {
       const mod = await getRuntimeWasm();
       // Installs the shared OPFS VFS; must complete before openWallet or SQLite silently falls back to memory.
       await mod.init();
-      // Temporary: mirror the host-side [PRIV-PERF] trace inside wasm.
+      // Mirrors the host-side [PRIV-PERF] trace inside wasm.
       if (isPrivacyChainPerfLogEnabled()) {
         (mod as { setPerfTrace?: (enabled: boolean) => void }).setPerfTrace?.(
           true,

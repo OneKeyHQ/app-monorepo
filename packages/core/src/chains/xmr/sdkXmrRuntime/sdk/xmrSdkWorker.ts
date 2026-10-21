@@ -11,17 +11,9 @@ import { XMR_RUNTIME_METHODS } from '../methods';
 
 import type { IXmrRuntimeApi } from '..';
 
-// Shared Worker entry for every carrier. Hosts the wasm module, the SQLite
-// wallet database and the scan loop, so none of it runs on the window thread.
-//
-// Web, desktop and the extension's offscreen document load this by URL.
-// Mobile bundles the same entry through xmrSdkInline.worker.js, because
-// WKWebView cannot load a Worker script from a bundled file URL.
-//
-// Scanning is what forces this. Pure trial-decryption measured 153 blocks per
-// second, so the CPU cost is real but modest -- on the page thread it would
-// still be hundreds of milliseconds of frozen UI per step, with no error and
-// no timeout to show for it.
+// Shared Worker entry for every carrier: hosts the wasm module, the SQLite
+// wallet database and the scan loop off the window thread. Platform loaders
+// live in the createXmrWorker.* files.
 let storageRequiresWorkerRestart = () => false;
 
 servePrivacyChainWorker<IXmrRuntimeApi>({

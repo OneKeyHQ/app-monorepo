@@ -323,16 +323,14 @@ export type IZcashBalance = {
   isComplete: boolean;
   // zatoshi strings (1 ZEC = 1e8 zatoshi); bigint-safe across the bridge
   shielded: string; // orchard + ironwood pools, summed
-  // What a send can draw on right now (this build's spend policy + confirmation thresholds).
-  // A "max" button must use this, not `shielded` — it's produced by the same layer that validates a proposal, so the two can't disagree.
+  // What a send can draw on now (spend policy + confirmation thresholds); a "max" button must use this, not `shielded`.
   spendable: string;
   pendingChange: string;
   pendingSpendable: string;
   // Per-pool breakdown for TokenDetails; kept separate from `shielded` since Orchard and Ironwood have different spend behavior.
   orchardBalance: string;
   ironwoodBalance: string;
-  // Spendable portion of the SHIELDED pools only (confirmation thresholds applied) — the withdraw ceiling.
-  // `spendable` is the aggregate policy figure; a shielded-to-transparent withdraw must still use this shielded-only ceiling.
+  // Spendable portion of the shielded pools only: the ceiling for a shielded-to-transparent withdraw.
   shieldedSpendable: string;
   // Per-pool composition for the pool UI; shielded pools only — the public half is backend-owned and intentionally absent (would be a stale zero).
   poolsDetail: {
@@ -386,13 +384,12 @@ export type IZcashHistoryItem = {
   perPoolBalanceDeltaZat: Record<string, string>;
 };
 
-// Host uses this to hide actions it can't complete, rather than let them fail mid-pipeline.
-// A send failing at the proving step has already asked the user for their password.
+// Lets the host hide actions it can't complete, rather than fail at the proving step after the password prompt.
 export type IZcashCapabilities = {
   scan: boolean;
   balance: boolean;
   history: boolean;
-  // Spending requires proving AND signing for the bundle actually used; post-NU6.3 unified-address payments use Ironwood.
+  // Spending requires proving AND signing for the bundle actually used.
   spend: boolean;
   shieldTransparent: boolean;
   withdrawToTransparent: boolean;
@@ -404,7 +401,7 @@ export type IZcashSdkApi = {
   // Tears down a wedged carrier so the next call starts clean (desktop: terminates the Worker; in-thread: swaps the lease).
   resetCarrier: () => Promise<void>;
 
-  // Perf tracing for slow reads; off by default — during a boost these fire several times/sec, enough to itself slow a console-attached page.
+  // Perf tracing for slow reads; off by default.
   setPerfTrace: (params: { enabled: boolean }) => Promise<void>;
   // Public circuit parameters only: no proposal, seed, or storage.
   prewarmPczt: (params: {

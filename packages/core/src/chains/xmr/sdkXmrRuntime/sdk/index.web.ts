@@ -2,9 +2,8 @@ import { ensureWorkerReady, workerApi } from './workerClient';
 
 import type { IXmrRuntimeApi } from '..';
 
-// App main and background share one JS runtime on web and desktop, so "the
-// background is doing it" is not a defense against blocking the UI -- the
-// wallet gets its own Worker.
+// Web and desktop run main and background in one JS runtime, so the wallet
+// needs its own Worker to keep the UI responsive.
 export async function getXmrRuntimeApiForCarrier(): Promise<IXmrRuntimeApi> {
   await ensureWorkerReady();
   return workerApi;

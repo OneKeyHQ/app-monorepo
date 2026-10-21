@@ -9,9 +9,8 @@ import Vault from './Vault';
 
 import type { IEncodedTxZcash } from './types';
 
-// The confirm page skips its generic balance check for a PSBT-like tx. A
-// private send's notes stay spendable until the signed transaction is stored,
-// so without the flag the check counted them as unavailable and refused the send.
+// The confirm page skips its generic balance check for a PSBT-like tx; a
+// private send's notes stay spendable until the signed transaction is stored.
 describe('Zcash decoded transaction', () => {
   function transaction(
     overrides: Partial<IEncodedTxZcash> = {},

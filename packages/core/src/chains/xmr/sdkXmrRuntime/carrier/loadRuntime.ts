@@ -29,7 +29,7 @@ function toAsyncRuntime(mod: Record<string, unknown>): IXmrRuntimeApi {
     const fn = mod[method];
     if (typeof fn !== 'function') {
       throw new OneKeyLocalError(
-        `xmr: the wasm runtime is missing "${method}"; rebuild it (scripts/build-wasm.sh) -- the package and this app are out of step`,
+        `xmr: onekey-monero-runtime is missing "${method}"; the installed package is older than this app expects`,
       );
     }
     api[method] = async (...args: unknown[]) =>
@@ -38,28 +38,20 @@ function toAsyncRuntime(mod: Record<string, unknown>): IXmrRuntimeApi {
   return api as unknown as IXmrRuntimeApi;
 }
 
-/**
- * The wasm package is a build artifact (`scripts/build-wasm.sh`), not an
- * install-time dependency - "module not found" here means it wasn't built.
- */
 async function importRuntimeModule(): Promise<IXmrRuntimeApi> {
   let mod: Record<string, unknown>;
   try {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
     // Eager: mobile inlines the Worker entry into a Blob, so the module must
     // be bundled rather than lazy-loaded.
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
     mod = (await import(
       /* webpackMode: "eager" */ 'onekey-monero-runtime'
     )) as unknown as Record<string, unknown>;
   } catch (error) {
     throw new OneKeyLocalError(
-      [
-        'xmr: the wasm runtime package is not available.',
-        'It is a build artifact, not an install-time dependency:',
-        'run chain-runtimes/monero/scripts/build-wasm.sh and make sure',
-        'packages/core/package.json portals to its pkg/ directory.',
-        `原始错误: ${error instanceof Error ? error.message : String(error)}`,
-      ].join(' '),
+      `xmr: the onekey-monero-runtime package is not available: ${
+        error instanceof Error ? error.message : String(error)
+      }`,
     );
   }
 
@@ -73,17 +65,16 @@ async function importRuntimeModule(): Promise<IXmrRuntimeApi> {
   // which cannot cross a Worker boundary via the typed async wrapper.
   rawModule = mod;
   const api = toAsyncRuntime(mod);
-  // Install persistent storage once up front (avoids a race between
-  // callers). Not fatal if it fails: OPFS sync-access handles are
-  // Worker-only, so main-thread calls (e.g. address derivation) don't need it.
+  // Install storage once up front to avoid a race between callers. Not fatal:
+  // OPFS sync-access handles are Worker-only, and main-thread address
+  // derivation does not need them.
   try {
     await api.init();
     storageError = undefined;
   } catch (error) {
     storageError = error;
   }
-  // Retry storage init here: a stale Worker releasing its handles is
-  // transient and clears by the next call, unlike a cached process-wide failure.
+  // A stale Worker still releasing its handles is transient, so retry here.
   const { openWallet } = api;
   api.openWallet = async (...args) => {
     if (storageError !== undefined) {
@@ -105,14 +96,13 @@ async function importRuntimeModule(): Promise<IXmrRuntimeApi> {
 }
 
 /**
- * Cache the promise, not the resolved value, so concurrent callers share one
- * instantiation - opening the OPFS pool twice looks like storage corruption.
+ * Caches the promise so concurrent callers share one instantiation: opening
+ * the OPFS pool twice looks like storage corruption.
  */
 export async function loadXmrRuntime(): Promise<IXmrRuntimeApi> {
   if (!cached) {
     cached = importRuntimeModule().catch((error) => {
-      // Do not cache a failure: a transient load error should not disable
-      // the chain for the rest of the session.
+      // A transient load error must not disable the chain for the session.
       cached = undefined;
       throw error;
     });

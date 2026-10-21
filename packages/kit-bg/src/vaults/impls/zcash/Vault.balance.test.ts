@@ -26,8 +26,7 @@ const pool = (amount: string) => ({
   pendingSpendable: '0',
   locked: '0',
 });
-// Shielded only: the scanner snapshot no longer carries a public half.
-// Transparent figures in these cases come from the indexer mocks below.
+// Shielded only; transparent figures come from the indexer mocks below.
 const balance: IZcashBalance = {
   isComplete: true,
   shielded: '100',
@@ -246,7 +245,7 @@ describe('Zcash independent transparent balance availability', () => {
 });
 
 // The transparent half's backend requests (UTXOs, then each previous
-// transaction, retried) used to hold the private half back with them.
+// transaction, retried) must not hold the private half back.
 describe('Zcash transparent balance on display', () => {
   afterEach(() => jest.restoreAllMocks());
 
