@@ -55,12 +55,11 @@ export function buildReferralLinks({
 }
 
 export function buildHardwareShopInviteUrl(inviteUrl: string) {
-  if (!inviteUrl) {
+  const hardwareLink = REFERRAL_LINKS.find(
+    (link) => link.subject === 'HardwareSales',
+  );
+  if (!inviteUrl || !hardwareLink) {
     return '';
   }
-  return (
-    buildReferralLinks({ inviteUrl, webAppUrl: '' }).find(
-      (link) => link.subject === 'HardwareSales',
-    )?.url ?? ''
-  );
+  return `${inviteUrl}${hardwareLink.pathSuffix}`;
 }

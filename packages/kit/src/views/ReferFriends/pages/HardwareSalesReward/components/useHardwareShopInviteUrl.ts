@@ -5,25 +5,20 @@ import { buildHardwareShopInviteUrl } from '@onekeyhq/kit/src/views/ReferFriends
 export function useHardwareShopInviteUrl() {
   const { result: inviteUrl, isLoading } = usePromiseResult(
     async () => {
-      try {
-        const summary =
-          await backgroundApiProxy.serviceReferralCode.getSummaryInfo();
-        return summary?.inviteUrl ?? '';
-      } catch {
-        return '';
-      }
+      const summary =
+        await backgroundApiProxy.serviceReferralCode.getSummaryInfo();
+      return summary.inviteUrl;
     },
     [],
     {
       initResult: '',
+      keepResultIfError: true,
       watchLoading: true,
     },
   );
 
-  const shopInviteUrl = inviteUrl ? buildHardwareShopInviteUrl(inviteUrl) : '';
-
   return {
-    shopInviteUrl,
-    isReady: Boolean(shopInviteUrl) || isLoading === false,
+    shopInviteUrl: buildHardwareShopInviteUrl(inviteUrl),
+    isReady: isLoading === false,
   };
 }
