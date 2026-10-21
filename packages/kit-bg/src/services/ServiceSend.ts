@@ -1444,8 +1444,19 @@ class ServiceSend extends ServiceBase {
           }
         }
 
-        if (!signOnly && unsignedTx.uuid && successfullySentTxs) {
-          successfullySentTxs.push(unsignedTx.uuid);
+        if (!signOnly && unsignedTx.uuid) {
+          if (successfullySentTxs) {
+            successfullySentTxs.push(unsignedTx.uuid);
+          }
+          // The push above never reaches the caller across the bridge and
+          // the result is withheld when a later chunk throws; the confirm
+          // page marks this chunk as sent from the event instead.
+          appEventBus.emit(EAppEventBusNames.BatchSendTxBroadcasted, {
+            uuid: unsignedTx.uuid,
+            txid: signedTx.txid,
+            networkId,
+            accountId,
+          });
         }
       }
     }

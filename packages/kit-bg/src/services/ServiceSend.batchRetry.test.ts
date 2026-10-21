@@ -57,7 +57,7 @@ jest.mock('@onekeyhq/shared/src/errors/utils/gasAccountErrorUtils', () => ({
 }));
 
 jest.mock('@onekeyhq/shared/src/eventBus/appEventBus', () => ({
-  EAppEventBusNames: {},
+  EAppEventBusNames: { BatchSendTxBroadcasted: 'BatchSendTxBroadcasted' },
   appEventBus: { emit: jest.fn() },
 }));
 
@@ -90,6 +90,11 @@ import { cloneDeep } from 'lodash';
 import type { ISignedTxPro, IUnsignedTxPro } from '@onekeyhq/core/src/types';
 // eslint-disable-next-line import-js/order, import/first
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+// eslint-disable-next-line import-js/order, import/first
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 // eslint-disable-next-line import-js/order, import/first
 import type { IDecodedTx } from '@onekeyhq/shared/types/tx';
 // eslint-disable-next-line import-js/order, import/first
@@ -280,6 +285,13 @@ function answerStatusByTxid(
         ? ESignedTxBroadcastStatus.Broadcast
         : ESignedTxBroadcastStatus.NotBroadcast,
   );
+}
+
+// What the confirm page hears about chunks that left the device, in order.
+function announcedBroadcasts() {
+  return (appEventBus.emit as jest.Mock).mock.calls
+    .filter(([type]) => type === EAppEventBusNames.BatchSendTxBroadcasted)
+    .map(([, payload]) => payload as unknown);
 }
 
 function failBroadcastOnce(
@@ -626,6 +638,42 @@ describe('ServiceSend.batchSignAndSendTransaction retry after partial failure', 
       signatureOf('u0'),
       signatureOf('u1'),
     ]);
+  });
+
+  it('announces each chunk that left the device, on the first run and again when the retry replays it', async () => {
+    const { service, vault } = makeService();
+    const unsignedTxs = [buildUnsignedTx('u0'), buildUnsignedTx('u1')];
+    vault.broadcastTransaction.mockImplementationOnce(async ({ signedTx }) => ({
+      txid: signedTx.txid,
+    }));
+    failBroadcastOnce(vault, 'network down');
+    answerStatusByTxid(vault, [signatureOf('u0')]);
+
+    await expect(batchSend(service, unsignedTxs)).rejects.toThrow(
+      'network down',
+    );
+    // The batch promise rejects with no partial result, so this event is the
+    // only way the review page learns that the first chunk is already on chain.
+    expect(announcedBroadcasts()).toEqual([
+      { uuid: 'u0', txid: signatureOf('u0'), networkId, accountId },
+    ]);
+
+    (appEventBus.emit as jest.Mock).mockClear();
+    await batchSend(service, unsignedTxs);
+
+    expect(announcedBroadcasts()).toEqual([
+      { uuid: 'u0', txid: signatureOf('u0'), networkId, accountId },
+      { uuid: 'u1', txid: signatureOf('u1'), networkId, accountId },
+    ]);
+  });
+
+  it('announces nothing for a sign-only batch', async () => {
+    const { service } = makeService();
+    const unsignedTxs = [buildUnsignedTx('u0'), buildUnsignedTx('u1')];
+
+    await batchSend(service, unsignedTxs, { signOnly: true });
+
+    expect(announcedBroadcasts()).toEqual([]);
   });
 
   it('attaches a uuid to every prepared tx so a retry can be matched', async () => {
