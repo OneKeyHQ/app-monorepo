@@ -563,7 +563,7 @@ function HealthFactorRow({
       right={
         <EarnText
           size="$bodyMdMedium"
-          text={entry.healthFactor?.healthFactor.text}
+          text={entry.healthFactor?.healthFactor?.text}
         />
       }
     />

@@ -187,10 +187,17 @@ export function useEarnDesktopAccountMarkets({
               const hasLoan = reserves.borrowed.assets.some((asset) =>
                 hasPositiveBorrowBalance(asset.borrowedAmount),
               );
+              const lastGoodHealthFactor = () =>
+                byMarket.get(marketKey)?.healthFactor;
+              // The server sometimes answers with an empty object; the market
+              // keeps the last health factor it had
               const healthFactor = hasLoan
                 ? await backgroundApiProxy.serviceStaking
                     .getBorrowHealthFactor(marketParams)
-                    .catch(() => byMarket.get(marketKey)?.healthFactor)
+                    .then((data) =>
+                      data?.healthFactor?.text ? data : lastGoodHealthFactor(),
+                    )
+                    .catch(lastGoodHealthFactor)
                 : undefined;
               const entry = {
                 market,
