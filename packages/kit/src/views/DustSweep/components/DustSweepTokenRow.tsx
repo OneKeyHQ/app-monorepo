@@ -48,7 +48,10 @@ export function getDustSweepReasonMessage(
   nativeTokenSymbol?: string,
   providerErrorMessage?: string,
 ) {
-  if (reason === 'noQuote' && providerErrorMessage?.trim())
+  if (
+    (reason === 'noQuote' || reason === 'txFailed') &&
+    providerErrorMessage?.trim()
+  )
     return providerErrorMessage.trim();
   if (reason === 'insufficientGas') {
     const symbol = nativeTokenSymbol?.trim();

@@ -1647,7 +1647,8 @@ describe('marketDirectSendTx', () => {
   });
 
   it('validates rebuilt send-time gas infos before signing', async () => {
-    mockPrepareSendConfirmUnsignedTx.mockResolvedValue(createUnsignedTx());
+    const unsignedTx = createUnsignedTx({ solanaRent: '0.002' });
+    mockPrepareSendConfirmUnsignedTx.mockResolvedValue(unsignedTx);
     const validateFinalGasInfos = jest
       .fn()
       .mockRejectedValue(new Error('insufficient final gas balance'));
@@ -1683,15 +1684,18 @@ describe('marketDirectSendTx', () => {
       }),
     ).rejects.toThrow('insufficient final gas balance');
 
-    expect(validateFinalGasInfos).toHaveBeenCalledWith([
-      expect.objectContaining({
-        gasInfo: expect.objectContaining({
-          gas: expect.objectContaining({
-            gasPrice: '2',
+    expect(validateFinalGasInfos).toHaveBeenCalledWith(
+      [
+        expect.objectContaining({
+          gasInfo: expect.objectContaining({
+            gas: expect.objectContaining({
+              gasPrice: '2',
+            }),
           }),
         }),
-      }),
-    ]);
+      ],
+      [unsignedTx],
+    );
     expect(mockUpdateUnsignedTx).not.toHaveBeenCalled();
     expect(mockSignAndSendTransaction).not.toHaveBeenCalled();
   });
@@ -1775,7 +1779,10 @@ describe('marketDirectSendTx', () => {
   );
 
   it('revalidates user-paid gas before retrying a failed sponsor send', async () => {
-    const sponsoredUnsignedTx = createSponsoredUnsignedTx();
+    const sponsoredUnsignedTx = {
+      ...createSponsoredUnsignedTx(),
+      solanaRent: '0.002',
+    };
     mockPrepareSendConfirmUnsignedTx.mockResolvedValue(sponsoredUnsignedTx);
     mockEstimateFee.mockResolvedValue({
       ...createEstimateFeeResult(),
@@ -1807,22 +1814,30 @@ describe('marketDirectSendTx', () => {
     ).rejects.toThrow('insufficient user-paid gas balance');
 
     expect(validateFinalGasInfos).toHaveBeenCalledTimes(2);
-    expect(validateFinalGasInfos).toHaveBeenNthCalledWith(1, [
-      expect.objectContaining({
-        gasInfo: expect.objectContaining({
-          payer: 'gasAccount',
-          gasAccountEligible: true,
+    expect(validateFinalGasInfos).toHaveBeenNthCalledWith(
+      1,
+      [
+        expect.objectContaining({
+          gasInfo: expect.objectContaining({
+            payer: 'gasAccount',
+            gasAccountEligible: true,
+          }),
         }),
-      }),
-    ]);
-    expect(validateFinalGasInfos).toHaveBeenNthCalledWith(2, [
-      expect.objectContaining({
-        gasInfo: expect.objectContaining({
-          payer: 'user',
-          gasAccountEligible: false,
+      ],
+      [sponsoredUnsignedTx],
+    );
+    expect(validateFinalGasInfos).toHaveBeenNthCalledWith(
+      2,
+      [
+        expect.objectContaining({
+          gasInfo: expect.objectContaining({
+            payer: 'user',
+            gasAccountEligible: false,
+          }),
         }),
-      }),
-    ]);
+      ],
+      [sponsoredUnsignedTx],
+    );
     expect(mockSignAndSendTransaction).toHaveBeenCalledTimes(1);
   });
 
