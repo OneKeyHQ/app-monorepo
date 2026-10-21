@@ -143,7 +143,13 @@ jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   __esModule: true,
   default: {
     get isNative() {
-      return mockNative;
+      // Shared utils (e.g. numberUtils) read this while modules load, before
+      // `mockNative` is initialized; treat that early read as web.
+      try {
+        return mockNative;
+      } catch {
+        return false;
+      }
     },
   },
 }));
