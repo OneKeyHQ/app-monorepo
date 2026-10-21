@@ -635,6 +635,9 @@ function DialogFrame({
         <Sheet.Frame
           unstyled
           testID={testID}
+          nativeID={
+            platformEnv.isNativeAndroid ? 'onekey-dialog-sheet' : undefined
+          }
           borderTopLeftRadius="$6"
           borderTopRightRadius="$6"
           // Match the sheet frame to the content surface so the bottom

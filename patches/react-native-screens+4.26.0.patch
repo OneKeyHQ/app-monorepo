@@ -1,9 +1,9 @@
 diff --git a/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/NativeStackGestureController.kt b/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/NativeStackGestureController.kt
 new file mode 100644
-index 0000000..f40dbb1
+index 0000000..39e3304
 --- /dev/null
 +++ b/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/NativeStackGestureController.kt
-@@ -0,0 +1,442 @@
+@@ -0,0 +1,444 @@
 +package com.swmansion.rnscreens
 +
 +import android.animation.Animator
@@ -184,6 +184,8 @@ index 0000000..f40dbb1
 +
 +    private fun canScrollAt(view: View, x: Float, y: Float): Boolean {
 +        if (view.visibility != View.VISIBLE) return false
++        // An in-page dialog sheet owns its drag, even when its host screen is dismissible.
++        if (view.getTag(com.facebook.react.R.id.view_tag_native_id) == "onekey-dialog-sheet") return true
 +        // A parent must not dismiss an entire flow before its nested stack can handle the
 +        // gesture, nor while the nested screen on top opted out of gestures.
 +        if (view is ScreenStack && view !== stack && view.blocksAncestorDismiss()) return true

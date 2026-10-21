@@ -80,6 +80,7 @@ export function makeModalStackNavigatorOptions({
       headerShown: true,
       animation: 'slide_from_right',
       presentation: 'modal',
+      gestureDirection: 'horizontal',
       headerShadowVisible: false,
       // Android Pad modal needs to be commented out
       ...makeHeaderScreenOptions({
