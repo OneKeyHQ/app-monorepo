@@ -97,7 +97,10 @@ type IMarketDirectSendParams = {
   customPriorityFee?: IMarketPresetPriorityFeeOverride;
   tronResourceRentalInfo?: ITronResourceRentalInfo;
   useDefaultRpc?: boolean;
-  validateFinalGasInfos?: (gasInfos: IMarketGasInfoEntry[]) => Promise<void>;
+  validateFinalGasInfos?: (
+    gasInfos: IMarketGasInfoEntry[],
+    unsignedTxs?: IUnsignedTxPro[],
+  ) => Promise<void>;
   gasAccountAnalytics?: {
     fiatCurrency?: string;
     nativeBalance?: string;
@@ -1483,7 +1486,7 @@ export async function sendMarketDirectUnsignedTxs({
     });
   }
 
-  await validateFinalGasInfos?.(gasInfosFinal);
+  await validateFinalGasInfos?.(gasInfosFinal, unsignedTxArr);
 
   for (const [unsignedTxIndex, unsignedTxItem] of unsignedTxArr.entries()) {
     const gasInfoEntry = findGasInfo(gasInfosFinal, unsignedTxItem.encodedTx);
@@ -1527,6 +1530,7 @@ export async function sendMarketDirectUnsignedTxs({
                       }
                     : item,
                 ),
+                unsignedTxArr.slice(unsignedTxIndex),
               )
           : undefined,
         gasAccountAnalytics,
