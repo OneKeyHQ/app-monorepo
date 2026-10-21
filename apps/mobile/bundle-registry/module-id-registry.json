@@ -24344,6 +24344,7 @@
     "packages/kit/src/views/Market/MarketDetailV2/layouts/components/MarketDesktopChartContainer.tsx": 19053,
     "packages/kit/src/views/Market/MarketDetailV2/layouts/components/MarketDetailProChartControls.tsx": 12639,
     "packages/kit/src/views/Market/MarketDetailV2/layouts/components/MarketStockTradeTarget.tsx": 21857,
+    "packages/kit/src/views/Market/MarketDetailV2/layouts/components/MobileSimpleChartFrame.tsx": 19700,
     "packages/kit/src/views/Market/MarketDetailV2/layouts/components/StockChartModeControl.tsx": 4892,
     "packages/kit/src/views/Market/MarketDetailV2/layouts/components/StockEventsSection.tsx": 11308,
     "packages/kit/src/views/Market/MarketDetailV2/layouts/components/StockNewsSection.tsx": 13007,
