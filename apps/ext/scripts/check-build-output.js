@@ -13,9 +13,13 @@ const forbiddenRemoteCode = [
   '/js/telegram-login.js',
 ];
 const stripeV3BaseUrl = 'https://js.stripe.com/v3/';
-const stripeV3SourcePath = path.resolve(
-  __dirname,
-  '../../../packages/shared/src/modules3rdParty/stripe-v3/index.js',
+const stripeV3SourcePaths = ['index.js', 'faulty-before-13914.js'].map(
+  (filename) =>
+    path.resolve(
+      __dirname,
+      '../../../packages/shared/src/modules3rdParty/stripe-v3',
+      filename,
+    ),
 );
 const stripeV3RuntimeStartMarker = 'stripe-js-v3:';
 const stripeV3RuntimeMarker = 'webpackChunkStripeJSouter';
@@ -107,7 +111,17 @@ function countOccurrences(source, value) {
 }
 
 function assertStripeV3Runtime(files, jsFiles) {
-  const stripeV3RuntimeCandidates = [];
+  const supportedRuntimes = stripeV3SourcePaths.map((sourcePath) => {
+    const source = fs.readFileSync(sourcePath, 'utf8');
+    return {
+      sourcePath,
+      source,
+      framePaths: [...new Set(source.match(stripeV3FramePathPattern) || [])]
+        .toSorted()
+        .join('|'),
+    };
+  });
+  const foundRuntimes = new Set();
   for (const jsFile of jsFiles) {
     const source = fs.readFileSync(jsFile, 'utf8');
     const isStripeV3Runtime =
@@ -120,17 +134,38 @@ function assertStripeV3Runtime(files, jsFiles) {
       throw new Error(`Unexpected Stripe v3 remote URL in ${jsFile}`);
     }
     if (isStripeV3Runtime) {
-      stripeV3RuntimeCandidates.push({ jsFile, source });
+      const framePaths = [
+        ...new Set(source.match(stripeV3FramePathPattern) || []),
+      ]
+        .toSorted()
+        .join('|');
+      const runtime = supportedRuntimes.find(
+        (candidate) =>
+          candidate.framePaths && candidate.framePaths === framePaths,
+      );
+      if (!runtime) {
+        throw new Error(`Unknown vendored Stripe v3 runtime in ${jsFile}`);
+      }
+      if (foundRuntimes.has(runtime.sourcePath)) {
+        throw new Error(
+          `Duplicate vendored Stripe v3 runtime: ${runtime.sourcePath}`,
+        );
+      }
+      assertStripeV3RuntimeSource(files, jsFile, source, runtime.source);
+      foundRuntimes.add(runtime.sourcePath);
     }
   }
 
-  if (stripeV3RuntimeCandidates.length !== 1) {
-    throw new Error(
-      `Expected one vendored Stripe v3 runtime, found ${stripeV3RuntimeCandidates.length}.`,
-    );
+  for (const runtime of supportedRuntimes) {
+    if (!foundRuntimes.has(runtime.sourcePath)) {
+      throw new Error(
+        `Missing vendored Stripe v3 runtime: ${runtime.sourcePath}`,
+      );
+    }
   }
+}
 
-  const [{ jsFile, source }] = stripeV3RuntimeCandidates;
+function assertStripeV3RuntimeSource(files, jsFile, source, stripeV3Source) {
   const runtimeStartIndex = source.indexOf(stripeV3RuntimeStartMarker);
   const runtimeEndIndex = source.indexOf(
     stripeV3RuntimeMarker,
@@ -174,7 +209,6 @@ function assertStripeV3Runtime(files, jsFiles) {
     );
   }
 
-  const stripeV3Source = fs.readFileSync(stripeV3SourcePath, 'utf8');
   const sourcePublicPathMatches =
     stripeV3Source.match(stripeV3SourcePublicPathPattern) || [];
   if (sourcePublicPathMatches.length !== 1) {

@@ -2,7 +2,7 @@
 import { useCallback, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 
-import TabView from '@onekeyfe/react-native-tab-view';
+import BottomTabs from '@onekeyfe/react-native-bottom-tabs';
 import {
   CommonActions,
   type ParamListBase,
@@ -253,15 +253,15 @@ export function NativeBottomTabView({
     ],
     [descriptors, tabBarHidden],
   );
-  const onTabLongPress = useCallback(
+  const onTabDoublePress = useCallback(
     (index: number) => {
       const route = state.routes[index];
       if (!route) {
-        return false;
+        return;
       }
 
       navigation.emit({
-        type: 'tabLongPress',
+        type: 'tabDoublePress',
         target: route.key,
       });
     },
@@ -308,7 +308,7 @@ export function NativeBottomTabView({
   );
 
   return (
-    <TabView
+    <BottomTabs
       {...rest}
       tabBarHidden={tabBarHidden}
       navigationState={state}
@@ -327,7 +327,7 @@ export function NativeBottomTabView({
       getLazy={getLazy}
       getFreezeOnBlur={getFreezeOnBlur}
       getSceneStyle={getSceneStyle}
-      onTabLongPress={onTabLongPress}
+      onTabDoublePress={onTabDoublePress}
       getPreventsDefault={getPreventsDefault}
       onIndexChange={onIndexChange}
     />

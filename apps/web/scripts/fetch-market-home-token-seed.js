@@ -450,6 +450,7 @@ if (require.main === module) {
 }
 
 module.exports = {
+  createSeedUrl,
   fetchJson,
   readAppVersion,
 };

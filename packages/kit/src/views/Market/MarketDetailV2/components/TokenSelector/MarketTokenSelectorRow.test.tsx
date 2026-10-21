@@ -20,6 +20,7 @@ jest.mock('@onekeyhq/components', () => {
   }
 
   return {
+    Badge: Object.assign(StackComponent, { Text: StackComponent }),
     Icon: () => null,
     IconButton: () => <button aria-label="favorite" type="button" />,
     NATIVE_HIT_SLOP: {},
@@ -35,6 +36,15 @@ jest.mock('@onekeyhq/components', () => {
     useClipboard: () => ({ copyText: jest.fn() }),
   };
 });
+
+jest.mock('react-intl', () => ({
+  useIntl: () => ({ formatMessage: () => '' }),
+}));
+
+jest.mock(
+  '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketTokenList/hooks/useMarketTokenColumns/tokenAgeLabel',
+  () => ({ getTokenAgeLabel: () => undefined }),
+);
 
 jest.mock('@onekeyhq/kit/src/components/Token', () => ({
   Token: () => null,
@@ -99,7 +109,6 @@ jest.mock('../../../components/MarketStarV2', () => ({
 
 jest.mock('../../../components/PerpsBadges', () => ({
   StockSourceLogo: () => null,
-  SubtitleText: () => null,
 }));
 
 jest.mock('../../utils/marketDetailImagePreload', () => ({
@@ -126,9 +135,8 @@ const baseItem: IMarketToken = {
 };
 
 const columns = {
-  nameColumnWidth: '50%' as const,
-  metricColumnWidth: '50%' as const,
   metrics: ['change'] as const,
+  flex: {},
 };
 
 describe('MarketTokenSelectorRow', () => {

@@ -89,6 +89,7 @@ it('shows settled transaction details while keeping internal errors behind local
       status: 'unknown',
       reason: 'unknown',
       message: 'Internal submission error',
+      submissionErrorMessage: 'Nonce (265) has already been used',
     },
   ];
 
@@ -106,6 +107,7 @@ it('shows settled transaction details while keeping internal errors behind local
   ).toHaveLength(2);
   expect(screen.getByText(ETranslations.global_unknown_error)).toBeTruthy();
   expect(screen.getByText(ETranslations.swap_review_tx_pending)).toBeTruthy();
+  expect(screen.getByText('Nonce (265) has already been used')).toBeTruthy();
   expect(screen.queryByText('Internal preparation error')).toBeNull();
   expect(screen.queryByText('Internal submission error')).toBeNull();
 });

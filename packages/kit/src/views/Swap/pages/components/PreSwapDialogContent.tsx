@@ -89,6 +89,7 @@ import {
   type ISwapReviewState,
   NATIVE_BTC_MIN_SLIPPAGE_PERCENTAGE,
   invalidateSwapReviewForSlippageChange,
+  resolveSwapReviewResultStep,
   shouldShowSwapReviewToAmountSkeleton,
 } from '../../utils/swapReviewState';
 import { reconcileSwapStepWithHistory } from '../../utils/swapStepHistory';
@@ -766,14 +767,12 @@ const PreSwapDialogContent = ({
     setSwapSteps,
   ]);
 
-  const showResultContent = useMemo(() => {
-    if (swapSteps.steps.length > 0) {
-      return (
-        lastStep?.status !== ESwapStepStatus.READY &&
-        lastStep?.status !== ESwapStepStatus.LOADING
-      );
-    }
-  }, [lastStep?.status, swapSteps.steps.length]);
+  // A result-unknown sponsored send on any step ends this review (OK-64746):
+  // the result page then reports that step even while later steps are READY.
+  const { resultStep, showResultContent } = useMemo(
+    () => resolveSwapReviewResultStep(swapSteps.steps),
+    [swapSteps.steps],
+  );
   const supportSlippageRebuild = Boolean(
     rebuildReviewWithSlippage &&
     preSwapData?.swapBuildResultData?.swapInfo?.swapBuildResData
@@ -910,12 +909,12 @@ const PreSwapDialogContent = ({
         title={intl.formatMessage({ id: ETranslations.global_review_order })}
         showExitButton={!slippageSavingScope}
       />
-      {showResultContent && swapSteps.steps.length > 0 ? (
+      {showResultContent && resultStep ? (
         <PreSwapConfirmResult
           onConfirm={onDone}
           fromToken={preSwapData?.fromToken}
           supportUrl={quoteResult?.supportUrl}
-          lastStep={swapSteps.steps[swapSteps.steps.length - 1]}
+          lastStep={resultStep}
         />
       ) : (
         <YStack gap="$4">

@@ -237,6 +237,71 @@ describe('useMarketTokenList initial data', () => {
     swrCacheUtils.flushNow();
   });
 
+  it('paints the default Trending seed before the remote response arrives', async () => {
+    const seed = {
+      ...createResponse('0xseed', 'Seed Token', 'SEED'),
+      __fromSeed: true,
+    };
+    const remoteRequest = createDeferred<IMarketTokenListResponse>();
+    jest.mocked(getMarketHomeTokenListSeedForInit).mockReturnValue(seed);
+    mockFetchMarketTokenList
+      .mockResolvedValueOnce(seed)
+      .mockReturnValue(remoteRequest.promise);
+    const renderedTokenIds: string[][] = [];
+    const { result } = renderHook(() => {
+      const value = useMarketTokenList({
+        networkId: 'onekeyall--0',
+        pollingInterval: 0,
+        type: 'trending',
+        timeRange: '1h',
+        useApiDefaultSort: true,
+      });
+      renderedTokenIds.push(value.data.map((item) => item.id));
+      return value;
+    });
+
+    expect(renderedTokenIds[0]).toEqual(['0xseed']);
+    await waitFor(() =>
+      expect(mockFetchMarketTokenList).toHaveBeenCalledWith(
+        expect.objectContaining({
+          networkId: '',
+          sortBy: undefined,
+          sortType: undefined,
+        }),
+        { forceRemote: true },
+      ),
+    );
+    await act(async () => {
+      remoteRequest.resolve(
+        createResponse('0xremote', 'Remote Token', 'REMOTE'),
+      );
+      await remoteRequest.promise;
+    });
+    await waitFor(() =>
+      expect(result.current.data.map((item) => item.id)).toEqual(['0xremote']),
+    );
+  });
+
+  it('does not show the default Trending seed for an explicitly sorted query', () => {
+    jest.mocked(getMarketHomeTokenListSeedForInit).mockReturnValue({
+      ...createResponse('0xseed', 'Seed Token', 'SEED'),
+      __fromSeed: true,
+    });
+    mockFetchMarketTokenList.mockReturnValue(
+      createDeferred<IMarketTokenListResponse>().promise,
+    );
+    const { result } = renderHook(() =>
+      useMarketTokenList({
+        networkId: 'onekeyall--0',
+        pollingInterval: 0,
+        type: 'trending',
+        timeRange: '1h',
+      }),
+    );
+
+    expect(result.current.data).toEqual([]);
+  });
+
   it('keeps the switching skeleton until a successful response is transformed', async () => {
     const remoteResponse = createResponse('0xremote', 'Remote Token', 'REMOTE');
     const remoteRequest = createDeferred<IMarketTokenListResponse>();
