@@ -5,36 +5,37 @@ jest.mock('../../../dbs/local/localDbInstance', () => ({
   default: {},
 }));
 
-import { forgetZcashLifecycleMutex, getZcashLifecycleMutex } from './lifecycle';
+import {
+  forgetIdleZcashLifecycleMutexes,
+  getZcashLifecycleMutex,
+} from './lifecycle';
 import Vault from './Vault';
 import { createZcashSetupIncompleteError } from './vaultUtils';
 
-// A deleted app account never waits on a transaction in flight: the funds are
-// on chain and a re-import scans them back. The one thing it must not do is
-// drop runtime data another app account still uses (same viewing key).
-describe('Zcash cleanup of a deleted account', () => {
+// The runtime primitive behind deleting an account or its local data: it
+// never waits on a transaction in flight (the funds are on chain and a later
+// enable scans them back), and never drops runtime data another live account
+// still scans under the same viewing key. Host records are the executor's.
+describe('Zcash runtime deletion of an account', () => {
   const ufvk = 'uview-removal-test';
   const vkFp = 'f'.repeat(32);
 
-  function createVault(
-    otherAccountStillExists: boolean,
-    { keyReadable = true }: { keyReadable?: boolean } = {},
-  ) {
+  function createVault({
+    otherAccountStillExists = false,
+    otherHoldsScanData = true,
+    keyReadable = true,
+    scanListReadable = true,
+  }: {
+    otherAccountStillExists?: boolean;
+    otherHoldsScanData?: boolean;
+    keyReadable?: boolean;
+    scanListReadable?: boolean;
+  } = {}) {
     const purgeWallet = jest.fn(async () => undefined);
     const metas = new Map([
       ['deleted', { vkFp }],
       ['other', { vkFp }],
     ]);
-    if (!otherAccountStillExists) {
-      metas.delete('other');
-    }
-    const removeAccountState = jest.fn(
-      async ({ accountId }: { accountId: string }) => {
-        metas.delete(accountId);
-      },
-    );
-    const removeZcashTransparentAccount = jest.fn(async () => undefined);
-    const removeKeys = jest.fn(async () => undefined);
     const vault = Object.assign(Object.create(Vault.prototype) as Vault, {
       networkId: 'zec--0',
       backgroundApi: {
@@ -44,10 +45,11 @@ describe('Zcash cleanup of a deleted account', () => {
               metas.get(accountId),
             listZcashAccountMetas: async () =>
               [...metas].map(([accountId, meta]) => ({ accountId, meta })),
-            removeAccount: removeAccountState,
+            listScanDataAccountIds: async () => {
+              if (!scanListReadable) return undefined;
+              return otherHoldsScanData ? ['deleted', 'other'] : ['deleted'];
+            },
           },
-          privacyChainJournal: { removeZcashTransparentAccount },
-          privacyChainKeys: { removeKeys },
         },
         serviceAccount: {
           getDBAccountSafe: async ({ accountId }: { accountId: string }) =>
@@ -62,93 +64,105 @@ describe('Zcash cleanup of a deleted account', () => {
       },
       zcashGetApi: async () => ({ purgeWallet }),
     });
-    return {
-      vault,
-      purgeWallet,
-      removeAccountState,
-      removeZcashTransparentAccount,
-      removeKeys,
-    };
+    return { vault, purgeWallet };
   }
 
   afterEach(() => {
-    forgetZcashLifecycleMutex(vkFp);
+    forgetIdleZcashLifecycleMutexes();
   });
 
   it('removes its runtime data even with a transaction in flight', async () => {
-    const {
-      vault,
-      purgeWallet,
-      removeAccountState,
-      removeZcashTransparentAccount,
-      removeKeys,
-    } = createVault(false);
+    const { vault, purgeWallet } = createVault();
 
-    await vault.resetLocalWallet({ accountId: 'deleted', scope: 'all' });
+    await expect(
+      vault.zcashDeleteRuntimeAccount({ accountId: 'deleted' }),
+    ).resolves.toEqual({ orphaned: false });
 
     expect(purgeWallet).toHaveBeenCalledWith({ ufvk });
-    expect(removeAccountState).toHaveBeenCalledWith({ accountId: 'deleted' });
-    expect(removeZcashTransparentAccount).toHaveBeenCalledWith({
-      accountId: 'deleted',
-    });
-    expect(removeKeys).toHaveBeenCalledWith({ accountIds: ['deleted'] });
   });
 
-  it('keeps runtime data another account with the same key still uses', async () => {
-    const {
-      vault,
-      purgeWallet,
-      removeAccountState,
-      removeZcashTransparentAccount,
-      removeKeys,
-    } = createVault(true);
+  it('keeps runtime data another live account with the same key still scans', async () => {
+    const { vault, purgeWallet } = createVault({
+      otherAccountStillExists: true,
+    });
 
-    await vault.resetLocalWallet({ accountId: 'deleted', scope: 'all' });
+    await expect(
+      vault.zcashDeleteRuntimeAccount({ accountId: 'deleted' }),
+    ).resolves.toEqual({ orphaned: false });
 
     expect(purgeWallet).not.toHaveBeenCalled();
-    expect(removeAccountState).toHaveBeenCalledWith({ accountId: 'deleted' });
-    expect(removeZcashTransparentAccount).toHaveBeenCalledWith({
-      accountId: 'deleted',
-    });
-    expect(removeKeys).toHaveBeenCalledWith({ accountIds: ['deleted'] });
   });
 
-  it('still removes the account when its key can no longer be read', async () => {
-    const { vault, purgeWallet, removeAccountState } = createVault(false, {
-      keyReadable: false,
+  it('does not keep data for an alias that holds no scan data', async () => {
+    const { vault, purgeWallet } = createVault({
+      otherAccountStillExists: true,
+      otherHoldsScanData: false,
     });
 
-    await vault.resetLocalWallet({ accountId: 'deleted', scope: 'all' });
+    await vault.zcashDeleteRuntimeAccount({ accountId: 'deleted' });
+
+    expect(purgeWallet).toHaveBeenCalledWith({ ufvk });
+  });
+
+  it('does not keep data for an alias whose app account is gone', async () => {
+    const { vault, purgeWallet } = createVault();
+
+    await vault.zcashDeleteRuntimeAccount({ accountId: 'deleted' });
+
+    expect(purgeWallet).toHaveBeenCalledWith({ ufvk });
+  });
+
+  it('reports possible orphans when its key can no longer be read', async () => {
+    const { vault, purgeWallet } = createVault({ keyReadable: false });
+
+    await expect(
+      vault.zcashDeleteRuntimeAccount({ accountId: 'deleted' }),
+    ).resolves.toEqual({ orphaned: true });
 
     expect(purgeWallet).not.toHaveBeenCalled();
-    expect(removeAccountState).toHaveBeenCalledWith({ accountId: 'deleted' });
   });
 
-  it('forgets the lifecycle mutex once no account names the key', async () => {
-    const { vault } = createVault(false);
+  it('keeps the data and reports possible orphans when holders are unknown', async () => {
+    const { vault, purgeWallet } = createVault({ scanListReadable: false });
+
+    await expect(
+      vault.zcashDeleteRuntimeAccount({ accountId: 'deleted' }),
+    ).resolves.toEqual({ orphaned: true });
+
+    expect(purgeWallet).not.toHaveBeenCalled();
+  });
+
+  it('names nothing in the runtime when setup never stored metadata', async () => {
+    const { vault, purgeWallet } = createVault();
+
+    await expect(
+      vault.zcashDeleteRuntimeAccount({ accountId: 'never-set-up' }),
+    ).resolves.toEqual({ orphaned: false });
+
+    expect(purgeWallet).not.toHaveBeenCalled();
+  });
+});
+
+describe('Zcash lifecycle mutex bound', () => {
+  const vkFp = 'e'.repeat(32);
+
+  it('forgets an idle mutex; the next use makes a fresh one', () => {
     const before = getZcashLifecycleMutex(vkFp);
 
-    await vault.resetLocalWallet({ accountId: 'deleted', scope: 'all' });
+    forgetIdleZcashLifecycleMutexes();
 
     expect(getZcashLifecycleMutex(vkFp)).not.toBe(before);
-  });
-
-  it('keeps the lifecycle mutex an alias still shares', async () => {
-    const { vault } = createVault(true);
-    const before = getZcashLifecycleMutex(vkFp);
-
-    await vault.resetLocalWallet({ accountId: 'deleted', scope: 'all' });
-
-    expect(getZcashLifecycleMutex(vkFp)).toBe(before);
+    forgetIdleZcashLifecycleMutexes();
   });
 
   it('never forgets a mutex that is held', async () => {
     const mutex = getZcashLifecycleMutex(vkFp);
     const release = await mutex.acquire();
 
-    forgetZcashLifecycleMutex(vkFp);
+    forgetIdleZcashLifecycleMutexes();
 
     expect(getZcashLifecycleMutex(vkFp)).toBe(mutex);
     release();
+    forgetIdleZcashLifecycleMutexes();
   });
 });

@@ -1,4 +1,5 @@
 import { ZCASH_ADDRESS_SCHEME_VERSION } from '@onekeyhq/core/src/chains/zcash/sdkZcash/constants';
+import { ETranslationsMock } from '@onekeyhq/shared/src/locale';
 
 import { SimpleDbEntityPrivacyChainKeys } from '../../../dbs/simple/entity/SimpleDbEntityPrivacyChainKeys';
 import { SimpleDbEntityPrivacyChainState } from '../../../dbs/simple/entity/SimpleDbEntityPrivacyChainState';
@@ -6,7 +7,10 @@ import { getViewingKeyFingerprint } from '../../localWallet/viewingKeyFingerprin
 import { getLocalWalletViewingKey } from '../../localWallet/viewingKeyStore';
 
 import { resolveAndSaveZcashAccountMeta } from './accountMeta';
-import { isZcashSetupIncompleteError } from './vaultUtils';
+import {
+  isZcashSetupIncompleteError,
+  zcashIdentityMismatchAccountIds,
+} from './vaultUtils';
 
 import type { IBackgroundApi } from '../../../apis/IBackgroundApi';
 import type { IDBAccount } from '../../../dbs/local/types';
@@ -193,14 +197,31 @@ describe('Zcash viewing metadata derivation lifecycle', () => {
     }).catch((e: unknown) => e);
 
     expect(isZcashSetupIncompleteError(error)).toBe(true);
+    // A distinct error naming the way out, and a latch that stops background
+    // repair from deriving again on every poll.
+    expect((error as Error).message).toBe(
+      ETranslationsMock.privacy_error_identity_mismatch__msg,
+    );
+    expect(zcashIdentityMismatchAccountIds.has(account.id)).toBe(true);
     await expect(
       zcash.getZcashAccountMeta({ accountId: account.id }),
     ).resolves.toEqual(meta);
     // The mismatched key is not adopted.
     await expect(readKey()).resolves.toBeUndefined();
+
+    // The matching key clears the latch.
+    await resolveAndSaveZcashAccountMeta({
+      account,
+      backgroundApi,
+      networkId,
+      derive: async () => derived,
+    });
+    expect(zcashIdentityMismatchAccountIds.has(account.id)).toBe(false);
   });
 
-  it('stops with setup incomplete when a key derived after local-data deletion differs from the state identity', async () => {
+  // Deleting local data drops the identity with the data it named, so the
+  // next enable sets the account up with whatever key it derives.
+  it('accepts a different key derived after local-data deletion', async () => {
     const { account, backgroundApi, zcash, derived, readKey } = createContext();
     await zcash.beginZcashPrivacyModeEnable({
       networkId,
@@ -213,34 +234,25 @@ describe('Zcash viewing metadata derivation lifecycle', () => {
       networkId,
       derive: async () => derived,
     });
-    // Delete-local-data drops the metadata and the key; the state keeps the
-    // identity they named.
-    await zcash.removeZcashAccountMeta({ accountId: account.id });
+    await zcash.clearAccountScanData({ accountId: account.id });
     await backgroundApi.simpleDb.privacyChainKeys.removeKeys({
       accountIds: [account.id],
     });
 
-    const error = await resolveAndSaveZcashAccountMeta({
-      account,
-      backgroundApi,
-      networkId,
-      derive: async () => ({ ...derived, ufvk: 'another-ufvk' }),
-    }).catch((e: unknown) => e);
-
-    expect(isZcashSetupIncompleteError(error)).toBe(true);
-    await expect(readKey()).resolves.toBeUndefined();
-    await expect(
-      zcash.getZcashAccountMeta({ accountId: account.id }),
-    ).resolves.toBeUndefined();
-
-    // The same key is accepted again.
     await resolveAndSaveZcashAccountMeta({
       account,
       backgroundApi,
       networkId,
-      derive: async () => derived,
+      derive: async () => ({ ...derived, ufvk: 'another-ufvk' }),
     });
-    await expect(readKey()).resolves.toMatchObject({ value: derived.ufvk });
+
+    await expect(readKey()).resolves.toMatchObject({ value: 'another-ufvk' });
+    await expect(
+      zcash.getZcashAccountMeta({ accountId: account.id }),
+    ).resolves.toMatchObject({
+      vkFp: getViewingKeyFingerprint({ networkId, viewingKey: 'another-ufvk' }),
+      birthdayHeight: 3_000_000,
+    });
   });
 
   it('stops with setup incomplete when the device returns a key other than the stored one', async () => {
@@ -268,6 +280,7 @@ describe('Zcash viewing metadata derivation lifecycle', () => {
     }).catch((e: unknown) => e);
 
     expect(isZcashSetupIncompleteError(error)).toBe(true);
+    expect(zcashIdentityMismatchAccountIds.has(account.id)).toBe(true);
     await expect(
       zcash.getZcashAccountMeta({ accountId: account.id }),
     ).resolves.toBeUndefined();

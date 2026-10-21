@@ -425,13 +425,43 @@ describe('Privacy enable scan visibility', () => {
   );
 });
 
-function pendingDropApi(pending: string[]) {
+// Host records App Reset deletes per network after the runtime drop.
+function pendingDropApi(
+  pending: string[],
+  getPendingLocalDataDrop: () => Promise<string[]> = async () => pending,
+) {
+  const noop = async () => undefined;
   return {
     simpleDb: {
-      privacyChainState: { getPendingLocalDataDrop: async () => pending },
+      privacyChainState: {
+        getPendingLocalDataDrop,
+        listAccountIds: async () => [],
+        clearRuntimeOrphans: noop,
+        removeNetworkAccounts: noop,
+        removeAccount: noop,
+        forgetAccountEpochs: noop,
+      },
+      privacyChainKeys: { removeKeys: noop, removeNetworkKeys: noop },
+      privacyChainJournal: { removeAccounts: noop },
+      privacyChainXmrSent: { removeAccounts: noop },
+      privacyChainCache: {
+        removeLastBalances: noop,
+        removeNetworkLastBalances: noop,
+        removeChainTips: noop,
+      },
     },
   };
 }
+
+const noAccounts = async () => ({ accounts: [], cleanupAccountIds: [] });
+
+const lifecycleFields = () => ({
+  backfillActiveByAccount: {},
+  boostPausedByNetwork: {},
+  syncFailureBackoff: new Map(),
+  orphanCleanupGeneration: new Map<string, number>(),
+  scheduleBackgroundSync: jest.fn(),
+});
 
 describe('Privacy database erasure', () => {
   afterEach(() => {
@@ -456,6 +486,7 @@ describe('Privacy database erasure', () => {
       mockGetChainOnlyVault.mockImplementation(
         async ({ networkId }: { networkId: string }) => ({
           getLocalWalletCapability: () => ({
+            listAccounts: noAccounts,
             dropLocalData: drops[networkId],
           }),
         }),
@@ -465,6 +496,7 @@ describe('Privacy database erasure', () => {
           typeof ServicePrivacyChain
         >,
         {
+          ...lifecycleFields(),
           backgroundApi: pendingDropApi([]),
           getLocalWalletNetworkIds: async () => Object.keys(drops),
         },
@@ -482,6 +514,54 @@ describe('Privacy database erasure', () => {
     }
   });
 
+  // Host records describe the database just dropped; a failed drop keeps them
+  // for the retry the pending mark triggers.
+  it('deletes host records only for networks whose database went', async () => {
+    const backgroundApi = pendingDropApi([]);
+    const removeNetworkAccounts = jest.fn(async () => undefined);
+    const clearRuntimeOrphans = jest.fn(async () => undefined);
+    const removeNetworkKeys = jest.fn(async () => undefined);
+    Object.assign(backgroundApi.simpleDb.privacyChainState, {
+      removeNetworkAccounts,
+      clearRuntimeOrphans,
+    });
+    Object.assign(backgroundApi.simpleDb.privacyChainKeys, {
+      removeNetworkKeys,
+    });
+    mockGetChainOnlyVault.mockImplementation(
+      async ({ networkId }: { networkId: string }) => ({
+        getLocalWalletCapability: () => ({
+          listAccounts: noAccounts,
+          dropLocalData: async () => {
+            if (networkId === 'zec--0')
+              throw new OneKeyLocalError('erase failed');
+          },
+        }),
+      }),
+    );
+    jest.spyOn(console, 'error').mockImplementation(() => undefined);
+    const service = Object.assign(
+      Object.create(ServicePrivacyChain.prototype) as InstanceType<
+        typeof ServicePrivacyChain
+      >,
+      {
+        ...lifecycleFields(),
+        backgroundApi,
+        getLocalWalletNetworkIds: async () => ['zec--0', 'xmr--0'],
+      },
+    );
+
+    await expect(service.dropAllLocalWalletData()).resolves.toEqual(['zec--0']);
+    for (const spy of [
+      removeNetworkAccounts,
+      clearRuntimeOrphans,
+      removeNetworkKeys,
+    ]) {
+      expect(spy.mock.calls).toEqual([[{ networkId: 'xmr--0' }]]);
+    }
+    mockGetChainOnlyVault.mockReset();
+  });
+
   // Queued behind a running scan, the delete would time out and leave the
   // database (with its view keys) on disk.
   it('stops a running scan before deleting', async () => {
@@ -491,6 +571,7 @@ describe('Privacy database erasure', () => {
         typeof ServicePrivacyChain
       >,
       {
+        ...lifecycleFields(),
         syncTickRunning: true,
         backgroundApi: pendingDropApi([]),
         getLocalWalletNetworkIds: async () => ['zec--0'],
@@ -498,6 +579,7 @@ describe('Privacy database erasure', () => {
     );
     mockGetChainOnlyVault.mockResolvedValue({
       getLocalWalletCapability: () => ({
+        listAccounts: noAccounts,
         recoverFromTimeout: async () => {
           order.push('stop');
           service.syncTickRunning = false;
@@ -526,6 +608,7 @@ describe('Privacy database erasure', () => {
       mockGetChainOnlyVault.mockImplementation(
         async ({ networkId }: { networkId: string }) => ({
           getLocalWalletCapability: () => ({
+            listAccounts: noAccounts,
             hasLocalData: async () => false,
             dropLocalData: async () => {
               dropped.push(networkId);
@@ -538,6 +621,7 @@ describe('Privacy database erasure', () => {
           typeof ServicePrivacyChain
         >,
         {
+          ...lifecycleFields(),
           backgroundApi: pendingDropApi(pending),
           getLocalWalletNetworkIds: async () => ['zec--0', 'xmr--0'],
         },
@@ -556,6 +640,7 @@ describe('Privacy database erasure', () => {
     mockGetChainOnlyVault.mockImplementation(
       async ({ networkId }: { networkId: string }) => ({
         getLocalWalletCapability: () => ({
+          listAccounts: noAccounts,
           hasLocalData: async () => false,
           dropLocalData: async () => {
             dropped.push(networkId);
@@ -568,15 +653,10 @@ describe('Privacy database erasure', () => {
         typeof ServicePrivacyChain
       >,
       {
-        backgroundApi: {
-          simpleDb: {
-            privacyChainState: {
-              getPendingLocalDataDrop: async () => {
-                throw new OneKeyLocalError('storage unreadable');
-              },
-            },
-          },
-        },
+        ...lifecycleFields(),
+        backgroundApi: pendingDropApi([], async () => {
+          throw new OneKeyLocalError('storage unreadable');
+        }),
         getLocalWalletNetworkIds: async () => ['zec--0', 'xmr--0'],
       },
     );
@@ -592,6 +672,7 @@ describe('Privacy database erasure', () => {
     mockGetChainOnlyVault.mockImplementation(
       async ({ networkId }: { networkId: string }) => ({
         getLocalWalletCapability: () => ({
+          listAccounts: noAccounts,
           dropLocalData: async () => {
             dropped.push(networkId);
           },
@@ -603,6 +684,7 @@ describe('Privacy database erasure', () => {
         typeof ServicePrivacyChain
       >,
       {
+        ...lifecycleFields(),
         backgroundApi: pendingDropApi([]),
         getLocalWalletNetworkIds: async () => {
           throw new OneKeyLocalError('network list unreadable');

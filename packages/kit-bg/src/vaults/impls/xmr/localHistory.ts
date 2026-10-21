@@ -21,7 +21,7 @@ import type { IXmrHistoryItem } from './types';
 import type {
   IXmrSentAmount,
   IXmrSentRecord,
-} from '../../../dbs/simple/entity/SimpleDbEntityPrivacyChainJournal';
+} from '../../../dbs/simple/entity/SimpleDbEntityPrivacyChainXmrSent';
 
 function getXmrHistoryStatus(item: IXmrHistoryItem): EDecodedTxStatus {
   if (item.height !== null) {

@@ -1,7 +1,7 @@
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 import {
-  forgetXmrStaleFirstAccount,
+  forgetXmrStaleFirst,
   getXmrChainTip,
   getXmrLastKnownChainTip,
   getXmrLocalRuntime,
@@ -264,7 +264,7 @@ describe('xmr stale-first reads', () => {
       await readXmrStaleFirst({ key, read: async () => 'old', fallback: '?' });
     }
 
-    forgetXmrStaleFirstAccount('a');
+    forgetXmrStaleFirst(['a']);
 
     const step = api.syncStep('3', '10');
     await Promise.resolve();
@@ -278,6 +278,88 @@ describe('xmr stale-first reads', () => {
     await expect(
       readXmrStaleFirst({ key: 'history:b', read, fallback: '?' }),
     ).resolves.toBe('old');
+    releaseStep();
+    await step;
+  });
+});
+
+// B2: a value read for scanned data that was destroyed meanwhile must not be
+// remembered, and one remembered under an older epoch must not be answered.
+describe('xmr stale-first epochs', () => {
+  it('drops a live read whose epoch rotated while it ran', async () => {
+    let epoch = 'e1';
+    const owner = {
+      epoch: 'e1',
+      isCurrent: async () => epoch === 'e1',
+    };
+    await readXmrStaleFirst({
+      key: 'history:a',
+      read: async () => {
+        // The account's data is deleted while the read is in flight.
+        epoch = 'e2';
+        return 'stale rows';
+      },
+      fallback: '?',
+      owner,
+    });
+
+    let releaseStep: () => void = () => {};
+    raw.syncStep.mockImplementation(
+      () =>
+        new Promise<string>((resolve) => {
+          releaseStep = () => resolve('{}');
+        }),
+    );
+    const api = await getXmrRuntime(vault);
+    const step = api.syncStep('3', '10');
+    await Promise.resolve();
+    await expect(
+      readXmrStaleFirst({
+        key: 'history:a',
+        read: async () => 'new',
+        fallback: '?',
+        owner: { epoch: 'e2', isCurrent: async () => true },
+      }),
+    ).resolves.toBe('?');
+    releaseStep();
+    await step;
+  });
+
+  it('never answers a value remembered under another epoch', async () => {
+    await readXmrStaleFirst({
+      key: 'progress:a',
+      read: async () => 'old progress',
+      fallback: '?',
+      owner: { epoch: 'e1', isCurrent: async () => true },
+    });
+    let releaseStep: () => void = () => {};
+    raw.syncStep.mockImplementation(
+      () =>
+        new Promise<string>((resolve) => {
+          releaseStep = () => resolve('{}');
+        }),
+    );
+    const api = await getXmrRuntime(vault);
+    const step = api.syncStep('3', '10');
+    await Promise.resolve();
+    const owner = { epoch: 'e1', isCurrent: async () => true };
+    await expect(
+      readXmrStaleFirst({
+        key: 'progress:a',
+        read: async () => 'x',
+        fallback: '?',
+        owner: { epoch: 'e2', isCurrent: async () => true },
+      }),
+    ).resolves.toBe('?');
+    // The mismatching entry was dropped, not kept for its old epoch.
+    await expect(
+      readXmrStaleFirst({
+        key: 'progress:a',
+        read: async () => 'x',
+        fallback: '?',
+        owner,
+      }),
+    ).resolves.toBe('?');
     releaseStep();
     await step;
   });
@@ -358,7 +440,7 @@ describe('xmr stale-first cold start', () => {
       fallback: '?',
       queueWhenUncached: true,
     });
-    forgetXmrStaleFirstAccount('a');
+    forgetXmrStaleFirst(['a']);
     await release();
     expect(read).toHaveBeenCalledTimes(1);
 

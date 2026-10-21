@@ -1,9 +1,9 @@
-import { SimpleDbEntityPrivacyChainJournal } from '../../../dbs/simple/entity/SimpleDbEntityPrivacyChainJournal';
+import { SimpleDbEntityPrivacyChainXmrSent } from '../../../dbs/simple/entity/SimpleDbEntityPrivacyChainXmrSent';
 
 import { buildXmrLocalHistoryTx, toXmrSentAmount } from './localHistory';
 
 import type { IXmrHistoryItem } from './types';
-import type { IXmrSentAmount } from '../../../dbs/simple/entity/SimpleDbEntityPrivacyChainJournal';
+import type { IXmrSentAmount } from '../../../dbs/simple/entity/SimpleDbEntityPrivacyChainXmrSent';
 
 const ACCOUNT_ID = 'hd-1--x';
 const OWN = '4-synthetic-own';
@@ -127,7 +127,7 @@ describe('xmr history rows from the merged sent journal', () => {
       const legacy = recordLegacy(RECORD_CALLS);
 
       let saved: unknown = null;
-      const journal = new SimpleDbEntityPrivacyChainJournal();
+      const journal = new SimpleDbEntityPrivacyChainXmrSent();
       Reflect.set(journal, 'appStorage', {
         getItem: async () => saved,
         setItem: async (_key: string, value: unknown) => {

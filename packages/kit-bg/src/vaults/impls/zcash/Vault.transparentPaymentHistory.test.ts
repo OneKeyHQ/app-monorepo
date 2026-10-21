@@ -147,6 +147,7 @@ function createVault(initial = localPayment()) {
     backgroundApi: {
       simpleDb: {
         privacyChainState: {
+          getAccountEpoch: jest.fn().mockResolvedValue(undefined),
           getZcashAccountMeta: async () => null,
           getZcashPrivacyModeState: async () => ({ intent: 'off' }),
         },

@@ -20,60 +20,128 @@ export type ILocalWalletBalanceRead<T> = {
   stale: boolean;
 };
 
+// The account's epoch now (see privacyChainState). A value is saved only
+// under the epoch read before it was fetched, and read back only under the
+// current one.
+export async function readLocalWalletCacheEpoch({
+  backgroundApi,
+  accountId,
+}: {
+  backgroundApi: IBackgroundApi;
+  accountId: string;
+}): Promise<string | undefined> {
+  return backgroundApi.simpleDb.privacyChainState.getAccountEpoch({
+    accountId,
+  });
+}
+
+export async function isLocalWalletCacheEpochCurrent({
+  backgroundApi,
+  accountId,
+  epoch,
+}: {
+  backgroundApi: IBackgroundApi;
+  accountId: string;
+  epoch: string | undefined;
+}): Promise<boolean> {
+  return (
+    (await readLocalWalletCacheEpoch({ backgroundApi, accountId })) === epoch
+  );
+}
+
+// Best-effort: a stale entry left behind is still ignored by the next read.
+function removeStale({
+  backgroundApi,
+  kind,
+  accountId,
+  epoch,
+}: {
+  backgroundApi: IBackgroundApi;
+  kind: 'lastBalances' | 'lastPublicBalances';
+  accountId: string;
+  epoch: string | undefined;
+}) {
+  void backgroundApi.simpleDb.privacyChainCache
+    .removeStaleBalance({ kind, accountId, epoch })
+    .catch(() => undefined);
+}
+
 async function readSaved({
   backgroundApi,
   networkId,
   accountId,
+  epoch,
 }: {
   backgroundApi: IBackgroundApi;
   networkId: string;
   accountId: string;
+  epoch: string | undefined;
 }): Promise<string | undefined> {
   const record = await backgroundApi.simpleDb.privacyChainCache.getLastBalance({
     accountId,
   });
-  return record?.networkId === networkId ? record.value : undefined;
+  if (record?.networkId !== networkId) return undefined;
+  // Written for scanned data that has since been destroyed.
+  if (record.epoch !== epoch) {
+    removeStale({
+      backgroundApi,
+      kind: 'lastBalances',
+      accountId,
+      epoch: record.epoch,
+    });
+    return undefined;
+  }
+  return record.value;
 }
 
 async function save({
   backgroundApi,
   networkId,
   accountId,
+  epoch,
   serialized,
 }: {
   backgroundApi: IBackgroundApi;
   networkId: string;
   accountId: string;
+  epoch: string | undefined;
   serialized: string;
 }): Promise<void> {
   if (
-    (await readSaved({ backgroundApi, networkId, accountId })) === serialized
+    (await readSaved({ backgroundApi, networkId, accountId, epoch })) ===
+    serialized
   ) {
     return;
   }
   await backgroundApi.simpleDb.privacyChainCache.setLastBalance({
     accountId,
-    record: { networkId, value: serialized, savedAt: Date.now() },
+    record: { networkId, epoch, value: serialized, savedAt: Date.now() },
+    isCurrent: () =>
+      isLocalWalletCacheEpochCurrent({ backgroundApi, accountId, epoch }),
   });
 }
 
 // For a scanner that holds the runtime for long turns: it saves what it just
 // read, so pages answering from disk during the turn are not left behind.
+// `epoch` is the account's epoch from before the value was read.
 export async function saveLastLocalWalletBalance<T>({
   backgroundApi,
   networkId,
   accountId,
+  epoch,
   value,
 }: {
   backgroundApi: IBackgroundApi;
   networkId: string;
   accountId: string;
+  epoch: string | undefined;
   value: T;
 }): Promise<void> {
   await save({
     backgroundApi,
     networkId,
     accountId,
+    epoch,
     serialized: JSON.stringify(value),
   });
 }
@@ -98,7 +166,10 @@ export async function readLocalWalletBalanceStaleFirst<T>({
   // The scanner is busy; answer from disk without queueing behind it.
   skipLive?: boolean;
 }): Promise<ILocalWalletBalanceRead<T> | null> {
-  const saved = await readSaved({ backgroundApi, networkId, accountId });
+  // Taken before the live read starts, so its write-back can tell whether
+  // the data it read was destroyed meanwhile.
+  const epoch = await readLocalWalletCacheEpoch({ backgroundApi, accountId });
+  const saved = await readSaved({ backgroundApi, networkId, accountId, epoch });
   const savedRead =
     saved === undefined
       ? null
@@ -112,6 +183,7 @@ export async function readLocalWalletBalanceStaleFirst<T>({
         backgroundApi,
         networkId,
         accountId,
+        epoch,
         serialized: JSON.stringify(value),
       });
     }
@@ -160,38 +232,52 @@ export type ILocalWalletLastPublicBalance = {
 };
 
 // A cache miss or a failing store reads as nothing saved; display never
-// breaks on it.
+// breaks on it. A pair saved before the account had a state record carries
+// no epoch: backend figures, and every destruction deletes them anyway.
 export async function readLastLocalWalletPublicBalance({
   backgroundApi,
   networkId,
   accountId,
+  epoch,
 }: {
   backgroundApi: IBackgroundApi;
   networkId: string;
   accountId: string;
+  epoch: string | undefined;
 }): Promise<ILocalWalletLastPublicBalance | undefined> {
   try {
     const record =
       await backgroundApi.simpleDb.privacyChainCache.getLastPublicBalance({
         accountId,
       });
-    return record?.networkId === networkId
-      ? { total: record.total, spendable: record.spendable }
-      : undefined;
+    if (record?.networkId !== networkId) return undefined;
+    if (record.epoch !== undefined && record.epoch !== epoch) {
+      removeStale({
+        backgroundApi,
+        kind: 'lastPublicBalances',
+        accountId,
+        epoch: record.epoch,
+      });
+      return undefined;
+    }
+    return { total: record.total, spendable: record.spendable };
   } catch {
     return undefined;
   }
 }
 
+// `epoch` is the account's epoch from before the value was fetched.
 export async function saveLastLocalWalletPublicBalance({
   backgroundApi,
   networkId,
   accountId,
+  epoch,
   value,
 }: {
   backgroundApi: IBackgroundApi;
   networkId: string;
   accountId: string;
+  epoch: string | undefined;
   value: ILocalWalletLastPublicBalance;
 }): Promise<void> {
   try {
@@ -199,13 +285,16 @@ export async function saveLastLocalWalletPublicBalance({
       backgroundApi,
       networkId,
       accountId,
+      epoch,
     });
     if (saved?.total === value.total && saved.spendable === value.spendable) {
       return;
     }
     await backgroundApi.simpleDb.privacyChainCache.setLastPublicBalance({
       accountId,
-      record: { networkId, ...value, savedAt: Date.now() },
+      record: { networkId, epoch, ...value, savedAt: Date.now() },
+      isCurrent: () =>
+        isLocalWalletCacheEpochCurrent({ backgroundApi, accountId, epoch }),
     });
   } catch (e) {
     console.error('[privacyChain] save last public balance failed', e);
@@ -238,6 +327,14 @@ export async function removeNetworkLastLocalWalletBalances({
   });
 }
 
+export async function clearLocalWalletBalances({
+  backgroundApi,
+}: {
+  backgroundApi: IBackgroundApi;
+}): Promise<void> {
+  await backgroundApi.simpleDb.privacyChainCache.clearBalances();
+}
+
 export async function listLastLocalWalletBalanceAccountIds({
   backgroundApi,
 }: {
@@ -256,6 +353,18 @@ export async function getLastLocalWalletChainTip({
   networkId: string;
 }): Promise<number | undefined> {
   return backgroundApi.simpleDb.privacyChainCache.getChainTip({ networkId });
+}
+
+export async function removeLastLocalWalletChainTips({
+  backgroundApi,
+  networkId,
+}: {
+  backgroundApi: IBackgroundApi;
+  networkId?: string;
+}): Promise<void> {
+  await backgroundApi.simpleDb.privacyChainCache.removeChainTips({
+    networkId,
+  });
 }
 
 export async function saveLastLocalWalletChainTip({

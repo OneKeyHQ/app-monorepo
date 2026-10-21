@@ -92,6 +92,7 @@ it('Zcash refuses a supplied message when its proposal cannot carry that message
       backgroundApi: {
         simpleDb: {
           privacyChainState: {
+            getAccountEpoch: async () => undefined,
             getZcashPrivacyModeState: async () => ({ intent: 'on' }),
           },
         },
@@ -135,6 +136,7 @@ it('Zcash public-pool total request carries the explicitly selected account iden
       backgroundApi: {
         simpleDb: {
           privacyChainState: {
+            getAccountEpoch: async () => undefined,
             getZcashPrivacyModeState: async () => ({ intent: 'on' }),
           },
         },

@@ -12,6 +12,7 @@ jest.mock(
 );
 
 import { ZCASH_ADDRESS_SCHEME_VERSION } from '@onekeyhq/core/src/chains/zcash/sdkZcash/constants';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusNames';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -22,6 +23,7 @@ import { getViewingKeyFingerprint } from '../../localWallet/viewingKeyFingerprin
 import { getZcashLifecycleMutex } from './lifecycle';
 import { ZcashPrivacyMode } from './privacyMode';
 import Vault from './Vault';
+import { zcashIdentityMismatchAccountIds } from './vaultUtils';
 
 import type {
   IZcashAccountMeta,
@@ -37,6 +39,8 @@ const defaultCustomRpcStub = {
   resolveRpcUrlWithBuiltIn: async () => 'https://zcash.example',
 };
 
+// The runtime step of deleting an account's local data. The key, state,
+// journals and caches are the lifecycle executor's, after this returns.
 describe('Zcash local privacy data deletion', () => {
   const accountId = "hd-1--m/44'/133'/0'";
   const aliasAccountId = "hd-2--m/44'/133'/0'";
@@ -60,14 +64,20 @@ describe('Zcash local privacy data deletion', () => {
     };
   }
 
+  // Scan data: scanning, mid-operation, or paused with a resume position.
+  function holdsScanData(state: IZcashPrivacyModeStateView) {
+    return (
+      state.intent === 'on' ||
+      state.operation !== undefined ||
+      state.resumeFromHeight !== undefined
+    );
+  }
+
   function createVault(aliasState: IZcashPrivacyModeStateView) {
     const meta = createMeta();
-    const removeSignedTransactionsForAccount = jest
-      .fn()
-      .mockResolvedValue(undefined);
     const purgeWallet = jest.fn().mockResolvedValue(undefined);
-    const removeAccountMeta = jest.fn().mockResolvedValue(undefined);
     const rotateAccountEpochs = jest.fn().mockResolvedValue(undefined);
+    const clearAccountScanData = jest.fn().mockResolvedValue(undefined);
     const states: Record<string, IZcashPrivacyModeStateView> = {
       [accountId]: { intent: 'off' },
       [aliasAccountId]: aliasState,
@@ -82,24 +92,21 @@ describe('Zcash local privacy data deletion', () => {
           ),
         },
         serviceCustomRpc: defaultCustomRpcStub,
-        serviceSignature: { removeSignedTransactionsForAccount },
         simpleDb: {
           privacyChainState: {
             getZcashAccountMeta: jest.fn(async ({ accountId: id }) =>
               id === accountId || id === aliasAccountId ? meta : undefined,
             ),
-            getZcashPrivacyModeState: jest.fn(
-              async ({ accountId: id }) => states[id] ?? { intent: 'off' },
-            ),
-            isZcashPrivacyModeEnabled: jest.fn(async ({ accountId: id }) => {
-              const state = states[id];
-              return state?.intent === 'on' && state.operation === undefined;
-            }),
             listZcashAccountMetas: jest.fn(async () => [
               { accountId, meta },
               { accountId: aliasAccountId, meta },
             ]),
-            removeZcashAccountMeta: removeAccountMeta,
+            listScanDataAccountIds: jest.fn(async () =>
+              Object.entries(states).flatMap(([id, state]) =>
+                holdsScanData(state) ? [id] : [],
+              ),
+            ),
+            clearAccountScanData,
             rotateAccountEpochs,
           },
           privacyChainKeys: {
@@ -115,13 +122,7 @@ describe('Zcash local privacy data deletion', () => {
     jest
       .spyOn(vault, 'zcashGetApi')
       .mockResolvedValue({ purgeWallet } as never);
-    return {
-      purgeWallet,
-      removeAccountMeta,
-      removeSignedTransactionsForAccount,
-      rotateAccountEpochs,
-      vault,
-    };
+    return { purgeWallet, clearAccountScanData, rotateAccountEpochs, vault };
   }
 
   afterEach(() => {
@@ -147,77 +148,61 @@ describe('Zcash local privacy data deletion', () => {
   ] as const)(
     'retains the shared cache while an alias is %s',
     async (_, state) => {
-      const { purgeWallet, removeAccountMeta, vault } = createVault(state);
+      const { purgeWallet, vault } = createVault(state);
 
-      await vault.deleteLocalPrivacyData({ accountId });
+      await expect(
+        vault.zcashDeleteRuntimeAccount({ accountId }),
+      ).resolves.toEqual({ orphaned: false });
 
       expect(purgeWallet).not.toHaveBeenCalled();
-      expect(removeAccountMeta).toHaveBeenCalledWith({ accountId });
     },
   );
 
   // Pausing promises the cache stays; one account's delete must not discard
   // what another alias resumes from.
   it('retains the shared cache while an alias is paused', async () => {
-    const { purgeWallet, removeAccountMeta, vault } = createVault({
+    const { purgeWallet, vault } = createVault({
       intent: 'off',
       resumeFromHeight: 2_100_000,
     });
 
-    await vault.deleteLocalPrivacyData({ accountId });
+    await vault.zcashDeleteRuntimeAccount({ accountId });
 
     expect(purgeWallet).not.toHaveBeenCalled();
-    expect(removeAccountMeta).toHaveBeenCalledWith({ accountId });
-  });
-
-  // Deleting local privacy data must also remove what this device recorded
-  // about what the account signed; the public chain history is untouched.
-  it('clears the local signing archive for the deleted account', async () => {
-    const { removeSignedTransactionsForAccount, vault } = createVault({
-      intent: 'off',
-    });
-
-    await vault.deleteLocalPrivacyData({ accountId });
-
-    expect(removeSignedTransactionsForAccount).toHaveBeenCalledWith({
-      networkId: 'zec--0',
-      accountId,
-    });
   });
 
   it('purges the shared cache when every other alias is stably off', async () => {
-    const { purgeWallet, removeAccountMeta, rotateAccountEpochs, vault } =
+    const { purgeWallet, clearAccountScanData, rotateAccountEpochs, vault } =
       createVault({
         intent: 'off',
       });
 
-    await vault.deleteLocalPrivacyData({ accountId });
+    await expect(
+      vault.zcashDeleteRuntimeAccount({ accountId }),
+    ).resolves.toEqual({ orphaned: false });
 
     expect(purgeWallet).toHaveBeenCalledTimes(1);
     expect(purgeWallet).toHaveBeenCalledWith(expect.objectContaining({ ufvk }));
-    expect(removeAccountMeta).toHaveBeenCalledWith({ accountId });
-    // A new epoch is on disk before the scanned data goes.
-    expect(rotateAccountEpochs).toHaveBeenCalledWith({
-      accountIds: [accountId],
-    });
-    expect(rotateAccountEpochs.mock.invocationCallOrder[0]).toBeLessThan(
-      purgeWallet.mock.invocationCallOrder[0],
-    );
+    // Only the runtime: the executor rotates before and clears records after.
+    expect(rotateAccountEpochs).not.toHaveBeenCalled();
+    expect(clearAccountScanData).not.toHaveBeenCalled();
   });
 
-  // Deleting is one way out of a broken setup, so a lost key must not block it.
-  it('deletes the data of an account whose key can no longer be read', async () => {
-    const { purgeWallet, removeAccountMeta, vault } = createVault({
+  // Deleting is one way out of a broken setup, so a lost key must not block
+  // it; the runtime rows it leaves are reported for the orphan marker.
+  it('reports possible orphans for an account whose key can no longer be read', async () => {
+    const { purgeWallet, vault } = createVault({
       intent: 'off',
     });
     (
       vault.backgroundApi.simpleDb.privacyChainKeys.getKey as jest.Mock
     ).mockResolvedValue(undefined);
 
-    await vault.deleteLocalPrivacyData({ accountId });
+    await expect(
+      vault.zcashDeleteRuntimeAccount({ accountId }),
+    ).resolves.toEqual({ orphaned: true });
 
     expect(purgeWallet).not.toHaveBeenCalled();
-    expect(removeAccountMeta).toHaveBeenCalledWith({ accountId });
   });
 });
 
@@ -416,7 +401,7 @@ describe('Zcash queued rescan deletion boundary', () => {
       }
     ).applyPendingRescan({ accountId, repair });
     await readBeforeQueue;
-    await zcash.removeZcashAccountMeta({ accountId });
+    await zcash.clearAccountScanData({ accountId });
     release();
     await pending;
 
@@ -482,37 +467,72 @@ describe('Zcash privacy mode account state', () => {
   });
 });
 
-it('drops chain data without clearing device-wide privacy preferences', async () => {
+// App Reset's runtime step; the executor deletes the host records.
+it('drops only the runtime database', async () => {
   const dropWalletDatabase = jest.fn().mockResolvedValue(undefined);
-  const clearZcash = jest.fn().mockResolvedValue(undefined);
-  const clearPrivacyChain = jest.fn().mockResolvedValue(undefined);
-  const clearZcashTransparent = jest.fn().mockResolvedValue(undefined);
-  const clearXmrSent = jest.fn().mockResolvedValue(undefined);
+  const removeNetworkAccounts = jest.fn().mockResolvedValue(undefined);
   const removeNetworkKeys = jest.fn().mockResolvedValue(undefined);
   const vault = Object.assign(Object.create(Vault.prototype) as Vault, {
     networkId: 'zec--0',
     zcashGetApi: async () => ({ dropWalletDatabase }),
     backgroundApi: {
       simpleDb: {
-        privacyChainState: {
-          removeNetworkAccounts: clearZcash,
-          clearRawData: clearPrivacyChain,
-        },
-        privacyChainJournal: { clearZcashTransparent, clearXmrSent },
+        privacyChainState: { removeNetworkAccounts },
         privacyChainKeys: { removeNetworkKeys },
       },
     },
   });
   await vault.getLocalWalletCapability().dropLocalData?.();
-  expect(dropWalletDatabase).toHaveBeenCalledTimes(1);
-  // Only this network's accounts: wallets, device settings and other
-  // chains stay.
-  expect(clearZcash).toHaveBeenCalledWith({ networkId: 'zec--0' });
-  expect(clearZcashTransparent).toHaveBeenCalledTimes(1);
-  // The UFVKs go with the database; other chains keep theirs.
-  expect(removeNetworkKeys).toHaveBeenCalledWith({ networkId: 'zec--0' });
-  expect(clearXmrSent).not.toHaveBeenCalled();
-  expect(clearPrivacyChain).not.toHaveBeenCalled();
+  expect(dropWalletDatabase).toHaveBeenCalledWith('main');
+  expect(removeNetworkAccounts).not.toHaveBeenCalled();
+  expect(removeNetworkKeys).not.toHaveBeenCalled();
+});
+
+describe('zcash may hold local data', () => {
+  function createVault({
+    stateAccountIds,
+    orphans,
+  }: {
+    stateAccountIds: string[];
+    orphans: boolean;
+  }) {
+    return Object.assign(Object.create(Vault.prototype) as Vault, {
+      networkId: 'zec--0',
+      backgroundApi: {
+        simpleDb: {
+          privacyChainState: {
+            listAccountIds: async () => stateAccountIds,
+            hasRuntimeOrphans: async () => orphans,
+          },
+          privacyChainJournal: {
+            listZcashTransparentAccountIds: async () => [],
+          },
+        },
+      },
+    });
+  }
+
+  it('does with an account record', async () => {
+    const vault = createVault({ stateAccountIds: ['a'], orphans: false });
+    await expect(
+      vault.getLocalWalletCapability().hasLocalData?.(),
+    ).resolves.toBe(true);
+  });
+
+  // An account removed while its key was unreadable left rows behind.
+  it('does while the runtime may hold orphans', async () => {
+    const vault = createVault({ stateAccountIds: [], orphans: true });
+    await expect(
+      vault.getLocalWalletCapability().hasLocalData?.(),
+    ).resolves.toBe(true);
+  });
+
+  it('does not with neither', async () => {
+    const vault = createVault({ stateAccountIds: [], orphans: false });
+    await expect(
+      vault.getLocalWalletCapability().hasLocalData?.(),
+    ).resolves.toBe(false);
+  });
 });
 
 describe('zcash clear pending sends', () => {
@@ -530,45 +550,62 @@ describe('zcash clear pending sends', () => {
     return { vault, clearTransparentPendingSends };
   }
 
-  it('clears only the given account, counting expiry past the drop margin', async () => {
-    const { vault, clearTransparentPendingSends } = createVault(1000);
-    await vault
-      .getLocalWalletCapability()
-      .clearPendingSends?.({ networkId: 'zec--0', accountId: 'account' });
-    expect(clearTransparentPendingSends).toHaveBeenCalledWith({
-      accountId: 'account',
-      expiredBeforeHeight: 990,
-    });
-  });
+  it.each(['pending', 'expired'] as const)(
+    'clears only the given account in %s scope, counting expiry past the drop margin',
+    async (scope) => {
+      const { vault, clearTransparentPendingSends } = createVault(1000);
+      await vault.getLocalWalletCapability().clearPendingSends?.({
+        networkId: 'zec--0',
+        accountId: 'account',
+        scope,
+      });
+      expect(clearTransparentPendingSends).toHaveBeenCalledWith({
+        accountId: 'account',
+        expiredBeforeHeight: 990,
+        scope,
+      });
+    },
+  );
 
   it('expires nothing without a saved tip', async () => {
     const { vault, clearTransparentPendingSends } = createVault(undefined);
-    await vault
-      .getLocalWalletCapability()
-      .clearPendingSends?.({ networkId: 'zec--0', accountId: 'account' });
+    await vault.getLocalWalletCapability().clearPendingSends?.({
+      networkId: 'zec--0',
+      accountId: 'account',
+      scope: 'pending',
+    });
     expect(clearTransparentPendingSends).toHaveBeenCalledWith({
       accountId: 'account',
       expiredBeforeHeight: undefined,
+      scope: 'pending',
     });
   });
 
   it('refuses another network', async () => {
     const { vault, clearTransparentPendingSends } = createVault(1000);
     await expect(
-      vault
-        .getLocalWalletCapability()
-        .clearPendingSends?.({ networkId: 'xmr--0', accountId: 'account' }),
+      vault.getLocalWalletCapability().clearPendingSends?.({
+        networkId: 'xmr--0',
+        accountId: 'account',
+        scope: 'pending',
+      }),
     ).rejects.toThrow('another network');
     expect(clearTransparentPendingSends).not.toHaveBeenCalled();
   });
 });
 
 describe('zcash chain tip for month-based birthday estimates', () => {
-  function createVault(tip: number | null) {
-    const setChainTip = jest.fn().mockResolvedValue(undefined);
+  function createVault(
+    tip: number | null,
+    { failSave = false }: { failSave?: boolean } = {},
+  ) {
+    let current = tip;
+    const setChainTip = jest.fn(async () => {
+      if (failSave) throw new OneKeyLocalError('storage full');
+    });
     const vault = Object.assign(Object.create(Vault.prototype) as Vault, {
       networkId: 'zec--0',
-      getLocalWalletChainTip: async () => tip,
+      getLocalWalletChainTip: async () => current,
       backgroundApi: {
         simpleDb: {
           privacyChainCache: {
@@ -578,8 +615,25 @@ describe('zcash chain tip for month-based birthday estimates', () => {
         },
       },
     });
-    return { vault, setChainTip };
+    return {
+      vault,
+      setChainTip,
+      setTip: (next: number) => {
+        current = next;
+      },
+    };
   }
+
+  beforeEach(async () => {
+    // The save throttle is per process; start each case without one.
+    await createVault(null)
+      .vault.getLocalWalletCapability()
+      .forgetMemoryCaches?.({});
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
 
   it('saves the tip the scheduler fetches', async () => {
     const { vault, setChainTip } = createVault(3_100_000);
@@ -598,5 +652,100 @@ describe('zcash chain tip for month-based birthday estimates', () => {
       vault.getLocalWalletCapability().getChainTip(),
     ).resolves.toBeNull();
     expect(setChainTip).not.toHaveBeenCalled();
+  });
+
+  // Every block would otherwise rewrite the shared app storage.
+  it('saves again only after 100 blocks or 10 minutes', async () => {
+    const now = jest.spyOn(Date, 'now').mockReturnValue(1_000_000);
+    const { vault, setChainTip, setTip } = createVault(3_100_000);
+    const capability = vault.getLocalWalletCapability();
+    await capability.getChainTip();
+    expect(setChainTip).toHaveBeenCalledTimes(1);
+
+    setTip(3_100_099);
+    await expect(capability.getChainTip()).resolves.toBe(3_100_099);
+    expect(setChainTip).toHaveBeenCalledTimes(1);
+
+    setTip(3_100_100);
+    await capability.getChainTip();
+    expect(setChainTip).toHaveBeenCalledTimes(2);
+    expect(setChainTip).toHaveBeenLastCalledWith({
+      networkId: 'zec--0',
+      height: 3_100_100,
+    });
+
+    setTip(3_100_101);
+    now.mockReturnValue(1_000_000 + 9 * 60 * 1000);
+    await capability.getChainTip();
+    expect(setChainTip).toHaveBeenCalledTimes(2);
+
+    now.mockReturnValue(1_000_000 + 10 * 60 * 1000);
+    await capability.getChainTip();
+    expect(setChainTip).toHaveBeenCalledTimes(3);
+  });
+
+  it('still answers the tip when saving it fails', async () => {
+    jest.spyOn(console, 'error').mockImplementation(() => undefined);
+    const { vault, setChainTip } = createVault(3_100_000, { failSave: true });
+    await expect(vault.getLocalWalletCapability().getChainTip()).resolves.toBe(
+      3_100_000,
+    );
+    expect(setChainTip).toHaveBeenCalledTimes(1);
+  });
+});
+
+// A re-derived key that names another identity would be derived again from
+// the seed on every balance poll; the latch stops that until local data is
+// deleted.
+describe('zcash background repair after an identity mismatch', () => {
+  function createVault() {
+    const zcashRetryLocalWalletSetup = jest.fn(async () => undefined);
+    const vault = Object.assign(Object.create(Vault.prototype) as Vault, {
+      accountId: 'mismatched-account',
+      networkId: 'zec--0',
+      keyring: {},
+      backgroundApi: {
+        servicePassword: {
+          hasCachedPassword: async () => true,
+          isAlwaysReenterPassword: async () => false,
+          getCachedPassword: async () => 'password',
+        },
+      },
+      zcashRetryLocalWalletSetup,
+    });
+    return { vault, zcashRetryLocalWalletSetup };
+  }
+
+  afterEach(() => {
+    zcashIdentityMismatchAccountIds.clear();
+  });
+
+  it('derives again while no mismatch is latched', async () => {
+    const { vault, zcashRetryLocalWalletSetup } = createVault();
+    await expect(
+      vault.zcashTryAutoRepairLocalWalletSetupIfUnlocked(),
+    ).resolves.toBe(true);
+    expect(zcashRetryLocalWalletSetup).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not derive once a mismatch is latched', async () => {
+    const { vault, zcashRetryLocalWalletSetup } = createVault();
+    zcashIdentityMismatchAccountIds.add('mismatched-account');
+    await expect(
+      vault.zcashTryAutoRepairLocalWalletSetupIfUnlocked(),
+    ).resolves.toBe(false);
+    expect(zcashRetryLocalWalletSetup).not.toHaveBeenCalled();
+  });
+
+  it('derives again after the account memory is forgotten', async () => {
+    const { vault, zcashRetryLocalWalletSetup } = createVault();
+    zcashIdentityMismatchAccountIds.add('mismatched-account');
+    await vault
+      .getLocalWalletCapability()
+      .forgetMemoryCaches?.({ accountIds: ['mismatched-account'] });
+    await expect(
+      vault.zcashTryAutoRepairLocalWalletSetupIfUnlocked(),
+    ).resolves.toBe(true);
+    expect(zcashRetryLocalWalletSetup).toHaveBeenCalledTimes(1);
   });
 });

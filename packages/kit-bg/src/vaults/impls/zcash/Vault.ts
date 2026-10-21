@@ -403,12 +403,6 @@ export default class Vault extends VaultBtc {
     return zcashLifecycle.resumePendingPrivacyOperations(this);
   }
 
-  async gcPrivacyWalletState(params: {
-    liveWalletIds: string[];
-  }): Promise<void> {
-    return zcashLifecycle.gcPrivacyWalletState(this, params);
-  }
-
   async listLocalWalletAccounts(): Promise<{
     accounts: {
       accountId: string;
@@ -527,15 +521,14 @@ export default class Vault extends VaultBtc {
     return api.queueRescanFrom(account, { fromHeight });
   }
 
-  async resetLocalWallet(params: {
-    accountId: string;
-    scope: 'cache' | 'all';
-  }): Promise<void> {
-    return zcashLifecycle.resetLocalWallet(this, params);
+  async zcashRewindAccount(params: { accountId: string }): Promise<void> {
+    return zcashLifecycle.zcashRewindAccount(this, params);
   }
 
-  async deleteLocalPrivacyData(params: { accountId: string }): Promise<void> {
-    return zcashLifecycle.deleteLocalPrivacyData(this, params);
+  async zcashDeleteRuntimeAccount(params: {
+    accountId: string;
+  }): Promise<{ orphaned: boolean }> {
+    return zcashLifecycle.zcashDeleteRuntimeAccount(this, params);
   }
 
   async zcashRetryLocalWalletSetup(params: {

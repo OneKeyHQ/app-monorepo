@@ -507,7 +507,10 @@ describe('expired transparent send reconciliation', () => {
       expiryHeight: 1000,
     });
     expect((await inUse()).size).toBe(2);
-    await journalDb.clearTransparentPendingSends({ accountId });
+    await journalDb.clearTransparentPendingSends({
+      accountId,
+      scope: 'pending',
+    });
     expect(
       await journalDb.listTransparentPendingTxs({ accountId }),
     ).toHaveLength(1);
@@ -518,6 +521,7 @@ describe('expired transparent send reconciliation', () => {
     await journalDb.clearTransparentPendingSends({
       accountId,
       expiredBeforeHeight: expiryHeight + 1,
+      scope: 'pending',
     });
     expect(await journalDb.listTransparentPendingTxs({ accountId })).toEqual(
       [],
@@ -568,7 +572,10 @@ describe('backend tip from the transparent history snapshot', () => {
       networkId: historyParams.networkId,
       backgroundApi: {
         simpleDb: {
-          privacyChainState: { getZcashAccountMeta: async () => null },
+          privacyChainState: {
+            getZcashAccountMeta: async () => null,
+            getAccountEpoch: async () => undefined,
+          },
           localHistory: {
             getAccountLocalHistoryConfirmedTxs: async () => [],
             getAccountLocalHistoryPendingTxs: async () => [],

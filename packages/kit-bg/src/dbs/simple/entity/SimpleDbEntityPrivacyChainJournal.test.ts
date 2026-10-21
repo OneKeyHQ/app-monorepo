@@ -257,7 +257,11 @@ describe('privacy chain journal: clear pending sends', () => {
       expiryHeight: 200,
     });
 
-    await entity.clearTransparentPendingSends({ accountId: 'mine' });
+    await entity.clearTransparentPendingSends({
+      accountId: 'mine',
+      expiredBeforeHeight: 300,
+      scope: 'pending',
+    });
 
     await expect(
       entity.listTransparentPendingTxs({ accountId: 'mine' }),
@@ -273,7 +277,9 @@ describe('privacy chain journal: clear pending sends', () => {
     ).resolves.toEqual(new Set(['b1:0', 'b2:1']));
   });
 
-  it('keeps an accepted send that can still be mined, with its input locks', async () => {
+  // An unknown outcome may have reached the node: releasing its inputs
+  // could pay twice.
+  it('keeps every send that can still be mined, with its input locks, accepted or unknown', async () => {
     const { entity } = createEntity();
     const accepted = pendingTx({ txid: 'accepted', expiryHeight: 300 });
     const expired = pendingTx({ txid: 'expired', expiryHeight: 150 });
@@ -281,6 +287,13 @@ describe('privacy chain journal: clear pending sends', () => {
     for (const tx of [accepted, expired, unknown]) {
       await seedSend(entity, 'account', tx);
     }
+    await entity.reserveTransparentOutpoints({
+      accountId: 'account',
+      ownerId: 'signing',
+      outpoints: [{ txid: 'bare', vout: 0 }],
+      currentHeight: 100,
+      expiryHeight: 300,
+    });
     await entity.markTransparentPendingTxAccepted({
       accountId: 'account',
       txid: 'accepted',
@@ -293,43 +306,116 @@ describe('privacy chain journal: clear pending sends', () => {
     await entity.clearTransparentPendingSends({
       accountId: 'account',
       expiredBeforeHeight: 151,
+      scope: 'pending',
     });
 
     await expect(
       entity.listTransparentPendingTxs({ accountId: 'account' }),
-    ).resolves.toEqual([{ ...accepted, broadcastState: 'accepted' }]);
+    ).resolves.toEqual([{ ...accepted, broadcastState: 'accepted' }, unknown]);
+    // The bare signing lock goes, as BTC keeps none.
     await expect(
       entity.listTransparentOutpointsInUse({
         accountId: 'account',
         currentHeight: 100,
       }),
-    ).resolves.toEqual(new Set(['accepted:0']));
-    // The kept send's reservation survives too, so a new selection is refused.
-    await expect(
-      entity.reserveTransparentOutpoints({
-        accountId: 'account',
-        ownerId: 'new',
-        outpoints: [{ txid: 'accepted', vout: 0 }],
-        currentHeight: 100,
-        expiryHeight: 300,
-      }),
-    ).rejects.toMatchObject({ code: 'UTXO_ALREADY_RESERVED' });
+    ).resolves.toEqual(new Set(['accepted:0', 'unknown:0']));
+    // The kept sends' reservations survive too, so a new selection is refused.
+    for (const txid of ['accepted', 'unknown']) {
+      await expect(
+        entity.reserveTransparentOutpoints({
+          accountId: 'account',
+          ownerId: 'new',
+          outpoints: [{ txid, vout: 0 }],
+          currentHeight: 100,
+          expiryHeight: 300,
+        }),
+      ).rejects.toMatchObject({ code: 'UTXO_ALREADY_RESERVED' });
+    }
   });
 
-  it('treats no accepted send as expired without a known tip', async () => {
+  it('treats no send as expired without a known tip', async () => {
     const { entity } = createEntity();
-    const accepted = pendingTx({ txid: 'accepted', expiryHeight: 1 });
-    await seedSend(entity, 'account', { ...accepted, expiryHeight: 150 });
+    await seedSend(
+      entity,
+      'account',
+      pendingTx({ txid: 'accepted', expiryHeight: 150 }),
+    );
     await entity.markTransparentPendingTxAccepted({
       accountId: 'account',
       txid: 'accepted',
     });
+    await seedSend(
+      entity,
+      'account',
+      pendingTx({ txid: 'unknown', expiryHeight: 150 }),
+    );
 
-    await entity.clearTransparentPendingSends({ accountId: 'account' });
+    await entity.clearTransparentPendingSends({
+      accountId: 'account',
+      scope: 'pending',
+    });
+
+    await expect(
+      entity.listTransparentPendingTxs({ accountId: 'account' }),
+    ).resolves.toHaveLength(2);
+  });
+});
+
+describe('privacy chain journal: drop expired sends', () => {
+  it('drops only expired sends and locks, and keeps a live signing lock', async () => {
+    const { entity } = createEntity();
+    const live = pendingTx({ txid: 'live', expiryHeight: 300 });
+    const expired = pendingTx({ txid: 'expired', expiryHeight: 150 });
+    await seedSend(entity, 'account', live);
+    await seedSend(entity, 'account', expired);
+    await entity.reserveTransparentOutpoints({
+      accountId: 'account',
+      ownerId: 'signing',
+      outpoints: [{ txid: 'bare', vout: 0 }],
+      currentHeight: 100,
+      expiryHeight: 300,
+    });
+    await entity.reserveTransparentOutpoints({
+      accountId: 'account',
+      ownerId: 'stale-signing',
+      outpoints: [{ txid: 'stale', vout: 0 }],
+      currentHeight: 100,
+      expiryHeight: 140,
+    });
+
+    await entity.clearTransparentPendingSends({
+      accountId: 'account',
+      expiredBeforeHeight: 151,
+      scope: 'expired',
+    });
+
+    await expect(
+      entity.listTransparentPendingTxs({ accountId: 'account' }),
+    ).resolves.toEqual([live]);
+    await expect(
+      entity.listTransparentOutpointsInUse({ accountId: 'account' }),
+    ).resolves.toEqual(new Set(['live:0', 'bare:0']));
+  });
+
+  it('drops nothing without a known tip', async () => {
+    const { entity } = createEntity();
+    await seedSend(
+      entity,
+      'account',
+      pendingTx({ txid: 'old', expiryHeight: 1 }),
+    );
+
+    await entity.clearTransparentPendingSends({
+      accountId: 'account',
+      scope: 'expired',
+    });
 
     await expect(
       entity.listTransparentPendingTxs({ accountId: 'account' }),
     ).resolves.toHaveLength(1);
+    await expect(
+      entity.listTransparentOutpointsInUse({ accountId: 'account' }),
+    ).resolves.toEqual(new Set(['old:0']));
   });
 });
 
@@ -352,12 +438,6 @@ describe('privacy chain journal: record validation', () => {
           pendingTxs: { good: goodTx, bad: badTx },
         },
       },
-      xmrSent: {
-        account: {
-          good: { recipient: '4good', amountAtomic: '1', feeAtomic: '2' },
-          bad: { recipient: '4bad', amountAtomic: 'not-a-number' },
-        },
-      },
     });
 
     await expect(
@@ -366,33 +446,21 @@ describe('privacy chain journal: record validation', () => {
     await expect(
       entity.listTransparentOutpointsInUse({ accountId: 'account' }),
     ).resolves.toEqual(new Set(['good:0']));
-    await expect(entity.listXmrSent({ accountId: 'account' })).resolves.toEqual(
-      { good: { recipient: '4good', amountAtomic: '1', feeAtomic: '2' } },
-    );
 
     // Writes to the same account keep the quarantined records as they were.
     await entity.settleTransparentPendingTx({
       accountId: 'account',
       txid: 'good',
     });
-    await entity.recordXmrSent({
+    await entity.clearTransparentPendingSends({
       accountId: 'account',
-      txid: 'new',
-      recipient: '4new',
+      scope: 'pending',
     });
-    await entity.clearTransparentPendingSends({ accountId: 'account' });
     const saved = readSaved() as { data: IPrivacyChainJournalDB };
     expect(saved.data.zcashTransparent).toEqual({
       account: {
         reservations: { 'bad:0': { ownerId: 7 } },
         pendingTxs: { bad: badTx },
-      },
-    });
-    expect(saved.data.xmrSent).toEqual({
-      account: {
-        good: { recipient: '4good', amountAtomic: '1', feeAtomic: '2' },
-        bad: { recipient: '4bad', amountAtomic: 'not-a-number' },
-        new: { recipient: '4new' },
       },
     });
   });
@@ -423,10 +491,7 @@ describe('privacy chain journal: record validation', () => {
       },
     });
     const saved = readSaved() as { data: Record<string, unknown> };
-    expect(Object.keys(saved.data).toSorted()).toEqual([
-      'xmrSent',
-      'zcashTransparent',
-    ]);
+    expect(Object.keys(saved.data)).toEqual(['zcashTransparent']);
     expect(
       (
         saved.data.zcashTransparent as Record<
@@ -465,60 +530,11 @@ describe('privacy chain journal: record validation', () => {
   });
 });
 
-describe('privacy chain journal: xmr sent records', () => {
-  it('merges recipient and amounts into one record per tx', async () => {
-    const { entity } = createEntity();
-    await entity.recordXmrSent({
-      accountId: 'account',
-      txid: 'legacy',
-      recipient: 'own-two',
-    });
-    await entity.recordXmrSent({
-      accountId: 'account',
-      txid: 'new',
-      recipient: 'own-two',
-      amountAtomic: '1000000000000',
-      feeAtomic: '30000000',
-      outcomeUnknown: true,
-    });
-    // Only a recorded pair counts; a lone amount is not kept.
-    await entity.recordXmrSent({
-      accountId: 'account',
-      txid: 'half',
-      recipient: 'own-three',
-      amountAtomic: '5',
-    });
-
-    await expect(entity.listXmrSent({ accountId: 'account' })).resolves.toEqual(
-      {
-        legacy: { recipient: 'own-two' },
-        new: {
-          recipient: 'own-two',
-          amountAtomic: '1000000000000',
-          feeAtomic: '30000000',
-          outcomeUnknown: true,
-        },
-        half: { recipient: 'own-three' },
-      },
-    );
-  });
-});
-
 describe('privacy chain journal: account removal', () => {
-  it('removes every journal kind of the given accounts only', async () => {
+  it('removes the given accounts only', async () => {
     const { entity } = createEntity();
     await seedSend(entity, 'gone', pendingTx({ txid: 'a1' }));
     await seedSend(entity, 'kept', pendingTx({ txid: 'b1' }));
-    await entity.recordXmrSent({
-      accountId: 'gone',
-      txid: 'x1',
-      recipient: '4gone',
-    });
-    await entity.recordXmrSent({
-      accountId: 'kept',
-      txid: 'x2',
-      recipient: '4kept',
-    });
     await expect(entity.listAccountIds()).resolves.toEqual(['gone', 'kept']);
 
     await entity.removeAccounts({ accountIds: ['gone'] });
@@ -527,29 +543,17 @@ describe('privacy chain journal: account removal', () => {
     await expect(
       entity.listTransparentPendingTxs({ accountId: 'kept' }),
     ).resolves.toHaveLength(1);
-    await expect(entity.listXmrSent({ accountId: 'kept' })).resolves.toEqual({
-      x2: { recipient: '4kept' },
-    });
   });
 
-  it('clears one chain without touching the other', async () => {
+  it('clears every zcash account', async () => {
     const { entity } = createEntity();
     await seedSend(entity, 'account', pendingTx({ txid: 'a1' }));
-    await entity.recordXmrSent({
-      accountId: 'account',
-      txid: 'x1',
-      recipient: '4x',
-    });
 
     await entity.clearZcashTransparent();
+
     await expect(
       entity.listTransparentPendingTxs({ accountId: 'account' }),
     ).resolves.toEqual([]);
-    await expect(entity.listXmrSent({ accountId: 'account' })).resolves.toEqual(
-      { x1: { recipient: '4x' } },
-    );
-
-    await entity.clearXmrSent();
     await expect(entity.listAccountIds()).resolves.toEqual([]);
   });
 });

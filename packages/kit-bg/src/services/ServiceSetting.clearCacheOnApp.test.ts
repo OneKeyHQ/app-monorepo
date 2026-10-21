@@ -51,6 +51,7 @@ describe('ServiceSetting.clearCacheOnApp', () => {
   // Scan data is not cache: wiping it means rescanning for days.
   it('clears history caches without touching privacy-chain scan data', async () => {
     const clearTransactionHistoryCache = jest.fn().mockResolvedValue(undefined);
+    const clearLocalWalletCaches = jest.fn().mockResolvedValue(undefined);
     const clearLocalHistory = jest.fn().mockResolvedValue(undefined);
     const clearAddressInfo = jest.fn().mockResolvedValue(undefined);
     const clearTransferRecipients = jest.fn().mockResolvedValue(undefined);
@@ -62,16 +63,50 @@ describe('ServiceSetting.clearCacheOnApp', () => {
           addressInfo: { clearRawData: clearAddressInfo },
           transferRecipientsCache: { clear: clearTransferRecipients },
         },
-        servicePrivacyChain: { clearTransactionHistoryCache },
+        servicePrivacyChain: {
+          clearTransactionHistoryCache,
+          clearLocalWalletCaches,
+        },
       },
     });
 
     await service.clearCacheOnApp(transactionHistoryOnlyValues);
 
     expect(clearTransactionHistoryCache).not.toHaveBeenCalled();
+    // Only the saved balances and in-memory copies.
+    expect(clearLocalWalletCaches).toHaveBeenCalledTimes(1);
     expect(clearLocalHistory).toHaveBeenCalledTimes(1);
     expect(clearAddressInfo).toHaveBeenCalledTimes(1);
     expect(clearTransferRecipients).toHaveBeenCalledTimes(1);
+  });
+
+  it('clears saved privacy-chain balances with tokens, and not otherwise', async () => {
+    const clearLocalWalletCaches = jest.fn().mockResolvedValue(undefined);
+    const service = new ServiceSetting({
+      backgroundApi: {
+        simpleDb: {
+          appStatus: {},
+          localTokens: { clearRawData: jest.fn() },
+          localNFTs: { clearRawData: jest.fn() },
+          customTokens: { clearRawData: jest.fn() },
+        },
+        servicePrivacyChain: { clearLocalWalletCaches },
+      },
+    });
+
+    await service.clearCacheOnApp({
+      ...oneKeyIdOnlyValues,
+      oneKeyId: false,
+      customToken: true,
+    });
+    expect(clearLocalWalletCaches).not.toHaveBeenCalled();
+
+    await service.clearCacheOnApp({
+      ...oneKeyIdOnlyValues,
+      oneKeyId: false,
+      tokenAndNFT: true,
+    });
+    expect(clearLocalWalletCaches).toHaveBeenCalledTimes(1);
   });
 
   it('marks OneKey ID logout failures for automatic toast and preserves the error', async () => {

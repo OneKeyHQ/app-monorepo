@@ -1,5 +1,3 @@
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
-
 import { getViewingKeyFingerprint } from '../../localWallet/viewingKeyFingerprint';
 
 const mockGetChainOnlyVault = jest.fn();
@@ -286,7 +284,9 @@ describe('Zcash Privacy Mode privacy lifecycle', () => {
 
 // The settings page turns an account off before deleting its data. Deleting
 // on its own refuses any state but a settled "off".
-describe('Zcash Privacy Mode delete after turning the account off', () => {
+// Deleting local data (ServicePrivacyChain) turns the account off first and
+// refuses unless it is then off with no operation open.
+describe('Zcash Privacy Mode turning off before a delete', () => {
   it.each([
     ['enabled', { intent: 'on', birthdayHeight: 2_000_000 }],
     [
@@ -297,7 +297,7 @@ describe('Zcash Privacy Mode delete after turning the account off', () => {
         operation: { type: 'enable', requestedAt: 1 },
       },
     ],
-  ] as const)('deletes an account that was %s', async (_, initial) => {
+  ] as const)('leaves an account that was %s off', async (_, initial) => {
     const { backgroundApi, service } = createService();
     let state: Record<string, unknown> = { ...initial };
     backgroundApi.simpleDb.privacyChainState.getZcashPrivacyModeState.mockImplementation(
@@ -314,26 +314,19 @@ describe('Zcash Privacy Mode delete after turning the account off', () => {
         state = { ...rest, intent: 'off' };
       },
     );
-    const deleteLocalPrivacyData = jest.fn(async () => {
-      if (state.intent !== 'off' || state.operation !== undefined) {
-        throw new OneKeyLocalError('Privacy Mode changed while deleting');
-      }
-    });
     mockGetChainOnlyVault.mockResolvedValue({
-      deleteLocalPrivacyData,
       getLocalWalletCapability: () => ({
         getSyncProgress: async () => undefined,
       }),
     });
 
     await service.disablePrivacyMode({ networkId: 'zec--0', accountId });
-    await service.deleteLocalPrivacyData({ networkId: 'zec--0', accountId });
 
     expect(state.intent).toBe('off');
+    expect(state.operation).toBeUndefined();
     expect(
       backgroundApi.simpleDb.privacyChainState.completeZcashPrivacyModeDisable,
     ).toHaveBeenCalledTimes(1);
-    expect(deleteLocalPrivacyData).toHaveBeenCalledWith({ accountId });
   });
 });
 

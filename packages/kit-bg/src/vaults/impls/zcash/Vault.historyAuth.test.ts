@@ -20,6 +20,7 @@ describe('Zcash transparent history auth headers', () => {
       backgroundApi: {
         simpleDb: {
           privacyChainState: {
+            getAccountEpoch: jest.fn().mockResolvedValue(undefined),
             getZcashAccountMeta: async () => ({ transparentAddress: 't1-own' }),
           },
           localHistory: {

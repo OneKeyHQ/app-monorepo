@@ -106,6 +106,10 @@ function createService({
         listAccountIds: async () => [],
         removeAccounts: jest.fn(async () => undefined),
       },
+      privacyChainXmrSent: {
+        listAccountIds: async () => [],
+        removeAccounts: jest.fn(async () => undefined),
+      },
     },
     servicePassword: {
       hasCachedPassword: jest.fn(async () => !!cachedPassword),
@@ -137,6 +141,9 @@ function createService({
       backgroundApi,
       enableMutexByNetwork: new Map(),
       orphanCleanupGeneration: new Map(),
+      backfillActiveByAccount: {},
+      syncFailureBackoff: new Map(),
+      scheduleBackgroundSync: jest.fn(),
       getLocalWalletNetworkIds: async () => [],
       forEachLocalWalletCapability: async () => undefined,
       assertEnabledAccountLimit: async () => undefined,
@@ -382,9 +389,9 @@ describe('Privacy chain viewing key lifecycle', () => {
         removeAccountNetworkValue,
         removeLastBalances,
       } = createService({ cachedPassword: 'pw' });
-      const deleteAccountData = jest.fn(async () => undefined);
+      const deleteRuntimeAccount = jest.fn(async () => ({ orphaned: false }));
       withCapability(service, {
-        deleteAccountData,
+        deleteRuntimeAccount,
         getAccountState: async () => ({ enabled: false }),
       });
       await saveLocalWalletViewingKey({
@@ -399,7 +406,7 @@ describe('Privacy chain viewing key lifecycle', () => {
         accountId: hdAccountId,
       });
 
-      expect(deleteAccountData).toHaveBeenCalledWith({
+      expect(deleteRuntimeAccount).toHaveBeenCalledWith({
         accountId: hdAccountId,
       });
       await expect(
@@ -431,7 +438,7 @@ describe('Privacy chain viewing key lifecycle', () => {
     const { service, backgroundApi } = createService({ cachedPassword: 'pw' });
     const enableAccount = jest.fn(async () => undefined);
     withCapability(service, {
-      deleteAccountData: async () => undefined,
+      deleteRuntimeAccount: async () => ({ orphaned: false }),
       enableAccount,
       deriveViewingKey,
       getAccountState: async () => ({ enabled: false }),
@@ -464,6 +471,52 @@ describe('Privacy chain viewing key lifecycle', () => {
         accountId: hdAccountId,
       }),
     ).resolves.toEqual(before);
+  });
+
+  // The way out of an identity mismatch: deleting local data forgets the
+  // identity, so the next enable may store whatever key it derives.
+  it('xmr: after delete-local-data a different derived key is accepted', async () => {
+    const deriveViewingKey = jest.fn(async () => 'spend:other');
+    mockGetVault.mockResolvedValue({
+      getLocalWalletCapability: () => ({ deriveViewingKey }),
+    });
+    const { service, backgroundApi, privacyChainState } = createService({
+      cachedPassword: 'pw',
+    });
+    withCapability(service, {
+      deleteRuntimeAccount: async () => ({ orphaned: false }),
+      enableAccount: async () => undefined,
+      deriveViewingKey,
+      getAccountState: async () => ({ enabled: false }),
+    });
+    await privacyChainState.beginXmrEnable({
+      networkId,
+      accountId: hdAccountId,
+      birthdayHeight: 100,
+    });
+    await privacyChainState.completeXmrEnable({
+      accountId: hdAccountId,
+      vkFp: getViewingKeyFingerprint({ networkId, viewingKey: 'spend:view' }),
+    });
+    await privacyChainState.beginXmrDisable({ accountId: hdAccountId });
+    await privacyChainState.completeXmrDisable({ accountId: hdAccountId });
+
+    await service.deleteLocalWalletAccountData({
+      networkId,
+      accountId: hdAccountId,
+    });
+    await service.enableLocalWalletAccount({
+      networkId,
+      accountId: hdAccountId,
+    });
+
+    await expect(
+      getLocalWalletViewingKey({
+        backgroundApi: storeApi(backgroundApi),
+        networkId,
+        accountId: hdAccountId,
+      }),
+    ).resolves.toMatchObject({ value: 'spend:other' });
   });
 
   it('enabling asks for the password when none is cached', async () => {

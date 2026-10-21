@@ -370,40 +370,6 @@ export class ZcashPrivacyMode {
     });
   }
 
-  async deleteLocalPrivacyData({
-    networkId,
-    accountId,
-  }: {
-    networkId: string;
-    accountId: string;
-  }): Promise<void> {
-    await this.assertZcashAccountContext({ networkId, accountId });
-    await getZcashPrivacyModeOperationMutex(accountId).runExclusive(
-      async () => {
-        const state =
-          await this.backgroundApi.simpleDb.privacyChainState.getZcashPrivacyModeState(
-            {
-              accountId,
-            },
-          );
-        if (state.intent === 'on' && state.operation === undefined) {
-          await this.disablePrivacyModeImpl({ networkId, accountId });
-        }
-        const vault = (await vaultFactory.getChainOnlyVault({
-          networkId,
-        })) as VaultZcash;
-        await vault.deleteLocalPrivacyData({
-          accountId,
-        });
-      },
-    );
-    await this.backgroundApi.servicePrivacyChain.onLocalWalletAccountsChanged({
-      networkId,
-      accountIds: [accountId],
-      backfillActive: false,
-    });
-  }
-
   // The viewing key never reaches the UI; the vault capability uses this for
   // addresses and birthday fields.
   async getLocalWalletAccountMeta({

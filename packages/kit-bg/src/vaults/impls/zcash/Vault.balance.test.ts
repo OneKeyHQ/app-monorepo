@@ -79,6 +79,7 @@ describe('Zcash independent transparent balance availability', () => {
         backgroundApi: {
           simpleDb: {
             privacyChainState: {
+              getAccountEpoch: jest.fn().mockResolvedValue(undefined),
               getZcashPrivacyModeState: jest
                 .fn()
                 .mockResolvedValue({ intent: 'on' }),
@@ -137,6 +138,7 @@ describe('Zcash independent transparent balance availability', () => {
           simpleDb: {
             privacyChainCache: memoryCache(),
             privacyChainState: {
+              getAccountEpoch: jest.fn().mockResolvedValue(undefined),
               getZcashPrivacyModeState: jest
                 .fn()
                 .mockResolvedValue({ intent: 'on' }),
@@ -181,6 +183,7 @@ describe('Zcash independent transparent balance availability', () => {
       backgroundApi: {
         simpleDb: {
           privacyChainState: {
+            getAccountEpoch: jest.fn().mockResolvedValue(undefined),
             getZcashPrivacyModeState: jest
               .fn()
               .mockResolvedValue({ intent: 'off' }),
@@ -215,7 +218,14 @@ describe('Zcash independent transparent balance availability', () => {
     Object.assign(vault, {
       accountId: 'account',
       networkId: 'zec--0',
-      backgroundApi: { simpleDb: { privacyChainCache: memoryCache() } },
+      backgroundApi: {
+        simpleDb: {
+          privacyChainCache: memoryCache(),
+          privacyChainState: {
+            getAccountEpoch: jest.fn().mockResolvedValue(undefined),
+          },
+        },
+      },
       getAccount: jest.fn().mockResolvedValue({ id: 'account' }),
       zcashGetBalanceSafe: jest.fn().mockResolvedValue(balance),
       zcashFetchFreshTransparentUtxos: fresh,
@@ -248,9 +258,17 @@ describe('Zcash independent transparent balance availability', () => {
 describe('Zcash transparent balance on display', () => {
   afterEach(() => jest.restoreAllMocks());
 
+  // No saved pair: the cache store is absent and reads as nothing saved.
   function createVault(read: jest.Mock) {
     return Object.assign(Object.create(Vault.prototype) as Vault, {
       networkId: 'zec--0',
+      backgroundApi: {
+        simpleDb: {
+          privacyChainState: {
+            getAccountEpoch: jest.fn().mockResolvedValue(undefined),
+          },
+        },
+      },
       zcashGetIndexerTransparentBalance: read,
     });
   }
@@ -318,6 +336,36 @@ describe('Zcash transparent balance on display', () => {
     ).resolves.toEqual({ total: new BigNumber(90) });
     expect(read).toHaveBeenCalledTimes(2);
   });
+
+  // An answer remembered for data since destroyed is not shown again.
+  it('never shows a remembered read from an older epoch', async () => {
+    jest.spyOn(timerUtils, 'wait').mockResolvedValue(undefined);
+    const pair = {
+      total: new BigNumber(80),
+      spendable: new BigNumber(50),
+    };
+    const read = jest.fn().mockResolvedValueOnce(pair);
+    const vault = createVault(read);
+    const epochAccount = { id: 'epoch-account' } as typeof account;
+    const getAccountEpoch = vault.backgroundApi.simpleDb.privacyChainState
+      .getAccountEpoch as jest.Mock;
+    getAccountEpoch.mockResolvedValue('aaaaaaaaaaaaaaaa');
+    await expect(
+      zcashReadTransparentForDisplay(vault, { account: epochAccount }),
+    ).resolves.toEqual(pair);
+
+    // The next read is slow: the same epoch shows the last pair meanwhile.
+    read.mockReturnValueOnce(new Promise(() => undefined));
+    await expect(
+      zcashReadTransparentForDisplay(vault, { account: epochAccount }),
+    ).resolves.toEqual(pair);
+
+    getAccountEpoch.mockResolvedValue('bbbbbbbbbbbbbbbb');
+    read.mockReturnValueOnce(new Promise(() => undefined));
+    await expect(
+      zcashReadTransparentForDisplay(vault, { account: epochAccount }),
+    ).resolves.toEqual({});
+  });
 });
 
 // A restart has no in-memory UTXOs; the Transparent tab shows the last pair
@@ -337,6 +385,7 @@ describe('Zcash transparent balance saved for the next open', () => {
       await privacyChainCache.setLastPublicBalance({
         accountId,
         record: { networkId: 'zec--0', ...seed, savedAt: 1 },
+        isCurrent: async () => true,
       });
     }
     const vault = Object.assign(Object.create(Vault.prototype) as Vault, {
@@ -345,6 +394,7 @@ describe('Zcash transparent balance saved for the next open', () => {
         simpleDb: {
           privacyChainCache,
           privacyChainState: {
+            getAccountEpoch: jest.fn().mockResolvedValue(undefined),
             getZcashPrivacyModeState: jest
               .fn()
               .mockResolvedValue({ intent: 'on' }),
@@ -597,6 +647,7 @@ describe('Zcash send pools read the private balance fresh', () => {
         value: JSON.stringify(balance),
         savedAt: 1,
       },
+      isCurrent: async () => true,
     });
     const getBalance = scannerFails
       ? jest.fn().mockRejectedValue(new OneKeyLocalError('scanner busy'))
@@ -610,6 +661,7 @@ describe('Zcash send pools read the private balance fresh', () => {
         simpleDb: {
           privacyChainCache,
           privacyChainState: {
+            getAccountEpoch: jest.fn().mockResolvedValue(undefined),
             getZcashPrivacyModeState: jest
               .fn()
               .mockResolvedValue({ intent: 'on' }),

@@ -102,7 +102,7 @@ describe('SimpleDb entity async method contract', () => {
       });
     });
 
-    expect(entityClassCount).toBe(76);
+    expect(entityClassCount).toBe(77);
     expect(violations).toEqual([]);
   });
 });

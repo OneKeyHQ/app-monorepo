@@ -23,6 +23,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { LRUCache } from '@onekeyhq/shared/src/utils/cacheUtils';
 import type { IPrivacyChainComposedBalance } from '@onekeyhq/shared/src/utils/privacyChainBalanceUtils';
 import { composePrivacyChainBalance } from '@onekeyhq/shared/src/utils/privacyChainBalanceUtils';
 import { privacyChainPerfSpan } from '@onekeyhq/shared/src/utils/privacyChainPerfLog';
@@ -45,6 +46,7 @@ import {
   LOCAL_WALLET_DISPLAY_WAIT_MS,
   readLastLocalWalletPublicBalance,
   readLocalWalletBalanceStaleFirst,
+  readLocalWalletCacheEpoch,
   saveLastLocalWalletPublicBalance,
 } from '../../localWallet/privacyChainCacheStore';
 
@@ -213,17 +215,53 @@ type IZcashTransparentDisplayRead = {
   at: number;
 };
 
-// Keyed by network, account and read kind.
-const zcashTransparentDisplayReads = new Map<
+type IZcashTransparentDisplayEntry = {
+  // The account epoch the reads were started under (see privacyChainState);
+  // an entry from another epoch is a miss.
+  epoch: string | undefined;
+  running?: Promise<IZcashTransparentDisplay>;
+  // A result that answered after its page gave up on it.
+  landed?: IZcashTransparentDisplayRead;
+  // The last complete result, late or not.
+  lastRead?: IZcashTransparentDisplayRead;
+};
+
+const ZCASH_TRANSPARENT_DISPLAY_KINDS = ['spendable', 'all'] as const;
+
+// Keyed by network, account and read kind; only the most recent accounts.
+const zcashTransparentDisplayReads = new LRUCache<
   string,
-  {
-    running?: Promise<IZcashTransparentDisplay>;
-    // A result that answered after its page gave up on it.
-    landed?: IZcashTransparentDisplayRead;
-    // The last complete result, late or not.
-    lastRead?: IZcashTransparentDisplayRead;
+  IZcashTransparentDisplayEntry
+>({ max: 32 });
+
+function zcashTransparentDisplayKey(
+  networkId: string,
+  accountId: string,
+  kind: (typeof ZCASH_TRANSPARENT_DISPLAY_KINDS)[number],
+) {
+  return `${networkId}:${accountId}:${kind}`;
+}
+
+// Every account's when none is named.
+export function forgetZcashTransparentDisplayReads({
+  networkId,
+  accountIds,
+}: {
+  networkId: string;
+  accountIds?: string[];
+}) {
+  if (!accountIds) {
+    zcashTransparentDisplayReads.clear();
+    return;
   }
->();
+  for (const accountId of accountIds) {
+    for (const kind of ZCASH_TRANSPARENT_DISPLAY_KINDS) {
+      zcashTransparentDisplayReads.delete(
+        zcashTransparentDisplayKey(networkId, accountId, kind),
+      );
+    }
+  }
+}
 
 function zcashTransparentPair(value: IZcashTransparentDisplay) {
   return value.total && value.spendable
@@ -262,10 +300,17 @@ export async function zcashReadTransparentForDisplay(
     spendableOnly?: boolean;
   },
 ): Promise<IZcashTransparentDisplay> {
-  const key = `${vault.networkId}:${account.id}:${
-    spendableOnly ? 'spendable' : 'all'
-  }`;
-  const previous = zcashTransparentDisplayReads.get(key);
+  const key = zcashTransparentDisplayKey(
+    vault.networkId,
+    account.id,
+    spendableOnly ? 'spendable' : 'all',
+  );
+  const epoch = await readLocalWalletCacheEpoch({
+    backgroundApi: vault.backgroundApi,
+    accountId: account.id,
+  });
+  const stored = zcashTransparentDisplayReads.get(key);
+  const previous = stored?.epoch === epoch ? stored : undefined;
   if (
     previous?.landed &&
     Date.now() - previous.landed.at < ZCASH_TRANSPARENT_LANDED_REUSE_MS
@@ -302,13 +347,14 @@ export async function zcashReadTransparentForDisplay(
             backgroundApi: vault.backgroundApi,
             networkId: vault.networkId,
             accountId: account.id,
+            epoch,
             value: pair,
           });
         },
         () => undefined,
       );
     }
-    zcashTransparentDisplayReads.set(key, { running, lastRead });
+    zcashTransparentDisplayReads.set(key, { epoch, running, lastRead });
   }
   // Full reads only (the pool view); the composed balance keeps waiting.
   let shown: IZcashTransparentDisplay | undefined;
@@ -323,6 +369,7 @@ export async function zcashReadTransparentForDisplay(
         backgroundApi: vault.backgroundApi,
         networkId: vault.networkId,
         accountId: account.id,
+        epoch,
       });
       shown = savedRecord && {
         total: new BigNumber(savedRecord.total),
@@ -353,6 +400,7 @@ export async function zcashReadTransparentForDisplay(
     const current = zcashTransparentDisplayReads.get(key);
     if (current?.running === running) {
       zcashTransparentDisplayReads.set(key, {
+        epoch,
         lastRead: zcashTransparentDisplayComplete(outcome.value, spendableOnly)
           ? { value: outcome.value, at: Date.now() }
           : current.lastRead,
@@ -368,11 +416,15 @@ export async function zcashReadTransparentForDisplay(
       if (current?.running !== pending) return;
       // A partial read is worse than a complete pair already on screen.
       if (shown && !zcashTransparentDisplayComplete(value, spendableOnly)) {
-        zcashTransparentDisplayReads.set(key, { lastRead: current.lastRead });
+        zcashTransparentDisplayReads.set(key, {
+          epoch,
+          lastRead: current.lastRead,
+        });
         return;
       }
       const landed = { value, at: Date.now() };
       zcashTransparentDisplayReads.set(key, {
+        epoch,
         landed,
         lastRead: zcashTransparentDisplayComplete(value, spendableOnly)
           ? landed
@@ -393,7 +445,10 @@ export async function zcashReadTransparentForDisplay(
     () => {
       const current = zcashTransparentDisplayReads.get(key);
       if (current?.running === pending) {
-        zcashTransparentDisplayReads.set(key, { lastRead: current.lastRead });
+        zcashTransparentDisplayReads.set(key, {
+          epoch,
+          lastRead: current.lastRead,
+        });
       }
     },
   );

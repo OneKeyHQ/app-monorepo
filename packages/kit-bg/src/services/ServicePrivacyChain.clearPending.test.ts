@@ -52,6 +52,8 @@ describe('clear pending sends for the selected account', () => {
           serviceAccount: {
             getNetworkAccountsInSameIndexedAccountIdWithDeriveTypes,
           },
+          // Clearing pending sends touches nothing but the chain's locks.
+          simpleDb: {},
         },
       },
     );
@@ -77,6 +79,7 @@ describe('clear pending sends for the selected account', () => {
     expect(clearPendingSends).toHaveBeenCalledWith({
       networkId: ZEC,
       accountId: 'hd-1--zec-0',
+      scope: 'pending',
     });
   });
 
@@ -114,6 +117,7 @@ describe('clear pending sends for the selected account', () => {
     expect(clearPendingSends).toHaveBeenCalledWith({
       networkId: ZEC,
       accountId: 'hd-1--zec-0',
+      scope: 'pending',
     });
   });
 });

@@ -210,6 +210,10 @@ export interface IPrivacyChainStateDB {
   // after the reset clears this store; the next launch and the next reset
   // retry them.
   pendingLocalDataDrop?: string[];
+  // Networks whose runtime may hold an account nothing names any more (its
+  // key was unreadable when the account went). Cleared by a full orphan purge
+  // or a drop of that network's database.
+  runtimeOrphans?: string[];
   // walletId -> IPrivacyChainWalletRecord
   wallets?: Record<string, unknown>;
   // accountId -> IPrivacyChainAccountRecord. Only accounts that were ever
@@ -220,6 +224,7 @@ export interface IPrivacyChainStateDB {
 type IMutableState = {
   device: IPrivacyChainStateDB['device'];
   pendingLocalDataDrop: unknown;
+  runtimeOrphans: unknown;
   wallets: Record<string, unknown>;
   accounts: Record<string, unknown>;
 };
@@ -489,6 +494,8 @@ export class SimpleDbEntityPrivacyChainState extends SimpleDbEntityBase<IPrivacy
       (container.device !== undefined && !isPlainObject(container.device)) ||
       (container.pendingLocalDataDrop !== undefined &&
         !Array.isArray(container.pendingLocalDataDrop)) ||
+      (container.runtimeOrphans !== undefined &&
+        !Array.isArray(container.runtimeOrphans)) ||
       (container.wallets !== undefined && !isPlainObject(container.wallets)) ||
       (container.accounts !== undefined && !isPlainObject(container.accounts))
     ) {
@@ -498,20 +505,48 @@ export class SimpleDbEntityPrivacyChainState extends SimpleDbEntityBase<IPrivacy
     }
   }
 
+  // Each account's epoch as this runtime last knew it (undefined: no
+  // record). It runs ahead of disk while a destructive operation is in
+  // flight, so a cache write checked against it is refused from the moment
+  // that operation starts. Absent: not read yet.
+  private readonly epochMirror = new Map<string, string | undefined>();
+
+  // Bumped on every change, so a read from disk can tell it was overtaken.
+  private epochMirrorVersion = 0;
+
+  private setMirroredEpoch(accountId: string, epoch: string | undefined) {
+    this.epochMirror.set(accountId, epoch);
+    this.epochMirrorVersion += 1;
+  }
+
   private async update(build: (state: IMutableState) => void): Promise<void> {
     await this.setRawData((raw) => {
       const state: IMutableState = {
         device: raw?.device,
         pendingLocalDataDrop: raw?.pendingLocalDataDrop,
+        runtimeOrphans: raw?.runtimeOrphans,
         wallets: { ...raw?.wallets },
         accounts: { ...raw?.accounts },
       };
       build(state);
+      // Before the write is persisted; records left untouched keep theirs.
+      for (const accountId of uniq([
+        ...Object.keys(raw?.accounts ?? {}),
+        ...Object.keys(state.accounts),
+      ])) {
+        if (state.accounts[accountId] !== raw?.accounts?.[accountId]) {
+          this.setMirroredEpoch(
+            accountId,
+            parseAccountRecord(state.accounts[accountId])?.epoch,
+          );
+        }
+      }
       return compact({
         device: state.device,
         pendingLocalDataDrop: state.pendingLocalDataDrop as
           | string[]
           | undefined,
+        runtimeOrphans: state.runtimeOrphans as string[] | undefined,
         wallets: state.wallets,
         accounts: state.accounts,
       });
@@ -606,6 +641,35 @@ export class SimpleDbEntityPrivacyChainState extends SimpleDbEntityBase<IPrivacy
         (networkId) => !networkIds.includes(networkId as string),
       );
     });
+  }
+
+  async markRuntimeOrphans({ networkId }: { networkId: string }) {
+    await this.update((state) => {
+      const marked = Array.isArray(state.runtimeOrphans)
+        ? (state.runtimeOrphans as unknown[])
+        : [];
+      if (!marked.includes(networkId)) {
+        state.runtimeOrphans = [...marked, networkId];
+      }
+    });
+  }
+
+  async clearRuntimeOrphans({ networkId }: { networkId: string }) {
+    await this.update((state) => {
+      if (!Array.isArray(state.runtimeOrphans)) return;
+      state.runtimeOrphans = (state.runtimeOrphans as unknown[]).filter(
+        (item) => item !== networkId,
+      );
+    });
+  }
+
+  async hasRuntimeOrphans({
+    networkId,
+  }: {
+    networkId: string;
+  }): Promise<boolean> {
+    const raw = await this.getRawData();
+    return (raw?.runtimeOrphans ?? []).includes(networkId);
   }
 
   // -------------------------------------------------------------------------
@@ -759,26 +823,77 @@ export class SimpleDbEntityPrivacyChainState extends SimpleDbEntityBase<IPrivacy
   }: {
     accountId: string;
   }): Promise<string | undefined> {
-    return (await this.readAccountRecord(accountId))?.record.epoch;
+    if (this.epochMirror.has(accountId)) {
+      return this.epochMirror.get(accountId);
+    }
+    const version = this.epochMirrorVersion;
+    const raw = await this.getRawData();
+    const epoch = parseAccountRecord(raw?.accounts?.[accountId])?.epoch;
+    // A masked store reads as empty, which is not "no record"; a mirror
+    // change during the read is newer than what was read.
+    if (raw && version === this.epochMirrorVersion) {
+      this.setMirroredEpoch(accountId, epoch);
+    }
+    return this.epochMirror.has(accountId)
+      ? this.epochMirror.get(accountId)
+      : epoch;
   }
 
-  // Before scanned data is destroyed, so a cache written for it reads stale.
+  // Travel Mode and App Reset: what is on disk is no longer this runtime's.
+  async forgetAccountEpochs(): Promise<void> {
+    this.epochMirror.clear();
+    this.epochMirrorVersion += 1;
+  }
+
+  // Before scanned data is destroyed. The mirror moves first, so a cache
+  // write racing the destruction is refused even before this is persisted.
   async rotateAccountEpochs({
     accountIds,
   }: {
     accountIds: string[];
   }): Promise<void> {
     if (accountIds.length === 0) return;
+    const rotated = new Map(uniq(accountIds).map((id) => [id, createEpoch()]));
+    rotated.forEach((epoch, accountId) =>
+      this.setMirroredEpoch(accountId, epoch),
+    );
     await this.update((state) => {
-      for (const accountId of uniq(accountIds)) {
+      for (const [accountId, epoch] of rotated) {
         const record = readAccount(state, accountId);
         if (record) {
-          writeAccount(state, accountId, {
-            ...record,
-            epoch: createEpoch(),
-          });
+          writeAccount(state, accountId, { ...record, epoch });
+        } else {
+          this.setMirroredEpoch(accountId, undefined);
         }
       }
+    });
+  }
+
+  // Delete-local-data: everything that points into the deleted scan data
+  // goes, the identity included, so a later enable may set the account up
+  // with whatever key it derives. Only the birthday stays, so that enable
+  // reuses the month.
+  async clearAccountScanData({
+    accountId,
+  }: {
+    accountId: string;
+  }): Promise<void> {
+    await this.update((state) => {
+      const record = readAccount(state, accountId);
+      delete state.accounts[accountId];
+      if (!record?.scan.birthday && !record?.scan.birthdayRequest) return;
+      writeAccount(state, accountId, {
+        networkId: record.networkId,
+        walletId: record.walletId,
+        epoch: createEpoch(),
+        scan: {
+          intent: 'off',
+          birthday: record.scan.birthday,
+          birthdayRequest: record.scan.birthdayRequest,
+        },
+        createdAt: record.createdAt,
+        updatedAt: record.updatedAt,
+      });
     });
   }
 
@@ -1202,32 +1317,6 @@ export class SimpleDbEntityPrivacyChainState extends SimpleDbEntityBase<IPrivacy
     });
   }
 
-  // Delete-local-data: the viewing metadata, the resume cursor and any
-  // repair journal point into the data being deleted. The birthday and the
-  // identity stay, so a later enable reuses the month and must derive the
-  // same key.
-  async removeZcashAccountMeta({
-    accountId,
-  }: {
-    accountId: string;
-  }): Promise<void> {
-    await this.update((state) => {
-      const record = readAccount(state, accountId);
-      if (!record) return;
-      const { zcash: _zcash, ...otherChains } = record.chain ?? {};
-      writeAccount(state, accountId, {
-        ...record,
-        epoch: createEpoch(),
-        scan: {
-          ...record.scan,
-          resumeFromHeight: undefined,
-          rescan: undefined,
-        },
-        chain: otherChains,
-      });
-    });
-  }
-
   async listZcashPendingRescans({
     networkId,
   }: {
@@ -1471,34 +1560,5 @@ export class SimpleDbEntityPrivacyChainState extends SimpleDbEntityBase<IPrivacy
     return (await this.listNetworkRecords(networkId)).flatMap(
       ({ accountId, record }) => (isScanning(record) ? [accountId] : []),
     );
-  }
-
-  /**
-   * Forget an account. Deleting local data keeps its birthday (and identity)
-   * so a later enable starts where its funds do; removing the account keeps
-   * nothing.
-   */
-  async removeXmrAccount({
-    accountId,
-    keepBirthday,
-  }: {
-    accountId: string;
-    keepBirthday?: boolean;
-  }): Promise<void> {
-    await this.update((state) => {
-      const record = readAccount(state, accountId);
-      delete state.accounts[accountId];
-      if (keepBirthday && record?.scan.birthday !== undefined) {
-        writeAccount(state, accountId, {
-          networkId: record.networkId,
-          walletId: record.walletId,
-          vkFp: record.vkFp,
-          epoch: createEpoch(),
-          scan: { intent: 'off', birthday: record.scan.birthday },
-          createdAt: record.createdAt,
-          updatedAt: record.updatedAt,
-        });
-      }
-    });
   }
 }

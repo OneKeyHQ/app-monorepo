@@ -7,6 +7,7 @@ import type { IRuntimeEnvironment } from '@onekeyhq/shared/src/travelMode/runtim
 import { SimpleDbEntityPrivacyChainJournal } from '../dbs/simple/entity/SimpleDbEntityPrivacyChainJournal';
 import { SimpleDbEntityPrivacyChainKeys } from '../dbs/simple/entity/SimpleDbEntityPrivacyChainKeys';
 import { SimpleDbEntityPrivacyChainState } from '../dbs/simple/entity/SimpleDbEntityPrivacyChainState';
+import { SimpleDbEntityPrivacyChainXmrSent } from '../dbs/simple/entity/SimpleDbEntityPrivacyChainXmrSent';
 
 jest.mock('@onekeyhq/shared/src/background/backgroundDecorators', () => {
   const actual = jest.requireActual<
@@ -87,25 +88,68 @@ function createKeysDb(accountIds: string[]) {
   return entity;
 }
 
-function createJournalDb(accountIds: string[] = []) {
-  let saved: unknown = {
-    data: {
-      zcashTransparent: {},
-      xmrSent: Object.fromEntries(
-        accountIds.map((id) => [id, { tx: { recipient: `4${id}` } }]),
-      ),
-    },
-    updatedAt: 1,
-  };
-  const entity = new SimpleDbEntityPrivacyChainJournal();
-  (entity as { appStorage: unknown }).appStorage = {
+function memoryStorage(initial: unknown) {
+  let saved: unknown = initial;
+  return {
     getItem: jest.fn(async () => saved),
     setItem: jest.fn(async (_key: string, value: unknown) => {
       saved = value;
     }),
+    removeItem: jest.fn(async () => {
+      saved = null;
+    }),
   };
+}
+
+function createJournalDb(accountIds: string[] = []) {
+  const entity = new SimpleDbEntityPrivacyChainJournal();
+  (entity as { appStorage: unknown }).appStorage = memoryStorage({
+    data: {
+      zcashTransparent: Object.fromEntries(
+        accountIds.map((id) => [id, { reservations: {}, pendingTxs: {} }]),
+      ),
+    },
+    updatedAt: 1,
+  });
   return entity;
 }
+
+function createXmrSentDb(accountIds: string[] = []) {
+  const entity = new SimpleDbEntityPrivacyChainXmrSent();
+  (entity as { appStorage: unknown }).appStorage = memoryStorage({
+    data: {
+      accounts: Object.fromEntries(
+        accountIds.map((id) => [id, { tx: { recipient: `4${id}` } }]),
+      ),
+    },
+    updatedAt: 1,
+  });
+  return entity;
+}
+
+// A stored record holding scan data, as an enable leaves it.
+function scanRecord(accountId: string, walletId = 'hd-1') {
+  return {
+    networkId,
+    walletId,
+    epoch: accountId
+      .replace(/[^0-9]/g, '0')
+      .padEnd(16, '0')
+      .slice(0, 16),
+    scan: { intent: 'on', birthday: { height: 100 } },
+    createdAt: 1,
+    updatedAt: 1,
+  };
+}
+
+// The executor's in-memory fields on a service made without its constructor.
+const lifecycleFields = () => ({
+  backfillActiveByAccount: {},
+  boostPausedByNetwork: {},
+  syncFailureBackoff: new Map(),
+  orphanCleanupGeneration: new Map<string, number>(),
+  scheduleBackgroundSync: jest.fn(),
+});
 
 function deferred() {
   let resolve: () => void = () => {};
@@ -130,37 +174,38 @@ function createService(overrides: Record<string, unknown>): IService {
 }
 
 describe('removed-account gc', () => {
+  const allIds = [liveAccountId, removedAccountId, hiddenAccountId];
+
   function createGcHarness(
     getAllAccounts: () => Promise<{
       accounts: { id: string; indexedAccountId?: string }[];
     }>,
-    indexedAccountIds: string[] = [
-      liveAccountId,
-      removedAccountId,
-      hiddenAccountId,
-    ].map((id) => accountRow(id).indexedAccountId),
+    indexedAccountIds: string[] = allIds.map(
+      (id) => accountRow(id).indexedAccountId,
+    ),
+    { wallets = [] as { id: string }[] } = {},
   ) {
-    const reset = jest.fn(async () => undefined);
-    const gcWalletState = jest.fn(async () => undefined);
-    const privacyChainKeys = createKeysDb([
-      liveAccountId,
-      removedAccountId,
-      hiddenAccountId,
-    ]);
+    const deleteRuntimeAccount = jest.fn(async () => ({ orphaned: false }));
+    const privacyChainKeys = createKeysDb(allIds);
     const removeLastBalances = jest.fn(async () => undefined);
-    const privacyChainJournal = createJournalDb([
-      liveAccountId,
-      removedAccountId,
-      hiddenAccountId,
-    ]);
+    const privacyChainJournal = createJournalDb(allIds);
+    const privacyChainXmrSent = createXmrSentDb(allIds);
+    const privacyChainState = createPrivacyChainDb({
+      data: {
+        accounts: Object.fromEntries(allIds.map((id) => [id, scanRecord(id)])),
+        // One wallet whose wallet is gone, one still live.
+        wallets: { 'hd-gone': {}, 'hd-1': {} },
+      },
+      updatedAt: 1,
+    });
+    const listAccounts = jest.fn(async () => ({
+      accounts: [],
+      cleanupAccountIds: allIds,
+    }));
     mockGetChainOnlyVault.mockResolvedValue({
       getLocalWalletCapability: () => ({
-        listAccounts: async () => ({
-          accounts: [],
-          cleanupAccountIds: [liveAccountId, removedAccountId, hiddenAccountId],
-        }),
-        reset,
-        gcWalletState,
+        listAccounts,
+        deleteRuntimeAccount,
       }),
     });
     const serviceAccount = {
@@ -170,12 +215,17 @@ describe('removed-account gc', () => {
       })),
       // A per-id read would report every one of these as missing.
       getDBAccountSafe: jest.fn(async () => undefined),
-      getAllWallets: jest.fn(async () => ({ wallets: [] })),
+      getAccount: jest.fn(async () => {
+        throw new OneKeyLocalError('account is gone');
+      }),
+      getAllWallets: jest.fn(async () => ({
+        wallets: [{ id: 'hd-1' }, ...wallets],
+      })),
     };
     const service = createService({
+      ...lifecycleFields(),
       gcRunning: false,
       gcRequested: false,
-      orphanCleanupGeneration: new Map<string, number>(),
       backgroundApi: {
         serviceAccount,
         simpleDb: {
@@ -188,20 +238,21 @@ describe('removed-account gc', () => {
             removeLastBalances,
           },
           privacyChainJournal,
+          privacyChainXmrSent,
+          privacyChainState,
         },
       },
       getLocalWalletNetworkIds: async () => [networkId],
-      forEachLocalWalletCapability: async (
-        fn: (capability: unknown) => Promise<void>,
-      ) => fn({ gcWalletState }),
     });
     return {
       service,
       serviceAccount,
-      reset,
-      gcWalletState,
+      deleteRuntimeAccount,
+      listAccounts,
       privacyChainKeys,
       privacyChainJournal,
+      privacyChainXmrSent,
+      privacyChainState,
       removeLastBalances,
     };
   }
@@ -218,10 +269,10 @@ describe('removed-account gc', () => {
   it('purges nothing when the account list cannot be read', async () => {
     const {
       service,
-      reset,
-      gcWalletState,
+      deleteRuntimeAccount,
       privacyChainKeys,
       privacyChainJournal,
+      privacyChainState,
       removeLastBalances,
     } = createGcHarness(async () => {
       throw new OneKeyLocalError('database is locked');
@@ -229,28 +280,24 @@ describe('removed-account gc', () => {
 
     await service.gcRemovedAccounts();
 
-    expect(reset).not.toHaveBeenCalled();
-    expect(gcWalletState).not.toHaveBeenCalled();
+    expect(deleteRuntimeAccount).not.toHaveBeenCalled();
     expect(removeLastBalances).not.toHaveBeenCalled();
-    await expect(privacyChainKeys.listAccountIds()).resolves.toEqual([
-      liveAccountId,
-      removedAccountId,
-      hiddenAccountId,
-    ]);
-    await expect(privacyChainJournal.listAccountIds()).resolves.toEqual([
-      liveAccountId,
-      removedAccountId,
-      hiddenAccountId,
-    ]);
+    await expect(privacyChainKeys.listAccountIds()).resolves.toEqual(allIds);
+    await expect(privacyChainJournal.listAccountIds()).resolves.toEqual(allIds);
+    await expect(privacyChainState.listWalletStateIds()).resolves.toContain(
+      'hd-gone',
+    );
     expect(service.gcRunning).toBe(false);
   });
 
   it('purges an account that is definitely gone', async () => {
     const {
       service,
-      reset,
+      deleteRuntimeAccount,
       privacyChainKeys,
       privacyChainJournal,
+      privacyChainXmrSent,
+      privacyChainState,
       removeLastBalances,
     } = createGcHarness(async () => ({
       accounts: [accountRow(liveAccountId), accountRow(hiddenAccountId)],
@@ -258,46 +305,109 @@ describe('removed-account gc', () => {
 
     await service.gcRemovedAccounts();
 
-    expect(reset).toHaveBeenCalledTimes(1);
-    expect(reset).toHaveBeenCalledWith({
+    expect(deleteRuntimeAccount).toHaveBeenCalledTimes(1);
+    expect(deleteRuntimeAccount).toHaveBeenCalledWith({
       accountId: removedAccountId,
-      scope: 'all',
     });
     // The account set changed: the runtime orphan cleanup is due again.
     expect(service.orphanCleanupGeneration.get(networkId)).toBe(1);
-    await expect(privacyChainKeys.listAccountIds()).resolves.toEqual([
-      liveAccountId,
-      hiddenAccountId,
-    ]);
+    const kept = [liveAccountId, hiddenAccountId];
+    await expect(privacyChainKeys.listAccountIds()).resolves.toEqual(kept);
     expect(removeLastBalances).toHaveBeenCalledWith({
       accountIds: [removedAccountId],
     });
-    await expect(privacyChainJournal.listAccountIds()).resolves.toEqual([
-      liveAccountId,
-      hiddenAccountId,
+    await expect(privacyChainJournal.listAccountIds()).resolves.toEqual(kept);
+    await expect(privacyChainXmrSent.listAccountIds()).resolves.toEqual(kept);
+    await expect(
+      privacyChainState.listAccountIds({ networkId }),
+    ).resolves.toEqual(kept);
+    // A wallet that is gone loses its facts once no record names it.
+    await expect(privacyChainState.listWalletStateIds()).resolves.toEqual([
+      'hd-1',
     ]);
   });
 
-  it('keeps a hidden or locked passphrase wallet account', async () => {
-    const { service, serviceAccount, reset } = createGcHarness(async () => ({
-      accounts: [
-        accountRow(liveAccountId),
-        accountRow(removedAccountId),
-        accountRow(hiddenAccountId),
-      ],
+  // The key is what names the runtime data: a later pass needs it.
+  it('keeps every record of an account whose runtime delete failed', async () => {
+    const {
+      service,
+      deleteRuntimeAccount,
+      privacyChainKeys,
+      privacyChainJournal,
+      privacyChainState,
+    } = createGcHarness(async () => ({
+      accounts: [accountRow(liveAccountId), accountRow(hiddenAccountId)],
     }));
+    deleteRuntimeAccount.mockRejectedValueOnce(new Error('runtime busy'));
+
+    await service.gcRemovedAccounts();
+
+    await expect(privacyChainKeys.listAccountIds()).resolves.toEqual(allIds);
+    await expect(privacyChainJournal.listAccountIds()).resolves.toEqual(allIds);
+    await expect(
+      privacyChainState.listAccountIds({ networkId }),
+    ).resolves.toEqual(allIds);
+  });
+
+  it('marks the network when a removed account names no runtime account', async () => {
+    const { service, deleteRuntimeAccount, privacyChainState } =
+      createGcHarness(async () => ({
+        accounts: [accountRow(liveAccountId), accountRow(hiddenAccountId)],
+      }));
+    deleteRuntimeAccount.mockResolvedValueOnce({ orphaned: true });
+
+    await service.gcRemovedAccounts();
+
+    await expect(
+      privacyChainState.hasRuntimeOrphans({ networkId }),
+    ).resolves.toBe(true);
+    await expect(
+      privacyChainState.listAccountIds({ networkId }),
+    ).resolves.toEqual([liveAccountId, hiddenAccountId]);
+  });
+
+  it('removes records no chain lists, unless a chain could not list', async () => {
+    const strayId = 'hd-4--0';
+    const harness = createGcHarness(async () => ({
+      accounts: allIds.map(accountRow),
+    }));
+    await harness.privacyChainXmrSent.recordXmrSent({
+      accountId: strayId,
+      txid: 'tx',
+      recipient: '4stray',
+    });
+
+    harness.listAccounts.mockRejectedValueOnce(new Error('cannot list'));
+    await harness.service.gcRemovedAccounts();
+    await expect(
+      harness.privacyChainXmrSent.listAccountIds(),
+    ).resolves.toContain(strayId);
+
+    await harness.service.gcRemovedAccounts();
+    await expect(
+      harness.privacyChainXmrSent.listAccountIds(),
+    ).resolves.not.toContain(strayId);
+    expect(harness.deleteRuntimeAccount).not.toHaveBeenCalled();
+  });
+
+  it('keeps a hidden or locked passphrase wallet account', async () => {
+    const { service, serviceAccount, deleteRuntimeAccount } = createGcHarness(
+      async () => ({
+        accounts: allIds.map(accountRow),
+      }),
+    );
 
     await service.gcRemovedAccounts();
 
     // Unfiltered: filterRemoved would drop locked passphrase wallets.
     expect(serviceAccount.getAllAccounts).toHaveBeenCalledWith();
-    expect(reset).not.toHaveBeenCalled();
+    expect(deleteRuntimeAccount).not.toHaveBeenCalled();
     expect(service.orphanCleanupGeneration.get(networkId)).toBeUndefined();
   });
 
   // Deleting an HD account removes its indexed account but leaves its rows.
   it('purges an account whose HD account was deleted', async () => {
-    const { service, reset, privacyChainKeys } = createGcHarness(
+    const { service, deleteRuntimeAccount, privacyChainKeys } = createGcHarness(
       async () => ({
         accounts: [
           accountRow(liveAccountId),
@@ -312,10 +422,9 @@ describe('removed-account gc', () => {
 
     await service.gcRemovedAccounts();
 
-    expect(reset).toHaveBeenCalledTimes(1);
-    expect(reset).toHaveBeenCalledWith({
+    expect(deleteRuntimeAccount).toHaveBeenCalledTimes(1);
+    expect(deleteRuntimeAccount).toHaveBeenCalledWith({
       accountId: removedAccountId,
-      scope: 'all',
     });
     await expect(privacyChainKeys.listAccountIds()).resolves.toEqual([
       liveAccountId,
@@ -325,13 +434,8 @@ describe('removed-account gc', () => {
 
   it('keeps an imported account, which has no indexed account', async () => {
     const importedAccountId = 'imported--0';
-    const { service, reset } = createGcHarness(async () => ({
-      accounts: [
-        accountRow(liveAccountId),
-        accountRow(removedAccountId),
-        accountRow(hiddenAccountId),
-        { id: importedAccountId },
-      ],
+    const { service, deleteRuntimeAccount } = createGcHarness(async () => ({
+      accounts: [...allIds.map(accountRow), { id: importedAccountId }],
     }));
     mockGetChainOnlyVault.mockResolvedValue({
       getLocalWalletCapability: () => ({
@@ -339,21 +443,20 @@ describe('removed-account gc', () => {
           accounts: [],
           cleanupAccountIds: [importedAccountId],
         }),
-        reset,
+        deleteRuntimeAccount,
       }),
     });
 
     await service.gcRemovedAccounts();
 
-    expect(reset).not.toHaveBeenCalled();
+    expect(deleteRuntimeAccount).not.toHaveBeenCalled();
   });
 
   function createEmptyGcHarness() {
-    const gcWalletState = jest.fn(async () => undefined);
     mockGetChainOnlyVault.mockResolvedValue({
       getLocalWalletCapability: () => ({
         listAccounts: async () => ({ accounts: [], cleanupAccountIds: [] }),
-        reset: jest.fn(),
+        deleteRuntimeAccount: jest.fn(),
       }),
     });
     const serviceAccount = {
@@ -361,10 +464,14 @@ describe('removed-account gc', () => {
       getAllIndexedAccounts: jest.fn(async () => ({ indexedAccounts: [] })),
       getAllWallets: jest.fn(async () => ({ wallets: [] })),
     };
+    const privacyChainState = createPrivacyChainDb({
+      data: { wallets: { 'hd-gone': {} } },
+      updatedAt: 1,
+    });
     const service = createService({
+      ...lifecycleFields(),
       gcRunning: false,
       gcRequested: false,
-      orphanCleanupGeneration: new Map<string, number>(),
       backgroundApi: {
         serviceAccount,
         simpleDb: {
@@ -374,50 +481,50 @@ describe('removed-account gc', () => {
             removeLastBalances: jest.fn(),
           },
           privacyChainJournal: createJournalDb(),
+          privacyChainXmrSent: createXmrSentDb(),
+          privacyChainState,
         },
       },
       getLocalWalletNetworkIds: async () => [networkId],
-      forEachLocalWalletCapability: async (
-        fn: (capability: unknown) => Promise<void>,
-      ) => fn({ gcWalletState }),
     });
-    return { service, serviceAccount, gcWalletState };
+    return { service, serviceAccount, privacyChainState };
   }
 
   it('reads no accounts when there is nothing to purge', async () => {
-    const { service, serviceAccount, gcWalletState } = createEmptyGcHarness();
+    const { service, serviceAccount, privacyChainState } =
+      createEmptyGcHarness();
 
     await service.gcRemovedAccounts();
 
     expect(serviceAccount.getAllAccounts).not.toHaveBeenCalled();
     expect(serviceAccount.getAllIndexedAccounts).not.toHaveBeenCalled();
-    expect(gcWalletState).toHaveBeenCalledWith({ liveWalletIds: [] });
+    await expect(privacyChainState.listWalletStateIds()).resolves.toEqual([]);
   });
 
   it('keeps wallet state while Travel Mode masks the database', async () => {
     jest.spyOn(travelModeManager, 'getRuntimeEnvironment').mockResolvedValue({
       persistence: { kind: 'masked' },
     } as unknown as IRuntimeEnvironment);
-    const { service, gcWalletState } = createEmptyGcHarness();
+    const { service, serviceAccount } = createEmptyGcHarness();
 
     await service.gcRemovedAccounts();
 
-    expect(gcWalletState).not.toHaveBeenCalled();
+    expect(serviceAccount.getAllWallets).not.toHaveBeenCalled();
   });
 
   it('purges nothing while Travel Mode masks the database', async () => {
     jest.spyOn(travelModeManager, 'getRuntimeEnvironment').mockResolvedValue({
       persistence: { kind: 'masked' },
     } as unknown as IRuntimeEnvironment);
-    const { service, serviceAccount, reset, gcWalletState } = createGcHarness(
+    const { service, serviceAccount, deleteRuntimeAccount } = createGcHarness(
       async () => ({ accounts: [] }),
     );
 
     await service.gcRemovedAccounts();
 
     expect(serviceAccount.getAllAccounts).not.toHaveBeenCalled();
-    expect(reset).not.toHaveBeenCalled();
-    expect(gcWalletState).not.toHaveBeenCalled();
+    expect(deleteRuntimeAccount).not.toHaveBeenCalled();
+    expect(serviceAccount.getAllWallets).not.toHaveBeenCalled();
   });
 });
 
@@ -448,7 +555,20 @@ describe('pending local data drop retry', () => {
       }),
     });
     const service = createService({
-      backgroundApi: { simpleDb: { privacyChainState: privacyChain } },
+      ...lifecycleFields(),
+      backgroundApi: {
+        simpleDb: {
+          privacyChainState: privacyChain,
+          privacyChainKeys: createKeysDb([]),
+          privacyChainJournal: createJournalDb(),
+          privacyChainXmrSent: createXmrSentDb(),
+          privacyChainCache: {
+            removeLastBalances: jest.fn(async () => undefined),
+            removeNetworkLastBalances: jest.fn(async () => undefined),
+            removeChainTips: jest.fn(async () => undefined),
+          },
+        },
+      },
     });
     return { service, privacyChain, dropLocalData };
   }
@@ -467,11 +587,16 @@ describe('pending local data drop retry', () => {
     const { service, privacyChain, dropLocalData } = createRetryHarness({
       pending: [networkId],
     });
+    await privacyChain.markRuntimeOrphans({ networkId });
 
     await service.retryPendingLocalDataDrop();
 
     expect(dropLocalData).toHaveBeenCalledTimes(1);
     await expect(privacyChain.getPendingLocalDataDrop()).resolves.toEqual([]);
+    // Nothing is left in a dropped database to be an orphan.
+    await expect(privacyChain.hasRuntimeOrphans({ networkId })).resolves.toBe(
+      false,
+    );
   });
 
   it('keeps the mark when the wipe fails', async () => {
@@ -604,43 +729,78 @@ describe('pending local data drop retry', () => {
 describe.each(['zec--0', 'xmr--0'])(
   'deleting local data on %s',
   (chainNetworkId) => {
-    function createDeleteHarness(state: {
+    function createDeleteHarness(initial: {
       enabled: boolean;
       pendingOperation?: 'enable' | 'disable';
     }) {
       const calls: string[] = [];
+      let state = { ...initial };
       const capability = {
         getAccountState: jest.fn(async () => state),
         disableAccount: jest.fn(async () => {
           calls.push('disable');
+          state = { enabled: false };
         }),
-        deleteAccountData: jest.fn(async () => {
+        deleteRuntimeAccount: jest.fn(async () => {
           calls.push('delete');
+          return { orphaned: false };
         }),
+        clearPendingSends: jest.fn(
+          async ({ scope }: { scope: 'pending' | 'expired' }) => {
+            calls.push(`clearPending:${scope}`);
+          },
+        ),
       };
       mockGetVaultSettings.mockResolvedValue({ localWallet: {} });
       const privacyChainKeys = createKeysDb([liveAccountId, hiddenAccountId]);
+      const privacyChainState = createPrivacyChainDb();
+      const forgetCachedLocalWalletBalance = jest.fn(async () => undefined);
       const service = createService({
-        backgroundApi: { simpleDb: { privacyChainKeys } },
+        ...lifecycleFields(),
+        backgroundApi: {
+          simpleDb: {
+            privacyChainKeys,
+            privacyChainState,
+            privacyChainXmrSent: createXmrSentDb([liveAccountId]),
+            privacyChainCache: {
+              removeLastBalances: jest.fn(async () => undefined),
+            },
+          },
+        },
         enableMutexByNetwork: new Map<string, Mutex>(),
-        orphanCleanupGeneration: new Map<string, number>(),
         requireAccountCapability: async () => capability,
-        forgetCachedLocalWalletBalance: jest.fn(async () => undefined),
+        forgetCachedLocalWalletBalance,
       });
-      return { service, capability, calls, privacyChainKeys };
+      return {
+        service,
+        capability,
+        calls,
+        privacyChainKeys,
+        privacyChainState,
+        forgetCachedLocalWalletBalance,
+        setState: (next: typeof state) => {
+          state = next;
+        },
+      };
     }
 
     it('turns an enabled account off before deleting', async () => {
-      const { service, calls } = createDeleteHarness({ enabled: true });
+      const { service, calls, forgetCachedLocalWalletBalance } =
+        createDeleteHarness({ enabled: true });
 
       await service.deleteLocalWalletAccountData({
         networkId: chainNetworkId,
         accountId: liveAccountId,
       });
 
-      expect(calls).toEqual(['disable', 'delete']);
+      // Only sends that can no longer be mined go with the data.
+      expect(calls).toEqual(['disable', 'delete', 'clearPending:expired']);
       // The account set changed: the runtime orphan cleanup is due again.
       expect(service.orphanCleanupGeneration.get(chainNetworkId)).toBe(1);
+      expect(forgetCachedLocalWalletBalance).toHaveBeenCalledWith({
+        networkId: chainNetworkId,
+        accountId: liveAccountId,
+      });
     });
 
     it('finishes an interrupted operation through the same disable', async () => {
@@ -654,7 +814,20 @@ describe.each(['zec--0', 'xmr--0'])(
         accountId: liveAccountId,
       });
 
-      expect(calls).toEqual(['disable', 'delete']);
+      expect(calls).toEqual(['disable', 'delete', 'clearPending:expired']);
+    });
+
+    it('refuses to delete an account still on after the disable', async () => {
+      const { service, capability } = createDeleteHarness({ enabled: true });
+      capability.disableAccount.mockImplementationOnce(async () => undefined);
+
+      await expect(
+        service.deleteLocalWalletAccountData({
+          networkId: chainNetworkId,
+          accountId: liveAccountId,
+        }),
+      ).rejects.toThrow('turn scanning off before deleting local data');
+      expect(capability.deleteRuntimeAccount).not.toHaveBeenCalled();
     });
 
     it('deletes an account that is already off directly', async () => {
@@ -669,11 +842,27 @@ describe.each(['zec--0', 'xmr--0'])(
       });
 
       expect(capability.disableAccount).not.toHaveBeenCalled();
-      expect(calls).toEqual(['delete']);
+      expect(calls).toEqual(['delete', 'clearPending:expired']);
       // The viewing key goes with the data on both chains; others stay.
       await expect(privacyChainKeys.listAccountIds()).resolves.toEqual([
         hiddenAccountId,
       ]);
+    });
+
+    it('marks the network when the runtime account could not be named', async () => {
+      const { service, capability, privacyChainState } = createDeleteHarness({
+        enabled: false,
+      });
+      capability.deleteRuntimeAccount.mockResolvedValueOnce({ orphaned: true });
+
+      await service.deleteLocalWalletAccountData({
+        networkId: chainNetworkId,
+        accountId: liveAccountId,
+      });
+
+      await expect(
+        privacyChainState.hasRuntimeOrphans({ networkId: chainNetworkId }),
+      ).resolves.toBe(true);
     });
 
     it('does not delete when turning the account off fails', async () => {
@@ -688,14 +877,14 @@ describe.each(['zec--0', 'xmr--0'])(
           accountId: liveAccountId,
         }),
       ).rejects.toThrow('birthday missing');
-      expect(capability.deleteAccountData).not.toHaveBeenCalled();
+      expect(capability.deleteRuntimeAccount).not.toHaveBeenCalled();
     });
 
     it('keeps the viewing key when deleting the data fails', async () => {
       const { service, capability, privacyChainKeys } = createDeleteHarness({
         enabled: false,
       });
-      capability.deleteAccountData.mockRejectedValueOnce(
+      capability.deleteRuntimeAccount.mockRejectedValueOnce(
         new Error('runtime busy'),
       );
 
@@ -728,7 +917,7 @@ describe.each(['zec--0', 'xmr--0'])(
       enableDone.resolve();
       await holding;
       await deleting;
-      expect(calls).toEqual(['delete']);
+      expect(calls).toEqual(['delete', 'clearPending:expired']);
     });
   },
 );

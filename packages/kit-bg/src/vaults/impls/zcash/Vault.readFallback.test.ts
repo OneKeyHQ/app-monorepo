@@ -14,11 +14,13 @@ jest.mock('./localHistory', () => ({
   findZcashLocalHistoryItem: jest.fn(),
 }));
 
+import { HISTORY_PAGE_SIZE } from '@onekeyhq/shared/src/consts/walletConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 import { SimpleDbEntityPrivacyChainCache } from '../../../dbs/simple/entity/SimpleDbEntityPrivacyChainCache';
 
 import Vault from './Vault';
+import { zcashLastPrivateHistory } from './vaultUtils';
 
 // Private rows are never cached outside the runtime, so a failed runtime read
 // falls back to the last rows read in this process instead of none.
@@ -30,6 +32,7 @@ describe('Zcash private history when the runtime read fails', () => {
       backgroundApi: {
         simpleDb: {
           privacyChainState: {
+            getAccountEpoch: jest.fn().mockResolvedValue(undefined),
             getZcashPrivacyModeState: async () => ({ intent: 'on' }),
           },
           privacyChainJournal: {
@@ -73,6 +76,46 @@ describe('Zcash private history when the runtime read fails', () => {
       'tx-private',
     ]);
   });
+
+  // The full list always comes from the runtime; memory holds one page.
+  it('keeps only the first page for the fallback', async () => {
+    const rows = Array.from({ length: HISTORY_PAGE_SIZE + 5 }, (_, index) => ({
+      txid: `tx-${index}`,
+    }));
+    const getHistory = jest
+      .fn()
+      .mockResolvedValueOnce(rows)
+      .mockRejectedValueOnce(new Error('runtime down'));
+    const vault = createVault(getHistory);
+
+    const live = await vault.fetchAccountHistoryFromLocal(params);
+    expect(live).toHaveLength(rows.length);
+    expect(zcashLastPrivateHistory.get('acc')?.items).toHaveLength(
+      HISTORY_PAGE_SIZE,
+    );
+    const afterFailure = await vault.fetchAccountHistoryFromLocal(params);
+    expect(afterFailure?.map((tx) => tx.decodedTx.txid)).toEqual(
+      rows.slice(0, HISTORY_PAGE_SIZE).map(({ txid }) => txid),
+    );
+  });
+
+  // Rows remembered for scanned data since destroyed are not shown again.
+  it('does not fall back to rows read under an older epoch', async () => {
+    const getHistory = jest
+      .fn()
+      .mockResolvedValueOnce([{ txid: 'tx-before-delete' }])
+      .mockRejectedValueOnce(new Error('runtime down'));
+    const vault = createVault(getHistory);
+    const getAccountEpoch = vault.backgroundApi.simpleDb.privacyChainState
+      .getAccountEpoch as jest.Mock;
+    getAccountEpoch.mockResolvedValue('aaaaaaaaaaaaaaaa');
+
+    await vault.fetchAccountHistoryFromLocal(params);
+    getAccountEpoch.mockResolvedValue('bbbbbbbbbbbbbbbb');
+    const afterFailure = await vault.fetchAccountHistoryFromLocal(params);
+
+    expect(afterFailure?.map((tx) => tx.decodedTx.txid)).toEqual([]);
+  });
 });
 
 describe('Zcash private balance when the runtime read fails', () => {
@@ -96,7 +139,14 @@ describe('Zcash private balance when the runtime read fails', () => {
   ) {
     return Object.assign(Object.create(Vault.prototype) as Vault, {
       networkId: 'zec--0',
-      backgroundApi: { simpleDb: { privacyChainCache } },
+      backgroundApi: {
+        simpleDb: {
+          privacyChainCache,
+          privacyChainState: {
+            getAccountEpoch: jest.fn().mockResolvedValue('aaaaaaaaaaaaaaaa'),
+          },
+        },
+      },
       zcashGetWalletAccount: async () => ({ ufvk: 'uview-balance-test' }),
       zcashGetApi: async () => ({ getBalance }),
     });
@@ -161,6 +211,7 @@ describe('Zcash transparent send the backend has not seen yet', () => {
       backgroundApi: {
         simpleDb: {
           privacyChainState: {
+            getAccountEpoch: jest.fn().mockResolvedValue(undefined),
             getZcashPrivacyModeState: async () => ({ intent: 'off' }),
           },
           privacyChainJournal: {

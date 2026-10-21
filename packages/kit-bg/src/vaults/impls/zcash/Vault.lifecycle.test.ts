@@ -24,7 +24,7 @@ describe('Zcash local lifecycle operations do not depend on pending history', ()
     });
     const purgeWallet = jest.fn(async () => undefined);
     const dropWalletDatabase = jest.fn(async () => undefined);
-    const removeAccountMeta = jest.fn(async () => undefined);
+    const clearAccountScanData = jest.fn(async () => undefined);
     const saveAccountMeta = jest.fn(async () => undefined);
     const removePendingRescan = jest.fn(async () => undefined);
     const rotateAccountEpochs = jest.fn(async () => undefined);
@@ -35,9 +35,6 @@ describe('Zcash local lifecycle operations do not depend on pending history', ()
         serviceAccount: {
           getDBAccountSafe: async () => ({ id: accountId }),
         },
-        serviceSignature: {
-          removeSignedTransactionsForAccount: jest.fn(async () => undefined),
-        },
         simpleDb: {
           privacyChainState: {
             getZcashAccountMeta: async () => account,
@@ -45,7 +42,8 @@ describe('Zcash local lifecycle operations do not depend on pending history', ()
             isZcashPrivacyModeEnabled: async () => true,
             listZcashAccountMetas: async () => [{ accountId, meta: account }],
             listZcashPendingRescans: async () => [{ accountId, repair }],
-            removeZcashAccountMeta: removeAccountMeta,
+            listScanDataAccountIds: async () => [],
+            clearAccountScanData,
             saveZcashAccountMeta: saveAccountMeta,
             removeZcashPendingRescan: removePendingRescan,
             rotateAccountEpochs,
@@ -73,7 +71,7 @@ describe('Zcash local lifecycle operations do not depend on pending history', ()
       readPending,
       purgeWallet,
       dropWalletDatabase,
-      removeAccountMeta,
+      clearAccountScanData,
       saveAccountMeta,
       removePendingRescan,
       rotateAccountEpochs,
@@ -85,14 +83,10 @@ describe('Zcash local lifecycle operations do not depend on pending history', ()
     async (historyState) => {
       const f = fixture(historyState);
 
-      await f.vault.deleteLocalPrivacyData({ accountId: f.accountId });
-      expect(f.removeAccountMeta).toHaveBeenCalledWith({
-        accountId: f.accountId,
-      });
-      await f.vault.resetLocalWallet({
-        accountId: f.accountId,
-        scope: 'cache',
-      });
+      await expect(
+        f.vault.zcashDeleteRuntimeAccount({ accountId: f.accountId }),
+      ).resolves.toEqual({ orphaned: false });
+      await f.vault.zcashRewindAccount({ accountId: f.accountId });
       await f.vault.applyPendingRescan({
         accountId: f.accountId,
         repair: f.repair,
@@ -115,23 +109,24 @@ describe('Zcash local lifecycle operations do not depend on pending history', ()
         accountId: f.accountId,
         expectedRepair: f.repair,
       });
-      // Delete and cache reset each renew the epoch before purging.
-      expect(f.rotateAccountEpochs).toHaveBeenCalledTimes(2);
-      expect(f.rotateAccountEpochs).toHaveBeenCalledWith({
-        accountIds: [f.accountId],
-      });
+      // Epochs are the lifecycle executor's, before it calls these.
+      expect(f.rotateAccountEpochs).not.toHaveBeenCalled();
+      // Host records are the executor's too.
+      expect(f.clearAccountScanData).not.toHaveBeenCalled();
     },
   );
 
-  it('retains account metadata when storage removal fails', async () => {
+  // The executor stops before host records when the runtime step throws, so
+  // the key that names the runtime account survives for a retry.
+  it('fails the runtime deletion when storage removal fails', async () => {
     const f = fixture('pending');
     const error = new Error('storage deletion failed');
     f.purgeWallet.mockRejectedValueOnce(error);
 
     await expect(
-      f.vault.deleteLocalPrivacyData({ accountId: f.accountId }),
+      f.vault.zcashDeleteRuntimeAccount({ accountId: f.accountId }),
     ).rejects.toBe(error);
-    expect(f.removeAccountMeta).not.toHaveBeenCalled();
+    expect(f.clearAccountScanData).not.toHaveBeenCalled();
   });
 
   it('sets a rescan height without fetching a live chain tip', async () => {

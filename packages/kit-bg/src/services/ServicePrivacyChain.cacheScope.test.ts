@@ -32,6 +32,55 @@ jest.mock('../vaults/settings', () => ({
 const ServicePrivacyChain = require('./ServicePrivacyChain')
   .default as typeof import('./ServicePrivacyChain').default;
 
+// What the lifecycle executor needs on a service made without its
+// constructor, plus a background api whose writes are recorded.
+function lifecycleHarness() {
+  const calls: string[] = [];
+  const record =
+    (name: string) =>
+    async (params?: unknown): Promise<undefined> => {
+      calls.push(`${name}:${JSON.stringify(params ?? {})}`);
+      return undefined;
+    };
+  return {
+    calls,
+    fields: {
+      backfillActiveByAccount: {},
+      boostPausedByNetwork: {},
+      syncFailureBackoff: new Map(),
+      orphanCleanupGeneration: new Map(),
+      scheduleBackgroundSync: jest.fn(),
+    },
+    backgroundApi: {
+      serviceAccount: {
+        getDBAccountSafe: async ({ accountId }: { accountId: string }) => ({
+          id: accountId,
+        }),
+        getWalletSafe: async () => ({ isTemp: false }),
+        getAccount: async ({ accountId }: { accountId: string }) => ({
+          address: `addr-${accountId}`,
+        }),
+        getAccountAddressForApi: async () => 'addr',
+        getAccountXpub: async () => undefined,
+      },
+      simpleDb: {
+        privacyChainState: {
+          rotateAccountEpochs: record('rotate'),
+          listScanDataAccountIds: async () => ['paused', 'on'],
+        },
+        privacyChainCache: {
+          removeLastBalances: record('removeLastBalances'),
+        },
+        localHistory: {
+          clearAccountLocalHistory: record('clearHistory'),
+        },
+        localTokens: { removeAccountTokenList: record('removeTokens') },
+        accountValue: { removeAccountNetworkValue: record('removeValue') },
+      },
+    },
+  };
+}
+
 describe('Local wallet cache reset scope', () => {
   afterEach(() => {
     jest.resetAllMocks();
@@ -51,11 +100,16 @@ describe('Local wallet cache reset scope', () => {
           listAccounts: async () => ({ accounts: [], cleanupAccountIds: [] }),
         }),
       });
+      const harness = lifecycleHarness();
       const service = Object.assign(
         Object.create(ServicePrivacyChain.prototype) as InstanceType<
           typeof ServicePrivacyChain
         >,
-        { getLocalWalletNetworkIds },
+        {
+          ...harness.fields,
+          backgroundApi: harness.backgroundApi,
+          getLocalWalletNetworkIds,
+        },
       );
 
       await service.clearTransactionHistoryCache(
@@ -75,12 +129,20 @@ describe('Local wallet cache reset scope', () => {
 
 describe('Privacy transaction history cache clear', () => {
   it('leaves paused accounts and their resume position alone', async () => {
+    const rewindAccount = jest.fn(async () => undefined);
     mockGetChainOnlyVault.mockResolvedValue({
       getLocalWalletCapability: (): Partial<ILocalWalletCapability> => ({
         listAccounts: async () => ({
           accounts: [
             {
               accountId: 'on',
+              runtimeKey: 'main',
+              accountRuntimeKey: 'k-on',
+              syncEnabled: true,
+              slotEnabled: true,
+            },
+            {
+              accountId: 'on-alias',
               runtimeKey: 'main',
               accountRuntimeKey: 'k-on',
               syncEnabled: true,
@@ -96,34 +158,25 @@ describe('Privacy transaction history cache clear', () => {
           ],
           cleanupAccountIds: [],
         }),
+        getAccountAliases: async ({ accountId }) =>
+          accountId === 'on' ? ['on', 'on-alias'] : [accountId],
+        rewindAccount,
       }),
     });
-    const repairLocalChainDataImpl = jest.fn(async () => undefined);
+    const harness = lifecycleHarness();
     const service = Object.assign(
-      Object.create(ServicePrivacyChain.prototype) as {
-        clearTransactionHistoryCache: (params: {
-          networkId: string;
-        }) => Promise<void>;
-      },
-      {
-        repairLocalChainDataImpl,
-        backgroundApi: {
-          serviceAccount: {
-            getDBAccountSafe: async ({ accountId }: { accountId: string }) => ({
-              id: accountId,
-            }),
-            getWalletSafe: async () => ({ isTemp: false }),
-          },
-        },
-      },
+      Object.create(ServicePrivacyChain.prototype) as InstanceType<
+        typeof ServicePrivacyChain
+      >,
+      { ...harness.fields, backgroundApi: harness.backgroundApi },
     );
 
     await service.clearTransactionHistoryCache({ networkId: 'zec--0' });
 
-    expect(repairLocalChainDataImpl).toHaveBeenCalledTimes(1);
-    expect(repairLocalChainDataImpl).toHaveBeenCalledWith(
-      expect.objectContaining({ accountId: 'on' }),
-    );
+    // One rewind per identity; the alias shares it.
+    expect(rewindAccount.mock.calls).toEqual([[{ accountId: 'on' }]]);
+    expect(harness.calls).toContain('rotate:{"accountIds":["on","on-alias"]}');
+    expect(harness.calls.join('\n')).not.toContain('paused');
   });
 });
 
@@ -149,23 +202,27 @@ describe('Privacy storage reset when the database cannot be read', () => {
     ).resolves.toMatchObject({ storageBytes: null });
   });
 
-  it('rebuilds the whole database before the per-account reset', async () => {
-    const resetStorage = jest.fn(async () => undefined);
-    const removeNetworkLastBalances = jest.fn(async () => undefined);
+  it('rebuilds the whole database for every account holding scan data', async () => {
+    const harness = lifecycleHarness();
+    const resetStorage = jest.fn(async () => {
+      harness.calls.push('resetStorage');
+    });
     const service = createService({
       resetStorage,
       listAccounts: async () => ({ accounts: [], cleanupAccountIds: [] }),
     });
     Object.assign(service, {
-      backgroundApi: {
-        simpleDb: { privacyChainCache: { removeNetworkLastBalances } },
-      },
+      ...harness.fields,
+      backgroundApi: harness.backgroundApi,
     });
     await service.clearTransactionHistoryCache({ networkId: 'xmr--0' });
     expect(resetStorage).toHaveBeenCalledTimes(1);
-    // Paused accounts lose their scan data too, so no saved balance survives.
-    expect(removeNetworkLastBalances).toHaveBeenCalledWith({
-      networkId: 'xmr--0',
-    });
+    // Paused accounts lose their scan data too, so no saved balance survives;
+    // their epochs move before the database goes.
+    expect(harness.calls.slice(0, 3)).toEqual([
+      'rotate:{"accountIds":["paused","on"]}',
+      'resetStorage',
+      'removeLastBalances:{"accountIds":["paused","on"]}',
+    ]);
   });
 });

@@ -163,7 +163,7 @@ async function seedScanState(
     await xmr.completeXmrDisable({ accountId });
   }
   if (kind === 'deleted-data') {
-    await xmr.removeXmrAccount({ accountId, keepBirthday: true });
+    await xmr.clearAccountScanData({ accountId });
   }
 }
 
@@ -174,14 +174,24 @@ function createHarness() {
     servicePrivacyChain: {
       publishLocalWalletSyncProgress: jest.fn(async () => undefined),
       onLocalWalletAccountsChanged: jest.fn(async () => undefined),
+      // As the service without a cached password: the stored key or nothing.
+      ensureLocalWalletViewingKey: async ({
+        accountId,
+      }: {
+        accountId: string;
+      }) =>
+        (
+          await getLocalWalletViewingKey({
+            backgroundApi: backgroundApi as never,
+            networkId: NETWORK_ID,
+            accountId,
+          })
+        )?.value,
     },
     simpleDb: {
       privacyChainState: xmr,
       privacyChainKeys,
       privacyChainCache: memoryEntity(new SimpleDbEntityPrivacyChainCache()),
-      privacyChainJournal: {
-        removeXmrSentAccount: jest.fn(async () => undefined),
-      },
     },
   };
   const vault = {
@@ -266,18 +276,22 @@ describe('xmr runtime identity named by viewing key', () => {
   });
 
   it('keeps the shared identity while another alias still uses it', async () => {
-    const { capability, saveKey } = createHarness();
+    const { capability, saveKey, xmr } = createHarness();
     await saveKey(ALIAS_A, SHARED_KEY);
     await saveKey(ALIAS_B, SHARED_KEY);
     await capability.enableAccount({ accountId: ALIAS_A });
     await capability.enableAccount({ accountId: ALIAS_B });
 
-    await capability.deleteAccountData({ accountId: ALIAS_A });
+    await expect(
+      capability.deleteRuntimeAccount({ accountId: ALIAS_A }),
+    ).resolves.toEqual({ orphaned: false });
     expect(mockRuntime.removeAccount).not.toHaveBeenCalled();
     expect(mockRuntime.identities).toHaveLength(1);
+    // The lifecycle executor then clears the account's own scan state.
+    await xmr.clearAccountScanData({ accountId: ALIAS_A });
 
     // The last one out removes it.
-    await capability.reset({ accountId: ALIAS_B, scope: 'all' });
+    await capability.deleteRuntimeAccount({ accountId: ALIAS_B });
     expect(mockRuntime.removeAccount).toHaveBeenCalledWith(SHARED_FP);
     expect(mockRuntime.identities).toHaveLength(0);
   });
@@ -290,7 +304,7 @@ describe('xmr runtime identity named by viewing key', () => {
     await capability.enableAccount({ accountId: ALIAS_B });
     await capability.disableAccount({ accountId: ALIAS_B });
 
-    await capability.reset({ accountId: ALIAS_A, scope: 'all' });
+    await capability.deleteRuntimeAccount({ accountId: ALIAS_A });
     expect(mockRuntime.identities).toHaveLength(1);
   });
 
@@ -301,7 +315,7 @@ describe('xmr runtime identity named by viewing key', () => {
     await capability.enableAccount({ accountId: ALIAS_A });
     await capability.enableAccount({ accountId: ALIAS_B });
 
-    await capability.deleteAccountData({ accountId: ALIAS_A });
+    await capability.deleteRuntimeAccount({ accountId: ALIAS_A });
     expect(mockRuntime.identities.map((item) => item.uuid)).toEqual([
       getViewingKeyFingerprint({ networkId: NETWORK_ID, viewingKey: 'cc:dd' }),
     ]);

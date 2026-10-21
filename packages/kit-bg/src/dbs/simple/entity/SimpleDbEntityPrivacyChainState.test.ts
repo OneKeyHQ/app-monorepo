@@ -315,7 +315,7 @@ describe('privacy chain state: zcash privacy mode', () => {
     });
     await entity.completeZcashPrivacyModeDisable({ accountId: 'account' });
 
-    await entity.removeZcashAccountMeta({ accountId: 'account' });
+    await entity.clearAccountScanData({ accountId: 'account' });
 
     await expect(
       entity.getZcashAccountMeta({ accountId: 'account' }),
@@ -328,10 +328,54 @@ describe('privacy chain state: zcash privacy mode', () => {
     // would make the account read as merely paused, and the UI would offer
     // "Resume" to someone who had asked to delete their privacy data.
     expect(state.resumeFromHeight).toBeUndefined();
-    // The identity stays the reference for the next derivation.
+    // The identity goes too: the next enable may set the account up with
+    // whatever key it derives (the way out of an identity mismatch).
     await expect(
       entity.getAccountVkFp({ networkId: ZEC, accountId: 'account' }),
-    ).resolves.toBe(meta.vkFp);
+    ).resolves.toBeUndefined();
+    await expect(
+      entity.listScanDataAccountIds({ networkId: ZEC }),
+    ).resolves.toEqual([]);
+  });
+
+  it('keeps an unresolved birthday request when local data is deleted', async () => {
+    const entity = createEntity();
+    await entity.beginZcashPrivacyModeEnable({
+      networkId: ZEC,
+      accountId: 'account',
+      birthdayTimestamp: 1_650_000_000_000,
+    });
+    await entity.cancelZcashPendingEnables({ networkId: ZEC });
+
+    await entity.clearAccountScanData({ accountId: 'account' });
+
+    await expect(
+      entity.getZcashPrivacyModeState({ accountId: 'account' }),
+    ).resolves.toMatchObject({
+      intent: 'off',
+      birthdayTimestamp: 1_650_000_000_000,
+    });
+  });
+
+  it('drops a record with nothing to keep when local data is deleted', async () => {
+    const entity = createEntity({
+      accounts: {
+        account: {
+          networkId: ZEC,
+          walletId: 'hd-1',
+          epoch: '0'.repeat(16),
+          scan: { intent: 'off', resumeFromHeight: 10 },
+          createdAt: 1,
+          updatedAt: 1,
+        },
+      },
+    });
+
+    await entity.clearAccountScanData({ accountId: 'account' });
+
+    await expect(entity.listAccountIds({ networkId: ZEC })).resolves.toEqual(
+      [],
+    );
   });
 
   it('keeps the requested birthday apart from the resolved one until setup saves it', async () => {
@@ -447,7 +491,7 @@ describe('privacy chain state: zcash setup compare-and-set', () => {
     const observed = await entity.getZcashAccountMeta({
       accountId: 'account',
     });
-    await entity.removeZcashAccountMeta({ accountId: 'account' });
+    await entity.clearAccountScanData({ accountId: 'account' });
 
     await expect(
       entity.saveZcashAccountMeta({
@@ -770,7 +814,7 @@ describe('privacy chain state: zcash hardware seed fingerprint', () => {
     ).resolves.toBe(SEED_FP);
     await enableZcash(entity, 'hw-1--acc');
 
-    await entity.removeZcashAccountMeta({ accountId: 'hw-1--acc' });
+    await entity.clearAccountScanData({ accountId: 'hw-1--acc' });
     await expect(
       entity.getZcashWalletSeedFingerprint({ walletId: 'hw-1' }),
     ).resolves.toBe(SEED_FP);
@@ -991,6 +1035,7 @@ describe('privacy chain state: container', () => {
     '{"data":{"accounts":[]},"updatedAt":1}',
     '{"data":{"wallets":"x"},"updatedAt":1}',
     '{"data":{"pendingLocalDataDrop":{}},"updatedAt":1}',
+    '{"data":{"runtimeOrphans":"zec--0"},"updatedAt":1}',
   ])('preserves malformed data and refuses a builder write', async (saved) => {
     const entity = new SimpleDbEntityPrivacyChainState();
     const getItem = jest.fn(async () => saved);
@@ -1094,7 +1139,7 @@ describe('privacy chain state: monero', () => {
     });
     await entity.completeXmrDisable({ accountId: 'account' });
 
-    await entity.removeXmrAccount({ accountId: 'account', keepBirthday: true });
+    await entity.clearAccountScanData({ accountId: 'account' });
     expect(await entity.getXmrAccountState({ accountId: 'account' })).toEqual({
       intent: 'off',
       birthdayHeight: 3_000_000,
@@ -1104,8 +1149,11 @@ describe('privacy chain state: monero', () => {
     await expect(
       entity.listScanDataAccountIds({ networkId: XMR }),
     ).resolves.toEqual([]);
+    await expect(
+      entity.getAccountVkFp({ networkId: XMR, accountId: 'account' }),
+    ).resolves.toBeUndefined();
 
-    await entity.removeXmrAccount({ accountId: 'account' });
+    await entity.removeAccount({ accountId: 'account' });
     await expect(entity.listAccountIds({ networkId: XMR })).resolves.toEqual(
       [],
     );
@@ -1216,7 +1264,7 @@ describe('privacy chain state: epoch', () => {
     await expectNew();
     await entity.rotateAccountEpochs({ accountIds: ['account', 'missing'] });
     await expectNew();
-    await entity.removeZcashAccountMeta({ accountId: 'account' });
+    await entity.clearAccountScanData({ accountId: 'account' });
     await expectNew();
     await expect(epochOf(entity, 'missing')).resolves.toBeUndefined();
   });
@@ -1230,10 +1278,187 @@ describe('privacy chain state: epoch', () => {
     });
     const before = await epochOf(entity, 'account');
 
-    await entity.removeXmrAccount({ accountId: 'account', keepBirthday: true });
+    await entity.clearAccountScanData({ accountId: 'account' });
 
     const after = await epochOf(entity, 'account');
     expect(after).toMatch(/^[0-9a-f]{16}$/);
     expect(after).not.toBe(before);
+  });
+});
+
+describe('privacy chain state: epoch mirror', () => {
+  function createControlledEntity(initial?: IPrivacyChainStateDB) {
+    let saved: unknown = initial ? { data: initial, updatedAt: 1 } : null;
+    let holdReads = false;
+    let holdWrites = false;
+    const pendingReads: (() => void)[] = [];
+    const pendingWrites: (() => void)[] = [];
+    const entity = new SimpleDbEntityPrivacyChainState();
+    (entity as { appStorage: unknown }).appStorage = {
+      getItem: jest.fn(async () => {
+        if (holdReads) {
+          await new Promise<void>((resolve) => pendingReads.push(resolve));
+        }
+        return saved;
+      }),
+      setItem: jest.fn(async (_key: string, value: unknown) => {
+        if (holdWrites) {
+          await new Promise<void>((resolve) => pendingWrites.push(resolve));
+        }
+        saved = value;
+      }),
+      removeItem: jest.fn(async () => {
+        saved = null;
+      }),
+    };
+    return {
+      entity,
+      setSaved: (data: IPrivacyChainStateDB) => {
+        saved = { data, updatedAt: 2 };
+      },
+      holdReads: (hold: boolean) => {
+        holdReads = hold;
+      },
+      holdWrites: (hold: boolean) => {
+        holdWrites = hold;
+      },
+      releaseReads: () => pendingReads.splice(0).forEach((fn) => fn()),
+      releaseWrites: () => pendingWrites.splice(0).forEach((fn) => fn()),
+    };
+  }
+
+  const record = (epoch: string) => ({
+    networkId: XMR,
+    walletId: 'hd-1',
+    epoch,
+    scan: { intent: 'on' as const, birthday: { height: 1 } },
+    createdAt: 1,
+    updatedAt: 1,
+  });
+
+  it('moves the epoch before a rotation is persisted', async () => {
+    const harness = createControlledEntity({
+      accounts: { account: record('1'.repeat(16)) },
+    });
+    const { entity } = harness;
+    const before = await entity.getAccountEpoch({ accountId: 'account' });
+    expect(before).toBe('1'.repeat(16));
+
+    harness.holdWrites(true);
+    const rotation = entity.rotateAccountEpochs({ accountIds: ['account'] });
+    // Let the rotation reach storage, where its write now waits.
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    const during = await entity.getAccountEpoch({ accountId: 'account' });
+    expect(during).toMatch(/^[0-9a-f]{16}$/);
+    expect(during).not.toBe(before);
+
+    harness.holdWrites(false);
+    harness.releaseWrites();
+    await rotation;
+    await expect(
+      entity.getAccountEpoch({ accountId: 'account' }),
+    ).resolves.toBe(during);
+  });
+
+  it('answers a read overtaken by a rotation with the rotated epoch', async () => {
+    const harness = createControlledEntity({
+      accounts: { account: record('1'.repeat(16)) },
+    });
+    const { entity } = harness;
+    harness.holdReads(true);
+    const read = entity.getAccountEpoch({ accountId: 'account' });
+    const rotation = entity.rotateAccountEpochs({ accountIds: ['account'] });
+    harness.holdReads(false);
+    harness.releaseReads();
+    const [epoch] = await Promise.all([read, rotation]);
+
+    expect(epoch).not.toBe('1'.repeat(16));
+    await expect(
+      entity.getAccountEpoch({ accountId: 'account' }),
+    ).resolves.toBe(epoch);
+  });
+
+  it('does not remember an empty (or masked) read', async () => {
+    const harness = createControlledEntity();
+    const { entity } = harness;
+    await expect(
+      entity.getAccountEpoch({ accountId: 'account' }),
+    ).resolves.toBeUndefined();
+
+    harness.setSaved({ accounts: { account: record('2'.repeat(16)) } });
+
+    await expect(
+      entity.getAccountEpoch({ accountId: 'account' }),
+    ).resolves.toBe('2'.repeat(16));
+  });
+
+  it('reads disk again once the remembered epochs are forgotten', async () => {
+    const harness = createControlledEntity({
+      accounts: { account: record('1'.repeat(16)) },
+    });
+    const { entity } = harness;
+    await expect(
+      entity.getAccountEpoch({ accountId: 'account' }),
+    ).resolves.toBe('1'.repeat(16));
+    harness.setSaved({ accounts: { account: record('3'.repeat(16)) } });
+    await expect(
+      entity.getAccountEpoch({ accountId: 'account' }),
+    ).resolves.toBe('1'.repeat(16));
+
+    await entity.forgetAccountEpochs();
+
+    await expect(
+      entity.getAccountEpoch({ accountId: 'account' }),
+    ).resolves.toBe('3'.repeat(16));
+  });
+
+  it('follows record removal', async () => {
+    const harness = createControlledEntity({
+      accounts: { account: record('1'.repeat(16)) },
+    });
+    const { entity } = harness;
+    await entity.getAccountEpoch({ accountId: 'account' });
+
+    await entity.removeAccount({ accountId: 'account' });
+
+    await expect(
+      entity.getAccountEpoch({ accountId: 'account' }),
+    ).resolves.toBeUndefined();
+  });
+});
+
+describe('privacy chain state: runtime orphan marker', () => {
+  it('marks, reports and clears one network at a time', async () => {
+    const entity = createEntity();
+    await expect(entity.hasRuntimeOrphans({ networkId: ZEC })).resolves.toBe(
+      false,
+    );
+
+    await entity.markRuntimeOrphans({ networkId: ZEC });
+    await entity.markRuntimeOrphans({ networkId: ZEC });
+    await entity.markRuntimeOrphans({ networkId: XMR });
+    await expect(entity.hasRuntimeOrphans({ networkId: ZEC })).resolves.toBe(
+      true,
+    );
+
+    await entity.clearRuntimeOrphans({ networkId: ZEC });
+    await expect(entity.hasRuntimeOrphans({ networkId: ZEC })).resolves.toBe(
+      false,
+    );
+    await expect(entity.hasRuntimeOrphans({ networkId: XMR })).resolves.toBe(
+      true,
+    );
+  });
+
+  it('keeps the marker through unrelated writes', async () => {
+    const entity = createEntity();
+    await entity.markRuntimeOrphans({ networkId: ZEC });
+
+    await entity.setAllowCellularSync({ allow: true });
+    await entity.removeAccount({ accountId: 'whatever' });
+
+    await expect(entity.hasRuntimeOrphans({ networkId: ZEC })).resolves.toBe(
+      true,
+    );
   });
 });

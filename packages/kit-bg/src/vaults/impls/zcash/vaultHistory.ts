@@ -4,6 +4,7 @@ import type {
   IZcashHistoryItem,
   IZcashTxDetails,
 } from '@onekeyhq/core/src/chains/zcash/sdkZcash/types/sdk';
+import { HISTORY_PAGE_SIZE } from '@onekeyhq/shared/src/consts/walletConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { LRUCache } from '@onekeyhq/shared/src/utils/cacheUtils';
@@ -34,6 +35,10 @@ import type {
 import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
 
 import { loadCachedLocalWalletHistory } from '../../localWallet/cachedHistory';
+import {
+  isLocalWalletCacheEpochCurrent,
+  readLocalWalletCacheEpoch,
+} from '../../localWallet/privacyChainCacheStore';
 
 import {
   ZCASH_BACKEND_HISTORY_PAGE_SIZE,
@@ -384,6 +389,10 @@ export async function fetchAccountHistoryFromLocal(
       },
     );
   if (privacyModeState.intent === 'on') {
+    const epoch = await readLocalWalletCacheEpoch({
+      backgroundApi: vault.backgroundApi,
+      accountId,
+    });
     try {
       const account = await vault.zcashGetWalletAccount({ accountId });
       const api = await vault.zcashGetApi();
@@ -402,14 +411,27 @@ export async function fetchAccountHistoryFromLocal(
       if (!historySnapshotIsComplete) {
         items = items.slice(0, maxItems);
       }
-      zcashLastPrivateHistory.set(accountId, items);
+      if (
+        await isLocalWalletCacheEpochCurrent({
+          backgroundApi: vault.backgroundApi,
+          accountId,
+          epoch,
+        })
+      ) {
+        zcashLastPrivateHistory.set(accountId, {
+          epoch,
+          items: items.slice(0, HISTORY_PAGE_SIZE),
+        });
+      }
       const progress = await api.getSyncProgress(account);
       chainTip = progress.chainTip;
       historySnapshotIsComplete =
         historySnapshotIsComplete && progress.isBackfillComplete;
     } catch {
-      // Scanner failure isn't evidence of empty history; keep the last private rows, marked incomplete.
-      items = zcashLastPrivateHistory.get(accountId) ?? [];
+      // Scanner failure isn't evidence of empty history; keep the last first
+      // page, marked incomplete.
+      const last = zcashLastPrivateHistory.get(accountId);
+      items = last && last.epoch === epoch ? last.items : [];
       historySnapshotIsComplete = false;
     }
   } else {
@@ -690,11 +712,34 @@ export async function fetchAccountHistoryFromLocal(
 
 const ZCASH_TRANSPARENT_FULL_REFRESH_MS = 10 * 60 * 1000;
 
-// Last complete backend snapshot per account; routine polls merge the first page into it.
+// Last complete backend snapshot per account, under the account epoch it was
+// fetched in; routine polls merge the first page into it.
 export const zcashTransparentHistorySnapshots = new LRUCache<
   string,
-  { txs: IAccountHistoryTx[]; fullAt: number }
+  {
+    epoch: string | undefined;
+    addressKey: string;
+    txs: IAccountHistoryTx[];
+    fullAt: number;
+  }
 >({ max: 64 });
+
+// Every account's when none is named.
+export function forgetZcashTransparentHistorySnapshots({
+  networkId,
+  accountIds,
+}: {
+  networkId: string;
+  accountIds?: string[];
+}) {
+  if (!accountIds) {
+    zcashTransparentHistorySnapshots.clear();
+    return;
+  }
+  for (const accountId of accountIds) {
+    zcashTransparentHistorySnapshots.delete(`${networkId}:${accountId}`);
+  }
+}
 
 // Throws on indexer failure (vs. empty) so the caller can tell 'nothing to add' from 'could not ask'.
 export async function zcashFetchTransparentHistory(
@@ -815,13 +860,35 @@ export async function zcashFetchTransparentHistory(
         }),
       ),
   };
-  const snapshotKey = [
-    params.networkId,
+  const snapshotKey = `${params.networkId}:${accountId}`;
+  const addressKey = `${transparentAddress}:${xpub ?? ''}`;
+  const epoch = await readLocalWalletCacheEpoch({
+    backgroundApi: vault.backgroundApi,
     accountId,
-    transparentAddress,
-    xpub ?? '',
-  ].join(':');
-  const snapshot = zcashTransparentHistorySnapshots.get(snapshotKey);
+  });
+  const stored = zcashTransparentHistorySnapshots.get(snapshotKey);
+  const snapshot =
+    stored && stored.epoch === epoch && stored.addressKey === addressKey
+      ? stored
+      : undefined;
+  const saveSnapshot = async (value: {
+    txs: IAccountHistoryTx[];
+    fullAt: number;
+  }) => {
+    if (
+      await isLocalWalletCacheEpochCurrent({
+        backgroundApi: vault.backgroundApi,
+        accountId,
+        epoch,
+      })
+    ) {
+      zcashTransparentHistorySnapshots.set(snapshotKey, {
+        epoch,
+        addressKey,
+        ...value,
+      });
+    }
+  };
   // Callers may edit returned rows in place; the snapshot keeps its own copies.
   const copyRows = (txs: IAccountHistoryTx[]) =>
     txs.map((tx) => ({ ...tx, decodedTx: { ...tx.decodedTx } }));
@@ -842,7 +909,7 @@ export async function zcashFetchTransparentHistory(
       maxItems: ZCASH_BACKEND_HISTORY_PAGE_SIZE,
     });
     if (firstPage.snapshotComplete) {
-      zcashTransparentHistorySnapshots.set(snapshotKey, {
+      await saveSnapshot({
         txs: copyRows(firstPage.txs),
         fullAt: Date.now(),
       });
@@ -865,10 +932,7 @@ export async function zcashFetchTransparentHistory(
           (tx) => !pageTxids.has(tx.decodedTx.txid.toLowerCase()),
         ),
       ];
-      zcashTransparentHistorySnapshots.set(snapshotKey, {
-        txs,
-        fullAt: snapshot.fullAt,
-      });
+      await saveSnapshot({ txs, fullAt: snapshot.fullAt });
       // Not a full snapshot: callers may add or update rows but must not remove or drop any.
       return {
         txs: copyRows(txs),
@@ -886,7 +950,7 @@ export async function zcashFetchTransparentHistory(
     },
   });
   if (result.snapshotComplete) {
-    zcashTransparentHistorySnapshots.set(snapshotKey, {
+    await saveSnapshot({
       txs: copyRows(result.txs),
       fullAt: Date.now(),
     });

@@ -170,7 +170,14 @@ Three tiers, decided by what a leak exposes:
   the capability's `deriveViewingKey`; `ServicePrivacyChain.ensureLocalWalletViewingKey`
   rebuilds a missing copy with a cached password (never prompts).
 - Lifecycle is generic: account removal, deleting local privacy data and
-  app reset clear it.
+  app reset clear it. Every lifecycle event runs through
+  `ServicePrivacyChain.runLocalWalletLifecycle`, driven by the table in
+  `vaults/localWallet/lifecycle.ts`. A chain supplies only runtime primitives
+  (`deleteRuntimeAccount`, `rewindAccount`, `dropLocalData`, `resetStorage`,
+  `forgetMemoryCaches`, `clearPendingSends`) and never deletes host records
+  itself.
+- A cache of scanned data carries the account epoch: take the epoch before
+  the live read, and write back only while it is still current.
 - Scan state (intent, enable/disable journal, birthday, resume height,
   per-chain fields, epoch) lives in one record per enabled account in
   `simpleDb.privacyChainState`; its `vkFp` is the identity the stored key

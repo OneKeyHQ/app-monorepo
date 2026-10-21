@@ -47,7 +47,13 @@ export default class ServiceTravelMode extends ServiceBase {
     verifyPassword: (password) =>
       localDb.verifyPassword({ password, skipLazyUpgrade: true }),
     waitBeforeRestart: async () => {
-      await timerUtils.wait(TRAVEL_MODE_RESTART_LOADING_DURATION_MS);
+      await Promise.all([
+        timerUtils.wait(TRAVEL_MODE_RESTART_LOADING_DURATION_MS),
+        // Best-effort: the restart clears memory anyway.
+        this.backgroundApi.servicePrivacyChain
+          .haltLocalWalletForTravelMode()
+          .catch(() => undefined),
+      ]);
     },
   });
 

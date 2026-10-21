@@ -14,21 +14,18 @@ import {
   XMR_TARGET_BLOCK_SECONDS,
 } from '@onekeyhq/shared/src/config/xmr';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
-import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { privacyChainPerfLog } from '@onekeyhq/shared/src/utils/privacyChainPerfLog';
 import resetUtils from '@onekeyhq/shared/src/utils/resetUtils';
 
 import {
   LOCAL_WALLET_DISPLAY_WAIT_MS,
+  isLocalWalletCacheEpochCurrent,
   readLocalWalletBalanceStaleFirst,
+  readLocalWalletCacheEpoch,
   saveLastLocalWalletBalance,
   saveLastLocalWalletChainTip,
 } from '../../localWallet/privacyChainCacheStore';
 import { runBoundedSyncTurn } from '../../localWallet/syncTurn';
-import {
-  removeLocalWalletViewingKeys,
-  removeNetworkLocalWalletViewingKeys,
-} from '../../localWallet/viewingKeyStore';
 
 import {
   estimateXmrBirthdayHeight,
@@ -37,7 +34,7 @@ import {
 import { KeyringHd } from './KeyringHd';
 import {
   deleteXmrDatabase,
-  forgetXmrStaleFirstAccount,
+  forgetXmrStaleFirst,
   getXmrChainTip,
   getXmrIdentityId,
   getXmrLastKnownChainTip,
@@ -106,10 +103,37 @@ export function buildXmrLocalWalletCapability(
       accountId,
     });
 
-  // Re-registers an account the runtime lost (rebuilt DB or failed resync)
-  // from its saved birthday; the stored view key needs no password. An
-  // identity still named by its old account id is renamed by the runtime,
-  // which matches it by primary address, so its data and sends carry over.
+  // Registers an account's identity from its saved birthday; the stored
+  // view key needs no password. An identity still named by its old account
+  // id is renamed by the runtime, which matches it by primary address, so
+  // its data and sends carry over.
+  const registerIdentity = async (
+    accountId: string,
+    birthdayHeight: number,
+  ): Promise<string> => {
+    const keys = await vault.getXmrViewingKeys({ accountId });
+    const api = await getXmrLocalRuntime(vault);
+    await api.addAccount(
+      keys.vkFp,
+      keys.spendPublicKeyHex,
+      keys.viewPrivateKeyHex,
+      String(birthdayHeight),
+    );
+    return accountRuntimeId(accountId);
+  };
+
+  // Cached password only; never prompts. False while locked.
+  const deriveScanningAccountKey = async (accountId: string) => {
+    const state = await stateDb().getXmrAccountState({ accountId });
+    if (state.intent !== 'on') return false;
+    const key = await vault.backgroundApi.servicePrivacyChain
+      .ensureLocalWalletViewingKey({ networkId, accountId })
+      .catch(() => undefined);
+    return key !== undefined;
+  };
+
+  // Re-registers an enabled account the runtime lost (rebuilt DB or failed
+  // resync).
   const ensureRegistered = async (accountId: string): Promise<string> => {
     try {
       return await accountRuntimeId(accountId);
@@ -118,31 +142,23 @@ export function buildXmrLocalWalletCapability(
       if (state.intent !== 'on' || state.birthdayHeight === undefined) {
         throw error;
       }
-      const keys = await vault.getXmrViewingKeys({ accountId });
-      const api = await getXmrLocalRuntime(vault);
-      await api.addAccount(
-        keys.vkFp,
-        keys.spendPublicKeyHex,
-        keys.viewPrivateKeyHex,
-        String(state.birthdayHeight),
-      );
-      return accountRuntimeId(accountId);
+      return registerIdentity(accountId, state.birthdayHeight);
     }
   };
 
-  // Accounts sharing a view key share one runtime identity. Another one that
-  // keeps scan data there keeps it alive; one whose key can't be read might
-  // be such an account, so it does too, as does an unreadable state list.
-  // Orphan cleanup removes it later.
-  const isIdentityHeldByOtherAccount = async ({
+  // Whether another account keeps this identity's scan data: 'alias' for
+  // one that does, 'maybe' when that can't be ruled out (its key or the
+  // state list can't be read). Orphan cleanup settles a 'maybe' later.
+  const identityHeldByOtherAccount = async ({
     accountId,
     vkFp,
   }: {
     accountId: string;
     vkFp: string;
-  }): Promise<boolean> => {
+  }): Promise<'no' | 'alias' | 'maybe'> => {
     const holders = await stateDb().listScanDataAccountIds({ networkId });
-    if (!holders) return true;
+    if (!holders) return 'maybe';
+    let held: 'no' | 'maybe' = 'no';
     for (const otherId of holders) {
       if (otherId === accountId) {
         // eslint-disable-next-line no-continue
@@ -150,42 +166,10 @@ export function buildXmrLocalWalletCapability(
       }
       // eslint-disable-next-line no-await-in-loop
       const otherVkFp = await getXmrRuntimeUuid({ vault, accountId: otherId });
-      if (otherVkFp === undefined || otherVkFp === vkFp) {
-        return true;
-      }
+      if (otherVkFp === vkFp) return 'alias';
+      if (otherVkFp === undefined) held = 'maybe';
     }
-    return false;
-  };
-
-  const removeAccountData = async (
-    accountId: string,
-    { keepBirthday = false }: { keepBirthday?: boolean } = {},
-  ): Promise<void> => {
-    // Before the scanned data goes, so a cache written for it reads stale.
-    await stateDb().rotateAccountEpochs({ accountIds: [accountId] });
-    if (hasXmrRuntimeApiLoader()) {
-      // Without a stored key nothing names the identity; orphan cleanup
-      // removes it.
-      const vkFp = await getXmrRuntimeUuid({ vault, accountId });
-      if (
-        vkFp !== undefined &&
-        !(await isIdentityHeldByOtherAccount({ accountId, vkFp }))
-      ) {
-        const api = await getXmrLocalRuntime(vault);
-        await api.removeAccount(vkFp);
-      }
-    }
-    forgetXmrStaleFirstAccount(accountId);
-    await stateDb().removeXmrAccount({ accountId, keepBirthday });
-    // Recorded recipients would otherwise outlive the data the user deleted.
-    await vault.backgroundApi.simpleDb.privacyChainJournal.removeXmrSentAccount(
-      { accountId },
-    );
-    // The next enable derives it again.
-    await removeLocalWalletViewingKeys({
-      backgroundApi: vault.backgroundApi,
-      accountIds: [accountId],
-    });
+    return held;
   };
 
   // Accounts sharing this account's view key, and so its runtime identity.
@@ -209,11 +193,8 @@ export function buildXmrLocalWalletCapability(
     return aliases;
   };
 
+  // The caller rotates the epochs of the account and its aliases first.
   const rewindLocalAccount = async (accountId: string, fromHeight: number) => {
-    // Aliases share the scanned data this drops.
-    await stateDb().rotateAccountEpochs({
-      accountIds: await getAccountAliases({ accountId }),
-    });
     const api = await getXmrLocalRuntime(vault);
     const runtimeId = await getXmrIdentityId({ api, vault, accountId });
     const peek = JSON.parse(await api.syncPeek(runtimeId)) as {
@@ -230,7 +211,7 @@ export function buildXmrLocalWalletCapability(
       String(Math.max(fromHeight - 1, 0)),
       String(observedTip),
     );
-    forgetXmrStaleFirstAccount(accountId);
+    forgetXmrStaleFirst(await getAccountAliases({ accountId }));
   };
 
   const readBalance = async (
@@ -351,18 +332,40 @@ export function buildXmrLocalWalletCapability(
   // after its current step; nobody asking, no work.
   const saveScannedBalance = async (accountId: string) => {
     try {
+      const epoch = await readLocalWalletCacheEpoch({
+        backgroundApi: vault.backgroundApi,
+        accountId,
+      });
       const value = await readBalance(accountId);
       if (value) {
         await saveLastLocalWalletBalance({
           backgroundApi: vault.backgroundApi,
           networkId: vault.networkId,
           accountId,
+          epoch,
           value,
         });
       }
     } catch (error) {
       console.warn('[xmr] could not save the scanned balance', { error });
     }
+  };
+
+  // Ties a remembered runtime answer to the account's scanned data.
+  const staleFirstOwner = async (accountId: string) => {
+    const epoch = await readLocalWalletCacheEpoch({
+      backgroundApi: vault.backgroundApi,
+      accountId,
+    });
+    return {
+      epoch,
+      isCurrent: () =>
+        isLocalWalletCacheEpochCurrent({
+          backgroundApi: vault.backgroundApi,
+          accountId,
+          epoch,
+        }),
+    };
   };
 
   const notifyAccountsChanged = async (params: {
@@ -543,9 +546,29 @@ export function buildXmrLocalWalletCapability(
       return vault.keyring.xmrDeriveViewingKey({ password });
     },
 
-    async deleteAccountData({ accountId }) {
-      // As on Zcash: re-enabling reuses the birthday instead of starting at tip.
-      await removeAccountData(accountId, { keepBirthday: true });
+    async deleteRuntimeAccount({ accountId }) {
+      if (!hasXmrRuntimeApiLoader()) return { orphaned: false };
+      // Without a stored key nothing names the identity; orphan cleanup
+      // removes it.
+      const vkFp = await getXmrRuntimeUuid({ vault, accountId });
+      if (vkFp === undefined) return { orphaned: true };
+      const held = await identityHeldByOtherAccount({ accountId, vkFp });
+      if (held !== 'no') return { orphaned: held === 'maybe' };
+      const api = await getXmrLocalRuntime(vault);
+      await api.removeAccount(vkFp);
+      return { orphaned: false };
+    },
+
+    async forgetMemoryCaches({ accountIds }) {
+      forgetXmrStaleFirst(accountIds);
+      for (const key of xmrBalanceWanted) {
+        if (
+          !accountIds ||
+          accountIds.some((accountId) => key === `${networkId}:${accountId}`)
+        ) {
+          xmrBalanceWanted.delete(key);
+        }
+      }
     },
 
     async getAccountBalance({
@@ -649,20 +672,6 @@ export function buildXmrLocalWalletCapability(
       }
     },
 
-    async gcWalletState({ liveWalletIds }) {
-      const enabled = await stateDb().listXmrEnabledAccountIds({ networkId });
-      for (const accountId of enabled) {
-        // A prefix test would count hd-1 as alive while only hd-10 exists.
-        const alive = liveWalletIds.includes(
-          accountUtils.getWalletIdFromAccountId({ accountId }),
-        );
-        if (!alive) {
-          // eslint-disable-next-line no-await-in-loop
-          await removeAccountData(accountId);
-        }
-      }
-    },
-
     async syncGroup({ accountIds, chainTip }) {
       if (!hasXmrRuntimeApiLoader() || accountIds.length === 0) {
         return { synced: false };
@@ -678,8 +687,23 @@ export function buildXmrLocalWalletCapability(
       let backfillRemaining = false;
       // Aliases share one identity; it is stepped once per turn.
       const steppedRuntimeIds = new Set<string>();
+      let skipped = 0;
 
       for (const accountId of accountIds) {
+        // One account whose key can't be read or derived yet (locked
+        // wallet) waits for unlock instead of stopping every other one. A
+        // key is derived only for an account still scanning: this turn's
+        // list may predate a delete that removed it.
+        if (
+          // eslint-disable-next-line no-await-in-loop
+          (await getXmrRuntimeUuid({ vault, accountId })) === undefined &&
+          // eslint-disable-next-line no-await-in-loop
+          !(await deriveScanningAccountKey(accountId))
+        ) {
+          skipped += 1;
+          // eslint-disable-next-line no-continue
+          continue;
+        }
         // eslint-disable-next-line no-await-in-loop
         const runtimeId = await ensureRegistered(accountId);
         if (steppedRuntimeIds.has(runtimeId)) {
@@ -777,17 +801,19 @@ export function buildXmrLocalWalletCapability(
         if (!result.done) backfillRemaining = true;
       }
 
+      if (skipped) {
+        console.warn('[xmr] accounts waiting for their view key', {
+          count: skipped,
+        });
+      }
+      if (steppedRuntimeIds.size === 0) {
+        return { synced: false };
+      }
       return { synced: true, stateChanged, chainTip: tip, backfillRemaining };
     },
 
-    async reset({ accountId, scope }) {
-      // 'all' is the cleanup of a deleted app account, which never waits.
-      if (scope === 'all') {
-        await removeAccountData(accountId);
-        return;
-      }
-      // Cache-only: drop scanned data but keep the opt-in, then rescan from
-      // birthday.
+    // Drop scanned data but keep the opt-in, then rescan from birthday.
+    async rewindAccount({ accountId }) {
       const state = await stateDb().getXmrAccountState({ accountId });
       if (hasXmrRuntimeApiLoader() && state.birthdayHeight !== undefined) {
         await rewindLocalAccount(accountId, state.birthdayHeight);
@@ -822,24 +848,24 @@ export function buildXmrLocalWalletCapability(
     },
 
     // Deletes the DB without opening it (so an unopenable DB is still
-    // recoverable), then re-registers each enabled account from its saved
-    // birthday; no password needed since view keys are in viewingKeyStore.
+    // recoverable), then registers every account holding scan data again
+    // from its saved birthday, paused ones included, so a pause still finds
+    // its identity. The caller rotates their epochs first.
     async resetStorage() {
       if (!hasXmrRuntimeApiLoader()) return;
-      // Every account with scan data loses it, paused ones included.
-      await stateDb().rotateAccountEpochs({
-        accountIds:
-          (await stateDb().listScanDataAccountIds({ networkId })) ?? [],
-      });
       await deleteXmrDatabase(await vault.getXmrNetwork());
-      // A failed registration keeps its enabled intent for retry.
+      const holders =
+        (await stateDb().listScanDataAccountIds({ networkId })) ?? [];
+      // A failed registration keeps its state for a retry.
       let firstError: Error | undefined;
-      for (const accountId of await stateDb().listXmrEnabledAccountIds({
-        networkId,
-      })) {
+      for (const accountId of holders) {
         try {
           // eslint-disable-next-line no-await-in-loop
-          await ensureRegistered(accountId);
+          const state = await stateDb().getXmrAccountState({ accountId });
+          if (state.birthdayHeight !== undefined) {
+            // eslint-disable-next-line no-await-in-loop
+            await registerIdentity(accountId, state.birthdayHeight);
+          }
         } catch (error) {
           firstError ??=
             error instanceof Error
@@ -883,10 +909,13 @@ export function buildXmrLocalWalletCapability(
       return true;
     },
 
-    // Runtime accounts are removed before their journal entry, so an empty
-    // journal means there is nothing to delete.
+    // A record holds or may hold scan data; so does a network where an
+    // account went without its key naming the runtime identity.
     async hasLocalData() {
-      return (await stateDb().listAccountIds({ networkId })).length > 0;
+      if ((await stateDb().listAccountIds({ networkId })).length > 0) {
+        return true;
+      }
+      return stateDb().hasRuntimeOrphans({ networkId });
     },
 
     // App reset: deletes even with no account state left, since a
@@ -895,12 +924,6 @@ export function buildXmrLocalWalletCapability(
       if (hasXmrRuntimeApiLoader()) {
         await deleteXmrDatabase(await vault.getXmrNetwork());
       }
-      await stateDb().removeNetworkAccounts({ networkId });
-      await vault.backgroundApi.simpleDb.privacyChainJournal.clearXmrSent();
-      await removeNetworkLocalWalletViewingKeys({
-        backgroundApi: vault.backgroundApi,
-        networkId: vault.networkId,
-      });
     },
 
     async getSyncProgress({
@@ -913,6 +936,7 @@ export function buildXmrLocalWalletCapability(
       // Mid-step reads return the last known progress or a placeholder.
       return readXmrStaleFirst({
         key: `progress:${accountId}`,
+        owner: await staleFirstOwner(accountId),
         fallback: {
           birthdayHeight: state.birthdayHeight ?? null,
           backfillScannedHeight: null,

@@ -226,7 +226,12 @@ export type ILocalWalletCapability = {
   getAccountAddresses: (params: {
     accountId: string;
   }) => Promise<ILocalWalletAccountAddresses | undefined>;
-  deleteAccountData: (params: { accountId: string }) => Promise<void>;
+  // Lifecycle primitive: deletes the account's rows from the runtime unless
+  // another live account still holds them under the same viewing key.
+  // `orphaned`: rows may remain that no stored key names any more.
+  deleteRuntimeAccount: (params: {
+    accountId: string;
+  }) => Promise<{ orphaned: boolean }>;
   // Rebuilds an HD account's viewing material from its mnemonic, for accounts
   // that arrived without it (Prime transfer, cloud restore).
   deriveViewingKey?: (params: {
@@ -264,7 +269,6 @@ export type ILocalWalletCapability = {
     createdAt: number;
   }) => Promise<void>;
   resumePendingOperations: () => Promise<void>;
-  gcWalletState: (params: { liveWalletIds: string[] }) => Promise<void>;
   syncGroup: (params: {
     accountIds: string[];
     rescanFrom?: { accountId: string; fromHeight: number };
@@ -275,10 +279,12 @@ export type ILocalWalletCapability = {
     chainTip?: number | null;
     backfillRemaining?: boolean;
   }>;
-  reset: (params: {
-    accountId: string;
-    scope: 'cache' | 'all';
-  }) => Promise<void>;
+  // Drops the account's scanned data (shared with its aliases) and scans
+  // again from its birthday.
+  rewindAccount: (params: { accountId: string }) => Promise<void>;
+  // Lifecycle primitive: the chain's in-memory caches for these accounts, or
+  // for every account.
+  forgetMemoryCaches?: (params: { accountIds?: string[] }) => Promise<void>;
   // True only if settlement of syncGroup proves its writer has stopped;
   // RPC proxies that can time out independently must leave this false.
   syncCompletionIsAuthoritative?: boolean;
@@ -306,13 +312,15 @@ export type ILocalWalletCapability = {
     | undefined
   >;
   // App reset: delete every client-side scan database for this network,
-  // regardless of account state or safety gates.
+  // regardless of account state or safety gates. Runtime only.
   dropLocalData?: () => Promise<void>;
-  // "Clear pending transactions" for one account: drop its local send locks
-  // so their inputs can be spent again. Never called without an account.
+  // One account's local send locks. 'pending' ("Clear pending
+  // transactions"): every lock and rawTx except sends that can still be
+  // mined. 'expired' (deleting local data): only sends that no longer can.
   clearPendingSends?: (params: {
     networkId: string;
     accountId: string;
+    scope: 'pending' | 'expired';
   }) => Promise<void>;
   // Whether this device may hold scan data for the network. App reset skips
   // loading the runtime when this is false. Omitted means assume it does.
@@ -328,8 +336,9 @@ export type ILocalWalletCapability = {
     retained: ILocalWalletRetainedIdentity[];
   }) => Promise<boolean>;
   // Settings "Reset storage": rebuild the network's scan database from
-  // scratch, even one that can no longer be opened. Chains without it reset
-  // account by account.
+  // scratch, even one that can no longer be opened, and register every
+  // account holding scan data again, paused ones included. Chains without it
+  // rewind account by account.
   resetStorage?: () => Promise<void>;
   setDiagnosticsEnabled?: (params: { enabled: boolean }) => Promise<void>;
   getSyncProgress: (params: {
