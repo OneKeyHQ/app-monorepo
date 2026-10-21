@@ -59,6 +59,10 @@ let mockNodeHealth:
   | { url: string; ok: boolean; latencyMs: number | null; atMs: number }
   | undefined;
 const mockGetIdentityId = jest.fn(async () => '3');
+// Stands in for the stored key's fingerprint, which names the runtime identity.
+const mockGetRuntimeUuid = jest.fn(
+  async (accountId: string): Promise<string | undefined> => `fp-${accountId}`,
+);
 const mockSetAccountState = jest.fn(async () => undefined);
 const mockDeleteXmrDatabase = jest.fn(async (_network: string) => undefined);
 const mockForgetStaleFirst = jest.fn<void, [string]>();
@@ -82,6 +86,8 @@ jest.mock('./runtime', () => ({
   getXmrRuntime: () => mockOnlineRuntime(),
   getXmrLocalRuntime: async () => runtime,
   getXmrIdentityId: () => mockGetIdentityId(),
+  getXmrRuntimeUuid: ({ accountId }: { accountId: string }) =>
+    mockGetRuntimeUuid(accountId),
   getXmrChainTip: () => mockLiveTip(),
   getXmrLastKnownChainTip: async () => mockCachedTip,
   getXmrNodeHealth: () => mockNodeHealth,
@@ -137,6 +143,7 @@ function capability(intent: 'on' | 'off' = 'on', birthdayHeight?: number) {
           }),
           hasAnyAccountState: async () => mockHasAnyAccountState,
           listEnabledAccountIds: async () => ['acc'],
+          listAccountIds: async () => ['acc'],
           beginDisable: jest.fn(async () => undefined),
           completeDisable: jest.fn(async () => undefined),
           setAccountState: mockSetAccountState,
@@ -540,7 +547,8 @@ describe('xmr storage reset', () => {
     const cap = buildXmrLocalWalletCapability({
       networkId: 'xmr--0',
       getXmrNetwork: async () => 'mainnet',
-      getXmrViewingKeys: async () => ({
+      getXmrViewingKeys: async ({ accountId }: { accountId: string }) => ({
+        vkFp: `fp-${accountId}`,
         spendPublicKeyHex: 'synthetic-spend-public',
         viewPrivateKeyHex: 'synthetic-view-private',
       }),
@@ -562,8 +570,18 @@ describe('xmr storage reset', () => {
 
     expect(mockDeleteXmrDatabase).toHaveBeenCalledWith('mainnet');
     expect(runtime.addAccount.mock.calls).toEqual([
-      ['acc-1', 'synthetic-spend-public', 'synthetic-view-private', '3600000'],
-      ['acc-2', 'synthetic-spend-public', 'synthetic-view-private', '3600000'],
+      [
+        'fp-acc-1',
+        'synthetic-spend-public',
+        'synthetic-view-private',
+        '3600000',
+      ],
+      [
+        'fp-acc-2',
+        'synthetic-spend-public',
+        'synthetic-view-private',
+        '3600000',
+      ],
     ]);
     expect(mockOnlineRuntime).not.toHaveBeenCalled();
     expect(mockLiveTip).not.toHaveBeenCalled();
@@ -604,6 +622,7 @@ describe('xmr delete after turning the account off', () => {
             completeDisable: async () => {
               state = { ...state, intent: 'off', operation: undefined };
             },
+            listAccountIds: async () => ['acc'],
             removeAccount: async () => {
               state = { intent: 'off', birthdayHeight: 3_600_000 };
             },
@@ -616,7 +635,7 @@ describe('xmr delete after turning the account off', () => {
 
     await cap.disableAccount({ accountId: 'acc' });
     await cap.deleteAccountData({ accountId: 'acc' });
-    expect(runtime.removeAccount).toHaveBeenCalledWith('acc');
+    expect(runtime.removeAccount).toHaveBeenCalledWith('fp-acc');
 
     mockGetIdentityId.mockRejectedValueOnce(new Error('not registered'));
     await expect(
@@ -640,6 +659,7 @@ describe('xmr sync registers an enabled account the runtime lost', () => {
       networkId: 'xmr--0',
       getXmrViewingKeys: async () => ({
         primaryAddress: '4-primary',
+        vkFp: 'fp-acc',
         spendPublicKeyHex: 'spend-pub',
         viewPrivateKeyHex: 'view-priv',
       }),
@@ -661,7 +681,7 @@ describe('xmr sync registers an enabled account the runtime lost', () => {
     await cap.syncGroup({ accountIds: ['acc'], chainTip: 3_767_827 });
 
     expect(runtime.addAccount).toHaveBeenCalledWith(
-      'acc',
+      'fp-acc',
       'spend-pub',
       'view-priv',
       '3700000',
@@ -744,7 +764,7 @@ describe('xmr local data delete keeps the birthday', () => {
 
   it('keeps it when the user deletes local data', async () => {
     await capability('off', 3_600_000).deleteAccountData({ accountId: 'acc' });
-    expect(runtime.removeAccount).toHaveBeenCalledWith('acc');
+    expect(runtime.removeAccount).toHaveBeenCalledWith('fp-acc');
     expect(mockRemoveAccount).toHaveBeenCalledWith({
       accountId: 'acc',
       keepBirthday: true,

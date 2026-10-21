@@ -5,17 +5,32 @@ jest.mock('../../../dbs/local/localDbInstance', () => ({
   default: {},
 }));
 
+import { getViewingKeyFingerprint } from '../../localWallet/viewingKeyFingerprint';
+
 import { KeyringHd } from './KeyringHd';
 import Vault from './Vault';
 
 const ACCOUNT_ID = "hd-1--m/44'/128'/0'";
+const VIEWING_KEY = 'aa:bb';
+// The runtime names the identity by the stored key's fingerprint.
+const VK_FP = getViewingKeyFingerprint({
+  networkId: 'xmr--0',
+  viewingKey: VIEWING_KEY,
+});
+const privacyChainKeys = {
+  getKey: async () => ({
+    networkId: 'xmr--0',
+    vkFp: VK_FP,
+    sealed: { format: 'plain', value: VIEWING_KEY },
+  }),
+};
 
 // Key images (spend key) reveal spends made elsewhere; computed from the
 // password only when some output still lacks one.
 function createVault(outputsWithoutKeyImage: number, spendsFound = 0) {
   const api = {
     listAccounts: async () =>
-      JSON.stringify({ items: [{ accountId: 7, uuid: ACCOUNT_ID }] }),
+      JSON.stringify({ items: [{ accountId: 7, uuid: VK_FP }] }),
     balance: jest.fn(async () => JSON.stringify({ outputsWithoutKeyImage })),
     importKeyImagesWithBip32Key: jest.fn(async () =>
       JSON.stringify({ imported: outputsWithoutKeyImage, spendsFound }),
@@ -35,7 +50,10 @@ function createVault(outputsWithoutKeyImage: number, spendsFound = 0) {
     networkId: 'xmr--0',
     keyring,
     getXmrRuntimeApi: async () => api,
-    backgroundApi: { servicePassword: { promptPasswordVerifyByAccount } },
+    backgroundApi: {
+      servicePassword: { promptPasswordVerifyByAccount },
+      simpleDb: { privacyChainKeys },
+    },
   });
   const ensure = () =>
     (

@@ -16,7 +16,9 @@ import {
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { privacyChainPerfLog } from '@onekeyhq/shared/src/utils/privacyChainPerfLog';
+import resetUtils from '@onekeyhq/shared/src/utils/resetUtils';
 
+import { xmrStateHoldsScanData } from '../../../dbs/simple/entity/SimpleDbEntityXmr';
 import {
   LOCAL_WALLET_DISPLAY_WAIT_MS,
   readLocalWalletBalanceStaleFirst,
@@ -43,12 +45,14 @@ import {
   getXmrLocalRuntime,
   getXmrNodeHealth,
   getXmrRuntime,
+  getXmrRuntimeUuid,
   isXmrRuntimeBusy,
   readXmrStaleFirst,
 } from './runtime';
 
 import type Vault from './Vault';
 import type {
+  ILocalWalletAccount,
   ILocalWalletAccountAddresses,
   ILocalWalletAccountBalance,
   ILocalWalletAccountState,
@@ -95,10 +99,16 @@ export function buildXmrLocalWalletCapability(
   const requireRuntime = () => getXmrRuntime(vault);
 
   const accountRuntimeId = async (accountId: string): Promise<string> =>
-    getXmrIdentityId({ api: await getXmrLocalRuntime(vault), accountId });
+    getXmrIdentityId({
+      api: await getXmrLocalRuntime(vault),
+      vault,
+      accountId,
+    });
 
   // Re-registers an account the runtime lost (rebuilt DB or failed resync)
-  // from its saved birthday; the stored view key needs no password.
+  // from its saved birthday; the stored view key needs no password. An
+  // identity still named by its old account id is renamed by the runtime,
+  // which matches it by primary address, so its data and sends carry over.
   const ensureRegistered = async (accountId: string): Promise<string> => {
     try {
       return await accountRuntimeId(accountId);
@@ -110,7 +120,7 @@ export function buildXmrLocalWalletCapability(
       const keys = await vault.getXmrViewingKeys({ accountId });
       const api = await getXmrLocalRuntime(vault);
       await api.addAccount(
-        accountId,
+        keys.vkFp,
         keys.spendPublicKeyHex,
         keys.viewPrivateKeyHex,
         String(state.birthdayHeight),
@@ -119,13 +129,51 @@ export function buildXmrLocalWalletCapability(
     }
   };
 
+  // Accounts sharing a view key share one runtime identity. Another one that
+  // keeps scan data there keeps it alive; one whose key can't be read might
+  // be such an account, so it does too. Orphan cleanup removes it later.
+  const isIdentityHeldByOtherAccount = async ({
+    accountId,
+    vkFp,
+  }: {
+    accountId: string;
+    vkFp: string;
+  }): Promise<boolean> => {
+    for (const otherId of await simpleDb().listAccountIds()) {
+      if (otherId === accountId) {
+        // eslint-disable-next-line no-continue
+        continue;
+      }
+      // eslint-disable-next-line no-await-in-loop
+      const state = await simpleDb().getAccountState({ accountId: otherId });
+      if (!xmrStateHoldsScanData(state)) {
+        // eslint-disable-next-line no-continue
+        continue;
+      }
+      // eslint-disable-next-line no-await-in-loop
+      const otherVkFp = await getXmrRuntimeUuid({ vault, accountId: otherId });
+      if (otherVkFp === undefined || otherVkFp === vkFp) {
+        return true;
+      }
+    }
+    return false;
+  };
+
   const removeAccountData = async (
     accountId: string,
     { keepBirthday = false }: { keepBirthday?: boolean } = {},
   ): Promise<void> => {
     if (hasXmrRuntimeApiLoader()) {
-      const api = await getXmrLocalRuntime(vault);
-      await api.removeAccount(accountId);
+      // Without a stored key nothing names the identity; orphan cleanup
+      // removes it.
+      const vkFp = await getXmrRuntimeUuid({ vault, accountId });
+      if (
+        vkFp !== undefined &&
+        !(await isIdentityHeldByOtherAccount({ accountId, vkFp }))
+      ) {
+        const api = await getXmrLocalRuntime(vault);
+        await api.removeAccount(vkFp);
+      }
     }
     forgetXmrStaleFirstAccount(accountId);
     await simpleDb().removeAccount({ accountId, keepBirthday });
@@ -142,7 +190,7 @@ export function buildXmrLocalWalletCapability(
 
   const rewindLocalAccount = async (accountId: string, fromHeight: number) => {
     const api = await getXmrLocalRuntime(vault);
-    const runtimeId = await getXmrIdentityId({ api, accountId });
+    const runtimeId = await getXmrIdentityId({ api, vault, accountId });
     const peek = JSON.parse(await api.syncPeek(runtimeId)) as {
       scannedToHeight: number | null;
       ranges: { start: number; end: number }[];
@@ -164,7 +212,7 @@ export function buildXmrLocalWalletCapability(
     accountId: string,
   ): Promise<ILocalWalletAccountBalance | null> => {
     const api = await getXmrLocalRuntime(vault);
-    const runtimeId = await getXmrIdentityId({ api, accountId });
+    const runtimeId = await getXmrIdentityId({ api, vault, accountId });
     // Without a tip (never fetched), nothing can be marked unlocked.
     const tip = await getXmrLastKnownChainTip(vault).catch(() => undefined);
     const raw = JSON.parse(
@@ -224,7 +272,7 @@ export function buildXmrLocalWalletCapability(
     state: Awaited<ReturnType<ReturnType<typeof simpleDb>['getAccountState']>>;
   }): Promise<ILocalWalletSyncProgress | undefined> => {
     const api = await getXmrLocalRuntime(vault);
-    const runtimeId = await getXmrIdentityId({ api, accountId }).catch(
+    const runtimeId = await getXmrIdentityId({ api, vault, accountId }).catch(
       () => null,
     );
     if (runtimeId === null) return undefined;
@@ -371,9 +419,11 @@ export function buildXmrLocalWalletCapability(
       });
 
       const account = await vault.getXmrViewingKeys({ accountId });
+      // Named by vkFp: an alias reuses the identity, and one named by an old
+      // account id is renamed by the runtime (matched by primary address).
       const added = JSON.parse(
         await api.addAccount(
-          accountId,
+          account.vkFp,
           account.spendPublicKeyHex,
           account.viewPrivateKeyHex,
           String(height),
@@ -507,23 +557,43 @@ export function buildXmrLocalWalletCapability(
 
     async listAccounts() {
       const enabled = await simpleDb().listEnabledAccountIds();
-      return {
-        accounts: enabled.map((accountId) => ({
+      const accounts: ILocalWalletAccount[] = [];
+      for (const accountId of enabled) {
+        accounts.push({
           accountId,
           // One shared database per network.
           runtimeKey: 'xmr-mainnet',
-          accountRuntimeKey: accountId,
+          // Aliases share one identity, and so one slot. Without a stored key
+          // the account is its own until the key is derived again.
+          accountRuntimeKey:
+            // eslint-disable-next-line no-await-in-loop
+            (await getXmrRuntimeUuid({ vault, accountId })) ?? accountId,
           syncEnabled: true,
-        })),
+        });
+      }
+      return {
+        accounts,
         // Lets GC drop accounts whose app account was deleted, including
         // their view key on disk.
         cleanupAccountIds: await simpleDb().listAccountIds(),
       };
     },
 
+    // Accounts sharing this account's view key, and so its runtime identity.
     async getAccountAliases({ accountId }) {
-      // Monero has no derivation aliases: one account, one key pair.
-      return [accountId];
+      const vkFp = await getXmrRuntimeUuid({ vault, accountId });
+      if (vkFp === undefined) return [accountId];
+      const aliases = [accountId];
+      for (const otherId of await simpleDb().listAccountIds()) {
+        if (
+          otherId !== accountId &&
+          // eslint-disable-next-line no-await-in-loop
+          (await getXmrRuntimeUuid({ vault, accountId: otherId })) === vkFp
+        ) {
+          aliases.push(otherId);
+        }
+      }
+      return aliases;
     },
 
     async getChainTip() {
@@ -593,10 +663,17 @@ export function buildXmrLocalWalletCapability(
 
       let stateChanged = false;
       let backfillRemaining = false;
+      // Aliases share one identity; it is stepped once per turn.
+      const steppedRuntimeIds = new Set<string>();
 
       for (const accountId of accountIds) {
         // eslint-disable-next-line no-await-in-loop
         const runtimeId = await ensureRegistered(accountId);
+        if (steppedRuntimeIds.has(runtimeId)) {
+          // eslint-disable-next-line no-continue
+          continue;
+        }
+        steppedRuntimeIds.add(runtimeId);
         // eslint-disable-next-line no-await-in-loop
         await api.updateChainTip(runtimeId, String(tip));
         // eslint-disable-next-line no-await-in-loop
@@ -754,6 +831,34 @@ export function buildXmrLocalWalletCapability(
         // eslint-disable-next-line no-throw-literal
         throw firstError;
       }
+    },
+
+    listScanDataAccountIds: () => simpleDb().listScanDataAccountIds(),
+
+    async purgeRuntimeOrphans({ retained }) {
+      if (!hasXmrRuntimeApiLoader()) return true;
+      // A held runtime may be a stuck call; queueing behind it would stall
+      // the scheduler's turn.
+      if (isXmrRuntimeBusy()) return false;
+      const api = await getXmrLocalRuntime(vault);
+      const listed = JSON.parse(await api.listAccounts()) as {
+        items: { uuid: string }[];
+      };
+      const keep = new Set(retained.map(({ vkFp }) => vkFp));
+      // Includes identities still named by an old account id that no account
+      // registered again.
+      const orphans = listed.items.filter(({ uuid }) => !keep.has(uuid));
+      for (const { uuid } of orphans) {
+        if (resetUtils.getIsResetting()) return false;
+        // eslint-disable-next-line no-await-in-loop
+        await api.removeAccount(uuid);
+      }
+      if (orphans.length) {
+        console.log('[xmr] removed runtime identities no account keeps', {
+          count: orphans.length,
+        });
+      }
+      return true;
     },
 
     // Runtime accounts are removed before their journal entry, so an empty

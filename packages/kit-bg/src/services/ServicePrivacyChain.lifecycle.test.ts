@@ -54,7 +54,12 @@ describe('privacy lifecycle invalidation', () => {
         Object.create(ServicePrivacyChain.prototype) as InstanceType<
           typeof ServicePrivacyChain
         >,
-        { backfillActiveByAccount: {}, syncFailureBackoff: new Map(), init },
+        {
+          backfillActiveByAccount: {},
+          syncFailureBackoff: new Map(),
+          orphanCleanupGeneration: new Map(),
+          init,
+        },
       );
       const params = {
         networkId: 'zec--0',
@@ -135,6 +140,7 @@ describe('init', () => {
         initPromise: undefined,
         backfillActiveByAccount: {},
         syncFailureBackoff: new Map(),
+        orphanCleanupGeneration: new Map(),
         foregroundBoostRequestedByNetwork: {},
         boostPausedByNetwork: {},
         earliestTickAt: Date.now() + 60_000,

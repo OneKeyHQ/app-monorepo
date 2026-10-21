@@ -121,6 +121,7 @@ function createService({
     {
       backgroundApi,
       enableMutexByNetwork: new Map(),
+      orphanCleanupGeneration: new Map(),
       getLocalWalletNetworkIds: async () => [],
       forEachLocalWalletCapability: async () => undefined,
       assertEnabledAccountLimit: async () => undefined,

@@ -67,6 +67,7 @@ import type {
   ILocalWalletAccountSupport,
   ILocalWalletCapability,
   ILocalWalletPoolDescriptor,
+  ILocalWalletRetainedIdentity,
   ILocalWalletReviewedTransaction,
   ILocalWalletSendPool,
   ILocalWalletSlotUsage,
@@ -724,6 +725,7 @@ class ServicePrivacyChain extends ServiceBase {
       accountIds,
     });
     this.clearSyncFailureBackoff(networkId);
+    this.markLocalWalletOrphanCleanupDue(networkId);
     for (const accountId of accountIds) {
       if (backfillActive) {
         this.backfillActiveByAccount[accountId] = true;
@@ -1315,6 +1317,9 @@ class ServicePrivacyChain extends ServiceBase {
           // Publish while the wallet is still ours, so readers subscribe to this
           // instead of each polling (and queuing behind a pass).
           await this.publishScanProgress(candidate);
+          if (result.synced) {
+            await this.runLocalWalletOrphanCleanupIfDue(candidate);
+          }
           if (
             result.synced &&
             (await this.doLocalWalletPasswordWork(candidate))
@@ -1499,6 +1504,134 @@ class ServicePrivacyChain extends ServiceBase {
     }
   }
 
+  // Per network: bumped when its account set changes; the orphan cleanup is
+  // due until it has run at the current value. Absent means 0, so every
+  // network is due once after startup.
+  orphanCleanupGeneration = new Map<string, number>();
+
+  orphanCleanupDoneGeneration = new Map<string, number>();
+
+  markLocalWalletOrphanCleanupDue(networkId: string) {
+    this.orphanCleanupGeneration.set(
+      networkId,
+      (this.orphanCleanupGeneration.get(networkId) ?? 0) + 1,
+    );
+  }
+
+  // After a turn that synced the network, so its runtime is known to be
+  // ready. Never fails the turn, and bounded like it.
+  private async runLocalWalletOrphanCleanupIfDue({
+    networkId,
+    capability,
+  }: {
+    networkId: string;
+    capability: ILocalWalletCapability;
+  }): Promise<void> {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    try {
+      const generation = this.orphanCleanupGeneration.get(networkId) ?? 0;
+      if (this.orphanCleanupDoneGeneration.get(networkId) === generation) {
+        return;
+      }
+      const ran = await Promise.race([
+        this.purgeLocalWalletRuntimeOrphans({ networkId, capability }),
+        new Promise<never>((_, reject) => {
+          timer = setTimeout(() => {
+            reject(
+              new OneKeyLocalError('privacy-chain: orphan cleanup timed out'),
+            );
+          }, capability.syncPolicy.maxSyncDurationMs);
+        }),
+      ]);
+      if (ran) {
+        this.orphanCleanupDoneGeneration.set(networkId, generation);
+      }
+    } catch (e) {
+      console.error('[privacy-chain] orphan cleanup failed', {
+        networkId,
+        ...describePrivacyChainError(e),
+      });
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  private async isLocalWalletOrphanCleanupAllowed(
+    networkId: string,
+  ): Promise<boolean> {
+    if (resetUtils.getIsResetting() || this.pendingLocalDataDropRetry) {
+      return false;
+    }
+    // A quarantined turn may still be writing to the runtime.
+    for (const runtimeStateKey of this.quarantinedSyncs.keys()) {
+      if (runtimeStateKey.startsWith(`${networkId}|`)) {
+        return false;
+      }
+    }
+    // Asked directly: a masked database reads as empty, which would
+    // otherwise look like "no accounts".
+    return !(await this.isPersistenceMasked());
+  }
+
+  // Deletes runtime accounts that no live account keeps (K: accounts holding
+  // scan data, by viewing key fingerprint). Irreversible, so any doubt skips
+  // the whole pass: false means it did not run and stays due.
+  async purgeLocalWalletRuntimeOrphans({
+    networkId,
+    capability,
+  }: {
+    networkId: string;
+    capability: ILocalWalletCapability;
+  }): Promise<boolean> {
+    const { listScanDataAccountIds, purgeRuntimeOrphans } = capability;
+    if (!listScanDataAccountIds || !purgeRuntimeOrphans) {
+      return true;
+    }
+    if (!(await this.isLocalWalletOrphanCleanupAllowed(networkId))) {
+      return false;
+    }
+    // An enable registers its account before the pass could see it. Held
+    // for the whole pass so none starts midway, but never waited for.
+    const enableMutex = this.getEnableMutex(networkId);
+    if (enableMutex.isLocked()) {
+      return false;
+    }
+    return enableMutex.runExclusive(async () => {
+      const scanDataAccountIds = await listScanDataAccountIds();
+      if (!scanDataAccountIds) {
+        return false;
+      }
+      // Hidden and locked passphrase wallets count as live here.
+      const storedAccountIds = await this.readStoredAccountIds();
+      if (!storedAccountIds) {
+        return false;
+      }
+      const retained: ILocalWalletRetainedIdentity[] = [];
+      for (const accountId of scanDataAccountIds) {
+        // A removed account's data is GC's; a live alias still keeps its key.
+        if (!storedAccountIds.has(accountId)) {
+          // eslint-disable-next-line no-continue
+          continue;
+        }
+        // eslint-disable-next-line no-await-in-loop
+        const key = await getLocalWalletViewingKey({
+          backgroundApi: this.backgroundApi,
+          networkId,
+          accountId,
+        });
+        // Its runtime account cannot be told apart from an orphan.
+        if (!key) {
+          return false;
+        }
+        retained.push({ accountId, vkFp: key.vkFp, viewingKey: key.value });
+      }
+      if (!(await this.isLocalWalletOrphanCleanupAllowed(networkId))) {
+        return false;
+      }
+      return purgeRuntimeOrphans({ retained });
+    });
+  }
+
   gcRunning = false;
 
   // A removal while a pass runs may land after that pass listed accounts.
@@ -1606,6 +1739,7 @@ class ServicePrivacyChain extends ServiceBase {
             }
             try {
               await capability.reset({ accountId, scope: 'all' });
+              this.markLocalWalletOrphanCleanupDue(networkId);
               await privacyChainAtom.set((value) => {
                 const progress = Object.fromEntries(
                   Object.entries(value.progress).filter(
@@ -2383,6 +2517,7 @@ class ServicePrivacyChain extends ServiceBase {
         accountIds: [accountId],
       });
     });
+    this.markLocalWalletOrphanCleanupDue(networkId);
     await this.forgetCachedLocalWalletBalance({ networkId, accountId });
   }
 

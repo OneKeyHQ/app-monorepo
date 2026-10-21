@@ -73,6 +73,7 @@ import { loadCachedLocalWalletHistory } from '../../localWallet/cachedHistory';
 import { getLocalWalletHistoryAddressGate } from '../../localWallet/historyAddressGate';
 import { localWalletText } from '../../localWallet/messages';
 import { buildLocalWalletNativeTokenList } from '../../localWallet/tokenList';
+import { getViewingKeyFingerprint } from '../../localWallet/viewingKeyFingerprint';
 
 import { KeyringHd } from './KeyringHd';
 import {
@@ -216,7 +217,7 @@ export default class Vault extends VaultBase {
     accountId,
   }: {
     accountId: string;
-  }): Promise<IXmrViewingKeyPair & { primaryAddress: string }> {
+  }): Promise<IXmrViewingKeyPair & { primaryAddress: string; vkFp: string }> {
     const [account, stored] = await Promise.all([
       this.backgroundApi.serviceAccount.getAccount({
         accountId,
@@ -234,6 +235,11 @@ export default class Vault extends VaultBase {
     }
     return {
       primaryAddress: account.address,
+      // The runtime identity's name; see getXmrRuntimeUuid.
+      vkFp: getViewingKeyFingerprint({
+        networkId: this.networkId,
+        viewingKey: stored,
+      }),
       ...parseXmrViewingKeyPair(stored),
     };
   }
@@ -419,6 +425,7 @@ export default class Vault extends VaultBase {
     const api = await this.getXmrRuntimeApi();
     const identityId = await getXmrIdentityId({
       api,
+      vault: this,
       accountId: this.accountId,
     });
     await this.xmrEnsureKeyImages({ api, identityId });
@@ -475,6 +482,7 @@ export default class Vault extends VaultBase {
     const api = await this.getXmrRuntimeApi();
     const identityId = await getXmrIdentityId({
       api,
+      vault: this,
       accountId: this.accountId,
     });
     return JSON.parse(
@@ -487,6 +495,7 @@ export default class Vault extends VaultBase {
     const api = await this.getXmrRuntimeApi();
     const identityId = await getXmrIdentityId({
       api,
+      vault: this,
       accountId: this.accountId,
     });
     return this.xmrCountOutputsWithoutKeyImage({ api, identityId }).then(
@@ -698,6 +707,7 @@ export default class Vault extends VaultBase {
     }
     const identityId = await getXmrIdentityId({
       api,
+      vault: this,
       accountId: this.accountId,
     });
 
@@ -1038,7 +1048,11 @@ export default class Vault extends VaultBase {
         queueWhenUncached: true,
         read: async () => {
           const api = await getXmrLocalRuntime(this);
-          const identityId = await getXmrIdentityId({ api, accountId });
+          const identityId = await getXmrIdentityId({
+            api,
+            vault: this,
+            accountId,
+          });
           // All of it: the cached list is replaced by what this returns, so a
           // single page would delete every older row from the cache.
           const items: IXmrHistoryItem[] = [];

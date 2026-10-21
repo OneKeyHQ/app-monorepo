@@ -1,4 +1,4 @@
-import { isEqual } from 'lodash';
+import { isEqual, uniq } from 'lodash';
 import { z } from 'zod';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
@@ -574,6 +574,23 @@ export class SimpleDbEntityZcash extends SimpleDbEntityBase<IZcashDB> {
           ? [accountId]
           : [],
     );
+  }
+
+  // Accounts whose scan data the runtime keeps: on, mid-operation, paused
+  // with a resume position, or mid-rescan. Undefined when nothing was read
+  // (no state yet, or masked by Travel Mode): never the same as none.
+  async listScanDataAccountIds(): Promise<string[] | undefined> {
+    const rawData = await this.getRawData();
+    if (!rawData) return undefined;
+    const holding = Object.entries(rawData.privacyModeAccounts ?? {}).flatMap(
+      ([accountId, state]) =>
+        state.intent === 'on' ||
+        state.operation !== undefined ||
+        state.resumeFromHeight !== undefined
+          ? [accountId]
+          : [],
+    );
+    return uniq([...holding, ...Object.keys(rawData.pendingRescans ?? {})]);
   }
 
   async listPrivacyModeAccountIds(): Promise<string[]> {

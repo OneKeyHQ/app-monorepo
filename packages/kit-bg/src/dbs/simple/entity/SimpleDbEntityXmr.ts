@@ -35,6 +35,16 @@ export interface IXmrDB {
   accounts?: Record<string, IXmrAccountScanState>;
 }
 
+// The runtime keeps this account's scan data: scanning, mid-operation, or
+// paused with a resume position.
+export function xmrStateHoldsScanData(state: IXmrAccountScanState): boolean {
+  return (
+    state.intent === 'on' ||
+    state.operation !== undefined ||
+    state.resumeFromHeight !== undefined
+  );
+}
+
 const xmrStoredDataSchema = z
   .object({
     accounts: z
@@ -165,11 +175,16 @@ export class SimpleDbEntityXmr extends SimpleDbEntityBase<IXmrDB> {
   // deleting local data never touches the runtime, so it does not count.
   async hasAnyAccountState(): Promise<boolean> {
     const data = await this.getRawData();
-    return Object.values(data?.accounts ?? {}).some(
-      (state) =>
-        state.intent === 'on' ||
-        state.operation !== undefined ||
-        state.resumeFromHeight !== undefined,
+    return Object.values(data?.accounts ?? {}).some(xmrStateHoldsScanData);
+  }
+
+  // Undefined when nothing was read (no state yet, or masked by Travel
+  // Mode): orphan cleanup must never read that as "no accounts".
+  async listScanDataAccountIds(): Promise<string[] | undefined> {
+    const data = await this.getRawData();
+    if (!data) return undefined;
+    return Object.entries(data.accounts ?? {}).flatMap(([accountId, state]) =>
+      xmrStateHoldsScanData(state) ? [accountId] : [],
     );
   }
 

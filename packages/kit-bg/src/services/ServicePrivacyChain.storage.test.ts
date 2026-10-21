@@ -175,6 +175,7 @@ describe('removed-account gc', () => {
     const service = createService({
       gcRunning: false,
       gcRequested: false,
+      orphanCleanupGeneration: new Map<string, number>(),
       backgroundApi: {
         serviceAccount,
         simpleDb: {
@@ -262,6 +263,8 @@ describe('removed-account gc', () => {
       accountId: removedAccountId,
       scope: 'all',
     });
+    // The account set changed: the runtime orphan cleanup is due again.
+    expect(service.orphanCleanupGeneration.get(networkId)).toBe(1);
     await expect(privacyChainKeys.listAccountIds()).resolves.toEqual([
       liveAccountId,
       hiddenAccountId,
@@ -289,6 +292,7 @@ describe('removed-account gc', () => {
     // Unfiltered: filterRemoved would drop locked passphrase wallets.
     expect(serviceAccount.getAllAccounts).toHaveBeenCalledWith();
     expect(reset).not.toHaveBeenCalled();
+    expect(service.orphanCleanupGeneration.get(networkId)).toBeUndefined();
   });
 
   // Deleting an HD account removes its indexed account but leaves its rows.
@@ -360,6 +364,7 @@ describe('removed-account gc', () => {
     const service = createService({
       gcRunning: false,
       gcRequested: false,
+      orphanCleanupGeneration: new Map<string, number>(),
       backgroundApi: {
         serviceAccount,
         simpleDb: {
@@ -618,6 +623,7 @@ describe.each(['zec--0', 'xmr--0'])(
       const service = createService({
         backgroundApi: { simpleDb: { privacyChainKeys } },
         enableMutexByNetwork: new Map<string, Mutex>(),
+        orphanCleanupGeneration: new Map<string, number>(),
         requireAccountCapability: async () => capability,
         forgetCachedLocalWalletBalance: jest.fn(async () => undefined),
       });
@@ -633,6 +639,8 @@ describe.each(['zec--0', 'xmr--0'])(
       });
 
       expect(calls).toEqual(['disable', 'delete']);
+      // The account set changed: the runtime orphan cleanup is due again.
+      expect(service.orphanCleanupGeneration.get(chainNetworkId)).toBe(1);
     });
 
     it('finishes an interrupted operation through the same disable', async () => {

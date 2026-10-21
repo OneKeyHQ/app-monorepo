@@ -16,6 +16,13 @@ export type ILocalWalletAccount = {
   slotEnabled?: boolean;
 };
 
+// A runtime account the orphan cleanup must keep, named by its viewing key.
+export type ILocalWalletRetainedIdentity = {
+  accountId: string;
+  vkFp: string;
+  viewingKey: string;
+};
+
 // Counts viewing identities across every wallet, including ones this session
 // cannot see.
 export type ILocalWalletSlotUsage = {
@@ -310,6 +317,16 @@ export type ILocalWalletCapability = {
   // Whether this device may hold scan data for the network. App reset skips
   // loading the runtime when this is false. Omitted means assume it does.
   hasLocalData?: () => Promise<boolean>;
+  // Orphan cleanup, run only by ServicePrivacyChain's gated pass. Accounts
+  // whose scan data the runtime keeps: scanning, mid-operation, or paused
+  // with a resume position. Undefined when the state was not read for
+  // certain (nothing stored, or masked by Travel Mode); never the same as none.
+  listScanDataAccountIds?: () => Promise<string[] | undefined>;
+  // Deletes every runtime account not named in `retained`. False when it did
+  // not run (runtime busy); the pass is then retried.
+  purgeRuntimeOrphans?: (params: {
+    retained: ILocalWalletRetainedIdentity[];
+  }) => Promise<boolean>;
   // Settings "Reset storage": rebuild the network's scan database from
   // scratch, even one that can no longer be opened. Chains without it reset
   // account by account.
