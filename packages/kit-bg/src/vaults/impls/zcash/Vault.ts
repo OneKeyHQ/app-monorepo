@@ -654,13 +654,16 @@ export default class Vault extends VaultBtc {
     xpub?: string;
     isManualRefresh?: boolean;
   }): Promise<IAccountHistoryTx[] | undefined> {
-    const txs = await zcashHistory.fetchAccountHistoryFromLocal(this, params);
-    if (!txs?.length) return txs;
     const gate = await getLocalWalletHistoryAddressGate({
       backgroundApi: this.backgroundApi,
       networkId: params.networkId,
       accountId: params.accountId || this.accountId,
     });
+    const txs = await zcashHistory.fetchAccountHistoryFromLocal(this, {
+      ...params,
+      addressGate: gate,
+    });
+    if (!txs?.length) return txs;
     return txs.map((tx) => gateLocalWalletHistoryTx(gate, tx));
   }
 
