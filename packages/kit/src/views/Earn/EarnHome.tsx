@@ -110,9 +110,9 @@ function BasicEarnHome({
   const route = useAppRoute<ITabEarnParamList, ETabEarnRoutes.EarnHome>();
   const actions = useEarnActions();
   const media = useMedia();
-  // Web, desktop and the extension tab at 768px and wider get the desktop
-  // home; narrower windows keep the Earn | Borrow layout below.
-  const isDesktopHome = !platformEnv.isNative && media.gtMd;
+  // Web, desktop and the extension get the desktop home at every width; it
+  // lays itself out in one column below 768px. The native apps keep theirs.
+  const isDesktopHome = !platformEnv.isNative;
 
   const { isFetchingBlockResult, refreshBlockResult, blockResult } =
     useBlockRegion();

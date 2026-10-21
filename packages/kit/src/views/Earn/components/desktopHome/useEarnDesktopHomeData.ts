@@ -27,6 +27,7 @@ import { sumWalletHoldings } from './earnDesktopHome.utils';
 import type {
   IEarnDesktopMarketReserves,
   IEarnDesktopWalletHolding,
+  IEarnDesktopWalletNetworkGroup,
   IEarnDesktopWalletTokenGroup,
 } from './earnDesktopHome.utils';
 
@@ -272,6 +273,7 @@ const INITIAL_WALLET_CACHE: IWalletCache = {
 };
 const INITIAL_WALLET_FRESH: IWalletFresh = { groups: new Map() };
 const EMPTY_HOLDINGS = new Map<string, IEarnDesktopWalletHolding>();
+const EMPTY_NETWORK_GROUPS: IEarnDesktopWalletNetworkGroup[] = [];
 // Names these fetches for aborts and logs
 const WALLET_HOLDINGS_FLAG = 'earn-desktop-home-holdings';
 // A list this recent is kept when the page regains focus or another network
@@ -456,15 +458,32 @@ export function useEarnDesktopWalletHoldings({
     { initResult: INITIAL_WALLET_FRESH },
   );
 
-  const holdings = useMemo(() => {
+  const { holdings, networkGroups } = useMemo(() => {
     if (cache.scope !== scope) {
-      return EMPTY_HOLDINGS;
+      return {
+        holdings: EMPTY_HOLDINGS,
+        networkGroups: EMPTY_NETWORK_GROUPS,
+      };
     }
     const groups = new Map(cache.groups);
     if (fresh.scope === scope) {
       fresh.groups.forEach((item, key) => groups.set(key, item.group));
     }
-    return sumWalletHoldings(Array.from(groups.values()));
+    return {
+      holdings: sumWalletHoldings(Array.from(groups.values())),
+      // The same lists a network at a time, for the rows per network
+      networkGroups: Array.from(
+        groups,
+        ([key, group]): IEarnDesktopWalletNetworkGroup => {
+          const split = key.lastIndexOf('|');
+          return {
+            ...group,
+            accountId: key.slice(0, split),
+            networkId: key.slice(split + 1),
+          };
+        },
+      ),
+    };
   }, [cache, fresh, scope]);
 
   // A settled transaction moves wallet balances too
@@ -480,5 +499,5 @@ export function useEarnDesktopWalletHoldings({
     cache.scope === scope &&
     (cache.hasTokens || !refreshKey || fresh.scope === scope);
 
-  return { holdings, isLoaded, refresh };
+  return { holdings, networkGroups, isLoaded, refresh };
 }

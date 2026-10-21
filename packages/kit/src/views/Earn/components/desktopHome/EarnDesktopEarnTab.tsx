@@ -7,6 +7,7 @@ import { useIntl } from 'react-intl';
 import {
   Badge,
   Icon,
+  ScrollView,
   SearchBar,
   SizableText,
   Skeleton,
@@ -14,6 +15,7 @@ import {
   View,
   XStack,
   YStack,
+  useMedia,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { Currency } from '@onekeyhq/kit/src/components/Currency';
@@ -44,7 +46,10 @@ import { AprText } from '../AprText';
 import { EarnListEmptyState } from '../EarnListEmptyState';
 import { NetworkFilterControl } from '../NetworkFilterControl';
 
-import { findPositionDeposit } from './earnDesktopHome.utils';
+import {
+  findPositionDeposit,
+  isFixedRateProtocol,
+} from './earnDesktopHome.utils';
 import {
   EarnDesktopSurfaceProvider,
   SurfaceToken,
@@ -92,6 +97,9 @@ const COLUMNS = {
   // Wide enough for a range like "14.78% - 15.87%" on one line
   apr: column(1.4, 'flex-end', 136),
 };
+// One column keeps the token and its rate; the network and the balance need
+// a wide row
+const WIDE_ONLY = { $md: { display: 'none' } } as const;
 const SEARCH_BAR_CONTAINER_PROPS = {
   w: 220,
   borderRadius: '$full' as const,
@@ -115,15 +123,6 @@ type IEarnTableRow = {
 
 export type IEarnDesktopFocusRequest = { symbol: string; nonce: number };
 
-// The protocols page's rule: the server category, else Pendle means fixed rate
-const isFixedRateProtocol = (item: IStakeProtocolListItem) => {
-  const category = item.provider.category?.trim();
-  if (category === 'fixedRate' || category === 'simpleEarn') {
-    return category === 'fixedRate';
-  }
-  return earnUtils.isPendleProvider({ providerName: item.provider.name });
-};
-
 const shouldSendVault = (providerName: string) =>
   earnUtils.shouldSendEarnProtocolVault({ providerName });
 
@@ -135,7 +134,8 @@ function CategoryPills({
   onChange: (value: ITokenCategory) => void;
 }) {
   const intl = useIntl();
-  return (
+  const media = useMedia();
+  const pills = (
     <XStack gap="$2">
       {TOKEN_CATEGORIES.map((category) => {
         const isFocused = category.value === value;
@@ -165,6 +165,23 @@ function CategoryPills({
         );
       })}
     </XStack>
+  );
+  if (media.gtMd) {
+    return pills;
+  }
+  // A phone's width scrolls the pills sideways, edge to edge, as the phone
+  // does, instead of cutting the last one
+  return (
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      mx="$-5"
+      w="100%"
+      flexGrow={1}
+      contentContainerStyle={{ px: '$5' }}
+    >
+      {pills}
+    </ScrollView>
   );
 }
 
@@ -398,8 +415,8 @@ function TokenOffers({
             {intl.formatMessage({ id: ETranslations.global_protocol })}
           </HeaderLabel>
         </Stack>
-        <Stack {...COLUMNS.network} />
-        <Stack {...COLUMNS.balance}>
+        <Stack {...COLUMNS.network} {...WIDE_ONLY} />
+        <Stack {...COLUMNS.balance} {...WIDE_ONLY}>
           <HeaderLabel align="right">
             {intl.formatMessage({ id: ETranslations.earn_tvl })}
           </HeaderLabel>
@@ -436,8 +453,8 @@ function TokenOffers({
                   ) : null}
                 </YStack>
               </XStack>
-              <Stack {...COLUMNS.network} />
-              <Stack {...COLUMNS.balance}>
+              <Stack {...COLUMNS.network} {...WIDE_ONLY} />
+              <Stack {...COLUMNS.balance} {...WIDE_ONLY}>
                 <SizableText size="$bodyLgMedium" numberOfLines={1}>
                   {lending.tvlText ?? '-'}
                 </SizableText>
@@ -510,8 +527,8 @@ function TokenOffers({
                 ) : null}
               </YStack>
             </XStack>
-            <Stack {...COLUMNS.network} />
-            <Stack {...COLUMNS.balance}>
+            <Stack {...COLUMNS.network} {...WIDE_ONLY} />
+            <Stack {...COLUMNS.balance} {...WIDE_ONLY}>
               <EarnText
                 size="$bodyLgMedium"
                 numberOfLines={1}
@@ -627,7 +644,7 @@ function TokenRow({
             ) : null}
           </YStack>
         </XStack>
-        <Stack {...COLUMNS.network}>
+        <Stack {...COLUMNS.network} {...WIDE_ONLY}>
           <NetworkAvatarGroup
             networkIds={row.networkIds}
             size="$5"
@@ -635,7 +652,7 @@ function TokenRow({
             maxVisible={3}
           />
         </Stack>
-        <Stack {...COLUMNS.balance}>
+        <Stack {...COLUMNS.balance} {...WIDE_ONLY}>
           {/* Empty when there's nothing to deposit, whether the balance is 0
               or unknown: a dash on most rows would say nothing */}
           {new BigNumber(row.balance ?? 0).gt(0) ? (
@@ -912,12 +929,12 @@ export function EarnDesktopEarnTab({
                 {intl.formatMessage({ id: ETranslations.global_asset })}
               </HeaderLabel>
             </Stack>
-            <Stack {...COLUMNS.network}>
+            <Stack {...COLUMNS.network} {...WIDE_ONLY}>
               <HeaderLabel>
                 {intl.formatMessage({ id: ETranslations.global_network })}
               </HeaderLabel>
             </Stack>
-            <Stack {...COLUMNS.balance}>
+            <Stack {...COLUMNS.balance} {...WIDE_ONLY}>
               <HeaderLabel align="right">
                 {intl.formatMessage({
                   id: ETranslations.global_wallet_balance,
@@ -938,7 +955,7 @@ export function EarnDesktopEarnTab({
                     <Skeleton w="$8" h="$8" radius="round" />
                     <Skeleton w={96} h={18} borderRadius="$2" />
                   </XStack>
-                  <Stack {...COLUMNS.network}>
+                  <Stack {...COLUMNS.network} {...WIDE_ONLY}>
                     <Skeleton w={64} h={18} borderRadius="$2" />
                   </Stack>
                   <Stack {...column(2.8, 'flex-end')}>

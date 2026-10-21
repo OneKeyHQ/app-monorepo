@@ -37,6 +37,7 @@ import {
 } from './earnDesktopHome.utils';
 import { buildKeyboardPressProps } from './earnDesktopPressable';
 import { EarnDesktopTiles } from './EarnDesktopTiles';
+import { useEarnDesktopHoldRows } from './useEarnDesktopHoldRows';
 import {
   useEarnDesktopAccountMarkets,
   useEarnDesktopMarkets,
@@ -44,6 +45,7 @@ import {
 } from './useEarnDesktopHomeData';
 
 import type { IEarnDesktopFocusRequest } from './EarnDesktopEarnTab';
+import type { IEarnDesktopHoldRow } from './earnDesktopHome.utils';
 import type { IUseEarnPortfolioReturn } from '../../hooks/useEarnPortfolio';
 
 type IHomeTab = 'earn' | 'loans';
@@ -288,9 +290,8 @@ export function EarnDesktopHome({
     lending.lendingTotal > 0 ||
     accountMarkets.loans.length > 0;
   // Partial sums are wrong numbers: the hero waits for the portfolio and the
-  // markets, the tiles for those and the wallet, and then each shows at once
+  // markets, and then shows at once
   const isHeroLoading = !isPortfolioSettled || !accountMarkets.isLoaded;
-  const isTilesLoading = isHeroLoading || !wallet.isLoaded;
 
   // A list that has not been asked for yet counts as loading, so nothing
   // reads it as empty
@@ -302,6 +303,18 @@ export function EarnDesktopHome({
     Boolean(
       loadingStates[`availableAssets-${EAvailableAssetsTypeEnum.FixedRate}`],
     ) || !availableAssetsByType[EAvailableAssetsTypeEnum.FixedRate];
+  const hold = useEarnDesktopHoldRows({
+    networkGroups: wallet.networkGroups,
+    trendingAssets,
+    fixedRateAssets,
+    lendingOffers,
+    isActive,
+    isReady:
+      wallet.isLoaded &&
+      !isAssetsLoading &&
+      !isFixedRateLoading &&
+      isMarketsLoaded,
+  });
 
   const [tab, setTab] = useState<IHomeTab>('earn');
   const [heroHeight, setHeroHeight] = useState<number>();
@@ -331,6 +344,10 @@ export function EarnDesktopHome({
     },
     [scrollToBrowse],
   );
+  const handleOpenHoldRow = useCallback(
+    (row: IEarnDesktopHoldRow) => handleOpenToken(row.asset.symbol),
+    [handleOpenToken],
+  );
   const handleOpenBorrow = useCallback(
     (market?: IBorrowMarketItem) => {
       BorrowNavigation.pushToBorrowHome(navigation, market);
@@ -338,14 +355,16 @@ export function EarnDesktopHome({
     [navigation],
   );
 
-  // Beside the hero from 1024 up; narrower, the hero needs the whole row
-  const hasBanner =
-    media.gtLg &&
-    (isBannerLoading ||
-      bannerList.some(
-        (banner) =>
-          Boolean(banner.bannerId) && Boolean(banner.backgroundImage?.trim()),
-      ));
+  const hasBannerContent =
+    isBannerLoading ||
+    bannerList.some(
+      (banner) =>
+        Boolean(banner.bannerId) && Boolean(banner.backgroundImage?.trim()),
+    );
+  // Beside the hero from 1024 up. At a phone's width it goes under the hero,
+  // as on the phone; in between, the hero needs the whole row
+  const hasBanner = media.gtLg && hasBannerContent;
+  const hasStackedBanner = !media.gtMd && hasBannerContent;
   const bannerCardHeight = Math.max(
     heroHeight ?? BANNER_CARD_HEIGHT,
     BANNER_MIN_HEIGHT,
@@ -399,21 +418,28 @@ export function EarnDesktopHome({
               </YStack>
             ) : null}
           </XStack>
+          {hasStackedBanner ? (
+            // The banner block pads itself out to the page edge, so it takes
+            // the page padding back. Below it, the room its dots keep comes
+            // off the gap, so the card follows as closely as the banner
+            // follows the hero
+            <YStack mx="$-5" mt="$-3" mb="$-8">
+              <EarnHomeBanner banners={bannerList} isLoading={isBannerLoading} />
+            </YStack>
+          ) : null}
           <EarnDesktopTiles
-            investments={investments}
-            loans={accountMarkets.loans}
-            walletHoldings={wallet.holdings}
-            isLoading={isTilesLoading}
+            holdRows={hold.rows}
+            networkNames={hold.networkNames}
+            isLoading={!hold.isLoaded}
             markets={markets}
             isMarketsLoaded={isMarketsLoaded}
             trendingAssets={trendingAssets}
             fixedRateAssets={fixedRateAssets}
             isTrendingLoading={isAssetsLoading}
             isFixedRateLoading={isFixedRateLoading}
-            onOpenPortfolio={onOpenPortfolio}
             onOpenBorrow={handleOpenBorrow}
             onOpenTokens={handleOpenTokens}
-            onOpenToken={handleOpenToken}
+            onOpenHoldRow={handleOpenHoldRow}
           />
         </YStack>
         <YStack id={BROWSE_ANCHOR_ID} gap="$5" mt="$16">

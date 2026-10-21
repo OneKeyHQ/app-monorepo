@@ -4,5 +4,6 @@ export const EARN_DESKTOP_DEMO_COPY = {
   withdrawals: 'Withdrawals',
   upTo: 'Up to',
   from: 'From',
+  aYear: 'a year',
   more: (count: number) => `${count} more`,
 };

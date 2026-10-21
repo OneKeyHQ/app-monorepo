@@ -15,6 +15,7 @@ import {
   Skeleton,
   XStack,
   YStack,
+  useMedia,
 } from '@onekeyhq/components';
 import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeableTextWrapper';
 import { Token } from '@onekeyhq/kit/src/components/Token';
@@ -101,10 +102,12 @@ function HeroButton({
   testID: string;
   onPress: () => void;
 }) {
+  const media = useMedia();
   return (
     <Button
       testID={testID}
-      size="medium"
+      // Three a row at a phone's width too
+      size={media.gtMd ? 'medium' : 'small'}
       variant="secondary"
       icon={icon}
       borderRadius="$full"
@@ -214,7 +217,8 @@ function ProtocolSplit({ shares }: { shares: IEarnDesktopShares }) {
         ))}
         {shares.rest ? <YStack flex={restValue} bg={REST_SHARE_COLOR} /> : null}
       </XStack>
-      <XStack gap="$8" flexWrap="wrap">
+      {/* Four a row at a phone's width too */}
+      <XStack gap="$8" $md={{ gap: '$5' }} flexWrap="wrap">
         {shares.top.map((item) => (
           <YStack key={item.key} gap="$1">
             <XStack gap="$1.5" ai="center">

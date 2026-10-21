@@ -1,12 +1,15 @@
+import type { IEarnAvailableAsset } from '@onekeyhq/shared/types/earn';
 import type {
   IBorrowMarketItem,
   IBorrowReserveItem,
   IEarnPortfolioInvestment,
+  IStakeProtocolListItem,
 } from '@onekeyhq/shared/types/staking';
 import type { IAccountToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 
 import {
   buildBorrowOffers,
+  buildHoldRows,
   buildMarketCard,
   buildProtocolShares,
   collectLendingOffers,
@@ -22,6 +25,8 @@ import {
   sumPortfolioDeposits,
   sumWalletHoldings,
 } from './earnDesktopHome.utils';
+
+import type { IEarnDesktopLendingOffer } from './earnDesktopHome.utils';
 
 const investment = (
   code: string,
@@ -797,5 +802,138 @@ describe('collectTileRows', () => {
     expect(rewards.rows[1].action).toBeUndefined();
     expect(withdrawals.rows[0].action?.source).toBe('asset');
     expect(withdrawals.rows[3].action).toBeUndefined();
+  });
+});
+
+describe('buildHoldRows', () => {
+  const earnAsset = (symbol: string) =>
+    ({
+      symbol,
+      name: symbol,
+      logoURI: '',
+      protocols: [],
+    }) as unknown as IEarnAvailableAsset;
+  const protocol = (
+    provider: string,
+    networkId: string,
+    apr: string,
+    extra: Partial<IStakeProtocolListItem> = {},
+  ) =>
+    ({
+      provider: {
+        name: provider,
+        vault: `${provider}-vault`,
+        aprWithoutFee: apr,
+      },
+      network: { networkId, name: networkId, logoURI: '' },
+      isEarning: false,
+      ...extra,
+    }) as unknown as IStakeProtocolListItem;
+  const lending = (provider: string, networkId: string, apy: string) =>
+    ({
+      key: `${provider}:${networkId}:usdc`,
+      market: market(provider, networkId, provider),
+      marketLabel: provider,
+      reserveAddress: 'usdc',
+      symbol: 'USDC',
+      logoURI: '',
+      apy,
+    }) as IEarnDesktopLendingOffer;
+
+  it('lists a token once per network with the offers on that network', () => {
+    // The 10-21 test wallet: USDC on Arbitrum, Ethereum and Avalanche
+    const rows = buildHoldRows({
+      groups: [
+        {
+          accountId: 'a',
+          networkId: 'evm--1',
+          tokens: [walletToken('USDC', 'eth_usdc')],
+          map: { eth_usdc: walletFiat('4.025784', '4.02') },
+        },
+        {
+          accountId: 'a',
+          networkId: 'evm--42161',
+          tokens: [walletToken('USDC', 'arb_usdc')],
+          map: { arb_usdc: walletFiat('355.739591', '355.53') },
+        },
+        {
+          accountId: 'a',
+          networkId: 'evm--43114',
+          tokens: [walletToken('USDC', 'avax_usdc')],
+          map: { avax_usdc: walletFiat('105.4', '105.34') },
+        },
+      ],
+      assets: [earnAsset('USDC')],
+      protocolsBySymbol: new Map([
+        [
+          'usdc',
+          [
+            protocol('spark', 'evm--1', '5.42'),
+            protocol('morpho', 'evm--1', '3.82'),
+          ],
+        ],
+      ]),
+      lendingOffers: new Map([
+        [
+          'usdc',
+          [
+            lending('aave', 'evm--42161', '2.37'),
+            lending('aave', 'evm--1', '3.85'),
+          ],
+        ],
+      ]),
+    });
+    // Avalanche has nothing to earn on, so it stays out; the most valuable
+    // first, each with its best rate first
+    expect(
+      rows.map((row) => [
+        row.networkId,
+        row.amount,
+        row.offers.map((offer) => offer.apr),
+      ]),
+    ).toEqual([
+      ['evm--42161', '355.739591', [2.37]],
+      ['evm--1', '4.025784', [5.42, 3.85, 3.82]],
+    ]);
+  });
+
+  it('leaves out redeem-only and zero-rate offers, and a market listed twice', () => {
+    const rows = buildHoldRows({
+      groups: [
+        {
+          accountId: 'a',
+          networkId: 'sol--101',
+          tokens: [
+            walletToken('USDC', 'sol_usdc'),
+            walletToken('USDC', 'sol_position', { defiMarked: true }),
+          ],
+          map: {
+            sol_usdc: walletFiat('10', '10'),
+            sol_position: walletFiat('50', '50'),
+          },
+        },
+      ],
+      assets: [earnAsset('USDC')],
+      protocolsBySymbol: new Map([
+        [
+          'usdc',
+          [
+            protocol('kamino', 'sol--101', '4.58'),
+            protocol('jupiter', 'sol--101', '6.1', {
+              aprInfo: { button: { type: 'redeem' } },
+            }),
+            protocol('drift', 'sol--101', '0'),
+          ],
+        ],
+      ]),
+      lendingOffers: new Map([
+        ['usdc', [lending('kamino', 'sol--101', '6.10')]],
+      ]),
+    });
+    expect(rows).toHaveLength(1);
+    expect(rows[0].fiatValueUsd).toBe('10');
+    expect(rows[0].offers.map((offer) => [offer.kind, offer.apr])).toEqual([
+      ['protocol', 4.58],
+    ]);
   });
 });

@@ -1,11 +1,15 @@
 import BigNumber from 'bignumber.js';
 
 import { USD_CURRENCY_ID } from '@onekeyhq/shared/src/consts/currencyConsts';
+import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import tokenRebaseUtils from '@onekeyhq/shared/src/utils/tokenRebaseUtils';
+import type { IEarnAvailableAsset } from '@onekeyhq/shared/types/earn';
+import { normalizeToEarnProvider } from '@onekeyhq/shared/types/earn/earnProvider.constants';
 import type {
   IBorrowMarketItem,
   IBorrowReserveItem,
   IEarnPortfolioInvestment,
+  IStakeProtocolListItem,
 } from '@onekeyhq/shared/types/staking';
 import type { IAccountToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 
@@ -911,4 +915,162 @@ export function collectLendingOffers({
     });
   });
   return bySymbol;
+}
+
+// ---------- Earns on your holding ----------
+
+// The protocols page's rule: the server category, else Pendle means fixed rate
+export const isFixedRateProtocol = (item: IStakeProtocolListItem) => {
+  const category = item.provider.category?.trim();
+  if (category === 'fixedRate' || category === 'simpleEarn') {
+    return category === 'fixedRate';
+  }
+  return earnUtils.isPendleProvider({ providerName: item.provider.name });
+};
+
+/** One account's tokens on one network */
+export type IEarnDesktopWalletNetworkGroup = IEarnDesktopWalletTokenGroup & {
+  accountId: string;
+  networkId: string;
+};
+
+export type IEarnDesktopHoldOffer =
+  | {
+      kind: 'protocol';
+      key: string;
+      apr: number;
+      isFixedRate: boolean;
+      item: IStakeProtocolListItem;
+    }
+  | {
+      kind: 'lending';
+      key: string;
+      apr: number;
+      isFixedRate: false;
+      offer: IEarnDesktopLendingOffer;
+    };
+
+export type IEarnDesktopHoldRow = {
+  key: string;
+  accountId: string;
+  networkId: string;
+  token: IAccountToken;
+  /** The balance in display units */
+  amount: string;
+  /** Its value in USD, the basis the token cache keeps; shown converted */
+  fiatValueUsd: string;
+  asset: IEarnAvailableAsset;
+  /** What the token can earn on its own network, the best rate first */
+  offers: IEarnDesktopHoldOffer[];
+};
+
+// Each token the wallet holds, one row per network, with what Earn offers
+// for it on that same network; the most valuable first. A token with nothing
+// to earn where it sits is left out, since earning it means moving it first
+export function buildHoldRows({
+  groups,
+  assets,
+  protocolsBySymbol,
+  lendingOffers,
+}: {
+  groups: IEarnDesktopWalletNetworkGroup[];
+  assets: IEarnAvailableAsset[];
+  /** The protocol lists, keyed by lowercased symbol */
+  protocolsBySymbol: Map<string, IStakeProtocolListItem[]>;
+  lendingOffers: Map<string, IEarnDesktopLendingOffer[]>;
+}): IEarnDesktopHoldRow[] {
+  const assetBySymbol = new Map<string, IEarnAvailableAsset>();
+  assets.forEach((asset) => {
+    const key = asset.symbol.toLowerCase();
+    if (!assetBySymbol.has(key)) {
+      assetBySymbol.set(key, asset);
+    }
+  });
+  const rows: IEarnDesktopHoldRow[] = [];
+  groups.forEach(({ accountId, networkId, tokens, map }) => {
+    tokens.forEach((token) => {
+      const fiat = map[token.$key];
+      // Risk tokens never come in; DeFi-marked tokens are positions, not
+      // idle balance; a shared-balance twin is the same balance read twice
+      if (!fiat || token.defiMarked || fiat.sharedBalanceExcludedFromTotal) {
+        return;
+      }
+      const symbolKey = token.symbol.toLowerCase();
+      const asset = assetBySymbol.get(symbolKey);
+      if (!asset) {
+        return;
+      }
+      const amount = new BigNumber(
+        tokenRebaseUtils.applyBalanceMultiplier({
+          amount: fiat.balanceParsed,
+          balanceMultiplier: fiat.balanceMultiplier ?? token.balanceMultiplier,
+        }),
+      );
+      if (!amount.isFinite() || amount.lte(0)) {
+        return;
+      }
+      const protocolOffers = (protocolsBySymbol.get(symbolKey) ?? [])
+        .filter(
+          (item) =>
+            item.network.networkId === networkId &&
+            item.aprInfo?.button?.type !== 'redeem',
+        )
+        .map((item) => ({
+          kind: 'protocol' as const,
+          key: `${networkId}-${item.provider.name}-${item.provider.vault ?? ''}`,
+          apr: parseAprPercentValue(item.provider.aprWithoutFee),
+          isFixedRate: isFixedRateProtocol(item),
+          item,
+        }));
+      // A market the protocol list already carries must not count twice
+      const listed = new Set(
+        protocolOffers.map((offer) =>
+          (
+            normalizeToEarnProvider(offer.item.provider.name) ??
+            offer.item.provider.name
+          ).toLowerCase(),
+        ),
+      );
+      const lendingRows = (lendingOffers.get(symbolKey) ?? [])
+        .filter(
+          (offer) =>
+            offer.market.networkId === networkId &&
+            !listed.has(offer.market.provider.toLowerCase()),
+        )
+        .map((offer) => ({
+          kind: 'lending' as const,
+          key: offer.key,
+          apr: parseAprPercentValue(offer.apy),
+          isFixedRate: false as const,
+          offer,
+        }));
+      const offers: IEarnDesktopHoldOffer[] = [
+        ...protocolOffers,
+        ...lendingRows,
+      ]
+        .filter((offer) => offer.apr > 0)
+        .toSorted((a, b) => b.apr - a.apr);
+      if (!offers.length) {
+        return;
+      }
+      const value = new BigNumber(fiat.fiatValue);
+      rows.push({
+        key: `${accountId}|${networkId}|${token.$key}`,
+        accountId,
+        networkId,
+        token,
+        amount: amount.toFixed(),
+        fiatValueUsd:
+          value.isFinite() &&
+          (fiat.currency ?? USD_CURRENCY_ID) === USD_CURRENCY_ID
+            ? value.toFixed()
+            : '0',
+        asset,
+        offers,
+      });
+    });
+  });
+  return rows.toSorted(
+    (a, b) => Number(b.fiatValueUsd) - Number(a.fiatValueUsd),
+  );
 }
