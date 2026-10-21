@@ -34,6 +34,16 @@ import {
 
 import type { ILocalWalletPool } from './useLocalWalletPool';
 
+// Background errors auto-toast through the standard proxy; a button only
+// needs to keep the rejection from going unhandled.
+function logLocalWalletActionError(action: string) {
+  return (error: unknown) => {
+    console.error(`[privacyChain] ${action} failed`, {
+      error: error instanceof Error ? error.message : '',
+    });
+  };
+}
+
 // Opt-in card when scanning is off, otherwise hints/notes/sync line; with `settingsMode` also carries the account controls.
 export function LocalWalletPoolStatus({
   networkId,
@@ -55,7 +65,7 @@ export function LocalWalletPoolStatus({
 
   const openEnable = useCallback(async () => {
     if (!lw.settings?.accountSetup.requiresBirthday) {
-      void lw.enableAccount({});
+      await lw.enableAccount({}).catch(logLocalWalletActionError('enable'));
       return;
     }
     const hintTimestamp = lw.state?.birthdayHintTimestamp;
@@ -102,11 +112,11 @@ export function LocalWalletPoolStatus({
   }, [openEnable]);
 
   const handleResume = useCallback(async () => {
-    await lw.enableAccount({});
+    await lw.enableAccount({}).catch(logLocalWalletActionError('resume'));
   }, [lw]);
 
   const handleDisable = useCallback(async () => {
-    await lw.disableAccount();
+    await lw.disableAccount().catch(logLocalWalletActionError('pause'));
   }, [lw]);
 
   const handleReset = useCallback(() => {

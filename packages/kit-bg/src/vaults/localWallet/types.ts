@@ -54,6 +54,12 @@ export type ILocalWalletSyncProgress = {
   isSyncing: boolean;
 };
 
+// Why a network's last background sync failed, for the status row and light.
+export type ILocalWalletSyncErrorKind =
+  | 'runtimeUnavailable'
+  | 'nodeUnreachable'
+  | 'failed';
+
 // How a scheduler turn is composed from a step primitive (localWallet/syncTurn.ts).
 export type ILocalWalletSyncTurnPolicy = {
   // Upper bound when the runtime sizes its own requests.

@@ -1,6 +1,9 @@
-import type { ILocalWalletSyncProgress } from '@onekeyhq/kit-bg/src/vaults/localWallet/types';
+import type {
+  ILocalWalletSyncErrorKind,
+  ILocalWalletSyncProgress,
+} from '@onekeyhq/kit-bg/src/vaults/localWallet/types';
 import type { IVaultSettings } from '@onekeyhq/kit-bg/src/vaults/types';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { ETranslations, ETranslationsMock } from '@onekeyhq/shared/src/locale';
 
 import type { IntlShape } from 'react-intl';
 
@@ -50,6 +53,24 @@ export function getPrivacyChainSyncLabel({
   return backfilling
     ? ETranslations.global_syncing
     : ETranslations.global_synced;
+}
+
+// What a failed background sync tells the user; the scheduler keeps retrying.
+export function formatPrivacyChainSyncError(
+  kind: ILocalWalletSyncErrorKind | undefined,
+  intl: Pick<IntlShape, 'formatMessage'>,
+): string | undefined {
+  if (!kind) return undefined;
+  if (kind === 'nodeUnreachable') {
+    return intl.formatMessage({
+      id: ETranslations.privacy_error_node_unreachable__msg,
+    });
+  }
+  const id =
+    kind === 'runtimeUnavailable'
+      ? ETranslationsMock.privacy_error_runtime_unavailable__msg
+      : ETranslationsMock.privacy_sync_failed_retrying__msg;
+  return intl.formatMessage({ id, defaultMessage: id });
 }
 
 // One decimal: a multi-year backfill advances well under 1% per minute, and a

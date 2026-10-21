@@ -1,3 +1,8 @@
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { ETranslations, ETranslationsMock } from '@onekeyhq/shared/src/locale';
+
+import { localWalletText } from '../vaults/localWallet/messages';
+
 import type {
   ILocalWalletAccount,
   ILocalWalletCapability,
@@ -114,13 +119,59 @@ describe('Privacy Mode enabled-account ceiling', () => {
         networkId,
         accountId: "hd-1--m/44'/133'/0'",
       }),
-    ).rejects.toBe(unsupported);
+    ).rejects.toMatchObject({
+      message: localWalletText(
+        ETranslations.privacy_error_webview_outdated__msg,
+      ),
+      autoToast: true,
+    });
     const update = privacyChainAtom.set.mock.calls[0][0] as (value: {
       storageUnsupportedNetworkIds: string[];
     }) => { storageUnsupportedNetworkIds: string[] };
     expect(
       update({ storageUnsupportedNetworkIds: [] }).storageUnsupportedNetworkIds,
     ).toEqual([networkId]);
+  });
+
+  // QA: a Worker that crashed at load timed out the handshake and the enable
+  // dialog showed nothing.
+  it('rejects a dead runtime with a worded, toasting error', async () => {
+    const { service } = createService({
+      maxEnabledAccounts: 5,
+      accounts: [],
+      enableError: new OneKeyLocalError({
+        message: 'zcash worker: handshake timed out',
+        data: { privacyChainRuntimeFailure: 'handshake' },
+      }),
+    });
+
+    await expect(
+      service.enableLocalWalletAccount({
+        networkId,
+        accountId: "hd-1--m/44'/133'/0'",
+      }),
+    ).rejects.toMatchObject({
+      message: ETranslationsMock.privacy_error_runtime_unavailable__msg,
+      autoToast: true,
+    });
+  });
+
+  it('toasts any other enable failure with its own message', async () => {
+    const { service } = createService({
+      maxEnabledAccounts: 5,
+      accounts: [],
+      enableError: new Error('treestate fetch failed'),
+    });
+
+    await expect(
+      service.enableLocalWalletAccount({
+        networkId,
+        accountId: "hd-1--m/44'/133'/0'",
+      }),
+    ).rejects.toMatchObject({
+      message: 'treestate fetch failed',
+      autoToast: true,
+    });
   });
 
   it('refuses a sixth scanning identity', async () => {
