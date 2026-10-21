@@ -279,7 +279,16 @@ describe('StockTokenVariantSelector', () => {
     expect(screen.getByText('Token/Balance')).toBeTruthy();
     expect(screen.getByText('Issuer')).toBeTruthy();
     expect(screen.getByText('Quote price')).toBeTruthy();
-    expect(screen.getByText('24/7')).toBeTruthy();
+    // The selected bStocks token is always open: tagged in its row and in
+    // the trigger that shows it after picking.
+    expect(
+      within(screen.getByTestId('stock-token-variant-row-0')).getByText('24/7'),
+    ).toBeTruthy();
+    expect(
+      within(
+        screen.getByTestId('stock-token-variant-selector-trigger-0'),
+      ).getByText('24/7'),
+    ).toBeTruthy();
     expect(screen.getByText('0.001')).toBeTruthy();
     expect(screen.getByText('bStocks')).toBeTruthy();
     expect(screen.getAllByText('Ondo')).toHaveLength(2);

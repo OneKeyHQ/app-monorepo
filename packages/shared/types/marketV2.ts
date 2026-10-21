@@ -206,6 +206,10 @@ export interface IMarketStockInfo {
   subtitle: string;
   source?: string;
   sourceLogoUri: string;
+  // Set only from the stock feed, which names the listing market: true for a
+  // US listing, false for any other (e.g. HK), which gets no US session
+  // status. Token data carries no listing market and leaves it unset.
+  isUSListing?: boolean;
   isOpen?: boolean;
   // Localized description from backend (tooltip when open, countdown + tooltip when closed)
   description?: string;
