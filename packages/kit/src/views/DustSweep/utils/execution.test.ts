@@ -1452,6 +1452,8 @@ describe('Dust Sweep serial execution boundaries', () => {
   it.each([ESwapTxHistoryStatus.SUCCESS, ESwapTxHistoryStatus.FAILED])(
     'resolves a nonce API error from the exact signed hash to %s without resending',
     async (state) => {
+      jest.useFakeTimers();
+      const controller = new AbortController();
       const txId = `0x${'12'.repeat(32)}`;
       const message = 'Nonce (265) has already been used; next nonce is 266';
       mockSend.mockImplementationOnce(async (params) => {
@@ -1465,77 +1467,262 @@ describe('Dust Sweep serial execution boundaries', () => {
           { networkId: snapshot.networkId, txId },
         );
       });
-      mockTxState.mockResolvedValueOnce({ state });
-      const options = createOptions();
-      await expect(executeDustSweepItem(options)).resolves.toMatchObject({
-        status: state === ESwapTxHistoryStatus.SUCCESS ? 'success' : 'failed',
-      });
-      expect(options.onSubmissionError).toHaveBeenCalledWith(message);
-      expect(options.onBroadcast).toHaveBeenCalledWith(txId);
-      expect(mockTxState).toHaveBeenCalledWith(
-        expect.objectContaining({ txId }),
+      mockTxState
+        .mockResolvedValueOnce({ state: ESwapTxHistoryStatus.PENDING })
+        .mockResolvedValueOnce({
+          state,
+          dealReceiveAmount: '0.009',
+          blockNumber:
+            state === ESwapTxHistoryStatus.FAILED ? 12_345 : undefined,
+        })
+        .mockResolvedValue({ state: ESwapTxHistoryStatus.PENDING });
+      const options = { ...createOptions(), signal: controller.signal };
+      let outcome: unknown;
+      const completion = executeDustSweepItem(options).then(
+        (result) => {
+          outcome = result;
+        },
+        (error: unknown) => {
+          outcome = error;
+        },
       );
-      expect(mockSend).toHaveBeenCalledTimes(1);
+      try {
+        await jest.advanceTimersByTimeAsync(0);
+        expect(options.onSigning).toHaveBeenCalledTimes(1);
+        expect(options.onSubmissionError).toHaveBeenCalledWith(message);
+        expect(options.onBroadcast).not.toHaveBeenCalled();
+        expect(options.onPrepared).not.toHaveBeenCalled();
+        expect(mockHistory).not.toHaveBeenCalled();
+        await jest.advanceTimersByTimeAsync(3000);
+        expect(outcome).toMatchObject({
+          status: state === ESwapTxHistoryStatus.SUCCESS ? 'success' : 'failed',
+        });
+        expect(options.onBroadcast).toHaveBeenCalledTimes(1);
+        expect(options.onBroadcast).toHaveBeenCalledWith(txId);
+        expect(mockHistory).toHaveBeenCalledTimes(1);
+        expect(mockHistory).toHaveBeenCalledWith(
+          expect.objectContaining({ txId }),
+        );
+        expect(mockTxState).toHaveBeenCalledTimes(2);
+        expect(
+          mockTxState.mock.calls.every(([params]) => params.txId === txId),
+        ).toBe(true);
+        expect(mockSend).toHaveBeenCalledTimes(1);
+        expect(jest.getTimerCount()).toBe(0);
+      } finally {
+        controller.abort();
+        await completion;
+        jest.useRealTimers();
+      }
     },
   );
 
-  it('keeps the API error and polls an unconfirmed signed hash without resending', async () => {
-    jest.useFakeTimers();
-    const controller = new AbortController();
-    const options = { ...createOptions(), signal: controller.signal };
+  describe.each(['swap', 'approval'] as const)('recovered %s hash', (kind) => {
     const txId = `0x${'34'.repeat(32)}`;
-    mockSend.mockImplementationOnce(async (params) => {
-      await params.onBeforeSignAndSend?.();
-      throw withBroadcastTxContext(
-        Object.assign(new Error('Broadcast response unavailable'), {
-          className: EOneKeyErrorClassNames.OneKeyServerApiError,
-        }),
-        { networkId: snapshot.networkId, txId },
-      );
-    });
-    mockTxState.mockRejectedValue(new Error('RPC unavailable'));
-    const completion = executeDustSweepItem(options).catch(
-      (error: unknown) => error,
-    );
-    try {
-      await jest.advanceTimersByTimeAsync(90_000);
-      expect(mockSend).toHaveBeenCalledTimes(1);
-      expect(options.onSubmissionError).toHaveBeenCalledWith(
-        'Broadcast response unavailable',
-      );
-      expect(mockTxState.mock.calls.length).toBeGreaterThan(20);
-    } finally {
-      controller.abort();
-      await completion;
-      jest.useRealTimers();
-    }
-  });
+    const message = 'Nonce (265) has already been used; next nonce is 266';
 
-  it('retains an approval response error as an approval and confirms it before signing the swap', async () => {
-    const txId = `0x${'56'.repeat(32)}`;
-    mockAllowance.mockResolvedValueOnce(
-      createAllowance({ isApproved: false, approveAmounted: '0' }),
-    );
-    mockSend.mockImplementationOnce(async (params) => {
-      await params.onBeforeSignAndSend?.();
-      throw withBroadcastTxContext(new Error('timeout'), {
-        networkId: snapshot.networkId,
-        txId,
+    beforeEach(() => {
+      if (kind === 'approval') {
+        mockAllowance.mockResolvedValueOnce(
+          createAllowance({ isApproved: false, approveAmounted: '0' }),
+        );
+      }
+      mockSend.mockImplementationOnce(async (params) => {
+        await params.onBeforeSignAndSend?.();
+        throw withBroadcastTxContext(
+          Object.assign(new OneKeyLocalError(message), {
+            className: EOneKeyErrorClassNames.OneKeyServerApiError,
+            code: 40_024,
+          }),
+          { networkId: snapshot.networkId, txId },
+        );
       });
     });
-    const options = createOptions();
-    await expect(executeDustSweepItem(options)).resolves.toMatchObject({
-      status: 'success',
+
+    it.each([
+      { scenario: 'pending', blockNumber: undefined },
+      ...[undefined, 0, -1, 0.5, Number.NaN, Number.POSITIVE_INFINITY].map(
+        (blockNumber) => ({
+          scenario: 'failed-without-valid-block',
+          blockNumber,
+        }),
+      ),
+      { scenario: 'transport-error', blockNumber: undefined },
+      { scenario: 'hung-read', blockNumber: undefined },
+    ])(
+      'blocks within 60 seconds for $scenario (blockNumber=$blockNumber) without recording a broadcast or resending',
+      async ({ scenario, blockNumber }) => {
+        jest.useFakeTimers();
+        const controller = new AbortController();
+        const options = { ...createOptions(), signal: controller.signal };
+        let resolveRead:
+          | ((value: Awaited<ReturnType<typeof mockTxState>>) => void)
+          | undefined;
+        if (scenario === 'pending') {
+          mockTxState.mockResolvedValue({
+            state: ESwapTxHistoryStatus.PENDING,
+          });
+        } else if (scenario === 'failed-without-valid-block') {
+          mockTxState.mockResolvedValue({
+            state: ESwapTxHistoryStatus.FAILED,
+            blockNumber,
+          });
+        } else if (scenario === 'transport-error') {
+          mockTxState.mockRejectedValue(
+            new OneKeyLocalError('RPC unavailable'),
+          );
+        } else {
+          mockTxState.mockImplementation(
+            () =>
+              new Promise((resolve) => {
+                resolveRead = resolve;
+              }),
+          );
+        }
+        let outcome: unknown;
+        const completion = executeDustSweepItem(options).then(
+          (result) => {
+            outcome = result;
+          },
+          (error: unknown) => {
+            outcome = error;
+          },
+        );
+        try {
+          await jest.advanceTimersByTimeAsync(59_999);
+          expect(outcome).toBeUndefined();
+          await jest.advanceTimersByTimeAsync(1);
+          expect(outcome).toBeInstanceOf(DustSweepUnknownSubmission);
+          expect(outcome).toMatchObject({ submissionErrorMessage: message });
+          expect(controller.signal.aborted).toBe(false);
+          expect(options.onSigning).toHaveBeenCalledTimes(1);
+          expect(options.onSubmissionError).toHaveBeenCalledWith(message);
+          expect(options.onBroadcast).not.toHaveBeenCalled();
+          expect(options.onApprovalBroadcast).not.toHaveBeenCalled();
+          expect(options.onPrepared).not.toHaveBeenCalled();
+          expect(mockHistory).not.toHaveBeenCalled();
+          expect(mockSend).toHaveBeenCalledTimes(1);
+          expect(
+            mockTxState.mock.calls.every(([params]) => params.txId === txId),
+          ).toBe(true);
+          const pollsAtDeadline = mockTxState.mock.calls.length;
+          resolveRead?.({ state: ESwapTxHistoryStatus.SUCCESS });
+          await jest.advanceTimersByTimeAsync(60_000);
+          expect(mockTxState).toHaveBeenCalledTimes(pollsAtDeadline);
+          expect(mockHistory).not.toHaveBeenCalled();
+          expect(options.onBroadcast).not.toHaveBeenCalled();
+          expect(options.onApprovalBroadcast).not.toHaveBeenCalled();
+          expect(mockSend).toHaveBeenCalledTimes(1);
+          expect(jest.getTimerCount()).toBe(0);
+        } finally {
+          controller.abort();
+          await completion;
+          jest.useRealTimers();
+        }
+      },
+    );
+
+    it('cleans up its confirmation deadline when its parent aborts', async () => {
+      jest.useFakeTimers();
+      const controller = new AbortController();
+      const options = { ...createOptions(), signal: controller.signal };
+      mockTxState.mockImplementation(() => new Promise(() => {}));
+      const completion = executeDustSweepItem(options).catch(
+        (error: unknown) => error,
+      );
+      try {
+        await jest.advanceTimersByTimeAsync(0);
+        expect(mockTxState).toHaveBeenCalledTimes(1);
+        controller.abort();
+        const outcome: unknown = await completion;
+        expect(outcome).toBeInstanceOf(DustSweepUnknownSubmission);
+        expect(outcome).toMatchObject({ submissionErrorMessage: message });
+        expect(jest.getTimerCount()).toBe(0);
+        await jest.advanceTimersByTimeAsync(60_000);
+        expect(mockTxState).toHaveBeenCalledTimes(1);
+        expect(options.onBroadcast).not.toHaveBeenCalled();
+        expect(options.onApprovalBroadcast).not.toHaveBeenCalled();
+        expect(options.onPrepared).not.toHaveBeenCalled();
+        expect(mockHistory).not.toHaveBeenCalled();
+        expect(mockSend).toHaveBeenCalledTimes(1);
+      } finally {
+        controller.abort();
+        await completion;
+        jest.useRealTimers();
+      }
     });
-    expect(options.onApprovalBroadcast).toHaveBeenCalledWith([txId]);
-    expect(options.onBroadcast).toHaveBeenCalledWith('swap');
-    expect(options.onBroadcast).not.toHaveBeenCalledWith(txId);
-    expect(mockTxState).toHaveBeenNthCalledWith(1, {
-      networkId: snapshot.networkId,
-      txId,
-    });
-    expect(mockSend).toHaveBeenCalledTimes(2);
   });
+
+  it.each([ESwapTxHistoryStatus.SUCCESS, ESwapTxHistoryStatus.FAILED])(
+    'confirms a recovered approval as %s before retaining it or signing a swap',
+    async (state) => {
+      jest.useFakeTimers();
+      const controller = new AbortController();
+      const txId = `0x${'56'.repeat(32)}`;
+      mockAllowance.mockResolvedValueOnce(
+        createAllowance({ isApproved: false, approveAmounted: '0' }),
+      );
+      mockSend.mockImplementationOnce(async (params) => {
+        await params.onBeforeSignAndSend?.();
+        throw withBroadcastTxContext(new OneKeyLocalError('timeout'), {
+          networkId: snapshot.networkId,
+          txId,
+        });
+      });
+      mockTxState
+        .mockResolvedValueOnce({ state: ESwapTxHistoryStatus.PENDING })
+        .mockResolvedValueOnce({
+          state,
+          blockNumber:
+            state === ESwapTxHistoryStatus.FAILED ? 12_345 : undefined,
+        });
+      const options = { ...createOptions(), signal: controller.signal };
+      let outcome: unknown;
+      const completion = executeDustSweepItem(options).then(
+        (result) => {
+          outcome = result;
+        },
+        (error: unknown) => {
+          outcome = error;
+        },
+      );
+      try {
+        await jest.advanceTimersByTimeAsync(0);
+        expect(options.onApprovalBroadcast).not.toHaveBeenCalled();
+        expect(options.onPrepared).not.toHaveBeenCalled();
+        expect(options.onBroadcast).not.toHaveBeenCalled();
+        expect(mockHistory).not.toHaveBeenCalled();
+        expect(mockSend).toHaveBeenCalledTimes(1);
+        await jest.advanceTimersByTimeAsync(3000);
+        expect(options.onApprovalBroadcast).toHaveBeenCalledTimes(1);
+        expect(options.onApprovalBroadcast).toHaveBeenCalledWith([txId]);
+        expect(options.onBroadcast).not.toHaveBeenCalledWith(txId);
+        expect(
+          mockTxState.mock.calls.filter(([params]) => params.txId === txId),
+        ).toHaveLength(2);
+        if (state === ESwapTxHistoryStatus.SUCCESS) {
+          expect(outcome).toMatchObject({ status: 'success' });
+          expect(options.onBroadcast).toHaveBeenCalledWith('swap');
+          expect(mockSend).toHaveBeenCalledTimes(2);
+          expect(mockHistory).toHaveBeenCalledTimes(1);
+          expect(mockHistory).toHaveBeenCalledWith(
+            expect.objectContaining({ txId: 'swap' }),
+          );
+        } else {
+          expect(outcome).toBeInstanceOf(DustSweepSkip);
+          expect(outcome).toMatchObject({ reason: 'txFailed' });
+          expect(options.onBroadcast).not.toHaveBeenCalled();
+          expect(mockSend).toHaveBeenCalledTimes(1);
+          expect(mockHistory).not.toHaveBeenCalled();
+        }
+        expect(jest.getTimerCount()).toBe(0);
+      } finally {
+        controller.abort();
+        await completion;
+        jest.useRealTimers();
+      }
+    },
+  );
 
   it('preserves the API message but blocks a submission with no usable signed hash', async () => {
     const message = 'Nonce (265) has already been used';

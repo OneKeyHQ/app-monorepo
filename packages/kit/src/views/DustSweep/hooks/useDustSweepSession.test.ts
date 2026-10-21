@@ -566,6 +566,84 @@ it('keeps an unconfirmed submission blocked instead of stopping', async () => {
   expect(mockResultLog).not.toHaveBeenCalled();
 });
 
+it('finishes Stop as blocked when recovered-hash verification remains unknown', async () => {
+  const verification = deferred<void>();
+  const message = 'Nonce already used; signed transaction is unconfirmed';
+  execute.mockImplementationOnce(async ({ onSigning }) => {
+    onSigning();
+    await verification.promise;
+    throw Object.assign(new DustSweepUnknownSubmission(message), {
+      submissionErrorMessage: message,
+    });
+  });
+  const { result } = renderHook(() => useDustSweepSession([], { minRunMs: 0 }));
+  act(() => {
+    result.current.start(snapshot);
+  });
+  const activeSnapshot = result.current.state.snapshot;
+  act(() => result.current.pause());
+  const onStopped = jest.fn();
+  let stop: Promise<boolean> | undefined;
+  let stopSettled = false;
+  act(() => {
+    stop = result.current.stop(onStopped);
+    void stop.then(() => {
+      stopSettled = true;
+    });
+  });
+  await act(async () => {
+    await Promise.resolve();
+  });
+
+  expect(result.current.stopping).toBe(true);
+  expect(stopSettled).toBe(false);
+  expect(result.current.state.phase).toBe('paused');
+  expect(result.current.state.items.map((item) => item.status)).toEqual([
+    'signing',
+    'waiting',
+  ]);
+  expect(execute.mock.calls[0][0].signal.aborted).toBe(false);
+  expect(onStopped).not.toHaveBeenCalled();
+  act(() => {
+    result.current.resume();
+    result.current.start(snapshot);
+  });
+  expect(execute).toHaveBeenCalledTimes(1);
+
+  let stopped: boolean | undefined;
+  await act(async () => {
+    verification.resolve();
+    stopped = await stop;
+  });
+
+  expect(stopped).toBe(false);
+  expect(stopSettled).toBe(true);
+  expect(result.current.stopping).toBe(false);
+  expect(result.current.state.phase).toBe('blocked');
+  expect(result.current.state.snapshot).toBe(activeSnapshot);
+  expect(result.current.state.items[0]).toMatchObject({
+    status: 'unknown',
+    submissionErrorMessage: message,
+  });
+  expect(result.current.state.items[0].txId).toBeUndefined();
+  expect(result.current.state.items[0].approvalTxIds).toBeUndefined();
+  expect(result.current.state.items[1].status).toBe('waiting');
+  expect(onStopped).not.toHaveBeenCalled();
+  expect(mockResultLog).not.toHaveBeenCalled();
+  act(() => {
+    result.current.resume();
+    result.current.reset();
+    result.current.start(snapshot);
+  });
+  expect(result.current.state.phase).toBe('blocked');
+  expect(execute).toHaveBeenCalledTimes(1);
+  await act(async () => {
+    expect(await result.current.stop(onStopped)).toBe(false);
+  });
+  expect(result.current.stopping).toBe(false);
+  expect(onStopped).not.toHaveBeenCalled();
+});
+
 it('only stops a paused session', async () => {
   execute.mockImplementation(() => new Promise<IResult>(() => {}));
   const { result } = renderHook(() => useDustSweepSession([], { minRunMs: 0 }));

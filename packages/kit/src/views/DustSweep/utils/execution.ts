@@ -39,6 +39,7 @@ import {
 } from '@onekeyhq/shared/types/swap/types';
 import type {
   IFetchQuoteResult,
+  IFetchSwapTxHistoryStatusResponse,
   ISwapToken,
 } from '@onekeyhq/shared/types/swap/types';
 
@@ -114,6 +115,7 @@ function isUserCancellationError(error: unknown) {
 }
 
 function getSubmissionError(error: unknown, signing: boolean) {
+  if (error instanceof DustSweepUnknownSubmission) return error;
   if (isUserCancellationError(error)) {
     return new DustSweepUserCanceled();
   }
@@ -274,6 +276,53 @@ async function waitForDustSweepRead<T>(
     return await Promise.race([request(), aborted]);
   } finally {
     signal.removeEventListener('abort', onAbort);
+  }
+}
+
+async function confirmRecoveredBroadcast({
+  fetchState,
+  signal,
+  message,
+}: {
+  fetchState: () => Promise<IFetchSwapTxHistoryStatusResponse>;
+  signal: AbortSignal;
+  message?: string;
+}) {
+  if (signal.aborted) throw new DustSweepUnknownSubmission(message);
+  const observation = new AbortController();
+  const abort = () => observation.abort();
+  signal.addEventListener('abort', abort, { once: true });
+  // A local signature is not a broadcast acknowledgement. Bound this read-only
+  // observation, including hung requests, then block rather than permit a resend.
+  const timeout = setTimeout(abort, 60_000);
+  try {
+    while (!observation.signal.aborted) {
+      try {
+        const result = await waitForDustSweepRead(
+          fetchState,
+          observation.signal,
+        );
+        assertActive(observation.signal);
+        const block = result.blockNumber;
+        // A bare FAILED can also mean "not found" or invalid provider context.
+        // Failed receipts need a block to establish that this exact hash exists.
+        if (
+          result.state === ESwapTxHistoryStatus.SUCCESS ||
+          (result.state === ESwapTxHistoryStatus.FAILED &&
+            typeof block === 'number' &&
+            Number.isSafeInteger(block) &&
+            block > 0)
+        )
+          return result;
+      } catch {
+        // Read errors do not establish whether the signed transaction was accepted.
+      }
+      await waitDustSweepPoll(observation.signal);
+    }
+    throw new DustSweepUnknownSubmission(message);
+  } finally {
+    clearTimeout(timeout);
+    signal.removeEventListener('abort', abort);
   }
 }
 
@@ -575,6 +624,18 @@ export async function executeDustSweepItem(
     signal,
   );
   let txId: string | undefined;
+  let confirmedRecovery: IFetchSwapTxHistoryStatusResponse | undefined;
+  const fetchSwapState = (id: string) =>
+    backgroundApiProxy.serviceSwap.fetchTxState({
+      txId: id,
+      orderId: prepared.execution.orderId,
+      provider: prepared.buildRes.result.info.provider,
+      networkId: snapshot.networkId,
+      protocol: EProtocolOfExchange.SWAP,
+      toTokenAddress: snapshot.nativeToken.contractAddress,
+      receivedAddress: snapshot.address,
+      ctx: prepared.buildRes.ctx,
+    });
   const broadcastedApprovalTxIds = [...(pendingApprovalTxIds ?? [])];
   let signing = false;
   const onBeforeSignAndSend = () => {
@@ -628,9 +689,22 @@ export async function executeDustSweepItem(
       // response can follow a successful broadcast; track that exact signature.
       const context = getBroadcastTxContext(error, snapshot.networkId);
       if (approvalTxId || !context) throw error;
-      retainApproval(context.txId);
       const message = getSubmissionErrorMessage(error);
       if (message) options.onSubmissionError?.(message);
+      const result = await confirmRecoveredBroadcast({
+        fetchState: () =>
+          backgroundApiProxy.serviceSwap.fetchTxState({
+            txId: context.txId,
+            networkId: snapshot.networkId,
+          }),
+        signal,
+        message,
+      });
+      retainApproval(context.txId);
+      if (result.state !== ESwapTxHistoryStatus.SUCCESS)
+        throw new DustSweepSkip('txFailed');
+      assertCanSubmit(options);
+      return;
     }
     if (!approvalTxId) throw new DustSweepUnknownSubmission();
     await waitForBroadcastedApprovals({
@@ -689,12 +763,15 @@ export async function executeDustSweepItem(
     } catch (error) {
       const context = getBroadcastTxContext(error, snapshot.networkId);
       if (txId || !context) throw error;
-      txId = context.txId;
-      // This is a polling identity, not proof of success. Never reconstruct or
-      // resend a transaction just because its broadcast response was an error.
-      onBroadcast(txId);
       const message = getSubmissionErrorMessage(error);
       if (message) options.onSubmissionError?.(message);
+      confirmedRecovery = await confirmRecoveredBroadcast({
+        fetchState: () => fetchSwapState(context.txId),
+        signal,
+        message,
+      });
+      txId = context.txId;
+      onBroadcast(txId);
     }
   } catch (error) {
     if (!txId) {
@@ -717,27 +794,23 @@ export async function executeDustSweepItem(
     }
   }
   if (!txId) throw new DustSweepUnknownSubmission();
-  const { execution, buildRes } = prepared;
+  const { execution } = prepared;
   await completeBroadcastedSwapSuccess({
     txId,
     swapInfo: execution.swapInfo,
     generateSwapHistoryItem,
   });
-  const fetchState = () =>
-    backgroundApiProxy.serviceSwap.fetchTxState({
-      txId,
-      orderId: execution.orderId,
-      provider: buildRes.result.info.provider,
-      networkId: snapshot.networkId,
-      protocol: EProtocolOfExchange.SWAP,
-      toTokenAddress: snapshot.nativeToken.contractAddress,
-      receivedAddress: snapshot.address,
-      ctx: buildRes.ctx,
-    });
+  const broadcastTxId = txId;
   // Pending and transport errors remain pending; no timeout ever authorizes a resend.
   while (!signal.aborted) {
     try {
-      const result = await waitForDustSweepRead(fetchState, signal);
+      const result =
+        confirmedRecovery ??
+        (await waitForDustSweepRead(
+          () => fetchSwapState(broadcastTxId),
+          signal,
+        ));
+      confirmedRecovery = undefined;
       if (result.state === ESwapTxHistoryStatus.SUCCESS) {
         const received = new BigNumber(result.dealReceiveAmount ?? '');
         const receiptUnavailable =
