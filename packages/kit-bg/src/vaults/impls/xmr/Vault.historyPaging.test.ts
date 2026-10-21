@@ -27,6 +27,9 @@ describe('xmr history paging', () => {
     );
     const vault: Vault = Object.assign(Object.create(Vault.prototype), {
       getXmrRuntimeApi: async () => ({ history }),
+      backgroundApi: {
+        simpleDb: { privacyChainState: { getAccountEpoch: async () => 'e1' } },
+      },
     });
 
     const items = await (

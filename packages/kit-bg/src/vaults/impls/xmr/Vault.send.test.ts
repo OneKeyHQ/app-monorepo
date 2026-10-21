@@ -92,7 +92,7 @@ function createVault(options?: {
     backgroundApi: {
       simpleDb: {
         privacyChainKeys,
-        privacyChainJournal: {
+        privacyChainXmrSent: {
           recordXmrSent: jest.fn(
             options?.recordXmrSent ?? (async () => undefined),
           ),
@@ -609,7 +609,7 @@ describe('xmr send: broadcast', () => {
       },
     } as never);
     expect(
-      vault.backgroundApi.simpleDb.privacyChainJournal.recordXmrSent,
+      vault.backgroundApi.simpleDb.privacyChainXmrSent.recordXmrSent,
     ).toHaveBeenCalledWith({
       accountId: ACCOUNT_ID,
       txid: 'deadbeef',

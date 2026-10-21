@@ -133,7 +133,18 @@ function leased<A extends unknown[], R>(
 }
 
 // Last result of each fast-path read, per account and op; Worker memory only, so a restart pays one queued read per op.
+// Only the most recently used entries are kept: history reads differ by page.
+const LAST_READ_RESULTS_MAX = 32;
 const lastReadResults = new Map<string, unknown>();
+
+function rememberLastRead(key: string, result: unknown): void {
+  lastReadResults.delete(key);
+  lastReadResults.set(key, result);
+  if (lastReadResults.size > LAST_READ_RESULTS_MAX) {
+    const oldest = lastReadResults.keys().next();
+    if (!oldest.done) lastReadResults.delete(oldest.value);
+  }
+}
 
 async function resetCarrier(): Promise<void> {
   lastReadResults.clear();
@@ -181,7 +192,7 @@ function readOnlyOrLeased<T>(
     try {
       const startedAt = Date.now();
       const result = read(handle);
-      lastReadResults.set(cacheKey, result);
+      rememberLastRead(cacheKey, result);
       privacyChainPerfLog(`carrier read ${opName}`, {
         ms: Date.now() - startedAt,
         ...summarizeResultSize(result),
@@ -199,7 +210,7 @@ function readOnlyOrLeased<T>(
     return Promise.resolve(lastReadResults.get(cacheKey) as T);
   }
   return leasedFallback(account).then((result) => {
-    lastReadResults.set(cacheKey, result);
+    rememberLastRead(cacheKey, result);
     return result;
   });
 }

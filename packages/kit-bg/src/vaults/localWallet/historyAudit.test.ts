@@ -5,7 +5,7 @@ jest.mock('@onekeyhq/kit-bg/src/dbs/local/localDbInstance', () => ({
 }));
 
 import type { IEncodedTxXmr } from '@onekeyhq/core/src/chains/xmr/types';
-import { SimpleDbEntityPrivacyChainJournal } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityPrivacyChainJournal';
+import { SimpleDbEntityPrivacyChainXmrSent } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityPrivacyChainXmrSent';
 import {
   buildXmrLocalHistoryTx,
   toXmrSentAmount,
@@ -73,7 +73,7 @@ it.each([null, 100])(
       signableHex: 'aabb',
     };
     let stored: unknown;
-    const entity = new SimpleDbEntityPrivacyChainJournal();
+    const entity = new SimpleDbEntityPrivacyChainXmrSent();
     Reflect.set(entity, 'appStorage', {
       getItem: async () => stored,
       setItem: async (_key: string, value: unknown) => {
@@ -87,7 +87,7 @@ it.each([null, 100])(
       getXmrNetwork: async () => 'mainnet' as const,
       backgroundApi: {
         simpleDb: {
-          privacyChainJournal: entity,
+          privacyChainXmrSent: entity,
           // The runtime identity is named by the stored key's fingerprint.
           privacyChainKeys: {
             getKey: async () => ({
@@ -180,6 +180,7 @@ function createZcashRawDetailFixture() {
             > => [],
           },
           privacyChainState: {
+            getAccountEpoch: async () => undefined,
             getZcashPrivacyModeState: async () => ({ intent: 'off' }),
             getZcashAccountMeta: async () => undefined,
           },

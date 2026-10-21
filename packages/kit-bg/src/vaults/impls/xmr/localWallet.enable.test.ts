@@ -60,6 +60,7 @@ function build(stored: { birthdayHeight?: number } = {}) {
     backgroundApi: {
       simpleDb: {
         privacyChainState: {
+          getAccountEpoch: async () => 'e1',
           beginXmrEnable: async () => calls.push('beginEnable'),
           completeXmrEnable: async (params: { birthdayHeight?: number }) => {
             calls.push('completeEnable');
