@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 
+import { buildKeyboardPressProps } from '@onekeyhq/kit/src/views/Earn/components/desktopHome/earnDesktopPressable';
 import StakingFormWrapper from '@onekeyhq/kit/src/views/Staking/components/StakingFormWrapper';
 
 import { useUniversalBorrowAction } from '../UniversalBorrowAction';
@@ -174,6 +175,8 @@ export function ManagePosition(props: IManagePositionProps) {
         disabled: false,
         onPress: onTokenSelectorPress,
         popover: undefined,
+        // Reachable from the keyboard, as a picker that opens on press
+        ...buildKeyboardPressProps(onTokenSelectorPress),
       };
     }
     return tokenSelectorTriggerProps;

@@ -94,10 +94,8 @@ import {
   type IManagePageV2ReceiveInputConfig,
   ManagePageV2ReceiveInput,
 } from '../ManagePageV2ReceiveInput';
-import { EarnActionIcon } from '../ProtocolDetails/EarnActionIcon';
 import { EarnPlatformBonusSection } from '../ProtocolDetails/EarnPlatformBonusSection';
 import { EarnText } from '../ProtocolDetails/EarnText';
-import { EarnTooltip } from '../ProtocolDetails/EarnTooltip';
 import { EarnValidatorSelect } from '../ProtocolDetails/EarnValidatorSelect';
 import {
   PendleAccordionTriggerContent,
@@ -117,11 +115,16 @@ import StakingFormWrapper from '../StakingFormWrapper';
 import { TradeOrBuy } from '../TradeOrBuy';
 import { formatStakingDistanceToNowStrict } from '../utils';
 
+import {
+  StakingApyHeader,
+  StakingRewardsSummary,
+  hasStakingRewardsSummary,
+} from './StakingConfirmationSummary';
+
 import type {
   IManagePositionFooterAction,
   IManagePositionProtocolSwitchConfig,
 } from '../../pages/ManagePosition/components/ManagePositionContent';
-import type { FontSizeTokens } from 'tamagui';
 
 function withRewardUnit(text: string, rewardUnit: string): string {
   return /\s*(APY|APR)\s*$/i.test(text) ? text : `${text} ${rewardUnit}`;
@@ -2153,117 +2156,17 @@ export function UniversalStake({
     // For details page and Position Manage modal, show the full content
     // including the "Est. annual rewards" title and all reward rows.
     const isFromTrending = !!protocolSwitchConfig;
-
-    if (isFromTrending) {
-      const infoRewards = transactionConfirmation?.rewards?.filter(
-        (reward) => !!reward.title.color,
-      );
-      if (!infoRewards?.length) return null;
-      return (
-        <YStack gap="$2">
-          {infoRewards.map((reward) => {
-            const hasTooltip = reward.tooltip?.type === 'text';
-            let descriptionTextSize = (
-              hasTooltip ? '$bodyMd' : '$bodyLgMedium'
-            ) as FontSizeTokens;
-            if (reward.description.size) {
-              descriptionTextSize = reward.description.size;
-            }
-            return (
-              <XStack
-                key={reward.title.text}
-                gap="$1"
-                ai="flex-start"
-                mt="$1.5"
-                flexWrap="wrap"
-              >
-                <XStack gap="$1" flex={1} flexWrap="wrap" ai="center">
-                  <EarnText
-                    text={reward.title}
-                    color={reward.title.color}
-                    size={reward.title.size}
-                  />
-                  <XStack gap="$1" flex={1} flexWrap="wrap" ai="center">
-                    <EarnText
-                      text={reward.description}
-                      size={descriptionTextSize}
-                      color={reward.description.color ?? '$textSubdued'}
-                      flexShrink={1}
-                    />
-                    {hasTooltip ? (
-                      <EarnTooltip
-                        title={reward.title.text}
-                        tooltip={reward.tooltip}
-                      />
-                    ) : null}
-                  </XStack>
-                </XStack>
-              </XStack>
-            );
-          })}
-        </YStack>
-      );
+    if (
+      isFromTrending &&
+      !hasStakingRewardsSummary({ transactionConfirmation, infoOnly: true })
+    ) {
+      return null;
     }
-
-    // Full content for details page and Position Manage modal
     return (
-      <YStack gap="$1.5">
-        <XStack ai="center" gap="$1">
-          <EarnText
-            text={transactionConfirmation?.title}
-            color="$textSubdued"
-            size="$bodyMd"
-            boldTextProps={{
-              size: '$bodyMdMedium',
-            }}
-          />
-          {transactionConfirmation?.tooltip ? (
-            <EarnTooltip
-              title={transactionConfirmation?.title?.text}
-              tooltip={transactionConfirmation?.tooltip}
-            />
-          ) : null}
-        </XStack>
-        {transactionConfirmation?.rewards?.map((reward) => {
-          const hasTooltip = reward.tooltip?.type === 'text';
-          let descriptionTextSize = (
-            hasTooltip ? '$bodyMd' : '$bodyLgMedium'
-          ) as FontSizeTokens;
-          if (reward.description.size) {
-            descriptionTextSize = reward.description.size;
-          }
-          return (
-            <XStack
-              key={reward.title.text}
-              gap="$1"
-              ai="flex-start"
-              flexWrap="wrap"
-            >
-              <XStack gap="$1" flex={1} flexWrap="wrap" ai="center">
-                <EarnText
-                  text={reward.title}
-                  color={reward.title.color}
-                  size={reward.title.size}
-                />
-                <XStack gap="$1" flex={1} flexWrap="wrap" ai="center">
-                  <EarnText
-                    text={reward.description}
-                    size={descriptionTextSize}
-                    color={reward.description.color ?? '$textSubdued'}
-                    flexShrink={1}
-                  />
-                  {hasTooltip ? (
-                    <EarnTooltip
-                      title={reward.title.text}
-                      tooltip={reward.tooltip}
-                    />
-                  ) : null}
-                </XStack>
-              </XStack>
-            </XStack>
-          );
-        })}
-      </YStack>
+      <StakingRewardsSummary
+        transactionConfirmation={transactionConfirmation}
+        infoOnly={isFromTrending}
+      />
     );
   }, [
     hasSummarySection,
@@ -2510,17 +2413,7 @@ export function UniversalStake({
           borderColor="$borderSubdued"
         >
           {showApyHeader && apyDetail && !protocolSwitchConfig ? (
-            <XStack gap="$1" ai="center" mb="$3.5">
-              <EarnText
-                text={apyDetail.description}
-                size="$headingLg"
-                color="$textSuccess"
-              />
-              <EarnActionIcon
-                title={apyDetail.title.text}
-                actionIcon={apyDetail.button}
-              />
-            </XStack>
+            <StakingApyHeader apyDetail={apyDetail} />
           ) : null}
           <HeightTransition>
             {summaryContent || summaryLoadingContent ? (

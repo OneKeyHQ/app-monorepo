@@ -12,27 +12,38 @@ import { HealthFactorInfo } from './HealthFactorInfo';
 import { PositionInfo } from './PositionInfo';
 import { SwapOrBridgeInfo } from './SwapOrBridgeInfo';
 
-import type { IInfoDisplaySectionProps } from '../../types';
+import type {
+  IInfoDisplaySectionProps,
+  IManagePositionActionResult,
+  IManagePositionState,
+} from '../../types';
 
-export function InfoDisplaySection({
-  showApyDetail: showApyDetailProp,
+/**
+ * The lending form's info card for an amount: health factor, position, then
+ * APY, fees, collateral and the swap or bridge row. Takes its data as props so
+ * a form outside the lending form's context can show the same card
+ */
+export function BorrowInfoCard({
+  action,
+  isDisabled,
+  token,
+  accountId,
+  networkId,
+  showApyDetail,
+  transactionConfirmation,
+  transactionConfirmationLoading,
   showSwapOrBridge = true,
-}: IInfoDisplaySectionProps) {
-  const { state, actionResult } = useManagePositionContext();
-
-  const {
-    action,
-    isDisabled,
-    token,
-    accountId,
-    networkId,
-    showApyDetail: showApyDetailState,
-  } = state;
-  const { transactionConfirmation, transactionConfirmationLoading } =
-    actionResult;
-
-  const showApyDetail = showApyDetailProp ?? showApyDetailState;
-
+}: Pick<
+  IManagePositionState,
+  'action' | 'isDisabled' | 'token' | 'accountId' | 'networkId'
+> &
+  Pick<
+    IManagePositionActionResult,
+    'transactionConfirmation' | 'transactionConfirmationLoading'
+  > & {
+    showApyDetail: boolean;
+    showSwapOrBridge?: boolean;
+  }) {
   // Supply always renders info section (no isDisabled check in original code)
   // Other actions check isDisabled
   if (action !== 'supply' && isDisabled) return null;
@@ -77,6 +88,11 @@ export function InfoDisplaySection({
   // - Withdraw: shows divider when has primary info AND has secondary info
   const showDivider = (() => {
     if (action === 'supply') {
+      // Without the swap or bridge row, which always follows it, the divider
+      // only goes between two parts that both have rows
+      if (!showSwapOrBridge) {
+        return hasPrimaryInfo && hasSecondaryInfo;
+      }
       // Supply: complex condition from original code
       return (
         token &&
@@ -164,5 +180,28 @@ export function InfoDisplaySection({
         </YStack>
       ) : null}
     </YStack>
+  );
+}
+
+export function InfoDisplaySection({
+  showApyDetail: showApyDetailProp,
+  showSwapOrBridge = true,
+}: IInfoDisplaySectionProps) {
+  const { state, actionResult } = useManagePositionContext();
+
+  return (
+    <BorrowInfoCard
+      action={state.action}
+      isDisabled={state.isDisabled}
+      token={state.token}
+      accountId={state.accountId}
+      networkId={state.networkId}
+      showApyDetail={showApyDetailProp ?? state.showApyDetail}
+      transactionConfirmation={actionResult.transactionConfirmation}
+      transactionConfirmationLoading={
+        actionResult.transactionConfirmationLoading
+      }
+      showSwapOrBridge={showSwapOrBridge}
+    />
   );
 }

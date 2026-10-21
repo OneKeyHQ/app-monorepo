@@ -1,5 +1,6 @@
 import type { ReactElement, ReactNode } from 'react';
 
+import type { IXStackProps } from '@onekeyhq/components';
 import type {
   EApproveType,
   IBorrowAsset,
@@ -278,7 +279,10 @@ export interface ISwapOrBridgeInfoProps {
 // Token Selector Props
 // ============================================================================
 
-export interface ITokenSelectorTriggerProps {
+export interface ITokenSelectorTriggerProps extends Pick<
+  IXStackProps,
+  'tabIndex' | 'onKeyDown' | 'focusVisibleStyle'
+> {
   selectedTokenImageUri?: string;
   selectedTokenSymbol?: string;
   selectedNetworkImageUri?: string;

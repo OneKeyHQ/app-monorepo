@@ -22,6 +22,7 @@ import {
   useUniversalBorrowBorrow,
   useUniversalBorrowSupply,
 } from '@onekeyhq/kit/src/views/Borrow/hooks/useUniversalBorrowHooks';
+import { buildKeyboardPressProps } from '@onekeyhq/kit/src/views/Earn/components/desktopHome/earnDesktopPressable';
 import {
   findOffer,
   resolvePayMode,
@@ -32,6 +33,7 @@ import {
   usePayTokens,
 } from '@onekeyhq/kit/src/views/Earn/pages/EarnRouter/EarnRouterPayWith';
 import { EarnRouterSwapDepositForm } from '@onekeyhq/kit/src/views/Earn/pages/EarnRouter/EarnRouterSwapDepositForm';
+import type { IEarnRouterSummaryRequest } from '@onekeyhq/kit/src/views/Earn/pages/EarnRouter/EarnRouterSwapDepositForm';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EModalRoutes, EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
@@ -428,6 +430,55 @@ export const StakeSection = ({
       tokenInfo?.token.symbol,
     ],
   );
+  // On the swap path, what this provider's own form asks for its card, so
+  // the path shows that card for what reaches the provider
+  const paySummaryRequest = useMemo<
+    IEarnRouterSummaryRequest | undefined
+  >(() => {
+    if (payMode !== 'swapThenDeposit') {
+      return undefined;
+    }
+    if (isBorrowStake) {
+      const { provider, marketAddress, reserveAddress } =
+        borrowApiCtx.borrowApiParams;
+      return {
+        kind: 'lending',
+        provider,
+        marketAddress,
+        reserveAddress,
+        accountId,
+      };
+    }
+    if (isPendleProvider || !protocolInfo?.provider) {
+      return undefined;
+    }
+    return {
+      kind: 'staking',
+      provider: protocolInfo.provider,
+      symbol: stakeRequestSymbol || effectiveStakeTokenInfo?.token.symbol || '',
+      vault: earnUtils.shouldSendEarnProtocolVault({
+        providerName: protocolInfo.provider,
+      })
+        ? protocolInfo.vault || ''
+        : '',
+      accountAddress: protocolInfo.earnAccount?.accountAddress || '',
+      inputTokenAddress: selectedStakeTokenAddress,
+      outputTokenAddress: receiveInputConfig?.tokenAddress ?? '',
+    };
+  }, [
+    accountId,
+    borrowApiCtx.borrowApiParams,
+    effectiveStakeTokenInfo?.token.symbol,
+    isBorrowStake,
+    isPendleProvider,
+    payMode,
+    protocolInfo?.earnAccount?.accountAddress,
+    protocolInfo?.provider,
+    protocolInfo?.vault,
+    receiveInputConfig?.tokenAddress,
+    selectedStakeTokenAddress,
+    stakeRequestSymbol,
+  ]);
   const approveSpenderAddress = useMemo(() => {
     if (borrowApiCtx.isBorrow) {
       return resolveBorrowTokenApproveSpenderAddress({
@@ -515,7 +566,12 @@ export const StakeSection = ({
 
   const stakeTokenSelectorTriggerProps = useMemo(() => {
     if (hasPayTokens) {
-      return { disabled: false, onPress: handleOpenPayWith };
+      // Pay with opens from the keyboard too, as its picker's rows do
+      return {
+        disabled: false,
+        onPress: handleOpenPayWith,
+        ...buildKeyboardPressProps(handleOpenPayWith),
+      };
     }
     if (
       !(isPendleProvider || isNativeProvider) ||
@@ -980,6 +1036,8 @@ export const StakeSection = ({
         onOpenPayWith={handleOpenPayWith}
         onDone={onSuccess}
         isInModalContext={isInModalContext}
+        summaryRequest={paySummaryRequest}
+        showApyDetail={showApyDetail}
         protocolSwitch={
           protocolSwitchConfig ? (
             <ProtocolSwitcher

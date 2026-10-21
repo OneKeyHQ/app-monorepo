@@ -6,6 +6,7 @@ import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
 import {
+  Alert,
   Divider,
   HeightTransition,
   IconButton,
@@ -16,6 +17,7 @@ import {
   Toast,
   XStack,
   YStack,
+  useDeepCompareEffect,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { PercentageStageOnKeyboard } from '@onekeyhq/kit/src/components/PercentageStageOnKeyboard';
@@ -29,7 +31,13 @@ import { USD_CURRENCY_ID } from '@onekeyhq/shared/src/consts/currencyConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
+import { ECheckAmountActionType } from '@onekeyhq/shared/types/staking';
+import type {
+  IBorrowTransactionConfirmation,
+  IStakeTransactionConfirmation,
+} from '@onekeyhq/shared/types/staking';
 
+import { BorrowInfoCard } from '../../../Borrow/components/ManagePosition/modules/InfoDisplaySection';
 import {
   EStakeProgressStep,
   StakeProgress,
@@ -39,7 +47,13 @@ import {
   useOnBlurAmountValue,
 } from '../../../Staking/components/StakingAmountInput';
 import StakingFormWrapper from '../../../Staking/components/StakingFormWrapper';
+import {
+  StakingApyHeader,
+  StakingRewardsSummary,
+  hasStakingRewardsSummary,
+} from '../../../Staking/components/UniversalStake/StakingConfirmationSummary';
 import { EARN_DESKTOP_DEMO_COPY } from '../../components/desktopHome/earnDesktopHomeCopy';
+import { buildKeyboardPressProps } from '../../components/desktopHome/earnDesktopPressable';
 
 import {
   EARN_ROUTER_FLOW_IDLE,
@@ -59,11 +73,126 @@ const SETTLE_MS = 2200;
 const DONE_MS = 1600;
 // The deposit amount shows at most this many decimals, rounded down
 const DEPOSIT_DECIMALS = 6;
+// As the deposit forms wait before asking for their card again
+const SUMMARY_DEBOUNCE_MS = 350;
 // Centers the arrow on the seam between the two boxes, as the Pendle form
 // does
 const ARROW_OVERLAY_STYLE = platformEnv.isNative
   ? { transform: [{ translateX: -13 }, { translateY: -13 }] as const }
   : { transform: 'translate(-50%, -50%)' as const };
+
+/**
+ * What the provider's own deposit form asks the server for its card: a
+ * staking provider's summary, or a lending market's info. Pendle's form
+ * reads its card off a swap quote, so it has none here
+ */
+export type IEarnRouterSummaryRequest =
+  | {
+      kind: 'staking';
+      provider: string;
+      symbol: string;
+      vault: string;
+      accountAddress: string;
+      inputTokenAddress?: string;
+      outputTokenAddress?: string;
+    }
+  | {
+      kind: 'lending';
+      provider: string;
+      marketAddress: string;
+      reserveAddress: string;
+      accountId: string;
+    };
+
+type IDepositSummary = {
+  staking?: IStakeTransactionConfirmation;
+  lending?: IBorrowTransactionConfirmation;
+  lendingLoading: boolean;
+};
+
+const NO_SUMMARY: IDepositSummary = { lendingLoading: false };
+
+// The provider form's card for what reaches the provider, asked the way that
+// form asks: a staking summary once there is an amount, kept while the next
+// one loads; a lending card for any amount, its skeleton while each loads
+function useDepositSummary({
+  networkId,
+  request,
+  amount,
+  isDisabled,
+}: {
+  networkId: string;
+  request?: IEarnRouterSummaryRequest;
+  amount: string;
+  isDisabled?: boolean;
+}) {
+  const [summary, setSummary] = useState<IDepositSummary>(NO_SUMMARY);
+  useDeepCompareEffect(() => {
+    if (!request || isDisabled) {
+      setSummary(NO_SUMMARY);
+      return;
+    }
+    const hasAmount = new BigNumber(amount).gt(0);
+    if (request.kind === 'staking' && !hasAmount) {
+      setSummary(NO_SUMMARY);
+      return;
+    }
+    if (request.kind === 'lending') {
+      setSummary({ lendingLoading: true });
+    }
+    let isCurrent = true;
+    const timer = setTimeout(() => {
+      void (async () => {
+        try {
+          if (request.kind === 'lending') {
+            const lending =
+              await backgroundApiProxy.serviceStaking.getBorrowTransactionConfirmation(
+                {
+                  networkId,
+                  provider: request.provider,
+                  marketAddress: request.marketAddress,
+                  reserveAddress: request.reserveAddress,
+                  accountId: request.accountId,
+                  action: 'supply',
+                  amount: hasAmount ? amount : '0',
+                },
+              );
+            if (isCurrent) {
+              setSummary({ lending, lendingLoading: false });
+            }
+            return;
+          }
+          const staking =
+            await backgroundApiProxy.serviceStaking.getTransactionConfirmation({
+              networkId,
+              provider: request.provider,
+              symbol: request.symbol,
+              vault: request.vault,
+              accountAddress: request.accountAddress,
+              action: ECheckAmountActionType.STAKING,
+              amount,
+              inputTokenAddress: request.inputTokenAddress,
+              outputTokenAddress: request.outputTokenAddress,
+            });
+          if (isCurrent) {
+            setSummary({ staking, lendingLoading: false });
+          }
+        } catch {
+          // A staking form keeps its last summary; a lending form drops its
+          // card
+          if (isCurrent && request.kind === 'lending') {
+            setSummary(NO_SUMMARY);
+          }
+        }
+      })();
+    }, SUMMARY_DEBOUNCE_MS);
+    return () => {
+      isCurrent = false;
+      clearTimeout(timer);
+    };
+  }, [networkId, request, amount, isDisabled]);
+  return summary;
+}
 
 // Where the path is, in the deposit form's own two-step indicator
 function getProgressStep(flow: IEarnRouterFlowState) {
@@ -99,6 +228,8 @@ export function EarnRouterSwapDepositForm({
   onDone,
   isInModalContext,
   protocolSwitch,
+  summaryRequest,
+  showApyDetail,
 }: {
   networkId: string;
   /** What the deposit form calls the action: Deposit, or Supply */
@@ -118,6 +249,13 @@ export function EarnRouterSwapDepositForm({
   isInModalContext?: boolean;
   // The deposit form's protocol switcher, where that form has one
   protocolSwitch?: ReactNode;
+  /**
+   * Asked for the provider form's own card, for what reaches the provider.
+   * Without it the card estimates the year at the provider's rate
+   */
+  summaryRequest?: IEarnRouterSummaryRequest;
+  /** The form shows the rate atop its summary card (a modal) */
+  showApyDetail?: boolean;
 }) {
   const intl = useIntl();
   const [{ currencyInfo }] = useSettingsPersistAtom();
@@ -166,9 +304,17 @@ export function EarnRouterSwapDepositForm({
         new BigNumber(depositAmount).times(depositToken.priceUsd).toFixed(),
       )
     : '';
-  // A year at the provider's rate, in the token deposited and in money
+  const depositSummary = useDepositSummary({
+    networkId,
+    request: summaryRequest,
+    amount: depositAmount,
+    isDisabled,
+  });
+
+  // With no card to ask for: a year at the provider's rate, in the token
+  // deposited and in money
   const rewards = useMemo(() => {
-    if (!depositAmount || !apr || apr <= 0) {
+    if (summaryRequest || !depositAmount || !apr || apr <= 0) {
       return undefined;
     }
     const tokens = new BigNumber(depositAmount).times(apr).div(100);
@@ -176,7 +322,7 @@ export function EarnRouterSwapDepositForm({
       amount: tokens.toFixed(),
       fiat: toFiat(tokens.times(depositToken.priceUsd).toFixed()),
     };
-  }, [apr, depositAmount, depositToken.priceUsd, toFiat]);
+  }, [apr, depositAmount, depositToken.priceUsd, summaryRequest, toFiat]);
 
   // Each transaction waits on the wallet, then on the chain; the deposit asks
   // for its confirmation as soon as the swap settles
@@ -257,6 +403,96 @@ export function EarnRouterSwapDepositForm({
       />
     ) : null;
 
+  const hasSwitch = Boolean(protocolSwitch);
+  const stakingSummary = depositSummary.staking;
+  const apyDetail =
+    showApyDetail && !hasSwitch ? stakingSummary?.apyDetail : undefined;
+  let summary: ReactNode = null;
+  if (summaryRequest?.kind === 'staking') {
+    if (
+      hasStakingRewardsSummary({
+        transactionConfirmation: stakingSummary,
+        infoOnly: hasSwitch,
+      })
+    ) {
+      summary = (
+        <StakingRewardsSummary
+          transactionConfirmation={stakingSummary}
+          infoOnly={hasSwitch}
+        />
+      );
+    }
+  } else if (rewards) {
+    summary = (
+      <YStack gap="$1.5">
+        <SizableText size="$bodyMd" color="$textSubdued">
+          {EARN_DESKTOP_DEMO_COPY.estAnnualRewards}
+        </SizableText>
+        <XStack gap="$1" ai="center" flexWrap="wrap">
+          <SizableText size="$bodyLgMedium">
+            {`${numberFormat(rewards.amount, {
+              formatter: 'balance',
+            })} ${depositToken.symbol}`}
+          </SizableText>
+          <SizableText size="$bodyLgMedium" color="$textSubdued">
+            {`(${numberFormat(rewards.fiat, {
+              formatter: 'value',
+              formatterOptions: { currency: currencyInfo.symbol },
+            })})`}
+          </SizableText>
+        </XStack>
+      </YStack>
+    );
+  }
+
+  // As the deposit forms: no card while the provider takes nothing
+  let card: ReactNode = null;
+  if (!isDisabled && summaryRequest?.kind === 'lending') {
+    // The lending form's own card; its swap row is left out, as this form
+    // is that swap
+    card = (
+      <BorrowInfoCard
+        action="supply"
+        isDisabled={false}
+        accountId={summaryRequest.accountId}
+        networkId={networkId}
+        showApyDetail={Boolean(showApyDetail)}
+        transactionConfirmation={depositSummary.lending}
+        transactionConfirmationLoading={depositSummary.lendingLoading}
+        showSwapOrBridge={false}
+      />
+    );
+  } else if (!isDisabled && (!hasSwitch || apyDetail || summary)) {
+    // The staking form's card: the rate in a modal, the year's rewards,
+    // then the provider. With a protocol switcher only highlighted rewards
+    // stay, and no card when there are none
+    card = (
+      <YStack
+        p="$3.5"
+        pt={apyDetail || summary ? '$5' : '$3.5'}
+        borderRadius="$3"
+        borderWidth={StyleSheet.hairlineWidth}
+        borderColor="$borderSubdued"
+      >
+        {apyDetail ? <StakingApyHeader apyDetail={apyDetail} /> : null}
+        <HeightTransition>
+          {summary ? (
+            <>
+              {summary}
+              {hasSwitch ? null : <Divider my="$5" />}
+            </>
+          ) : null}
+        </HeightTransition>
+        {hasSwitch ? null : (
+          <XStack gap="$1.5" ai="center">
+            <Image width="$5" height="$5" src={offerLogo} borderRadius="$2" />
+            <SizableText size="$bodyMd">{offerName}</SizableText>
+          </XStack>
+        )}
+      </YStack>
+    );
+  }
+
   return (
     <StakingFormWrapper>
       <Stack position="relative">
@@ -274,6 +510,7 @@ export function EarnRouterSwapDepositForm({
               selectedNetworkImageUri: network?.logoURI,
               disabled: isLocked,
               onPress: onOpenPayWith,
+              ...buildKeyboardPressProps(isLocked ? undefined : onOpenPayWith),
             }}
             balanceProps={{
               value: payToken.amount,
@@ -331,46 +568,18 @@ export function EarnRouterSwapDepositForm({
           />
         </Stack>
       </Stack>
+      {/* Where the deposit form warns about its amount */}
+      {isInsufficient ? (
+        <Alert
+          icon="InfoCircleOutline"
+          type="critical"
+          title={intl.formatMessage({
+            id: ETranslations.earn_insufficient_balance,
+          })}
+        />
+      ) : null}
       {protocolSwitch}
-      {/* The deposit form's summary card: the year's rewards once there is
-          an amount, then the provider */}
-      <YStack
-        p="$3.5"
-        pt={rewards ? '$5' : '$3.5'}
-        borderRadius="$3"
-        borderWidth={StyleSheet.hairlineWidth}
-        borderColor="$borderSubdued"
-      >
-        <HeightTransition>
-          {rewards ? (
-            <>
-              <YStack gap="$1.5">
-                <SizableText size="$bodyMd" color="$textSubdued">
-                  {EARN_DESKTOP_DEMO_COPY.estAnnualRewards}
-                </SizableText>
-                <XStack gap="$1" ai="center" flexWrap="wrap">
-                  <SizableText size="$bodyLgMedium">
-                    {`${numberFormat(rewards.amount, {
-                      formatter: 'balance',
-                    })} ${depositToken.symbol}`}
-                  </SizableText>
-                  <SizableText size="$bodyLgMedium" color="$textSubdued">
-                    {`(${numberFormat(rewards.fiat, {
-                      formatter: 'value',
-                      formatterOptions: { currency: currencyInfo.symbol },
-                    })})`}
-                  </SizableText>
-                </XStack>
-              </YStack>
-              <Divider my="$5" />
-            </>
-          ) : null}
-        </HeightTransition>
-        <XStack gap="$1.5" ai="center">
-          <Image width="$5" height="$5" src={offerLogo} borderRadius="$2" />
-          <SizableText size="$bodyMd">{offerName}</SizableText>
-        </XStack>
-      </YStack>
+      {card}
       {isInModalContext ? (
         <Page.Footer>
           <Stack
