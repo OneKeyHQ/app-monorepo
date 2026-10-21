@@ -7,6 +7,7 @@ import type {
 } from '@onekeyhq/kit-bg/src/vaults/types';
 import type { IDappSourceInfo } from '@onekeyhq/shared/types';
 import type { IAccountNFT } from '@onekeyhq/shared/types/nft';
+import type { IStrk20TransferKind } from '@onekeyhq/shared/types/starknetPrivacy';
 import type { IToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 
 import type { ITokenSelectorParamList } from './assetSelector';
@@ -30,6 +31,8 @@ export enum EModalSendRoutes {
   SendSelectToken = 'SendSelectToken',
   SendSelectDeriveAddress = 'SendSelectDeriveAddress',
   CoinControl = 'CoinControl',
+  // STRK20 private transfers on Starknet: deposit / withdraw / private send
+  SendStarknetPrivateTransfer = 'SendStarknetPrivateTransfer',
 }
 
 export type IModalSendParamList = {
@@ -132,5 +135,11 @@ export type IModalSendParamList = {
   [EModalSendRoutes.CoinControl]: {
     networkId: string;
     accountId: string;
+  };
+  [EModalSendRoutes.SendStarknetPrivateTransfer]: {
+    networkId: string;
+    accountId: string;
+    kind: IStrk20TransferKind;
+    token: IToken;
   };
 };

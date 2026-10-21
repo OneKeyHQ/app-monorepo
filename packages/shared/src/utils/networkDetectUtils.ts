@@ -344,6 +344,18 @@ async function _detectNetworkByAddress({
     ];
   }
 
+  // Starknet addresses are 0x + up to 64 hex. The lower bound is raised to 41
+  // so a 40-hex EVM address can never reach here; 64 hex stays ambiguous with
+  // Aptos/Sui, whose detection is currently disabled above.
+  if (/^0x[0-9a-fA-F]{41,64}$/.test(a)) {
+    return [
+      {
+        networkId: presetNetworksMap.starknet.id,
+        impl: presetNetworksMap.starknet.impl,
+      },
+    ];
+  }
+
   // EVM (0x + 40 hex)
   if (/^0x[0-9a-fA-F]{40}$/.test(a)) {
     return [
@@ -461,6 +473,11 @@ async function detectNetworkByPrivateKeyFn({
       buildDetectedNetwork(presetNetworksMap.cfx),
       buildDetectedNetwork(presetNetworksMap.benfen),
       buildDetectedNetwork(presetNetworksMap.ckb), // Nervos
+      // Stark private keys are below the curve order, which is only just
+      // above 2^251, so a 64-hex one starts with two hex digits <= 0x07.
+      ...(/^0x0[0-7][0-9a-fA-F]{62}$/.test(pk)
+        ? buildSameImplResults(presetNetworksMap.starknet)
+        : []),
     ];
   }
 
