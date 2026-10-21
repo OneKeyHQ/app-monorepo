@@ -5,9 +5,6 @@ import { SimpleDbEntityBase } from '../base/SimpleDbEntityBase';
 // addresses) stays in that chain's own entity.
 
 export interface IPrivacyChainDB {
-  // accountId -> the one-time "where should scanning start?" prompt has been
-  // shown. The answer itself is chain-shaped and stays with the chain.
-  scanStartPrompted?: Record<string, boolean>;
   // Device-wide, not per network: it is about this device's data plan.
   // Absent means not allowed.
   allowCellularSync?: boolean;
@@ -30,35 +27,6 @@ export class SimpleDbEntityPrivacyChain extends SimpleDbEntityBase<IPrivacyChain
   entityName = 'privacyChain';
 
   override enableCache = false;
-
-  async getScanStartPrompted({
-    accountId,
-  }: {
-    accountId: string;
-  }): Promise<boolean> {
-    const rawData = await this.getRawData();
-    return rawData?.scanStartPrompted?.[accountId] === true;
-  }
-
-  async markScanStartPrompted({ accountId }: { accountId: string }) {
-    await this.setRawData((rawData) => ({
-      ...rawData,
-      scanStartPrompted: {
-        ...rawData?.scanStartPrompted,
-        [accountId]: true,
-      },
-    }));
-  }
-
-  async removeScanStartPrompted({ accountId }: { accountId: string }) {
-    await this.setRawData((rawData) => {
-      if (!rawData?.scanStartPrompted?.[accountId]) {
-        return rawData ?? {};
-      }
-      const { [accountId]: _removed, ...rest } = rawData.scanStartPrompted;
-      return { ...rawData, scanStartPrompted: rest };
-    });
-  }
 
   async getPendingLocalDataDrop(): Promise<string[]> {
     const rawData = await this.getRawData();

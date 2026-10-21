@@ -1497,9 +1497,6 @@ class ServicePrivacyChain extends ServiceBase {
             }
             try {
               await capability.reset({ accountId, scope: 'all' });
-              await this.backgroundApi.simpleDb.privacyChain.removeScanStartPrompted(
-                { accountId },
-              );
               await privacyChainAtom.set((value) => {
                 const progress = Object.fromEntries(
                   Object.entries(value.progress).filter(
@@ -2719,29 +2716,6 @@ class ServicePrivacyChain extends ServiceBase {
     const vault = await vaultFactory.getChainOnlyVault({ networkId });
     await requireLocalWalletCapability(vault).setDiagnosticsEnabled?.({
       enabled,
-    });
-  }
-
-  // The one-time "where to start scanning" prompt flag.
-  @backgroundMethod()
-  async getScanStartPrompted({
-    accountId,
-  }: {
-    accountId: string;
-  }): Promise<boolean> {
-    return this.backgroundApi.simpleDb.privacyChain.getScanStartPrompted({
-      accountId,
-    });
-  }
-
-  @backgroundMethod()
-  async markScanStartPrompted({
-    accountId,
-  }: {
-    accountId: string;
-  }): Promise<void> {
-    await this.backgroundApi.simpleDb.privacyChain.markScanStartPrompted({
-      accountId,
     });
   }
 

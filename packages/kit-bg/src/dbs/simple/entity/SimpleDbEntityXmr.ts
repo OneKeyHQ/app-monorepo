@@ -48,9 +48,6 @@ export interface IXmrDB {
   /** accountId -> txid -> recipient address. */
   sentRecipients?: Record<string, IXmrSentRecipients>;
   sentAmounts?: Record<string, Record<string, IXmrSentAmount>>;
-  /** Node URL last used, for the settings page to show without probing. */
-  lastSyncEndpoint?: { url: string; atMs: number };
-  diagnosticsEnabled?: boolean;
 }
 
 const xmrStoredDataSchema = z
@@ -71,11 +68,6 @@ const xmrStoredDataSchema = z
         ),
       )
       .optional(),
-    lastSyncEndpoint: z
-      .object({ url: z.string(), atMs: z.number().finite() })
-      .passthrough()
-      .optional(),
-    diagnosticsEnabled: z.boolean().optional(),
   })
   .passthrough();
 
@@ -312,16 +304,5 @@ export class SimpleDbEntityXmr extends SimpleDbEntityBase<IXmrDB> {
   }): Promise<Record<string, IXmrSentAmount>> {
     const raw = await this.getRawData();
     return raw?.sentAmounts?.[params.accountId] ?? {};
-  }
-
-  async setDiagnosticsEnabled(enabled: boolean): Promise<void> {
-    await this.setRawData((raw) => ({ ...raw, diagnosticsEnabled: enabled }));
-  }
-
-  async recordSyncEndpoint(url: string): Promise<void> {
-    await this.setRawData((raw) => ({
-      ...raw,
-      lastSyncEndpoint: { url, atMs: Date.now() },
-    }));
   }
 }

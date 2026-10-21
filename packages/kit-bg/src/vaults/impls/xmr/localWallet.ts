@@ -752,22 +752,10 @@ export function buildXmrLocalWalletCapability(
     // App reset: deletes even with no account state left, since a
     // pre-existing or half-failed-reset database can still hold view keys.
     async dropLocalData() {
-      const accountIds = await simpleDb().listAccountIds();
       if (hasXmrRuntimeApiLoader()) {
         await deleteXmrDatabase(await vault.getXmrNetwork());
       }
-      await Promise.all(
-        accountIds.map((accountId) =>
-          vault.backgroundApi.simpleDb.privacyChain.removeScanStartPrompted({
-            accountId,
-          }),
-        ),
-      );
       await simpleDb().clearRawData();
-    },
-
-    async setDiagnosticsEnabled({ enabled }) {
-      await simpleDb().setDiagnosticsEnabled(enabled);
     },
 
     async getSyncProgress({
