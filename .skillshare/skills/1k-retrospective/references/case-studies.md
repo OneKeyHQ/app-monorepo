@@ -959,3 +959,10 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries â€
 **Root Cause**: Both receive displays rounded raw decimal strings to six decimal places. The state and receipt retained their precision, but tiny positive amounts disappeared at the presentation boundary.
 **Fix**: Pass raw amounts to the shared balance formatter used by Earn client amounts. Reuse its leading-zero subscript rendering for both preview and result while preserving zero and unavailable states.
 **Catchable by**: Section 6: render a tiny positive receipt and selection estimate through the real formatter, assert the subscript and significant digits, and retain normal, zero and unavailable cases.
+
+## Case: Dust Sweep custom slippage did not enforce the requested preset floor
+**Date**: 2026-10-21 | **Platforms**: Shared Dust Sweep settings and controller
+**Symptom**: Although the default and smallest preset were 5%, custom input and the raw controller setter could still select lower values.
+**Root Cause**: Validation shared ordinary Swap's positive-value boundary rather than enforcing the newly required Dust Sweep minimum.
+**Fix**: Define a Dust Sweep-only 5â€“50% range, disable confirmation outside it, and reject invalid values at the state setter so snapshots retain the same valid slippage shown in the UI.
+**Catchable by**: Section 6: exercise values immediately below and at both bounds, direct setter calls, and the slippage captured by the submission snapshot.

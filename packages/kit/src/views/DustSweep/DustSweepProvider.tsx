@@ -30,9 +30,11 @@ import {
 } from './hooks/useDustSweepReconciliation';
 import { useDustSweepSession } from './hooks/useDustSweepSession';
 import {
+  DUST_SWEEP_MIN_SLIPPAGE,
   DUST_SWEEP_THRESHOLDS,
   filterDustSweepCandidates,
   isDustSweepBelowGasThreshold,
+  isValidDustSweepSlippage,
 } from './utils/candidates';
 import { loadDustSweepNetworks } from './utils/loadNetworks';
 
@@ -112,7 +114,10 @@ function useDustSweepController(params: IDustSweepRouteParams) {
     scope: IDustSweepRouteParams;
     keys: Set<string>;
   }>();
-  const [slippage, setSlippage] = useState(5);
+  const [slippage, setSlippageValue] = useState(DUST_SWEEP_MIN_SLIPPAGE);
+  const setSlippage = useCallback((value: number) => {
+    if (isValidDustSweepSlippage(value.toString())) setSlippageValue(value);
+  }, []);
   const visited = useRef(false);
   const firstVisit = useRef(true);
   const session = useDustSweepSession(networks);

@@ -204,6 +204,31 @@ describe('Dust Sweep Provider request and selection ownership', () => {
     });
   });
 
+  it.each([0, 0.1, 4.999, 50.01, NaN, Infinity])(
+    'rejects invalid slippage %s at the controller and keeps the submission at 5%%',
+    async (value) => {
+      const { result } = renderController();
+      await waitFor(() => expect(result.current.canStart).toBe(true));
+      act(() => result.current.setSlippage(value));
+      expect(result.current.slippage).toBe(5);
+      act(() => {
+        void result.current.start();
+      });
+      expect(result.current.session.state.snapshot?.slippage).toBe(5);
+    },
+  );
+
+  it.each([5, 10, 50])('submits the selected slippage %s%%', async (value) => {
+    const { result } = renderController();
+    await waitFor(() => expect(result.current.canStart).toBe(true));
+    act(() => result.current.setSlippage(value));
+    expect(result.current.slippage).toBe(value);
+    act(() => {
+      void result.current.start();
+    });
+    expect(result.current.session.state.snapshot?.slippage).toBe(value);
+  });
+
   it.each([
     {
       description: 'partial',
@@ -368,7 +393,7 @@ describe('Dust Sweep Provider request and selection ownership', () => {
     act(() => mockLoadNetworks.mock.calls[0][2]?.([cached]));
     act(() => {
       result.current.toggle(cached.tokens[1].key);
-      result.current.setSlippage(2);
+      result.current.setSlippage(10);
     });
     expect(result.current.selected).toEqual([cached.tokens[0]]);
     await act(async () => {
@@ -409,7 +434,7 @@ describe('Dust Sweep Provider request and selection ownership', () => {
 
     expect(result.current.current).toBe(updated);
     expect(result.current.selected).toEqual([updated.tokens[0]]);
-    expect(result.current.slippage).toBe(2);
+    expect(result.current.slippage).toBe(10);
     expect(result.current.canStart).toBe(true);
     act(() => {
       result.current.start();
@@ -684,7 +709,7 @@ describe('Dust Sweep Provider request and selection ownership', () => {
     act(() => result.current.selectNetwork(ethereum.network.networkId));
     act(() => {
       result.current.addHidden();
-      result.current.setSlippage(2);
+      result.current.setSlippage(10);
       result.current.selectThreshold(100);
     });
     act(() => result.current.toggle(ethereumWithHidden.tokens[1].key));
@@ -716,7 +741,7 @@ describe('Dust Sweep Provider request and selection ownership', () => {
     expect(result.current.networks).toContain(base);
     expect(result.current.providerInfo).toBe(providerInfo);
     expect(result.current.threshold).toBe(100);
-    expect(result.current.slippage).toBe(2);
+    expect(result.current.slippage).toBe(10);
     expect(result.current.includeHidden).toBe(true);
     expect(result.current.canStart).toBe(false);
     expect(mockLoadNetworks).toHaveBeenCalledTimes(1);
