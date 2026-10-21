@@ -4,7 +4,11 @@ import type { ISwapNetwork } from '@onekeyhq/shared/types/swap/types';
 import { EProtocolOfExchange } from '@onekeyhq/shared/types/swap/types';
 import type { ICachedAccountTokens } from '@onekeyhq/shared/types/token';
 
-import { loadDustSweepNetworks, refreshDustSweepNetwork } from './loadNetworks';
+import {
+  loadDustSweepEntryCapabilities,
+  loadDustSweepNetworks,
+  refreshDustSweepNetwork,
+} from './loadNetworks';
 
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
@@ -121,6 +125,16 @@ describe('loadDustSweepNetworks request ownership', () => {
       name: 'Ethereum',
       decimals: 18,
     });
+  });
+
+  it('loads entry capabilities quietly through the default service callbacks', async () => {
+    await expect(loadDustSweepEntryCapabilities()).resolves.toEqual([ethereum]);
+    expect(serviceSwap.fetchSwapNetworks.mock.calls).toEqual([
+      [{ autoHandleError: false }],
+    ]);
+    expect(serviceSwap.getSwapProviderManager.mock.calls).toHaveLength(1);
+    expect(swapConfigs.getSwapProviderManager.mock.calls).toHaveLength(1);
+    expect(serviceToken.fetchAccountTokens.mock.calls).toHaveLength(0);
   });
 
   function cachedResponse(): ICachedAccountTokens {
