@@ -39,7 +39,7 @@ const accountDeriveInfo: IAccountDeriveInfoMapBase = {
 
 const settings: IVaultSettings = {
   ...settingsBtc,
-  // Transparent-only skeleton: no third-party hardware vendors, no QR yet.
+  // OneKey hardware only; no third-party vendors.
   supportedThirdPartyVendors: undefined,
   accountDeriveInfo,
   impl: IMPL_ZCASH,
@@ -149,7 +149,6 @@ const settings: IVaultSettings = {
   // Address/xpub watching accounts remain transparent and read-only.
   importedAccountEnabled: true,
   watchingAccountEnabled: true,
-  // - keyringMap.hw is undefined until zcash hardware lands
   hardwareAccountEnabled: true,
   // Custom node here is the lightwalletd the scanner reads from (not just a
   // broadcast override); transparent sends stay on the backend either way.

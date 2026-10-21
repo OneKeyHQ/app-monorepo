@@ -1,8 +1,8 @@
 import { SimpleDbEntityBase } from '../base/SimpleDbEntityBase';
 
-// Results computed from a privacy chain's local scan (plus the last public-side
-// balance), kept so a cold start can show them before a live read answers. Unlike privacyChain (viewing keys,
-// settings), anything here may be dropped at any time: the scan rebuilds it.
+// Results of a privacy chain's local scan (plus the last public-side balance),
+// kept so a cold start can show them before a live read answers. Unlike
+// privacyChain, anything here may be dropped at any time: the scan rebuilds it.
 // Read and written only through vaults/localWallet/privacyChainCacheStore.ts.
 
 export interface IPrivacyChainCacheDB {

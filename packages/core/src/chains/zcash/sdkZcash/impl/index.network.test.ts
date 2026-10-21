@@ -151,12 +151,8 @@ describe('Zcash endpoint outcomes through the leased API', () => {
   });
 });
 
-/**
- * The rule: a UI read never waits on a scan. When the fast path misses
- * because a scan owns the database, a read that has an answer from before
- * returns it instead of joining the lease -- which would wait out the whole
- * pass, seconds normally and minutes inside the spam wall.
- */
+// A UI read never waits on a scan: when a scan owns the database, a read with
+// a previous answer returns it instead of joining the lease.
 describe('Zcash reads while a scan holds the lease', () => {
   function pool(total: string) {
     return {

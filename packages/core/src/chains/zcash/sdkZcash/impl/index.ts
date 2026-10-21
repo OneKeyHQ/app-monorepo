@@ -84,8 +84,7 @@ async function capabilities(): Promise<IZcashCapabilities> {
     };
   };
 
-  // Ironwood is required, not optional: after NU6.3 an ordinary payment to a unified address lands
-  // in the Ironwood bundle, so "orchard works" alone is not enough to call spending supported.
+  // Ironwood is required: after NU6.3 an ordinary payment to a unified address lands in the Ironwood bundle.
   const spend =
     r.prove.ironwood && k.sign.ironwood && r.prove.orchard && k.sign.orchard;
   // Shielding moves transparent UTXOs, which must be signed as transparent inputs regardless of the destination shielded pool.
@@ -103,8 +102,7 @@ async function capabilities(): Promise<IZcashCapabilities> {
   };
 }
 
-// Serializes everything touching the wallet database: the runtime holds one open at a time, so
-// overlapping ops would disagree on which wallet is current. Wrapped once here, not per function, so a new method can't quietly miss it.
+// Serializes everything touching the wallet database (one open at a time); wrapped once here so a new method can't miss it.
 function leased<A extends unknown[], R>(
   fn: (...args: A) => Promise<R>,
 ): (...args: A) => Promise<R> {

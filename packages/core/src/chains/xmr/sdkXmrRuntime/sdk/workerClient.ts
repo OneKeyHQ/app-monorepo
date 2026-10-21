@@ -8,14 +8,10 @@ import { xmrHostFetch } from './hostFetch';
 
 import type { IXmrRuntimeApi } from '..';
 
-// Every browser carrier uses this transport, which is shared with the other
-// client-scanning chains -- see privacyChainWorkerClient.
 const client = createPrivacyChainWorkerClient<IXmrRuntimeApi>({
   label: 'xmr',
   methods: XMR_RUNTIME_METHODS,
   createWorker: createXmrWorker,
-  // Per-platform; see hostFetch. `undefined` on a carrier that has no better
-  // channel than the runtime's own fetch.
   hostRequest: xmrHostFetch,
   hostStreamRequest: hostFetchStream,
 });

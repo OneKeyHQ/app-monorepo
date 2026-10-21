@@ -128,13 +128,8 @@ const loadVaultSettingsByImpl = cacheUtils.memoizee(
   },
 );
 
-/**
- * Every impl that has vault settings.
- *
- * Exported so the registration guard can check that each one also has a
- * network to select -- a chain with a vault but no network entry compiles,
- * passes every other test, and is simply absent from the app.
- */
+// Lets the registration test check every impl with settings also has a
+// preset network; otherwise the chain silently never appears in the app.
 export function getVaultSettingsImpls(): string[] {
   return Object.keys(settingsLoader);
 }

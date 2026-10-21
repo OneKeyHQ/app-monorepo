@@ -1,14 +1,9 @@
-/**
- * Amounts are decimal strings of atomic units: Monero's supply exceeds
- * Number.MAX_SAFE_INTEGER, so a number would silently lose precision.
- */
-
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 import type { IXmrFeePriority, IXmrNetwork, IXmrRuntimeError } from './types';
 
 // All async despite sync wasm: reached across a Worker/WebView boundary on
-// every platform (background runs Hermes, which can't execute wasm).
+// every platform.
 export type IXmrRuntimeApi = {
   /** Install the persistent VFS. Must run before any wallet is opened. */
   init: () => Promise<void>;
@@ -75,9 +70,9 @@ export type IXmrRuntimeApi = {
   ) => Promise<string>;
 
   /**
-   * Returned feeAtomic/amountAtomic are final; signing does not recompute
-   * them. maxSend solves for spendable-fee rather than omitting change
-   * (which would donate the remainder to the miner).
+   * Returned feeAtomic/amountAtomic are final. maxSend solves for
+   * spendable - fee rather than omitting change, which would donate the
+   * remainder to the miner.
    */
   prepareTransaction: (
     accountId: string,
@@ -86,10 +81,7 @@ export type IXmrRuntimeApi = {
     chainTip: string,
     priority: IXmrFeePriority,
   ) => Promise<string>;
-  /**
-   * Sign a prepared transaction. Touches neither the node nor the database.
-   * Takes the account's BIP-32 key; the spend key is reduced inside the runtime.
-   */
+  /** Touches neither node nor database; the spend key is reduced in-runtime. */
   signTransactionWithBip32Key: (
     signableHex: string,
     bip32PrivateKeyHex: string,
@@ -113,7 +105,6 @@ export type IXmrRuntimeApi = {
 
 let loader: (() => Promise<IXmrRuntimeApi>) | undefined;
 
-/** Each carrier installs its own loader once at startup; this module never learns which one. */
 export function setXmrRuntimeApiLoader(next: () => Promise<IXmrRuntimeApi>) {
   loader = next;
 }
@@ -131,7 +122,7 @@ export async function getXmrRuntimeApi(): Promise<IXmrRuntimeApi> {
   return loader();
 }
 
-/** Runtime errors cross the boundary as JSON strings; a value that doesn't parse isn't ours, so it's passed through untouched. */
+/** Runtime errors cross the boundary as JSON strings; anything else returns null. */
 export function readXmrRuntimeError(error: unknown): IXmrRuntimeError | null {
   let raw: string | null = null;
   if (typeof error === 'string') {
@@ -150,7 +141,7 @@ export function readXmrRuntimeError(error: unknown): IXmrRuntimeError | null {
       return parsed as IXmrRuntimeError;
     }
   } catch {
-    // Not a runtime error. Deliberately silent: the caller decides.
+    // Not a runtime error; the caller decides.
   }
   return null;
 }

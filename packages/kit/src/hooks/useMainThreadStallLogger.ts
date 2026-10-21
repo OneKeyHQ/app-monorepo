@@ -8,10 +8,8 @@ import {
 const PROBE_INTERVAL_MS = 100;
 const STALL_THRESHOLD_MS = 150;
 
-// Temporary UI-thread stall probe: a timer that should fire every 100ms
-// reports how late it was when something blocked the JS thread. Paired with
-// the [PRIV-PERF] background/carrier logs it shows which step the stall
-// lines up with. Dev only.
+// UI-thread stall probe: logs how late a 100ms timer fires, to line stalls up
+// with the [PRIV-PERF] background logs.
 export function useMainThreadStallLogger(scope: string) {
   useEffect(() => {
     if (!isPrivacyChainPerfLogEnabled()) {

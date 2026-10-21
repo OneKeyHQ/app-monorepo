@@ -17,8 +17,7 @@ export type ILocalWalletAccount = {
 };
 
 // Counts viewing identities across every wallet, including ones this session
-// cannot see -- a page counting only its own rows would promise room the
-// service then refuses.
+// cannot see.
 export type ILocalWalletSlotUsage = {
   used: number;
   max?: number;
@@ -48,8 +47,7 @@ export type ILocalWalletSyncProgress = {
   isSyncing: boolean;
 };
 
-// How one scheduler turn is composed when the runtime only offers a step
-// primitive (see localWallet/syncTurn.ts).
+// How a scheduler turn is composed from a step primitive (localWallet/syncTurn.ts).
 export type ILocalWalletSyncTurnPolicy = {
   // Upper bound when the runtime sizes its own requests.
   stepBlocks: number;
@@ -223,8 +221,7 @@ export type ILocalWalletCapability = {
   }) => Promise<ILocalWalletAccountAddresses | undefined>;
   deleteAccountData: (params: { accountId: string }) => Promise<void>;
   // Rebuilds an HD account's viewing material from its mnemonic, for accounts
-  // that arrived without it (Prime transfer, cloud restore, older builds).
-  // The result goes through viewingKeyStore; the chain owns its format.
+  // that arrived without it (Prime transfer, cloud restore).
   deriveViewingKey?: (params: {
     accountId: string;
     password: string;
@@ -286,9 +283,8 @@ export type ILocalWalletCapability = {
   isUserOperationActive?: () => boolean;
   // `bytes` is null when the chain can be asked but has nothing on disk yet.
   getStorageUsage?: () => Promise<{ bytes: number | null }>;
-  // Read-only: picking a node is the app-wide custom-RPC setting, which every
-  // chain shares. `health` is what the scanner last observed while doing its
-  // normal work, not a separate probe.
+  // Read-only: the node is picked via the app-wide custom-RPC setting.
+  // `health` is what the scanner last observed, not a separate probe.
   getSyncEndpoint?: () => Promise<
     | {
         url: string;

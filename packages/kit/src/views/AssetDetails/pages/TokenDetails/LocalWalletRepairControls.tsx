@@ -339,9 +339,8 @@ export function ScanRepairControl({
   );
 }
 
-// Developer-only dump of everything the account page reads. Kept in account
-// settings because it is the one place that still works when metadata is
-// missing and the normal controls cannot explain the failure.
+// Developer-only dump of everything the account page reads; still works when
+// account metadata is missing.
 export function LocalWalletDebugControl({
   networkId,
   accountId,

@@ -17,12 +17,8 @@ import { getVaultSettings } from '../../settings';
 import settings from './settings';
 import Vault from './Vault';
 
-// Zcash spreads `{...settingsBtc}`, and every inherited `true` flag is a UI
-// entry point promising a code path. This freezes the convention review that
-// caught 6 BTC-only paths leaking through: an account type / feature stays
-// enabled ONLY when its full zcash flow works ("用不了就不搞"). If you enable
-// one of these, implement and verify the whole flow first, then update this
-// test in the same diff.
+// Zcash spreads `{...settingsBtc}`, so every inherited `true` flag is a UI
+// entry point. A feature stays enabled only when its full Zcash flow works.
 describe('zcash vault settings invariants', () => {
   it('loads settings from the indexed network ID', async () => {
     await expect(getVaultSettings({ networkId: 'zec--0' })).resolves.toBe(
@@ -54,10 +50,7 @@ describe('zcash vault settings invariants', () => {
   });
 
   it('disables BTC-inherited features without a zcash implementation', () => {
-    // note selection happens inside the wasm wallet; the BTC coin-control
-    // screen would call a blockbook backend that does not index zcash
     expect(settings.coinControlEnabled).toBe(false);
-    // bulk send would fall into BTC's coin-selection path, bypassing PCZT
     expect(settings.nativeBatchTransferEnabled).toBe(false);
     // A transparent BTC-style xprv/xpub cannot recover shielded funds.
     expect(settings.publicKeyExportEnabled).toBe(false);
@@ -65,7 +58,6 @@ describe('zcash vault settings invariants', () => {
   });
 
   it('matches the PCZT send-path contract', () => {
-    // ZIP-317 protocol fee; nothing user-editable
     expect(settings.editFeeEnabled).toBe(false);
     // A fully authorized PCZT must provide the txid used for pending-state
     // reconciliation and definite-rejection rollback.

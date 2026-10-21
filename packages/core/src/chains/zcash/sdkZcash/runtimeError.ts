@@ -1,15 +1,7 @@
-// Reading a runtime failure, from either side of a carrier boundary.
-//
-// The runtime attaches `code` / `params` / `detail` to the thrown Error, and the
-// same three again under `payload`. The duplication is not redundancy: when an
-// error crosses into the extension background or out of the mobile web-embed,
-// the host's serializer forwards a fixed set of fields and `params`/`detail` are
-// not in it. `payload` is, so that is the copy that survives the trip.
-//
-// Desktop calls the implementation directly with no carrier in between and keeps
-// the flat fields. Reading through here means callers do not have to know which
-// platform they are on -- the bug this prevents is a UI that shows the amounts
-// on desktop and a bare error code everywhere else.
+// The runtime puts `code` / `params` / `detail` on the Error and again under
+// `payload`: the extension and web-embed bridges forward `payload` but drop
+// `params`/`detail`, while desktop keeps the flat fields. Read through here so
+// every platform sees the same fields.
 
 export type IZcashRuntimeError = {
   code: string;
@@ -28,8 +20,6 @@ export function readZcashRuntimeError(e: unknown): IZcashRuntimeError | null {
   const err = asRecord(e);
   if (!err) return null;
 
-  // `payload` first: it is the copy that survives a carrier hop, so preferring
-  // it means every platform reads the same thing.
   const bag = asRecord(err.payload) ?? err;
   const code = bag.code ?? err.code;
   if (typeof code !== 'string') return null;
@@ -47,12 +37,8 @@ export function isZcashRuntimeError(e: unknown, code: string): boolean {
 }
 
 /**
- * A numeric field from the failure's params, or `null`.
- *
- * The runtime reports zatoshi as JSON numbers; the maximum supply is well
- * inside the safe-integer range, so a plain number is enough here. Returns
- * `null` rather than 0 for a missing field: 0 would read as "you have nothing"
- * in a message about how much is short.
+ * A numeric (zatoshi) field from the failure's params. `null`, not 0, when
+ * missing: 0 would read as "you have nothing" in a shortfall message.
  */
 export function zcashErrorAmount(e: unknown, field: string): number | null {
   const v = readZcashRuntimeError(e)?.params[field];

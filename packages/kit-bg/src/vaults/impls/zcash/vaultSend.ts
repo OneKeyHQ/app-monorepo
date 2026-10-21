@@ -342,7 +342,6 @@ export async function buildEncodedTx(
     outputsForCoinSelect: [],
     fee: ZCASH_DISPLAY_FEE_ZAT,
     txSize: 0,
-    // zcash part
     zcashTo: transferInfo.to,
     zcashMemoHex: transferInfo.zcashMemoHex,
     zcashAmountValue: amountValue,

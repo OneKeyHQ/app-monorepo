@@ -14,8 +14,7 @@ export {
   ZCASH_SPAM_REGION_START_MAINNET,
 };
 
-// Temporary direct lightwalletd endpoint; migrates to the OneKey service proxy
-// once server-side support lands.
+// Default lightwalletd endpoint; a custom RPC overrides it.
 export const ZCASH_LIGHTWALLETD_MAINNET = 'https://zcash-mainnet.chainsafe.dev';
 
 export const ZCASH_NETWORK_MAIN: IZcashNetwork = 'main';

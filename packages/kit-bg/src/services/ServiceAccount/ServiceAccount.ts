@@ -565,10 +565,9 @@ class ServiceAccount extends ServiceBase {
     };
   }
 
-  // md5(mnemonic) -> generatedAt ms. Lets createHDWallet recognize "this is
-  // a mnemonic I just generated" with no onboarding-UI plumbing. In-memory,
-  // one-time-use, pruned by age -- a lost record just defaults to "not
-  // proven fresh".
+  // md5(mnemonic) -> generatedAt ms, so createHDWallet can tell a mnemonic
+  // generated in this session. In-memory, one-time-use, pruned by age; a lost
+  // record means "not proven fresh".
   private freshMnemonicFingerprints = new Map<string, number>();
 
   private static readonly FRESH_MNEMONIC_TTL_MS = 30 * 60 * 1000;

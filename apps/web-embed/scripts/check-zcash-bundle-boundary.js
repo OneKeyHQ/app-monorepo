@@ -1,19 +1,13 @@
 /* eslint-disable onekey/no-raw-error */
-// Mobile web-embed carries the FULL zcash carrier: the keys runtime (signing)
-// AND the wallet runtime (scanning). Decided 2026-08-27: on-device scanning
-// is the industry norm, our single-threaded runtime was verified on a real
-// Android device, and vaultSettings.localWalletSyncEnabled is now true on
-// native. This check keeps the carrier honest in both
-// directions: either half missing means a broken build, and gzip budgets
-// catch accidental bloat (the wasm ships base64-inlined in JS because the
-// mobile WebView's file:// origin cannot fetch assets).
+// Mobile web-embed must carry both zcash runtimes: keys (signing) and wallet
+// (scanning). Either half missing means a broken build; the gzip budget
+// catches bloat (the wasm is base64-inlined into JS).
 const fs = require('fs');
 const path = require('path');
 const zlib = require('zlib');
 
 const buildDir = path.resolve(__dirname, '../web-build');
-// The self-contained Worker contains both modules. Count shared assets once,
-// while preserving the previous combined budget and requiring both modules.
+// The self-contained Worker contains both modules; count shared assets once.
 const maxRuntimeGzipBytes = 7.1 * 1000 * 1000;
 const keysMarkers = ['onekey_zcash_keys', 'UnifiedSpendingKey'];
 const walletMarkers = ['__onekeyZcashSdkStateV2', 'onekey_zcash_runtime'];

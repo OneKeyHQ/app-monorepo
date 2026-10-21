@@ -173,7 +173,6 @@ export async function listLocalWalletSendPools(
     pool(
       'orchard',
       'Orchard',
-      // Its own funds only: the figure shown is exactly what Max sends.
       balance?.poolsDetail.orchard.spendable,
       shieldedDefault('orchard'),
       undefined,
@@ -192,8 +191,7 @@ export async function listLocalWalletSendPools(
 }
 
 // Display reads only: sends and shields fetch fresh UTXOs and keep the
-// default retries. The transparent half used to hold the private one back for
-// as long as its backend requests took, retries included.
+// default retries.
 const ZCASH_TRANSPARENT_DISPLAY_WAIT_MS = 3000;
 const ZCASH_TRANSPARENT_DISPLAY_RAW_TX_RETRIES = 1;
 // A late result serves every read in this window, so whichever page asks
@@ -973,8 +971,7 @@ export async function zcashGetComposedBalanceSafe(
   vault: Vault,
   publicSideBackend?: string,
 ): Promise<IPrivacyChainComposedBalance> {
-  // Display only: Max and other spends read the scanner and UTXOs live. The
-  // halves are read side by side: neither waits on the other.
+  // Display only: Max and other spends read the scanner and UTXOs live.
   const [balance, transparent] = await Promise.all([
     vault.accountId
       ? readLocalWalletBalanceStaleFirst<IZcashBalance>({

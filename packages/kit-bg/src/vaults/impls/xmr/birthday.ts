@@ -27,8 +27,7 @@ export function estimateXmrHeightDaysAgo({
   );
 }
 
-// Enable dialog collects a month, not a block; skipping this conversion
-// would silently start the scan at the tip, and a restored wallet would find none of its own history.
+// The enable dialog collects a month, not a block height.
 export function estimateXmrBirthdayHeight({
   birthdayTimestamp,
   now,

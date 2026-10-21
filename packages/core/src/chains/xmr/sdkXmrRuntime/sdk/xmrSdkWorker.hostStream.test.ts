@@ -29,7 +29,7 @@ jest.mock('../carrier/loadRuntime', () => ({
 
 afterEach(() => jest.clearAllMocks());
 
-// Keep the registered entry before clearing call counts between test cases.
+// Captured before call counts are cleared between test cases.
 const config = jest.mocked(servePrivacyChainWorker).mock.calls[0][0];
 
 it('prefers segmented networking when both relay capabilities are present', async () => {

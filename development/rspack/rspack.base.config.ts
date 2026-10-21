@@ -140,11 +140,8 @@ const CANVASKIT_WASM_TEST =
   /canvaskit-wasm[\\/]bin[\\/](full[\\/])?canvaskit\.wasm$/;
 const ZXING_READER_WASM_TEST =
   /zxing-wasm[\\/]dist[\\/]reader[\\/]zxing_reader\.wasm$/;
-// The client-scanning chain runtimes ship wasm-pack `-t web` output whose wasm
-// imports (`wbg`) are supplied by the JS glue at runtime, so they must NOT be
-// parsed as webpack wasm modules (that fails with "Can't resolve 'wbg'"). Emit
-// them as URL assets and let the glue fetch them — same treatment as
-// canvaskit / kaspa's `.wasm.bin`.
+// Chain runtime wasm is wasm-pack `-t web` output whose `wbg` imports come from
+// the JS glue; parsing it as a webpack wasm module fails, so emit it as an asset.
 const ZCASH_WASM_TEST = /onekey_zcash_(runtime|keys)_bg\.wasm$/;
 const MONERO_WASM_TEST = /onekey_monero_runtime_bg\.wasm$/;
 const CHAIN_RUNTIME_WASM_TEST = [ZCASH_WASM_TEST, MONERO_WASM_TEST];
@@ -552,15 +549,12 @@ export function createBaseConfig({
         },
         {
           test: CHAIN_RUNTIME_WASM_TEST,
-          // web-embed runs from file:// in native WebViews, where fetch() cannot
-          // load file URLs — inline as a data: URI there (kaspa embeds base64
-          // for the same reason). Other platforms keep the fetchable file asset.
+          // web-embed can run from file:// (iOS), where fetch() cannot load file
+          // URLs, so inline it as a data: URI there.
           ...(platform === 'web-embed'
             ? { type: 'asset/inline' as const }
             : {
                 type: 'asset/resource' as const,
-                // One directory for both; the file names already say which
-                // chain each belongs to.
                 generator: { filename: 'static/chain-wasm/[name][ext]' },
               }),
         },

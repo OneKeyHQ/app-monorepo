@@ -3,19 +3,19 @@ import { globalAtom } from '../utils';
 
 import type { ILocalWalletSyncProgress } from '../../../vaults/localWallet/types';
 
-// Live scan state for privacy chains, published once per pass by the scheduler; not persisted (derived, rebuildable).
+// Live scan state published by the scheduler after each pass; not persisted.
 
 export type IPrivacyChainScanState = {
   // Keyed `${networkId}:${accountId}`.
   progress: Record<string, ILocalWalletSyncProgress>;
-  // Which networks are running at the foreground pace; drives the always-on light and in-page banners so they can't drift apart.
+  // Networks at the foreground pace; the light and in-page banners both read it.
   boostingNetworkIds: string[];
-  // Networks that want the foreground pace but can't until the user allows metered data; published
-  // separately from `boostingNetworkIds` since the two drive different UI (hold-awake+pause vs. consent).
+  // Networks that want the foreground pace but wait for metered-data consent.
   dataBlockedNetworkIds: string[];
-  // Networks the user paused; published so the light can show a paused state instead of disappearing.
+  // Networks the user paused, so the light can show a paused state.
   pausedNetworkIds: string[];
-  // Networks whose runtime cannot store its database on this device (outdated WebView); never retried this session.
+  // Networks whose runtime cannot store its database here (outdated WebView);
+  // not retried this session.
   storageUnsupportedNetworkIds: string[];
 };
 

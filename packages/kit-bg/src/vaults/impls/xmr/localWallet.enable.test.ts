@@ -96,11 +96,7 @@ beforeEach(() => {
 });
 
 describe('xmr enableAccount', () => {
-  /**
-   * The runtime queues the birthday..tip range only when it learns the tip.
-   * `addAccount` alone leaves nothing to scan, so the token page read
-   * "complete" with no progress until the scheduler's first pass.
-   */
+  // The runtime queues birthday..tip only once it learns the tip.
   it('queues the first scan range right away', async () => {
     const { capability } = build();
     await capability.enableAccount({

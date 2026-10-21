@@ -246,10 +246,8 @@ function ZcashWalletDatabaseDiagnostics() {
   );
 }
 
-// Dev-only debug tool for a REAL account already in this wallet (unlike the
-// environment test above, which does not open a wallet). Paste an accountId
-// from a "[zcash] shielded account meta missing" console log (e.g.
-// hd-3--m/44'/133'/0') to inspect/repair it without going through any UI flow.
+// Dev-only: inspect/repair a real account by id, e.g. one from a
+// "[zcash] shielded account meta missing" log.
 function ZcashRetryLocalWalletSetupDebug() {
   const [accountId, setAccountId] = useState('');
   const [running, setRunning] = useState(false);
@@ -353,13 +351,8 @@ function ZcashRetryLocalWalletSetupDebug() {
   );
 }
 
-// Dev-only debug tool for the birthday-anchoring bug: an account whose meta
-// only saved on a LATE retry got a birthday computed from "now" instead of
-// its real creation time, so funds received in between are invisible to
-// scanning (see KeyringHd.zcashDeriveAndSaveOneAccountMeta / Vault.
-// rescanFromDaysAgo). Give a rough "sent it about N days ago" and this pushes
-// the scan start back that far (plus a day of margin) and drops the cached
-// wasm wallet DB so the next sync rescans from there.
+// Dev-only: rescan an account from N days ago, for a birthday set later than
+// its first funds.
 function ZcashRescanFromDaysAgoDebug() {
   const [accountId, setAccountId] = useState('');
   const [daysAgo, setDaysAgo] = useState('7');

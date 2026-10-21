@@ -102,10 +102,8 @@ export function getPrivacyChainBackfillProgress(
     );
 }
 
-// Which chain the sync light speaks for when several are catching up: the one
-// furthest from done, by fraction (block counts are not comparable across
-// chains with different block times). A chain with no figure yet counts as
-// not started.
+// The chain furthest from done, by fraction: block counts are not comparable
+// across chains. A chain with no figure yet counts as not started.
 export function pickSlowestPrivacyChainNetwork(
   networkIds: string[],
   progress: Record<string, ILocalWalletSyncProgress>,

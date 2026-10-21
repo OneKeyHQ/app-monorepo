@@ -1401,9 +1401,6 @@ const bch: IServerNetwork = {
   'status': ENetworkStatus.LISTED,
 };
 
-// Zcash remains dev-only via SUPPORTED_IMPLS (not PRODUCTION_IMPLS). The test
-// environment indexes zec--0; keep it disabled by default until transaction
-// verification is complete.
 const zec: IServerNetwork = {
   'chainId': '0',
   'code': 'zec',
@@ -1425,9 +1422,8 @@ const zec: IServerNetwork = {
   'status': ENetworkStatus.LISTED,
 };
 
-// Monero: client-scanned privacy chain. Scanning is opt-in per account and
-// costs the user real bandwidth, so the network ships disabled by default
-// until the send path and the four carriers are wired.
+// Monero is client-scanned: scanning is opt-in per account and costs real
+// bandwidth, so the network ships disabled by default.
 const xmr: IServerNetwork = {
   'chainId': '0',
   'code': 'xmr',
@@ -1445,8 +1441,7 @@ const xmr: IServerNetwork = {
     'symbol': 'XMR',
   },
   'defaultEnabled': false,
-  // No third-party indexer covers Monero: the runtime is the only source of
-  // balances and history, so there is no backend index to point at.
+  // No backend indexer: the runtime is the only source of balances and history.
   'backendIndex': false,
   'status': ENetworkStatus.LISTED,
 };

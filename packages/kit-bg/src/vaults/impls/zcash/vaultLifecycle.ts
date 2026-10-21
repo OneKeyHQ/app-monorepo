@@ -1198,7 +1198,6 @@ export async function zcashResumePendingRescans(
       // eslint-disable-next-line no-continue
       continue;
     }
-    // Storage failures leave the repair journal intact for retry.
     try {
       // eslint-disable-next-line no-await-in-loop
       await vault.applyPendingRescan({ accountId, repair });

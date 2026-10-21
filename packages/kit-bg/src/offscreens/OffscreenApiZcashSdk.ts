@@ -12,7 +12,5 @@ class OffscreenApiZcashSdk {
   }
 }
 
-// The proxy attaches the contract's methods at construction time. Export the
-// constructor with that instance type instead of relying on declaration
-// merging, which cannot verify runtime initialization.
+// The proxy attaches the contract's methods at construction time.
 export default OffscreenApiZcashSdk as unknown as new () => IZcashSdkApi;

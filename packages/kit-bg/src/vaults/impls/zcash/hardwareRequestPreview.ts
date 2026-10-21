@@ -5,11 +5,9 @@ import type {
 
 import type { IBackgroundApi } from '../../../apis/IBackgroundApi';
 
-// Dev-only. A software account built from the same mnemonic as a test device
-// produces the same keys, so the PCZT below is exactly what the hardware
-// keyring would ask the device to sign for this transaction. Firmware can be
-// checked against it without a device on the app side. Mirrors
-// KeyringHardware's zcashSignPczt calls; keep the two in sync.
+// Dev-only. A software account on a test device's mnemonic yields the exact
+// PCZT the hardware keyring would send to the device. Keep in sync with
+// KeyringHardware's zcashSignPczt calls.
 
 // The preview stops the send: printing must not cost the tester real funds.
 export const ZCASH_HW_PREVIEW_STOP_MESSAGE =

@@ -65,7 +65,6 @@ export async function signTransparentTransaction({
   encodedTx: IEncodedTxZcash;
   request: IZcashTransparentTxRequest;
   sign: () => Promise<IZcashTransparentTxBuildResult>;
-  // Decodes the signed transaction's transparent outputs.
   parseOutputs: (
     result: IZcashTransparentTxBuildResult,
   ) => Promise<{ valueZat: string; scriptPubKey: string }[]>;

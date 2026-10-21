@@ -16,7 +16,7 @@ export function usePrivacyChainBoost({
   networkId: string;
   accountId: string;
   trigger: IPrivacyChainBoostTrigger;
-  // "The user is on this surface", not "the arrears are big enough" -- that's the service's call.
+  // Whether the user is on this surface; the service decides if a boost is needed.
   enabled: boolean;
 }) {
   const isRouteFocused = useRouteIsFocused();
@@ -32,7 +32,7 @@ export function usePrivacyChainBoost({
     });
   }, [networkId, accountId, trigger]);
 
-  // Deliberately registers NO cleanup: the pace belongs to how far behind the wallet is, not to this page.
+  // No cleanup: the pace depends on how far behind the wallet is, not on this page.
   useEffect(() => {
     if (!isPresent) {
       return;
