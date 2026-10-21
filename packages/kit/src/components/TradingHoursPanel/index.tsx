@@ -19,6 +19,7 @@ import {
 } from '@onekeyhq/components';
 import type { IKeyOfIcons } from '@onekeyhq/components';
 import { useInterval } from '@onekeyhq/kit/src/hooks/useInterval';
+import { useUSMarketStatus } from '@onekeyhq/kit/src/hooks/useUSMarketStatus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -28,7 +29,6 @@ import {
   formatSegmentLocalRange,
   getDeviceUtcOffsetLabel,
   getUSMarketTradingHours,
-  isOndoUSMarketStock,
   resolveUSTradingHoursActiveRow,
 } from '@onekeyhq/shared/src/utils/tradingHoursUtils';
 import type { IUSTradingHoursRow } from '@onekeyhq/shared/src/utils/tradingHoursUtils';
@@ -287,7 +287,9 @@ function TradingHoursContent({
 
   const tradingHours = useMemo(() => getUSMarketTradingHours(now), [now]);
 
+  const marketStatus = useUSMarketStatus();
   const activeRow = resolveUSTradingHoursActiveRow({
+    status: marketStatus,
     isOpen: stock.isOpen,
     isPaused: stock.isPaused,
     tradingHours,
@@ -699,12 +701,6 @@ export function TradingHoursTrigger({
 }) {
   const media = useMedia();
   const useSheetDialog = platformEnv.isNative || media.md;
-
-  // Trading hours only apply to Ondo's US-session model — other issuers
-  // (xStocks etc.) run 7×24, so their badge stays a plain, non-tappable one.
-  if (!isOndoUSMarketStock(stock.source)) {
-    return <>{renderTrigger}</>;
-  }
 
   if (useSheetDialog) {
     return (
