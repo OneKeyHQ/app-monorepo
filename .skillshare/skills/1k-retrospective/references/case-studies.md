@@ -938,3 +938,10 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries â€
 **Root Cause**: HardwareSales empty UI rendered title and description only. Swap and Perps already copy a subject-specific link; hardware's share URL is the summary invite URL plus `/shop`.
 **Fix**: Show a copy-link button on the empty list and copy that shop invite URL once summary info is ready. Keep the button disabled when the URL is missing.
 **Catchable by**: Section 4: shared empty-state copy must include the action it describes; Section 6: cover loading and missing-URL states.
+
+## Case: Hardware empty-state modules missing native module IDs (OK-64959)
+**Date**: 2026-10-21 | **Platforms**: iOS, Android (native union and production bundles)
+**Symptom**: Strict native bundling throws because HardwareEmptyData.tsx and useHardwareShopInviteUrl.ts are not in the module ID registry.
+**Root Cause**: The new production files are imported by the hardware sales page, so they enter the native graph, but no stable IDs were committed.
+**Fix**: Register both files in apps/mobile/bundle-registry/module-id-registry.json and pass a strict iOS union build.
+**Catchable by**: Section 4: a new file that the native bundle imports must be added to module-id-registry.json before the release bundle runs.
