@@ -5,10 +5,7 @@ import type {
   IDustSweepThreshold,
   IDustSweepToken,
 } from '@onekeyhq/shared/types/swap/dustSweep';
-import {
-  swapSlippageWillAheadMinValue,
-  swapSlippageWillFailMinValue,
-} from '@onekeyhq/shared/types/swap/SwapProvider.constants';
+import { swapSlippageWillAheadMinValue } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import { ETokenRiskLevel } from '@onekeyhq/shared/types/swap/types';
 import type { IFetchAccountTokensResp } from '@onekeyhq/shared/types/token';
 
@@ -18,6 +15,8 @@ import { isSwapTokenRisky } from '../../Swap/utils/swapTokenRiskUtils';
 export const DUST_SWEEP_THRESHOLDS: readonly IDustSweepThreshold[] = [
   1, 10, 100,
 ];
+export const DUST_SWEEP_MIN_SLIPPAGE = 5;
+export const DUST_SWEEP_MAX_SLIPPAGE = 50;
 
 export function getDustSweepHiddenThreshold(networkId: string) {
   return networkId === 'evm--1' ? '0.1' : '0.01';
@@ -117,16 +116,21 @@ export function filterDustSweepCandidates(
 
 export function isValidDustSweepSlippage(value: string) {
   const number = new BigNumber(value);
-  return number.isFinite() && number.gt(0) && number.lte(50);
+  return (
+    number.isFinite() &&
+    number.gte(DUST_SWEEP_MIN_SLIPPAGE) &&
+    number.lte(DUST_SWEEP_MAX_SLIPPAGE)
+  );
 }
 
 // Dust Sweep only warns above 10%; 10% itself is a normal choice here.
 export function getDustSweepSlippageNotice(
   value: string,
 ): 'invalid' | 'tooLow' | 'tooHigh' | undefined {
-  if (!isValidDustSweepSlippage(value)) return 'invalid';
   const number = new BigNumber(value);
-  if (number.lte(swapSlippageWillFailMinValue)) return 'tooLow';
+  if (number.isFinite() && number.gte(0) && number.lt(DUST_SWEEP_MIN_SLIPPAGE))
+    return 'tooLow';
+  if (!isValidDustSweepSlippage(value)) return 'invalid';
   if (number.gt(swapSlippageWillAheadMinValue)) return 'tooHigh';
   return undefined;
 }

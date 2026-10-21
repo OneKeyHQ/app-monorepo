@@ -30,9 +30,11 @@ import {
 } from './hooks/useDustSweepReconciliation';
 import { useDustSweepSession } from './hooks/useDustSweepSession';
 import {
+  DUST_SWEEP_MIN_SLIPPAGE,
   DUST_SWEEP_THRESHOLDS,
   filterDustSweepCandidates,
   isDustSweepBelowGasThreshold,
+  isValidDustSweepSlippage,
 } from './utils/candidates';
 import { loadDustSweepNetworks } from './utils/loadNetworks';
 
@@ -112,7 +114,10 @@ function useDustSweepController(params: IDustSweepRouteParams) {
     scope: IDustSweepRouteParams;
     keys: Set<string>;
   }>();
-  const [slippage, setSlippage] = useState(5);
+  const [slippage, setSlippageValue] = useState(DUST_SWEEP_MIN_SLIPPAGE);
+  const setSlippage = useCallback((value: number) => {
+    if (isValidDustSweepSlippage(value.toString())) setSlippageValue(value);
+  }, []);
   const visited = useRef(false);
   const firstVisit = useRef(true);
   const session = useDustSweepSession(networks);
@@ -217,37 +222,17 @@ function useDustSweepController(params: IDustSweepRouteParams) {
       ),
     [selectableNetworks],
   );
-  // The default selection is the chain with the most dust under the current
-  // threshold; ties keep the loaded order.
-  const defaultNetwork = useMemo(() => {
-    let best: IDustSweepNetwork | undefined;
-    let bestDustUsd = new BigNumber(-1);
-    // Only picker-eligible networks can be chosen automatically; when none
-    // qualify, nothing is selected and the empty state shows.
-    for (const entry of selectableNetworks) {
-      const dustUsd = entry.tokens
-        .filter((token) =>
-          new BigNumber(token.valueUsd).lt(preferences.threshold),
-        )
-        .reduce((sum, token) => sum.plus(token.valueUsd), new BigNumber(0));
-      if (dustUsd.gt(bestDustUsd)) {
-        best = entry;
-        bestDustUsd = dustUsd;
-      }
-    }
-    return best;
-  }, [selectableNetworks, preferences.threshold]);
+  const defaultNetwork = visibleNetworks[0];
   const chosenNetwork = networks.find(
     (entry) => entry.network.networkId === networkId,
   );
-  // A provisional cache default must not pin an empty chain after refresh.
+  // A provisional cache default follows the displayed order after refresh.
   // Explicit user/route choices and execution keep their selected network.
   const keepChosenNetwork =
     chosenNetwork &&
     (!selecting ||
       !!params.networkId ||
-      networkChoiceScope.current === loadParams ||
-      selectableNetworks.includes(chosenNetwork));
+      networkChoiceScope.current === loadParams);
   let current = selecting ? defaultNetwork : undefined;
   if (keepChosenNetwork) current = chosenNetwork;
   // An explicitly requested network stays visible (first) in the picker while
