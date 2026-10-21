@@ -122,11 +122,13 @@ export function TradingViewNativeFullscreenPage() {
   const handleLayout = useCallback(
     ({ nativeEvent: { layout } }: LayoutChangeEvent) => {
       layoutRef.current = layout;
-      if (closingRef.current && layout.height >= layout.width) {
+      const hasSize = layout.width > 0 && layout.height > 0;
+      if (closingRef.current && hasSize && layout.height >= layout.width) {
         closePage(presentationId);
       } else {
         setHasExpectedLayout(
-          platformEnv.isNativeIOSPad || layout.width > layout.height,
+          hasSize &&
+            (platformEnv.isNativeIOSPad || layout.width > layout.height),
         );
       }
     },
@@ -141,7 +143,9 @@ export function TradingViewNativeFullscreenPage() {
     if (!entry?.closing) return;
     if (
       platformEnv.isNativeIOSPad ||
-      layoutRef.current.height >= layoutRef.current.width
+      (layoutRef.current.width > 0 &&
+        layoutRef.current.height > 0 &&
+        layoutRef.current.height >= layoutRef.current.width)
     ) {
       closePage(presentationId);
       return;
@@ -182,7 +186,9 @@ export function TradingViewNativeFullscreenPage() {
       >
         <SafeAreaProvider style={{ flex: 1 }}>
           <SafeAreaView style={{ flex: 1 }}>
-            <TradingViewNativeChartActiveContext.Provider value>
+            <TradingViewNativeChartActiveContext.Provider
+              value={!entry?.closing}
+            >
               <TradingViewNativeChartReadyContext.Provider
                 value={hasExpectedLayout ? handleChartReady : undefined}
               >

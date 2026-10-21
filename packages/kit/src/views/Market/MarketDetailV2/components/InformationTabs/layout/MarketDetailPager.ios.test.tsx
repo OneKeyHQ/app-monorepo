@@ -5,7 +5,7 @@ import type { PropsWithChildren } from 'react';
 import { fireEvent, render } from '@testing-library/react';
 
 import { MarketDetailNativePageContext } from './MarketDetailNativeContext';
-import { MarketDetailPager } from './MarketDetailPager.native';
+import { MarketDetailPager } from './MarketDetailPager.ios';
 
 import type { IMarketDetailPagerProps } from './MarketDetailPager';
 

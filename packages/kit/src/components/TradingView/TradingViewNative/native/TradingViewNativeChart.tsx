@@ -711,8 +711,8 @@ export const TradingViewNativeChart = memo(
     );
 
     useLayoutEffect(() => {
-      onChartWidthChange?.(chartWidth);
-    }, [chartWidth, onChartWidthChange]);
+      if (isActive && chartWidth > 0) onChartWidthChange?.(chartWidth);
+    }, [chartWidth, isActive, onChartWidthChange]);
 
     useLayoutEffect(() => {
       const dataUpdateMetadata = getTradingViewNativeDataUpdateMetadata({

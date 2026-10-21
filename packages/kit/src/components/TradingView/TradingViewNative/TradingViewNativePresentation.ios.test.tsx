@@ -201,31 +201,37 @@ it('opens indicator settings above the fullscreen chart without closing it', () 
   expect(mockPageNavigation.setOptions).not.toHaveBeenCalled();
 });
 
-it('keeps fullscreen visible until the native page reports portrait layout', () => {
-  const chart = (isFullscreen: boolean) => (
-    <TradingViewNativePresentation isFullscreen={isFullscreen}>
-      <Chart label="Chart" />
-    </TradingViewNativePresentation>
-  );
-  const owner = render(chart(true));
-  const page = render(<TradingViewNativeFullscreenPage />);
-  layout(874, 402);
-  const lateChartReady = mockChartReady;
-  owner.rerender(chart(false));
-  expect(mockPageNavigation.setOptions).toHaveBeenCalledWith({
-    contentReady: false,
-    orientation: 'portrait',
-  });
-  act(() => lateChartReady?.());
-  expect(mockPageNavigation.setOptions).not.toHaveBeenCalledWith({
-    contentReady: true,
-  });
-  expect(mockDispatch).toHaveBeenCalledTimes(1);
-  expect(page.container.textContent).toBe('Chart');
-  layout(402, 874);
-  expect(mockDispatch).toHaveBeenLastCalledWith({
-    type: 'GO_BACK',
-    source: 'fullscreen',
-    target: 'root',
-  });
-});
+it.each([true, false])(
+  'waits for portrait before closing (initial layout: %s)',
+  (hasInitialLayout) => {
+    const chart = (isFullscreen: boolean) => (
+      <TradingViewNativePresentation isFullscreen={isFullscreen}>
+        <Chart label="Chart" />
+      </TradingViewNativePresentation>
+    );
+    const owner = render(chart(true));
+    const page = render(<TradingViewNativeFullscreenPage />);
+    if (hasInitialLayout) layout(874, 402);
+    const lateChartReady = mockChartReady;
+    owner.rerender(chart(false));
+    expect(mockPageNavigation.setOptions).toHaveBeenCalledWith({
+      contentReady: false,
+      orientation: 'portrait',
+    });
+    act(() => lateChartReady?.());
+    expect(mockPageNavigation.setOptions).not.toHaveBeenCalledWith({
+      contentReady: true,
+    });
+    expect(mockDispatch).toHaveBeenCalledTimes(1);
+    expect(page.container.textContent).toBe('Chart');
+    expect(page.container.querySelector('span')?.dataset.active).toBe('false');
+    layout(0, 0);
+    expect(mockDispatch).toHaveBeenCalledTimes(1);
+    layout(402, 874);
+    expect(mockDispatch).toHaveBeenLastCalledWith({
+      type: 'GO_BACK',
+      source: 'fullscreen',
+      target: 'root',
+    });
+  },
+);

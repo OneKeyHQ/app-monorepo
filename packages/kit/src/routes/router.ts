@@ -7,13 +7,12 @@ import LazyLoad from '@onekeyhq/shared/src/lazyLoad';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ERootRoutes } from '@onekeyhq/shared/src/routes';
 
-import { TradingViewNativeFullscreenPage } from '../components/TradingView/TradingViewNative/TradingViewNativePresentation';
-
 import {
   FullScreenPushNavigator,
   IOSFullScreenNavigator,
   ModalNavigator,
   OnboardingNavigator,
+  TradingViewNativeFullscreenPage,
   WebViewNavigator,
 } from './LazyRootNavigators';
 import {
