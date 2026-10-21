@@ -410,7 +410,7 @@ function SimpleOrderContent() {
     },
     [accountAddress],
     {
-      undefinedResultIfError: true,
+      keepResultIfError: true,
       checkIsFocused: true,
       revalidateOnFocus: true,
       revalidateOnReconnect: true,
