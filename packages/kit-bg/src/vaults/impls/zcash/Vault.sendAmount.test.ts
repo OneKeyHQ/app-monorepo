@@ -73,8 +73,8 @@ describe('Zcash send amount intent', () => {
         accountId: account.id,
         backgroundApi: {
           simpleDb: {
-            zcash: {
-              getPrivacyModeState: async () => ({
+            privacyChainState: {
+              getZcashPrivacyModeState: async () => ({
                 intent: 'on',
               }),
             },
@@ -390,9 +390,8 @@ describe('Zcash transparent send amount intent', () => {
         accountId: 'test-account',
         backgroundApi: {
           simpleDb: {
-            privacyChain: {},
-            zcash: {
-              getPrivacyModeState: async () => ({ intent: 'off' }),
+            privacyChainState: {
+              getZcashPrivacyModeState: async () => ({ intent: 'off' }),
             },
             privacyChainJournal: {
               listTransparentPendingTxs: async () => [],

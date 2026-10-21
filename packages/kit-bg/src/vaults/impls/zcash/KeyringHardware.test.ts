@@ -74,10 +74,10 @@ function receiveVerificationParams(
 function createSeedFingerprintStore(initial: Record<string, string> = {}) {
   const fingerprints = new Map(Object.entries(initial));
   return {
-    getWalletSeedFingerprint: jest.fn(
+    getZcashWalletSeedFingerprint: jest.fn(
       async ({ walletId }: { walletId: string }) => fingerprints.get(walletId),
     ),
-    saveWalletSeedFingerprint: jest.fn(
+    saveZcashWalletSeedFingerprint: jest.fn(
       async ({
         walletId,
         seedFingerprintHex,
@@ -135,8 +135,10 @@ function createKeyring({
     },
     backgroundApi: {
       simpleDb: {
-        zcash: {
+        privacyChainState: {
           ...createSeedFingerprintStore(),
+          // No identity recorded yet: the first key is accepted.
+          getAccountVkFp: jest.fn(async () => undefined),
           ...simpleDbZcash,
         },
         privacyChainJournal: { ...journal },
@@ -251,10 +253,17 @@ describe('Zcash KeyringHardware', () => {
           seedFingerprint: 'ab'.repeat(32),
         })),
       });
-      const initializePrivacyModeOff = jest.fn();
+      // Creating accounts records no scan state: only an enable does.
+      const beginZcashPrivacyModeEnable = jest.fn();
+      const saveZcashAccountMeta = jest.fn();
+      const fingerprintStore = createSeedFingerprintStore();
       const keyring = createKeyring({
         sdk: { btcGetPublicKey, zcashGetAddress },
-        simpleDbZcash: { initializePrivacyModeOff },
+        simpleDbZcash: {
+          ...fingerprintStore,
+          beginZcashPrivacyModeEnable,
+          saveZcashAccountMeta,
+        },
       });
       Object.assign(keyring, {
         walletId: 'hw-1',
@@ -289,9 +298,21 @@ describe('Zcash KeyringHardware', () => {
       if (rootFingerprint === undefined) {
         await expect(result).rejects.toThrow('valid root fingerprint');
         expect(zcashGetAddress).not.toHaveBeenCalled();
-        expect(initializePrivacyModeOff).not.toHaveBeenCalled();
+        expect(beginZcashPrivacyModeEnable).not.toHaveBeenCalled();
+        expect(
+          fingerprintStore.saveZcashWalletSeedFingerprint,
+        ).not.toHaveBeenCalled();
       } else {
         const accounts = await result;
+        expect(beginZcashPrivacyModeEnable).not.toHaveBeenCalled();
+        expect(saveZcashAccountMeta).not.toHaveBeenCalled();
+        // The wallet's seed fingerprint is kept: transparent signing needs it.
+        expect(
+          fingerprintStore.saveZcashWalletSeedFingerprint,
+        ).toHaveBeenCalledWith({
+          walletId: 'hw-1',
+          seedFingerprintHex: 'ab'.repeat(32),
+        });
         expect(accounts).toHaveLength(2);
         for (const account of accounts) {
           expect(account.__hwExtraInfo__).toEqual({ rootFingerprint });
@@ -337,8 +358,10 @@ describe('Zcash KeyringHardware', () => {
       sdk: { zcashSignPczt },
       vault,
       simpleDbZcash: {
-        getAccountMeta: jest.fn().mockResolvedValue({ vkFp: 'a'.repeat(32) }),
-        isPrivacyModeEnabled: jest.fn().mockResolvedValue(true),
+        getZcashAccountMeta: jest
+          .fn()
+          .mockResolvedValue({ vkFp: 'a'.repeat(32) }),
+        isZcashPrivacyModeEnabled: jest.fn().mockResolvedValue(true),
       },
     });
 
@@ -391,8 +414,10 @@ describe('Zcash KeyringHardware', () => {
       },
       vault,
       simpleDbZcash: {
-        getAccountMeta: jest.fn().mockResolvedValue({ vkFp: 'a'.repeat(32) }),
-        isPrivacyModeEnabled: jest.fn().mockResolvedValue(true),
+        getZcashAccountMeta: jest
+          .fn()
+          .mockResolvedValue({ vkFp: 'a'.repeat(32) }),
+        isZcashPrivacyModeEnabled: jest.fn().mockResolvedValue(true),
       },
     });
 
@@ -466,8 +491,8 @@ describe('Zcash KeyringHardware', () => {
       };
       mockGetZcashApi.mockResolvedValue(api);
       const simpleDbZcash = {
-        getAccountMeta: jest.fn(),
-        isPrivacyModeEnabled: jest.fn().mockResolvedValue(false),
+        getZcashAccountMeta: jest.fn(),
+        isZcashPrivacyModeEnabled: jest.fn().mockResolvedValue(false),
       };
       const journal = {
         reserveTransparentOutpoints: jest.fn(),
@@ -504,8 +529,8 @@ describe('Zcash KeyringHardware', () => {
         deviceParams,
       } as never);
       expect(result.rawTx).toBe('abcd');
-      expect(simpleDbZcash.getAccountMeta).not.toHaveBeenCalled();
-      expect(simpleDbZcash.isPrivacyModeEnabled).not.toHaveBeenCalled();
+      expect(simpleDbZcash.getZcashAccountMeta).not.toHaveBeenCalled();
+      expect(simpleDbZcash.isZcashPrivacyModeEnabled).not.toHaveBeenCalled();
       expect(api.finalizeTransparentHardwarePczt).toHaveBeenCalledWith({
         request,
         accountXpub: 'account-xpub',
@@ -574,12 +599,12 @@ describe('Zcash KeyringHardware', () => {
     const keyring = createKeyring({
       sdk: { zcashGetAddress },
       simpleDbZcash: {
-        getPrivacyModeState: jest.fn().mockResolvedValue({
+        getZcashPrivacyModeState: jest.fn().mockResolvedValue({
           intent: 'on',
           birthdayHeight: 2_500_000,
         }),
-        getAccountMeta: jest.fn().mockResolvedValue(undefined),
-        saveAccountMeta,
+        getZcashAccountMeta: jest.fn().mockResolvedValue(undefined),
+        saveZcashAccountMeta: saveAccountMeta,
       },
       serviceAccount: {
         getDBAccount: jest.fn().mockResolvedValue({
@@ -657,15 +682,15 @@ describe('Zcash KeyringHardware', () => {
         keyring as unknown as {
           backgroundApi: {
             simpleDb: {
-              zcash: {
-                getWalletSeedFingerprint: (p: {
+              privacyChainState: {
+                getZcashWalletSeedFingerprint: (p: {
                   walletId: string;
                 }) => Promise<string | undefined>;
               };
             };
           };
         }
-      ).backgroundApi.simpleDb.zcash.getWalletSeedFingerprint({
+      ).backgroundApi.simpleDb.privacyChainState.getZcashWalletSeedFingerprint({
         walletId: 'hw-1',
       }),
     ).resolves.toBe('ab'.repeat(32));
@@ -696,12 +721,12 @@ describe('Zcash KeyringHardware', () => {
       },
       simpleDbZcash: {
         ...createSeedFingerprintStore({ 'hw-1': 'ab'.repeat(32) }),
-        getPrivacyModeState: jest.fn().mockResolvedValue({
+        getZcashPrivacyModeState: jest.fn().mockResolvedValue({
           intent: 'on',
           birthdayHeight: 2_500_000,
         }),
-        getAccountMeta: jest.fn().mockResolvedValue(undefined),
-        saveAccountMeta,
+        getZcashAccountMeta: jest.fn().mockResolvedValue(undefined),
+        saveZcashAccountMeta: saveAccountMeta,
       },
       serviceAccount: {
         getDBAccount: jest.fn().mockResolvedValue({
@@ -742,12 +767,12 @@ describe('Zcash KeyringHardware', () => {
         }),
       },
       simpleDbZcash: {
-        getPrivacyModeState: jest.fn().mockResolvedValue({
+        getZcashPrivacyModeState: jest.fn().mockResolvedValue({
           intent: 'on',
           birthdayHeight: 2_500_000,
         }),
-        getAccountMeta: jest.fn().mockResolvedValue(undefined),
-        saveAccountMeta,
+        getZcashAccountMeta: jest.fn().mockResolvedValue(undefined),
+        saveZcashAccountMeta: saveAccountMeta,
       },
       serviceAccount: {
         getDBAccount: jest.fn().mockResolvedValue({
@@ -793,12 +818,12 @@ describe('Zcash KeyringHardware', () => {
         }),
       },
       simpleDbZcash: {
-        getPrivacyModeState: jest.fn().mockResolvedValue({
+        getZcashPrivacyModeState: jest.fn().mockResolvedValue({
           intent: 'on',
           birthdayHeight: 2_500_000,
         }),
-        getAccountMeta: jest.fn().mockResolvedValue(undefined),
-        saveAccountMeta,
+        getZcashAccountMeta: jest.fn().mockResolvedValue(undefined),
+        saveZcashAccountMeta: saveAccountMeta,
       },
       serviceAccount: {
         getDBAccount: jest.fn().mockResolvedValue({
@@ -989,7 +1014,9 @@ describe('Zcash KeyringHardware transparent signing', () => {
     await expect(sign()).resolves.toMatchObject({ txid: buildResult.txid });
 
     expect(fetchDeviceViewingKeys).toHaveBeenCalledTimes(1);
-    expect(fingerprintStore.saveWalletSeedFingerprint).toHaveBeenCalledWith({
+    expect(
+      fingerprintStore.saveZcashWalletSeedFingerprint,
+    ).toHaveBeenCalledWith({
       walletId: 'hw-1',
       seedFingerprintHex: 'ef'.repeat(32),
     });

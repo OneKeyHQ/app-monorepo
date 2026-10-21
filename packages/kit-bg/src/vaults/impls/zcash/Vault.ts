@@ -98,7 +98,7 @@ import type {
   IZcashAccountMeta,
   IZcashBirthdaySource,
   IZcashPendingRescan,
-} from '../../../dbs/simple/entity/SimpleDbEntityZcash';
+} from '../../../dbs/simple/entity/SimpleDbEntityPrivacyChainState';
 import type { KeyringBase } from '../../base/KeyringBase';
 import type {
   ILocalWalletAccountBalance,
@@ -275,7 +275,7 @@ export default class Vault extends VaultBtc {
     const walletId = accountUtils.getWalletIdFromAccountId({ accountId });
     return refreshZcashAccountAddressCache({
       accountId,
-      store: this.backgroundApi.simpleDb.zcash,
+      store: this.backgroundApi.simpleDb.privacyChainState,
       isHardware: accountUtils.isHwWallet({ walletId }),
       deriveAddresses: async (meta) => {
         const api = await this.zcashGetApi();
@@ -566,9 +566,12 @@ export default class Vault extends VaultBtc {
 
   // Single gate for every scanner-touching entry point; also catches an account stuck mid-operation that intent alone would miss.
   async zcashPrivacyModeIsActive(accountId: string): Promise<boolean> {
-    const state = await this.backgroundApi.simpleDb.zcash.getPrivacyModeState({
-      accountId,
-    });
+    const state =
+      await this.backgroundApi.simpleDb.privacyChainState.getZcashPrivacyModeState(
+        {
+          accountId,
+        },
+      );
     return state.intent === 'on' && state.operation === undefined;
   }
 

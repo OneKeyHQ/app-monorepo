@@ -1,27 +1,63 @@
 import { ZCASH_ADDRESS_SCHEME_VERSION } from '@onekeyhq/core/src/chains/zcash/sdkZcash/constants';
 
-import { SimpleDbEntityZcash } from '../../../dbs/simple/entity/SimpleDbEntityZcash';
+import { SimpleDbEntityPrivacyChainState } from '../../../dbs/simple/entity/SimpleDbEntityPrivacyChainState';
 
 import { refreshZcashAccountAddressCache } from './accountMeta';
 
-import type { IZcashAccountMeta } from '../../../dbs/simple/entity/SimpleDbEntityZcash';
+import type { IZcashAccountMeta } from '../../../dbs/simple/entity/SimpleDbEntityPrivacyChainState';
+
+const networkId = 'zec--0';
 
 function createContext(metaOverrides: Partial<IZcashAccountMeta> = {}) {
   const meta: IZcashAccountMeta = {
     vkFp: 'a'.repeat(32),
     unifiedAddress: 'synthetic-old-private-address',
     transparentAddress: 'synthetic-transparent-address',
-    seedFingerprintHex: 'synthetic-fingerprint',
+    seedFingerprintHex: 'ab'.repeat(32),
     hdIndex: 0,
     birthdayHeight: 3_000_000,
     createdAt: 1,
     ...metaOverrides,
   };
   let saved: unknown = {
-    data: { accounts: { first: meta }, futureField: 'retained' },
+    data: {
+      device: { allowCellularSync: true },
+      wallets: {
+        first: {
+          chain: { zcash: { seedFingerprintHex: meta.seedFingerprintHex } },
+        },
+      },
+      accounts: {
+        first: {
+          networkId,
+          walletId: 'first',
+          vkFp: meta.vkFp,
+          epoch: '0123456789abcdef',
+          scan: {
+            intent: 'on',
+            birthday:
+              meta.birthdayHeight === undefined
+                ? undefined
+                : { height: meta.birthdayHeight },
+          },
+          chain: {
+            zcash: {
+              unifiedAddress: meta.unifiedAddress,
+              derivedUnifiedAddress: meta.derivedUnifiedAddress,
+              transparentAddress: meta.transparentAddress,
+              addressSchemeVersion: meta.addressSchemeVersion,
+              hdIndex: meta.hdIndex,
+            },
+          },
+          createdAt: meta.createdAt,
+          updatedAt: 1,
+        },
+      },
+      futureField: 'dropped',
+    },
     updatedAt: 1,
   };
-  const store = new SimpleDbEntityZcash();
+  const store = new SimpleDbEntityPrivacyChainState();
   Reflect.set(store, 'appStorage', {
     getItem: async () => saved,
     setItem: async (_key: string, value: unknown) => {
@@ -54,7 +90,9 @@ describe('Zcash address policy cache', () => {
     expect(deriveAddresses).toHaveBeenCalledWith(meta);
     await refresh();
     expect(deriveAddresses).toHaveBeenCalledTimes(1);
-    expect(await store.getRawData()).toHaveProperty('futureField', 'retained');
+    // Other state survives; only known fields are written back.
+    await expect(store.getAllowCellularSync()).resolves.toBe(true);
+    expect(await store.getRawData()).not.toHaveProperty('futureField');
   });
 
   it('leaves current caches untouched and rejects future versions without deriving', async () => {
@@ -79,11 +117,16 @@ describe('Zcash address policy cache', () => {
       transparentAddress: 'synthetic-other-transparent-address',
       hdIndex: 1,
     };
-    await store.saveAccountMeta({ accountId: 'second', meta: otherMeta });
+    await store.beginZcashPrivacyModeEnable({
+      networkId,
+      accountId: 'second',
+      birthdayHeight: 3_000_000,
+    });
+    await store.saveZcashAccountMeta({ accountId: 'second', meta: otherMeta });
     await refresh();
     await expect(
-      store.getAccountMeta({ accountId: 'second' }),
-    ).resolves.toEqual(otherMeta);
+      store.getZcashAccountMeta({ accountId: 'second' }),
+    ).resolves.toEqual({ ...otherMeta, createdAt: expect.any(Number) });
   });
 
   it('preserves the device-displayed hardware address and refreshes its app counterpart', async () => {
@@ -111,27 +154,27 @@ describe('Zcash address policy cache', () => {
       transparentAddress: 'synthetic-other-account',
     });
     await expect(refresh()).rejects.toThrow('do not match');
-    await expect(store.getAccountMeta({ accountId: 'first' })).resolves.toEqual(
-      meta,
-    );
+    await expect(
+      store.getZcashAccountMeta({ accountId: 'first' }),
+    ).resolves.toEqual(meta);
   });
 
   it('does not resurrect an account deleted while derivation is pending', async () => {
     const { store, derived, deriveAddresses, refresh } = createContext();
     deriveAddresses.mockImplementation(async () => {
-      await store.removeAccountState({ accountId: 'first' });
+      await store.removeAccount({ accountId: 'first' });
       return derived;
     });
     await expect(refresh()).rejects.toThrow('privacy state changed');
     await expect(
-      store.getAccountMeta({ accountId: 'first' }),
+      store.getZcashAccountMeta({ accountId: 'first' }),
     ).resolves.toBeUndefined();
   });
 
   it('preserves a concurrent repair instead of overwriting its recovery height', async () => {
     const { store, meta, derived, deriveAddresses, refresh } = createContext();
     deriveAddresses.mockImplementation(async () => {
-      await store.saveAccountMeta({
+      await store.saveZcashAccountMeta({
         accountId: 'first',
         meta: { ...meta, birthdayHeight: 2_000_000 },
       });
@@ -139,7 +182,7 @@ describe('Zcash address policy cache', () => {
     });
     await expect(refresh()).rejects.toThrow('privacy state changed');
     await expect(
-      store.getAccountMeta({ accountId: 'first' }),
+      store.getZcashAccountMeta({ accountId: 'first' }),
     ).resolves.toMatchObject({
       birthdayHeight: 2_000_000,
       unifiedAddress: meta.unifiedAddress,

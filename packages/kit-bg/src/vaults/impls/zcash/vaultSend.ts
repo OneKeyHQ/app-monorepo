@@ -216,9 +216,11 @@ export async function buildEncodedTx(
     );
   }
   const privacyMode =
-    await vault.backgroundApi.simpleDb.zcash.getPrivacyModeState({
-      accountId: vault.accountId,
-    });
+    await vault.backgroundApi.simpleDb.privacyChainState.getZcashPrivacyModeState(
+      {
+        accountId: vault.accountId,
+      },
+    );
   const sourcePool = transferInfo.localWalletSourcePool;
   const requestedSpendSource = zcashSpendSourceFromKey(
     transferInfo.localWalletSpendSource,
@@ -488,9 +490,10 @@ export async function zcashAttachPczt(
   encodedTx: IEncodedTxZcash,
 ): Promise<IEncodedTxZcash> {
   const accountId = vault.accountId;
-  const meta = await vault.backgroundApi.simpleDb.zcash.getAccountMeta({
-    accountId,
-  });
+  const meta =
+    await vault.backgroundApi.simpleDb.privacyChainState.getZcashAccountMeta({
+      accountId,
+    });
   if (!meta) {
     throw new OneKeyLocalError(
       'zcash: shielded account meta missing (use retryLocalWalletSetup to retry)',
@@ -499,9 +502,11 @@ export async function zcashAttachPczt(
   const lifecycleMutex = getZcashLifecycleMutex(meta.vkFp);
   return lifecycleMutex.runExclusive(async () => {
     const privacyModeEnabled =
-      await vault.backgroundApi.simpleDb.zcash.isPrivacyModeEnabled({
-        accountId,
-      });
+      await vault.backgroundApi.simpleDb.privacyChainState.isZcashPrivacyModeEnabled(
+        {
+          accountId,
+        },
+      );
     if (!privacyModeEnabled) {
       throw zcashTransparentError(
         'PRIVACY_MODE_DISABLED',
@@ -688,9 +693,11 @@ export async function broadcastTransaction(
   });
   const sendResult = await lifecycleMutex.runExclusive(async () => {
     const privacyModeEnabled =
-      await vault.backgroundApi.simpleDb.zcash.isPrivacyModeEnabled({
-        accountId: vault.accountId,
-      });
+      await vault.backgroundApi.simpleDb.privacyChainState.isZcashPrivacyModeEnabled(
+        {
+          accountId: vault.accountId,
+        },
+      );
     if (!privacyModeEnabled) {
       throw Object.assign(
         new OneKeyLocalError(

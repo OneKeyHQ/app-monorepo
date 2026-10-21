@@ -5,7 +5,7 @@ jest.mock('../../../dbs/local/localDbInstance', () => ({
   default: {},
 }));
 
-import { SimpleDbEntityZcash } from '../../../dbs/simple/entity/SimpleDbEntityZcash';
+import { SimpleDbEntityPrivacyChainState } from '../../../dbs/simple/entity/SimpleDbEntityPrivacyChainState';
 
 import Vault from './Vault';
 
@@ -30,18 +30,18 @@ function createVault({
         }),
       },
       simpleDb: {
-        zcash: {
-          listAccountIds: async () => ['hd-saved--1', 'hd-hidden--1'],
-          listAccountMetas: async () =>
+        privacyChainState: {
+          listZcashMetaAccountIds: async () => ['hd-saved--1', 'hd-hidden--1'],
+          listZcashAccountMetas: async () =>
             ['hd-saved--1', 'hd-hidden--1'].map((accountId, index) => ({
               accountId,
               meta: { vkFp: String(index).repeat(32) },
             })),
-          listPrivacyModeEnabledAccountIds: async () => [
+          listZcashEnabledAccountIds: async () => [
             'hd-saved--1',
             'hd-hidden--1',
           ],
-          listCleanupAccountIds: async () => [],
+          listAccountIds: async () => [],
         },
         privacyChainJournal: {
           listZcashTransparentAccountIds: async () => [],
@@ -114,7 +114,7 @@ it.each([true, false])(
   'recovers hidden scan exclusions after restart (progress available: %s)',
   async (hasProgress) => {
     let saved: unknown = null;
-    const entity = new SimpleDbEntityZcash();
+    const entity = new SimpleDbEntityPrivacyChainState();
     (entity as { appStorage: unknown }).appStorage = {
       getItem: async () => saved,
       setItem: async (_key: string, value: unknown) => {
@@ -122,37 +122,45 @@ it.each([true, false])(
       },
     };
     for (const id of ['a', 'b']) {
-      await entity.beginPrivacyModeEnable({
+      await entity.beginZcashPrivacyModeEnable({
+        networkId: 'zec--0',
         accountId: id,
         birthdayHeight: 2_000_000,
       });
-      await entity.saveAccountMeta({
+      await entity.saveZcashAccountMeta({
         accountId: id,
         meta: {
           vkFp: id.repeat(32),
           unifiedAddress: 'u1',
           transparentAddress: 't1',
-          seedFingerprintHex: '00',
+          seedFingerprintHex: '00'.repeat(32),
           hdIndex: 0,
           birthdayHeight: 2_000_000,
           createdAt: 1,
         },
       });
-      await entity.completePrivacyModeEnable({ accountId: id });
+      await entity.completeZcashPrivacyModeEnable({ accountId: id });
     }
     if (!hasProgress) {
-      await entity.setRawData((data) => ({
-        ...data,
-        accounts: data?.accounts ?? {},
-        privacyModeAccounts: {
-          ...data?.privacyModeAccounts,
-          a: {
-            intent: 'on',
-            birthdayTimestamp: 1_700_000_000_000,
-            updatedAt: 1,
+      // The state names only a month; the resolved height is the meta's.
+      await entity.setRawData((data) => {
+        const record = data?.accounts?.a as {
+          scan: Record<string, unknown>;
+        };
+        return {
+          ...data,
+          accounts: {
+            ...data?.accounts,
+            a: {
+              ...record,
+              scan: {
+                ...record.scan,
+                birthdayRequest: { timestamp: 1_700_000_000_000 },
+              },
+            },
           },
-        },
-      }));
+        };
+      });
     }
     const expectedCursor = hasProgress ? 2_499_900 : 2_000_000;
     let hidden = true;
@@ -163,7 +171,7 @@ it.each([true, false])(
       const vault = Object.create(Vault.prototype) as Vault;
       Object.assign(vault, {
         backgroundApi: {
-          simpleDb: { zcash: entity },
+          simpleDb: { privacyChainState: entity },
           servicePrivacyChain: { isLocalWalletScanAllowed: async () => true },
         },
         listLocalWalletAccounts: async () => ({
@@ -203,7 +211,7 @@ it.each([true, false])(
             scannedKeys.push(activeUfvks);
             if (hidden) {
               expect(
-                (await entity.getPrivacyModeState({ accountId: 'a' }))
+                (await entity.getZcashPrivacyModeState({ accountId: 'a' }))
                   .scanExcludedFromHeight,
               ).toBe(expectedCursor);
             } else if (
@@ -228,7 +236,7 @@ it.each([true, false])(
     expect(scannedKeys[1]).toEqual(['a', 'b']);
     expect(foundNote).toBe(true);
     expect(
-      (await entity.getPrivacyModeState({ accountId: 'a' }))
+      (await entity.getZcashPrivacyModeState({ accountId: 'a' }))
         .scanExcludedFromHeight,
     ).toBeUndefined();
   },
@@ -238,7 +246,7 @@ it.each([false, true])(
   'recovers by viewing identity while an alias remains hidden (existing exclusion: %s)',
   async (existingExclusion) => {
     let saved: unknown = null;
-    const entity = new SimpleDbEntityZcash();
+    const entity = new SimpleDbEntityPrivacyChainState();
     (entity as { appStorage: unknown }).appStorage = {
       getItem: async () => saved,
       setItem: async (_key: string, value: unknown) => {
@@ -246,26 +254,27 @@ it.each([false, true])(
       },
     };
     for (const accountId of ['hidden', 'visible']) {
-      await entity.beginPrivacyModeEnable({
+      await entity.beginZcashPrivacyModeEnable({
+        networkId: 'zec--0',
         accountId,
         birthdayHeight: 2_000_000,
       });
-      await entity.saveAccountMeta({
+      await entity.saveZcashAccountMeta({
         accountId,
         meta: {
           vkFp: 'c'.repeat(32),
           unifiedAddress: 'u1',
           transparentAddress: 't1',
-          seedFingerprintHex: '00',
+          seedFingerprintHex: '00'.repeat(32),
           hdIndex: 0,
           birthdayHeight: 2_000_000,
           createdAt: 1,
         },
       });
-      await entity.completePrivacyModeEnable({ accountId });
+      await entity.completeZcashPrivacyModeEnable({ accountId });
     }
     if (existingExclusion) {
-      await entity.markPrivacyModeScanExcluded({
+      await entity.markZcashScanExcluded({
         accountId: 'hidden',
         fromHeight: 2_250_000,
       });
@@ -275,8 +284,8 @@ it.each([false, true])(
       isBackfillComplete: false,
       birthdayHeight: 2_000_000,
     }));
-    const markExcluded = jest.spyOn(entity, 'markPrivacyModeScanExcluded');
-    const readState = jest.spyOn(entity, 'getPrivacyModeState');
+    const markExcluded = jest.spyOn(entity, 'markZcashScanExcluded');
+    const readState = jest.spyOn(entity, 'getZcashPrivacyModeState');
     const queueRescan = jest.fn(async () => ({ queued: true }));
     const prepareAccounts = jest.fn(async () => [
       { ufvk: 'shared-viewing-identity' },
@@ -285,7 +294,7 @@ it.each([false, true])(
     const vault = Object.create(Vault.prototype) as Vault;
     Object.assign(vault, {
       backgroundApi: {
-        simpleDb: { zcash: entity },
+        simpleDb: { privacyChainState: entity },
         servicePrivacyChain: { isLocalWalletScanAllowed: async () => true },
       },
       listLocalWalletAccounts: async () => ({
@@ -325,7 +334,7 @@ it.each([false, true])(
       expect(queueRescan).not.toHaveBeenCalled();
     }
     expect(
-      (await entity.getPrivacyModeState({ accountId: 'hidden' }))
+      (await entity.getZcashPrivacyModeState({ accountId: 'hidden' }))
         .scanExcludedFromHeight,
     ).toBeUndefined();
     queueRescan.mockClear();

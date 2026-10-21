@@ -428,7 +428,7 @@ describe('Privacy enable scan visibility', () => {
 function pendingDropApi(pending: string[]) {
   return {
     simpleDb: {
-      privacyChain: { getPendingLocalDataDrop: async () => pending },
+      privacyChainState: { getPendingLocalDataDrop: async () => pending },
     },
   };
 }
@@ -570,7 +570,7 @@ describe('Privacy database erasure', () => {
       {
         backgroundApi: {
           simpleDb: {
-            privacyChain: {
+            privacyChainState: {
               getPendingLocalDataDrop: async () => {
                 throw new OneKeyLocalError('storage unreadable');
               },

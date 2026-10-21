@@ -117,9 +117,11 @@ export class KeyringHardware extends KeyringHardwareBase {
   }): Promise<void> {
     const reported = seedFingerprintHex.toLowerCase();
     const stored =
-      await this.backgroundApi.simpleDb.zcash.getWalletSeedFingerprint({
-        walletId,
-      });
+      await this.backgroundApi.simpleDb.privacyChainState.getZcashWalletSeedFingerprint(
+        {
+          walletId,
+        },
+      );
     if (stored === reported) {
       return;
     }
@@ -128,10 +130,12 @@ export class KeyringHardware extends KeyringHardwareBase {
         'zcash: device seed does not match this wallet',
       );
     }
-    await this.backgroundApi.simpleDb.zcash.saveWalletSeedFingerprint({
-      walletId,
-      seedFingerprintHex: reported,
-    });
+    await this.backgroundApi.simpleDb.privacyChainState.saveZcashWalletSeedFingerprint(
+      {
+        walletId,
+        seedFingerprintHex: reported,
+      },
+    );
   }
 
   override async batchGetAddresses(
@@ -300,12 +304,6 @@ export class KeyringHardware extends KeyringHardwareBase {
         seedFingerprintHex,
       });
     }
-    for (const account of accounts) {
-      // eslint-disable-next-line no-await-in-loop
-      await this.backgroundApi.simpleDb.zcash.initializePrivacyModeOff({
-        accountId: account.id,
-      });
-    }
     return accounts;
   }
 
@@ -318,9 +316,11 @@ export class KeyringHardware extends KeyringHardwareBase {
   }): Promise<void> {
     const accountId = this.vault.accountId;
     const privacyModeState =
-      await this.backgroundApi.simpleDb.zcash.getPrivacyModeState({
-        accountId,
-      });
+      await this.backgroundApi.simpleDb.privacyChainState.getZcashPrivacyModeState(
+        {
+          accountId,
+        },
+      );
     if (
       privacyModeState.intent !== 'on' &&
       privacyModeState.operation?.type !== 'enable'
@@ -414,9 +414,10 @@ export class KeyringHardware extends KeyringHardwareBase {
     const accountId = this.vault.accountId;
     const zcashVault = this.vault as Vault;
 
-    const meta = await this.backgroundApi.simpleDb.zcash.getAccountMeta({
-      accountId,
-    });
+    const meta =
+      await this.backgroundApi.simpleDb.privacyChainState.getZcashAccountMeta({
+        accountId,
+      });
     if (!meta) {
       throw new OneKeyLocalError(
         'zcash: shielded account meta missing (use retryLocalWalletSetup to retry)',
@@ -432,9 +433,11 @@ export class KeyringHardware extends KeyringHardwareBase {
     const lifecycleMutex = getZcashLifecycleMutex(meta.vkFp);
     return lifecycleMutex.runExclusive(async () => {
       const privacyModeEnabled =
-        await this.backgroundApi.simpleDb.zcash.isPrivacyModeEnabled({
-          accountId,
-        });
+        await this.backgroundApi.simpleDb.privacyChainState.isZcashPrivacyModeEnabled(
+          {
+            accountId,
+          },
+        );
       if (!privacyModeEnabled) {
         throw new OneKeyLocalError(
           'zcash: Privacy Mode was disabled before signing completed',
@@ -496,9 +499,11 @@ export class KeyringHardware extends KeyringHardwareBase {
       accountId: this.vault.accountId,
     });
     const stored =
-      await this.backgroundApi.simpleDb.zcash.getWalletSeedFingerprint({
-        walletId,
-      });
+      await this.backgroundApi.simpleDb.privacyChainState.getZcashWalletSeedFingerprint(
+        {
+          walletId,
+        },
+      );
     if (stored) {
       return stored;
     }

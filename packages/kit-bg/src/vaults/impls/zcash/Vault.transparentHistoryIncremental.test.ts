@@ -17,7 +17,7 @@ import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
 
 import { SimpleDbEntityLocalHistory } from '../../../dbs/simple/entity/SimpleDbEntityLocalHistory';
 import { SimpleDbEntityPrivacyChainJournal } from '../../../dbs/simple/entity/SimpleDbEntityPrivacyChainJournal';
-import { SimpleDbEntityZcash } from '../../../dbs/simple/entity/SimpleDbEntityZcash';
+import { SimpleDbEntityPrivacyChainState } from '../../../dbs/simple/entity/SimpleDbEntityPrivacyChainState';
 import VaultBtc from '../btc/Vault';
 
 import Vault from './Vault';
@@ -136,7 +136,7 @@ function createVault(post: jest.Mock) {
     networkId: historyParams.networkId,
     backgroundApi: {
       simpleDb: {
-        zcash: inMemory(new SimpleDbEntityZcash()),
+        privacyChainState: inMemory(new SimpleDbEntityPrivacyChainState()),
         privacyChainJournal: journalDb,
         localHistory,
       },

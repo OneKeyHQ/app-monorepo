@@ -72,7 +72,9 @@ describe('Privacy sync light pause state', () => {
         allowPrivacySyncOnCellularCache: !cellularBlocked,
         backgroundApi: {
           simpleDb: {
-            privacyChain: { saveScanPaused: jest.fn(async () => undefined) },
+            privacyChainState: {
+              saveScanPaused: jest.fn(async () => undefined),
+            },
           },
         },
       },
@@ -222,14 +224,16 @@ describe('Privacy scan pause is session-scoped', () => {
       Object.create(ServicePrivacyChain.prototype) as {
         pauseLocalWalletScan: (params: { networkId: string }) => Promise<void>;
         boostPausedByNetwork: Record<string, boolean>;
-        backgroundApi: { simpleDb: { privacyChain: Record<string, unknown> } };
+        backgroundApi: {
+          simpleDb: { privacyChainState: Record<string, unknown> };
+        };
       },
       {
         foregroundBoostRequestedByNetwork: {} as Record<string, boolean>,
         boostPausedByNetwork: {} as Record<string, boolean>,
         deviceIsCellular: false,
         allowCellularSyncCache: true,
-        backgroundApi: { simpleDb: { privacyChain: {} } },
+        backgroundApi: { simpleDb: { privacyChainState: {} } },
       },
     );
   }
@@ -242,7 +246,7 @@ describe('Privacy scan pause is session-scoped', () => {
     expect(service.boostPausedByNetwork[networkId]).toBe(true);
     // Nothing to persist through: "not right now" describes this sitting,
     // not a setting. The empty store proves no write was attempted.
-    expect(service.backgroundApi.simpleDb.privacyChain).toEqual({});
+    expect(service.backgroundApi.simpleDb.privacyChainState).toEqual({});
   });
 
   it('starts the next session scanning again', async () => {

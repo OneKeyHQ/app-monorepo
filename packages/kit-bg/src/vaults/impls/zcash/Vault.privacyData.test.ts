@@ -16,7 +16,7 @@ import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusNames';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { SimpleDbEntityZcash } from '../../../dbs/simple/entity/SimpleDbEntityZcash';
+import { SimpleDbEntityPrivacyChainState } from '../../../dbs/simple/entity/SimpleDbEntityPrivacyChainState';
 import { getViewingKeyFingerprint } from '../../localWallet/viewingKeyFingerprint';
 
 import { getZcashLifecycleMutex } from './lifecycle';
@@ -27,10 +27,10 @@ import type {
   IZcashAccountMeta,
   IZcashPendingRescan,
   IZcashPrivacyModeStateView,
-} from '../../../dbs/simple/entity/SimpleDbEntityZcash';
+} from '../../../dbs/simple/entity/SimpleDbEntityPrivacyChainState';
 
 // The endpoint resolver reads the app-wide custom-RPC store; these fixtures
-// only care about the zcash entity, so the default node is enough.
+// only care about the privacy chain state, so the default node is enough.
 const defaultCustomRpcStub = {
   // The vault reads its node only through this resolver, so a fixture that
   // leaves it out gets no endpoint at all.
@@ -53,7 +53,7 @@ describe('Zcash local privacy data deletion', () => {
       unifiedAddress: 'u1-address',
       transparentAddress: 't1-address',
       addressSchemeVersion: ZCASH_ADDRESS_SCHEME_VERSION,
-      seedFingerprintHex: '00',
+      seedFingerprintHex: '00'.repeat(32),
       hdIndex: 0,
       birthdayHeight: 2_000_000,
       createdAt: 1,
@@ -67,6 +67,7 @@ describe('Zcash local privacy data deletion', () => {
       .mockResolvedValue(undefined);
     const purgeWallet = jest.fn().mockResolvedValue(undefined);
     const removeAccountMeta = jest.fn().mockResolvedValue(undefined);
+    const rotateAccountEpochs = jest.fn().mockResolvedValue(undefined);
     const states: Record<string, IZcashPrivacyModeStateView> = {
       [accountId]: { intent: 'off' },
       [aliasAccountId]: aliasState,
@@ -83,22 +84,23 @@ describe('Zcash local privacy data deletion', () => {
         serviceCustomRpc: defaultCustomRpcStub,
         serviceSignature: { removeSignedTransactionsForAccount },
         simpleDb: {
-          zcash: {
-            getAccountMeta: jest.fn(async ({ accountId: id }) =>
+          privacyChainState: {
+            getZcashAccountMeta: jest.fn(async ({ accountId: id }) =>
               id === accountId || id === aliasAccountId ? meta : undefined,
             ),
-            getPrivacyModeState: jest.fn(
+            getZcashPrivacyModeState: jest.fn(
               async ({ accountId: id }) => states[id] ?? { intent: 'off' },
             ),
-            isPrivacyModeEnabled: jest.fn(async ({ accountId: id }) => {
+            isZcashPrivacyModeEnabled: jest.fn(async ({ accountId: id }) => {
               const state = states[id];
               return state?.intent === 'on' && state.operation === undefined;
             }),
-            listAccountMetas: jest.fn(async () => [
+            listZcashAccountMetas: jest.fn(async () => [
               { accountId, meta },
               { accountId: aliasAccountId, meta },
             ]),
-            removeAccountMeta,
+            removeZcashAccountMeta: removeAccountMeta,
+            rotateAccountEpochs,
           },
           privacyChainKeys: {
             getKey: jest.fn(async () => ({
@@ -117,6 +119,7 @@ describe('Zcash local privacy data deletion', () => {
       purgeWallet,
       removeAccountMeta,
       removeSignedTransactionsForAccount,
+      rotateAccountEpochs,
       vault,
     };
   }
@@ -183,15 +186,23 @@ describe('Zcash local privacy data deletion', () => {
   });
 
   it('purges the shared cache when every other alias is stably off', async () => {
-    const { purgeWallet, removeAccountMeta, vault } = createVault({
-      intent: 'off',
-    });
+    const { purgeWallet, removeAccountMeta, rotateAccountEpochs, vault } =
+      createVault({
+        intent: 'off',
+      });
 
     await vault.deleteLocalPrivacyData({ accountId });
 
     expect(purgeWallet).toHaveBeenCalledTimes(1);
     expect(purgeWallet).toHaveBeenCalledWith(expect.objectContaining({ ufvk }));
     expect(removeAccountMeta).toHaveBeenCalledWith({ accountId });
+    // A new epoch is on disk before the scanned data goes.
+    expect(rotateAccountEpochs).toHaveBeenCalledWith({
+      accountIds: [accountId],
+    });
+    expect(rotateAccountEpochs.mock.invocationCallOrder[0]).toBeLessThan(
+      purgeWallet.mock.invocationCallOrder[0],
+    );
   });
 
   // Deleting is one way out of a broken setup, so a lost key must not block it.
@@ -315,7 +326,7 @@ describe('Zcash queued rescan deletion boundary', () => {
       vkFp: 'e'.repeat(32),
       unifiedAddress: 'synthetic-ua',
       transparentAddress: 'synthetic-transparent',
-      seedFingerprintHex: '00',
+      seedFingerprintHex: '00'.repeat(32),
       hdIndex: 0,
       birthdayHeight: 3_000_000,
       createdAt: 1,
@@ -327,12 +338,43 @@ describe('Zcash queued rescan deletion boundary', () => {
     };
     let saved: unknown = {
       data: {
-        accounts: { [accountId]: meta },
-        pendingRescans: { [accountId]: repair },
+        wallets: {
+          [accountId]: {
+            chain: { zcash: { seedFingerprintHex: meta.seedFingerprintHex } },
+          },
+        },
+        accounts: {
+          [accountId]: {
+            networkId: 'zec--0',
+            walletId: accountId,
+            vkFp: meta.vkFp,
+            epoch: '0123456789abcdef',
+            scan: {
+              intent: 'on',
+              birthday: { height: meta.birthdayHeight },
+              rescan: {
+                birthday: {
+                  height: repair.birthdayHeight,
+                  source: repair.birthdaySource,
+                },
+                requestedAt: repair.requestedAt,
+              },
+            },
+            chain: {
+              zcash: {
+                unifiedAddress: meta.unifiedAddress,
+                transparentAddress: meta.transparentAddress,
+                hdIndex: meta.hdIndex,
+              },
+            },
+            createdAt: meta.createdAt,
+            updatedAt: 1,
+          },
+        },
       },
       updatedAt: 1,
     };
-    const zcash = new SimpleDbEntityZcash();
+    const zcash = new SimpleDbEntityPrivacyChainState();
     (zcash as { appStorage: unknown }).appStorage = {
       getItem: async () => saved,
       setItem: async (_key: string, value: unknown) => {
@@ -340,9 +382,10 @@ describe('Zcash queued rescan deletion boundary', () => {
       },
     };
     const vault = Object.assign(Object.create(Vault.prototype) as Vault, {
+      networkId: 'zec--0',
       backgroundApi: {
         simpleDb: {
-          zcash,
+          privacyChainState: zcash,
           localHistory: {
             getAccountLocalHistoryConfirmedTxs: async () => [],
             getAccountLocalHistoryPendingTxs: async () => [],
@@ -357,11 +400,11 @@ describe('Zcash queued rescan deletion boundary', () => {
       observed = resolve;
     });
     jest.spyOn(vault, 'zcashGetAccountMeta').mockImplementation(async () => {
-      const snapshot = await zcash.getAccountMeta({ accountId });
+      const snapshot = await zcash.getZcashAccountMeta({ accountId });
       observed?.();
       return snapshot;
     });
-    const save = jest.spyOn(zcash, 'saveAccountMeta');
+    const save = jest.spyOn(zcash, 'saveZcashAccountMeta');
     const runtime = jest.spyOn(vault, 'zcashGetApi');
     const release = await getZcashLifecycleMutex(meta.vkFp).acquire();
     const pending = (
@@ -373,13 +416,15 @@ describe('Zcash queued rescan deletion boundary', () => {
       }
     ).applyPendingRescan({ accountId, repair });
     await readBeforeQueue;
-    await zcash.removeAccountMeta({ accountId });
+    await zcash.removeZcashAccountMeta({ accountId });
     release();
     await pending;
 
     expect(save).not.toHaveBeenCalled();
     expect(runtime).not.toHaveBeenCalled();
-    await expect(zcash.getAccountMeta({ accountId })).resolves.toBeUndefined();
+    await expect(
+      zcash.getZcashAccountMeta({ accountId }),
+    ).resolves.toBeUndefined();
     jest.restoreAllMocks();
   });
 });
@@ -449,10 +494,8 @@ it('drops chain data without clearing device-wide privacy preferences', async ()
     zcashGetApi: async () => ({ dropWalletDatabase }),
     backgroundApi: {
       simpleDb: {
-        zcash: {
-          clearRawData: clearZcash,
-        },
-        privacyChain: {
+        privacyChainState: {
+          removeNetworkAccounts: clearZcash,
           clearRawData: clearPrivacyChain,
         },
         privacyChainJournal: { clearZcashTransparent, clearXmrSent },
@@ -462,7 +505,9 @@ it('drops chain data without clearing device-wide privacy preferences', async ()
   });
   await vault.getLocalWalletCapability().dropLocalData?.();
   expect(dropWalletDatabase).toHaveBeenCalledTimes(1);
-  expect(clearZcash).toHaveBeenCalledTimes(1);
+  // Only this network's accounts: wallets, device settings and other
+  // chains stay.
+  expect(clearZcash).toHaveBeenCalledWith({ networkId: 'zec--0' });
   expect(clearZcashTransparent).toHaveBeenCalledTimes(1);
   // The UFVKs go with the database; other chains keep theirs.
   expect(removeNetworkKeys).toHaveBeenCalledWith({ networkId: 'zec--0' });

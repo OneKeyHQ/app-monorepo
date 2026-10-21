@@ -27,6 +27,7 @@ describe('Zcash local lifecycle operations do not depend on pending history', ()
     const removeAccountMeta = jest.fn(async () => undefined);
     const saveAccountMeta = jest.fn(async () => undefined);
     const removePendingRescan = jest.fn(async () => undefined);
+    const rotateAccountEpochs = jest.fn(async () => undefined);
     const vault = Object.assign(Object.create(Vault.prototype) as Vault, {
       networkId: 'zec--0',
       accountId,
@@ -38,15 +39,16 @@ describe('Zcash local lifecycle operations do not depend on pending history', ()
           removeSignedTransactionsForAccount: jest.fn(async () => undefined),
         },
         simpleDb: {
-          zcash: {
-            getAccountMeta: async () => account,
-            getPrivacyModeState: async () => ({ intent: 'off' }),
-            isPrivacyModeEnabled: async () => true,
-            listAccountMetas: async () => [],
-            listPendingRescans: async () => [{ accountId, repair }],
-            removeAccountMeta,
-            saveAccountMeta,
-            removePendingRescan,
+          privacyChainState: {
+            getZcashAccountMeta: async () => account,
+            getZcashPrivacyModeState: async () => ({ intent: 'off' }),
+            isZcashPrivacyModeEnabled: async () => true,
+            listZcashAccountMetas: async () => [{ accountId, meta: account }],
+            listZcashPendingRescans: async () => [{ accountId, repair }],
+            removeZcashAccountMeta: removeAccountMeta,
+            saveZcashAccountMeta: saveAccountMeta,
+            removeZcashPendingRescan: removePendingRescan,
+            rotateAccountEpochs,
           },
           privacyChainJournal: {
             listTransparentPendingTxs: async () =>
@@ -74,6 +76,7 @@ describe('Zcash local lifecycle operations do not depend on pending history', ()
       removeAccountMeta,
       saveAccountMeta,
       removePendingRescan,
+      rotateAccountEpochs,
     };
   }
 
@@ -112,6 +115,11 @@ describe('Zcash local lifecycle operations do not depend on pending history', ()
         accountId: f.accountId,
         expectedRepair: f.repair,
       });
+      // Delete and cache reset each renew the epoch before purging.
+      expect(f.rotateAccountEpochs).toHaveBeenCalledTimes(2);
+      expect(f.rotateAccountEpochs).toHaveBeenCalledWith({
+        accountIds: [f.accountId],
+      });
     },
   );
 
@@ -132,8 +140,8 @@ describe('Zcash local lifecycle operations do not depend on pending history', ()
       .spyOn(f.vault, 'getLocalWalletChainTip')
       .mockRejectedValue(new OneKeyLocalError('offline'));
     const saveRepair = jest.fn(async () => undefined);
-    Object.assign(f.vault.backgroundApi.simpleDb.zcash, {
-      savePendingRescan: saveRepair,
+    Object.assign(f.vault.backgroundApi.simpleDb.privacyChainState, {
+      saveZcashPendingRescan: saveRepair,
     });
     jest.spyOn(f.vault, 'applyPendingRescan').mockResolvedValue(undefined);
 

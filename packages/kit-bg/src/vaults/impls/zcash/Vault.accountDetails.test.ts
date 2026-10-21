@@ -49,8 +49,8 @@ function createFixture(
     networkId: 'zec--0',
     backgroundApi: {
       simpleDb: {
-        zcash: {
-          getPrivacyModeState: async () => ({ intent: 'on' }),
+        privacyChainState: {
+          getZcashPrivacyModeState: async () => ({ intent: 'on' }),
         },
       },
       // Our transparent address is the one Receive displays.

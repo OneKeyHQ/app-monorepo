@@ -91,7 +91,9 @@ it('Zcash refuses a supplied message when its proposal cannot carry that message
       accountId: 'synthetic-account',
       backgroundApi: {
         simpleDb: {
-          zcash: { getPrivacyModeState: async () => ({ intent: 'on' }) },
+          privacyChainState: {
+            getZcashPrivacyModeState: async () => ({ intent: 'on' }),
+          },
         },
       },
     },
@@ -132,7 +134,9 @@ it('Zcash public-pool total request carries the explicitly selected account iden
       }),
       backgroundApi: {
         simpleDb: {
-          zcash: { getPrivacyModeState: async () => ({ intent: 'on' }) },
+          privacyChainState: {
+            getZcashPrivacyModeState: async () => ({ intent: 'on' }),
+          },
         },
         serviceAccount: { getDBAccount: async () => account },
         serviceNetwork: { isCustomNetwork: async () => false },

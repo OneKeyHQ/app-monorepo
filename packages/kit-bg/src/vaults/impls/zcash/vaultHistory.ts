@@ -111,9 +111,11 @@ export async function fetchAccountHistoryDetail(
     throw new OneKeyLocalError('zcash: history detail needs an account');
   }
   const privacyModeState =
-    await vault.backgroundApi.simpleDb.zcash.getPrivacyModeState({
-      accountId,
-    });
+    await vault.backgroundApi.simpleDb.privacyChainState.getZcashPrivacyModeState(
+      {
+        accountId,
+      },
+    );
   if (privacyModeState.intent !== 'on') {
     return vault.zcashFetchBackendHistoryDetail(params);
   }
@@ -376,9 +378,11 @@ export async function fetchAccountHistoryFromLocal(
       xpub: params.xpub,
     });
   const privacyModeState =
-    await vault.backgroundApi.simpleDb.zcash.getPrivacyModeState({
-      accountId,
-    });
+    await vault.backgroundApi.simpleDb.privacyChainState.getZcashPrivacyModeState(
+      {
+        accountId,
+      },
+    );
   if (privacyModeState.intent === 'on') {
     try {
       const account = await vault.zcashGetWalletAccount({ accountId });
@@ -708,9 +712,10 @@ export async function zcashFetchTransparentHistory(
   tipHeight?: number;
 }> {
   const accountId = params.accountId || vault.accountId;
-  const meta = await vault.backgroundApi.simpleDb.zcash.getAccountMeta({
-    accountId,
-  });
+  const meta =
+    await vault.backgroundApi.simpleDb.privacyChainState.getZcashAccountMeta({
+      accountId,
+    });
   let transparentAddress = meta?.transparentAddress || params.accountAddress;
   let xpub = params.xpub;
   if (!transparentAddress || xpub === undefined) {

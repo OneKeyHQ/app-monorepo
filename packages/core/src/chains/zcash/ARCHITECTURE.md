@@ -35,9 +35,10 @@ per receiving heap; they never copy the database or share JS mutexes.
 
 ### Storage
 
-- `simpleDb.zcash` (App): account intent (Privacy Mode), birthday, viewing
-  metadata and transparent pending transactions. This is the
-  recovery source of truth.
+- App simpleDb: `privacyChainState` holds account intent (Privacy Mode),
+  birthday, the enable/disable and rescan journals and the cached addresses;
+  `privacyChainKeys` the UFVK; `privacyChainJournal` the transparent pending
+  transactions. These are the recovery source of truth.
 - Runtime SQLite (Worker): one database per network (`zcash-main.db`,
   `zcash-test.db`) shared by every registered account, on an OPFS SAH-pool VFS
   (`.onekey-zcash-opfs`). Exclusive handles prevent a second Worker from

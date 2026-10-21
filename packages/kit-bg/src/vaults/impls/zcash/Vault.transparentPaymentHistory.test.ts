@@ -146,9 +146,9 @@ function createVault(initial = localPayment()) {
     networkId: params.networkId,
     backgroundApi: {
       simpleDb: {
-        zcash: {
-          getAccountMeta: async () => null,
-          getPrivacyModeState: async () => ({ intent: 'off' }),
+        privacyChainState: {
+          getZcashAccountMeta: async () => null,
+          getZcashPrivacyModeState: async () => ({ intent: 'off' }),
         },
         privacyChainJournal: {
           listTransparentPendingTxs: async () => [],
