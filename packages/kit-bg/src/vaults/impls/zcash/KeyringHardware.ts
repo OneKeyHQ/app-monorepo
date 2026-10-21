@@ -334,6 +334,7 @@ export class KeyringHardware extends KeyringHardwareBase {
     });
     await resolveAndSaveZcashAccountMeta({
       backgroundApi: this.backgroundApi,
+      networkId: this.vault.networkId,
       account,
       derive: async ({ hdIndex }) => {
         const [item] = await this.fetchDeviceViewingKeys({
@@ -427,7 +428,8 @@ export class KeyringHardware extends KeyringHardwareBase {
         'zcash: unsigned PCZT missing; build and review the transaction again',
       );
     }
-    const lifecycleMutex = getZcashLifecycleMutex(meta.ufvk);
+    const ufvk = await zcashVault.zcashGetAccountUfvk({ accountId, meta });
+    const lifecycleMutex = getZcashLifecycleMutex(meta.vkFp);
     return lifecycleMutex.runExclusive(async () => {
       const privacyModeEnabled =
         await this.backgroundApi.simpleDb.zcash.isPrivacyModeEnabled({
@@ -443,7 +445,7 @@ export class KeyringHardware extends KeyringHardwareBase {
       // differs from what the user reviewed before asking the device to sign.
       await api.verifyPcztReview({
         pcztHex,
-        review: getZcashPcztReviewRequest(encodedTx, meta.ufvk),
+        review: getZcashPcztReviewRequest(encodedTx, ufvk),
       });
       // The device signs a redacted copy of the UNPROVED PCZT and returns
       // only signatures; the original keeps what proving needs.

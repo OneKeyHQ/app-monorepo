@@ -21,14 +21,15 @@ afterEach(() => {
 });
 
 // The view key reveals every incoming payment; it must not sit on the account
-// record, which cloud backup, Prime transfer and account listings carry.
-it('moves the view key off the account record into the viewing key store', async () => {
-  const setViewingKey = jest.fn(async () => undefined);
+// record, which cloud backup, Prime transfer and account listings carry, and
+// a derived account the user never enables must not leave it on disk either.
+it('drops the view key from the account record and stores nothing', async () => {
+  const saveKey = jest.fn(async () => undefined);
   const keyring = Object.assign(
     Object.create(KeyringHd.prototype) as KeyringHd,
     {
       vault: { networkId: 'xmr--0' } as unknown as Vault,
-      backgroundApi: { simpleDb: { privacyChain: { setViewingKey } } },
+      backgroundApi: { simpleDb: { privacyChainKeys: { saveKey } } },
     },
   );
   jest
@@ -46,11 +47,6 @@ it('moves the view key off the account record into the viewing key store', async
   );
 
   expect(account.pub).toBe(spendPublicKeyHex);
-  expect(setViewingKey).toHaveBeenCalledWith({
-    accountId: 'hd-1--0',
-    record: {
-      networkId: 'xmr--0',
-      value: `${spendPublicKeyHex}:${viewPrivateKeyHex}`,
-    },
-  });
+  expect(JSON.stringify(account)).not.toContain(viewPrivateKeyHex);
+  expect(saveKey).not.toHaveBeenCalled();
 });

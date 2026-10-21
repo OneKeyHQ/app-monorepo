@@ -32,6 +32,11 @@ function createVault({
       simpleDb: {
         zcash: {
           listAccountIds: async () => ['hd-saved--1', 'hd-hidden--1'],
+          listAccountMetas: async () =>
+            ['hd-saved--1', 'hd-hidden--1'].map((accountId, index) => ({
+              accountId,
+              meta: { vkFp: String(index).repeat(32) },
+            })),
           listPrivacyModeEnabledAccountIds: async () => [
             'hd-saved--1',
             'hd-hidden--1',
@@ -43,10 +48,6 @@ function createVault({
         },
       },
     },
-    zcashGetWalletAccount: async ({ accountId }: { accountId: string }) => ({
-      network: 'main',
-      ufvk: `ufvk-${accountId}`,
-    }),
   });
 }
 
@@ -128,7 +129,7 @@ it.each([true, false])(
       await entity.saveAccountMeta({
         accountId: id,
         meta: {
-          ufvk: id,
+          vkFp: id.repeat(32),
           unifiedAddress: 'u1',
           transparentAddress: 't1',
           seedFingerprintHex: '00',
@@ -174,6 +175,7 @@ it.each([true, false])(
           })),
         }),
         zcashResumePendingRescans: async () => undefined,
+        zcashHasAccountViewingKey: async () => true,
         zcashPrepareAccounts: async ({
           accountIds,
         }: {
@@ -251,7 +253,7 @@ it.each([false, true])(
       await entity.saveAccountMeta({
         accountId,
         meta: {
-          ufvk: 'shared-viewing-identity',
+          vkFp: 'c'.repeat(32),
           unifiedAddress: 'u1',
           transparentAddress: 't1',
           seedFingerprintHex: '00',
@@ -295,6 +297,7 @@ it.each([false, true])(
         })),
       }),
       zcashResumePendingRescans: async () => undefined,
+      zcashHasAccountViewingKey: async () => true,
       zcashPrepareAccounts: prepareAccounts,
       zcashGetWalletAccount: async () => ({ ufvk: 'shared-viewing-identity' }),
       zcashGetApi: async () => ({ syncWallet }),

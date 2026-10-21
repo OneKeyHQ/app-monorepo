@@ -1,4 +1,13 @@
-import { SimpleDbEntityPrivacyChain } from '../dbs/simple/entity/SimpleDbEntityPrivacyChain';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+
+import { SimpleDbEntityPrivacyChainKeys } from '../dbs/simple/entity/SimpleDbEntityPrivacyChainKeys';
+import { getViewingKeyFingerprint } from '../vaults/localWallet/viewingKeyFingerprint';
+import {
+  getLocalWalletViewingKey,
+  isLocalWalletViewingKeyMismatchError,
+  saveLocalWalletViewingKey,
+} from '../vaults/localWallet/viewingKeyStore';
 
 jest.mock('@onekeyhq/shared/src/background/backgroundDecorators', () => {
   const actual = jest.requireActual<
@@ -35,9 +44,9 @@ const ServicePrivacyChain = require('./ServicePrivacyChain')
 const networkId = 'xmr--0';
 const hdAccountId = 'hd-1--0';
 
-function createPrivacyChainDb() {
+function createKeysDb() {
   let saved: unknown = null;
-  const entity = new SimpleDbEntityPrivacyChain();
+  const entity = new SimpleDbEntityPrivacyChainKeys();
   (entity as { appStorage: unknown }).appStorage = {
     getItem: jest.fn(async () => saved),
     setItem: jest.fn(async (_key: string, value: unknown) => {
@@ -52,69 +61,88 @@ function createPrivacyChainDb() {
 
 function createService({
   cachedPassword,
+  promptedPassword,
   liveAccountIds = [hdAccountId],
   lastBalanceAccountIds = [],
 }: {
   cachedPassword?: string;
+  promptedPassword?: string;
   liveAccountIds?: string[];
   lastBalanceAccountIds?: string[];
 } = {}) {
-  const privacyChain = createPrivacyChainDb();
+  const privacyChainKeys = createKeysDb();
   const removeAccountTokenList = jest.fn(async () => undefined);
   const removeAccountNetworkValue = jest.fn(async () => undefined);
   const removeLastBalances = jest.fn(async () => undefined);
+  const promptPasswordVerifyByAccount = jest.fn(async () => {
+    if (!promptedPassword) throw new OneKeyLocalError('cancelled');
+    return { password: promptedPassword };
+  });
+  const backgroundApi = {
+    simpleDb: {
+      privacyChainKeys,
+      localTokens: { removeAccountTokenList },
+      accountValue: { removeAccountNetworkValue },
+      privacyChainCache: {
+        removeLastBalances,
+        listLastBalanceAccountIds: async () => lastBalanceAccountIds,
+      },
+      privacyChainJournal: {
+        listAccountIds: async () => [],
+        removeAccounts: jest.fn(async () => undefined),
+      },
+    },
+    servicePassword: {
+      hasCachedPassword: jest.fn(async () => !!cachedPassword),
+      getCachedPassword: jest.fn(async () => cachedPassword),
+      promptPasswordVerifyByAccount,
+    },
+    serviceAccount: {
+      getAllAccounts: jest.fn(async () => ({
+        accounts: liveAccountIds.map((id) => ({
+          id,
+          indexedAccountId: `${id}--indexed`,
+        })),
+      })),
+      getAllIndexedAccounts: jest.fn(async () => ({
+        indexedAccounts: liveAccountIds.map((id) => ({
+          id: `${id}--indexed`,
+        })),
+      })),
+      getAllWallets: jest.fn(async () => ({ wallets: [] })),
+      getAccount: jest.fn(async () => ({ address: '4synthetic' })),
+      getWalletSafe: async () => ({ isTemp: false }),
+    },
+  };
   const service = Object.assign(
     Object.create(ServicePrivacyChain.prototype) as InstanceType<
       typeof ServicePrivacyChain
     >,
     {
-      backgroundApi: {
-        simpleDb: {
-          privacyChain,
-          localTokens: { removeAccountTokenList },
-          accountValue: { removeAccountNetworkValue },
-          privacyChainCache: {
-            removeLastBalances,
-            listLastBalanceAccountIds: async () => lastBalanceAccountIds,
-          },
-          privacyChainJournal: {
-            listAccountIds: async () => [],
-            removeAccounts: jest.fn(async () => undefined),
-          },
-        },
-        servicePassword: {
-          hasCachedPassword: jest.fn(async () => !!cachedPassword),
-          getCachedPassword: jest.fn(async () => cachedPassword),
-        },
-        serviceAccount: {
-          getAllAccounts: jest.fn(async () => ({
-            accounts: liveAccountIds.map((id) => ({
-              id,
-              indexedAccountId: `${id}--indexed`,
-            })),
-          })),
-          getAllIndexedAccounts: jest.fn(async () => ({
-            indexedAccounts: liveAccountIds.map((id) => ({
-              id: `${id}--indexed`,
-            })),
-          })),
-          getAllWallets: jest.fn(async () => ({ wallets: [] })),
-          getAccount: jest.fn(async () => ({ address: '4synthetic' })),
-          getWalletSafe: async () => ({ isTemp: false }),
-        },
-      },
+      backgroundApi,
       enableMutexByNetwork: new Map(),
       getLocalWalletNetworkIds: async () => [],
       forEachLocalWalletCapability: async () => undefined,
+      assertEnabledAccountLimit: async () => undefined,
     },
   );
   return {
     service,
-    privacyChain,
+    backgroundApi,
+    privacyChainKeys,
+    promptPasswordVerifyByAccount,
     removeAccountTokenList,
     removeAccountNetworkValue,
     removeLastBalances,
   };
+}
+
+function storeApi(
+  backgroundApi: ReturnType<typeof createService>['backgroundApi'],
+) {
+  return backgroundApi as unknown as Parameters<
+    typeof getLocalWalletViewingKey
+  >[0]['backgroundApi'];
 }
 
 describe('Privacy chain viewing key store', () => {
@@ -123,10 +151,12 @@ describe('Privacy chain viewing key store', () => {
   });
 
   it('returns the stored viewing key without deriving', async () => {
-    const { service, privacyChain } = createService();
-    await privacyChain.setViewingKey({
+    const { service, backgroundApi } = createService();
+    await saveLocalWalletViewingKey({
+      backgroundApi: storeApi(backgroundApi),
+      networkId,
       accountId: hdAccountId,
-      record: { networkId, value: 'stored' },
+      value: 'stored',
     });
 
     await expect(
@@ -143,7 +173,9 @@ describe('Privacy chain viewing key store', () => {
     mockGetVault.mockResolvedValue({
       getLocalWalletCapability: () => ({ deriveViewingKey }),
     });
-    const { service, privacyChain } = createService({ cachedPassword: 'pw' });
+    const { service, privacyChainKeys } = createService({
+      cachedPassword: 'pw',
+    });
 
     await expect(
       service.ensureLocalWalletViewingKey({
@@ -156,8 +188,12 @@ describe('Privacy chain viewing key store', () => {
       password: 'pw',
     });
     await expect(
-      privacyChain.getViewingKey({ accountId: hdAccountId }),
-    ).resolves.toEqual({ networkId, value: 'derived' });
+      privacyChainKeys.getKey({ accountId: hdAccountId }),
+    ).resolves.toEqual({
+      networkId,
+      vkFp: getViewingKeyFingerprint({ networkId, viewingKey: 'derived' }),
+      sealed: { format: 'plain', value: 'derived' },
+    });
   });
 
   it('never prompts: a locked wallet gets no viewing key', async () => {
@@ -165,7 +201,9 @@ describe('Privacy chain viewing key store', () => {
     mockGetVault.mockResolvedValue({
       getLocalWalletCapability: () => ({ deriveViewingKey }),
     });
-    const { service } = createService();
+    const { service, promptPasswordVerifyByAccount } = createService({
+      promptedPassword: 'pw',
+    });
 
     await expect(
       service.ensureLocalWalletViewingKey({
@@ -174,6 +212,7 @@ describe('Privacy chain viewing key store', () => {
       }),
     ).resolves.toBeUndefined();
     expect(deriveViewingKey).not.toHaveBeenCalled();
+    expect(promptPasswordVerifyByAccount).not.toHaveBeenCalled();
   });
 
   it('does not derive for a hardware account', async () => {
@@ -189,10 +228,12 @@ describe('Privacy chain viewing key store', () => {
   });
 
   it('ignores a key stored for another network', async () => {
-    const { service, privacyChain } = createService();
-    await privacyChain.setViewingKey({
+    const { service, backgroundApi } = createService();
+    await saveLocalWalletViewingKey({
+      backgroundApi: storeApi(backgroundApi),
+      networkId: 'zec--0',
       accountId: hdAccountId,
-      record: { networkId: 'zec--0', value: 'zcash' },
+      value: 'zcash',
     });
 
     await expect(
@@ -203,45 +244,126 @@ describe('Privacy chain viewing key store', () => {
     ).resolves.toBeUndefined();
   });
 
+  it('stops with the setup-incomplete error when a derived key differs from the stored identity', async () => {
+    mockGetVault.mockResolvedValue({
+      getLocalWalletCapability: () => ({
+        deriveViewingKey: async () => 'derived',
+      }),
+    });
+    const { service, privacyChainKeys } = createService({
+      cachedPassword: 'pw',
+    });
+    // Its value no longer matches its fingerprint, so it reads as missing,
+    // yet it still names another identity.
+    const stored = {
+      networkId,
+      vkFp: getViewingKeyFingerprint({ networkId, viewingKey: 'original' }),
+      sealed: { format: 'plain' as const, value: 'damaged' },
+    };
+    await privacyChainKeys.saveKey({ accountId: hdAccountId, record: stored });
+
+    const error = await service
+      .ensureLocalWalletViewingKey({ networkId, accountId: hdAccountId })
+      .catch((e: unknown) => e);
+
+    expect(isLocalWalletViewingKeyMismatchError(error)).toBe(true);
+    expect((error as Error).message).toBe(
+      ETranslations.privacy_error_setup_incomplete__msg,
+    );
+    await expect(
+      privacyChainKeys.getKey({ accountId: hdAccountId }),
+    ).resolves.toEqual(stored);
+  });
+
+  it('drops viewing keys and saved balances of removed accounts', async () => {
+    const { service, backgroundApi, privacyChainKeys, removeLastBalances } =
+      createService({
+        liveAccountIds: [hdAccountId],
+        lastBalanceAccountIds: [hdAccountId, 'hd-1--9'],
+      });
+    for (const [accountId, value] of [
+      [hdAccountId, 'live'],
+      ['hd-1--9', 'removed'],
+    ]) {
+      // eslint-disable-next-line no-await-in-loop
+      await saveLocalWalletViewingKey({
+        backgroundApi: storeApi(backgroundApi),
+        networkId,
+        accountId,
+        value,
+      });
+    }
+
+    await service.gcRemovedAccounts();
+
+    await expect(privacyChainKeys.listAccountIds()).resolves.toEqual([
+      hdAccountId,
+    ]);
+    expect(removeLastBalances).toHaveBeenCalledWith({
+      accountIds: ['hd-1--9'],
+    });
+  });
+});
+
+describe('Privacy chain viewing key lifecycle', () => {
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
+  function withCapability(
+    service: ReturnType<typeof createService>['service'],
+    capability: Record<string, unknown>,
+  ) {
+    Object.assign(service, {
+      requireAccountCapability: async () => capability,
+    });
+  }
+
+  // Q3: both chains delete the key with local data, as the UI copy says.
+  // Zcash derives it again in its own enable (see accountMeta.test.ts).
   it.each([
-    ['with-local-data', undefined],
-    ['until-account-removed', { networkId, value: 'stored' }],
-  ] as const)(
-    'applies %s retention when local privacy data is deleted',
-    async (viewingKeyRetention, expected) => {
-      const deleteAccountData = jest.fn(async () => undefined);
+    ['xmr--0', 'spend:view'],
+    ['zec--0', 'uview1synthetic'],
+  ])(
+    '%s: delete-local-data removes the key',
+    async (chainNetworkId, viewingKey) => {
       const {
         service,
-        privacyChain,
+        backgroundApi,
         removeAccountTokenList,
         removeAccountNetworkValue,
         removeLastBalances,
-      } = createService();
-      Object.assign(service, {
-        requireAccountCapability: async () => ({
-          deleteAccountData,
-          getAccountState: async () => ({ enabled: false }),
-        }),
+      } = createService({ cachedPassword: 'pw' });
+      const deleteAccountData = jest.fn(async () => undefined);
+      withCapability(service, {
+        deleteAccountData,
+        getAccountState: async () => ({ enabled: false }),
       });
-      mockGetVaultSettings.mockResolvedValue({
-        localWallet: { viewingKeyRetention },
-      });
-      await privacyChain.setViewingKey({
+      await saveLocalWalletViewingKey({
+        backgroundApi: storeApi(backgroundApi),
+        networkId: chainNetworkId,
         accountId: hdAccountId,
-        record: { networkId, value: 'stored' },
+        value: viewingKey,
       });
 
       await service.deleteLocalWalletAccountData({
-        networkId,
+        networkId: chainNetworkId,
         accountId: hdAccountId,
       });
 
       expect(deleteAccountData).toHaveBeenCalledWith({
         accountId: hdAccountId,
       });
+      await expect(
+        getLocalWalletViewingKey({
+          backgroundApi: storeApi(backgroundApi),
+          networkId: chainNetworkId,
+          accountId: hdAccountId,
+        }),
+      ).resolves.toBeUndefined();
       // The shared caches hold the composed balance, private part included.
       const owner = {
-        networkId,
+        networkId: chainNetworkId,
         accountAddress: '4synthetic',
         xpub: undefined,
       };
@@ -250,33 +372,150 @@ describe('Privacy chain viewing key store', () => {
       expect(removeLastBalances).toHaveBeenCalledWith({
         accountIds: [hdAccountId],
       });
-      await expect(
-        privacyChain.getViewingKey({ accountId: hdAccountId }),
-      ).resolves.toEqual(expected);
     },
   );
 
-  it('drops viewing keys and saved balances of removed accounts', async () => {
-    const { service, privacyChain, removeLastBalances } = createService({
-      liveAccountIds: [hdAccountId],
-      lastBalanceAccountIds: [hdAccountId, 'hd-1--9'],
+  it('xmr: the enable after delete-local-data derives the same key again', async () => {
+    const deriveViewingKey = jest.fn(async () => 'spend:view');
+    mockGetVault.mockResolvedValue({
+      getLocalWalletCapability: () => ({ deriveViewingKey }),
     });
-    await privacyChain.setViewingKey({
+    const { service, backgroundApi } = createService({ cachedPassword: 'pw' });
+    const enableAccount = jest.fn(async () => undefined);
+    withCapability(service, {
+      deleteAccountData: async () => undefined,
+      enableAccount,
+      deriveViewingKey,
+      getAccountState: async () => ({ enabled: false }),
+    });
+    const before = await saveLocalWalletViewingKey({
+      backgroundApi: storeApi(backgroundApi),
+      networkId,
       accountId: hdAccountId,
-      record: { networkId, value: 'live' },
+      value: 'spend:view',
     });
-    await privacyChain.setViewingKey({
-      accountId: 'hd-1--9',
-      record: { networkId, value: 'removed' },
+    await service.deleteLocalWalletAccountData({
+      networkId,
+      accountId: hdAccountId,
     });
 
-    await service.gcRemovedAccounts();
+    await service.enableLocalWalletAccount({
+      networkId,
+      accountId: hdAccountId,
+    });
 
-    await expect(privacyChain.listViewingKeyAccountIds()).resolves.toEqual([
+    expect(deriveViewingKey).toHaveBeenCalledWith({
+      accountId: hdAccountId,
+      password: 'pw',
+    });
+    expect(enableAccount).toHaveBeenCalled();
+    await expect(
+      getLocalWalletViewingKey({
+        backgroundApi: storeApi(backgroundApi),
+        networkId,
+        accountId: hdAccountId,
+      }),
+    ).resolves.toEqual(before);
+  });
+
+  it('enabling asks for the password when none is cached', async () => {
+    const deriveViewingKey = jest.fn(async () => 'spend:view');
+    mockGetVault.mockResolvedValue({
+      getLocalWalletCapability: () => ({ deriveViewingKey }),
+    });
+    const { service, backgroundApi, promptPasswordVerifyByAccount } =
+      createService({ promptedPassword: 'typed' });
+    withCapability(service, {
+      enableAccount: async () => undefined,
+      deriveViewingKey,
+    });
+
+    await service.enableLocalWalletAccount({
+      networkId,
+      accountId: hdAccountId,
+    });
+
+    expect(promptPasswordVerifyByAccount).toHaveBeenCalledTimes(1);
+    expect(deriveViewingKey).toHaveBeenCalledWith({
+      accountId: hdAccountId,
+      password: 'typed',
+    });
+    await expect(
+      getLocalWalletViewingKey({
+        backgroundApi: storeApi(backgroundApi),
+        networkId,
+        accountId: hdAccountId,
+      }),
+    ).resolves.toMatchObject({ value: 'spend:view' });
+  });
+
+  it('an enable that never started leaves no key behind', async () => {
+    mockGetVault.mockResolvedValue({
+      getLocalWalletCapability: () => ({
+        deriveViewingKey: async () => 'spend:view',
+      }),
+    });
+    const { service, privacyChainKeys } = createService({
+      cachedPassword: 'pw',
+    });
+    withCapability(service, {
+      enableAccount: async () => {
+        throw new OneKeyLocalError('node unreachable');
+      },
+      deriveViewingKey: async () => 'spend:view',
+      getAccountState: async () => ({ enabled: false }),
+    });
+
+    await expect(
+      service.enableLocalWalletAccount({ networkId, accountId: hdAccountId }),
+    ).rejects.toThrow('node unreachable');
+
+    await expect(privacyChainKeys.listAccountIds()).resolves.toEqual([]);
+  });
+
+  it('an enable journaled as pending keeps its key for the retry', async () => {
+    mockGetVault.mockResolvedValue({
+      getLocalWalletCapability: () => ({
+        deriveViewingKey: async () => 'spend:view',
+      }),
+    });
+    const { service, privacyChainKeys } = createService({
+      cachedPassword: 'pw',
+    });
+    withCapability(service, {
+      enableAccount: async () => {
+        throw new OneKeyLocalError('runtime busy');
+      },
+      deriveViewingKey: async () => 'spend:view',
+      getAccountState: async () => ({
+        enabled: false,
+        pendingOperation: 'enable',
+      }),
+    });
+
+    await expect(
+      service.enableLocalWalletAccount({ networkId, accountId: hdAccountId }),
+    ).rejects.toThrow('runtime busy');
+
+    await expect(privacyChainKeys.listAccountIds()).resolves.toEqual([
       hdAccountId,
     ]);
-    expect(removeLastBalances).toHaveBeenCalledWith({
-      accountIds: ['hd-1--9'],
+  });
+
+  it('a chain whose keys come from its own setup is not derived at enable', async () => {
+    const { service, privacyChainKeys } = createService({
+      cachedPassword: 'pw',
     });
+    const enableAccount = jest.fn(async () => undefined);
+    withCapability(service, { enableAccount });
+
+    await service.enableLocalWalletAccount({
+      networkId: 'zec--0',
+      accountId: hdAccountId,
+    });
+
+    expect(enableAccount).toHaveBeenCalled();
+    expect(mockGetVault).not.toHaveBeenCalled();
+    await expect(privacyChainKeys.listAccountIds()).resolves.toEqual([]);
   });
 });
