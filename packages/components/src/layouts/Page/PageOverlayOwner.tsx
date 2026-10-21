@@ -62,11 +62,12 @@ function isOwnerActiveWithinHost(navigation: INavigation, ownerKey: string) {
 export function PageOverlayOwner({ children }: PropsWithChildren) {
   const route = useContext(NavigationRouteContext);
   const navigation = useContext(NavigationContext) as INavigation | undefined;
-  const { hostKey } = useOverlayPageScope();
+  const { hostKey, ownerKey: inheritedOwnerKey } = useOverlayPageScope();
   const pageContext = useContext(PageContext);
   const pageTypeContext = useContext(PageTypeContext);
   const modalNavigatorContext = useContext(ModalNavigatorContext);
   const ownerKey = route?.key;
+  const isNestedOwner = inheritedOwnerKey === ownerKey;
   const wrap = useMemo(
     () => (node: ReactNode) =>
       hostKey && ownerKey ? (
@@ -103,7 +104,7 @@ export function PageOverlayOwner({ children }: PropsWithChildren) {
   wrapRef.current = wrap;
 
   useEffect(() => {
-    if (!hostKey || !ownerKey) {
+    if (!hostKey || !ownerKey || isNestedOwner) {
       return;
     }
     const registration = registerImperativeOverlayPage(
@@ -117,14 +118,14 @@ export function PageOverlayOwner({ children }: PropsWithChildren) {
       }
       registration.unregister();
     };
-  }, [hostKey, ownerKey]);
+  }, [hostKey, isNestedOwner, ownerKey]);
 
   useEffect(() => {
     registrationRef.current?.update(wrap);
   }, [wrap]);
 
   useEffect(() => {
-    if (!ownerKey || !navigation) {
+    if (!ownerKey || !navigation || isNestedOwner) {
       return;
     }
     const update = () =>
@@ -147,7 +148,7 @@ export function PageOverlayOwner({ children }: PropsWithChildren) {
       unsubscribeListeners.forEach((unsubscribe) => unsubscribe());
       overlayStore.removePage(ownerKey);
     };
-  }, [navigation, ownerKey]);
+  }, [isNestedOwner, navigation, ownerKey]);
 
   if (!ownerKey) {
     return <>{children}</>;

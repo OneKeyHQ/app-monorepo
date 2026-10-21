@@ -618,7 +618,7 @@ function BaseDialogContainer(
   const effectiveIsExist = isExist ?? customMount?.isExist;
   const forwardOnClose = useCallback(
     async (extra?: { flag?: string }) => {
-      if (customMount && onClose !== customMount.onClose) {
+      if (customMount && onClose && onClose !== customMount.onClose) {
         const mountClose = customMount.onClose(extra);
         try {
           await onClose(extra);
@@ -626,7 +626,7 @@ function BaseDialogContainer(
           await mountClose;
         }
       } else {
-        await onClose(extra);
+        await (onClose ?? customMount?.onClose)?.(extra);
       }
     },
     [customMount, onClose],

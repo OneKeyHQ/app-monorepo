@@ -19,7 +19,7 @@ import { useForm } from 'react-hook-form';
 
 import { renderToContainer } from './renderToContainer';
 
-import type { IDialogInstance } from './type';
+import type { IDialogContainerProps, IDialogInstance } from './type';
 
 let mockIsSheet = false;
 const mockClose = jest.fn(() => Promise.resolve());
@@ -294,6 +294,41 @@ it('starts a wrapped custom close before its own asynchronous callback settles',
   });
   expect(onCloseStart).toHaveBeenCalledTimes(1);
   expect(onClose).toHaveBeenCalledTimes(1);
+  mounted.unmount();
+});
+
+it('resolves a wrapped custom dialog close when the wrapper omits onClose', async () => {
+  const onCloseStart = jest.fn();
+  const onClose = jest.fn();
+  const openSettings = jest.fn();
+  const dialog = Dialog.show({
+    dialogContainer: ({ ref }) => (
+      <div>
+        <DialogContainer
+          ref={ref}
+          showHeader={false}
+          showFooter={false}
+          onClose={undefined as unknown as IDialogContainerProps['onClose']}
+        />
+      </div>
+    ),
+    onCloseStart,
+    onClose,
+  });
+  const element = jest
+    .mocked(renderToContainer)
+    .mock.calls.at(-1)?.[1] as ReactElement;
+  const mounted = render(element);
+  const closing = Promise.resolve(dialog.close({ flag: 'confirm' })).then(
+    openSettings,
+  );
+  expect(onCloseStart).toHaveBeenCalledTimes(1);
+  act(() => mockPresentation?.onExited?.());
+  await act(async () => {
+    await closing;
+  });
+  expect(onClose).toHaveBeenCalledWith({ flag: 'confirm' });
+  expect(openSettings).toHaveBeenCalledTimes(1);
   mounted.unmount();
 });
 
