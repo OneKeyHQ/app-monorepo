@@ -218,6 +218,7 @@ const shellInputDirectories = {
     'apps/mobile/android/build-logic',
   ],
   ios: [
+    'apps/mobile/ios/LiveActivity',
     'apps/mobile/ios/OneKeyLogo.icon',
     'apps/mobile/ios/OneKeyWallet',
     'apps/mobile/ios/ServiceExtension',
