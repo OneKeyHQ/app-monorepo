@@ -207,6 +207,11 @@ function getChartInitScript(): string {
           timeScale: getTimeScaleOptions(nextConfig),
           rightPriceScale: getPriceScaleOptions(nextConfig, 'right'),
           leftPriceScale: getPriceScaleOptions(nextConfig, 'left'),
+          trackingMode: {
+            exitMode: nextConfig.nativeScrubOptions?.exitOnTouchEnd
+              ? LightweightCharts.TrackingModeExitMode.OnTouchEnd
+              : LightweightCharts.TrackingModeExitMode.OnNextTap,
+          },
         };
         // Desktop installs formatChartPrice on the series, and the price scale
         // uses that for both ticks and the last-value badge. A function cannot
@@ -845,7 +850,7 @@ function getEventHandlers(): string {
         window.nativeScrubTime = time;
         var tooltip = document.getElementById('scrub-tooltip');
         var label = options.labels[time];
-        if (!label || message.x === undefined || message.y === undefined) {
+        if (options.showTooltip === false || !label || message.x === undefined || message.y === undefined) {
           tooltip.style.display = 'none';
           return;
         }
