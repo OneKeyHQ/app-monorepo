@@ -90,6 +90,12 @@ jest.mock('@onekeyhq/kit/src/hooks/useAppNavigation', () => ({
   __esModule: true,
   default: () => ({ switchTab: mockSwitchTab }),
 }));
+jest.mock(
+  '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/actions',
+  () => ({
+    capturePerpsInstrumentChangeGuard: () => () => true,
+  }),
+);
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
   get default() {
@@ -112,6 +118,11 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
         clearPendingInitialTradeInstrument: (params: { requestId: string }) =>
           mockClearPendingInstrument(params),
         changeActiveAsset: (...args: unknown[]) => mockChangeAsset(...args),
+        getActiveTradeInstrumentTarget: async () => ({
+          mode: 'perp',
+          perpAsset: mockTicker ? { coin: mockTicker } : undefined,
+          spotAsset: undefined,
+        }),
       },
     };
   },
