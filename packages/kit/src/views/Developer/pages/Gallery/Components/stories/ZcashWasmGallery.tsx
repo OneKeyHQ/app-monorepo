@@ -246,8 +246,8 @@ function ZcashWalletDatabaseDiagnostics() {
   );
 }
 
-// Dev-only: inspect/repair a real account by id, e.g. one from a
-// "[zcash] shielded account meta missing" log.
+// Dev-only: inspect/repair a real account by id, e.g. one whose shielded
+// setup never completed.
 function ZcashRetryLocalWalletSetupDebug() {
   const [accountId, setAccountId] = useState('');
   const [running, setRunning] = useState(false);

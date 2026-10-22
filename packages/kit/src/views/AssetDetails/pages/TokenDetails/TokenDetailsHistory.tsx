@@ -39,7 +39,6 @@ import {
   isPrivacyChainHistoryVisible,
   projectPrivacyChainHistoryTxToPool,
 } from '@onekeyhq/shared/src/utils/privacyChainHistoryUtils';
-import { privacyChainPerfSpan } from '@onekeyhq/shared/src/utils/privacyChainPerfLog';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
 import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
@@ -193,20 +192,15 @@ function TokenDetailsHistoryContent({
           });
           return [];
         }
-        const r = await privacyChainPerfSpan(
-          'ui history fetch',
-          () =>
-            backgroundApiProxy.serviceHistory.fetchAccountHistory({
-              accountId,
-              networkId,
-              tokenIdOnNetwork: tokenInfo.address,
-              filterScam: settings.isFilterScamHistoryEnabled,
-              filterLowValue: settings.isFilterLowValueHistoryEnabled,
-              sourceCurrency: settings.currencyInfo.id,
-              currencyMap,
-            }),
-          (res) => ({ txs: res.txs?.length ?? 0 }),
-        );
+        const r = await backgroundApiProxy.serviceHistory.fetchAccountHistory({
+          accountId,
+          networkId,
+          tokenIdOnNetwork: tokenInfo.address,
+          filterScam: settings.isFilterScamHistoryEnabled,
+          filterLowValue: settings.isFilterLowValueHistoryEnabled,
+          sourceCurrency: settings.currencyInfo.id,
+          currencyMap,
+        });
         // Skip side effects if a newer fetch superseded this one.
         if (!isCurrentRequest()) {
           return undefined;

@@ -71,21 +71,6 @@ export function isLocalWalletDisplayedAddress({
   );
 }
 
-// Older builds wrote "<Pool> pool" into address fields; cached rows and
-// detail snapshots on existing installs can still carry it.
-function findPoolByLegacyLabel({
-  pools,
-  label,
-}: {
-  pools?: IPrivacyChainDisplayPool[];
-  label?: string;
-}): IPrivacyChainDisplayPool | undefined {
-  if (!label) return undefined;
-  return pools?.find(
-    (pool) => pool.kind === 'private' && `${pool.label} pool` === label,
-  );
-}
-
 // Private addresses and shielded endpoints are hidden from a transaction's
 // public flow: only addresses matching the chain's
 // settings.localWallet.publicAddressPattern are shown; without a pattern every
@@ -122,8 +107,7 @@ export function getPrivacyChainPublicDisplayFlow({
     const shielded =
       direction === 'from' ? transfer?.shieldedFrom : transfer?.shieldedTo;
     // Pool projections may use a public account identifier in entries.
-    // An explicit private endpoint must take precedence over those entries;
-    // a non-public string is one written by an older build.
+    // A private endpoint, marked or by address, takes precedence over them.
     if (shielded || (endpoint && !publicAddress(endpoint))) return [];
     return [
       ...new Set([
@@ -162,18 +146,16 @@ export function getLocalWalletPoolDisplayAddress({
   return pool.receivesFunds === false ? undefined : addresses?.privateAddress;
 }
 
-// Pool of a shielded I/O entry: its poolId, or the pool an older build named
-// in its label. A pool the chain does not declare is labeled generically.
+// Pool of a shielded I/O entry. A pool the chain does not declare is labeled
+// generically.
 export function getPrivacyChainShieldedEntryLabel({
   pools,
   transfer,
 }: {
   pools?: IPrivacyChainDisplayPool[];
-  transfer: { poolId?: number; label?: string };
+  transfer: { poolId?: number };
 }): IPrivacyChainShieldedEndpointLabel {
-  const poolId =
-    transfer.poolId ??
-    findPoolByLegacyLabel({ pools, label: transfer.label })?.id;
+  const { poolId } = transfer;
   return isPrivatePoolId(pools, poolId) ? { poolId } : {};
 }
 
@@ -224,14 +206,8 @@ export function getPrivacyChainTargetItem({
     ) {
       return { kind: 'address', address };
     }
-    // Not an address: a label written by an older build.
-    return {
-      kind: 'pool',
-      ...getPrivacyChainShieldedEntryLabel({
-        pools,
-        transfer: { label: address },
-      }),
-    };
+    // Matches neither pattern: named as a pool, never shown.
+    return { kind: 'pool' };
   }
   return shielded ? { kind: 'pool', poolId: shielded.poolId } : undefined;
 }
@@ -417,7 +393,7 @@ export function getPrivacyChainEndpointFlow({
     const isUnnamedPool = (item: IPrivacyChainEndpointItem) =>
       item.kind === 'pool' && item.poolId === undefined;
     const hasSpecific = items.some((item) => !isUnnamedPool(item));
-    // Rows from older builds name our own pool as a plain pool.
+    // A pool our side already names is not repeated as a plain pool.
     const ownPoolIds = new Set(
       items.flatMap((item) => (item.kind === 'own' ? [item.poolId] : [])),
     );

@@ -831,7 +831,7 @@ const pendingWebEmbedBridgeCalls = new Map<
 >();
 
 // Local-wallet runtimes throw structured errors the UI keys its copy off.
-// Other modules keep the message-only error they have always surfaced.
+// Other modules surface the message only.
 const STRUCTURED_ERROR_WEBEMBED_MODULES = new Set(['chainZcash', 'chainXmr']);
 
 export function rehydrateWebEmbedBridgeError(

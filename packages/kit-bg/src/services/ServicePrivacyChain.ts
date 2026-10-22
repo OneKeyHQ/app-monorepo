@@ -18,10 +18,6 @@ import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import {
-  privacyChainPerfLog,
-  privacyChainPerfSpan,
-} from '@onekeyhq/shared/src/utils/privacyChainPerfLog';
-import {
   PRIVACY_CHAIN_TIP_POLL_MS,
   getPrivacyChainBlocksLeft,
   shouldStartBoost,
@@ -594,14 +590,7 @@ class ServicePrivacyChain extends ServiceBase {
     }
     // Reached only by an explicit press, which IS the resume.
     delete this.boostPausedByNetwork[networkId];
-    const wasRequested = this.foregroundBoostRequestedByNetwork[networkId];
     this.foregroundBoostRequestedByNetwork[networkId] = true;
-    if (!wasRequested) {
-      console.log('[privacy-chain:sched] foreground pace ON', {
-        networkId,
-        trigger,
-      });
-    }
     // Publish before gate two can return early: a boost that is wanted but
     // refused still needs the UI to know, so it can offer the data toggle.
     await this.publishBoostingNetworks();
@@ -1620,8 +1609,7 @@ class ServicePrivacyChain extends ServiceBase {
       return;
     }
     this.syncTickRunning = true;
-    const tickStartedAt = Date.now();
-    this.syncTickStartedAt = tickStartedAt;
+    this.syncTickStartedAt = Date.now();
     let continueDelayMs: number | undefined;
     try {
       if (!(await this.isLocalWalletScanAllowed())) {
@@ -1761,21 +1749,10 @@ class ServicePrivacyChain extends ServiceBase {
         > | null = null;
         try {
           // One bounded group turn (journal replay + registration + sync).
-          syncPromise = privacyChainPerfSpan(
-            'bg sync group',
-            () =>
-              candidate.capability.syncGroup({
-                accountIds: candidate.accountIds,
-                chainTip: candidate.chainTip,
-              }),
-            (res) => ({
-              runtime: candidate.runtimeStateKey,
-              reason: candidate.reason,
-              accounts: candidate.accountIds.length,
-              synced: res.synced,
-              backfillRemaining: res.backfillRemaining ?? false,
-            }),
-          );
+          syncPromise = candidate.capability.syncGroup({
+            accountIds: candidate.accountIds,
+            chainTip: candidate.chainTip,
+          });
           const result = await Promise.race([
             syncPromise,
             new Promise<never>((_, reject) => {
@@ -1907,7 +1884,6 @@ class ServicePrivacyChain extends ServiceBase {
             accountIds: candidate.accountIds,
             reason: candidate.reason,
             ...describePrivacyChainError(e),
-            e,
           });
         } finally {
           if (timeoutHandle) {
@@ -2001,10 +1977,6 @@ class ServicePrivacyChain extends ServiceBase {
       });
     } finally {
       this.syncTickRunning = false;
-      privacyChainPerfLog('bg sync tick', {
-        ms: Date.now() - tickStartedAt,
-        continueDelayMs: continueDelayMs ?? null,
-      });
       if (this.syncTickRequested) {
         this.syncTickRequested = false;
         this.scheduleBackgroundSync(0);
@@ -2084,9 +2056,8 @@ class ServicePrivacyChain extends ServiceBase {
     return !(await this.isPersistenceMasked());
   }
 
-  // Deletes runtime accounts that no live account keeps (K: accounts holding
-  // scan data, by viewing key fingerprint). Irreversible, so any doubt skips
-  // the whole pass: false means it did not run and stays due.
+  // Deletes runtime accounts that no live account keeps. Irreversible, so any
+  // doubt skips the whole pass: false means it did not run and stays due.
   async purgeLocalWalletRuntimeOrphans({
     networkId,
     capability,
@@ -2293,7 +2264,7 @@ class ServicePrivacyChain extends ServiceBase {
               console.error('[privacy-chain] gc purge failed', {
                 networkId,
                 accountId,
-                e,
+                ...describePrivacyChainError(e),
               });
             }
           }
@@ -3604,21 +3575,6 @@ class ServicePrivacyChain extends ServiceBase {
       delete this.foregroundBoostRequestedByNetwork[networkId];
     }
     await this.publishBoostingNetworks();
-  }
-
-  // Debug only: toggles per-read timing logs. Not wired to any UI.
-  @backgroundMethod()
-  async setPrivacyChainPerfTrace({
-    networkId,
-    enabled,
-  }: {
-    networkId: string;
-    enabled: boolean;
-  }): Promise<void> {
-    const vault = await vaultFactory.getChainOnlyVault({ networkId });
-    await requireLocalWalletCapability(vault).setDiagnosticsEnabled?.({
-      enabled,
-    });
   }
 
   // Viewing-level repair; no keyring/password needed, so a chain-only vault

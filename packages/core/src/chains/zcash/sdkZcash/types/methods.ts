@@ -6,9 +6,6 @@ export const ZCASH_SDK_METHODS = [
   'runRuntimeSelfTest',
   // Never leased: it must run past a stuck lease to recover a wedged carrier.
   'resetCarrier',
-  // Diagnostics: toggles per-read timing inside whichever carrier runs the
-  // wallet, which is the only place that can see why a read queued.
-  'setPerfTrace',
   'capabilities',
   'getChainTip',
   'prewarmPczt',

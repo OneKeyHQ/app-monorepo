@@ -205,6 +205,7 @@ describe('readBalance', () => {
       pendingSpendable: 3,
       locked: 0,
       total,
+      uneconomic: 0,
     });
     const rt = {
       accountBalance: () =>
@@ -238,13 +239,13 @@ describe('readBalance', () => {
   });
 
   it('shows dust change in the totals but never in spendable', () => {
-    const pool = (spendable: number, uneconomic?: number) => ({
+    const pool = (spendable: number, uneconomic = 0) => ({
       spendable,
       pendingChange: 0,
       pendingSpendable: 0,
       locked: 0,
       total: spendable,
-      ...(uneconomic === undefined ? {} : { uneconomic }),
+      uneconomic,
     });
     const rt = (orchard: object, ironwood: object) =>
       ({
@@ -278,17 +279,6 @@ describe('readBalance', () => {
       spendable: '0',
       total: '1000',
       uneconomic: '1000',
-    });
-
-    // A runtime without the field reads as no dust.
-    const older = readBalance(rt(pool(0), pool(100_000)), 'a');
-    expect(older).toMatchObject({
-      shielded: '100000',
-      ironwoodBalance: '100000',
-    });
-    expect(older.poolsDetail.ironwood).toMatchObject({
-      total: '100000',
-      uneconomic: '0',
     });
   });
 });

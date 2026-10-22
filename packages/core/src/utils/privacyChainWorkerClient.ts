@@ -1,8 +1,4 @@
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
-import {
-  privacyChainPerfLog,
-  summarizeResultSize,
-} from '@onekeyhq/shared/src/utils/privacyChainPerfLog';
 import type {
   IFetchStreamRequest,
   IFetchStreamRequester,
@@ -145,19 +141,8 @@ export function createPrivacyChainWorkerClient<TApi>(options: {
   ): Promise<unknown> {
     const id = nextCallId;
     nextCallId += 1;
-    const startedAt = Date.now();
     return new Promise((resolve, reject) => {
-      current.pending.set(id, {
-        resolve: (result) => {
-          privacyChainPerfLog(`worker ${method}`, {
-            id,
-            ms: Date.now() - startedAt,
-            ...summarizeResultSize(result),
-          });
-          resolve(result);
-        },
-        reject,
-      });
+      current.pending.set(id, { resolve, reject });
       try {
         current.worker.postMessage({ id, method, args });
       } catch (error) {
@@ -452,16 +437,6 @@ function toPlainError(e: unknown): Record<string, unknown> {
   return out;
 }
 
-/** Host and path of a node URL, for logs: short, and no query string. */
-export function describeRoute(url: string): string {
-  try {
-    const parsed = new URL(url);
-    return `${parsed.host}${parsed.pathname}`;
-  } catch {
-    return url;
-  }
-}
-
 /**
  * Backstop for a node request relayed through the host: hosts already time
  * out on 30s of silence, so this only catches one that never answers at all.
@@ -506,8 +481,6 @@ export function createWorkerHostRequester(
   return async (url: string, contentType: string, body: Uint8Array) => {
     const requestId = nextId;
     nextId += 1;
-    const startedAt = Date.now();
-    const route = describeRoute(url);
     return new Promise<Uint8Array>((resolve, reject) => {
       const timer = setTimeout(() => {
         // A late reply finds no waiter and is dropped by the listener above.
@@ -522,13 +495,6 @@ export function createWorkerHostRequester(
       pending.set(requestId, {
         resolve: (bytes) => {
           clearTimeout(timer);
-          // Seen from inside the Worker: network plus every relay hop.
-          privacyChainPerfLog(`${label} host fetch`, {
-            route,
-            reqBytes: body.byteLength,
-            respBytes: bytes.byteLength,
-            ms: Date.now() - startedAt,
-          });
           resolve(bytes);
         },
         reject: (error) => {

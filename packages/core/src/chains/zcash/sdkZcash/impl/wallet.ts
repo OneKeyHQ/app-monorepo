@@ -78,8 +78,7 @@ type IRuntimeHistoryRow = {
   // An explicit node rejection was recorded for this transaction.
   rejected?: boolean;
   recipient?: string | null;
-  // Absent on a runtime build that predates this column.
-  externalOutputCount?: number;
+  externalOutputCount: number;
 };
 
 type IRuntimeBalancePool = {
@@ -89,8 +88,7 @@ type IRuntimeBalancePool = {
   locked: number;
   // Leaves out notes worth <= the ZIP-317 marginal fee; those are `uneconomic`.
   total: number;
-  // Absent before runtime 0.1.0-alpha.7.
-  uneconomic?: number;
+  uneconomic: number;
 };
 
 type IRuntimeBalance = {
@@ -180,9 +178,6 @@ export async function prepareWalletAccounts(
   }
 }
 
-// Timestamp of the previous pass's end, so idle time can be reported separately from work time.
-let lastPassEndedAt: number | null = null;
-
 // Per-database TTL for downloaded subtree roots, so backfill doesn't re-pay syncPrepare's full download every round.
 const subtreeRootsFreshUntil = new Map<string, number>();
 
@@ -210,12 +205,7 @@ export async function syncWallet(
     Object.assign(error, { code: 'NO_ACTIVE_ACCOUNTS' });
     throw error;
   }
-  const passStartedAt = Date.now();
-  const idleBeforeMs =
-    lastPassEndedAt === null ? null : passStartedAt - lastPassEndedAt;
-  const timing = { tipMs: 0, prepareMs: 0, scanMs: 0, steps: 0 };
-
-  const { rt, accountUuid } = await withWallet(account);
+  const { rt } = await withWallet(account);
 
   const before = readScanMark(rt, account);
 
@@ -230,9 +220,8 @@ export async function syncWallet(
       recordOutcome(e);
       // Offline: fall through and let the real sync path report the failure.
     }
-    timing.tipMs = Date.now() - t;
     // Reuses the chainTip call already being made as the latency sample.
-    recordEndpointHealth({ ok: liveTip !== null, latencyMs: timing.tipMs });
+    recordEndpointHealth({ ok: liveTip !== null, latencyMs: Date.now() - t });
   }
   if (
     queued.totalBlocks === 0 &&
@@ -240,7 +229,6 @@ export async function syncWallet(
     before.chainTip !== null &&
     liveTip <= before.chainTip
   ) {
-    lastPassEndedAt = Date.now();
     return {
       stateChanged: false,
       chainTip: options?.chainTip ?? before.chainTip,
@@ -252,7 +240,6 @@ export async function syncWallet(
   // syncPrepare runs only when roots are stale (TTL); syncTip only when the tip moved. Skipping
   // the tip write when unchanged matters: it would requeue a verify range that starves backfill.
   const dbName = walletDbName(account);
-  const prepareStartedAt = Date.now();
   if (Date.now() > (subtreeRootsFreshUntil.get(dbName) ?? 0)) {
     await rt.syncPrepare();
     recordOutcome(null);
@@ -264,7 +251,6 @@ export async function syncWallet(
     await rt.syncTip();
     recordOutcome(null);
   }
-  timing.prepareMs = Date.now() - prepareStartedAt;
   let scanned = 0;
   let backfillRemaining = false;
 
@@ -313,7 +299,6 @@ export async function syncWallet(
       }
       budget -= 1;
       laneSteps += 1;
-      timing.steps += 1;
       scanned += r.blocksScanned;
       if (r.enhancementError) {
         console.warn('[zcash] history enhancement incomplete; will retry', {
@@ -330,8 +315,6 @@ export async function syncWallet(
     }
   }
 
-  timing.scanMs = Date.now() - scanStartedAt;
-
   if (reorgRewoundTo !== null) {
     // Rewound ranges are queued again, so this pass ends with work still due.
     backfillRemaining = true;
@@ -343,21 +326,10 @@ export async function syncWallet(
   // registered at the tip can report "caught up" while it never scanned its own history.
   let queuedAfter: number | null = null;
   try {
-    const peek = JSON.parse(rt.syncPeek()) as {
-      ranges: { start: number; end: number; priority: string }[];
-      totalBlocks: number;
-    };
+    const peek = JSON.parse(rt.syncPeek()) as { totalBlocks: number };
     queuedAfter = peek.totalBlocks;
-    const status = JSON.parse(rt.accountSyncStatus(accountUuid)) as unknown;
-    console.log('[zcash] scan queue', {
-      accountId: account.hdIndex,
-      scannedThisPass: scanned,
-      remainingBlocks: peek.totalBlocks,
-      ranges: peek.ranges.slice(0, 6),
-      accountStatus: status,
-    });
   } catch (e) {
-    console.log('[zcash] scan queue unavailable', e);
+    console.error('[zcash] scan queue unavailable', e);
   }
   // Queue length is the truth about remaining work; the historic lane alone can report done while a rescan still has queued blocks.
   if (queuedAfter !== null) {
@@ -366,19 +338,6 @@ export async function syncWallet(
 
   // Transparent balance/history/UTXOs are backend-owned (blockbook) on purpose — asking lightwalletd would leak every transparent address to it.
   // Stored sends are never resubmitted here: an unmined one stays pending until mined or expired.
-
-  // idleBeforeMs distinguishes a scheduling gap from a throughput problem: 100 blocks/100s differs if the work took 5s vs 95s idle.
-  const totalMs = Date.now() - passStartedAt;
-  lastPassEndedAt = Date.now();
-  // Flat log line: `other` covers everything the named phases don't (DB reads, JSON, yields, renderer contention).
-  console.log(
-    `[zcash] sync timing acct=${account.hdIndex} blocks=${scanned}` +
-      ` total=${totalMs}ms idle=${idleBeforeMs ?? '-'}` +
-      ` tip=${timing.tipMs} prep=${timing.prepareMs} scan=${timing.scanMs}` +
-      ` other=${
-        totalMs - (timing.tipMs + timing.prepareMs + timing.scanMs)
-      } queued=${queuedAfter ?? '?'} steps=${timing.steps}`,
-  );
 
   // Failure wins over earlier successes; a tip-only or empty pass doesn't prove the endpoint is healthy.
   if (networkFailure !== undefined) {
@@ -494,7 +453,7 @@ export function readBalance(
   // Dust change still belongs to the user, so it counts toward what is shown;
   // note selection skips it, so it never counts toward spendable.
   const poolTotal = (pool: IRuntimeBalancePool) =>
-    BigInt(pool.total) + BigInt(pool.uneconomic ?? 0);
+    BigInt(pool.total) + BigInt(pool.uneconomic);
 
   // Runtime reports each pool separately (a fact); summing into a total is a policy decision made here.
   const shielded = poolTotal(raw.orchard) + poolTotal(raw.ironwood);
@@ -512,7 +471,7 @@ export function readBalance(
     pendingSpendable: String(pool.pendingSpendable),
     locked: String(pool.locked),
     total: poolTotal(pool).toString(),
-    uneconomic: String(pool.uneconomic ?? 0),
+    uneconomic: String(pool.uneconomic),
   });
 
   const shieldedSpendable =
@@ -578,11 +537,7 @@ export function readHistory(
     // Internal move (shield / pool-to-pool / own transparent): decided from output ownership, not
     // spent-received-fee — with the fee unknown that difference equals the fee and mislabels it as a send.
     const isInternalMove =
-      r.isShielding ||
-      (spent > 0n &&
-        (typeof r.externalOutputCount === 'number'
-          ? r.externalOutputCount === 0
-          : external <= 0n));
+      r.isShielding || (spent > 0n && r.externalOutputCount === 0);
     let txType: 'received' | 'sent' | 'shielded';
     let valueZat: bigint;
     if (isInternalMove) {

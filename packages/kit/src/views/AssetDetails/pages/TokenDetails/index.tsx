@@ -45,7 +45,6 @@ import {
   canDeriveTypesCollapse,
   useDeriveTypesCollapseState,
 } from '@onekeyhq/kit/src/hooks/useDeriveTypesCollapseState';
-import { useMainThreadStallLogger } from '@onekeyhq/kit/src/hooks/useMainThreadStallLogger';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { openTokenDetailsUrl } from '@onekeyhq/kit/src/utils/explorerUtils';
 import type {
@@ -63,7 +62,6 @@ import type {
 } from '@onekeyhq/shared/src/routes/assetDetails';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
-import { privacyChainPerfLog } from '@onekeyhq/shared/src/utils/privacyChainPerfLog';
 import { waitAsync } from '@onekeyhq/shared/src/utils/promiseUtils';
 import {
   buildTokenListMapKey,
@@ -122,7 +120,6 @@ export type IProps = {
 } & IStackProps;
 function TokenDetailsView() {
   const intl = useIntl();
-  useMainThreadStallLogger('token-details');
 
   const route =
     useRoute<
@@ -846,7 +843,6 @@ function TokenDetailsView() {
 
   const handleTabIndexChange = useCallback(
     async (index: number) => {
-      privacyChainPerfLog('ui tab-change', { index });
       setActiveTabIndex(index);
 
       // The Overview descriptor has no token, so only member tabs can trigger

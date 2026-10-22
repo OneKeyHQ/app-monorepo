@@ -194,7 +194,7 @@ describe('Privacy network settings for a temp wallet', () => {
         .textContent,
     ).toContain('hidden wallets');
     expect(screen.getByText(/global\.not_available/)).toBeTruthy();
-    // Deleting what an older build stored stays possible.
+    // Stored data can still be deleted.
     expect(
       screen.getByTestId('privacy-network-delete-hw-1-passphrase--0'),
     ).toBeTruthy();

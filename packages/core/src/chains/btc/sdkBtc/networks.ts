@@ -210,7 +210,6 @@ const extendedNetworks: Record<string, IBtcForkNetwork> = {
   bch,
   doge,
   zec: zcash,
-  zcash, // Legacy alias for pre-zec preset callers.
   xna, // neurai
   btg,
   dgb,
