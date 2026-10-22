@@ -14,6 +14,8 @@ import BigNumber from 'bignumber.js';
 import { useRouteIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import { useDustSweepPreferencesPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusNames';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type {
   IDustSweepNetwork,
@@ -23,6 +25,7 @@ import type {
   IDustSweepToken,
 } from '@onekeyhq/shared/types/swap/dustSweep';
 import type { ISwapProviderInfo } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
+import type { ISwapNetwork } from '@onekeyhq/shared/types/swap/types';
 
 import {
   getDustSweepNetworkOwner,
@@ -30,9 +33,11 @@ import {
 } from './hooks/useDustSweepReconciliation';
 import { useDustSweepSession } from './hooks/useDustSweepSession';
 import {
+  DUST_SWEEP_MIN_SLIPPAGE,
   DUST_SWEEP_THRESHOLDS,
   filterDustSweepCandidates,
   isDustSweepBelowGasThreshold,
+  isValidDustSweepSlippage,
 } from './utils/candidates';
 import { loadDustSweepNetworks } from './utils/loadNetworks';
 
@@ -46,6 +51,9 @@ function isDefaultSelected(token: IDustSweepToken) {
 function useDustSweepController(params: IDustSweepRouteParams) {
   const isFocused = useRouteIsFocused();
   const [preferences, setPreferences] = useDustSweepPreferencesPersistAtom();
+  const [localThreshold, setLocalThreshold] = useState<IDustSweepThreshold>();
+  // Native persistence echoes asynchronously; keep this page's choice immediate.
+  const threshold = localThreshold ?? preferences.threshold;
   const loadParams = useMemo(
     () => ({
       walletId: params.walletId,
@@ -84,14 +92,27 @@ function useDustSweepController(params: IDustSweepRouteParams) {
       },
       [loadParams],
     );
-  const [refresh, setRefresh] = useState(0);
+  const [refresh, setRefresh] = useState({ isManualRefresh: false });
+  const [invalidation, setInvalidation] = useState<{
+    scope: typeof loadParams;
+  }>();
+  const consumedInvalidation = useRef(invalidation);
+  const pendingInvalidation =
+    invalidation?.scope === loadParams &&
+    consumedInvalidation.current !== invalidation;
+  const focusState = useRef({
+    scope: loadParams,
+    focused: isFocused,
+    visited: isFocused,
+  });
   const [loadState, setLoadState] = useState<{
     scope: typeof loadParams;
-    refresh: number;
+    refresh: typeof refresh;
     status: 'refreshing' | 'idle' | 'error';
     partialError: boolean;
     freshOwners: Set<string>;
     providerInfo?: ISwapProviderInfo;
+    failedNetworks?: ISwapNetwork[];
   }>();
   const currentLoad =
     loadState?.scope === loadParams && loadState.refresh === refresh
@@ -112,7 +133,10 @@ function useDustSweepController(params: IDustSweepRouteParams) {
     scope: IDustSweepRouteParams;
     keys: Set<string>;
   }>();
-  const [slippage, setSlippage] = useState(5);
+  const [slippage, setSlippageValue] = useState(DUST_SWEEP_MIN_SLIPPAGE);
+  const setSlippage = useCallback((value: number) => {
+    if (isValidDustSweepSlippage(value.toString())) setSlippageValue(value);
+  }, []);
   const visited = useRef(false);
   const firstVisit = useRef(true);
   const session = useDustSweepSession(networks);
@@ -138,6 +162,56 @@ function useDustSweepController(params: IDustSweepRouteParams) {
     reconcile,
     refresh: refreshAssets,
   } = reconciliation;
+  const reconciling = reconciliation.isRefreshing();
+  useEffect(() => {
+    const invalidate = () => {
+      fullLoadPending.current = true;
+      setInvalidation({ scope: loadParams });
+    };
+    appEventBus.on(EAppEventBusNames.SwapTxHistoryStatusUpdate, invalidate);
+    return () => {
+      appEventBus.off(EAppEventBusNames.SwapTxHistoryStatusUpdate, invalidate);
+    };
+  }, [loadParams]);
+  useEffect(() => {
+    const previous = focusState.current;
+    if (
+      previous.scope === loadParams &&
+      previous.visited &&
+      !previous.focused &&
+      isFocused
+    ) {
+      fullLoadPending.current = true;
+      setInvalidation({ scope: loadParams });
+    }
+    focusState.current = {
+      scope: loadParams,
+      focused: isFocused,
+      visited: isFocused || (previous.scope === loadParams && previous.visited),
+    };
+  }, [isFocused, loadParams]);
+  useEffect(() => {
+    if (
+      !pendingInvalidation ||
+      !isFocused ||
+      !selecting ||
+      refreshStatus === 'refreshing' ||
+      reconciling
+    )
+      return;
+    consumedInvalidation.current = invalidation;
+    networkChoiceScope.current = loadParams;
+    fullLoadPending.current = true;
+    setRefresh({ isManualRefresh: true });
+  }, [
+    invalidation,
+    isFocused,
+    loadParams,
+    pendingInvalidation,
+    reconciling,
+    refreshStatus,
+    selecting,
+  ]);
   useEffect(() => {
     if (executionScope.current === loadParams) reconcile(session.state);
   }, [loadParams, reconcile, session.state]);
@@ -154,12 +228,17 @@ function useDustSweepController(params: IDustSweepRouteParams) {
     let freshSettled = false;
     const isCurrent = () =>
       !controller.signal.aborted && activeLoadParams.current === loadParams;
-    void loadDustSweepNetworks(loadParams, controller.signal, (cached) => {
-      if (!isCurrent() || freshSettled) return;
-      // A retry retains the displayed snapshot and user choices. Its cache
-      // must not roll back a live or post-transaction asset reconciliation.
-      setNetworks((previous) => (previous.length ? previous : cached));
-    })
+    void loadDustSweepNetworks(
+      loadParams,
+      controller.signal,
+      (cached) => {
+        if (!isCurrent() || freshSettled) return;
+        // A retry retains the displayed snapshot and user choices. Its cache
+        // must not roll back a live or post-transaction asset reconciliation.
+        setNetworks((previous) => (previous.length ? previous : cached));
+      },
+      refresh,
+    )
       .then((result) => {
         freshSettled = true;
         if (!isCurrent()) return;
@@ -177,6 +256,7 @@ function useDustSweepController(params: IDustSweepRouteParams) {
           partialError: result.partialError,
           freshOwners: new Set(result.networks.map(getDustSweepNetworkOwner)),
           providerInfo: result.providerInfo,
+          failedNetworks: result.failedNetworks,
         });
       })
       .catch(() => {
@@ -217,37 +297,17 @@ function useDustSweepController(params: IDustSweepRouteParams) {
       ),
     [selectableNetworks],
   );
-  // The default selection is the chain with the most dust under the current
-  // threshold; ties keep the loaded order.
-  const defaultNetwork = useMemo(() => {
-    let best: IDustSweepNetwork | undefined;
-    let bestDustUsd = new BigNumber(-1);
-    // Only picker-eligible networks can be chosen automatically; when none
-    // qualify, nothing is selected and the empty state shows.
-    for (const entry of selectableNetworks) {
-      const dustUsd = entry.tokens
-        .filter((token) =>
-          new BigNumber(token.valueUsd).lt(preferences.threshold),
-        )
-        .reduce((sum, token) => sum.plus(token.valueUsd), new BigNumber(0));
-      if (dustUsd.gt(bestDustUsd)) {
-        best = entry;
-        bestDustUsd = dustUsd;
-      }
-    }
-    return best;
-  }, [selectableNetworks, preferences.threshold]);
+  const defaultNetwork = visibleNetworks[0];
   const chosenNetwork = networks.find(
     (entry) => entry.network.networkId === networkId,
   );
-  // A provisional cache default must not pin an empty chain after refresh.
+  // A provisional cache default follows the displayed order after refresh.
   // Explicit user/route choices and execution keep their selected network.
   const keepChosenNetwork =
     chosenNetwork &&
     (!selecting ||
       !!params.networkId ||
-      networkChoiceScope.current === loadParams ||
-      selectableNetworks.includes(chosenNetwork));
+      networkChoiceScope.current === loadParams);
   let current = selecting ? defaultNetwork : undefined;
   if (keepChosenNetwork) current = chosenNetwork;
   // An explicitly requested network stays visible (first) in the picker while
@@ -272,7 +332,10 @@ function useDustSweepController(params: IDustSweepRouteParams) {
     assetStatus = refreshStatus === 'refreshing' ? 'refreshing' : 'error';
   }
   const assetsReady =
-    hasFreshAssets && assetStatus === 'ready' && refreshStatus === 'idle';
+    hasFreshAssets &&
+    assetStatus === 'ready' &&
+    refreshStatus === 'idle' &&
+    !pendingInvalidation;
   const sweptKeys = currentReconciliation?.sweptKeys;
   useEffect(() => {
     if (!selecting || !currentNetworkId || currentNetworkId === networkId)
@@ -284,10 +347,10 @@ function useDustSweepController(params: IDustSweepRouteParams) {
     () =>
       filterDustSweepCandidates(
         current?.tokens ?? [],
-        preferences.threshold,
+        threshold,
         includeHidden,
       ),
-    [current, preferences.threshold, includeHidden],
+    [current, threshold, includeHidden],
   );
   const selected = useMemo(
     () =>
@@ -343,11 +406,12 @@ function useDustSweepController(params: IDustSweepRouteParams) {
     [canSelectNetwork, resetSession, selecting, loadParams],
   );
   const selectThreshold = useCallback(
-    (threshold: IDustSweepThreshold) => {
+    (value: IDustSweepThreshold) => {
       if (!selecting) return;
       networkChoiceScope.current = loadParams;
-      setPreferences((value) => ({ ...value, threshold }));
+      setLocalThreshold(value);
       setSelection(undefined);
+      void setPreferences((previous) => ({ ...previous, threshold: value }));
     },
     [selecting, setPreferences, loadParams],
   );
@@ -442,9 +506,10 @@ function useDustSweepController(params: IDustSweepRouteParams) {
     if (selecting && !reconciliation.isRefreshing()) {
       // Claim before React renders so a same-event local retry cannot race it.
       fullLoadPending.current = true;
-      setRefresh((value) => value + 1);
+      consumedInvalidation.current = invalidation;
+      setRefresh({ isManualRefresh: true });
     }
-  }, [selecting, reconciliation]);
+  }, [invalidation, selecting, reconciliation]);
   const retryAssets = useCallback(() => {
     if (!selecting || assetStatus !== 'error' || fullLoadPending.current)
       return;
@@ -467,8 +532,9 @@ function useDustSweepController(params: IDustSweepRouteParams) {
     assetStatus,
     retryAssets,
     partialError,
+    failedNetworks: currentLoad?.failedNetworks,
     providerInfo,
-    threshold: preferences.threshold,
+    threshold,
     slippage,
     setSlippage,
     session,

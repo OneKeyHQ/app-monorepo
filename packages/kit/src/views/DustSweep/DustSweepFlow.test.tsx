@@ -111,6 +111,18 @@ jest.mock('@onekeyhq/components', () => ({
   YStack: Box,
   ScrollView: Box,
   SizableText: Box,
+  NumberSizeableText: ({
+    children,
+    formatterOptions,
+  }: {
+    children: string;
+    formatterOptions?: { tokenSymbol?: string; showPlusMinusSigns?: boolean };
+  }) => (
+    <span>
+      {formatterOptions?.showPlusMinusSigns ? '+' : ''}
+      {children} {formatterOptions?.tokenSymbol}
+    </span>
+  ),
   Button,
   Icon: () => null,
   IconButton: Button,
@@ -130,6 +142,10 @@ jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   },
 }));
 jest.mock('@onekeyhq/shared/src/errors', () => ({ OneKeyLocalError: Error }));
+jest.mock('@onekeyhq/kit/src/components/ScrollableFilterBar', () => ({
+  ScrollableFilterBar: ({ children }: PropsWithChildren) => <>{children}</>,
+  useScrollableFilterBar: () => ({ handleItemLayout: jest.fn() }),
+}));
 jest.mock('@onekeyhq/kit/src/components/TabPageHeader', () => ({
   TabPageHeader: () => <span data-testid="tab-page-header" />,
 }));

@@ -27,6 +27,7 @@ const mockTxState: jest.MockedFunction<
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
   default: {
+    serviceNotification: { blockNotificationForTxId: async () => undefined },
     serviceSwap: {
       fetchBuildTx: async ({ fromToken }: { fromToken: IDustSweepToken }) => ({
         result: mockQuote(fromToken),
@@ -172,6 +173,7 @@ it.each([0, 1, 2])(
     );
     expect(result.current.state.items[failedIndex]).toMatchObject({
       message,
+      providerErrorMessage: message,
       reason: 'txFailed',
     });
     expect(result.current.state.items[failedIndex].txId).toBeUndefined();
@@ -253,6 +255,24 @@ it('honors a pause while the rejected submission is outstanding, then continues 
   expect(mockSend).toHaveBeenCalledTimes(3);
 });
 
+it('exposes the confirmed provider failure detail in the final result', async () => {
+  mockTxState.mockResolvedValueOnce({
+    state: ESwapTxHistoryStatus.FAILED,
+    stateDetail: 'Swap route execution reverted',
+  });
+  mockSend.mockImplementation(async (params) => {
+    await params.onBeforeSignAndSend?.();
+    return broadcast(params);
+  });
+  const { result } = renderHook(() => useDustSweepSession([], { minRunMs: 0 }));
+  await act(async () => result.current.start(snapshot));
+  expect(result.current.state.items[0]).toMatchObject({
+    status: 'failed',
+    reason: 'txFailed',
+    providerErrorMessage: 'Swap route execution reverted',
+  });
+});
+
 it.each([
   { message: 'timeout', code: 'ETIMEDOUT' },
   { code: 40_036, message },
@@ -269,6 +289,7 @@ it.each([
     );
     await act(async () => result.current.start(snapshot));
     expect(result.current.state.phase).toBe('blocked');
+    expect(result.current.state.items[0].providerErrorMessage).toBeUndefined();
     expect(result.current.state.items.map((item) => item.status)).toEqual([
       'unknown',
       'waiting',

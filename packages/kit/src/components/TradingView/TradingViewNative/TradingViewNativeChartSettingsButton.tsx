@@ -10,6 +10,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 
 import { TradingViewMobileChartSettingsDialogContent } from './TradingViewMobileChartSettingsDialogContent';
+import { pushTradingViewNativeFullscreenModal } from './TradingViewNativePresentation';
 
 import type { ITradingViewNativeStorageNamespace } from './types';
 
@@ -47,14 +48,17 @@ export function TradingViewNativeChartSettingsButton({
   const intl = useIntl();
   const navigation = useAppNavigation();
   const openChartSettingsModal = useCallback(() => {
-    onBeforeOpenSettings?.();
-    navigation.pushModal(EModalRoutes.MarketModal, {
+    const params = {
       screen: EModalMarketRoutes.MarketChartSettings,
       params: {
         showPreviousClose: enablePreviousClose,
         ...(storageNamespace ? { storageNamespace } : {}),
       },
-    });
+    };
+    if (pushTradingViewNativeFullscreenModal(EModalRoutes.MarketModal, params))
+      return;
+    onBeforeOpenSettings?.();
+    navigation.pushModal(EModalRoutes.MarketModal, params);
   }, [enablePreviousClose, navigation, onBeforeOpenSettings, storageNamespace]);
   const handlePress = useCallback(() => {
     Dialog.show({

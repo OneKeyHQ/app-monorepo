@@ -8,7 +8,9 @@ import type {
   IDustSweepToken,
 } from '@onekeyhq/shared/types/swap/dustSweep';
 import {
+  EProtocolOfExchange,
   EQuoteShowTipType,
+  ESwapQuoteKind,
   ESwapQuoteSource,
   ESwapTabSwitchType,
 } from '@onekeyhq/shared/types/swap/types';
@@ -71,10 +73,60 @@ const quote: IFetchQuoteResult = {
   toAmount: '0.01',
 };
 
+function createWrappedCase(
+  networkId = 'evm--56',
+  contractAddress = '0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c',
+) {
+  const wrappedToken: IDustSweepToken = {
+    ...token,
+    networkId,
+    contractAddress,
+    symbol: 'WRAPPED',
+    amount: '0.001',
+    isNative: false,
+    price: undefined,
+  };
+  const wrappedSnapshot: IDustSweepSnapshot = {
+    ...snapshot,
+    networkId,
+    nativeToken: { ...snapshot.nativeToken, networkId, price: undefined },
+    tokens: [wrappedToken],
+  };
+  const wrappedQuote: IFetchQuoteResult = {
+    quoteId: 'unwrap-quote',
+    protocol: EProtocolOfExchange.SWAP,
+    kind: ESwapQuoteKind.SELL,
+    info: { provider: 'wrapped', providerName: 'Wrap Contract' },
+    isWrapped: true,
+    fromTokenInfo: wrappedToken,
+    toTokenInfo: wrappedSnapshot.nativeToken,
+    fromAmount: wrappedToken.amount,
+    toAmount: wrappedToken.amount,
+    fee: { percentageFee: 0 },
+  };
+  return { wrappedToken, wrappedSnapshot, wrappedQuote };
+}
+
 describe('Dust Sweep quote execution guards', () => {
-  it('accepts the exact positive quote identity', () => {
+  it.each([
+    { protocol: EProtocolOfExchange.LIMIT },
+    { protocol: EProtocolOfExchange.STOCK },
+    { protocol: EProtocolOfExchange.PRIVATE_SEND },
+    { kind: ESwapQuoteKind.BUY },
+  ])('rejects a mismatched trade contract: %j', (contract) => {
+    expect(
+      getDustSweepQuoteRisk({ ...quote, ...contract }, token, snapshot),
+    ).toBe('unknown');
+  });
+
+  it.each([
+    {},
+    { protocol: EProtocolOfExchange.SWAP, kind: ESwapQuoteKind.SELL },
+  ])('accepts the exact positive quote identity: %j', (contract) => {
     expect(quote.info.provider).toBe('SwapOKX');
-    expect(getDustSweepQuoteRisk(quote, token, snapshot)).toBeUndefined();
+    expect(
+      getDustSweepQuoteRisk({ ...quote, ...contract }, token, snapshot),
+    ).toBeUndefined();
   });
 
   it.each([
@@ -210,21 +262,111 @@ describe('Dust Sweep quote execution guards', () => {
     ).toBeUndefined();
   });
 
+  it.each(['okx', 'OKX', 'Swap0x', 'SwapLiquidMesh', 'SwapChangelly'])(
+    'rejects provider %s outside the Dust Sweep contract',
+    (provider) => {
+      expect(
+        getDustSweepQuoteRisk(
+          { ...quote, info: { ...quote.info, provider } },
+          token,
+          snapshot,
+        ),
+      ).toBe('noQuote');
+    },
+  );
+
   it.each([
-    'okx',
-    'OKX',
-    'Swap0x',
-    'SwapLiquidMesh',
-    'SwapChangelly',
-    'wrapped',
-  ])('rejects provider %s outside the Dust Sweep contract', (provider) => {
+    ['evm--56', '0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c'],
+    ['evm--1', '0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2'],
+  ])(
+    'accepts a verified 1:1 unwrap without market prices (%s)',
+    (networkId, address) => {
+      const { wrappedQuote, wrappedToken, wrappedSnapshot } = createWrappedCase(
+        networkId,
+        address.toUpperCase(),
+      );
+      expect(
+        getDustSweepQuoteRisk(
+          { ...wrappedQuote, toAmount: '0.0010' },
+          wrappedToken,
+          wrappedSnapshot,
+        ),
+      ).toBeUndefined();
+    },
+  );
+
+  it.each<Partial<IFetchQuoteResult>>([
+    { isWrapped: undefined },
+    { isWrapped: false },
+    { info: { provider: 'SwapOKX', providerName: 'OKX' } },
+    { fromAmount: '0.002' },
+    { toAmount: '0.002' },
+    { protocol: EProtocolOfExchange.LIMIT },
+    { kind: ESwapQuoteKind.BUY },
+    { allowanceResult: { allowanceTarget: '0xspender', amount: '0.001' } },
+    { quoteShowTip: { showCheckbox: true } },
+    { fee: { percentageFee: 1 } },
+    { fee: { percentageFee: Number.NaN } },
+    { fee: { percentageFee: 0, protocolFees: 0.01 } },
+    { fee: { percentageFee: 0, protocolFees: Number.NaN } },
+  ])('rejects a contradictory unwrap quote: %j', (change) => {
+    const { wrappedQuote, wrappedToken, wrappedSnapshot } = createWrappedCase();
     expect(
       getDustSweepQuoteRisk(
-        { ...quote, info: { ...quote.info, provider } },
-        token,
-        snapshot,
+        { ...wrappedQuote, ...change },
+        wrappedToken,
+        wrappedSnapshot,
       ),
-    ).toBe('noQuote');
+    ).toBe('unknown');
+  });
+
+  it.each([
+    { contractAddress: '0xother' },
+    { networkId: 'evm--1' },
+    { isNative: true },
+    { decimals: 6 },
+    { balanceMultiplier: '2' },
+  ])('rejects an invalid unwrap input identity: %j', (change) => {
+    const { wrappedQuote, wrappedToken, wrappedSnapshot } = createWrappedCase();
+    const changedToken = { ...wrappedToken, ...change };
+    expect(
+      getDustSweepQuoteRisk(
+        { ...wrappedQuote, fromTokenInfo: changedToken },
+        changedToken,
+        wrappedSnapshot,
+      ),
+    ).toBe('unknown');
+  });
+
+  it('rejects a non-native output, extra wrap step or undisclosed unwrap fee', () => {
+    const { wrappedQuote, wrappedToken, wrappedSnapshot } = createWrappedCase();
+    const nonNativeOutput = { ...wrappedSnapshot.nativeToken, isNative: false };
+    expect(
+      getDustSweepQuoteRisk(
+        { ...wrappedQuote, toTokenInfo: nonNativeOutput },
+        wrappedToken,
+        { ...wrappedSnapshot, nativeToken: nonNativeOutput },
+      ),
+    ).toBe('unknown');
+    for (const change of [
+      { shouldWrappedToken: wrappedToken },
+      {
+        fee: {
+          percentageFee: 0,
+          otherFeeInfos: [
+            { token: { ...wrappedToken, price: '1' }, amount: '0.0001' },
+          ],
+        },
+      },
+    ]) {
+      expect(
+        getDustSweepQuoteRisk(
+          { ...wrappedQuote, ...change },
+          wrappedToken,
+          wrappedSnapshot,
+        ),
+      ).toBe('unknown');
+    }
   });
 
   it.each(['Infinity', 'NaN', '0', '-1'])(
@@ -351,6 +493,22 @@ describe('Dust Sweep quote stream ownership', () => {
   beforeEach(() => {
     mockFetchQuotesEvents.mockReset().mockResolvedValue(undefined);
     mockCancelFetchQuoteEvents.mockReset().mockResolvedValue(undefined);
+  });
+
+  it('accepts the wrapped quote and cleans up only its own stream', async () => {
+    const { wrappedQuote, wrappedToken, wrappedSnapshot } = createWrappedCase();
+    const operation = fetchDustSweepQuote(
+      wrappedToken,
+      wrappedSnapshot,
+      new AbortController().signal,
+    );
+    emitQuoteMessage(0, { data: [wrappedQuote] });
+    emitQuoteEvent(0, { type: 'done' });
+    await expect(operation).resolves.toEqual(wrappedQuote);
+    expect(mockCancelFetchQuoteEvents).toHaveBeenCalledTimes(1);
+    expect(mockCancelFetchQuoteEvents).toHaveBeenCalledWith(
+      mockFetchQuotesEvents.mock.calls[0][0].quoteRequestId,
+    );
   });
 
   it('waits for OKX rather than accepting another provider first', async () => {
