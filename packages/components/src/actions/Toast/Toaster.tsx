@@ -1,11 +1,8 @@
 import { memo, useMemo } from 'react';
 
-import { createPortal } from 'react-dom';
 import { useWindowDimensions } from 'react-native';
 import { useReducedMotion } from 'react-native-reanimated';
 import { Toaster as WebToaster } from 'sonner';
-
-import { TOAST_Z_INDEX } from '@onekeyhq/shared/src/utils/overlayUtils';
 
 import { useMedia, useThemeName } from '../../hooks/useStyle';
 import { Stack } from '../../primitives';
@@ -17,9 +14,9 @@ import {
   useToastTopObstruction,
 } from './topObstruction';
 
-const TOAST_Z_STYLE = { zIndex: TOAST_Z_INDEX } as const;
+// The toaster lives in the native overlay `toast` level, which owns the
+// stacking.
 const TOAST_RIDE_STYLE = {
-  zIndex: TOAST_Z_INDEX,
   transition: `top ${TOAST_SHIFT_MS}ms ease`,
 } as const;
 
@@ -43,14 +40,13 @@ function Toaster() {
     toastShiftUnderObstruction(obstruction, 0, windowHeight - TOAST_ROOM) ||
     undefined;
   const style = useMemo(
-    () => ({ ...(reducedMotion ? TOAST_Z_STYLE : TOAST_RIDE_STYLE), top }),
+    () => ({ ...(reducedMotion ? undefined : TOAST_RIDE_STYLE), top }),
     [reducedMotion, top],
   );
 
   return (
     <Stack
       testID="onekey-toast-messages"
-      zIndex={TOAST_Z_INDEX}
       // https://developer.mozilla.org/en-US/docs/Web/CSS/pointer-events#bounding-box
       // allow svg button elements to be clickable
       pointerEvents={'bounding-box' as any}
@@ -66,8 +62,5 @@ function Toaster() {
   );
 }
 
-function BodyPortal() {
-  return createPortal(<Toaster />, document.body);
-}
-
-export default memo(BodyPortal);
+// Rendered inline: the app hosts it in the native overlay `toast` layer.
+export default memo(Toaster);

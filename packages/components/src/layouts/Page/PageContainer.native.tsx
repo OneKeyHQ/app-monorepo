@@ -28,7 +28,6 @@ import type {
 
 export function PageContainer({
   children,
-  lazyLoad,
   fullPage,
   testID,
   backgroundColor,
@@ -90,7 +89,6 @@ export function PageContainer({
   return useMemo(
     () => (
       <BasicPage
-        lazyLoad={lazyLoad}
         fullPage={fullPage}
         testID={testID}
         backgroundColor={backgroundColor}
@@ -118,7 +116,6 @@ export function PageContainer({
       </BasicPage>
     ),
     [
-      lazyLoad,
       fullPage,
       testID,
       backgroundColor,

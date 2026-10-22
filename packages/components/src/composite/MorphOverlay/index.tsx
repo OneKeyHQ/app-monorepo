@@ -14,7 +14,11 @@ import {
   View,
   useWindowDimensions,
 } from 'react-native';
-import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import {
+  Gesture,
+  GestureDetector,
+  GestureHandlerRootView,
+} from 'react-native-gesture-handler';
 import Animated, {
   Easing,
   Extrapolation,
@@ -47,11 +51,11 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { IconButton } from '../../actions/IconButton';
 import { publishToastTopObstruction } from '../../actions/Toast/topObstruction';
 import { easeInFn, easeOutFn } from '../../content/deviceScene';
-import { Portal } from '../../hocs';
 import { useReanimatedKeyboardAnimation } from '../../hooks/useKeyboardController';
 import { useSafeAreaInsets } from '../../hooks/useLayout';
 import { useMedia } from '../../hooks/useStyle';
 import { Stack } from '../../primitives';
+import { ImperativeOverlayMountBody } from '../../shared/imperativeOverlayMount';
 import { usableWindowBottom } from '../../utils/usableWindowBottom';
 
 import { dynamicIslandRect } from './dynamicIsland';
@@ -1434,6 +1438,95 @@ export function MorphOverlay<T>({
     [cardCenter, toolbarFadeStyle],
   );
 
+  const face = (
+    <Animated.View style={faceStyle}>
+      <Theme name="dark">
+        {stageLayer}
+        {/* Always mounted: this wrapper carries the pose window
+            and the crossing swapFade — the branch fade — over the
+            parked seats inside. A crossing only flips which seat
+            is lit, on the empty beat, and builds nothing. No
+            mount fades anywhere here — the wrapper owns every
+            fade, and seats never leave. */}
+        <Animated.View style={cardStyle}>
+          {seats.map((seat) => (
+            <PanelSeat
+              key={seat.key}
+              seatKey={seat.key}
+              litKey={litKey}
+              active={seat.active}
+            >
+              {seat.node}
+            </PanelSeat>
+          ))}
+        </Animated.View>
+        {/* The card's toolbar band: the close button with the
+            grant. Over the seats, so the button stays tappable
+            above whatever column is lit. */}
+        <Animated.View
+          style={toolbarStyle}
+          pointerEvents={pose === 'card' ? 'box-none' : 'none'}
+        >
+          {cornerBadge ? (
+            <Animated.View
+              style={styles.cardBadge}
+              entering={FadeIn.duration(CAPSULE_SWAP_IN_MS)}
+            >
+              {cornerBadge}
+            </Animated.View>
+          ) : null}
+          {dismissible ? (
+            <Animated.View
+              style={styles.cardClose}
+              entering={FadeIn.duration(CAPSULE_SWAP_IN_MS)}
+            >
+              <CloseButton
+                testID="morph-overlay-close"
+                label={dismissLabel}
+                onPress={dismiss}
+              />
+            </Animated.View>
+          ) : null}
+        </Animated.View>
+        <Animated.View
+          style={pillStyle}
+          pointerEvents={pose === 'capsule' ? 'box-none' : 'none'}
+        >
+          {/* Keyed by its words: a key change swaps the row in
+              place with a fade — the capsule itself never moves.
+              The padded wrapper measures the row for the
+              capsule's own rest size. */}
+          <Animated.View
+            key={capsuleKey}
+            entering={FadeIn.duration(CAPSULE_SWAP_IN_MS).delay(
+              CAPSULE_SWAP_IN_DELAY_MS,
+            )}
+            exiting={FadeOut.duration(CAPSULE_SWAP_OUT_MS)}
+          >
+            <View style={styles.pillRow} onLayout={onPillLayout}>
+              {capsule}
+            </View>
+          </Animated.View>
+          {dismissible ? (
+            <Animated.View
+              style={styles.pillClose}
+              entering={FadeIn.duration(CAPSULE_SWAP_IN_MS)}
+            >
+              <CloseButton
+                testID="morph-overlay-capsule-close"
+                label={dismissLabel}
+                onPress={dismiss}
+              />
+            </Animated.View>
+          ) : null}
+        </Animated.View>
+      </Theme>
+    </Animated.View>
+  );
+  const ring = platformEnv.isNative ? (
+    <Animated.View pointerEvents="none" style={ringStyle} />
+  ) : null;
+
   return (
     // The app's hardware-overlay window — the same full-window level the
     // hardware dialogs this stage replaces render into (see kit's
@@ -1445,7 +1538,7 @@ export function MorphOverlay<T>({
     // Support button's in-app browser) cannot rise above it — so a
     // driver navigating away must drop the stage first, the discipline
     // the dialogs themselves follow.
-    <Portal.Body container={Portal.Constant.HARDWARE_UI_STATE_DIALOG}>
+    <ImperativeOverlayMountBody target="hardware-stage">
       {/* collapsable={false}: RN 0.86 Fabric flattens this layout-only
           box-none layer out of the native hierarchy, and the flattened
           path loses hit-testing for the whole subtree — the stage draws
@@ -1486,97 +1579,23 @@ export function MorphOverlay<T>({
             <Animated.View style={scrimStyle} pointerEvents="none" />
           </>
         ) : null}
-        <GestureDetector gesture={pan}>
+        {platformEnv.isNativeAndroid ? (
           <Animated.View style={shellStyle}>
-            <Animated.View style={faceStyle}>
-              <Theme name="dark">
-                {stageLayer}
-                {/* Always mounted: this wrapper carries the pose window
-                    and the crossing swapFade — the branch fade — over the
-                    parked seats inside. A crossing only flips which seat
-                    is lit, on the empty beat, and builds nothing. No
-                    mount fades anywhere here — the wrapper owns every
-                    fade, and seats never leave. */}
-                <Animated.View style={cardStyle}>
-                  {seats.map((seat) => (
-                    <PanelSeat
-                      key={seat.key}
-                      seatKey={seat.key}
-                      litKey={litKey}
-                      active={seat.active}
-                    >
-                      {seat.node}
-                    </PanelSeat>
-                  ))}
-                </Animated.View>
-                {/* The card's toolbar band: the close button with the
-                    grant. Over the seats, so the button stays tappable
-                    above whatever column is lit. */}
-                <Animated.View
-                  style={toolbarStyle}
-                  pointerEvents={pose === 'card' ? 'box-none' : 'none'}
-                >
-                  {cornerBadge ? (
-                    <Animated.View
-                      style={styles.cardBadge}
-                      entering={FadeIn.duration(CAPSULE_SWAP_IN_MS)}
-                    >
-                      {cornerBadge}
-                    </Animated.View>
-                  ) : null}
-                  {dismissible ? (
-                    <Animated.View
-                      style={styles.cardClose}
-                      entering={FadeIn.duration(CAPSULE_SWAP_IN_MS)}
-                    >
-                      <CloseButton
-                        testID="morph-overlay-close"
-                        label={dismissLabel}
-                        onPress={dismiss}
-                      />
-                    </Animated.View>
-                  ) : null}
-                </Animated.View>
-                <Animated.View
-                  style={pillStyle}
-                  pointerEvents={pose === 'capsule' ? 'box-none' : 'none'}
-                >
-                  {/* Keyed by its words: a key change swaps the row in
-                      place with a fade — the capsule itself never moves.
-                      The padded wrapper measures the row for the
-                      capsule's own rest size. */}
-                  <Animated.View
-                    key={capsuleKey}
-                    entering={FadeIn.duration(CAPSULE_SWAP_IN_MS).delay(
-                      CAPSULE_SWAP_IN_DELAY_MS,
-                    )}
-                    exiting={FadeOut.duration(CAPSULE_SWAP_OUT_MS)}
-                  >
-                    <View style={styles.pillRow} onLayout={onPillLayout}>
-                      {capsule}
-                    </View>
-                  </Animated.View>
-                  {dismissible ? (
-                    <Animated.View
-                      style={styles.pillClose}
-                      entering={FadeIn.duration(CAPSULE_SWAP_IN_MS)}
-                    >
-                      <CloseButton
-                        testID="morph-overlay-capsule-close"
-                        label={dismissLabel}
-                        onPress={dismiss}
-                      />
-                    </Animated.View>
-                  ) : null}
-                </Animated.View>
-              </Theme>
-            </Animated.View>
-            {platformEnv.isNative ? (
-              <Animated.View pointerEvents="none" style={ringStyle} />
-            ) : null}
+            {/* Keep the Android gesture root inside the shell's hit area. */}
+            <GestureHandlerRootView style={StyleSheet.absoluteFill}>
+              <GestureDetector gesture={pan}>{face}</GestureDetector>
+            </GestureHandlerRootView>
+            {ring}
           </Animated.View>
-        </GestureDetector>
+        ) : (
+          <GestureDetector gesture={pan}>
+            <Animated.View style={shellStyle}>
+              {face}
+              {ring}
+            </Animated.View>
+          </GestureDetector>
+        )}
       </Stack>
-    </Portal.Body>
+    </ImperativeOverlayMountBody>
   );
 }

@@ -391,17 +391,13 @@ function BaseMarketTokenSelectorContent({
   );
 }
 
-// Only render content when open to avoid stale state on reopen
+// Retain closing content until exit completes; each open gets fresh state.
 function MarketTokenSelectorContent({
-  isOpen,
   defaultCategory,
 }: {
-  isOpen: boolean;
   defaultCategory: IMarketTokenSelectorDefaultCategory;
 }) {
-  return isOpen ? (
-    <BaseMarketTokenSelectorContent defaultCategory={defaultCategory} />
-  ) : null;
+  return <BaseMarketTokenSelectorContent defaultCategory={defaultCategory} />;
 }
 
 const MarketTokenSelectorContentMemo = memo(MarketTokenSelectorContent);
@@ -421,6 +417,16 @@ function BaseMarketTokenSelector({
 }) {
   const intl = useIntl();
   const [isOpen, setIsOpen] = useState(false);
+  const [contentGeneration, setContentGeneration] = useState(0);
+  const handleOpenChange = useCallback(
+    (open: boolean) => {
+      if (open && !isOpen) {
+        setContentGeneration((generation) => generation + 1);
+      }
+      setIsOpen(open);
+    },
+    [isOpen],
+  );
   const { tokenDetail, networkId } = useMarketDetailHeaderDisplayData();
 
   const effectiveNetworkLogoUri = useNetworkLogoUri({
@@ -484,13 +490,13 @@ function BaseMarketTokenSelector({
   const stableLogoUrls = stableLogoUrlsRef.current;
 
   const renderSelectorContent = useCallback(
-    ({ isOpen: isOpenProp }: { isOpen?: boolean }) => (
+    () => (
       <MarketTokenSelectorContentMemo
-        isOpen={isOpenProp ?? false}
+        key={contentGeneration}
         defaultCategory={defaultCategory}
       />
     ),
-    [defaultCategory],
+    [contentGeneration, defaultCategory],
   );
 
   // Keep the popover element stable during token detail polling.
@@ -503,7 +509,7 @@ function BaseMarketTokenSelector({
         title={intl.formatMessage({ id: ETranslations.global_search })}
         floatingPanelProps={{ width: TOKEN_SELECTOR_POPOVER_WIDTH }}
         open={isOpen}
-        onOpenChange={setIsOpen}
+        onOpenChange={handleOpenChange}
         placement="bottom-start"
         renderTrigger={
           renderTrigger ?? (
@@ -636,6 +642,7 @@ function BaseMarketTokenSelector({
       effectiveNetworkLogoUri,
       intl,
       isOpen,
+      handleOpenChange,
       isCompact,
       isLargeWithName,
       logoUrl,

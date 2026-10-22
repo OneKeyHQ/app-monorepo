@@ -41,7 +41,6 @@ import {
   TRADING_VIEW_NATIVE_WATERMARK_DARK_OPACITY as WATERMARK_DARK_OPACITY,
   TRADING_VIEW_NATIVE_WATERMARK_LIGHT_OPACITY as WATERMARK_LIGHT_OPACITY,
 } from '../chartConstants';
-import { IndicatorPaneHandles } from '../indicatorPanes/IndicatorPaneHandles';
 import { useIndicatorPanes } from '../indicatorPanes/useIndicatorPanes';
 import { TradingViewNativeChartActiveContext } from '../TradingViewNativeChartActiveContext';
 import { TradingViewNativeChartReadyContext } from '../TradingViewNativeChartReadyContext';
@@ -99,6 +98,10 @@ import {
   createTradingViewNativeSkiaResources,
   getTradingViewNativeSkiaLegendText,
 } from './chartSkiaRenderer';
+import {
+  getTradingViewNativeSkiaDigitWidth,
+  getTradingViewNativeSkiaPriceAxisLabelWidth,
+} from './chartSkiaText';
 import { NativeDrawingToolbar } from './NativeDrawingToolbar';
 import { TradingViewNativePriceScaleControls } from './TradingViewNativePriceScaleControls';
 import { useNativeChartDrawings } from './useNativeChartDrawings';
@@ -112,7 +115,7 @@ const SYSTEM_FONT_FAMILY = platformEnv.isNativeAndroid
   ? 'sans-serif'
   : 'System';
 const PRICE_AXIS_FONT_SOURCE =
-  require('@onekeyhq/components/src/hocs/Provider/fonts/GeistMono-Regular.ttf') as number;
+  require('@onekeyhq/components/src/hocs/Provider/fonts/fallback/Inter-Regular.ttf') as number;
 const ONEKEY_WATERMARK_SOURCE =
   require('@onekeyhq/components/svg/illus/logo.svg') as number;
 const PRICE_AXIS_FONT_URI = Image.resolveAssetSource(
@@ -434,6 +437,9 @@ export const TradingViewNativeChart = memo(
         watermarkSvg,
       ],
     );
+    const priceAxisDigitWidth = useDerivedValue(() =>
+      getTradingViewNativeSkiaDigitWidth(resources.value.fonts.priceAxis),
+    );
     const priceAxisWidth = useDerivedValue(() => {
       if (!chartSettings.options.yAxis) {
         return 0;
@@ -442,12 +448,17 @@ export const TradingViewNativeChart = memo(
       const currentPriceLabelBounds = measuredPriceAxisFont.measureText(
         chartSettings.options.latestPrice ? currentPriceLabel : '',
       );
-      const widestPriceLabelBounds =
-        measuredPriceAxisFont.measureText(widestPriceLabel);
-      const widestChartComponentPriceLabelBounds =
-        measuredPriceAxisFont.measureText(widestChartComponentPriceLabel);
+      const measureCandidateLabel = (label: string) => {
+        'worklet';
+
+        return getTradingViewNativeSkiaPriceAxisLabelWidth(
+          label,
+          measuredPriceAxisFont,
+          priceAxisDigitWidth.value,
+        );
+      };
       const priceRange = chartRuntime.value.pinnedPriceRange ?? autoPriceRange;
-      const scaledPriceLabelBounds = measuredPriceAxisFont.measureText(
+      const scaledPriceLabelWidth = measureCandidateLabel(
         priceRange
           ? getTradingViewNativeScaledPriceAxisLabel({
               autoPriceRange: priceRange,
@@ -458,15 +469,7 @@ export const TradingViewNativeChart = memo(
             })
           : widestPriceLabel,
       );
-      const widestIndicatorPriceLabelBounds = measuredPriceAxisFont.measureText(
-        widestIndicatorPriceLabel,
-      );
-      const widestVolumeLabelBounds =
-        measuredPriceAxisFont.measureText(widestVolumeLabel);
-      const widestSubIndicatorLabelBounds = measuredPriceAxisFont.measureText(
-        widestSubIndicatorLabel,
-      );
-      const scaledSubIndicatorLabelBounds = measuredPriceAxisFont.measureText(
+      const scaledSubIndicatorLabelWidth = measureCandidateLabel(
         getTradingViewNativeScaledSubIndicatorAxisLabel(
           chartRuntime.value.subIndicatorPanes,
           chartRuntime.value.subIndicatorPriceScales,
@@ -481,20 +484,15 @@ export const TradingViewNativeChart = memo(
           PRICE_SCALE_CONTROL_NATIVE_SIZING,
         ),
         widestPriceLabelWidth: Math.max(
-          widestPriceLabelBounds.x + widestPriceLabelBounds.width,
-          widestChartComponentPriceLabelBounds.x +
-            widestChartComponentPriceLabelBounds.width,
-          scaledPriceLabelBounds.x + scaledPriceLabelBounds.width,
-          widestIndicatorPriceLabelBounds.x +
-            widestIndicatorPriceLabelBounds.width,
-          widestSubIndicatorLabelBounds.x + widestSubIndicatorLabelBounds.width,
-          scaledSubIndicatorLabelBounds.x + scaledSubIndicatorLabelBounds.width,
+          measureCandidateLabel(widestPriceLabel),
+          measureCandidateLabel(widestChartComponentPriceLabel),
+          scaledPriceLabelWidth,
+          measureCandidateLabel(widestIndicatorPriceLabel),
+          measureCandidateLabel(widestSubIndicatorLabel),
+          scaledSubIndicatorLabelWidth,
           0,
         ),
-        widestVolumeLabelWidth: Math.max(
-          widestVolumeLabelBounds.x + widestVolumeLabelBounds.width,
-          0,
-        ),
+        widestVolumeLabelWidth: measureCandidateLabel(widestVolumeLabel),
       });
     }, [
       autoPriceRange,
@@ -502,6 +500,7 @@ export const TradingViewNativeChart = memo(
       chartSettings.options.latestPrice,
       chartSettings.options.yAxis,
       currentPriceLabel,
+      priceAxisDigitWidth,
       priceDecimalPlaces,
       resources,
       widestChartComponentPriceLabel,
@@ -1114,10 +1113,6 @@ export const TradingViewNativeChart = memo(
               <Picture picture={picture} />
             </Canvas>
           </GestureDetector>
-          <IndicatorPaneHandles
-            controller={indicatorPanes}
-            timeAxisHeight={timeAxisHeight}
-          />
           {chartSettings.options.yAxis && priceAxisControlWidth > 0 ? (
             <TradingViewNativePriceScaleControls
               backgroundColor={background}

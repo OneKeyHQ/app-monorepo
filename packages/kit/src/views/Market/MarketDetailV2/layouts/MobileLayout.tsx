@@ -953,7 +953,9 @@ export function MobileLayout({
                         nativeControlsLayoutMode="mobile"
                         mobileToolbarExtra={
                           <>
-                            <MobileChartModeControl />
+                            {!isChartFullscreen ? (
+                              <MobileChartModeControl />
+                            ) : null}
                             {platformEnv.isWeb ? (
                               <IconButton
                                 testID="market-mobile-chart-fullscreen-toggle"
@@ -1201,6 +1203,7 @@ export function MobileLayout({
         swapToken={toSwapPanelToken}
         portfolioData={portfolioData}
         onShowSwapDialog={showSwapDialog}
+        isPortfolioPending={isPortfolioPending}
         executionReady={isSwapTokenReady && isSwapExecutionReady}
         footerMode={footerMode}
         mobileLayout
