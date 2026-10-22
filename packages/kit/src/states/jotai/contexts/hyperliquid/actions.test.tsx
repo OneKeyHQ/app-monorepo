@@ -31,7 +31,10 @@ import type { IPlaceTwapOrderParams } from '@onekeyhq/shared/types/hyperliquid';
 import type * as HL from '@onekeyhq/shared/types/hyperliquid/sdk';
 import { EPerpsSizeInputMode } from '@onekeyhq/shared/types/hyperliquid/types';
 
-import { useHyperliquidActions } from './actions';
+import {
+  capturePerpsInstrumentChangeGuard,
+  useHyperliquidActions,
+} from './actions';
 import {
   ProviderJotaiContextHyperliquid,
   activeTradeInstrumentAtom,
@@ -86,6 +89,7 @@ const mockGetTwapHistory = jest.fn<Promise<HL.ITwapHistoryRecord[]>, []>();
 const mockGetTwapSliceFills = jest.fn<Promise<HL.ITwapSliceFill[]>, []>();
 const mockCancelTwapOrder = jest.fn<Promise<unknown>, unknown[]>();
 const mockPlaceTwapOrder = jest.fn<Promise<unknown>, [IPlaceTwapOrderParams]>();
+const mockCancelPendingActiveAssetChange = jest.fn<Promise<void>, []>();
 
 jest.mock('react-intl', () => ({
   useIntl: () => ({
@@ -184,6 +188,8 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
         mockPlaceTwapOrder(params),
     },
     serviceHyperliquid: {
+      cancelPendingActiveAssetChange: () =>
+        mockCancelPendingActiveAssetChange(),
       checkPerpsAccountStatus: () => mockCheckPerpsAccountStatus(),
       enableTrading: () => mockEnableTrading(),
       getTwapStates: (params: HL.IEventWebData2Parameters) =>
@@ -268,6 +274,42 @@ function createWrapper(store = createStore()) {
     );
   };
 }
+
+it('invalidates a captured instrument guard as soon as a real UI switch starts', async () => {
+  let stop!: (error: Error) => void;
+  mockCancelPendingActiveAssetChange.mockImplementationOnce(
+    () =>
+      new Promise<void>((_resolve, reject) => {
+        stop = reject;
+      }),
+  );
+  const store = createStore();
+  store.set(activeTradeInstrumentAtom(), {
+    mode: 'perp',
+    coin: 'BTC',
+    assetId: undefined,
+    universe: undefined,
+  });
+  const { result } = renderHook(() => useHyperliquidActions(), {
+    wrapper: createWrapper(store),
+  });
+  const isCurrent = capturePerpsInstrumentChangeGuard();
+  expect(isCurrent()).toBe(true);
+  let switching!: Promise<boolean>;
+  act(() => {
+    switching = result.current.current.switchTradeInstrument({
+      mode: 'perp',
+      coin: 'ETH',
+    });
+  });
+  expect(store.get(activeTradeInstrumentAtom()).coin).toBe('ETH');
+  expect(isCurrent()).toBe(false);
+  expect(capturePerpsInstrumentChangeGuard()()).toBe(true);
+  await act(async () => {
+    stop(new Error('stopped before BG write'));
+    await expect(switching).rejects.toThrow('stopped before BG write');
+  });
+});
 
 describe('useHyperliquidActions.ensureTradingEnabled', () => {
   beforeEach(() => {

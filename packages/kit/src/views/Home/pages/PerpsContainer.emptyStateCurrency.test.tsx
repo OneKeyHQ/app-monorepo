@@ -47,7 +47,29 @@ const mockNavigation = {
   pushModal: jest.fn(),
   switchTab: jest.fn(),
 };
-const mockChangeActiveAsset = jest.fn(async (_params: unknown) => undefined);
+const mockChangeActiveAsset = jest.fn<Promise<void>, [unknown]>(
+  async () => undefined,
+);
+const mockGetInstrumentTarget = jest.fn<
+  Promise<{
+    mode: 'perp' | 'spot';
+    perpAsset?: { coin: string };
+    spotAsset?: { coin: string };
+  }>,
+  []
+>();
+const mockEmit = jest.fn<void, unknown[]>();
+let mockInstrumentGeneration = 0;
+
+jest.mock(
+  '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/actions',
+  () => ({
+    capturePerpsInstrumentChangeGuard: () => {
+      const captured = mockInstrumentGeneration;
+      return () => captured === mockInstrumentGeneration;
+    },
+  }),
+);
 const mockChangeAccount = jest.fn(async (_params: unknown) => ({
   accountAddress: 'test-address',
 }));
@@ -145,6 +167,7 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
     serviceHyperliquid: {
       changeActivePerpsAccount: (params: unknown) => mockChangeAccount(params),
       changeActiveAsset: (params: unknown) => mockChangeActiveAsset(params),
+      getActiveTradeInstrumentTarget: () => mockGetInstrumentTarget(),
       setPendingInitialTradeInstrument: (params: unknown) =>
         mockSetPendingInstrument(params),
       clearPendingInitialTradeInstrument: (params: unknown) =>
@@ -221,7 +244,7 @@ jest.mock('@onekeyhq/shared/src/eventBus/appEventBus', () => ({
     PerpSwitchActiveInstrument: 'PerpSwitchActiveInstrument',
     PerpSwitchInfoPanelTab: 'PerpSwitchInfoPanelTab',
   },
-  appEventBus: { emit: jest.fn() },
+  appEventBus: { emit: (...args: unknown[]) => mockEmit(...args) },
 }));
 jest.mock('@onekeyhq/shared/src/logger/scopes/perp/perpPageSource', () => ({
   EPerpPageEnterSource: {},
@@ -307,6 +330,13 @@ beforeEach(() => {
   mockFocused = true;
   mockAccountId = 'test-account';
   mockHotTokens = [];
+  mockInstrumentGeneration = 0;
+  mockGetInstrumentTarget.mockImplementation(async () => ({
+    mode: 'perp',
+    perpAsset: mockChangeActiveAsset.mock.calls.at(-1)?.[0] as
+      | { coin: string }
+      | undefined,
+  }));
 });
 
 /*
@@ -513,6 +543,113 @@ describe('PerpsContainer mobile trading mode', () => {
     expect(mockClearPendingInstrument).toHaveBeenCalledWith({
       requestId: target.requestId,
     });
+    expect(mockNavigation.switchTab).not.toHaveBeenCalled();
+  });
+
+  it('aligns a committed asset after focus is lost during the asset RPC', async () => {
+    let finish!: () => void;
+    mockChangeActiveAsset.mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          finish = resolve;
+        }),
+    );
+    render(<PerpsContainer />);
+    fireEvent.click(screen.getAllByText(ETranslations.global_manage)[1]);
+    await waitFor(() => expect(mockChangeActiveAsset).toHaveBeenCalledTimes(1));
+    mockFocused = false;
+    act(() => mockBlurListeners.forEach((listener) => listener()));
+    await act(async () => finish());
+    expect(mockEmit).toHaveBeenCalledWith('PerpSwitchActiveInstrument', {
+      mode: 'perp',
+      coin: 'xyz:GOOGL',
+    });
+    expect(mockNavigation.switchTab).not.toHaveBeenCalled();
+    expect(mockNavigation.pushModal).not.toHaveBeenCalled();
+  });
+
+  it('preserves a newer UI selection while its background target is still pending', async () => {
+    let finish!: () => void;
+    mockChangeActiveAsset.mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          finish = resolve;
+        }),
+    );
+    render(<PerpsContainer />);
+    fireEvent.click(screen.getAllByText(ETranslations.global_manage)[1]);
+    await waitFor(() => expect(mockChangeActiveAsset).toHaveBeenCalledTimes(1));
+    mockFocused = false;
+    mockInstrumentGeneration += 1;
+    await act(async () => finish());
+    expect(mockEmit).not.toHaveBeenCalled();
+    expect(mockNavigation.switchTab).not.toHaveBeenCalled();
+    expect(mockNavigation.pushModal).not.toHaveBeenCalled();
+  });
+
+  it.each(['new coin', 'spot mode', 'account change'])(
+    'does not align a canceled asset over a %s during the asset RPC',
+    async (reason) => {
+      let finish!: () => void;
+      mockChangeActiveAsset.mockImplementationOnce(
+        () =>
+          new Promise<void>((resolve) => {
+            finish = resolve;
+          }),
+      );
+      const { rerender } = render(<PerpsContainer />);
+      fireEvent.click(screen.getAllByText(ETranslations.global_manage)[1]);
+      await waitFor(() =>
+        expect(mockChangeActiveAsset).toHaveBeenCalledTimes(1),
+      );
+      mockFocused = false;
+      if (reason === 'account change') {
+        mockAccountId = 'another-account';
+        rerender(<PerpsContainer />);
+      } else {
+        mockGetInstrumentTarget.mockResolvedValueOnce({
+          mode: reason === 'spot mode' ? 'spot' : 'perp',
+          perpAsset: { coin: reason === 'new coin' ? 'ETH' : 'xyz:GOOGL' },
+          spotAsset: { coin: '@1' },
+        });
+      }
+      await act(async () => finish());
+      expect(mockEmit).not.toHaveBeenCalled();
+      expect(mockNavigation.switchTab).not.toHaveBeenCalled();
+      expect(mockNavigation.pushModal).not.toHaveBeenCalled();
+    },
+  );
+
+  it('does not align a canceled asset after the account changes during target verification', async () => {
+    let finishAsset!: () => void;
+    let finishTarget!: (target: {
+      mode: 'perp';
+      perpAsset: { coin: string };
+    }) => void;
+    mockChangeActiveAsset.mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          finishAsset = resolve;
+        }),
+    );
+    mockGetInstrumentTarget.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finishTarget = resolve;
+        }),
+    );
+    const { rerender } = render(<PerpsContainer />);
+    fireEvent.click(screen.getAllByText(ETranslations.global_manage)[1]);
+    await waitFor(() => expect(mockChangeActiveAsset).toHaveBeenCalledTimes(1));
+    mockFocused = false;
+    await act(async () => finishAsset());
+    expect(mockGetInstrumentTarget).toHaveBeenCalledTimes(1);
+    mockAccountId = 'another-account';
+    rerender(<PerpsContainer />);
+    await act(async () =>
+      finishTarget({ mode: 'perp', perpAsset: { coin: 'xyz:GOOGL' } }),
+    );
+    expect(mockEmit).not.toHaveBeenCalled();
     expect(mockNavigation.switchTab).not.toHaveBeenCalled();
   });
 

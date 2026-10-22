@@ -236,9 +236,17 @@ export function PerpMobileLayout() {
     };
   }, [actions]);
 
+  const handleTabChange = useCallback(
+    (tab: ETabName) => {
+      setActiveTab(tab);
+      actions.current.setTradeRouteViewState({ infoPanelTab: tab });
+    },
+    [actions],
+  );
+
   const handleViewTpslOrders = useCallback(() => {
-    setActiveTab(ETabName.OpenOrders);
-  }, []);
+    handleTabChange(ETabName.OpenOrders);
+  }, [handleTabChange]);
 
   const handleViewTradesHistory = useCallback(() => {
     navigation.pushModal(EModalRoutes.PerpModal, {
@@ -478,18 +486,18 @@ export function PerpMobileLayout() {
               <TabBarItem
                 name={ETabName.Positions}
                 isFocused={activeTab === ETabName.Positions}
-                onPress={setActiveTab}
+                onPress={handleTabChange}
                 tabCount={positionsTabCount}
               />
               <TabBarItem
                 name={ETabName.OpenOrders}
                 isFocused={activeTab === ETabName.OpenOrders}
-                onPress={setActiveTab}
+                onPress={handleTabChange}
                 tabCount={openOrdersTabCount}
               />
               <MobileHoldingsTabBarItem
                 isFocused={activeTab === ETabName.Balances}
-                onPress={setActiveTab}
+                onPress={handleTabChange}
                 balances={displayBalances}
                 hasPerpsUsdc={hasPerpsUsdc}
               />

@@ -18347,6 +18347,8 @@
     "packages/components/src/composite/ScrollContentRegistration.tsx": 21285,
     "packages/components/src/composite/SegmentSlider/DottedSlider.native.tsx": 11799,
     "packages/components/src/composite/SegmentSlider/DottedSliderTrack.native.tsx": 3388,
+    "packages/components/src/composite/SegmentSlider/dottedSliderConstants.ts": 6347,
+    "packages/components/src/composite/SegmentSlider/dottedSliderUtils.ts": 1633,
     "packages/components/src/composite/SegmentSlider/index.native.tsx": 6967,
     "packages/components/src/composite/Stepper/index.tsx": 10507,
     "packages/components/src/composite/TabBar/index.tsx": 825,
