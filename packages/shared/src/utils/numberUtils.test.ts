@@ -558,6 +558,64 @@ test('custom leading-zero threshold preserves defaults and explicit suppression'
   ).toBe('$0.0001831');
 });
 
+test.each([
+  {
+    value: '0.00099994',
+    options: { minLeadingZeros: 3 },
+    expected: ['$', '0.0', { value: 3, type: 'sub' }, '9999'],
+  },
+  {
+    value: '0.00099995',
+    options: { minLeadingZeros: 3 },
+    expected: '$0.001',
+  },
+  {
+    value: '0.00099999',
+    options: { minLeadingZeros: 3 },
+    expected: '$0.001',
+  },
+  {
+    value: '0.000099999',
+    options: { minLeadingZeros: 3 },
+    expected: ['$', '0.0', { value: 3, type: 'sub' }, '1'],
+  },
+  {
+    value: '-0.000099999',
+    options: { minLeadingZeros: 3 },
+    expected: ['-', '$', '0.0', { value: 3, type: 'sub' }, '1'],
+  },
+  { value: '0.0000099999', options: {}, expected: '$0.00001' },
+  {
+    value: '0.00000099999',
+    options: {},
+    expected: ['$', '0.0', { value: 5, type: 'sub' }, '1'],
+  },
+  {
+    value: '0.000099999',
+    options: { minLeadingZeros: 3, keepLeadingZero: true },
+    expected: '$0.0001',
+  },
+])(
+  'preserves significant digits after rounding $value',
+  ({ value, options, expected }) => {
+    expect(
+      formatDisplayNumber(formatPrice(value, { currency: '$', ...options })),
+    ).toEqual(expected);
+  },
+);
+
+test('keeps balance and split-decimal display aligned after rounding', () => {
+  expect(
+    formatDisplayNumber(formatBalance('0.000099999', { minLeadingZeros: 3 })),
+  ).toEqual(['0.0', { value: 3, type: 'sub' }, '1']);
+  expect(
+    formatDisplayNumber(
+      formatPrice('0.00099999', { currency: '$', minLeadingZeros: 3 }),
+      { splitDecimal: true },
+    ),
+  ).toEqual(['$', '0', { value: '.001', type: 'decimal' }]);
+});
+
 test('formatPriceChange', () => {
   expect(formatDisplayNumber(formatPriceChange('1abc1'))).toEqual('1abc1');
 

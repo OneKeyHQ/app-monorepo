@@ -858,6 +858,20 @@ export const formatDisplayNumber = (
     }
     return formattedValue;
   }
+  let displayLeadingZeros = 0;
+  if (leadingZeros !== undefined) {
+    const decimalPrefix = `0${decimalSymbol || lazyDecimalSymbol(2)}`;
+    if (valueWithoutSign.startsWith(decimalPrefix)) {
+      // Rounding can carry into a leading zero, so index the displayed value.
+      displayLeadingZeros =
+        valueWithoutSign.slice(decimalPrefix.length).match(/^0+(?=[1-9])/)?.[0]
+          .length ?? 0;
+    }
+  }
+  const shouldUseSubscript =
+    displayLeadingZeros > 0 &&
+    displayLeadingZeros >= minLeadingZeros &&
+    !keepLeadingZero;
   const strings: IFormatDisplayNumberPart[] = [];
   if (leading) {
     strings.push(leading);
@@ -879,15 +893,15 @@ export const formatDisplayNumber = (
     strings.push(currency);
   }
 
-  if (leadingZeros && leadingZeros >= minLeadingZeros && !keepLeadingZero) {
+  if (shouldUseSubscript) {
     const { value: formattedZero } = formatLocalNumber('0', {
       digits: 1,
       removeTrailingZeros: false,
       disableThousandSeparator: false,
     });
     strings.push(formattedZero);
-    strings.push({ value: leadingZeros, type: 'sub' });
-    strings.push(valueWithoutSign.slice(leadingZeros + 2));
+    strings.push({ value: displayLeadingZeros, type: 'sub' });
+    strings.push(valueWithoutSign.slice(displayLeadingZeros + 2));
   } else if (options?.splitDecimal) {
     const decSym = decimalSymbol || lazyDecimalSymbol(2);
     const decIndex = valueWithoutSign.lastIndexOf(decSym);
@@ -913,10 +927,7 @@ export const formatDisplayNumber = (
     strings.push(' ');
     strings.push(tokenSymbol);
   }
-  if (
-    options?.splitDecimal ||
-    (leadingZeros && leadingZeros >= minLeadingZeros && !keepLeadingZero)
-  ) {
+  if (options?.splitDecimal || shouldUseSubscript) {
     return strings;
   }
   return strings.join('');
