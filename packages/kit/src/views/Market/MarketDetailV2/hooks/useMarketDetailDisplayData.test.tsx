@@ -1,7 +1,9 @@
 /** @jest-environment jsdom */
 
+import { SUI_TYPE_ARG } from '@mysten/sui/utils';
 import { renderHook } from '@testing-library/react';
 
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import type {
   IMarketTokenDetail,
   IMarketTokenDetailPreview,
@@ -85,6 +87,45 @@ describe('useMarketDetailDisplayData', () => {
     expect(result.current.isPreviewTokenDetail).toBe(true);
     expect(result.current.isStockToken).toBe(true);
   });
+
+  it.each([
+    { address: '0x2::sui::SUI', hasPreview: false },
+    { address: '0x2::sui::SUI', hasPreview: true },
+    { address: SUI_TYPE_ARG, hasPreview: false },
+    { address: SUI_TYPE_ARG, hasPreview: true },
+  ])(
+    'shows full SUI details on an addressless native route (address: $address, preview: $hasPreview)',
+    ({ address, hasPreview }) => {
+      const networkId = getNetworkIdsMap().sui;
+      mockTokenDetailData.tokenAddress = '';
+      mockTokenDetailData.networkId = networkId;
+      mockTokenDetailData.isNative = true;
+      mockTokenDetailData.tokenDetail = {
+        address,
+        networkId,
+        symbol: 'SUI',
+        name: 'Sui',
+        decimals: 9,
+        logoUrl: 'https://example.com/sui.png',
+        price: '2.5',
+      };
+      if (hasPreview) {
+        mockTokenDetailData.tokenDetailPreview = {
+          address: '',
+          networkId,
+          isNative: true,
+          symbol: 'SUI',
+          name: 'Sui',
+          decimals: 9,
+          selectedAt: 1,
+        };
+      }
+
+      const { result } = renderHook(() => useMarketDetailDisplayData());
+      expect(result.current.tokenDetail).toBe(mockTokenDetailData.tokenDetail);
+      expect(result.current.isPreviewTokenDetail).toBe(false);
+    },
+  );
 
   it('hides the previous native token while the next token loads or fails', () => {
     mockTokenDetailData.tokenAddress = '';
