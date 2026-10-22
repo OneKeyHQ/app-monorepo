@@ -867,7 +867,8 @@ export function DrawingToolbar({
           position="absolute"
           left={52}
           top={8}
-          width={232}
+          width="max-content"
+          maxWidth="calc(100% - 60px)"
           maxHeight="calc(100% - 16px)"
           backgroundColor="$bg"
           borderWidth={1}
@@ -930,13 +931,20 @@ export function DrawingToolbar({
                       : theme.iconSubdued.val
                   }
                 />
-                <SizableText fontSize={13}>
+                <SizableText
+                  fontSize={13}
+                  numberOfLines={1}
+                  flexShrink={1}
+                  textAlign="left"
+                >
                   {DRAWING_TOOLS[tool].label}
                 </SizableText>
                 <SizableText
                   marginLeft="auto"
+                  flexShrink={0}
                   color="$textSubdued"
                   fontSize={10}
+                  whiteSpace="nowrap"
                 >
                   {shortcuts[tool]}
                 </SizableText>
