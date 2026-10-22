@@ -30,7 +30,7 @@ export function getCurrentPerpsMarketDataFreshness(
 }
 
 export function usePerpsMarketDataFreshness({
-  staleMs = PERPS_MARKET_DATA_STALE_MS,
+  staleMs = PERPS_MARKET_DATA_STALE_MS + PERPS_MARKET_DATA_GRACE_MS,
 }: {
   staleMs?: number;
 } = {}) {
@@ -91,7 +91,7 @@ export function usePerpsMarketDataFreshness({
 
     const delayMs = Math.max(
       0,
-      status.lastMessageAt + staleMs + PERPS_MARKET_DATA_GRACE_MS - Date.now(),
+      status.lastMessageAt + staleMs + 1 - Date.now(),
     );
     staleTimerRef.current = setTimeout(() => {
       staleTimerRef.current = null;
