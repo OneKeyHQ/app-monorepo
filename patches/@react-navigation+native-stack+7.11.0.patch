@@ -1,3 +1,23 @@
+diff --git a/node_modules/@react-navigation/native-stack/lib/module/views/NativeStackView.native.js b/node_modules/@react-navigation/native-stack/lib/module/views/NativeStackView.native.js
+index a21f04f..d1ec133 100644
+--- a/node_modules/@react-navigation/native-stack/lib/module/views/NativeStackView.native.js
++++ b/node_modules/@react-navigation/native-stack/lib/module/views/NativeStackView.native.js
+@@ -255,6 +255,8 @@ const SceneView = ({
+         stackPresentation: presentation === 'card' ? 'push' : presentation,
+         stackAnimation: animation,
+         screenOrientation: orientation,
++        screenOrientationAnimated: options.orientationAnimated,
++        screenContentReady: options.contentReady,
+         sheetAllowedDetents: sheetAllowedDetents,
+         sheetLargestUndimmedDetentIndex: sheetLargestUndimmedDetentIndex,
+         sheetGrabberVisible: sheetGrabberVisible,
+@@ -489,4 +491,4 @@ const styles = StyleSheet.create({
+     overflow: 'hidden'
+   }
+ });
+-//# sourceMappingURL=NativeStackView.native.js.map
+\ No newline at end of file
++//# sourceMappingURL=NativeStackView.native.js.map
 diff --git a/node_modules/@react-navigation/native-stack/lib/module/views/useHeaderConfigProps.js b/node_modules/@react-navigation/native-stack/lib/module/views/useHeaderConfigProps.js
 index 492390b..a2da541 100644
 --- a/node_modules/@react-navigation/native-stack/lib/module/views/useHeaderConfigProps.js
@@ -14,6 +34,56 @@ index 492390b..a2da541 100644
  }
  //# sourceMappingURL=useHeaderConfigProps.js.map
 \ No newline at end of file
+diff --git a/node_modules/@react-navigation/native-stack/lib/typescript/src/types.d.ts b/node_modules/@react-navigation/native-stack/lib/typescript/src/types.d.ts
+index 98c516c..b46ab1d 100644
+--- a/node_modules/@react-navigation/native-stack/lib/typescript/src/types.d.ts
++++ b/node_modules/@react-navigation/native-stack/lib/typescript/src/types.d.ts
+@@ -721,6 +721,10 @@ export type NativeStackNavigationOptions = {
+      * Only supported on iOS and Android.
+      */
+     orientation?: ScreenProps['screenOrientation'];
++    /** OneKey patch: animate system orientation updates on iOS. Defaults to true. */
++    orientationAnimated?: ScreenProps['screenOrientationAnimated'];
++  /** OneKey patch: retain the previous native frame until this screen is ready. */
++  contentReady?: ScreenProps['screenContentReady'];
+     /**
+      * Whether inactive screens should be suspended from re-rendering. Defaults to `false`.
+      * Defaults to `true` when `enableFreeze()` is run at the top of the application.
+@@ -1099,4 +1103,4 @@ export type NativeStackDescriptorMap = {
+     [key: string]: NativeStackDescriptor;
+ };
+ export {};
+-//# sourceMappingURL=types.d.ts.map
+\ No newline at end of file
++//# sourceMappingURL=types.d.ts.map
+diff --git a/node_modules/@react-navigation/native-stack/src/types.tsx b/node_modules/@react-navigation/native-stack/src/types.tsx
+index 12c5cf6..328398e 100644
+--- a/node_modules/@react-navigation/native-stack/src/types.tsx
++++ b/node_modules/@react-navigation/native-stack/src/types.tsx
+@@ -773,6 +773,10 @@ export type NativeStackNavigationOptions = {
+    * Only supported on iOS and Android.
+    */
+   orientation?: ScreenProps['screenOrientation'];
++  /** OneKey patch: animate system orientation updates on iOS. Defaults to true. */
++  orientationAnimated?: ScreenProps['screenOrientationAnimated'];
++  /** OneKey patch: retain the previous native frame until this screen is ready. */
++  contentReady?: ScreenProps['screenContentReady'];
+   /**
+    * Whether inactive screens should be suspended from re-rendering. Defaults to `false`.
+    * Defaults to `true` when `enableFreeze()` is run at the top of the application.
+diff --git a/node_modules/@react-navigation/native-stack/src/views/NativeStackView.native.tsx b/node_modules/@react-navigation/native-stack/src/views/NativeStackView.native.tsx
+index e694525..ff05c6f 100644
+--- a/node_modules/@react-navigation/native-stack/src/views/NativeStackView.native.tsx
++++ b/node_modules/@react-navigation/native-stack/src/views/NativeStackView.native.tsx
+@@ -384,6 +384,8 @@ const SceneView = ({
+           stackPresentation={presentation === 'card' ? 'push' : presentation}
+           stackAnimation={animation}
+           screenOrientation={orientation}
++          screenOrientationAnimated={options.orientationAnimated}
++          screenContentReady={options.contentReady}
+           sheetAllowedDetents={sheetAllowedDetents}
+           sheetLargestUndimmedDetentIndex={sheetLargestUndimmedDetentIndex}
+           sheetGrabberVisible={sheetGrabberVisible}
 diff --git a/node_modules/@react-navigation/native-stack/src/views/useHeaderConfigProps.tsx b/node_modules/@react-navigation/native-stack/src/views/useHeaderConfigProps.tsx
 index 14a0093..e2c4870 100644
 --- a/node_modules/@react-navigation/native-stack/src/views/useHeaderConfigProps.tsx

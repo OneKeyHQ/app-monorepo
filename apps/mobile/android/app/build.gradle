@@ -679,7 +679,7 @@ dependencies {
     implementation("com.facebook.react:react-android")
 
     // Used only by the bg-gated native migration module for durable barriers.
-    implementation("io.github.zhongwuzw:mmkv:2.4.1")
+    implementation project(":mmkv")
 
     // AndroidX Core SplashScreen - fixes MIUI/HyperOS splash screen crashes
     implementation("androidx.core:core-splashscreen:1.2.0-alpha02")

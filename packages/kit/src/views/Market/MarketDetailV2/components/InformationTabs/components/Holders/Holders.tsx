@@ -6,14 +6,17 @@ import {
   ListEndIndicator,
   SizableText,
   Stack,
-  Tabs,
   useMedia,
 } from '@onekeyhq/components';
-import { useIsFocusedTab } from '@onekeyhq/components/src/composite/Tabs/hooks';
 import { useMarketHolders } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/hooks/useMarketHolders';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IMarketTokenHolder } from '@onekeyhq/shared/types/marketV2';
+
+import {
+  MarketDetailList,
+  useMarketDetailIsFocusedTab,
+} from '../../layout/MarketDetailScroll';
 
 import { HoldersSkeleton } from './components/HoldersSkeleton';
 import { HolderItemNormal } from './layout/HolderItemNormal/HolderItemNormal';
@@ -34,7 +37,7 @@ function HoldersBase({
 }: IHoldersProps) {
   const intl = useIntl();
   const { gtLg } = useMedia();
-  const isTabFocused = useIsFocusedTab();
+  const isTabFocused = useMarketDetailIsFocusedTab();
   const { holders, isRefreshing, isInitialPending } = useMarketHolders({
     tokenAddress,
     networkId,
@@ -61,7 +64,7 @@ function HoldersBase({
   }, [isRefreshing, holders.length]);
 
   return (
-    <Tabs.FlatList<IMarketTokenHolder>
+    <MarketDetailList<IMarketTokenHolder>
       showsVerticalScrollIndicator={false}
       scrollEnabled={scrollEnabled}
       data={holders}
