@@ -1,3 +1,6 @@
+import { SUI_TYPE_ARG } from '@mysten/sui/utils';
+
+import { IMPL_SUI } from '@onekeyhq/shared/src/engine/engineConsts';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { normalizeTokenContractAddress } from '@onekeyhq/shared/src/utils/tokenUtils';
 
@@ -120,10 +123,18 @@ export function isMatchingMarketTokenIdentity(
     // placeholder plus a leftover native detail must not look like one token.
     return sameConcreteNetwork;
   }
+  const isSuiNative =
+    sameConcreteNetwork &&
+    native &&
+    networkUtils.getNetworkImpl({ networkId: leftNetworkId }) === IMPL_SUI;
   return (
     sameConcreteNetwork &&
     native &&
-    (!leftContract || isZeroHexAddress(left)) &&
-    (!rightContract || isZeroHexAddress(right))
+    (!leftContract ||
+      isZeroHexAddress(left) ||
+      (isSuiNative && left === SUI_TYPE_ARG)) &&
+    (!rightContract ||
+      isZeroHexAddress(right) ||
+      (isSuiNative && right === SUI_TYPE_ARG))
   );
 }
