@@ -12,7 +12,9 @@ import {
   useScrollableFilterBar,
 } from '@onekeyhq/kit/src/components/ScrollableFilterBar';
 import useConfigurableChainSelector from '@onekeyhq/kit/src/views/ChainSelector/hooks/useChainSelector';
+import { CategoryFilterItem } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/CategoryFilterItem';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IDustSweepNetwork } from '@onekeyhq/shared/types/swap/dustSweep';
 
 import { useDustSweep } from '../DustSweepProvider';
@@ -172,18 +174,22 @@ export function DustSweepFilters({ desktop }: { desktop: boolean }) {
         pointerEvents={selecting ? 'auto' : 'none'}
       >
         {DUST_SWEEP_THRESHOLDS.map((amount) => (
-          <Button
-            mx={0}
-            my={0}
+          <CategoryFilterItem
             testID={`dust-sweep-threshold-${amount}`}
             key={amount}
-            size="small"
+            name={`<$${amount}`}
+            isSelected={threshold === amount}
             height={36}
             px="$3"
             borderRadius="$full"
-            variant={threshold === amount ? 'secondary' : 'tertiary'}
+            role="button"
+            {...(platformEnv.isNative
+              ? { accessibilityState: { selected: threshold === amount } }
+              : { 'aria-pressed': threshold === amount })}
+            aria-disabled={!selecting}
+            focusable={selecting}
             onPress={() => selectThreshold(amount)}
-          >{`<$${amount}`}</Button>
+          />
         ))}
       </XStack>
       {desktop ? null : <DustSweepNetworks />}

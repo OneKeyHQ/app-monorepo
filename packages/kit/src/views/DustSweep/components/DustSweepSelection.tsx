@@ -1,5 +1,3 @@
-import { useCallback, useEffect, useRef } from 'react';
-
 import { useIntl } from 'react-intl';
 
 import {
@@ -12,17 +10,16 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
-import type { IScrollViewRef } from '@onekeyhq/components';
 import { SWAP_DESKTOP_CARD_SHADOW_WEB_STYLE } from '@onekeyhq/kit/src/views/Swap/utils/swapDesktopCardShadow';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { useDustSweep } from '../DustSweepProvider';
-import { getDustSweepPresentation } from '../stateMachine';
+import { useDustSweepActiveItemScroll } from '../hooks/useDustSweepActiveItemScroll';
 import { getDustSweepHiddenThreshold } from '../utils/candidates';
 
 import { DustSweepFilters } from './DustSweepFilters';
 import { DUST_SWEEP_ACTION_HEIGHT } from './DustSweepSummary';
-import { DustSweepTokenRow } from './DustSweepTokenRow';
+import { DUST_SWEEP_ROW_HEIGHT, DustSweepTokenRow } from './DustSweepTokenRow';
 
 // Desktop cards fill the window height between these bounds. The height only
 // depends on the window, so it stays the same for every step (Add anyway,
@@ -46,6 +43,7 @@ export function DustSweepSelection({ desktop }: { desktop: boolean }) {
     refreshStatus,
     assetStatus,
     partialError,
+    failedNetworks,
     toggle,
     toggleAll,
     addHidden,
@@ -55,27 +53,13 @@ export function DustSweepSelection({ desktop }: { desktop: boolean }) {
   const rows = selecting
     ? visible
     : session.state.items.map((item) => item.token);
-  // While sweeping, keep the token being converted in view: the list scrolls
-  // so that row sits about a third of the way down.
-  const scrollRef = useRef<IScrollViewRef>(null);
-  // Keyed by token so a new list never reuses another row's position.
-  const rowOffsets = useRef(new Map<string, number>());
-  const viewportHeight = useRef(0);
-  const { active } = getDustSweepPresentation(session.state);
-  const activeKey = selecting || !active ? undefined : active.token.key;
-  const activeKeyRef = useRef(activeKey);
-  activeKeyRef.current = activeKey;
-  const scrollToRow = useCallback((offset: number) => {
-    scrollRef.current?.scrollTo({
-      y: Math.max(0, offset - viewportHeight.current / 3),
-      animated: true,
+  const bottomInset = desktop ? 0 : DUST_SWEEP_MOBILE_DIRECTION_SIZE / 2;
+  const { scrollViewRef, onRowsLayout, ...scrollProps } =
+    useDustSweepActiveItemScroll({
+      state: session.state,
+      rowHeight: DUST_SWEEP_ROW_HEIGHT,
+      bottomInset,
     });
-  }, []);
-  useEffect(() => {
-    if (!activeKey) return;
-    const offset = rowOffsets.current.get(activeKey);
-    if (offset !== undefined) scrollToRow(offset);
-  }, [activeKey, scrollToRow]);
   const selectableVisibleCount = visible.filter(
     (token) => !token.suspicious,
   ).length;
@@ -172,14 +156,13 @@ export function DustSweepSelection({ desktop }: { desktop: boolean }) {
         </SizableText>
       ) : null}
       <ScrollView
-        ref={scrollRef}
+        ref={scrollViewRef}
+        testID="dust-sweep-token-scroll"
+        {...scrollProps}
         flex={1}
-        onLayout={(event) => {
-          viewportHeight.current = event.nativeEvent.layout.height;
-        }}
         contentContainerStyle={{
           paddingTop: desktop ? 8 : 0,
-          paddingBottom: 16,
+          paddingBottom: Math.max(16, bottomInset),
         }}
       >
         <DustSweepFilters desktop={desktop} />
@@ -211,24 +194,18 @@ export function DustSweepSelection({ desktop }: { desktop: boolean }) {
             </SizableText>
           </XStack>
         ) : null}
-        {loading
-          ? Array.from({ length: 7 }, (_, index) => (
-              <DustSweepTokenRow key={index} />
-            ))
-          : rows.map((token, index) => (
-              <Stack
-                key={token.key}
-                onLayout={(event) => {
-                  const { y } = event.nativeEvent.layout;
-                  const previous = rowOffsets.current.get(token.key);
-                  rowOffsets.current.set(token.key, y);
-                  // The active row may lay out (or move) after the effect
-                  // above ran; follow it to its current position.
-                  if (token.key === activeKeyRef.current && previous !== y)
-                    scrollToRow(y);
-                }}
-              >
+        <YStack
+          testID="dust-sweep-token-rows"
+          flexShrink={0}
+          onLayout={onRowsLayout}
+        >
+          {loading
+            ? Array.from({ length: 7 }, (_, index) => (
+                <DustSweepTokenRow key={index} />
+              ))
+            : rows.map((token, index) => (
                 <DustSweepTokenRow
+                  key={token.key}
                   token={token}
                   nativeTokenSymbol={
                     selecting
@@ -246,11 +223,14 @@ export function DustSweepSelection({ desktop }: { desktop: boolean }) {
                   }
                   onToggle={toggle}
                 />
-              </Stack>
-            ))}
+              ))}
+        </YStack>
         {selecting && !loading && (loadStatus === 'error' || partialError) ? (
-          <YStack p="$5" gap="$4">
+          <YStack testID="dust-sweep-load-error" p="$5" gap="$4">
             <SizableText>
+              {failedNetworks?.length
+                ? `${failedNetworks.map((network) => network.name).join(', ')} · `
+                : ''}
               {intl.formatMessage({ id: ETranslations.global_network_error })}
             </SizableText>
             <Button testID="dust-sweep-retry" onPress={retry}>
