@@ -21,6 +21,7 @@ let mockGeneration = 0;
 let mockFocusListener: ((focused: boolean) => void) | undefined;
 const mockSetColdCache = jest.fn();
 const mockActions = {
+  hydrateUnresolvedActivePerp: jest.fn<Promise<boolean>, []>(async () => false),
   switchTradeInstrument: jest.fn<
     Promise<boolean>,
     [IInstrument & { force?: boolean }]
@@ -153,10 +154,10 @@ beforeEach(() => {
   mockService.hydrateActiveAssetCtxSnapshotCache.mockResolvedValue(undefined);
 });
 
-it('does not restore an old pending market after a user switches during metadata loading', async () => {
+it('hydrates the latest request instead of restoring the old pending market before React rerenders', async () => {
   const metadata = createDeferred<void>();
   mockService.refreshTradingMeta.mockReturnValueOnce(metadata.promise);
-  const { rerender } = renderHook(() => useHyperliquidSymbolSelect());
+  renderHook(() => useHyperliquidSymbolSelect());
   focus();
   await waitFor(() =>
     expect(mockService.refreshTradingMeta).toHaveBeenCalledTimes(1),
@@ -164,13 +165,13 @@ it('does not restore an old pending market after a user switches during metadata
   await act(async () => {
     await mockActions.switchTradeInstrument({ mode: 'perp', coin: 'ETH' });
   });
-  rerender();
   await act(async () => metadata.resolve());
   expect(
     mockActions.switchTradeInstrument.mock.calls.map(([target]) => target.coin),
   ).toEqual(['ETH']);
   expect(mockInstrument).toEqual({ mode: 'perp', coin: 'ETH' });
   expect(mockService.refreshActiveAssetCtxSnapshot).not.toHaveBeenCalled();
+  expect(mockActions.hydrateUnresolvedActivePerp).toHaveBeenCalledTimes(1);
 });
 
 it('captures the current request before initial preparation resolves', async () => {
@@ -196,6 +197,7 @@ it('captures the current request before initial preparation resolves', async () 
     mockActions.switchTradeInstrument.mock.calls.map(([target]) => target.coin),
   ).toEqual(['ETH']);
   expect(mockInstrument).toEqual({ mode: 'perp', coin: 'ETH' });
+  expect(mockActions.hydrateUnresolvedActivePerp).toHaveBeenCalledTimes(1);
 });
 
 it.each<IInstrument>([
@@ -218,6 +220,7 @@ it.each<IInstrument>([
       ),
     );
     expect(mockInstrument).toEqual(target);
+    expect(mockActions.hydrateUnresolvedActivePerp).not.toHaveBeenCalled();
   },
 );
 
@@ -236,6 +239,25 @@ it('resynchronizes a remounted context when the background target diverges', asy
     }),
   );
   expect(mockService.refreshTradingMeta).not.toHaveBeenCalled();
+  expect(mockActions.hydrateUnresolvedActivePerp).not.toHaveBeenCalled();
+});
+
+it('leaves a newer choice alone when a non-claiming remount becomes stale', async () => {
+  const preparation = createDeferred<IPreparation>();
+  mockService.prepareInitialSymbolSelect.mockReturnValueOnce(
+    preparation.promise,
+  );
+  renderHook(() => useHyperliquidSymbolSelect());
+  focus();
+  await act(async () => {
+    await mockActions.switchTradeInstrument({ mode: 'perp', coin: 'ETH' });
+    preparation.resolve({
+      claimed: false,
+      instrumentTarget: { mode: 'perp', perpAsset: { coin: 'BTC' } },
+    });
+  });
+  expect(mockActions.hydrateUnresolvedActivePerp).not.toHaveBeenCalled();
+  expect(mockActions.switchTradeInstrument).toHaveBeenCalledTimes(1);
 });
 
 it('keeps an already aligned context unchanged on focus', async () => {
