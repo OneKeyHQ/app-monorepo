@@ -188,6 +188,7 @@ function SendDataInputContainer() {
     networkId,
   });
   const binanceDeposit = useBinanceDepositRecipient({
+    accountId: currentAccount.accountId,
     networkId: currentAccount.networkId,
     token: tokenInfo,
     isNFT,
@@ -896,7 +897,6 @@ function SendDataInputContainer() {
       isAllNetworks,
       binanceDeposit: {
         localId: binanceDepositSnapshot.localId,
-        cryptoCurrency: binanceDestination.cryptoCurrency,
         minAmount: binanceDestination.minAmount,
       },
       onSuccess,
@@ -1609,10 +1609,13 @@ function SendDataInputContainer() {
                 </ListItem>
               </Form.Field>
             ) : null}
-            {binanceDepositSnapshot ? (
+            {binanceDeposit.isActive ? (
               <BinanceDepositRecipientCard
                 snapshot={binanceDepositSnapshot}
                 isBusy={binanceDeposit.isBusy}
+                assetLabel={[tokenInfo?.symbol, network?.name]
+                  .filter(Boolean)
+                  .join(' · ')}
                 onOpenBinance={() => void binanceDeposit.reopenBinance()}
                 onRetry={() => void binanceDeposit.retryCreate()}
                 onRestart={() => void binanceDeposit.start()}
@@ -1667,9 +1670,9 @@ function SendDataInputContainer() {
                   />
                 ) : null}
                 {renderDataInput()}
-                {binanceDeposit.asset ? (
+                {binanceDeposit.isEntryAvailable ? (
                   <BinanceDepositEntry
-                    isLoading={binanceDeposit.isBusy}
+                    hidden={!!toAddressRaw?.trim()}
                     onPress={() => void binanceDeposit.start()}
                   />
                 ) : null}
@@ -1692,13 +1695,13 @@ function SendDataInputContainer() {
           </Form>
         </AccountSelectorProviderMirror>
       </Page.Body>
-      {(binanceDepositSnapshot
+      {(binanceDeposit.isActive
         ? !!binanceDestination
         : toResolved && !toPending) || isSubmitting ? (
         <Page.Footer>
           <Page.FooterActions
             onConfirm={
-              binanceDepositSnapshot
+              binanceDeposit.isActive
                 ? handleBinanceDepositNext
                 : handleNavigateToAmountInput
             }
@@ -1713,7 +1716,7 @@ function SendDataInputContainer() {
               // Only disable for data-step field errors or in-flight validation.
               // handleNavigateToAmountInput still calls form.trigger() as a final
               // guard before navigating.
-              disabled: binanceDepositSnapshot ? false : isNextDisabled,
+              disabled: binanceDeposit.isActive ? false : isNextDisabled,
             }}
           />
         </Page.Footer>

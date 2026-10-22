@@ -2,8 +2,14 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { Toast } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { useIsEnableTransferAllowList } from '@onekeyhq/kit/src/components/AddressInput/hooks';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import {
+  EExchangeId,
+  EXCHANGE_CONFIGS,
+} from '@onekeyhq/shared/src/consts/exchangeConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import openUrlUtils from '@onekeyhq/shared/src/utils/openUrlUtils';
 import { EBinanceDepositErrorCode } from '@onekeyhq/shared/types/exchange';
 import type { IBinanceDepositSnapshot } from '@onekeyhq/shared/types/exchange';
@@ -13,20 +19,6 @@ import { BINANCE_DEPOSIT_COPY } from './binanceDepositCopy';
 
 // Local reads only; the service asks the server at its own pace.
 const SNAPSHOT_POLL_INTERVAL_MS = 1500;
-
-function getErrorText(error: unknown): string {
-  switch ((error as { code?: number } | undefined)?.code) {
-    case EBinanceDepositErrorCode.FeatureDisabled:
-    case EBinanceDepositErrorCode.DepositDisabled:
-      return BINANCE_DEPOSIT_COPY.toastUnavailable;
-    case EBinanceDepositErrorCode.RateLimited:
-      return BINANCE_DEPOSIT_COPY.toastRateLimited;
-    case EBinanceDepositErrorCode.CapabilityStale:
-      return BINANCE_DEPOSIT_COPY.toastAssetUnavailable;
-    default:
-      return BINANCE_DEPOSIT_COPY.toastRequestFailed;
-  }
-}
 
 function isSameSnapshot(
   a: IBinanceDepositSnapshot | undefined,
@@ -47,31 +39,79 @@ function isSameSnapshot(
 }
 
 export function useBinanceDepositRecipient({
+  accountId,
   networkId,
   token,
   isNFT,
 }: {
+  accountId: string;
   networkId: string;
   token?: IToken | null;
   isNFT: boolean;
 }) {
   const [snapshot, setSnapshot] = useState<IBinanceDepositSnapshot>();
+  // True from the tap until the first server answer, so the card shows at
+  // once instead of waiting on the create request.
+  const [isStarting, setIsStarting] = useState(false);
   const [isBusy, setIsBusy] = useState(false);
   const isBusyRef = useRef(false);
+  // Bumped by every start, every exit and on unmount: an answer that arrives
+  // for an older attempt must not open Binance.
+  const attemptRef = useRef(0);
+  useEffect(
+    () => () => {
+      attemptRef.current += 1;
+    },
+    [],
+  );
 
+  const isTransferAllowListEnabled = useIsEnableTransferAllowList();
   // iOS / Android only: the authorization link only works in the Binance
-  // app, and only a phone gets the return deep link.
-  const { result: asset, run: refreshAsset } = usePromiseResult(async () => {
-    if (!platformEnv.isNative || isNFT || !token) {
-      return undefined;
-    }
-    return backgroundApiProxy.serviceBinanceDeposit.getDepositAsset({
-      networkId,
-      symbol: token.symbol,
-      contractAddress: token.address,
-      isNative: !!token.isNative,
-    });
-  }, [isNFT, networkId, token]);
+  // app, and only a phone gets the return deep link. Accounts that can't
+  // sign, and allowlists that would block a fresh deposit address at the
+  // amount step, never get the entry.
+  const depositToken =
+    platformEnv.isNative &&
+    !isNFT &&
+    !isTransferAllowListEnabled &&
+    !accountUtils.isWatchingAccount({ accountId })
+      ? token
+      : undefined;
+
+  // Both answers are cached so the entry is there when the page opens. A
+  // token Binance doesn't accept is cached as null: the cache never stores
+  // undefined, and a stale asset would flash the entry on every open.
+  const { result: asset, run: refreshAsset } = usePromiseResult(
+    async () =>
+      depositToken
+        ? ((await backgroundApiProxy.serviceBinanceDeposit.getDepositAsset({
+            networkId,
+            symbol: depositToken.symbol,
+            contractAddress: depositToken.address,
+            isNative: !!depositToken.isNative,
+          })) ?? null)
+        : undefined,
+    [depositToken, networkId],
+    {
+      swrKey: depositToken
+        ? `binance-deposit-asset:${networkId}:${depositToken.address || 'native'}`
+        : undefined,
+    },
+  );
+  const { result: isBinanceInstalled } = usePromiseResult(
+    async () => {
+      if (!asset) {
+        return undefined;
+      }
+      const { appOpenUrl, detectionUrl } =
+        EXCHANGE_CONFIGS[EExchangeId.Binance];
+      return openUrlUtils
+        .linkingCanOpenURL(detectionUrl ?? appOpenUrl)
+        .catch(() => false);
+    },
+    [asset],
+    { swrKey: 'binance-deposit-app-installed' },
+  );
 
   const runExclusive = useCallback(async (task: () => Promise<void>) => {
     if (isBusyRef.current) {
@@ -87,64 +127,81 @@ export function useBinanceDepositRecipient({
     }
   }, []);
 
-  const openBinance = useCallback(async (localId: string) => {
+  const openBinance = useCallback(async (localId: string, attempt: number) => {
     try {
       // The link only lives in this local variable: it is not stored,
       // logged or put into navigation.
       const { link } =
         await backgroundApiProxy.serviceBinanceDeposit.prepareOpenLink(localId);
+      if (attempt !== attemptRef.current) {
+        return;
+      }
       // The system has to open it: the in-app browser would not hand a
       // universal link over to the Binance app.
       await openUrlUtils.linkingOpenURL(link);
     } catch {
-      Toast.error({ title: BINANCE_DEPOSIT_COPY.toastOpenFailed });
+      Toast.error({ title: BINANCE_DEPOSIT_COPY.toastUnavailable });
     }
   }, []);
 
   const applyCreateResult = useCallback(
-    async (next: IBinanceDepositSnapshot) => {
+    async (attempt: number, next: IBinanceDepositSnapshot) => {
+      if (attempt !== attemptRef.current) {
+        return;
+      }
       setSnapshot(next);
+      setIsStarting(false);
       if (next.phase === 'awaiting') {
-        await openBinance(next.localId);
+        await openBinance(next.localId, attempt);
       }
     },
     [openBinance],
   );
 
   const handleCreateError = useCallback(
-    async (error: unknown, localId?: string) => {
-      Toast.error({ title: getErrorText(error) });
+    async (attempt: number, error: unknown, localId?: string) => {
+      if (attempt !== attemptRef.current) {
+        return;
+      }
+      Toast.error({ title: BINANCE_DEPOSIT_COPY.toastUnavailable });
       if (
         (error as { code?: number } | undefined)?.code ===
         EBinanceDepositErrorCode.CapabilityStale
       ) {
         void refreshAsset();
       }
-      setSnapshot(
-        localId
-          ? await backgroundApiProxy.serviceBinanceDeposit.getSnapshot(localId)
-          : undefined,
-      );
+      const next = localId
+        ? await backgroundApiProxy.serviceBinanceDeposit.getSnapshot(localId)
+        : undefined;
+      if (attempt !== attemptRef.current) {
+        return;
+      }
+      setSnapshot(next);
+      setIsStarting(false);
     },
     [refreshAsset],
   );
 
-  const start = useCallback(
-    () =>
-      runExclusive(async () => {
-        if (!asset) {
-          return;
-        }
-        try {
-          await applyCreateResult(
-            await backgroundApiProxy.serviceBinanceDeposit.startSession(asset),
-          );
-        } catch (error) {
-          await handleCreateError(error);
-        }
-      }),
-    [applyCreateResult, asset, handleCreateError, runExclusive],
-  );
+  // Not behind the busy lock: after a cancel, the next tap must not wait for
+  // the abandoned request. The service picks up an unfinished session for
+  // the same asset instead of creating a second one.
+  const start = useCallback(async () => {
+    if (!asset) {
+      return;
+    }
+    attemptRef.current += 1;
+    const attempt = attemptRef.current;
+    setSnapshot(undefined);
+    setIsStarting(true);
+    try {
+      await applyCreateResult(
+        attempt,
+        await backgroundApiProxy.serviceBinanceDeposit.startSession(asset),
+      );
+    } catch (error) {
+      await handleCreateError(attempt, error);
+    }
+  }, [applyCreateResult, asset, handleCreateError]);
 
   // A retry keeps the session key of the first attempt.
   const retryCreate = useCallback(
@@ -153,14 +210,16 @@ export function useBinanceDepositRecipient({
         if (!snapshot) {
           return;
         }
+        const attempt = attemptRef.current;
         try {
           await applyCreateResult(
+            attempt,
             await backgroundApiProxy.serviceBinanceDeposit.retryCreate(
               snapshot.localId,
             ),
           );
         } catch (error) {
-          await handleCreateError(error, snapshot.localId);
+          await handleCreateError(attempt, error, snapshot.localId);
         }
       }),
     [applyCreateResult, handleCreateError, runExclusive, snapshot],
@@ -170,7 +229,7 @@ export function useBinanceDepositRecipient({
     () =>
       runExclusive(async () => {
         if (snapshot) {
-          await openBinance(snapshot.localId);
+          await openBinance(snapshot.localId, attemptRef.current);
         }
       }),
     [openBinance, runExclusive, snapshot],
@@ -178,10 +237,13 @@ export function useBinanceDepositRecipient({
 
   // Leaves the Binance flow; editing the recipient means a plain send. An
   // unfinished session is kept for the entry to pick up again, a failed one
-  // is dropped.
+  // is dropped. A start still waiting for the server is let go: its answer
+  // no longer opens Binance.
   const exit = useCallback(async () => {
+    attemptRef.current += 1;
     const current = snapshot;
     setSnapshot(undefined);
+    setIsStarting(false);
     if (current?.phase === 'failed') {
       await backgroundApiProxy.serviceBinanceDeposit.discardSession(
         current.localId,
@@ -219,7 +281,9 @@ export function useBinanceDepositRecipient({
   }, [localId, phase]);
 
   return {
-    asset,
+    isEntryAvailable: !!asset && isBinanceInstalled === true,
+    // The card takes over from the tap, before the server has answered.
+    isActive: !!snapshot || isStarting,
     snapshot,
     isBusy,
     start,

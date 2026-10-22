@@ -1,17 +1,23 @@
 import type { ReactNode } from 'react';
 
 import { useIntl } from 'react-intl';
-import { StyleSheet } from 'react-native';
+import Animated, { FadeIn } from 'react-native-reanimated';
 
 import {
   Button,
+  HeightTransition,
   Image,
   SizableText,
   Spinner,
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import { HighlightAddress } from '@onekeyhq/kit/src/components/HighlightAddress';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import {
+  MOTION_EASE_OUT,
+  MOTION_ENTER_MS,
+} from '@onekeyhq/kit/src/views/FiatCrypto/components/Headless/motionTokens';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EBinanceDepositSessionStatus } from '@onekeyhq/shared/types/exchange';
 import type { IBinanceDepositSnapshot } from '@onekeyhq/shared/types/exchange';
@@ -22,55 +28,60 @@ import type { ImageSourcePropType } from 'react-native';
 
 const BINANCE_LOGO: ImageSourcePropType = require('@onekeyhq/shared/src/assets/wallet/external/logo/logo_binance.png');
 
+const CARD_ENTERING = FadeIn.duration(MOTION_ENTER_MS).easing(MOTION_EASE_OUT);
+
+// The entry and every state of the recipient card, failures included,
+// share one background and corner radius.
+const CARD_FRAME = {
+  p: '$4',
+  gap: '$3',
+  bg: '$neutral3',
+  borderRadius: '$5',
+  borderCurve: 'continuous',
+} as const;
+
+// Fades in when offered and pushes the list below down instead of jumping;
+// collapses the same way while an address is being typed.
 export function BinanceDepositEntry({
-  isLoading,
+  hidden,
   onPress,
 }: {
-  isLoading: boolean;
+  hidden: boolean;
   onPress: () => void;
 }) {
   return (
-    <ListItem
-      testID="send-binance-deposit-entry"
-      mx="$0"
-      mt="$3"
-      gap="$3"
-      drillIn
-      isLoading={isLoading}
-      disabled={isLoading}
-      onPress={onPress}
-      borderWidth={StyleSheet.hairlineWidth}
-      borderColor="$borderSubdued"
-      borderRadius="$3"
-      userSelect="none"
-    >
-      <Image w="$10" h="$10" borderRadius="$full" source={BINANCE_LOGO} />
-      <ListItem.Text
-        flex={1}
-        primary={BINANCE_DEPOSIT_COPY.accountName}
-        secondary={BINANCE_DEPOSIT_COPY.entrySubtitle}
-      />
-    </ListItem>
+    <HeightTransition hide={hidden}>
+      <ListItem
+        testID="send-binance-deposit-entry"
+        mx="$0"
+        mt="$3"
+        gap="$3"
+        drillIn
+        onPress={onPress}
+        bg={CARD_FRAME.bg}
+        borderRadius={CARD_FRAME.borderRadius}
+        borderCurve={CARD_FRAME.borderCurve}
+        hoverStyle={{ bg: '$neutral4' }}
+        pressStyle={{ bg: '$neutral5' }}
+        userSelect="none"
+      >
+        <Image w="$10" h="$10" borderRadius="$full" source={BINANCE_LOGO} />
+        <ListItem.Text flex={1} primary={BINANCE_DEPOSIT_COPY.accountName} />
+      </ListItem>
+    </HeightTransition>
   );
 }
 
 function CardMessage({
   title,
   description,
-  isCritical,
 }: {
   title: string;
   description: string;
-  isCritical?: boolean;
 }) {
   return (
     <YStack gap="$1">
-      <SizableText
-        size="$bodyMdMedium"
-        color={isCritical ? '$textCritical' : '$text'}
-      >
-        {title}
-      </SizableText>
+      <SizableText size="$bodyMdMedium">{title}</SizableText>
       <SizableText size="$bodyMd" color="$textSubdued">
         {description}
       </SizableText>
@@ -89,31 +100,20 @@ function CardProgress({ text }: { text: string }) {
   );
 }
 
-function CardRow({ label, value }: { label: string; value: string }) {
-  return (
-    <XStack gap="$2">
-      <SizableText size="$bodyMd" color="$textSubdued">
-        {label}
-      </SizableText>
-      <SizableText size="$bodyMdMedium" flex={1}>
-        {value}
-      </SizableText>
-    </XStack>
-  );
-}
-
 // Replaces the address input while the recipient is the user's Binance
-// account. The address is read-only: changing it leaves the Binance flow.
+// account. The address is read-only: leaving goes back to the plain input.
 export function BinanceDepositRecipientCard({
   snapshot,
   isBusy,
+  assetLabel,
   onOpenBinance,
   onRetry,
   onRestart,
   onExit,
 }: {
-  snapshot: IBinanceDepositSnapshot;
+  snapshot?: IBinanceDepositSnapshot;
   isBusy: boolean;
+  assetLabel?: string;
   onOpenBinance: () => void;
   onRetry: () => void;
   onRestart: () => void;
@@ -121,131 +121,185 @@ export function BinanceDepositRecipientCard({
 }) {
   const intl = useIntl();
   const copy = BINANCE_DEPOSIT_COPY;
-  const { phase, destination } = snapshot;
+  // No snapshot yet: the entry was just tapped and the server hasn't answered.
+  const phase = snapshot?.phase ?? 'creating';
+  const cancelText = intl.formatMessage({ id: ETranslations.global_cancel });
 
   let body: ReactNode = null;
-  let primaryAction: { text: string; onPress: () => void } | undefined;
-  let secondaryAction: { text: string; onPress: () => void } | undefined;
+  let failure:
+    | {
+        isCritical?: boolean;
+        title: string;
+        description?: string;
+        onTryAgain: () => void;
+        secondary: string;
+      }
+    | undefined;
   switch (phase) {
     case 'creating':
-      body = <CardProgress text={copy.creating} />;
+      body = <CardProgress text={copy.opening} />;
       break;
     case 'confirming':
-      body = <CardProgress text={copy.confirming} />;
-      secondaryAction = { text: copy.cancel, onPress: onExit };
-      break;
-    case 'create_failed':
-      body = (
-        <CardMessage
-          title={copy.createFailedTitle}
-          description={copy.createFailedDesc}
-          isCritical
-        />
-      );
-      primaryAction = { text: copy.tryAgain, onPress: onRetry };
-      secondaryAction = { text: copy.cancel, onPress: onExit };
+      body = <CardProgress text={copy.gettingAddress} />;
       break;
     case 'awaiting':
-      body = (
-        <CardMessage
-          title={copy.awaitingTitle}
-          description={
-            snapshot.status === EBinanceDepositSessionStatus.AUTHORIZED_UNBOUND
-              ? copy.awaitingUnboundDesc
-              : copy.awaitingDesc
-          }
-        />
-      );
-      primaryAction = { text: copy.openBinance, onPress: onOpenBinance };
-      secondaryAction = { text: copy.cancel, onPress: onExit };
+      // Confirmed in Binance, but the return never reached this phone: the
+      // link can't be opened again, so only leaving is offered.
+      body =
+        snapshot?.status === EBinanceDepositSessionStatus.AUTHORIZED_UNBOUND ? (
+          <>
+            <CardMessage
+              title={copy.confirmedTitle}
+              description={copy.confirmedDesc}
+            />
+            <XStack>
+              <Button
+                testID="send-binance-deposit-enter-address"
+                size="small"
+                onPress={onExit}
+              >
+                {copy.enterAddress}
+              </Button>
+            </XStack>
+          </>
+        ) : (
+          <>
+            <CardMessage
+              title={copy.confirmTitle}
+              description={copy.confirmDesc}
+            />
+            <XStack>
+              <Button
+                testID="send-binance-deposit-open"
+                size="small"
+                variant="primary"
+                loading={isBusy}
+                onPress={onOpenBinance}
+              >
+                {intl.formatMessage(
+                  { id: ETranslations.receive_open_exchange },
+                  { exchange: 'Binance' },
+                )}
+              </Button>
+            </XStack>
+          </>
+        );
       break;
     case 'authorized':
-      body = destination ? (
+      body = snapshot?.destination ? (
         <YStack gap="$2">
-          <SizableText size="$bodyLg" testID="send-binance-deposit-address">
-            {destination.address}
-          </SizableText>
-          {destination.addressTag ? (
-            <CardRow label={copy.tag} value={destination.addressTag} />
-          ) : null}
-          {destination.minAmount ? (
-            <CardRow
-              label={copy.minDeposit}
-              value={`${destination.minAmount} ${destination.cryptoCurrency}`}
+          <XStack flexWrap="wrap" testID="send-binance-deposit-address">
+            <HighlightAddress
+              address={snapshot.destination.address}
+              size="$bodyLg"
+              fontFamily="$monoRegular"
             />
+          </XStack>
+          {snapshot.destination.addressTag ? (
+            <XStack gap="$2">
+              <SizableText size="$bodyMd" color="$textSubdued">
+                {intl.formatMessage({ id: ETranslations.send_tag })}
+              </SizableText>
+              <SizableText size="$bodyMd" fontFamily="$monoRegular" flex={1}>
+                {snapshot.destination.addressTag}
+              </SizableText>
+            </XStack>
           ) : null}
         </YStack>
       ) : null;
       break;
+    case 'create_failed':
+      failure = {
+        title: copy.connectFailed,
+        onTryAgain: onRetry,
+        secondary: cancelText,
+      };
+      break;
     default: {
-      const failed = copy.failed[snapshot.failReason ?? 'session_lost'];
-      body = (
-        <CardMessage
-          title={failed.title}
-          description={failed.desc}
-          isCritical
-        />
-      );
-      primaryAction = { text: copy.startAgain, onPress: onRestart };
-      secondaryAction = { text: copy.enterAddress, onPress: onExit };
+      // Only a security stop reads as danger (its title); an expired,
+      // declined or lost authorization all end the same way for the user.
+      const isConflict = snapshot?.failReason === 'conflict';
+      failure = {
+        isCritical: isConflict,
+        title: isConflict ? copy.securityFailedTitle : copy.addressFailed,
+        description: isConflict ? copy.securityFailedDesc : undefined,
+        onTryAgain: onRestart,
+        secondary: copy.enterAddress,
+      };
     }
   }
 
   return (
-    <YStack gap="$1.5" testID={`send-binance-deposit-card-${phase}`}>
-      <SizableText size="$bodyMdMedium">
-        {intl.formatMessage({ id: ETranslations.global_recipient })}
-      </SizableText>
-      <YStack
-        p="$4"
-        gap="$3"
-        bg="$bgSubdued"
-        borderRadius="$3"
-        borderWidth={StyleSheet.hairlineWidth}
-        borderColor="$borderStrong"
-      >
-        <XStack alignItems="center" gap="$3">
-          <Image w="$8" h="$8" borderRadius="$full" source={BINANCE_LOGO} />
-          <SizableText flex={1} size="$bodyLgMedium">
-            {copy.accountName}
+    <Animated.View entering={CARD_ENTERING}>
+      <YStack gap="$1.5" testID={`send-binance-deposit-card-${phase}`}>
+        {/* The way out sits at the right of the label in every state; a
+            failure offers its own actions instead. */}
+        <XStack alignItems="center" justifyContent="space-between" gap="$2">
+          <SizableText size="$bodyMdMedium">
+            {intl.formatMessage({ id: ETranslations.global_recipient })}
           </SizableText>
-          {phase === 'authorized' ? (
-            <Button
-              testID="send-binance-deposit-change"
-              size="small"
-              variant="tertiary"
+          {failure ? null : (
+            <SizableText
+              testID="send-binance-deposit-exit"
+              size="$bodyMd"
+              color="$textSubdued"
+              cursor="pointer"
+              hoverStyle={{ color: '$text' }}
               onPress={onExit}
             >
-              {copy.change}
-            </Button>
-          ) : null}
+              {phase === 'authorized'
+                ? intl.formatMessage({ id: ETranslations.global_clear })
+                : cancelText}
+            </SizableText>
+          )}
         </XStack>
-        {body}
-        {primaryAction || secondaryAction ? (
-          <XStack gap="$2">
-            {primaryAction ? (
+        {failure ? (
+          <YStack testID="send-binance-deposit-failure" {...CARD_FRAME}>
+            <YStack gap="$1">
+              <SizableText
+                size="$bodyLgMedium"
+                color={failure.isCritical ? '$textCritical' : undefined}
+              >
+                {failure.title}
+              </SizableText>
+              {failure.description ? (
+                <SizableText size="$bodyLg" color="$textSubdued">
+                  {failure.description}
+                </SizableText>
+              ) : null}
+            </YStack>
+            <XStack gap="$2" flexWrap="wrap">
               <Button
-                testID="send-binance-deposit-primary-action"
-                size="small"
+                testID="send-binance-deposit-try-again"
                 variant="primary"
                 loading={isBusy}
-                onPress={primaryAction.onPress}
+                onPress={failure.onTryAgain}
               >
-                {primaryAction.text}
+                {intl.formatMessage({ id: ETranslations.global_try_again })}
               </Button>
-            ) : null}
-            {secondaryAction ? (
               <Button
-                testID="send-binance-deposit-secondary-action"
-                size="small"
-                onPress={secondaryAction.onPress}
+                testID="send-binance-deposit-failure-exit"
+                variant="secondary"
+                onPress={onExit}
               >
-                {secondaryAction.text}
+                {failure.secondary}
               </Button>
-            ) : null}
-          </XStack>
-        ) : null}
+            </XStack>
+          </YStack>
+        ) : (
+          <YStack {...CARD_FRAME}>
+            <XStack alignItems="center" gap="$3">
+              <Image w="$8" h="$8" borderRadius="$full" source={BINANCE_LOGO} />
+              <ListItem.Text
+                flex={1}
+                primary={copy.accountName}
+                secondary={assetLabel || undefined}
+              />
+            </XStack>
+            {body}
+          </YStack>
+        )}
       </YStack>
-    </YStack>
+    </Animated.View>
   );
 }

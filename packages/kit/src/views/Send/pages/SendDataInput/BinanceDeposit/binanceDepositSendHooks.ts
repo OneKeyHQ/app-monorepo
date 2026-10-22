@@ -1,5 +1,3 @@
-import BigNumber from 'bignumber.js';
-
 import { Toast } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
@@ -7,25 +5,6 @@ import type { IBinanceDepositSendContext } from '@onekeyhq/shared/types/exchange
 import type { ISendTxOnSuccessData } from '@onekeyhq/shared/types/tx';
 
 import { BINANCE_DEPOSIT_COPY } from './binanceDepositCopy';
-
-// The minimum Binance credits; a transfer below it may never arrive, so it
-// is blocked rather than warned about.
-export function validateBinanceDepositAmount(
-  context: IBinanceDepositSendContext | undefined,
-  tokenAmount: BigNumber,
-): string | undefined {
-  if (!context?.minAmount) {
-    return undefined;
-  }
-  const minAmount = new BigNumber(context.minAmount);
-  if (minAmount.isNaN() || !tokenAmount.isLessThan(minAmount)) {
-    return undefined;
-  }
-  return BINANCE_DEPOSIT_COPY.minAmount(
-    context.minAmount,
-    context.cryptoCurrency,
-  );
-}
 
 export function buildBinanceDepositSendHooks({
   context,
@@ -50,9 +29,12 @@ export function buildBinanceDepositSendHooks({
           memo,
         });
       } catch {
-        Toast.error({ title: BINANCE_DEPOSIT_COPY.verifyFailed });
+        Toast.error({
+          title: BINANCE_DEPOSIT_COPY.verifyFailedTitle,
+          message: BINANCE_DEPOSIT_COPY.verifyFailedDesc,
+        });
         throw new OneKeyLocalError({
-          message: BINANCE_DEPOSIT_COPY.verifyFailed,
+          message: BINANCE_DEPOSIT_COPY.verifyFailedTitle,
           autoToast: false,
         });
       }

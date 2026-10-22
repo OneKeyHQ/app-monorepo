@@ -163,10 +163,7 @@ import {
   SendAutoSizeAmountInput,
 } from '../../components/SendAutoSizeAmountInput';
 import { SendConfirmProviderMirror } from '../../components/SendConfirmProvider/SendConfirmProviderMirror';
-import {
-  buildBinanceDepositSendHooks,
-  validateBinanceDepositAmount,
-} from '../SendDataInput/BinanceDeposit/binanceDepositSendHooks';
+import { buildBinanceDepositSendHooks } from '../SendDataInput/BinanceDeposit/binanceDepositSendHooks';
 
 import { AttentionPulse } from './components/AttentionPulse';
 import { showPrivateSendGuideDialog } from './components/PrivateSendGuideDialog';
@@ -394,7 +391,7 @@ function getPrivateSendValueDropPercent(quote?: IFetchQuoteResult) {
   return Number.isFinite(valueDropPercent) ? valueDropPercent : undefined;
 }
 
-function getPositivePrivateSendAmount(amount?: string | number) {
+function getPositiveAmount(amount?: string | number) {
   const amountBN = new BigNumber(amount ?? 0);
   return amountBN.isFinite() && amountBN.isGreaterThan(0)
     ? amountBN.toFixed()
@@ -459,7 +456,7 @@ function getPrivateSendSendValue({
 }
 
 function isPositivePrivateSendAmount(amount?: string | number) {
-  return Boolean(getPositivePrivateSendAmount(amount));
+  return Boolean(getPositiveAmount(amount));
 }
 
 function isPrivateSendQuoteUsable(
@@ -1918,14 +1915,23 @@ function SendAmountInputContainer() {
     return new BigNumber(1).shiftedBy(-decimals).toFixed();
   }, [tokenDetails?.info.decimals]);
 
+  // A Binance deposit below Binance's minimum may never be credited, so that
+  // minimum is shown and enforced like the chain's own.
+  const binanceDepositMinAmount = isLightningNetwork
+    ? undefined
+    : getPositiveAmount(binanceDeposit?.minAmount);
   const tokenMinTransferAmount = useMemo(() => {
     const isNative = tokenDetails?.info.isNative;
-    return isNative
+    const chainMinTransferAmount = isNative
       ? (vaultSettings?.nativeMinTransferAmount ??
-          vaultSettings?.minTransferAmount ??
-          '0')
+        vaultSettings?.minTransferAmount ??
+        '0')
       : (vaultSettings?.minTransferAmount ?? '0');
+    return binanceDepositMinAmount
+      ? BigNumber.max(chainMinTransferAmount, binanceDepositMinAmount).toFixed()
+      : chainMinTransferAmount;
   }, [
+    binanceDepositMinAmount,
     tokenDetails?.info.isNative,
     vaultSettings?.minTransferAmount,
     vaultSettings?.nativeMinTransferAmount,
@@ -1933,7 +1939,7 @@ function SendAmountInputContainer() {
 
   const privateSendProviderMinAmount = useMemo(() => {
     if (sendMode !== ESendMode.PRIVATE) return undefined;
-    return getPositivePrivateSendAmount(privateSendQuote?.limit?.min);
+    return getPositiveAmount(privateSendQuote?.limit?.min);
   }, [privateSendQuote?.limit?.min, sendMode]);
 
   const chainEffectiveMinAmount = useMemo(() => {
@@ -2103,11 +2109,13 @@ function SendAmountInputContainer() {
           ? chainValueUtils.convertSatsToBtc(validationEffectiveMinAmount)
           : validationEffectiveMinAmount;
 
+      // A zero amount is left to the other checks, except for a Binance
+      // deposit, where it is below the deposit minimum like any small amount.
       if (
         !isUseFiat &&
         !new BigNumber(validationEffectiveMinAmount).isZero() &&
         amountBNForValidation.isLessThan(validationEffectiveMinAmount) &&
-        !amountBNForValidation.isZero()
+        (!amountBNForValidation.isZero() || !!binanceDepositMinAmount)
       ) {
         return intl.formatMessage(
           { id: ETranslations.send_error_minimum_amount },
@@ -2120,7 +2128,7 @@ function SendAmountInputContainer() {
         priceBN.isGreaterThan(0) &&
         !new BigNumber(validationEffectiveMinAmount).isZero() &&
         tokenAmountBN.isLessThan(validationEffectiveMinAmount) &&
-        !tokenAmountBN.isZero()
+        (!tokenAmountBN.isZero() || !!binanceDepositMinAmount)
       ) {
         return intl.formatMessage(
           { id: ETranslations.send_error_minimum_amount },
@@ -2186,14 +2194,6 @@ function SendAmountInputContainer() {
         });
       }
 
-      const binanceDepositAmountError = validateBinanceDepositAmount(
-        binanceDeposit,
-        tokenAmountBN,
-      );
-      if (binanceDepositAmountError) {
-        return binanceDepositAmountError;
-      }
-
       // Vault-specific validation
       try {
         // For Lightning, amountBNForValidation is always in sats.
@@ -2236,7 +2236,7 @@ function SendAmountInputContainer() {
       recipientAddress,
       rebaseMultiplier,
       convertDisplayAmountToRawAmount,
-      binanceDeposit,
+      binanceDepositMinAmount,
     ],
   );
 
