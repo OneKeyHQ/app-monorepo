@@ -1,4 +1,5 @@
 // cspell:ignore heikin Ashi
+import { useMemo } from 'react';
 import type { ReactNode } from 'react';
 
 import { useIntl } from 'react-intl';
@@ -21,6 +22,7 @@ const LINE_STYLE_WIDTHS: Partial<Record<string, number>> = {
   bold: 3,
   extraBold: 4,
 };
+const LINE_PREVIEW_FLOATING_PANEL_PROPS = { width: 144 };
 
 export const SELECT_OPTION_TRANSLATION_IDS: Record<string, ETranslations> = {
   auto: ETranslations.global_auto,
@@ -288,18 +290,9 @@ export function SettingsSelect<TValue extends string>({
   optionTranslationIds?: Partial<Record<TValue, ETranslations>>;
 }) {
   const intl = useIntl();
-
-  return (
-    <Select
-      testID={`trading-view-settings-select-${testID}`}
-      title={title}
-      value={value}
-      disabled={disabled}
-      onChange={onChange}
-      placement="bottom-end"
-      floatingPanelProps={showLinePreview ? { width: 144 } : undefined}
-      defaultTriggerInputProps={{ size: 'small', width, pr: '$8' }}
-      items={options.map((option) => ({
+  const items = useMemo(
+    () =>
+      options.map((option) => ({
         value: option,
         label:
           optionLabels?.[option] ??
@@ -312,7 +305,30 @@ export function SettingsSelect<TValue extends string>({
               lineWidth={LINE_STYLE_WIDTHS[option] ?? 1}
             />
           ) : undefined),
-      }))}
+      })),
+    [
+      intl,
+      optionLabels,
+      optionTranslationIds,
+      options,
+      renderOptionLabel,
+      showLinePreview,
+    ],
+  );
+
+  return (
+    <Select
+      testID={`trading-view-settings-select-${testID}`}
+      title={title}
+      value={value}
+      disabled={disabled}
+      onChange={onChange}
+      placement="bottom-end"
+      floatingPanelProps={
+        showLinePreview ? LINE_PREVIEW_FLOATING_PANEL_PROPS : undefined
+      }
+      defaultTriggerInputProps={{ size: 'small', width, pr: '$8' }}
+      items={items}
     />
   );
 }

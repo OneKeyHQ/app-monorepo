@@ -74,6 +74,15 @@ const APPEARANCE_ITEM_TRANSLATION_IDS: Record<string, ETranslations> = {
   wick: ETranslations.market_chart_settings__wick,
 };
 
+const PRICE_COLOR_MODE_OPTIONS = ['greenUpRedDown', 'redUpGreenDown'] as const;
+const LINE_STYLE_OPTIONS = ['solid', 'dashed'] as const;
+const BACKGROUND_STYLE_OPTIONS = ['solid', 'gradient'] as const;
+const GRID_STYLE_OPTIONS = ['both', 'horizontal', 'vertical', 'none'] as const;
+const BACKGROUND_STYLE_TRANSLATION_IDS = {
+  solid: ETranslations.market_chart_settings__solid_color,
+  gradient: ETranslations.market_chart_settings__gradient,
+};
+
 const TREND_COLOR_PRESETS = {
   modern: {
     positive: TRADING_VIEW_NATIVE_THEME_COLORS.brand,
@@ -309,7 +318,7 @@ function PriceMovementColorSelector({
         id: ETranslations.market_chart_settings__price_change_colors,
       })}
       value={value.priceColorMode}
-      options={['greenUpRedDown', 'redUpGreenDown']}
+      options={PRICE_COLOR_MODE_OPTIONS}
       disabled={disabled}
       onChange={onChange}
     />
@@ -623,7 +632,7 @@ export function TradingViewChartSettings({
                     id: ETranslations.market_chart_settings__line_style,
                   })}
                   value={settingsValue.latestPriceLine.style}
-                  options={['solid', 'dashed']}
+                  options={LINE_STYLE_OPTIONS}
                   disabled={
                     submitInProgress || !settingsValue.options.latestPrice
                   }
@@ -750,12 +759,9 @@ export function TradingViewChartSettings({
                 id: ETranslations.market_chart_settings__background_style,
               })}
               value={settingsValue.background.style}
-              options={['solid', 'gradient']}
+              options={BACKGROUND_STYLE_OPTIONS}
               disabled={submitInProgress}
-              optionTranslationIds={{
-                solid: ETranslations.market_chart_settings__solid_color,
-                gradient: ETranslations.market_chart_settings__gradient,
-              }}
+              optionTranslationIds={BACKGROUND_STYLE_TRANSLATION_IDS}
               onChange={(style) => {
                 updateSettingsValue((currentValue) => ({
                   ...currentValue,
@@ -812,7 +818,7 @@ export function TradingViewChartSettings({
                 id: ETranslations.market_chart_settings__grid_lines,
               })}
               value={settingsValue.grid.style}
-              options={['both', 'horizontal', 'vertical', 'none']}
+              options={GRID_STYLE_OPTIONS}
               disabled={submitInProgress}
               onChange={(style) => {
                 updateSettingsValue((currentValue) => ({
@@ -882,7 +888,7 @@ export function TradingViewChartSettings({
                   id: ETranslations.market_chart_settings__crosshair_line_style,
                 })}
                 value={settingsValue.crossLine.style}
-                options={['solid', 'dashed']}
+                options={LINE_STYLE_OPTIONS}
                 disabled={submitInProgress || !settingsValue.options.crossLine}
                 showLinePreview
                 onChange={(style) => {

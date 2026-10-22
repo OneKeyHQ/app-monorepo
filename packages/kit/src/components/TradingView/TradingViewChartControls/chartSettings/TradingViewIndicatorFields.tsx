@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -44,6 +44,17 @@ const TRADING_VIEW_INDICATOR_LINE_STYLE_OPTIONS = [
   width: number;
 }[];
 const TRADING_VIEW_INDICATOR_OPACITY_SEGMENTS = 4;
+
+function renderIndicatorLineStyleOption(
+  value: (typeof TRADING_VIEW_INDICATOR_LINE_STYLE_OPTIONS)[number]['value'],
+) {
+  const option = TRADING_VIEW_INDICATOR_LINE_STYLE_OPTIONS.find(
+    (item) => item.value === value,
+  );
+  return option ? (
+    <SettingsLineStylePreview style={option.pattern} lineWidth={option.width} />
+  ) : null;
+}
 
 function TradingViewIndicatorNumberInput({
   value,
@@ -244,11 +255,28 @@ export function TradingViewIndicatorLineRow({
   const lineStyleTitle = intl.formatMessage({
     id: ETranslations.market_chart_settings__line_style,
   });
-  const lineStyleOptions = TRADING_VIEW_INDICATOR_LINE_STYLE_OPTIONS.filter(
-    (option) =>
-      (showStyle || option.style === 'solid') &&
-      (showSecondaryStyle || option.pattern === 'solid'),
-  );
+  const { lineStyleOptions, lineStyleValues, lineStyleLabels } = useMemo(() => {
+    const options = TRADING_VIEW_INDICATOR_LINE_STYLE_OPTIONS.filter(
+      (option) =>
+        (showStyle || option.style === 'solid') &&
+        (showSecondaryStyle || option.pattern === 'solid'),
+    );
+    return {
+      lineStyleOptions: options,
+      lineStyleValues: options.map((option) => option.value),
+      lineStyleLabels: Object.fromEntries(
+        options.map((option) => [
+          option.value,
+          `${intl.formatMessage({
+            id:
+              option.pattern === 'dashed'
+                ? ETranslations.market_chart_indicator_dashed_line__label
+                : ETranslations.market_chart_settings__solid_line,
+          })}, ${option.width}px`,
+        ]),
+      ),
+    };
+  }, [intl, showSecondaryStyle, showStyle]);
   const selectedLineStyle =
     lineStyleOptions.find(
       (option) =>
@@ -275,31 +303,11 @@ export function TradingViewIndicatorLineRow({
           width={104}
           title={lineStyleTitle}
           value={selectedLineStyle.value}
-          options={lineStyleOptions.map((option) => option.value)}
+          options={lineStyleValues}
           disabled={false}
           showLinePreview
-          optionLabels={Object.fromEntries(
-            lineStyleOptions.map((option) => [
-              option.value,
-              `${intl.formatMessage({
-                id:
-                  option.pattern === 'dashed'
-                    ? ETranslations.market_chart_indicator_dashed_line__label
-                    : ETranslations.market_chart_settings__solid_line,
-              })}, ${option.width}px`,
-            ]),
-          )}
-          renderOptionLabel={(value) => {
-            const option = lineStyleOptions.find(
-              (item) => item.value === value,
-            );
-            return option ? (
-              <SettingsLineStylePreview
-                style={option.pattern}
-                lineWidth={option.width}
-              />
-            ) : null;
-          }}
+          optionLabels={lineStyleLabels}
+          renderOptionLabel={renderIndicatorLineStyleOption}
           onChange={(value) => {
             const option = lineStyleOptions.find(
               (item) => item.value === value,
