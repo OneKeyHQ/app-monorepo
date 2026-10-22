@@ -64,7 +64,7 @@ index a3c84b0..d109b49 100644
  
    fun getConstants(): MutableMap<String, Any>? = original.getConstants()
 diff --git a/node_modules/react-native-keyboard-controller/src/module.ts b/node_modules/react-native-keyboard-controller/src/module.ts
-index b666df1..aa7ecb0 100644
+index b666df1..895e9b6 100644
 --- a/node_modules/react-native-keyboard-controller/src/module.ts
 +++ b/node_modules/react-native-keyboard-controller/src/module.ts
 @@ -1,3 +1,5 @@
@@ -73,7 +73,7 @@ index b666df1..aa7ecb0 100644
  import { KeyboardControllerNative, KeyboardEvents } from "./bindings";
  
  import type {
-@@ -31,18 +33,97 @@ const dismiss = async (options?: Partial<DismissOptions>): Promise<void> => {
+@@ -31,18 +33,141 @@ const dismiss = async (options?: Partial<DismissOptions>): Promise<void> => {
    const animated = options?.animated ?? true;
  
    return new Promise((resolve) => {
@@ -96,6 +96,7 @@ index b666df1..aa7ecb0 100644
 -    const subscription = KeyboardEvents.addListener("keyboardDidHide", () => {
 +    let settled = false;
 +    let decisionMade = false;
++    let nativeSent = false;
 +    let fallbackTimer: ReturnType<typeof setTimeout> | undefined;
 +    let queryTimer: ReturnType<typeof setTimeout> | undefined;
 +    let subscription: ReturnType<typeof KeyboardEvents.addListener> | undefined;
@@ -128,6 +129,84 @@ index b666df1..aa7ecb0 100644
 +        Keyboard.dismiss();
 +      }
 +    };
+ 
+-    KeyboardControllerNative.dismiss(keepFocus, animated);
++    if (isClosed && focusedAndroidInput) {
++      let queryHandled = false;
++      const sendPreservingNativeDismiss = () => {
++        if (settled || nativeSent) {
++          return;
++        }
++        nativeSent = true;
++        subscription = KeyboardEvents.addListener("keyboardDidHide", finish);
++        KeyboardControllerNative.dismiss(true, animated);
++      };
++      const dismissIfStillFocused = () => {
++        if (settled) {
++          return;
++        }
++        if (TextInput.State.currentlyFocusedInput() !== focusedAndroidInput) {
++          finish();
++          return;
++        }
++        sendPreservingNativeDismiss();
++      };
++      const handleQuery = (isInActivityWindow?: boolean) => {
++        if (settled || queryHandled) {
++          return;
++        }
++        queryHandled = true;
++        if (queryTimer) {
++          clearTimeout(queryTimer);
++          queryTimer = undefined;
++        }
++        if (TextInput.State.currentlyFocusedInput() !== focusedAndroidInput) {
++          finish();
++          return;
++        }
++        sendPreservingNativeDismiss();
++        if (settled) {
++          return;
++        }
++        if (isInActivityWindow === true && isClosed) {
++          finish();
++        } else if (
++          isInActivityWindow === false ||
++          (isInActivityWindow === true && !isClosed)
++        ) {
++          if (
++            !keepFocus &&
++            TextInput.State.currentlyFocusedInput() === focusedAndroidInput
++          ) {
++            TextInput.State.blurTextInput(focusedAndroidInput);
++          }
++        }
++      };
++      // Dialog windows may not emit keyboardDidHide to the activity listener.
++      fallbackTimer = setTimeout(() => {
++        dismissIfStillFocused();
++        finish();
++      }, 500);
++      const tag = findNodeHandle(focusedAndroidInput);
++      if (tag == null) {
++        handleQuery();
++        return;
++      }
++      // Leave time for the hide request without assuming a slow query owns
++      // the activity window or blurring a newer focused input.
++      queryTimer = setTimeout(dismissIfStillFocused, 100);
++      try {
++        KeyboardControllerNative.viewPositionInWindow(tag).then(
++          (result) => {
++            handleQuery(result?.isInActivityWindow);
++          },
++          () => handleQuery(),
++        );
++      } catch {
++        handleQuery();
++      }
++      return;
++    }
 +    if (Platform.OS === "android") {
 +      // WindowInsets events from custom Dialog windows are not delivered to
 +      // the controller attached to the activity root. Do not leave callers
@@ -136,41 +215,6 @@ index b666df1..aa7ecb0 100644
 +        sendNormalDismiss();
 +        finish();
 +      }, 500);
-+    }
- 
--    KeyboardControllerNative.dismiss(keepFocus, animated);
-+    if (isClosed && focusedAndroidInput) {
-+      const tag = findNodeHandle(focusedAndroidInput);
-+      if (tag == null) {
-+        sendNormalDismiss();
-+        return;
-+      }
-+      // Leave time for the hide request if the window lookup is delayed.
-+      queryTimer = setTimeout(sendNormalDismiss, 100);
-+      try {
-+        KeyboardControllerNative.viewPositionInWindow(tag).then(
-+          ({ isInActivityWindow }) => {
-+            if (settled || decisionMade) {
-+              return;
-+            }
-+            if (
-+              isInActivityWindow === true &&
-+              TextInput.State.currentlyFocusedInput() === focusedAndroidInput &&
-+              isClosed
-+            ) {
-+              decisionMade = true;
-+              KeyboardControllerNative.dismiss(true, animated);
-+              finish();
-+            } else {
-+              sendNormalDismiss();
-+            }
-+          },
-+          sendNormalDismiss,
-+        );
-+      } catch {
-+        sendNormalDismiss();
-+      }
-+      return;
 +    }
 +    sendNormalDismiss();
    });

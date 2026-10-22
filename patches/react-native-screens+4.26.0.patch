@@ -1,9 +1,9 @@
 diff --git a/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/NativeStackGestureController.kt b/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/NativeStackGestureController.kt
 new file mode 100644
-index 0000000..d44c03d
+index 0000000..eaa5010
 --- /dev/null
 +++ b/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/NativeStackGestureController.kt
-@@ -0,0 +1,456 @@
+@@ -0,0 +1,457 @@
 +package com.swmansion.rnscreens
 +
 +import android.animation.Animator
@@ -430,7 +430,8 @@ index 0000000..d44c03d
 +    fun update(view: View?, value: Float) {
 +        val next = value.coerceIn(0f, 1f)
 +        if (next <= 0f) {
-+            if (target === view) target = null
++            if (target !== view) return
++            target = null
 +            amount = 0f
 +        } else {
 +            target = view
