@@ -230,6 +230,8 @@ function makeService() {
     buildDecodedTx: jest.fn().mockResolvedValue(decodedTx),
     broadcastTransaction: jest.fn().mockResolvedValue({ txid: '0xtxid' }),
     checkShouldRetryBroadcastTx: jest.fn().mockResolvedValue(false),
+    checkSignedTxBroadcastStatus: jest.fn().mockResolvedValue('unknown'),
+    isSignedTxRejectedByBroadcast: jest.fn().mockResolvedValue(false),
     refreshUnsignedTxBeforeBatchSign: jest.fn((tx: IUnsignedTxPro) =>
       Promise.resolve(tx),
     ),

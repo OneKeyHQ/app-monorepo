@@ -40,6 +40,7 @@ export const primePersistAtomInitialValue: IPrimePersistAtomData = {
   subscriptionManageUrl: undefined,
   nickname: undefined,
   avatar: undefined,
+  inviteProfilePublic: undefined,
 };
 export const {
   target: primePersistAtom, // persist

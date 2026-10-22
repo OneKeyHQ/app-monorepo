@@ -7,6 +7,7 @@ import pRetry from 'p-retry';
 import type { IEncodedTxTron } from '@onekeyhq/core/src/chains/tron/types';
 import type {
   IEncodedTx,
+  ISignedTxPro,
   IUnsignedMessage,
   IUnsignedTxPro,
 } from '@onekeyhq/core/src/types';
@@ -78,6 +79,7 @@ import type {
 } from '@onekeyhq/shared/types/tx';
 
 import { vaultFactory } from '../vaults/factory';
+import { ESignedTxBroadcastStatus } from '../vaults/types';
 
 import ServiceBase from './ServiceBase';
 import {
@@ -85,6 +87,7 @@ import {
   buildStageConfirmContentForSignTx,
 } from './ServiceHardwareUI/deviceStageConfirmUtils';
 
+import type { IBroadcastRecord } from '../dbs/simple/entity/SimpleDbEntityBroadcastRecords';
 import type {
   IBatchSignTransactionParamsBase,
   IBroadcastTransactionParams,
@@ -120,6 +123,132 @@ class ServiceSend extends ServiceBase {
   // cleared in its `finally`. UI calls `abortGasAccountSubmit` to break the
   // loop when the user cancels the confirm screen.
   private gasAccountSubmitAborters: Map<string, AbortController> = new Map();
+
+  // Signed txs that left this device, by unsignedTx uuid (OK-65147). The
+  // UI's `successfullySentTxs` array is serialized across the bridge on
+  // extension and native dual-runtime builds, so a push into it never
+  // reaches the caller; this persisted record is what a retry consults, and
+  // it also survives a background runtime restart.
+  private get broadcastRecords() {
+    return this.backgroundApi.simpleDb.broadcastRecords;
+  }
+
+  private async rememberBroadcastAttempt({
+    unsignedTx,
+    signedTx,
+    networkId,
+    accountId,
+  }: {
+    unsignedTx: IUnsignedTxPro;
+    signedTx: ISignedTxPro;
+    networkId: string;
+    accountId: string;
+  }) {
+    if (!unsignedTx.uuid) {
+      return;
+    }
+    await this.broadcastRecords.upsertRecord({
+      uuid: unsignedTx.uuid,
+      networkId,
+      accountId,
+      signedTx,
+      attemptedAt: Date.now(),
+      isBroadcast: false,
+      isSettled: false,
+    });
+  }
+
+  // `isSettled` is set at once for direct callers (swap, perps deposit,
+  // market quick send): their retry only replays the signed result, and the
+  // batch loop's bookkeeping never runs for them, so nothing is left to gate
+  // and the record can be evicted like any other settled one.
+  private async rememberBroadcastAccepted({
+    unsignedTx,
+    signedTx,
+    isSettled,
+  }: {
+    unsignedTx: IUnsignedTxPro;
+    signedTx: ISignedTxPro;
+    isSettled: boolean;
+  }) {
+    if (!unsignedTx.uuid) {
+      return;
+    }
+    await this.broadcastRecords.updateRecord(unsignedTx.uuid, {
+      signedTx,
+      isBroadcast: true,
+      ...(isSettled ? { isSettled: true } : {}),
+    });
+  }
+
+  private async forgetBroadcastAttempt({
+    unsignedTx,
+  }: {
+    unsignedTx: IUnsignedTxPro;
+  }) {
+    if (!unsignedTx.uuid) {
+      return;
+    }
+    await this.broadcastRecords.deleteRecord(unsignedTx.uuid);
+  }
+
+  private async markBroadcastRecordSettled({
+    unsignedTx,
+  }: {
+    unsignedTx: IUnsignedTxPro;
+  }) {
+    if (!unsignedTx.uuid) {
+      return;
+    }
+    await this.broadcastRecords.updateRecord(unsignedTx.uuid, {
+      isSettled: true,
+    });
+  }
+
+  // Returns the record to replay when this uuid already reached the network,
+  // or undefined when it is safe to sign. The vault decides from the chain;
+  // a lookup failure propagates on purpose, because signing blindly here is
+  // the double send.
+  private async resolveBroadcastRecord({
+    uuid,
+    vault,
+  }: {
+    uuid: string;
+    vault: {
+      checkSignedTxBroadcastStatus: (params: {
+        signedTx: ISignedTxPro;
+        attemptedAt: number;
+      }) => Promise<ESignedTxBroadcastStatus>;
+    };
+  }): Promise<IBroadcastRecord | undefined> {
+    const record = await this.broadcastRecords.getRecord(uuid);
+    if (!record) {
+      return undefined;
+    }
+    const status = await vault.checkSignedTxBroadcastStatus({
+      signedTx: record.signedTx,
+      attemptedAt: record.attemptedAt,
+    });
+    if (status === ESignedTxBroadcastStatus.NotBroadcast) {
+      await this.broadcastRecords.deleteRecord(uuid);
+      return undefined;
+    }
+    if (status === ESignedTxBroadcastStatus.Unknown) {
+      // Chains without a verdict keep their previous retry behavior: a tx
+      // the node accepted is replayed, one that never got a txid is signed
+      // again byte-for-byte and deduplicated by the network. That record
+      // can never be used, so drop it instead of letting it fill the store.
+      if (!record.isBroadcast) {
+        await this.broadcastRecords.deleteRecord(uuid);
+        return undefined;
+      }
+      return record;
+    }
+    if (!record.isBroadcast) {
+      await this.broadcastRecords.updateRecord(uuid, { isBroadcast: true });
+    }
+    return { ...record, isBroadcast: true };
+  }
 
   @backgroundMethod()
   public async abortGasAccountSubmit(submitId: string): Promise<void> {
@@ -421,6 +550,8 @@ class ServiceSend extends ServiceBase {
         transferPayload?: IBatchSignTransactionParamsBase['transferPayload'];
         isPrivateSend?: boolean;
         stageFeeInfo?: ISendSelectedFeeInfo;
+        // Set by the batch loop, which has already consulted the record.
+        skipBroadcastRecordCheck?: boolean;
       },
   ) {
     const {
@@ -438,6 +569,7 @@ class ServiceSend extends ServiceBase {
       isPrivateSend,
       useDefaultRpc,
       stageFeeInfo,
+      skipBroadcastRecordCheck,
     } = params;
 
     const accountAddress =
@@ -452,6 +584,23 @@ class ServiceSend extends ServiceBase {
       staticBroadcastSkipReason = 'requestedSignOnly';
     } else if (isExternalAccount) {
       staticBroadcastSkipReason = 'externalAccount';
+    }
+
+    // Direct callers (swap, perps deposit, market quick send) retry through
+    // here rather than the batch loop; a tx that already reached the network
+    // is handed back instead of being signed again (OK-65147).
+    if (
+      !staticBroadcastSkipReason &&
+      !skipBroadcastRecordCheck &&
+      unsignedTx.uuid
+    ) {
+      const broadcastRecord = await this.resolveBroadcastRecord({
+        uuid: unsignedTx.uuid,
+        vault: await vaultFactory.getVault({ networkId, accountId }),
+      });
+      if (broadcastRecord) {
+        return broadcastRecord.signedTx;
+      }
     }
     const primeBroadcastDiagnosticBase =
       beforeBroadcastAction?.type === 'primeInfiniPayment'
@@ -774,6 +923,10 @@ class ServiceSend extends ServiceBase {
       }
 
       let hasAttemptedBroadcast = false;
+      // Set when an attempt failed without the node positively rejecting
+      // the payload (timeout, reset): it may have been accepted, so a later
+      // rejection of the same payload must not erase the record.
+      let hadAmbiguousBroadcastAttempt = false;
       const broadcastOnce = async () => {
         ensureBroadcastDeadline();
         if (!hasAttemptedBroadcast && primeBroadcastDiagnosticContext) {
@@ -788,17 +941,27 @@ class ServiceSend extends ServiceBase {
           });
         }
         hasAttemptedBroadcast = true;
-        return vault.broadcastTransaction({
-          accountId,
-          networkId,
-          accountAddress,
-          signedTx,
-          rawTxType,
-          tronResourceRentalInfo,
-          gasAccountUiState,
-          isPrivateSend,
-          useDefaultRpc,
-        });
+        try {
+          return await vault.broadcastTransaction({
+            accountId,
+            networkId,
+            accountAddress,
+            signedTx,
+            rawTxType,
+            tronResourceRentalInfo,
+            gasAccountUiState,
+            isPrivateSend,
+            useDefaultRpc,
+          });
+        } catch (error) {
+          if (
+            unsignedTx.uuid &&
+            !(await vault.isSignedTxRejectedByBroadcast(error))
+          ) {
+            hadAmbiguousBroadcastAttempt = true;
+          }
+          throw error;
+        }
       };
 
       // 90212 GasAccountAdmissionOverloaded is a transient, idempotent retry
@@ -922,7 +1085,28 @@ class ServiceSend extends ServiceBase {
         });
       };
 
-      const { txid } = await runBroadcast().catch((error) => {
+      // Persist the signed payload before the broadcast leaves: if the
+      // request fails ambiguously the node may still have it, and a retry
+      // must ask the chain for this signature instead of signing a fresh tx.
+      await this.rememberBroadcastAttempt({
+        unsignedTx,
+        signedTx,
+        networkId,
+        accountId,
+      });
+      const { txid } = await runBroadcast().catch(async (error) => {
+        // A node that evaluated and refused the payload never held it, so
+        // the retry may sign at once instead of waiting for a chain verdict.
+        // Only when every attempt was refused: an earlier ambiguous attempt
+        // may have been accepted even if the last one hit an expired
+        // blockhash.
+        if (
+          unsignedTx.uuid &&
+          !hadAmbiguousBroadcastAttempt &&
+          (await vault.isSignedTxRejectedByBroadcast(error))
+        ) {
+          await this.forgetBroadcastAttempt({ unsignedTx });
+        }
         if (primeBroadcastDiagnosticContext) {
           defaultLogger.prime.subscription.primeCryptoPaymentFlow({
             ...primeBroadcastDiagnosticContext,
@@ -963,13 +1147,26 @@ class ServiceSend extends ServiceBase {
           ),
         });
       }
+      // The batch loop settles its records itself once its bookkeeping ran.
+      const isSettledOnAccept = !skipBroadcastRecordCheck;
       if (!txid) {
         if (vaultSettings.withoutBroadcastTxId) {
+          await this.rememberBroadcastAccepted({
+            unsignedTx,
+            signedTx,
+            isSettled: isSettledOnAccept,
+          });
           return signedTx;
         }
         throw new OneKeyLocalError('Broadcast transaction failed.');
       }
-      return { ...signedTx, txid };
+      const broadcastedTx = { ...signedTx, txid };
+      await this.rememberBroadcastAccepted({
+        unsignedTx,
+        signedTx: broadcastedTx,
+        isSettled: isSettledOnAccept,
+      });
+      return broadcastedTx;
     }
 
     return signedTx;
@@ -1093,12 +1290,24 @@ class ServiceSend extends ServiceBase {
     for (let i = 0, len = unsignedTxs.length; i < len; i += 1) {
       let unsignedTx = unsignedTxs[i];
       const feeInfo = sendSelectedFeeInfos?.[i];
-      if (
-        !successfullySentTxs ||
-        !unsignedTx.uuid ||
-        !successfullySentTxs.includes(unsignedTx.uuid)
-      ) {
-        if (isMultiTxs && i > 0) {
+      // Same-runtime callers (desktop/web) mark what they already sent; that
+      // skip wins before the persisted record is consulted.
+      const isSkippedByCaller = Boolean(
+        unsignedTx.uuid && successfullySentTxs?.includes(unsignedTx.uuid),
+      );
+      // A tx this runtime already broadcast is replayed from its signed
+      // result instead of being signed again: a re-sign would re-stamp
+      // short-lived fields (the Solana blockhash) and put a second,
+      // independently valid tx on chain (OK-65147).
+      const broadcastRecord =
+        !isSkippedByCaller && !signOnly && unsignedTx.uuid
+          ? await this.resolveBroadcastRecord({
+              uuid: unsignedTx.uuid,
+              vault,
+            })
+          : undefined;
+      if (!isSkippedByCaller) {
+        if (!broadcastRecord && isMultiTxs && i > 0) {
           unsignedTx = await vault.refreshUnsignedTxBeforeBatchSign(unsignedTx);
         }
         const buildSignedTx = () =>
@@ -1124,10 +1333,11 @@ class ServiceSend extends ServiceBase {
                 transferPayload,
                 isPrivateSend,
                 useDefaultRpc,
+                skipBroadcastRecordCheck: true,
               });
         let signedTx: Awaited<ReturnType<typeof buildSignedTx>>;
         try {
-          signedTx = await buildSignedTx();
+          signedTx = broadcastRecord?.signedTx ?? (await buildSignedTx());
         } catch (error) {
           // Safety net for the residual race between the pre-broadcast nonce
           // check and the actual broadcast: the backend rejected the replace
@@ -1145,6 +1355,19 @@ class ServiceSend extends ServiceBase {
             });
           }
           throw error;
+        }
+        if (!signOnly && unsignedTx.uuid) {
+          // The chunk is on chain from here on. Announce it before the local
+          // bookkeeping below, which can still throw: the caller's sent list
+          // never crosses the bridge and the result is withheld when the
+          // batch rejects, so this event is what the confirm page marks the
+          // chunk as sent from.
+          appEventBus.emit(EAppEventBusNames.BatchSendTxBroadcasted, {
+            uuid: unsignedTx.uuid,
+            txid: signedTx.txid,
+            networkId,
+            accountId,
+          });
         }
         const decodedTx = await this.buildDecodedTx({
           networkId,
@@ -1213,20 +1436,25 @@ class ServiceSend extends ServiceBase {
           result.push(data);
         }
 
-        await this.backgroundApi.serviceSignature.addItemFromSendProcess(
-          data,
-          sourceInfo,
-        );
-        if (signedTx && !signOnly) {
-          await this.backgroundApi.serviceHistory.saveSendConfirmHistoryTxs({
-            networkId,
-            accountId,
-            data: {
-              signedTx,
-              decodedTx,
-            },
-            replaceTxInfo,
-          });
+        // A replayed tx whose first attempt already ran this bookkeeping
+        // must not add a second signature record or history entry.
+        if (!broadcastRecord?.isSettled) {
+          await this.backgroundApi.serviceSignature.addItemFromSendProcess(
+            data,
+            sourceInfo,
+          );
+          if (signedTx && !signOnly) {
+            await this.backgroundApi.serviceHistory.saveSendConfirmHistoryTxs({
+              networkId,
+              accountId,
+              data: {
+                signedTx,
+                decodedTx,
+              },
+              replaceTxInfo,
+            });
+            await this.markBroadcastRecordSettled({ unsignedTx });
+          }
         }
 
         if (!signOnly && unsignedTx.uuid && successfullySentTxs) {
@@ -1603,7 +1831,10 @@ class ServiceSend extends ServiceBase {
       });
     }
 
-    if (withUuid) {
+    // Every tx that reaches a confirm page carries a uuid so that a retry of
+    // the same tx can be matched against the background's broadcast record
+    // (OK-65147). Callers that ask for a fresh uuid still get one.
+    if (withUuid || !newUnsignedTx.uuid) {
       newUnsignedTx.uuid = generateUUID();
     }
 

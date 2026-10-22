@@ -4,6 +4,10 @@ import { ReactNativeBundleUpdate } from '@onekeyfe/react-native-bundle-update';
 import { useThrottledCallback } from 'use-debounce';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
 import platformEnv from '../../platformEnv';
@@ -258,6 +262,25 @@ export const AppUpdate: IAppUpdate = {
   clearApkCache,
 };
 
+let bundleInstallPromise: Promise<void> | undefined;
+let bundleInstallTarget: string | undefined;
+let bundleRestartPromise: Promise<void> | undefined;
+let bundleRestartFailed = false;
+
+const restartBundle = async (reason: string) => {
+  await new Promise<void>((resolve) => {
+    setTimeout(resolve, 2500);
+  });
+  await appRestart({ mode: EAppRestartMode.All, reason });
+};
+
+export function resetBundleInstallLockForTest() {
+  bundleInstallPromise = undefined;
+  bundleInstallTarget = undefined;
+  bundleRestartPromise = undefined;
+  bundleRestartFailed = false;
+}
+
 export const BundleUpdate: IBundleUpdate = {
   downloadBundle: async (params) => {
     const result = await ReactNativeBundleUpdate.downloadBundle({
@@ -296,40 +319,60 @@ export const BundleUpdate: IBundleUpdate = {
       bundleVersion: toNativeString(params?.bundleVersion),
       sha256: toNativeString(params?.sha256),
     }),
-  installBundle: async (params) => {
-    await ReactNativeBundleUpdate.installBundle({
-      downloadedFile: toNativeString(params?.downloadedFile),
-      latestVersion: toNativeString(params?.latestVersion),
-      bundleVersion: toNativeString(params?.bundleVersion),
-      signature: toNativeString(params?.signature),
-    });
-    defaultLogger.app.appUpdate.restartRNApp();
-    // mode=All — OTA install rewrote bundle on disk; both main and bg
-    // runtimes need to come up against the new bundle so moduleId tables
-    // stay consistent. The setTimeout keeps the existing 2.5s grace
-    // window (MMKV / DB fsync, UI affordance) before reload triggers.
-    // BootRecovery.markBootSuccess() is invoked inside appRestart.
-    setTimeout(() => {
-      void appRestart({
-        mode: EAppRestartMode.All,
-        reason: 'ota.installBundle',
+  installBundle: (params) => {
+    const target = `${params?.latestVersion ?? ''}:${params?.bundleVersion ?? ''}`;
+    if (bundleInstallPromise && bundleInstallTarget !== target) {
+      if (!bundleRestartFailed) {
+        return Promise.reject(
+          new OneKeyLocalError('BUNDLE_INSTALL_TARGET_CONFLICT'),
+        );
+      }
+      // Only replace an installed target after restart has failed.
+      bundleInstallPromise = undefined;
+    }
+    bundleRestartFailed = false;
+    if (!bundleInstallPromise) {
+      bundleInstallTarget = target;
+      bundleInstallPromise = (async () => {
+        await ReactNativeBundleUpdate.installBundle({
+          downloadedFile: toNativeString(params?.downloadedFile),
+          latestVersion: toNativeString(params?.latestVersion),
+          bundleVersion: toNativeString(params?.bundleVersion),
+          signature: toNativeString(params?.signature),
+        });
+      })().catch((error: unknown) => {
+        bundleInstallPromise = undefined;
+        bundleInstallTarget = undefined;
+        throw error;
       });
-    }, 2500);
+    }
+    return bundleInstallPromise.then(() => {
+      if (!bundleRestartPromise) {
+        // Same-target retries must not rewrite fallback history.
+        bundleRestartPromise = (async () => {
+          defaultLogger.app.appUpdate.restartRNApp();
+          await restartBundle('ota.installBundle');
+        })().catch(() => {
+          bundleRestartPromise = undefined;
+          bundleRestartFailed = true;
+          defaultLogger.app.appUpdate.log(
+            'BundleUpdate.installBundle: restart failed',
+          );
+          appEventBus.emitToSelf({
+            type: EAppEventBusNames.BundleUpdateRestartFailed,
+            payload: undefined,
+          });
+        });
+      }
+      // Do not await restart: it can terminate this runtime without resolving.
+    });
   },
   clearBundle: () => ReactNativeBundleUpdate.clearBundle(),
   clearDownload: () => ReactNativeBundleUpdate.clearDownload(),
   resetToBuiltInBundle: async () => {
     await ReactNativeBundleUpdate.resetToBuiltInBundle();
   },
-  restart: () => {
-    // Generic OTA-driven restart (retry path, dialog-confirmed restart).
-    // Treated as all-mode because callers expect the same semantics as a
-    // freshly-installed bundle. BootRecovery.markBootSuccess() runs inside
-    // appRestart, so no explicit call is needed here.
-    setTimeout(() => {
-      void appRestart({ mode: EAppRestartMode.All, reason: 'ota.restart' });
-    }, 2500);
-  },
+  restart: () => restartBundle('ota.restart'),
   isSkipGpgVerificationAllowed: () =>
     Promise.resolve(ReactNativeBundleUpdate.isSkipGpgVerificationAllowed()),
   pruneStaleAppVersionBundles: () =>
@@ -360,15 +403,7 @@ export const BundleUpdate: IBundleUpdate = {
   switchBundle: async (params) => {
     await ReactNativeBundleUpdate.setCurrentUpdateBundleData(params);
     if (params.appVersion && params.bundleVersion) {
-      // Switching bundles changes what's on disk for both main and bg;
-      // mode=All to avoid moduleId drift after the swap. BootRecovery is
-      // marked inside appRestart, so no explicit call is needed here.
-      setTimeout(() => {
-        void appRestart({
-          mode: EAppRestartMode.All,
-          reason: 'ota.switchBundle',
-        });
-      }, 2500);
+      await restartBundle('ota.switchBundle');
     }
   },
   getNativeAppVersion: () => ReactNativeBundleUpdate.getNativeAppVersion(),
