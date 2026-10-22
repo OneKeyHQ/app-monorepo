@@ -1,5 +1,6 @@
 import { memo, useCallback, useEffect, useMemo } from 'react';
 
+import { OverlayView } from '@onekeyfe/react-native-native-overlay';
 import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
 import { uniq } from 'lodash';
 import { useIntl } from 'react-intl';
@@ -35,6 +36,8 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
+import type { IOverlayAnimation } from '@onekeyfe/react-native-native-overlay';
 
 const KEEP_AWAKE_TAG = 'privacy-chain-sync';
 
@@ -337,4 +340,28 @@ function BasicPrivacyChainSyncLight() {
   );
 }
 
-export const PrivacyChainSyncLight = memo(BasicPrivacyChainSyncLight);
+const PrivacyChainSyncLightContent = memo(BasicPrivacyChainSyncLight);
+
+const IOS_HOST_ANIMATION: IOverlayAnimation = { enter: { type: 'none' } };
+
+// iOS lost its full-window container; the `hardware` level keeps the light
+// above dialogs and sheets as before. Other platforms render it in place.
+export function PrivacyChainSyncLight() {
+  if (!platformEnv.isNativeIOS) {
+    return <PrivacyChainSyncLightContent />;
+  }
+  return (
+    <OverlayView
+      visible
+      level="hardware"
+      presentation="fullscreen"
+      animation={IOS_HOST_ANIMATION}
+      blocking={false}
+      backdrop={false}
+      dismissOnBackPress={false}
+      testID="privacy-chain-sync-light-overlay-host"
+    >
+      <PrivacyChainSyncLightContent />
+    </OverlayView>
+  );
+}
