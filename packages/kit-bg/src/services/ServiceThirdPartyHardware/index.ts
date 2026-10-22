@@ -1136,6 +1136,7 @@ class ServiceThirdPartyHardware extends ServiceBase {
       });
     }
     const prepared = new HardwareAllNetworkGetAddressResponse();
+    prepared.vendor = EHardwareVendor.keystone;
     prepared.bundleLength = bundle.length;
     prepared.onSdkResponse({ items, completed: true });
     const index = created.indexedAccount

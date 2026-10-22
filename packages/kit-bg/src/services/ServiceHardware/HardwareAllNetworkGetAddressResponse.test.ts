@@ -2,6 +2,8 @@ import { HardwareErrorCode } from '@onekeyfe/hwk-adapter-core';
 import { HardwareErrorCode as ThirdPartyHwErrorCode } from '@onekeyfe/hwk-adapter-core/errors';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
 import { HardwareAllNetworkGetAddressResponse } from './HardwareAllNetworkGetAddressResponse';
 
@@ -36,6 +38,36 @@ describe('HardwareAllNetworkGetAddressResponse', () => {
       payload: { recovery: { scope: 'call' } },
     });
   });
+
+  test.each([
+    [
+      EHardwareVendor.keystone,
+      ETranslations.hardware_third_party_keystone_btc_account_one_only__msg,
+    ],
+    [undefined, ETranslations.hardware_third_party_path_not_supported__msg],
+  ])(
+    'explains a refused BTC account in the words of vendor %s',
+    async (vendor, key) => {
+      const response = new HardwareAllNetworkGetAddressResponse();
+      response.vendor = vendor;
+      const btcRequest = { path: "m/86'/0'/1'", hwSdkNetwork: 'btc' as const };
+      const pendingItem = response.getItem(btcRequest);
+      response.onSdkItemCallResponse({
+        path: btcRequest.path,
+        network: btcRequest.hwSdkNetwork,
+        success: false,
+        payload: {
+          code: ThirdPartyHwErrorCode.DevicePathForbidden,
+          errorCode: ThirdPartyHwErrorCode.DevicePathForbidden,
+          error: 'Keystone BTC is limited to mainnet account 0',
+          connectId: '',
+          deviceId: '',
+        },
+      });
+
+      await expect(pendingItem).rejects.toMatchObject({ key });
+    },
+  );
 
   test('rejects a pending item that is absent from the completed SDK response', async () => {
     const response = new HardwareAllNetworkGetAddressResponse();
