@@ -9,6 +9,7 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import type { IXStackProps } from '@onekeyhq/components';
 import { TRADING_VIEW_NATIVE_CHART_CONTROLS_HEIGHT } from '@onekeyhq/kit/src/components/TradingView/TradingViewV2/components/TradingViewV2ChartControls';
 
 import { MARKET_SIMPLE_CHART_RANGE_LABEL_IDS } from './marketSimpleChartConstants';
@@ -49,7 +50,7 @@ export function MobileSimpleChartFrame<TRange extends IStockSimpleChartRange>({
   modeControl: ReactNode;
   children: ReactNode;
   testID?: string;
-  controlsPaddingHorizontal?: number;
+  controlsPaddingHorizontal?: IXStackProps['px'];
 }) {
   const intl = useIntl();
 
