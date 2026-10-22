@@ -65,6 +65,8 @@ export type IFormatterOptions = {
   disableThousandSeparator?: boolean;
   capAtMaxT?: boolean;
   keepLeadingZero?: boolean;
+  /** Minimum leading fractional zeros to render as a subscript. @default 5 */
+  minLeadingZeros?: number;
 };
 
 export interface IDisplayNumber {
@@ -840,6 +842,7 @@ export const formatDisplayNumber = (
       tokenSymbol,
       isZero,
       keepLeadingZero,
+      minLeadingZeros = 5,
       decimalSymbol,
     },
   } = value;
@@ -876,7 +879,7 @@ export const formatDisplayNumber = (
     strings.push(currency);
   }
 
-  if (leadingZeros && leadingZeros > 4 && !keepLeadingZero) {
+  if (leadingZeros && leadingZeros >= minLeadingZeros && !keepLeadingZero) {
     const { value: formattedZero } = formatLocalNumber('0', {
       digits: 1,
       removeTrailingZeros: false,
@@ -912,7 +915,7 @@ export const formatDisplayNumber = (
   }
   if (
     options?.splitDecimal ||
-    (leadingZeros && leadingZeros > 4 && !keepLeadingZero)
+    (leadingZeros && leadingZeros >= minLeadingZeros && !keepLeadingZero)
   ) {
     return strings;
   }

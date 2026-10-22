@@ -531,6 +531,33 @@ test('formatPrice', () => {
   ).toEqual(['$', '0.0', { 'type': 'sub', 'value': 7 }, '2146']);
 });
 
+test('custom leading-zero threshold preserves defaults and explicit suppression', () => {
+  const options = { currency: '$', minLeadingZeros: 3 };
+  expect(formatDisplayNumber(formatPrice('0.001831', options))).toBe(
+    '$0.001831',
+  );
+  expect(formatDisplayNumber(formatPrice('0.0001831', options))).toEqual([
+    '$',
+    '0.0',
+    { value: 3, type: 'sub' },
+    '1831',
+  ]);
+  expect(formatDisplayNumber(formatPrice('0.00001831', options))).toEqual([
+    '$',
+    '0.0',
+    { value: 4, type: 'sub' },
+    '1831',
+  ]);
+  expect(formatDisplayNumber(formatPrice('0.0001831', { currency: '$' }))).toBe(
+    '$0.0001831',
+  );
+  expect(
+    formatDisplayNumber(
+      formatPrice('0.0001831', { ...options, keepLeadingZero: true }),
+    ),
+  ).toBe('$0.0001831');
+});
+
 test('formatPriceChange', () => {
   expect(formatDisplayNumber(formatPriceChange('1abc1'))).toEqual('1abc1');
 
