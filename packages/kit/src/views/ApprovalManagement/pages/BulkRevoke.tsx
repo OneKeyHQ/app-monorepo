@@ -115,6 +115,7 @@ function BulkRevoke() {
     featureId: EPrimeFeatures.BulkRevoke,
   });
   const freeTrialUsageIdRef = useRef<string | undefined>(undefined);
+  const freeTrialRetryAttemptIdRef = useRef<string | undefined>(undefined);
   const freeTrialUsageSucceededRef = useRef(false);
   const freeTrialRoundCancelledRef = useRef(false);
   const retryStartingRef = useRef(false);
@@ -446,7 +447,11 @@ function BulkRevoke() {
             feeInfos: [sendSelectedFeeInfo],
             transferPayload: undefined,
             freeTrialUsage: roundUsageId
-              ? { featureId: EPrimeFeatures.BulkRevoke, usageId: roundUsageId }
+              ? {
+                  featureId: EPrimeFeatures.BulkRevoke,
+                  usageId: roundUsageId,
+                  analyticsRetryAttemptId: freeTrialRetryAttemptIdRef.current,
+                }
               : undefined,
           });
         if (roundUsageId) {
@@ -591,12 +596,17 @@ function BulkRevoke() {
       // without any broadcast right away (the background ignores this once a
       // broadcast succeeded).
       const roundUsageId = freeTrialUsageIdRef.current;
-      if (roundUsageId && !freeTrialUsageSucceededRef.current) {
+      if (
+        roundUsageId &&
+        (!freeTrialUsageSucceededRef.current ||
+          freeTrialRetryAttemptIdRef.current)
+      ) {
         void settleUsage(
           roundUsageId,
           isAborted.current || freeTrialRoundCancelledRef.current
             ? 'cancelled'
             : 'failed',
+          freeTrialRetryAttemptIdRef.current,
         );
       }
     }
@@ -762,6 +772,7 @@ function BulkRevoke() {
       succeededLocally: freeTrialUsageSucceededRef.current,
       isCallerGone: () => isAborted.current,
     });
+    freeTrialRetryAttemptIdRef.current = prepared.analyticsRetryAttemptId;
     if (prepared.isNewUsage) {
       freeTrialUsageIdRef.current = prepared.usageId;
       freeTrialUsageSucceededRef.current = false;

@@ -14,6 +14,7 @@ import type { OneKeyError } from '@onekeyhq/shared/src/errors';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
+import { logPrimeFreeTrialResult } from '@onekeyhq/shared/src/utils/primeFreeTrialAnalytics';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type { IApiClientResponse } from '@onekeyhq/shared/types/endpoint';
@@ -747,9 +748,11 @@ class ServicePrimeFreeTrial extends ServiceBase {
   async startUsage({
     featureId,
     usageId,
+    analyticsAttemptId,
   }: {
     featureId: IPrimeFreeTrialUsageFeatureId;
     usageId: string;
+    analyticsAttemptId?: string;
   }): Promise<IPrimeFreeTrialStartResult> {
     if (!USAGE_ID_REGEXP.test(usageId)) {
       throw new OneKeyLocalError({
@@ -762,7 +765,11 @@ class ServicePrimeFreeTrial extends ServiceBase {
     if (inflight) {
       return inflight;
     }
-    const promise = this.startUsageImpl({ featureId, usageId }).finally(() => {
+    const promise = this.startUsageImpl({
+      featureId,
+      usageId,
+      analyticsAttemptId,
+    }).finally(() => {
       this.startRequests.delete(key);
     });
     this.startRequests.set(key, promise);
@@ -772,11 +779,13 @@ class ServicePrimeFreeTrial extends ServiceBase {
   private async startUsageImpl({
     featureId,
     usageId,
+    analyticsAttemptId,
     retryAfterRelease = true,
     earlierAttempts,
   }: {
     featureId: IPrimeFreeTrialUsageFeatureId;
     usageId: string;
+    analyticsAttemptId?: string;
     // An exhausted start may only see this device's own finished use that
     // the server still counts as a reservation; it is asked once more after
     // that release is confirmed.
@@ -898,6 +907,7 @@ class ServicePrimeFreeTrial extends ServiceBase {
               startedAt,
               reportAttempts: 0,
             }),
+            analyticsAttemptId,
             expiresAt: Number(response.expiresAt) || undefined,
           }),
         );
@@ -931,6 +941,7 @@ class ServicePrimeFreeTrial extends ServiceBase {
             return this.startUsageImpl({
               featureId,
               usageId,
+              analyticsAttemptId,
               retryAfterRelease: false,
               earlierAttempts: { onekeyUserId, startedAt, hadUncertainAttempt },
             });
@@ -1103,6 +1114,8 @@ class ServicePrimeFreeTrial extends ServiceBase {
     startedAt?: number;
   }) {
     let changed = false;
+    let hasAnalyticsAttempt = false;
+    let previousResult: IPrimeFreeTrialUsageResult | undefined;
     const now = Date.now();
     const record =
       await this.backgroundApi.simpleDb.primeFreeTrial.updateUsageRecord(
@@ -1122,6 +1135,8 @@ class ServicePrimeFreeTrial extends ServiceBase {
           ) {
             return base;
           }
+          hasAnalyticsAttempt = Boolean(current?.analyticsAttemptId);
+          previousResult = current?.analyticsResult ?? current?.result;
           changed = true;
           return {
             ...base,
@@ -1131,6 +1146,9 @@ class ServicePrimeFreeTrial extends ServiceBase {
               base.expiresAt ??
               base.startedAt + PRIME_FREE_TRIAL_RESERVATION_TTL_MS[featureId],
             result,
+            analyticsResult: hasAnalyticsAttempt
+              ? result
+              : base.analyticsResult,
             resultAt: now,
             nextReportAt: undefined,
           };
@@ -1138,6 +1156,16 @@ class ServicePrimeFreeTrial extends ServiceBase {
       );
     if (!changed) {
       return;
+    }
+    if (hasAnalyticsAttempt && record?.analyticsAttemptId) {
+      logPrimeFreeTrialResult({
+        featureId,
+        attemptId: record.analyticsAttemptId,
+        stage: 'execution',
+        source: 'client',
+        result,
+        ...(previousResult ? { previousResult } : {}),
+      });
     }
     if (result === 'success') {
       defaultLogger.prime.subscription.primeFreeTrialUsageSuccess({
@@ -1179,6 +1207,47 @@ class ServicePrimeFreeTrial extends ServiceBase {
       existing.result === 'success' ||
       (existing.result && result !== 'success')
     ) {
+      if (
+        result === 'success' &&
+        existing.analyticsAttemptId &&
+        existing.reportedAt &&
+        existing.result !== 'success' &&
+        existing.analyticsResult !== 'success'
+      ) {
+        // An accepted finish remains final for accounting. Analytics still
+        // records the real late broadcast, once, independently of that bill.
+        try {
+          let previousResult: IPrimeFreeTrialUsageResult | undefined;
+          let corrected = false;
+          const record =
+            await this.backgroundApi.simpleDb.primeFreeTrial.updateUsageRecord(
+              { onekeyUserId: existing.onekeyUserId, featureId, usageId },
+              (current) => {
+                if (
+                  !current?.analyticsAttemptId ||
+                  !current.reportedAt ||
+                  current.result === 'success' ||
+                  current.analyticsResult === 'success'
+                )
+                  return current;
+                previousResult = current.analyticsResult ?? current.result;
+                corrected = true;
+                return { ...current, analyticsResult: 'success' };
+              },
+            );
+          if (corrected && record?.analyticsAttemptId)
+            logPrimeFreeTrialResult({
+              featureId,
+              attemptId: record.analyticsAttemptId,
+              stage: 'execution',
+              source: 'client',
+              result: 'success',
+              previousResult,
+            });
+        } catch {
+          this.trace({ featureId, stage: 'lateUsageSuccessAnalytics' });
+        }
+      }
       return;
     }
     await this.recordUsageResult({
@@ -1213,11 +1282,19 @@ class ServicePrimeFreeTrial extends ServiceBase {
     featureId,
     usageId,
     result,
+    analyticsRetryAttemptId,
   }: {
     featureId: IPrimeFreeTrialUsageFeatureId;
     usageId: string;
     result: Exclude<IPrimeFreeTrialUsageResult, 'success'>;
+    analyticsRetryAttemptId?: string;
   }) {
+    if (analyticsRetryAttemptId)
+      this.recordRetryResult({
+        featureId,
+        attemptId: analyticsRetryAttemptId,
+        result,
+      });
     await this.recordResultOfStartedUsage({
       featureId,
       usageId,
@@ -1274,10 +1351,51 @@ class ServicePrimeFreeTrial extends ServiceBase {
     return ends.length ? Math.min(...ends) : undefined;
   }
 
+  private retryResults = new Map<string, IPrimeFreeTrialUsageResult>();
+
+  private recordRetryResult({
+    featureId,
+    attemptId,
+    result,
+  }: {
+    featureId: IPrimeFreeTrialUsageFeatureId;
+    attemptId: string;
+    result: IPrimeFreeTrialUsageResult;
+  }) {
+    const key = this.getUsageCacheKey(featureId, attemptId);
+    const previousResult = this.retryResults.get(key);
+    if (
+      previousResult === 'success' ||
+      (previousResult && result !== 'success')
+    ) {
+      return;
+    }
+    this.retryResults.set(key, result);
+    // Bound analytics-only memory; no quota or durable usage state changes.
+    if (this.retryResults.size > 1000) {
+      const oldest = this.retryResults.keys().next().value;
+      if (oldest) this.retryResults.delete(oldest);
+    }
+    logPrimeFreeTrialResult({
+      featureId,
+      attemptId,
+      stage: 'retry',
+      source: 'client',
+      result,
+      ...(previousResult ? { previousResult } : {}),
+    });
+  }
+
   // Background-only: called by ServiceSend right after a broadcast succeeds.
   // Must never break or alter the send flow.
   async markBroadcastSuccess(usage: IPrimeFreeTrialBroadcastUsage) {
     try {
+      if (usage.analyticsRetryAttemptId)
+        this.recordRetryResult({
+          featureId: usage.featureId,
+          attemptId: usage.analyticsRetryAttemptId,
+          result: 'success',
+        });
       await this.markUsageSuccess(usage);
     } catch (error) {
       this.trace({

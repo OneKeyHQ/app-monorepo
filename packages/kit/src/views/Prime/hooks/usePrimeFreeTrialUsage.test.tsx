@@ -6,6 +6,8 @@ import { EPrimeFeatures } from '@onekeyhq/shared/src/routes/prime';
 
 import { usePrimeFreeTrialUsage } from './usePrimeFreeTrialUsage';
 
+const mockTrialAttempt = jest.fn();
+const mockTrialResult = jest.fn();
 const mockStartUsage = jest.fn();
 const mockGetUsageResult = jest.fn();
 const mockSettleUsage = jest.fn();
@@ -61,7 +63,11 @@ jest.mock('react-intl', () => ({
 jest.mock('@onekeyhq/shared/src/logger/logger', () => {
   const noopLogger = new Proxy(jest.fn(), {
     apply: () => undefined,
-    get: () => noopLogger,
+    get: (_target, key) => {
+      if (key === 'primeFreeTrialAttempt') return mockTrialAttempt;
+      if (key === 'primeFreeTrialResult') return mockTrialResult;
+      return noopLogger;
+    },
   });
   return { defaultLogger: noopLogger };
 });
@@ -437,6 +443,7 @@ describe('usePrimeFreeTrialUsage.prepareRetryUsage', () => {
         proceed: true,
         usageId: 'usage-1',
         isNewUsage: false,
+        analyticsRetryAttemptId: expect.any(String),
       });
     });
     expect(mockStartUsage).not.toHaveBeenCalled();
@@ -476,6 +483,7 @@ describe('usePrimeFreeTrialUsage.prepareRetryUsage', () => {
         proceed: false,
         usageId: 'usage-1',
         isNewUsage: false,
+        analyticsRetryAttemptId: expect.any(String),
       });
     });
     expect(mockStartUsage).not.toHaveBeenCalled();
@@ -527,5 +535,65 @@ describe('usePrimeFreeTrialUsage.prepareRetryUsage', () => {
         }),
       ).resolves.toMatchObject({ proceed: false, isNewUsage: false });
     });
+  });
+});
+
+describe('bulk execution attempt analytics', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockIsPrimeSubscriptionActive = false;
+  });
+  it.each([
+    EPrimeFeatures.BulkCopyAddresses,
+    EPrimeFeatures.BulkSend,
+    EPrimeFeatures.BulkRevoke,
+  ] as const)('records server exhaustion for %s once', async (featureId) => {
+    mockStartUsage.mockResolvedValue({
+      status: 'exhausted',
+      featureId,
+      data: { reserved: 0 },
+    });
+    const { result } = renderHook(() => usePrimeFreeTrialUsage({ featureId }));
+    await act(async () => {
+      await result.current.startUsage();
+    });
+    expect(mockTrialAttempt).toHaveBeenCalledTimes(1);
+    expect(mockTrialResult).toHaveBeenCalledWith(
+      expect.objectContaining({
+        featureId,
+        stage: 'execution',
+        result: 'exhausted',
+        rejectionSource: 'server',
+      }),
+    );
+  });
+});
+
+describe('bulk start deduplication', () => {
+  it('records one attempt for rapid repeated start presses', async () => {
+    jest.clearAllMocks();
+    mockIsPrimeSubscriptionActive = false;
+    let resolveStart!: (value: unknown) => void;
+    mockStartUsage.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveStart = resolve;
+        }),
+    );
+    const result = renderUsageHook();
+    let first!: Promise<unknown>;
+    let second!: Promise<unknown>;
+    await act(async () => {
+      first = result.current.startUsage();
+      second = result.current.startUsage();
+      await Promise.resolve();
+    });
+    expect(mockTrialAttempt).toHaveBeenCalledTimes(1);
+    expect(mockStartUsage).toHaveBeenCalledTimes(1);
+    resolveStart({ status: 'granted', usageId: 'usage-deduplicated' });
+    await act(async () => {
+      await Promise.all([first, second]);
+    });
+    expect(mockTrialResult).not.toHaveBeenCalled();
   });
 });
