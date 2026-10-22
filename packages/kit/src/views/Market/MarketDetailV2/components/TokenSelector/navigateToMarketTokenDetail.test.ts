@@ -254,7 +254,7 @@ describe('navigateToMarketTokenDetail', () => {
   });
 
   it.each([true, false])(
-    'resolves the next desktop selector layout before updating the current route (asset=%s)',
+    'waits for desktop selector preflight and preserves route resolution when inconclusive (asset=%s)',
     async (matchesAsset) => {
       getCurrentRouteMock.mockReturnValue({
         name: 'MarketDetailV2',
@@ -301,13 +301,19 @@ describe('navigateToMarketTokenDetail', () => {
           payload: {
             params: expect.objectContaining({
               tokenAddress: '0xtoken',
-              resolveMarketAsset: undefined,
+              resolveMarketAsset: matchesAsset ? undefined : true,
+              marketTokenSymbol: matchesAsset ? undefined : preview.symbol,
+              legacyTokenPreview: preview,
               marketTokenId: matchesAsset ? 'token' : undefined,
               marketTokenCategory: matchesAsset ? 'top_coins' : undefined,
             }),
           },
         }),
       );
+      if (!matchesAsset) {
+        expect(changeActiveTokenMock).not.toHaveBeenCalled();
+        expect(prepareTokenDetailPreviewMock).toHaveBeenCalledWith(preview);
+      }
     },
   );
 

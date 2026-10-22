@@ -955,7 +955,7 @@ describe('useToDetailPage', () => {
   });
 
   it.each([true, false])(
-    'keeps the current desktop detail mounted until the next layout is known (asset=%s)',
+    'waits for desktop preflight and preserves route resolution when inconclusive (asset=%s)',
     async (matchesAsset) => {
       Object.assign(platformEnv, {
         isExtensionUiPopup: false,
@@ -1001,7 +1001,8 @@ describe('useToDetailPage', () => {
       expect(mockNavigationSetParams).toHaveBeenCalledWith(
         expect.objectContaining({
           tokenAddress: '0xbtc',
-          resolveMarketAsset: undefined,
+          resolveMarketAsset: matchesAsset ? undefined : true,
+          marketTokenSymbol: matchesAsset ? undefined : 'BTC',
           marketTokenId: matchesAsset ? 'bitcoin' : undefined,
           marketTokenCategory: matchesAsset ? 'top_coins' : undefined,
           legacyTokenPreview: expect.objectContaining({ symbol: 'BTC' }),

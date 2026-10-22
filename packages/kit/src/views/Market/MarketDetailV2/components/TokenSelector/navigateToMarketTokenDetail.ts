@@ -119,8 +119,8 @@ export async function navigateToMarketTokenDetail(
         isNative: identity.isNative,
       };
       marketVariantId = identity.marketVariantId;
+      shouldResolveMarketAsset = false;
     }
-    shouldResolveMarketAsset = false;
   }
   const shortCode = networkUtils.getNetworkShortCode({
     networkId: token.networkId,

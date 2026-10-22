@@ -220,8 +220,8 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
             assetId: identity.marketTokenId,
             address: identity.tokenAddress,
           };
+          shouldResolveMarketAsset = false;
         }
-        shouldResolveMarketAsset = false;
       }
       const resolvedItem = item;
       const marketTokenCategory = item.assetId
