@@ -21,6 +21,7 @@ import {
   Toast,
   XStack,
   YStack,
+  usePreventRemove,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
@@ -77,14 +78,9 @@ export default function TravelMode() {
     };
   }, [admissionId, navigation]);
 
-  useEffect(() => {
-    if (!isSwitching && !restartFailed) {
-      return undefined;
-    }
-    return navigation.addListener('beforeRemove', (event) => {
-      event.preventDefault();
-    });
-  }, [isSwitching, navigation, restartFailed]);
+  // usePreventRemove (not a raw beforeRemove listener) also reaches native
+  // stacks, so Android's native drag-to-dismiss is blocked during the switch.
+  usePreventRemove(isSwitching || restartFailed, () => {});
 
   const applyTravelModeChange = useCallback(
     async (nextEnabled: boolean) => {
