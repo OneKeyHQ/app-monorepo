@@ -202,9 +202,12 @@ function createDustSweepLiveStore(initial: IDustSweepLiveSnapshot) {
 // like the Swap order review.
 function DustSweepLiveSheet({
   store,
+  onHeightChange,
 }: {
   store: ReturnType<typeof createDustSweepLiveStore>;
+  onHeightChange: (height: number) => void;
 }) {
+  const { bottom } = useSafeAreaInsets();
   const { model, onDetails, onLeave } = useSyncExternalStore(
     store.subscribe,
     store.get,
@@ -216,11 +219,20 @@ function DustSweepLiveSheet({
   if (!model.selecting) lastSweep.current = model;
   return (
     <DustSweepScreenProvider value={lastSweep.current}>
-      <DustSweepSummary
-        desktop={false}
-        onDetails={onDetails}
-        onLeave={onLeave}
-      />
+      {/* The sheet's height (plus the safe area under it) is how much of the
+          token list it covers. */}
+      <Stack
+        testID="dust-sweep-live-sheet-content"
+        onLayout={(event) =>
+          onHeightChange(event.nativeEvent.layout.height + bottom)
+        }
+      >
+        <DustSweepSummary
+          desktop={false}
+          onDetails={onDetails}
+          onLeave={onLeave}
+        />
+      </Stack>
     </DustSweepScreenProvider>
   );
 }
@@ -478,6 +490,7 @@ function DustSweepPageContent() {
   const liveSheet = useRef<ReturnType<typeof Dialog.show> | undefined>(
     undefined,
   );
+  const [liveSheetHeight, setLiveSheetHeight] = useState(0);
   // It stays open until Done returns to selection (no drag or backdrop close
   // mid-sweep), and yields to the leave confirmation.
   const showLiveSheet =
@@ -502,7 +515,12 @@ function DustSweepPageContent() {
       onCloseStart: () => {
         if (liveSheet.current === dialog) liveSheet.current = undefined;
       },
-      renderContent: <DustSweepLiveSheet store={liveStore} />,
+      renderContent: (
+        <DustSweepLiveSheet
+          store={liveStore}
+          onHeightChange={setLiveSheetHeight}
+        />
+      ),
     });
     liveSheet.current = dialog;
   }, [liveStore, showLiveSheet]);
@@ -594,7 +612,10 @@ function DustSweepPageContent() {
           </Page.Container>
         ) : (
           <YStack flex={1} minHeight={0}>
-            <DustSweepSelection desktop={false} />
+            <DustSweepSelection
+              desktop={false}
+              obscuredBottom={liveSheetHeight}
+            />
           </YStack>
         )}
       </Page.Body>

@@ -31,7 +31,14 @@ export const DUST_SWEEP_DESKTOP_CARD_MIN_HEIGHT = 560;
 // The mobile direction circle straddles the list / footer border.
 export const DUST_SWEEP_MOBILE_DIRECTION_SIZE = 36;
 
-export function DustSweepSelection({ desktop }: { desktop: boolean }) {
+export function DustSweepSelection({
+  desktop,
+  obscuredBottom = 0,
+}: {
+  desktop: boolean;
+  // Height covered by the mobile live sheet while sweeping.
+  obscuredBottom?: number;
+}) {
   const {
     current,
     visible,
@@ -53,7 +60,15 @@ export function DustSweepSelection({ desktop }: { desktop: boolean }) {
   const rows = selecting
     ? visible
     : session.state.items.map((item) => item.token);
-  const bottomInset = desktop ? 0 : DUST_SWEEP_MOBILE_DIRECTION_SIZE / 2;
+  // Mobile keeps the active row clear of the direction circle while selecting
+  // and above the live sheet while sweeping; the same inset pads the list end
+  // so the last rows can scroll out from under it.
+  let bottomInset = 0;
+  if (!desktop)
+    bottomInset = Math.max(
+      DUST_SWEEP_MOBILE_DIRECTION_SIZE / 2,
+      selecting ? 0 : obscuredBottom,
+    );
   const { scrollViewRef, onRowsLayout, ...scrollProps } =
     useDustSweepActiveItemScroll({
       state: session.state,

@@ -77,10 +77,25 @@ let mockDesktop = true;
 let mockNative = false;
 let mockOverlay = true;
 let mockActualResults = false;
+let mockSafeBottom = 0;
+let mockSelectionProps: { obscuredBottom?: number } = {};
 const mockAgain = jest.fn();
 const mockDialogClose = jest.fn().mockResolvedValue(undefined);
 
 function Box({ children, testID }: PropsWithChildren<{ testID?: string }>) {
+  return <div data-testid={testID}>{children}</div>;
+}
+type ILayoutHandler = (event: {
+  nativeEvent: { layout: { height: number } };
+}) => void;
+// Layout handlers by testID, so a test can report a measured height.
+const mockLayouts = new Map<string, ILayoutHandler>();
+function LayoutBox({
+  children,
+  testID,
+  onLayout,
+}: PropsWithChildren<{ testID?: string; onLayout?: ILayoutHandler }>) {
+  if (testID && onLayout) mockLayouts.set(testID, onLayout);
   return <div data-testid={testID}>{children}</div>;
 }
 function Button({
@@ -112,7 +127,7 @@ jest.mock('@onekeyhq/components', () => ({
     Footer: Box,
     Container: Box,
   }),
-  Stack: Box,
+  Stack: LayoutBox,
   XStack: Box,
   YStack: Box,
   ScrollView: Box,
@@ -135,7 +150,7 @@ jest.mock('@onekeyhq/components', () => ({
   Divider: () => null,
   Skeleton: () => null,
   useMedia: () => ({ gtMd: mockDesktop }),
-  useSafeAreaInsets: () => ({ top: 0, bottom: 0 }),
+  useSafeAreaInsets: () => ({ top: 0, bottom: mockSafeBottom }),
   Dialog: { show: (props: IDialogShowProps) => mockDialog(props) },
   Toast: { warning: (props: unknown) => mockWarning(props) },
 }));
@@ -396,7 +411,10 @@ jest.mock('./components/DustSweepSummary', () => {
   };
 });
 jest.mock('./components/DustSweepSelection', () => ({
-  DustSweepSelection: () => null,
+  DustSweepSelection: (props: { obscuredBottom?: number }) => {
+    mockSelectionProps = props;
+    return null;
+  },
 }));
 jest.mock('./components/DustSweepFilters', () => ({
   DustSweepNetworks: () => null,
@@ -528,6 +546,9 @@ beforeEach(() => {
   mockNative = false;
   mockOverlay = true;
   mockActualResults = false;
+  mockSafeBottom = 0;
+  mockSelectionProps = {};
+  mockLayouts.clear();
   mockLiveSheet = null;
   mockDialog.mockImplementation((props) => {
     let closed = false;
@@ -735,6 +756,28 @@ it('offers Leave in the mobile live sheet while Stop waits for a pending item', 
   expect(confirmDialog().description).toContain(
     ETranslations.swap_review_tx_pending,
   );
+  await act(async () => pending.resolve(success));
+});
+
+it('keeps the mobile token list clear of the live sheet it sits under', async () => {
+  mockNative = true;
+  mockActualResults = true;
+  mockSafeBottom = 34;
+  const pending = deferred<IResult>();
+  execute.mockImplementation(async ({ onSigning }) => {
+    onSigning();
+    return pending.promise;
+  });
+  mountFlow();
+  await act(async () => fireEvent.click(activeTestId('dust-sweep-action')));
+  expect(liveSheetCalls()).toHaveLength(1);
+  act(() =>
+    mockLayouts.get('dust-sweep-live-sheet-content')?.({
+      nativeEvent: { layout: { height: 400 } },
+    }),
+  );
+  // The sheet plus the safe area under it covers the bottom of the list.
+  expect(mockSelectionProps.obscuredBottom).toBe(434);
   await act(async () => pending.resolve(success));
 });
 
