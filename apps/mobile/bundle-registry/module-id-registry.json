@@ -24910,6 +24910,8 @@
     "packages/kit/src/views/Perp/components/PositionShare/useReferralUrl.ts": 11256,
     "packages/kit/src/views/Perp/components/PositionShare/useShareActions.tsx": 13255,
     "packages/kit/src/views/Perp/components/PullToRefresh.tsx": 14688,
+    "packages/kit/src/views/Perp/components/Simple/LeverageRuler.native.tsx": 10928,
+    "packages/kit/src/views/Perp/components/Simple/LeverageRulerScale.tsx": 10306,
     "packages/kit/src/views/Perp/components/Simple/PerpsMobileMode.tsx": 9693,
     "packages/kit/src/views/Perp/components/Simple/SimpleLeverageBadge.tsx": 2617,
     "packages/kit/src/views/Perp/components/Simple/SimpleLeverageDialog.tsx": 24493,

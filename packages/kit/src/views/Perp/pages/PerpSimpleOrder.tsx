@@ -574,7 +574,13 @@ function SimpleOrderContent() {
       }
       const state = nativeNavigation.getState();
       const previousRoute = state?.routes[(state?.index ?? 0) - 1];
-      if (previousRoute?.name === EModalPerpRoutes.MobilePerpSimpleMarket) {
+      const previousMarketParams = previousRoute?.params as
+        | IModalPerpParamList[EModalPerpRoutes.MobilePerpSimpleMarket]
+        | undefined;
+      if (
+        previousRoute?.name === EModalPerpRoutes.MobilePerpSimpleMarket &&
+        previousMarketParams?.coin === route.params.coin
+      ) {
         navigation.pop();
       } else {
         navigation.replace(EModalPerpRoutes.MobilePerpSimpleMarket, {
