@@ -29,7 +29,6 @@ jest.mock('@onekeyhq/kit/src/states/jotai/contexts/accountSelector', () => ({
 jest.mock(
   '@onekeyhq/kit/src/views/ReferFriends/hooks/useWalletBoundReferralCode',
   () => ({
-    useGetReferralCodeWalletInfo: () => jest.fn(),
     useWalletBoundReferralCode: () => ({
       bindWalletInviteCode: mockBindWalletInviteCode,
       getReferralCodeBindDisplayStatus: jest.fn(),

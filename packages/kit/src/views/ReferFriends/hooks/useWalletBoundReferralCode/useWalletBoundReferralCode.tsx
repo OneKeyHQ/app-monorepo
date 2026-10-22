@@ -63,12 +63,12 @@ export function useWalletBoundReferralCode({
       skipIfTimeout?: boolean;
     }): Promise<IReferralBindDisplayStatus> => {
       if (mnemonicType === EMnemonicType.TON) {
-        return 'unknown';
+        return 'unsupported';
       }
 
       const walletInfo = await getReferralCodeWalletInfo(walletId);
       if (!walletInfo) {
-        return 'unknown';
+        return 'unsupported';
       }
       const { address, networkId } = walletInfo;
 

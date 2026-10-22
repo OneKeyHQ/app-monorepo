@@ -613,21 +613,18 @@ function RewardsAddressValue({
 function RewardsAccountRow({
   unsupported,
   trailing,
-  adjacent = false,
 }: {
   unsupported: boolean;
   trailing?: ReactNode;
-  // Keeps the trailing part next to the account instead of at the far end,
-  // so the account and where its rewards go read as one line.
-  adjacent?: boolean;
 }) {
   const copy = useMyRewardsCopy();
   return (
     <XStack
       testID="my-rewards-address-card"
       ai="center"
-      jc={adjacent ? 'flex-start' : 'space-between'}
-      gap={adjacent ? '$4' : '$2'}
+      // The trailing part stays next to the account, so the account and
+      // where its rewards go read as one line.
+      gap="$4"
       minWidth={0}
     >
       {/* A long account name truncates first, so the trailing part stays. */}
@@ -770,7 +767,6 @@ function PerksSummaryCard({
     >
       <RewardsAccountRow
         unsupported={unsupported}
-        adjacent
         trailing={
           // Clear of the address's 8px hover bleed, like the label.
           <XStack ai="center" gap="$3" flexShrink={0}>
