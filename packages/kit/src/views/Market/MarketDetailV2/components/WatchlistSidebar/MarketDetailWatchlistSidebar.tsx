@@ -485,15 +485,19 @@ function MarketDetailWatchlistSidebarImpl({
         shadowRadius: 16,
       })}
     >
-      <Stack
-        position="absolute"
-        right={0}
-        top={SIDEBAR_DIVIDER_INSET}
-        bottom={SIDEBAR_DIVIDER_INSET}
-        width={1}
-        bg="$borderSubdued"
-        pointerEvents="none"
-      />
+      {/* The floating overlay is set apart by its shadow, so only the docked
+          sidebar draws the divider. */}
+      {elevated ? null : (
+        <Stack
+          position="absolute"
+          right={0}
+          top={SIDEBAR_DIVIDER_INSET}
+          bottom={SIDEBAR_DIVIDER_INSET}
+          width={1}
+          bg="$borderSubdued"
+          pointerEvents="none"
+        />
+      )}
       <XStack
         px="$5"
         pt={SIDEBAR_TITLE_TOP_PADDING}
