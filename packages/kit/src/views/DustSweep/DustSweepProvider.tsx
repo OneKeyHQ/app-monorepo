@@ -390,8 +390,7 @@ function useDustSweepController(params: IDustSweepRouteParams) {
       visited.current = undefined;
       return;
     }
-    if (refreshStatus === 'refreshing' || visited.current === loadParams)
-      return;
+    if (refreshStatus !== 'idle' || visited.current === loadParams) return;
     visited.current = loadParams;
     defaultLogger.dex.dustSweep.dustSweepPageVisited({
       page: 'select',
