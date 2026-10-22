@@ -30,6 +30,7 @@ const mockToStock = jest.fn();
 const mockUseToMarketStockDetailPage = jest.fn(
   (_options?: unknown) => mockToStock,
 );
+let mockHasWatchlistItems = true;
 let mockConfigLoading = false;
 let mockSpotCategories: IMarketSpotCategory[] = [];
 let mockStockCategories: Array<{ category: string; name: string }> = [];
@@ -241,6 +242,9 @@ jest.mock('@onekeyhq/kit/src/hooks/useNetworkLogoUri', () => ({
 
 jest.mock('@onekeyhq/kit/src/states/jotai/contexts/marketV2', () => ({
   useTokenDetailActions: () => ({ current: {} }),
+  useMarketWatchListV2Atom: () => [
+    { data: mockHasWatchlistItems ? [{}] : [], isMounted: true },
+  ],
 }));
 
 jest.mock('@onekeyhq/kit/src/views/Market/hooks', () => ({
@@ -429,6 +433,7 @@ jest.mock('./navigateToMarketTokenDetail', () => ({
 
 describe('MarketTokenSelector stock default category', () => {
   beforeEach(() => {
+    mockHasWatchlistItems = true;
     mockSetSelectorConfig.mockReset();
     mockStockListMount.mockReset();
     mockTopCoinPress.mockReset();
@@ -964,6 +969,7 @@ describe('MarketTokenSelector stock default category', () => {
 
 describe('Favorites category selection', () => {
   beforeEach(() => {
+    mockHasWatchlistItems = true;
     mockConfigLoading = false;
     mockSpotCategories = [
       { type: 'trending', name: 'Trending' },
@@ -976,6 +982,55 @@ describe('Favorites category selection', () => {
     mockRouteParams = undefined;
     mockSearchTokenList = [];
     mockMobileSearchTokenList = undefined;
+  });
+
+  it.each(['desktop', 'mobile'])(
+    'hides empty Favorites categories while preserving the %s list',
+    (platform) => {
+      mockHasWatchlistItems = false;
+      if (platform === 'mobile') {
+        render(<MobileTokenSelector />);
+      } else {
+        render(<MarketTokenSelector />);
+        fireEvent.click(screen.getByTestId('market-token-selector-trigger'));
+      }
+      fireEvent.click(
+        screen.getByTestId('market-token-selector-tab-favorites'),
+      );
+      expect(screen.queryByText('prime_crypto_payment__label')).toBeNull();
+      const listId = platform === 'mobile' ? 'mobile-favorites' : 'token-list';
+      expect(screen.getByTestId(listId).getAttribute('data-filter')).toBe(
+        'all',
+      );
+      expect(
+        screen.getByTestId('market-token-selector-tab-favorites'),
+      ).toBeTruthy();
+    },
+  );
+
+  it('returns to All when the last favorite is removed from the Stocks filter', () => {
+    const { result, rerender } = renderHook(() =>
+      useDetailSelectorBrowseState({
+        defaultCategory: 'trending',
+        isWatchlistMode: true,
+      }),
+    );
+    act(() => result.current.handleSubCategoryChange('stocks'));
+    expect(result.current.watchlistFilter).toBe('stocks');
+
+    mockHasWatchlistItems = false;
+    rerender();
+    expect(result.current.subCategories).toEqual([]);
+    expect(result.current.watchlistFilter).toBe('all');
+
+    mockHasWatchlistItems = true;
+    rerender();
+    expect(result.current.watchlistFilter).toBe('all');
+    expect(result.current.subCategories.map(({ id }) => id)).toEqual([
+      'all',
+      'spot',
+      'stocks',
+    ]);
   });
 
   it('keeps Favorites, Stocks, and Tokens categories independent across tab switches and config refreshes', () => {

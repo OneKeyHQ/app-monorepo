@@ -58,6 +58,7 @@ describe('useMarketDetailDisplayData', () => {
     mockTokenDetailData.tokenDetailPreview = undefined;
     mockTokenDetailData.tokenAddress = '';
     mockTokenDetailData.networkId = '';
+    mockTokenDetailData.isNative = false;
     mockStockPreview = undefined;
   });
 
@@ -83,6 +84,56 @@ describe('useMarketDetailDisplayData', () => {
     });
     expect(result.current.isPreviewTokenDetail).toBe(true);
     expect(result.current.isStockToken).toBe(true);
+  });
+
+  it('hides the previous native token while the next token loads or fails', () => {
+    mockTokenDetailData.tokenAddress = '';
+    mockTokenDetailData.networkId = 'sol--101';
+    mockTokenDetailData.isNative = true;
+    mockTokenDetailData.isLoading = true;
+    mockTokenDetailData.tokenDetail = {
+      address: '',
+      networkId: 'evm--1',
+      isNative: true,
+      symbol: 'ETH',
+      name: 'Ethereum',
+      decimals: 18,
+      logoUrl: 'https://example.com/eth.png',
+    };
+    const { result, rerender } = renderHook(() => useMarketDetailDisplayData());
+    expect(result.current.tokenDetail).toBeUndefined();
+
+    mockTokenDetailData.isLoading = false;
+    rerender();
+    expect(result.current.tokenDetail).toBeUndefined();
+
+    mockTokenDetailData.tokenDetail = {
+      ...mockTokenDetailData.tokenDetail,
+      networkId: 'sol--101',
+      symbol: 'SOL',
+      name: 'Solana',
+      decimals: 9,
+      logoUrl: 'https://example.com/sol.png',
+    };
+    rerender();
+    expect(result.current.tokenDetail?.symbol).toBe('SOL');
+    expect(result.current.isPreviewTokenDetail).toBe(false);
+  });
+
+  it('hides a previous contract token on the same network without a preview', () => {
+    mockTokenDetailData.tokenAddress =
+      '0x0000000000000000000000000000000000000002';
+    mockTokenDetailData.networkId = 'evm--1';
+    mockTokenDetailData.tokenDetail = {
+      address: '0x0000000000000000000000000000000000000001',
+      networkId: 'evm--1',
+      symbol: 'OLD',
+      name: 'Old Token',
+      decimals: 18,
+      logoUrl: '',
+    };
+    const { result } = renderHook(() => useMarketDetailDisplayData());
+    expect(result.current.tokenDetail).toBeUndefined();
   });
 
   it('prefers a new preview over a stale full token detail', () => {

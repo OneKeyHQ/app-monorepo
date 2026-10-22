@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
+import { useMarketWatchListV2Atom } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 import { useMarketBasicConfig } from '@onekeyhq/kit/src/views/Market/hooks';
 import type {
   IMarketCategoryItem,
@@ -112,6 +113,9 @@ export function useDetailSelectorBrowseState({
   marketTokenCategory?: string;
 }) {
   const intl = useIntl();
+  const [{ data: watchlist, isMounted: isWatchlistMounted }] =
+    useMarketWatchListV2Atom();
+  const isWatchlistEmpty = isWatchlistMounted && !watchlist?.length;
   const [browseTab, setBrowseTab] = useState<IDetailSelectorBrowseTab>(() =>
     getInitialDetailSelectorBrowseTab({
       defaultCategory,
@@ -157,8 +161,15 @@ export function useDetailSelectorBrowseState({
   const [stockCategoryId, setStockCategoryId] = useState(
     DETAIL_SELECTOR_STOCK_CATEGORY,
   );
-  const [watchlistFilter, setWatchlistFilter] =
+  const [selectedWatchlistFilter, setWatchlistFilter] =
     useState<IDetailSelectorWatchlistFilter>('all');
+  const watchlistFilter = isWatchlistEmpty ? 'all' : selectedWatchlistFilter;
+
+  useEffect(() => {
+    if (isWatchlistEmpty) {
+      setWatchlistFilter('all');
+    }
+  }, [isWatchlistEmpty]);
   const watchlistSubCategories = useMemo<IMarketCategoryItem[]>(
     () => [
       { id: 'all', name: intl.formatMessage({ id: ETranslations.global_all }) },
@@ -183,7 +194,7 @@ export function useDetailSelectorBrowseState({
     subCategories = stockSubCategories;
     selectedSubCategoryId = stockCategoryId;
   } else if (isFavoritesSelection) {
-    subCategories = watchlistSubCategories;
+    subCategories = isWatchlistEmpty ? [] : watchlistSubCategories;
     selectedSubCategoryId = watchlistFilter;
   }
 
