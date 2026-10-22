@@ -16,7 +16,10 @@ jest.mock('../../../dbs/local/localDbInstance', () => ({
 import { MPL_CORE_PROGRAM_ID } from './sdkSol/mplCore';
 import SolVault from './Vault';
 
-import type { IMplCoreAssetInfo } from './sdkSol/mplCore';
+import type {
+  IMplCoreAssetInfo,
+  IMplCoreCollectionInfo,
+} from './sdkSol/mplCore';
 import type { IDasAsset } from './types';
 /* eslint-enable import/first */
 
@@ -26,8 +29,16 @@ const ASSET_ID = '3B8m3HMkNd1Jtc97h9CWzkM5smHbnRVNpToHDcMi36Uu';
 const OWNER = '4kWXxX9qe7bRR4WtaW9MgEVmgbZmgdwLsXmd8EGrKots';
 const COLLECTION = 'CGq5TajpcznCwkwXp5u99Tv1CmU2Hkb5pEajHxkMn63n';
 const TO = 'HNDXEEzC1txmsRBstERLKgKJmBh7M8bvwxrpbBHAwHt6';
+// A Transfer Delegate that is neither the owner nor the recipient.
+const DELEGATE = 'EmwFVyhorqoTeaJFrzns2cWsh1M9SFhSaEqpSVESMszk';
 const ASSET_HEX =
   '0137b86df284aae7496e4e3aab22251874a0cd9a9984afa677c39543006580f23802a77ea107023ec31e21cbbbf776cb98ec021acdb2e320ef20c06b548b6acbb23d19000000436f6c6c6563746f72204372797074205061636b20233334325a00000068747470733a2f2f6261667962656967696434337a656371726b73346532636a61726c6d7461667070636866716873776762776f70706f75703570676d35717a376e342e697066732e7733732e6c696e6b2f3334322e6a736f6e00';
+// The collection account of ASSET_ID (fetched 2026-10-22): Royalties, an
+// unfrozen PermanentFreezeDelegate and UpdateDelegate, no external plugins.
+const COLLECTION_UPDATE_AUTHORITY =
+  '81yd9DLAKM7qkBMhiAYQkEeCF7wUzWEj99azQT2yEy6Y';
+const COLLECTION_HEX =
+  '056841d51c47b14e3863466759d3879798d2bbc163766ad67200f6e848756a4d4914000000436f6c6c6563746f72204372797074205061636b6100000068747470733a2f2f6261667962656967696434337a656371726b73346532636a61726c6d7461667070636866716873776762776f70706f75703570676d35717a376e342e697066732e7733732e6c696e6b2f636f6c6c656374696f6e2e6a736f6ee8030000e703000003410100000000000000f40103000000321f7444371cb11a574cf90cde9081df3afb455d2fa44ecbc7eca1a8125d241b0006419c064530f6d6426742d93bfccd9b4782db275a9f0a9e694fd295bfcefbed0978662dc29946d38e186c868bb1e9b600d69218c1a203c084dfa1178f58d2789b5b0005000401000000321f7444371cb11a574cf90cde9081df3afb455d2fa44ecbc7eca1a8125d241b04030000000002af0000000000000005021a0100000000000004021c0100000000000000000000';
 const SPL_MINT = 'So11111111111111111111111111111111111111112';
 
 const coreAssetInfo: IMplCoreAssetInfo = {
@@ -36,6 +47,15 @@ const coreAssetInfo: IMplCoreAssetInfo = {
   name: 'Collector Crypt Pack #342',
   uri: 'https://example.com/342.json',
   frozen: false,
+  hasExternalTransferPlugin: false,
+};
+
+const coreCollectionInfo: IMplCoreCollectionInfo = {
+  updateAuthority: COLLECTION_UPDATE_AUTHORITY,
+  name: 'Collector Crypt Pack',
+  uri: 'https://example.com/collection.json',
+  frozen: false,
+  hasExternalTransferPlugin: false,
 };
 
 const dasCoreAsset: IDasAsset = {
@@ -67,6 +87,20 @@ function buildCoreAccountInfo(hex = ASSET_HEX) {
   };
 }
 
+// getAccountInfo serving the asset and its collection; anything else is
+// missing.
+function mockCoreAccounts() {
+  return jest.fn().mockImplementation(({ address }: { address: string }) => {
+    if (address === ASSET_ID) {
+      return Promise.resolve(buildCoreAccountInfo());
+    }
+    if (address === COLLECTION) {
+      return Promise.resolve(buildCoreAccountInfo(COLLECTION_HEX));
+    }
+    return Promise.resolve(null);
+  });
+}
+
 type IMockClient = {
   getAsset?: jest.Mock;
   getAccountInfo?: jest.Mock;
@@ -93,6 +127,7 @@ describe('SolVault._resolveMplCoreAsset', () => {
       name: 'Collector Crypt Pack #342',
       uri: 'https://bafybeigid43zecqrks4e2cjarlmtafppchfqhswgbwoppoup5pgm5qz7n4.ipfs.w3s.link/342.json',
       frozen: false,
+      hasExternalTransferPlugin: false,
     });
     expect(getAccountInfo).toHaveBeenCalledWith({
       address: ASSET_ID,
@@ -134,11 +169,42 @@ describe('SolVault._resolveMplCoreAsset', () => {
   });
 });
 
+describe('SolVault._resolveMplCoreCollection', () => {
+  it('returns the parsed collection with its plugin state', async () => {
+    const getAccountInfo = mockCoreAccounts();
+    const vault = buildVault({ getAccountInfo });
+    await expect(
+      vault._resolveMplCoreCollection({ address: COLLECTION }),
+    ).resolves.toEqual({
+      updateAuthority: COLLECTION_UPDATE_AUTHORITY,
+      name: 'Collector Crypt Pack',
+      uri: 'https://bafybeigid43zecqrks4e2cjarlmtafppchfqhswgbwoppoup5pgm5qz7n4.ipfs.w3s.link/collection.json',
+      frozen: false,
+      hasExternalTransferPlugin: false,
+    });
+  });
+
+  it('returns null when the collection account is missing', async () => {
+    const vault = buildVault({ getAccountInfo: mockCoreAccounts() });
+    await expect(
+      vault._resolveMplCoreCollection({ address: TO }),
+    ).resolves.toBeNull();
+  });
+
+  it('rejects an account that is not a CollectionV1', async () => {
+    const vault = buildVault({ getAccountInfo: mockCoreAccounts() });
+    await expect(
+      vault._resolveMplCoreCollection({ address: ASSET_ID }),
+    ).rejects.toThrow('Invalid Metaplex Core collection account');
+  });
+});
+
 describe('SolVault._buildMplCoreNFTInstructions', () => {
   it('builds a single TransferV1 carrying the collection', () => {
     const vault = buildVault({});
     const instructions = vault._buildMplCoreNFTInstructions({
       asset: coreAssetInfo,
+      collection: coreCollectionInfo,
       assetId: new PublicKey(ASSET_ID),
       source: new PublicKey(OWNER),
       destination: new PublicKey(TO),
@@ -166,6 +232,7 @@ describe('SolVault._buildMplCoreNFTInstructions', () => {
         ...coreAssetInfo,
         updateAuthority: { type: 'address', address: TO },
       },
+      collection: null,
       assetId: new PublicKey(ASSET_ID),
       source: new PublicKey(OWNER),
       destination: new PublicKey(TO),
@@ -178,6 +245,7 @@ describe('SolVault._buildMplCoreNFTInstructions', () => {
     expect(() =>
       vault._buildMplCoreNFTInstructions({
         asset: coreAssetInfo,
+        collection: coreCollectionInfo,
         assetId: new PublicKey(ASSET_ID),
         source: new PublicKey(TO),
         destination: new PublicKey(OWNER),
@@ -185,16 +253,52 @@ describe('SolVault._buildMplCoreNFTInstructions', () => {
     ).toThrow('Metaplex Core NFT is not owned by the sender');
   });
 
-  it('rejects a frozen asset', () => {
+  it('rejects a frozen asset or a frozen collection', () => {
     const vault = buildVault({});
+    const params = {
+      assetId: new PublicKey(ASSET_ID),
+      source: new PublicKey(OWNER),
+      destination: new PublicKey(TO),
+    };
     expect(() =>
       vault._buildMplCoreNFTInstructions({
+        ...params,
         asset: { ...coreAssetInfo, frozen: true },
-        assetId: new PublicKey(ASSET_ID),
-        source: new PublicKey(OWNER),
-        destination: new PublicKey(TO),
+        collection: coreCollectionInfo,
       }),
     ).toThrow('Metaplex Core NFT is frozen and cannot be transferred');
+    expect(() =>
+      vault._buildMplCoreNFTInstructions({
+        ...params,
+        asset: coreAssetInfo,
+        collection: { ...coreCollectionInfo, frozen: true },
+      }),
+    ).toThrow('Metaplex Core NFT is frozen and cannot be transferred');
+  });
+
+  it('rejects an asset or collection with an external Transfer plugin', () => {
+    const vault = buildVault({});
+    const params = {
+      assetId: new PublicKey(ASSET_ID),
+      source: new PublicKey(OWNER),
+      destination: new PublicKey(TO),
+    };
+    const error =
+      'Metaplex Core NFT with an Oracle or lifecycle hook plugin is not supported yet';
+    expect(() =>
+      vault._buildMplCoreNFTInstructions({
+        ...params,
+        asset: { ...coreAssetInfo, hasExternalTransferPlugin: true },
+        collection: coreCollectionInfo,
+      }),
+    ).toThrow(error);
+    expect(() =>
+      vault._buildMplCoreNFTInstructions({
+        ...params,
+        asset: coreAssetInfo,
+        collection: { ...coreCollectionInfo, hasExternalTransferPlugin: true },
+      }),
+    ).toThrow(error);
   });
 });
 
@@ -212,9 +316,9 @@ describe('SolVault._buildInstructionsForTransfer routing', () => {
     };
   }
 
-  it('routes a Core asset to TransferV1 without any SPL lookups', async () => {
+  it('routes a Core asset to TransferV1 after checking its collection', async () => {
     const getAsset = jest.fn().mockResolvedValue(dasCoreAsset);
-    const getAccountInfo = jest.fn().mockResolvedValue(buildCoreAccountInfo());
+    const getAccountInfo = mockCoreAccounts();
     const getTokenAccountsByOwner = jest.fn();
     const client = { getAsset, getAccountInfo, getTokenAccountsByOwner };
     const vault = buildVault(client);
@@ -229,12 +333,16 @@ describe('SolVault._buildInstructionsForTransfer routing', () => {
     expect(instructions).toHaveLength(1);
     expect(instructions[0].programId.equals(MPL_CORE_PROGRAM_ID)).toBe(true);
     expect(instructions[0].keys[4].pubkey.toBase58()).toBe(TO);
+    expect(getAccountInfo).toHaveBeenCalledWith({
+      address: COLLECTION,
+      encoding: 'base64',
+    });
     expect(getTokenAccountsByOwner).not.toHaveBeenCalled();
   });
 
   it('routes a Core asset to TransferV1 when DAS is unavailable', async () => {
     const getAsset = jest.fn().mockRejectedValue(new Error('Method not found'));
-    const getAccountInfo = jest.fn().mockResolvedValue(buildCoreAccountInfo());
+    const getAccountInfo = mockCoreAccounts();
     const getTokenAccountsByOwner = jest.fn();
     const client = { getAsset, getAccountInfo, getTokenAccountsByOwner };
     const vault = buildVault(client);
@@ -290,6 +398,7 @@ describe('SolVault._decodeNativeTxActions for Core transfers', () => {
     const vault = buildVault({});
     const [ix] = vault._buildMplCoreNFTInstructions({
       asset: coreAssetInfo,
+      collection: coreCollectionInfo,
       assetId: new PublicKey(ASSET_ID),
       source: new PublicKey(OWNER),
       destination: new PublicKey(TO),
@@ -297,18 +406,30 @@ describe('SolVault._decodeNativeTxActions for Core transfers', () => {
     return ix;
   }
 
-  function buildDecodeVault(client: IMockClient) {
+  // TransferV1 signed by DELEGATE (payer + authority) for the asset of OWNER.
+  function buildDelegateTransferInstruction() {
+    const ix = buildTransferInstruction();
+    const delegate = new PublicKey(DELEGATE);
+    ix.keys[2] = { ...ix.keys[2], pubkey: delegate };
+    ix.keys[3] = { ...ix.keys[3], pubkey: delegate };
+    return ix;
+  }
+
+  function buildDecodeVault(client: IMockClient, accountAddress = OWNER) {
     const vault = buildVault(client);
-    vault.getAccountAddress = jest.fn().mockResolvedValue(OWNER) as never;
+    vault.getAccountAddress = jest
+      .fn()
+      .mockResolvedValue(accountAddress) as never;
     vault.getNetwork = jest
       .fn()
       .mockResolvedValue({ decimals: 9, symbol: 'SOL' }) as never;
     return vault;
   }
 
-  it('produces an NFT asset transfer action with DAS metadata', async () => {
+  it('produces an NFT asset transfer action with DAS metadata and owner', async () => {
     const getAsset = jest.fn().mockResolvedValue(dasCoreAsset);
-    const vault = buildDecodeVault({ getAsset });
+    const getAccountInfo = jest.fn();
+    const vault = buildDecodeVault({ getAsset, getAccountInfo });
 
     const actions = await vault._decodeNativeTxActions({
       instructions: [buildTransferInstruction()],
@@ -318,6 +439,7 @@ describe('SolVault._decodeNativeTxActions for Core transfers', () => {
     });
 
     expect(getAsset).toHaveBeenCalledWith(ASSET_ID);
+    expect(getAccountInfo).not.toHaveBeenCalled();
     expect(actions).toHaveLength(1);
     expect(actions[0].type).toBe('ASSET_TRANSFER');
     expect(actions[0].assetTransfer?.from).toBe(OWNER);
@@ -335,7 +457,7 @@ describe('SolVault._decodeNativeTxActions for Core transfers', () => {
     ]);
   });
 
-  it('falls back to the on-chain name when DAS metadata cannot be loaded', async () => {
+  it('falls back to the on-chain owner and name when DAS metadata cannot be loaded', async () => {
     const getAsset = jest.fn().mockRejectedValue(new Error('Method not found'));
     const getAccountInfo = jest.fn().mockResolvedValue(buildCoreAccountInfo());
     const vault = buildDecodeVault({ getAsset, getAccountInfo });
@@ -348,8 +470,10 @@ describe('SolVault._decodeNativeTxActions for Core transfers', () => {
     });
 
     expect(actions[0].type).toBe('ASSET_TRANSFER');
+    expect(actions[0].assetTransfer?.from).toBe(OWNER);
     expect(actions[0].assetTransfer?.sends[0]).toEqual(
       expect.objectContaining({
+        from: OWNER,
         tokenIdOnNetwork: ASSET_ID,
         isNFT: true,
         name: 'Collector Crypt Pack #342',
@@ -358,7 +482,55 @@ describe('SolVault._decodeNativeTxActions for Core transfers', () => {
     );
   });
 
-  it('still produces the transfer when neither DAS nor the account can be read', async () => {
+  it('reads the owner on-chain when DAS has no ownership data', async () => {
+    const getAsset = jest
+      .fn()
+      .mockResolvedValue({ ...dasCoreAsset, ownership: undefined });
+    const getAccountInfo = jest.fn().mockResolvedValue(buildCoreAccountInfo());
+    const vault = buildDecodeVault({ getAsset, getAccountInfo });
+
+    const actions = await vault._decodeNativeTxActions({
+      instructions: [buildTransferInstruction()],
+      isNFT: true,
+      amountToSend: '1',
+      sendTokenInfo: undefined,
+    });
+
+    expect(actions[0].assetTransfer?.from).toBe(OWNER);
+    // DAS metadata still wins over the on-chain name.
+    expect(actions[0].assetTransfer?.sends[0]).toEqual(
+      expect.objectContaining({
+        symbol: 'CCP',
+        icon: 'https://example.com/pack.png',
+      }),
+    );
+  });
+
+  it('classifies against the asset owner, not the signing Transfer Delegate', async () => {
+    const getAsset = jest.fn().mockResolvedValue(dasCoreAsset);
+    const vault = buildDecodeVault({ getAsset });
+
+    const actions = await vault._decodeNativeTxActions({
+      instructions: [buildDelegateTransferInstruction()],
+      isNFT: true,
+      amountToSend: '1',
+      sendTokenInfo: undefined,
+    });
+
+    expect(actions[0].type).toBe('ASSET_TRANSFER');
+    expect(actions[0].assetTransfer?.from).toBe(OWNER);
+    // The wallet owns the asset, so the delegate-signed transfer is a spend.
+    expect(actions[0].assetTransfer?.sends).toEqual([
+      expect.objectContaining({
+        from: OWNER,
+        to: TO,
+        tokenIdOnNetwork: ASSET_ID,
+      }),
+    ]);
+    expect(actions[0].assetTransfer?.receives).toEqual([]);
+  });
+
+  it('falls back to UNKNOWN when the owner cannot be established', async () => {
     const getAsset = jest.fn().mockRejectedValue(new Error('Method not found'));
     const getAccountInfo = jest.fn().mockRejectedValue(new Error('timeout'));
     const vault = buildDecodeVault({ getAsset, getAccountInfo });
@@ -370,10 +542,9 @@ describe('SolVault._decodeNativeTxActions for Core transfers', () => {
       sendTokenInfo: undefined,
     });
 
-    expect(actions[0].type).toBe('ASSET_TRANSFER');
-    expect(actions[0].assetTransfer?.sends[0]).toEqual(
-      expect.objectContaining({ tokenIdOnNetwork: ASSET_ID, name: '' }),
-    );
+    expect(actions).toEqual([
+      { type: 'UNKNOWN', unknownAction: { from: OWNER, to: '' } },
+    ]);
   });
 
   it('falls back to UNKNOWN when a non-transfer Core instruction is present', async () => {

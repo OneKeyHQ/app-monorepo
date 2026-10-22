@@ -1637,3 +1637,4 @@ Jsign
 misttrack
 Borsh
 Galxe
+Hookable

@@ -136,6 +136,7 @@ import {
   buildMplCoreTransferInstruction,
   decodeMplCoreTransferInstruction,
   parseMplCoreAssetAccount,
+  parseMplCoreCollectionAccount,
 } from './sdkSol/mplCore';
 import { getSolanaSwapRent } from './solanaRentUtils';
 import {
@@ -162,6 +163,7 @@ import {
 import type { IBubblegumTransferDecoded } from './sdkSol/bubblegum';
 import type {
   IMplCoreAssetInfo,
+  IMplCoreCollectionInfo,
   IMplCoreTransferDecoded,
 } from './sdkSol/mplCore';
 import type {
@@ -427,9 +429,18 @@ export default class Vault extends VaultBase {
           assetId: tokenAddress,
         });
         if (mplCoreAsset) {
+          // Collection-level plugins (permanent freeze, external adapters)
+          // apply to every asset in the collection.
+          const mplCoreCollection =
+            mplCoreAsset.updateAuthority.type === 'collection'
+              ? await this._resolveMplCoreCollection({
+                  address: mplCoreAsset.updateAuthority.address,
+                })
+              : null;
           instructions.push(
             ...this._buildMplCoreNFTInstructions({
               asset: mplCoreAsset,
+              collection: mplCoreCollection,
               assetId: new PublicKey(tokenAddress),
               source,
               destination,
@@ -1249,13 +1260,41 @@ export default class Vault extends VaultBase {
     return parseMplCoreAssetAccount(Buffer.from(accountInfo.data[0], 'base64'));
   }
 
+  // Returns the parsed collection when `address` is a CollectionV1 account
+  // owned by the Core program; null when it is missing, in which case the
+  // program reports the problem itself.
+  async _resolveMplCoreCollection({
+    address,
+  }: {
+    address: string;
+  }): Promise<IMplCoreCollectionInfo | null> {
+    const client = await this.getClient();
+    const accountInfo = await client.getAccountInfo({
+      address,
+      encoding: EParamsEncodings.BASE64,
+    });
+    if (
+      !accountInfo ||
+      accountInfo.owner.toString() !== MPL_CORE_PROGRAM_ID.toBase58()
+    ) {
+      return null;
+    }
+    return parseMplCoreCollectionAccount(
+      Buffer.from(accountInfo.data[0], 'base64'),
+    );
+  }
+
   _buildMplCoreNFTInstructions({
     asset,
+    collection,
     assetId,
     source,
     destination,
   }: {
     asset: IMplCoreAssetInfo;
+    // The asset's collection when its update authority is one; collection
+    // plugins apply to the asset as well.
+    collection: IMplCoreCollectionInfo | null;
     assetId: PublicKey;
     source: PublicKey;
     destination: PublicKey;
@@ -1267,9 +1306,20 @@ export default class Vault extends VaultBase {
     }
     // Marketplace listings and staking freeze the asset inside the wallet;
     // the program rejects the transfer, so fail before anything is signed.
-    if (asset.frozen) {
+    if (asset.frozen || collection?.frozen) {
       throw new OneKeyLocalError(
         'Metaplex Core NFT is frozen and cannot be transferred',
+      );
+    }
+    // Oracle / LifecycleHook adapters need extra accounts appended to
+    // TransferV1 that this wallet does not derive; without them the program
+    // rejects the transfer, so refuse up front instead of at simulation.
+    if (
+      asset.hasExternalTransferPlugin ||
+      collection?.hasExternalTransferPlugin
+    ) {
+      throw new OneKeyLocalError(
+        'Metaplex Core NFT with an Oracle or lifecycle hook plugin is not supported yet',
       );
     }
     return [
@@ -1790,18 +1840,20 @@ export default class Vault extends VaultBase {
       }
 
       const mplCoreTransfer = decodeMplCoreTransferInstruction(instruction);
-      if (mplCoreTransfer) {
-        actions.push(
-          await this._buildMplCoreNFTTransferAction({
+      const mplCoreAction = mplCoreTransfer
+        ? await this._buildMplCoreNFTTransferAction({
             transfer: mplCoreTransfer,
             amountToSend,
-          }),
-        );
+          })
+        : null;
+      if (mplCoreAction) {
+        actions.push(mplCoreAction);
         // eslint-disable-next-line no-continue
         continue;
       }
       if (instruction.programId.equals(MPL_CORE_PROGRAM_ID)) {
-        // Same rule as Bubblegum: only TransferV1 is decoded locally.
+        // Same rule as Bubblegum: only a TransferV1 whose asset owner can be
+        // established is decoded locally.
         hasCustomProgram = true;
       }
 
@@ -2062,13 +2114,19 @@ export default class Vault extends VaultBase {
     });
   }
 
+  // TransferV1 only names the signing authority, which is a Transfer Delegate
+  // rather than the owner when someone else's asset is moved, so the sender
+  // is read from the asset itself. Returns null when the owner cannot be
+  // established; the caller then leaves the tx to the server-parsed view
+  // instead of guessing from the signer.
   async _buildMplCoreNFTTransferAction({
     transfer,
     amountToSend,
   }: {
     transfer: IMplCoreTransferDecoded;
     amountToSend: string | undefined;
-  }): Promise<IDecodedTxAction> {
+  }): Promise<IDecodedTxAction | null> {
+    let owner: string | undefined;
     let name = '';
     let symbol = '';
     let icon = '';
@@ -2076,11 +2134,14 @@ export default class Vault extends VaultBase {
       const client = await this.getClient();
       try {
         const asset = await client.getAsset(transfer.asset);
+        owner = asset.ownership?.owner;
         name = asset.content?.metadata?.name ?? '';
         symbol = asset.content?.metadata?.symbol ?? name;
         icon = asset.content?.links?.image ?? '';
       } catch {
-        // DAS unavailable: the on-chain account still carries the name.
+        // DAS unavailable: the on-chain account is read below.
+      }
+      if (!owner) {
         const accountInfo = await client.getAccountInfo({
           address: transfer.asset,
           encoding: EParamsEncodings.BASE64,
@@ -2089,16 +2150,19 @@ export default class Vault extends VaultBase {
           const parsed = parseMplCoreAssetAccount(
             Buffer.from(accountInfo.data[0], 'base64'),
           );
-          name = parsed.name;
-          symbol = parsed.name;
+          owner = parsed.owner;
+          name = name || parsed.name;
+          symbol = symbol || parsed.name;
         }
       }
     } catch {
-      // keep empty metadata
+      // Neither source reachable: `owner` stays unset.
     }
-    // The wallet signs as the owner, so the authorizing signer is the sender.
+    if (!owner) {
+      return null;
+    }
     const transferInfo: IDecodedTxTransferInfo = {
-      from: transfer.authority,
+      from: owner,
       to: transfer.newOwner,
       tokenIdOnNetwork: transfer.asset,
       icon,
@@ -2109,7 +2173,7 @@ export default class Vault extends VaultBase {
       NFTType: ENFTType.ERC721,
     };
     return this.buildTxTransferAssetAction({
-      from: transfer.authority,
+      from: owner,
       to: transfer.newOwner,
       transfers: [transferInfo],
     });
