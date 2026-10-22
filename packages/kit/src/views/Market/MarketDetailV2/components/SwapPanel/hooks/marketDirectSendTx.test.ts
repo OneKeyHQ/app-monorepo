@@ -4,6 +4,7 @@ import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import {
   EProtocolOfExchange,
   ESwapNetworkFeeLevel,
+  EWrappedType,
 } from '@onekeyhq/shared/types/swap/types';
 
 const mockPrepareSendConfirmUnsignedTx = jest.fn();
@@ -369,6 +370,40 @@ describe('marketDirectSendTx', () => {
       expect(mockSignAndSendTransaction).not.toHaveBeenCalled();
     },
   );
+
+  it('passes wrappedInfo to the local unsigned builder and stops before signing when gas estimation rejects', async () => {
+    const wrappedInfo = {
+      from: '0xuser',
+      contract: '0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c',
+      type: EWrappedType.WITHDRAW,
+      amount: '0.001',
+    };
+    const onBeforeSignAndSend = jest.fn();
+    mockPrepareSendConfirmUnsignedTx.mockResolvedValue(createUnsignedTx());
+    mockEstimateFee.mockRejectedValue(new Error('Unwrap estimate failed'));
+    await expect(
+      sendMarketDirectUnsignedTxs({
+        accountId: 'account',
+        accountAddress: '0xuser',
+        networkId: 'evm--56',
+        buildUnsignedParams: {
+          accountId: 'account',
+          networkId: 'evm--56',
+          wrappedInfo,
+        },
+        onBeforeSignAndSend,
+      }),
+    ).rejects.toThrow('Unwrap estimate failed');
+    expect(mockPrepareSendConfirmUnsignedTx).toHaveBeenCalledWith({
+      accountId: 'account',
+      networkId: 'evm--56',
+      wrappedInfo,
+      isInternalSwap: true,
+    });
+    expect(mockEstimateFee).toHaveBeenCalledTimes(1);
+    expect(onBeforeSignAndSend).not.toHaveBeenCalled();
+    expect(mockSignAndSendTransaction).not.toHaveBeenCalled();
+  });
 
   it('estimates the approved swap instead of reusing its pre-approval provider gas limit', async () => {
     const unsignedTx = createSponsoredUnsignedTx();

@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "repository": "https://github.com/margelo/MMKV",
+  "commit": "4007cba64e697a153127daa7578c13666f34525e",
+  "archive": "https://codeload.github.com/margelo/MMKV/tar.gz/4007cba64e697a153127daa7578c13666f34525e",
+  "sha256": "2e73ebe2bb484bd4ddd8ef7ae77b112e5cc9ce81b3b11a892fb17bb5364328c9",
+  "androidBaseline": "io.github.zhongwuzw:mmkv:2.4.1",
+  "coreBaseline": "2.4.0",
+  "treeSha256": "a0fcf0d86303f4da255ae0d29f1e00f677fca985b1cbfa41f8dd53c691eb57ac"
+}
