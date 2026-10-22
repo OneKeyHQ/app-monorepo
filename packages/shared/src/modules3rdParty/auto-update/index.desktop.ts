@@ -225,6 +225,14 @@ export const AppUpdate: IAppUpdate = {
   clearApkCache,
 };
 
+let bundleInstallPromise: Promise<void> | undefined;
+let bundleInstallTarget: string | undefined;
+
+export function resetBundleInstallLockForTest() {
+  bundleInstallPromise = undefined;
+  bundleInstallTarget = undefined;
+}
+
 export const BundleUpdate: IBundleUpdate = {
   getWebEmbedPath: () => '',
   getWebEmbedPathAsync: () => Promise.resolve(''),
@@ -236,12 +244,40 @@ export const BundleUpdate: IBundleUpdate = {
     globalThis.desktopApiProxy.bundleUpdate.verifyBundleASC(params),
   downloadBundleASC: (params) =>
     globalThis.desktopApiProxy.bundleUpdate.downloadBundleASC(params),
-  installBundle: (params) =>
-    globalThis.desktopApiProxy.bundleUpdate.installBundle(params),
+  installBundle: (params) => {
+    const target = `${params?.latestVersion ?? ''}:${params?.bundleVersion ?? ''}`;
+    if (bundleInstallPromise && bundleInstallTarget !== target) {
+      return Promise.reject(
+        new OneKeyLocalError('BUNDLE_INSTALL_TARGET_CONFLICT'),
+      );
+    }
+    if (!bundleInstallPromise) {
+      bundleInstallTarget = target;
+      // Keep the successful operation until restart; share failures with all callers.
+      bundleInstallPromise = (async () => {
+        await globalThis.desktopApiProxy.bundleUpdate.installBundle(params);
+      })().catch((error: unknown) => {
+        bundleInstallPromise = undefined;
+        bundleInstallTarget = undefined;
+        throw error;
+      });
+    }
+    return bundleInstallPromise;
+  },
   getFallbackBundles: () =>
     globalThis.desktopApiProxy.bundleUpdate.getFallbackUpdateBundleData(),
-  switchBundle: (params) =>
-    globalThis.desktopApiProxy.bundleUpdate.setCurrentUpdateBundleData(params),
+  switchBundle: async (params) => {
+    const exists = await globalThis.desktopApiProxy.bundleUpdate.isBundleExists(
+      params.appVersion,
+      params.bundleVersion,
+    );
+    if (!exists) {
+      throw new OneKeyLocalError('BUNDLE_MISSING: Bundle directory not found');
+    }
+    await globalThis.desktopApiProxy.bundleUpdate.setCurrentUpdateBundleData(
+      params,
+    );
+  },
   isSkipGpgVerificationAllowed: () =>
     globalThis.desktopApiProxy.bundleUpdate.isSkipGpgVerificationAllowed(),
   pruneStaleAppVersionBundles: () =>
@@ -262,9 +298,7 @@ export const BundleUpdate: IBundleUpdate = {
   clearDownload: () => globalThis.desktopApiProxy.bundleUpdate.clearDownload(),
   resetToBuiltInBundle: () =>
     globalThis.desktopApiProxy.bundleUpdate.resetToBuiltInBundle(),
-  restart: () => {
-    void globalThis.desktopApiProxy.bundleUpdate.restart();
-  },
+  restart: () => globalThis.desktopApiProxy.bundleUpdate.restart(),
   clearAllJSBundleData: () =>
     globalThis.desktopApiProxy.bundleUpdate.clearAllJSBundleData(),
   testVerification: () =>
