@@ -497,7 +497,22 @@ export function useCloudBackup() {
     // The source may already be unmounted. Release this handoff when the
     // destination leaves, not after a cooldown that could swallow re-entry.
     let detailOpened = false;
+    let onboardingRouteKey: string | undefined;
     const unsubscribe = rootNavigation.addListener('state', () => {
+      const rootState = rootNavigation.getRootState();
+      const activeRootRoute = rootState.routes[rootState.index];
+      if (activeRootRoute?.name === ERootRoutes.Onboarding) {
+        onboardingRouteKey ??= activeRootRoute.key;
+      }
+      // The lazy child navigator may never mount before Back removes its root.
+      const onboardingRemoved =
+        onboardingRouteKey !== undefined &&
+        !rootState.routes.some((route) => route.key === onboardingRouteKey);
+      if (onboardingRemoved) {
+        backupDetailLaunchPending.current = false;
+        unsubscribe();
+        return;
+      }
       if (
         rootNavigation.getCurrentRoute()?.name ===
         EOnboardingPagesV2.ICloudBackupDetails

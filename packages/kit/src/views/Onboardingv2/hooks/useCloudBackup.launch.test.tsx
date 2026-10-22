@@ -1,14 +1,28 @@
 /** @jest-environment jsdom */
 /* eslint-disable @typescript-eslint/unbound-method -- Jest mock functions do not use this binding. */
 
-import { act, renderHook } from '@testing-library/react';
+import { Fragment, Suspense, createElement, lazy } from 'react';
+import type { PropsWithChildren } from 'react';
+
+import {
+  BaseNavigationContainer,
+  createNavigationContainerRef,
+  createNavigatorFactory,
+  useNavigationBuilder,
+} from '@react-navigation/core';
+import { StackRouter } from '@react-navigation/routers';
+import { act, render, renderHook } from '@testing-library/react';
 
 import { Dialog, Toast } from '@onekeyhq/components';
 import type { IBackupDataEncryptedPayload } from '@onekeyhq/shared/src/cloudBackup/cloudBackupTypes';
 import { ECloudBackupProviderType } from '@onekeyhq/shared/src/cloudBackup/cloudBackupTypes';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { EOnboardingPagesV2 } from '@onekeyhq/shared/src/routes';
+import {
+  EOnboardingPagesV2,
+  EOnboardingV2Routes,
+  ERootRoutes,
+} from '@onekeyhq/shared/src/routes';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -16,6 +30,31 @@ import { useBackUpWallet } from '../../../hooks/useBackUpWallet';
 import { showCloudBackupPasswordDialog } from '../components/CloudBackupDialogs';
 
 import { useCloudBackup } from './useCloudBackup';
+
+import type { ParamListBase } from '@react-navigation/routers';
+
+let mockActualRootNavigation:
+  | ReturnType<typeof createNavigationContainerRef<ParamListBase>>
+  | undefined;
+
+function TestStackNavigator({ children }: PropsWithChildren) {
+  const { state, descriptors, NavigationContent } = useNavigationBuilder(
+    StackRouter,
+    { children },
+  );
+  return createElement(
+    NavigationContent,
+    null,
+    state.routes.map((route) =>
+      createElement(
+        Fragment,
+        { key: route.key },
+        descriptors[route.key].render(),
+      ),
+    ),
+  );
+}
+const TestStack = createNavigatorFactory(TestStackNavigator)();
 
 const mockNavigationStateListeners = new Set<() => void>();
 const mockRootNavigation = {
@@ -28,6 +67,10 @@ const mockRootNavigation = {
   }),
   navigate: jest.fn(),
   getCurrentRoute: jest.fn(() => ({ name: 'source' })),
+  getRootState: jest.fn(() => ({
+    routes: [{ key: 'source', name: 'source' }],
+    index: 0,
+  })),
 };
 const mockNavigation = {
   pop: jest.fn(),
@@ -44,7 +87,7 @@ jest.mock('@onekeyhq/shared/src/utils/openUrlUtils', () => ({
 jest.mock('@onekeyhq/components', () => ({
   rootNavigationRef: {
     get current() {
-      return mockRootNavigation;
+      return mockActualRootNavigation?.current ?? mockRootNavigation;
     },
   },
   Dialog: { confirm: jest.fn(), loading: jest.fn(() => mockProgressDialog) },
@@ -154,6 +197,7 @@ describe.each(['Android', 'iOS', 'desktop'])(
     const service = jest.mocked(backgroundApiProxy.serviceCloudBackupV2);
     beforeEach(() => {
       jest.clearAllMocks();
+      mockActualRootNavigation = undefined;
       mockNavigationStateListeners.clear();
       mockRootNavigation.isReady.mockReturnValue(true);
       mockRootNavigation.navigate.mockReset();
@@ -273,6 +317,100 @@ describe.each(['Android', 'iOS', 'desktop'])(
         await startBackup({ alwaysGoToBackupDetail: true });
       });
       expect(mockRootNavigation.navigate).toHaveBeenCalledTimes(2);
+    });
+
+    it('releases a cold Onboarding handoff after back before its child navigator mounts', async () => {
+      const root = createNavigationContainerRef<ParamListBase>();
+      mockActualRootNavigation = root;
+      let startBackup: ReturnType<
+        typeof useCloudBackup
+      >['startBackup'] = async () => {
+        throw new OneKeyLocalError('Home has not mounted');
+      };
+      function Home() {
+        startBackup = useCloudBackup().startBackup;
+        return null;
+      }
+      const Detail = () => null;
+      function DetailsStack() {
+        return createElement(
+          TestStack.Navigator,
+          null,
+          createElement(TestStack.Screen, {
+            name: EOnboardingPagesV2.ICloudBackupDetails,
+            component: Detail,
+          }),
+        );
+      }
+      function OnboardingStack() {
+        return createElement(
+          TestStack.Navigator,
+          null,
+          createElement(TestStack.Screen, {
+            name: EOnboardingV2Routes.OnboardingV2,
+            component: DetailsStack,
+          }),
+        );
+      }
+      const moduleReady = deferred<{ default: typeof OnboardingStack }>();
+      const LazyOnboarding = lazy(() => moduleReady.promise);
+      function Onboarding() {
+        return createElement(
+          Suspense,
+          { fallback: null },
+          createElement(LazyOnboarding),
+        );
+      }
+      const onUnhandledAction = jest.fn();
+      render(
+        <BaseNavigationContainer
+          ref={root}
+          onUnhandledAction={onUnhandledAction}
+        >
+          <TestStack.Navigator>
+            <TestStack.Screen name={ERootRoutes.Main} component={Home} />
+            <TestStack.Screen
+              name={ERootRoutes.Onboarding}
+              component={Onboarding}
+            />
+          </TestStack.Navigator>
+        </BaseNavigationContainer>,
+      );
+      const launch = () => startBackup({ alwaysGoToBackupDetail: true });
+      await act(async () => {
+        await launch();
+      });
+      expect(root.getCurrentRoute()?.name).toBe(ERootRoutes.Onboarding);
+      const firstKey = root.getRootState().routes[1].key;
+      await act(async () => {
+        await launch();
+      });
+      expect(root.getRootState().routes).toHaveLength(2);
+      expect(root.getRootState().routes[1].key).toBe(firstKey);
+      act(() => root.goBack());
+      expect(root.getCurrentRoute()?.name).toBe(ERootRoutes.Main);
+      await act(async () => {
+        await launch();
+      });
+      expect(root.getCurrentRoute()?.name).toBe(ERootRoutes.Onboarding);
+      expect(root.getRootState().routes[1].key).not.toBe(firstKey);
+      await act(async () => {
+        moduleReady.resolve({ default: OnboardingStack });
+        await moduleReady.promise;
+      });
+      expect(root.getCurrentRoute()?.name).toBe(
+        EOnboardingPagesV2.ICloudBackupDetails,
+      );
+      act(() => root.goBack());
+      expect(root.getCurrentRoute()?.name).toBe(ERootRoutes.Main);
+      await act(async () => {
+        await launch();
+      });
+      expect(root.getCurrentRoute()?.name).toBe(
+        EOnboardingPagesV2.ICloudBackupDetails,
+      );
+      expect(root.getRootState().routes).toHaveLength(2);
+      expect(onUnhandledAction).not.toHaveBeenCalled();
     });
 
     it('keeps a slow navigation handoff single-flight beyond 600ms', async () => {

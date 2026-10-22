@@ -37,9 +37,26 @@ test('the background authorization bridge includes CloudFs before bootstrapping 
   assert.ok(
     !prefixes.some((prefix) => 'com.unrelated.NativeModule'.startsWith(prefix)),
   );
+  // Bootstrap is deferred until Activity startup after the OTA rollback check.
+  // Register the bridge during Application startup, before lifecycle dispatch.
+  const applicationStartup = application.slice(
+    application.indexOf('public void onCreate()'),
+    application.indexOf(
+      'ApplicationLifecycleDispatcher.onApplicationCreate(this);',
+    ),
+  );
   assert.match(
-    application,
-    /registerBackgroundThreadActivityBridge\(\);\s+setupBackgroundThreadBootstrap\(\);/u,
+    applicationStartup,
+    /registerBackgroundThreadActivityBridge\(\);/u,
+  );
+  const deferredStartup = application.slice(
+    application.indexOf('public void startBackgroundThreadIfNeeded('),
+    application.indexOf('boolean startScheduled ='),
+  );
+  assert.match(deferredStartup, /setupBackgroundThreadBootstrap\(\);/u);
+  assert.match(
+    activity,
+    /\.startBackgroundThreadIfNeeded\("main_activity_pre_super"\);/u,
   );
 });
 
