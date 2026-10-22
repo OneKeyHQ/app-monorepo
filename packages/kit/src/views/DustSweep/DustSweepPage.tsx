@@ -28,12 +28,14 @@ import Animated, {
 } from 'react-native-reanimated';
 
 import {
+  ButtonFrame,
   Dialog,
   Icon,
   IconButton,
   NavBackButton,
   Page,
   SizableText,
+  Spinner,
   Stack,
   Toast,
   XStack,
@@ -44,6 +46,7 @@ import {
 import { useIsOverlayPage } from '@onekeyhq/components/src/hocs/PageType';
 import { TabPageHeader } from '@onekeyhq/kit/src/components/TabPageHeader';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { SwapRefreshButtonBase } from '@onekeyhq/kit/src/views/Swap/components/SwapRefreshButton';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
@@ -92,6 +95,56 @@ function useDustSweepDesktopLayout() {
   return !platformEnv.isNative && media.gtMd;
 }
 
+function DustSweepRefreshControl() {
+  const { selecting, isFocused, isRefreshing, autoRefreshTimerActive, retry } =
+    useDustSweep();
+  const intl = useIntl();
+  if (!selecting) return null;
+  const disabled = !isFocused || isRefreshing;
+  return (
+    <ButtonFrame
+      testID="dust-sweep-refresh"
+      aria-label={intl.formatMessage({
+        id: ETranslations.global_refresh,
+      })}
+      aria-busy={isRefreshing}
+      aria-disabled={disabled}
+      disabled={disabled}
+      focusable={!disabled}
+      cursor={disabled ? 'default' : 'pointer'}
+      onPress={disabled ? undefined : retry}
+      bg="$transparent"
+      borderWidth={0}
+      p={0}
+      width={24}
+      height={24}
+      alignItems="center"
+      justifyContent="center"
+      flexShrink={0}
+      focusVisibleStyle={{
+        outlineColor: '$focusRing',
+        outlineStyle: 'solid',
+        outlineWidth: 2,
+      }}
+    >
+      {isRefreshing ? (
+        <Spinner size="small" />
+      ) : (
+        <Stack pointerEvents="none">
+          <SwapRefreshButtonBase
+            refreshAction={retry}
+            disabled={!isFocused}
+            isRefreshQuote={false}
+            isLoading={false}
+            isFocused={isFocused}
+            autoRefreshTimerActive={autoRefreshTimerActive}
+          />
+        </Stack>
+      )}
+    </ButtonFrame>
+  );
+}
+
 function DustSweepDirectionIcon({
   desktop = false,
   running = false,
@@ -127,7 +180,7 @@ function DustSweepDirectionIcon({
     };
   }, [animated, desktop, progress]);
   return (
-    <Stack width={20} height={20} overflow="hidden">
+    <Stack width="$5" height="$5" overflow="hidden">
       <Animated.View style={style}>
         <Icon
           name={desktop ? 'ArrowRightOutline' : 'ArrowBottomOutline'}
@@ -293,9 +346,12 @@ function DustSweepPageContent() {
         alignItems="center"
         maxWidth={260}
       >
-        <SizableText size="$headingLg" numberOfLines={1}>
-          {title}
-        </SizableText>
+        <XStack alignItems="center" gap="$2">
+          <SizableText size="$headingLg" numberOfLines={1} flexShrink={1}>
+            {title}
+          </SizableText>
+          <DustSweepRefreshControl />
+        </XStack>
         {subtitle ? (
           <SizableText
             testID="dust-sweep-progress-label"
@@ -569,6 +625,7 @@ function DustSweepPageContent() {
                 />
               ) : null}
               <SizableText size="$heading2xl">{title}</SizableText>
+              <DustSweepRefreshControl />
             </XStack>
             {showNetworks ? <DustSweepNetworks desktop /> : null}
             {/* Stretch so the summary card always matches the token list card height. */}
