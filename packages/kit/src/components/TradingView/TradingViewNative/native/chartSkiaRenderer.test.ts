@@ -7,7 +7,11 @@ import {
   getTradingViewNativeSkiaLegendText,
   getTradingViewNativeSkiaPaintStyleSignature,
 } from './chartSkiaRenderer';
-import { getTradingViewNativeSkiaTextFont } from './chartSkiaText';
+import {
+  getTradingViewNativeSkiaDigitWidth,
+  getTradingViewNativeSkiaPriceAxisLabelWidth,
+  getTradingViewNativeSkiaTextFont,
+} from './chartSkiaText';
 
 import type {
   IBuildTradingViewNativeChartSceneOptions,
@@ -268,6 +272,62 @@ describe('TradingViewNative Skia scene renderer', () => {
     mockFallbackTypefaceDisposeByFamily = {};
     mockHasMatchFamilyStyleCharacter = true;
     mockSystemFontFamilies = [];
+  });
+
+  it.each([
+    { fourAdvance: 8, fourRight: 8, eightAdvance: 8, expectedWidth: 59 },
+    { fourAdvance: 8, fourRight: 8, eightAdvance: 7, expectedWidth: 59 },
+    { fourAdvance: 8, fourRight: 9, eightAdvance: 8, expectedWidth: 66 },
+  ])(
+    'reserves numeric label width for proportional advances and ink: %j',
+    ({ fourAdvance, fourRight, eightAdvance, expectedWidth }) => {
+      const font = {
+        getGlyphIDs: (text: string) =>
+          Array.from(text, (character) => character.charCodeAt(0)),
+        getGlyphWidths: (glyphs: number[]) =>
+          glyphs.map((glyph) => {
+            if (glyph === 52) return fourAdvance;
+            if (glyph === 46) return 3;
+            return eightAdvance;
+          }),
+        measureText: (text: string) => {
+          let width = eightAdvance - 1;
+          if (text === '88888.88') width = eightAdvance * 7 + 2;
+          if (text === '4') width = fourRight;
+          return { x: 0, y: -8, height: 8, width };
+        },
+      };
+      const digitWidth = getTradingViewNativeSkiaDigitWidth(font);
+      const reservedWidth = getTradingViewNativeSkiaPriceAxisLabelWidth(
+        '88888.88',
+        font,
+        digitWidth,
+      );
+
+      expect(reservedWidth).toBe(expectedWidth);
+      expect(reservedWidth).toBeGreaterThanOrEqual(
+        fourAdvance * 6 + 3 + fourRight,
+      );
+    },
+  );
+
+  it('preserves signs, subscript digits, suffix overhangs, and empty labels when reserving digit width', () => {
+    const font = {
+      getGlyphIDs: (text: string) =>
+        Array.from(text, (character) => character.charCodeAt(0)),
+      getGlyphWidths: (glyphs: number[]) => glyphs.map(() => 3),
+      measureText: (text: string) => ({
+        x: 0,
+        y: 0,
+        height: 8,
+        width: text ? 16 : 0,
+      }),
+    };
+
+    expect(getTradingViewNativeSkiaPriceAxisLabelWidth('-8.₆K', font, 8)).toBe(
+      21,
+    );
+    expect(getTradingViewNativeSkiaPriceAxisLabelWidth('', font, 8)).toBe(0);
   });
 
   it.each(['B', 'S'] as const)(

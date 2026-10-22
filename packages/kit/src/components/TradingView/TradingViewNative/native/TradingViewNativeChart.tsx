@@ -99,6 +99,10 @@ import {
   createTradingViewNativeSkiaResources,
   getTradingViewNativeSkiaLegendText,
 } from './chartSkiaRenderer';
+import {
+  getTradingViewNativeSkiaDigitWidth,
+  getTradingViewNativeSkiaPriceAxisLabelWidth,
+} from './chartSkiaText';
 import { NativeDrawingToolbar } from './NativeDrawingToolbar';
 import { TradingViewNativePriceScaleControls } from './TradingViewNativePriceScaleControls';
 import { useNativeChartDrawings } from './useNativeChartDrawings';
@@ -434,6 +438,9 @@ export const TradingViewNativeChart = memo(
         watermarkSvg,
       ],
     );
+    const priceAxisDigitWidth = useDerivedValue(() =>
+      getTradingViewNativeSkiaDigitWidth(resources.value.fonts.priceAxis),
+    );
     const priceAxisWidth = useDerivedValue(() => {
       if (!chartSettings.options.yAxis) {
         return 0;
@@ -442,12 +449,17 @@ export const TradingViewNativeChart = memo(
       const currentPriceLabelBounds = measuredPriceAxisFont.measureText(
         chartSettings.options.latestPrice ? currentPriceLabel : '',
       );
-      const widestPriceLabelBounds =
-        measuredPriceAxisFont.measureText(widestPriceLabel);
-      const widestChartComponentPriceLabelBounds =
-        measuredPriceAxisFont.measureText(widestChartComponentPriceLabel);
+      const measureCandidateLabel = (label: string) => {
+        'worklet';
+
+        return getTradingViewNativeSkiaPriceAxisLabelWidth(
+          label,
+          measuredPriceAxisFont,
+          priceAxisDigitWidth.value,
+        );
+      };
       const priceRange = chartRuntime.value.pinnedPriceRange ?? autoPriceRange;
-      const scaledPriceLabelBounds = measuredPriceAxisFont.measureText(
+      const scaledPriceLabelWidth = measureCandidateLabel(
         priceRange
           ? getTradingViewNativeScaledPriceAxisLabel({
               autoPriceRange: priceRange,
@@ -458,15 +470,7 @@ export const TradingViewNativeChart = memo(
             })
           : widestPriceLabel,
       );
-      const widestIndicatorPriceLabelBounds = measuredPriceAxisFont.measureText(
-        widestIndicatorPriceLabel,
-      );
-      const widestVolumeLabelBounds =
-        measuredPriceAxisFont.measureText(widestVolumeLabel);
-      const widestSubIndicatorLabelBounds = measuredPriceAxisFont.measureText(
-        widestSubIndicatorLabel,
-      );
-      const scaledSubIndicatorLabelBounds = measuredPriceAxisFont.measureText(
+      const scaledSubIndicatorLabelWidth = measureCandidateLabel(
         getTradingViewNativeScaledSubIndicatorAxisLabel(
           chartRuntime.value.subIndicatorPanes,
           chartRuntime.value.subIndicatorPriceScales,
@@ -481,20 +485,15 @@ export const TradingViewNativeChart = memo(
           PRICE_SCALE_CONTROL_NATIVE_SIZING,
         ),
         widestPriceLabelWidth: Math.max(
-          widestPriceLabelBounds.x + widestPriceLabelBounds.width,
-          widestChartComponentPriceLabelBounds.x +
-            widestChartComponentPriceLabelBounds.width,
-          scaledPriceLabelBounds.x + scaledPriceLabelBounds.width,
-          widestIndicatorPriceLabelBounds.x +
-            widestIndicatorPriceLabelBounds.width,
-          widestSubIndicatorLabelBounds.x + widestSubIndicatorLabelBounds.width,
-          scaledSubIndicatorLabelBounds.x + scaledSubIndicatorLabelBounds.width,
+          measureCandidateLabel(widestPriceLabel),
+          measureCandidateLabel(widestChartComponentPriceLabel),
+          scaledPriceLabelWidth,
+          measureCandidateLabel(widestIndicatorPriceLabel),
+          measureCandidateLabel(widestSubIndicatorLabel),
+          scaledSubIndicatorLabelWidth,
           0,
         ),
-        widestVolumeLabelWidth: Math.max(
-          widestVolumeLabelBounds.x + widestVolumeLabelBounds.width,
-          0,
-        ),
+        widestVolumeLabelWidth: measureCandidateLabel(widestVolumeLabel),
       });
     }, [
       autoPriceRange,
@@ -502,6 +501,7 @@ export const TradingViewNativeChart = memo(
       chartSettings.options.latestPrice,
       chartSettings.options.yAxis,
       currentPriceLabel,
+      priceAxisDigitWidth,
       priceDecimalPlaces,
       resources,
       widestChartComponentPriceLabel,
