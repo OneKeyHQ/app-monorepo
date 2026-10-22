@@ -7,6 +7,8 @@ import { useSharedValue } from 'react-native-reanimated';
 
 import { useTheme } from '@onekeyhq/components';
 import { useAppPagerController } from '@onekeyhq/kit/src/components/AppPager/useAppPagerController';
+import { ChartHeaderContext } from '@onekeyhq/kit/src/components/LightweightChart/ChartHeaderContext';
+import type { IChartHeaderState } from '@onekeyhq/kit/src/components/LightweightChart/ChartHeaderContext';
 
 import {
   MarketDetailNativeContext,
@@ -48,6 +50,10 @@ export function MarketDetailPager({
   const [headerHeight, setHeaderHeight] = useState(1);
   const [stickyHeaderHeight, setStickyHeaderHeight] = useState(44);
   const theme = useTheme();
+  const [chartHeaderState, setChartHeaderState] = useState<IChartHeaderState>({
+    settledAtTop: false,
+    offset: 0,
+  });
   const pages = useMemo(
     () =>
       children.map((tab) => ({
@@ -95,7 +101,9 @@ export function MarketDetailPager({
               setHeaderHeight(Math.ceil(nativeEvent.layout.height))
             }
           >
-            {renderHeader()}
+            <ChartHeaderContext.Provider value={chartHeaderState}>
+              {renderHeader()}
+            </ChartHeaderContext.Provider>
           </View>
         }
         stickyHeader={
@@ -113,6 +121,22 @@ export function MarketDetailPager({
             })}
           </View>
         }
+        onCollapsibleStateChanged={({ nativeEvent }) => {
+          if (
+            nativeEvent.position !== controller.selectedIndex ||
+            nativeEvent.pageKey !== pages[controller.selectedIndex]?.key
+          )
+            return;
+          setChartHeaderState((previous) =>
+            previous.settledAtTop === nativeEvent.headerSettledAtTop &&
+            previous.offset === nativeEvent.headerOffset
+              ? previous
+              : {
+                  settledAtTop: nativeEvent.headerSettledAtTop,
+                  offset: nativeEvent.headerOffset,
+                },
+          );
+        }}
         onPageScroll={({ nativeEvent }) => {
           if (followsPageScroll.current) {
             controller.indexDecimal.value =

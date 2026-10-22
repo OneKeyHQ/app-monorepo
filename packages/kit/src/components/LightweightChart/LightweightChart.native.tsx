@@ -16,6 +16,7 @@ import { Stack } from '@onekeyhq/components';
 import { CollapsibleTabContext } from '@onekeyhq/components/src/composite/Tabs/CollapsibleTabContext';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { ChartHeaderContext } from './ChartHeaderContext';
 import { useChartConfig } from './hooks/useChartConfig';
 import formatChartPriceSource from './utils/formatChartPriceSource';
 import { generateChartHTML } from './utils/htmlTemplate';
@@ -244,6 +245,7 @@ export function LightweightChart({
     [scrollYCurrent, headerHeight, repaintChart],
   );
 
+  const nativeHeaderState = useContext(ChartHeaderContext);
   const headerTranslateY = tabsContext?.headerTranslateY;
   const needsLegacyRemountRef = useRef(false);
   const supportsNativeLayout = useMemo(() => {
@@ -297,6 +299,25 @@ export function LightweightChart({
       syncVisibleHeader,
     ],
   );
+
+  // The native pager publishes settled geometry after its UIScrollView/header
+  // transition. Unlike legacy tabs, it does not expose a header transform.
+  useEffect(() => {
+    if (!syncVisibleHeader || !nativeHeaderState) return;
+    if (nativeHeaderState.settledAtTop) {
+      syncNativeLayout();
+    } else if (nativeHeaderState.offset > 0) {
+      handleHeaderHidden();
+    } else {
+      cancelNativeLayout();
+    }
+  }, [
+    cancelNativeLayout,
+    handleHeaderHidden,
+    nativeHeaderState,
+    syncNativeLayout,
+    syncVisibleHeader,
+  ]);
 
   useEffect(() => cancelNativeLayout, [cancelNativeLayout]);
 
