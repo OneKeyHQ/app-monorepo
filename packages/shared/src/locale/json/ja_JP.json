@@ -2717,6 +2717,7 @@
   "market.number_week_abbr": "{number}週",
   "market.one_hour_percentage": "1時間%",
   "market.open_abbr": "始",
+  "market.open_favorites": "お気に入りを開く",
   "market.opens_in": "{time} 後に取引開始",
   "market.pair_link": "ペアリンク:",
   "market.performance": "価格パフォーマンス",

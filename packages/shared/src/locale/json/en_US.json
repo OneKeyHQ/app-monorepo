@@ -2717,6 +2717,7 @@
   "market.number_week_abbr": "{number}W",
   "market.one_hour_percentage": "1h%",
   "market.open_abbr": "O",
+  "market.open_favorites": "Open favorites",
   "market.opens_in": "Opens in {time}",
   "market.pair_link": "Pair link:",
   "market.performance": "Performance",

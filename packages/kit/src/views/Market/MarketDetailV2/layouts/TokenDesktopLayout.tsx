@@ -37,7 +37,7 @@ import { MarketEmbeddedSwap } from './MarketEmbeddedSwap';
 import type { DesktopInformationTabs } from '../components/InformationTabs/layout/DesktopInformationTabs';
 
 const TOKEN_DETAIL_MAIN_COLUMN_WIDTH = 832;
-const TOKEN_DETAIL_COLUMN_GAP = 24;
+const TOKEN_DETAIL_COLUMN_GAP = 12;
 const TOKEN_DETAIL_HORIZONTAL_GUTTER = 20;
 const TOKEN_DETAIL_CHART_SECTION_MIN_HEIGHT = 848;
 const TOKEN_DETAIL_TABS_MIN_HEIGHT = 480;

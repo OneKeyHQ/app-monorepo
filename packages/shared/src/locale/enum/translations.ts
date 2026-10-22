@@ -2722,6 +2722,7 @@ export enum ETranslations {
   market_number_week_abbr = 'market.number_week_abbr',
   market_one_hour_percentage = 'market.one_hour_percentage',
   market_open_abbr = 'market.open_abbr',
+  market_open_favorites = 'market.open_favorites',
   market_opens_in = 'market.opens_in',
   market_pair_link = 'market.pair_link',
   market_performance = 'market.performance',
