@@ -629,7 +629,7 @@ function SimpleOrderContent() {
       return;
     }
     confirmDialogRef.current = showOrderConfirmDialog({
-      sourcePage,
+      sourcePage: { hostKey: sourcePage.hostKey, ownerKey: route.key },
       intl,
       expectedCoin: route.params.coin,
       expectedAccountAddress: accountAddress,

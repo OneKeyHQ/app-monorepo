@@ -98,6 +98,11 @@ const mockChangeActiveAsset = jest.fn<
   [{ coin: string }]
 >();
 const mockGetSpotMeta = jest.fn<Promise<{ universes: [] }>, []>();
+const mockUpdateSubscriptions = jest.fn<Promise<void>, []>();
+const mockRecoverSubscriptionsAfterLivenessProof = jest.fn<
+  Promise<boolean>,
+  [{ disabledCount: number }]
+>();
 
 jest.mock('react-intl', () => ({
   useIntl: () => ({
@@ -213,6 +218,12 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
         mockPromptHyperLiquidAgentPasswordSetupOrVerify(),
       refreshHyperLiquidAgentPasswordStatus: () =>
         mockRefreshHyperLiquidAgentPasswordStatus(),
+    },
+    serviceHyperliquidSubscription: {
+      updateSubscriptions: () => mockUpdateSubscriptions(),
+      recoverSubscriptionsAfterLivenessProof: (params: {
+        disabledCount: number;
+      }) => mockRecoverSubscriptionsAfterLivenessProof(params),
     },
   },
 }));
@@ -390,6 +401,10 @@ describe('useHyperliquidActions.hydrateUnresolvedActivePerp', () => {
       margin: undefined,
     };
     mockCancelPendingActiveAssetChange.mockReset().mockResolvedValue();
+    mockUpdateSubscriptions.mockReset().mockResolvedValue();
+    mockRecoverSubscriptionsAfterLivenessProof
+      .mockReset()
+      .mockResolvedValue(true);
     mockChangeActiveAsset.mockReset().mockImplementation(async ({ coin }) => {
       bgAsset = {
         coin,
@@ -459,6 +474,114 @@ describe('useHyperliquidActions.hydrateUnresolvedActivePerp', () => {
     ).toEqual(['ETH', 'ETH']);
   });
 
+  it('reconciles a no-proof switch after hydration publishes its resolved options while the root route is hidden', async () => {
+    let publishedOptions: Awaited<
+      ReturnType<typeof perpsActiveOrderBookOptionsAtom.get>
+    >;
+    jest
+      .spyOn(perpsActiveOrderBookOptionsAtom, 'get')
+      .mockImplementation(async () => publishedOptions);
+    jest
+      .spyOn(perpsActiveOrderBookOptionsAtom, 'set')
+      .mockImplementation(async (update) => {
+        publishedOptions =
+          typeof update === 'function' ? update(publishedOptions) : update;
+      });
+    const reconciledOptions: Array<typeof publishedOptions> = [];
+    mockUpdateSubscriptions.mockImplementation(async () => {
+      reconciledOptions.push(publishedOptions);
+    });
+    const { actions } = setup();
+    await act(async () => {
+      expect(
+        await actions.switchTradeInstrument({ mode: 'perp', coin: 'ETH' }),
+      ).toBe(true);
+    });
+    metadataReady = true;
+    await act(async () => {
+      expect(await actions.hydrateUnresolvedActivePerp()).toBe(true);
+    });
+    await waitFor(() =>
+      expect(reconciledOptions).toContainEqual({
+        coin: 'ETH',
+        assetId: 1,
+        nSigFigs: null,
+        mantissa: null,
+      }),
+    );
+    expect(mockRecoverSubscriptionsAfterLivenessProof).not.toHaveBeenCalled();
+  });
+
+  it('does not reuse the original switch proof to re-enable a disabled handler during hydration', async () => {
+    const { actions } = setup();
+    await act(async () => {
+      await actions.switchTradeInstrument({
+        mode: 'perp',
+        coin: 'ETH',
+        subscriptionRecoveryProof: {
+          source: 'simple-market',
+          disabledCount: 3,
+        },
+      });
+    });
+    await waitFor(() =>
+      expect(mockRecoverSubscriptionsAfterLivenessProof).toHaveBeenCalledTimes(
+        1,
+      ),
+    );
+    let handlerDisabled = true;
+    mockRecoverSubscriptionsAfterLivenessProof.mockImplementation(async () => {
+      handlerDisabled = false;
+      return true;
+    });
+    metadataReady = true;
+    await act(async () => {
+      expect(await actions.hydrateUnresolvedActivePerp()).toBe(true);
+    });
+    await waitFor(() =>
+      expect(mockUpdateSubscriptions).toHaveBeenCalledTimes(1),
+    );
+    expect(handlerDisabled).toBe(true);
+    expect(mockRecoverSubscriptionsAfterLivenessProof).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not reconcile hydrated options superseded by a newer target during publication', async () => {
+    const readOptions = jest.spyOn(perpsActiveOrderBookOptionsAtom, 'get');
+    const writeOptions = jest.spyOn(perpsActiveOrderBookOptionsAtom, 'set');
+    const { store, actions } = setup();
+    await act(async () => {
+      await actions.switchTradeInstrument({ mode: 'perp', coin: 'ETH' });
+    });
+    await waitFor(() => expect(writeOptions).toHaveBeenCalledTimes(1));
+    const previousOptions =
+      createDeferred<
+        Awaited<ReturnType<typeof perpsActiveOrderBookOptionsAtom.get>>
+      >();
+    readOptions.mockReturnValueOnce(previousOptions.promise);
+    metadataReady = true;
+    await act(async () => {
+      expect(await actions.hydrateUnresolvedActivePerp()).toBe(true);
+    });
+    await waitFor(() => expect(readOptions).toHaveBeenCalledTimes(2));
+    await act(async () => {
+      expect(
+        await actions.switchTradeInstrument({ mode: 'perp', coin: 'SOL' }),
+      ).toBe(true);
+      previousOptions.resolve(undefined);
+    });
+    await waitFor(() => expect(writeOptions).toHaveBeenCalledTimes(2));
+    expect(store.get(activeTradeInstrumentAtom()).coin).toBe('SOL');
+    const publishedOptions = writeOptions.mock.calls.map(([update]) =>
+      typeof update === 'function' ? update(undefined) : update,
+    );
+    expect(publishedOptions).toEqual([
+      { coin: 'ETH', assetId: undefined, nSigFigs: null, mantissa: null },
+      { coin: 'SOL', assetId: 1, nSigFigs: null, mantissa: null },
+    ]);
+    expect(mockUpdateSubscriptions).not.toHaveBeenCalled();
+    expect(mockRecoverSubscriptionsAfterLivenessProof).not.toHaveBeenCalled();
+  });
+
   it('waits for an in-flight switch without superseding its successful result', async () => {
     const pending =
       createDeferred<Awaited<ReturnType<typeof perpsActiveAssetAtom.get>>>();
@@ -492,6 +615,49 @@ describe('useHyperliquidActions.hydrateUnresolvedActivePerp', () => {
       assetId: 1,
       universe,
     });
+  });
+
+  it('reconciles a no-proof switch that resolves its metadata while hydration waits', async () => {
+    const pending =
+      createDeferred<Awaited<ReturnType<typeof perpsActiveAssetAtom.get>>>();
+    mockChangeActiveAsset.mockImplementationOnce(() => pending.promise);
+    const writeOptions = jest.spyOn(perpsActiveOrderBookOptionsAtom, 'set');
+    const { store, actions } = setup();
+    let switching!: Promise<boolean>;
+    act(() => {
+      switching = actions.switchTradeInstrument({ mode: 'perp', coin: 'ETH' });
+    });
+    await waitFor(() => expect(mockChangeActiveAsset).toHaveBeenCalledTimes(1));
+    let hydrating!: Promise<boolean>;
+    act(() => {
+      hydrating = actions.hydrateUnresolvedActivePerp();
+    });
+    await act(async () => {
+      metadataReady = true;
+      bgAsset = {
+        coin: 'ETH',
+        assetId: 1,
+        universe,
+        margin: undefined,
+      };
+      pending.resolve(bgAsset);
+      expect(await switching).toBe(true);
+      expect(await hydrating).toBe(false);
+    });
+    expect(store.get(activeTradeInstrumentAtom()).assetId).toBe(1);
+    expect(mockChangeActiveAsset).toHaveBeenCalledTimes(1);
+    expect(mockUpdateSubscriptions).toHaveBeenCalledTimes(1);
+    const [update] = writeOptions.mock.calls[0];
+    expect(typeof update === 'function' ? update(undefined) : update).toEqual({
+      coin: 'ETH',
+      assetId: 1,
+      nSigFigs: null,
+      mantissa: null,
+    });
+    expect(writeOptions.mock.invocationCallOrder[0]).toBeLessThan(
+      mockUpdateSubscriptions.mock.invocationCallOrder[0],
+    );
+    expect(mockRecoverSubscriptionsAfterLivenessProof).not.toHaveBeenCalled();
   });
 
   it('rejects the old unresolved subscription publication after hydration starts a new request', async () => {
@@ -535,6 +701,8 @@ describe('useHyperliquidActions.hydrateUnresolvedActivePerp', () => {
     });
     expect(mockChangeActiveAsset).toHaveBeenCalledTimes(1);
     expect(store.get(tradingFormAtom()).size).toBe('123');
+    expect(mockUpdateSubscriptions).toHaveBeenCalledTimes(1);
+    expect(mockRecoverSubscriptionsAfterLivenessProof).not.toHaveBeenCalled();
   });
 
   it('waits for a same-coin force switch that can invalidate its previously resolved snapshot', async () => {
