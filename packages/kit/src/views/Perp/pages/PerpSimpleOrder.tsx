@@ -504,14 +504,23 @@ function SimpleOrderContent() {
   const directionColor = change?.gte(0) ? '$textSuccess' : '$textCritical';
   const changeColor = change?.isFinite() ? directionColor : '$textSubdued';
   const headerWidth = Math.max(100, Math.min(264, width - 152));
+  const openTokenSelector = useCallback(() => {
+    if (submitting || directSubmitLock.current || confirmDialogRef.current)
+      return;
+    amountInputRef.current?.blur();
+    void dismissKeyboardWithDelay();
+    navigation.push(EModalPerpRoutes.MobileTokenSelector);
+  }, [navigation, submitting]);
   const renderHeaderTitle = useCallback(
     () => (
       <SimpleMarketHeader
+        testID="perps-simple-order-token-selector"
         coin={route.params.coin}
         width={headerWidth}
         price={midPriceBN.gt(0) ? simplePrice(midPrice) : '--'}
         changeLabel={changeLabel}
         changeColor={changeColor}
+        onPress={openTokenSelector}
       />
     ),
     [
@@ -521,6 +530,7 @@ function SimpleOrderContent() {
       midPriceBN,
       changeLabel,
       changeColor,
+      openTokenSelector,
     ],
   );
   const reviewOrder = async () => {
@@ -879,10 +889,14 @@ function SimpleOrderContent() {
 }
 
 export default function PerpSimpleOrder() {
+  const route =
+    useRoute<
+      RouteProp<IModalPerpParamList, EModalPerpRoutes.MobilePerpSimpleOrder>
+    >();
   return (
     <PerpsAccountSelectorProviderMirror>
       <PerpsProviderMirror>
-        <SimpleOrderContent />
+        <SimpleOrderContent key={route.params.coin} />
       </PerpsProviderMirror>
     </PerpsAccountSelectorProviderMirror>
   );
