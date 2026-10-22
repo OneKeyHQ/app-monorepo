@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -12,6 +12,7 @@ import {
   useTheme,
 } from '@onekeyhq/components';
 import { StockPriceLineChart } from '@onekeyhq/kit/src/components/StockPriceLineChart';
+import type { IStockPriceLineChartHoverPoint } from '@onekeyhq/kit/src/components/StockPriceLineChart';
 import { TRADING_VIEW_NATIVE_SUB_INDICATOR_PANE_HEIGHT } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative/chartConstants';
 import { tradingViewNativeHyperliquidGateway } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative/data/providers/hyperliquid/tradingViewNativeHyperliquidGateway';
 import {
@@ -46,18 +47,28 @@ const CHART_HEIGHT = 340;
 const LINE_CHART_HEIGHT =
   CHART_HEIGHT - TRADING_VIEW_NATIVE_CHART_CONTROLS_HEIGHT;
 
+export type ISimpleMarketChartPrice = {
+  coin: string;
+  price?: number;
+  changePercent?: string;
+};
+
 function SimpleMarketLineChart({
   coin,
   range,
   active,
   livePrice,
+  onPriceChange,
 }: {
   coin: string;
   range: IMobileSimpleChartRange;
   active: boolean;
   livePrice?: string;
+  onPriceChange?: (price: ISimpleMarketChartPrice | undefined) => void;
 }) {
   const intl = useIntl();
+  const [hoverPoint, setHoverPoint] =
+    useState<IStockPriceLineChartHoverPoint>();
   const { result, run } = usePromiseResult(
     async () => {
       if (!active) return undefined;
@@ -104,8 +115,26 @@ function SimpleMarketLineChart({
       }),
     [current, livePrice],
   );
+  const displayPrice = useMemo<ISimpleMarketChartPrice | undefined>(() => {
+    if (!active) return undefined;
+    if (!current || current.error || !data.length) return { coin };
+    const price = hoverPoint?.price ?? data[data.length - 1][1];
+    const base = data[0][1];
+    return {
+      coin,
+      price,
+      changePercent:
+        Number.isFinite(base) && base > 0
+          ? String(((price - base) / base) * 100)
+          : undefined,
+    };
+  }, [active, coin, current, data, hoverPoint]);
+  useEffect(() => {
+    onPriceChange?.(displayPrice);
+  }, [displayPrice, onPriceChange]);
+  useEffect(() => () => onPriceChange?.(undefined), [onPriceChange]);
 
-  if (!current) {
+  if (!active || !current) {
     return <Skeleton width="100%" height="100%" />;
   }
   if (current.error || !data.length) {
@@ -149,8 +178,10 @@ function SimpleMarketLineChart({
       data={data}
       height={LINE_CHART_HEIGHT}
       pulseLastPoint
-      showCurrentPriceLabel
-      hoverLabelLargePrice
+      showPriceScale={false}
+      showHoverLabel={false}
+      clearHoverOnTouchEnd
+      onHoverChange={setHoverPoint}
     />
   );
 }
@@ -159,10 +190,12 @@ export function SimpleMarketChart({
   coin,
   active,
   livePrice,
+  onPriceChange,
 }: {
   coin: string;
   active: boolean;
   livePrice?: string;
+  onPriceChange?: (price: ISimpleMarketChartPrice | undefined) => void;
 }) {
   const intl = useIntl();
   const theme = useTheme();
@@ -246,10 +279,12 @@ export function SimpleMarketChart({
           modeControl={modeControl}
         >
           <SimpleMarketLineChart
+            key={`${coin}:${range}`}
             coin={coin}
             range={range}
             active={active}
             livePrice={livePrice}
+            onPriceChange={onPriceChange}
           />
         </MobileSimpleChartFrame>
       ) : null}

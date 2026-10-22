@@ -130,6 +130,7 @@ function createNativeChartPage(
     LightweightCharts: {
       createChart: () => chart,
       CrosshairMode: { Normal: 0 },
+      TrackingModeExitMode: { OnTouchEnd: 0, OnNextTap: 1 },
     },
     requestAnimationFrame: jest.fn(),
     ResizeObserver: jest.fn(() => ({ observe: jest.fn() })),
@@ -290,6 +291,48 @@ it('draws an isolated price point on the native cursor layer', () => {
   page.getView()?.renderer()?.draw(page.target);
   expect(page.context.arc).toHaveBeenCalledWith(20, 30, 3, 0, Math.PI * 2);
   expect(page.context.fill).toHaveBeenCalledTimes(1);
+});
+
+it('hides the scrub tooltip and exits native tracking on release when the host shows the price', () => {
+  const page = createNativeChartPage({
+    notifyOnHover: true,
+    showPriceScale: false,
+    nativeScrubOptions: {
+      labels: { '2': { time: '2026/10/21, 09:30', price: '$2' } },
+      backgroundColor: '#fff',
+      borderColor: '#ddd',
+      textColor: '#111',
+      timeColor: '#999',
+      largePrice: false,
+      showTooltip: false,
+      exitOnTouchEnd: true,
+    },
+  });
+  expect(page.chart.applyOptions).toHaveBeenCalledWith(
+    expect.objectContaining({
+      rightPriceScale: expect.objectContaining({ visible: false }),
+      trackingMode: { exitMode: 0 },
+    }),
+  );
+  page.hover({
+    time: 2,
+    point: { x: 150, y: 100 },
+    sourceEvent: {},
+    seriesData: new Map([[page.primary, { value: 2 }]]),
+  });
+  expect(document.getElementById('scrub-tooltip')?.style.display).toBe('none');
+  expect(page.postMessage).toHaveBeenLastCalledWith(
+    JSON.stringify({ type: 'hover', time: '2', price: '2', x: 150, y: 100 }),
+  );
+  page.hover({});
+  expect(page.postMessage).toHaveBeenLastCalledWith(
+    JSON.stringify({ type: 'hover' }),
+  );
+  page.getView()?.renderer()?.draw(page.target);
+  expect(page.context.lineTo.mock.calls).toEqual([
+    [40, 20],
+    [60, 30],
+  ]);
 });
 
 describe('getLightweightChartsRuntimeScriptTag', () => {
