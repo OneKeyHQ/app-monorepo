@@ -372,9 +372,14 @@ describe('ServiceFiatCrypto headless buy orders', () => {
     expect(store.get('01M3')).toMatchObject({
       submittedAt: T0 + 1000,
       status: EHeadlessBuyOrderStatus.Processing,
+      // Remembered on the record so a later backend failure reason never
+      // reads as "not charged".
+      paymentOutcomeUnknown: true,
     });
     expect(store.get('01M3')?.paymentSeen).toBeFalsy();
+    // An already visible order is left alone, flag included.
     expect(store.get('paid')?.submittedAt).toBe(T0);
+    expect(store.get('paid')?.paymentOutcomeUnknown).toBeUndefined();
   });
 
   test('addHeadlessBuyOrder surfaces a record whose provider failure overtook its metadata lookups', async () => {
@@ -399,6 +404,7 @@ describe('ServiceFiatCrypto headless buy orders', () => {
       submittedAt: T0 + 1000,
       status: EHeadlessBuyOrderStatus.Processing,
       accountName: 'Account 1',
+      paymentOutcomeUnknown: true,
     });
   });
 

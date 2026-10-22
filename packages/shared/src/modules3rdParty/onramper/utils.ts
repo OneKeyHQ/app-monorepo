@@ -1,4 +1,4 @@
-import type { IOnramperError } from './type';
+import type { IOnramperError, IOnramperLogRecord } from './type';
 
 // Structural / non-retryable failures → fall back to the web widget (S5).
 // Everything else is treated as retryable (inline retry, S4).
@@ -115,6 +115,90 @@ export function getOnramperErrorFieldsForLog(
     errorInfo: getErrorInfoForLog(error?.info),
     supportCode: error?.supportCode,
   };
+}
+
+// Context keys of an SDK log record (SDK 1.3 log sink) that may be persisted:
+// identifiers, codes and timings only. The SDK redacts provider messages on a
+// best-effort basis, and the device log is exportable (support bundles), so
+// every other key — and the free-form message outside dev builds — is dropped
+// before the record is written. Session / token material is deliberately not
+// listed.
+const SDK_LOG_CONTEXT_ALLOWED_KEYS = new Set([
+  'transactionId',
+  'checkoutId',
+  'headlessCheckoutId',
+  'intentId',
+  'onrampTransactionId',
+  'supportCode',
+  'code',
+  'errorCode',
+  'status',
+  'statusCode',
+  'httpStatus',
+  'state',
+  'event',
+  'provider',
+  'onramp',
+  'ramp',
+  'paymentType',
+  'paymentMethod',
+  'renderType',
+  'durationMs',
+  'elapsedMs',
+  'attempt',
+  'retries',
+  'path',
+  'route',
+  'method',
+  'host',
+  'environment',
+  'sdkVersion',
+  'platform',
+]);
+const SDK_LOG_VALUE_MAX_LENGTH = 120;
+// An allowed key can still carry a personal value by mistake (an email in an
+// id slot, a phone or card number in a code slot): drop anything that looks
+// like one rather than persist it.
+const SDK_LOG_PERSONAL_VALUE_PATTERN = /@|\d{9,}/;
+
+export type ISanitizedOnramperLogRecord = {
+  level: string;
+  category: string;
+  event: string;
+  message?: string;
+  context?: Record<string, string>;
+};
+
+// Reduces an SDK log record to what may be written to the device log. The
+// message is kept only when the caller asks (dev builds); production keeps
+// the structured fields, which are enough to rebuild a checkout timeline.
+export function sanitizeOnramperLogRecord(
+  record: IOnramperLogRecord,
+  { keepMessage }: { keepMessage: boolean },
+): ISanitizedOnramperLogRecord {
+  const context: Record<string, string> = {};
+  for (const [key, raw] of Object.entries(record.context ?? {})) {
+    if (!SDK_LOG_CONTEXT_ALLOWED_KEYS.has(key)) {
+      continue;
+    }
+    const value = String(raw ?? '');
+    if (!value || SDK_LOG_PERSONAL_VALUE_PATTERN.test(value)) {
+      continue;
+    }
+    context[key] = truncateForLog(value, SDK_LOG_VALUE_MAX_LENGTH);
+  }
+  const sanitized: ISanitizedOnramperLogRecord = {
+    level: record.level,
+    category: record.category,
+    event: record.event,
+  };
+  if (keepMessage && record.message) {
+    sanitized.message = truncateForLog(record.message, LOG_MESSAGE_MAX_LENGTH);
+  }
+  if (Object.keys(context).length > 0) {
+    sanitized.context = context;
+  }
+  return sanitized;
 }
 
 // Provider checkout URLs can carry session-bound query parameters; only the

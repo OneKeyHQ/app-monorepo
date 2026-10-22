@@ -12,6 +12,7 @@ import {
   getOnramperErrorFieldsForLog,
   getUrlHostForLog,
   isStructuralOnramperError,
+  sanitizeOnramperLogRecord,
 } from '@onekeyhq/shared/src/modules3rdParty/onramper';
 import type {
   IOnramperButtonStyle,
@@ -20,6 +21,7 @@ import type {
   IOnramperQuote,
   IOnramperSession,
 } from '@onekeyhq/shared/src/modules3rdParty/onramper';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IHeadlessBuyAbandonReason } from '@onekeyhq/shared/types/fiatCrypto';
 
 import { getOnramperErrorMessage } from './onramperErrorCopy';
@@ -155,16 +157,16 @@ export function useOnramperCheckout({
       createOnramperClient({
         // Real config on device (clientId from Onramper); the mock ignores it.
         ...getOnramperConfig(),
-        // SDK 1.3 structured log records → device log only (never the
-        // server: provider messages can carry personal data).
+        // SDK 1.3 structured log records → device log only, and only the
+        // allow-listed identifier / code fields: the device log is exportable
+        // and the SDK's redaction of provider messages is best-effort, so the
+        // free-form message is kept in dev builds alone.
         onLog: (record) => {
           defaultLogger.fiatCrypto.onramper.sdkLog({
             ...getLogContext(),
-            level: record.level,
-            category: record.category,
-            event: record.event,
-            message: record.message,
-            context: record.context,
+            ...sanitizeOnramperLogRecord(record, {
+              keepMessage: Boolean(platformEnv.isDev),
+            }),
           });
         },
         onSessionExpired: async () => {

@@ -625,7 +625,15 @@ class ServiceFiatCrypto extends ServiceBase {
     }
     // `providerFailed` is not evidence of a payment (paymentSeen stays as it
     // is, so the 24 h rule can still fail the order), but it is not proof of
-    // no payment either, so the record is never dropped on it.
+    // no payment either: the record is never dropped on it, and the unknown
+    // outcome is remembered so a later backend failure reason cannot read as
+    // "not charged".
+    if (reason === 'providerFailed' && !order.paymentOutcomeUnknown) {
+      await simpleDb.headlessBuyOrders.patchOrder({
+        transactionId,
+        patch: { paymentOutcomeUnknown: true },
+      });
+    }
     if (!order.paymentSeen && reason !== 'providerFailed') {
       // Conditional inside the storage lock: a `completed` or
       // `paymentAuthorized` write that lands after the read above wins.

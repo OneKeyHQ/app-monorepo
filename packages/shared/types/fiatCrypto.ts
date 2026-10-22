@@ -127,6 +127,10 @@ export type IHeadlessBuyOrder = IAddHeadlessBuyOrderParams & {
   // paymentAuthorized seen locally, or backend status pending/paid. Such an
   // order is never auto-failed by the 24 h rule.
   paymentSeen?: boolean;
+  // SDK 1.3 `providerFailed`: the payment surface failed without confirming
+  // whether the user was charged. Not payment evidence (the 24 h rule still
+  // applies), but failure copy must never claim "not charged" for it.
+  paymentOutcomeUnknown?: boolean;
   status: EHeadlessBuyOrderStatus;
   rawStatus?: string;
   statusReason?: string;
