@@ -37,9 +37,43 @@ import { fetchMarketTokenListBatchForPlatform } from './marketTokenBatchPlatform
 
 import type { IMarketToken } from '../MarketTokenData';
 
-// Cached token list shared with the edit dialog so it opens instantly.
+// Cached token list shared with the edit dialog so it opens instantly. Several
+// favorites lists can be mounted at once (the Market Favorites tab and the detail
+// page's favorites sidebar), so each mounted list owns an entry: the cache shows
+// the latest write, and a list that unmounts hands it to one still mounted
+// rather than clearing data another list relies on.
 let watchlistTokenCache: IMarketToken[] = [];
+const watchlistTokenCacheEntries = new Map<symbol, IMarketToken[]>();
+let watchlistTokenCacheOwner: symbol | undefined;
 const cacheListeners = new Set<() => void>();
+
+function notifyWatchlistTokenCache() {
+  cacheListeners.forEach((cb) => cb());
+}
+
+export function publishWatchlistTokenCache(
+  owner: symbol,
+  tokens: IMarketToken[],
+) {
+  watchlistTokenCacheEntries.delete(owner);
+  watchlistTokenCacheEntries.set(owner, tokens);
+  watchlistTokenCacheOwner = owner;
+  watchlistTokenCache = tokens;
+  notifyWatchlistTokenCache();
+}
+
+export function releaseWatchlistTokenCache(owner: symbol) {
+  watchlistTokenCacheEntries.delete(owner);
+  if (watchlistTokenCacheOwner !== owner) {
+    return;
+  }
+  // The most recently published entry left takes over; with none left the
+  // cache clears so a later mount reads fresh data.
+  const remaining = [...watchlistTokenCacheEntries.entries()].at(-1);
+  watchlistTokenCacheOwner = remaining?.[0];
+  watchlistTokenCache = remaining?.[1] ?? [];
+  notifyWatchlistTokenCache();
+}
 
 export function getWatchlistTokenCache(): IMarketToken[] {
   return watchlistTokenCache;
@@ -693,18 +727,16 @@ export function useMarketWatchlistTokenList({
     void refetchListings();
   }, [refetchData, refetchListings]);
 
+  const [cacheOwner] = useState(() => Symbol('watchlist-token-cache'));
   useEffect(() => {
-    watchlistTokenCache = paginatedData;
-    cacheListeners.forEach((cb) => cb());
-  }, [paginatedData]);
+    publishWatchlistTokenCache(cacheOwner, paginatedData);
+  }, [cacheOwner, paginatedData]);
 
-  // Clear stale cache on unmount so re-mounting reads fresh data
   useEffect(
     () => () => {
-      watchlistTokenCache = [];
-      cacheListeners.forEach((cb) => cb());
+      releaseWatchlistTokenCache(cacheOwner);
     },
-    [],
+    [cacheOwner],
   );
 
   return {
@@ -721,6 +753,8 @@ export function useMarketWatchlistTokenList({
     loadMore,
     refresh,
     refetch: platformEnv.isNative ? refetch : refetchData,
+    // Retries spot, perps and listings on every platform.
+    refetchAll: refetch,
     sortBy,
     sortType,
     setSortBy,
