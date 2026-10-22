@@ -9,7 +9,7 @@
   "dependencies": {
     "@floating-ui/dom": "^1.8.0",
     "@onekeyfe/react-native-bottom-tabs": "6.7.0-8",
-    "@onekeyfe/react-native-native-overlay": "6.7.0-8",
+    "@onekeyfe/react-native-native-overlay": "6.7.0-9",
     "@onekeyfe/react-native-scroll-guard": "6.7.0-8",
     "@onekeyfe/react-native-segment-slider": "6.7.0-8",
     "@react-native-masked-view/masked-view": "0.3.2",

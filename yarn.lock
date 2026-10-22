@@ -9958,9 +9958,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@onekeyfe/react-native-native-overlay@npm:6.7.0-8":
-  version: 6.7.0-8
-  resolution: "@onekeyfe/react-native-native-overlay@npm:6.7.0-8"
+"@onekeyfe/react-native-native-overlay@npm:6.7.0-9":
+  version: 6.7.0-9
+  resolution: "@onekeyfe/react-native-native-overlay@npm:6.7.0-9"
   peerDependencies:
     react: "*"
     react-dom: "*"
@@ -9968,7 +9968,7 @@ __metadata:
   peerDependenciesMeta:
     react-dom:
       optional: true
-  checksum: 10/b87bda2e303821dcbb789812fe9fe8267813ff1452e16ccd453a0f4d99f7fca934f237f0bd6fb1d6bde626277d8518822e203c11caa0d953f7139f12ec9b5ed5
+  checksum: 10/aad7d6341dd200a9407c2a42cf6620ad20db3ed5b5fadaa194b3b3d2ddb3232ff0b7609e381df5d39d1e89a4d2273ba645af3303cb8c2bc9b3ede93dfbc5449b
   languageName: node
   linkType: hard
 
@@ -10401,7 +10401,7 @@ __metadata:
   dependencies:
     "@floating-ui/dom": "npm:^1.8.0"
     "@onekeyfe/react-native-bottom-tabs": "npm:6.7.0-8"
-    "@onekeyfe/react-native-native-overlay": "npm:6.7.0-8"
+    "@onekeyfe/react-native-native-overlay": "npm:6.7.0-9"
     "@onekeyfe/react-native-scroll-guard": "npm:6.7.0-8"
     "@onekeyfe/react-native-segment-slider": "npm:6.7.0-8"
     "@react-native-masked-view/masked-view": "npm:0.3.2"
@@ -10602,7 +10602,7 @@ __metadata:
     "@onekeyfe/react-native-lite-card": "npm:6.7.0-8"
     "@onekeyfe/react-native-native-list": "npm:6.7.0-8"
     "@onekeyfe/react-native-native-logger": "npm:6.7.0-8"
-    "@onekeyfe/react-native-native-overlay": "npm:6.7.0-8"
+    "@onekeyfe/react-native-native-overlay": "npm:6.7.0-9"
     "@onekeyfe/react-native-network-throttle": "npm:6.7.0-8"
     "@onekeyfe/react-native-perf-memory": "npm:6.7.0-8"
     "@onekeyfe/react-native-perf-stats": "npm:6.7.0-8"
@@ -10733,7 +10733,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@onekeyhq/playground@workspace:apps/playground"
   dependencies:
-    "@onekeyfe/react-native-native-overlay": "npm:6.7.0-8"
+    "@onekeyfe/react-native-native-overlay": "npm:6.7.0-9"
     "@onekeyhq/components": "npm:*"
     "@onekeyhq/shared": "npm:*"
     "@originjs/vite-plugin-commonjs": "npm:^1.0.3"

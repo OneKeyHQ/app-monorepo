@@ -1,3 +1,4 @@
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 export async function runAfterActionListClose<TResult>(
@@ -6,7 +7,7 @@ export async function runAfterActionListClose<TResult>(
   { waitForAnimation = true }: { waitForAnimation?: boolean } = {},
 ): Promise<TResult> {
   await close();
-  if (waitForAnimation) {
+  if (waitForAnimation && !platformEnv.isNative) {
     await timerUtils.wait(150);
   }
   return callback();

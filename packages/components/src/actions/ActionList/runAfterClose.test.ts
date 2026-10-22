@@ -1,3 +1,4 @@
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import { runAfterActionListClose } from './runAfterClose';
@@ -44,6 +45,32 @@ describe('runAfterActionListClose', () => {
 
     await expect(resultPromise).resolves.toBe('result');
     expect(order).toEqual(['close', 'callback']);
+  });
+
+  it('runs a native follow-up only after the close completion resolves', async () => {
+    const wasNative = platformEnv.isNative;
+    platformEnv.isNative = true;
+    try {
+      let finishClose: (() => void) | undefined;
+      const close = jest.fn(
+        () =>
+          new Promise<void>((resolve) => {
+            finishClose = resolve;
+          }),
+      );
+      const callback = jest.fn();
+      const result = runAfterActionListClose(close, callback);
+
+      await Promise.resolve();
+      expect(callback).not.toHaveBeenCalled();
+      expect(mockWait).not.toHaveBeenCalled();
+      finishClose?.();
+      await result;
+      expect(callback).toHaveBeenCalledTimes(1);
+      expect(mockWait).not.toHaveBeenCalled();
+    } finally {
+      platformEnv.isNative = wasNative;
+    }
   });
 
   it('rejects when the callback throws synchronously', async () => {
