@@ -5,6 +5,7 @@ import { useIntl } from 'react-intl';
 
 import {
   Accordion,
+  Badge,
   type IYStackProps,
   Icon,
   IconButton,
@@ -93,6 +94,9 @@ type IProps = {
   // native batch), each entry is the transfers of one transaction batch and
   // the groups concatenate to match `transfersInfo` in order.
   receiverGroups?: ITransferInfo[][];
+  // Parallel to `receiverGroups`: true once that transaction has left the
+  // device, so a retry after a mid-batch failure shows what it will skip.
+  sentReceiverGroups?: boolean[];
 };
 
 type ITransferListItemProps = {
@@ -507,6 +511,7 @@ function ReceiverEntriesList({
 
 type IBatchAccordionItemProps = IReceiverGroupSectionProps & {
   groupIndex: number;
+  isSent?: boolean;
 };
 
 function BatchAccordionItem({
@@ -514,6 +519,7 @@ function BatchAccordionItem({
   entries,
   tokenSymbol,
   getError,
+  isSent,
 }: IBatchAccordionItemProps) {
   const intl = useIntl();
   return (
@@ -551,18 +557,31 @@ function BatchAccordionItem({
                 ({entries.length})
               </SizableText>
             </XStack>
-            <View
-              transition="quick"
-              animateOnly={ANIMATE_ONLY_TRANSFORM}
-              rotate={open ? '180deg' : '0deg'}
-              transformOrigin="center"
-            >
-              <Icon
-                name="ChevronDownSmallOutline"
-                size="$5"
-                color="$iconSubdued"
-              />
-            </View>
+            <XStack alignItems="center" gap="$2">
+              {isSent ? (
+                <Badge
+                  badgeType="success"
+                  badgeSize="sm"
+                  testID={`bulk-send-tx-sent-${groupIndex}`}
+                >
+                  {intl.formatMessage({
+                    id: ETranslations.global_sent_successfully,
+                  })}
+                </Badge>
+              ) : null}
+              <View
+                transition="quick"
+                animateOnly={ANIMATE_ONLY_TRANSFORM}
+                rotate={open ? '180deg' : '0deg'}
+                transformOrigin="center"
+              >
+                <Icon
+                  name="ChevronDownSmallOutline"
+                  size="$5"
+                  color="$iconSubdued"
+                />
+              </View>
+            </XStack>
           </>
         )}
       </Accordion.Trigger>
@@ -601,6 +620,7 @@ function BulkSendTxDetails(props: IProps) {
     senderBalancesLoading,
     senderBalancesFailed,
     receiverGroups,
+    sentReceiverGroups,
   } = props;
 
   const intl = useIntl();
@@ -829,6 +849,7 @@ function BulkSendTxDetails(props: IProps) {
                   entries={entries}
                   tokenSymbol={tokenSymbol}
                   getError={getTransferError}
+                  isSent={sentReceiverGroups?.[groupIndex]}
                 />
               ))}
             </Accordion>

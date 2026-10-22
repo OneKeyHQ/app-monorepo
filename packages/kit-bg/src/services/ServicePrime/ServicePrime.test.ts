@@ -4,6 +4,10 @@
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import secureStorageInstance from '@onekeyhq/shared/src/storage/instance/secureStorageInstance';
 import type { IPrimeGiftVerifyV2Result } from '@onekeyhq/shared/types/prime/primeGiftTypes';
+import type {
+  IOneKeyIdOAuthLoginResponse,
+  IPrimeServerUserInfo,
+} from '@onekeyhq/shared/types/prime/primeTypes';
 
 import { devSettingsPersistAtom } from '../../states/jotai/atoms/devSettings';
 
@@ -7817,5 +7821,352 @@ describe('ServicePrime hardware Prime gift orchestration', () => {
     expect(legacyRead).not.toHaveBeenCalled();
     expect(legacyWrite).not.toHaveBeenCalled();
     expect(giftEventSpy).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('ServicePrime inviteProfilePublic', () => {
+  const originalPrimeAtomGet = mockPrimePersistAtom.get.getMockImplementation();
+  const originalPrimeAtomSet = mockPrimePersistAtom.set.getMockImplementation();
+  const restoreSpies: Array<{ mockRestore: () => void }> = [];
+
+  function installPrimeAtom(initial: Record<string, unknown>) {
+    let stored = initial;
+    mockPrimePersistAtom.get.mockImplementation(async () => stored);
+    mockPrimePersistAtom.set.mockImplementation(async (update?: unknown) => {
+      if (typeof update === 'function') {
+        stored = (
+          update as (value: Record<string, unknown>) => Record<string, unknown>
+        )(stored);
+        return undefined;
+      }
+      stored = update as Record<string, unknown>;
+      return undefined;
+    });
+    return {
+      read: () => stored,
+    };
+  }
+
+  afterEach(() => {
+    for (const spy of restoreSpies) {
+      spy.mockRestore();
+    }
+    restoreSpies.length = 0;
+    mockPrimePersistAtom.get.mockImplementation(
+      originalPrimeAtomGet ?? (async () => ({})),
+    );
+    mockPrimePersistAtom.set.mockImplementation(
+      originalPrimeAtomSet ?? (async () => undefined),
+    );
+    jest.useRealTimers();
+    mockReadPersistedAccessTokenBySessionSourceStrict.mockResolvedValue({
+      status: 'ok',
+      accessToken: 'persisted-access-token',
+    });
+  });
+
+  function pinInviteAuth(
+    simpleDbPrime: ReturnType<typeof createService>['simpleDbPrime'],
+  ) {
+    simpleDbPrime.getActiveAuthToken.mockResolvedValue('token-a');
+    simpleDbPrime.getAuthSessionSource.mockResolvedValue(
+      EPrimeAuthSessionSource.KeylessOAuth,
+    );
+    simpleDbPrime.getAuthStateGeneration.mockResolvedValue(3);
+    mockReadPersistedAccessTokenBySessionSourceStrict.mockResolvedValue({
+      status: 'ok',
+      accessToken: 'token-a',
+    });
+  }
+
+  function loggedInConsent(inviteProfilePublic: boolean) {
+    return {
+      isLoggedIn: true,
+      onekeyUserId: 'user-a',
+      inviteProfilePublic,
+    };
+  }
+
+  it('updates only the invite consent flag and keeps it on the same user', async () => {
+    jest.useFakeTimers();
+    const { service, simpleDbPrime } = createService();
+    pinInviteAuth(simpleDbPrime);
+    const put = jest.fn(async () => ({ data: { code: 0 } }));
+    service.getPrimeClient = jest.fn(async () => ({ put }));
+    const atom = installPrimeAtom(loggedInConsent(false));
+    restoreSpies.push(
+      jest
+        .spyOn(service, 'apiFetchPrimeUserInfo')
+        .mockResolvedValue({} as never),
+    );
+
+    await expect(
+      service.updateInviteProfilePublic({
+        enabled: true,
+        expectedOneKeyUserId: 'user-a',
+      }),
+    ).resolves.toBe(true);
+
+    expect(put).toHaveBeenCalledWith(
+      '/prime/v1/user/info',
+      { inviteProfilePublic: true },
+      { headers: { 'X-Onekey-Request-Token': 'token-a' } },
+    );
+    expect(atom.read().inviteProfilePublic).toBe(true);
+    jest.runOnlyPendingTimers();
+  });
+
+  it('rejects the consent write when the visible account is no longer current', async () => {
+    const { service, simpleDbPrime } = createService();
+    pinInviteAuth(simpleDbPrime);
+    const put = jest.fn(async () => ({ data: { code: 0 } }));
+    service.getPrimeClient = jest.fn(async () => ({ put }));
+    installPrimeAtom(loggedInConsent(false));
+
+    await expect(
+      service.updateInviteProfilePublic({
+        enabled: true,
+        expectedOneKeyUserId: 'user-b',
+      }),
+    ).rejects.toThrow('Invite profile consent user changed');
+    expect(put).not.toHaveBeenCalled();
+  });
+
+  it('does not write the flag when the account changes during the request', async () => {
+    const { service, simpleDbPrime } = createService();
+    pinInviteAuth(simpleDbPrime);
+    const atom = installPrimeAtom(loggedInConsent(false));
+    const put = jest.fn(async () => {
+      atom.read().onekeyUserId = 'user-b';
+      return { data: { code: 0 } };
+    });
+    service.getPrimeClient = jest.fn(async () => ({ put }));
+    const refresh = jest
+      .spyOn(service, 'apiFetchPrimeUserInfo')
+      .mockResolvedValue({} as never);
+
+    await expect(
+      service.updateInviteProfilePublic({
+        enabled: true,
+        expectedOneKeyUserId: 'user-a',
+      }),
+    ).rejects.toThrow('Invite profile consent user changed');
+    expect(atom.read().onekeyUserId).toBe('user-b');
+    expect(atom.read().inviteProfilePublic).toBe(false);
+    expect(refresh).not.toHaveBeenCalled();
+  });
+
+  it('does not write the flag when the auth generation changes during the request', async () => {
+    const { service, simpleDbPrime } = createService();
+    pinInviteAuth(simpleDbPrime);
+    const atom = installPrimeAtom(loggedInConsent(false));
+    const put = jest.fn(async () => {
+      simpleDbPrime.getAuthStateGeneration.mockResolvedValue(4);
+      return { data: { code: 0 } };
+    });
+    service.getPrimeClient = jest.fn(async () => ({ put }));
+
+    await expect(
+      service.updateInviteProfilePublic({
+        enabled: true,
+        expectedOneKeyUserId: 'user-a',
+      }),
+    ).rejects.toThrow('Invite profile consent user changed');
+    expect(atom.read().inviteProfilePublic).toBe(false);
+  });
+
+  it('leaves the flag unchanged when the server rejects the consent write', async () => {
+    const { service, simpleDbPrime } = createService();
+    pinInviteAuth(simpleDbPrime);
+    const atom = installPrimeAtom(loggedInConsent(false));
+    const put = jest.fn(async () => ({ data: { code: 1 } }));
+    service.getPrimeClient = jest.fn(async () => ({ put }));
+
+    await expect(
+      service.updateInviteProfilePublic({
+        enabled: true,
+        expectedOneKeyUserId: 'user-a',
+      }),
+    ).resolves.toBe(false);
+    expect(atom.read().inviteProfilePublic).toBe(false);
+  });
+
+  it('stores an explicit consent flag and keeps it when a non-user-info payload omits it', async () => {
+    const { service } = createService();
+    const atom = installPrimeAtom({
+      onekeyUserId: 'user-a',
+      inviteProfilePublic: true,
+    });
+    const profile = {
+      avatar: 'https://example.com/cat.png',
+      nickname: 'eric',
+      isPrime: false,
+      emails: ['eric@example.com'],
+    };
+
+    await service.updatePrimeAtomByServerUserInfo({
+      serverUserInfo: {
+        userId: 'user-a',
+        ...profile,
+        inviteProfilePublic: true,
+      } as IPrimeServerUserInfo,
+    });
+    expect(atom.read().inviteProfilePublic).toBe(true);
+
+    await service.updatePrimeAtomByServerUserInfo({
+      serverUserInfo: {
+        userId: 'user-a',
+        ...profile,
+        inviteProfilePublic: false,
+      } as IPrimeServerUserInfo,
+    });
+    expect(atom.read().inviteProfilePublic).toBe(false);
+
+    atom.read().inviteProfilePublic = true;
+    await service.updatePrimeAtomByServerUserInfo({
+      serverUserInfo: {
+        userId: 'user-a',
+        ...profile,
+      } as IPrimeServerUserInfo,
+    });
+    expect(atom.read().inviteProfilePublic).toBe(true);
+
+    await service.updatePrimeAtomByServerUserInfo({
+      serverUserInfo: {
+        userId: 'user-b',
+        ...profile,
+      } as IPrimeServerUserInfo,
+    });
+    expect(atom.read().inviteProfilePublic).toBeUndefined();
+  });
+
+  it('lets only a successful user-info response decide invite consent', async () => {
+    const { service, simpleDbPrime } = createService();
+    simpleDbPrime.getActiveAuthToken.mockResolvedValue('token-a');
+    const completeProfile = {
+      userId: 'user-a',
+      emails: ['a@example.com'],
+      isPrime: false,
+      primeExpiredAt: 1_800_000_000_000,
+      level: 'NORMAL',
+      salt: 'salt',
+      pwdHash: 'hash',
+      inviteCode: 'CODE',
+    };
+    const respond = (routes: Record<string, unknown>) => {
+      service.getPrimeClient = jest.fn(async () => ({
+        get: jest.fn(async (url: string) => ({
+          status: 200,
+          data: { code: 0, data: routes[url] },
+        })),
+      }));
+    };
+
+    respond({
+      '/prime/v1/user/info': { userId: 'user-a' },
+      '/prime/v1/account/profile': { userId: 'user-a' },
+    });
+    await expect(service.callApiFetchPrimeUserInfo()).resolves.toMatchObject({
+      inviteProfilePublic: false,
+    });
+
+    respond({
+      '/prime/v1/user/info': { userId: 'user-a', inviteProfilePublic: 'true' },
+      '/prime/v1/account/profile': { userId: 'user-a' },
+    });
+    await expect(service.callApiFetchPrimeUserInfo()).resolves.toMatchObject({
+      inviteProfilePublic: false,
+    });
+
+    respond({
+      '/prime/v1/user/info': { userId: 'user-a', inviteProfilePublic: true },
+      '/prime/v1/account/profile': {
+        userId: 'user-a',
+        inviteProfilePublic: false,
+      },
+    });
+    await expect(service.callApiFetchPrimeUserInfo()).resolves.toMatchObject({
+      inviteProfilePublic: true,
+    });
+
+    service.getPrimeClient = jest.fn(async () => ({
+      get: jest.fn(async (url: string) => {
+        if (url === '/prime/v1/user/info') {
+          return Promise.reject(new OneKeyLocalError('user info unavailable'));
+        }
+        return {
+          status: 200,
+          data: { code: 0, data: completeProfile },
+        };
+      }),
+    }));
+    await expect(service.callApiFetchPrimeUserInfo()).resolves.toMatchObject({
+      inviteProfilePublic: undefined,
+    });
+  });
+
+  it('does not carry invite consent across an account switch', async () => {
+    const { service } = createService();
+    const atom = installPrimeAtom({
+      onekeyUserId: 'user-a',
+      inviteProfilePublic: true,
+    });
+    const loginResponse = {
+      userId: 'user-b',
+      emails: [],
+      onekeyAccount: {
+        onekeyUserId: 'user-b',
+        status: EOneKeyIdAccountStatus.Active,
+        identities: [],
+      },
+    } as unknown as IOneKeyIdOAuthLoginResponse;
+
+    await service.updatePrimeAtomByOAuthLoginResponse({ loginResponse });
+
+    expect(atom.read().inviteProfilePublic).toBeUndefined();
+    expect(atom.read().onekeyUserId).toBe('user-b');
+  });
+
+  it('keeps the same user consent when the login payload omits the field', async () => {
+    const { service } = createService();
+    const atom = installPrimeAtom({
+      onekeyUserId: 'user-a',
+      inviteProfilePublic: true,
+    });
+    const loginResponse = {
+      userId: 'user-a',
+      emails: [],
+      onekeyAccount: {
+        onekeyUserId: 'user-a',
+        status: EOneKeyIdAccountStatus.Active,
+        identities: [],
+      },
+    } as unknown as IOneKeyIdOAuthLoginResponse;
+
+    await service.updatePrimeAtomByOAuthLoginResponse({ loginResponse });
+
+    expect(atom.read().inviteProfilePublic).toBe(true);
+  });
+
+  it('uses an explicit false from the login payload', async () => {
+    const { service } = createService();
+    const atom = installPrimeAtom({
+      onekeyUserId: 'user-a',
+      inviteProfilePublic: true,
+    });
+    const loginResponse = {
+      userId: 'user-a',
+      emails: [],
+      inviteProfilePublic: false,
+      onekeyAccount: {
+        onekeyUserId: 'user-a',
+        status: EOneKeyIdAccountStatus.Active,
+        identities: [],
+      },
+    } as unknown as IOneKeyIdOAuthLoginResponse;
+
+    await service.updatePrimeAtomByOAuthLoginResponse({ loginResponse });
+
+    expect(atom.read().inviteProfilePublic).toBe(false);
   });
 });

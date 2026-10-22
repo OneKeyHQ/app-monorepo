@@ -173,7 +173,7 @@ export interface IBundleUpdate {
    * `BackgroundThread.restart(mode=all, reason='ota.restart')`; on desktop it
    * calls `app.relaunch`.
    */
-  restart: () => void;
+  restart: () => Promise<void>;
   isSkipGpgVerificationAllowed: () => Promise<boolean>;
   /**
    * Delete every OTA bundle artifact (extracted dir, download staging,
