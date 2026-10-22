@@ -9,6 +9,7 @@ import {
   loadDustSweepNetworks,
   refreshDustSweepNetwork,
 } from './loadNetworks';
+import { invalidateDustSweepNetworksCache } from './networkCache';
 
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
@@ -395,6 +396,13 @@ describe('loadDustSweepNetworks request ownership', () => {
     );
     expect(result.partialError).toBe(true);
     expect(result.failedNetworkIds).toEqual([ethereum.networkId]);
+    expect(result.failedNetworkOwners).toEqual([
+      {
+        networkId: ethereum.networkId,
+        accountId: 'hd-test--0',
+        address: '0xuser',
+      },
+    ]);
     expect(result.failedNetworks).toEqual([ethereum]);
     expect(result.networks.map((entry) => entry.network.networkId)).toEqual([
       otherNetwork.networkId,
@@ -493,6 +501,39 @@ describe('loadDustSweepNetworks request ownership', () => {
     old.resolve(await serviceToken.fetchAccountTokens.mock.results[1].value);
     await previous;
     expect(fresh.partialError).toBe(false);
+  });
+
+  it('never rejoins a pre-trade request after cache invalidation and re-entry', async () => {
+    const old =
+      deferred<Awaited<ReturnType<typeof serviceToken.fetchAccountTokens>>>();
+    serviceToken.fetchAccountTokens.mockReturnValueOnce(old.promise);
+    const previous = loadDustSweepNetworks(
+      params,
+      new AbortController().signal,
+    );
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    invalidateDustSweepNetworksCache(params.walletId);
+    const fresh = await loadDustSweepNetworks(
+      params,
+      new AbortController().signal,
+    );
+    expect(serviceToken.fetchAccountTokens.mock.calls).toHaveLength(2);
+    old.resolve(await serviceToken.fetchAccountTokens.mock.results[1].value);
+    await previous;
+    expect(fresh.partialError).toBe(false);
+  });
+
+  it('does not request Home cache when a Dust snapshot is already available', async () => {
+    await loadDustSweepNetworks(
+      params,
+      new AbortController().signal,
+      undefined,
+      { skipCache: true },
+    );
+    expect(serviceToken.getCachedAccountTokens.mock.calls).toHaveLength(0);
+    expect(serviceToken.fetchAccountTokens.mock.calls.length).toBeGreaterThan(
+      0,
+    );
   });
 
   it('force-refreshes an existing network without rediscovering accounts or providers', async () => {

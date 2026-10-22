@@ -29,6 +29,7 @@ import type {
 } from '@onekeyhq/shared/types/token';
 
 import { buildDustSweepCandidates } from './candidates';
+import { getDustSweepNetworksCacheRevision } from './networkCache';
 
 export function getDustSweepSupportedNetworks({
   networks,
@@ -146,11 +147,16 @@ export async function loadDustSweepEntryCapabilities(
   });
 }
 
-type IDustSweepNetworksResult = {
+export type IDustSweepNetworksResult = {
   networks: IDustSweepNetwork[];
   partialError: boolean;
   providerInfo?: ISwapProviderInfo;
   failedNetworkIds?: string[];
+  failedNetworkOwners?: {
+    networkId: string;
+    accountId: string;
+    address: string;
+  }[];
   failedNetworks?: ISwapNetwork[];
 };
 
@@ -162,12 +168,13 @@ type IDustSweepNetworkLoad = {
 const inFlightLoads = new Map<string, IDustSweepNetworkLoad>();
 
 function getLoadKey(params: IDustSweepRouteParams) {
-  return [
+  return JSON.stringify([
     params.walletId,
     params.accountId ?? '',
     params.indexedAccountId ?? '',
     params.networkId ?? '',
-  ].join(':');
+    getDustSweepNetworksCacheRevision(params.walletId),
+  ]);
 }
 
 function createCancellationError() {
@@ -431,6 +438,13 @@ async function loadDustSweepNetworksInternal(
           failedNetworkIds: entries
             .filter((_, index) => results[index].status === 'rejected')
             .map((entry) => entry.network.networkId),
+          failedNetworkOwners: entries
+            .filter((_, index) => results[index].status === 'rejected')
+            .map((entry) => ({
+              networkId: entry.network.networkId,
+              accountId: entry.accountId,
+              address: entry.address,
+            })),
           failedNetworks: entries
             .filter((_, index) => results[index].status === 'rejected')
             .map((entry) => entry.network),
@@ -485,7 +499,10 @@ export function loadDustSweepNetworks(
   params: IDustSweepRouteParams,
   signal: AbortSignal,
   onCache?: (networks: IDustSweepNetwork[]) => void,
-  { isManualRefresh = false }: { isManualRefresh?: boolean } = {},
+  {
+    isManualRefresh = false,
+    skipCache = false,
+  }: { isManualRefresh?: boolean; skipCache?: boolean } = {},
 ) {
   const key = getLoadKey(params);
   // A return from Swap must not reuse a request started before the trade.
@@ -496,7 +513,9 @@ export function loadDustSweepNetworks(
     const contexts = loadDustSweepNetworkContexts(params);
     load = {
       fresh: loadDustSweepNetworksInternal(params, contexts, isManualRefresh),
-      cached: loadCachedDustSweepNetworks(contexts).catch(() => []),
+      cached: skipCache
+        ? Promise.resolve([])
+        : loadCachedDustSweepNetworks(contexts).catch(() => []),
     };
     inFlightLoads.set(key, load);
     const cleanup = () => {

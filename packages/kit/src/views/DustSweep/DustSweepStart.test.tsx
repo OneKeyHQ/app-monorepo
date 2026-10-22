@@ -16,6 +16,7 @@ import {
   loadDustSweepNetworks,
   refreshDustSweepNetwork,
 } from './utils/loadNetworks';
+import { invalidateDustSweepNetworksCache } from './utils/networkCache';
 
 function useMockPreferences() {
   return useState<{ threshold: IDustSweepThreshold }>({ threshold: 10 });
@@ -81,7 +82,10 @@ const bnb: IDustSweepNetwork = {
   balanceUsd: '5',
 };
 
-beforeEach(() => jest.resetAllMocks());
+beforeEach(() => {
+  invalidateDustSweepNetworksCache('w');
+  jest.resetAllMocks();
+});
 
 it('skips a token that gets no quote on submit and settles the sweep', async () => {
   jest.mocked(loadDustSweepNetworks).mockResolvedValue({
