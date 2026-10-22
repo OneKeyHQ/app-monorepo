@@ -8,6 +8,7 @@ import type {
 } from '@onekeyhq/shared/src/routes/assetDetails';
 
 import { ModalAssetDetailsStack } from '../../AssetDetails/router';
+import { EARN_GUIDE_MODAL_SIZE } from '../../Earn/components/desktopHome/earnGuide.utils';
 
 const InvestmentDetails = LazyLoad(
   () => import('@onekeyhq/kit/src/views/Staking/pages/InvestmentDetails'),
@@ -27,6 +28,10 @@ const ProtocolDetailsV2 = LazyLoad(
 
 const BorrowManagePosition = LazyLoad(
   () => import('@onekeyhq/kit/src/views/Borrow/pages/BorrowManagePosition'),
+);
+
+const EarnGuide = LazyLoad(
+  () => import('@onekeyhq/kit/src/views/Earn/pages/EarnGuide'),
 );
 
 const BorrowEModeSwitch = LazyLoad(
@@ -126,6 +131,21 @@ export const StakingModalRouter: IModalFlowNavigatorConfig<
     name: EModalStakingRoutes.BorrowManagePosition,
     component: BorrowManagePosition,
     exact: true,
+  },
+  {
+    name: EModalStakingRoutes.EarnGuide,
+    component: EarnGuide,
+    // The guide draws its own green header
+    options: {
+      headerShown: false,
+    },
+    // Tall enough for step 1's receive card without scrolling. The size goes
+    // here: the navigator sets it over the options
+    modalContentMaxWidth: EARN_GUIDE_MODAL_SIZE.width,
+    modalContentMaxHeight: EARN_GUIDE_MODAL_SIZE.height,
+    // The guide grows out of its card on the home; the modal only fades in
+    // where the card lands, with no scale of its own
+    disableEnterScaleAnimation: true,
   },
   {
     name: EModalStakingRoutes.BorrowEModeSwitch,

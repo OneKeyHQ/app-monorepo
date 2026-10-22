@@ -36,6 +36,8 @@ export enum EModalStakingRoutes {
   BorrowHistoryList = 'BorrowHistoryList',
   EarnTokenSelect = 'EarnTokenSelect',
   EarnAssetSearch = 'EarnAssetSearch',
+  // Desktop Earn home guide for a wallet without positions (demo 10-22)
+  EarnGuide = 'EarnGuide',
 }
 
 type IBaseRouteParams = {
@@ -128,6 +130,7 @@ export type IModalStakingParamList = {
     onStakeWithdrawSuccess?: () => void;
   };
   [EModalStakingRoutes.BorrowManagePosition]: IBorrowManagePositionRouteParams;
+  [EModalStakingRoutes.EarnGuide]: undefined;
   [EModalStakingRoutes.BorrowEModeSwitch]: IBaseRouteParams & {
     provider: string;
     marketAddress: string;

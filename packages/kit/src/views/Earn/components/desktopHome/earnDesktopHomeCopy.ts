@@ -22,4 +22,32 @@ export const EARN_DESKTOP_DEMO_COPY = {
   showMore: (count: number) => `Show ${count} more`,
   loanNetApyInfo: (ltv: string) =>
     `What the collateral earns less what the loan costs in a year, over your net worth in the market. Worked out for a loan of half the collateral's value (${ltv} LTV), so every row compares the same loan. Pairs that can't lend that much aren't listed.`,
+  // The guide for a wallet without positions: the card's rows, and the
+  // short names the card's button and the modal's steps use
+  guideTitle: 'Start earning in 4 steps',
+  guideSteps: [
+    'Add ETH for network fees',
+    'Choose a vault',
+    'Deposit USDC',
+    'View your position',
+  ],
+  guideActions: ['Add ETH', 'Choose vault', 'Deposit', 'View position'],
+  guideGasTitle: 'Add ETH on Base',
+  guideGasBody: (amount: string) =>
+    `Network fees on Base are paid in ETH, not USDC. Add about ${amount} ETH on Base to cover this deposit and a later withdrawal.`,
+  guideGasWaiting: 'Waiting for ETH on Base',
+  guideGasReceived: 'ETH on Base received',
+  guideConnect: 'Connect a wallet to get your Base address.',
+  guideVaultTitle: 'Choose a vault',
+  guideVaultBody:
+    'A vault lends your USDC to borrowers and pays you the interest. This Morpho vault is on Base, where network fees are a few cents.',
+  guideUseVault: 'Use this vault',
+  guideDepositTitle: 'Deposit USDC',
+  guideWithdrawNote:
+    "Withdraw anytime from your position: your USDC and what it earned come back to this wallet, unless the vault's funds are all lent out at that moment.",
+  guideDoneTitle: "You're earning",
+  guideDoneBody:
+    'Your deposit is on its position page. Withdraw sits next to Deposit there, and your USDC and what it earned come back to this wallet.',
+  guideGoToPosition: 'Go to position',
+  guideHide: 'Hide guide',
 };

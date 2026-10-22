@@ -27,7 +27,10 @@ import { buildKeyboardPressProps } from '../../components/desktopHome/earnDeskto
 import { buildOfferRowProps, useEarnRouterOffers } from './EarnRouterOffer';
 
 import type { IHeaderRightViewProps } from '../../../Staking/pages/ManagePosition/components/HeaderRight';
-import type { IManagePositionPayWith } from '../../../Staking/pages/ManagePosition/components/ManagePositionContent';
+import type {
+  IManagePositionFooterAction,
+  IManagePositionPayWith,
+} from '../../../Staking/pages/ManagePosition/components/ManagePositionContent';
 import type { IEarnDesktopHoldOffer } from '../../components/desktopHome/earnDesktopHome.utils';
 
 // An offer under the switcher's row when the list is open: the same row,
@@ -239,6 +242,8 @@ function OfferDepositForm({
   offerSwitch,
   onAmountChange,
   onHeaderRightChange,
+  onDeposited,
+  footerActionOverride,
 }: {
   offer: IEarnDesktopHoldOffer;
   symbol: string;
@@ -249,6 +254,8 @@ function OfferDepositForm({
   offerSwitch: ReactNode;
   onAmountChange: (amount: string) => void;
   onHeaderRightChange?: (view: IHeaderRightViewProps | null) => void;
+  onDeposited?: () => void;
+  footerActionOverride?: IManagePositionFooterAction;
 }) {
   const { activeAccount } = useActiveAccount({ num: 0 });
   const { selectedAccount } = useSelectedAccount({ num: 0 });
@@ -319,6 +326,8 @@ function OfferDepositForm({
       offerSwitch={offerSwitch}
       onAmountChange={onAmountChange}
       onHeaderRightChange={onHeaderRightChange}
+      onDeposited={onDeposited}
+      footerActionOverride={footerActionOverride}
     />
   );
 }
@@ -336,6 +345,10 @@ export function EarnOffersDeposit({
   offerKey,
   amount,
   onHeaderRightChange,
+  onDeposited,
+  footerActionOverride,
+  onAmountChange,
+  onOfferChange,
 }: {
   symbol: string;
   networkId: string;
@@ -344,6 +357,13 @@ export function EarnOffersDeposit({
   // An amount of the token itself to start on (what a withdrawal took out)
   amount?: string;
   onHeaderRightChange?: (view: IHeaderRightViewProps | null) => void;
+  // Once the deposit is out, with what was typed, in place of closing: the
+  // guide shows its last step
+  onDeposited?: (amount: string) => void;
+  footerActionOverride?: IManagePositionFooterAction;
+  onAmountChange?: (amount: string) => void;
+  // The offer the form is on, as it starts and after each switch
+  onOfferChange?: (offerKey: string) => void;
 }) {
   const intl = useIntl();
   const { offers, isLoaded } = useEarnRouterOffers({ symbol, networkId });
@@ -382,13 +402,27 @@ export function EarnOffersDeposit({
       setPickedKey(selected.key);
     }
   }, [pickedKey, selected]);
+  const selectedKey = selected?.key;
+  useEffect(() => {
+    if (selectedKey) {
+      onOfferChange?.(selectedKey);
+    }
+  }, [onOfferChange, selectedKey]);
 
   // An offer filling another form starts it over; what was typed goes with it
   const typedAmountRef = useRef(amount ?? '');
   const [startAmount, setStartAmount] = useState(amount);
-  const handleAmountChange = useCallback((value: string) => {
-    typedAmountRef.current = value;
-  }, []);
+  const handleAmountChange = useCallback(
+    (value: string) => {
+      typedAmountRef.current = value;
+      onAmountChange?.(value);
+    },
+    [onAmountChange],
+  );
+  const handleDeposited = useMemo(
+    () => (onDeposited ? () => onDeposited(typedAmountRef.current) : undefined),
+    [onDeposited],
+  );
   // A pick shows in the switcher's row at once and the list folds under it;
   // the form takes the pick once the list is shut. An offer that fills
   // another form swaps the one the switcher sits in, and an open list would
@@ -471,6 +505,8 @@ export function EarnOffersDeposit({
       offerSwitch={offerSwitch}
       onAmountChange={handleAmountChange}
       onHeaderRightChange={onHeaderRightChange}
+      onDeposited={handleDeposited}
+      footerActionOverride={footerActionOverride}
     />
   );
 }

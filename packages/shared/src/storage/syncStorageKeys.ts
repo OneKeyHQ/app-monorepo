@@ -23,6 +23,8 @@ export enum EAppSyncStorageKeys {
   onekey_swap_trading_view_native_active_intervals_v1 = 'onekey_swap_trading_view_native_active_intervals_v1',
   onekey_perps_trading_view_native_active_intervals_v1 = 'onekey_perps_trading_view_native_active_intervals_v1',
   onekey_travel_mode_control_v1 = 'onekey_travel_mode_control_v1',
+  // Desktop Earn home guide (demo): each account's step progress
+  onekey_earn_desktop_guide_v1 = 'onekey_earn_desktop_guide_v1',
 }
 
 // Dev setting keys stored in the separate 'onekey-app-dev-setting' MMKV instance,

@@ -125,6 +125,12 @@ export interface IManagePositionContentProps {
   // With the withdraw side alone: called with what was withdrawn once the
   // withdrawal is out, in place of closing the modal
   onWithdrawn?: (info: { amount: string; tokenImageUri?: string }) => void;
+  // With the deposit side alone: called once the deposit is out, in place of
+  // closing the modal, by a caller with a next step (the desktop Earn guide)
+  onDeposited?: () => void;
+  // The caller's own action in the footer, ahead of every other one (the
+  // guide's preview, which sends nothing)
+  footerActionOverride?: IManagePositionFooterAction;
 }
 
 // Loading shell for the manage panel. Instead of masking the whole panel with
@@ -511,6 +517,8 @@ export function ManagePositionContent({
   onCreateAddress,
   onStakeWithdrawSuccess,
   onWithdrawn,
+  onDeposited,
+  footerActionOverride,
   isInModalContext = false,
 }: IManagePositionContentProps) {
   const intl = useIntl();
@@ -698,8 +706,12 @@ export function ManagePositionContent({
     [isSwitchingProtocol, switchLoadingActionLabel],
   );
 
-  // No-wallet CTA takes priority; otherwise the switch-loading state (if any).
-  const footerAction = noConnectedWalletFooterAction ?? switchingFooterAction;
+  // The caller's own action first; then the no-wallet CTA; otherwise the
+  // switch-loading state (if any).
+  const footerAction =
+    footerActionOverride ??
+    noConnectedWalletFooterAction ??
+    switchingFooterAction;
 
   // In the normal form footer, no-wallet state is represented by the primary
   // connect-wallet CTA. Keep warnings for connected wallets that need address
@@ -884,6 +896,10 @@ export function ManagePositionContent({
         });
         return;
       }
+      if (depositOnly && onDeposited) {
+        onDeposited();
+        return;
+      }
       if (isInModalContext) {
         appNavigation.popStack();
       }
@@ -893,6 +909,8 @@ export function ManagePositionContent({
       onStakeWithdrawSuccess,
       withdrawOnly,
       onWithdrawn,
+      depositOnly,
+      onDeposited,
       resolvedTokenImageUri,
       isInModalContext,
       appNavigation,
