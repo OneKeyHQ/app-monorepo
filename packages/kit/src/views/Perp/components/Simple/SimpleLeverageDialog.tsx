@@ -7,7 +7,6 @@ import {
   Dialog,
   Icon,
   SizableText,
-  Slider,
   XStack,
   YStack,
   useDialogInstance,
@@ -19,13 +18,13 @@ import {
   usePerpsActiveAssetDataAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { parseDexCoin } from '@onekeyhq/shared/src/utils/perpsUtils';
 
 import { PerpsAccountSelectorProviderMirror } from '../../PerpsAccountSelectorProviderMirror';
 import { PerpsProviderMirror } from '../../PerpsProviderMirror';
 import { PERP_MOBILE_DIALOG_CONTENT_CONTAINER_PROPS } from '../PerpDialogLayout';
 import { TradingGuardWrapper } from '../TradingGuardWrapper';
+
+import { LeverageRuler } from './LeverageRuler';
 
 import type { IntlShape } from 'react-intl';
 
@@ -126,100 +125,39 @@ function SimpleLeverageContent({ settings }: { settings: ISettings }) {
           </YStack>
         ))}
       </XStack>
-      <XStack alignItems="center" justifyContent="space-between">
-        <Button
-          testID="perps-simple-leverage-decrease"
-          variant="secondary"
-          width={36}
-          height={36}
-          minWidth={36}
-          borderRadius="$full"
-          p="$0"
-          childrenAsText={false}
-          accessibilityLabel={intl.formatMessage({
-            id: ETranslations.perp_simple_decrease_leverage__action,
-          })}
-          disabled={disabled || value <= 1}
-          onPress={() => setValue((previous) => Math.max(1, previous - 1))}
+      <XStack alignItems="baseline">
+        <YStack flex={1} flexBasis={0} minWidth={0} />
+        <SizableText
+          size="$heading3xl"
+          fontSize={48}
+          lineHeight={56}
+          fontVariant={['tabular-nums']}
         >
-          <SizableText
-            size="$headingXl"
-            color={disabled || value <= 1 ? '$textDisabled' : '$text'}
-          >
-            −
-          </SizableText>
-        </Button>
-        <SizableText size="$heading3xl" fontSize={48} lineHeight={56}>
           {value}
-          {'\u2009'}
-          <SizableText size="$heading3xl" fontSize={32}>
-            x
-          </SizableText>
         </SizableText>
-        <Button
-          testID="perps-simple-leverage-increase"
-          variant="secondary"
-          width={36}
-          height={36}
-          minWidth={36}
-          borderRadius="$full"
-          p="$0"
-          childrenAsText={false}
-          accessibilityLabel={intl.formatMessage({
-            id: ETranslations.perp_simple_increase_leverage__action,
-          })}
-          disabled={disabled || value >= settings.maxLeverage}
-          onPress={() =>
-            setValue((previous) => Math.min(settings.maxLeverage, previous + 1))
-          }
-        >
+        <XStack flex={1} flexBasis={0} minWidth={0} alignItems="baseline">
           <SizableText
             size="$headingXl"
-            color={
-              disabled || value >= settings.maxLeverage
-                ? '$textDisabled'
-                : '$text'
-            }
+            fontSize={24}
+            lineHeight={32}
+            fontWeight="500"
+            color="$textSubdued"
+            ml="$1"
           >
-            +
+            ×
           </SizableText>
-        </Button>
+        </XStack>
       </XStack>
       <YStack gap="$2" pt="$2">
-        <XStack alignItems="center" gap="$4">
-          <Slider
-            testID="perps-simple-leverage-slider"
-            thumbSize={platformEnv.isNativeIOS ? 20 : undefined}
-            min={1}
-            max={settings.maxLeverage}
-            step={1}
-            value={value}
-            disabled={disabled || settings.maxLeverage <= 1}
-            flex={1}
-            onChange={(next) =>
-              setValue(
-                Math.max(1, Math.min(settings.maxLeverage, Math.round(next))),
-              )
-            }
-          />
-        </XStack>
-        <XStack gap="$1" alignItems="center">
-          <Icon
-            name="InfoCircleSolid"
-            size="$3.5"
-            color="$iconSubdued"
-            flexShrink={0}
-          />
-          <SizableText size="$bodySm" color="$textSubdued" flexShrink={1}>
-            {intl.formatMessage(
-              { id: ETranslations.perp_leverage_desc_warning },
-              {
-                token: parseDexCoin(settings.coin).displayName,
-                leverage: `${settings.maxLeverage}x`,
-              },
-            )}
-          </SizableText>
-        </XStack>
+        <LeverageRuler
+          value={value}
+          max={settings.maxLeverage}
+          disabled={disabled || settings.maxLeverage <= 1}
+          accessibilityLabel={intl.formatMessage({
+            id: ETranslations.perp_leverage,
+          })}
+          onChange={setValue}
+        />
       </YStack>
       {settings.onlyIsolated ? (
         <XStack gap="$1" alignItems="center">
