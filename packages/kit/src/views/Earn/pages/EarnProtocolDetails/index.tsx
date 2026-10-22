@@ -31,12 +31,10 @@ import {
   useScrollView,
   useShare,
 } from '@onekeyhq/components';
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { CountDownCalendarAlert } from '@onekeyhq/kit/src/components/CountDownCalendarAlert';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
   useActiveAccount,
   useSelectedAccount,
@@ -116,6 +114,7 @@ import {
 import { ProtocolTipsSection } from './components/ProtocolTipsSection';
 import { YieldBreakdownSheet } from './components/YieldBreakdownSheet';
 import { useDetailHoldingPosition } from './hooks/useDetailHoldingPosition';
+import { useEarnApyHistory } from './hooks/useEarnApyHistory';
 import { useProtocolDetailBreadcrumb } from './hooks/useProtocolDetailBreadcrumb';
 import { useProtocolDetailData } from './hooks/useProtocolDetailData';
 import { MobileDetailTabs } from './mobile/MobileDetailTabs';
@@ -135,6 +134,7 @@ import {
   isYieldSheetAvailable,
 } from './mobile/yieldSegments.utils';
 
+import type { IEarnApyHistory } from './hooks/useEarnApyHistory';
 import type { IEarnHoldingRedeem } from '../EarnPositions/mobile/EarnHoldingSections';
 import type { IEarnPositionView } from '../EarnPositions/mobile/earnPositionModel';
 import type { RouteProp } from '@react-navigation/core';
@@ -411,17 +411,16 @@ const ProtocolHeader = ({
 };
 
 function ChartSection({
-  networkId,
-  symbol,
   provider,
-  vault,
+  chartData,
+  isChartLoading,
   showTimeRangeControls,
   apyBreakdownItems,
 }: {
-  networkId: string;
-  symbol: string;
   provider: string;
-  vault?: string;
+  // Loaded once for the page: the Pendle rules chart draws the same history.
+  chartData: IEarnApyHistory['chartData'];
+  isChartLoading: IEarnApyHistory['isChartLoading'];
   // Phone layout shows 1H/1D/1W/Max for every provider. ApyChart already
   // filters to whatever data falls in the window, so a sparse history simply
   // draws fewer points rather than needing its own guard.
@@ -437,81 +436,6 @@ function ChartSection({
     () => earnUtils.isPendleProvider({ providerName: provider }),
     [provider],
   );
-
-  // Fetch chart data to get high/low values
-  const { result: chartData, isLoading: isChartLoading } =
-    usePromiseResult(async () => {
-      if (isPendleProvider) {
-        // underlying-history returns both impliedApy and underlyingApy, single request suffices
-        const underlyingApyHistoryData =
-          await backgroundApiProxy.serviceStaking.getUnderlyingApyHistory({
-            networkId,
-            symbol,
-            provider,
-            vault,
-          });
-
-        const impliedApyHistory = underlyingApyHistoryData.results.map(
-          (item) => ({
-            timestamp: item.timestamp,
-            apy: item.impliedApy,
-          }),
-        );
-
-        const underlyingApyHistory = underlyingApyHistoryData.results.map(
-          (item) => ({
-            timestamp: item.timestamp,
-            apy: item.underlyingApy,
-          }),
-        );
-
-        return {
-          impliedApyHistory,
-          underlyingApyHistory,
-          hasNonZeroUnderlyingApy:
-            underlyingApyHistoryData.hasNonZeroUnderlyingApy,
-        };
-      }
-
-      const impliedApyHistory =
-        await backgroundApiProxy.serviceStaking.getApyHistory({
-          networkId,
-          symbol,
-          provider,
-          vault,
-        });
-
-      // Second line = campaign boost + protocol reward APYs, summed by the
-      // server. It keeps every base point and leaves the ones without an extra
-      // APY empty: a history that predates the campaign starts the line later
-      // instead of dropping to zero, and a campaign that stopped and resumed
-      // breaks the line instead of joining the two runs straight across the
-      // weeks in between (OK-64549).
-      const extraApyHistory = impliedApyHistory.some(
-        (item) => item.extraApy !== undefined,
-      )
-        ? impliedApyHistory.map((item) => ({
-            timestamp: item.timestamp,
-            apy: item.extraApy,
-          }))
-        : [];
-      // Campaign wins over reward, matching the rule the server applies per
-      // point ("a campaign present at all makes the line orange") and the
-      // headline's split. Taking the first point that happens to carry a kind
-      // would paint a window that starts with plain rewards and later gains a
-      // campaign entirely blue, and label it Rewards.
-      const extraApyKind = impliedApyHistory.some(
-        (item) => item.extraApyKind === 'campaign',
-      )
-        ? ('campaign' as const)
-        : impliedApyHistory.find((item) => item.extraApyKind)?.extraApyKind;
-
-      return {
-        impliedApyHistory,
-        extraApyHistory,
-        extraApyKind,
-      };
-    }, [networkId, symbol, provider, vault, isPendleProvider]);
 
   const {
     impliedApyHistory,
@@ -902,6 +826,17 @@ const DetailsPartComponent = ({
   holdingRedeem?: IEarnHoldingRedeem;
 }) => {
   const now = useMemo(() => Date.now(), []);
+  const { chartData, isChartLoading } = useEarnApyHistory({
+    networkId,
+    symbol,
+    provider,
+    vault,
+    // After the details, as when the APY chart fetched its own: a page that
+    // failed to load requests the history once Refresh brings them in.
+    enabled: detailInfo !== undefined,
+  });
+  // The rules chart waits for the history once, then draws with or without it.
+  const isApyHistoryLoading = isChartLoading !== false && !chartData;
 
   // The positions page's Manage lands on the position: once the page has
   // loaded with a Portfolio tab, scroll the tabs to the top of the view, once.
@@ -1008,10 +943,9 @@ const DetailsPartComponent = ({
                   yieldSheetData={yieldSheetData}
                 />
                 <ChartSection
-                  networkId={networkId}
-                  symbol={symbol}
                   provider={provider}
-                  vault={vault}
+                  chartData={chartData}
+                  isChartLoading={isChartLoading}
                   showTimeRangeControls
                   apyBreakdownItems={popupData?.items}
                 />
@@ -1055,7 +989,12 @@ const DetailsPartComponent = ({
                       {earnUtils.isPendleProvider({
                         providerName: provider,
                       }) ? (
-                        <PendleRulesSection data={detailInfo.rules} />
+                        <PendleRulesSection
+                          data={detailInfo.rules}
+                          impliedApyHistory={chartData?.impliedApyHistory}
+                          isHistoryLoading={isApyHistoryLoading}
+                          maturityDate={detailInfo.maturity?.date}
+                        />
                       ) : (
                         <GridSection data={detailInfo.rules} />
                       )}
@@ -1105,10 +1044,9 @@ const DetailsPartComponent = ({
                 onShare={onShare}
               />
               <ChartSection
-                networkId={networkId}
-                symbol={symbol}
                 provider={provider}
-                vault={vault}
+                chartData={chartData}
+                isChartLoading={isChartLoading}
                 apyBreakdownItems={popupData?.items}
               />
               {/* Protocol Tips (OK-58972)：图表下方浅灰卡片，dashboard 配置 */}
@@ -1125,7 +1063,12 @@ const DetailsPartComponent = ({
             {earnUtils.isPendleProvider({
               providerName: provider,
             }) ? (
-              <PendleRulesSection data={detailInfo.rules} />
+              <PendleRulesSection
+                data={detailInfo.rules}
+                impliedApyHistory={chartData?.impliedApyHistory}
+                isHistoryLoading={isApyHistoryLoading}
+                maturityDate={detailInfo.maturity?.date}
+              />
             ) : (
               <GridSection data={detailInfo.rules} />
             )}
