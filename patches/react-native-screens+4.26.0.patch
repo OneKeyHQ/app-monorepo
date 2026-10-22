@@ -63,11 +63,27 @@ index 9f9f864..bc6631b 100644
  
          disappearingTransitioningChildren.remove(view)
  
+diff --git a/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenViewManager.kt b/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenViewManager.kt
+index 4cb201b..b1583b2 100644
+--- a/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenViewManager.kt
++++ b/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenViewManager.kt
+@@ -167,6 +167,11 @@ open class ScreenViewManager :
+             }
+     }
+ 
++    // OneKey patch: the generated prop is iOS-only; keep Android rotation unchanged.
++    override fun setScreenOrientationAnimated(view: Screen, animated: Boolean) = Unit
++
++    override fun setScreenContentReady(view: Screen, ready: Boolean) = Unit
++
+     override fun setScreenOrientation(
+         view: Screen,
+         screenOrientation: String?,
 diff --git a/node_modules/react-native-screens/ios/RNSFullWindowOverlay.mm b/node_modules/react-native-screens/ios/RNSFullWindowOverlay.mm
 index 1a820b4..6f60b43 100644
 --- a/node_modules/react-native-screens/ios/RNSFullWindowOverlay.mm
 +++ b/node_modules/react-native-screens/ios/RNSFullWindowOverlay.mm
-@@ -218,9 +218,31 @@ - (void)updateProps:(const facebook::react::Props::Shared &)props
+@@ -218,9 +218,31 @@ RNS_IGNORE_SUPER_CALL_END
      [self setAccessibilityContainerViewIsModal:newComponentProps.accessibilityContainerViewIsModal];
    }
  
@@ -99,8 +115,24 @@ index 1a820b4..6f60b43 100644
  #pragma mark - Dynamic frameworks support
  
  // Needed because of this: https://github.com/facebook/react-native/pull/37274
+diff --git a/node_modules/react-native-screens/ios/RNSScreen.h b/node_modules/react-native-screens/ios/RNSScreen.h
+index b1f482c..9d49734 100644
+--- a/node_modules/react-native-screens/ios/RNSScreen.h
++++ b/node_modules/react-native-screens/ios/RNSScreen.h
+@@ -103,6 +103,11 @@ NS_ASSUME_NONNULL_BEGIN
+ @property (nonatomic) RNSStatusBarStyle statusBarStyle;
+ @property (nonatomic) UIStatusBarAnimation statusBarAnimation;
+ @property (nonatomic) UIInterfaceOrientationMask screenOrientation;
++// OneKey patch: allow individual screens to opt out of system rotation animation.
++@property (nonatomic) BOOL screenOrientationAnimated;
++@property (nonatomic) BOOL screenContentReady;
++- (void)retainTransitionSnapshot;
++- (void)releaseTransitionSnapshot;
+ @property (nonatomic) BOOL statusBarHidden;
+ @property (nonatomic) BOOL homeIndicatorHidden;
+ 
 diff --git a/node_modules/react-native-screens/ios/RNSScreen.mm b/node_modules/react-native-screens/ios/RNSScreen.mm
-index 9b66012..09393b0 100644
+index 9b66012..2f44eee 100644
 --- a/node_modules/react-native-screens/ios/RNSScreen.mm
 +++ b/node_modules/react-native-screens/ios/RNSScreen.mm
 @@ -8,6 +8,7 @@
@@ -111,7 +143,7 @@ index 9b66012..09393b0 100644
  #import <React/RCTRootComponentView.h>
  #import <React/RCTScrollViewComponentView.h>
  #import <React/RCTSurfaceTouchHandler.h>
-@@ -37,6 +38,20 @@
+@@ -37,6 +38,71 @@ namespace react = facebook::react;
  constexpr NSInteger SHEET_FIT_TO_CONTENTS = -1;
  constexpr NSInteger SHEET_LARGEST_UNDIMMED_DETENT_NONE = -1;
  
@@ -129,10 +161,61 @@ index 9b66012..09393b0 100644
 +// completion decrements. Flag is cleared only on the last decrement.
 +static NSInteger RNSScreenTransitionDepth = 0;
 +
++// OneKey patch: anchor the frozen frame in screen coordinates, not the window's
++// rotating coordinate space. The live controller can finish layout underneath.
++@interface RNSFixedTransitionSnapshot : UIView
++- (instancetype)initWithWindow:(UIWindow *)window;
++@end
++
++@implementation RNSFixedTransitionSnapshot {
++  UIView *_snapshot;
++  CGPoint _fixedOrigin;
++  CGPoint _fixedRight;
++  CGPoint _fixedBottom;
++}
++
++- (instancetype)initWithWindow:(UIWindow *)window
++{
++  if (self = [super initWithFrame:window.bounds]) {
++    _snapshot = [window snapshotViewAfterScreenUpdates:NO];
++    _snapshot.frame = window.bounds;
++    id<UICoordinateSpace> fixedSpace = window.screen.fixedCoordinateSpace;
++    _fixedOrigin = [window convertPoint:CGPointZero toCoordinateSpace:fixedSpace];
++    _fixedRight = [window convertPoint:CGPointMake(CGRectGetWidth(window.bounds), 0) toCoordinateSpace:fixedSpace];
++    _fixedBottom = [window convertPoint:CGPointMake(0, CGRectGetHeight(window.bounds)) toCoordinateSpace:fixedSpace];
++    self.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
++    self.layer.zPosition = CGFLOAT_MAX;
++    [self addSubview:_snapshot];
++  }
++  return self;
++}
++
++- (void)layoutSubviews
++{
++  [super layoutSubviews];
++  UIWindow *window = self.window;
++  if (window == nil || CGRectIsEmpty(_snapshot.bounds)) {
++    return;
++  }
++  id<UICoordinateSpace> fixedSpace = window.screen.fixedCoordinateSpace;
++  CGPoint origin = [window convertPoint:_fixedOrigin fromCoordinateSpace:fixedSpace];
++  CGPoint right = [window convertPoint:_fixedRight fromCoordinateSpace:fixedSpace];
++  CGPoint bottom = [window convertPoint:_fixedBottom fromCoordinateSpace:fixedSpace];
++  CGFloat width = CGRectGetWidth(_snapshot.bounds);
++  CGFloat height = CGRectGetHeight(_snapshot.bounds);
++  [UIView performWithoutAnimation:^{
++    self->_snapshot.transform = CGAffineTransformMake(
++        (right.x - origin.x) / width, (right.y - origin.y) / width,
++        (bottom.x - origin.x) / height, (bottom.y - origin.y) / height, 0, 0);
++    self->_snapshot.center = CGPointMake((right.x + bottom.x) / 2, (right.y + bottom.y) / 2);
++  }];
++}
++@end
++
  struct ContentWrapperBox {
    __weak RNSScreenContentWrapper *contentWrapper{nil};
    float contentHeightErrata{0.f};
-@@ -48,7 +63,12 @@ @interface RNSScreenView () <UIAdaptivePresentationControllerDelegate,
+@@ -48,7 +114,12 @@ struct ContentWrapperBox {
                               UISheetPresentationControllerDelegate,
  #endif
                               RCTRNSScreenViewProtocol,
@@ -146,7 +229,7 @@ index 9b66012..09393b0 100644
  @end
  
  @implementation RNSScreenView {
-@@ -59,6 +79,7 @@ @implementation RNSScreenView {
+@@ -59,10 +130,12 @@ struct ContentWrapperBox {
    ContentWrapperBox _contentWrapperBox;
    bool _sheetHasInitialDetentSet;
    BOOL _shouldUpdateScrollEdgeEffects;
@@ -154,15 +237,74 @@ index 9b66012..09393b0 100644
    UITapGestureRecognizer *_backdropTapGestureRecognizer;
    RCTSurfaceTouchHandler *_touchHandler;
    react::RNSScreenShadowNode::ConcreteState::Shared _state;
-@@ -95,6 +116,7 @@ - (void)initCommonProps
+   NSMutableArray<UIView *> *_reactSubviews;
++  UIView *_transitionSnapshot;
+ }
+ 
+ - (instancetype)initWithFrame:(CGRect)frame
+@@ -95,7 +168,10 @@ struct ContentWrapperBox {
    _fullScreenSwipeEnabled = RNSOptionalBooleanUndefined;
    _fullScreenSwipeShadowEnabled = YES;
    _shouldUpdateScrollEdgeEffects = NO;
 +  _lastContentScrollViewForEdgeEffects = nil;
  #if !TARGET_OS_TV
++  _screenOrientationAnimated = YES;
++  _screenContentReady = YES;
    _sheetExpandsWhenScrolledToEdge = YES;
  #endif // !TARGET_OS_TV
-@@ -599,6 +621,20 @@ - (void)didMoveToWindow
+   _sheetsScrollView = nil;
+@@ -104,6 +180,50 @@ struct ContentWrapperBox {
+   _synchronousShadowStateUpdatesEnabled = YES;
+ }
+ 
++// OneKey patch: keep the last complete frame outside the rotating controller.
++// No image encoding or JS copy is needed; the screen owns the native snapshot.
++- (void)retainTransitionSnapshot
++{
++#if !TARGET_OS_TV
++  if (_screenContentReady || _transitionSnapshot != nil) {
++    return;
++  }
++  UIWindow *window = self.window ?: self.controller.presentingViewController.view.window;
++  if (window == nil) {
++    window = RCTKeyWindow();
++  }
++  if (window == nil) {
++    return;
++  }
++  _transitionSnapshot = [[RNSFixedTransitionSnapshot alloc] initWithWindow:window];
++  [window addSubview:_transitionSnapshot];
++#endif
++}
++
++- (void)releaseTransitionSnapshot
++{
++  [_transitionSnapshot removeFromSuperview];
++  _transitionSnapshot = nil;
++}
++
++#if !TARGET_OS_TV
++- (void)setScreenContentReady:(BOOL)ready
++{
++  _screenContentReady = ready;
++  if (ready) {
++    [self releaseTransitionSnapshot];
++  } else {
++    // Capture before presentation can rotate the presenting controller.
++    [self retainTransitionSnapshot];
++  }
++}
++#endif
++
++- (void)dealloc
++{
++  [self releaseTransitionSnapshot];
++}
++
+ - (BOOL)getFullScreenSwipeShadowEnabled
+ {
+   if (@available(iOS 26, *)) {
+@@ -599,6 +719,20 @@ RNS_IGNORE_SUPER_CALL_END
    } else {
      [_touchHandler detachFromView:self];
    }
@@ -183,7 +325,7 @@ index 9b66012..09393b0 100644
  }
  
  - (nullable RCTSurfaceTouchHandler *)touchHandler
-@@ -1105,10 +1141,46 @@ - (void)overrideScrollViewBehaviorInFirstDescendantChainIfNeeded
+@@ -1105,10 +1239,46 @@ RNS_IGNORE_SUPER_CALL_END
    }
  }
  
@@ -232,7 +374,17 @@ index 9b66012..09393b0 100644
  }
  
  #pragma mark - RNSSafeAreaProviding
-@@ -1385,6 +1457,14 @@ - (void)finalizeUpdates:(RNComponentViewUpdateMask)updateMask
+@@ -1274,6 +1444,9 @@ RNS_IGNORE_SUPER_CALL_END
+                                                                      newScreenProps.statusBarAnimation)]];
+   }
+ 
++  // OneKey patch: apply the animation policy before requesting orientation changes.
++  [self setScreenOrientationAnimated:newScreenProps.screenOrientationAnimated];
++  [self setScreenContentReady:newScreenProps.screenContentReady];
+   if (newScreenProps.screenOrientation != oldScreenProps.screenOrientation) {
+     [self setScreenOrientation:[RCTConvert UIInterfaceOrientationMask:RCTNSStringFromStringNilIfEmpty(
+                                                                           newScreenProps.screenOrientation)]];
+@@ -1385,6 +1558,14 @@ RNS_IGNORE_SUPER_CALL_END
  #endif // !TARGET_OS_TV && !TARGET_OS_VISION
  }
  
@@ -247,10 +399,12 @@ index 9b66012..09393b0 100644
  #pragma mark - Dynamic frameworks support
  
  // Needed because of this: https://github.com/facebook/react-native/pull/37274
-@@ -1437,6 +1517,28 @@ - (instancetype)initWithView:(UIView *)view
+@@ -1437,6 +1618,30 @@ Class<RCTComponentViewProtocol> RNSScreenCls(void)
  - (void)viewWillAppear:(BOOL)animated
  {
    [super viewWillAppear:animated];
++
++  [self.screenView retainTransitionSnapshot];
 +
 +  // Activate the freeze-implicit-animation flag during ANY animated UIKit
 +  // transition: modal present/dismiss, push/pop on a navigation stack
@@ -276,6 +430,15 @@ index 9b66012..09393b0 100644
    if (!_isSwiping) {
      [self.screenView notifyWillAppear];
      if (self.transitionCoordinator.isInteractive) {
+@@ -1517,6 +1722,8 @@ Class<RCTComponentViewProtocol> RNSScreenCls(void)
+ - (void)viewDidDisappear:(BOOL)animated
+ {
+   [super viewDidDisappear:animated];
++
++  [self.screenView releaseTransitionSnapshot];
+   if (self.parentViewController == nil && self.presentingViewController == nil) {
+     if (self.screenView.preventNativeDismiss) {
+       // if we want to prevent the native dismiss, we do not send dismissal event,
 diff --git a/node_modules/react-native-screens/ios/RNSScreenStack.mm b/node_modules/react-native-screens/ios/RNSScreenStack.mm
 index 192f5d2..19b411a 100644
 --- a/node_modules/react-native-screens/ios/RNSScreenStack.mm
@@ -336,7 +499,7 @@ index 192f5d2..19b411a 100644
  #import "UIView+RNSUtility.h"
  #import "integrations/RNSDismissibleModalProtocol.h"
  #import "utils/UINavigationBar+RNSUtility.h"
-@@ -175,6 +224,11 @@ @implementation RNSScreenStackView {
+@@ -175,6 +224,11 @@ namespace react = facebook::react;
    RNSPercentDrivenInteractiveTransition *_interactionController;
    __weak RNSScreenStackManager *_manager;
    BOOL _updateScheduled;
@@ -348,7 +511,7 @@ index 192f5d2..19b411a 100644
  }
  
  - (instancetype)initWithFrame:(CGRect)frame
-@@ -213,6 +267,24 @@ - (void)initCommonProps
+@@ -213,6 +267,24 @@ namespace react = facebook::react;
    // the header will render in collapsed state which is perhaps a bug
    // in UIKit but ¯\_(ツ)_/¯
    [_controller setViewControllers:@[ [UIViewController new] ]];
@@ -373,7 +536,7 @@ index 192f5d2..19b411a 100644
  }
  
  #pragma mark - helper methods
-@@ -240,6 +312,153 @@ - (void)emitOnFinishTransitioningEvent
+@@ -240,6 +312,153 @@ namespace react = facebook::react;
    }
  }
  
@@ -527,7 +690,7 @@ index 192f5d2..19b411a 100644
  - (void)navigationController:(UINavigationController *)navigationController
        willShowViewController:(UIViewController *)viewController
                      animated:(BOOL)animated
-@@ -278,21 +497,45 @@ - (void)presentationControllerDidDismiss:(UIPresentationController *)presentatio
+@@ -278,21 +497,45 @@ RNS_IGNORE_SUPER_CALL_END
  
  - (void)didMoveToWindow
  {
@@ -577,7 +740,7 @@ index 192f5d2..19b411a 100644
    [self updateContainer];
    if (!wasScreenMounted) {
      // when stack hasn't been added to parent VC yet we do two things:
-@@ -313,10 +556,43 @@ - (void)reactAddControllerToClosestParent:(UIViewController *)controller
+@@ -313,10 +556,43 @@ RNS_IGNORE_SUPER_CALL_END
  {
    if (!controller.parentViewController) {
      UIView *parentView = (UIView *)self.reactSuperview;
@@ -623,7 +786,7 @@ index 192f5d2..19b411a 100644
  #if !TARGET_OS_TV
          _controller.interactivePopGestureRecognizer.delegate = self;
  #if RNS_IPHONE_OS_VERSION_AVAILABLE(26_0)
-@@ -325,7 +601,7 @@ - (void)reactAddControllerToClosestParent:(UIViewController *)controller
+@@ -325,7 +601,7 @@ RNS_IGNORE_SUPER_CALL_END
          }
  #endif // Check for iOS >= 26.0
  #endif
@@ -632,7 +795,7 @@ index 192f5d2..19b411a 100644
          // On iOS pre 12 we observed that `willShowViewController` delegate method does not always
          // get triggered when the navigation controller is instantiated. As the only thing we do in
          // that delegate method is ask nav header to update to the current state it does not hurt to
-@@ -375,6 +651,8 @@ - (void)setModalViewControllers:(NSArray<UIViewController *> *)controllers
+@@ -375,6 +651,8 @@ RNS_IGNORE_SUPER_CALL_END
  {
    // prevent re-entry
    if (_updatingModals) {
@@ -641,7 +804,7 @@ index 192f5d2..19b411a 100644
      _scheduleModalsUpdate = YES;
      return;
    }
-@@ -383,12 +661,22 @@ - (void)setModalViewControllers:(NSArray<UIViewController *> *)controllers
+@@ -383,12 +661,22 @@ RNS_IGNORE_SUPER_CALL_END
    // accidently trigger modal dismiss if we don't verify to run the below code only when an actual
    // change in the list of presented modal was made.
    if ([_presentedModals isEqualToArray:controllers]) {
@@ -664,7 +827,7 @@ index 192f5d2..19b411a 100644
      return;
    }
  
-@@ -429,6 +717,7 @@ - (void)setModalViewControllers:(NSArray<UIViewController *> *)controllers
+@@ -429,6 +717,7 @@ RNS_IGNORE_SUPER_CALL_END
    __weak RNSScreenStackView *weakSelf = self;
  
    void (^afterTransitions)(void) = ^{
@@ -672,7 +835,7 @@ index 192f5d2..19b411a 100644
      [weakSelf emitOnFinishTransitioningEvent];
      weakSelf.updatingModals = NO;
      if (weakSelf.scheduleModalsUpdate) {
-@@ -444,6 +733,7 @@ - (void)setModalViewControllers:(NSArray<UIViewController *> *)controllers
+@@ -444,6 +733,7 @@ RNS_IGNORE_SUPER_CALL_END
    };
  
    void (^finish)(void) = ^{
@@ -680,7 +843,7 @@ index 192f5d2..19b411a 100644
      NSUInteger oldCount = weakSelf.presentedModals.count;
      if (changeRootIndex < oldCount) {
        [weakSelf.presentedModals removeObjectsInRange:NSMakeRange(changeRootIndex, oldCount - changeRootIndex)];
-@@ -452,10 +742,13 @@ - (void)setModalViewControllers:(NSArray<UIViewController *> *)controllers
+@@ -452,10 +742,13 @@ RNS_IGNORE_SUPER_CALL_END
          changeRootController.parentViewController != nil || changeRootController.presentingViewController != nil;
  
      if (!isAttached || changeRootIndex >= controllers.count) {
@@ -698,7 +861,7 @@ index 192f5d2..19b411a 100644
        afterTransitions();
        return;
      }
-@@ -532,16 +825,23 @@ - (void)setModalViewControllers:(NSArray<UIViewController *> *)controllers
+@@ -532,16 +825,23 @@ RNS_IGNORE_SUPER_CALL_END
                ? static_cast<RNSScreen *>(firstModalToBeDismissed).screenView.stackAnimation !=
                    RNSScreenStackAnimationNone
                : YES;
@@ -726,7 +889,7 @@ index 192f5d2..19b411a 100644
                                  finish();
                                }];
          }
-@@ -578,12 +878,61 @@ - (void)setPushViewControllers:(NSArray<UIViewController *> *)controllers
+@@ -578,12 +878,61 @@ RNS_IGNORE_SUPER_CALL_END
  {
    // when there is no change we return immediately
    if ([_controller.viewControllers isEqualToArray:controllers]) {
@@ -789,7 +952,7 @@ index 192f5d2..19b411a 100644
      return;
    }
    // when transition is ongoing, any updates made to the controller will not be reflected until the
-@@ -593,6 +942,7 @@ - (void)setPushViewControllers:(NSArray<UIViewController *> *)controllers
+@@ -593,6 +942,7 @@ RNS_IGNORE_SUPER_CALL_END
    // making any updated when transition is ongoing and schedule updates for when the transition
    // is complete.
    if (_controller.transitionCoordinator != nil) {
@@ -797,7 +960,7 @@ index 192f5d2..19b411a 100644
      if (!_updateScheduled) {
        _updateScheduled = YES;
        __weak RNSScreenStackView *weakSelf = self;
-@@ -659,8 +1009,15 @@ - (void)setPushViewControllers:(NSArray<UIViewController *> *)controllers
+@@ -659,8 +1009,15 @@ RNS_IGNORE_SUPER_CALL_END
        NSMutableArray *newControllers = [NSMutableArray arrayWithArray:controllers];
        [newControllers removeLastObject];
  
@@ -813,7 +976,7 @@ index 192f5d2..19b411a 100644
      } else {
        // don't really know what this case could be, but may need to handle it
        // somehow
-@@ -674,6 +1031,9 @@ - (void)setPushViewControllers:(NSArray<UIViewController *> *)controllers
+@@ -674,6 +1031,9 @@ RNS_IGNORE_SUPER_CALL_END
  
  - (void)updateContainer
  {
@@ -823,7 +986,7 @@ index 192f5d2..19b411a 100644
    NSMutableArray<UIViewController *> *pushControllers = [NSMutableArray new];
    NSMutableArray<UIViewController *> *modalControllers = [NSMutableArray new];
    for (RNSScreenView *screen in _reactSubviews) {
-@@ -743,6 +1103,10 @@ - (void)layoutSubviews
+@@ -743,6 +1103,10 @@ RNS_IGNORE_SUPER_CALL_END
        modal.view.frame = correctFrame;
      }
    }
@@ -838,7 +1001,7 @@ diff --git a/node_modules/react-native-screens/ios/RNSScreenStackHeaderConfig.mm
 index 1c84484..976b44f 100644
 --- a/node_modules/react-native-screens/ios/RNSScreenStackHeaderConfig.mm
 +++ b/node_modules/react-native-screens/ios/RNSScreenStackHeaderConfig.mm
-@@ -381,7 +381,18 @@ + (UINavigationBarAppearance *)buildAppearance:(UIViewController *)vc withConfig
+@@ -381,7 +381,18 @@ RNS_IGNORE_SUPER_CALL_END
        appearance.shadowImage = shadowImage;
      }
    } else {
@@ -858,7 +1021,7 @@ index 1c84484..976b44f 100644
    }
  
    // set background color if specified
-@@ -391,7 +402,16 @@ + (UINavigationBarAppearance *)buildAppearance:(UIViewController *)vc withConfig
+@@ -391,7 +402,16 @@ RNS_IGNORE_SUPER_CALL_END
  
    switch (config.blurEffect) {
      case RNSBlurEffectStyleNone:
@@ -876,7 +1039,7 @@ index 1c84484..976b44f 100644
        break;
  
      case RNSBlurEffectStyleSystemDefault:
-@@ -513,6 +533,14 @@ + (void)updateViewController:(UIViewController *)vc
+@@ -513,6 +533,14 @@ RNS_IGNORE_SUPER_CALL_END
      return;
    }
  
@@ -891,6 +1054,55 @@ index 1c84484..976b44f 100644
    navctr.navigationBar.overrideUserInterfaceStyle = config.userInterfaceStyle;
  
  #if !TARGET_OS_TV
+diff --git a/node_modules/react-native-screens/ios/RNSScreenWindowTraits.mm b/node_modules/react-native-screens/ios/RNSScreenWindowTraits.mm
+index fd6f70d..3be9ee7 100644
+--- a/node_modules/react-native-screens/ios/RNSScreenWindowTraits.mm
++++ b/node_modules/react-native-screens/ios/RNSScreenWindowTraits.mm
+@@ -148,9 +148,6 @@
+ 
+         UIWindowSceneGeometryPreferencesIOS *geometryPreferences =
+             [[UIWindowSceneGeometryPreferencesIOS alloc] initWithInterfaceOrientations:orientationMask];
+-        [scene requestGeometryUpdateWithPreferences:geometryPreferences
+-                                       errorHandler:^(NSError *_Nonnull error){
+-                                       }];
+ 
+         // `attemptRotationToDeviceOrientation` is deprecated for modern OS versions
+         // so we need to use `setNeedsUpdateOfSupportedInterfaceOrientations`
+@@ -159,7 +156,33 @@
+           topController = topController.presentedViewController;
+         }
+ 
+-        [topController setNeedsUpdateOfSupportedInterfaceOrientations];
++        // OneKey patch: opt out per screen while preserving real scene orientation.
++        UIViewController *orientationController = topController;
++        if ([orientationController isKindOfClass:[UINavigationController class]]) {
++          orientationController = ((UINavigationController *)orientationController).topViewController;
++        }
++        if ([orientationController isKindOfClass:[RNSScreen class]]) {
++          orientationController = [(RNSScreen *)orientationController
++              findChildVCForConfigAndTrait:RNSWindowTraitOrientation
++                          includingModals:YES];
++        }
++        BOOL animated = ![orientationController isKindOfClass:[RNSScreen class]] ||
++            ((RNSScreen *)orientationController).screenView.screenOrientationAnimated;
++        void (^updateOrientation)(void) = ^{
++          [scene requestGeometryUpdateWithPreferences:geometryPreferences
++                                         errorHandler:^(NSError *_Nonnull error){
++                                         }];
++          [topController setNeedsUpdateOfSupportedInterfaceOrientations];
++        };
++        if (animated) {
++          updateOrientation();
++        } else {
++          [UIView performWithoutAnimation:^{
++            // Invalidate inside the block before a geometry request can start rotation.
++            [topController setNeedsUpdateOfSupportedInterfaceOrientations];
++            updateOrientation();
++          }];
++        }
+       } else
+ #endif // Check for iOS 16
+       {
 diff --git a/node_modules/react-native-screens/ios/helpers/scroll-view/RNSScrollEdgeEffectApplicator.h b/node_modules/react-native-screens/ios/helpers/scroll-view/RNSScrollEdgeEffectApplicator.h
 index b1c43b7..8678802 100644
 --- a/node_modules/react-native-screens/ios/helpers/scroll-view/RNSScrollEdgeEffectApplicator.h
@@ -905,7 +1117,7 @@ diff --git a/node_modules/react-native-screens/ios/helpers/scroll-view/RNSScroll
 index c0fb133..90d75f8 100644
 --- a/node_modules/react-native-screens/ios/helpers/scroll-view/RNSScrollEdgeEffectApplicator.mm
 +++ b/node_modules/react-native-screens/ios/helpers/scroll-view/RNSScrollEdgeEffectApplicator.mm
-@@ -20,6 +20,22 @@ + (void)applyToScrollView:(nonnull UIScrollView *)scrollView
+@@ -20,6 +20,22 @@
  #endif
  }
  
@@ -928,7 +1140,7 @@ index c0fb133..90d75f8 100644
  #if RNS_IPHONE_OS_VERSION_AVAILABLE(26_0)
  + (void)configureEffect:(UIScrollEdgeEffect *)edgeEffect
                 withEnum:(RNSScrollEdgeEffect)effectEnum API_AVAILABLE(ios(26.0))
-@@ -27,20 +43,36 @@ + (void)configureEffect:(UIScrollEdgeEffect *)edgeEffect
+@@ -27,20 +43,36 @@
    if (@available(iOS 26, *)) {
      switch (effectEnum) {
        case RNSScrollEdgeEffectAutomatic:
@@ -1020,7 +1232,7 @@ index 2434c61..e24018e 100644
  
  @implementation RNSScrollViewFinder
  
-@@ -41,4 +63,53 @@ + (nullable UIScrollView *)findContentScrollViewWithDelegatingToProvider:(nullab
+@@ -41,4 +63,53 @@
    return nil;
  }
  
@@ -1101,6 +1313,47 @@ index 732ba7d..0210ef6 100644
  };
  declare function FullWindowOverlay(props: FullWindowOverlayProps): React.JSX.Element;
  export default FullWindowOverlay;
+diff --git a/node_modules/react-native-screens/lib/typescript/fabric/ModalScreenNativeComponent.d.ts b/node_modules/react-native-screens/lib/typescript/fabric/ModalScreenNativeComponent.d.ts
+index e0efef1..ec673a7 100644
+--- a/node_modules/react-native-screens/lib/typescript/fabric/ModalScreenNativeComponent.d.ts
++++ b/node_modules/react-native-screens/lib/typescript/fabric/ModalScreenNativeComponent.d.ts
+@@ -58,6 +58,8 @@ export interface NativeProps extends ViewProps {
+     statusBarColor?: ColorValue | undefined;
+     statusBarHidden?: boolean | undefined;
+     screenOrientation?: string | undefined;
++    screenOrientationAnimated?: CT.WithDefault<boolean, true>;
++  screenContentReady?: CT.WithDefault<boolean, true>;
+     statusBarAnimation?: string | undefined;
+     statusBarStyle?: string | undefined;
+     statusBarTranslucent?: boolean | undefined;
+diff --git a/node_modules/react-native-screens/lib/typescript/fabric/ScreenNativeComponent.d.ts b/node_modules/react-native-screens/lib/typescript/fabric/ScreenNativeComponent.d.ts
+index 9fe6da7..893d720 100644
+--- a/node_modules/react-native-screens/lib/typescript/fabric/ScreenNativeComponent.d.ts
++++ b/node_modules/react-native-screens/lib/typescript/fabric/ScreenNativeComponent.d.ts
+@@ -58,6 +58,8 @@ export interface NativeProps extends ViewProps {
+     statusBarColor?: ColorValue | undefined;
+     statusBarHidden?: boolean | undefined;
+     screenOrientation?: string | undefined;
++    screenOrientationAnimated?: CT.WithDefault<boolean, true>;
++  screenContentReady?: CT.WithDefault<boolean, true>;
+     statusBarAnimation?: string | undefined;
+     statusBarStyle?: string | undefined;
+     statusBarTranslucent?: boolean | undefined;
+diff --git a/node_modules/react-native-screens/lib/typescript/types.d.ts b/node_modules/react-native-screens/lib/typescript/types.d.ts
+index 10a3134..29c8e23 100644
+--- a/node_modules/react-native-screens/lib/typescript/types.d.ts
++++ b/node_modules/react-native-screens/lib/typescript/types.d.ts
+@@ -305,6 +305,10 @@ export interface ScreenProps extends ViewProps {
+      * - "landscape_right" – landscape-right orientation is permitted
+      */
+     screenOrientation?: ScreenOrientationTypes | undefined;
++    /** OneKey patch: animate system orientation updates on iOS. Defaults to true. */
++    screenOrientationAnimated?: boolean | undefined;
++  /** OneKey patch: retain a native transition snapshot until content is drawn. */
++  screenContentReady?: boolean | undefined;
+     /**
+      * Describes heights where a sheet can rest.
+      * Works only when `presentation` is set to `formSheet`.
 diff --git a/node_modules/react-native-screens/src/components/FullWindowOverlay.tsx b/node_modules/react-native-screens/src/components/FullWindowOverlay.tsx
 index 711a012..c042779 100644
 --- a/node_modules/react-native-screens/src/components/FullWindowOverlay.tsx
@@ -1140,3 +1393,46 @@ index 4906480..df8afea 100644
  }
  
  export default codegenNativeComponent<NativeProps>('RNSFullWindowOverlay', {
+diff --git a/node_modules/react-native-screens/src/fabric/ModalScreenNativeComponent.ts b/node_modules/react-native-screens/src/fabric/ModalScreenNativeComponent.ts
+index 171e399..64e1871 100644
+--- a/node_modules/react-native-screens/src/fabric/ModalScreenNativeComponent.ts
++++ b/node_modules/react-native-screens/src/fabric/ModalScreenNativeComponent.ts
+@@ -102,6 +102,9 @@ export interface NativeProps extends ViewProps {
+   statusBarColor?: ColorValue | undefined;
+   statusBarHidden?: boolean | undefined;
+   screenOrientation?: string | undefined;
++  // OneKey patch: modal and regular screens must share the same native props.
++  screenOrientationAnimated?: CT.WithDefault<boolean, true>;
++  screenContentReady?: CT.WithDefault<boolean, true>;
+   statusBarAnimation?: string | undefined;
+   statusBarStyle?: string | undefined;
+   statusBarTranslucent?: boolean | undefined;
+diff --git a/node_modules/react-native-screens/src/fabric/ScreenNativeComponent.ts b/node_modules/react-native-screens/src/fabric/ScreenNativeComponent.ts
+index 4fa781c..2ab369e 100644
+--- a/node_modules/react-native-screens/src/fabric/ScreenNativeComponent.ts
++++ b/node_modules/react-native-screens/src/fabric/ScreenNativeComponent.ts
+@@ -102,6 +102,9 @@ export interface NativeProps extends ViewProps {
+   statusBarColor?: ColorValue | undefined;
+   statusBarHidden?: boolean | undefined;
+   screenOrientation?: string | undefined;
++  // OneKey patch: keep system rotation animation configurable per screen.
++  screenOrientationAnimated?: CT.WithDefault<boolean, true>;
++  screenContentReady?: CT.WithDefault<boolean, true>;
+   statusBarAnimation?: string | undefined;
+   statusBarStyle?: string | undefined;
+   statusBarTranslucent?: boolean | undefined;
+diff --git a/node_modules/react-native-screens/src/types.tsx b/node_modules/react-native-screens/src/types.tsx
+index 9c3ab4c..7197421 100644
+--- a/node_modules/react-native-screens/src/types.tsx
++++ b/node_modules/react-native-screens/src/types.tsx
+@@ -388,6 +388,10 @@ export interface ScreenProps extends ViewProps {
+    * - "landscape_right" – landscape-right orientation is permitted
+    */
+   screenOrientation?: ScreenOrientationTypes | undefined;
++  /** OneKey patch: animate system orientation updates on iOS. Defaults to true. */
++  screenOrientationAnimated?: boolean | undefined;
++  /** OneKey patch: retain a native transition snapshot until content is drawn. */
++  screenContentReady?: boolean | undefined;
+   /**
+    * Describes heights where a sheet can rest.
+    * Works only when `presentation` is set to `formSheet`.

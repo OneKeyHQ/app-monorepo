@@ -3901,6 +3901,8 @@ DEPENDENCIES:
   - JPushRN (from `../../../node_modules/jpush-react-native`)
   - "KeychainModule (from `../../../node_modules/@onekeyfe/react-native-keychain-module`)"
   - lottie-react-native (from `../../../node_modules/lottie-react-native`)
+  - MMKV (from `../../../node_modules/.cache/onekey-mmkv-native/4007cba64e697a153127daa7578c13666f34525e-b4c0dcafcbcb`)
+  - MMKVCore (from `../../../node_modules/.cache/onekey-mmkv-native/4007cba64e697a153127daa7578c13666f34525e-b4c0dcafcbcb`)
   - "NativeSheet (from `../../../node_modules/@onekeyfe/react-native-native-sheet`)"
   - NetworkInfo (from `../../../node_modules/react-native-network-info`)
   - NitroMmkv (from `../../../node_modules/react-native-mmkv`)
@@ -4059,8 +4061,6 @@ SPEC REPOS:
     - JuiceboxSdk
     - libwebp
     - lottie-ios
-    - MMKV
-    - MMKVCore
     - MultiplatformBleAdapter
     - OpenSSL-Universal
     - PromisesObjC
@@ -4180,6 +4180,10 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/@onekeyfe/react-native-keychain-module"
   lottie-react-native:
     :path: "../../../node_modules/lottie-react-native"
+  MMKV:
+    :path: "../../../node_modules/.cache/onekey-mmkv-native/4007cba64e697a153127daa7578c13666f34525e-b4c0dcafcbcb"
+  MMKVCore:
+    :path: "../../../node_modules/.cache/onekey-mmkv-native/4007cba64e697a153127daa7578c13666f34525e-b4c0dcafcbcb"
   NativeSheet:
     :path: "../../../node_modules/@onekeyfe/react-native-native-sheet"
   NetworkInfo:
@@ -4678,6 +4682,6 @@ SPEC CHECKSUMS:
   YttriumWrapper: 850d3c5bfa7815ad9962591ff3c1b289039266f2
   ZXingObjC: 8898711ab495761b2dbbdec76d90164a6d7e14c5
 
-PODFILE CHECKSUM: e6f82b1c87ebaca0fd834943468c19d8cb3a5781
+PODFILE CHECKSUM: a6393a912e5d1117d20b68af8ca3f675354973bd
 
 COCOAPODS: 1.17.0

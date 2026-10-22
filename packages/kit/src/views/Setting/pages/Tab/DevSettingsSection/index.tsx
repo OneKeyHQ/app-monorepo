@@ -841,7 +841,7 @@ const BaseDevSettingsSection = () => {
         if (devSettings.enabled && devSettings.settings?.enableTestEndpoint) {
           const result = await runIdentityExit(
             { type: 'switchEnvironment', scene: 'devSettings' },
-            { confirmButtonTestID: 'dev-settings-environment-logout-confirm' },
+            { skipConfirmation: true },
           );
           if (result.status !== 'completed') {
             return;

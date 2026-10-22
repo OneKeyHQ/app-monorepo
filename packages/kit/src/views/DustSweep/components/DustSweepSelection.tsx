@@ -14,11 +14,12 @@ import { SWAP_DESKTOP_CARD_SHADOW_WEB_STYLE } from '@onekeyhq/kit/src/views/Swap
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { useDustSweep } from '../DustSweepProvider';
+import { useDustSweepActiveItemScroll } from '../hooks/useDustSweepActiveItemScroll';
 import { getDustSweepHiddenThreshold } from '../utils/candidates';
 
 import { DustSweepFilters } from './DustSweepFilters';
 import { DUST_SWEEP_ACTION_HEIGHT } from './DustSweepSummary';
-import { DustSweepTokenRow } from './DustSweepTokenRow';
+import { DUST_SWEEP_ROW_HEIGHT, DustSweepTokenRow } from './DustSweepTokenRow';
 
 // One fixed desktop height for every step (Add anyway, sweeping, result) so
 // the cards never jump; longer lists scroll inside.
@@ -38,6 +39,7 @@ export function DustSweepSelection({ desktop }: { desktop: boolean }) {
     refreshStatus,
     assetStatus,
     partialError,
+    failedNetworks,
     toggle,
     toggleAll,
     addHidden,
@@ -47,6 +49,13 @@ export function DustSweepSelection({ desktop }: { desktop: boolean }) {
   const rows = selecting
     ? visible
     : session.state.items.map((item) => item.token);
+  const bottomInset = desktop ? 0 : DUST_SWEEP_MOBILE_DIRECTION_SIZE / 2;
+  const { scrollViewRef, onRowsLayout, ...scrollProps } =
+    useDustSweepActiveItemScroll({
+      state: session.state,
+      rowHeight: DUST_SWEEP_ROW_HEIGHT,
+      bottomInset,
+    });
   const selectableVisibleCount = visible.filter(
     (token) => !token.suspicious,
   ).length;
@@ -143,10 +152,13 @@ export function DustSweepSelection({ desktop }: { desktop: boolean }) {
         </SizableText>
       ) : null}
       <ScrollView
+        ref={scrollViewRef}
+        testID="dust-sweep-token-scroll"
+        {...scrollProps}
         flex={1}
         contentContainerStyle={{
           paddingTop: desktop ? 8 : 0,
-          paddingBottom: 16,
+          paddingBottom: Math.max(16, bottomInset),
         }}
       >
         <DustSweepFilters desktop={desktop} />
@@ -178,34 +190,43 @@ export function DustSweepSelection({ desktop }: { desktop: boolean }) {
             </SizableText>
           </XStack>
         ) : null}
-        {loading
-          ? Array.from({ length: 7 }, (_, index) => (
-              <DustSweepTokenRow key={index} />
-            ))
-          : rows.map((token, index) => (
-              <DustSweepTokenRow
-                key={token.key}
-                token={token}
-                nativeTokenSymbol={
-                  selecting
-                    ? current?.nativeToken.symbol
-                    : session.state.snapshot?.nativeToken.symbol
-                }
-                selected={selected.some((item) => item.key === token.key)}
-                item={selecting ? undefined : session.state.items[index]}
-                paused={
-                  session.state.phase === 'paused'
-                    ? session.state.items.findIndex(
-                        (item) => item.status === 'waiting',
-                      ) === index
-                    : false
-                }
-                onToggle={toggle}
-              />
-            ))}
+        <YStack
+          testID="dust-sweep-token-rows"
+          flexShrink={0}
+          onLayout={onRowsLayout}
+        >
+          {loading
+            ? Array.from({ length: 7 }, (_, index) => (
+                <DustSweepTokenRow key={index} />
+              ))
+            : rows.map((token, index) => (
+                <DustSweepTokenRow
+                  key={token.key}
+                  token={token}
+                  nativeTokenSymbol={
+                    selecting
+                      ? current?.nativeToken.symbol
+                      : session.state.snapshot?.nativeToken.symbol
+                  }
+                  selected={selected.some((item) => item.key === token.key)}
+                  item={selecting ? undefined : session.state.items[index]}
+                  paused={
+                    session.state.phase === 'paused'
+                      ? session.state.items.findIndex(
+                          (item) => item.status === 'waiting',
+                        ) === index
+                      : false
+                  }
+                  onToggle={toggle}
+                />
+              ))}
+        </YStack>
         {selecting && !loading && (loadStatus === 'error' || partialError) ? (
-          <YStack p="$5" gap="$4">
+          <YStack testID="dust-sweep-load-error" p="$5" gap="$4">
             <SizableText>
+              {failedNetworks?.length
+                ? `${failedNetworks.map((network) => network.name).join(', ')} · `
+                : ''}
               {intl.formatMessage({ id: ETranslations.global_network_error })}
             </SizableText>
             <Button testID="dust-sweep-retry" onPress={retry}>
