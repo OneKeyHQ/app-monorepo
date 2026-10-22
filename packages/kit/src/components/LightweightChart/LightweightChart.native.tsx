@@ -10,9 +10,11 @@ import {
 import { AppState, View } from 'react-native';
 import { runOnJS, useAnimatedReaction } from 'react-native-reanimated';
 import WebView from 'react-native-webview';
+import { useDebouncedCallback } from 'use-debounce';
 
 import { Stack } from '@onekeyhq/components';
 import { CollapsibleTabContext } from '@onekeyhq/components/src/composite/Tabs/CollapsibleTabContext';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useChartConfig } from './hooks/useChartConfig';
 import formatChartPriceSource from './utils/formatChartPriceSource';
@@ -231,6 +233,41 @@ export function LightweightChart({
     },
     [scrollYCurrent, headerHeight, repaintChart],
   );
+
+  const headerTranslateY = tabsContext?.headerTranslateY;
+  const syncNativeLayout = useDebouncedCallback(() => {
+    webViewRef.current?.requestLayout?.();
+  }, 100);
+  const cancelNativeLayout = useCallback(() => {
+    syncNativeLayout.cancel();
+  }, [syncNativeLayout]);
+  const syncVisibleHeader = !!platformEnv.isNativeIOS;
+
+  // WKWebView does not receive geometry notifications when its ancestor moves.
+  // Coalesce native layout updates until the visible header stops translating.
+  useAnimatedReaction(
+    () =>
+      syncVisibleHeader && headerTranslateY
+        ? Math.max(0, Math.min(headerHeight, -headerTranslateY.value))
+        : null,
+    (offset, previousOffset) => {
+      if (offset === null || offset === previousOffset) return;
+      if (offset < headerHeight) {
+        runOnJS(syncNativeLayout)();
+      } else {
+        runOnJS(cancelNativeLayout)();
+      }
+    },
+    [
+      cancelNativeLayout,
+      headerHeight,
+      headerTranslateY,
+      syncNativeLayout,
+      syncVisibleHeader,
+    ],
+  );
+
+  useEffect(() => cancelNativeLayout, [cancelNativeLayout]);
 
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (state) => {
