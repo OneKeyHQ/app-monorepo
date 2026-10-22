@@ -122,18 +122,21 @@ function SimpleMarketContent() {
     [updateHeaderPriceVisibility],
   );
   const [infoExpanded, setInfoExpanded] = useState(false);
-  const { assetCtx } = usePerpsAssetCtx({ assetId: instrument.assetId ?? -1 });
+  const { assetCtx, isLoading } = usePerpsAssetCtx({
+    assetId: instrument.assetId ?? -1,
+  });
   const valid =
     instrument.mode === 'perp' && instrument.coin === route.params.coin;
+  const hasMarketData = valid && !isLoading;
   const headerWidth = Math.max(100, Math.min(264, width - 152));
-  const change = valid ? assetCtx?.change24hPercent : undefined;
+  const change = hasMarketData ? assetCtx?.change24hPercent : undefined;
   const changeKnown = change !== undefined && Number.isFinite(change);
   const changeLabel = changeKnown
     ? `${change >= 0 ? '+' : ''}${change.toFixed(2)}%`
     : '--';
   const directionColor = (change ?? 0) >= 0 ? '$textSuccess' : '$textCritical';
   const changeColor = changeKnown ? directionColor : '$textSubdued';
-  const headerPrice = valid ? simplePrice(assetCtx?.markPrice) : '--';
+  const headerPrice = hasMarketData ? simplePrice(assetCtx?.markPrice) : '--';
   const openTokenSelector = useCallback(() => {
     if (submitting) return;
     navigation.push(EModalPerpRoutes.MobileTokenSelector);
@@ -215,7 +218,7 @@ function SimpleMarketContent() {
               </SizableText>
               <XStack alignItems="center" gap="$2">
                 <SizableText size="$bodySm" color="$textSubdued">
-                  {valid ? `≈${headerPrice}` : '--'}
+                  {hasMarketData ? `≈${headerPrice}` : '--'}
                 </SizableText>
                 <SizableText size="$bodySmMedium" color={changeColor}>
                   {changeLabel}
@@ -248,7 +251,7 @@ function SimpleMarketContent() {
                       id: ETranslations.perp_position_funding,
                     }),
                     value:
-                      valid && assetCtx?.fundingRate
+                      hasMarketData && assetCtx?.fundingRate
                         ? `${(Number(assetCtx.fundingRate) * 100).toFixed(4)}%`
                         : '--',
                   },
@@ -256,7 +259,7 @@ function SimpleMarketContent() {
                     label: intl.formatMessage({
                       id: ETranslations.market_24h_vol_usd,
                     }),
-                    value: valid
+                    value: hasMarketData
                       ? formatPerpsCompactUsd(Number(assetCtx?.volume24h))
                       : '--',
                   },
@@ -265,7 +268,8 @@ function SimpleMarketContent() {
                       parseDexCoin(route.params.coin).displayName
                     })`,
                     value:
-                      valid && Number.isFinite(Number(assetCtx?.openInterest))
+                      hasMarketData &&
+                      Number.isFinite(Number(assetCtx?.openInterest))
                         ? intl.formatNumber(Number(assetCtx.openInterest), {
                             notation: 'compact',
                             maximumFractionDigits: 2,
@@ -276,17 +280,21 @@ function SimpleMarketContent() {
                     label: intl.formatMessage({
                       id: ETranslations.perp_token_bar_oracle_price,
                     }),
-                    value: valid ? simplePrice(assetCtx?.oraclePrice) : '--',
+                    value: hasMarketData
+                      ? simplePrice(assetCtx?.oraclePrice)
+                      : '--',
                   },
                   {
                     label: intl.formatMessage({
                       id: ETranslations.perp_token_selector_24h_change,
                     }),
-                    value: valid ? simpleUsd(assetCtx?.change24h) : '--',
+                    value: hasMarketData
+                      ? simpleUsd(assetCtx?.change24h)
+                      : '--',
                   },
                   {
                     label: `${intl.formatMessage({ id: ETranslations.perp_token_bar_open_Interest })} (USD)`,
-                    value: valid
+                    value: hasMarketData
                       ? formatPerpsCompactUsd(
                           Number(assetCtx?.openInterest) *
                             Number(assetCtx?.markPrice),
