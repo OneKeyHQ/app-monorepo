@@ -1112,7 +1112,13 @@ export function useHyperliquidSymbolSelect() {
         instrumentMode: activeTradeInstrumentRef.current?.mode,
         instrumentCoin: activeTradeInstrumentRef.current?.coin,
       });
-      if (!switchParams || !isInstrumentCurrent()) {
+      if (!isInstrumentCurrent()) {
+        if (claimed) {
+          await actions.current.hydrateUnresolvedActivePerp();
+        }
+        return;
+      }
+      if (!switchParams) {
         return;
       }
       if (switchParams.mode === 'perp') {
