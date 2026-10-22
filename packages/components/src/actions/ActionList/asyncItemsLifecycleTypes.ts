@@ -3,7 +3,7 @@ import type { ReactNode, RefObject } from 'react';
 import type { ISheetOptions } from '../../hocs/NativeSheetPresentation/types';
 
 export type IActionListRenderItemsParams = {
-  handleActionListClose: () => void;
+  handleActionListClose: () => void | Promise<void>;
   handleActionListOpen: () => void;
 };
 
@@ -21,7 +21,7 @@ export type IUseAsyncItemsLifecycleProps = {
   /** The list presents as an overlay sheet (native). */
   sheetPresentation?: boolean;
   renderItemsAsync?: IActionListRenderItemsAsync;
-  handleActionListCloseRef: RefObject<() => void>;
+  handleActionListCloseRef: RefObject<() => void | Promise<void>>;
   handleActionListOpenRef: RefObject<() => void>;
   sheetProps?: ISheetOptions;
 };

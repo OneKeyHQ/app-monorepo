@@ -2,7 +2,13 @@ import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Icon, Popover, Stack, usePopoverContext } from '@onekeyhq/components';
+import {
+  Icon,
+  Popover,
+  Stack,
+  runAfterActionListClose,
+  usePopoverContext,
+} from '@onekeyhq/components';
 import { FormatHyperlinkText } from '@onekeyhq/kit/src/components/HyperlinkText';
 import { useHelpLink } from '@onekeyhq/kit/src/hooks/useHelpLink';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -12,10 +18,11 @@ function SwapServiceFeePopoverContent({ content }: { content: string }) {
   const { closePopover } = usePopoverContext();
   const handleAction = useCallback(
     (url: string) => {
-      void (async () => {
-        await closePopover?.();
-        openUrlExternal(url);
-      })();
+      void runAfterActionListClose(
+        () => closePopover?.(),
+        () => openUrlExternal(url),
+        { waitForAnimation: false },
+      );
     },
     [closePopover],
   );

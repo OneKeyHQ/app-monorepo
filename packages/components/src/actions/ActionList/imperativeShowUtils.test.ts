@@ -105,7 +105,7 @@ describe('imperative ActionList lifecycle', () => {
         schedule: (callback) => scheduled.push(callback),
       });
 
-      if (alreadyClosing) lifecycle.close();
+      if (alreadyClosing) void lifecycle.close();
       lifecycle.closeImmediately();
 
       expect(destroy).toHaveBeenCalledTimes(1);
@@ -113,7 +113,7 @@ describe('imperative ActionList lifecycle', () => {
       expect(onOpenChange).toHaveBeenCalledWith(false);
 
       lifecycle.closeImmediately();
-      lifecycle.close();
+      void lifecycle.close();
       scheduled.forEach((callback) => callback());
 
       expect(destroy).toHaveBeenCalledTimes(1);
@@ -121,6 +121,91 @@ describe('imperative ActionList lifecycle', () => {
       expect(onOpenChange).toHaveBeenCalledTimes(1);
     },
   );
+
+  it('waits for the native exit completion before destroying and reuses the close promise', async () => {
+    const onClose = jest.fn();
+    const destroy = jest.fn();
+    const scheduled: Array<{ callback: () => void; delay: number }> = [];
+    let finishExit: (() => void) | undefined;
+    const exit = new Promise<void>((resolve) => {
+      finishExit = resolve;
+    });
+    const lifecycle = createImperativeActionListLifecycle({
+      onClose,
+      destroy,
+      requestClose: () => {
+        lifecycle.handleOpenChange(false);
+        return exit;
+      },
+      getCloseCompletion: () => exit,
+      schedule: (callback, delay) => scheduled.push({ callback, delay }),
+    });
+
+    const firstClose = lifecycle.close();
+    const secondClose = lifecycle.close();
+    expect(firstClose).toBe(exit);
+    expect(secondClose).toBe(exit);
+    expect(scheduled.map(({ delay }) => delay)).toEqual([0]);
+    scheduled.forEach(({ callback }) => callback());
+    expect(onClose).toHaveBeenCalledTimes(1);
+    expect(destroy).not.toHaveBeenCalled();
+
+    finishExit?.();
+    await firstClose;
+    expect(destroy).toHaveBeenCalledTimes(1);
+  });
+
+  it('destroys an imperative list that closed before its native sheet mounted', () => {
+    const destroy = jest.fn();
+    const onOpenChange = jest.fn();
+    const lifecycle = createImperativeActionListLifecycle({
+      onOpenChange,
+      destroy,
+      requestClose: () => undefined,
+      getCloseCompletion: () => undefined,
+    });
+
+    void lifecycle.close();
+    void lifecycle.close();
+    expect(onOpenChange).toHaveBeenCalledTimes(1);
+    expect(destroy).toHaveBeenCalledTimes(1);
+  });
+
+  it('handles a rejected native exit when an imperative close is ignored', async () => {
+    const destroy = jest.fn();
+    const exit = Promise.reject(new Error('close canceled'));
+    const lifecycle = createImperativeActionListLifecycle({
+      destroy,
+      requestClose: () => exit,
+      getCloseCompletion: () => exit,
+    });
+
+    void lifecycle.close();
+    await Promise.resolve();
+    expect(destroy).toHaveBeenCalledTimes(1);
+  });
+
+  it('still destroys after the consumer open-change callback throws', async () => {
+    const error = new Error('consumer callback failed');
+    const destroy = jest.fn();
+    let finishExit: (() => void) | undefined;
+    const exit = new Promise<void>((resolve) => {
+      finishExit = resolve;
+    });
+    const lifecycle = createImperativeActionListLifecycle({
+      onOpenChange: () => {
+        throw error;
+      },
+      destroy,
+      getCloseCompletion: () => exit,
+    });
+
+    expect(() => lifecycle.handleOpenChange(false)).toThrow(error);
+    expect(destroy).not.toHaveBeenCalled();
+    finishExit?.();
+    await exit;
+    expect(destroy).toHaveBeenCalledTimes(1);
+  });
 
   it('prevents the focus scope from restoring focus to the proxy trigger', () => {
     const event = { preventDefault: jest.fn() };
@@ -142,8 +227,8 @@ describe('imperative ActionList lifecycle', () => {
       schedule: (callback, delay) => scheduled.push({ callback, delay }),
     });
 
-    lifecycle.close();
-    lifecycle.close();
+    void lifecycle.close();
+    void lifecycle.close();
     lifecycle.handleOpenChange(false);
     lifecycle.handleOpenChange(true);
 
