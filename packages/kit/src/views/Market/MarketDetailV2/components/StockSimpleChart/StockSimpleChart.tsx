@@ -28,7 +28,6 @@ import {
   buildStockSimpleChartScopeKey,
   fetchStockSimpleChartPoints,
   resolveStockSimpleChartBucketSeconds,
-  resolveStockSimpleChartClipKey,
   resolveStockSimpleChartDisplayPoints,
   resolveStockSimpleChartLivePrice,
   resolveStockSimpleChartMinRefreshMs,
@@ -251,36 +250,15 @@ export function StockSimpleChart({
     },
   );
 
-  const isMarketOpen = stockDetail?.marketStatus?.isOpen;
-  // `keep` vs `clip` flips at session/weekend/open boundaries. The live tail
-  // still uses Date.now() inside the memo so a timer does not redraw the line.
-  const chartClipKey = resolveStockSimpleChartClipKey({
-    isOpen: isMarketOpen,
-    nowSeconds: Math.floor(Date.now() / 1000),
-    priceMode: requestPriceMode,
-    range: requestRange,
-  });
   const chartData = useMemo(
     () =>
       resolveStockSimpleChartDisplayPoints({
-        clipKey: chartClipKey,
         intervalSeconds,
-        isOpen: isMarketOpen,
         livePrice,
         nowSeconds: Math.floor(Date.now() / 1000),
         points: chartState.data,
-        priceMode: requestPriceMode,
-        range: requestRange,
       }),
-    [
-      chartClipKey,
-      chartState.data,
-      intervalSeconds,
-      isMarketOpen,
-      livePrice,
-      requestPriceMode,
-      requestRange,
-    ],
+    [chartState.data, intervalSeconds, livePrice],
   );
 
   let chartContent;
