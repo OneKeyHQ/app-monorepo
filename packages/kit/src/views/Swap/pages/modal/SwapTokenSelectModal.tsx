@@ -1231,7 +1231,7 @@ const SwapTokenSelectPage = ({
     );
   }, [intl, tokenListLoading]);
   return (
-    <Page lazyLoad={!platformEnv.isNativeIOS} safeAreaEnabled={false}>
+    <Page safeAreaEnabled={false}>
       <Page.Header
         title={intl.formatMessage({ id: ETranslations.token_selector_title })}
         modalContentMaxWidth={useDesktopTokenSelector ? 880 : undefined}

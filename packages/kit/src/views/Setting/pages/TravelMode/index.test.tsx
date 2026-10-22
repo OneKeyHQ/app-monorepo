@@ -87,6 +87,7 @@ jest.mock('@onekeyhq/components', () => {
         String(value),
       ),
     Toast: { error: jest.fn() },
+    usePreventRemove: jest.fn(),
     XStack: Stack,
     YStack: Stack,
   };
