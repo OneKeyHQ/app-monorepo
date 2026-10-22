@@ -39,7 +39,6 @@ export function Slider({
   onSlideEnd,
   onLayout,
   segments,
-  thumbSize,
   ...props
 }: ISliderProps) {
   const isSlidingRef = useRef(false);
@@ -96,7 +95,6 @@ export function Slider({
       minimumValue={min}
       maximumValue={max}
       step={step}
-      thumbSize={thumbSize}
       minimumTrackTintColor={bgPrimaryColor}
       maximumTrackTintColor={neutral5Color}
       onValueChange={handleValueChange}
