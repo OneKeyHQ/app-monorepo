@@ -1215,6 +1215,11 @@ export const StakeSection = ({
               intl.formatMessage({ id: ETranslations.defi_supply }))
             : intl.formatMessage({ id: ETranslations.earn_deposit })
         }
+        depositLineLabel={
+          isBorrowStake
+            ? EARN_DESKTOP_DEMO_COPY.youSupply
+            : EARN_DESKTOP_DEMO_COPY.youDeposit
+        }
         isDisabled={isDisabled}
         apr={payOfferApr}
         payToken={payToken}

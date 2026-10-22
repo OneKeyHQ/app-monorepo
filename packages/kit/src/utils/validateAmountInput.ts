@@ -23,3 +23,9 @@ export function validateAmountInputForStaking(text: string, decimal?: number) {
   }
   return true;
 }
+
+// A leading dot starts a fraction: "." reads as "0." and ".5" as "0.5". The
+// amount forms keep only numbers, and "." alone isn't one, so it would drop
+export function fillLeadingZero(text: string) {
+  return text.startsWith('.') ? `0${text}` : text;
+}

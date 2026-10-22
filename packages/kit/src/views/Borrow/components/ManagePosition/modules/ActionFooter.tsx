@@ -6,6 +6,7 @@ import { Keyboard } from 'react-native';
 
 import { Page, Stack, YStack } from '@onekeyhq/components';
 import { PercentageStageOnKeyboard } from '@onekeyhq/kit/src/components/PercentageStageOnKeyboard';
+import { EARN_DESKTOP_DEMO_COPY } from '@onekeyhq/kit/src/views/Earn/components/desktopHome/earnDesktopHomeCopy';
 import {
   EStakeProgressStep,
   StakeProgress,
@@ -68,13 +69,6 @@ export function ActionFooter({
       actionLabelProp ?? intl.formatMessage({ id: ACTION_LABEL_MAP[action] }),
     [actionLabelProp, action, intl],
   );
-
-  const actionLabel = useMemo(() => {
-    if (shouldApprove) {
-      return intl.formatMessage({ id: ETranslations.global_approve });
-    }
-    return businessActionLabel;
-  }, [businessActionLabel, intl, shouldApprove]);
 
   // Disable state
   // Borrow action doesn't check isInsufficientBalance because it's borrowing from protocol
@@ -179,15 +173,10 @@ export function ActionFooter({
     onAutoSubmit,
   ]);
 
-  const confirmText = useMemo(() => {
-    if (shouldApprove) {
-      return intl.formatMessage(
-        { id: ETranslations.global_approve },
-        { amount: amountValue, symbol: state.tokenSymbol ?? '' },
-      );
-    }
-    return actionLabel;
-  }, [actionLabel, amountValue, intl, shouldApprove, state.tokenSymbol]);
+  // The press approves, then carries on with the action by itself
+  const confirmText = shouldApprove
+    ? EARN_DESKTOP_DEMO_COPY.approveAnd(businessActionLabel)
+    : businessActionLabel;
 
   const footerContent = (
     <Page.FooterActions

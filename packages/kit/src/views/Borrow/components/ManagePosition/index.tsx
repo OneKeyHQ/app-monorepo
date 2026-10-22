@@ -252,8 +252,12 @@ export function ManagePosition(props: IManagePositionProps) {
   return (
     <ManagePositionContext.Provider value={contextValue}>
       <StakingFormWrapper>
-        <AmountInputSection title={props.inputTitle} />
-        {props.offerSwitch}
+        {/* The protocol stays under the amount; the alerts typing brings
+            up go below it */}
+        <AmountInputSection
+          title={props.inputTitle}
+          afterInput={props.offerSwitch}
+        />
         <InfoDisplaySection showSwapOrBridge={props.showSwapOrBridge} />
         <ActionFooter
           autoSubmitKey={props.autoSubmitKey}

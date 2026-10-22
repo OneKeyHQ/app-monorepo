@@ -20,7 +20,10 @@ const ACTION_LABEL_MAP: Record<IBorrowActionType, ETranslations> = {
   repay: ETranslations.defi_repay,
 };
 
-export function AmountInputSection({ title }: IAmountInputSectionProps) {
+export function AmountInputSection({
+  title,
+  afterInput,
+}: IAmountInputSectionProps) {
   const { state, actions, actionResult, approval } = useManagePositionContext();
   const intl = useIntl();
   const navigation = useAppNavigation();
@@ -116,7 +119,8 @@ export function AmountInputSection({ title }: IAmountInputSectionProps) {
   );
 
   return (
-    <YStack gap="$3">
+    // With a card under the box, the section spaces as the deposit forms do
+    <YStack gap={afterInput ? '$4' : '$3'}>
       {/* Amount Input */}
       <Stack position="relative" opacity={amountInputDisabled ? 0.7 : 1}>
         <StakingAmountInput
@@ -138,6 +142,7 @@ export function AmountInputSection({ title }: IAmountInputSectionProps) {
           <Stack position="absolute" w="100%" h="100%" zIndex={1} />
         ) : null}
       </Stack>
+      {afterInput}
 
       {/* Error Alert */}
       {isCheckAmountMessageError ? (

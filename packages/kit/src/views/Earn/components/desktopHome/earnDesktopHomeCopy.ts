@@ -7,9 +7,14 @@ export const EARN_DESKTOP_DEMO_COPY = {
   // Pay with, and the swap-then-deposit path. The real deposit form takes
   // "Est. annual rewards" from the server
   payWith: 'Pay with',
-  // Under the Pay with box: about what the swap brings into the vault
+  // Under the Pay with box: about what the swap brings in, in the button's
+  // word (Supply on a lending market)
   youDeposit: 'You deposit',
+  youSupply: 'You supply',
   swapAnd: (action: string) => `Swap and ${action}`,
+  // A lending form's one press that approves, then supplies or repays, named
+  // as the vaults' "Approve and Deposit" is
+  approveAnd: (action: string) => `Approve and ${action}`,
   estAnnualRewards: 'Est. annual rewards',
   // After a withdrawal: the same token's better rate on the same network,
   // against the rate the withdrawal left

@@ -145,10 +145,25 @@ export function showPayWithPicker({
   selectedKey?: string;
   onSelect: (item: IEarnRouterPayToken) => void;
 }) {
+  // Shut with nothing changed (Escape, or the token already in use), the
+  // focus goes back to where it was, the token chip, so the keyboard carries
+  // on from there. Another token builds a new form, which takes the focus
+  const opener = globalThis.document?.activeElement;
+  let hasPicked = false;
   const dialog = Dialog.show({
     title: EARN_DESKTOP_DEMO_COPY.payWith,
     showFooter: false,
     contentContainerProps: { px: '$0', pb: '$5' },
+    onClose: () => {
+      if (
+        !hasPicked &&
+        typeof HTMLElement !== 'undefined' &&
+        opener instanceof HTMLElement &&
+        opener.isConnected
+      ) {
+        opener.focus();
+      }
+    },
     renderContent: (
       // A long wallet scrolls inside the dialog instead of growing past it
       <ScrollView maxHeight={440}>
@@ -159,7 +174,12 @@ export function showPayWithPicker({
               item={item}
               isSelected={item.key === selectedKey}
               onSelect={(picked) => {
-                onSelect(picked);
+                // The token already in use changes nothing, the amount
+                // typed included
+                if (picked.key !== selectedKey) {
+                  hasPicked = true;
+                  onSelect(picked);
+                }
                 void dialog.close();
               }}
             />

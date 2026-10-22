@@ -242,6 +242,9 @@ export interface IActionTabBarProps {
 
 export interface IAmountInputSectionProps {
   title?: string;
+  // Right under the amount box, above the alerts typing brings up (the Earn
+  // deposit modal's protocol)
+  afterInput?: ReactNode;
 }
 
 export interface IInfoDisplaySectionProps {

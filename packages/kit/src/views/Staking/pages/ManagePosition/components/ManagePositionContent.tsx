@@ -25,7 +25,10 @@ import { BorrowInfoSectionSkeleton } from '@onekeyhq/kit/src/views/Borrow/compon
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import type { ISupportedSymbol } from '@onekeyhq/shared/types/earn';
-import type { IStakeProtocolListItem } from '@onekeyhq/shared/types/staking';
+import type {
+  IEarnHistoryActionIcon,
+  IStakeProtocolListItem,
+} from '@onekeyhq/shared/types/staking';
 
 import { EarnAlert } from '../../../components/ProtocolDetails/EarnAlert';
 import { NetworkUnsupportedWarning } from '../../../components/ProtocolDetails/NetworkUnsupportedWarning';
@@ -80,6 +83,10 @@ export type IManagePositionFooterAction = {
   // its own label and checks (the desktop Earn guide's preview, whose press
   // sends nothing)
   isPressOnly?: boolean;
+  // The wait while another protocol loads under the switcher. Its label is
+  // the action's plain name; a form whose button says more than that (the
+  // swap form's "Swap and Supply") keeps its own words and only waits
+  isSwitchWait?: boolean;
 };
 
 export interface IManagePositionContentProps {
@@ -706,6 +713,7 @@ export function ManagePositionContent({
             onPress: () => {},
             loading: true,
             disabled: true,
+            isSwitchWait: true,
           }
         : undefined,
     [isSwitchingProtocol, switchLoadingActionLabel],
@@ -816,11 +824,6 @@ export function ManagePositionContent({
     handleCreateAddress,
   ]);
 
-  const historyAction = useMemo(
-    () => managePageData?.history,
-    [managePageData?.history],
-  );
-
   const isBorrowType = useMemo(
     () =>
       [
@@ -831,6 +834,25 @@ export function ManagePositionContent({
       ].includes(type),
     [type],
   );
+
+  // The server names a history for vaults only. A lending market keeps its
+  // records in the app (the Borrow page's History), so its header gets the
+  // same entry, and a switch from a vault to Aave doesn't drop it
+  const historyAction = useMemo<IEarnHistoryActionIcon | undefined>(() => {
+    if (managePageData?.history) {
+      return managePageData.history;
+    }
+    if (isBorrowType && marketAddress) {
+      return {
+        type: 'history',
+        disabled: false,
+        text: {
+          text: intl.formatMessage({ id: ETranslations.global_history }),
+        },
+      };
+    }
+    return undefined;
+  }, [managePageData?.history, isBorrowType, marketAddress, intl]);
   const normalizedSymbol = symbol.toLowerCase();
   const isSpecialManage =
     !isBorrowType && ['usde', 'ada'].includes(normalizedSymbol);

@@ -204,6 +204,8 @@ export function AmountInput({
           size="$bodySm"
           color={valueProps.color ?? '$textSubdued'}
           pr="$0.5"
+          numberOfLines={1}
+          flexShrink={1}
         >
           {valueProps.value || '0.00'}
         </NumberSizeableText>
@@ -524,9 +526,12 @@ export function AmountInput({
         {InputElement}
         {TokenSelectorTrigger}
       </XStack>
+      {/* A long value gives way, so the balance and Max keep their place */}
       <XStack alignItems="center" justifyContent="space-between">
         <XStack
           alignItems="center"
+          flexShrink={1}
+          minWidth={0}
           m="$1"
           px="$2.5"
           py="$1"
@@ -545,7 +550,7 @@ export function AmountInput({
         >
           {AmountElement}
         </XStack>
-        <XStack alignItems="center">
+        <XStack alignItems="center" flexShrink={0}>
           {BalanceElement}
           {balanceHelper}
         </XStack>

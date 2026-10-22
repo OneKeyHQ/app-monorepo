@@ -526,10 +526,19 @@ function TokenOffers({
           normalizeToEarnProvider(item.provider.name) ?? item.provider.name;
         const isRedeem = item.aprInfo?.button?.type === 'redeem';
         // The vault under the protocol, as the Protocols page names it; a
-        // fixed-rate offer, titled by its maturity, gets the server's line
-        const subtitle = isFixedRate
-          ? item.provider.description || providerName
-          : item.provider.vaultName;
+        // fixed-rate offer, titled by its maturity, says how long is left
+        // (its protocol is the logo)
+        const daysRemaining = Number(item.provider.daysRemaining ?? '');
+        let subtitle = item.provider.vaultName;
+        if (isFixedRate) {
+          subtitle =
+            item.provider.daysRemaining && Number.isFinite(daysRemaining)
+              ? intl.formatMessage(
+                  { id: ETranslations.earn_number_days_left },
+                  { number: daysRemaining },
+                )
+              : providerName;
+        }
         return (
           <OfferRowFrame
             key={offer.key}

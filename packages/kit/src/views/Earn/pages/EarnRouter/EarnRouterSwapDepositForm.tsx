@@ -18,7 +18,6 @@ import {
   HeightTransition,
   Page,
   SizableText,
-  Skeleton,
   Stack,
   Toast,
   XStack,
@@ -30,6 +29,10 @@ import { PercentageStageOnKeyboard } from '@onekeyhq/kit/src/components/Percenta
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
 import { convertFiat } from '@onekeyhq/kit/src/utils/fiatConvert';
+import {
+  fillLeadingZero,
+  validateAmountInputForStaking,
+} from '@onekeyhq/kit/src/utils/validateAmountInput';
 import {
   useCurrencyPersistAtom,
   useSettingsPersistAtom,
@@ -56,6 +59,7 @@ import {
   StakingAmountInput,
   useOnBlurAmountValue,
 } from '../../../Staking/components/StakingAmountInput';
+import { StakingAmountResultLine } from '../../../Staking/components/StakingAmountResultLine';
 import StakingFormWrapper from '../../../Staking/components/StakingFormWrapper';
 import {
   StakingApyHeader,
@@ -98,6 +102,9 @@ import type { IManagePositionFooterAction } from '../../../Staking/pages/ManageP
 
 // The deposit estimate keeps at most this many decimals, rounded down
 const RECEIVE_DECIMALS = 6;
+// A fill from the percent chips or Max keeps at most this many decimals, so
+// the box shows a number that fits; what it leaves out is dust
+const FILL_DECIMALS = 8;
 // As the deposit forms wait before asking for their card again
 const SUMMARY_DEBOUNCE_MS = 350;
 // Typing settles before the swap service is asked
@@ -261,6 +268,7 @@ export function EarnRouterSwapDepositForm({
   accountId,
   networkId,
   actionLabel,
+  depositLineLabel,
   isDisabled,
   apr,
   payToken,
@@ -281,6 +289,9 @@ export function EarnRouterSwapDepositForm({
   networkId: string;
   /** What the deposit form calls the action: Deposit, or Supply */
   actionLabel: string;
+  /** The line under the Pay with box, in the same word: "You deposit", or
+   * "You supply" */
+  depositLineLabel: string;
   /** The provider takes no deposits now (paused, capped) */
   isDisabled?: boolean;
   /** The provider's rate, in percent, when known */
@@ -358,6 +369,17 @@ export function EarnRouterSwapDepositForm({
     onAmountChangeRef.current?.(amount);
   }, [amount]);
   const onBlurAmount = useOnBlurAmountValue(amount, setAmount);
+  // Typed as the deposit form takes it: digits and one dot, no more decimals
+  // than the pay token has
+  const onChangeAmount = useCallback(
+    (text: string) => {
+      const value = fillLeadingZero(text);
+      if (validateAmountInputForStaking(value, payToken.token.decimals)) {
+        setAmount(value);
+      }
+    },
+    [payToken.token.decimals],
+  );
   const [flow, dispatch] = useReducer(
     earnRouterSwapReducer,
     EARN_ROUTER_SWAP_IDLE,
@@ -403,9 +425,12 @@ export function EarnRouterSwapDepositForm({
   const isInsufficient = hasAmount && amountValue.gt(payToken.amount);
   const isIdle = flow.status === 'idle';
 
-  // What the swap service quotes for the amount, asked again as it changes
+  // What the swap service quotes for the amount, asked again as it changes.
+  // More than the balance is quoted too, as the Swap page and the Pendle
+  // form do: the line says what it would bring, the alert why it can't, and
+  // a dash keeps meaning no route
   const [quoteState, setQuoteState] = useState<IQuoteState>(NO_QUOTE);
-  const canQuote = hasAmount && !isInsufficient && isSwappable;
+  const canQuote = hasAmount && isSwappable;
   useEffect(() => {
     // While the swap runs the estimate stays as it went to the wallet
     if (!isIdle) {
@@ -691,7 +716,10 @@ export function EarnRouterSwapDepositForm({
       setAmount(
         new BigNumber(percent >= 100 ? max : payToken.amount)
           .times(percent >= 100 ? 1 : percent / 100)
-          .decimalPlaces(payToken.token.decimals, BigNumber.ROUND_DOWN)
+          .decimalPlaces(
+            Math.min(payToken.token.decimals, FILL_DECIMALS),
+            BigNumber.ROUND_DOWN,
+          )
           .toFixed(),
       );
     },
@@ -704,12 +732,19 @@ export function EarnRouterSwapDepositForm({
   );
   const handleMax = useCallback(() => {
     setAmount(
-      getEarnSwapPayMax({
-        balance: payToken.amount,
-        isNative: payToken.token.isNative,
-        reserveGas: nativeConfig?.reserveGas,
-        decimals: payToken.token.decimals,
-      }),
+      new BigNumber(
+        getEarnSwapPayMax({
+          balance: payToken.amount,
+          isNative: payToken.token.isNative,
+          reserveGas: nativeConfig?.reserveGas,
+          decimals: payToken.token.decimals,
+        }),
+      )
+        .decimalPlaces(
+          Math.min(payToken.token.decimals, FILL_DECIMALS),
+          BigNumber.ROUND_DOWN,
+        )
+        .toFixed(),
     );
   }, [
     nativeConfig?.reserveGas,
@@ -740,9 +775,11 @@ export function EarnRouterSwapDepositForm({
       ? Boolean(footerActionOverride.disabled)
       : !canStart && !isBusy,
   };
-  const confirmText = overridesState
-    ? footerActionOverride.text
-    : EARN_DESKTOP_DEMO_COPY.swapAnd(actionLabel);
+  // While another protocol loads, the button waits under its own words
+  const confirmText =
+    overridesState && !footerActionOverride.isSwitchWait
+      ? footerActionOverride.text
+      : EARN_DESKTOP_DEMO_COPY.swapAnd(actionLabel);
   const progress =
     hasAmount || isBusy ? (
       <StakeProgress
@@ -891,7 +928,7 @@ export function EarnRouterSwapDepositForm({
           disabled={isLocked}
           hasError={isInsufficient}
           value={amount}
-          onChange={setAmount}
+          onChange={onChangeAmount}
           onBlur={onBlurAmount}
           tokenSelectorTriggerProps={{
             selectedTokenImageUri: payToken.token.logoURI,
@@ -913,29 +950,18 @@ export function EarnRouterSwapDepositForm({
           enableMaxAmount
           onSelectPercentageStage={handleSelectPercentage}
         />
-        {/* What goes into the vault, under what pays for it: one amount to
-            type, so the form reads as a deposit rather than a swap */}
-        <XStack
+        {/* What goes into the vault, under what pays for it */}
+        <StakingAmountResultLine
           testID="earn-router-swap-deposit-amount"
-          px="$3.5"
-          gap="$3"
-          ai="center"
-          jc="space-between"
-        >
-          <SizableText size="$bodyMd" color="$textSubdued">
-            {EARN_DESKTOP_DEMO_COPY.youDeposit}
-          </SizableText>
-          {isQuoting ? (
-            <Skeleton.BodyMd w={96} />
-          ) : (
-            <SizableText size="$bodyMdMedium" textAlign="right">
-              {depositLine}
-            </SizableText>
-          )}
-        </XStack>
+          label={depositLineLabel}
+          value={depositLine}
+          loading={isQuoting}
+        />
       </YStack>
-      {alert}
+      {/* The protocol stays under the amount; what typing brings up goes
+          below it */}
       {protocolSwitch ?? offerSwitch}
+      {alert}
       {card}
       {isInModalContext ? (
         <Page.Footer>

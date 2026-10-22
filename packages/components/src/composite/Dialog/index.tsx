@@ -352,7 +352,8 @@ function DialogFrame({
     return true;
   }, [disableSystemClose, handleOpenChange, open]);
 
-  useBackHandler(handleBackPress);
+  // Escape closes this dialog only, not the modal under it
+  useBackHandler(handleBackPress, true, true, true);
 
   const handleEscapeKeyDown = useCallback((event: GestureResponderEvent) => {
     // preventDefault stops Tamagui's built-in Escape-to-close. Always called

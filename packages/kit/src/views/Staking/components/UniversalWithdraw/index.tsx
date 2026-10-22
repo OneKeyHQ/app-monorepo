@@ -32,7 +32,10 @@ import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
 import { useBrowserAction } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
-import { validateAmountInputForStaking } from '@onekeyhq/kit/src/utils/validateAmountInput';
+import {
+  fillLeadingZero,
+  validateAmountInputForStaking,
+} from '@onekeyhq/kit/src/utils/validateAmountInput';
 import { useEarnRiskWarningGate } from '@onekeyhq/kit/src/views/Staking/components/EarnRiskWarningDialog';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
@@ -1415,10 +1418,11 @@ export function UniversalWithdraw({
   });
 
   const onChangeAmountValue = useCallback(
-    (value: string, isMax = false) => {
+    (text: string, isMax = false) => {
       if (isCancelWithdrawal) {
         return;
       }
+      const value = fillLeadingZero(text);
       if (!validateAmountInputForStaking(value, decimals)) {
         return;
       }
@@ -1809,6 +1813,9 @@ export function UniversalWithdraw({
           </Stack>
         ) : null}
       </Stack>
+      {/* The protocol stays under the amount; what typing brings up goes
+          below it */}
+      {offerSwitch}
 
       {showWithdrawPathSelector && selectedWithdrawPath ? (
         <XStack
@@ -1933,7 +1940,6 @@ export function UniversalWithdraw({
           ))}
         </>
       ) : null}
-      {offerSwitch}
       {shouldShowSummaryCard ? (
         <YStack
           p="$3.5"

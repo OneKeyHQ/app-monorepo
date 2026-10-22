@@ -18,7 +18,6 @@ import {
   Divider,
   HeightTransition,
   Icon,
-  IconButton,
   Page,
   Popover,
   SizableText,
@@ -46,7 +45,10 @@ import { useBrowserAction } from '@onekeyhq/kit/src/states/jotai/contexts/discov
 import { useEarnActions } from '@onekeyhq/kit/src/states/jotai/contexts/earn';
 import { isAccountIdDeactivatedBotWallet } from '@onekeyhq/kit/src/utils/botWalletAccountUtils';
 import { showBotWalletDeactivatedWarningDialog } from '@onekeyhq/kit/src/utils/botWalletWarningDialog';
-import { validateAmountInputForStaking } from '@onekeyhq/kit/src/utils/validateAmountInput';
+import {
+  fillLeadingZero,
+  validateAmountInputForStaking,
+} from '@onekeyhq/kit/src/utils/validateAmountInput';
 import { EarnAprSuffixText } from '@onekeyhq/kit/src/views/Earn/components/EarnAprSuffixText';
 import { ProtocolListContent } from '@onekeyhq/kit/src/views/Earn/components/showProtocolListDialog';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -66,6 +68,7 @@ import type {
   IEarnPermit2ApproveSignData,
   IEarnSelectField,
   IEarnStakeType,
+  IEarnText,
   IEarnTokenInfo,
   IProtocolInfo,
   IStakeTransactionConfirmation,
@@ -92,10 +95,6 @@ import {
   EstimateNetworkFee,
   useShowStakeEstimateGasAlert,
 } from '../EstimateNetworkFee';
-import {
-  type IManagePageV2ReceiveInputConfig,
-  ManagePageV2ReceiveInput,
-} from '../ManagePageV2ReceiveInput';
 import { EarnPlatformBonusSection } from '../ProtocolDetails/EarnPlatformBonusSection';
 import { EarnText } from '../ProtocolDetails/EarnText';
 import { EarnValidatorSelect } from '../ProtocolDetails/EarnValidatorSelect';
@@ -113,6 +112,7 @@ import {
   StakingAmountInput,
   useOnBlurAmountValue,
 } from '../StakingAmountInput';
+import { StakingAmountResultLine } from '../StakingAmountResultLine';
 import StakingFormWrapper from '../StakingFormWrapper';
 import { TradeOrBuy } from '../TradeOrBuy';
 import { formatStakingDistanceToNowStrict } from '../utils';
@@ -128,6 +128,7 @@ import type {
   IManagePositionFooterAction,
   IManagePositionProtocolSwitchConfig,
 } from '../../pages/ManagePosition/components/ManagePositionContent';
+import type { IManagePageV2ReceiveInputConfig } from '../ManagePageV2ReceiveInput';
 
 function withRewardUnit(text: string, rewardUnit: string): string {
   return /\s*(APY|APR)\s*$/i.test(text) ? text : `${text} ${rewardUnit}`;
@@ -857,16 +858,22 @@ export function UniversalStake({
   // the skeleton stuck forever.
   const [transactionConfirmationSettled, setTransactionConfirmationSettled] =
     useState(false);
+  // What the amount buys (Pendle), kept with the amount it was quoted for
+  const [receiveQuote, setReceiveQuote] = useState<
+    { amount?: string; description?: IEarnText } | undefined
+  >(undefined);
 
   const debouncedFetchTransactionConfirmation = useDebouncedCallback(
     async (amount?: string) => {
       setTransactionConfirmationLoading(true);
+      let receiveDescription: IEarnText | undefined;
       try {
         const resp = await fetchTransactionConfirmation(amount || '0');
         if (transactionConfirmationAmountRef.current !== amount) {
           return;
         }
         setTransactionConfirmation(resp);
+        receiveDescription = resp?.receive?.description;
         if (resp && amount && Number(amount) > 0) {
           onQuoteReset?.();
         }
@@ -876,6 +883,7 @@ export function UniversalStake({
         if (transactionConfirmationAmountRef.current === amount) {
           setTransactionConfirmationSettled(true);
           setTransactionConfirmationLoading(false);
+          setReceiveQuote({ amount, description: receiveDescription });
         }
       }
     },
@@ -1086,7 +1094,7 @@ export function UniversalStake({
     if (shouldShowPostWrapApproveStep) {
       return ETranslations.global_approve;
     }
-    return isPendleProvider ? ETranslations.global_swap : undefined;
+    return isPendleProvider ? ETranslations.global_buy : undefined;
   }, [isPendleProvider, shouldShowPostWrapApproveStep]);
 
   const stakeProgressStep3LabelId = shouldShowPostWrapApproveStep
@@ -1246,7 +1254,8 @@ export function UniversalStake({
   }, [checkAmount, stakefishIdentity, amountValue]);
 
   const onChangeAmountValue = useCallback(
-    (value: string) => {
+    (text: string) => {
+      const value = fillLeadingZero(text);
       if (!validateAmountInputForStaking(value, decimals)) {
         return;
       }
@@ -1276,14 +1285,20 @@ export function UniversalStake({
   // Entered once, as soon as both it and the decimals are in: the loading
   // form StakeSection shows first is this same instance, without either
   const isInitialAmountAppliedRef = useRef(false);
-  // What is typed goes out as it changes; while the start amount is still
-  // to come the box is only empty for now
+  // What is typed goes out as it changes, and only then: a new start amount
+  // or callback (Pay with clearing it for another token) mustn't send the old
+  // amount out again. While the start amount is still to come the box is
+  // only empty for now
+  const onAmountChangeRef = useRef(onAmountChange);
+  onAmountChangeRef.current = onAmountChange;
+  const initialAmountRef = useRef(initialAmount);
+  initialAmountRef.current = initialAmount;
   useEffect(() => {
-    if (initialAmount && !isInitialAmountAppliedRef.current) {
+    if (initialAmountRef.current && !isInitialAmountAppliedRef.current) {
       return;
     }
-    onAmountChange?.(amountValue);
-  }, [amountValue, initialAmount, onAmountChange]);
+    onAmountChangeRef.current?.(amountValue);
+  }, [amountValue]);
   useEffect(() => {
     if (
       isInitialAmountAppliedRef.current ||
@@ -2052,7 +2067,6 @@ export function UniversalStake({
     showExpiredRefresh,
     showReceiveInput,
     effectiveReceiveInputConfig,
-    receiveArrowOverlayStyle,
   } = usePendleLayoutState({
     providerName,
     transactionConfirmation,
@@ -2158,7 +2172,7 @@ export function UniversalStake({
       }
       return intl.formatMessage({
         id: isPendleProvider
-          ? ETranslations.global_swap
+          ? ETranslations.global_buy
           : ETranslations.global_continue,
       });
     }
@@ -2174,7 +2188,7 @@ export function UniversalStake({
     }
     return intl.formatMessage({
       id: isPendleProvider
-        ? ETranslations.global_swap
+        ? ETranslations.global_buy
         : ETranslations.earn_deposit,
     });
   }, [
@@ -2416,6 +2430,19 @@ export function UniversalStake({
       : hasSummaryCardFooter || Boolean(summaryLoadingContent),
   });
 
+  // What the amount buys (Pendle's Buy): nothing before an amount, a
+  // skeleton until a quote for this very amount is in, a dash without one
+  const receiveSymbol = effectiveReceiveInputConfig?.tokenSymbol ?? '';
+  const isReceiveQuoting =
+    isPositiveAmount && (quoteLoading || receiveQuote?.amount !== amountValue);
+  let receiveLine = `0 ${receiveSymbol}`;
+  if (isPositiveAmount) {
+    const bought = earnUtils.extractAmountFromText(receiveQuote?.description);
+    receiveLine = new BigNumber(bought).gt(0)
+      ? `≈ ${numberFormat(bought, { formatter: 'balance' })} ${receiveSymbol}`
+      : '-';
+  }
+
   return (
     <StakingFormWrapper>
       <Stack position="relative">
@@ -2461,40 +2488,33 @@ export function UniversalStake({
               <Stack position="absolute" w="100%" h="100%" zIndex={1} />
             ) : null}
           </Stack>
-          <ManagePageV2ReceiveInput
-            receive={transactionConfirmation?.receive}
-            config={effectiveReceiveInputConfig}
-            fiatSymbol={currencySymbol}
-            payFiatValue={currentValue}
-            loading={quoteLoading}
-          />
-        </YStack>
-        {showReceiveInput ? (
-          <Stack
-            ai="center"
-            position="absolute"
-            top="50%"
-            left="50%"
-            zIndex={2}
-            pointerEvents="none"
-            style={receiveArrowOverlayStyle}
-          >
-            <IconButton
-              testID="staking-icon-btn"
-              alignSelf="center"
-              bg="$bgApp"
-              variant="tertiary"
-              icon="ArrowBottomOutline"
-              iconProps={{
-                color: '$icon',
-              }}
-              size="small"
-              disabled
-              opacity={1}
+          {showReceiveInput ? (
+            <StakingAmountResultLine
+              testID="earn-pendle-receive-amount"
+              label={intl.formatMessage({
+                id: ETranslations.swap_review_you_receive,
+              })}
+              value={receiveLine}
+              loading={isReceiveQuoting}
             />
-          </Stack>
-        ) : null}
+          ) : null}
+        </YStack>
       </Stack>
+      {/* The protocol stays under the amount; what typing brings up goes
+          below it */}
+      {protocolSwitchConfig ? (
+        <ProtocolSwitcher
+          tokenSymbol={actionSymbol}
+          accountId={accountId}
+          fallbackProviderName={providerName}
+          fallbackProviderLogoUri={providerLogo}
+          fallbackAprText={apyDetail?.description?.text}
+          protocolSwitchConfig={protocolSwitchConfig}
+          disabled={approving || submitting}
+        />
+      ) : (
+        offerSwitch
+      )}
       {isCheckAmountMessageError ? (
         <Alert
           icon="InfoCircleOutline"
@@ -2536,20 +2556,6 @@ export function UniversalStake({
           ))}
         </>
       ) : null}
-
-      {protocolSwitchConfig ? (
-        <ProtocolSwitcher
-          tokenSymbol={actionSymbol}
-          accountId={accountId}
-          fallbackProviderName={providerName}
-          fallbackProviderLogoUri={providerLogo}
-          fallbackAprText={apyDetail?.description?.text}
-          protocolSwitchConfig={protocolSwitchConfig}
-          disabled={approving || submitting}
-        />
-      ) : (
-        offerSwitch
-      )}
 
       {shouldShowSummaryCard &&
       (!protocolSwitchConfig || summaryCardHasBodyContent) ? (
