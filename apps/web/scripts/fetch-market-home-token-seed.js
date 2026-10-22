@@ -382,11 +382,20 @@ async function fetchJson(url) {
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
     const appVersion = readAppVersion();
+    const automationToken =
+      new URL(url).origin === MARKET_HOME_TOKEN_SEED_ENV_ORIGINS.production
+        ? process.env.ONEKEY_AUTOMATION_TOKEN?.trim()
+        : undefined;
     const response = await fetch(url, {
       headers: {
         Accept: 'application/json',
         'X-Onekey-Request-Version': appVersion,
+        ...(automationToken
+          ? { 'X-Onekey-Automation-Token': automationToken }
+          : {}),
       },
+      // Fetch preserves custom headers across origins when following redirects.
+      ...(automationToken ? { redirect: 'error' } : {}),
       signal: controller.signal,
     });
     if (!response.ok) {
