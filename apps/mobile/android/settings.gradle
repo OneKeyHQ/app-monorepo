@@ -53,3 +53,7 @@ includeBuild("build-logic")
 
 // Stub module for @onekeyfe/react-native-app-update flavor isolation
 include ':app-update-noop'
+
+// All MMKV consumers use one source-built Core, including Nitro's prefab.
+include ':mmkv'
+project(':mmkv').projectDir = new File(rootDir, 'mmkv')

@@ -599,6 +599,41 @@ describe('devVendor', () => {
     }
   });
 
+  it('invalidates both exact shells when the checked MMKV source inputs change', () => {
+    const fixture = createTemporaryRuntimeFixture();
+    try {
+      for (const relativePath of [
+        'apps/mobile/native/mmkv/checked-sync.patch',
+        'apps/mobile/native/mmkv/source.lock.json',
+        'development/scripts/prepare-mmkv-source.js',
+      ]) {
+        const file = path.join(fixture.repoRoot, relativePath);
+        const original = fs.readFileSync(file);
+        const baselines = Object.fromEntries(
+          ['android', 'ios'].map((platform) => [
+            platform,
+            hashShellInputFiles(
+              getShellInputPaths(platform, fixture.repoRoot),
+              fixture.repoRoot,
+            ),
+          ]),
+        );
+        fs.appendFileSync(file, '\nchanged MMKV source input\n');
+        for (const platform of ['android', 'ios']) {
+          expect(
+            hashShellInputFiles(
+              getShellInputPaths(platform, fixture.repoRoot),
+              fixture.repoRoot,
+            ),
+          ).not.toBe(baselines[platform]);
+        }
+        fs.writeFileSync(file, original);
+      }
+    } finally {
+      fs.rmSync(fixture.repoRoot, { force: true, recursive: true });
+    }
+  });
+
   it('keeps shell input keys stable for non-ABI shell and web changes', () => {
     const fixture = createTemporaryRuntimeFixture();
     try {

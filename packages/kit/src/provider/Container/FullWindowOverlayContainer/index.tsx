@@ -3,7 +3,7 @@ import { ImperativeOverlayMountHost } from '@onekeyhq/components/src/shared/impe
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { ScreenshotBranding } from '../../../components/ScreenshotBranding';
-import { TradingViewNativeFullscreenHost } from '../../../components/TradingView/TradingViewNative/TradingViewNativePresentation';
+import { TradingViewNativeFullscreenHost } from '../../../components/TradingView/TradingViewNative/TradingViewNativeFullscreenHost';
 
 import { AccountSelectorMirrorInspectorContainer } from './AccountSelectorMirrorInspectorContainer';
 import { DevOverlayWindowContainer } from './DevOverlayWindowContainer';
