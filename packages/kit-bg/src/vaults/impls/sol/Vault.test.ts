@@ -1,12 +1,35 @@
+/*
+yarn jest packages/kit-bg/src/vaults/impls/sol/Vault.test.ts
+
+Covers the Solana blockhash lifecycle around signing and pending history
+(OK-63381): the pre-sign blockhash refresh, its skip rules, the dropped
+detection for pending txs that never reached the ledger, and the custom RPC
+"Blockhash not found" retry parity. Also covers the dApp transaction fee
+contract (OK-64196): dApp-built txs stay byte-identical and only expose the
+priority fee they already carry.
+*/
 import {
   ComputeBudgetProgram,
-  PublicKey,
+  Keypair,
   SystemProgram,
   Transaction,
+  TransactionMessage,
+  VersionedTransaction,
 } from '@solana/web3.js';
 import bs58 from 'bs58';
 
+import { BLOCK_HASH_NOT_FOUND_ERROR_CODE } from '@onekeyhq/core/src/chains/sol/constants';
+import { parseToNativeTx } from '@onekeyhq/core/src/chains/sol/sdkSol/parse';
+import type { IEncodedTxSol } from '@onekeyhq/core/src/chains/sol/types';
+import type { ISignedTxPro, IUnsignedTxPro } from '@onekeyhq/core/src/types';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import type { IDBCustomRpc } from '@onekeyhq/shared/types/customRpc';
 import type { IFeeInfoUnit } from '@onekeyhq/shared/types/fee';
+import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
+import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
 
 // Importing the vault pulls in the localDb singleton, whose constructor opens
 // IndexedDB at module load and crashes under jest's node environment.
@@ -16,24 +39,137 @@ jest.mock('../../../dbs/local/localDbInstance', () => ({
 }));
 
 // eslint-disable-next-line import/first
+import { VaultBase } from '../../base/VaultBase';
+// eslint-disable-next-line import/first
+import { ESignedTxBroadcastStatus } from '../../types';
+
+// eslint-disable-next-line import/first
+import { ClientCustomRpcSol } from './sdkSol/ClientCustomRpcSol';
+// eslint-disable-next-line import/first
 import SolVault from './Vault';
 
 // eslint-disable-next-line import/first
 import type ClientSol from './sdkSol/ClientSol';
+// eslint-disable-next-line import/first
+import type { FailedAttemptError } from 'p-retry';
 
-// The dApp fee paths under test never reach backgroundApi, so a bare prototype
-// instance with a stubbed client is enough.
-const buildVault = () => {
+const OLD_BLOCKHASH = bs58.encode(Buffer.alloc(32, 1));
+const NEW_BLOCKHASH = bs58.encode(Buffer.alloc(32, 2));
+const NEW_LAST_VALID_BLOCK_HEIGHT = 12_345;
+
+const payer = Keypair.generate();
+const otherSigner = Keypair.generate();
+const recipient = Keypair.generate();
+const nonceAccount = Keypair.generate();
+
+const transferIx = SystemProgram.transfer({
+  fromPubkey: payer.publicKey,
+  toPubkey: recipient.publicKey,
+  lamports: 1,
+});
+const otherSignerTransferIx = SystemProgram.transfer({
+  fromPubkey: otherSigner.publicKey,
+  toPubkey: recipient.publicKey,
+  lamports: 1,
+});
+const nonceAdvanceIx = SystemProgram.nonceAdvance({
+  noncePubkey: nonceAccount.publicKey,
+  authorizedPubkey: payer.publicKey,
+});
+const computeUnitPriceIx = ComputeBudgetProgram.setComputeUnitPrice({
+  microLamports: 1,
+});
+
+function buildLegacyEncodedTx(
+  instructions: Parameters<Transaction['add']>,
+  { signers = [] }: { signers?: Keypair[] } = {},
+): IEncodedTxSol {
+  const tx = new Transaction({
+    recentBlockhash: OLD_BLOCKHASH,
+    feePayer: payer.publicKey,
+  }).add(...instructions);
+  if (signers.length) {
+    tx.partialSign(...signers);
+  }
+  return bs58.encode(
+    tx.serialize({ requireAllSignatures: false, verifySignatures: false }),
+  );
+}
+
+function buildVersionedEncodedTx(
+  instructions: Parameters<Transaction['add']>,
+  { signers = [] }: { signers?: Keypair[] } = {},
+): IEncodedTxSol {
+  const message = new TransactionMessage({
+    payerKey: payer.publicKey,
+    recentBlockhash: OLD_BLOCKHASH,
+    instructions: instructions as ConstructorParameters<
+      typeof TransactionMessage
+    >[0]['instructions'],
+  }).compileToV0Message();
+  const tx = new VersionedTransaction(message);
+  if (signers.length) {
+    tx.sign(signers);
+  }
+  return bs58.encode(Buffer.from(tx.serialize()));
+}
+
+function readBlockhash(encodedTx: IEncodedTxSol): string | undefined {
+  const nativeTx = parseToNativeTx(encodedTx);
+  if (nativeTx instanceof VersionedTransaction) {
+    return nativeTx.message.recentBlockhash;
+  }
+  return nativeTx?.recentBlockhash;
+}
+
+// Instantiating the full vault requires a backgroundApi context; the methods
+// under test only reach the RPC through the spied helpers below. The dApp fee
+// paths parse instructions locally, so a bare client stub is enough for them.
+function buildVault() {
   const vault = Object.create(SolVault.prototype) as SolVault;
   vault.networkId = 'sol--101';
   vault.getClient = async () => ({}) as unknown as ClientSol;
-  return vault;
-};
+  const getRecentBlockHash = jest
+    .spyOn(vault, '_getRecentBlockHash')
+    .mockResolvedValue({
+      recentBlockhash: NEW_BLOCKHASH,
+      lastValidBlockHeight: NEW_LAST_VALID_BLOCK_HEIGHT,
+    });
+  return { vault, getRecentBlockHash };
+}
 
-const payer = new PublicKey(Buffer.alloc(32, 1));
-const receiver = new PublicKey(Buffer.alloc(32, 2));
+function buildUnsignedTx(encodedTx: IEncodedTxSol): IUnsignedTxPro {
+  return {
+    encodedTx,
+    payload: { feePayer: payer.publicKey.toBase58() },
+    uuid: 'uuid-1',
+  };
+}
 
-const buildDappEncodedTx = ({
+function buildPendingTx({
+  txid,
+  createdAt,
+  encodedTx = buildLegacyEncodedTx([transferIx]),
+}: {
+  txid: string;
+  createdAt?: number;
+  encodedTx?: IEncodedTxSol;
+}): IAccountHistoryTx {
+  return {
+    id: `sol--101_${txid}`,
+    isLocalCreated: true,
+    decodedTx: {
+      txid,
+      createdAt,
+      encodedTx,
+      status: EDecodedTxStatus.Pending,
+      networkId: 'sol--101',
+      accountId: 'hd-1--0',
+    },
+  } as unknown as IAccountHistoryTx;
+}
+
+function buildDappEncodedTx({
   computeUnitPrice,
   computeUnitLimit,
   transferCount = 1,
@@ -41,10 +177,10 @@ const buildDappEncodedTx = ({
   computeUnitPrice?: number;
   computeUnitLimit?: number;
   transferCount?: number;
-}) => {
+}): IEncodedTxSol {
   const tx = new Transaction({
-    feePayer: payer,
-    recentBlockhash: bs58.encode(Buffer.alloc(32, 3)),
+    feePayer: payer.publicKey,
+    recentBlockhash: OLD_BLOCKHASH,
   });
   if (computeUnitPrice !== undefined) {
     tx.add(
@@ -61,8 +197,8 @@ const buildDappEncodedTx = ({
   for (let i = 0; i < transferCount; i += 1) {
     tx.add(
       SystemProgram.transfer({
-        fromPubkey: payer,
-        toPubkey: receiver,
+        fromPubkey: payer.publicKey,
+        toPubkey: recipient.publicKey,
         lamports: i + 1,
       }),
     );
@@ -70,9 +206,9 @@ const buildDappEncodedTx = ({
   return bs58.encode(
     tx.serialize({ requireAllSignatures: false, verifySignatures: false }),
   );
-};
+}
 
-const feeInfo: IFeeInfoUnit = {
+const dappFeeInfo: IFeeInfoUnit = {
   common: {
     feeDecimals: 9,
     feeSymbol: 'SOL',
@@ -82,7 +218,456 @@ const feeInfo: IFeeInfoUnit = {
   feeSol: { computeUnitPrice: '999999' },
 };
 
+describe('SolVault.refreshUnsignedTxBeforeSign', () => {
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it('re-stamps a single-signer legacy tx with a fresh blockhash', async () => {
+    const { vault, getRecentBlockHash } = buildVault();
+    const unsignedTx = buildUnsignedTx(buildLegacyEncodedTx([transferIx]));
+
+    const refreshed = await vault.refreshUnsignedTxBeforeSign(unsignedTx);
+
+    expect(getRecentBlockHash).toHaveBeenCalledTimes(1);
+    expect(readBlockhash(refreshed.encodedTx as IEncodedTxSol)).toBe(
+      NEW_BLOCKHASH,
+    );
+    expect(refreshed.payload).toEqual(unsignedTx.payload);
+    expect(refreshed.uuid).toBe(unsignedTx.uuid);
+    // The original object is left untouched for callers that still hold it.
+    expect(readBlockhash(unsignedTx.encodedTx as IEncodedTxSol)).toBe(
+      OLD_BLOCKHASH,
+    );
+  });
+
+  it('re-stamps a single-signer versioned tx with a fresh blockhash', async () => {
+    const { vault } = buildVault();
+    const unsignedTx = buildUnsignedTx(buildVersionedEncodedTx([transferIx]));
+
+    const refreshed = await vault.refreshUnsignedTxBeforeSign(unsignedTx);
+
+    const nativeTx = parseToNativeTx(refreshed.encodedTx as IEncodedTxSol);
+    expect(nativeTx).toBeInstanceOf(VersionedTransaction);
+    expect(readBlockhash(refreshed.encodedTx as IEncodedTxSol)).toBe(
+      NEW_BLOCKHASH,
+    );
+  });
+
+  it('leaves a multi-signer tx untouched', async () => {
+    const { vault, getRecentBlockHash } = buildVault();
+    const legacy = buildUnsignedTx(
+      buildLegacyEncodedTx([transferIx, otherSignerTransferIx]),
+    );
+    const versioned = buildUnsignedTx(
+      buildVersionedEncodedTx([transferIx, otherSignerTransferIx]),
+    );
+
+    expect(await vault.refreshUnsignedTxBeforeSign(legacy)).toBe(legacy);
+    expect(await vault.refreshUnsignedTxBeforeSign(versioned)).toBe(versioned);
+    expect(getRecentBlockHash).not.toHaveBeenCalled();
+  });
+
+  it('leaves a tx that already carries a signature untouched', async () => {
+    // A single-signer tx can arrive pre-signed (e.g. a dApp signed it first
+    // and then asked the wallet to send it). Re-stamping its blockhash would
+    // invalidate that signature: `Transaction.serialize` rejects the payload
+    // before the wallet ever gets to sign.
+    const { vault, getRecentBlockHash } = buildVault();
+    const legacy = buildUnsignedTx(
+      buildLegacyEncodedTx([transferIx], { signers: [payer] }),
+    );
+    const versioned = buildUnsignedTx(
+      buildVersionedEncodedTx([transferIx], { signers: [payer] }),
+    );
+
+    expect(await vault.refreshUnsignedTxBeforeSign(legacy)).toBe(legacy);
+    expect(await vault.refreshUnsignedTxBeforeSign(versioned)).toBe(versioned);
+    expect(getRecentBlockHash).not.toHaveBeenCalled();
+  });
+
+  it('leaves a durable-nonce tx untouched', async () => {
+    const { vault, getRecentBlockHash } = buildVault();
+    const legacy = buildUnsignedTx(
+      buildLegacyEncodedTx([nonceAdvanceIx, transferIx]),
+    );
+    const versioned = buildUnsignedTx(
+      buildVersionedEncodedTx([nonceAdvanceIx, transferIx]),
+    );
+
+    expect(await vault.refreshUnsignedTxBeforeSign(legacy)).toBe(legacy);
+    expect(await vault.refreshUnsignedTxBeforeSign(versioned)).toBe(versioned);
+    expect(getRecentBlockHash).not.toHaveBeenCalled();
+  });
+
+  it('re-stamps a tx whose nonce advance is not the first instruction', async () => {
+    // The runtime only recognizes a durable nonce at instruction index 0
+    // (its nonce marker index), so a ComputeBudget prefix makes this a plain
+    // blockhash tx that must be refreshed like any other.
+    const { vault, getRecentBlockHash } = buildVault();
+    const prefixed = [computeUnitPriceIx, nonceAdvanceIx, transferIx];
+    const legacy = buildUnsignedTx(buildLegacyEncodedTx(prefixed));
+    const versioned = buildUnsignedTx(buildVersionedEncodedTx(prefixed));
+
+    const refreshedLegacy = await vault.refreshUnsignedTxBeforeSign(legacy);
+    const refreshedVersioned =
+      await vault.refreshUnsignedTxBeforeSign(versioned);
+
+    expect(getRecentBlockHash).toHaveBeenCalledTimes(2);
+    expect(readBlockhash(refreshedLegacy.encodedTx as IEncodedTxSol)).toBe(
+      NEW_BLOCKHASH,
+    );
+    expect(readBlockhash(refreshedVersioned.encodedTx as IEncodedTxSol)).toBe(
+      NEW_BLOCKHASH,
+    );
+  });
+
+  it('falls back to the original tx when the blockhash fetch fails', async () => {
+    const { vault, getRecentBlockHash } = buildVault();
+    getRecentBlockHash.mockRejectedValue(new Error('rpc down'));
+    jest.spyOn(console, 'error').mockImplementation(() => undefined);
+    const unsignedTx = buildUnsignedTx(buildLegacyEncodedTx([transferIx]));
+
+    expect(await vault.refreshUnsignedTxBeforeSign(unsignedTx)).toBe(
+      unsignedTx,
+    );
+  });
+});
+
+describe('SolVault.getSignatureStatuses', () => {
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it('splits the lookup into batches of 256 and keeps the result order', async () => {
+    const { vault } = buildVault();
+    const clientLookup = jest.fn(async (batch: string[]) =>
+      batch.map((signature) => ({ confirmationStatus: signature })),
+    );
+    vault.getClient = async () =>
+      ({ getSignatureStatuses: clientLookup }) as unknown as ClientSol;
+    const signatures = Array.from({ length: 300 }, (_, i) => `sig-${i}`);
+
+    const statuses = await vault.getSignatureStatuses(signatures);
+
+    expect(clientLookup).toHaveBeenCalledTimes(2);
+    expect(clientLookup.mock.calls[0][0]).toHaveLength(256);
+    expect(clientLookup.mock.calls[1][0]).toHaveLength(44);
+    expect(statuses?.map((status) => status?.confirmationStatus)).toEqual(
+      signatures,
+    );
+  });
+});
+
+describe('SolVault.getDroppedPendingTxs', () => {
+  const now = 1_700_000_000_000;
+  const oldEnough = now - timerUtils.getTimeDurationMs({ minute: 3 });
+  const tooRecent = now - timerUtils.getTimeDurationMs({ minute: 1 });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it('drops only aged pending txs the chain has never seen', async () => {
+    const { vault } = buildVault();
+    jest.spyOn(Date, 'now').mockReturnValue(now);
+    const getSignatureStatuses = jest
+      .spyOn(vault, 'getSignatureStatuses')
+      .mockResolvedValue([null, { confirmationStatus: 'confirmed' }]);
+    const unseen = buildPendingTx({ txid: 'sig-unseen', createdAt: oldEnough });
+    const landed = buildPendingTx({ txid: 'sig-landed', createdAt: oldEnough });
+    const fresh = buildPendingTx({ txid: 'sig-fresh', createdAt: tooRecent });
+    const unstamped = buildPendingTx({ txid: 'sig-unstamped' });
+
+    const dropped = await vault.getDroppedPendingTxs({
+      pendingTxs: [fresh, unseen, unstamped, landed],
+    });
+
+    expect(getSignatureStatuses).toHaveBeenCalledWith([
+      'sig-unseen',
+      'sig-landed',
+    ]);
+    expect(dropped).toEqual([unseen]);
+  });
+
+  it('never drops a durable-nonce tx, whose nonce outlives any blockhash', async () => {
+    const { vault } = buildVault();
+    jest.spyOn(Date, 'now').mockReturnValue(now);
+    const getSignatureStatuses = jest
+      .spyOn(vault, 'getSignatureStatuses')
+      .mockResolvedValue([null]);
+    const legacyNonce = buildPendingTx({
+      txid: 'sig-legacy-nonce',
+      createdAt: oldEnough,
+      encodedTx: buildLegacyEncodedTx([nonceAdvanceIx, transferIx]),
+    });
+    const versionedNonce = buildPendingTx({
+      txid: 'sig-versioned-nonce',
+      createdAt: oldEnough,
+      encodedTx: buildVersionedEncodedTx([nonceAdvanceIx, transferIx]),
+    });
+    const plain = buildPendingTx({ txid: 'sig-plain', createdAt: oldEnough });
+
+    const dropped = await vault.getDroppedPendingTxs({
+      pendingTxs: [legacyNonce, plain, versionedNonce],
+    });
+
+    expect(getSignatureStatuses).toHaveBeenCalledWith(['sig-plain']);
+    expect(dropped).toEqual([plain]);
+  });
+
+  it('keeps a pending tx whose payload cannot be inspected', async () => {
+    const { vault } = buildVault();
+    jest.spyOn(Date, 'now').mockReturnValue(now);
+    const getSignatureStatuses = jest.spyOn(vault, 'getSignatureStatuses');
+    const missing = buildPendingTx({
+      txid: 'sig-missing',
+      createdAt: oldEnough,
+      encodedTx: '' as IEncodedTxSol,
+    });
+    const garbage = buildPendingTx({
+      txid: 'sig-garbage',
+      createdAt: oldEnough,
+      encodedTx: 'not-a-transaction' as IEncodedTxSol,
+    });
+
+    const dropped = await vault.getDroppedPendingTxs({
+      pendingTxs: [missing, garbage],
+    });
+
+    expect(dropped).toEqual([]);
+    expect(getSignatureStatuses).not.toHaveBeenCalled();
+  });
+
+  it('skips the RPC when no pending tx is old enough', async () => {
+    const { vault } = buildVault();
+    jest.spyOn(Date, 'now').mockReturnValue(now);
+    const getSignatureStatuses = jest.spyOn(vault, 'getSignatureStatuses');
+
+    const dropped = await vault.getDroppedPendingTxs({
+      pendingTxs: [buildPendingTx({ txid: 'sig-fresh', createdAt: tooRecent })],
+    });
+
+    expect(dropped).toEqual([]);
+    expect(getSignatureStatuses).not.toHaveBeenCalled();
+  });
+
+  it('keeps every pending tx when the status lookup fails or is malformed', async () => {
+    const { vault } = buildVault();
+    jest.spyOn(Date, 'now').mockReturnValue(now);
+    jest.spyOn(console, 'error').mockImplementation(() => undefined);
+    const pendingTxs = [
+      buildPendingTx({ txid: 'sig-a', createdAt: oldEnough }),
+      buildPendingTx({ txid: 'sig-b', createdAt: oldEnough }),
+    ];
+    const getSignatureStatuses = jest
+      .spyOn(vault, 'getSignatureStatuses')
+      .mockRejectedValueOnce(new Error('rpc down'))
+      .mockResolvedValueOnce([null]);
+
+    expect(await vault.getDroppedPendingTxs({ pendingTxs })).toEqual([]);
+    expect(await vault.getDroppedPendingTxs({ pendingTxs })).toEqual([]);
+    expect(getSignatureStatuses).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe('SolVault.buildHistoryTx', () => {
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  function buildDecodedTx(encodedTx: IEncodedTxSol) {
+    return {
+      txid: 'sig-history',
+      encodedTx,
+      status: EDecodedTxStatus.Pending,
+      networkId: 'sol--101',
+      accountId: 'hd-1--0',
+    } as unknown as Parameters<SolVault['buildHistoryTx']>[0]['decodedTx'];
+  }
+
+  it('persists the re-stamped payload the keyring actually signed', async () => {
+    const { vault } = buildVault();
+    const original = buildLegacyEncodedTx([transferIx]);
+    const unsignedTx = buildUnsignedTx(original);
+    const refreshed = await vault.refreshUnsignedTxBeforeSign(unsignedTx);
+    const signedTx: ISignedTxPro = {
+      txid: 'sig-history',
+      rawTx: 'cmF3',
+      encodedTx: refreshed.encodedTx,
+    };
+
+    const historyTx = await vault.buildHistoryTx({
+      decodedTx: buildDecodedTx(original),
+      signedTx,
+      isSigner: true,
+      isLocalCreated: true,
+    });
+
+    expect(readBlockhash(historyTx.decodedTx.encodedTx as IEncodedTxSol)).toBe(
+      NEW_BLOCKHASH,
+    );
+  });
+
+  it('keeps the decoded payload when the signed tx carries none', async () => {
+    const { vault } = buildVault();
+    const original = buildLegacyEncodedTx([transferIx]);
+
+    const historyTx = await vault.buildHistoryTx({
+      decodedTx: buildDecodedTx(original),
+      signedTx: { txid: 'sig-history', rawTx: 'cmF3', encodedTx: null },
+      isSigner: true,
+      isLocalCreated: true,
+    });
+
+    expect(historyTx.decodedTx.encodedTx).toBe(original);
+  });
+});
+
+describe('SolVault.checkShouldRetryBroadcastTx', () => {
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  function buildError(
+    fields: { code?: number; message?: string },
+    attemptNumber = 1,
+  ): FailedAttemptError {
+    const error = new Error(fields.message ?? 'boom');
+    return Object.assign(error, {
+      code: fields.code,
+      attemptNumber,
+      retriesLeft: 1,
+    }) as unknown as FailedAttemptError;
+  }
+
+  it('retries the proxy blockhash-not-found code', async () => {
+    const { vault } = buildVault();
+    const wait = jest.spyOn(timerUtils, 'wait').mockResolvedValue(undefined);
+
+    expect(
+      await vault.checkShouldRetryBroadcastTx(buildError({ code: 40_028 }, 2)),
+    ).toBe(true);
+    expect(wait).toHaveBeenCalledWith(2000);
+  });
+
+  it('retries the custom RPC blockhash-not-found message', async () => {
+    const { vault } = buildVault();
+    jest.spyOn(timerUtils, 'wait').mockResolvedValue(undefined);
+
+    expect(
+      await vault.checkShouldRetryBroadcastTx(
+        buildError({
+          message:
+            'Error JSON RPC response: Transaction simulation failed: Blockhash not found',
+        }),
+      ),
+    ).toBe(true);
+  });
+
+  it('does not retry other broadcast failures', async () => {
+    const { vault } = buildVault();
+    const wait = jest.spyOn(timerUtils, 'wait').mockResolvedValue(undefined);
+
+    expect(
+      await vault.checkShouldRetryBroadcastTx(
+        buildError({
+          message:
+            'Error JSON RPC response: Transaction simulation failed: insufficient funds',
+        }),
+      ),
+    ).toBe(false);
+    expect(wait).not.toHaveBeenCalled();
+  });
+
+  it('stops retrying a blockhash-not-found rejection after the second attempt', async () => {
+    const { vault } = buildVault();
+    const wait = jest.spyOn(timerUtils, 'wait').mockResolvedValue(undefined);
+
+    expect(
+      await vault.checkShouldRetryBroadcastTx(buildError({ code: 40_028 }, 3)),
+    ).toBe(false);
+    expect(wait).not.toHaveBeenCalled();
+  });
+});
+
+describe('SolVault broadcast error copy', () => {
+  const signedTx: ISignedTxPro = {
+    txid: '',
+    rawTx: 'cmF3',
+    encodedTx: 'encoded',
+  };
+  const broadcastParams = {
+    accountId: 'hd-1--0',
+    networkId: 'sol--101',
+    signedTx,
+    accountAddress: payer.publicKey.toBase58(),
+  };
+  const nodeError = new Error(
+    'Error JSON RPC response: Transaction simulation failed: Blockhash not found',
+  );
+
+  beforeEach(() => {
+    jest
+      .spyOn(appLocale.intl, 'formatMessage')
+      .mockImplementation((descriptor) => `t:${String(descriptor.id)}`);
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it('replaces the custom RPC blockhash rejection with the expired copy', async () => {
+    const { vault } = buildVault();
+    jest
+      .spyOn(ClientCustomRpcSol.prototype, 'broadcastTransaction')
+      .mockRejectedValue(nodeError);
+
+    const promise = vault.broadcastTransactionFromCustomRpc({
+      ...broadcastParams,
+      customRpcInfo: { rpc: 'https://rpc.example' } as IDBCustomRpc,
+    });
+
+    await expect(promise).rejects.toMatchObject({
+      message: `t:${ETranslations.wallet_sol_tx_expired__msg}`,
+      code: 40_028,
+    });
+  });
+
+  it('replaces the proxy blockhash rejection with the expired copy', async () => {
+    const { vault } = buildVault();
+    jest
+      .spyOn(VaultBase.prototype, 'broadcastTransaction')
+      .mockRejectedValue(
+        Object.assign(new Error('server text'), { code: 40_028 }),
+      );
+
+    await expect(
+      vault.broadcastTransaction(broadcastParams),
+    ).rejects.toMatchObject({
+      message: `t:${ETranslations.wallet_sol_tx_expired__msg}`,
+      code: 40_028,
+    });
+  });
+
+  it('passes other broadcast failures through untouched', async () => {
+    const { vault } = buildVault();
+    const insufficient = new Error('insufficient funds');
+    jest
+      .spyOn(VaultBase.prototype, 'broadcastTransaction')
+      .mockRejectedValue(insufficient);
+
+    await expect(vault.broadcastTransaction(broadcastParams)).rejects.toBe(
+      insufficient,
+    );
+  });
+});
+
 describe('SolVault dApp transaction fee handling (OK-64196)', () => {
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
   describe('attachFeeInfoToDAppEncodedTx', () => {
     it.each([
       ['no ComputeBudget instruction', undefined],
@@ -91,11 +676,14 @@ describe('SolVault dApp transaction fee handling (OK-64196)', () => {
     ])(
       'returns "" so the dApp tx is kept byte-identical when it has %s',
       async (_label, computeUnitPrice) => {
-        const vault = buildVault();
+        const { vault } = buildVault();
         const encodedTx = buildDappEncodedTx({ computeUnitPrice });
 
         await expect(
-          vault.attachFeeInfoToDAppEncodedTx({ encodedTx, feeInfo }),
+          vault.attachFeeInfoToDAppEncodedTx({
+            encodedTx,
+            feeInfo: dappFeeInfo,
+          }),
         ).resolves.toBe('');
       },
     );
@@ -103,12 +691,12 @@ describe('SolVault dApp transaction fee handling (OK-64196)', () => {
 
   describe('updateUnsignedTx', () => {
     it('does not rewrite the encoded tx when the fee is not editable', async () => {
-      const vault = buildVault();
+      const { vault } = buildVault();
       const encodedTx = buildDappEncodedTx({ computeUnitPrice: 123 });
 
       const result = await vault.updateUnsignedTx({
         unsignedTx: { encodedTx },
-        feeInfo,
+        feeInfo: dappFeeInfo,
         feeInfoEditable: false,
       });
 
@@ -118,7 +706,7 @@ describe('SolVault dApp transaction fee handling (OK-64196)', () => {
 
   describe('buildEstimateFeeParams', () => {
     it('exposes the priority fee carried by the tx for read-only display', async () => {
-      const vault = buildVault();
+      const { vault } = buildVault();
       const encodedTx = buildDappEncodedTx({ computeUnitPrice: 123 });
 
       const { estimateFeeParams } = await vault.buildEstimateFeeParams({
@@ -132,7 +720,7 @@ describe('SolVault dApp transaction fee handling (OK-64196)', () => {
     });
 
     it('derives the default compute unit limit from the instruction count', async () => {
-      const vault = buildVault();
+      const { vault } = buildVault();
       const encodedTx = buildDappEncodedTx({
         computeUnitPrice: 123,
         transferCount: 3,
@@ -150,7 +738,7 @@ describe('SolVault dApp transaction fee handling (OK-64196)', () => {
     });
 
     it('caps the derived default compute unit limit at 1.4M', async () => {
-      const vault = buildVault();
+      const { vault } = buildVault();
       const encodedTx = buildDappEncodedTx({ transferCount: 8 });
 
       const { estimateFeeParams } = await vault.buildEstimateFeeParams({
@@ -163,7 +751,7 @@ describe('SolVault dApp transaction fee handling (OK-64196)', () => {
     });
 
     it('uses the explicit SetComputeUnitLimit when the tx carries one', async () => {
-      const vault = buildVault();
+      const { vault } = buildVault();
       const encodedTx = buildDappEncodedTx({
         computeUnitPrice: 123,
         computeUnitLimit: 300_000,
@@ -180,7 +768,7 @@ describe('SolVault dApp transaction fee handling (OK-64196)', () => {
     });
 
     it('reports "0" when the tx carries no SetComputeUnitPrice instruction', async () => {
-      const vault = buildVault();
+      const { vault } = buildVault();
       const encodedTx = buildDappEncodedTx({});
 
       const { estimateFeeParams } = await vault.buildEstimateFeeParams({
@@ -191,5 +779,205 @@ describe('SolVault dApp transaction fee handling (OK-64196)', () => {
         estimateFeeParams?.estimateFeeParamsSol?.computeUnitPriceInTx,
       ).toBe('0');
     });
+  });
+});
+
+describe('SolVault.checkSignedTxBroadcastStatus', () => {
+  const signedEncodedTx = buildLegacyEncodedTx([transferIx], {
+    signers: [payer],
+  });
+  const signedTx: ISignedTxPro = {
+    txid: 'sig-1',
+    rawTx: '',
+    encodedTx: signedEncodedTx,
+  };
+  const now = 1_700_000_000_000;
+
+  function mockClient(vault: SolVault, client: Partial<ClientSol>) {
+    vault.getClient = async () => client as ClientSol;
+  }
+
+  beforeEach(() => {
+    jest.spyOn(Date, 'now').mockReturnValue(now);
+    jest.spyOn(timerUtils, 'wait').mockResolvedValue(undefined);
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it('reports a signature the ledger executed as broadcast', async () => {
+    const { vault } = buildVault();
+    const isBlockhashValid = jest.fn();
+    mockClient(vault, {
+      getSignatureStatuses: jest.fn(async () => [
+        { confirmationStatus: 'confirmed', err: null },
+      ]),
+      isBlockhashValid,
+    } as unknown as Partial<ClientSol>);
+
+    await expect(
+      vault.checkSignedTxBroadcastStatus({ signedTx, attemptedAt: now }),
+    ).resolves.toBe(ESignedTxBroadcastStatus.Broadcast);
+    expect(isBlockhashValid).not.toHaveBeenCalled();
+  });
+
+  it('reports a signature that executed with an error as safe to sign again', async () => {
+    const { vault } = buildVault();
+    mockClient(vault, {
+      getSignatureStatuses: jest.fn(async () => [
+        { confirmationStatus: 'confirmed', err: { InstructionError: [0, 1] } },
+      ]),
+    } as unknown as Partial<ClientSol>);
+
+    await expect(
+      vault.checkSignedTxBroadcastStatus({ signedTx, attemptedAt: now }),
+    ).resolves.toBe(ESignedTxBroadcastStatus.NotBroadcast);
+  });
+
+  it('reports an unseen signature whose blockhash expired as not broadcast', async () => {
+    const { vault } = buildVault();
+    const isBlockhashValid = jest.fn(async () => false);
+    mockClient(vault, {
+      getSignatureStatuses: jest.fn(async () => [null]),
+      isBlockhashValid,
+    } as unknown as Partial<ClientSol>);
+
+    await expect(
+      vault.checkSignedTxBroadcastStatus({ signedTx, attemptedAt: now }),
+    ).resolves.toBe(ESignedTxBroadcastStatus.NotBroadcast);
+    expect(isBlockhashValid).toHaveBeenCalledWith(OLD_BLOCKHASH);
+    expect(timerUtils.wait).not.toHaveBeenCalled();
+  });
+
+  it('keeps polling while the blockhash is still valid and the signature is unseen', async () => {
+    const { vault } = buildVault();
+    const getSignatureStatuses = jest
+      .fn()
+      .mockResolvedValueOnce([null])
+      .mockResolvedValueOnce([{ confirmationStatus: 'processed', err: null }]);
+    mockClient(vault, {
+      getSignatureStatuses,
+      isBlockhashValid: jest.fn(async () => true),
+    } as unknown as Partial<ClientSol>);
+
+    await expect(
+      vault.checkSignedTxBroadcastStatus({ signedTx, attemptedAt: now }),
+    ).resolves.toBe(ESignedTxBroadcastStatus.Broadcast);
+    expect(getSignatureStatuses).toHaveBeenCalledTimes(2);
+    expect(timerUtils.wait).toHaveBeenCalledTimes(1);
+  });
+
+  it('falls back to the wall-clock validity bound when the node cannot answer isBlockhashValid', async () => {
+    const { vault } = buildVault();
+    mockClient(vault, {
+      getSignatureStatuses: jest.fn(async () => [null]),
+      isBlockhashValid: jest.fn(async () => {
+        throw new OneKeyLocalError('Method not found');
+      }),
+    } as unknown as Partial<ClientSol>);
+
+    await expect(
+      vault.checkSignedTxBroadcastStatus({
+        signedTx,
+        attemptedAt: now - timerUtils.getTimeDurationMs({ minute: 11 }),
+      }),
+    ).resolves.toBe(ESignedTxBroadcastStatus.NotBroadcast);
+  });
+
+  it('trusts a still-valid blockhash over the wall clock', async () => {
+    const { vault } = buildVault();
+    const getSignatureStatuses = jest
+      .fn()
+      .mockResolvedValueOnce([null])
+      .mockResolvedValueOnce([{ confirmationStatus: 'confirmed', err: null }]);
+    mockClient(vault, {
+      getSignatureStatuses,
+      isBlockhashValid: jest.fn(async () => true),
+    } as unknown as Partial<ClientSol>);
+
+    await expect(
+      vault.checkSignedTxBroadcastStatus({
+        signedTx,
+        attemptedAt: now - timerUtils.getTimeDurationMs({ minute: 30 }),
+      }),
+    ).resolves.toBe(ESignedTxBroadcastStatus.Broadcast);
+    expect(getSignatureStatuses).toHaveBeenCalledTimes(2);
+  });
+
+  it('gives up with an error when the node keeps calling the blockhash valid', async () => {
+    const { vault } = buildVault();
+    let current = now;
+    jest.spyOn(Date, 'now').mockImplementation(() => current);
+    jest.spyOn(timerUtils, 'wait').mockImplementation(async () => {
+      current += timerUtils.getTimeDurationMs({ minute: 6 });
+    });
+    mockClient(vault, {
+      getSignatureStatuses: jest.fn(async () => [null]),
+      isBlockhashValid: jest.fn(async () => true),
+    } as unknown as Partial<ClientSol>);
+
+    await expect(
+      vault.checkSignedTxBroadcastStatus({ signedTx, attemptedAt: now }),
+    ).rejects.toThrow('still unknown');
+  });
+
+  it('cannot judge a durable-nonce tx and says so without touching the RPC', async () => {
+    const { vault } = buildVault();
+    const getSignatureStatuses = jest.fn();
+    mockClient(vault, {
+      getSignatureStatuses,
+    } as unknown as Partial<ClientSol>);
+    const nonceSignedTx: ISignedTxPro = {
+      txid: 'sig-nonce',
+      rawTx: '',
+      encodedTx: buildLegacyEncodedTx([nonceAdvanceIx, transferIx], {
+        signers: [payer],
+      }),
+    };
+
+    await expect(
+      vault.checkSignedTxBroadcastStatus({
+        signedTx: nonceSignedTx,
+        attemptedAt: now,
+      }),
+    ).resolves.toBe(ESignedTxBroadcastStatus.Unknown);
+    expect(getSignatureStatuses).not.toHaveBeenCalled();
+  });
+
+  it('propagates a status lookup failure so the caller does not re-sign blindly', async () => {
+    const { vault } = buildVault();
+    mockClient(vault, {
+      getSignatureStatuses: jest.fn(async () => {
+        throw new OneKeyLocalError('rpc unreachable');
+      }),
+    } as unknown as Partial<ClientSol>);
+
+    await expect(
+      vault.checkSignedTxBroadcastStatus({ signedTx, attemptedAt: now }),
+    ).rejects.toThrow('rpc unreachable');
+  });
+});
+
+describe('SolVault.isSignedTxRejectedByBroadcast', () => {
+  it('treats the blockhash-not-found rejection as definitive', async () => {
+    const { vault } = buildVault();
+    await expect(
+      vault.isSignedTxRejectedByBroadcast(
+        new OneKeyLocalError({
+          message: 'Transaction expired',
+          code: BLOCK_HASH_NOT_FOUND_ERROR_CODE,
+        }),
+      ),
+    ).resolves.toBe(true);
+  });
+
+  it('keeps an ambiguous network failure as possibly broadcast', async () => {
+    const { vault } = buildVault();
+    await expect(
+      vault.isSignedTxRejectedByBroadcast(
+        new OneKeyLocalError('timeout of 10000ms exceeded'),
+      ),
+    ).resolves.toBe(false);
   });
 });

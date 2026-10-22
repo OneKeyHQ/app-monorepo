@@ -29,6 +29,7 @@ import {
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { getActiveTwapRuntimeStatus } from '@onekeyhq/shared/src/utils/hyperliquidTwapUtils';
 import {
   normalizePerpsAccountAddress,
   resolveBboOrderPrice,
@@ -36,6 +37,7 @@ import {
 import type { IPerpsFrontendOrder } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
 import { useEnsureTradingEnabled } from '../../../hooks/useEnableTradingWithDepositFallback';
+import { usePerpsAccountScopedActiveTwapOrders } from '../../../hooks/usePerpsAccountScopedActiveTwapOrders';
 import { usePerpsAccountScopedCacheAddress } from '../../../hooks/usePerpsAccountScopedCacheAddress';
 import {
   getPerpsAccountScopedListData,
@@ -250,19 +252,10 @@ function PerpOpenOrdersList({
       spotOpenOrdersState.openOrders,
     ],
   );
-  const scopedTwapOrders = useMemo(
-    () =>
-      getPerpsAccountScopedListData({
-        activeAccountAddress: accountScopedAddress,
-        dataAccountAddress: twapOrdersState.accountAddress,
-        data: twapOrdersState.twapOrders,
-      }),
-    [
-      accountScopedAddress,
-      twapOrdersState.accountAddress,
-      twapOrdersState.twapOrders,
-    ],
-  );
+  const {
+    twapOrders: scopedTwapOrders,
+    activeRuntimeInfoById: activeTwapRuntimeInfoByKey,
+  } = usePerpsAccountScopedActiveTwapOrders(accountScopedAddress);
   const openOrders = useMemo(
     () =>
       [...scopedPerpOpenOrders, ...scopedSpotOpenOrders].toSorted(
@@ -386,6 +379,12 @@ function PerpOpenOrdersList({
         : []),
     ];
   }, [activeOpenOrdersSubTab, filteredOrders, filteredTwapOrders, isMobile]);
+
+  const pageSize = isMobile ? 20 : 40;
+  const totalPages = Math.max(1, Math.ceil(displayRows.length / pageSize));
+  useEffect(() => {
+    setCurrentListPage((page) => Math.min(page, totalPages));
+  }, [totalPages]);
 
   const hasChaseAction = displayRows.some(
     (row) =>
@@ -710,9 +709,19 @@ function PerpOpenOrdersList({
     onHoverChange?: (index: number | null) => void,
   ) => {
     if (item.type === 'twap') {
+      const runtimeInfo = activeTwapRuntimeInfoByKey.get(item.order.twapId);
+      const status = getActiveTwapRuntimeStatus({
+        reportedStatus: runtimeInfo?.reportedStatus,
+        triggerPrice: item.order.state.trigger?.px,
+        executedSize: item.order.state.executedSz,
+      });
       return (
         <MobileTwapOpenOrdersRow
           order={item.order}
+          status={status}
+          activatedAt={
+            status === 'activated' ? runtimeInfo?.activatedAt : undefined
+          }
           onCancelOrder={() => void handleCancelTwapOrder(item.order)}
         />
       );
@@ -841,7 +850,7 @@ function PerpOpenOrdersList({
         useTabsList={useTabsList}
         disableListScroll={disableListScroll}
         enablePagination
-        pageSize={isMobile ? 20 : 40}
+        pageSize={pageSize}
         paginationToBottom={isMobile}
         currentListPage={currentListPage}
         setCurrentListPage={setCurrentListPage}

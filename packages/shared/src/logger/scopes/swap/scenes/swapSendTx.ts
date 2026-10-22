@@ -1,3 +1,5 @@
+import { getSwapErrorMessage } from '@onekeyhq/shared/src/utils/sensitiveErrorMessageUtils';
+
 import { BaseScene } from '../../../base/baseScene';
 import { LogToLocal, LogToServer } from '../../../base/decorators';
 
@@ -7,6 +9,8 @@ export class SwapSendTxScene extends BaseScene {
   @LogToServer({ level: 'info' })
   @LogToLocal({ level: 'info' })
   public swapSendTx({
+    reviewSessionId,
+    quoteId,
     swapType,
     slippage,
     router,
@@ -32,6 +36,8 @@ export class SwapSendTxScene extends BaseScene {
     toAddress: _toAddress,
     quoteToTokenAmount,
   }: {
+    reviewSessionId?: string;
+    quoteId?: string;
     status: ESwapEventAPIStatus;
     message?: string;
     orderId: string;
@@ -54,8 +60,10 @@ export class SwapSendTxScene extends BaseScene {
     toAddress: string;
   }) {
     return {
+      reviewSessionId,
+      quoteId,
       status,
-      message,
+      message: message === undefined ? undefined : getSwapErrorMessage(message),
       swapType,
       slippage,
       router,

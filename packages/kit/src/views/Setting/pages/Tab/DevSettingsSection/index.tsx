@@ -9,6 +9,7 @@ import {
 } from 'react';
 import type { ComponentProps, ReactNode } from 'react';
 
+import { EDeviceType } from '@onekeyfe/hd-shared';
 import { random } from 'lodash';
 import { useIntl } from 'react-intl';
 import { Dimensions, I18nManager } from 'react-native';
@@ -64,6 +65,8 @@ import {
   TRADING_VIEW_URL_TEST,
 } from '@onekeyhq/shared/src/config/appConfig';
 import { presetNetworksMap } from '@onekeyhq/shared/src/config/presetNetworks';
+import { DEV_UNKNOWN_AVATAR_DEVICE_ID } from '@onekeyhq/shared/src/consts/dbConsts';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import LazyLoad from '@onekeyhq/shared/src/lazyLoad';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
@@ -87,6 +90,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalSettingRoutes } from '@onekeyhq/shared/src/routes';
 import appStorage from '@onekeyhq/shared/src/storage/appStorage';
 import { EAppSyncStorageKeys } from '@onekeyhq/shared/src/storage/syncStorage';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import {
   isBgApiSerializableCheckingDisabled,
   toggleBgApiSerializableChecking,
@@ -481,6 +485,84 @@ const BaseDevSettingsSection = () => {
   const navigation = useAppNavigation();
   const { copyText } = useClipboard();
   const { loginOneKeyIdWithLegacyEmail } = useOneKeyAuth();
+  const injectingUnknownAvatarRef = useRef(false);
+  const handleInjectUnknownWalletAvatar = useCallback(async () => {
+    if (!devSettings.enabled || injectingUnknownAvatarRef.current) return;
+    injectingUnknownAvatarRef.current = true;
+    try {
+      const name = 'QA Unknown Avatar';
+      const { serviceAccount } = backgroundApiProxy;
+      const { wallets } = await serviceAccount.getWallets({
+        ignoreEmptySingletonWalletAccounts: true,
+      });
+      const getFixtureWallet = (items: typeof wallets) => {
+        const matches = items.filter(
+          (item) =>
+            item.associatedDeviceInfo?.deviceId ===
+            DEV_UNKNOWN_AVATAR_DEVICE_ID,
+        );
+        const candidate = matches[0];
+        if (
+          matches.length > 1 ||
+          (candidate &&
+            (!candidate.isMocked ||
+              !accountUtils.isQrWallet({ walletId: candidate.id }) ||
+              accountUtils.isHwHiddenWallet({ wallet: candidate }) ||
+              candidate.accounts.length > 0)) ||
+          (!candidate && items.some((item) => item.name === name))
+        ) {
+          throw new OneKeyLocalError(
+            '测试钱包身份冲突或不是空模拟钱包，已停止注入',
+          );
+        }
+        return candidate;
+      };
+      let wallet = getFixtureWallet(wallets);
+      if (!wallet) {
+        await serviceAccount.createQrWallet({
+          qrDevice: {
+            deviceId: DEV_UNKNOWN_AVATAR_DEVICE_ID,
+            name,
+            deviceType: EDeviceType.Pro,
+            xfp: '',
+            version: '1',
+            buildBy: 'multiAccounts',
+          },
+          airGapAccounts: [],
+          isMockedStandardHwWallet: true,
+        });
+        const { wallets: createdWallets } = await serviceAccount.getWallets({
+          ignoreEmptySingletonWalletAccounts: true,
+        });
+        wallet = getFixtureWallet(createdWallets);
+        if (!wallet) {
+          throw new OneKeyLocalError('未找到已创建的测试钱包，已停止注入');
+        }
+      }
+      await serviceAccount.setWalletNameAndAvatar({
+        walletId: wallet.id,
+        avatar: { img: EDeviceType.Unknown },
+        skipSaveLocalSyncItem: true,
+      });
+      const { wallets: updatedWallets } = await serviceAccount.getWallets({
+        ignoreEmptySingletonWalletAccounts: true,
+      });
+      const saved = updatedWallets.find((item) => item.id === wallet.id);
+      if (saved?.avatarInfo?.img !== EDeviceType.Unknown) {
+        Toast.error({ title: '测试头像被自动修正，脏数据未保留' });
+        return;
+      }
+      Toast.success({
+        title: '已注入 QA Unknown Avatar，请打开钱包选择器验证',
+      });
+    } catch (error) {
+      Toast.error({
+        title: error instanceof Error ? error.message : '注入测试头像失败',
+      });
+    } finally {
+      injectingUnknownAvatarRef.current = false;
+    }
+  }, [devSettings.enabled]);
   const localTradingViewUrlSubtitle = platformEnv.isNativeAndroid
     ? 'http://10.0.2.2:5173/'
     : 'http://localhost:5173/';
@@ -897,7 +979,7 @@ const BaseDevSettingsSection = () => {
         title: 'Account & Wallet & Prime & Network',
         description: '账户 钱包 Prime 链和网络',
         keywords:
-          '允许添加相同助记词HD钱包 启用Keyless调试信息 启用Keyless云端同步 允许重置Keyless钱包 Referral Bind Guard 10s Test Add ServerNetwork Test Data Create 1000 Wallets Accounts Large Data NativeList 性能 压力测试 开启Prime 开启Prime Sandbox付款 In-App-Purchase Mac 内购 首页导出私钥临时入口 Export Accounts Data',
+          '允许添加相同助记词HD钱包 启用Keyless调试信息 启用Keyless云端同步 允许重置Keyless钱包 Referral Bind Guard 10s Test Add ServerNetwork Test Data Create 1000 Wallets Accounts Large Data NativeList 性能 压力测试 unknown 头像 脏数据 QA Unknown Avatar 开启Prime 开启Prime Sandbox付款 In-App-Purchase Mac 内购 首页导出私钥临时入口 Export Accounts Data',
       },
       {
         key: 'transaction',
@@ -2384,6 +2466,14 @@ const BaseDevSettingsSection = () => {
                       animateOnly={ANIMATE_ONLY_OPACITY}
                       exitStyle={{ opacity: 0 }}
                     >
+                      <SectionPressItem
+                        icon="OnekeyDeviceCustom"
+                        title="注入硬件钱包 unknown 头像脏数据"
+                        subtitle="创建空模拟钱包 QA Unknown Avatar，重复点击复用；不修改已有钱包"
+                        searchKeywords="QA Unknown Avatar fallback 兜底 脏数据"
+                        testID="dev-inject-unknown-wallet-avatar"
+                        onPress={handleInjectUnknownWalletAvatar}
+                      />
                       <SectionFieldItem
                         icon="WalletOutline"
                         name="allowAddSameHDWallet"

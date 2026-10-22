@@ -439,6 +439,7 @@ export function openOrReplaceMarketDetailRoute({
     navigation.dispatch({
       ...CommonActions.setParams(nextParams),
       source: current.key,
+      target: stack.key,
     });
     return true;
   }

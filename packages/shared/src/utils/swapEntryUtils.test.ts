@@ -7,6 +7,7 @@ import {
 import {
   getSwapConfiguredDefaultToToken,
   isSwapEntryDisabledToken,
+  shouldReserveSwapGas,
 } from './swapEntryUtils';
 
 import type { ISwapToken } from '../../types/swap/types';
@@ -83,5 +84,36 @@ describe('getSwapConfiguredDefaultToToken', () => {
         symbol: 'SOL',
       }),
     ).toBeUndefined();
+  });
+});
+
+describe('shouldReserveSwapGas', () => {
+  it('reserves gas for Arc ERC-20 USDC without changing its token identity', () => {
+    const token = buildArcToken();
+    expect(shouldReserveSwapGas(token)).toBe(true);
+    expect(token.isNative).toBe(false);
+    expect(isSwapEntryDisabledToken(token)).toBe(false);
+  });
+
+  it.each([
+    { networkId: 'evm--1' },
+    { contractAddress: ARC_EURC_CONTRACT_ADDRESS },
+    { contractAddress: '' },
+    { contractAddress: '0x1111111111111111111111111111111111111111' },
+  ])('does not expand the Arc exception to other tokens: %j', (overrides) => {
+    expect(shouldReserveSwapGas(buildArcToken(overrides))).toBe(false);
+  });
+
+  it('preserves native-token reserves and handles an unset input token', () => {
+    expect(
+      shouldReserveSwapGas(
+        buildArcToken({
+          networkId: 'evm--1',
+          contractAddress: '',
+          isNative: true,
+        }),
+      ),
+    ).toBe(true);
+    expect(shouldReserveSwapGas(undefined)).toBe(false);
   });
 });

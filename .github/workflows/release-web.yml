@@ -39,6 +39,8 @@ on:
     secrets:
       COVALENT_KEY:
         required: false
+      ONEKEY_AUTOMATION_TOKEN:
+        required: false
       SENTRY_TOKEN:
         required: false
       SENTRY_DSN_REACT_NATIVE:
@@ -412,6 +414,7 @@ jobs:
           PUBLIC_URL: ${{ env.PUBLIC_URL }}
           MARKET_HOME_TOKEN_SEED_ENV: 'production'
           MARKET_HOME_TOKEN_SEED_REQUIRED: '1'
+          ONEKEY_AUTOMATION_TOKEN: ${{ secrets.ONEKEY_AUTOMATION_TOKEN }}
           NODE_OPTIONS: '--max_old_space_size=8192'
         run: |
           yarn app:web:build

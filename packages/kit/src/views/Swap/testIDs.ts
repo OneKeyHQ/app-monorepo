@@ -12,6 +12,7 @@ export const SwapTestIDs = {
   fromAmountInput: 'swap-from-amount-input',
   toAmountInput: 'swap-to-amount-input',
   maxButton: 'swap-max-button',
+  balanceRefreshButton: 'swap-balance-refresh-button',
 
   // Actions
   swapButton: 'swap-action-button',

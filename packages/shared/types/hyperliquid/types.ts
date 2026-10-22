@@ -290,6 +290,11 @@ export interface IPlaceTwapOrderParams {
   reduceOnly: boolean;
   minutes: number;
   randomize: boolean;
+  triggerPrice?: string;
+  triggerAbove?: boolean;
+  stopPrice?: string;
+  referencePrice: string;
+  markPrice: string;
   szDecimals?: number;
 }
 
@@ -381,6 +386,8 @@ export interface IPerpServerBannerConfig {
 }
 
 export interface IPerpCommonConfig {
+  // Only legacy overrides Hyperliquid's withdrawal routing.
+  withdrawChannel?: 'cctp' | 'legacy';
   disablePerp?: boolean;
   usePerpWeb?: boolean;
   disablePerpActionPerp?: boolean;
