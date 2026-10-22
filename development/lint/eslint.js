@@ -31,10 +31,47 @@ function getSignalExitCode(signal) {
   return 1;
 }
 
+function findPackageManifestPath(packageName, rootDir = ROOT_DIR) {
+  const directManifestPath = path.join(
+    rootDir,
+    'node_modules',
+    packageName,
+    'package.json',
+  );
+  if (fs.existsSync(directManifestPath)) {
+    return directManifestPath;
+  }
+
+  let currentDir = path.dirname(
+    require.resolve(packageName, { paths: [rootDir] }),
+  );
+  while (true) {
+    const candidatePath = path.join(currentDir, 'package.json');
+    if (fs.existsSync(candidatePath)) {
+      const manifest = JSON.parse(fs.readFileSync(candidatePath, 'utf8'));
+      if (manifest.name === packageName) {
+        return candidatePath;
+      }
+    }
+    const parentDir = path.dirname(currentDir);
+    if (parentDir === currentDir) {
+      break;
+    }
+    currentDir = parentDir;
+  }
+
+  throw new Error(`Unable to locate package.json for package: ${packageName}`);
+}
+
 function resolvePackageBinary(packageName, rootDir = ROOT_DIR) {
-  const manifestPath = require.resolve(`${packageName}/package.json`, {
-    paths: [rootDir],
-  });
+  if (process.platform !== 'win32') {
+    const dotBinPath = path.join(rootDir, 'node_modules', '.bin', packageName);
+    if (fs.existsSync(dotBinPath)) {
+      return fs.realpathSync(dotBinPath);
+    }
+  }
+
+  const manifestPath = findPackageManifestPath(packageName, rootDir);
   const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
   const relativeBinPath =
     typeof manifest.bin === 'string'
@@ -120,6 +157,7 @@ function spawnNodeBinary({ binPath, args, env = process.env, onChild }) {
   return new Promise((resolve, reject) => {
     const child = spawn(process.execPath, [binPath, ...args], {
       cwd: ROOT_DIR,
+      detached: process.platform !== 'win32',
       env,
       stdio: ['ignore', 'pipe', 'pipe'],
     });
@@ -183,20 +221,40 @@ function removeTempTypeAwareConfig(configPath) {
   }
 }
 
+function terminateChildProcess({
+  child,
+  signal,
+  killProcess = process.kill.bind(process),
+}) {
+  if (!child || child.killed) {
+    return;
+  }
+  if (process.platform !== 'win32' && typeof child.pid === 'number') {
+    try {
+      // Kill the entire process group (-pid) so child processes spawned by
+      // oxlint (such as tsgolint headless) are terminated together.
+      killProcess(-child.pid, signal);
+      return;
+    } catch {
+      // Fall back to direct child kill if process group lookup fails.
+    }
+  }
+  try {
+    child.kill(signal);
+  } catch {
+    // Ignore if child already exited.
+  }
+}
+
 function createSignalCleanupHandler({
   tempConfigPath,
   getActiveChild,
+  killProcess = process.kill.bind(process),
   exitProcess = exit,
 }) {
   return (signal) => {
     const activeChild = getActiveChild ? getActiveChild() : null;
-    if (activeChild && !activeChild.killed) {
-      try {
-        activeChild.kill(signal);
-      } catch {
-        // Ignore if child already exited.
-      }
-    }
+    terminateChildProcess({ child: activeChild, signal, killProcess });
     removeTempTypeAwareConfig(tempConfigPath);
     exitProcess(getSignalExitCode(signal));
   };
@@ -393,11 +451,13 @@ module.exports = {
   OXLINT_CONFIG_PATH,
   createSignalCleanupHandler,
   createTypeAwareOxlintConfig,
+  findPackageManifestPath,
   getJsPluginRulePrefix,
   getSignalExitCode,
   getTempTypeAwareConfigName,
   getTempTypeAwareConfigPath,
   parseOxlintConfig,
   parseOxlintCounts,
+  resolvePackageBinary,
   stripJsPluginRules,
 };

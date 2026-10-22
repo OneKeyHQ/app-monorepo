@@ -13,6 +13,7 @@ const {
   getTempTypeAwareConfigPath,
   parseOxlintConfig,
   parseOxlintCounts,
+  resolvePackageBinary,
 } = require('./eslint');
 
 test('derives rule prefixes for named, package, and file-path oxlint jsPlugins', () => {
@@ -95,17 +96,17 @@ test('scopes temporary type-aware config path by pid to prevent concurrent run c
   );
 });
 
-test('signal cleanup handler kills active child, deletes temp config, and exits with 130/143', () => {
+test('signal cleanup handler kills active child process group, deletes temp config, and exits with 130/143', () => {
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'onekey-oxlint-test-'));
   const tempConfigPath = getTempTypeAwareConfigPath(tempDir, 4242);
   fs.writeFileSync(tempConfigPath, '{}');
 
-  const killedSignals = [];
+  const processGroupKills = [];
   const exitCodes = [];
   const fakeChild = {
+    pid: 9876,
     killed: false,
-    kill(signal) {
-      killedSignals.push(signal);
+    kill() {
       this.killed = true;
     },
   };
@@ -113,13 +114,16 @@ test('signal cleanup handler kills active child, deletes temp config, and exits 
   const handleSignal = createSignalCleanupHandler({
     tempConfigPath,
     getActiveChild: () => fakeChild,
+    killProcess: (pid, signal) => processGroupKills.push({ pid, signal }),
     exitProcess: (code) => exitCodes.push(code),
   });
 
   handleSignal('SIGTERM');
 
   assert.equal(fs.existsSync(tempConfigPath), false);
-  assert.deepEqual(killedSignals, ['SIGTERM']);
+  if (process.platform !== 'win32') {
+    assert.deepEqual(processGroupKills, [{ pid: -9876, signal: 'SIGTERM' }]);
+  }
   assert.deepEqual(exitCodes, [143]);
 
   fs.writeFileSync(tempConfigPath, '{}');
@@ -127,8 +131,40 @@ test('signal cleanup handler kills active child, deletes temp config, and exits 
   handleSignal('SIGINT');
 
   assert.equal(fs.existsSync(tempConfigPath), false);
-  assert.deepEqual(killedSignals, ['SIGTERM', 'SIGINT']);
+  if (process.platform !== 'win32') {
+    assert.deepEqual(processGroupKills, [
+      { pid: -9876, signal: 'SIGTERM' },
+      { pid: -9876, signal: 'SIGINT' },
+    ]);
+  }
   assert.deepEqual(exitCodes, [143, 130]);
+
+  fs.rmSync(tempDir, { recursive: true, force: true });
+});
+
+test('resolves package binary without requiring ./package.json in package exports', () => {
+  const tempDir = fs.mkdtempSync(
+    path.join(os.tmpdir(), 'onekey-oxlint-bin-test-'),
+  );
+  const pkgDir = path.join(tempDir, 'node_modules', 'mock-oxlint');
+  const binFile = path.join(pkgDir, 'bin', 'mock-oxlint.js');
+  fs.mkdirSync(path.dirname(binFile), { recursive: true });
+  fs.writeFileSync(binFile, '#!/usr/bin/env node\n');
+  fs.writeFileSync(
+    path.join(pkgDir, 'package.json'),
+    JSON.stringify({
+      name: 'mock-oxlint',
+      version: '1.0.0',
+      exports: {
+        '.': './dist/index.js',
+      },
+      bin: {
+        'mock-oxlint': './bin/mock-oxlint.js',
+      },
+    }),
+  );
+
+  assert.equal(resolvePackageBinary('mock-oxlint', tempDir), binFile);
 
   fs.rmSync(tempDir, { recursive: true, force: true });
 });
