@@ -120,6 +120,67 @@ it('conserves up and down volume across bins, including flat candles and invalid
   expect(bins?.[2]).toMatchObject({ low: 2, high: 3, up: 20, down: 20 });
 });
 
+it.each([
+  { tool: 'longPosition', direction: 1 },
+  { tool: 'shortPosition', direction: -1 },
+] as const)(
+  'waits for entry candles before reporting $tool profit or loss',
+  ({ tool, direction }) => {
+    const chart = projection();
+    const latestTime = points[points.length - 1].t;
+    const entryTime = latestTime + chart.interval / 4;
+    const position: IDrawing = {
+      ...drawing(tool),
+      accountSize: 1000,
+      riskPercent: 2,
+      points: [
+        { time: entryTime, price: 150 },
+        { time: entryTime + 600, price: 150 + direction * 20 },
+        { time: entryTime, price: 150 - direction * 20 },
+      ],
+    };
+    expect(getPositionStatistics(position, chart)).toMatchObject({
+      pnl: 0,
+      closed: false,
+    });
+    expect(
+      getPositionStatistics(position, {
+        ...chart,
+        points: [
+          ...points,
+          {
+            t: latestTime + chart.interval,
+            o: 150,
+            h: 152,
+            l: 148,
+            c: 150 + direction,
+            v: 100,
+          },
+        ],
+      }),
+    ).toMatchObject({ pnl: 1, closed: false });
+  },
+);
+
+it('renders all nine default Gann fan rays with finite labels and coordinates', () => {
+  const geometry = getDrawingGeometry(drawing('gannFan'), projection());
+  const rays = geometry.paths.filter((path) => path.stroke !== false);
+  expect(rays).toHaveLength(9);
+  expect(geometry.labels).toHaveLength(9);
+  expect(new Set(geometry.labels.map((label) => label.text)).size).toBe(9);
+  expect(geometry.labels.map((label) => label.text)).toEqual(
+    expect.arrayContaining(['1/8', '1/1', '8/1']),
+  );
+  expect(
+    geometry.labels.some((label) => /Infinity|NaN/.test(label.text)),
+  ).toBe(false);
+  for (const ray of rays)
+    for (const point of ray.points) {
+      expect(Number.isFinite(point.x)).toBe(true);
+      expect(Number.isFinite(point.y)).toBe(true);
+    }
+});
+
 it('anchors VWAP to the selected bar and weights typical price by volume', () => {
   const chart = projection();
   const item = {
@@ -330,6 +391,38 @@ it('ignores a history response that finishes after cancellation', async () => {
       abort.signal,
     ),
   ).resolves.toBeNull();
+});
+
+it('keeps chart candles when a profile would require coarser history', async () => {
+  const fetchHistory: jest.MockedFunction<
+    ITradingViewNativeHistoryDataProvider['fetchHistory']
+  > = jest.fn().mockResolvedValue({
+    points: [{ ...points[0], t: Math.floor(points[0].t / 300) * 300 }],
+    total: 1,
+  });
+  const provider: ITradingViewNativeHistoryDataProvider = {
+    fetchHistory,
+    hasMoreHistory: () => true,
+    getHistoryRequestCandleCount: () => 1000,
+  };
+  const from = points[0].t;
+  const to = from + 5000 * 60;
+  await expect(
+    createDrawingHistoryLoader(provider, undefined, 60)(
+      from,
+      to,
+      new AbortController().signal,
+    ),
+  ).resolves.toBeNull();
+  expect(fetchHistory).not.toHaveBeenCalled();
+
+  const data = await createDrawingHistoryLoader(provider, undefined, 3600)(
+    from,
+    to,
+    new AbortController().signal,
+  );
+  expect(data?.interval).toBe(300);
+  expect(fetchHistory).toHaveBeenCalledTimes(1);
 });
 
 it('separates crowded axis labels and limits long paths to endpoint labels', () => {

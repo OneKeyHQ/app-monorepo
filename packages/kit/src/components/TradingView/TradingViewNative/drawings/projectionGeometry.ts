@@ -113,13 +113,14 @@ export function getPositionStatistics(
   const last = drawing.points[1]?.time ?? drawing.points[0].time;
   const startIndex = Math.max(
     0,
-    Math.round(indexAtTime(drawing.points[0].time, projection)),
+    Math.ceil(indexAtTime(drawing.points[0].time, projection)),
   );
   const endIndex = Math.min(
     projection.points.length - 1,
     Math.round(indexAtTime(last, projection)),
   );
-  let exitPrice = projection.points[endIndex]?.c ?? entry;
+  let exitPrice =
+    startIndex <= endIndex ? (projection.points[endIndex]?.c ?? entry) : entry;
   let closed = false;
   for (let index = startIndex; index <= endIndex; index += 1) {
     const candle = projection.points[index];
@@ -140,7 +141,7 @@ export function getPositionStatistics(
     reward,
     quantity,
     ratio: risk ? reward / risk : 0,
-    pnl: (exitPrice - entry) * direction * quantity,
+    pnl: exitPrice === entry ? 0 : (exitPrice - entry) * direction * quantity,
     closed,
     riskAmount,
   };

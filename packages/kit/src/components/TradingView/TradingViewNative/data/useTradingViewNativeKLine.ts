@@ -1756,10 +1756,6 @@ export function useTradingViewNativeKLine({
     sourceKind,
     stockId,
   ]);
-  const loadDrawingHistory = useMemo(
-    () => createDrawingHistoryLoader(rawHistoryProvider, supportedIntervals),
-    [rawHistoryProvider, supportedIntervals],
-  );
   const seriesKey = rawHistoryProvider.key;
   const [historyPointTypeScopeState, setHistoryPointTypeScopeState] = useState<{
     historyProvider: ITradingViewNativeDataProvider;
@@ -2224,6 +2220,15 @@ export function useTradingViewNativeKLine({
     getTradingViewNativeKLineInterval(
       visibleChartData?.interval ?? activeInterval,
     ) ?? TRADING_VIEW_NATIVE_KLINE_INTERVALS[4];
+  const loadDrawingHistory = useMemo(
+    () =>
+      createDrawingHistoryLoader(
+        rawHistoryProvider,
+        supportedIntervals,
+        displayedInterval.seconds,
+      ),
+    [rawHistoryProvider, supportedIntervals, displayedInterval.seconds],
+  );
   const intervalConfig = useMemo(
     () => ({
       intervals: supportedIntervals,

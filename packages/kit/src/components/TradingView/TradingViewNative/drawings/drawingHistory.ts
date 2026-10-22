@@ -18,6 +18,7 @@ export type IDrawingHistoryLoader = (
 export function createDrawingHistoryLoader(
   provider: ITradingViewNativeHistoryDataProvider,
   intervals: ITradingViewNativeKLineInterval[] = TRADING_VIEW_NATIVE_KLINE_INTERVALS,
+  maxIntervalSeconds = Number.POSITIVE_INFINITY,
 ): IDrawingHistoryLoader {
   return async (from, to, signal) => {
     if (
@@ -27,9 +28,15 @@ export function createDrawingHistoryLoader(
       signal.aborted
     )
       return null;
-    const interval =
-      intervals.find((option) => (to - from) / option.seconds < 5000) ??
-      intervals[intervals.length - 1];
+    // Keep the chart-candle fallback when the full range cannot fit without coarsening.
+    const interval = intervals.find(
+      (option) =>
+        option.seconds <= maxIntervalSeconds &&
+        Math.floor(to / option.seconds) -
+          Math.floor(from / option.seconds) +
+          1 <=
+          5000,
+    );
     if (!interval) return null;
     const points = new Map<number, IMarketTokenKLineDataPoint>();
     const timeFrom = Math.floor(from / interval.seconds) * interval.seconds;
