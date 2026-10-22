@@ -222,12 +222,29 @@ function readUsdAmount(text: string | undefined) {
   return amount.isFinite() ? amount : undefined;
 }
 
-function isUsdcSymbol(symbol: string | undefined) {
-  return symbol?.toUpperCase() === 'USDC';
+// Dollar stable coins that rewards are paid in. Each counts 1:1 as USD, so
+// mixed payouts (USDC plus DAI, say) still add up to one total.
+const USD_STABLECOIN_SYMBOLS = new Set([
+  'USDC',
+  'USDC.E',
+  'USDBC',
+  'USDT',
+  'USDT0',
+  'DAI',
+  'USDS',
+  'USDE',
+  'PYUSD',
+  'FDUSD',
+  'USD1',
+  'RLUSD',
+]);
+
+function isUsdStablecoinSymbol(symbol: string | undefined) {
+  return Boolean(symbol && USD_STABLECOIN_SYMBOLS.has(symbol.toUpperCase()));
 }
 
-// USDC quantities are shown as wallet-currency dollars. Any other token stays
-// in its own units, so it cannot be added into the dollar total.
+// Stablecoin quantities are shown as wallet-currency dollars. Any other token
+// stays in its own units, so it cannot be added into the dollar total.
 function getTokenAmountValue(
   raw: string,
   symbol: string | undefined,
@@ -236,7 +253,7 @@ function getTokenAmountValue(
   if (!amount.isFinite() || !amount.gt(0)) {
     return undefined;
   }
-  if (isUsdcSymbol(symbol)) {
+  if (isUsdStablecoinSymbol(symbol)) {
     return { kind: 'amount', amount: amount.toFixed() };
   }
   return {
@@ -252,10 +269,10 @@ function getEarnValue(
   if (!items.length) {
     return undefined;
   }
-  // Only USDC titles are USD. "0.5 ETH" must stay in token units, and mixed
-  // tokens must not be added together.
+  // Only stablecoin titles are USD. "0.5 ETH" must stay in token units, and
+  // other tokens must not be added together.
   const amounts = items.map((item) =>
-    isUsdcSymbol(item.token?.symbol)
+    isUsdStablecoinSymbol(item.token?.symbol)
       ? readUsdAmount(item.title.text)
       : undefined,
   );
@@ -401,8 +418,9 @@ function getPayoutToken(
   };
 }
 
-// The token and network rewards are paid in, and the payout rules, behind an
-// info icon beside the address.
+// The token and network rewards are paid in, and the per-address rule, behind
+// an info icon beside the address. When unpaid rewards arrive is told at the
+// Unpaid figure instead.
 function PayoutInfo({
   payout,
   iconSize = '$4',
@@ -442,22 +460,44 @@ function PayoutInfo({
           <SizableText size="$bodyMd" color="$textSubdued">
             {copy.addressRule}
           </SizableText>
-          <SizableText size="$bodyMd" color="$textSubdued">
-            {copy.payoutSchedule}
-          </SizableText>
         </YStack>
       }
     />
   );
 }
 
-// Pointer layouts: where the rewards land, on the right of the account row.
+// When unpaid rewards are paid, behind an info icon after the Unpaid label.
+function UnpaidInfo({ label }: { label: string }) {
+  const copy = useMyRewardsCopy();
+  return (
+    <Popover
+      title={label}
+      hoverable
+      placement="bottom-start"
+      floatingPanelProps={INVITE_POPOVER_PANEL_PROPS}
+      renderTrigger={
+        <Stack testID="my-rewards-unpaid-info" hitSlop={NATIVE_HIT_SLOP}>
+          <Icon name="InfoCircleOutline" size="$4" color="$iconSubdued" />
+        </Stack>
+      }
+      renderContent={
+        <SizableText p="$4" size="$bodyMd" color="$textSubdued">
+          {copy.payoutSchedule}
+        </SizableText>
+      }
+    />
+  );
+}
+
+// Pointer layouts: where the rewards land, right after the account switch.
 // Kept to the address alone; the token and network sit behind the info icon
 // next to it, so the row stays short.
 function PayoutDestination({ address }: { address?: string }) {
   const copy = useMyRewardsCopy();
   return (
-    <XStack testID="my-rewards-payout-destination" ai="center" gap="$2">
+    // 12px gaps: the address's hover surface bleeds 8px past its text, so it
+    // must not run into the label.
+    <XStack testID="my-rewards-payout-destination" ai="center" gap="$3">
       <SizableText size="$bodyMd" color="$textSubdued">
         {copy.paidTo}
       </SizableText>
@@ -573,17 +613,21 @@ function RewardsAddressValue({
 function RewardsAccountRow({
   unsupported,
   trailing,
+  adjacent = false,
 }: {
   unsupported: boolean;
   trailing?: ReactNode;
+  // Keeps the trailing part next to the account instead of at the far end,
+  // so the account and where its rewards go read as one line.
+  adjacent?: boolean;
 }) {
   const copy = useMyRewardsCopy();
   return (
     <XStack
       testID="my-rewards-address-card"
       ai="center"
-      jc="space-between"
-      gap="$2"
+      jc={adjacent ? 'flex-start' : 'space-between'}
+      gap={adjacent ? '$4' : '$2'}
       minWidth={0}
     >
       {/* A long account name truncates first, so the trailing part stays. */}
@@ -679,6 +723,7 @@ function CompactPerksSummaryCard({
         <CompactFieldRow
           leading={<PartDot color="$iconCaution" />}
           label={labels.unpaid}
+          labelAccessory={<UnpaidInfo label={labels.unpaid} />}
         >
           <TotalFigure totals={totals} pick="unpaid" size="$bodyMdMedium" />
         </CompactFieldRow>
@@ -725,8 +770,10 @@ function PerksSummaryCard({
     >
       <RewardsAccountRow
         unsupported={unsupported}
+        adjacent
         trailing={
-          <XStack ai="center" gap="$1" flexShrink={0}>
+          // Clear of the address's 8px hover bleed, like the label.
+          <XStack ai="center" gap="$3" flexShrink={0}>
             <PayoutDestination address={address} />
             <PayoutInfo payout={payout} />
           </XStack>
@@ -749,6 +796,7 @@ function PerksSummaryCard({
           share={1}
           leading={<PartDot color="$iconCaution" />}
           label={labels.unpaid}
+          labelAccessory={<UnpaidInfo label={labels.unpaid} />}
         >
           <TotalFigure totals={totals} pick="unpaid" />
         </InviteStatCell>
@@ -1354,7 +1402,21 @@ function MyRewardsContentBody({
       </XStack>
       {/* A group gap: the summary scopes the table but is not part of it. */}
       <YStack px="$pagePadding" pt="$8" gap="$3">
-        <SizableText size="$headingLg">{sectionTitle}</SizableText>
+        {/* Whose rewards these are, beside the rewards they describe rather
+            than alone across from the tabs. */}
+        <XStack ai="center" gap="$3" minWidth={0}>
+          <SizableText size="$headingLg" flexShrink={0}>
+            {sectionTitle}
+          </SizableText>
+          <SizableText
+            size="$bodyMd"
+            color="$textSubdued"
+            numberOfLines={1}
+            flexShrink={1}
+          >
+            {tabCopy.perksIntro}
+          </SizableText>
+        </XStack>
         {renderBreakdown()}
       </YStack>
       {crossLink}

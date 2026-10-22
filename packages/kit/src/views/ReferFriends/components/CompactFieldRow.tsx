@@ -10,11 +10,14 @@ import { SizableText, XStack, YStack } from '@onekeyhq/components';
 export function CompactFieldRow({
   label,
   leading,
+  labelAccessory,
   hint,
   children,
 }: {
   label: string;
   leading?: ReactNode;
+  // Sits after the label, like an info icon that explains it.
+  labelAccessory?: ReactNode;
   hint?: string | null;
   children: ReactNode;
 }) {
@@ -25,6 +28,7 @@ export function CompactFieldRow({
         <SizableText size="$bodyMd" color="$textSubdued" numberOfLines={1}>
           {label}
         </SizableText>
+        {labelAccessory}
       </XStack>
       <YStack flex={1} minWidth={0} ai="flex-end" gap="$0.5">
         <XStack maxWidth="100%" ai="center" gap="$1">

@@ -12,6 +12,7 @@ import {
 export function InviteStatCell({
   label,
   leading,
+  labelAccessory,
   children,
   onPress,
   testID,
@@ -21,6 +22,8 @@ export function InviteStatCell({
 }: {
   label: string;
   leading?: ReactNode;
+  // Sits after the label, like an info icon that explains it.
+  labelAccessory?: ReactNode;
   children: ReactNode;
   onPress?: () => void;
   testID?: string;
@@ -71,6 +74,7 @@ export function InviteStatCell({
           <SizableText size="$bodyMd" color="$textSubdued" numberOfLines={1}>
             {label}
           </SizableText>
+          {labelAccessory}
         </XStack>
         {children}
       </YStack>

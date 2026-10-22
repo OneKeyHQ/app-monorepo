@@ -315,6 +315,24 @@ describe('MyRewardsContent', () => {
     });
   });
 
+  it.each([false, true])(
+    'explains when unpaid rewards are paid at the Unpaid figure (compact: %s)',
+    (compact) => {
+      mockIsCompact = compact;
+      mockEarnAccountResult = {
+        result: { accountId: 'evm-account', accountAddress: '0xabc' },
+        isLoading: false,
+      };
+      render(<MyRewardsContent />);
+      const unpaidInfo = screen.getByTestId('my-rewards-unpaid-info');
+      expect(unpaidInfo).toBeTruthy();
+      // The schedule is told once, at the Unpaid figure, not by the address.
+      expect(
+        screen.getAllByText('referral_perks_payout_schedule__desc'),
+      ).toHaveLength(1);
+    },
+  );
+
   it('shows the counted address shortened and copies it in full', () => {
     const address = '0x4EF8800000000000000000000000000000A296e';
     mockEarnAccountResult = {
@@ -577,6 +595,44 @@ describe('MyRewardsContent', () => {
     expect(screen.getByTestId('my-rewards-summary-card').textContent).toContain(
       '--',
     );
+  });
+
+  it('adds mixed stablecoin Earn rewards into the dollar total', () => {
+    const empty = {
+      totalBonus: '0',
+      undistributed: '0',
+      token: { symbol: 'USDC', logoURI: '' },
+      history: [],
+    };
+    mockOverviewResult = {
+      result: {
+        perps: { status: 'success', data: empty },
+        swap: { status: 'success', data: empty },
+        earn: {
+          status: 'success',
+          data: {
+            distributed: [
+              { title: { text: '0.25 USDC' }, token: { symbol: 'USDC' } },
+            ],
+            undistributed: [
+              { title: { text: '0.5 USDC' }, token: { symbol: 'USDC' } },
+              { title: { text: '0.25 DAI' }, token: { symbol: 'DAI' } },
+              { title: { text: '1 USDT' }, token: { symbol: 'USDT' } },
+            ],
+          },
+        },
+      },
+      isLoading: false,
+    };
+    render(<MyRewardsContent />);
+    const earn = screen.getByTestId('my-rewards-module-earn');
+    expect(earn.textContent).not.toContain('referral_perks_more_tokens__desc');
+    const figures = Array.from(
+      screen
+        .getByTestId('my-rewards-summary-card')
+        .querySelectorAll('[data-source-currency="usd"]'),
+    ).map((node) => node.textContent);
+    expect(figures).toEqual(['2', '0.25', '1.75']);
   });
 
   it('counts each address once when the wallet switches away and back', () => {
