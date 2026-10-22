@@ -180,7 +180,7 @@ function DustSweepDirectionIcon({
     };
   }, [animated, desktop, progress]);
   return (
-    <Stack width={20} height={20} overflow="hidden">
+    <Stack width="$5" height="$5" overflow="hidden">
       <Animated.View style={style}>
         <Icon
           name={desktop ? 'ArrowRightOutline' : 'ArrowBottomOutline'}
