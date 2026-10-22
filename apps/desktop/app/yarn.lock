@@ -43,11 +43,19 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@onekeyfe/electron-windows-process-hardening@file:./.tmp/process-hardening-rust/onekeyfe-electron-windows-process-hardening-0.1.0.tgz::locator=%40onekeyhq%2Fdesktop%40workspace%3A.":
+  version: 0.1.0
+  resolution: "@onekeyfe/electron-windows-process-hardening@file:./.tmp/process-hardening-rust/onekeyfe-electron-windows-process-hardening-0.1.0.tgz#./.tmp/process-hardening-rust/onekeyfe-electron-windows-process-hardening-0.1.0.tgz::hash=433930&locator=%40onekeyhq%2Fdesktop%40workspace%3A."
+  checksum: 10/7cf792c2e29acca0d159bf5f1b4a32d96f145ea3d7c5a93d4ccb8826b39a6048b5fb7cb67200664a5d71883ba62ebc2dcfac4298c8edfaf1a928d1cadd2e89ed
+  languageName: node
+  linkType: hard
+
 "@onekeyhq/desktop@workspace:.":
   version: 0.0.0-use.local
   resolution: "@onekeyhq/desktop@workspace:."
   dependencies:
     "@onekeyfe/electron-mac-icloud": "npm:1.2.6"
+    "@onekeyfe/electron-windows-process-hardening": "file:./.tmp/process-hardening-rust/onekeyfe-electron-windows-process-hardening-0.1.0.tgz"
     "@sentry/electron": "npm:7.8.0"
     "@stoprocent/noble": "npm:2.3.16"
     adm-zip: "npm:0.5.17"

@@ -29,6 +29,7 @@ import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusNames';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { ELogUploadStage } from '@onekeyhq/shared/src/logger/types';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 const MAX_RETRIES = 3;
 
@@ -266,7 +267,7 @@ function UploadLogsDialogContent({
     switch (dialogStage) {
       case 'idle':
         return (
-          <Stack>
+          <Stack gap="$2">
             {inAppStateLock ? (
               // Lock screen: keep the privacy reassurance but hide the inline
               // "manually export logs" action, since file export / share sheet
@@ -292,6 +293,14 @@ function UploadLogsDialogContent({
                 onAction={handleManualExport}
               />
             )}
+            {platformEnv.isDesktopWin ? (
+              <SizableText size="$bodyMd" color="$textSubdued">
+                Windows ·{' '}
+                {intl.formatMessage({
+                  id: ETranslations.settings_diagnostic_logs_errors__msg,
+                })}
+              </SizableText>
+            ) : null}
           </Stack>
         );
 

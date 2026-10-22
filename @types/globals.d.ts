@@ -35,6 +35,59 @@ type IOneKeyPerfTrace = {
 };
 
 declare global {
+  type IWindowsDiagnosticsBundle = {
+    system: {
+      schemaVersion: number;
+      collectedAtUtc: string;
+      appVersion: string;
+      electronVersion: string;
+      nodeVersion: string;
+      osRelease: string;
+      architecture: string;
+      osArchitecture: string;
+      timeZone: string;
+      timeZoneOffsetMinutes: number;
+      hardening: {
+        dacl: string;
+        extensionPoint: string;
+        skipReason?: 'non_windows' | 'development' | 'opt_out';
+        daclWin32Error?: number;
+        extensionPointWin32Error?: number;
+      };
+    };
+    events: Array<{
+      timeUtc: string;
+      provider: string;
+      eventId: number;
+      recordId: number | null;
+      matchStrength: 'exact_path' | 'name_only';
+      appVersion: string | null;
+      faultingModule: string | null;
+      moduleVersion: string | null;
+      exceptionCode: string | null;
+      faultOffset: string | null;
+      processId: string | null;
+      processStart: string | null;
+      reportId: string | null;
+      eventName: 'APPCRASH' | 'BEX' | 'BEX64' | null;
+    }>;
+    collection: {
+      status: 'ok' | 'partial' | 'unavailable' | 'unsupported';
+      errors: string[];
+      sources?: Array<{
+        provider: string;
+        eventId: number;
+        status: 'ok' | 'no_matches' | 'access_denied' | 'query_error';
+        candidates: number;
+        matched: number;
+        truncated: boolean;
+      }>;
+      rangeStartUtc?: string;
+      rangeEndUtc?: string;
+      truncated?: boolean;
+    };
+  };
+
   var JuiceboxGetAuthToken: (realmId: Uint8Array) => Promise<string>;
 
   var $desktopMainAppFunctions: {
@@ -49,6 +102,7 @@ declare global {
     useJsBundle: () => boolean;
     softRestartRenderer: () => Promise<void>;
     getRevenueCat?: () => Promise<IRevenueCatDesktopClient>;
+    collectWindowsDiagnostics?: () => Promise<IWindowsDiagnosticsBundle>;
   };
 
   var $$appGlobals: IAppGlobals;

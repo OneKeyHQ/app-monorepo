@@ -3,6 +3,7 @@ import { ipcMain } from 'electron';
 
 import {
   CALL_DESKTOP_API_EVENT_NAME,
+  DESKTOP_API_MESSAGE_TYPE,
   REPLY_DESKTOP_API_EVENT_NAME,
 } from './consts';
 
@@ -31,7 +32,56 @@ export class JsBridgeDesktopApiOfMain extends JsBridgeBase {
 
   setup() {
     ipcMain.on(CALL_DESKTOP_API_EVENT_NAME, (event, payload) => {
-      const responsePayload = payload as IJsBridgeMessagePayload;
+      let responsePayload: IJsBridgeMessagePayload | string = payload as
+        | IJsBridgeMessagePayload
+        | string;
+      if (typeof responsePayload === 'string') {
+        try {
+          responsePayload = JSON.parse(
+            responsePayload,
+          ) as IJsBridgeMessagePayload;
+        } catch {
+          return;
+        }
+        if (
+          !responsePayload ||
+          typeof responsePayload !== 'object' ||
+          Array.isArray(responsePayload)
+        ) {
+          return;
+        }
+      }
+      const bridgePayload = responsePayload as IJsBridgeMessagePayload;
+      const methodCall = bridgePayload?.data as
+        | { type?: unknown; module?: unknown; method?: unknown }
+        | undefined;
+      if (
+        bridgePayload?.type === 'REQUEST' &&
+        methodCall?.type === DESKTOP_API_MESSAGE_TYPE &&
+        (typeof methodCall.module !== 'string' ||
+          typeof methodCall.method !== 'string')
+      ) {
+        return;
+      }
+      if (
+        methodCall?.module === 'dev' &&
+        (typeof methodCall.method !== 'string' ||
+          [
+            'collectLoggerDigest',
+            'exportLoggerZip',
+            'uploadLoggerBundle',
+          ].includes(methodCall.method))
+      ) {
+        const mainWindow =
+          globalThis.$desktopMainAppFunctions?.getSafelyMainWindow?.();
+        if (
+          !mainWindow ||
+          event.sender.id !== mainWindow.webContents.id ||
+          event.senderFrame !== mainWindow.webContents.mainFrame
+        ) {
+          return;
+        }
+      }
       const sender:
         | {
             origin?: string;

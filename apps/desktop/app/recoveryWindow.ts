@@ -92,14 +92,16 @@ export function createRecoveryWindow(): BrowserWindow {
   // === IPC Handlers ===
 
   ipcMain.removeHandler(ipcMessageKeys.RECOVERY_EXPORT_LOGS);
-  ipcMain.handle(ipcMessageKeys.RECOVERY_EXPORT_LOGS, async () => {
+  ipcMain.handle(ipcMessageKeys.RECOVERY_EXPORT_LOGS, async (event) => {
     try {
+      if (
+        event.sender.id !== browserWindow.webContents.id ||
+        event.senderFrame !== browserWindow.webContents.mainFrame
+      ) {
+        return { error: 'Unauthorized recovery window' };
+      }
       const { dialog } = await import('electron');
       const logDir = path.dirname(logger.transports.file.getFile().path);
-      const logFiles = fs.readdirSync(logDir).filter((f) => f.endsWith('.log'));
-      if (logFiles.length === 0) {
-        return { error: 'No log files found' };
-      }
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
       const result = await dialog.showSaveDialog({
         defaultPath: `onekey-logs-${timestamp}.zip`,
@@ -109,9 +111,13 @@ export function createRecoveryWindow(): BrowserWindow {
         return {};
       }
       const AdmZip = (await import('adm-zip')).default;
+      const { addSafeLogFilesToZip, addWindowsDiagnosticsToZip } =
+        await import('@onekeyhq/kit-bg/src/desktopApis/DesktopApiDev');
       const zip = new AdmZip();
-      for (const file of logFiles) {
-        zip.addLocalFile(path.join(logDir, file));
+      const logCount = await addSafeLogFilesToZip(zip, logDir);
+      await addWindowsDiagnosticsToZip(zip);
+      if (logCount === 0 && process.platform !== 'win32') {
+        return { error: 'No log files found' };
       }
       zip.writeZip(result.filePath);
       return {};

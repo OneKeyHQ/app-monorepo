@@ -89,6 +89,12 @@ import {
   stripFrameBlockingHeaders,
 } from './libs/wcPayFrameEmbedding';
 import { shouldGrantMainWindowDevicePermission } from './libs/webUsbDeviceSelection';
+import { collectWindowsDiagnostics } from './libs/windowsDiagnostics';
+import {
+  hardenCurrentProcess,
+  processHardeningStageError,
+  startLocalCrashHandler,
+} from './libs/windowsProcessHardening';
 // Logger initialization (file rotation, sanitization, rate limiting)
 import './logger';
 import initProcess from './process';
@@ -162,7 +168,108 @@ function makeIpcSafeResult(result: unknown): unknown {
 // app.whenReady()). This minimizes the window in which an early async error would
 // go unreported. (Synchronous top-level errors during app.js eval remain
 // pre-Sentry by construction; native crashes are still covered out-of-band.)
-process.nextTick(initSentry);
+// cspell:ignore dacl
+const hardeningSnapshot: IWindowsDiagnosticsBundle['system']['hardening'] = {
+  dacl: 'skipped',
+  extensionPoint: 'skipped',
+};
+
+const collectMainWindowsDiagnostics = () =>
+  collectWindowsDiagnostics(hardeningSnapshot);
+
+function reportProcessHardeningFailure(stage: string, error: unknown): void {
+  try {
+    logger.error(`[ProcessHardening] ${stage} failed`, error);
+  } catch {
+    // Logging must not block the independent mitigation attempt below.
+  }
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { captureException } =
+      require('@sentry/electron/main') as typeof import('@sentry/electron/main');
+    captureException(
+      error instanceof Error ? error : new Error(String(error)),
+      {
+        tags: { process_hardening_stage: stage },
+      },
+    );
+  } catch (reportError) {
+    try {
+      logger.error('[ProcessHardening] Sentry report failed', reportError);
+    } catch {
+      // The hardening path remains fail-open even if both reporters fail.
+    }
+  }
+}
+
+process.nextTick(() => {
+  initSentry();
+  if (
+    process.platform !== 'win32' ||
+    isDev ||
+    process.env.ONEKEY_DISABLE_PROCESS_HARDENING === '1'
+  ) {
+    if (process.platform !== 'win32') {
+      hardeningSnapshot.skipReason = 'non_windows';
+    } else if (isDev) {
+      hardeningSnapshot.skipReason = 'development';
+    } else {
+      hardeningSnapshot.skipReason = 'opt_out';
+    }
+    return;
+  }
+
+  const hardening = hardenCurrentProcess();
+  hardeningSnapshot.dacl = hardening.dacl.status;
+  hardeningSnapshot.extensionPoint = hardening.extensionPoint.status;
+  if (hardening.dacl.status === 'failed') {
+    hardeningSnapshot.daclWin32Error = hardening.dacl.win32Error;
+  }
+  if (hardening.extensionPoint.status === 'failed') {
+    hardeningSnapshot.extensionPointWin32Error =
+      hardening.extensionPoint.win32Error;
+  }
+  try {
+    if (hardening.dacl.status === 'applied') {
+      logger.info('[ProcessHardening] process DACL applied');
+    } else if (hardening.dacl.status === 'failed') {
+      reportProcessHardeningFailure(
+        'dacl',
+        processHardeningStageError('dacl', hardening.dacl),
+      );
+    }
+  } catch (error) {
+    reportProcessHardeningFailure('dacl', error);
+  }
+  try {
+    if (hardening.extensionPoint.status === 'applied') {
+      logger.info('[ProcessHardening] extension points disabled');
+    } else if (hardening.extensionPoint.status === 'failed') {
+      reportProcessHardeningFailure(
+        'extension-points',
+        processHardeningStageError(
+          'extension-points',
+          hardening.extensionPoint,
+        ),
+      );
+    }
+  } catch (error) {
+    reportProcessHardeningFailure('extension-points', error);
+  }
+
+  if (
+    hardening.dacl.status === 'applied' &&
+    process.env.DESKTOP_E2E_MODE === 'true' &&
+    process.env.ONEKEY_TEST_LOCAL_CRASH_HANDLER === '1'
+  ) {
+    const handler = startLocalCrashHandler();
+    try {
+      logger.info('[LocalCrashPrototype] start', handler);
+    } catch {
+      // Handler startup diagnostics must not block application startup.
+    }
+  }
+});
 
 const isPerfCiMode = process.env.PERF_CI_MODE === '1';
 const isDesktopE2EMode = process.env.DESKTOP_E2E_MODE === 'true';
@@ -203,6 +310,7 @@ if (isPerfCiMode) {
 let disposeContextMenu: ReturnType<typeof contextMenu> | undefined;
 
 globalThis.$desktopMainAppFunctions = {
+  collectWindowsDiagnostics: collectMainWindowsDiagnostics,
   getBundleIndexHtmlPath: () => {
     const bundleData = store.getUpdateBundleData();
     logger.info('bundleData >>>> ', bundleData);
@@ -885,6 +993,7 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
   logger.info('bundleIndexHtmlPath >>>> ', bundleIndexHtmlPath);
 
   globalThis.$desktopMainAppFunctions = {
+    collectWindowsDiagnostics: collectMainWindowsDiagnostics,
     getSafelyMainWindow,
     getSafelyBrowserWindow,
     getBackgroundColor,
@@ -1255,9 +1364,9 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
       // window dynamically (not the closure-captured `browserWindow`) so a MAS
       // soft restart — which destroys and recreates the window — keeps the gate
       // pointed at the current renderer instead of the destroyed one.
-      const currentMainWebContentsId =
-        getSafelyMainWindow()?.webContents.id ?? browserWindow.webContents.id;
-      if (event.sender.id !== currentMainWebContentsId) {
+      const currentMainWebContents =
+        getSafelyMainWindow()?.webContents ?? browserWindow.webContents;
+      if (event.sender.id !== currentMainWebContents.id) {
         logger.warn(
           '[DESKTOP_API_CALL] Rejected call from non-main renderer',
           event.sender.id,
@@ -1267,6 +1376,17 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
         );
       }
       const { module, method, params } = payload;
+      if (
+        module === 'dev' &&
+        [
+          'collectLoggerDigest',
+          'exportLoggerZip',
+          'uploadLoggerBundle',
+        ].includes(method) &&
+        event.senderFrame !== currentMainWebContents.mainFrame
+      ) {
+        throw new OneKeyLocalError('Log export requires the main frame');
+      }
       if (!allowedModules.has(module)) {
         throw new OneKeyLocalError(
           `DESKTOP_API_CALL: unknown module "${module}"`,

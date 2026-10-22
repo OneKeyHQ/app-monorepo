@@ -6,6 +6,7 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import type { IntlShape } from 'react-intl';
 
@@ -52,6 +53,22 @@ function DiagnosticLogCopySection({
           </SizableText>
         </XStack>
       ))}
+      {included && platformEnv.isDesktopWin ? (
+        <XStack gap="$2" alignItems="flex-start">
+          <Icon
+            name="CheckRadioOutline"
+            size="$5"
+            flexShrink={0}
+            color="$iconSubdued"
+          />
+          <SizableText size="$bodyMd" flex={1}>
+            Windows ·{' '}
+            {intl.formatMessage({
+              id: ETranslations.settings_diagnostic_logs_errors__msg,
+            })}
+          </SizableText>
+        </XStack>
+      ) : null}
     </YStack>
   );
 }
