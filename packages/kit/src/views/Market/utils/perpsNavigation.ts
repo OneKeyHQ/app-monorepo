@@ -224,10 +224,13 @@ export async function navigateToPerps({
       try {
         const { capturePerpsInstrumentChangeGuard } =
           await import('@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/actions');
-        const isInstrumentCurrent = capturePerpsInstrumentChangeGuard();
+        const isInstrumentCurrent = capturePerpsInstrumentChangeGuard({
+          mode: 'perp',
+          coin,
+        });
         const previousTarget =
           await proxy.serviceHyperliquid.getActiveTradeInstrumentTarget();
-        if (!isCurrentTarget()) {
+        if (!isCurrentTarget() || !isInstrumentCurrent()) {
           await clearPreparedTarget();
           return;
         }
@@ -245,7 +248,7 @@ export async function navigateToPerps({
             !(unchangedSpotTarget && isCurrentTarget()))
         )
           return;
-        if (!isCurrentTarget() && !isInstrumentCurrent()) return;
+        if (!isInstrumentCurrent()) return;
         // A modal cancels the page push, but a committed BG target still needs
         // its UI context aligned. Never restore a superseded instrument.
         appEventBus.emit(EAppEventBusNames.PerpSwitchActiveInstrument, {
@@ -256,7 +259,7 @@ export async function navigateToPerps({
         if (platformEnv.isNative || !gtMd) {
           await perpsCustomSettingsAtom.ready();
           const settings = await perpsCustomSettingsAtom.get();
-          if (!isCurrentTarget()) return;
+          if (!isCurrentTarget() || !isInstrumentCurrent()) return;
           if (settings.mobileTradingMode === 'simple') {
             navigation.pushModal(EModalRoutes.PerpModal, {
               screen: EModalPerpRoutes.MobilePerpSimpleMarket,
