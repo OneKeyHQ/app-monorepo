@@ -405,7 +405,7 @@ describe('MyRewardsContent', () => {
     expect(summary.textContent).toContain('referral_perks_paid_to__title');
   });
 
-  it('keeps a non-USDC Perps amount in token units and leaves the total unknown', () => {
+  it('keeps a non-USDC Perps amount in token units and out of the total', () => {
     mockOverviewResult = {
       ...mockOverviewResult,
       result: {
@@ -436,9 +436,13 @@ describe('MyRewardsContent', () => {
     expect(swap.querySelectorAll('[data-source-currency="usd"]')).toHaveLength(
       2,
     );
-    expect(screen.getByTestId('my-rewards-summary-card').textContent).toContain(
-      '--',
-    );
+    // ETH is left out of the dollar summary; Swap's USDC still adds up.
+    const figures = Array.from(
+      screen
+        .getByTestId('my-rewards-summary-card')
+        .querySelectorAll('[data-source-currency="usd"]'),
+    ).map((node) => node.textContent);
+    expect(figures).toEqual(['12', '9', '3']);
   });
 
   it('splits each product into paid and unpaid and isolates a failure', () => {
@@ -527,7 +531,7 @@ describe('MyRewardsContent', () => {
     );
   });
 
-  it('keeps a non-USDC Earn amount in token units and leaves the total unknown', () => {
+  it('keeps a non-USDC Earn amount in token units and out of the total', () => {
     const empty = {
       totalBonus: '0',
       undistributed: '0',
@@ -556,12 +560,16 @@ describe('MyRewardsContent', () => {
     expect(earn.querySelectorAll('[data-source-currency="usd"]')).toHaveLength(
       0,
     );
-    expect(screen.getByTestId('my-rewards-summary-card').textContent).toContain(
-      '--',
-    );
+    // ETH is left out of the dollar summary.
+    const figures = Array.from(
+      screen
+        .getByTestId('my-rewards-summary-card')
+        .querySelectorAll('[data-source-currency="usd"]'),
+    ).map((node) => node.textContent);
+    expect(figures).toEqual(['0', '0', '0']);
   });
 
-  it('does not add mixed Earn tokens together', () => {
+  it('does not add mixed Earn tokens together but totals their USDC part', () => {
     const empty = {
       totalBonus: '0',
       undistributed: '0',
@@ -592,9 +600,13 @@ describe('MyRewardsContent', () => {
     expect(earn.querySelectorAll('[data-source-currency="usd"]')).toHaveLength(
       0,
     );
-    expect(screen.getByTestId('my-rewards-summary-card').textContent).toContain(
-      '--',
-    );
+    // Only the USDC part counts toward the dollar summary.
+    const figures = Array.from(
+      screen
+        .getByTestId('my-rewards-summary-card')
+        .querySelectorAll('[data-source-currency="usd"]'),
+    ).map((node) => node.textContent);
+    expect(figures).toEqual(['0.02', '0.02', '0']);
   });
 
   it('adds mixed stablecoin Earn rewards into the dollar total', () => {

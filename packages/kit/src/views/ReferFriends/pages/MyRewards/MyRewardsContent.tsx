@@ -144,10 +144,11 @@ const DESKTOP_ROW_BLEED_PROPS = {
   borderRadius: '$3',
 } as const;
 
-// A paid or unpaid figure: a token amount, or the server-formatted Earn text.
+// A paid or unpaid figure: a dollar amount, or token text. Token text keeps
+// the dollar part it holds (its stable coins) for the summary totals.
 type IRewardValue =
   | { kind: 'amount'; amount: string }
-  | { kind: 'text'; text: IEarnText; extraCount: number };
+  | { kind: 'text'; text: IEarnText; extraCount: number; usdPart: string };
 
 interface IModuleRow {
   module: IRewardModule;
@@ -218,8 +219,9 @@ function getPerksHomeStatus(
 function readUsdAmount(text: string | undefined) {
   const plain = text
     ?.trim()
-    .replace(/^0\.0<subscripts>(\d+)<\/subscripts>/, (_, zeros: string) =>
-      `0.${'0'.repeat(Number(zeros))}`,
+    .replace(
+      /^0\.0<subscripts>(\d+)<\/subscripts>/,
+      (_, zeros: string) => `0.${'0'.repeat(Number(zeros))}`,
     );
   const match = plain?.match(/^[+-]?\d[\d,]*(?:\.\d+)?/);
   if (!match) {
@@ -267,6 +269,7 @@ function getTokenAmountValue(
     kind: 'text',
     text: { text: symbol ? `${amount.toFixed()} ${symbol}` : amount.toFixed() },
     extraCount: 0,
+    usdPart: '0',
   };
 }
 
@@ -283,16 +286,21 @@ function getEarnValue(
       ? readUsdAmount(item.title.text)
       : undefined,
   );
-  if (amounts.every((amount): amount is BigNumber => amount !== undefined)) {
-    const total = amounts.reduce(
-      (sum, amount) => sum.plus(amount),
-      new BigNumber(0),
-    );
-    return total.gt(0)
-      ? { kind: 'amount', amount: total.toFixed() }
+  const usdPart = amounts.reduce<BigNumber>(
+    (sum, amount) => (amount ? sum.plus(amount) : sum),
+    new BigNumber(0),
+  );
+  if (amounts.every((amount) => amount !== undefined)) {
+    return usdPart.gt(0)
+      ? { kind: 'amount', amount: usdPart.toFixed() }
       : undefined;
   }
-  return { kind: 'text', text: items[0].title, extraCount: items.length - 1 };
+  return {
+    kind: 'text',
+    text: items[0].title,
+    extraCount: items.length - 1,
+    usdPart: usdPart.toFixed(),
+  };
 }
 
 function getModuleRow(
@@ -345,12 +353,17 @@ type IRewardTotals =
   | { status: 'unavailable' }
   | { status: 'ready'; total: string; paid: string; unpaid: string };
 
-function sumAmount(value: IRewardValue | undefined) {
-  return value?.kind === 'amount' ? new BigNumber(value.amount) : undefined;
+function usdOf(value: IRewardValue | undefined) {
+  if (!value) {
+    return new BigNumber(0);
+  }
+  return new BigNumber(value.kind === 'amount' ? value.amount : value.usdPart);
 }
 
-// The summary only adds up dollar amounts. A failed product, or a figure that
-// is still in token units, leaves the total unknown rather than understated.
+// The summary adds up dollar amounts only: stable coins count 1:1, and other
+// tokens are left out until the server prices them (they are converted to
+// USDC at market value when paid, and are usually dust). A failed product
+// leaves the total unknown rather than understated.
 function getRewardTotals(rows: IModuleRow[]): IRewardTotals {
   if (rows.some((row) => row.status === 'loading')) {
     return { status: 'loading' };
@@ -361,13 +374,8 @@ function getRewardTotals(rows: IModuleRow[]): IRewardTotals {
     if (row.status !== 'ready') {
       return { status: 'unavailable' };
     }
-    const rowPaid = row.paid ? sumAmount(row.paid) : new BigNumber(0);
-    const rowUnpaid = row.unpaid ? sumAmount(row.unpaid) : new BigNumber(0);
-    if (!rowPaid || !rowUnpaid) {
-      return { status: 'unavailable' };
-    }
-    paid = paid.plus(rowPaid);
-    unpaid = unpaid.plus(rowUnpaid);
+    paid = paid.plus(usdOf(row.paid));
+    unpaid = unpaid.plus(usdOf(row.unpaid));
   }
   return {
     status: 'ready',
