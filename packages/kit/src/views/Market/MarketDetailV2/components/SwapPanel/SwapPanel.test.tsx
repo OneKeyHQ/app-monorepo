@@ -71,6 +71,7 @@ jest.mock('@onekeyhq/components', () => {
     Divider: Container,
     Icon: Container,
     SizableText: Container,
+    Skeleton: () => <span data-testid="position-loading" />,
     Spinner: Container,
     Stack: Container,
     View: Container,
@@ -145,6 +146,16 @@ const token: ISwapToken = {
 };
 
 describe('Market mobile Buy / Sell modal entry', () => {
+  it('shows loading instead of a zero position until the first result arrives', () => {
+    const { container, rerender } = render(
+      <SwapPanel swapToken={token} mobileLayout isPortfolioPending />,
+    );
+    expect(screen.getByTestId('position-loading')).toBeTruthy();
+    expect(container.textContent).not.toContain('0.00');
+    rerender(<SwapPanel swapToken={token} mobileLayout />);
+    expect(screen.queryByTestId('position-loading')).toBeNull();
+    expect(container.textContent).toContain('0.00');
+  });
   beforeEach(() => {
     jest.clearAllMocks();
     jest.replaceProperty(platformEnv, 'isNative', true);

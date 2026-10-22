@@ -56,7 +56,6 @@ import { useSettledHeaderHeight } from '../../Earn/hooks/useSettledHeaderHeight'
 import { useMarketEnterAnalytics } from '../hooks';
 import { MarketWatchListProviderMirrorV2 } from '../MarketWatchListProviderMirrorV2';
 import { MarketTestIDs } from '../testIDs';
-import { finishMarketDetailTabBarTransition } from '../utils/marketDetailNavigation';
 
 import { MarketDetailHeader } from './components/MarketDetailHeader';
 import {
@@ -67,6 +66,7 @@ import {
   useStockDetail,
 } from './hooks';
 import { useSyncMarketCurrentTokenLiveData } from './hooks/useAutoRefreshTokenDetail';
+import { useMarketDetailTabBarVisibility } from './hooks/useMarketDetailTabBarVisibility';
 import { MarketDetailResponsiveLayout } from './layouts/MarketDetailResponsiveLayout';
 import { shouldReplayFullscreenNavigationAction } from './utils/marketDetailFullscreenNavigation';
 import { preloadMarketDetailV2BodyModules } from './utils/marketDetailPagePreload';
@@ -543,29 +543,10 @@ function MarketDetailV2(
     }, [handleChartFullscreenChange]),
   );
 
-  useFocusEffect(
-    useCallback(() => {
-      const shouldHideTabBar =
-        effectiveIsChartFullscreen ||
-        platformEnv.isNative ||
-        (!platformEnv.isExtension && media.md);
-
-      if (!shouldHideTabBar) {
-        return;
-      }
-
-      // Own the request per instance: switching tokens can collapse the stack
-      // while two detail instances are live, and the leaving one must not
-      // release the survivor's request and let the tab bar cover the trade
-      // buttons.
-      const ownerId = createHideTabBarOwnerId('market-detail');
-      requestHideTabBar(ownerId);
-      finishMarketDetailTabBarTransition();
-
-      return () => {
-        releaseHideTabBar(ownerId);
-      };
-    }, [effectiveIsChartFullscreen, media.md]),
+  useMarketDetailTabBarVisibility(
+    effectiveIsChartFullscreen ||
+      platformEnv.isNative ||
+      (!platformEnv.isExtension && media.md),
   );
 
   return (
