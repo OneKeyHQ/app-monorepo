@@ -28,6 +28,15 @@ never read back on creation. Explicit restore reads only the selected record;
 any cache/authentication/decryption failure returns to its backup-password dialog.
 There is no current-password fallback, App-password fallback or system PIN path.
 
+The App biometric switch controls retrieval of the existing App password through
+`ServicePassword.getBiologyAuthPassword`. Backup recovery is a separate credential
+and ACL: it returns only the selected record's backup password after fresh system
+biometrics. It cannot unlock the old App wallet or authorize transactions.
+Ordinary reset clears the App password/settings while retaining these dedicated
+recovery pairings. Requiring the old App switch after that reset would disable
+the requested recovery path. Manual lock-screen reset follows the same ordinary
+reset policy; wrong-passcode security reset and unknown callers erase recovery.
+
 ## Reset call-site audit
 
 - `Setting/pages/Tab/CustomElement.tsx` -> `useResetApp()` preserves recovery.
@@ -284,3 +293,48 @@ Reset disclosure localization and per-backup forget/re-enable still need product
 confirmation. The all-writes-and-key-deletes-fail policy remains unchanged:
 wallet wipe has priority, failure is reported without automatic restart, and a
 surviving pairing after forced relaunch still requires system biometrics.
+
+## Remaining total-persistence-failure decision
+
+The cache regression `reports simultaneous marker and key failure` injects failed
+writes to both independent SecureStore intent/tombstone items and a failed key
+deletion. The current runtime denies recovery; a cold cache instance can recover
+the surviving pair only after successful biometrics. The ServiceApp regression
+`still wipes wallet data but reports a failed recovery erasure and does not
+restart` verifies the wallet-wipe priority and reported partial failure.
+
+The ordinary-preserve and this failed security-erasure case can have identical
+durable recovery bytes after wallet cleanup. A cold runtime cannot distinguish
+them without a successfully persisted change. Another journal backend can reduce
+correlated failures but cannot guarantee denial when every intent write and key
+deletion fails. A wallet-existence check would also disable ordinary-reset
+recovery, violating the requested behavior. No App-key fallback, false erasure
+claim or unconditional marker-read failure bypass is acceptable.
+
+The minimal remaining choice concerns only this combined failure:
+
+- Keep wallet-wipe priority (current behavior): erase wallet data, report recovery
+  erasure failure and do not restart automatically. This preserves protection of
+  local wallet secrets after wrong-passcode reset, but a forced relaunch may still
+  recover a surviving cloud-backup pairing through system biometrics.
+- Require durable recovery denial before wallet cleanup: if no intent can be
+  persisted and some protected key survives, stop before wiping the wallet and
+  retain retry state. This avoids completing a reset with surviving recovery, but
+  leaves local wallet data present after a security-triggered reset threshold.
+
+Recommendation: preserve the existing wallet-wipe priority and explicitly accept
+its documented partial-failure limit, unless the product requires recovery denial
+to outrank local wallet erasure. That alternate policy needs an explicit decision;
+the general request to fix reviews does not select it.
+
+Review: https://github.com/OneKeyHQ/app-monorepo/pull/13965#discussion_r4294373295
+
+## Unverified-upload cleanup follow-up
+
+Newly uploaded records are not enrolled for recovery until verification succeeds.
+Content-mismatch and missing-listing cleanup therefore awaits the upload provider
+directly, independently of optional local recovery storage. Normal deletion of a
+verified backup still erases its selected local pairing before remote deletion.
+Regression cases inject unavailable recovery storage and remote deletion failure;
+the cleanup must be attempted and its failure must reach the backup caller rather
+than becoming a detached rejection. No other backup's local pairing is changed.

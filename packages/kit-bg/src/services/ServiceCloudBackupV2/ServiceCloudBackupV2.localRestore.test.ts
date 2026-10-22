@@ -851,6 +851,64 @@ describe('local iCloud restore integration', () => {
     },
   );
 
+  it.each(['content mismatch', 'missing listing'] as const)(
+    'removes an unverified upload after %s even when recovery storage is unavailable',
+    async (failure) => {
+      mockSuccessfulBackup();
+      cached.remove.mockRejectedValue(
+        new Error('synthetic recovery storage unavailable'),
+      );
+      const deleteSilently = service.deleteSilently.bind(service);
+      jest.spyOn(service, 'deleteSilently').mockImplementation((params) => {
+        const deleting = deleteSilently(params);
+        // Observe legacy fire-and-forget failures without leaking rejections.
+        void deleting.catch(() => undefined);
+        return deleting;
+      });
+      if (failure === 'content mismatch') {
+        mockProvider.downloadData.mockImplementationOnce(async () => ({
+          ...readUploadedBackup(),
+          content: 'synthetic-mismatched-content',
+        }));
+      } else {
+        mockProvider.getAllBackups.mockResolvedValueOnce({
+          items: [],
+          total: 0,
+        });
+      }
+      await expect(service.backup({ data, password })).rejects.toThrow();
+      expect(mockProvider.deleteBackup).toHaveBeenCalledWith({
+        recordId,
+        skipManifestUpdate: true,
+      });
+      expect(cached.remove).not.toHaveBeenCalled();
+      expect(cached.set).not.toHaveBeenCalled();
+      expect(updateBackupStatus).not.toHaveBeenCalled();
+    },
+  );
+
+  it('reports a failed unverified-upload deletion instead of detaching its rejection', async () => {
+    mockSuccessfulBackup();
+    mockProvider.downloadData.mockImplementationOnce(async () => ({
+      ...readUploadedBackup(),
+      content: 'synthetic-mismatched-content',
+    }));
+    mockProvider.deleteBackup.mockRejectedValueOnce(
+      new Error('synthetic remote cleanup failed'),
+    );
+    const deleteSilently = service.deleteSilently.bind(service);
+    jest.spyOn(service, 'deleteSilently').mockImplementation((params) => {
+      const deleting = deleteSilently(params);
+      void deleting.catch(() => undefined);
+      return deleting;
+    });
+    await expect(service.backup({ data, password })).rejects.toThrow(
+      'synthetic remote cleanup failed',
+    );
+    expect(cached.set).not.toHaveBeenCalled();
+    expect(updateBackupStatus).not.toHaveBeenCalled();
+  });
+
   it('caches a successfully verified uploaded backup without changing the cloud payload format', async () => {
     mockSuccessfulBackup();
     await service.backup({ data, password });

@@ -513,7 +513,9 @@ class ServiceCloudBackupV2 extends ServiceBase {
     }
     if (downloadData?.content !== content) {
       await this.assertBackupAccountUnchanged(accountInfo);
-      void this.deleteSilently({
+      // Recovery is enrolled only after verification. Optional local storage
+      // must not prevent removal of this newly uploaded, unverified record.
+      await provider.deleteBackup({
         recordId: recordID,
         skipManifestUpdate: true,
       });
@@ -527,7 +529,7 @@ class ServiceCloudBackupV2 extends ServiceBase {
       (item) => item.recordID === recordID,
     );
     if (!matchedBackup) {
-      void this.deleteSilently({
+      await provider.deleteBackup({
         recordId: recordID,
         skipManifestUpdate: true,
       });
