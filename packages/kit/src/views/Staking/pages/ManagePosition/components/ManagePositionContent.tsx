@@ -22,7 +22,6 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { BorrowNavigation } from '@onekeyhq/kit/src/views/Borrow/borrowUtils';
 import { BorrowInfoSectionSkeleton } from '@onekeyhq/kit/src/views/Borrow/components/ManagePosition/modules/InfoDisplaySection/BorrowInfoSectionSkeleton';
-import { EarnPayWithRow } from '@onekeyhq/kit/src/views/Earn/pages/EarnRouter/EarnPayWithRow';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import type { ISupportedSymbol } from '@onekeyhq/shared/types/earn';
@@ -211,13 +210,10 @@ export const ManageSectionShell = ({
   } else if (withdrawOnly) {
     tabLabels = [secondaryLabel];
   }
-  // As the loaded forms title their box: Amount, except Repay's own form
-  const isRepay =
-    [EManagePositionType.Borrow, EManagePositionType.Repay].includes(type) &&
-    activeIndex === 1;
-  const activeLabel = isRepay
-    ? secondaryLabel
-    : intl.formatMessage({ id: ETranslations.content__amount });
+  let activeLabel = activeIndex === 1 ? secondaryLabel : primaryLabel;
+  if (isPendleProvider) {
+    activeLabel = intl.formatMessage({ id: ETranslations.content__amount });
+  }
   const borrowAction = useMemo(() => {
     if (
       [EManagePositionType.Supply, EManagePositionType.Withdraw].includes(type)
@@ -297,51 +293,41 @@ export const ManageSectionShell = ({
           the layout is identical when real data lands. */}
       <YStack px="$5" py="$2.5" gap="$4">
         {/* Amount input frame — fixed chrome, only the value pends. Dimensions
-            mirror StakingAmountInput/AmountInput so nothing shifts on load.
-            Pay with's row sits under it as on the loaded deposit form */}
-        <YStack gap="$2">
-          <YStack
-            borderRadius="$3"
-            bg="$bgSubdued"
-            px="$3.5"
-            py="$2.5"
-            gap="$2"
-          >
-            <SizableText size="$bodyMd" color="$textSubdued">
-              {activeLabel}
-            </SizableText>
-            <XStack h="$11" ai="center" jc="space-between">
-              <Skeleton h="$6" w="$24" borderRadius="$2" />
-              <XStack ai="center" m="$1.5" mb="$0" p="$2" gap="$2">
-                {/* Pendle resolves the actual pair after this shell renders, so
+            mirror StakingAmountInput/AmountInput so nothing shifts on load. */}
+        <YStack borderRadius="$3" bg="$bgSubdued" px="$3.5" py="$2.5" gap="$2">
+          <SizableText size="$bodyMd" color="$textSubdued">
+            {activeLabel}
+          </SizableText>
+          <XStack h="$11" ai="center" jc="space-between">
+            <Skeleton h="$6" w="$24" borderRadius="$2" />
+            <XStack ai="center" m="$1.5" mb="$0" p="$2" gap="$2">
+              {/* Pendle resolves the actual pair after this shell renders, so
                   its route image is not authoritative during loading. Keep the
                   icon as a skeleton until token metadata arrives; this also
                   matches AmountInput's $7 token trigger size (OK-63661). */}
-                {fallbackTokenImageUri && !isPendleProvider ? (
-                  <Token
-                    size="sm"
-                    w="$7"
-                    h="$7"
-                    tokenImageUri={fallbackTokenImageUri}
-                  />
-                ) : (
-                  <Skeleton w="$7" h="$7" radius="round" />
-                )}
-                {/* The symbol is the one real string this frame used to draw, and
+              {fallbackTokenImageUri && !isPendleProvider ? (
+                <Token
+                  size="sm"
+                  w="$7"
+                  h="$7"
+                  tokenImageUri={fallbackTokenImageUri}
+                />
+              ) : (
+                <Skeleton w="$7" h="$7" radius="round" />
+              )}
+              {/* The symbol is the one real string this frame used to draw, and
                   a vault symbol can be as long as "Morpho-cbBTC-USDC-wrapper" —
                   a full-width name sitting among skeleton bars reads worse than
                   no name at all, and the page title already carries it. Skeleton
                   it like everything else and let the real symbol land with the
                   rest of the data. */}
-                <Skeleton h="$6" w="$20" borderRadius="$2" />
-              </XStack>
+              <Skeleton h="$6" w="$20" borderRadius="$2" />
             </XStack>
-            <XStack jc="space-between" ai="center">
-              <Skeleton h="$3" w="$16" borderRadius="$2" />
-              <Skeleton h="$3" w="$20" borderRadius="$2" />
-            </XStack>
-          </YStack>
-          {hasPayWith && activeIndex === 0 ? <EarnPayWithRow /> : null}
+          </XStack>
+          <XStack jc="space-between" ai="center">
+            <Skeleton h="$3" w="$16" borderRadius="$2" />
+            <Skeleton h="$3" w="$20" borderRadius="$2" />
+          </XStack>
         </YStack>
 
         {/* The caller's own selector stands where the protocol switcher

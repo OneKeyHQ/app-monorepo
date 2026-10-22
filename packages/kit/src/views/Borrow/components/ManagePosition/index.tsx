@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 
+import { buildKeyboardPressProps } from '@onekeyhq/kit/src/views/Earn/components/desktopHome/earnDesktopPressable';
 import StakingFormWrapper from '@onekeyhq/kit/src/views/Staking/components/StakingFormWrapper';
 
 import { useUniversalBorrowAction } from '../UniversalBorrowAction';
@@ -166,28 +167,30 @@ export function ManagePosition(props: IManagePositionProps) {
     onApprovedSubmit: submitBorrowAction,
   });
 
-  const { renderPayWith } = props;
+  const { onTokenSelectorPress } = props;
   const effectiveTokenSelectorTriggerProps = useMemo(() => {
-    // Pay with, under the box, picks the token; the box only names it
-    if (renderPayWith) {
+    if (approval.isFormInteractionLocked) {
       return {
         ...tokenSelectorTriggerProps,
+        disabled: true,
         onPress: undefined,
         popover: undefined,
       };
     }
-    if (!approval.isFormInteractionLocked) {
-      return tokenSelectorTriggerProps;
+    if (onTokenSelectorPress) {
+      return {
+        ...tokenSelectorTriggerProps,
+        disabled: false,
+        onPress: onTokenSelectorPress,
+        popover: undefined,
+        // Reachable from the keyboard, as a picker that opens on press
+        ...buildKeyboardPressProps(onTokenSelectorPress),
+      };
     }
-    return {
-      ...tokenSelectorTriggerProps,
-      disabled: true,
-      onPress: undefined,
-      popover: undefined,
-    };
+    return tokenSelectorTriggerProps;
   }, [
     approval.isFormInteractionLocked,
-    renderPayWith,
+    onTokenSelectorPress,
     tokenSelectorTriggerProps,
   ]);
 
@@ -249,10 +252,7 @@ export function ManagePosition(props: IManagePositionProps) {
   return (
     <ManagePositionContext.Provider value={contextValue}>
       <StakingFormWrapper>
-        <AmountInputSection
-          title={props.inputTitle}
-          renderPayWith={renderPayWith}
-        />
+        <AmountInputSection title={props.inputTitle} />
         {props.offerSwitch}
         <InfoDisplaySection showSwapOrBridge={props.showSwapOrBridge} />
         <ActionFooter

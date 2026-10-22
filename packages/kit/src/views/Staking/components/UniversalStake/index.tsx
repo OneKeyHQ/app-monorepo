@@ -592,9 +592,6 @@ type IUniversalStakeProps = {
   requestSymbol?: string;
   stakeType?: IEarnStakeType;
   inputTitle?: string;
-  // Pay with, right under the amount box; the box then shows its token as
-  // the amount's unit only
-  renderPayWith?: (params: { disabled: boolean }) => ReactNode;
   tokenSelectorTriggerProps?: Partial<
     NonNullable<IAmountInputFormItemProps['tokenSelectorTriggerProps']>
   >;
@@ -645,7 +642,6 @@ export function UniversalStake({
   requestSymbol,
   stakeType,
   inputTitle,
-  renderPayWith,
   tokenSelectorTriggerProps,
   isQuoteExpired,
   onQuoteReset,
@@ -2465,7 +2461,6 @@ export function UniversalStake({
               <Stack position="absolute" w="100%" h="100%" zIndex={1} />
             ) : null}
           </Stack>
-          {renderPayWith?.({ disabled: amountInputDisabled })}
           <ManagePageV2ReceiveInput
             receive={transactionConfirmation?.receive}
             config={effectiveReceiveInputConfig}
@@ -2474,8 +2469,7 @@ export function UniversalStake({
             loading={quoteLoading}
           />
         </YStack>
-        {/* The arrow joins the two boxes; Pay with sits between them instead */}
-        {showReceiveInput && !renderPayWith ? (
+        {showReceiveInput ? (
           <Stack
             ai="center"
             position="absolute"

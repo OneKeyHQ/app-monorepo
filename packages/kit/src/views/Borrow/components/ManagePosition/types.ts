@@ -79,9 +79,8 @@ export interface IManagePositionProps {
   // An amount to start on, entered once as if typed (the Earn Router page
   // after a withdrawal: what it took out)
   initialAmount?: string;
-  // Pay with, right under the amount box. The box then shows its token as
-  // the amount's unit only: the row is where it changes
-  renderPayWith?: (params: { disabled: boolean }) => ReactNode;
+  // The caller's own token picker (Pay with) in place of the reserve picker
+  onTokenSelectorPress?: () => void;
   // The amount box's label, in place of the action's name
   inputTitle?: string;
   // Off where the caller pays with another token itself (Pay with): no
@@ -243,7 +242,6 @@ export interface IActionTabBarProps {
 
 export interface IAmountInputSectionProps {
   title?: string;
-  renderPayWith?: (params: { disabled: boolean }) => ReactNode;
 }
 
 export interface IInfoDisplaySectionProps {

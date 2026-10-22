@@ -16,6 +16,7 @@ import {
   Alert,
   Divider,
   HeightTransition,
+  IconButton,
   Page,
   SizableText,
   Stack,
@@ -36,6 +37,7 @@ import {
 import { USD_CURRENCY_ID } from '@onekeyhq/shared/src/consts/currencyConsts';
 import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import tokenRebaseUtils from '@onekeyhq/shared/src/utils/tokenRebaseUtils';
 import { ECheckAmountActionType } from '@onekeyhq/shared/types/staking';
@@ -66,8 +68,8 @@ import {
 import { completeBroadcastedSwapSuccess } from '../../../Swap/hooks/swapBroadcastSuccess';
 import { generateSwapHistoryItemForContext } from '../../../Swap/hooks/useSwapTxHistory';
 import { EARN_DESKTOP_DEMO_COPY } from '../../components/desktopHome/earnDesktopHomeCopy';
+import { buildKeyboardPressProps } from '../../components/desktopHome/earnDesktopPressable';
 
-import { EarnPayWithRow } from './EarnPayWithRow';
 import {
   EARN_ROUTER_SWAP_IDLE,
   buildEarnSwapToken,
@@ -101,6 +103,11 @@ const RECEIVE_DECIMALS = 6;
 const SUMMARY_DEBOUNCE_MS = 350;
 // Typing settles before the swap service is asked
 const QUOTE_DEBOUNCE_MS = 500;
+// Centers the arrow on the seam between the two boxes, as the Pendle form
+// does
+const ARROW_OVERLAY_STYLE = platformEnv.isNative
+  ? { transform: [{ translateX: -13 }, { translateY: -13 }] as const }
+  : { transform: 'translate(-50%, -50%)' as const };
 
 /**
  * What the provider's own deposit form asks the server for its card: a
@@ -878,60 +885,80 @@ export function EarnRouterSwapDepositForm({
 
   return (
     <StakingFormWrapper>
-      <YStack gap="$2">
-        <StakingAmountInput
-          title={intl.formatMessage({ id: ETranslations.content__amount })}
-          disabled={isLocked}
-          hasError={isInsufficient}
-          value={amount}
-          onChange={setAmount}
-          onBlur={onBlurAmount}
-          // The amount's unit: Pay with, right below, changes it
-          tokenSelectorTriggerProps={{
-            selectedTokenImageUri: payToken.token.logoURI,
-            selectedTokenSymbol: payToken.token.symbol,
-            selectedNetworkImageUri: network?.logoURI,
-          }}
-          balanceProps={{
-            value: payToken.amount,
-            onPress: isLocked ? undefined : handleMax,
-          }}
-          inputProps={{ placeholder: '0', autoFocus: !isLocked }}
-          valueProps={{
-            value: payFiat,
-            currency: payFiat ? currencyInfo.symbol : undefined,
-          }}
-          enableMaxAmount
-          onSelectPercentageStage={handleSelectPercentage}
-        />
-        <EarnPayWithRow
-          token={payToken.token}
-          onPress={onOpenPayWith}
-          disabled={isLocked}
-        />
-        {/* What reaches the provider, as the Pendle form's receive box */}
-        <StakingAmountInput
-          title={intl.formatMessage({ id: ETranslations.earn_est_receive })}
-          disabled
-          forceSubduedBackground
-          value={depositAmount}
-          onChange={() => {}}
-          onBlur={() => {}}
-          tokenSelectorTriggerProps={{
-            selectedTokenImageUri: depositToken.logoURI,
-            selectedTokenSymbol: depositToken.symbol,
-            selectedNetworkImageUri: network?.logoURI,
-            disabled: true,
-          }}
-          inputProps={{ placeholder: '0', loading: isQuoting }}
-          valueProps={{
-            value: depositFiat,
-            currency: depositFiat ? currencyInfo.symbol : undefined,
-            loading: isQuoting,
-          }}
-          onSelectPercentageStage={() => {}}
-        />
-      </YStack>
+      <Stack position="relative">
+        <YStack gap="$2">
+          <StakingAmountInput
+            title={EARN_DESKTOP_DEMO_COPY.payWith}
+            disabled={isLocked}
+            hasError={isInsufficient}
+            value={amount}
+            onChange={setAmount}
+            onBlur={onBlurAmount}
+            tokenSelectorTriggerProps={{
+              selectedTokenImageUri: payToken.token.logoURI,
+              selectedTokenSymbol: payToken.token.symbol,
+              selectedNetworkImageUri: network?.logoURI,
+              disabled: isLocked,
+              onPress: onOpenPayWith,
+              ...buildKeyboardPressProps(isLocked ? undefined : onOpenPayWith),
+            }}
+            balanceProps={{
+              value: payToken.amount,
+              onPress: isLocked ? undefined : handleMax,
+            }}
+            inputProps={{ placeholder: '0', autoFocus: !isLocked }}
+            valueProps={{
+              value: payFiat,
+              currency: payFiat ? currencyInfo.symbol : undefined,
+            }}
+            enableMaxAmount
+            onSelectPercentageStage={handleSelectPercentage}
+          />
+          {/* What reaches the provider, as the Pendle form's receive box */}
+          <StakingAmountInput
+            title={intl.formatMessage({ id: ETranslations.earn_est_receive })}
+            disabled
+            forceSubduedBackground
+            value={depositAmount}
+            onChange={() => {}}
+            onBlur={() => {}}
+            tokenSelectorTriggerProps={{
+              selectedTokenImageUri: depositToken.logoURI,
+              selectedTokenSymbol: depositToken.symbol,
+              selectedNetworkImageUri: network?.logoURI,
+              disabled: true,
+            }}
+            inputProps={{ placeholder: '0', loading: isQuoting }}
+            valueProps={{
+              value: depositFiat,
+              currency: depositFiat ? currencyInfo.symbol : undefined,
+              loading: isQuoting,
+            }}
+            onSelectPercentageStage={() => {}}
+          />
+        </YStack>
+        <Stack
+          ai="center"
+          position="absolute"
+          top="50%"
+          left="50%"
+          zIndex={2}
+          pointerEvents="none"
+          style={ARROW_OVERLAY_STYLE}
+        >
+          <IconButton
+            testID="earn-router-swap-arrow"
+            alignSelf="center"
+            bg="$bgApp"
+            variant="tertiary"
+            icon="ArrowBottomOutline"
+            iconProps={{ color: '$icon' }}
+            size="small"
+            disabled
+            opacity={1}
+          />
+        </Stack>
+      </Stack>
       {alert}
       {protocolSwitch ?? offerSwitch}
       {card}
