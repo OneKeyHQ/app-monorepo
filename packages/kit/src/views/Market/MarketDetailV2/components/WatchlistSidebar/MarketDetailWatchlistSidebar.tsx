@@ -340,20 +340,18 @@ function MarketDetailWatchlistSidebarImpl({
 
   const renderItem = useCallback(
     ({ item, dragProps, isActive }: IRenderItemParams<IMarketToken>) => (
-      <Stack px={TOKEN_SELECTOR_TABLE_PADDING}>
-        <WatchlistSidebarRow
-          item={item}
-          isSelected={isCurrentDetailToken(item, {
-            stockId,
-            assetId,
-            networkId,
-            tokenAddress,
-          })}
-          isDragging={isActive}
-          dragProps={dragProps}
-          onPress={handleItemPress}
-        />
-      </Stack>
+      <WatchlistSidebarRow
+        item={item}
+        isSelected={isCurrentDetailToken(item, {
+          stockId,
+          assetId,
+          networkId,
+          tokenAddress,
+        })}
+        isDragging={isActive}
+        dragProps={dragProps}
+        onPress={handleItemPress}
+      />
     ),
     [assetId, handleItemPress, networkId, stockId, tokenAddress],
   );
@@ -462,16 +460,21 @@ function MarketDetailWatchlistSidebarImpl({
         {/* Rows sit absolutely positioned in the sortable list, so the header
             stays above it rather than inside as a list header. */}
         <YStack px={TOKEN_SELECTOR_TABLE_PADDING}>{tableHeader}</YStack>
-        <SortableListView
-          flex={1}
-          data={listData}
-          keyExtractor={keyExtractor}
-          getItemLayout={getItemLayout}
-          renderItem={renderItem}
-          enabled={isDraggable}
-          onDragEnd={handleDragEnd}
-          contentContainerStyle={{ pb: TOKEN_SELECTOR_TABLE_PADDING }}
-        />
+        {/* The inset sits outside the list, not in each row: the drag clone draws
+            its shadow around the whole row wrapper, so padding inside it would
+            show as a wider box around the dragged row. */}
+        <YStack flex={1} minHeight={0} px={TOKEN_SELECTOR_TABLE_PADDING}>
+          <SortableListView
+            flex={1}
+            data={listData}
+            keyExtractor={keyExtractor}
+            getItemLayout={getItemLayout}
+            renderItem={renderItem}
+            enabled={isDraggable}
+            onDragEnd={handleDragEnd}
+            contentContainerStyle={{ pb: TOKEN_SELECTOR_TABLE_PADDING }}
+          />
+        </YStack>
       </YStack>
     );
   }

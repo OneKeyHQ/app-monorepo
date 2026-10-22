@@ -142,13 +142,24 @@ function BasicWatchlistSidebarRow({
       alignItems="center"
       borderRadius="$3"
       cursor="pointer"
-      bg={isSelected || isDragging ? '$bgActive' : '$bgApp'}
+      bg={isSelected && !isDragging ? '$bgActive' : '$bgApp'}
       hoverStyle={{ bg: '$bgHover' }}
       pressStyle={{ bg: '$bgActive' }}
       dataSet={dragProps}
       onPress={handlePress}
       onPressIn={handlePressIn}
     >
+      {isDragging ? (
+        // `$bgActive` is translucent: on the floating drag clone it is laid
+        // over the opaque row so the rows beneath don't show through.
+        <Stack
+          position="absolute"
+          inset={0}
+          borderRadius="$3"
+          bg="$bgActive"
+          pointerEvents="none"
+        />
+      ) : null}
       <XStack alignItems="center" gap={TOKEN_SELECTOR_NAME_GAP}>
         <Stack
           width={TOKEN_SELECTOR_STAR_COLUMN_WIDTH}
