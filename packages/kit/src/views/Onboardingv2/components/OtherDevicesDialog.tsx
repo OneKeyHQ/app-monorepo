@@ -3,9 +3,8 @@ import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
 import { showDeviceListDialog } from './DeviceListDialog';
 
-// Use neutral external-wallet artwork until a licensed Keystone asset lands.
+const keystoneLogo = require('@onekeyhq/kit/assets/pick-keystone.png');
 const ledgerLogo = require('@onekeyhq/kit/assets/pick-ledger.png');
-const keystoneLogo = require('@onekeyhq/kit/assets/pick-others.png');
 const trezorLogo = require('@onekeyhq/kit/assets/pick-trezor.png');
 
 export function showOtherDevicesDialog() {
