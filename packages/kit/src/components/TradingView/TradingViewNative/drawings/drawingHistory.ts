@@ -53,14 +53,19 @@ export function createDrawingHistoryLoader(
         signal,
       });
       if (signal.aborted) return null;
-      if (!response?.points.length || response.pointType === 'single') break;
+      if (!response?.points.length) break;
       let earliest = timeTo;
       for (const point of response.points) {
         if (Number.isFinite(point.t)) earliest = Math.min(earliest, point.t);
         if (point.t >= timeFrom && point.t <= to && points.size < 5000)
           points.set(point.t, point);
       }
-      if (earliest <= timeFrom || earliest >= timeTo || points.size >= 5000)
+      if (
+        response.pointType === 'single' ||
+        earliest <= timeFrom ||
+        earliest >= timeTo ||
+        points.size >= 5000
+      )
         break;
       timeTo = earliest - 1;
     }

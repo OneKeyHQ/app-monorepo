@@ -1,6 +1,7 @@
 /** @jest-environment jsdom */
 import { act, cleanup, renderHook, waitFor } from '@testing-library/react';
 
+import { createDrawingHistoryLoader } from './drawingHistory';
 import { DEFAULT_DRAWING_STYLE } from './model';
 import { getDrawingProfileKey, useDrawingHistory } from './useDrawingHistory';
 
@@ -9,6 +10,7 @@ import type {
   IDrawingHistoryLoader,
 } from './drawingHistory';
 import type { IDrawing } from './model';
+import type { ITradingViewNativeHistoryDataProvider } from '../data/providers/types';
 
 const candle = { t: 120, o: 10, h: 12, l: 9, c: 11, v: 100 };
 const drawing: IDrawing = {
@@ -97,6 +99,35 @@ describe('history retries', () => {
   afterEach(() => {
     cleanup();
     jest.useRealTimers();
+  });
+
+  it('caches single-point-type history without scheduling retries', async () => {
+    const fetchHistory: jest.MockedFunction<
+      ITradingViewNativeHistoryDataProvider['fetchHistory']
+    > = jest.fn().mockResolvedValue({
+      pointType: 'single',
+      points: [{ ...candle, t: 180, v: 0 }],
+      total: 1,
+    });
+    const loadHistory = createDrawingHistoryLoader({
+      fetchHistory,
+      hasMoreHistory: () => false,
+      getHistoryRequestCandleCount: () => 10,
+    });
+    const hook = renderHook(() =>
+      useDrawingHistory({ ...options, loadHistory }),
+    );
+    await act(async () => {
+      await jest.advanceTimersByTimeAsync(60_000);
+    });
+    const profile = hook.result.current.current.get('profile')?.profile;
+    expect(profile?.interval).toBe(60);
+    expect(profile?.bins).toHaveLength(24);
+    expect(profile?.bins.reduce((sum, bin) => sum + bin.up + bin.down, 0)).toBe(
+      0,
+    );
+    expect(fetchHistory).toHaveBeenCalledTimes(1);
+    expect(jest.getTimerCount()).toBe(0);
   });
 
   it('recovers from rejected, missing and unusable history without a range change', async () => {

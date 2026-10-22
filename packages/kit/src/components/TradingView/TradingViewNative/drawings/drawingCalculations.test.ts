@@ -374,6 +374,29 @@ it('paginates finer candle history without duplicating boundary candles', async 
   expect(fetchHistory.mock.calls[1][0].timeTo).toBe(points[10].t - 1);
 });
 
+it('keeps nonempty single-point-type history without requesting another page', async () => {
+  const responsePoints = points.slice(10);
+  const fetchHistory: jest.MockedFunction<
+    ITradingViewNativeHistoryDataProvider['fetchHistory']
+  > = jest.fn().mockResolvedValue({
+    pointType: 'single',
+    points: responsePoints,
+    total: responsePoints.length,
+  });
+  const provider: ITradingViewNativeHistoryDataProvider = {
+    fetchHistory,
+    hasMoreHistory: () => false,
+    getHistoryRequestCandleCount: () => 10,
+  };
+  const data = await createDrawingHistoryLoader(provider)(
+    points[0].t,
+    points[19].t,
+    new AbortController().signal,
+  );
+  expect(data).toEqual({ points: responsePoints, interval: 60 });
+  expect(fetchHistory).toHaveBeenCalledTimes(1);
+});
+
 it('ignores a history response that finishes after cancellation', async () => {
   const abort = new AbortController();
   const provider: ITradingViewNativeHistoryDataProvider = {
