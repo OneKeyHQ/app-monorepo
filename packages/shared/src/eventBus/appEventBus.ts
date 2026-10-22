@@ -654,6 +654,7 @@ export interface IAppEventBusPayload {
     decision: string;
   };
   [EAppEventBusNames.ShowAppUpdateIncompleteDialog]: undefined;
+  [EAppEventBusNames.BundleUpdateRestartFailed]: undefined;
   [EAppEventBusNames.PendingInstallTaskProcessFinished]: undefined;
   [EAppEventBusNames.ShowNotificationViewDialog]: {
     payload: INotificationViewDialogPayload;

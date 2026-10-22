@@ -422,26 +422,61 @@ class ServiceAppUpdate extends ServiceBase {
   }
 
   @backgroundMethod()
-  async reconcileAppShellPackage() {
+  async reconcileUpdatePackage() {
     await this.cleanupUpdateControlState();
     const snapshot = await appUpdatePersistAtom.get();
+    const fileType = getUpdateFileType(snapshot);
+    const isJsBundle = fileType === EUpdateFileType.jsBundle;
+    // Bundle directories are only required once verification has completed.
+    const canReconcile = isJsBundle
+      ? snapshot.status === EAppUpdateStatus.ready ||
+        snapshot.status === EAppUpdateStatus.manualInstall
+      : APP_SHELL_PACKAGE_RECONCILE_STATUSES.has(snapshot.status);
     if (
-      !APP_SHELL_PACKAGE_RECONCILE_STATUSES.has(snapshot.status) ||
+      !canReconcile ||
       isFirstLaunchAfterUpdated(snapshot) ||
-      snapshot.storeUrl ||
-      getUpdateFileType(snapshot) !== EUpdateFileType.appShell
+      (!isJsBundle && snapshot.storeUrl)
     ) {
       return snapshot;
     }
 
     let availability: IAppUpdatePackageAvailability;
-    try {
-      availability = await AppUpdate.checkPackageAvailability(snapshot);
-    } catch {
-      defaultLogger.app.appUpdate.log(
-        'reconcileAppShellPackage: package availability check failed',
-      );
-      return snapshot;
+    if (isJsBundle) {
+      if (
+        !snapshot.latestVersion ||
+        !snapshot.jsBundleVersion ||
+        !snapshot.downloadedEvent
+      ) {
+        availability = {
+          status: EAppUpdatePackageAvailabilityStatus.missing,
+        };
+      } else {
+        try {
+          const exists = await BundleUpdate.isBundleExists(
+            snapshot.latestVersion,
+            snapshot.jsBundleVersion,
+          );
+          availability = {
+            status: exists
+              ? EAppUpdatePackageAvailabilityStatus.available
+              : EAppUpdatePackageAvailabilityStatus.missing,
+          };
+        } catch {
+          defaultLogger.app.appUpdate.log(
+            'reconcileUpdatePackage: bundle existence check failed',
+          );
+          return snapshot;
+        }
+      }
+    } else {
+      try {
+        availability = await AppUpdate.checkPackageAvailability(snapshot);
+      } catch {
+        defaultLogger.app.appUpdate.log(
+          'reconcileUpdatePackage: package availability check failed',
+        );
+        return snapshot;
+      }
     }
     if (
       availability.status !== EAppUpdatePackageAvailabilityStatus.missing &&
@@ -514,18 +549,22 @@ class ServiceAppUpdate extends ServiceBase {
       if (
         latest.status === nextStatus &&
         latest.latestVersion === snapshot.latestVersion &&
+        latest.jsBundleVersion === snapshot.jsBundleVersion &&
         !latest.downloadedEvent
       ) {
         const pendingTask = await getPendingInstallTask();
         if (
-          pendingTask?.type === EPendingInstallTaskType.appInstall &&
-          pendingTask.targetAppVersion === snapshot.latestVersion
+          (pendingTask?.type === EPendingInstallTaskType.appInstall &&
+            pendingTask.targetAppVersion === snapshot.latestVersion) ||
+          (pendingTask?.type === EPendingInstallTaskType.jsBundleSwitch &&
+            pendingTask.targetAppVersion === snapshot.latestVersion &&
+            pendingTask.targetBundleVersion === snapshot.jsBundleVersion)
         ) {
           await clearPendingInstallTask();
         }
       }
       defaultLogger.app.appUpdate.log(
-        `reconcileAppShellPackage: ${availability.status} package invalidated ${snapshot.status} state (${nextStatus})`,
+        `reconcileUpdatePackage: ${availability.status} package invalidated ${snapshot.status} state (${nextStatus})`,
       );
       if (
         nextStatus === EAppUpdateStatus.notify ||
@@ -537,12 +576,15 @@ class ServiceAppUpdate extends ServiceBase {
             if (
               current.status === nextStatus &&
               current.latestVersion === snapshot.latestVersion &&
+              current.jsBundleVersion === snapshot.jsBundleVersion &&
               (nextStatus === EAppUpdateStatus.downloadPackage ||
                 isAutoUpdateStrategy(current.updateStrategy)) &&
               !current.downloadedEvent
             ) {
               appEventBus.emit(EAppEventBusNames.StartAutoDownloadUpdate, {
-                decision: 'appShellPackageRecovery',
+                decision: isJsBundle
+                  ? 'jsBundlePackageRecovery'
+                  : 'appShellPackageRecovery',
               });
             }
           })();
