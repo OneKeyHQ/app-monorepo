@@ -93,7 +93,7 @@ export function EarnGuideHeader({
             testID={tid('earn-guide-title')}
             flex={1}
             tabIndex={isCopy ? undefined : -1}
-            focusVisibleStyle={{ outlineWidth: 0 }}
+            focusVisibleStyle={{ outlineStyle: 'none' }}
           >
             <SizableText
               size="$headingLg"

@@ -9,6 +9,7 @@ import {
   Page,
   ScrollView,
   SizableText,
+  Skeleton,
   Spinner,
   Stack,
   XStack,
@@ -38,10 +39,12 @@ import {
   ReceiveCardCell,
 } from '../../../Receive/components/ReceiveCard';
 import { ReceiveQRCode } from '../../../Receive/components/ReceiveQRCode';
+import { ProtocolImage } from '../../../Staking/components/ProtocolDisplayShared';
 import { useEarnAccount } from '../../../Staking/hooks/useEarnAccount';
 import { ManageSectionShell } from '../../../Staking/pages/ManagePosition/components/ManagePositionContent';
 import { EManagePositionType } from '../../../Staking/pages/ManagePosition/hooks/useManagePage';
 import { EARN_DESKTOP_DEMO_COPY } from '../../components/desktopHome/earnDesktopHomeCopy';
+import { buildKeyboardPressProps } from '../../components/desktopHome/earnDesktopPressable';
 import {
   EARN_GUIDE_SUGGESTED_GAS,
   EARN_GUIDE_SYMBOL,
@@ -55,11 +58,11 @@ import {
 } from '../../components/desktopHome/earnGuideStore';
 import { EarnProviderMirror } from '../../EarnProviderMirror';
 import { EarnNavigation } from '../../earnUtils';
+import { EarnOffersDeposit } from '../EarnRouter/EarnOffersDeposit';
 import {
-  EarnOfferSwitcher,
-  EarnOffersDeposit,
-} from '../EarnRouter/EarnOffersDeposit';
-import { useEarnRouterOffers } from '../EarnRouter/EarnRouterOffer';
+  buildOfferRowProps,
+  useEarnRouterOffers,
+} from '../EarnRouter/EarnRouterOffer';
 
 import type { IEarnDesktopHoldOffer } from '../../components/desktopHome/earnDesktopHome.utils';
 import type { IEarnGuideStep } from '../../components/desktopHome/earnGuide.utils';
@@ -233,6 +236,88 @@ function GasStep({
   );
 }
 
+// A vault as the guide names it: its own name first, the protocol under it
+// (a market or a fixed rate keeps the protocol first), rate and TVL at the
+// end. Step 2 lists them as choices, as the Swap page lists its routes: every
+// option a card in view, the one picked a lighter card with a check, no
+// border, so a pick only moves the check
+function GuideVaultCard({
+  offer,
+  networkLogoURI,
+  isSelected = false,
+  onSelect,
+}: {
+  offer: IEarnDesktopHoldOffer;
+  networkLogoURI?: string;
+  isSelected?: boolean;
+  // A choice in step 2; without it the card only names the vault
+  onSelect?: (offer: IEarnDesktopHoldOffer) => void;
+}) {
+  const handlePress = useCallback(() => onSelect?.(offer), [offer, onSelect]);
+  const isChoice = Boolean(onSelect);
+  const { logoURI, name, nameAccessory, subtitle, aprElement, tvlText } =
+    buildOfferRowProps(offer);
+  const vaultName =
+    offer.kind === 'protocol' && !offer.isFixedRate
+      ? offer.item.provider.vaultName
+      : undefined;
+  return (
+    <XStack
+      testID={`earn-guide-vault-${offer.key}`}
+      role={isChoice ? 'radio' : undefined}
+      aria-checked={isChoice ? isSelected : undefined}
+      ai="center"
+      gap="$3"
+      px="$4"
+      py="$3.5"
+      bg={isSelected ? '$bgActive' : '$bgSubdued'}
+      borderRadius="$3"
+      borderCurve="continuous"
+      userSelect={isChoice ? 'none' : undefined}
+      cursor={isChoice ? 'pointer' : undefined}
+      hoverStyle={isChoice && !isSelected ? { bg: '$bgHover' } : undefined}
+      pressStyle={isChoice ? { bg: '$bgActive' } : undefined}
+      onPress={isChoice ? handlePress : undefined}
+      {...(isChoice ? buildKeyboardPressProps(handlePress, 2) : undefined)}
+    >
+      <ProtocolImage logoURI={logoURI} networkLogoURI={networkLogoURI} />
+      <YStack flex={1} minWidth={0} gap="$0.5">
+        <XStack ai="center" gap="$1.5" minWidth={0}>
+          {/* A long name takes a second line in a narrow window, as the
+              name is what tells the vaults apart */}
+          <SizableText size="$bodyLgMedium" numberOfLines={2} flexShrink={1}>
+            {vaultName || name}
+          </SizableText>
+          {nameAccessory}
+        </XStack>
+        {(vaultName ? name : subtitle) ? (
+          <SizableText size="$bodyMd" color="$textSubdued" numberOfLines={1}>
+            {vaultName ? name : subtitle}
+          </SizableText>
+        ) : null}
+      </YStack>
+      <YStack ai="flex-end" gap="$0.5" flexShrink={0}>
+        {aprElement}
+        {tvlText ? (
+          <SizableText size="$bodySm" color="$textSubdued">
+            {`TVL ${tvlText}`}
+          </SizableText>
+        ) : null}
+      </YStack>
+      {isChoice ? (
+        <Icon
+          name={isSelected ? 'CheckRadioSolid' : 'CirclePlaceholderOnOutline'}
+          color={isSelected ? '$iconSuccess' : '$iconSubdued'}
+          size="$6"
+          flexShrink={0}
+        />
+      ) : null}
+    </XStack>
+  );
+}
+
+const VAULT_OPTION_HEIGHT = 74;
+
 function VaultStep({
   offers,
   selected,
@@ -246,40 +331,41 @@ function VaultStep({
   isLoaded: boolean;
   onSelect: (offer: IEarnDesktopHoldOffer) => void;
 }) {
-  // The deposit modal's switcher, open as the step shows so the vaults are
-  // there to choose from; a pick folds it under its row
-  const [isOpen, setIsOpen] = useState(true);
-  const [listedWithout, setListedWithout] = useState<string>();
-  const handleOpenChange = useCallback(
-    (open: boolean) => {
-      if (open) {
-        setListedWithout(selected?.key);
-      }
-      setIsOpen(open);
-    },
-    [selected?.key],
+  // The PO's example first, the rest as the list ranks them
+  const ordered = useMemo(
+    () => [
+      ...offers.filter(isGuideVaultOffer),
+      ...offers.filter((offer) => !isGuideVaultOffer(offer)),
+    ],
+    [offers],
   );
+  let list = null;
+  if (ordered.length) {
+    list = (
+      <YStack role="radiogroup" aria-label={copy.guideVaultTitle} gap="$2">
+        {ordered.map((offer) => (
+          <GuideVaultCard
+            key={offer.key}
+            offer={offer}
+            isSelected={offer.key === selected?.key}
+            networkLogoURI={networkLogoURI}
+            onSelect={onSelect}
+          />
+        ))}
+      </YStack>
+    );
+  } else if (!isLoaded) {
+    list = (
+      <YStack gap="$2">
+        <Skeleton h={VAULT_OPTION_HEIGHT} w="100%" borderRadius="$3" />
+        <Skeleton h={VAULT_OPTION_HEIGHT} w="100%" borderRadius="$3" />
+      </YStack>
+    );
+  }
   return (
     <YStack gap="$5">
       <StepIntro title={copy.guideVaultTitle} body={copy.guideVaultBody} />
-      {selected ? (
-        <EarnOfferSwitcher
-          offers={offers}
-          selected={selected}
-          networkLogoURI={networkLogoURI}
-          isOpen={isOpen}
-          listedWithout={listedWithout ?? selected.key}
-          onOpenChange={handleOpenChange}
-          onSelect={(offer) => {
-            onSelect(offer);
-            setIsOpen(false);
-          }}
-        />
-      ) : (
-        <YStack h={64} ai="center" jc="center">
-          {isLoaded ? null : <Spinner size="small" />}
-        </YStack>
-      )}
+      {list}
     </YStack>
   );
 }
@@ -300,11 +386,7 @@ function DoneStep({
       <StepIntro title={copy.guideDoneTitle} body={copy.guideDoneBody} />
       {offer ? (
         <YStack gap="$3">
-          <EarnOfferSwitcher
-            offers={[offer]}
-            selected={offer}
-            networkLogoURI={networkLogoURI}
-          />
+          <GuideVaultCard offer={offer} networkLogoURI={networkLogoURI} />
           {shownAmount.gt(0) ? (
             <XStack
               testID="earn-guide-deposited"
