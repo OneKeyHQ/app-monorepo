@@ -1,10 +1,12 @@
 /** @jest-environment jsdom */
 
 import { useState } from 'react';
-import type { PropsWithChildren } from 'react';
+import type { Dispatch, PropsWithChildren, SetStateAction } from 'react';
 
 import { act, renderHook, waitFor } from '@testing-library/react';
 
+import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusNames';
 import type {
   IDustSweepItem,
   IDustSweepNetwork,
@@ -14,7 +16,10 @@ import type {
   IDustSweepToken,
 } from '@onekeyhq/shared/types/swap/dustSweep';
 import type { ISwapProviderInfo } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
-import { EProtocolOfExchange } from '@onekeyhq/shared/types/swap/types';
+import {
+  EProtocolOfExchange,
+  ESwapTxHistoryStatus,
+} from '@onekeyhq/shared/types/swap/types';
 
 import { DustSweepProvider, useDustSweep } from './DustSweepProvider';
 import {
@@ -30,10 +35,20 @@ import {
 
 import type { IDustSweepState } from './stateMachine';
 
+let mockDeferPreferences = false;
+const mockWritePreferences = jest.fn();
+let mockSetPreferences: Dispatch<
+  SetStateAction<{ threshold: IDustSweepThreshold }>
+>;
+
 function useMockPreferences() {
-  return useState<{ threshold: IDustSweepThreshold }>({
+  const result = useState<{ threshold: IDustSweepThreshold }>({
     threshold: 10,
   });
+  mockSetPreferences = result[1];
+  return mockDeferPreferences
+    ? ([result[0], mockWritePreferences] as const)
+    : result;
 }
 
 let mockFocused = true;
@@ -64,6 +79,11 @@ jest.mock('./utils/loadNetworks', () => ({
 jest.mock('./hooks/useDustSweepSession', () => ({
   useDustSweepSession: jest.fn(),
 }));
+jest.mock('@onekeyhq/shared/src/eventBus/appEventBus', () => {
+  const { EventEmitter } =
+    jest.requireActual<typeof import('events')>('events');
+  return { appEventBus: new EventEmitter() };
+});
 
 const mockLoadNetworks = jest.mocked(loadDustSweepNetworks);
 const mockRefreshNetwork = jest.mocked(refreshDustSweepNetwork);
@@ -195,6 +215,7 @@ describe('Dust Sweep Provider request and selection ownership', () => {
     mockLoadNetworks.mockReset();
     mockRefreshNetwork.mockReset();
     mockFocused = true;
+    mockDeferPreferences = false;
     mockBatchSequence = 0;
     mockRefreshNetwork.mockImplementation(async ({ entry }) => entry);
     mockUseSession.mockImplementation(useMockSession);
@@ -202,6 +223,118 @@ describe('Dust Sweep Provider request and selection ownership', () => {
       networks: [base, ethereum],
       partialError: false,
     });
+  });
+
+  it('force-refreshes after returning without changing the network or manual selection', async () => {
+    const { result, rerender } = renderController();
+    await waitFor(() => expect(result.current.canStart).toBe(true));
+    act(() => result.current.selectThreshold(100));
+    act(() => {
+      result.current.toggle(base.tokens[1].key);
+      result.current.setSlippage(10);
+    });
+    expect(result.current.selected).toEqual([base.tokens[0]]);
+    expect(mockLoadNetworks).toHaveBeenCalledTimes(1);
+    mockFocused = false;
+    rerender();
+    const updated = {
+      ...base,
+      tokens: [
+        { ...base.tokens[0], amount: '0.3', valueUsd: '0.6' },
+        base.tokens[1],
+        { ...base.tokens[0], key: 'new-token' },
+      ],
+      balanceUsd: '1',
+    };
+    mockLoadNetworks.mockResolvedValueOnce({
+      networks: [ethereum, updated],
+      partialError: false,
+    });
+    mockFocused = true;
+    rerender();
+    await waitFor(() => expect(result.current.current).toBe(updated));
+    expect(mockLoadNetworks).toHaveBeenCalledTimes(2);
+    expect(mockLoadNetworks.mock.calls[1][3]).toEqual({
+      isManualRefresh: true,
+    });
+    expect(result.current.selected).toEqual([updated.tokens[0]]);
+    expect(result.current.slippage).toBe(10);
+    expect(result.current.threshold).toBe(100);
+    expect(result.current.canStart).toBe(true);
+  });
+
+  it('coalesces trade events during a pending load into a fresh round and blocks stale submission', async () => {
+    const first = deferredLoad();
+    const second = deferredLoad();
+    mockLoadNetworks
+      .mockReturnValueOnce(first.promise)
+      .mockReturnValueOnce(second.promise);
+    const { result } = renderController();
+    act(() => mockLoadNetworks.mock.calls[0][2]?.([ethereum]));
+    act(() => {
+      for (let i = 0; i < 3; i += 1)
+        appEventBus.emit(EAppEventBusNames.SwapTxHistoryStatusUpdate, {
+          status: ESwapTxHistoryStatus.SUCCESS,
+        });
+      result.current.start();
+    });
+    expect(mockLoadNetworks).toHaveBeenCalledTimes(1);
+    expect(result.current.session.state.snapshot).toBeUndefined();
+    await act(async () => {
+      first.resolve({ networks: [ethereum], partialError: false });
+      await first.promise;
+    });
+    expect(mockLoadNetworks).toHaveBeenCalledTimes(2);
+    expect(result.current.canStart).toBe(false);
+    expect(mockLoadNetworks.mock.calls[1][3]).toEqual({
+      isManualRefresh: true,
+    });
+    await act(async () => {
+      second.resolve({ networks: [base], partialError: false });
+      await second.promise;
+    });
+    expect(result.current.canStart).toBe(true);
+  });
+
+  it('defers hidden trade events until focus returns', async () => {
+    const { result, rerender } = renderController();
+    await waitFor(() => expect(result.current.canStart).toBe(true));
+    mockFocused = false;
+    rerender();
+    act(() => {
+      appEventBus.emit(EAppEventBusNames.SwapTxHistoryStatusUpdate, {
+        status: ESwapTxHistoryStatus.SUCCESS,
+      });
+    });
+    expect(mockLoadNetworks).toHaveBeenCalledTimes(1);
+    mockFocused = true;
+    rerender();
+    await waitFor(() => expect(mockLoadNetworks).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(result.current.canStart).toBe(true));
+  });
+
+  it('keeps an executing or paused snapshot intact and refreshes after stopping', async () => {
+    const { result, rerender } = renderController();
+    await waitFor(() => expect(result.current.canStart).toBe(true));
+    act(() => {
+      result.current.start();
+    });
+    const snapshot = result.current.session.state.snapshot;
+    mockFocused = false;
+    rerender();
+    act(() => {
+      appEventBus.emit(EAppEventBusNames.SwapTxHistoryStatusUpdate, {
+        status: ESwapTxHistoryStatus.SUCCESS,
+      });
+      result.current.session.pause();
+    });
+    mockFocused = true;
+    rerender();
+    expect(result.current.session.state.snapshot).toBe(snapshot);
+    expect(result.current.session.state.phase).toBe('paused');
+    expect(mockLoadNetworks).toHaveBeenCalledTimes(1);
+    await act(async () => result.current.stop());
+    await waitFor(() => expect(mockLoadNetworks).toHaveBeenCalledTimes(2));
   });
 
   it.each([0, 0.1, 4.999, 50.01, NaN, Infinity])(
@@ -1320,6 +1453,69 @@ describe('Dust Sweep Provider request and selection ownership', () => {
     expect(
       result.current.networks.map((entry) => entry.network.networkId),
     ).toEqual(['evm--8453', 'evm--42161']);
+  });
+
+  it('updates the threshold, candidates and selection before persistence echoes back', async () => {
+    mockDeferPreferences = true;
+    const { result } = renderController();
+    await waitFor(() => expect(result.current.canStart).toBe(true));
+    act(() => result.current.toggle(base.tokens[0].key));
+    expect(result.current.selected).toEqual([]);
+
+    act(() => result.current.selectThreshold(100));
+    expect(result.current.threshold).toBe(100);
+    expect(result.current.visible).toEqual(base.tokens);
+    expect(result.current.selected).toEqual(base.tokens);
+    expect(result.current.selectedValueUsd).toBe('52');
+    expect(mockWritePreferences).toHaveBeenCalledTimes(1);
+    expect(mockLoadNetworks).toHaveBeenCalledTimes(1);
+
+    act(() => mockSetPreferences({ threshold: 1 }));
+    expect(result.current.threshold).toBe(100);
+    expect(result.current.visible).toEqual(base.tokens);
+    expect(result.current.selected).toEqual(base.tokens);
+  });
+
+  it('keeps the last rapid threshold selection despite stale preference echoes', async () => {
+    mockDeferPreferences = true;
+    const { result } = renderController();
+    await waitFor(() => expect(result.current.canStart).toBe(true));
+
+    act(() => {
+      result.current.selectThreshold(100);
+      result.current.selectThreshold(1);
+      result.current.selectThreshold(10);
+    });
+    expect(result.current.threshold).toBe(10);
+    expect(result.current.visible).toEqual([base.tokens[0]]);
+    expect(mockWritePreferences).toHaveBeenCalledTimes(3);
+
+    act(() => mockSetPreferences({ threshold: 100 }));
+    expect(result.current.threshold).toBe(10);
+    expect(result.current.visible).toEqual([base.tokens[0]]);
+    act(() => mockSetPreferences({ threshold: 1 }));
+    expect(result.current.threshold).toBe(10);
+    expect(result.current.selected).toEqual([base.tokens[0]]);
+    expect(mockLoadNetworks).toHaveBeenCalledTimes(1);
+  });
+
+  it('uses hydrated preferences until the user chooses a threshold', async () => {
+    mockDeferPreferences = true;
+    const { result } = renderController();
+    await waitFor(() => expect(result.current.canStart).toBe(true));
+
+    act(() => mockSetPreferences({ threshold: 100 }));
+    expect(result.current.threshold).toBe(100);
+    expect(result.current.visible).toEqual(base.tokens);
+
+    act(() => result.current.selectThreshold(1));
+    expect(result.current.threshold).toBe(1);
+    expect(result.current.visible).toEqual([]);
+    expect(result.current.selectedValueUsd).toBe('0');
+    act(() => mockSetPreferences({ threshold: 10 }));
+    expect(result.current.threshold).toBe(1);
+    expect(result.current.visible).toEqual([]);
+    expect(mockLoadNetworks).toHaveBeenCalledTimes(1);
   });
 
   it('keeps an explicitly requested hidden network selected and visible in the picker', async () => {
