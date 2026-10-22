@@ -135,6 +135,7 @@ import {
   MPL_CORE_PROGRAM_ID,
   buildMplCoreTransferInstruction,
   decodeMplCoreTransferInstruction,
+  isMplCoreAssetFrozen,
   parseMplCoreAssetAccount,
   parseMplCoreCollectionAccount,
 } from './sdkSol/mplCore';
@@ -1306,7 +1307,7 @@ export default class Vault extends VaultBase {
     }
     // Marketplace listings and staking freeze the asset inside the wallet;
     // the program rejects the transfer, so fail before anything is signed.
-    if (asset.frozen || collection?.frozen) {
+    if (isMplCoreAssetFrozen({ asset, collection })) {
       throw new OneKeyLocalError(
         'Metaplex Core NFT is frozen and cannot be transferred',
       );

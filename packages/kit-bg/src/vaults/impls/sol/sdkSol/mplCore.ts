@@ -77,12 +77,14 @@ export type IMplCoreUpdateAuthority =
   | { type: 'address'; address: string }
   | { type: 'collection'; address: string };
 
-// Plugin-registry state shared by assets and collections. Both flags are
-// false when there is no plugin registry or it cannot be parsed; the program
-// is the final judge either way.
+// Plugin-registry state shared by assets and collections. Empty / false when
+// there is no plugin registry or it cannot be parsed; the program is the
+// final judge either way.
 export interface IMplCorePluginState {
-  // FreezeDelegate / PermanentFreezeDelegate state.
-  frozen: boolean;
+  // Frozen flag of each FreezeDelegate / PermanentFreezeDelegate plugin
+  // present on this account; absent plugins are omitted. Kept per type
+  // because the program resolves plugins by type, see isMplCoreAssetFrozen.
+  freezeState: Partial<Record<EMplCorePluginType, boolean>>;
   // An external plugin adapter (Oracle, LifecycleHook, ...) takes part in the
   // Transfer lifecycle. The program then expects extra accounts the wallet
   // does not derive, so such transfers cannot be built locally.
@@ -184,7 +186,7 @@ function readPluginState(
   baseLength: number,
 ): IMplCorePluginState {
   const none: IMplCorePluginState = {
-    frozen: false,
+    freezeState: {},
     hasExternalTransferPlugin: false,
   };
   if (data.length <= baseLength) {
@@ -200,7 +202,7 @@ function readPluginState(
     if (reader.u8() !== EMplCoreKey.PluginRegistryV1) {
       return none;
     }
-    let frozen = false;
+    const freezeState: IMplCorePluginState['freezeState'] = {};
     const recordCount = reader.u32();
     for (let i = 0; i < recordCount; i += 1) {
       const pluginType = reader.u8();
@@ -215,9 +217,7 @@ function readPluginState(
           // layout, do not trust anything read from this registry.
           return none;
         }
-        if (data.readUInt8(pluginOffset + 1) === 1) {
-          frozen = true;
-        }
+        freezeState[pluginType] = data.readUInt8(pluginOffset + 1) === 1;
       }
     }
     let hasExternalTransferPlugin = false;
@@ -245,7 +245,7 @@ function readPluginState(
         reader.u64(); // dataLen
       }
     }
-    return { frozen, hasExternalTransferPlugin };
+    return { freezeState, hasExternalTransferPlugin };
   } catch {
     // Out-of-range read: malformed or newer layout, leave it to the chain.
     return none;
@@ -292,6 +292,21 @@ export function parseMplCoreAssetAccount(data: Buffer): IMplCoreAssetInfo {
     uri,
     ...readPluginState(data, reader.offset),
   };
+}
+
+// Mirrors validate_asset_permissions: collection plugins are registered first
+// and an asset plugin of the same type replaces the collection entry, so a
+// frozen collection-level PermanentFreezeDelegate does not apply to an asset
+// that carries its own (unfrozen) PermanentFreezeDelegate.
+export function isMplCoreAssetFrozen({
+  asset,
+  collection,
+}: {
+  asset: IMplCorePluginState;
+  collection?: IMplCorePluginState | null;
+}): boolean {
+  const resolved = { ...collection?.freezeState, ...asset.freezeState };
+  return Object.values(resolved).some((frozen) => frozen === true);
 }
 
 // CollectionV1 { key u8 = 5, updateAuthority Pubkey, name String, uri String,

@@ -13,7 +13,7 @@ jest.mock('../../../dbs/local/localDbInstance', () => ({
 }));
 
 /* eslint-disable import/first */
-import { MPL_CORE_PROGRAM_ID } from './sdkSol/mplCore';
+import { EMplCorePluginType, MPL_CORE_PROGRAM_ID } from './sdkSol/mplCore';
 import SolVault from './Vault';
 
 import type {
@@ -46,7 +46,7 @@ const coreAssetInfo: IMplCoreAssetInfo = {
   updateAuthority: { type: 'collection', address: COLLECTION },
   name: 'Collector Crypt Pack #342',
   uri: 'https://example.com/342.json',
-  frozen: false,
+  freezeState: {},
   hasExternalTransferPlugin: false,
 };
 
@@ -54,7 +54,7 @@ const coreCollectionInfo: IMplCoreCollectionInfo = {
   updateAuthority: COLLECTION_UPDATE_AUTHORITY,
   name: 'Collector Crypt Pack',
   uri: 'https://example.com/collection.json',
-  frozen: false,
+  freezeState: {},
   hasExternalTransferPlugin: false,
 };
 
@@ -126,7 +126,7 @@ describe('SolVault._resolveMplCoreAsset', () => {
       updateAuthority: { type: 'collection', address: COLLECTION },
       name: 'Collector Crypt Pack #342',
       uri: 'https://bafybeigid43zecqrks4e2cjarlmtafppchfqhswgbwoppoup5pgm5qz7n4.ipfs.w3s.link/342.json',
-      frozen: false,
+      freezeState: {},
       hasExternalTransferPlugin: false,
     });
     expect(getAccountInfo).toHaveBeenCalledWith({
@@ -179,7 +179,8 @@ describe('SolVault._resolveMplCoreCollection', () => {
       updateAuthority: COLLECTION_UPDATE_AUTHORITY,
       name: 'Collector Crypt Pack',
       uri: 'https://bafybeigid43zecqrks4e2cjarlmtafppchfqhswgbwoppoup5pgm5qz7n4.ipfs.w3s.link/collection.json',
-      frozen: false,
+      // The mainnet collection carries an unfrozen PermanentFreezeDelegate.
+      freezeState: { [EMplCorePluginType.PermanentFreezeDelegate]: false },
       hasExternalTransferPlugin: false,
     });
   });
@@ -263,7 +264,10 @@ describe('SolVault._buildMplCoreNFTInstructions', () => {
     expect(() =>
       vault._buildMplCoreNFTInstructions({
         ...params,
-        asset: { ...coreAssetInfo, frozen: true },
+        asset: {
+          ...coreAssetInfo,
+          freezeState: { [EMplCorePluginType.FreezeDelegate]: true },
+        },
         collection: coreCollectionInfo,
       }),
     ).toThrow('Metaplex Core NFT is frozen and cannot be transferred');
@@ -271,9 +275,30 @@ describe('SolVault._buildMplCoreNFTInstructions', () => {
       vault._buildMplCoreNFTInstructions({
         ...params,
         asset: coreAssetInfo,
-        collection: { ...coreCollectionInfo, frozen: true },
+        collection: {
+          ...coreCollectionInfo,
+          freezeState: { [EMplCorePluginType.PermanentFreezeDelegate]: true },
+        },
       }),
     ).toThrow('Metaplex Core NFT is frozen and cannot be transferred');
+  });
+
+  it('lets the asset override a frozen collection-level PermanentFreezeDelegate', () => {
+    const vault = buildVault({});
+    const instructions = vault._buildMplCoreNFTInstructions({
+      asset: {
+        ...coreAssetInfo,
+        freezeState: { [EMplCorePluginType.PermanentFreezeDelegate]: false },
+      },
+      collection: {
+        ...coreCollectionInfo,
+        freezeState: { [EMplCorePluginType.PermanentFreezeDelegate]: true },
+      },
+      assetId: new PublicKey(ASSET_ID),
+      source: new PublicKey(OWNER),
+      destination: new PublicKey(TO),
+    });
+    expect(instructions).toHaveLength(1);
   });
 
   it('rejects an asset or collection with an external Transfer plugin', () => {

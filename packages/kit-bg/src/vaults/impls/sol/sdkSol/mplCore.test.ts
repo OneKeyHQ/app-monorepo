@@ -16,6 +16,7 @@ import {
   MPL_CORE_PROGRAM_ID,
   buildMplCoreTransferInstruction,
   decodeMplCoreTransferInstruction,
+  isMplCoreAssetFrozen,
   parseMplCoreAssetAccount,
   parseMplCoreCollectionAccount,
 } from './mplCore';
@@ -162,7 +163,7 @@ describe('parseMplCoreAssetAccount', () => {
       updateAuthority: { type: 'collection', address: ASSET.collection },
       name: ASSET.name,
       uri: ASSET.uri,
-      frozen: false,
+      freezeState: {},
       hasExternalTransferPlugin: false,
     });
   });
@@ -175,7 +176,7 @@ describe('parseMplCoreAssetAccount', () => {
       address: GALXE.updateAuthority,
     });
     expect(parsed.name).toBe(GALXE.name);
-    expect(parsed.frozen).toBe(false);
+    expect(parsed.freezeState).toEqual({});
     expect(parsed.hasExternalTransferPlugin).toBe(false);
   });
 
@@ -185,7 +186,9 @@ describe('parseMplCoreAssetAccount', () => {
       pluginType: EMplCorePluginType.FreezeDelegate,
       frozen: true,
     });
-    expect(parseMplCoreAssetAccount(data).frozen).toBe(true);
+    expect(parseMplCoreAssetAccount(data).freezeState).toEqual({
+      [EMplCorePluginType.FreezeDelegate]: true,
+    });
   });
 
   it('reports frozen for a frozen PermanentFreezeDelegate held by an address authority', () => {
@@ -195,7 +198,9 @@ describe('parseMplCoreAssetAccount', () => {
       frozen: true,
       authorityTag: 3,
     });
-    expect(parseMplCoreAssetAccount(data).frozen).toBe(true);
+    expect(parseMplCoreAssetAccount(data).freezeState).toEqual({
+      [EMplCorePluginType.PermanentFreezeDelegate]: true,
+    });
   });
 
   it('does not report frozen for an unfrozen FreezeDelegate plugin', () => {
@@ -204,7 +209,9 @@ describe('parseMplCoreAssetAccount', () => {
       pluginType: EMplCorePluginType.FreezeDelegate,
       frozen: false,
     });
-    expect(parseMplCoreAssetAccount(data).frozen).toBe(false);
+    expect(parseMplCoreAssetAccount(data).freezeState).toEqual({
+      [EMplCorePluginType.FreezeDelegate]: false,
+    });
   });
 
   it('ignores a plugin registry it cannot parse', () => {
@@ -214,20 +221,20 @@ describe('parseMplCoreAssetAccount', () => {
       frozen: true,
       headerKey: 9,
     });
-    expect(parseMplCoreAssetAccount(badHeader).frozen).toBe(false);
+    expect(parseMplCoreAssetAccount(badHeader).freezeState).toEqual({});
     const tagMismatch = withPlugin({
       base: assetBuffer,
       pluginType: EMplCorePluginType.FreezeDelegate,
       frozen: true,
       pluginTag: EMplCorePluginType.Royalties,
     });
-    expect(parseMplCoreAssetAccount(tagMismatch).frozen).toBe(false);
+    expect(parseMplCoreAssetAccount(tagMismatch).freezeState).toEqual({});
     const truncated = withPlugin({
       base: assetBuffer,
       pluginType: EMplCorePluginType.FreezeDelegate,
       frozen: true,
     }).subarray(0, assetBuffer.length + 12);
-    expect(parseMplCoreAssetAccount(truncated).frozen).toBe(false);
+    expect(parseMplCoreAssetAccount(truncated).freezeState).toEqual({});
   });
 
   it('reports an external adapter that takes part in Transfer', () => {
@@ -244,7 +251,7 @@ describe('parseMplCoreAssetAccount', () => {
     });
     expect(parseMplCoreAssetAccount(oracle)).toEqual(
       expect.objectContaining({
-        frozen: false,
+        freezeState: { [EMplCorePluginType.FreezeDelegate]: false },
         hasExternalTransferPlugin: true,
       }),
     );
@@ -269,7 +276,7 @@ describe('parseMplCoreAssetAccount', () => {
     });
     expect(parseMplCoreAssetAccount(hook)).toEqual(
       expect.objectContaining({
-        frozen: true,
+        freezeState: { [EMplCorePluginType.FreezeDelegate]: true },
         hasExternalTransferPlugin: true,
       }),
     );
@@ -310,7 +317,7 @@ describe('parseMplCoreAssetAccount', () => {
     });
     expect(parseMplCoreAssetAccount(data)).toEqual(
       expect.objectContaining({
-        frozen: false,
+        freezeState: {},
         hasExternalTransferPlugin: false,
       }),
     );
@@ -343,7 +350,7 @@ describe('parseMplCoreCollectionAccount', () => {
       updateAuthority: COLLECTION.updateAuthority,
       name: COLLECTION.name,
       uri: COLLECTION.uri,
-      frozen: false,
+      freezeState: { [EMplCorePluginType.PermanentFreezeDelegate]: false },
       hasExternalTransferPlugin: false,
     });
   });
@@ -354,7 +361,9 @@ describe('parseMplCoreCollectionAccount', () => {
       pluginType: EMplCorePluginType.PermanentFreezeDelegate,
       frozen: true,
     });
-    expect(parseMplCoreCollectionAccount(data).frozen).toBe(true);
+    expect(parseMplCoreCollectionAccount(data).freezeState).toEqual({
+      [EMplCorePluginType.PermanentFreezeDelegate]: true,
+    });
   });
 
   it('reports a collection-level Oracle on Transfer', () => {
@@ -381,6 +390,61 @@ describe('parseMplCoreCollectionAccount', () => {
     expect(() =>
       parseMplCoreCollectionAccount(collectionBuffer.subarray(0, 40)),
     ).toThrow('Invalid Metaplex Core collection account');
+  });
+});
+
+describe('isMplCoreAssetFrozen', () => {
+  const { FreezeDelegate, PermanentFreezeDelegate } = EMplCorePluginType;
+  const state = (
+    freezeState: Partial<Record<EMplCorePluginType, boolean>>,
+  ) => ({
+    freezeState,
+    hasExternalTransferPlugin: false,
+  });
+
+  it('is frozen when any plugin on the asset is frozen', () => {
+    expect(isMplCoreAssetFrozen({ asset: state({}) })).toBe(false);
+    expect(
+      isMplCoreAssetFrozen({ asset: state({ [FreezeDelegate]: false }) }),
+    ).toBe(false);
+    expect(
+      isMplCoreAssetFrozen({ asset: state({ [FreezeDelegate]: true }) }),
+    ).toBe(true);
+    expect(
+      isMplCoreAssetFrozen({
+        asset: state({
+          [FreezeDelegate]: false,
+          [PermanentFreezeDelegate]: true,
+        }),
+      }),
+    ).toBe(true);
+  });
+
+  it('applies a frozen collection plugin only when the asset has none of that type', () => {
+    const frozenCollection = state({ [PermanentFreezeDelegate]: true });
+    expect(
+      isMplCoreAssetFrozen({ asset: state({}), collection: frozenCollection }),
+    ).toBe(true);
+    // Plugins on the asset override the collection plugins.
+    expect(
+      isMplCoreAssetFrozen({
+        asset: state({ [PermanentFreezeDelegate]: false }),
+        collection: frozenCollection,
+      }),
+    ).toBe(false);
+    // A different plugin type does not override it.
+    expect(
+      isMplCoreAssetFrozen({
+        asset: state({ [FreezeDelegate]: false }),
+        collection: frozenCollection,
+      }),
+    ).toBe(true);
+    expect(
+      isMplCoreAssetFrozen({
+        asset: state({}),
+        collection: state({ [PermanentFreezeDelegate]: false }),
+      }),
+    ).toBe(false);
   });
 });
 
