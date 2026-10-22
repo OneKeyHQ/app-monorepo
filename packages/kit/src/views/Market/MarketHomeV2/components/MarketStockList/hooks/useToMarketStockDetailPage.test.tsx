@@ -1,4 +1,5 @@
 /** @jest-environment jsdom */
+import { StackRouter } from '@react-navigation/routers';
 import { act, renderHook } from '@testing-library/react';
 
 import { navigateToMarketTokenDetail } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/TokenSelector/navigateToMarketTokenDetail';
@@ -9,6 +10,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IMarketStockDetailRouteParams } from '@onekeyhq/shared/src/routes';
 import {
   ERootRoutes,
+  ETabDiscoveryRoutes,
   ETabMarketRoutes,
   ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
@@ -50,12 +52,19 @@ jest.mock('@onekeyhq/shared/src/travelMode', () => ({
     }),
   },
 }));
-jest.mock('@react-navigation/native', () => ({
-  useRoute: () => ({
-    name: mockCurrentRouteName,
-    params: mockCurrentRouteParams,
-  }),
-}));
+jest.mock('@react-navigation/native', () => {
+  const { CommonActions, StackActions } = jest.requireActual<
+    typeof import('@react-navigation/routers')
+  >('@react-navigation/routers');
+  return {
+    CommonActions,
+    StackActions,
+    useRoute: () => ({
+      name: mockCurrentRouteName,
+      params: mockCurrentRouteParams,
+    }),
+  };
+});
 jest.mock('@onekeyhq/kit/src/hooks/useAppNavigation', () => ({
   __esModule: true,
   default: () => ({
@@ -72,6 +81,11 @@ const mockOpenExtensionMarketStockDetail = jest.fn<Promise<void>, [unknown]>(
 );
 const mockPreloadMarketDetailV2Page = jest.fn(() => Promise.resolve());
 const mockGetRootState = jest.fn();
+const mockGetCurrentRoute = jest.fn();
+type IStackAction = Parameters<
+  ReturnType<typeof StackRouter>['getStateForAction']
+>[1];
+const mockDispatch = jest.fn<void, [IStackAction]>();
 
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
@@ -88,6 +102,8 @@ jest.mock('@onekeyhq/components', () => ({
   rootNavigationRef: {
     current: {
       getRootState: (): unknown => mockGetRootState() as unknown,
+      getCurrentRoute: (): unknown => mockGetCurrentRoute() as unknown,
+      dispatch: (action: IStackAction) => mockDispatch(action),
       navigate: jest.fn(),
     },
   },
@@ -211,7 +227,9 @@ describe('useToMarketStockDetailPage', () => {
     mockIsModalPage = false;
     mockCurrentRouteName = ETabMarketRoutes.MarketDetailV2;
     mockCurrentRouteParams = undefined;
-    mockGetRootState.mockReturnValue(undefined);
+    mockGetRootState.mockReset().mockReturnValue(undefined);
+    mockGetCurrentRoute.mockReset().mockReturnValue(undefined);
+    mockDispatch.mockReset();
   });
 
   afterEach(() => {
@@ -490,6 +508,94 @@ describe('useToMarketStockDetailPage', () => {
     });
   });
 
+  it.each([
+    ETabMarketRoutes.MarketDetailV2,
+    ETabMarketRoutes.MarketNativeDetail,
+    ETabMarketRoutes.MarketStockDetail,
+  ])(
+    'replaces %s after dismissing the native stock selector',
+    async (sourceName) => {
+      mockIsModalPage = true;
+      mockedPlatformEnv.isNative = true;
+      mockedPlatformEnv.isDesktop = false;
+      mockCurrentRouteName = 'MobileTokenSelector';
+      const router = StackRouter({});
+      const config = {
+        routeNames: [
+          ETabDiscoveryRoutes.TabDiscovery,
+          ETabMarketRoutes.MarketDetailV2,
+          ETabMarketRoutes.MarketNativeDetail,
+          ETabMarketRoutes.MarketStockDetail,
+        ],
+        routeParamList: {},
+        routeGetIdList: {},
+      };
+      let stack: ReturnType<typeof router.getInitialState> = {
+        ...router.getInitialState(config),
+        key: 'discovery-stack',
+        index: 1,
+        routes: [
+          { key: 'list', name: ETabDiscoveryRoutes.TabDiscovery },
+          {
+            key: 'old-detail',
+            name: sourceName,
+            params:
+              sourceName === ETabMarketRoutes.MarketStockDetail
+                ? { stockId: 'AAPL' }
+                : { tokenAddress: '0xtoken', network: 'eth' },
+          },
+        ],
+      };
+      let isModalOpen = true;
+      mockGetRootState.mockImplementation(() => ({
+        key: 'root',
+        index: isModalOpen ? 1 : 0,
+        routes: [
+          { name: ERootRoutes.Main, state: stack },
+          ...(isModalOpen ? [{ name: 'MobileTokenSelector' }] : []),
+        ],
+      }));
+      mockGetCurrentRoute.mockImplementation(() =>
+        isModalOpen
+          ? { name: 'MobileTokenSelector' }
+          : stack.routes[stack.index],
+      );
+      mockSwitchTabAsync.mockImplementationOnce(async () => {
+        await Promise.resolve();
+        isModalOpen = false;
+      });
+      mockDispatch.mockImplementation((action) => {
+        expect(isModalOpen).toBe(false);
+        const next = router.getStateForAction(stack, action, config);
+        if (next) stack = router.getRehydratedState(next, config);
+      });
+      const { result } = renderHook(() =>
+        useToMarketStockDetailPage({ replaceCurrentDetail: true }),
+      );
+
+      await act(async () => {
+        await expect(result.current('NVDA')).resolves.toBe(true);
+      });
+
+      expect(stack.routes.map((route) => route.name)).toEqual([
+        ETabDiscoveryRoutes.TabDiscovery,
+        ETabMarketRoutes.MarketStockDetail,
+      ]);
+      expect(stack.routes[1].params).toEqual(
+        expect.objectContaining({ stockId: 'NVDA' }),
+      );
+      expect(mockNavigate).not.toHaveBeenCalled();
+      const afterBack = router.getStateForAction(
+        stack,
+        { type: 'POP', payload: { count: 1 } },
+        config,
+      );
+      expect(afterBack?.routes.map((route) => route.name)).toEqual([
+        ETabDiscoveryRoutes.TabDiscovery,
+      ]);
+    },
+  );
+
   it('cancels native stock navigation when the selector is dismissed during preload', async () => {
     mockIsModalPage = true;
     mockedPlatformEnv.isNative = true;
@@ -670,7 +776,10 @@ describe('useToMarketStockDetailPage', () => {
 
     expect(mockPrepareStockTokenDetail).not.toHaveBeenCalled();
     expect(mockSwitchTabAsync).toHaveBeenCalledWith(ETabRoutes.Discovery);
-    expect(mockNavigate).toHaveBeenCalled();
+    expect(mockNavigate).not.toHaveBeenCalled();
+    expect(mockDispatch).toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'SET_PARAMS', source: 'stock-detail' }),
+    );
   });
 
   it('preserves the selected stock preview in the detail route seed', async () => {
