@@ -284,6 +284,12 @@ const isFilterErrorAndSkipSentry = (error?: {
   if (error.type && FILTERED_ERROR_TYPES.has(error.type)) {
     return true;
   }
+  if (
+    error.type === 'CanceledError' &&
+    error.value === 'Home token request superseded'
+  ) {
+    return true;
+  }
 
   // Desktop-specific error filters (grouped to avoid redundant platform checks)
   if (platformEnv.isDesktop && error.value) {
