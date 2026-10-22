@@ -3,8 +3,6 @@ import { createIntl } from 'react-intl';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
-  EModalRoutes,
-  EModalSwapRoutes,
   ERootRoutes,
   ETabHomeRoutes,
   ETabRoutes,
@@ -60,9 +58,6 @@ const routeParams: IDustSweepRouteParams = {
   networkId: 'evm--1',
   entry: 'tokenListHeader',
 };
-const pushModal: Parameters<
-  typeof navigateToDustSweep
->[0]['navigation']['pushModal'] = jest.fn();
 
 beforeEach(() => {
   jest.clearAllMocks();
@@ -77,24 +72,19 @@ it.each(['isExtensionUiPopup', 'isExtensionUiSidePanel'] as const)(
     await navigateToDustSweep({
       params: routeParams,
       intl,
-      navigation: { pushModal },
-      isLargeScreen: true,
     });
     expect(mockExpand).toHaveBeenCalledWith({
       path: '/dust-sweep',
       params: routeParams,
     });
     expect(mockNavigate).not.toHaveBeenCalled();
-    expect(pushModal).not.toHaveBeenCalled();
   },
 );
 
-it('opens the desktop Home route with its existing pop behavior', async () => {
+it('opens the Home sub page with its existing pop behavior', async () => {
   await navigateToDustSweep({
     params: routeParams,
     intl,
-    navigation: { pushModal },
-    isLargeScreen: true,
   });
   expect(mockNavigate).toHaveBeenCalledWith(
     ERootRoutes.Main,
@@ -104,22 +94,8 @@ it('opens the desktop Home route with its existing pop behavior', async () => {
     },
     { pop: true },
   );
-  expect(pushModal).not.toHaveBeenCalled();
 });
 
-it('opens the mobile Swap modal with the original account and network', async () => {
-  await navigateToDustSweep({
-    params: routeParams,
-    intl,
-    navigation: { pushModal },
-    isLargeScreen: false,
-  });
-  expect(pushModal).toHaveBeenCalledWith(EModalRoutes.SwapModal, {
-    screen: EModalSwapRoutes.DustSweep,
-    params: routeParams,
-  });
-  expect(mockNavigate).not.toHaveBeenCalled();
-});
 it.each([
   { ...routeParams, walletId: undefined },
   { ...routeParams, accountId: undefined },
@@ -129,8 +105,6 @@ it.each([
   await navigateToDustSweep({
     params,
     intl,
-    navigation: { pushModal },
-    isLargeScreen: false,
   });
   expect(mockDialog).toHaveBeenCalledWith({
     title: 'Dust Sweep',
@@ -138,7 +112,6 @@ it.each([
     onConfirmText: 'Got it',
     showCancelButton: false,
   });
-  expect(pushModal).not.toHaveBeenCalled();
   expect(mockNavigate).not.toHaveBeenCalled();
   expect(mockExpand).not.toHaveBeenCalled();
 });
@@ -148,12 +121,17 @@ it('uses the indexed account only when no network is requested', async () => {
   await navigateToDustSweep({
     params,
     intl,
-    navigation: { pushModal },
-    isLargeScreen: false,
   });
-  expect(pushModal).toHaveBeenCalledWith(EModalRoutes.SwapModal, {
-    screen: EModalSwapRoutes.DustSweep,
-    params: { ...params, accountId: routeParams.indexedAccountId },
-  });
+  expect(mockNavigate).toHaveBeenCalledWith(
+    ERootRoutes.Main,
+    {
+      screen: ETabRoutes.Home,
+      params: {
+        screen: ETabHomeRoutes.TabHomeDustSweep,
+        params: { ...params, accountId: routeParams.indexedAccountId },
+      },
+    },
+    { pop: true },
+  );
   expect(mockDialog).not.toHaveBeenCalled();
 });

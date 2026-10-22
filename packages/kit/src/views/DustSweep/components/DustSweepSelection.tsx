@@ -21,13 +21,24 @@ import { DustSweepFilters } from './DustSweepFilters';
 import { DUST_SWEEP_ACTION_HEIGHT } from './DustSweepSummary';
 import { DUST_SWEEP_ROW_HEIGHT, DustSweepTokenRow } from './DustSweepTokenRow';
 
-// One fixed desktop height for every step (Add anyway, sweeping, result) so
-// the cards never jump; longer lists scroll inside.
-const DUST_SWEEP_DESKTOP_CARD_HEIGHT = 712;
+// Desktop cards fill the window height between these bounds. The height only
+// depends on the window, so it stays the same for every step (Add anyway,
+// sweeping, result) and longer lists scroll inside. Below the minimum, which
+// still fits the completed result with all three skip-reason groups (~547px),
+// the page scrolls instead.
+export const DUST_SWEEP_DESKTOP_CARD_MAX_HEIGHT = 712;
+export const DUST_SWEEP_DESKTOP_CARD_MIN_HEIGHT = 560;
 // The mobile direction circle straddles the list / footer border.
 export const DUST_SWEEP_MOBILE_DIRECTION_SIZE = 36;
 
-export function DustSweepSelection({ desktop }: { desktop: boolean }) {
+export function DustSweepSelection({
+  desktop,
+  obscuredBottom = 0,
+}: {
+  desktop: boolean;
+  // Height covered by the mobile live sheet while sweeping.
+  obscuredBottom?: number;
+}) {
   const {
     current,
     visible,
@@ -49,7 +60,15 @@ export function DustSweepSelection({ desktop }: { desktop: boolean }) {
   const rows = selecting
     ? visible
     : session.state.items.map((item) => item.token);
-  const bottomInset = desktop ? 0 : DUST_SWEEP_MOBILE_DIRECTION_SIZE / 2;
+  // Mobile keeps the active row clear of the direction circle while selecting
+  // and above the live sheet while sweeping; the same inset pads the list end
+  // so the last rows can scroll out from under it.
+  let bottomInset = 0;
+  if (!desktop)
+    bottomInset = Math.max(
+      DUST_SWEEP_MOBILE_DIRECTION_SIZE / 2,
+      selecting ? 0 : obscuredBottom,
+    );
   const { scrollViewRef, onRowsLayout, ...scrollProps } =
     useDustSweepActiveItemScroll({
       state: session.state,
@@ -92,8 +111,10 @@ export function DustSweepSelection({ desktop }: { desktop: boolean }) {
               flexShrink: 0,
             })}
       >
+        {/* A step below the token rows (16/14): it is a secondary prompt, and
+            the title matches the 14px "Add anyway" button beside it. */}
         <YStack flex={1}>
-          <SizableText size="$bodyLg">
+          <SizableText size="$bodyMd">
             {intl.formatMessage(
               { id: ETranslations.sweep_hidden_tokens_below_amount },
               {
@@ -132,13 +153,11 @@ export function DustSweepSelection({ desktop }: { desktop: boolean }) {
             borderRadius: '$5',
             // Same halo as the desktop Swap cards.
             '$platform-web': SWAP_DESKTOP_CARD_SHADOW_WEB_STYLE,
-            height: DUST_SWEEP_DESKTOP_CARD_HEIGHT,
-            maxHeight: '100%',
           }
         : {})}
     >
       {desktop ? (
-        // Mirrors the "You receive" label position in the summary card.
+        // Mirrors the "Estimate received" label position in the summary card.
         <SizableText
           size="$bodyMd"
           color="$textSubdued"
