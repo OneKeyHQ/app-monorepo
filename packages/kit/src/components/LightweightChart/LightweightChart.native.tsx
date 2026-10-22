@@ -7,7 +7,7 @@ import {
   useState,
 } from 'react';
 
-import { AppState, View } from 'react-native';
+import { AppState, UIManager, View } from 'react-native';
 import { runOnJS, useAnimatedReaction } from 'react-native-reanimated';
 import WebView from 'react-native-webview';
 import { useDebouncedCallback } from 'use-debounce';
@@ -89,6 +89,7 @@ export function LightweightChart({
   locale,
   hideCrosshairPriceLabel,
   pulseLastPoint,
+  nativeScrubOptions,
   onHover,
 }: ILightweightChartProps) {
   const webViewRef = useRef<WebView>(null);
@@ -144,8 +145,17 @@ export function LightweightChart({
       showLastValue: !!showLastValue,
       hideCrosshairPriceLabel,
       pulseLastPoint: !!pulseLastPoint,
+      nativeScrubOptions,
+      notifyOnHover: !!onHover,
     }),
-    [chartConfig, hideCrosshairPriceLabel, pulseLastPoint, showLastValue],
+    [
+      chartConfig,
+      hideCrosshairPriceLabel,
+      pulseLastPoint,
+      showLastValue,
+      nativeScrubOptions,
+      onHover,
+    ],
   );
   const latestConfigRef = useRef(nativeConfig);
   latestConfigRef.current = nativeConfig;
@@ -235,12 +245,33 @@ export function LightweightChart({
   );
 
   const headerTranslateY = tabsContext?.headerTranslateY;
+  const needsLegacyRemountRef = useRef(false);
+  const supportsNativeLayout = useMemo(() => {
+    if (!platformEnv.isNativeIOS) return false;
+    // OTA JS may expose the ref method even when the native shell lacks it.
+    const viewConfig = UIManager.getViewManagerConfig('RNCWebView') as {
+      Commands?: { requestLayout?: number };
+    } | null;
+    return viewConfig?.Commands?.requestLayout !== undefined;
+  }, []);
   const syncNativeLayout = useDebouncedCallback(() => {
-    webViewRef.current?.requestLayout?.();
+    if (supportsNativeLayout) {
+      webViewRef.current?.requestLayout?.();
+    } else if (needsLegacyRemountRef.current) {
+      // Older shells need one visible remount if initialization happened offscreen.
+      needsLegacyRemountRef.current = false;
+      handleContentProcessGone();
+    }
   }, 100);
   const cancelNativeLayout = useCallback(() => {
     syncNativeLayout.cancel();
   }, [syncNativeLayout]);
+  const handleHeaderHidden = useCallback(() => {
+    cancelNativeLayout();
+    if (!supportsNativeLayout && !webViewReady) {
+      needsLegacyRemountRef.current = true;
+    }
+  }, [cancelNativeLayout, supportsNativeLayout, webViewReady]);
   const syncVisibleHeader = !!platformEnv.isNativeIOS;
 
   // WKWebView does not receive geometry notifications when its ancestor moves.
@@ -255,11 +286,11 @@ export function LightweightChart({
       if (offset < headerHeight) {
         runOnJS(syncNativeLayout)();
       } else {
-        runOnJS(cancelNativeLayout)();
+        runOnJS(handleHeaderHidden)();
       }
     },
     [
-      cancelNativeLayout,
+      handleHeaderHidden,
       headerHeight,
       headerTranslateY,
       syncNativeLayout,

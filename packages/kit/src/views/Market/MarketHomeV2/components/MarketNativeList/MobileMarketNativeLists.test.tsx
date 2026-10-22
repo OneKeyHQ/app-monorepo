@@ -1,6 +1,6 @@
 /** @jest-environment jsdom */
 
-import type { PropsWithChildren, ReactElement } from 'react';
+import type { CSSProperties, PropsWithChildren, ReactElement } from 'react';
 
 import { act, render } from '@testing-library/react';
 
@@ -98,6 +98,7 @@ const mockLoadMore = jest.fn();
 let mockCanLoadMore = false;
 let mockIsLoadMoreError = false;
 let mockIsNativeAndroid = false;
+let mockEmptyWatchlist = false;
 const mockData: IMarketToken[] = [];
 const mockIntl = { formatMessage: ({ id }: { id: string }) => id };
 const mockTheme = Object.fromEntries(
@@ -176,6 +177,18 @@ jest.mock('react-native', () => ({
   Dimensions: { get: () => ({ width: 402, height: 874 }) },
   PixelRatio: { get: () => 3 },
   StyleSheet: { create: (styles: Record<string, unknown>) => styles },
+  ScrollView: ({
+    children,
+    testID,
+    contentContainerStyle,
+  }: PropsWithChildren<{
+    testID?: string;
+    contentContainerStyle?: CSSProperties;
+  }>) => (
+    <div data-testid={testID} style={contentContainerStyle}>
+      {children}
+    </div>
+  ),
 }));
 jest.mock('@onekeyhq/components', () => ({
   Stack: ({ children }: PropsWithChildren) => <div>{children}</div>,
@@ -260,7 +273,9 @@ jest.mock('../../../hooks/usePerpsNavigation', () => ({
   usePerpsNavigation: () => ({ navigateToPerps: jest.fn() }),
 }));
 jest.mock('../MarketPerpsList/hooks/useMarketPerpsTokenList', () => ({}));
-jest.mock('../MarketRecommendList', () => ({}));
+jest.mock('../MarketRecommendList', () => ({
+  MarketRecommendList: () => null,
+}));
 jest.mock('../MarketStockList/hooks/useMarketStockList', () => ({
   useMarketStockList: () => ({
     items: mockStockItems,
@@ -284,7 +299,7 @@ jest.mock('../MarketTokenList/components/InlineActionBar', () => ({
 }));
 jest.mock('../MarketTokenList/hooks/useMarketWatchlistTokenList', () => ({
   useMarketWatchlistTokenList: () => ({
-    data: mockWatchlistData,
+    data: mockEmptyWatchlist ? [] : mockWatchlistData,
     refetch: mockRefetch,
   }),
 }));
@@ -558,6 +573,32 @@ describe('MobileMarketNativeTokenList refresh', () => {
     expect(mockLoadMore).toHaveBeenCalledTimes(1);
   });
 });
+
+it.each([false, true])(
+  'keeps empty favorites content filling the viewport only on iOS (Android=%s)',
+  (isAndroid) => {
+    mockEmptyWatchlist = true;
+    mockIsNativeAndroid = isAndroid;
+    try {
+      const { getByTestId } = render(
+        <MobileMarketNativeWatchlist
+          listContainerProps={{
+            paddingBottom: 20,
+            emptyContentPaddingTop: 20,
+            emptyScrollContentMinHeight: 400,
+          }}
+        />,
+      );
+      const content = getByTestId('market-favorites-empty-scroll');
+      expect(content.style.flexGrow).toBe(isAndroid ? '' : '1');
+      expect(content.style.paddingTop).toBe('20px');
+      expect(content.style.minHeight).toBe('400px');
+    } finally {
+      mockEmptyWatchlist = false;
+      mockIsNativeAndroid = false;
+    }
+  },
+);
 
 describe('MobileMarketNativeWatchlist action anchor', () => {
   beforeEach(() => jest.clearAllMocks());

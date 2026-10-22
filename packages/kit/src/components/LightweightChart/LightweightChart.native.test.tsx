@@ -11,6 +11,10 @@ const mockReload = jest.fn();
 const mockInjectJavaScript = jest.fn();
 const mockMount = jest.fn();
 let mockIsIOS = true;
+let mockNativeCommands: { requestLayout?: number } | undefined = {
+  requestLayout: 0,
+};
+let mockSendReady: () => void;
 const mockReactions = new Set<{
   prepare: () => unknown;
   react: (value: unknown, previous: unknown) => void;
@@ -29,6 +33,10 @@ jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
 jest.mock('react-native', () => ({
   View: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
   AppState: { addEventListener: () => ({ remove: jest.fn() }) },
+  UIManager: {
+    getViewManagerConfig: () =>
+      mockNativeCommands ? { Commands: mockNativeCommands } : null,
+  },
 }));
 
 jest.mock('@onekeyhq/components', () => ({
@@ -66,21 +74,32 @@ jest.mock('react-native-reanimated', () => {
 
 jest.mock('react-native-webview', () => {
   const React = jest.requireActual<typeof import('react')>('react');
-  return React.forwardRef((_, ref) => {
-    React.useImperativeHandle(
+  return React.forwardRef(
+    (
+      {
+        onMessage,
+      }: {
+        onMessage: (event: { nativeEvent: { data: string } }) => void;
+      },
       ref,
-      () => ({
-        requestLayout: mockRequestLayout,
-        reload: mockReload,
-        injectJavaScript: mockInjectJavaScript,
-      }),
-      [],
-    );
-    React.useEffect(() => {
-      mockMount();
-    }, []);
-    return <div data-testid="native-webview" />;
-  });
+    ) => {
+      mockSendReady = () =>
+        onMessage({ nativeEvent: { data: '{"type":"ready"}' } });
+      React.useImperativeHandle(
+        ref,
+        () => ({
+          requestLayout: mockRequestLayout,
+          reload: mockReload,
+          injectJavaScript: mockInjectJavaScript,
+        }),
+        [],
+      );
+      React.useEffect(() => {
+        mockMount();
+      }, []);
+      return <div data-testid="native-webview" />;
+    },
+  );
 });
 
 jest.mock('./hooks/useChartConfig', () => ({
@@ -121,13 +140,15 @@ const mockTabs: ITabs = {
   headerTranslateY: { value: -519 },
 };
 
-function renderOffscreen() {
+function renderChart(offset = 2000) {
+  mockTabs.scrollYCurrent.value = offset;
+  mockTabs.headerTranslateY.value = -Math.min(offset, mockTabs.headerHeight);
   const view = render(
     <CollapsibleTabContext.Provider value={mockTabs}>
       <LightweightChart data={[]} height={345} />
     </CollapsibleTabContext.Provider>,
   );
-  moveHeader(mockTabs, 2000);
+  moveHeader(mockTabs, offset);
   return { ...view, tabs: mockTabs };
 }
 
@@ -135,6 +156,7 @@ beforeEach(() => {
   jest.useFakeTimers();
   jest.clearAllMocks();
   mockIsIOS = true;
+  mockNativeCommands = { requestLayout: 0 };
   mockTabs.scrollYCurrent.value = 2000;
   mockTabs.headerTranslateY.value = -519;
 });
@@ -144,7 +166,7 @@ afterEach(() => {
 });
 
 it('updates native layout after an offscreen-created chart returns, preserving its WebView', () => {
-  const { tabs } = renderOffscreen();
+  const { tabs } = renderChart();
   act(() => {
     jest.advanceTimersByTime(200);
   });
@@ -167,7 +189,7 @@ it('updates native layout after an offscreen-created chart returns, preserving i
 });
 
 it('synchronizes again when a partially returned header continues moving', () => {
-  const { tabs } = renderOffscreen();
+  const { tabs } = renderChart();
   moveHeader(tabs, 300);
   act(() => {
     jest.advanceTimersByTime(100);
@@ -181,7 +203,7 @@ it('synchronizes again when a partially returned header continues moving', () =>
 });
 
 it('cancels a pending layout when the chart leaves the viewport again', () => {
-  const { tabs } = renderOffscreen();
+  const { tabs } = renderChart();
   moveHeader(tabs, 300);
   moveHeader(tabs, 2000);
   act(() => {
@@ -191,7 +213,7 @@ it('cancels a pending layout when the chart leaves the viewport again', () => {
 });
 
 it('cancels a pending layout on unmount', () => {
-  const { tabs, unmount } = renderOffscreen();
+  const { tabs, unmount } = renderChart();
   moveHeader(tabs, 0);
   unmount();
   act(() => {
@@ -202,10 +224,67 @@ it('cancels a pending layout on unmount', () => {
 
 it('does not request iOS layout synchronization on Android', () => {
   mockIsIOS = false;
-  const { tabs } = renderOffscreen();
+  const { tabs } = renderChart();
   moveHeader(tabs, 0);
   act(() => {
     jest.advanceTimersByTime(200);
   });
   expect(mockRequestLayout).not.toHaveBeenCalled();
+});
+
+it.each([{}, undefined])(
+  'remounts an offscreen-created chart once when the native command is absent (%j)',
+  (nativeCommands) => {
+    mockNativeCommands = nativeCommands;
+    const { tabs } = renderChart();
+    act(() => {
+      mockSendReady();
+    });
+    moveHeader(tabs, 0);
+    act(() => {
+      jest.advanceTimersByTime(100);
+    });
+    expect(mockRequestLayout).not.toHaveBeenCalled();
+    expect(mockMount).toHaveBeenCalledTimes(2);
+    act(() => {
+      mockSendReady();
+    });
+    moveHeader(tabs, 2000);
+    moveHeader(tabs, 0);
+    act(() => {
+      jest.advanceTimersByTime(100);
+    });
+    expect(mockMount).toHaveBeenCalledTimes(2);
+    expect(mockRequestLayout).not.toHaveBeenCalled();
+  },
+);
+
+it('preserves a chart loaded visibly on an older native shell', () => {
+  mockNativeCommands = {};
+  const { tabs } = renderChart(0);
+  act(() => {
+    mockSendReady();
+  });
+  moveHeader(tabs, 2000);
+  moveHeader(tabs, 0);
+  act(() => {
+    jest.advanceTimersByTime(100);
+  });
+  expect(mockRequestLayout).not.toHaveBeenCalled();
+  expect(mockMount).toHaveBeenCalledTimes(1);
+});
+
+it('recovers an older shell when the chart leaves during initial loading', () => {
+  mockNativeCommands = {};
+  const { tabs } = renderChart(0);
+  moveHeader(tabs, 2000);
+  act(() => {
+    mockSendReady();
+  });
+  moveHeader(tabs, 0);
+  act(() => {
+    jest.advanceTimersByTime(100);
+  });
+  expect(mockRequestLayout).not.toHaveBeenCalled();
+  expect(mockMount).toHaveBeenCalledTimes(2);
 });
