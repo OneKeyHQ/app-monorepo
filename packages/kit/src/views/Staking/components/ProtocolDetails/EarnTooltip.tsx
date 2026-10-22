@@ -12,6 +12,7 @@ import {
   Stack,
   XStack,
   YStack,
+  runAfterActionListClose,
   usePopoverContext,
 } from '@onekeyhq/components';
 import { Currency } from '@onekeyhq/kit/src/components/Currency';
@@ -37,11 +38,16 @@ function RewardAmountPopoverContent({
   onHistory?: (params?: { filterType?: string }) => void;
 }) {
   const { closePopover } = usePopoverContext();
-  const handleHistoryPress = useCallback(async () => {
-    await closePopover?.();
-    setTimeout(() => {
-      onHistory?.({ filterType: 'rebate' });
-    }, 50);
+  const handleHistoryPress = useCallback(() => {
+    void runAfterActionListClose(
+      () => closePopover?.(),
+      () => {
+        setTimeout(() => {
+          onHistory?.({ filterType: 'rebate' });
+        }, 50);
+      },
+      { waitForAnimation: false },
+    );
   }, [closePopover, onHistory]);
   return (
     <>
