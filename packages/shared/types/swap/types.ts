@@ -308,6 +308,7 @@ interface IFetchSwapQuoteBaseParams {
 export interface IFetchTokensParams {
   protocol?: string;
   networkId?: string;
+  contractSearchNetworkId?: string;
   keywords?: string;
   limit?: number;
   accountAddress?: string;

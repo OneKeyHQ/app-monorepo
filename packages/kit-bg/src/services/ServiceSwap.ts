@@ -795,6 +795,7 @@ export default class ServiceSwap extends ServiceBase {
   @backgroundMethod()
   async fetchSwapTokens({
     networkId,
+    contractSearchNetworkId,
     keywords,
     limit = 50,
     accountAddress,
@@ -913,9 +914,37 @@ export default class ServiceSwap extends ServiceBase {
         keywords && onlySwapTokens
           ? ['/swap/v1/tokens', '/swap/v1/swap-tokens']
           : ['/swap/v1/tokens'];
+      const requests = endpoints.map((endpoint) => ({
+        endpoint,
+        config: requestConfig,
+      }));
+      if (
+        keywords &&
+        contractSearchNetworkId &&
+        requestProtocol !== EProtocolOfExchange.STOCK &&
+        networkUtils.isAllNetwork({ networkId: targetNetworkId }) &&
+        !networkUtils.isAllNetwork({ networkId: contractSearchNetworkId })
+      ) {
+        // All-network discovery can miss a contract that the chain-specific
+        // lookup resolves. Keep that lookup alongside cross-network results.
+        requests.unshift({
+          endpoint: '/swap/v1/tokens',
+          config: {
+            ...requestConfig,
+            params: {
+              ...params,
+              networkId: contractSearchNetworkId,
+              accountAddress: undefined,
+              accountNetworkId: undefined,
+              accountXpub: undefined,
+              onlyAccountTokens: undefined,
+            },
+          },
+        });
+      }
       const responses = await Promise.allSettled(
-        endpoints.map((endpoint) =>
-          client.get<IFetchResponse<ISwapToken[]>>(endpoint, requestConfig),
+        requests.map(({ endpoint, config }) =>
+          client.get<IFetchResponse<ISwapToken[]>>(endpoint, config),
         ),
       );
       const canceledResponse = responses.find(
