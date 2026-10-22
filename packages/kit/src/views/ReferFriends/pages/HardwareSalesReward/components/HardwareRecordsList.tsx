@@ -1,9 +1,10 @@
 import { useIntl } from 'react-intl';
 
-import { Empty, SizableText, Spinner, YStack } from '@onekeyhq/components';
+import { SizableText, Spinner, YStack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IHardwareRecordItem } from '@onekeyhq/shared/src/referralCode/type';
 
+import { HardwareEmptyData } from './HardwareEmptyData';
 import { HardwareRecordCard } from './HardwareRecordCard';
 import { HardwareRecordTable } from './HardwareRecordTable';
 
@@ -32,19 +33,7 @@ export function HardwareRecordsList({
   }
 
   if (records.length === 0) {
-    return (
-      <YStack px="$5" gap="$3" pb="$5">
-        <Empty
-          illustration="BlockCoins"
-          title={intl.formatMessage({
-            id: ETranslations.referral_referred_empty,
-          })}
-          description={intl.formatMessage({
-            id: ETranslations.referral_referred_empty_desc,
-          })}
-        />
-      </YStack>
-    );
+    return <HardwareEmptyData />;
   }
 
   return (
