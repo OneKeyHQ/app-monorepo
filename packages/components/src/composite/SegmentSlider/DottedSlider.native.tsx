@@ -121,7 +121,9 @@ export function DottedSlider({
   const width = useSharedValue(0);
   const dragging = useSharedValue(false);
   const lastEmitted = useSharedValue(value);
-  const moved = useSharedValue(false);
+  const panActivated = useSharedValue(false);
+  const startingPosition = useSharedValue(value);
+  const startingValue = useSharedValue(value);
   const dragProgress = useDerivedValue<number>(() =>
     withTiming(dragging.value ? 1 : 0, {
       duration: 180,
@@ -147,6 +149,10 @@ export function DottedSlider({
     () => callbacksRef.current.onSlideComplete?.(),
     [],
   );
+  const restore = useCallback(
+    (next: number) => callbacksRef.current.onChange(next),
+    [],
+  );
   useEffect(() => {
     if (!dragging.value) {
       position.value = Math.max(min, Math.min(max, value));
@@ -160,7 +166,15 @@ export function DottedSlider({
     [width],
   );
   const gesture = useMemo(() => {
-    const update = (x: number, snap: boolean) => {
+    const commit = () => {
+      'worklet';
+      const next = Math.max(min, Math.min(max, Math.round(position.value)));
+      if (next !== lastEmitted.value) {
+        lastEmitted.value = next;
+        runOnJS(emit)(next);
+      }
+    };
+    const update = (x: number, snap: boolean, shouldCommit = true) => {
       'worklet';
       // The gesture surface stays fixed while its contents grow around the center.
       const localX =
@@ -179,59 +193,76 @@ export function DottedSlider({
       const nextPosition = Math.max(min, Math.min(max, min + fraction * range));
       // Keep motion continuous on the UI thread; only quantize business values.
       position.value = nextPosition;
-      const next = Math.max(min, Math.min(max, Math.round(nextPosition)));
-      if (next !== lastEmitted.value) {
-        lastEmitted.value = next;
-        runOnJS(emit)(next);
-      }
+      if (shouldCommit) commit();
     };
-    return Gesture.Pan()
+    const finish = (success: boolean) => {
+      'worklet';
+      if (!success) {
+        position.value = startingPosition.value;
+        if (lastEmitted.value !== startingValue.value) {
+          lastEmitted.value = startingValue.value;
+          runOnJS(restore)(startingValue.value);
+        }
+      }
+      dragging.value = false;
+      runOnJS(complete)();
+    };
+    const pan = Gesture.Pan()
       .enabled(!disabled)
-      .minDistance(0)
+      .minDistance(4)
       .onBegin((event) => {
+        startingPosition.value = position.value;
+        startingValue.value = lastEmitted.value;
         dragging.value = true;
+        panActivated.value = false;
         runOnJS(start)();
-        moved.value = false;
-        // A stationary press can finalize without activating the pan/onEnd.
-        update(event.x, snapTapToSegment);
+        // Preview immediately, but only recognized taps or drags change the form.
+        update(event.x, snapTapToSegment, false);
+      })
+      .onStart((event) => {
+        if (!dragging.value) {
+          dragging.value = true;
+          runOnJS(start)();
+        }
+        panActivated.value = true;
+        update(event.x, false);
       })
       .onUpdate((event) => {
-        if (
-          Math.abs(event.translationX) >= 4 ||
-          Math.abs(event.translationY) >= 4
-        ) {
-          moved.value = true;
-        }
-        if (!snapTapToSegment || moved.value) update(event.x, false);
+        update(event.x, false);
       })
-      .onEnd((event) => {
-        // Taps already commit on press. Growing the track must not move them on release.
-        if (
-          moved.value ||
-          Math.abs(event.translationX) >= 4 ||
-          Math.abs(event.translationY) >= 4
-        ) {
-          update(event.x, false);
-        }
+      .onEnd((event, success) => {
+        if (success) update(event.x, false);
       })
-      .onFinalize(() => {
-        dragging.value = false;
-        runOnJS(complete)();
+      .onFinalize((_event, success) => {
+        if (panActivated.value) finish(success);
       });
+    const tap = Gesture.Tap()
+      .enabled(!disabled)
+      .onEnd((_event, success) => {
+        // Keep the press preview stable while the track grows under the finger.
+        if (success) commit();
+      })
+      .onFinalize((_event, success) => {
+        if (!panActivated.value) finish(success);
+      });
+    return Gesture.Race(pan, tap);
   }, [
     disabled,
     dragProgress,
     dragging,
     emit,
     lastEmitted,
-    moved,
+    panActivated,
     max,
     min,
     position,
     range,
+    restore,
     segments,
     snapTapToSegment,
     start,
+    startingPosition,
+    startingValue,
     complete,
     width,
   ]);

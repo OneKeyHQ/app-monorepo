@@ -222,12 +222,37 @@ export async function navigateToPerps({
       };
       if (!proxy) return;
       try {
+        const { capturePerpsInstrumentChangeGuard } =
+          await import('@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/actions');
+        const isInstrumentCurrent = capturePerpsInstrumentChangeGuard();
+        const previousTarget =
+          await proxy.serviceHyperliquid.getActiveTradeInstrumentTarget();
+        if (!isCurrentTarget()) {
+          await clearPreparedTarget();
+          return;
+        }
         await proxy.serviceHyperliquid.changeActiveAsset({ coin });
-        if (!isCurrentTarget()) return;
+        const target =
+          await proxy.serviceHyperliquid.getActiveTradeInstrumentTarget();
+        const unchangedSpotTarget =
+          previousTarget.mode === 'spot' &&
+          target.mode === 'spot' &&
+          previousTarget.spotAsset?.coin === target.spotAsset?.coin;
+        if (
+          !isCurrentRequest() ||
+          target.perpAsset?.coin !== coin ||
+          (target.mode !== 'perp' &&
+            !(unchangedSpotTarget && isCurrentTarget()))
+        )
+          return;
+        if (!isCurrentTarget() && !isInstrumentCurrent()) return;
+        // A modal cancels the page push, but a committed BG target still needs
+        // its UI context aligned. Never restore a superseded instrument.
         appEventBus.emit(EAppEventBusNames.PerpSwitchActiveInstrument, {
           mode: 'perp',
           coin,
         });
+        if (!isCurrentTarget()) return;
         if (platformEnv.isNative || !gtMd) {
           await perpsCustomSettingsAtom.ready();
           const settings = await perpsCustomSettingsAtom.get();
