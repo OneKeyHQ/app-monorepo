@@ -6,7 +6,12 @@ import { getVolumeProfile } from './projectionGeometry';
 import type { IDrawingHistoryLoader } from './drawingHistory';
 import type { IDrawing, IDrawingProjection } from './model';
 
-type IHistoryEntry = { key: string; profile: IDrawing['volumeProfile'] };
+const HISTORY_RETRY_DELAYS_MS = [1000, 3000, 10_000];
+
+type IHistoryEntry = {
+  key: string;
+  profile: NonNullable<IDrawing['volumeProfile']>;
+};
 
 type IHistoryContext = Pick<IDrawingProjection, 'points' | 'interval'>;
 
@@ -69,11 +74,14 @@ export function useDrawingHistory({
   useEffect(() => {
     if (!enabled || !loadHistory) return undefined;
     const abort = new AbortController();
+    let retryAttempt = 0;
+    let retryTimer: ReturnType<typeof setTimeout> | undefined;
     const requested = JSON.parse(signature) as typeof ranges;
     const activeIds = new Set(requested.map((range) => range.id));
     for (const id of entries.current.keys())
       if (!activeIds.has(id)) entries.current.delete(id);
     const load = async () => {
+      let hasPending = false;
       // Fetch sequentially and cache compact bins instead of copying historical candles to the UI runtime.
       for (const range of requested) {
         if (abort.signal.aborted) break;
@@ -84,18 +92,33 @@ export function useDrawingHistory({
             const bins = data
               ? getVolumeProfile(data.points, range.rows)
               : null;
-            if (data && bins) profile = { bins, interval: data.interval };
+            if (data && bins?.length)
+              profile = { bins, interval: data.interval };
           } catch {
             // Keep the chart-interval fallback when finer history is unavailable.
           }
           if (abort.signal.aborted) break;
-          entries.current.set(range.id, { key: range.key, profile });
-          redraw();
+          if (profile) {
+            entries.current.set(range.id, { key: range.key, profile });
+            redraw();
+          } else {
+            hasPending = true;
+          }
         }
+      }
+      const retryDelay = HISTORY_RETRY_DELAYS_MS[retryAttempt];
+      if (hasPending && retryDelay !== undefined && !abort.signal.aborted) {
+        retryAttempt += 1;
+        retryTimer = setTimeout(() => {
+          void load();
+        }, retryDelay);
       }
     };
     void load();
-    return () => abort.abort();
+    return () => {
+      abort.abort();
+      clearTimeout(retryTimer);
+    };
   }, [signature, storageKey, loadHistory, enabled, redraw]);
   return entries;
 }

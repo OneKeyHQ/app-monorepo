@@ -1,5 +1,5 @@
 /** @jest-environment jsdom */
-import { act, renderHook, waitFor } from '@testing-library/react';
+import { act, cleanup, renderHook, waitFor } from '@testing-library/react';
 
 import { DEFAULT_DRAWING_STYLE } from './model';
 import { getDrawingProfileKey, useDrawingHistory } from './useDrawingHistory';
@@ -89,17 +89,131 @@ it('cancels stale history when the symbol changes', async () => {
   ).toBeCloseTo(500);
 });
 
-it('keeps a fallback after failure without repeatedly requesting the same range', async () => {
-  const loadHistory: jest.MockedFunction<IDrawingHistoryLoader> = jest
-    .fn()
-    .mockRejectedValue(new Error('History unavailable'));
-  const hook = renderHook((props) => useDrawingHistory(props), {
-    initialProps: { ...options, loadHistory },
+describe('history retries', () => {
+  beforeEach(() => {
+    jest.useFakeTimers();
   });
-  await waitFor(() =>
-    expect(hook.result.current.current.has('profile')).toBe(true),
+
+  afterEach(() => {
+    cleanup();
+    jest.useRealTimers();
+  });
+
+  it('recovers from rejected, missing and unusable history without a range change', async () => {
+    const loadHistory: jest.MockedFunction<IDrawingHistoryLoader> = jest
+      .fn()
+      .mockRejectedValueOnce(new Error('History unavailable'))
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({ points: [], interval: 60 })
+      .mockResolvedValue({ points: [candle], interval: 60 });
+    const hook = renderHook((props) => useDrawingHistory(props), {
+      initialProps: { ...options, loadHistory },
+    });
+
+    await act(async () => {
+      await jest.advanceTimersByTimeAsync(0);
+    });
+    expect(hook.result.current.current.has('profile')).toBe(false);
+    for (const delay of [1000, 3000]) {
+      await act(async () => {
+        await jest.advanceTimersByTimeAsync(delay);
+      });
+      expect(hook.result.current.current.has('profile')).toBe(false);
+    }
+    await act(async () => {
+      await jest.advanceTimersByTimeAsync(10_000);
+    });
+    expect(loadHistory).toHaveBeenCalledTimes(4);
+    expect(
+      hook.result.current.current.get('profile')?.profile.bins,
+    ).toHaveLength(24);
+
+    hook.rerender({ ...options, loadHistory });
+    await act(async () => {
+      await jest.advanceTimersByTimeAsync(60_000);
+    });
+    expect(loadHistory).toHaveBeenCalledTimes(4);
+  });
+
+  it('bounds retries while retaining the fallback for a persistent failure', async () => {
+    const loadHistory: jest.MockedFunction<IDrawingHistoryLoader> = jest
+      .fn()
+      .mockRejectedValue(new Error('History unavailable'));
+    const hook = renderHook((props) => useDrawingHistory(props), {
+      initialProps: { ...options, loadHistory },
+    });
+    await act(async () => {
+      await jest.advanceTimersByTimeAsync(60_000);
+    });
+    expect(loadHistory).toHaveBeenCalledTimes(4);
+    expect(hook.result.current.current.has('profile')).toBe(false);
+    expect(jest.getTimerCount()).toBe(0);
+  });
+
+  it('retries only failed profiles while keeping successful ranges cached', async () => {
+    const loadHistory: jest.MockedFunction<IDrawingHistoryLoader> = jest
+      .fn()
+      .mockResolvedValueOnce({ points: [candle], interval: 60 })
+      .mockRejectedValueOnce(new Error('History unavailable'))
+      .mockResolvedValue({ points: [candle], interval: 60 });
+    const hook = renderHook(() =>
+      useDrawingHistory({
+        ...options,
+        drawings: [drawing, { ...drawing, id: 'second-profile' }],
+        loadHistory,
+      }),
+    );
+    await act(async () => {
+      await jest.advanceTimersByTimeAsync(1000);
+    });
+    expect(loadHistory).toHaveBeenCalledTimes(3);
+    expect(hook.result.current.current.size).toBe(2);
+  });
+
+  it('cancels a pending retry when the symbol changes', async () => {
+    const loadHistory: jest.MockedFunction<IDrawingHistoryLoader> = jest
+      .fn()
+      .mockRejectedValueOnce(new Error('History unavailable'))
+      .mockResolvedValue({ points: [candle], interval: 60 });
+    const hook = renderHook((props) => useDrawingHistory(props), {
+      initialProps: { ...options, loadHistory },
+    });
+    await act(async () => {
+      await jest.advanceTimersByTimeAsync(0);
+    });
+    const oldSignal = loadHistory.mock.calls[0][2];
+    hook.rerender({ ...options, loadHistory, storageKey: 'BNB' });
+    await act(async () => {
+      await jest.advanceTimersByTimeAsync(60_000);
+    });
+    expect(oldSignal.aborted).toBe(true);
+    expect(loadHistory).toHaveBeenCalledTimes(2);
+    expect(hook.result.current.current.get('profile')?.profile).toBeDefined();
+  });
+
+  it.each(['unmount', 'disable', 'remove'] as const)(
+    'cancels pending retries on %s',
+    async (action) => {
+      const loadHistory: jest.MockedFunction<IDrawingHistoryLoader> = jest
+        .fn()
+        .mockRejectedValue(new Error('History unavailable'));
+      const hook = renderHook((props) => useDrawingHistory(props), {
+        initialProps: { ...options, loadHistory },
+      });
+      await act(async () => {
+        await jest.advanceTimersByTimeAsync(0);
+      });
+      const oldSignal = loadHistory.mock.calls[0][2];
+      if (action === 'unmount') hook.unmount();
+      else if (action === 'disable')
+        hook.rerender({ ...options, loadHistory, enabled: false });
+      else hook.rerender({ ...options, loadHistory, drawings: [] });
+      await act(async () => {
+        await jest.advanceTimersByTimeAsync(60_000);
+      });
+      expect(oldSignal.aborted).toBe(true);
+      expect(loadHistory).toHaveBeenCalledTimes(1);
+      expect(jest.getTimerCount()).toBe(0);
+    },
   );
-  expect(hook.result.current.current.get('profile')?.profile).toBeUndefined();
-  hook.rerender({ ...options, loadHistory });
-  expect(loadHistory).toHaveBeenCalledTimes(1);
 });
