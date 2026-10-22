@@ -210,7 +210,7 @@ function BookmarkListModal() {
   );
 
   return (
-    <Page lazyLoad>
+    <Page>
       <Page.Header
         title={intl.formatMessage({
           id: ETranslations.explore_bookmarks,

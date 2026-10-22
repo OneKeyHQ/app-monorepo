@@ -10620,7 +10620,7 @@ __metadata:
     "@onekeyhq/components": "npm:*"
     "@onekeyhq/kit": "npm:*"
     "@onekeyhq/shared": "npm:*"
-    "@onramper/onramper-react-native": "npm:1.2.2"
+    "@onramper/onramper-react-native": "npm:1.3.1"
     "@phantom/react-native-juicebox-sdk": "npm:0.3.17"
     "@react-native-async-storage/async-storage": "npm:@onekeyfe/react-native-async-storage@6.7.0-8"
     "@react-native-community/datetimepicker": "npm:9.1.0"
@@ -10806,14 +10806,14 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@onramper/onramper-react-native@npm:1.2.2":
-  version: 1.2.2
-  resolution: "@onramper/onramper-react-native@npm:1.2.2"
+"@onramper/onramper-react-native@npm:1.3.1":
+  version: 1.3.1
+  resolution: "@onramper/onramper-react-native@npm:1.3.1"
   peerDependencies:
     react: ">=19.0.0"
     react-native: ">=0.79.0"
     react-native-nitro-modules: ">=0.35.0"
-  checksum: 10/3f86970bf340b96e1f1ca96392b9e15b632e9344ae2a9f751c244abd1105b9158027eff57ea82fe9341644d958ce300fb043494a38dd4194136ff9cfdb2dfa7b
+  checksum: 10/e01eb577089a8134942bab6a83fbc8ed342a52f4b13c5c1c6ed90fbfcf44dc942d7fede70d900ac1398305f6e04139af57902f4a911caa94010ed54ad85e874f
   languageName: node
   linkType: hard
 

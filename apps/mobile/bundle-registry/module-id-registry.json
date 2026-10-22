@@ -5382,6 +5382,7 @@
     "node_modules/@onekeyfe/react-native-text/lib/module/Text.android.js": 51286,
     "node_modules/@onekeyfe/react-native-text/lib/module/Text.js": 49127,
     "node_modules/@onekeyfe/react-native-text/lib/module/index.js": 33015,
+    "node_modules/@onramper/onramper-react-native/src/CheckoutButton.ts": 48043,
     "node_modules/@onramper/onramper-react-native/src/OnramperCheckoutButtonView.tsx": 41677,
     "node_modules/@onramper/onramper-react-native/src/OnramperClient.ts": 37774,
     "node_modules/@onramper/onramper-react-native/src/OnramperNative.ts": 44675,
