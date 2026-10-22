@@ -45,27 +45,16 @@ const mockSetTradeTarget = jest
   .mockResolvedValue(undefined);
 const mockCommitTradeTarget = jest.fn(async () => true);
 const mockEmit = jest.fn<void, unknown[]>();
-let mockInstrumentGeneration = 0;
-let mockRequestedInstrument:
-  | { mode: 'perp' | 'spot'; coin: string }
-  | undefined;
+let mockInstrumentCurrent = true;
+const mockCaptureInstrumentGuard = jest.fn(
+  (_target: unknown) => () => mockInstrumentCurrent,
+);
 
 jest.mock(
   '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/actions',
   () => ({
-    capturePerpsInstrumentChangeGuard: (expected?: {
-      mode: 'perp' | 'spot';
-      coin: string;
-    }) => {
-      const captured = mockInstrumentGeneration;
-      return () =>
-        captured === mockInstrumentGeneration ||
-        Boolean(
-          expected &&
-          mockRequestedInstrument?.mode === expected.mode &&
-          mockRequestedInstrument.coin === expected.coin,
-        );
-    },
+    capturePerpsInstrumentChangeGuard: (target: unknown) =>
+      mockCaptureInstrumentGuard(target),
   }),
 );
 
@@ -147,8 +136,7 @@ describe('market entry into Perps', () => {
     jest.useFakeTimers();
     jest.clearAllMocks();
     mockRouteKey = undefined;
-    mockInstrumentGeneration = 0;
-    mockRequestedInstrument = undefined;
+    mockInstrumentCurrent = true;
     mockRootName = ERootRoutes.Main;
     mockActiveTab = ETabRoutes.Market;
     mockNavigation.switchTab.mockImplementation((tab: ETabRoutes) => {
@@ -169,6 +157,10 @@ describe('market entry into Perps', () => {
 
   it('opens the selected Easy market after switching tab and asset', async () => {
     await navigate('xyz:TSLA');
+    expect(mockCaptureInstrumentGuard).toHaveBeenCalledWith({
+      mode: 'perp',
+      coin: 'xyz:TSLA',
+    });
     expect(mockNavigation.switchTab).toHaveBeenCalledWith(ETabRoutes.Perp);
     expect(mockService.changeActiveAsset).toHaveBeenCalledWith({
       coin: 'xyz:TSLA',
@@ -225,13 +217,9 @@ describe('market entry into Perps', () => {
     expect(mockNavigation.pushModal).not.toHaveBeenCalled();
   });
 
-  it.each([
-    { overlay: false, mode: 'perp' as const, coin: 'ETH' },
-    { overlay: true, mode: 'perp' as const, coin: 'ETH' },
-    { overlay: false, mode: 'spot' as const, coin: 'BTC' },
-  ])(
-    'preserves a newer UI selection while BG still names the old target: %j',
-    async ({ overlay, mode, coin }) => {
+  it.each([false, true])(
+    'preserves a newer UI selection while BG still names the old target (overlay: %s)',
+    async (overlay) => {
       let finish!: () => void;
       mockService.changeActiveAsset.mockImplementationOnce(
         () =>
@@ -246,8 +234,7 @@ describe('market entry into Perps', () => {
       });
       expect(mockService.changeActiveAsset).toHaveBeenCalledTimes(1);
       if (overlay) mockRootName = ERootRoutes.Modal;
-      mockRequestedInstrument = { mode, coin };
-      mockInstrumentGeneration += 1;
+      mockInstrumentCurrent = false;
       await act(async () => {
         finish();
         await jest.runAllTimersAsync();
@@ -259,25 +246,6 @@ describe('market entry into Perps', () => {
       expect(mockNavigation.pushModal).not.toHaveBeenCalled();
     },
   );
-
-  it('allows pending initialization of the same contract to advance the UI generation', async () => {
-    mockService.changeActiveAsset.mockImplementationOnce(async () => {
-      mockRequestedInstrument = { mode: 'perp', coin: 'BTC' };
-      mockInstrumentGeneration += 1;
-    });
-    await navigate('BTC');
-    expect(mockEmit).toHaveBeenCalledWith(expect.any(String), {
-      mode: 'perp',
-      coin: 'BTC',
-    });
-    expect(mockNavigation.pushModal).toHaveBeenCalledWith(
-      EModalRoutes.PerpModal,
-      {
-        screen: EModalPerpRoutes.MobilePerpSimpleMarket,
-        params: { coin: 'BTC' },
-      },
-    );
-  });
 
   it('captures UI requests before reading the previous background target', async () => {
     let finishPrevious!: (target: {
@@ -295,8 +263,14 @@ describe('market entry into Perps', () => {
       result.current.navigateToPerps('BTC');
       await jest.advanceTimersByTimeAsync(80);
     });
-    mockInstrumentGeneration += 1;
-    mockRequestedInstrument = { mode: 'perp', coin: 'ETH' };
+    expect(mockCaptureInstrumentGuard).toHaveBeenCalledWith({
+      mode: 'perp',
+      coin: 'BTC',
+    });
+    expect(mockCaptureInstrumentGuard.mock.invocationCallOrder[0]).toBeLessThan(
+      mockService.getActiveTradeInstrumentTarget.mock.invocationCallOrder[0],
+    );
+    mockInstrumentCurrent = false;
     await act(async () => {
       finishPrevious({ mode: 'perp', perpAsset: { coin: 'ETH' } });
       await jest.runAllTimersAsync();
@@ -322,8 +296,7 @@ describe('market entry into Perps', () => {
       mode: 'perp',
       coin: 'BTC',
     });
-    mockRequestedInstrument = { mode: 'perp', coin: 'ETH' };
-    mockInstrumentGeneration += 1;
+    mockInstrumentCurrent = false;
     await act(async () => {
       finish({ mobileTradingMode: 'simple' });
       await jest.runAllTimersAsync();
