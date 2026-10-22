@@ -102,6 +102,9 @@ export enum EAppEventBusNames {
   // refresh key cannot detect (e.g. clearing finished orders), so list views
   // re-fetch instead of showing stale rows.
   RefreshSwapHistoryList = 'RefreshSwapHistoryList',
+  // Native buy (Onramper Headless) order store changed: recorded, submitted,
+  // discarded, or a status refresh landed. Payload-free; readers re-fetch.
+  HeadlessBuyOrdersChanged = 'HeadlessBuyOrdersChanged',
   SwapApprovingSuccess = 'SwapApprovingSuccess',
   SwapSpeedApprovingReset = 'SwapSpeedApprovingReset',
   SwapSpeedBalanceUpdate = 'SwapSpeedBalanceUpdate',
@@ -126,6 +129,7 @@ export enum EAppEventBusNames {
   PrimeAuthSessionSourceCommitted = 'PrimeAuthSessionSourceCommitted',
   IdentityLifecycleCommitted = 'IdentityLifecycleCommitted',
   PrimeSubscriptionPurchaseSuccess = 'PrimeSubscriptionPurchaseSuccess',
+  PrimeWebCheckoutReturned = 'PrimeWebCheckoutReturned',
   PrimeGiftRedeemed = 'PrimeGiftRedeemed',
   PrimeExceedDeviceLimit = 'PrimeExceedDeviceLimit',
   PrimeDeviceLogout = 'PrimeDeviceLogout',

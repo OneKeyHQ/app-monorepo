@@ -27,6 +27,7 @@ import {
   ThirdPartyNetworkError,
   ThirdPartySecureChannelError,
 } from '../errors/thirdPartyHardwareErrors';
+import { EOneKeyErrorClassNames } from '../types/errorTypes';
 
 import { convertDeviceError } from './deviceErrorUtils';
 import { toPlainErrorObject } from './errorUtils';
@@ -41,6 +42,35 @@ import {
 } from './thirdPartyDeviceErrorUtils';
 
 describe('convertThirdPartyDeviceError', () => {
+  it('shows system Bluetooth removal guidance for a stale Ledger pairing', () => {
+    const error = convertThirdPartyDeviceError(
+      {
+        code: ThirdPartyHwErrorCode.BleBondInvalid,
+        error: 'Ledger Bluetooth pairing is no longer valid',
+        recovery: { scope: 'search-target' },
+      },
+      { vendor: EHardwareVendor.ledger },
+    );
+
+    expect(error.code).toBe(ThirdPartyHwErrorCode.BleBondInvalid);
+    expect(error.key).toBe(ETranslations.trezor_ble_bond_invalid__msg);
+    expect(error.autoToast).toBe(true);
+    expect(error.payload?.recovery).toEqual({ scope: 'search-target' });
+  });
+
+  it('keeps ordinary Ledger pairing failures apart from stale system pairings', () => {
+    const error = convertThirdPartyDeviceError(
+      {
+        code: ThirdPartyHwErrorCode.BlePairingTimeout,
+        error: 'Ledger Bluetooth pairing failed',
+      },
+      { vendor: EHardwareVendor.ledger },
+    );
+
+    expect(error.code).toBe(ThirdPartyHwErrorCode.BlePairingTimeout);
+    expect(error.key).toBe(ETranslations.hardware_bluetooth_pairing_failed);
+  });
+
   it.each([
     [
       ThirdPartyHwErrorCode.SolanaBlindSigningRequired,
@@ -691,6 +721,22 @@ describe('filterThirdPartyHwCreateFailureToasts', () => {
 
     expect(filterThirdPartyHwCreateFailureToasts([first, muted])).toEqual([
       first,
+    ]);
+  });
+
+  it('keeps a hardware failure whose autoToast the device stage cleared', () => {
+    const pathForbidden = {
+      error: {
+        code: ThirdPartyHwErrorCode.DevicePathForbidden,
+        className: EOneKeyErrorClassNames.OneKeyHardwareError,
+        $isHardwareError: true,
+        message: 'Path not supported',
+        autoToast: false,
+      },
+    };
+
+    expect(filterThirdPartyHwCreateFailureToasts([pathForbidden])).toEqual([
+      pathForbidden,
     ]);
   });
 

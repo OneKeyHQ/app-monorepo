@@ -60,6 +60,7 @@ import {
 } from '../components/StockSimpleChart';
 import { ShareButton } from '../components/TokenDetailHeader/ShareButton';
 import { MarketTokenSelector } from '../components/TokenSelector/MarketTokenSelector';
+import { MarketDetailWatchlistSidebarToggle } from '../components/WatchlistSidebar/MarketDetailWatchlistSidebarContext';
 import { useStockDetail } from '../hooks/StockDetailContext';
 import { useMarketDetailPositionTab } from '../hooks/useMarketDetailPositionTab';
 import { useStockPortfolioData } from '../hooks/useStockPortfolioData';
@@ -132,72 +133,75 @@ function StockPageHeader({
       justifyContent="space-between"
       gap="$5"
     >
-      <MarketTokenSelector
-        defaultCategory="stocks"
-        renderTrigger={
-          // eslint-disable-next-line props-checker/validator -- MarketTokenSelector injects the popover press handler.
-          <XStack
-            testID="stock-header-token-selector"
-            alignItems="center"
-            gap="$3.5"
-            minWidth={0}
-            cursor="pointer"
-            // Hovering paints a rounded-full pill that reaches 8px past the
-            // content horizontally and 4px vertically. Each negative margin is
-            // cancelled by matching padding, so the row itself never moves.
-            ml={-8}
-            mr={-8}
-            my={-4}
-            pl={8}
-            pr={8}
-            py={4}
-            borderRadius="$full"
-            borderCurve="continuous"
-            hoverStyle={{ bg: '$bgHover' }}
-            pressStyle={{ bg: '$bgActive' }}
-          >
-            <Token
-              size="xl"
-              tokenImageUri={
-                stockDetail?.logoUrl ||
-                stockPreview?.logoUrl ||
-                tokenDetail?.logoUrl ||
-                stock?.sourceLogoUri
-              }
-              fallbackIcon="CryptoCoinOutline"
-            />
-            <YStack minWidth={0} justifyContent="center">
-              <SizableText size="$headingXl" numberOfLines={1}>
-                {stockDetail?.symbol ||
-                  stockPreview?.symbol ||
-                  stock?.underlyingAssetTicker ||
-                  stock?.title ||
-                  tokenDetail?.symbol ||
-                  stockId ||
-                  ''}
-              </SizableText>
-              <SizableText
-                size="$bodyMdMedium"
-                color="$textSubdued"
-                numberOfLines={1}
-              >
-                {stockDetail?.name ||
-                  stockPreview?.name ||
-                  stock?.subtitle ||
-                  tokenDetail?.name ||
-                  ''}
-              </SizableText>
-            </YStack>
-            {/* Figma 25277:10352: the chevron closes the whole pill and is
-                centered on it, not tucked beside the ticker. */}
-            <Icon
-              name="ChevronDownSmallOutline"
-              size="$5"
-              color="$iconSubdued"
-            />
-          </XStack>
-        }
-      />
+      <XStack alignItems="center" gap="$3.5" minWidth={0} flexShrink={1}>
+        <MarketDetailWatchlistSidebarToggle />
+        <MarketTokenSelector
+          defaultCategory="stocks"
+          renderTrigger={
+            // eslint-disable-next-line props-checker/validator -- MarketTokenSelector injects the popover press handler.
+            <XStack
+              testID="stock-header-token-selector"
+              alignItems="center"
+              gap="$3.5"
+              minWidth={0}
+              cursor="pointer"
+              // Hovering paints a rounded-full pill that reaches 8px past the
+              // content horizontally and 4px vertically. Each negative margin is
+              // cancelled by matching padding, so the row itself never moves.
+              ml={-8}
+              mr={-8}
+              my={-4}
+              pl={8}
+              pr={8}
+              py={4}
+              borderRadius="$full"
+              borderCurve="continuous"
+              hoverStyle={{ bg: '$bgHover' }}
+              pressStyle={{ bg: '$bgActive' }}
+            >
+              <Token
+                size="xl"
+                tokenImageUri={
+                  stockDetail?.logoUrl ||
+                  stockPreview?.logoUrl ||
+                  tokenDetail?.logoUrl ||
+                  stock?.sourceLogoUri
+                }
+                fallbackIcon="CryptoCoinOutline"
+              />
+              <YStack minWidth={0} justifyContent="center">
+                <SizableText size="$headingXl" numberOfLines={1}>
+                  {stockDetail?.symbol ||
+                    stockPreview?.symbol ||
+                    stock?.underlyingAssetTicker ||
+                    stock?.title ||
+                    tokenDetail?.symbol ||
+                    stockId ||
+                    ''}
+                </SizableText>
+                <SizableText
+                  size="$bodyMdMedium"
+                  color="$textSubdued"
+                  numberOfLines={1}
+                >
+                  {stockDetail?.name ||
+                    stockPreview?.name ||
+                    stock?.subtitle ||
+                    tokenDetail?.name ||
+                    ''}
+                </SizableText>
+              </YStack>
+              {/* Figma 25277:10352: the chevron closes the whole pill and is
+                  centered on it, not tucked beside the ticker. */}
+              <Icon
+                name="ChevronDownSmallOutline"
+                size="$5"
+                color="$iconSubdued"
+              />
+            </XStack>
+          }
+        />
+      </XStack>
 
       {/* The stock route can share the listing before any token variant
           resolves, so the row also stands on a bare `stockId`.
@@ -329,10 +333,7 @@ function StockPriceHeader({
     formatPriceChangeDisplay(priceChangePercent);
   const stockStatus = useMemo<IMarketStockInfo | undefined>(() => {
     if (!stockDetail) return tokenDetail?.stock;
-    // The public stock feed describes the underlying listing and carries no
-    // issuer, so the badge's source has to come from the token wrapping it —
-    // without one `resolveUSMarketStatusVariant` returns no variant and the
-    // badge renders nothing at all.
+    // Combine the listing's market status with the selected token's metadata.
     return buildStockInfoFromPublicDetail(stockDetail, {
       source: tokenDetail?.stock?.source ?? selectedTokenVariant?.issuer,
       isPaused:

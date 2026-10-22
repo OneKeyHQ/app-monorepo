@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import { useOverlayPageScope } from '@onekeyfe/react-native-native-overlay';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -188,6 +189,7 @@ function SimpleOrderConfirmationSetting() {
 }
 
 function SimpleOrderContent() {
+  const sourcePage = useOverlayPageScope();
   const themeVariant = useThemeVariant();
   const simplePageBackground =
     themeVariant === 'light' ? '$bgSubdued' : '$bgApp';
@@ -621,6 +623,7 @@ function SimpleOrderContent() {
       return;
     }
     confirmDialogRef.current = showOrderConfirmDialog({
+      sourcePage,
       intl,
       expectedCoin: route.params.coin,
       expectedAccountAddress: accountAddress,

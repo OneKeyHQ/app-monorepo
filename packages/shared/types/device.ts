@@ -4,7 +4,10 @@ import type {
 } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type { ILocaleSymbol } from '@onekeyhq/shared/src/locale';
 
-import type { IThirdPartyWalletAvatarImageNames } from '../src/utils/avatarUtils';
+import type {
+  IHwWalletAvatarImageNames,
+  IThirdPartyWalletAvatarImageNames,
+} from '../src/utils/avatarUtils';
 import type {
   BleReleaseInfoPayload,
   CommonParams,
@@ -552,8 +555,9 @@ export interface IConnectYourDeviceItem {
   vendor?: EHardwareVendor;
   /** HWK search result kept separate from the legacy HD SearchDevice projection. */
   searchTarget?: IThirdPartyHardwareSearchTarget;
-  // Resolved per-model avatar key for third-party (Ledger/Trezor) scan rows.
-  avatarImg?: IThirdPartyWalletAvatarImageNames;
+  // Resolved avatar key for the scan row: the per-model key for third-party
+  // (Ledger/Trezor) rows, or the OneKey model with its color.
+  avatarImg?: IThirdPartyWalletAvatarImageNames | IHwWalletAvatarImageNames;
 }
 
 export interface IFirmwareVerifyResult {

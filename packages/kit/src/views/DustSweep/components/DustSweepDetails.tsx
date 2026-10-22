@@ -164,6 +164,15 @@ export function DustSweepDetails({
                       · {shortenTransactionId(txId)}
                     </SizableText>
                   ))}
+                  {item.submissionErrorMessage ? (
+                    <SizableText
+                      testID={`dust-sweep-submission-error-${item.token.key}`}
+                      size="$bodySm"
+                      color="$textCritical"
+                    >
+                      {item.submissionErrorMessage}
+                    </SizableText>
+                  ) : null}
                   {reason ? (
                     <SizableText
                       size="$bodySm"

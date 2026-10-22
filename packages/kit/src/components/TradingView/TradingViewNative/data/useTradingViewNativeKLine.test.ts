@@ -27,6 +27,8 @@ import type {
   IMarketTokenKLineResponse,
 } from '@onekeyhq/shared/types/marketV2';
 
+import { calculateTradingViewNativeSimpleMovingAverage } from '../utils/chartIndicators/ma';
+
 import { getTradingViewNativeSourceKey } from './getTradingViewNativeSource';
 import { createTradingViewNativeDataProvider } from './providers/createTradingViewNativeDataProvider';
 import { createTradingViewNativeStockDataProvider } from './providers/stock/stockDataProvider';
@@ -80,6 +82,7 @@ let mockCurrentVisibility = true;
 let mockVisibilityListener: ((isVisible: boolean) => void) | undefined;
 let mockHistoryBatchSize = 1;
 let mockHistoryRequestCandleCount = 1;
+let mockInitialHistoryRequestCandleCount: number | undefined;
 let mockRealtimeInterval: ITradingViewNativeDataProvider['realtimeInterval'];
 let mockCandleTimeMode: ITradingViewNativeCandleTimeMode = 'calendar';
 const mockIntervalStorage = new Map<string, unknown>();
@@ -223,6 +226,10 @@ function buildProviderKey(source: ITradingViewNativeSource) {
   return getTradingViewNativeSourceKey(source);
 }
 
+function buildPerpsSource(coin: string): ITradingViewNativeSource {
+  return { kind: 'hyperliquid', coin, environment: 'mainnet' };
+}
+
 function buildMarketSource({
   fallbackCoinGeckoId,
   isNative,
@@ -288,9 +295,12 @@ describe('TradingViewNative K-line data state machine', () => {
         unsubscribe: mockUnsubscribe,
       };
     });
+    mockInitialHistoryRequestCandleCount = undefined;
     mockCreateTradingViewNativeDataProvider.mockImplementation((source) => ({
       getCandleTimeMode: () => mockCandleTimeMode,
       getHistoryRequestCandleCount: () => mockHistoryRequestCandleCount,
+      getInitialHistoryRequestCandleCount: () =>
+        mockInitialHistoryRequestCandleCount ?? mockHistoryRequestCandleCount,
       hasMoreHistory: mockHasMoreHistory,
       historyRefreshInterval: source.kind === 'asset' ? 30_000 : undefined,
       isReady: true,
@@ -908,6 +918,321 @@ describe('TradingViewNative K-line data state machine', () => {
     await waitFor(() => expect(mockFetchHistory).toHaveBeenCalledTimes(2));
     expect(result.current.chartType).toBe('line');
     expect(result.current.points.map((point) => point.c)).toEqual([100, 110]);
+  });
+
+  it('shows recently viewed Perps candles immediately while refreshing and rejects another coin response', async () => {
+    const otherCoin = createDeferred<IMarketTokenKLineResponse | null>();
+    const refresh = createDeferred<IMarketTokenKLineResponse | null>();
+    mockFetchHistory
+      .mockResolvedValueOnce(buildResponse(100, 100_000))
+      .mockReturnValueOnce(otherCoin.promise)
+      .mockReturnValueOnce(refresh.promise);
+    const { result, rerender } = renderHook(
+      ({ coin }: { coin: string }) =>
+        useTradingViewNativeKLine({
+          source: buildPerpsSource(coin),
+          storageNamespace: 'perps',
+        }),
+      { initialProps: { coin: 'RECENT_BTC' } },
+    );
+    await waitFor(() => expect(result.current.points[0]?.c).toBe(100));
+
+    rerender({ coin: 'RECENT_ETH' });
+    expect(result.current.points).toEqual([]);
+    await act(async () => {
+      otherCoin.resolve(buildResponse(200, 100_000));
+      await otherCoin.promise;
+    });
+    await waitFor(() => expect(result.current.points[0]?.c).toBe(200));
+    const previousCoinListener = realtimePointListener;
+    rerender({ coin: 'RECENT_BTC' });
+    expect(result.current.points[0]?.c).toBe(100);
+    expect(result.current.dataState.status).not.toBe('loading');
+    act(() => previousCoinListener?.(buildResponse(300, 200_000).points[0]));
+    expect(result.current.points[0]?.c).toBe(100);
+    await act(async () => {
+      refresh.resolve(buildResponse(110, 100_000));
+      await refresh.promise;
+    });
+    await waitFor(() => expect(result.current.points[0]?.c).toBe(110));
+  });
+
+  it.each(['remount', 'coin switch'])(
+    'restores the error/retry path when a cached Perps refresh fails after %s',
+    async (scenario) => {
+      jest.useFakeTimers();
+      const coin = `RECENT_FAILURE_${scenario}`;
+      mockFetchHistory.mockResolvedValueOnce(buildResponse(100, 100_000));
+      const renderChart = () =>
+        renderHook(
+          ({ selectedCoin }: { selectedCoin: string }) =>
+            useTradingViewNativeKLine({
+              source: buildPerpsSource(selectedCoin),
+              storageNamespace: 'perps',
+            }),
+          { initialProps: { selectedCoin: coin } },
+        );
+      let chart = renderChart();
+      await waitFor(() => expect(chart.result.current.points[0]?.c).toBe(100));
+      mockFetchHistory.mockRejectedValue(new Error('snapshot refresh failed'));
+      if (scenario === 'remount') {
+        chart.unmount();
+        chart = renderChart();
+      } else {
+        mockFetchHistory.mockResolvedValueOnce(buildResponse(200, 100_000));
+        chart.rerender({ selectedCoin: `${coin}_OTHER` });
+        await waitFor(() =>
+          expect(chart.result.current.points[0]?.c).toBe(200),
+        );
+        chart.rerender({ selectedCoin: coin });
+      }
+      expect(chart.result.current.points[0]?.c).toBe(100);
+      await act(async () => {
+        await jest.advanceTimersByTimeAsync(4001);
+      });
+      expect(chart.result.current.points).toEqual([]);
+      expect(chart.result.current.dataState.status).toBe('error');
+
+      const nextMount = renderChart();
+      expect(nextMount.result.current.points).toEqual([]);
+      nextMount.unmount();
+      await act(async () => {
+        await jest.advanceTimersByTimeAsync(60_001);
+      });
+      const retry = createDeferred<IMarketTokenKLineResponse | null>();
+      mockFetchHistory.mockReturnValue(retry.promise);
+      act(() => chart.result.current.handleRetry());
+      expect(chart.result.current.points).toEqual([]);
+      expect(chart.result.current.dataState.status).toBe('loading');
+      await act(async () => {
+        retry.resolve(buildResponse(110, 100_000));
+        await retry.promise;
+      });
+      await waitFor(() => expect(chart.result.current.points[0]?.c).toBe(110));
+      expect(chart.result.current.dataState.status).toBe('live');
+    },
+  );
+
+  it('keeps live candles and allows older-history retry after indicator warmup fails', async () => {
+    jest.useFakeTimers();
+    mockHistoryRequestCandleCount = 5000;
+    mockInitialHistoryRequestCandleCount = 500;
+    const now = Math.floor(Date.now() / 1000);
+    mockFetchHistory
+      .mockResolvedValueOnce(buildResponse(100, now - 3600))
+      .mockRejectedValue(new Error('indicator warmup failed'));
+    const { result } = renderHook(() =>
+      useTradingViewNativeKLine({
+        source: buildPerpsSource('WARMUP_FAILURE'),
+        storageNamespace: 'perps',
+      }),
+    );
+    await waitFor(() => expect(result.current.dataState.status).toBe('live'));
+    await act(async () => {
+      await jest.advanceTimersByTimeAsync(4001);
+    });
+    expect(mockFetchHistory).toHaveBeenCalledTimes(4);
+    expect(result.current.dataState.status).toBe('live');
+    pushRealtimePoint(buildResponse(105, now - 3600).points[0]);
+    expect(result.current.points.map(({ c }) => c)).toEqual([105]);
+
+    mockFetchHistory.mockResolvedValueOnce(buildResponse(90, now - 7200));
+    act(() => result.current.handleVisiblePointRangeChange({ startIndex: 0 }));
+    await waitFor(() =>
+      expect(result.current.points.map(({ c }) => c)).toEqual([90, 105]),
+    );
+    expect(result.current.dataState.status).toBe('live');
+  });
+
+  it('still reports a failed current-history refresh as stale when live chart data exists', async () => {
+    jest.useFakeTimers();
+    mockFetchHistory.mockResolvedValueOnce(buildResponse(100, 100_000));
+    const { result } = renderHook(() =>
+      useTradingViewNativeKLine({
+        source: buildPerpsSource('CURRENT_REFRESH_FAILURE'),
+        storageNamespace: 'perps',
+      }),
+    );
+    await waitFor(() => expect(result.current.dataState.status).toBe('live'));
+    mockFetchHistory.mockRejectedValue(new Error('current history failed'));
+    act(() => result.current.handleRetry());
+    await act(async () => {
+      await jest.advanceTimersByTimeAsync(4001);
+    });
+    expect(result.current.points[0]?.c).toBe(100);
+    expect(result.current.dataState.status).toBe('stale');
+  });
+
+  it('bounds recently viewed candle snapshots and expires them after one minute', async () => {
+    const source = buildPerpsSource('RECENT_LIMIT');
+    const response = buildResponse(100, 100_000);
+    response.points = Array.from({ length: 1100 }, (_, index) => ({
+      ...response.points[0],
+      t: 100_000 + index * 60,
+    }));
+    const refresh = createDeferred<IMarketTokenKLineResponse | null>();
+    mockFetchHistory
+      .mockResolvedValueOnce(response)
+      .mockReturnValue(refresh.promise);
+    const first = renderHook(() =>
+      useTradingViewNativeKLine({ source, storageNamespace: 'perps' }),
+    );
+    await waitFor(() => expect(first.result.current.points).toHaveLength(1100));
+    first.unmount();
+
+    const recent = renderHook(() =>
+      useTradingViewNativeKLine({ source, storageNamespace: 'perps' }),
+    );
+    expect(recent.result.current.points).toHaveLength(1000);
+    expect(recent.result.current.points[0]?.t).toBe(106_000);
+    recent.unmount();
+
+    const now = Date.now();
+    jest.spyOn(Date, 'now').mockReturnValue(now + 60_001);
+    const expired = renderHook(() =>
+      useTradingViewNativeKLine({ source, storageNamespace: 'perps' }),
+    );
+    expect(expired.result.current.points).toEqual([]);
+  });
+
+  it('never reuses Perps snapshots for another interval or the Market chart', async () => {
+    const source = buildPerpsSource('RECENT_SCOPED');
+    const refresh = createDeferred<IMarketTokenKLineResponse | null>();
+    mockFetchHistory
+      .mockResolvedValueOnce(buildResponse(100, 100_000))
+      .mockReturnValue(refresh.promise);
+    const first = renderHook(() =>
+      useTradingViewNativeKLine({ source, storageNamespace: 'perps' }),
+    );
+    await waitFor(() => expect(first.result.current.points[0]?.c).toBe(100));
+    first.unmount();
+
+    const market = renderHook(() => useTradingViewNativeKLine({ source }));
+    expect(market.result.current.points).toEqual([]);
+    market.unmount();
+
+    mockReadTradingViewNativeActiveInterval.mockReturnValue('15');
+    const nextInterval = renderHook(() =>
+      useTradingViewNativeKLine({ source, storageNamespace: 'perps' }),
+    );
+    expect(nextInterval.result.current.intervalConfig.activeInterval).toBe(
+      '15',
+    );
+    expect(nextInterval.result.current.points).toEqual([]);
+  });
+
+  it('renders a fast initial page then restores older candles needed by MA600', async () => {
+    jest.spyOn(Date, 'now').mockReturnValue(1_702_160_000_000);
+    mockHistoryRequestCandleCount = 5000;
+    mockInitialHistoryRequestCandleCount = 500;
+    const point = buildResponse(1, 1_700_000_000).points[0];
+    const points = Array.from({ length: 600 }, (_, index) => ({
+      ...point,
+      t: 1_700_000_000 + index * 3600,
+      c: index + 1,
+    }));
+    const older = createDeferred<IMarketTokenKLineResponse | null>();
+    mockFetchHistory
+      .mockResolvedValueOnce({ points: points.slice(100), total: 500 })
+      .mockReturnValueOnce(older.promise);
+    const { result } = renderHook(() =>
+      useTradingViewNativeKLine({
+        source: buildPerpsSource('WARMUP_MA600'),
+        storageNamespace: 'perps',
+      }),
+    );
+    await waitFor(() => expect(result.current.points).toHaveLength(500));
+    expect(result.current.dataState.status).not.toBe('loading');
+    await act(async () => {
+      older.resolve({ points: points.slice(0, 100), total: 100 });
+      await older.promise;
+    });
+    await waitFor(() => expect(result.current.points).toHaveLength(600));
+    expect(
+      calculateTradingViewNativeSimpleMovingAverage(
+        result.current.points.map(({ c }) => c),
+        600,
+      ).at(-1),
+    ).toBe(300.5);
+  });
+
+  it('falls back to the full window when the fast latest window contains no candles', async () => {
+    mockHistoryRequestCandleCount = 5000;
+    mockInitialHistoryRequestCandleCount = 500;
+    mockFetchHistory
+      .mockResolvedValueOnce({ points: [], total: 0 })
+      .mockResolvedValueOnce(buildResponse(100, 100_000));
+    const { result } = renderHook(() =>
+      useTradingViewNativeKLine({
+        source: buildPerpsSource('WARMUP_SPARSE'),
+      }),
+    );
+    await waitFor(() => expect(result.current.points[0]?.c).toBe(100));
+    const first = mockFetchHistory.mock.calls[0]?.[0];
+    const fallback = mockFetchHistory.mock.calls[1]?.[0];
+    expect(first && fallback && first.timeFrom - fallback.timeFrom).toBe(
+      4500 * 3600,
+    );
+    expect(result.current.dataState.status).not.toBe('error');
+  });
+
+  it('drops indicator warmup responses after switching to another coin', async () => {
+    mockHistoryRequestCandleCount = 5000;
+    mockInitialHistoryRequestCandleCount = 500;
+    const older = createDeferred<IMarketTokenKLineResponse | null>();
+    const now = Math.floor(Date.now() / 1000);
+    mockFetchHistory
+      .mockResolvedValueOnce(buildResponse(100, now - 3600))
+      .mockReturnValueOnce(older.promise)
+      .mockResolvedValue(buildResponse(200, now - 3600));
+    const { result, rerender } = renderHook(
+      ({ coin }: { coin: string }) =>
+        useTradingViewNativeKLine({
+          source: buildPerpsSource(coin),
+        }),
+      { initialProps: { coin: 'WARMUP_OLD' } },
+    );
+    await waitFor(() => expect(result.current.points[0]?.c).toBe(100));
+    const signal = mockFetchHistory.mock.calls[1]?.[0].signal;
+    rerender({ coin: 'WARMUP_NEW' });
+    await waitFor(() => expect(result.current.points[0]?.c).toBe(200));
+    expect(signal?.aborted).toBe(true);
+    await act(async () => {
+      older.resolve(buildResponse(1, now - 7200));
+      await older.promise;
+    });
+    expect(result.current.points.map(({ c }) => c)).toEqual([200]);
+  });
+
+  it('evicts the oldest candle snapshot after eight recently viewed series', async () => {
+    mockFetchHistory.mockResolvedValue(buildResponse(100, 100_000));
+    for (let index = 0; index < 9; index += 1) {
+      const chart = renderHook(() =>
+        useTradingViewNativeKLine({
+          source: buildPerpsSource(`RECENT_EVICT_${index}`),
+          storageNamespace: 'perps',
+        }),
+      );
+      await waitFor(() => expect(chart.result.current.points[0]?.c).toBe(100));
+      chart.unmount();
+    }
+    const refresh = createDeferred<IMarketTokenKLineResponse | null>();
+    mockFetchHistory.mockReturnValue(refresh.promise);
+    const evicted = renderHook(() =>
+      useTradingViewNativeKLine({
+        source: buildPerpsSource('RECENT_EVICT_0'),
+        storageNamespace: 'perps',
+      }),
+    );
+    expect(evicted.result.current.points).toEqual([]);
+    evicted.unmount();
+    const retained = renderHook(() =>
+      useTradingViewNativeKLine({
+        source: buildPerpsSource('RECENT_EVICT_8'),
+        storageNamespace: 'perps',
+      }),
+    );
+    expect(retained.result.current.points[0]?.c).toBe(100);
   });
 
   it('restores the saved interval before the initial history request', async () => {

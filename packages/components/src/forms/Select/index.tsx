@@ -10,6 +10,7 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { Popover, Trigger } from '../../actions';
 import { ListView, SectionList } from '../../layouts';
 import { Heading, Icon, SizableText, Stack, XStack } from '../../primitives';
+import { assertOverlayProps } from '../../shared/assertOverlayProps';
 import { Input } from '../Input';
 
 import { SelectContext } from './context';
@@ -258,7 +259,6 @@ function SelectContent() {
     waitForChangeBeforeClose,
     usingPercentSnapPoints: usingPercentSnapPointsFromContext,
     offset,
-    nativeSheet,
   } = useContext(SelectContext);
   const isSelectingRef = useRef(false);
   const selectionGenerationRef = useRef(0);
@@ -414,33 +414,33 @@ function SelectContent() {
       renderTrigger={popoverTrigger}
       renderContent={renderContent}
       offset={offset}
-      nativeSheet={nativeSheet}
     />
   );
 }
 
 function SelectFrame<
   T extends string | number | boolean | undefined | ISelectItem,
->({
-  items,
-  placeholder,
-  value,
-  open: openProp,
-  onChange,
-  onOpenChange,
-  children,
-  title,
-  disabled,
-  sections,
-  sheetProps,
-  offset,
-  labelInValue = false,
-  floatingPanelProps,
-  placement = platformEnv.isNative ? 'bottom-start' : undefined,
-  usingPercentSnapPoints,
-  waitForChangeBeforeClose,
-  nativeSheet,
-}: ISelectProps<T>) {
+>(props: ISelectProps<T>) {
+  assertOverlayProps('Select', props);
+  const {
+    items,
+    placeholder,
+    value,
+    open: openProp,
+    onChange,
+    onOpenChange,
+    children,
+    title,
+    disabled,
+    sections,
+    sheetProps,
+    offset,
+    labelInValue = false,
+    floatingPanelProps,
+    placement = platformEnv.isNative ? 'bottom-start' : undefined,
+    usingPercentSnapPoints,
+    waitForChangeBeforeClose,
+  } = props;
   const [isOpenInternal, setIsOpenInternal] = useState(false);
   const isControlled = openProp !== undefined;
   const isOpen = isControlled ? openProp : isOpenInternal;
@@ -476,7 +476,6 @@ function SelectFrame<
       offset,
       usingPercentSnapPoints,
       waitForChangeBeforeClose,
-      nativeSheet,
     }),
     [
       isOpen,
@@ -495,7 +494,6 @@ function SelectFrame<
       offset,
       usingPercentSnapPoints,
       waitForChangeBeforeClose,
-      nativeSheet,
     ],
   );
   return (

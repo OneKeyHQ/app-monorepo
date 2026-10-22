@@ -1,6 +1,7 @@
 import {
   memo,
   useCallback,
+  useContext,
   useEffect,
   useLayoutEffect,
   useMemo,
@@ -40,8 +41,9 @@ import {
   TRADING_VIEW_NATIVE_WATERMARK_DARK_OPACITY as WATERMARK_DARK_OPACITY,
   TRADING_VIEW_NATIVE_WATERMARK_LIGHT_OPACITY as WATERMARK_LIGHT_OPACITY,
 } from '../chartConstants';
-import { IndicatorPaneHandles } from '../indicatorPanes/IndicatorPaneHandles';
 import { useIndicatorPanes } from '../indicatorPanes/useIndicatorPanes';
+import { TradingViewNativeChartActiveContext } from '../TradingViewNativeChartActiveContext';
+import { TradingViewNativeChartReadyContext } from '../TradingViewNativeChartReadyContext';
 import { getTradingViewNativeChartComponentPriceAxisLabel } from '../utils/chartComponentTree';
 import { getTradingViewNativeIndicatorPriceAxisLabel } from '../utils/chartIndicators';
 import {
@@ -96,6 +98,10 @@ import {
   createTradingViewNativeSkiaResources,
   getTradingViewNativeSkiaLegendText,
 } from './chartSkiaRenderer';
+import {
+  getTradingViewNativeSkiaDigitWidth,
+  getTradingViewNativeSkiaPriceAxisLabelWidth,
+} from './chartSkiaText';
 import { NativeDrawingToolbar } from './NativeDrawingToolbar';
 import { TradingViewNativePriceScaleControls } from './TradingViewNativePriceScaleControls';
 import { useNativeChartDrawings } from './useNativeChartDrawings';
@@ -109,7 +115,7 @@ const SYSTEM_FONT_FAMILY = platformEnv.isNativeAndroid
   ? 'sans-serif'
   : 'System';
 const PRICE_AXIS_FONT_SOURCE =
-  require('@onekeyhq/components/src/hocs/Provider/fonts/GeistMono-Regular.ttf') as number;
+  require('@onekeyhq/components/src/hocs/Provider/fonts/fallback/Inter-Regular.ttf') as number;
 const ONEKEY_WATERMARK_SOURCE =
   require('@onekeyhq/components/svg/illus/logo.svg') as number;
 const PRICE_AXIS_FONT_URI = Image.resolveAssetSource(
@@ -170,6 +176,8 @@ export const TradingViewNativeChart = memo(
       width: 0,
     });
     const canvasSize = useSharedValue({ width: 0, height: 0 });
+    const isActive = useContext(TradingViewNativeChartActiveContext);
+    const onChartReady = useContext(TradingViewNativeChartReadyContext);
     const [chartWidth, setChartWidth] = useState(0);
     const subIndicatorPanesStructureKey =
       getTradingViewNativeSubIndicatorPanesStructureKey(subIndicatorPanes);
@@ -177,10 +185,8 @@ export const TradingViewNativeChart = memo(
       chartPictureVersion,
       chartType,
     });
-    const [{ runtime: chartRuntime, decayOffset }] = useState(() => {
-      if (runtimeRef?.current) {
-        return runtimeRef.current;
-      }
+    const [chartSession] = useState(() => {
+      const previousSession = runtimeRef?.current;
       const runtime = makeMutable(
         createTradingViewNativeChartRuntime({
           candleIntervalSeconds,
@@ -197,11 +203,39 @@ export const TradingViewNativeChart = memo(
         }),
       );
       const session = { runtime, decayOffset: makeMutable(0) };
+      if (previousSession) {
+        // The fullscreen layer keeps the inline canvas mounted underneath.
+        // Keep their sizes independent and transfer the viewport on the UI
+        // runtime without deserializing the candle history back into JS.
+        scheduleOnUI(() => {
+          'worklet';
+          runtime.value = {
+            ...previousSession.runtime.value,
+            size: { width: 0, height: 0 },
+          };
+          session.decayOffset.value = previousSession.decayOffset.value;
+        });
+      }
       if (runtimeRef) {
         runtimeRef.current = session;
       }
       return session;
     });
+    const { runtime: chartRuntime, decayOffset } = chartSession;
+    useLayoutEffect(() => {
+      if (!isActive || !runtimeRef || runtimeRef.current === chartSession)
+        return;
+      const previous = runtimeRef.current;
+      runtimeRef.current = chartSession;
+      if (!previous) return;
+      // Returning to the retained inline canvas must not paint an empty frame.
+      scheduleOnUI(() => {
+        'worklet';
+        const size = chartRuntime.value.size;
+        chartRuntime.value = { ...previous.runtime.value, size };
+        decayOffset.value = previous.decayOffset.value;
+      });
+    }, [chartRuntime, chartSession, decayOffset, isActive, runtimeRef]);
     const {
       controller: drawingController,
       drawings,
@@ -403,6 +437,9 @@ export const TradingViewNativeChart = memo(
         watermarkSvg,
       ],
     );
+    const priceAxisDigitWidth = useDerivedValue(() =>
+      getTradingViewNativeSkiaDigitWidth(resources.value.fonts.priceAxis),
+    );
     const priceAxisWidth = useDerivedValue(() => {
       if (!chartSettings.options.yAxis) {
         return 0;
@@ -411,12 +448,17 @@ export const TradingViewNativeChart = memo(
       const currentPriceLabelBounds = measuredPriceAxisFont.measureText(
         chartSettings.options.latestPrice ? currentPriceLabel : '',
       );
-      const widestPriceLabelBounds =
-        measuredPriceAxisFont.measureText(widestPriceLabel);
-      const widestChartComponentPriceLabelBounds =
-        measuredPriceAxisFont.measureText(widestChartComponentPriceLabel);
+      const measureCandidateLabel = (label: string) => {
+        'worklet';
+
+        return getTradingViewNativeSkiaPriceAxisLabelWidth(
+          label,
+          measuredPriceAxisFont,
+          priceAxisDigitWidth.value,
+        );
+      };
       const priceRange = chartRuntime.value.pinnedPriceRange ?? autoPriceRange;
-      const scaledPriceLabelBounds = measuredPriceAxisFont.measureText(
+      const scaledPriceLabelWidth = measureCandidateLabel(
         priceRange
           ? getTradingViewNativeScaledPriceAxisLabel({
               autoPriceRange: priceRange,
@@ -427,15 +469,7 @@ export const TradingViewNativeChart = memo(
             })
           : widestPriceLabel,
       );
-      const widestIndicatorPriceLabelBounds = measuredPriceAxisFont.measureText(
-        widestIndicatorPriceLabel,
-      );
-      const widestVolumeLabelBounds =
-        measuredPriceAxisFont.measureText(widestVolumeLabel);
-      const widestSubIndicatorLabelBounds = measuredPriceAxisFont.measureText(
-        widestSubIndicatorLabel,
-      );
-      const scaledSubIndicatorLabelBounds = measuredPriceAxisFont.measureText(
+      const scaledSubIndicatorLabelWidth = measureCandidateLabel(
         getTradingViewNativeScaledSubIndicatorAxisLabel(
           chartRuntime.value.subIndicatorPanes,
           chartRuntime.value.subIndicatorPriceScales,
@@ -450,20 +484,15 @@ export const TradingViewNativeChart = memo(
           PRICE_SCALE_CONTROL_NATIVE_SIZING,
         ),
         widestPriceLabelWidth: Math.max(
-          widestPriceLabelBounds.x + widestPriceLabelBounds.width,
-          widestChartComponentPriceLabelBounds.x +
-            widestChartComponentPriceLabelBounds.width,
-          scaledPriceLabelBounds.x + scaledPriceLabelBounds.width,
-          widestIndicatorPriceLabelBounds.x +
-            widestIndicatorPriceLabelBounds.width,
-          widestSubIndicatorLabelBounds.x + widestSubIndicatorLabelBounds.width,
-          scaledSubIndicatorLabelBounds.x + scaledSubIndicatorLabelBounds.width,
+          measureCandidateLabel(widestPriceLabel),
+          measureCandidateLabel(widestChartComponentPriceLabel),
+          scaledPriceLabelWidth,
+          measureCandidateLabel(widestIndicatorPriceLabel),
+          measureCandidateLabel(widestSubIndicatorLabel),
+          scaledSubIndicatorLabelWidth,
           0,
         ),
-        widestVolumeLabelWidth: Math.max(
-          widestVolumeLabelBounds.x + widestVolumeLabelBounds.width,
-          0,
-        ),
+        widestVolumeLabelWidth: measureCandidateLabel(widestVolumeLabel),
       });
     }, [
       autoPriceRange,
@@ -471,6 +500,7 @@ export const TradingViewNativeChart = memo(
       chartSettings.options.latestPrice,
       chartSettings.options.yAxis,
       currentPriceLabel,
+      priceAxisDigitWidth,
       priceDecimalPlaces,
       resources,
       widestChartComponentPriceLabel,
@@ -481,7 +511,16 @@ export const TradingViewNativeChart = memo(
     ]);
 
     const picture = useDerivedValue(() => {
-      const runtime = chartRuntime.value;
+      // Draw against this frame's canvas bounds, before the gesture runtime's
+      // resize reaction catches up. Otherwise rotation exposes an old-sized scene.
+      const runtime = resizeTradingViewNativeChartRuntime(
+        chartRuntime.value,
+        {
+          width: Math.round(canvasSize.value.width),
+          height: Math.round(canvasSize.value.height),
+        },
+        priceAxisWidth.value,
+      );
       return createTradingViewNativeSkiaPicture({
         drawings: enableDrawings ? drawings.value : undefined,
         onScene: (scene) => {
@@ -540,6 +579,35 @@ export const TradingViewNativeChart = memo(
       timeAxisHeight,
       watermarkOpacity,
     ]);
+
+    useAnimatedReaction(
+      () =>
+        onChartReady
+          ? { size: canvasSize.value, picture: picture.value }
+          : null,
+      (current, previous) => {
+        if (
+          !onChartReady ||
+          !current ||
+          current.size.width <= 0 ||
+          current.size.height <= 0 ||
+          (previous?.size.width === current.size.width &&
+            previous.size.height === current.size.height)
+        ) {
+          return;
+        }
+        // Let Skia submit the picture before revealing the native screen.
+        requestAnimationFrame(() => {
+          if (
+            canvasSize.value.width === current.size.width &&
+            canvasSize.value.height === current.size.height
+          ) {
+            scheduleOnRN(onChartReady);
+          }
+        });
+      },
+      [onChartReady],
+    );
 
     const handleChartWidthChange = useCallback((nextChartWidth: number) => {
       setChartWidth((currentChartWidth) =>
@@ -642,8 +710,8 @@ export const TradingViewNativeChart = memo(
     );
 
     useLayoutEffect(() => {
-      onChartWidthChange?.(chartWidth);
-    }, [chartWidth, onChartWidthChange]);
+      if (isActive && chartWidth > 0) onChartWidthChange?.(chartWidth);
+    }, [chartWidth, isActive, onChartWidthChange]);
 
     useLayoutEffect(() => {
       const dataUpdateMetadata = getTradingViewNativeDataUpdateMetadata({
@@ -1045,10 +1113,6 @@ export const TradingViewNativeChart = memo(
               <Picture picture={picture} />
             </Canvas>
           </GestureDetector>
-          <IndicatorPaneHandles
-            controller={indicatorPanes}
-            timeAxisHeight={timeAxisHeight}
-          />
           {chartSettings.options.yAxis && priceAxisControlWidth > 0 ? (
             <TradingViewNativePriceScaleControls
               backgroundColor={background}

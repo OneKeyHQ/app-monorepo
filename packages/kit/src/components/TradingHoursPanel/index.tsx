@@ -19,6 +19,7 @@ import {
 } from '@onekeyhq/components';
 import type { IKeyOfIcons } from '@onekeyhq/components';
 import { useInterval } from '@onekeyhq/kit/src/hooks/useInterval';
+import { useUSMarketStatus } from '@onekeyhq/kit/src/hooks/useUSMarketStatus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -28,7 +29,6 @@ import {
   formatSegmentLocalRange,
   getDeviceUtcOffsetLabel,
   getUSMarketTradingHours,
-  isOndoUSMarketStock,
   resolveUSTradingHoursActiveRow,
 } from '@onekeyhq/shared/src/utils/tradingHoursUtils';
 import type { IUSTradingHoursRow } from '@onekeyhq/shared/src/utils/tradingHoursUtils';
@@ -287,7 +287,9 @@ function TradingHoursContent({
 
   const tradingHours = useMemo(() => getUSMarketTradingHours(now), [now]);
 
+  const marketStatus = useUSMarketStatus();
   const activeRow = resolveUSTradingHoursActiveRow({
+    status: marketStatus,
     isOpen: stock.isOpen,
     isPaused: stock.isPaused,
     tradingHours,
@@ -311,7 +313,9 @@ function TradingHoursContent({
   // 7×24 instrument while the market is closed (the "24/7" chip state): the
   // subtitle switches to the dedicated around-the-clock copy, which also
   // makes the generic risk notice redundant.
-  const is247TradableClosed = activeRow === 'closed' && stock.isOpen === true;
+  // A US listing is never 7×24; its `isOpen` only disagrees when stale.
+  const is247TradableClosed =
+    activeRow === 'closed' && stock.isOpen === true && !stock.isUSListing;
 
   const weekendSpanText = useMemo(() => {
     const formatWeekendBoundary = (instant: number) =>
@@ -558,11 +562,13 @@ function getNodeRect(node: unknown): DOMRect | null {
 function TradingHoursHoverPopover({
   stock,
   renderTrigger,
+  defaultOpen = false,
 }: {
   stock: IMarketStockInfo;
   renderTrigger: ReactNode;
+  defaultOpen?: boolean;
 }) {
-  const [isOpen, setIsOpen] = useState(false);
+  const [isOpen, setIsOpen] = useState(defaultOpen);
   const triggerRef = useRef<unknown>(null);
   const contentRef = useRef<unknown>(null);
 
@@ -693,16 +699,29 @@ function TradingHoursHoverPopover({
 export function TradingHoursTrigger({
   stock,
   renderTrigger,
+  defaultOpen = false,
+  onDefaultOpenConsumed,
 }: {
   stock: IMarketStockInfo;
   renderTrigger: ReactNode;
+  defaultOpen?: boolean;
+  onDefaultOpenConsumed?: () => void;
 }) {
   const media = useMedia();
   const useSheetDialog = platformEnv.isNative || media.md;
+  const openOnLoad = useRef(defaultOpen);
+  useEffect(() => {
+    if (openOnLoad.current) {
+      openOnLoad.current = false;
+      if (useSheetDialog && stock.isUSListing !== false) {
+        showTradingHoursDialog(stock);
+      }
+      onDefaultOpenConsumed?.();
+    }
+  }, [onDefaultOpenConsumed, stock, useSheetDialog]);
 
-  // Trading hours only apply to Ondo's US-session model — other issuers
-  // (xStocks etc.) run 7×24, so their badge stays a plain, non-tappable one.
-  if (!isOndoUSMarketStock(stock.source)) {
+  // US trading hours describe nothing about a non-US listing.
+  if (stock.isUSListing === false) {
     return <>{renderTrigger}</>;
   }
 
@@ -723,6 +742,10 @@ export function TradingHoursTrigger({
   }
 
   return (
-    <TradingHoursHoverPopover stock={stock} renderTrigger={renderTrigger} />
+    <TradingHoursHoverPopover
+      stock={stock}
+      renderTrigger={renderTrigger}
+      defaultOpen={openOnLoad.current}
+    />
   );
 }

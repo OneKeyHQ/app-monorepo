@@ -8844,9 +8844,9 @@ __metadata:
     "@babel/parser": "npm:7.27.2"
     "@babel/traverse": "npm:7.27.1"
     "@napi-rs/keyring": "npm:^1.3.0"
-    "@onekeyfe/hd-common-connect-sdk": "npm:1.2.8-alpha.54"
-    "@onekeyfe/hd-core": "npm:1.2.8-alpha.54"
-    "@onekeyfe/hd-transport-usb": "npm:1.2.8-alpha.54"
+    "@onekeyfe/hd-common-connect-sdk": "npm:1.2.8-alpha.112"
+    "@onekeyfe/hd-core": "npm:1.2.8-alpha.112"
+    "@onekeyfe/hd-transport-usb": "npm:1.2.8-alpha.112"
     "@onekeyhq/core": "workspace:*"
     "@onekeyhq/shared": "workspace:*"
     "@types/proper-lockfile": "npm:^4"
@@ -9046,38 +9046,38 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@onekeyfe/hd-ble-sdk@npm:1.2.8-alpha.54":
-  version: 1.2.8-alpha.54
-  resolution: "@onekeyfe/hd-ble-sdk@npm:1.2.8-alpha.54"
+"@onekeyfe/hd-ble-sdk@npm:1.2.8-alpha.112":
+  version: 1.2.8-alpha.112
+  resolution: "@onekeyfe/hd-ble-sdk@npm:1.2.8-alpha.112"
   dependencies:
-    "@onekeyfe/hd-core": "npm:1.2.8-alpha.54"
-    "@onekeyfe/hd-shared": "npm:1.2.8-alpha.54"
-    "@onekeyfe/hd-transport-react-native": "npm:1.2.8-alpha.54"
-  checksum: 10/31c48c985ce0049fab7c1376a12bf6b8fc6cc0b9bf9dde155fe0797d8708997e6336663152f58aa23b7bca0a6a8db0b271e85c6e5ca9540f3e342c3551aac13f
+    "@onekeyfe/hd-core": "npm:1.2.8-alpha.112"
+    "@onekeyfe/hd-shared": "npm:1.2.8-alpha.112"
+    "@onekeyfe/hd-transport-react-native": "npm:1.2.8-alpha.112"
+  checksum: 10/b17457aa9fa1142a61c31f4424455659f63d2e9c2be948cf1f00a0a4df933531023ed2ee20a2a60e3dddfbdb6ebbd3b1d682d9dd777c00594518b786308ce989
   languageName: node
   linkType: hard
 
-"@onekeyfe/hd-common-connect-sdk@npm:1.2.8-alpha.54":
-  version: 1.2.8-alpha.54
-  resolution: "@onekeyfe/hd-common-connect-sdk@npm:1.2.8-alpha.54"
+"@onekeyfe/hd-common-connect-sdk@npm:1.2.8-alpha.112":
+  version: 1.2.8-alpha.112
+  resolution: "@onekeyfe/hd-common-connect-sdk@npm:1.2.8-alpha.112"
   dependencies:
-    "@onekeyfe/hd-core": "npm:1.2.8-alpha.54"
-    "@onekeyfe/hd-shared": "npm:1.2.8-alpha.54"
-    "@onekeyfe/hd-transport-emulator": "npm:1.2.8-alpha.54"
-    "@onekeyfe/hd-transport-http": "npm:1.2.8-alpha.54"
-    "@onekeyfe/hd-transport-lowlevel": "npm:1.2.8-alpha.54"
-    "@onekeyfe/hd-transport-usb": "npm:1.2.8-alpha.54"
-    "@onekeyfe/hd-transport-web-device": "npm:1.2.8-alpha.54"
-  checksum: 10/15cf3c85abba19576baf1c801cd06a38d6baf9d0f4adfae8a19747cb34f975c0f3b3061d169f4725f6c82ac5c83e44a20d1a7eba4a0871799df258540d93a27a
+    "@onekeyfe/hd-core": "npm:1.2.8-alpha.112"
+    "@onekeyfe/hd-shared": "npm:1.2.8-alpha.112"
+    "@onekeyfe/hd-transport-emulator": "npm:1.2.8-alpha.112"
+    "@onekeyfe/hd-transport-http": "npm:1.2.8-alpha.112"
+    "@onekeyfe/hd-transport-lowlevel": "npm:1.2.8-alpha.112"
+    "@onekeyfe/hd-transport-usb": "npm:1.2.8-alpha.112"
+    "@onekeyfe/hd-transport-web-device": "npm:1.2.8-alpha.112"
+  checksum: 10/d45ee8c590bb88c5bf69f6df88fd232bddda067271a750d8fc829c0d1ee589a0484ec656861a465de3c6f6f0631e86858d4f446a482f0ecd64c53556805d6b1f
   languageName: node
   linkType: hard
 
-"@onekeyfe/hd-core@npm:1.2.8-alpha.54":
-  version: 1.2.8-alpha.54
-  resolution: "@onekeyfe/hd-core@npm:1.2.8-alpha.54"
+"@onekeyfe/hd-core@npm:1.2.8-alpha.112":
+  version: 1.2.8-alpha.112
+  resolution: "@onekeyfe/hd-core@npm:1.2.8-alpha.112"
   dependencies:
-    "@onekeyfe/hd-shared": "npm:1.2.8-alpha.54"
-    "@onekeyfe/hd-transport": "npm:1.2.8-alpha.54"
+    "@onekeyfe/hd-shared": "npm:1.2.8-alpha.112"
+    "@onekeyfe/hd-transport": "npm:1.2.8-alpha.112"
     axios: "npm:1.15.2"
     bignumber.js: "npm:^9.0.2"
     buffer: "npm:^6.0.3"
@@ -9088,140 +9088,140 @@ __metadata:
     semver: "npm:^7.3.7"
   peerDependencies:
     "@noble/hashes": ^1.1.3
-  checksum: 10/bec5dd27938eddf7b070c9facf3c910522cec5999564e0e21b173987a9e5a8c97aa95ec2186abc740e306458487df881253afd4e00f1a3d2f311c52a286c9158
+  checksum: 10/0732ec9cc37c9f03991ac961b9ae5e74f8aac86dc6a3b74b9ebcc1931760a9cd57482eaff3e952d03b70dcf196a4b267b571f8db2b3fb02375e7ec1804bf7e9f
   languageName: node
   linkType: hard
 
-"@onekeyfe/hd-shared@npm:1.2.8-alpha.54":
-  version: 1.2.8-alpha.54
-  resolution: "@onekeyfe/hd-shared@npm:1.2.8-alpha.54"
-  checksum: 10/794f51203fe128ca922bc9b6ab94f1a06d6f2bfbfc029b32c8c110e3b46c84cc327ed22c7372040abf4cccc3254c9b25959937a28d94fb9595a0b9cda5a7e747
+"@onekeyfe/hd-shared@npm:1.2.8-alpha.112":
+  version: 1.2.8-alpha.112
+  resolution: "@onekeyfe/hd-shared@npm:1.2.8-alpha.112"
+  checksum: 10/9dcc4eaad3f7a8e62bbcd5ea452c94e78bb984acb27b16b0ea6f7295d43481fa13d6b0834904a0e3e6a9292114fe98bf881c6df03764e3a04cdddf943233a195
   languageName: node
   linkType: hard
 
-"@onekeyfe/hd-transport-electron@npm:1.2.8-alpha.54":
-  version: 1.2.8-alpha.54
-  resolution: "@onekeyfe/hd-transport-electron@npm:1.2.8-alpha.54"
+"@onekeyfe/hd-transport-electron@npm:1.2.8-alpha.112":
+  version: 1.2.8-alpha.112
+  resolution: "@onekeyfe/hd-transport-electron@npm:1.2.8-alpha.112"
   dependencies:
-    "@onekeyfe/hd-core": "npm:1.2.8-alpha.54"
-    "@onekeyfe/hd-shared": "npm:1.2.8-alpha.54"
-    "@onekeyfe/hd-transport": "npm:1.2.8-alpha.54"
+    "@onekeyfe/hd-core": "npm:1.2.8-alpha.112"
+    "@onekeyfe/hd-shared": "npm:1.2.8-alpha.112"
+    "@onekeyfe/hd-transport": "npm:1.2.8-alpha.112"
     "@stoprocent/noble": "npm:2.3.16"
     p-retry: "npm:^4.6.2"
   peerDependencies:
     electron: ">=25.0.0"
     electron-log: ">=4.0.0"
-  checksum: 10/633555a99395cfd729d2d6527c191aadab5ed170ae861fe574f074e912d6123fead648b1a696f96c2a28367459033bdd258c3d81f720074da3d072226e0624c0
+  checksum: 10/b55b45a15dcca7f52a53f3365ff41bd99635a7bc71a5baca85047ac79ba645da03bd07477b1dfff0d3adfeab6c2d0d5580f6d3f86ce78b23a0f2dd25b7c7ae19
   languageName: node
   linkType: hard
 
-"@onekeyfe/hd-transport-emulator@npm:1.2.8-alpha.54":
-  version: 1.2.8-alpha.54
-  resolution: "@onekeyfe/hd-transport-emulator@npm:1.2.8-alpha.54"
+"@onekeyfe/hd-transport-emulator@npm:1.2.8-alpha.112":
+  version: 1.2.8-alpha.112
+  resolution: "@onekeyfe/hd-transport-emulator@npm:1.2.8-alpha.112"
   dependencies:
-    "@onekeyfe/hd-shared": "npm:1.2.8-alpha.54"
-    "@onekeyfe/hd-transport": "npm:1.2.8-alpha.54"
+    "@onekeyfe/hd-shared": "npm:1.2.8-alpha.112"
+    "@onekeyfe/hd-transport": "npm:1.2.8-alpha.112"
     axios: "npm:1.15.2"
     secure-json-parse: "npm:^4.0.0"
-  checksum: 10/b7e17ddb9c376882aa94c8952b0f99eb9524342e12fcfd4af82e3d5ffbbcd4d7c2ff5352ec752b23274deedd9152090480f0e9312bb27fb42800ec1da98f59de
+  checksum: 10/3cab1d024438fd8e3218cedbdbb0c79390960843d37c88eb1f0d49961b888a852417d51197aa76beacb794a7fdee483899c67b88c1a858d1d4c94b94c31ed4ad
   languageName: node
   linkType: hard
 
-"@onekeyfe/hd-transport-http@npm:1.2.8-alpha.54":
-  version: 1.2.8-alpha.54
-  resolution: "@onekeyfe/hd-transport-http@npm:1.2.8-alpha.54"
+"@onekeyfe/hd-transport-http@npm:1.2.8-alpha.112":
+  version: 1.2.8-alpha.112
+  resolution: "@onekeyfe/hd-transport-http@npm:1.2.8-alpha.112"
   dependencies:
-    "@onekeyfe/hd-shared": "npm:1.2.8-alpha.54"
-    "@onekeyfe/hd-transport": "npm:1.2.8-alpha.54"
+    "@onekeyfe/hd-shared": "npm:1.2.8-alpha.112"
+    "@onekeyfe/hd-transport": "npm:1.2.8-alpha.112"
     axios: "npm:1.15.2"
     secure-json-parse: "npm:^4.0.0"
-  checksum: 10/cdf20c6054f75d4d2b5713826e20757281b58c6cab3f4161e6a608f88a8d62f133c61dfc3e606d4b413000566635ba2d5650b9b125aea0f62ebc114c8d76d330
+  checksum: 10/245f43364cff9fec99f87599da62302fce610a966360942eb9e61a273a188df1ed88dc7a704b64315a31dc5c314bb722e8dfac8484cc02bac68df00542a9e496
   languageName: node
   linkType: hard
 
-"@onekeyfe/hd-transport-lowlevel@npm:1.2.8-alpha.54":
-  version: 1.2.8-alpha.54
-  resolution: "@onekeyfe/hd-transport-lowlevel@npm:1.2.8-alpha.54"
+"@onekeyfe/hd-transport-lowlevel@npm:1.2.8-alpha.112":
+  version: 1.2.8-alpha.112
+  resolution: "@onekeyfe/hd-transport-lowlevel@npm:1.2.8-alpha.112"
   dependencies:
-    "@onekeyfe/hd-shared": "npm:1.2.8-alpha.54"
-    "@onekeyfe/hd-transport": "npm:1.2.8-alpha.54"
-  checksum: 10/a7dee98e967a7184f2cc6a2268e190adb37cee49318f52ed506453645b2c4140f60037152c154b53bd6f54f4620f27d07c4a6fa56729ef8ef8633eb65d82be50
+    "@onekeyfe/hd-shared": "npm:1.2.8-alpha.112"
+    "@onekeyfe/hd-transport": "npm:1.2.8-alpha.112"
+  checksum: 10/38747d69a3d7804e12aae1481a3a45d9ec2ecbb56724efeccd1780641212304760b2cd2694b6a04e0b8ad16732ecf6dc5f0de1cd685b2a03fe48fb9adeeabc2e
   languageName: node
   linkType: hard
 
-"@onekeyfe/hd-transport-react-native@npm:1.2.8-alpha.54":
-  version: 1.2.8-alpha.54
-  resolution: "@onekeyfe/hd-transport-react-native@npm:1.2.8-alpha.54"
+"@onekeyfe/hd-transport-react-native@npm:1.2.8-alpha.112":
+  version: 1.2.8-alpha.112
+  resolution: "@onekeyfe/hd-transport-react-native@npm:1.2.8-alpha.112"
   dependencies:
-    "@onekeyfe/hd-core": "npm:1.2.8-alpha.54"
-    "@onekeyfe/hd-shared": "npm:1.2.8-alpha.54"
-    "@onekeyfe/hd-transport": "npm:1.2.8-alpha.54"
+    "@onekeyfe/hd-core": "npm:1.2.8-alpha.112"
+    "@onekeyfe/hd-shared": "npm:1.2.8-alpha.112"
+    "@onekeyfe/hd-transport": "npm:1.2.8-alpha.112"
     "@onekeyfe/react-native-ble-utils": "npm:0.1.9"
     react-native-ble-plx: "npm:3.5.1"
-  checksum: 10/adec26c29e9348609eea66ac613f3d1308417b69ddda7aa4e3531e09f30f0ccea2454b0c566f63e7c6cc836308bd8344ed53d120f1f9dcaa076bd8f6370fdc58
+  checksum: 10/44c548c324e9864cdb6752486aded167a3910d3742982a9212994d004bd12aec88a253097bcf2e1d303f063e9bcdd0a3dbc2278e0c86271550845233ef4f9255
   languageName: node
   linkType: hard
 
-"@onekeyfe/hd-transport-usb@npm:1.2.8-alpha.54":
-  version: 1.2.8-alpha.54
-  resolution: "@onekeyfe/hd-transport-usb@npm:1.2.8-alpha.54"
+"@onekeyfe/hd-transport-usb@npm:1.2.8-alpha.112":
+  version: 1.2.8-alpha.112
+  resolution: "@onekeyfe/hd-transport-usb@npm:1.2.8-alpha.112"
   dependencies:
-    "@onekeyfe/hd-shared": "npm:1.2.8-alpha.54"
-    "@onekeyfe/hd-transport": "npm:1.2.8-alpha.54"
+    "@onekeyfe/hd-shared": "npm:1.2.8-alpha.112"
+    "@onekeyfe/hd-transport": "npm:1.2.8-alpha.112"
     bytebuffer: "npm:^5.0.1"
     usb: "npm:^2.14.0"
-  checksum: 10/6bf79a446db0463247565f5f013cd71a04016f4f63395d7049491e8f977f6963a16696b35b39e1fd1a58972356224c09f065dffe549107657a78a41e97149f93
+  checksum: 10/20e1dd5e9e609c88b39e1e9ff9b3ef86b8fa5a68f8e204141390405c162d3251d53753d764b3ebe47eabbaa69fc43b265d613051da03eace4d304b4a0fc722a1
   languageName: node
   linkType: hard
 
-"@onekeyfe/hd-transport-web-device@npm:1.2.8-alpha.54":
-  version: 1.2.8-alpha.54
-  resolution: "@onekeyfe/hd-transport-web-device@npm:1.2.8-alpha.54"
+"@onekeyfe/hd-transport-web-device@npm:1.2.8-alpha.112":
+  version: 1.2.8-alpha.112
+  resolution: "@onekeyfe/hd-transport-web-device@npm:1.2.8-alpha.112"
   dependencies:
-    "@onekeyfe/hd-shared": "npm:1.2.8-alpha.54"
-    "@onekeyfe/hd-transport": "npm:1.2.8-alpha.54"
-  checksum: 10/046d13b2b96153e1bee8ce8f96eb156542822633aa7f966a9ddc8b5d16b6829d05269bc7381aefb8b7740c58bb2cd28b4825eebb08ecad88ac15b9c77b6c9ead
+    "@onekeyfe/hd-shared": "npm:1.2.8-alpha.112"
+    "@onekeyfe/hd-transport": "npm:1.2.8-alpha.112"
+  checksum: 10/0a875f9ffb9bfd545dbe38d7dd73b4b3717d6b9e3d5c5d6af15f515f5f8408277ee7c5761093e1411c419c6c5572f937cb06760738fc7ae125cf253577c4bc75
   languageName: node
   linkType: hard
 
-"@onekeyfe/hd-transport@npm:1.2.8-alpha.54":
-  version: 1.2.8-alpha.54
-  resolution: "@onekeyfe/hd-transport@npm:1.2.8-alpha.54"
+"@onekeyfe/hd-transport@npm:1.2.8-alpha.112":
+  version: 1.2.8-alpha.112
+  resolution: "@onekeyfe/hd-transport@npm:1.2.8-alpha.112"
   dependencies:
     bytebuffer: "npm:^5.0.1"
     long: "npm:^4.0.0"
     protobufjs: "npm:^6.11.2"
-  checksum: 10/3d9a11501b71f87641e6f5f6bb2113612908f6323ff2dd3fc9ff604a0c24045e28053619aed55614e0e1bb062a78b1c89e0562098024aa37e010308922727aec
+  checksum: 10/9732ca4f7ef079ce23b3b2b8d35757f6a526395d08166dedb6381b84a647a703dad5537a308e13e1a4e369e2c5ffd3d93eaaa0e83830f1de278b9d02f1eba1b8
   languageName: node
   linkType: hard
 
-"@onekeyfe/hd-web-sdk@npm:1.2.8-alpha.54":
-  version: 1.2.8-alpha.54
-  resolution: "@onekeyfe/hd-web-sdk@npm:1.2.8-alpha.54"
+"@onekeyfe/hd-web-sdk@npm:1.2.8-alpha.112":
+  version: 1.2.8-alpha.112
+  resolution: "@onekeyfe/hd-web-sdk@npm:1.2.8-alpha.112"
   dependencies:
     "@onekeyfe/cross-inpage-provider-core": "npm:2.2.67"
-    "@onekeyfe/hd-core": "npm:1.2.8-alpha.54"
-    "@onekeyfe/hd-shared": "npm:1.2.8-alpha.54"
-    "@onekeyfe/hd-transport-http": "npm:1.2.8-alpha.54"
-    "@onekeyfe/hd-transport-web-device": "npm:1.2.8-alpha.54"
-  checksum: 10/a40eede4857c3737c03cde13b8756f656764c0a65554b21854e1a338a895ddf0e5cc6a1b8363cb952b1cf776fd4fe81d8b29afe4aa149eede97517e5b3976ac7
+    "@onekeyfe/hd-core": "npm:1.2.8-alpha.112"
+    "@onekeyfe/hd-shared": "npm:1.2.8-alpha.112"
+    "@onekeyfe/hd-transport-http": "npm:1.2.8-alpha.112"
+    "@onekeyfe/hd-transport-web-device": "npm:1.2.8-alpha.112"
+  checksum: 10/1245befee8b8317c71dab7e12181c5c3463bd74ba32c62a956e4cfdb563572129864bc02c51cc3ccb9137eae4b82691ba668870e707094ebc171d880cf3ee430
   languageName: node
   linkType: hard
 
-"@onekeyfe/hwk-adapter-core@npm:1.2.8-alpha.54":
-  version: 1.2.8-alpha.54
-  resolution: "@onekeyfe/hwk-adapter-core@npm:1.2.8-alpha.54"
+"@onekeyfe/hwk-adapter-core@npm:1.2.8-alpha.112":
+  version: 1.2.8-alpha.112
+  resolution: "@onekeyfe/hwk-adapter-core@npm:1.2.8-alpha.112"
   dependencies:
     "@noble/hashes": "npm:^1.7.1"
-  checksum: 10/52769049e29bde6cee0a948e2039cc9756103ff59a9123d75bf3cdc9ca5dc51e03dc2afaa374f8330aba4a553789bd82f7f540874d28ae70f9ee2b03de397232
+  checksum: 10/65119110769fce35c4e55287aba591400e5df614d603c5ca9021b53aac25fee2ce2eab29e92d55f37f8e40cf7d6a130440609f8c71c2769cfbc5959c2b2cf294
   languageName: node
   linkType: hard
 
-"@onekeyfe/hwk-desktop-noble-ble@npm:1.2.8-alpha.54":
-  version: 1.2.8-alpha.54
-  resolution: "@onekeyfe/hwk-desktop-noble-ble@npm:1.2.8-alpha.54"
+"@onekeyfe/hwk-desktop-noble-ble@npm:1.2.8-alpha.112":
+  version: 1.2.8-alpha.112
+  resolution: "@onekeyfe/hwk-desktop-noble-ble@npm:1.2.8-alpha.112"
   dependencies:
-    "@onekeyfe/hwk-adapter-core": "npm:1.2.8-alpha.54"
+    "@onekeyfe/hwk-adapter-core": "npm:1.2.8-alpha.112"
   peerDependencies:
     "@stoprocent/noble": "*"
     electron: "*"
@@ -9230,43 +9230,43 @@ __metadata:
       optional: true
     electron:
       optional: true
-  checksum: 10/77879ff755087458bb381bb551cd3cc29bd658ae0851d382ad70834ae1ae88b67854bae31a3879675873e7f380297f93f1ec765f8ac6900f84cc9115c4273c18
+  checksum: 10/10f67da0649527bbaddd8691dbc3237872fa87334f2f54207fdeafae3126572d86cfb5ac1bd9c429ed0702c26445541ea37b392c3ad48f43680ea8197bc2ab65
   languageName: node
   linkType: hard
 
-"@onekeyfe/hwk-keystone-adapter@npm:1.2.8-alpha.54":
-  version: 1.2.8-alpha.54
-  resolution: "@onekeyfe/hwk-keystone-adapter@npm:1.2.8-alpha.54"
+"@onekeyfe/hwk-keystone-adapter@npm:1.2.8-alpha.112":
+  version: 1.2.8-alpha.112
+  resolution: "@onekeyfe/hwk-keystone-adapter@npm:1.2.8-alpha.112"
   dependencies:
     "@keystonehq/bc-ur-registry": "npm:0.8.0"
     "@keystonehq/bc-ur-registry-eth": "npm:0.22.1"
     "@keystonehq/keystone-sdk": "npm:0.12.3"
-    "@onekeyfe/hwk-adapter-core": "npm:1.2.8-alpha.54"
+    "@onekeyfe/hwk-adapter-core": "npm:1.2.8-alpha.112"
     bitcoinjs-lib: "npm:@onekeyfe/bitcoinjs-lib@7.0.1"
     bs58: "npm:5.0.0"
     bs58check: "npm:3.0.1"
     hdkey: "npm:2.1.0"
     uuid: "npm:8.3.2"
-  checksum: 10/6ba603a16a37225b41f02eefb50204fa198d497fe03c84e0610fb2bb80e7e0aaadb346fd8f5c3826edbc8f51e8636a3eaeb120a82d41c0c4255c5e5b2b09c0e4
+  checksum: 10/8c2f916d7d0c1a02fecbc37b431e21e06ee22bcb82aad5653e88cfa4be7ea8127734f5317917a550f3b31d7c31a1ce3631ecdecd5cb651bb21abe50b4fc61f14
   languageName: node
   linkType: hard
 
-"@onekeyfe/hwk-keystone-connector-usb@npm:1.2.8-alpha.54":
-  version: 1.2.8-alpha.54
-  resolution: "@onekeyfe/hwk-keystone-connector-usb@npm:1.2.8-alpha.54"
+"@onekeyfe/hwk-keystone-connector-usb@npm:1.2.8-alpha.112":
+  version: 1.2.8-alpha.112
+  resolution: "@onekeyfe/hwk-keystone-connector-usb@npm:1.2.8-alpha.112"
   dependencies:
     "@keystonehq/hw-transport-error": "npm:0.0.2"
     "@keystonehq/hw-transport-usb": "npm:0.2.0"
     "@keystonehq/hw-transport-webusb": "npm:0.5.3"
     "@ngraveio/bc-ur": "npm:1.1.13"
-    "@onekeyfe/hwk-adapter-core": "npm:1.2.8-alpha.54"
-  checksum: 10/419f30947ccd1b510fbcfa3bc391a067515947e436da1a2b71915c0471bcb61d6aca3a3f28e005547e1c5e2cd1c6d17f82ba11b9e6dfbbf58a298a3568315f0f
+    "@onekeyfe/hwk-adapter-core": "npm:1.2.8-alpha.112"
+  checksum: 10/8370c1086c87c0e295a4df0c4a5999e8cdf2b5a3f42a13351dce0f79c7874edb19e06c16cb077ce13b0b414c21cf1d76bcfd753d17bd5dd4886ed0f3ded4b96c
   languageName: node
   linkType: hard
 
-"@onekeyfe/hwk-ledger-adapter@npm:1.2.8-alpha.54":
-  version: 1.2.8-alpha.54
-  resolution: "@onekeyfe/hwk-ledger-adapter@npm:1.2.8-alpha.54"
+"@onekeyfe/hwk-ledger-adapter@npm:1.2.8-alpha.112":
+  version: 1.2.8-alpha.112
+  resolution: "@onekeyfe/hwk-ledger-adapter@npm:1.2.8-alpha.112"
   dependencies:
     "@ledgerhq/context-module": "npm:2.2.0"
     "@ledgerhq/device-management-kit": "npm:1.9.0"
@@ -9276,125 +9276,125 @@ __metadata:
     "@ledgerhq/device-signer-kit-tron": "npm:0.2.0"
     "@ledgerhq/device-signer-kit-zcash": "npm:0.7.1"
     "@ledgerhq/hw-transport": "npm:6.35.0"
-    "@onekeyfe/hwk-adapter-core": "npm:1.2.8-alpha.54"
+    "@onekeyfe/hwk-adapter-core": "npm:1.2.8-alpha.112"
     bitcoinjs-lib: "npm:@onekeyfe/bitcoinjs-lib@7.0.1"
     bs58: "npm:6.0.0"
     rxjs: "npm:7.8.2"
-  checksum: 10/7094c2f537d3b8891130a2eb768bcaf3812956978fb23d2625ce4441819412b290618eac0dc78d0d1342e8d152b4e293b23304373d006f88dafdfb3126481fb4
+  checksum: 10/31c8afc070ef365ce84921b93ecefe4df6ec63ae4e2b8fd1d8db8afa4ac0cf0161b3e145e96a185890343a1b836187c36885ff4eeca1a387b1a5e96476065789
   languageName: node
   linkType: hard
 
-"@onekeyfe/hwk-ledger-connector-ble@npm:1.2.8-alpha.54":
-  version: 1.2.8-alpha.54
-  resolution: "@onekeyfe/hwk-ledger-connector-ble@npm:1.2.8-alpha.54"
+"@onekeyfe/hwk-ledger-connector-ble@npm:1.2.8-alpha.112":
+  version: 1.2.8-alpha.112
+  resolution: "@onekeyfe/hwk-ledger-connector-ble@npm:1.2.8-alpha.112"
   dependencies:
     "@ledgerhq/device-management-kit": "npm:1.9.0"
     "@ledgerhq/device-signer-kit-bitcoin": "npm:1.3.3"
     "@ledgerhq/device-signer-kit-ethereum": "npm:1.16.0"
     "@ledgerhq/device-signer-kit-solana": "npm:1.10.0"
     "@ledgerhq/device-transport-kit-react-native-ble": "npm:1.3.2"
-    "@onekeyfe/hwk-adapter-core": "npm:1.2.8-alpha.54"
-    "@onekeyfe/hwk-ledger-adapter": "npm:1.2.8-alpha.54"
+    "@onekeyfe/hwk-adapter-core": "npm:1.2.8-alpha.112"
+    "@onekeyfe/hwk-ledger-adapter": "npm:1.2.8-alpha.112"
     rxjs: "npm:7.8.2"
   peerDependencies:
     react-native: "*"
-  checksum: 10/f119fd62a70bd9d3a35fd64b3d07a4d62e2b3bb4c9e78c65e3b18164d89dc5ed75e254772656a5688f19194bd352b3ebf6103e0fe75a26ccffc442a7926058a4
+  checksum: 10/239b8008e5482fc20568247f647ecdfea87708933de1d9759dada94227f398ac329679bd3c88453c5f2d373af7d817042a74dabaf99eb87c4e31960805c0e423
   languageName: node
   linkType: hard
 
-"@onekeyfe/hwk-ledger-connector-electron-ble@npm:1.2.8-alpha.54":
-  version: 1.2.8-alpha.54
-  resolution: "@onekeyfe/hwk-ledger-connector-electron-ble@npm:1.2.8-alpha.54"
+"@onekeyfe/hwk-ledger-connector-electron-ble@npm:1.2.8-alpha.112":
+  version: 1.2.8-alpha.112
+  resolution: "@onekeyfe/hwk-ledger-connector-electron-ble@npm:1.2.8-alpha.112"
   dependencies:
     "@ledgerhq/device-management-kit": "npm:1.9.0"
-    "@onekeyfe/hwk-adapter-core": "npm:1.2.8-alpha.54"
-    "@onekeyfe/hwk-ledger-adapter": "npm:1.2.8-alpha.54"
+    "@onekeyfe/hwk-adapter-core": "npm:1.2.8-alpha.112"
+    "@onekeyfe/hwk-ledger-adapter": "npm:1.2.8-alpha.112"
     purify-ts: "npm:2.1.0"
     rxjs: "npm:7.8.2"
-  checksum: 10/6f44c930267eff4ccd1b2bd63ebdbbcbef3d3cf3e652f11993f18591b9b8138bac4c5f8dfe053bf615a61e28d3431756049c9cd8e85e7af658bcaabb68b3b60b
+  checksum: 10/8d792366b360ff53b34c0cefe8b13242ec5d70e577c5c60a9e190f781099f5686cbec319adc9d069901afc79de07cad684c0d1fe1c74c085ea04328d4c096cc5
   languageName: node
   linkType: hard
 
-"@onekeyfe/hwk-ledger-connector-webhid@npm:1.2.8-alpha.54":
-  version: 1.2.8-alpha.54
-  resolution: "@onekeyfe/hwk-ledger-connector-webhid@npm:1.2.8-alpha.54"
+"@onekeyfe/hwk-ledger-connector-webhid@npm:1.2.8-alpha.112":
+  version: 1.2.8-alpha.112
+  resolution: "@onekeyfe/hwk-ledger-connector-webhid@npm:1.2.8-alpha.112"
   dependencies:
     "@ledgerhq/device-management-kit": "npm:1.9.0"
     "@ledgerhq/device-signer-kit-bitcoin": "npm:1.3.3"
     "@ledgerhq/device-signer-kit-ethereum": "npm:1.16.0"
     "@ledgerhq/device-signer-kit-solana": "npm:1.10.0"
     "@ledgerhq/device-transport-kit-web-hid": "npm:1.2.3"
-    "@onekeyfe/hwk-adapter-core": "npm:1.2.8-alpha.54"
-    "@onekeyfe/hwk-ledger-adapter": "npm:1.2.8-alpha.54"
+    "@onekeyfe/hwk-adapter-core": "npm:1.2.8-alpha.112"
+    "@onekeyfe/hwk-ledger-adapter": "npm:1.2.8-alpha.112"
     rxjs: "npm:7.8.2"
-  checksum: 10/34a93153b1bcbda025380089665f32008a3662e4986e46594312a582e037614e13432f1a5f42cfb57bac8e3764d7465bae017a9587185e4154285a30ab033723
+  checksum: 10/c88115cbba384972209c318d79cb19fba6f83b6214bd889b67a67a0723923cb47ae8155de4bc19c031b463013add2e638d84648393254ac5cbd8f42c6423ba5c
   languageName: node
   linkType: hard
 
-"@onekeyfe/hwk-trezor-adapter@npm:1.2.8-alpha.54":
-  version: 1.2.8-alpha.54
-  resolution: "@onekeyfe/hwk-trezor-adapter@npm:1.2.8-alpha.54"
+"@onekeyfe/hwk-trezor-adapter@npm:1.2.8-alpha.112":
+  version: 1.2.8-alpha.112
+  resolution: "@onekeyfe/hwk-trezor-adapter@npm:1.2.8-alpha.112"
   dependencies:
     "@noble/curves": "npm:^1.9.7"
     "@noble/hashes": "npm:^1.3.3"
-    "@onekeyfe/hwk-adapter-core": "npm:1.2.8-alpha.54"
-    "@onekeyfe/hwk-trezor-core": "npm:1.2.8-alpha.54"
+    "@onekeyfe/hwk-adapter-core": "npm:1.2.8-alpha.112"
+    "@onekeyfe/hwk-trezor-core": "npm:1.2.8-alpha.112"
     tslib: "npm:^2.6.2"
-  checksum: 10/333cc8c47774a5af70da1da49b30ced87bef4653d5ee72cb2ae6fc7a2ab12e2a78e072b81473de61a5fb084210d0f7d52831991a1925df41f9c894624436b4e0
+  checksum: 10/e23ce9320927cfcc75c8a79e8c1b804d7b29fca2ede868a5ce8b41fdac84ba6b1e153e695a87032c7470f112486cbc5030764c96f024e1250a658e6c4ba6307a
   languageName: node
   linkType: hard
 
-"@onekeyfe/hwk-trezor-connector-electron-ble@npm:1.2.8-alpha.54":
-  version: 1.2.8-alpha.54
-  resolution: "@onekeyfe/hwk-trezor-connector-electron-ble@npm:1.2.8-alpha.54"
+"@onekeyfe/hwk-trezor-connector-electron-ble@npm:1.2.8-alpha.112":
+  version: 1.2.8-alpha.112
+  resolution: "@onekeyfe/hwk-trezor-connector-electron-ble@npm:1.2.8-alpha.112"
   dependencies:
-    "@onekeyfe/hwk-adapter-core": "npm:1.2.8-alpha.54"
-    "@onekeyfe/hwk-desktop-noble-ble": "npm:1.2.8-alpha.54"
-    "@onekeyfe/hwk-trezor-adapter": "npm:1.2.8-alpha.54"
-    "@onekeyfe/hwk-trezor-connector": "npm:1.2.8-alpha.54"
+    "@onekeyfe/hwk-adapter-core": "npm:1.2.8-alpha.112"
+    "@onekeyfe/hwk-desktop-noble-ble": "npm:1.2.8-alpha.112"
+    "@onekeyfe/hwk-trezor-adapter": "npm:1.2.8-alpha.112"
+    "@onekeyfe/hwk-trezor-connector": "npm:1.2.8-alpha.112"
     buffer: "npm:^6.0.3"
-  checksum: 10/463d65a58ee60d6d750acd621f204553f66acc67ad0183cf4b677ce4ac1ea44e7e4af8313af93df3acfb7d3c82f67a6060b0b7c0e2f6b60669d063418d0b0afe
+  checksum: 10/c4825346f2ff078c3cb72d93af0587b8fc33b84c1e04a85072f4472ca82c703491ece379920717daa67bb35765fd4d8a168e938d2cb7ac8ab14fb7488c5aeced
   languageName: node
   linkType: hard
 
-"@onekeyfe/hwk-trezor-connector-rn-ble@npm:1.2.8-alpha.54":
-  version: 1.2.8-alpha.54
-  resolution: "@onekeyfe/hwk-trezor-connector-rn-ble@npm:1.2.8-alpha.54"
+"@onekeyfe/hwk-trezor-connector-rn-ble@npm:1.2.8-alpha.112":
+  version: 1.2.8-alpha.112
+  resolution: "@onekeyfe/hwk-trezor-connector-rn-ble@npm:1.2.8-alpha.112"
   dependencies:
-    "@onekeyfe/hwk-adapter-core": "npm:1.2.8-alpha.54"
-    "@onekeyfe/hwk-trezor-adapter": "npm:1.2.8-alpha.54"
-    "@onekeyfe/hwk-trezor-connector": "npm:1.2.8-alpha.54"
+    "@onekeyfe/hwk-adapter-core": "npm:1.2.8-alpha.112"
+    "@onekeyfe/hwk-trezor-adapter": "npm:1.2.8-alpha.112"
+    "@onekeyfe/hwk-trezor-connector": "npm:1.2.8-alpha.112"
     buffer: "npm:^6.0.3"
     react-native-ble-plx: "npm:^3.5.1"
-  checksum: 10/dd65891f3df23da51ada8a28dff900b2adcff194501737cf0617c6e29a08f33c172dc7b9bc896853993fbdfaca3507f5c9b586903a3d40f3e6e4f68cde9de58c
+  checksum: 10/b200948b842f94cf9bfb60749db985ecd6188faeb4e0047319c5f0bbb41c04640cb80a68168b52d1e44a4f98a449444afab52f43be7390081f1dea377c6973a7
   languageName: node
   linkType: hard
 
-"@onekeyfe/hwk-trezor-connector-webusb@npm:1.2.8-alpha.54":
-  version: 1.2.8-alpha.54
-  resolution: "@onekeyfe/hwk-trezor-connector-webusb@npm:1.2.8-alpha.54"
+"@onekeyfe/hwk-trezor-connector-webusb@npm:1.2.8-alpha.112":
+  version: 1.2.8-alpha.112
+  resolution: "@onekeyfe/hwk-trezor-connector-webusb@npm:1.2.8-alpha.112"
   dependencies:
-    "@onekeyfe/hwk-adapter-core": "npm:1.2.8-alpha.54"
-    "@onekeyfe/hwk-trezor-connector": "npm:1.2.8-alpha.54"
+    "@onekeyfe/hwk-adapter-core": "npm:1.2.8-alpha.112"
+    "@onekeyfe/hwk-trezor-connector": "npm:1.2.8-alpha.112"
     buffer: "npm:^6.0.3"
-  checksum: 10/16a5306a4336ef702dc6928dcbe8a6226c084bceef75f1757550fce6809091efb9687fd718c6b52ca5e5f115302a0c287ccf37c3455d5049f78ee075c1f579b0
+  checksum: 10/815855348f5341859925e5968e3013e40d578e4a42ea0026283a2b09636fca441e860a0fefcabc4a9072813510b7da14a99274bac06663692a602375e17cae16
   languageName: node
   linkType: hard
 
-"@onekeyfe/hwk-trezor-connector@npm:1.2.8-alpha.54":
-  version: 1.2.8-alpha.54
-  resolution: "@onekeyfe/hwk-trezor-connector@npm:1.2.8-alpha.54"
+"@onekeyfe/hwk-trezor-connector@npm:1.2.8-alpha.112":
+  version: 1.2.8-alpha.112
+  resolution: "@onekeyfe/hwk-trezor-connector@npm:1.2.8-alpha.112"
   dependencies:
-    "@onekeyfe/hwk-adapter-core": "npm:1.2.8-alpha.54"
-    "@onekeyfe/hwk-trezor-core": "npm:1.2.8-alpha.54"
-  checksum: 10/8b68b969006e318ec9f6dce748e18489ae9e23e32cfe1fc15a3b5edb05fe507207262b1d7ee041de3a77fc871854ce07755b8b5c1d2274847fe965448fe88e56
+    "@onekeyfe/hwk-adapter-core": "npm:1.2.8-alpha.112"
+    "@onekeyfe/hwk-trezor-core": "npm:1.2.8-alpha.112"
+  checksum: 10/fc3cdf7dd5eae7b9ccf8439063fbfb3403d3c4205d23957bc83dae58f3bb9c9ba72900ad293b98173a5edc19aeb4f7f33993083fbd57151c8f52a1191fcdccca
   languageName: node
   linkType: hard
 
-"@onekeyfe/hwk-trezor-core@npm:1.2.8-alpha.54":
-  version: 1.2.8-alpha.54
-  resolution: "@onekeyfe/hwk-trezor-core@npm:1.2.8-alpha.54"
-  checksum: 10/1e12fd712e85f46b869cafc88200610f310f1fcb84988d4324d6ade0c5b9b19391401ce6b5828a2737b1b318ed4af096d45148701bdb9fe611d2ab82f9de29b1
+"@onekeyfe/hwk-trezor-core@npm:1.2.8-alpha.112":
+  version: 1.2.8-alpha.112
+  resolution: "@onekeyfe/hwk-trezor-core@npm:1.2.8-alpha.112"
+  checksum: 10/1b6ff73c349b88689b9d0688e2059cad724a71f87b40fb9278293bda193360ff23e32375617629ee275f3d5254b0362cf531d7a6cb7208f45a4b3f8ef28cfbfb
   languageName: node
   linkType: hard
 
@@ -9756,36 +9756,36 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@onekeyfe/react-native-app-update@npm:6.7.0-alpha.339":
-  version: 6.7.0-alpha.339
-  resolution: "@onekeyfe/react-native-app-update@npm:6.7.0-alpha.339"
+"@onekeyfe/react-native-app-update@npm:6.7.0-8":
+  version: 6.7.0-8
+  resolution: "@onekeyfe/react-native-app-update@npm:6.7.0-8"
   peerDependencies:
     react: "*"
     react-native: "*"
     react-native-nitro-modules: 0.37.0
-  checksum: 10/6cd7e876fd9a2ea44c7344f4d2ec6408b8b158589985380af548e3942c7d36f5b7728ecb6467189e7c333460cc4e8d05ffab4afdd62ef406132c679b67e4e519
+  checksum: 10/44645391243b1cb077ad92891f1e823f6e2060b1e783e881221439462246effab55d7a6e30d08ac4fd61fe75028ee6bea88648de1a4524913b62a1944dfdbda0
   languageName: node
   linkType: hard
 
-"@onekeyfe/react-native-auto-size-input@npm:6.7.0-alpha.339":
-  version: 6.7.0-alpha.339
-  resolution: "@onekeyfe/react-native-auto-size-input@npm:6.7.0-alpha.339"
+"@onekeyfe/react-native-auto-size-input@npm:6.7.0-8":
+  version: 6.7.0-8
+  resolution: "@onekeyfe/react-native-auto-size-input@npm:6.7.0-8"
   peerDependencies:
     react: "*"
     react-native: "*"
     react-native-nitro-modules: 0.37.0
-  checksum: 10/8c2e496a5ec1986a36addf4537a122a3bfcabff662b394562ca0ffaa47bd97e0d9cfbf43720ca4c5e22da0d0ade4d04cb9d7244db2d866ab2e5f76f3af33da51
+  checksum: 10/a02a750a182def39a93bc6afbb5039a1877611214a6e1406b8d70a5a1eb54bd9e3bc129727bf985a84f992340c1a64eb82f0bdc2e3a36bdac93683083fb3446f
   languageName: node
   linkType: hard
 
-"@onekeyfe/react-native-background-thread@npm:6.7.0-alpha.339":
-  version: 6.7.0-alpha.339
-  resolution: "@onekeyfe/react-native-background-thread@npm:6.7.0-alpha.339"
+"@onekeyfe/react-native-background-thread@npm:6.7.0-8":
+  version: 6.7.0-8
+  resolution: "@onekeyfe/react-native-background-thread@npm:6.7.0-8"
   peerDependencies:
     "@onekeyfe/react-native-bundle-update": "*"
     react: "*"
     react-native: "*"
-  checksum: 10/c36c759ff4e2a929aa61765fce24c2823a6527b0b454b2cfe7f3e67c4286de6781668399fa2f3d8ded9d63e85ac6557eb5b8963170c5f06bdfb1e94a3ef0f2c3
+  checksum: 10/29b5b73ce3b83caa1242717e42898095aa90b4ab132f3e993510f567a567aac03bea0e022e1a54350f6d895f21ba1db1d98cbb384082d399b6abf9ea0c1c430e
   languageName: node
   linkType: hard
 
@@ -9799,9 +9799,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@onekeyfe/react-native-bottom-tabs@npm:6.7.0-alpha.339":
-  version: 6.7.0-alpha.339
-  resolution: "@onekeyfe/react-native-bottom-tabs@npm:6.7.0-alpha.339"
+"@onekeyfe/react-native-bottom-tabs@npm:6.7.0-8":
+  version: 6.7.0-8
+  resolution: "@onekeyfe/react-native-bottom-tabs@npm:6.7.0-8"
   dependencies:
     react-freeze: "npm:^1.0.0"
     sf-symbols-typescript: "npm:^2.0.0"
@@ -9809,315 +9809,319 @@ __metadata:
   peerDependencies:
     react: "*"
     react-native: "*"
-  checksum: 10/7cc6a3e95c936c3cdcba3b997ca51998959b67bf78a6271d961e135942ec40958921ff821aeb540219ec384f5c5e59751bea096ed50df426800df7e50c0e5356
+  checksum: 10/0096f1a072e4815151226fa85e37303274074264b9b60f1d0db93661e414cbbc15cfe718177e83a7059968b34a16712919e6d7b1a57c15fdc9b7a3b26d278fd8
   languageName: node
   linkType: hard
 
-"@onekeyfe/react-native-bundle-crypto@npm:6.7.0-alpha.339":
-  version: 6.7.0-alpha.339
-  resolution: "@onekeyfe/react-native-bundle-crypto@npm:6.7.0-alpha.339"
+"@onekeyfe/react-native-bundle-crypto@npm:6.7.0-8":
+  version: 6.7.0-8
+  resolution: "@onekeyfe/react-native-bundle-crypto@npm:6.7.0-8"
   peerDependencies:
     react: "*"
     react-native: "*"
     react-native-nitro-modules: 0.37.0
-  checksum: 10/ff8b59395b4876b71bf00f058f32e577124dd4a782fed85417021b00317379119cf9eea5e4daf18179569a35607dc079599b8cadc9ad8b3fc5a47f9b19ad6165
+  checksum: 10/25ec1792f4bbd8336e43810e0b582adae647ff11425e3c7169122789a478503cadecf9045f41fd72e680287abb44a8e29c0cc4e0de63f84e7e320c96d01e6d16
   languageName: node
   linkType: hard
 
-"@onekeyfe/react-native-bundle-update@npm:6.7.0-alpha.339":
-  version: 6.7.0-alpha.339
-  resolution: "@onekeyfe/react-native-bundle-update@npm:6.7.0-alpha.339"
+"@onekeyfe/react-native-bundle-update@npm:6.7.0-8":
+  version: 6.7.0-8
+  resolution: "@onekeyfe/react-native-bundle-update@npm:6.7.0-8"
   peerDependencies:
     react: "*"
     react-native: "*"
     react-native-nitro-modules: 0.37.0
-  checksum: 10/02a26b4f1c31a8790acdfbb52b29c81134865cba9e4914f77f052021401d0b24d7e241e444d3191a91b977b9a697cac529fbcf79aa56ae9cdd80fac3040ef229
+  checksum: 10/d45a71ee274bbb5ed410e52d85aef3d9d41ca751a7d2ca7f09785e9b6e4cdc2142fe232bb5417898e6ced53858a31c9569108b73b52e8be8d0d1b9b93189cc73
   languageName: node
   linkType: hard
 
-"@onekeyfe/react-native-capture-protection@npm:6.7.0-alpha.339":
-  version: 6.7.0-alpha.339
-  resolution: "@onekeyfe/react-native-capture-protection@npm:6.7.0-alpha.339"
+"@onekeyfe/react-native-capture-protection@npm:6.7.0-8":
+  version: 6.7.0-8
+  resolution: "@onekeyfe/react-native-capture-protection@npm:6.7.0-8"
   peerDependencies:
     react: "*"
     react-native: "*"
     react-native-nitro-modules: 0.37.0
-  checksum: 10/88a9cebeff1030cd48df234253ecbc94cc08af76b46c6a3db1a1fffc708367ef5672dc5fd472cd634b9dd0a2126bcef92550cdb70d7110d4524b437b64e5a025
+  checksum: 10/2cb8f6df29442a912e4b23c691c63caca40c1aafe3f2c92ed0161521f3337110c3cc0412b037d541dd44e7afda57cd7bcbbd5e47ea5fb801bf5f500f4eac5d54
   languageName: node
   linkType: hard
 
-"@onekeyfe/react-native-chart-webview@npm:6.7.0-alpha.339":
-  version: 6.7.0-alpha.339
-  resolution: "@onekeyfe/react-native-chart-webview@npm:6.7.0-alpha.339"
+"@onekeyfe/react-native-chart-webview@npm:6.7.0-8":
+  version: 6.7.0-8
+  resolution: "@onekeyfe/react-native-chart-webview@npm:6.7.0-8"
   peerDependencies:
     react: "*"
     react-native: "*"
     react-native-nitro-modules: 0.37.0
-  checksum: 10/12b3021591ad260964111ccd2114978c9fb166ffd9393fc6b4295702d22dc82d85855e71ae405b6eb5005aecbae4aea3e9ddbcf7370fa8379b816e387a28600d
+  checksum: 10/0271ba102d7740bd6065d95bb5714f1845695e7bd2bee44463642e8184001528aff861e56802cd4b831aa5d11d8cb20cbdde9c64560503f8565d849b15a28677
   languageName: node
   linkType: hard
 
-"@onekeyfe/react-native-check-biometric-auth-changed@npm:6.7.0-alpha.339":
-  version: 6.7.0-alpha.339
-  resolution: "@onekeyfe/react-native-check-biometric-auth-changed@npm:6.7.0-alpha.339"
+"@onekeyfe/react-native-check-biometric-auth-changed@npm:6.7.0-8":
+  version: 6.7.0-8
+  resolution: "@onekeyfe/react-native-check-biometric-auth-changed@npm:6.7.0-8"
   peerDependencies:
     react: "*"
     react-native: "*"
     react-native-nitro-modules: 0.37.0
-  checksum: 10/1faeb8d3a5a3eaac271f926280d7a974969039687d7ea757608075dd229cfc0caa5b8e81a30cf29e98efd51bdd6e3cdc870cc18488e55b23fc8a19de097b0eff
+  checksum: 10/c389cc34035f6ccddece94e6e0a2064f1f328dddf9b2d26b2b82187dba2116743e934bff1c201676ffd578a31a5889fd93dd33eb5185b74459a23b17a729a7aa
   languageName: node
   linkType: hard
 
-"@onekeyfe/react-native-cloud-kit-module@npm:6.7.0-alpha.339":
-  version: 6.7.0-alpha.339
-  resolution: "@onekeyfe/react-native-cloud-kit-module@npm:6.7.0-alpha.339"
+"@onekeyfe/react-native-cloud-kit-module@npm:6.7.0-8":
+  version: 6.7.0-8
+  resolution: "@onekeyfe/react-native-cloud-kit-module@npm:6.7.0-8"
   peerDependencies:
     react: "*"
     react-native: "*"
     react-native-nitro-modules: 0.37.0
-  checksum: 10/8bb0ecaab20c268e89da623e560826d00c339c9bf4cc68d46ad13a103766adaa91804f25a5fc10df19edc1ee64525d43b46d6a7e56bda3317dfa5705990755a8
+  checksum: 10/af07209804a30aa736152ca6a1cb7d5924cdb1552b93f83f0bd97f6851a57e0fe3bf3deaa2825b6684c21b23fe7d62eaa05f42f1283cbcd1322d4b6ef306b579
   languageName: node
   linkType: hard
 
-"@onekeyfe/react-native-device-utils@npm:6.7.0-alpha.339":
-  version: 6.7.0-alpha.339
-  resolution: "@onekeyfe/react-native-device-utils@npm:6.7.0-alpha.339"
+"@onekeyfe/react-native-device-utils@npm:6.7.0-8":
+  version: 6.7.0-8
+  resolution: "@onekeyfe/react-native-device-utils@npm:6.7.0-8"
   peerDependencies:
     react: "*"
     react-native: "*"
     react-native-nitro-modules: 0.37.0
-  checksum: 10/52ced74e9ae3d18ead3f7ce219dd31c503d1c6227296007f118c55cc40035bb42a372d489fc7a37db4f7c0941104d4219924862fc1f953be7ee97638fe24530c
+  checksum: 10/4ea7c804adaf191f71dbb72619f6e5f8d8fa14a3a9595eafa0de556e1cbedd0f2f4b0d9656df29647982da1b73bc4c725e69708b17e3ed5302a768891d23763f
   languageName: node
   linkType: hard
 
-"@onekeyfe/react-native-image-crop-picker@npm:6.7.0-alpha.339":
-  version: 6.7.0-alpha.339
-  resolution: "@onekeyfe/react-native-image-crop-picker@npm:6.7.0-alpha.339"
+"@onekeyfe/react-native-image-crop-picker@npm:6.7.0-8":
+  version: 6.7.0-8
+  resolution: "@onekeyfe/react-native-image-crop-picker@npm:6.7.0-8"
   peerDependencies:
     react: "*"
     react-native: "*"
     react-native-nitro-modules: 0.37.0
-  checksum: 10/47583a74e13737cd3187cadc6efe823dbbaf2bbefef7f67978b847a51fd7ebb2a1b3aaa7fbfeace332411f2f064cbc658818aaa65e6a4355bf42dd5bb5333ddb
+  checksum: 10/8acc199b2451fbf57ce9799a57c954f1f269f85ccf86f2d003b66a184448e5e7025b7bc082bec6b86bb7fe8d4d33261c615ab5b7cafdc9bc2d07c53c5f818117
   languageName: node
   linkType: hard
 
-"@onekeyfe/react-native-image@npm:6.7.0-alpha.339":
-  version: 6.7.0-alpha.339
-  resolution: "@onekeyfe/react-native-image@npm:6.7.0-alpha.339"
+"@onekeyfe/react-native-image@npm:6.7.0-8":
+  version: 6.7.0-8
+  resolution: "@onekeyfe/react-native-image@npm:6.7.0-8"
   peerDependencies:
-    "@onekeyfe/react-native-skeleton": 6.7.0-alpha.339
+    "@onekeyfe/react-native-skeleton": 6.7.0-8
     react: "*"
     react-native: "*"
     react-native-nitro-modules: 0.37.0
-  checksum: 10/068b9351ca9d630fbdc5f45925c617cbc130bb0bb40e8ef8f0249df7b2dcf17a8fd37459d148d8ec0c8a422ef5e35a8c7c5378155ab8913b0ab2cec764bfe457
+  checksum: 10/620105656a0deb4e58628c4a1cb68351aadc8740f7a982db7ecd693925a0786ea3dc0c3849c4951e97756ec19a34f39895cb5b9a9d8b8f9232e4f5ed75ad9b0a
   languageName: node
   linkType: hard
 
-"@onekeyfe/react-native-keychain-module@npm:6.7.0-alpha.339":
-  version: 6.7.0-alpha.339
-  resolution: "@onekeyfe/react-native-keychain-module@npm:6.7.0-alpha.339"
-  peerDependencies:
-    react: "*"
-    react-native: "*"
-    react-native-nitro-modules: 0.37.0
-  checksum: 10/560400ea409163ec33e51778cec407566f46803dc3916f886b605068791a537f68e09c76edf1ed7af997b975dab928890e6cbdfdadddce45cb316bfd7eb9d7ab
-  languageName: node
-  linkType: hard
-
-"@onekeyfe/react-native-lite-card@npm:6.7.0-alpha.339":
-  version: 6.7.0-alpha.339
-  resolution: "@onekeyfe/react-native-lite-card@npm:6.7.0-alpha.339"
-  peerDependencies:
-    react: "*"
-    react-native: "*"
-  checksum: 10/5226b76f1af1a47c3f3dbc1c7af1dd3601fda7d240ada4137b6e0619ed5611b5617085a16268c7dad270d4f478ed00269d12882593943135c876bfa131f5e508
-  languageName: node
-  linkType: hard
-
-"@onekeyfe/react-native-native-list@npm:6.7.0-alpha.339":
-  version: 6.7.0-alpha.339
-  resolution: "@onekeyfe/react-native-native-list@npm:6.7.0-alpha.339"
-  peerDependencies:
-    "@onekeyfe/react-native-image": 6.7.0-alpha.339
-    "@onekeyfe/react-native-native-logger": 6.7.0-alpha.339
-    react: "*"
-    react-native: "*"
-    react-native-nitro-modules: 0.37.0
-  checksum: 10/a41a7fc2ae6c577ca7c8018f70aef727292fbd095528db74748ac663280efea62b919d639ae51c78d85c143c726bdfd9e3c78187e5a4086f7b5298855cc7ea8b
-  languageName: node
-  linkType: hard
-
-"@onekeyfe/react-native-native-logger@npm:6.7.0-alpha.339":
-  version: 6.7.0-alpha.339
-  resolution: "@onekeyfe/react-native-native-logger@npm:6.7.0-alpha.339"
+"@onekeyfe/react-native-keychain-module@npm:6.7.0-8":
+  version: 6.7.0-8
+  resolution: "@onekeyfe/react-native-keychain-module@npm:6.7.0-8"
   peerDependencies:
     react: "*"
     react-native: "*"
     react-native-nitro-modules: 0.37.0
-  checksum: 10/8f1f59780b1cc1772aa66453f1b89bcb2c2fad8db206fb0120cd068e707b4b3248cd09d5ecfe7b1372e87dd9bf5ef8cc4a2b0b6c7c476b80f2d3437278e86a92
+  checksum: 10/371af42c706542e195c31027547b05f0ce4071a06c401322e5200b0e0e44da3e56064683f4185c7fd30661c1a91c2ef073dd6393b35d45f0cf11f3f8b39fcd34
   languageName: node
   linkType: hard
 
-"@onekeyfe/react-native-native-sheet@npm:6.7.0-alpha.339":
-  version: 6.7.0-alpha.339
-  resolution: "@onekeyfe/react-native-native-sheet@npm:6.7.0-alpha.339"
+"@onekeyfe/react-native-lite-card@npm:6.7.0-8":
+  version: 6.7.0-8
+  resolution: "@onekeyfe/react-native-lite-card@npm:6.7.0-8"
   peerDependencies:
     react: "*"
     react-native: "*"
-  checksum: 10/eac5b03e769a2e43d659794ac4e870c512600f13f9dfc5bb926dec8bfba27bae7d925916a7a36ec99647183d7266fd7e3feec82497bef22c7f84717b438ca22b
+  checksum: 10/96c699970b424f19c480805b762d8ce716df275f7585578bdf5c48091f526d33e718ce716b6637a1e1866e1140c640df5a81d7c4edf0e3635e608e4fd304d5e7
   languageName: node
   linkType: hard
 
-"@onekeyfe/react-native-network-throttle@npm:6.7.0-alpha.339":
-  version: 6.7.0-alpha.339
-  resolution: "@onekeyfe/react-native-network-throttle@npm:6.7.0-alpha.339"
+"@onekeyfe/react-native-native-list@npm:6.7.0-8":
+  version: 6.7.0-8
+  resolution: "@onekeyfe/react-native-native-list@npm:6.7.0-8"
   peerDependencies:
+    "@onekeyfe/react-native-image": 6.7.0-8
+    "@onekeyfe/react-native-native-logger": 6.7.0-8
     react: "*"
     react-native: "*"
-  checksum: 10/cf3bca603ccc48543039c7fec4eeb50e114304a7f7ceac39b40df11a501ae5f805dc826fe2c5272c4742acdcde20c6c1046ea624536ee07220c8425093c5f10d
+    react-native-nitro-modules: 0.37.0
+  checksum: 10/d8170454c29b2f05ec5eff1d90e324931ff4dded2955be10daea06afce8003e4fe168a5ebd5ab328ea2136e9e958a225aef5f1650019fc9279eb511563f4b631
   languageName: node
   linkType: hard
 
-"@onekeyfe/react-native-perf-memory@npm:6.7.0-alpha.339":
-  version: 6.7.0-alpha.339
-  resolution: "@onekeyfe/react-native-perf-memory@npm:6.7.0-alpha.339"
+"@onekeyfe/react-native-native-logger@npm:6.7.0-8":
+  version: 6.7.0-8
+  resolution: "@onekeyfe/react-native-native-logger@npm:6.7.0-8"
   peerDependencies:
     react: "*"
     react-native: "*"
     react-native-nitro-modules: 0.37.0
-  checksum: 10/12356ffa602bccda44f78246134ad1f9c03b7540fc176ecc333e98b2269f3cc285fca1b1a4e0a850b82aff1943f457ca2b2ce2fe420b9370022926b1d3c63dac
+  checksum: 10/d84b1cd96ffd66b78911e0988203e866d249c9c21a612524a6798162c09990b5a395a80192c92e69145325a27c9664f16f4f8dd3b790613ff96dd2b61e591c8a
   languageName: node
   linkType: hard
 
-"@onekeyfe/react-native-perf-stats@npm:6.7.0-alpha.339":
-  version: 6.7.0-alpha.339
-  resolution: "@onekeyfe/react-native-perf-stats@npm:6.7.0-alpha.339"
+"@onekeyfe/react-native-native-overlay@npm:6.7.0-8":
+  version: 6.7.0-8
+  resolution: "@onekeyfe/react-native-native-overlay@npm:6.7.0-8"
+  peerDependencies:
+    react: "*"
+    react-dom: "*"
+    react-native: "*"
+  peerDependenciesMeta:
+    react-dom:
+      optional: true
+  checksum: 10/b87bda2e303821dcbb789812fe9fe8267813ff1452e16ccd453a0f4d99f7fca934f237f0bd6fb1d6bde626277d8518822e203c11caa0d953f7139f12ec9b5ed5
+  languageName: node
+  linkType: hard
+
+"@onekeyfe/react-native-network-throttle@npm:6.7.0-8":
+  version: 6.7.0-8
+  resolution: "@onekeyfe/react-native-network-throttle@npm:6.7.0-8"
+  peerDependencies:
+    react: "*"
+    react-native: "*"
+  checksum: 10/e8bf332d1a87fac88125d0ef3ad7b5fddc0f75f8cd6417371a638af5c1106947f643c0d3be7b09d7bfb87d9085cbbee517bb2008437deaf3778d4d6613a61eb0
+  languageName: node
+  linkType: hard
+
+"@onekeyfe/react-native-perf-memory@npm:6.7.0-8":
+  version: 6.7.0-8
+  resolution: "@onekeyfe/react-native-perf-memory@npm:6.7.0-8"
   peerDependencies:
     react: "*"
     react-native: "*"
     react-native-nitro-modules: 0.37.0
-  checksum: 10/d21e0e0101284de43e7a24e7ff3faef107319e5115ed4601e8042ba3580d457bf412a38eda10f0e62c4b794cc5518ba9c14a258c55b898e887dfed0b9de2ad01
+  checksum: 10/3710309a1ed7be71e239a06c3b7752ead1dda7419a5506338804035cae11152fb11d675141e3275818cbbbc29b57610d01548c7dde047fb76f48a055eaae77f0
   languageName: node
   linkType: hard
 
-"@onekeyfe/react-native-perp-depth-bar@npm:6.7.0-alpha.339":
-  version: 6.7.0-alpha.339
-  resolution: "@onekeyfe/react-native-perp-depth-bar@npm:6.7.0-alpha.339"
+"@onekeyfe/react-native-perf-stats@npm:6.7.0-8":
+  version: 6.7.0-8
+  resolution: "@onekeyfe/react-native-perf-stats@npm:6.7.0-8"
   peerDependencies:
     react: "*"
     react-native: "*"
     react-native-nitro-modules: 0.37.0
-  checksum: 10/4dfcf9af1c1d5378ffb920d4811f6c7a2c0ccd9a19b2e6a39ef1f78f6597fe9890fc55482f389157f3bfe806fa3100fa61999b7a8e0b9620f43ab781c59611bb
+  checksum: 10/616d7e8501d306ee613f80dffb416cf62f7d5c2f4633cc3572ee609d73951e49f71fed66c1b4e1182c6f79fb8f89f0b16579489a2b8dbae1726412ace0a17537
   languageName: node
   linkType: hard
 
-"@onekeyfe/react-native-photo-library@npm:6.7.0-alpha.339":
-  version: 6.7.0-alpha.339
-  resolution: "@onekeyfe/react-native-photo-library@npm:6.7.0-alpha.339"
+"@onekeyfe/react-native-perp-depth-bar@npm:6.7.0-8":
+  version: 6.7.0-8
+  resolution: "@onekeyfe/react-native-perp-depth-bar@npm:6.7.0-8"
   peerDependencies:
     react: "*"
     react-native: "*"
     react-native-nitro-modules: 0.37.0
-  checksum: 10/0d0aacfd1932bf4d428d6985b39948b3e271886d28eb20c20c3a325aaa4d282e2ec95bb48e2514390a35797d165404a7a31836a590313a8df71a7f48afbc5a8b
+  checksum: 10/e7a9bd7914271081588dad65c752a67b57a60300cbff63cc61689021dafd7e47dfc0f2d38f0ab6d0086d55ff1b21ef9afc7580e1e8aeeb986eb9ad5299a7dfff
   languageName: node
   linkType: hard
 
-"@onekeyfe/react-native-range-downloader@npm:6.7.0-alpha.339":
-  version: 6.7.0-alpha.339
-  resolution: "@onekeyfe/react-native-range-downloader@npm:6.7.0-alpha.339"
+"@onekeyfe/react-native-photo-library@npm:6.7.0-8":
+  version: 6.7.0-8
+  resolution: "@onekeyfe/react-native-photo-library@npm:6.7.0-8"
   peerDependencies:
     react: "*"
     react-native: "*"
     react-native-nitro-modules: 0.37.0
-  checksum: 10/875cf5fee6296b9679629d38a17de92f4e09eed5d3991474d5e529cae893a8e7541f924a41bd8d20b6f08963ef7b5cc4e41d942b2340d6182424e18cf098f3e5
+  checksum: 10/77f422fe392d6e5370e4eaadcceb46046fc55e95bc9633785f38d5be311bf730c31c3f05f83e411b29c898c56f4d3626bf88776348480b63a490d5442280ceaf
   languageName: node
   linkType: hard
 
-"@onekeyfe/react-native-scroll-guard@npm:6.7.0-alpha.339":
-  version: 6.7.0-alpha.339
-  resolution: "@onekeyfe/react-native-scroll-guard@npm:6.7.0-alpha.339"
+"@onekeyfe/react-native-range-downloader@npm:6.7.0-8":
+  version: 6.7.0-8
+  resolution: "@onekeyfe/react-native-range-downloader@npm:6.7.0-8"
   peerDependencies:
     react: "*"
     react-native: "*"
     react-native-nitro-modules: 0.37.0
-  checksum: 10/5e018c8d2ba2f261c4ad227d7ce4ac877e11c58cbb03c1b321a81add84f0910d1cf76e352f9bba2669306e8f7460bf08fa5c65b2e18bbf15f70b55df7abaa8e6
+  checksum: 10/b917a17da91ba355c50c297836ff418e79c909dbfde2603119a1eb537e1684a1edfb2cef69cefefee6f240ff860bfe24cef22bfb7d28ee036c6b64341b78a91d
   languageName: node
   linkType: hard
 
-"@onekeyfe/react-native-segment-slider@npm:6.7.0-alpha.339":
-  version: 6.7.0-alpha.339
-  resolution: "@onekeyfe/react-native-segment-slider@npm:6.7.0-alpha.339"
+"@onekeyfe/react-native-scroll-guard@npm:6.7.0-8":
+  version: 6.7.0-8
+  resolution: "@onekeyfe/react-native-scroll-guard@npm:6.7.0-8"
   peerDependencies:
     react: "*"
     react-native: "*"
     react-native-nitro-modules: 0.37.0
-  checksum: 10/e72f4f1752594e95ca451719d8583806b169122a7b7b5e4f8f1674e702ab6d129a0a3d4a4a9e3d8742b838c65c3574340351a79ff986873149ddfe55bab6d570
+  checksum: 10/712411f277017062ac879ee49738e4d8577b095f95fd9d66f949051689282cc0d92921a0bc008d9e82ea296a808124ec3ac2d8f69fc231e02f58c6413ce121fc
   languageName: node
   linkType: hard
 
-"@onekeyfe/react-native-skeleton@npm:6.7.0-alpha.339":
-  version: 6.7.0-alpha.339
-  resolution: "@onekeyfe/react-native-skeleton@npm:6.7.0-alpha.339"
+"@onekeyfe/react-native-segment-slider@npm:6.7.0-8":
+  version: 6.7.0-8
+  resolution: "@onekeyfe/react-native-segment-slider@npm:6.7.0-8"
   peerDependencies:
     react: "*"
     react-native: "*"
     react-native-nitro-modules: 0.37.0
-  checksum: 10/c69a98b02177610a96dfb07cee405ef13ccabde6ca2ba88ad57946e865ae7c52a2eb6a33ea1c0c2eda7be0e58c9f32d5e0639013968b9b38f73840bb326c9880
+  checksum: 10/a041149559ad854fe7f95a65681c9e2ac504a540fca5b345e714b51f80ab7adb5cc2f0d34f97f590f97af429912fba51a288a3f804b575bbec2627b2f1286876
   languageName: node
   linkType: hard
 
-"@onekeyfe/react-native-sni-connect@npm:6.7.0-alpha.339":
-  version: 6.7.0-alpha.339
-  resolution: "@onekeyfe/react-native-sni-connect@npm:6.7.0-alpha.339"
-  peerDependencies:
-    react: "*"
-    react-native: "*"
-  checksum: 10/ed101325161c5347eb029b14f35fb9efc7cc4ecd0e04739e74dff9471ee8e1565cf9a5335dcfc9e1f2dcf2b9cb3e381c40986ae43b17b5ca35fdde1a3294b3e0
-  languageName: node
-  linkType: hard
-
-"@onekeyfe/react-native-splash-screen@npm:6.7.0-alpha.339":
-  version: 6.7.0-alpha.339
-  resolution: "@onekeyfe/react-native-splash-screen@npm:6.7.0-alpha.339"
+"@onekeyfe/react-native-skeleton@npm:6.7.0-8":
+  version: 6.7.0-8
+  resolution: "@onekeyfe/react-native-skeleton@npm:6.7.0-8"
   peerDependencies:
     react: "*"
     react-native: "*"
     react-native-nitro-modules: 0.37.0
-  checksum: 10/f323dabda9ede528f7d6d6aa4394412a231955a505ca9985499ce871725f2ae0a1209b13c5ff74f830b0d6f720bd88672f3422cedb840590a50e6310e5d2181a
+  checksum: 10/1025be9644500bfe46348906f1c7ce3b458f7c115325390d9dc4b2d9eea35027cabc08021f251156645dab4f33ca58552ea5489f7b5bc018fae237e0d40440ef
   languageName: node
   linkType: hard
 
-"@onekeyfe/react-native-split-bundle-loader@npm:6.7.0-alpha.339":
-  version: 6.7.0-alpha.339
-  resolution: "@onekeyfe/react-native-split-bundle-loader@npm:6.7.0-alpha.339"
+"@onekeyfe/react-native-sni-connect@npm:6.7.0-8":
+  version: 6.7.0-8
+  resolution: "@onekeyfe/react-native-sni-connect@npm:6.7.0-8"
+  peerDependencies:
+    react: "*"
+    react-native: "*"
+  checksum: 10/211f2f8151dc61f4fdfe87503280b926a8dea6e8e2ebc3f5917d64f68564628a2ef8fc3f181755a6516a638b380489d5c8bfd50a6045dcf7944c2078760aacf6
+  languageName: node
+  linkType: hard
+
+"@onekeyfe/react-native-splash-screen@npm:6.7.0-8":
+  version: 6.7.0-8
+  resolution: "@onekeyfe/react-native-splash-screen@npm:6.7.0-8"
+  peerDependencies:
+    react: "*"
+    react-native: "*"
+    react-native-nitro-modules: 0.37.0
+  checksum: 10/77209e3b319b8a36ca5847633cc33d9503a8b227d6e62361edb620e4672b5e58757b3a9e73881b297d4f0adba76e282873cb7952686d82165aeef230d51e3414
+  languageName: node
+  linkType: hard
+
+"@onekeyfe/react-native-split-bundle-loader@npm:6.7.0-8":
+  version: 6.7.0-8
+  resolution: "@onekeyfe/react-native-split-bundle-loader@npm:6.7.0-8"
   peerDependencies:
     "@onekeyfe/react-native-bundle-update": "*"
     react: "*"
     react-native: "*"
-  checksum: 10/1f5e42553a77802f0cadb0f420278adc9ef791af7b2fe9fb81aa766d83a2420641fe4d995295e4d8eca1133628b37ba8e56a409988b8fa135ce49c328e9863f2
+  checksum: 10/78003c4b4491b83d6d8e720f5843f73be0c46af43867c77511595c4aefb17f79c06906e3a2f3c71a7ae9663f36d5e7a0db0eb0837eb8905cc6e0bd22fb9305db
   languageName: node
   linkType: hard
 
-"@onekeyfe/react-native-text-input@npm:6.7.0-alpha.339":
-  version: 6.7.0-alpha.339
-  resolution: "@onekeyfe/react-native-text-input@npm:6.7.0-alpha.339"
+"@onekeyfe/react-native-text-input@npm:6.7.0-8":
+  version: 6.7.0-8
+  resolution: "@onekeyfe/react-native-text-input@npm:6.7.0-8"
   dependencies:
     invariant: "npm:^2.2.4"
     nullthrows: "npm:^1.1.1"
   peerDependencies:
     react: "*"
     react-native: "*"
-  checksum: 10/03f58250e56213bf14566d8a5aea1dfd134802d9e47f58872fe2bf2d435c0fc064ca20e9bbe7453f5693acc6a42159c42d2e99c59ec3e32266e19510d1cfe5ae
+  checksum: 10/1b87f1e4b167fd9e42ff46bef528b14a17a1f73549e820e8db8498ae9fde1beef2bfd408cbf29389365c930454aef384a5c2077f7f5e6b47fa95a3a056494569
   languageName: node
   linkType: hard
 
-"@onekeyfe/react-native-text@npm:6.7.0-alpha.339":
-  version: 6.7.0-alpha.339
-  resolution: "@onekeyfe/react-native-text@npm:6.7.0-alpha.339"
+"@onekeyfe/react-native-text@npm:6.7.0-8":
+  version: 6.7.0-8
+  resolution: "@onekeyfe/react-native-text@npm:6.7.0-8"
   peerDependencies:
     react: "*"
     react-native: "*"
-  checksum: 10/f3e162cf5030dc0323bd2a9c8f888a7268857d13b8dfa85a621d5a17f7737703a89e9103fc173e579e4b8be5b4e1045126daf82c4ecf9a9bec8068c678c6a4af
+  checksum: 10/5b6547c928ac85bda93e961bd7f608b285caa5d0201109e31d48bd2df9a26bf431a74cc57f2114f2fe778dad2bfa0e383bf21233ac7d21b444176108bb8ab2b2
   languageName: node
   linkType: hard
 
@@ -10156,25 +10160,25 @@ __metadata:
     "@onekeyfe/cross-inpage-provider-injected": "npm:2.2.76"
     "@onekeyfe/cross-inpage-provider-types": "npm:2.2.76"
     "@onekeyfe/extension-bridge-hosted": "npm:2.2.76"
-    "@onekeyfe/hd-ble-sdk": "npm:1.2.8-alpha.54"
-    "@onekeyfe/hd-common-connect-sdk": "npm:1.2.8-alpha.54"
-    "@onekeyfe/hd-core": "npm:1.2.8-alpha.54"
-    "@onekeyfe/hd-shared": "npm:1.2.8-alpha.54"
-    "@onekeyfe/hd-transport": "npm:1.2.8-alpha.54"
-    "@onekeyfe/hd-transport-electron": "npm:1.2.8-alpha.54"
-    "@onekeyfe/hd-web-sdk": "npm:1.2.8-alpha.54"
-    "@onekeyfe/hwk-adapter-core": "npm:1.2.8-alpha.54"
-    "@onekeyfe/hwk-desktop-noble-ble": "npm:1.2.8-alpha.54"
-    "@onekeyfe/hwk-keystone-adapter": "npm:1.2.8-alpha.54"
-    "@onekeyfe/hwk-keystone-connector-usb": "npm:1.2.8-alpha.54"
-    "@onekeyfe/hwk-ledger-adapter": "npm:1.2.8-alpha.54"
-    "@onekeyfe/hwk-ledger-connector-ble": "npm:1.2.8-alpha.54"
-    "@onekeyfe/hwk-ledger-connector-electron-ble": "npm:1.2.8-alpha.54"
-    "@onekeyfe/hwk-ledger-connector-webhid": "npm:1.2.8-alpha.54"
-    "@onekeyfe/hwk-trezor-adapter": "npm:1.2.8-alpha.54"
-    "@onekeyfe/hwk-trezor-connector-electron-ble": "npm:1.2.8-alpha.54"
-    "@onekeyfe/hwk-trezor-connector-rn-ble": "npm:1.2.8-alpha.54"
-    "@onekeyfe/hwk-trezor-connector-webusb": "npm:1.2.8-alpha.54"
+    "@onekeyfe/hd-ble-sdk": "npm:1.2.8-alpha.112"
+    "@onekeyfe/hd-common-connect-sdk": "npm:1.2.8-alpha.112"
+    "@onekeyfe/hd-core": "npm:1.2.8-alpha.112"
+    "@onekeyfe/hd-shared": "npm:1.2.8-alpha.112"
+    "@onekeyfe/hd-transport": "npm:1.2.8-alpha.112"
+    "@onekeyfe/hd-transport-electron": "npm:1.2.8-alpha.112"
+    "@onekeyfe/hd-web-sdk": "npm:1.2.8-alpha.112"
+    "@onekeyfe/hwk-adapter-core": "npm:1.2.8-alpha.112"
+    "@onekeyfe/hwk-desktop-noble-ble": "npm:1.2.8-alpha.112"
+    "@onekeyfe/hwk-keystone-adapter": "npm:1.2.8-alpha.112"
+    "@onekeyfe/hwk-keystone-connector-usb": "npm:1.2.8-alpha.112"
+    "@onekeyfe/hwk-ledger-adapter": "npm:1.2.8-alpha.112"
+    "@onekeyfe/hwk-ledger-connector-ble": "npm:1.2.8-alpha.112"
+    "@onekeyfe/hwk-ledger-connector-electron-ble": "npm:1.2.8-alpha.112"
+    "@onekeyfe/hwk-ledger-connector-webhid": "npm:1.2.8-alpha.112"
+    "@onekeyfe/hwk-trezor-adapter": "npm:1.2.8-alpha.112"
+    "@onekeyfe/hwk-trezor-connector-electron-ble": "npm:1.2.8-alpha.112"
+    "@onekeyfe/hwk-trezor-connector-rn-ble": "npm:1.2.8-alpha.112"
+    "@onekeyfe/hwk-trezor-connector-webusb": "npm:1.2.8-alpha.112"
     "@onekeyfe/onekey-cross-webview": "npm:2.2.76"
     "@open-wc/webpack-import-meta-loader": "npm:^0.4.7"
     "@pmmmwh/react-refresh-webpack-plugin": "npm:^0.5.11"
@@ -10344,7 +10348,7 @@ __metadata:
     react-native-confirmation-code-field: "npm:9.0.0"
     react-native-copy-asset: "npm:^3.0.2"
     react-native-draggable-flatlist: "npm:4.0.3"
-    react-native-get-random-values: "npm:@onekeyfe/react-native-get-random-values@6.7.0-alpha.339"
+    react-native-get-random-values: "npm:@onekeyfe/react-native-get-random-values@6.7.0-8"
     react-native-harness: "npm:1.0.0-alpha.25"
     react-native-reanimated: "npm:4.5.5"
     react-native-screens: "npm:~4.26.0"
@@ -10395,10 +10399,11 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@onekeyhq/components@workspace:packages/components"
   dependencies:
-    "@onekeyfe/react-native-bottom-tabs": "npm:6.7.0-alpha.339"
-    "@onekeyfe/react-native-native-sheet": "npm:6.7.0-alpha.339"
-    "@onekeyfe/react-native-scroll-guard": "npm:6.7.0-alpha.339"
-    "@onekeyfe/react-native-segment-slider": "npm:6.7.0-alpha.339"
+    "@floating-ui/dom": "npm:^1.8.0"
+    "@onekeyfe/react-native-bottom-tabs": "npm:6.7.0-8"
+    "@onekeyfe/react-native-native-overlay": "npm:6.7.0-8"
+    "@onekeyfe/react-native-scroll-guard": "npm:6.7.0-8"
+    "@onekeyfe/react-native-segment-slider": "npm:6.7.0-8"
     "@react-native-masked-view/masked-view": "npm:0.3.2"
     "@react-navigation/bottom-tabs": "npm:7.10.1"
     "@react-navigation/elements": "npm:2.9.5"
@@ -10543,9 +10548,8 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@onekeyhq/kit@workspace:packages/kit"
   dependencies:
-    "@onekeyfe/react-native-native-list": "npm:6.7.0-alpha.339"
-    "@onekeyfe/react-native-native-sheet": "npm:6.7.0-alpha.339"
-    "@onekeyfe/react-native-text": "npm:6.7.0-alpha.339"
+    "@onekeyfe/react-native-native-list": "npm:6.7.0-8"
+    "@onekeyfe/react-native-text": "npm:6.7.0-8"
     "@onekeyhq/components": "npm:*"
     "@types/d3-scale": "npm:^4.0.3"
     "@types/d3-shape": "npm:^3.1.1"
@@ -10580,45 +10584,45 @@ __metadata:
     "@formatjs/intl-pluralrules": "npm:^4.3.3"
     "@gorhom/bottom-sheet": "npm:5.2.14"
     "@notifee/react-native": "npm:9.1.8"
-    "@onekeyfe/react-native-app-update": "npm:6.7.0-alpha.339"
-    "@onekeyfe/react-native-auto-size-input": "npm:6.7.0-alpha.339"
-    "@onekeyfe/react-native-background-thread": "npm:6.7.0-alpha.339"
+    "@onekeyfe/react-native-app-update": "npm:6.7.0-8"
+    "@onekeyfe/react-native-auto-size-input": "npm:6.7.0-8"
+    "@onekeyfe/react-native-background-thread": "npm:6.7.0-8"
     "@onekeyfe/react-native-ble-utils": "npm:0.1.9"
-    "@onekeyfe/react-native-bottom-tabs": "npm:6.7.0-alpha.339"
-    "@onekeyfe/react-native-bundle-crypto": "npm:6.7.0-alpha.339"
-    "@onekeyfe/react-native-bundle-update": "npm:6.7.0-alpha.339"
-    "@onekeyfe/react-native-capture-protection": "npm:6.7.0-alpha.339"
-    "@onekeyfe/react-native-chart-webview": "npm:6.7.0-alpha.339"
-    "@onekeyfe/react-native-check-biometric-auth-changed": "npm:6.7.0-alpha.339"
-    "@onekeyfe/react-native-cloud-kit-module": "npm:6.7.0-alpha.339"
-    "@onekeyfe/react-native-device-utils": "npm:6.7.0-alpha.339"
-    "@onekeyfe/react-native-image": "npm:6.7.0-alpha.339"
-    "@onekeyfe/react-native-image-crop-picker": "npm:6.7.0-alpha.339"
-    "@onekeyfe/react-native-keychain-module": "npm:6.7.0-alpha.339"
-    "@onekeyfe/react-native-lite-card": "npm:6.7.0-alpha.339"
-    "@onekeyfe/react-native-native-list": "npm:6.7.0-alpha.339"
-    "@onekeyfe/react-native-native-logger": "npm:6.7.0-alpha.339"
-    "@onekeyfe/react-native-native-sheet": "npm:6.7.0-alpha.339"
-    "@onekeyfe/react-native-network-throttle": "npm:6.7.0-alpha.339"
-    "@onekeyfe/react-native-perf-memory": "npm:6.7.0-alpha.339"
-    "@onekeyfe/react-native-perf-stats": "npm:6.7.0-alpha.339"
-    "@onekeyfe/react-native-perp-depth-bar": "npm:6.7.0-alpha.339"
-    "@onekeyfe/react-native-photo-library": "npm:6.7.0-alpha.339"
-    "@onekeyfe/react-native-range-downloader": "npm:6.7.0-alpha.339"
-    "@onekeyfe/react-native-scroll-guard": "npm:6.7.0-alpha.339"
-    "@onekeyfe/react-native-segment-slider": "npm:6.7.0-alpha.339"
-    "@onekeyfe/react-native-skeleton": "npm:6.7.0-alpha.339"
-    "@onekeyfe/react-native-sni-connect": "npm:6.7.0-alpha.339"
-    "@onekeyfe/react-native-splash-screen": "npm:6.7.0-alpha.339"
-    "@onekeyfe/react-native-split-bundle-loader": "npm:6.7.0-alpha.339"
-    "@onekeyfe/react-native-text": "npm:6.7.0-alpha.339"
-    "@onekeyfe/react-native-text-input": "npm:6.7.0-alpha.339"
+    "@onekeyfe/react-native-bottom-tabs": "npm:6.7.0-8"
+    "@onekeyfe/react-native-bundle-crypto": "npm:6.7.0-8"
+    "@onekeyfe/react-native-bundle-update": "npm:6.7.0-8"
+    "@onekeyfe/react-native-capture-protection": "npm:6.7.0-8"
+    "@onekeyfe/react-native-chart-webview": "npm:6.7.0-8"
+    "@onekeyfe/react-native-check-biometric-auth-changed": "npm:6.7.0-8"
+    "@onekeyfe/react-native-cloud-kit-module": "npm:6.7.0-8"
+    "@onekeyfe/react-native-device-utils": "npm:6.7.0-8"
+    "@onekeyfe/react-native-image": "npm:6.7.0-8"
+    "@onekeyfe/react-native-image-crop-picker": "npm:6.7.0-8"
+    "@onekeyfe/react-native-keychain-module": "npm:6.7.0-8"
+    "@onekeyfe/react-native-lite-card": "npm:6.7.0-8"
+    "@onekeyfe/react-native-native-list": "npm:6.7.0-8"
+    "@onekeyfe/react-native-native-logger": "npm:6.7.0-8"
+    "@onekeyfe/react-native-native-overlay": "npm:6.7.0-8"
+    "@onekeyfe/react-native-network-throttle": "npm:6.7.0-8"
+    "@onekeyfe/react-native-perf-memory": "npm:6.7.0-8"
+    "@onekeyfe/react-native-perf-stats": "npm:6.7.0-8"
+    "@onekeyfe/react-native-perp-depth-bar": "npm:6.7.0-8"
+    "@onekeyfe/react-native-photo-library": "npm:6.7.0-8"
+    "@onekeyfe/react-native-range-downloader": "npm:6.7.0-8"
+    "@onekeyfe/react-native-scroll-guard": "npm:6.7.0-8"
+    "@onekeyfe/react-native-segment-slider": "npm:6.7.0-8"
+    "@onekeyfe/react-native-skeleton": "npm:6.7.0-8"
+    "@onekeyfe/react-native-sni-connect": "npm:6.7.0-8"
+    "@onekeyfe/react-native-splash-screen": "npm:6.7.0-8"
+    "@onekeyfe/react-native-split-bundle-loader": "npm:6.7.0-8"
+    "@onekeyfe/react-native-text": "npm:6.7.0-8"
+    "@onekeyfe/react-native-text-input": "npm:6.7.0-8"
     "@onekeyhq/components": "npm:*"
     "@onekeyhq/kit": "npm:*"
     "@onekeyhq/shared": "npm:*"
-    "@onramper/onramper-react-native": "npm:1.2.2"
+    "@onramper/onramper-react-native": "npm:1.3.1"
     "@phantom/react-native-juicebox-sdk": "npm:0.3.17"
-    "@react-native-async-storage/async-storage": "npm:@onekeyfe/react-native-async-storage@6.7.0-alpha.339"
+    "@react-native-async-storage/async-storage": "npm:@onekeyfe/react-native-async-storage@6.7.0-8"
     "@react-native-community/datetimepicker": "npm:9.1.0"
     "@react-native-community/netinfo": "npm:12.0.1"
     "@react-native-community/slider": "npm:5.2.0"
@@ -10640,7 +10644,6 @@ __metadata:
     "@types/react-native-canvas": "npm:^0.1.13"
     "@walletconnect/react-native-compat": "npm:2.23.10"
     bip39: "npm:^3.1.0"
-    burnt: "npm:0.12.2"
     detox: "npm:^20.46.3"
     expo: "npm:57.0.14"
     expo-apple-authentication: "npm:~57.0.1"
@@ -10676,31 +10679,31 @@ __metadata:
     path-browserify: "npm:^1.0.1"
     react: "npm:19.2.3"
     react-native: "npm:0.86.2"
-    react-native-aes-crypto: "npm:@onekeyfe/react-native-aes-crypto@6.7.0-alpha.339"
+    react-native-aes-crypto: "npm:@onekeyfe/react-native-aes-crypto@6.7.0-8"
     react-native-awesome-slider: "npm:^2.9.0"
     react-native-ble-plx: "npm:3.5.1"
     react-native-camera-kit: "npm:17.0.1"
     react-native-canvas: "npm:^0.1.39"
-    react-native-cloud-fs: "npm:@onekeyfe/react-native-cloud-fs@6.7.0-alpha.339"
+    react-native-cloud-fs: "npm:@onekeyfe/react-native-cloud-fs@6.7.0-8"
     react-native-collapsible-tab-view: "npm:8.0.1"
     react-native-crypto: "npm:^2.2.0"
-    react-native-dns-lookup: "npm:@onekeyfe/react-native-dns-lookup@6.7.0-alpha.339"
-    react-native-fast-pbkdf2: "npm:@onekeyfe/react-native-pbkdf2@6.7.0-alpha.339"
+    react-native-dns-lookup: "npm:@onekeyfe/react-native-dns-lookup@6.7.0-8"
+    react-native-fast-pbkdf2: "npm:@onekeyfe/react-native-pbkdf2@6.7.0-8"
     react-native-fs: "npm:@dr.pogodin/react-native-fs@2.34.0"
     react-native-gesture-handler: "npm:~2.32.0"
-    react-native-get-random-values: "npm:@onekeyfe/react-native-get-random-values@6.7.0-alpha.339"
+    react-native-get-random-values: "npm:@onekeyfe/react-native-get-random-values@6.7.0-8"
     react-native-image-colors: "npm:^2.5.0"
     react-native-keyboard-controller: "npm:1.21.9"
     react-native-level-fs: "npm:3.0.1"
     react-native-mmkv: "npm:4.3.2"
     react-native-modal: "npm:^13.0.1"
-    react-native-network-info: "npm:@onekeyfe/react-native-network-info@6.7.0-alpha.339"
+    react-native-network-info: "npm:@onekeyfe/react-native-network-info@6.7.0-8"
     react-native-network-logger: "npm:2.0.1"
     react-native-nitro-modules: "npm:0.37.0"
-    react-native-pager-view: "npm:@onekeyfe/react-native-pager-view@6.7.0-alpha.339"
+    react-native-pager-view: "npm:@onekeyfe/react-native-pager-view@6.7.0-8"
     react-native-passkeys: "npm:0.3.3"
     react-native-permissions: "npm:5.4.4"
-    react-native-ping: "npm:@onekeyfe/react-native-ping@6.7.0-alpha.339"
+    react-native-ping: "npm:@onekeyfe/react-native-ping@6.7.0-8"
     react-native-purchases: "npm:10.4.3"
     react-native-qrcode-styled: "npm:0.4.0"
     react-native-quick-base64: "npm:^3.0.0"
@@ -10710,13 +10713,13 @@ __metadata:
     react-native-screens: "npm:~4.26.0"
     react-native-svg: "npm:15.15.4"
     react-native-svg-transformer: "npm:^1.5.3"
-    react-native-tcp-socket: "npm:@onekeyfe/react-native-tcp-socket@6.7.0-alpha.339"
+    react-native-tcp-socket: "npm:@onekeyfe/react-native-tcp-socket@6.7.0-8"
     react-native-video: "npm:7.0.0-beta.11"
     react-native-view-shot: "npm:5.1.0"
     react-native-webview: "npm:13.16.1"
     react-native-webview-cleaner: "npm:@onekeyfe/react-native-webview-cleaner@1.0.0"
     react-native-worklets: "npm:0.10.1"
-    react-native-zip-archive: "npm:@onekeyfe/react-native-zip-archive@6.7.0-alpha.339"
+    react-native-zip-archive: "npm:@onekeyfe/react-native-zip-archive@6.7.0-8"
     readable-stream: "npm:^3.6.0"
     realm: "npm:20.2.0"
     realm-flipper-plugin-device: "npm:^1.1.0"
@@ -10730,6 +10733,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@onekeyhq/playground@workspace:apps/playground"
   dependencies:
+    "@onekeyfe/react-native-native-overlay": "npm:6.7.0-8"
     "@onekeyhq/components": "npm:*"
     "@onekeyhq/shared": "npm:*"
     "@originjs/vite-plugin-commonjs": "npm:^1.0.3"
@@ -10802,14 +10806,14 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@onramper/onramper-react-native@npm:1.2.2":
-  version: 1.2.2
-  resolution: "@onramper/onramper-react-native@npm:1.2.2"
+"@onramper/onramper-react-native@npm:1.3.1":
+  version: 1.3.1
+  resolution: "@onramper/onramper-react-native@npm:1.3.1"
   peerDependencies:
     react: ">=19.0.0"
     react-native: ">=0.79.0"
     react-native-nitro-modules: ">=0.35.0"
-  checksum: 10/3f86970bf340b96e1f1ca96392b9e15b632e9344ae2a9f751c244abd1105b9158027eff57ea82fe9341644d958ce300fb043494a38dd4194136ff9cfdb2dfa7b
+  checksum: 10/e01eb577089a8134942bab6a83fbc8ed342a52f4b13c5c1c6ed90fbfcf44dc942d7fede70d900ac1398305f6e04139af57902f4a911caa94010ed54ad85e874f
   languageName: node
   linkType: hard
 
@@ -13792,15 +13796,15 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@react-native-async-storage/async-storage@npm:@onekeyfe/react-native-async-storage@6.7.0-alpha.339":
-  version: 6.7.0-alpha.339
-  resolution: "@onekeyfe/react-native-async-storage@npm:6.7.0-alpha.339"
+"@react-native-async-storage/async-storage@npm:@onekeyfe/react-native-async-storage@6.7.0-8":
+  version: 6.7.0-8
+  resolution: "@onekeyfe/react-native-async-storage@npm:6.7.0-8"
   dependencies:
     merge-options: "npm:^3.0.4"
   peerDependencies:
     react: "*"
     react-native: "*"
-  checksum: 10/70a2dd07ac8b4421aa48e8c083c68f1712b84fe49469d94a928d2670b99e894ab4b1623673006cf51d35535e4d6e96f742350817569c674a4e2dd0bc57a9336a
+  checksum: 10/92aff1b1205e296c42855b5ca3db79ce9cb018b5088e448c5d2c806c89db53ff500227ee06914013c8e490c61aa24d0d024b6ffd5f4d5c7b297ecd0ca71b5b08
   languageName: node
   linkType: hard
 
@@ -25483,20 +25487,6 @@ __metadata:
   bin:
     bunyan: bin/bunyan
   checksum: 10/f6a8030dddf0c780b58eb0ab316054081714483ba9a56f7032c253009d589c7fa1f91d2dd26c5d740d6cc943cde7ac2803b805900375dd8442c1183d480dd51c
-  languageName: node
-  linkType: hard
-
-"burnt@npm:0.12.2":
-  version: 0.12.2
-  resolution: "burnt@npm:0.12.2"
-  dependencies:
-    sf-symbols-typescript: "npm:^1.0.0"
-    sonner: "npm:^0.3.5"
-  peerDependencies:
-    expo: "*"
-    react: "*"
-    react-native: "*"
-  checksum: 10/8ecaaa22f6e365640ba247aabfb56311eca4f7199cb07519dffd4fe9fd30d173b5cd9ab4e1ecede1e538d613c5eb9820eb752ba0ac220a468b046ed2d5c060f6
   languageName: node
   linkType: hard
 
@@ -42463,13 +42453,13 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-native-aes-crypto@npm:@onekeyfe/react-native-aes-crypto@6.7.0-alpha.339":
-  version: 6.7.0-alpha.339
-  resolution: "@onekeyfe/react-native-aes-crypto@npm:6.7.0-alpha.339"
+"react-native-aes-crypto@npm:@onekeyfe/react-native-aes-crypto@6.7.0-8":
+  version: 6.7.0-8
+  resolution: "@onekeyfe/react-native-aes-crypto@npm:6.7.0-8"
   peerDependencies:
     react: "*"
     react-native: "*"
-  checksum: 10/07b1d6e23815560d5aa340577b39daaf9ec2293b5cb562b8a412c10319e30ae340b9703be20abbd0b373d7823c07ff8091d9415117ebd52140c89b97fc839778
+  checksum: 10/b365fbad86a8c1c7d1b651d2ccc294d003e1ce27fa434a9c1ab5e2c1055221a4f1f8712f0a9900316d8bc0d4bc12fd47c518c56203c245ccc3ecca4eb559f12d
   languageName: node
   linkType: hard
 
@@ -42525,13 +42515,13 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-native-cloud-fs@npm:@onekeyfe/react-native-cloud-fs@6.7.0-alpha.339":
-  version: 6.7.0-alpha.339
-  resolution: "@onekeyfe/react-native-cloud-fs@npm:6.7.0-alpha.339"
+"react-native-cloud-fs@npm:@onekeyfe/react-native-cloud-fs@6.7.0-8":
+  version: 6.7.0-8
+  resolution: "@onekeyfe/react-native-cloud-fs@npm:6.7.0-8"
   peerDependencies:
     react: "*"
     react-native: "*"
-  checksum: 10/48f8e0c5484239b414afc10e4eca45bf5b97c1f2ddebb38cdabbd9111d9817e134ccafe94170a86b8f18341b32f4dad0d06b9bbec134d12216a458b8c56e5657
+  checksum: 10/c23bc7a0796ae26af259d9eb5900217e4f1739819b5908abbca6a9eb1cf2616a1bbc98525bc1e388e113f0436a517d25758da4968fffa5390aa788d2e86ffa14
   languageName: node
   linkType: hard
 
@@ -42605,13 +42595,13 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-native-dns-lookup@npm:@onekeyfe/react-native-dns-lookup@6.7.0-alpha.339":
-  version: 6.7.0-alpha.339
-  resolution: "@onekeyfe/react-native-dns-lookup@npm:6.7.0-alpha.339"
+"react-native-dns-lookup@npm:@onekeyfe/react-native-dns-lookup@6.7.0-8":
+  version: 6.7.0-8
+  resolution: "@onekeyfe/react-native-dns-lookup@npm:6.7.0-8"
   peerDependencies:
     react: "*"
     react-native: "*"
-  checksum: 10/5e884e1813b0da1cd3fce5e0f04d29b2ee45e8cbe2bd9665a88a23f7ab2ed3818b3ed2e95fec1feea7ad74c67050226615363c91a778e770bf6ee242f28e49e9
+  checksum: 10/b1d0815f1adde83642cce45ef2ed29ef4ba8b2a97738a97e037726a2fccc679aef1b77b50ab0a75b9e76c364a8438e2ff34a3181f3e8c58f4bd51cbfe70541c8
   languageName: node
   linkType: hard
 
@@ -42628,13 +42618,13 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-native-fast-pbkdf2@npm:@onekeyfe/react-native-pbkdf2@6.7.0-alpha.339":
-  version: 6.7.0-alpha.339
-  resolution: "@onekeyfe/react-native-pbkdf2@npm:6.7.0-alpha.339"
+"react-native-fast-pbkdf2@npm:@onekeyfe/react-native-pbkdf2@6.7.0-8":
+  version: 6.7.0-8
+  resolution: "@onekeyfe/react-native-pbkdf2@npm:6.7.0-8"
   peerDependencies:
     react: "*"
     react-native: "*"
-  checksum: 10/de2c4b5470fac297c3a43a4f5e743c638405085bf32a6a075223cb3232ea79cdb7436c5506d39ecd4767f628a9b7f33566ee43be20f94e43c099f3ca1e4db521
+  checksum: 10/f9e83b47a20a31d959fb48575ad854a14e085aadc65508442146d6c3cd03171a98886aeb42fe7259bee9410072c4907aa00304f4e23b95b5c64ad0a92650e621
   languageName: node
   linkType: hard
 
@@ -42666,9 +42656,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-native-get-random-values@npm:@onekeyfe/react-native-get-random-values@6.7.0-alpha.339":
-  version: 6.7.0-alpha.339
-  resolution: "@onekeyfe/react-native-get-random-values@npm:6.7.0-alpha.339"
+"react-native-get-random-values@npm:@onekeyfe/react-native-get-random-values@6.7.0-8":
+  version: 6.7.0-8
+  resolution: "@onekeyfe/react-native-get-random-values@npm:6.7.0-8"
   dependencies:
     expo-crypto: "npm:57.0.1"
     fast-base64-decode: "npm:2.0.0"
@@ -42677,7 +42667,7 @@ __metadata:
     react: "*"
     react-native: "*"
     react-native-nitro-modules: 0.37.0
-  checksum: 10/5080ec50577840d62bc7f424569428c326094fda0b0e783488347da2fff6d6663b895218de8a0eb1e65fd167343ab0c9c7ba2a9731ff84dfc5d8275259aba9eb
+  checksum: 10/102d700fee6de1ac60cd63a5e0d4aea21ace2b810b0a75e89d635a29d2de16d97bc6140ae77ebe99187a28bcd17396a96d6ab8cf5a84bcbc1c318eb0525a10ab
   languageName: node
   linkType: hard
 
@@ -42813,13 +42803,13 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-native-network-info@npm:@onekeyfe/react-native-network-info@6.7.0-alpha.339":
-  version: 6.7.0-alpha.339
-  resolution: "@onekeyfe/react-native-network-info@npm:6.7.0-alpha.339"
+"react-native-network-info@npm:@onekeyfe/react-native-network-info@6.7.0-8":
+  version: 6.7.0-8
+  resolution: "@onekeyfe/react-native-network-info@npm:6.7.0-8"
   peerDependencies:
     react: "*"
     react-native: "*"
-  checksum: 10/8602d40867ca8fd94008f1675a236c145b499b9523f3169acca1b901aa079419c96955641ffce2fe7fdf584b5b0225fbab586bda14150f5665323ad5df7d15bc
+  checksum: 10/1b70ebd081482dca9ccc48ab8d3ef9f5ba49c68f4c2f44ed80a12280c7786b40994722a461192a1c1ae99b7dc24e885063a46b685521c920bd09eb5b2bd7bd96
   languageName: node
   linkType: hard
 
@@ -42843,14 +42833,14 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-native-pager-view@npm:@onekeyfe/react-native-pager-view@6.7.0-alpha.339":
-  version: 6.7.0-alpha.339
-  resolution: "@onekeyfe/react-native-pager-view@npm:6.7.0-alpha.339"
+"react-native-pager-view@npm:@onekeyfe/react-native-pager-view@6.7.0-8":
+  version: 6.7.0-8
+  resolution: "@onekeyfe/react-native-pager-view@npm:6.7.0-8"
   peerDependencies:
-    "@onekeyfe/react-native-native-logger": 6.7.0-alpha.339
+    "@onekeyfe/react-native-native-logger": 6.7.0-8
     react: "*"
     react-native: "*"
-  checksum: 10/0649fc117cd4368778c84588643f7bff8d5458433d07568d1e277bf33f20126e7e5155d226b5046f3bafbe313266da4d46eac6729d81cc10458097099a50109b
+  checksum: 10/9137004806ea4f44fa3ec6e9b6b032dcd29d7bce1fa650e1ac42e6df793a318ef807281e3af47223a6acdbd4af090adac1ee60b4367bc0f2ca3e929805289669
   languageName: node
   linkType: hard
 
@@ -42879,13 +42869,13 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-native-ping@npm:@onekeyfe/react-native-ping@6.7.0-alpha.339":
-  version: 6.7.0-alpha.339
-  resolution: "@onekeyfe/react-native-ping@npm:6.7.0-alpha.339"
+"react-native-ping@npm:@onekeyfe/react-native-ping@6.7.0-8":
+  version: 6.7.0-8
+  resolution: "@onekeyfe/react-native-ping@npm:6.7.0-8"
   peerDependencies:
     react: "*"
     react-native: "*"
-  checksum: 10/2748024ae5881ea6d27572f428dbff1dee98a898a18150e94f47286616fd28744ecf082a80e509e46dafcc0a7add78f9ede4ffaec2f342db233c5f7f78a28772
+  checksum: 10/fb44e58d65a9e097fd62c07c652768bbb84587b41983e8a8ed807a795ece7fc7ef2e41e8f21f46fd81d38d8b62e7deff1e4253c467decbf70175447a2199f088
   languageName: node
   linkType: hard
 
@@ -43069,13 +43059,13 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-native-tcp-socket@npm:@onekeyfe/react-native-tcp-socket@6.7.0-alpha.339":
-  version: 6.7.0-alpha.339
-  resolution: "@onekeyfe/react-native-tcp-socket@npm:6.7.0-alpha.339"
+"react-native-tcp-socket@npm:@onekeyfe/react-native-tcp-socket@6.7.0-8":
+  version: 6.7.0-8
+  resolution: "@onekeyfe/react-native-tcp-socket@npm:6.7.0-8"
   peerDependencies:
     react: "*"
     react-native: "*"
-  checksum: 10/527ba093db46913382eb3c684e35bfd192d76f01d1a7f525b48cd0bc3451c0944122fe952f1d7b18864c56241c8f8865a3955af83f846e9a3fae32597f9d48d1
+  checksum: 10/14a1bcb7e3e165e23c481a763afcb9ca9c8af01473d442e2cc14b2577405f971204d038c5c368af84c48c2268579f4814075bc7f953add49fbd6988b2d2e8327
   languageName: node
   linkType: hard
 
@@ -43211,14 +43201,14 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-native-zip-archive@npm:@onekeyfe/react-native-zip-archive@6.7.0-alpha.339":
-  version: 6.7.0-alpha.339
-  resolution: "@onekeyfe/react-native-zip-archive@npm:6.7.0-alpha.339"
+"react-native-zip-archive@npm:@onekeyfe/react-native-zip-archive@6.7.0-8":
+  version: 6.7.0-8
+  resolution: "@onekeyfe/react-native-zip-archive@npm:6.7.0-8"
   peerDependencies:
     react: "*"
     react-native: "*"
     react-native-nitro-modules: 0.37.0
-  checksum: 10/582ccf3576b84fd339d6ed611babc750f5337062e12becd4ee7df85403da885606977c968fa41ca58066262825242c9fb455b6533cec905df999dbe9c16646f4
+  checksum: 10/a134c12a61f65ebe9987d829cfc293a2d3731497d0e49b1b3ae139d27d05b3a6f69db5f563b07148dd45ce9051c3b7cda5c2eee49a821346f5985dbf56152ff7
   languageName: node
   linkType: hard
 
@@ -45151,13 +45141,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"sf-symbols-typescript@npm:^1.0.0":
-  version: 1.0.0
-  resolution: "sf-symbols-typescript@npm:1.0.0"
-  checksum: 10/008ddfcadceb33ec29fb182104516234cc3f771254619696918481744bc28be51070f226859e4dfc2faf5f094dd8ca13e0364b2bb3d22e8cf044ce37f749df0b
-  languageName: node
-  linkType: hard
-
 "sf-symbols-typescript@npm:^2.0.0, sf-symbols-typescript@npm:^2.1.0":
   version: 2.2.0
   resolution: "sf-symbols-typescript@npm:2.2.0"
@@ -45654,16 +45637,6 @@ __metadata:
   dependencies:
     atomic-sleep: "npm:^1.0.0"
   checksum: 10/161af46b3e6debc4ad3865b0db47f37289741a0b3005b8cf056f93a4e0e1a347e24ca1a2d8ccc864f7f19caa6185a766797f8382cdbfd2f3d046a0323d73a542
-  languageName: node
-  linkType: hard
-
-"sonner@npm:^0.3.5":
-  version: 0.3.5
-  resolution: "sonner@npm:0.3.5"
-  peerDependencies:
-    react: ^18.0.0
-    react-dom: ^18.0.0
-  checksum: 10/ad42c64bf372b5659c07ed0ce615487f6b8ccb5c4a0eb69d113dd00da34a43129c17bf7cbf9ab0e7354910282a0030064f42e7443013d3d9dc9b06b7f4c5af53
   languageName: node
   linkType: hard
 

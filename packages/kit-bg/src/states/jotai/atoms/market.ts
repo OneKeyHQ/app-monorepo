@@ -168,6 +168,24 @@ export const {
   initialValue: { preferPosition: false },
 });
 
+export interface IMarketDetailWatchlistSidebarPersistAtom {
+  // Unset until the user first opens or closes the sidebar; until then it
+  // opens only for users who have favorites.
+  open?: boolean;
+}
+
+// Whether the desktop detail pages dock the favorites sidebar. It only applies
+// where the window is wide enough to dock it; narrower windows open it as an
+// overlay that always starts closed.
+export const {
+  target: marketDetailWatchlistSidebarPersistAtom,
+  use: useMarketDetailWatchlistSidebarPersistAtom,
+} = globalAtom<IMarketDetailWatchlistSidebarPersistAtom>({
+  persist: true,
+  name: EAtomNames.marketDetailWatchlistSidebarPersistAtom,
+  initialValue: {},
+});
+
 export type IMarketPriceSource = 'share' | 'token';
 
 export interface IMarketPriceSourceAtom {

@@ -1,4 +1,6 @@
 export const PERPS_MARKET_DATA_STALE_MS = 5000;
+// Allow the throttled liveness timestamp to reach the UI before blocking orders.
+export const PERPS_MARKET_DATA_GRACE_MS = 1000;
 
 export type IPerpsMarketDataFreshnessReason =
   | 'ready'

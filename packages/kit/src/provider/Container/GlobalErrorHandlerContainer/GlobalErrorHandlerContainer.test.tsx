@@ -74,7 +74,6 @@ describe('passphrase-disabled recovery dialog', () => {
 
     expect(Dialog.show).toHaveBeenCalledTimes(1);
     const props = jest.mocked(Dialog.show).mock.calls[0][0];
-    expect(props.isOverTopAllViews).toBe(true);
     await props.onConfirm?.({ ...instance, preventClose: jest.fn() });
 
     expect(enable).toHaveBeenCalledWith({

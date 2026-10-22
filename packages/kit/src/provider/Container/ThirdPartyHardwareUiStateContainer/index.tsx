@@ -12,7 +12,6 @@ import {
   IconButton,
   Input,
   LottieView,
-  Portal,
   SizableText,
   Stack,
   XStack,
@@ -769,6 +768,7 @@ function ThirdPartyHardwareUiStateContainerCmp() {
       }
       if (!installDialogInstanceRef.current) {
         const instance = Dialog.show({
+          overlayLevel: 'hardware',
           renderContent: <InstallAppDialogContent />,
           showFooter: false,
           dismissOnOverlayPress: false,
@@ -1149,6 +1149,7 @@ function ThirdPartyHardwareUiStateContainerCmp() {
       await yieldDeviceStageToDialog();
       if (seq !== permissionShowSeqRef.current) return;
       permissionDialogInstanceRef.current = Dialog.show({
+        overlayLevel: 'hardware',
         dialogContainer:
           reason === EThirdPartyDevicePermissionDeniedReason.bluetoothTurnedOff
             ? OpenBleSettingsDialogRender
@@ -1400,7 +1401,7 @@ function ThirdPartyHardwareUiStateContainerCmp() {
 
   return (
     <>
-      <Portal.Body container={Portal.Constant.TOASTER_OVERLAY_PORTAL}>
+      <>
         <ShowCustom
           ref={toastInstanceRef}
           name={TOAST_VIEWPORT_NAME}
@@ -1415,12 +1416,13 @@ function ThirdPartyHardwareUiStateContainerCmp() {
             onCloseByUser={handleToastUserClose}
           />
         </ShowCustom>
-      </Portal.Body>
+      </>
 
-      <Portal.Body container={Portal.Constant.FULL_WINDOW_OVERLAY_PORTAL}>
+      <>
         {isDialogAction ? (
           <DialogContainer
             ref={dialogInstanceRef}
+            overlayLevel="hardware"
             open={isDialogAction}
             title={dialogTitle}
             renderContent={dialogContent}
@@ -1435,7 +1437,7 @@ function ThirdPartyHardwareUiStateContainerCmp() {
             onClose={handleDialogClose}
           />
         ) : null}
-      </Portal.Body>
+      </>
     </>
   );
 }

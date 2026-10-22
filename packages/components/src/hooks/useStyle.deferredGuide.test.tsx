@@ -5,8 +5,6 @@ import { StrictMode } from 'react';
 
 import { act, render, renderHook } from '@testing-library/react';
 
-import { SHEET_AND_DIALOG_Z_INDEX } from '@onekeyhq/shared/src/utils/overlayUtils';
-
 import Toaster from '../actions/Toast/Toaster';
 
 import {
@@ -14,7 +12,6 @@ import {
   useDeferredGuideBlocker,
   useIsDeferredGuideBlocked,
 } from './useDeferredGuideBlocker';
-import { useOverlayZIndex } from './useStyle';
 
 jest.mock('@onekeyhq/components/src/shared/tamagui', () => ({
   getTokens: jest.fn(),
@@ -46,7 +43,7 @@ jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
 describe('overlay guide registration', () => {
   it('registers only open overlays and releases when they close', () => {
     const blocked = renderHook(() => useIsDeferredGuideBlocked());
-    const overlay = renderHook(({ open }) => useOverlayZIndex(open), {
+    const overlay = renderHook(({ open }) => useDeferredGuideBlocker(open), {
       initialProps: { open: false },
     });
 
@@ -61,8 +58,8 @@ describe('overlay guide registration', () => {
 
   it('keeps closed dialogs and popovers from blocking while mounted', () => {
     const blocked = renderHook(() => useIsDeferredGuideBlocked());
-    renderHook(() => useOverlayZIndex());
-    renderHook(() => useOverlayZIndex(false));
+    renderHook(() => useDeferredGuideBlocker(false));
+    renderHook(() => useDeferredGuideBlocker(false));
 
     expect(blocked.result.current).toBe(false);
   });
@@ -71,10 +68,10 @@ describe('overlay guide registration', () => {
     'waits for every overlay when the %s opened overlay closes first',
     (closeFirst) => {
       const blocked = renderHook(() => useIsDeferredGuideBlocked());
-      const first = renderHook(({ open }) => useOverlayZIndex(open), {
+      const first = renderHook(({ open }) => useDeferredGuideBlocker(open), {
         initialProps: { open: true },
       });
-      const last = renderHook(({ open }) => useOverlayZIndex(open), {
+      const last = renderHook(({ open }) => useDeferredGuideBlocker(open), {
         initialProps: { open: true },
       });
 
@@ -92,8 +89,8 @@ describe('overlay guide registration', () => {
 
   it('releases an unmounted overlay without clearing another open overlay', () => {
     const blocked = renderHook(() => useIsDeferredGuideBlocked());
-    const first = renderHook(() => useOverlayZIndex(true));
-    const second = renderHook(() => useOverlayZIndex(true));
+    const first = renderHook(() => useDeferredGuideBlocker(true));
+    const second = renderHook(() => useDeferredGuideBlocker(true));
 
     first.unmount();
     expect(blocked.result.current).toBe(true);
@@ -102,12 +99,18 @@ describe('overlay guide registration', () => {
     expect(blocked.result.current).toBe(false);
   });
 
-  it('preserves the existing stacking values when registering overlays', () => {
-    const first = renderHook(() => useOverlayZIndex(true));
-    const second = renderHook(() => useOverlayZIndex(true));
-
-    expect(first.result.current).toBe(SHEET_AND_DIALOG_Z_INDEX);
-    expect(second.result.current).toBe(SHEET_AND_DIALOG_Z_INDEX + 1);
+  it('keeps guides blocked when one of two overlays reopens', () => {
+    const blocked = renderHook(() => useIsDeferredGuideBlocked());
+    const first = renderHook(({ open }) => useDeferredGuideBlocker(open), {
+      initialProps: { open: true },
+    });
+    const second = renderHook(() => useDeferredGuideBlocker(true));
+    first.rerender({ open: false });
+    first.rerender({ open: true });
+    second.unmount();
+    expect(blocked.result.current).toBe(true);
+    first.unmount();
+    expect(blocked.result.current).toBe(false);
   });
 
   it('does not register the ordinary toast viewport on mount or unmount', () => {

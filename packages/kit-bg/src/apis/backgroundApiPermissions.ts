@@ -89,6 +89,7 @@ export const PROVIDER_API_PRIVATE_KEYLESS_METHOD = [
 // are callable from any origin.
 const PROVIDER_API_PRIVATE_FIRST_PARTY_WEB_METHOD = new Set([
   'wallet_openPrimeSubscription',
+  'wallet_primeWebCheckoutReturn',
 ]);
 
 // white list method which can be called from any origin

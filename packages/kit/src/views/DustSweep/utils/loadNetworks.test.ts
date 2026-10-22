@@ -2,8 +2,13 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import type { IAllNetworkAccountsInfoResult } from '@onekeyhq/kit-bg/src/services/ServiceAllNetwork/ServiceAllNetwork';
 import type { ISwapNetwork } from '@onekeyhq/shared/types/swap/types';
 import { EProtocolOfExchange } from '@onekeyhq/shared/types/swap/types';
+import type { ICachedAccountTokens } from '@onekeyhq/shared/types/token';
 
-import { loadDustSweepNetworks } from './loadNetworks';
+import {
+  loadDustSweepEntryCapabilities,
+  loadDustSweepNetworks,
+  refreshDustSweepNetwork,
+} from './loadNetworks';
 
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
@@ -20,6 +25,7 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
     },
     serviceToken: {
       fetchAccountTokens: jest.fn(),
+      getCachedAccountTokens: jest.fn(),
       getNativeToken: jest.fn(),
     },
   },
@@ -102,6 +108,7 @@ const params = {
 describe('loadDustSweepNetworks request ownership', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    serviceToken.getCachedAccountTokens.mockResolvedValue([]);
     swapConfigs.getSwapProviderManager.mockResolvedValue([]);
     serviceSwap.getSwapProviderManager.mockResolvedValue([okxProvider()]);
     serviceSwap.fetchSwapNetworks.mockResolvedValue([ethereum, otherNetwork]);
@@ -118,6 +125,317 @@ describe('loadDustSweepNetworks request ownership', () => {
       name: 'Ethereum',
       decimals: 18,
     });
+  });
+
+  it('loads entry capabilities quietly through the default service callbacks', async () => {
+    await expect(loadDustSweepEntryCapabilities()).resolves.toEqual([ethereum]);
+    expect(serviceSwap.fetchSwapNetworks.mock.calls).toEqual([
+      [{ autoHandleError: false }],
+    ]);
+    expect(serviceSwap.getSwapProviderManager.mock.calls).toHaveLength(1);
+    expect(swapConfigs.getSwapProviderManager.mock.calls).toHaveLength(1);
+    expect(serviceToken.fetchAccountTokens.mock.calls).toHaveLength(0);
+  });
+
+  function cachedResponse(): ICachedAccountTokens {
+    return {
+      accountId: params.accountId,
+      networkId: ethereum.networkId,
+      accountAddress: '0xuser',
+      source: 'home-token-list',
+      coverage: 'partial',
+      capturedAt: Date.now(),
+      tokens: { data: [], keys: '', map: {}, currency: 'usd' },
+      smallBalanceTokens: {
+        data: [
+          {
+            $key: 'dust',
+            networkId: ethereum.networkId,
+            address: '0xdust',
+            symbol: 'DUST',
+            name: 'Dust token',
+            isNative: false,
+            decimals: 18,
+          },
+        ],
+        keys: 'dust',
+        currency: 'usd',
+        map: {
+          dust: {
+            balance: '1000000000000000000',
+            balanceParsed: '1',
+            fiatValue: '0.5',
+            price: 0.5,
+          },
+        },
+      },
+      riskTokens: { data: [], keys: '', map: {}, currency: 'usd' },
+    };
+  }
+
+  it('publishes Home cache before live balances finish, with one shared discovery round', async () => {
+    const live =
+      deferred<Awaited<ReturnType<typeof serviceToken.fetchAccountTokens>>>();
+    serviceToken.fetchAccountTokens.mockReturnValueOnce(live.promise);
+    serviceToken.getCachedAccountTokens.mockResolvedValueOnce([
+      cachedResponse(),
+    ]);
+    const onCache = jest.fn();
+    const load = loadDustSweepNetworks(
+      params,
+      new AbortController().signal,
+      onCache,
+    );
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(onCache).toHaveBeenCalledTimes(1);
+    expect(onCache.mock.calls[0][0][0].tokens[0].symbol).toBe('DUST');
+    expect(serviceSwap.fetchSwapNetworks.mock.calls).toHaveLength(1);
+    expect(serviceToken.getCachedAccountTokens.mock.calls[0][0]).toEqual({
+      accounts: [
+        {
+          accountId: params.accountId,
+          networkId: ethereum.networkId,
+          accountAddress: '0xuser',
+        },
+      ],
+    });
+    live.resolve(cachedResponse());
+    await load;
+  });
+
+  it.each(['finished', 'aborted'] as const)(
+    'does not publish cache after the consumer is %s',
+    async (mode) => {
+      const cached = deferred<(ICachedAccountTokens | null)[]>();
+      serviceToken.getCachedAccountTokens.mockReturnValueOnce(cached.promise);
+      const controller = new AbortController();
+      const onCache = jest.fn();
+      const load = loadDustSweepNetworks(params, controller.signal, onCache);
+      if (mode === 'aborted') controller.abort();
+      await load.catch(() => undefined);
+      cached.resolve([cachedResponse()]);
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      expect(onCache).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each(['empty', 'wrong-account', 'non-usd'] as const)(
+    'rejects %s cache without affecting the live round',
+    async (mode) => {
+      const response = cachedResponse();
+      if (mode === 'empty') response.smallBalanceTokens.data = [];
+      if (mode === 'wrong-account') response.accountId = 'other-account';
+      if (mode === 'non-usd') response.smallBalanceTokens.currency = 'eur';
+      serviceToken.getCachedAccountTokens.mockResolvedValueOnce([response]);
+      const live =
+        deferred<Awaited<ReturnType<typeof serviceToken.fetchAccountTokens>>>();
+      serviceToken.fetchAccountTokens.mockReturnValueOnce(live.promise);
+      const onCache = jest.fn();
+      const load = loadDustSweepNetworks(
+        params,
+        new AbortController().signal,
+        onCache,
+      );
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      expect(onCache).not.toHaveBeenCalled();
+      live.resolve(cachedResponse());
+      await expect(load).resolves.toMatchObject({ partialError: false });
+    },
+  );
+
+  it('still loads live assets when the optional cache read fails', async () => {
+    serviceToken.getCachedAccountTokens.mockRejectedValueOnce(
+      new Error('Cache read failed'),
+    );
+    await expect(
+      loadDustSweepNetworks(params, new AbortController().signal),
+    ).resolves.toMatchObject({ partialError: false });
+  });
+
+  it('identifies failed networks so the consumer can retain their cached preview', async () => {
+    serviceSwap.getSwapProviderManager.mockResolvedValueOnce([
+      {
+        ...okxProvider(),
+        supportSingleSwapNetworks: [ethereum, otherNetwork],
+      },
+    ]);
+    serviceToken.fetchAccountTokens.mockRejectedValueOnce(
+      new Error('Balance refresh failed'),
+    );
+    const result = await loadDustSweepNetworks(
+      params,
+      new AbortController().signal,
+    );
+    expect(result.partialError).toBe(true);
+    expect(result.failedNetworkIds).toEqual([ethereum.networkId]);
+    expect(result.failedNetworks).toEqual([ethereum]);
+    expect(result.networks.map((entry) => entry.network.networkId)).toEqual([
+      otherNetwork.networkId,
+    ]);
+  });
+
+  it.each(['ECONNABORTED', 'ERR_NETWORK', 40_001])(
+    'recovers a transient asset error %s once without retrying healthy networks',
+    async (code) => {
+      serviceSwap.getSwapProviderManager.mockResolvedValueOnce([
+        {
+          ...okxProvider(),
+          supportSingleSwapNetworks: [ethereum, otherNetwork],
+        },
+      ]);
+      serviceToken.fetchAccountTokens.mockRejectedValueOnce(
+        Object.assign(new Error('Temporary asset dependency failure'), {
+          code,
+        }),
+      );
+      const result = await loadDustSweepNetworks(
+        params,
+        new AbortController().signal,
+      );
+      expect(result.partialError).toBe(false);
+      expect(result.networks).toHaveLength(2);
+      expect(
+        serviceToken.fetchAccountTokens.mock.calls.map(([p]) => p.networkId),
+      ).toEqual([
+        ethereum.networkId,
+        otherNetwork.networkId,
+        ethereum.networkId,
+      ]);
+    },
+  );
+
+  it('retains failed network identity after the bounded retry is exhausted', async () => {
+    serviceSwap.getSwapProviderManager.mockResolvedValueOnce([
+      { ...okxProvider(), supportSingleSwapNetworks: [ethereum, otherNetwork] },
+    ]);
+    const response = await serviceToken.fetchAccountTokens({
+      accountId: params.accountId,
+      networkId: ethereum.networkId,
+      flag: 'dust-sweep',
+    });
+    serviceToken.fetchAccountTokens.mockClear();
+    serviceToken.fetchAccountTokens.mockImplementation(async (p) => {
+      if (p.networkId === ethereum.networkId)
+        throw Object.assign(new Error('timeout'), { code: 'ECONNABORTED' });
+      return response;
+    });
+    const result = await loadDustSweepNetworks(
+      params,
+      new AbortController().signal,
+    );
+    expect(result.failedNetworks).toEqual([ethereum]);
+    expect(result.partialError).toBe(true);
+    expect(result.networks.map((entry) => entry.network.networkId)).toEqual([
+      otherNetwork.networkId,
+    ]);
+    expect(serviceToken.fetchAccountTokens.mock.calls).toHaveLength(3);
+  });
+
+  it.each(['ERR_CANCELED', 40_056, 401])(
+    'does not retry cancellation or a definite rejection %s',
+    async (code) => {
+      serviceToken.fetchAccountTokens.mockRejectedValueOnce(
+        Object.assign(new Error('Unavailable'), { code }),
+      );
+      await expect(
+        loadDustSweepNetworks(params, new AbortController().signal),
+      ).rejects.toThrow('Unable to load balances');
+      expect(serviceToken.fetchAccountTokens.mock.calls).toHaveLength(1);
+    },
+  );
+
+  it('forces a post-trade round without joining an older in-flight load', async () => {
+    const old =
+      deferred<Awaited<ReturnType<typeof serviceToken.fetchAccountTokens>>>();
+    serviceToken.fetchAccountTokens.mockReturnValueOnce(old.promise);
+    const previous = loadDustSweepNetworks(
+      params,
+      new AbortController().signal,
+    );
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    const fresh = await loadDustSweepNetworks(
+      params,
+      new AbortController().signal,
+      undefined,
+      { isManualRefresh: true },
+    );
+    expect(serviceToken.fetchAccountTokens.mock.calls).toHaveLength(2);
+    expect(
+      serviceToken.fetchAccountTokens.mock.calls[1][0].isManualRefresh,
+    ).toBe(true);
+    old.resolve(await serviceToken.fetchAccountTokens.mock.results[1].value);
+    await previous;
+    expect(fresh.partialError).toBe(false);
+  });
+
+  it('force-refreshes an existing network without rediscovering accounts or providers', async () => {
+    const initial = await loadDustSweepNetworks(
+      params,
+      new AbortController().signal,
+    );
+    const entry = initial.networks[0];
+    jest.clearAllMocks();
+    const refreshed = await refreshDustSweepNetwork(
+      { entry, indexedAccountId: params.indexedAccountId },
+      new AbortController().signal,
+    );
+    expect(refreshed).toEqual(entry);
+    expect(serviceToken.fetchAccountTokens.mock.calls[0][0]).toEqual(
+      expect.objectContaining({
+        accountId: entry.accountId,
+        networkId: entry.network.networkId,
+        indexedAccountId: params.indexedAccountId,
+        isManualRefresh: true,
+        saveToLocal: false,
+      }),
+    );
+    expect(serviceToken.getNativeToken.mock.calls).toHaveLength(1);
+    expect(serviceSwap.fetchSwapNetworks.mock.calls).toHaveLength(0);
+    expect(serviceSwap.getSwapProviderManager.mock.calls).toHaveLength(0);
+    expect(serviceAllNetwork.getAllNetworkAccounts.mock.calls).toHaveLength(0);
+  });
+
+  it('rejects a missing native asset instead of treating it as an empty refreshed balance', async () => {
+    const initial = await loadDustSweepNetworks(
+      params,
+      new AbortController().signal,
+    );
+    serviceToken.getNativeToken.mockResolvedValueOnce(null);
+    await expect(
+      refreshDustSweepNetwork(
+        { entry: initial.networks[0] },
+        new AbortController().signal,
+      ),
+    ).rejects.toThrow('Native token is unavailable');
+  });
+
+  it('does not join a pre-settlement in-flight account load', async () => {
+    const initial = await loadDustSweepNetworks(
+      params,
+      new AbortController().signal,
+    );
+    const oldResponse =
+      deferred<
+        Awaited<
+          ReturnType<typeof backgroundApiProxy.serviceToken.fetchAccountTokens>
+        >
+      >();
+    serviceToken.fetchAccountTokens.mockReturnValueOnce(oldResponse.promise);
+    const oldLoad = loadDustSweepNetworks(params, new AbortController().signal);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    const controller = new AbortController();
+    const fresh = await refreshDustSweepNetwork(
+      { entry: initial.networks[0] },
+      controller.signal,
+    );
+    expect(fresh).toEqual(initial.networks[0]);
+    expect(serviceToken.fetchAccountTokens.mock.calls).toHaveLength(3);
+    oldResponse.resolve({
+      tokens: { data: [], map: {}, keys: '', currency: 'usd' },
+      smallBalanceTokens: { data: [], map: {}, keys: '', currency: 'usd' },
+      riskTokens: { data: [], map: {}, keys: '', currency: 'usd' },
+    });
+    await oldLoad;
   });
 
   it.each([
