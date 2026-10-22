@@ -12,9 +12,11 @@ import {
 import type { IRenderItemParams } from '@onekeyhq/components/src/layouts/SortableListView/types';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { useNetworkLogoUri } from '@onekeyhq/kit/src/hooks/useNetworkLogoUri';
+import { parseDexCoin } from '@onekeyhq/shared/src/utils/perpsUtils';
 import { getTokenPriceChangeStyle } from '@onekeyhq/shared/src/utils/tokenUtils';
 
 import { CommunityRecognizedBadge } from '../../../components/CommunityRecognizedBadge';
+import { LeverageBadge, PerpDexBadge } from '../../../components/PerpsBadges';
 import {
   getMarketWatchlistRowKind,
   getStockListingName,
@@ -168,6 +170,15 @@ function BasicWatchlistSidebarRow({
           <SizableText size="$headingSm" numberOfLines={1} flexShrink={1}>
             {item.symbol}
           </SizableText>
+          {/* Tells perps apart from spot, as the Market Favorites list does. */}
+          {item.maxLeverage ? (
+            <LeverageBadge leverage={item.maxLeverage} />
+          ) : null}
+          <PerpDexBadge
+            dexLabel={
+              item.perpsCoin ? parseDexCoin(item.perpsCoin).dexLabel : undefined
+            }
+          />
           {item.communityRecognized ? <CommunityRecognizedBadge /> : null}
         </XStack>
         {getMarketWatchlistRowKind(item) === 'stock' ? (
