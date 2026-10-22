@@ -351,7 +351,6 @@ export type ILocalWalletCapability = {
   // account holding scan data again, paused ones included. Chains without it
   // rewind account by account.
   resetStorage?: () => Promise<void>;
-  setDiagnosticsEnabled?: (params: { enabled: boolean }) => Promise<void>;
   getSyncProgress: (params: {
     accountId: string;
   }) => Promise<ILocalWalletSyncProgress | undefined>;

@@ -179,7 +179,7 @@ export type IZcashSendResult = {
   };
 };
 
-// ---- wallet side (watch-only via UFVK; sync needs COI/threads) ----
+// ---- wallet side (watch-only via UFVK) ----
 
 // Identifies one watch-only wallet account inside the carrier's wallet pool.
 export type IZcashWalletAccount = {
@@ -317,8 +317,7 @@ export type IZcashPoolDetail = {
   locked: string;
   // Includes `uneconomic`.
   total: string;
-  // Notes worth <= the ZIP-317 marginal fee: shown, never spendable. Absent
-  // in a balance saved before this field existed.
+  // Notes worth <= the ZIP-317 marginal fee: shown, never spendable.
   uneconomic?: string;
 };
 
@@ -405,8 +404,6 @@ export type IZcashSdkApi = {
   // Tears down a wedged carrier so the next call starts clean (desktop: terminates the Worker; in-thread: swaps the lease).
   resetCarrier: () => Promise<void>;
 
-  // Perf tracing for slow reads; off by default.
-  setPerfTrace: (params: { enabled: boolean }) => Promise<void>;
   // Public circuit parameters only: no proposal, seed, or storage.
   prewarmPczt: (params: {
     network: IZcashNetwork;

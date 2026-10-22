@@ -161,6 +161,7 @@ describe('Zcash reads while a scan holds the lease', () => {
       pendingChange: '0',
       pendingSpendable: '0',
       locked: '0',
+      uneconomic: '0',
     };
   }
   function fakeRuntime(total: string) {

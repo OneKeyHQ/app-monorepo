@@ -26,7 +26,6 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { LRUCache } from '@onekeyhq/shared/src/utils/cacheUtils';
 import type { IPrivacyChainComposedBalance } from '@onekeyhq/shared/src/utils/privacyChainBalanceUtils';
 import { composePrivacyChainBalance } from '@onekeyhq/shared/src/utils/privacyChainBalanceUtils';
-import { privacyChainPerfSpan } from '@onekeyhq/shared/src/utils/privacyChainPerfLog';
 import { PRIVACY_CHAIN_LIGHT_MIN_BLOCKS_LEFT } from '@onekeyhq/shared/src/utils/privacyChainSyncPolicy';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type {
@@ -634,7 +633,7 @@ export async function getLocalWalletBalance(
           const api = await vault.zcashGetApi();
           return await api.getBalance(account);
         } catch (e) {
-          console.log('[zcash] getLocalWalletBalance failed', {
+          console.error('[zcash] getLocalWalletBalance failed', {
             accountId,
             ...zcashDescribeError(e),
           });
@@ -687,17 +686,13 @@ export async function zcashGetBalanceSafe(
         return await api.getBalance(account);
       } catch (e2) {
         if (readZcashRuntimeError(e2)?.code === 'NOT_SYNCED') return null;
-        console.log('[zcash] getBalance still failing after auto repair', {
+        console.error('[zcash] getBalance still failing after auto repair', {
           accountId: vault.accountId,
           ...zcashDescribeError(e2),
         });
         throw e2;
       }
     }
-    console.log('[zcash] getBalance skipped', {
-      accountId: vault.accountId,
-      ...zcashDescribeError(e),
-    });
     // Keep setup unavailable so Repair stays reachable, instead of claiming an unscanned wallet is empty.
     if (isZcashSetupIncompleteError(e)) {
       return null;
@@ -975,10 +970,8 @@ export async function fetchTokenDetails(
   const serverNativeToken = serverResponse?.data.data.find(
     (token) => token.info.isNative || token.info.address === '',
   );
-  const balance = await privacyChainPerfSpan(
-    'bg token details balance',
-    () => vault.zcashGetComposedBalanceSafe(serverNativeToken?.balance),
-    (res) => ({ hasBalance: !!res }),
+  const balance = await vault.zcashGetComposedBalanceSafe(
+    serverNativeToken?.balance,
   );
   const total = new BigNumber(balance.total);
   // Account availability includes transparent funds; Send Max uses the explicitly selected pool, not this aggregate.

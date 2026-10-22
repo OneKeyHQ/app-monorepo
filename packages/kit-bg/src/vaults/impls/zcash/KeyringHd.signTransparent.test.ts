@@ -23,10 +23,6 @@ jest.mock('@onekeyhq/core/src/secret', () => ({
 jest.mock('../btc/KeyringHd', () => ({
   KeyringHd: class {},
 }));
-jest.mock('./hardwareRequestPreview', () => ({
-  ZCASH_HW_PREVIEW_STOP_MESSAGE: 'stop',
-  isZcashHardwarePreviewEnabled: jest.fn(async () => false),
-}));
 jest.mock('./transactionReview', () => ({
   parseZcashTransaction: (encodedTx: unknown) => encodedTx,
 }));

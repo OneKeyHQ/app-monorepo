@@ -1320,7 +1320,6 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
         if (parsed.username || parsed.password) {
           return { ok: false, error: 'URL credentials are not supported' };
         }
-        const fetchStartedAt = Date.now();
         // Idle timeout only: a large batch over a proxy can take minutes.
         // `net.fetch` follows the system proxy; Node's fetch would bypass it
         // and expose the user's IP to the node.
@@ -1344,22 +1343,7 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
             error: `node answered HTTP ${response.status} ${response.statusText}`,
           };
         }
-        const { bytes } = response;
-        if (process.env.NODE_ENV !== 'production') {
-          // Node time without relay overhead; compare with the Worker's
-          // `host fetch` line for the same route.
-          // eslint-disable-next-line no-console
-          console.log(
-            `[PRIV-PERF] node fetch (desktop main) ${JSON.stringify({
-              route: `${parsed.host}${parsed.pathname}`,
-              status: response.status,
-              reqBytes: body.length,
-              respBytes: bytes.length,
-              fetchMs: Date.now() - fetchStartedAt,
-            })}`,
-          );
-        }
-        return { ok: true, bytes };
+        return { ok: true, bytes: response.bytes };
       } catch (error) {
         // Carry the cause so outage, bad address and TLS failure differ.
         return {

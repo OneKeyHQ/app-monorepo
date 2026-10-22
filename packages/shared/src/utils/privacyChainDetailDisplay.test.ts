@@ -154,21 +154,6 @@ describe('getPrivacyChainEndpointFlow', () => {
       flow({ isSent: true, transfer: transfer('', privateAddress) }).to,
     ).toEqual([{ kind: 'address', address: privateAddress }]);
   });
-
-  it('reads rows and I/O written by older builds without showing a label as an address', () => {
-    expect(
-      flow({
-        transfer: transfer('Shielded', 'Ironwood pool'),
-        inputTransfers: [output('Orchard pool', { label: 'Orchard pool' })],
-        outputTransfers: [
-          output('Ironwood pool', { label: 'Ironwood pool', isOwn: true }),
-        ],
-      }),
-    ).toEqual({
-      from: [{ kind: 'pool', poolId: 3 }],
-      to: [{ kind: 'own', poolId: 4 }],
-    });
-  });
 });
 
 describe('getPrivacyChainTargetItem', () => {
@@ -300,7 +285,7 @@ describe('collectPrivacyChainOwnAddresses', () => {
         outputTransfers: [
           output(`u1${'d'.repeat(90)}`, { isOwn: true }),
           output(privateAddress, { isOwn: false }),
-          output('Ironwood pool', { label: 'Ironwood pool', isOwn: true }),
+          output('Shielded', { label: 'Shielded', isOwn: true }),
         ],
       }),
     ).toEqual(new Set(['t1own', `u1${'d'.repeat(90)}`]));
@@ -345,11 +330,11 @@ it('hides a marked shielded endpoint from the public flow even when entries carr
       transfer: marked,
     }),
   ).toEqual({ from: [], to: ['t1own'] });
-  // Rows cached by older builds keep the label in the address field.
+  // An unmarked private address hides the entries the same way.
   expect(
     getPrivacyChainPublicDisplayFlow({
       publicAddressPattern,
-      transfer: { ...marked, from: 'Shielded', shieldedFrom: undefined },
+      transfer: { ...marked, from: privateAddress, shieldedFrom: undefined },
     }),
   ).toEqual({ from: [], to: ['t1own'] });
 });
@@ -359,18 +344,9 @@ it('resolves a shielded entry to its declared pool or a generic label', () => {
     getPrivacyChainShieldedEntryLabel({ pools, transfer: { poolId: 3 } }),
   ).toEqual({ poolId: 3 });
   expect(
-    getPrivacyChainShieldedEntryLabel({
-      pools,
-      transfer: { label: 'Orchard pool' },
-    }),
-  ).toEqual({ poolId: 3 });
-  expect(
     getPrivacyChainShieldedEntryLabel({ pools, transfer: { poolId: 2 } }),
   ).toEqual({});
-  expect(
-    getPrivacyChainShieldedEntryLabel({
-      pools,
-      transfer: { label: 'Shielded' },
-    }),
-  ).toEqual({});
+  expect(getPrivacyChainShieldedEntryLabel({ pools, transfer: {} })).toEqual(
+    {},
+  );
 });

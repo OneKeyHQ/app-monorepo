@@ -373,14 +373,6 @@ export class KeyringHardware extends KeyringHardwareBase {
             'zcash: device viewing key does not match this account',
           );
         }
-        if (derived.unifiedAddress === item.address) {
-          // Diagnostic only. The device UA carries P2PKH + Orchard, so it
-          // normally differs from the app's Orchard-only derivation, which is
-          // then kept as derivedUnifiedAddress below.
-          console.log('[zcash] device unified address matches app derivation', {
-            accountId,
-          });
-        }
         return {
           ufvk,
           // The device is the address authority for hardware accounts: what

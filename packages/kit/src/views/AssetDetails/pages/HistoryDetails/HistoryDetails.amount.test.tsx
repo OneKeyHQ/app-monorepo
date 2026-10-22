@@ -368,95 +368,6 @@ function poolOutput(
   };
 }
 
-it('names the known source and destination pools without treating change as the destination', () => {
-  setZcashFlow('Orchard pool', 'Shielded');
-  mockTxDetails = {
-    sends: [poolOutput('Orchard pool', { isOwn: true })],
-    receives: [
-      poolOutput('Ironwood pool'),
-      poolOutput('Orchard pool', { isOwn: true, isChange: true }),
-    ],
-  };
-  const result = render(<HistoryDetails />);
-  const from = within(result.getByTestId('history-details-from-pool'));
-  const to = within(result.getByTestId('history-details-to-pool'));
-  expect(from.getByText('Orchard pool')).toBeTruthy();
-  expect(to.getByText('Ironwood pool')).toBeTruthy();
-  expect(to.queryByText('Orchard pool')).toBeNull();
-  expect(from.queryByRole('button')).toBeNull();
-  expect(to.queryByRole('button')).toBeNull();
-});
-
-it('shows an exactly known recipient instead of its pool', () => {
-  const recipient = `u1${'a'.repeat(90)}`;
-  setZcashFlow('Orchard pool', recipient);
-  mockTxDetails = {
-    receives: [
-      poolOutput('Ironwood pool', { address: recipient, to: recipient }),
-    ],
-  };
-  const result = render(<HistoryDetails />);
-  expect(
-    within(result.getByTestId('history-details-to-recipient')).getByText(
-      recipient,
-    ),
-  ).toBeTruthy();
-  expect(result.queryByTestId('history-details-to-pool')).toBeNull();
-});
-
-it.each([
-  ['Orchard pool', 'Ironwood pool'],
-  [`t1${'A'.repeat(33)}`, 'Ironwood pool'],
-  ['Ironwood pool', `t3${'B'.repeat(33)}`],
-  ['Ironwood pool', 'Ironwood pool'],
-])(
-  'shows both internal endpoints %s -> %s before output details arrive',
-  (from, to) => {
-    setZcashFlow(from, to);
-    const result = render(<HistoryDetails />);
-    expect(result.getAllByText(from)).toHaveLength(from === to ? 2 : 1);
-    expect(result.getAllByText(to)).toHaveLength(from === to ? 2 : 1);
-  },
-);
-
-it('names the pool of a hidden sender in a row written by an older build', () => {
-  setZcashFlow('Shielded', 'Ironwood pool');
-  mockHistory.decodedTx.signer = '';
-  const transfer = mockHistory.decodedTx.actions[0].assetTransfer;
-  if (!transfer) throw new OneKeyLocalError('missing transfer fixture');
-  transfer.receives = transfer.sends;
-  transfer.sends = [];
-  mockTxDetails = {
-    receives: [poolOutput('Ironwood pool', { isOwn: true })],
-  };
-  const result = render(<HistoryDetails />);
-  const from = within(result.getByTestId('history-details-from-pool'));
-  expect(from.getByText('Shielded')).toBeTruthy();
-  expect(
-    from.getByText(ETranslations.privacy_history_sender_unknown__desc),
-  ).toBeTruthy();
-  // Explained under the pool name rather than in a separate "Unknown" row.
-  expect(
-    result.getAllByText(ETranslations.privacy_history_sender_unknown__desc),
-  ).toHaveLength(1);
-  expect(
-    within(result.getByTestId('history-details-to-pool')).getByText(
-      'Ironwood pool',
-    ),
-  ).toBeTruthy();
-});
-
-it('does not infer a destination pool from change alone', () => {
-  setZcashFlow('Orchard pool', 'Shielded');
-  mockTxDetails = {
-    receives: [poolOutput('Orchard pool', { isOwn: true, isChange: true })],
-  };
-  const result = render(<HistoryDetails />);
-  const to = within(result.getByTestId('history-details-to-pool'));
-  expect(to.getByText('Shielded')).toBeTruthy();
-  expect(to.queryByText('Orchard pool')).toBeNull();
-});
-
 type IEndpointFixture = {
   address?: string;
   poolId?: number;
@@ -498,6 +409,73 @@ function shieldedOutput(
 }
 
 const DIVERSIFIED = `u1${'d'.repeat(90)}`;
+
+it('names the known source and destination pools without treating change as the destination', () => {
+  setZcashEndpoints({ poolId: 3, own: true }, { shielded: true });
+  mockTxDetails = {
+    sends: [shieldedOutput(3, { isOwn: true })],
+    receives: [
+      shieldedOutput(4),
+      shieldedOutput(3, { isOwn: true, isChange: true }),
+    ],
+  };
+  const result = render(<HistoryDetails />);
+  const from = within(result.getByTestId('history-details-from-pool'));
+  const to = within(result.getByTestId('history-details-to-pool'));
+  expect(from.getByText('Orchard pool')).toBeTruthy();
+  expect(to.getByText('Ironwood pool')).toBeTruthy();
+  expect(to.queryByText('Orchard pool')).toBeNull();
+  expect(from.queryByRole('button')).toBeNull();
+  expect(to.queryByRole('button')).toBeNull();
+});
+
+it('shows an exactly known recipient instead of its pool', () => {
+  const recipient = `u1${'a'.repeat(90)}`;
+  setZcashEndpoints({ poolId: 3, own: true }, { address: recipient });
+  mockTxDetails = {
+    receives: [shieldedOutput(4, { address: recipient, to: recipient })],
+  };
+  const result = render(<HistoryDetails />);
+  expect(
+    within(result.getByTestId('history-details-to-recipient')).getByText(
+      recipient,
+    ),
+  ).toBeTruthy();
+  expect(result.queryByTestId('history-details-to-pool')).toBeNull();
+});
+
+it('names the pool of a hidden sender', () => {
+  receiveRow({ shielded: true }, { poolId: 4, own: true });
+  mockTxDetails = {
+    receives: [shieldedOutput(4, { isOwn: true })],
+  };
+  const result = render(<HistoryDetails />);
+  const from = within(result.getByTestId('history-details-from-pool'));
+  expect(from.getByText('Shielded')).toBeTruthy();
+  expect(
+    from.getByText(ETranslations.privacy_history_sender_unknown__desc),
+  ).toBeTruthy();
+  // Explained under the pool name rather than in a separate "Unknown" row.
+  expect(
+    result.getAllByText(ETranslations.privacy_history_sender_unknown__desc),
+  ).toHaveLength(1);
+  expect(
+    within(result.getByTestId('history-details-to-pool')).getByText(
+      'Ironwood pool',
+    ),
+  ).toBeTruthy();
+});
+
+it('does not infer a destination pool from change alone', () => {
+  setZcashEndpoints({ poolId: 3, own: true }, { shielded: true });
+  mockTxDetails = {
+    receives: [shieldedOutput(3, { isOwn: true, isChange: true })],
+  };
+  const result = render(<HistoryDetails />);
+  const to = within(result.getByTestId('history-details-to-pool'));
+  expect(to.getByText('Shielded')).toBeTruthy();
+  expect(to.queryByText('Orchard pool')).toBeNull();
+});
 
 it.each([
   [OWN_UA, true],

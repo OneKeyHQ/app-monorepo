@@ -519,12 +519,9 @@ export default class Vault extends VaultBase {
   }: {
     password: string;
   }): Promise<boolean> {
-    const { imported, spendsFound } = await this.xmrImportKeyImages({
+    const { spendsFound } = await this.xmrImportKeyImages({
       password,
     });
-    if (imported > 0) {
-      console.log('[xmr] key images imported', { imported, spendsFound });
-    }
     return spendsFound > 0;
   }
 
