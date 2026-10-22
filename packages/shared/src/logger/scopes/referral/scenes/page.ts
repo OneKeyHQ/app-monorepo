@@ -109,6 +109,16 @@ export class PageScene extends BaseScene {
     return { isVisible };
   }
 
+  /**
+   * The user changed whether invite links may show their nickname and avatar.
+   * Fires only after the server accepts the new value.
+   */
+  @LogToServer()
+  @LogToLocal({ level: 'info' })
+  public toggleInviteProfilePublic(enabled: boolean) {
+    return { enabled };
+  }
+
   @LogToServer()
   @LogToLocal({ level: 'info' })
   public referralPageOpen(params: IReferralPageOpenParams) {

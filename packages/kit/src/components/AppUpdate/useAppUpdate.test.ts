@@ -23,7 +23,7 @@
 jest.mock('../../background/instance/backgroundApiProxy', () => {
   const svc = {
     getUpdateInfo: jest.fn(),
-    reconcileAppShellPackage: jest.fn(),
+    reconcileUpdatePackage: jest.fn(),
     getDownloadEvent: jest.fn(),
     downloadPackage: jest.fn(),
     downloadPackageFailed: jest.fn(),
@@ -100,6 +100,14 @@ jest.mock('@onekeyhq/shared/src/modules3rdParty/auto-update', () => {
   (globalThis as any).__mockBundleUpd = bu;
   return { AppUpdate: au, BundleUpdate: bu };
 });
+
+jest.mock('@onekeyfe/react-native-bundle-update', () => ({
+  ReactNativeBundleUpdate: { installBundle: jest.fn() },
+}));
+
+jest.mock('@onekeyhq/shared/src/modules3rdParty/appRestart', () => ({
+  appRestart: jest.fn(),
+}));
 
 jest.mock('../../hooks/useAppNavigation', () => {
   const n = {
@@ -289,6 +297,7 @@ jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
         endInstallPackage: jest.fn(),
         startManualInstallPackage: jest.fn(),
         endManualInstallPackage: jest.fn(),
+        restartRNApp: jest.fn(),
         isNeedSyncAppUpdateInfo: jest.fn(),
         fetchConfig: jest.fn(),
         startCheckForUpdatesOnly: jest.fn(),
@@ -382,6 +391,7 @@ import {
   sanitizeUpdateErrorMessage,
   useDownloadPackage,
 } from './useAppUpdate';
+import { resetInstallPackageLockForTest } from './useDownloadPackage';
 // DownloadGaveUpError + the budget-hook option type are not re-exported via
 // useAppUpdate (they are part of the retry-internal contract), so import them
 // directly from the module under test.
@@ -428,6 +438,7 @@ function setAtom(partial: Record<string, any>) {
 
 function resetAllMocks() {
   jest.clearAllMocks();
+  resetInstallPackageLockForTest();
   mockGuideBlockers.clear();
   mockRunAfterTokensDone.mockImplementation(({ onRun }) => {
     onRun('test');
@@ -452,7 +463,7 @@ function resetAllMocks() {
   svc.getUpdateInfo.mockImplementation(() =>
     Promise.resolve(mockAtomHolder.value),
   );
-  svc.reconcileAppShellPackage.mockImplementation(() => svc.getUpdateInfo());
+  svc.reconcileUpdatePackage.mockImplementation(() => svc.getUpdateInfo());
   svc.getDownloadEvent.mockResolvedValue(null);
   svc.downloadPackage.mockResolvedValue(undefined);
   svc.downloadPackageFailed.mockResolvedValue(undefined);
@@ -1652,7 +1663,7 @@ describe('useDownloadPackage', () => {
         status: EAppUpdateStatus.downloadASC,
       });
       svc.getDownloadEvent.mockResolvedValue({ downloadedFile: '/tmp/a.zip' });
-      svc.reconcileAppShellPackage.mockResolvedValue({
+      svc.reconcileUpdatePackage.mockResolvedValue({
         latestVersion: '2.0.0',
         status: EAppUpdateStatus.updateIncomplete,
       });
@@ -1664,7 +1675,7 @@ describe('useDownloadPackage', () => {
         await result.current.downloadASC();
       });
 
-      expect(svc.reconcileAppShellPackage).toHaveBeenCalled();
+      expect(svc.reconcileUpdatePackage).toHaveBeenCalled();
       expect(svc.downloadASCFailed).not.toHaveBeenCalled();
       expect(emitSpy).toHaveBeenCalledWith(
         EAppEventBusNames.ShowAppUpdateIncompleteDialog,
@@ -1679,7 +1690,7 @@ describe('useDownloadPackage', () => {
         status: EAppUpdateStatus.downloadPackage,
       });
       svc.getDownloadEvent.mockResolvedValue(null);
-      svc.reconcileAppShellPackage.mockResolvedValue({
+      svc.reconcileUpdatePackage.mockResolvedValue({
         latestVersion: '2.0.0',
         status: EAppUpdateStatus.updateIncomplete,
       });
@@ -1690,7 +1701,7 @@ describe('useDownloadPackage', () => {
       });
 
       expect(svc.downloadASC).toHaveBeenCalled();
-      expect(svc.reconcileAppShellPackage).toHaveBeenCalled();
+      expect(svc.reconcileUpdatePackage).toHaveBeenCalled();
       expect(svc.downloadASCFailed).not.toHaveBeenCalled();
     });
   });
@@ -1838,7 +1849,7 @@ describe('useDownloadPackage', () => {
         status: EAppUpdateStatus.verifyPackage,
       });
       svc.getDownloadEvent.mockResolvedValue({ downloadedFile: '/tmp/a.zip' });
-      svc.reconcileAppShellPackage.mockResolvedValue({
+      svc.reconcileUpdatePackage.mockResolvedValue({
         latestVersion: '2.0.0',
         status: EAppUpdateStatus.updateIncomplete,
       });
@@ -1852,7 +1863,7 @@ describe('useDownloadPackage', () => {
         await result.current.verifyPackage();
       });
 
-      expect(svc.reconcileAppShellPackage).toHaveBeenCalled();
+      expect(svc.reconcileUpdatePackage).toHaveBeenCalled();
       expect(svc.verifyPackageFailed).not.toHaveBeenCalled();
       expect(emitSpy).toHaveBeenCalledWith(
         EAppEventBusNames.ShowAppUpdateIncompleteDialog,
@@ -1867,7 +1878,7 @@ describe('useDownloadPackage', () => {
         status: EAppUpdateStatus.verifyASC,
       });
       svc.getDownloadEvent.mockResolvedValue(null);
-      svc.reconcileAppShellPackage.mockResolvedValue({
+      svc.reconcileUpdatePackage.mockResolvedValue({
         latestVersion: '2.0.0',
         status: EAppUpdateStatus.updateIncomplete,
       });
@@ -1878,7 +1889,7 @@ describe('useDownloadPackage', () => {
       });
 
       expect(svc.verifyPackage).toHaveBeenCalled();
-      expect(svc.reconcileAppShellPackage).toHaveBeenCalled();
+      expect(svc.reconcileUpdatePackage).toHaveBeenCalled();
       expect(svc.verifyPackageFailed).not.toHaveBeenCalled();
     });
   });
@@ -2048,6 +2059,7 @@ describe('useDownloadPackage', () => {
       });
 
       expect(bundleUpd.installBundle).toHaveBeenCalled();
+      expect(svc.getUpdateInfo).toHaveBeenCalledTimes(1);
       expect(svc.processPendingInstallTask).not.toHaveBeenCalled();
       expect(onSuccess).toHaveBeenCalled();
     });
@@ -2101,7 +2113,7 @@ describe('useDownloadPackage', () => {
         latestVersion: '2.0.0',
         updateStrategy: EUpdateStrategy.manual,
       });
-      svc.reconcileAppShellPackage.mockResolvedValue({
+      svc.reconcileUpdatePackage.mockResolvedValue({
         latestVersion: '2.0.0',
         status: EAppUpdateStatus.updateIncomplete,
       });
@@ -2115,7 +2127,7 @@ describe('useDownloadPackage', () => {
 
       expect(onFail).toHaveBeenCalled();
       expect(onSuccess).not.toHaveBeenCalled();
-      expect(svc.reconcileAppShellPackage).toHaveBeenCalled();
+      expect(svc.reconcileUpdatePackage).toHaveBeenCalled();
     });
 
     test('install throws + silent → no Toast and no onFail', async () => {
@@ -2145,7 +2157,7 @@ describe('useDownloadPackage', () => {
         latestVersion: '2.0.0',
         updateStrategy: EUpdateStrategy.manual,
       });
-      svc.reconcileAppShellPackage.mockResolvedValue({
+      svc.reconcileUpdatePackage.mockResolvedValue({
         latestVersion: '2.0.0',
         status: EAppUpdateStatus.downloadPackage,
       });
@@ -2159,12 +2171,213 @@ describe('useDownloadPackage', () => {
         await result.current.installPackage(onSuccess, onFail);
       });
 
-      expect(svc.reconcileAppShellPackage).toHaveBeenCalled();
+      expect(svc.reconcileUpdatePackage).toHaveBeenCalled();
       expect(onFail).not.toHaveBeenCalled();
       expect(onSuccess).not.toHaveBeenCalled();
       expect(mockToastError).not.toHaveBeenCalled();
     });
+
+    test('a bundle restart failure does not unlock an in-flight app shell installation', async () => {
+      svc.getUpdateInfo.mockResolvedValue({ latestVersion: '2.0.0' });
+      let finishInstall: (started: boolean) => void = () => {};
+      appUpd.installPackage.mockImplementationOnce(
+        () =>
+          new Promise<boolean>((resolve) => {
+            finishInstall = resolve;
+          }),
+      );
+      const { result } = renderHook(() => useDownloadPackage());
+      const onSuccess = jest.fn();
+      await act(async () => {
+        const first = result.current.installPackage(onSuccess, jest.fn());
+        await jest.advanceTimersByTimeAsync(0);
+        appEventBus.emitToSelf({
+          type: EAppEventBusNames.BundleUpdateRestartFailed,
+          payload: undefined,
+        });
+        await result.current.installPackage(onSuccess, jest.fn());
+        expect(appUpd.installPackage).toHaveBeenCalledTimes(1);
+        finishInstall(true);
+        await first;
+      });
+      expect(onSuccess).toHaveBeenCalledTimes(1);
+    });
+
+    test('jsBundle repeated clicks after install succeeds are ignored until restart', async () => {
+      const onSuccess = jest.fn();
+      const onFail = jest.fn();
+      svc.getUpdateInfo.mockResolvedValue({
+        latestVersion: '1.0.0',
+        jsBundleVersion: '24910529',
+        updateStrategy: EUpdateStrategy.silent,
+        downloadedEvent: { downloadedFile: '/tmp/bundle.zip' },
+      });
+
+      const { result } = renderHook(() => useDownloadPackage());
+
+      await act(async () => {
+        await result.current.installPackage(onSuccess, onFail);
+        await result.current.installPackage(onSuccess, onFail);
+        await result.current.installPackage(onSuccess, onFail);
+      });
+
+      expect(bundleUpd.installBundle).toHaveBeenCalledTimes(1);
+      expect(onSuccess).toHaveBeenCalledTimes(1);
+      expect(onFail).not.toHaveBeenCalled();
+    });
+
+    test('jsBundle throwing Bundle directory not found reconciles package and releases lock', async () => {
+      const onSuccess = jest.fn();
+      const onFail = jest.fn();
+      svc.getUpdateInfo.mockResolvedValue({
+        latestVersion: '1.0.0',
+        jsBundleVersion: '24910529',
+        updateStrategy: EUpdateStrategy.silent,
+        downloadedEvent: { downloadedFile: '/tmp/bundle.zip' },
+      });
+      svc.reconcileUpdatePackage.mockResolvedValue({
+        latestVersion: '1.0.0',
+        jsBundleVersion: '24910529',
+        status: EAppUpdateStatus.notify,
+      });
+      bundleUpd.installBundle
+        .mockRejectedValueOnce(
+          new Error('Bundle directory not found: 1.0.0-24910529'),
+        )
+        .mockResolvedValueOnce(undefined);
+
+      const { result } = renderHook(() => useDownloadPackage());
+
+      await act(async () => {
+        await result.current.installPackage(onSuccess, onFail);
+      });
+
+      expect(
+        extractUpdateErrorCode(
+          new Error('Bundle directory not found: 1.0.0-24910529'),
+        ),
+      ).toBe('APP_PACKAGE_MISSING');
+      expect(svc.reconcileUpdatePackage).toHaveBeenCalledWith();
+      expect(onFail).not.toHaveBeenCalled();
+      expect(mockToastError).not.toHaveBeenCalled();
+
+      // Lock is released after failed install so recovery re-install can proceed
+      await act(async () => {
+        await result.current.installPackage(onSuccess, onFail);
+      });
+      expect(bundleUpd.installBundle).toHaveBeenCalledTimes(2);
+      expect(onSuccess).toHaveBeenCalledTimes(1);
+    });
   });
+
+  test.each([
+    ['installPackage', true],
+    ['manualInstallPackage', true],
+    ['installPackage', false],
+    ['manualInstallPackage', false],
+  ] as const)(
+    '%s reports success before restart and only unlocks on restart failure (restartFails=%s)',
+    async (method, restartFails) => {
+      const adapter = jest.requireActual<
+        typeof import('@onekeyhq/shared/src/modules3rdParty/auto-update/index.native')
+      >('@onekeyhq/shared/src/modules3rdParty/auto-update/index.native');
+      const { ReactNativeBundleUpdate } = jest.requireMock<
+        typeof import('@onekeyfe/react-native-bundle-update')
+      >('@onekeyfe/react-native-bundle-update');
+      const { appRestart } = jest.requireMock<
+        typeof import('@onekeyhq/shared/src/modules3rdParty/appRestart')
+      >('@onekeyhq/shared/src/modules3rdParty/appRestart');
+      const nativeInstall = jest.spyOn(
+        ReactNativeBundleUpdate,
+        'installBundle',
+      );
+      const restart = jest.mocked(appRestart);
+      const endInstall = jest.spyOn(
+        defaultLogger.app.appUpdate,
+        'endInstallPackage',
+      );
+      const endManualInstall = jest.spyOn(
+        defaultLogger.app.appUpdate,
+        'endManualInstallPackage',
+      );
+      nativeInstall.mockReset().mockResolvedValue(undefined);
+      restart.mockReset();
+      if (restartFails) {
+        restart
+          .mockRejectedValueOnce(new Error('Restart failed'))
+          .mockResolvedValue(undefined);
+      } else {
+        restart.mockImplementationOnce(() => new Promise<void>(() => {}));
+      }
+      adapter.resetBundleInstallLockForTest();
+      const savedImplementation =
+        bundleUpd.installBundle.getMockImplementation();
+      bundleUpd.installBundle.mockImplementation(
+        adapter.BundleUpdate.installBundle,
+      );
+      const params = { downloadedFile: '/tmp/bundle.zip' };
+      svc.getUpdateInfo.mockResolvedValue({
+        latestVersion: '1.0.0',
+        jsBundleVersion: '24910529',
+        updateStrategy: EUpdateStrategy.silent,
+        downloadedEvent: params,
+      });
+      svc.getDownloadEvent.mockResolvedValue(params);
+      const onSuccess = jest.fn();
+      let hook = renderHook(() => useDownloadPackage());
+      const install = () =>
+        method === 'installPackage'
+          ? hook.result.current.installPackage(onSuccess, jest.fn())
+          : hook.result.current.manualInstallPackage();
+
+      try {
+        const seamless = adapter.BundleUpdate.installBundle(params);
+        await act(async () => {
+          const request = install();
+          await jest.advanceTimersByTimeAsync(0);
+          expect(
+            method === 'installPackage' ? endInstall : endManualInstall,
+          ).toHaveBeenCalledWith(true);
+          await request;
+          await seamless;
+        });
+        expect(nativeInstall).toHaveBeenCalledTimes(1);
+        expect(restart).not.toHaveBeenCalled();
+
+        await act(async () => {
+          await install();
+        });
+        expect(nativeInstall).toHaveBeenCalledTimes(1);
+        hook.unmount();
+        await act(async () => {
+          await jest.advanceTimersByTimeAsync(2500);
+        });
+        hook = renderHook(() => useDownloadPackage());
+        await act(async () => {
+          await install();
+        });
+        if (!restartFails) {
+          expect(nativeInstall).toHaveBeenCalledTimes(1);
+          expect(restart).toHaveBeenCalledTimes(1);
+          expect(
+            method === 'installPackage' ? endInstall : endManualInstall,
+          ).toHaveBeenCalledTimes(1);
+          return;
+        }
+        expect(nativeInstall).toHaveBeenCalledTimes(1);
+        expect(restart).toHaveBeenCalledTimes(1);
+        if (method === 'installPackage') {
+          expect(onSuccess).toHaveBeenCalledTimes(2);
+          expect(endInstall).toHaveBeenCalledTimes(2);
+        } else {
+          expect(endManualInstall).toHaveBeenCalledTimes(2);
+        }
+      } finally {
+        bundleUpd.installBundle.mockImplementation(savedImplementation);
+        adapter.resetBundleInstallLockForTest();
+      }
+    },
+  );
 
   // ----- B6. manualInstallPackage -----
   describe('manualInstallPackage', () => {
@@ -2202,6 +2415,39 @@ describe('useDownloadPackage', () => {
 
       expect(bundleUpd.installBundle).toHaveBeenCalled();
       expect(appUpd.manualInstallPackage).not.toHaveBeenCalled();
+    });
+
+    test('missing JS bundle download event uses package recovery and releases the install lock', async () => {
+      svc.getUpdateInfo.mockResolvedValue({
+        latestVersion: '1.0.0',
+        jsBundleVersion: '24910529',
+        status: EAppUpdateStatus.ready,
+        updateStrategy: EUpdateStrategy.silent,
+      });
+      svc.getDownloadEvent.mockResolvedValueOnce(undefined);
+      svc.reconcileUpdatePackage.mockResolvedValue({
+        latestVersion: '1.0.0',
+        jsBundleVersion: '24910529',
+        status: EAppUpdateStatus.notify,
+      });
+      const { result } = renderHook(() => useDownloadPackage());
+
+      await act(async () => {
+        await result.current.manualInstallPackage();
+      });
+
+      expect(svc.reconcileUpdatePackage).toHaveBeenCalledWith();
+      expect(mockToastError).not.toHaveBeenCalled();
+      expect(svc.resetToInComplete).not.toHaveBeenCalled();
+      expect(bundleUpd.installBundle).not.toHaveBeenCalled();
+
+      svc.getDownloadEvent.mockResolvedValue({
+        downloadedFile: '/tmp/bundle.zip',
+      });
+      await act(async () => {
+        await result.current.manualInstallPackage();
+      });
+      expect(bundleUpd.installBundle).toHaveBeenCalledTimes(1);
     });
 
     test('no downloadEvent → Toast + resetToInComplete', async () => {
@@ -2266,7 +2512,7 @@ describe('useAppUpdateInfo useEffect', () => {
       });
 
       expect(mockGuideBlockers.size).toBe(0);
-      expect(svc.reconcileAppShellPackage).not.toHaveBeenCalled();
+      expect(svc.reconcileUpdatePackage).not.toHaveBeenCalled();
     });
 
     test('holds guides while waiting for tokens and the first update response', async () => {
@@ -2393,7 +2639,7 @@ describe('useAppUpdateInfo useEffect', () => {
 
     test('releases a pending reconciliation hold on unmount without presenting late UI', async () => {
       let resolveReconciliation: ((value: unknown) => void) | undefined;
-      svc.reconcileAppShellPackage.mockImplementation(
+      svc.reconcileUpdatePackage.mockImplementation(
         () =>
           new Promise<unknown>((resolve) => {
             resolveReconciliation = resolve;
@@ -2591,28 +2837,56 @@ describe('useAppUpdateInfo useEffect', () => {
       expect(mockDialogShow).not.toHaveBeenCalled();
     });
 
-    test('desktop JS Bundle status=updateIncomplete → does not add a startup dialog', async () => {
-      mockPlatformEnv.isDesktop = true;
-      setAtom({
-        status: EAppUpdateStatus.updateIncomplete,
-        latestVersion: '1.0.0',
-        jsBundleVersion: '5',
-      });
+    test.each([true, false])(
+      'manual JS Bundle recovery shows a startup dialog (desktop=%s)',
+      async (isDesktop) => {
+        mockPlatformEnv.isDesktop = isDesktop;
+        setAtom({
+          status: EAppUpdateStatus.updateIncomplete,
+          latestVersion: '1.0.0',
+          jsBundleVersion: '5',
+          updateStrategy: EUpdateStrategy.manual,
+        });
 
-      const hooks = requireFreshHooks();
-      renderHook(() => hooks.useAppUpdateInfo(false, true));
+        const hooks = requireFreshHooks();
+        renderHook(() => hooks.useAppUpdateInfo(false, true));
 
-      await act(async () => {
-        await jest.runAllTimersAsync();
-      });
+        await act(async () => {
+          await jest.runAllTimersAsync();
+        });
 
-      expect(mockDialogShow).not.toHaveBeenCalled();
-    });
+        expect(mockDialogShow).toHaveBeenCalledWith(
+          expect.objectContaining({
+            description:
+              ETranslations.update_update_incomplete_package_missing_desc,
+          }),
+        );
+      },
+    );
+
+    test.each([EUpdateStrategy.silent, EUpdateStrategy.seamless])(
+      'auto JS Bundle recovery stays quiet (strategy=%s)',
+      async (updateStrategy) => {
+        setAtom({
+          status: EAppUpdateStatus.updateIncomplete,
+          latestVersion: '1.0.0',
+          jsBundleVersion: '5',
+          updateStrategy,
+        });
+        const hooks = requireFreshHooks();
+        renderHook(() => hooks.useAppUpdateInfo(false, true));
+        await act(async () => {
+          await jest.runAllTimersAsync();
+        });
+        expect(mockDialogShow).not.toHaveBeenCalled();
+      },
+    );
   });
 
   // ----- C4. ready status handling -----
   describe('ready status handling', () => {
     test('ready + jsBundle + seamless + valid signature → auto-installs', async () => {
+      bundleUpd.installBundle.mockResolvedValueOnce(undefined);
       setAtom({
         status: EAppUpdateStatus.ready,
         updateStrategy: EUpdateStrategy.seamless,
@@ -2984,6 +3258,78 @@ describe('useAppUpdateInfo useEffect', () => {
 
   // ----- C5. fetchUpdateInfo result handling -----
   describe('fetchUpdateInfo result handling', () => {
+    test('seamless restart failure shows an error and removes the UI listener on unmount', async () => {
+      setAtom({
+        latestVersion: '1.0.0',
+        jsBundleVersion: '24910529',
+        status: EAppUpdateStatus.ready,
+        updateStrategy: EUpdateStrategy.seamless,
+        downloadedEvent: {
+          downloadedFile: '/tmp/bundle.zip',
+          signature: 'signature',
+          sha256: 'sha256',
+        },
+      });
+      bundleUpd.installBundle.mockResolvedValue(undefined);
+      const hooks = requireFreshHooks();
+      const hook = renderHook(() => hooks.useAppUpdateInfo(false, true));
+      await act(async () => {
+        await jest.runAllTimersAsync();
+        appEventBus.emitToSelf({
+          type: EAppEventBusNames.BundleUpdateRestartFailed,
+          payload: undefined,
+        });
+      });
+      expect(mockToastError).toHaveBeenCalledTimes(1);
+      expect(mockToastError).toHaveBeenCalledWith({
+        title: ETranslations.global_update_failed,
+      });
+      expect(mockAtomHolder.value.status).toBe(EAppUpdateStatus.ready);
+
+      hook.unmount();
+      appEventBus.emitToSelf({
+        type: EAppEventBusNames.BundleUpdateRestartFailed,
+        payload: undefined,
+      });
+      expect(mockToastError).toHaveBeenCalledTimes(1);
+    });
+
+    test('startup uses the reconciled JS bundle state instead of installing a stale ready snapshot', async () => {
+      setAtom({
+        latestVersion: '1.0.0',
+        jsBundleVersion: '24910529',
+        status: EAppUpdateStatus.ready,
+        updateStrategy: EUpdateStrategy.seamless,
+        downloadedEvent: {
+          downloadedFile: '/tmp/missing-bundle.zip',
+          signature: 'signature',
+          sha256: 'sha256',
+        },
+      });
+      svc.reconcileUpdatePackage.mockImplementation(async () => {
+        setAtom({
+          latestVersion: '1.0.0',
+          jsBundleVersion: '24910529',
+          status: EAppUpdateStatus.notify,
+          updateStrategy: EUpdateStrategy.seamless,
+        });
+        return mockAtomHolder.value;
+      });
+      svc.fetchAppUpdateInfo.mockImplementation(() =>
+        Promise.resolve(mockAtomHolder.value),
+      );
+      const hooks = requireFreshHooks();
+      renderHook(() => hooks.useAppUpdateInfo(false, true));
+
+      await act(async () => {
+        await jest.runAllTimersAsync();
+      });
+
+      expect(svc.reconcileUpdatePackage).toHaveBeenCalledWith();
+      expect(bundleUpd.installBundle).not.toHaveBeenCalled();
+      expect(svc.downloadPackage).toHaveBeenCalled();
+    });
+
     test('status=done + needUpdate + auto strategy → auto downloads', async () => {
       setAtom({
         status: EAppUpdateStatus.done,

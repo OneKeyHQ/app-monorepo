@@ -81,6 +81,18 @@ import type { ChainForFingerprint } from '@onekeyfe/hwk-adapter-core';
 import type { SignClientTypes } from '@walletconnect/types';
 import type { MessageDescriptor } from 'react-intl';
 
+// Whether a signed payload that left this runtime can still execute on chain
+// (OK-65147).
+export enum ESignedTxBroadcastStatus {
+  // The chain has seen the signature: it executed or is about to.
+  Broadcast = 'broadcast',
+  // The chain will never execute this payload: it was never seen and its
+  // validity expired, or it executed with an error.
+  NotBroadcast = 'notBroadcast',
+  // The vault cannot tell.
+  Unknown = 'unknown',
+}
+
 export enum EVaultKeyringTypes {
   hd = 'hd',
   qr = 'qr',

@@ -552,6 +552,15 @@ export interface IAppEventBusPayload {
     promiseId: number;
     type: 'scam' | 'contract';
   };
+  // One chunk of a batch send left the device. The batch call rejects with
+  // no partial result when a later chunk fails, so this is how the confirm
+  // page learns which chunks are already on chain before the user retries.
+  [EAppEventBusNames.BatchSendTxBroadcasted]: {
+    uuid: string;
+    txid: string;
+    networkId: string;
+    accountId: string;
+  };
   [EAppEventBusNames.HideTabBar]: boolean;
   [EAppEventBusNames.RequestHardwareUIDialog]: {
     uiRequestType: EHardwareUiStateAction;
@@ -645,6 +654,7 @@ export interface IAppEventBusPayload {
     decision: string;
   };
   [EAppEventBusNames.ShowAppUpdateIncompleteDialog]: undefined;
+  [EAppEventBusNames.BundleUpdateRestartFailed]: undefined;
   [EAppEventBusNames.PendingInstallTaskProcessFinished]: undefined;
   [EAppEventBusNames.ShowNotificationViewDialog]: {
     payload: INotificationViewDialogPayload;

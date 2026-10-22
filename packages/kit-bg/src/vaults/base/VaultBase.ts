@@ -112,6 +112,8 @@ import {
   EDecodedTxDirection,
 } from '@onekeyhq/shared/types/tx';
 
+import { ESignedTxBroadcastStatus } from '../types';
+
 import { VaultContext } from './VaultContext';
 
 import type { KeyringBase } from './KeyringBase';
@@ -470,6 +472,25 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     unsignedTx: IUnsignedTxPro,
   ): Promise<IUnsignedTxPro> {
     return unsignedTx;
+  }
+
+  // Override in chain vaults that can tell whether a signed payload reached
+  // the network. A retry after an ambiguous broadcast failure (request
+  // timeout, custom RPC accepted but the server record failed) asks this
+  // before signing again: Broadcast replays the landed tx, NotBroadcast signs
+  // a fresh one, Unknown keeps the chain's pre-OK-65147 retry behavior.
+  async checkSignedTxBroadcastStatus(_params: {
+    signedTx: ISignedTxPro;
+    attemptedAt: number;
+  }): Promise<ESignedTxBroadcastStatus> {
+    return ESignedTxBroadcastStatus.Unknown;
+  }
+
+  // Override to recognize broadcast errors that prove the node never
+  // accepted the payload (e.g. a preflight rejection), so a retry can sign
+  // again at once instead of waiting for a chain verdict.
+  async isSignedTxRejectedByBroadcast(_error: unknown): Promise<boolean> {
+    return false;
   }
 
   async buildBulkSendEncodedTxs(_params: {

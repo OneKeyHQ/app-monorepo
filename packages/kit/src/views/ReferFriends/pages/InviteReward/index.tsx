@@ -21,6 +21,7 @@ import { useRedirectWhenNotLoggedIn } from '@onekeyhq/kit/src/views/ReferFriends
 import { CumulativeRewards } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/CumulativeRewards';
 import { CurrentLevelCard } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/CurrentLevelCard';
 import { InvitationDetailsSection } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/InvitationDetailsSection';
+import { InviteRewardSettingsButton } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/InviteRewardSettingsButton';
 import { LogoutButton } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/LogoutButton';
 import { ReferralCodeCard } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/ReferralCodeCard';
 import { RulesButton } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/RulesButton';
@@ -69,11 +70,13 @@ function InviteRewardContent({
 
         <XStack $md={{ display: 'none' }} gap="$4">
           <RulesButton />
+          <InviteRewardSettingsButton />
           {platformEnv.isWeb ? <LogoutButton /> : null}
         </XStack>
 
-        <XStack $gtMd={{ display: 'none' }} $md={{ display: 'flex' }}>
+        <XStack $gtMd={{ display: 'none' }} $md={{ display: 'flex' }} gap="$2">
           <ReferralListButton />
+          <InviteRewardSettingsButton />
         </XStack>
       </XStack>
 
