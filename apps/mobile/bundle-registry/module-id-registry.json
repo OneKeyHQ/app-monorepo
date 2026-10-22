@@ -20598,6 +20598,7 @@
     "packages/components/src/primitives/index.ts": 16349,
     "packages/components/src/shared/assertOverlayProps.ts": 19214,
     "packages/components/src/shared/imperativeOverlayMount.tsx": 20438,
+    "packages/components/src/shared/overlayCloseCancellation.ts": 21782,
     "packages/components/src/shared/stacks.native.ts": 23434,
     "packages/components/src/shared/tamagui.ts": 4106,
     "packages/components/src/shared/tamaguiOverlay.ts": 7657,

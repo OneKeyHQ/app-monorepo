@@ -223,6 +223,41 @@ it('closes a shown ActionList before its component mounts', () => {
   expect(destroy).toHaveBeenCalledTimes(1);
 });
 
+it('publishes a shown ActionList close before notifying its imperative lifecycle', async () => {
+  const host = render(<div />);
+  const destroy = jest.fn();
+  jest.mocked(mountImperativeOverlay).mockImplementation(({ node }) => {
+    host.rerender(<>{node}</>);
+    return { update: jest.fn(), destroy };
+  });
+
+  let handle: ReturnType<typeof ActionList.show> | undefined;
+  let completionInCallback: void | Promise<void> = undefined;
+  act(() => {
+    handle = ActionList.show({
+      title: 'Options',
+      items: [],
+      sheetProps: { snapPointsMode: 'percent', snapPoints: [70] },
+      onOpenChange: (isOpen) => {
+        if (!isOpen) completionInCallback = handle?.close();
+      },
+    });
+  });
+  act(() => jest.advanceTimersByTime(16));
+  expect(screen.getByTestId('native-sheet').dataset.open).toBe('true');
+
+  let completion: void | Promise<void> = undefined;
+  act(() => {
+    completion = handle?.close();
+  });
+  expect(completionInCallback).toBe(completion);
+  expect(completion).toBeInstanceOf(Promise);
+  expect(destroy).not.toHaveBeenCalled();
+  act(() => mockSheetCallbacks.at(-1)?.({ open: false }));
+  await Promise.resolve(completion);
+  expect(destroy).toHaveBeenCalledTimes(1);
+});
+
 it('does not reopen a shown Android ActionList after immediate close', async () => {
   Object.assign(platformEnv, { isNativeAndroid: true, isNativeIOS: false });
   const host = render(<div />);

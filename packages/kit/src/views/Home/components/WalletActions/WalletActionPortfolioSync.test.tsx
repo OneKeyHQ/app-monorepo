@@ -35,6 +35,9 @@ jest.mock('@onekeyhq/kit/src/states/jotai/contexts/tokenList', () => ({
 }));
 
 jest.mock('@onekeyhq/components', () => {
+  const { runAfterActionListClose } = jest.requireActual<
+    typeof import('../../../../../../components/src/actions/ActionList/runAfterClose')
+  >('../../../../../../components/src/actions/ActionList/runAfterClose');
   const ActionListItem = ({
     disabled,
     icon,
@@ -63,13 +66,7 @@ jest.mock('@onekeyhq/components', () => {
 
   return {
     ActionList: { Item: ActionListItem },
-    runAfterActionListClose: async (
-      close: () => void | Promise<void>,
-      callback: () => unknown,
-    ) => {
-      await close();
-      return callback();
-    },
+    runAfterActionListClose,
   };
 });
 
@@ -101,6 +98,21 @@ describe('WalletActionPortfolioSync', () => {
     expect(onClose.mock.invocationCallOrder[0]).toBeLessThan(
       requestPortfolioSync.mock.invocationCallOrder[0],
     );
+  });
+
+  it('does not request an update after a canceled close', async () => {
+    const { OverlayCloseCancelledError } = jest.requireActual<
+      typeof import('../../../../../../components/src/shared/overlayCloseCancellation')
+    >('../../../../../../components/src/shared/overlayCloseCancellation');
+    const onClose = jest.fn(() =>
+      Promise.reject(new OverlayCloseCancelledError('reopened')),
+    );
+    const view = render(<WalletActionPortfolioSync onClose={onClose} />);
+
+    fireEvent.click(view.getByTestId('home-update-portfolio-action'));
+    await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
+    await Promise.resolve();
+    expect(requestPortfolioSync).not.toHaveBeenCalled();
   });
 
   it('honors the existing hardware-busy state', () => {
