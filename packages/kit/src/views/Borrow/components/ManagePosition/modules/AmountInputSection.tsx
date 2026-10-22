@@ -20,7 +20,10 @@ const ACTION_LABEL_MAP: Record<IBorrowActionType, ETranslations> = {
   repay: ETranslations.defi_repay,
 };
 
-export function AmountInputSection({ title }: IAmountInputSectionProps) {
+export function AmountInputSection({
+  title,
+  renderPayWith,
+}: IAmountInputSectionProps) {
   const { state, actions, actionResult, approval } = useManagePositionContext();
   const intl = useIntl();
   const navigation = useAppNavigation();
@@ -117,27 +120,30 @@ export function AmountInputSection({ title }: IAmountInputSectionProps) {
 
   return (
     <YStack gap="$3">
-      {/* Amount Input */}
-      <Stack position="relative" opacity={amountInputDisabled ? 0.7 : 1}>
-        <StakingAmountInput
-          title={actionLabel}
-          disabled={amountInputDisabled}
-          hasError={hasError}
-          value={amountValue}
-          onChange={onChangeAmountValue}
-          onBlur={onBlurAmountValue}
-          tokenSelectorTriggerProps={tokenSelectorTriggerProps}
-          inputProps={inputProps}
-          balanceProps={balanceProps}
-          valueProps={valueProps}
-          enableMaxAmount
-          maxAmountText={maxAmountText}
-          onSelectPercentageStage={onSelectPercentageStage}
-        />
-        {showOverlayMask ? (
-          <Stack position="absolute" w="100%" h="100%" zIndex={1} />
-        ) : null}
-      </Stack>
+      {/* Amount Input, Pay with under it as close as the stake form has it */}
+      <YStack gap="$2">
+        <Stack position="relative" opacity={amountInputDisabled ? 0.7 : 1}>
+          <StakingAmountInput
+            title={actionLabel}
+            disabled={amountInputDisabled}
+            hasError={hasError}
+            value={amountValue}
+            onChange={onChangeAmountValue}
+            onBlur={onBlurAmountValue}
+            tokenSelectorTriggerProps={tokenSelectorTriggerProps}
+            inputProps={inputProps}
+            balanceProps={balanceProps}
+            valueProps={valueProps}
+            enableMaxAmount
+            maxAmountText={maxAmountText}
+            onSelectPercentageStage={onSelectPercentageStage}
+          />
+          {showOverlayMask ? (
+            <Stack position="absolute" w="100%" h="100%" zIndex={1} />
+          ) : null}
+        </Stack>
+        {renderPayWith?.({ disabled: amountInputDisabled })}
+      </YStack>
 
       {/* Error Alert */}
       {isCheckAmountMessageError ? (

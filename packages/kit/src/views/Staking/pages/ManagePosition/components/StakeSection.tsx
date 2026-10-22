@@ -24,8 +24,7 @@ import {
   useUniversalBorrowBorrow,
   useUniversalBorrowSupply,
 } from '@onekeyhq/kit/src/views/Borrow/hooks/useUniversalBorrowHooks';
-import { EARN_DESKTOP_DEMO_COPY } from '@onekeyhq/kit/src/views/Earn/components/desktopHome/earnDesktopHomeCopy';
-import { buildKeyboardPressProps } from '@onekeyhq/kit/src/views/Earn/components/desktopHome/earnDesktopPressable';
+import { EarnPayWithRow } from '@onekeyhq/kit/src/views/Earn/pages/EarnRouter/EarnPayWithRow';
 import {
   findOffer,
   resolvePayMode,
@@ -269,11 +268,11 @@ export const StakeSection = ({
   // The page's token: Pendle's form token is the one its buy side starts on
   // (USDC for PT-sUSD3), which isn't the token the page is for
   const depositSymbol = protocolInfo?.symbol || tokenInfo?.token.symbol || '';
-  // The amount box says what it takes (what the user pays with, when Pay with
-  // is on), so the action's name stays on the tab and the button
-  const payInputTitle = canPayWith
-    ? EARN_DESKTOP_DEMO_COPY.payWith
-    : intl.formatMessage({ id: ETranslations.content__amount });
+  // The amount box says how much (the action's name stays on the tab and the
+  // button); Pay with, under the box, says in which token
+  const amountInputTitle = intl.formatMessage({
+    id: ETranslations.content__amount,
+  });
   const pay = usePayTokens({
     networkId,
     depositSymbol,
@@ -356,6 +355,27 @@ export const StakeSection = ({
       },
     });
   }, [pay.tokens, payToken?.key, setPayKey]);
+  const renderPayWith = useMemo(() => {
+    if (!hasPayTokens || !payToken) {
+      return undefined;
+    }
+    return ({ disabled }: { disabled: boolean }) => (
+      <EarnPayWithRow
+        token={payToken.token}
+        onPress={handleOpenPayWith}
+        disabled={disabled}
+      />
+    );
+  }, [handleOpenPayWith, hasPayTokens, payToken]);
+  // While the wallet loads, the form waits (below) with the row's place held,
+  // unless the wallet turns out to hold nothing there
+  const renderPayWithWaiting = useMemo(() => {
+    if (!canPayWith || !depositSymbol || (pay.isLoaded && !hasPayTokens)) {
+      return undefined;
+    }
+    const waitingToken = payToken?.token;
+    return () => <EarnPayWithRow token={waitingToken} disabled />;
+  }, [canPayWith, depositSymbol, hasPayTokens, pay.isLoaded, payToken?.token]);
   const payMode = handoff
     ? 'direct'
     : resolvePayMode({
@@ -655,13 +675,9 @@ export const StakeSection = ({
   ]);
 
   const stakeTokenSelectorTriggerProps = useMemo(() => {
+    // Pay with, under the box, changes the token; the box only names it
     if (hasPayTokens) {
-      // Pay with opens from the keyboard too, as its picker's rows do
-      return {
-        disabled: false,
-        onPress: handleOpenPayWith,
-        ...buildKeyboardPressProps(handleOpenPayWith),
-      };
+      return undefined;
     }
     if (
       !(isPendleProvider || isNativeProvider) ||
@@ -679,7 +695,6 @@ export const StakeSection = ({
     };
   }, [
     hasPayTokens,
-    handleOpenPayWith,
     isPendleProvider,
     isNativeProvider,
     selectableStakeAssets.length,
@@ -1163,7 +1178,8 @@ export const StakeSection = ({
           borrowReserveAddress={borrowReserveAddress}
           beforeFooter={beforeFooter}
           actionLabel={borrowActionLabel}
-          inputTitle={payInputTitle}
+          inputTitle={amountInputTitle}
+          renderPayWith={renderPayWithWaiting}
           showSwapOrBridge={!canPayWith}
           offerSwitch={offerSwitch}
           isInModalContext={isInModalContext}
@@ -1179,7 +1195,8 @@ export const StakeSection = ({
         tokenImageLoading={!tokenInfo?.token && !fallbackTokenImageUri}
         tokenSymbol={tokenInfo?.token.symbol}
         isDisabled
-        inputTitle={payInputTitle}
+        inputTitle={amountInputTitle}
+        renderPayWith={renderPayWithWaiting}
         hideTradeOrBuy={canPayWith}
         offerSwitch={offerSwitch}
         approveTarget={{
@@ -1274,8 +1291,8 @@ export const StakeSection = ({
           onAutoSubmit={handleAutoSubmit}
           offerSwitch={offerSwitch}
           onAmountChange={handleAmountChange}
-          onTokenSelectorPress={hasPayTokens ? handleOpenPayWith : undefined}
-          inputTitle={payInputTitle}
+          inputTitle={amountInputTitle}
+          renderPayWith={renderPayWith}
           showSwapOrBridge={!canPayWith}
           tokenImageUri={tokenInfo?.token.logoURI || fallbackTokenImageUri}
           tokenSymbol={tokenInfo?.token.symbol}
@@ -1374,7 +1391,8 @@ export const StakeSection = ({
           protocolSwitchConfig={protocolSwitchConfig}
           ongoingValidator={ongoingValidator}
           receiveInputConfig={receiveInputConfig}
-          inputTitle={payInputTitle}
+          inputTitle={amountInputTitle}
+          renderPayWith={renderPayWith}
           hideTradeOrBuy={canPayWith}
           tokenSelectorTriggerProps={stakeTokenSelectorTriggerProps}
           requestSymbol={stakeRequestSymbol}
