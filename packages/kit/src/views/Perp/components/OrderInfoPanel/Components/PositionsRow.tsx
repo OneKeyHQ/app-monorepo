@@ -480,6 +480,8 @@ const PositionRowDesktopTPSL = memo(
     onViewTpslOrders: () => void;
   }) => {
     const intl = useIntl();
+    const [settings] = usePerpsCustomSettingsAtom();
+    const canSetTpsl = settings.positionActionVisibility?.tpsl !== false;
     const currentAssetOpenOrders = usePerpsAccountScopedOpenOrdersByCoin(coin);
     const tpslInfo = useMemo(() => {
       const emptyPrice = '--';
@@ -540,19 +542,21 @@ const PositionRowDesktopTPSL = memo(
                   id: ETranslations.perp_position_view_orders,
                 })}
               </SizableText>
-              <DesktopActionIconButton
-                testID="perp-icon-btn"
-                icon="HighlightOutline"
-                iconSize="$3.5"
-                onPress={onSetTpsl}
-              />
+              {canSetTpsl ? (
+                <DesktopActionIconButton
+                  testID="perp-icon-btn"
+                  icon="HighlightOutline"
+                  iconSize="$3.5"
+                  onPress={onSetTpsl}
+                />
+              ) : null}
             </XStack>
           ) : (
             <XStack
               alignItems="center"
               gap="$1"
-              cursor="pointer"
-              onPress={onSetTpsl}
+              cursor={canSetTpsl ? 'pointer' : undefined}
+              onPress={canSetTpsl ? onSetTpsl : undefined}
             >
               <SizableText
                 numberOfLines={1}
@@ -561,11 +565,13 @@ const PositionRowDesktopTPSL = memo(
               >
                 {tpslInfo.tpsl}
               </SizableText>
-              <DesktopActionIconButton
-                testID="perp-icon-btn"
-                icon="HighlightOutline"
-                iconSize="$3.5"
-              />
+              {canSetTpsl ? (
+                <DesktopActionIconButton
+                  testID="perp-icon-btn"
+                  icon="HighlightOutline"
+                  iconSize="$3.5"
+                />
+              ) : null}
             </XStack>
           )}
         </XStack>
@@ -588,6 +594,7 @@ const PositionRowDesktopActions = memo(
     onClosePosition: (type: 'market' | 'limit') => void;
   }) => {
     const intl = useIntl();
+    const [settings] = usePerpsCustomSettingsAtom();
     return (
       <DebugRenderTracker
         position="bottom-right"
@@ -600,58 +607,66 @@ const PositionRowDesktopActions = memo(
           alignItems="center"
           gap="$2"
         >
-          <XStack
-            onPress={onAddPosition}
-            cursor="pointer"
-            hoverStyle={PERP_TEXT_ACTION_HOVER_STYLE}
-          >
-            <SizableText
-              testID={PerpTestIDs.PositionAddButton}
-              color="$bgAccent"
-              size="$bodySmMedium"
+          {settings.positionActionVisibility?.add !== false ? (
+            <XStack
+              onPress={onAddPosition}
+              cursor="pointer"
+              hoverStyle={PERP_TEXT_ACTION_HOVER_STYLE}
             >
-              {intl.formatMessage({
-                id: ETranslations.add_position__action,
-              })}
-            </SizableText>
-          </XStack>
-          <XStack
-            onPress={onReversePosition}
-            cursor="pointer"
-            hoverStyle={PERP_TEXT_ACTION_HOVER_STYLE}
-          >
-            <SizableText
-              testID={PerpTestIDs.PositionReverseButton}
-              color="$bgAccent"
-              size="$bodySmMedium"
+              <SizableText
+                testID={PerpTestIDs.PositionAddButton}
+                color="$bgAccent"
+                size="$bodySmMedium"
+              >
+                {intl.formatMessage({
+                  id: ETranslations.add_position__action,
+                })}
+              </SizableText>
+            </XStack>
+          ) : null}
+          {settings.positionActionVisibility?.reverse !== false ? (
+            <XStack
+              onPress={onReversePosition}
+              cursor="pointer"
+              hoverStyle={PERP_TEXT_ACTION_HOVER_STYLE}
             >
-              {intl.formatMessage({
-                id: ETranslations.perp_reverse_position__action,
-              })}
-            </SizableText>
-          </XStack>
-          <XStack
-            onPress={() => onClosePosition('market')}
-            cursor="pointer"
-            hoverStyle={PERP_TEXT_ACTION_HOVER_STYLE}
-          >
-            <SizableText color="$bgAccent" size="$bodySmMedium">
-              {intl.formatMessage({
-                id: ETranslations.perp_position_market,
-              })}
-            </SizableText>
-          </XStack>
-          <XStack
-            onPress={() => onClosePosition('limit')}
-            cursor="pointer"
-            hoverStyle={PERP_TEXT_ACTION_HOVER_STYLE}
-          >
-            <SizableText color="$bgAccent" size="$bodySmMedium">
-              {intl.formatMessage({
-                id: ETranslations.perp_position_limit,
-              })}
-            </SizableText>
-          </XStack>
+              <SizableText
+                testID={PerpTestIDs.PositionReverseButton}
+                color="$bgAccent"
+                size="$bodySmMedium"
+              >
+                {intl.formatMessage({
+                  id: ETranslations.perp_reverse_position__action,
+                })}
+              </SizableText>
+            </XStack>
+          ) : null}
+          {settings.positionActionVisibility?.close !== false ? (
+            <>
+              <XStack
+                onPress={() => onClosePosition('market')}
+                cursor="pointer"
+                hoverStyle={PERP_TEXT_ACTION_HOVER_STYLE}
+              >
+                <SizableText color="$bgAccent" size="$bodySmMedium">
+                  {intl.formatMessage({
+                    id: ETranslations.perp_position_market,
+                  })}
+                </SizableText>
+              </XStack>
+              <XStack
+                onPress={() => onClosePosition('limit')}
+                cursor="pointer"
+                hoverStyle={PERP_TEXT_ACTION_HOVER_STYLE}
+              >
+                <SizableText color="$bgAccent" size="$bodySmMedium">
+                  {intl.formatMessage({
+                    id: ETranslations.perp_position_limit,
+                  })}
+                </SizableText>
+              </XStack>
+            </>
+          ) : null}
         </XStack>
       </DebugRenderTracker>
     );
