@@ -1,8 +1,6 @@
-import { describeRoute } from '@onekeyhq/core/src/utils/privacyChainWorkerClient';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import { createFetchStreamHandler } from '@onekeyhq/shared/src/utils/fetchStream';
 import { fetchBytesWithIdleTimeout } from '@onekeyhq/shared/src/utils/fetchWithIdleTimeout';
-import { privacyChainPerfLog } from '@onekeyhq/shared/src/utils/privacyChainPerfLog';
 import { streamingFetch } from '@onekeyhq/shared/src/utils/streamingFetch';
 import type { IFetchStreamRequester } from '@onekeyhq/shared/types/fetchStream';
 
@@ -50,7 +48,6 @@ export async function relayPrivacyChainNodeRequest({
     if (!(await isPrivacyChainRelayTargetAllowed(parsed.href, targets))) {
       return { ok: false, error: NOT_A_CONFIGURED_NODE };
     }
-    const fetchStartedAt = Date.now();
     // Fails only on silence: a large batch over a proxy can take minutes.
     // Fetch the URL that was checked, not a raw string another parser may
     // read differently.
@@ -76,17 +73,7 @@ export async function relayPrivacyChainNodeRequest({
         error: `node answered HTTP ${response.status} ${response.statusText}`,
       };
     }
-    const fetchedAt = Date.now();
-    const b64 = bufferUtils.bytesToBase64(response.bytes);
-    privacyChainPerfLog('node fetch (relay)', {
-      route: describeRoute(url),
-      status: response.status,
-      reqBytes: body.byteLength,
-      respBytes: response.bytes.byteLength,
-      fetchMs: fetchedAt - fetchStartedAt,
-      encodeMs: Date.now() - fetchedAt,
-    });
-    return { ok: true, b64 };
+    return { ok: true, b64: bufferUtils.bytesToBase64(response.bytes) };
   } catch (error) {
     // Carry the cause: an outage, a wrong address and a TLS error must not
     // all read as "request failed".

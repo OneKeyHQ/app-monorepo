@@ -14,7 +14,6 @@ import {
   XMR_TARGET_BLOCK_SECONDS,
 } from '@onekeyhq/shared/src/config/xmr';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
-import { privacyChainPerfLog } from '@onekeyhq/shared/src/utils/privacyChainPerfLog';
 import resetUtils from '@onekeyhq/shared/src/utils/resetUtils';
 
 import {
@@ -769,24 +768,7 @@ export function buildXmrLocalWalletCapability(
               spendsDetected?: number;
               sendsFailed?: number;
               sendsRestored?: number;
-              msDownload?: number;
-              msScan?: number;
-              fetchedVia?: string;
-              fetchNote?: string | null;
-              prefetchHit?: boolean;
             };
-            // msDownload is measured inside wasm, so it includes host-relay hops.
-            privacyChainPerfLog('xmr step', {
-              blocks: progress.blocksScanned,
-              msDownload: progress.msDownload,
-              msScan: progress.msScan,
-              ms: Date.now() - stepStartedAt,
-              outputsFound: progress.outputsFound,
-              done: progress.done,
-              fetchedVia: progress.fetchedVia,
-              prefetchHit: progress.prefetchHit,
-              fetchNote: progress.fetchNote ?? undefined,
-            });
             if (xmrBalanceWanted.delete(`${vault.networkId}:${accountId}`)) {
               await saveScannedBalance(accountId);
             }

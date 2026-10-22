@@ -14,7 +14,6 @@ import { fetchZcashChainTipDirect } from '@onekeyhq/core/src/chains/zcash/sdkZca
 import type {
   IZcashDeriveAccountKeysResult,
   IZcashPcztReviewRequest,
-  IZcashTransparentTxRequest,
 } from '@onekeyhq/core/src/chains/zcash/sdkZcash/types/sdk';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import { seedFromHdCredentialAsync } from '@onekeyhq/core/src/secret';
@@ -26,12 +25,6 @@ import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import { KeyringHd as KeyringHdBtc } from '../btc/KeyringHd';
 
 import { resolveAndSaveZcashAccountMeta } from './accountMeta';
-import {
-  ZCASH_HW_PREVIEW_STOP_MESSAGE,
-  isZcashHardwarePreviewEnabled,
-  printZcashShieldedHardwarePreview,
-  printZcashTransparentHardwarePreview,
-} from './hardwareRequestPreview';
 import { getZcashLifecycleMutex } from './lifecycle';
 import { getZcashPcztReviewRequest } from './pcztReview';
 import { signTransparentTransaction } from './signTransparentTransaction';
@@ -125,16 +118,6 @@ export class KeyringHd extends KeyringHdBtc {
         );
       }
       const review = getZcashPcztReviewRequest(encodedTx, ufvk);
-      if (await isZcashHardwarePreviewEnabled(this.backgroundApi)) {
-        const api = await zcashVault.zcashGetApi();
-        printZcashShieldedHardwarePreview({
-          keys: meta,
-          unprovedPcztHex: (await api.redactPcztForHardwareSigner({ pcztHex }))
-            .pcztHex,
-          review,
-        });
-        throw new OneKeyLocalError(ZCASH_HW_PREVIEW_STOP_MESSAGE);
-      }
       const proved = await zcashVault.zcashPreparePcztForSigning({
         accountId,
         pcztHex,
@@ -182,36 +165,6 @@ export class KeyringHd extends KeyringHdBtc {
       request,
       parseOutputs: (result) => zcashVault.zcashParseTransparentOutputs(result),
       sign: async () => {
-        if (await isZcashHardwarePreviewEnabled(this.backgroundApi)) {
-          return this.withAccountSecrets(
-            {
-              password,
-              derive: (seed) =>
-                deriveZcashAccountSecrets({
-                  seed,
-                  accountIndex: request.accountIndex,
-                }),
-            },
-            async (secrets) => {
-              try {
-                await this.printTransparentHardwarePreview({
-                  request,
-                  secrets,
-                });
-              } catch (e) {
-                const reason = e instanceof Error ? e.message : String(e);
-                console.error(
-                  '[zcash-hw-preview] transparent preview failed',
-                  e,
-                );
-                throw new OneKeyLocalError(
-                  `Zcash hardware request preview failed: ${reason}`,
-                );
-              }
-              throw new OneKeyLocalError(ZCASH_HW_PREVIEW_STOP_MESSAGE);
-            },
-          );
-        }
         // Transparent inputs only: no Orchard key is derived for this path.
         return this.withAccountSecrets(
           {
@@ -281,69 +234,6 @@ export class KeyringHd extends KeyringHdBtc {
     } finally {
       secrets.orchardSk?.fill(0);
     }
-  }
-
-  // Dev-only. Mirrors KeyringHardware.signTransparentTransaction: viewing key
-  // and fingerprint as the device would return them, the xpub rebuilt from
-  // that UFVK, then the same PCZT the device would be asked to sign.
-  private async printTransparentHardwarePreview({
-    request,
-    secrets,
-  }: {
-    request: IZcashTransparentTxRequest;
-    secrets: IZcashAccountViewingSecrets;
-  }): Promise<void> {
-    const vault = this.vault as Vault;
-    const api = await vault.zcashGetApi();
-    const meta =
-      await this.backgroundApi.simpleDb.privacyChainState.getZcashAccountMeta({
-        accountId: vault.accountId,
-      });
-    const keys = meta
-      ? {
-          ...meta,
-          ufvk: await vault.zcashGetAccountUfvk({
-            accountId: vault.accountId,
-            meta,
-          }),
-        }
-      : {
-          ...(await api.deriveAccount({
-            network: ZCASH_NETWORK_MAIN,
-            orchardSkHex: bytesToHex(secrets.orchardSk),
-            accountXpub: secrets.accountXpub,
-            hdIndex: request.accountIndex,
-            lightwalletdUrl: await vault.zcashResolveLightwalletdUrl(),
-          })),
-          seedFingerprintHex: secrets.seedFingerprintHex,
-          hdIndex: request.accountIndex,
-        };
-    const { xpub } = await api.deriveTransparentXpubFromUfvk({
-      network: request.network,
-      ufvk: keys.ufvk,
-      hdIndex: request.accountIndex,
-    });
-    const account = await this.backgroundApi.serviceAccount.getDBAccount({
-      accountId: vault.accountId,
-    });
-    // A UFVK carries no parent fingerprint, so the rebuilt xpub zeroes it
-    // while a seed-derived one does not; compare the key itself.
-    if (!('xpub' in account) || !isSameAccountXpubKey(account.xpub, xpub)) {
-      throw new OneKeyLocalError(
-        'zcash: viewing key does not derive this account xpub',
-      );
-    }
-    const { pcztHex } = await api.createTransparentHardwarePczt({
-      request,
-      accountXpub: xpub,
-      seedFingerprintHex: keys.seedFingerprintHex,
-    });
-    const device = await api.redactPcztForHardwareSigner({ pcztHex });
-    printZcashTransparentHardwarePreview({
-      keys,
-      request,
-      pcztHex: device.pcztHex,
-    });
   }
 
   // Signs a proved PCZT hex with the account keys re-derived from the seed.

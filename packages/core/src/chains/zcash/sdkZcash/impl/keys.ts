@@ -141,7 +141,7 @@ export async function signPczt(
   const keys = await getKeys();
   const pczt = zcashHexToBytes(params.pcztHex);
   const reviewJson = stringUtils.stableStringify(params.review);
-  // Older signers ignore extra JS arguments; the verifier is a required capability.
+  // Verify the review before any key is used.
   keys.pcztVerifyReview(pczt, reviewJson);
   const orchardSk = zcashHexToBytes(params.orchardSkHex);
   const accountXprvBytes = zcashHexToBytes(params.accountXprvHex);

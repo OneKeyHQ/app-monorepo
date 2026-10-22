@@ -1,18 +1,10 @@
 import {
-  privacyChainPerfLog,
-  summarizeResultSize,
-} from '@onekeyhq/shared/src/utils/privacyChainPerfLog';
-
-import {
   diagnoseWalletDatabase,
   getKeys,
   getRuntime,
-  isLeaseTraceEnabled,
   isWalletLeaseBusy,
   noteNetworkOutcome,
   resetCarrierState,
-  setLeaseTraceEnabled,
-  takeReadFastPathMiss,
   tryReadOnlyHandle,
   withWalletLease,
 } from './carrier';
@@ -107,29 +99,15 @@ function leased<A extends unknown[], R>(
   fn: (...args: A) => Promise<R>,
 ): (...args: A) => Promise<R> {
   // Escaping failures are counted once here; only operations with real network work report success — local reads must not reset endpoint failures.
-  return (...args: A) => {
-    const queuedAt = Date.now();
-    return withWalletLease(async () => {
-      const waitedMs = Date.now() - queuedAt;
-      const startedAt = Date.now();
+  return (...args: A) =>
+    withWalletLease(async () => {
       try {
-        const result = await fn(...args);
-        privacyChainPerfLog(`carrier leased ${fn.name}`, {
-          waitedMs,
-          ranMs: Date.now() - startedAt,
-          ...summarizeResultSize(result),
-        });
-        return result;
+        return await fn(...args);
       } catch (e) {
         noteNetworkOutcome(e);
-        privacyChainPerfLog(`carrier leased ${fn.name} failed`, {
-          waitedMs,
-          ranMs: Date.now() - startedAt,
-        });
         throw e;
       }
     });
-  };
 }
 
 // Last result of each fast-path read, per account and op; Worker memory only, so a restart pays one queued read per op.
@@ -149,10 +127,6 @@ function rememberLastRead(key: string, result: unknown): void {
 async function resetCarrier(): Promise<void> {
   lastReadResults.clear();
   resetCarrierState();
-}
-
-async function setPerfTrace({ enabled }: { enabled: boolean }): Promise<void> {
-  setLeaseTraceEnabled(enabled);
 }
 
 // Reads never wait for a scan: these are synchronous local SQLite calls that can run atomically in
@@ -181,22 +155,10 @@ function readOnlyOrLeased<T>(
 ): Promise<T> {
   const cacheKey = lastReadKey(opName, account, variant);
   const handle = tryReadOnlyHandle(account);
-  if (!handle && isLeaseTraceEnabled()) {
-    // Explains why this read felt slow: 'db-busy' (scan owns the database) is the only reason that repeats on every reopen.
-    console.log('[zcash:read] fast path missed', {
-      op: opName,
-      reason: takeReadFastPathMiss(),
-    });
-  }
   if (handle) {
     try {
-      const startedAt = Date.now();
       const result = read(handle);
       rememberLastRead(cacheKey, result);
-      privacyChainPerfLog(`carrier read ${opName}`, {
-        ms: Date.now() - startedAt,
-        ...summarizeResultSize(result),
-      });
       return Promise.resolve(result);
     } catch (e) {
       // A throw against a healthy handle is a real failure, but must not poison the endpoint-health counters the way a leased operation would.
@@ -206,7 +168,6 @@ function readOnlyOrLeased<T>(
   // No fast path (usually a scan owns the DB across an await); answer from the last result rather
   // than wait out the whole pass. The next read after the pass returns the fresh one.
   if (isWalletLeaseBusy() && lastReadResults.has(cacheKey)) {
-    privacyChainPerfLog(`carrier stale ${opName}`, {});
     return Promise.resolve(lastReadResults.get(cacheKey) as T);
   }
   return leasedFallback(account).then((result) => {
@@ -247,7 +208,6 @@ const api: IZcashSdkApi = {
   // Not leased: these never open a wallet, so putting them behind the lease would block a cheap read behind an entire sync.
   // `resetCarrier` MUST stay outside the lease — it exists to recover a stuck one.
   resetCarrier,
-  setPerfTrace,
   capabilities,
   runRuntimeSelfTest,
   getChainTip,

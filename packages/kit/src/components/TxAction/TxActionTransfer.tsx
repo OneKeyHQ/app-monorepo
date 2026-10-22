@@ -599,9 +599,8 @@ function TxActionTransferListView(props: ITxActionProps) {
     });
 
   const { vaultSettings } = useAccountData({ networkId });
-  // Local-wallet history rows carry private addresses (and, from older
-  // builds, pool labels) the public flow must hide, and their server label
-  // describes the wrong side of the transaction.
+  // Local-wallet history rows carry private addresses the public flow must
+  // hide, and their server label describes the wrong side of the transaction.
   const isLocalWalletHistory = !!vaultSettings?.localWallet;
 
   const isUTXO = vaultSettings?.isUtxo;

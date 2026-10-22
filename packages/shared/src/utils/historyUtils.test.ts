@@ -28,11 +28,11 @@ describe('getOnChainHistoryTransferDisplayAddress', () => {
         address: '',
         label: 'Shielded',
       }),
-      // Written by older builds: the label doubled as the address.
+      // The indexer may repeat the label as the address.
       transfer({
         type: EOnChainHistoryTransferType.Shielded,
-        address: 'Ironwood pool',
-        label: 'Ironwood pool',
+        address: 'Shielded',
+        label: 'Shielded',
       }),
     ]) {
       expect(

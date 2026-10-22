@@ -1,8 +1,6 @@
-import { describeRoute } from '@onekeyhq/core/src/utils/privacyChainWorkerClient';
 import type { IPrivacyChainHostRequest } from '@onekeyhq/core/src/utils/privacyChainWorkerClient';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
-import { privacyChainPerfLog } from '@onekeyhq/shared/src/utils/privacyChainPerfLog';
 
 /**
  * Extension: fetch through the background service worker. The offscreen
@@ -17,7 +15,6 @@ export const xmrHostFetch: IPrivacyChainHostRequest = async (
   contentType,
   body,
 ) => {
-  const startedAt = Date.now();
   const result: { ok: boolean; b64?: string; error?: string } =
     await chrome.runtime.sendMessage({
       type: PRIVACY_CHAIN_NODE_REQUEST_MESSAGE,
@@ -33,21 +30,6 @@ export const xmrHostFetch: IPrivacyChainHostRequest = async (
       result?.error ?? 'xmr: background node request failed',
     );
   }
-  const receivedAt = Date.now();
   const decoded = bufferUtils.base64ToBytes(result.b64);
-  const bytes = new Uint8Array(
-    decoded.buffer,
-    decoded.byteOffset,
-    decoded.byteLength,
-  );
-  // Minus the background's `node fetch` time for the same route, this is the
-  // messaging plus base64 overhead.
-  privacyChainPerfLog('xmr relay (offscreen)', {
-    route: describeRoute(url),
-    reqBytes: body.byteLength,
-    respBytes: bytes.byteLength,
-    roundTripMs: receivedAt - startedAt,
-    decodeMs: Date.now() - receivedAt,
-  });
-  return bytes;
+  return new Uint8Array(decoded.buffer, decoded.byteOffset, decoded.byteLength);
 };

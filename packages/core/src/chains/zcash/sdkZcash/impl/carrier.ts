@@ -1,6 +1,5 @@
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { isPrivacyChainPerfLogEnabled } from '@onekeyhq/shared/src/utils/privacyChainPerfLog';
 
 import { ZCASH_LIGHTWALLETD_MAINNET } from '../constants';
 
@@ -38,32 +37,6 @@ let lease: Promise<unknown> = Promise.resolve();
 // Running + queued lease count, so read-only surfaces can snapshot instead of queueing behind a scan.
 let leasePendingCount = 0;
 
-// Off by default: during a boost this fires several times/sec, enough to crawl a console-attached page.
-let leaseTraceEnabled = false;
-
-// Distinguishes why a read missed the lock-free path below (still warming up vs. the scan owns the db).
-export type IZcashReadFastPathMiss =
-  | 'runtime-not-loaded'
-  | 'wrong-db-open'
-  | 'db-busy'
-  | 'account-not-registered';
-
-let lastReadFastPathMiss: IZcashReadFastPathMiss | undefined;
-
-export function takeReadFastPathMiss(): IZcashReadFastPathMiss | undefined {
-  const miss = lastReadFastPathMiss;
-  lastReadFastPathMiss = undefined;
-  return miss;
-}
-
-export function setLeaseTraceEnabled(enabled: boolean): void {
-  leaseTraceEnabled = enabled;
-}
-
-export function isLeaseTraceEnabled(): boolean {
-  return leaseTraceEnabled;
-}
-
 // Whether a scan pass is currently running (anything holds/waits for the lease).
 export function isWalletLeaseBusy(): boolean {
   return leasePendingCount > 0;
@@ -77,25 +50,7 @@ export function withWalletLease<T>(operation: () => Promise<T>): Promise<T> {
     }
     return operation();
   };
-  // Wait time matters more than run time: a "slow" read is usually just queued behind a scan.
-  const queuedAt = Date.now();
-  const queueDepth = leasePendingCount;
-  const traced = leaseTraceEnabled
-    ? async () => {
-        const waitedMs = Date.now() - queuedAt;
-        const startedAt = Date.now();
-        try {
-          return await guardedOperation();
-        } finally {
-          console.log('[zcash:lease] ran', {
-            waitedMs,
-            ranMs: Date.now() - startedAt,
-            queueDepthAtRequest: queueDepth,
-          });
-        }
-      }
-    : guardedOperation;
-  const run = lease.then(traced, traced);
+  const run = lease.then(guardedOperation, guardedOperation);
   // Keep the chain alive regardless of outcome: a rejected op must not wedge later ones.
   lease = run.then(
     () => undefined,
@@ -141,12 +96,6 @@ export async function getRuntime(): Promise<IRuntimeModule> {
       const mod = await getRuntimeWasm();
       // Installs the shared OPFS VFS; must complete before openWallet or SQLite silently falls back to memory.
       await mod.init();
-      // Mirrors the host-side [PRIV-PERF] trace inside wasm.
-      if (isPrivacyChainPerfLogEnabled()) {
-        (mod as { setPerfTrace?: (enabled: boolean) => void }).setPerfTrace?.(
-          true,
-        );
-      }
       loadedRuntime = mod;
       return mod;
     })().catch((e) => {
@@ -169,11 +118,9 @@ export function tryReadOnlyHandle(account: IZcashWalletAccount): {
   }
   const rt = loadedRuntime;
   if (!rt) {
-    lastReadFastPathMiss = 'runtime-not-loaded';
     return null;
   }
   if (openDbName !== walletDbName(account)) {
-    lastReadFastPathMiss = 'wrong-db-open';
     return null;
   }
   // Deliberately skips setLightwalletdUrl: rewriting that shared setting mid-scan would change where the scan downloads from.
@@ -182,12 +129,10 @@ export function tryReadOnlyHandle(account: IZcashWalletAccount): {
       uuid: string;
     } | null;
     if (!existing) {
-      lastReadFastPathMiss = 'account-not-registered';
       return null;
     }
     return { rt, accountUuid: existing.uuid };
   } catch {
-    lastReadFastPathMiss = 'db-busy';
     // DB is busy mid-await from an async op; let the caller join the lease instead of a false WALLET_NOT_OPEN.
     return null;
   }
@@ -321,13 +266,7 @@ export async function diagnoseWalletDatabase({
   }
 
   if (openDbName !== databaseName) {
-    const switchStartedAt = Date.now();
     await rt.openWallet(network, databaseName);
-    console.log('[zcash] diagnostic opened existing wallet db', {
-      from: openDbName ?? null,
-      to: databaseName,
-      ms: Date.now() - switchStartedAt,
-    });
     openDbName = databaseName;
   }
 
@@ -370,14 +309,7 @@ export async function withWallet(
   const dbName = walletDbName(account);
 
   if (openDbName !== dbName) {
-    const switchStartedAt = Date.now();
     await rt.openWallet(account.network, dbName);
-    // OPFS reads pages on demand, so switching does not preload the whole file.
-    console.log('[zcash] wallet db switched', {
-      from: openDbName ?? null,
-      to: dbName,
-      ms: Date.now() - switchStartedAt,
-    });
     openDbName = dbName;
   }
   // Pinned to the configured endpoint (default or custom RPC); no automatic failover.

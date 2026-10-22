@@ -741,7 +741,7 @@ export async function broadcastTransaction(
       }),
     );
   } else if (broadcastState === 'unknown') {
-    console.log('[zcash] broadcast outcome unknown; keeping tx pending', {
+    console.warn('[zcash] broadcast outcome unknown; keeping tx pending', {
       txid,
       ...zcashDescribeError(
         broadcastError

@@ -261,12 +261,6 @@ export default class Vault extends VaultBtc {
     return zcashSdk.getZcashApi();
   }
 
-  // Debug trace is off by default; firing several times a second during a boost can itself slow the page measuring it.
-  async zcashSetPerfTrace({ enabled }: { enabled: boolean }): Promise<void> {
-    const api = await this.zcashGetApi();
-    await api.setPerfTrace({ enabled });
-  }
-
   async zcashGetAccountMeta({
     accountId,
   }: {
@@ -328,12 +322,6 @@ export default class Vault extends VaultBtc {
     if (!meta) {
       // Meta is written once at account creation; if missing, that derivation
       // failed. Recover via retryLocalWalletSetup -- never delete and re-add.
-      console.log(
-        '[zcash] shielded account meta missing -- initial derivation ' +
-          'never completed (see "shielded account meta derivation failed" ' +
-          'for why); call ServicePrivacyChain.retryLocalWalletSetup to retry',
-        { accountId },
-      );
       throw createZcashSetupIncompleteError();
     }
     return {

@@ -12,6 +12,7 @@ jest.mock('onekey-monero-runtime', () => {
   for (const method of methods) mod[method] = async () => '{}';
   mod.init = () => mockInit();
   mod.openWallet = () => mockOpenWallet();
+  mod.storageRequiresWorkerRestart = () => false;
   return mod;
 });
 
@@ -36,15 +37,10 @@ describe('xmr storage restart signal', () => {
     'onekey-monero-runtime',
   );
 
-  afterEach(() => {
-    delete runtimeModule.storageRequiresWorkerRestart;
-  });
+  const defaultCheck = runtimeModule.storageRequiresWorkerRestart;
 
-  it('reads as false for an artifact without the export', async () => {
-    mockInit.mockResolvedValue(undefined);
-    await loadXmrRuntime();
-    expect(runtimeModule.storageRequiresWorkerRestart).toBeUndefined();
-    expect(xmrStorageRequiresWorkerRestart()).toBe(false);
+  afterEach(() => {
+    runtimeModule.storageRequiresWorkerRestart = defaultCheck;
   });
 
   it('forwards the runtime export', async () => {

@@ -11,7 +11,7 @@ Location: `packages/core/src/chains/`
 
 Create a new directory for the chain (tests are co-located with sources —
 every existing chain follows this; `packages/core/src/@tests/` is reserved for
-SHARED test utilities/fixtures, never per-chain tests):
+shared test utilities/fixtures, never per-chain tests):
 ```
 packages/core/src/chains/mychain/
 ├── index.ts                   # CoreChainScope (hd/imported api proxies)
@@ -134,9 +134,22 @@ known pitfalls: `packages/core/src/chains/zcash/ARCHITECTURE.md`.
 | UI needs chain-specific data (sync state, pools, receive forms) | no per-chain service: return an `ILocalWalletCapability` from `vault.getLocalWalletCapability()` and declare `settings.localWallet`; `ServicePrivacyChain` owns scheduling, GC and UI entry points. Identifiers and scan state go in a per-chain SimpleDb entity; viewing keys go through `vaults/localWallet/viewingKeyStore.ts` (see below) |
 | Heavy crypto (wasm/proving) | platform carrier pattern: `sdkXxx/sdk/index.ts` plus platform files (`.web`/`.desktop`, `.ext-bg-v3`, `.native`) and offscreen/webembed delegates (kaspa/zcash precedent) |
 
+### Integration pitfalls
+
+- Vault settings must be exported with `Object.freeze`: `getVaultSettings`
+  throws otherwise, and the `Promise.all` that loads every network rejects, so
+  all networks disappear.
+- The MV3 background entry (`index.ext-bg-v3.ts`) must stay a proxy: importing
+  a module that creates a Worker makes rspack panic on chunk ids.
+- BigInt cannot cross the extension offscreen or WebEmbed JSON bridges
+  ("Could not serialize message"); desktop's structured clone hides the bug.
+  Keep u64 values as decimal strings in SDK APIs.
+- Restart the dev server after rebuilding a wasm package; a running one fails
+  with "Cannot find module".
+
 ### Settings inheritance is a trap
 
-When spreading another chain's settings (`{...settingsBtc}`), audit EVERY
+When spreading another chain's settings (`{...settingsBtc}`), audit every
 inherited `true` flag: each one is a UI entry point promising a code path you
 may not have implemented (bulk send, coin control, custom RPC, hardware,
 imported/watching accounts...). Rule: an account type or feature ships enabled
@@ -144,10 +157,10 @@ only when its full flow works; otherwise disable it.
 
 ### Address scheme versioning (wallet-owned)
 
-Privacy-chain address FORMS evolve while the keys stay the same (new receiver
-types, receiver-composition policy). Persist addresses only as a CACHE stamped
-with a wallet-owned `addressSchemeVersion` (our compatibility ledger — NOT the
-SDK's or the protocol's version). Bump it ONLY when WE change what a given key
+Privacy-chain address forms evolve while the keys stay the same (new receiver
+types, receiver-composition policy). Persist addresses only as a cache stamped
+with a wallet-owned `addressSchemeVersion` (our compatibility ledger, not the
+SDK's or the protocol's version). Bump it only when we change what a given key
 derives to; on version mismatch, lazily re-derive from the stored viewing key
 (no password needed) and overwrite. When bumping the wasm SDK, run the chain's
 golden-address check (fixed test mnemonic vs committed expected addresses) —
@@ -161,7 +174,7 @@ Three tiers, decided by what a leak exposes:
 | Tier | Examples | Where | Encrypted |
 |---|---|---|---|
 | Identifier | seed fingerprint, addresses, birthday | the chain's own SimpleDb entity; per wallet when it derives from the seed (one per seed), per account otherwise | no |
-| Viewing key | Monero view key pair, future privacy-pool viewing keys | `vaults/localWallet/viewingKeyStore.ts` only — never the account record, never read raw from storage | the store is the single place to add it (LSE) |
+| Viewing key | Zcash UFVK, Monero view key pair | `vaults/localWallet/viewingKeyStore.ts` only — never the account record, never read raw from storage | no (plain SimpleDb) |
 | Spending key | mnemonic, private keys | Credential table (password + LSE) | yes |
 
 - Viewing keys stay off `IDBAccount` (`pub`, `xpub`, ...): the account record

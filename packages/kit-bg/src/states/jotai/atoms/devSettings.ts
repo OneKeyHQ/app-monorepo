@@ -49,8 +49,6 @@ export interface IDevSettings {
   // disable Solana priority fee
   disableSolanaPriorityFee?: boolean;
   enableMockHighTxFee?: boolean;
-  // Zcash: print the device requests a hardware account would send
-  zcashHardwareRequestPreview?: boolean;
   disableAllShortcuts?: boolean;
   disableWebEmbedApi?: boolean; // Do not render webembedApi Webview
   webviewDebuggingEnabled?: boolean;
@@ -183,7 +181,6 @@ export const {
       showDevOverlayWindow: platformEnv.isE2E ? true : undefined,
       disableSolanaPriorityFee: false,
       enableMockHighTxFee: false,
-      zcashHardwareRequestPreview: false,
       disableAllShortcuts: false,
       webviewDebuggingEnabled: false,
       strictSignatureAlert: false,

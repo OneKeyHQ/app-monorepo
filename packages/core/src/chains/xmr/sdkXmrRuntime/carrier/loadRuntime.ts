@@ -14,7 +14,9 @@ import type { IXmrRuntimeApi } from '..';
 
 let cached: Promise<IXmrRuntimeApi> | undefined;
 
-let rawModule: Record<string, unknown> | undefined;
+type IXmrRuntimeModule = typeof import('onekey-monero-runtime');
+
+let rawModule: IXmrRuntimeModule | undefined;
 
 // Set if persistent storage failed to install in this process.
 let storageError: unknown;
@@ -63,7 +65,7 @@ async function importRuntimeModule(): Promise<IXmrRuntimeApi> {
 
   // Keep the raw module: the host-network seam takes a function argument,
   // which cannot cross a Worker boundary via the typed async wrapper.
-  rawModule = mod;
+  rawModule = mod as unknown as IXmrRuntimeModule;
   const api = toAsyncRuntime(mod);
   // Install storage once up front to avoid a race between callers. Not fatal:
   // OPFS sync-access handles are Worker-only, and main-thread address
@@ -122,20 +124,12 @@ export async function installXmrHostRequester(
   ) => Promise<Uint8Array>,
 ): Promise<void> {
   await loadXmrRuntime();
-  const install = rawModule?.setRequestHandler as
-    | ((fn: unknown) => void)
-    | undefined;
-  // Older artifacts lack this hook; the runtime falls back to its own fetch.
-  install?.(requester);
+  rawModule?.setRequestHandler(requester);
 }
 
-/**
- * Synchronous so every Worker reply can report it. Artifacts built before the
- * export existed cannot signal poisoned storage, so missing reads as false.
- */
+/** Synchronous so every Worker reply can report it. */
 export function xmrStorageRequiresWorkerRestart(): boolean {
-  const check = rawModule?.storageRequiresWorkerRestart;
-  return typeof check === 'function' && (check as () => unknown)() === true;
+  return rawModule?.storageRequiresWorkerRestart() ?? false;
 }
 
 /** Called once per carrier at startup; both entry points share one module. */

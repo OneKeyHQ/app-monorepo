@@ -34,7 +34,7 @@ export async function signXmrTransaction(params: {
   const { signableHex, bip32PrivateKeyHex } = params;
   const api = await getXmrPureRuntime();
   const reviewJson = stringUtils.stableStringify(params.review);
-  // An older WASM signer silently ignores extra arguments. Require its verifier.
+  // Verify the review before any key is used.
   await api.verifyTransaction(signableHex, reviewJson);
   const value: unknown = JSON.parse(
     await api.signTransactionWithBip32Key(

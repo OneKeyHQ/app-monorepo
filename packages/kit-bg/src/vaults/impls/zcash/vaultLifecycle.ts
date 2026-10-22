@@ -277,7 +277,6 @@ export function getLocalWalletCapability(vault: Vault): ILocalWalletCapability {
       await api.dropWalletDatabase(ZCASH_NETWORK_MAIN);
     },
     clearPendingSends: (params) => clearZcashPendingSends(vault, params),
-    setDiagnosticsEnabled: (params) => vault.zcashSetPerfTrace(params),
     getSyncProgress: (params) => vault.getLocalWalletSyncProgress(params),
     rescan: (params) => vault.rescanLocalWallet(params),
     // ZcashPrivacyMode owns the mutexes/journal; this only maps its state into the chain-agnostic shape.
@@ -617,7 +616,7 @@ export async function zcashPrepareAccounts(
       repairedBirthday = true;
     } catch (e) {
       // An unsettled outgoing send returns WALLET_BUSY; keep the journal and retry after it settles.
-      console.log('[zcash] earlier birthday repair deferred', {
+      console.warn('[zcash] earlier birthday repair deferred', {
         accountId: group.accountId,
         ...zcashDescribeError(e),
       });
@@ -645,7 +644,7 @@ export async function zcashHealOutOfRangeBirthdays(
 ): Promise<void> {
   const persist = async (index: number, height: number, why: string) => {
     const accountId = accountIds[index];
-    console.log('[zcash] healing out-of-range birthday', {
+    console.warn('[zcash] healing out-of-range birthday', {
       accountId,
       storedBirthday: accounts[index].birthdayHeight,
       healedTo: height,
@@ -683,7 +682,7 @@ export async function zcashHealOutOfRangeBirthdays(
     try {
       tip = (await vault.getLocalWalletChainTip()) ?? undefined;
     } catch (e) {
-      console.log('[zcash] above-tip birthday heal skipped (no chain tip)', {
+      console.warn('[zcash] above-tip birthday heal skipped (no chain tip)', {
         ...zcashDescribeError(e),
       });
       return;
@@ -1226,7 +1225,7 @@ export async function getLocalWalletSyncProgress(
     const api = await vault.zcashGetApi();
     return await api.getSyncProgress(account);
   } catch (e) {
-    console.log('[zcash] getLocalWalletSyncProgress failed', {
+    console.error('[zcash] getLocalWalletSyncProgress failed', {
       accountId,
       ...zcashDescribeError(e),
     });

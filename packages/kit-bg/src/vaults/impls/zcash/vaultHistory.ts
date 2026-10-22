@@ -16,10 +16,6 @@ import {
   isPrivacyChainHistoryComplete,
   mergePrivacyChainHistoryTxs,
 } from '@onekeyhq/shared/src/utils/privacyChainHistoryUtils';
-import {
-  privacyChainPerfLog,
-  privacyChainPerfSpan,
-} from '@onekeyhq/shared/src/utils/privacyChainPerfLog';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import {
   EOnChainHistoryTransferType,
@@ -174,12 +170,6 @@ export async function fetchAccountHistoryDetail(
     });
     throw e;
   }
-  privacyChainPerfLog('bg history detail', {
-    source: 'runtime',
-    spent: details.spent.length,
-    received: details.received.length,
-    external: details.external.length,
-  });
   let status = EOnChainHistoryTxStatus.Pending;
   if (item.expired) {
     status = EOnChainHistoryTxStatus.Failed;
@@ -398,15 +388,10 @@ export async function fetchAccountHistoryFromLocal(
       const api = await vault.zcashGetApi();
       const maxItems = 20_000;
       // One read-lock gives a coherent snapshot; the +1 row distinguishes an exact-maxItems result from truncation.
-      items = await privacyChainPerfSpan(
-        'bg history runtime read',
-        () =>
-          api.getHistory(account, {
-            limit: maxItems + 1,
-            offset: 0,
-          }),
-        (rows) => ({ rows: rows.length }),
-      );
+      items = await api.getHistory(account, {
+        limit: maxItems + 1,
+        offset: 0,
+      });
       historySnapshotIsComplete = items.length <= maxItems;
       if (!historySnapshotIsComplete) {
         items = items.slice(0, maxItems);
@@ -462,22 +447,14 @@ export async function fetchAccountHistoryFromLocal(
       ),
     );
 
-  const privateTxs = await privacyChainPerfSpan(
-    'bg history map private rows',
-    () => buildRows(items),
-    (rows) => ({ rows: rows.length }),
-  );
+  const privateTxs = await buildRows(items);
 
   let publicSideFailed = false;
   let publicSnapshotIsComplete = false;
   let publicTxs: IAccountHistoryTx[] = [];
   let publicTipHeight: number | undefined;
   try {
-    const publicResult = await privacyChainPerfSpan(
-      'bg history transparent fetch',
-      () => vault.zcashFetchTransparentHistory(params),
-      (res) => ({ rows: res.txs.length }),
-    );
+    const publicResult = await vault.zcashFetchTransparentHistory(params);
     publicTxs = publicResult.txs;
     publicSnapshotIsComplete = publicResult.snapshotComplete;
     publicTipHeight = publicResult.tipHeight;
