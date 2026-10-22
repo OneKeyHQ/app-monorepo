@@ -86,7 +86,7 @@ test('parses warning and error counts from oxlint summary output', () => {
 
 test('scopes temporary type-aware config path by pid to prevent concurrent run collisions', () => {
   assert.equal(
-    getTempTypeAwareConfigName(12345),
+    getTempTypeAwareConfigName(12_345),
     '.oxlintrc.type-aware.12345.tmp.json',
   );
   assert.notEqual(
