@@ -94,7 +94,7 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
   const intl = useIntl();
   const navigation =
     useAppNavigation<IPageNavigationProp<ITabMarketParamList>>();
-  const currentRouteName = useRoute().name;
+  const { name: currentRouteName, key: currentRouteKey } = useRoute();
   const tokenDetailActions = useTokenDetailActions();
   const splitViewType = useSplitViewType();
   const media = useMedia();
@@ -213,6 +213,11 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
           isNative: item.isNative,
         });
         if (navigationGenerationRef.current !== navigationGeneration) return;
+        if (
+          rootNavigationRef.current?.getCurrentRoute()?.key !== currentRouteKey
+        ) {
+          return;
+        }
         if (identity) {
           item = {
             ...item,
@@ -450,6 +455,7 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
     },
     [
       currentRouteName,
+      currentRouteKey,
       intl,
       navigation,
       buildPreviewTokenDetail,

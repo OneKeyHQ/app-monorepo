@@ -84,14 +84,19 @@ class DottedAreaPaneRenderer implements ICustomSeriesPaneRenderer {
   }
 
   draw: ICustomSeriesPaneRenderer['draw'] = (target, priceConverter) => {
-    if (!this.data?.bars.length || !this.data.visibleRange) {
+    if (
+      !this.data?.bars.length ||
+      !this.data.visibleRange ||
+      this.data.visibleRange.from >= this.data.visibleRange.to
+    ) {
       return;
     }
 
     const options = this.options;
-    const { bars, visibleRange } = this.data;
-    // The library only refreshes x coordinates inside this range on resize.
-    const visibleBars = bars.slice(visibleRange.from, visibleRange.to);
+    const { bars, visibleRange, barSpacing } = this.data;
+    const from = Math.max(0, visibleRange.from - 1);
+    const to = Math.min(bars.length, visibleRange.to + 1);
+    const anchor = bars[visibleRange.from];
 
     target.useBitmapCoordinateSpace((scope) => {
       const { context: ctx } = scope;
@@ -104,14 +109,22 @@ class DottedAreaPaneRenderer implements ICustomSeriesPaneRenderer {
       const ySpacing = Math.max(1, options.patternSpacing) * verticalRatio;
       const bottom = scope.bitmapSize.height;
 
-      const points = visibleBars
-        .map((bar) => {
+      const points = bars
+        .slice(from, to)
+        .map((bar, index) => {
           const y = priceConverter(bar.originalData.value);
           if (y === null) {
             return undefined;
           }
+          // Neighboring bars extend the line to the pane edges, but their x
+          // coordinates are stale. Rebuild them from a visible logical index.
+          const barIndex = from + index;
+          const x =
+            barIndex < visibleRange.from || barIndex >= visibleRange.to
+              ? anchor.x + (bar.time - anchor.time) * barSpacing
+              : bar.x;
           return {
-            x: bar.x * horizontalRatio,
+            x: x * horizontalRatio,
             y: y * verticalRatio,
           };
         })
@@ -126,9 +139,12 @@ class DottedAreaPaneRenderer implements ICustomSeriesPaneRenderer {
 
       const firstPoint = points[0];
       const lastPoint = points[points.length - 1];
-      const minX = Math.min(...points.map((point) => point.x));
-      const maxX = Math.max(...points.map((point) => point.x));
-      const minY = Math.min(...points.map((point) => point.y));
+      const minX = Math.max(0, Math.min(...points.map((point) => point.x)));
+      const maxX = Math.min(
+        scope.bitmapSize.width,
+        Math.max(...points.map((point) => point.x)),
+      );
+      const minY = Math.max(0, Math.min(...points.map((point) => point.y)));
 
       if (points.length > 1) {
         ctx.save();

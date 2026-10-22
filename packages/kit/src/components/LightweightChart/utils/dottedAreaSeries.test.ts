@@ -8,7 +8,10 @@ import type {
   Time,
 } from 'lightweight-charts';
 
-function renderRange(visibleRange: { from: number; to: number } | null) {
+function renderRange(
+  visibleRange: { from: number; to: number } | null,
+  logicalTimes = [0, 1, 2, 3],
+) {
   const pane = createDottedAreaSeriesPaneView();
   const context = {
     save: jest.fn(),
@@ -26,7 +29,7 @@ function renderRange(visibleRange: { from: number; to: number } | null) {
   const data: PaneRendererCustomData<Time, IDottedAreaData> = {
     bars: [100, 0, 80, 300].map((x, index) => ({
       x,
-      time: index,
+      time: logicalTimes[index],
       originalData: { time: index as Time, value: index + 10 },
       barColor: '#008000',
     })),
@@ -53,17 +56,21 @@ function renderRange(visibleRange: { from: number; to: number } | null) {
 }
 
 describe('dotted area resize', () => {
-  it('keeps stale coordinates out of the line and fill after the visible range changes', () => {
+  it('rebuilds neighboring coordinates so the line and fill reach the pane edges', () => {
     const context = renderRange({ from: 1, to: 3 });
     expect(context.moveTo.mock.calls).toEqual([
-      [0, 100],
-      [0, 11],
+      [-80, 100],
+      [-80, 10],
     ]);
     expect(context.lineTo.mock.calls).toEqual([
+      [-80, 10],
       [0, 11],
       [80, 12],
-      [80, 100],
+      [160, 13],
+      [160, 100],
+      [0, 11],
       [80, 12],
+      [160, 13],
     ]);
     // The last visible point is not the actual series tail.
     expect(context.arc).not.toHaveBeenCalledWith(
@@ -75,15 +82,31 @@ describe('dotted area resize', () => {
     );
   });
 
+  it('draws crossing segments when only one point is visible', () => {
+    const context = renderRange({ from: 1, to: 2 });
+    expect(context.moveTo).toHaveBeenCalledWith(-80, 10);
+    expect(context.lineTo).toHaveBeenCalledWith(80, 12);
+    expect(context.stroke).toHaveBeenCalledTimes(1);
+  });
+
+  it('uses logical time gaps when rebuilding neighboring coordinates', () => {
+    const context = renderRange({ from: 1, to: 3 }, [0, 3, 4, 7]);
+    expect(context.moveTo).toHaveBeenCalledWith(-240, 10);
+    expect(context.lineTo).toHaveBeenCalledWith(320, 13);
+  });
+
   it('draws the tail marker only when the series tail is in the visible range', () => {
     const context = renderRange({ from: 2, to: 4 });
     expect(context.arc).toHaveBeenCalledWith(300, 13, 5.5, 0, Math.PI * 2);
   });
 
-  it('does not draw retained coordinates when no points are visible', () => {
-    const context = renderRange(null);
-    expect(context.stroke).not.toHaveBeenCalled();
-    expect(context.clip).not.toHaveBeenCalled();
-    expect(context.arc).not.toHaveBeenCalled();
-  });
+  it.each([null, { from: 2, to: 2 }])(
+    'does not draw retained coordinates when no points are visible (%j)',
+    (range) => {
+      const context = renderRange(range);
+      expect(context.stroke).not.toHaveBeenCalled();
+      expect(context.clip).not.toHaveBeenCalled();
+      expect(context.arc).not.toHaveBeenCalled();
+    },
+  );
 });
