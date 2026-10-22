@@ -6,6 +6,7 @@ import LazyLoad from '@onekeyhq/shared/src/lazyLoad';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ERootRoutes } from '@onekeyhq/shared/src/routes';
 
+import { ModalNavigator } from './Modal/lazyModalNavigator';
 import {
   fullModalRouterPathConfig,
   fullScreenPushRouterPathConfig,
@@ -15,11 +16,6 @@ import {
 } from './routerPathConfig';
 import { TabNavigator } from './Tab/Navigator';
 import { useTabRouterConfig } from './Tab/router';
-
-const ModalNavigator = LazyLoad(async () => {
-  const { ModalNavigator: Component } = await import('./Modal/Navigator');
-  return { default: Component };
-});
 
 const IOSFullScreenNavigator = LazyLoad(async () => {
   const { IOSFullScreenNavigator: Component } =

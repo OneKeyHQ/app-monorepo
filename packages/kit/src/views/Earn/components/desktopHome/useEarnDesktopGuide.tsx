@@ -5,6 +5,7 @@ import { useReducedMotion } from 'react-native-reanimated';
 import { Portal } from '@onekeyhq/components';
 import type { IPortalManager } from '@onekeyhq/components/src/hocs/Portal';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { preloadModalNavigator } from '@onekeyhq/kit/src/routes/Modal/lazyModalNavigator';
 import { EModalRoutes, EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
@@ -172,10 +173,12 @@ export function useEarnDesktopGuide({
   );
   useEffect(() => () => ghostRef.current?.destroy(), []);
 
-  // The guide's page loads while the card shows, so the modal is up soon
-  // after the card lands. A failure is left to the open, which loads it again
+  // The modal and the guide's page load while the card shows, so the modal is
+  // up soon after the card lands, the first time too. A failure is left to
+  // the open, which loads them again
   useEffect(() => {
     if (guide.isShown) {
+      preloadModalNavigator().catch(() => undefined);
       preloadEarnGuide().catch(() => undefined);
     }
   }, [guide.isShown]);
