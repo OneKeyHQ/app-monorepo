@@ -2182,6 +2182,7 @@ const icons = {
   ZipSolid: () => import('./react/solid/Zip'),
   ZoomInSolid: () => import('./react/solid/ZoomIn'),
   ZoomOutSolid: () => import('./react/solid/ZoomOut'),
+  StarListOutline: () => import('./react/outline/StarList'),
 };
 export type IKeyOfIcons = keyof typeof icons;
 export default icons;

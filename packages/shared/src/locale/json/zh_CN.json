@@ -2717,6 +2717,7 @@
   "market.number_week_abbr": "{number}周",
   "market.one_hour_percentage": "1 小时%",
   "market.open_abbr": "开",
+  "market.open_favorites": "打开自选",
   "market.opens_in": "{time} 后开盘",
   "market.pair_link": "交易对链接：",
   "market.performance": "价格表现",

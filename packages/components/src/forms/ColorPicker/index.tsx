@@ -5,13 +5,12 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { Popover, Trigger } from '../../actions';
 import { DialogContainer } from '../../composite/Dialog';
-import { Portal } from '../../hocs';
 import { useMedia } from '../../hooks';
 import { Stack, XStack, YStack } from '../../primitives';
 
 import type { IPopoverContent, IPopoverProps } from '../../actions';
+import type { IDialogFloatingPanelProps } from '../../composite/Dialog/type';
 import type { IYStackProps } from '../../primitives';
-import type { DialogContentProps } from '../../shared/tamagui';
 
 export interface IColorPickerOption {
   value: string;
@@ -636,7 +635,7 @@ export function ColorPicker({
     }),
     [floatingPanelProps],
   );
-  const dialogFloatingPanelProps = useMemo<DialogContentProps>(() => {
+  const dialogFloatingPanelProps = useMemo<IDialogFloatingPanelProps>(() => {
     const { onCloseAutoFocus, ...panelProps } = mergedFloatingPanelProps;
     return {
       ...panelProps,
@@ -690,7 +689,7 @@ export function ColorPicker({
 
   const mobileDialog = useMemo(
     () => (
-      <Portal.Body container={Portal.Constant.FULL_WINDOW_OVERLAY_PORTAL}>
+      <>
         <DialogContainer
           title="Color"
           showHeader={false}
@@ -703,7 +702,7 @@ export function ColorPicker({
           floatingPanelProps={dialogFloatingPanelProps}
           testID={testID ? `${testID}-dialog` : undefined}
         />
-      </Portal.Body>
+      </>
     ),
     [
       dialogContent,

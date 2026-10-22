@@ -10,9 +10,10 @@ const NATIVE_PORTAL_CLOSE_FALLBACK_DELAY = 1000;
 export function useNativePortalLifecycle({
   isOpen,
   sheetProps,
-  mountNativePortalBeforeOpen,
 }: IUseNativePortalLifecycleProps): IUseNativePortalLifecycleResult {
-  const shouldUseNativePortalLifecycle = Boolean(mountNativePortalBeforeOpen);
+  // Every native sheet must survive until its exit callback, including
+  // ordinary declarative popovers that did not opt into pre-mounting.
+  const shouldUseNativePortalLifecycle = true;
   const [isNativePortalMounted, setIsNativePortalMounted] = useState(false);
   const [isNativeSheetOpen, setIsNativeSheetOpen] = useState(false);
   const desiredOpenRef = useRef(Boolean(isOpen));
@@ -30,9 +31,6 @@ export function useNativePortalLifecycle({
   }, []);
 
   useEffect(() => {
-    if (!shouldUseNativePortalLifecycle) {
-      return;
-    }
     if (isOpen) {
       clearCloseFallbackTimer();
       setIsNativePortalMounted(true);
@@ -53,10 +51,10 @@ export function useNativePortalLifecycle({
         setIsNativePortalMounted(false);
       }
     }, NATIVE_PORTAL_CLOSE_FALLBACK_DELAY);
-  }, [clearCloseFallbackTimer, isOpen, shouldUseNativePortalLifecycle]);
+  }, [clearCloseFallbackTimer, isOpen]);
 
   useEffect(() => {
-    if (!shouldUseNativePortalLifecycle || !isOpen || !isNativePortalMounted) {
+    if (!isOpen || !isNativePortalMounted) {
       return;
     }
     const frame = requestAnimationFrame(() => {
@@ -66,7 +64,7 @@ export function useNativePortalLifecycle({
       }
     });
     return () => cancelAnimationFrame(frame);
-  }, [isNativePortalMounted, isOpen, shouldUseNativePortalLifecycle]);
+  }, [isNativePortalMounted, isOpen]);
 
   useEffect(
     () => () => {
@@ -78,35 +76,28 @@ export function useNativePortalLifecycle({
   const handleSheetAnimationComplete = useCallback(
     (info: { open: boolean }) => {
       sheetProps?.onAnimationComplete?.(info);
-      if (
-        !shouldUseNativePortalLifecycle ||
-        info.open ||
-        desiredOpenRef.current
-      ) {
+      if (info.open || desiredOpenRef.current) {
         return;
       }
       clearCloseFallbackTimer();
       hasOpenedNativeSheetRef.current = false;
       setIsNativePortalMounted(false);
     },
-    [clearCloseFallbackTimer, sheetProps, shouldUseNativePortalLifecycle],
+    [clearCloseFallbackTimer, sheetProps],
   );
 
   const resolvedSheetProps = useMemo(
-    () =>
-      shouldUseNativePortalLifecycle
-        ? {
-            ...sheetProps,
-            onAnimationComplete: handleSheetAnimationComplete,
-          }
-        : sheetProps,
-    [handleSheetAnimationComplete, sheetProps, shouldUseNativePortalLifecycle],
+    () => ({
+      ...sheetProps,
+      onAnimationComplete: handleSheetAnimationComplete,
+    }),
+    [handleSheetAnimationComplete, sheetProps],
   );
 
   return {
     shouldUseNativePortalLifecycle,
     isNativePortalMounted,
-    popoverOpen: shouldUseNativePortalLifecycle ? isNativeSheetOpen : isOpen,
+    popoverOpen: isNativeSheetOpen,
     resolvedSheetProps,
   };
 }

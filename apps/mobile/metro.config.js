@@ -285,9 +285,10 @@ config.resolver.resolveRequest = (context, moduleName, platform) => {
       // noop
     }
   }
-  // Strip Developer/Gallery from production union builds
+  // Strip Developer/Gallery from all production builds.
   if (
-    (process.env.UNION_BUILD === 'true' ||
+    (process.env.NODE_ENV === 'production' ||
+      process.env.UNION_BUILD === 'true' ||
       process.env.SPLIT_BUNDLE_SEGMENTS === 'true') &&
     context.originModulePath &&
     (moduleName.includes('/Developer/router') ||

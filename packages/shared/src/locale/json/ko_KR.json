@@ -2717,6 +2717,7 @@
   "market.number_week_abbr": "{number}주",
   "market.one_hour_percentage": "1시간 %",
   "market.open_abbr": "시",
+  "market.open_favorites": "관심 목록 열기",
   "market.opens_in": "{time} 후 개장",
   "market.pair_link": "거래 쌍 링크:",
   "market.performance": "가격 추이",

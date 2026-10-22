@@ -11,6 +11,8 @@ import {
 
 import { usePageTranslation } from './usePageTranslation';
 
+const mockTrialAttempt = jest.fn();
+const mockTrialResult = jest.fn();
 const mockStartTranslate = jest.fn();
 const mockRestoreOriginal = jest.fn();
 const mockTranslatingRef = { current: false };
@@ -109,6 +111,12 @@ jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
     discovery: { translation: { dappTranslateToggle: jest.fn() } },
     prime: {
       subscription: {
+        primeFreeTrialAttempt: (params: unknown) => {
+          mockTrialAttempt(params);
+        },
+        primeFreeTrialResult: (params: unknown) => {
+          mockTrialResult(params);
+        },
         primeFreeTrialQuotaExhausted: jest.fn(),
         primeFreeTrialTrace: jest.fn(),
       },

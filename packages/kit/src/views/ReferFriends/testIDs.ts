@@ -41,6 +41,7 @@ export const ReferFriendsTestIDs = {
   inviteRetryBtn: 'refer-friends-invite-retry-btn',
   levelRetryBtn: 'refer-friends-level-retry-btn',
   inviteRewardsEmptyCopyBtn: 'refer-friends-invite-rewards-empty-copy-btn',
+  hardwareEmptyCopyLinkBtn: 'refer-friends-hardware-empty-copy-link-btn',
   inviteWithdrawAddressRow: 'refer-friends-invite-withdraw-address-row',
   benefitsBindBtn: 'refer-friends-benefits-bind-btn',
   benefitsPlaceholder: 'refer-friends-benefits-placeholder',
