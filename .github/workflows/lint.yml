@@ -115,6 +115,7 @@ jobs:
           development/scripts/fonts-sync.node-test.js
           development/scripts/run-ios-account-switch-heating-repro.node-test.js
           development/scripts/tamagui-animation-initial-style.node-test.js
+          development/lint/eslint.node-test.js
           development/lint/background-api-contract.node-test.js
           development/lint/test-integrity.node-test.js
           development/lint/onekeyfe-patches.node-test.js
