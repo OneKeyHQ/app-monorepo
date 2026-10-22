@@ -8,6 +8,7 @@ import { usePerpTokenSelectorSelection } from './usePerpTokenSelectorSelection';
 import { useSimpleMarketFocus } from './useSimpleMarketFocus';
 
 let mockRouteNames = [EModalPerpRoutes.MobileTokenSelector];
+let mockOrderSide: 'long' | 'short' = 'long';
 let mockInstrument = { mode: 'perp', coin: 'BTC' };
 const mockNavigation = {
   isFocused: jest.fn(() => true),
@@ -16,7 +17,13 @@ const mockNavigation = {
   navigate: jest.fn(),
   getState: () => ({
     index: mockRouteNames.length - 1,
-    routes: mockRouteNames.map((name) => ({ name })),
+    routes: mockRouteNames.map((name) => ({
+      name,
+      params:
+        name === EModalPerpRoutes.MobilePerpSimpleOrder
+          ? { coin: 'BTC', side: mockOrderSide }
+          : undefined,
+    })),
   }),
 };
 const mockSettings = { mobileTradingMode: 'simple' };
@@ -80,6 +87,7 @@ function setup() {
 beforeEach(() => {
   jest.clearAllMocks();
   mockRouteNames = [EModalPerpRoutes.MobileTokenSelector];
+  mockOrderSide = 'long';
   mockInstrument = { mode: 'perp', coin: 'BTC' };
   mockNavigation.isFocused.mockReturnValue(true);
   mockSettings.mobileTradingMode = 'simple';
@@ -102,6 +110,57 @@ it('returns a selector choice to the existing market instead of stacking a secon
     EModalPerpRoutes.MobilePerpSimpleMarket,
     { coin: 'ETH' },
   );
+  expect(mockNavigation.replace).not.toHaveBeenCalled();
+  expect(mockNavigation.popStack).not.toHaveBeenCalled();
+});
+
+it.each(['long', 'short'] as const)(
+  'returns a new coin to the existing %s order only after switching succeeds',
+  async (side) => {
+    mockOrderSide = side;
+    mockRouteNames = [
+      EModalPerpRoutes.MobilePerpSimpleMarket,
+      EModalPerpRoutes.MobilePerpSimpleOrder,
+      EModalPerpRoutes.MobileTokenSelector,
+    ];
+    let finish: (value: boolean) => void = () => {};
+    mockActions.switchTradeInstrument.mockReturnValueOnce(
+      new Promise<boolean>((resolve) => {
+        finish = resolve;
+      }),
+    );
+    const { result } = setup();
+    let pending: Promise<void>;
+    await act(async () => {
+      pending = result.current('xyz:SKHX');
+      await Promise.resolve();
+    });
+    expect(mockNavigation.navigate).not.toHaveBeenCalled();
+    expect(mockNavigation.replace).not.toHaveBeenCalled();
+    await act(async () => {
+      finish(true);
+      await pending;
+    });
+    expect(mockNavigation.navigate).toHaveBeenCalledWith(
+      EModalPerpRoutes.MobilePerpSimpleOrder,
+      { coin: 'xyz:SKHX', side },
+    );
+    expect(mockNavigation.replace).not.toHaveBeenCalled();
+    expect(mockNavigation.popStack).not.toHaveBeenCalled();
+  },
+);
+
+it('keeps the order selector open when switching is superseded', async () => {
+  mockRouteNames = [
+    EModalPerpRoutes.MobilePerpSimpleOrder,
+    EModalPerpRoutes.MobileTokenSelector,
+  ];
+  mockActions.switchTradeInstrument.mockResolvedValueOnce(false);
+  const { result } = setup();
+  await act(async () => {
+    await result.current('ETH');
+  });
+  expect(mockNavigation.navigate).not.toHaveBeenCalled();
   expect(mockNavigation.replace).not.toHaveBeenCalled();
   expect(mockNavigation.popStack).not.toHaveBeenCalled();
 });
