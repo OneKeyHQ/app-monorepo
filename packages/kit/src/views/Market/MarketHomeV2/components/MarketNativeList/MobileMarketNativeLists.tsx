@@ -1104,6 +1104,8 @@ function MobileMarketNativeWatchlistImpl({
         contentInsetAdjustmentBehavior="never"
         testID="market-favorites-empty-scroll"
         contentContainerStyle={{
+          // Keep blank-area touches inside the iOS scroll view's content.
+          flexGrow: platformEnv.isNativeIOS ? 1 : undefined,
           paddingTop: listContainerProps.emptyContentPaddingTop ?? 16,
           minHeight: listContainerProps.emptyScrollContentMinHeight,
         }}
