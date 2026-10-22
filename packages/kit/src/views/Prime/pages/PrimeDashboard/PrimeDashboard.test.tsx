@@ -5,7 +5,7 @@ import type { ComponentProps, ReactNode } from 'react';
 import { act, fireEvent, render, screen } from '@testing-library/react';
 
 import { PrimeLoginDialogCancelError } from '@onekeyhq/shared/src/errors';
-import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
+import { EPrimeFeatures, EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 
 import PrimeDashboard from './PrimeDashboard';
 
@@ -15,7 +15,10 @@ const mockRequirements = {
   ensurePrimeSubscriptionActive: mockEnsureSubscription,
 };
 const mockShowOneKeyIdLoginFailedToast = jest.fn();
+const mockToastMessage = jest.fn();
+const mockFetchPrimeUserInfo = jest.fn<Promise<unknown>, unknown[]>();
 const mockNavigation = {
+  pop: jest.fn(),
   popStack: jest.fn(),
   push: jest.fn(),
   setParams: jest.fn(),
@@ -70,6 +73,11 @@ jest.mock('@onekeyhq/components', () => {
     Spinner: () => null,
     Stack: Container,
     Theme: Container,
+    Toast: {
+      message: (...args: unknown[]) => {
+        mockToastMessage(...args);
+      },
+    },
     XStack: Container,
     YStack: Container,
     useIsModalPage: () => false,
@@ -79,7 +87,13 @@ jest.mock('@onekeyhq/components', () => {
 });
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
-  default: { servicePrime: { isLoggedIn: async () => false } },
+  default: {
+    servicePrime: {
+      isLoggedIn: async () => false,
+      apiFetchPrimeUserInfo: (...args: unknown[]) =>
+        mockFetchPrimeUserInfo(...args),
+    },
+  },
 }));
 jest.mock('@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth', () => ({
   useOneKeyAuth: () => mockAuth,
@@ -464,5 +478,117 @@ describe('PrimeDashboard subscription deep link', () => {
     expect(mockLogin).not.toHaveBeenCalled();
     expect(screen.queryByRole('button', { name: LOGIN_PROMPT })).toBeNull();
     expect(screen.queryByText('Subscribe')).toBeNull();
+  });
+});
+
+describe('PrimeDashboard opened from a gated feature', () => {
+  const ALREADY_ACTIVE = 'prime_already_active__msg';
+  let completeLogin: () => void;
+  let route: ComponentProps<typeof PrimeDashboard>['route'];
+
+  function mockPrimeStatus(isActive: boolean) {
+    mockFetchPrimeUserInfo.mockResolvedValue({
+      userInfo: { isLoggedIn: true },
+      primeSubscription: { isActive },
+    });
+  }
+
+  async function loginViaPrompt() {
+    render(<PrimeDashboard route={route} />);
+    await act(async () => {
+      clickLogin();
+    });
+    await act(async () => {
+      completeLogin();
+    });
+  }
+
+  // A logged-out Subscribe press resumes once the login lands.
+  async function subscribeThenLogin() {
+    const { rerender } = render(<PrimeDashboard route={route} />);
+    await act(async () => {
+      clickSubscribe();
+    });
+    mockAuth.isLoggedIn = true;
+    rerender(<PrimeDashboard route={route} />);
+    await act(async () => {
+      await jest.advanceTimersByTimeAsync(1000);
+    });
+  }
+
+  beforeEach(() => {
+    jest.useFakeTimers();
+    jest.clearAllMocks();
+    mockAuth.isReady = true;
+    mockAuth.isLoggedIn = false;
+    mockAuth.isPrimeSubscriptionActive = false;
+    mockRequirements.ensurePrimeSubscriptionActive = mockEnsureSubscription;
+    mockLogin.mockImplementation(
+      () =>
+        new Promise<void>((resolve) => {
+          completeLogin = resolve;
+        }),
+    );
+    route = {
+      key: 'dashboard',
+      name: EPrimePages.PrimeDashboard,
+      params: { fromFeature: EPrimeFeatures.BulkSend },
+    };
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  it('goes back with a toast when an existing member logs in', async () => {
+    mockPrimeStatus(true);
+    await loginViaPrompt();
+
+    expect(mockFetchPrimeUserInfo).toHaveBeenCalledTimes(1);
+    expect(mockToastMessage).toHaveBeenCalledWith({ title: ALREADY_ACTIVE });
+    expect(mockNavigation.pop).toHaveBeenCalledTimes(1);
+  });
+
+  it('stays when the logged-in user has no Prime', async () => {
+    mockPrimeStatus(false);
+    await loginViaPrompt();
+
+    expect(mockFetchPrimeUserInfo).toHaveBeenCalledTimes(1);
+    expect(mockToastMessage).not.toHaveBeenCalled();
+    expect(mockNavigation.pop).not.toHaveBeenCalled();
+  });
+
+  it('stays when the Prime status cannot be fetched', async () => {
+    mockFetchPrimeUserInfo.mockRejectedValue(new Error('network'));
+    await loginViaPrompt();
+
+    expect(mockToastMessage).not.toHaveBeenCalled();
+    expect(mockNavigation.pop).not.toHaveBeenCalled();
+  });
+
+  it('goes back instead of resuming checkout when Subscribe logged in a member', async () => {
+    mockPrimeStatus(true);
+    await subscribeThenLogin();
+
+    expect(mockEnsureSubscription).toHaveBeenCalledTimes(1);
+    expect(mockToastMessage).toHaveBeenCalledWith({ title: ALREADY_ACTIVE });
+    expect(mockNavigation.pop).toHaveBeenCalledTimes(1);
+  });
+
+  it('resumes checkout when Subscribe logged in a non-member', async () => {
+    mockPrimeStatus(false);
+    await subscribeThenLogin();
+
+    expect(mockEnsureSubscription).toHaveBeenCalledTimes(2);
+    expect(mockNavigation.pop).not.toHaveBeenCalled();
+  });
+
+  it('keeps the dashboard open when not opened from a feature', async () => {
+    mockPrimeStatus(true);
+    route = { ...route, params: {} };
+    await loginViaPrompt();
+
+    expect(mockFetchPrimeUserInfo).not.toHaveBeenCalled();
+    expect(mockNavigation.pop).not.toHaveBeenCalled();
   });
 });

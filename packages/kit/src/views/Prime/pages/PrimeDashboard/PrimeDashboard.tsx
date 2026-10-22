@@ -186,20 +186,16 @@ export default function PrimeDashboard({
     if (!fromFeature || fromDeepLinkRef.current) {
       return false;
     }
-    try {
-      const { userInfo, primeSubscription } =
-        await backgroundApiProxy.servicePrime.apiFetchPrimeUserInfo({
-          forceRefresh: true,
-        });
-      if (
-        !isMountedRef.current ||
-        !userInfo.isLoggedIn ||
-        !primeSubscription?.isActive
-      ) {
-        return false;
-      }
-    } catch {
-      // Unknown status: stay on the dashboard.
+    // Login already drops the pre-login user info cache, so this shares the
+    // global post-login refresh. An unknown status stays on the dashboard.
+    const info = await backgroundApiProxy.servicePrime
+      .apiFetchPrimeUserInfo()
+      .catch(() => undefined);
+    if (
+      !isMountedRef.current ||
+      !info?.userInfo.isLoggedIn ||
+      !info.primeSubscription?.isActive
+    ) {
       return false;
     }
     Toast.message({
@@ -207,7 +203,9 @@ export default function PrimeDashboard({
         id: ETranslations.prime_already_active__msg,
       }),
     });
-    navigation.popStack();
+    // Back to the opener: the page below in the Prime stack (Cloud Sync), or
+    // out of the modal when the dashboard is its first screen.
+    navigation.pop();
     return true;
   }, [fromFeature, intl, isMountedRef, navigation]);
 
