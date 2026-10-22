@@ -177,16 +177,16 @@ export function sanitizeOnramperLogRecord(
   { keepMessage }: { keepMessage: boolean },
 ): ISanitizedOnramperLogRecord {
   const context: Record<string, string> = {};
-  for (const [key, raw] of Object.entries(record.context ?? {})) {
-    if (!SDK_LOG_CONTEXT_ALLOWED_KEYS.has(key)) {
-      continue;
-    }
+  Object.entries(record.context ?? {}).forEach(([key, raw]) => {
     const value = String(raw ?? '');
-    if (!value || SDK_LOG_PERSONAL_VALUE_PATTERN.test(value)) {
-      continue;
+    if (
+      SDK_LOG_CONTEXT_ALLOWED_KEYS.has(key) &&
+      value &&
+      !SDK_LOG_PERSONAL_VALUE_PATTERN.test(value)
+    ) {
+      context[key] = truncateForLog(value, SDK_LOG_VALUE_MAX_LENGTH);
     }
-    context[key] = truncateForLog(value, SDK_LOG_VALUE_MAX_LENGTH);
-  }
+  });
   const sanitized: ISanitizedOnramperLogRecord = {
     level: record.level,
     category: record.category,
