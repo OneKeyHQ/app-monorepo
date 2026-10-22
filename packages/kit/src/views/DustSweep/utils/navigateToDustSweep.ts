@@ -1,11 +1,8 @@
 import { Dialog, rootNavigationRef } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import type useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
-  EModalRoutes,
-  EModalSwapRoutes,
   ERootRoutes,
   ETabHomeRoutes,
   ETabRoutes,
@@ -18,13 +15,9 @@ import type { IntlShape } from 'react-intl';
 export async function navigateToDustSweep({
   params,
   intl,
-  navigation,
-  isLargeScreen,
 }: {
   params: Omit<IDustSweepRouteParams, 'walletId'> & { walletId?: string };
   intl: Pick<IntlShape, 'formatMessage'>;
-  navigation: Pick<ReturnType<typeof useAppNavigation>, 'pushModal'>;
-  isLargeScreen: boolean;
 }) {
   const { walletId } = params;
   const accountId =
@@ -52,7 +45,9 @@ export async function navigateToDustSweep({
       path: '/dust-sweep',
       params: routeParams,
     });
-  } else if (isLargeScreen) {
+  } else {
+    // Every size opens the Home sub page; on small screens it replaces the
+    // former Swap modal so the flow matches desktop.
     rootNavigationRef.current?.navigate(
       ERootRoutes.Main,
       {
@@ -64,10 +59,5 @@ export async function navigateToDustSweep({
       },
       { pop: true },
     );
-  } else {
-    navigation.pushModal(EModalRoutes.SwapModal, {
-      screen: EModalSwapRoutes.DustSweep,
-      params: routeParams,
-    });
   }
 }
