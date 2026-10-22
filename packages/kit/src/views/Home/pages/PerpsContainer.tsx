@@ -194,6 +194,8 @@ function useOpenPerpAsset() {
       void (async () => {
         let pendingInstrumentWritten = false;
         let navigationCommitted = false;
+        let perpAssetCommitted = false;
+        let isInstrumentCurrent: (() => boolean) | undefined;
         try {
           const activePerpsAccount = await ensureHomePerpsAccount(isCurrent);
           if (
@@ -210,9 +212,14 @@ function useOpenPerpAsset() {
             (platformEnv.isNative || !gtMd) &&
             settings.mobileTradingMode === 'simple';
           if (coin && mode === 'perp') {
+            const { capturePerpsInstrumentChangeGuard } =
+              await import('@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/actions');
+            if (!isCurrent()) return;
+            isInstrumentCurrent = capturePerpsInstrumentChangeGuard();
             await backgroundApiProxy.serviceHyperliquid.changeActiveAsset({
               coin,
             });
+            perpAssetCommitted = true;
             if (!isCurrent()) return;
             await tradingModeAtom.set('perp');
           } else if (coin && mode === 'spot') {
@@ -300,6 +307,29 @@ function useOpenPerpAsset() {
               await backgroundApiProxy.serviceHyperliquid.clearPendingInitialTradeInstrument(
                 { requestId },
               );
+            }
+            if (
+              perpAssetCommitted &&
+              !navigationCommitted &&
+              isInstrumentCurrent?.() &&
+              currentAccount.current === ensureHomePerpsAccount
+            ) {
+              const target =
+                await backgroundApiProxy.serviceHyperliquid.getActiveTradeInstrumentTarget();
+              if (
+                isInstrumentCurrent() &&
+                currentAccount.current === ensureHomePerpsAccount &&
+                target.mode === 'perp' &&
+                target.perpAsset &&
+                target.perpAsset.coin === coin
+              ) {
+                // Cancellation stops navigation, not synchronization of a BG
+                // write that is still the current account's actual target.
+                appEventBus.emit(EAppEventBusNames.PerpSwitchActiveInstrument, {
+                  mode: 'perp',
+                  coin: target.perpAsset.coin,
+                });
+              }
             }
           } catch (error) {
             if (isCurrent()) errorToastUtils.toastIfError(error);

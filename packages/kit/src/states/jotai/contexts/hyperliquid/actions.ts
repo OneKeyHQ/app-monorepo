@@ -419,6 +419,11 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
     return requestId === this.activeInstrumentChangeRequestId;
   }
 
+  captureActiveInstrumentChangeGuard(): () => boolean {
+    const requestId = this.activeInstrumentChangeRequestId;
+    return () => this.isLatestActiveInstrumentChange(requestId);
+  }
+
   private filterCanceledTwapOrders(
     orders: IPerpsActiveTwapOrder[],
   ): IPerpsActiveTwapOrder[] {
@@ -3918,6 +3923,10 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
 }
 
 const createActions = memoFn(() => new ContextJotaiActionsHyperliquid());
+
+export function capturePerpsInstrumentChangeGuard(): () => boolean {
+  return createActions().captureActiveInstrumentChangeGuard();
+}
 
 export function useHyperliquidActions() {
   const actions = createActions();

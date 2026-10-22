@@ -31,6 +31,9 @@ const mockActionsRef = { current: mockActions };
 jest.mock('@react-navigation/core', () => ({
   useNavigation: () => mockNavigation,
 }));
+jest.mock('@react-navigation/native', () => ({
+  useNavigation: () => mockNavigation,
+}));
 
 jest.mock('@onekeyhq/kit/src/hooks/useAppNavigation', () => ({
   __esModule: true,
@@ -42,6 +45,20 @@ jest.mock('@onekeyhq/kit/src/states/jotai/contexts/hyperliquid', () => ({
 }));
 jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
   usePerpsCustomSettingsAtom: () => [mockSettings],
+  appIsLocked: { get: jest.fn(async () => false) },
+  useAppIsLockedAtom: () => [false],
+}));
+jest.mock('@onekeyhq/shared/src/utils/appVisibility', () => ({
+  getCurrentVisibilityState: () => true,
+  onVisibilityStateChange: () => () => {},
+}));
+jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
+  __esModule: true,
+  default: {
+    serviceHyperliquidSubscription: {
+      getSubscriptionsHandlerDisabledCount: jest.fn(async () => 0),
+    },
+  },
 }));
 jest.mock('@onekeyhq/shared/src/errors/utils/errorToastUtils', () => ({
   __esModule: true,
@@ -105,6 +122,7 @@ it('restores the route instrument on return from Go to trade without changing a 
   expect(mockActions.switchTradeInstrument).toHaveBeenCalledWith({
     mode: 'perp',
     coin: 'BTC',
+    subscriptionRecoveryProof: { source: 'simple-market', disabledCount: 0 },
   });
   mockInstrument = { mode: 'perp', coin: 'BTC' };
   rerender({ focused: true });
