@@ -2,12 +2,15 @@ import { EDeviceType } from '@onekeyfe/hd-shared';
 
 import { EHardwareVendor } from '../../types/device';
 
-import { getPro2DeviceColor } from './hardwareDeviceColors';
+import {
+  getPro2DeviceColor,
+  getPro2DeviceColorFromCode,
+} from './hardwareDeviceColors';
 import { NEO_DEVICE_TYPE } from './hardwareDeviceTypes';
 import thirdPartyDeviceUtils from './thirdPartyDeviceUtils';
 
 import type { IPro2DeviceColor } from './hardwareDeviceColors';
-import type { IDeviceType } from '@onekeyfe/hd-core';
+import type { IDeviceType, SearchDevice } from '@onekeyfe/hd-core';
 import type { ImageSourcePropType } from 'react-native';
 
 export const HdWalletAvatarImages = {
@@ -57,8 +60,9 @@ export const HwWalletAvatarImages: Record<
   [EDeviceType.Touch]: require('../assets/wallet/avatar/Touch.png'),
   [EDeviceType.Pro]: require('../assets/wallet/avatar/ProBlack.png'),
   // The bare model key is the model's default finish — the Pro 2 in
-  // black — worn wherever no serial is in hand (the onboarding device
-  // list, the setup stepper), the same default the stage replica wears.
+  // black — worn wherever neither a serial nor an advertised color letter
+  // names a finish the model ships in, the same default the stage
+  // replica wears.
   [EDeviceType.Pro2]: require('../assets/wallet/avatar/Pro2Black.png'),
   // No art of its own yet: wears the Pro's.
   [NEO_DEVICE_TYPE]: require('../assets/wallet/avatar/ProBlack.png'),
@@ -123,6 +127,9 @@ export type IAllWalletAvatarImageNames =
 export function getDeviceAvatarImage(
   deviceType: IDeviceType,
   serialNo?: string,
+  // The serial number's color letter as a Pro 2 advertises it over
+  // Bluetooth before connecting (SDK `bleColorCode`).
+  bleColorCode?: string,
 ): IHwWalletAvatarImageNames {
   if (
     (deviceType === EDeviceType.Classic1s ||
@@ -142,9 +149,22 @@ export function getDeviceAvatarImage(
   // A letter the model does not come in, and no serial at all, wear the
   // model's default finish (see the table above).
   if (deviceType === EDeviceType.Pro2) {
-    return `${EDeviceType.Pro2}${getPro2DeviceColor(serialNo) ?? 'Black'}`;
+    const color =
+      getPro2DeviceColor(serialNo) ?? getPro2DeviceColorFromCode(bleColorCode);
+    return `${EDeviceType.Pro2}${color ?? 'Black'}`;
   }
   return deviceType;
+}
+
+/** The avatar a scan result wears before the device connects. */
+export function getSearchDeviceAvatarImage(
+  device: Pick<SearchDevice, 'deviceType' | 'serialNo' | 'bleColorCode'>,
+): IHwWalletAvatarImageNames {
+  return getDeviceAvatarImage(
+    device.deviceType,
+    device.serialNo ?? undefined,
+    device.bleColorCode,
+  );
 }
 
 const TREZOR_MODEL_CODE_TO_AVATAR_KEY = new Map<
