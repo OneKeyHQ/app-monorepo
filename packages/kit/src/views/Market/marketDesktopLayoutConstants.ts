@@ -33,6 +33,13 @@ export const MARKET_DETAIL_TRADE_COLUMN_PROPS = {
   top: 16,
 } as const;
 
+// This top margin on the trade column centers its first row on the price row
+// (20px down, 40px tall, so a center line at 40) either way: the perps banner
+// (8px above a 20px line) or, without it, the panel's settings and history
+// icons (centered 18px below the panel top). A margin, so it drops out once the
+// column is pinned.
+export const MARKET_DETAIL_TRADE_COLUMN_TOP_OFFSET = 22;
+
 // The desktop list-page tab region is 60px tall in the design: a 44px tab
 // item with 8px above and below it.
 export const MARKET_DESKTOP_TAB_BAR_CONTAINER_STYLE = {
