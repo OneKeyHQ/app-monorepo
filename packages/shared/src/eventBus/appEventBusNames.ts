@@ -139,6 +139,7 @@ export enum EAppEventBusNames {
   PrimeTransferCancel = 'PrimeTransferCancel',
   CreateAddressByDialog = 'CreateAddressByDialog',
   CheckAddressBeforeSending = 'CheckAddressBeforeSending',
+  BatchSendTxBroadcasted = 'BatchSendTxBroadcasted',
   HideTabBar = 'HideTabBar',
   RequestHardwareUIDialog = 'RequestHardwareUIDialog',
   ShowThirdPartyHardwarePermissionDialog = 'ShowThirdPartyHardwarePermissionDialog',
