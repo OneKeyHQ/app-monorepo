@@ -13,7 +13,10 @@ import type {
 
 import { getOneKeyIdLogoutDialogContent } from './oneKeyIdLogoutDialogContent';
 
-type IReadyIdentityExitPlan = Extract<IIdentityExitPlan, { status: 'ready' }>;
+export type IReadyIdentityExitPlan = Extract<
+  IIdentityExitPlan,
+  { status: 'ready' }
+>;
 
 export type IOneKeyIdLogoutDialogResult =
   | {
@@ -34,6 +37,18 @@ type IOneKeyIdLogoutDialogOptions = {
   confirmButtonTestID?: string;
   beforeExecute?: () => void | Promise<void>;
 };
+
+export async function executeIdentityExitPlan(
+  plan: IReadyIdentityExitPlan,
+): Promise<IIdentityExitReceipt> {
+  return backgroundApiProxy.serviceIdentityExit.executeIdentityExit({
+    planId: plan.planId,
+    acknowledgement:
+      plan.confirmation.type === 'keylessRemovalAcknowledgement'
+        ? 'keylessWalletRemoval'
+        : 'oneKeyIdLogout',
+  });
+}
 
 function getErrorMessage(error: unknown): string {
   if (error instanceof Error && error.message) {
@@ -122,13 +137,7 @@ function OneKeyIdLogoutDialogContent({
           setIsExecuting(true);
           try {
             await beforeExecute?.();
-            const receipt =
-              await backgroundApiProxy.serviceIdentityExit.executeIdentityExit({
-                planId: plan.planId,
-                acknowledgement: requiresAcknowledgement
-                  ? 'keylessWalletRemoval'
-                  : 'oneKeyIdLogout',
-              });
+            const receipt = await executeIdentityExitPlan(plan);
             if (receipt.status === 'completed') {
               await onResult({ status: 'completed', receipt }, close);
               return;
