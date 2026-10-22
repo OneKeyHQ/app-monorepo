@@ -100,11 +100,8 @@ export function MobileChartModeControl() {
 
 export function MobileSimpleChart({
   marketAssetId,
-  height,
 }: {
   marketAssetId?: string;
-  // Total height of the block, range row included. Matches the Pro block.
-  height?: number;
 }) {
   const intl = useIntl();
   const [selectedRange, setRange] = useState<IStockSimpleChartRange>('1D');
@@ -118,10 +115,6 @@ export function MobileSimpleChart({
     priceMode === 'share'
       ? STOCK_SHARE_SIMPLE_CHART_RANGES
       : TOKEN_SIMPLE_CHART_RANGES;
-  const chartHeight =
-    height === undefined
-      ? MOBILE_SIMPLE_CHART_HEIGHT
-      : Math.max(0, height - TRADING_VIEW_NATIVE_CHART_CONTROLS_HEIGHT);
 
   return (
     <YStack width="100%" testID="market-mobile-simple-chart">
@@ -160,7 +153,7 @@ export function MobileSimpleChart({
         </ScrollView>
         <MobileChartModeControl />
       </XStack>
-      <Stack height={chartHeight} width="100%">
+      <Stack height={MOBILE_SIMPLE_CHART_HEIGHT} width="100%">
         <StockSimpleChart
           marketAssetId={marketAssetId}
           range={range}

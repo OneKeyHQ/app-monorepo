@@ -1,6 +1,6 @@
 import { Semaphore } from 'async-mutex';
 
-import { Toast, rootNavigationRef } from '@onekeyhq/components';
+import { Toast, rootNavigationRef, switchTabAsync } from '@onekeyhq/components';
 import type useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { perpsCustomSettingsAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { WEBVIEW_PERP_TRADE_INITIAL_WAIT_MS } from '@onekeyhq/shared/src/consts/perp';
@@ -77,6 +77,7 @@ function waitForPerpsEntryRoute({
 
 export async function navigateToPerps({
   coin,
+  dismissOverlays,
   requestId,
   entryRouteKey,
   closingSelectorKey,
@@ -89,6 +90,7 @@ export async function navigateToPerps({
   intl,
 }: {
   coin: string;
+  dismissOverlays?: boolean;
   requestId: string;
   entryRouteKey?: string;
   closingSelectorKey?: string;
@@ -184,7 +186,7 @@ export async function navigateToPerps({
     };
     let navigationCommitted = false;
     try {
-      if (entryRouteKey) {
+      if (entryRouteKey && !dismissOverlays) {
         const result = perpTabShowWeb
           ? dismissDiscoveryMarketDetailForTrade(
               entryRouteKey,
@@ -196,7 +198,15 @@ export async function navigateToPerps({
       }
       setPerpPageEnterSource(source ?? EPerpPageEnterSource.MarketList);
       if (perpTabShowWeb) {
-        navigation.switchTab(ETabRoutes.WebviewPerpTrade, webTradeParams);
+        if (dismissOverlays) {
+          await switchTabAsync(ETabRoutes.WebviewPerpTrade, {
+            params: webTradeParams,
+            shouldContinue: isCurrentRequest,
+          });
+          if (!isCurrentRequest()) return;
+        } else {
+          navigation.switchTab(ETabRoutes.WebviewPerpTrade, webTradeParams);
+        }
         const committed = await proxy?.serviceWebviewPerp.commitTradeTarget({
           requestId,
         });
@@ -206,7 +216,14 @@ export async function navigateToPerps({
         navigationCommitted = true;
         return;
       }
-      navigation.switchTab(targetTab);
+      if (dismissOverlays) {
+        await switchTabAsync(targetTab, {
+          shouldContinue: isCurrentRequest,
+        });
+        if (!isCurrentRequest()) return;
+      } else {
+        navigation.switchTab(targetTab);
+      }
       navigationCommitted = true;
       const isCurrentTarget = () => {
         const root = rootNavigationRef.current?.getRootState();
