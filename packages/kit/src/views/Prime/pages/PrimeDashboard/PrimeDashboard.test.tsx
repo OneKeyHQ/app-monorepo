@@ -482,7 +482,7 @@ describe('PrimeDashboard subscription deep link', () => {
 });
 
 describe('PrimeDashboard opened from a gated feature', () => {
-  const ALREADY_ACTIVE = 'prime_already_active__msg';
+  const PRIME_MEMBER_TRY_AGAIN = 'prime_member_try_again__msg';
   let completeLogin: () => void;
   let route: ComponentProps<typeof PrimeDashboard>['route'];
 
@@ -545,7 +545,9 @@ describe('PrimeDashboard opened from a gated feature', () => {
     await loginViaPrompt();
 
     expect(mockFetchPrimeUserInfo).toHaveBeenCalledTimes(1);
-    expect(mockToastMessage).toHaveBeenCalledWith({ title: ALREADY_ACTIVE });
+    expect(mockToastMessage).toHaveBeenCalledWith({
+      title: PRIME_MEMBER_TRY_AGAIN,
+    });
     expect(mockNavigation.pop).toHaveBeenCalledTimes(1);
   });
 
@@ -571,7 +573,9 @@ describe('PrimeDashboard opened from a gated feature', () => {
     await subscribeThenLogin();
 
     expect(mockEnsureSubscription).toHaveBeenCalledTimes(1);
-    expect(mockToastMessage).toHaveBeenCalledWith({ title: ALREADY_ACTIVE });
+    expect(mockToastMessage).toHaveBeenCalledWith({
+      title: PRIME_MEMBER_TRY_AGAIN,
+    });
     expect(mockNavigation.pop).toHaveBeenCalledTimes(1);
   });
 

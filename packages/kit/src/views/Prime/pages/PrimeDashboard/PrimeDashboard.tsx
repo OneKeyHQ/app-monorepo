@@ -200,7 +200,7 @@ export default function PrimeDashboard({
     }
     Toast.message({
       title: intl.formatMessage({
-        id: ETranslations.prime_already_active__msg,
+        id: ETranslations.prime_member_try_again__msg,
       }),
     });
     // Back to the opener: the page below in the Prime stack (Cloud Sync), or
