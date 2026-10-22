@@ -171,9 +171,9 @@ it('renders all nine default Gann fan rays with finite labels and coordinates', 
   expect(geometry.labels.map((label) => label.text)).toEqual(
     expect.arrayContaining(['1/8', '1/1', '8/1']),
   );
-  expect(
-    geometry.labels.some((label) => /Infinity|NaN/.test(label.text)),
-  ).toBe(false);
+  expect(geometry.labels.some((label) => /Infinity|NaN/.test(label.text))).toBe(
+    false,
+  );
   for (const ray of rays)
     for (const point of ray.points) {
       expect(Number.isFinite(point.x)).toBe(true);
