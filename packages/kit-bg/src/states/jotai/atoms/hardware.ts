@@ -307,6 +307,8 @@ export enum EThirdPartyHardwareUiAction {
   // Keystone QR: the device is already showing its own export/response QR,
   // so there's no display step, the app just scans.
   requestKeystoneQrScan = 'request-keystone-qr-scan',
+  // Keystone: the request is too large for USB; ask whether to sign it by QR.
+  requestKeystoneQrFallbackConfirm = 'request-keystone-qr-fallback-confirm',
   // Non-blocking notifications — UI shows status.
   openApp = 'ui-event-ledger-open-app',
   confirmOnDevice = 'ui-event-ledger-confirm-on-device',

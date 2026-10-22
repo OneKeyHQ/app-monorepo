@@ -595,6 +595,7 @@ export function DeviceStage({
   onDeviceNotFoundTroubleshoot,
   onDeviceNotFoundSupport,
   onBtcHighIndexConfirm,
+  onQrFallbackConfirm,
   onInstallConfirm,
 }: IDeviceStageProps) {
   const intl = useIntl();
@@ -2043,6 +2044,32 @@ export function DeviceStage({
     ),
     [btcHighIndexSub, intl, onBtcHighIndexConfirm, panelMeasureHandlers],
   );
+  const qrFallbackPanel = useMemo(
+    () => (
+      <YStack>
+        <View onLayout={panelMeasureHandlers.qrFallback.words}>
+          <StepText
+            title={intl.formatMessage({ id: STEP_TEXT.qrFallback.title })}
+            sub={resolveStepSub(intl, 'qrFallback')}
+            animated={false}
+          />
+        </View>
+        <View onLayout={panelMeasureHandlers.qrFallback.tail}>
+          {onQrFallbackConfirm ? (
+            <Button
+              testID="device-stage-qr-fallback-confirm"
+              variant="primary"
+              size="large"
+              onPress={onQrFallbackConfirm}
+            >
+              {intl.formatMessage({ id: ETranslations.global_continue })}
+            </Button>
+          ) : null}
+        </View>
+      </YStack>
+    ),
+    [intl, onQrFallbackConfirm, panelMeasureHandlers],
+  );
   const installConfirmPanel = useMemo(
     () => (
       <YStack>
@@ -2129,6 +2156,7 @@ export function DeviceStage({
       pairingCode: pairingCodePanel,
       deviceNotFound: deviceNotFoundPanel,
       btcHighIndex: btcHighIndexPanel,
+      qrFallback: qrFallbackPanel,
       installConfirm: installConfirmPanel,
       installing: installingPanel,
       installBatch: installBatchPanel,
@@ -2145,6 +2173,7 @@ export function DeviceStage({
       passphraseIntroPanel,
       passphrasePanel,
       pinPanel,
+      qrFallbackPanel,
       scanQrPanel,
       selectWalletTypePanel,
       showQrPanel,

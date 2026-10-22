@@ -119,6 +119,17 @@ export class KeystoneAdapter
       });
     });
 
+    this.hw.on(UI_REQUEST.REQUEST_QR_FALLBACK_CONFIRM, (event) => {
+      defaultLogger.hardware.sdkLog.log(
+        '[3rdPartyHW][Keystone] REQUEST_QR_FALLBACK_CONFIRM',
+      );
+      this.emitUiEvent({
+        kind: 'request',
+        type: EThirdPartyHardwareUiAction.requestKeystoneQrFallbackConfirm,
+        payload: { vendor: event.payload.vendor },
+      });
+    });
+
     // USB interaction status relayed from the connector: public-data export
     // confirms once per connector lifetime (re-enumeration must not reopen the toast), but signing still confirms every request. Same toast as Ledger.
     this.hw.on('ui-event', (event) => {

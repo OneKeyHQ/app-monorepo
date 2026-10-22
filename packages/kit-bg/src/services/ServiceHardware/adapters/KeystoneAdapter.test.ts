@@ -100,6 +100,27 @@ describe('KeystoneAdapter', () => {
     });
   });
 
+  it('asks the shared UI whether to sign a request too large for USB by QR', () => {
+    const listeners = new Map<string, (event: unknown) => void>();
+    const hw = {
+      on: jest.fn((eventName: string, listener: (event: unknown) => void) => {
+        listeners.set(eventName, listener);
+      }),
+    };
+    expect(new KeystoneAdapter(hw as never).vendor).toBe('keystone');
+
+    listeners.get(UI_REQUEST.REQUEST_QR_FALLBACK_CONFIRM)?.({
+      payload: { vendor: 'keystone' },
+    });
+
+    expect(mockedThirdPartyHardwareUiStateAtom.set).toHaveBeenLastCalledWith({
+      action: 'request-keystone-qr-fallback-confirm',
+      uiRequestId: expect.any(String),
+      vendor: 'keystone',
+      payload: { vendor: 'keystone' },
+    });
+  });
+
   it('keeps the stage on processing for device calls, not sync methods', async () => {
     let finishExport: () => void = () => undefined;
     const hw = {

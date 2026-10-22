@@ -277,6 +277,10 @@ export const STEP_TEXT: Record<
     title: ETranslations.hardware_third_party_btc_high_index_confirm_title,
     sub: ETranslations.device_stage_btc_high_index__desc,
   },
+  qrFallback: {
+    title: ETranslations.qr_connection_cta,
+    sub: ETranslations.hardware_third_party_qr_fallback__desc,
+  },
   installConfirm: { title: ETranslations.device_stage_install_app__title },
   installing: {
     title: ETranslations.device_stage_install_app__title,
@@ -479,6 +483,7 @@ export const SCENE_ANIMATION: Record<
   pairingCode: undefined,
   deviceNotFound: undefined,
   btcHighIndex: undefined,
+  qrFallback: undefined,
   installConfirm: undefined,
   installing: undefined,
   installBatch: undefined,
@@ -527,6 +532,7 @@ export const STEP_POSE: Record<
   pairingCode: 'card',
   deviceNotFound: 'card',
   btcHighIndex: 'card',
+  qrFallback: 'card',
   installConfirm: 'card',
   installing: 'card',
   installBatch: 'card',

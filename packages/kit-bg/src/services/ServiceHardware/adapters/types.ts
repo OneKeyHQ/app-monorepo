@@ -87,7 +87,8 @@ export type IAdapterUiRequestType =
   | EThirdPartyHardwareUiAction.requestDeviceSelection
   | EThirdPartyHardwareUiAction.requestBtcHighIndexConfirm
   | EThirdPartyHardwareUiAction.requestKeystoneQrDisplay
-  | EThirdPartyHardwareUiAction.requestKeystoneQrScan;
+  | EThirdPartyHardwareUiAction.requestKeystoneQrScan
+  | EThirdPartyHardwareUiAction.requestKeystoneQrFallbackConfirm;
 
 export type IAdapterUiRequest = {
   kind: 'request';

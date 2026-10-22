@@ -39,6 +39,21 @@ describe('ThirdPartyHardwareUiStateContainer utils', () => {
     });
   });
 
+  it.each([true, false])(
+    'builds the Keystone QR fallback answer (confirmed=%s)',
+    (confirmed) => {
+      expect(
+        buildThirdPartyHardwareUiResponse(
+          EThirdPartyHardwareUiAction.requestKeystoneQrFallbackConfirm,
+          confirmed,
+        ),
+      ).toEqual({
+        type: UI_RESPONSE.RECEIVE_QR_FALLBACK_CONFIRM,
+        payload: { confirmed },
+      });
+    },
+  );
+
   it('builds a Trezor passphrase response without exposing it to logs', () => {
     expect(
       buildThirdPartyHardwareUiResponse(

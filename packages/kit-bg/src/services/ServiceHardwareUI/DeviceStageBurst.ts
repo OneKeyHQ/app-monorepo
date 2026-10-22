@@ -172,6 +172,7 @@ const THIRD_PARTY_ACTION_TO_STEP: Partial<
   [EThirdPartyHardwareUiAction.requestTrezorThpPairing]: 'pairingCode',
   [EThirdPartyHardwareUiAction.requestDeviceNotFound]: 'deviceNotFound',
   [EThirdPartyHardwareUiAction.requestBtcHighIndexConfirm]: 'btcHighIndex',
+  [EThirdPartyHardwareUiAction.requestKeystoneQrFallbackConfirm]: 'qrFallback',
 };
 
 /** The third-party rail's asks — the beats the device is waiting on the
@@ -186,6 +187,7 @@ const THIRD_PARTY_ASK_STEPS: ReadonlySet<IDeviceStageStepValue> = new Set([
   'pairingCode',
   'deviceNotFound',
   'btcHighIndex',
+  'qrFallback',
 ]);
 
 /** How long the ✓ `done` beat rests before the exit. */

@@ -619,6 +619,14 @@ function getDialogContent(
         ),
         showFooter: true,
       };
+    case EThirdPartyHardwareUiAction.requestKeystoneQrFallbackConfirm:
+      return {
+        title: intl.formatMessage({ id: ETranslations.qr_connection_cta }),
+        message: intl.formatMessage({
+          id: ETranslations.hardware_third_party_qr_fallback__desc,
+        }),
+        showFooter: true,
+      };
     case EThirdPartyHardwareUiAction.requestTrezorThpPairing:
       return {
         title: intl.formatMessage({

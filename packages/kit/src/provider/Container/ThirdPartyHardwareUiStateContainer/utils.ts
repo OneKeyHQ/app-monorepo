@@ -103,6 +103,11 @@ export function buildThirdPartyHardwareUiResponse(
         type: UI_RESPONSE.RECEIVE_BTC_HIGH_INDEX_CONFIRM,
         payload: { confirmed },
       };
+    case EThirdPartyHardwareUiAction.requestKeystoneQrFallbackConfirm:
+      return {
+        type: UI_RESPONSE.RECEIVE_QR_FALLBACK_CONFIRM,
+        payload: { confirmed },
+      };
     case EThirdPartyHardwareUiAction.requestTrezorThpPairing:
       // No confirm/deny — the response IS the pairing tag the user typed
       // off the device screen. `confirmed=false` is mapped to cancel.
