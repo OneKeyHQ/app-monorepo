@@ -36,11 +36,12 @@ function truncateForLog(value: string, max: number): string {
 // failed: \(error.localizedDescription)")`) all that survives is Foundation's
 // generic NSError text with the case index:
 //   "The operation couldn’t be completed. (OnramperSDK.BFFRecoveryError error 1.)"
-// The tables below name those indexes. They are pinned to the SDK version in
-// apps/mobile/package.json (1.2.2) and ordered the way NSError numbers enum
-// cases — payload cases first, then no-payload cases, each in declaration
-// order — as recovered from the Swift reflection metadata in the SDK binary.
-// Re-verify on every SDK bump; an unknown enum or index is left untouched.
+// The tables below name those indexes. They were recovered from the Swift
+// reflection metadata of the 1.2.2 SDK binary and ordered the way NSError
+// numbers enum cases — payload cases first, then no-payload cases, each in
+// declaration order. Not re-verified against 1.3.x (which also stops
+// reducing most errors to this text, see realClient.native.ts); an unknown
+// enum or index is left untouched, so a stale table can only miss a name.
 const SDK_INTERNAL_ERROR_CASES: Record<string, readonly string[]> = {
   // SecureBFFClient recovery outcomes. `sdkSessionRejected` is the one seen
   // when the partner session the backend minted does not match the apiKey the
@@ -112,6 +113,7 @@ export function getOnramperErrorFieldsForLog(
     errorCode: error?.code,
     errorMessage: getErrorMessageForLog(error),
     errorInfo: getErrorInfoForLog(error?.info),
+    supportCode: error?.supportCode,
   };
 }
 

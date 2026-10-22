@@ -352,6 +352,56 @@ describe('ServiceFiatCrypto headless buy orders', () => {
     });
   });
 
+  test('discardHeadlessBuyOrder surfaces a hidden order when the provider failed without confirming the payment', async () => {
+    const { service, store } = createService([
+      baseOrder(),
+      baseOrder({ transactionId: 'paid', submittedAt: T0 }),
+    ]);
+    // SDK 1.3 `providerFailed`: the checkout surface broke with the payment
+    // outcome unknown, so the user may have been charged. The record is
+    // shown for tracking instead of being dropped, but nothing proved a
+    // payment: without backend progress the 24 h rule may still fail it.
+    await service.discardHeadlessBuyOrder({
+      transactionId: '01M3',
+      reason: 'providerFailed',
+    });
+    await service.discardHeadlessBuyOrder({
+      transactionId: 'paid',
+      reason: 'providerFailed',
+    });
+    expect(store.get('01M3')).toMatchObject({
+      submittedAt: T0 + 1000,
+      status: EHeadlessBuyOrderStatus.Processing,
+    });
+    expect(store.get('01M3')?.paymentSeen).toBeFalsy();
+    expect(store.get('paid')?.submittedAt).toBe(T0);
+  });
+
+  test('addHeadlessBuyOrder surfaces a record whose provider failure overtook its metadata lookups', async () => {
+    const { service, store, backgroundApi } = createService([]);
+    let releaseAccount: (account: { name: string }) => void = () => undefined;
+    backgroundApi.serviceAccount.getAccount.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          releaseAccount = resolve;
+        }),
+    );
+    const adding = service.addHeadlessBuyOrder(baseOrder());
+    await flushPromises();
+    await service.discardHeadlessBuyOrder({
+      transactionId: '01M3',
+      reason: 'providerFailed',
+    });
+    expect(store.has('01M3')).toBe(false);
+    releaseAccount({ name: 'Account 1' });
+    await adding;
+    expect(store.get('01M3')).toMatchObject({
+      submittedAt: T0 + 1000,
+      status: EHeadlessBuyOrderStatus.Processing,
+      accountName: 'Account 1',
+    });
+  });
+
   test('discardHeadlessBuyOrder keeps a record that got submitted after the read', async () => {
     const { service, store, simpleDb } = createService([baseOrder()]);
     // The `completed` event lands between the service's read and its

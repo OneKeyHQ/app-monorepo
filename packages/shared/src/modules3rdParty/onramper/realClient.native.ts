@@ -17,6 +17,7 @@ import type {
 import type {
   CheckoutEvent,
   EventName,
+  OnramperLogLevel,
   OnramperState,
 } from '@onramper/onramper-react-native';
 
@@ -72,6 +73,10 @@ function toOnramperEvent(
         errorCode: e.error.code,
         message: e.error.message,
         info: e.error.info,
+        // SDK 1.3+: optional on the payload, so an older native SDK still
+        // produces a valid event (the kit layer has its own copy table).
+        userMessage: e.error.userMessage,
+        supportCode: e.error.supportCode,
       };
     case 'providerError':
       return { type: e.type, transactionId, reason: e.reason };
@@ -80,7 +85,9 @@ function toOnramperEvent(
       return { transactionId };
     default:
       // readyToCheckout / cancelled / providerReady / paymentAuthorized /
-      // paymentProcessing / paymentCancelled carry no payload.
+      // paymentProcessing / paymentPending / challengeStarted /
+      // challengeCompleted / customerOnboardingRequired / paymentCancelled
+      // carry no payload.
       return { type: e.type, transactionId };
   }
 }
@@ -109,7 +116,7 @@ function toOnramperState(s: OnramperState): IOnramperState {
   }
 }
 
-// Mirrors the SDK's `OnramperErrorCode` union (1.2.2) — used to validate codes
+// Mirrors the SDK's `OnramperErrorCode` union (1.3.1) — used to validate codes
 // recovered from degraded bridge errors below.
 const KNOWN_ERROR_CODES = new Set([
   'notInitialized',
@@ -120,6 +127,9 @@ const KNOWN_ERROR_CODES = new Set([
   'networkError',
   'decodingError',
   'timeout',
+  'paymentFailed',
+  'providerFailed',
+  'applePayNotConfigured',
   'requirementNotSatisfied',
   'amountOutOfRange',
   'oidcFlowCancelled',
@@ -142,16 +152,17 @@ const KNOWN_ERROR_CODES = new Set([
   'intentInvalidated',
   'intentAlreadyConsumed',
   'clientAlreadyConfigured',
+  'clientDestroyed',
   'sessionExpirationHandlerFailed',
 ]);
 
-// The Nitro bridge drops the structured payload on thrown rejections: JS
-// receives a plain Error whose message is the Swift enum description, e.g.
-// `quoteUnavailable(debugInfo: Optional("OnramperBackend-40003: …"))`, and the
-// JS wrapper stamps it code 'unrecoverable' (verified on device 2026-07-15).
-// Recover the real case name from the message prefix so error classification
-// and user-facing copy stay correct on the thrown path (the parallel `failed`
-// event keeps the structured code, but the quote loop consumes the throw).
+// Up to SDK 1.2.2 the Nitro bridge dropped the structured payload on thrown
+// rejections: JS received a plain Error whose message was the Swift enum
+// description, e.g. `quoteUnavailable(debugInfo: Optional("OnramperBackend-
+// 40003: …"))`, and the JS wrapper stamped it code 'unrecoverable' (verified
+// on device 2026-07-15). SDK 1.3.0 encodes rejections explicitly so the code
+// survives; this recovery stays as a safety net for any path that still
+// degrades (it only ever rewrites an 'unrecoverable' code).
 function withRecoveredErrorCode(error: unknown): unknown {
   const e = error as { code?: string; message?: string };
   if (!e || typeof e !== 'object') {
@@ -168,6 +179,28 @@ function withRecoveredErrorCode(error: unknown): unknown {
   return error;
 }
 
+// Native SDK version (SDK 1.3.1+ static getter). Guarded: an older native
+// SDK has no getter and the read must never take the client down with it.
+function readNativeSdkVersion(): string | undefined {
+  try {
+    const version: unknown = OnramperClient.sdkVersion;
+    return typeof version === 'string' && version ? version : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+// Native log level. With a sink wired, production keeps `info` so a failed
+// checkout's provider trail lands in the exported device log (the sink is
+// local-only, see ICreateOnramperClientParams.onLog); without one there is
+// nobody to read the records and the SDK stays quiet.
+function getLogLevel(hasSink: boolean): OnramperLogLevel {
+  if (platformEnv.isDev) {
+    return 'debug';
+  }
+  return hasSink ? 'info' : 'off';
+}
+
 // Adapts the real Onramper SDK client to IOnramperClient.
 export function createRealOnramperClient(
   params: ICreateOnramperClientParams,
@@ -177,16 +210,31 @@ export function createRealOnramperClient(
       'Onramper credentials missing: fill ONRAMPER_API_KEY / ONRAMPER_CLIENT_ID in realClient.native.ts',
     );
   }
+  const { onLog } = params;
   const client = new OnramperClient({
     apiKey: params.apiKey,
     clientId: params.clientId,
     environment: params.environment,
     theme: params.theme ?? 'system',
-    logLevel: platformEnv.isDev ? 'debug' : 'off',
+    logLevel: getLogLevel(Boolean(onLog)),
+    // The SDK swallows sink exceptions, but a throwing sink would still cost
+    // a console.warn per record; the sink itself is expected not to throw.
+    logHandler: onLog
+      ? (record) =>
+          onLog({
+            timestamp: record.timestamp,
+            level: record.level,
+            category: record.category,
+            event: record.event,
+            context: record.context,
+            message: record.message,
+          })
+      : undefined,
     onSessionExpired: params.onSessionExpired,
   });
   return {
     isMock: false,
+    sdkVersion: readNativeSdkVersion(),
     initialize: (session) => client.initialize(session),
     getCheckoutRequirements: async (request, buttonStyle) => {
       try {

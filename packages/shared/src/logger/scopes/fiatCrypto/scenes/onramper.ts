@@ -18,6 +18,9 @@ type IOnramperErrorFields = {
   errorMessage?: string;
   // Truncated JSON of the SDK's structured `info` payload, when present.
   errorInfo?: string;
+  // SDK 1.3+: the short code the SDK shows users and logs natively; what
+  // Onramper support asks for.
+  supportCode?: string;
 };
 
 // Funnel + diagnostics for the native Onramper Headless buy flow. Every event
@@ -90,7 +93,11 @@ export class OnramperScene extends BaseScene {
   @LogToServer()
   @LogToLocal()
   public clientInitialized(
-    params: IOnramperLogContext & { durationMs: number },
+    params: IOnramperLogContext & {
+      durationMs: number;
+      // Native iOS SDK version actually loaded (SDK 1.3.1+).
+      sdkVersion?: string;
+    },
   ) {
     return params;
   }
@@ -260,6 +267,9 @@ export class OnramperScene extends BaseScene {
   @LogToLocal()
   public checkoutCompleted(
     params: IOnramperLogContext & {
+      // `paymentPending` (SDK 1.3+): accepted but not settled when the
+      // checkout ended; `completed` otherwise.
+      outcome?: 'completed' | 'paymentPending';
       amount?: number;
       ramp?: string;
       // Onramper checkout id — per-attempt handle for locating this order
@@ -365,6 +375,22 @@ export class OnramperScene extends BaseScene {
   @LogToLocal({ level: 'error' })
   public clientDestroyFailed(
     params: IOnramperLogContext & { errorMessage?: string },
+  ) {
+    return params;
+  }
+
+  // Native SDK diagnostics (SDK 1.3 log sink), device log only: the SDK
+  // sanitizes the records, but provider messages can still carry personal
+  // data, so they never go to the server.
+  @LogToLocal()
+  public sdkLog(
+    params: IOnramperLogContext & {
+      level: string;
+      category: string;
+      event: string;
+      message: string;
+      context?: Record<string, string>;
+    },
   ) {
     return params;
   }
