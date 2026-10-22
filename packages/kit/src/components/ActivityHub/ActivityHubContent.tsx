@@ -9,6 +9,7 @@ import {
   Stack,
   XStack,
   YStack,
+  runAfterActionListClose,
   useMedia,
 } from '@onekeyhq/components';
 import GiftExpandOnDark from '@onekeyhq/kit/assets/animations/gift-expand-on-dark.json';
@@ -150,10 +151,9 @@ function closeThenRun(
   closePopover: () => void | Promise<void>,
   action: () => void,
 ) {
-  void (async () => {
-    await closePopover();
-    action();
-  })();
+  void runAfterActionListClose(closePopover, action, {
+    waitForAnimation: false,
+  });
 }
 
 // Campaign links are the one action that must not wait for the close: the host

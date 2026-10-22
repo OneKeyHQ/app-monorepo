@@ -22,6 +22,7 @@ import { PageContext, usePageContext } from '../../layouts/Page/PageContext';
 import { ScrollView } from '../../layouts/ScrollView';
 import { SizableText, XStack, YStack } from '../../primitives';
 import { assertOverlayProps } from '../../shared/assertOverlayProps';
+import { OverlayCloseCancelledError } from '../../shared/overlayCloseCancellation';
 import { NATIVE_HIT_SLOP } from '../../utils/getFontSize';
 import { IconButton } from '../IconButton';
 import { Trigger } from '../Trigger';
@@ -60,8 +61,8 @@ const SHEET_BOTTOM_MARGIN = 20;
 const SHEET_HEADER_CONTENT_OVERLAP = 2;
 
 const WORD_BREAK_ALL_STYLE = { wordBreak: 'break-all' } as const;
-// Longest overlay exit plus slack; only a safety net for `closePopover()`.
-const POPOVER_CLOSE_FALLBACK_MS = 1000;
+// Abnormal fallback after the SDK's 5000 ms close watchdog.
+const POPOVER_CLOSE_FALLBACK_MS = 5500;
 
 const usePopoverValue = (
   open?: boolean,
@@ -139,6 +140,7 @@ function RawPopover({
   title,
   description,
   open: isOpen,
+  logicalOpen = isOpen,
   renderTrigger,
   renderContent,
   floatingPanelProps,
@@ -153,7 +155,7 @@ function RawPopover({
   mountNativePortalBeforeOpen,
   // Tamagui floating-panel props do not apply to the native sheet.
   ..._props
-}: IPopoverProps) {
+}: IPopoverProps & { logicalOpen?: boolean }) {
   useDeferredGuideBlocker(Boolean(isOpen));
   const { bottom } = useSafeAreaInsets();
   const { height: viewportHeight } = useWindowDimensions();
@@ -283,6 +285,14 @@ function RawPopover({
         )
       : undefined;
   const hasOpenedNativeSheetRef = useRef(false);
+  const hasRequestedNativeSheetRef = useRef(false);
+  const previousOpenRef = useRef(false);
+  const openCycleRef = useRef(0);
+  if (logicalOpen && !previousOpenRef.current) openCycleRef.current += 1;
+  previousOpenRef.current = Boolean(logicalOpen);
+  const renderCycle = openCycleRef.current;
+  const desiredOpenRef = useRef(Boolean(logicalOpen));
+  desiredOpenRef.current = Boolean(logicalOpen);
   const nativeSheetOpen = Boolean(
     useNativeSheet &&
     isOpen &&
@@ -290,6 +300,7 @@ function RawPopover({
       hasOpenedNativeSheetRef.current ||
       nativeFitSheetHeight !== undefined),
   );
+  if (nativeSheetOpen) hasRequestedNativeSheetRef.current = true;
   useIsomorphicLayoutEffect(() => {
     if (!isOpen) {
       hasOpenedNativeSheetRef.current = false;
@@ -297,47 +308,91 @@ function RawPopover({
       hasOpenedNativeSheetRef.current = true;
     }
   }, [isOpen, nativeSheetOpen]);
-  // `closePopover()` resolves once the sheet's exit animation finished; the
-  // timer only covers a sheet that never presented.
-  const closeResolversRef = useRef<Array<() => void>>([]);
-  const pendingCloseRef = useRef<Promise<void> | undefined>(undefined);
-  const flushCloseResolvers = useCallback(() => {
-    const resolvers = closeResolversRef.current;
-    closeResolversRef.current = [];
-    resolvers.forEach((resolve) => resolve());
+  // `closePopover()` resolves on the sheet's exit callback. The timer also
+  // covers a missing callback after the SDK's close watchdog.
+  const pendingCloseRef = useRef<
+    | {
+        promise: Promise<void>;
+        resolve: () => void;
+        reject: (error: Error) => void;
+        timer: ReturnType<typeof setTimeout>;
+        sawClosed: boolean;
+      }
+    | undefined
+  >(undefined);
+  const flushPendingClose = useCallback((cancelled = false) => {
+    const pending = pendingCloseRef.current;
+    if (!pending) return;
+    pendingCloseRef.current = undefined;
+    clearTimeout(pending.timer);
+    if (cancelled) {
+      pending.reject(
+        new OverlayCloseCancelledError('Popover close canceled by reopening'),
+      );
+    } else {
+      pending.resolve();
+    }
   }, []);
-  useEffect(() => () => flushCloseResolvers(), [flushCloseResolvers]);
+  useEffect(() => () => flushPendingClose(), [flushPendingClose]);
+  useIsomorphicLayoutEffect(() => {
+    if (pendingCloseRef.current) {
+      if (!logicalOpen) {
+        pendingCloseRef.current.sawClosed = true;
+      } else if (pendingCloseRef.current.sawClosed) {
+        flushPendingClose(true);
+      }
+    }
+  }, [flushPendingClose, logicalOpen]);
   const handleClosePopover = useCallback(() => {
     if (pendingCloseRef.current) {
-      return pendingCloseRef.current;
+      return pendingCloseRef.current.promise;
     }
-    if (!nativeSheetOpen) {
+    if (!nativeSheetOpen && !hasRequestedNativeSheetRef.current) {
       closePopover?.();
       return Promise.resolve();
     }
-    const completion = new Promise<void>((resolve) => {
-      const timer = setTimeout(flushCloseResolvers, POPOVER_CLOSE_FALLBACK_MS);
-      closeResolversRef.current.push(() => {
-        clearTimeout(timer);
-        resolve();
-      });
+    let resolve: () => void = () => undefined;
+    let reject: (error: Error) => void = () => undefined;
+    const promise = new Promise<void>((done, fail) => {
+      resolve = done;
+      reject = fail;
     });
-    pendingCloseRef.current = completion.finally(() => {
-      pendingCloseRef.current = undefined;
-    });
+    void promise.catch(() => undefined);
+    const timer = setTimeout(flushPendingClose, POPOVER_CLOSE_FALLBACK_MS);
+    pendingCloseRef.current = {
+      promise,
+      resolve,
+      reject,
+      timer,
+      sawClosed: false,
+    };
     closePopover?.();
-    return pendingCloseRef.current;
-  }, [closePopover, flushCloseResolvers, nativeSheetOpen]);
+    return promise;
+  }, [closePopover, flushPendingClose, nativeSheetOpen]);
   const onSheetAnimationComplete = sheetProps?.onAnimationComplete;
+  const hasOpenAttemptRef = useRef(false);
   const handleSheetAnimationComplete = useCallback(
     (info: { open: boolean }) => {
-      onSheetAnimationComplete?.(info);
-      if (!info.open) {
-        flushCloseResolvers();
+      if (renderCycle !== openCycleRef.current) return;
+      if (!info.open && !desiredOpenRef.current) {
+        hasRequestedNativeSheetRef.current = false;
+        hasOpenAttemptRef.current = false;
+        flushPendingClose();
       }
+      onSheetAnimationComplete?.(info);
     },
-    [flushCloseResolvers, onSheetAnimationComplete],
+    [flushPendingClose, onSheetAnimationComplete, renderCycle],
   );
+  useIsomorphicLayoutEffect(() => {
+    if (isOpen) {
+      hasOpenAttemptRef.current = true;
+    } else if (
+      hasOpenAttemptRef.current &&
+      !hasRequestedNativeSheetRef.current
+    ) {
+      handleSheetAnimationComplete({ open: false });
+    }
+  }, [handleSheetAnimationComplete, isOpen]);
 
   useDismissKeyboard(isOpen);
 
@@ -495,6 +550,7 @@ function BasicPopover({
     () => (
       <RawPopover
         open={popoverOpen}
+        logicalOpen={isOpen}
         onOpenChange={onOpenChange}
         openPopover={openPopover}
         closePopover={closePopover}
@@ -508,6 +564,7 @@ function BasicPopover({
     [
       closePopover,
       keepChildrenMounted,
+      isOpen,
       mountNativePortalBeforeOpen,
       onOpenChange,
       openPopover,
