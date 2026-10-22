@@ -593,6 +593,36 @@ describe('convertDeviceError', () => {
 });
 
 describe('classifyThirdPartyHwCreateFailures', () => {
+  const keystoneBtcAccountLimit = {
+    networkId: 'btc--0',
+    error: {
+      code: ThirdPartyHwErrorCode.DevicePathForbidden,
+      key: ETranslations.hardware_third_party_keystone_btc_account_one_only__msg,
+    },
+  };
+  const otherPathForbidden = {
+    networkId: 'btc--0',
+    error: {
+      code: ThirdPartyHwErrorCode.DevicePathForbidden,
+      key: ETranslations.hardware_third_party_path_not_supported__msg,
+    },
+  };
+
+  it('quiets the Keystone Bitcoin account limit while other chains were added', () => {
+    expect(
+      classifyThirdPartyHwCreateFailures({
+        addedCount: 3,
+        failedAccounts: [keystoneBtcAccountLimit, otherPathForbidden],
+      }).genuineFailures,
+    ).toEqual([otherPathForbidden]);
+    expect(
+      classifyThirdPartyHwCreateFailures({
+        addedCount: 0,
+        failedAccounts: [keystoneBtcAccountLimit],
+      }).genuineFailures,
+    ).toEqual([keystoneBtcAccountLimit]);
+  });
+
   it('keeps device out-of-memory failures when at least one account succeeded', () => {
     const failedAccount = {
       error: {

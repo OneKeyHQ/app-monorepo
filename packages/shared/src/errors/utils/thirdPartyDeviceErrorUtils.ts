@@ -1,6 +1,7 @@
 import { HardwareErrorCode as ThirdPartyHwErrorCode } from '@onekeyfe/hwk-adapter-core';
 
 import { EHardwareVendor } from '../../../types/device';
+import { ETranslations } from '../../locale';
 import * as ThirdPartyErrors from '../errors/thirdPartyHardwareErrors';
 import { EOneKeyErrorClassNames } from '../types/errorTypes';
 
@@ -294,6 +295,20 @@ export function convertThirdPartyDeviceError(
   }
 }
 
+/**
+ * Keystone signs Bitcoin only on account #1. The key is the one ThirdPartyPathForbidden picks for
+ * a Keystone wallet, so this follows that single decision instead of re-deriving it.
+ */
+export function isKeystoneBtcAccountLimitError(
+  error: Pick<IOneKeyError, 'code' | 'key'>,
+): boolean {
+  return (
+    error.code === ThirdPartyHwErrorCode.DevicePathForbidden &&
+    error.key ===
+      ETranslations.hardware_third_party_keystone_btc_account_one_only__msg
+  );
+}
+
 // Classify a third-party HW batch address-create result. Shared by the auto
 // (AccountSelectorActions) and manual (useAccountSelectorCreateAddress) paths so
 // the bare-device AppNotInstalled rule lives in one place.
@@ -301,7 +316,7 @@ export function convertThirdPartyDeviceError(
 //   (the device has no app for these chains).
 // - genuineFailures: failures other than AppNotInstalled (surface these).
 export function classifyThirdPartyHwCreateFailures<
-  T extends { error: Pick<IOneKeyError, 'code'> },
+  T extends { error: Pick<IOneKeyError, 'code' | 'key'> },
 >(params: {
   addedCount: number;
   failedAccounts: T[];
@@ -316,6 +331,8 @@ export function classifyThirdPartyHwCreateFailures<
   const genuineFailures = failedAccounts.filter((f) => {
     if (f.error.code === ThirdPartyHwErrorCode.AppNotInstalled) return false;
     if (isThirdPartyInstallAppUserCancelCode(f.error.code)) return false;
+    // Like a missing Ledger app: quiet while other chains were added, reported when none were.
+    if (addedCount > 0 && isKeystoneBtcAccountLimitError(f.error)) return false;
     // If at least one chain succeeded, transient mid-flow re-pair errors with
     // changed BLE/USB connectId shouldn't fail the flow.
     if (
