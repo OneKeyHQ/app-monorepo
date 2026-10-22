@@ -379,11 +379,10 @@ export class OnramperScene extends BaseScene {
     return params;
   }
 
-  // Native SDK diagnostics (SDK 1.3 log sink), device log only and already
-  // reduced by sanitizeOnramperLogRecord: allow-listed identifier / code
-  // context keys, and the free-form message only in dev builds. The device
-  // log is exportable, so nothing the SDK's best-effort redaction might miss
-  // is persisted here; nothing goes to the server either.
+  // Native SDK diagnostics (SDK 1.3 log sink): dev builds only (production
+  // keeps the native log level off), device log only, and already reduced
+  // by sanitizeOnramperLogRecord to format-checked identifier / code / timing
+  // context keys plus the free-form message. Nothing goes to the server.
   @LogToLocal()
   public sdkLog(
     params: IOnramperLogContext & {

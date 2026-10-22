@@ -515,22 +515,38 @@ class ServiceFiatCrypto extends ServiceBase {
   public async markHeadlessBuyOrderSubmitted({
     transactionId,
     order: fallback,
+    paymentSeen,
   }: {
     transactionId: string;
     order?: IAddHeadlessBuyOrderParams;
+    // True when the SDK reported a paid outcome (`completed` /
+    // `paymentPending`): payment evidence, so the 24 h no-payment rule never
+    // fails the order even when no `paymentAuthorized` event preceded it.
+    // The abandon / replay paths leave it unset.
+    paymentSeen?: boolean;
   }): Promise<void> {
     const { simpleDb } = this.backgroundApi;
     const existing = await simpleDb.headlessBuyOrders.getOrder({
       transactionId,
     });
     if (existing?.submittedAt !== undefined) {
+      if (paymentSeen && !existing.paymentSeen) {
+        await simpleDb.headlessBuyOrders.patchOrder({
+          transactionId,
+          patch: { paymentSeen: true },
+        });
+        this.emitHeadlessBuyOrdersChanged();
+      }
       return;
     }
     const submittedAt = Date.now();
+    const patch = paymentSeen
+      ? { submittedAt, paymentSeen: true }
+      : { submittedAt };
     let recordedBeforePayment = Boolean(existing);
     let next = await simpleDb.headlessBuyOrders.patchOrder({
       transactionId,
-      patch: { submittedAt },
+      patch,
     });
     if (!next) {
       if (!fallback) {
@@ -545,13 +561,13 @@ class ServiceFiatCrypto extends ServiceBase {
       recordedBeforePayment = false;
       const inserted = await this.insertHeadlessBuyOrder({
         ...built,
-        submittedAt,
+        ...patch,
       });
       next = inserted
-        ? { ...built, submittedAt }
+        ? { ...built, ...patch }
         : await simpleDb.headlessBuyOrders.patchOrder({
             transactionId,
-            patch: { submittedAt },
+            patch,
           });
       if (!next) {
         return;

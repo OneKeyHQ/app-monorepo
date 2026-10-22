@@ -190,15 +190,15 @@ function readNativeSdkVersion(): string | undefined {
   }
 }
 
-// Native log level. With a sink wired, production keeps `info` so a failed
-// checkout's provider trail lands in the exported device log (the sink is
-// local-only, see ICreateOnramperClientParams.onLog); without one there is
-// nobody to read the records and the SDK stays quiet.
-function getLogLevel(hasSink: boolean): OnramperLogLevel {
-  if (platformEnv.isDev) {
-    return 'debug';
-  }
-  return hasSink ? 'info' : 'off';
+// Native log level. The RN bridge (HybridOnramperNitro.swift) hands every
+// record to the SDK's unified-log handler (`OnramperLog.systemHandler`,
+// emitted `.public`) BEFORE relaying it to JS, so any level above `off`
+// writes the raw record — provider message included — to the iOS system log
+// (Console.app, system diagnostic bundles) where no JS-side sanitizing can reach it.
+// Production therefore stays `off`; dev builds log at `debug` and also
+// receive the records through `onLog`.
+function getLogLevel(): OnramperLogLevel {
+  return platformEnv.isDev ? 'debug' : 'off';
 }
 
 // Adapts the real Onramper SDK client to IOnramperClient.
@@ -216,9 +216,10 @@ export function createRealOnramperClient(
     clientId: params.clientId,
     environment: params.environment,
     theme: params.theme ?? 'system',
-    logLevel: getLogLevel(Boolean(onLog)),
-    // The SDK swallows sink exceptions, but a throwing sink would still cost
-    // a console.warn per record; the sink itself is expected not to throw.
+    logLevel: getLogLevel(),
+    // Only reached at a level above `off`, i.e. in dev builds. The SDK
+    // swallows sink exceptions, but a throwing sink would still cost a
+    // console.warn per record; the sink itself is expected not to throw.
     logHandler: onLog
       ? (record) =>
           onLog({

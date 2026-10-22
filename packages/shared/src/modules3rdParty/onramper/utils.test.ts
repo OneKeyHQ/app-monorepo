@@ -114,6 +114,10 @@ describe('sanitizeOnramperLogRecord', () => {
     context: {
       transactionId: '01M4DBV8MVHV30CSPGERNYDBWN',
       statusCode: '402',
+      durationMs: '1532',
+      status: 'payment_failed',
+      path: '/v2/{sessionApiKey}/client-sessions',
+      host: 'api.onramper.com',
       email: 'jane@example.com',
       phone: '+1 415 555 0100',
       error: 'Card declined for Jane Doe',
@@ -121,7 +125,7 @@ describe('sanitizeOnramperLogRecord', () => {
     },
   };
 
-  it('keeps only identifier and code context keys and drops the message in production', () => {
+  it('keeps only allow-listed keys whose values match their strict format and drops the message by default', () => {
     expect(sanitizeOnramperLogRecord(record, { keepMessage: false })).toEqual({
       level: 'info',
       category: 'checkout',
@@ -129,6 +133,10 @@ describe('sanitizeOnramperLogRecord', () => {
       context: {
         transactionId: '01M4DBV8MVHV30CSPGERNYDBWN',
         statusCode: '402',
+        durationMs: '1532',
+        status: 'payment_failed',
+        path: '/v2/{sessionApiKey}/client-sessions',
+        host: 'api.onramper.com',
       },
     });
   });
@@ -139,19 +147,28 @@ describe('sanitizeOnramperLogRecord', () => {
     ).toBe(record.message);
   });
 
-  it('drops allowed keys whose values look like personal data and caps long values', () => {
+  it('drops allow-listed keys whose values are free-form or look like personal data', () => {
     const { context } = sanitizeOnramperLogRecord(
       {
         ...record,
         context: {
-          transactionId: 'someone@example.com',
-          statusCode: '4155550100',
+          // Free text in an identifier / token slot.
+          transactionId: 'Jane Doe',
+          status: 'declined: contact Jane Doe',
+          // Card and phone numbers, with and without formatting.
+          supportCode: '4242 4242 4242 4242',
+          code: '4242424242424242',
+          intentId: 'someone@example.com',
+          // Non-numeric where a number is required, and an over-long route.
+          statusCode: 'four-oh-two',
           path: `/v2/${'x'.repeat(200)}`,
+          // Still fine.
+          errorCode: 'providerFailed',
         },
       },
       { keepMessage: false },
     );
-    expect(context).toEqual({ path: `/v2/${'x'.repeat(116)}…` });
+    expect(context).toEqual({ errorCode: 'providerFailed' });
   });
 
   it('omits an empty context', () => {

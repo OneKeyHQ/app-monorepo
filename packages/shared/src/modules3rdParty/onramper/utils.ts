@@ -117,49 +117,61 @@ export function getOnramperErrorFieldsForLog(
   };
 }
 
-// Context keys of an SDK log record (SDK 1.3 log sink) that may be persisted:
-// identifiers, codes and timings only. The SDK redacts provider messages on a
-// best-effort basis, and the device log is exportable (support bundles), so
-// every other key — and the free-form message outside dev builds — is dropped
-// before the record is written. Session / token material is deliberately not
-// listed.
-const SDK_LOG_CONTEXT_ALLOWED_KEYS = new Set([
-  'transactionId',
-  'checkoutId',
-  'headlessCheckoutId',
-  'intentId',
-  'onrampTransactionId',
-  'supportCode',
-  'code',
-  'errorCode',
-  'status',
-  'statusCode',
-  'httpStatus',
-  'state',
-  'event',
-  'provider',
-  'onramp',
-  'ramp',
-  'paymentType',
-  'paymentMethod',
-  'renderType',
-  'durationMs',
-  'elapsedMs',
-  'attempt',
-  'retries',
-  'path',
-  'route',
-  'method',
-  'host',
-  'environment',
-  'sdkVersion',
-  'platform',
-]);
-const SDK_LOG_VALUE_MAX_LENGTH = 120;
-// An allowed key can still carry a personal value by mistake (an email in an
-// id slot, a phone or card number in a code slot): drop anything that looks
-// like one rather than persist it.
-const SDK_LOG_PERSONAL_VALUE_PATTERN = /@|\d{9,}/;
+// Context keys of an SDK log record (SDK 1.3 log sink) that may be persisted,
+// each with the strict shape its value must have: identifiers, single tokens,
+// small numbers, route templates and hosts. Anything else — unknown keys, free
+// text, formatted card or phone numbers — is dropped, because the SDK's
+// redaction of provider strings is best-effort and the device log is
+// exportable. Session / token material is deliberately not listed.
+const SDK_LOG_ID_PATTERN = /^[A-Za-z0-9_.:-]{1,64}$/;
+const SDK_LOG_TOKEN_PATTERN = /^[A-Za-z0-9_.-]{1,40}$/;
+const SDK_LOG_NUMBER_PATTERN = /^-?\d{1,7}$/;
+const SDK_LOG_ROUTE_PATTERN = /^\/[A-Za-z0-9_/.{}:-]{0,119}$/;
+const SDK_LOG_HOST_PATTERN = /^[A-Za-z0-9.-]{1,120}$/;
+// An unformatted card or phone number fits the identifier shape; nine or more
+// consecutive digits never occur in the ids above.
+const SDK_LOG_DIGIT_RUN_PATTERN = /\d{9,}/;
+const SDK_LOG_CONTEXT_FORMATS: Record<string, RegExp> = {
+  transactionId: SDK_LOG_ID_PATTERN,
+  checkoutId: SDK_LOG_ID_PATTERN,
+  headlessCheckoutId: SDK_LOG_ID_PATTERN,
+  intentId: SDK_LOG_ID_PATTERN,
+  onrampTransactionId: SDK_LOG_ID_PATTERN,
+  supportCode: SDK_LOG_ID_PATTERN,
+  code: SDK_LOG_ID_PATTERN,
+  errorCode: SDK_LOG_ID_PATTERN,
+  status: SDK_LOG_TOKEN_PATTERN,
+  state: SDK_LOG_TOKEN_PATTERN,
+  event: SDK_LOG_TOKEN_PATTERN,
+  provider: SDK_LOG_TOKEN_PATTERN,
+  onramp: SDK_LOG_TOKEN_PATTERN,
+  ramp: SDK_LOG_TOKEN_PATTERN,
+  paymentType: SDK_LOG_TOKEN_PATTERN,
+  paymentMethod: SDK_LOG_TOKEN_PATTERN,
+  renderType: SDK_LOG_TOKEN_PATTERN,
+  method: SDK_LOG_TOKEN_PATTERN,
+  environment: SDK_LOG_TOKEN_PATTERN,
+  platform: SDK_LOG_TOKEN_PATTERN,
+  sdkVersion: SDK_LOG_TOKEN_PATTERN,
+  statusCode: SDK_LOG_NUMBER_PATTERN,
+  httpStatus: SDK_LOG_NUMBER_PATTERN,
+  durationMs: SDK_LOG_NUMBER_PATTERN,
+  elapsedMs: SDK_LOG_NUMBER_PATTERN,
+  attempt: SDK_LOG_NUMBER_PATTERN,
+  retries: SDK_LOG_NUMBER_PATTERN,
+  path: SDK_LOG_ROUTE_PATTERN,
+  route: SDK_LOG_ROUTE_PATTERN,
+  host: SDK_LOG_HOST_PATTERN,
+};
+
+function isAllowedSdkLogValue(key: string, value: string): boolean {
+  const format = SDK_LOG_CONTEXT_FORMATS[key];
+  return (
+    Boolean(format) &&
+    format.test(value) &&
+    !SDK_LOG_DIGIT_RUN_PATTERN.test(value)
+  );
+}
 
 export type ISanitizedOnramperLogRecord = {
   level: string;
@@ -169,9 +181,9 @@ export type ISanitizedOnramperLogRecord = {
   context?: Record<string, string>;
 };
 
-// Reduces an SDK log record to what may be written to the device log. The
-// message is kept only when the caller asks (dev builds); production keeps
-// the structured fields, which are enough to rebuild a checkout timeline.
+// Reduces an SDK log record to what may be written to the device log: the
+// level / category / event enums, the format-checked context above, and the
+// free-form message only when the caller asks (dev builds).
 export function sanitizeOnramperLogRecord(
   record: IOnramperLogRecord,
   { keepMessage }: { keepMessage: boolean },
@@ -179,12 +191,8 @@ export function sanitizeOnramperLogRecord(
   const context: Record<string, string> = {};
   Object.entries(record.context ?? {}).forEach(([key, raw]) => {
     const value = String(raw ?? '');
-    if (
-      SDK_LOG_CONTEXT_ALLOWED_KEYS.has(key) &&
-      value &&
-      !SDK_LOG_PERSONAL_VALUE_PATTERN.test(value)
-    ) {
-      context[key] = truncateForLog(value, SDK_LOG_VALUE_MAX_LENGTH);
+    if (isAllowedSdkLogValue(key, value)) {
+      context[key] = value;
     }
   });
   const sanitized: ISanitizedOnramperLogRecord = {

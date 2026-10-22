@@ -206,6 +206,37 @@ describe('ServiceFiatCrypto headless buy orders', () => {
     expect(store.has('ghost')).toBe(false);
   });
 
+  test('markHeadlessBuyOrderSubmitted records payment evidence for a paid checkout outcome', async () => {
+    const { service, store } = createService([baseOrder()]);
+    // `completed` / `paymentPending` are the SDK's paid outcomes: the order
+    // must never be failed by the 24 h no-payment rule afterwards, even when
+    // no `paymentAuthorized` event preceded them (non-Coinbase flows).
+    await service.markHeadlessBuyOrderSubmitted({
+      transactionId: '01M3',
+      paymentSeen: true,
+    });
+    expect(store.get('01M3')).toMatchObject({
+      submittedAt: T0 + 1000,
+      paymentSeen: true,
+    });
+    // Same when the pre-payment record never landed and the fallback creates it.
+    await service.markHeadlessBuyOrderSubmitted({
+      transactionId: 'late',
+      order: baseOrder({ transactionId: 'late' }),
+      paymentSeen: true,
+    });
+    expect(store.get('late')).toMatchObject({
+      submittedAt: T0 + 1000,
+      paymentSeen: true,
+    });
+    // Without the flag (abandon / replay paths) nothing is claimed.
+    await service.markHeadlessBuyOrderSubmitted({
+      transactionId: 'plain',
+      order: baseOrder({ transactionId: 'plain' }),
+    });
+    expect(store.get('plain')?.paymentSeen).toBeFalsy();
+  });
+
   test('payment-seen and viewed flags are set once', async () => {
     const { service, store, simpleDb } = createService([
       baseOrder(),

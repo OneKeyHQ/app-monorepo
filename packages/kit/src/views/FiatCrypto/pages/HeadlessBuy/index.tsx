@@ -339,6 +339,10 @@ function HeadlessBuyPage() {
           {
             transactionId,
             order: buildOrderParamsRef.current(transactionId),
+            // Both outcomes mean the provider accepted the payment: evidence
+            // enough that the 24 h no-payment rule must never fail this
+            // order (flows without a `paymentAuthorized` event included).
+            paymentSeen: true,
           },
         );
       } catch (error) {

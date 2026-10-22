@@ -157,10 +157,11 @@ export function useOnramperCheckout({
       createOnramperClient({
         // Real config on device (clientId from Onramper); the mock ignores it.
         ...getOnramperConfig(),
-        // SDK 1.3 structured log records → device log only, and only the
-        // allow-listed identifier / code fields: the device log is exportable
-        // and the SDK's redaction of provider messages is best-effort, so the
-        // free-form message is kept in dev builds alone.
+        // SDK 1.3 structured log records → device log only. Production keeps
+        // the native log level off (see realClient getLogLevel), so this
+        // only fires in dev builds; even there only format-checked
+        // identifier / code fields are persisted and the free-form message
+        // stays dev-only, because dev device logs get exported too.
         onLog: (record) => {
           defaultLogger.fiatCrypto.onramper.sdkLog({
             ...getLogContext(),

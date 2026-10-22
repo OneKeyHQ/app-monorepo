@@ -227,9 +227,11 @@ export type ICreateOnramperClientParams = IOnramperConfig & {
   // Invoked by the SDK when the partner session is about to expire; must return
   // a freshly minted pair (from the OneKey backend) without user interaction.
   onSessionExpired: () => Promise<IOnramperSession>;
-  // Receives the native SDK's structured log records (SDK 1.3+). Must stay
-  // cheap and must not throw; the records are sanitized by the SDK but
-  // provider messages can still carry personal data, so keep them on-device.
+  // Receives the native SDK's structured log records (SDK 1.3+) — in dev
+  // builds only, since production keeps the native log level off (the bridge
+  // also writes every record to the iOS system log, see realClient). Must
+  // stay cheap and must not throw; provider messages can still carry
+  // personal data, so persist only format-checked fields (sanitizeOnramperLogRecord).
   onLog?: (record: IOnramperLogRecord) => void;
 };
 
