@@ -13,12 +13,14 @@ import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { IMarketTokenDetailPreview } from '@onekeyhq/shared/types/marketV2';
 
 import {
+  isFocusedMarketDetailRouteName,
   openOrReplaceMarketDetailRoute,
   prepareMarketDetailTabBarTransition,
   replaceFocusedMarketDetailRoute,
 } from '../../../utils/marketDetailNavigation';
 import { prewarmMarketTokenDetailPreviewImages } from '../../utils/marketDetailImagePreload';
 import { resolveMarketStockId } from '../../utils/resolveIsStockToken';
+import { resolveMarketAssetRouteIdentity } from '../../utils/resolveMarketAssetRouteIdentity';
 
 export async function navigateToMarketTokenDetail(
   selectedToken: {
@@ -87,16 +89,42 @@ export async function navigateToMarketTokenDetail(
   }
   prewarmMarketTokenDetailPreviewImages(opts.tokenDetailPreview);
 
-  const shortCode = networkUtils.getNetworkShortCode({
-    networkId: token.networkId,
-  });
-
   const stockId = resolveMarketStockId({
     stockId: token.stockId,
   });
-  const shouldResolveMarketAsset = Boolean(
+  let shouldResolveMarketAsset = Boolean(
     opts.resolveMarketAsset && !token.assetId && !stockId,
   );
+  if (
+    shouldResolveMarketAsset &&
+    !platformEnv.isNative &&
+    opts.tokenDetailPreview?.symbol &&
+    isFocusedMarketDetailRouteName(
+      rootNavigationRef.current?.getCurrentRoute()?.name,
+    )
+  ) {
+    const identity = await resolveMarketAssetRouteIdentity({
+      networkId: token.networkId,
+      tokenAddress: token.address,
+      symbol: opts.tokenDetailPreview.symbol,
+      isNative: token.isNative,
+    });
+    if (!isCurrentRequest()) return;
+    if (identity) {
+      token = {
+        ...token,
+        assetId: identity.marketTokenId,
+        address: identity.tokenAddress,
+        networkId: identity.networkId,
+        isNative: identity.isNative,
+      };
+      marketVariantId = identity.marketVariantId;
+    }
+    shouldResolveMarketAsset = false;
+  }
+  const shortCode = networkUtils.getNetworkShortCode({
+    networkId: token.networkId,
+  });
 
   if (stockId) {
     opts.tokenDetailActions.current.prepareStockTokenDetail({

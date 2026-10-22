@@ -84,12 +84,14 @@ class DottedAreaPaneRenderer implements ICustomSeriesPaneRenderer {
   }
 
   draw: ICustomSeriesPaneRenderer['draw'] = (target, priceConverter) => {
-    if (!this.data?.bars.length) {
+    if (!this.data?.bars.length || !this.data.visibleRange) {
       return;
     }
 
     const options = this.options;
-    const bars = this.data.bars;
+    const { bars, visibleRange } = this.data;
+    // The library only refreshes x coordinates inside this range on resize.
+    const visibleBars = bars.slice(visibleRange.from, visibleRange.to);
 
     target.useBitmapCoordinateSpace((scope) => {
       const { context: ctx } = scope;
@@ -102,7 +104,7 @@ class DottedAreaPaneRenderer implements ICustomSeriesPaneRenderer {
       const ySpacing = Math.max(1, options.patternSpacing) * verticalRatio;
       const bottom = scope.bitmapSize.height;
 
-      const points = bars
+      const points = visibleBars
         .map((bar) => {
           const y = priceConverter(bar.originalData.value);
           if (y === null) {
@@ -170,7 +172,7 @@ class DottedAreaPaneRenderer implements ICustomSeriesPaneRenderer {
       ctx.stroke();
       ctx.restore();
 
-      if (options.showLastPointMarker) {
+      if (options.showLastPointMarker && visibleRange.to === bars.length) {
         ctx.save();
         ctx.fillStyle = options.lastPointMarkerColor;
         ctx.beginPath();

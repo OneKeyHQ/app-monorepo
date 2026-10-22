@@ -3,12 +3,16 @@ import { isTabBarHiddenByRequest } from '@onekeyhq/shared/src/tabBar/hideTabBarR
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
 import { finishMarketDetailTabBarTransition } from '../../../utils/marketDetailNavigation';
+import { resolveMarketAssetRouteIdentity } from '../../utils/resolveMarketAssetRouteIdentity';
 
 import { convertSearchTokenToMarketToken } from './constants';
 import { navigateToMarketTokenDetail } from './navigateToMarketTokenDetail';
 
 const mockFetchAssetDetail = jest.fn<Promise<unknown>, unknown[]>();
 const mockToastError = jest.fn();
+jest.mock('../../utils/resolveMarketAssetRouteIdentity', () => ({
+  resolveMarketAssetRouteIdentity: jest.fn(),
+}));
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
   default: {
@@ -107,6 +111,7 @@ jest.mock('@react-navigation/native', () => ({
 describe('navigateToMarketTokenDetail', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    jest.mocked(resolveMarketAssetRouteIdentity).mockReset();
     jest.useFakeTimers();
     platformEnv.isDesktop = true;
     platformEnv.isNative = false;
@@ -246,6 +251,100 @@ describe('navigateToMarketTokenDetail', () => {
     expect(onError).toHaveBeenCalledTimes(1);
     expect(changeActiveTokenMock).not.toHaveBeenCalled();
     expect(navigateMock).not.toHaveBeenCalled();
+  });
+
+  it.each([true, false])(
+    'resolves the next desktop selector layout before updating the current route (asset=%s)',
+    async (matchesAsset) => {
+      getCurrentRouteMock.mockReturnValue({
+        name: 'MarketDetailV2',
+        key: 'detail',
+      });
+      const preview = {
+        address: '0xtoken',
+        networkId: 'evm--1',
+        symbol: 'TOKEN',
+        name: 'Token',
+        decimals: 18,
+        selectedAt: 1,
+      };
+      const identity = {
+        marketTokenId: 'token',
+        marketVariantId: 'token-eth',
+        networkId: 'evm--1',
+        tokenAddress: '0xtoken',
+        isNative: false,
+      };
+      let resolve!: (value: typeof identity | undefined) => void;
+      jest.mocked(resolveMarketAssetRouteIdentity).mockReturnValueOnce(
+        new Promise((done) => {
+          resolve = done;
+        }),
+      );
+      const beforeNavigate = jest.fn();
+      const pending = navigateToMarketTokenDetail(preview, {
+        tokenDetailActions,
+        tokenDetailPreview: preview,
+        resolveMarketAsset: true,
+        beforeNavigate,
+      });
+      expect(dispatchMock).not.toHaveBeenCalled();
+      expect(changeActiveTokenMock).not.toHaveBeenCalled();
+      expect(beforeNavigate).not.toHaveBeenCalled();
+      resolve(matchesAsset ? identity : undefined);
+      await pending;
+      expect(beforeNavigate).toHaveBeenCalledTimes(1);
+      jest.runAllTimers();
+      expect(dispatchMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: 'SET_PARAMS',
+          payload: {
+            params: expect.objectContaining({
+              tokenAddress: '0xtoken',
+              resolveMarketAsset: undefined,
+              marketTokenId: matchesAsset ? 'token' : undefined,
+              marketTokenCategory: matchesAsset ? 'top_coins' : undefined,
+            }),
+          },
+        }),
+      );
+    },
+  );
+
+  it('does not close or navigate an obsolete desktop selector request', async () => {
+    getCurrentRouteMock.mockReturnValue({
+      name: 'MarketDetailV2',
+      key: 'detail',
+    });
+    const preview = {
+      address: '0xtoken',
+      networkId: 'evm--1',
+      symbol: 'TOKEN',
+      name: 'Token',
+      decimals: 18,
+      selectedAt: 1,
+    };
+    let resolve!: () => void;
+    jest.mocked(resolveMarketAssetRouteIdentity).mockReturnValueOnce(
+      new Promise((done) => {
+        resolve = () => done(undefined);
+      }),
+    );
+    let isCurrent = true;
+    const beforeNavigate = jest.fn();
+    const pending = navigateToMarketTokenDetail(preview, {
+      tokenDetailActions,
+      tokenDetailPreview: preview,
+      resolveMarketAsset: true,
+      beforeNavigate,
+      isCurrentRequest: () => isCurrent,
+    });
+    isCurrent = false;
+    resolve();
+    await pending;
+    expect(beforeNavigate).not.toHaveBeenCalled();
+    expect(dispatchMock).not.toHaveBeenCalled();
+    expect(changeActiveTokenMock).not.toHaveBeenCalled();
   });
 
   it.each([false, true])(
