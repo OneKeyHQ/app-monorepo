@@ -64,9 +64,15 @@ export function useDustSweepActiveItemScroll({
       revealed.current = { sessionId, keys: new Set() };
     if (!activeKey || revealed.current.keys.has(activeKey)) return;
     const layout = rowsLayout.current;
+    // A tall mobile live sheet can cover most of the list; keep at least one
+    // row of the viewport usable so the active row still lands in view.
+    const inset = Math.min(
+      bottomInset,
+      Math.max(0, viewportHeight.current - rowHeight),
+    );
     if (
       !scrollViewRef.current ||
-      viewportHeight.current <= bottomInset ||
+      viewportHeight.current <= 0 ||
       !layout ||
       // RNW rounds layout measurements at fractional display scales.
       layout.height + 1 < (activeIndex + 1) * rowHeight
@@ -77,7 +83,7 @@ export function useDustSweepActiveItemScroll({
       height: rowHeight,
       offset: offset.current,
       viewportHeight: viewportHeight.current,
-      bottomInset,
+      bottomInset: inset,
     });
     // Check each token only once, including when it is already visible.
     // Status, pause/resume and layout changes must not reclaim user scrolling.
