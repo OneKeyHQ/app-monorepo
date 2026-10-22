@@ -1,11 +1,16 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
 const test = require('node:test');
 
 const {
   OXLINT_CONFIG_PATH,
+  createSignalCleanupHandler,
   createTypeAwareOxlintConfig,
   getJsPluginRulePrefix,
+  getTempTypeAwareConfigName,
+  getTempTypeAwareConfigPath,
   parseOxlintConfig,
   parseOxlintCounts,
 } = require('./eslint');
@@ -77,4 +82,53 @@ test('parses warning and error counts from oxlint summary output', () => {
     parseOxlintCounts('Found 1 warning and 3 errors.\nFinished in 12.1s'),
     { warnings: 1, errors: 3 },
   );
+});
+
+test('scopes temporary type-aware config path by pid to prevent concurrent run collisions', () => {
+  assert.equal(
+    getTempTypeAwareConfigName(12345),
+    '.oxlintrc.type-aware.12345.tmp.json',
+  );
+  assert.notEqual(
+    getTempTypeAwareConfigPath('/repo', 1001),
+    getTempTypeAwareConfigPath('/repo', 1002),
+  );
+});
+
+test('signal cleanup handler kills active child, deletes temp config, and exits with 130/143', () => {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'onekey-oxlint-test-'));
+  const tempConfigPath = getTempTypeAwareConfigPath(tempDir, 4242);
+  fs.writeFileSync(tempConfigPath, '{}');
+
+  const killedSignals = [];
+  const exitCodes = [];
+  const fakeChild = {
+    killed: false,
+    kill(signal) {
+      killedSignals.push(signal);
+      this.killed = true;
+    },
+  };
+
+  const handleSignal = createSignalCleanupHandler({
+    tempConfigPath,
+    getActiveChild: () => fakeChild,
+    exitProcess: (code) => exitCodes.push(code),
+  });
+
+  handleSignal('SIGTERM');
+
+  assert.equal(fs.existsSync(tempConfigPath), false);
+  assert.deepEqual(killedSignals, ['SIGTERM']);
+  assert.deepEqual(exitCodes, [143]);
+
+  fs.writeFileSync(tempConfigPath, '{}');
+  fakeChild.killed = false;
+  handleSignal('SIGINT');
+
+  assert.equal(fs.existsSync(tempConfigPath), false);
+  assert.deepEqual(killedSignals, ['SIGTERM', 'SIGINT']);
+  assert.deepEqual(exitCodes, [143, 130]);
+
+  fs.rmSync(tempDir, { recursive: true, force: true });
 });

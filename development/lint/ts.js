@@ -61,10 +61,11 @@ try {
     ],
     {
       // Cap Go heap growth in @typescript/native (tsgo) so 16 GB CI runners do
-      // not get terminated with SIGTERM (exit code 143) under memory pressure.
+      // not get terminated with SIGTERM (exit code 143) under memory pressure,
+      // while leaving enough headroom above the ~8 GB live AST heap to avoid GC thrashing.
       env: {
         ...process.env,
-        GOMEMLIMIT: process.env.GOMEMLIMIT || '6GiB',
+        GOMEMLIMIT: process.env.GOMEMLIMIT || '11GiB',
       },
     },
   ).toString('utf-8');

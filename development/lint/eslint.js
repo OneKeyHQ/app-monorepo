@@ -1,5 +1,5 @@
 /* cspell:words GOMEMLIMIT tsgolint */
-const { execFileSync } = require('child_process');
+const { spawn } = require('child_process');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
@@ -9,14 +9,27 @@ const ts = require('typescript');
 
 const ROOT_DIR = path.resolve(__dirname, '../..');
 const OXLINT_CONFIG_PATH = path.join(ROOT_DIR, '.oxlintrc.json');
-const TYPE_AWARE_TMP_CONFIG_NAME = '.oxlintrc.type-aware.tmp.json';
-const TYPE_AWARE_TMP_CONFIG_PATH = path.join(
-  ROOT_DIR,
-  TYPE_AWARE_TMP_CONFIG_NAME,
-);
-const DEFAULT_TSGOLINT_GOMEMLIMIT = '6GiB';
+const DEFAULT_TSGOLINT_GOMEMLIMIT = '11GiB';
 
 const getTimestamp = () => new Date().toLocaleTimeString();
+
+function getTempTypeAwareConfigName(pid = process.pid) {
+  return `.oxlintrc.type-aware.${pid}.tmp.json`;
+}
+
+function getTempTypeAwareConfigPath(rootDir = ROOT_DIR, pid = process.pid) {
+  return path.join(rootDir, getTempTypeAwareConfigName(pid));
+}
+
+function getSignalExitCode(signal) {
+  if (signal === 'SIGINT') {
+    return 130;
+  }
+  if (signal === 'SIGTERM') {
+    return 143;
+  }
+  return 1;
+}
 
 function resolvePackageBinary(packageName, rootDir = ROOT_DIR) {
   const manifestPath = require.resolve(`${packageName}/package.json`, {
@@ -103,18 +116,66 @@ function parseOxlintCounts(output) {
   };
 }
 
-function runOxlintPass({ oxlintBin, args, env }) {
-  const result = execFileSync(process.execPath, [oxlintBin, ...args], {
-    cwd: ROOT_DIR,
-    encoding: 'utf-8',
-    stdio: 'pipe',
-    env,
+function spawnNodeBinary({ binPath, args, env = process.env, onChild }) {
+  return new Promise((resolve, reject) => {
+    const child = spawn(process.execPath, [binPath, ...args], {
+      cwd: ROOT_DIR,
+      env,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+    if (onChild) {
+      onChild(child);
+    }
+
+    const stdoutChunks = [];
+    const stderrChunks = [];
+    child.stdout.on('data', (chunk) => stdoutChunks.push(chunk));
+    child.stderr.on('data', (chunk) => stderrChunks.push(chunk));
+
+    child.on('error', (error) => {
+      if (onChild) {
+        onChild(null);
+      }
+      reject(error);
+    });
+
+    child.on('close', (code, signal) => {
+      if (onChild) {
+        onChild(null);
+      }
+      const stdout = Buffer.concat(stdoutChunks).toString('utf-8');
+      const stderr = Buffer.concat(stderrChunks).toString('utf-8');
+      if (code === 0) {
+        resolve({ stdout, stderr });
+        return;
+      }
+      const error = new Error(
+        `Command failed with ${signal ? `signal ${signal}` : `exit code ${code}`}`,
+      );
+      error.status = code;
+      error.signal = signal;
+      error.stdout = stdout;
+      error.stderr = stderr;
+      reject(error);
+    });
   });
-  const { warnings, errors } = parseOxlintCounts(result);
-  return { output: result, warnings, errors };
 }
 
-function removeTempTypeAwareConfig(configPath = TYPE_AWARE_TMP_CONFIG_PATH) {
+async function runOxlintPass({ oxlintBin, args, env, onChild }) {
+  const { stdout } = await spawnNodeBinary({
+    binPath: oxlintBin,
+    args,
+    env,
+    onChild,
+  });
+  const { warnings, errors } = parseOxlintCounts(stdout);
+  return { output: stdout, warnings, errors };
+}
+
+function removeTempTypeAwareConfig(configPath) {
+  if (!configPath) {
+    return;
+  }
   try {
     fs.unlinkSync(configPath);
   } catch {
@@ -122,7 +183,26 @@ function removeTempTypeAwareConfig(configPath = TYPE_AWARE_TMP_CONFIG_PATH) {
   }
 }
 
-function main() {
+function createSignalCleanupHandler({
+  tempConfigPath,
+  getActiveChild,
+  exitProcess = exit,
+}) {
+  return (signal) => {
+    const activeChild = getActiveChild ? getActiveChild() : null;
+    if (activeChild && !activeChild.killed) {
+      try {
+        activeChild.kill(signal);
+      } catch {
+        // Ignore if child already exited.
+      }
+    }
+    removeTempTypeAwareConfig(tempConfigPath);
+    exitProcess(getSignalExitCode(signal));
+  };
+}
+
+async function main() {
   // Detect CI environment - most CI platforms set CI=true
   const isCI = Boolean(process.env.CI);
 
@@ -134,6 +214,23 @@ function main() {
   // ============================================
   console.log(`[${getTimestamp()}] Oxlint check started...`);
   const oxlintStartTime = Date.now();
+  const tempConfigName = getTempTypeAwareConfigName(process.pid);
+  const tempConfigPath = getTempTypeAwareConfigPath(ROOT_DIR, process.pid);
+  let activeChild = null;
+  const setActiveChild = (child) => {
+    activeChild = child;
+  };
+  const cleanupOnExit = () => {
+    removeTempTypeAwareConfig(tempConfigPath);
+  };
+  const cleanupOnSignal = createSignalCleanupHandler({
+    tempConfigPath,
+    getActiveChild: () => activeChild,
+  });
+
+  process.once('exit', cleanupOnExit);
+  process.once('SIGINT', cleanupOnSignal);
+  process.once('SIGTERM', cleanupOnSignal);
 
   try {
     const cpus =
@@ -149,7 +246,7 @@ function main() {
 
     // Pass 1: Standard native rules + JS plugins without spawning tsgolint.
     const standardStartTime = Date.now();
-    const standardPass = runOxlintPass({
+    const standardPass = await runOxlintPass({
       oxlintBin,
       args: [
         '--tsconfig',
@@ -160,6 +257,7 @@ function main() {
         ...fixArgs,
       ],
       env: process.env,
+      onChild: setActiveChild,
     });
     const standardDuration = ((Date.now() - standardStartTime) / 1000).toFixed(
       2,
@@ -184,24 +282,17 @@ function main() {
       parseOxlintConfig(rawConfig),
     );
     fs.writeFileSync(
-      TYPE_AWARE_TMP_CONFIG_PATH,
+      tempConfigPath,
       `${JSON.stringify(typeAwareConfig, null, 2)}\n`,
     );
 
-    const cleanupOnSignal = () => {
-      removeTempTypeAwareConfig();
-    };
-    process.once('exit', cleanupOnSignal);
-    process.once('SIGINT', cleanupOnSignal);
-    process.once('SIGTERM', cleanupOnSignal);
-
     try {
       const typeAwareStartTime = Date.now();
-      const typeAwarePass = runOxlintPass({
+      const typeAwarePass = await runOxlintPass({
         oxlintBin,
         args: [
           '-c',
-          `./${TYPE_AWARE_TMP_CONFIG_NAME}`,
+          `./${tempConfigName}`,
           '--tsconfig',
           './tsconfig.json',
           '--type-aware',
@@ -214,6 +305,7 @@ function main() {
           ...process.env,
           GOMEMLIMIT: process.env.GOMEMLIMIT || DEFAULT_TSGOLINT_GOMEMLIMIT,
         },
+        onChild: setActiveChild,
       });
       const typeAwareDuration = (
         (Date.now() - typeAwareStartTime) /
@@ -235,10 +327,7 @@ function main() {
         `[${getTimestamp()}] Oxlint type-aware pass completed. (${typeAwareDuration}s)`,
       );
     } finally {
-      process.removeListener('exit', cleanupOnSignal);
-      process.removeListener('SIGINT', cleanupOnSignal);
-      process.removeListener('SIGTERM', cleanupOnSignal);
-      removeTempTypeAwareConfig();
+      removeTempTypeAwareConfig(tempConfigPath);
     }
 
     const oxlintDuration = ((Date.now() - oxlintStartTime) / 1000).toFixed(2);
@@ -246,7 +335,7 @@ function main() {
       `[${getTimestamp()}] Oxlint check passed. (${oxlintDuration}s)`,
     );
   } catch (error) {
-    removeTempTypeAwareConfig();
+    removeTempTypeAwareConfig(tempConfigPath);
     const oxlintDuration = ((Date.now() - oxlintStartTime) / 1000).toFixed(2);
     if (error.stdout) {
       console.log(error.stdout.toString('utf-8'));
@@ -272,10 +361,10 @@ function main() {
       ...(isCI ? ['--check'] : []),
       '**/*.{js,jsx,ts,tsx,mjs,cjs}',
     ];
-    execFileSync(process.execPath, [oxfmtBin, ...oxfmtArgs], {
-      cwd: ROOT_DIR,
-      encoding: 'utf-8',
-      stdio: 'pipe',
+    await spawnNodeBinary({
+      binPath: oxfmtBin,
+      args: oxfmtArgs,
+      onChild: setActiveChild,
     });
     const oxfmtDuration = ((Date.now() - oxfmtStartTime) / 1000).toFixed(2);
     console.log(`[${getTimestamp()}] Oxfmt check passed. (${oxfmtDuration}s)`);
@@ -289,17 +378,25 @@ function main() {
     }
     console.log(`[${getTimestamp()}] Oxfmt check failed. (${oxfmtDuration}s)`);
     exit(1);
+  } finally {
+    process.removeListener('exit', cleanupOnExit);
+    process.removeListener('SIGINT', cleanupOnSignal);
+    process.removeListener('SIGTERM', cleanupOnSignal);
   }
 }
 
 if (require.main === module) {
-  main();
+  void main();
 }
 
 module.exports = {
   OXLINT_CONFIG_PATH,
+  createSignalCleanupHandler,
   createTypeAwareOxlintConfig,
   getJsPluginRulePrefix,
+  getSignalExitCode,
+  getTempTypeAwareConfigName,
+  getTempTypeAwareConfigPath,
   parseOxlintConfig,
   parseOxlintCounts,
   stripJsPluginRules,
