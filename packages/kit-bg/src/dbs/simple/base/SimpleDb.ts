@@ -311,6 +311,19 @@ export class SimpleDb {
     return value;
   }
 
+  get broadcastRecords() {
+    const value = createLazyServiceProxy({
+      serviceName: 'simpleDb@broadcastRecords',
+      loader: () =>
+        import('../entity/SimpleDbEntityBroadcastRecords').then(
+          ({ SimpleDbEntityBroadcastRecords }) =>
+            new SimpleDbEntityBroadcastRecords(),
+        ),
+    });
+    Object.defineProperty(this, 'broadcastRecords', { value });
+    return value;
+  }
+
   get marketWatchList() {
     const value = createLazyServiceProxy({
       serviceName: 'simpleDb@marketWatchList',

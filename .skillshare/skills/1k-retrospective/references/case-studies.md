@@ -669,3 +669,17 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries �
 **Fix**: Resolve the same top-coin listing before painting the badge, hide it until that match finishes, and reuse the result when the user adds the tokens.
 **Catchable by**: Section 4: data flow end-to-end; NEW — a display rule and the later save rule must share one identity, not a cheaper proxy that only covers part of the set
 
+## Case: Invite consent write could land on the account that became active
+**Date**: 2026-10-21 | **Platforms**: Desktop, Mobile, Web, Extension
+**Symptom**: Toggling invite nickname/avatar consent could update a different OneKey ID if the account changed before the request left the background runtime.
+**Root Cause**: `updateInviteProfilePublic` remembered the user id, then sent a PUT with no pinned token. The request interceptor attached whoever was current. The local atom guard ran only after the server accepted the write.
+**Fix**: The switch passes the user id visible at tap time. The service captures that account's auth snapshot, sends `X-Onekey-Request-Token`, and refuses success if the session changed before or after the PUT.
+**Catchable by**: Section 5: race conditions in async operations; NEW — an account-scoped write must pin the token captured for the initiating user, not only guard the local state write
+
+## Case: A non-user-info payload cleared invite consent
+**Date**: 2026-10-21 | **Platforms**: Desktop, Mobile, Web, Extension
+**Symptom**: The invite profile switch could show off after a legacy login or a profile-only fallback even though the server still had consent on.
+**Root Cause**: `updatePrimeAtomByServerUserInfo` treated a missing `inviteProfilePublic` as off for every caller. Legacy `/prime/v1/user/login` and a complete `/account/profile` fallback omit the field.
+**Fix**: Only a successful `GET /prime/v1/user/info` normalizes an omitted field to false, and that value is applied after the profile merge. Other payloads keep the same user's value unless they include a real boolean.
+**Catchable by**: Section 4: shared writer checked for every caller; NEW — an omitted optional field is authoritative only for the endpoint that owns it
+

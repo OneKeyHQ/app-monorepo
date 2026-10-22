@@ -16,6 +16,7 @@ import type { SimpleDbEntityApproval } from '../entity/SimpleDbEntityApproval';
 import type { SimpleDbEntityAppStatus } from '../entity/SimpleDbEntityAppStatus';
 import type { SimpleDbEntityBabylonSync } from '../entity/SimpleDbEntityBabylonSync';
 import type { SimpleDbEntityBotWallet } from '../entity/SimpleDbEntityBotWallet';
+import type { SimpleDbEntityBroadcastRecords } from '../entity/SimpleDbEntityBroadcastRecords';
 import type { SimpleDbEntityBrowserBookmarks } from '../entity/SimpleDbEntityBrowserBookmarks';
 import type { SimpleDbEntityBrowserClosedTabs } from '../entity/SimpleDbEntityBrowserClosedTabs';
 import type { SimpleDbEntityBrowserHistory } from '../entity/SimpleDbEntityBrowserHistory';
@@ -167,6 +168,10 @@ export class SimpleDbProxy
   lightning = this._createProxyService('lightning') as SimpleDbEntityLightning;
 
   feeInfo = this._createProxyService('feeInfo') as SimpleDbEntityFeeInfo;
+
+  broadcastRecords = this._createProxyService(
+    'broadcastRecords',
+  ) as SimpleDbEntityBroadcastRecords;
 
   marketTokenPreference = this._createProxyService(
     'marketTokenPreference',

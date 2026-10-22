@@ -7,6 +7,8 @@ export const WALLET_TYPE_IMPORTED = 'imported'; // as walletId
 export const WALLET_TYPE_WATCHING = 'watching'; // as walletId
 export const WALLET_TYPE_EXTERNAL = 'external'; // as walletId
 
+export const DEV_UNKNOWN_AVATAR_DEVICE_ID = 'onekey-dev-unknown-avatar-v1';
+
 // Bot wallet constants
 export const BOT_WALLET_ID_PREFIX = 'hd-bot--';
 export const BOT_WALLET_STATUS_ACTIVE = 'active' as const;
