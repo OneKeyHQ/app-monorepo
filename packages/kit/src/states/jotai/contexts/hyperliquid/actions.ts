@@ -403,6 +403,10 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
 
   private activeInstrumentChangeRequestId = 0;
 
+  private activeInstrumentChangeTarget:
+    | Pick<IActiveTradeInstrument, 'mode' | 'coin'>
+    | undefined;
+
   private loadTwapDataRequestId = 0;
 
   private loadTwapDataInFlightByAccount = new Map<
@@ -410,8 +414,11 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
     ITwapDataLoadPromises
   >();
 
-  private beginActiveInstrumentChange(): number {
+  private beginActiveInstrumentChange(
+    target: Pick<IActiveTradeInstrument, 'mode' | 'coin'>,
+  ): number {
     this.activeInstrumentChangeRequestId += 1;
+    this.activeInstrumentChangeTarget = target;
     return this.activeInstrumentChangeRequestId;
   }
 
@@ -419,9 +426,18 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
     return requestId === this.activeInstrumentChangeRequestId;
   }
 
-  captureActiveInstrumentChangeGuard(): () => boolean {
+  captureActiveInstrumentChangeGuard(
+    expectedTarget?: Pick<IActiveTradeInstrument, 'mode' | 'coin'>,
+  ): () => boolean {
     const requestId = this.activeInstrumentChangeRequestId;
-    return () => this.isLatestActiveInstrumentChange(requestId);
+    // Initial page hydration may start another request for the same target.
+    return () =>
+      this.isLatestActiveInstrumentChange(requestId) ||
+      Boolean(
+        expectedTarget &&
+        this.activeInstrumentChangeTarget?.mode === expectedTarget.mode &&
+        this.activeInstrumentChangeTarget.coin === expectedTarget.coin,
+      );
   }
 
   private filterCanceledTwapOrders(
@@ -1584,7 +1600,9 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         subscriptionRecoveryProof?: ISubscriptionRecoveryProof;
       },
     ) => {
-      const requestId = existingRequestId ?? this.beginActiveInstrumentChange();
+      const requestId =
+        existingRequestId ??
+        this.beginActiveInstrumentChange({ mode: 'perp', coin });
       const optimisticInstrument: IActiveTradeInstrument = {
         mode: 'perp',
         coin,
@@ -1760,7 +1778,9 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         subscriptionRecoveryProof?: ISubscriptionRecoveryProof;
       },
     ) => {
-      const requestId = existingRequestId ?? this.beginActiveInstrumentChange();
+      const requestId =
+        existingRequestId ??
+        this.beginActiveInstrumentChange({ mode: 'spot', coin });
       const optimisticInstrument: IActiveTradeInstrument = {
         mode: 'spot',
         coin,
@@ -1926,7 +1946,10 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         coin: params.coin,
         force: !!params.force,
       });
-      const requestId = this.beginActiveInstrumentChange();
+      const requestId = this.beginActiveInstrumentChange({
+        mode: params.mode,
+        coin: params.coin,
+      });
       if (params.mode === 'spot') {
         let spotUniverse = params.spotUniverse;
         if (!spotUniverse) {
@@ -3924,8 +3947,10 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
 
 const createActions = memoFn(() => new ContextJotaiActionsHyperliquid());
 
-export function capturePerpsInstrumentChangeGuard(): () => boolean {
-  return createActions().captureActiveInstrumentChangeGuard();
+export function capturePerpsInstrumentChangeGuard(
+  expectedTarget?: Pick<IActiveTradeInstrument, 'mode' | 'coin'>,
+): () => boolean {
+  return createActions().captureActiveInstrumentChangeGuard(expectedTarget);
 }
 
 export function useHyperliquidActions() {

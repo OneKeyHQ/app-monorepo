@@ -306,10 +306,56 @@ it('invalidates a captured instrument guard as soon as a real UI switch starts',
   expect(isCurrent()).toBe(false);
   expect(capturePerpsInstrumentChangeGuard()()).toBe(true);
   await act(async () => {
-    stop(new Error('stopped before BG write'));
+    stop(new OneKeyLocalError('stopped before BG write'));
     await expect(switching).rejects.toThrow('stopped before BG write');
   });
 });
+
+it.each([
+  { entry: 'switch', coin: 'BTC', allowed: true },
+  { entry: 'perp', coin: 'ETH', allowed: false },
+  { entry: 'spot', coin: 'BTC', allowed: false },
+])(
+  'checks the latest requested target for the $entry entry before BG writes',
+  async ({ entry, coin, allowed }) => {
+    let stop!: (error: Error) => void;
+    mockCancelPendingActiveAssetChange.mockImplementationOnce(
+      () =>
+        new Promise<void>((_resolve, reject) => {
+          stop = reject;
+        }),
+    );
+    const store = createStore();
+    const { result } = renderHook(() => useHyperliquidActions(), {
+      wrapper: createWrapper(store),
+    });
+    const strictGuard = capturePerpsInstrumentChangeGuard();
+    const targetGuard = capturePerpsInstrumentChangeGuard({
+      mode: 'perp',
+      coin: 'BTC',
+    });
+    let switching!: Promise<boolean>;
+    act(() => {
+      const actions = result.current.current;
+      if (entry === 'switch') {
+        switching = actions.switchTradeInstrument({ mode: 'perp', coin });
+      } else if (entry === 'perp') {
+        switching = actions.changeActiveAsset({ coin });
+      } else {
+        switching = actions.changeActiveSpotAsset({
+          coin,
+          spotUniverse: undefined,
+        });
+      }
+    });
+    expect(strictGuard()).toBe(false);
+    expect(targetGuard()).toBe(allowed);
+    await act(async () => {
+      stop(new OneKeyLocalError('stopped before BG write'));
+      await expect(switching).rejects.toThrow('stopped before BG write');
+    });
+  },
+);
 
 describe('useHyperliquidActions.ensureTradingEnabled', () => {
   beforeEach(() => {
