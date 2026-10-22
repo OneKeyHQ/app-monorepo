@@ -95,7 +95,7 @@ const mockSkiaFont = jest.fn<SkFont, [{ fontFamily: string }, number]>(
             : 0,
         ),
       measureText: (text: string) => ({
-        width: text.length * (typeface.fontFamily === 'Geist Mono' ? 2 : 1),
+        width: text.length * (typeface.fontFamily === 'Inter' ? 2 : 1),
       }),
     } as unknown as SkFont;
   },
@@ -561,7 +561,7 @@ describe('TradingViewNative Skia scene renderer', () => {
       const resources = createResources({
         legendFont: mockSkiaFont({ fontFamily: family }, 11),
         priceAxisTypeface: {
-          fontFamily: 'Geist Mono',
+          fontFamily: 'Inter',
         } as unknown as SkTypeface,
       });
       mockBuildTradingViewNativeChartScene.mockImplementation((options) => {
@@ -615,12 +615,12 @@ describe('TradingViewNative Skia scene renderer', () => {
   );
 
   it.each([false, true])(
-    'measures and draws compact indicator values with the bundled font when system coverage is %s',
+    'measures and draws compact indicator values with Inter when system coverage is %s',
     (supported) => {
       mockFontGlyphsByFamily.System = supported ? '₀₁₂₃₄₅₆₇₈₉' : '';
-      mockFontGlyphsByFamily['Geist Mono'] = '₀₁₂₃₄₅₆₇₈₉';
+      mockFontGlyphsByFamily.Inter = '₀₁₂₃₄₅₆₇₈₉';
       const priceAxisTypeface = {
-        fontFamily: 'Geist Mono',
+        fontFamily: 'Inter',
       } as unknown as SkTypeface;
       const resources = createResources({
         priceAxisTypeface,
@@ -648,10 +648,10 @@ describe('TradingViewNative Skia scene renderer', () => {
       createPicture(resources);
 
       expect(resources.legendSubscriptFont).toEqual(
-        expect.objectContaining({ fontFamily: 'Geist Mono', fontSize: 11 }),
+        expect.objectContaining({ fontFamily: 'Inter', fontSize: 11 }),
       );
       expect(resources.fonts.priceAxis).toEqual(
-        expect.objectContaining({ fontFamily: 'Geist Mono', fontSize: 12 }),
+        expect.objectContaining({ fontFamily: 'Inter', fontSize: 12 }),
       );
       expect(mockCanvas.drawText).toHaveBeenCalledWith(
         text,
@@ -675,12 +675,12 @@ describe('TradingViewNative Skia scene renderer', () => {
     ).toBe(resources.fonts.legend);
   });
 
-  it('uses the bundled font for compact values and preserves plain values and localized labels', () => {
+  it('uses Inter for compact values and preserves plain values and localized labels', () => {
     mockFontGlyphsByFamily.System = '指标₆';
-    mockFontGlyphsByFamily['Geist Mono'] = '₀₁₂₃₄₅₆₇₈₉';
+    mockFontGlyphsByFamily.Inter = '₀₁₂₃₄₅₆₇₈₉';
     const resources = createResources({
       priceAxisTypeface: {
-        fontFamily: 'Geist Mono',
+        fontFamily: 'Inter',
       } as unknown as SkTypeface,
     });
 

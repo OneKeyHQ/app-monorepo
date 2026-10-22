@@ -475,8 +475,7 @@ function BasicTradingViewNativeDebugPanel({
         color: '#c9d1d9',
         display: 'flex',
         flexDirection: 'column',
-        fontFamily:
-          'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
+        fontFamily: 'system-ui, sans-serif',
         fontSize: 11,
         height: panelSize.height,
         left: position.x,

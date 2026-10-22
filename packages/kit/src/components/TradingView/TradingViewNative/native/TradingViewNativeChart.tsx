@@ -112,7 +112,7 @@ const SYSTEM_FONT_FAMILY = platformEnv.isNativeAndroid
   ? 'sans-serif'
   : 'System';
 const PRICE_AXIS_FONT_SOURCE =
-  require('@onekeyhq/components/src/hocs/Provider/fonts/GeistMono-Regular.ttf') as number;
+  require('@onekeyhq/components/src/hocs/Provider/fonts/fallback/Inter-Regular.ttf') as number;
 const ONEKEY_WATERMARK_SOURCE =
   require('@onekeyhq/components/svg/illus/logo.svg') as number;
 const PRICE_AXIS_FONT_URI = Image.resolveAssetSource(
