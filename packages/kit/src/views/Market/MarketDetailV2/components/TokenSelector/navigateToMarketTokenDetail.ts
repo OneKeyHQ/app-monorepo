@@ -95,6 +95,7 @@ export async function navigateToMarketTokenDetail(
   let shouldResolveMarketAsset = Boolean(
     opts.resolveMarketAsset && !token.assetId && !stockId,
   );
+  let shouldDeferTokenInitialization = false;
   if (
     shouldResolveMarketAsset &&
     !platformEnv.isNative &&
@@ -103,6 +104,7 @@ export async function navigateToMarketTokenDetail(
       rootNavigationRef.current?.getCurrentRoute()?.name,
     )
   ) {
+    shouldDeferTokenInitialization = true;
     const identity = await resolveMarketAssetRouteIdentity({
       networkId: token.networkId,
       tokenAddress: token.address,
@@ -126,27 +128,31 @@ export async function navigateToMarketTokenDetail(
     networkId: token.networkId,
   });
 
-  if (stockId) {
-    opts.tokenDetailActions.current.prepareStockTokenDetail({
-      tokenAddress: token.address,
-      networkId: token.networkId,
-      isNative: token.isNative,
-    });
-  } else if (shouldResolveMarketAsset) {
-    if (opts.tokenDetailPreview) {
-      opts.tokenDetailActions.current.prepareTokenDetailPreview(
-        opts.tokenDetailPreview,
-      );
+  // Desktop preflight keeps the previous detail visible; the destination route
+  // initializes shared state after taking ownership.
+  if (!shouldDeferTokenInitialization) {
+    if (stockId) {
+      opts.tokenDetailActions.current.prepareStockTokenDetail({
+        tokenAddress: token.address,
+        networkId: token.networkId,
+        isNative: token.isNative,
+      });
+    } else if (shouldResolveMarketAsset) {
+      if (opts.tokenDetailPreview) {
+        opts.tokenDetailActions.current.prepareTokenDetailPreview(
+          opts.tokenDetailPreview,
+        );
+      } else {
+        opts.tokenDetailActions.current.clearTokenDetail();
+      }
     } else {
-      opts.tokenDetailActions.current.clearTokenDetail();
+      void opts.tokenDetailActions.current.changeActiveToken({
+        tokenAddress: token.address,
+        networkId: token.networkId,
+        isNative: token.isNative ?? false,
+        tokenDetailPreview: opts.tokenDetailPreview,
+      });
     }
-  } else {
-    void opts.tokenDetailActions.current.changeActiveToken({
-      tokenAddress: token.address,
-      networkId: token.networkId,
-      isNative: token.isNative ?? false,
-      tokenDetailPreview: opts.tokenDetailPreview,
-    });
   }
 
   const targetTab = ETabRoutes.Market;

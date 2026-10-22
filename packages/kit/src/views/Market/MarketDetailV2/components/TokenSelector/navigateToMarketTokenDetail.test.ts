@@ -294,6 +294,9 @@ describe('navigateToMarketTokenDetail', () => {
       resolve(matchesAsset ? identity : undefined);
       await pending;
       expect(beforeNavigate).toHaveBeenCalledTimes(1);
+      expect(changeActiveTokenMock).not.toHaveBeenCalled();
+      expect(prepareTokenDetailPreviewMock).not.toHaveBeenCalled();
+      expect(clearTokenDetailMock).not.toHaveBeenCalled();
       jest.runAllTimers();
       expect(dispatchMock).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -310,10 +313,6 @@ describe('navigateToMarketTokenDetail', () => {
           },
         }),
       );
-      if (!matchesAsset) {
-        expect(changeActiveTokenMock).not.toHaveBeenCalled();
-        expect(prepareTokenDetailPreviewMock).toHaveBeenCalledWith(preview);
-      }
     },
   );
 
