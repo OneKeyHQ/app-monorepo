@@ -1203,6 +1203,7 @@ export function MobileLayout({
         swapToken={toSwapPanelToken}
         portfolioData={portfolioData}
         onShowSwapDialog={showSwapDialog}
+        isPortfolioPending={isPortfolioPending}
         executionReady={isSwapTokenReady && isSwapExecutionReady}
         footerMode={footerMode}
         mobileLayout

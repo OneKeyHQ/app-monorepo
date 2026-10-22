@@ -24347,6 +24347,7 @@
     "packages/kit/src/views/Market/MarketDetailV2/hooks/useMarketDetailBackNavigation.ts": 7361,
     "packages/kit/src/views/Market/MarketDetailV2/hooks/useMarketDetailDisplayData.ts": 13685,
     "packages/kit/src/views/Market/MarketDetailV2/hooks/useMarketDetailPositionTab.ts": 13049,
+    "packages/kit/src/views/Market/MarketDetailV2/hooks/useMarketDetailTabBarVisibility.ts": 14580,
     "packages/kit/src/views/Market/MarketDetailV2/hooks/useMarketDetailWatchlistIdentity.ts": 12053,
     "packages/kit/src/views/Market/MarketDetailV2/hooks/useMarketHolders.ts": 921,
     "packages/kit/src/views/Market/MarketDetailV2/hooks/useMarketHolders.utils.ts": 8392,
