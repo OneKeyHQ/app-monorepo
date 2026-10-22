@@ -1,5 +1,5 @@
 diff --git a/node_modules/@react-navigation/native-stack/lib/module/views/NativeStackView.native.js b/node_modules/@react-navigation/native-stack/lib/module/views/NativeStackView.native.js
-index a21f04f..c9141af 100644
+index a21f04f..81949ab 100644
 --- a/node_modules/@react-navigation/native-stack/lib/module/views/NativeStackView.native.js
 +++ b/node_modules/@react-navigation/native-stack/lib/module/views/NativeStackView.native.js
 @@ -242,10 +242,10 @@ const SceneView = ({
@@ -17,6 +17,15 @@ index a21f04f..c9141af 100644
          homeIndicatorHidden: autoHideHomeIndicator,
          hideKeyboardOnSwipe: keyboardHandlingEnabled,
          navigationBarColor: navigationBarColor,
+@@ -255,6 +255,8 @@ const SceneView = ({
+         stackPresentation: presentation === 'card' ? 'push' : presentation,
+         stackAnimation: animation,
+         screenOrientation: orientation,
++        screenOrientationAnimated: options.orientationAnimated,
++        screenContentReady: options.contentReady,
+         sheetAllowedDetents: sheetAllowedDetents,
+         sheetLargestUndimmedDetentIndex: sheetLargestUndimmedDetentIndex,
+         sheetGrabberVisible: sheetGrabberVisible,
 diff --git a/node_modules/@react-navigation/native-stack/lib/module/views/useHeaderConfigProps.js b/node_modules/@react-navigation/native-stack/lib/module/views/useHeaderConfigProps.js
 index 492390b..a2da541 100644
 --- a/node_modules/@react-navigation/native-stack/lib/module/views/useHeaderConfigProps.js
@@ -33,8 +42,38 @@ index 492390b..a2da541 100644
  }
  //# sourceMappingURL=useHeaderConfigProps.js.map
 \ No newline at end of file
+diff --git a/node_modules/@react-navigation/native-stack/lib/typescript/src/types.d.ts b/node_modules/@react-navigation/native-stack/lib/typescript/src/types.d.ts
+index 98c516c..b46ab1d 100644
+--- a/node_modules/@react-navigation/native-stack/lib/typescript/src/types.d.ts
++++ b/node_modules/@react-navigation/native-stack/lib/typescript/src/types.d.ts
+@@ -721,6 +721,10 @@ export type NativeStackNavigationOptions = {
+      * Only supported on iOS and Android.
+      */
+     orientation?: ScreenProps['screenOrientation'];
++    /** OneKey patch: animate system orientation updates on iOS. Defaults to true. */
++    orientationAnimated?: ScreenProps['screenOrientationAnimated'];
++  /** OneKey patch: retain the previous native frame until this screen is ready. */
++  contentReady?: ScreenProps['screenContentReady'];
+     /**
+      * Whether inactive screens should be suspended from re-rendering. Defaults to `false`.
+      * Defaults to `true` when `enableFreeze()` is run at the top of the application.
+diff --git a/node_modules/@react-navigation/native-stack/src/types.tsx b/node_modules/@react-navigation/native-stack/src/types.tsx
+index 12c5cf6..328398e 100644
+--- a/node_modules/@react-navigation/native-stack/src/types.tsx
++++ b/node_modules/@react-navigation/native-stack/src/types.tsx
+@@ -773,6 +773,10 @@ export type NativeStackNavigationOptions = {
+    * Only supported on iOS and Android.
+    */
+   orientation?: ScreenProps['screenOrientation'];
++  /** OneKey patch: animate system orientation updates on iOS. Defaults to true. */
++  orientationAnimated?: ScreenProps['screenOrientationAnimated'];
++  /** OneKey patch: retain the previous native frame until this screen is ready. */
++  contentReady?: ScreenProps['screenContentReady'];
+   /**
+    * Whether inactive screens should be suspended from re-rendering. Defaults to `false`.
+    * Defaults to `true` when `enableFreeze()` is run at the top of the application.
 diff --git a/node_modules/@react-navigation/native-stack/src/views/NativeStackView.native.tsx b/node_modules/@react-navigation/native-stack/src/views/NativeStackView.native.tsx
-index e694525..c35e673 100644
+index e694525..1a46e86 100644
 --- a/node_modules/@react-navigation/native-stack/src/views/NativeStackView.native.tsx
 +++ b/node_modules/@react-navigation/native-stack/src/views/NativeStackView.native.tsx
 @@ -369,11 +369,10 @@ const SceneView = ({
@@ -53,6 +92,15 @@ index e694525..c35e673 100644
            }
            homeIndicatorHidden={autoHideHomeIndicator}
            hideKeyboardOnSwipe={keyboardHandlingEnabled}
+@@ -384,6 +383,8 @@ const SceneView = ({
+           stackPresentation={presentation === 'card' ? 'push' : presentation}
+           stackAnimation={animation}
+           screenOrientation={orientation}
++          screenOrientationAnimated={options.orientationAnimated}
++          screenContentReady={options.contentReady}
+           sheetAllowedDetents={sheetAllowedDetents}
+           sheetLargestUndimmedDetentIndex={sheetLargestUndimmedDetentIndex}
+           sheetGrabberVisible={sheetGrabberVisible}
 diff --git a/node_modules/@react-navigation/native-stack/src/views/useHeaderConfigProps.tsx b/node_modules/@react-navigation/native-stack/src/views/useHeaderConfigProps.tsx
 index 14a0093..e2c4870 100644
 --- a/node_modules/@react-navigation/native-stack/src/views/useHeaderConfigProps.tsx

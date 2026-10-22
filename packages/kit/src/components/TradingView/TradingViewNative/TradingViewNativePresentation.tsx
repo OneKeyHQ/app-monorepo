@@ -4,6 +4,21 @@ import type { ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 
 import { useTheme } from '@onekeyhq/components';
+import type {
+  EModalRoutes,
+  IModalParamList,
+} from '@onekeyhq/shared/src/routes';
+
+export type IPushTradingViewNativeFullscreenModal = <T extends EModalRoutes>(
+  route: T,
+  params: {
+    screen: keyof IModalParamList[T];
+    params?: IModalParamList[T][keyof IModalParamList[T]];
+  },
+) => boolean;
+
+export const pushTradingViewNativeFullscreenModal: IPushTradingViewNativeFullscreenModal =
+  () => false;
 
 export interface ITradingViewNativePresentationProps {
   children: ReactNode;
@@ -86,5 +101,9 @@ export function TradingViewNativePresentation({
 }
 
 export function TradingViewNativeFullscreenHost() {
+  return null;
+}
+
+export function TradingViewNativeFullscreenPage() {
   return null;
 }

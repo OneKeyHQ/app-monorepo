@@ -24,6 +24,8 @@ import com.facebook.react.ReactPackage;
 import com.facebook.react.bridge.ReactApplicationContext;
 import com.facebook.react.bridge.ReactContext;
 import com.facebook.react.defaults.DefaultNewArchitectureEntryPoint;
+import com.facebook.react.internal.featureflags.ReactNativeFeatureFlags;
+import com.facebook.react.internal.featureflags.ReactNativeNewArchitectureFeatureFlagsDefaults;
 import com.facebook.react.modules.systeminfo.AndroidInfoHelpers;
 import com.facebook.react.views.view.WindowUtilKt;
 import com.facebook.react.soloader.OpenSourceMergedSoMapping;
@@ -571,6 +573,18 @@ public class BaseMainApplication extends Application implements ReactApplication
     );
     if (BuildConfig.IS_NEW_ARCHITECTURE_ENABLED) {
       DefaultNewArchitectureEntryPoint.load();
+      ReactNativeFeatureFlags.dangerouslyForceOverride(
+          new ReactNativeNewArchitectureFeatureFlagsDefaults() {
+            @Override
+            public boolean fixFindShadowNodeByTagRaceCondition() {
+              return true;
+            }
+
+            @Override
+            public boolean enableSchedulerDelegateInvalidation() {
+              return true;
+            }
+          });
     }
     // Mirrors ReactNativeApplicationEntryPoint, which this app does not use.
     if (BuildConfig.IS_EDGE_TO_EDGE_ENABLED) {

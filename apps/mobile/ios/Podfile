@@ -114,6 +114,13 @@ setup_permissions([
 ])
 
 target 'OneKeyWallet' do
+  # Keep Objective-C and Nitro on the same verified, patched Core source.
+  mmkv_prepare = File.expand_path('../../../development/scripts/prepare-mmkv-source.js', __dir__)
+  mmkv_source = Pod::Executable.execute_command('node', [mmkv_prepare]).strip
+  mmkv_relative_source = Pathname.new(mmkv_source).relative_path_from(Pathname.new(__dir__)).to_s
+  pod 'MMKV', :path => mmkv_relative_source
+  pod 'MMKVCore', :path => mmkv_relative_source
+
   use_expo_modules!
   config = use_native_modules!
 

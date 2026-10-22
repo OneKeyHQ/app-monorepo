@@ -23,6 +23,7 @@ import {
   ESwapStepType,
   ESwapTabSwitchType,
   ESwapTxHistoryStatus,
+  EWrappedType,
 } from '@onekeyhq/shared/types/swap/types';
 import type {
   IFetchQuoteResult,
@@ -166,6 +167,45 @@ function createOptions() {
     generateSwapHistoryItem: jest.fn(),
   };
 }
+
+function createWrappedOptions(
+  networkId = 'evm--56',
+  contractAddress = '0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c',
+) {
+  const wrappedToken: IDustSweepToken = {
+    ...token,
+    networkId,
+    contractAddress,
+    amount: '0.001',
+    symbol: 'WRAPPED',
+    isNative: false,
+  };
+  const wrappedSnapshot: IDustSweepSnapshot = {
+    ...snapshot,
+    networkId,
+    nativeToken: { ...snapshot.nativeToken, networkId },
+    tokens: [wrappedToken],
+  };
+  const wrappedQuote: IFetchQuoteResult = {
+    info: { provider: 'wrapped', providerName: 'Wrap Contract' },
+    quoteId: 'unwrap-quote',
+    protocol: EProtocolOfExchange.SWAP,
+    kind: ESwapQuoteKind.SELL,
+    isWrapped: true,
+    fromTokenInfo: wrappedToken,
+    toTokenInfo: wrappedSnapshot.nativeToken,
+    fromAmount: wrappedToken.amount,
+    toAmount: wrappedToken.amount,
+    fee: { percentageFee: 0 },
+  };
+  mockFetchQuote.mockResolvedValue(wrappedQuote);
+  return {
+    ...createOptions(),
+    token: wrappedToken,
+    snapshot: wrappedSnapshot,
+    wrappedQuote,
+  };
+}
 function createGasEntry(gasLimit = '100000'): IMarketGasInfoEntry {
   return {
     encodeTx: {},
@@ -222,7 +262,21 @@ function createTronGasEntry(
   };
 }
 async function sendTransaction(params: ISendParams) {
-  await params.validateFinalGasInfos?.([]);
+  await params.validateFinalGasInfos?.(
+    [],
+    params.buildUnsignedParams.wrappedInfo
+      ? [
+          {
+            encodedTx: {
+              from: '0xuser',
+              to: '0xwrapper',
+              data: '0x',
+              value: '0x0',
+            },
+          },
+        ]
+      : [],
+  );
   await params.onBeforeSignAndSend?.();
   const approval = params.buildUnsignedParams.approveInfo;
   params.onBroadcast?.({
@@ -271,6 +325,176 @@ describe('Dust Sweep serial execution boundaries', () => {
       state: ESwapTxHistoryStatus.SUCCESS,
       dealReceiveAmount: '0.009',
     });
+  });
+
+  it.each([
+    ['evm--56', '0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c'],
+    ['evm--1', '0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2'],
+  ])(
+    'unwraps through the local wrapper builder without DEX build or approval (%s)',
+    async (networkId, address) => {
+      const options = createWrappedOptions(networkId, address);
+      mockTxState.mockResolvedValue({
+        state: ESwapTxHistoryStatus.SUCCESS,
+        dealReceiveAmount: '0.001',
+      });
+      await expect(executeDustSweepItem(options)).resolves.toEqual({
+        status: 'success',
+        receivedAmount: '0.001',
+        receiptUnavailable: false,
+      });
+      expect(mockBuild).not.toHaveBeenCalled();
+      expect(mockPayload).not.toHaveBeenCalled();
+      expect(mockAllowance).not.toHaveBeenCalled();
+      expect(mockPrepare).not.toHaveBeenCalled();
+      expect(mockSend).toHaveBeenCalledTimes(1);
+      const params = mockSend.mock.calls[0][0];
+      expect(params.buildUnsignedParams.encodedTx).toBeUndefined();
+      expect(params.buildUnsignedParams.wrappedInfo).toEqual({
+        from: options.snapshot.address,
+        type: EWrappedType.WITHDRAW,
+        contract: address,
+        amount: '0.001',
+      });
+      expect(params.buildUnsignedParams.swapInfo).toMatchObject({
+        sender: { amount: '0.001', token: options.token },
+        receiver: { amount: '0.001', token: options.snapshot.nativeToken },
+        accountAddress: options.snapshot.address,
+        receivingAddress: options.snapshot.address,
+        swapBuildResData: {
+          orderId: 'unwrap-quote',
+          result: { isWrapped: true, info: { provider: 'wrapped' } },
+        },
+      });
+      expect(mockHistory).toHaveBeenCalledWith(
+        expect.objectContaining({
+          txId: 'swap',
+          swapInfo: params.buildUnsignedParams.swapInfo,
+        }),
+      );
+      expect(mockTxState).toHaveBeenCalledWith(
+        expect.objectContaining({
+          txId: 'swap',
+          provider: 'wrapped',
+          orderId: 'unwrap-quote',
+          networkId,
+          receivedAddress: options.snapshot.address,
+        }),
+      );
+    },
+  );
+
+  it('rejects an OKX build that changes into wrapped instead of using the local builder', async () => {
+    const options = createWrappedOptions();
+    mockFetchQuote.mockResolvedValue({
+      ...options.wrappedQuote,
+      info: { provider: 'SwapOKX', providerName: 'OKX' },
+      isWrapped: false,
+    });
+    mockBuild.mockResolvedValue({ result: options.wrappedQuote });
+    await expect(executeDustSweepItem(options)).rejects.toMatchObject({
+      reason: 'unknown',
+    });
+    expect(mockPayload).not.toHaveBeenCalled();
+    expect(mockAllowance).not.toHaveBeenCalled();
+    expect(mockSend).not.toHaveBeenCalled();
+  });
+
+  it('requires existing native gas before signing an unwrap', async () => {
+    const options = createWrappedOptions();
+    mockBalance.mockResolvedValueOnce({ isSufficient: true, balance: '0.001' });
+    mockBalance.mockResolvedValueOnce({ isSufficient: false, balance: '0' });
+    await expect(executeDustSweepItem(options)).rejects.toMatchObject({
+      reason: 'insufficientGas',
+    });
+    expect(options.onSigning).not.toHaveBeenCalled();
+    expect(options.onBroadcast).not.toHaveBeenCalled();
+    expect(mockHistory).not.toHaveBeenCalled();
+  });
+
+  it('rechecks the wrapped input balance before signing', async () => {
+    const options = createWrappedOptions();
+    mockBalance.mockResolvedValueOnce({ isSufficient: true, balance: '0.001' });
+    mockBalance.mockResolvedValueOnce({ isSufficient: true, balance: '1' });
+    mockBalance.mockResolvedValueOnce({ isSufficient: false, balance: '0' });
+    await expect(executeDustSweepItem(options)).rejects.toMatchObject({
+      reason: 'unknown',
+    });
+    expect(options.onSigning).not.toHaveBeenCalled();
+    expect(options.onBroadcast).not.toHaveBeenCalled();
+  });
+
+  it('rejects native spend in the actual unsigned unwrap before signing', async () => {
+    const options = createWrappedOptions();
+    mockSend.mockImplementation(async (params) => {
+      await params.validateFinalGasInfos?.(
+        [],
+        [
+          {
+            encodedTx: {
+              from: '0xuser',
+              to: '0xwrapper',
+              data: '0x',
+              value: '0x1',
+            },
+          },
+        ],
+      );
+      await params.onBeforeSignAndSend?.();
+      return [];
+    });
+    await expect(executeDustSweepItem(options)).rejects.toMatchObject({
+      reason: 'unknown',
+    });
+    expect(options.onSigning).not.toHaveBeenCalled();
+    expect(mockHistory).not.toHaveBeenCalled();
+  });
+
+  it('does not infer an unwrap receipt from the 1:1 quote', async () => {
+    const options = createWrappedOptions();
+    mockTxState.mockResolvedValue({ state: ESwapTxHistoryStatus.SUCCESS });
+    await expect(executeDustSweepItem(options)).resolves.toEqual({
+      status: 'success',
+      receivedAmount: undefined,
+      receiptUnavailable: true,
+    });
+  });
+
+  it('retains an unwrap broadcast identity after sender post-processing fails', async () => {
+    const options = createWrappedOptions();
+    mockSend.mockImplementation(async (params) => {
+      await sendTransaction(params);
+      throw new OneKeyLocalError('Post-processing failed');
+    });
+    await expect(executeDustSweepItem(options)).resolves.toMatchObject({
+      status: 'success',
+    });
+    expect(mockSend).toHaveBeenCalledTimes(1);
+    expect(mockHistory).toHaveBeenCalledWith(
+      expect.objectContaining({
+        txId: 'swap',
+        swapInfo: expect.objectContaining({
+          swapBuildResData: expect.objectContaining({
+            result: expect.objectContaining({
+              info: expect.objectContaining({ provider: 'wrapped' }),
+            }),
+          }),
+        }),
+      }),
+    );
+  });
+
+  it('does not send an unwrap after its quote resolves into a paused queue', async () => {
+    const options = createWrappedOptions();
+    let allowed = true;
+    mockFetchQuote.mockImplementation(async () => {
+      allowed = false;
+      return options.wrappedQuote;
+    });
+    await expect(
+      executeDustSweepItem({ ...options, shouldContinue: () => allowed }),
+    ).rejects.toBeInstanceOf(DustSweepPaused);
+    expect(mockSend).not.toHaveBeenCalled();
   });
 
   it('does not sign an old preparation after the queue has stopped', async () => {
