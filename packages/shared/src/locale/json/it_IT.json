@@ -2277,6 +2277,7 @@
   "hardware_third_party_path_not_supported__msg": "Questo percorso di derivazione non è supportato",
   "hardware_third_party_payload_too_large__msg": "I dati sono troppo grandi per USB. Scollega il cavo USB, connettiti dalla scheda del codice QR, quindi riprova.",
   "hardware_third_party_qr_fallback__desc": "I dati sono troppo grandi per USB. Firma invece con un codice QR.",
+  "hardware_third_party_qr_request_too_large__msg": "Troppi account per un solo codice QR. Connettiti tramite USB, quindi riprova.",
   "hardware_third_party_thp_pairing_required__msg": "Questo dispositivo deve essere accoppiato di nuovo. Ricollegalo e riprova.",
   "hardware_third_party_transport_error": "Comunicazione hardware non riuscita. Controlla il cavo USB o il Bluetooth e riprova.",
   "hardware_third_party_transport_not_available": "Il tuo browser o la tua piattaforma non supporta la connessione a questo wallet hardware.",

@@ -2277,6 +2277,7 @@
   "hardware_third_party_path_not_supported__msg": "Đường dẫn dẫn xuất này không được hỗ trợ.",
   "hardware_third_party_payload_too_large__msg": "Dữ liệu quá lớn để truyền qua USB. Hãy rút cáp USB, kết nối qua thẻ mã QR, rồi thử lại.",
   "hardware_third_party_qr_fallback__desc": "Dữ liệu quá lớn để truyền qua USB. Hãy ký bằng mã QR thay thế.",
+  "hardware_third_party_qr_request_too_large__msg": "Quá nhiều tài khoản cho một mã QR. Hãy kết nối qua USB rồi thử lại.",
   "hardware_third_party_thp_pairing_required__msg": "Thiết bị này cần được ghép nối lại. Hãy kết nối lại rồi thử lại.",
   "hardware_third_party_transport_error": "Giao tiếp phần cứng thất bại. Kiểm tra cáp USB hoặc Bluetooth và thử lại.",
   "hardware_third_party_transport_not_available": "Trình duyệt hoặc nền tảng của bạn không hỗ trợ kết nối với ví phần cứng này.",

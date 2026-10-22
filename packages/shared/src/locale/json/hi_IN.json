@@ -2277,6 +2277,7 @@
   "hardware_third_party_path_not_supported__msg": "यह व्युत्पत्ति पथ समर्थित नहीं है",
   "hardware_third_party_payload_too_large__msg": "USB के लिए डेटा का आकार बहुत बड़ा है। USB केबल निकालें, QR कोड टैब से कनेक्ट करें और फिर से कोशिश करें।",
   "hardware_third_party_qr_fallback__desc": "USB के लिए डेटा का आकार बहुत बड़ा है। इसके बजाय QR कोड से साइन करें।",
+  "hardware_third_party_qr_request_too_large__msg": "एक QR कोड के लिए बहुत अधिक खाते हैं। USB से कनेक्ट करें और फिर से कोशिश करें।",
   "hardware_third_party_thp_pairing_required__msg": "इस डिवाइस को फिर से पेयर करना होगा। इसे दोबारा कनेक्ट करें और फिर से कोशिश करें।",
   "hardware_third_party_transport_error": "हार्डवेयर संचार विफल हुआ। USB केबल या Bluetooth जांचें और पुनः प्रयास करें।",
   "hardware_third_party_transport_not_available": "आपका ब्राउज़र या प्लेटफ़ॉर्म इस हार्डवेयर वॉलेट से कनेक्ट करने का समर्थन नहीं करता।",

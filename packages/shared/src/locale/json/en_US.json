@@ -2277,6 +2277,7 @@
   "hardware_third_party_path_not_supported__msg": "This derivation path is not supported",
   "hardware_third_party_payload_too_large__msg": "The data is too large for USB. Unplug the USB cable and connect with the QR code tab, then try again.",
   "hardware_third_party_qr_fallback__desc": "The data is too large for USB. Sign with a QR code instead.",
+  "hardware_third_party_qr_request_too_large__msg": "Too many accounts for one QR code. Connect via USB and try again.",
   "hardware_third_party_thp_pairing_required__msg": "This device needs to be paired again. Reconnect it and try again.",
   "hardware_third_party_transport_error": "Hardware communication failed. Check the USB cable or Bluetooth and try again.",
   "hardware_third_party_transport_not_available": "Your browser or platform does not support connecting to this hardware wallet.",

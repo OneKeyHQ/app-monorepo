@@ -114,6 +114,20 @@ describe('convertThirdPartyDeviceError', () => {
     expect(error.payload?.recovery).toEqual({ scope: 'transport' });
   });
 
+  it('points a QR request with too many accounts to USB', () => {
+    const error = convertThirdPartyDeviceError({
+      code: ThirdPartyHwErrorCode.QrRequestTooLarge,
+      error: 'Keystone accepts at most 24 account paths per QR request',
+      params: { limit: 24, requested: 25 },
+      recovery: { scope: 'transport' },
+    });
+    expect(error.code).toBe(ThirdPartyHwErrorCode.QrRequestTooLarge);
+    expect(error.key).toBe(
+      ETranslations.hardware_third_party_qr_request_too_large__msg,
+    );
+    expect(error.payload?.recovery).toEqual({ scope: 'transport' });
+  });
+
   it('maps invalid firmware metadata responses to network errors', () => {
     const error = convertThirdPartyDeviceError({
       code: ThirdPartyHwErrorCode.UnknownError,

@@ -2277,6 +2277,7 @@
   "hardware_third_party_path_not_supported__msg": "이 도출 경로는 지원되지 않습니다.",
   "hardware_third_party_payload_too_large__msg": "데이터 크기가 USB 전송 한도를 초과합니다. USB 케이블을 분리하고 QR 코드 탭에서 연결한 후 다시 시도하세요.",
   "hardware_third_party_qr_fallback__desc": "데이터 크기가 USB 전송 한도를 초과합니다. 대신 QR 코드로 서명하세요.",
+  "hardware_third_party_qr_request_too_large__msg": "계정이 너무 많아 QR 코드 한 번으로 내보낼 수 없습니다. USB로 연결한 후 다시 시도하세요.",
   "hardware_third_party_thp_pairing_required__msg": "이 기기를 다시 페어링해야 합니다. 다시 연결한 후 다시 시도하세요.",
   "hardware_third_party_transport_error": "하드웨어 통신에 실패했습니다. USB 케이블이나 Bluetooth 를 확인한 후 다시 시도해주세요",
   "hardware_third_party_transport_not_available": "브라우저 또는 플랫폼에서 이 하드웨어 지갑 연결을 지원하지 않습니다",

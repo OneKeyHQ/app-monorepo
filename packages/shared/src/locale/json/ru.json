@@ -2277,6 +2277,7 @@
   "hardware_third_party_path_not_supported__msg": "Этот путь деривации не поддерживается",
   "hardware_third_party_payload_too_large__msg": "Объём данных превышает лимит USB. Отключите USB-кабель, подключитесь через вкладку QR-кода и повторите попытку.",
   "hardware_third_party_qr_fallback__desc": "Объём данных превышает лимит USB. Подпишите с помощью QR-кода.",
+  "hardware_third_party_qr_request_too_large__msg": "Слишком много аккаунтов для одного QR-кода. Подключитесь по USB и повторите попытку.",
   "hardware_third_party_thp_pairing_required__msg": "Устройство нужно сопрячь заново. Подключите его снова и повторите попытку.",
   "hardware_third_party_transport_error": "Ошибка связи с оборудованием. Проверьте USB-кабель или Bluetooth и повторите попытку.",
   "hardware_third_party_transport_not_available": "Ваш браузер или платформа не поддерживает подключение к этому аппаратному кошельку.",

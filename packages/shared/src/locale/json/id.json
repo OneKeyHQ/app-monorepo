@@ -2277,6 +2277,7 @@
   "hardware_third_party_path_not_supported__msg": "Jalur derivasi ini tidak didukung",
   "hardware_third_party_payload_too_large__msg": "Data terlalu besar untuk USB. Cabut kabel USB, hubungkan melalui tab kode QR, lalu coba lagi.",
   "hardware_third_party_qr_fallback__desc": "Data terlalu besar untuk USB. Tanda tangani dengan kode QR sebagai gantinya.",
+  "hardware_third_party_qr_request_too_large__msg": "Terlalu banyak akun untuk satu kode QR. Hubungkan melalui USB, lalu coba lagi.",
   "hardware_third_party_thp_pairing_required__msg": "Perangkat ini perlu dipasangkan ulang. Hubungkan kembali, lalu coba lagi.",
   "hardware_third_party_transport_error": "Komunikasi hardware gagal. Periksa kabel USB atau Bluetooth dan coba lagi.",
   "hardware_third_party_transport_not_available": "Peramban atau platform Anda tidak mendukung koneksi ke dompet hardware ini.",

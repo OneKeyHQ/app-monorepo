@@ -2277,6 +2277,7 @@
   "hardware_third_party_path_not_supported__msg": "不支持该派生路径",
   "hardware_third_party_payload_too_large__msg": "数据大小超过 USB 传输限制。请拔掉 USB 线，改用二维码页签连接后重试。",
   "hardware_third_party_qr_fallback__desc": "数据过大，无法通过 USB 发送。改用二维码签名。",
+  "hardware_third_party_qr_request_too_large__msg": "账户过多，无法一次扫码导出。改用 USB 连接后重试。",
   "hardware_third_party_thp_pairing_required__msg": "设备需要重新配对，请重新连接后重试。",
   "hardware_third_party_transport_error": "硬件通信失败，请检查 USB 连接线或蓝牙后重试",
   "hardware_third_party_transport_not_available": "当前浏览器或平台不支持连接此硬件钱包",

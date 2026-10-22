@@ -286,6 +286,8 @@ export function convertThirdPartyDeviceError(
 
     case ThirdPartyHwErrorCode.PayloadTooLarge:
       return new ThirdPartyErrors.ThirdPartyPayloadTooLarge(props);
+    case ThirdPartyHwErrorCode.QrRequestTooLarge:
+      return new ThirdPartyErrors.ThirdPartyQrRequestTooLarge(props);
 
     default:
       return new ThirdPartyErrors.ThirdPartyUnknownError(props);

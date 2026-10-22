@@ -789,6 +789,21 @@ export class ThirdPartyPayloadTooLarge extends ThirdPartyHardwareError {
   override code = ThirdPartyHwErrorCode.PayloadTooLarge;
 }
 
+/** One QR request would ask the device for more keys than it accepts; USB has no such limit. */
+export class ThirdPartyQrRequestTooLarge extends ThirdPartyHardwareError {
+  constructor(props?: IOneKeyErrorHardwareProps) {
+    super(
+      normalizeErrorProps(props, {
+        defaultKey:
+          ETranslations.hardware_third_party_qr_request_too_large__msg,
+        defaultAutoToast: true,
+      }),
+    );
+  }
+
+  override code = ThirdPartyHwErrorCode.QrRequestTooLarge;
+}
+
 // ---------------------------------------------------------------------------
 // EVM-specific Ledger Ethereum App errors (mapped from Ledger APDU codes)
 // ---------------------------------------------------------------------------

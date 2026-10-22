@@ -2282,6 +2282,7 @@ export enum ETranslations {
   hardware_third_party_path_not_supported__msg = 'hardware_third_party_path_not_supported__msg',
   hardware_third_party_payload_too_large__msg = 'hardware_third_party_payload_too_large__msg',
   hardware_third_party_qr_fallback__desc = 'hardware_third_party_qr_fallback__desc',
+  hardware_third_party_qr_request_too_large__msg = 'hardware_third_party_qr_request_too_large__msg',
   hardware_third_party_thp_pairing_required__msg = 'hardware_third_party_thp_pairing_required__msg',
   hardware_third_party_transport_error = 'hardware_third_party_transport_error',
   hardware_third_party_transport_not_available = 'hardware_third_party_transport_not_available',

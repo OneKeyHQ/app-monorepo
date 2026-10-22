@@ -2277,6 +2277,7 @@
   "hardware_third_party_path_not_supported__msg": "Este caminho de derivação não é suportado",
   "hardware_third_party_payload_too_large__msg": "Os dados são demasiado grandes para USB. Desligue o cabo USB, ligue-se através do separador de código QR e tente novamente.",
   "hardware_third_party_qr_fallback__desc": "Os dados são demasiado grandes para USB. Assine antes com um código QR.",
+  "hardware_third_party_qr_request_too_large__msg": "Demasiadas contas para um único código QR. Ligue-se por USB e tente novamente.",
   "hardware_third_party_thp_pairing_required__msg": "Este dispositivo tem de ser emparelhado novamente. Volte a ligá-lo e tente novamente.",
   "hardware_third_party_transport_error": "Falha na comunicação com o hardware. Verifique o cabo USB ou o Bluetooth e tente novamente.",
   "hardware_third_party_transport_not_available": "O seu navegador ou plataforma não suporta a ligação a esta carteira de hardware.",

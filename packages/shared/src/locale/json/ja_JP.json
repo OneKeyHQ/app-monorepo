@@ -2277,6 +2277,7 @@
   "hardware_third_party_path_not_supported__msg": "この派生パスはサポートされていません",
   "hardware_third_party_payload_too_large__msg": "データサイズが USB の上限を超えています。USB ケーブルを外し、QR コードタブから接続してから再試行してください。",
   "hardware_third_party_qr_fallback__desc": "データサイズが USB の上限を超えています。代わりに QR コードで署名してください。",
+  "hardware_third_party_qr_request_too_large__msg": "アカウントが多すぎるため、1 回の QR コードでエクスポートできません。USB で接続してから再試行してください。",
   "hardware_third_party_thp_pairing_required__msg": "このデバイスは再度ペアリングが必要です。再接続してからもう一度お試しください。",
   "hardware_third_party_transport_error": "ハードウェア通信に失敗しました。USB ケーブルまたは Bluetooth を確認して再試行してください",
   "hardware_third_party_transport_not_available": "ご使用のブラウザまたはプラットフォームではこのハードウェアウォレットに接続できません",

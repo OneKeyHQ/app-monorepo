@@ -2277,6 +2277,7 @@
   "hardware_third_party_path_not_supported__msg": "不支援此派生路徑",
   "hardware_third_party_payload_too_large__msg": "資料大小超過 USB 傳輸限制。請拔除 USB 線，改用二維碼分頁連線後重試。",
   "hardware_third_party_qr_fallback__desc": "資料過大，無法透過 USB 傳送。改用二維碼簽名。",
+  "hardware_third_party_qr_request_too_large__msg": "帳戶過多，無法一次掃碼匯出。改用 USB 連線後重試。",
   "hardware_third_party_thp_pairing_required__msg": "裝置需要重新配對，請重新連線後重試。",
   "hardware_third_party_transport_error": "硬件通訊失敗，請檢查 USB 連接線或藍牙後重試",
   "hardware_third_party_transport_not_available": "目前的瀏覽器或平台不支援連接此硬件錢包",
