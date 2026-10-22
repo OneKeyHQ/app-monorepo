@@ -275,8 +275,7 @@ const TokenListDustSweepAction = memo(function TokenListDustSweepAction({
   showLabel?: boolean;
 }) {
   const intl = useIntl();
-  const { canDustSweep, isDustSweepRefreshing, openDustSweep } =
-    useActiveAccountDustSweep();
+  const { canDustSweep, openDustSweep } = useActiveAccountDustSweep();
   const handlePress = useCallback(() => {
     void openDustSweep('tokenListHeader');
   }, [openDustSweep]);
@@ -292,7 +291,6 @@ const TokenListDustSweepAction = memo(function TokenListDustSweepAction({
         size="small"
         variant="secondary"
         icon="BroomOutline"
-        disabled={isDustSweepRefreshing}
         onPress={handlePress}
       >
         {intl.formatMessage({ id: ETranslations.out_title_dust_sweep })}
@@ -306,7 +304,6 @@ const TokenListDustSweepAction = memo(function TokenListDustSweepAction({
       variant="tertiary"
       icon="BroomOutline"
       title={intl.formatMessage({ id: ETranslations.title_dust_sweep })}
-      disabled={isDustSweepRefreshing}
       onPress={handlePress}
     />
   );
