@@ -8,7 +8,7 @@ import type {
   IUseAsyncItemsLifecycleResult,
 } from './asyncItemsLifecycleTypes';
 
-const ASYNC_ITEMS_ANIMATION_FALLBACK_DELAY = 1000;
+const ASYNC_ITEMS_ANIMATION_FALLBACK_DELAY = 5500;
 
 export function useAsyncItemsLifecycle({
   isOpen,
@@ -54,20 +54,17 @@ export function useAsyncItemsLifecycle({
 
   const handleSheetAnimationComplete = useCallback(
     (info: { open: boolean }) => {
-      sheetProps?.onAnimationComplete?.(info);
       if (!info.open) {
         clearFallbackTimer();
         if (!isOpenRef.current) {
           setAsyncItems(undefined);
         }
-        return;
+      } else if (isOpenRef.current) {
+        isOpenAnimationCompleteRef.current = true;
+        clearFallbackTimer();
+        commitPendingAsyncItems();
       }
-      if (!isOpenRef.current) {
-        return;
-      }
-      isOpenAnimationCompleteRef.current = true;
-      clearFallbackTimer();
-      commitPendingAsyncItems();
+      sheetProps?.onAnimationComplete?.(info);
     },
     [clearFallbackTimer, commitPendingAsyncItems, sheetProps],
   );
@@ -152,7 +149,7 @@ export function useAsyncItemsLifecycle({
           `[ActionList] renderItemsAsync failed: ${message}`,
         );
         if (sheetPresentation) {
-          handleActionListCloseRef.current?.();
+          void handleActionListCloseRef.current?.();
         }
       });
 
