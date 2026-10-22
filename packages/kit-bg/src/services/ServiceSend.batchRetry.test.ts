@@ -150,7 +150,9 @@ function makeService(
   vaultOverrides: Record<string, unknown> = {},
 ) {
   const vault = {
-    getTxDiagnosticContext: jest.fn((tx: IUnsignedTxPro) => tx.solanaTxDiagnostic),
+    getTxDiagnosticContext: jest.fn(
+      (tx: IUnsignedTxPro) => tx.solanaTxDiagnostic,
+    ),
     signTransaction: jest.fn(
       async ({ unsignedTx }: { unsignedTx: IUnsignedTxPro }) =>
         ({
@@ -542,7 +544,9 @@ describe('ServiceSend.batchSignAndSendTransaction retry after partial failure', 
       txid: signedTx.txid,
     }));
     failBroadcastOnce(vault, 'network down');
-    await expect(batchSend(service, unsignedTxs, { sentTxsTrackingId: 'tracking-1' })).rejects.toThrow();
+    await expect(
+      batchSend(service, unsignedTxs, { sentTxsTrackingId: 'tracking-1' }),
+    ).rejects.toThrow();
     jest.clearAllMocks();
 
     const result = await batchSend(service, unsignedTxs, {
