@@ -4,9 +4,11 @@ export const EARN_DESKTOP_DEMO_COPY = {
   withdrawals: 'Withdrawals',
   aYear: 'a year',
   more: (count: number) => `${count} more`,
-  // Pay with, and the swap-then-deposit path the demo simulates. The real
-  // deposit form takes "Est. annual rewards" from the server
+  // Pay with, and the swap-then-deposit path. The real deposit form takes
+  // "Est. annual rewards" from the server
   payWith: 'Pay with',
+  // Under the Pay with box: about what the swap brings into the vault
+  youDeposit: 'You deposit',
   swapAnd: (action: string) => `Swap and ${action}`,
   estAnnualRewards: 'Est. annual rewards',
   // After a withdrawal: the same token's better rate on the same network,
