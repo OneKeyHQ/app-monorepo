@@ -12,13 +12,6 @@ import {
 
 import { act, renderHook, waitFor } from '@testing-library/react';
 
-import { fetchMarketStockKLineData } from '@onekeyhq/kit/src/components/TradingView/utils/fetchMarketStockKLineData';
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
-import type {
-  IMarketTokenKLineDataPoint,
-  IMarketTokenKLineResponse,
-} from '@onekeyhq/shared/types/marketV2';
-
 import {
   getTradingViewNativeCandleX,
   getTradingViewNativeDataUpdateMetadata,
@@ -26,7 +19,13 @@ import {
   getTradingViewNativeViewportForPointRange,
   getTradingViewNativeViewportPointRange,
   getTradingViewNativeVisiblePointRange,
-} from '../utils/chartViewport';
+} from '@onekeyhq/kit/src/components/TradingView/TradingViewNative/utils/chartViewport';
+import { fetchMarketStockKLineData } from '@onekeyhq/kit/src/components/TradingView/utils/fetchMarketStockKLineData';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import type {
+  IMarketTokenKLineDataPoint,
+  IMarketTokenKLineResponse,
+} from '@onekeyhq/shared/types/marketV2';
 
 import { getTradingViewNativeSourceKey } from './getTradingViewNativeSource';
 import { createTradingViewNativeDataProvider } from './providers/createTradingViewNativeDataProvider';
