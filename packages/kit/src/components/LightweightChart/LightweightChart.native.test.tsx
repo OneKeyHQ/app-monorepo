@@ -5,6 +5,7 @@ import type { Context, ReactNode } from 'react';
 import { act, render } from '@testing-library/react';
 
 import { MarketDetailPager } from '../../views/Market/MarketDetailV2/components/InformationTabs/layout/MarketDetailPager.ios';
+import { MarketDetailScrollView } from '../../views/Market/MarketDetailV2/components/InformationTabs/layout/MarketDetailScroll.ios';
 
 import { LightweightChart } from './LightweightChart.native';
 
@@ -17,6 +18,9 @@ let mockNativeCommands: { requestLayout?: number } | undefined = {
   requestLayout: 0,
 };
 let mockSendReady: () => void;
+let mockNativeScroll: (event: {
+  nativeEvent: { contentOffset: { y: number }; contentInset: { top: number } };
+}) => void;
 let mockPagerStateChanged: (event: {
   nativeEvent: {
     headerSettledAtTop: boolean;
@@ -41,7 +45,18 @@ jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
 }));
 
 jest.mock('react-native', () => ({
-  View: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
+  View: ({
+    children,
+    onLayout,
+  }: {
+    children?: ReactNode;
+    onLayout?: (event: { nativeEvent: { layout: { height: number } } }) => void;
+  }) => {
+    jest.requireActual<typeof import('react')>('react').useEffect(() => {
+      onLayout?.({ nativeEvent: { layout: { height: 519 } } });
+    }, []);
+    return <div>{children}</div>;
+  },
   AppState: { addEventListener: () => ({ remove: jest.fn() }) },
   UIManager: {
     getViewManagerConfig: () =>
@@ -87,19 +102,30 @@ jest.mock('react-native-reanimated', () => {
 jest.mock('react-native-pager-view', () => {
   const React = jest.requireActual<typeof import('react')>('react');
   return {
+    NativeScroller: ({ onScroll }: { onScroll: typeof mockNativeScroll }) => {
+      mockNativeScroll = onScroll;
+      return <div />;
+    },
     CollapsiblePagerView: React.forwardRef(
       (
         {
           header,
+          children,
           onCollapsibleStateChanged,
         }: {
           header: ReactNode;
+          children: ReactNode;
           onCollapsibleStateChanged: typeof mockPagerStateChanged;
         },
         _ref,
       ) => {
         mockPagerStateChanged = onCollapsibleStateChanged;
-        return <div>{header}</div>;
+        return (
+          <div>
+            {header}
+            {children}
+          </div>
+        );
       },
     ),
   };
@@ -322,35 +348,50 @@ it('recovers an older shell when the chart leaves during initial loading', () =>
   expect(mockMount).toHaveBeenCalledTimes(2);
 });
 
-function NativePagerPage(_props: { name: string }) {
-  return null;
+function NativePagerPage({ children }: { name: string; children: ReactNode }) {
+  return children;
+}
+
+function flushReactions() {
+  for (const reaction of mockReactions) {
+    const next = reaction.prepare();
+    reaction.react(next, reaction.previous);
+    reaction.previous = next;
+  }
 }
 
 function renderNativePagerChart() {
-  return render(
+  const view = render(
     <MarketDetailPager
       initialTabName="Overview"
       renderHeader={() => <LightweightChart data={[]} height={345} />}
       renderTabBar={() => <div />}
       onTabChange={() => undefined}
     >
-      {[<NativePagerPage key="overview" name="Overview" />]}
+      {[
+        <NativePagerPage key="overview" name="Overview">
+          <MarketDetailScrollView />
+        </NativePagerPage>,
+      ]}
     </MarketDetailPager>,
   );
+  act(flushReactions);
+  return view;
 }
 
-function settleNativeHeader(settled: boolean, offset: number) {
+function scrollNativeHeader(offset: number) {
   act(() => {
-    mockPagerStateChanged?.({
+    mockNativeScroll({
       nativeEvent: {
-        headerSettledAtTop: settled,
-        headerOffset: offset,
-        position: 0,
-        pageKey: 'overview',
+        contentOffset: { y: offset - 519 },
+        contentInset: { top: 519 },
       },
     });
-    jest.advanceTimersByTime(100);
+    flushReactions();
   });
+}
+
+function waitForLayout() {
   act(() => {
     jest.advanceTimersByTime(100);
   });
@@ -358,84 +399,94 @@ function settleNativeHeader(settled: boolean, offset: number) {
 
 it('synchronizes layout through the real iOS pager without a legacy tabs context', () => {
   renderNativePagerChart();
-  settleNativeHeader(false, 519);
+  scrollNativeHeader(2000);
   act(() => {
     mockSendReady();
   });
-  settleNativeHeader(true, 0);
+  scrollNativeHeader(0);
+  waitForLayout();
   expect(mockRequestLayout).toHaveBeenCalledTimes(1);
   expect(mockMount).toHaveBeenCalledTimes(1);
+});
+
+it('synchronizes a partially returned native header before it reaches the top', () => {
+  renderNativePagerChart();
+  scrollNativeHeader(2000);
+  scrollNativeHeader(300);
+  waitForLayout();
+  expect(mockRequestLayout).toHaveBeenCalledTimes(1);
+  scrollNativeHeader(0);
+  waitForLayout();
+  expect(mockRequestLayout).toHaveBeenCalledTimes(2);
 });
 
 it('recovers loading charts in the real iOS pager on older native shells', () => {
   mockNativeCommands = {};
   renderNativePagerChart();
-  settleNativeHeader(false, 519);
-  act(() => {
-    mockSendReady();
-  });
-  settleNativeHeader(true, 0);
-  expect(mockRequestLayout).not.toHaveBeenCalled();
-  expect(mockMount).toHaveBeenCalledTimes(2);
-});
-
-it('preserves a loaded chart and ignores initial layout settling on older shells', () => {
-  mockNativeCommands = {};
-  renderNativePagerChart();
-  settleNativeHeader(false, 0);
-  settleNativeHeader(true, 0);
-  expect(mockMount).toHaveBeenCalledTimes(1);
-  act(() => {
-    mockSendReady();
-  });
-  settleNativeHeader(false, 519);
-  settleNativeHeader(true, 0);
-  expect(mockMount).toHaveBeenCalledTimes(1);
-});
-
-it('cancels native pager synchronization when the header moves away again', () => {
-  const { unmount } = renderNativePagerChart();
-  act(() => {
-    mockPagerStateChanged({
-      nativeEvent: {
-        headerSettledAtTop: true,
-        headerOffset: 0,
-        position: 0,
-        pageKey: 'overview',
-      },
-    });
-  });
   act(() => {
     mockPagerStateChanged({
       nativeEvent: {
         headerSettledAtTop: false,
-        headerOffset: 20,
+        headerOffset: 0,
         position: 0,
-        pageKey: 'overview',
+        pageKey: '.$overview',
       },
     });
   });
+  scrollNativeHeader(2000);
   act(() => {
-    jest.advanceTimersByTime(200);
+    mockSendReady();
   });
+  scrollNativeHeader(300);
+  waitForLayout();
   expect(mockRequestLayout).not.toHaveBeenCalled();
-  unmount();
+  expect(mockMount).toHaveBeenCalledTimes(2);
+  act(() => {
+    mockSendReady();
+  });
+  scrollNativeHeader(2000);
+  scrollNativeHeader(0);
+  waitForLayout();
+  expect(mockMount).toHaveBeenCalledTimes(2);
+});
+
+it('preserves a loaded native chart and ignores initial layout settling on older shells', () => {
+  mockNativeCommands = {};
+  renderNativePagerChart();
+  waitForLayout();
+  expect(mockMount).toHaveBeenCalledTimes(1);
+  act(() => {
+    mockSendReady();
+  });
+  scrollNativeHeader(2000);
+  scrollNativeHeader(0);
+  waitForLayout();
+  expect(mockMount).toHaveBeenCalledTimes(1);
+});
+
+it('cancels native pager synchronization when the chart moves offscreen again', () => {
+  renderNativePagerChart();
+  scrollNativeHeader(2000);
+  scrollNativeHeader(300);
+  scrollNativeHeader(2000);
+  waitForLayout();
+  expect(mockRequestLayout).not.toHaveBeenCalled();
 });
 
 it('ignores stale native header events from a different page', () => {
   renderNativePagerChart();
+  scrollNativeHeader(2000);
   act(() => {
     mockPagerStateChanged({
       nativeEvent: {
         headerSettledAtTop: true,
         headerOffset: 0,
-        position: 0,
-        pageKey: 'previous-page',
+        position: 1,
+        pageKey: '.$previous-page',
       },
     });
+    flushReactions();
   });
-  act(() => {
-    jest.advanceTimersByTime(200);
-  });
+  waitForLayout();
   expect(mockRequestLayout).not.toHaveBeenCalled();
 });

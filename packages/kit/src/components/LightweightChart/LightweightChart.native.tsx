@@ -233,19 +233,24 @@ export function LightweightChart({
   // Collapsing the header moves the WebView offscreen without a DOM resize.
   // Repaint the existing canvas when it returns, without resetting the range.
   const tabsContext = useContext(CollapsibleTabContext);
+  const nativeHeaderState = useContext(ChartHeaderContext);
+  const nativeHeaderOffset = nativeHeaderState?.headerOffset;
   const scrollYCurrent = tabsContext?.scrollYCurrent;
-  const headerHeight = tabsContext?.headerHeight ?? 0;
+  const headerHeight =
+    nativeHeaderState?.headerHeight ?? tabsContext?.headerHeight ?? 0;
   useAnimatedReaction(
-    () => !scrollYCurrent || scrollYCurrent.value < headerHeight,
+    () =>
+      nativeHeaderOffset
+        ? nativeHeaderOffset.value < headerHeight
+        : !scrollYCurrent || scrollYCurrent.value < headerHeight,
     (isVisible, wasVisible) => {
       if (isVisible && wasVisible === false) {
         runOnJS(repaintChart)();
       }
     },
-    [scrollYCurrent, headerHeight, repaintChart],
+    [nativeHeaderOffset, scrollYCurrent, headerHeight, repaintChart],
   );
 
-  const nativeHeaderState = useContext(ChartHeaderContext);
   const headerTranslateY = tabsContext?.headerTranslateY;
   const needsLegacyRemountRef = useRef(false);
   const supportsNativeLayout = useMemo(() => {
@@ -280,8 +285,16 @@ export function LightweightChart({
   // Coalesce native layout updates until the visible header stops translating.
   useAnimatedReaction(
     () =>
-      syncVisibleHeader && headerTranslateY
-        ? Math.max(0, Math.min(headerHeight, -headerTranslateY.value))
+      syncVisibleHeader && (nativeHeaderOffset || headerTranslateY)
+        ? Math.max(
+            0,
+            Math.min(
+              headerHeight,
+              nativeHeaderOffset
+                ? nativeHeaderOffset.value
+                : -(headerTranslateY?.value ?? 0),
+            ),
+          )
         : null,
     (offset, previousOffset) => {
       if (offset === null || offset === previousOffset) return;
@@ -293,31 +306,13 @@ export function LightweightChart({
     },
     [
       handleHeaderHidden,
+      nativeHeaderOffset,
       headerHeight,
       headerTranslateY,
       syncNativeLayout,
       syncVisibleHeader,
     ],
   );
-
-  // The native pager publishes settled geometry after its UIScrollView/header
-  // transition. Unlike legacy tabs, it does not expose a header transform.
-  useEffect(() => {
-    if (!syncVisibleHeader || !nativeHeaderState) return;
-    if (nativeHeaderState.settledAtTop) {
-      syncNativeLayout();
-    } else if (nativeHeaderState.offset > 0) {
-      handleHeaderHidden();
-    } else {
-      cancelNativeLayout();
-    }
-  }, [
-    cancelNativeLayout,
-    handleHeaderHidden,
-    nativeHeaderState,
-    syncNativeLayout,
-    syncVisibleHeader,
-  ]);
 
   useEffect(() => cancelNativeLayout, [cancelNativeLayout]);
 

@@ -4,6 +4,7 @@ import type { SharedValue } from 'react-native-reanimated';
 
 export const MarketDetailNativeContext = createContext<{
   focusedName: string;
+  headerOffset: SharedValue<number>;
 } | null>(null);
 
 export const MarketDetailNativePageContext = createContext<{

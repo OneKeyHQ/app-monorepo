@@ -8,7 +8,6 @@ import { useSharedValue } from 'react-native-reanimated';
 import { useTheme } from '@onekeyhq/components';
 import { useAppPagerController } from '@onekeyhq/kit/src/components/AppPager/useAppPagerController';
 import { ChartHeaderContext } from '@onekeyhq/kit/src/components/LightweightChart/ChartHeaderContext';
-import type { IChartHeaderState } from '@onekeyhq/kit/src/components/LightweightChart/ChartHeaderContext';
 
 import {
   MarketDetailNativeContext,
@@ -50,10 +49,11 @@ export function MarketDetailPager({
   const [headerHeight, setHeaderHeight] = useState(1);
   const [stickyHeaderHeight, setStickyHeaderHeight] = useState(44);
   const theme = useTheme();
-  const [chartHeaderState, setChartHeaderState] = useState<IChartHeaderState>({
-    settledAtTop: false,
-    offset: 0,
-  });
+  const headerOffset = useSharedValue(0);
+  const chartHeaderState = useMemo(
+    () => ({ headerOffset, headerHeight }),
+    [headerOffset, headerHeight],
+  );
   const pages = useMemo(
     () =>
       children.map((tab) => ({
@@ -74,8 +74,8 @@ export function MarketDetailPager({
     onBeforeCommand,
   });
   const context = useMemo(
-    () => ({ focusedName: controller.focusedName }),
-    [controller.focusedName],
+    () => ({ focusedName: controller.focusedName, headerOffset }),
+    [controller.focusedName, headerOffset],
   );
 
   return (
@@ -122,20 +122,8 @@ export function MarketDetailPager({
           </View>
         }
         onCollapsibleStateChanged={({ nativeEvent }) => {
-          if (
-            nativeEvent.position !== controller.selectedIndex ||
-            nativeEvent.pageKey !== pages[controller.selectedIndex]?.key
-          )
-            return;
-          setChartHeaderState((previous) =>
-            previous.settledAtTop === nativeEvent.headerSettledAtTop &&
-            previous.offset === nativeEvent.headerOffset
-              ? previous
-              : {
-                  settledAtTop: nativeEvent.headerSettledAtTop,
-                  offset: nativeEvent.headerOffset,
-                },
-          );
+          if (nativeEvent.position !== controller.selectedIndex) return;
+          headerOffset.value = Math.max(0, nativeEvent.headerOffset);
         }}
         onPageScroll={({ nativeEvent }) => {
           if (followsPageScroll.current) {

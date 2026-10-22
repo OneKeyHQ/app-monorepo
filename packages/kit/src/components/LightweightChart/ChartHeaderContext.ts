@@ -1,8 +1,10 @@
 import { createContext } from 'react';
 
+import type { SharedValue } from 'react-native-reanimated';
+
 export type IChartHeaderState = {
-  settledAtTop: boolean;
-  offset: number;
+  headerHeight: number;
+  headerOffset: SharedValue<number>;
 };
 
 // Native pagers do not provide the legacy collapsible-tabs context.
