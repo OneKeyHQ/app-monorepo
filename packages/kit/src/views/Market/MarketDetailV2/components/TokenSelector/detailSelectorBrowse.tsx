@@ -115,7 +115,8 @@ export function useDetailSelectorBrowseState({
   const intl = useIntl();
   const [{ data: watchlist, isMounted: isWatchlistMounted }] =
     useMarketWatchListV2Atom();
-  const isWatchlistEmpty = isWatchlistMounted && !watchlist?.length;
+  const isWatchlistEmpty =
+    isWatchlistMounted && !watchlist?.some((item) => !item.perpsCoin);
   const [browseTab, setBrowseTab] = useState<IDetailSelectorBrowseTab>(() =>
     getInitialDetailSelectorBrowseTab({
       defaultCategory,
