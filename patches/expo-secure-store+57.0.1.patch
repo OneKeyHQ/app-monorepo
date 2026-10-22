@@ -1,5 +1,5 @@
 diff --git a/node_modules/expo-secure-store/android/src/main/java/expo/modules/securestore/SecureStoreModule.kt b/node_modules/expo-secure-store/android/src/main/java/expo/modules/securestore/SecureStoreModule.kt
-index 0fef884..881bc9b 100644
+index 0fef884..975e381 100644
 --- a/node_modules/expo-secure-store/android/src/main/java/expo/modules/securestore/SecureStoreModule.kt
 +++ b/node_modules/expo-secure-store/android/src/main/java/expo/modules/securestore/SecureStoreModule.kt
 @@ -139,7 +139,11 @@ open class SecureStoreModule : Module() {
@@ -26,3 +26,16 @@ index 0fef884..881bc9b 100644
        return null
      } catch (e: GeneralSecurityException) {
        throw (DecryptException(e.message, key, options.keychainService, e))
+@@ -203,7 +209,11 @@ open class SecureStoreModule : Module() {
+       val secretKeyEntry: SecretKeyEntry = getOrCreateKeyEntry(SecretKeyEntry::class.java, mAESEncryptor, options, options.requireAuthentication)
+       val encryptedItem = mAESEncryptor.createEncryptedItem(value, secretKeyEntry, options.requireAuthentication, options.authenticationPrompt, authenticationHelper)
+       encryptedItem.put(SCHEME_PROPERTY, AESEncryptor.NAME)
+-      saveEncryptedItem(encryptedItem, prefs, keychainAwareKey, options.requireAuthentication, options.keychainService)
++      // OneKey patch: reject failed persistence without a second authenticated read.
++      // saveEncryptedItem(encryptedItem, prefs, keychainAwareKey, options.requireAuthentication, options.keychainService)
++      if (!saveEncryptedItem(encryptedItem, prefs, keychainAwareKey, options.requireAuthentication, options.keychainService)) {
++        throw WriteException("Could not persist SecureStore item", key, options.keychainService)
++      }
+ 
+       // If a legacy value exists under this key we remove it to avoid unexpected errors in the future
+       if (prefs.contains(key)) {

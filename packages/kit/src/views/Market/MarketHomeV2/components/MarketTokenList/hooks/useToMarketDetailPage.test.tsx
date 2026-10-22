@@ -4,6 +4,7 @@ import { act, renderHook, waitFor } from '@testing-library/react';
 import { Toast, rootNavigationRef } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { preloadMarketDetailV2Page } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/marketDetailPagePreload';
+import { resolveMarketAssetRouteIdentity } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/resolveMarketAssetRouteIdentity';
 import { finishMarketDetailTabBarTransition } from '@onekeyhq/kit/src/views/Market/utils/marketDetailNavigation';
 import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { EEnterWay } from '@onekeyhq/shared/src/logger/scopes/dex';
@@ -22,6 +23,7 @@ const mockNavigationSetParams = jest.fn();
 const mockClearTokenDetail = jest.fn();
 const mockPrepareStockTokenDetail = jest.fn();
 const mockPrepareTokenDetailPreview = jest.fn();
+const mockGetCurrentRoute = jest.fn<{ name: string; key: string }, []>();
 let mockCurrentRouteName = 'MarketDetailV2';
 let mockSplitViewType = 'UNKNOWN';
 let mockTravelMode = false;
@@ -35,7 +37,10 @@ jest.mock('@onekeyhq/shared/src/travelMode', () => ({
 }));
 
 jest.mock('@react-navigation/native', () => ({
-  useRoute: jest.fn(() => ({ name: mockCurrentRouteName })),
+  useRoute: jest.fn(() => ({
+    name: mockCurrentRouteName,
+    key: 'market-detail',
+  })),
   CommonActions: {
     setParams: (params: unknown) => ({
       type: 'SET_PARAMS',
@@ -79,6 +84,11 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
 }));
 
 jest.mock(
+  '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/resolveMarketAssetRouteIdentity',
+  () => ({ resolveMarketAssetRouteIdentity: jest.fn() }),
+);
+
+jest.mock(
   '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/marketDetailPagePreload',
   () => ({
     preloadMarketDetailV2Page: jest.fn(() => Promise.resolve()),
@@ -94,6 +104,7 @@ jest.mock('@onekeyhq/components', () => ({
   rootNavigationRef: {
     current: {
       navigate: jest.fn(),
+      getCurrentRoute: () => mockGetCurrentRoute(),
     },
   },
   useMedia: jest.fn(() => ({ gtLg: false })),
@@ -149,12 +160,17 @@ describe('useToDetailPage', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    jest.mocked(resolveMarketAssetRouteIdentity).mockReset();
     jest
       .spyOn(backgroundApiProxy.serviceMarket, 'fetchMarketAssetDetail')
       .mockReset();
     Object.assign(platformEnv, { isNative: false });
     jest.useFakeTimers();
     mockCurrentRouteName = 'MarketDetailV2';
+    mockGetCurrentRoute.mockReturnValue({
+      name: mockCurrentRouteName,
+      key: 'market-detail',
+    });
     mockSplitViewType = 'UNKNOWN';
     mockTravelMode = false;
     (
@@ -945,6 +961,137 @@ describe('useToDetailPage', () => {
       marketTokenCategory: 'top_coins',
     });
     mockedPlatformEnv.isExtensionUiPopup = true;
+  });
+
+  it.each([true, false])(
+    'waits for desktop preflight and preserves route resolution when inconclusive (asset=%s)',
+    async (matchesAsset) => {
+      Object.assign(platformEnv, {
+        isExtensionUiPopup: false,
+        isNative: false,
+      });
+      const identity = {
+        marketTokenId: 'bitcoin',
+        marketVariantId: 'bitcoin-evm--1-0xbtc',
+        networkId: 'evm--1',
+        tokenAddress: '0xbtc',
+        isNative: false,
+      };
+      const pending = deferred<typeof identity | undefined>();
+      jest
+        .mocked(resolveMarketAssetRouteIdentity)
+        .mockReturnValueOnce(pending.promise);
+      const { result } = renderHook(() =>
+        useToDetailPage({
+          replaceCurrentDetail: true,
+          resolveMarketAsset: true,
+        }),
+      );
+      let navigation: Promise<void> | undefined;
+      act(() => {
+        navigation = result.current({
+          tokenAddress: '0xbtc',
+          networkId: 'evm--1',
+          symbol: 'BTC',
+          isNative: false,
+          name: 'Bitcoin',
+          decimals: 8,
+        });
+      });
+      expect(mockNavigationSetParams).not.toHaveBeenCalled();
+      expect(mockClearTokenDetail).not.toHaveBeenCalled();
+      expect(mockPrepareTokenDetailPreview).not.toHaveBeenCalled();
+
+      await act(async () => {
+        pending.resolve(matchesAsset ? identity : undefined);
+        await navigation;
+      });
+      expect(mockNavigationSetParams).toHaveBeenCalledTimes(1);
+      expect(mockNavigationSetParams).toHaveBeenCalledWith(
+        expect.objectContaining({
+          tokenAddress: '0xbtc',
+          resolveMarketAsset: matchesAsset ? undefined : true,
+          marketTokenSymbol: matchesAsset ? undefined : 'BTC',
+          marketTokenId: matchesAsset ? 'bitcoin' : undefined,
+          marketTokenCategory: matchesAsset ? 'top_coins' : undefined,
+          legacyTokenPreview: expect.objectContaining({ symbol: 'BTC' }),
+        }),
+      );
+    },
+  );
+
+  it.each([false, true])(
+    'ignores desktop preflight after the source route leaves focus (unmount=%s)',
+    async (unmountBeforeResolution) => {
+      Object.assign(platformEnv, {
+        isExtensionUiPopup: false,
+        isNative: false,
+      });
+      const identity = {
+        marketTokenId: 'bitcoin',
+        marketVariantId: 'bitcoin-eth',
+        networkId: 'evm--1',
+        tokenAddress: '0xbtc',
+        isNative: false,
+      };
+      const pending = deferred<typeof identity>();
+      jest
+        .mocked(resolveMarketAssetRouteIdentity)
+        .mockReturnValueOnce(pending.promise);
+      const { result, unmount } = renderHook(() =>
+        useToDetailPage({
+          replaceCurrentDetail: true,
+          resolveMarketAsset: true,
+        }),
+      );
+      let navigation: Promise<void> | undefined;
+      act(() => {
+        navigation = result.current({ ...tokenItem, symbol: 'BTC' });
+      });
+      mockGetCurrentRoute.mockReturnValue({
+        name: 'MarketDetailV2',
+        key: 'another-detail',
+      });
+      if (unmountBeforeResolution) unmount();
+      await act(async () => {
+        pending.resolve(identity);
+        await navigation;
+      });
+      expect(mockNavigationSetParams).not.toHaveBeenCalled();
+      expect(mockNavigationPush).not.toHaveBeenCalled();
+      expect(mockNavigationReplace).not.toHaveBeenCalled();
+      expect(mockPrepareTokenDetailPreview).not.toHaveBeenCalled();
+      expect(mockClearTokenDetail).not.toHaveBeenCalled();
+    },
+  );
+
+  it('ignores an older sidebar selection when its identity resolves last', async () => {
+    Object.assign(platformEnv, { isExtensionUiPopup: false, isNative: false });
+    const pending = deferred<undefined>();
+    jest
+      .mocked(resolveMarketAssetRouteIdentity)
+      .mockReturnValueOnce(pending.promise)
+      .mockResolvedValueOnce(undefined);
+    const { result } = renderHook(() =>
+      useToDetailPage({ replaceCurrentDetail: true, resolveMarketAsset: true }),
+    );
+    let first: Promise<void> | undefined;
+    act(() => {
+      first = result.current({ ...tokenItem, symbol: 'FIRST' });
+    });
+    await act(async () => {
+      await result.current({
+        ...tokenItem,
+        tokenAddress: '0xsecond',
+        symbol: 'SECOND',
+      });
+      pending.resolve(undefined);
+      await first;
+    });
+    expect(mockNavigationSetParams).toHaveBeenCalledTimes(1);
+    expect(mockNavigationSetParams).toHaveBeenCalledWith(
+      expect.objectContaining({ tokenAddress: '0xsecond' }),
+    );
   });
 
   it('navigates immediately and defers Asset identity resolution to detail', async () => {

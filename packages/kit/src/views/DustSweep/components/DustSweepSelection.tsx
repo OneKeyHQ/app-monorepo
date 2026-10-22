@@ -47,8 +47,6 @@ export function DustSweepSelection({
     selecting,
     session,
     loadStatus,
-    refreshStatus,
-    assetStatus,
     partialError,
     failedNetworks,
     toggle,
@@ -85,12 +83,7 @@ export function DustSweepSelection({
     selectedVisibleCount === selectableVisibleCount && !!selectableVisibleCount;
   if (selectedVisibleCount > 0 && selectedVisibleCount < selectableVisibleCount)
     selectAllValue = 'indeterminate';
-  const loading =
-    selecting &&
-    !rows.length &&
-    (loadStatus === 'loading' ||
-      refreshStatus === 'refreshing' ||
-      assetStatus === 'refreshing');
+  const loading = selecting && loadStatus === 'loading';
   const hiddenRow =
     selecting && !loading && hidden.length ? (
       <XStack
@@ -253,11 +246,7 @@ export function DustSweepSelection({
             </Button>
           </YStack>
         ) : null}
-        {!loading &&
-        loadStatus === 'ready' &&
-        refreshStatus === 'idle' &&
-        !partialError &&
-        !rows.length ? (
+        {!loading && loadStatus === 'ready' && !partialError && !rows.length ? (
           <YStack height={330} justifyContent="center" px="$10" gap="$1">
             {/* Same illustration as the wallet's empty token list. */}
             <Illustration name="QuestionMark" alignSelf="center" mb="$2" />

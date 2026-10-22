@@ -1195,8 +1195,9 @@ export function useSwapInit(params?: ISwapInitParams) {
     const hasImportParams =
       Boolean(hasImportTokenParams || params?.importNetworkId) &&
       hasUnconsumedSwapInitParams;
+    // A network-only entry still owns an automatic pair that can refresh.
     if (
-      (hasImportParams || hasInitFromAmount) &&
+      (hasImportTokenParams || hasInitFromAmount) &&
       selectedTokensColdStartContextRef.current?.defaultTokenSeed
     ) {
       const nextContext = {
@@ -1215,7 +1216,7 @@ export function useSwapInit(params?: ISwapInitParams) {
       defaultConfigStatus: defaultConfigStatusRef.current,
       selectedAccount: swapSelectedAccountRef.current,
       preserveSelectedTokens:
-        hasImportParams ||
+        hasImportTokenParams ||
         hasInitFromAmount ||
         shouldPreserveSwapUserInputAmountOnAccountSwitch({
           fromTokenAmount: fromTokenAmountRef.current,

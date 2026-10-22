@@ -226,6 +226,9 @@
     },
     "autolinking": {
       "android": {
+        "buildFromSource": [
+          "expo-secure-store"
+        ],
         "exclude": [
           "expo-image"
         ]

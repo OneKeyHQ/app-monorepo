@@ -14,6 +14,29 @@ function getRealSecureStorageInstance(): ISecureStorage {
 }
 
 const travelModeSecureStorage: ISecureStorage = {
+  isPersistenceAvailable() {
+    return (
+      travelModeManager.getRuntimeEnvironmentSync().persistence.kind === 'real'
+    );
+  },
+  async supportSecureStorageWithBiometrics() {
+    return travelModeManager.getRuntimeEnvironmentSync().persistence.run({
+      operation: async () =>
+        (await getRealSecureStorageInstance().supportSecureStorageWithBiometrics?.()) ??
+        false,
+      onBlocked: () => false,
+    });
+  },
+  async getSecureItemWithBiometrics(key, options) {
+    return travelModeManager.getRuntimeEnvironmentSync().persistence.run({
+      operation: async () =>
+        (await getRealSecureStorageInstance().getSecureItemWithBiometrics?.(
+          key,
+          options,
+        )) ?? null,
+      onBlocked: () => null,
+    });
+  },
   async getSecureItem(key) {
     return travelModeManager.getRuntimeEnvironmentSync().persistence.run({
       operation: () => getRealSecureStorageInstance().getSecureItem(key),
@@ -27,9 +50,10 @@ const travelModeSecureStorage: ISecureStorage = {
       onBlocked: () => undefined,
     });
   },
-  async removeSecureItem(key) {
+  async removeSecureItem(key, options) {
     return travelModeManager.getRuntimeEnvironmentSync().persistence.run({
-      operation: () => getRealSecureStorageInstance().removeSecureItem(key),
+      operation: () =>
+        getRealSecureStorageInstance().removeSecureItem(key, options),
       onBlocked: () => undefined,
     });
   },
