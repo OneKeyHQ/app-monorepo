@@ -19,6 +19,7 @@ type IFetchSwapTokenDetailsParams = {
   accountAddress?: string;
   accountId?: string;
   currency?: string;
+  throwOnError?: boolean;
 };
 
 type IGetNativeTokenAddressParams = {
@@ -172,6 +173,45 @@ describe('checkSwapLatestBalanceSufficient', () => {
         accountAddress: '0xabc',
       }),
     ).resolves.toEqual({ isSufficient: true });
+  });
+
+  it('preserves the original request error when a fresh balance is required', async () => {
+    const error = {
+      className: 'OneKeyServerApiError',
+      message: 'Balance API unavailable',
+    };
+    mockFetchSwapTokenDetails.mockRejectedValueOnce(error);
+    await expect(
+      checkSwapLatestBalanceSufficient({
+        token: ethToken,
+        amount: '0.1',
+        accountAddress: '0xabc',
+        throwOnError: true,
+      }),
+    ).rejects.toBe(error);
+    expect(mockFetchSwapTokenDetails).toHaveBeenCalledWith(
+      expect.objectContaining({ throwOnError: true }),
+    );
+  });
+
+  it('keeps the existing permissive default on request errors', async () => {
+    mockFetchSwapTokenDetails.mockRejectedValueOnce(
+      new Error('Request failed'),
+    );
+    const log = jest
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
+    try {
+      await expect(
+        checkSwapLatestBalanceSufficient({
+          token: ethToken,
+          amount: '0.1',
+          accountAddress: '0xabc',
+        }),
+      ).resolves.toEqual({ isSufficient: true });
+    } finally {
+      log.mockRestore();
+    }
   });
 
   it('still fetches balance when sponsored gas requires no self-paid amount', async () => {
