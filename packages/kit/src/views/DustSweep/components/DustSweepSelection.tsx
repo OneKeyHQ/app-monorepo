@@ -27,9 +27,10 @@ import { DustSweepTokenRow } from './DustSweepTokenRow';
 // Desktop cards fill the window height between these bounds. The height only
 // depends on the window, so it stays the same for every step (Add anyway,
 // sweeping, result) and longer lists scroll inside. Below the minimum, which
-// still fits the completed result, the page scrolls instead.
+// still fits the completed result with all three skip-reason groups (~547px),
+// the page scrolls instead.
 export const DUST_SWEEP_DESKTOP_CARD_MAX_HEIGHT = 712;
-export const DUST_SWEEP_DESKTOP_CARD_MIN_HEIGHT = 520;
+export const DUST_SWEEP_DESKTOP_CARD_MIN_HEIGHT = 560;
 // The mobile direction circle straddles the list / footer border.
 export const DUST_SWEEP_MOBILE_DIRECTION_SIZE = 36;
 
