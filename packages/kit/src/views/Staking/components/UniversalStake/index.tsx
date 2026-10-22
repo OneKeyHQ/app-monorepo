@@ -2192,7 +2192,11 @@ export function UniversalStake({
     onSubmit,
   ]);
 
-  const effectiveOnConfirmText = footerActionOverride?.text ?? onConfirmText;
+  const overridesState =
+    footerActionOverride && !footerActionOverride.isPressOnly;
+  const effectiveOnConfirmText = overridesState
+    ? footerActionOverride.text
+    : onConfirmText;
   const effectiveConfirmOnPress =
     footerActionOverride?.onPress ?? confirmOnPress;
   const baseConfirmLoading = effectiveShowExpiredRefresh
@@ -2202,7 +2206,7 @@ export function UniversalStake({
   const effectiveConfirmLoading = footerActionOverride
     ? Boolean(footerActionOverride.loading)
     : baseConfirmLoading;
-  const effectiveConfirmDisabled = footerActionOverride
+  const effectiveConfirmDisabled = overridesState
     ? Boolean(footerActionOverride.disabled)
     : baseConfirmDisabled;
 

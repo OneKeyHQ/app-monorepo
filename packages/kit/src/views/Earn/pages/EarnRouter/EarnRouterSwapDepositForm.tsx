@@ -1,5 +1,12 @@
 import type { ReactNode } from 'react';
-import { useCallback, useEffect, useMemo, useReducer, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useReducer,
+  useRef,
+  useState,
+} from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -243,8 +250,9 @@ export function EarnRouterSwapDepositForm({
   payToken: IEarnRouterPayToken;
   depositToken: { symbol: string; logoURI?: string; priceUsd: string };
   onOpenPayWith: () => void;
-  /** Once the deposit is in; the form starts over either way */
-  onDone?: () => void;
+  /** Once the deposit is in, with what went in; the form starts over either
+   * way */
+  onDone?: (depositedAmount: string) => void;
   // In a modal the action goes in the page footer, as the deposit form's does
   isInModalContext?: boolean;
   // The deposit form's protocol switcher, where that form has one
@@ -313,6 +321,12 @@ export function EarnRouterSwapDepositForm({
         new BigNumber(depositAmount).times(depositToken.priceUsd).toFixed(),
       )
     : '';
+  // Read as the path ends, after the amount has gone; the caller's callback
+  // can change identity while the finished path shows without starting it over
+  const depositAmountRef = useRef(depositAmount);
+  depositAmountRef.current = depositAmount;
+  const onDoneRef = useRef(onDone);
+  onDoneRef.current = onDone;
   const depositSummary = useDepositSummary({
     networkId,
     request: summaryRequest,
@@ -361,12 +375,13 @@ export function EarnRouterSwapDepositForm({
       }),
     });
     const timer = setTimeout(() => {
+      const deposited = depositAmountRef.current;
       setAmount('');
       dispatch({ type: 'reset' });
-      onDone?.();
+      onDoneRef.current?.(deposited);
     }, DONE_MS);
     return () => clearTimeout(timer);
-  }, [flow.status, intl, onDone]);
+  }, [flow.status, intl]);
 
   const isBusy = flow.status !== 'idle';
   // Nothing to change while the path runs, or while the provider is off

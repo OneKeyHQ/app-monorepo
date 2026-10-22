@@ -14,6 +14,7 @@ import Animated, {
 import { Theme, YStack, useTheme } from '@onekeyhq/components';
 
 import {
+  EARN_GUIDE_CARD_PB,
   EARN_GUIDE_CARD_RADIUS,
   EARN_GUIDE_GREEN,
   GuideCardSteps,
@@ -47,18 +48,14 @@ const BACKDROP = 'rgba(0, 0, 0, 0.5)';
 export const EARN_GUIDE_HEADER_HEIGHT = 108;
 
 /** Where the guide modal sits: the web modal's own rule, 90% of the window
- * up to its size, centred */
+ * up to its size, centred. Unrounded, as the browser lays it out (691.2 tall
+ * at 38.4 in a 768 window), so the ghost lands on it to the pixel */
 export function getGuideModalRect(): IEarnGuideRect {
   const vw = globalThis.innerWidth ?? 0;
   const vh = globalThis.innerHeight ?? 0;
-  const width = Math.round(Math.min(vw * 0.9, EARN_GUIDE_MODAL_SIZE.width));
-  const height = Math.round(Math.min(vh * 0.9, EARN_GUIDE_MODAL_SIZE.height));
-  return {
-    x: Math.round((vw - width) / 2),
-    y: Math.round((vh - height) / 2),
-    width,
-    height,
-  };
+  const width = Math.min(vw * 0.9, EARN_GUIDE_MODAL_SIZE.width);
+  const height = Math.min(vh * 0.9, EARN_GUIDE_MODAL_SIZE.height);
+  return { x: (vw - width) / 2, y: (vh - height) / 2, width, height };
 }
 
 const fixed = { position: 'fixed', backgroundColor: BACKDROP } as const;
@@ -289,6 +286,7 @@ function EarnGuideGhostView({
             width={card.width}
             height={card.height}
             p="$5"
+            pb={EARN_GUIDE_CARD_PB}
             gap="$4"
             jc="space-between"
           >

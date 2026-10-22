@@ -1,4 +1,4 @@
-import { Fragment } from 'react';
+import { Fragment, useEffect, useRef } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -45,6 +45,26 @@ export function EarnGuideHeader({
   const intl = useIntl();
   const { state } = useEarnGuide();
   const tid = (id: string) => (isCopy ? undefined : id);
+
+  // Focus comes into the guide as it opens and as its step changes, to the
+  // title: a screen reader starts there and Tab goes on through the guide,
+  // not the page under it. A field the step focuses itself keeps it
+  const titleRef = useRef<unknown>(null);
+  useEffect(() => {
+    if (isCopy) {
+      return;
+    }
+    const active = globalThis.document?.activeElement;
+    if (active && ['INPUT', 'TEXTAREA'].includes(active.tagName)) {
+      return;
+    }
+    (
+      titleRef.current as {
+        focus?: (options?: { preventScroll?: boolean }) => void;
+      } | null
+    )?.focus?.({ preventScroll: true });
+  }, [isCopy, shownStep]);
+
   return (
     <Theme name="dark">
       <YStack
@@ -66,15 +86,23 @@ export function EarnGuideHeader({
         }
       >
         <XStack ai="center" gap="$2">
-          <SizableText
+          {/* Focused by the guide itself, never by Tab, and with no ring: it
+              is no control */}
+          <YStack
+            ref={titleRef as never}
             testID={tid('earn-guide-title')}
-            size="$headingLg"
-            color="$whiteA12"
             flex={1}
-            opacity={isCopy ? 0 : 1}
+            tabIndex={isCopy ? undefined : -1}
+            focusVisibleStyle={{ outlineWidth: 0 }}
           >
-            {EARN_DESKTOP_DEMO_COPY.guideTitle}
-          </SizableText>
+            <SizableText
+              size="$headingLg"
+              color="$whiteA12"
+              opacity={isCopy ? 0 : 1}
+            >
+              {EARN_DESKTOP_DEMO_COPY.guideTitle}
+            </SizableText>
+          </YStack>
           <Button
             testID={tid('earn-guide-hide')}
             size="small"

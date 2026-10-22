@@ -33,6 +33,10 @@ const BorrowManagePosition = LazyLoad(
 const EarnGuide = LazyLoad(
   () => import('@onekeyhq/kit/src/views/Earn/pages/EarnGuide'),
 );
+// Loaded while the desktop Earn home shows the guide's card, through the lazy
+// route itself: its first open then renders at once instead of suspending,
+// which holds the modal back a few hundred ms more
+export const preloadEarnGuide = () => EarnGuide.preload();
 
 const BorrowEModeSwitch = LazyLoad(
   () => import('@onekeyhq/kit/src/views/Borrow/pages/BorrowEModeSwitch'),

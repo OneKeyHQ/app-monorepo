@@ -1,13 +1,16 @@
-import { useCallback, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 
+import { useIntl } from 'react-intl';
 import { useReducedMotion } from 'react-native-reanimated';
 
 import { Icon, SizableText, Theme, XStack, YStack } from '@onekeyhq/components';
 import { ANIMATE_ONLY_TRANSFORM } from '@onekeyhq/components/src/utils/animationConstants';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { EARN_DESKTOP_DEMO_COPY } from './earnDesktopHomeCopy';
 import { buildKeyboardPressProps } from './earnDesktopPressable';
 import { EARN_GUIDE_STEPS } from './earnGuide.utils';
+import { earnGuideStore, useEarnGuide } from './earnGuideStore';
 
 import type { IEarnGuideState, IEarnGuideStep } from './earnGuide.utils';
 import type { IEarnGuideRect } from './earnGuideStore';
@@ -78,6 +81,9 @@ export function GuideStepMark({
 }
 
 export const EARN_GUIDE_CARD_RADIUS = 12;
+// The banner beside centres its 30 tall Join pill in a 60 tall bar, 15 from
+// its bottom; the card's pill sits on the same line
+export const EARN_GUIDE_CARD_PB = 15;
 
 /** The card's title, which the modal's header carries on */
 export function GuideCardTitle() {
@@ -90,6 +96,14 @@ export function GuideCardTitle() {
 
 /** The four steps and the current one's action, under the title */
 export function GuideCardSteps({ state }: { state: IEarnGuideState }) {
+  const intl = useIntl();
+  const { live, isPreview } = useEarnGuide();
+  // Without a wallet the first thing to do is connect one, as the guide's
+  // first step then asks; the preview shows the steps as with a wallet
+  const action =
+    !isPreview && live && !live.hasWallet && state.current === 1
+      ? intl.formatMessage({ id: ETranslations.global_connect_wallet })
+      : EARN_DESKTOP_DEMO_COPY.guideActions[state.current - 1];
   return (
     // Narrow, the action goes under the steps at the card's width, so the
     // steps keep theirs
@@ -144,7 +158,7 @@ export function GuideCardSteps({ state }: { state: IEarnGuideState }) {
           color="$textInverse"
           numberOfLines={1}
         >
-          {EARN_DESKTOP_DEMO_COPY.guideActions[state.current - 1]}
+          {action}
         </SizableText>
       </XStack>
     </XStack>
@@ -173,18 +187,21 @@ export function EarnDesktopGuideCard({
 }) {
   const reducedMotion = useReducedMotion();
   const cardRef = useRef<unknown>(null);
-  const handleOpen = useCallback(() => {
-    // This layout renders on web and desktop only, where the card is a DOM
-    // element; the guide grows out of where it sits
+  // This layout renders on web and desktop only, where the card is a DOM
+  // element: the guide grows out of where it sits and goes back there
+  const measure = useCallback((): IEarnGuideRect | undefined => {
     const rect = (
       cardRef.current as { getBoundingClientRect?: () => DOMRect } | null
     )?.getBoundingClientRect?.();
-    onOpen(
-      rect
-        ? { x: rect.left, y: rect.top, width: rect.width, height: rect.height }
-        : undefined,
-    );
-  }, [onOpen]);
+    return rect && rect.width > 0
+      ? { x: rect.left, y: rect.top, width: rect.width, height: rect.height }
+      : undefined;
+  }, []);
+  useEffect(() => {
+    earnGuideStore.setCardMeasurer(measure);
+    return () => earnGuideStore.setCardMeasurer(undefined);
+  }, [measure]);
+  const handleOpen = useCallback(() => onOpen(measure()), [measure, onOpen]);
 
   return (
     <Theme name="dark">
@@ -197,6 +214,9 @@ export function EarnDesktopGuideCard({
         minWidth={0}
         minHeight={minHeight}
         p="$5"
+        pb={EARN_GUIDE_CARD_PB}
+        // Narrow, the action spans the card under the steps: even padding
+        $md={{ pb: '$5' }}
         gap="$4"
         jc="space-between"
         bg={EARN_GUIDE_GREEN}

@@ -14,12 +14,14 @@ import {
   XStack,
   YStack,
   useClipboard,
+  useMedia,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { useAccountSelectorTrigger } from '@onekeyhq/kit/src/components/AccountSelector/hooks/useAccountSelectorTrigger';
 import { HighlightAddress } from '@onekeyhq/kit/src/components/HighlightAddress';
 import { NetworkAvatarBase } from '@onekeyhq/kit/src/components/NetworkAvatar';
+import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeableTextWrapper';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -84,6 +86,11 @@ function StepIntro({ title, body }: { title: string; body: string }) {
   );
 }
 
+// The receive page's code; a little smaller on a short window, so step 1
+// fits the modal without scrolling at 768 tall
+const QR_SIZE = { regular: 176, short: 144 };
+const QR_CELL_PY = { regular: 27, short: 20 };
+
 function GasStep({
   scope,
   account,
@@ -103,6 +110,7 @@ function GasStep({
 }) {
   const networkId = getEarnGuideNetworkId();
   const { copyText } = useClipboard();
+  const { short: isShort } = useMedia();
   // While it waits the step checks the account itself, so the ETH shows up
   // here without the home's slower full refresh
   useEffect(() => {
@@ -162,8 +170,16 @@ function GasStep({
             ) : undefined
           }
         >
-          <ReceiveCardCell ai="center" jc="center" py={27} px="$4">
-            <ReceiveQRCode value={shownAddress} size={176} />
+          <ReceiveCardCell
+            ai="center"
+            jc="center"
+            py={isShort ? QR_CELL_PY.short : QR_CELL_PY.regular}
+            px="$4"
+          >
+            <ReceiveQRCode
+              value={shownAddress}
+              size={isShort ? QR_SIZE.short : QR_SIZE.regular}
+            />
           </ReceiveCardCell>
           <ReceiveCardCell>
             <XStack
@@ -299,9 +315,13 @@ function DoneStep({
               <SizableText size="$bodyMd" color="$textSubdued">
                 {intl.formatMessage({ id: ETranslations.earn_deposited })}
               </SizableText>
-              <SizableText size="$bodyMdMedium">
-                {`${shownAmount.toFormat()} ${EARN_GUIDE_SYMBOL}`}
-              </SizableText>
+              <NumberSizeableTextWrapper
+                size="$bodyMdMedium"
+                formatter="balance"
+                formatterOptions={{ tokenSymbol: EARN_GUIDE_SYMBOL }}
+              >
+                {shownAmount.toFixed()}
+              </NumberSizeableTextWrapper>
             </XStack>
           ) : null}
         </YStack>
@@ -347,6 +367,22 @@ function EarnGuidePage() {
     };
   }, [reactNavigation]);
 
+  // The guide ends under it when it stops applying to the account: the
+  // preview turned off on a watched account, a position made elsewhere. Not
+  // while the home reloads (a wallet just connected in step 1), nor once the
+  // modal is on its way out (Hide guide, Done)
+  const isLoading = Boolean(live?.isLoading);
+  useEffect(() => {
+    if (
+      !guide.isShown &&
+      !isLoading &&
+      earnGuideStore.getSnapshot().isModalOpen
+    ) {
+      earnGuideStore.setClosesOnFinish(true);
+      navigation.pop();
+    }
+  }, [guide.isShown, isLoading, navigation]);
+
   // The vault: the one picked in step 2, else the PO's example, else the
   // best rate on Base
   const { offers, isLoaded: isOffersLoaded } = useEarnRouterOffers({
@@ -367,9 +403,11 @@ function EarnGuidePage() {
   // press finished shows the next at once; one that finished by itself (the
   // ETH landing) keeps its check a moment first
   const { current } = state;
+  const isDeposited = state.done[2];
   const [picked, setPicked] = useState<IEarnGuideStep>();
   const [pinned, setPinned] = useState<IEarnGuideStep>();
-  const isLocalRef = useRef(false);
+  // Set by a press as it moves the guide on, for the change it makes
+  const isMovedByPressRef = useRef(false);
   const previousRef = useRef(current);
   useEffect(() => {
     const previous = previousRef.current;
@@ -378,8 +416,8 @@ function EarnGuidePage() {
       return undefined;
     }
     setPicked(undefined);
-    if (isLocalRef.current || current < previous) {
-      isLocalRef.current = false;
+    if (isMovedByPressRef.current || current < previous) {
+      isMovedByPressRef.current = false;
       setPinned(undefined);
       return undefined;
     }
@@ -402,39 +440,58 @@ function EarnGuidePage() {
     }
     navigation.pop();
   }, [isPreview, navigation, scope]);
+  // On to the deposit, from step 2 or from a visit back to it (still at 1
+  // without the ETH). Until a deposit the pick is the guide's vault; after
+  // one it is only the next deposit's
   const handleUseVault = useCallback(() => {
     if (!vaultOffer) {
       return;
     }
-    isLocalRef.current = true;
     setPickedVaultKey(vaultOffer.key);
-    if (isPreview) {
-      earnGuideStore.setPreview(3);
-    } else {
-      earnGuideStore.save(scope, { vaultKey: vaultOffer.key });
+    if (!isDeposited) {
+      isMovedByPressRef.current = current === 2;
+      if (!isPreview) {
+        earnGuideStore.save(scope, { vaultKey: vaultOffer.key });
+      } else if (current === 2) {
+        earnGuideStore.setPreview(3);
+      }
     }
-  }, [isPreview, scope, vaultOffer]);
-  // A switch in the deposit form is the vault from then on, so step 4 shows
-  // the one the deposit went to
+    setPicked(current < 3 ? undefined : 3);
+  }, [current, isDeposited, isPreview, scope, vaultOffer]);
+  // A switch in the deposit form is the vault from then on, as a pick is
   const handleDepositOfferChange = useCallback(
     (key: string) => {
       setPickedVaultKey(key);
-      if (!isPreview && saved.vaultKey !== key) {
+      if (!isPreview && !isDeposited && saved.vaultKey !== key) {
         earnGuideStore.save(scope, { vaultKey: key });
       }
     },
-    [isPreview, saved.vaultKey, scope],
+    [isDeposited, isPreview, saved.vaultKey, scope],
   );
+  // Step 4 shows what went in and where, also after a deposit from a visit
+  // back to step 3
   const handleDeposited = useCallback(
     (amount: string) => {
-      isLocalRef.current = true;
+      isMovedByPressRef.current = current !== 4;
+      setPicked(undefined);
       if (isPreview) {
         earnGuideStore.setPreview(4, amount);
       } else {
-        earnGuideStore.save(scope, { depositedAt: Date.now(), amount });
+        earnGuideStore.save(scope, {
+          depositedAt: Date.now(),
+          amount,
+          ...(vaultOffer ? { vaultKey: vaultOffer.key } : {}),
+        });
       }
     },
-    [isPreview, scope],
+    [current, isPreview, scope, vaultOffer],
+  );
+  // The vault the deposit went to, whatever was picked since
+  const depositOffer = useMemo(
+    () =>
+      (!isPreview && offers.find((offer) => offer.key === saved.vaultKey)) ||
+      vaultOffer,
+    [isPreview, offers, saved.vaultKey, vaultOffer],
   );
   const handleFinish = useCallback(
     (toPosition: boolean) => {
@@ -445,21 +502,21 @@ function EarnGuidePage() {
         earnGuideStore.save(scope, { completed: true });
       }
       navigation.pop();
-      if (toPosition && vaultOffer?.kind === 'protocol') {
+      if (toPosition && depositOffer?.kind === 'protocol') {
         void EarnNavigation.pushToEarnProtocolDetails(navigation, {
           networkId,
           symbol: EARN_GUIDE_SYMBOL,
-          provider: vaultOffer.item.provider.name,
-          vault: vaultOffer.item.provider.vault,
+          provider: depositOffer.item.provider.name,
+          vault: depositOffer.item.provider.vault,
           scrollToPortfolio: true,
         });
       }
     },
-    [isPreview, navigation, networkId, scope, vaultOffer],
+    [depositOffer, isPreview, navigation, networkId, scope],
   );
 
-  // The preview's deposit: the form's own button, which sends nothing and
-  // finishes after a moment
+  // The preview's deposit: the form's own button, label and checks, whose
+  // press sends nothing and finishes after a moment
   const typedRef = useRef('');
   const [isPreviewDepositing, setIsPreviewDepositing] = useState(false);
   useEffect(() => {
@@ -479,6 +536,7 @@ function EarnGuidePage() {
             text: intl.formatMessage({ id: ETranslations.earn_deposit }),
             onPress: () => setIsPreviewDepositing(true),
             loading: isPreviewDepositing,
+            isPressOnly: true,
           }
         : undefined,
     [intl, isPreview, isPreviewDepositing],
@@ -584,7 +642,7 @@ function EarnGuidePage() {
   } else {
     body = (
       <DoneStep
-        offer={vaultOffer}
+        offer={depositOffer}
         networkLogoURI={network?.logoURI}
         amount={isPreview ? previewAmount : saved.amount}
       />

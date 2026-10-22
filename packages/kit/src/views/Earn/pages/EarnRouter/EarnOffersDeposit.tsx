@@ -254,7 +254,7 @@ function OfferDepositForm({
   offerSwitch: ReactNode;
   onAmountChange: (amount: string) => void;
   onHeaderRightChange?: (view: IHeaderRightViewProps | null) => void;
-  onDeposited?: () => void;
+  onDeposited?: (amount?: string) => void;
   footerActionOverride?: IManagePositionFooterAction;
 }) {
   const { activeAccount } = useActiveAccount({ num: 0 });
@@ -419,8 +419,14 @@ export function EarnOffersDeposit({
     },
     [onAmountChange],
   );
+  // What went in: the form's own figure when it has one (paid in another
+  // token), else the amount typed
   const handleDeposited = useMemo(
-    () => (onDeposited ? () => onDeposited(typedAmountRef.current) : undefined),
+    () =>
+      onDeposited
+        ? (deposited?: string) =>
+            onDeposited(deposited || typedAmountRef.current)
+        : undefined,
     [onDeposited],
   );
   // A pick shows in the switcher's row at once and the list folds under it;

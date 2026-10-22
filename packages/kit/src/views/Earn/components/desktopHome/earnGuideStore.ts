@@ -42,8 +42,6 @@ type IEarnGuideSnapshot = {
   previewStep?: IEarnGuideStep;
   /** What was typed in the preview's deposit, for its step 4 */
   previewAmount?: string;
-  /** Where the card was when pressed, for the modal growing out of it */
-  from?: IEarnGuideRect;
   /** The guide modal is up: the preview key works over it too */
   isModalOpen?: boolean;
   /** The modal's green header, where the growing card's green ends */
@@ -72,6 +70,9 @@ function readSaved(): Record<string, IEarnGuideSaved> {
 
 let snapshot: IEarnGuideSnapshot = { saved: readSaved() };
 const listeners = new Set<() => void>();
+// Where the card is now, set by the card while it shows: the guide goes back
+// into it there, wherever a resize has moved it since the press
+let cardMeasurer: (() => IEarnGuideRect | undefined) | undefined;
 
 function update(next: Partial<IEarnGuideSnapshot>) {
   snapshot = { ...snapshot, ...next };
@@ -111,9 +112,10 @@ export const earnGuideStore = {
   setPolledGas(polledGas: IEarnGuideSnapshot['polledGas']) {
     update({ polledGas });
   },
-  setFrom(from: IEarnGuideRect | undefined) {
-    update({ from });
+  setCardMeasurer(measure: (() => IEarnGuideRect | undefined) | undefined) {
+    cardMeasurer = measure;
   },
+  measureCard: () => cardMeasurer?.(),
   setModalOpen(isModalOpen: boolean) {
     if (Boolean(snapshot.isModalOpen) !== isModalOpen) {
       update({ isModalOpen });

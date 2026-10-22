@@ -34,20 +34,20 @@ export const EARN_DESKTOP_DEMO_COPY = {
   guideActions: ['Add ETH', 'Choose vault', 'Deposit', 'View position'],
   guideGasTitle: 'Add ETH on Base',
   guideGasBody: (amount: string) =>
-    `Network fees on Base are paid in ETH, not USDC. Add about ${amount} ETH on Base to cover this deposit and a later withdrawal.`,
-  guideGasWaiting: 'Waiting for ETH on Base',
-  guideGasReceived: 'ETH on Base received',
+    `Network fees are paid in ETH, not USDC. Add about ${amount} ETH, enough for this deposit and a later withdrawal.`,
+  guideGasWaiting: 'Waiting for ETH',
+  guideGasReceived: 'ETH received',
   guideConnect: 'Connect a wallet to get your Base address.',
   guideVaultTitle: 'Choose a vault',
   guideVaultBody:
-    'A vault lends your USDC to borrowers and pays you the interest. This Morpho vault is on Base, where network fees are a few cents.',
+    'A vault lends your USDC to borrowers and pays you the interest. These vaults are on Base, where network fees are a few cents.',
   guideUseVault: 'Use this vault',
   guideDepositTitle: 'Deposit USDC',
   guideWithdrawNote:
     "Withdraw anytime from your position: your USDC and what it earned come back to this wallet, unless the vault's funds are all lent out at that moment.",
   guideDoneTitle: "You're earning",
   guideDoneBody:
-    'Your deposit is on its position page. Withdraw sits next to Deposit there, and your USDC and what it earned come back to this wallet.',
+    'Your deposit is on its position page, where Withdraw sits next to Deposit.',
   guideGoToPosition: 'Go to position',
   guideHide: 'Hide guide',
 };

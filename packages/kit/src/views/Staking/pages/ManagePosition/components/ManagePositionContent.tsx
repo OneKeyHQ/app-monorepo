@@ -76,6 +76,10 @@ export type IManagePositionFooterAction = {
   onPress: () => void;
   loading?: boolean;
   disabled?: boolean;
+  // Only the press and its spinner are the caller's: the deposit form keeps
+  // its own label and checks (the desktop Earn guide's preview, whose press
+  // sends nothing)
+  isPressOnly?: boolean;
 };
 
 export interface IManagePositionContentProps {
@@ -126,8 +130,9 @@ export interface IManagePositionContentProps {
   // withdrawal is out, in place of closing the modal
   onWithdrawn?: (info: { amount: string; tokenImageUri?: string }) => void;
   // With the deposit side alone: called once the deposit is out, in place of
-  // closing the modal, by a caller with a next step (the desktop Earn guide)
-  onDeposited?: () => void;
+  // closing the modal, by a caller with a next step (the desktop Earn guide);
+  // with what went in when the form knows it (paid in another token)
+  onDeposited?: (amount?: string) => void;
   // The caller's own action in the footer, ahead of every other one (the
   // guide's preview, which sends nothing)
   footerActionOverride?: IManagePositionFooterAction;
@@ -897,7 +902,7 @@ export function ManagePositionContent({
         return;
       }
       if (depositOnly && onDeposited) {
-        onDeposited();
+        onDeposited(info?.amount);
         return;
       }
       if (isInModalContext) {

@@ -114,7 +114,9 @@ export const StakeSection = ({
   tokenInfo?: IEarnTokenInfo;
   protocolInfo?: IProtocolInfo;
   isDisabled?: boolean;
-  onSuccess?: () => void;
+  // With what went in where the form knows it better than the typed amount:
+  // paid in another token, the swap's result
+  onSuccess?: (info?: { amount?: string }) => void;
   beforeFooter?: ReactElement | null;
   footerActionOverride?: IManagePositionFooterAction;
   showApyDetail?: boolean;
@@ -1069,7 +1071,7 @@ export const StakeSection = ({
               : String(tokenInfo?.price ?? '0'),
         }}
         onOpenPayWith={handleOpenPayWith}
-        onDone={onSuccess}
+        onDone={(depositedAmount) => onSuccess?.({ amount: depositedAmount })}
         isInModalContext={isInModalContext}
         summaryRequest={paySummaryRequest}
         showApyDetail={showApyDetail}

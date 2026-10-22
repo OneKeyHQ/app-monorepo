@@ -8,6 +8,8 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { EModalRoutes, EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
+import { preloadEarnGuide } from '../../../Staking/router';
+
 import {
   findGuideGas,
   getEarnGuideNetworkId,
@@ -20,6 +22,13 @@ import { earnGuideStore, useEarnGuide } from './earnGuideStore';
 
 import type { IEarnDesktopWalletNetworkGroup } from './earnDesktopHome.utils';
 import type { IEarnGuideRect } from './earnGuideStore';
+
+// Some of the card in the window: a card scrolled away gets no move back
+const isOnScreen = ({ x, y, width, height }: IEarnGuideRect) =>
+  x + width > 0 &&
+  y + height > 0 &&
+  x < (globalThis.innerWidth ?? 0) &&
+  y < (globalThis.innerHeight ?? 0);
 
 /**
  * The guide for the desktop Earn home: tells the guide what the home knows
@@ -164,10 +173,10 @@ export function useEarnDesktopGuide({
   useEffect(() => () => ghostRef.current?.destroy(), []);
 
   // The guide's page loads while the card shows, so the modal is up soon
-  // after the card lands
+  // after the card lands. A failure is left to the open, which loads it again
   useEffect(() => {
     if (guide.isShown) {
-      void import('../../pages/EarnGuide');
+      preloadEarnGuide().catch(() => undefined);
     }
   }, [guide.isShown]);
   const pushGuide = useCallback(() => {
@@ -181,7 +190,6 @@ export function useEarnDesktopGuide({
       if (ghostRef.current) {
         return;
       }
-      earnGuideStore.setFrom(from);
       earnGuideStore.setClosesOnFinish(false);
       earnGuideStore.setGuideUp(true);
       // Narrow windows slide the modal up from the bottom instead: no card
@@ -194,8 +202,8 @@ export function useEarnDesktopGuide({
     },
     [isWide, pushGuide, reducedMotion, showGhost],
   );
-  // Closed back to the page with the card still there: into the card. A
-  // finish (Done, Hide guide, Go to position) just closes
+  // Closed back to the page with the card still there: into the card, where
+  // it is now. A finish (Done, Hide guide, Go to position) just closes
   useEffect(() => {
     let wasOpen = Boolean(earnGuideStore.getSnapshot().isModalOpen);
     return earnGuideStore.subscribe(() => {
@@ -207,16 +215,17 @@ export function useEarnDesktopGuide({
       if (!hasClosed) {
         return;
       }
+      const card = snapshot.closesOnFinish
+        ? undefined
+        : earnGuideStore.measureCard();
       if (
-        !snapshot.closesOnFinish &&
-        snapshot.from &&
+        card &&
+        isOnScreen(card) &&
         !reducedMotion &&
         isWideRef.current &&
         guideRef.current.isShown
       ) {
-        showGhost('close', snapshot.from, () =>
-          earnGuideStore.setGuideUp(false),
-        );
+        showGhost('close', card, () => earnGuideStore.setGuideUp(false));
       } else {
         earnGuideStore.setGuideUp(false);
       }
