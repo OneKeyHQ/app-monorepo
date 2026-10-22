@@ -18,7 +18,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
-import { getVendorProfile } from '@onekeyhq/shared/src/hardware/vendorProfile';
+import { getVendorProfile } from '@onekeyhq/shared/src/hardware/config/vendorProfile';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { resolveWalletCreatedAtForCreationRecord } from '@onekeyhq/shared/src/referralCode/creationRecordUtils';
 import type { EInviteCodeAttributionSource } from '@onekeyhq/shared/src/referralCode/installReferrerUtils';
@@ -63,6 +63,8 @@ import type {
   IInvitePaidHistory,
   IInvitePostConfig,
   IInviteSummary,
+  IInviteeRewardsModuleResult,
+  IInviteeRewardsOverview,
   IPerpsCumulativeRewardsParams,
   IPerpsCumulativeRewardsResponse,
   IPerpsInviteeRewardsResponse,
@@ -623,6 +625,37 @@ class ServiceReferralCode extends ServiceBase {
       errorToastUtils.toastIfErrorDisable(error);
       throw error;
     }
+  }
+
+  @backgroundMethod()
+  async getInviteeRewardsOverview({
+    walletAddress,
+  }: {
+    walletAddress: string;
+  }): Promise<IInviteeRewardsOverview> {
+    const toModuleResult = <T>(
+      result: PromiseSettledResult<T>,
+    ): IInviteeRewardsModuleResult<T> =>
+      result.status === 'fulfilled'
+        ? { status: 'success', data: result.value }
+        : { status: 'error' };
+
+    // Each module degrades independently so one failing backend does not
+    // hide the rewards from the others.
+    const [perps, swap, earn] = await Promise.allSettled([
+      this.getPerpsInviteeRewards({ walletAddress }),
+      this.getSwapInviteeRewards({ walletAddress }),
+      this.backgroundApi.serviceStaking.getEarnSummaryV2({
+        accountAddress: walletAddress,
+        networkId: getNetworkIdsMap().eth,
+      }),
+    ]);
+
+    return {
+      perps: toModuleResult(perps),
+      swap: toModuleResult(swap),
+      earn: toModuleResult(earn),
+    };
   }
 
   @backgroundMethod()

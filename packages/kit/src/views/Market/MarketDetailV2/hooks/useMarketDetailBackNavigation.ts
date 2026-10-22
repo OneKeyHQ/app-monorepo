@@ -35,9 +35,9 @@ export function useMarketDetailBackNavigation() {
       navigation.pop();
       return;
     }
-    if (action.type === 'popAndSwitchDiscovery') {
+    if (action.type === 'popAndSwitchMarket') {
       navigation.pop();
-      navigation.switchTab(ETabRoutes.Discovery);
+      navigation.switchTab(ETabRoutes.Market);
       return;
     }
     if (action.type === 'popToTop') {

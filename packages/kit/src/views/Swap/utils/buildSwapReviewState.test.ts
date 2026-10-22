@@ -124,6 +124,70 @@ describe('buildSwapBatchTransferType', () => {
   });
 });
 
+describe('Blast separate approval', () => {
+  it.each([
+    'hd-1--m/44/60/0/0/0',
+    "hw-1--m/44'/60'/0'/0/0",
+    'external--60--0xabc',
+  ])('waits for approval before estimating the swap for %s', (accountId) => {
+    const blastFromToken = { ...fromToken, networkId: 'evm--81457' };
+    const blastToToken = { ...toToken, networkId: 'evm--81457' };
+    for (const shouldResetApprove of [false, true]) {
+      const result = buildSwapReviewState({
+        accountId,
+        networkId: blastFromToken.networkId,
+        batchApproveAndSwapEnabled: true,
+        fromToken: blastFromToken,
+        toToken: blastToToken,
+        quoteResult: createQuoteResult({
+          fromTokenInfo: blastFromToken,
+          toTokenInfo: blastToToken,
+          allowanceResult: {
+            allowanceTarget: '0xspender',
+            amount: '0',
+            shouldResetApprove,
+          },
+        }),
+        swapType: ESwapTabSwitchType.SWAP,
+        supportPreBuild: false,
+        texts,
+      });
+
+      expect(result.batchTransferType).toBe(ESwapBatchTransferType.NORMAL);
+      expect(result.steps.map((step) => step.type)).toEqual([
+        ...(shouldResetApprove ? [ESwapStepType.APPROVE_TX] : []),
+        ESwapStepType.APPROVE_TX,
+        ESwapStepType.SEND_TX,
+      ]);
+      expect(
+        result.steps.slice(0, -1).every((step) => step.shouldWaitApproved),
+      ).toBe(true);
+      expect(result.steps[0].isResetApprove).toBe(shouldResetApprove);
+      expect(result.preSwapData.needFetchGas).toBe(true);
+    }
+  });
+
+  it('keeps a swap without approval as a single send step', () => {
+    const result = buildSwapReviewState({
+      accountId: 'hd-1--m/44/60/0/0/0',
+      networkId: 'evm--81457',
+      batchApproveAndSwapEnabled: true,
+      quoteResult: createQuoteResult({
+        fromTokenInfo: { ...fromToken, networkId: 'evm--81457' },
+        toTokenInfo: { ...toToken, networkId: 'evm--81457' },
+      }),
+      swapType: ESwapTabSwitchType.SWAP,
+      supportPreBuild: true,
+      texts,
+    });
+    expect(result.steps.map((step) => step.type)).toEqual([
+      ESwapStepType.SEND_TX,
+    ]);
+    expect(result.preSwapData.needFetchGas).toBe(false);
+    expect(result.preSwapData.supportPreBuild).toBe(true);
+  });
+});
+
 describe('resolveSwapReviewTokenAmounts', () => {
   it('uses the selected quote output for Swap Pro Market review', () => {
     expect(

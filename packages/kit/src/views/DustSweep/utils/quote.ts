@@ -8,7 +8,10 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import tokenRebaseUtils from '@onekeyhq/shared/src/utils/tokenRebaseUtils';
-import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
+import {
+  checkWrappedTokenPair,
+  equalTokenNoCaseSensitive,
+} from '@onekeyhq/shared/src/utils/tokenUtils';
 import type {
   IDustSweepReason,
   IDustSweepSnapshot,
@@ -22,15 +25,19 @@ import type {
   ISwapTokenBase,
 } from '@onekeyhq/shared/types/swap/types';
 import {
+  EProtocolOfExchange,
   EQuoteShowTipType,
   ESwapQuoteKind,
   ESwapQuoteSource,
   ESwapTabSwitchType,
 } from '@onekeyhq/shared/types/swap/types';
 
-// The backend source labels orders; Dust Sweep currently executes only OKX.
+// Unwrap quotes use the native wrapper contract instead of a DEX provider.
 export function isDustSweepQuoteCandidate(quote: IFetchQuoteResult) {
-  return quote.info?.provider === DUST_SWEEP_PROVIDER;
+  return (
+    quote.info?.provider === DUST_SWEEP_PROVIDER ||
+    quote.info?.provider === 'wrapped'
+  );
 }
 
 export class DustSweepSkip extends OneKeyLocalError {
@@ -97,6 +104,9 @@ export function getDustSweepQuoteRisk(
   )
     return 'noQuote';
   if (
+    (quote.protocol !== undefined &&
+      quote.protocol !== EProtocolOfExchange.SWAP) ||
+    (quote.kind !== undefined && quote.kind !== ESwapQuoteKind.SELL) ||
     token.networkId !== snapshot.networkId ||
     snapshot.nativeToken.networkId !== snapshot.networkId ||
     !isSameDustSweepToken({
@@ -112,6 +122,29 @@ export function getDustSweepQuoteRisk(
     !new BigNumber(quote.fromAmount ?? '').eq(token.amount)
   )
     return 'unknown';
+  const isWrapped = quote.info.provider === 'wrapped';
+  if (isWrapped ? quote.isWrapped !== true : quote.isWrapped) return 'unknown';
+  if (
+    isWrapped &&
+    (token.isNative ||
+      quote.fromTokenInfo.isNative ||
+      !snapshot.nativeToken.isNative ||
+      !quote.toTokenInfo.isNative ||
+      token.decimals !== snapshot.nativeToken.decimals ||
+      !checkWrappedTokenPair({
+        fromToken: token,
+        toToken: snapshot.nativeToken,
+      }) ||
+      !toAmount.eq(token.amount) ||
+      quote.allowanceResult ||
+      quote.approvedInfo ||
+      quote.quoteShowTip?.showCheckbox ||
+      (quote.fee?.protocolFees !== undefined &&
+        !new BigNumber(quote.fee.protocolFees).isZero()) ||
+      (quote.fee !== undefined &&
+        !new BigNumber(quote.fee.percentageFee).isZero()))
+  )
+    return 'unknown';
   if (
     quote.swapShouldSignedData ||
     quote.shouldWrappedToken ||
@@ -123,11 +156,14 @@ export function getDustSweepQuoteRisk(
     if (
       !amount.isFinite() ||
       amount.isNegative() ||
+      (isWrapped && amount.gt(0)) ||
       (amount.gt(0) &&
         !isSameDustSweepToken({ quoteToken: fee.token, expectedToken: token }))
     )
       return 'unknown';
   }
+  // A verified 1:1 withdrawal has no market-price impact or slippage.
+  if (isWrapped) return undefined;
   const fromToken = {
     ...token,
     price: getUsablePrice(token.price, quote.fromTokenInfo.price),

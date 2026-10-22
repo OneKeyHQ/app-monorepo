@@ -1,8 +1,10 @@
 import type { ReactNode } from 'react';
 import { useCallback, useEffect, useState } from 'react';
 
-import { DialogV2 } from '@onekeyhq/components/src/composite/DialogV2';
-import { ScrollView } from '@onekeyhq/components/src/layouts/ScrollView';
+import {
+  Dialog,
+  DialogContainer,
+} from '@onekeyhq/components/src/composite/Dialog';
 import { Button } from '@onekeyhq/components/src/primitives/Button';
 import { Icon } from '@onekeyhq/components/src/primitives/Icon';
 import { Image } from '@onekeyhq/components/src/primitives/Image';
@@ -13,13 +15,15 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components/src/primitives/Stack';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import type { Meta, StoryObj } from '@storybook/react-native-web-vite';
 
 // The WalletConnect Pay flow, staged for design review and as the migration
 // reference for the production module (packages/kit/src/views/WalletConnectPay).
-// DialogV2 is only the presentation shell; everything below is owned by this
-// scene, not by the dialog.
+// The shared Dialog (a DialogContainer without its header and footer) is
+// only the presentation shell; everything below is owned by this scene, not
+// by the dialog.
 //
 // Figma: Modules / "Walletconnect pay" (node 21831-35638). Every step shares
 // one skeleton — Header, optional Body, optional Footer — laid inside the
@@ -67,9 +71,14 @@ const SAMPLE_OPTIONS: IWcPayDemoOption[] = [
 
 const EMPTY_OPTIONS: IWcPayDemoOption[] = [];
 
-// Rides the scroll content (not the card) so the inset scrolls away with
-// the rows instead of leaving a static gap at the clipped edges.
-const ASSET_LIST_CONTENT_CONTAINER_STYLE = { p: '$1' } as const;
+// The shell's content inset, as the production flow sets it: 24 at the
+// sides, 16 on top, and on native nothing under the last element but the
+// safe-area inset.
+const SHELL_CONTENT_CONTAINER_PROPS = {
+  px: '$6',
+  pt: '$4',
+  pb: platformEnv.isNative ? '$0' : '$6',
+} as const;
 
 // ---------------------------------------------------------------------------
 // Header — present on every step; only its vertical padding and content vary.
@@ -263,19 +272,25 @@ function WcPayAssetList({
         bg="$neutral3"
         borderRadius="$4"
         borderCurve="continuous"
-        height={200}
         overflow="hidden"
       >
-        <ScrollView contentContainerStyle={ASSET_LIST_CONTENT_CONTAINER_STYLE}>
-          {options.map((option) => (
-            <WcPayAssetOptionRow
-              key={option.id}
-              option={option}
-              selected={option.id === selectedId}
-              onSelectOption={onSelectOption}
-            />
-          ))}
-        </ScrollView>
+        {/* Dialog.ScrollView: inside the phone sheet a plain ScrollView loses
+            every vertical swipe to the sheet's drag (OK-61140). It sizes to
+            its content, so the height sits on it. The inset rides the scroll
+            content (not the card) so it scrolls away with the rows instead
+            of leaving a static gap at the clipped edges. */}
+        <Dialog.ScrollView height={200}>
+          <YStack p="$1">
+            {options.map((option) => (
+              <WcPayAssetOptionRow
+                key={option.id}
+                option={option}
+                selected={option.id === selectedId}
+                onSelectOption={onSelectOption}
+              />
+            ))}
+          </YStack>
+        </Dialog.ScrollView>
       </YStack>
     </YStack>
   );
@@ -402,8 +417,7 @@ function WcPaySuccessStep({ onDone }: { onDone: () => void }) {
 // ---------------------------------------------------------------------------
 // Demo host: one state machine behind every story. The static state stories
 // freeze it at a step (autoAdvance off); FullFlow lets the timers run. The
-// sheet re-measures on every step change, so the height transitions ride the
-// system's own detent animation.
+// sheet is content-sized, so every step change resizes it.
 
 type IWcPayDemoStep =
   | 'fetching'
@@ -432,7 +446,9 @@ function WalletConnectPayDemo({
     setSelectedId(SAMPLE_OPTIONS[0].id);
     setOpen(true);
   }, [initialStep]);
-  const handleClose = useCallback(() => {
+  // Also the dialog's own onClose (backdrop, drag, back), so it returns a
+  // promise.
+  const handleClose = useCallback(async () => {
     setOpen(false);
   }, []);
   const handleRetry = useCallback(() => {
@@ -485,9 +501,14 @@ function WalletConnectPayDemo({
   return (
     <YStack gap="$4" alignItems="flex-start">
       <Button onPress={handleOpen}>Open payment sheet</Button>
-      <DialogV2 open={open} onOpenChange={setOpen}>
-        {content}
-      </DialogV2>
+      <DialogContainer
+        open={open}
+        onClose={handleClose}
+        renderContent={content}
+        showHeader={false}
+        showFooter={false}
+        contentContainerProps={SHELL_CONTENT_CONTAINER_PROPS}
+      />
     </YStack>
   );
 }
@@ -516,8 +537,8 @@ type Story = StoryObj<typeof meta>;
 
 /**
  * The whole happy path on timers: fetching → payment options (pick an
- * asset, confirm) → confirming → success → Done. Each height change rides
- * the sheet's own detent animation.
+ * asset, confirm) → confirming → success → Done. Each step change resizes
+ * the sheet to its content.
  */
 export const FullFlow: Story = {};
 

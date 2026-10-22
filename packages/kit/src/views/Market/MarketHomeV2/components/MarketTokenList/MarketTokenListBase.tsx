@@ -47,10 +47,12 @@ import { MarketTestIDs } from '../../../testIDs';
 import { DesktopStickyHeaderContext } from '../../layouts/DesktopStickyHeaderContext';
 import { MarketDesktopStickyHeader } from '../MarketDesktopStickyHeader';
 import { MARKET_TOKEN_ROW_GROUP_NAME } from '../MarketHoverRevealLine';
+import { WebMarketTokenList } from '../MarketNativeList/WebMarketTokenList';
 import { StickyHeaderPortal } from '../StickyHeaderPortal';
 import { useMarketDesktopResponsiveColumns } from '../useMarketDesktopResponsiveColumns';
 
 import {
+  MARKET_HOME_WS_MAX_SUBSCRIPTIONS,
   applyMarketTokenListLiveOverrides,
   useMarketHomeTokenListWebSocket,
 } from './hooks/useMarketHomeTokenListWebSocket';
@@ -76,7 +78,6 @@ const SPINNER_HEIGHT = 52;
 const MARKET_HOME_MOBILE_ROW_HEIGHT_PX = 60;
 const MARKET_HOME_DESKTOP_ROW_HEIGHT_PX = 72;
 const MARKET_HOME_WS_OVERSCAN_ROWS = 5;
-const MARKET_HOME_WS_MAX_SUBSCRIPTIONS = 80;
 const MARKET_HOME_WS_SCROLL_SYNC_DELAY_MS = 120;
 const MARKET_HOME_WS_DEBUG_SUBSCRIPTION_ROW_BG = 'rgba(255, 72, 72, 0.12)';
 const MARKET_HOME_WEB_INITIAL_RENDER_ROW_COUNT = 12;
@@ -144,7 +145,8 @@ function isSameSubscriptionRange(
 }
 
 function getMarketHomeScrollContainer(element: HTMLElement | null) {
-  return element?.closest?.('.onekey-tabs-container') as HTMLElement | null;
+  return (element?.closest?.('[data-collapsible-pager-scroll]') ??
+    element?.closest?.('.onekey-tabs-container')) as HTMLElement | null;
 }
 
 function getLimitedSubscriptionRange({
@@ -1014,6 +1016,63 @@ function MarketTokenListBase({
     };
   }, [isWatchlistMode, md, rowBg, webTabIntegrated]);
 
+  const tableList =
+    webTabIntegrated &&
+    (useTrendingDesktopColumns || useWatchlistDesktopColumns) ? (
+      <>
+        {showTableHeader && !useDesktopPortal ? (
+          <Table.HeaderRow
+            columns={marketTokenColumns}
+            onHeaderRow={stableHandleHeaderRow}
+            rowProps={tableRowProps}
+            headerRowProps={md ? undefined : { height: 36 }}
+          />
+        ) : null}
+        <WebMarketTokenList
+          data={data}
+          columns={marketTokenColumns}
+          onRow={stableOnRow}
+          footer={TableFooterComponent}
+          empty={TableEmptyComponent}
+          networkId={networkId}
+          contentPaddingBottom={integratedContentPaddingBottom}
+          watchlistFrom={watchlistFrom}
+          copyFrom={copyFrom}
+          watchlistMode={useWatchlistDesktopColumns}
+          draggable={draggable}
+          onDragEnd={onDragEnd}
+          onScrollBegin={onScrollBegin}
+        />
+      </>
+    ) : (
+      <Table<IMarketToken>
+        deferOffscreenRows={webTabIntegrated && useTrendingDesktopColumns}
+        contentContainerStyle={tableContentContainerStyle}
+        stickyHeader
+        showHeader={showTableHeader ? !useDesktopPortal : false}
+        scrollEnabled={!webTabIntegrated}
+        draggable={draggable}
+        tabIntegrated={tabIntegrated}
+        onDragEnd={onDragEnd}
+        columns={marketTokenColumns}
+        headerRowProps={md ? undefined : { height: 36 }}
+        onEndReached={webTabIntegrated ? undefined : handleEndReached}
+        dataSource={data}
+        keyExtractor={(item) => item.id}
+        extraData={networkId}
+        onHeaderRow={stableHandleHeaderRow}
+        TableEmptyComponent={TableEmptyComponent}
+        TableFooterComponent={TableFooterComponent}
+        estimatedItemSize={
+          md
+            ? MARKET_HOME_MOBILE_ROW_HEIGHT_PX
+            : MARKET_HOME_DESKTOP_ROW_HEIGHT_PX
+        }
+        onRow={stableOnRow}
+        rowProps={tableRowProps}
+      />
+    );
+
   return (
     <Stack
       ref={listRootRef as any}
@@ -1057,32 +1116,7 @@ function MarketTokenListBase({
               }}
             />
           ) : (
-            <Table<IMarketToken>
-              deferOffscreenRows={webTabIntegrated && useTrendingDesktopColumns}
-              contentContainerStyle={tableContentContainerStyle}
-              stickyHeader
-              showHeader={showTableHeader ? !useDesktopPortal : false}
-              scrollEnabled={!webTabIntegrated}
-              draggable={draggable}
-              tabIntegrated={tabIntegrated}
-              onDragEnd={onDragEnd}
-              columns={marketTokenColumns}
-              headerRowProps={md ? undefined : { height: 36 }}
-              onEndReached={webTabIntegrated ? undefined : handleEndReached}
-              dataSource={data}
-              keyExtractor={(item) => item.id}
-              extraData={networkId}
-              onHeaderRow={stableHandleHeaderRow}
-              TableEmptyComponent={TableEmptyComponent}
-              TableFooterComponent={TableFooterComponent}
-              estimatedItemSize={
-                md
-                  ? MARKET_HOME_MOBILE_ROW_HEIGHT_PX
-                  : MARKET_HOME_DESKTOP_ROW_HEIGHT_PX
-              }
-              onRow={stableOnRow}
-              rowProps={tableRowProps}
-            />
+            tableList
           )}
           {/* Render end indicator outside the Table for draggable lists
               so it doesn't participate in absolute positioning during drag. */}

@@ -29,10 +29,11 @@ describe('native authenticated secure storage adapter', () => {
 
   it('uses the same isolated service for authenticated writes, reads and deletion', async () => {
     const keychainService = 'synthetic-backup-service';
+    const authenticationPrompt = 'Verify backup password';
     await storage.setSecureItemWithBiometrics(
       'synthetic-key-ref',
       'synthetic-key',
-      { keychainService },
+      { keychainService, authenticationPrompt },
     );
     expect(setItemAsync).toHaveBeenCalledWith(
       'synthetic-key-ref',
@@ -41,14 +42,16 @@ describe('native authenticated secure storage adapter', () => {
         keychainAccessible: 6,
         keychainService,
         requireAuthentication: true,
-        authenticationPrompt: undefined,
+        authenticationPrompt,
       },
     );
     expect(getItemAsync).not.toHaveBeenCalled();
     await storage.getSecureItemWithBiometrics?.('synthetic-key-ref', {
+      authenticationPrompt,
       keychainService,
     });
     expect(getItemAsync).toHaveBeenCalledWith('synthetic-key-ref', {
+      authenticationPrompt,
       keychainAccessible: 6,
       keychainService,
       requireAuthentication: true,

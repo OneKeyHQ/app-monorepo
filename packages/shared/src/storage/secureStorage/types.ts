@@ -53,7 +53,7 @@ export interface ISecureStorage {
   supportSecureStorageWithBiometrics?(): Promise<boolean>;
   getSecureItemWithBiometrics?(
     key: string,
-    options?: { keychainService?: string },
+    options?: { keychainService?: string; authenticationPrompt?: string },
   ): Promise<string | null>;
   setSecureItemWithBiometrics(
     key: string,

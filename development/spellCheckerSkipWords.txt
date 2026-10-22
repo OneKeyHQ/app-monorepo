@@ -498,7 +498,6 @@ isXprvt
 itms
 izari
 jane
-jetpack
 jotai
 Jotai
 jpeg
@@ -1635,3 +1634,4 @@ poolstrade
 pumpfun
 sunpump
 Jsign
+misttrack

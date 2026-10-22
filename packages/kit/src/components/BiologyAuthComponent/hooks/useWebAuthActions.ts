@@ -42,6 +42,8 @@ export const useWebAuthActions = (options?: {
           resolve(value);
         };
         Dialog.show({
+          // Password setup can await this confirmation from the secure layer.
+          overlayLevel: 'secure',
           icon: 'FaceIdOutline',
           title: intl.formatMessage({ id: ETranslations.settings_passkey }),
           description: intl.formatMessage(

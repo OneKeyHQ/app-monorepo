@@ -243,6 +243,23 @@ describe('StockTokenVariantSelector', () => {
     mockStockDetailState.portfolioNetworkId = mockVariants[0].networkId;
   });
 
+  it.each([false, true])(
+    'pins bStocks before other issuers, compact=%s',
+    (compact) => {
+      mockStockDetailState.tokenVariants = [mockVariants[1], mockVariants[0]];
+      render(<StockTokenVariantSelector compact={compact} />);
+      expect(
+        within(screen.getByTestId('stock-token-variant-row-0')).getByText(
+          'AAPLb',
+        ),
+      ).toBeTruthy();
+      fireEvent.click(screen.getByTestId('stock-token-variant-row-1'));
+      expect(setSelectedTokenIdMock).toHaveBeenCalledWith(
+        mockVariants[1].tokenId,
+      );
+    },
+  );
+
   it('renders backend variants and selects a token by tokenId', () => {
     render(
       <StockTokenVariantSelector
@@ -262,7 +279,16 @@ describe('StockTokenVariantSelector', () => {
     expect(screen.getByText('Token/Balance')).toBeTruthy();
     expect(screen.getByText('Issuer')).toBeTruthy();
     expect(screen.getByText('Quote price')).toBeTruthy();
-    expect(screen.getByText('24/7')).toBeTruthy();
+    // The selected bStocks token is always open: tagged in its row and in
+    // the trigger that shows it after picking.
+    expect(
+      within(screen.getByTestId('stock-token-variant-row-0')).getByText('24/7'),
+    ).toBeTruthy();
+    expect(
+      within(
+        screen.getByTestId('stock-token-variant-selector-trigger-0'),
+      ).getByText('24/7'),
+    ).toBeTruthy();
     expect(screen.getByText('0.001')).toBeTruthy();
     expect(screen.getByText('bStocks')).toBeTruthy();
     expect(screen.getAllByText('Ondo')).toHaveLength(2);

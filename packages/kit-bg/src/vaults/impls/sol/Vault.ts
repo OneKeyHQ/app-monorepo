@@ -42,7 +42,7 @@ import {
 } from '@solana/web3.js';
 import BigNumber from 'bignumber.js';
 import bs58 from 'bs58';
-import { isEmpty, isNil } from 'lodash';
+import { chunk as chunkArray, isEmpty, isNil } from 'lodash';
 
 import { BLOCK_HASH_NOT_FOUND_ERROR_CODE } from '@onekeyhq/core/src/chains/sol/constants';
 import { parseToNativeTx } from '@onekeyhq/core/src/chains/sol/sdkSol/parse';
@@ -65,6 +65,8 @@ import {
   OneKeyInternalError,
   OneKeyLocalError,
 } from '@onekeyhq/shared/src/errors';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import {
   createSolanaTxDiagnosticContext,
   logSolanaTxDiagnostic,
@@ -95,6 +97,7 @@ import type {
   ISolanaTxDiagnosticContext,
 } from '@onekeyhq/shared/types/solanaTxDiagnostics';
 import type { ISwapTxInfo } from '@onekeyhq/shared/types/swap/types';
+import { EProtocolOfExchange } from '@onekeyhq/shared/types/swap/types';
 import type { IToken } from '@onekeyhq/shared/types/token';
 import {
   EDecodedTxActionType,
@@ -110,6 +113,7 @@ import { VaultBase } from '../../base/VaultBase';
 
 import { KeyringExternal } from './KeyringExternal';
 import { KeyringHardware } from './KeyringHardware';
+import { KeyringHardwareKeystone } from './KeyringHardwareKeystone';
 import { KeyringHardwareLedger } from './KeyringHardwareLedger';
 import { KeyringHardwareTrezor } from './KeyringHardwareTrezor';
 import { KeyringHd } from './KeyringHd';
@@ -127,6 +131,7 @@ import {
 } from './sdkSol/bubblegum';
 import { ClientCustomRpcSol } from './sdkSol/ClientCustomRpcSol';
 import ClientSol, { EParamsEncodings } from './sdkSol/ClientSol';
+import { getSolanaSwapRent } from './solanaRentUtils';
 import {
   inspectSolTxDiagnostic,
   withSolTxDiagnosticBlockhash,
@@ -178,15 +183,21 @@ import type { AccountInfo, TransactionInstruction } from '@solana/web3.js';
 import type { FailedAttemptError } from 'p-retry';
 
 // A pending Solana tx that never reached the ledger leaves no signature
-// status. Its blockhash lives ~150 slots (60-90 s) and the broadcast retries
-// add up to ~45 s more, so an unseen tx older than this window is dropped.
+// status. Its blockhash lives 150 blocks (~30 s at 200 ms slots, up to ~60 s
+// on slower cadences) and the broadcast retries add a few seconds more, so an
+// unseen tx older than this window is dropped.
 const SOL_PENDING_TX_DROPPED_TIMEOUT_MS = timerUtils.getTimeDurationMs({
   minute: 3,
 });
 // Preflight rejection text shared by the proxy (code 40028) and custom RPCs.
 const SOL_BLOCKHASH_NOT_FOUND_MESSAGE = 'Blockhash not found';
-// TODO(OK-63381): move to an ETranslations key once the copy lands in Lokalise.
-const SOL_TX_EXPIRED_MESSAGE = 'Transaction expired, please try again.';
+// A fresh blockhash can trail a lagging node by a slot or two, which clears in
+// a few seconds; an expired one never comes back. Two retries cover the lag
+// case without making the user wait a minute for a verdict that was already
+// final on the first attempt.
+const SOL_BLOCKHASH_NOT_FOUND_MAX_RETRY_ATTEMPTS = 2;
+// getSignatureStatuses accepts at most 256 signatures per request.
+const SOL_SIGNATURE_STATUSES_MAX_PER_CALL = 256;
 
 function isSolBlockhashNotFoundError(error: unknown): boolean {
   return (
@@ -202,13 +213,18 @@ function isSolBlockhashNotFoundError(error: unknown): boolean {
 
 // Both broadcast paths surface the raw node text ("Error JSON RPC response:
 // Transaction simulation failed: Blockhash not found"); replace it with the
-// user-facing copy while keeping the code the retry check matches on.
+// user-facing copy while keeping the code the retry check matches on. Solana
+// mainnet runs 200 ms slots since 2026-10-09, so a blockhash is only valid for
+// ~30 s; hardware/QR signing slower than that lands here, and the copy tells
+// the user to confirm faster next time.
 function normalizeSolBroadcastError(error: unknown): unknown {
   if (!isSolBlockhashNotFoundError(error)) {
     return error;
   }
   return new OneKeyLocalError({
-    message: SOL_TX_EXPIRED_MESSAGE,
+    message: appLocale.intl.formatMessage({
+      id: ETranslations.wallet_sol_tx_expired__msg,
+    }),
     code: BLOCK_HASH_NOT_FOUND_ERROR_CODE,
   });
 }
@@ -245,6 +261,7 @@ export default class Vault extends VaultBase {
     hw: KeyringHardware,
     hwLedger: KeyringHardwareLedger,
     hwTrezor: KeyringHardwareTrezor,
+    hwKeystone: KeyringHardwareKeystone,
     imported: KeyringImported,
     watching: KeyringWatching,
     external: KeyringExternal,
@@ -271,7 +288,14 @@ export default class Vault extends VaultBase {
     ({ err?: unknown; confirmationStatus?: string | null } | null)[] | undefined
   > {
     const client = await this.getClient();
-    return client.getSignatureStatuses(signatures);
+    // The RPC rejects more than 256 signatures per call; batch and keep the
+    // caller's order so the result still lines up with the input.
+    const batches = await Promise.all(
+      chunkArray(signatures, SOL_SIGNATURE_STATUSES_MAX_PER_CALL).map((batch) =>
+        client.getSignatureStatuses(batch),
+      ),
+    );
+    return batches.flat();
   }
 
   override async buildAccountAddressDetail(
@@ -1538,16 +1562,10 @@ export default class Vault extends VaultBase {
     },
   );
 
-  async _extractATADetailsFromEncodedTx(
-    encodedTx: IEncodedTxSol,
+  async _extractATADetailsFromInstructions(
+    instructions: TransactionInstruction[],
   ): Promise<IATADetails[]> {
     const ataDetails: IATADetails[] = [];
-    const nativeTx = parseToNativeTx(encodedTx) as INativeTxSol;
-    const client = await this.getClient();
-    const { instructions } = await parseNativeTxDetail({
-      nativeTx,
-      client,
-    });
 
     // Track ATAs created in this transaction for quick lookup
     const createdAta: Record<string, IATADetails> = {};
@@ -2024,8 +2042,17 @@ export default class Vault extends VaultBase {
       }
     }
 
-    // Extract ATA details from the encoded transaction for hardware signing
-    const ataDetails = await this._extractATADetailsFromEncodedTx(newEncodedTx);
+    const client = await this.getClient();
+    const { instructions } = await parseNativeTxDetail({
+      nativeTx: parseToNativeTx(newEncodedTx) as INativeTxSol,
+      client,
+    });
+    const ataDetails =
+      await this._extractATADetailsFromInstructions(instructions);
+    const solanaRent =
+      swapInfo && swapInfo.protocol !== EProtocolOfExchange.PRIVATE_SEND
+        ? await getSolanaSwapRent({ instructions, accountAddress, client })
+        : undefined;
 
     return {
       payload: {
@@ -2033,6 +2060,7 @@ export default class Vault extends VaultBase {
         ataDetails: ataDetails.length > 0 ? ataDetails : undefined,
       },
       encodedTx: newEncodedTx,
+      solanaRent,
     };
   }
 
@@ -2436,7 +2464,11 @@ export default class Vault extends VaultBase {
     // slots behind rejects it transiently the same way the proxy does with
     // 40028; retry both alike.
     if (isSolBlockhashNotFoundError(error)) {
-      await timerUtils.wait((error?.attemptNumber || 1) * 1000);
+      const attemptNumber = error?.attemptNumber || 1;
+      if (attemptNumber > SOL_BLOCKHASH_NOT_FOUND_MAX_RETRY_ATTEMPTS) {
+        return false;
+      }
+      await timerUtils.wait(attemptNumber * 1000);
       return true;
     }
     return false;

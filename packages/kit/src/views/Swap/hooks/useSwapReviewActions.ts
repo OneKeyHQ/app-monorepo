@@ -27,12 +27,18 @@ import {
 } from '../utils/swapReviewRebuildStateMachine';
 import {
   ESwapReviewApproveTransactionSource,
+  buildSwapStepFailurePatch,
   getSwapReviewApproveTransaction,
+  hasSwapStepSubmitResultUnknown,
   updateSwapReviewStep,
 } from '../utils/swapReviewState';
 
 import { useSwapReviewRebuildStateMachine } from './useSwapReviewRebuildStateMachine';
 
+import type {
+  ISwapReviewAnalytics,
+  ISwapReviewPreparation,
+} from '../utils/swapReviewAnalytics';
 import type {
   ISwapReviewAdapter,
   ISwapReviewState,
@@ -66,6 +72,9 @@ function mergeReviewStateSteps(prevSteps: ISwapStep[], nextSteps: ISwapStep[]) {
 
     if (typeof prevStep.canRetry !== 'undefined') {
       mergedStep.canRetry = prevStep.canRetry;
+    }
+    if (prevStep.submitResultUnknown) {
+      mergedStep.submitResultUnknown = true;
     }
 
     return mergedStep;
@@ -130,10 +139,12 @@ function useReviewStepStateActions() {
 }
 
 export function useSwapReviewActions({
+  reviewAnalytics,
   adapter,
   approveTransactionSource = ESwapReviewApproveTransactionSource.None,
 }: {
   adapter: ISwapReviewAdapter;
+  reviewAnalytics?: ISwapReviewAnalytics;
   approveTransactionSource?: ESwapReviewApproveTransactionSource;
 }) {
   const intl = useIntl();
@@ -202,10 +213,13 @@ export function useSwapReviewActions({
       data?: IFetchQuoteResult,
       currentFromToken?: IFetchQuoteResult['fromTokenInfo'],
       currentToToken?: IFetchQuoteResult['toTokenInfo'],
+      reviewPreparation?: ISwapReviewPreparation,
     ) => {
       setBeforeActionsLoading(true);
       try {
         const reviewState = await adapter.prepareReview({
+          reviewAnalytics,
+          reviewPreparation,
           fromAmount: data?.fromAmount,
           fromToken: currentFromToken,
           toToken: currentToToken,
@@ -241,6 +255,7 @@ export function useSwapReviewActions({
     },
     [
       adapter,
+      reviewAnalytics,
       replaceReviewState,
       setBeforeActionsLoading,
       setSwapSteps,
@@ -361,6 +376,11 @@ export function useSwapReviewActions({
         swapStepsValues?.quoteResult ?? currentSwapStepsState.quoteResult;
 
       if (!steps.length) {
+        return;
+      }
+      // A result-unknown sponsored send already happened in this review: the
+      // tx may be on chain, so nothing here may run again (OK-64746).
+      if (hasSwapStepSubmitResultUnknown(steps)) {
         return;
       }
 
@@ -494,10 +514,17 @@ export function useSwapReviewActions({
               break;
             }
           } catch (error) {
-            markStepFailed(
-              i,
-              error instanceof Error ? error.message : undefined,
-            );
+            updateStep(i, {
+              stepSubTitle: undefined,
+              ...buildSwapStepFailurePatch({
+                error,
+                errorMessage:
+                  error instanceof Error ? error.message : undefined,
+                resultUnknownMessage: currentIntl.formatMessage({
+                  id: ETranslations.wallet_transaction_maybe_already_submitted_check_activity__msg,
+                }),
+              }),
+            });
             break;
           }
         }

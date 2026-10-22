@@ -21,10 +21,14 @@ import type {
 } from '../types';
 import type { ITradingViewNativeIndicatorSeries } from '../utils/chartIndicators';
 import type { ITradingViewNativeChartRuntimeState } from '../utils/chartRuntime';
-import type { ITradingViewNativePriceRange } from '../utils/chartViewport';
+import type {
+  ITradingViewNativePriceRange,
+  ITradingViewNativeVisiblePointRange,
+} from '../utils/chartViewport';
 import type { ITradingViewNativeSubIndicatorRenderPane } from '../utils/subIndicatorRender';
 
 interface IDrawTradingViewNativeCanvasChartOptions {
+  autoScalePointRange?: ITradingViewNativeVisiblePointRange;
   candleIntervalSeconds: number;
   candleTimeMode?: ITradingViewNativeCandleTimeMode;
   canvas: HTMLCanvasElement;
@@ -58,6 +62,7 @@ interface IDrawTradingViewNativeCanvasChartOptions {
 }
 
 export function drawTradingViewNativeCanvasChart({
+  autoScalePointRange,
   candleIntervalSeconds,
   candleTimeMode,
   canvas,
@@ -109,6 +114,7 @@ export function drawTradingViewNativeCanvasChart({
   context.clearRect(0, 0, width, height);
 
   const scene = buildTradingViewNativeChartScene({
+    autoScalePointRange,
     candleIntervalSeconds,
     candleTimeMode,
     chartComponents,

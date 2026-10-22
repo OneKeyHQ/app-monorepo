@@ -40,6 +40,7 @@ import {
   useExtraFeeInfoAtom,
   useGasAccountTemporarilyDisabledAtom,
   useGasAccountUiStateAtom,
+  useIsGasAccountSubmitResultUnknown,
   useIsSinglePresetAtom,
   useMegafuelEligibleAtom,
   useNativeTokenInfoAtom,
@@ -56,6 +57,10 @@ import {
   useUnsignedTxsAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/signatureConfirm';
 import { SignatureConfirmTestIDs } from '@onekeyhq/kit/src/views/SignatureConfirm/testIDs';
+import {
+  applyEvmThorSwapGasLimit,
+  getEvmThorSwapGasLimit,
+} from '@onekeyhq/kit/src/views/Swap/utils/swapGasUtils';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { ITransferPayload } from '@onekeyhq/kit-bg/src/vaults/types';
 import {
@@ -73,7 +78,7 @@ import type {
   IOneKeyError,
   IOneKeyRpcError,
 } from '@onekeyhq/shared/src/errors/types/errorTypes';
-import { getGasAccountErrorCode } from '@onekeyhq/shared/src/errors/utils/gasAccountErrorUtils';
+import { EGasAccountRequestStage } from '@onekeyhq/shared/src/errors/utils/gasAccountErrorUtils';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -109,8 +114,10 @@ import type {
 
 import {
   EGasAccountErrorStrategy,
-  getGasAccountErrorEntry,
+  getGasAccountErrorEntryForError,
+  getGasAccountErrorMessageKey,
 } from '../../constants/gasAccountErrorCodes';
+import { useOneKeyIdIdentityChange } from '../../hooks/useOneKeyIdIdentityChange';
 import {
   isGasAccountQuoteEligible,
   resolveSponsorPayerState,
@@ -191,6 +198,19 @@ function TxFeeInfo(props: IProps) {
   const [gasAccountUiState] = useGasAccountUiStateAtom();
   const [txFeeInfoInit] = useTxFeeInfoInitAtom();
   const currentTxUuid = unsignedTxs[0]?.uuid;
+  // OK-64746: set by TxConfirmActions after a result-unknown Gas Account
+  // send of this tx. The attempted quote / nonce must stay as they are from
+  // then on, so every path that would re-estimate below is held while this
+  // is true.
+  const gasAccountSubmitResultUnknown =
+    useIsGasAccountSubmitResultUnknown(currentTxUuid);
+  const gasAccountSubmitResultUnknownRef = useRef(
+    gasAccountSubmitResultUnknown,
+  );
+  gasAccountSubmitResultUnknownRef.current = gasAccountSubmitResultUnknown;
+  // Last applied estimate; an estimate still in flight when the latch is set
+  // hands this back so nothing on screen changes.
+  const lastEstimateResultRef = useRef<unknown>(undefined);
   const feeRequestIdRef = useRef(0);
   const currentTxUuidRef = useRef<string | undefined>(currentTxUuid);
   currentTxUuidRef.current = currentTxUuid;
@@ -223,6 +243,72 @@ function TxFeeInfo(props: IProps) {
     updateTxFeeInfoInit,
     resetTxFeeState,
   } = useSignatureConfirmActions().current;
+
+  // OK-64746: a sponsored quote is bound to the OneKey ID member it was
+  // estimated for and Prime re-checks that identity at execute time. When the
+  // user logs in / out or switches account while this page is open, drop the
+  // old quote and re-estimate so the send carries a quote for the current
+  // session. Gated to flows that request sponsorship and held while a submit
+  // is in flight: the submit error handler classifies a Gas Account rejection
+  // through the quote's payer wiring, and the hook delivers the change as
+  // soon as the attempt ends, so a failed attempt never retries the previous
+  // identity's quote.
+  const reEstimateForIdentityChange = useCallback(() => {
+    resetGasAccountUiState();
+    updateTxFeeInfoInit(false);
+    updateSendFeeStatus({
+      status: ESendFeeStatus.Loading,
+      errMessage: '',
+      discountPercent: 0,
+    });
+    appEventBus.emit(EAppEventBusNames.EstimateTxFeeRetry, undefined);
+  }, [resetGasAccountUiState, updateSendFeeStatus, updateTxFeeInfoInit]);
+  const isCustomFeeSelected = sendSelectedFee.feeType === EFeeType.Custom;
+  const reEstimateOnCustomFeeExitRef = useRef(false);
+  useOneKeyIdIdentityChange({
+    enabled:
+      !gasAccountDisabledByScenario &&
+      !gasAccountTemporarilyDisabled &&
+      !gasAccountSubmitResultUnknown &&
+      !sendTxStatus.isSubmitting,
+    onChange: () => {
+      if (!isCustomFeeSelected) {
+        reEstimateForIdentityChange();
+        return;
+      }
+      // The estimate poll is paused while a custom fee is selected (see
+      // `overrideIsFocused`), so `run()` is a no-op and asking for a
+      // re-estimate now would only leave `txFeeInfoInit` false and the
+      // confirm button disabled. A quote can still be active here: a
+      // dApp-supplied fee is applied as a custom fee after the first
+      // estimate, which may have returned one. Drop it right away so the
+      // send goes out user-paid with the custom fee instead of carrying the
+      // previous identity's quote, and re-estimate once a preset is selected.
+      if (effectiveFeePayer === 'gasAccount') {
+        updateEffectiveFeePayer('user');
+      }
+      resetGasAccountUiState();
+      updateGasAccountUiState({ payer: 'user' });
+      reEstimateOnCustomFeeExitRef.current = true;
+    },
+  });
+  useEffect(() => {
+    if (
+      isCustomFeeSelected ||
+      gasAccountSubmitResultUnknown ||
+      sendTxStatus.isSubmitting ||
+      !reEstimateOnCustomFeeExitRef.current
+    ) {
+      return;
+    }
+    reEstimateOnCustomFeeExitRef.current = false;
+    reEstimateForIdentityChange();
+  }, [
+    gasAccountSubmitResultUnknown,
+    isCustomFeeSelected,
+    reEstimateForIdentityChange,
+    sendTxStatus.isSubmitting,
+  ]);
 
   const isMultiTxs = unsignedTxs.length > 1;
   // External-wallet accounts sign and broadcast through the connected wallet,
@@ -537,6 +623,12 @@ function TxFeeInfo(props: IProps) {
             ? undefined
             : gasAccountScenario,
         });
+        // An estimate that was already in flight when the send failed with a
+        // result-unknown code must not replace the attempted quote / locked
+        // nonce (or anything else on screen).
+        if (gasAccountSubmitResultUnknownRef.current) {
+          return lastEstimateResultRef.current as typeof staleResult;
+        }
         // L3 scenario gate telemetry: surface frontend contract bugs. Both
         // reasons indicate a client-side mismatch with the backend enum; log
         // to console so it shows up in dev/staging. Backend already records
@@ -676,6 +768,12 @@ function TxFeeInfo(props: IProps) {
           }
         } else if (r.gasAccountEligible && r.gasAccountQuote) {
           resetGasAccountTemporarilyDisabled();
+          // `updateGasAccountUiState` merges and drops undefined fields, so a
+          // quote that arrives without `gasAccountSkipReason` / scenario
+          // reason / locked nonce would otherwise keep the values written by
+          // an earlier self-paid estimate (e.g. the transient skip reason
+          // returned right after a login) and leak them into analytics.
+          resetGasAccountUiState();
           updateGasAccountUiState({
             payer: r.payer,
             gasAccountEligible: true,
@@ -687,6 +785,7 @@ function TxFeeInfo(props: IProps) {
                 ? buildGasAccountIdempotencyKey(r.gasAccountQuote.quoteId)
                 : '',
             gasAccountScenarioReason: r.gasAccountScenarioReason,
+            gasAccountSkipReason: r.gasAccountSkipReason,
             sponsorDisabledByCustomRpc: false,
           });
         } else {
@@ -695,11 +794,13 @@ function TxFeeInfo(props: IProps) {
           // (and Grafana-equivalent telemetry) can distinguish policy gate
           // from transient chain failure. Do NOT set
           // `gasAccountTemporarilyDisabled` — scenario gate is not a
-          // fallback-worthy condition, retrying won't flip it.
-          if (r.gasAccountScenarioReason) {
+          // fallback-worthy condition, retrying won't flip it. The member
+          // skip reason (OK-64746) is recorded the same way for analytics.
+          if (r.gasAccountScenarioReason || r.gasAccountSkipReason) {
             updateGasAccountUiState({
               payer: 'user',
               gasAccountScenarioReason: r.gasAccountScenarioReason,
+              gasAccountSkipReason: r.gasAccountSkipReason,
             });
           }
         }
@@ -805,8 +906,10 @@ function TxFeeInfo(props: IProps) {
         // every tick re-asks for a sponsor and gets the same error. Classifying
         // the error and flipping `gasAccountTemporarilyDisabled` forces the
         // next tick onto the user-paid path.
-        const gasAccountCode = getGasAccountErrorCode(e);
-        const gasAccountEntry = getGasAccountErrorEntry(gasAccountCode);
+        const gasAccountEntry = getGasAccountErrorEntryForError(
+          e,
+          EGasAccountRequestStage.Estimate,
+        );
         if (
           gasAccountEntry &&
           !gasAccountTemporarilyDisabled &&
@@ -829,7 +932,12 @@ function TxFeeInfo(props: IProps) {
           });
           if (!gasAccountEntry.suppressToast) {
             Toast.warning({
-              title: intl.formatMessage({ id: gasAccountEntry.messageKey }),
+              title: intl.formatMessage({
+                id: getGasAccountErrorMessageKey(
+                  gasAccountEntry,
+                  EGasAccountRequestStage.Estimate,
+                ),
+              }),
             });
           }
           appEventBus.emit(EAppEventBusNames.EstimateTxFeeRetry, undefined);
@@ -852,7 +960,12 @@ function TxFeeInfo(props: IProps) {
           });
           if (!gasAccountEntry.suppressToast) {
             Toast.warning({
-              title: intl.formatMessage({ id: gasAccountEntry.messageKey }),
+              title: intl.formatMessage({
+                id: getGasAccountErrorMessageKey(
+                  gasAccountEntry,
+                  EGasAccountRequestStage.Estimate,
+                ),
+              }),
             });
           }
           appEventBus.emit(EAppEventBusNames.EstimateTxFeeRetry, undefined);
@@ -946,14 +1059,18 @@ function TxFeeInfo(props: IProps) {
             seconds: vaultSettings?.estimatedFeePollingInterval,
           })
         : undefined,
+      // Also paused after a result-unknown Gas Account send: a fresh
+      // estimate would replace the attempted quote / locked nonce.
       overrideIsFocused: (isPageFocused) =>
         isPageFocused &&
         sendSelectedFee.feeType !== EFeeType.Custom &&
-        !sendTxStatus.isSubmitting,
+        !sendTxStatus.isSubmitting &&
+        !gasAccountSubmitResultUnknown,
     },
   );
 
   const { r: txFee, e: estimateFeeParams, m: multiTxsFee } = result ?? {};
+  lastEstimateResultRef.current = result;
 
   const txFeeCommon = txFee?.common ?? multiTxsFee?.common;
   const gasAccountFeeNative = useMemo(() => {
@@ -979,6 +1096,14 @@ function TxFeeInfo(props: IProps) {
     !isLastSwapTxWithFeeInfo &&
     !isSecondApproveTxWithFeeInfo &&
     (!!vaultSettings?.editFeeEnabled || !!vaultSettings?.checkFeeDetailEnabled);
+
+  const minimumGasLimit = isMultiTxs
+    ? undefined
+    : getEvmThorSwapGasLimit({
+        networkId,
+        buildTx: unsignedTxs[0]?.swapInfo?.swapBuildResData,
+        isSponsored: isPayerManagedByService,
+      });
 
   const feeSelectorItems: IFeeSelectorItem[] = useMemo(() => {
     const items = [];
@@ -1391,7 +1516,17 @@ function TxFeeInfo(props: IProps) {
         });
       }
 
-      return items;
+      return isMultiTxs
+        ? items
+        : items.map((item) => ({
+            ...item,
+            feeInfo: applyEvmThorSwapGasLimit({
+              networkId,
+              buildTx: unsignedTxs[0]?.swapInfo?.swapBuildResData,
+              gasInfo: item.feeInfo,
+              isSponsored: isPayerManagedByService,
+            }),
+          }));
     }
 
     return [];
@@ -1401,6 +1536,8 @@ function TxFeeInfo(props: IProps) {
     vaultSettings?.editFeeEnabled,
     feeInfoEditable,
     isMultiTxs,
+    networkId,
+    isPayerManagedByService,
     useFeeInTx,
     network,
     intl,
@@ -1582,7 +1719,7 @@ function TxFeeInfo(props: IProps) {
 
       const baseSelectedFeeInfo = selectedFeeInfo ?? selectedFeeInfos[0];
 
-      const txFeeInfo = {
+      let txFeeInfo = {
         ...baseSelectedFeeInfo,
         gas: baseSelectedFeeInfo.gas
           ? {
@@ -1603,6 +1740,14 @@ function TxFeeInfo(props: IProps) {
             }
           : undefined,
       };
+      if (!isMultiTxs) {
+        txFeeInfo = applyEvmThorSwapGasLimit({
+          networkId,
+          buildTx: unsignedTx.swapInfo?.swapBuildResData,
+          gasInfo: txFeeInfo,
+          isSponsored: isPayerManagedByService,
+        });
+      }
 
       const feeResult = calculateFeeForSend({
         feeInfo: txFeeInfo,
@@ -1697,8 +1842,10 @@ function TxFeeInfo(props: IProps) {
     feeSelectorItems,
     isLastSwapTxWithFeeInfo,
     isMultiTxs,
+    isPayerManagedByService,
     isSecondApproveTxWithFeeInfo,
     multiTxsFeeSelectorItems,
+    networkId,
     sendSelectedFee.feeType,
     sendSelectedFee.presetIndex,
     txFeeCommon?.nativeTokenPrice,
@@ -1931,6 +2078,8 @@ function TxFeeInfo(props: IProps) {
 
   useEffect(() => {
     const callback = () => {
+      // Nothing may re-estimate after a result-unknown Gas Account send.
+      if (gasAccountSubmitResultUnknownRef.current) return;
       // setStopPolling(false) clears any prior server-driven stop AND
       // resurrects the polling chain (the finally-block guard kills it once
       // stopPollingRef flips true). It returns true in that case, meaning a
@@ -2257,6 +2406,7 @@ function TxFeeInfo(props: IProps) {
       renderContent: (
         <TxFeeEditor
           networkId={networkId}
+          minimumGasLimit={minimumGasLimit}
           feeSelectorItems={
             isEmpty(feeSelectorItems)
               ? multiTxsFeeSelectorItems.map((item) => ({
@@ -2268,7 +2418,12 @@ function TxFeeInfo(props: IProps) {
           selectedFee={selectedFee?.feeInfos?.[0]}
           sendSelectedFee={sendSelectedFee}
           unsignedTxs={unsignedTxs}
-          originalCustomFee={customFee}
+          originalCustomFee={
+            minimumGasLimit && customFee
+              ? (feeSelectorItems.find((item) => item.type === EFeeType.Custom)
+                  ?.feeInfo ?? customFee)
+              : customFee
+          }
           onApplyFeeInfo={handleApplyFeeInfo}
           estimateFeeParams={estimateFeeParams}
         />
@@ -2281,6 +2436,7 @@ function TxFeeInfo(props: IProps) {
     handleApplyFeeInfo,
     intl,
     multiTxsFeeSelectorItems,
+    minimumGasLimit,
     networkId,
     selectedFee?.feeInfos,
     sendSelectedFee,

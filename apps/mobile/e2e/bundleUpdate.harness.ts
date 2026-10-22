@@ -14,8 +14,21 @@ import { ReactNativeBundleUpdate as BundleUpdateModule } from '@onekeyfe/react-n
 import { describe, expect, test } from 'react-native-harness';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import {
+  EUpdateErrorCode,
+  type TUpdateErrorStep,
+  getUpdateError,
+} from '@onekeyhq/shared/src/modules3rdParty/auto-update/error';
 import mmkvDevSettingStorageInstance from '@onekeyhq/shared/src/storage/instance/mmkvDevSettingStorageInstance';
 import { EDevSettingSyncStorageKeys } from '@onekeyhq/shared/src/storage/syncStorageKeys';
+
+function expectNativeUpdateError(
+  error: unknown,
+  step: TUpdateErrorStep,
+  code: EUpdateErrorCode,
+) {
+  expect(getUpdateError(error, step)).toEqual({ code, step });
+}
 
 // ---- Helpers ----
 
@@ -31,6 +44,7 @@ const TEST_MAIN_BUNDLE_FILE = 'main.jsbundle.hbc';
 const TEST_BACKGROUND_BUNDLE_FILE = 'background.bundle';
 const TEST_WEB_EMBED_INDEX_FILE = 'web-embed/index.html';
 const TEST_BACKGROUND_PROTOCOL_VERSION = '1';
+const TEST_STORAGE_SCHEMA_VERSION = 'mmkv-v1';
 
 function parseMetadataPathFromMessage(message: string): string {
   const marker = 'Created empty metadata.json: ';
@@ -154,6 +168,7 @@ async function createBundlePairFixture({
     ? 'true'
     : 'false';
   metadata.backgroundProtocolVersion = backgroundProtocolVersion;
+  metadata.storageSchemaVersion = TEST_STORAGE_SCHEMA_VERSION;
 
   await writeBundleMetadata(metadataPath, metadata);
 
@@ -171,6 +186,37 @@ async function clearBundlePairFixture(
 ): Promise<void> {
   await BundleUpdateModule.clearAllJSBundleData();
   await BundleUpdateModule.testDeleteJsRuntimeDir(appVersion, bundleVersion);
+}
+
+async function expectIncompatibleBundleSwitch(
+  appVersion: string,
+  bundleVersion: string,
+): Promise<void> {
+  const previousMainPath = BundleUpdateModule.getJsBundlePath();
+  const previousBackgroundPath = BundleUpdateModule.getBackgroundJsBundlePath();
+  const previousWebEmbedPath = await BundleUpdateModule.getWebEmbedPathAsync();
+  let rejectedError: unknown;
+  try {
+    await BundleUpdateModule.setCurrentUpdateBundleData({
+      appVersion,
+      bundleVersion,
+      signature: '',
+    });
+  } catch (error) {
+    rejectedError = error;
+  }
+  expectNativeUpdateError(
+    rejectedError,
+    'install',
+    EUpdateErrorCode.incompatible,
+  );
+  expect(BundleUpdateModule.getJsBundlePath()).toBe(previousMainPath);
+  expect(BundleUpdateModule.getBackgroundJsBundlePath()).toBe(
+    previousBackgroundPath,
+  );
+  expect(await BundleUpdateModule.getWebEmbedPathAsync()).toBe(
+    previousWebEmbedPath,
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -343,14 +389,19 @@ describe('testVerification', () => {
 // downloadBundle - Parameter validation (no actual download)
 // ---------------------------------------------------------------------------
 describe('downloadBundle parameter validation', () => {
-  test('rejects with missing required params', async () => {
+  test('rejects an empty release version', async () => {
     try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await BundleUpdateModule.downloadBundle({} as any);
+      await BundleUpdateModule.downloadBundle({
+        downloadUrl: 'https://example.com/bundle.zip',
+        latestVersion: '',
+        bundleVersion: '1',
+        fileSize: 1000,
+        sha256: 'a'.repeat(64),
+      });
       // Should not reach here
       expect(true).toBe(false);
-    } catch (e: any) {
-      expect(e.message || e.code || e).toBeTruthy();
+    } catch (e: unknown) {
+      expectNativeUpdateError(e, 'download', EUpdateErrorCode.invalidArgument);
     }
   });
 
@@ -365,8 +416,7 @@ describe('downloadBundle parameter validation', () => {
       });
       expect(true).toBe(false);
     } catch (e: any) {
-      const msg = String(e.message || e);
-      expect(msg).toMatch(/HTTPS/i);
+      expectNativeUpdateError(e, 'download', EUpdateErrorCode.securityRejected);
     }
   });
 });
@@ -375,26 +425,37 @@ describe('downloadBundle parameter validation', () => {
 // verifyBundle - Parameter validation
 // ---------------------------------------------------------------------------
 describe('verifyBundle parameter validation', () => {
-  test('rejects with missing versions and sha256', async () => {
-    try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await BundleUpdateModule.verifyBundle({} as any);
-      expect(true).toBe(false);
-    } catch (e: any) {
-      expect(e.message || e.code || e).toBeTruthy();
-    }
-  });
-
-  test('rejects without a managed bundle download', async () => {
+  test('rejects an empty release version', async () => {
     try {
       await BundleUpdateModule.verifyBundle({
-        sha256: 'abc123',
-        latestVersion: '1.0.0',
+        sha256: 'a'.repeat(64),
+        latestVersion: '',
         bundleVersion: '1',
       });
       expect(true).toBe(false);
+    } catch (e: unknown) {
+      expectNativeUpdateError(
+        e,
+        'verifyPackage',
+        EUpdateErrorCode.invalidArgument,
+      );
+    }
+  });
+
+  test('rejects when the managed bundle ZIP is missing', async () => {
+    try {
+      await BundleUpdateModule.verifyBundle({
+        sha256: 'abc123',
+        latestVersion: '999.999.999',
+        bundleVersion: '99999999',
+      });
+      expect(true).toBe(false);
     } catch (e: any) {
-      expect(e.message || e.code || e).toBeTruthy();
+      expectNativeUpdateError(
+        e,
+        'verifyPackage',
+        EUpdateErrorCode.packageMissing,
+      );
     }
   });
 });
@@ -403,28 +464,31 @@ describe('verifyBundle parameter validation', () => {
 // verifyBundleASC - Parameter validation
 // ---------------------------------------------------------------------------
 describe('verifyBundleASC parameter validation', () => {
-  test('rejects with missing params', async () => {
+  test('rejects an empty release version', async () => {
     try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await BundleUpdateModule.verifyBundleASC({} as any);
+      await BundleUpdateModule.verifyBundleASC({
+        sha256: 'a'.repeat(64),
+        latestVersion: '',
+        bundleVersion: '1',
+        signature: 'invalid_signature',
+      });
       expect(true).toBe(false);
-    } catch (e: any) {
-      expect(e.message || e.code || e).toBeTruthy();
+    } catch (e: unknown) {
+      expectNativeUpdateError(e, 'verifyASC', EUpdateErrorCode.invalidArgument);
     }
   });
 
-  test('rejects without a managed bundle download', async () => {
+  test('rejects when the managed bundle ZIP is missing', async () => {
     try {
       await BundleUpdateModule.verifyBundleASC({
         sha256: 'wrong_hash_value',
-        latestVersion: '1.0.0',
-        bundleVersion: '999',
+        latestVersion: '999.999.999',
+        bundleVersion: '99999999',
         signature: 'invalid_signature',
       });
       expect(true).toBe(false);
     } catch (e: any) {
-      const msg = String(e.message || e);
-      expect(msg.length).toBeGreaterThan(0);
+      expectNativeUpdateError(e, 'verifyASC', EUpdateErrorCode.packageMissing);
     }
   });
 });
@@ -433,13 +497,22 @@ describe('verifyBundleASC parameter validation', () => {
 // downloadBundleASC - Parameter validation
 // ---------------------------------------------------------------------------
 describe('downloadBundleASC parameter validation', () => {
-  test('rejects with missing required params', async () => {
+  test('rejects an empty release version', async () => {
     try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await BundleUpdateModule.downloadBundleASC({} as any);
+      await BundleUpdateModule.downloadBundleASC({
+        downloadUrl: 'https://example.com/metadata.asc',
+        signature: 'invalid_signature',
+        latestVersion: '',
+        bundleVersion: '1',
+        sha256: 'a'.repeat(64),
+      });
       expect(true).toBe(false);
-    } catch (e: any) {
-      expect(e.message || e.code || e).toBeTruthy();
+    } catch (e: unknown) {
+      expectNativeUpdateError(
+        e,
+        'downloadASC',
+        EUpdateErrorCode.invalidArgument,
+      );
     }
   });
 });
@@ -448,13 +521,16 @@ describe('downloadBundleASC parameter validation', () => {
 // installBundle - Parameter validation & version downgrade prevention
 // ---------------------------------------------------------------------------
 describe('installBundle parameter validation', () => {
-  test('rejects with missing required params', async () => {
+  test('rejects an empty release version', async () => {
     try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await BundleUpdateModule.installBundle({} as any);
+      await BundleUpdateModule.installBundle({
+        latestVersion: '',
+        bundleVersion: '1',
+        signature: 'invalid_signature',
+      });
       expect(true).toBe(false);
-    } catch (e: any) {
-      expect(e.message || e.code || e).toBeTruthy();
+    } catch (e: unknown) {
+      expectNativeUpdateError(e, 'install', EUpdateErrorCode.invalidArgument);
     }
   });
 });
@@ -664,16 +740,7 @@ describe('bundle pair compatibility', () => {
         bundleVersion,
         includeMain: false,
       });
-
-      await BundleUpdateModule.setCurrentUpdateBundleData({
-        appVersion,
-        bundleVersion,
-        signature: '',
-      });
-
-      expect(BundleUpdateModule.getJsBundlePath()).toBe('');
-      expect(BundleUpdateModule.getBackgroundJsBundlePath()).toBe('');
-      expect(await BundleUpdateModule.getWebEmbedPathAsync()).toBe('');
+      await expectIncompatibleBundleSwitch(appVersion, bundleVersion);
     } finally {
       await clearBundlePairFixture(appVersion, bundleVersion);
       await setSkipGpgVerificationForTests(false);
@@ -696,16 +763,7 @@ describe('bundle pair compatibility', () => {
         bundleVersion,
         includeBackground: false,
       });
-
-      await BundleUpdateModule.setCurrentUpdateBundleData({
-        appVersion,
-        bundleVersion,
-        signature: '',
-      });
-
-      expect(BundleUpdateModule.getJsBundlePath()).toBe('');
-      expect(BundleUpdateModule.getBackgroundJsBundlePath()).toBe('');
-      expect(await BundleUpdateModule.getWebEmbedPathAsync()).toBe('');
+      await expectIncompatibleBundleSwitch(appVersion, bundleVersion);
     } finally {
       await clearBundlePairFixture(appVersion, bundleVersion);
       await setSkipGpgVerificationForTests(false);
@@ -728,16 +786,7 @@ describe('bundle pair compatibility', () => {
         bundleVersion,
         backgroundProtocolVersion: '999',
       });
-
-      await BundleUpdateModule.setCurrentUpdateBundleData({
-        appVersion,
-        bundleVersion,
-        signature: '',
-      });
-
-      expect(BundleUpdateModule.getJsBundlePath()).toBe('');
-      expect(BundleUpdateModule.getBackgroundJsBundlePath()).toBe('');
-      expect(await BundleUpdateModule.getWebEmbedPathAsync()).toBe('');
+      await expectIncompatibleBundleSwitch(appVersion, bundleVersion);
     } finally {
       await clearBundlePairFixture(appVersion, bundleVersion);
       await setSkipGpgVerificationForTests(false);

@@ -121,13 +121,21 @@ export function useToMarketStockDetailPage(
     media.gtLg && !platformEnv.isNative ? 'desktop' : 'mobile';
 
   return useCallback(
-    async (stock: IMarketStockDetailNavigationInput) => {
+    async (
+      stock: IMarketStockDetailNavigationInput,
+      request?: {
+        isCurrentRequest: () => boolean;
+        onNavigationStart?: () => void;
+      },
+    ): Promise<boolean> => {
       if (
         travelModeManager.getRuntimeEnvironmentSync().profile.kind ===
         'travel-mode'
       ) {
-        return;
+        return false;
       }
+      const isCurrentRequest = request?.isCurrentRequest ?? (() => true);
+      if (!isCurrentRequest()) return false;
       const stockId = typeof stock === 'string' ? stock : stock.stockId;
       const stockPreview = typeof stock === 'string' ? undefined : stock;
       const stockTokenParams =
@@ -165,6 +173,12 @@ export function useToMarketStockDetailPage(
         isStockRoute: true,
         layout: preloadLayout,
       });
+      if (platformEnv.isNative) {
+        await preloadPromise;
+      }
+
+      if (!isCurrentRequest()) return false;
+
       if (!shouldKeepCurrentStockTokenDetail) {
         tokenDetailActions.current.prepareStockTokenDetail({
           tokenAddress: stockTokenParams?.tokenAddress ?? '',
@@ -181,10 +195,6 @@ export function useToMarketStockDetailPage(
           EAppEventBusNames.CleanTokenDetailInTabletDetailView,
           undefined,
         );
-      }
-
-      if (platformEnv.isNative) {
-        await preloadPromise;
       }
 
       if (
@@ -208,7 +218,7 @@ export function useToMarketStockDetailPage(
             : EEnterWay.ExtensionSidePanel,
         });
         closeExtensionPopupAfterExpandTabOpen();
-        return;
+        return true;
       }
 
       if (options?.replaceCurrentDetail) {
@@ -224,24 +234,26 @@ export function useToMarketStockDetailPage(
             : undefined),
         };
         if (isModalPage) {
-          const marketTab = platformEnv.isNative
-            ? ETabRoutes.Discovery
-            : ETabRoutes.Market;
+          const marketTab = ETabRoutes.Market;
           const replacedCurrentDetail = openOrReplaceMarketDetailRoute({
             routeName: ETabMarketRoutes.MarketStockDetail,
             params: stockDetailParams,
           });
+          // Switching tabs dismisses the selector; this is no longer a user cancellation.
+          request?.onNavigationStart?.();
           await switchTabAsync(marketTab);
+          if (replacedCurrentDetail) return true;
+          if (!isCurrentRequest()) return false;
           if (
-            replacedCurrentDetail ||
             replaceFocusedMarketDetailRoute({
               routeName: ETabMarketRoutes.MarketStockDetail,
               params: stockDetailParams,
             })
           ) {
-            return;
+            return true;
           }
-          rootNavigationRef.current?.navigate(ERootRoutes.Main, {
+          if (!rootNavigationRef.current) return false;
+          rootNavigationRef.current.navigate(ERootRoutes.Main, {
             screen: marketTab,
             params: {
               screen: ETabMarketRoutes.MarketStockDetail,
@@ -277,11 +289,12 @@ export function useToMarketStockDetailPage(
             prepareMarketDetailTabBarTransition();
           }
         }
-        return;
+        return true;
       }
 
-      rootNavigationRef.current?.navigate(ERootRoutes.Main, {
-        screen: platformEnv.isNative ? ETabRoutes.Discovery : ETabRoutes.Market,
+      if (!rootNavigationRef.current) return false;
+      rootNavigationRef.current.navigate(ERootRoutes.Main, {
+        screen: ETabRoutes.Market,
         params: {
           screen: ETabMarketRoutes.MarketStockDetail,
           params: {
@@ -298,6 +311,7 @@ export function useToMarketStockDetailPage(
         },
       });
       prepareMarketDetailTabBarTransition();
+      return true;
     },
     [
       navigation,

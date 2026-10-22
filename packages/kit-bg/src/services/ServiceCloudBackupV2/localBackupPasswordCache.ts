@@ -6,6 +6,8 @@ import {
 } from '@onekeyhq/core/src/secret';
 import { ECloudBackupProviderType } from '@onekeyhq/shared/src/cloudBackup/cloudBackupTypes';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import secureStorage from '@onekeyhq/shared/src/storage/instance/secureStorageInstance';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
@@ -135,7 +137,12 @@ export class LocalBackupPasswordCache {
         // Only the explicit restore action calls get. Never probe protected keys.
         const key = await secureStorage.getSecureItemWithBiometrics?.(
           entry.keyRef,
-          { keychainService: entry.keyRef },
+          {
+            keychainService: entry.keyRef,
+            authenticationPrompt: appLocale.intl.formatMessage({
+              id: ETranslations.verify_backup_password,
+            }),
+          },
         );
         if (!key || !/^[0-9a-f]{64}$/.test(key)) return undefined;
         const result = await decryptAsyncWithMetadata({
@@ -198,6 +205,9 @@ export class LocalBackupPasswordCache {
         await this.writeManifest(manifest);
         await secureStorage.setSecureItemWithBiometrics(keyRef, key, {
           keychainService: keyRef,
+          authenticationPrompt: appLocale.intl.formatMessage({
+            id: ETranslations.verify_backup_password,
+          }),
         });
         // No read-back: Android authenticates the write; iOS authenticates reads.
         manifest.entries[cacheKey] = { keyRef, ciphertext };
@@ -212,9 +222,11 @@ export class LocalBackupPasswordCache {
     if (!isSupported(scope) || !scope.accountId || !scope.recordId) return;
     try {
       await this.mutex.runExclusive(async () => {
-        if (this.resetting || this.erasurePending) return;
+        if (this.resetting || this.erasurePending)
+          throw new OneKeyLocalError('Recovery cache unavailable');
         const manifest = await this.readManifest();
-        if (manifest.erasing) return;
+        if (manifest.erasing)
+          throw new OneKeyLocalError('Recovery cache erasure pending');
         const cacheKey = getCacheKey(scope);
         const entry = manifest.entries[cacheKey];
         if (!entry) return;
@@ -225,15 +237,17 @@ export class LocalBackupPasswordCache {
               otherScope !== cacheKey && other.keyRef === entry.keyRef,
           )
         )
-          return;
+          throw new OneKeyLocalError('Invalid recovery cache');
         await secureStorage.removeSecureItem(entry.keyRef, {
           keychainService: entry.keyRef,
         });
+        this.assertPersistenceAvailable();
         delete manifest.entries[cacheKey];
         await this.writeManifest(manifest);
       });
     } catch {
-      // Leave the reference available for a later erasure retry.
+      // Preserve the remote record as a retry target; never expose native errors.
+      throw new OneKeyLocalError('Recovery cache removal failed');
     }
   }
 

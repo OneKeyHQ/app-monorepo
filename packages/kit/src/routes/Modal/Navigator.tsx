@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 
-import { useIsFocused } from '@react-navigation/native';
+import { useIsFocused, useRoute } from '@react-navigation/native';
+import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 
 import {
   DesktopDragZoneBox,
@@ -37,12 +38,30 @@ import {
 } from './router';
 
 export function ModalNavigator({ pageType }: { pageType?: EPageType }) {
-  return (
+  const { params } = useRoute();
+  const navigator = (
     <RootModalNavigator<EModalRoutes>
       config={modalRouter}
       pageType={pageType}
     />
   );
+  if (
+    platformEnv.isNativeIOS &&
+    params &&
+    'tradingViewFullscreen' in params &&
+    params.tradingViewFullscreen === true
+  ) {
+    // The underlying detail still reports portrait insets. Measure this modal's
+    // landscape bounds so the list and editor footer clear the device cutout.
+    return (
+      <SafeAreaProvider style={{ flex: 1 }}>
+        <SafeAreaView edges={['left', 'right']} style={{ flex: 1 }}>
+          {navigator}
+        </SafeAreaView>
+      </SafeAreaProvider>
+    );
+  }
+  return navigator;
 }
 
 export function IOSFullScreenNavigator() {

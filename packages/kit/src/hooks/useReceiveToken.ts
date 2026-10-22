@@ -72,6 +72,7 @@ function useReceiveToken({
       sameModal,
       useSelector,
       switchEntry,
+      allowAddressTypeMenu,
       source,
     }: {
       token?: IToken;
@@ -82,6 +83,10 @@ function useReceiveToken({
       // callers (gas top-up, bulk revoke) leave it off. The token list path
       // below always opts in.
       switchEntry?: IReceiveSwitchEntry;
+      // Same opt-in for the address type menu: general receive entries (home,
+      // token details) pass it, fixed-destination callers leave it off. The
+      // token list path below always opts in, except for exchange deposits.
+      allowAddressTypeMenu?: boolean;
       // Analytics: the entry that opened the flow.
       source?: IWalletActionSource;
     }) => {
@@ -137,6 +142,7 @@ function useReceiveToken({
               token: receiveToken,
               indexedAccountId,
               switchEntry: resolvedSwitchEntry,
+              allowAddressTypeMenu,
               source,
               isAllNetworksMode,
             });
@@ -151,6 +157,7 @@ function useReceiveToken({
               token: receiveToken,
               indexedAccountId,
               switchEntry: resolvedSwitchEntry,
+              allowAddressTypeMenu,
               source,
               isAllNetworksMode,
             },
@@ -167,6 +174,7 @@ function useReceiveToken({
             indexedAccountId,
             disableSelector: true,
             switchEntry: resolvedSwitchEntry,
+            allowAddressTypeMenu,
             source,
             isAllNetworksMode,
           });
@@ -181,6 +189,7 @@ function useReceiveToken({
               indexedAccountId,
               disableSelector: true,
               switchEntry: resolvedSwitchEntry,
+              allowAddressTypeMenu,
               source,
               isAllNetworksMode,
             },
@@ -219,6 +228,7 @@ function useReceiveToken({
                     walletId,
                     indexedAccountId,
                     switchEntry: 'network',
+                    allowAddressTypeMenu: true,
                     source: 'network',
                     isAllNetworksMode,
                   });
@@ -292,6 +302,7 @@ function useReceiveToken({
             // itself whenever no member list is carried along.
             const switchParams = {
               switchEntry: isAllNetworksMode ? ('token' as const) : undefined,
+              allowAddressTypeMenu: !exchangeSource,
               aggregateToken: selectContext?.aggregateToken,
               aggregateSubTokenList: selectContext?.aggregateSubTokenList,
               allAggregateTokenList: selectContext?.allAggregateTokenList,

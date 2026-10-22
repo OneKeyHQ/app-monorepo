@@ -14,7 +14,6 @@ import { useFocusEffect } from '@react-navigation/core';
 import { CanceledError } from 'axios';
 import { useIntl } from 'react-intl';
 
-import type { ITabContainerRef } from '@onekeyhq/components';
 import {
   DelayedFreeze,
   Icon,
@@ -24,18 +23,15 @@ import {
   ScrollView,
   Spinner,
   Stack,
-  Tabs,
   XStack,
   YStack,
-  useFocusedTab,
   useMedia,
   useScrollContentTabBarOffset,
-  useTabsScrollToTop,
-  useTheme,
 } from '@onekeyhq/components';
-import type { ITabBarItemProps } from '@onekeyhq/components/src/composite/Tabs/TabBar';
-import { TabBarItem } from '@onekeyhq/components/src/composite/Tabs/TabBar';
-import { useTabContainerWidth } from '@onekeyhq/kit/src/hooks/useTabContainerWidth';
+import type { ITabBarItemProps } from '@onekeyhq/components/src/composite/TabBar';
+import { TabBar, TabBarItem } from '@onekeyhq/components/src/composite/TabBar';
+import { useAppPager } from '@onekeyhq/kit/src/components/AppPager/context';
+import type { IAppPagerRef } from '@onekeyhq/kit/src/components/AppPager/types';
 import { getNetworksSupportBulkRevokeApproval } from '@onekeyhq/shared/src/config/presetNetworks';
 import {
   WALLET_TYPE_HD,
@@ -73,6 +69,7 @@ import useAppNavigation from '../../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { runAfterTokensDone } from '../../../hooks/useRunAfterTokensDone';
 import { useShortcutsOnRouteFocused } from '../../../hooks/useShortcutsOnRouteFocused';
+import { useTabDoublePress } from '../../../hooks/useTabDoublePress';
 import {
   buildOverviewOwnerKey,
   useAccountOverviewActions,
@@ -106,6 +103,7 @@ import {
   useHomeTabFreeze,
   useHomeTabOwnerThaw,
 } from './homeTabFreeze';
+import { debugHomeVisual } from './homeVisualTrace';
 import { NFTListContainerWithProvider } from './NFTListContainer';
 import { debugPerpsChain } from './perpsChainTrace';
 import { PortfolioContainerWithProvider } from './PortfolioContainer';
@@ -113,6 +111,7 @@ import { TabHeaderSettings } from './TabHeaderSettings';
 import { TxHistoryListContainerWithProvider } from './TxHistoryContainer';
 import WalletContentWithAuth from './WalletContentWithAuth';
 
+import type { IHomeNativePagerProps } from './HomeNativePager';
 import type { LayoutChangeEvent, View } from 'react-native';
 
 const networksSupportBulkRevokeApproval =
@@ -156,7 +155,7 @@ function HomeAlerts() {
 
 function HistoryTabNotificationAlertSlot() {
   const intl = useIntl();
-  const focusedTab = useFocusedTab();
+  const { focusedName: focusedTab } = useAppPager();
   const historyTabName = intl.formatMessage({
     id: ETranslations.global_history,
   });
@@ -229,7 +228,7 @@ function FreezeInactiveHomeTab({
   keepActive: boolean;
   children: React.ReactNode;
 }) {
-  const focusedTab = useFocusedTab();
+  const { focusedName: focusedTab } = useAppPager();
   const ownerThaw = useHomeTabOwnerThaw(ownerKey);
   const frozen = useHomeTabFreeze(
     keepActive ||
@@ -250,7 +249,7 @@ function HomeTabsScrollToTopBridge({
 }: {
   scrollToTopRef: MutableRefObject<(() => void) | undefined>;
 }) {
-  const scrollToTop = useTabsScrollToTop();
+  const { scrollToTop } = useAppPager();
   useLayoutEffect(() => {
     scrollToTopRef.current = scrollToTop;
     return () => {
@@ -271,7 +270,6 @@ export function HomePageView({
   sceneName: EAccountSelectorSceneName;
 }) {
   const tabBarHeight = useScrollContentTabBarOffset();
-  const tabContainerWidth = useTabContainerWidth();
   const intl = useIntl();
   const navigation = useAppNavigation();
   const isTravelModeRuntime =
@@ -331,7 +329,7 @@ export function HomePageView({
 
   const approvalOwnerKey = buildOverviewOwnerKey(account?.id, network?.id);
   const { updateApprovalsInfo } = useAccountOverviewActions().current;
-  const tabsRef = useRef<ITabContainerRef | null>(null);
+  const tabsRef = useRef<IAppPagerRef | null>(null);
   const homeTabsScrollToTopRef = useRef<(() => void) | undefined>(undefined);
   // Keep the measured native tab bar height outside the tab container
   // so remounts do not briefly reserve the library's default 48pt height.
@@ -679,17 +677,6 @@ export function HomePageView({
     handleHeaderVariantChange,
   ]);
 
-  // react-native-collapsible-tab-view paints its header container white. In
-  // dark mode that white showed through wherever the header content has no
-  // opaque background: around and inside the offline banner (NetworkAlert
-  // uses margins and translucent critical colors) and at 1px layout seams
-  // above the tab bar (OK-63706). Paint the container with the page color.
-  const theme = useTheme();
-  const headerContainerStyle = useMemo(
-    () => ({ backgroundColor: theme.bgApp.val }),
-    [theme.bgApp.val],
-  );
-
   // Rendered on web only. On native the equivalent lives inside the history
   // list's ListHeaderComponent so its height stays inside the list's measurer.
   const renderSubHeader = useCallback(
@@ -950,7 +937,7 @@ export function HomePageView({
   );
 
   const renderTabBar = useCallback(
-    (tabBarProps: any) => {
+    (tabBarProps: Parameters<IHomeNativePagerProps['renderTabBar']>[0]) => {
       // Design: plain-text tabs on small screens only; pill elsewhere.
       const tabBarVariant = isSmallScreen ? 'text' : 'pill';
       const handleTabPress = (name: string) => {
@@ -963,13 +950,12 @@ export function HomePageView({
         setActiveTabName(nextTab?.name ?? name);
         setActiveTabId(nextTab?.id);
         lastDisplayableTabNameRef.current = nextTab?.name ?? name;
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-        tabBarProps.onTabPress?.(name);
+        tabBarProps.onTabPress(name);
       };
 
       if (platformEnv.isNative) {
         return (
-          <Tabs.TabBar
+          <TabBar
             {...tabBarProps}
             containerStyle={{
               ...nativeTabBarContainerStyle,
@@ -998,7 +984,7 @@ export function HomePageView({
           zIndex={10}
         >
           <Stack {...homePageContentMaxWidthSx}>
-            <Tabs.TabBar
+            <TabBar
               {...tabBarProps}
               tabNames={tabBarTabNames}
               indexDecimal={
@@ -1075,6 +1061,11 @@ export function HomePageView({
     homeTabsScrollToTopRef.current?.();
   }, [homeScrollOwnerKey]);
 
+  // Double-pressing the Home tab scrolls the focused pane back to the top.
+  useTabDoublePress(() => {
+    homeTabsScrollToTopRef.current?.();
+  });
+
   const stickyHeaderCtx = useMemo(
     () => ({
       portalTarget,
@@ -1089,7 +1080,30 @@ export function HomePageView({
     platformEnv.isNativeIOS ? 162 : 92,
   );
   const handleTabPageLayout = useCallback((e: LayoutChangeEvent) => {
-    setTabPageHeight(e.nativeEvent.layout.height - 20);
+    const measured = e.nativeEvent.layout.height - 20;
+    setTabPageHeight((current) => {
+      if (measured !== current) {
+        debugHomeVisual('overlay-layout', {
+          measuredHeight: measured,
+          previousHeight: current,
+        });
+      }
+      return measured;
+    });
+  }, []);
+  const handleOuterHeaderHostRef = useCallback((node: View | null) => {
+    if (!__DEV__ || !platformEnv.isNativeIOS) return;
+    debugHomeVisual('fixed-header-host', {
+      slot: 'outer',
+      attached: Boolean(node),
+    });
+  }, []);
+  const handlePagerHeaderHostRef = useCallback((node: View | null) => {
+    if (!__DEV__ || !platformEnv.isNativeIOS) return;
+    debugHomeVisual('fixed-header-host', {
+      slot: 'pager',
+      attached: Boolean(node),
+    });
   }, []);
   const { result: accountNetworkNotSupported } = usePromiseResult(
     async () => {
@@ -1155,6 +1169,23 @@ export function HomePageView({
     supportsIos26ScrollEdge &&
     topEdgeCapability.available &&
     topEdgeCapability.ownerKey === homeScrollOwnerKey;
+  useEffect(() => {
+    debugHomeVisual('home-edge-state', {
+      supportsIos26ScrollEdge,
+      available: topEdgeCapability.available,
+      topEdgeActive,
+      ready: Boolean(ready),
+      hasNativePager: Boolean(hasNativePager),
+      overlayHeight: tabPageHeight,
+    });
+  }, [
+    supportsIos26ScrollEdge,
+    topEdgeCapability.available,
+    topEdgeActive,
+    ready,
+    hasNativePager,
+    tabPageHeight,
+  ]);
 
   const tabs = useMemo(() => {
     if (isWalletNotBackedUp) {
@@ -1208,21 +1239,40 @@ export function HomePageView({
           // Native page offsets have no reset command; reset only for a new owner.
           key={homeScrollOwnerKey}
           ref={tabsRef}
-          tabs={pagerTabConfigs.map((tab) => ({
-            ...tab,
-            component:
-              tab.id === EHomeWalletTab.Portfolio ||
-              activeTabId === tab.id ||
-              mountedHomeTabIds.has(tab.id)
-                ? tab.component
-                : null,
-          }))}
+          tabs={pagerTabConfigs.map((tab) => {
+            if (tab.id === EHomeWalletTab.Portfolio) {
+              return {
+                ...tab,
+                component: (
+                  <>
+                    <HomeTabsScrollToTopBridge
+                      scrollToTopRef={homeTabsScrollToTopRef}
+                    />
+                    {tab.component}
+                  </>
+                ),
+              };
+            }
+            return {
+              ...tab,
+              component:
+                activeTabId === tab.id || mountedHomeTabIds.has(tab.id)
+                  ? tab.component
+                  : null,
+            };
+          })}
           initialTabName={seedTabName}
           headerHeightHint={nativeHeaderHeightHint}
+          topOverlayHeightHint={tabPageHeight}
           renderHeader={renderHeader}
           topEdgeActive={topEdgeActive}
           onTopScrollEdgeCapability={(available) =>
             setTopEdgeCapability((current) => {
+              debugHomeVisual('capability-to-home', {
+                available,
+                currentAvailable: current.available,
+                sameOwner: current.ownerKey === homeScrollOwnerKey,
+              });
               if (available) {
                 return { ownerKey: homeScrollOwnerKey, available: true };
               }
@@ -1235,6 +1285,11 @@ export function HomePageView({
             topEdgeActive ? (
               <Stack h={tabPageHeight}>
                 <YStack
+                  ref={
+                    __DEV__ && platformEnv.isNativeIOS
+                      ? handlePagerHeaderHostRef
+                      : undefined
+                  }
                   position="absolute"
                   top={-20}
                   left={0}
@@ -1258,75 +1313,50 @@ export function HomePageView({
       );
     }
     return (
-      <Tabs.Container
-        ref={tabsRef as any}
-        // Both implementations only read this prop at mount.
-        initialTabName={seedTabName || undefined}
-        allowHeaderOverscroll
-        disableWebTabContentVisibility
-        // The native container applies a changed value before paint (patched
-        // react-native-collapsible-tab-view); see nativeHeaderHeightHint.
-        headerHeight={platformEnv.isNative ? nativeHeaderHeightHint : undefined}
-        tabBarHeight={
-          platformEnv.isNative ? nativeTabBarHeightRef.current : undefined
-        }
-        useNativeHeaderAnimation={platformEnv.isNativeAndroid}
-        width={platformEnv.isNative ? (tabContainerWidth as number) : undefined}
-        headerContainerStyle={headerContainerStyle}
+      <HomeNativePager
+        ref={tabsRef}
+        initialTabName={seedTabName}
         renderHeader={renderHeader}
         renderTabBar={renderTabBar}
-        onTabChange={handleTabChange}
         renderSubHeader={renderSubHeader}
-      >
-        {pagerTabConfigs.map((tab) => (
-          <Tabs.Tab
-            key={tab.name}
-            name={tab.name}
-            // The native pager mounts a pane only on its first focus, so after
-            // an account switch remounts this container with another tab
-            // active, nothing would fetch the new owner's tokens and the
-            // header (worth, WalletActions, banner) would stay on `unknown`
-            // until the user opens the wallet tab (OK-63721). The wallet
-            // pane owns that data, so it mounts eagerly (and frozen, see
-            // FreezeInactiveHomeTab); other panes keep mounting lazily.
-            startMounted={tab.id === EHomeWalletTab.Portfolio}
-          >
-            {tab.id === EHomeWalletTab.Portfolio ? (
-              <HomeTabsScrollToTopBridge
-                scrollToTopRef={homeTabsScrollToTopRef}
-              />
-            ) : null}
-            <FreezeInactiveHomeTab
-              tabName={tab.name}
-              pressedTabName={activeTabName}
-              // Portfolio owns the shared header's token requests, including
-              // All Networks; it must observe owner changes while off-tab.
-              keepActive={tab.id === EHomeWalletTab.Portfolio}
-              ownerKey={
-                tab.id === EHomeWalletTab.Portfolio
-                  ? homeScrollOwnerKey
-                  : undefined
-              }
-            >
-              {platformEnv.isNative ||
-              tab.id === EHomeWalletTab.Portfolio ||
-              tab.id === EHomeWalletTab.Perps ||
-              activeTabId === tab.id ||
-              mountedHomeTabIds.has(tab.id) ? (
-                tab.component
-              ) : (
-                <Stack flex={1} />
-              )}
-            </FreezeInactiveHomeTab>
-          </Tabs.Tab>
-        ))}
-      </Tabs.Container>
+        onTabChange={handleTabChange}
+        onTabPrepare={handleTabPrepare}
+        tabs={pagerTabConfigs.map((tab) => ({
+          ...tab,
+          component: (
+            <>
+              {tab.id === EHomeWalletTab.Portfolio ? (
+                <HomeTabsScrollToTopBridge
+                  scrollToTopRef={homeTabsScrollToTopRef}
+                />
+              ) : null}
+              <FreezeInactiveHomeTab
+                tabName={tab.name}
+                pressedTabName={activeTabName}
+                keepActive={tab.id === EHomeWalletTab.Portfolio}
+                ownerKey={
+                  tab.id === EHomeWalletTab.Portfolio
+                    ? homeScrollOwnerKey
+                    : undefined
+                }
+              >
+                {tab.id === EHomeWalletTab.Portfolio ||
+                tab.id === EHomeWalletTab.Perps ||
+                activeTabId === tab.id ||
+                mountedHomeTabIds.has(tab.id) ? (
+                  tab.component
+                ) : (
+                  <Stack flex={1} />
+                )}
+              </FreezeInactiveHomeTab>
+            </>
+          ),
+        }))}
+      />
     );
   }, [
     tabBarHeight,
-    tabContainerWidth,
     isWalletNotBackedUp,
-    headerContainerStyle,
     renderHeader,
     renderTabBar,
     handleTabChange,
@@ -1341,6 +1371,7 @@ export function HomePageView({
     topEdgeActive,
     tabPageHeight,
     handleTabPageLayout,
+    handlePagerHeaderHostRef,
     sceneName,
   ]);
 
@@ -1533,6 +1564,31 @@ export function HomePageView({
   const showIos26PagerOverlay =
     topEdgeActive && hasNativePager && !showNoWalletContent && ready;
 
+  useLayoutEffect(() => {
+    let mode = 'web';
+    if (!ready && !isTravelModeRuntime) {
+      mode = 'early';
+    } else if (showIos26PagerOverlay) {
+      mode = 'pager';
+    } else if (platformEnv.isNative) {
+      mode = 'outer';
+    }
+    debugHomeVisual('fixed-header-slot', {
+      mode,
+      ready: Boolean(ready),
+      travelMode: Boolean(isTravelModeRuntime),
+      hasNativePager: Boolean(hasNativePager),
+      topEdgeActive: Boolean(topEdgeActive),
+      pagerOverlay: Boolean(showIos26PagerOverlay),
+    });
+  }, [
+    ready,
+    isTravelModeRuntime,
+    hasNativePager,
+    topEdgeActive,
+    showIos26PagerOverlay,
+  ]);
+
   const homePage = useMemo(() => {
     if (!ready && !isTravelModeRuntime) {
       return <TabPageHeader sceneName={sceneName} tabRoute={ETabRoutes.Home} />;
@@ -1570,6 +1626,11 @@ export function HomePageView({
             {content}
             {platformEnv.isNative && !showIos26PagerOverlay ? (
               <YStack
+                ref={
+                  __DEV__ && platformEnv.isNativeIOS
+                    ? handleOuterHeaderHostRef
+                    : undefined
+                }
                 position="absolute"
                 top={-20}
                 left={0}
@@ -1597,6 +1658,7 @@ export function HomePageView({
     showIos26PagerOverlay,
     sceneName,
     handleTabPageLayout,
+    handleOuterHeaderHostRef,
     walletPageContent,
     tabBarHeight,
   ]);

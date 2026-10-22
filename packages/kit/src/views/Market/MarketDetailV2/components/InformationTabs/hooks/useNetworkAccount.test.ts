@@ -69,6 +69,19 @@ describe('useNetworkAccount identity isolation', () => {
     mockGetDeriveType.mockClear();
   });
 
+  it('does not request an account while the web wallet is disconnected', async () => {
+    mockActiveAccount = {};
+    const { result, rerender } = renderHook(() => useNetworkAccount('btc--0'));
+    await waitFor(() => expect(mockGetDeriveType).toHaveBeenCalled());
+    expect(mockGetNetworkAccount).not.toHaveBeenCalled();
+    expect(result.current.accountAddress).toBeUndefined();
+    mockActiveAccount = { account: { id: accountA.id } };
+    rerender();
+    await waitFor(() =>
+      expect(result.current.accountAddress).toBe('address-a'),
+    );
+  });
+
   it.each(['account', 'indexedAccount', 'network', 'deriveType'] as const)(
     'hides the previous account in the first render after a %s change',
     async (identity) => {

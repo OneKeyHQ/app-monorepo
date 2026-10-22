@@ -513,6 +513,7 @@ describe('ServiceApp.resetApp', () => {
 
   test('cleans security-critical storage before rejecting a native AppStorage clear failure', async () => {
     platformEnv.isNative = true;
+    const stopPersistenceForReset = jest.fn().mockResolvedValue(undefined);
     const service = new ServiceApp({
       backgroundApi: {
         serviceCloudBackupV2: {
@@ -524,6 +525,7 @@ describe('ServiceApp.resetApp', () => {
             .fn()
             .mockResolvedValue(undefined),
         },
+        serviceLogger: { stopPersistenceForReset },
         serviceNotification: {
           unregisterClient: jest.fn().mockResolvedValue(undefined),
         },
@@ -558,6 +560,7 @@ describe('ServiceApp.resetApp', () => {
       mockDeleteMmkvProfileKeyForLocalSecretEnvelope,
     ).toHaveBeenCalledTimes(2);
     expect(resetLocalDb).toHaveBeenCalledTimes(2);
+    expect(stopPersistenceForReset).toHaveBeenCalledTimes(2);
     expect(restartApp).not.toHaveBeenCalled();
   });
 });

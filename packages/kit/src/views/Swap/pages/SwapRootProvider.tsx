@@ -29,7 +29,6 @@ import {
   shouldHandleSwapColdStartHomeAccountUpdate,
   shouldPreserveSwapUserInputAmountOnAccountSwitch,
   shouldPreserveSwapUserInputOnAccountSwitch,
-  shouldWaitForSwapDefaultConfig,
 } from '../utils/swapColdStartTokenCacheUtils';
 import { hydrateSwapDefaultTokensFromGlobalHomeSnapshot } from '../utils/swapRootColdStartUtils';
 import { getVisibleSwapTabSwitchType } from '../utils/swapTypeUtils';
@@ -158,6 +157,7 @@ function SwapColdStartCacheSync() {
             swapFromTokenRef.current || swapToTokenRef.current,
           ),
           initialSelectedTokensSynced: initialSelectedTokensSyncedRef.current,
+          swapType: swapTypeSwitchRef.current,
         })
       ) {
         if (swapTypeSwitchRef.current === ESwapTabSwitchType.STOCK) {
@@ -165,17 +165,11 @@ function SwapColdStartCacheSync() {
           return;
         }
         if (
-          shouldWaitForSwapDefaultConfig({
-            defaultConfigStatus,
-            networkId: eventPayload.selectedAccount?.networkId,
-            swapType: swapTypeSwitchRef.current,
-          })
-        ) {
-          return;
-        }
-        if (
           !setDefaultSelectedTokensFromHomeAccount(eventPayload.selectedAccount)
         ) {
+          if (defaultConfigStatus === 'pending') {
+            return;
+          }
           clearSelectedTokens();
         }
       }
@@ -198,7 +192,7 @@ function SwapColdStartCacheSync() {
         getLatestHomeSelectedAccount(),
       )
       .then((homeSelectedAccount) => {
-        if (!isActive || initialSelectedTokensSyncedRef.current) {
+        if (!isActive) {
           return;
         }
         handleHomeSelectedAccountUpdate({

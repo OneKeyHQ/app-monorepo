@@ -176,13 +176,14 @@ class ServiceCloudBackupV2 extends ServiceBase {
   }
 
   private async cacheBackupPassword(params: {
+    generation: number;
     accountInfo: IBackupProviderAccountInfo;
     password: string;
     recordId?: string;
   }): Promise<void> {
-    const generation = this.recoveryGeneration;
+    const { generation } = params;
     if (
-      this.localRecoveryResetting ||
+      !this.isRecoveryActive(generation) ||
       !this.supportsLocalPasswordCache(params.accountInfo)
     )
       return;
@@ -223,8 +224,11 @@ class ServiceCloudBackupV2 extends ServiceBase {
     if (
       !params.accountInfo?.userId ||
       !this.supportsLocalPasswordCache(params.accountInfo)
-    )
+    ) {
+      if (params.recordId)
+        throw new OneKeyLocalError('Recovery cache account unavailable');
       return;
+    }
     try {
       const { default: cache } = await import('./localBackupPasswordCache');
       await cache.remove({
@@ -233,6 +237,8 @@ class ServiceCloudBackupV2 extends ServiceBase {
         recordId: params.recordId,
       });
     } catch {
+      if (params.recordId)
+        throw new OneKeyLocalError('Recovery cache removal failed');
       console.warn('Local cloud backup password cache was not removed.');
     }
   }
@@ -348,6 +354,7 @@ class ServiceCloudBackupV2 extends ServiceBase {
   async setBackupPassword(params: {
     password: string;
   }): Promise<{ recordID: string }> {
+    const generation = this.recoveryGeneration;
     const provider = this.getProvider();
     await provider.checkAvailability();
     const accountInfo = await this.getCloudAccountInfo();
@@ -363,13 +370,18 @@ class ServiceCloudBackupV2 extends ServiceBase {
         : {}),
     });
     await this.assertBackupAccountUnchanged(accountInfo);
-    await this.cacheBackupPassword({ accountInfo, password: params.password });
+    await this.cacheBackupPassword({
+      generation,
+      accountInfo,
+      password: params.password,
+    });
     return result;
   }
 
   @backgroundMethod()
   @toastIfError()
   async verifyBackupPassword(params: { password: string }): Promise<boolean> {
+    const generation = this.recoveryGeneration;
     const provider = this.getProvider();
     await provider.checkAvailability();
     console.log('serviceCloudBackupV2__buildFullBackupPassword');
@@ -387,6 +399,7 @@ class ServiceCloudBackupV2 extends ServiceBase {
     console.log('serviceCloudBackupV2__verifyBackupPassword__result: ', result);
     if (result) {
       await this.cacheBackupPassword({
+        generation,
         accountInfo,
         password: params.password,
       });
@@ -408,6 +421,7 @@ class ServiceCloudBackupV2 extends ServiceBase {
     data: IPrimeTransferData;
     password: string;
   }): Promise<{ recordID: string; content: string }> {
+    const generation = this.recoveryGeneration;
     // eslint-disable-next-line no-param-reassign
     params = cloneDeep(params);
     console.log('serviceCloudBackupV2__backup');
@@ -530,6 +544,7 @@ class ServiceCloudBackupV2 extends ServiceBase {
       },
     );
     await this.cacheBackupPassword({
+      generation,
       accountInfo,
       recordId: recordID,
       password: backupPassword,
@@ -560,11 +575,11 @@ class ServiceCloudBackupV2 extends ServiceBase {
     if (!backup?.payload?.privateDataEncrypted) {
       throw new OneKeyLocalError('Backup data is empty');
     }
-    const privateData = await this.restorePreparePrivateData({
-      payload: backup.payload,
-      password: params.password,
-      recordId: params.recordId,
-    });
+    const accountInfo = await this.getCloudAccountInfo();
+    const privateData = await this.decryptBackupPrivateData(
+      { payload: backup.payload, password: params.password },
+      accountInfo,
+    );
     const hasWrappedCredentials = Object.keys(
       privateData.credentials || {},
     ).some((id) => !privateData.decryptedCredentials?.[id]);
@@ -604,6 +619,7 @@ class ServiceCloudBackupV2 extends ServiceBase {
     );
     if (this.isRecoveryActive(generation)) {
       await this.cacheBackupPassword({
+        generation,
         accountInfo,
         password: params.password,
         recordId: params.recordId,
@@ -693,6 +709,7 @@ class ServiceCloudBackupV2 extends ServiceBase {
         await this.assertBackupAccountUnchanged(accountInfo);
         if (!this.isRecoveryActive(generation)) return null;
         await this.cacheBackupPassword({
+          generation,
           accountInfo,
           password: params.password,
           recordId: params.recordId,
@@ -927,13 +944,14 @@ class ServiceCloudBackupV2 extends ServiceBase {
   }): Promise<void> {
     const provider = this.getProvider();
     const accountInfo = await this.getBackupPasswordCacheAccount();
-    await provider.deleteBackup({
-      recordId: params.recordId,
-      skipManifestUpdate: params?.skipManifestUpdate,
-    });
+    // Keep the remote record as a retry target until local credentials are erased.
     await this.removeCachedBackupPassword({
       accountInfo,
       recordId: params.recordId,
+    });
+    await provider.deleteBackup({
+      recordId: params.recordId,
+      skipManifestUpdate: params?.skipManifestUpdate,
     });
   }
 

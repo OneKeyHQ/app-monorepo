@@ -791,6 +791,66 @@ describe('local iCloud restore integration', () => {
     expect(cached.set).not.toHaveBeenCalled();
   });
 
+  it.each(['upload', 'download', 'list', 'wallet-status'] as const)(
+    'does not recreate recovery credentials when reset finishes during backup %s',
+    async (stage) => {
+      mockSuccessfulBackup();
+      let release: (() => void) | undefined;
+      let announce: (() => void) | undefined;
+      const pending = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      const started = new Promise<void>((resolve) => {
+        announce = resolve;
+      });
+      const pause = async () => {
+        announce?.();
+        await pending;
+      };
+      if (stage === 'upload') {
+        mockProvider.backupData.mockImplementationOnce(async (uploaded) => {
+          await pause();
+          return {
+            recordID: recordId,
+            content: stringUtils.stableStringify(uploaded),
+          };
+        });
+      } else if (stage === 'download') {
+        mockProvider.downloadData.mockImplementationOnce(async () => {
+          await pause();
+          return readUploadedBackup();
+        });
+      } else if (stage === 'list') {
+        mockProvider.getAllBackups.mockImplementationOnce(async () => {
+          await pause();
+          return { items: [{ recordID: recordId }], total: 1 };
+        });
+      } else {
+        updateBackupStatus.mockImplementationOnce(pause);
+      }
+      const backingUp = service.backup({
+        data: { ...data, isEmptyData: true },
+        password,
+      });
+      await started;
+      await service.prepareLocalRecoveryForReset({ preserve: false });
+      // Wallet reset fails after erasure; the service reopens for fresh operations.
+      await service.finishLocalRecoveryReset();
+      release?.();
+      await backingUp;
+      expect(cached.set).not.toHaveBeenCalled();
+      mockProvider.backupData.mockClear();
+      await service.backup({ data, password });
+      expect(cached.set).toHaveBeenCalledTimes(1);
+      expect(cached.set).toHaveBeenCalledWith({
+        providerType: accountInfo.providerType,
+        accountId: accountInfo.userId,
+        recordId,
+        password,
+      });
+    },
+  );
+
   it('caches a successfully verified uploaded backup without changing the cloud payload format', async () => {
     mockSuccessfulBackup();
     await service.backup({ data, password });
@@ -1145,7 +1205,7 @@ describe('local iCloud restore integration', () => {
     ).toBe(true);
   });
 
-  it('clears only the relevant cache entry after successful remote deletion or password reset', async () => {
+  it('clears only the relevant cache entry before remote deletion or after password reset', async () => {
     await service.deleteSilently({ recordId });
     expect(cached.remove).toHaveBeenLastCalledWith({
       providerType: accountInfo.providerType,
@@ -1163,7 +1223,17 @@ describe('local iCloud restore integration', () => {
       new Error('Cloud unavailable'),
     );
     await expect(service.deleteSilently({ recordId })).rejects.toThrow();
-    expect(cached.remove).not.toHaveBeenCalled();
+    expect(cached.remove).toHaveBeenCalledTimes(1);
+  });
+
+  it('retains the remote deletion retry target when local erasure fails', async () => {
+    cached.remove.mockRejectedValueOnce(new Error('synthetic failure'));
+    await expect(service.deleteSilently({ recordId })).rejects.toThrow(
+      'Recovery cache removal failed',
+    );
+    expect(mockProvider.deleteBackup).not.toHaveBeenCalled();
+    await service.deleteSilently({ recordId });
+    expect(mockProvider.deleteBackup).toHaveBeenCalledTimes(1);
   });
 
   it('rejects provider/platform mismatches and keeps non-native manual restore available', async () => {

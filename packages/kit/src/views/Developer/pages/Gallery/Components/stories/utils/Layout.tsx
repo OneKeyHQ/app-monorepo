@@ -1,7 +1,6 @@
 import type { ComponentType, ReactElement } from 'react';
 import { useState } from 'react';
 
-import { useHeaderHeight } from '@react-navigation/elements';
 import { StackActions } from '@react-navigation/native';
 
 import {
@@ -13,6 +12,7 @@ import {
   Stack,
   Switch,
   XStack,
+  useIsModalPage,
 } from '@onekeyhq/components';
 import { useKeyboardHeight } from '@onekeyhq/components/src/hooks';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -61,7 +61,6 @@ export function Layout({
   elements = [],
   scrollEnabled = true,
   contentInsetAdjustmentBehavior = 'never',
-  lazyLoad = false,
   wideScreen: initialWideScreen = false,
   children,
   getFilePath,
@@ -77,7 +76,6 @@ export function Layout({
     | 'automatic'
     | 'scrollableAxes'
     | undefined;
-  lazyLoad?: boolean;
   wideScreen?: boolean;
   getFilePath?: () => string | undefined;
   elements?: {
@@ -88,21 +86,18 @@ export function Layout({
 }>) {
   const keyboardHeight = useKeyboardHeight();
   const navigation = useAppNavigation();
+  const isModal = useIsModalPage();
   const [wideScreen, setWideScreen] = useState(initialWideScreen);
   const contentWidth = wideScreen ? 1440 : 576;
   const [settings] = useSettingsPersistAtom();
   const isDarkTheme = settings.theme === 'dark';
-  const headerHeight = useHeaderHeight();
-  const scrollViewPaddingTop = platformEnv.isNativeIOS26Plus
-    ? headerHeight + 20
-    : 20;
 
   const toggleTheme = async (isDark: boolean) => {
     await backgroundApiProxy.serviceSetting.setTheme(isDark ? 'dark' : 'light');
   };
 
   return (
-    <Page lazyLoad={lazyLoad}>
+    <Page>
       <ScrollView
         maxWidth="100%"
         scrollEnabled={scrollEnabled}
@@ -110,7 +105,7 @@ export function Layout({
         marginBottom={keyboardHeight}
         paddingHorizontal="$5"
         contentContainerStyle={{
-          paddingTop: scrollViewPaddingTop,
+          paddingTop: 20,
           paddingBottom: 280,
         }}
         keyboardDismissMode="on-drag"
@@ -127,6 +122,12 @@ export function Layout({
               <IconButton
                 icon="HomeLineOutline"
                 onPress={() => {
+                  if (isModal) {
+                    navigation.dispatch(
+                      StackActions.popTo(ETabDeveloperRoutes.TabDeveloper),
+                    );
+                    return;
+                  }
                   // refresh page lost navigation back button, so add it here
                   navigation.dispatch(
                     StackActions.replace(ERootRoutes.Main, {

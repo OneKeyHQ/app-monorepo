@@ -845,3 +845,166 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries �
 **Root Cause**: `chrome.notifications.create` used `BLANK_ICON_BASE64` (1x1 transparent PNG) when `extras.image` was missing or the remote URL failed, so the notification's content icon was invisible. On macOS the app icon is always Chrome's, so `iconUrl` is the only place OneKey can appear.
 **Fix**: Resolve `iconUrl` with the packaged `icon-128.png` via `chrome.runtime.getURL` when the payload has no usable icon, including the create-failure retry path.
 **Catchable by**: Section 3: identified which platforms consume modified code; NEW — extension OS notifications must not use a transparent placeholder for `iconUrl`
+
+
+## Case: Web native chart shifted when toggling its drawing toolbar (OK-64893)
+**Date**: 2026-10-17 | **Platforms**: Web (single JS runtime)
+**Symptom**: Collapsing the drawing toolbar left unused space and briefly stretched the canvas; existing candles moved when the toolbar changed width. At the pan boundary, expanding the toolbar still moved the edge candle. Fractional layouts could also alternate measured widths.
+**Root Cause**: ResizeObserver deferred drawing until another animation frame, while percentage right padding, auto scaling, and pan limits used the changing visible width. Measurement mixed integer clientWidth with fractional bounding rectangles. The toggle was anchored to the full chart instead of the main price pane.
+**Fix**: Collapse to zero width without animation, redraw resized canvases before paint, anchor padding/scales/pan limits to the combined chart and toolbar width, consistently use bounding rectangles for width measurements, and position the toggle above indicator panes.
+**Catchable by**: Compare candle screen coordinates and sizes before and after repeated sidebar toggles at normal and extreme pan offsets, with fractional widths, zoom, and multiple indicator panes; verify bitmap dimensions before paint.
+
+## Case: Native SOL Pro chart showed a flat OBV
+**Date**: 2026-10-19 | **Platforms**: iOS, Android, extension (main runtime); desktop, web (single runtime), TradingViewNative charts
+**Symptom**: The native SOL Pro chart showed a flat OBV curve while prices changed (OK-64825).
+**Root Cause**: Native SOL was missing from the Hyperliquid whitelist, so the chart selected the Market price-sample feed without traded volume. OBV had no volume to accumulate.
+**Fix**: Map native Solana to Hyperliquid `SOL` OHLCV candles and realtime updates for Market, Swap, and Wallet. Keep wrapped SOL and other SPL tokens outside that native-token mapping. Add regression coverage for all three branches, SPL exclusion, and Market source resolution before and after transport metadata loads.
+**Catchable by**: Section 4: Data flow end-to-end — volume-based indicators need a feed with traded volume. Test native-token source selection and same-network contract-token exclusion whenever a shared chart whitelist changes.
+
+## Case: iOS Home header jumped or disappeared during cold-start overlay handoff
+**Date**: 2026-10-19 | **Platforms**: iOS (main UI runtime and its UIKit pager views)
+**Symptom**: During cold start, the Home header and list briefly jumped upward by 162 points. Reserving the height alone still left the fixed search/account header blank for two frames during the outer-to-local overlay handoff.
+**Root Cause**: Local overlay mode became active before the first `onLayout` and native slot installation, so the effective overlay height temporarily became zero. Separately, the old outer header could unmount before the local overlay was installed on the next main-queue turn. This was a UI/native mounting-order issue, independent of background runtime readiness or shared JS state.
+**Fix**: Pass the known `topOverlayHeightHint` from `HomePageView` and use it until the wrapper measures the overlay. The pager SDK reserves the committed local height and installs ready overlay slots synchronously during `didMount` only for smooth Hard mode with nonempty pages, positive local height, complete slots, and no drag, page transition, or recycling; other states retain the deferred fallback.
+**Catchable by**: Section 5: verify geometry and view ownership across async layout and mounting boundaries. NativeLogger height/phase traces and frame-by-frame light/dark cold starts must show a stable nonzero overlay height and an uninterrupted fixed header. A native regression must assert overlay attachment before `didMount` returns; final settled screenshots alone miss the gap.
+
+## Case: Perps detail chart toolbar became a white strip in dark mode
+**Date**: 2026-10-19 | **Platforms**: iOS (main)
+**Symptom**: The native chart's interval and settings toolbar appeared as a blank white strip in dark mode, while the candles and the rest of the Perps detail page were dark.
+**Root Cause**: The iOS collapsible tabs header defaults to a white background. The native chart toolbar is transparent, so its dark-theme white text and icons were drawn over that white header.
+**Fix**: Set this page's collapsible header background to the current `bgApp` theme color and update it when the theme changes.
+**Catchable by**: Section 8: open Perps detail with the native chart in dark and light themes, verify the interval/settings toolbar is visible and usable, and recheck after switching themes and reopening the page.
+
+## Case: Swap keyboard percentage shortcuts disappeared after remount (OK-64938)
+**Date**: 2026-10-20 | **Platforms**: iOS (main UI runtime and native input accessory views)
+**Symptom**: The percentage shortcuts above the keyboard disappeared after leaving and reopening Swap.
+**Root Cause**: Fabric recycling cleared the native input's accessory ID while retaining the previous React props. Reusing the same prop value after remount skipped the native setter, leaving the input unbound to the accessory view.
+**Fix**: Derive an accessory ID from `useId` in the mounted input-pair owner and pass the same ID to both inputs and the accessory view. Keep it stable during that mount and distinct after remount.
+**Catchable by**: Section 8: focus both amount inputs, use percentage shortcuts, then leave and reopen Swap with the keyboard hidden and shown; verify the shortcuts still render and update the intended amount.
+
+## Case: Swap stock-position hover corners were clipped (OK-64536)
+**Date**: 2026-10-20 | **Platforms**: Desktop and web (single-runtime stock panel; associated iOS path checked)
+**Symptom**: The stock-position row's rounded hover background was cut off at the sides.
+**Root Cause**: The table extended into the card gutter, but the animated reveal's overflow clip remained inside that gutter and cut through the row corners.
+**Fix**: Expand the reveal boundary to include the table gutters while keeping the title and token columns aligned. Offset the parent gap on the outer wrapper and include the visible gap in the measured content, preserving zero-height collapse and empty-state spacing.
+**Catchable by**: Section 8: inspect the actual hover background and clipping geometry with a position, click the row, and compare the surrounding spacing with no positions; component existence alone does not verify the corners.
+
+## Case: Swap modal action labels wrapped despite available width (OK-64452)
+**Date**: 2026-10-20 | **Platforms**: Desktop and web (single-runtime modal action layout; associated iOS path checked)
+**Symptom**: Long action labels wrapped because the action button was constrained to the width of the smaller savings badge.
+**Root Cause**: The badge measurement supplied both the action's width and minimum width, preventing the label from determining its natural width.
+**Fix**: Use the measured badge width only as a minimum and let the action content determine its width. Preserve loading, disabled, and changing-badge states.
+**Catchable by**: Section 8: compare long labels against shorter badges and changing badge values, including loading and disabled actions; verify text width and alignment in the real modal.
+
+## Case: Swap account-discovery cache invalidated on network presentation changes
+**Date**: 2026-10-20 | **Platforms**: Desktop and web (single runtime); native and extension consumers (main UI runtime)
+**Symptom**: Cached token rows could return to a whole-list skeleton when network order or selected-chain derive metadata changed; account-only cached rows could also lack network badges.
+**Root Cause**: The wallet-wide discovery key depended on presentation order and selected-chain derive resolution. The account-only fallback also omitted network-logo metadata already available in the network list.
+**Fix**: Normalize network-set keys, invalidate discovery on the actual global derive-change generation, and fill missing network logos in the account-only fallback. Existing hook tests cover reorder stability and explicit derive invalidation. These retained changes do not eliminate individual-image placeholder flicker or establish that all token-selector image issues are resolved.
+**Catchable by**: Section 5: distinguish cache identity changes from presentation changes; verify populated-list continuity, account switches, explicit invalidation, and late responses separately from individual-image loading.
+
+
+## Case: Market chart gesture ownership and independent Simple layout (OK-64931, OK-65115, OK-64930)
+**Date**: 2026-10-21 | **Platforms**: iOS, mobile layouts
+**Symptom**: Chart touches blocked iOS swipe-back, Pro indicators expanded the Simple chart, and the Simple toggle overlapped the TradingView toolbar.
+**Root Cause**: Chart and page recognizers owned the navigation edge, Simple reused Pro pane height, and an absolute toggle overlay competed with toolbar controls.
+**Fix**: Reserve the logical start edge consistently in header, native chart, price-axis and WebView gestures; preserve a 280pt plot plus 48pt controls; use the toolbar's existing right-control slot. Verify the installed native-stack implementation before interpreting start/end response bounds.
+**Catchable by**: Section 4: Update every consumer of shared contracts; Section 7: Verify real navigation and independent chart modes on iOS, including RTL.
+
+## Case: Stock status and trading-hours panel disagreed on holidays
+**Date**: 2026-10-21 | **Platforms**: iOS, Android, web, desktop
+**Symptom**: Non-Ondo stocks hid valid market status; after enabling all issuers, a holiday's 24/7 badge could open a panel highlighting regular trading.
+**Root Cause**: Issuer guards suppressed valid stock signals, while the panel's session resolver received no backend market status and fell back to clock-only session math.
+**Fix**: Remove issuer filtering and feed the panel the existing cached US market-status hook, retaining clock fallback when unavailable. Cover status updates and weekday closures for Ondo, xStocks and bstock.
+**Catchable by**: Section 4: Trace data from API through every display consumer; Section 7: Compare badge and panel states for holidays and issuer variants.
+
+## Case: Web Market bootstrap seed stopped matching default Trending order
+**Date**: 2026-10-21 | **Platforms**: web
+**Symptom**: Market cold-start CI reported missing business/list readiness despite injecting a token seed.
+**Root Cause**: Trending switched to API default sorting, but seed acquisition and both runtime matching checks still required explicit volume-descending sorting.
+**Fix**: Align the build seed query, synchronous first-frame initialization and light API seed matching with the default order; keep explicitly sorted queries isolated. Verify regression tests and the production cold-start budget.
+**Catchable by**: Section 4: Update every producer and consumer when query identity changes; Section 7: Verify first-frame rendering with unavailable network requests.
+
+## Case: Market modal root unnecessarily reserved the swipe-back edge
+**Date**: 2026-10-21 | **Platforms**: iOS (main UI runtime)
+**Symptom**: Chart and header gestures ignored the first 32pt when Swap Pro opened Market detail as a modal root, which had no horizontal back gesture.
+**Root Cause**: Edge reservation checked platform and fullscreen state without checking history in the current stack; parent modal dismissal can make `canGoBack()` true even at the inner stack root.
+**Fix**: Subscribe to the current stack index and reserve the edge only when it has a previous screen, while retaining the fullscreen exemption.
+**Catchable by**: Section 8: compare a modal root with a pushed detail, including a parent that can go back; verify edge interactions, swipe-back and fullscreen separately.
+
+## Case: Dust Sweep default network disagreed with displayed order (OK-65143)
+**Date**: 2026-10-21 | **Platforms**: Shared Dust Sweep UI
+**Symptom**: Dust Sweep opened on a network below the first displayed network, and a provisional cached choice could remain after fresh data changed the order.
+**Root Cause**: The list used total balances for ordering, while automatic selection separately ranked balances below the current dust threshold. A cached automatic choice could also become sticky.
+**Fix**: Derive the default from the first displayed network and let provisional defaults follow fresh ordering. Preserve explicit route choices, manual selection, and the executing snapshot.
+**Catchable by**: Section 4: use the displayed order as the default-selection source; Section 5: distinguish provisional defaults from user-owned state; Section 8: verify entry, re-entry, cache-to-fresh refresh, and threshold changes.
+
+## Case: Dust Sweep approval handling diverged from ordinary Swap (OK-65087)
+**Date**: 2026-10-21 | **Platforms**: Shared EVM/Tron execution and gas adapter; Desktop pre-sign runtime checks
+**Symptom**: Valid EVM/Tron quotes without approval metadata stopped with an unknown error before estimation. Review also found that the shared gas adapter dropped the legacy MegaFuel eligibility marker.
+**Root Cause**: Dust Sweep treated absent approval instructions as malformed instead of following ordinary Swap's estimation path. The gas adapter preserved newer payer fields but omitted `megafuelEligible`.
+**Fix**: Continue quotes with absent approval instructions through actual estimation and prechecks, retain rejection of explicitly malformed instructions, and preserve the legacy sponsorship marker in the shared gas result.
+**Catchable by**: Section 4: compare approval and sponsorship contracts across consumers; Section 6: cover absent, valid, malformed and contradictory approval fields plus marker-only sponsorship responses; Section 8: verify real quote/build and prechecks with an explicit stop before signing. These checks do not establish broadcast success or native runtime acceptance.
+
+## Case: Dust Sweep notification suppression waited for post-broadcast work (OK-65087)
+**Date**: 2026-10-21 | **Platforms**: Shared Dust Sweep execution
+**Symptom**: A same-chain transfer notification could arrive while decoding or history persistence was still running after a successful swap broadcast.
+**Root Cause**: Notification suppression started after the shared sender returned, although its broadcast callback already provided the transaction ID before awaited post-processing.
+**Fix**: Request suppression from the swap broadcast callback without waiting for the notification service. Use the same path for a recovered hash only after its broadcast is confirmed; keep approval hashes separate.
+**Catchable by**: Section 6: defer or reject post-broadcast processing and leave notification suppression pending; assert suppression starts before sender completion, settlement still completes, and recovery does not suppress unconfirmed or approval hashes.
+
+## Case: Dust Sweep rounded tiny nonzero receipts to zero
+**Date**: 2026-10-21 | **Platforms**: Shared Dust Sweep preview and result UI
+**Symptom**: A completed conversion could show `+0 BNB` while its fiat value was below the minimum display unit.
+**Root Cause**: Both receive displays rounded raw decimal strings to six decimal places. The state and receipt retained their precision, but tiny positive amounts disappeared at the presentation boundary.
+**Fix**: Pass raw amounts to the shared balance formatter used by Earn client amounts. Reuse its leading-zero subscript rendering for both preview and result while preserving zero and unavailable states.
+**Catchable by**: Section 6: render a tiny positive receipt and selection estimate through the real formatter, assert the subscript and significant digits, and retain normal, zero and unavailable cases.
+
+## Case: Dust Sweep custom slippage did not enforce the requested preset floor
+**Date**: 2026-10-21 | **Platforms**: Shared Dust Sweep settings and controller
+**Symptom**: Although the default and smallest preset were 5%, custom input and the raw controller setter could still select lower values.
+**Root Cause**: Validation shared ordinary Swap's positive-value boundary rather than enforcing the newly required Dust Sweep minimum.
+**Fix**: Define a Dust Sweep-only 5–50% range, disable confirmation outside it, and reject invalid values at the state setter so snapshots retain the same valid slippage shown in the UI.
+**Catchable by**: Section 6: exercise values immediately below and at both bounds, direct setter calls, and the slippage captured by the submission snapshot.
+
+## Case: Dust Sweep loading used status text and an unknown-token fallback
+**Date**: 2026-10-21 | **Platforms**: Shared Dust Sweep summary UI
+**Symptom**: Initial loading displayed a generic coin fallback and a disabled action labeled as syncing instead of a loading button.
+**Root Cause**: The unknown receive token was mounted before its data existed. Asset refresh only changed the action label, and the button never received its loading prop.
+**Fix**: Show a token skeleton while assets are loading and the token identity is unknown. Use a spinner-only button for initial loading and cached-asset refresh, retain a known cached token, and preserve error retry and completed actions.
+**Catchable by**: Section 6: cover cold load, cache refresh, transition to ready, refresh failure and completed-state background refresh; Section 8: inspect actual spinner and skeleton rendering.
+
+## Case: Dust Sweep selected network remained clipped in the horizontal strip
+**Date**: 2026-10-21 | **Platforms**: Horizontal Dust Sweep network selector
+**Symptom**: Selecting a partially visible network at the end of the strip left its chip cut off by the viewport.
+**Root Cause**: The plain horizontal ScrollView had no selected-item layout registration or scroll behavior.
+**Fix**: Reuse Swap's ScrollableFilterBar, pass the selected network ID, and register each chip's layout under that same ID. Preserve the existing chip appearance, execution lock and compact network menu.
+**Catchable by**: Section 8: click clipped chips near both edges, verify complete visibility after scrolling, and repeat after viewport resizing; confirm execution cannot change the network.
+
+## Case: Home startup included on-demand NFC dialog animations
+**Date**: 2026-10-21 | **Platforms**: Native main UI JS runtime
+**Symptom**: The Native startup size gate failed although the module-count budget passed. The CI report exceeded 14 MiB by 477 bytes; local absolute source paths made the same graph larger.
+**Root Cause**: Home backup and import hooks synchronously reached two OneKey Lite animation JSON files used only inside NFC dialogs. Keeping require calls inside callbacks did not remove these assets from Metro's synchronous dependency graph.
+**Fix**: Load a display-only animation component through the existing LazyLoad boundary. Keep dialog dimensions reserved outside that boundary and retain all NFC event, permission, confirmation and connection callbacks unchanged.
+**Catchable by**: Section 6: check Android immediate connection and transfer events, iOS confirmation, both animation sources and dimensions; Section 8: rebuild the Union graph, prove the JSON assets moved out of main startup, and run both runtime budgets plus architecture and stable module-ID checks without relaxing limits.
+
+## Case: Dust Sweep balance formatting invalidated its cache on every render
+**Date**: 2026-10-21 | **Platforms**: Shared Dust Sweep preview and result UI
+**Symptom**: Unrelated summary renders recomputed balance formatting even when the amount and token symbol were unchanged.
+**Root Cause**: Inline formatter options changed object identity on every parent render. The shared numeric component uses that identity as a formatting memo dependency, while its locale is read globally rather than listed in the memo dependencies.
+**Fix**: Memoize each options object by token symbol and key the numeric component by the current locale so language changes rebuild the cached numeric output. Keep the shared formatter and amount calculations unchanged.
+**Catchable by**: Section 6: trace the shared formatter's memo dependencies and rerender both receipt and estimate with changed token symbols and locale-specific decimal/group separators while the raw amount stays fixed.
+
+## Case: Hardware rebate empty state had no copy link (OK-64959)
+**Date**: 2026-10-21 | **Platforms**: desktop, web, extension, iOS, Android
+**Symptom**: After filtering hardware sales by date, the empty state asked users to share an invite code but showed no copy button.
+**Root Cause**: HardwareSales empty UI rendered title and description only. Swap and Perps already copy a subject-specific link; hardware's share URL is the summary invite URL plus `/shop`.
+**Fix**: Show a copy-link button on the empty list and copy that shop invite URL once summary info is ready. Keep the button disabled when the URL is missing.
+**Catchable by**: Section 4: shared empty-state copy must include the action it describes; Section 6: cover loading and missing-URL states.
+
+## Case: Hardware empty-state modules missing native module IDs (OK-64959)
+**Date**: 2026-10-21 | **Platforms**: iOS, Android (native union and production bundles)
+**Symptom**: Strict native bundling throws because HardwareEmptyData.tsx and useHardwareShopInviteUrl.ts are not in the module ID registry.
+**Root Cause**: The new production files are imported by the hardware sales page, so they enter the native graph, but no stable IDs were committed.
+**Fix**: Register both files in apps/mobile/bundle-registry/module-id-registry.json and pass a strict iOS union build.
+**Catchable by**: Section 4: a new file that the native bundle imports must be added to module-id-registry.json before the release bundle runs.

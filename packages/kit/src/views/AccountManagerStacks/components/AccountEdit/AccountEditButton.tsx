@@ -18,7 +18,7 @@ import type {
   IDBUtxoAccount,
   IDBWallet,
 } from '@onekeyhq/kit-bg/src/dbs/local/types';
-import { getVendorProfile } from '@onekeyhq/shared/src/hardware/vendorProfile';
+import { getVendorProfile } from '@onekeyhq/shared/src/hardware/config/vendorProfile';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -246,7 +246,6 @@ export function useAccountEditActionListOptions({
             />
           ) : null}
           <AccountRenameButton
-            nativeSheet
             name={name}
             wallet={wallet}
             indexedAccount={indexedAccount}
@@ -310,7 +309,6 @@ export function useAccountEditActionListOptions({
             <>
               <Divider mx="$2" my="$1" />
               <AccountRemoveButton
-                nativeSheet
                 accountsCount={accountsCount}
                 name={name}
                 indexedAccount={indexedAccount}
@@ -350,7 +348,6 @@ function AccountEditButtonView(props: IAccountEditButtonProps) {
 
   return (
     <ActionList
-      nativeSheet
       title={title}
       renderTrigger={
         <ListItem.IconButton

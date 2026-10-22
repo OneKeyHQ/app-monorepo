@@ -1,4 +1,5 @@
 import { useCallback, useMemo } from 'react';
+import type { ComponentProps } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -7,6 +8,7 @@ import {
   Button,
   Divider,
   SizableText,
+  Skeleton,
   Spinner,
   Stack,
   View,
@@ -41,6 +43,10 @@ import {
   resolveMarketMobileTradeDestination,
 } from '../../utils/marketMobileDetailKind';
 
+import {
+  ESpeedSwapConfigScope,
+  useSpeedSwapInit,
+} from './hooks/useSpeedSwapInit';
 import SwapPanelFooterButtons from './SwapPanelFooterButtons';
 
 function TradeButton({
@@ -94,20 +100,45 @@ function TradeButton({
   );
 }
 
+function MobileWebTradeActions({
+  executionReady,
+  ...props
+}: ComponentProps<typeof SwapPanelFooterButtons> & {
+  executionReady: boolean;
+}) {
+  const { activeAccount, showAccountSelector } = useAccountSelectorTrigger({
+    num: 0,
+    showConnectWalletModalInDappMode: true,
+  });
+  const noAccount =
+    !activeAccount?.indexedAccount?.id && !activeAccount?.account?.id;
+
+  return (
+    <SwapPanelFooterButtons
+      {...props}
+      tradeDisabled={noAccount ? !executionReady : props.tradeDisabled}
+      onConnect={noAccount ? showAccountSelector : undefined}
+    />
+  );
+}
+
 export function SwapPanel({
   swapToken,
   disableTrade,
   portfolioData,
+  isPortfolioPending = false,
   onShowSwapDialog,
   executionReady = true,
   footerMode = 'buy-sell',
   detailKind,
   onPerps,
   perpsDisabled,
+  mobileLayout = platformEnv.isNative,
 }: {
   swapToken: ISwapToken;
   disableTrade?: boolean;
   portfolioData?: IMarketAccountPortfolioDisplayItem[];
+  isPortfolioPending?: boolean;
   onShowSwapDialog?: (swapToken?: ISwapToken) => void;
   // False until the token detail confirms the token can be traded. The footer
   // keeps its place and shows the buttons disabled instead of appearing late.
@@ -116,6 +147,7 @@ export function SwapPanel({
   detailKind?: IMarketMobileDetailKind;
   onPerps?: () => void;
   perpsDisabled?: boolean;
+  mobileLayout?: boolean;
 }) {
   const intl = useIntl();
   // This footer is a plain flex sibling, not a Page.Footer, so it must claim the
@@ -156,11 +188,19 @@ export function SwapPanel({
     };
   }, [portfolioData, swapToken.contractAddress, swapToken.networkId]);
 
+  const { defaultTokens, speedConfigReady } = useSpeedSwapInit(
+    swapToken.isStock ? '' : swapToken.networkId,
+    true,
+    swapToken.isStock
+      ? ESpeedSwapConfigScope.DEFAULT
+      : ESpeedSwapConfigScope.MARKET,
+  );
+
   const handleTrade = useCallback(
     (direction: 'from' | 'to') => {
       // Swap needs the token's decimals; the buttons are disabled until then,
       // but Android's gesture layer can still deliver a tap.
-      if (!executionReady) {
+      if (!executionReady || (!swapToken.isStock && !speedConfigReady)) {
         return;
       }
       const tradeDestination = swapToken.isStock
@@ -174,7 +214,10 @@ export function SwapPanel({
       const swapEntry =
         tradeDestination === 'stock'
           ? prepareStockSwapEntry(entryParams)
-          : prepareMarketSwapEntry(entryParams);
+          : prepareMarketSwapEntry({
+              ...entryParams,
+              defaultTokens,
+            });
       navigation.pushModal(EModalRoutes.SwapModal, {
         screen: EModalSwapRoutes.SwapMainLand,
         params: {
@@ -187,7 +230,14 @@ export function SwapPanel({
         },
       });
     },
-    [detailKind, executionReady, swapToken, navigation],
+    [
+      detailKind,
+      executionReady,
+      speedConfigReady,
+      defaultTokens,
+      swapToken,
+      navigation,
+    ],
   );
 
   const handleBuy = useCallback(() => handleTrade('to'), [handleTrade]);
@@ -210,7 +260,7 @@ export function SwapPanel({
     return null;
   }
 
-  if (platformEnv.isNative) {
+  if (mobileLayout) {
     const pnl = myPositionInfo.pnl;
     const unrealizedBN = new BigNumber(pnl?.unrealizedPnlUsd ?? 0);
     const hasPnl = pnl?.isPnlSupported && !unrealizedBN.isNaN();
@@ -224,6 +274,16 @@ export function SwapPanel({
     let pnlPrefix = '';
     if (pnlIsPositive) pnlPrefix = '+';
     if (pnlIsNegative) pnlPrefix = '-';
+
+    const footerButtonProps = {
+      mode: footerMode,
+      onBuy: handleBuy,
+      onSell: handleSell,
+      onPerps,
+      tradeDisabled:
+        !executionReady || (!swapToken.isStock && !speedConfigReady),
+      perpsDisabled,
+    };
 
     return (
       <YStack>
@@ -240,14 +300,8 @@ export function SwapPanel({
                 id: ETranslations.dexmarket_details_myposition,
               })}
             </SizableText>
-            {myPositionInfo.isZero ? (
-              <Currency
-                size="$bodySmMedium"
-                formatter="value"
-                sourceCurrency={USD_CURRENCY_ID}
-              >
-                0.00
-              </Currency>
+            {isPortfolioPending ? (
+              <Skeleton width="$12" height="$4" />
             ) : (
               <Currency
                 size="$bodySmMedium"
@@ -282,14 +336,22 @@ export function SwapPanel({
           ) : null}
         </XStack>
         <Stack px="$5" pb={bottomInset || '$4'} pt="$2.5">
-          <SwapPanelFooterButtons
-            mode={footerMode}
-            onBuy={handleBuy}
-            onSell={handleSell}
-            onPerps={onPerps}
-            tradeDisabled={!executionReady}
-            perpsDisabled={perpsDisabled}
-          />
+          {platformEnv.isWeb ? (
+            <AccountSelectorProviderMirror
+              config={{
+                sceneName: EAccountSelectorSceneName.home,
+                sceneUrl: '',
+              }}
+              enabledNum={[0]}
+            >
+              <MobileWebTradeActions
+                {...footerButtonProps}
+                executionReady={executionReady}
+              />
+            </AccountSelectorProviderMirror>
+          ) : (
+            <SwapPanelFooterButtons {...footerButtonProps} />
+          )}
         </Stack>
       </YStack>
     );

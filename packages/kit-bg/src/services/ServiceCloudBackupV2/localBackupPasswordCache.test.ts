@@ -96,7 +96,10 @@ describe.each([
     expect(secure.getSecureItemWithBiometrics).not.toHaveBeenCalled();
     for (const [ref, key, options] of secure.setSecureItemWithBiometrics.mock
       .calls) {
-      expect(options).toEqual({ keychainService: ref });
+      expect(options).toEqual({
+        keychainService: ref,
+        authenticationPrompt: expect.any(String),
+      });
       expect(key).toMatch(/^[0-9a-f]{64}$/);
       expect(metadata.get(MANIFEST)).not.toContain(key);
     }
@@ -409,8 +412,23 @@ describe.each([
     ) as string;
     manifest.entries[firstKey].keyRef = manifest.entries[secondKey].keyRef;
     metadata.set(MANIFEST, JSON.stringify(manifest));
-    await cache.remove(scope);
+    await expect(cache.remove(scope)).rejects.toThrow();
     expect(secure.removeSecureItem).not.toHaveBeenCalled();
+    expect(await cache.get(second)).toBe('synthetic-second-password');
+  });
+
+  it('keeps a failed erasure retryable across cold start without changing another backup', async () => {
+    await saveTwo();
+    secure.removeSecureItem.mockRejectedValueOnce(
+      new Error('synthetic native failure'),
+    );
+    await expect(cache.remove(scope)).rejects.toThrow(
+      'Recovery cache removal failed',
+    );
+    cache = new LocalBackupPasswordCache();
+    expect(await cache.get(second)).toBe('synthetic-second-password');
+    await cache.remove(scope);
+    expect(await cache.get(scope)).toBeUndefined();
     expect(await cache.get(second)).toBe('synthetic-second-password');
   });
 

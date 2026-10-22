@@ -2,15 +2,19 @@ import { useCallback, useEffect, useState } from 'react';
 
 import { useThrottledCallback } from 'use-debounce';
 
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { defaultLogger } from '../../logger/logger';
 
 import { electronUpdateListeners } from './electronUpdateListeners';
 import {
+  EUpdateErrorCode,
+  createUpdateError,
+  getUpdateError,
+  runUpdateOperation,
+} from './error';
+import {
   EAppUpdatePackageAvailabilityStatus,
-  EAppUpdatePackageErrorCode,
   type IAppUpdate,
   type IBundleUpdate,
   type ICheckPackageAvailability,
@@ -20,12 +24,18 @@ import {
   type IInstallPackage,
   type IManualInstallPackage,
   type IUpdateDownloadedEvent,
+  type IUpdateProgressUpdate,
   type IUseDownloadProgress,
   type IVerifyASC,
   type IVerifyPackage,
 } from './type';
 
-const withUpdateError = <T>(callback: () => Promise<T>): Promise<T> =>
+import type { TUpdateErrorStep } from './error';
+
+const withUpdateError = <T>(
+  step: TUpdateErrorStep,
+  callback: () => Promise<T>,
+): Promise<T> =>
   new Promise((resolve, reject) => {
     const errorSubscription = electronUpdateListeners.onUpdateError?.(
       (error) => {
@@ -33,7 +43,7 @@ const withUpdateError = <T>(callback: () => Promise<T>): Promise<T> =>
           return;
         }
         errorSubscription?.();
-        reject(error);
+        reject(createUpdateError(getUpdateError(error, step)));
       },
     );
     void callback()
@@ -43,109 +53,146 @@ const withUpdateError = <T>(callback: () => Promise<T>): Promise<T> =>
       })
       .catch((error) => {
         errorSubscription?.();
-        reject(error);
+        reject(createUpdateError(getUpdateError(error, step)));
       });
   });
 
 const downloadPackage: IDownloadPackage = async ({
-  downloadedFile,
   headers,
   latestVersion,
 }) => {
-  const isDownloading =
-    await globalThis.desktopApiProxy.appUpdate.isDownloadingPackage();
-  if (isDownloading) {
-    return;
-  }
-  if (downloadedFile) {
-    const isFileExists =
-      await globalThis.desktopApiProxy.appUpdate.checkDownloadedFileExists(
-        downloadedFile,
-      );
-    if (isFileExists) {
-      return;
-    }
-  }
-  const result = await withUpdateError(async () => {
-    const updateInfo =
-      await globalThis.desktopApiProxy.appUpdate.checkForUpdates(
-        false,
-        headers,
-        latestVersion || '',
-      );
-    if (!updateInfo) {
-      return null;
-    }
-    return new Promise<IUpdateDownloadedEvent>((resolve) => {
-      const onDownloadedSubscription = electronUpdateListeners.onDownloaded?.(
-        (params) => {
-          onDownloadedSubscription?.();
-          resolve(params);
-        },
-      );
-      void globalThis.desktopApiProxy.appUpdate.downloadUpdate();
+  let onDownloadedSubscription: (() => void) | undefined;
+  const releaseDownloaded = () => {
+    onDownloadedSubscription?.();
+    onDownloadedSubscription = undefined;
+  };
+  try {
+    const result = await withUpdateError('download', async () => {
+      const updateInfo =
+        await globalThis.desktopApiProxy.appUpdate.checkForUpdates(
+          false,
+          headers,
+          latestVersion || '',
+        );
+      if (!updateInfo) {
+        return null;
+      }
+      return new Promise<IUpdateDownloadedEvent>((resolve, reject) => {
+        onDownloadedSubscription = electronUpdateListeners.onDownloaded?.(
+          (params) => {
+            if (params?.bundleVersion) {
+              return;
+            }
+            releaseDownloaded();
+            resolve(params);
+          },
+        );
+        void globalThis.desktopApiProxy.appUpdate
+          .downloadUpdate()
+          .catch((error) => {
+            releaseDownloaded();
+            reject(error);
+          });
+      });
     });
-  });
-  return result;
+    return result;
+  } finally {
+    releaseDownloaded();
+  }
 };
 
 const downloadASC: IDownloadASC = async (params) => {
-  const verified = await globalThis.desktopApiProxy.appUpdate.downloadASC({
-    ...params,
-    buildNumber: String(platformEnv.buildNumber || 1),
-  });
+  const verified = await runUpdateOperation('downloadASC', () =>
+    globalThis.desktopApiProxy.appUpdate.downloadASC({
+      ...params,
+      buildNumber: String(platformEnv.buildNumber || 1),
+    }),
+  );
   if (!verified) {
-    throw new OneKeyLocalError('APP_UPDATE_ASC_DOWNLOAD_FAILED');
+    throw createUpdateError({
+      code: EUpdateErrorCode.unknown,
+      step: 'downloadASC',
+    });
   }
 };
 
 const verifyASC: IVerifyASC = async (params) => {
-  const verified = await globalThis.desktopApiProxy.appUpdate.verifyASC({
-    ...params,
-    buildNumber: String(platformEnv.buildNumber || 1),
-  });
+  const verified = await runUpdateOperation('verifyASC', () =>
+    globalThis.desktopApiProxy.appUpdate.verifyASC({
+      ...params,
+      buildNumber: String(platformEnv.buildNumber || 1),
+    }),
+  );
   if (!verified) {
-    throw new OneKeyLocalError('APP_UPDATE_ASC_VERIFICATION_FAILED');
+    throw createUpdateError({
+      code: EUpdateErrorCode.integrityFailed,
+      step: 'verifyASC',
+    });
   }
 };
 
 const verifyPackage: IVerifyPackage = async (params) => {
-  const verified = await globalThis.desktopApiProxy.appUpdate.verifyPackage({
-    ...params,
-    buildNumber: String(platformEnv.buildNumber || 1),
-  });
+  const verified = await runUpdateOperation('verifyPackage', () =>
+    globalThis.desktopApiProxy.appUpdate.verifyPackage({
+      ...params,
+      buildNumber: String(platformEnv.buildNumber || 1),
+    }),
+  );
   if (!verified) {
-    throw new OneKeyLocalError('APP_UPDATE_PACKAGE_VERIFICATION_FAILED');
+    throw createUpdateError({
+      code: EUpdateErrorCode.integrityFailed,
+      step: 'verifyPackage',
+    });
   }
 };
 
 const checkPackageAvailability: ICheckPackageAvailability = async ({
+  latestVersion,
   downloadedEvent,
-}) =>
-  globalThis.desktopApiProxy.appUpdate.getDownloadedFileAvailability(
-    downloadedEvent?.downloadedFile,
+}) => {
+  if (!latestVersion || downloadedEvent?.latestVersion !== latestVersion) {
+    return { status: EAppUpdatePackageAvailabilityStatus.notPrepared };
+  }
+  return runUpdateOperation('install', () =>
+    globalThis.desktopApiProxy.appUpdate.getDownloadedFileAvailability({
+      latestVersion,
+      downloadUrl: downloadedEvent?.downloadUrl,
+    }),
   );
+};
 
 const installPackage: IInstallPackage = async (params) => {
   const { downloadedEvent } = params;
-  if (!downloadedEvent?.downloadedFile || !downloadedEvent?.downloadUrl) {
-    throw new OneKeyLocalError(EAppUpdatePackageErrorCode.packageMissing);
+  if (
+    !params.latestVersion ||
+    downloadedEvent?.latestVersion !== params.latestVersion ||
+    !downloadedEvent?.downloadUrl
+  ) {
+    throw createUpdateError({
+      code: EUpdateErrorCode.packageMissing,
+      step: 'install',
+    });
   }
   const availability = await checkPackageAvailability(params);
   if (availability.status === EAppUpdatePackageAvailabilityStatus.missing) {
-    throw new OneKeyLocalError(EAppUpdatePackageErrorCode.packageMissing);
+    throw createUpdateError({
+      code: EUpdateErrorCode.packageMissing,
+      step: 'install',
+    });
   }
   if (availability.status === EAppUpdatePackageAvailabilityStatus.notPrepared) {
-    throw new OneKeyLocalError(EAppUpdatePackageErrorCode.packageNotPrepared);
+    throw createUpdateError({
+      code: EUpdateErrorCode.packageMissing,
+      step: 'install',
+    });
   }
   if (availability.status === EAppUpdatePackageAvailabilityStatus.unavailable) {
-    throw new OneKeyLocalError(
-      `${EAppUpdatePackageErrorCode.packageUnavailable}:${
-        availability.errorCode || 'IO_ERROR'
-      }`,
-    );
+    throw createUpdateError({
+      code: EUpdateErrorCode.storageError,
+      step: 'install',
+    });
   }
-  return withUpdateError(async () => {
+  return withUpdateError('install', async () => {
     const [installStarted] = await Promise.all([
       globalThis.desktopApiProxy.appUpdate.installPackage({
         ...downloadedEvent,
@@ -160,17 +207,13 @@ const installPackage: IInstallPackage = async (params) => {
   });
 };
 
-export const useDownloadProgress: IUseDownloadProgress = () => {
+export const useDownloadProgress: IUseDownloadProgress = (scope) => {
+  const latestVersion = scope?.latestVersion;
+  const bundleVersion = scope?.bundleVersion;
   const [percent, setPercent] = useState(0);
 
   const updatePercent = useThrottledCallback(
-    (params: {
-      total: number;
-      delta: number;
-      transferred: number;
-      percent: number;
-      bytesPerSecond: number;
-    }) => {
+    (params: IUpdateProgressUpdate) => {
       console.log('update/downloading', params);
       const { percent: progress } = params;
       defaultLogger.update.app.log('downloading', progress);
@@ -179,38 +222,59 @@ export const useDownloadProgress: IUseDownloadProgress = () => {
     10,
   );
 
-  const updatedDownloaded = useCallback(() => {
-    defaultLogger.update.app.log('downloaded');
-    setPercent(100);
-  }, []);
+  const updatedDownloaded = useCallback(
+    (event: IUpdateDownloadedEvent) => {
+      if (bundleVersion || event?.bundleVersion) return;
+      defaultLogger.update.app.log('downloaded');
+      setPercent(100);
+    },
+    [bundleVersion],
+  );
 
   useEffect(() => {
+    setPercent(0);
+    // Filter before throttling so another destination cannot replace queued progress.
+    const onProgress = (event: IUpdateProgressUpdate) => {
+      if (bundleVersion) {
+        if (
+          event.bundleVersion !== bundleVersion ||
+          event.latestVersion !== latestVersion
+        )
+          return;
+      } else if (event.bundleVersion) return;
+      updatePercent(event);
+    };
     const onProgressUpdateSubscription =
-      electronUpdateListeners.onProgressUpdate?.(updatePercent);
+      electronUpdateListeners.onProgressUpdate?.(onProgress);
     const updateDownloadedSubscription =
       electronUpdateListeners.onDownloaded?.(updatedDownloaded);
     return () => {
       onProgressUpdateSubscription?.();
       updateDownloadedSubscription?.();
+      updatePercent.cancel();
     };
-  }, [updatedDownloaded, updatePercent]);
+  }, [updatedDownloaded, updatePercent, bundleVersion, latestVersion]);
   return percent;
 };
 
 const clearPackage: IClearPackage = async () => {
-  await globalThis.desktopApiProxy.appUpdate.clearUpdateCache();
+  await runUpdateOperation('cleanup', () =>
+    globalThis.desktopApiProxy.appUpdate.clearUpdateCache(),
+  );
 };
 
 // Desktop has no standalone APK artifacts (Android-only concept) — no-op.
 const clearApkCache = async (): Promise<void> => {};
 
 const manualInstallPackage: IManualInstallPackage = async (params) => {
-  await Promise.all([
-    globalThis.desktopApiProxy.appUpdate.manualInstallPackage(params),
-    new Promise<void>((resolve) => {
-      setTimeout(resolve, 3500);
-    }),
-  ]);
+  await runUpdateOperation('install', () =>
+    Promise.all([
+      globalThis.desktopApiProxy.appUpdate.manualInstallPackage(params),
+      new Promise<void>((resolve) => {
+        setTimeout(resolve, 3500);
+      }),
+    ]),
+  );
 };
 
 export const AppUpdate: IAppUpdate = {
@@ -229,19 +293,33 @@ export const BundleUpdate: IBundleUpdate = {
   getWebEmbedPath: () => '',
   getWebEmbedPathAsync: () => Promise.resolve(''),
   downloadBundle: (params) =>
-    globalThis.desktopApiProxy.bundleUpdate.downloadBundle(params),
+    runUpdateOperation('download', () =>
+      globalThis.desktopApiProxy.bundleUpdate.downloadBundle(params),
+    ),
   verifyBundle: (params) =>
-    globalThis.desktopApiProxy.bundleUpdate.verifyBundle(params),
+    runUpdateOperation('verifyPackage', () =>
+      globalThis.desktopApiProxy.bundleUpdate.verifyBundle(params),
+    ),
   verifyBundleASC: (params) =>
-    globalThis.desktopApiProxy.bundleUpdate.verifyBundleASC(params),
+    runUpdateOperation('verifyASC', () =>
+      globalThis.desktopApiProxy.bundleUpdate.verifyBundleASC(params),
+    ),
   downloadBundleASC: (params) =>
-    globalThis.desktopApiProxy.bundleUpdate.downloadBundleASC(params),
+    runUpdateOperation('downloadASC', () =>
+      globalThis.desktopApiProxy.bundleUpdate.downloadBundleASC(params),
+    ),
   installBundle: (params) =>
-    globalThis.desktopApiProxy.bundleUpdate.installBundle(params),
+    runUpdateOperation('install', () =>
+      globalThis.desktopApiProxy.bundleUpdate.installBundle(params),
+    ),
   getFallbackBundles: () =>
     globalThis.desktopApiProxy.bundleUpdate.getFallbackUpdateBundleData(),
   switchBundle: (params) =>
-    globalThis.desktopApiProxy.bundleUpdate.setCurrentUpdateBundleData(params),
+    runUpdateOperation('install', () =>
+      globalThis.desktopApiProxy.bundleUpdate.setCurrentUpdateBundleData(
+        params,
+      ),
+    ),
   isSkipGpgVerificationAllowed: () =>
     globalThis.desktopApiProxy.bundleUpdate.isSkipGpgVerificationAllowed(),
   pruneStaleAppVersionBundles: () =>
@@ -252,21 +330,33 @@ export const BundleUpdate: IBundleUpdate = {
       bundleVersion,
     ),
   verifyExtractedBundle: (appVersion, bundleVersion) =>
-    globalThis.desktopApiProxy.bundleUpdate.verifyExtractedBundle(
-      appVersion,
-      bundleVersion,
+    runUpdateOperation('verifyPackage', () =>
+      globalThis.desktopApiProxy.bundleUpdate.verifyExtractedBundle(
+        appVersion,
+        bundleVersion,
+      ),
     ),
   listLocalBundles: () =>
     globalThis.desktopApiProxy.bundleUpdate.listLocalBundles(),
-  clearBundle: () => globalThis.desktopApiProxy.bundleUpdate.clearBundle(),
-  clearDownload: () => globalThis.desktopApiProxy.bundleUpdate.clearDownload(),
+  clearBundle: () =>
+    runUpdateOperation('cleanup', () =>
+      globalThis.desktopApiProxy.bundleUpdate.clearBundle(),
+    ),
+  clearDownload: () =>
+    runUpdateOperation('cleanup', () =>
+      globalThis.desktopApiProxy.bundleUpdate.clearDownload(),
+    ),
   resetToBuiltInBundle: () =>
-    globalThis.desktopApiProxy.bundleUpdate.resetToBuiltInBundle(),
+    runUpdateOperation('cleanup', () =>
+      globalThis.desktopApiProxy.bundleUpdate.resetToBuiltInBundle(),
+    ),
   restart: () => {
     void globalThis.desktopApiProxy.bundleUpdate.restart();
   },
   clearAllJSBundleData: () =>
-    globalThis.desktopApiProxy.bundleUpdate.clearAllJSBundleData(),
+    runUpdateOperation('cleanup', () =>
+      globalThis.desktopApiProxy.bundleUpdate.clearAllJSBundleData(),
+    ),
   testVerification: () =>
     globalThis.desktopApiProxy.bundleUpdate.testVerification(),
   testSkipVerification: () =>

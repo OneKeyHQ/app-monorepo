@@ -241,3 +241,46 @@ and a transient outage followed by a cold retry, with preserve true and false.
 Targeted final regression run: 3 suites / 98 tests pass (ServiceApp 41, encrypted
 cache 54, actual persistence facade 3). Native storage/authentication remain
 mocked; no real-device authentication claim is made by this follow-up.
+
+## October 22 monitor follow-up
+
+- Capture recovery generation at backup, password setup, and verification entry;
+  pass it through cache writes. A continuation from before reset cannot enroll
+  recovery again after failed wallet reset releases the lifecycle. Deferred
+  upload/download/list/status tests cover the empty-backup path and a fresh retry.
+- Erase only the selected local pairing before deleting its cloud record. Local
+  erasure errors are sanitized and propagated, keeping the remote retry target.
+  A cloud deletion failure after local erasure leaves manual-password recovery.
+- Export decrypts directly without enrolling or authenticating recovery material.
+- Protected reads/writes receive the existing localized verify-backup-password
+  prompt. Android SecureStore now rejects a false SharedPreferences commit result
+  without authenticated read-back. Android autolinking builds only
+  `expo-secure-store` from source: Expo 57 otherwise uses its unpatched bundled
+  AAR, so patching the Kotlin file alone does not ship the fix. This requires a
+  rebuilt Android binary; a JS-only update cannot replace the native module.
+
+Independent Mac validation against merged x `8bfb6014` and its unchanged lockfile:
+
+- Ten focused suites / 257 tests pass: the six cloud-handoff suites (189), actual
+  persistence facade (3), onboarding restore UI and import ownership/exit (65).
+  Native storage/authentication use synthetic mocks; encryption is real.
+- Restoring the old late-generation helper makes all four deferred backup/reset
+  regressions fail by detecting a new cache write; the reviewed implementation
+  passes and permits a fresh retry.
+- `agent:check --profile commit` passes, including full TypeScript, typed lint,
+  formatting, native storage policy and background API/test integrity checks.
+- The Expo patch applies to the pristine Yarn archive and matches installed
+  source. Targeted Gradle `:expo-secure-store:compileDebugKotlin` passes. Compiled
+  bytecode branches on `saveEncryptedItem` and throws `WriteException` on false;
+  the published AAR instead discards that result.
+- iOS production union build, both unchanged CI startup budgets and three-bundle
+  architecture pass: main 2,555 modules / 12.78 MB; background 2,345 / 18.10 MB.
+  Module registry and the emitted build map pass (27,241 active / 7 tombstones).
+- Existing Mac GitHub authentication works; no cloud credentials were imported.
+  Current-head remote CI must be verified separately after pushing.
+
+Physical Face ID, Touch ID and Android Class 3 behavior remains unverified.
+Reset disclosure localization and per-backup forget/re-enable still need product
+confirmation. The all-writes-and-key-deletes-fail policy remains unchanged:
+wallet wipe has priority, failure is reported without automatic restart, and a
+surviving pairing after forced relaunch still requires system biometrics.
