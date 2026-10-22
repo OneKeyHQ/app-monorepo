@@ -41,7 +41,6 @@ import {
   TRADING_VIEW_NATIVE_WATERMARK_DARK_OPACITY as WATERMARK_DARK_OPACITY,
   TRADING_VIEW_NATIVE_WATERMARK_LIGHT_OPACITY as WATERMARK_LIGHT_OPACITY,
 } from '../chartConstants';
-import { IndicatorPaneHandles } from '../indicatorPanes/IndicatorPaneHandles';
 import { useIndicatorPanes } from '../indicatorPanes/useIndicatorPanes';
 import { TradingViewNativeChartActiveContext } from '../TradingViewNativeChartActiveContext';
 import { TradingViewNativeChartReadyContext } from '../TradingViewNativeChartReadyContext';
@@ -1114,10 +1113,6 @@ export const TradingViewNativeChart = memo(
               <Picture picture={picture} />
             </Canvas>
           </GestureDetector>
-          <IndicatorPaneHandles
-            controller={indicatorPanes}
-            timeAxisHeight={timeAxisHeight}
-          />
           {chartSettings.options.yAxis && priceAxisControlWidth > 0 ? (
             <TradingViewNativePriceScaleControls
               backgroundColor={background}
