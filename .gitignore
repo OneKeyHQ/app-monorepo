@@ -83,6 +83,7 @@ stats.json
 stats.html
 .java-version
 .eslintcache
+.oxlintrc.*.tmp.json
 tsconfig.tsbuildinfo
 
 test-report.html
