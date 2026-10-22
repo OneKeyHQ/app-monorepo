@@ -410,6 +410,29 @@ export function pickIdentityText(
   return next || prev;
 }
 
+/**
+ * A finish names one device. News that names no color keeps the current
+ * one while it is about the same device, but never lends it to another:
+ * a stage or opening still holding the last device's finish must not
+ * dress the next one in it.
+ */
+export function pickDeviceColor(
+  next: Pick<IDeviceStageState, 'connectId' | 'deviceColor'>,
+  current: Pick<IDeviceStageState, 'connectId' | 'deviceColor'> | undefined,
+): IDeviceStageState['deviceColor'] {
+  if (next.deviceColor) {
+    return next.deviceColor;
+  }
+  if (
+    next.connectId &&
+    current?.connectId &&
+    next.connectId !== current.connectId
+  ) {
+    return undefined;
+  }
+  return current?.deviceColor;
+}
+
 export type IDeviceStageBurstBeginParams = {
   connectId?: string;
   deviceType?: IDeviceStageState['deviceType'];
@@ -1887,7 +1910,7 @@ export class DeviceStageBurstScope {
           this.pendingOpen.connectId,
         ),
         deviceType: params.deviceType ?? this.pendingOpen.deviceType,
-        deviceColor: params.deviceColor ?? this.pendingOpen.deviceColor,
+        deviceColor: pickDeviceColor(params, this.pendingOpen),
         deviceName: pickIdentityText(
           params.deviceName,
           this.pendingOpen.deviceName,
@@ -1930,7 +1953,7 @@ export class DeviceStageBurstScope {
             : prev.activitySeq,
         connectId: pickIdentityText(params.connectId, prev.connectId),
         deviceType: pickDeviceType(params.deviceType, prev.deviceType),
-        deviceColor: params.deviceColor ?? prev.deviceColor,
+        deviceColor: pickDeviceColor(params, prev),
         deviceName: pickIdentityText(params.deviceName, prev.deviceName),
         vendor: params.vendor ?? prev.vendor,
         vendorModel: pickIdentityText(params.vendorModel, prev.vendorModel),
@@ -2150,15 +2173,8 @@ export class DeviceStageBurstScope {
         connectId: pickIdentityText(mergedExtras.connectId, base?.connectId),
         deviceType: pickDeviceType(mergedExtras.deviceType, base?.deviceType),
         // Sticky like the model: a step that names no color keeps the one
-        // the device row gave, never blanks it — but only for that device;
-        // a stage another device left must not lend the next one its finish.
-        deviceColor:
-          mergedExtras.deviceColor ??
-          (mergedExtras.connectId &&
-          base?.connectId &&
-          mergedExtras.connectId !== base.connectId
-            ? undefined
-            : base?.deviceColor),
+        // the device row gave, never blanks it — for that device only.
+        deviceColor: pickDeviceColor(mergedExtras, base),
         deviceName: pickIdentityText(mergedExtras.deviceName, base?.deviceName),
         // Device/vendor identity is sticky within the burst (base), never
         // across bursts; the per-step extras (install / btc / action)

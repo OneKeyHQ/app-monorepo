@@ -34,6 +34,7 @@ import {
 import {
   DeviceStageBurstScope,
   createLatestStateFeed,
+  pickDeviceColor,
   pickDeviceType,
   pickErrorMessage,
   pickIdentityText,
@@ -100,6 +101,38 @@ describe('pickDeviceType', () => {
     expect(pickDeviceType(EDeviceType.Unknown, undefined)).toBe(
       EDeviceType.Unknown,
     );
+  });
+});
+
+describe('pickDeviceColor', () => {
+  it('takes a named finish', () => {
+    expect(
+      pickDeviceColor(
+        { connectId: 'NEXT', deviceColor: 'Silver' },
+        { connectId: 'PREV', deviceColor: 'Orange' },
+      ),
+    ).toBe('Silver');
+  });
+
+  it('keeps the finish while the news is about the same device', () => {
+    expect(
+      pickDeviceColor(
+        { connectId: 'SAME' },
+        { connectId: 'SAME', deviceColor: 'Orange' },
+      ),
+    ).toBe('Orange');
+    expect(
+      pickDeviceColor({}, { connectId: 'SAME', deviceColor: 'Orange' }),
+    ).toBe('Orange');
+  });
+
+  it('does not lend a finish to another device', () => {
+    expect(
+      pickDeviceColor(
+        { connectId: 'NEXT' },
+        { connectId: 'PREV', deviceColor: 'Orange' },
+      ),
+    ).toBeUndefined();
   });
 });
 
@@ -725,6 +758,52 @@ describe('DeviceStageBurstScope', () => {
     });
     expect(stage?.step).toBe('pinOnApp');
     expect(stage?.deviceColor).toBe('Orange');
+  });
+
+  it("drops the last device's finish when an identity refresh switches devices on stage", async () => {
+    const scope = new DeviceStageBurstScope();
+    await scope.begin({
+      connectId: 'FIRST_DEVICE',
+      deviceType: EDeviceType.Pro2,
+      deviceColor: 'Orange',
+    });
+    await paintOpeningBeat();
+    expect(stage?.deviceColor).toBe('Orange');
+
+    // A refresh for the same device keeps its finish.
+    await scope.mergeDeviceIdentity({
+      connectId: 'FIRST_DEVICE',
+      deviceName: 'Pro 2 A1B2',
+    });
+    expect(stage?.deviceColor).toBe('Orange');
+
+    // The refresh lands before the second device's connecting step.
+    await scope.mergeDeviceIdentity({
+      connectId: 'SECOND_DEVICE',
+      deviceType: EDeviceType.Pro2,
+    });
+    expect(stage?.connectId).toBe('SECOND_DEVICE');
+    expect(stage?.deviceColor).toBeUndefined();
+
+    await scope.noteStep('connecting', {
+      connectId: 'SECOND_DEVICE',
+      deviceType: EDeviceType.Pro2,
+    });
+    expect(stage?.deviceColor).toBeUndefined();
+  });
+
+  it("drops the last device's finish when an identity refresh switches devices before the opening paints", async () => {
+    const scope = new DeviceStageBurstScope();
+    await scope.begin({
+      connectId: 'FIRST_DEVICE',
+      deviceType: EDeviceType.Pro2,
+      deviceColor: 'Orange',
+    });
+    await scope.mergeDeviceIdentity({ connectId: 'SECOND_DEVICE' });
+    await paintOpeningBeat();
+
+    expect(stage?.connectId).toBe('SECOND_DEVICE');
+    expect(stage?.deviceColor).toBeUndefined();
   });
 
   it('does not lend a finish to the next device when its scan names none', async () => {
