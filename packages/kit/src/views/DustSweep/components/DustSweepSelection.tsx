@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -58,20 +58,24 @@ export function DustSweepSelection({ desktop }: { desktop: boolean }) {
   // While sweeping, keep the token being converted in view: the list scrolls
   // so that row sits about a third of the way down.
   const scrollRef = useRef<IScrollViewRef>(null);
-  const rowOffsets = useRef<Record<number, number>>({});
+  // Keyed by token so a new list never reuses another row's position.
+  const rowOffsets = useRef(new Map<string, number>());
   const viewportHeight = useRef(0);
   const { active } = getDustSweepPresentation(session.state);
-  const activeIndex =
-    selecting || !active ? -1 : session.state.items.indexOf(active);
-  useEffect(() => {
-    if (activeIndex < 0) return;
-    const offset = rowOffsets.current[activeIndex];
-    if (offset === undefined) return;
+  const activeKey = selecting || !active ? undefined : active.token.key;
+  const activeKeyRef = useRef(activeKey);
+  activeKeyRef.current = activeKey;
+  const scrollToRow = useCallback((offset: number) => {
     scrollRef.current?.scrollTo({
       y: Math.max(0, offset - viewportHeight.current / 3),
       animated: true,
     });
-  }, [activeIndex]);
+  }, []);
+  useEffect(() => {
+    if (!activeKey) return;
+    const offset = rowOffsets.current.get(activeKey);
+    if (offset !== undefined) scrollToRow(offset);
+  }, [activeKey, scrollToRow]);
   const selectableVisibleCount = visible.filter(
     (token) => !token.suspicious,
   ).length;
@@ -215,7 +219,13 @@ export function DustSweepSelection({ desktop }: { desktop: boolean }) {
               <Stack
                 key={token.key}
                 onLayout={(event) => {
-                  rowOffsets.current[index] = event.nativeEvent.layout.y;
+                  const { y } = event.nativeEvent.layout;
+                  const previous = rowOffsets.current.get(token.key);
+                  rowOffsets.current.set(token.key, y);
+                  // The active row may lay out (or move) after the effect
+                  // above ran; follow it to its current position.
+                  if (token.key === activeKeyRef.current && previous !== y)
+                    scrollToRow(y);
                 }}
               >
                 <DustSweepTokenRow
