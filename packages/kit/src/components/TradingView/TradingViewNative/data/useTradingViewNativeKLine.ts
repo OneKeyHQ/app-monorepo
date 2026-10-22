@@ -15,6 +15,7 @@ import { useInterval } from '@onekeyhq/kit/src/hooks/useInterval';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type { IMarketTokenKLineDataPoint } from '@onekeyhq/shared/types/marketV2';
 
+import { createDrawingHistoryLoader } from '../drawings/drawingHistory';
 import { getTradingViewNativeCandleTimestampAtOffset } from '../utils/candleTime';
 import {
   getTradingViewNativeChartType,
@@ -1755,6 +1756,10 @@ export function useTradingViewNativeKLine({
     sourceKind,
     stockId,
   ]);
+  const loadDrawingHistory = useMemo(
+    () => createDrawingHistoryLoader(rawHistoryProvider, supportedIntervals),
+    [rawHistoryProvider, supportedIntervals],
+  );
   const seriesKey = rawHistoryProvider.key;
   const [historyPointTypeScopeState, setHistoryPointTypeScopeState] = useState<{
     historyProvider: ITradingViewNativeDataProvider;
@@ -4675,6 +4680,7 @@ export function useTradingViewNativeKLine({
     }),
     chartPictureVersion: visibleChartData?.chartPictureVersion ?? 0,
     dataProviderKey: seriesKey,
+    loadDrawingHistory,
     dataState,
     getVisibleTimeRange,
     handleHistoryBoundaryPrefetch,

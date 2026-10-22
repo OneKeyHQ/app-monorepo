@@ -33,16 +33,25 @@ import type {
   IXStackProps,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { shortcutsKeys } from '@onekeyhq/shared/src/shortcuts/shortcutsKeys.enum';
 import appStorage from '@onekeyhq/shared/src/storage/appStorage';
 import { EAppSyncStorageKeys } from '@onekeyhq/shared/src/storage/syncStorage';
+
+import {
+  DrawingAnchorFields,
+  DrawingStyleOptions,
+} from '../../drawings/DrawingStyleOptions';
 
 import { TRADING_VIEW_DRAWING_ICONS } from './icons';
 import {
   DEFAULT_DRAWING_FONT_SIZE,
   DRAWING_FONT_SIZES,
+  DRAWING_TOOLBAR_GROUPS,
   DRAWING_TOOLS,
   MAX_DRAWINGS,
+  getDrawingToolbarGroup,
   isFreehandTool,
+  isPathTool,
   isTextDrawingTool,
 } from './model';
 
@@ -236,6 +245,7 @@ export function DrawingIcon({
 
 function ToolButton({
   label,
+  title = label,
   icon,
   active,
   disabled,
@@ -246,6 +256,7 @@ function ToolButton({
   compact = false,
 }: {
   label: string;
+  title?: string;
   icon?: IDrawingTool | IActionIcon;
   active?: boolean;
   disabled?: boolean;
@@ -258,7 +269,7 @@ function ToolButton({
   const theme = useTheme();
   return (
     <DrawingButton
-      render={<button type="button" title={label} aria-label={label} />}
+      render={<button type="button" title={title} aria-label={label} />}
       testID={testID}
       aria-label={label}
       aria-pressed={active}
@@ -516,83 +527,100 @@ export function DrawingToolbar({
   const activeTool = selected?.tool ?? state.tool;
   const hasText = isTextDrawingTool(activeTool);
   const hasLine = activeTool !== 'text' && activeTool !== 'priceLabel';
-  const groups = [
-    ...new Set(Object.values(DRAWING_TOOLS).map((tool) => tool.group)),
-  ];
+  const groups = DRAWING_TOOLBAR_GROUPS;
   // Hydration pauses drawing actions on each symbol switch without dimming their icons.
   const disabled = !state.ready;
   const styleDisabled = Boolean(selected && (selected.locked || state.locked));
   const pointFields =
     selected && state.editingCoordinates ? (
       <>
-        {selected.points
-          .map((point, index) => ({ point, index }))
-          .filter(
-            ({ index }) =>
-              !isFreehandTool(selected.tool) ||
-              index === 0 ||
-              index === selected.points.length - 1,
-          )
-          .map(({ point, index }) => (
-            <YStack key={`${selected.id}-${index}`}>
-              <DrawingFieldLabel>
-                <SizableText fontSize={12}>Point {index + 1}</SizableText>
-                <DrawingInput
-                  flexible={hasText}
-                  aria-label={`Point ${index + 1} price`}
-                  key={point.price}
-                  type="number"
-                  step="any"
-                  defaultValue={point.price}
-                  disabled={styleDisabled}
-                  onBlur={(event) => {
-                    if (event.target.value !== '')
-                      controller.editPoint(index, {
-                        price: event.target.valueAsNumber,
-                      });
-                  }}
-                />
-              </DrawingFieldLabel>
-              <DrawingFieldLabel>
-                <SizableText fontSize={12}>Time (UTC)</SizableText>
-                <DrawingInput
-                  flexible={hasText}
-                  aria-label={`Point ${index + 1} time`}
-                  key={point.time}
-                  type="datetime-local"
-                  step="1"
-                  defaultValue={new Date(point.time * 1000)
-                    .toISOString()
-                    .slice(0, 19)}
-                  disabled={styleDisabled}
-                  onBlur={(event) => {
-                    if (event.target.value)
-                      controller.editPoint(index, {
-                        time:
-                          new Date(`${event.target.value}Z`).getTime() / 1000,
-                      });
-                  }}
-                />
-              </DrawingFieldLabel>
-            </YStack>
-          ))}
+        {selected.anchor ? (
+          <DrawingAnchorFields
+            anchor={selected.anchor}
+            disabled={styleDisabled}
+            onChange={controller.editAnchor}
+          />
+        ) : (
+          <>
+            {selected.points
+              .map((point, index) => ({ point, index }))
+              .filter(
+                ({ index }) =>
+                  !isFreehandTool(selected.tool) ||
+                  index === 0 ||
+                  index === selected.points.length - 1,
+              )
+              .map(({ point, index }) => (
+                <YStack key={`${selected.id}-${index}`}>
+                  <DrawingFieldLabel>
+                    <SizableText fontSize={12}>Point {index + 1}</SizableText>
+                    <DrawingInput
+                      flexible={hasText}
+                      aria-label={`Point ${index + 1} price`}
+                      key={point.price}
+                      type="number"
+                      step="any"
+                      defaultValue={point.price}
+                      disabled={styleDisabled}
+                      onBlur={(event) => {
+                        if (event.target.value !== '')
+                          controller.editPoint(index, {
+                            price: event.target.valueAsNumber,
+                          });
+                      }}
+                    />
+                  </DrawingFieldLabel>
+                  <DrawingFieldLabel>
+                    <SizableText fontSize={12}>Time (UTC)</SizableText>
+                    <DrawingInput
+                      flexible={hasText}
+                      aria-label={`Point ${index + 1} time`}
+                      key={point.time}
+                      type="datetime-local"
+                      step="1"
+                      defaultValue={new Date(point.time * 1000)
+                        .toISOString()
+                        .slice(0, 19)}
+                      disabled={styleDisabled}
+                      onBlur={(event) => {
+                        if (event.target.value)
+                          controller.editPoint(index, {
+                            time:
+                              new Date(`${event.target.value}Z`).getTime() /
+                              1000,
+                          });
+                      }}
+                    />
+                  </DrawingFieldLabel>
+                </YStack>
+              ))}
+          </>
+        )}
       </>
     ) : null;
   let hint = state.draft
     ? 'Click to finish · Esc to cancel'
     : 'Click to place a point · Esc to cancel';
-  if (state.history.present.length >= MAX_DRAWINGS)
+  if (
+    state.tool === 'measure' ||
+    (state.tool !== 'cursor' && isFreehandTool(state.tool))
+  )
+    hint = 'Click and drag to draw · Esc to cancel';
+  if (state.tool !== 'cursor' && isPathTool(state.tool))
+    hint =
+      'Click to add points · Enter or double-click to finish · Esc to cancel';
+  if (state.history.present.length >= MAX_DRAWINGS && state.tool !== 'measure')
     hint = 'Drawing limit reached. Remove a drawing to continue.';
   if (state.saveFailed) hint = 'Drawings could not be saved on this device.';
-  if (state.tool !== 'cursor' && isFreehandTool(state.tool))
-    hint = 'Click and drag to draw · Esc to cancel';
   const shortcuts: Partial<Record<IDrawingTool, string>> = {
-    trend: 'Alt T',
-    horizontal: 'Alt H',
-    vertical: 'Alt V',
-    cross: 'Alt C',
-    fib: 'Alt F',
-    rectangle: 'Alt ⇧ R',
+    trend: `${shortcutsKeys.Alt} T`,
+    horizontal: `${shortcutsKeys.Alt} H`,
+    horizontalRay: `${shortcutsKeys.Alt} J`,
+    vertical: `${shortcutsKeys.Alt} V`,
+    cross: `${shortcutsKeys.Alt} C`,
+    fib: `${shortcutsKeys.Alt} F`,
+    rectangle: `${shortcutsKeys.Alt} ${shortcutsKeys.Shift} R`,
+    measure: `${shortcutsKeys.Shift} + drag`,
   };
   useEffect(() => {
     if (!menu) return undefined;
@@ -657,6 +685,7 @@ export function DrawingToolbar({
       >
         <ToolButton
           label="Cursor (Esc)"
+          title={`Cursor (Esc) · ${shortcutsKeys.Shift} + drag to measure`}
           icon="cursor"
           active={state.tool === 'cursor'}
           onClick={() => {
@@ -669,7 +698,7 @@ export function DrawingToolbar({
           const tool =
             lastTools[group] ??
             (Object.keys(DRAWING_TOOLS) as IDrawingTool[]).find(
-              (key) => DRAWING_TOOLS[key].group === group,
+              (key) => getDrawingToolbarGroup(key) === group,
             ) ??
             'trend';
           return (
@@ -681,12 +710,17 @@ export function DrawingToolbar({
             >
               <ToolButton
                 label={DRAWING_TOOLS[tool].label}
+                title={
+                  shortcuts[tool]
+                    ? `${DRAWING_TOOLS[tool].label} (${shortcuts[tool]})`
+                    : DRAWING_TOOLS[tool].label
+                }
                 icon={tool}
                 disabled={disabled}
                 disabledOpacity={1}
                 active={
                   state.tool !== 'cursor' &&
-                  DRAWING_TOOLS[state.tool].group === group
+                  getDrawingToolbarGroup(state.tool) === group
                 }
                 onClick={() => {
                   controller.selectTool(tool);
@@ -715,6 +749,7 @@ export function DrawingToolbar({
         <DrawingDivider />
         <ToolButton
           label="Magnet mode"
+          title={`Magnet mode · Hold ${shortcutsKeys.CmdOrCtrl} to toggle while drawing`}
           icon="magnet"
           active={state.magnet}
           onClick={() => controller.toggle('magnet')}
@@ -732,20 +767,21 @@ export function DrawingToolbar({
           onClick={() => controller.toggle('locked')}
         />
         <ToolButton
-          label={state.hidden ? 'Show drawings' : 'Hide drawings'}
+          label={`${state.hidden ? 'Show drawings' : 'Hide drawings'} (${shortcutsKeys.CmdOrCtrl} ${shortcutsKeys.Alt} H)`}
           icon={state.hidden ? 'show' : 'hide'}
           active={state.hidden}
           onClick={() => controller.toggle('hidden')}
         />
         <DrawingDivider />
         <ToolButton
-          label="Undo drawing (Ctrl/⌘ Z)"
+          label={`Undo drawing (${shortcutsKeys.CmdOrCtrl} Z)`}
           icon="undo"
           disabled={!state.history.past.length}
           onClick={() => controller.historyAction('undo')}
         />
         <ToolButton
-          label="Redo drawing (Ctrl/⌘ Y)"
+          label={`Redo drawing (${shortcutsKeys.CmdOrCtrl} Y)`}
+          title={`Redo drawing (${shortcutsKeys.CmdOrCtrl} Y / ${shortcutsKeys.CmdOrCtrl} ${shortcutsKeys.Shift} Z)`}
           icon="redo"
           disabled={!state.history.future.length}
           onClick={() => controller.historyAction('redo')}
@@ -770,7 +806,7 @@ export function DrawingToolbar({
           }}
         />
         <ToolButton
-          label="Data Window"
+          label={`Data Window (${shortcutsKeys.Alt} D)`}
           icon="data"
           testID="chart-data-window-toggle"
           active={state.panel === 'data'}
@@ -858,7 +894,7 @@ export function DrawingToolbar({
             {menu}
           </SizableText>
           {(Object.keys(DRAWING_TOOLS) as IDrawingTool[])
-            .filter((tool) => DRAWING_TOOLS[tool].group === menu)
+            .filter((tool) => getDrawingToolbarGroup(tool) === menu)
             .map((tool) => (
               <DrawingButton
                 key={tool}
@@ -1060,6 +1096,7 @@ export function DrawingToolbar({
               <ToolButton
                 compact
                 label="Delete drawing"
+                title="Delete drawing (Delete / Backspace)"
                 icon="delete"
                 disabled={styleDisabled}
                 onClick={controller.removeSelected}
@@ -1075,8 +1112,8 @@ export function DrawingToolbar({
           role="dialog"
           aria-label="Drawing settings"
           position="absolute"
-          width={hasText ? 300 : undefined}
-          maxWidth={hasText ? 'calc(100% - 100px)' : undefined}
+          width={340}
+          maxWidth="calc(100% - 100px)"
           maxHeight="calc(100% - 90px)"
           overflow="hidden"
           backgroundColor="$bg"
@@ -1099,7 +1136,8 @@ export function DrawingToolbar({
             flexShrink={1}
             overflowY="auto"
           >
-            {selected.tool === 'text' || selected.tool === 'callout' ? (
+            {isTextDrawingTool(selected.tool) &&
+            selected.tool !== 'priceLabel' ? (
               <YStack render="label" gap={6} marginVertical={10}>
                 <SizableText fontSize={12}>Content</SizableText>
                 <DrawingField
@@ -1135,10 +1173,13 @@ export function DrawingToolbar({
                     expanded
                     type="color"
                     aria-label="Text color"
-                    value={style.color}
+                    value={
+                      style.textColor ??
+                      (activeTool === 'text' ? style.color : '#FFFFFF')
+                    }
                     disabled={styleDisabled}
                     onChange={(event) =>
-                      controller.changeStyle({ color: event.target.value })
+                      controller.changeStyle({ textColor: event.target.value })
                     }
                   />
                 </DrawingFieldLabel>
@@ -1170,7 +1211,7 @@ export function DrawingToolbar({
                 marginBottom={8}
               >
                 <SizableText fontSize={12} marginBottom={8} fontWeight="600">
-                  Connection line
+                  Border
                 </SizableText>
                 <XStack gap={6}>
                   <LineStyleControls
@@ -1181,6 +1222,12 @@ export function DrawingToolbar({
                 </XStack>
               </YStack>
             ) : null}
+            <DrawingStyleOptions
+              tool={activeTool}
+              style={style}
+              disabled={styleDisabled}
+              onChange={controller.changeStyle}
+            />
             {hasText ? (
               <YStack
                 borderTopWidth={1}
@@ -1252,6 +1299,22 @@ export function DrawingToolbar({
         >
           {hint}
         </SizableText>
+      ) : null}
+      {state.draft && isPathTool(state.draft.drawing.tool) ? (
+        <Button
+          testID="chart-drawing-finish"
+          position="absolute"
+          left={64}
+          bottom={56}
+          size="small"
+          onPress={controller.finishPath}
+          disabled={
+            state.draft.anchors.length <
+            DRAWING_TOOLS[state.draft.drawing.tool].points
+          }
+        >
+          Finish drawing
+        </Button>
       ) : null}
     </YStack>
   );
