@@ -82,9 +82,12 @@ describe('TradingViewNative web canvas scene renderer', () => {
     },
   );
 
-  it('preserves the price-axis font for reference labels on web', () => {
+  it('uses a regular sans-serif font for price-axis and reference labels on web', () => {
+    expect(getTradingViewNativeCanvasFont('priceAxis', 14)).toBe(
+      '14px sans-serif',
+    );
     expect(getTradingViewNativeCanvasFont('referenceLineLabel', 14)).toBe(
-      getTradingViewNativeCanvasFont('priceAxis', 14),
+      '14px sans-serif',
     );
   });
 

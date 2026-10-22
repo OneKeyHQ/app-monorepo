@@ -24,6 +24,7 @@ import { MarketWatchListProviderMirrorV2 } from '@onekeyhq/kit/src/views/Market/
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
 import { Layout } from './utils/Layout';
+import { TradingViewNativeTradeMarksPreview } from './utils/TradingViewNativeTradeMarksPreview';
 
 const DISABLED_FEATURE_OPTIONS: {
   label: string;
@@ -129,6 +130,10 @@ const TradingViewV2Gallery = () => {
         getFilePath={() => __CURRENT_FILE_PATH__}
         componentName="TradingViewV2"
         elements={[
+          {
+            title: 'Native B/S markers (mock data)',
+            element: <TradingViewNativeTradeMarksPreview />,
+          },
           {
             title: 'OKX-style chart settings UI mock',
             element: <TradingViewChartSettingsGalleryExample />,

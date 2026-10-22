@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { memo, useCallback, useState } from 'react';
 
-import { useHeaderHeight } from '@react-navigation/elements';
+import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
 import {
@@ -13,10 +13,13 @@ import {
   TextArea,
   YStack,
   rootNavigationRef,
+  useIsModalPage,
   useScrollContentTabBarOffset,
 } from '@onekeyhq/components';
+import { useSafeAreaInsets } from '@onekeyhq/components/src/hooks';
 import type { IPageNavigationProp } from '@onekeyhq/components/src/layouts/Navigation';
 import { TabletHomeContainer } from '@onekeyhq/kit/src/components/TabletHomeContainer';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { ITabDeveloperParamList } from '@onekeyhq/shared/src/routes';
 import {
@@ -89,6 +92,7 @@ function ConnectWalletConnectDapp() {
 }
 
 function TestButtons() {
+  const isModal = useIsModalPage();
   const navigation = useAppNavigation<IPageNavigationProp<any>>();
   const onPress = useCallback(() => {
     navigation.pushModal(EModalRoutes.SettingModal, {
@@ -104,6 +108,10 @@ function TestButtons() {
     <YStack px="$2" py="$2" gap="$2">
       <Button
         onPress={() => {
+          if (isModal) {
+            void navigation.switchTabAsync(ETabRoutes.Home);
+            return;
+          }
           navigation.switchTab(ETabRoutes.Home);
         }}
       >
@@ -168,9 +176,10 @@ function TestRefreshCmp() {
 const TestRefresh = memo(TestRefreshCmp);
 
 const TabDeveloper = () => {
+  const isModal = useIsModalPage();
+  const intl = useIntl();
+  const { bottom } = useSafeAreaInsets();
   const tabBarHeight = useScrollContentTabBarOffset();
-  const headerHeight = useHeaderHeight();
-  const bodyPaddingTop = platformEnv.isNativeIOS26Plus ? headerHeight : 0;
   const navigation =
     useAppNavigation<IPageNavigationProp<ITabDeveloperParamList>>();
 
@@ -182,18 +191,31 @@ const TabDeveloper = () => {
       enabledNum={[0]}
     >
       <Page>
-        <Page.Body pt={bodyPaddingTop}>
+        {isModal ? (
+          <Page.Header
+            title={intl.formatMessage({ id: ETranslations.global_dev_mode })}
+          />
+        ) : null}
+        <Page.Body>
           <ScrollView
             flex={1}
             width="100%"
             paddingHorizontal="$5"
-            contentContainerStyle={{ paddingBottom: tabBarHeight ?? '$5' }}
+            contentContainerStyle={{
+              paddingBottom: platformEnv.isNative
+                ? Math.max(bottom, 20)
+                : (tabBarHeight ?? '$5'),
+            }}
             gap="$5"
           >
             <PartContainer title="Components">
               <Button
                 testID={DeveloperTestIDs.galleryBtn}
                 onPress={() => {
+                  if (isModal) {
+                    navigation.push(ETabDeveloperRoutes.ComponentsGallery);
+                    return;
+                  }
                   rootNavigationRef.current?.navigate(
                     ERootRoutes.Main,
                     {
@@ -318,6 +340,10 @@ const TabDeveloper = () => {
 };
 
 function TabDeveloperContainer() {
+  const isModal = useIsModalPage();
+  if (isModal) {
+    return <TabDeveloper />;
+  }
   return (
     <TabletHomeContainer>
       <TabDeveloper />

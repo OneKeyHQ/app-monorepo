@@ -445,7 +445,6 @@ function DustSweepPageContent() {
       return;
     const dialog = Dialog.show({
       testID: 'dust-sweep-details-sheet',
-      nativeSheet: true,
       showHeader: false,
       showFooter: false,
       disableDrag: true,
@@ -505,7 +504,6 @@ function DustSweepPageContent() {
     if (liveSheet.current) return;
     const dialog = Dialog.show({
       testID: 'dust-sweep-live-sheet',
-      nativeSheet: true,
       showHeader: false,
       showFooter: false,
       disableDrag: true,
