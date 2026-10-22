@@ -12,7 +12,7 @@ import { HARDWARE_STAGE_Z_INDEX } from '@onekeyhq/shared/src/consts/zIndexConsts
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { ScreenshotBranding } from '../../../components/ScreenshotBranding';
-import { TradingViewNativeFullscreenHost } from '../../../components/TradingView/TradingViewNative/TradingViewNativePresentation';
+import { TradingViewNativeFullscreenHost } from '../../../components/TradingView/TradingViewNative/TradingViewNativeFullscreenHost';
 import { useSplitViewDetailOffset } from '../TableSplitViewContainer/SplitViewDetailOffsetContext';
 
 import { AccountSelectorMirrorInspectorContainer } from './AccountSelectorMirrorInspectorContainer';

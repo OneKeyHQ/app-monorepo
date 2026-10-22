@@ -47,6 +47,10 @@ jest.mock('@onekeyhq/components', () => {
     SizableText: Stack,
     Skeleton: Stack,
     Stack,
+    Tabs: {
+      FlatList: Stack,
+      ScrollView: Stack,
+    },
     XStack: Stack,
     YStack: Stack,
     useMedia: () => ({ gtLg: mockLargeLayout }),

@@ -1,5 +1,5 @@
 diff --git a/node_modules/@tamagui/react-native-media-driver/dist/cjs/mediaQueryList.native.js b/node_modules/@tamagui/react-native-media-driver/dist/cjs/mediaQueryList.native.js
-index ea68667..d56cd5c 100644
+index ea68667..355ff58 100644
 --- a/node_modules/@tamagui/react-native-media-driver/dist/cjs/mediaQueryList.native.js
 +++ b/node_modules/@tamagui/react-native-media-driver/dist/cjs/mediaQueryList.native.js
 @@ -27,7 +27,10 @@ __export(mediaQueryList_exports, {
@@ -13,7 +13,7 @@ index ea68667..d56cd5c 100644
  var import_matchQuery = require("./matchQuery.native.js");
  function _class_call_check(instance, Constructor) {
    if (!(instance instanceof Constructor)) {
-@@ -61,6 +64,39 @@ function _define_property(obj, key, value) {
+@@ -61,6 +64,44 @@ function _define_property(obj, key, value) {
    }
    return obj;
  }
@@ -41,6 +41,11 @@ index ea68667..d56cd5c 100644
 +  // width at runtime, so the Tamagui useMedia patch scopes its re-render fix
 +  // to them and leaves phones on upstream behavior.
 +  nativeMediaControl.isTabletLike = isTablet || isDualScreenDevice();
++  // OneKey patch: System rotation must not switch iPhone screens to desktop
++  // breakpoints. Canvas layout and height queries still use the real window.
++  if (import_react_native.Platform.OS === "ios" && ExpoDevice.deviceType === ExpoDevice.DeviceType.PHONE) {
++    return { ...dimensions, width: Math.min(dimensions.width, dimensions.height) };
++  }
 +  if (nativeMediaControl.useRealWidth && !isSpanning) return dimensions;
 +  var shouldUseHalfWidth = isSpanning || isTablet && isLandscape;
 +  var shouldClampWidth = shouldUseHalfWidth || isTablet || import_react_native.Platform.OS === "android";
@@ -53,7 +58,7 @@ index ea68667..d56cd5c 100644
  var NativeMediaQueryList = /* @__PURE__ */function () {
    "use strict";
  
-@@ -71,10 +107,21 @@ var NativeMediaQueryList = /* @__PURE__ */function () {
+@@ -71,10 +112,21 @@ var NativeMediaQueryList = /* @__PURE__ */function () {
      _define_property(this, "listeners", void 0);
      this.query = query;
      this.listeners = [];
@@ -75,7 +80,7 @@ index ea68667..d56cd5c 100644
    }
    _create_class(NativeMediaQueryList2, [{
      key: "orientation",
-@@ -118,7 +165,7 @@ var NativeMediaQueryList = /* @__PURE__ */function () {
+@@ -118,7 +170,7 @@ var NativeMediaQueryList = /* @__PURE__ */function () {
    }, {
      key: "matches",
      get: function get() {
@@ -85,7 +90,7 @@ index ea68667..d56cd5c 100644
          type: "screen",
          orientation: this.orientation,
 diff --git a/node_modules/@tamagui/react-native-media-driver/dist/esm/mediaQueryList.native.js b/node_modules/@tamagui/react-native-media-driver/dist/esm/mediaQueryList.native.js
-index 91e7740..c96b54a 100644
+index 91e7740..96a58d5 100644
 --- a/node_modules/@tamagui/react-native-media-driver/dist/esm/mediaQueryList.native.js
 +++ b/node_modules/@tamagui/react-native-media-driver/dist/esm/mediaQueryList.native.js
 @@ -1,4 +1,7 @@
@@ -97,7 +102,7 @@ index 91e7740..c96b54a 100644
  import { matchQuery } from "./matchQuery.native.js";
  function _class_call_check(instance, Constructor) {
    if (!(instance instanceof Constructor)) {
-@@ -32,6 +35,39 @@ function _define_property(obj, key, value) {
+@@ -32,6 +35,44 @@ function _define_property(obj, key, value) {
    }
    return obj;
  }
@@ -125,6 +130,11 @@ index 91e7740..c96b54a 100644
 +  // width at runtime, so the Tamagui useMedia patch scopes its re-render fix
 +  // to them and leaves phones on upstream behavior.
 +  nativeMediaControl.isTabletLike = isTablet || isDualScreenDevice();
++  // OneKey patch: System rotation must not switch iPhone screens to desktop
++  // breakpoints. Canvas layout and height queries still use the real window.
++  if (Platform.OS === "ios" && ExpoDevice.deviceType === ExpoDevice.DeviceType.PHONE) {
++    return { ...dimensions, width: Math.min(dimensions.width, dimensions.height) };
++  }
 +  if (nativeMediaControl.useRealWidth && !isSpanning) return dimensions;
 +  var shouldUseHalfWidth = isSpanning || isTablet && isLandscape;
 +  var shouldClampWidth = shouldUseHalfWidth || isTablet || Platform.OS === "android";
@@ -137,7 +147,7 @@ index 91e7740..c96b54a 100644
  var NativeMediaQueryList = /* @__PURE__ */function () {
    "use strict";
  
-@@ -42,10 +78,21 @@ var NativeMediaQueryList = /* @__PURE__ */function () {
+@@ -42,10 +83,21 @@ var NativeMediaQueryList = /* @__PURE__ */function () {
      _define_property(this, "listeners", void 0);
      this.query = query;
      this.listeners = [];
@@ -159,7 +169,7 @@ index 91e7740..c96b54a 100644
    }
    _create_class(NativeMediaQueryList2, [{
      key: "orientation",
-@@ -89,7 +136,7 @@ var NativeMediaQueryList = /* @__PURE__ */function () {
+@@ -89,7 +141,7 @@ var NativeMediaQueryList = /* @__PURE__ */function () {
    }, {
      key: "matches",
      get: function get() {
@@ -169,7 +179,7 @@ index 91e7740..c96b54a 100644
          type: "screen",
          orientation: this.orientation,
 diff --git a/node_modules/@tamagui/react-native-media-driver/src/mediaQueryList.ts b/node_modules/@tamagui/react-native-media-driver/src/mediaQueryList.ts
-index 0c33f42..bb832a5 100644
+index 0c33f42..3e30079 100644
 --- a/node_modules/@tamagui/react-native-media-driver/src/mediaQueryList.ts
 +++ b/node_modules/@tamagui/react-native-media-driver/src/mediaQueryList.ts
 @@ -1,5 +1,9 @@
@@ -183,7 +193,7 @@ index 0c33f42..bb832a5 100644
  
  import { matchQuery } from './matchQuery'
  
-@@ -7,6 +11,49 @@ type Orientation = 'landscape' | 'portrait'
+@@ -7,6 +11,54 @@ type Orientation = 'landscape' | 'portrait'
  
  type Listener = (orientation: Orientation) => void
  
@@ -213,6 +223,11 @@ index 0c33f42..bb832a5 100644
 +  // width at runtime, so the Tamagui useMedia patch scopes its re-render fix
 +  // to them and leaves phones on upstream behavior.
 +  nativeMediaControl.isTabletLike = isTablet || isDualScreenDevice()
++  // OneKey patch: System rotation must not switch iPhone screens to desktop
++  // breakpoints. Canvas layout and height queries still use the real window.
++  if (Platform.OS === 'ios' && ExpoDevice.deviceType === ExpoDevice.DeviceType.PHONE) {
++    return { ...dimensions, width: Math.min(dimensions.width, dimensions.height) }
++  }
 +  if (nativeMediaControl.useRealWidth && !isSpanning) return dimensions
 +  const shouldUseHalfWidth = isSpanning || (isTablet && isLandscape)
 +  const shouldClampWidth = shouldUseHalfWidth || isTablet || Platform.OS === 'android'
@@ -233,7 +248,7 @@ index 0c33f42..bb832a5 100644
  export class NativeMediaQueryList implements MediaQueryList {
    private listeners: Listener[] = []
  
-@@ -16,10 +63,21 @@ export class NativeMediaQueryList implements MediaQueryList {
+@@ -16,10 +68,21 @@ export class NativeMediaQueryList implements MediaQueryList {
    }
  
    constructor(private query: string) {
@@ -255,7 +270,7 @@ index 0c33f42..bb832a5 100644
    }
  
    private notify() {
-@@ -47,7 +105,7 @@ export class NativeMediaQueryList implements MediaQueryList {
+@@ -47,7 +110,7 @@ export class NativeMediaQueryList implements MediaQueryList {
    }
  
    get matches(): boolean {

@@ -87,6 +87,7 @@ jest.mock('@onekeyhq/components', () => {
         {renderTrigger}
       </div>
     ),
+    ScrollView: MockStack,
     SizableText: MockStack,
     NumberSizeableText: ({
       children,
@@ -125,6 +126,9 @@ jest.mock('@onekeyhq/components', () => {
     YStack: MockStack,
   };
 });
+jest.mock('react-native', () => ({
+  useWindowDimensions: () => ({ width: 390, height: 844 }),
+}));
 jest.mock('react-intl', () => ({
   ...jest.requireActual<typeof import('react-intl')>('react-intl'),
   useIntl: () => ({
@@ -139,6 +143,10 @@ jest.mock('react-native-reanimated', () => ({
   __esModule: true,
   default: { View: ({ children }: PropsWithChildren) => <div>{children}</div> },
   useReducedMotion: () => true,
+  useSharedValue: (value: number) => ({ value }),
+  useAnimatedStyle: () => ({}),
+  withTiming: (value: number) => value,
+  withSequence: (...values: number[]) => values[values.length - 1],
   FadeIn: { duration: () => undefined },
 }));
 jest.mock('@onekeyhq/kit/src/components/Token', () => ({
@@ -242,11 +250,7 @@ it.each([true, false])(
     mockLoadStatus = 'loading';
     mockAssetStatus = 'refreshing';
     const { rerender } = render(
-      <DustSweepSummary
-        desktop={desktop}
-        onDone={jest.fn()}
-        onDetails={jest.fn()}
-      />,
+      <DustSweepSummary desktop={desktop} onDetails={jest.fn()} />,
     );
     const action = screen.getByTestId('dust-sweep-action');
     expect(action.getAttribute('data-loading')).toBe('true');
@@ -264,13 +268,7 @@ it.each([true, false])(
     mockSelected = [selectedToken];
     mockLoadStatus = 'ready';
     mockAssetStatus = 'ready';
-    rerender(
-      <DustSweepSummary
-        desktop={desktop}
-        onDone={jest.fn()}
-        onDetails={jest.fn()}
-      />,
-    );
+    rerender(<DustSweepSummary desktop={desktop} onDetails={jest.fn()} />);
     expect(
       screen.getByTestId('dust-sweep-action').getAttribute('data-loading'),
     ).toBe('false');
@@ -286,13 +284,7 @@ it.each([true, false])(
   'keeps the known token while refreshing cached assets with a loading-only button (desktop=%s)',
   (desktop) => {
     mockAssetStatus = 'refreshing';
-    render(
-      <DustSweepSummary
-        desktop={desktop}
-        onDone={jest.fn()}
-        onDetails={jest.fn()}
-      />,
-    );
+    render(<DustSweepSummary desktop={desktop} onDetails={jest.fn()} />);
     expect(
       screen.getByTestId('dust-sweep-action').getAttribute('data-loading'),
     ).toBe('true');
@@ -306,13 +298,7 @@ it.each([true, false])(
   'retains error retry without a loading button or token skeleton (desktop=%s)',
   (desktop) => {
     mockAssetStatus = 'error';
-    render(
-      <DustSweepSummary
-        desktop={desktop}
-        onDone={jest.fn()}
-        onDetails={jest.fn()}
-      />,
-    );
+    render(<DustSweepSummary desktop={desktop} onDetails={jest.fn()} />);
     const action = screen.getByTestId('dust-sweep-action');
     expect(action.getAttribute('data-loading')).toBe('false');
     expect(action.hasAttribute('disabled')).toBe(false);
@@ -329,7 +315,7 @@ it('keeps the completed action out of loading during a background refresh', () =
   mockSessionState = completedState([{ key: 'done', status: 'success' }]);
   mockAssetStatus = 'refreshing';
   mockLoadStatus = 'loading';
-  render(<DustSweepSummary desktop onDone={jest.fn()} onDetails={jest.fn()} />);
+  render(<DustSweepSummary desktop onDetails={jest.fn()} />);
   const action = screen.getByTestId('dust-sweep-action');
   expect(action.getAttribute('data-loading')).toBe('false');
   expect(action.textContent).toBe(ETranslations.global_done);
@@ -341,13 +327,7 @@ it.each([true, false])(
   (desktop) => {
     mockCurrent = undefined;
     mockSelected = [];
-    render(
-      <DustSweepSummary
-        desktop={desktop}
-        onDone={jest.fn()}
-        onDetails={jest.fn()}
-      />,
-    );
+    render(<DustSweepSummary desktop={desktop} onDetails={jest.fn()} />);
 
     expect(screen.getByText('0.00')).toBeTruthy();
     expect(screen.getByText('$0.00')).toBeTruthy();
@@ -356,7 +336,7 @@ it.each([true, false])(
 );
 
 it('keeps slippage help accessible without provider fee help in Dust', () => {
-  render(<DustSweepSummary desktop onDone={jest.fn()} onDetails={jest.fn()} />);
+  render(<DustSweepSummary desktop onDetails={jest.fn()} />);
 
   expect(
     screen.getByRole('button', {
@@ -403,13 +383,7 @@ it('preserves shared help defaults when Dust options are absent or removed', () 
 it.each([true, false])(
   'estimates the receive amount from the selection and shows the configured provider (desktop=%s)',
   (desktop) => {
-    render(
-      <DustSweepSummary
-        desktop={desktop}
-        onDone={jest.fn()}
-        onDetails={jest.fn()}
-      />,
-    );
+    render(<DustSweepSummary desktop={desktop} onDetails={jest.fn()} />);
 
     // $10 of selected tokens at a $1000 native price; nothing is quoted yet.
     expect(screen.getByText('0.01 ETH')).toBeTruthy();
@@ -428,7 +402,7 @@ it.each([true, false])(
 
 it('shows the receive estimate as unavailable when the native price is zero', () => {
   mockCurrent = { nativeToken: { ...nativeToken, price: '0' } };
-  render(<DustSweepSummary desktop onDone={jest.fn()} onDetails={jest.fn()} />);
+  render(<DustSweepSummary desktop onDetails={jest.fn()} />);
 
   expect(screen.getByText('— ETH')).toBeTruthy();
   expect(screen.queryByText(/Infinity/)).toBeNull();
@@ -439,13 +413,7 @@ it.each([true, false])(
   (desktop) => {
     mockSelected = [];
     mockSelectedValueUsd = '0';
-    render(
-      <DustSweepSummary
-        desktop={desktop}
-        onDone={jest.fn()}
-        onDetails={jest.fn()}
-      />,
-    );
+    render(<DustSweepSummary desktop={desktop} onDetails={jest.fn()} />);
 
     expect(screen.getByText(configuredProvider.providerName)).toBeTruthy();
     expect(screen.getByTestId('provider-icon').getAttribute('data-uri')).toBe(
@@ -467,9 +435,7 @@ it.each(['loading', 'error'] as const)(
   (status) => {
     mockSelected = [];
     mockLoadStatus = status;
-    render(
-      <DustSweepSummary desktop onDone={jest.fn()} onDetails={jest.fn()} />,
-    );
+    render(<DustSweepSummary desktop onDetails={jest.fn()} />);
 
     expect(screen.queryByText(configuredProvider.providerName)).toBeNull();
     expect(screen.queryByTestId('provider-icon')).toBeNull();
@@ -482,7 +448,7 @@ it.each(['loading', 'error'] as const)(
 it('keeps the empty provider placeholder when the list does not contain metadata', () => {
   mockSelected = [];
   mockProviderInfo = undefined;
-  render(<DustSweepSummary desktop onDone={jest.fn()} onDetails={jest.fn()} />);
+  render(<DustSweepSummary desktop onDetails={jest.fn()} />);
 
   expect(screen.getByText('--')).toBeTruthy();
   expect(screen.queryByTestId('provider-icon')).toBeNull();
@@ -551,7 +517,7 @@ it.each([true, false])(
 
 it('uses the same subscript formatter for a tiny receive estimate', () => {
   mockSelectedValueUsd = '0.0001234';
-  render(<DustSweepSummary desktop onDone={jest.fn()} onDetails={jest.fn()} />);
+  render(<DustSweepSummary desktop onDetails={jest.fn()} />);
   const amount = screen.getByTestId('dust-sweep-receive-amount');
   expect(amount.textContent).toBe('0.061234 ETH');
   expect(amount.querySelector('sub')?.textContent).toBe('6');
@@ -580,9 +546,7 @@ it.each(['result', 'estimate'] as const)(
         );
       }
       mockCurrent = { nativeToken: token };
-      return (
-        <DustSweepSummary desktop onDone={jest.fn()} onDetails={jest.fn()} />
-      );
+      return <DustSweepSummary desktop onDetails={jest.fn()} />;
     };
     const { rerender } = render(view('ETH'));
     const testId =
@@ -647,7 +611,7 @@ it('shows an all-failed desktop result with expanded reasons and no amount', () 
   expect(screen.getByTestId('dust-sweep-result-subtitle').textContent).toBe(
     `${ETranslations.dust_no_tokens_converted}:3`,
   );
-  expect(screen.getByTestId('dust-sweep-skip-footnote')).toBeTruthy();
+  expect(screen.queryByTestId('dust-sweep-skip-footnote')).toBeNull();
   expect(screen.getByText('dust_sweep_token_count__desc:0')).toBeTruthy();
   expect(screen.getByText('dust_sweep_token_count__desc:3')).toBeTruthy();
   expect(screen.getByTestId('dust-sweep-skip-reasons')).toBeTruthy();
@@ -664,16 +628,12 @@ it('shows an all-failed desktop result with expanded reasons and no amount', () 
   expect(screen.queryByTestId('dust-sweep-result-again')).toBeNull();
 });
 
-it('collapses mobile skip reasons and keeps Details available before Done', () => {
-  const onAgain = jest.fn();
-  const onDetails = jest.fn();
+it('collapses mobile skip reasons behind Skipped and leaves the actions to the summary', () => {
   render(
     <DustSweepResult
       state={completedState([
         { key: 'a', status: 'skipped', reason: 'noQuote' },
       ])}
-      onAgain={onAgain}
-      onDetails={onDetails}
     />,
   );
 
@@ -682,18 +642,11 @@ it('collapses mobile skip reasons and keeps Details available before Done', () =
   expect(screen.getByTestId('dust-sweep-skip-reasons')).toBeTruthy();
   fireEvent.click(screen.getByTestId('dust-sweep-result-skipped'));
   expect(screen.queryByTestId('dust-sweep-skip-reasons')).toBeNull();
-
-  fireEvent.click(screen.getByTestId('dust-sweep-view-details'));
-  expect(onDetails).toHaveBeenCalledTimes(1);
-  expect(onAgain).not.toHaveBeenCalled();
-  expect(screen.getByTestId('dust-sweep-result-again').textContent).toBe(
-    ETranslations.global_done,
-  );
-  fireEvent.click(screen.getByTestId('dust-sweep-result-again'));
-  expect(onAgain).toHaveBeenCalledTimes(1);
+  expect(screen.queryByTestId('dust-sweep-view-details')).toBeNull();
+  expect(screen.queryByTestId('dust-sweep-result-again')).toBeNull();
 });
 
-it('shows the received amount and Done for a partial mobile result', () => {
+it('shows the received amount for a partial mobile result', () => {
   render(
     <DustSweepResult
       state={completedState([
@@ -708,7 +661,37 @@ it('shows the received amount and Done for a partial mobile result', () => {
   );
   // One converted and one skipped.
   expect(screen.getAllByText('dust_sweep_token_count__desc:1')).toHaveLength(2);
-  expect(screen.getByTestId('dust-sweep-result-again').textContent).toBe(
-    ETranslations.global_done,
+});
+
+it('shows live progress and the running total while converting', () => {
+  const state = completedState([
+    { key: 'a', status: 'success' },
+    { key: 'b', status: 'skipped', reason: 'noQuote' },
+    { key: 'c', status: 'success' },
+  ]);
+  render(
+    <DustSweepResult
+      state={{
+        ...state,
+        phase: 'running',
+        items: state.items.map((item, index) =>
+          index === 2
+            ? { ...item, status: 'preparing', receivedAmount: undefined }
+            : item,
+        ),
+      }}
+    />,
   );
+
+  // "Converting" with its dots; no running count in the title.
+  expect(screen.getByTestId('dust-sweep-result-title').textContent).toBe(
+    `${ETranslations.dust_sweep_converting__title}...`,
+  );
+  expect(screen.getByTestId('dust-sweep-result-amount').textContent).toBe(
+    '+0.01 ETH',
+  );
+  // On mobile the skip reason stays folded until Skipped is opened.
+  expect(screen.queryByTestId('dust-sweep-skip-reasons')).toBeNull();
+  fireEvent.click(screen.getByTestId('dust-sweep-result-skipped'));
+  expect(screen.getByTestId('dust-sweep-skip-reasons')).toBeTruthy();
 });

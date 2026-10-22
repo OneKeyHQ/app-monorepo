@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 
+import type { IStackNavigationOptions } from '@onekeyhq/components';
 import type { IRootStackNavigatorConfig } from '@onekeyhq/components/src/layouts/Navigation/Navigator';
 import { OAUTH_CALLBACK_WEB_PATH } from '@onekeyhq/shared/src/consts/authConsts';
 import LazyLoad from '@onekeyhq/shared/src/lazyLoad';
@@ -11,6 +12,7 @@ import {
   IOSFullScreenNavigator,
   ModalNavigator,
   OnboardingNavigator,
+  TradingViewNativeFullscreenPage,
   WebViewNavigator,
 } from './LazyRootNavigators';
 import {
@@ -77,6 +79,12 @@ export const rootRouter: IRootStackNavigatorConfig<ERootRoutes, any>[] = [
     name: ERootRoutes.Modal,
     component: ModalNavigator,
     type: 'modal',
+    options: ({ route }): IStackNavigationOptions =>
+      platformEnv.isNativeIOS &&
+      !platformEnv.isNativeIOSPad &&
+      route.params?.tradingViewFullscreen === true
+        ? { orientation: 'landscape' }
+        : {},
   },
   {
     name: ERootRoutes.iOSFullScreen,
@@ -93,6 +101,24 @@ export const rootRouter: IRootStackNavigatorConfig<ERootRoutes, any>[] = [
     component: WebViewNavigator,
     type: 'webView',
   },
+  ...(platformEnv.isNativeIOS
+    ? [
+        {
+          name: ERootRoutes.TradingViewNativeFullscreen,
+          component: TradingViewNativeFullscreenPage,
+          options: (): IStackNavigationOptions => ({
+            headerShown: false,
+            // Keep the detail's native views laid out beneath the opaque chart.
+            presentation: 'transparentModal',
+            animation: 'none',
+            orientation: platformEnv.isNativeIOSPad ? 'default' : 'landscape',
+            orientationAnimated: false,
+            contentReady: false,
+            gestureEnabled: false,
+          }),
+        },
+      ]
+    : []),
   ...buildPermissionRouter(),
   ...buildOAuthCallbackWebRouter(),
 ];
