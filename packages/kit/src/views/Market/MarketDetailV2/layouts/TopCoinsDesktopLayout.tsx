@@ -25,7 +25,7 @@ import { MarketEmbeddedSwap } from './MarketEmbeddedSwap';
 import { TokenPriceHeader } from './TokenDesktopLayout';
 
 const TOP_COINS_MAIN_COLUMN_WIDTH = 832;
-const TOP_COINS_COLUMN_GAP = 24;
+const TOP_COINS_COLUMN_GAP = 12;
 
 const MARKET_CHART_FULLSCREEN_STYLE = {
   position: 'fixed',

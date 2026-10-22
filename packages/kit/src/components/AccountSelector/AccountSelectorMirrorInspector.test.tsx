@@ -1,6 +1,16 @@
 /** @jest-environment jsdom */
 
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import {
+  OverlayView,
+  overlayStore,
+} from '@onekeyfe/react-native-native-overlay';
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react';
 
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
@@ -8,6 +18,20 @@ import { AccountSelectorMirrorInspector } from './AccountSelectorMirrorInspector
 import { AccountSelectorMirrorInspectorTestIDs } from './AccountSelectorMirrorInspectorTestIDs';
 
 import type { IAccountSelectorMirrorInspectorSnapshot } from './AccountSelectorMirrorInspectorObserver';
+
+jest.mock('react-native', () =>
+  jest.requireActual<typeof import('react-native')>('react-native-web'),
+);
+
+beforeAll(() => {
+  Element.prototype.animate = function animate() {
+    return {
+      finished: Promise.resolve(),
+      cancel: () => undefined,
+    } as unknown as Animation;
+  };
+  Element.prototype.getAnimations = () => [];
+});
 
 const baseState = {
   active: {
@@ -87,6 +111,66 @@ jest.mock('./AccountSelectorMirrorInspectorObserver', () => ({
 }));
 
 describe('AccountSelectorMirrorInspector', () => {
+  it.each(['secure', 'lock'] as const)(
+    'keeps the debug inspector operable above a %s overlay without blocking it',
+    async (level) => {
+      const onClose = jest.fn();
+      const { unmount } = render(
+        <>
+          <OverlayView
+            visible
+            level={level}
+            presentation="fullscreen"
+            backdrop={false}
+            animation={{ enter: { type: 'none' } }}
+          >
+            <button data-testid="blocking-content" type="button">
+              Synthetic blocking overlay
+            </button>
+          </OverlayView>
+          <AccountSelectorMirrorInspector onClose={onClose} />
+        </>,
+      );
+      const inspector = screen.getByTestId(
+        AccountSelectorMirrorInspectorTestIDs.root,
+      );
+      await waitFor(() => {
+        expect(
+          inspector
+            .closest('[data-onekey-overlay-layer]')
+            ?.getAttribute('data-onekey-overlay-layer'),
+        ).toBe('debug');
+        expect(overlayStore.getBlockingTop()?.level).toBe(level);
+      });
+      for (const content of [
+        inspector,
+        screen.getByTestId('blocking-content'),
+      ]) {
+        for (
+          let node: HTMLElement | null = content;
+          node;
+          node = node.parentElement
+        ) {
+          expect(node.inert).toBeFalsy();
+        }
+      }
+      fireEvent.click(
+        screen.getByTestId(AccountSelectorMirrorInspectorTestIDs.toggle),
+      );
+      expect(
+        screen.getByTestId(AccountSelectorMirrorInspectorTestIDs.list),
+      ).toBeTruthy();
+      fireEvent.click(
+        screen.getByTestId(AccountSelectorMirrorInspectorTestIDs.close),
+      );
+      expect(onClose).toHaveBeenCalledTimes(1);
+      unmount();
+      await waitFor(() =>
+        expect(overlayStore.getBlockingTop()).toBeUndefined(),
+      );
+    },
+  );
+
   it('renders collapsed, expands reports, and exposes failure details', () => {
     const onClose = jest.fn();
     const { container } = render(

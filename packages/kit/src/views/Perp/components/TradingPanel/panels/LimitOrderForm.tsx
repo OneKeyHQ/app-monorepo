@@ -1,5 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import {
+  OverlayPageHostScope,
+  OverlayPageOwnerScope,
+} from '@onekeyfe/react-native-native-overlay';
 import { BigNumber } from 'bignumber.js';
 import { type IntlShape, useIntl } from 'react-intl';
 
@@ -51,6 +55,7 @@ import {
   useSpotBalancesAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms/spot';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors/errors/localError';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -126,9 +131,11 @@ import {
   OrderTypeInfoButton,
 } from './PerpTradingForm';
 
+import type { IOverlayPageScope } from '@onekeyfe/react-native-native-overlay';
 import type { ColorTokens } from 'tamagui';
 
 interface ILimitOrderFormProps {
+  sourcePage: IOverlayPageScope;
   symbol: string;
   seededPrice: string;
   displayCoin?: string;
@@ -166,6 +173,7 @@ function getPerpsAccountActionType({
 }
 
 export function LimitOrderForm({
+  sourcePage,
   symbol,
   seededPrice,
   displayCoin,
@@ -732,7 +740,10 @@ export function LimitOrderForm({
               status: undefined,
             };
           }
-          return requestEnableTradingWithLoadingToast(closeDialog);
+          return requestEnableTradingWithLoadingToast(() => {
+            closeDialog();
+            closeLimitDialog();
+          });
         },
       });
 
@@ -1032,6 +1043,8 @@ export function LimitOrderForm({
         })
       ) {
         showOrderConfirmDialog({
+          sourcePage,
+          beforeDeposit: onClose,
           overrideSide: pressedSide,
           formData: builtFormData,
           price: resolvedPrice,
@@ -1096,6 +1109,7 @@ export function LimitOrderForm({
       slValue,
       spotAvailableBaseBN,
       spotAvailableQuoteBN,
+      sourcePage,
       symbol,
       szDecimals,
       tpType,
@@ -1664,18 +1678,24 @@ function LimitOrderDialogTitle({ title }: { title: string }) {
 }
 
 export function showLimitOrderDialog({
+  sourcePage,
   symbol,
   price,
   displayPair,
   displayCoin,
   intl,
 }: {
+  sourcePage?: IOverlayPageScope;
   symbol: string;
   price: string;
   displayPair?: string;
   displayCoin?: string;
   intl: IntlShape;
 }) {
+  const { hostKey, ownerKey } = sourcePage ?? {};
+  if (!hostKey || !ownerKey) {
+    throw new OneKeyLocalError('Limit order requires a source page');
+  }
   const displayName = displayPair ?? parseDexCoin(symbol).displayName;
   const titleText = `${intl.formatMessage({
     id: ETranslations.perp_trade_limit,
@@ -1684,23 +1704,26 @@ export function showLimitOrderDialog({
     // No `title` here: the custom Dialog.Header below supplies the single header
     // (title + info button); the default BasicDialogHeader renders it + close.
     renderContent: (
-      <>
-        <Dialog.Header>
-          <LimitOrderDialogTitle title={titleText} />
-        </Dialog.Header>
-        <PerpsAccountSelectorProviderMirror>
-          <PerpsProviderMirror>
-            <LimitOrderForm
-              symbol={symbol}
-              seededPrice={price}
-              displayCoin={displayCoin}
-              onClose={() => {
-                void dialogInstance.close();
-              }}
-            />
-          </PerpsProviderMirror>
-        </PerpsAccountSelectorProviderMirror>
-      </>
+      <OverlayPageHostScope hostKey={hostKey}>
+        <OverlayPageOwnerScope ownerKey={ownerKey}>
+          <Dialog.Header>
+            <LimitOrderDialogTitle title={titleText} />
+          </Dialog.Header>
+          <PerpsAccountSelectorProviderMirror>
+            <PerpsProviderMirror>
+              <LimitOrderForm
+                sourcePage={{ hostKey, ownerKey }}
+                symbol={symbol}
+                seededPrice={price}
+                displayCoin={displayCoin}
+                onClose={() => {
+                  void dialogInstance.close();
+                }}
+              />
+            </PerpsProviderMirror>
+          </PerpsAccountSelectorProviderMirror>
+        </OverlayPageOwnerScope>
+      </OverlayPageHostScope>
     ),
     contentContainerProps: PERP_MOBILE_DIALOG_CONTENT_CONTAINER_PROPS,
     showFooter: false,

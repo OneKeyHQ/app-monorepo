@@ -97,6 +97,8 @@ describe('ServiceThirdPartyHardware Trezor BLE binding', () => {
                   value: 'ledger-identity',
                 }
               : { vendor, type: 'deviceId', value: 'trezor-identity' },
+          fallbackIdentities:
+            vendor === EHardwareVendor.ledger ? [] : undefined,
           extra: { dbDeviceId: 'db-device' },
         });
         expect(db.updateDeviceConnectId.mock.calls).toHaveLength(0);
@@ -136,6 +138,56 @@ describe('ServiceThirdPartyHardware Trezor BLE binding', () => {
       await service.rebindBleDevice({ dbDeviceId: 'db-device' });
       expect(bindBleDevice).toHaveBeenCalledWith({
         identity: undefined,
+        fallbackIdentities: [],
+        extra: { dbDeviceId: 'db-device' },
+      });
+    } finally {
+      adapterLookup.mockRestore();
+    }
+  });
+
+  it('offers every recorded Ledger chain so a missing app can fall back to the next', async () => {
+    db.getDevice.mockResolvedValueOnce({
+      id: 'db-device',
+      name: 'Device',
+      uuid: 'test-device',
+      deviceType: EDeviceType.Unknown,
+      features: '{}',
+      settingsRaw: '{}',
+      createdAt: 1,
+      updatedAt: 1,
+      vendor: EHardwareVendor.ledger,
+      deviceId: '',
+      connectId: '',
+      settings: {
+        chainFingerprints: { sol: 'sol-fp', evm: 'evm-fp', btc: 'btc-fp' },
+      },
+    });
+    const bindBleDevice = jest
+      .fn()
+      .mockResolvedValue({ success: true, payload: 'new-ble' });
+    const service = new ServiceThirdPartyHardware({
+      backgroundApi: {} as IBackgroundApi,
+    });
+    const adapterLookup = jest
+      .spyOn(service, 'getAdapterForVendor')
+      .mockResolvedValue({
+        hw: { bindBleDevice },
+      } as unknown as IThirdPartyHardwareAdapter);
+    const ledgerIdentity = (chain: string, value: string) => ({
+      vendor: EHardwareVendor.ledger,
+      type: 'chainFingerprint',
+      chain,
+      value,
+    });
+    try {
+      await service.rebindBleDevice({ dbDeviceId: 'db-device' });
+      expect(bindBleDevice).toHaveBeenCalledWith({
+        identity: ledgerIdentity('evm', 'evm-fp'),
+        fallbackIdentities: [
+          ledgerIdentity('btc', 'btc-fp'),
+          ledgerIdentity('sol', 'sol-fp'),
+        ],
         extra: { dbDeviceId: 'db-device' },
       });
     } finally {

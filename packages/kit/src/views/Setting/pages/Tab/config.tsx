@@ -44,6 +44,7 @@ import {
   EModalRoutes,
   EModalSettingRoutes,
   ESettingsTabNames,
+  ETabDeveloperRoutes,
 } from '@onekeyhq/shared/src/routes';
 import { EManualBackupRoutes } from '@onekeyhq/shared/src/routes/manualBackup';
 import { EPrimeFeatures, EPrimePages } from '@onekeyhq/shared/src/routes/prime';
@@ -1049,7 +1050,8 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
           ],
         ],
       },
-      devSettings.enabled
+      devSettings.enabled ||
+      (platformEnv.isDev && (platformEnv.isDesktop || platformEnv.isExtension))
         ? {
             icon: 'CodeSolid',
             mobileIcon: 'CodeOutline',
@@ -1069,14 +1071,32 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
             },
             configs: [
               [
-                {
-                  id: 'dev-mode',
-                  icon: 'CodeOutline',
-                  title: intl.formatMessage({
-                    id: ETranslations.global_dev_mode,
-                  }),
-                  renderElement: <DevSettingsSection />,
-                },
+                platformEnv.isDev &&
+                (platformEnv.isDesktop || platformEnv.isExtension)
+                  ? {
+                      id: 'developer-pages',
+                      icon: 'CodeBracketsOutline',
+                      title: intl.formatMessage({
+                        id: ETranslations.global_dev_mode,
+                      }),
+                      testID: 'setting-developer-pages',
+                      onPress: (navigation) => {
+                        navigation?.pushModal(EModalRoutes.DeveloperModal, {
+                          screen: ETabDeveloperRoutes.TabDeveloper,
+                        });
+                      },
+                    }
+                  : undefined,
+                devSettings.enabled
+                  ? {
+                      id: 'dev-mode',
+                      icon: 'CodeOutline',
+                      title: intl.formatMessage({
+                        id: ETranslations.global_dev_mode,
+                      }),
+                      renderElement: <DevSettingsSection />,
+                    }
+                  : undefined,
               ],
             ],
           }

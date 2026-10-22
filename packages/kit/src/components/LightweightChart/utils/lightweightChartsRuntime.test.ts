@@ -1,6 +1,12 @@
+/** @jest-environment jsdom */
 import { runInNewContext } from 'vm';
 
-import type { UTCTimestamp } from 'lightweight-charts';
+import type { ILightweightChartConfig } from '../types';
+import type {
+  IPrimitivePaneRenderer,
+  ISeriesPrimitive,
+  UTCTimestamp,
+} from 'lightweight-charts';
 
 jest.mock('./lightweightChartsStandalone.text-js', () => {
   const fs = jest.requireActual<typeof import('fs')>('fs');
@@ -29,6 +35,262 @@ const { resolveSerializablePriceFormatterType } = jest.requireActual<
 const { resolveSerializablePriceFormatterTickStep } = jest.requireActual<
   typeof import('./priceFormatterType')
 >('./priceFormatterType');
+
+function createNativeChartPage(
+  overrides: Partial<ILightweightChartConfig> = {},
+) {
+  const config: ILightweightChartConfig = {
+    data: [1, 2, 3].map((time) => ({
+      time: time as UTCTimestamp,
+      value: time,
+    })),
+    secondaryLineData: [1, 2, 3].map((time) => ({
+      time: time as UTCTimestamp,
+      value: time,
+    })),
+    seriesType: 'dotted-area',
+    lineWidth: 1,
+    theme: {
+      bgColor: 'transparent',
+      textSubduedColor: '#999',
+      lineColor: '#080',
+      topColor: 'transparent',
+      bottomColor: 'transparent',
+    },
+    notifyOnHover: false,
+    nativeScrubOptions: {
+      labels: { '2': { time: '2026/10/21, 09:30', price: '$0.0₆12' } },
+      backgroundColor: '#fff',
+      borderColor: '#ddd',
+      textColor: '#111',
+      timeColor: '#999',
+      largePrice: true,
+    },
+    ...overrides,
+  };
+  const context = {
+    save: jest.fn(),
+    restore: jest.fn(),
+    beginPath: jest.fn(),
+    moveTo: jest.fn(),
+    lineTo: jest.fn(),
+    stroke: jest.fn(),
+    arc: jest.fn(),
+    fill: jest.fn(),
+  };
+  const target = {
+    useMediaCoordinateSpace: (
+      draw: (scope: { context: typeof context }) => void,
+    ) => draw({ context }),
+  } as unknown as Parameters<IPrimitivePaneRenderer['draw']>[0];
+  const primary = {
+    applyOptions: jest.fn(),
+    setData: jest.fn(),
+    priceToCoordinate: (price: number) => price * 10,
+    attachPrimitive: jest.fn<void, [ISeriesPrimitive<UTCTimestamp>]>(),
+  };
+  type IHoverEvent = {
+    time?: number;
+    point?: { x: number; y: number };
+    sourceEvent?: object;
+    seriesData?: Map<object, { value: number }>;
+  };
+  let hover: (event: IHoverEvent) => void = () => {};
+  const fitContent = jest.fn();
+  const chart = {
+    applyOptions: jest.fn(),
+    removeSeries: jest.fn(),
+    addCustomSeries: jest.fn(() => primary),
+    addSeries: jest.fn(),
+    timeScale: () => ({
+      fitContent,
+      subscribeVisibleTimeRangeChange: jest.fn(),
+      timeToCoordinate: (time: number) => time * 20,
+    }),
+    subscribeCrosshairMove: (callback: typeof hover) => {
+      hover = callback;
+    },
+  };
+  const postMessage = jest.fn();
+  document.documentElement.innerHTML = generateChartHTML(config);
+  Object.defineProperty(document.getElementById('chart'), 'clientWidth', {
+    value: 400,
+  });
+  const pageWindow = {
+    ReactNativeWebView: { postMessage },
+    addEventListener: jest.fn(),
+    ontouchstart: null,
+    applyChartConfig: (_config: ILightweightChartConfig) => {},
+  };
+  // Execute the page entry point; only the chart engine and native bridge are stubbed.
+  runInNewContext(document.scripts[1].textContent ?? '', {
+    document,
+    window: pageWindow,
+    Date: { now: () => 1000 },
+    LightweightCharts: {
+      createChart: () => chart,
+      CrosshairMode: { Normal: 0 },
+    },
+    requestAnimationFrame: jest.fn(),
+    ResizeObserver: jest.fn(() => ({ observe: jest.fn() })),
+  });
+  expect(postMessage).toHaveBeenCalledWith(JSON.stringify({ type: 'ready' }));
+  postMessage.mockClear();
+  const getView = () =>
+    primary.attachPrimitive.mock.calls.at(-1)?.[0].paneViews?.()[0];
+  return {
+    config,
+    context,
+    target,
+    primary,
+    chart,
+    fitContent,
+    postMessage,
+    pageWindow,
+    hover,
+    getView,
+  };
+}
+
+it('scrubs locally on the cursor layer and clears immediately when touch tracking exits', () => {
+  const {
+    context,
+    target,
+    primary,
+    chart,
+    fitContent,
+    postMessage,
+    hover,
+    getView,
+  } = createNativeChartPage();
+  const view = getView();
+  expect(view?.zOrder?.()).toBe('top');
+  const renderer = view?.renderer();
+  expect(renderer).toBeDefined();
+
+  for (const x of [100, 150, 200]) {
+    hover({
+      time: 2,
+      point: { x, y: 100 },
+      sourceEvent: {},
+      seriesData: new Map([[primary, { value: 2 }]]),
+    });
+  }
+  expect(document.getElementById('scrub-time')?.textContent).toBe(
+    '2026/10/21, 09:30',
+  );
+  expect(document.getElementById('scrub-price')?.textContent).toBe('$0.0₆12');
+  expect(document.getElementById('scrub-tooltip')?.style.display).toBe('block');
+  renderer?.draw(target);
+  expect(context.lineTo.mock.calls).toEqual([[40, 20]]);
+
+  hover({});
+  hover({
+    time: 2,
+    point: { x: 200, y: 100 },
+    seriesData: new Map([[primary, { value: 2 }]]),
+  });
+  expect(document.getElementById('scrub-tooltip')?.style.display).toBe('none');
+  context.lineTo.mockClear();
+  renderer?.draw(target);
+  expect(context.lineTo.mock.calls).toEqual([
+    [40, 20],
+    [60, 30],
+  ]);
+  expect(primary.setData).toHaveBeenCalledTimes(1);
+  expect(fitContent).toHaveBeenCalledTimes(1);
+  expect(chart.removeSeries).not.toHaveBeenCalled();
+  expect(chart.addSeries).not.toHaveBeenCalled();
+  expect(postMessage).not.toHaveBeenCalled();
+});
+
+it.each([false, true])(
+  'restores local hover after a config refresh without echoing synthetic events (notify=%s)',
+  (notifyOnHover) => {
+    const page = createNativeChartPage({ notifyOnHover });
+    const event = {
+      time: 2,
+      point: { x: 150, y: 100 },
+      seriesData: new Map([[page.primary, { value: 2 }]]),
+    };
+    page.hover({ ...event, sourceEvent: {} });
+    page.postMessage.mockClear();
+    page.chart.removeSeries.mockImplementation(() => page.hover({}));
+    const refreshed = {
+      ...page.config,
+      nativeScrubOptions: {
+        ...page.config.nativeScrubOptions!,
+        labels: { '2': { time: '2026/10/21, 09:30', price: '$20' } },
+      },
+    };
+    page.pageWindow.applyChartConfig(refreshed);
+    page.hover(event);
+    expect(document.getElementById('scrub-tooltip')?.style.display).toBe(
+      'block',
+    );
+    expect(document.getElementById('scrub-price')?.textContent).toBe('$20');
+    page.getView()?.renderer()?.draw(page.target);
+    expect(page.context.lineTo.mock.calls).toEqual([[40, 20]]);
+    expect(page.postMessage).not.toHaveBeenCalled();
+  },
+);
+
+it('keeps tracking when a live-tail refresh replaces its timestamp', () => {
+  const page = createNativeChartPage({
+    nativeScrubOptions: {
+      labels: { '3': { time: 'old tail', price: '$3' } },
+      backgroundColor: '#fff',
+      borderColor: '#ddd',
+      textColor: '#111',
+      timeColor: '#999',
+      largePrice: true,
+    },
+  });
+  page.hover({
+    time: 3,
+    point: { x: 150, y: 100 },
+    sourceEvent: {},
+    seriesData: new Map([[page.primary, { value: 3 }]]),
+  });
+  page.chart.removeSeries.mockImplementation(() => page.hover({}));
+  page.pageWindow.applyChartConfig({
+    ...page.config,
+    data: [1, 2, 4].map((time) => ({
+      time: time as UTCTimestamp,
+      value: time,
+    })),
+    nativeScrubOptions: {
+      ...page.config.nativeScrubOptions!,
+      labels: { '4': { time: 'new tail', price: '$4' } },
+    },
+  });
+  const refreshedHover = {
+    time: 4,
+    point: { x: 150, y: 100 },
+    seriesData: new Map([[page.primary, { value: 4 }]]),
+  };
+  page.hover(refreshedHover);
+  expect(document.getElementById('scrub-tooltip')?.style.display).toBe('block');
+  expect(document.getElementById('scrub-time')?.textContent).toBe('new tail');
+  expect(document.getElementById('scrub-price')?.textContent).toBe('$4');
+
+  page.hover({});
+  page.hover(refreshedHover);
+  expect(document.getElementById('scrub-tooltip')?.style.display).toBe('none');
+  expect(page.postMessage).not.toHaveBeenCalled();
+});
+
+it('draws an isolated price point on the native cursor layer', () => {
+  const point = { time: 1 as UTCTimestamp, value: 3 };
+  const page = createNativeChartPage({
+    data: [point],
+    secondaryLineData: [point],
+    secondaryPointData: [point],
+  });
+  page.getView()?.renderer()?.draw(page.target);
+  expect(page.context.arc).toHaveBeenCalledWith(20, 30, 3, 0, Math.PI * 2);
+  expect(page.context.fill).toHaveBeenCalledTimes(1);
+});
 
 describe('getLightweightChartsRuntimeScriptTag', () => {
   it('loads the standalone runtime only when building the script tag', () => {
