@@ -31,6 +31,8 @@ jest.mock('react-intl', () => ({
         perps_layout_settings__title: '布局设置',
         perps_trading_page_chart__title: '交易页 K 线',
         perps_chart_do_not_show__action: '不展示',
+        perp_position_action_buttons__title: '持仓操作按钮',
+        perp_reverse_position__action: '反向',
       };
       return labels[id] ?? id;
     },
@@ -181,7 +183,10 @@ describe('PerpLayoutSettings', () => {
   it('opens chart positions in a standalone dialog', () => {
     const { Dialog } = jest.requireMock('@onekeyhq/components');
 
-    showPerpLayoutSettingsDialog({ title: '布局设置' });
+    showPerpLayoutSettingsDialog({
+      title: '布局设置',
+      positionActionsTitle: '持仓操作按钮',
+    });
 
     expect(Dialog.show).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -251,9 +256,11 @@ describe('position action settings', () => {
     );
     fireEvent.click(view.getByTestId('perp-position-actions-settings-button'));
     expect(onOpen).toHaveBeenCalledTimes(1);
+    expect(view.getByText('持仓操作按钮')).toBeTruthy();
   });
   it('defaults every action to visible for old preferences', () => {
     const view = render(<PerpPositionActionsSettingsContent />);
+    expect(view.getByText('反向')).toBeTruthy();
     expect(
       view
         .getAllByRole('checkbox')

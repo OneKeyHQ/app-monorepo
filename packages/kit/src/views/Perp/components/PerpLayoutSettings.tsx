@@ -58,6 +58,9 @@ function useLayoutSettingsCopy() {
       pageTitle: intl.formatMessage({
         id: ETranslations.perps_layout_settings__title,
       }),
+      positionActionsTitle: intl.formatMessage({
+        id: ETranslations.perp_position_action_buttons__title,
+      }),
       sectionTitle: intl.formatMessage({
         id: ETranslations.perps_trading_page_chart__title,
       }),
@@ -254,15 +257,16 @@ export function PerpPositionActionsSettingsContent() {
   const [settings, setSettings] = usePerpsCustomSettingsAtom();
   const actions = [
     { key: 'add', label: ETranslations.add_position__action },
+    { key: 'reverse', label: ETranslations.perp_reverse_position__action },
     { key: 'tpsl', label: ETranslations.perp_position_tp_sl_short },
     { key: 'close', label: ETranslations.perp_position_close_short },
-    { key: 'reverse', label: 'Reverse' },
   ] as const;
   return (
     <YStack gap="$5" testID={PerpTestIDs.PositionActionsSettingsDialog}>
       <SizableText size="$bodyMd" color="$textSubdued">
-        Choose which buttons to show. Disabled buttons are hidden. Changes are
-        saved automatically.
+        {intl.formatMessage({
+          id: ETranslations.perp_position_action_buttons__desc,
+        })}
       </SizableText>
       {actions.map(({ key, label }) => (
         <XStack
@@ -272,7 +276,7 @@ export function PerpPositionActionsSettingsContent() {
           alignItems="center"
         >
           <SizableText size="$bodyLgMedium" flexShrink={1}>
-            {key === 'reverse' ? 'Reverse' : intl.formatMessage({ id: label })}
+            {intl.formatMessage({ id: label })}
           </SizableText>
           <Switch
             testID={PerpTestIDs.PositionActionSwitch(key)}
@@ -324,7 +328,7 @@ export function PerpLayoutSettingsContent({
         testID={PerpTestIDs.PositionActionsSettingsButton}
       >
         <SizableText size="$bodyLgMedium" flex={1}>
-          Position action buttons
+          {copy.positionActionsTitle}
         </SizableText>
         <Icon name="ChevronRightOutline" size="$4" color="$iconSubdued" />
       </XStack>
@@ -354,7 +358,13 @@ export function PerpLayoutSettingsContent({
   );
 }
 
-export function showPerpLayoutSettingsDialog({ title }: { title: string }) {
+export function showPerpLayoutSettingsDialog({
+  title,
+  positionActionsTitle,
+}: {
+  title: string;
+  positionActionsTitle: string;
+}) {
   const dialog = Dialog.show({
     title,
     showFooter: false,
@@ -370,7 +380,7 @@ export function showPerpLayoutSettingsDialog({ title }: { title: string }) {
           onOpenPositionActions={() => {
             void Promise.resolve(dialog.close()).then(() => {
               Dialog.show({
-                title: 'Position action buttons',
+                title: positionActionsTitle,
                 showFooter: false,
                 renderContent: (
                   <PerpsProviderMirror>
