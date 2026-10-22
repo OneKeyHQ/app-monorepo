@@ -22,7 +22,7 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { showClaimWithKycDialog } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/showKYCDialog';
-import { EModalStakingRoutes } from '@onekeyhq/shared/src/routes/staking';
+import { EModalRoutes, EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import {
@@ -548,6 +548,7 @@ function BasicClaimWithKycActionIcon({
 
 const ClaimWithKycActionIcon = memo(BasicClaimWithKycActionIcon);
 
+/** 渲染协议操作并保留按钮携带的请求身份；缺少账户时不构建交易，取消成功后刷新调用方持仓。 */
 function BasicEarnActionIcon({
   title,
   actionIcon,
@@ -570,43 +571,82 @@ function BasicEarnActionIcon({
   onActionSuccess?: () => void;
 }) {
   const [cancelLoading, setCancelLoading] = useState(false);
+  const appNavigation = useAppNavigation();
   const { copyText } = useClipboard();
   const handleUniversalWithdraw = useUniversalWithdraw({
     accountId: protocolInfo?.earnAccount?.accountId || '',
     networkId: protocolInfo?.networkId || tokenInfo?.networkId || '',
   });
-  const handleCancelWithdrawal = useCallback(async () => {
-    const provider = protocolInfo?.provider || tokenInfo?.provider || '';
-    const symbol =
-      protocolInfo?.symbol || tokenInfo?.token?.symbol || token?.symbol || '';
+  const handleCancelWithdrawal = useCallback(
+    // Keep the button's vault when opening the picker or canceling a single request.
+    async () => {
+      const provider = protocolInfo?.provider || tokenInfo?.provider || '';
+      const symbol =
+        protocolInfo?.symbol || tokenInfo?.token?.symbol || token?.symbol || '';
 
-    if (!protocolInfo?.earnAccount?.accountId || !provider || !symbol) {
-      return;
-    }
-    setCancelLoading(true);
-    try {
-      await handleUniversalWithdraw({
-        amount: '0',
-        symbol,
-        provider,
-        protocolVault: earnUtils.shouldSendEarnProtocolVault({
-          providerName: provider,
-        })
-          ? protocolInfo?.vault
-          : undefined,
-        withdrawAll: false,
-        withdrawType: 'cancel',
-        stakingInfo: {
-          label: EEarnLabels.Withdraw,
-          protocol: earnUtils.getEarnProviderName({ providerName: provider }),
-          protocolLogoURI: protocolInfo?.providerDetail.logoURI,
-          tags: protocolInfo?.stakeTag ? [protocolInfo.stakeTag] : [],
-        },
-      });
-    } finally {
-      setCancelLoading(false);
-    }
-  }, [handleUniversalWithdraw, protocolInfo, token, tokenInfo]);
+      if (
+        actionIcon?.type !== EStakingActionType.CancelWithdrawal ||
+        !protocolInfo?.earnAccount?.accountId ||
+        !provider ||
+        !symbol
+      ) {
+        return;
+      }
+      if (actionIcon.data?.selectRequest) {
+        appNavigation.pushModal(EModalRoutes.StakingModal, {
+          screen: EModalStakingRoutes.WithdrawOptions,
+          params: {
+            accountId: protocolInfo.earnAccount.accountId,
+            networkId: protocolInfo.networkId || tokenInfo?.networkId || '',
+            protocolInfo: {
+              ...protocolInfo,
+              vault: actionIcon.data.vault ?? protocolInfo.vault,
+            },
+            tokenInfo,
+            symbol,
+            provider,
+            withdrawType: 'cancel',
+            onSuccess: onActionSuccess,
+          },
+        });
+        return;
+      }
+      setCancelLoading(true);
+      try {
+        await handleUniversalWithdraw({
+          amount: '0',
+          symbol,
+          provider,
+          identity: actionIcon.data?.identity,
+          protocolVault: earnUtils.shouldSendEarnProtocolVault({
+            providerName: provider,
+          })
+            ? (actionIcon.data?.vault ?? protocolInfo?.vault)
+            : undefined,
+          withdrawAll: false,
+          withdrawType: 'cancel',
+          stakingInfo: {
+            label: EEarnLabels.Withdraw,
+            protocol: earnUtils.getEarnProviderName({ providerName: provider }),
+            protocolLogoURI: protocolInfo?.providerDetail.logoURI,
+            tags: protocolInfo?.stakeTag ? [protocolInfo.stakeTag] : [],
+          },
+          onSuccess: onActionSuccess,
+        });
+      } finally {
+        setCancelLoading(false);
+      }
+    },
+    [
+      actionIcon,
+      appNavigation,
+      handleUniversalWithdraw,
+      onActionSuccess,
+      protocolInfo,
+      token,
+      tokenInfo,
+    ],
+  );
 
   if (!actionIcon) {
     return null;

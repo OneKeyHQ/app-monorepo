@@ -1,6 +1,6 @@
-import BigNumber from 'bignumber.js';
-
 import type { IEarnPortfolioInvestment } from '@onekeyhq/shared/types/staking';
+
+import { getKnownEarnPortfolioValue } from './earnPortfolioValue';
 
 export type IEarnPortfolioInvestmentSource = 'normal' | 'airdrop';
 
@@ -11,8 +11,11 @@ export interface IEarnPortfolioInvestmentFetchResult {
   remove?: boolean;
 }
 
+/** Missing or invalid amounts must not invalidate the other holdings. */
 const addValue = (left: string | undefined, right: string | undefined) =>
-  new BigNumber(left || '0').plus(new BigNumber(right || '0')).toFixed();
+  getKnownEarnPortfolioValue(left)
+    .plus(getKnownEarnPortfolioValue(right))
+    .toFixed();
 
 export const hasEarnPortfolioAirdropAssets = (
   investment: IEarnPortfolioInvestment | undefined,

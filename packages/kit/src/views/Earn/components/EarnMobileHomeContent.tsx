@@ -24,6 +24,11 @@ import { FAQContent } from './FAQContent';
 import { Overview } from './Overview';
 import { Recommended } from './Recommended';
 
+/**
+ * 组装移动首页，统一将当前金额和刷新状态交给概览组件展示。
+ * @param props 首页内容、展示金额及交互回调；金额未提供时由概览组件读取缓存。
+ * @returns 移动首页；同步状态不额外增加金额前缀，刷新失败沿用既有回调处理。
+ */
 function EarnMobileHomeContentComponent({
   bannerList,
   isBannerLoading,

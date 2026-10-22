@@ -57,6 +57,10 @@ import {
 } from './EarnHome.utils';
 import { EarnProviderMirror } from './EarnProviderMirror';
 import { EarnNavigation } from './earnUtils';
+import {
+  getKnownEarnPortfolioValue,
+  passesEarnPortfolioSmallAssetsFilter,
+} from './hooks/earnPortfolioValue';
 import { useBlockRegion } from './hooks/useBlockRegion';
 import { useEarnHideSmallAssets } from './hooks/useEarnHideSmallAssets';
 import { useEarnPortfolio } from './hooks/useEarnPortfolio';
@@ -293,10 +297,12 @@ function BasicEarnHome({
 
     const { investments } = portfolioData;
     const total = investments.reduce((sum, inv) => {
-      // Filter assets with fiatValueUsd < 0.01
-      const valueUsd = Number(inv.totalFiatValueUsd ?? 0);
-      if (valueUsd >= 0.01) {
-        return sum.plus(new BigNumber(inv.totalFiatValue ?? 0));
+      if (
+        passesEarnPortfolioSmallAssetsFilter({
+          fiatValueUsd: inv.totalFiatValueUsd,
+        })
+      ) {
+        return sum.plus(getKnownEarnPortfolioValue(inv.totalFiatValue));
       }
       return sum;
     }, new BigNumber(0));
@@ -312,8 +318,11 @@ function BasicEarnHome({
 
     const { investments } = portfolioData;
     const total = investments.reduce((sum, inv) => {
-      const valueUsd = Number(inv.totalFiatValueUsd ?? 0);
-      if (valueUsd >= 0.01) {
+      if (
+        passesEarnPortfolioSmallAssetsFilter({
+          fiatValueUsd: inv.totalFiatValueUsd,
+        })
+      ) {
         return sum.plus(new BigNumber(inv.earnings24hFiatValue ?? 0));
       }
       return sum;
@@ -338,7 +347,7 @@ function BasicEarnHome({
         if (inv.assets.length === 0 && inv.airdropAssets.length > 0) {
           return sum;
         }
-        return sum.plus(new BigNumber(inv.totalFiatValue || '0'));
+        return sum.plus(getKnownEarnPortfolioValue(inv.totalFiatValue));
       }, new BigNumber(0))
       .toFixed();
   }, [

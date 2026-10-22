@@ -12,10 +12,13 @@ import { RiskSection } from './RiskSection';
 
 type IProtocolDetailsProps = {
   details?: IStakeProtocolDetails;
+  symbol: string;
 };
 
+/** 组装旧版详情分区，入口 symbol 独立传给 FAQ；详情尚未加载时不渲染或触发子查询。 */
 export function ProtocolDetails({
   details,
+  symbol,
   children,
 }: PropsWithChildren<IProtocolDetailsProps>) {
   if (!details) {
@@ -32,7 +35,7 @@ export function ProtocolDetails({
       <ProviderSection details={details} />
       <Divider />
       <RiskSection details={details} />
-      <FaqSection details={details} />
+      <FaqSection details={details} symbol={symbol} />
     </>
   );
 }

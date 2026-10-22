@@ -1105,7 +1105,9 @@ export function WebMarketTokenList({
           };
         });
         const row: MarketRow = {
-          key: item.id,
+          // API metadata can leave whitespace at the edges of IDs. Quote the
+          // SDK key losslessly so validation passes without merging distinct IDs.
+          key: JSON.stringify(item.id),
           type: 'market',
           variant: 'token',
           leading: {
@@ -1194,7 +1196,9 @@ export function WebMarketTokenList({
   }, [patches, snapshot, baseSnapshot]);
   const handleAction = useCallback(
     (event: RowActionEvent) => {
-      const index = data.findIndex((item) => item.id === event.rowKey);
+      const index = data.findIndex(
+        (item) => JSON.stringify(item.id) === event.rowKey,
+      );
       const item = data[index];
       if (!item) return;
       if (
@@ -1381,7 +1385,9 @@ export function WebMarketTokenList({
           onScrollBegin?.();
         }}
         onReorder={(event) => {
-          const from = data.findIndex((item) => item.id === event.key);
+          const from = data.findIndex(
+            (item) => JSON.stringify(item.id) === event.key,
+          );
           if (from < 0) return;
           const next = [...data];
           const [dragItem] = next.splice(from, 1);

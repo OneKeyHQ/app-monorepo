@@ -42,7 +42,6 @@ import {
   EEarnLabels,
   type IBorrowAsset,
   type IBorrowAssetsList,
-  type IEarnAssetsList,
   type IEarnTokenInfo,
   type IEarnTokenItem,
   type IEarnWithdrawType,
@@ -52,13 +51,10 @@ import type { IToken } from '@onekeyhq/shared/types/token';
 
 import { UniversalWithdraw } from '../../../components/UniversalWithdraw';
 import { useBorrowApiParams } from '../../../hooks/useBorrowApiParams';
+import { useEarnWithdrawAssets } from '../../../hooks/useEarnWithdrawAssets';
 import { useIsPendleProvider } from '../../../hooks/useIsPendleProvider';
 import { useUniversalWithdraw } from '../../../hooks/useUniversalHooks';
-import {
-  buildBorrowTag,
-  normalizeStakeTokenAddress,
-  resolveStakeTokenAddress,
-} from '../../../utils/utils';
+import { buildBorrowTag, resolveStakeTokenAddress } from '../../../utils/utils';
 import { buildManagePageApproveInfo } from '../hooks/useManagePage.utils';
 
 import {
@@ -78,6 +74,7 @@ type IBorrowSelectedAssetState = {
   scopeKey: string;
 };
 
+/** 按管理页声明的输入资产和单位构建赎回；份额与输出资产未确认时阻止报价和提交。 */
 export const WithdrawSection = ({
   accountId,
   networkId,
@@ -143,6 +140,9 @@ export const WithdrawSection = ({
     [protocolInfo?.provider],
   );
   const isPendleProvider = useIsPendleProvider(providerName);
+  const amountUnit = protocolInfo?.withdrawApprove?.amountUnit;
+  const supportsReceiveAssetSelection =
+    isPendleProvider || amountUnit === 'shares';
   const hasWithdrawApprove = Boolean(
     protocolInfo?.withdrawApprove?.approveTarget &&
     protocolInfo.withdrawApprove.tokenAddress,
@@ -477,6 +477,7 @@ export const WithdrawSection = ({
           accountId,
           networkId,
           spenderAddress: earnUtils.resolveEarnAllowanceSpenderAddress({
+            providerName,
             networkId,
             approveType: effectiveApproveType,
             approveSpenderAddress,
@@ -490,6 +491,7 @@ export const WithdrawSection = ({
       approveSpenderAddress,
       accountId,
       networkId,
+      providerName,
       approvalToken,
       footerActionOverride?.loading,
     ],
@@ -513,9 +515,6 @@ export const WithdrawSection = ({
     effectiveApproveType,
     networkId,
   ]);
-  const [selectedReceiveAsset, setSelectedReceiveAsset] = useState<
-    IEarnTokenItem | undefined
-  >(undefined);
 
   // Fetch selectable assets for Withdraw/Repay popover
   const { result: assetsList, isLoading: assetsListLoading } =
@@ -594,83 +593,20 @@ export const WithdrawSection = ({
     });
   }, [assetsListLoading, borrowAssetSelectionScopeKey, selectableBorrowAssets]);
 
-  const { result: unstakeAssetsList } = usePromiseResult<
-    IEarnAssetsList | undefined
-  >(
-    async () => {
-      if (
-        !hasRequiredData ||
-        !isPendleProvider ||
-        useBorrowApi ||
-        !accountId ||
-        !protocolInfo?.symbol
-      ) {
-        return undefined;
-      }
-      return backgroundApiProxy.serviceStaking.getEarnAssetsList({
-        accountId,
-        networkId,
-        provider: providerName,
-        symbol: protocolInfo.symbol,
-        vault: protocolInfo.vault || undefined,
-        action: 'unstake',
-      });
-    },
-    [
-      hasRequiredData,
-      isPendleProvider,
-      useBorrowApi,
-      accountId,
-      networkId,
-      providerName,
-      protocolInfo?.symbol,
-      protocolInfo?.vault,
-    ],
-    {
-      watchLoading: true,
-    },
-  );
-
-  const selectableReceiveAssets = useMemo(() => {
-    return unstakeAssetsList?.assets ?? [];
-  }, [unstakeAssetsList?.assets]);
-
-  useEffect(() => {
-    if (!isPendleProvider || useBorrowApi) {
-      setSelectedReceiveAsset(undefined);
-      return;
-    }
-
-    if (!selectableReceiveAssets.length) {
-      setSelectedReceiveAsset(undefined);
-      return;
-    }
-
-    setSelectedReceiveAsset((prev) => {
-      if (prev?.info) {
-        const prevAddress = normalizeStakeTokenAddress({
-          address: prev.info.address,
-          isNative: prev.info.isNative,
-        });
-        const prevSymbol = prev.info.symbol?.toLowerCase() ?? '';
-        const matchedPrev = selectableReceiveAssets.find((asset) => {
-          const assetAddress = normalizeStakeTokenAddress({
-            address: asset.info.address,
-            isNative: asset.info.isNative,
-          });
-          return (
-            assetAddress === prevAddress &&
-            asset.info.symbol.toLowerCase() === prevSymbol
-          );
-        });
-        if (matchedPrev) {
-          return matchedPrev;
-        }
-      }
-
-      return selectableReceiveAssets[0];
-    });
-  }, [isPendleProvider, selectableReceiveAssets, useBorrowApi]);
+  const {
+    assets: selectableReceiveAssets,
+    selectedAsset: selectedReceiveAsset,
+    selectAsset: setSelectedReceiveAsset,
+  } = useEarnWithdrawAssets({
+    enabled: Boolean(
+      hasRequiredData && supportsReceiveAssetSelection && !useBorrowApi,
+    ),
+    accountId,
+    networkId,
+    provider: providerName,
+    symbol: protocolInfo?.symbol ?? '',
+    vault: protocolInfo?.vault || undefined,
+  });
 
   const handleOpenReceiveTokenSelector = useCallback(() => {
     if (!accountId || !protocolInfo?.symbol) return;
@@ -699,11 +635,16 @@ export const WithdrawSection = ({
     protocolInfo?.symbol,
     protocolInfo?.vault,
     selectedReceiveAsset?.info,
+    setSelectedReceiveAsset,
     navigation,
   ]);
 
   const receiveTokenSelectorTriggerProps = useMemo(() => {
-    if (!isPendleProvider || useBorrowApi || !selectableReceiveAssets.length) {
+    if (
+      !supportsReceiveAssetSelection ||
+      useBorrowApi ||
+      !selectableReceiveAssets.length
+    ) {
       return undefined;
     }
 
@@ -715,7 +656,7 @@ export const WithdrawSection = ({
           : undefined,
     };
   }, [
-    isPendleProvider,
+    supportsReceiveAssetSelection,
     useBorrowApi,
     selectableReceiveAssets.length,
     handleOpenReceiveTokenSelector,
@@ -724,7 +665,7 @@ export const WithdrawSection = ({
   const effectiveReceiveInputConfig = useMemo<
     IManagePageV2ReceiveInputConfig | undefined
   >(() => {
-    if (!isPendleProvider || useBorrowApi) {
+    if (!supportsReceiveAssetSelection || useBorrowApi) {
       return receiveInputConfig;
     }
 
@@ -734,6 +675,8 @@ export const WithdrawSection = ({
       isNative: selectedToken?.isNative,
     });
     const hasSelectedToken = !!selectedToken;
+    const fallbackTokenAddress =
+      amountUnit === 'shares' ? '' : (receiveInputConfig?.tokenAddress ?? '');
 
     return {
       ...receiveInputConfig,
@@ -743,14 +686,15 @@ export const WithdrawSection = ({
       tokenSymbol: selectedToken?.symbol ?? receiveInputConfig?.tokenSymbol,
       tokenAddress: hasSelectedToken
         ? selectedTokenAddress
-        : (receiveInputConfig?.tokenAddress ?? ''),
+        : fallbackTokenAddress,
       balance:
         selectedReceiveAsset?.balanceParsed ?? receiveInputConfig?.balance,
       price: selectedReceiveAsset?.price ?? receiveInputConfig?.price,
       tokenSelectorTriggerProps: receiveTokenSelectorTriggerProps,
     };
   }, [
-    isPendleProvider,
+    supportsReceiveAssetSelection,
+    amountUnit,
     useBorrowApi,
     receiveInputConfig,
     selectedReceiveAsset?.balanceParsed,
@@ -1495,6 +1439,8 @@ export const WithdrawSection = ({
           networkId={networkId}
           tokenSymbol={effectiveTokenSymbol}
           requestSymbol={withdrawRequestSymbol}
+          amountUnit={amountUnit}
+          withdrawAssetsReady={!!selectedReceiveAsset}
           tokenImageUri={token?.logoURI || fallbackTokenImageUri}
           providerLogo={protocolInfo?.providerDetail.logoURI}
           providerName={providerName}

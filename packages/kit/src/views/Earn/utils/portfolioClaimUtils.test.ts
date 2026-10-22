@@ -157,6 +157,36 @@ describe('buildPortfolioClaimSymbolMap', () => {
 });
 
 describe('resolvePortfolioClaimProtocolIdentity', () => {
+  it('uses the input protocol symbol when the displayed holding is a receipt token', () => {
+    expect(
+      resolvePortfolioClaimProtocolIdentity({
+        isAirdrop: false,
+        providerName: 'etherfi',
+        assetSymbol: 'liquidETH',
+        protocolSymbol: 'eETH',
+        assetVault: 'liquid-eth-vault',
+      }),
+    ).toEqual({
+      symbol: 'eETH',
+      vault: 'liquid-eth-vault',
+    });
+  });
+
+  it.each([undefined, '', '   '])(
+    'does not use a receipt token when the protocol symbol is %p',
+    (protocolSymbol) => {
+      expect(
+        resolvePortfolioClaimProtocolIdentity({
+          isAirdrop: false,
+          providerName: 'etherfi',
+          assetSymbol: 'liquidETH',
+          protocolSymbol,
+          assetVault: 'liquid-eth-vault',
+        }),
+      ).toBeNull();
+    },
+  );
+
   it('uses the server-derived Base Morpho claim identity', () => {
     expect(
       resolvePortfolioClaimProtocolIdentity({
@@ -192,12 +222,13 @@ describe('resolvePortfolioClaimProtocolIdentity', () => {
     });
   });
 
-  it('keeps a normal Morpho asset symbol without a provider hardcode', () => {
+  it('keeps a normal Morpho protocol symbol without a provider hardcode', () => {
     expect(
       resolvePortfolioClaimProtocolIdentity({
         isAirdrop: false,
         providerName: 'Morpho',
         assetSymbol: 'USDT',
+        protocolSymbol: 'USDT',
         assetVault: 'morpho-usdt-vault',
       }),
     ).toEqual({

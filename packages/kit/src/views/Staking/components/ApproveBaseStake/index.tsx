@@ -43,6 +43,7 @@ import {
 } from '@onekeyhq/kit/src/views/Staking/components/utils';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IApproveInfo } from '@onekeyhq/kit-bg/src/vaults/types';
+import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -97,6 +98,7 @@ type IApproveBaseStakeProps = {
   estReceiveTokenRate?: string;
 
   providerName?: string;
+  protocolVault?: string;
   providerLogo?: string;
   eventEndTime?: number;
   approveType?: EApproveType;
@@ -123,6 +125,7 @@ export function ApproveBaseStake({
   minAmount = '0',
   currentAllowance = '0',
   providerName = '',
+  protocolVault,
   providerLogo,
   onConfirm,
   approveTarget,
@@ -157,6 +160,7 @@ export function ApproveBaseStake({
     trackAllowance,
     fetchAllowanceResponse,
   } = useTrackTokenAllowance({
+    providerName,
     accountId: approveTarget.accountId,
     networkId: approveTarget.networkId,
     tokenAddress: approveTarget.token.address,
@@ -223,9 +227,18 @@ export function ApproveBaseStake({
     const amountValueBN = BigNumber(amountValue);
     const allowanceBN = new BigNumber(allowance);
 
+    permitSignatureRef.current = undefined;
+    permit2DataRef.current = undefined;
     if (usePermit2Approve) {
       // Check permit cache first
       const permitCache = getPermitCache({
+        providerName,
+        approveSpenderAddress: earnUtils.resolveEarnAllowanceSpenderAddress({
+          providerName,
+          networkId: approveTarget.networkId,
+          approveType,
+          approveSpenderAddress: approveTarget.spenderAddress,
+        }),
         accountId: approveTarget.accountId,
         networkId: approveTarget.networkId,
         tokenAddress: token.address,
@@ -246,6 +259,9 @@ export function ApproveBaseStake({
     allowance,
     usePermit2Approve,
     getPermitCache,
+    providerName,
+    approveType,
+    approveTarget.spenderAddress,
     approveTarget.accountId,
     approveTarget.networkId,
   ]);
@@ -263,10 +279,11 @@ export function ApproveBaseStake({
       const permitParams: {
         approveType?: 'permit';
         permitSignature?: string;
+        unsignedMessage?: IEarnPermit2ApproveSignData;
       } = {};
 
       if (usePermit2Approve) {
-        if (shouldApprove) {
+        if (shouldApprove && !permitSignatureRef.current) {
           return undefined;
         }
 
@@ -277,6 +294,7 @@ export function ApproveBaseStake({
           const allowanceBN = BigNumber(allowance);
           if (amountBN.gt(allowanceBN)) {
             permitParams.permitSignature = permitSignatureRef.current;
+            permitParams.unsignedMessage = permit2DataRef.current;
           }
         }
       }
@@ -289,10 +307,10 @@ export function ApproveBaseStake({
         networkId: approveTarget.networkId,
         provider: providerName,
         symbol: token.symbol,
-        action: shouldApprove ? 'approve' : 'stake',
+        action: shouldApprove && !usePermit2Approve ? 'approve' : 'stake',
         amount: amountNumber.toFixed(),
         protocolVault: earnUtils.shouldSendEarnProtocolVault({ providerName })
-          ? approveTarget.spenderAddress
+          ? protocolVault
           : undefined,
         accountAddress: account?.address,
         ...permitParams,
@@ -303,7 +321,7 @@ export function ApproveBaseStake({
       allowance,
       approveTarget.accountId,
       approveTarget.networkId,
-      approveTarget.spenderAddress,
+      protocolVault,
       providerName,
       shouldApprove,
       token.symbol,
@@ -556,15 +574,18 @@ export function ApproveBaseStake({
 
   const onSubmit = useCallback(async () => {
     const handleConfirm = async () => {
+      const needsPermit =
+        usePermit2Approve && new BigNumber(amountValue).gt(allowance);
       try {
         await onConfirm?.({
           amount: amountValue,
           approveType,
-          permitSignature: permitSignatureRef.current,
-          unsignedMessage: permit2DataRef.current,
+          permitSignature: needsPermit ? permitSignatureRef.current : undefined,
+          unsignedMessage: needsPermit ? permit2DataRef.current : undefined,
         });
       } catch (error) {
-        console.error('Transaction error:', error);
+        errorToastUtils.toastIfError(error);
+        errorToastUtils.showToastOfError(error);
       }
     };
 
@@ -579,6 +600,7 @@ export function ApproveBaseStake({
     void handleConfirm();
   }, [
     showFalconEventEndedDialog,
+    allowance,
     usePermit2Approve,
     shouldApprove,
     onConfirm,
@@ -710,11 +732,26 @@ export function ApproveBaseStake({
       }
     }
 
+    if (usePermit2Approve && amountBN.lte(allowanceBN)) {
+      setApproving(false);
+      await onSubmit();
+      return;
+    }
+
     if (usePermit2Approve) {
       const handlePermit2Approve = async () => {
         try {
           // Check permit cache first
           const permitCache = getPermitCache({
+            providerName,
+            approveSpenderAddress: earnUtils.resolveEarnAllowanceSpenderAddress(
+              {
+                providerName,
+                networkId: approveTarget.networkId,
+                approveType,
+                approveSpenderAddress: approveTarget.spenderAddress,
+              },
+            ),
             accountId: approveTarget.accountId,
             networkId: approveTarget.networkId,
             tokenAddress: token.address,
@@ -724,7 +761,7 @@ export function ApproveBaseStake({
           if (permitCache) {
             permitSignatureRef.current = permitCache.signature;
             permit2DataRef.current = permitCache.permit2Data;
-            void onSubmit();
+            await onSubmit();
             setApproving(false);
             return;
           }
@@ -735,13 +772,22 @@ export function ApproveBaseStake({
             token,
             amountValue,
             providerName,
-            vaultAddress: approveTarget.spenderAddress,
+            vaultAddress: protocolVault || '',
           });
           permitSignatureRef.current = signature;
           permit2DataRef.current = unsignedMessage;
 
           // Update permit cache
           updatePermitCache({
+            providerName,
+            approveSpenderAddress: earnUtils.resolveEarnAllowanceSpenderAddress(
+              {
+                providerName,
+                networkId: approveTarget.networkId,
+                approveType,
+                approveSpenderAddress: approveTarget.spenderAddress,
+              },
+            ),
             accountId: approveTarget.accountId,
             networkId: approveTarget.networkId,
             tokenAddress: token.address,
@@ -755,9 +801,11 @@ export function ApproveBaseStake({
             void debouncedFetchEstimateFeeResp(amountValue);
           }, 200);
 
-          void onSubmit();
+          await onSubmit();
           setApproving(false);
         } catch (error: unknown) {
+          errorToastUtils.toastIfError(error);
+          errorToastUtils.showToastOfError(error);
           console.error('Permit sign error:', error);
           defaultLogger.staking.page.permitSignError({
             error: error instanceof Error ? error.message : String(error),
@@ -813,6 +861,8 @@ export function ApproveBaseStake({
     checkEstimateGasAlert,
     getPermitCache,
     getPermitSignature,
+    approveType,
+    protocolVault,
     providerName,
     updatePermitCache,
     onSubmit,

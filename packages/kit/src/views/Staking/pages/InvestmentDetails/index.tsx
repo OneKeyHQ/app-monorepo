@@ -139,6 +139,10 @@ const hasPositiveReward = ({
   );
 };
 
+/**
+ * 展示旧版账户持仓并使用协议入口身份打开详情，避免凭证代币被当作可存入资产。
+ * 无账户或持仓时展示空态；旧服务未提供入口 symbol 时沿用原代币路由，查询失败由 usePromiseResult 处理。
+ */
 function BasicInvestmentDetails() {
   const accountInfo = useActiveAccount({ num: 0 });
   const _actions = useEarnActions();
@@ -276,6 +280,7 @@ function BasicInvestmentDetails() {
   const renderItem = useCallback(
     ({
       item: {
+        symbol,
         tokenInfo,
         staked,
         stakedFiatValue,
@@ -296,7 +301,7 @@ function BasicInvestmentDetails() {
           if (tokenInfo) {
             navigation.push(ETabEarnRoutes.EarnProtocolDetails, {
               networkId: tokenInfo.networkId,
-              symbol: tokenInfo.symbol,
+              symbol: symbol ?? tokenInfo.symbol,
               provider: providerName,
               vault,
             });

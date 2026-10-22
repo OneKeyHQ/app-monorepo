@@ -468,6 +468,11 @@ class ServiceStaking extends ServiceBase {
     return resp.data.data;
   }
 
+  /**
+   * 按用户选择的资产、赎回路径和金额单位构建交易，份额数量不在客户端换算。
+   * 取消时透传 identity 定位链上排队请求；旧调用不补造请求标识。
+   * 账户或协议配置缺失、服务端拒绝请求时直接抛错，避免构建口径不一致的交易。
+   */
   @backgroundMethod()
   async buildUnstakeTransaction(params: IWithdrawBaseParams) {
     const { networkId, accountId, protocolVault, effectiveApy, ...rest } =
@@ -890,6 +895,11 @@ class ServiceStaking extends ServiceBase {
     return this._getEarnAssetsList(params);
   }
 
+  /**
+   * 获取与输入资产、输出资产及金额单位一致的确认信息；无效金额按零预览。
+   * 取消使用 identity 定位链上请求；EtherFi 赎回金额始终是份额数量。
+   * 返回服务端确认数据，保留调用方参数不变，接口失败向上传递。
+   */
   @backgroundMethod()
   async getTransactionConfirmation(params: {
     networkId: string;
@@ -897,21 +907,24 @@ class ServiceStaking extends ServiceBase {
     symbol: string;
     vault?: string;
     accountAddress: string;
-    action: ECheckAmountActionType;
+    action: ECheckAmountActionType | 'approve';
     amount: string;
     identity?: string;
     inputTokenAddress?: string;
     outputTokenAddress?: string;
     slippage?: number;
     withdrawType?: IEarnWithdrawType;
+    stakeType?: IEarnStakeType;
   }) {
     const client = await this.getClient(EServiceEndpointEnum.Earn);
     const amountNumber = BigNumber(params.amount);
-    params.amount = amountNumber.isNaN() ? '0' : amountNumber.toFixed();
     const resp = await client.get<{
       data: IStakeTransactionConfirmation;
     }>(`/earn/v1/transaction-confirmation`, {
-      params,
+      params: {
+        ...params,
+        amount: amountNumber.isNaN() ? '0' : amountNumber.toFixed(),
+      },
     });
     return resp.data.data;
   }
@@ -1749,6 +1762,11 @@ class ServiceStaking extends ServiceBase {
     }
   }
 
+  /**
+   * 用账户地址校验指定资产下的操作金额，EtherFi 份额数量不在客户端换算。
+   * 取消排队赎回时使用 identity，缺省时保留其他协议原有请求结构。
+   * 缺少账户、网络或协议时抛错；空值及无效金额按零校验，返回原始业务响应。
+   */
   @backgroundMethod()
   async checkAmount({
     networkId,
@@ -2153,6 +2171,11 @@ class ServiceStaking extends ServiceBase {
     return encodedTx;
   }
 
+  /**
+   * 按当前交易阶段估费，份额赎回授权由 approve 和 queued 路径标识，金额单位不变。
+   * 取消赎回通过 identity 定位链上请求；金额按协议约定解释，不额外传金额单位。
+   * 返回服务端费用并将缺失的法币费用补零；配置或请求失败由调用方处理。
+   */
   @backgroundMethod()
   async estimateFee(params: {
     networkId: string;
@@ -2167,6 +2190,7 @@ class ServiceStaking extends ServiceBase {
     publicKey?: string;
     approveType?: 'permit';
     permitSignature?: string;
+    unsignedMessage?: IEarnPermit2ApproveSignData;
     withdrawAll?: boolean;
     inputTokenAddress?: string;
     outputTokenAddress?: string;
@@ -2174,11 +2198,15 @@ class ServiceStaking extends ServiceBase {
     stakeType?: IEarnStakeType;
     withdrawType?: IEarnWithdrawType;
   }) {
-    const { symbol, protocolVault, withdrawAll, ...rest } = params;
+    const { symbol, protocolVault, withdrawAll, unsignedMessage, ...rest } =
+      params;
     const client = await this.getClient(EServiceEndpointEnum.Earn);
     const sendParams: Record<string, string | number | boolean | undefined> = {
       symbol,
       ...rest,
+      unsignedMessage: unsignedMessage
+        ? stringUtils.stableStringify(unsignedMessage)
+        : undefined,
     };
     if (
       earnUtils.shouldSendEarnProtocolVault({ providerName: params.provider })

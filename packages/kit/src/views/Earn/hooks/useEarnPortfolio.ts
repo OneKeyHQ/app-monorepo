@@ -44,6 +44,10 @@ import {
   mergeEarnPortfolioInvestments,
   removeEarnPortfolioInvestmentSource,
 } from './earnPortfolioInvestmentMerge';
+import {
+  getKnownEarnPortfolioValue,
+  shouldKeepEarnPortfolioInvestment,
+} from './earnPortfolioValue';
 import { useEarnAccountKey } from './useEarnAccountKey';
 
 import type { IPortfolioFetchRequest } from './earnPortfolioBatch';
@@ -79,9 +83,6 @@ const resolveVault = ({
   requestVault?: string;
 }) => protocolVault || requestVault;
 
-const hasPositiveFiatValue = (value: string | undefined): boolean =>
-  new BigNumber(value || '0').gt(0);
-
 const isEarnTestnetNetwork = (networkId: string): boolean =>
   earnTestnetNetworkIds.includes(networkId);
 
@@ -106,15 +107,17 @@ const hasAnyAirdropAssets = (
   assets.length > 0 &&
   assets.some((asset) => asset.airdropAssets && asset.airdropAssets.length > 0);
 
+/** Treat unavailable amounts as zero so they cannot invalidate sorting. */
 const sortByFiatValueDesc = (
   investments: IEarnPortfolioInvestment[],
 ): IEarnPortfolioInvestment[] =>
   investments.toSorted((a, b) => {
-    const valueA = new BigNumber(a.totalFiatValue || '0');
-    const valueB = new BigNumber(b.totalFiatValue || '0');
+    const valueA = getKnownEarnPortfolioValue(a.totalFiatValue);
+    const valueB = getKnownEarnPortfolioValue(b.totalFiatValue);
     return valueB.comparedTo(valueA);
   });
 
+/** Hide zero-value holdings while preserving testnet and airdrop visibility rules. */
 const filterValidInvestments = (
   values: Iterable<IEarnPortfolioInvestment>,
 ): IEarnPortfolioInvestment[] =>
@@ -123,7 +126,7 @@ const filterValidInvestments = (
     if (isEarnTestnetNetwork(inv.network.networkId)) {
       return hasAnyAssets(inv.assets);
     }
-    return hasPositiveFiatValue(inv.totalFiatValue);
+    return shouldKeepEarnPortfolioInvestment(inv);
   });
 
 const createInvestmentKeyFromInvestment = (
@@ -149,6 +152,7 @@ const buildInvestmentMapFromList = (
     investments.map((inv) => [createInvestmentKeyFromInvestment(inv), inv]),
   );
 
+/** Ignore unavailable amounts when aggregating holdings. */
 const calculateTotalFiatValue = (
   investments: IEarnPortfolioInvestment[],
 ): BigNumber =>
@@ -156,7 +160,7 @@ const calculateTotalFiatValue = (
     if (inv.assets.length === 0 && inv.airdropAssets.length > 0) {
       return sum;
     }
-    return sum.plus(new BigNumber(inv.totalFiatValue || '0'));
+    return sum.plus(getKnownEarnPortfolioValue(inv.totalFiatValue));
   }, new BigNumber(0));
 
 const calculateTotalEarnings24hValue = (
@@ -240,6 +244,10 @@ function normalizeAirdropInvestmentResult(
   };
 }
 
+/**
+ * Normalize both single and batch responses and hide zero-value holdings while
+ * preserving the existing testnet visibility rules.
+ */
 function normalizeInvestmentResult(
   params: Pick<IPortfolioFetchRequest, 'symbol' | 'vault'>,
   result: IEarnInvestmentItemV2,
@@ -264,7 +272,7 @@ function normalizeInvestmentResult(
 
   const shouldRemove = isEarnTestnetNetwork(result.network.networkId)
     ? !hasAnyAssets(result.assets)
-    : !hasPositiveFiatValue(result.totalFiatValue);
+    : !shouldKeepEarnPortfolioInvestment(result);
 
   if (shouldRemove) {
     return { key, source: 'normal', remove: true };
@@ -540,7 +548,10 @@ export const useEarnPortfolio = ({
     isLoadingNewAccount,
   } = useRequestController(accountIdValue, indexedAccountIdValue);
 
-  const lastSyncedValuesRef = useRef({ totalFiatValue: '', earnings24h: '' });
+  const lastSyncedValuesRef = useRef({
+    totalFiatValue: '',
+    earnings24h: '',
+  });
 
   // Throttled UI update for progressive loading
   const throttledUIUpdate = useMemo(
@@ -560,7 +571,10 @@ export const useEarnPortfolio = ({
     if (hasAccountChanged()) {
       clearInvestments();
       throttledUIUpdate.cancel();
-      lastSyncedValuesRef.current = { totalFiatValue: '', earnings24h: '' };
+      lastSyncedValuesRef.current = {
+        totalFiatValue: '',
+        earnings24h: '',
+      };
       startNewRequest(true);
       setIsLoading(true);
     }

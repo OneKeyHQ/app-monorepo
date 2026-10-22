@@ -17,6 +17,7 @@ export enum EEarnProviderEnum {
   Aave = 'Aave',
   Native = 'Native',
   Spark = 'Spark',
+  EtherFi = 'EtherFi',
   Bitway = 'Bitway',
 }
 
@@ -52,6 +53,9 @@ export type ISupportedSymbol =
   | 'PlasmaUSD'
   | 'wstETH'
   | 'weETH'
+  | 'eETH'
+  | 'stETH'
+  | 'eBTC'
   | 'aUSDT0'
   | 'stcUSD'
   | 'kHYPE'
@@ -90,11 +94,7 @@ export interface IStakingConfig {
   [networkId: string]: INetworkStakingConfig;
 }
 
-export interface IEarnPermitCache {
-  accountId: string;
-  networkId: string;
-  tokenAddress: string;
-  amount: string;
+export interface IEarnPermitCache extends IEarnPermitCacheKey {
   signature: string;
   permit2Data?: IEarnPermit2ApproveSignData;
   expiredAt: number;
@@ -103,6 +103,8 @@ export interface IEarnPermitCache {
 export interface IEarnPermitCacheKey {
   accountId: string;
   networkId: string;
+  providerName: string;
+  approveSpenderAddress: string;
   tokenAddress: string;
   amount: string;
 }

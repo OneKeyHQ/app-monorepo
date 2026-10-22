@@ -22,7 +22,6 @@ import {
   YStack,
   useMedia,
 } from '@onekeyhq/components';
-import { NumberSizeableText } from '@onekeyhq/components/src/content/NumberSizeableText';
 import type { ITableColumn } from '@onekeyhq/kit/src/components/ListView/TableList';
 import { TableList } from '@onekeyhq/kit/src/components/ListView/TableList';
 import { Token } from '@onekeyhq/kit/src/components/Token';
@@ -31,6 +30,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes, EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
+import { earnTestnetNetworkIds } from '@onekeyhq/shared/types/earn/earnProvider.constants';
 import {
   EEarnLabels,
   EStakingActionType,
@@ -48,6 +48,10 @@ import { EarnTooltip } from '../../Staking/components/ProtocolDetails/EarnToolti
 import { PendingIndicator } from '../../Staking/components/StakingActivityIndicator';
 import { buildLocalTxStatusSyncId } from '../../Staking/utils/utils';
 import { EarnNavigation } from '../earnUtils';
+import {
+  passesEarnPortfolioSmallAssetsFilter,
+  shouldKeepEarnPortfolioInvestment,
+} from '../hooks/earnPortfolioValue';
 import { usePortfolioAction } from '../hooks/usePortfolioAction';
 import { useStakingPendingTxsByInfo } from '../hooks/useStakingPendingTxs';
 import { EarnTestIDs } from '../testIDs';
@@ -57,6 +61,8 @@ import {
   resolvePortfolioClaimProtocolIdentity,
   resolveUniquePortfolioClaimSourceIdentity,
 } from '../utils/portfolioClaimUtils';
+
+import { EarnPortfolioValue } from './EarnPortfolioValue';
 
 import type {
   IRefreshOptions,
@@ -149,6 +155,7 @@ export const PortfolioPendingTxsProvider = ({
 export const usePortfolioPendingTxs = () =>
   useContext(PortfolioPendingTxsContext);
 
+/** Keep receipt tokens as display assets; actions use protocol or airdrop source identities. */
 const WrappedActionButtonCmp = ({
   asset,
   reward,
@@ -185,6 +192,7 @@ const WrappedActionButtonCmp = ({
     isAirdrop,
     providerName,
     assetSymbol: asset.token.info.symbol,
+    protocolSymbol: isAirdrop ? undefined : asset.metadata.protocol.symbol,
     assetVault: asset.metadata.protocol.vault,
     claimSymbol: isAirdrop ? asset.metadata.protocol.claimSymbol : undefined,
     claimSymbolStatus: isAirdrop
@@ -622,19 +630,29 @@ const VerticalRule = ({ mx }: { mx: '$1' | '$3' }) =>
     <Divider vertical h="$5" mx={mx} />
   );
 
+/**
+ * 使用当前币种格式展示单仓位估值，同步状态不额外增加金额前缀。
+ * @param props 当前已知的法币金额；无效数由金额组件展示为不可用。
+ * @returns 单仓位金额文本，不更改持仓筛选或合计逻辑。
+ */
 const PositionValueField = ({ totalFiatValue }: { totalFiatValue: string }) => {
   const currencyInfo = useCurrency();
   return (
-    <NumberSizeableText
+    <EarnPortfolioValue
       size="$bodyMdMedium"
       formatter="value"
       formatterOptions={{ currency: currencyInfo.symbol }}
     >
       {totalFiatValue}
-    </NumberSizeableText>
+    </EarnPortfolioValue>
   );
 };
 
+/**
+ * 展示 provider 名称及当前聚合金额，同步状态不额外增加金额前缀。
+ * @param props 协议持仓与待处理数量；无效金额展示为不可用，零或未提供的数量不显示标记。
+ * @returns 协议分组标题，不修改服务端提供的金额或同步状态。
+ */
 const ProtocolHeader = ({
   portfolioItem,
   pendingCount,
@@ -664,14 +682,14 @@ const ProtocolHeader = ({
         </SizableText>
         <VerticalRule mx="$3" />
         <XStack ai="center" gap="$1">
-          <NumberSizeableText
+          <EarnPortfolioValue
             size="$headingLg"
             color="$textSubdued"
             formatter="value"
             formatterOptions={{ currency: currencyInfo.symbol }}
           >
             {portfolioItem.totalFiatValue}
-          </NumberSizeableText>
+          </EarnPortfolioValue>
         </XStack>
         {pendingCount && pendingCount > 0 ? (
           <XStack ml="$2">
@@ -963,22 +981,25 @@ const PortfolioItemComponent = ({
 
   const isAssetNavigationDisabled = useCallback(
     (asset: IEarnPortfolioInvestment['assets'][number]) =>
-      earnUtils.isPendleProvider({
+      !asset.metadata.protocol.symbol?.trim() ||
+      (earnUtils.isPendleProvider({
         providerName: asset.metadata.protocol.providerDetail.code,
       }) &&
-      asset.metadata.protocol.symbol === 'USDe' &&
-      (!asset.buttons || asset.buttons.length === 0),
+        asset.metadata.protocol.symbol === 'USDe' &&
+        (!asset.buttons || asset.buttons.length === 0)),
     [],
   );
 
   const handleRowPress = useCallback(
+    /** A missing protocol identity must not fall back to a receipt token symbol. */
     async (asset: IEarnPortfolioInvestment['assets'][number]) => {
-      if (isAssetNavigationDisabled(asset)) {
+      const symbol = asset.metadata.protocol.symbol;
+      if (!symbol?.trim() || isAssetNavigationDisabled(asset)) {
         return;
       }
       await EarnNavigation.pushToEarnProtocolDetails(appNavigation, {
         networkId: asset.metadata.network.networkId,
-        symbol: asset.token.info.symbol,
+        symbol,
         provider: asset.metadata.protocol.providerDetail.code,
         vault: asset.metadata.protocol.vault,
       });
@@ -987,14 +1008,15 @@ const PortfolioItemComponent = ({
   );
 
   const handleManagePress = useCallback(
+    /** Only a complete protocol identity can open the manage form. */
     async (
       asset: IEarnPortfolioInvestment['assets'][number],
       defaultTab?: 'deposit' | 'withdraw',
     ) => {
-      if (isAssetNavigationDisabled(asset)) {
+      const symbol = asset.metadata.protocol.symbol;
+      if (!symbol?.trim() || isAssetNavigationDisabled(asset)) {
         return;
       }
-      const symbol = asset.token.info.symbol;
 
       appNavigation.pushModal(EModalRoutes.StakingModal, {
         screen: EModalStakingRoutes.ManagePosition,
@@ -1225,12 +1247,22 @@ const PortfolioItemComponent = ({
         ) : null}
         <ProtocolAirdrop
           airdropAssets={portfolioItem.airdropAssets}
-          claimSourceCandidates={portfolioItem.assets.map((asset) => ({
-            networkId: asset.metadata.network.networkId,
-            providerName: asset.metadata.protocol.providerDetail.code,
-            symbol: asset.token.info.symbol,
-            vault: asset.metadata.protocol.vault,
-          }))}
+          claimSourceCandidates={portfolioItem.assets.flatMap<IPortfolioClaimSourceCandidate>(
+            (asset) => {
+              const symbol = asset.metadata.protocol.symbol;
+              if (!symbol?.trim()) {
+                return [];
+              }
+              return [
+                {
+                  networkId: asset.metadata.network.networkId,
+                  providerName: asset.metadata.protocol.providerDetail.code,
+                  symbol,
+                  vault: asset.metadata.protocol.vault,
+                },
+              ];
+            },
+          )}
           isPendle={isPendle}
         />
       </YStack>
@@ -1330,6 +1362,7 @@ interface IBasePortfolioTabContentProps {
   hideSmallAssets?: boolean;
 }
 
+/** Filter holdings inside each group so a funded vault cannot keep a zero-value sibling visible. */
 const BasePortfolioTabContent = ({
   portfolioData,
   hideSmallAssets = false,
@@ -1338,16 +1371,22 @@ const BasePortfolioTabContent = ({
   const { investments, isLoading, refresh } = portfolioData;
 
   const filteredInvestments = useMemo(() => {
-    const withAssets = investments.filter(
-      (item) =>
-        !isEmpty(item.assets) ||
-        (item.airdropAssets.find(
-          (airdrop) => !isEmpty(airdrop.airdropAssets),
-        ) !== null &&
-          item.airdropAssets.find(
-            (airdrop) => !isEmpty(airdrop.airdropAssets),
-          ) !== undefined),
-    );
+    const withAssets = investments
+      .map((item) => ({
+        ...item,
+        assets: item.assets.filter(
+          (asset) =>
+            earnTestnetNetworkIds.includes(asset.metadata.network.networkId) ||
+            shouldKeepEarnPortfolioInvestment({
+              totalFiatValue: asset.metadata.fiatValue,
+            }),
+        ),
+      }))
+      .filter(
+        (item) =>
+          !isEmpty(item.assets) ||
+          item.airdropAssets.some((airdrop) => !isEmpty(airdrop.airdropAssets)),
+      );
 
     if (!hideSmallAssets) {
       return withAssets;
@@ -1355,10 +1394,9 @@ const BasePortfolioTabContent = ({
 
     return withAssets.reduce(
       (acc, item) => {
-        const filteredAssets = item.assets.filter((asset) => {
-          const assetValueUsd = Number(asset.metadata?.fiatValueUsd ?? 0);
-          return assetValueUsd >= 0.01;
-        });
+        const filteredAssets = item.assets.filter((asset) =>
+          passesEarnPortfolioSmallAssetsFilter(asset.metadata),
+        );
 
         // If we filtered out all assets and there are no airdrop assets, drop the protocol
         // (Or if the original protocol only had assets that are now all hidden)

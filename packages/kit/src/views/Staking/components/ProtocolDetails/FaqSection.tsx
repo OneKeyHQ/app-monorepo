@@ -169,20 +169,23 @@ function FaqInfo({
   );
 }
 
+/** 使用父页面入口 symbol 查询 FAQ，避免持仓凭证覆盖接口身份；无详情或无问答时不展示，失败沿用查询钩子的处理。 */
 export const FaqSection = ({
   details,
+  symbol,
 }: {
   details?: IStakeProtocolDetails;
+  symbol: string;
 }) => {
   const { result: solutions } = usePromiseResult(
     async () =>
       details
         ? backgroundApiProxy.serviceStaking.getFAQList({
-            symbol: details.token.info.symbol,
+            symbol,
             provider: details.provider.name,
           })
         : Promise.resolve([]),
-    [details],
+    [details, symbol],
     {
       initResult: [],
     },
