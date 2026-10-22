@@ -1959,6 +1959,19 @@ export default class ServiceSwap extends ServiceBase {
 
   // --- swap provider manager
   @backgroundMethod()
+  async fetchSwapProviderSupportNetworks({
+    provider,
+  }: {
+    provider: string;
+  }): Promise<Pick<ISwapNetworkBase, 'networkId'>[]> {
+    const client = await this.getClient(EServiceEndpointEnum.Swap);
+    const { data } = await client.get<
+      IFetchResponse<Pick<ISwapNetworkBase, 'networkId'>[]>
+    >('/swap/v1/provider/support-networks', { params: { provider } });
+    return data?.data ?? [];
+  }
+
+  @backgroundMethod()
   async getSwapProviderManager() {
     const client = await this.getClient(EServiceEndpointEnum.Swap);
     const resp = await client.get<{

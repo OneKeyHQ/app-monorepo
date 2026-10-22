@@ -33,10 +33,12 @@ import { buildDustSweepCandidates } from './candidates';
 export function getDustSweepSupportedNetworks({
   networks,
   providers,
+  providerSupportedNetworks,
   savedProviders,
 }: {
   networks: ISwapNetwork[];
   providers: ISwapServiceProvider[];
+  providerSupportedNetworks: Pick<ISwapNetwork, 'networkId'>[];
   savedProviders: ISwapProviderManager[];
 }) {
   const provider = providers.find(
@@ -50,6 +52,9 @@ export function getDustSweepSupportedNetworks({
   const disabledNetworkIds = new Set(
     provider?.serviceDisableNetworks?.map((item) => item.networkId),
   );
+  const providerNetworkIds = new Set(
+    providerSupportedNetworks.map((item) => item.networkId),
+  );
   const enabledProviders = buildUnifiedSwapProviderManagers({
     serverProviders: providers,
     swapProviderManagers: savedProviders,
@@ -59,6 +64,7 @@ export function getDustSweepSupportedNetworks({
     (network) =>
       network.supportSingleSwap &&
       supportedNetworkIds.has(network.networkId) &&
+      providerNetworkIds.has(network.networkId) &&
       !disabledNetworkIds.has(network.networkId) &&
       !getDenySwapProviderString({
         providerManagers: enabledProviders,
@@ -101,10 +107,12 @@ export async function loadDustSweepEntryCapabilities(
   {
     fetchNetworks,
     fetchProviders,
+    fetchProviderNetworks,
     getSavedProviders,
   }: {
     fetchNetworks: () => Promise<ISwapNetwork[]>;
     fetchProviders: () => Promise<ISwapServiceProvider[]>;
+    fetchProviderNetworks: () => Promise<Pick<ISwapNetwork, 'networkId'>[]>;
     getSavedProviders: () => Promise<ISwapProviderManager[]>;
   } = {
     fetchNetworks: () =>
@@ -113,20 +121,27 @@ export async function loadDustSweepEntryCapabilities(
       }),
     fetchProviders: () =>
       backgroundApiProxy.serviceSwap.getSwapProviderManager(),
+    fetchProviderNetworks: () =>
+      backgroundApiProxy.serviceSwap.fetchSwapProviderSupportNetworks({
+        provider: DUST_SWEEP_PROVIDER,
+      }),
     getSavedProviders: () =>
       backgroundApiProxy.simpleDb.swapConfigs.getSwapProviderManager(),
   },
 ) {
   // Silence each branch independently: Promise.all may reject before another
   // branch fails, but that later error still reaches the proxy toast handler.
-  const [networks, providers, savedProviders] = await Promise.all([
-    loadQuietly(fetchNetworks),
-    loadQuietly(fetchProviders),
-    loadQuietly(getSavedProviders),
-  ]);
+  const [networks, providers, providerSupportedNetworks, savedProviders] =
+    await Promise.all([
+      loadQuietly(fetchNetworks),
+      loadQuietly(fetchProviders),
+      loadQuietly(fetchProviderNetworks),
+      loadQuietly(getSavedProviders),
+    ]);
   return getDustSweepSupportedNetworks({
     networks,
     providers,
+    providerSupportedNetworks,
     savedProviders,
   });
 }
@@ -292,23 +307,31 @@ async function loadDustSweepNetworkContexts(params: IDustSweepRouteParams) {
     accountUtils.isExternalAccount({ accountId: params.accountId })
   )
     throw new OneKeyLocalError('Account is unavailable');
-  const [networks, { accountsInfo }, providers, savedProviders] =
-    await Promise.all([
-      backgroundApiProxy.serviceSwap.fetchSwapNetworks(),
-      backgroundApiProxy.serviceAllNetwork.getAllNetworkAccounts({
-        accountId: params.accountId,
-        indexedAccountId: params.indexedAccountId,
-        networkId: getNetworkIdsMap().onekeyall,
-        // A single-network entry must resolve that network even when the user
-        // disabled it in the All Networks aggregate view.
-        networksEnabledOnly: !params.networkId,
-        excludeTestNetwork: true,
-        includingNonExistingAccount: false,
-        includingNotEqualGlobalDeriveTypeAccount: Boolean(params.networkId),
-      }),
-      backgroundApiProxy.serviceSwap.getSwapProviderManager(),
-      backgroundApiProxy.simpleDb.swapConfigs.getSwapProviderManager(),
-    ]);
+  const [
+    networks,
+    { accountsInfo },
+    providers,
+    providerSupportedNetworks,
+    savedProviders,
+  ] = await Promise.all([
+    backgroundApiProxy.serviceSwap.fetchSwapNetworks(),
+    backgroundApiProxy.serviceAllNetwork.getAllNetworkAccounts({
+      accountId: params.accountId,
+      indexedAccountId: params.indexedAccountId,
+      networkId: getNetworkIdsMap().onekeyall,
+      // A single-network entry must resolve that network even when the user
+      // disabled it in the All Networks aggregate view.
+      networksEnabledOnly: !params.networkId,
+      excludeTestNetwork: true,
+      includingNonExistingAccount: false,
+      includingNotEqualGlobalDeriveTypeAccount: Boolean(params.networkId),
+    }),
+    backgroundApiProxy.serviceSwap.getSwapProviderManager(),
+    backgroundApiProxy.serviceSwap.fetchSwapProviderSupportNetworks({
+      provider: DUST_SWEEP_PROVIDER,
+    }),
+    backgroundApiProxy.simpleDb.swapConfigs.getSwapProviderManager(),
+  ]);
   const provider = providers.find(
     (item) => item.providerInfo.provider === DUST_SWEEP_PROVIDER,
   );
@@ -317,11 +340,19 @@ async function loadDustSweepNetworkContexts(params: IDustSweepRouteParams) {
     .filter((item) => item !== DUST_SWEEP_PROVIDER)
     .toSorted()
     .join(',');
-  const candidates = getDustSweepSupportedNetworks({
+  const supportedNetworks = getDustSweepSupportedNetworks({
     networks,
     providers,
+    providerSupportedNetworks,
     savedProviders,
-  }).filter(
+  });
+  const isRequestedNetworkUnsupported = Boolean(
+    params.networkId &&
+    !supportedNetworks.some(
+      (network) => network.networkId === params.networkId,
+    ),
+  );
+  const candidates = supportedNetworks.filter(
     (network) =>
       (!params.networkId || network.networkId === params.networkId) &&
       accountsInfo.some(
@@ -348,7 +379,11 @@ async function loadDustSweepNetworkContexts(params: IDustSweepRouteParams) {
         ]
       : [];
   });
-  return { entries, providerInfo: provider?.providerInfo };
+  return {
+    entries,
+    providerInfo: provider?.providerInfo,
+    isRequestedNetworkUnsupported,
+  };
 }
 
 type IDustSweepNetworkContexts = Awaited<
@@ -360,7 +395,8 @@ async function loadDustSweepNetworksInternal(
   contexts: Promise<IDustSweepNetworkContexts>,
   isManualRefresh: boolean,
 ): Promise<IDustSweepNetworksResult> {
-  const { entries, providerInfo } = await contexts;
+  const { entries, providerInfo, isRequestedNetworkUnsupported } =
+    await contexts;
   const limit = pLimit(4);
   const results = await Promise.allSettled(
     entries.map((entry) =>
@@ -378,7 +414,8 @@ async function loadDustSweepNetworksInternal(
   );
   if (
     !data.length &&
-    (results.some((result) => result.status === 'rejected') || params.networkId)
+    (results.some((result) => result.status === 'rejected') ||
+      (params.networkId && !isRequestedNetworkUnsupported))
   )
     throw new OneKeyLocalError(
       params.networkId
