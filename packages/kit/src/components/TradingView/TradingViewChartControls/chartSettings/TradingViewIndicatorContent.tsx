@@ -4,9 +4,7 @@ import { useWindowDimensions } from 'react-native';
 import {
   Button,
   Divider,
-  IconButton,
   ScrollView,
-  SizableText,
   Stack,
   XStack,
   YStack,
@@ -25,8 +23,10 @@ import {
   TradingViewIndicatorScopeTabs,
   TradingViewIndicatorSidebar,
 } from './TradingViewIndicatorNavigation';
+import { TradingViewSettingsDialog } from './TradingViewSettingsDialog';
 import { SettingsGroup } from './TradingViewSettingsPrimitives';
 
+import type { ITradingViewSettingsDialogRef } from './TradingViewSettingsDialog';
 import type {
   ITradingViewIndicatorSettingsValue,
   ITradingViewSettingsMockColorRole,
@@ -35,24 +35,11 @@ import type {
   ITradingViewSettingsMockLineStyle,
 } from './TradingViewSettingsMockState';
 
-// The frame mirrors the chart settings dialog (TradingViewChartSettings.tsx):
-// same width cap, height rule, header, navigation column and footer, so the
-// two dialogs read as one set.
-const TRADING_VIEW_INDICATOR_SETTINGS_MAX_WIDTH = 640;
-const TRADING_VIEW_INDICATOR_HEADER_MIN_HEIGHT = 64;
 const TRADING_VIEW_INDICATOR_FOOTER_MIN_HEIGHT = 72;
 const TRADING_VIEW_INDICATOR_SIDEBAR_WIDTH = 192;
 // Focused mode lives in a mobile sheet and keeps its own body budget.
 const TRADING_VIEW_INDICATOR_FOCUSED_BODY_HEIGHT = 418;
-const TRADING_VIEW_INDICATOR_FOCUSED_SETTINGS_PREFERRED_HEIGHT =
-  TRADING_VIEW_INDICATOR_HEADER_MIN_HEIGHT +
-  TRADING_VIEW_INDICATOR_FOCUSED_BODY_HEIGHT +
-  TRADING_VIEW_INDICATOR_FOOTER_MIN_HEIGHT;
 const TRADING_VIEW_INDICATOR_FOCUSED_SETTINGS_VERTICAL_MARGIN = 16;
-
-function getIndicatorDialogHeight(windowHeight: number) {
-  return Math.min(600, Math.max(windowHeight - 32, 420));
-}
 
 function TradingViewIndicatorContent({
   mobileLayout = false,
@@ -149,21 +136,12 @@ function TradingViewIndicatorContent({
           />
         </SettingsGroup>
       ) : null}
-      {indicator.description ? (
-        <SettingsGroup
-          title={intl.formatMessage({ id: ETranslations.global_description })}
-          showDivider={false}
-        >
-          <SizableText px="$5" size="$bodyMd" color="$textSubdued">
-            {indicator.description}
-          </SizableText>
-        </SettingsGroup>
-      ) : null}
     </ScrollView>
   );
 }
 
 export function TradingViewIndicatorSettingsDialog({
+  dialogRef,
   displayMode,
   mobileLayout = false,
   value,
@@ -188,6 +166,7 @@ export function TradingViewIndicatorSettingsDialog({
   onClose,
   isSubmitting = false,
 }: {
+  dialogRef?: ITradingViewSettingsDialogRef;
   displayMode: 'focused' | 'full';
   mobileLayout?: boolean;
   value: ITradingViewIndicatorSettingsValue;
@@ -218,7 +197,7 @@ export function TradingViewIndicatorSettingsDialog({
   ) => void;
   onParameterChange: (parameterId: string, value: number) => void;
   onReset: () => void;
-  onConfirm?: () => void;
+  onConfirm?: () => boolean | Promise<boolean>;
   onClose?: () => void;
   isSubmitting?: boolean;
 }) {
@@ -233,13 +212,6 @@ export function TradingViewIndicatorSettingsDialog({
       TRADING_VIEW_INDICATOR_FOCUSED_SETTINGS_VERTICAL_MARGIN,
     0,
   );
-  const dialogHeight = isFocused
-    ? Math.min(
-        TRADING_VIEW_INDICATOR_FOCUSED_SETTINGS_PREFERRED_HEIGHT,
-        focusedMaxHeight,
-      )
-    : getIndicatorDialogHeight(windowHeight);
-  const cancelLabel = intl.formatMessage({ id: ETranslations.global_cancel });
 
   if (mobileLayout) {
     const mobileMaxHeight = Math.max(focusedMaxHeight - 160, 160);
@@ -294,7 +266,7 @@ export function TradingViewIndicatorSettingsDialog({
             variant="primary"
             disabled={isSubmitting}
             loading={isSubmitting}
-            onPress={onConfirm}
+            onPress={() => void onConfirm?.()}
           >
             {intl.formatMessage({ id: ETranslations.global_confirm })}
           </Button>
@@ -304,131 +276,71 @@ export function TradingViewIndicatorSettingsDialog({
   }
 
   return (
-    <YStack
+    <TradingViewSettingsDialog
+      dialogRef={dialogRef}
       testID="trading-view-indicator-settings-dialog"
-      width="100%"
-      maxWidth={isFocused ? '100%' : TRADING_VIEW_INDICATOR_SETTINGS_MAX_WIDTH}
-      height={dialogHeight}
-      maxHeight={isFocused ? focusedMaxHeight : '100%'}
-      overflow="hidden"
-      borderWidth={isFocused ? 0 : '$px'}
-      borderColor="$borderSubdued"
-      borderRadius={isFocused ? 0 : '$5'}
-      borderCurve="continuous"
-      bg="$bgApp"
+      testIDPrefix="trading-view-indicator-settings"
+      title={intl.formatMessage({ id: ETranslations.market_indicators })}
+      isSubmitting={isSubmitting}
+      onReset={onReset}
+      onCancel={onClose}
+      onClose={onClose}
+      onConfirm={onConfirm}
     >
-      <XStack
-        testID="trading-view-indicator-settings-header"
-        minHeight={TRADING_VIEW_INDICATOR_HEADER_MIN_HEIGHT}
-        flexShrink={0}
-        px={isFocused ? '$4' : '$6'}
-        alignItems="center"
-        justifyContent="space-between"
-      >
-        <SizableText size="$headingLg">
-          {intl.formatMessage({ id: ETranslations.market_indicators })}
-        </SizableText>
-        <IconButton
-          testID="trading-view-indicator-settings-close"
-          title={cancelLabel}
-          icon="CrossedSmallOutline"
-          variant="tertiary"
-          disabled={isSubmitting}
-          onPress={onClose}
-        />
-      </XStack>
-      <YStack
-        flex={1}
-        minHeight={0}
-        pointerEvents={isSubmitting ? 'none' : 'auto'}
-      >
-        {isFocused ? null : (
-          <TradingViewIndicatorScopeTabs
-            value={selectedIndicatorScope}
-            indicators={value.indicators}
-            maxActiveSubIndicatorCount={maxActiveSubIndicatorCount}
-            onChange={onScopeChange}
-          />
-        )}
-        <XStack
-          testID="trading-view-indicator-settings-body"
+      {(footer) => (
+        <YStack
           flex={1}
           minHeight={0}
+          pointerEvents={isSubmitting ? 'none' : 'auto'}
         >
           {isFocused ? null : (
-            <YStack
-              width={TRADING_VIEW_INDICATOR_SIDEBAR_WIDTH}
-              flexShrink={0}
-              minHeight={0}
-              borderRightWidth="$px"
-              borderRightColor="$neutral3"
-            >
-              <TradingViewIndicatorSidebar
-                indicators={visibleIndicators}
-                selectedIndicatorId={selectedIndicatorId}
-                onSelect={onSelectIndicator}
-                onToggle={onToggleIndicator}
-              />
-            </YStack>
-          )}
-          <YStack flex={1} minWidth={0} minHeight={0}>
-            <TradingViewIndicatorContent
-              indicator={selectedIndicator}
-              onToggleLine={onToggleLine}
-              onLinePeriodChange={onLinePeriodChange}
-              onLineStyleChange={onLineStyleChange}
-              onLineSecondaryStyleChange={onLineSecondaryStyleChange}
-              onLineColorChange={onLineColorChange}
-              onOpacityChange={onOpacityChange}
-              onOpacityColorChange={onOpacityColorChange}
-              onParameterChange={onParameterChange}
+            <TradingViewIndicatorScopeTabs
+              value={selectedIndicatorScope}
+              indicators={value.indicators}
+              maxActiveSubIndicatorCount={maxActiveSubIndicatorCount}
+              onChange={onScopeChange}
             />
-          </YStack>
-        </XStack>
-      </YStack>
-      <XStack
-        testID="trading-view-indicator-settings-footer"
-        minHeight={TRADING_VIEW_INDICATOR_FOOTER_MIN_HEIGHT}
-        flexShrink={0}
-        px={isFocused ? '$4' : '$6'}
-        py="$3"
-        gap="$3"
-        alignItems="center"
-        justifyContent="space-between"
-        bg="$bgApp"
-      >
-        <Button
-          testID="trading-view-indicator-settings-mock-reset"
-          size="medium"
-          icon="RotateCounterclockwiseOutline"
-          variant="tertiary"
-          disabled={isSubmitting}
-          onPress={onReset}
-        >
-          {intl.formatMessage({ id: ETranslations.global_reset })}
-        </Button>
-        <XStack gap="$3">
-          <Button
-            testID="trading-view-indicator-settings-mock-cancel"
-            size="medium"
-            variant="secondary"
-            disabled={isSubmitting}
-            onPress={onClose}
+          )}
+          <XStack
+            testID="trading-view-indicator-settings-body"
+            flex={1}
+            minHeight={0}
           >
-            {cancelLabel}
-          </Button>
-          <Button
-            testID="trading-view-indicator-settings-mock-confirm"
-            size="medium"
-            variant="primary"
-            loading={isSubmitting}
-            disabled={isSubmitting}
-            onPress={onConfirm}
-          >
-            {intl.formatMessage({ id: ETranslations.global_confirm })}
-          </Button>
-        </XStack>
-      </XStack>
-    </YStack>
+            {isFocused ? null : (
+              <YStack
+                testID="trading-view-indicator-sidebar-container"
+                width={TRADING_VIEW_INDICATOR_SIDEBAR_WIDTH}
+                height="100%"
+                flexShrink={0}
+                minHeight={0}
+                borderRightWidth="$px"
+                borderRightColor="$neutral3"
+              >
+                <TradingViewIndicatorSidebar
+                  indicators={visibleIndicators}
+                  selectedIndicatorId={selectedIndicatorId}
+                  onSelect={onSelectIndicator}
+                  onToggle={onToggleIndicator}
+                />
+              </YStack>
+            )}
+            <YStack flex={1} minWidth={0} minHeight={0}>
+              <TradingViewIndicatorContent
+                indicator={selectedIndicator}
+                onToggleLine={onToggleLine}
+                onLinePeriodChange={onLinePeriodChange}
+                onLineStyleChange={onLineStyleChange}
+                onLineSecondaryStyleChange={onLineSecondaryStyleChange}
+                onLineColorChange={onLineColorChange}
+                onOpacityChange={onOpacityChange}
+                onOpacityColorChange={onOpacityColorChange}
+                onParameterChange={onParameterChange}
+              />
+              {footer}
+            </YStack>
+          </XStack>
+        </YStack>
+      )}
+    </TradingViewSettingsDialog>
   );
 }
