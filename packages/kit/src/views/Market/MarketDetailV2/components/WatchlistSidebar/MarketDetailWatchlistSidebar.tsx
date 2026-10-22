@@ -48,12 +48,14 @@ import {
 } from '../TokenSelector/constants';
 import { SelectorWatchlistRecommendations } from '../TokenSelector/SelectorWatchlistRecommendations';
 
-import { filterWatchlistTokens } from './filterWatchlistTokens';
+import {
+  filterWatchlistTokens,
+  getWatchlistSidebarPriceChange,
+} from './filterWatchlistTokens';
 import {
   WATCHLIST_SIDEBAR_ROW_HEIGHT,
   WatchlistSidebarRow,
   WatchlistSidebarRowSkeleton,
-  getWatchlistSidebarPriceChange,
 } from './WatchlistSidebarRow';
 
 import type { IMarketToken } from '../../../MarketHomeV2/components/MarketTokenList/MarketTokenData';
@@ -125,11 +127,13 @@ function getSortValue(item: IMarketToken, key: ISidebarSortKey) {
   if (getMarketWatchlistRowKind(item) === 'stock') {
     return undefined;
   }
-  return item.turnover || undefined;
+  return Number.isFinite(item.turnover) && item.turnover
+    ? item.turnover
+    : undefined;
 }
 
-// Rows missing the sorted figure stay at the bottom either way; no sort keeps
-// the watchlist's own order.
+// Rows missing the sorted figure (unset, or NaN from an unavailable quote)
+// stay at the bottom either way; no sort keeps the watchlist's own order.
 function sortTokens(tokens: IMarketToken[], sort: ISidebarSort | undefined) {
   if (!sort) {
     return tokens;
@@ -172,9 +176,10 @@ function isCurrentDetailToken(
   if (current.assetId) {
     return item.assetId === current.assetId;
   }
+  // On a token route, a chain row matches by network and address even when it
+  // carries a `stockId` (a tokenized stock); listing and asset rows have no
+  // network, so they never match here.
   return (
-    !item.stockId &&
-    !item.assetId &&
     !item.perpsCoin &&
     Boolean(current.networkId) &&
     item.networkId === current.networkId &&
@@ -246,11 +251,15 @@ function MarketDetailWatchlistSidebarImpl({
   });
   // Live ticks on top of the poll, as the Market Favorites tab gets them: the
   // same subscription hook, only while this detail page is the focused one,
-  // and under the same cap. The watchlist has no size limit, so only its first
-  // rows subscribe; the rest stay on the poll.
+  // and under the same cap. The watchlist has no size limit, so only the first
+  // rows the hook can subscribe (chain tokens, not perps or listings) take the
+  // slots; the rest stay on the poll.
   const isFocused = useIsFocused();
   const subscriptionTokens = useMemo(
-    () => data.slice(0, MARKET_HOME_WS_MAX_SUBSCRIPTIONS),
+    () =>
+      data
+        .filter((token) => !token.perpsCoin && Boolean(token.networkId))
+        .slice(0, MARKET_HOME_WS_MAX_SUBSCRIPTIONS),
     [data],
   );
   const liveData = useMarketHomeTokenListWebSocket({
@@ -349,7 +358,9 @@ function MarketDetailWatchlistSidebarImpl({
   // favorites that are stored but came back with no rows read as a failed
   // load rather than an empty watchlist.
   const storedCount = watchListData?.length ?? 0;
-  const isWatchlistEmpty = isMounted && storedCount === 0;
+  // A search with nothing stored reads as no results, not as recommendations.
+  const isWatchlistEmpty =
+    isMounted && storedCount === 0 && !searchValue.trim();
   const showSkeleton = !isMounted || (isLoading && data.length === 0);
   const isLoadFailed = data.length === 0 && (isError || storedCount > 0);
 
@@ -407,11 +418,16 @@ function MarketDetailWatchlistSidebarImpl({
       </YStack>
     );
   } else if (isLoadFailed) {
+    // Without `isError` the empty result may also be favorites that are no
+    // longer available (a delisted perp), so it reads as no results with a
+    // retry rather than claiming a connection error.
     content = (
       <YStack flex={1} alignItems="center" justifyContent="center" gap="$2">
         <SizableText color="$textSubdued">
           {intl.formatMessage({
-            id: ETranslations.global_connet_error_try_again,
+            id: isError
+              ? ETranslations.global_connet_error_try_again
+              : ETranslations.global_no_results,
           })}
         </SizableText>
         <Button

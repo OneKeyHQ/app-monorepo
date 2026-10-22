@@ -28,15 +28,11 @@ import {
 } from '../TokenSelector/constants';
 import { SelectorTokenStar } from '../TokenSelector/selectorStar';
 
+import { getWatchlistSidebarPriceChange } from './filterWatchlistTokens';
+
 import type { IMarketToken } from '../../../MarketHomeV2/components/MarketTokenList/MarketTokenData';
 
 export const WATCHLIST_SIDEBAR_ROW_HEIGHT = TOKEN_SELECTOR_ROW_HEIGHT;
-
-export function getWatchlistSidebarPriceChange(item: IMarketToken) {
-  return item.priceChangeRaw === undefined || item.priceChangeRaw === '-'
-    ? undefined
-    : item.change24h;
-}
 
 function MissingValue({
   size,
