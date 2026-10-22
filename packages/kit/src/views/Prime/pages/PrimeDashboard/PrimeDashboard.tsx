@@ -14,6 +14,7 @@ import {
   Spinner,
   Stack,
   Theme,
+  Toast,
   XStack,
   YStack,
   useIsModalPage,
@@ -178,8 +179,53 @@ export default function PrimeDashboard({
   }
   fromDeepLinkRef.current = Boolean(fromDeepLink);
 
+  // Opened from a gated feature: an existing member who logs in here goes
+  // back to the feature instead of staying on the dashboard. Returns true
+  // when the dashboard was closed.
+  const closeIfPrimeActiveAfterLogin = useCallback(async () => {
+    if (!fromFeature || fromDeepLinkRef.current) {
+      return false;
+    }
+    try {
+      const { userInfo, primeSubscription } =
+        await backgroundApiProxy.servicePrime.apiFetchPrimeUserInfo({
+          forceRefresh: true,
+        });
+      if (
+        !isMountedRef.current ||
+        !userInfo.isLoggedIn ||
+        !primeSubscription?.isActive
+      ) {
+        return false;
+      }
+    } catch {
+      // Unknown status: stay on the dashboard.
+      return false;
+    }
+    Toast.message({
+      title: intl.formatMessage({
+        id: ETranslations.prime_already_active__msg,
+      }),
+    });
+    navigation.popStack();
+    return true;
+  }, [fromFeature, intl, isMountedRef, navigation]);
+
+  // A logged-out Subscribe press resumes here after login.
+  const ensurePrimeSubscriptionActiveOnResume = useCallback<
+    typeof ensurePrimeSubscriptionActive
+  >(
+    async (params) => {
+      if (await closeIfPrimeActiveAfterLogin()) {
+        return;
+      }
+      await ensurePrimeSubscriptionActiveRef.current(params);
+    },
+    [closeIfPrimeActiveAfterLogin],
+  );
+
   usePrimeSubscribeResume({
-    ensurePrimeSubscriptionActive,
+    ensurePrimeSubscriptionActive: ensurePrimeSubscriptionActiveOnResume,
     featureName: fromFeature,
     isLoggedIn,
     onLoadingChange: setIsSubscribeLazyLoading,
@@ -243,8 +289,12 @@ export default function PrimeDashboard({
       return;
     }
     setDidDashboardLoginFail(false);
+    if (await closeIfPrimeActiveAfterLogin()) {
+      return;
+    }
     consumeDeepLinkHandoff();
   }, [
+    closeIfPrimeActiveAfterLogin,
     consumeDeepLinkHandoff,
     ensureDashboardLogin,
     handleDashboardLoginError,
