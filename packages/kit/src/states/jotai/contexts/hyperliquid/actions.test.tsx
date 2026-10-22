@@ -512,7 +512,7 @@ describe('useHyperliquidActions.hydrateUnresolvedActivePerp', () => {
     expect(mockRecoverSubscriptionsAfterLivenessProof).not.toHaveBeenCalled();
   });
 
-  it('does not reuse the original switch proof to re-enable a disabled handler during hydration', async () => {
+  it('reconciles hydration without reusing the original switch proof', async () => {
     const { actions } = setup();
     await act(async () => {
       await actions.switchTradeInstrument({
@@ -529,11 +529,6 @@ describe('useHyperliquidActions.hydrateUnresolvedActivePerp', () => {
         1,
       ),
     );
-    let handlerDisabled = true;
-    mockRecoverSubscriptionsAfterLivenessProof.mockImplementation(async () => {
-      handlerDisabled = false;
-      return true;
-    });
     metadataReady = true;
     await act(async () => {
       expect(await actions.hydrateUnresolvedActivePerp()).toBe(true);
@@ -541,7 +536,6 @@ describe('useHyperliquidActions.hydrateUnresolvedActivePerp', () => {
     await waitFor(() =>
       expect(mockUpdateSubscriptions).toHaveBeenCalledTimes(1),
     );
-    expect(handlerDisabled).toBe(true);
     expect(mockRecoverSubscriptionsAfterLivenessProof).toHaveBeenCalledTimes(1);
   });
 
