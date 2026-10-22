@@ -483,32 +483,43 @@ export function useCloudBackup() {
     },
   );
 
-  const lastBackupDetailLaunch = useRef<number | undefined>(undefined);
+  const backupDetailLaunchPending = useRef(false);
   const openBackupDetail = useCallback(() => {
     const rootNavigation = rootNavigationRef.current;
-    if (!rootNavigation) return;
-    const now = Date.now();
-    // Keep the handoff callable after source teardown without queuing a second
-    // navigation. Once opened, the destination owns authorization and retries.
+    if (!rootNavigation?.isReady()) return;
     if (
-      (lastBackupDetailLaunch.current !== undefined &&
-        now - lastBackupDetailLaunch.current < 600) ||
+      backupDetailLaunchPending.current ||
       rootNavigation.getCurrentRoute()?.name ===
         EOnboardingPagesV2.ICloudBackupDetails
     ) {
       return;
     }
-    lastBackupDetailLaunch.current = now;
+    // The source may already be unmounted. Release this handoff when the
+    // destination leaves, not after a cooldown that could swallow re-entry.
+    let detailOpened = false;
+    const unsubscribe = rootNavigation.addListener('state', () => {
+      if (
+        rootNavigation.getCurrentRoute()?.name ===
+        EOnboardingPagesV2.ICloudBackupDetails
+      ) {
+        detailOpened = true;
+      } else if (detailOpened) {
+        backupDetailLaunchPending.current = false;
+        unsubscribe();
+      }
+    });
+    backupDetailLaunchPending.current = true;
     try {
       rootNavigation.navigate(ERootRoutes.Onboarding, {
         screen: EOnboardingV2Routes.OnboardingV2,
         params: {
           screen: EOnboardingPagesV2.ICloudBackupDetails,
-          params: { actionType: 'backup', backupTime: now },
+          params: { actionType: 'backup', backupTime: Date.now() },
         },
       });
     } catch (error) {
-      lastBackupDetailLaunch.current = undefined;
+      backupDetailLaunchPending.current = false;
+      unsubscribe();
       throw error;
     }
   }, []);

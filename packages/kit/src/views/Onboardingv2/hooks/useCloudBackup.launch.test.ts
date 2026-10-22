@@ -17,7 +17,15 @@ import { showCloudBackupPasswordDialog } from '../components/CloudBackupDialogs'
 
 import { useCloudBackup } from './useCloudBackup';
 
+const mockNavigationStateListeners = new Set<() => void>();
 const mockRootNavigation = {
+  isReady: jest.fn(() => true),
+  addListener: jest.fn((_event: string, listener: () => void) => {
+    mockNavigationStateListeners.add(listener);
+    return () => {
+      mockNavigationStateListeners.delete(listener);
+    };
+  }),
   navigate: jest.fn(),
   getCurrentRoute: jest.fn(() => ({ name: 'source' })),
 };
@@ -146,6 +154,8 @@ describe.each(['Android', 'iOS', 'desktop'])(
     const service = jest.mocked(backgroundApiProxy.serviceCloudBackupV2);
     beforeEach(() => {
       jest.clearAllMocks();
+      mockNavigationStateListeners.clear();
+      mockRootNavigation.isReady.mockReturnValue(true);
       mockRootNavigation.navigate.mockReset();
       mockRootNavigation.getCurrentRoute.mockReturnValue({ name: 'source' });
       mockNavigation.navigate.mockReset();
@@ -229,7 +239,7 @@ describe.each(['Android', 'iOS', 'desktop'])(
       expect(showCloudBackupPasswordDialog).not.toHaveBeenCalled();
     });
 
-    it('opens only one detail page for repeated handoffs, including after teardown and rerender', async () => {
+    it('deduplicates handoffs after source teardown but allows re-entry 100ms after exiting details', async () => {
       const source = renderHook(() => useCloudBackup());
       const now = jest.spyOn(Date, 'now').mockReturnValue(1000);
       const launch = () =>
@@ -250,17 +260,54 @@ describe.each(['Android', 'iOS', 'desktop'])(
       mockRootNavigation.getCurrentRoute.mockReturnValue({
         name: EOnboardingPagesV2.ICloudBackupDetails,
       });
-      now.mockReturnValue(2000);
+      mockNavigationStateListeners.forEach((listener) => listener());
+      now.mockReturnValue(1100);
       await act(async () => {
         await startBackup({ alwaysGoToBackupDetail: true });
       });
       expect(mockRootNavigation.navigate).toHaveBeenCalledTimes(1);
       expect(service.loginCloudIfNeed).not.toHaveBeenCalled();
       mockRootNavigation.getCurrentRoute.mockReturnValue({ name: 'source' });
+      mockNavigationStateListeners.forEach((listener) => listener());
       await act(async () => {
         await startBackup({ alwaysGoToBackupDetail: true });
       });
       expect(mockRootNavigation.navigate).toHaveBeenCalledTimes(2);
+    });
+
+    it('keeps a slow navigation handoff single-flight beyond 600ms', async () => {
+      const source = renderHook(() => useCloudBackup());
+      const now = jest.spyOn(Date, 'now').mockReturnValue(1000);
+      await act(async () => {
+        await source.result.current.startBackup({
+          alwaysGoToBackupDetail: true,
+        });
+      });
+      now.mockReturnValue(2000);
+      await act(async () => {
+        await source.result.current.startBackup({
+          alwaysGoToBackupDetail: true,
+        });
+      });
+      expect(mockRootNavigation.navigate).toHaveBeenCalledTimes(1);
+    });
+
+    it('allows retry once the root navigator is ready', async () => {
+      const source = renderHook(() => useCloudBackup());
+      mockRootNavigation.isReady.mockReturnValue(false);
+      await act(async () => {
+        await source.result.current.startBackup({
+          alwaysGoToBackupDetail: true,
+        });
+      });
+      expect(mockRootNavigation.navigate).not.toHaveBeenCalled();
+      mockRootNavigation.isReady.mockReturnValue(true);
+      await act(async () => {
+        await source.result.current.startBackup({
+          alwaysGoToBackupDetail: true,
+        });
+      });
+      expect(mockRootNavigation.navigate).toHaveBeenCalledTimes(1);
     });
 
     it('allows a handoff retry after navigation throws', async () => {
