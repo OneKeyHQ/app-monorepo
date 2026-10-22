@@ -12,7 +12,6 @@ import {
 
 import { act, renderHook, waitFor } from '@testing-library/react';
 
-import { calculateTradingViewNativeSimpleMovingAverage } from '../utils/chartIndicators/ma';
 import {
   getTradingViewNativeCandleX,
   getTradingViewNativeDataUpdateMetadata,
@@ -27,6 +26,8 @@ import type {
   IMarketTokenKLineDataPoint,
   IMarketTokenKLineResponse,
 } from '@onekeyhq/shared/types/marketV2';
+
+import { calculateTradingViewNativeSimpleMovingAverage } from '../utils/chartIndicators/ma';
 
 import { getTradingViewNativeSourceKey } from './getTradingViewNativeSource';
 import { createTradingViewNativeDataProvider } from './providers/createTradingViewNativeDataProvider';

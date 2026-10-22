@@ -190,10 +190,10 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   default: {
     serviceHyperliquidExchange: {
       cancelTwapOrder: (...args: unknown[]) => mockCancelTwapOrder(...args),
-      placeTwapOrder: (params: IPlaceTwapOrderParams) =>
-        mockPlaceTwapOrder(params),
       orderOpen: (...args: unknown[]) => mockOrderOpen(...args),
       updateLeverage: (...args: unknown[]) => mockUpdateLeverage(...args),
+      placeTwapOrder: (params: IPlaceTwapOrderParams) =>
+        mockPlaceTwapOrder(params),
     },
     serviceHyperliquid: {
       cancelPendingActiveAssetChange: () =>
