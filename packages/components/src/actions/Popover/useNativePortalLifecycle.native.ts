@@ -100,12 +100,12 @@ export function useNativePortalLifecycle({
     (info: { open: boolean }) => {
       if (
         renderCycle !== openCycleRef.current ||
-        info.open !== desiredOpenRef.current ||
+        (info.open && !desiredOpenRef.current) ||
         (!info.open && !hadOpenAttemptRef.current)
       ) {
         return;
       }
-      if (!info.open && !desiredOpenRef.current) {
+      if (!info.open) {
         clearCloseFallbackTimer();
         hasOpenedNativeSheetRef.current = false;
         hadOpenAttemptRef.current = false;

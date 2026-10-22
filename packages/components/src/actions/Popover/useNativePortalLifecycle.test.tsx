@@ -1,6 +1,8 @@
 /**
  * @jest-environment jsdom
  */
+import { useState } from 'react';
+
 import { act, renderHook } from '@testing-library/react';
 
 import { useNativePortalLifecycle } from './useNativePortalLifecycle.native';
@@ -33,6 +35,42 @@ describe('native popover exit lifecycle', () => {
     );
     expect(result.current.isNativePortalMounted).toBe(false);
     expect(jest.getTimerCount()).toBe(0);
+  });
+
+  it('accepts native dismiss completion before the requested close commits', () => {
+    const onAnimationComplete = jest.fn();
+    const { result } = renderHook(() => {
+      const [isOpen, setIsOpen] = useState(true);
+      return {
+        lifecycle: useNativePortalLifecycle({
+          isOpen,
+          sheetProps: { onAnimationComplete },
+        }),
+        requestClose: () => setIsOpen(false),
+      };
+    });
+    act(() => jest.advanceTimersByTime(16));
+    expect(result.current.lifecycle.popoverOpen).toBe(true);
+
+    act(() => {
+      const { lifecycle, requestClose } = result.current;
+      requestClose();
+      lifecycle.resolvedSheetProps?.onAnimationComplete?.({ open: false });
+    });
+
+    expect(result.current.lifecycle.isNativePortalMounted).toBe(false);
+    expect(onAnimationComplete).toHaveBeenCalledTimes(1);
+    expect(onAnimationComplete).toHaveBeenCalledWith({ open: false });
+    expect(jest.getTimerCount()).toBe(0);
+
+    act(() => {
+      result.current.lifecycle.resolvedSheetProps?.onAnimationComplete?.({
+        open: false,
+      });
+      jest.advanceTimersByTime(5500);
+    });
+    expect(onAnimationComplete).toHaveBeenCalledTimes(1);
+    expect(result.current.lifecycle.isNativePortalMounted).toBe(false);
   });
 
   it('does not unmount a reopened popover on a previous close callback', () => {
