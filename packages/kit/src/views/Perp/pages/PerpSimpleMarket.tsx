@@ -50,6 +50,7 @@ import { PerpsAccountSelectorProviderMirror } from '../PerpsAccountSelectorProvi
 import { PerpsProviderMirror } from '../PerpsProviderMirror';
 import { simplePrice, simpleUsd } from '../utils/simpleDisplay';
 
+import type { ISimpleMarketChartPrice } from '../components/Simple/SimpleMarketChart';
 import type { RouteProp } from '@react-navigation/native';
 import type {
   LayoutChangeEvent,
@@ -122,6 +123,7 @@ function SimpleMarketContent() {
     [updateHeaderPriceVisibility],
   );
   const [infoExpanded, setInfoExpanded] = useState(false);
+  const [chartPrice, setChartPrice] = useState<ISimpleMarketChartPrice>();
   const { assetCtx, isLoading } = usePerpsAssetCtx({
     assetId: instrument.assetId ?? -1,
   });
@@ -129,14 +131,22 @@ function SimpleMarketContent() {
     instrument.mode === 'perp' && instrument.coin === route.params.coin;
   const hasMarketData = valid && !isLoading;
   const headerWidth = Math.max(100, Math.min(264, width - 152));
-  const change = hasMarketData ? assetCtx?.change24hPercent : undefined;
+  const currentChartPrice =
+    chartPrice?.coin === route.params.coin ? chartPrice : undefined;
+  const priceChange = currentChartPrice
+    ? Number(currentChartPrice.changePercent)
+    : assetCtx?.change24hPercent;
+  const change = hasMarketData ? priceChange : undefined;
   const changeKnown = change !== undefined && Number.isFinite(change);
   const changeLabel = changeKnown
     ? `${change >= 0 ? '+' : ''}${change.toFixed(2)}%`
     : '--';
   const directionColor = (change ?? 0) >= 0 ? '$textSuccess' : '$textCritical';
   const changeColor = changeKnown ? directionColor : '$textSubdued';
-  const headerPrice = hasMarketData ? simplePrice(assetCtx?.markPrice) : '--';
+  const markPrice = hasMarketData ? simplePrice(assetCtx?.markPrice) : '--';
+  const headerPrice = hasMarketData
+    ? simplePrice(currentChartPrice?.price ?? assetCtx?.markPrice)
+    : '--';
   const openTokenSelector = useCallback(() => {
     if (submitting) return;
     navigation.push(EModalPerpRoutes.MobileTokenSelector);
@@ -208,6 +218,7 @@ function SimpleMarketContent() {
           >
             <YStack gap="$1" onLayout={handlePriceLayout}>
               <SizableText
+                testID="perps-simple-market-price"
                 size="$heading3xl"
                 fontSize={32}
                 lineHeight={40}
@@ -220,7 +231,11 @@ function SimpleMarketContent() {
                 <SizableText size="$bodySm" color="$textSubdued">
                   {hasMarketData ? `≈${headerPrice}` : '--'}
                 </SizableText>
-                <SizableText size="$bodySmMedium" color={changeColor}>
+                <SizableText
+                  testID="perps-simple-market-change"
+                  size="$bodySmMedium"
+                  color={changeColor}
+                >
                   {changeLabel}
                 </SizableText>
               </XStack>
@@ -244,7 +259,7 @@ function SimpleMarketContent() {
                     label: intl.formatMessage({
                       id: ETranslations.perp_position_mark_price,
                     }),
-                    value: headerPrice,
+                    value: markPrice,
                   },
                   {
                     label: intl.formatMessage({
@@ -343,6 +358,7 @@ function SimpleMarketContent() {
               coin={route.params.coin}
               active={focused}
               livePrice={assetCtx?.markPrice}
+              onPriceChange={setChartPrice}
             />
           ) : null}
           <SimpleMarketPortfolio
