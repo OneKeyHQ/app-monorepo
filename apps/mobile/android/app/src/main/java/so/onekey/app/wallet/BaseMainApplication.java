@@ -27,6 +27,7 @@ import com.facebook.react.defaults.DefaultNewArchitectureEntryPoint;
 import com.facebook.react.internal.featureflags.ReactNativeFeatureFlags;
 import com.facebook.react.internal.featureflags.ReactNativeNewArchitectureFeatureFlagsDefaults;
 import com.facebook.react.modules.systeminfo.AndroidInfoHelpers;
+import com.facebook.react.views.view.WindowUtilKt;
 import com.facebook.react.soloader.OpenSourceMergedSoMapping;
 import com.facebook.soloader.SoLoader;
 import com.tencent.mmkv.MMKV;
@@ -589,6 +590,10 @@ public class BaseMainApplication extends Application implements ReactApplication
               return true;
             }
           });
+    }
+    // Mirrors ReactNativeApplicationEntryPoint, which this app does not use.
+    if (BuildConfig.IS_EDGE_TO_EDGE_ENABLED) {
+      WindowUtilKt.setEdgeToEdgeFeatureFlagOn();
     }
     long tAfterNewArch = System.currentTimeMillis();
     OneKeyLog.info(

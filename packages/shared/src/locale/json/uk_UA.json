@@ -2717,6 +2717,7 @@
   "market.number_week_abbr": "{number}тиж",
   "market.one_hour_percentage": "1г %",
   "market.open_abbr": "Відкр",
+  "market.open_favorites": "Відкрити обране",
   "market.opens_in": "Відкриється через {time}",
   "market.pair_link": "Посилання на пару:",
   "market.performance": "Динаміка ціни",

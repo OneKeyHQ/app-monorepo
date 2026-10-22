@@ -14,6 +14,7 @@ import {
   Toast,
   XStack,
   YStack,
+  usePopoverContext,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
@@ -31,6 +32,10 @@ import { ETranslations, LOCALES_OPTION } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EPrimeFeatures } from '@onekeyhq/shared/src/routes/prime';
+import {
+  createPrimeFreeTrialAttempt,
+  getPrimeFreeTrialAccessDeniedResult,
+} from '@onekeyhq/shared/src/utils/primeFreeTrialAnalytics';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 import { PRIME_FREE_TRIAL_QUOTA_EXHAUSTED_CODE } from '@onekeyhq/shared/types/prime/primeFreeTrialTypes';
@@ -271,7 +276,6 @@ export function TranslatePopoverContent({
   onTranslate,
   onRetranslate,
   onTestAITranslateError,
-  closePopover,
   showSettings,
   onShowSettingsChange,
 }: {
@@ -279,11 +283,14 @@ export function TranslatePopoverContent({
   onTranslate: () => void;
   onRetranslate?: () => void;
   onTestAITranslateError?: (testFlag: string) => void;
-  closePopover: () => void;
   showSettings: boolean;
   onShowSettingsChange: (show: boolean) => void;
 }) {
   const intl = useIntl();
+  const { closePopover: closePopoverFromContext } = usePopoverContext();
+  const closePopover = useCallback(() => {
+    void closePopoverFromContext?.();
+  }, [closePopoverFromContext]);
   const { isPrimeActive, isPrimeSubscriptionActive, isLoggedIn } =
     useOneKeyAuth();
   const isPrimeUser = Boolean(isPrimeSubscriptionActive);
@@ -498,17 +505,16 @@ export function TranslatePopoverTrigger({
           testID="browser-bar-translate"
         />
       }
-      renderContent={({ closePopover }) => (
+      renderContent={
         <TranslatePopoverContent
           isTranslated={isTranslated}
           onTranslate={onTranslate}
           onRetranslate={onRetranslate}
           onTestAITranslateError={onTestAITranslateError}
-          closePopover={closePopover}
           showSettings={showSettings}
           onShowSettingsChange={setShowSettings}
         />
-      )}
+      }
     />
   );
 }
@@ -688,14 +694,20 @@ export function usePageTranslation(tabId: string) {
       openPrimeDashboard({ featureId: EPrimeFeatures.DAppTranslate });
       return false;
     }
+    const attempt = createPrimeFreeTrialAttempt({
+      featureId: EPrimeFeatures.DAppTranslate,
+      stage: 'access',
+    });
     try {
       const loggedIn = await backgroundApiProxy.servicePrime.isLoggedIn();
       if (isUnmountedRef.current) {
+        attempt.finish('contextChanged');
         return false;
       }
       if (loggedIn) {
         const access = getCachedAccess(EPrimeFeatures.DAppTranslate);
         if (access.status === 'exhausted' || access.status === 'notOpen') {
+          attempt.finish(access.status, 'client');
           showActiveRejectedFeedback({
             featureId: EPrimeFeatures.DAppTranslate,
             reason: access.status,
@@ -703,12 +715,21 @@ export function usePageTranslation(tabId: string) {
           });
           return false;
         }
+        attempt.finish('granted');
         return true;
       }
       const pageContextVersionAtPress = pageContextVersionRef.current;
       const pageUrlAtPress = currentTabUrlRef.current;
       const access = await ensureFeatureAccess({
         featureId: EPrimeFeatures.DAppTranslate,
+        trackAttempt: false,
+        onAttemptDenied: (reason) =>
+          attempt.finish(
+            getPrimeFreeTrialAccessDeniedResult(reason),
+            reason === 'exhausted' || reason === 'notOpen'
+              ? 'client'
+              : undefined,
+          ),
         // Same tab and page after the login, or the translate is dropped.
         isContextValid: () =>
           !isUnmountedRef.current &&
@@ -716,8 +737,13 @@ export function usePageTranslation(tabId: string) {
           activeTabIdRef.current === tabId &&
           currentTabUrlRef.current === pageUrlAtPress,
       });
+      if (access.granted)
+        attempt.finish(
+          access.entitlementSource === 'prime' ? 'unlimited' : 'granted',
+        );
       return access.granted;
     } catch (error) {
+      attempt.finish('failed');
       // A failed background check must not leave the press without feedback.
       defaultLogger.prime.subscription.primeFreeTrialTrace({
         featureId: EPrimeFeatures.DAppTranslate,
@@ -741,22 +767,29 @@ export function usePageTranslation(tabId: string) {
     tabId,
   ]);
 
+  const translateAccessPendingRef = useRef(false);
   const handleTranslate = useCallback(() => {
     // Decided by the translate mode shown, not translatingRef: a page paused
     // at the free-trial limit is still in translate mode, and the press
     // restores the original.
     const willTranslate = !isTranslatedRef.current;
+    if (translateAccessPendingRef.current) return;
+    translateAccessPendingRef.current = true;
     void (async () => {
-      if (willTranslate) {
-        if (!(await ensureTranslateAccess()) || isUnmountedRef.current) {
-          return;
+      try {
+        if (willTranslate) {
+          if (!(await ensureTranslateAccess()) || isUnmountedRef.current) {
+            return;
+          }
+          startTranslate(resolvedTargetLang);
+        } else {
+          restoreOriginal();
         }
-        startTranslate(resolvedTargetLang);
-      } else {
-        restoreOriginal();
+        setIsTranslated(willTranslate);
+        logToggle(willTranslate ? 'enable' : 'disable');
+      } finally {
+        translateAccessPendingRef.current = false;
       }
-      setIsTranslated(willTranslate);
-      logToggle(willTranslate ? 'enable' : 'disable');
     })();
   }, [
     ensureTranslateAccess,
@@ -767,16 +800,22 @@ export function usePageTranslation(tabId: string) {
   ]);
 
   const handleRetranslate = useCallback(() => {
+    if (translateAccessPendingRef.current) return;
+    translateAccessPendingRef.current = true;
     void (async () => {
-      // Checked first: retranslating restores the original, so a page paused
-      // at the free-trial limit would lose its translations for nothing.
-      if (!(await ensureTranslateAccess()) || isUnmountedRef.current) {
-        return;
+      try {
+        // Checked first: retranslating restores the original, so a page paused
+        // at the free-trial limit would lose its translations for nothing.
+        if (!(await ensureTranslateAccess()) || isUnmountedRef.current) {
+          return;
+        }
+        restoreOriginal();
+        startTranslate(resolvedTargetLang, settings.engine);
+        setIsTranslated(true);
+        logToggle('enable');
+      } finally {
+        translateAccessPendingRef.current = false;
       }
-      restoreOriginal();
-      startTranslate(resolvedTargetLang, settings.engine);
-      setIsTranslated(true);
-      logToggle('enable');
     })();
   }, [
     ensureTranslateAccess,

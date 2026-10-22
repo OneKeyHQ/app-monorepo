@@ -18,8 +18,8 @@ import {
   useTheme,
 } from '@onekeyhq/components';
 import { LazyPopover } from '@onekeyhq/components/src/actions/LazyPopover';
-import { Portal } from '@onekeyhq/components/src/hocs';
 import type { IPortalManager } from '@onekeyhq/components/src/hocs/Portal';
+import { mountImperativeOverlay } from '@onekeyhq/components/src/shared/imperativeOverlayMount';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import {
@@ -690,20 +690,22 @@ function useNativeFavoriteMenu(listRef: RefObject<NativeListRef | null>) {
         });
       }
       Haptics.impact(ImpactFeedbackStyle.Medium);
-      portalRef.current = Portal.Render(
-        Portal.Constant.FULL_WINDOW_OVERLAY_PORTAL,
-        <InlineActionBar
-          isInWatchlist={isInWatchlist}
-          anchor={getFavoriteMenuAnchorPoint(anchor)}
-          onToggleWatchlist={() => {
-            close();
-            // Travel mode can switch on while the bar is open.
-            if (!isFavoriteMenuEnabled()) return;
-            void toggleFavorite(target, isInWatchlist);
-          }}
-          onDismiss={() => close()}
-        />,
-      );
+      portalRef.current = mountImperativeOverlay({
+        target: 'global',
+        node: (
+          <InlineActionBar
+            isInWatchlist={isInWatchlist}
+            anchor={getFavoriteMenuAnchorPoint(anchor)}
+            onToggleWatchlist={() => {
+              close();
+              // Travel mode can switch on while the bar is open.
+              if (!isFavoriteMenuEnabled()) return;
+              void toggleFavorite(target, isInWatchlist);
+            }}
+            onDismiss={() => close()}
+          />
+        ),
+      });
     },
     [close, listRef, toggleFavorite],
   );
@@ -977,59 +979,61 @@ function MobileMarketNativeWatchlistImpl({
         });
       }
       Haptics.impact(ImpactFeedbackStyle.Medium);
-      portalRef.current = Portal.Render(
-        Portal.Constant.FULL_WINDOW_OVERLAY_PORTAL,
-        <InlineActionBar
-          isFirstItem={index === 0}
-          anchor={
-            anchor
-              ? {
-                  x: Dimensions.get('window').width * 0.48,
-                  y:
-                    (anchor.windowPoint?.y ??
-                      anchor.windowRect.y + anchor.windowRect.height / 2) - 4,
-                }
-              : undefined
-          }
-          onMoveToTop={async () => {
-            closeMenu();
-            try {
-              await actions.current.moveToTopV2(tokenToWatchListItem(item));
-              Toast.success({
-                title: intl.formatMessage({
-                  id: ETranslations.market_move_to_top,
-                }),
-              });
-            } catch {
-              // Errors are handled by the watchlist service.
+      portalRef.current = mountImperativeOverlay({
+        target: 'global',
+        node: (
+          <InlineActionBar
+            isFirstItem={index === 0}
+            anchor={
+              anchor
+                ? {
+                    x: Dimensions.get('window').width * 0.48,
+                    y:
+                      (anchor.windowPoint?.y ??
+                        anchor.windowRect.y + anchor.windowRect.height / 2) - 4,
+                  }
+                : undefined
             }
-          }}
-          onToggleWatchlist={async () => {
-            closeMenu();
-            try {
-              if (item.perpsCoin) {
-                await actions.current.removePerpsFromWatchListV2(
-                  item.perpsCoin,
-                );
-              } else {
-                await actions.current.removeFromWatchListV2(
-                  item.networkId,
-                  item.address,
-                  { assetId: item.assetId, stockId: item.stockId },
-                );
+            onMoveToTop={async () => {
+              closeMenu();
+              try {
+                await actions.current.moveToTopV2(tokenToWatchListItem(item));
+                Toast.success({
+                  title: intl.formatMessage({
+                    id: ETranslations.market_move_to_top,
+                  }),
+                });
+              } catch {
+                // Errors are handled by the watchlist service.
               }
-              Toast.success({
-                title: intl.formatMessage({
-                  id: ETranslations.market_remove_from_watchlist,
-                }),
-              });
-            } catch {
-              // Errors are handled by the watchlist service.
-            }
-          }}
-          onDismiss={() => closeMenu()}
-        />,
-      );
+            }}
+            onToggleWatchlist={async () => {
+              closeMenu();
+              try {
+                if (item.perpsCoin) {
+                  await actions.current.removePerpsFromWatchListV2(
+                    item.perpsCoin,
+                  );
+                } else {
+                  await actions.current.removeFromWatchListV2(
+                    item.networkId,
+                    item.address,
+                    { assetId: item.assetId, stockId: item.stockId },
+                  );
+                }
+                Toast.success({
+                  title: intl.formatMessage({
+                    id: ETranslations.market_remove_from_watchlist,
+                  }),
+                });
+              } catch {
+                // Errors are handled by the watchlist service.
+              }
+            }}
+            onDismiss={() => closeMenu()}
+          />
+        ),
+      });
     },
     [actions, closeMenu, intl, tokenToWatchListItem],
   );

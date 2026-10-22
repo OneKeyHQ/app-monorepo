@@ -15,6 +15,7 @@ import {
   getHardwareSDKInstance,
   resetHardwareSDKInstance,
 } from '@onekeyhq/shared/src/hardware/instance';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EHardwareTransportType } from '@onekeyhq/shared/types';
 import {
@@ -5383,4 +5384,97 @@ describe('Trezor XFP identity-based discovery', () => {
       });
     },
   );
+});
+
+describe('ServiceHardware.searchDevices BLE color log', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('logs one entry per Bluetooth result with its advertised color', async () => {
+    const service = new ServiceHardware({
+      backgroundApi: {} as unknown as IBackgroundApi,
+    });
+    jest
+      .spyOn(service, 'prepareHardwareTransport')
+      .mockResolvedValue(EHardwareTransportType.BLE);
+    const searchDevices = jest.fn().mockResolvedValue({
+      success: true,
+      payload: [
+        {
+          connectId: 'PRO2_BLE_ID',
+          name: 'Pro 2 A1B2',
+          deviceType: EDeviceType.Pro2,
+          commType: 'ble',
+          serialNo: null,
+          uuid: '',
+          deviceId: null,
+          bleColorCode: 'D',
+        },
+        {
+          connectId: 'NEO_BLE_ID',
+          name: 'Neo 47B9',
+          deviceType: EDeviceType.Neo,
+          commType: 'electron-ble',
+          serialNo: null,
+          uuid: '',
+          deviceId: null,
+        },
+        {
+          connectId: 'PRO2_USB_PATH',
+          name: 'OneKey Pro 2',
+          deviceType: EDeviceType.Pro2,
+          commType: 'webusb',
+          serialNo: 'P20001A',
+          uuid: '',
+          deviceId: null,
+        },
+      ],
+    });
+    service.getSDKInstance = jest.fn().mockResolvedValue({
+      searchDevices,
+    } as unknown as Awaited<ReturnType<ServiceHardware['getSDKInstance']>>);
+    const colorLog = jest
+      .spyOn(defaultLogger.hardware.sdkLog, 'bleSearchDevicesColor')
+      .mockImplementation((params) => params);
+
+    await service.searchDevices({ transportType: 'ble' });
+
+    // USB results carry no advertisement and are not logged.
+    expect(colorLog).toHaveBeenCalledTimes(2);
+    expect(colorLog).toHaveBeenNthCalledWith(1, {
+      connectId: 'PRO2_BLE_ID',
+      name: 'Pro 2 A1B2',
+      deviceType: EDeviceType.Pro2,
+      bleColorCode: 'D',
+    });
+    expect(colorLog).toHaveBeenNthCalledWith(2, {
+      connectId: 'NEO_BLE_ID',
+      name: 'Neo 47B9',
+      deviceType: EDeviceType.Neo,
+      bleColorCode: undefined,
+    });
+  });
+
+  it('logs nothing when the search fails', async () => {
+    const service = new ServiceHardware({
+      backgroundApi: {} as unknown as IBackgroundApi,
+    });
+    jest
+      .spyOn(service, 'prepareHardwareTransport')
+      .mockResolvedValue(EHardwareTransportType.BLE);
+    service.getSDKInstance = jest.fn().mockResolvedValue({
+      searchDevices: jest.fn().mockResolvedValue({
+        success: false,
+        payload: { error: 'scan failed', code: HardwareErrorCode.BleScanError },
+      }),
+    } as unknown as Awaited<ReturnType<ServiceHardware['getSDKInstance']>>);
+    const colorLog = jest
+      .spyOn(defaultLogger.hardware.sdkLog, 'bleSearchDevicesColor')
+      .mockImplementation((params) => params);
+
+    await service.searchDevices({ transportType: 'ble' });
+
+    expect(colorLog).not.toHaveBeenCalled();
+  });
 });

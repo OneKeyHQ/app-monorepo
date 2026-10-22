@@ -43,7 +43,7 @@ import type { IOnboardingParamListV2 } from '@onekeyhq/shared/src/routes/onboard
 import { EOnboardingPagesV2 } from '@onekeyhq/shared/src/routes/onboardingv2';
 import {
   HwWalletAvatarImages,
-  getDeviceAvatarImage,
+  getSearchDeviceAvatarImage,
 } from '@onekeyhq/shared/src/utils/avatarUtils';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import { supportsHardwareQrWallet } from '@onekeyhq/shared/src/utils/hardwareDeviceTypes';
@@ -263,11 +263,12 @@ function useDeviceConnection({
         const searchTarget = vendor
           ? getThirdPartySearchTarget(item)
           : undefined;
+        const avatarImg = getSearchDeviceAvatarImage(item);
         return {
           title: item.name,
-          src: HwWalletAvatarImages[getDeviceAvatarImage(item.deviceType)],
+          src: HwWalletAvatarImages[avatarImg],
           device: item,
-          ...(vendor ? { vendor } : {}),
+          ...(vendor ? { vendor } : { avatarImg }),
           ...(searchTarget ? { searchTarget } : {}),
         };
       }),
@@ -1070,6 +1071,7 @@ function ConnectYourDevicePage({
           connectId,
           deviceType: item.device?.deviceType ?? undefined,
           deviceName: item.device?.name ?? undefined,
+          deviceColor: deviceUtils.getDeviceColorFromSearchDevice(item.device),
         });
         // For third-party devices, skip CheckAndUpdate and go directly to FinalizeWalletSetup
         if (
@@ -1097,6 +1099,9 @@ function ConnectYourDevicePage({
               connectId,
               deviceType: item.device?.deviceType ?? undefined,
               deviceName: item.device?.name ?? undefined,
+              deviceColor: deviceUtils.getDeviceColorFromSearchDevice(
+                item.device,
+              ),
             });
           checkingDialogOpened = true;
           // The iOS wait is for the legacy Sheet's mount acknowledgement.

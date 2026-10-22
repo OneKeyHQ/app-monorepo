@@ -16,9 +16,11 @@ import {
   type IModalAddressRiskCheckParamList,
 } from '@onekeyhq/shared/src/routes/addressRiskCheck';
 import { EPrimeFeatures } from '@onekeyhq/shared/src/routes/prime';
+import { createPrimeFreeTrialAttempt } from '@onekeyhq/shared/src/utils/primeFreeTrialAnalytics';
 import { getPrimeFreeTrialError } from '@onekeyhq/shared/src/utils/primeFreeTrialUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IAddressRiskCheckResult } from '@onekeyhq/shared/types/addressRiskCheck';
+import { PRIME_FREE_TRIAL_QUOTA_EXHAUSTED_CODE } from '@onekeyhq/shared/types/prime/primeFreeTrialTypes';
 
 import { usePrimeFeatureAccess } from '../../Prime/hooks/usePrimeFeatureAccess';
 import { getPrimeEntitlementSource } from '../../Prime/utils/primeFreeTrialAccess';
@@ -48,6 +50,13 @@ export function executeAddressRiskCheck({
     return pendingRequest;
   }
 
+  const attempt =
+    entitlementSource === 'freeTrial'
+      ? createPrimeFreeTrialAttempt({
+          featureId: EPrimeFeatures.AddressRiskCheck,
+          stage: 'execution',
+        })
+      : undefined;
   const request = (async () => {
     const result =
       await backgroundApiProxy.serviceAddressRiskCheck.checkAddressRisk({
@@ -76,8 +85,22 @@ export function executeAddressRiskCheck({
       .catch(() => {
         // ignore local persistence failures
       });
+    attempt?.finish('success');
     return result;
-  })();
+  })().catch((error: unknown) => {
+    const trialError = getPrimeFreeTrialError(error);
+    if (trialError) {
+      attempt?.finish(
+        trialError.code === PRIME_FREE_TRIAL_QUOTA_EXHAUSTED_CODE
+          ? 'exhausted'
+          : 'notOpen',
+        'server',
+      );
+    } else {
+      attempt?.finish('failed');
+    }
+    throw error;
+  });
 
   addressRiskCheckRequests.set(requestKey, request);
   const clearRequest = () => {
@@ -168,6 +191,13 @@ export function useCheckAddressRisk() {
       }
       lastOpenedAtRef.current = now;
       const access = getCachedAccess(EPrimeFeatures.AddressRiskCheck);
+      const attempt =
+        access.status !== 'prime'
+          ? createPrimeFreeTrialAttempt({
+              featureId: EPrimeFeatures.AddressRiskCheck,
+              stage: 'access',
+            })
+          : undefined;
       if (
         entryPoint === 'inputManual' &&
         (access.status === 'exhausted' || access.status === 'notOpen')
@@ -175,9 +205,11 @@ export function useCheckAddressRisk() {
         const historyResult = await getHistoryResult({ networkId, address });
         // The user may have left the page during the lookup.
         if (!reactNavigation.isFocused()) {
+          attempt?.finish('contextChanged');
           return;
         }
         if (!historyResult) {
+          attempt?.finish(access.status, 'client');
           showActiveRejectedFeedback({
             featureId: EPrimeFeatures.AddressRiskCheck,
             reason: access.status,
@@ -187,6 +219,7 @@ export function useCheckAddressRisk() {
           return;
         }
       }
+      attempt?.finish('granted');
       navigation.push(EModalAddressRiskCheckRoutes.AddressRiskCheckResult, {
         checkRequest: { networkId, address, entryPoint },
         showMoreAnalysis: true,
