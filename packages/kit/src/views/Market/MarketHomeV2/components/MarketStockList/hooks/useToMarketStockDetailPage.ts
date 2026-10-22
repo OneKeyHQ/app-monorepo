@@ -16,7 +16,9 @@ import { useTokenDetailActions } from '@onekeyhq/kit/src/states/jotai/contexts/m
 import { preloadMarketDetailV2Page } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/marketDetailPagePreload';
 import {
   getCurrentMarketStockDetailRoute,
+  openOrReplaceMarketDetailRoute,
   prepareMarketDetailTabBarTransition,
+  replaceFocusedMarketDetailRoute,
 } from '@onekeyhq/kit/src/views/Market/utils/marketDetailNavigation';
 import {
   EAppEventBusNames,
@@ -239,6 +241,19 @@ export function useToMarketStockDetailPage(
           request?.onNavigationStart?.();
           await switchTabAsync(marketTab);
           if (!isCurrentRequest() || !rootNavigationRef.current) return false;
+          // Replace after the modal reset so it cannot restore the old detail.
+          if (
+            openOrReplaceMarketDetailRoute({
+              routeName: ETabMarketRoutes.MarketStockDetail,
+              params: stockDetailParams,
+            }) ||
+            replaceFocusedMarketDetailRoute({
+              routeName: ETabMarketRoutes.MarketStockDetail,
+              params: stockDetailParams,
+            })
+          ) {
+            return true;
+          }
           rootNavigationRef.current.navigate(ERootRoutes.Main, {
             screen: marketTab,
             params: {
