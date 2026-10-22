@@ -212,9 +212,16 @@ function getPerksHomeStatus(
   return 'has_rewards';
 }
 
-// Earn list titles arrive as token amounts, like "0.3976 USDC".
+// Earn list titles arrive as token amounts, like "0.3976 USDC". Tiny ones
+// come in subscript form: "0.0<subscripts>5</subscripts>3 USDT" is 0.000003,
+// the subscript counting the zeros after the decimal point.
 function readUsdAmount(text: string | undefined) {
-  const match = text?.trim().match(/^[+-]?\d[\d,]*(?:\.\d+)?/);
+  const plain = text
+    ?.trim()
+    .replace(/^0\.0<subscripts>(\d+)<\/subscripts>/, (_, zeros: string) =>
+      `0.${'0'.repeat(Number(zeros))}`,
+    );
+  const match = plain?.match(/^[+-]?\d[\d,]*(?:\.\d+)?/);
   if (!match) {
     return undefined;
   }

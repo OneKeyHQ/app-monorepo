@@ -618,6 +618,11 @@ describe('MyRewardsContent', () => {
               { title: { text: '0.5 USDC' }, token: { symbol: 'USDC' } },
               { title: { text: '0.25 DAI' }, token: { symbol: 'DAI' } },
               { title: { text: '1 USDT' }, token: { symbol: 'USDT' } },
+              // 0.000003, in the server's subscript form.
+              {
+                title: { text: '0.0<subscripts>5</subscripts>3 USDT' },
+                token: { symbol: 'USDT' },
+              },
             ],
           },
         },
@@ -632,7 +637,7 @@ describe('MyRewardsContent', () => {
         .getByTestId('my-rewards-summary-card')
         .querySelectorAll('[data-source-currency="usd"]'),
     ).map((node) => node.textContent);
-    expect(figures).toEqual(['2', '0.25', '1.75']);
+    expect(figures).toEqual(['2.000003', '0.25', '1.750003']);
   });
 
   it('counts each address once when the wallet switches away and back', () => {
