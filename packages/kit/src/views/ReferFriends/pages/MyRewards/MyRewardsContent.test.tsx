@@ -609,6 +609,163 @@ describe('MyRewardsContent', () => {
     expect(figures).toEqual(['0.02', '0.02', '0']);
   });
 
+  it('adds server USD values, including non-stable tokens, into the total', () => {
+    const empty = {
+      totalBonus: '0',
+      undistributed: '0',
+      token: { symbol: 'USDC', logoURI: '' },
+      history: [],
+    };
+    mockOverviewResult = {
+      result: {
+        perps: { status: 'success', data: empty },
+        swap: { status: 'success', data: empty },
+        earn: {
+          status: 'success',
+          data: {
+            distributed: [
+              {
+                amount: '0.3976',
+                usdValue: '0.3976',
+                title: { text: '0.3976 USDC' },
+                token: { symbol: 'USDC' },
+              },
+            ],
+            undistributed: [
+              {
+                amount: '0.032725',
+                usdValue: '0.032713971675',
+                title: { text: '0.03273 USDC' },
+                token: { symbol: 'USDC' },
+              },
+              {
+                amount: '0.000002709740566314',
+                usdValue: '0.00649855402094556108',
+                title: { text: '0.0<subscripts>5</subscripts>2709 WETH' },
+                token: { symbol: 'WETH' },
+              },
+              {
+                amount: '0.00633',
+                usdValue: '0.00632434731',
+                title: { text: '0.00633 USDT' },
+                token: { symbol: 'USDT' },
+              },
+              {
+                amount: '0.000002910440905558',
+                usdValue: '0.000002910429263794377768',
+                title: { text: '0.0<subscripts>5</subscripts>291 DAI' },
+                token: { symbol: 'DAI' },
+              },
+            ],
+          },
+        },
+      },
+      isLoading: false,
+    };
+    render(<MyRewardsContent />);
+    const earn = screen.getByTestId('my-rewards-module-earn');
+    expect(earn.textContent).not.toContain('WETH');
+    expect(earn.textContent).not.toContain('referral_perks_more_tokens__desc');
+    const figures = Array.from(
+      screen
+        .getByTestId('my-rewards-summary-card')
+        .querySelectorAll('[data-source-currency="usd"]'),
+    ).map((node) => node.textContent);
+    expect(figures).toEqual([
+      '0.443139783435209355457768',
+      '0.3976',
+      '0.045539783435209355457768',
+    ]);
+  });
+
+  it('keeps an unpriced Earn token out of the dollar total', () => {
+    const empty = {
+      totalBonus: '0',
+      undistributed: '0',
+      token: { symbol: 'USDC', logoURI: '' },
+      history: [],
+    };
+    mockOverviewResult = {
+      result: {
+        perps: { status: 'success', data: empty },
+        swap: { status: 'success', data: empty },
+        earn: {
+          status: 'success',
+          data: {
+            distributed: [
+              {
+                usdValue: null,
+                title: { text: '0.5 ETH' },
+                token: { symbol: 'ETH' },
+              },
+              {
+                // Different from the title, so treating null as zero would
+                // total 0.0199 instead of the parsed 0.02.
+                usdValue: '0.0199',
+                title: { text: '0.02 USDC' },
+                token: { symbol: 'USDC' },
+              },
+            ],
+            undistributed: [],
+          },
+        },
+      },
+      isLoading: false,
+    };
+    render(<MyRewardsContent />);
+    const earn = screen.getByTestId('my-rewards-module-earn');
+    expect(earn.textContent).toContain('0.5 ETH');
+    expect(earn.textContent).toContain('referral_perks_more_tokens__desc');
+    expect(earn.querySelectorAll('[data-source-currency="usd"]')).toHaveLength(
+      0,
+    );
+    const figures = Array.from(
+      screen
+        .getByTestId('my-rewards-summary-card')
+        .querySelectorAll('[data-source-currency="usd"]'),
+    ).map((node) => node.textContent);
+    expect(figures).toEqual(['0.02', '0.02', '0']);
+  });
+
+  it('falls back when a priced Earn item is mixed with one that has no usdValue', () => {
+    const empty = {
+      totalBonus: '0',
+      undistributed: '0',
+      token: { symbol: 'USDC', logoURI: '' },
+      history: [],
+    };
+    mockOverviewResult = {
+      result: {
+        perps: { status: 'success', data: empty },
+        swap: { status: 'success', data: empty },
+        earn: {
+          status: 'success',
+          data: {
+            distributed: [
+              { title: { text: '0.5 ETH' }, token: { symbol: 'ETH' } },
+              {
+                usdValue: '0.0199',
+                title: { text: '0.02 USDC' },
+                token: { symbol: 'USDC' },
+              },
+            ],
+            undistributed: [],
+          },
+        },
+      },
+      isLoading: false,
+    };
+    render(<MyRewardsContent />);
+    const earn = screen.getByTestId('my-rewards-module-earn');
+    expect(earn.textContent).toContain('0.5 ETH');
+    const figures = Array.from(
+      screen
+        .getByTestId('my-rewards-summary-card')
+        .querySelectorAll('[data-source-currency="usd"]'),
+    ).map((node) => node.textContent);
+    expect(figures).toEqual(['0.02', '0.02', '0']);
+  });
+
   it('adds mixed stablecoin Earn rewards into the dollar total', () => {
     const empty = {
       totalBonus: '0',

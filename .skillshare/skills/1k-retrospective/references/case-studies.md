@@ -1008,3 +1008,10 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries â€
 **Root Cause**: The new production files are imported by the hardware sales page, so they enter the native graph, but no stable IDs were committed.
 **Fix**: Register both files in apps/mobile/bundle-registry/module-id-registry.json and pass a strict iOS union build.
 **Catchable by**: Section 4: a new file that the native bundle imports must be added to module-id-registry.json before the release bundle runs.
+
+## Case: Perks empty state read a missing bind status
+**Date**: 2026-10-22 | **Platforms**: Desktop, mobile, web, extension
+**Symptom**: The Perks empty state could throw while the wallet id and the bind-status result were both still missing.
+**Root Cause**: `result?.walletId === walletId` is true when both sides are undefined, and the true branch then read `result.status`.
+**Fix**: Require `result` itself before comparing wallet ids.
+**Catchable by**: Section 7: type check. A comparison of two optional ids does not prove the object exists.

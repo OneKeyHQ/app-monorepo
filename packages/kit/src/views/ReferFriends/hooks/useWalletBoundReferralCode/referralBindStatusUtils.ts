@@ -3,7 +3,7 @@ export type IReferralBindDisplayStatus =
   | 'bound'
   | 'notApplicable'
   // A wallet that can never take a referral code (QR, watch-only, imported,
-  // external, hidden hardware, TON mnemonic).
+  // external, hidden or third-party hardware, TON mnemonic).
   | 'unsupported'
   | 'unknown';
 

@@ -252,6 +252,26 @@ function isUsdStablecoinSymbol(symbol: string | undefined) {
   return Boolean(symbol && USD_STABLECOIN_SYMBOLS.has(symbol.toUpperCase()));
 }
 
+function readServerUsd(value: string | null | undefined) {
+  if (value === undefined || value === null || value.trim() === '') {
+    return undefined;
+  }
+  const amount = new BigNumber(value);
+  return amount.isFinite() ? amount : undefined;
+}
+
+// A dollar total only when every item has one. A missing price stays out
+// rather than being treated as zero.
+function sumCompleteServerUsd(
+  items: readonly { usdValue?: string | null }[],
+): BigNumber | undefined {
+  const values = items.map((item) => readServerUsd(item.usdValue));
+  if (!values.every((value): value is BigNumber => value !== undefined)) {
+    return undefined;
+  }
+  return values.reduce((sum, value) => sum.plus(value), new BigNumber(0));
+}
+
 // Stablecoin quantities are shown as wallet-currency dollars. Any other token
 // stays in its own units, so it cannot be added into the dollar total.
 function getTokenAmountValue(
@@ -278,6 +298,14 @@ function getEarnValue(
 ): IRewardValue | undefined {
   if (!items.length) {
     return undefined;
+  }
+  // The server prices every token, including WETH, into one USD figure.
+  // Older responses omit it, and those still fall through to the title.
+  const serverUsd = sumCompleteServerUsd(items);
+  if (serverUsd !== undefined) {
+    return serverUsd.gt(0)
+      ? { kind: 'amount', amount: serverUsd.toFixed() }
+      : undefined;
   }
   // Only stablecoin titles are USD. "0.5 ETH" must stay in token units, and
   // other tokens must not be added together.

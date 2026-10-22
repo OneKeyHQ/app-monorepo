@@ -10,6 +10,7 @@ type IStatusResult =
   | undefined;
 
 let mockStatusResult: IStatusResult;
+let mockWalletId: string | undefined = 'hd-1';
 const mockBindWalletInviteCode = jest.fn();
 
 jest.mock('react-intl', () => ({
@@ -23,7 +24,11 @@ jest.mock('@onekeyhq/kit/src/hooks/usePromiseResult', () => ({
 }));
 
 jest.mock('@onekeyhq/kit/src/states/jotai/contexts/accountSelector', () => ({
-  useActiveAccount: () => ({ activeAccount: { wallet: { id: 'hd-1' } } }),
+  useActiveAccount: () => ({
+    activeAccount: {
+      wallet: mockWalletId === undefined ? undefined : { id: mockWalletId },
+    },
+  }),
 }));
 
 jest.mock(
@@ -75,6 +80,7 @@ function getText() {
 describe('BenefitsTabPlaceholder', () => {
   beforeEach(() => {
     mockStatusResult = undefined;
+    mockWalletId = 'hd-1';
   });
 
   it('asks for a code when the wallet can still take one', () => {
@@ -117,6 +123,16 @@ describe('BenefitsTabPlaceholder', () => {
     mockStatusResult = { walletId: 'hd-1', status: 'unsupported' };
     render(<BenefitsTabPlaceholder />);
     expect(getText()).toBe(ETranslations.referral_not_applicable);
+    expect(
+      screen.queryByTestId(ReferFriendsTestIDs.benefitsBindBtn),
+    ).toBeNull();
+  });
+
+  it('offers nothing when the wallet and its status are both missing', () => {
+    mockWalletId = undefined;
+    mockStatusResult = undefined;
+    render(<BenefitsTabPlaceholder />);
+    expect(getText()).toBe('referral_perks_empty__title');
     expect(
       screen.queryByTestId(ReferFriendsTestIDs.benefitsBindBtn),
     ).toBeNull();

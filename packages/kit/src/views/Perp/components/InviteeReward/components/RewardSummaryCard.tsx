@@ -8,7 +8,6 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
-import { InfoIcon } from '@onekeyhq/kit/src/components/InfoIcon';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 interface IRewardSummaryCardProps {
@@ -29,10 +28,6 @@ export function RewardSummaryCard({
   const displayUndistributed = undistributed ?? '0';
   const displayTokenSymbol = tokenSymbol ?? 'USDC';
   const hasUndistributed = new BigNumber(displayUndistributed).gt(0);
-
-  const tooltipContent = intl.formatMessage({
-    id: ETranslations.earn_reward_distribution_schedule,
-  });
 
   return (
     <YStack gap="$2">
@@ -91,8 +86,6 @@ export function RewardSummaryCard({
             </SizableText>
           </XStack>
         ) : null}
-
-        <InfoIcon tooltip={tooltipContent} size="$5" />
       </XStack>
     </YStack>
   );

@@ -7,6 +7,7 @@ import {
   FIRST_BTC_TAPROOT_ADDRESS_PATH,
   FIRST_EVM_ADDRESS_PATH,
 } from '@onekeyhq/shared/src/engine/engineConsts';
+import { getVendorProfile } from '@onekeyhq/shared/src/hardware/config/vendorProfile';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 import type { IReferralCodeWalletInfo } from './types';
@@ -34,7 +35,13 @@ export function useGetReferralCodeWalletInfo() {
         wallet = await backgroundApiProxy.serviceAccount.getWallet({
           walletId,
         });
-        if (accountUtils.isHwHiddenWallet({ wallet })) {
+        // Hidden wallets and third-party hardware (Ledger, Trezor, Keystone)
+        // cannot take a code, matching the bind dialog. A missing vendor
+        // stays OneKey.
+        if (
+          accountUtils.isHwHiddenWallet({ wallet }) ||
+          getVendorProfile(wallet.associatedDeviceInfo?.vendor).isThirdParty
+        ) {
           return null;
         }
       } catch {

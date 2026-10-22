@@ -35,7 +35,13 @@ export function BenefitsTabPlaceholder() {
     { undefinedResultIfReRun: true },
   );
   // The previous wallet's status can linger for a render after a switch.
-  const status = result?.walletId === walletId ? result.status : undefined;
+  // Both sides can be missing: a failed wallet lookup leaves `walletId`
+  // undefined while a rerun clears `result`. Comparing those two undefined
+  // values must not read `.status`.
+  const status =
+    result !== undefined && result.walletId === walletId
+      ? result.status
+      : undefined;
 
   const t = (id: ETranslations) => intl.formatMessage({ id });
   let content: Pick<
