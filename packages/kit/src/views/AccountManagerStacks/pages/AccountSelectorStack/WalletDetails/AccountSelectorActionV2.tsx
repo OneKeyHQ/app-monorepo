@@ -4,7 +4,6 @@ import {
   ActionList,
   type IButtonProps,
   ModalNavigatorContext,
-  Portal,
   Stack,
   useMedia,
   useModalNavigatorContext,
@@ -17,6 +16,7 @@ import {
   PageContext,
   usePageContext,
 } from '@onekeyhq/components/src/layouts/Page/PageContext';
+import { mountImperativeOverlay } from '@onekeyhq/components/src/shared/imperativeOverlayMount';
 import { AccountSelectorCreateAddressButton } from '@onekeyhq/kit/src/components/AccountSelector/AccountSelectorCreateAddressButton';
 import type { IAccountEditButtonProps } from '@onekeyhq/kit/src/views/AccountManagerStacks/components/AccountEdit/AccountEditButton';
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
@@ -67,7 +67,6 @@ export function AccountSelectorMenuActionV2({
     };
     if (platformEnv.isNative || !gtMd) {
       const handle = ActionList.show({
-        nativeSheet: platformEnv.isNative,
         title: optionsRef.current.title,
         triggerRect: anchor.windowRect,
         renderItemsAsync: (options) =>
@@ -93,39 +92,41 @@ export function AccountSelectorMenuActionV2({
       width: windowRect.width,
       height: windowRect.height,
     };
-    const portal = Portal.Render(
-      Portal.Constant.FULL_WINDOW_OVERLAY_PORTAL,
-      <ModalNavigatorContext.Provider
-        value={contextsRef.current.modalNavigatorContext}
-      >
-        <PageContext.Provider value={contextsRef.current.pageContext}>
-          <Stack pointerEvents="none" style={triggerStyle}>
-            <ActionList
-              title={optionsRef.current.title}
-              defaultOpen
-              placement="bottom-end"
-              floatingPanelProps={desktopMenuPanelPropsV2}
-              onOpenChange={lifecycle.handleOpenChange}
-              renderTrigger={
-                <Stack
-                  width={windowRect.width}
-                  height={windowRect.height}
-                  pointerEvents="none"
-                />
-              }
-              renderItemsAsync={(options) => {
-                closeActionList = options.handleActionListClose;
-                if (closeRequested) {
-                  closeActionList();
-                  return Promise.resolve(null);
+    const portal = mountImperativeOverlay({
+      target: 'global',
+      node: (
+        <ModalNavigatorContext.Provider
+          value={contextsRef.current.modalNavigatorContext}
+        >
+          <PageContext.Provider value={contextsRef.current.pageContext}>
+            <Stack pointerEvents="none" style={triggerStyle}>
+              <ActionList
+                title={optionsRef.current.title}
+                defaultOpen
+                placement="bottom-end"
+                floatingPanelProps={desktopMenuPanelPropsV2}
+                onOpenChange={lifecycle.handleOpenChange}
+                renderTrigger={
+                  <Stack
+                    width={windowRect.width}
+                    height={windowRect.height}
+                    pointerEvents="none"
+                  />
                 }
-                return optionsRef.current.renderItemsAsync(options);
-              }}
-            />
-          </Stack>
-        </PageContext.Provider>
-      </ModalNavigatorContext.Provider>,
-    );
+                renderItemsAsync={(options) => {
+                  closeActionList = options.handleActionListClose;
+                  if (closeRequested) {
+                    closeActionList();
+                    return Promise.resolve(null);
+                  }
+                  return optionsRef.current.renderItemsAsync(options);
+                }}
+              />
+            </Stack>
+          </PageContext.Provider>
+        </ModalNavigatorContext.Provider>
+      ),
+    });
     portalLifecycle.destroy = () => portal.destroy();
     return () => {
       closeRequested = true;

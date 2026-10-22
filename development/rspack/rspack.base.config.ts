@@ -291,9 +291,9 @@ const buildBasePlugins: (
     process: require.resolve('process/browser'),
   }),
   !isDev &&
-    platform === 'web' &&
+    ['web', 'desktop', 'ext', 'web-embed'].includes(platform) &&
     new rspack.NormalModuleReplacementPlugin(
-      /views[\\/]Developer[\\/]router$/,
+      /views[\\/]Developer[\\/](?:router$|pages[\\/]Gallery[\\/])/,
       path.join(
         basePath,
         '../../packages/kit/src/views/Developer/router.empty.ts',

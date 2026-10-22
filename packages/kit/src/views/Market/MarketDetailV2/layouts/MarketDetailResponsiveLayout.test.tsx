@@ -24,6 +24,17 @@ jest.mock('@onekeyhq/components', () => {
   };
 });
 
+jest.mock(
+  '../components/WatchlistSidebar/MarketDetailWatchlistSidebarFrame',
+  () => ({
+    MarketDetailWatchlistSidebarFrame: ({
+      children,
+    }: {
+      children: import('react').ReactNode;
+    }) => children,
+  }),
+);
+
 jest.mock('./DesktopLayout', () => {
   const React = jest.requireActual<typeof import('react')>('react');
   return {

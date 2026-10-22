@@ -53,7 +53,6 @@ import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
 import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
 import { navigateToReferralLanding } from '@onekeyhq/kit/src/routes/config/deeplink/referralLandingLink';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
-import { WebEmbedDevConfig } from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/WebEmbed';
 import { getPrimeFreeTrialQuotaOfUser } from '@onekeyhq/kit/src/views/Prime/utils/primeFreeTrialAccess';
 import {
   usePrimeFreeTrialAtom,
@@ -841,7 +840,7 @@ const BaseDevSettingsSection = () => {
         if (devSettings.enabled && devSettings.settings?.enableTestEndpoint) {
           const result = await runIdentityExit(
             { type: 'switchEnvironment', scene: 'devSettings' },
-            { confirmButtonTestID: 'dev-settings-environment-logout-confirm' },
+            { skipConfirmation: true },
           );
           if (result.status !== 'completed') {
             return;
@@ -2524,16 +2523,21 @@ const BaseDevSettingsSection = () => {
                       animateOnly={ANIMATE_ONLY_OPACITY}
                       exitStyle={{ opacity: 0 }}
                     >
-                      <SectionPressItem
-                        icon="BrowserOutline"
-                        title="WebEmbedDevConfig"
-                        onPress={() => {
-                          Dialog.cancel({
-                            title: 'WebEmbedDevConfig',
-                            renderContent: <WebEmbedDevConfig />,
-                          });
-                        }}
-                      />
+                      {process.env.NODE_ENV !== 'production' &&
+                      platformEnv.isDev ? (
+                        <SectionPressItem
+                          icon="BrowserOutline"
+                          title="WebEmbedDevConfig"
+                          onPress={async () => {
+                            const { WebEmbedDevConfig } =
+                              await import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/WebEmbed');
+                            Dialog.cancel({
+                              title: 'WebEmbedDevConfig',
+                              renderContent: <WebEmbedDevConfig />,
+                            });
+                          }}
+                        />
+                      ) : null}
                       <SectionFieldItem
                         icon="ApiConnectionOutline"
                         name="disableWebEmbedApi"
@@ -2688,61 +2692,66 @@ const BaseDevSettingsSection = () => {
                         }}
                       />
 
-                      <SectionPressItem
-                        icon="ChartTrendingOutline"
-                        title="PerpGallery"
-                        onPress={() => {
-                          navigation.push(
-                            EModalSettingRoutes.SettingDevPerpGalleryModal,
-                          );
-                        }}
-                      />
+                      {process.env.NODE_ENV !== 'production' &&
+                      platformEnv.isDev ? (
+                        <>
+                          <SectionPressItem
+                            icon="ChartTrendingOutline"
+                            title="PerpGallery"
+                            onPress={() => {
+                              navigation.push(
+                                EModalSettingRoutes.SettingDevPerpGalleryModal,
+                              );
+                            }}
+                          />
 
-                      <SectionPressItem
-                        icon="LockOutline"
-                        title="CryptoGallery"
-                        onPress={() => {
-                          navigation.push(
-                            EModalSettingRoutes.SettingDevCryptoGalleryModal,
-                          );
-                        }}
-                      />
-                      <SectionPressItem
-                        icon="CloudOutline"
-                        title="CloudBackupGallery"
-                        onPress={() => {
-                          navigation.push(
-                            EModalSettingRoutes.SettingDevCloudBackupGalleryModal,
-                          );
-                        }}
-                      />
-                      <SectionPressItem
-                        icon="PeopleOutline"
-                        title="AuthGallery"
-                        onPress={() => {
-                          navigation.push(
-                            EModalSettingRoutes.SettingDevAuthGalleryModal,
-                          );
-                        }}
-                      />
-                      <SectionPressItem
-                        icon="KeyOutline"
-                        title="KeylessWalletGallery"
-                        onPress={() => {
-                          navigation.push(
-                            EModalSettingRoutes.SettingDevKeylessWalletGallery,
-                          );
-                        }}
-                      />
-                      <SectionPressItem
-                        icon="StorageOutline"
-                        title="StorageGallery"
-                        onPress={() => {
-                          navigation.push(
-                            EModalSettingRoutes.SettingDevStorageGalleryModal,
-                          );
-                        }}
-                      />
+                          <SectionPressItem
+                            icon="LockOutline"
+                            title="CryptoGallery"
+                            onPress={() => {
+                              navigation.push(
+                                EModalSettingRoutes.SettingDevCryptoGalleryModal,
+                              );
+                            }}
+                          />
+                          <SectionPressItem
+                            icon="CloudOutline"
+                            title="CloudBackupGallery"
+                            onPress={() => {
+                              navigation.push(
+                                EModalSettingRoutes.SettingDevCloudBackupGalleryModal,
+                              );
+                            }}
+                          />
+                          <SectionPressItem
+                            icon="PeopleOutline"
+                            title="AuthGallery"
+                            onPress={() => {
+                              navigation.push(
+                                EModalSettingRoutes.SettingDevAuthGalleryModal,
+                              );
+                            }}
+                          />
+                          <SectionPressItem
+                            icon="KeyOutline"
+                            title="KeylessWalletGallery"
+                            onPress={() => {
+                              navigation.push(
+                                EModalSettingRoutes.SettingDevKeylessWalletGallery,
+                              );
+                            }}
+                          />
+                          <SectionPressItem
+                            icon="StorageOutline"
+                            title="StorageGallery"
+                            onPress={() => {
+                              navigation.push(
+                                EModalSettingRoutes.SettingDevStorageGalleryModal,
+                              );
+                            }}
+                          />
+                        </>
+                      ) : null}
                     </Accordion.Content>
                   </Accordion.HeightAnimator>
                 </Accordion.Item>,

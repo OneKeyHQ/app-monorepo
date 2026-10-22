@@ -7,7 +7,6 @@ import {
   useMorphOverlay,
 } from '@onekeyhq/components/src/composite/MorphOverlay';
 import type { IMorphOverlayPose } from '@onekeyhq/components/src/composite/MorphOverlay';
-import { Portal } from '@onekeyhq/components/src/hocs/Portal';
 import { Button } from '@onekeyhq/components/src/primitives/Button';
 import { Icon } from '@onekeyhq/components/src/primitives/Icon';
 import { SizableText } from '@onekeyhq/components/src/primitives/SizeableText';
@@ -16,6 +15,7 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components/src/primitives/Stack';
+import { ImperativeOverlayMountBody } from '@onekeyhq/components/src/shared/imperativeOverlayMount';
 
 import type { Meta, StoryObj } from '@storybook/react-native-web-vite';
 import type { LayoutChangeEvent } from 'react-native';
@@ -231,9 +231,9 @@ function Demo({
         capsule={capsule}
         seats={seats}
       />
-      <Portal.Body container={Portal.Constant.HARDWARE_UI_STATE_DIALOG}>
+      <ImperativeOverlayMountBody target="hardware-stage">
         {bar}
-      </Portal.Body>
+      </ImperativeOverlayMountBody>
     </Stack>
   );
 }
