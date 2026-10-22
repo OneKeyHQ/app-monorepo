@@ -40,6 +40,7 @@ import { useMarketWatchlistTokenList } from '../../../MarketHomeV2/components/Ma
 import { useToDetailPage } from '../../../MarketHomeV2/components/MarketTokenList/hooks/useToMarketDetailPage';
 import { useWatchlistFilteredGroups } from '../../../MarketHomeV2/components/MarketTokenList/hooks/useWatchlistFilteredGroups';
 import { getMarketWatchlistRowKind } from '../../../MarketHomeV2/components/MarketTokenList/utils/marketWatchlistRowKind';
+import { useMarketHomeSelection } from '../../../MarketHomeV2/hooks/useMarketHomeSelection';
 import { useMarketDetailWatchlistIdentity } from '../../hooks/useMarketDetailWatchlistIdentity';
 import { useTokenDetail } from '../../hooks/useTokenDetail';
 import {
@@ -223,7 +224,11 @@ function MarketDetailWatchlistSidebarImpl({
   elevated?: boolean;
 }) {
   const intl = useIntl();
-  const [filter, setFilter] = useState<ISidebarFilter>('all');
+  // Persisted so closing and reopening the sidebar keeps the last filter.
+  const [filter, setFilter] = useMarketHomeSelection(
+    'detailWatchlistSidebarFilter',
+    'all',
+  );
   const [searchValue, setSearchValue] = useState('');
   const [sort, setSort] = useState<ISidebarSort | undefined>();
   const { stockId, assetId } = useMarketDetailWatchlistIdentity();
