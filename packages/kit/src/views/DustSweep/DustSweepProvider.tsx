@@ -129,6 +129,7 @@ function useDustSweepController(params: IDustSweepRouteParams) {
   const networkChoiceScope = useRef<typeof loadParams | undefined>(undefined);
   // Add anyway applies to every network until the user leaves Dust Sweep.
   const [includeHidden, setIncludeHidden] = useState(false);
+  const addedHidden = useRef(false);
   const [selectionState, setSelection] = useState<{
     scope: IDustSweepRouteParams;
     keys: Set<string>;
@@ -137,7 +138,7 @@ function useDustSweepController(params: IDustSweepRouteParams) {
   const setSlippage = useCallback((value: number) => {
     if (isValidDustSweepSlippage(value.toString())) setSlippageValue(value);
   }, []);
-  const visited = useRef(false);
+  const visited = useRef<typeof loadParams | undefined>(undefined);
   const firstVisit = useRef(true);
   const session = useDustSweepSession(networks);
   const {
@@ -385,8 +386,13 @@ function useDustSweepController(params: IDustSweepRouteParams) {
     .reduce((sum, token) => sum.plus(token.valueUsd), new BigNumber(0))
     .toFixed();
   useEffect(() => {
-    if (refreshStatus !== 'idle' || visited.current) return;
-    visited.current = true;
+    if (!selecting || !isFocused) {
+      visited.current = undefined;
+      return;
+    }
+    if (refreshStatus === 'refreshing' || visited.current === loadParams)
+      return;
+    visited.current = loadParams;
     defaultLogger.dex.dustSweep.dustSweepPageVisited({
       page: 'select',
       entry: firstVisit.current ? params.entry : undefined,
@@ -394,7 +400,15 @@ function useDustSweepController(params: IDustSweepRouteParams) {
       hiddenTokenCount: hidden.length,
     });
     firstVisit.current = false;
-  }, [refreshStatus, params.entry, visible.length, hidden.length]);
+  }, [
+    selecting,
+    isFocused,
+    loadParams,
+    refreshStatus,
+    params.entry,
+    visible.length,
+    hidden.length,
+  ]);
   const selectNetwork = useCallback(
     (id: string) => {
       if (!canSelectNetwork) return;
@@ -450,13 +464,18 @@ function useDustSweepController(params: IDustSweepRouteParams) {
     setSelection({ scope: loadParams, keys: selectedKeys });
   }, [selecting, selected, visible, loadParams]);
   const addHidden = useCallback(() => {
-    if (!selecting || includeHidden) return;
+    if (!selecting || includeHidden || addedHidden.current || !hidden.length)
+      return;
+    addedHidden.current = true;
     networkChoiceScope.current = loadParams;
     setIncludeHidden(true);
     defaultLogger.dex.dustSweep.dustSweepAddHidden({
       hiddenCount: hidden.length,
+      hiddenTotalUsd: hidden
+        .reduce((sum, token) => sum.plus(token.valueUsd), new BigNumber(0))
+        .toNumber(),
     });
-  }, [selecting, includeHidden, hidden.length, loadParams]);
+  }, [selecting, includeHidden, hidden, loadParams]);
   // Keep unconverted choices even if the balance index still lists spent tokens.
   const retainUnconvertedSelection = useCallback(
     (batch: IDustSweepState) => {
@@ -472,7 +491,6 @@ function useDustSweepController(params: IDustSweepRouteParams) {
             .map((item) => item.token.key),
         ),
       });
-      visited.current = false;
     },
     [loadParams],
   );
@@ -500,8 +518,8 @@ function useDustSweepController(params: IDustSweepRouteParams) {
       scope: loadParams,
       keys: new Set(snapshot.tokens.map((token) => token.key)),
     });
-    return startSession(snapshot);
-  }, [snapshot, canStart, loadParams, startSession]);
+    return startSession(snapshot, { hiddenTokenCount: hidden.length });
+  }, [snapshot, canStart, loadParams, startSession, hidden.length]);
   const retry = useCallback(() => {
     if (selecting && !reconciliation.isRefreshing()) {
       // Claim before React renders so a same-event local retry cannot race it.
