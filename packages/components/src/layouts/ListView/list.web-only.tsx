@@ -150,6 +150,7 @@ function BaseListView<T>(
   );
 }
 
+/** @deprecated Use NativeList from @onekeyfe/react-native-native-list for supported row content. */
 export const ListView = forwardRef(BaseListView) as <T>(
   props: IListViewProps<T> & { ref?: React.Ref<FlatList<T>> },
 ) => React.ReactElement | null;

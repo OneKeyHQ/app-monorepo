@@ -18,11 +18,10 @@ export const {
   use: useDustSweepPreferencesPersistAtom,
 } = globalAtom<{
   threshold: 1 | 10 | 100;
-  entrySeen: boolean;
 }>({
   persist: true,
   name: EAtomNames.dustSweepPreferencesPersistAtom,
-  initialValue: { threshold: 10, entrySeen: false },
+  initialValue: { threshold: 10 },
 });
 
 export const {

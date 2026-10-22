@@ -3,7 +3,10 @@ import type { ILocaleJSONSymbol } from '@onekeyhq/shared/src/locale';
 
 import purchaseSdkUtils from './purchaseSdkUtils';
 import { PurchasesSdkBase } from './PurchasesSdkBase';
-import { loadPurchasesSdkWeb } from './purchasesSdkWebLoader';
+import {
+  loadPurchasesSdkWeb,
+  loadPurchasesSdkWebForEmbeddedPurchase,
+} from './purchasesSdkWebLoader';
 
 import type { IPurchasePackageParams } from './PurchasesSdkBase';
 import type {
@@ -94,7 +97,7 @@ export abstract class PurchasesSdkWebBase extends PurchasesSdkBase {
       };
       // TODO check package user is Matched to onekeyUserId
       // TODO check if user has already purchased
-      const { Purchases } = await loadPurchasesSdkWeb();
+      const { Purchases } = await loadPurchasesSdkWebForEmbeddedPurchase();
       const purchase =
         await Purchases.getSharedInstance().purchase(purchaseParams);
       // test credit card

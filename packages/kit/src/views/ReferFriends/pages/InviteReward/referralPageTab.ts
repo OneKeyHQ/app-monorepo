@@ -7,8 +7,8 @@ export const EReferralPageTab = {
   benefits: 'benefits',
 } as const satisfies Record<IReferralPageTab, IReferralPageTab>;
 
-// Hidden until the Benefits Center ships; deep links fall back to invite.
-export const IS_BENEFITS_TAB_ENABLED = false;
+// Turn off to hide the Perks tab; deep links then fall back to invite.
+export const IS_BENEFITS_TAB_ENABLED = true;
 
 export function resolveReferralPageTab(
   tab?: string | null,

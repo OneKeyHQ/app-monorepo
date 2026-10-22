@@ -31,6 +31,7 @@ import {
   ReplaceTxNonceConsumedError,
 } from '@onekeyhq/shared/src/errors';
 import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
+import { withBroadcastTxContext } from '@onekeyhq/shared/src/errors/utils/broadcastTxErrorUtils';
 import {
   GasAccountSubmitCancelledError,
   MAX_GAS_ACCOUNT_RETRY_ATTEMPTS,
@@ -468,8 +469,11 @@ class ServiceSend extends ServiceBase {
       tronResourceRentalInfo?.isResourceRentalEnabled;
 
     const client = await this.getClient(EServiceEndpointEnum.Wallet);
-    const walletTypeHeader =
-      await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader({
+    // Wallet-type header plus the OneKey ID login token of the current
+    // session: Prime checks the member identity of a Gas Account quote at
+    // execute time, so the token must match the one estimate-fee carried.
+    const requestHeaders =
+      await this.backgroundApi.serviceGas.getGasAccountRequestHeaders({
         accountId,
       });
     const requestStartedAt = Date.now();
@@ -508,7 +512,7 @@ class ServiceSend extends ServiceBase {
         },
         {
           timeout: timerUtils.getTimeDurationMs({ seconds: 10 }),
-          headers: walletTypeHeader,
+          headers: requestHeaders,
         },
       )
       .then(
@@ -568,7 +572,12 @@ class ServiceSend extends ServiceBase {
       const client = await this.getClient(EServiceEndpointEnum.Wallet);
       const resp = await client.post<{
         data: { success: boolean };
-      }>('/wallet/v1/account/pre-send-transaction', params);
+      }>('/wallet/v1/account/pre-send-transaction', params, {
+        // Preventive (OK-64746): the pre-check has no Gas Account member
+        // logic today, but carry the OneKey ID token so a future member path
+        // on this endpoint does not silently run anonymous.
+        headers: await this.getOneKeyIdAuthHeaders(),
+      });
 
       return !resp.data.data.success;
     } catch {
@@ -943,6 +952,7 @@ class ServiceSend extends ServiceBase {
         replaceTxInfo?: IReplaceTxInfo;
         isPrivateSend?: boolean;
         stageFeeInfo?: ISendSelectedFeeInfo;
+        preserveBroadcastTxIdOnError?: boolean;
       },
   ): Promise<
     ISignedTxPro & { primeInfiniPayment?: IPrimeInfiniBeforeBroadcastAction }
@@ -1000,6 +1010,7 @@ class ServiceSend extends ServiceBase {
       isPrivateSend,
       useDefaultRpc,
       stageFeeInfo,
+      preserveBroadcastTxIdOnError,
     } = params;
 
     const diagnostic = diagnosticState.context;
@@ -1452,6 +1463,18 @@ class ServiceSend extends ServiceBase {
             isWithoutBroadcastTxIdAllowed: Boolean(
               vaultSettings.withoutBroadcastTxId,
             ),
+          });
+        }
+        if (
+          preserveBroadcastTxIdOnError &&
+          hasAttemptedBroadcast &&
+          !isGasAccountSubmit &&
+          networkUtils.isEvmNetwork({ networkId }) &&
+          /^0x[\da-f]{64}$/i.test(signedTx.txid)
+        ) {
+          throw withBroadcastTxContext(error, {
+            networkId,
+            txId: signedTx.txid,
           });
         }
         throw error;

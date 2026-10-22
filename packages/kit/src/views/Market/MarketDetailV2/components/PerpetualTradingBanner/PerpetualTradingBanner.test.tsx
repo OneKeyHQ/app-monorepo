@@ -367,7 +367,7 @@ it('captures the underlying detail when a token selector is closing', async () =
         state: {
           index: 1,
           routes: [
-            { key: 'list', name: 'TabDiscovery' },
+            { key: 'list', name: 'TabMarket' },
             { key: 'detail', name: 'MarketDetailV2' },
           ],
         },

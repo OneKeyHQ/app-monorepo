@@ -27,6 +27,7 @@ import {
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { isPreferredStockTokenVariant } from '@onekeyhq/shared/src/utils/stockTokenVariant';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type {
   IMarketAccountPortfolioDisplayItem,
@@ -81,6 +82,8 @@ const StockTokenVariantResolvedContext = createContext<Set<string>>(
 const ISSUER_LABELS: Record<string, string> = {
   // cspell:disable-next-line
   bstocks: 'bStocks',
+  // cspell:disable-next-line
+  bstock: 'bStocks',
   coingecko: 'Ondo',
   ondo: 'Ondo',
   // cspell:disable-next-line
@@ -97,6 +100,23 @@ export function getIssuerLabel(issuer: string) {
 
 function isAlwaysOpenVariant(variant: IMarketStockTokenVariant) {
   return /^7\s*[x×]\s*24$/i.test(variant.tradingHours?.days?.trim() ?? '');
+}
+
+function AlwaysOpenTag() {
+  return (
+    <Stack
+      minWidth={36}
+      px="$1.5"
+      py="$0.5"
+      borderRadius="$1"
+      bg="$bgStrong"
+      alignItems="center"
+    >
+      <SizableText size="$bodyXsMedium" color="$textSubdued">
+        24/7
+      </SizableText>
+    </Stack>
+  );
 }
 
 function findVariantBalance({
@@ -215,20 +235,7 @@ function StockTokenVariantRow({
           <SizableText size="$bodyMdMedium" numberOfLines={1} flexShrink={1}>
             {variant.symbol || variant.name || VALUE_FALLBACK}
           </SizableText>
-          {isAlwaysOpenVariant(variant) ? (
-            <Stack
-              minWidth={36}
-              px="$1.5"
-              py="$0.5"
-              borderRadius="$1"
-              bg="$bgStrong"
-              alignItems="center"
-            >
-              <SizableText size="$bodyXsMedium" color="$textSubdued">
-                24/7
-              </SizableText>
-            </Stack>
-          ) : null}
+          {isAlwaysOpenVariant(variant) ? <AlwaysOpenTag /> : null}
         </XStack>
         {balance ? (
           <NumberSizeableText
@@ -313,7 +320,6 @@ function StockTokenVariantSelectorContent({
       : undefined;
   }, [portfolioNetworkId, selectedTokenVariant]);
   const orderedVariants = useMemo(() => {
-    if (!sortByBalance) return tokenVariants;
     const balanceOf = (variant: IMarketStockTokenVariant) =>
       new BigNumber(
         findVariantBalance({
@@ -323,9 +329,13 @@ function StockTokenVariantSelectorContent({
           isPortfolioScope: variant.tokenId === portfolioScopeTokenId,
         }) ?? 0,
       );
-    return [...tokenVariants].toSorted(
-      (a, b) => balanceOf(b).comparedTo(balanceOf(a)) ?? 0,
-    );
+    return tokenVariants.toSorted((a, b) => {
+      const preferredOrder =
+        Number(isPreferredStockTokenVariant(b)) -
+        Number(isPreferredStockTokenVariant(a));
+      if (preferredOrder || !sortByBalance) return preferredOrder;
+      return balanceOf(b).comparedTo(balanceOf(a)) ?? 0;
+    });
   }, [portfolioData, portfolioScopeTokenId, sortByBalance, tokenVariants]);
 
   return (
@@ -630,11 +640,18 @@ export function StockTokenVariantSelector({
           />
           <XStack alignItems="center" gap="$2">
             <YStack justifyContent="center" minWidth={0}>
-              <SizableText size="$headingMd" numberOfLines={1}>
-                {renderedSelectedVariant.symbol ||
-                  renderedSelectedVariant.name ||
-                  VALUE_FALLBACK}
-              </SizableText>
+              {/* Same 24/7 tag as the list row, so the always-open token stays
+                  marked after it is picked. */}
+              <XStack alignItems="center" gap="$1">
+                <SizableText size="$headingMd" numberOfLines={1} flexShrink={1}>
+                  {renderedSelectedVariant.symbol ||
+                    renderedSelectedVariant.name ||
+                    VALUE_FALLBACK}
+                </SizableText>
+                {isAlwaysOpenVariant(renderedSelectedVariant) ? (
+                  <AlwaysOpenTag />
+                ) : null}
+              </XStack>
               {/* Figma 26230:23833 — the issuer sits under the symbol so the
                   trigger names who backs the token, not just which one it is.
                   The compact (Trade) trigger shows it too so both surfaces

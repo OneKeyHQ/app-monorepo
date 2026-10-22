@@ -25,6 +25,7 @@ export enum EAtomNames {
   hardwareUiStateCompletedAtom = 'hardwareUiStateCompletedAtom',
   deviceStageAtom = 'deviceStageAtom',
   thirdPartyHardwareUiStateAtom = 'thirdPartyHardwareUiStateAtom',
+  thirdPartyBleBindingAtom = 'thirdPartyBleBindingAtom',
   thirdPartyAppInstallAtom = 'thirdPartyAppInstallAtom',
   thirdPartyBatchInstallAtom = 'thirdPartyBatchInstallAtom',
   hardwareWalletXfpStatusAtom = 'hardwareWalletXfpStatusAtom',
@@ -158,6 +159,7 @@ export enum EAtomNames {
   marketTradingViewIndicatorSettingsPersistAtom = 'marketTradingViewIndicatorSettingsPersistAtom',
   marketTradingViewSubIndicatorCountPersistAtom = 'marketTradingViewSubIndicatorCountPersistAtom',
   marketDetailChartDisplayModePersistAtom = 'marketDetailChartDisplayModePersistAtom',
+  marketDetailPositionTabPersistAtom = 'marketDetailPositionTabPersistAtom',
   marketPriceSourceAtom = 'marketPriceSourceAtom',
   marketCurrentTokenLiveDataAtom = 'marketCurrentTokenLiveDataAtom',
 

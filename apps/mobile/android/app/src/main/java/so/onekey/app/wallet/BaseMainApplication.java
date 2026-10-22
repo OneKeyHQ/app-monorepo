@@ -24,6 +24,8 @@ import com.facebook.react.ReactPackage;
 import com.facebook.react.bridge.ReactApplicationContext;
 import com.facebook.react.bridge.ReactContext;
 import com.facebook.react.defaults.DefaultNewArchitectureEntryPoint;
+import com.facebook.react.internal.featureflags.ReactNativeFeatureFlags;
+import com.facebook.react.internal.featureflags.ReactNativeNewArchitectureFeatureFlagsDefaults;
 import com.facebook.react.modules.systeminfo.AndroidInfoHelpers;
 import com.facebook.react.soloader.OpenSourceMergedSoMapping;
 import com.facebook.soloader.SoLoader;
@@ -319,6 +321,10 @@ public class BaseMainApplication extends Application implements ReactApplication
         return;
       }
 
+      // Select the main bundle only after MainLauncherActivity's OTA rollback check.
+      if (mReactHost == null) {
+        setupBackgroundThreadBootstrap();
+      }
       BackgroundThreadManager manager = BackgroundThreadManager.getInstance();
       String entryUrl = getBackgroundRunnerEntryUrl();
       BuildVariantBundleInfo bundleInfo = getBuildVariantBundleInfo();
@@ -540,7 +546,10 @@ public class BaseMainApplication extends Application implements ReactApplication
     // triggers recovery. MainLauncherActivity records the user launch and
     // routes to RecoveryActivity without constructing a ReactActivity.
     int windowedFailures = BootRecoveryStore.readWindowedCount(prefs);
+    String activeOtaVersion = BundleUpdateStoreAndroid.INSTANCE.getCurrentBundleVersion(this);
+    // An active OTA is rolled back only by the next recorded user launch.
     shouldShowRecovery = !isHarnessMode
+        && (activeOtaVersion == null || activeOtaVersion.isEmpty())
         && windowedFailures >= BootRecoveryKeys.RECOVERY_THRESHOLD;
 
     OneKeyLog.info(
@@ -568,6 +577,18 @@ public class BaseMainApplication extends Application implements ReactApplication
     );
     if (BuildConfig.IS_NEW_ARCHITECTURE_ENABLED) {
       DefaultNewArchitectureEntryPoint.load();
+      ReactNativeFeatureFlags.dangerouslyForceOverride(
+          new ReactNativeNewArchitectureFeatureFlagsDefaults() {
+            @Override
+            public boolean fixFindShadowNodeByTagRaceCondition() {
+              return true;
+            }
+
+            @Override
+            public boolean enableSchedulerDelegateInvalidation() {
+              return true;
+            }
+          });
     }
     long tAfterNewArch = System.currentTimeMillis();
     OneKeyLog.info(
@@ -603,7 +624,6 @@ public class BaseMainApplication extends Application implements ReactApplication
     // }
     long tBeforeBg = System.currentTimeMillis();
     registerBackgroundThreadActivityBridge();
-    setupBackgroundThreadBootstrap();
     long tAfterBg = System.currentTimeMillis();
     OneKeyLog.info(
       "StartupTiming",

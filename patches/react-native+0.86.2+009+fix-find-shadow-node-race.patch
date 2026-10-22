@@ -1,0 +1,15 @@
+diff --git a/node_modules/react-native/ReactCommon/react/featureflags/ReactNativeFeatureFlagsOverridesOSSStable.h b/node_modules/react-native/ReactCommon/react/featureflags/ReactNativeFeatureFlagsOverridesOSSStable.h
+index ef70011..131223e 100644
+--- a/node_modules/react-native/ReactCommon/react/featureflags/ReactNativeFeatureFlagsOverridesOSSStable.h
++++ b/node_modules/react-native/ReactCommon/react/featureflags/ReactNativeFeatureFlagsOverridesOSSStable.h
+@@ -25,6 +25,10 @@ class ReactNativeFeatureFlagsOverridesOSSStable : public ReactNativeFeatureFlags
+   {
+     return true;
+   }
++  bool fixFindShadowNodeByTagRaceCondition() override
++  {
++    return true;
++  }
+   bool useTurboModules() override
+   {
+     return true;

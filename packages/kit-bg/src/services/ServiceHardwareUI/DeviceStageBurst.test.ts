@@ -1,6 +1,10 @@
 import { EDeviceType, HardwareErrorCode } from '@onekeyfe/hd-shared';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import {
+  EThirdPartyDevicePermissionDeniedReason,
+  ThirdPartyDevicePermissionDenied,
+} from '@onekeyhq/shared/src/errors/errors/thirdPartyHardwareErrors';
 import { ECustomOneKeyHardwareError } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import { convertDeviceError } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
@@ -14,6 +18,7 @@ import {
   setDeviceStageBurstActive,
 } from '@onekeyhq/shared/src/hardware/deviceStageOwnership';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EFirmwareUpdateTipMessages,
   EHardwareVendor,
@@ -1044,6 +1049,37 @@ describe('DeviceStageBurstScope', () => {
     expect(stage?.step).toBe('error');
     expect(stage?.errorReason).toBe('rejected');
   });
+
+  it.each([
+    [true, EThirdPartyDevicePermissionDeniedReason.permissionDenied, 'off'],
+    [true, EThirdPartyDevicePermissionDeniedReason.bluetoothTurnedOff, 'off'],
+    [true, undefined, 'error'],
+    [false, EThirdPartyDevicePermissionDeniedReason.permissionDenied, 'error'],
+  ] as const)(
+    'routes native=%s permission reason=%s to %s',
+    async (isNative, reason, expectedStep) => {
+      jest.replaceProperty(platformEnv, 'isNative', isNative);
+      const scope = new DeviceStageBurstScope();
+      const token = await scope.beginExplicit({
+        connectId: CONNECT_ID,
+        vendor: EHardwareVendor.ledger,
+      });
+      await paintOpeningBeat();
+      // Exercise the same serialization boundary as an explicit UI-owned burst.
+      const error = JSON.parse(
+        JSON.stringify(
+          toPlainErrorObject(
+            new ThirdPartyDevicePermissionDenied({
+              reason,
+              payload: { code: 10_303, error: 'Permission denied', params: {} },
+            }),
+          ),
+        ),
+      );
+      await scope.endExplicit({ token, error });
+      expect(stage?.step).toBe(expectedStep);
+    },
+  );
 
   it.each([
     HardwareErrorCode.DeviceNotOpenedPassphrase,

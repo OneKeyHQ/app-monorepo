@@ -16,8 +16,6 @@ const MARKET_HOME_TOKEN_SEED_ENV_ORIGINS = {
 };
 const MARKET_HOME_TOKEN_SEED_QUERY = {
   networkId: '',
-  sortBy: 'v24hUSD',
-  sortType: 'desc',
   page: '1',
   limit: '20',
   minLiquidity: '5000',
@@ -452,6 +450,7 @@ if (require.main === module) {
 }
 
 module.exports = {
+  createSeedUrl,
   fetchJson,
   readAppVersion,
 };

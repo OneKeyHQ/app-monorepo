@@ -2,7 +2,7 @@ import type { ISwapNetwork, ISwapToken } from './types';
 
 export const DUST_SWEEP_PROVIDER = 'SwapOKX';
 
-export type IDustSweepEntry = 'walletMore' | 'lowValueRow';
+export type IDustSweepEntry = 'lowValueRow' | 'tokenListHeader';
 export type IDustSweepRouteParams = {
   accountId?: string;
   indexedAccountId?: string;
@@ -18,10 +18,6 @@ export type IDustSweepReason =
   | 'insufficientGas'
   | 'txFailed'
   | 'unknown';
-export type IDustSweepQuoteFailure = {
-  reason: IDustSweepReason;
-  providerErrorMessage?: string;
-};
 export type IDustSweepToken = ISwapToken & {
   key: string;
   amount: string;
@@ -35,7 +31,8 @@ export type IDustSweepNetwork = {
   deriveAddressEncoding?: string;
   tokens: IDustSweepToken[];
   nativeToken: ISwapToken;
-  valueUsd: string;
+  /** Total USD value of the account's tokens on this network (risk tokens excluded). */
+  balanceUsd: string;
   denySingleSwapProvider?: string;
 };
 export type IDustSweepItemStatus =
@@ -57,6 +54,8 @@ export type IDustSweepItem = {
   receiptUnavailable?: boolean;
   reason?: IDustSweepReason;
   message?: string;
+  /** User-facing send API error while the transaction outcome is unresolved. */
+  submissionErrorMessage?: string;
   providerErrorMessage?: string;
 };
 export type IDustSweepSnapshot = {

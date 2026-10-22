@@ -28,6 +28,7 @@ import {
   useIsSplitDetailActive,
   usePageWidth,
   useSafeAreaInsets,
+  useTheme,
 } from '@onekeyhq/components';
 import { useActiveTradeInstrumentAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import { PerpDexBadge } from '@onekeyhq/kit/src/views/Market/components/PerpsBadges';
@@ -278,6 +279,11 @@ function MobilePerpCandlesStatic({
 }
 
 function MobilePerpMarket() {
+  const theme = useTheme();
+  const chartHeaderStyle = useMemo(
+    () => ({ backgroundColor: theme.bgApp.val }),
+    [theme.bgApp.val],
+  );
   const route = useAppRoute<
     IModalPerpParamList,
     EModalPerpRoutes.MobilePerpMarket
@@ -734,6 +740,7 @@ function MobilePerpMarket() {
               ) : platformEnv.isNativeIOS ? (
                 <Tabs.Container
                   initialTabName="orderbook"
+                  headerContainerStyle={chartHeaderStyle}
                   renderHeader={() => (
                     <MobilePerpCandlesHeader
                       isInteractionOverlayOpen={

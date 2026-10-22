@@ -1172,6 +1172,7 @@ export function MobileLayout({
                 storeName={EJotaiContextStoreNames.marketWatchListV2}
               >
                 <LazySwapPanelWrap
+                  isStock={swapToken.isStock}
                   onCloseDialog={() => dialogRef.current?.close()}
                 />
               </MarketWatchListProviderMirrorV2>
