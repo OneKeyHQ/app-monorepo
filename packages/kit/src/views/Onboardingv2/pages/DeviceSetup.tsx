@@ -83,8 +83,13 @@ function DeviceSetupPage({
   route,
 }: IPageScreenProps<IOnboardingParamListV2, EOnboardingPagesV2.DeviceSetup>) {
   const intl = useIntl();
-  const { connectProtocol, deviceData, tabValue, isFirmwareVerified } =
-    route?.params ?? {};
+  const {
+    connectProtocol,
+    deviceData,
+    tabValue,
+    isFirmwareVerified,
+    connectedSerialNo: connectedSerialNoFromCheck,
+  } = route?.params ?? {};
   const navigation = useAppNavigation();
   const reactNavigation = useNavigation();
 
@@ -98,8 +103,12 @@ function DeviceSetupPage({
     deviceData?.device as SearchDevice | undefined,
   );
   // The connected device's own serial, so the step cards wear its finish
-  // even when the scan named none (BLE scans carry no serial).
-  const [connectedSerialNo, setConnectedSerialNo] = useState<string>();
+  // even when the scan named none (BLE scans carry no serial). The
+  // device-driven Pro 2 path never reads features here, so it starts from
+  // the features CheckAndUpdate already read.
+  const [connectedSerialNo, setConnectedSerialNo] = useState<
+    string | undefined
+  >(connectedSerialNoFromCheck);
   const [setupState, setSetupState] = useState<EDeviceSetupState>(
     EDeviceSetupState.Checking,
   );

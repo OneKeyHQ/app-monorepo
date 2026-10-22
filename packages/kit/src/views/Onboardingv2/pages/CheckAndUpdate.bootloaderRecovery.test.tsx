@@ -4,6 +4,7 @@ import type { ComponentProps, PropsWithChildren } from 'react';
 
 import { act, fireEvent, render, screen } from '@testing-library/react';
 
+import { EOnboardingPagesV2 } from '@onekeyhq/shared/src/routes/onboardingv2';
 import type { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types/device';
 
 import { OnboardingTestIDs } from '../testIDs';
@@ -143,6 +144,8 @@ jest.mock('@onekeyhq/shared/src/utils/deviceUtils', () => ({
     getDefaultDeviceLabel: () => 'OneKey Pro 2',
     getDeviceScanner: () => mockDeviceScanner,
     getDeviceColorFromSearchDevice: () => undefined,
+    getDeviceSerialNoFromFeatures: (features?: { onekey_serial_no?: string }) =>
+      features?.onekey_serial_no,
   },
 }));
 jest.mock('../../../background/instance/backgroundApiProxy', () => ({
@@ -385,6 +388,35 @@ describe('CheckAndUpdate post-update bootloader recovery', () => {
     expect(
       screen.queryByTestId(OnboardingTestIDs.checkAndUpdateUpdateBtn),
     ).toBeNull();
+  });
+
+  it('hands DeviceSetup the serial of the connected device', async () => {
+    // A Bluetooth scan carries no serial and may advertise no color; the
+    // features read after connecting are the only place the finish exists.
+    const featuresWithSerial = {
+      ...mockApplicationFeatures,
+      onekey_serial_no: 'P2D33F0062D',
+    } as IOneKeyDeviceFeatures;
+    await startUpdateAttempt();
+    await advanceTime(74_000);
+    mockGetFeatures.mockResolvedValue(featuresWithSerial);
+    mockCheckRelease.mockResolvedValue({
+      hasUpgrade: false,
+      features: featuresWithSerial,
+    });
+    act(() => {
+      mockEventHandlers.get('begin')?.();
+    });
+    await advanceTime(10_000);
+
+    fireEvent.click(
+      screen.getByTestId(OnboardingTestIDs.checkAndUpdateContinueToSetupBtn),
+    );
+
+    expect(mockNavigation.push).toHaveBeenCalledWith(
+      EOnboardingPagesV2.DeviceSetup,
+      expect.objectContaining({ connectedSerialNo: 'P2D33F0062D' }),
+    );
   });
 
   it('keeps connection failure as Error with Retry and does not offer recovery', async () => {
