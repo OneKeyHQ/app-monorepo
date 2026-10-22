@@ -11,6 +11,12 @@ import type { IMarketTokenChart } from '@onekeyhq/shared/types/market';
 import { SimpleMarketChart } from './SimpleMarketChart';
 
 const mockSubscribe = jest.fn();
+let mockChartResult: {
+  coin: string;
+  range: string;
+  data: IMarketTokenChart;
+  intervalSeconds: number;
+};
 const mockUnsubscribe = jest.fn();
 
 jest.mock('react-intl', () => ({
@@ -57,7 +63,7 @@ jest.mock('@onekeyhq/kit/src/hooks/useThemeVariant', () => ({
   useThemeVariant: () => 'light',
 }));
 jest.mock('@onekeyhq/kit/src/hooks/usePromiseResult', () => ({
-  usePromiseResult: () => ({ result: undefined, run: jest.fn() }),
+  usePromiseResult: () => ({ result: mockChartResult, run: jest.fn() }),
 }));
 jest.mock('@onekeyhq/kit/src/components/StockPriceLineChart', () => ({
   StockPriceLineChart: () => null,
@@ -98,7 +104,7 @@ jest.mock(
 jest.mock(
   '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/StockSimpleChart',
   () => ({
-    TOKEN_SIMPLE_CHART_RANGES: ['1H', '1D'],
+    TOKEN_SIMPLE_CHART_RANGES: ['1H', '1D', '1W', '1M', '1Y', 'All'],
   }),
 );
 jest.mock(
@@ -159,7 +165,18 @@ jest.mock(
   },
 );
 
-beforeEach(() => jest.clearAllMocks());
+beforeEach(() => {
+  jest.clearAllMocks();
+  mockChartResult = {
+    coin: 'BTC',
+    range: '1D',
+    data: [
+      [1, 100],
+      [2, 110],
+    ],
+    intervalSeconds: 60,
+  };
+});
 
 it.each([true, false])(
   'pauses candles on blur while retaining the viewport on focus (native: %s)',
@@ -208,4 +225,78 @@ it('preserves the extracted frame height and range selection', () => {
   );
   fireEvent.click(getByTestId('chart-frame-range-1H'));
   expect(onRangeChange).toHaveBeenCalledWith('1H');
+});
+
+it('reports range changes, clears stale data and restores the summary after switching chart modes', () => {
+  const onPerformanceChange = jest.fn();
+  const { getByTestId, rerender } = render(
+    <SimpleMarketChart
+      coin="BTC"
+      active
+      onPerformanceChange={onPerformanceChange}
+    />,
+  );
+  expect(onPerformanceChange).toHaveBeenLastCalledWith({
+    coin: 'BTC',
+    range: '1D',
+    change: '10',
+    changePercent: 10,
+  });
+  onPerformanceChange.mockClear();
+  fireEvent.click(getByTestId('perps-simple-market-chart-range-1D'));
+  expect(onPerformanceChange).not.toHaveBeenCalled();
+  fireEvent.click(getByTestId('perps-simple-market-chart-range-1W'));
+  expect(onPerformanceChange).toHaveBeenLastCalledWith({
+    coin: 'BTC',
+    range: '1W',
+  });
+  // The previous range's response cannot supply the new range's performance.
+  mockChartResult = {
+    ...mockChartResult,
+    data: [
+      [1, 10],
+      [2, 110],
+    ],
+  };
+  rerender(
+    <SimpleMarketChart
+      coin="BTC"
+      active
+      onPerformanceChange={onPerformanceChange}
+    />,
+  );
+  expect(onPerformanceChange).toHaveBeenLastCalledWith({
+    coin: 'BTC',
+    range: '1W',
+  });
+  mockChartResult = {
+    ...mockChartResult,
+    range: '1W',
+    data: [
+      [1, 50],
+      [2, 110],
+    ],
+  };
+  rerender(
+    <SimpleMarketChart
+      coin="BTC"
+      active
+      onPerformanceChange={onPerformanceChange}
+    />,
+  );
+  expect(onPerformanceChange).toHaveBeenLastCalledWith({
+    coin: 'BTC',
+    range: '1W',
+    change: '60',
+    changePercent: 120,
+  });
+  fireEvent.click(getByTestId('perps-simple-chart-mode-toggle'));
+  expect(onPerformanceChange).toHaveBeenLastCalledWith(undefined);
+  fireEvent.click(getByTestId('perps-simple-chart-mode-toggle'));
+  expect(onPerformanceChange).toHaveBeenLastCalledWith({
+    coin: 'BTC',
+    range: '1W',
+    change: '60',
+    changePercent: 120,
+  });
 });

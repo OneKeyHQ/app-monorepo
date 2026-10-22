@@ -46,10 +46,12 @@ import { FavoriteButton } from '../components/TokenSelector/PerpTokenSelectorRow
 import { usePerpsAccountScopedActivePositions } from '../hooks/usePerpsAccountScopedActivePositions';
 import { usePerpsAssetCtx } from '../hooks/usePerpsAssetCtx';
 import { useSimpleMarketFocus } from '../hooks/useSimpleMarketFocus';
+import { useTradingPrice } from '../hooks/useTradingPrice';
 import { PerpsAccountSelectorProviderMirror } from '../PerpsAccountSelectorProviderMirror';
 import { PerpsProviderMirror } from '../PerpsProviderMirror';
 import { simplePrice, simpleUsd } from '../utils/simpleDisplay';
 
+import type { ISimpleChartPerformance } from '../utils/simpleChart';
 import type { RouteProp } from '@react-navigation/native';
 import type {
   LayoutChangeEvent,
@@ -122,18 +124,39 @@ function SimpleMarketContent() {
     [updateHeaderPriceVisibility],
   );
   const [infoExpanded, setInfoExpanded] = useState(false);
+  const [chartPerformance, setChartPerformance] = useState<
+    ISimpleChartPerformance | undefined
+  >({ coin: route.params.coin, range: '1D' });
   const { assetCtx } = usePerpsAssetCtx({ assetId: instrument.assetId ?? -1 });
+  const { midPrice, isValid: hasMidPrice } = useTradingPrice();
   const valid =
     instrument.mode === 'perp' && instrument.coin === route.params.coin;
   const headerWidth = Math.max(100, Math.min(264, width - 152));
-  const change = valid ? assetCtx?.change24hPercent : undefined;
+  const currentPerformance =
+    chartPerformance?.coin === route.params.coin ? chartPerformance : undefined;
+  const changeRange = currentPerformance?.range.toUpperCase() ?? '1D';
+  const performancePercent = currentPerformance
+    ? currentPerformance.changePercent
+    : assetCtx?.change24hPercent;
+  const change = valid ? performancePercent : undefined;
   const changeKnown = change !== undefined && Number.isFinite(change);
   const changeLabel = changeKnown
     ? `${change >= 0 ? '+' : ''}${change.toFixed(2)}%`
     : '--';
+  const changeAmount = new BigNumber(
+    valid
+      ? ((currentPerformance
+          ? currentPerformance.change
+          : assetCtx?.change24h) ?? '')
+      : '',
+  );
+  const changeAmountLabel = changeAmount.isFinite()
+    ? `${changeAmount.lt(0) ? '-' : '+'}${simplePrice(changeAmount.abs())}`
+    : '--';
   const directionColor = (change ?? 0) >= 0 ? '$textSuccess' : '$textCritical';
   const changeColor = changeKnown ? directionColor : '$textSubdued';
-  const headerPrice = valid ? simplePrice(assetCtx?.markPrice) : '--';
+  const headerPrice = valid && hasMidPrice ? simplePrice(midPrice) : '--';
+  const markPrice = valid ? simplePrice(assetCtx?.markPrice) : '--';
   const openTokenSelector = useCallback(() => {
     if (submitting) return;
     navigation.push(EModalPerpRoutes.MobileTokenSelector);
@@ -211,14 +234,17 @@ function SimpleMarketContent() {
                 numberOfLines={1}
                 adjustsFontSizeToFit
               >
-                {headerPrice.replace('$', '')}
+                {headerPrice}
               </SizableText>
-              <XStack alignItems="center" gap="$2">
-                <SizableText size="$bodySm" color="$textSubdued">
-                  {valid ? `≈${headerPrice}` : '--'}
+              <XStack alignItems="center" gap="$1">
+                <SizableText size="$bodySmMedium" color={changeColor}>
+                  {changeAmountLabel}
                 </SizableText>
                 <SizableText size="$bodySmMedium" color={changeColor}>
-                  {changeLabel}
+                  {changeKnown ? `(${changeLabel})` : '--'}
+                </SizableText>
+                <SizableText size="$bodySm" color="$textSubdued">
+                  {changeRange}
                 </SizableText>
               </XStack>
             </YStack>
@@ -241,7 +267,7 @@ function SimpleMarketContent() {
                     label: intl.formatMessage({
                       id: ETranslations.perp_position_mark_price,
                     }),
-                    value: headerPrice,
+                    value: markPrice,
                   },
                   {
                     label: intl.formatMessage({
@@ -334,7 +360,8 @@ function SimpleMarketContent() {
               key={`chart-${route.params.coin}`}
               coin={route.params.coin}
               active={focused}
-              livePrice={assetCtx?.markPrice}
+              livePrice={hasMidPrice ? midPrice : undefined}
+              onPerformanceChange={setChartPerformance}
             />
           ) : null}
           <SimpleMarketPortfolio

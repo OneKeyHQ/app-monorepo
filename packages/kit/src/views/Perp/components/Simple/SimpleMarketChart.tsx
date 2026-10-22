@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -38,9 +38,12 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import {
+  getSimpleChartPerformance,
   getSimpleChartPoints,
   getSimpleChartRequest,
 } from '../../utils/simpleChart';
+
+import type { ISimpleChartPerformance } from '../../utils/simpleChart';
 
 const CHART_HEIGHT = 340;
 const LINE_CHART_HEIGHT =
@@ -51,11 +54,15 @@ function SimpleMarketLineChart({
   range,
   active,
   livePrice,
+  onPerformanceChange,
 }: {
   coin: string;
   range: IMobileSimpleChartRange;
   active: boolean;
   livePrice?: string;
+  onPerformanceChange?: (
+    performance: ISimpleChartPerformance | undefined,
+  ) => void;
 }) {
   const intl = useIntl();
   const { result, run } = usePromiseResult(
@@ -104,6 +111,11 @@ function SimpleMarketLineChart({
       }),
     [current, livePrice],
   );
+
+  const performance = useMemo(() => getSimpleChartPerformance(data), [data]);
+  useEffect(() => {
+    onPerformanceChange?.({ coin, range, ...performance });
+  }, [coin, range, performance, onPerformanceChange]);
 
   if (!current) {
     return <Skeleton width="100%" height="100%" />;
@@ -159,10 +171,14 @@ export function SimpleMarketChart({
   coin,
   active,
   livePrice,
+  onPerformanceChange,
 }: {
   coin: string;
   active: boolean;
   livePrice?: string;
+  onPerformanceChange?: (
+    performance: ISimpleChartPerformance | undefined,
+  ) => void;
 }) {
   const intl = useIntl();
   const theme = useTheme();
@@ -199,6 +215,7 @@ export function SimpleMarketChart({
       })}
       onPress={() => {
         setFullscreen(false);
+        onPerformanceChange?.(showCandles ? { coin, range } : undefined);
         setShowCandles((value) => !value);
       }}
     />
@@ -242,7 +259,11 @@ export function SimpleMarketChart({
           height={CHART_HEIGHT}
           range={range}
           chartRanges={TOKEN_SIMPLE_CHART_RANGES}
-          onRangeChange={setRange}
+          onRangeChange={(nextRange) => {
+            if (nextRange === range) return;
+            onPerformanceChange?.({ coin, range: nextRange });
+            setRange(nextRange);
+          }}
           modeControl={modeControl}
         >
           <SimpleMarketLineChart
@@ -250,6 +271,7 @@ export function SimpleMarketChart({
             range={range}
             active={active}
             livePrice={livePrice}
+            onPerformanceChange={onPerformanceChange}
           />
         </MobileSimpleChartFrame>
       ) : null}

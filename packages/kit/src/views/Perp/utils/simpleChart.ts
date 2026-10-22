@@ -1,9 +1,31 @@
+import BigNumber from 'bignumber.js';
+
 import type { IHyperliquidCandleInterval } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative/data/providers/hyperliquid/hyperliquidCandleUtils';
 import type { IMobileSimpleChartRange } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/layouts/MobileSimpleChart';
 import type { IMarketTokenChart } from '@onekeyhq/shared/types/market';
 import type { IMarketTokenKLineDataPoint } from '@onekeyhq/shared/types/marketV2';
 
 const DAY_SECONDS = 24 * 60 * 60;
+export type ISimpleChartPerformance = {
+  coin: string;
+  range: IMobileSimpleChartRange;
+  change?: string;
+  changePercent?: number;
+};
+
+export function getSimpleChartPerformance(data: IMarketTokenChart) {
+  if (data.length < 2) return undefined;
+  const first = new BigNumber(data[0][1]);
+  const last = new BigNumber(data[data.length - 1][1]);
+  if (!first.isFinite() || !last.isFinite() || first.lte(0) || last.lte(0)) {
+    return undefined;
+  }
+  const change = last.minus(first);
+  return {
+    change: change.toFixed(),
+    changePercent: change.dividedBy(first).multipliedBy(100).toNumber(),
+  };
+}
 const RANGE_CONFIG: Record<
   IMobileSimpleChartRange,
   {

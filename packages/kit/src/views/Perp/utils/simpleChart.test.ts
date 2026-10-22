@@ -1,6 +1,48 @@
-import { getSimpleChartPoints, getSimpleChartRequest } from './simpleChart';
+import {
+  getSimpleChartPerformance,
+  getSimpleChartPoints,
+  getSimpleChartRequest,
+} from './simpleChart';
 
 describe('simple Perps chart data', () => {
+  it('calculates the displayed range change using its first and latest prices', () => {
+    expect(
+      getSimpleChartPerformance([
+        [1, 100],
+        [2, 80],
+        [3, 110],
+      ]),
+    ).toEqual({
+      change: '10',
+      changePercent: 10,
+    });
+    expect(
+      getSimpleChartPerformance([
+        [1, 0.000_04],
+        [2, 0.000_03],
+      ]),
+    ).toEqual({
+      change: '-0.00001',
+      changePercent: -25,
+    });
+  });
+
+  it('leaves the change unavailable when the range has no valid baseline', () => {
+    expect(getSimpleChartPerformance([])).toBeUndefined();
+    expect(getSimpleChartPerformance([[1, 100]])).toBeUndefined();
+    expect(
+      getSimpleChartPerformance([
+        [1, 0],
+        [2, 100],
+      ]),
+    ).toBeUndefined();
+    expect(
+      getSimpleChartPerformance([
+        [1, 100],
+        [2, NaN],
+      ]),
+    ).toBeUndefined();
+  });
   it.each([
     ['1H', '1m', 3600],
     ['1D', '5m', 86_400],
