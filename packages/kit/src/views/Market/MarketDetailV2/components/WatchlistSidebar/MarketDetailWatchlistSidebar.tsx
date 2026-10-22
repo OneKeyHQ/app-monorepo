@@ -499,7 +499,7 @@ function MarketDetailWatchlistSidebarImpl({
           top={SIDEBAR_DIVIDER_INSET}
           bottom={SIDEBAR_DIVIDER_INSET}
           width={1}
-          bg="$borderSubdued"
+          bg="$borderDisabled"
           pointerEvents="none"
         />
       )}
