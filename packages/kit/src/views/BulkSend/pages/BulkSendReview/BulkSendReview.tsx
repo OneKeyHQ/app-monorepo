@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -17,6 +17,11 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import type { IApproveInfo } from '@onekeyhq/kit-bg/src/vaults/types';
+import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
@@ -93,7 +98,24 @@ function BaseBulkSendReview({
   const transferTxCount = unsignedTxs.length - approvesInfo.length;
   const isTransferSplit = transferTxCount > 1;
 
-  const receiverGroups = useMemo(() => {
+  // Chunks the background has already broadcast, by unsignedTx uuid. The
+  // batch call rejects without a partial result when a later chunk fails
+  // (and its sent list never crosses the bridge on extension / native), so
+  // this event is what tells the user which transactions a retry will skip.
+  const [sentTxUuids, setSentTxUuids] = useState<string[]>([]);
+  useEffect(() => {
+    const handler = ({
+      uuid,
+    }: IAppEventBusPayload[EAppEventBusNames.BatchSendTxBroadcasted]) => {
+      setSentTxUuids((prev) => (prev.includes(uuid) ? prev : [...prev, uuid]));
+    };
+    appEventBus.on(EAppEventBusNames.BatchSendTxBroadcasted, handler);
+    return () => {
+      appEventBus.off(EAppEventBusNames.BatchSendTxBroadcasted, handler);
+    };
+  }, []);
+
+  const receiverGroupTxs = useMemo(() => {
     if (
       bulkSendMode !== EBulkSendMode.OneToMany ||
       !isTransferSplit ||
@@ -101,11 +123,24 @@ function BaseBulkSendReview({
     ) {
       return undefined;
     }
-    const txBatches = unsignedTxs
-      .map((tx) => tx.transfersInfo ?? [])
-      .filter((batch) => batch.length > 0);
+    const txBatches = unsignedTxs.filter(
+      (tx) => (tx.transfersInfo ?? []).length > 0,
+    );
     return txBatches.length > 1 ? txBatches : undefined;
   }, [bulkSendMode, isTransferSplit, unsignedTxs]);
+
+  const receiverGroups = useMemo(
+    () => receiverGroupTxs?.map((tx) => tx.transfersInfo ?? []),
+    [receiverGroupTxs],
+  );
+
+  const sentReceiverGroups = useMemo(
+    () =>
+      receiverGroupTxs?.map((tx) =>
+        Boolean(tx.uuid && sentTxUuids.includes(tx.uuid)),
+      ),
+    [receiverGroupTxs, sentTxUuids],
+  );
 
   // Use fee estimation hook
   const { feeLabel, handleFeeChange, vaultSettings, forceRefreshFee } =
@@ -714,6 +749,7 @@ function BaseBulkSendReview({
             transfersInfo={transfersInfo}
             bulkSendMode={bulkSendMode}
             receiverGroups={receiverGroups}
+            sentReceiverGroups={sentReceiverGroups}
             containerProps={{
               px: '$5',
             }}

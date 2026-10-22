@@ -18943,6 +18943,7 @@
     "packages/kit-bg/src/dbs/simple/entity/SimpleDbEntityBTCFreshAddressMeta.ts": 19453,
     "packages/kit-bg/src/dbs/simple/entity/SimpleDbEntityBabylonSync.ts": 12775,
     "packages/kit-bg/src/dbs/simple/entity/SimpleDbEntityBotWallet.ts": 23372,
+    "packages/kit-bg/src/dbs/simple/entity/SimpleDbEntityBroadcastRecords.ts": 3093,
     "packages/kit-bg/src/dbs/simple/entity/SimpleDbEntityBrowserBookmarks.ts": 9992,
     "packages/kit-bg/src/dbs/simple/entity/SimpleDbEntityBrowserClosedTabs.ts": 23923,
     "packages/kit-bg/src/dbs/simple/entity/SimpleDbEntityBrowserHistory.ts": 22647,

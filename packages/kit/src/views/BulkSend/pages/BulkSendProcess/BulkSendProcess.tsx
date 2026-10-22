@@ -638,6 +638,11 @@ function BulkSendProcessContent({
                 );
               updatedTx = {
                 ...rebuiltTx,
+                // Keep the item's uuid across rebuilds: a retry of this item
+                // must find the broadcast record its previous attempt saved
+                // under that uuid, or an ambiguous first broadcast that
+                // landed would be signed and sent again (OK-65147).
+                uuid: tx.uuid ?? rebuiltTx.uuid,
                 accountId: tx.accountId,
                 indexedAccountId: tx.indexedAccountId,
               };
