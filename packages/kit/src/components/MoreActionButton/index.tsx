@@ -63,7 +63,7 @@ import {
   EModalSettingRoutes,
   ERootRoutes,
   ESettingsTabNames,
-  ETabRoutes,
+  ETabDeveloperRoutes,
 } from '@onekeyhq/shared/src/routes';
 import { EModalAddressRiskCheckRoutes } from '@onekeyhq/shared/src/routes/addressRiskCheck';
 import { EModalBulkCopyAddressesRoutes } from '@onekeyhq/shared/src/routes/bulkCopyAddresses';
@@ -1478,11 +1478,8 @@ const MoreActionWalletGrid = () => {
   );
 };
 
-// Ext popup/side panel hides the bottom tab bar, so the Developer tab loses its
-// only entry point there; surface it in this More menu in dev builds instead.
-const showDevModeEntryInMoreMenu =
-  platformEnv.isDev &&
-  (platformEnv.isExtensionUiPopup || platformEnv.isExtensionUiSidePanel);
+// Native development opens Developer from this More menu.
+const showDevModeEntryInMoreMenu = platformEnv.isDev && platformEnv.isNative;
 
 const MoreActionMoreGrid = () => {
   const intl = useIntl();
@@ -1507,7 +1504,9 @@ const MoreActionMoreGrid = () => {
 
   const handleDevMode = useCallback(async () => {
     await closePopover?.();
-    navigation.switchTab(ETabRoutes.Developer);
+    navigation.pushModal(EModalRoutes.DeveloperModal, {
+      screen: ETabDeveloperRoutes.TabDeveloper,
+    });
   }, [closePopover, navigation]);
 
   const items = useMemo(() => {
@@ -1542,6 +1541,7 @@ const MoreActionMoreGrid = () => {
             {
               title: intl.formatMessage({ id: ETranslations.global_dev_mode }),
               icon: 'CodeBracketsOutline' as const,
+              testID: 'more-action-dev-mode' as const,
               onPress: handleDevMode,
               trackID: 'wallet-dev-mode',
             },

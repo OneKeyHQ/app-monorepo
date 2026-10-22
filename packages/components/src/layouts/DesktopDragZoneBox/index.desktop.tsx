@@ -49,6 +49,7 @@ const MARKER_CLASS = 'app-region-drag';
 const SYN_ATTR = 'data-onekey-syn-region';
 const NEUTRALIZE_STYLE_ID = 'onekey-drag-region-neutralize';
 const MODAL_SCREEN_SELECTOR = '.onekey-modal-screen';
+const OVERLAY_ENTRY_SELECTOR = '[data-onekey-overlay-entry]';
 const RECOMPUTE_DEBOUNCE = 200;
 // Content can update every frame. The debounce coalesces a burst, while
 // MAX_WAIT still rebuilds periodically if updates never settle.
@@ -76,10 +77,12 @@ const NO_DRAG_SELECTOR = [
 let started = false;
 let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 let pendingSince = 0;
+let animationFrame: number | undefined;
 let sizeObserver: ResizeObserver | null = null;
 let contentObserver: MutationObserver | null = null;
 // observe() also reports the initial size, which must not reschedule.
 const observedSizes = new WeakMap<Element, string>();
+const observedAnimations = new WeakSet<Animation>();
 
 function toSizeKey(rect: DOMRect) {
   return `${Math.round(rect.width)}x${Math.round(rect.height)}`;
@@ -180,11 +183,64 @@ function recompute() {
   });
   const drags: HTMLDivElement[] = [];
   const holes: HTMLDivElement[] = [];
+  const overlayEntries = Array.from(
+    document.querySelectorAll(OVERLAY_ENTRY_SELECTOR),
+  ).filter(isZoneShown);
+  let movingControls = false;
+  // Web Animations move controls without DOM mutations or resize events.
+  for (const entry of overlayEntries) {
+    for (const animation of entry.getAnimations?.({ subtree: true }) ?? []) {
+      if (animation.playState === 'running') {
+        const effect = animation.effect as KeyframeEffect | null;
+        const target = effect?.target;
+        const movesGeometry = effect
+          ?.getKeyframes?.()
+          .some((frame) =>
+            [
+              'transform',
+              'translate',
+              'scale',
+              'left',
+              'top',
+              'width',
+              'height',
+            ].some((property) => property in frame),
+          );
+        if (
+          target instanceof Element &&
+          movesGeometry &&
+          (target.matches(NO_DRAG_SELECTOR) ||
+            target.querySelector(NO_DRAG_SELECTOR))
+        ) {
+          movingControls = true;
+        }
+        if (!observedAnimations.has(animation)) {
+          observedAnimations.add(animation);
+          const handleAnimationEnd = () => {
+            animation.removeEventListener('finish', handleAnimationEnd);
+            animation.removeEventListener('cancel', handleAnimationEnd);
+            observedAnimations.delete(animation);
+            scheduleRecompute();
+          };
+          animation.addEventListener('finish', handleAnimationEnd);
+          animation.addEventListener('cancel', handleAnimationEnd);
+        }
+      }
+    }
+  }
   for (const zone of zones) {
     const zoneRect = zone.getBoundingClientRect();
     measured.push([zone, zoneRect]);
     drags.push(makeRegionEl(zoneRect, 'drag'));
-    zone.querySelectorAll(NO_DRAG_SELECTOR).forEach((nd) => {
+  }
+  // Portalled controls can overlap the title bar without belonging to a header.
+  // Append their holes after the synthesized drag regions as well.
+  const controlRoots = [...zones, ...overlayEntries];
+  for (const controlRoot of controlRoots) {
+    controlRoot.querySelectorAll(NO_DRAG_SELECTOR).forEach((nd) => {
+      if (!isZoneShown(nd)) {
+        return;
+      }
       const r = (nd as HTMLElement).getBoundingClientRect();
       measured.push([nd, r]);
       if (r.width > 0 && r.height > 0) {
@@ -195,10 +251,16 @@ function recompute() {
   drags.forEach((d) => document.body.appendChild(d));
   holes.forEach((h) => document.body.appendChild(h));
   observeSizes(measured);
-  observeContent(zones);
+  observeContent(controlRoots);
+  if (movingControls && animationFrame === undefined) {
+    animationFrame = requestAnimationFrame(() => {
+      animationFrame = undefined;
+      recompute();
+    });
+  }
 }
 
-// Watch only visible drag zones. Child/attribute/text mutations catch controls
+// Watch visible headers and overlay entries. Child/attribute/text mutations catch controls
 // inserted after the last size-observer pass, or controls shifted by a sibling
 // without changing their own size. Rebind after every pass so an inactive tab
 // or removed control stops generating work. The synthesized overlays live under
@@ -276,6 +338,9 @@ function startManager() {
   // Window geometry: resize, maximize, fullscreen toggle and docked-DevTools
   // open/close (all change the renderer's CSS-pixel viewport).
   globalThis.addEventListener('resize', scheduleRecompute);
+  // macOS hides the existing window on close; refresh native regions on reopen.
+  globalThis.addEventListener('focus', runRecompute);
+  document.addEventListener('visibilitychange', runRecompute);
 
   // devicePixelRatio change — i.e. the window moved to a monitor with a
   // different scale factor. A pure dpr change does NOT reliably fire `resize`
@@ -297,13 +362,28 @@ function startManager() {
   };
   armDprQuery();
 
-  // react-navigation keeps inactive tabs mounted and flips aria-hidden on an
-  // ancestor outside the observed drag zone. Watch only this attribute across
-  // the document to switch the active zone without observing unrelated churn.
-  const mo = new MutationObserver(scheduleRecompute);
+  // Track inactive screens and page/global overlay entries outside the headers.
+  // Ignore unrelated child-list changes, including our synthesized regions.
+  const mo = new MutationObserver((records) => {
+    const entriesChanged = records.some((record) =>
+      [...record.addedNodes, ...record.removedNodes].some(
+        (node) =>
+          node instanceof Element &&
+          (node.matches(OVERLAY_ENTRY_SELECTOR) ||
+            node.querySelector(OVERLAY_ENTRY_SELECTOR)),
+      ),
+    );
+    if (entriesChanged) {
+      // Start tracking before a short enter animation can finish.
+      runRecompute();
+    } else if (records.some((record) => record.type === 'attributes')) {
+      scheduleRecompute();
+    }
+  });
   mo.observe(document.documentElement, {
     attributes: true,
     attributeFilter: ['aria-hidden'],
+    childList: true,
     subtree: true,
   });
 
