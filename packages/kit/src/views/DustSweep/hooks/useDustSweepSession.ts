@@ -14,6 +14,7 @@ import {
   getDustSweepTotals,
   initialDustSweepState,
 } from '../stateMachine';
+import { DustSweepError } from '../utils/DustSweepError';
 import {
   DustSweepPaused,
   DustSweepRetryableError,
@@ -21,7 +22,6 @@ import {
   DustSweepUserCanceled,
   executeDustSweepItem,
 } from '../utils/execution';
-import { DustSweepSkip } from '../utils/quote';
 
 import type { IDustSweepState } from '../stateMachine';
 
@@ -146,8 +146,13 @@ export function useDustSweepSession(
               }),
             onBroadcast: (txId) =>
               send({ ...identity, status: 'broadcasted', txId }),
-            onSubmissionError: (message) =>
-              send({ ...identity, type: 'submissionError', message }),
+            onSubmissionError: (message, localError) =>
+              send({
+                ...identity,
+                type: 'submissionError',
+                message,
+                localError,
+              }),
             generateSwapHistoryItem: (params) =>
               generateSwapHistoryItemForContext(params, {
                 swapNetworks: networks.map((entry) => entry.network),
@@ -185,6 +190,7 @@ export function useDustSweepSession(
               status: 'unknown',
               reason: 'unknown',
               submissionErrorMessage: error.submissionErrorMessage,
+              localError: error.localError,
             });
             break;
           }
@@ -208,30 +214,35 @@ export function useDustSweepSession(
                 error instanceof DustSweepRetryableError
                   ? error.message
                   : undefined,
+              providerErrorMessage:
+                error instanceof DustSweepRetryableError
+                  ? error.providerErrorMessage
+                  : undefined,
+              localError:
+                error instanceof DustSweepRetryableError
+                  ? error.localError
+                  : undefined,
             });
             send({ type: 'pause' });
             break;
           }
-          const reason =
-            error instanceof DustSweepSkip ? error.reason : 'unknown';
+          const failure = DustSweepError.from(error);
           // Already settled, so record it even if Stop / Leave cut the hold.
           await holdBeforeLastResult();
           send({
             ...identity,
             status: 'skipped',
-            reason,
-            message: error instanceof Error ? error.message : undefined,
-            providerErrorMessage:
-              error instanceof DustSweepSkip
-                ? error.providerErrorMessage
-                : undefined,
+            reason: failure.reason,
+            message: failure.message,
+            providerErrorMessage: failure.providerErrorMessage,
+            localError: failure.localError,
           });
           defaultLogger.dex.dustSweep.dustSweepItemResult({
             network: snapshot.networkId,
             tokenSymbol: item.token.symbol,
             tokenValueUsd: new BigNumber(item.token.valueUsd).toNumber(),
             status: 'skipped',
-            reason,
+            reason: failure.reason,
           });
         }
       }

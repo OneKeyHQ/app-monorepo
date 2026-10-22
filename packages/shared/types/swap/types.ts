@@ -8,6 +8,7 @@ import type {
   IAccountDeriveTypes,
   ITransferInfo,
 } from '@onekeyhq/kit-bg/src/vaults/types';
+import type { IOneKeyErrorI18nInfo } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import type {
   IEventSourceCloseEvent,
   IEventSourceDoneEvent,
@@ -17,6 +18,7 @@ import type {
   IEventSourceOpenEvent,
   IEventSourceTimeoutEvent,
 } from '@onekeyhq/shared/src/eventSource';
+import type { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import type { ISwapReviewAnalyticsContext } from './reviewAnalytics';
 import type {
@@ -39,6 +41,12 @@ import type { IToken } from '../token';
 import type { IDecodedTxActionTokenApprove } from '../tx';
 import type { NormalizedOrder, TypedDataDomain } from '@cowprotocol/contracts';
 import type { IDeviceType } from '@onekeyfe/hd-core';
+
+export type ISwapErrorMessage = {
+  key: ETranslations;
+  values?: IOneKeyErrorI18nInfo;
+  detail?: { key: ETranslations; values?: IOneKeyErrorI18nInfo };
+};
 
 export enum EWrappedType {
   DEPOSIT = 'deposit',

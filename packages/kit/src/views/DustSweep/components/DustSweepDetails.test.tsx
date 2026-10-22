@@ -66,6 +66,12 @@ it('shows settled transaction details while keeping internal errors behind local
       message: 'Provider transaction failure detail',
     },
     {
+      token: { ...token, key: 'risk-detail' },
+      status: 'skipped',
+      reason: 'valueDrop',
+      providerErrorMessage: 'API risk title\nAPI risk detail',
+    },
+    {
       token: { ...token, key: 'failed-missing' },
       status: 'failed',
       txId: 'missing-detail-transaction',
@@ -102,6 +108,7 @@ it('shows settled transaction details while keeping internal errors behind local
   );
 
   expect(screen.getByText('Provider transaction failure detail')).toBeTruthy();
+  expect(screen.getByText('API risk title API risk detail')).toBeTruthy();
   expect(
     screen.getAllByText(ETranslations.swap_review_transaction_failed),
   ).toHaveLength(2);
