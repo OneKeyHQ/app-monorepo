@@ -52,7 +52,6 @@ export function GlobalErrorHandlerContainer() {
           await waitForDeviceStageExit();
         }
         Dialog.show({
-          isOverTopAllViews: true,
           onClose: () => {
             dialogOpenRef.current = false;
           },

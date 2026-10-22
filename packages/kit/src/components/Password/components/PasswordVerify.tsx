@@ -219,11 +219,8 @@ function PasswordVerify({
             Dialog.confirm({
               icon: 'ErrorOutline',
               tone: 'warning',
-              // Off the lock screen this takes the default portal, which is
-              // where the passcode prompt that raises it already lives
-              // (PasswordVerifyPromptMount passes no container on native), so
-              // the warning stacks above it as the later child. Only the lock
-              // screen needs a container of its own.
+              // Keep child confirmations above the password prompt.
+              overlayLevel: inAppStateLock ? 'lock' : 'secure',
               ...(inAppStateLock ? inAppStateLockDialogProps : undefined),
               title: intl.formatMessage(
                 {
