@@ -88,14 +88,14 @@ const scroll = (y: number) =>
     nativeEvent: { contentOffset: { x: 0, y } },
   }) as NativeSyntheticEvent<NativeScrollEvent>;
 
-function setup() {
+function setup(bottomInset = 18) {
   const scrollTo = jest.fn();
   const hook = renderHook(
     ({ state }) =>
       useDustSweepActiveItemScroll({
         state,
         rowHeight: 60,
-        bottomInset: 18,
+        bottomInset,
       }),
     { initialProps: { state: activeState } },
   );
@@ -175,4 +175,14 @@ it('reveals the same token again in a new session', () => {
     },
   });
   expect(scrollTo).toHaveBeenCalledWith({ y: 100, animated: true });
+});
+
+it('still reveals the active row when the live sheet covers more than the viewport', () => {
+  const { result, scrollTo } = setup(500);
+  act(() => {
+    result.current.onLayout(layout(0, 400));
+    result.current.onRowsLayout(layout(500, 60));
+  });
+  // Clamped to leave one row of the viewport: the row lands at its top.
+  expect(scrollTo).toHaveBeenCalledWith({ y: 500, animated: true });
 });
