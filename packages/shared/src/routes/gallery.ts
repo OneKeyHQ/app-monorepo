@@ -27,6 +27,7 @@ export enum EGalleryRoutes {
   ComponentNetworkDoctor = 'component-NetworkDoctor',
   ComponentNavigation = 'component-Navigation',
   ComponentNotification = 'component-Notification',
+  ComponentNativeOverlay = 'component-NativeOverlay',
   ComponentOrderBook = 'component-OrderBook',
   ComponentPasswordDemo = 'component-PasswordDemo',
   ComponentPasswordKeyboardGallery = 'component-PasswordKeyboard',

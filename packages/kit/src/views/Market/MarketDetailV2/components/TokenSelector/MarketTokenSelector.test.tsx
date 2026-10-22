@@ -89,6 +89,7 @@ jest.mock('react-intl', () => ({
 }));
 
 jest.mock('@onekeyhq/components', () => {
+  const React = jest.requireActual<typeof import('react')>('react');
   function StackComponent({
     children,
     onPress,
@@ -128,13 +129,27 @@ jest.mock('@onekeyhq/components', () => {
       renderContent: (props: { isOpen: boolean }) => ReactNode;
       renderTrigger: ReactNode;
     }) => {
+      const [mounted, setMounted] = React.useState(false);
+      React.useEffect(() => {
+        if (open) setMounted(true);
+      }, [open]);
       const RenderContent = renderContent;
       return (
         <>
           <div onClick={() => onOpenChange(true)} role="presentation">
             {renderTrigger}
           </div>
-          {open ? <RenderContent isOpen /> : null}
+          {open || mounted ? (
+            <>
+              <button type="button" onClick={() => onOpenChange(false)}>
+                Close selector
+              </button>
+              <RenderContent isOpen={open} />
+              <button type="button" onClick={() => setMounted(false)}>
+                Finish exit animation
+              </button>
+            </>
+          ) : null}
         </>
       );
     },
@@ -430,6 +445,43 @@ describe('MarketTokenSelector stock default category', () => {
       { type: 'stocks', name: 'Stocks' },
     ];
     mockStockCategories = [];
+  });
+
+  it('retains content until exit completes and resets search on reopen', () => {
+    renderOpenStockSelector();
+    const search = screen.getByTestId('market-token-selector-search');
+    fireEvent.change(search, { target: { value: 'AAPL' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Close selector' }));
+
+    expect(screen.getByTestId('market-token-selector-search')).toBe(search);
+    expect((search as HTMLInputElement).value).toBe('AAPL');
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Finish exit animation' }),
+    );
+    expect(screen.queryByTestId('market-token-selector-search')).toBeNull();
+    fireEvent.click(screen.getByTestId('market-token-selector-trigger'));
+    expect(
+      (screen.getByTestId('market-token-selector-search') as HTMLInputElement)
+        .value,
+    ).toBe('');
+    expect(screen.getByTestId('stock-list')).toBeTruthy();
+  });
+
+  it('resets search on reopen before exit completes without clearing closing content', () => {
+    renderOpenStockSelector();
+    const search = screen.getByTestId('market-token-selector-search');
+    fireEvent.change(search, { target: { value: 'AAPL' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Close selector' }));
+
+    expect(screen.getByTestId('market-token-selector-search')).toBe(search);
+    expect((search as HTMLInputElement).value).toBe('AAPL');
+
+    fireEvent.click(screen.getByTestId('market-token-selector-trigger'));
+    const reopenedSearch = screen.getByTestId('market-token-selector-search');
+    expect(reopenedSearch).not.toBe(search);
+    expect((reopenedSearch as HTMLInputElement).value).toBe('');
+    expect(screen.getByTestId('stock-list')).toBeTruthy();
   });
 
   it('keeps the search input outside the swipe region while covering browse and search results', () => {

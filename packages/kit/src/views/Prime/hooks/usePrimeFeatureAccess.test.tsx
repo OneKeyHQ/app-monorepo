@@ -18,6 +18,8 @@ import { EPrimeFreeTrialPendingActionType } from '@onekeyhq/shared/types/prime/p
 
 import { usePrimeFeatureAccess } from './usePrimeFeatureAccess';
 
+const mockTrialAttempt = jest.fn();
+const mockTrialResult = jest.fn();
 const mockIsLoggedIn = jest.fn();
 const mockIsPrimeSubscriptionActive = jest.fn();
 const mockGetPublicConfig = jest.fn();
@@ -109,7 +111,11 @@ jest.mock('@onekeyhq/shared/src/travelMode', () => ({
 jest.mock('@onekeyhq/shared/src/logger/logger', () => {
   const noopLogger = new Proxy(jest.fn(), {
     apply: () => undefined,
-    get: () => noopLogger,
+    get: (_target, key) => {
+      if (key === 'primeFreeTrialAttempt') return mockTrialAttempt;
+      if (key === 'primeFreeTrialResult') return mockTrialResult;
+      return noopLogger;
+    },
   });
   return { defaultLogger: noopLogger };
 });
@@ -871,5 +877,176 @@ describe('usePrimeFeatureAccess rejection feedback', () => {
       });
     });
     expect(mockGetHeldReservationEnd).not.toHaveBeenCalled();
+  });
+});
+
+describe('free-trial access analytics', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockHookPrime = false;
+    mockIsLoggedIn.mockResolvedValue(true);
+    mockIsPrimeSubscriptionActive.mockResolvedValue(false);
+  });
+
+  it.each([0, 1])(
+    'records a history entry with %i uses as access, never completed usage',
+    async (remaining) => {
+      setSnapshot(quotaWith(remaining, EPrimeFeatures.AddressRiskCheck));
+      const result = renderAccessHook();
+      await act(async () => {
+        await expect(
+          result.current.ensureFeatureAccess({
+            featureId: EPrimeFeatures.AddressRiskCheck,
+            loginOnly: true,
+          }),
+        ).resolves.toEqual({ granted: true, entitlementSource: 'freeTrial' });
+      });
+      expect(mockTrialAttempt).toHaveBeenCalledTimes(1);
+      expect(mockTrialResult).toHaveBeenCalledTimes(1);
+      expect(mockTrialResult).toHaveBeenCalledWith(
+        expect.objectContaining({
+          featureId: EPrimeFeatures.AddressRiskCheck,
+          stage: 'access',
+          result: 'granted',
+          source: 'client',
+        }),
+      );
+      expect(mockRefreshQuota).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each(['cancelled', 'failed'] as const)(
+    'records a %s login at a history entry',
+    async (outcome) => {
+      setSnapshot(undefined);
+      mockIsLoggedIn.mockResolvedValue(false);
+      mockGetPublicConfig.mockResolvedValue(undefined);
+      mockLoginOneKeyId.mockRejectedValueOnce(
+        outcome === 'cancelled'
+          ? new PrimeLoginDialogCancelError()
+          : new Error('login failed'),
+      );
+      const result = renderAccessHook();
+      await act(async () => {
+        await result.current.ensureFeatureAccess({
+          featureId: EPrimeFeatures.AddressRiskCheck,
+          loginOnly: true,
+        });
+      });
+      expect(mockTrialAttempt).toHaveBeenCalledTimes(1);
+      expect(mockTrialResult).toHaveBeenCalledTimes(1);
+      expect(mockTrialResult).toHaveBeenCalledWith(
+        expect.objectContaining({ stage: 'access', result: outcome }),
+      );
+    },
+  );
+
+  it('does not count an extension history continuation as another entry', async () => {
+    setSnapshot(quotaWith(0, EPrimeFeatures.AddressRiskCheck));
+    const result = renderAccessHook();
+    await act(async () => {
+      await result.current.ensureFeatureAccess({
+        featureId: EPrimeFeatures.AddressRiskCheck,
+        loginOnly: true,
+        trackAttempt: false,
+      });
+    });
+    expect(mockTrialAttempt).not.toHaveBeenCalled();
+    expect(mockTrialResult).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    'BulkCopyAddresses',
+    'BulkSend',
+    'BulkRevoke',
+    'AddressRiskCheck',
+    'DAppTranslate',
+  ] as const)(
+    'records a local exhausted %s attempt without starting a reservation',
+    async (featureId) => {
+      setSnapshot(quotaWith(0, featureId as IPrimeFreeTrialFeatureId));
+      const result = renderAccessHook();
+      await act(async () => {
+        await result.current.ensureFeatureAccess({
+          featureId: featureId as IPrimeFreeTrialFeatureId,
+        });
+      });
+      expect(mockTrialAttempt).toHaveBeenCalledTimes(1);
+      expect(mockTrialResult).toHaveBeenCalledWith(
+        expect.objectContaining({
+          featureId,
+          stage: 'access',
+          result: 'exhausted',
+          source: 'client',
+          rejectionSource: 'client',
+        }),
+      );
+    },
+  );
+
+  it.each([
+    EPrimeFeatures.BulkCopyAddresses,
+    EPrimeFeatures.BulkSend,
+    EPrimeFeatures.BulkRevoke,
+    EPrimeFeatures.AddressRiskCheck,
+    EPrimeFeatures.DAppTranslate,
+  ] as const)(
+    'records an available %s grant without claiming completion',
+    async (featureId) => {
+      setSnapshot(quotaWith(1, featureId));
+      const result = renderAccessHook();
+      await act(async () => {
+        await result.current.ensureFeatureAccess({ featureId });
+      });
+      expect(mockTrialAttempt).toHaveBeenCalledTimes(1);
+      expect(mockTrialResult).toHaveBeenCalledWith(
+        expect.objectContaining({
+          featureId,
+          stage: 'access',
+          result: 'granted',
+        }),
+      );
+    },
+  );
+
+  it.each(['cancelled', 'failed'] as const)(
+    'distinguishes a %s login from usage completion',
+    async (outcome) => {
+      setSnapshot(undefined);
+      mockIsLoggedIn.mockResolvedValue(false);
+      mockGetPublicConfig.mockResolvedValue(undefined);
+      mockLoginOneKeyId.mockRejectedValueOnce(
+        outcome === 'cancelled'
+          ? new PrimeLoginDialogCancelError()
+          : new Error('login failed'),
+      );
+      const result = renderAccessHook();
+      await act(async () => {
+        await result.current.ensureFeatureAccess({
+          featureId: EPrimeFeatures.BulkSend,
+        });
+      });
+      expect(mockTrialResult).toHaveBeenCalledTimes(1);
+      expect(mockTrialResult).toHaveBeenCalledWith(
+        expect.objectContaining({ result: outcome }),
+      );
+    },
+  );
+
+  it('records a grant as access granted rather than completed usage', async () => {
+    setSnapshot(quotaWith(1));
+    const result = renderAccessHook();
+    await act(async () => {
+      await result.current.ensureFeatureAccess({
+        featureId: EPrimeFeatures.BulkSend,
+      });
+    });
+    expect(mockTrialAttempt).toHaveBeenCalledTimes(1);
+    expect(mockTrialResult).toHaveBeenCalledWith(
+      expect.objectContaining({ result: 'granted', stage: 'access' }),
+    );
+    expect(mockTrialResult).not.toHaveBeenCalledWith(
+      expect.objectContaining({ result: 'success' }),
+    );
   });
 });

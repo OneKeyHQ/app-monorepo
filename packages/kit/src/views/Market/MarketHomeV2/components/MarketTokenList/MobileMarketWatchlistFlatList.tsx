@@ -16,8 +16,8 @@ import {
   Toast,
   useScrollContentTabBarOffset,
 } from '@onekeyhq/components';
-import { Portal } from '@onekeyhq/components/src/hocs';
 import type { IPortalManager } from '@onekeyhq/components/src/hocs/Portal';
+import { mountImperativeOverlay } from '@onekeyhq/components/src/shared/imperativeOverlayMount';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AppPagerContent } from '@onekeyhq/kit/src/components/AppPager/AppPagerContent';
 import {
@@ -195,55 +195,57 @@ function MobileMarketWatchlistFlatListImpl({
     ) => {
       dismissInlineActionBar();
 
-      portalRef.current = Portal.Render(
-        Portal.Constant.FULL_WINDOW_OVERLAY_PORTAL,
-        <InlineActionBar
-          isFirstItem={index === 0}
-          onMoveToTop={async () => {
-            portalRef.current?.destroy();
-            portalRef.current = null;
-            try {
-              await actions.current.moveToTopV2(tokenToWatchListItem(item));
-              Toast.success({
-                title: intl.formatMessage({
-                  id: ETranslations.market_move_to_top,
-                }),
-              });
-            } catch {
-              // error handled internally
-            }
-          }}
-          onToggleWatchlist={async () => {
-            portalRef.current?.destroy();
-            portalRef.current = null;
-            try {
-              if (item.perpsCoin) {
-                await actions.current.removePerpsFromWatchListV2(
-                  item.perpsCoin,
-                );
-              } else {
-                await actions.current.removeFromWatchListV2(
-                  item.networkId,
-                  item.address,
-                  { assetId: item.assetId, stockId: item.stockId },
-                );
+      portalRef.current = mountImperativeOverlay({
+        target: 'global',
+        node: (
+          <InlineActionBar
+            isFirstItem={index === 0}
+            onMoveToTop={async () => {
+              portalRef.current?.destroy();
+              portalRef.current = null;
+              try {
+                await actions.current.moveToTopV2(tokenToWatchListItem(item));
+                Toast.success({
+                  title: intl.formatMessage({
+                    id: ETranslations.market_move_to_top,
+                  }),
+                });
+              } catch {
+                // error handled internally
               }
-              Toast.success({
-                title: intl.formatMessage({
-                  id: ETranslations.market_remove_from_watchlist,
-                }),
-              });
-            } catch {
-              // error handled internally
-            }
-          }}
-          onDismiss={() => {
-            portalRef.current?.destroy();
-            portalRef.current = null;
-          }}
-          anchor={anchor}
-        />,
-      );
+            }}
+            onToggleWatchlist={async () => {
+              portalRef.current?.destroy();
+              portalRef.current = null;
+              try {
+                if (item.perpsCoin) {
+                  await actions.current.removePerpsFromWatchListV2(
+                    item.perpsCoin,
+                  );
+                } else {
+                  await actions.current.removeFromWatchListV2(
+                    item.networkId,
+                    item.address,
+                    { assetId: item.assetId, stockId: item.stockId },
+                  );
+                }
+                Toast.success({
+                  title: intl.formatMessage({
+                    id: ETranslations.market_remove_from_watchlist,
+                  }),
+                });
+              } catch {
+                // error handled internally
+              }
+            }}
+            onDismiss={() => {
+              portalRef.current?.destroy();
+              portalRef.current = null;
+            }}
+            anchor={anchor}
+          />
+        ),
+      });
     },
     [actions, dismissInlineActionBar, intl, tokenToWatchListItem],
   );

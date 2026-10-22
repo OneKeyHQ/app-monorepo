@@ -2717,6 +2717,7 @@
   "market.number_week_abbr": "{number}W",
   "market.one_hour_percentage": "1 ชั่วโมง %",
   "market.open_abbr": "O",
+  "market.open_favorites": "เปิดรายการโปรด",
   "market.opens_in": "เปิดตลาดในอีก {time}",
   "market.pair_link": "ลิงค์คู่ซื้อขาย:",
   "market.performance": "ผลตอบแทน",

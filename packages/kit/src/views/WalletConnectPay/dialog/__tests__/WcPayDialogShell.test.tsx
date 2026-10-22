@@ -8,10 +8,6 @@ import { useEffect } from 'react';
 
 import { render } from '@testing-library/react';
 
-import {
-  SHEET_AND_DIALOG_Z_INDEX,
-  WC_PAY_DIALOG_Z_INDEX,
-} from '@onekeyhq/shared/src/consts/zIndexConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 // The shell is pure wiring onto the shared Dialog: the mocked container
@@ -139,10 +135,10 @@ describe('WcPayDialogShell', () => {
     });
   });
 
-  it('renders in the full-window overlay as a bare dialog with the scene inset', () => {
+  it('renders inline as a bare dialog with the scene inset', () => {
     const shellProps = renderShell({ dismissible: true });
 
-    expect(mockPortalContainers).toEqual(['FULL_WINDOW_OVERLAY_PORTAL']);
+    expect(mockPortalContainers).toEqual([]);
     expect(shellProps).toMatchObject({
       showHeader: false,
       showFooter: false,
@@ -153,14 +149,9 @@ describe('WcPayDialogShell', () => {
     expect(shellProps.renderContent).toBeTruthy();
   });
 
-  it('pins its z-index below the dialog stack on both presentations', () => {
+  it('uses the modal lane below secure and hardware prompts', () => {
     const shellProps = renderShell({ dismissible: true });
-
-    expect(WC_PAY_DIALOG_Z_INDEX).toBeLessThan(SHEET_AND_DIALOG_Z_INDEX);
-    expect(shellProps.sheetProps).toEqual({ zIndex: WC_PAY_DIALOG_Z_INDEX });
-    expect(shellProps.floatingPanelProps).toEqual({
-      zIndex: WC_PAY_DIALOG_Z_INDEX,
-    });
+    expect(shellProps.overlayLevel).toBe('modal');
   });
 
   it.each([true, false])(
