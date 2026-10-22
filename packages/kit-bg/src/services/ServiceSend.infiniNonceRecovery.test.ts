@@ -2,6 +2,8 @@
 import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
 import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
 
+import { vaultFactory } from '../vaults/factory';
+
 import ServiceSend from './ServiceSend';
 
 jest.mock('p-limit', () => ({
@@ -63,12 +65,29 @@ const historyTx: IAccountHistoryTx = {
 };
 
 function makeService() {
+  let reservedNonces = [5];
+  const vault = {
+    fetchAccountDetailsByRpc: jest.fn().mockResolvedValue({
+      data: { data: { nonce: 99 } },
+    }),
+  };
+  jest
+    .mocked(vaultFactory.getVault)
+    .mockResolvedValue(
+      vault as unknown as Awaited<ReturnType<typeof vaultFactory.getVault>>,
+    );
   const prime = {
     getInfiniPendingTransactionRecoveries: jest
       .fn()
       .mockResolvedValue([{ accountAddress, nonce: 5, historyTx }]),
-    getInfiniReservedNonces: jest.fn().mockResolvedValue([5]),
-    pruneInfiniConsumedNonces: jest.fn().mockResolvedValue(undefined),
+    getInfiniReservedNonces: jest.fn(async () => reservedNonces),
+    pruneInfiniConsumedNonces: jest.fn(
+      async ({ confirmedNonce }: { confirmedNonce: number }) => {
+        reservedNonces = reservedNonces.filter(
+          (nonce) => nonce >= confirmedNonce,
+        );
+      },
+    ),
   };
   const backgroundApi = {
     simpleDb: {
@@ -102,7 +121,7 @@ function makeService() {
   const service = new Ctor({ backgroundApi });
   const sign = jest.spyOn(service, 'signTransaction');
   const send = jest.spyOn(service, 'signAndSendTransaction');
-  return { service, backgroundApi, prime, sign, send };
+  return { service, backgroundApi, prime, vault, sign, send };
 }
 
 describe('hidden Infini nonce recovery', () => {
@@ -206,4 +225,101 @@ describe('hidden Infini nonce recovery', () => {
       confirmedNonce: 6,
     });
   });
+});
+
+describe('confirmed evidence for permanent Infini protection cleanup', () => {
+  it('keeps protection across custom RPC toggles until the default confirmed nonce advances', async () => {
+    const { service, backgroundApi, prime, vault } = makeService();
+    for (const enabled of [true, false, true]) {
+      backgroundApi.serviceCustomRpc.getCustomRpcForNetwork.mockResolvedValue({
+        rpc: 'https://custom.example',
+        enabled,
+      });
+      await expect(
+        service.getNextNonce({ accountId, networkId, accountAddress }),
+      ).resolves.toBe(6);
+      await expect(service.restoreInfiniPendingTransactions()).resolves.toBe(1);
+      await expect(prime.getInfiniReservedNonces()).resolves.toEqual([5]);
+    }
+    expect(vault.fetchAccountDetailsByRpc).not.toHaveBeenCalled();
+    expect(prime.pruneInfiniConsumedNonces).not.toHaveBeenCalled();
+
+    backgroundApi.serviceAccountProfile.fetchAccountDetails.mockResolvedValue({
+      nonce: 6,
+    });
+    await expect(
+      service.getNextNonce({ accountId, networkId, accountAddress }),
+    ).resolves.toBe(6);
+    expect(prime.pruneInfiniConsumedNonces).toHaveBeenCalledWith({
+      networkId,
+      accountAddress,
+      confirmedNonce: 6,
+    });
+    await expect(prime.getInfiniReservedNonces()).resolves.toEqual([]);
+  });
+
+  it.each([false, undefined, null, 'error'])(
+    'retains protection when default confirmed evidence is unavailable (backendIndex=%s)',
+    async (backendIndex) => {
+      const { service, backgroundApi, prime, vault } = makeService();
+      backgroundApi.serviceCustomRpc.getCustomRpcForNetwork.mockResolvedValue({
+        rpc: 'https://custom.example',
+        enabled: true,
+      });
+      if (backendIndex === 'error') {
+        backgroundApi.serviceNetwork.getNetworkSafe.mockRejectedValue(
+          new Error('network unavailable'),
+        );
+      } else {
+        backgroundApi.serviceNetwork.getNetworkSafe.mockResolvedValue({
+          backendIndex,
+        });
+      }
+      await expect(
+        service.getNextNonce({ accountId, networkId, accountAddress }),
+      ).resolves.toBe(6);
+      await expect(service.restoreInfiniPendingTransactions()).resolves.toBe(1);
+      expect(prime.pruneInfiniConsumedNonces).not.toHaveBeenCalled();
+      expect(vault.fetchAccountDetailsByRpc).not.toHaveBeenCalled();
+      await expect(prime.getInfiniReservedNonces()).resolves.toEqual([5]);
+    },
+  );
+
+  it.each([
+    undefined,
+    null,
+    NaN,
+    Infinity,
+    -1,
+    5.5,
+    '6',
+    'timeout',
+    'not-found',
+  ])(
+    'retains protection on missing, invalid or failed confirmed nonce: %s',
+    async (nonce) => {
+      const { service, backgroundApi, prime, vault } = makeService();
+      backgroundApi.serviceCustomRpc.getCustomRpcForNetwork.mockResolvedValue({
+        rpc: 'https://custom.example',
+        enabled: true,
+      });
+      const fetchDetails =
+        backgroundApi.serviceAccountProfile.fetchAccountDetails;
+      if (nonce === 'timeout' || nonce === 'not-found') {
+        fetchDetails.mockRejectedValue(new Error(nonce));
+      } else {
+        fetchDetails.mockResolvedValue({ nonce });
+      }
+      // Allocation still has a usable default nonce; only the fresh confirmation
+      // evidence fails. Neither path may substitute the higher custom count.
+      fetchDetails.mockResolvedValueOnce({ nonce: 5 });
+      await expect(
+        service.getNextNonce({ accountId, networkId, accountAddress }),
+      ).resolves.toBe(6);
+      await expect(service.restoreInfiniPendingTransactions()).resolves.toBe(1);
+      expect(prime.pruneInfiniConsumedNonces).not.toHaveBeenCalled();
+      expect(vault.fetchAccountDetailsByRpc).not.toHaveBeenCalled();
+      await expect(prime.getInfiniReservedNonces()).resolves.toEqual([5]);
+    },
+  );
 });

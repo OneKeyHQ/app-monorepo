@@ -241,6 +241,9 @@ function makeService() {
     buildDecodedTx: jest.fn().mockResolvedValue(decodedTx),
     broadcastTransaction: jest.fn().mockResolvedValue({ txid: '0xtxid' }),
     checkShouldRetryBroadcastTx: jest.fn().mockResolvedValue(false),
+    fetchAccountDetailsByRpc: jest
+      .fn()
+      .mockResolvedValue({ data: { data: { nonce: 99 } } }),
     refreshUnsignedTxBeforeBatchSign: jest.fn((tx: IUnsignedTxPro) =>
       Promise.resolve(tx),
     ),
@@ -251,6 +254,9 @@ function makeService() {
   (vaultFactory.getVault as unknown as jest.Mock).mockResolvedValue(vault);
 
   const backgroundApi = {
+    serviceCustomRpc: {
+      getCustomRpcForNetwork: jest.fn().mockResolvedValue(undefined),
+    },
     serviceAccountProfile: {
       fetchAccountDetails: jest.fn().mockResolvedValue({ nonce: 0 }),
     },
@@ -273,6 +279,7 @@ function makeService() {
       getDevSetting: jest.fn().mockResolvedValue({}),
     },
     serviceNetwork: {
+      getNetworkSafe: jest.fn().mockResolvedValue({ backendIndex: true }),
       getVaultSettings: jest.fn().mockResolvedValue({
         maxRetryBroadcastTxCount: 1,
         minRetryBroadcastTxInterval: 0,
@@ -304,6 +311,13 @@ function makeService() {
       prime: {
         getInfiniReservedNonces: jest.fn(async () =>
           Array.from(reservedNonces),
+        ),
+        pruneInfiniConsumedNonces: jest.fn(
+          async ({ confirmedNonce }: { confirmedNonce: number }) => {
+            for (const nonce of reservedNonces) {
+              if (nonce < confirmedNonce) reservedNonces.delete(nonce);
+            }
+          },
         ),
         findInfiniPaymentForTransfer: jest.fn().mockResolvedValue(undefined),
         isInfiniReplacementBlocked: jest.fn(
@@ -2232,6 +2246,65 @@ describe('Infini Speed Up broadcast validation', () => {
       }),
     ).resolves.toBe(1);
   });
+
+  test.each([
+    { useDefaultRpc: true, afterSigning: false },
+    { useDefaultRpc: true, afterSigning: true },
+    { useDefaultRpc: false, afterSigning: false },
+    { useDefaultRpc: false, afterSigning: true },
+  ])(
+    'preserves hidden nonce signing guards with useDefaultRpc=$useDefaultRpc, afterSigning=$afterSigning',
+    async ({ useDefaultRpc, afterSigning }) => {
+      const { service, vault, backgroundApi } = makeReplacement();
+      backgroundApi.servicePrime.apiGetInfiniPaymentPreBroadcastSnapshot.mockResolvedValue(
+        {
+          payment: { ...latestPayment, status: 'expired' },
+          purchaseStatusSnapshot,
+        },
+      );
+      await expect(speedUp(service)).rejects.toThrow();
+      backgroundApi.serviceCustomRpc.getCustomRpcForNetwork.mockResolvedValue({
+        rpc: 'https://custom.example',
+        enabled: true,
+      });
+      await expect(
+        service.getNextNonce({
+          accountId,
+          networkId,
+          accountAddress: '0xaccount',
+        }),
+      ).resolves.toBe(1);
+      expect(
+        backgroundApi.simpleDb.prime.pruneInfiniConsumedNonces,
+      ).not.toHaveBeenCalled();
+      expect(vault.fetchAccountDetailsByRpc).not.toHaveBeenCalled();
+      vault.signTransaction.mockClear();
+      vault.signTransaction.mockResolvedValue({ ...signedTx, encodedTx });
+      await expect(
+        service.signAndSendTransaction({
+          accountId,
+          networkId,
+          useDefaultRpc,
+          unsignedTx: {
+            ...unsignedTx,
+            encodedTx: { ...encodedTx, nonce: afterSigning ? 1 : 0 },
+            nonce: afterSigning ? 1 : 0,
+          },
+          signOnly: false,
+        }),
+      ).rejects.toMatchObject({ autoToast: true });
+      expect(vault.signTransaction).toHaveBeenCalledTimes(afterSigning ? 1 : 0);
+      expect(vault.broadcastTransaction).not.toHaveBeenCalled();
+      await expect(
+        backgroundApi.simpleDb.prime.getInfiniReservedNonces(),
+      ).resolves.toEqual([0]);
+      await expect(
+        backgroundApi.simpleDb.prime.isInfiniReplacementBlocked({
+          historyId: 'history-1',
+        }),
+      ).resolves.toBe(true);
+    },
+  );
 
   test('blocks an ordinary transfer explicitly reusing a hidden payment nonce', async () => {
     const { service, vault, backgroundApi } = makeReplacement();

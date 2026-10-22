@@ -2079,6 +2079,9 @@ class ServiceSend extends ServiceBase {
     const confirmedNonce = await this.fetchReplaceTxOnChainNextNonce({
       accountId,
       networkId,
+      // Permanent cleanup must use the default confirmed source even when a
+      // custom node is enabled; its nonce view may be forked or bypassed.
+      useDefaultRpc: true,
     }).catch(() => undefined);
     if (
       confirmedNonce !== undefined &&
@@ -2174,10 +2177,12 @@ class ServiceSend extends ServiceBase {
       : [];
     if (reservedNonces.length) {
       // The allocation nonce can include pending transactions or come from the
-      // UI's prefetch. Only a fresh confirmed source can retire protection.
+      // UI's prefetch. Only the default confirmed source can permanently retire
+      // protection, independently of this send's custom RPC selection.
       const confirmedNonce = await this.fetchReplaceTxOnChainNextNonce({
         accountId,
         networkId,
+        useDefaultRpc: true,
       }).catch(() => undefined);
       if (
         confirmedNonce !== undefined &&
