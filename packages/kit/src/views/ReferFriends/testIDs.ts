@@ -7,9 +7,11 @@ export const ReferFriendsTestIDs = {
   // --- Invite Reward Page ---
   logoutBtn: 'refer-friends-logout-btn',
   rulesBtn: 'refer-friends-rules-btn',
+  inviteRewardSettingsBtn: 'refer-friends-invite-reward-settings-btn',
   referralListBtn: 'refer-friends-referral-list-btn',
   createCodeBtn: 'refer-friends-create-code-btn',
   copyLinkBtn: 'refer-friends-copy-link-btn',
+  inviteProfilePublicSwitch: 'refer-friends-invite-profile-public-switch',
 
   // --- Filter & Export ---
   filterBtn: 'refer-friends-filter-btn',
