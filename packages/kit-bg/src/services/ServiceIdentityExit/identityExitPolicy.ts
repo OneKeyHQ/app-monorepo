@@ -120,7 +120,9 @@ export function evaluateIdentityExitPolicy({
     return {
       status: 'ready',
       presentation: { type: 'switchEnvironment' },
-      confirmation: { type: 'keylessRemovalAcknowledgement' },
+      confirmation: keyless
+        ? { type: 'keylessRemovalAcknowledgement' }
+        : { type: 'normal' },
       target: {
         logoutOneKeyId: hasOneKeyId,
         removeKeyless: Boolean(keyless),

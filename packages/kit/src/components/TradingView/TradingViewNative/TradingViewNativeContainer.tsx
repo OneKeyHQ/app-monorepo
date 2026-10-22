@@ -1,12 +1,14 @@
 import {
   memo,
   useCallback,
+  useContext,
   useEffect,
   useLayoutEffect,
   useMemo,
   useRef,
   useState,
 } from 'react';
+import type { PropsWithChildren } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -25,6 +27,7 @@ import {
   useSwapTradingViewIndicatorSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { stableStringify } from '@onekeyhq/shared/src/utils/stringUtils';
 import { TRADING_VIEW_NATIVE_THEME_COLORS } from '@onekeyhq/shared/types/tradingViewNative';
@@ -73,10 +76,14 @@ import {
 import { localizeTradingViewNativeIndicatorSettingsValue } from './indicatorSettingsLocalization';
 import { showTradingViewNativeIndicatorSettingsDialog } from './showTradingViewNativeIndicatorSettingsDialog';
 import { TradingViewNativeChart } from './TradingViewNativeChart';
+import { TradingViewNativeChartActiveContext } from './TradingViewNativeChartActiveContext';
 import { TradingViewNativeChartControlsContainer } from './TradingViewNativeChartControlsContainer';
 import { TradingViewNativeChartSettingsButton } from './TradingViewNativeChartSettingsButton';
 import { TradingViewNativeFullscreenButton } from './TradingViewNativeFullscreenButton';
-import { TradingViewNativePresentation } from './TradingViewNativePresentation';
+import {
+  TradingViewNativePresentation,
+  pushTradingViewNativeFullscreenModal,
+} from './TradingViewNativePresentation';
 import { useTradingViewNativeChartComponents } from './useTradingViewNativeChartComponents';
 import {
   useTradingViewNativeChartSettings,
@@ -120,7 +127,33 @@ import type {
   ITradingViewIndicatorOption,
   ITradingViewNativeIndicatorSelection,
 } from '../TradingViewChartControls/types';
-import type { LayoutChangeEvent } from 'react-native';
+import type { LayoutChangeEvent, LayoutRectangle } from 'react-native';
+
+export function TradingViewNativeChartArea({
+  children,
+  onSizeChange,
+}: PropsWithChildren<{
+  onSizeChange: (layout: LayoutRectangle) => void;
+}>) {
+  const isActive = useContext(TradingViewNativeChartActiveContext);
+  const layoutRef = useRef<LayoutRectangle | undefined>(undefined);
+  const handleLayout = useCallback(
+    ({ nativeEvent: { layout } }: LayoutChangeEvent) => {
+      layoutRef.current = layout;
+      if (isActive) onSizeChange(layout);
+    },
+    [isActive, onSizeChange],
+  );
+  useLayoutEffect(() => {
+    // The retained inline chart may become active without another layout event.
+    if (isActive && layoutRef.current) onSizeChange(layoutRef.current);
+  }, [isActive, onSizeChange]);
+  return (
+    <Stack flex={1} position="relative" onLayout={handleLayout}>
+      {children}
+    </Stack>
+  );
+}
 
 export function updateTradingViewNativeSubIndicatorInstances(
   currentInstances: ITradingViewNativeSubIndicatorInstanceConfig[],
@@ -731,13 +764,18 @@ const TradingViewNativeContent = memo(
     }>(undefined);
     const openMobileIndicatorSettings = useCallback(
       (indicator?: ITradingViewNativeAnyIndicator) => {
-        navigation.pushModal(EModalRoutes.MarketModal, {
+        const params = {
           screen: EModalMarketRoutes.MarketIndicatorSettings,
           params: {
             storageNamespace: storageNamespace ?? 'market',
             indicatorId: indicator,
           },
-        });
+        };
+        if (
+          pushTradingViewNativeFullscreenModal(EModalRoutes.MarketModal, params)
+        )
+          return;
+        navigation.pushModal(EModalRoutes.MarketModal, params);
       },
       [navigation, storageNamespace],
     );
@@ -777,7 +815,7 @@ const TradingViewNativeContent = memo(
       (indicator?: ITradingViewNativeAnyIndicator) => {
         if (nativeControlsLayoutMode !== 'desktop') {
           pendingIndicatorSettingsRef.current = undefined;
-          if (isNativeChartFullscreen) {
+          if (isNativeChartFullscreen && !platformEnv.isNativeIOS) {
             pendingIndicatorSettingsRef.current = {
               dataProviderKey,
               indicator,
@@ -937,7 +975,11 @@ const TradingViewNativeContent = memo(
       onNativeIndicatorQuickBarChange?.(
         resolveTradingViewNativeIndicatorQuickBarState({
           isAvailabilityResolved: true,
-          quickBar: isNativeChartFullscreen ? null : nativeIndicatorQuickBar,
+          // The iOS fullscreen page covers the intact inline chart and quick bar.
+          quickBar:
+            isNativeChartFullscreen && !platformEnv.isNativeIOS
+              ? null
+              : nativeIndicatorQuickBar,
         }),
       );
     }, [
@@ -954,25 +996,27 @@ const TradingViewNativeContent = memo(
       },
       [onNativeIndicatorQuickBarChange],
     );
-    const handleChartAreaLayout = useCallback((event: LayoutChangeEvent) => {
-      const { height, width } = event.nativeEvent.layout;
-      const nextChartHeight = Math.round(height);
-      const nextChartAreaWidth = Math.round(width);
-      if (nextChartHeight > 0) {
-        setChartHeight((currentChartHeight) =>
-          currentChartHeight === nextChartHeight
-            ? currentChartHeight
-            : nextChartHeight,
-        );
-      }
-      if (nextChartAreaWidth > 0) {
-        setChartAreaWidth((currentChartAreaWidth) =>
-          currentChartAreaWidth === nextChartAreaWidth
-            ? currentChartAreaWidth
-            : nextChartAreaWidth,
-        );
-      }
-    }, []);
+    const handleChartAreaLayout = useCallback(
+      ({ height, width }: LayoutRectangle) => {
+        const nextChartHeight = Math.round(height);
+        const nextChartAreaWidth = Math.round(width);
+        if (nextChartHeight > 0) {
+          setChartHeight((currentChartHeight) =>
+            currentChartHeight === nextChartHeight
+              ? currentChartHeight
+              : nextChartHeight,
+          );
+        }
+        if (nextChartAreaWidth > 0) {
+          setChartAreaWidth((currentChartAreaWidth) =>
+            currentChartAreaWidth === nextChartAreaWidth
+              ? currentChartAreaWidth
+              : nextChartAreaWidth,
+          );
+        }
+      },
+      [],
+    );
     const handleMobileFullscreenToggle = useCallback(() => {
       onNativeChartFullscreenChange?.(!isNativeChartFullscreen);
     }, [isNativeChartFullscreen, onNativeChartFullscreenChange]);
@@ -1061,7 +1105,7 @@ const TradingViewNativeContent = memo(
                 : onNativeChartFullscreenChange
             }
           />
-          <Stack flex={1} position="relative" onLayout={handleChartAreaLayout}>
+          <TradingViewNativeChartArea onSizeChange={handleChartAreaLayout}>
             <TradingViewNativeChart
               key={`${dataProviderKey}:${candleIntervalSeconds}`}
               enableDrawings={
@@ -1182,7 +1226,7 @@ const TradingViewNativeContent = memo(
                 visibleSubIndicatorCount={visibleSubIndicatorCount}
               />
             ) : null}
-          </Stack>
+          </TradingViewNativeChartArea>
           {onNativeIndicatorQuickBarChange && !isNativeChartFullscreen
             ? null
             : nativeIndicatorQuickBar}
