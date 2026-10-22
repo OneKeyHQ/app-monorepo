@@ -502,17 +502,13 @@ function EarnGuidePage() {
         earnGuideStore.save(scope, { completed: true });
       }
       navigation.pop();
-      if (toPosition && depositOffer?.kind === 'protocol') {
-        void EarnNavigation.pushToEarnProtocolDetails(navigation, {
-          networkId,
-          symbol: EARN_GUIDE_SYMBOL,
-          provider: depositOffer.item.provider.name,
-          vault: depositOffer.item.provider.vault,
-          scrollToPortfolio: true,
-        });
+      // The positions page, as Net Worth opens it: the deposit is a position
+      // among the others there, with its Redeem
+      if (toPosition) {
+        EarnNavigation.pushToEarnPositions(navigation);
       }
     },
-    [depositOffer, isPreview, navigation, networkId, scope],
+    [isPreview, navigation, scope],
   );
 
   // The preview's deposit: the form's own button, label and checks, whose

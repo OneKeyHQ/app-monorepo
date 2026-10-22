@@ -47,7 +47,7 @@ export const EARN_DESKTOP_DEMO_COPY = {
     "Withdraw anytime from your position: your USDC and what it earned come back to this wallet, unless the vault's funds are all lent out at that moment.",
   guideDoneTitle: "You're earning",
   guideDoneBody:
-    'Your deposit is on its position page, where Withdraw sits next to Deposit.',
+    'Your deposit is on the positions page, with Redeem on its row.',
   guideGoToPosition: 'Go to position',
   guideHide: 'Hide guide',
 };
