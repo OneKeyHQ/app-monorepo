@@ -77,8 +77,9 @@ export type IHeadlessBuyFailureKind = 'notCharged' | 'refund' | 'unknown';
 
 // Which failure sentence to show. Only a backend reason lets us promise
 // anything about the money, and "not charged" is only safe when nothing ever
-// showed a payment (no local paymentAuthorized, no backend pending/paid); a
-// timeout knows nothing.
+// showed a payment (no local paymentAuthorized, no backend pending/paid) and
+// the payment surface never failed with the outcome unknown (SDK 1.3
+// `providerFailed`); a timeout knows nothing.
 export function getHeadlessBuyFailureKind(
   order: IHeadlessBuyOrder,
 ): IHeadlessBuyFailureKind {
@@ -88,7 +89,9 @@ export function getHeadlessBuyFailureKind(
   if (/refund/i.test(order.statusReason)) {
     return 'refund';
   }
-  return order.paymentSeen ? 'unknown' : 'notCharged';
+  return order.paymentSeen || order.paymentOutcomeUnknown
+    ? 'unknown'
+    : 'notCharged';
 }
 
 // The single sentence under the status label — only when the label alone
