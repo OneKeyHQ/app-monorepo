@@ -29,7 +29,6 @@ interface IBaseGestureSliderProps extends INonGestureStackStyleProps {
   onSlideEnd?: () => void;
   onLayout?: (event: LayoutChangeEvent) => void;
   segments?: number;
-  thumbSize?: number;
 }
 
 export type IBaseSliderProps = IFormFieldProps<number, IBaseGestureSliderProps>;

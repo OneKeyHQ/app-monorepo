@@ -114,13 +114,14 @@ function SimpleMarketCard({
   market: IPerpsUniverse;
   onPress: (coin: string) => void;
 }) {
-  const { assetCtx } = usePerpsAssetCtx({
+  const { assetCtx, isLoading } = usePerpsAssetCtx({
     assetId: market.assetId,
     skipMarkRequired: true,
   });
   const { displayName } = parseDexCoin(market.name);
   const change = assetCtx?.change24hPercent;
-  const hasChange = change !== undefined && Number.isFinite(change);
+  const hasChange =
+    !isLoading && change !== undefined && Number.isFinite(change);
 
   return (
     <YStack
@@ -155,7 +156,7 @@ function SimpleMarketCard({
         <SizableText size="$bodyMdMedium" fontWeight="600" numberOfLines={1}>
           {displayName}
         </SizableText>
-        {assetCtx?.markPrice ? (
+        {!isLoading && assetCtx?.markPrice ? (
           <NumberSizeableText
             formatter="price"
             formatterOptions={{ currency: '$' }}
@@ -234,7 +235,7 @@ function SimpleMarketRow({
   market: IPerpsUniverse;
   onPress: (coin: string) => void;
 }) {
-  const { assetCtx } = usePerpsAssetCtx({
+  const { assetCtx, isLoading } = usePerpsAssetCtx({
     assetId: market.assetId,
     skipMarkRequired: true,
   });
@@ -242,7 +243,8 @@ function SimpleMarketRow({
   const { displayName, dexLabel } = parseDexCoin(market.name);
   const subtitle = getTokenSubtitle(market.name, aliases);
   const change = assetCtx?.change24hPercent;
-  const hasChange = change !== undefined && Number.isFinite(change);
+  const hasChange =
+    !isLoading && change !== undefined && Number.isFinite(change);
   return (
     <Button
       testID={`perps-simple-market-${market.name}`}
@@ -289,14 +291,14 @@ function SimpleMarketRow({
             numberOfLines={1}
             flexShrink={1}
           >
-            {assetCtx?.volume24h !== undefined
+            {!isLoading && assetCtx?.volume24h !== undefined
               ? formatPerpsCompactUsd(Number(assetCtx.volume24h))
               : '--'}
           </SizableText>
         </XStack>
       </YStack>
       <YStack alignItems="flex-end" gap="$1" flexShrink={0}>
-        {assetCtx?.markPrice ? (
+        {!isLoading && assetCtx?.markPrice ? (
           <NumberSizeableText
             formatter="price"
             size="$bodyMdMedium"

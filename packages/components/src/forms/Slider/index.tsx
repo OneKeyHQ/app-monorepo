@@ -51,7 +51,6 @@ export const Slider = ({
   min,
   onLayout,
   segments,
-  thumbSize,
   testID,
 
   ...props
@@ -129,7 +128,7 @@ export const Slider = ({
         <TMSlider.Thumb
           unstyled
           position="absolute"
-          size={thumbSize ?? '$4'}
+          size="$4"
           hitSlop={NATIVE_HIT_SLOP}
           circular
           index={0}
@@ -155,7 +154,6 @@ export const Slider = ({
     segments,
     sliderValue,
     testID,
-    thumbSize,
   ]);
   const handleMinPress = useCallback(() => {
     handleValueChange([min]);
