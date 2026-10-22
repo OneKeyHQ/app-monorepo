@@ -432,6 +432,7 @@ jobs:
       test_endpoint: app-bundle.onekeytest.com
     secrets:
       COVALENT_KEY: ${{ secrets.COVALENT_KEY }}
+      ONEKEY_AUTOMATION_TOKEN: ${{ secrets.ONEKEY_AUTOMATION_TOKEN }}
       SENTRY_TOKEN: ${{ secrets.SENTRY_TOKEN }}
       SENTRY_DSN_REACT_NATIVE: ${{ secrets.SENTRY_DSN_REACT_NATIVE }}
       SENTRY_DSN_WEB: ${{ secrets.SENTRY_DSN_WEB }}
