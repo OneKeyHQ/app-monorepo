@@ -186,7 +186,15 @@ export function TradingViewNativeFullscreenPage() {
         }
       >
         <SafeAreaProvider style={{ flex: 1 }}>
-          <SafeAreaView style={{ flex: 1 }}>
+          {/* The portrait presenter can leave a stale top inset after rotation. */}
+          <SafeAreaView
+            edges={
+              platformEnv.isNativeIOSPad
+                ? undefined
+                : ['left', 'right', 'bottom']
+            }
+            style={{ flex: 1 }}
+          >
             <TradingViewNativeChartActiveContext.Provider
               value={!entry?.closing}
             >
