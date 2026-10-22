@@ -207,15 +207,18 @@ export function useAccountSelectorCreateAddress() {
                   ETranslations.hardware_third_party_passphrase_always_on_device,
               });
             } else if (isThirdPartyHw) {
-              // Other chains may have succeeded, so name the chain that failed.
-              const network = await serviceNetwork.getNetwork({
-                networkId: failedAccount.networkId,
-              });
-              const deriveTypeInfo =
-                await serviceNetwork.getDeriveInfoOfNetwork({
+              // Label lookup failures must not block refreshing accounts already created.
+              const network = await serviceNetwork
+                .getNetwork({
+                  networkId: failedAccount.networkId,
+                })
+                .catch(() => undefined);
+              const deriveTypeInfo = await serviceNetwork
+                .getDeriveInfoOfNetwork({
                   networkId: failedAccount.networkId,
                   deriveType: failedAccount.deriveType,
-                });
+                })
+                .catch(() => undefined);
               Toast.error({
                 title: intl.formatMessage(
                   {
