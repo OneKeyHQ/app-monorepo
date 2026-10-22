@@ -568,6 +568,11 @@ type IUniversalStakeProps = {
   };
   beforeFooter?: ReactElement | null;
   footerActionOverride?: IManagePositionFooterAction;
+  // A new key presses the button once by itself, as soon as the amount has
+  // passed its checks: the swap that paid for this deposit asked for it
+  autoSubmitKey?: number;
+  // Told when that press happens, so a remounted form doesn't press again
+  onAutoSubmit?: () => void;
   protocolSwitchConfig?: IManagePositionProtocolSwitchConfig;
   showApyDetail?: boolean;
   suppressPlatformBonus?: boolean;
@@ -621,6 +626,8 @@ export function UniversalStake({
   currentAllowance,
   beforeFooter,
   footerActionOverride,
+  autoSubmitKey,
+  onAutoSubmit,
   protocolSwitchConfig,
   showApyDetail = false,
   suppressPlatformBonus = false,
@@ -1143,6 +1150,8 @@ export function UniversalStake({
     ICheckAmountAlert[]
   >([]);
   const [checkAmountLoading, setCheckAmountLoading] = useState(false);
+  // The amount the last check answered for
+  const [checkedAmount, setCheckedAmount] = useState<string>();
   const checkAmountRequestIdRef = useRef(0);
 
   const quoteLoading = checkAmountLoading || transactionConfirmationLoading;
@@ -1198,6 +1207,7 @@ export function UniversalStake({
           setCheckoutAmountMessage(response.message);
           setCheckAmountAlerts([]);
         }
+        setCheckedAmount(amount);
       } finally {
         if (requestId === checkAmountRequestIdRef.current) {
           setCheckAmountLoading(false);
@@ -2209,6 +2219,32 @@ export function UniversalStake({
   const effectiveConfirmDisabled = overridesState
     ? Boolean(footerActionOverride.disabled)
     : baseConfirmDisabled;
+
+  const autoSubmittedKeyRef = useRef<number | undefined>(undefined);
+  useEffect(() => {
+    if (
+      autoSubmitKey === undefined ||
+      autoSubmittedKeyRef.current === autoSubmitKey ||
+      checkedAmount !== amountValue ||
+      effectiveShowExpiredRefresh ||
+      effectiveConfirmDisabled ||
+      effectiveConfirmLoading
+    ) {
+      return;
+    }
+    autoSubmittedKeyRef.current = autoSubmitKey;
+    onAutoSubmit?.();
+    void effectiveConfirmOnPress();
+  }, [
+    amountValue,
+    autoSubmitKey,
+    checkedAmount,
+    effectiveConfirmDisabled,
+    effectiveConfirmLoading,
+    effectiveConfirmOnPress,
+    effectiveShowExpiredRefresh,
+    onAutoSubmit,
+  ]);
 
   const footerContent = (
     <YStack bg="$bgApp" gap="$5">

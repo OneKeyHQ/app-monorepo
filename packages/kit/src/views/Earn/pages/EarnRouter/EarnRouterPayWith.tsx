@@ -61,7 +61,12 @@ export function usePayTokens({
     [depositSymbol, group, payableSymbols],
   );
   const defaultToken = useMemo(() => pickDefaultPayToken(tokens), [tokens]);
-  return { tokens, defaultToken, isLoaded: wallet.isLoaded };
+  return {
+    tokens,
+    defaultToken,
+    isLoaded: wallet.isLoaded,
+    refresh: wallet.refresh,
+  };
 }
 
 function PayTokenRow({

@@ -3,6 +3,13 @@ import BigNumber from 'bignumber.js';
 import { USD_CURRENCY_ID } from '@onekeyhq/shared/src/consts/currencyConsts';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import tokenRebaseUtils from '@onekeyhq/shared/src/utils/tokenRebaseUtils';
+import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
+import { swapSlippageAutoValue } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
+import type {
+  IFetchQuoteResult,
+  ISwapToken,
+  ISwapTokenBase,
+} from '@onekeyhq/shared/types/swap/types';
 import type { IAccountToken } from '@onekeyhq/shared/types/token';
 
 import { normalizeStakeTokenAddress } from '../../../Staking/utils/utils';
@@ -104,7 +111,8 @@ export type IEarnRouterPayMode =
   // The provider takes it in one transaction of its own (Pendle, native
   // staking): the real form, started on that token
   | 'zap'
-  // Swap first, then deposit: simulated in this demo
+  // Swap first through the app's swap service, then the provider's own
+  // deposit form
   | 'swapThenDeposit';
 
 // How the chosen token reaches the provider. `takesOtherTokens`: the
@@ -135,32 +143,6 @@ export function resolvePayMode({
     }
   }
   return 'swapThenDeposit';
-}
-
-// What a swap of `payAmount` would deposit, at the two tokens' prices. The
-// demo has no quote, so this stands in for one
-export function estimateDepositAmount({
-  payAmount,
-  payPrice,
-  depositPrice,
-}: {
-  payAmount: string;
-  payPrice: string;
-  depositPrice: string;
-}) {
-  const amount = new BigNumber(payAmount);
-  const pay = new BigNumber(payPrice);
-  const deposit = new BigNumber(depositPrice);
-  if (
-    !amount.isFinite() ||
-    amount.lte(0) ||
-    !pay.isFinite() ||
-    !deposit.isFinite() ||
-    deposit.lte(0)
-  ) {
-    return '0';
-  }
-  return amount.times(pay).div(deposit).toFixed();
 }
 
 // ---------- Offers ----------
@@ -242,70 +224,198 @@ export function pickBetterOffer({
   };
 }
 
-// ---------- Swap, then deposit (simulated) ----------
+// ---------- Swap, then deposit ----------
 
-export type IEarnRouterFlowStep = 'swap' | 'deposit';
-
-export type IEarnRouterFlowState =
+export type IEarnRouterSwapState =
   | { status: 'idle' }
-  // `confirm`: waiting on the wallet; `pending`: sent, waiting on the chain
-  | {
-      status: 'running';
-      step: IEarnRouterFlowStep;
-      phase: 'confirm' | 'pending';
-    }
-  // The swap went through and the deposit didn't start: the swapped tokens
-  // sit in the wallet, one deposit away
-  | { status: 'swapped' }
-  | { status: 'done' };
+  // Checks, a fresh quote and the transaction, before the wallet's confirm
+  | { status: 'preparing' }
+  // The wallet's confirm is up
+  | { status: 'confirming' }
+  // Sent: on its way on chain, then into the wallet
+  | { status: 'swapping' }
+  // In the wallet: the provider's deposit form takes over with this amount
+  | { status: 'swapped'; amount: string; balance?: string };
 
-export type IEarnRouterFlowAction =
-  | { type: 'start' }
-  | { type: 'confirmed' }
-  | { type: 'settled' }
-  | { type: 'cancel' }
-  | { type: 'reset' };
+export type IEarnRouterSwapAction =
+  | { type: 'prepare' }
+  | { type: 'confirm' }
+  | { type: 'sent' }
+  | { type: 'landed'; amount: string; balance?: string }
+  // Rejected in the wallet, failed or given up: back to the start, the
+  // amount kept
+  | { type: 'stop' };
 
-export const EARN_ROUTER_FLOW_IDLE: IEarnRouterFlowState = { status: 'idle' };
+export const EARN_ROUTER_SWAP_IDLE: IEarnRouterSwapState = { status: 'idle' };
 
-// One press runs both steps: the deposit asks for its confirmation as soon
-// as the swap settles. Cancelling the deposit's confirmation leaves the
-// swapped tokens behind, and starting again deposits only
-export function earnRouterFlowReducer(
-  state: IEarnRouterFlowState,
-  action: IEarnRouterFlowAction,
-): IEarnRouterFlowState {
+// One press runs the swap to the end: checks, the wallet's confirm, the
+// chain. Once it lands the deposit form takes over, so nothing stops it
+export function earnRouterSwapReducer(
+  state: IEarnRouterSwapState,
+  action: IEarnRouterSwapAction,
+): IEarnRouterSwapState {
   switch (action.type) {
-    case 'start':
-      if (state.status === 'idle') {
-        return { status: 'running', step: 'swap', phase: 'confirm' };
-      }
-      if (state.status === 'swapped') {
-        return { status: 'running', step: 'deposit', phase: 'confirm' };
-      }
-      return state;
-    case 'confirmed':
-      if (state.status === 'running' && state.phase === 'confirm') {
-        return { ...state, phase: 'pending' };
-      }
-      return state;
-    case 'settled':
-      if (state.status === 'running' && state.phase === 'pending') {
-        return state.step === 'swap'
-          ? { status: 'running', step: 'deposit', phase: 'confirm' }
-          : { status: 'done' };
-      }
-      return state;
-    case 'cancel':
-      if (state.status === 'running' && state.phase === 'confirm') {
-        return state.step === 'swap'
-          ? EARN_ROUTER_FLOW_IDLE
-          : { status: 'swapped' };
-      }
-      return state;
-    case 'reset':
-      return EARN_ROUTER_FLOW_IDLE;
+    case 'prepare':
+      return state.status === 'idle' ? { status: 'preparing' } : state;
+    case 'confirm':
+      return state.status === 'preparing' ? { status: 'confirming' } : state;
+    case 'sent':
+      return state.status === 'confirming' ? { status: 'swapping' } : state;
+    case 'landed':
+      return state.status === 'swapping'
+        ? { status: 'swapped', amount: action.amount, balance: action.balance }
+        : state;
+    case 'stop':
+      return state.status === 'swapped' ? state : EARN_ROUTER_SWAP_IDLE;
     default:
       return state;
   }
+}
+
+export function buildEarnSwapToken({
+  networkId,
+  token,
+  priceUsd,
+}: {
+  networkId: string;
+  token: {
+    address: string;
+    decimals: number;
+    symbol: string;
+    name?: string;
+    logoURI?: string;
+    isNative?: boolean;
+  };
+  priceUsd?: string;
+}): ISwapToken {
+  return {
+    networkId,
+    contractAddress: token.isNative ? '' : token.address,
+    isNative: Boolean(token.isNative),
+    symbol: token.symbol,
+    decimals: token.decimals,
+    name: token.name ?? token.symbol,
+    logoURI: token.logoURI,
+    price: priceUsd,
+  };
+}
+
+function isSameSwapToken(quoteToken: ISwapTokenBase, token: ISwapTokenBase) {
+  if (quoteToken.networkId !== token.networkId) {
+    return false;
+  }
+  // The swap API writes the native coin as an empty address or 0xeeee...
+  if (quoteToken.isNative && token.isNative) {
+    return true;
+  }
+  return equalTokenNoCaseSensitive({ token1: quoteToken, token2: token });
+}
+
+// A quote this path can carry out: one on-chain swap of exactly this pair
+// and amount, settled by its own transaction. Signed orders settle later,
+// wraps aren't swaps
+export function isUsableEarnSwapQuote({
+  quote,
+  fromToken,
+  toToken,
+  amount,
+}: {
+  quote: IFetchQuoteResult;
+  fromToken: ISwapTokenBase;
+  toToken: ISwapTokenBase;
+  amount: string;
+}) {
+  const toAmount = new BigNumber(quote.toAmount ?? '');
+  if (quote.errorMessage || !toAmount.isFinite() || toAmount.lte(0)) {
+    return false;
+  }
+  if (
+    quote.swapShouldSignedData ||
+    quote.isWrapped ||
+    quote.shouldWrappedToken
+  ) {
+    return false;
+  }
+  if (
+    !quote.fromTokenInfo ||
+    !quote.toTokenInfo ||
+    !isSameSwapToken(quote.fromTokenInfo, fromToken) ||
+    !isSameSwapToken(quote.toTokenInfo, toToken)
+  ) {
+    return false;
+  }
+  return new BigNumber(quote.fromAmount ?? '').eq(amount);
+}
+
+// The slippage a quote asks for: the provider's suggestion, as the Swap
+// page's automatic setting takes it
+export const getEarnSwapSlippage = (quote: IFetchQuoteResult) =>
+  quote.autoSuggestedSlippage && quote.autoSuggestedSlippage > 0
+    ? quote.autoSuggestedSlippage
+    : swapSlippageAutoValue;
+
+/**
+ * What goes into the deposit after the swap: what it delivered, or failing
+ * the receipt what the balance gained, never more than the balance holds,
+ * rounded down to what the provider takes
+ */
+export function getEarnSwapDepositAmount({
+  receivedAmount,
+  balanceBefore,
+  balanceAfter,
+  minToAmount,
+  decimals,
+}: {
+  receivedAmount?: string;
+  balanceBefore?: string;
+  balanceAfter?: string;
+  minToAmount?: string;
+  decimals: number;
+}) {
+  const after = new BigNumber(balanceAfter ?? '');
+  let amount = new BigNumber(receivedAmount ?? '');
+  if (!amount.isFinite() || amount.lte(0)) {
+    const before = new BigNumber(balanceBefore ?? '');
+    amount =
+      after.isFinite() && before.isFinite()
+        ? after.minus(before)
+        : new BigNumber(minToAmount ?? '');
+  }
+  if (after.isFinite() && after.gte(0)) {
+    amount = BigNumber.min(amount, after);
+  }
+  if (!amount.isFinite() || amount.lte(0)) {
+    return '';
+  }
+  return amount.decimalPlaces(decimals, BigNumber.ROUND_DOWN).toFixed();
+}
+
+/**
+ * Max for a pay token: all of it, except the network's coin, which keeps
+ * what the swap and the deposit after it cost in fees
+ */
+export function getEarnSwapPayMax({
+  balance,
+  isNative,
+  reserveGas,
+  decimals,
+}: {
+  balance: string;
+  isNative?: boolean;
+  reserveGas?: number | string;
+  decimals: number;
+}) {
+  const amount = new BigNumber(balance);
+  if (!amount.isFinite() || amount.lte(0)) {
+    return '0';
+  }
+  if (!isNative) {
+    return amount.toFixed();
+  }
+  const reserve = new BigNumber(reserveGas ?? 0);
+  const kept = reserve.isFinite() && reserve.gt(0) ? reserve.times(2) : 0;
+  const max = amount.minus(kept);
+  return max.gt(0)
+    ? max.decimalPlaces(decimals, BigNumber.ROUND_DOWN).toFixed()
+    : '0';
 }

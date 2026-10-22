@@ -255,7 +255,10 @@ export function ManagePosition(props: IManagePositionProps) {
         <AmountInputSection title={props.inputTitle} />
         {props.offerSwitch}
         <InfoDisplaySection showSwapOrBridge={props.showSwapOrBridge} />
-        <ActionFooter />
+        <ActionFooter
+          autoSubmitKey={props.autoSubmitKey}
+          onAutoSubmit={props.onAutoSubmit}
+        />
       </StakingFormWrapper>
     </ManagePositionContext.Provider>
   );

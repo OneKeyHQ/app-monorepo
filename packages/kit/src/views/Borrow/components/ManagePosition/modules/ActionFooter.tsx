@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -28,6 +28,8 @@ const ACTION_LABEL_MAP: Record<IBorrowActionType, ETranslations> = {
 export function ActionFooter({
   isInModalContext: isInModalContextProp,
   beforeFooter,
+  autoSubmitKey,
+  onAutoSubmit,
 }: IActionFooterProps) {
   const intl = useIntl();
   const { state, actions, actionResult, approval } = useManagePositionContext();
@@ -149,6 +151,34 @@ export function ActionFooter({
     await handleSubmit();
   }, [confirmBorrowLiquidationRisk, handleSubmit, onApprove, shouldApprove]);
 
+  const isConfirmLoading =
+    submitting ||
+    checkAmountLoading ||
+    loadingAllowance ||
+    isFormInteractionLocked;
+  const autoSubmittedKeyRef = useRef<number | undefined>(undefined);
+  useEffect(() => {
+    if (
+      autoSubmitKey === undefined ||
+      autoSubmittedKeyRef.current === autoSubmitKey ||
+      checkAmountResult === undefined ||
+      isButtonDisabled ||
+      isConfirmLoading
+    ) {
+      return;
+    }
+    autoSubmittedKeyRef.current = autoSubmitKey;
+    onAutoSubmit?.();
+    void handleConfirm();
+  }, [
+    autoSubmitKey,
+    checkAmountResult,
+    handleConfirm,
+    isButtonDisabled,
+    isConfirmLoading,
+    onAutoSubmit,
+  ]);
+
   const confirmText = useMemo(() => {
     if (shouldApprove) {
       return intl.formatMessage(
@@ -175,11 +205,7 @@ export function ActionFooter({
       confirmButtonProps={{
         testID: BorrowTestIDs.actionConfirmBtn,
         onPress: handleConfirm,
-        loading:
-          submitting ||
-          checkAmountLoading ||
-          loadingAllowance ||
-          isFormInteractionLocked,
+        loading: isConfirmLoading,
         disabled: isButtonDisabled,
         ...(isInModalContext ? undefined : { w: '100%' }),
       }}

@@ -28,20 +28,25 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { PercentageStageOnKeyboard } from '@onekeyhq/kit/src/components/PercentageStageOnKeyboard';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
 import { convertFiat } from '@onekeyhq/kit/src/utils/fiatConvert';
 import {
   useCurrencyPersistAtom,
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { USD_CURRENCY_ID } from '@onekeyhq/shared/src/consts/currencyConsts';
+import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
+import tokenRebaseUtils from '@onekeyhq/shared/src/utils/tokenRebaseUtils';
 import { ECheckAmountActionType } from '@onekeyhq/shared/types/staking';
 import type {
   IBorrowTransactionConfirmation,
   IStakeTransactionConfirmation,
 } from '@onekeyhq/shared/types/staking';
+import type { IFetchQuoteResult } from '@onekeyhq/shared/types/swap/types';
+import type { ISendTxOnSuccessData } from '@onekeyhq/shared/types/tx';
 
 import { BorrowInfoCard } from '../../../Borrow/components/ManagePosition/modules/InfoDisplaySection';
 import {
@@ -60,29 +65,44 @@ import {
   StakingRewardsSummary,
   hasStakingRewardsSummary,
 } from '../../../Staking/components/UniversalStake/StakingConfirmationSummary';
+import { completeBroadcastedSwapSuccess } from '../../../Swap/hooks/swapBroadcastSuccess';
+import { generateSwapHistoryItemForContext } from '../../../Swap/hooks/useSwapTxHistory';
 import { EARN_DESKTOP_DEMO_COPY } from '../../components/desktopHome/earnDesktopHomeCopy';
 import { buildKeyboardPressProps } from '../../components/desktopHome/earnDesktopPressable';
 
 import {
-  EARN_ROUTER_FLOW_IDLE,
-  earnRouterFlowReducer,
-  estimateDepositAmount,
+  EARN_ROUTER_SWAP_IDLE,
+  buildEarnSwapToken,
+  earnRouterSwapReducer,
+  getEarnSwapDepositAmount,
+  getEarnSwapPayMax,
 } from './earnRouter.utils';
+import {
+  EarnSwapError,
+  fetchEarnSwapQuote,
+  prepareEarnSwap,
+  readEarnSwapBalance,
+  waitForEarnSwap,
+  waitForEarnSwapBalance,
+} from './earnRouterSwap';
 
 import type {
-  IEarnRouterFlowState,
   IEarnRouterPayToken,
+  IEarnRouterSwapState,
 } from './earnRouter.utils';
+import type {
+  IEarnSwapAccount,
+  IEarnSwapPrepared,
+  IEarnSwapReason,
+} from './earnRouterSwap';
+import type { IManagePositionFooterAction } from '../../../Staking/pages/ManagePosition/components/ManagePositionContent';
 
-// How long the simulation waits on the "wallet" and then on the "chain", per
-// transaction, and how long the finished path stays on screen
-const CONFIRM_MS = 1200;
-const SETTLE_MS = 2200;
-const DONE_MS = 1600;
-// The deposit amount shows at most this many decimals, rounded down
-const DEPOSIT_DECIMALS = 6;
+// The Est. receive box shows at most this many decimals, rounded down
+const RECEIVE_DECIMALS = 6;
 // As the deposit forms wait before asking for their card again
 const SUMMARY_DEBOUNCE_MS = 350;
+// Typing settles before the swap service is asked
+const QUOTE_DEBOUNCE_MS = 500;
 // Centers the arrow on the seam between the two boxes, as the Pendle form
 // does
 const ARROW_OVERLAY_STYLE = platformEnv.isNative
@@ -202,28 +222,49 @@ function useDepositSummary({
   return summary;
 }
 
-// Where the path is, in the deposit form's own two-step indicator
-function getProgressStep(flow: IEarnRouterFlowState) {
-  switch (flow.status) {
-    case 'done':
-      return EStakeProgressStep.unstake;
-    case 'swapped':
-      return EStakeProgressStep.deposit;
-    case 'running':
-      return flow.step === 'swap'
-        ? EStakeProgressStep.approve
-        : EStakeProgressStep.deposit;
-    default:
-      return EStakeProgressStep.approve;
-  }
-}
+// Where the path is, in the deposit form's own two-step indicator: the swap
+// until its tokens are in, then the deposit
+const getProgressStep = (flow: IEarnRouterSwapState) =>
+  flow.status === 'swapped'
+    ? EStakeProgressStep.deposit
+    : EStakeProgressStep.approve;
+
+type IQuoteState = {
+  amount: string;
+  quote?: IFetchQuoteResult;
+  isLoading: boolean;
+  reason?: IEarnSwapReason;
+};
+
+const NO_QUOTE: IQuoteState = { amount: '', isLoading: false };
+
+const SWAP_ERROR_MESSAGE: Record<IEarnSwapReason, ETranslations | undefined> = {
+  noRoute: ETranslations.swap_page_alert_no_provider_supports_trade,
+  unsupported: ETranslations.swap_page_alert_no_provider_supports_trade,
+  failed: ETranslations.swap_page_toast_swap_failed,
+  cancelled: undefined,
+};
+
+export type IEarnRouterSwapDepositToken = {
+  symbol: string;
+  name?: string;
+  logoURI?: string;
+  priceUsd: string;
+  address: string;
+  decimals: number;
+  isNative?: boolean;
+  /** The decimals the provider takes, where they differ from the token's */
+  inputDecimals?: number;
+};
 
 // Paying with a token the provider doesn't take, with no one-transaction
 // route for it: swap, then deposit. It is the deposit form with a second box
-// for what reaches the provider, the way the Pendle form shows a swap, and
-// one press runs both transactions. This demo simulates them and sends
-// nothing
+// for what reaches the provider, the way the Pendle form shows a swap. One
+// press runs the swap through the wallet's confirm and the chain; once its
+// tokens are in the wallet the provider's own deposit form takes over with
+// them (`onSwapped`) and carries on
 export function EarnRouterSwapDepositForm({
+  accountId,
   networkId,
   actionLabel,
   isDisabled,
@@ -231,7 +272,9 @@ export function EarnRouterSwapDepositForm({
   payToken,
   depositToken,
   onOpenPayWith,
-  onDone,
+  onSwapped,
+  beforeSwap,
+  footerActionOverride,
   isInModalContext,
   protocolSwitch,
   offerSwitch,
@@ -240,6 +283,7 @@ export function EarnRouterSwapDepositForm({
   summaryRequest,
   showApyDetail,
 }: {
+  accountId: string;
   networkId: string;
   /** What the deposit form calls the action: Deposit, or Supply */
   actionLabel: string;
@@ -248,11 +292,19 @@ export function EarnRouterSwapDepositForm({
   /** The provider's rate, in percent, when known */
   apr?: number;
   payToken: IEarnRouterPayToken;
-  depositToken: { symbol: string; logoURI?: string; priceUsd: string };
+  depositToken: IEarnRouterSwapDepositToken;
   onOpenPayWith: () => void;
-  /** Once the deposit is in, with what went in; the form starts over either
-   * way */
-  onDone?: (depositedAmount: string) => void;
+  /** The swap's tokens are in the wallet: what to deposit, and the balance
+   * read on chain */
+  onSwapped: (result: { amount: string; balance?: string }) => void;
+  /**
+   * Before anything is sent: the provider's risk notice and its check of the
+   * amount that will reach it, so a swap never strands its tokens. False
+   * stops the press
+   */
+  beforeSwap?: (expectedAmount: string) => Promise<boolean>;
+  /** The guide's preview: the press goes there and nothing is sent */
+  footerActionOverride?: IManagePositionFooterAction;
   // In a modal the action goes in the page footer, as the deposit form's does
   isInModalContext?: boolean;
   // The deposit form's protocol switcher, where that form has one
@@ -278,14 +330,66 @@ export function EarnRouterSwapDepositForm({
     () => backgroundApiProxy.serviceNetwork.getNetwork({ networkId }),
     [networkId],
   );
+  const { result: address } = usePromiseResult(
+    async () =>
+      accountId
+        ? backgroundApiProxy.serviceAccount.getAccountAddressForApi({
+            accountId,
+            networkId,
+          })
+        : undefined,
+    [accountId, networkId],
+  );
+  const account = useMemo<IEarnSwapAccount | undefined>(
+    () =>
+      accountId && address ? { accountId, networkId, address } : undefined,
+    [accountId, address, networkId],
+  );
+  // What the network's coin keeps back for fees, as the Swap page's Max does
+  const { result: nativeConfig } = usePromiseResult(
+    async () =>
+      payToken.token.isNative
+        ? backgroundApiProxy.serviceSwap.fetchSwapNativeTokenConfig({
+            networkId,
+          })
+        : undefined,
+    [networkId, payToken.token.isNative],
+  );
   const [amount, setAmount] = useState(initialAmount ?? '');
+  // Told when the amount changes, not when the caller's callback does (the
+  // guide passes a new one each render, which would undo a reported amount)
+  const onAmountChangeRef = useRef(onAmountChange);
+  onAmountChangeRef.current = onAmountChange;
   useEffect(() => {
-    onAmountChange?.(amount);
-  }, [amount, onAmountChange]);
+    onAmountChangeRef.current?.(amount);
+  }, [amount]);
   const onBlurAmount = useOnBlurAmountValue(amount, setAmount);
   const [flow, dispatch] = useReducer(
-    earnRouterFlowReducer,
-    EARN_ROUTER_FLOW_IDLE,
+    earnRouterSwapReducer,
+    EARN_ROUTER_SWAP_IDLE,
+  );
+
+  const fromToken = useMemo(
+    () =>
+      buildEarnSwapToken({
+        networkId,
+        token: payToken.token,
+        priceUsd: payToken.priceUsd,
+      }),
+    [networkId, payToken.priceUsd, payToken.token],
+  );
+  const toToken = useMemo(
+    () =>
+      buildEarnSwapToken({
+        networkId,
+        token: depositToken,
+        priceUsd: depositToken.priceUsd,
+      }),
+    [depositToken, networkId],
+  );
+  // Swap carries no rebasing token's scaled balance
+  const isSwappable = !tokenRebaseUtils.isScalingBalanceMultiplier(
+    payToken.token.balanceMultiplier,
   );
 
   // USD to the currency the app shows
@@ -303,16 +407,71 @@ export function EarnRouterSwapDepositForm({
   const amountValue = new BigNumber(amount);
   const hasAmount = amountValue.isFinite() && amountValue.gt(0);
   const isInsufficient = hasAmount && amountValue.gt(payToken.amount);
+  const isIdle = flow.status === 'idle';
+
+  // What the swap service quotes for the amount, asked again as it changes
+  const [quoteState, setQuoteState] = useState<IQuoteState>(NO_QUOTE);
+  const canQuote = hasAmount && !isInsufficient && isSwappable;
+  useEffect(() => {
+    // While the swap runs the estimate stays as it went to the wallet
+    if (!isIdle) {
+      return;
+    }
+    if (!canQuote) {
+      setQuoteState(NO_QUOTE);
+      return;
+    }
+    const controller = new AbortController();
+    setQuoteState((prev) => ({
+      amount,
+      quote: prev.amount === amount ? prev.quote : undefined,
+      isLoading: true,
+    }));
+    const timer = setTimeout(() => {
+      fetchEarnSwapQuote({
+        fromToken,
+        toToken,
+        amount,
+        account,
+        signal: controller.signal,
+        onBest: (quote) => setQuoteState({ amount, quote, isLoading: true }),
+      })
+        .then((quote) => setQuoteState({ amount, quote, isLoading: false }))
+        .catch((error: unknown) => {
+          if (!controller.signal.aborted) {
+            setQuoteState({
+              amount,
+              isLoading: false,
+              reason: error instanceof EarnSwapError ? error.reason : 'noRoute',
+            });
+          }
+        });
+    }, QUOTE_DEBOUNCE_MS);
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
+  }, [account, amount, canQuote, fromToken, isIdle, toToken]);
+  const quote = quoteState.amount === amount ? quoteState.quote : undefined;
+  const isQuoting =
+    isIdle && canQuote && !quote && quoteState.reason === undefined;
+  const hasNoRoute =
+    isIdle &&
+    canQuote &&
+    !quoteState.isLoading &&
+    quoteState.reason !== undefined;
+
   const depositAmount = useMemo(() => {
-    const estimate = new BigNumber(
-      estimateDepositAmount({
-        payAmount: amount,
-        payPrice: payToken.priceUsd,
-        depositPrice: depositToken.priceUsd,
-      }),
-    ).decimalPlaces(DEPOSIT_DECIMALS, BigNumber.ROUND_DOWN);
-    return estimate.gt(0) ? estimate.toFixed() : '';
-  }, [amount, depositToken.priceUsd, payToken.priceUsd]);
+    const received = new BigNumber(quote?.toAmount ?? '');
+    return received.isFinite() && received.gt(0)
+      ? received
+          .decimalPlaces(
+            Math.min(RECEIVE_DECIMALS, depositToken.decimals),
+            BigNumber.ROUND_DOWN,
+          )
+          .toFixed()
+      : '';
+  }, [depositToken.decimals, quote?.toAmount]);
   const payFiat = hasAmount
     ? toFiat(amountValue.times(payToken.priceUsd).toFixed())
     : '';
@@ -321,12 +480,6 @@ export function EarnRouterSwapDepositForm({
         new BigNumber(depositAmount).times(depositToken.priceUsd).toFixed(),
       )
     : '';
-  // Read as the path ends, after the amount has gone; the caller's callback
-  // can change identity while the finished path shows without starting it over
-  const depositAmountRef = useRef(depositAmount);
-  depositAmountRef.current = depositAmount;
-  const onDoneRef = useRef(onDone);
-  onDoneRef.current = onDone;
   const depositSummary = useDepositSummary({
     networkId,
     request: summaryRequest,
@@ -347,77 +500,260 @@ export function EarnRouterSwapDepositForm({
     };
   }, [apr, depositAmount, depositToken.priceUsd, summaryRequest, toFiat]);
 
-  // Each transaction waits on the wallet, then on the chain; the deposit asks
-  // for its confirmation as soon as the swap settles
-  useEffect(() => {
-    if (flow.status !== 'running') {
-      return;
-    }
-    const timer = setTimeout(
-      () =>
-        dispatch({
-          type: flow.phase === 'confirm' ? 'confirmed' : 'settled',
-        }),
-      flow.phase === 'confirm' ? CONFIRM_MS : SETTLE_MS,
-    );
-    return () => clearTimeout(timer);
-  }, [flow]);
-
-  // As a deposit ends: "Transaction submitted", the finished path for a
-  // moment, then the form starts over (a modal closes)
-  useEffect(() => {
-    if (flow.status !== 'done') {
-      return;
-    }
-    Toast.success({
-      title: intl.formatMessage({
-        id: ETranslations.feedback_transaction_submitted,
+  // The wallet's confirm for the swap, as the Swap page sends one (with an
+  // approval in the same confirm): what went out, nothing when rejected
+  const { navigationToTxConfirm } = useSignatureConfirm({
+    accountId,
+    networkId,
+  });
+  const confirmSwap = useCallback(
+    (prepared: IEarnSwapPrepared) =>
+      new Promise<ISendTxOnSuccessData | undefined>((resolve, reject) => {
+        let isSettled = false;
+        const settle = (data?: ISendTxOnSuccessData) => {
+          if (!isSettled) {
+            isSettled = true;
+            resolve(data);
+          }
+        };
+        const fail = (error: unknown) => {
+          if (!isSettled) {
+            isSettled = true;
+            reject(error);
+          }
+        };
+        void navigationToTxConfirm({
+          isInternalSwap: true,
+          encodedTx: prepared.execution.encodedTx,
+          approvesInfo: prepared.approvesInfo.length
+            ? prepared.approvesInfo
+            : undefined,
+          swapInfo: prepared.execution.swapInfo,
+          onSuccess: (data) =>
+            settle(
+              data.find(
+                (item) => item.signedTx.swapInfo && !item.approveInfo,
+              ) ?? data[data.length - 1],
+            ),
+          onFail: fail,
+          onCancel: () => settle(),
+        }).catch(fail);
       }),
-    });
-    const timer = setTimeout(() => {
-      const deposited = depositAmountRef.current;
-      setAmount('');
-      dispatch({ type: 'reset' });
-      onDoneRef.current?.(deposited);
-    }, DONE_MS);
-    return () => clearTimeout(timer);
-  }, [flow.status, intl]);
+    [navigationToTxConfirm],
+  );
+  // In the Swap history, as any swap: the in-app notice follows it to the end
+  const recordSwap = useCallback(
+    async (sent: ISendTxOnSuccessData, prepared: IEarnSwapPrepared) => {
+      const swapNetworks = await backgroundApiProxy.serviceSwap
+        .fetchSwapNetworks()
+        .catch(() => []);
+      await completeBroadcastedSwapSuccess({
+        txId: sent.signedTx.txid,
+        swapInfo: prepared.execution.swapInfo,
+        gasFeeFiatValue: sent.decodedTx.totalFeeFiatValue,
+        gasFeeInNative: sent.decodedTx.totalFeeInNative,
+        generateSwapHistoryItem: (params) =>
+          generateSwapHistoryItemForContext(params, {
+            swapNetworks,
+            currencyInfo,
+          }),
+      });
+    },
+    [currencyInfo],
+  );
 
-  const isBusy = flow.status !== 'idle';
-  // Nothing to change while the path runs, or while the provider is off
+  // A run outlives renders; closing the form stops waiting on it (a sent
+  // swap goes on regardless)
+  const runRef = useRef<AbortController | undefined>(undefined);
+  useEffect(() => () => runRef.current?.abort(), []);
+  const onSwappedRef = useRef(onSwapped);
+  onSwappedRef.current = onSwapped;
+  const handleStart = useCallback(async () => {
+    if (!account) {
+      return;
+    }
+    const controller = new AbortController();
+    runRef.current?.abort();
+    runRef.current = controller;
+    const { signal } = controller;
+    dispatch({ type: 'prepare' });
+    try {
+      // A fresh quote: the one on screen may be a while old
+      const freshQuote = await fetchEarnSwapQuote({
+        fromToken,
+        toToken,
+        amount,
+        account,
+        signal,
+      });
+      setQuoteState({ amount, quote: freshQuote, isLoading: false });
+      if (
+        beforeSwap &&
+        !(await beforeSwap(
+          freshQuote.minToAmount || freshQuote.toAmount || '0',
+        ))
+      ) {
+        dispatch({ type: 'stop' });
+        return;
+      }
+      const prepared = await prepareEarnSwap({
+        quote: freshQuote,
+        fromToken,
+        toToken,
+        amount,
+        account,
+      });
+      const balanceBefore = await readEarnSwapBalance({
+        token: toToken,
+        account,
+      });
+      if (signal.aborted) {
+        throw new EarnSwapError('cancelled');
+      }
+      dispatch({ type: 'confirm' });
+      const sent = await confirmSwap(prepared);
+      if (!sent) {
+        dispatch({ type: 'stop' });
+        return;
+      }
+      dispatch({ type: 'sent' });
+      void recordSwap(sent, prepared);
+      const leastReceived =
+        freshQuote.minToAmount || freshQuote.toAmount || '0';
+      const { receivedAmount } = await waitForEarnSwap({
+        txId: sent.signedTx.txid,
+        prepared,
+        toToken,
+        account,
+        landedBalance:
+          balanceBefore === undefined
+            ? undefined
+            : new BigNumber(balanceBefore).plus(leastReceived).toFixed(),
+        signal,
+      });
+      const expected = receivedAmount || leastReceived;
+      const balanceAfter = await waitForEarnSwapBalance({
+        token: toToken,
+        atLeast: new BigNumber(balanceBefore ?? 0).plus(expected).toFixed(),
+        account,
+        signal,
+      });
+      const deposit = getEarnSwapDepositAmount({
+        receivedAmount,
+        balanceBefore,
+        balanceAfter,
+        minToAmount: freshQuote.minToAmount,
+        decimals: depositToken.inputDecimals ?? depositToken.decimals,
+      });
+      dispatch({ type: 'landed', amount: deposit, balance: balanceAfter });
+      onSwappedRef.current({ amount: deposit, balance: balanceAfter });
+    } catch (error: unknown) {
+      dispatch({ type: 'stop' });
+      if (signal.aborted) {
+        return;
+      }
+      // Errors the swap service raised have shown their own toast
+      if ((error as IOneKeyError | undefined)?.autoToast) {
+        return;
+      }
+      const reason = error instanceof EarnSwapError ? error.reason : 'failed';
+      const messageId = SWAP_ERROR_MESSAGE[reason];
+      if (messageId) {
+        Toast.error({
+          title: intl.formatMessage({ id: messageId }),
+          message:
+            error instanceof EarnSwapError && error.message !== reason
+              ? error.message
+              : undefined,
+        });
+      }
+    }
+  }, [
+    account,
+    amount,
+    beforeSwap,
+    confirmSwap,
+    depositToken.decimals,
+    depositToken.inputDecimals,
+    fromToken,
+    intl,
+    recordSwap,
+    toToken,
+  ]);
+
+  const isBusy = !isIdle;
+  // Nothing to change while the swap runs, or while the provider is off
   const isLocked = isBusy || Boolean(isDisabled);
   const canStart =
-    !isDisabled && hasAmount && !isInsufficient && Boolean(depositAmount);
+    !isDisabled &&
+    hasAmount &&
+    !isInsufficient &&
+    Boolean(depositAmount) &&
+    Boolean(account);
 
   const handleSelectPercentage = useCallback(
     (percent: number) => {
+      const max = getEarnSwapPayMax({
+        balance: payToken.amount,
+        isNative: payToken.token.isNative,
+        reserveGas: nativeConfig?.reserveGas,
+        decimals: payToken.token.decimals,
+      });
       setAmount(
-        new BigNumber(payToken.amount)
-          .times(percent)
-          .div(100)
+        new BigNumber(percent >= 100 ? max : payToken.amount)
+          .times(percent >= 100 ? 1 : percent / 100)
           .decimalPlaces(payToken.token.decimals, BigNumber.ROUND_DOWN)
           .toFixed(),
       );
     },
-    [payToken.amount, payToken.token.decimals],
+    [
+      nativeConfig?.reserveGas,
+      payToken.amount,
+      payToken.token.decimals,
+      payToken.token.isNative,
+    ],
   );
   const handleMax = useCallback(() => {
-    setAmount(payToken.amount);
-  }, [payToken.amount]);
-  const handleStart = useCallback(() => dispatch({ type: 'start' }), []);
+    setAmount(
+      getEarnSwapPayMax({
+        balance: payToken.amount,
+        isNative: payToken.token.isNative,
+        reserveGas: nativeConfig?.reserveGas,
+        decimals: payToken.token.decimals,
+      }),
+    );
+  }, [
+    nativeConfig?.reserveGas,
+    payToken.amount,
+    payToken.token.decimals,
+    payToken.token.isNative,
+  ]);
 
-  // One press runs both, as "Approve and Deposit" does. Once a swap went
-  // through without its deposit, the deposit alone is left
-  const confirmText =
-    flow.status === 'swapped'
-      ? actionLabel
-      : EARN_DESKTOP_DEMO_COPY.swapAnd(actionLabel);
+  // One press runs the swap, as "Approve and Deposit" runs both of its
+  // steps; the deposit form carries on from there. The guide's preview takes
+  // the press itself and sends nothing, as the deposit form's override does
+  const overridesState =
+    footerActionOverride && !footerActionOverride.isPressOnly;
+  // What goes in is what the swap brings, as a landed swap hands it over
+  const handleOverridePress = useCallback(() => {
+    if (depositAmount) {
+      onAmountChange?.(depositAmount);
+    }
+    footerActionOverride?.onPress();
+  }, [depositAmount, footerActionOverride, onAmountChange]);
   const confirmButtonProps = {
     testID: 'earn-router-swap-deposit',
-    onPress: handleStart,
-    loading: flow.status === 'running',
-    disabled: flow.status === 'done' || (flow.status === 'idle' && !canStart),
+    onPress: footerActionOverride ? handleOverridePress : handleStart,
+    loading: footerActionOverride
+      ? Boolean(footerActionOverride.loading)
+      : isBusy,
+    disabled: overridesState
+      ? Boolean(footerActionOverride.disabled)
+      : !canStart && !isBusy,
   };
+  const confirmText = overridesState
+    ? footerActionOverride.text
+    : EARN_DESKTOP_DEMO_COPY.swapAnd(actionLabel);
   const progress =
     hasAmount || isBusy ? (
       <StakeProgress
@@ -523,6 +859,30 @@ export function EarnRouterSwapDepositForm({
     );
   }
 
+  let alert: ReactNode = null;
+  if (isInsufficient) {
+    // Where the deposit form warns about its amount
+    alert = (
+      <Alert
+        icon="InfoCircleOutline"
+        type="critical"
+        title={intl.formatMessage({
+          id: ETranslations.earn_insufficient_balance,
+        })}
+      />
+    );
+  } else if (hasNoRoute || (hasAmount && !isSwappable)) {
+    alert = (
+      <Alert
+        icon="InfoCircleOutline"
+        type="warning"
+        title={intl.formatMessage({
+          id: ETranslations.swap_page_alert_no_provider_supports_trade,
+        })}
+      />
+    );
+  }
+
   return (
     <StakingFormWrapper>
       <Stack position="relative">
@@ -568,10 +928,11 @@ export function EarnRouterSwapDepositForm({
               selectedNetworkImageUri: network?.logoURI,
               disabled: true,
             }}
-            inputProps={{ placeholder: '0' }}
+            inputProps={{ placeholder: '0', loading: isQuoting }}
             valueProps={{
               value: depositFiat,
               currency: depositFiat ? currencyInfo.symbol : undefined,
+              loading: isQuoting,
             }}
             onSelectPercentageStage={() => {}}
           />
@@ -598,16 +959,7 @@ export function EarnRouterSwapDepositForm({
           />
         </Stack>
       </Stack>
-      {/* Where the deposit form warns about its amount */}
-      {isInsufficient ? (
-        <Alert
-          icon="InfoCircleOutline"
-          type="critical"
-          title={intl.formatMessage({
-            id: ETranslations.earn_insufficient_balance,
-          })}
-        />
-      ) : null}
+      {alert}
       {protocolSwitch ?? offerSwitch}
       {card}
       {isInModalContext ? (

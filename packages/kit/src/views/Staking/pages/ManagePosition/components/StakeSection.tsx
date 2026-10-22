@@ -1,8 +1,10 @@
 import type { ReactElement, ReactNode } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
+import { Toast } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
@@ -42,7 +44,11 @@ import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EEarnProviderEnum } from '@onekeyhq/shared/types/earn';
 import type { IFeeUTXO } from '@onekeyhq/shared/types/fee';
-import { EApproveType, EEarnLabels } from '@onekeyhq/shared/types/staking';
+import {
+  EApproveType,
+  ECheckAmountActionType,
+  EEarnLabels,
+} from '@onekeyhq/shared/types/staking';
 import type {
   IApproveConfirmFnParams,
   IEarnSelectField,
@@ -52,6 +58,7 @@ import type {
 } from '@onekeyhq/shared/types/staking';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
+import { useEarnRiskWarningGate } from '../../../components/EarnRiskWarningDialog';
 import {
   ProtocolSwitcher,
   UniversalStake,
@@ -108,15 +115,14 @@ export const StakeSection = ({
   onQuoteReset,
   refreshKey,
   onQuoteRefreshingChange,
+  onRefreshTokenInfo,
 }: {
   accountId: string;
   networkId: string;
   tokenInfo?: IEarnTokenInfo;
   protocolInfo?: IProtocolInfo;
   isDisabled?: boolean;
-  // With what went in where the form knows it better than the typed amount:
-  // paid in another token, the swap's result
-  onSuccess?: (info?: { amount?: string }) => void;
+  onSuccess?: () => void;
   beforeFooter?: ReactElement | null;
   footerActionOverride?: IManagePositionFooterAction;
   showApyDetail?: boolean;
@@ -143,6 +149,8 @@ export const StakeSection = ({
   onQuoteReset?: () => void;
   refreshKey?: number;
   onQuoteRefreshingChange?: (loading: boolean) => void;
+  // Asks the page for the token's balance again, as a swap brought some in
+  onRefreshTokenInfo?: () => void;
 }) => {
   // Early return if no tokenInfo or protocolInfo
   // This happens when there's no account or no address
@@ -308,6 +316,34 @@ export const StakeSection = ({
   ]);
   // Nothing held on the network leaves nothing to pick
   const hasPayTokens = canPayWith && pay.tokens.length > 0;
+  // After a swap paid for the deposit: the deposit form takes over on the
+  // tokens it brought in, filled with them and pressed once by itself, as
+  // the swap's press asked. Only for the provider the swap was for; picking
+  // another token in Pay with ends it
+  const handoffTarget = `${providerName}|${protocolInfo?.vault ?? ''}`;
+  const [handoff, setHandoff] = useState<{
+    amount: string;
+    balance?: string;
+    target: string;
+    autoSubmitKey?: number;
+  }>();
+  useEffect(() => {
+    setHandoff((prev) =>
+      prev?.autoSubmitKey !== undefined && prev.target !== handoffTarget
+        ? { ...prev, autoSubmitKey: undefined }
+        : prev,
+    );
+  }, [handoffTarget]);
+  const handleAutoSubmit = useCallback(() => {
+    setHandoff((prev) => (prev ? { ...prev, autoSubmitKey: undefined } : prev));
+  }, []);
+  // Pay with moves to the deposit token once the wallet lists it
+  const heldDepositKey = pay.tokens.find((item) => item.isDepositToken)?.key;
+  useEffect(() => {
+    if (handoff && heldDepositKey && payKey !== heldDepositKey) {
+      setPayKey(heldDepositKey);
+    }
+  }, [handoff, heldDepositKey, payKey, setPayKey]);
   const handleOpenPayWith = useCallback(() => {
     showPayWithPicker({
       tokens: pay.tokens,
@@ -315,18 +351,39 @@ export const StakeSection = ({
       onSelect: (item) => {
         setStartAmount(undefined);
         typedAmountRef.current = undefined;
+        setHandoff(undefined);
         setPayKey(item.key);
       },
     });
   }, [pay.tokens, payToken?.key, setPayKey]);
-  const payMode = resolvePayMode({
-    payToken,
-    takesOtherTokens: isPendleProvider || isNativeProvider,
-    zapInputs: selectableStakeAssets.map((asset) => ({
-      address: asset.info.address,
-      isNative: asset.info.isNative,
-    })),
-  });
+  const payMode = handoff
+    ? 'direct'
+    : resolvePayMode({
+        payToken,
+        takesOtherTokens: isPendleProvider || isNativeProvider,
+        zapInputs: selectableStakeAssets.map((asset) => ({
+          address: asset.info.address,
+          isNative: asset.info.isNative,
+        })),
+      });
+  const { refresh: refreshPayTokens } = pay;
+  const handleSwapped = useCallback(
+    ({ amount, balance }: { amount: string; balance?: string }) => {
+      setStartAmount(amount);
+      typedAmountRef.current = amount;
+      onAmountChange?.(amount);
+      setHandoff({
+        amount,
+        balance,
+        target: handoffTarget,
+        autoSubmitKey: amount ? Date.now() : undefined,
+      });
+      // The page's balance and Pay with's list, as the swap moved both
+      onRefreshTokenInfo?.();
+      void refreshPayTokens();
+    },
+    [handoffTarget, onAmountChange, onRefreshTokenInfo, refreshPayTokens],
+  );
   // The rate the swap path estimates with: this provider's among the
   // token's offers on the network
   const { offers: payOffers } = useEarnRouterOffers({
@@ -884,6 +941,99 @@ export const StakeSection = ({
     ],
   );
 
+  const ensureRiskAccepted = useEarnRiskWarningGate();
+  // Before a swap is sent: the provider's risk notice, then its own check of
+  // what will reach it, so swapped tokens are never left without a deposit
+  const handleBeforeSwap = useCallback(
+    async (expectedAmount: string) => {
+      const isAccepted = await ensureRiskAccepted({
+        provider: providerName,
+        symbol: depositSymbol,
+        networkId,
+      });
+      if (!isAccepted) {
+        return false;
+      }
+      let message: string | undefined;
+      try {
+        if (isBorrowStake) {
+          const { provider, marketAddress, reserveAddress } =
+            borrowApiCtx.borrowApiParams;
+          const response =
+            await backgroundApiProxy.serviceStaking.getBorrowCheckAmount({
+              networkId,
+              provider,
+              marketAddress,
+              reserveAddress,
+              accountId,
+              action: 'supply',
+              amount: expectedAmount,
+            });
+          if (Number(response.code) !== 0) {
+            message = response.message;
+          } else if (response.data?.result === false) {
+            message =
+              response.data.alerts?.[0]?.text.text ||
+              intl.formatMessage({ id: ETranslations.global_network_error });
+          }
+        } else {
+          const response = await backgroundApiProxy.serviceStaking.checkAmount({
+            accountId,
+            networkId,
+            symbol: stakeRequestSymbol || depositSymbol,
+            provider: providerName,
+            action: ECheckAmountActionType.STAKING,
+            amount: expectedAmount,
+            protocolVault: earnUtils.shouldSendEarnProtocolVault({
+              providerName,
+            })
+              ? protocolInfo?.vault || ''
+              : undefined,
+            withdrawAll: false,
+            stakeType: nativeStakeType,
+          });
+          // The deposit form holds its button on an alert as on an error
+          message =
+            Number(response.code) === 0
+              ? response.data?.alerts?.[0]?.text.text
+              : response.message;
+        }
+      } catch {
+        message = intl.formatMessage({
+          id: ETranslations.global_network_error,
+        });
+      }
+      if (message) {
+        Toast.error({ title: message });
+        return false;
+      }
+      return true;
+    },
+    [
+      accountId,
+      borrowApiCtx.borrowApiParams,
+      depositSymbol,
+      ensureRiskAccepted,
+      intl,
+      isBorrowStake,
+      nativeStakeType,
+      networkId,
+      protocolInfo?.vault,
+      providerName,
+      stakeRequestSymbol,
+    ],
+  );
+  // The balance the swap left, read on chain, until the page's own catches up
+  const handoffBalance = useMemo(() => {
+    if (!handoff?.balance) {
+      return undefined;
+    }
+    const own = new BigNumber(effectiveStakeTokenInfo?.balanceParsed ?? '');
+    return BigNumber.max(own.isFinite() ? own : 0, handoff.balance).toFixed();
+  }, [effectiveStakeTokenInfo?.balanceParsed, handoff?.balance]);
+  const handoffSubmitKey =
+    handoff?.target === handoffTarget ? handoff.autoSubmitKey : undefined;
+
   // Determine the effective max balance for supply
   const effectiveMaxBalance = useMemo(() => {
     if (borrowAction !== 'supply') {
@@ -1045,12 +1195,18 @@ export const StakeSection = ({
     );
   }
 
-  if (payMode === 'swapThenDeposit' && payToken) {
+  // The swap needs the token it buys: the page's own, once it's known
+  const depositTokenToBuy =
+    tokenInfo?.token && tokenInfo.token.decimals > 0
+      ? tokenInfo.token
+      : undefined;
+  if (payMode === 'swapThenDeposit' && payToken && depositTokenToBuy) {
     const heldDepositToken = pay.tokens.find((item) => item.isDepositToken);
     return (
       <EarnRouterSwapDepositForm
         // Another provider or token starts the form over
         key={`${providerName}|${protocolInfo?.vault ?? ''}|${payToken.key}`}
+        accountId={accountId}
         networkId={networkId}
         // The deposit form's own word for it: Supply on a lending market
         actionLabel={
@@ -1064,14 +1220,21 @@ export const StakeSection = ({
         payToken={payToken}
         depositToken={{
           symbol: depositSymbol,
-          logoURI: tokenInfo?.token.logoURI || fallbackTokenImageUri,
+          name: depositTokenToBuy.name,
+          logoURI: depositTokenToBuy.logoURI || fallbackTokenImageUri,
           priceUsd:
             heldDepositToken && Number(heldDepositToken.priceUsd) > 0
               ? heldDepositToken.priceUsd
               : String(tokenInfo?.price ?? '0'),
+          address: depositTokenToBuy.address,
+          decimals: depositTokenToBuy.decimals,
+          isNative: depositTokenToBuy.isNative,
+          inputDecimals: protocolInfo?.protocolInputDecimals,
         }}
         onOpenPayWith={handleOpenPayWith}
-        onDone={(depositedAmount) => onSuccess?.({ amount: depositedAmount })}
+        onSwapped={handleSwapped}
+        beforeSwap={handleBeforeSwap}
+        footerActionOverride={footerActionOverride}
         isInModalContext={isInModalContext}
         summaryRequest={paySummaryRequest}
         showApyDetail={showApyDetail}
@@ -1104,9 +1267,11 @@ export const StakeSection = ({
           decimals={
             protocolInfo?.protocolInputDecimals ?? tokenInfo?.token?.decimals
           }
-          balance={tokenInfo?.balanceParsed ?? ''}
+          balance={handoffBalance ?? tokenInfo?.balanceParsed ?? ''}
           maxBalance={effectiveMaxBalance}
           initialAmount={inputStartAmount}
+          autoSubmitKey={handoffSubmitKey}
+          onAutoSubmit={handleAutoSubmit}
           offerSwitch={offerSwitch}
           onAmountChange={handleAmountChange}
           onTokenSelectorPress={hasPayTokens ? handleOpenPayWith : undefined}
@@ -1156,8 +1321,12 @@ export const StakeSection = ({
             protocolInfo?.protocolInputDecimals ??
             effectiveStakeTokenInfo?.token?.decimals
           }
-          balance={effectiveStakeTokenInfo?.balanceParsed ?? ''}
+          balance={
+            handoffBalance ?? effectiveStakeTokenInfo?.balanceParsed ?? ''
+          }
           initialAmount={inputStartAmount}
+          autoSubmitKey={handoffSubmitKey}
+          onAutoSubmit={handleAutoSubmit}
           offerSwitch={offerSwitch}
           onAmountChange={handleAmountChange}
           tokenImageUri={

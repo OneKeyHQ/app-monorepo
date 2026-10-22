@@ -864,6 +864,7 @@ export function NormalManageContent({
           onQuoteReset={handleStakeQuoteReset}
           refreshKey={stakeRefreshKey}
           onQuoteRefreshingChange={handleStakeQuoteRefreshingChange}
+          onRefreshTokenInfo={onIndicatorRefresh}
         />
       ) : null}
       {selectedTabIndex === 1 && !depositOnly ? (

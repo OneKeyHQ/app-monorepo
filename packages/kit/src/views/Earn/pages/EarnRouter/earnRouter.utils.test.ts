@@ -2,13 +2,17 @@ import type {
   IBorrowMarketItem,
   IStakeProtocolListItem,
 } from '@onekeyhq/shared/types/staking';
+import type { IFetchQuoteResult } from '@onekeyhq/shared/types/swap/types';
 import type { IAccountToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 
 import {
-  EARN_ROUTER_FLOW_IDLE,
-  earnRouterFlowReducer,
-  estimateDepositAmount,
+  EARN_ROUTER_SWAP_IDLE,
+  earnRouterSwapReducer,
   findOffer,
+  getEarnSwapDepositAmount,
+  getEarnSwapPayMax,
+  getEarnSwapSlippage,
+  isUsableEarnSwapQuote,
   listPayTokens,
   pickBetterOffer,
   pickDefaultPayToken,
@@ -16,10 +20,9 @@ import {
 } from './earnRouter.utils';
 
 import type {
-  IEarnRouterFlowAction,
-  IEarnRouterFlowState,
-  IEarnRouterFlowStep,
   IEarnRouterPayToken,
+  IEarnRouterSwapAction,
+  IEarnRouterSwapState,
 } from './earnRouter.utils';
 import type {
   IEarnDesktopHoldOffer,
@@ -602,191 +605,222 @@ describe('pickBetterOffer', () => {
   });
 });
 
-describe('estimateDepositAmount', () => {
-  it('converts at the two prices', () => {
-    // 0.000723 ETH at $2,440 into USDC at $1
+describe('earnRouterSwapReducer', () => {
+  const STATES = {
+    idle: EARN_ROUTER_SWAP_IDLE,
+    preparing: { status: 'preparing' },
+    confirming: { status: 'confirming' },
+    swapping: { status: 'swapping' },
+    swapped: { status: 'swapped', amount: '2.44', balance: '7.44' },
+  } satisfies Record<string, IEarnRouterSwapState>;
+  const LANDED: IEarnRouterSwapAction = {
+    type: 'landed',
+    amount: '2.44',
+    balance: '7.44',
+  };
+  const play = (
+    state: IEarnRouterSwapState,
+    ...actions: IEarnRouterSwapAction[]
+  ) =>
+    actions.reduce(
+      (current, action) => earnRouterSwapReducer(current, action),
+      state,
+    );
+
+  it('runs the swap to the end on one press', () => {
     expect(
-      estimateDepositAmount({
-        payAmount: '0.000723',
-        payPrice: '2440',
-        depositPrice: '1',
-      }),
-    ).toBe('1.76412');
-    // 0.8337 USDT at $0.9998 into USDe at $0.9995
-    expect(
-      Number(
-        estimateDepositAmount({
-          payAmount: '0.8337',
-          payPrice: '0.9998',
-          depositPrice: '0.9995',
-        }),
+      play(
+        STATES.idle,
+        { type: 'prepare' },
+        { type: 'confirm' },
+        { type: 'sent' },
+        LANDED,
       ),
-    ).toBeCloseTo(0.833_95, 5);
+    ).toEqual(STATES.swapped);
   });
 
-  it.each(['', '0', '-1', 'abc', '.'])(
-    'is 0 for the amount %p',
-    (payAmount) => {
-      expect(
-        estimateDepositAmount({ payAmount, payPrice: '1', depositPrice: '1' }),
-      ).toBe('0');
-    },
-  );
+  it('goes back to the start when the wallet rejects or a check stops it', () => {
+    expect(earnRouterSwapReducer(STATES.preparing, { type: 'stop' })).toBe(
+      EARN_ROUTER_SWAP_IDLE,
+    );
+    expect(earnRouterSwapReducer(STATES.confirming, { type: 'stop' })).toBe(
+      EARN_ROUTER_SWAP_IDLE,
+    );
+  });
 
-  it.each(['0', '-1', '', 'NaN'])(
-    'is 0 for the deposit price %p',
-    (depositPrice) => {
-      expect(
-        estimateDepositAmount({
-          payAmount: '1',
-          payPrice: '2440',
-          depositPrice,
-        }),
-      ).toBe('0');
-    },
-  );
+  it('goes back to the start when a sent swap fails', () => {
+    expect(earnRouterSwapReducer(STATES.swapping, { type: 'stop' })).toBe(
+      EARN_ROUTER_SWAP_IDLE,
+    );
+  });
 
-  it('is 0 without a pay price', () => {
+  it('keeps a landed swap: the deposit form has taken over', () => {
+    expect(earnRouterSwapReducer(STATES.swapped, { type: 'stop' })).toBe(
+      STATES.swapped,
+    );
+    expect(earnRouterSwapReducer(STATES.swapped, { type: 'prepare' })).toBe(
+      STATES.swapped,
+    );
+  });
+
+  it('takes each step only from the one before', () => {
+    expect(earnRouterSwapReducer(STATES.idle, { type: 'confirm' })).toBe(
+      STATES.idle,
+    );
+    expect(earnRouterSwapReducer(STATES.preparing, { type: 'sent' })).toBe(
+      STATES.preparing,
+    );
+    expect(earnRouterSwapReducer(STATES.confirming, LANDED)).toBe(
+      STATES.confirming,
+    );
+    expect(earnRouterSwapReducer(STATES.swapping, { type: 'prepare' })).toBe(
+      STATES.swapping,
+    );
+  });
+});
+
+describe('getEarnSwapDepositAmount', () => {
+  it('deposits what the swap delivered, rounded down to what the provider takes', () => {
     expect(
-      estimateDepositAmount({
-        payAmount: '1',
-        payPrice: '',
-        depositPrice: '1',
+      getEarnSwapDepositAmount({
+        receivedAmount: '2.4414567',
+        balanceAfter: '10',
+        decimals: 6,
       }),
-    ).toBe('0');
+    ).toBe('2.441456');
+  });
+
+  it('never deposits more than the balance holds', () => {
     expect(
-      estimateDepositAmount({
-        payAmount: '1',
-        payPrice: '0',
-        depositPrice: '1',
+      getEarnSwapDepositAmount({
+        receivedAmount: '2.5',
+        balanceAfter: '2.4',
+        decimals: 6,
+      }),
+    ).toBe('2.4');
+  });
+
+  it('falls back to what the balance gained, then to the quoted minimum', () => {
+    expect(
+      getEarnSwapDepositAmount({
+        balanceBefore: '1',
+        balanceAfter: '3.44',
+        decimals: 6,
+      }),
+    ).toBe('2.44');
+    expect(getEarnSwapDepositAmount({ minToAmount: '2.4', decimals: 6 })).toBe(
+      '2.4',
+    );
+  });
+
+  it('gives nothing when nothing came in', () => {
+    expect(
+      getEarnSwapDepositAmount({
+        balanceBefore: '3',
+        balanceAfter: '3',
+        decimals: 6,
+      }),
+    ).toBe('');
+  });
+});
+
+describe('getEarnSwapPayMax', () => {
+  it('pays all of a token', () => {
+    expect(
+      getEarnSwapPayMax({ balance: '12.5', reserveGas: 0.001, decimals: 6 }),
+    ).toBe('12.5');
+  });
+
+  it("keeps the network coin's fees for the swap and the deposit", () => {
+    expect(
+      getEarnSwapPayMax({
+        balance: '0.01',
+        isNative: true,
+        reserveGas: 0.001,
+        decimals: 18,
+      }),
+    ).toBe('0.008');
+  });
+
+  it('pays none of the coin when the fees take it all', () => {
+    expect(
+      getEarnSwapPayMax({
+        balance: '0.001',
+        isNative: true,
+        reserveGas: 0.001,
+        decimals: 18,
       }),
     ).toBe('0');
   });
 });
 
-describe('earnRouterFlowReducer', () => {
-  const running = (
-    step: IEarnRouterFlowStep,
-    phase: 'confirm' | 'pending',
-  ): IEarnRouterFlowState => ({ status: 'running', step, phase });
-  const STATES = {
-    'idle': EARN_ROUTER_FLOW_IDLE,
-    'swap confirm': running('swap', 'confirm'),
-    'swap pending': running('swap', 'pending'),
-    'deposit confirm': running('deposit', 'confirm'),
-    'deposit pending': running('deposit', 'pending'),
-    'swapped': { status: 'swapped' },
-    'done': { status: 'done' },
-  } satisfies Record<string, IEarnRouterFlowState>;
-  const play = (
-    state: IEarnRouterFlowState,
-    ...types: IEarnRouterFlowAction['type'][]
-  ) =>
-    types.reduce(
-      (current, type) => earnRouterFlowReducer(current, { type }),
-      state,
-    );
-
-  it('starts with the swap', () => {
-    expect(earnRouterFlowReducer(STATES.idle, { type: 'start' })).toEqual(
-      running('swap', 'confirm'),
-    );
-  });
-
-  it('waits on the chain once the wallet confirms', () => {
-    expect(
-      earnRouterFlowReducer(STATES['swap confirm'], { type: 'confirmed' }),
-    ).toEqual(running('swap', 'pending'));
-    expect(
-      earnRouterFlowReducer(STATES['deposit confirm'], { type: 'confirmed' }),
-    ).toEqual(running('deposit', 'pending'));
-  });
-
-  it('asks for the deposit as soon as the swap settles', () => {
-    expect(
-      earnRouterFlowReducer(STATES['swap pending'], { type: 'settled' }),
-    ).toEqual(running('deposit', 'confirm'));
-  });
-
-  it('is done once the deposit settles', () => {
-    expect(
-      earnRouterFlowReducer(STATES['deposit pending'], { type: 'settled' }),
-    ).toEqual({ status: 'done' });
-  });
-
-  it('runs both steps on one press', () => {
-    expect(
-      play(
-        STATES.idle,
-        'start',
-        'confirmed',
-        'settled',
-        'confirmed',
-        'settled',
-      ),
-    ).toEqual({ status: 'done' });
-  });
-
-  it('goes back to the start when the swap is cancelled', () => {
-    expect(
-      earnRouterFlowReducer(STATES['swap confirm'], { type: 'cancel' }),
-    ).toEqual(EARN_ROUTER_FLOW_IDLE);
-  });
-
-  it('keeps the swapped tokens when the deposit is cancelled', () => {
-    expect(
-      earnRouterFlowReducer(STATES['deposit confirm'], { type: 'cancel' }),
-    ).toEqual({ status: 'swapped' });
-    expect(
-      play(STATES.idle, 'start', 'confirmed', 'settled', 'cancel'),
-    ).toEqual({ status: 'swapped' });
-  });
-
-  it('deposits only when started again after the swap', () => {
-    expect(earnRouterFlowReducer(STATES.swapped, { type: 'start' })).toEqual(
-      running('deposit', 'confirm'),
-    );
-    expect(play(STATES.swapped, 'start', 'confirmed', 'settled')).toEqual({
-      status: 'done',
+describe('isUsableEarnSwapQuote', () => {
+  const ETH_TOKEN = {
+    networkId: 'evm--8453',
+    contractAddress: '',
+    isNative: true,
+    symbol: 'ETH',
+    decimals: 18,
+  };
+  const USDC_TOKEN = {
+    networkId: 'evm--8453',
+    contractAddress: '0x833589fcd6edb6e08f4c7c32d4f71b54bda02913',
+    symbol: 'USDC',
+    decimals: 6,
+  };
+  const quote = (extra: Partial<IFetchQuoteResult> = {}) =>
+    ({
+      info: { provider: 'swap_0x', providerName: '0x' },
+      fromTokenInfo: {
+        ...ETH_TOKEN,
+        contractAddress: '0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee',
+      },
+      toTokenInfo: {
+        ...USDC_TOKEN,
+        contractAddress: USDC_TOKEN.contractAddress.toUpperCase(),
+      },
+      fromAmount: '0.0010',
+      toAmount: '2.44',
+      ...extra,
+    }) as IFetchQuoteResult;
+  const check = (extra?: Partial<IFetchQuoteResult>) =>
+    isUsableEarnSwapQuote({
+      quote: quote(extra),
+      fromToken: ETH_TOKEN,
+      toToken: USDC_TOKEN,
+      amount: '0.001',
     });
+
+  it('takes an on-chain swap of the pair and amount', () => {
+    expect(check()).toBe(true);
   });
 
-  it('cannot be cancelled once sent', () => {
+  it('leaves out signed orders, wraps and errors', () => {
     expect(
-      earnRouterFlowReducer(STATES['swap pending'], { type: 'cancel' }),
-    ).toBe(STATES['swap pending']);
+      check({
+        swapShouldSignedData: {} as IFetchQuoteResult['swapShouldSignedData'],
+      }),
+    ).toBe(false);
+    expect(check({ isWrapped: true })).toBe(false);
+    expect(check({ errorMessage: 'No liquidity' })).toBe(false);
+    expect(check({ toAmount: '0' })).toBe(false);
+  });
+
+  it('leaves out a quote for another token or amount', () => {
+    expect(check({ fromAmount: '0.002' })).toBe(false);
     expect(
-      earnRouterFlowReducer(STATES['deposit pending'], { type: 'cancel' }),
-    ).toBe(STATES['deposit pending']);
+      check({
+        toTokenInfo: { ...USDC_TOKEN, contractAddress: '0xdead' },
+      }),
+    ).toBe(false);
   });
+});
 
-  it.each(Object.entries(STATES))('resets from %s', (_name, state) => {
-    expect(earnRouterFlowReducer(state, { type: 'reset' })).toEqual(
-      EARN_ROUTER_FLOW_IDLE,
-    );
-  });
-
-  it.each([
-    ['swap confirm', 'start'],
-    ['swap pending', 'start'],
-    ['deposit confirm', 'start'],
-    ['deposit pending', 'start'],
-    ['done', 'start'],
-    ['idle', 'confirmed'],
-    ['swap pending', 'confirmed'],
-    ['deposit pending', 'confirmed'],
-    ['swapped', 'confirmed'],
-    ['done', 'confirmed'],
-    ['idle', 'settled'],
-    ['swap confirm', 'settled'],
-    ['deposit confirm', 'settled'],
-    ['swapped', 'settled'],
-    ['done', 'settled'],
-    ['idle', 'cancel'],
-    ['swapped', 'cancel'],
-    ['done', 'cancel'],
-  ] as const)('leaves %s as it is on %s', (name, type) => {
-    const state = STATES[name];
-    expect(earnRouterFlowReducer(state, { type })).toBe(state);
+describe('getEarnSwapSlippage', () => {
+  it("takes the provider's suggestion, else the Swap page's automatic value", () => {
+    expect(
+      getEarnSwapSlippage({ autoSuggestedSlippage: 0.5 } as IFetchQuoteResult),
+    ).toBe(0.5);
+    expect(getEarnSwapSlippage({} as IFetchQuoteResult)).toBe(1);
   });
 });

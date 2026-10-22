@@ -91,6 +91,11 @@ export interface IManagePositionProps {
   offerSwitch?: ReactNode;
   // What is typed, so a caller that starts the form over can carry it
   onAmountChange?: (amount: string) => void;
+  // A new key presses the button once by itself, as soon as the amount has
+  // passed its checks: the swap that paid for this supply asked for it
+  autoSubmitKey?: number;
+  // Told when that press happens, so a remounted form doesn't press again
+  onAutoSubmit?: () => void;
   repayAllBalance?: string;
   debtBalance?: string;
   tokenSymbol?: string;
@@ -247,6 +252,8 @@ export interface IInfoDisplaySectionProps {
 export interface IActionFooterProps {
   isInModalContext?: boolean;
   beforeFooter?: ReactElement | null;
+  autoSubmitKey?: number;
+  onAutoSubmit?: () => void;
 }
 
 // ============================================================================
