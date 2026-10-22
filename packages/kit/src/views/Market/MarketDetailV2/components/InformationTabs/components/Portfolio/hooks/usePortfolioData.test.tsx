@@ -1,5 +1,5 @@
 /** @jest-environment jsdom */
-import { renderHook } from '@testing-library/react';
+import { act, renderHook } from '@testing-library/react';
 
 import type {
   IMarketAccountPortfolioItem,
@@ -12,6 +12,7 @@ type IScopedPortfolioData = {
   list: IMarketAccountPortfolioItem[];
   networkId: string;
   tokenAddress: string;
+  accountAddress?: string;
 };
 
 type IFetchPortfolioParams = {
@@ -19,6 +20,7 @@ type IFetchPortfolioParams = {
   networkId: string;
   accountAddress: string;
   xpub?: string;
+  throwOnError?: boolean;
 };
 
 const mockFetchMarketAccountPortfolio = jest.fn<
@@ -33,6 +35,7 @@ let mockCapturedOptions:
   | {
       pollingInterval?: number;
       undefinedResultIfReRun?: boolean;
+      keepResultIfError?: boolean;
       watchLoading?: boolean;
     }
   | undefined;
@@ -54,6 +57,7 @@ jest.mock('@onekeyhq/kit/src/hooks/usePromiseResult', () => ({
     options?: {
       pollingInterval?: number;
       undefinedResultIfReRun?: boolean;
+      keepResultIfError?: boolean;
       watchLoading?: boolean;
     },
   ) => {
@@ -105,12 +109,14 @@ describe('usePortfolioData', () => {
       list: [portfolioItem],
       networkId: 'evm--8453',
       tokenAddress: '0xSAME',
+      accountAddress: '0xaccount',
     });
     expect(mockFetchMarketAccountPortfolio).toHaveBeenCalledWith({
       tokenAddress: '0xSAME',
       networkId: 'evm--8453',
       accountAddress: '0xaccount',
       xpub: 'xpub',
+      throwOnError: true,
     });
     expect(mockCapturedDeps).toEqual([
       '0xSAME',
@@ -143,6 +149,7 @@ describe('usePortfolioData', () => {
       list: [portfolioItem],
       networkId: 'evm--8453',
       tokenAddress: '0xSAME',
+      accountAddress: '0xaccount',
     };
 
     const { result } = renderHook(() =>
@@ -156,7 +163,66 @@ describe('usePortfolioData', () => {
     expect(result.current.portfolioData).toEqual([portfolioItem]);
     expect(mockCapturedOptions).toEqual({
       watchLoading: true,
+      keepResultIfError: true,
+      runImmediatelyOnPollingIntervalChange: true,
       pollingInterval: 5000,
     });
+  });
+
+  it('hides rows from the previous account while the new one loads', () => {
+    mockPortfolioResult = {
+      list: [portfolioItem],
+      networkId: 'evm--8453',
+      tokenAddress: '0xSAME',
+      accountAddress: '0xprevious',
+    };
+    const { result } = renderHook(() =>
+      usePortfolioData({
+        tokenAddress: '0xsame',
+        networkId: 'evm--8453',
+        accountAddress: '0xaccount',
+      }),
+    );
+
+    expect(result.current.portfolioData).toEqual([]);
+    expect(result.current.isPortfolioPending).toBe(true);
+  });
+
+  it('shows a skeleton until the first result for this token is back', () => {
+    const props = {
+      tokenAddress: '0xsame',
+      networkId: 'evm--8453',
+      accountAddress: '0xaccount',
+    };
+    const { result, rerender } = renderHook(() => usePortfolioData(props));
+    expect(result.current.isPortfolioPending).toBe(true);
+
+    mockPortfolioResult = {
+      list: [],
+      networkId: 'evm--8453',
+      tokenAddress: '0xSAME',
+      accountAddress: '0xaccount',
+    };
+    rerender();
+    expect(result.current.isPortfolioPending).toBe(false);
+  });
+
+  it('stops the skeleton when the first request fails', async () => {
+    mockFetchMarketAccountPortfolio.mockRejectedValue(new Error('offline'));
+    const { result } = renderHook(() =>
+      usePortfolioData({
+        tokenAddress: '0xsame',
+        networkId: 'evm--8453',
+        accountAddress: '0xaccount',
+      }),
+    );
+    expect(result.current.isPortfolioPending).toBe(true);
+
+    await act(async () => {
+      await expect(mockCapturedMethod?.()).rejects.toThrow('offline');
+    });
+
+    expect(result.current.isPortfolioPending).toBe(false);
+    expect(result.current.portfolioData).toEqual([]);
   });
 });

@@ -21,7 +21,10 @@ import { CoreSDKLoader } from '../hardware/instance';
 import platformEnv from '../platformEnv';
 
 import { DeviceScannerUtils } from './DeviceScannerUtils';
-import { getHardwareDeviceColor } from './hardwareDeviceColors';
+import {
+  getHardwareDeviceColor,
+  getHardwareDeviceColorFromCode,
+} from './hardwareDeviceColors';
 import {
   NEO_DEVICE_TYPE,
   isProtocolV2ProductType,
@@ -140,7 +143,10 @@ function getDeviceSerialNoFromFeatures(
     compatibleFeatures.onekey_serial,
     compatibleFeatures.serial_no,
   ].find(
-    (value): value is string => typeof value === 'string' && value.length > 0,
+    (value): value is string =>
+      typeof value === 'string' &&
+      value.trim().length > 0 &&
+      !/^0+$/.test(value.trim()),
   );
 }
 
@@ -195,6 +201,29 @@ function getDeviceColorFromFeatures({
     deviceType,
     serialNo: getDeviceSerialNoFromFeatures(features),
   });
+}
+
+/**
+ * The finish a scanned device names before it connects: its serial number
+ * where the transport reports one (USB), else the color letter it
+ * advertised over Bluetooth.
+ */
+function getDeviceColorFromSearchDevice(
+  device: SearchDevice | KnownDevice | undefined,
+): IHardwareDeviceColor | undefined {
+  if (!device) {
+    return undefined;
+  }
+  return (
+    getHardwareDeviceColor({
+      deviceType: device.deviceType,
+      serialNo: device.serialNo ?? undefined,
+    }) ??
+    getHardwareDeviceColorFromCode({
+      deviceType: device.deviceType,
+      colorCode: 'bleColorCode' in device ? device.bleColorCode : undefined,
+    })
+  );
 }
 
 function getDeviceBleNameFromFeatures(
@@ -1113,6 +1142,7 @@ export default {
   getDeviceSerialNoFromFeatures,
   getDeviceSerialNoFromDbDevice,
   getDeviceColorFromFeatures,
+  getDeviceColorFromSearchDevice,
   getDeviceVersionStr,
   getDeviceTypeFromFeatures,
   getDeviceModeFromFeatures,

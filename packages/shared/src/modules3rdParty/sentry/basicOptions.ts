@@ -1,6 +1,7 @@
 import wordLists from 'bip39/src/wordlists/english.json';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { PRIME_PURCHASE_COMPLETE_PATH } from '@onekeyhq/shared/src/routes/tabHome';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 
 import { EOneKeyErrorClassNames } from '../../errors/types/errorTypes';
@@ -164,6 +165,39 @@ export const sanitizeNavigationBreadcrumbsForLocalLog = (
         ? { to: sanitizeText(breadcrumb.data.to) }
         : {}),
     }));
+
+// Web routes whose query carries user identifiers, e.g. the RevenueCat hosted
+// checkout redirect appends ?app_user_id=<OneKey ID>.
+const QUERY_REDACTED_NAVIGATION_PATHS = new Set([PRIME_PURCHASE_COMPLETE_PATH]);
+
+function redactSensitiveNavigationUrl(url: unknown): unknown {
+  if (typeof url !== 'string') {
+    return url;
+  }
+  const [urlWithoutQuery] = url.split(/[?#]/);
+  const path = urlWithoutQuery
+    .replace(/^[a-z][a-z\d+.-]*:\/\/[^/]+/i, '')
+    .replace(/\/+$/, '');
+  return QUERY_REDACTED_NAVIGATION_PATHS.has(path) ? urlWithoutQuery : url;
+}
+
+export const sanitizeSensitiveNavigationBreadcrumb = <
+  T extends { category?: string; data?: Record<string, unknown> },
+>(
+  breadcrumb: T,
+): T => {
+  if (breadcrumb.category !== 'navigation' || !breadcrumb.data) {
+    return breadcrumb;
+  }
+  return {
+    ...breadcrumb,
+    data: {
+      ...breadcrumb.data,
+      from: redactSensitiveNavigationUrl(breadcrumb.data.from),
+      to: redactSensitiveNavigationUrl(breadcrumb.data.to),
+    },
+  };
+};
 
 export type ISentrySanitizationErrorHandler = (
   errorMessage: string,

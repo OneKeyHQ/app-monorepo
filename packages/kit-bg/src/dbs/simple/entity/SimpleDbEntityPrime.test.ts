@@ -1,11 +1,15 @@
 /* cspell:ignore Infini infini */
 import { EOAuthSocialLoginProvider } from '@onekeyhq/shared/src/consts/authConsts';
+import { PRIME_WEB_CHECKOUT_PENDING_SESSION_TTL_MS } from '@onekeyhq/shared/src/consts/primeConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { getPrimeInfiniPaymentAssetKey } from '@onekeyhq/shared/src/utils/primeInfiniPaymentCacheUtils';
+import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
 import {
   EPrimeAuthSessionSource,
   type IPrimeInfiniPendingPaymentSession,
+  type IPrimeWebCheckoutPendingSession,
 } from '@onekeyhq/shared/types/prime/primeTypes';
+import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
 
 import {
   type IIdentityExitJournalEntry,
@@ -3829,15 +3833,32 @@ describe('Infini replacement history fence', () => {
       networkId: 'evm--1',
       historyId: 'history-1',
     };
+    const historyTx: IAccountHistoryTx = {
+      id: identity.historyId,
+      decodedTx: {
+        accountId: identity.accountId,
+        networkId: identity.networkId,
+        txid: '0xoriginal',
+        signer: '0xabc',
+        owner: '0xabc',
+        nonce: 5,
+        status: EDecodedTxStatus.Pending,
+        actions: [],
+        extraInfo: null,
+        encodedTx: { from: '0xabc', to: '0xinvoice', value: '0x1', nonce: 5 },
+      },
+    };
     await writer.blockInfiniReplacement({
       ...identity,
       accountAddress: '0xABC',
       nonce: 5,
+      historyTx,
     });
     await writer.blockInfiniReplacement({
       ...identity,
       accountAddress: '0xabc',
       nonce: 5,
+      historyTx,
     });
     persisted.infiniPendingPaymentSessionByUserId = {};
     persisted.infiniSupersededPaymentSessionsByUserId = {};
@@ -3886,4 +3907,313 @@ describe('Infini replacement history fence', () => {
       }),
     ).rejects.toThrow('Unreadable');
   });
+});
+
+describe('SimpleDbEntityPrime web checkout pending session', () => {
+  const buildSession = (
+    overrides: Partial<IPrimeWebCheckoutPendingSession> = {},
+  ): IPrimeWebCheckoutPendingSession => ({
+    checkoutId: 'checkout-1',
+    onekeyUserId: 'user-1',
+    subscriptionPeriod: 'P1Y',
+    packageId: '$rc_annual',
+    offeringId: 'Sandbox_testing',
+    amount: 99,
+    currency: 'USD',
+    isSandbox: true,
+    platform: 'extension',
+    checkoutUrl: 'https://pay.rev.cat/sandbox/abc/user-1?package_id=x',
+    startedAt: Date.now(),
+    ...overrides,
+  });
+
+  test('preserves the payable session per user and drops expired ones', async () => {
+    const expired = buildSession({
+      checkoutId: 'old',
+      onekeyUserId: 'user-2',
+      startedAt: Date.now() - PRIME_WEB_CHECKOUT_PENDING_SESSION_TTL_MS - 1,
+    });
+    const { entity, getPersisted } = createPrimeAnalyticsEntityWithStore({
+      webCheckoutPendingSessionByUserId: { 'user-2': expired },
+    });
+
+    await entity.acquireWebCheckoutPendingSession({ session: buildSession() });
+    const reused = await entity.acquireWebCheckoutPendingSession({
+      session: buildSession({ checkoutId: 'checkout-2' }),
+    });
+
+    expect(getPersisted().webCheckoutPendingSessionByUserId).toEqual({
+      'user-1': buildSession({
+        checkoutId: 'checkout-1',
+        startedAt: expect.any(Number),
+      }),
+    });
+    expect(reused.reused).toBe(true);
+    expect(reused.session.checkoutId).toBe('checkout-1');
+    await expect(
+      entity.getWebCheckoutPendingSession({ onekeyUserId: 'user-2' }),
+    ).resolves.toBeUndefined();
+  });
+
+  test('atomically gives concurrent plans the same pending session', async () => {
+    const { entity, getPersisted } = createPrimeAnalyticsEntityWithStore();
+    const annual = buildSession();
+    const monthly = buildSession({
+      checkoutId: 'checkout-2',
+      subscriptionPeriod: 'P1M',
+      packageId: '$rc_monthly',
+      amount: 12,
+      checkoutUrl: 'https://pay.rev.cat/sandbox/abc/user-1?package_id=monthly',
+    });
+
+    const acquisitions = await Promise.all([
+      entity.acquireWebCheckoutPendingSession({ session: annual }),
+      entity.acquireWebCheckoutPendingSession({ session: monthly }),
+    ]);
+
+    expect(acquisitions).toEqual([
+      { session: annual, reused: false, replacedSession: undefined },
+      { session: annual, reused: true },
+    ]);
+    expect(
+      getPersisted().webCheckoutPendingSessionByUserId?.['user-1'],
+    ).toEqual(annual);
+  });
+
+  test('keeps different accounts independent and only replaces a different environment', async () => {
+    const original = buildSession();
+    const { entity, getPersisted } = createPrimeAnalyticsEntityWithStore({
+      webCheckoutPendingSessionByUserId: { 'user-1': original },
+    });
+    const otherUser = buildSession({ onekeyUserId: 'user-2' });
+    const production = buildSession({
+      checkoutId: 'production',
+      isSandbox: false,
+    });
+
+    await entity.acquireWebCheckoutPendingSession({ session: otherUser });
+    await expect(
+      entity.acquireWebCheckoutPendingSession({ session: production }),
+    ).resolves.toEqual({
+      session: production,
+      reused: false,
+      replacedSession: original,
+    });
+    expect(getPersisted().webCheckoutPendingSessionByUserId).toEqual({
+      'user-1': production,
+      'user-2': otherUser,
+    });
+  });
+
+  test('ignores an expired or foreign session on read', async () => {
+    const { entity } = createPrimeAnalyticsEntityWithStore({
+      webCheckoutPendingSessionByUserId: {
+        'user-1': buildSession({ onekeyUserId: 'user-3' }),
+        'user-2': buildSession({
+          onekeyUserId: 'user-2',
+          startedAt: Date.now() - PRIME_WEB_CHECKOUT_PENDING_SESSION_TTL_MS,
+        }),
+      },
+    });
+
+    await expect(
+      entity.getWebCheckoutPendingSession({ onekeyUserId: 'user-1' }),
+    ).resolves.toBeUndefined();
+    await expect(
+      entity.getWebCheckoutPendingSession({ onekeyUserId: 'user-2' }),
+    ).resolves.toBeUndefined();
+  });
+
+  test('only the caller that clears the matching checkout wins', async () => {
+    const { entity, getPersisted } = createPrimeAnalyticsEntityWithStore({
+      webCheckoutPendingSessionByUserId: { 'user-1': buildSession() },
+    });
+
+    await expect(
+      entity.clearWebCheckoutPendingSession({
+        onekeyUserId: 'user-1',
+        expectedCheckoutId: 'checkout-other',
+      }),
+    ).resolves.toBe(false);
+    await expect(
+      entity.clearWebCheckoutPendingSession({
+        onekeyUserId: 'user-1',
+        expectedCheckoutId: 'checkout-1',
+      }),
+    ).resolves.toBe(true);
+    await expect(
+      entity.clearWebCheckoutPendingSession({
+        onekeyUserId: 'user-1',
+        expectedCheckoutId: 'checkout-1',
+      }),
+    ).resolves.toBe(false);
+    expect(getPersisted().webCheckoutPendingSessionByUserId).toEqual({});
+  });
+
+  test('records extension tabs only for the current checkout', async () => {
+    const { entity, getPersisted } = createPrimeAnalyticsEntityWithStore({
+      webCheckoutPendingSessionByUserId: { 'user-1': buildSession() },
+    });
+    const extension = {
+      initiatorKind: 'tab' as const,
+      initiatorTabId: 1,
+      checkoutTabId: 2,
+    };
+
+    await expect(
+      entity.updateWebCheckoutPendingSessionExtensionContext({
+        onekeyUserId: 'user-1',
+        checkoutId: 'checkout-other',
+        extension,
+      }),
+    ).resolves.toBe(false);
+    await expect(
+      entity.updateWebCheckoutPendingSessionExtensionContext({
+        onekeyUserId: 'user-1',
+        checkoutId: 'checkout-1',
+        extension,
+      }),
+    ).resolves.toBe(true);
+    expect(
+      getPersisted().webCheckoutPendingSessionByUserId?.['user-1']?.extension,
+    ).toEqual(extension);
+  });
+});
+
+describe('Infini recoverable replacement protection', () => {
+  const historyTx: IAccountHistoryTx = {
+    id: 'hidden-history',
+    decodedTx: {
+      accountId: 'account-1',
+      networkId: 'evm--1',
+      txid: '0xoriginal',
+      signer: '0xabc',
+      owner: '0xabc',
+      nonce: 5,
+      status: EDecodedTxStatus.Pending,
+      actions: [],
+      extraInfo: null,
+      encodedTx: { from: '0xabc', to: '0xinvoice', value: '0x1', nonce: 5 },
+    },
+  };
+  function makeStore() {
+    let persisted: ISimpleDBPrime = {};
+    const entity = new SimpleDbEntityPrime();
+    jest.spyOn(entity, 'getRawData').mockImplementation(async () => persisted);
+    jest.spyOn(entity, 'setRawData').mockImplementation(async (updater) => {
+      persisted =
+        typeof updater === 'function' ? await updater(persisted) : updater;
+      return persisted;
+    });
+    return { entity, getPersisted: () => persisted };
+  }
+  const block = {
+    accountId: 'account-1',
+    networkId: 'evm--1',
+    historyId: historyTx.id,
+    accountAddress: '0xABC',
+    nonce: 5,
+    historyTx,
+  };
+
+  test('persists an original recovery snapshot atomically with the nonce and fence, across session cleanup', async () => {
+    const { entity, getPersisted } = makeStore();
+    await entity.blockInfiniReplacement(block);
+    const persisted = getPersisted();
+    persisted.infiniPendingPaymentSessionByUserId = {};
+    persisted.infiniSupersededPaymentSessionsByUserId = {};
+    const reloaded = new SimpleDbEntityPrime();
+    jest.spyOn(reloaded, 'getRawData').mockResolvedValue(persisted);
+    await expect(
+      reloaded.getInfiniPendingTransactionRecoveries(),
+    ).resolves.toEqual([{ accountAddress: '0xabc', nonce: 5, historyTx }]);
+    await expect(reloaded.isInfiniReplacementBlocked(block)).resolves.toBe(
+      true,
+    );
+    await expect(reloaded.getInfiniReservedNonces(block)).resolves.toEqual([5]);
+  });
+
+  test('bounds admission without evicting any live fence or reservation', async () => {
+    const { entity, getPersisted } = makeStore();
+    for (let n = 0; n < 100; n += 1) {
+      const tx = {
+        ...historyTx,
+        id: `history-${n}`,
+        decodedTx: { ...historyTx.decodedTx, nonce: n },
+      };
+      await entity.blockInfiniReplacement({
+        ...block,
+        historyId: tx.id,
+        nonce: n,
+        historyTx: tx,
+      });
+    }
+    await expect(
+      entity.blockInfiniReplacement({
+        ...block,
+        historyId: 'overflow',
+        historyTx: { ...historyTx, id: 'overflow' },
+      }),
+    ).rejects.toThrow('Infini replacement protection is full');
+    expect(
+      Object.keys(getPersisted().infiniBlockedReplacements ?? {}),
+    ).toHaveLength(100);
+    expect(await entity.getInfiniReservedNonces(block)).toHaveLength(100);
+    // Idempotent retries still succeed at capacity.
+    await expect(
+      entity.blockInfiniReplacement({
+        ...block,
+        historyId: 'history-5',
+        historyTx: { ...historyTx, id: 'history-5' },
+      }),
+    ).resolves.toBeUndefined();
+  });
+
+  test('compacts only consumed nonces for the same chain/address and retains legacy fences', async () => {
+    const { entity, getPersisted } = makeStore();
+    await entity.blockInfiniReplacement(block);
+    await entity.blockInfiniReplacement({
+      ...block,
+      historyId: 'next',
+      nonce: 6,
+      historyTx: {
+        ...historyTx,
+        id: 'next',
+        decodedTx: { ...historyTx.decodedTx, nonce: 6 },
+      },
+    });
+    getPersisted().infiniBlockedReplacements = {
+      ...getPersisted().infiniBlockedReplacements,
+      legacy: true,
+    };
+    await entity.pruneInfiniConsumedNonces({
+      ...block,
+      networkId: 'evm--10',
+      confirmedNonce: 99,
+    });
+    await expect(entity.isInfiniReplacementBlocked(block)).resolves.toBe(true);
+    await entity.pruneInfiniConsumedNonces({ ...block, confirmedNonce: 5 });
+    await expect(entity.isInfiniReplacementBlocked(block)).resolves.toBe(true);
+    await entity.pruneInfiniConsumedNonces({ ...block, confirmedNonce: 6 });
+    await expect(entity.isInfiniReplacementBlocked(block)).resolves.toBe(false);
+    await expect(
+      entity.isInfiniReplacementBlocked({ ...block, historyId: 'next' }),
+    ).resolves.toBe(true);
+    await expect(entity.getInfiniReservedNonces(block)).resolves.toEqual([6]);
+    expect(getPersisted().infiniBlockedReplacements?.legacy).toBe(true);
+  });
+
+  test.each([NaN, Infinity, -1, 1.1])(
+    'rejects invalid chain evidence %s without discarding protection',
+    async (confirmedNonce) => {
+      const { entity } = makeStore();
+      await entity.blockInfiniReplacement(block);
+      await expect(
+        entity.pruneInfiniConsumedNonces({ ...block, confirmedNonce }),
+      ).rejects.toThrow();
+      await expect(entity.isInfiniReplacementBlocked(block)).resolves.toBe(
+        true,
+      );
+    },
+  );
 });

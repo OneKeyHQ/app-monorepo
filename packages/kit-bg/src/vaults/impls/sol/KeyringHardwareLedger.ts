@@ -15,12 +15,15 @@ import { convertThirdPartyDeviceError } from '@onekeyhq/shared/src/errors/utils/
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
+import { EMessageTypesSolana } from '@onekeyhq/shared/types/message';
 
 import { KeyringHardwareBase } from '../../base/KeyringHardwareBase';
 import {
   callLedgerWithFingerprint,
   ledgerCommonCallParamsForCreateScene,
 } from '../../base/ledgerFingerprintUtils';
+
+import { buildHardwareSolSignOffchainMessageV1Params } from './KeyringHardware';
 
 import type { IDBAccount } from '../../../dbs/local/types';
 import type {
@@ -87,12 +90,19 @@ export class KeyringHardwareLedger extends KeyringHardwareBase {
             this.backgroundApi,
             dbDevice,
             'sol',
-            (deviceId) =>
-              adapter.hw.solGetAddress(dbDevice.connectId, deviceId, {
+            (deviceId, connectId, context) =>
+              adapter.hw.solGetAddress(connectId, deviceId, {
+                ...context,
                 path,
                 showOnDevice: params.isVerifyAddressAction ?? false,
                 ...ledgerCommonCallParamsForCreateScene(params),
               }),
+            {
+              operationId: params.deviceParams.deviceCommonParams?.operationId,
+              allowFingerprintBootstrap:
+                params.deviceParams.deviceCommonParams
+                  ?.allowDeviceIdentityBootstrap === true,
+            },
           );
 
           let address: string | null = null;
@@ -127,7 +137,8 @@ export class KeyringHardwareLedger extends KeyringHardwareBase {
     params: ISignTransactionParams,
   ): Promise<ISignedTxPro> {
     const { unsignedTx, deviceParams } = params;
-    const { dbDevice } = checkIsDefined(deviceParams);
+    const checkedDeviceParams = checkIsDefined(deviceParams);
+    const { dbDevice } = checkedDeviceParams;
     const { feePayer } = unsignedTx.payload as { feePayer: string };
     const feePayerPublicKey = new PublicKey(feePayer);
     const encodedTx = unsignedTx.encodedTx as IEncodedTxSol;
@@ -155,11 +166,16 @@ export class KeyringHardwareLedger extends KeyringHardwareBase {
       this.backgroundApi,
       dbDevice,
       'sol',
-      (deviceId) =>
-        adapter.hw.solSignTransaction(dbDevice.connectId, deviceId, {
+      (deviceId, connectId, context) =>
+        adapter.hw.solSignTransaction(connectId, deviceId, {
+          ...context,
           path,
           serializedTx: rawTx,
         }),
+      {
+        operationId: checkedDeviceParams.deviceCommonParams?.operationId,
+        allowFingerprintBootstrap: false,
+      },
     );
 
     if (!result.success) {
@@ -182,15 +198,60 @@ export class KeyringHardwareLedger extends KeyringHardwareBase {
   }
 
   override async signMessage(
-    _params: ISignMessageParams,
+    params: ISignMessageParams,
   ): Promise<ISignedMessagePro> {
-    // Ledger Solana app only signs Off-chain Message (OCM) envelopes, not
-    // raw message bytes. The DMK returns a base58-encoded envelope that
-    // contains [version | signature | OCM payload] — dapps expecting a
-    // plain 64-byte ed25519 signature over the original message cannot
-    // verify this. Block until Ledger + dapp ecosystem agree on a format
-    // OneKey can round-trip without breaking verification.
-    throw new ThirdPartyMethodNotSupported();
+    const deviceParams = checkIsDefined(params.deviceParams);
+    const { dbDevice } = deviceParams;
+    const adapter =
+      await this.backgroundApi.serviceThirdPartyHardware.getAdapterForVendor(
+        EHardwareVendor.ledger,
+      );
+    if (!adapter) {
+      throw new OneKeyLocalError('Ledger adapter not available');
+    }
+    const path = await this.vault.getAccountPath();
+
+    const signatures: string[] = [];
+    for (const payload of params.messages) {
+      if (payload.type !== EMessageTypesSolana.SIGN_OFFCHAIN_MESSAGE) {
+        throw new ThirdPartyMethodNotSupported();
+      }
+      const messagePayload = payload.payload;
+      const { messageHex, ...offchainParams } =
+        buildHardwareSolSignOffchainMessageV1Params({
+          message: payload.message,
+          messagePayload,
+        });
+      const result =
+        // eslint-disable-next-line no-await-in-loop
+        await callLedgerWithFingerprint(
+          this.backgroundApi,
+          dbDevice,
+          'sol',
+          (deviceId, connectId, context) =>
+            adapter.hw.solSignMessage(connectId, deviceId, {
+              ...context,
+              path,
+              message: messageHex,
+              ...offchainParams,
+            }),
+          {
+            operationId: deviceParams.deviceCommonParams?.operationId,
+            allowFingerprintBootstrap: false,
+          },
+        );
+      if (!result.success) {
+        throw convertThirdPartyDeviceError(result.payload, {
+          vendor: 'Ledger',
+          chain: 'Solana',
+        });
+      }
+      signatures.push(result.payload.signature);
+    }
+
+    return signatures.map((signature) =>
+      bs58.encode(Buffer.from(signature, 'hex')),
+    );
   }
 
   override async buildHwAllNetworkPrepareAccountsParams(

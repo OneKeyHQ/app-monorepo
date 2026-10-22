@@ -68,7 +68,7 @@ export function SectionFieldItem({
             await runIdentityExit(
               { type: 'switchEnvironment', scene: 'devSettings' },
               {
-                confirmButtonTestID: 'dev-settings-environment-logout-confirm',
+                skipConfirmation: true,
                 onCompletedReceipt: updateSetting,
               },
             );

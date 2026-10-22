@@ -1,6 +1,10 @@
 import { EDeviceType, HardwareErrorCode } from '@onekeyfe/hd-shared';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import {
+  EThirdPartyDevicePermissionDeniedReason,
+  ThirdPartyDevicePermissionDenied,
+} from '@onekeyhq/shared/src/errors/errors/thirdPartyHardwareErrors';
 import { ECustomOneKeyHardwareError } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import { convertDeviceError } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
@@ -14,6 +18,7 @@ import {
   setDeviceStageBurstActive,
 } from '@onekeyhq/shared/src/hardware/deviceStageOwnership';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EFirmwareUpdateTipMessages,
   EHardwareVendor,
@@ -29,6 +34,7 @@ import {
 import {
   DeviceStageBurstScope,
   createLatestStateFeed,
+  pickDeviceColor,
   pickDeviceType,
   pickErrorMessage,
   pickIdentityText,
@@ -95,6 +101,38 @@ describe('pickDeviceType', () => {
     expect(pickDeviceType(EDeviceType.Unknown, undefined)).toBe(
       EDeviceType.Unknown,
     );
+  });
+});
+
+describe('pickDeviceColor', () => {
+  it('takes a named finish', () => {
+    expect(
+      pickDeviceColor(
+        { connectId: 'NEXT', deviceColor: 'Silver' },
+        { connectId: 'PREV', deviceColor: 'Orange' },
+      ),
+    ).toBe('Silver');
+  });
+
+  it('keeps the finish while the news is about the same device', () => {
+    expect(
+      pickDeviceColor(
+        { connectId: 'SAME' },
+        { connectId: 'SAME', deviceColor: 'Orange' },
+      ),
+    ).toBe('Orange');
+    expect(
+      pickDeviceColor({}, { connectId: 'SAME', deviceColor: 'Orange' }),
+    ).toBe('Orange');
+  });
+
+  it('does not lend a finish to another device', () => {
+    expect(
+      pickDeviceColor(
+        { connectId: 'NEXT' },
+        { connectId: 'PREV', deviceColor: 'Orange' },
+      ),
+    ).toBeUndefined();
   });
 });
 
@@ -693,6 +731,102 @@ describe('DeviceStageBurstScope', () => {
     expect(stage?.deviceColor).toBe('Silver');
   });
 
+  it('opens in the finish a Bluetooth scan named and keeps it when features name none', async () => {
+    const scope = new DeviceStageBurstScope();
+    await scope.begin({
+      connectId: CONNECT_ID,
+      deviceType: EDeviceType.Pro2,
+      deviceColor: 'Orange',
+    });
+    await paintOpeningBeat();
+    expect(stage?.deviceColor).toBe('Orange');
+
+    // A later beat for the same device that names no finish keeps it.
+    await scope.noteStep('connecting', {
+      connectId: CONNECT_ID,
+      deviceType: EDeviceType.Pro2,
+    });
+    expect(stage?.deviceColor).toBe('Orange');
+
+    // Features without a serial name no finish; the scan's stays.
+    await scope.onHardwareUiEvent({
+      action: EHardwareUiStateAction.REQUEST_PIN,
+      connectId: CONNECT_ID,
+      payload: {
+        rawPayload: { device: { features: { protocol: 'V2' } } },
+      } as IHardwareUiPayload,
+    });
+    expect(stage?.step).toBe('pinOnApp');
+    expect(stage?.deviceColor).toBe('Orange');
+  });
+
+  it("drops the last device's finish when an identity refresh switches devices on stage", async () => {
+    const scope = new DeviceStageBurstScope();
+    await scope.begin({
+      connectId: 'FIRST_DEVICE',
+      deviceType: EDeviceType.Pro2,
+      deviceColor: 'Orange',
+    });
+    await paintOpeningBeat();
+    expect(stage?.deviceColor).toBe('Orange');
+
+    // A refresh for the same device keeps its finish.
+    await scope.mergeDeviceIdentity({
+      connectId: 'FIRST_DEVICE',
+      deviceName: 'Pro 2 A1B2',
+    });
+    expect(stage?.deviceColor).toBe('Orange');
+
+    // The refresh lands before the second device's connecting step.
+    await scope.mergeDeviceIdentity({
+      connectId: 'SECOND_DEVICE',
+      deviceType: EDeviceType.Pro2,
+    });
+    expect(stage?.connectId).toBe('SECOND_DEVICE');
+    expect(stage?.deviceColor).toBeUndefined();
+
+    await scope.noteStep('connecting', {
+      connectId: 'SECOND_DEVICE',
+      deviceType: EDeviceType.Pro2,
+    });
+    expect(stage?.deviceColor).toBeUndefined();
+  });
+
+  it("drops the last device's finish when an identity refresh switches devices before the opening paints", async () => {
+    const scope = new DeviceStageBurstScope();
+    await scope.begin({
+      connectId: 'FIRST_DEVICE',
+      deviceType: EDeviceType.Pro2,
+      deviceColor: 'Orange',
+    });
+    await scope.mergeDeviceIdentity({ connectId: 'SECOND_DEVICE' });
+    await paintOpeningBeat();
+
+    expect(stage?.connectId).toBe('SECOND_DEVICE');
+    expect(stage?.deviceColor).toBeUndefined();
+  });
+
+  it('does not lend a finish to the next device when its scan names none', async () => {
+    const scope = new DeviceStageBurstScope();
+    await scope.begin({
+      connectId: CONNECT_ID,
+      deviceType: EDeviceType.Pro2,
+      deviceColor: 'Orange',
+    });
+    await paintOpeningBeat();
+    await scope.end();
+    await letTheExitRun();
+    expect(stage?.step).toBe('off');
+
+    // Checking beat outside any burst, as the legacy connect page sends it.
+    await scope.noteStep('connecting', {
+      connectId: 'OTHER_DEVICE',
+      deviceType: EDeviceType.Pro2,
+    });
+    expect(stage?.connectId).toBe('OTHER_DEVICE');
+    expect(stage?.deviceColor).toBeUndefined();
+  });
+
   it('refreshes a V2 auth narrative name without dismissing an unanswered PIN', async () => {
     const scope = new DeviceStageBurstScope();
     await scope.begin({ connectId: CONNECT_ID, deviceName: 'Pro2 Old' });
@@ -1044,6 +1178,37 @@ describe('DeviceStageBurstScope', () => {
     expect(stage?.step).toBe('error');
     expect(stage?.errorReason).toBe('rejected');
   });
+
+  it.each([
+    [true, EThirdPartyDevicePermissionDeniedReason.permissionDenied, 'off'],
+    [true, EThirdPartyDevicePermissionDeniedReason.bluetoothTurnedOff, 'off'],
+    [true, undefined, 'error'],
+    [false, EThirdPartyDevicePermissionDeniedReason.permissionDenied, 'error'],
+  ] as const)(
+    'routes native=%s permission reason=%s to %s',
+    async (isNative, reason, expectedStep) => {
+      jest.replaceProperty(platformEnv, 'isNative', isNative);
+      const scope = new DeviceStageBurstScope();
+      const token = await scope.beginExplicit({
+        connectId: CONNECT_ID,
+        vendor: EHardwareVendor.ledger,
+      });
+      await paintOpeningBeat();
+      // Exercise the same serialization boundary as an explicit UI-owned burst.
+      const error = JSON.parse(
+        JSON.stringify(
+          toPlainErrorObject(
+            new ThirdPartyDevicePermissionDenied({
+              reason,
+              payload: { code: 10_303, error: 'Permission denied', params: {} },
+            }),
+          ),
+        ),
+      );
+      await scope.endExplicit({ token, error });
+      expect(stage?.step).toBe(expectedStep);
+    },
+  );
 
   it.each([
     HardwareErrorCode.DeviceNotOpenedPassphrase,

@@ -82,6 +82,17 @@ if (process.env.RN_HARNESS === 'true') {
   config.server.unstable_serverRoot = monorepoRoot;
   const expoRewrite = config.server.rewriteRequestUrl || ((url) => url);
   config.server.rewriteRequestUrl = (url) => {
+    if (
+      process.env.RN_HARNESS_NATIVE_STORAGE_BACKGROUND === 'true' &&
+      /^\/(?:apps\/mobile\/)?background\.bundle(?:\?|$)/u.test(url)
+    ) {
+      return expoRewrite(
+        url.replace(
+          /^\/(?:apps\/mobile\/)?background\.bundle/u,
+          '/apps/mobile/harness/nativeStorageBackgroundEntry.bundle',
+        ),
+      );
+    }
     // Handle Expo virtual entry first (before the general rewrite)
     if (url.includes('/.expo/.virtual-metro-entry.bundle')) {
       // oxlint-disable-next-line no-param-reassign
@@ -154,22 +165,17 @@ config.resolver.unstable_enablePackageExports = false;
 // Manual alias for a subpath export when package exports are disabled.
 const hyperliquidSigningPath = require.resolve('@nktkas/hyperliquid/signing');
 
-// OneKey HWK SDK sub-path aliases. With
-// `unstable_enablePackageExports=false` above, Metro can't read the `exports`
-// map in the SDK packages, so each sub-path consumer apps import (e.g.
-// `@onekeyfe/hwk-adapter-core/errors`) needs an explicit redirect. We
-// `require.resolve` here in Node-land where the `exports` map IS honored, so
-// the target file path is correct.
-//
-// When the SDK adds new sub-paths (or `unstable_enablePackageExports` becomes
-// safe to enable globally), append/remove entries from this array.
-const HWK_SUBPATH_ALIASES = [
+// Sub-path aliases for packages whose `exports` map Metro can't read with
+// `unstable_enablePackageExports=false`; resolved via Node's `require.resolve()`, which does honor it. Update this array when packages add new sub-paths.
+const SUBPATH_EXPORT_ALIASES = [
   '@onekeyfe/hwk-adapter-core/errors',
   '@onekeyfe/hwk-adapter-core/ui-events',
   '@onekeyfe/hwk-trezor-connector-webusb/constants',
+  'bitcoinjs-lib/src/bufferutils',
+  'bitcoinjs-lib/src/payments/bip341',
 ];
-const hwkSubpathAliasMap = new Map(
-  HWK_SUBPATH_ALIASES.map((spec) => [spec, require.resolve(spec)]),
+const subpathExportAliasMap = new Map(
+  SUBPATH_EXPORT_ALIASES.map((spec) => [spec, require.resolve(spec)]),
 );
 
 // @mysten/sui 2.x only exposes package exports; Metro package exports are disabled above.
@@ -200,7 +206,7 @@ const aptosScriptComposerNativeStub = path.resolve(
 // prefers even for native bundles. Pin native resolution to its native entry.
 const nativePagerViewEntry = path.resolve(
   monorepoRoot,
-  'node_modules/react-native-pager-view/lib/module/index.js',
+  'node_modules/react-native-pager-view/lib/module/index.native.js',
 );
 
 // Ledger DMK packages only declare `exports` (no `main`). With
@@ -210,6 +216,8 @@ const LEDGER_CJS_ENTRY_PACKAGES = [
   '@ledgerhq/device-management-kit',
   '@ledgerhq/device-signer-kit-ethereum',
   '@ledgerhq/device-signer-kit-solana',
+  '@ledgerhq/device-signer-kit-tron',
+  '@ledgerhq/device-signer-kit-zcash',
   '@ledgerhq/device-transport-kit-react-native-ble',
   '@ledgerhq/context-module',
   '@ledgerhq/signer-utils',
@@ -224,28 +232,7 @@ const ledgerCjsByPackage = new Map(
   }),
 );
 
-// @expo/ui ships no `main` — only an `exports` map — and its own sources import
-// sub-paths such as `@expo/ui/swift-ui/modifiers` that have no matching folder
-// on disk. With unstable_enablePackageExports=false Metro can resolve none of
-// them, so hand them to Node, where the `exports` map IS honored. The targets
-// are TypeScript sources, which babel-preset-expo compiles like any other file.
-const EXPO_UI_PACKAGE = '@expo/ui';
-const EXPO_UI_SUBPATH_PREFIX = '@expo/ui/';
-
 config.resolver.resolveRequest = (context, moduleName, platform) => {
-  if (
-    moduleName === EXPO_UI_PACKAGE ||
-    moduleName.startsWith(EXPO_UI_SUBPATH_PREFIX)
-  ) {
-    try {
-      return {
-        type: 'sourceFile',
-        filePath: require.resolve(moduleName, { paths: [monorepoRoot] }),
-      };
-    } catch {
-      // Fall through to the default resolver.
-    }
-  }
   if (
     (platform === 'ios' || platform === 'android') &&
     moduleName === 'react-native-pager-view'
@@ -279,12 +266,12 @@ config.resolver.resolveRequest = (context, moduleName, platform) => {
       filePath: hyperliquidSigningPath,
     };
   }
-  // OneKey HWK SDK sub-path resolution (see HWK_SUBPATH_ALIASES above).
-  const hwkAliasPath = hwkSubpathAliasMap.get(moduleName);
-  if (hwkAliasPath) {
+  // Resolve only the explicitly listed sub-path exports above.
+  const subpathAliasPath = subpathExportAliasMap.get(moduleName);
+  if (subpathAliasPath) {
     return {
       type: 'sourceFile',
-      filePath: hwkAliasPath,
+      filePath: subpathAliasPath,
     };
   }
   if (
@@ -298,9 +285,10 @@ config.resolver.resolveRequest = (context, moduleName, platform) => {
       // noop
     }
   }
-  // Strip Developer/Gallery from production union builds
+  // Strip Developer/Gallery from all production builds.
   if (
-    (process.env.UNION_BUILD === 'true' ||
+    (process.env.NODE_ENV === 'production' ||
+      process.env.UNION_BUILD === 'true' ||
       process.env.SPLIT_BUNDLE_SEGMENTS === 'true') &&
     context.originModulePath &&
     (moduleName.includes('/Developer/router') ||

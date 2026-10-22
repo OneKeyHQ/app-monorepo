@@ -28,8 +28,31 @@ const mockGetVaultSettings = jest.fn<
 const mockAppEventBusOn = jest.fn<void, [string, () => void]>();
 const mockAddressTypeSelectorProps = jest.fn<
   void,
-  [{ networkId?: string; onSelect?: (value: unknown) => Promise<void> }]
+  [
+    {
+      networkId?: string;
+      onSelect?: (value: unknown) => Promise<void>;
+      renderSelectorTrigger?: ReactNode;
+      whenCollapsed?: string;
+      disableSelector?: boolean;
+    },
+  ]
 >();
+type IMockCollapseState = {
+  isReady: boolean;
+  collapsed: boolean;
+  isAddressTypeHidden: boolean;
+};
+const NOT_COLLAPSED_STATE: IMockCollapseState = {
+  isReady: true,
+  collapsed: false,
+  isAddressTypeHidden: false,
+};
+const mockCanDeriveTypesCollapse = jest.fn<boolean, [unknown]>(() => false);
+const mockUseDeriveTypesCollapseState = jest.fn<
+  IMockCollapseState,
+  [Record<string, unknown>]
+>(() => NOT_COLLAPSED_STATE);
 // One identity across calls, as the page keeps it in state: the test intl
 // object is new on every render, which re-runs the account lookup.
 const mockDefaultDeriveResp = {
@@ -190,6 +213,8 @@ jest.mock('@onekeyhq/components', () => {
     Empty: () => React.createElement('span', { 'data-testid': 'empty' }),
     Icon: ({ name }: { name: string }) =>
       React.createElement('span', { 'data-testid': `icon-${name}` }),
+    IconButton: ({ testID }: { testID?: string }) =>
+      React.createElement('button', { 'data-testid': testID }),
     Image: () => null,
     Page: Object.assign(Box, { Header: () => null, Body: Box, Footer }),
     SizableText: Text,
@@ -307,6 +332,9 @@ jest.mock('@onekeyhq/shared/src/utils/timerUtils', () => ({
 
 jest.mock('@onekeyhq/shared/types/device', () => ({
   EConfirmOnDeviceType: { EveryItem: 'EveryItem' },
+  EHardwareVendor: jest.requireActual<
+    typeof import('@onekeyhq/shared/types/device')
+  >('@onekeyhq/shared/types/device').EHardwareVendor,
 }));
 
 jest.mock('../../../background/instance/backgroundApiProxy', () => ({
@@ -417,6 +445,8 @@ jest.mock('../../../hooks/useAccountData', () => {
   // Stable identities, as the real hook keeps its result in state: a fresh
   // object per render would re-trigger the page's apply effect forever.
   const vaultSettings = { mergeDeriveAssetsEnabled: false };
+  // A page opened on Bitcoin itself (not switched to) reads it from here.
+  const bitcoinVaultSettings = { mergeDeriveAssetsEnabled: true };
   const deriveInfo = { label: 'Default' };
   const wallets: Record<string, { id: string; type: string }> = {};
   const run = () => undefined;
@@ -438,7 +468,8 @@ jest.mock('../../../hooks/useAccountData', () => {
         account,
         network: networkId ? NETWORKS[networkId] : undefined,
         wallet: walletId ? wallets[walletId] : undefined,
-        vaultSettings,
+        vaultSettings:
+          networkId === 'btc--0' ? bitcoinVaultSettings : vaultSettings,
         deriveType: account ? 'default' : undefined,
         deriveInfo: account ? deriveInfo : undefined,
         addressType: undefined,
@@ -448,6 +479,13 @@ jest.mock('../../../hooks/useAccountData', () => {
     },
   };
 });
+
+jest.mock('../../../hooks/useDeriveTypesCollapseState', () => ({
+  canDeriveTypesCollapse: (params: unknown) =>
+    mockCanDeriveTypesCollapse(params),
+  useDeriveTypesCollapseState: (params: Record<string, unknown>) =>
+    mockUseDeriveTypesCollapseState(params),
+}));
 
 jest.mock('../../../hooks/useAppNavigation', () => ({
   __esModule: true,
@@ -1651,5 +1689,178 @@ describe('ReceiveToken network switch', () => {
     expect(getByTestId('receive-card-network-eta').textContent).toBe(
       'Ethereum (~1 min)',
     );
+  });
+});
+
+describe('ReceiveToken address type menu', () => {
+  const COLLAPSED_STATE: IMockCollapseState = {
+    isReady: true,
+    collapsed: true,
+    isAddressTypeHidden: true,
+  };
+  const NATIVE_SEGWIT = {
+    deriveType: 'BIP84',
+    deriveInfo: { label: 'Native SegWit' },
+    account: {
+      id: 'hd-1--btc-segwit',
+      address: 'bc1qsegwit',
+      indexedAccountId: 'hd-1--0',
+      addressDetail: { receiveAddressPath: "m/84'/0'/0'/0/0" },
+    },
+  };
+
+  function buildBitcoinParams(extra: IMockRouteParams = {}) {
+    return {
+      networkId: 'btc--0',
+      accountId: 'hd-1--btc-taproot',
+      walletId: 'hd-1',
+      indexedAccountId: 'hd-1--0',
+      token: member('btc--0', {
+        name: 'Bitcoin',
+        symbol: 'BTC',
+        address: '',
+        isNative: true,
+        accountId: 'hd-1--btc-taproot',
+      }),
+      source: 'tokenDetails',
+      allowAddressTypeMenu: true,
+      ...extra,
+    };
+  }
+
+  async function renderBitcoinPage(extra: IMockRouteParams = {}) {
+    mockRouteParams = buildBitcoinParams(extra);
+    const page = render(<ReceiveToken />);
+    await waitFor(() =>
+      expect(page.getByTestId('address').textContent).toBe('bc1ptaproot'),
+    );
+    return page;
+  }
+
+  function latestCardSelector() {
+    const calls = mockAddressTypeSelectorProps.mock.calls;
+    return calls[calls.length - 1]?.[0];
+  }
+
+  function isMenuTrigger(props: ReturnType<typeof latestCardSelector>) {
+    const trigger = props?.renderSelectorTrigger as
+      | { props?: { testID?: string } }
+      | undefined;
+    return trigger?.props?.testID === 'receive-address-type-menu-button';
+  }
+
+  beforeEach(() => {
+    mockAddressTypeSelectorProps.mockReset();
+    mockFetchWalletBanner.mockResolvedValue([]);
+    mockCanDeriveTypesCollapse.mockReturnValue(true);
+    mockUseDeriveTypesCollapseState.mockReturnValue(COLLAPSED_STATE);
+  });
+
+  afterEach(() => {
+    mockCanDeriveTypesCollapse.mockReturnValue(false);
+    mockUseDeriveTypesCollapseState.mockReturnValue(NOT_COLLAPSED_STATE);
+  });
+
+  it('puts a "…" in the card switch slot while a collapsed account hides its type', async () => {
+    const page = await renderBitcoinPage();
+    const card = latestCardSelector();
+    expect(isMenuTrigger(card)).toBe(true);
+    // The "…" stands for the list itself: nothing hides or locks it.
+    expect(card?.whenCollapsed).toBeUndefined();
+    expect(card?.disableSelector).toBe(false);
+    page.unmount();
+  });
+
+  it('keeps the card switch as it is for fixed-destination entries, uncollapsed accounts and before the answer', async () => {
+    const cases: [IMockRouteParams, IMockCollapseState][] = [
+      [{ allowAddressTypeMenu: undefined }, COLLAPSED_STATE],
+      [{}, NOT_COLLAPSED_STATE],
+      [{}, { isReady: false, collapsed: false, isAddressTypeHidden: true }],
+    ];
+    for (const [extra, state] of cases) {
+      mockUseDeriveTypesCollapseState.mockReturnValue(state);
+      const page = await renderBitcoinPage(extra);
+      const card = latestCardSelector();
+      expect(isMenuTrigger(card)).toBe(false);
+      expect(card?.whenCollapsed).toBe('hide');
+      page.unmount();
+    }
+  });
+
+  it('does not let a token details entry lock the "…"', async () => {
+    const page = await renderBitcoinPage({ disableSelector: true });
+    const card = latestCardSelector();
+    expect(isMenuTrigger(card)).toBe(true);
+    expect(card?.disableSelector).toBe(false);
+    page.unmount();
+  });
+
+  it('switches in place and keeps the "…" until the page is left', async () => {
+    const page = await renderBitcoinPage();
+
+    await act(async () => {
+      await latestCardSelector()?.onSelect?.(NATIVE_SEGWIT);
+    });
+    await waitFor(() =>
+      expect(page.getByTestId('address').textContent).toBe('bc1qsegwit'),
+    );
+    expect(page.getByTestId('qr-value').textContent).toBe('bc1qsegwit');
+
+    // The page keeps the answer it opened with, so the picked type is no
+    // longer that default: the card would show the type switch, but the "…"
+    // stays where the user just was.
+    mockUseDeriveTypesCollapseState.mockReturnValue({
+      isReady: true,
+      collapsed: true,
+      isAddressTypeHidden: false,
+    });
+    page.rerender(<ReceiveToken />);
+    expect(isMenuTrigger(latestCardSelector())).toBe(true);
+    page.unmount();
+  });
+
+  it('locks the "…" while a network switch looks up its target', async () => {
+    const page = await renderBitcoinPage({ switchEntry: 'network' });
+    expect(latestCardSelector()?.disableSelector).toBe(false);
+
+    let failLookup: (error: Error) => void = () => undefined;
+    mockGetVaultSettings.mockImplementationOnce(
+      () =>
+        new Promise((_resolve, reject) => {
+          failLookup = reject;
+        }),
+    );
+    fireEvent.click(page.getByTestId('receive-card-network-trigger'));
+    const { params } = mockPushModal.mock.calls[
+      mockPushModal.mock.calls.length - 1
+    ][1] as {
+      params: {
+        onSelect: (selection: {
+          network: unknown;
+          accountId: string;
+        }) => Promise<void>;
+      };
+    };
+    let switching: Promise<void> = Promise.resolve();
+    act(() => {
+      switching = params.onSelect({
+        network: NETWORKS['evm--1'],
+        accountId: 'hd-1--evm1',
+      });
+    });
+
+    // Bitcoin is still on screen, but a pick now would become its default
+    // while the page is leaving it.
+    expect(isMenuTrigger(latestCardSelector())).toBe(true);
+    expect(latestCardSelector()?.disableSelector).toBe(true);
+
+    // A failed lookup keeps the page on Bitcoin, and the "…" usable.
+    await act(async () => {
+      failLookup(new Error('lookup failed'));
+      await switching;
+    });
+    expect(page.getByTestId('address').textContent).toBe('bc1ptaproot');
+    expect(latestCardSelector()?.disableSelector).toBe(false);
+    page.unmount();
   });
 });

@@ -13,6 +13,8 @@ import type {
   SelectHTMLAttributes,
 } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import {
   Button,
   ButtonFrame,
@@ -30,6 +32,9 @@ import type {
   ISizableTextProps,
   IXStackProps,
 } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import appStorage from '@onekeyhq/shared/src/storage/appStorage';
+import { EAppSyncStorageKeys } from '@onekeyhq/shared/src/storage/syncStorage';
 
 import { TRADING_VIEW_DRAWING_ICONS } from './icons';
 import {
@@ -64,9 +69,14 @@ type IPropertiesPosition = { left: number; top: number };
 function DrawingButton({
   active,
   disabled,
+  disabledOpacity = 0.3,
   menuItem,
   ...props
-}: Omit<IButtonProps, 'color'> & { active?: boolean; menuItem?: boolean }) {
+}: Omit<IButtonProps, 'color'> & {
+  active?: boolean;
+  disabledOpacity?: number;
+  menuItem?: boolean;
+}) {
   // Preserve the radio role on a menu item's rendered button.
   const roleProps = menuItem ? { role: undefined } : {};
   return (
@@ -81,7 +91,7 @@ function DrawingButton({
       borderRadius={5}
       backgroundColor={active ? '$bgActive' : '$transparent'}
       cursor={disabled ? 'default' : 'pointer'}
-      opacity={disabled ? 0.3 : 1}
+      opacity={disabled ? disabledOpacity : 1}
       disabled={disabled}
       hoverStyle={disabled ? undefined : { backgroundColor: '$bgHover' }}
       focusVisibleStyle={{
@@ -229,6 +239,7 @@ function ToolButton({
   icon,
   active,
   disabled,
+  disabledOpacity,
   onClick,
   children,
   testID,
@@ -238,6 +249,7 @@ function ToolButton({
   icon?: IDrawingTool | IActionIcon;
   active?: boolean;
   disabled?: boolean;
+  disabledOpacity?: number;
   onClick: () => void;
   children?: ReactNode;
   testID?: string;
@@ -252,6 +264,7 @@ function ToolButton({
       aria-pressed={active}
       active={active}
       disabled={disabled}
+      disabledOpacity={disabledOpacity}
       width={compact ? 28 : 36}
       onPress={onClick}
     >
@@ -343,8 +356,10 @@ function LineStyleControls({
 
 export function DrawingToolbar({
   controller,
+  mainChartBottomInset,
 }: {
   controller: IChartDrawingsController;
+  mainChartBottomInset: number;
 }) {
   const theme = useTheme();
   const fontSizeControlId = useId();
@@ -360,7 +375,21 @@ export function DrawingToolbar({
   } | null>(null);
   const [propertiesPosition, setPropertiesPosition] =
     useState<IPropertiesPosition>({ left: 62, top: 8 });
-  const [collapsed, setCollapsed] = useState(false);
+  const intl = useIntl();
+  const [collapsed, setCollapsed] = useState(() => {
+    try {
+      return (
+        appStorage.syncStorage.getBoolean(
+          EAppSyncStorageKeys.onekey_trading_view_native_drawing_toolbar_collapsed,
+        ) === true
+      );
+    } catch {
+      return false;
+    }
+  });
+  const toggleToolbarLabel = intl.formatMessage({
+    id: collapsed ? ETranslations.global_expand : ETranslations.global_collapse,
+  });
   const [positionExpanded, setPositionExpanded] = useState(false);
   const [menu, setMenu] = useState<string | null>(null);
   const [lastTools, setLastTools] = useState<Record<string, IDrawingTool>>({
@@ -490,6 +519,7 @@ export function DrawingToolbar({
   const groups = [
     ...new Set(Object.values(DRAWING_TOOLS).map((tool) => tool.group)),
   ];
+  // Hydration pauses drawing actions on each symbol switch without dimming their icons.
   const disabled = !state.ready;
   const styleDisabled = Boolean(selected && (selected.locked || state.locked));
   const pointFields =
@@ -607,7 +637,7 @@ export function DrawingToolbar({
       role="group"
       aria-label="Chart drawings"
       position="static"
-      width={collapsed ? 18 : 48}
+      width={collapsed ? 0 : 48}
       flexShrink={0}
       borderRightWidth={collapsed ? 0 : 1}
       borderColor="$borderSubdued"
@@ -653,6 +683,7 @@ export function DrawingToolbar({
                 label={DRAWING_TOOLS[tool].label}
                 icon={tool}
                 disabled={disabled}
+                disabledOpacity={1}
                 active={
                   state.tool !== 'cursor' &&
                   DRAWING_TOOLS[state.tool].group === group
@@ -673,6 +704,7 @@ export function DrawingToolbar({
                 aria-haspopup="menu"
                 aria-expanded={menu === group}
                 disabled={disabled}
+                disabledOpacity={1}
                 onPress={() => setMenu(menu === group ? null : group)}
               >
                 <DrawingIcon name="chevron" color={theme.iconSubdued.val} />
@@ -751,7 +783,7 @@ export function DrawingToolbar({
       <Stack
         position="absolute"
         left={collapsed ? 10 : 39}
-        bottom={32}
+        bottom={mainChartBottomInset + 8}
         width={16}
         height={32}
         borderRadius="$full"
@@ -760,12 +792,8 @@ export function DrawingToolbar({
       >
         <IconButton
           testID="chart-drawing-toolbar-toggle"
-          aria-label={
-            collapsed ? 'Expand drawing toolbar' : 'Collapse drawing toolbar'
-          }
-          title={
-            collapsed ? 'Expand drawing toolbar' : 'Collapse drawing toolbar'
-          }
+          aria-label={toggleToolbarLabel}
+          title={toggleToolbarLabel}
           aria-expanded={!collapsed}
           icon={
             collapsed ? 'ChevronRightSmallOutline' : 'ChevronLeftSmallOutline'
@@ -784,6 +812,16 @@ export function DrawingToolbar({
           pressStyle={{ backgroundColor: '$bgActive' }}
           onPress={() => {
             setCollapsed(!collapsed);
+            try {
+              void Promise.resolve(
+                appStorage.syncStorage.set(
+                  EAppSyncStorageKeys.onekey_trading_view_native_drawing_toolbar_collapsed,
+                  !collapsed,
+                ),
+              ).catch(() => undefined);
+            } catch {
+              // Keep the toolbar usable when preference storage is unavailable.
+            }
             setMenu(null);
           }}
         />

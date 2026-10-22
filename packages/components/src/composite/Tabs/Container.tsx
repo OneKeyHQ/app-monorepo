@@ -414,8 +414,9 @@ export function Container({
       scrollTabElementsRef,
       requestRemeasure: () => requestRemeasureRef.current(),
       scrollToTop,
+      scrollElement: scrollElement as HTMLElement | null,
     }),
-    [focusedTab, sharedTabNames, scrollToTop],
+    [focusedTab, sharedTabNames, scrollToTop, scrollElement],
   );
 
   useEffect(() => {
@@ -764,10 +765,9 @@ export function Container({
 
   useEffect(() => {
     const t = setTimeout(() => {
-      if (initialTabName) {
-        const index = tabNamesRef.current.findIndex(
-          (name) => name === initialTabName,
-        );
+      const tabName = focusedTab.value;
+      if (tabName) {
+        const index = tabNamesRef.current.findIndex((name) => name === tabName);
         if (index !== -1) {
           const width = ref.current?.clientWidth || 0;
           listContainerRef.current?.scrollTo({

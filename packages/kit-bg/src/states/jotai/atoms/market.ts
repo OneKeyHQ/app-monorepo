@@ -152,6 +152,40 @@ export const {
   initialValue: { mode: 'simple' },
 });
 
+export interface IMarketDetailPositionTabPersistAtom {
+  preferPosition: boolean;
+}
+
+// Whether the last tab picked on any market detail page was My position. It is
+// a reading habit rather than a per-asset choice, so one value covers every
+// detail page; the other tabs are not remembered.
+export const {
+  target: marketDetailPositionTabPersistAtom,
+  use: useMarketDetailPositionTabPersistAtom,
+} = globalAtom<IMarketDetailPositionTabPersistAtom>({
+  persist: true,
+  name: EAtomNames.marketDetailPositionTabPersistAtom,
+  initialValue: { preferPosition: false },
+});
+
+export interface IMarketDetailWatchlistSidebarPersistAtom {
+  // Unset until the user first opens or closes the sidebar; until then it
+  // opens only for users who have favorites.
+  open?: boolean;
+}
+
+// Whether the desktop detail pages dock the favorites sidebar. It only applies
+// where the window is wide enough to dock it; narrower windows open it as an
+// overlay that always starts closed.
+export const {
+  target: marketDetailWatchlistSidebarPersistAtom,
+  use: useMarketDetailWatchlistSidebarPersistAtom,
+} = globalAtom<IMarketDetailWatchlistSidebarPersistAtom>({
+  persist: true,
+  name: EAtomNames.marketDetailWatchlistSidebarPersistAtom,
+  initialValue: {},
+});
+
 export type IMarketPriceSource = 'share' | 'token';
 
 export interface IMarketPriceSourceAtom {

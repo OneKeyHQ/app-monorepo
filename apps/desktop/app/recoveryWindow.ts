@@ -67,6 +67,9 @@ export function createRecoveryWindow(): BrowserWindow {
   // registered inside did-finish-load — which never runs when the recovery
   // path is taken — so there is no conflict.
   const PROTOCOL = 'file';
+  if (session.defaultSession.protocol.isProtocolIntercepted(PROTOCOL)) {
+    session.defaultSession.protocol.uninterceptProtocol(PROTOCOL);
+  }
   session.defaultSession.protocol.interceptFileProtocol(
     PROTOCOL,
     (request, callback) => {

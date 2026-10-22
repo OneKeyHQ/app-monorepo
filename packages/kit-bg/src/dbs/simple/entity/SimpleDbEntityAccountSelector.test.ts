@@ -949,6 +949,28 @@ describe('SimpleDbEntityAccountSelector global derive type persistence', () => {
     jest.useRealTimers();
   });
 
+  it('initializes missing storage before saving a global derive type', async () => {
+    const entity = new SimpleDbEntityAccountSelector();
+    entity.appStorage = {
+      getItem: jest.fn(async () => null),
+      removeItem: jest.fn(async () => undefined),
+      setItem: jest.fn(async () => undefined),
+    } as unknown as typeof entity.appStorage;
+
+    await expect(
+      entity.saveGlobalDeriveType({
+        networkId: 'evm--1',
+        deriveType: 'BIP44',
+        eventEmitDisabled: true,
+      }),
+    ).resolves.toBeUndefined();
+
+    await expect(
+      entity.getGlobalDeriveType({ networkId: 'evm--1' }),
+    ).resolves.toBe('BIP44');
+    expect(entity.appStorage.setItem).toHaveBeenCalledTimes(1);
+  });
+
   // The write-side half of the loop cut for the GlobalDeriveTypeUpdate chain:
   // event -> receiver sync -> autoSave -> saveGlobalDeriveType writes the value
   // it just received. Re-emitting on that equal-value write would hand every UI

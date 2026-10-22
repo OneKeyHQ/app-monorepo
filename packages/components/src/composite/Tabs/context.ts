@@ -50,6 +50,8 @@ export const useTabsContainerContext = () => {
 
 export const TabsContext = createContext<
   ContextType<TabName> & {
+    /** Web list adapters share the Container's single vertical scroll owner. */
+    scrollElement?: HTMLElement | null;
     scrollTabElementsRef: RefObject<
       Record<
         string,

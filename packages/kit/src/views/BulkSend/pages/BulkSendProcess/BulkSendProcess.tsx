@@ -64,6 +64,7 @@ import BulkSendBar from '../../components/BulkSendBar';
 import BulkSendContentWrapper from '../../components/BulkSendContentWrapper';
 import BulkSendHeader from '../../components/BulkSendHeader';
 import { useRedirectToBulkSendAddressesInput } from '../../hooks/useRedirectToBulkSendAddressesInput';
+import { normalizeGasEIP1559Presets } from '../../utils';
 
 import BulkSendProcessItem from './BulkSendProcessItem';
 
@@ -94,16 +95,6 @@ function getIntervalDelay(intervalSettings?: {
   const max = parseFloat(intervalSettings.maxSeconds) * 1000;
   if (Number.isNaN(min) || Number.isNaN(max) || max < min) return 0;
   return Math.floor(Math.random() * (max - min + 1)) + min;
-}
-
-function normalizeGasEIP1559Presets(
-  presets?: IFeesInfoUnit['gasEIP1559'],
-): IFeesInfoUnit['gasEIP1559'] {
-  if (!presets) return undefined;
-  if (presets.length === 5) {
-    return [presets[0], presets[2], presets[4]];
-  }
-  return presets.length > 3 ? presets.slice(0, 3) : presets;
 }
 
 function pickPresetItem<T>(
@@ -233,6 +224,7 @@ function BulkSendProcessContent({
   totalFiatAmount,
   intervalSettings,
   freeTrialUsageId,
+  freeTrialRetryAttemptId,
   onSuccess,
   onFail,
 }: IBulkSendProcessRouteParams) {
@@ -249,6 +241,9 @@ function BulkSendProcessContent({
       featureId: EPrimeFeatures.BulkSend,
     });
   const freeTrialUsageIdRef = useRef<string | undefined>(freeTrialUsageId);
+  const freeTrialRetryAttemptIdRef = useRef<string | undefined>(
+    freeTrialRetryAttemptId,
+  );
   const freeTrialUsageSucceededRef = useRef(false);
   const freeTrialRoundCancelledRef = useRef(false);
   const retryStartingRef = useRef(false);
@@ -844,7 +839,11 @@ function BulkSendProcessContent({
               feeInfos: [sendSelectedFeeInfo],
               transferPayload: undefined,
               freeTrialUsage: roundUsageId
-                ? { featureId: EPrimeFeatures.BulkSend, usageId: roundUsageId }
+                ? {
+                    featureId: EPrimeFeatures.BulkSend,
+                    usageId: roundUsageId,
+                    analyticsRetryAttemptId: freeTrialRetryAttemptIdRef.current,
+                  }
                 : undefined,
             });
           if (roundUsageId) {
@@ -1001,12 +1000,17 @@ function BulkSendProcessContent({
       // without any broadcast right away (the background ignores this once a
       // broadcast succeeded).
       const roundUsageId = freeTrialUsageIdRef.current;
-      if (roundUsageId && !freeTrialUsageSucceededRef.current) {
+      if (
+        roundUsageId &&
+        (!freeTrialUsageSucceededRef.current ||
+          freeTrialRetryAttemptIdRef.current)
+      ) {
         void settleUsage(
           roundUsageId,
           isAborted.current || freeTrialRoundCancelledRef.current
             ? 'cancelled'
             : 'failed',
+          freeTrialRetryAttemptIdRef.current,
         );
       }
     }
@@ -1066,6 +1070,7 @@ function BulkSendProcessContent({
       // Set on unmount: a page left while starting runs no retry.
       isCallerGone: () => isAborted.current,
     });
+    freeTrialRetryAttemptIdRef.current = prepared.analyticsRetryAttemptId;
     if (prepared.isNewUsage) {
       freeTrialUsageIdRef.current = prepared.usageId;
       freeTrialUsageSucceededRef.current = false;

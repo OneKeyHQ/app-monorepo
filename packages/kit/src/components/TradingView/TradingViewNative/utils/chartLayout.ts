@@ -1021,6 +1021,7 @@ export function getTradingViewNativeTimeAxisLayout({
 
 export function getTradingViewNativeChartLayout({
   additionalPriceRange,
+  autoScalePointRange,
   candleIntervalSeconds,
   chartType = 'candlestick',
   contentBottomInset = 0,
@@ -1041,6 +1042,7 @@ export function getTradingViewNativeChartLayout({
     maxPrice: number;
     minPrice: number;
   } | null;
+  autoScalePointRange?: ITradingViewNativeVisiblePointRange;
   candleIntervalSeconds: number;
   chartType?: ITradingViewNativeChartType;
   contentBottomInset?: number;
@@ -1083,8 +1085,9 @@ export function getTradingViewNativeChartLayout({
     return null;
   }
 
+  const scalePointRange = autoScalePointRange ?? visiblePointRange;
   const visiblePointPriceRange = getTradingViewNativePriceRange({
-    ...visiblePointRange,
+    ...scalePointRange,
     chartType,
     points,
   });
@@ -1155,7 +1158,7 @@ export function getTradingViewNativeChartLayout({
     },
   );
   const maxVolume = getTradingViewNativeMaxVolume({
-    ...visiblePointRange,
+    ...scalePointRange,
     points,
   });
   const volumeTickCount =

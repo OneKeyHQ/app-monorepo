@@ -7,6 +7,7 @@ import type {
 import {
   buildDustSweepCandidates,
   filterDustSweepCandidates,
+  getDustSweepSlippageNotice,
   isValidDustSweepSlippage,
 } from './candidates';
 
@@ -91,35 +92,58 @@ describe('Dust Sweep candidate eligibility', () => {
       { key: 'valid', value: '1' },
     ]);
     data.smallBalanceTokens = data.tokens;
+    data.riskTokens = response([
+      { key: 'malicious', value: '1', riskLevel: ETokenRiskLevel.MALICIOUS },
+      { key: 'scam', value: '1', riskLevel: ETokenRiskLevel.SCAM },
+      { key: 'future-risk', value: '1', riskLevel: 1003 },
+    ]).tokens;
     expect(
       buildDustSweepCandidates(data, 'evm--1').map((token) => token.key),
     ).toEqual(['valid']);
   });
-  it('keeps unverified tokens available for explicit selection without changing raw amounts', () => {
+  it.each([
+    ETokenRiskLevel.BENIGN,
+    ETokenRiskLevel.WARNING,
+    ETokenRiskLevel.UNKNOWN,
+    undefined,
+  ])('does not flag a priced token with risk level %s', (riskLevel) => {
     const [token] = buildDustSweepCandidates(
-      response([
-        { key: 'scaled', value: '4', riskLevel: ETokenRiskLevel.UNKNOWN },
-      ]),
-      'sol--101',
+      response([{ key: 'priced', value: '4', riskLevel }]),
+      'evm--59144',
     );
-    expect(token.suspicious).toBe(true);
-    expect(token.amount).toBe('1.234567');
-    expect(token.balanceMultiplier).toBeUndefined();
-    expect(token.valueUsd).toBe('4');
+    expect(token.suspicious).toBe(false);
   });
 
+  it.each([0, undefined])(
+    'keeps a token with price %s available for explicit selection without changing raw amounts',
+    (price) => {
+      const data = response([
+        { key: 'scaled', value: '4', riskLevel: ETokenRiskLevel.UNKNOWN },
+      ]);
+      if (price === undefined) {
+        Reflect.deleteProperty(data.tokens.map.scaled, 'price');
+      } else {
+        data.tokens.map.scaled.price = price;
+      }
+      const [token] = buildDustSweepCandidates(data, 'sol--101');
+      expect(token.suspicious).toBe(true);
+      expect(token.amount).toBe('1.234567');
+      expect(token.balanceMultiplier).toBeUndefined();
+      expect(token.valueUsd).toBe('4');
+    },
+  );
+
   it('applies the hidden threshold to unverified tokens without changing their risk flag', () => {
-    const tokens = buildDustSweepCandidates(
-      response([
-        { key: 'safe-hidden', value: '0.05' },
-        {
-          key: 'risk-hidden',
-          value: '0.05',
-          riskLevel: ETokenRiskLevel.UNKNOWN,
-        },
-      ]),
-      'evm--1',
-    );
+    const data = response([
+      { key: 'safe-hidden', value: '0.05' },
+      {
+        key: 'risk-hidden',
+        value: '0.05',
+        riskLevel: ETokenRiskLevel.UNKNOWN,
+      },
+    ]);
+    data.tokens.map['risk-hidden'].price = 0;
+    const tokens = buildDustSweepCandidates(data, 'evm--1');
     const result = filterDustSweepCandidates(tokens, 10, false);
 
     expect(result.hidden.map((token) => token.key)).toEqual([
@@ -151,13 +175,28 @@ describe('Dust Sweep candidate eligibility', () => {
   );
   it.each([
     ['0', false],
-    ['0.1', true],
+    ['0.1', false],
+    ['4.999', false],
     ['5', true],
     ['50', true],
     ['50.01', false],
     ['', false],
     ['Infinity', false],
+    ['NaN', false],
   ])('validates slippage %s', (value, valid) => {
     expect(isValidDustSweepSlippage(value)).toBe(valid);
   });
+});
+
+it.each([
+  ['5', undefined],
+  ['10', undefined],
+  ['10.01', 'tooHigh'],
+  ['20', 'tooHigh'],
+  ['0.05', 'tooLow'],
+  ['4.999', 'tooLow'],
+  ['0', 'tooLow'],
+  ['51', 'invalid'],
+] as const)('gives slippage %s the %s notice', (value, notice) => {
+  expect(getDustSweepSlippageNotice(value)).toBe(notice);
 });

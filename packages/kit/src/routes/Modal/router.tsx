@@ -254,6 +254,19 @@ const router: IModalRootNavigatorConfig<EModalRoutes>[] = [
 ];
 
 // Pages in Dev Mode
+if (
+  process.env.NODE_ENV !== 'production' &&
+  platformEnv.isDev &&
+  (platformEnv.isNative || platformEnv.isDesktop || platformEnv.isExtension)
+) {
+  router.push({
+    name: EModalRoutes.DeveloperModal,
+    children: (
+      require('../../views/Developer/router') as typeof import('../../views/Developer/router')
+    ).developerRouters,
+  });
+}
+
 if (platformEnv.isDev) {
   router.push({
     name: EModalRoutes.TestModal,

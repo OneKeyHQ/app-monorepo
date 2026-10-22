@@ -1,5 +1,6 @@
 import { useContext, useMemo, useState } from 'react';
 
+import { useIntl } from 'react-intl';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { SvgXml } from 'react-native-svg';
 
@@ -17,6 +18,7 @@ import {
   useTheme,
 } from '@onekeyhq/components';
 import type { IScrollViewProps } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { TRADING_VIEW_DRAWING_ICONS } from '../drawings/icons';
@@ -33,7 +35,9 @@ import type { IChartDrawingsController } from '../drawings/useChartDrawings';
 
 type IIconName = keyof typeof TRADING_VIEW_DRAWING_ICONS;
 function DrawingScrollView(props: IScrollViewProps) {
-  const headerScrollGestures = useContext(HeaderScrollGestureContext);
+  const { gestures: headerScrollGestures } = useContext(
+    HeaderScrollGestureContext,
+  );
   const scrollGesture = useMemo(
     () =>
       Gesture.Native()
@@ -149,6 +153,7 @@ export function NativeDrawingToolbar({
 }: {
   controller: IChartDrawingsController;
 }) {
+  const intl = useIntl();
   const { state } = controller;
   const [collapsed, setCollapsed] = useState(false);
   const [group, setGroup] = useState<string | null>(null);
@@ -309,9 +314,11 @@ export function NativeDrawingToolbar({
         <Stack
           testID="native-drawing-collapse"
           accessibilityRole="button"
-          accessibilityLabel={
-            collapsed ? 'Expand drawing toolbar' : 'Collapse drawing toolbar'
-          }
+          accessibilityLabel={intl.formatMessage({
+            id: collapsed
+              ? ETranslations.global_expand
+              : ETranslations.global_collapse,
+          })}
           alignItems="center"
           justifyContent="center"
           height={40}

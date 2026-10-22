@@ -488,12 +488,7 @@ function isEffectiveUSMarketHalt({
  */
 const ONDO_US_MARKET_STOCK_SOURCES = new Set(['ondo', 'coingecko']);
 
-/**
- * Only Ondo-issued stock tokens follow the US-session trading model this
- * feature describes (OK-58043). xStocks and other providers run 7×24 with no
- * open/closed distinction, so they keep the legacy open/closed badge and get
- * no trading-hours entry.
- */
+/** Identifies Ondo sources for issuer-specific token behavior. */
 export function isOndoUSMarketStock(
   source: string | undefined | null,
 ): boolean {
@@ -502,9 +497,10 @@ export function isOndoUSMarketStock(
 }
 
 /**
- * Single source of truth for a stock token's displayed market status.
- * Returns undefined for non-Ondo issuers (callers fall back to the legacy
- * two-state badge) and for tokens without stock signals.
+ * Single source of truth for a stock's displayed US market status, independent
+ * of the token issuer. Returns undefined when stock signals are unavailable
+ * and for a non-US listing (`isUSListing === false`), which follows no US
+ * session even though the stock feed reports one for it.
  *
  * Signal priority:
  *   1. per-stock halt (`isPaused`) → Halted, regardless of `isOpen` — the
@@ -515,7 +511,9 @@ export function isOndoUSMarketStock(
  *   2. per-stock `isOpen === false` — the instrument's own window is closed;
  *   3. market-wide closure (backend CLOSED / weekend) with `isOpen === true`
  *      → Open247: only 7×24 instruments stay open through a closure, and a
- *      plain "Closed" would hide that they remain tradable;
+ *      plain "Closed" would hide that they remain tradable. A US listing
+ *      (`isUSListing === true`) is never 7×24 and reads Closed there; its
+ *      `isOpen` only disagrees through a retained stale detail;
  *   4. inter-session gap (clock math) → AwaitingOpen: the venue is switching
  *      session state; a halt/closed flash there reads as an error, and the
  *      panel highlights the upcoming session row alongside;
@@ -525,19 +523,20 @@ export function isOndoUSMarketStock(
  * weekends are detectable locally, holidays are not.
  */
 export function resolveUSMarketStatusVariant({
-  source,
+  isUSListing,
   isOpen,
   isPaused,
   status,
   now = new Date(),
 }: {
-  source?: string;
+  /** true: a US listing; false: a non-US listing; undefined: unknown. */
+  isUSListing?: boolean;
   isOpen?: boolean;
   isPaused?: boolean;
   status?: IFetchUSMarketStatusResult;
   now?: Date;
 }): EUSMarketStatusVariant | undefined {
-  if (!isOndoUSMarketStock(source)) {
+  if (isUSListing === false) {
     return undefined;
   }
   // The cycle computation is Intl-heavy — compute it lazily, at most once,
@@ -578,11 +577,15 @@ export function resolveUSMarketStatusVariant({
         return EUSMarketStatusVariant.Open;
     }
   };
+  // Through a market-wide closure only a 7×24 token stays open; the listing
+  // itself is closed whatever a stale `isOpen` still says.
+  const closureVariant = isUSListing
+    ? EUSMarketStatusVariant.Closed
+    : EUSMarketStatusVariant.Open247;
   if (status && !status.unavailable) {
     if (!status.open || status.session === 'CLOSED') {
-      // isOpen === true is guaranteed here (checked above): a token still
-      // open through a market-wide closure is a 7×24 instrument.
-      return EUSMarketStatusVariant.Open247;
+      // isOpen === true is guaranteed here (checked above).
+      return closureVariant;
     }
     const tradingHours = resolveTradingHours();
     // Inter-session gap: the dedicated chip wins over the backend session,
@@ -601,9 +604,8 @@ export function resolveUSMarketStatusVariant({
     nowMs >= tradingHours.weekendStartInstant &&
     nowMs < tradingHours.weekendEndInstant
   ) {
-    // Same 7×24 rule as the status branch: isOpen === true through the
-    // weekend closure marks a 7×24 instrument.
-    return EUSMarketStatusVariant.Open247;
+    // Same closure rule as the status branch.
+    return closureVariant;
   }
   // Same gap rule as the status branch, on the pure clock fallback.
   if (tradingHours.isNowInSessionGap) {

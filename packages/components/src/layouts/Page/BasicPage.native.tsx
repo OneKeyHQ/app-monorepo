@@ -1,62 +1,20 @@
-import type { PropsWithChildren } from 'react';
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo } from 'react';
 
-import { Dimensions, StatusBar } from 'react-native';
+import { StatusBar } from 'react-native';
 
-import {
-  AnimatePresence,
-  useThemeName,
-} from '@onekeyhq/components/src/shared/tamagui';
+import { useThemeName } from '@onekeyhq/components/src/shared/tamagui';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { useIsModalPage, useIsOverlayPage } from '../../hocs';
-import { Spinner, Stack, View, YStack } from '../../primitives';
-import { ANIMATE_ONLY_OPACITY } from '../../utils/animationConstants';
+import { useIsModalPage } from '../../hocs';
+import { Stack, YStack } from '../../primitives';
 
-import { useIsIpadModalPage, useTabBarHeight } from './hooks';
+import { useIsIpadModalPage } from './hooks';
 import {
   iPadModalPageContext,
   useIPadModalPageSizeChange,
 } from './iPadModalPageContext';
 
 import type { IBasicPageProps } from './type';
-
-const exitStyleFadeOut = { opacity: 0 };
-
-function Loading() {
-  return (
-    <Stack flex={1} alignContent="center" justifyContent="center">
-      <Spinner size="large" />
-    </Stack>
-  );
-}
-
-// On iOS, in the tab container, when initializing the page,
-//  the elements cannot fill the container space, so a minimum height needs to be set
-const useMinHeight = (isFullPage: boolean) => {
-  const isOverlayPage = useIsOverlayPage();
-  const tabHeight = useTabBarHeight();
-  return useMemo(() => {
-    if (!platformEnv.isNativeIOS) {
-      return undefined;
-    }
-    if (!isFullPage) {
-      return undefined;
-    }
-    if (!isOverlayPage) {
-      if (platformEnv.isNativeIOSPad) {
-        return (
-          Math.max(
-            Dimensions.get('window').height,
-            Dimensions.get('window').width,
-          ) - tabHeight
-        );
-      }
-      return Dimensions.get('window').height - tabHeight;
-    }
-    return undefined;
-  }, [isFullPage, isOverlayPage, tabHeight]);
-};
 
 /**
  * Renders a status bar with the appropriate style based on the current theme and whether the page is a modal.
@@ -77,100 +35,11 @@ function PageStatusBar() {
   return <StatusBar animated barStyle="dark-content" />;
 }
 
-function AbsoluteContainer({
-  children,
-  backgroundColor,
-}: PropsWithChildren<Pick<IBasicPageProps, 'backgroundColor'>>) {
-  return (
-    <Stack
-      backgroundColor={backgroundColor ?? '$bgApp'}
-      position="absolute"
-      top={0}
-      left={0}
-      right={0}
-      bottom={0}
-      opacity={1}
-      flex={1}
-      transition="quick"
-      animateOnly={ANIMATE_ONLY_OPACITY}
-      exitStyle={exitStyleFadeOut}
-    >
-      {children}
-    </Stack>
-  );
-}
-
-// Loading screen for Android only. iOS modal pages use performWithoutAnimation
-// (patched in react-native) to prevent Fabric recycled-view frame animations,
-// so the loading overlay is no longer needed on iOS.
-function LoadingScreenAndroid({
-  children,
-  fullPage,
-  backgroundColor,
-}: PropsWithChildren<
-  { fullPage: boolean } & Pick<IBasicPageProps, 'backgroundColor'>
->) {
-  const [showLoading, changeLoadingVisibleStatus] = useState(true);
-  const [showChildren, changeChildrenVisibleStatus] = useState(false);
-
-  useEffect(() => {
-    setTimeout(() => {
-      changeChildrenVisibleStatus(true);
-      setTimeout(() => {
-        requestIdleCallback(() => {
-          changeLoadingVisibleStatus(false);
-        });
-      }, 150);
-    }, 10);
-  }, []);
-
-  const minHeight = useMinHeight(fullPage);
-  return (
-    <View
-      flex={1}
-      minHeight={minHeight}
-      backgroundColor={backgroundColor ?? '$bgApp'}
-    >
-      {showChildren ? children : null}
-      <AnimatePresence>
-        {showLoading ? (
-          <AbsoluteContainer backgroundColor={backgroundColor}>
-            <Loading />
-          </AbsoluteContainer>
-        ) : null}
-      </AnimatePresence>
-    </View>
-  );
-}
-
-function LoadingScreen({
-  children,
-  fullPage,
-  backgroundColor,
-}: PropsWithChildren<
-  { fullPage: boolean } & Pick<IBasicPageProps, 'backgroundColor'>
->) {
-  // iOS: skip loading overlay — performWithoutAnimation fix handles animation artifacts
-  if (platformEnv.isNativeIOS) {
-    return <>{children}</>;
-  }
-
-  return (
-    <LoadingScreenAndroid fullPage={fullPage} backgroundColor={backgroundColor}>
-      {children}
-    </LoadingScreenAndroid>
-  );
-}
-
-// iOS: no longer needs loading container — performWithoutAnimation fix
-// prevents Fabric recycled-view frame animations during modal transitions.
-// Android: was already a passthrough.
-const AbsoluteLoadingContainer = ({ children }: PropsWithChildren) => children;
-
+// Native pages render their content immediately. The Android lazy-load overlay
+// (a spinner that deferred children) predates native page transitions and now
+// only flashed during the slide-in; iOS already rendered directly.
 export function BasicPage({
   children,
-  lazyLoad = false,
-  fullPage = false,
   testID,
   backgroundColor,
 }: IBasicPageProps) {
@@ -184,16 +53,10 @@ export function BasicPage({
         testID={testID}
       >
         {platformEnv.isNativeIOS ? <PageStatusBar /> : undefined}
-        {lazyLoad ? (
-          <LoadingScreen fullPage={fullPage} backgroundColor={backgroundColor}>
-            {children}
-          </LoadingScreen>
-        ) : (
-          <AbsoluteLoadingContainer>{children}</AbsoluteLoadingContainer>
-        )}
+        {children}
       </Stack>
     );
-  }, [backgroundColor, children, lazyLoad, fullPage, testID]);
+  }, [backgroundColor, children, testID]);
   return isIpadModalPage ? (
     <YStack flex={1} onLayout={onPageLayout}>
       <iPadModalPageContext.Provider value={layout}>

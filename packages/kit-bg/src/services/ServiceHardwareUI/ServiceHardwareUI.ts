@@ -19,12 +19,12 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { getVendorProfile } from '@onekeyhq/shared/src/hardware/config/vendorProfile';
 import {
   isLegacyHardwareUiActive,
   shouldCancelDeviceOnStageClose,
 } from '@onekeyhq/shared/src/hardware/deviceStageOwnership';
 import { CoreSDKLoader } from '@onekeyhq/shared/src/hardware/instance';
-import { getVendorProfile } from '@onekeyhq/shared/src/hardware/vendorProfile';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -349,6 +349,7 @@ class ServiceHardwareUI extends ServiceBase {
     connectId,
     deviceType,
     deviceName,
+    deviceColor,
   }: {
     connectId: string;
     /** What the caller already knows about the device. A scan result
@@ -357,6 +358,9 @@ class ServiceHardwareUI extends ServiceBase {
      * named the device (OK-59934). */
     deviceType?: IDeviceType;
     deviceName?: string;
+    /** The finish the scan result names, so the replica opens in it
+     * instead of the default before features arrive. */
+    deviceColor?: IDeviceStageState['deviceColor'];
   }) {
     await hardwareUiStateAtom.set({
       action: EHardwareUiStateAction.DeviceChecking,
@@ -376,6 +380,7 @@ class ServiceHardwareUI extends ServiceBase {
         deviceName,
       }),
       deviceName,
+      deviceColor,
     });
   }
 
@@ -588,7 +593,18 @@ class ServiceHardwareUI extends ServiceBase {
   }: {
     hardClose?: boolean; // hard close dialog by event bus
   } = {}) {
+    const state = await hardwareUiStateAtom.get();
     await hardwareUiStateAtom.set(undefined);
+    if (
+      state?.payload?.eventType ===
+        EHardwareUiStateAction.DESKTOP_REQUEST_BLUETOOTH_PERMISSION &&
+      state.payload.promiseId
+    ) {
+      await this.backgroundApi.servicePromise.resolveCallback({
+        id: state.payload.promiseId,
+        data: false,
+      });
+    }
     if (hardClose) {
       // atom some times not work, emit event to hard close dialog
       appEventBus.emit(
@@ -1516,7 +1532,7 @@ class ServiceHardwareUI extends ServiceBase {
     // Third-party vendors (Ledger) don't use OneKey SDK
     // Skip all OneKey-specific flows: DeviceChecking dialog, mutex, cancel, resetToHome
     const isThirdPartyVendor = getVendorProfile(
-      device?.vendor ?? EHardwareVendor.onekey,
+      device?.vendor ?? device?.settings?.vendor ?? EHardwareVendor.onekey,
     ).isThirdParty;
     let deviceResetToHome = true;
     let isBusy = false;
@@ -1580,19 +1596,28 @@ class ServiceHardwareUI extends ServiceBase {
       }
 
       if (this.isOuterProcessing()) {
-        if (connectId && !hideCheckingDeviceLoading && !isThirdPartyVendor) {
+        if (
+          connectId &&
+          !isThirdPartyVendor &&
+          (!hideCheckingDeviceLoading ||
+            (platformEnv.isSupportDesktopBle &&
+              !params.allowDuringFirmwareUpdate))
+        ) {
           assertActive();
-          // 先在统一连接管理器中确定本次实际传输，再显示动画，避免 BLE
-          // 通讯使用上一次持久化的 USB 弹窗。这里只选择传输，不发起设备通讯。
+          // Hidden firmware workflows own USB selection, validation and transport locking.
+          // Other desktop calls still pin their transport even when the checking UI is hidden.
           await this.backgroundApi.serviceHardware.prepareHardwareTransport({
             connectId,
             connectProtocol: device?.connectProtocol,
             hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
+            oneKeyOperationLease: params.oneKeyOperationLease,
           });
           assertActive();
-          await this.showCheckingDeviceDialog({
-            connectId,
-          });
+          if (!hideCheckingDeviceLoading) {
+            await this.showCheckingDeviceDialog({
+              connectId,
+            });
+          }
         }
         // Third-party searching UI is driven by SDK ui-events.
 

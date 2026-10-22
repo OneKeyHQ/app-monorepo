@@ -52,6 +52,10 @@ export function useSwapNetworks() {
       const refreshPromise = (async () => {
         let receivedFreshConfiguration = false;
         try {
+          if (defaultConfigStatusRef.current !== 'pending') {
+            defaultConfigStatusRef.current = 'pending';
+            setDefaultConfigStatus('pending');
+          }
           let swapNetworksSortList =
             await backgroundApiProxy.simpleDb.swapNetworksSort
               .getRawData()
@@ -59,6 +63,7 @@ export function useSwapNetworks() {
           if (swapNetworksSortList?.data?.length) {
             const cachedSwapNetworks = swapNetworksSortList.data;
             if (
+              !swapNetworksRef.current.length &&
               defaultConfigStatusRef.current === 'pending' &&
               (isSwapNetworkCacheCompatible(cachedSwapNetworks) ||
                 isSwapNetworkCacheReadyForBasicList(cachedSwapNetworks))

@@ -380,6 +380,11 @@ export interface IAppEventBusPayload {
     scheduledAt: number;
   };
   [EAppEventBusNames.GasAccountSubmitRetryCleared]: undefined;
+  [EAppEventBusNames.BatchSignTxProgress]: {
+    progressEventId: string;
+    // 1-based index of the tx in the batch
+    current: number;
+  };
   // TokenList cells Phase-2 BG frame transport (D2=A). The structure event
   // carries the FULL idempotent structure snapshot for an owner (generation is
   // monotonic); the valuation event carries the FULL current fiat map for an
@@ -486,6 +491,7 @@ export interface IAppEventBusPayload {
     toToken?: ISwapToken;
   };
   [EAppEventBusNames.RefreshSwapHistoryList]: undefined;
+  [EAppEventBusNames.HeadlessBuyOrdersChanged]: undefined;
   // De-facto "network list changed, refresh" signal. Emitted not only when a
   // custom network is added/removed, but also after a server-network sync that
   // changes the set (e.g. a network delisted to TRASH). All network selectors
@@ -546,6 +552,9 @@ export interface IAppEventBusPayload {
     // state, preventing another Extension Home runtime from winning the race.
     claimId?: string;
   };
+  // Emitted by the extension background when the hosted card checkout page
+  // returns, so the waiting surface re-checks RevenueCat immediately.
+  [EAppEventBusNames.PrimeWebCheckoutReturned]: { checkoutId: string };
   [EAppEventBusNames.PrimeGiftRedeemed]: { serialNo: string };
   [EAppEventBusNames.PrimeExceedDeviceLimit]: undefined;
   [EAppEventBusNames.PrimeDeviceLogout]: {

@@ -1,6 +1,7 @@
 /* cspell:ignore Infini infini INFINI */
 import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import type { EOAuthSocialLoginProvider } from '@onekeyhq/shared/src/consts/authConsts';
+import { PRIME_WEB_CHECKOUT_PENDING_SESSION_TTL_MS } from '@onekeyhq/shared/src/consts/primeConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
@@ -26,6 +27,7 @@ import {
   toPrimeInfiniPaymentPersistenceError,
 } from '@onekeyhq/shared/src/utils/primeInfiniPaymentValidation';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
+import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
 import type { IExplicitLocalOneKeyIdLogoutProjection } from '@onekeyhq/shared/types/prime/identityExitTypes';
 import {
   EPrimeAuthSessionSource,
@@ -37,7 +39,10 @@ import {
   type IPrimeInfiniPendingPaymentSession,
   type IPrimeInfiniPendingPaymentSessionInput,
   type IPrimeInfiniPurchaseStatusSnapshot,
+  type IPrimeWebCheckoutExtensionContext,
+  type IPrimeWebCheckoutPendingSession,
 } from '@onekeyhq/shared/types/prime/primeTypes';
+import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
 
 import {
   clearAuthSessionBySessionSource,
@@ -109,10 +114,22 @@ type IInfiniBlockedReplacement = {
   historyId: string;
 };
 
+type IInfiniPendingTransactionRecovery = {
+  accountAddress: string;
+  nonce: number;
+  historyTx: IAccountHistoryTx;
+};
+
+const MAX_INFINI_REPLACEMENT_FENCES = 100;
+const MAX_INFINI_REPLACEMENT_PROTECTION_SIZE = 512 * 1024;
+
 export interface ISimpleDBPrime {
   // Independent of expiring payment sessions: stale confirmations must remain
   // blocked after their original pending history has been removed.
-  infiniBlockedReplacements?: Record<string, true>;
+  infiniBlockedReplacements?: Record<
+    string,
+    true | IInfiniPendingTransactionRecovery
+  >;
   // Hidden transactions may still occupy a nonce on-chain. No age-based pruning.
   infiniReservedNonces?: Record<string, number[]>;
   // Deprecated token copy. Supabase/OAuth session storage is the source of truth.
@@ -171,6 +188,11 @@ export interface ISimpleDBPrime {
     IPrimeInfiniSupersededPaymentSession[]
   >;
   identityLinkReportedAtByUserId?: Record<string, number>;
+  // One hosted card checkout per OneKey ID; a new checkout replaces the old.
+  webCheckoutPendingSessionByUserId?: Record<
+    string,
+    IPrimeWebCheckoutPendingSession
+  >;
   analyticsPrimeProfileReport?: {
     isOneKeyIdLoggedIn: boolean;
     isPrimeActive: boolean;
@@ -180,6 +202,34 @@ export interface ISimpleDBPrime {
 
 function isNonEmptyString(value: unknown): value is string {
   return typeof value === 'string' && value.trim().length > 0;
+}
+
+function isValidWebCheckoutPendingSession(
+  session: IPrimeWebCheckoutPendingSession | undefined,
+  { onekeyUserId, now }: { onekeyUserId: string; now: number },
+): session is IPrimeWebCheckoutPendingSession {
+  return Boolean(
+    session &&
+    session.onekeyUserId === onekeyUserId &&
+    isNonEmptyString(session.checkoutId) &&
+    isNonEmptyString(session.checkoutUrl) &&
+    Number.isFinite(session.startedAt) &&
+    session.startedAt <= now + 60_000 &&
+    now - session.startedAt < PRIME_WEB_CHECKOUT_PENDING_SESSION_TTL_MS,
+  );
+}
+
+function pruneWebCheckoutPendingSessions(
+  sessions: ISimpleDBPrime['webCheckoutPendingSessionByUserId'],
+  now: number,
+): Record<string, IPrimeWebCheckoutPendingSession> {
+  const nextSessions: Record<string, IPrimeWebCheckoutPendingSession> = {};
+  Object.entries(sessions ?? {}).forEach(([onekeyUserId, session]) => {
+    if (isValidWebCheckoutPendingSession(session, { onekeyUserId, now })) {
+      nextSessions[onekeyUserId] = session;
+    }
+  });
+  return nextSessions;
 }
 
 function isOptionalFiniteNumber(value: unknown) {
@@ -2321,9 +2371,24 @@ export class SimpleDbEntityPrime extends SimpleDbEntityBase<ISimpleDBPrime> {
   async blockInfiniReplacement({
     accountAddress,
     nonce,
+    historyTx,
     ...identity
-  }: IInfiniBlockedReplacement & { accountAddress: string; nonce: number }) {
-    if (!accountAddress || !Number.isSafeInteger(nonce) || nonce < 0) {
+  }: IInfiniBlockedReplacement & IInfiniPendingTransactionRecovery) {
+    if (
+      !accountAddress ||
+      !Number.isSafeInteger(nonce) ||
+      nonce < 0 ||
+      historyTx.id !== identity.historyId ||
+      historyTx.decodedTx.accountId !== identity.accountId ||
+      historyTx.decodedTx.networkId !== identity.networkId ||
+      historyTx.decodedTx.nonce !== nonce ||
+      historyTx.decodedTx.status !== EDecodedTxStatus.Pending ||
+      historyTx.decodedTx.signer.toLowerCase() !==
+        accountAddress.toLowerCase() ||
+      !historyTx.decodedTx.txid ||
+      !historyTx.decodedTx.encodedTx ||
+      historyTx.replacedNextId
+    ) {
       throw new OneKeyLocalError('Invalid Infini nonce reservation');
     }
     const key = stringUtils.stableStringify(identity);
@@ -2331,13 +2396,16 @@ export class SimpleDbEntityPrime extends SimpleDbEntityBase<ISimpleDBPrime> {
       networkId: identity.networkId,
       accountAddress: accountAddress.toLowerCase(),
     });
-    await this.setRawData((rawData) => ({
-      ...rawData,
-      infiniBlockedReplacements: {
+    await this.setRawData((rawData) => {
+      const infiniBlockedReplacements = {
         ...rawData?.infiniBlockedReplacements,
-        [key]: true,
-      },
-      infiniReservedNonces: {
+        [key]: {
+          accountAddress: accountAddress.toLowerCase(),
+          nonce,
+          historyTx,
+        },
+      };
+      const infiniReservedNonces = {
         ...rawData?.infiniReservedNonces,
         [nonceKey]: Array.from(
           new Set([
@@ -2345,8 +2413,77 @@ export class SimpleDbEntityPrime extends SimpleDbEntityBase<ISimpleDBPrime> {
             nonce,
           ]),
         ),
-      },
-    }));
+      };
+      // Refuse new hides at capacity. Never evict live protection to make room;
+      // the caller retains visible history if this atomic write fails.
+      if (
+        Object.keys(infiniBlockedReplacements).length >
+          MAX_INFINI_REPLACEMENT_FENCES ||
+        stringUtils.stableStringify({
+          infiniBlockedReplacements,
+          infiniReservedNonces,
+        }).length > MAX_INFINI_REPLACEMENT_PROTECTION_SIZE
+      ) {
+        throw new OneKeyLocalError('Infini replacement protection is full');
+      }
+      return { ...rawData, infiniBlockedReplacements, infiniReservedNonces };
+    });
+  }
+
+  @backgroundMethod()
+  async getInfiniPendingTransactionRecoveries(): Promise<
+    IInfiniPendingTransactionRecovery[]
+  > {
+    const rawData = await this.getRawData();
+    return Object.values(rawData?.infiniBlockedReplacements ?? {}).filter(
+      (entry): entry is IInfiniPendingTransactionRecovery => entry !== true,
+    );
+  }
+
+  @backgroundMethod()
+  async pruneInfiniConsumedNonces({
+    networkId,
+    accountAddress,
+    confirmedNonce,
+  }: {
+    networkId: string;
+    accountAddress: string;
+    confirmedNonce: number;
+  }) {
+    if (
+      !accountAddress ||
+      !Number.isSafeInteger(confirmedNonce) ||
+      confirmedNonce < 0
+    ) {
+      throw new OneKeyLocalError('Invalid confirmed Infini nonce');
+    }
+    const nonceKey = stringUtils.stableStringify({
+      networkId,
+      accountAddress: accountAddress.toLowerCase(),
+    });
+    await this.setRawData((rawData) => {
+      const infiniBlockedReplacements = {
+        ...rawData?.infiniBlockedReplacements,
+      };
+      for (const [key, entry] of Object.entries(infiniBlockedReplacements)) {
+        // Legacy boolean fences lack an address/nonce binding and stay closed.
+        if (
+          entry !== true &&
+          entry.historyTx.decodedTx.networkId === networkId &&
+          entry.accountAddress.toLowerCase() === accountAddress.toLowerCase() &&
+          entry.nonce < confirmedNonce
+        ) {
+          delete infiniBlockedReplacements[key];
+        }
+      }
+      const infiniReservedNonces = { ...rawData?.infiniReservedNonces };
+      const remaining = (infiniReservedNonces[nonceKey] ?? []).filter(
+        (nonce) => nonce >= confirmedNonce,
+      );
+      if (remaining.length) infiniReservedNonces[nonceKey] = remaining;
+      else delete infiniReservedNonces[nonceKey];
+      return { ...rawData, infiniBlockedReplacements, infiniReservedNonces };
+    });
   }
 
   @backgroundMethod()
@@ -2366,12 +2503,16 @@ export class SimpleDbEntityPrime extends SimpleDbEntityBase<ISimpleDBPrime> {
   }
 
   @backgroundMethod()
-  async isInfiniReplacementBlocked(params: IInfiniBlockedReplacement) {
+  async isInfiniReplacementBlocked({
+    accountId,
+    networkId,
+    historyId,
+  }: IInfiniBlockedReplacement) {
     const rawData = await this.getRawData();
-    return (
+    return Boolean(
       rawData?.infiniBlockedReplacements?.[
-        stringUtils.stableStringify(params)
-      ] === true
+        stringUtils.stableStringify({ accountId, networkId, historyId })
+      ],
     );
   }
 
@@ -2528,6 +2669,146 @@ export class SimpleDbEntityPrime extends SimpleDbEntityBase<ISimpleDBPrime> {
       });
     }
     return markedSession;
+  }
+
+  @backgroundMethod()
+  async getWebCheckoutPendingSession({
+    onekeyUserId,
+  }: {
+    onekeyUserId: string;
+  }): Promise<IPrimeWebCheckoutPendingSession | undefined> {
+    if (!onekeyUserId) {
+      return undefined;
+    }
+    const rawData = await this.getRawData();
+    const session = rawData?.webCheckoutPendingSessionByUserId?.[onekeyUserId];
+    return isValidWebCheckoutPendingSession(session, {
+      onekeyUserId,
+      now: Date.now(),
+    })
+      ? session
+      : undefined;
+  }
+
+  // The read and write share the entity mutex, including across extension UIs.
+  @backgroundMethod()
+  async acquireWebCheckoutPendingSession({
+    session,
+  }: {
+    session: IPrimeWebCheckoutPendingSession;
+  }): Promise<{
+    session: IPrimeWebCheckoutPendingSession;
+    reused: boolean;
+    replacedSession?: IPrimeWebCheckoutPendingSession;
+  }> {
+    const now = Date.now();
+    if (
+      !isValidWebCheckoutPendingSession(session, {
+        onekeyUserId: session.onekeyUserId,
+        now,
+      })
+    ) {
+      throw new OneKeyLocalError('Invalid Prime web checkout session');
+    }
+    let acquisition:
+      | {
+          session: IPrimeWebCheckoutPendingSession;
+          reused: boolean;
+          replacedSession?: IPrimeWebCheckoutPendingSession;
+        }
+      | undefined;
+    await this.setRawData((rawData) => {
+      const sessions = pruneWebCheckoutPendingSessions(
+        rawData?.webCheckoutPendingSessionByUserId,
+        Date.now(),
+      );
+      const previousSession = sessions[session.onekeyUserId];
+      if (
+        previousSession?.platform === session.platform &&
+        previousSession.isSandbox === session.isSandbox
+      ) {
+        acquisition = { session: previousSession, reused: true };
+        return rawData ?? {};
+      }
+      acquisition = {
+        session,
+        reused: false,
+        replacedSession: previousSession,
+      };
+      return {
+        ...rawData,
+        webCheckoutPendingSessionByUserId: {
+          ...sessions,
+          [session.onekeyUserId]: session,
+        },
+      };
+    });
+    if (!acquisition) {
+      throw new OneKeyLocalError('Prime web checkout session was not acquired');
+    }
+    return acquisition;
+  }
+
+  // Records the extension tabs after the checkout tab exists. Ignored when
+  // another checkout replaced the session in the meantime.
+  @backgroundMethod()
+  async updateWebCheckoutPendingSessionExtensionContext({
+    onekeyUserId,
+    checkoutId,
+    extension,
+  }: {
+    onekeyUserId: string;
+    checkoutId: string;
+    extension: IPrimeWebCheckoutExtensionContext;
+  }): Promise<boolean> {
+    let didUpdate = false;
+    await this.setRawData((rawData) => {
+      const current =
+        rawData?.webCheckoutPendingSessionByUserId?.[onekeyUserId];
+      if (current?.checkoutId !== checkoutId) {
+        return rawData ?? {};
+      }
+      didUpdate = true;
+      return {
+        ...rawData,
+        webCheckoutPendingSessionByUserId: {
+          ...rawData?.webCheckoutPendingSessionByUserId,
+          [onekeyUserId]: { ...current, extension },
+        },
+      };
+    });
+    return didUpdate;
+  }
+
+  // Compare-and-clear: only the caller that removes the matching session may
+  // report the purchase result, so a checkout is never completed twice.
+  @backgroundMethod()
+  async clearWebCheckoutPendingSession({
+    onekeyUserId,
+    expectedCheckoutId,
+  }: {
+    onekeyUserId: string;
+    expectedCheckoutId: string;
+  }): Promise<boolean> {
+    if (!onekeyUserId || !expectedCheckoutId) {
+      return false;
+    }
+    let didClear = false;
+    await this.setRawData((rawData) => {
+      const current =
+        rawData?.webCheckoutPendingSessionByUserId?.[onekeyUserId];
+      if (current?.checkoutId !== expectedCheckoutId) {
+        return rawData ?? {};
+      }
+      const nextSessions = { ...rawData?.webCheckoutPendingSessionByUserId };
+      delete nextSessions[onekeyUserId];
+      didClear = true;
+      return {
+        ...rawData,
+        webCheckoutPendingSessionByUserId: nextSessions,
+      };
+    });
+    return didClear;
   }
 
   @backgroundMethod()

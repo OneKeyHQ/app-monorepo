@@ -118,7 +118,11 @@ function scrollToAnchor(
       anchorRect.top - scrollerRect.top + scroller.scrollTop - offset,
     ),
   );
-  scroller.scrollTo({ top: targetY, behavior });
+  const scrollTo =
+    scroller.ownerDocument.defaultView?.Element.prototype.scrollTo.bind(
+      scroller,
+    ) ?? scroller.scrollTo.bind(scroller);
+  scrollTo({ top: targetY, behavior });
 }
 
 function DeFiContainer() {

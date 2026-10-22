@@ -592,6 +592,7 @@ function BaseSortableListView<T>(
   );
 }
 
+/** @deprecated Use NativeList from @onekeyfe/react-native-native-list for supported content reordering. */
 export const SortableListView = withStaticProperties(
   forwardRef(BaseSortableListView) as <T>(
     props: ISortableListViewProps<T> & {

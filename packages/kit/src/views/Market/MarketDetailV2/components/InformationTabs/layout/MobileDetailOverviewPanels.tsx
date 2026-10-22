@@ -1,7 +1,7 @@
 // cspell:ignore Financials
 import type { ReactNode } from 'react';
 
-import { Stack, Tabs } from '@onekeyhq/components';
+import { Stack } from '@onekeyhq/components';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { IMarketAssetDetailData } from '@onekeyhq/shared/types/market';
 
@@ -14,6 +14,8 @@ import { TokenSupplementaryInfo } from '../../TokenSupplementaryInfo/TokenSupple
 import { TopCoinsOverviewContent } from '../../TopCoinsOverview/TopCoinsOverviewContent';
 import { StockMobileOverview } from '../StockMobileOverview';
 
+import { MarketDetailScrollView } from './MarketDetailScroll';
+
 function OverviewScroll({
   scrollEnabled,
   children,
@@ -22,10 +24,10 @@ function OverviewScroll({
   children: ReactNode;
 }) {
   return (
-    <Tabs.ScrollView scrollEnabled={scrollEnabled}>
+    <MarketDetailScrollView scrollEnabled={scrollEnabled}>
       {children}
       <Stack h={100} />
-    </Tabs.ScrollView>
+    </MarketDetailScrollView>
   );
 }
 

@@ -1,1 +1,0 @@
-export { MobileLayout } from './legacyMobileLayout';

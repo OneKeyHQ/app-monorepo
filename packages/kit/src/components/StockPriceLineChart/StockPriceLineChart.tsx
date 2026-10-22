@@ -8,6 +8,7 @@ import { NumberSizeableText, SizableText, Stack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
+import { numberFormatAsRaw } from '@onekeyhq/shared/src/utils/numberUtils';
 import type { IMarketTokenChart } from '@onekeyhq/shared/types/market';
 
 import { LightweightChart } from '../LightweightChart';
@@ -19,7 +20,10 @@ import {
 } from '../LightweightChart/utils/formatChartPrice';
 import { getChartPriceFormatBase } from '../LightweightChart/utils/priceFormatBase';
 
-import type { ILightweightChartReferenceLine } from '../LightweightChart/types';
+import type {
+  ILightweightChartNativeScrubOptions,
+  ILightweightChartReferenceLine,
+} from '../LightweightChart/types';
 
 const PRICE_SCALE_MARGINS = { top: 0.12, bottom: 0.1 } as const;
 // Kept in sync with `priceScaleMinimumWidth` below, so the price axis reserves
@@ -37,7 +41,7 @@ const HOVER_PRICE_FORMATTER_OPTIONS = { currency: '$' } as const;
 const HOVER_TIME_FORMAT_TEMPLATE = 'yyyy/LL/dd, HH:mm';
 // The hover card follows the cursor on both axes. Fixed width so it can be
 // flipped and clamped before it is drawn, and so figures like "$123,456.78"
-// and the widest hover time ("2000/00/00, 00:00", ~99px at 11px Roobert)
+// and the widest hover time ("2000/00/00, 00:00", ~99px at 11px brand sans)
 // still fit on one line.
 const HOVER_TOOLTIP_WIDTH = 120;
 // Gap kept between the cursor and the card, and the smallest gap kept to the
@@ -128,8 +132,8 @@ export function StockPriceLineChart({
   // without the dashed price line lightweight-charts pairs it with.
   showCurrentPriceLabel?: boolean;
   // `stock`: quotes keep two decimals on the axis and the last-price badge.
-  // `full`: desktop prints the whole figure up to $1M (`$2,377.04`, ticks
-  // `$2,540`) instead of the compact `$2.38K`.
+  // `full`: prints the whole figure up to $1M (`$2,377.04`, ticks `$2,540`)
+  // instead of the compact `$2.38K`.
   priceScaleFormat?: 'stock' | 'full';
   testID?: string;
   // The hover card answers "when" and, by default, "how much". Hosts that must
@@ -187,10 +191,14 @@ export function StockPriceLineChart({
     },
     [],
   );
-  // A fresh series (range switch, refetch) invalidates whatever the crosshair
-  // was pointing at.
+  // Android keeps tracking locally across refreshes. Keep an optional price
+  // header on that point too, until it leaves the refreshed range.
   useEffect(() => {
-    setHoverData(null);
+    setHoverData((current) => {
+      if (!platformEnv.isNativeAndroid || !current) return null;
+      const point = data.find(([time]) => time === current.time);
+      return point ? { ...current, price: point[1] } : null;
+    });
   }, [data]);
 
   const hoverPoint = useMemo<IStockPriceLineChartHoverPoint | undefined>(() => {
@@ -267,7 +275,7 @@ export function StockPriceLineChart({
   // moves; only the solid overlay drawn on top of it is cut at the cursor.
   const hoveredTime = hoverData?.time;
   const solidData = useMemo(() => {
-    if (hoveredTime === undefined) {
+    if (platformEnv.isNativeAndroid || hoveredTime === undefined) {
       return data;
     }
     const upToCursor = data.filter(([time]) => time <= hoveredTime);
@@ -275,6 +283,56 @@ export function StockPriceLineChart({
     // chart mid-scrub, so it always keeps at least the first point.
     return upToCursor.length > 0 ? upToCursor : data.slice(0, 1);
   }, [data, hoveredTime]);
+
+  const nativeScrubOptions = useMemo<
+    ILightweightChartNativeScrubOptions | undefined
+  >(() => {
+    if (!platformEnv.isNativeAndroid) return undefined;
+    return {
+      labels: Object.fromEntries(
+        data.map(([time, price]) => {
+          const parts = numberFormatAsRaw(String(price), {
+            formatter: 'price',
+            formatterOptions: HOVER_PRICE_FORMATTER_OPTIONS,
+          });
+          const priceLabel =
+            typeof parts === 'string'
+              ? parts
+              : parts
+                  .map((part) =>
+                    typeof part === 'string'
+                      ? part
+                      : String(part.value).replace(/[0-9]/g, (digit) =>
+                          '₀₁₂₃₄₅₆₇₈₉'.charAt(Number(digit)),
+                        ),
+                  )
+                  .join('');
+          return [
+            time,
+            {
+              time: formatDate(new Date(time * 1000), {
+                formatTemplate: HOVER_TIME_FORMAT_TEMPLATE,
+              }),
+              price: hoverLabelShowsPrice ? priceLabel : undefined,
+            },
+          ];
+        }),
+      ),
+      backgroundColor: theme.bg.val,
+      borderColor: theme.borderSubdued.val,
+      textColor: theme.text.val,
+      timeColor: theme.textDisabled.val,
+      largePrice: hoverLabelLargePrice,
+    };
+  }, [
+    data,
+    hoverLabelShowsPrice,
+    hoverLabelLargePrice,
+    theme.bg.val,
+    theme.borderSubdued.val,
+    theme.text.val,
+    theme.textDisabled.val,
+  ]);
 
   // Held in a ref so an inline parent callback cannot make the reporting effect
   // fire on every render.
@@ -371,14 +429,17 @@ export function StockPriceLineChart({
         priceTickFormatter={priceTickFormatter}
         priceFormatBase={priceFormatBase}
         compactPriceMaxCharacters={PRICE_SCALE_MAX_CHARACTERS}
-        // `full` relies on JS formatters, which only the web chart runs; the
-        // native WebView keeps its serializable compact form.
-        priceScaleFormat={priceScaleFormat === 'stock' ? 'stock' : undefined}
+        priceScaleFormat={priceScaleFormat}
         fontSize={11}
         useTimeScaleTickMarkWithoutUnit
-        onHover={handleHover}
+        nativeScrubOptions={nativeScrubOptions}
+        onHover={
+          platformEnv.isNativeAndroid && !onHoverChange
+            ? undefined
+            : handleHover
+        }
       />
-      {hoverData && tooltipPosition ? (
+      {!platformEnv.isNativeAndroid && hoverData && tooltipPosition ? (
         <Stack
           testID="stock-price-line-chart-hover-label"
           position="absolute"

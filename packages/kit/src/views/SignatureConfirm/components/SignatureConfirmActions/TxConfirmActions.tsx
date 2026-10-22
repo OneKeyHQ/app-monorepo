@@ -31,6 +31,7 @@ import {
   useDecodedTxsInitAtom,
   useEffectiveFeePayerAtom,
   useGasAccountUiStateAtom,
+  useIsGasAccountSubmitResultUnknown,
   useMegafuelEligibleAtom,
   useNativeTokenInfoAtom,
   useNativeTokenTransferAmountToUpdateAtom,
@@ -49,6 +50,7 @@ import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms'
 import type { ITransferPayload } from '@onekeyhq/kit-bg/src/vaults/types';
 import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import {
+  EGasAccountRequestStage,
   getGasAccountErrorCode,
   isGasAccountSubmitCancelledError,
 } from '@onekeyhq/shared/src/errors/utils/gasAccountErrorUtils';
@@ -85,7 +87,7 @@ import {
 
 import {
   EGasAccountErrorStrategy,
-  getGasAccountErrorEntry,
+  getGasAccountErrorEntryForError,
 } from '../../constants/gasAccountErrorCodes';
 import { usePreCheckFeeInfo } from '../../hooks/usePreCheckFeeInfo';
 import { SignatureConfirmTestIDs } from '../../testIDs';
@@ -176,6 +178,9 @@ function TxConfirmActions(props: IProps) {
   const [gasAccountUiState] = useGasAccountUiStateAtom();
   const [megafuelEligible] = useMegafuelEligibleAtom();
   const [unsignedTxs] = useUnsignedTxsAtom();
+  const gasAccountSubmitResultUnknown = useIsGasAccountSubmitResultUnknown(
+    unsignedTxs[0]?.uuid,
+  );
   const { isAccepted: continueOperate, setAccepted: setSecurityCheckAccepted } =
     useScopedAcknowledgement(securityCheckAcknowledgementKey);
   const [nativeTokenInfo] = useNativeTokenInfoAtom();
@@ -188,6 +193,7 @@ function TxConfirmActions(props: IProps) {
     updateEffectiveFeePayer,
     updateGasAccountTemporarilyDisabled,
     resetGasAccountTemporarilyDisabled,
+    markGasAccountSubmitResultUnknown,
     updateGasAccountUiState,
     resetGasAccountUiState,
     updateSendFeeStatus,
@@ -315,7 +321,12 @@ function TxConfirmActions(props: IProps) {
       }
 
       const code = getGasAccountErrorCode(error);
-      const entry = getGasAccountErrorEntry(code);
+      // Only send-transaction runs under this handler: the estimate poll has
+      // its own classifier in TxFeeInfo.
+      const entry = getGasAccountErrorEntryForError(
+        error,
+        EGasAccountRequestStage.Send,
+      );
       if (!entry) {
         if (typeof code === 'number') {
           // Unknown-but-numeric code — surface in dev so contract drift
@@ -375,6 +386,14 @@ function TxConfirmActions(props: IProps) {
       // caller still invoke onFail / dappApprove.reject — the current attempt
       // is terminal and the dApp needs to know. Entries flagged suppressToast
       // skip the user-facing copy entirely while preserving the reject path.
+      if (entry.resultUnknown) {
+        // The tx may already be on chain (OK-64746). Latch this tx for the
+        // rest of the page: the confirm button stays disabled and TxFeeInfo
+        // stops re-estimating it, so neither a poll tick nor a second tap can
+        // move on to a new nonce / quote and send a second tx. Queue
+        // navigation to another tx and back keeps the latch.
+        markGasAccountSubmitResultUnknown(unsignedTx?.uuid);
+      }
       muteHandledErrorToast(error);
       if (!entry.suppressToast) {
         Toast.warning({ title: message });
@@ -388,6 +407,8 @@ function TxConfirmActions(props: IProps) {
       resetGasAccountTemporarilyDisabled,
       resetGasAccountUiState,
       updateEffectiveFeePayer,
+      markGasAccountSubmitResultUnknown,
+      unsignedTx?.uuid,
       updateGasAccountTemporarilyDisabled,
       updateGasAccountUiState,
       updateSendFeeStatus,
@@ -1112,6 +1133,9 @@ function TxConfirmActions(props: IProps) {
   // indefinitely. The ref gates this to a single shot per expiry transition.
   const quoteExpiredHandledRef = useRef(false);
   useEffect(() => {
+    // After a result-unknown send the quote is the record of what was
+    // attempted; expiring it would re-estimate onto a new nonce / quote.
+    if (gasAccountSubmitResultUnknown) return;
     if (isGasAccountQuoteExpired) {
       if (quoteExpiredHandledRef.current) return;
       quoteExpiredHandledRef.current = true;
@@ -1129,6 +1153,7 @@ function TxConfirmActions(props: IProps) {
       quoteExpiredHandledRef.current = false;
     }
   }, [
+    gasAccountSubmitResultUnknown,
     isGasAccountQuoteExpired,
     logGasAccountAction,
     resetGasAccountUiState,
@@ -1148,6 +1173,9 @@ function TxConfirmActions(props: IProps) {
     if (showTakeRiskAlert && !continueOperate) return true;
 
     if (sendTxStatus.isSubmitting) return true;
+    // A result-unknown Gas Account send may already be on chain: never allow
+    // a second attempt from this page.
+    if (gasAccountSubmitResultUnknown) return true;
     if (
       nativeTokenInfo.isLoading ||
       sendTxStatus.isInsufficientNativeBalance ||
@@ -1174,6 +1202,7 @@ function TxConfirmActions(props: IProps) {
     showTakeRiskAlert,
     continueOperate,
     sendTxStatus.isSubmitting,
+    gasAccountSubmitResultUnknown,
     sendTxStatus.isInsufficientNativeBalance,
     sendTxStatus.isInsufficientTokenBalance,
     nativeTokenInfo.isLoading,

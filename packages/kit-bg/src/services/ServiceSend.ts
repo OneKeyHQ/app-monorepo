@@ -1,6 +1,6 @@
 /* cspell:ignore Infini */
 import BigNumber from 'bignumber.js';
-import { cloneDeep, isNil } from 'lodash';
+import { cloneDeep, isNil, isNumber, max } from 'lodash';
 import pLimit from 'p-limit';
 import pRetry from 'p-retry';
 
@@ -31,6 +31,7 @@ import {
   ReplaceTxNonceConsumedError,
 } from '@onekeyhq/shared/src/errors';
 import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
+import { withBroadcastTxContext } from '@onekeyhq/shared/src/errors/utils/broadcastTxErrorUtils';
 import {
   GasAccountSubmitCancelledError,
   MAX_GAS_ACCOUNT_RETRY_ATTEMPTS,
@@ -52,6 +53,7 @@ import {
   logSolanaTxDiagnostic,
 } from '@onekeyhq/shared/src/logger/solanaTxDiagnostics';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import bulkSendUtils from '@onekeyhq/shared/src/utils/bulkSendUtils';
 import cacheUtils from '@onekeyhq/shared/src/utils/cacheUtils';
 import { getValidUnsignedMessage } from '@onekeyhq/shared/src/utils/messageUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
@@ -74,7 +76,10 @@ import type {
   ISendSelectedFeeInfo,
   ITronResourceRentalInfo,
 } from '@onekeyhq/shared/types/fee';
-import { EOnChainHistoryTxType } from '@onekeyhq/shared/types/history';
+import {
+  EOnChainHistoryTxType,
+  type IAccountHistoryTx,
+} from '@onekeyhq/shared/types/history';
 import type { IPrimeInfiniBeforeBroadcastAction } from '@onekeyhq/shared/types/prime/primeTypes';
 import type { ESendPreCheckTimingEnum } from '@onekeyhq/shared/types/send';
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
@@ -171,6 +176,22 @@ class ServiceSend extends ServiceBase {
     max: 50,
     ttl: timerUtils.getTimeDurationMs({ day: 1 }),
   });
+
+  // Txs already broadcast under a tracking id, for UIs that must know which
+  // txs of a failed batch went out (they cannot see this map on split
+  // runtimes). `recorded: false` still needs a retry to finish its history.
+  @backgroundMethod()
+  async getBatchBroadcastedTxUuids({
+    sentTxsTrackingId,
+  }: {
+    sentTxsTrackingId: string;
+  }): Promise<Array<{ uuid: string; recorded: boolean }>> {
+    const broadcastedTxs = this.batchBroadcastedTxs.get(sentTxsTrackingId);
+    return Array.from(broadcastedTxs?.entries() ?? [], ([uuid, tx]) => ({
+      uuid,
+      recorded: tx.status === 'recorded',
+    }));
+  }
 
   private getBatchBroadcastedTxs(sentTxsTrackingId: string) {
     let broadcastedTxs = this.batchBroadcastedTxs.get(sentTxsTrackingId);
@@ -323,6 +344,7 @@ class ServiceSend extends ServiceBase {
       nonce: historyTx.decodedTx.nonce,
       originalTxid: historyTx.decodedTx.txid,
       originalHistoryId: historyTx.id,
+      originalHistoryTx: historyTx,
     };
   }
 
@@ -521,8 +543,11 @@ class ServiceSend extends ServiceBase {
       tronResourceRentalInfo?.isResourceRentalEnabled;
 
     const client = await this.getClient(EServiceEndpointEnum.Wallet);
-    const walletTypeHeader =
-      await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader({
+    // Wallet-type header plus the OneKey ID login token of the current
+    // session: Prime checks the member identity of a Gas Account quote at
+    // execute time, so the token must match the one estimate-fee carried.
+    const requestHeaders =
+      await this.backgroundApi.serviceGas.getGasAccountRequestHeaders({
         accountId,
       });
     const requestStartedAt = Date.now();
@@ -561,7 +586,7 @@ class ServiceSend extends ServiceBase {
         },
         {
           timeout: timerUtils.getTimeDurationMs({ seconds: 10 }),
-          headers: walletTypeHeader,
+          headers: requestHeaders,
         },
       )
       .then(
@@ -621,7 +646,12 @@ class ServiceSend extends ServiceBase {
       const client = await this.getClient(EServiceEndpointEnum.Wallet);
       const resp = await client.post<{
         data: { success: boolean };
-      }>('/wallet/v1/account/pre-send-transaction', params);
+      }>('/wallet/v1/account/pre-send-transaction', params, {
+        // Preventive (OK-64746): the pre-check has no Gas Account member
+        // logic today, but carry the OneKey ID token so a future member path
+        // on this endpoint does not silently run anonymous.
+        headers: await this.getOneKeyIdAuthHeaders(),
+      });
 
       return !resp.data.data.success;
     } catch {
@@ -798,6 +828,7 @@ class ServiceSend extends ServiceBase {
     originalTxid,
     originalHistoryId,
     originalNonce,
+    originalHistoryTx,
   }: ISendTxBaseParams & {
     accountAddress: string;
     signedTx: ISignedTxPro;
@@ -809,6 +840,7 @@ class ServiceSend extends ServiceBase {
     originalTxid?: string;
     originalHistoryId?: string;
     originalNonce?: number;
+    originalHistoryTx?: IAccountHistoryTx;
   }) {
     // Both paths originate from wallet-built transfers. Replacement callers
     // additionally verify the signed EVM payload against the original history.
@@ -935,6 +967,7 @@ class ServiceSend extends ServiceBase {
       mode === 'speedUp' &&
       originalTxid &&
       originalHistoryId &&
+      originalHistoryTx &&
       latestPayment.paymentId === paymentCacheKey.paymentId &&
       new BigNumber(transferClaim.amount).eq(latestPayment.amountDue) &&
       isSamePrimeInfiniNetworkAddress({
@@ -958,6 +991,7 @@ class ServiceSend extends ServiceBase {
           historyId: originalHistoryId,
           accountAddress,
           nonce: originalNonce ?? NaN,
+          historyTx: originalHistoryTx,
         });
         await this.backgroundApi.serviceHistory.clearLocalHistoryPendingTxByTxId(
           {
@@ -1058,6 +1092,7 @@ class ServiceSend extends ServiceBase {
         replaceTxInfo?: IReplaceTxInfo;
         isPrivateSend?: boolean;
         stageFeeInfo?: ISendSelectedFeeInfo;
+        preserveBroadcastTxIdOnError?: boolean;
       },
   ): Promise<
     ISignedTxPro & { primeInfiniPayment?: IPrimeInfiniBeforeBroadcastAction }
@@ -1115,6 +1150,7 @@ class ServiceSend extends ServiceBase {
       isPrivateSend,
       useDefaultRpc,
       stageFeeInfo,
+      preserveBroadcastTxIdOnError,
     } = params;
 
     const diagnostic = diagnosticState.context;
@@ -1155,11 +1191,7 @@ class ServiceSend extends ServiceBase {
       encodedTx: IEncodedTx | null,
       fallbackNonce?: number,
     ) => {
-      if (
-        !networkUtils.isEvmNetwork({ networkId }) ||
-        replaceTxInfo?.replaceType === EReplaceTxType.Cancel
-      )
-        return;
+      if (!networkUtils.isEvmNetwork({ networkId })) return;
       const nonce = new BigNumber(
         (encodedTx as IEncodedTxEvm | null)?.nonce ?? fallbackNonce ?? NaN,
       ).toNumber();
@@ -1170,6 +1202,26 @@ class ServiceSend extends ServiceBase {
           accountAddress,
         });
       if (reserved.includes(nonce)) {
+        const tx = encodedTx as IEncodedTxEvm | null;
+        // Recovery uses the explicit Cancel confirmation. Verify its actual
+        // payload both before and after signing rather than trusting the label.
+        if (
+          replaceTxInfo?.replaceType === EReplaceTxType.Cancel &&
+          tx &&
+          isSamePrimeInfiniNetworkAddress({
+            networkId,
+            first: tx.from ?? '',
+            second: accountAddress,
+          }) &&
+          isSamePrimeInfiniNetworkAddress({
+            networkId,
+            first: tx.to ?? '',
+            second: accountAddress,
+          }) &&
+          new BigNumber(tx.value).eq(0) &&
+          (tx.data ?? '0x').toLowerCase() === '0x'
+        )
+          return;
         throw new OneKeyLocalError({
           key: ETranslations.prime_close_and_try_again__desc,
           autoToast: true,
@@ -1347,6 +1399,7 @@ class ServiceSend extends ServiceBase {
             originalTxid: replacementContext?.originalTxid,
             originalHistoryId: replacementContext?.originalHistoryId,
             originalNonce: replacementContext?.nonce,
+            originalHistoryTx: replacementContext?.originalHistoryTx,
           });
         infiniPaymentExpiresAt = markedSession.payment.expiresAt;
         effectiveBroadcastDeadline = Math.min(
@@ -1601,6 +1654,18 @@ class ServiceSend extends ServiceBase {
             ),
           });
         }
+        if (
+          preserveBroadcastTxIdOnError &&
+          hasAttemptedBroadcast &&
+          !isGasAccountSubmit &&
+          networkUtils.isEvmNetwork({ networkId }) &&
+          /^0x[\da-f]{64}$/i.test(signedTx.txid)
+        ) {
+          throw withBroadcastTxContext(error, {
+            networkId,
+            txId: signedTx.txid,
+          });
+        }
         throw error;
       });
       const isBroadcastResultAccepted =
@@ -1717,6 +1782,7 @@ class ServiceSend extends ServiceBase {
       wcPayPreBroadcastRecord,
       useDefaultRpc,
       freeTrialUsage,
+      progressEventId,
     } = params;
     // Decided before any broadcast: nothing may throw after one. Developer
     // mode "always sign only" signs without broadcasting, so it uses nothing.
@@ -1792,6 +1858,10 @@ class ServiceSend extends ServiceBase {
     const broadcastedTxs = sentTxsTrackingId
       ? this.getBatchBroadcastedTxs(sentTxsTrackingId)
       : undefined;
+    // Refresh every tx built before another tx of this tracking id went out:
+    // later txs of the batch, and the first one when a retry dropped txs
+    // that are already on chain.
+    const hasEarlierBroadcast = (broadcastedTxs?.size ?? 0) > 0;
     const result: ISendTxOnSuccessData[] = [];
     for (let i = 0, len = unsignedTxs.length; i < len; i += 1) {
       const txUuid = unsignedTxs[i].uuid;
@@ -1810,7 +1880,13 @@ class ServiceSend extends ServiceBase {
           // remaining steps with what was actually broadcast.
           ({ unsignedTx, feeInfo, signedTx } = broadcastedTx);
         } else {
-          if (isMultiTxs && i > 0) {
+          if (progressEventId) {
+            appEventBus.emit(EAppEventBusNames.BatchSignTxProgress, {
+              progressEventId,
+              current: i + 1,
+            });
+          }
+          if (i > 0 || hasEarlierBroadcast) {
             unsignedTx =
               await vault.refreshUnsignedTxBeforeBatchSign(unsignedTx);
           }
@@ -1977,6 +2053,73 @@ class ServiceSend extends ServiceBase {
     return result;
   }
 
+  private async restoreInfiniPendingTransaction({
+    historyTx,
+    accountAddress,
+    nonce,
+  }: {
+    historyTx: IAccountHistoryTx;
+    accountAddress: string;
+    nonce: number;
+  }): Promise<boolean> {
+    const { accountId, networkId } = historyTx.decodedTx;
+    const currentAddress = await this.backgroundApi.serviceAccount
+      .getAccountAddressForApi({ accountId, networkId })
+      .catch(() => undefined);
+    if (
+      !currentAddress ||
+      !networkUtils.isEvmNetwork({ networkId }) ||
+      !isSamePrimeInfiniNetworkAddress({
+        networkId,
+        first: currentAddress,
+        second: accountAddress,
+      })
+    )
+      return false;
+    const confirmedNonce = await this.fetchReplaceTxOnChainNextNonce({
+      accountId,
+      networkId,
+    }).catch(() => undefined);
+    if (
+      confirmedNonce !== undefined &&
+      Number.isSafeInteger(confirmedNonce) &&
+      confirmedNonce > nonce
+    ) {
+      await this.backgroundApi.simpleDb.prime.pruneInfiniConsumedNonces({
+        networkId,
+        accountAddress,
+        confirmedNonce,
+      });
+      return false;
+    }
+    const current =
+      await this.backgroundApi.serviceHistory.getLocalHistoryTxById({
+        accountId,
+        networkId,
+        historyId: historyTx.id,
+      });
+    if (current) return false;
+    // Restoring history is not evidence that a payment was dropped. Keep the
+    // reservation, replacement fence and payment claim until confirmed nonce
+    // consumption; the user can now open the existing Cancel confirmation.
+    return this.backgroundApi.simpleDb.localHistory.restoreLocalHistoryPendingTx(
+      { networkId, accountAddress, historyTx },
+    );
+  }
+
+  @backgroundMethod()
+  public async restoreInfiniPendingTransactions(): Promise<number> {
+    const recoveries =
+      await this.backgroundApi.simpleDb.prime.getInfiniPendingTransactionRecoveries();
+    let restored = 0;
+    for (const recovery of recoveries) {
+      if (await this.restoreInfiniPendingTransaction(recovery)) restored += 1;
+    }
+    if (restored)
+      appEventBus.emit(EAppEventBusNames.HistoryTxStatusChanged, undefined);
+    return restored;
+  }
+
   @backgroundMethod()
   public async getNextNonce({
     accountId,
@@ -2023,12 +2166,36 @@ class ServiceSend extends ServiceBase {
         accountAddress,
         networkId,
       });
-    const reservedNonces = networkUtils.isEvmNetwork({ networkId })
+    let reservedNonces = networkUtils.isEvmNetwork({ networkId })
       ? await this.backgroundApi.simpleDb.prime.getInfiniReservedNonces({
           networkId,
           accountAddress,
         })
       : [];
+    if (reservedNonces.length) {
+      // The allocation nonce can include pending transactions or come from the
+      // UI's prefetch. Only a fresh confirmed source can retire protection.
+      const confirmedNonce = await this.fetchReplaceTxOnChainNextNonce({
+        accountId,
+        networkId,
+      }).catch(() => undefined);
+      if (
+        confirmedNonce !== undefined &&
+        Number.isSafeInteger(confirmedNonce) &&
+        reservedNonces.some((nonce) => nonce < confirmedNonce)
+      ) {
+        await this.backgroundApi.simpleDb.prime.pruneInfiniConsumedNonces({
+          networkId,
+          accountAddress,
+          confirmedNonce,
+        });
+        reservedNonces =
+          await this.backgroundApi.simpleDb.prime.getInfiniReservedNonces({
+            networkId,
+            accountAddress,
+          });
+      }
+    }
     // Chain nonce is the lower bound: consumed reservations cannot create holes
     // below it, while hidden pending transactions still occupy their nonce.
     const occupiedNonces = new Set([...pendingNonceList, ...reservedNonces]);
@@ -2687,6 +2854,75 @@ class ServiceSend extends ServiceBase {
       memo,
       tokenAddress,
     );
+  }
+
+  // Contract-based OneToMany bulk send (EVM/TRON): split recipients into
+  // chunks so each tx stays under per-tx gas/energy limits. Nonces chain from
+  // prevNonce (e.g. after approve txs); uuids let retries skip sent chunks.
+  @backgroundMethod()
+  @toastIfError()
+  async prepareBulkSendTransferTxs(params: {
+    networkId: string;
+    accountId: string;
+    transfersInfo: ITransferInfo[];
+    prevNonce?: number;
+    // Txs this tracking id broadcast but has not recorded in history hold
+    // nonces the next-nonce lookup cannot see; new txs start above them.
+    sentTxsTrackingId?: string;
+  }): Promise<IUnsignedTxPro[]> {
+    const { networkId, accountId, transfersInfo, sentTxsTrackingId } = params;
+    let { prevNonce } = params;
+    const usedNonce = max(
+      Array.from(
+        (sentTxsTrackingId &&
+          this.batchBroadcastedTxs.get(sentTxsTrackingId)?.values()) ||
+          [],
+        (tx) => (tx.status === 'broadcasted' ? tx.unsignedTx.nonce : undefined),
+      ).filter(isNumber),
+    );
+    if (isNil(prevNonce) && !isNil(usedNonce)) {
+      const account = await this.backgroundApi.serviceAccount.getAccount({
+        accountId,
+        networkId,
+      });
+      const nextNonce = await this.getNextNonce({
+        accountId,
+        networkId,
+        accountAddress: account.address,
+      });
+      prevNonce = Math.max(usedNonce, nextNonce - 1);
+    }
+    const { bulkSendMaxTransfersPerTx } =
+      await this.backgroundApi.serviceNetwork.getVaultSettings({ networkId });
+    const [firstChunk, ...restChunks] = bulkSendUtils.chunkBulkSendTransfers(
+      transfersInfo,
+      bulkSendMaxTransfersPerTx,
+    );
+    if (!firstChunk) return [];
+    const prepareChunk = (chunkTransfers: ITransferInfo[], nonce?: number) =>
+      this.prepareSendConfirmUnsignedTx({
+        networkId,
+        accountId,
+        transfersInfo: chunkTransfers,
+        prevNonce: nonce,
+        withUuid: true,
+      });
+    // Nonces chain per chunk; with a known prevNonce all chunks build in
+    // parallel, otherwise the first build fetches the base nonce.
+    const firstTxPromise = prepareChunk(firstChunk, prevNonce);
+    const baseNonce = isNil(prevNonce)
+      ? (await firstTxPromise).nonce
+      : prevNonce + 1;
+    const restTxs = Promise.all(
+      restChunks.map((chunkTransfers, index) =>
+        prepareChunk(
+          chunkTransfers,
+          isNil(baseNonce) ? undefined : baseNonce + index,
+        ),
+      ),
+    );
+    const [firstTx, otherTxs] = await Promise.all([firstTxPromise, restTxs]);
+    return [firstTx, ...otherTxs];
   }
 
   @backgroundMethod()

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import type { CSSProperties, ReactNode } from 'react';
 
 import BigNumber from 'bignumber.js';
@@ -60,7 +60,9 @@ import {
 } from '../components/StockSimpleChart';
 import { ShareButton } from '../components/TokenDetailHeader/ShareButton';
 import { MarketTokenSelector } from '../components/TokenSelector/MarketTokenSelector';
+import { MarketDetailWatchlistSidebarToggle } from '../components/WatchlistSidebar/MarketDetailWatchlistSidebarContext';
 import { useStockDetail } from '../hooks/StockDetailContext';
+import { useMarketDetailPositionTab } from '../hooks/useMarketDetailPositionTab';
 import { useStockPortfolioData } from '../hooks/useStockPortfolioData';
 import { useStockPriceSource } from '../hooks/useStockPriceSource';
 import { useTokenDetail } from '../hooks/useTokenDetail';
@@ -131,72 +133,75 @@ function StockPageHeader({
       justifyContent="space-between"
       gap="$5"
     >
-      <MarketTokenSelector
-        defaultCategory="stocks"
-        renderTrigger={
-          // eslint-disable-next-line props-checker/validator -- MarketTokenSelector injects the popover press handler.
-          <XStack
-            testID="stock-header-token-selector"
-            alignItems="center"
-            gap="$3.5"
-            minWidth={0}
-            cursor="pointer"
-            // Hovering paints a rounded-full pill that reaches 8px past the
-            // content horizontally and 4px vertically. Each negative margin is
-            // cancelled by matching padding, so the row itself never moves.
-            ml={-8}
-            mr={-8}
-            my={-4}
-            pl={8}
-            pr={8}
-            py={4}
-            borderRadius="$full"
-            borderCurve="continuous"
-            hoverStyle={{ bg: '$bgHover' }}
-            pressStyle={{ bg: '$bgActive' }}
-          >
-            <Token
-              size="xl"
-              tokenImageUri={
-                stockDetail?.logoUrl ||
-                stockPreview?.logoUrl ||
-                tokenDetail?.logoUrl ||
-                stock?.sourceLogoUri
-              }
-              fallbackIcon="CryptoCoinOutline"
-            />
-            <YStack minWidth={0} justifyContent="center">
-              <SizableText size="$headingXl" numberOfLines={1}>
-                {stockDetail?.symbol ||
-                  stockPreview?.symbol ||
-                  stock?.underlyingAssetTicker ||
-                  stock?.title ||
-                  tokenDetail?.symbol ||
-                  stockId ||
-                  ''}
-              </SizableText>
-              <SizableText
-                size="$bodyMdMedium"
-                color="$textSubdued"
-                numberOfLines={1}
-              >
-                {stockDetail?.name ||
-                  stockPreview?.name ||
-                  stock?.subtitle ||
-                  tokenDetail?.name ||
-                  ''}
-              </SizableText>
-            </YStack>
-            {/* Figma 25277:10352: the chevron closes the whole pill and is
-                centered on it, not tucked beside the ticker. */}
-            <Icon
-              name="ChevronDownSmallOutline"
-              size="$5"
-              color="$iconSubdued"
-            />
-          </XStack>
-        }
-      />
+      <XStack alignItems="center" gap="$3.5" minWidth={0} flexShrink={1}>
+        <MarketDetailWatchlistSidebarToggle />
+        <MarketTokenSelector
+          defaultCategory="stocks"
+          renderTrigger={
+            // eslint-disable-next-line props-checker/validator -- MarketTokenSelector injects the popover press handler.
+            <XStack
+              testID="stock-header-token-selector"
+              alignItems="center"
+              gap="$3.5"
+              minWidth={0}
+              cursor="pointer"
+              // Hovering paints a rounded-full pill that reaches 8px past the
+              // content horizontally and 4px vertically. Each negative margin is
+              // cancelled by matching padding, so the row itself never moves.
+              ml={-8}
+              mr={-8}
+              my={-4}
+              pl={8}
+              pr={8}
+              py={4}
+              borderRadius="$full"
+              borderCurve="continuous"
+              hoverStyle={{ bg: '$bgHover' }}
+              pressStyle={{ bg: '$bgActive' }}
+            >
+              <Token
+                size="xl"
+                tokenImageUri={
+                  stockDetail?.logoUrl ||
+                  stockPreview?.logoUrl ||
+                  tokenDetail?.logoUrl ||
+                  stock?.sourceLogoUri
+                }
+                fallbackIcon="CryptoCoinOutline"
+              />
+              <YStack minWidth={0} justifyContent="center">
+                <SizableText size="$headingXl" numberOfLines={1}>
+                  {stockDetail?.symbol ||
+                    stockPreview?.symbol ||
+                    stock?.underlyingAssetTicker ||
+                    stock?.title ||
+                    tokenDetail?.symbol ||
+                    stockId ||
+                    ''}
+                </SizableText>
+                <SizableText
+                  size="$bodyMdMedium"
+                  color="$textSubdued"
+                  numberOfLines={1}
+                >
+                  {stockDetail?.name ||
+                    stockPreview?.name ||
+                    stock?.subtitle ||
+                    tokenDetail?.name ||
+                    ''}
+                </SizableText>
+              </YStack>
+              {/* Figma 25277:10352: the chevron closes the whole pill and is
+                  centered on it, not tucked beside the ticker. */}
+              <Icon
+                name="ChevronDownSmallOutline"
+                size="$5"
+                color="$iconSubdued"
+              />
+            </XStack>
+          }
+        />
+      </XStack>
 
       {/* The stock route can share the listing before any token variant
           resolves, so the row also stands on a bare `stockId`.
@@ -328,10 +333,7 @@ function StockPriceHeader({
     formatPriceChangeDisplay(priceChangePercent);
   const stockStatus = useMemo<IMarketStockInfo | undefined>(() => {
     if (!stockDetail) return tokenDetail?.stock;
-    // The public stock feed describes the underlying listing and carries no
-    // issuer, so the badge's source has to come from the token wrapping it —
-    // without one `resolveUSMarketStatusVariant` returns no variant and the
-    // badge renders nothing at all.
+    // Combine the listing's market status with the selected token's metadata.
     return buildStockInfoFromPublicDetail(stockDetail, {
       source: tokenDetail?.stock?.source ?? selectedTokenVariant?.issuer,
       isPaused:
@@ -358,6 +360,8 @@ function StockPriceHeader({
           <MarketTooltipLabel
             testID="stock-price-tooltip-trigger"
             hovering
+            // Opening upward covers the price source toggle above the quote.
+            placement="bottom"
             // The row baseline-aligns this figure with the change beside it.
             alignSelf="baseline"
             tooltip={intl.formatMessage({
@@ -1174,7 +1178,19 @@ function StockOverview({
   hasAccount: boolean;
 }) {
   const intl = useIntl();
-  const [activeTab, setActiveTab] = useState<IStockDetailTab>('overview');
+  const { preferPosition, recordTabChange } = useMarketDetailPositionTab();
+  // Opens on My position when that was the last tab picked on any detail
+  // page; switching stocks in place keeps the tab on screen.
+  const [activeTab, setActiveTab] = useState<IStockDetailTab>(() =>
+    preferPosition ? 'position' : 'overview',
+  );
+  const selectTab = useCallback(
+    (tab: IStockDetailTab) => {
+      setActiveTab(tab);
+      recordTabChange(tab === 'position');
+    },
+    [recordTabChange],
+  );
   const { stockId } = useStockDetail();
 
   return (
@@ -1199,7 +1215,7 @@ function StockOverview({
           height={44}
           m="$0"
           px="$0"
-          onPress={() => setActiveTab('overview')}
+          onPress={() => selectTab('overview')}
         >
           {intl.formatMessage({ id: ETranslations.global_overview })}
         </Button>
@@ -1217,7 +1233,7 @@ function StockOverview({
           height={44}
           m="$0"
           px="$0"
-          onPress={() => setActiveTab('position')}
+          onPress={() => selectTab('position')}
         >
           {intl.formatMessage({
             id: ETranslations.dexmarket_details_myposition,
