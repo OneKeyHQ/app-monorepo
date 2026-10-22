@@ -1,492 +1,269 @@
 /** @jest-environment jsdom */
 
-import type { Context, ReactNode } from 'react';
+import type { ReactNode } from 'react';
 
 import { act, render } from '@testing-library/react';
 
-import { MarketDetailPager } from '../../views/Market/MarketDetailV2/components/InformationTabs/layout/MarketDetailPager.ios';
-import { MarketDetailScrollView } from '../../views/Market/MarketDetailV2/components/InformationTabs/layout/MarketDetailScroll.ios';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 import { LightweightChart } from './LightweightChart.native';
 
-const mockRequestLayout = jest.fn();
-const mockReload = jest.fn();
-const mockInjectJavaScript = jest.fn();
-const mockMount = jest.fn();
-let mockIsIOS = true;
-let mockNativeCommands: { requestLayout?: number } | undefined = {
-  requestLayout: 0,
+const mockReactions = new Set<() => void>();
+const mockGestureHandlers: Record<
+  string,
+  (event?: unknown, manager?: unknown) => void
+> = {};
+const mockDraws: {
+  commands: { kind: string; points?: { x: number; y: number }[] }[];
+}[] = [];
+let mockTypeface: object | null = null;
+const mockFont = {
+  getTypeface: () => ({}),
+  measureText: (text: string) => ({ width: text.length * 6 }),
 };
-let mockSendReady: () => void;
-let mockNativeScroll: (event: {
-  nativeEvent: { contentOffset: { y: number }; contentInset: { top: number } };
-}) => void;
-let mockPagerStateChanged: (event: {
-  nativeEvent: {
-    headerSettledAtTop: boolean;
-    headerOffset: number;
-    position: number;
-    pageKey: string;
-  };
-}) => void;
-const mockReactions = new Set<{
-  prepare: () => unknown;
-  react: (value: unknown, previous: unknown) => void;
-  previous: unknown;
-}>();
+const mockSkiaFont = jest.fn((typeface: object | undefined) => {
+  if (!typeface)
+    throw new OneKeyLocalError('Value is undefined, expected an Object');
+  return mockFont;
+});
 
-jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
-  __esModule: true,
-  default: {
-    get isNativeIOS() {
-      return mockIsIOS;
-    },
-  },
-}));
-
-jest.mock('react-native', () => ({
-  View: ({
+jest.mock('@onekeyhq/components', () => ({
+  HeaderScrollGestureContext: jest
+    .requireActual<typeof import('react')>('react')
+    .createContext({ excludeStartEdgeWidth: 0 }),
+  Stack: ({
     children,
     onLayout,
   }: {
-    children?: ReactNode;
-    onLayout?: (event: { nativeEvent: { layout: { height: number } } }) => void;
+    children: ReactNode;
+    onLayout: (event: { nativeEvent: { layout: { width: number } } }) => void;
   }) => {
-    jest.requireActual<typeof import('react')>('react').useEffect(() => {
-      onLayout?.({ nativeEvent: { layout: { height: 519 } } });
+    const React = jest.requireActual<typeof import('react')>('react');
+    const onLayoutRef = React.useRef(onLayout);
+    React.useEffect(() => {
+      onLayoutRef.current({ nativeEvent: { layout: { width: 402 } } });
     }, []);
     return <div>{children}</div>;
   },
-  AppState: { addEventListener: () => ({ remove: jest.fn() }) },
-  UIManager: {
-    getViewManagerConfig: () =>
-      mockNativeCommands ? { Commands: mockNativeCommands } : null,
+}));
+jest.mock('react-native', () => ({
+  Image: { resolveAssetSource: () => ({ uri: 'brand.ttf' }) },
+}));
+jest.mock('react-native-gesture-handler', () => ({
+  GestureDetector: ({ children }: { children: ReactNode }) => children,
+  Gesture: {
+    Pan: () => {
+      const gesture = {
+        enabled: () => gesture,
+        activateAfterLongPress: () => gesture,
+        maxPointers: () => gesture,
+        onTouchesDown: (fn: (event?: unknown, manager?: unknown) => void) => {
+          mockGestureHandlers.down = fn;
+          return gesture;
+        },
+        onStart: (fn: (event?: unknown) => void) => {
+          mockGestureHandlers.start = fn;
+          return gesture;
+        },
+        onUpdate: (fn: (event?: unknown) => void) => {
+          mockGestureHandlers.update = fn;
+          return gesture;
+        },
+        onFinalize: (fn: () => void) => {
+          mockGestureHandlers.end = fn;
+          return gesture;
+        },
+      };
+      return gesture;
+    },
   },
 }));
-
-jest.mock('@onekeyhq/components', () => ({
-  useTheme: () => ({ bgApp: { val: '#000' } }),
-  Stack: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
-  CollapsibleTabContext: jest
-    .requireActual<typeof import('react')>('react')
-    .createContext(null),
-}));
-
 jest.mock('react-native-reanimated', () => {
   const React = jest.requireActual<typeof import('react')>('react');
   return {
     useSharedValue: (value: unknown) => React.useRef({ value }).current,
-    runOnJS: (callback: (...args: unknown[]) => void) => callback,
+    useDerivedValue: (get: () => unknown) => ({
+      get value() {
+        return get();
+      },
+    }),
+    runOnJS: (fn: (...args: unknown[]) => void) => fn,
     useAnimatedReaction: (
       prepare: () => unknown,
       react: (value: unknown, previous: unknown) => void,
     ) => {
-      const reaction = React.useRef({
-        prepare,
-        react,
-        previous: null as unknown,
-      });
-      reaction.current.prepare = prepare;
-      reaction.current.react = react;
+      const state = React.useRef({ prepare, react, previous: null as unknown });
+      state.current.prepare = prepare;
+      state.current.react = react;
       React.useEffect(() => {
-        const current = reaction.current;
-        mockReactions.add(current);
+        const run = () => {
+          const next = state.current.prepare();
+          state.current.react(next, state.current.previous);
+          state.current.previous = next;
+        };
+        mockReactions.add(run);
         return () => {
-          mockReactions.delete(current);
+          mockReactions.delete(run);
         };
       }, []);
     },
+    cancelAnimation: jest.fn(),
+    withRepeat: () => 0,
+    withTiming: () => 0,
   };
 });
-
-jest.mock('react-native-pager-view', () => {
-  const React = jest.requireActual<typeof import('react')>('react');
-  return {
-    NativeScroller: ({ onScroll }: { onScroll: typeof mockNativeScroll }) => {
-      mockNativeScroll = onScroll;
-      return <div />;
-    },
-    CollapsiblePagerView: React.forwardRef(
-      (
-        {
-          header,
-          children,
-          onCollapsibleStateChanged,
-        }: {
-          header: ReactNode;
-          children: ReactNode;
-          onCollapsibleStateChanged: typeof mockPagerStateChanged;
-        },
-        _ref,
-      ) => {
-        mockPagerStateChanged = onCollapsibleStateChanged;
-        return (
-          <div>
-            {header}
-            {children}
-          </div>
-        );
-      },
-    ),
-  };
-});
-
-jest.mock('react-native-webview', () => {
-  const React = jest.requireActual<typeof import('react')>('react');
-  return React.forwardRef(
-    (
-      {
-        onMessage,
-      }: {
-        onMessage: (event: { nativeEvent: { data: string } }) => void;
-      },
-      ref,
-    ) => {
-      mockSendReady = () =>
-        onMessage({ nativeEvent: { data: '{"type":"ready"}' } });
-      React.useImperativeHandle(
-        ref,
-        () => ({
-          requestLayout: mockRequestLayout,
-          reload: mockReload,
-          injectJavaScript: mockInjectJavaScript,
-        }),
-        [],
-      );
-      React.useEffect(() => {
-        mockMount();
-      }, []);
-      return <div data-testid="native-webview" />;
-    },
-  );
-});
-
-jest.mock('./hooks/useChartConfig', () => ({
-  useChartConfig: () => ({ data: [] }),
-}));
-jest.mock('./utils/htmlTemplate', () => ({
-  generateChartHTML: () => '<head></head>',
-}));
-jest.mock('./utils/formatChartPriceSource', () => ({
-  __esModule: true,
-  default: 'function () {}',
-}));
-
-type ITabs = {
-  headerHeight: number;
-  scrollYCurrent: { value: number };
-  headerTranslateY: { value: number };
-};
-const { CollapsibleTabContext } = jest.requireMock<{
-  CollapsibleTabContext: Context<ITabs | null>;
-}>('@onekeyhq/components/src/composite/Tabs/CollapsibleTabContext');
-
-function moveHeader(tabs: ITabs, offset: number) {
-  act(() => {
-    tabs.scrollYCurrent.value = offset;
-    tabs.headerTranslateY.value = -Math.min(offset, tabs.headerHeight);
-    for (const reaction of mockReactions) {
-      const next = reaction.prepare();
-      reaction.react(next, reaction.previous);
-      reaction.previous = next;
-    }
-  });
-}
-
-const mockTabs: ITabs = {
-  headerHeight: 519,
-  scrollYCurrent: { value: 2000 },
-  headerTranslateY: { value: -519 },
-};
-
-function renderChart(offset = 2000) {
-  mockTabs.scrollYCurrent.value = offset;
-  mockTabs.headerTranslateY.value = -Math.min(offset, mockTabs.headerHeight);
-  const view = render(
-    <CollapsibleTabContext.Provider value={mockTabs}>
-      <LightweightChart data={[]} height={345} />
-    </CollapsibleTabContext.Provider>,
-  );
-  moveHeader(mockTabs, offset);
-  return { ...view, tabs: mockTabs };
-}
-
-beforeEach(() => {
-  jest.useFakeTimers();
-  jest.clearAllMocks();
-  mockIsIOS = true;
-  mockNativeCommands = { requestLayout: 0 };
-  mockTabs.scrollYCurrent.value = 2000;
-  mockTabs.headerTranslateY.value = -519;
-});
-
-afterEach(() => {
-  jest.useRealTimers();
-});
-
-it('updates native layout after an offscreen-created chart returns, preserving its WebView', () => {
-  const { tabs } = renderChart();
-  act(() => {
-    jest.advanceTimersByTime(200);
-  });
-  expect(mockRequestLayout).not.toHaveBeenCalled();
-  moveHeader(tabs, 300);
-  act(() => {
-    jest.advanceTimersByTime(80);
-  });
-  moveHeader(tabs, 0);
-  act(() => {
-    jest.advanceTimersByTime(99);
-  });
-  expect(mockRequestLayout).not.toHaveBeenCalled();
-  act(() => {
-    jest.advanceTimersByTime(1);
-  });
-  expect(mockRequestLayout).toHaveBeenCalledTimes(1);
-  expect(mockMount).toHaveBeenCalledTimes(1);
-  expect(mockReload).not.toHaveBeenCalled();
-});
-
-it('synchronizes again when a partially returned header continues moving', () => {
-  const { tabs } = renderChart();
-  moveHeader(tabs, 300);
-  act(() => {
-    jest.advanceTimersByTime(100);
-  });
-  expect(mockRequestLayout).toHaveBeenCalledTimes(1);
-  moveHeader(tabs, 0);
-  act(() => {
-    jest.advanceTimersByTime(100);
-  });
-  expect(mockRequestLayout).toHaveBeenCalledTimes(2);
-});
-
-it('cancels a pending layout when the chart leaves the viewport again', () => {
-  const { tabs } = renderChart();
-  moveHeader(tabs, 300);
-  moveHeader(tabs, 2000);
-  act(() => {
-    jest.advanceTimersByTime(200);
-  });
-  expect(mockRequestLayout).not.toHaveBeenCalled();
-});
-
-it('cancels a pending layout on unmount', () => {
-  const { tabs, unmount } = renderChart();
-  moveHeader(tabs, 0);
-  unmount();
-  act(() => {
-    jest.advanceTimersByTime(200);
-  });
-  expect(mockRequestLayout).not.toHaveBeenCalled();
-});
-
-it('does not request iOS layout synchronization on Android', () => {
-  mockIsIOS = false;
-  const { tabs } = renderChart();
-  moveHeader(tabs, 0);
-  act(() => {
-    jest.advanceTimersByTime(200);
-  });
-  expect(mockRequestLayout).not.toHaveBeenCalled();
-});
-
-it.each([{}, undefined])(
-  'remounts an offscreen-created chart once when the native command is absent (%j)',
-  (nativeCommands) => {
-    mockNativeCommands = nativeCommands;
-    const { tabs } = renderChart();
-    act(() => {
-      mockSendReady();
-    });
-    moveHeader(tabs, 0);
-    act(() => {
-      jest.advanceTimersByTime(100);
-    });
-    expect(mockRequestLayout).not.toHaveBeenCalled();
-    expect(mockMount).toHaveBeenCalledTimes(2);
-    act(() => {
-      mockSendReady();
-    });
-    moveHeader(tabs, 2000);
-    moveHeader(tabs, 0);
-    act(() => {
-      jest.advanceTimersByTime(100);
-    });
-    expect(mockMount).toHaveBeenCalledTimes(2);
-    expect(mockRequestLayout).not.toHaveBeenCalled();
+jest.mock('@shopify/react-native-skia', () => ({
+  Canvas: ({ children }: { children: ReactNode }) => (
+    <div data-testid="skia-canvas">{children}</div>
+  ),
+  Circle: () => null,
+  Group: ({ children }: { children: ReactNode }) => children,
+  Picture: ({ picture }: { picture: { value: unknown } }) => {
+    void picture.value;
+    return null;
   },
-);
+  Skia: { Font: (typeface: object) => mockSkiaFont(typeface) },
+  createPicture: (draw: (canvas: object) => void) => {
+    draw({});
+    return {};
+  },
+  useTypeface: () => mockTypeface,
+}));
+jest.mock('../TradingView/TradingViewNative/native/chartSkiaRenderer', () => ({
+  createTradingViewNativeSkiaFontForText: () => mockFont,
+  createTradingViewNativeSkiaResources: () => ({}),
+  createTradingViewNativeSkiaCommandPicture: (draw: {
+    commands: { kind: string; points?: { x: number; y: number }[] }[];
+  }) => {
+    mockDraws.push(draw);
+    return {};
+  },
+}));
+jest.mock('../TradingView/TradingViewNative/native/chartSkiaText', () => ({
+  getTradingViewNativeSkiaDigitWidth: () => 6,
+  getTradingViewNativeSkiaPriceAxisLabelWidth: (text: string) =>
+    text.length * 6,
+}));
+jest.mock('./hooks/useChartConfig', () => ({
+  useChartConfig: ({ data }: { data: [number, number][] }) => ({
+    theme: {
+      lineColor: '#0a5',
+      topColor: '#0a5333',
+      bottomColor: 'transparent',
+      textSubduedColor: '#666',
+    },
+    lineWidth: 2,
+    showPriceScale: true,
+    showTimeScale: true,
+    priceScaleFormat: 'stock',
+    data: data.map(([time, value]) => ({ time, value })),
+  }),
+}));
 
-it('preserves a chart loaded visibly on an older native shell', () => {
-  mockNativeCommands = {};
-  const { tabs } = renderChart(0);
+const flush = () =>
   act(() => {
-    mockSendReady();
+    for (const run of mockReactions) run();
   });
-  moveHeader(tabs, 2000);
-  moveHeader(tabs, 0);
-  act(() => {
-    jest.advanceTimersByTime(100);
-  });
-  expect(mockRequestLayout).not.toHaveBeenCalled();
-  expect(mockMount).toHaveBeenCalledTimes(1);
+beforeEach(() => {
+  jest.clearAllMocks();
+  mockDraws.length = 0;
+  mockTypeface = null;
 });
 
-it('recovers an older shell when the chart leaves during initial loading', () => {
-  mockNativeCommands = {};
-  const { tabs } = renderChart(0);
-  moveHeader(tabs, 2000);
-  act(() => {
-    mockSendReady();
-  });
-  moveHeader(tabs, 0);
-  act(() => {
-    jest.advanceTimersByTime(100);
-  });
-  expect(mockRequestLayout).not.toHaveBeenCalled();
-  expect(mockMount).toHaveBeenCalledTimes(2);
-});
-
-function NativePagerPage({ children }: { name: string; children: ReactNode }) {
-  return children;
-}
-
-function flushReactions() {
-  for (const reaction of mockReactions) {
-    const next = reaction.prepare();
-    reaction.react(next, reaction.previous);
-    reaction.previous = next;
-  }
-}
-
-function renderNativePagerChart() {
-  const view = render(
-    <MarketDetailPager
-      initialTabName="Overview"
-      renderHeader={() => <LightweightChart data={[]} height={345} />}
-      renderTabBar={() => <div />}
-      onTabChange={() => undefined}
-    >
-      {[
-        <NativePagerPage key="overview" name="Overview">
-          <MarketDetailScrollView />
-        </NativePagerPage>,
-      ]}
-    </MarketDetailPager>,
+it('uses a real system font before the asynchronously loaded face is available', () => {
+  const { rerender } = render(
+    <LightweightChart data={[[100, 1]]} height={280} />,
   );
-  act(flushReactions);
-  return view;
-}
-
-function scrollNativeHeader(offset: number) {
-  act(() => {
-    mockNativeScroll({
-      nativeEvent: {
-        contentOffset: { y: offset - 519 },
-        contentInset: { top: 519 },
-      },
-    });
-    flushReactions();
-  });
-}
-
-function waitForLayout() {
-  act(() => {
-    jest.advanceTimersByTime(100);
-  });
-}
-
-it('synchronizes layout through the real iOS pager without a legacy tabs context', () => {
-  renderNativePagerChart();
-  scrollNativeHeader(2000);
-  act(() => {
-    mockSendReady();
-  });
-  scrollNativeHeader(0);
-  waitForLayout();
-  expect(mockRequestLayout).toHaveBeenCalledTimes(1);
-  expect(mockMount).toHaveBeenCalledTimes(1);
+  expect(mockSkiaFont.mock.calls.every(([face]) => !!face)).toBe(true);
+  mockTypeface = {};
+  rerender(<LightweightChart data={[[100, 1]]} height={280} />);
+  expect(mockSkiaFont).toHaveBeenCalledWith(mockTypeface);
 });
 
-it('synchronizes a partially returned native header before it reaches the top', () => {
-  renderNativePagerChart();
-  scrollNativeHeader(2000);
-  scrollNativeHeader(300);
-  waitForLayout();
-  expect(mockRequestLayout).toHaveBeenCalledTimes(1);
-  scrollNativeHeader(0);
-  waitForLayout();
-  expect(mockRequestLayout).toHaveBeenCalledTimes(2);
+it('paints late data into the same native canvas and applies subsequent resizing', () => {
+  const { getByTestId, rerender } = render(
+    <LightweightChart data={[]} height={280} />,
+  );
+  const canvas = getByTestId('skia-canvas');
+  expect(mockDraws.at(-1)?.commands).toHaveLength(0);
+  rerender(
+    <LightweightChart
+      data={[
+        [100, 1],
+        [200, 2],
+      ]}
+      height={280}
+    />,
+  );
+  const original = mockDraws
+    .at(-2)
+    ?.commands.find((c) => c.kind === 'polyline');
+  expect(original?.points).toHaveLength(2);
+  rerender(
+    <LightweightChart
+      data={[
+        [100, 1],
+        [200, 2],
+      ]}
+      height={456}
+    />,
+  );
+  const resized = mockDraws.at(-1)?.commands.find((c) => c.kind === 'polyline');
+  expect(resized?.points?.[0].y).not.toBe(original?.points?.[0].y);
+  expect(getByTestId('skia-canvas')).toBe(canvas);
 });
 
-it('recovers loading charts in the real iOS pager on older native shells', () => {
-  mockNativeCommands = {};
-  renderNativePagerChart();
+it('reports scrub selection and releases it on gesture completion and unmount', () => {
+  const onHover = jest.fn();
+  const { unmount } = render(
+    <LightweightChart
+      data={[
+        [100, 1],
+        [200, 2],
+      ]}
+      height={280}
+      onHover={onHover}
+    />,
+  );
   act(() => {
-    mockPagerStateChanged({
-      nativeEvent: {
-        headerSettledAtTop: false,
-        headerOffset: 0,
-        position: 0,
-        pageKey: '.$overview',
-      },
-    });
+    mockGestureHandlers.start({ x: 2, y: 80 });
   });
-  scrollNativeHeader(2000);
+  flush();
+  expect(onHover).toHaveBeenLastCalledWith(
+    expect.objectContaining({ time: 100, price: 1 }),
+  );
   act(() => {
-    mockSendReady();
+    mockGestureHandlers.update({ x: 300, y: 100 });
   });
-  scrollNativeHeader(300);
-  waitForLayout();
-  expect(mockRequestLayout).not.toHaveBeenCalled();
-  expect(mockMount).toHaveBeenCalledTimes(2);
+  flush();
+  expect(onHover).toHaveBeenLastCalledWith(
+    expect.objectContaining({ time: 200, price: 2 }),
+  );
   act(() => {
-    mockSendReady();
+    mockGestureHandlers.end();
   });
-  scrollNativeHeader(2000);
-  scrollNativeHeader(0);
-  waitForLayout();
-  expect(mockMount).toHaveBeenCalledTimes(2);
+  flush();
+  expect(onHover).toHaveBeenLastCalledWith({});
+  act(() => {
+    mockGestureHandlers.start({ x: 2, y: 80 });
+  });
+  flush();
+  unmount();
+  expect(onHover).toHaveBeenLastCalledWith({});
 });
 
-it('preserves a loaded native chart and ignores initial layout settling on older shells', () => {
-  mockNativeCommands = {};
-  renderNativePagerChart();
-  waitForLayout();
-  expect(mockMount).toHaveBeenCalledTimes(1);
-  act(() => {
-    mockSendReady();
-  });
-  scrollNativeHeader(2000);
-  scrollNativeHeader(0);
-  waitForLayout();
-  expect(mockMount).toHaveBeenCalledTimes(1);
-});
-
-it('cancels native pager synchronization when the chart moves offscreen again', () => {
-  renderNativePagerChart();
-  scrollNativeHeader(2000);
-  scrollNativeHeader(300);
-  scrollNativeHeader(2000);
-  waitForLayout();
-  expect(mockRequestLayout).not.toHaveBeenCalled();
-});
-
-it('ignores stale native header events from a different page', () => {
-  renderNativePagerChart();
-  scrollNativeHeader(2000);
-  act(() => {
-    mockPagerStateChanged({
-      nativeEvent: {
-        headerSettledAtTop: true,
-        headerOffset: 0,
-        position: 1,
-        pageKey: '.$previous-page',
-      },
-    });
-    flushReactions();
-  });
-  waitForLayout();
-  expect(mockRequestLayout).not.toHaveBeenCalled();
+it('leaves axis touches available to native page gestures', () => {
+  render(
+    <LightweightChart
+      data={[
+        [100, 1],
+        [200, 2],
+      ]}
+      height={280}
+      onHover={jest.fn()}
+    />,
+  );
+  const manager = { fail: jest.fn() };
+  mockGestureHandlers.down({ changedTouches: [{ x: 401, y: 100 }] }, manager);
+  expect(manager.fail).toHaveBeenCalledTimes(1);
 });

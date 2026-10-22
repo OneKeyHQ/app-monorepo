@@ -20,12 +20,7 @@ import {
   MarketDetailNativePageContext,
 } from './MarketDetailNativeContext';
 
-import type {
-  FlatListProps,
-  NativeScrollEvent,
-  NativeSyntheticEvent,
-  ScrollViewProps,
-} from 'react-native';
+import type { FlatListProps, ScrollViewProps } from 'react-native';
 
 export function MarketDetailHeaderGesture({
   children,
@@ -36,29 +31,10 @@ export function MarketDetailHeaderGesture({
   return children;
 }
 
-function useNativeHeaderScroll() {
-  const page = useContext(MarketDetailNativePageContext);
-  const pager = useContext(MarketDetailNativeContext);
-  return useCallback(
-    (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-      if (page?.isFocused && pager) {
-        // Native smooth headers share the list's UIScrollView and content inset.
-        const { contentOffset, contentInset } = event.nativeEvent;
-        pager.headerOffset.value = Math.max(
-          0,
-          contentOffset.y + contentInset.top,
-        );
-      }
-    },
-    [page, pager],
-  );
-}
-
 export function MarketDetailScrollView(
   props: Omit<ComponentProps<typeof NativeScroller>, 'ref'>,
 ) {
   const page = useContext(MarketDetailNativePageContext);
-  const updateHeaderOffset = useNativeHeaderScroll();
   if (!page) {
     return <Tabs.ScrollView {...props} />;
   }
@@ -67,11 +43,6 @@ export function MarketDetailScrollView(
       {...props}
       testID={props.testID ?? `market-detail-scroll-${page.key}`}
       pagerScrollKey={page.key}
-      scrollEventThrottle={props.scrollEventThrottle ?? 16}
-      onScroll={(event) => {
-        updateHeaderOffset(event);
-        props.onScroll?.(event);
-      }}
       style={[{ flex: 1 }, props.style]}
     />
   );
@@ -79,7 +50,6 @@ export function MarketDetailScrollView(
 
 export function MarketDetailList<T>(props: FlatListProps<T>) {
   const page = useContext(MarketDetailNativePageContext);
-  const updateHeaderOffset = useNativeHeaderScroll();
   const renderScrollComponent = useCallback(
     (scrollProps: ScrollViewProps) => (
       <NativeScroller
@@ -87,13 +57,12 @@ export function MarketDetailList<T>(props: FlatListProps<T>) {
         pagerScrollKey={page?.key}
         // FlatList retains virtualization and owns its content/viewport events.
         onScroll={(event) => {
-          updateHeaderOffset(event);
           if (page) page.scrollY.value = event.nativeEvent.contentOffset.y;
           scrollProps.onScroll?.(event);
         }}
       />
     ),
-    [page, updateHeaderOffset],
+    [page],
   );
   if (!page) {
     return <Tabs.FlatList<T> {...props} />;

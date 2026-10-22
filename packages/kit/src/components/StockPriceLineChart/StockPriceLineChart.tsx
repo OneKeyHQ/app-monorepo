@@ -191,11 +191,11 @@ export function StockPriceLineChart({
     },
     [],
   );
-  // Android keeps tracking locally across refreshes. Keep an optional price
+  // Native charts keep tracking locally across refreshes. Keep an optional price
   // header on that point too, until it leaves the refreshed range.
   useEffect(() => {
     setHoverData((current) => {
-      if (!platformEnv.isNativeAndroid || !current) return null;
+      if (!platformEnv.isNative || !current) return null;
       const point = data.find(([time]) => time === current.time);
       return point ? { ...current, price: point[1] } : null;
     });
@@ -275,7 +275,7 @@ export function StockPriceLineChart({
   // moves; only the solid overlay drawn on top of it is cut at the cursor.
   const hoveredTime = hoverData?.time;
   const solidData = useMemo(() => {
-    if (platformEnv.isNativeAndroid || hoveredTime === undefined) {
+    if (platformEnv.isNative || hoveredTime === undefined) {
       return data;
     }
     const upToCursor = data.filter(([time]) => time <= hoveredTime);
@@ -287,7 +287,7 @@ export function StockPriceLineChart({
   const nativeScrubOptions = useMemo<
     ILightweightChartNativeScrubOptions | undefined
   >(() => {
-    if (!platformEnv.isNativeAndroid) return undefined;
+    if (!platformEnv.isNative) return undefined;
     return {
       labels: Object.fromEntries(
         data.map(([time, price]) => {
@@ -439,7 +439,7 @@ export function StockPriceLineChart({
             : handleHover
         }
       />
-      {!platformEnv.isNativeAndroid && hoverData && tooltipPosition ? (
+      {!platformEnv.isNative && hoverData && tooltipPosition ? (
         <Stack
           testID="stock-price-line-chart-hover-label"
           position="absolute"

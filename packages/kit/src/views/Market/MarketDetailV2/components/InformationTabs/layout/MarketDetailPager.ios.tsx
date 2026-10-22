@@ -7,7 +7,6 @@ import { useSharedValue } from 'react-native-reanimated';
 
 import { useTheme } from '@onekeyhq/components';
 import { useAppPagerController } from '@onekeyhq/kit/src/components/AppPager/useAppPagerController';
-import { ChartHeaderContext } from '@onekeyhq/kit/src/components/LightweightChart/ChartHeaderContext';
 
 import {
   MarketDetailNativeContext,
@@ -49,11 +48,6 @@ export function MarketDetailPager({
   const [headerHeight, setHeaderHeight] = useState(1);
   const [stickyHeaderHeight, setStickyHeaderHeight] = useState(44);
   const theme = useTheme();
-  const headerOffset = useSharedValue(0);
-  const chartHeaderState = useMemo(
-    () => ({ headerOffset, headerHeight }),
-    [headerOffset, headerHeight],
-  );
   const pages = useMemo(
     () =>
       children.map((tab) => ({
@@ -74,8 +68,8 @@ export function MarketDetailPager({
     onBeforeCommand,
   });
   const context = useMemo(
-    () => ({ focusedName: controller.focusedName, headerOffset }),
-    [controller.focusedName, headerOffset],
+    () => ({ focusedName: controller.focusedName }),
+    [controller.focusedName],
   );
 
   return (
@@ -101,9 +95,7 @@ export function MarketDetailPager({
               setHeaderHeight(Math.ceil(nativeEvent.layout.height))
             }
           >
-            <ChartHeaderContext.Provider value={chartHeaderState}>
-              {renderHeader()}
-            </ChartHeaderContext.Provider>
+            {renderHeader()}
           </View>
         }
         stickyHeader={
@@ -121,10 +113,6 @@ export function MarketDetailPager({
             })}
           </View>
         }
-        onCollapsibleStateChanged={({ nativeEvent }) => {
-          if (nativeEvent.position !== controller.selectedIndex) return;
-          headerOffset.value = Math.max(0, nativeEvent.headerOffset);
-        }}
         onPageScroll={({ nativeEvent }) => {
           if (followsPageScroll.current) {
             controller.indexDecimal.value =

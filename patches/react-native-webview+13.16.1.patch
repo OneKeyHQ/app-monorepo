@@ -133,7 +133,7 @@ index 07f73fd..f808b15 100644
                  if (mAllowsProtectedMedia) {
                    grantedPermissions.add(requestedResource);
 diff --git a/node_modules/react-native-webview/android/src/main/java/com/reactnativecommunity/webview/RNCWebView.java b/node_modules/react-native-webview/android/src/main/java/com/reactnativecommunity/webview/RNCWebView.java
-index 80c6803..57fa013 100644
+index 80c6803..911a0b9 100644
 --- a/node_modules/react-native-webview/android/src/main/java/com/reactnativecommunity/webview/RNCWebView.java
 +++ b/node_modules/react-native-webview/android/src/main/java/com/reactnativecommunity/webview/RNCWebView.java
 @@ -78,6 +78,21 @@ public class RNCWebView extends WebView implements LifecycleEventListener {
@@ -400,7 +400,7 @@ index f83033b..e0b3c40 100644
 +    }
  }
 diff --git a/node_modules/react-native-webview/android/src/newarch/com/reactnativecommunity/webview/RNCWebViewManager.java b/node_modules/react-native-webview/android/src/newarch/com/reactnativecommunity/webview/RNCWebViewManager.java
-index 4709e28..fe7ee72 100644
+index 4709e28..e4d48a1 100644
 --- a/node_modules/react-native-webview/android/src/newarch/com/reactnativecommunity/webview/RNCWebViewManager.java
 +++ b/node_modules/react-native-webview/android/src/newarch/com/reactnativecommunity/webview/RNCWebViewManager.java
 @@ -338,6 +338,11 @@ public class RNCWebViewManager extends ViewGroupManager<RNCWebViewWrapper>
@@ -415,19 +415,6 @@ index 4709e28..fe7ee72 100644
      /* iOS PROPS - no implemented here */
      @Override
      public void setAllowingReadAccessToURL(RNCWebViewWrapper view, @Nullable String value) {}
-@@ -461,6 +466,12 @@ public class RNCWebViewManager extends ViewGroupManager<RNCWebViewWrapper>
-       view.getWebView().evaluateJavascriptWithFallback(javascript);
-   }
- 
-+  // OneKey patch: implement the shared command interface for Android codegen.
-+  @Override
-+  public void requestLayout(RNCWebViewWrapper view) {
-+      view.requestLayout();
-+  }
-+
-   @Override
-   public void requestFocus(RNCWebViewWrapper view) {
-       view.requestFocus();
 diff --git a/node_modules/react-native-webview/android/src/oldarch/com/reactnativecommunity/webview/RNCWebViewManager.java b/node_modules/react-native-webview/android/src/oldarch/com/reactnativecommunity/webview/RNCWebViewManager.java
 index 974337f..d4f774d 100644
 --- a/node_modules/react-native-webview/android/src/oldarch/com/reactnativecommunity/webview/RNCWebViewManager.java
@@ -445,7 +432,7 @@ index 974337f..d4f774d 100644
      protected void addEventEmitters(@NonNull ThemedReactContext reactContext, RNCWebViewWrapper viewWrapper) {
          // Do not register default touch emitter and let WebView implementation handle touches
 diff --git a/node_modules/react-native-webview/apple/RNCWebView.mm b/node_modules/react-native-webview/apple/RNCWebView.mm
-index c0816b6..aa1f5cf 100644
+index c0816b6..3a32f01 100644
 --- a/node_modules/react-native-webview/apple/RNCWebView.mm
 +++ b/node_modules/react-native-webview/apple/RNCWebView.mm
 @@ -65,6 +65,7 @@ @interface RNCWebView () <RCTRNCWebViewViewProtocol>
@@ -486,19 +473,8 @@ index c0816b6..aa1f5cf 100644
  }
  
  - (void)postMessage:(nonnull NSString *)data {
-@@ -555,6 +561,10 @@ - (void)requestFocus {
-     [_view requestFocus];
- }
- 
-+- (void)requestLayout {
-+    [_view requestLayout];
-+}
-+
- - (void)stopLoading {
-     [_view stopLoading];
- }
 diff --git a/node_modules/react-native-webview/apple/RNCWebViewImpl.h b/node_modules/react-native-webview/apple/RNCWebViewImpl.h
-index 1f6bbfd..e87c206 100644
+index 1f6bbfd..e4c9cd7 100644
 --- a/node_modules/react-native-webview/apple/RNCWebViewImpl.h
 +++ b/node_modules/react-native-webview/apple/RNCWebViewImpl.h
 @@ -112,6 +112,7 @@ shouldStartLoadForRequest:(NSMutableDictionary<NSString *, id> *)request
@@ -509,16 +485,8 @@ index 1f6bbfd..e87c206 100644
  @property (nonatomic, copy) RCTDirectEventBlock onCustomMenuSelection;
  #if !TARGET_OS_OSX
  @property (nonatomic, assign) WKDataDetectorTypes dataDetectorTypes;
-@@ -148,6 +149,7 @@ shouldStartLoadForRequest:(NSMutableDictionary<NSString *, id> *)request
- - (void)reload;
- - (void)stopLoading;
- - (void)requestFocus;
-+- (void)requestLayout;
- - (void)clearCache:(BOOL)includeDiskFiles;
- #ifdef RCT_NEW_ARCH_ENABLED
- - (void)destroyWebView;
 diff --git a/node_modules/react-native-webview/apple/RNCWebViewImpl.m b/node_modules/react-native-webview/apple/RNCWebViewImpl.m
-index 7f5c24d..ac24211 100644
+index 7f5c24d..10d922d 100644
 --- a/node_modules/react-native-webview/apple/RNCWebViewImpl.m
 +++ b/node_modules/react-native-webview/apple/RNCWebViewImpl.m
 @@ -23,6 +23,61 @@
@@ -671,24 +639,8 @@ index 7f5c24d..ac24211 100644
    if (_mediaCapturePermissionGrantType == RNCWebViewPermissionGrantType_GrantIfSameHost_ElsePrompt || _mediaCapturePermissionGrantType == RNCWebViewPermissionGrantType_GrantIfSameHost_ElseDeny) {
      if ([origin.host isEqualToString:webView.URL.host]) {
        decisionHandler(WKPermissionDecisionGrant);
-@@ -1659,6 +1690,15 @@ - (void)stopLoading
-   [_webView stopLoading];
- }
- 
-+// OneKey patch: ancestor translations do not invalidate WKWebView's visible content rect.
-+- (void)requestLayout
-+{
-+#if !TARGET_OS_OSX
-+  [_webView setNeedsLayout];
-+  [_webView layoutIfNeeded];
-+#endif
-+}
-+
- - (void)requestFocus
- {
- #if !TARGET_OS_OSX
 diff --git a/node_modules/react-native-webview/apple/RNCWebViewManager.mm b/node_modules/react-native-webview/apple/RNCWebViewManager.mm
-index f8f375f..08f0108 100644
+index f8f375f..a83678d 100644
 --- a/node_modules/react-native-webview/apple/RNCWebViewManager.mm
 +++ b/node_modules/react-native-webview/apple/RNCWebViewManager.mm
 @@ -102,6 +102,9 @@ - (RNCView *)view
@@ -701,7 +653,7 @@ index f8f375f..08f0108 100644
  
  #if defined(__IPHONE_OS_VERSION_MAX_ALLOWED) && __IPHONE_OS_VERSION_MAX_ALLOWED >= 130000 /* iOS 13 */
  RCT_EXPORT_VIEW_PROPERTY(fraudulentWebsiteWarningEnabled, BOOL)
-@@ -206,11 +209,25 @@ - (RNCView *)view
+@@ -206,6 +209,19 @@ - (RNCView *)view
    }];                                                                                                                                   \
  }
  
@@ -721,14 +673,8 @@ index f8f375f..08f0108 100644
  QUICK_RCT_EXPORT_COMMAND_METHOD(reload)
  QUICK_RCT_EXPORT_COMMAND_METHOD(goBack)
  QUICK_RCT_EXPORT_COMMAND_METHOD(goForward)
- QUICK_RCT_EXPORT_COMMAND_METHOD(stopLoading)
- QUICK_RCT_EXPORT_COMMAND_METHOD(requestFocus)
-+QUICK_RCT_EXPORT_COMMAND_METHOD(requestLayout)
- 
- QUICK_RCT_EXPORT_COMMAND_METHOD_PARAMS(postMessage, message:(NSString *)message, message)
- QUICK_RCT_EXPORT_COMMAND_METHOD_PARAMS(injectJavaScript, script:(NSString *)script, script)
 diff --git a/node_modules/react-native-webview/index.d.ts b/node_modules/react-native-webview/index.d.ts
-index a3eef13..036d08f 100644
+index a3eef13..b7c14a1 100644
 --- a/node_modules/react-native-webview/index.d.ts
 +++ b/node_modules/react-native-webview/index.d.ts
 @@ -27,6 +27,11 @@ declare class WebView<P = {}> extends Component<WebViewProps & P> {
@@ -743,16 +689,6 @@ index a3eef13..036d08f 100644
      /**
       * Executes the JavaScript string.
       */
-@@ -36,6 +41,9 @@ declare class WebView<P = {}> extends Component<WebViewProps & P> {
-      * Focuses on WebView rendered page.
-      */
-     requestFocus: () => void;
-+
-+    /** OneKey patch: request an iOS native layout pass without reloading. */
-+    requestLayout?: () => void;
-     
-      /**
-      * Posts a message to WebView.
 diff --git a/node_modules/react-native-webview/lib/RNCWebViewNativeComponent.d.ts b/node_modules/react-native-webview/lib/RNCWebViewNativeComponent.d.ts
 index 8dd6cef..af2e239 100644
 --- a/node_modules/react-native-webview/lib/RNCWebViewNativeComponent.d.ts
@@ -782,7 +718,7 @@ index 998cc88..59407fc 100644
  }
  export {};
 diff --git a/node_modules/react-native-webview/src/RNCWebViewNativeComponent.ts b/node_modules/react-native-webview/src/RNCWebViewNativeComponent.ts
-index 7f4e6c4..0c8025a 100644
+index 7f4e6c4..e9a75a2 100644
 --- a/node_modules/react-native-webview/src/RNCWebViewNativeComponent.ts
 +++ b/node_modules/react-native-webview/src/RNCWebViewNativeComponent.ts
 @@ -295,6 +295,7 @@ export interface NativeProps extends ViewProps {
@@ -793,22 +729,6 @@ index 7f4e6c4..0c8025a 100644
  }
  
  export interface NativeCommands {
-@@ -307,6 +308,7 @@ export interface NativeCommands {
-     javascript: string
-   ) => void;
-   requestFocus: (viewRef: React.ElementRef<HostComponent<NativeProps>>) => void;
-+  requestLayout: (viewRef: React.ElementRef<HostComponent<NativeProps>>) => void;
-   postMessage: (
-     viewRef: React.ElementRef<HostComponent<NativeProps>>,
-     data: string
-@@ -335,6 +337,7 @@ export const Commands = codegenNativeCommands<NativeCommands>({
-     'stopLoading',
-     'injectJavaScript',
-     'requestFocus',
-+    'requestLayout',
-     'postMessage',
-     'loadUrl',
-     'clearFormData',
 diff --git a/node_modules/react-native-webview/src/WebView.android.tsx b/node_modules/react-native-webview/src/WebView.android.tsx
 index 6497a8b..233bb7a 100644
 --- a/node_modules/react-native-webview/src/WebView.android.tsx
@@ -823,7 +743,7 @@ index 6497a8b..233bb7a 100644
            webViewRef.current && Commands.postMessage(webViewRef.current, data),
          injectJavaScript: (data: string) =>
 diff --git a/node_modules/react-native-webview/src/WebView.ios.tsx b/node_modules/react-native-webview/src/WebView.ios.tsx
-index deb179b..a5b8083 100644
+index deb179b..40385db 100644
 --- a/node_modules/react-native-webview/src/WebView.ios.tsx
 +++ b/node_modules/react-native-webview/src/WebView.ios.tsx
 @@ -149,6 +149,8 @@ const WebViewComponent = forwardRef<{}, IOSWebViewProps>(
@@ -835,15 +755,6 @@ index deb179b..a5b8083 100644
          postMessage: (data: string) =>
            webViewRef.current && Commands.postMessage(webViewRef.current, data),
          injectJavaScript: (data: string) =>
-@@ -156,6 +158,8 @@ const WebViewComponent = forwardRef<{}, IOSWebViewProps>(
-           Commands.injectJavaScript(webViewRef.current, data),
-         requestFocus: () =>
-           webViewRef.current && Commands.requestFocus(webViewRef.current),
-+        requestLayout: () =>
-+          webViewRef.current && Commands.requestLayout(webViewRef.current),
-         clearCache: (includeDiskFiles: boolean) =>
-           webViewRef.current &&
-           Commands.clearCache(webViewRef.current, includeDiskFiles),
 diff --git a/node_modules/react-native-webview/src/WebViewShared.tsx b/node_modules/react-native-webview/src/WebViewShared.tsx
 index 3b0a38b..52e4bce 100644
 --- a/node_modules/react-native-webview/src/WebViewShared.tsx
