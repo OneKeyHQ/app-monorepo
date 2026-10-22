@@ -43,6 +43,7 @@ import { usePerpsAccountScopedOpenOrdersByCoin } from '../../../hooks/usePerpsAc
 import { usePerpsMidPrice } from '../../../hooks/usePerpsMidPrice';
 import { useShowPositionShare } from '../../../hooks/useShowPositionShare';
 import { PerpTestIDs } from '../../../testIDs';
+import { PERP_TEXT_ACTION_HOVER_STYLE } from '../../../utils/styleUtils';
 import { showAddPositionDialog } from '../AddPositionModal';
 import { showAdjustPositionMarginDialog } from '../AdjustPositionMarginModal';
 import { showClosePositionDialog } from '../ClosePositionModal';
@@ -529,7 +530,7 @@ const PositionRowDesktopTPSL = memo(
           {tpslInfo.showOrder ? (
             <XStack alignItems="center" gap="$1">
               <SizableText
-                hoverStyle={{ size: '$bodySmMedium' }}
+                hoverStyle={PERP_TEXT_ACTION_HOVER_STYLE}
                 color="$bgAccent"
                 size="$bodySmMedium"
                 onPress={onViewTpslOrders}
@@ -599,10 +600,13 @@ const PositionRowDesktopActions = memo(
           alignItems="center"
           gap="$2"
         >
-          <XStack onPress={onAddPosition} cursor="pointer">
+          <XStack
+            onPress={onAddPosition}
+            cursor="pointer"
+            hoverStyle={PERP_TEXT_ACTION_HOVER_STYLE}
+          >
             <SizableText
               testID={PerpTestIDs.PositionAddButton}
-              hoverStyle={{ size: '$bodySmMedium', fontWeight: 600 }}
               color="$bgAccent"
               size="$bodySmMedium"
             >
@@ -611,36 +615,41 @@ const PositionRowDesktopActions = memo(
               })}
             </SizableText>
           </XStack>
-          <XStack onPress={() => onClosePosition('market')} cursor="pointer">
+          <XStack
+            onPress={onReversePosition}
+            cursor="pointer"
+            hoverStyle={PERP_TEXT_ACTION_HOVER_STYLE}
+          >
             <SizableText
-              hoverStyle={{ size: '$bodySmMedium', fontWeight: 600 }}
+              testID={PerpTestIDs.PositionReverseButton}
               color="$bgAccent"
               size="$bodySmMedium"
             >
+              {intl.formatMessage({
+                id: ETranslations.perp_reverse_position__action,
+              })}
+            </SizableText>
+          </XStack>
+          <XStack
+            onPress={() => onClosePosition('market')}
+            cursor="pointer"
+            hoverStyle={PERP_TEXT_ACTION_HOVER_STYLE}
+          >
+            <SizableText color="$bgAccent" size="$bodySmMedium">
               {intl.formatMessage({
                 id: ETranslations.perp_position_market,
               })}
             </SizableText>
           </XStack>
-          <XStack onPress={() => onClosePosition('limit')} cursor="pointer">
-            <SizableText
-              hoverStyle={{ size: '$bodySmMedium', fontWeight: 600 }}
-              color="$bgAccent"
-              size="$bodySmMedium"
-            >
+          <XStack
+            onPress={() => onClosePosition('limit')}
+            cursor="pointer"
+            hoverStyle={PERP_TEXT_ACTION_HOVER_STYLE}
+          >
+            <SizableText color="$bgAccent" size="$bodySmMedium">
               {intl.formatMessage({
                 id: ETranslations.perp_position_limit,
               })}
-            </SizableText>
-          </XStack>
-          <XStack onPress={onReversePosition} cursor="pointer">
-            <SizableText
-              testID={PerpTestIDs.PositionReverseButton}
-              hoverStyle={{ size: '$bodySmMedium', fontWeight: 600 }}
-              color="$bgAccent"
-              size="$bodySmMedium"
-            >
-              Reverse
             </SizableText>
           </XStack>
         </XStack>
@@ -1275,6 +1284,12 @@ const PositionRowMobileActions = memo(
         testID: PerpTestIDs.PositionAddButton,
       },
       {
+        key: 'reverse',
+        label: ETranslations.perp_reverse_position__action,
+        onPress: onReversePosition,
+        testID: PerpTestIDs.PositionReverseButton,
+      },
+      {
         key: 'tpsl',
         label: ETranslations.perp_position_tp_sl_short,
         onPress: onSetTpsl,
@@ -1285,12 +1300,6 @@ const PositionRowMobileActions = memo(
         label: ETranslations.perp_position_close_short,
         onPress: () => onClosePosition('market'),
         testID: PerpTestIDs.PositionCloseMarketButton,
-      },
-      {
-        key: 'reverse',
-        label: 'Reverse',
-        onPress: onReversePosition,
-        testID: PerpTestIDs.PositionReverseButton,
       },
     ] as const;
     const visibleActions = actions.filter(
@@ -1325,9 +1334,7 @@ const PositionRowMobileActions = memo(
               minimumFontScale={0.75}
               textAlign="center"
             >
-              {action.key === 'reverse'
-                ? 'Reverse'
-                : intl.formatMessage({ id: action.label })}
+              {intl.formatMessage({ id: action.label })}
             </SizableText>
           </Button>
         ))}
@@ -1656,12 +1663,15 @@ const PositionRow = memo(
 
     const handleReversePosition = useCallback(() => {
       if (!activeAccount?.accountAddress) return;
-      showReversePositionDialog({
-        coin,
-        accountAddress: activeAccount.accountAddress,
-        positionSize: pos.szi,
-      });
-    }, [activeAccount?.accountAddress, coin, pos.szi]);
+      showReversePositionDialog(
+        {
+          coin,
+          accountAddress: activeAccount.accountAddress,
+          positionSize: pos.szi,
+        },
+        intl.formatMessage({ id: ETranslations.perp_reverse_position__title }),
+      );
+    }, [activeAccount?.accountAddress, coin, intl, pos.szi]);
 
     const handleChangeAsset = useCallback(() => {
       void actions.current.changeActiveAsset({

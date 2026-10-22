@@ -2,6 +2,8 @@ import type { ColorTokens } from 'tamagui';
 
 export type ITradeSide = 'long' | 'short';
 
+export const PERP_TEXT_ACTION_HOVER_STYLE = { scale: 1.05 } as const;
+
 interface ITradingButtonStyleProps {
   bg: ColorTokens;
   hoverStyle: { bg: ColorTokens };

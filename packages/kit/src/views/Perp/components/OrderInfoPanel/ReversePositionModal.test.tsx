@@ -201,16 +201,15 @@ describe('reverse position confirmation', () => {
     const submission = deferred();
     mockEnsureTrading.mockReturnValueOnce(preparation.promise);
     mockPlaceOrder.mockReturnValueOnce(submission.promise);
-    const dialog = showReversePositionDialog(mockSnapshot);
+    const dialog = showReversePositionDialog(mockSnapshot, '反向开仓');
     const options = mockDialogShow.mock.calls[0][0];
     const view = render(<>{options.renderContent}</>);
     const confirm = view.getByTestId('perp-reverse-position-confirm-button');
-    const cancel = view.getByTestId('perp-reverse-position-cancel-button');
 
     expect(options.onBeforeClose?.()).toBe(true);
     fireEvent.click(confirm);
     expect(confirm.getAttribute('aria-busy')).toBe('true');
-    expect((cancel as HTMLButtonElement).disabled).toBe(true);
+    expect((confirm as HTMLButtonElement).disabled).toBe(true);
     expect(options.onBeforeClose?.()).toBe(false);
     await act(async () => {
       await dialog.close();
@@ -226,7 +225,6 @@ describe('reverse position confirmation', () => {
     expect(confirm.getAttribute('aria-busy')).toBe('true');
     expect(options.onBeforeClose?.()).toBe(false);
     fireEvent.click(confirm);
-    fireEvent.click(cancel);
     await act(async () => {
       await dialog.close();
     });
@@ -246,11 +244,10 @@ describe('reverse position confirmation', () => {
       const error = new Error('Request failed');
       if (phase === 'preparation') mockFetchAsset.mockRejectedValueOnce(error);
       else mockPlaceOrder.mockRejectedValueOnce(error);
-      showReversePositionDialog(mockSnapshot);
+      const dialog = showReversePositionDialog(mockSnapshot, '反向开仓');
       const options = mockDialogShow.mock.calls[0][0];
       const view = render(<>{options.renderContent}</>);
       const confirm = view.getByTestId('perp-reverse-position-confirm-button');
-      const cancel = view.getByTestId('perp-reverse-position-cancel-button');
 
       fireEvent.click(confirm);
       await waitFor(() =>
@@ -258,10 +255,9 @@ describe('reverse position confirmation', () => {
       );
       expect(options.onBeforeClose?.()).toBe(true);
       expect((confirm as HTMLButtonElement).disabled).toBe(false);
-      expect((cancel as HTMLButtonElement).disabled).toBe(false);
       expect(mockClose).not.toHaveBeenCalled();
       await act(async () => {
-        fireEvent.click(cancel);
+        await dialog.close();
       });
       expect(mockClose).toHaveBeenCalledTimes(1);
     },

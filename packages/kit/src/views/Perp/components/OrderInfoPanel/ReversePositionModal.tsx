@@ -16,7 +16,6 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import { usePerpsActiveAccountAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { DEFAULT_PERPS_SLIPPAGE } from '@onekeyhq/shared/src/consts/perp';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { formatLocalizedNumberString } from '@onekeyhq/shared/src/utils/numberUtils';
@@ -262,7 +261,9 @@ export function ReversePositionContent({
   });
   const rows = [
     {
-      label: 'Market order size',
+      label: intl.formatMessage({
+        id: ETranslations.perp_market_order_size__title,
+      }),
       value: `${intl.formatMessage({ id: isBuy ? ETranslations.global_buy : ETranslations.global_sell })} ${formatLocalizedNumberString(size.multipliedBy(2).toFixed())} ${symbol}`,
     },
     {
@@ -279,17 +280,16 @@ export function ReversePositionContent({
         ? `$${formatLocalizedNumberString(formatPriceToSignificantDigits(liquidationPrice.toFixed(), target?.symbolMeta.universe?.szDecimals))}`
         : '--',
     },
-    {
-      label: intl.formatMessage({
-        id: ETranslations.perp_unifold_max_slippage__title,
-      }),
-      value: `${DEFAULT_PERPS_SLIPPAGE * 100}%`,
-    },
   ];
   return (
     <YStack gap="$5" testID={PerpTestIDs.ReversePositionDialog}>
-      <YStack p="$4" gap="$4" bg="$bgSubdued" borderRadius="$3">
-        <XStack gap="$3" justifyContent="space-between" alignItems="center">
+      <YStack bg="$bgStrong" borderRadius="$3" overflow="hidden">
+        <XStack
+          p="$4"
+          gap="$3"
+          justifyContent="space-between"
+          alignItems="center"
+        >
           <SizableText size="$bodyMd" color="$textSubdued" flex={1}>
             {intl.formatMessage({
               id: ETranslations.perp_trade_current_position,
@@ -304,10 +304,17 @@ export function ReversePositionContent({
             {`${currentSideLabel} ${formattedSize}`}
           </SizableText>
         </XStack>
-        <Divider />
-        <XStack gap="$3" justifyContent="space-between" alignItems="center">
+        <Divider borderColor="$bg" />
+        <XStack
+          p="$4"
+          gap="$3"
+          justifyContent="space-between"
+          alignItems="center"
+        >
           <SizableText size="$bodyMd" color="$textSubdued" flex={1}>
-            After reversal
+            {intl.formatMessage({
+              id: ETranslations.perp_position_after_reversal__title,
+            })}
           </SizableText>
           <SizableText
             size="$bodyMdMedium"
@@ -337,9 +344,7 @@ export function ReversePositionContent({
         ))}
       </YStack>
       <SizableText size="$bodySm" color="$textSubdued">
-        Place a market order for twice your position size to close the current
-        position and open an equal position in the opposite direction. Partial
-        fills may prevent a complete reversal.
+        {intl.formatMessage({ id: ETranslations.perp_reverse_position__desc })}
       </SizableText>
       {!isScopeValid ? (
         <SizableText size="$bodySm" color="$textCritical">
@@ -356,42 +361,36 @@ export function ReversePositionContent({
           {intl.formatMessage({ id: ETranslations.global_retry })}
         </Button>
       ) : null}
-      <XStack gap="$3">
-        <Button
-          testID="perp-reverse-position-cancel-button"
-          size={PERP_DIALOG_BUTTON_SIZE}
-          flex={1}
-          disabled={isSubmitting}
-          onPress={onClose}
+      <YStack>
+        <TradingGuardWrapper
+          buttonSize={PERP_DIALOG_BUTTON_SIZE}
+          disabled={!isScopeValid || isSubmitting}
         >
-          {intl.formatMessage({ id: ETranslations.global_cancel })}
-        </Button>
-        <YStack flex={1}>
-          <TradingGuardWrapper
-            buttonSize={PERP_DIALOG_BUTTON_SIZE}
-            disabled={!isScopeValid || isSubmitting}
+          <Button
+            testID={PerpTestIDs.ReversePositionConfirmButton}
+            size={PERP_DIALOG_BUTTON_SIZE}
+            variant="primary"
+            disabled={!target || !isScopeValid || isSubmitting}
+            loading={isSubmitting}
+            onPress={handleSubmit}
           >
-            <Button
-              testID={PerpTestIDs.ReversePositionConfirmButton}
-              size={PERP_DIALOG_BUTTON_SIZE}
-              variant="primary"
-              disabled={!target || !isScopeValid || isSubmitting}
-              loading={isSubmitting}
-              onPress={handleSubmit}
-            >
-              Confirm reversal
-            </Button>
-          </TradingGuardWrapper>
-        </YStack>
-      </XStack>
+            {intl.formatMessage({
+              id: ETranslations.perp_confirm_reversal__action,
+            })}
+          </Button>
+        </TradingGuardWrapper>
+      </YStack>
     </YStack>
   );
 }
 
-export function showReversePositionDialog(snapshot: IReversePositionSnapshot) {
+export function showReversePositionDialog(
+  snapshot: IReversePositionSnapshot,
+  title: string,
+) {
   let isSubmitting = false;
   const dialog = Dialog.show({
-    title: 'Reverse position',
+    title,
     disableDrag: true,
     showFooter: false,
     onBeforeClose: () => !isSubmitting,
