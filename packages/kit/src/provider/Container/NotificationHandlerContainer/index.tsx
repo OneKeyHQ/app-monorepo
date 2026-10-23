@@ -133,6 +133,7 @@ function BaseNotificationHandlerContainer() {
     const handleShowNotificationPageNavigation = async ({
       payload: payloadObj,
       extras,
+      navigationAction,
     }: INotificationPageNavigationEvent) => {
       const localParams = getLocalParams();
 
@@ -202,6 +203,7 @@ function BaseNotificationHandlerContainer() {
       try {
         await navigateToNotificationDetailByLocalParams({
           payload: payloadObj,
+          navigationAction,
           localParams,
           getEarnAccount: (props) =>
             backgroundApiProxy.serviceStaking.getEarnAccount(props),

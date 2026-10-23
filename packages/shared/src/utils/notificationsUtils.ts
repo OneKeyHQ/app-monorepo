@@ -95,6 +95,7 @@ const popToMainRoute = async () => {
 
 export async function navigateToNotificationDetailByLocalParams({
   payload,
+  navigationAction,
   localParams: originalLocalParams,
   getEarnAccount,
 }: {
@@ -102,6 +103,7 @@ export async function navigateToNotificationDetailByLocalParams({
     screen: string;
     params: Record<string, any>;
   };
+  navigationAction?: 'push';
   localParams: Record<string, string | undefined>;
   getEarnAccount: IGetEarnAccountFunc;
 }) {
@@ -113,6 +115,12 @@ export async function navigateToNotificationDetailByLocalParams({
     throw new OneKeyLocalError(
       'navigateToNotificationDetail: payload has no target screen',
     );
+  }
+  if (navigationAction === 'push' && screen === ERootRoutes.Modal) {
+    appGlobals.$navigationRef.current?.dispatch(
+      StackActions.push(screen, navigationParams),
+    );
+    return;
   }
   // Recursively find and merge the deepest params
 
@@ -727,7 +735,12 @@ async function navigateToNotificationDetail({
       screens: routes,
       routeParams: params,
     });
-    if (
+    if (platformEnv.isNativeBackgroundThread) {
+      appEventBus.emit(EAppEventBusNames.ShowNotificationPageNavigation, {
+        payload: modalParams,
+        navigationAction: 'push',
+      });
+    } else if (
       navigation &&
       routes?.length === 3 &&
       routes?.[0] === ERootRoutes.Modal

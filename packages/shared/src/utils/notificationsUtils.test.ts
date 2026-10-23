@@ -1,18 +1,28 @@
-import { ENotificationPushMessageMode } from '../../types/notification';
+import {
+  ENotificationPushMessageMode,
+  type INotificationPushMessageInfo,
+} from '../../types/notification';
 import appGlobals from '../appGlobals';
 import { EAppEventBusNames, appEventBus } from '../eventBus/appEventBus';
 import { ETranslations } from '../locale';
 import platformEnv from '../platformEnv';
 import {
+  EModalAssetDetailRoutes,
+  EModalRoutes,
   ERootRoutes,
   ETabDiscoveryRoutes,
   ETabMarketRoutes,
   ETabRoutes,
+  EWebViewRoutes,
 } from '../routes';
+import { EModalNotificationsRoutes } from '../routes/notifications';
 
-import {
+import extUtils from './extUtils';
+import notificationsUtils, {
+  type INotificationPageNavigationEvent,
   navigateToNotificationDetailByLocalParams,
   parseNotificationPayload,
+  registerNotificationPageNavigationProcessor,
 } from './notificationsUtils';
 import timerUtils from './timerUtils';
 
@@ -20,7 +30,10 @@ const mockLog = jest.fn<void, unknown[]>();
 
 jest.mock('../logger/logger', () => ({
   defaultLogger: {
-    app: { error: { log: (...args: unknown[]) => mockLog(...args) } },
+    app: {
+      error: { log: (...args: unknown[]) => mockLog(...args) },
+      page: { notificationItemClicked: jest.fn() },
+    },
   },
 }));
 
@@ -52,6 +65,11 @@ jest.mock('./openUrlUtils', () => ({
   openUrlExternal: jest.fn(),
 }));
 
+jest.mock('./extUtils', () => ({
+  __esModule: true,
+  default: { openExpandTabOrSidePanel: jest.fn(async () => undefined) },
+}));
+
 jest.mock('./timerUtils', () => ({
   __esModule: true,
   default: {
@@ -61,7 +79,276 @@ jest.mock('./timerUtils', () => ({
 
 const mockAppEventBus = appEventBus as typeof appEventBus & {
   emit: jest.Mock;
+  on: jest.Mock;
 };
+
+const foregroundPageListener = mockAppEventBus.on.mock.calls.find(
+  ([name]) => name === EAppEventBusNames.ShowNotificationPageNavigation,
+)?.[1] as ((event: unknown) => void) | undefined;
+
+describe('legacy notification clicks from native background', () => {
+  const originalNavigationRef = appGlobals.$navigationRef;
+  const originalBackgroundApiProxy = appGlobals.$backgroundApiProxy;
+  const originalIsNative = platformEnv.isNative;
+  const originalIsNativeBackgroundThread = platformEnv.isNativeBackgroundThread;
+  const originalIsExtensionBackground = platformEnv.isExtensionBackground;
+  const originalIsDesktop = platformEnv.isDesktop;
+  const originalIsWeb = platformEnv.isWeb;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    appGlobals.$navigationRef = undefined as never;
+    appGlobals.$backgroundApiProxy = {
+      serviceNotification: {
+        ackNotificationMessage: jest.fn().mockResolvedValue(undefined),
+      },
+    } as never;
+    platformEnv.isNative = true;
+    platformEnv.isNativeBackgroundThread = true;
+    platformEnv.isExtensionBackground = false;
+  });
+
+  afterEach(() => {
+    appGlobals.$navigationRef = originalNavigationRef;
+    appGlobals.$backgroundApiProxy = originalBackgroundApiProxy;
+    platformEnv.isNative = originalIsNative;
+    platformEnv.isNativeBackgroundThread = originalIsNativeBackgroundThread;
+    platformEnv.isExtensionBackground = originalIsExtensionBackground;
+    platformEnv.isDesktop = originalIsDesktop;
+    platformEnv.isWeb = originalIsWeb;
+  });
+
+  it('keeps foreground legacy clicks on the explicit pushModal path', async () => {
+    const pushModal = jest.fn();
+    const dispatch = jest.fn();
+    platformEnv.isNativeBackgroundThread = false;
+    appGlobals.$navigationRef = {
+      current: { getState: jest.fn(() => ({ routes: [] })), dispatch },
+    } as never;
+
+    await notificationsUtils.navigateToNotificationDetail({
+      notificationId: 'test-notification',
+      isFromNotificationClick: true,
+      message: undefined,
+      mode: undefined,
+      navigation: { pushModal } as never,
+    });
+
+    expect(pushModal).toHaveBeenCalledWith(EModalRoutes.NotificationsModal, {
+      screen: EModalNotificationsRoutes.NotificationList,
+      params: {},
+    });
+    expect(dispatch).not.toHaveBeenCalled();
+    expect(mockAppEventBus.emit).not.toHaveBeenCalledWith(
+      EAppEventBusNames.ShowNotificationPageNavigation,
+      expect.anything(),
+    );
+  });
+
+  it.each(['desktop', 'web'] as const)(
+    'keeps %s legacy clicks on the direct push path',
+    async (target) => {
+      const dispatch = jest.fn();
+      platformEnv.isNative = false;
+      platformEnv.isNativeBackgroundThread = false;
+      platformEnv.isDesktop = target === 'desktop';
+      platformEnv.isWeb = target === 'web';
+      appGlobals.$navigationRef = {
+        current: { getState: jest.fn(() => ({ routes: [] })), dispatch },
+      } as never;
+
+      await notificationsUtils.navigateToNotificationDetail({
+        notificationId: 'test-notification',
+        isFromNotificationClick: true,
+        message: undefined,
+        mode: undefined,
+      });
+
+      expect(dispatch).toHaveBeenCalledWith({
+        type: 'PUSH',
+        payload: {
+          screen: ERootRoutes.Modal,
+          params: {
+            screen: EModalRoutes.NotificationsModal,
+            params: {
+              screen: EModalNotificationsRoutes.NotificationList,
+              params: {},
+            },
+          },
+        },
+      });
+      expect(mockAppEventBus.emit).not.toHaveBeenCalledWith(
+        EAppEventBusNames.ShowNotificationPageNavigation,
+        expect.anything(),
+      );
+    },
+  );
+
+  it('keeps extension-background legacy clicks on the expand path', async () => {
+    platformEnv.isNative = false;
+    platformEnv.isNativeBackgroundThread = false;
+    platformEnv.isExtensionBackground = true;
+
+    await notificationsUtils.navigateToNotificationDetail({
+      notificationId: 'test-notification',
+      isFromNotificationClick: true,
+      message: undefined,
+      mode: undefined,
+    });
+
+    expect(extUtils.openExpandTabOrSidePanel).toHaveBeenCalledWith({
+      routes: [
+        ERootRoutes.Modal,
+        EModalRoutes.NotificationsModal,
+        EModalNotificationsRoutes.NotificationList,
+      ],
+      params: {},
+    });
+    expect(mockAppEventBus.emit).not.toHaveBeenCalledWith(
+      EAppEventBusNames.ShowNotificationPageNavigation,
+      expect.anything(),
+    );
+  });
+
+  it.each([
+    [
+      'notification list',
+      undefined,
+      EModalRoutes.NotificationsModal,
+      EModalNotificationsRoutes.NotificationList,
+    ],
+    [
+      'transaction detail',
+      {
+        extras: {
+          params: {
+            accountId: '{local_accountId}',
+            networkId: 'test-network',
+            accountAddress: 'test-address',
+            transactionHash: 'test-transaction',
+          },
+        },
+      } as INotificationPushMessageInfo,
+      EModalRoutes.MainModal,
+      EModalAssetDetailRoutes.HistoryDetails,
+    ],
+  ])(
+    'relays the %s legacy intent through a late foreground processor',
+    async (_label, message, expectedModal, expectedLeaf) => {
+      await notificationsUtils.navigateToNotificationDetail({
+        notificationId: 'test-notification',
+        isFromNotificationClick: true,
+        message,
+        mode: undefined,
+      });
+      const emittedEvent = mockAppEventBus.emit.mock.calls.find(
+        ([name]) => name === EAppEventBusNames.ShowNotificationPageNavigation,
+      )?.[1] as INotificationPageNavigationEvent;
+      const relayedEvent = JSON.parse(
+        JSON.stringify(emittedEvent),
+      ) as INotificationPageNavigationEvent;
+      expect(foregroundPageListener).toBeDefined();
+      foregroundPageListener?.(relayedEvent);
+
+      const dispatch = jest.fn();
+      const getEarnAccount = jest.fn(async () => null);
+      appGlobals.$navigationRef = { current: { dispatch } } as never;
+      platformEnv.isNativeBackgroundThread = false;
+      let processing: Promise<void> | undefined;
+      const unregister = registerNotificationPageNavigationProcessor(
+        ({ payload, navigationAction }) => {
+          processing = navigateToNotificationDetailByLocalParams({
+            payload,
+            navigationAction,
+            localParams: { accountId: 'other-account' },
+            getEarnAccount,
+          });
+        },
+      );
+      try {
+        expect(processing).toBeDefined();
+        await processing;
+        expect(dispatch).toHaveBeenCalledTimes(1);
+        expect(dispatch).toHaveBeenCalledWith({
+          type: 'PUSH',
+          payload: relayedEvent.payload,
+        });
+        expect(relayedEvent.navigationAction).toBe('push');
+        expect(relayedEvent.payload.screen).toBe(ERootRoutes.Modal);
+        expect(relayedEvent.payload.params.screen).toBe(expectedModal);
+        expect(relayedEvent.payload.params.params.screen).toBe(expectedLeaf);
+        if (message) {
+          expect(relayedEvent.payload.params.params.params).toEqual({
+            accountId: '{local_accountId}',
+            networkId: 'test-network',
+            accountAddress: 'test-address',
+            transactionHash: 'test-transaction',
+            notificationId: 'test-notification',
+            notificationAccountId: undefined,
+            checkIsFocused: false,
+            allowClickAccountNameSwitch: true,
+          });
+        } else {
+          expect(relayedEvent.payload.params.params.params).toEqual({});
+        }
+        expect(getEarnAccount).not.toHaveBeenCalled();
+      } finally {
+        unregister();
+      }
+    },
+  );
+});
+
+describe('foreground notification page intent', () => {
+  const originalNavigationRef = appGlobals.$navigationRef;
+
+  afterEach(() => {
+    appGlobals.$navigationRef = originalNavigationRef;
+  });
+
+  it('does not let a push marker bypass non-modal WebView URL validation', async () => {
+    const dispatch = jest.fn();
+    appGlobals.$navigationRef = { current: { dispatch } } as never;
+
+    await navigateToNotificationDetailByLocalParams({
+      payload: {
+        screen: ERootRoutes.WebView,
+        params: {
+          screen: EWebViewRoutes.WebView,
+          params: { url: 'http://localhost/private' },
+        },
+      },
+      navigationAction: 'push',
+      localParams: {},
+      getEarnAccount: jest.fn(async () => null),
+    });
+
+    expect(dispatch).not.toHaveBeenCalled();
+  });
+
+  it('does not promote navigationAction from modern server payload or extras', () => {
+    jest.clearAllMocks();
+    const payload = {
+      screen: ERootRoutes.Main,
+      params: { screen: ETabRoutes.Discovery },
+      navigationAction: 'push',
+    };
+    const extras = { navigationAction: 'push' };
+
+    expect(
+      parseNotificationPayload(
+        ENotificationPushMessageMode.page,
+        JSON.stringify(payload),
+        jest.fn(),
+        extras,
+      ),
+    ).toBe(true);
+    expect(mockAppEventBus.emit).toHaveBeenCalledWith(
+      EAppEventBusNames.ShowNotificationPageNavigation,
+      { payload, extras },
+    );
+  });
+});
 
 describe('navigateToNotificationDetailByLocalParams (Native Market & Discovery routing)', () => {
   const navigateMock = jest.fn();
