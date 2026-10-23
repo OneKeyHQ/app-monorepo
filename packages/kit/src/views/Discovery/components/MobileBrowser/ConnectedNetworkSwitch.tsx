@@ -1,11 +1,11 @@
 import { useEffect } from 'react';
 
-import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { useNetworkSelectorTrigger } from '@onekeyhq/kit/src/components/AccountSelector/hooks/useNetworkSelectorTrigger';
-import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IConnectionAccountInfoWithNum } from '@onekeyhq/shared/types/dappConnection';
 
-type ISwitchNetworkHandler = (() => void) | undefined;
+import { ConnectedAccountSelectorMirror } from '../HeaderRightToolBar';
+
+export type ISwitchNetworkHandler = (() => void) | undefined;
 
 function NetworkSwitchBridge({
   num,
@@ -41,17 +41,8 @@ export function ConnectedNetworkSwitch({
   onChange: (handler: ISwitchNetworkHandler) => void;
 }) {
   return (
-    <AccountSelectorProviderMirror
-      config={{
-        sceneName: EAccountSelectorSceneName.discover,
-        sceneUrl: origin,
-      }}
-      enabledNum={[account.num]}
-      availableNetworksMap={{
-        [account.num]: { networkIds: account.availableNetworkIds },
-      }}
-    >
+    <ConnectedAccountSelectorMirror origin={origin} account={account}>
       <NetworkSwitchBridge num={account.num} onChange={onChange} />
-    </AccountSelectorProviderMirror>
+    </ConnectedAccountSelectorMirror>
   );
 }

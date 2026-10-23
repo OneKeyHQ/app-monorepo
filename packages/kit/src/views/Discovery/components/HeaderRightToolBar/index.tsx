@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { ComponentProps, PropsWithChildren } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -69,6 +70,33 @@ function HeaderRightToolBarSkeleton() {
   );
 }
 
+// The dApp-scene account selector for one connected account. Shared by the
+// header chip and the bottom bar's network switch so both read and write the
+// same selector state.
+export function ConnectedAccountSelectorMirror({
+  origin,
+  account,
+  children,
+}: PropsWithChildren<{
+  origin: string;
+  account: IConnectionAccountInfoWithNum;
+}>) {
+  return (
+    <AccountSelectorProviderMirror
+      config={{
+        sceneName: EAccountSelectorSceneName.discover,
+        sceneUrl: origin,
+      }}
+      enabledNum={[account.num]}
+      availableNetworksMap={{
+        [account.num]: { networkIds: account.availableNetworkIds },
+      }}
+    >
+      {children}
+    </AccountSelectorProviderMirror>
+  );
+}
+
 export function SingleAccountAndNetworkSelectorTrigger({
   origin,
   num,
@@ -131,6 +159,50 @@ function ChipChevron({ badged }: { badged?: boolean }) {
   );
 }
 
+// The avatar + name + chevron chip shared by the header's account states.
+// With a networkId the avatar carries the chain badge (connected sites).
+function HeaderAccountChip({
+  account,
+  indexedAccount,
+  networkId,
+  name,
+  onPress,
+  testID,
+}: Pick<
+  ComponentProps<typeof AccountAvatar>,
+  'account' | 'indexedAccount' | 'networkId'
+> & {
+  name: string;
+  onPress: () => void;
+  testID: string;
+}) {
+  return (
+    <XStack
+      role="button"
+      gap="$1.5"
+      pl="$0.5"
+      pr="$1"
+      alignItems="center"
+      onPress={() => {
+        logBrowserChromeAction('account', 'header');
+        onPress();
+      }}
+      testID={testID}
+    >
+      <AccountAvatar
+        size="small"
+        account={account}
+        indexedAccount={indexedAccount}
+        networkId={networkId}
+      />
+      <SizableText size="$bodyMdMedium" numberOfLines={1} maxWidth={130}>
+        {name}
+      </SizableText>
+      <ChipChevron badged={!!networkId} />
+    </XStack>
+  );
+}
+
 // The connected account in the mobile browser header chip: avatar, name and
 // chevron, the same shape as the not-connected chip. The network badge on the
 // avatar is what marks the site as connected (a connection is always on a
@@ -150,29 +222,14 @@ function CompactConnectedAccountTrigger({ num }: { num: number }) {
     account?.name ||
     intl.formatMessage({ id: ETranslations.wallet_no_address });
   return (
-    <XStack
-      role="button"
-      gap="$1.5"
-      pl="$0.5"
-      pr="$1"
-      alignItems="center"
-      onPress={() => {
-        logBrowserChromeAction('account', 'header');
-        showAccountSelector();
-      }}
+    <HeaderAccountChip
+      account={account}
+      indexedAccount={indexedAccount}
+      networkId={network?.id}
+      name={accountName}
+      onPress={showAccountSelector}
       testID="browser-header-connected-account"
-    >
-      <AccountAvatar
-        size="small"
-        account={account}
-        indexedAccount={indexedAccount}
-        networkId={network?.id}
-      />
-      <SizableText size="$bodyMdMedium" numberOfLines={1} maxWidth={120}>
-        {accountName}
-      </SizableText>
-      <ChipChevron badged />
-    </XStack>
+    />
   );
 }
 
@@ -199,28 +256,13 @@ function CompactWalletAccountTrigger() {
     intl.formatMessage({ id: ETranslations.no_account });
 
   return (
-    <XStack
-      role="button"
-      gap="$1.5"
-      pl="$0.5"
-      pr="$1"
-      alignItems="center"
-      onPress={() => {
-        logBrowserChromeAction('account', 'header');
-        showAccountSelector();
-      }}
+    <HeaderAccountChip
+      account={account}
+      indexedAccount={indexedAccount}
+      name={accountName}
+      onPress={showAccountSelector}
       testID="browser-header-account"
-    >
-      <AccountAvatar
-        size="small"
-        account={account}
-        indexedAccount={indexedAccount}
-      />
-      <SizableText size="$bodyMdMedium" numberOfLines={1} maxWidth={140}>
-        {accountName}
-      </SizableText>
-      <ChipChevron />
-    </XStack>
+    />
   );
 }
 
@@ -536,18 +578,10 @@ function HeaderRightToolBar({ variant }: IHeaderRightToolBarProps) {
             origin={origin}
           />
           {connectedAccountsInfo.map((accountInfo, index) => (
-            <AccountSelectorProviderMirror
+            <ConnectedAccountSelectorMirror
               key={index}
-              config={{
-                sceneName: EAccountSelectorSceneName.discover,
-                sceneUrl: origin ?? '',
-              }}
-              enabledNum={[accountInfo.num]}
-              availableNetworksMap={{
-                [accountInfo.num]: {
-                  networkIds: accountInfo.availableNetworkIds,
-                },
-              }}
+              origin={origin}
+              account={accountInfo}
             >
               <SingleAccountAndNetworkSelectorTrigger
                 origin={origin}
@@ -556,7 +590,7 @@ function HeaderRightToolBar({ variant }: IHeaderRightToolBarProps) {
                 afterChangeAccount={afterChangeAccount}
                 compact={isMobileBrowser}
               />
-            </AccountSelectorProviderMirror>
+            </ConnectedAccountSelectorMirror>
           ))}
         </Stack>
       );
@@ -595,7 +629,7 @@ function HeaderRightToolBar({ variant }: IHeaderRightToolBarProps) {
     isMobileBrowser,
   ]);
 
-  return <>{content}</>;
+  return content;
 }
 
 function HeaderRightToolBarWrapper(props: IHeaderRightToolBarProps) {

@@ -44,6 +44,7 @@ import { useMobileBrowserBottomBarData } from './useMobileBrowserBottomBarData';
 import { useMobileBrowserOptions } from './useMobileBrowserOptions';
 
 import type { IGlassFade } from './BrowserChromeCapsule';
+import type { ISwitchNetworkHandler } from './ConnectedNetworkSwitch';
 import type { IMobileBrowserBottomBarProps } from './useMobileBrowserBottomBarData';
 import type { SharedValue } from 'react-native-reanimated';
 
@@ -302,11 +303,11 @@ function MobileBrowserBottomBar({ id, chrome }: IMobileBrowserBottomBarProps) {
   // connections switch per account from the header popover).
   const singleConnectedAccount =
     connectedAccounts?.length === 1 ? connectedAccounts[0] : undefined;
-  const [switchNetwork, setSwitchNetwork] = useState<{
-    handler: (() => void) | undefined;
-  }>({ handler: undefined });
+  const [switchNetworkHandler, setSwitchNetworkHandler] =
+    useState<ISwitchNetworkHandler>();
   const handleSwitchNetworkChange = useCallback(
-    (handler: (() => void) | undefined) => setSwitchNetwork({ handler }),
+    // Wrapped so React stores the handler instead of calling it as an updater.
+    (handler: ISwitchNetworkHandler) => setSwitchNetworkHandler(() => handler),
     [],
   );
   const showOptions = useMobileBrowserOptions({
@@ -318,7 +319,7 @@ function MobileBrowserBottomBar({ id, chrome }: IMobileBrowserBottomBarProps) {
     onPinnedPress: handlePinTab,
     onBrowserOpen: handleBrowserOpen,
     onCloseTab: handleCloseTab,
-    displayDisconnectOption: !!hasConnectedAccount,
+    displayDisconnectOption: hasConnectedAccount,
     onDisconnect: handleDisconnect,
     siteMode: tab?.siteMode,
     onRequestSiteMode: handleRequestSiteMode,
@@ -327,7 +328,7 @@ function MobileBrowserBottomBar({ id, chrome }: IMobileBrowserBottomBarProps) {
     isTranslated,
     // The options hook reads its props through a ref, so inline is fine.
     onTranslatePress: () => setTranslateOpen(true),
-    onSwitchNetwork: singleConnectedAccount ? switchNetwork.handler : undefined,
+    onSwitchNetwork: switchNetworkHandler,
   });
 
   const currentUrl = tab?.displayUrl ?? tab?.url;
