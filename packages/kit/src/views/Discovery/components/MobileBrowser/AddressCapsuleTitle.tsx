@@ -20,58 +20,44 @@ import { DappInfoPopoverContent } from '../DappInfoPopoverContent';
 import { getDisplayHostname, logBrowserChromeAction } from './browserChrome';
 import { ChromePressable } from './ChromePressable';
 
-// Smaller than the 24pt menu/reload icons beside it, so the address reads as
-// content and the end icons as controls.
-const RISK_ICON_SIZE = 18;
-const DOMAIN_FONT_SIZE = 16;
-// Long domains first shrink down to this scale before being truncated.
-const DOMAIN_MIN_FONT_SCALE = 0.82;
+// Everything inside the address capsule (menu, site badge, domain, reload)
+// shares one 16pt size.
+export const ADDRESS_CAPSULE_ICON_SIZE = 16;
+const RISK_ICON_SIZE = ADDRESS_CAPSULE_ICON_SIZE;
 
 const styles = StyleSheet.create({
-  // Lays the text out at its natural width, off-screen, to measure it.
-  measure: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    width: 10_000,
-    flexDirection: 'row',
-    opacity: 0,
-  },
   fill: { flex: 1, alignSelf: 'stretch', overflow: 'hidden' },
-  tail: {
+  row: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'flex-end',
   },
 });
 
-// Domain text that never ellipsizes the end: it first scales the font down,
-// and if it still doesn't fit, keeps the end of the domain (the part that
-// identifies the site) visible and fades the beginning out.
+// Domain text at a fixed 16pt that is never ellipsized: it lays out at its
+// natural width, and when that is wider than the room, the end of the domain
+// (the part that identifies the site) stays visible and the start fades out.
 function DomainLabel({ text, testID }: { text: string; testID?: string }) {
   const [availableWidth, setAvailableWidth] = useState(0);
-  const [naturalWidth, setNaturalWidth] = useState(0);
-  const scale =
-    availableWidth && naturalWidth
-      ? Math.max(
-          DOMAIN_MIN_FONT_SCALE,
-          Math.min(1, availableWidth / naturalWidth),
-        )
-      : 1;
-  const fontSize = Math.round(DOMAIN_FONT_SIZE * scale * 2) / 2;
-  const overflows = naturalWidth * scale > availableWidth + 0.5;
+  const [textWidth, setTextWidth] = useState(0);
+  const overflows = availableWidth > 0 && textWidth > availableWidth + 0.5;
 
-  const label = (
-    <SizableText
-      size="$bodyLgMedium"
-      fontSize={fontSize}
-      numberOfLines={1}
-      flexShrink={0}
-      testID={testID}
+  const row = (
+    <View
+      style={[
+        styles.row,
+        { justifyContent: overflows ? 'flex-end' : 'center' },
+      ]}
     >
-      {text}
-    </SizableText>
+      <SizableText
+        size="$bodyLgMedium"
+        flexShrink={0}
+        onLayout={(e) => setTextWidth(e.nativeEvent.layout.width)}
+        testID={testID}
+      >
+        {text}
+      </SizableText>
+    </View>
   );
 
   return (
@@ -79,15 +65,6 @@ function DomainLabel({ text, testID }: { text: string; testID?: string }) {
       style={styles.fill}
       onLayout={(e) => setAvailableWidth(e.nativeEvent.layout.width)}
     >
-      <View style={styles.measure} pointerEvents="none">
-        <SizableText
-          size="$bodyLgMedium"
-          fontSize={DOMAIN_FONT_SIZE}
-          onLayout={(e) => setNaturalWidth(e.nativeEvent.layout.width)}
-        >
-          {text}
-        </SizableText>
-      </View>
       {overflows ? (
         <MaskedView
           style={styles.fill}
@@ -100,10 +77,10 @@ function DomainLabel({ text, testID }: { text: string; testID?: string }) {
             />
           }
         >
-          <View style={styles.tail}>{label}</View>
+          {row}
         </MaskedView>
       ) : (
-        <View style={[styles.tail, { justifyContent: 'center' }]}>{label}</View>
+        row
       )}
     </View>
   );

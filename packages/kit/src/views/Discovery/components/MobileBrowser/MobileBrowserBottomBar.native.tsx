@@ -286,6 +286,7 @@ function MobileBrowserBottomBar({
                   <IconButton
                     variant="tertiary"
                     icon="MenuOutline"
+                    iconSize="$4"
                     disabled={displayHomePage}
                     testID="browser-bar-options"
                   />
@@ -304,6 +305,7 @@ function MobileBrowserBottomBar({
                   onPress={handleAddressPress}
                 />
                 <RefreshButton
+                  iconSize="$4"
                   onRefresh={() => {
                     logBrowserChromeAction('refresh', 'toolbar');
                     handleRefresh();
