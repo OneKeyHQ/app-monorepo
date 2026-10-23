@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
 import {
   type IdentityRow,
@@ -8,9 +15,10 @@ import {
   type NativeListSnapshot,
   type RowModel,
 } from '@onekeyfe/react-native-native-list';
+import { useFocusEffect } from '@react-navigation/native';
 import { debounce, noop } from 'lodash';
 import { useIntl } from 'react-intl';
-import { StyleSheet, type View } from 'react-native';
+import { type LayoutChangeEvent, StyleSheet, type View } from 'react-native';
 
 import {
   Page,
@@ -309,7 +317,41 @@ export function AccountSelectorWalletListSideBarV2({
 
   const { md } = useMedia();
   const listRef = useRef<NativeListRef | null>(null);
-  const didInitialScrollRef = useRef(false);
+  const initialScrollRef = useRef<{
+    cancelled: boolean;
+    selection?: Pick<
+      typeof selectedAccount,
+      'focusedWallet' | 'walletId' | 'indexedAccountId' | 'networkId'
+    >;
+    applied?: {
+      key: string;
+      viewOffset: number;
+      width: number;
+      height: number;
+    };
+    frame?: number;
+  }>({ cancelled: false });
+  const [listLayout, setListLayout] = useState<{
+    width: number;
+    height: number;
+  }>();
+  const cancelInitialScroll = useCallback(() => {
+    const state = initialScrollRef.current;
+    state.cancelled = true;
+    if (state.frame !== undefined) {
+      cancelAnimationFrame(state.frame);
+      state.frame = undefined;
+    }
+  }, []);
+  const handleListLayout = useCallback((event: LayoutChangeEvent) => {
+    const { width, height } = event.nativeEvent.layout;
+    if (width <= 0 || height <= 0) return;
+    setListLayout((previous) =>
+      previous?.width === width && previous.height === height
+        ? previous
+        : { width, height },
+    );
+  }, []);
   const containerRef = useRef<View>(null);
   const tooltipTokenRef = useRef<string | undefined>(undefined);
   const [walletTooltip, setWalletTooltip] = useState<{
@@ -508,28 +550,79 @@ export function AccountSelectorWalletListSideBarV2({
       }),
     [selectedAccount.focusedWallet, snapshot.rows],
   );
+  useLayoutEffect(() => {
+    const state = initialScrollRef.current;
+    if (state.cancelled) return;
+    const selection = state.selection;
+    if (
+      selection &&
+      (selection.focusedWallet !== selectedAccount.focusedWallet ||
+        selection.walletId !== selectedAccount.walletId ||
+        selection.indexedAccountId !== selectedAccount.indexedAccountId ||
+        selection.networkId !== selectedAccount.networkId)
+    ) {
+      cancelInitialScroll();
+      return;
+    }
+    if (initialScrollTarget && listLayout) state.selection ??= selectedAccount;
+  }, [cancelInitialScroll, initialScrollTarget, listLayout, selectedAccount]);
   useEffect(() => {
-    if (!initialScrollTarget || didInitialScrollRef.current) {
+    const state = initialScrollRef.current;
+    if (state.cancelled || !initialScrollTarget || !listLayout) return;
+    const target = { ...initialScrollTarget, ...listLayout };
+    if (
+      state.applied?.key === target.key &&
+      state.applied.viewOffset === target.viewOffset &&
+      state.applied.width === target.width &&
+      state.applied.height === target.height
+    ) {
       return;
     }
 
+    // Modal geometry can change after the first request; scroll never changes it.
     const frame = requestAnimationFrame(() => {
       const list = listRef.current;
-      if (!list || didInitialScrollRef.current) {
-        return;
-      }
-
-      didInitialScrollRef.current = true;
+      if (!list || state.cancelled) return;
+      state.frame = undefined;
+      state.applied = target;
       list.scrollToKey({
-        key: initialScrollTarget.key,
+        key: target.key,
         animated: false,
         viewPosition: 0.5,
-        viewOffset: initialScrollTarget.viewOffset,
+        viewOffset: target.viewOffset,
       });
     });
+    state.frame = frame;
+    return () => {
+      cancelAnimationFrame(frame);
+      if (state.frame === frame) state.frame = undefined;
+    };
+  }, [cancelInitialScroll, initialScrollTarget, listLayout]);
 
-    return () => cancelAnimationFrame(frame);
-  }, [initialScrollTarget]);
+  useEffect(() => {
+    if (platformEnv.isNative || shouldHideWalletList) return;
+    const element = containerRef.current as unknown as HTMLElement | null;
+    if (!element) return;
+    const events = [
+      'wheel',
+      'pointerdown',
+      'mousedown',
+      'touchstart',
+      'keydown',
+    ];
+    events.forEach((event) =>
+      element.addEventListener(event, cancelInitialScroll, {
+        capture: true,
+        passive: true,
+      }),
+    );
+    return () => {
+      events.forEach((event) =>
+        element.removeEventListener(event, cancelInitialScroll, true),
+      );
+    };
+  }, [cancelInitialScroll, shouldHideWalletList]);
+  useFocusEffect(useCallback(() => cancelInitialScroll, [cancelInitialScroll]));
 
   if (shouldHideWalletList) {
     return null;
@@ -565,11 +658,14 @@ export function AccountSelectorWalletListSideBarV2({
         ref={listRef}
         style={{ flex: 1 }}
         testID="account-selector-wallet-list-v2"
+        onLayout={handleListLayout}
+        onTouchStart={cancelInitialScroll}
         snapshot={snapshot}
         onActionAnchorInvalidated={(event) => {
           if (event.token === tooltipTokenRef.current) closeWalletTooltip();
         }}
         onRowAction={(event) => {
+          if (event.actionKey === 'press') cancelInitialScroll();
           if (event.actionKey === 'wallet.tooltip.name' && event.anchor) {
             const title = walletNames.get(event.rowKey ?? '');
             if (!title || platformEnv.isNative || !md) return;
