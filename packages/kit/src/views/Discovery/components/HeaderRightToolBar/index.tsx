@@ -74,11 +74,14 @@ export function SingleAccountAndNetworkSelectorTrigger({
   num,
   account,
   afterChangeAccount,
+  compact,
 }: {
   origin: string;
   num: number;
   account: IConnectionAccountInfoWithNum;
   afterChangeAccount: () => void;
+  // Mobile browser header chip: network badge plus account name and chevron.
+  compact?: boolean;
 }) {
   const { handleAccountInfoChanged } = useShouldUpdateConnectedAccount();
   const handleAccountChanged = useCallback(
@@ -98,6 +101,17 @@ export function SingleAccountAndNetworkSelectorTrigger({
     num,
     handleAccountChanged,
   });
+  if (compact) {
+    return (
+      <XStack gap="$2" alignItems="center">
+        <NetworkSelectorTriggerBrowserSingle
+          num={num}
+          recordNetworkHistoryEnabled
+        />
+        <CompactConnectedAccountTrigger num={num} />
+      </XStack>
+    );
+  }
   return (
     <XStack gap="$6" alignItems="center" $platform-native={{ gap: '$2' }}>
       <NetworkSelectorTriggerBrowserSingle
@@ -105,6 +119,47 @@ export function SingleAccountAndNetworkSelectorTrigger({
         recordNetworkHistoryEnabled
       />
       <AccountSelectorTriggerBrowserSingle num={num} />
+    </XStack>
+  );
+}
+
+// The connected account in the mobile browser header chip: avatar, name and
+// chevron, like the not-connected chip, so both states read the same. Opens
+// the dApp account selector (same options as AccountSelectorTriggerBrowserSingle).
+function CompactConnectedAccountTrigger({ num }: { num: number }) {
+  const intl = useIntl();
+  const {
+    activeAccount: { account, indexedAccount },
+    showAccountSelector,
+  } = useAccountSelectorTrigger({
+    num,
+    linkNetwork: true,
+    hideNonBackedUpWallet: true,
+  });
+  const accountName =
+    account?.name ||
+    intl.formatMessage({ id: ETranslations.wallet_no_address });
+  return (
+    <XStack
+      role="button"
+      gap="$1.5"
+      pr="$1"
+      alignItems="center"
+      onPress={() => {
+        logBrowserChromeAction('account', 'header');
+        showAccountSelector();
+      }}
+      testID="browser-header-connected-account"
+    >
+      <AccountAvatar
+        size="small"
+        account={account}
+        indexedAccount={indexedAccount}
+      />
+      <SizableText size="$bodyMdMedium" numberOfLines={1} maxWidth={120}>
+        {accountName}
+      </SizableText>
+      <Icon name="ChevronDownSmallOutline" color="$iconSubdued" size="$4" />
     </XStack>
   );
 }
@@ -203,8 +258,12 @@ function WalletAccountOrOnboardingEntry() {
 
 function AvatarStackTrigger({
   accountsInfo,
+  compact,
 }: {
   accountsInfo: IConnectionAccountInfoWithNum[];
+  // Mobile browser header chip: avatars side by side (an app-background ring
+  // would clash with the page-tinted chip) and a chevron for the popover.
+  compact?: boolean;
 }) {
   const { result: accounts } = usePromiseResult(() => {
     const promises = accountsInfo.map(async (accountInfo) => {
@@ -226,13 +285,18 @@ function AvatarStackTrigger({
 
   return (
     <XStack gap="$4" alignItems="center">
-      <XStack role="button" testID="multi-avatar">
+      <XStack
+        role="button"
+        testID="multi-avatar"
+        alignItems="center"
+        gap={compact ? '$0.5' : undefined}
+      >
         {accounts?.slice(0, 2).map((account, index) => (
           <Stack
             key={index}
-            borderWidth={2}
+            borderWidth={compact ? 0 : 2}
             borderColor="$bgApp"
-            ml="$-0.5"
+            ml={compact ? undefined : '$-0.5'}
             {...(index === 0 && {
               zIndex: 1,
             })}
@@ -254,13 +318,22 @@ function AvatarStackTrigger({
             px="$1"
             bg="$bgStrong"
             borderRadius="$2"
-            ml="$-1"
+            ml={compact ? undefined : '$-1'}
             alignItems="center"
+            justifyContent="center"
           >
             <SizableText size="$bodyMd" color="$text">
               +{accountsInfo.length - 2}
             </SizableText>
           </XStack>
+        ) : null}
+        {compact ? (
+          <Icon
+            name="ChevronDownSmallOutline"
+            color="$iconSubdued"
+            size="$4"
+            ml="$1"
+          />
         ) : null}
       </XStack>
       <ShortcutsActionButton />
@@ -467,6 +540,7 @@ function HeaderRightToolBar({ variant }: IHeaderRightToolBarProps) {
                 num={accountInfo.num}
                 account={accountInfo}
                 afterChangeAccount={afterChangeAccount}
+                compact={isMobileBrowser}
               />
             </AccountSelectorProviderMirror>
           ))}
@@ -486,7 +560,10 @@ function HeaderRightToolBar({ variant }: IHeaderRightToolBarProps) {
           open={isOpen}
           onOpenChange={handleOpenChange}
           renderTrigger={
-            <AvatarStackTrigger accountsInfo={connectedAccountsInfo} />
+            <AvatarStackTrigger
+              accountsInfo={connectedAccountsInfo}
+              compact={isMobileBrowser}
+            />
           }
           renderContent={renderPopoverContent}
         />

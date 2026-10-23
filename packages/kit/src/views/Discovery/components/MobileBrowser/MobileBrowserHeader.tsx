@@ -124,7 +124,7 @@ function MobileBrowserHeader({
   let accountChipBg = '$bgSubdued';
   if (pageThemeName) {
     accountChipBg =
-      pageThemeName === 'dark' ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.04)';
+      pageThemeName === 'dark' ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.07)';
   }
   const containerAnimatedStyle = useAnimatedStyle(() => ({
     height: interpolate(
