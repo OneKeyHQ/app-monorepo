@@ -1,5 +1,5 @@
 import type { ComponentType, ReactElement } from 'react';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -23,7 +23,10 @@ import type {
 } from '@onekeyhq/components';
 import { getSharedInputStyles } from '@onekeyhq/components/src/forms/Input/sharedStyles';
 import type { IFormFieldProps } from '@onekeyhq/components/src/forms/types';
-import { ANIMATE_ONLY_TRANSFORM } from '@onekeyhq/components/src/utils/animationConstants';
+import {
+  ANIMATE_ONLY_OPACITY,
+  ANIMATE_ONLY_TRANSFORM,
+} from '@onekeyhq/components/src/utils/animationConstants';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { NUMBER_FORMATTER } from '@onekeyhq/shared/src/utils/numberUtils';
@@ -98,10 +101,15 @@ export type IAmountInputFormItemProps = IFormFieldProps<
       // Set when the trigger unfolds its list in place (Earn's Pay with): the
       // chevron turns with the list
       isExpanded?: boolean;
+      // A token picked from that list fades in where the last one was; the
+      // token the trigger first shows doesn't
+      fadesInPickedToken?: boolean;
     } & IXStackProps;
     reversible?: boolean;
   } & Omit<IStackProps, 'onChange'>
 >;
+
+const TOKEN_HIDDEN_STYLE = { opacity: 0 } as const;
 
 export function AmountInput({
   inputProps,
@@ -221,6 +229,10 @@ export function AmountInput({
     );
   }, [valueProps, reversible]);
 
+  const hasDrawnTriggerRef = useRef(false);
+  useEffect(() => {
+    hasDrawnTriggerRef.current = true;
+  }, []);
   const TokenSelectorTrigger = useMemo(() => {
     const {
       popover: popoverProps,
@@ -236,8 +248,13 @@ export function AmountInput({
       disabled,
       onPress,
       isExpanded,
+      fadesInPickedToken,
       ...triggerStackProps
     } = tokenSelectorTriggerProps ?? {};
+    const tokenEnterStyle =
+      fadesInPickedToken && hasDrawnTriggerRef.current
+        ? TOKEN_HIDDEN_STYLE
+        : undefined;
 
     if (loading) {
       return (
@@ -278,78 +295,88 @@ export function AmountInput({
         disabled={disabled}
         onPress={hasPopover ? undefined : onPress}
       >
-        <Stack mr="$2">
-          {selectedTokenImageLoading ? (
-            <Skeleton w="$7" h="$7" radius="round" />
-          ) : (
-            <Image
-              size="$7"
-              borderRadius="$full"
-              src={selectedTokenImageUri}
-              recyclingKey={selectedTokenImageRecyclingKey}
-              placeholder={<Stack width="100%" height="100%" />}
-              fallback={
-                <Image.Fallback
-                  borderRadius="$full"
-                  alignItems="center"
-                  justifyContent="center"
-                  bg="$gray5"
-                >
-                  <Icon
-                    size="$6"
-                    m="$1"
-                    name="CryptoCoinOutline"
-                    color="$iconSubdued"
-                  />
-                </Image.Fallback>
-              }
-            />
-          )}
-          {selectedNetworkImageUri ? (
-            <Stack
-              position="absolute"
-              right="$-1"
-              bottom="$-1"
-              p={showNetworkIconBorder ? '$0.5' : '$0'}
-              borderRadius="$full"
-              flexShrink={1}
-              bg={showNetworkIconBorder ? '$bgApp' : '$transparent'}
-            >
+        <XStack
+          key={selectedTokenSymbol}
+          ai="center"
+          flexShrink={1}
+          minWidth={0}
+          transition="quick"
+          animateOnly={ANIMATE_ONLY_OPACITY}
+          enterStyle={tokenEnterStyle}
+        >
+          <Stack mr="$2">
+            {selectedTokenImageLoading ? (
+              <Skeleton w="$7" h="$7" radius="round" />
+            ) : (
               <Image
-                size="$3"
+                size="$7"
                 borderRadius="$full"
-                src={selectedNetworkImageUri}
+                src={selectedTokenImageUri}
+                recyclingKey={selectedTokenImageRecyclingKey}
                 placeholder={<Stack width="100%" height="100%" />}
                 fallback={
-                  <Image.Fallback bg="$gray5" delayMs={1000}>
+                  <Image.Fallback
+                    borderRadius="$full"
+                    alignItems="center"
+                    justifyContent="center"
+                    bg="$gray5"
+                  >
                     <Icon
-                      size="$3"
-                      name="QuestionmarkSolid"
+                      size="$6"
+                      m="$1"
+                      name="CryptoCoinOutline"
                       color="$iconSubdued"
                     />
                   </Image.Fallback>
                 }
               />
-            </Stack>
-          ) : null}
-          {isCustomNetwork && selectedNetworkName ? (
-            <Stack
-              position="absolute"
-              right="$-1"
-              bottom="$-1"
-              p={showNetworkIconBorder ? '$0.5' : '$0'}
-              borderRadius="$full"
-              flexShrink={1}
-              bg={showNetworkIconBorder ? '$bgApp' : '$transparent'}
-            >
-              <LetterAvatar size="$3" letter={selectedNetworkName[0]} />
-            </Stack>
-          ) : null}
-        </Stack>
-        <SizableText size="$headingXl" numberOfLines={1} flexShrink={1}>
-          {selectedTokenSymbol ||
-            intl.formatMessage({ id: ETranslations.token_selector_title })}
-        </SizableText>
+            )}
+            {selectedNetworkImageUri ? (
+              <Stack
+                position="absolute"
+                right="$-1"
+                bottom="$-1"
+                p={showNetworkIconBorder ? '$0.5' : '$0'}
+                borderRadius="$full"
+                flexShrink={1}
+                bg={showNetworkIconBorder ? '$bgApp' : '$transparent'}
+              >
+                <Image
+                  size="$3"
+                  borderRadius="$full"
+                  src={selectedNetworkImageUri}
+                  placeholder={<Stack width="100%" height="100%" />}
+                  fallback={
+                    <Image.Fallback bg="$gray5" delayMs={1000}>
+                      <Icon
+                        size="$3"
+                        name="QuestionmarkSolid"
+                        color="$iconSubdued"
+                      />
+                    </Image.Fallback>
+                  }
+                />
+              </Stack>
+            ) : null}
+            {isCustomNetwork && selectedNetworkName ? (
+              <Stack
+                position="absolute"
+                right="$-1"
+                bottom="$-1"
+                p={showNetworkIconBorder ? '$0.5' : '$0'}
+                borderRadius="$full"
+                flexShrink={1}
+                bg={showNetworkIconBorder ? '$bgApp' : '$transparent'}
+              >
+                <LetterAvatar size="$3" letter={selectedNetworkName[0]} />
+              </Stack>
+            ) : null}
+          </Stack>
+          <SizableText size="$headingXl" numberOfLines={1} flexShrink={1}>
+            {selectedTokenSymbol ||
+              intl.formatMessage({ id: ETranslations.token_selector_title })}
+          </SizableText>
+        </XStack>
         {hasOnPress && !disabled ? (
           <Stack
             flexShrink={0}

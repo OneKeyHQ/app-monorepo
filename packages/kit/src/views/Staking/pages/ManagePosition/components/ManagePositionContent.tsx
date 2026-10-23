@@ -22,6 +22,7 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { BorrowNavigation } from '@onekeyhq/kit/src/views/Borrow/borrowUtils';
 import { BorrowInfoSectionSkeleton } from '@onekeyhq/kit/src/views/Borrow/components/ManagePosition/modules/InfoDisplaySection/BorrowInfoSectionSkeleton';
+import { EARN_DESKTOP_DEMO_COPY } from '@onekeyhq/kit/src/views/Earn/components/desktopHome/earnDesktopHomeCopy';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import type { ISupportedSymbol } from '@onekeyhq/shared/types/earn';
@@ -33,6 +34,10 @@ import type {
 import { EarnAlert } from '../../../components/ProtocolDetails/EarnAlert';
 import { NetworkUnsupportedWarning } from '../../../components/ProtocolDetails/NetworkUnsupportedWarning';
 import { NoAddressWarning } from '../../../components/ProtocolDetails/NoAddressWarning';
+import {
+  EarnFormRow,
+  EarnFormSummary,
+} from '../../../components/UniversalStake/EarnFormSummary';
 import { EManagePositionType, useManagePage } from '../hooks/useManagePage';
 import { shouldBlockManagePageAction } from '../hooks/useManagePage.utils';
 
@@ -221,6 +226,13 @@ export const ManageSectionShell = ({
   if (isPendleProvider) {
     activeLabel = intl.formatMessage({ id: ETranslations.content__amount });
   }
+  // The Earn deposit form (with Pay with) as it lands before an amount: its
+  // box's title, then the result and its rows, each with a dash
+  const isEarnDepositForm =
+    hasPayWith && activeIndex === 0 && !isPendleProvider;
+  const boxTitle = isEarnDepositForm
+    ? EARN_DESKTOP_DEMO_COPY.payWith
+    : activeLabel;
   const borrowAction = useMemo(() => {
     if (
       [EManagePositionType.Supply, EManagePositionType.Withdraw].includes(type)
@@ -303,7 +315,7 @@ export const ManageSectionShell = ({
             mirror StakingAmountInput/AmountInput so nothing shifts on load. */}
         <YStack borderRadius="$3" bg="$bgSubdued" px="$3.5" py="$2.5" gap="$2">
           <SizableText size="$bodyMd" color="$textSubdued">
-            {activeLabel}
+            {boxTitle}
           </SizableText>
           <XStack h="$11" ai="center" jc="space-between">
             <Skeleton h="$6" w="$24" borderRadius="$2" />
@@ -349,7 +361,7 @@ export const ManageSectionShell = ({
             px="$3"
             py="$2"
             bg="$bgSubdued"
-            borderRadius="$2"
+            borderRadius="$3"
           >
             <XStack flex={1} minWidth={0} gap="$3" ai="center">
               <Skeleton w="$9" h="$9" borderRadius="$full" />
@@ -396,7 +408,41 @@ export const ManageSectionShell = ({
           </YStack>
         ) : null}
 
-        {!hasProtocolSwitch && borrowAction ? (
+        {isEarnDepositForm ? (
+          <EarnFormSummary
+            outcome={{
+              label: EARN_DESKTOP_DEMO_COPY.estAnnualRewards,
+              values: [],
+              isEarning: true,
+            }}
+            rows={
+              borrowAction
+                ? [
+                    <EarnFormRow
+                      key="my-supply"
+                      label={intl.formatMessage({
+                        id: ETranslations.defi_my_supply,
+                      })}
+                    />,
+                    <EarnFormRow
+                      key="collateral"
+                      label={intl.formatMessage({
+                        id: ETranslations.defi_use_as_collateral,
+                      })}
+                    />,
+                  ]
+                : [
+                    <EarnFormRow
+                      key="receive"
+                      label={intl.formatMessage({
+                        id: ETranslations.earn_est_receive,
+                      })}
+                    />,
+                  ]
+            }
+          />
+        ) : null}
+        {!hasProtocolSwitch && borrowAction && !isEarnDepositForm ? (
           <BorrowInfoSectionSkeleton action={borrowAction} />
         ) : null}
 

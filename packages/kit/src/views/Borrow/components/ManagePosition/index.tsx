@@ -101,10 +101,17 @@ export function ManagePosition(props: IManagePositionProps) {
     repayAll: baseState.isRepayAll,
   });
 
-  // Clear amount when the transaction reserve scope changes.
+  // Clear amount when the transaction reserve scope changes (not as it
+  // mounts: a start amount is already in the box)
+  const reserveScope = `${action}|${borrowReserveAddress ?? ''}`;
+  const reserveScopeRef = useRef(reserveScope);
   useEffect(() => {
+    if (reserveScopeRef.current === reserveScope) {
+      return;
+    }
+    reserveScopeRef.current = reserveScope;
     setAmountValue('');
-  }, [action, borrowReserveAddress, setAmountValue]);
+  }, [reserveScope, setAmountValue]);
 
   // Entered once, as soon as both it and the decimals are in. After the clear
   // above, which also runs on mount (effects run in order). The loading form

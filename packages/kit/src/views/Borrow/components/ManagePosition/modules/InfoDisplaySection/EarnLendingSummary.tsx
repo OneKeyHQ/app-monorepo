@@ -10,6 +10,7 @@ import { EarnText } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDet
 import {
   EarnFormRow,
   EarnFormSummary,
+  EarnFormValue,
 } from '@onekeyhq/kit/src/views/Staking/components/UniversalStake/EarnFormSummary';
 import type { IEarnOutcome } from '@onekeyhq/kit/src/views/Staking/components/UniversalStake/EarnFormSummary';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -149,17 +150,27 @@ export function EarnLendingSummary({
       />,
     );
   }
-  if (confirmation?.healthFactor && isPositiveAmount) {
+  // With loans the row is there from the first frame: the server gives the
+  // liquidation line for an empty amount (only with loans) and the factor
+  // once there is an amount, so a dash holds its place until then
+  const healthFactor = isPositiveAmount
+    ? confirmation?.healthFactor
+    : undefined;
+  if (confirmation?.healthFactor || confirmation?.liquidationAt) {
     rows.push(
       <EarnFormRow
         key="health-factor"
         label={intl.formatMessage({ id: ETranslations.defi_health_factor })}
         value={
           <YStack ai="flex-end">
-            <BeforeAfter
-              current={confirmation.healthFactor.current?.title}
-              latest={confirmation.healthFactor.latest?.title}
-            />
+            {healthFactor ? (
+              <BeforeAfter
+                current={healthFactor.current?.title}
+                latest={healthFactor.latest?.title}
+              />
+            ) : (
+              <EarnFormValue />
+            )}
             <EarnText
               text={
                 confirmation.liquidationAt?.description ?? {
@@ -204,8 +215,9 @@ export function EarnLendingSummary({
   return (
     <EarnFormSummary
       outcome={outcome}
-      // The result needs no answer from the server; the rows do
-      isOutcomeLoading={false}
+      // Worked out here once the supply rate is in (the first answer); the
+      // rows wait for each amount's answer
+      isOutcomeLoading={isPositiveAmount && !apy.gt(0)}
       isLoading={isPositiveAmount && Boolean(transactionConfirmationLoading)}
       rows={rows}
     />

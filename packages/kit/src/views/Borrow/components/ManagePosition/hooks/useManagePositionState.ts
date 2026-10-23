@@ -4,6 +4,7 @@ import BigNumber from 'bignumber.js';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { getStartAmount } from '@onekeyhq/kit/src/utils/validateAmountInput';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
@@ -24,7 +25,12 @@ export function useManagePositionState(props: IManagePositionProps): {
   submitting: boolean;
   setSubmitting: (value: boolean) => void;
 } {
-  const [amountValue, setAmountValue] = useState('');
+  // A start amount (what was typed before a switch to another protocol) is
+  // in the box from the first frame, so the form drawn again doesn't flash
+  // empty
+  const [amountValue, setAmountValue] = useState(() =>
+    getStartAmount(props.initialAmount, props.decimals),
+  );
   const [submitting, setSubmitting] = useState(false);
 
   const [

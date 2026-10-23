@@ -44,6 +44,7 @@ import {
   useEarnRouterOffers,
 } from '../../../Earn/pages/EarnRouter/EarnRouterOffer';
 import { EarnWithdrawDone } from '../../../Earn/pages/EarnRouter/EarnWithdrawDone';
+import { EarnFormLeavingContext } from '../../components/EarnFooterFade';
 import { EarnOutcomeCarryContext } from '../../components/UniversalStake/EarnFormSummary';
 import { useFitModalHeight } from '../../hooks/useFitModalHeight';
 
@@ -252,15 +253,40 @@ const ManagePositionPage = () => {
     offer: NonNullable<typeof better>;
     fromOffer?: typeof from;
   }>();
+  // A transaction that went out: the form (its footer and the header's
+  // History with it) fades, then the done view takes its place
+  const reduceMotion = useReducedMotion();
+  const [isFormLeaving, setIsFormLeaving] = useState(false);
+  const doneTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(
+    undefined,
+  );
+  useEffect(() => () => clearTimeout(doneTimerRef.current), []);
+  const leaveFormThen = useCallback(
+    (showDone: () => void) => {
+      if (reduceMotion) {
+        showDone();
+        return;
+      }
+      setIsFormLeaving(true);
+      clearTimeout(doneTimerRef.current);
+      doneTimerRef.current = setTimeout(() => {
+        showDone();
+        setIsFormLeaving(false);
+      }, FORM_OUT_MS);
+    },
+    [reduceMotion],
+  );
   const handleWithdrawn = useCallback(
     (info: { amount: string; tokenImageUri?: string }) => {
       if (!better || !new BigNumber(info.amount).gt(0)) {
         navigation.popStack();
         return;
       }
-      setWithdrawn({ ...info, offer: better, fromOffer: from });
+      leaveFormThen(() =>
+        setWithdrawn({ ...info, offer: better, fromOffer: from }),
+      );
     },
-    [better, from, navigation],
+    [better, from, leaveFormThen, navigation],
   );
   // The better rate opens here, in this modal, with what was withdrawn
   const handleDepositBetter = useCallback(() => {
@@ -275,29 +301,12 @@ const ManagePositionPage = () => {
     setWithdrawn(undefined);
   }, [withdrawn]);
 
-  // A deposit that went out: the form fades, then what went where shows in
-  // its place until Done or My portfolio closes the modal
-  const reduceMotion = useReducedMotion();
+  // A deposit that went out: what went where shows in the form's place
+  // until Done or My portfolio closes the modal
   const [depositDone, setDepositDone] = useState<IEarnDepositDoneInfo>();
-  const [isFormLeaving, setIsFormLeaving] = useState(false);
-  const doneTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(
-    undefined,
-  );
-  useEffect(() => () => clearTimeout(doneTimerRef.current), []);
   const showDepositDone = useCallback(
-    (info: IEarnDepositDoneInfo) => {
-      if (reduceMotion) {
-        setDepositDone(info);
-        return;
-      }
-      setIsFormLeaving(true);
-      clearTimeout(doneTimerRef.current);
-      doneTimerRef.current = setTimeout(() => {
-        setDepositDone(info);
-        setIsFormLeaving(false);
-      }, FORM_OUT_MS);
-    },
-    [reduceMotion],
+    (info: IEarnDepositDoneInfo) => leaveFormThen(() => setDepositDone(info)),
+    [leaveFormThen],
   );
   const handleOffersDeposited = useCallback(
     (_amount: string, info: IEarnDepositDoneInfo) => showDepositDone(info),
@@ -438,6 +447,9 @@ const ManagePositionPage = () => {
         amount={withdrawn.amount}
         offer={withdrawn.offer}
         fromOffer={withdrawn.fromOffer}
+        networkId={selectedProtocol.networkId}
+        logoURI={withdrawn.tokenImageUri ?? tokenImageUri}
+        networkLogoURI={network?.logoURI}
         onDone={() => navigation.popStack()}
         onDeposit={handleDepositBetter}
       />
@@ -476,27 +488,42 @@ const ManagePositionPage = () => {
   }
 
   return (
-    <Page scrollEnabled scrollProps={{ keyboardShouldPersistTaps: 'handled' }}>
-      <Page.Header
-        title={symbol}
-        headerRight={
-          headerControls
-            ? () => <HeaderRightView {...headerControls} />
-            : undefined
-        }
-      />
-      <Page.Body>
-        {/* What the modal fits its height to, up to its usual size */}
-        <YStack
-          ref={fitModalRef}
-          opacity={isFormLeaving ? 0 : 1}
-          transition="quick"
-          animateOnly={ANIMATE_ONLY_OPACITY}
-        >
-          {body}
-        </YStack>
-      </Page.Body>
-    </Page>
+    // The form's footer is drawn by the page, outside the body below: it
+    // reads this to fade with the form
+    <EarnFormLeavingContext.Provider value={isFormLeaving}>
+      <Page
+        scrollEnabled
+        scrollProps={{ keyboardShouldPersistTaps: 'handled' }}
+      >
+        <Page.Header
+          title={symbol}
+          headerRight={
+            headerControls
+              ? () => (
+                  <YStack
+                    opacity={isFormLeaving ? 0 : 1}
+                    transition="quick"
+                    animateOnly={ANIMATE_ONLY_OPACITY}
+                  >
+                    <HeaderRightView {...headerControls} />
+                  </YStack>
+                )
+              : undefined
+          }
+        />
+        <Page.Body>
+          {/* What the modal fits its height to, up to its usual size */}
+          <YStack
+            ref={fitModalRef}
+            opacity={isFormLeaving ? 0 : 1}
+            transition="quick"
+            animateOnly={ANIMATE_ONLY_OPACITY}
+          >
+            {body}
+          </YStack>
+        </Page.Body>
+      </Page>
+    </EarnFormLeavingContext.Provider>
   );
 };
 

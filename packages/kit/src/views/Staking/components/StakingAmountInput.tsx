@@ -1,5 +1,5 @@
 import type { ReactNode, RefObject } from 'react';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { InputAccessoryView } from 'react-native';
@@ -30,6 +30,8 @@ export const StakingPercentageInputStage = [25, 50, 75];
 // A form that opens complete takes the focus as a modal is still opening,
 // and the opening can drop it a moment later. This long it is taken back
 const AUTO_FOCUS_HOLD_MS = 800;
+// A press this soon after the box lost focus took it from the box
+const REFOCUS_AFTER_PRESS_MS = 400;
 
 function useHoldAutoFocus(
   boxRef: RefObject<IElement | null>,
@@ -108,27 +110,49 @@ export function StakingAmountInput({
   bottomContent?: ReactNode;
   boxTestID?: string;
 }) {
-  const [percentageInputStageShow, setPercentageInputStageShow] =
-    useState(false);
   const boxRef = useRef<IElement>(null);
   useHoldAutoFocus(boxRef, Boolean(inputProps?.autoFocus) && !disabled);
-  // The chips leave a moment after the box loses focus, so a press on one
-  // lands first; focus back in time keeps them
-  const hideStagesTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(
-    undefined,
-  );
-  useEffect(() => () => clearTimeout(hideStagesTimerRef.current), []);
-  const onFromInputFocus = useCallback(() => {
-    clearTimeout(hideStagesTimerRef.current);
-    setPercentageInputStageShow(true);
+
+  // A chip or Max pressed while typing keeps the cursor in the box, for the
+  // next keystroke: the press took the focus a moment ago
+  const blurredAtRef = useRef(Number.NEGATIVE_INFINITY);
+  const keepTypingFocus = useCallback(() => {
+    if (
+      !platformEnv.isRuntimeBrowser ||
+      performance.now() - blurredAtRef.current > REFOCUS_AFTER_PRESS_MS
+    ) {
+      return;
+    }
+    const box = boxRef.current as unknown as HTMLElement | null;
+    box?.querySelector?.('input')?.focus({ preventScroll: true });
   }, []);
+  const handleSelectStage = useCallback(
+    (stage: number) => {
+      onSelectPercentageStage(stage);
+      keepTypingFocus();
+    },
+    [keepTypingFocus, onSelectPercentageStage],
+  );
+  const balanceOnPress = props.balanceProps?.onPress;
+  const balanceProps = useMemo(
+    () =>
+      props.balanceProps
+        ? {
+            ...props.balanceProps,
+            onPress: balanceOnPress
+              ? () => {
+                  balanceOnPress();
+                  keepTypingFocus();
+                }
+              : undefined,
+          }
+        : undefined,
+    [balanceOnPress, keepTypingFocus, props.balanceProps],
+  );
 
   const onFromInputBlur = useCallback(
     (e: BlurEvent) => {
-      clearTimeout(hideStagesTimerRef.current);
-      hideStagesTimerRef.current = setTimeout(() => {
-        setPercentageInputStageShow(false);
-      }, 200);
+      blurredAtRef.current = performance.now();
       onBlur?.(e as any);
     },
     [onBlur],
@@ -148,10 +172,11 @@ export function StakingAmountInput({
         <SizableText size="$bodyMd" color="$textSubdued">
           {title}
         </SizableText>
-        <AnimatePresence>
-          {!platformEnv.isNative &&
-          !disabled &&
-          (percentageInputStageShow || !!value) ? (
+        {/* The chips are part of the box, there whether or not it has the
+            focus; as it mounts (another protocol's form) they show as they
+            are */}
+        <AnimatePresence initial={false}>
+          {!platformEnv.isNative && !disabled ? (
             <XStack
               transition="quick"
               animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
@@ -164,12 +189,15 @@ export function StakingAmountInput({
                 x: 4,
               }}
               gap="$0.5"
+              // The last chip's text ends where Max and the token below end;
+              // its fill keeps the chip's own padding past that edge
+              mr="$-1.5"
             >
               {StakingPercentageInputStage.map((stage) => (
                 <SwapPercentageStageBadge
                   key={`swap-percentage-input-stage-${stage}`}
                   stage={stage}
-                  onSelectStage={onSelectPercentageStage}
+                  onSelectStage={handleSelectStage}
                 />
               ))}
             </XStack>
@@ -192,11 +220,11 @@ export function StakingAmountInput({
           spellCheck: false,
           autoComplete: 'off',
           editable: !disabled || inputProps?.disabled,
-          onFocus: onFromInputFocus,
           onBlur: onFromInputBlur,
         }}
         value={value}
         {...props}
+        balanceProps={balanceProps}
         onChange={(val: string) => {
           if (disabled) return;
           props.onChange?.(val);

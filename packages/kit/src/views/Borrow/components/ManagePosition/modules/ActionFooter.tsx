@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useContext, useEffect, useMemo, useRef } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -7,10 +7,12 @@ import { Keyboard } from 'react-native';
 import { Page, Stack, YStack } from '@onekeyhq/components';
 import { PercentageStageOnKeyboard } from '@onekeyhq/kit/src/components/PercentageStageOnKeyboard';
 import { EARN_DESKTOP_DEMO_COPY } from '@onekeyhq/kit/src/views/Earn/components/desktopHome/earnDesktopHomeCopy';
+import { EarnFooterFade } from '@onekeyhq/kit/src/views/Staking/components/EarnFooterFade';
 import {
   EStakeProgressStep,
   StakeProgress,
 } from '@onekeyhq/kit/src/views/Staking/components/StakeProgress';
+import { EarnFormSwitchingContext } from '@onekeyhq/kit/src/views/Staking/components/UniversalStake/EarnFormSummary';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { BorrowTestIDs } from '../../../testIDs';
@@ -134,7 +136,12 @@ export function ActionFooter({
     setSubmitting,
   ]);
 
+  const isSwitchingOffer = useContext(EarnFormSwitchingContext);
   const handleConfirm = useCallback(async () => {
+    // Picked another protocol a moment ago: this form is the one being left
+    if (isSwitchingOffer) {
+      return;
+    }
     if (shouldApprove) {
       Keyboard.dismiss();
       const confirmed = await confirmBorrowLiquidationRisk();
@@ -145,7 +152,13 @@ export function ActionFooter({
       return;
     }
     await handleSubmit();
-  }, [confirmBorrowLiquidationRisk, handleSubmit, onApprove, shouldApprove]);
+  }, [
+    confirmBorrowLiquidationRisk,
+    handleSubmit,
+    isSwitchingOffer,
+    onApprove,
+    shouldApprove,
+  ]);
 
   const isConfirmLoading =
     submitting ||
@@ -229,27 +242,29 @@ export function ActionFooter({
       {beforeFooter ?? state.beforeFooter}
       {isInModalContext ? (
         <Page.Footer>
-          <Stack
-            bg="$bgApp"
-            flexDirection="column"
-            $gtMd={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              jc: 'space-between',
-            }}
-          >
-            {progressContent ? (
-              <Stack pl="$5" $md={{ pt: '$5' }}>
-                {progressContent}
-              </Stack>
-            ) : null}
-            {footerContent}
-          </Stack>
-          <PercentageStageOnKeyboard
-            onSelectPercentageStage={
-              isFormInteractionLocked ? undefined : onSelectPercentageStage
-            }
-          />
+          <EarnFooterFade>
+            <Stack
+              bg="$bgApp"
+              flexDirection="column"
+              $gtMd={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                jc: 'space-between',
+              }}
+            >
+              {progressContent ? (
+                <Stack pl="$5" $md={{ pt: '$5' }}>
+                  {progressContent}
+                </Stack>
+              ) : null}
+              {footerContent}
+            </Stack>
+            <PercentageStageOnKeyboard
+              onSelectPercentageStage={
+                isFormInteractionLocked ? undefined : onSelectPercentageStage
+              }
+            />
+          </EarnFooterFade>
         </Page.Footer>
       ) : (
         <YStack bg="$bgApp" gap="$5">

@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import {
   useCallback,
+  useContext,
   useEffect,
   useMemo,
   useReducer,
@@ -13,6 +14,7 @@ import { useIntl } from 'react-intl';
 
 import {
   Alert,
+  HeightTransition,
   Page,
   SizableText,
   Stack,
@@ -48,6 +50,8 @@ import type { IFetchQuoteResult } from '@onekeyhq/shared/types/swap/types';
 import type { ISendTxOnSuccessData } from '@onekeyhq/shared/types/tx';
 
 import { EarnLendingSummary } from '../../../Borrow/components/ManagePosition/modules/InfoDisplaySection/EarnLendingSummary';
+import { EarnFooterFade } from '../../../Staking/components/EarnFooterFade';
+import { EarnText } from '../../../Staking/components/ProtocolDetails/EarnText';
 import {
   EStakeProgressStep,
   StakeProgress,
@@ -59,16 +63,22 @@ import {
 import { StakingAmountResultLine } from '../../../Staking/components/StakingAmountResultLine';
 import StakingFormWrapper from '../../../Staking/components/StakingFormWrapper';
 import {
+  EarnFormRow,
   EarnFormSummary,
+  EarnFormSwitchingContext,
   buildRewardNoteRows,
   buildRewardsOutcome,
 } from '../../../Staking/components/UniversalStake/EarnFormSummary';
-import { StakingReceiveRow } from '../../../Staking/components/UniversalStake/StakingConfirmationSummary';
 import { completeBroadcastedSwapSuccess } from '../../../Swap/hooks/swapBroadcastSuccess';
 import { generateSwapHistoryItemForContext } from '../../../Swap/hooks/useSwapTxHistory';
 import { EARN_DESKTOP_DEMO_COPY } from '../../components/desktopHome/earnDesktopHomeCopy';
 import { buildKeyboardPressProps } from '../../components/desktopHome/earnDesktopPressable';
 
+import {
+  buildEmptyAmountFirstFrameKey,
+  keepFirstFrame,
+  readFirstFrame,
+} from './earnFirstFrameCache';
 import {
   EARN_ROUTER_SWAP_IDLE,
   buildEarnSwapToken,
@@ -104,6 +114,8 @@ const RECEIVE_DECIMALS = 6;
 const FILL_DECIMALS = 8;
 // As the deposit forms wait before asking for their card again
 const SUMMARY_DEBOUNCE_MS = 350;
+// The line under the box grows in this long, as the amount error line does
+const DEPOSIT_LINE_MS = 200;
 // Typing settles before the swap service is asked
 const QUOTE_DEBOUNCE_MS = 500;
 
@@ -154,7 +166,24 @@ function useDepositSummary({
   amount: string;
   isDisabled?: boolean;
 }) {
-  const [summary, setSummary] = useState<IDepositSummary>(NO_SUMMARY);
+  // The rows for an empty amount, as the provider's own form last read them,
+  // so they are in place from the first frame
+  const [summary, setSummary] = useState<IDepositSummary>(() => {
+    if (request?.kind !== 'staking' || isDisabled) {
+      return NO_SUMMARY;
+    }
+    const staking = readFirstFrame<IStakeTransactionConfirmation>(
+      buildEmptyAmountFirstFrameKey({
+        networkId,
+        providerName: request.provider,
+        symbol: request.symbol,
+        vault: request.vault,
+      }),
+    );
+    return staking
+      ? { staking, stakingAmount: '0', lendingLoading: false }
+      : NO_SUMMARY;
+  });
   useDeepCompareEffect(() => {
     if (!request || isDisabled) {
       setSummary(NO_SUMMARY);
@@ -199,6 +228,17 @@ function useDepositSummary({
               inputTokenAddress: request.inputTokenAddress,
               outputTokenAddress: request.outputTokenAddress,
             });
+          if (requestAmount === '0') {
+            keepFirstFrame(
+              buildEmptyAmountFirstFrameKey({
+                networkId,
+                providerName: request.provider,
+                symbol: request.symbol,
+                vault: request.vault,
+              }),
+              staking,
+            );
+          }
           if (isCurrent) {
             setSummary({
               staking,
@@ -290,6 +330,7 @@ export function EarnRouterSwapDepositForm({
   payWithTrigger,
   amountBoxBottom,
   amountBoxTestID,
+  revealsDepositLine,
 }: {
   accountId: string;
   networkId: string;
@@ -333,6 +374,9 @@ export function EarnRouterSwapDepositForm({
    * Without it the card estimates the year at the provider's rate
    */
   summaryRequest?: IEarnRouterSummaryRequest;
+  // Shown because another token was just picked in Pay with: the line
+  // under the box grows in rather than appearing at once
+  revealsDepositLine?: boolean;
   // Pay with's chip as the caller has it: the token just picked while its
   // list folds, the chevron turned while the list is open
   payWithTrigger?: Partial<
@@ -494,7 +538,7 @@ export function EarnRouterSwapDepositForm({
     !quoteState.isLoading &&
     quoteState.reason !== undefined;
 
-  const depositAmount = useMemo(() => {
+  const depositAmountQuoted = useMemo(() => {
     const received = new BigNumber(quote?.toAmount ?? '');
     return received.isFinite() && received.gt(0)
       ? received
@@ -505,13 +549,23 @@ export function EarnRouterSwapDepositForm({
           .toFixed()
       : '';
   }, [depositToken.decimals, quote?.toAmount]);
+  const depositAmount = depositAmountQuoted;
+  // The last estimate stays (dimmed) while the next amount is quoted, and the
+  // rows keep its figures until the new ones are in
+  const lastDepositRef = useRef('');
+  if (depositAmount) {
+    lastDepositRef.current = depositAmount;
+  } else if (!isQuoting) {
+    lastDepositRef.current = '';
+  }
+  const shownDeposit = depositAmount || lastDepositRef.current;
   const payFiat = hasAmount
     ? toFiat(amountValue.times(payToken.priceUsd).toFixed())
     : '';
   const depositSummary = useDepositSummary({
     networkId,
     request: summaryRequest,
-    amount: depositAmount,
+    amount: shownDeposit,
     isDisabled,
   });
 
@@ -779,9 +833,12 @@ export function EarnRouterSwapDepositForm({
     }
     footerActionOverride?.onPress();
   }, [depositAmount, footerActionOverride, onAmountChange]);
+  // Picked another protocol a moment ago: this form is the one being left
+  const isSwitchingOffer = useContext(EarnFormSwitchingContext);
+  const handlePress = footerActionOverride ? handleOverridePress : handleStart;
   const confirmButtonProps = {
     testID: 'earn-router-swap-deposit',
-    onPress: footerActionOverride ? handleOverridePress : handleStart,
+    onPress: isSwitchingOffer ? undefined : handlePress,
     loading: footerActionOverride
       ? Boolean(footerActionOverride.loading)
       : isBusy,
@@ -808,13 +865,20 @@ export function EarnRouterSwapDepositForm({
   // rewards for a vault, a year at the supply rate for a lending market,
   // else a year at the provider's rate. With nothing typed the rows keep
   // their places with a dash
-  const isSummaryPlaceholder = !hasAmount || hasNoRoute;
   const stakingSummary = depositSummary.staking;
+  // No figures yet: nothing typed, no route, or the rows still the empty
+  // amount's (the first estimate's are on their way)
+  const isSummaryPlaceholder =
+    !hasAmount ||
+    hasNoRoute ||
+    !shownDeposit ||
+    (summaryRequest?.kind === 'staking' &&
+      depositSummary.stakingAmount === '0');
   let summary: ReactNode;
   if (summaryRequest?.kind === 'lending') {
     summary = isDisabled ? null : (
       <EarnLendingSummary
-        amountValue={depositAmount}
+        amountValue={shownDeposit}
         tokenSymbol={depositToken.symbol}
         price={depositToken.priceUsd}
         currencySymbol={currencyInfo.symbol}
@@ -825,14 +889,14 @@ export function EarnRouterSwapDepositForm({
   } else {
     const isStakingUpdating =
       summaryRequest?.kind === 'staking' &&
-      Boolean(depositAmount) &&
-      depositSummary.stakingAmount !== depositAmount;
+      Boolean(shownDeposit) &&
+      depositSummary.stakingAmount !== shownDeposit;
     const outcome: IEarnOutcome =
       summaryRequest?.kind === 'staking'
         ? buildRewardsOutcome({
             transactionConfirmation: stakingSummary,
             placeholderLabel: EARN_DESKTOP_DEMO_COPY.estAnnualRewards,
-            withoutValues: isSummaryPlaceholder || !depositAmount,
+            withoutValues: isSummaryPlaceholder,
           })
         : {
             label: EARN_DESKTOP_DEMO_COPY.estAnnualRewards,
@@ -857,20 +921,23 @@ export function EarnRouterSwapDepositForm({
       ...(summaryRequest?.kind === 'staking'
         ? buildRewardNoteRows({
             transactionConfirmation: stakingSummary,
-            withoutValues: isSummaryPlaceholder || !depositAmount,
+            withoutValues: isSummaryPlaceholder,
           })
         : []),
       ...(receive
         ? [
-            <StakingReceiveRow
+            <EarnFormRow
               key="receive"
-              receive={
-                isSummaryPlaceholder || !depositAmount
-                  ? {
-                      ...receive,
-                      description: { text: '–', color: '$textDisabled' },
-                    }
-                  : receive
+              label={receive.title.text}
+              tooltip={receive.tooltip}
+              value={
+                isSummaryPlaceholder ? undefined : (
+                  <EarnText
+                    text={receive.description}
+                    size="$bodyMdMedium"
+                    textAlign="right"
+                  />
+                )
               }
             />,
           ]
@@ -885,15 +952,13 @@ export function EarnRouterSwapDepositForm({
     );
   }
 
-  // The deposit line: the swap's estimate once quoted; before an amount,
-  // nothing goes in; a dash while no route can bring the token
-  let depositLine = `0 ${depositToken.symbol}`;
-  if (depositAmount) {
-    depositLine = `≈ ${numberFormat(depositAmount, {
+  // The deposit line: the swap's estimate once quoted (the last one, dimmed,
+  // while the next is); a dash before an amount or with no route
+  let depositLine = '–';
+  if (shownDeposit) {
+    depositLine = `≈ ${numberFormat(shownDeposit, {
       formatter: 'balance',
     })} ${depositToken.symbol}`;
-  } else if (hasAmount) {
-    depositLine = '–';
   }
 
   // A route problem is not the amount's: it stays a notice under the
@@ -948,29 +1013,35 @@ export function EarnRouterSwapDepositForm({
           boxTestID={amountBoxTestID}
         />
         {/* What goes into the vault, under what pays for it; more than the
-            balance says so in its place, in red */}
-        <YStack pt="$2">
-          {isInsufficient ? (
-            <SizableText
-              testID="earn-amount-error"
-              px="$3.5"
-              size="$bodyMd"
-              color="$textCritical"
-            >
-              {intl.formatMessage({
-                id: ETranslations.earn_insufficient_balance,
-              })}
-            </SizableText>
-          ) : (
-            <StakingAmountResultLine
-              testID="earn-router-swap-deposit-amount"
-              label={depositLineLabel}
-              value={depositLine}
-              isPlaceholder={!depositAmount}
-              loading={isQuoting}
-            />
-          )}
-        </YStack>
+            balance says so in its place, in red. Brought in by a pick in
+            Pay with, it grows in under the box */}
+        <HeightTransition
+          duration={DEPOSIT_LINE_MS}
+          skipInitialAnimation={!revealsDepositLine}
+        >
+          <YStack pt="$2">
+            {isInsufficient ? (
+              <SizableText
+                testID="earn-amount-error"
+                px="$3.5"
+                size="$bodyMd"
+                color="$textCritical"
+              >
+                {intl.formatMessage({
+                  id: ETranslations.earn_insufficient_balance,
+                })}
+              </SizableText>
+            ) : (
+              <StakingAmountResultLine
+                testID="earn-router-swap-deposit-amount"
+                label={depositLineLabel}
+                value={depositLine}
+                isPlaceholder={!shownDeposit}
+                loading={isQuoting}
+              />
+            )}
+          </YStack>
+        </HeightTransition>
       </YStack>
       {/* The protocol stays under the amount; what typing brings up goes
           below it */}
@@ -979,33 +1050,35 @@ export function EarnRouterSwapDepositForm({
       {summary}
       {isInModalContext ? (
         <Page.Footer>
-          <Stack
-            bg="$bgApp"
-            flexDirection="column"
-            $gtMd={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              jc: 'space-between',
-            }}
-          >
-            {progress ? (
-              <Stack pl="$5" $md={{ pt: '$5' }}>
-                {progress}
-              </Stack>
-            ) : (
-              <Stack />
-            )}
-            <Page.FooterActions
-              onConfirmText={confirmText}
-              confirmButtonProps={confirmButtonProps}
+          <EarnFooterFade>
+            <Stack
+              bg="$bgApp"
+              flexDirection="column"
+              $gtMd={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                jc: 'space-between',
+              }}
+            >
+              {progress ? (
+                <Stack pl="$5" $md={{ pt: '$5' }}>
+                  {progress}
+                </Stack>
+              ) : (
+                <Stack />
+              )}
+              <Page.FooterActions
+                onConfirmText={confirmText}
+                confirmButtonProps={confirmButtonProps}
+              />
+            </Stack>
+            <PercentageStageOnKeyboard
+              onSelectPercentageStage={
+                isLocked ? undefined : handleSelectPercentage
+              }
+              reserveSpaceUntilKeyboardShown={!isLocked}
             />
-          </Stack>
-          <PercentageStageOnKeyboard
-            onSelectPercentageStage={
-              isLocked ? undefined : handleSelectPercentage
-            }
-            reserveSpaceUntilKeyboardShown={!isLocked}
-          />
+          </EarnFooterFade>
         </Page.Footer>
       ) : (
         <YStack bg="$bgApp" gap="$5">

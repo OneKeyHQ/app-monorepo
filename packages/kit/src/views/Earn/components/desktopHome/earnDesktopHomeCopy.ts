@@ -19,6 +19,13 @@ export const EARN_DESKTOP_DEMO_COPY = {
   // Pendle's result before its first quote, in the server's own words for
   // it once the quote is in
   atMaturityYouGet: 'At Maturity You Get',
+  // The rows a Pendle quote brings first, also in its own words, held in
+  // place with dashes until the first quote is in
+  pendleRowTitles: [
+    'Effective Fixed APY',
+    'Market Reference APY',
+    'Min. Received',
+  ],
   // After a withdrawal: the same token's better rate on the same network,
   // against the rate the withdrawal left
   earnMoreOn: (symbol: string) => `Earn more on ${symbol}`,

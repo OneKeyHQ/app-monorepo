@@ -9,6 +9,7 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 
+import { EarnFooterFade } from '../../../Staking/components/EarnFooterFade';
 import { EarnOutcomeRow } from '../../../Staking/components/UniversalStake/EarnFormSummary';
 import { EARN_DESKTOP_DEMO_COPY } from '../../components/desktopHome/earnDesktopHomeCopy';
 
@@ -118,16 +119,22 @@ export function EarnDepositDone({
           </YStack>
         ) : null}
       </YStack>
-      <Page.Footer
-        onCancelText={intl.formatMessage({
-          id: ETranslations.earn_my_portfolio__title,
-        })}
-        onCancel={onPortfolio}
-        onConfirmText={intl.formatMessage({ id: ETranslations.global_done })}
-        onConfirm={onDone}
-        cancelButtonProps={{ testID: 'earn-deposit-done-portfolio' }}
-        confirmButtonProps={{ testID: 'earn-deposit-done' }}
-      />
+      <Page.Footer>
+        <EarnFooterFade fadesIn>
+          <Page.FooterActions
+            onCancelText={intl.formatMessage({
+              id: ETranslations.earn_my_portfolio__title,
+            })}
+            onCancel={onPortfolio}
+            onConfirmText={intl.formatMessage({
+              id: ETranslations.global_done,
+            })}
+            onConfirm={onDone}
+            cancelButtonProps={{ testID: 'earn-deposit-done-portfolio' }}
+            confirmButtonProps={{ testID: 'earn-deposit-done' }}
+          />
+        </EarnFooterFade>
+      </Page.Footer>
     </>
   );
 }

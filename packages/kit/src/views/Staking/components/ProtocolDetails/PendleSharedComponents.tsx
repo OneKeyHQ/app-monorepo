@@ -19,6 +19,7 @@ import type {
 } from '@onekeyhq/shared/types/staking';
 
 import { CalculationListItem } from '../CalculationList';
+import { EarnFormValue } from '../UniversalStake/EarnFormSummary';
 
 import { ActionPopupContent } from './EarnActionIcon';
 import { EarnAmountText } from './EarnAmountText';
@@ -261,8 +262,9 @@ export function usePendleTransactionDetails({
         <CalculationListItem key={`tx-detail-${index}`}>
           {hasRichTooltip ? (
             <XStack gap="$1" ai="center" flex={1}>
+              {/* The rows' label color, not the one the server sends */}
               <SizableText
-                color={detailItem.title.color ?? '$textSubdued'}
+                color="$textSubdued"
                 size={detailItem.title.size || '$bodyMd'}
               >
                 {detailItem.title.text}
@@ -275,7 +277,6 @@ export function usePendleTransactionDetails({
           ) : (
             <CalculationListItem.Label
               size={detailItem.title.size || '$bodyMd'}
-              color={detailItem.title.color}
               tooltip={tooltipDescription?.text}
               tooltipTextProps={
                 tooltipDescription
@@ -290,12 +291,9 @@ export function usePendleTransactionDetails({
             </CalculationListItem.Label>
           )}
           {(() => {
+            // A dash, or a placeholder while the amount's quote is coming
             if (placeholder) {
-              return (
-                <SizableText size="$bodyMdMedium" color="$textDisabled">
-                  –
-                </SizableText>
-              );
+              return <EarnFormValue />;
             }
             if (loading) {
               return (
@@ -306,64 +304,75 @@ export function usePendleTransactionDetails({
             }
             if (popupButton) {
               return (
-                <Popover
-                  title={popupButton.data.title?.text ?? ''}
-                  renderTrigger={
-                    <XStack gap="$1" ai="center" cursor="pointer">
-                      <EarnText
-                        text={detailItem.description}
-                        size="$bodyMdMedium"
+                <EarnFormValue>
+                  <Popover
+                    title={popupButton.data.title?.text ?? ''}
+                    renderTrigger={
+                      <XStack gap="$1" ai="center" cursor="pointer">
+                        <EarnText
+                          text={detailItem.description}
+                          size="$bodyMdMedium"
+                        />
+                        <Icon
+                          name="ChevronRightSmallOutline"
+                          size="$5"
+                          color="$iconSubdued"
+                        />
+                      </XStack>
+                    }
+                    renderContent={
+                      <ActionPopupContent
+                        bulletList={popupButton.data.bulletList}
+                        items={popupButton.data.items}
+                        panel={popupButton.data.panel}
+                        description={popupButton.data.description}
                       />
-                      <Icon
-                        name="ChevronRightSmallOutline"
-                        size="$5"
-                        color="$iconSubdued"
-                      />
-                    </XStack>
-                  }
-                  renderContent={
-                    <ActionPopupContent
-                      bulletList={popupButton.data.bulletList}
-                      items={popupButton.data.items}
-                      panel={popupButton.data.panel}
-                      description={popupButton.data.description}
-                    />
-                  }
-                />
+                    }
+                  />
+                </EarnFormValue>
               );
             }
             if (detailItem.description?.text) {
               return (
-                <EarnText
-                  text={detailItem.description}
-                  size="$bodyMdMedium"
-                  textAlign="right"
-                />
+                <EarnFormValue>
+                  <EarnText
+                    text={detailItem.description}
+                    size="$bodyMdMedium"
+                    textAlign="right"
+                  />
+                </EarnFormValue>
               );
             }
+            // Before and after; one value when they are the same
+            const isUnchanged =
+              detailItem.current?.title?.text?.trim() ===
+              detailItem.latest?.title?.text?.trim();
+            const before = isUnchanged ? undefined : detailItem.current?.title;
             return (
-              <XStack alignItems="center" gap="$1.5" flexShrink={1}>
-                {detailItem.current?.title ? (
-                  <EarnText
-                    text={detailItem.current.title}
-                    size="$bodySm"
-                    color={detailItem.current.title.color ?? '$textSubdued'}
-                  />
-                ) : null}
-                {detailItem.current?.title && detailItem.latest?.title ? (
-                  <Icon
-                    name="ArrowRightOutline"
-                    size="$4"
-                    color="$iconDisabled"
-                  />
-                ) : null}
-                {detailItem.latest?.title ? (
-                  <EarnText
-                    text={detailItem.latest.title}
-                    size="$bodyMdMedium"
-                  />
-                ) : null}
-              </XStack>
+              <EarnFormValue>
+                <XStack alignItems="center" gap="$1.5" flexShrink={1}>
+                  {before ? (
+                    <EarnText
+                      text={before}
+                      size="$bodySm"
+                      color={before.color ?? '$textSubdued'}
+                    />
+                  ) : null}
+                  {before && detailItem.latest?.title ? (
+                    <Icon
+                      name="ArrowRightOutline"
+                      size="$4"
+                      color="$iconDisabled"
+                    />
+                  ) : null}
+                  {detailItem.latest?.title ? (
+                    <EarnText
+                      text={detailItem.latest.title}
+                      size="$bodyMdMedium"
+                    />
+                  ) : null}
+                </XStack>
+              </EarnFormValue>
             );
           })()}
         </CalculationListItem>,

@@ -419,6 +419,7 @@ export const StakeSection = ({
         ? {
             testID: PAY_WITH_TRIGGER_TEST_ID,
             isExpanded: isPayListOpen,
+            fadesInPickedToken: true,
             ...(shownPayToken
               ? {
                   selectedTokenSymbol: shownPayToken.token.symbol,
@@ -454,6 +455,20 @@ export const StakeSection = ({
           isNative: asset.info.isNative,
         })),
       });
+  // The form shown before this one: paying with another token brings the
+  // swap form's line under the box (it grows in), and paying with the token
+  // itself again takes it away (its room closes); the same form drawn again
+  // for another protocol keeps it as it was
+  const lastPayModeRef = useRef(payMode);
+  const revealsDepositLine =
+    payMode === 'swapThenDeposit' &&
+    lastPayModeRef.current !== 'swapThenDeposit';
+  const collapsesDepositLine =
+    payMode !== 'swapThenDeposit' &&
+    lastPayModeRef.current === 'swapThenDeposit';
+  useEffect(() => {
+    lastPayModeRef.current = payMode;
+  }, [payMode]);
   const { refresh: refreshPayTokens } = pay;
   const handleSwapped = useCallback(
     ({ amount, balance }: { amount: string; balance?: string }) => {
@@ -1346,6 +1361,7 @@ export const StakeSection = ({
         footerActionOverride={footerActionOverride}
         isInModalContext={isInModalContext}
         summaryRequest={paySummaryRequest}
+        revealsDepositLine={revealsDepositLine}
         initialAmount={inputStartAmount}
         onAmountChange={handleAmountChange}
         protocolSwitch={
@@ -1495,6 +1511,7 @@ export const StakeSection = ({
           receiveInputConfig={receiveInputConfig}
           inputTitle={payInputTitle}
           hideTradeOrBuy={canPayWith}
+          collapsesDepositLine={collapsesDepositLine}
           tokenSelectorTriggerProps={stakeTokenSelectorTriggerProps}
           amountBoxBottom={payWithList}
           amountBoxTestID={payWithBoxTestID}

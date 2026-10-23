@@ -34,6 +34,20 @@ const SMALL_CHANGE_PX = 8;
 // it appears
 const OPENING_MS = 300;
 
+// Until then every change to what the modal holds eases as one jump, from
+// where it is shown: a switch to another protocol builds the form again over
+// a few frames, which would otherwise read as an animation to follow
+let easeChangesUntil = 0;
+const SWITCH_EASE_WINDOW_MS = 300;
+
+/**
+ * The form in the open modal is about to be built again (another protocol
+ * picked): its height changes in the next moment ease instead of jumping
+ */
+export function easeModalHeightChanges() {
+  easeChangesUntil = performance.now() + SWITCH_EASE_WINDOW_MS;
+}
+
 // Modals this has sized: coming back to one (History closed) eases from
 // where it is instead of jumping
 const sizedModals = new WeakSet<HTMLElement>();
@@ -286,7 +300,17 @@ export function useFitModalHeight(enabled = true) {
         return;
       }
       const delta = next - target;
-      if (pendingJump && now - pendingJump.at < JUMP_WINDOW_MS) {
+      if (
+        !reduceMotion &&
+        now < easeChangesUntil &&
+        now - startedAt >= OPENING_MS
+      ) {
+        // The form being built again: from where it is shown to the latest
+        // height, however many frames it takes to settle
+        jumpFrom = remainingJump(now) + delta;
+        jumpStart = now;
+        pendingJump = undefined;
+      } else if (pendingJump && now - pendingJump.at < JUMP_WINDOW_MS) {
         // It goes on moving: an animation inside after all, followed from
         // here. What is left of earlier jumps keeps easing
         const rest = remainingJump(now) - pendingJump.delta;

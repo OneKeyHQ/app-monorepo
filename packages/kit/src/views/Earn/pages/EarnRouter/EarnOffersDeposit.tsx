@@ -17,8 +17,12 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 
 import { ProtocolSwitchRow } from '../../../Staking/components/UniversalStake';
-import { EarnOutcomeCarryContext } from '../../../Staking/components/UniversalStake/EarnFormSummary';
+import {
+  EarnFormSwitchingContext,
+  EarnOutcomeCarryContext,
+} from '../../../Staking/components/UniversalStake/EarnFormSummary';
 import { useEarnAccount } from '../../../Staking/hooks/useEarnAccount';
+import { easeModalHeightChanges } from '../../../Staking/hooks/useFitModalHeight';
 import {
   ManagePositionContent,
   ManageSectionShell,
@@ -37,6 +41,8 @@ import {
   getListHeightTransition,
   getListRowMotion,
 } from './EarnRouterPayWith';
+import { useEscapeFoldsList } from './useEscapeFoldsList';
+import { warmFormData } from './useWarmOffersDeposit';
 
 import type { IEarnDepositDoneInfo } from './EarnDepositDone';
 import type { IEarnFormChoice } from './EarnRouterPayWith';
@@ -93,12 +99,6 @@ function OfferSwitcherItem({
   );
 }
 
-type IListKeyEvent = {
-  key: string;
-  preventDefault: () => void;
-  stopPropagation: () => void;
-};
-
 const OFFER_LIST_VALUE = 'offers';
 const OFFER_LIST_HIDDEN_STYLE = { opacity: 0 } as const;
 
@@ -113,6 +113,7 @@ export function EarnOfferSwitcher({
   networkLogoURI,
   isOpen = false,
   listedWithout,
+  shownRowKeyRef,
   onOpenChange,
   onSelect,
 }: {
@@ -125,10 +126,23 @@ export function EarnOfferSwitcher({
   // The offer the row showed as the list opened, left out of it until it
   // folds, so the rows under the pointer stay put
   listedWithout?: string;
+  // The offer the row showed last, kept by the modal while the form around
+  // the row is built again (a switch to another protocol's form): only a
+  // pick fades into the row, never the same row drawn again
+  shownRowKeyRef?: { current?: string };
   onOpenChange?: (isOpen: boolean) => void;
   onSelect?: (offer: IEarnDesktopHoldOffer) => void;
 }) {
   const focusFirstRef = useRef(false);
+  const fadesIn =
+    !shownRowKeyRef ||
+    (shownRowKeyRef.current !== undefined &&
+      shownRowKeyRef.current !== selected.key);
+  useEffect(() => {
+    if (shownRowKeyRef) {
+      shownRowKeyRef.current = selected.key;
+    }
+  }, [selected.key, shownRowKeyRef]);
   const rowRef = useRef<IElement>(null);
   const reduceMotion = useReducedMotion();
   const canSwitch = offers.length > 1 && Boolean(onSelect);
@@ -144,20 +158,19 @@ export function EarnOfferSwitcher({
     (offer: IEarnDesktopHoldOffer) => onSelect?.(offer),
     [onSelect],
   );
-  // Escape folds an open list back to its row. The modal closes as the key
-  // comes up, so the list takes that
-  const handleListKeyUp = useCallback(
-    (event: IListKeyEvent) => {
-      if (event.key !== 'Escape') {
-        return;
-      }
-      event.preventDefault();
-      event.stopPropagation();
+  // Escape folds an open list back to its row, and the focus goes to the row
+  // when it was on the row or in the list
+  const switcherRef = useRef<IElement>(null);
+  const handleEscape = useCallback(
+    (wasFocusInList: boolean) => {
       onOpenChange?.(false);
-      rowRef.current?.focus();
+      if (wasFocusInList) {
+        rowRef.current?.focus();
+      }
     },
     [onOpenChange],
   );
+  useEscapeFoldsList(isOpen, handleEscape, switcherRef);
   const row = (
     <ProtocolSwitchRow
       ref={rowRef}
@@ -181,9 +194,9 @@ export function EarnOfferSwitcher({
   return (
     <YStack
       bg="$bgSubdued"
-      borderRadius="$2"
+      borderRadius="$3"
       borderCurve="continuous"
-      onKeyUp={isOpen ? handleListKeyUp : undefined}
+      ref={switcherRef}
     >
       <Accordion
         type="single"
@@ -199,7 +212,7 @@ export function EarnOfferSwitcher({
             key={selected.key}
             transition="quick"
             animateOnly={ANIMATE_ONLY_OPACITY}
-            enterStyle={OFFER_LIST_HIDDEN_STYLE}
+            enterStyle={fadesIn ? OFFER_LIST_HIDDEN_STYLE : undefined}
           >
             {row}
           </YStack>
@@ -262,6 +275,87 @@ type IOfferFormParams = {
   fallbackTokenImageUri?: string;
 };
 
+// The params the form for an offer reads its data with: the same for the
+// form and for reading it ahead
+function useOfferFormParams({
+  networkId,
+  symbol,
+  logoURI,
+}: {
+  networkId: string;
+  symbol: string;
+  logoURI?: string;
+}) {
+  const { activeAccount } = useActiveAccount({ num: 0 });
+  const { selectedAccount } = useSelectedAccount({ num: 0 });
+  const indexedAccountId =
+    selectedAccount.indexedAccountId || activeAccount.indexedAccount?.id;
+  const { earnAccount } = useEarnAccount({
+    networkId,
+    accountId: activeAccount.account?.id,
+    indexedAccountId,
+  });
+  return useCallback(
+    (offer: IEarnDesktopHoldOffer): IOfferFormParams => {
+      if (offer.kind === 'lending') {
+        const { offer: lending } = offer;
+        return {
+          networkId,
+          symbol: lending.symbol,
+          provider: lending.market.provider,
+          type: EManagePositionType.Supply,
+          marketAddress: lending.market.marketAddress,
+          reserveAddress: lending.reserveAddress,
+          // Lending supply goes through the market's own account on this
+          // network, as the Borrow pages pass it
+          accountId:
+            earnAccount?.account?.id || activeAccount.account?.id || '',
+          indexedAccountId:
+            earnAccount?.account?.indexedAccountId ?? indexedAccountId,
+          fallbackTokenImageUri: logoURI ?? lending.logoURI,
+        };
+      }
+      const providerName = offer.item.provider.name;
+      return {
+        networkId,
+        symbol,
+        provider: providerName,
+        vault: earnUtils.shouldSendEarnProtocolVault({ providerName })
+          ? offer.item.provider.vault
+          : undefined,
+        // Cross-network, the form takes the external wallet's account only
+        accountId: selectedAccount.othersWalletAccountId || '',
+        indexedAccountId,
+        fallbackTokenImageUri: logoURI,
+      };
+    },
+    [
+      activeAccount.account?.id,
+      earnAccount?.account?.id,
+      earnAccount?.account?.indexedAccountId,
+      indexedAccountId,
+      logoURI,
+      networkId,
+      selectedAccount.othersWalletAccountId,
+      symbol,
+    ],
+  );
+}
+
+// Reads an offer's form ahead, so it opens complete: the better rate a
+// withdrawal's done view offers, before its Deposit is pressed
+export function useWarmOfferForm(args: {
+  networkId: string;
+  symbol: string;
+  logoURI?: string;
+}) {
+  const buildParams = useOfferFormParams(args);
+  return useCallback(
+    (offer: IEarnDesktopHoldOffer) => warmFormData(buildParams(offer)),
+    [buildParams],
+  );
+}
+
 // The deposit side of the manage form for the chosen offer, with Pay with
 function OfferDepositForm({
   offer,
@@ -288,58 +382,8 @@ function OfferDepositForm({
   onDeposited?: (amount?: string, info?: IWithdrawSuccessInfo) => void;
   footerActionOverride?: IManagePositionFooterAction;
 }) {
-  const { activeAccount } = useActiveAccount({ num: 0 });
-  const { selectedAccount } = useSelectedAccount({ num: 0 });
-  const indexedAccountId =
-    selectedAccount.indexedAccountId || activeAccount.indexedAccount?.id;
-  const { earnAccount } = useEarnAccount({
-    networkId,
-    accountId: activeAccount.account?.id,
-    indexedAccountId,
-  });
-
-  const params = useMemo<IOfferFormParams>(() => {
-    if (offer.kind === 'lending') {
-      const { offer: lending } = offer;
-      return {
-        networkId,
-        symbol: lending.symbol,
-        provider: lending.market.provider,
-        type: EManagePositionType.Supply,
-        marketAddress: lending.market.marketAddress,
-        reserveAddress: lending.reserveAddress,
-        // Lending supply goes through the market's own account on this
-        // network, as the Borrow pages pass it
-        accountId: earnAccount?.account?.id || activeAccount.account?.id || '',
-        indexedAccountId:
-          earnAccount?.account?.indexedAccountId ?? indexedAccountId,
-        fallbackTokenImageUri: logoURI ?? lending.logoURI,
-      };
-    }
-    const providerName = offer.item.provider.name;
-    return {
-      networkId,
-      symbol,
-      provider: providerName,
-      vault: earnUtils.shouldSendEarnProtocolVault({ providerName })
-        ? offer.item.provider.vault
-        : undefined,
-      // Cross-network, the form takes the external wallet's account only
-      accountId: selectedAccount.othersWalletAccountId || '',
-      indexedAccountId,
-      fallbackTokenImageUri: logoURI,
-    };
-  }, [
-    activeAccount.account?.id,
-    earnAccount?.account?.id,
-    earnAccount?.account?.indexedAccountId,
-    indexedAccountId,
-    logoURI,
-    networkId,
-    offer,
-    selectedAccount.othersWalletAccountId,
-    symbol,
-  ]);
+  const buildParams = useOfferFormParams({ networkId, symbol, logoURI });
+  const params = useMemo(() => buildParams(offer), [buildParams, offer]);
 
   return (
     <ManagePositionContent
@@ -440,19 +484,23 @@ export function EarnOffersDeposit({
     }
   }, [onOfferChange, selectedKey]);
 
+  // The last protocol's result, shown dimmed by the next one's form until its
+  // own figures are in, so a switch doesn't blank the rows
+  const outcomeCarry = useMemo<{ current?: IEarnOutcome }>(() => ({}), []);
   // An offer filling another form starts it over; what was typed goes with it
   const typedAmountRef = useRef(amount ?? '');
   const [startAmount, setStartAmount] = useState(amount);
   const handleAmountChange = useCallback(
     (value: string) => {
       typedAmountRef.current = value;
+      // An emptied box has no figures to carry to the next protocol
+      if (!value) {
+        outcomeCarry.current = undefined;
+      }
       onAmountChange?.(value);
     },
-    [onAmountChange],
+    [onAmountChange, outcomeCarry],
   );
-  // The last protocol's result, shown dimmed by the next one's form until its
-  // own figures are in, so a switch doesn't blank the rows
-  const outcomeCarry = useMemo<{ current?: IEarnOutcome }>(() => ({}), []);
   // What went in: the form's own figure when it has one (paid in another
   // token), else the amount typed. Read as the deposit lands, with the
   // result the form showed for it
@@ -486,7 +534,14 @@ export function EarnOffersDeposit({
     [openChoice],
   );
   const isListOpen = openChoice === 'protocol';
+  // The list opening reads each listed offer's form ahead, so a pick opens
+  // on its own data at once
+  const buildOfferParams = useOfferFormParams({ networkId, symbol, logoURI });
+  const warmListedOffers = useCallback(() => {
+    offers.forEach((offer) => warmFormData(buildOfferParams(offer)));
+  }, [buildOfferParams, offers]);
   const [listedWithout, setListedWithout] = useState<string>();
+  const shownRowKeyRef = useRef<string | undefined>(undefined);
   const [shownKey, setShownKey] = useState<string>();
   const shown = useMemo(
     () => offers.find((offer) => offer.key === shownKey) ?? selected,
@@ -501,17 +556,19 @@ export function EarnOffersDeposit({
       if (open) {
         setListedWithout(shown?.key);
         setOpenChoice('protocol');
+        warmListedOffers();
         return;
       }
       setOpenChoice((prev) => (prev === 'protocol' ? undefined : prev));
     },
-    [shown?.key],
+    [shown?.key, warmListedOffers],
   );
   const handleSelect = useCallback((offer: IEarnDesktopHoldOffer) => {
     setShownKey(offer.key);
     setOpenChoice((prev) => (prev === 'protocol' ? undefined : prev));
     clearTimeout(applyTimerRef.current);
     applyTimerRef.current = setTimeout(() => {
+      easeModalHeightChanges();
       setStartAmount(typedAmountRef.current || undefined);
       setPickedKey(offer.key);
     }, LIST_PICK_APPLY_MS);
@@ -524,6 +581,7 @@ export function EarnOffersDeposit({
       networkLogoURI={network?.logoURI}
       isOpen={isListOpen}
       listedWithout={listedWithout}
+      shownRowKeyRef={shownRowKeyRef}
       onOpenChange={handleListOpenChange}
       onSelect={handleSelect}
     />
@@ -555,22 +613,24 @@ export function EarnOffersDeposit({
   }
   return (
     <EarnFormChoiceContext.Provider value={choiceContext}>
-      <EarnOutcomeCarryContext.Provider value={outcomeCarry}>
-        <OfferDepositForm
-          key={getOfferFormKind(selected, symbol)}
-          offer={selected}
-          symbol={symbol}
-          networkId={networkId}
-          logoURI={logoURI}
-          initialAmount={startAmount}
-          payWith={payWith}
-          offerSwitch={offerSwitch}
-          onAmountChange={handleAmountChange}
-          onHeaderRightChange={onHeaderRightChange}
-          onDeposited={handleDeposited}
-          footerActionOverride={footerActionOverride}
-        />
-      </EarnOutcomeCarryContext.Provider>
+      <EarnFormSwitchingContext.Provider value={shown?.key !== selected.key}>
+        <EarnOutcomeCarryContext.Provider value={outcomeCarry}>
+          <OfferDepositForm
+            key={getOfferFormKind(selected, symbol)}
+            offer={selected}
+            symbol={symbol}
+            networkId={networkId}
+            logoURI={logoURI}
+            initialAmount={startAmount}
+            payWith={payWith}
+            offerSwitch={offerSwitch}
+            onAmountChange={handleAmountChange}
+            onHeaderRightChange={onHeaderRightChange}
+            onDeposited={handleDeposited}
+            footerActionOverride={footerActionOverride}
+          />
+        </EarnOutcomeCarryContext.Provider>
+      </EarnFormSwitchingContext.Provider>
     </EarnFormChoiceContext.Provider>
   );
 }

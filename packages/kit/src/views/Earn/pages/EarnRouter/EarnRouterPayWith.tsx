@@ -26,6 +26,7 @@ import { buildKeyboardPressProps } from '../../components/desktopHome/earnDeskto
 import { useEarnDesktopWalletHoldings } from '../../components/desktopHome/useEarnDesktopHomeData';
 
 import { listPayTokens, pickDefaultPayToken } from './earnRouter.utils';
+import { useEscapeFoldsList } from './useEscapeFoldsList';
 
 import type { IEarnRouterPayToken } from './earnRouter.utils';
 
@@ -206,13 +207,6 @@ const PAY_LIST_HIDDEN_STYLE = { opacity: 0 } as const;
 // About four and a half rows; a longer wallet scrolls inside the box
 const PAY_LIST_MAX_HEIGHT = 280;
 
-type IListKeyEvent = {
-  key: string;
-  currentTarget?: unknown;
-  preventDefault: () => void;
-  stopPropagation: () => void;
-};
-
 /**
  * Pay with's choices, unfolding inside the amount box under its balance
  * line: the other tokens the wallet holds on the network, the deposit token
@@ -232,21 +226,19 @@ export function EarnPayWithList({
   focusFirstRef?: RefObject<boolean>;
 }) {
   const reduceMotion = useReducedMotion();
-  // Escape folds the list and gives the focus back to the token chip. The
-  // modal closes as the key comes up, so the list takes that
-  const handleKeyUp = useCallback(
-    (event: IListKeyEvent) => {
-      if (event.key !== 'Escape') {
-        return;
-      }
-      event.preventDefault();
-      event.stopPropagation();
+  // Escape folds the list; from inside it, the focus goes back to the token
+  // chip. From the amount box the cursor stays where it is
+  const listRef = useRef<IElement>(null);
+  const handleEscape = useCallback(
+    (wasFocusInList: boolean) => {
       onClose();
+      const list = listRef.current as unknown;
       if (
+        wasFocusInList &&
         typeof HTMLElement !== 'undefined' &&
-        event.currentTarget instanceof HTMLElement
+        list instanceof HTMLElement
       ) {
-        event.currentTarget
+        list
           .closest(`[data-testid="${PAY_WITH_BOX_TEST_ID}"]`)
           ?.querySelector<HTMLElement>(
             `[data-testid="${PAY_WITH_TRIGGER_TEST_ID}"]`,
@@ -256,6 +248,7 @@ export function EarnPayWithList({
     },
     [onClose],
   );
+  useEscapeFoldsList(isOpen, handleEscape, listRef);
   return (
     <Accordion type="single" collapsible value={isOpen ? PAY_LIST_VALUE : ''}>
       <Accordion.Item value={PAY_LIST_VALUE}>
@@ -269,7 +262,7 @@ export function EarnPayWithList({
             animateOnly={ANIMATE_ONLY_OPACITY}
             exitStyle={PAY_LIST_HIDDEN_STYLE}
           >
-            <YStack onKeyUp={isOpen ? handleKeyUp : undefined}>
+            <YStack ref={listRef}>
               <Divider mx="$3.5" />
               <ScrollView maxHeight={PAY_LIST_MAX_HEIGHT}>
                 <YStack py="$1.5" gap="$0.5">

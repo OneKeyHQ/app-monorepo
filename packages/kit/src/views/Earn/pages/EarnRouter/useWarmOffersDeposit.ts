@@ -9,7 +9,10 @@ import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import type { ISupportedSymbol } from '@onekeyhq/shared/types/earn';
 import { ECheckAmountActionType } from '@onekeyhq/shared/types/staking';
 
-import { warmManagePageData } from '../../../Staking/pages/ManagePosition/hooks/useManagePage';
+import {
+  EManagePositionType,
+  warmManagePageData,
+} from '../../../Staking/pages/ManagePosition/hooks/useManagePage';
 import { preloadManagePosition } from '../../../Staking/router';
 import { resolveStakeTokenAddress } from '../../../Staking/utils/utils';
 
@@ -48,29 +51,37 @@ function useDepositPageAccounts() {
   };
 }
 
-// The form's data, then its rows before an amount
-function warmDepositFormData({
-  othersWalletAccountId,
-  indexedAccountId,
-  symbol,
-  networkId,
-  providerName,
-  vault,
-}: IWarmFormTarget & {
-  othersWalletAccountId?: string;
+// The params a deposit form reads its data with, as the deposit modal and
+// the deposit page pass them
+export type IWarmFormParams = {
+  accountId: string;
   indexedAccountId?: string;
-}) {
+  networkId: string;
+  symbol: string;
+  provider: string;
+  vault?: string;
+  type?: EManagePositionType;
+  marketAddress?: string;
+  reserveAddress?: string;
+};
+
+// The form's data, then its rows before an amount (a vault's or a staking
+// protocol's; a lending market's form reads its own on open)
+export function warmFormData(params: IWarmFormParams) {
+  const { networkId, symbol, provider: providerName, vault, type } = params;
   void warmManagePageData({
-    accountId: othersWalletAccountId || '',
-    indexedAccountId,
-    networkId,
-    symbol: symbol as ISupportedSymbol,
-    provider: providerName,
+    ...params,
+    indexedAccountId: params.indexedAccountId,
     vault,
+    symbol: symbol as ISupportedSymbol,
   }).then((data) => {
     const accountAddress = data?.earnAccount?.accountAddress;
     // Pendle's rows depend on the tokens it is quoted between
-    if (!accountAddress || earnUtils.isPendleProvider({ providerName })) {
+    if (
+      !accountAddress ||
+      (type && type !== EManagePositionType.Staking) ||
+      earnUtils.isPendleProvider({ providerName })
+    ) {
       return;
     }
     const token = data.managePageData?.deposit?.data?.token?.info;
@@ -116,10 +127,13 @@ export function useWarmDepositForm() {
   return useCallback(
     (target: IWarmFormTarget) => {
       preloadManagePosition().catch(() => undefined);
-      warmDepositFormData({
-        ...target,
-        othersWalletAccountId,
+      warmFormData({
+        accountId: othersWalletAccountId || '',
         indexedAccountId,
+        networkId: target.networkId,
+        symbol: target.symbol,
+        provider: target.providerName,
+        vault: target.vault,
       });
     },
     [indexedAccountId, othersWalletAccountId],
@@ -156,12 +170,12 @@ export function useWarmOffersDeposit() {
       const vault = earnUtils.shouldSendEarnProtocolVault({ providerName })
         ? offer.item.provider.vault
         : undefined;
-      warmDepositFormData({
-        othersWalletAccountId,
+      warmFormData({
+        accountId: othersWalletAccountId || '',
         indexedAccountId,
-        symbol,
         networkId,
-        providerName,
+        symbol,
+        provider: providerName,
         vault,
       });
     },

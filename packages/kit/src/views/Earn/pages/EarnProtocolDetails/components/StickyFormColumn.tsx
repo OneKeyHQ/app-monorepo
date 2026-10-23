@@ -7,6 +7,9 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 // 16 px under the top, as the Market detail page's trade column
 const STICKY_GAP = 16;
+// The form's least width, about a phone's: the window's first wide sizes
+// (768 to 900 px) would leave it under 240 px at 35%
+const FORM_MIN_WIDTH = 360;
 
 function findScrollArea(node: HTMLElement) {
   let parent = node.parentElement;
@@ -22,12 +25,12 @@ function findScrollArea(node: HTMLElement) {
 
 /**
  * The wide details page's form column: it stays in view as the details on
- * the left scroll. A form taller than the space scrolls with the page until
- * its bottom shows, then stays
+ * the left scroll. A form taller than the space moves with the page, up or
+ * down, until its bottom or top shows, then stays. Growing (a list opening
+ * in it) doesn't move it: the rest shows as the page scrolls
  */
 export function StickyFormColumn({ children }: { children: ReactNode }) {
   const [column, setColumn] = useState<HTMLElement | null>(null);
-  const [top, setTop] = useState(STICKY_GAP);
   const columnRef = useCallback((node: IElement | null) => {
     setColumn(node as unknown as HTMLElement | null);
   }, []);
@@ -40,29 +43,55 @@ export function StickyFormColumn({ children }: { children: ReactNode }) {
     if (!area) {
       return undefined;
     }
-    const update = () => {
-      setTop(
-        Math.min(
-          STICKY_GAP,
-          area.clientHeight - column.offsetHeight - STICKY_GAP,
-        ),
+    // Set on the element, not through a render: it follows every scroll
+    let top = STICKY_GAP;
+    let lastScrollTop = area.scrollTop;
+    const place = (next: number) => {
+      // As high as it goes: its bottom 16 px over the window's
+      const highest = Math.min(
+        STICKY_GAP,
+        area.clientHeight - column.offsetHeight - STICKY_GAP,
       );
+      const placed = Math.max(highest, Math.min(STICKY_GAP, next));
+      if (placed !== top) {
+        top = placed;
+        column.style.top = `${top}px`;
+      }
     };
-    update();
-    const observer = new ResizeObserver(update);
+    const handleScroll = () => {
+      const delta = area.scrollTop - lastScrollTop;
+      lastScrollTop = area.scrollTop;
+      place(top - delta);
+    };
+    const observer = new ResizeObserver(() => place(top));
     observer.observe(column);
     observer.observe(area);
-    return () => observer.disconnect();
+    area.addEventListener('scroll', handleScroll, { passive: true });
+    return () => {
+      observer.disconnect();
+      area.removeEventListener('scroll', handleScroll);
+    };
   }, [column]);
 
+  // React Native has no sticky position: a wide native screen (a tablet)
+  // keeps the column as it was
+  if (platformEnv.isNative) {
+    return (
+      <Stack width="35%" minWidth={FORM_MIN_WIDTH} flexShrink={0}>
+        {children}
+      </Stack>
+    );
+  }
   return (
     <Stack
       ref={columnRef}
       width="35%"
+      minWidth={FORM_MIN_WIDTH}
+      flexShrink={0}
       // Its own height, not the row's, so it has room to stay in view
       alignSelf="flex-start"
       position="sticky"
-      top={top}
+      top={STICKY_GAP}
     >
       {children}
     </Stack>

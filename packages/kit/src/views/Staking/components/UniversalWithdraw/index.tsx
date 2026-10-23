@@ -12,6 +12,7 @@ import {
   HeightTransition,
   Icon,
   IconButton,
+  NumberSizeableText,
   Page,
   SizableText,
   Stack,
@@ -71,7 +72,7 @@ import { useQuoteRefresh } from '../../hooks/useQuoteRefresh';
 import { useTrackTokenAllowance } from '../../hooks/useUtilsHooks';
 import { useHandleWithdraw } from '../../pages/ProtocolDetails/useHandleActions';
 import { countDecimalPlaces, isInvalidAmount } from '../../utils/utils';
-import { EstimateNetworkFee } from '../EstimateNetworkFee';
+import { EarnFooterFade } from '../EarnFooterFade';
 import {
   type IManagePageV2ReceiveInputConfig,
   ManagePageV2ReceiveInput,
@@ -95,7 +96,6 @@ import {
   buildRewardNoteRows,
   buildRewardsOutcome,
 } from '../UniversalStake/EarnFormSummary';
-import { StakingReceiveRow } from '../UniversalStake/StakingConfirmationSummary';
 
 import {
   getCheckAmountRequestKey,
@@ -218,6 +218,23 @@ type IWithdrawPathBox = {
 
 // A line or a row of cards that comes with typing grows in this long
 const AMOUNT_LINE_MS = 200;
+// An emptied box keeps its figures this long, the answers' own debounce
+const QUOTE_SETTLE_MS = 350;
+// A way out's answer asked ahead is used this long, then asked again
+const PATH_ANSWER_FRESH_MS = 30_000;
+// 25%, 50% and 75% of a balance fill at most this many decimals
+const PERCENT_INPUT_DECIMALS = 6;
+
+type IShownWithdrawQuote = {
+  // The request the figures answer, and its amount (empty for dashes)
+  requestKey: string;
+  amount: string;
+  confirmation?: IStakeTransactionConfirmation;
+};
+const EMPTY_SHOWN_WITHDRAW_QUOTE: IShownWithdrawQuote = {
+  requestKey: '',
+  amount: '',
+};
 
 // The ways out side by side, as Lido shows its two withdrawal routes: each
 // card says when it pays and what it costs, in the server's words. The one
@@ -399,10 +416,25 @@ export function UniversalWithdraw({
     useState<IStakeTransactionConfirmation | undefined>();
   const [resolvedTransactionConfirmationRequestKey, setResolvedRequestKey] =
     useState<string>();
+  // What the rows show: the latest answer for an amount and way out, kept
+  // (dimmed) while the next is fetched, so the rows swap figures in place.
+  // Only shown: the button acts on this amount's own answer
+  const [shownQuote, setShownQuote] = useState<IShownWithdrawQuote>(
+    EMPTY_SHOWN_WITHDRAW_QUOTE,
+  );
   const checkAmountRequestIdRef = useRef(0);
   const checkAmountRequestKeyRef = useRef('');
   const transactionConfirmationRequestIdRef = useRef(0);
   const transactionConfirmationRequestKeyRef = useRef('');
+  // Each way out's answer for an amount, by request; and those being asked
+  const pathAnswersRef = useRef(
+    new Map<string, { resp?: IStakeTransactionConfirmation; at: number }>(),
+  );
+  const pathAsksRef = useRef(new Set<string>());
+  // Read when a kept answer is used: the caller's function changes with
+  // every render of the caller
+  const onQuoteResetRef = useRef(onQuoteReset);
+  onQuoteResetRef.current = onQuoteReset;
 
   // Sign message hook and refs for withdraw all signature
   const signPersonalMessage = useEarnSignMessageWithoutVerify();
@@ -494,6 +526,7 @@ export function UniversalWithdraw({
     }
   }, [effectiveSelectedWithdrawPathIndex, selectedWithdrawPathIndex]);
 
+  const hasTwoWaysOut = withdrawPathConfirmBoxes.length > 1;
   const selectedWithdrawPath = useMemo(() => {
     if (!withdrawPathConfirmBoxes.length) return undefined;
     return (
@@ -507,12 +540,12 @@ export function UniversalWithdraw({
     return selectedWithdrawPath?.withdrawType;
   }, [isCancelWithdrawal, selectedWithdrawPath?.withdrawType]);
 
-  const transactionConfirmationRequestKey = useMemo(
-    () =>
+  const buildConfirmationRequestKey = useCallback(
+    (amount: string, withdrawType?: IEarnWithdrawType) =>
       JSON.stringify({
         accountAddress,
         actionSymbol: requestSymbol || tokenSymbol || '',
-        amount: amountValue,
+        amount,
         identity,
         inputTokenAddress: transactionInputTokenAddress,
         isDisabled,
@@ -521,11 +554,10 @@ export function UniversalWithdraw({
         provider: providerName || '',
         slippage: pendleSlippage,
         vault: shouldSendProtocolVault ? protocolVault || '' : '',
-        withdrawType: selectedWithdrawType,
+        withdrawType,
       }),
     [
       accountAddress,
-      amountValue,
       identity,
       isDisabled,
       networkId,
@@ -533,12 +565,15 @@ export function UniversalWithdraw({
       protocolVault,
       providerName,
       requestSymbol,
-      selectedWithdrawType,
       shouldSendProtocolVault,
       tokenSymbol,
       transactionInputTokenAddress,
       transactionOutputTokenAddress,
     ],
+  );
+  const transactionConfirmationRequestKey = useMemo(
+    () => buildConfirmationRequestKey(amountValue, selectedWithdrawType),
+    [amountValue, buildConfirmationRequestKey, selectedWithdrawType],
   );
   transactionConfirmationRequestKeyRef.current =
     transactionConfirmationRequestKey;
@@ -1359,6 +1394,9 @@ export function UniversalWithdraw({
           amount || '0',
           withdrawType,
         );
+        if (resp && withdrawType) {
+          pathAnswersRef.current.set(requestKey, { resp, at: Date.now() });
+        }
         if (
           !isLatestTransactionConfirmationRequest({
             requestId,
@@ -1371,11 +1409,23 @@ export function UniversalWithdraw({
         }
         setTransactionConfirmation(resp);
         setResolvedRequestKey(requestKey);
+        setShownQuote({ requestKey, amount: amount || '', confirmation: resp });
         if (resp && amount && Number(amount) > 0) {
           onQuoteReset?.();
         }
       } catch {
         // The previous snapshot remains internal and cannot enable submission.
+        // The rows show dashes rather than another amount's figures
+        if (
+          isLatestTransactionConfirmationRequest({
+            requestId,
+            requestKey,
+            latestRequestId: transactionConfirmationRequestIdRef.current,
+            latestRequestKey: transactionConfirmationRequestKeyRef.current,
+          })
+        ) {
+          setShownQuote({ requestKey, amount: amount || '' });
+        }
       } finally {
         if (
           isLatestTransactionConfirmationRequest({
@@ -1415,6 +1465,26 @@ export function UniversalWithdraw({
       return undefined;
     }
 
+    // This way out's answer for this amount, asked ahead a moment ago: its
+    // figures and rows show with the press that picked it
+    // Only between ways out: a quote that expires (Pendle) is always new
+    const kept =
+      isCancelWithdrawal || !hasTwoWaysOut || isPendleProvider
+        ? undefined
+        : pathAnswersRef.current.get(transactionConfirmationRequestKey);
+    if (kept && Date.now() - kept.at < PATH_ANSWER_FRESH_MS) {
+      setTransactionConfirmation(kept.resp);
+      setResolvedRequestKey(transactionConfirmationRequestKey);
+      setShownQuote({
+        requestKey: transactionConfirmationRequestKey,
+        amount: amountValue,
+        confirmation: kept.resp,
+      });
+      setTransactionConfirmationLoading(false);
+      onQuoteResetRef.current?.();
+      return undefined;
+    }
+
     setTransactionConfirmationLoading(true);
     void debouncedFetchTransactionConfirmation({
       amount: amountValue,
@@ -1431,17 +1501,81 @@ export function UniversalWithdraw({
   }, [
     amountValue,
     debouncedFetchTransactionConfirmation,
+    hasTwoWaysOut,
     isCancelWithdrawal,
+    isPendleProvider,
     selectedWithdrawType,
     transactionConfirmationRequestKey,
   ]);
 
+  // With two ways out, the other way's answer for the amount is asked as
+  // soon as this way's is in, so a switch needn't wait for it
+  const shownQuoteKey = shownQuote.requestKey;
+  useEffect(() => {
+    if (
+      isCancelWithdrawal ||
+      !hasTwoWaysOut ||
+      isPendleProvider ||
+      shownQuoteKey !== transactionConfirmationRequestKey ||
+      isInvalidAmount(amountValue) ||
+      !new BigNumber(amountValue).gt(0)
+    ) {
+      return;
+    }
+    withdrawPathConfirmBoxes.forEach((box) => {
+      if (
+        box.disabled ||
+        !box.withdrawType ||
+        box.withdrawType === selectedWithdrawType
+      ) {
+        return;
+      }
+      const { withdrawType } = box;
+      const key = buildConfirmationRequestKey(amountValue, withdrawType);
+      const kept = pathAnswersRef.current.get(key);
+      if (
+        pathAsksRef.current.has(key) ||
+        (kept && Date.now() - kept.at < PATH_ANSWER_FRESH_MS)
+      ) {
+        return;
+      }
+      pathAsksRef.current.add(key);
+      fetchTransactionConfirmation(amountValue, withdrawType)
+        .then((resp) => {
+          if (resp) {
+            pathAnswersRef.current.set(key, { resp, at: Date.now() });
+          }
+        })
+        .catch(() => undefined)
+        .finally(() => pathAsksRef.current.delete(key));
+    });
+  }, [
+    amountValue,
+    buildConfirmationRequestKey,
+    fetchTransactionConfirmation,
+    hasTwoWaysOut,
+    isCancelWithdrawal,
+    isPendleProvider,
+    selectedWithdrawType,
+    shownQuoteKey,
+    transactionConfirmationRequestKey,
+    withdrawPathConfirmBoxes,
+  ]);
+
+  // Pendle's refresh brings a new answer for the amount in the box
+  const setRefreshedConfirmation = useCallback(
+    (resp?: IStakeTransactionConfirmation) => {
+      setTransactionConfirmation(resp);
+      setShownQuote((prev) => ({ ...prev, confirmation: resp }));
+    },
+    [],
+  );
   const { quoteRefreshing, handleLocalRefreshQuote } = useQuoteRefresh({
     enabled: isPendleProvider,
     refreshKey,
     amountValue,
     fetchTransactionConfirmation,
-    setTransactionConfirmation,
+    setTransactionConfirmation: setRefreshedConfirmation,
     onQuoteReset,
     onQuoteRefreshingChange,
   });
@@ -1526,7 +1660,11 @@ export function UniversalWithdraw({
         calcPercentBalance({
           balance,
           percent,
-          decimals,
+          // A share of the balance reads as an amount, not 18 decimals
+          decimals: Math.min(
+            decimals ?? PERCENT_INPUT_DECIMALS,
+            PERCENT_INPUT_DECIMALS,
+          ),
         }),
       );
     },
@@ -1535,8 +1673,15 @@ export function UniversalWithdraw({
 
   const isCheckAmountMessageError =
     amountValue?.length > 0 && !!checkAmountMessage;
+  // The server's check of the amount and, for a way out that must be
+  // current, its answer: a moment after each keystroke
+  const isWaitingAnswer =
+    checkAmountLoading ||
+    !isWithdrawPathReady ||
+    (requiresEarnWithdrawPath && transactionConfirmationLoading);
 
-  const isDisable = useMemo<boolean>(
+  // Off for what the amount is, before the server's answer for it
+  const isDisableBeforeAnswer = useMemo<boolean>(
     () =>
       isDisabled ||
       !!selectedWithdrawPath?.disabled ||
@@ -1544,20 +1689,17 @@ export function UniversalWithdraw({
         (isInvalidAmount(amountValue) ||
           BigNumber(amountValue).isLessThanOrEqualTo(0))) ||
       isCheckAmountMessageError ||
-      checkAmountAlerts.length > 0 ||
-      checkAmountLoading ||
-      !isWithdrawPathReady,
+      checkAmountAlerts.length > 0,
     [
       isDisabled,
       amountValue,
       isCheckAmountMessageError,
       checkAmountAlerts.length,
-      checkAmountLoading,
       isCancelWithdrawal,
-      isWithdrawPathReady,
       selectedWithdrawPath?.disabled,
     ],
   );
+  const isDisable = isDisableBeforeAnswer || isWaitingAnswer;
 
   const {
     isPendleLikeLayout,
@@ -1587,27 +1729,45 @@ export function UniversalWithdraw({
 
   const isPositiveAmount =
     !isInvalidAmount(amountValue) && new BigNumber(amountValue).gt(0);
-  // With no amount the rows keep their places, each value a dash
-  const isRowsPlaceholder = !isCancelWithdrawal && !isPositiveAmount;
   const lastConfirmationRef = useRef<IStakeTransactionConfirmation | undefined>(
     undefined,
   );
   if (transactionConfirmation) {
     lastConfirmationRef.current = transactionConfirmation;
   }
-  // What the rows show: this amount's answer; until it is in (a provider
-  // whose path must be current shows none stale), the last rows with dashes
-  const isAnswerMissing = !isRowsPlaceholder && !transactionConfirmation;
+  // A box emptied keeps its figures a moment (dimmed), so a digit deleted
+  // and typed again doesn't blink; left empty, the rows go back to dashes
+  useEffect(() => {
+    if (isPositiveAmount) {
+      return undefined;
+    }
+    const timer = setTimeout(
+      () => setShownQuote(EMPTY_SHOWN_WITHDRAW_QUOTE),
+      QUOTE_SETTLE_MS,
+    );
+    return () => clearTimeout(timer);
+  }, [isPositiveAmount]);
+  // What the rows show: the shown answer's figures (cancelling a queued
+  // withdrawal, which has no amount, this answer's own); else the last
+  // answer's labels with dashes, or placeholders while one is coming
+  const shownConfirmation = isCancelWithdrawal
+    ? transactionConfirmation
+    : shownQuote.confirmation;
+  const showDashes = !shownConfirmation;
   const rowsConfirmation =
-    isRowsPlaceholder || isAnswerMissing
-      ? (lastConfirmationRef.current ?? emptyAmountConfirmation)
-      : transactionConfirmation;
-  const showDashes = isRowsPlaceholder || isAnswerMissing;
-  const isQuoteUpdating = isPositiveAmount && quoteLoading;
+    shownConfirmation ?? lastConfirmationRef.current ?? emptyAmountConfirmation;
+  let isQuoteUpdating = quoteLoading;
+  if (!isCancelWithdrawal) {
+    isQuoteUpdating = isPositiveAmount
+      ? shownQuote.requestKey !== transactionConfirmationRequestKey
+      : shownQuote.amount !== '';
+  }
 
   const pendleDetailRows = usePendleTransactionDetails({
     transactionConfirmation: rowsConfirmation,
-    amountValue,
+    // The amount the shown figures are for: they stay while the box is
+    // emptied a moment
+    amountValue: isCancelWithdrawal ? amountValue : shownQuote.amount,
     isPendleLikeLayout,
     placeholder: showDashes,
   });
@@ -1747,30 +1907,43 @@ export function UniversalWithdraw({
     const receive = rowsConfirmation?.receive;
     if (receive) {
       items.push(
-        <StakingReceiveRow
+        <EarnFormRow
           key="receive"
-          receive={
-            showDashes
-              ? {
-                  ...receive,
-                  description: { text: '–', color: '$textDisabled' },
-                }
-              : receive
+          label={receive.title.text}
+          tooltip={receive.tooltip}
+          value={
+            showDashes ? undefined : (
+              <EarnText
+                text={receive.description}
+                size="$bodyMdMedium"
+                textAlign="right"
+              />
+            )
           }
         />,
       );
     }
-    // The row hides itself on a zero estimate, so that counts as none
+    // A zero estimate counts as none
     if (
       estimateFeeResp &&
       Number(estimateFeeResp.feeFiatValue) > 0 &&
       (isCancelWithdrawal || isPositiveAmount)
     ) {
       items.push(
-        <EstimateNetworkFee
+        <EarnFormRow
           key="network-fee"
-          estimateFeeResp={estimateFeeResp}
-          isVisible
+          label={intl.formatMessage({
+            id: ETranslations.global_est_network_fee,
+          })}
+          value={
+            <NumberSizeableText
+              size="$bodyMdMedium"
+              formatter="value"
+              formatterOptions={{ currency: symbol }}
+            >
+              {estimateFeeResp.feeFiatValue}
+            </NumberSizeableText>
+          }
         />,
       );
     } else if (!isLidoWithdraw) {
@@ -1789,6 +1962,7 @@ export function UniversalWithdraw({
   }, [
     estimateFeeResp,
     intl,
+    symbol,
     isLidoWithdraw,
     isCancelWithdrawal,
     isPendleLikeLayout,
@@ -1898,6 +2072,41 @@ export function UniversalWithdraw({
   const effectiveConfirmDisabled = footerActionOverride
     ? Boolean(footerActionOverride.disabled)
     : confirmDisabled;
+
+  // The button keeps its look while the amount is checked (no spinner, no
+  // grey that comes and goes with each keystroke); a press in that moment
+  // goes once the answer is in
+  const [isPressWaitingAnswer, setIsPressWaitingAnswer] = useState(false);
+  const isOwnButtonState =
+    !footerActionOverride && !shouldApprove && !effectiveShowExpiredRefresh;
+  const buttonLoading = isOwnButtonState
+    ? loading || isPressWaitingAnswer
+    : effectiveConfirmLoading;
+  const buttonDisabled = isOwnButtonState
+    ? isDisableBeforeAnswer
+    : effectiveConfirmDisabled;
+  const handleConfirmPress = useCallback(() => {
+    if (isOwnButtonState && isWaitingAnswer) {
+      setIsPressWaitingAnswer(true);
+      return;
+    }
+    void effectiveConfirmOnPress();
+  }, [effectiveConfirmOnPress, isOwnButtonState, isWaitingAnswer]);
+  useEffect(() => {
+    if (!isPressWaitingAnswer || isWaitingAnswer) {
+      return;
+    }
+    setIsPressWaitingAnswer(false);
+    if (!effectiveConfirmDisabled && !effectiveConfirmLoading) {
+      void effectiveConfirmOnPress();
+    }
+  }, [
+    effectiveConfirmDisabled,
+    effectiveConfirmLoading,
+    effectiveConfirmOnPress,
+    isPressWaitingAnswer,
+    isWaitingAnswer,
+  ]);
 
   const withdrawProgress = shouldShowPendleWithdrawProgress ? (
     <StakeProgress
@@ -2160,35 +2369,37 @@ export function UniversalWithdraw({
       {beforeFooter}
       {isInModalContext ? (
         <Page.Footer>
-          <Stack
-            bg="$bgApp"
-            flexDirection="column"
-            $gtMd={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              jc: 'space-between',
-            }}
-          >
-            {withdrawProgress ? (
-              <Stack pl="$5" $md={{ pt: '$5' }}>
-                {withdrawProgress}
-              </Stack>
-            ) : (
-              <Stack />
-            )}
-            <Page.FooterActions
-              onConfirmText={effectiveConfirmText}
-              confirmButtonProps={{
-                onPress: effectiveConfirmOnPress,
-                loading: effectiveConfirmLoading,
-                disabled: effectiveConfirmDisabled,
+          <EarnFooterFade>
+            <Stack
+              bg="$bgApp"
+              flexDirection="column"
+              $gtMd={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                jc: 'space-between',
               }}
+            >
+              {withdrawProgress ? (
+                <Stack pl="$5" $md={{ pt: '$5' }}>
+                  {withdrawProgress}
+                </Stack>
+              ) : (
+                <Stack />
+              )}
+              <Page.FooterActions
+                onConfirmText={effectiveConfirmText}
+                confirmButtonProps={{
+                  onPress: handleConfirmPress,
+                  loading: buttonLoading,
+                  disabled: buttonDisabled,
+                }}
+              />
+            </Stack>
+            <PercentageStageOnKeyboard
+              onSelectPercentageStage={onSelectPercentageStage}
+              reserveSpaceUntilKeyboardShown={!amountInputDisabled}
             />
-          </Stack>
-          <PercentageStageOnKeyboard
-            onSelectPercentageStage={onSelectPercentageStage}
-            reserveSpaceUntilKeyboardShown={!amountInputDisabled}
-          />
+          </EarnFooterFade>
         </Page.Footer>
       ) : (
         <YStack bg="$bgApp" gap="$5">
@@ -2203,9 +2414,9 @@ export function UniversalWithdraw({
               w: '100%',
             }}
             confirmButtonProps={{
-              onPress: effectiveConfirmOnPress,
-              loading: effectiveConfirmLoading,
-              disabled: effectiveConfirmDisabled,
+              onPress: handleConfirmPress,
+              loading: buttonLoading,
+              disabled: buttonDisabled,
               w: '100%',
             }}
           />

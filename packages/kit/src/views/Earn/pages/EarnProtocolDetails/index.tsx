@@ -1813,7 +1813,12 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
       footer={pageFooter}
     >
       <XStack flexDirection={gtMd ? 'row' : 'column'}>
-        <Stack w="100%" width={gtMd ? '65%' : undefined}>
+        {/* Wide, the details take what the form column leaves: 65% of the
+            row, less where the form needs its least width */}
+        <Stack
+          w="100%"
+          {...(gtMd ? { width: undefined, flex: 1, minWidth: 0 } : null)}
+        >
           <DetailsPart
             detailInfo={detailInfo}
             tokenInfo={tokenInfo}
@@ -1854,7 +1859,11 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
             />
           </StickyFormColumn>
         ) : null}
-        {!gtMd && detailInfo && protocolInfo?.earnAccount?.accountAddress ? (
+        {/* The narrow web layout (this demo's phone width) only */}
+        {!gtMd &&
+        !platformEnv.isNative &&
+        detailInfo &&
+        protocolInfo?.earnAccount?.accountAddress ? (
           <WarmDepositPage
             networkId={networkId}
             symbol={symbol}

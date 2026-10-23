@@ -1,10 +1,12 @@
 import type { ReactElement, ReactNode } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import { noop } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { useNetworkLogoUri } from '@onekeyhq/kit/src/hooks/useNetworkLogoUri';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
   BorrowRepayPosition,
@@ -32,6 +34,7 @@ import {
   useUniversalBorrowRepayWithCollateral,
   useUniversalBorrowWithdraw,
 } from '@onekeyhq/kit/src/views/Borrow/hooks/useUniversalBorrowHooks';
+import { EarnAprSuffixText } from '@onekeyhq/kit/src/views/Earn/components/EarnAprSuffixText';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EModalRoutes, EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
@@ -50,6 +53,7 @@ import {
 } from '@onekeyhq/shared/types/staking';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
+import { ProtocolSwitchRow } from '../../../components/UniversalStake';
 import { UniversalWithdraw } from '../../../components/UniversalWithdraw';
 import { useBorrowApiParams } from '../../../hooks/useBorrowApiParams';
 import { useIsPendleProvider } from '../../../hooks/useIsPendleProvider';
@@ -173,6 +177,38 @@ export const WithdrawSection = ({
       providerName,
     });
   }, [protocolInfo?.providerDetail.name, providerName]);
+  // In a modal or on the withdraw page the card names what the withdrawal
+  // takes from: the caller's offer card, else one from the position's own
+  // details (Lido, which the token's offers don't list)
+  const networkLogoURI = useNetworkLogoUri({ networkId });
+  const apyText = protocolInfo?.apyDetail?.description?.text;
+  const shownOfferSwitch = useMemo(() => {
+    if (offerSwitch || !isInModalContext || !protocolInfo) {
+      return offerSwitch;
+    }
+    return (
+      <ProtocolSwitchRow
+        logoURI={protocolInfo.providerDetail.logoURI}
+        networkLogoURI={networkLogoURI}
+        name={borrowProviderDisplayName}
+        aprElement={
+          apyText ? (
+            <EarnAprSuffixText text={apyText} size="$headingLg" />
+          ) : null
+        }
+        isSwitchEnabled={false}
+        showChevron={false}
+        onPress={noop}
+      />
+    );
+  }, [
+    apyText,
+    borrowProviderDisplayName,
+    isInModalContext,
+    networkLogoURI,
+    offerSwitch,
+    protocolInfo,
+  ]);
 
   const token = useMemo(
     () => (tokenInfo?.token ? (tokenInfo.token as IToken) : undefined),
@@ -1377,7 +1413,7 @@ export const WithdrawSection = ({
     ) {
       return (
         <ManagePosition
-          offerSwitch={offerSwitch}
+          offerSwitch={shownOfferSwitch}
           accountId={accountId}
           networkId={networkId}
           providerName=""
@@ -1398,7 +1434,7 @@ export const WithdrawSection = ({
     }
     return (
       <UniversalWithdraw
-        offerSwitch={offerSwitch}
+        offerSwitch={shownOfferSwitch}
         accountAddress=""
         price="0"
         balance="0"
@@ -1472,7 +1508,7 @@ export const WithdrawSection = ({
     } else {
       borrowWithdrawContent = (
         <ManagePosition
-          offerSwitch={offerSwitch}
+          offerSwitch={shownOfferSwitch}
           accountId={accountId}
           networkId={networkId}
           providerName={providerName}
@@ -1516,7 +1552,7 @@ export const WithdrawSection = ({
         borrowWithdrawContent
       ) : (
         <UniversalWithdraw
-          offerSwitch={offerSwitch}
+          offerSwitch={shownOfferSwitch}
           accountAddress={protocolInfo?.earnAccount?.accountAddress || ''}
           price={tokenInfo?.price ? String(tokenInfo.price) : '0'}
           decimals={protocolInfo?.protocolInputDecimals ?? token?.decimals}

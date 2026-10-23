@@ -233,11 +233,18 @@ export const useManagePage = ({
     },
   );
 
-  const { managePageData, protocolList, earnAccount } = result || {};
+  // A switch to params read ahead (a protocol list opened in the deposit
+  // modal) shows their data at once, and this request refreshes it in place
+  const keptForRequest =
+    result?.requestKey === requestKey
+      ? undefined
+      : readFirstFrame<IManagePageData>(firstFrameKey);
+  const shownResult = keptForRequest ?? result;
+  const { managePageData, protocolList, earnAccount } = shownResult || {};
 
   // True while the data on screen was fetched for different params (protocol
   // switch in flight). Computed during render — no effect-timing dependence.
-  const isStaleData = !!result && result.requestKey !== requestKey;
+  const isStaleData = !!shownResult && shownResult.requestKey !== requestKey;
 
   const resolvedProtocolVault = useMemo(() => {
     if (!earnUtils.shouldSendEarnProtocolVault({ providerName: provider })) {

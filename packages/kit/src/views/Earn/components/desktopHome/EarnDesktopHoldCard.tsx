@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -48,6 +48,10 @@ const ROW_LIMIT = 5;
 // The pointer resting this long on a row gets its deposit form's data ready;
 // passing over the list doesn't
 const WARM_INTENT_MS = 100;
+// The rows on screen are read ahead this long after the list settles, a row
+// at a time
+const READ_AHEAD_DELAY_MS = 800;
+const READ_AHEAD_GAP_MS = 250;
 const ROW_HEIGHT = 68;
 const ROW_GAP = '$3';
 const ACTION_WIDTH = 72;
@@ -225,6 +229,14 @@ function HoldRow({
         : undefined,
     [onWarm, surfaceHandlers],
   );
+  // A press that came without a rest on the row starts the read too
+  const handleButtonPressIn = useCallback(
+    (event: { stopPropagation: () => void }) => {
+      stopPropagation(event);
+      onWarm();
+    },
+    [onWarm],
+  );
   const [best] = row.offers;
   const symbol = row.token.symbol;
   const fixedLine = best.isFixedRate ? (
@@ -291,7 +303,7 @@ function HoldRow({
                 // not open the same page a second time. Stopping the press-in
                 // too keeps the row at its hover color while the button is
                 // held, so only the button looks pressed
-                onPressIn={stopPropagation}
+                onPressIn={handleButtonPressIn}
                 onPress={onPress}
               >
                 {intl.formatMessage({ id: ETranslations.earn_title })}
@@ -460,6 +472,27 @@ export function EarnDesktopHoldCard({
   useEffect(() => {
     rows.forEach((row) => warm(toWarmTarget(row), { withData: false }));
   }, [rows, warm]);
+  // And the rows on screen read ahead once the page is quiet, one after
+  // another, so a tap (no hover on a phone) or a quick click opens the modal
+  // complete too
+  const shownRef = useRef(shown);
+  shownRef.current = shown;
+  const shownKey = shown.map((row) => row.key).join('|');
+  useEffect(() => {
+    let index = 0;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const readNext = () => {
+      const row = shownRef.current[index];
+      if (!row) {
+        return;
+      }
+      index += 1;
+      warm(toWarmTarget(row));
+      timer = setTimeout(readNext, READ_AHEAD_GAP_MS);
+    };
+    timer = setTimeout(readNext, READ_AHEAD_DELAY_MS);
+    return () => clearTimeout(timer);
+  }, [shownKey, warm]);
   const moreCount = rows.length - ROW_LIMIT;
   return (
     // The wider gap above sets the title apart from the hero

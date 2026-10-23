@@ -1,5 +1,5 @@
 import type { ReactElement } from 'react';
-import { forwardRef, useCallback, useRef, useState } from 'react';
+import { forwardRef, useCallback, useMemo, useRef, useState } from 'react';
 
 import { useReducedMotion } from 'react-native-reanimated';
 
@@ -92,6 +92,30 @@ function SegmentControlItem({
   const handleChange = useCallback(() => {
     onChange(value);
   }, [onChange, value]);
+  // On web Tamagui's onPress is a click only (focusable gives no tab stop):
+  // these let Tab reach the item and Enter or Space pick it
+  const keyboardProps = useMemo(() => {
+    if (disabled || !platformEnv.isRuntimeBrowser) {
+      return undefined;
+    }
+    return {
+      tabIndex: 0,
+      onKeyDown: (event: {
+        key: string;
+        target?: unknown;
+        currentTarget?: unknown;
+        preventDefault: () => void;
+      }) => {
+        if (event.target !== event.currentTarget) {
+          return;
+        }
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          handleChange();
+        }
+      },
+    } as const;
+  }, [disabled, handleChange]);
   const handleHoverIn = useCallback(() => setHovered(true), []);
   const handleHoverOut = useCallback(() => setHovered(false), []);
   const handleLayout = useCallback(
@@ -146,6 +170,7 @@ function SegmentControlItem({
       userSelect="none"
       focusable={!disabled}
       focusVisibleStyle={focusVisibleStyleConst}
+      {...keyboardProps}
       testID={testID}
       {...(!active &&
         !floating && {
