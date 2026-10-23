@@ -95,7 +95,6 @@ jobs:
             ci-ai/bundle-architecture-ai-prompt.md
             ci-ai/bundle-architecture-*.log
             apps/mobile/dist/allocation-report-*.json
-            apps/mobile/dist/segment-manifest*.json
           if-no-files-found: warn
 
       - name: Explain bundle architecture failure diagnostics

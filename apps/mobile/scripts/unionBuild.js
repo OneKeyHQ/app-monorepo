@@ -1923,14 +1923,19 @@ async function writeSegments({
   );
 
   await fs.ensureDir(path.dirname(getManifestPath('main')));
-  await fs.writeFile(
-    getManifestPath('main'),
-    JSON.stringify(mainManifest, null, 2),
-  );
-  await fs.writeFile(
-    getManifestPath('background'),
-    JSON.stringify(backgroundManifest, null, 2),
-  );
+  if (reportOnly) {
+    await fs.remove(getManifestPath('main'));
+    await fs.remove(getManifestPath('background'));
+  } else {
+    await fs.writeFile(
+      getManifestPath('main'),
+      JSON.stringify(mainManifest, null, 2),
+    );
+    await fs.writeFile(
+      getManifestPath('background'),
+      JSON.stringify(backgroundManifest, null, 2),
+    );
+  }
 
   return {
     mainManifest,
