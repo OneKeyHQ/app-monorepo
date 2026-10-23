@@ -32,11 +32,19 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
+  // Wide enough that the domain is measured on a single line at its natural
+  // width; iOS would otherwise wrap a too-long domain to fit the capsule.
+  measure: {
+    position: 'absolute',
+    width: 10_000,
+    flexDirection: 'row',
+    opacity: 0,
+  },
 });
 
-// Domain text at a fixed 16pt that is never ellipsized: it lays out at its
-// natural width, and when that is wider than the room, the end of the domain
-// (the part that identifies the site) stays visible and the start fades out.
+// Domain text at a fixed 16pt that is never ellipsized: when its natural
+// width is wider than the room, the end of the domain (the part that
+// identifies the site) stays visible and the start fades out.
 function DomainLabel({ text, testID }: { text: string; testID?: string }) {
   const [availableWidth, setAvailableWidth] = useState(0);
   const [textWidth, setTextWidth] = useState(0);
@@ -51,8 +59,11 @@ function DomainLabel({ text, testID }: { text: string; testID?: string }) {
     >
       <SizableText
         size="$bodyLgMedium"
+        numberOfLines={1}
         flexShrink={0}
-        onLayout={(e) => setTextWidth(e.nativeEvent.layout.width)}
+        // A fixed width lets the line overflow to the left instead of
+        // wrapping or being clipped on the right.
+        width={overflows ? textWidth : undefined}
         testID={testID}
       >
         {text}
@@ -65,6 +76,15 @@ function DomainLabel({ text, testID }: { text: string; testID?: string }) {
       style={styles.fill}
       onLayout={(e) => setAvailableWidth(e.nativeEvent.layout.width)}
     >
+      <View style={styles.measure} pointerEvents="none">
+        <SizableText
+          size="$bodyLgMedium"
+          numberOfLines={1}
+          onLayout={(e) => setTextWidth(Math.ceil(e.nativeEvent.layout.width))}
+        >
+          {text}
+        </SizableText>
+      </View>
       {overflows ? (
         <MaskedView
           style={styles.fill}
