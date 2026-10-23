@@ -465,28 +465,18 @@ describe('Dust Sweep serial execution boundaries', () => {
     });
   });
 
-  it('retains an unwrap broadcast identity after sender post-processing fails', async () => {
+  it('retains an unwrap broadcast identity when its sender fails afterwards', async () => {
     const options = createWrappedOptions();
     mockSend.mockImplementation(async (params) => {
       await sendTransaction(params);
       throw new OneKeyLocalError('Post-processing failed');
     });
-    await expect(executeDustSweepItem(options)).resolves.toMatchObject({
-      status: 'success',
-    });
-    expect(mockSend).toHaveBeenCalledTimes(1);
-    expect(mockHistory).toHaveBeenCalledWith(
-      expect.objectContaining({
-        txId: 'swap',
-        swapInfo: expect.objectContaining({
-          swapBuildResData: expect.objectContaining({
-            result: expect.objectContaining({
-              info: expect.objectContaining({ provider: 'wrapped' }),
-            }),
-          }),
-        }),
-      }),
+    await expect(executeDustSweepItem(options)).rejects.toThrow(
+      'Post-processing failed',
     );
+    expect(options.onBroadcast).toHaveBeenCalledWith('swap');
+    expect(mockSend).toHaveBeenCalledTimes(1);
+    expect(mockHistory).not.toHaveBeenCalled();
   });
 
   it('does not send an unwrap after its quote resolves into a paused queue', async () => {
@@ -556,7 +546,7 @@ describe('Dust Sweep serial execution boundaries', () => {
     expect(options.onSigning).toHaveBeenCalledTimes(1);
   });
 
-  it('blocks a stopped retry after the SDK was already entered without a hash', async () => {
+  it('honors a pause before a sponsored-send fallback starts', async () => {
     let allowed = true;
     mockSend.mockImplementation(async (params) => {
       await params.onBeforeSignAndSend?.();
@@ -567,10 +557,10 @@ describe('Dust Sweep serial execution boundaries', () => {
     });
     const options = { ...createOptions(), shouldContinue: () => allowed };
     await expect(executeDustSweepItem(options)).rejects.toBeInstanceOf(
-      DustSweepUnknownSubmission,
+      DustSweepPaused,
     );
     expect(options.onSigning).toHaveBeenCalledTimes(1);
-    expect(options.onPrepared).not.toHaveBeenCalled();
+    expect(options.onPrepared).toHaveBeenCalledTimes(1);
     expect(options.onBroadcast).not.toHaveBeenCalled();
   });
 
@@ -965,16 +955,16 @@ describe('Dust Sweep serial execution boundaries', () => {
         throw new MarketDirectFeeOverflowError();
       });
       const options = createOptions();
-      await expect(executeDustSweepItem(options)).rejects.toMatchObject({
-        reason: 'unknown',
-      });
+      await expect(executeDustSweepItem(options)).rejects.toBeInstanceOf(
+        MarketDirectFeeOverflowError,
+      );
       expect(options.onSigning).toHaveBeenCalledTimes(afterApproval ? 1 : 0);
       expect(options.onBroadcast).not.toHaveBeenCalled();
       expect(mockHistory).not.toHaveBeenCalled();
     },
   );
 
-  it('keeps a known approval recoverable if its history write fails before swap signing', async () => {
+  it('preserves a known approval when its sender fails before swap signing', async () => {
     mockAllowance.mockResolvedValueOnce(
       createAllowance({ isApproved: false, approveAmounted: '0' }),
     );
@@ -988,8 +978,8 @@ describe('Dust Sweep serial execution boundaries', () => {
       throw new OneKeyLocalError('Approval history unavailable');
     });
     const options = createOptions();
-    await expect(executeDustSweepItem(options)).rejects.toBeInstanceOf(
-      DustSweepRetryableError,
+    await expect(executeDustSweepItem(options)).rejects.toThrow(
+      'Approval history unavailable',
     );
     expect(options.onApprovalBroadcast).toHaveBeenCalledWith([
       'approval-known',
@@ -998,7 +988,7 @@ describe('Dust Sweep serial execution boundaries', () => {
     expect(options.onBroadcast).not.toHaveBeenCalled();
   });
 
-  it('preserves an API rebuild error after approval without losing retry identity', async () => {
+  it('preserves an API rebuild error after approval for the common collector', async () => {
     mockAllowance.mockResolvedValueOnce(createAllowance({ isApproved: false }));
     mockBuild
       .mockResolvedValueOnce({ result: createQuote() })
@@ -1010,16 +1000,16 @@ describe('Dust Sweep serial execution boundaries', () => {
     const error: unknown = await executeDustSweepItem(options).catch(
       (failure: unknown) => failure,
     );
-    expect(error).toBeInstanceOf(DustSweepRetryableError);
     expect(error).toMatchObject({
-      providerErrorMessage: 'API rebuild rejected',
+      message: 'API rebuild rejected',
+      className: EOneKeyErrorClassNames.OneKeyServerApiError,
     });
     expect(options.onApprovalBroadcast).toHaveBeenCalledWith(['approval-0']);
     expect(options.onBroadcast).not.toHaveBeenCalled();
     expect(mockSend).toHaveBeenCalledTimes(1);
   });
 
-  it('still treats an unconfirmed swap signing attempt after a known approval as unknown', async () => {
+  it('propagates a swap request failure after a known approval', async () => {
     mockAllowance.mockResolvedValueOnce(
       createAllowance({ isApproved: false, approveAmounted: '0' }),
     );
@@ -1036,8 +1026,8 @@ describe('Dust Sweep serial execution boundaries', () => {
       await params.onBeforeSignAndSend?.();
       throw new OneKeyLocalError('Swap transport unavailable');
     });
-    await expect(executeDustSweepItem(createOptions())).rejects.toBeInstanceOf(
-      DustSweepUnknownSubmission,
+    await expect(executeDustSweepItem(createOptions())).rejects.toThrow(
+      'Swap transport unavailable',
     );
   });
 
@@ -1804,6 +1794,7 @@ describe('Dust Sweep serial execution boundaries', () => {
       });
       const options = createOptions();
       const completion = executeDustSweepItem(options);
+      const settled = completion.catch((error: unknown) => error);
       try {
         await broadcast;
         expect(mockBlockNotification).toHaveBeenCalledTimes(1);
@@ -1815,12 +1806,17 @@ describe('Dust Sweep serial execution boundaries', () => {
         expect(mockHistory).not.toHaveBeenCalled();
       } finally {
         releaseSender();
-        await completion;
+        await settled;
       }
-      await expect(completion).resolves.toMatchObject({ status: 'success' });
+      if (fails)
+        await expect(completion).rejects.toThrow(
+          'History unavailable after broadcast',
+        );
+      else
+        await expect(completion).resolves.toMatchObject({ status: 'success' });
       expect(mockSend).toHaveBeenCalledTimes(1);
       expect(mockBlockNotification).toHaveBeenCalledTimes(1);
-      expect(mockHistory).toHaveBeenCalledTimes(1);
+      expect(mockHistory).toHaveBeenCalledTimes(fails ? 0 : 1);
     },
   );
 
@@ -2063,7 +2059,7 @@ describe('Dust Sweep serial execution boundaries', () => {
     expect(mockSend).toHaveBeenCalledTimes(1);
   });
 
-  it('distinguishes password cancellation from unknown post-sign transport errors', async () => {
+  it('distinguishes user cancellation from request failures after signing', async () => {
     mockSend.mockImplementation(async (params: ISendParams) => {
       await params.onBeforeSignAndSend?.();
       throw Object.assign(new Error('cancelled'), {
@@ -2079,9 +2075,10 @@ describe('Dust Sweep serial execution boundaries', () => {
       await params.onBeforeSignAndSend?.();
       throw Object.assign(new Error('timeout'), { code: 'ERR_CANCELED' });
     });
-    await expect(executeDustSweepItem(createOptions())).rejects.toBeInstanceOf(
-      DustSweepUnknownSubmission,
-    );
+    await expect(executeDustSweepItem(createOptions())).rejects.toMatchObject({
+      message: 'timeout',
+      code: 'ERR_CANCELED',
+    });
   });
 
   it('treats hardware and QR cancellation as user cancellation', async () => {
@@ -2106,378 +2103,54 @@ describe('Dust Sweep serial execution boundaries', () => {
     );
   });
 
-  it.each([ESwapTxHistoryStatus.SUCCESS, ESwapTxHistoryStatus.FAILED])(
-    'resolves a nonce API error from the exact signed hash to %s without resending',
-    async (state) => {
-      jest.useFakeTimers();
-      const controller = new AbortController();
-      const txId = `0x${'12'.repeat(32)}`;
-      const message = 'Nonce (265) has already been used; next nonce is 266';
-      mockSend.mockImplementationOnce(async (params) => {
-        await params.onBeforeSignAndSend?.();
-        expect(params.preserveBroadcastTxIdOnError).toBe(true);
-        throw withBroadcastTxContext(
-          Object.assign(new Error(message), {
-            className: EOneKeyErrorClassNames.OneKeyServerApiError,
-            code: 40_024,
-          }),
-          { networkId: snapshot.networkId, txId },
-        );
-      });
-      mockTxState
-        .mockResolvedValueOnce({ state: ESwapTxHistoryStatus.PENDING })
-        .mockResolvedValueOnce({
-          state,
-          dealReceiveAmount: '0.009',
-          blockNumber:
-            state === ESwapTxHistoryStatus.FAILED ? 12_345 : undefined,
-        })
-        .mockResolvedValue({ state: ESwapTxHistoryStatus.PENDING });
-      const options = { ...createOptions(), signal: controller.signal };
-      let outcome: unknown;
-      const completion = executeDustSweepItem(options).then(
-        (result) => {
-          outcome = result;
-        },
-        (error: unknown) => {
-          outcome = error;
-        },
+  it.each(['swap', 'approval'] as const)(
+    'preserves the %s send error and signed identity without polling or resending',
+    async (kind) => {
+      const txId = `0x${'34'.repeat(32)}`;
+      const message = 'Nonce (20) has already been used; next nonce is 21';
+      const error = withBroadcastTxContext(
+        Object.assign(new OneKeyLocalError(message), {
+          className: EOneKeyErrorClassNames.OneKeyServerApiError,
+          code: 40_024,
+        }),
+        { networkId: snapshot.networkId, txId },
       );
-      try {
-        await jest.advanceTimersByTimeAsync(0);
-        expect(options.onSigning).toHaveBeenCalledTimes(1);
-        expect(options.onSubmissionError).toHaveBeenCalledWith(message);
-        expect(options.onBroadcast).not.toHaveBeenCalled();
-        expect(mockBlockNotification).not.toHaveBeenCalled();
-        expect(options.onPrepared).not.toHaveBeenCalled();
-        expect(mockHistory).not.toHaveBeenCalled();
-        await jest.advanceTimersByTimeAsync(3000);
-        expect(outcome).toMatchObject({
-          status: state === ESwapTxHistoryStatus.SUCCESS ? 'success' : 'failed',
-        });
-        expect(options.onBroadcast).toHaveBeenCalledTimes(1);
-        expect(options.onBroadcast).toHaveBeenCalledWith(txId);
-        expect(mockBlockNotification).toHaveBeenCalledTimes(1);
-        expect(mockBlockNotification).toHaveBeenCalledWith({
-          networkId: snapshot.networkId,
-          tx: txId,
-        });
-        expect(mockHistory).toHaveBeenCalledTimes(1);
-        expect(mockHistory).toHaveBeenCalledWith(
-          expect.objectContaining({ txId }),
-        );
-        expect(mockTxState).toHaveBeenCalledTimes(2);
-        expect(
-          mockTxState.mock.calls.every(([params]) => params.txId === txId),
-        ).toBe(true);
-        expect(mockSend).toHaveBeenCalledTimes(1);
-        expect(jest.getTimerCount()).toBe(0);
-      } finally {
-        controller.abort();
-        await completion;
-        jest.useRealTimers();
-      }
-    },
-  );
-
-  describe.each(['swap', 'approval'] as const)('recovered %s hash', (kind) => {
-    const txId = `0x${'34'.repeat(32)}`;
-    const message = 'Nonce (265) has already been used; next nonce is 266';
-
-    beforeEach(() => {
-      if (kind === 'approval') {
+      if (kind === 'approval')
         mockAllowance.mockResolvedValueOnce(
           createAllowance({ isApproved: false, approveAmounted: '0' }),
         );
-      }
       mockSend.mockImplementationOnce(async (params) => {
         await params.onBeforeSignAndSend?.();
-        throw withBroadcastTxContext(
-          Object.assign(new OneKeyLocalError(message), {
-            className: EOneKeyErrorClassNames.OneKeyServerApiError,
-            code: 40_024,
-          }),
-          { networkId: snapshot.networkId, txId },
-        );
-      });
-    });
-
-    it('preserves the confirmed failure detail without resending', async () => {
-      mockTxState.mockResolvedValue({
-        state: ESwapTxHistoryStatus.FAILED,
-        blockNumber: 12_345,
-        stateDetail: 'Confirmed provider failure',
-      });
-      const operation = executeDustSweepItem(createOptions());
-      if (kind === 'approval') {
-        await expect(operation).rejects.toMatchObject({
-          reason: 'txFailed',
-          providerErrorMessage: 'Confirmed provider failure',
-        });
-      } else {
-        await expect(operation).resolves.toMatchObject({
-          status: 'failed',
-          message: 'Confirmed provider failure',
-        });
-      }
-      expect(mockSend).toHaveBeenCalledTimes(1);
-    });
-
-    it.each([
-      { scenario: 'pending', blockNumber: undefined },
-      ...[undefined, 0, -1, 0.5, Number.NaN, Number.POSITIVE_INFINITY].map(
-        (blockNumber) => ({
-          scenario: 'failed-without-valid-block',
-          blockNumber,
-        }),
-      ),
-      { scenario: 'transport-error', blockNumber: undefined },
-      { scenario: 'hung-read', blockNumber: undefined },
-    ])(
-      'blocks within 60 seconds for $scenario (blockNumber=$blockNumber) without recording a broadcast or resending',
-      async ({ scenario, blockNumber }) => {
-        jest.useFakeTimers();
-        const controller = new AbortController();
-        const options = { ...createOptions(), signal: controller.signal };
-        let resolveRead:
-          | ((value: Awaited<ReturnType<typeof mockTxState>>) => void)
-          | undefined;
-        if (scenario === 'pending') {
-          mockTxState.mockResolvedValue({
-            state: ESwapTxHistoryStatus.PENDING,
-          });
-        } else if (scenario === 'failed-without-valid-block') {
-          mockTxState.mockResolvedValue({
-            state: ESwapTxHistoryStatus.FAILED,
-            blockNumber,
-          });
-        } else if (scenario === 'transport-error') {
-          mockTxState.mockRejectedValue(
-            new OneKeyLocalError('RPC unavailable'),
-          );
-        } else {
-          mockTxState.mockImplementation(
-            () =>
-              new Promise((resolve) => {
-                resolveRead = resolve;
-              }),
-          );
-        }
-        let outcome: unknown;
-        const completion = executeDustSweepItem(options).then(
-          (result) => {
-            outcome = result;
-          },
-          (error: unknown) => {
-            outcome = error;
-          },
-        );
-        try {
-          await jest.advanceTimersByTimeAsync(59_999);
-          expect(outcome).toBeUndefined();
-          await jest.advanceTimersByTimeAsync(1);
-          expect(outcome).toBeInstanceOf(DustSweepUnknownSubmission);
-          expect(outcome).toMatchObject({ submissionErrorMessage: message });
-          expect(controller.signal.aborted).toBe(false);
-          expect(options.onSigning).toHaveBeenCalledTimes(1);
-          expect(options.onSubmissionError).toHaveBeenCalledWith(message);
-          expect(options.onBroadcast).not.toHaveBeenCalled();
-          expect(options.onApprovalBroadcast).not.toHaveBeenCalled();
-          expect(options.onPrepared).not.toHaveBeenCalled();
-          expect(mockHistory).not.toHaveBeenCalled();
-          expect(mockSend).toHaveBeenCalledTimes(1);
-          expect(
-            mockTxState.mock.calls.every(([params]) => params.txId === txId),
-          ).toBe(true);
-          const pollsAtDeadline = mockTxState.mock.calls.length;
-          resolveRead?.({ state: ESwapTxHistoryStatus.SUCCESS });
-          await jest.advanceTimersByTimeAsync(60_000);
-          expect(mockTxState).toHaveBeenCalledTimes(pollsAtDeadline);
-          expect(mockHistory).not.toHaveBeenCalled();
-          expect(options.onBroadcast).not.toHaveBeenCalled();
-          expect(options.onApprovalBroadcast).not.toHaveBeenCalled();
-          expect(mockSend).toHaveBeenCalledTimes(1);
-          expect(jest.getTimerCount()).toBe(0);
-        } finally {
-          controller.abort();
-          await completion;
-          jest.useRealTimers();
-        }
-      },
-    );
-
-    it('cleans up its confirmation deadline when its parent aborts', async () => {
-      jest.useFakeTimers();
-      const controller = new AbortController();
-      const options = { ...createOptions(), signal: controller.signal };
-      mockTxState.mockImplementation(() => new Promise(() => {}));
-      const completion = executeDustSweepItem(options).catch(
-        (error: unknown) => error,
-      );
-      try {
-        await jest.advanceTimersByTimeAsync(0);
-        expect(mockTxState).toHaveBeenCalledTimes(1);
-        controller.abort();
-        const outcome: unknown = await completion;
-        expect(outcome).toBeInstanceOf(DustSweepUnknownSubmission);
-        expect(outcome).toMatchObject({ submissionErrorMessage: message });
-        expect(jest.getTimerCount()).toBe(0);
-        await jest.advanceTimersByTimeAsync(60_000);
-        expect(mockTxState).toHaveBeenCalledTimes(1);
-        expect(options.onBroadcast).not.toHaveBeenCalled();
-        expect(options.onApprovalBroadcast).not.toHaveBeenCalled();
-        expect(options.onPrepared).not.toHaveBeenCalled();
-        expect(mockHistory).not.toHaveBeenCalled();
-        expect(mockSend).toHaveBeenCalledTimes(1);
-      } finally {
-        controller.abort();
-        await completion;
-        jest.useRealTimers();
-      }
-    });
-  });
-
-  it.each([ESwapTxHistoryStatus.SUCCESS, ESwapTxHistoryStatus.FAILED])(
-    'confirms a recovered approval as %s before retaining it or signing a swap',
-    async (state) => {
-      jest.useFakeTimers();
-      const controller = new AbortController();
-      const txId = `0x${'56'.repeat(32)}`;
-      mockAllowance.mockResolvedValueOnce(
-        createAllowance({ isApproved: false, approveAmounted: '0' }),
-      );
-      mockSend.mockImplementationOnce(async (params) => {
-        await params.onBeforeSignAndSend?.();
-        throw withBroadcastTxContext(new OneKeyLocalError('timeout'), {
-          networkId: snapshot.networkId,
-          txId,
-        });
-      });
-      mockTxState
-        .mockResolvedValueOnce({ state: ESwapTxHistoryStatus.PENDING })
-        .mockResolvedValueOnce({
-          state,
-          blockNumber:
-            state === ESwapTxHistoryStatus.FAILED ? 12_345 : undefined,
-        });
-      const options = { ...createOptions(), signal: controller.signal };
-      let outcome: unknown;
-      const completion = executeDustSweepItem(options).then(
-        (result) => {
-          outcome = result;
-        },
-        (error: unknown) => {
-          outcome = error;
-        },
-      );
-      try {
-        await jest.advanceTimersByTimeAsync(0);
-        expect(options.onApprovalBroadcast).not.toHaveBeenCalled();
-        expect(options.onPrepared).not.toHaveBeenCalled();
-        expect(options.onBroadcast).not.toHaveBeenCalled();
-        expect(mockHistory).not.toHaveBeenCalled();
-        expect(mockSend).toHaveBeenCalledTimes(1);
-        await jest.advanceTimersByTimeAsync(3000);
-        expect(options.onApprovalBroadcast).toHaveBeenCalledTimes(1);
-        expect(options.onApprovalBroadcast).toHaveBeenCalledWith([txId]);
-        expect(options.onBroadcast).not.toHaveBeenCalledWith(txId);
-        expect(
-          mockTxState.mock.calls.filter(([params]) => params.txId === txId),
-        ).toHaveLength(2);
-        if (state === ESwapTxHistoryStatus.SUCCESS) {
-          expect(outcome).toMatchObject({ status: 'success' });
-          expect(options.onBroadcast).toHaveBeenCalledWith('swap');
-          expect(mockSend).toHaveBeenCalledTimes(2);
-          expect(mockHistory).toHaveBeenCalledTimes(1);
-          expect(mockHistory).toHaveBeenCalledWith(
-            expect.objectContaining({ txId: 'swap' }),
-          );
-        } else {
-          expect(outcome).toBeInstanceOf(DustSweepSkip);
-          expect(outcome).toMatchObject({ reason: 'txFailed' });
-          expect(options.onBroadcast).not.toHaveBeenCalled();
-          expect(mockSend).toHaveBeenCalledTimes(1);
-          expect(mockHistory).not.toHaveBeenCalled();
-        }
-        expect(jest.getTimerCount()).toBe(0);
-      } finally {
-        controller.abort();
-        await completion;
-        jest.useRealTimers();
-      }
-    },
-  );
-
-  it('preserves the API message but blocks a submission with no usable signed hash', async () => {
-    const message = 'Nonce (265) has already been used';
-    mockSend.mockImplementationOnce(async (params) => {
-      await params.onBeforeSignAndSend?.();
-      throw Object.assign(new Error(message), {
-        className: EOneKeyErrorClassNames.OneKeyServerApiError,
-        code: 40_024,
-      });
-    });
-    await expect(executeDustSweepItem(createOptions())).rejects.toMatchObject({
-      submissionErrorMessage: message,
-    });
-    expect(mockTxState).not.toHaveBeenCalled();
-    expect(mockSend).toHaveBeenCalledTimes(1);
-  });
-
-  it.each([false, true])(
-    'does not classify an EVM slippage response as a Solana rejection (hash: %s)',
-    async (hasHash) => {
-      const txId = `0x${'78'.repeat(32)}`;
-      mockSend.mockImplementationOnce(async (params) => {
-        await params.onBeforeSignAndSend?.();
-        const error = Object.assign(new Error('Slippage exceeded'), {
-          className: EOneKeyErrorClassNames.OneKeyServerApiError,
-          code: 40_036,
-        });
-        throw hasHash
-          ? withBroadcastTxContext(error, {
-              networkId: snapshot.networkId,
-              txId,
-            })
-          : error;
+        throw error;
       });
       const options = createOptions();
-      const operation = executeDustSweepItem(options);
-      if (hasHash) {
-        await expect(operation).resolves.toMatchObject({ status: 'success' });
-        expect(mockTxState).toHaveBeenCalledWith(
-          expect.objectContaining({ txId }),
-        );
-        expect(options.onBroadcast).toHaveBeenCalledWith(txId);
-        expect(mockHistory).toHaveBeenCalledTimes(1);
-      } else {
-        await expect(operation).rejects.toBeInstanceOf(
-          DustSweepUnknownSubmission,
-        );
-        expect(mockTxState).not.toHaveBeenCalled();
-        expect(options.onBroadcast).not.toHaveBeenCalled();
-        expect(mockHistory).not.toHaveBeenCalled();
-      }
+      await expect(executeDustSweepItem(options)).rejects.toBe(error);
+      expect(options.onSubmissionError).toHaveBeenCalledWith(
+        message,
+        undefined,
+        kind === 'approval' ? { approvalTxIds: [txId] } : { txId },
+      );
+      expect(options.onBroadcast).not.toHaveBeenCalled();
+      expect(options.onApprovalBroadcast).not.toHaveBeenCalled();
+      expect(mockHistory).not.toHaveBeenCalled();
+      expect(mockTxState).not.toHaveBeenCalled();
       expect(mockSend).toHaveBeenCalledTimes(1);
     },
   );
 
-  it('keeps a broadcast successful when the send history write fails', async () => {
+  it('propagates a post-broadcast sender error while retaining its hash', async () => {
     mockSend.mockImplementation(async (params: ISendParams) => {
       await sendTransaction(params);
       throw new OneKeyLocalError('history unavailable');
     });
     const options = createOptions();
-    await expect(executeDustSweepItem(options)).resolves.toEqual({
-      status: 'success',
-      receivedAmount: '0.009',
-      receiptUnavailable: false,
-    });
+    await expect(executeDustSweepItem(options)).rejects.toThrow(
+      'history unavailable',
+    );
     expect(options.onBroadcast).toHaveBeenCalledWith('swap');
     expect(mockSend).toHaveBeenCalledTimes(1);
-    expect(mockHistory).toHaveBeenCalledWith(
-      expect.objectContaining({ txId: 'swap' }),
-    );
+    expect(mockHistory).not.toHaveBeenCalled();
+    expect(mockTxState).not.toHaveBeenCalled();
   });
 
   it.each(['0', '0.009123456789012345678'])(

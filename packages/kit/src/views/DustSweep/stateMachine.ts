@@ -51,6 +51,8 @@ type IDustSweepAction =
       key: string;
       message?: string;
       localError?: ISwapErrorMessage;
+      txId?: string;
+      approvalTxIds?: string[];
     }
   | {
       type: 'item';
@@ -77,7 +79,7 @@ const transitions: Record<IDustSweepItemStatus, IDustSweepItemStatus[]> = {
   waiting: ['preparing'],
   preparing: ['waiting', 'signing', 'skipped'],
   signing: ['preparing', 'broadcasted', 'failed', 'skipped', 'unknown'],
-  broadcasted: ['success', 'failed'],
+  broadcasted: ['success', 'failed', 'skipped'],
   unknown: ['broadcasted'],
   success: [],
   skipped: [],
@@ -144,6 +146,8 @@ export function dustSweepReducer(
                 ...item,
                 submissionErrorMessage: action.message,
                 localError: action.localError,
+                txId: action.txId ?? item.txId,
+                approvalTxIds: action.approvalTxIds ?? item.approvalTxIds,
               }
             : item,
         ),
