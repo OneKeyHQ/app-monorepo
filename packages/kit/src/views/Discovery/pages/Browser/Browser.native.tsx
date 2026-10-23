@@ -55,7 +55,7 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { EarnHomeWithProvider } from '../../../Earn/EarnHome';
 import { HandleRebuildBrowserData } from '../../components/HandleData/HandleRebuildBrowserTabData';
-import { isFloatingBrowserChrome } from '../../components/MobileBrowser/browserChrome';
+import { useIsFloatingBrowserChrome } from '../../components/MobileBrowser/browserChrome';
 import MobileBrowserBottomBar from '../../components/MobileBrowser/MobileBrowserBottomBar';
 import MobileBrowserHeader from '../../components/MobileBrowser/MobileBrowserHeader';
 import { OuterTabPagerView } from '../../components/OuterTabPagerView';
@@ -276,6 +276,7 @@ function MobileBrowser() {
     toolbarOverlayStyle,
     webPageAnimatedStyle,
     fullBarHeight,
+    collapsedBarHeight,
   } = useMobileBrowserChromeAnimation();
   useDAppNotifyChanges({ tabId: activeTabId });
 
@@ -456,8 +457,27 @@ function MobileBrowser() {
   // phone layouts keep Market, Earn, and Browser in the outer pager.
   const useOuterPager = !isTabletMainView && !isTabletDetailView;
   // Phone layout only: the iPad split layout keeps the bar in-flow.
-  const webContentBottomInset =
-    isFloatingBrowserChrome && useOuterPager ? fullBarHeight : undefined;
+  const isFloatingBrowserChrome = useIsFloatingBrowserChrome();
+  // What the floating bar covers at the bottom of the page, for the WebView
+  // insets: the whole bar while expanded, only the address pill once
+  // collapsed (so fixed page content moves down with it, like Safari).
+  const webContentBottomInset = useMemo(
+    () =>
+      isFloatingBrowserChrome && useOuterPager
+        ? {
+            progress: chromeProgress,
+            expanded: fullBarHeight,
+            collapsed: collapsedBarHeight,
+          }
+        : undefined,
+    [
+      isFloatingBrowserChrome,
+      useOuterPager,
+      chromeProgress,
+      fullBarHeight,
+      collapsedBarHeight,
+    ],
+  );
   const content = useMemo(
     () =>
       tabs.map((t) => (

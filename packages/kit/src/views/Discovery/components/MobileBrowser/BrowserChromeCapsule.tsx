@@ -13,7 +13,7 @@ import type { IXStackProps } from '@onekeyhq/components';
 
 import { BROWSER_CHROME_CAPSULE_HEIGHT } from '../../config/Animation.constants';
 
-import { isFloatingBrowserChrome } from './browserChrome';
+import { useIsFloatingBrowserChrome } from './browserChrome';
 
 const styles = StyleSheet.create({
   glass: { borderRadius: 9999 },
@@ -36,6 +36,7 @@ export function BrowserChromeCapsule({
   height = BROWSER_CHROME_CAPSULE_HEIGHT,
   px = '$1',
 }: IBrowserChromeCapsuleProps) {
+  const isFloatingBrowserChrome = useIsFloatingBrowserChrome();
   const content = (
     <GlassHeaderProvider>
       <XStack

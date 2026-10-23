@@ -35,8 +35,8 @@ import {
   getBarCapsuleBottom,
   getCollapsedPillBottom,
   getDisplayHostname,
-  isFloatingBrowserChrome,
   useIsChromeCollapsed,
+  useIsFloatingBrowserChrome,
 } from './browserChrome';
 import { BrowserChromeCapsule } from './BrowserChromeCapsule';
 import { ChromePressable } from './ChromePressable';
@@ -199,6 +199,7 @@ function MobileBrowserBottomBar({
   // Match the page's light/dark look (glass, icons, text), like Safari.
   const pageColor = usePageThemeColor(id);
   const appThemeName = useThemeName();
+  const isFloatingBrowserChrome = useIsFloatingBrowserChrome();
   let pageThemeName: 'light' | 'dark' | undefined;
   if (pageColor) {
     pageThemeName = isDarkColor(pageColor) ? 'dark' : 'light';

@@ -14,7 +14,7 @@ import type { IWebViewOnScrollEvent } from '@onekeyhq/kit/src/components/WebView
 import {
   getBarReservedHeight,
   getCollapsedPillBottom,
-  isFloatingBrowserChrome,
+  useIsFloatingBrowserChrome,
 } from '../components/MobileBrowser/browserChrome';
 import {
   BROWSER_COLLAPSED_PILL_HEIGHT,
@@ -157,6 +157,7 @@ function useMobileBrowserChromeAnimation() {
   // On iOS the bar floats over the page (Liquid Glass shows the content
   // through it), so the WebView layer keeps its full height; scrollable
   // content stays reachable above the bar via the WebView contentInset.
+  const isFloatingBrowserChrome = useIsFloatingBrowserChrome();
   const webPageAnimatedStyle = isFloatingBrowserChrome
     ? undefined
     : animatedWebPageStyle;
@@ -169,6 +170,7 @@ function useMobileBrowserChromeAnimation() {
     toolbarOverlayStyle,
     webPageAnimatedStyle,
     fullBarHeight,
+    collapsedBarHeight,
   };
 }
 

@@ -8,6 +8,7 @@ import { Stack } from '@onekeyhq/components';
 import type { IWebViewOnScrollEvent } from '@onekeyhq/kit/src/components/WebView/types';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { useChromeBottomInset } from '../../components/MobileBrowser/browserChrome';
 import WebContent from '../../components/WebContent/WebContent';
 import { useDiscoveryMessageHandler } from '../../hooks/useDiscoveryMessageHandler';
 import {
@@ -16,6 +17,8 @@ import {
   useWebTabDataById,
 } from '../../hooks/useWebTabs';
 import { captureViewRefs } from '../../utils/explorerUtils';
+
+import type { IChromeBottomInset } from '../../components/MobileBrowser/browserChrome';
 
 const styles = StyleSheet.create({
   // Opacity preserves the iOS WKWebView instance when switching tabs.
@@ -46,8 +49,9 @@ function MobileBrowserContent({
   isBrowserContentVisible: boolean;
   onScroll?: (event: IWebViewOnScrollEvent) => void;
   // iOS: room for chrome floating over the bottom of the page.
-  contentBottomInset?: number;
+  contentBottomInset?: IChromeBottomInset;
 }) {
+  const bottomInset = useChromeBottomInset(contentBottomInset);
   const { tab } = useWebTabDataById(id);
   const { activeTabId } = useActiveTabId();
   const [, setBackEnabled] = useState(false);
@@ -143,7 +147,7 @@ function MobileBrowserContent({
             setForwardEnabled={setForwardEnabled}
             onScroll={onScroll}
             customReceiveHandler={customReceiveHandler}
-            contentBottomInset={contentBottomInset}
+            contentBottomInset={bottomInset}
           />
         </Stack>
       </ViewShot>
