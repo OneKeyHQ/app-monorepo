@@ -35,8 +35,12 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   },
 }));
 
-const { fetchDustSweepQuote, getDustSweepQuoteRisk } =
-  require('./quote') as typeof import('./quote');
+const {
+  fetchDustSweepQuote,
+  getDustSweepQuoteRisk,
+  getDustSweepQuoteErrorMessage,
+  getDustSweepQuoteError,
+} = require('./quote') as typeof import('./quote');
 
 const token: IDustSweepToken = {
   key: 'evm--1_0xtoken',
@@ -108,6 +112,112 @@ function createWrappedCase(
 }
 
 describe('Dust Sweep quote execution guards', () => {
+  it.each([
+    { limit: { min: '11' }, toAmount: undefined, fromAmount: undefined },
+    { limit: { max: '9' }, toAmount: '0.01', fromAmount: '10' },
+  ])(
+    'preserves Swap amount-limit copy even without a successful quote (%j)',
+    (fields) => {
+      const rejected = { ...quote, ...fields };
+      expect(getDustSweepQuoteRisk(rejected, token, snapshot)).toBe('noQuote');
+      const error = getDustSweepQuoteError(
+        'noQuote',
+        rejected,
+        token,
+        snapshot,
+      );
+      expect(error.providerErrorMessage).toBeUndefined();
+      expect(error.localError?.values?.token).toBe('DUST');
+      expect(error.localError?.values?.amount).toBe(
+        fields.limit.min ?? fields.limit.max,
+      );
+      expect(
+        getDustSweepQuoteError(
+          'noQuote',
+          { ...rejected, errorMessage: 'API original' },
+          token,
+          snapshot,
+        ).providerErrorMessage,
+      ).toBe('API original');
+    },
+  );
+
+  it('does not display another pair’s limit information', () => {
+    const error = getDustSweepQuoteError(
+      'noQuote',
+      {
+        ...quote,
+        fromTokenInfo: { ...token, contractAddress: '0xother' },
+        limit: { min: '11' },
+      },
+      token,
+      snapshot,
+    );
+    expect(error.providerErrorMessage).toBeUndefined();
+    expect(error.localError).toBeUndefined();
+  });
+  it.each([
+    { fromAmount: '100' },
+    { protocol: EProtocolOfExchange.PRIVATE_SEND },
+    { kind: ESwapQuoteKind.BUY },
+  ])('does not use copy from another quote contract (%j)', (contract) => {
+    expect(
+      getDustSweepQuoteErrorMessage(
+        { ...quote, ...contract, errorMessage: 'Other request error' },
+        token,
+        snapshot,
+      ),
+    ).toBeUndefined();
+    expect(
+      getDustSweepQuoteErrorMessage(
+        {
+          ...quote,
+          ...contract,
+          toAmount: '0.006',
+          quoteShowTip: {
+            type: EQuoteShowTipType.PRICE_IMPACT,
+            title: 'Other request risk',
+          },
+        },
+        token,
+        snapshot,
+      ),
+    ).toBeUndefined();
+  });
+
+  it('preserves an API error without requiring success-only quote fields', () => {
+    expect(
+      getDustSweepQuoteErrorMessage(
+        {
+          ...quote,
+          fromAmount: undefined,
+          toAmount: undefined,
+          errorMessage: 'Original API error',
+          quoteShowTip: { title: 'Another title' },
+        },
+        token,
+        snapshot,
+      ),
+    ).toBe('Original API error');
+  });
+
+  it('does not attribute a local validation failure to an unrelated risk tip', () => {
+    expect(
+      getDustSweepQuoteErrorMessage(
+        {
+          ...quote,
+          shouldWrappedToken: token,
+          toAmount: '0.006',
+          quoteShowTip: {
+            type: EQuoteShowTipType.PRICE_IMPACT,
+            title: 'Risk title',
+          },
+        },
+        token,
+        snapshot,
+      ),
+    ).toBeUndefined();
+  });
   it.each([
     { protocol: EProtocolOfExchange.LIMIT },
     { protocol: EProtocolOfExchange.STOCK },
@@ -552,6 +662,116 @@ describe('Dust Sweep quote stream ownership', () => {
     const usable = { ...quote };
     emitQuoteMessage(0, { data: [usable] });
     await expect(operation).resolves.toEqual(usable);
+  });
+
+  it('preserves a top-level API error for display', async () => {
+    const operation = fetchDustSweepQuote(
+      token,
+      snapshot,
+      new AbortController().signal,
+    );
+    emitQuoteMessage(0, { errorMessage: 'Quote service unavailable' });
+    await expect(operation).rejects.toMatchObject({
+      reason: 'noQuote',
+      providerErrorMessage: 'Quote service unavailable',
+    });
+  });
+
+  it('preserves the active quote risk title and detail without changing its reason', async () => {
+    const operation = fetchDustSweepQuote(
+      token,
+      snapshot,
+      new AbortController().signal,
+    );
+    emitQuoteMessage(0, {
+      data: [
+        {
+          ...quote,
+          toAmount: '0.006',
+          quoteShowTip: {
+            type: EQuoteShowTipType.PRICE_IMPACT,
+            title: '40% value loss',
+            detail: 'Provider risk explanation',
+          },
+        },
+      ],
+    });
+    emitQuoteEvent(0, { type: 'done' });
+    await expect(operation).rejects.toMatchObject({
+      reason: 'valueDrop',
+      providerErrorMessage: '40% value loss\nProvider risk explanation',
+    });
+  });
+
+  it('keeps a bridge-serialized API error intact', async () => {
+    const error = {
+      className: 'OneKeyServerApiError',
+      message: 'Quote request rejected',
+    };
+    mockFetchQuotesEvents.mockRejectedValueOnce(error);
+    await expect(
+      fetchDustSweepQuote(token, snapshot, new AbortController().signal),
+    ).rejects.toBe(error);
+  });
+
+  it('preserves unknown-value API tips without inventing a different cause', async () => {
+    const unpricedToken = { ...token, price: undefined };
+    const unpricedSnapshot = {
+      ...snapshot,
+      nativeToken: { ...snapshot.nativeToken, price: undefined },
+    };
+    const operation = fetchDustSweepQuote(
+      unpricedToken,
+      unpricedSnapshot,
+      new AbortController().signal,
+    );
+    emitQuoteMessage(0, {
+      data: [
+        {
+          ...quote,
+          fromTokenInfo: unpricedToken,
+          toTokenInfo: unpricedSnapshot.nativeToken,
+          quoteShowTip: {
+            type: EQuoteShowTipType.TRADE_UNKNOWN,
+            title: 'Token value unavailable',
+            detail: 'Unable to obtain token value',
+          },
+        },
+      ],
+    });
+    emitQuoteEvent(0, { type: 'done' });
+    await expect(operation).rejects.toMatchObject({
+      reason: 'unknown',
+      providerErrorMessage:
+        'Token value unavailable\nUnable to obtain token value',
+    });
+  });
+
+  it('does not resurrect a risk tip cleared by the shared Swap resolver', async () => {
+    const operation = fetchDustSweepQuote(
+      token,
+      snapshot,
+      new AbortController().signal,
+    );
+    emitQuoteMessage(0, {
+      data: [
+        {
+          ...quote,
+          toAmount: '0.009',
+          quoteShowTip: {
+            type: EQuoteShowTipType.PRICE_IMPACT,
+            priceImpact: 10,
+            title: 'Inactive API tip',
+            detail: 'Inactive detail',
+          },
+        },
+      ],
+    });
+    emitQuoteEvent(0, { type: 'done' });
+    await expect(operation).rejects.toMatchObject({
+      reason: 'priceImpact',
+      providerErrorMessage: undefined,
+    });
   });
 
   it('does not fall back to another provider or surface its error message', async () => {

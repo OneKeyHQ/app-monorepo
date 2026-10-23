@@ -1,4 +1,4 @@
-import type { Dispatch, ReactNode, SetStateAction } from 'react';
+import type { Dispatch, ReactNode, RefObject, SetStateAction } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
@@ -33,6 +33,7 @@ import {
 import { useSharedPress } from '../../primitives/Button/useEvent';
 import { assertOverlayProps } from '../../shared/assertOverlayProps';
 import { mountImperativeOverlay } from '../../shared/imperativeOverlayMount';
+import { OverlayCloseCancelledError } from '../../shared/overlayCloseCancellation';
 import { LazyPopover } from '../LazyPopover';
 import { Shortcut } from '../Shortcut';
 import { Trigger } from '../Trigger';
@@ -69,7 +70,9 @@ export interface IActionListItemProps {
   description?: string;
   descriptionNumberOfLines?: number;
   destructive?: boolean;
-  onPress?: (close: () => void) => void | Promise<boolean | void>;
+  onPress?: (
+    close: () => void | Promise<void>,
+  ) => void | Promise<boolean | void>;
   onClose?: () => void;
   disabled?: boolean;
   allowPressWhenDisabled?: boolean;
@@ -122,7 +125,7 @@ export function ActionListSkeletonItem() {
 
 export function ActionListItem(
   props: IActionListItemProps & {
-    onClose: () => void;
+    onClose: () => void | Promise<void>;
   },
 ) {
   const {
@@ -275,7 +278,7 @@ export interface IActionListProps extends Omit<
   defaultOpen?: boolean;
   renderItems?: (params: {
     // TODO use cloneElement to override onClose props
-    handleActionListClose: () => void;
+    handleActionListClose: () => void | Promise<void>;
     handleActionListOpen: () => void;
   }) => React.ReactNode;
   /**
@@ -289,7 +292,10 @@ export interface IActionListProps extends Omit<
   trackID?: string;
 }
 
-const useDefaultOpen = (defaultOpen: boolean) => {
+const useDefaultOpen = (
+  defaultOpen: boolean,
+  pendingOpenCancelledRef: RefObject<boolean>,
+) => {
   const [isOpen, setOpenStatus] = useState(
     platformEnv.isNativeAndroid ? false : defaultOpen,
   );
@@ -299,10 +305,12 @@ const useDefaultOpen = (defaultOpen: boolean) => {
     }
     // Android defers mounting to avoid missing view nodes.
     const timer = setTimeout(() => {
-      setOpenStatus(true);
+      if (!pendingOpenCancelledRef.current) {
+        setOpenStatus(true);
+      }
     }, 0);
     return () => clearTimeout(timer);
-  }, [defaultOpen]);
+  }, [defaultOpen, pendingOpenCancelledRef]);
   return [isOpen, setOpenStatus] as [
     boolean,
     Dispatch<SetStateAction<boolean>>,
@@ -322,13 +330,87 @@ function BasicActionList({
   trackID,
   usingSheet = true,
   sheetProps,
+  imperativeCloseRef,
+  imperativeCloseCompletionRef,
   ...props
-}: IActionListProps) {
-  const [isOpen, setOpenStatus] = useDefaultOpen(defaultOpen);
+}: IActionListProps & {
+  imperativeCloseRef?: RefObject<(() => void | Promise<void>) | undefined>;
+  imperativeCloseCompletionRef?: RefObject<Promise<void> | undefined>;
+}) {
+  const pendingOpenCancelledRef = useRef(false);
+  const [isOpen, setOpenStatus] = useDefaultOpen(
+    defaultOpen,
+    pendingOpenCancelledRef,
+  );
+  const isOpenRef = useRef(isOpen);
+  const openCycleRef = useRef(0);
+  const hasOpenedPopoverRef = useRef(false);
+  const closeCompletionRef = useRef<
+    | {
+        promise: Promise<void>;
+        resolve: () => void;
+        reject: (error: Error) => void;
+        timer?: ReturnType<typeof setTimeout>;
+        cycle: number;
+      }
+    | undefined
+  >(undefined);
+  isOpenRef.current = isOpen;
+
+  const finishClose = useCallback(
+    (cycle?: number) => {
+      const completion = closeCompletionRef.current;
+      if (!completion || (cycle !== undefined && cycle !== completion.cycle)) {
+        return;
+      }
+      if (completion.timer) clearTimeout(completion.timer);
+      closeCompletionRef.current = undefined;
+      if (imperativeCloseCompletionRef) {
+        imperativeCloseCompletionRef.current = undefined;
+      }
+      hasOpenedPopoverRef.current = false;
+      completion.resolve();
+    },
+    [imperativeCloseCompletionRef],
+  );
+  useEffect(() => () => finishClose(), [finishClose]);
+
+  const getCloseCompletion = useCallback(() => {
+    if (closeCompletionRef.current) return closeCompletionRef.current.promise;
+    const cycle = openCycleRef.current;
+    if (!hasOpenedPopoverRef.current) {
+      const promise = Promise.resolve();
+      closeCompletionRef.current = {
+        promise,
+        resolve: () => undefined,
+        reject: () => undefined,
+        cycle,
+      };
+      if (imperativeCloseCompletionRef) {
+        imperativeCloseCompletionRef.current = promise;
+      }
+      return promise;
+    }
+    let resolve: () => void = () => undefined;
+    let reject: (error: Error) => void = () => undefined;
+    const promise = new Promise<void>((done, fail) => {
+      resolve = done;
+      reject = fail;
+    });
+    void promise.catch(() => undefined);
+    const timer = setTimeout(() => finishClose(cycle), 6000);
+    closeCompletionRef.current = { promise, resolve, reject, timer, cycle };
+    if (imperativeCloseCompletionRef) {
+      imperativeCloseCompletionRef.current = promise;
+    }
+    return promise;
+  }, [finishClose, imperativeCloseCompletionRef]);
   // Every native popover is a native overlay sheet (see Popover).
   const useNativeSheetPresentation = usingSheet;
   const handleActionListOpenRef = useRef<() => void>(() => undefined);
-  const handleActionListCloseRef = useRef<() => void>(() => undefined);
+  const handleActionListCloseRef = useRef<() => void | Promise<void>>(
+    () => undefined,
+  );
   const { asyncItems, handleAsyncItemsOpenChange, resolvedSheetProps } =
     useAsyncItemsLifecycle({
       isOpen,
@@ -354,26 +436,71 @@ function BasicActionList({
 
   const handleOpenStatusChange = useCallback(
     (openStatus: boolean) => {
+      if (!openStatus && closeCompletionRef.current) {
+        return closeCompletionRef.current.promise;
+      }
+      if (openStatus && closeCompletionRef.current) {
+        if (imperativeCloseRef) return Promise.resolve();
+        const pending = closeCompletionRef.current;
+        if (pending.timer) clearTimeout(pending.timer);
+        closeCompletionRef.current = undefined;
+        hasOpenedPopoverRef.current = false;
+        pending.reject(
+          new OverlayCloseCancelledError(
+            'ActionList close canceled by reopening',
+          ),
+        );
+      }
+      if (openStatus && !isOpenRef.current) openCycleRef.current += 1;
+      const completion = openStatus ? Promise.resolve() : getCloseCompletion();
+      isOpenRef.current = openStatus;
+      pendingOpenCancelledRef.current = !openStatus;
       handleAsyncItemsOpenChange(openStatus);
       setOpenStatus(openStatus);
       onOpenChange?.(openStatus);
       trackActionListToggle(openStatus);
+      return completion;
     },
     [
+      getCloseCompletion,
       handleAsyncItemsOpenChange,
+      imperativeCloseRef,
       onOpenChange,
       setOpenStatus,
       trackActionListToggle,
     ],
   );
   const handleActionListOpen = useCallback(() => {
-    handleOpenStatusChange(true);
+    void handleOpenStatusChange(true);
   }, [handleOpenStatusChange]);
-  const handleActionListClose = useCallback(() => {
-    handleOpenStatusChange(false);
-  }, [handleOpenStatusChange]);
+  const handleActionListClose = useCallback(
+    () => handleOpenStatusChange(false),
+    [handleOpenStatusChange],
+  );
+  const renderCycle = openCycleRef.current;
+  const handleSheetAnimationComplete = useCallback(
+    (info: { open: boolean }) => {
+      if (renderCycle !== openCycleRef.current) return;
+      if (!info.open && !isOpenRef.current) {
+        finishClose(renderCycle);
+      }
+      resolvedSheetProps?.onAnimationComplete?.(info);
+    },
+    [finishClose, renderCycle, resolvedSheetProps],
+  );
+  const actionListSheetProps = useMemo(
+    () => ({
+      ...resolvedSheetProps,
+      onAnimationComplete: handleSheetAnimationComplete,
+    }),
+    [handleSheetAnimationComplete, resolvedSheetProps],
+  );
   handleActionListOpenRef.current = handleActionListOpen;
   handleActionListCloseRef.current = handleActionListClose;
+  if (imperativeCloseRef) imperativeCloseRef.current = handleActionListClose;
+  if (imperativeCloseCompletionRef) {
+    imperativeCloseCompletionRef.current = closeCompletionRef.current?.promise;
+  }
 
   const intl = useIntl();
 
@@ -386,8 +513,9 @@ function BasicActionList({
         {...item}
         // eslint-disable-next-line react-perf/jsx-no-new-function-as-prop
         onClose={() => {
-          handleActionListClose();
+          const completion = handleActionListClose();
           item.onClose?.();
+          return completion;
         }}
       />
     ),
@@ -470,6 +598,7 @@ function BasicActionList({
   const shouldOpenPopover =
     isOpen &&
     (!useNativeSheetPresentation || !renderItemsAsync || Boolean(asyncItems));
+  if (shouldOpenPopover) hasOpenedPopoverRef.current = true;
 
   return (
     <LazyPopover
@@ -482,13 +611,13 @@ function BasicActionList({
       usingSheet={usingSheet}
       mountNativePortalBeforeOpen={defaultOpen}
       renderTrigger={trigger}
-      sheetProps={resolvedSheetProps}
+      sheetProps={actionListSheetProps}
     />
   );
 }
 
 export type IActionListShowHandle = {
-  close: () => void;
+  close: () => Promise<void> | void;
 };
 
 export type IShowActionListParams = Omit<
@@ -533,10 +662,21 @@ const showActionList = (
   // Use let so the destroy callback can reference it after assignment
   // eslint-disable-next-line prefer-const
   let ref: { destroy: () => void } | undefined;
+  // oxlint-disable-next-line react-perf/jsx-no-new-object-as-prop -- each imperative overlay owns its own close ref
+  const imperativeCloseRef: {
+    current: (() => void | Promise<void>) | undefined;
+  } = {
+    current: undefined,
+  };
+  // oxlint-disable-next-line react-perf/jsx-no-new-object-as-prop -- each imperative overlay owns its own completion ref
+  const imperativeCloseCompletionRef: { current: Promise<void> | undefined } = {
+    current: undefined,
+  };
   const lifecycle = createImperativeActionListLifecycle({
     onOpenChange: restProps.onOpenChange,
     onClose,
-    // Delay destruction so the close animation can finish.
+    requestClose: () => imperativeCloseRef.current?.(),
+    getCloseCompletion: () => imperativeCloseCompletionRef.current,
     destroy: () => ref?.destroy(),
   });
 
@@ -578,6 +718,8 @@ const showActionList = (
       {...restProps}
       {...contextMenuProps}
       defaultOpen
+      imperativeCloseRef={imperativeCloseRef}
+      imperativeCloseCompletionRef={imperativeCloseCompletionRef}
       renderTrigger={triggerElement}
       onOpenChange={lifecycle.handleOpenChange}
     />
