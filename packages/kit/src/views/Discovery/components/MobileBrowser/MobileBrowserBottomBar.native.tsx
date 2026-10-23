@@ -12,6 +12,7 @@ import {
   Stack,
   Theme,
   XStack,
+  isLiquidGlassAvailable,
   useThemeName,
 } from '@onekeyhq/components';
 
@@ -40,6 +41,7 @@ import TabCountButton from './TabCountButton';
 import { useMobileBrowserBottomBarData } from './useMobileBrowserBottomBarData';
 import { useMobileBrowserOptions } from './useMobileBrowserOptions';
 
+import type { IBrowserChromeCapsuleProps } from './BrowserChromeCapsule';
 import type { IMobileBrowserBottomBarProps } from './useMobileBrowserBottomBarData';
 import type { SharedValue } from 'react-native-reanimated';
 
@@ -71,23 +73,34 @@ const CAPSULE_COLLAPSED_SCALE =
 // Safari: the capsule shrinks and slides down to the pill's spot while the
 // pill grows out of it; the side buttons fade and slide outwards. Both
 // layers overlap mid-way so it reads as one element changing shape.
+//
+// Opacity is returned apart from the transforms: Liquid Glass breaks under a
+// translucent ancestor (once faded to 0 it doesn't come back), so on glass the
+// fade applies to the capsule contents and the glass itself (de)materializes
+// natively; elsewhere the whole capsule fades.
 function useBarMorphStyles(progress: SharedValue<number>, travelY: number) {
-  const leftStyle = useAnimatedStyle(() => ({
+  const sideOpacityStyle = useAnimatedStyle(() => ({
     opacity: interpolate(progress.value, [0.4, 1], [0, 1], 'clamp'),
+  }));
+  const capsuleOpacityStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(progress.value, [0.25, 0.75], [0, 1], 'clamp'),
+  }));
+  const pillOpacityStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(progress.value, [0.25, 0.75], [1, 0], 'clamp'),
+  }));
+  const leftStyle = useAnimatedStyle(() => ({
     transform: [
       { translateX: interpolate(progress.value, [0, 1], [-16, 0], 'clamp') },
       { scale: interpolate(progress.value, [0, 1], [0.8, 1], 'clamp') },
     ],
   }));
   const rightStyle = useAnimatedStyle(() => ({
-    opacity: interpolate(progress.value, [0.4, 1], [0, 1], 'clamp'),
     transform: [
       { translateX: interpolate(progress.value, [0, 1], [16, 0], 'clamp') },
       { scale: interpolate(progress.value, [0, 1], [0.8, 1], 'clamp') },
     ],
   }));
   const capsuleStyle = useAnimatedStyle(() => ({
-    opacity: interpolate(progress.value, [0.25, 0.75], [0, 1], 'clamp'),
     transform: [
       {
         translateY: interpolate(progress.value, [0, 1], [travelY, 0], 'clamp'),
@@ -103,7 +116,6 @@ function useBarMorphStyles(progress: SharedValue<number>, travelY: number) {
     ],
   }));
   const pillStyle = useAnimatedStyle(() => ({
-    opacity: interpolate(progress.value, [0.25, 0.75], [1, 0], 'clamp'),
     transform: [
       {
         translateY: interpolate(progress.value, [0, 1], [0, -travelY], 'clamp'),
@@ -118,7 +130,15 @@ function useBarMorphStyles(progress: SharedValue<number>, travelY: number) {
       },
     ],
   }));
-  return { leftStyle, rightStyle, capsuleStyle, pillStyle };
+  return {
+    leftStyle,
+    rightStyle,
+    capsuleStyle,
+    pillStyle,
+    sideOpacityStyle,
+    capsuleOpacityStyle,
+    pillOpacityStyle,
+  };
 }
 
 // The translate sheet is opened from the menu; this anchor only positions the
@@ -128,13 +148,20 @@ const translatePopoverAnchor = <Stack position="absolute" w={1} h={1} />;
 function CollapsedAddressPill({
   url,
   onPress,
+  glassHidden,
+  contentStyle,
 }: {
   url?: string;
   onPress?: () => void;
-}) {
+} & Pick<IBrowserChromeCapsuleProps, 'glassHidden' | 'contentStyle'>) {
   const hostname = useMemo(() => getDisplayHostname(url), [url]);
   return (
-    <BrowserChromeCapsule height={BROWSER_COLLAPSED_PILL_HEIGHT} px="$4">
+    <BrowserChromeCapsule
+      height={BROWSER_COLLAPSED_PILL_HEIGHT}
+      px="$4"
+      glassHidden={glassHidden}
+      contentStyle={contentStyle}
+    >
       <ChromePressable onPress={onPress}>
         <XStack
           h={BROWSER_COLLAPSED_PILL_HEIGHT}
@@ -196,10 +223,16 @@ function MobileBrowserBottomBar({
     capsuleBottom +
     BROWSER_CHROME_CAPSULE_HEIGHT / 2 -
     (pillBottom + BROWSER_COLLAPSED_PILL_HEIGHT / 2);
-  const { leftStyle, rightStyle, capsuleStyle, pillStyle } = useBarMorphStyles(
-    progress,
-    morphTravelY,
-  );
+  const {
+    leftStyle,
+    rightStyle,
+    capsuleStyle,
+    pillStyle,
+    sideOpacityStyle,
+    capsuleOpacityStyle,
+    pillOpacityStyle,
+  } = useBarMorphStyles(progress, morphTravelY);
+  const isGlass = isLiquidGlassAvailable();
 
   const [translateOpen, setTranslateOpen] = useState(false);
   const showOptions = useMobileBrowserOptions({
@@ -254,8 +287,13 @@ function MobileBrowserBottomBar({
             gap="$2"
             alignItems="center"
           >
-            <Animated.View style={leftStyle}>
-              <BrowserChromeCapsule>
+            <Animated.View
+              style={isGlass ? leftStyle : [leftStyle, sideOpacityStyle]}
+            >
+              <BrowserChromeCapsule
+                glassHidden={isChromeCollapsed}
+                contentStyle={isGlass ? sideOpacityStyle : undefined}
+              >
                 <ChromePressable
                   onPress={() => {
                     logBrowserChromeAction('back', 'toolbar');
@@ -274,8 +312,19 @@ function MobileBrowserBottomBar({
               </BrowserChromeCapsule>
             </Animated.View>
             {/* Same edge inset as the round buttons, so icons line up. */}
-            <Animated.View style={[styles.capsule, capsuleStyle]}>
-              <BrowserChromeCapsule flex={1} px="$2">
+            <Animated.View
+              style={
+                isGlass
+                  ? [styles.capsule, capsuleStyle]
+                  : [styles.capsule, capsuleStyle, capsuleOpacityStyle]
+              }
+            >
+              <BrowserChromeCapsule
+                flex={1}
+                px="$2"
+                glassHidden={isChromeCollapsed}
+                contentStyle={isGlass ? capsuleOpacityStyle : undefined}
+              >
                 <ChromePressable
                   onPress={() => {
                     logBrowserChromeAction('menu', 'toolbar');
@@ -313,8 +362,13 @@ function MobileBrowserBottomBar({
                 />
               </BrowserChromeCapsule>
             </Animated.View>
-            <Animated.View style={rightStyle}>
-              <BrowserChromeCapsule>
+            <Animated.View
+              style={isGlass ? rightStyle : [rightStyle, sideOpacityStyle]}
+            >
+              <BrowserChromeCapsule
+                glassHidden={isChromeCollapsed}
+                contentStyle={isGlass ? sideOpacityStyle : undefined}
+              >
                 <TabCountButton
                   testID={DiscoveryTestIDs.tabListButton}
                   onPressed={() => logBrowserChromeAction('tabs', 'toolbar')}
@@ -325,10 +379,21 @@ function MobileBrowserBottomBar({
         </Animated.View>
         <Animated.View
           pointerEvents={isChromeCollapsed ? 'box-none' : 'none'}
-          style={[styles.pillRow, { bottom: pillBottom }, pillStyle]}
+          style={
+            isGlass
+              ? [styles.pillRow, { bottom: pillBottom }, pillStyle]
+              : [
+                  styles.pillRow,
+                  { bottom: pillBottom },
+                  pillStyle,
+                  pillOpacityStyle,
+                ]
+          }
         >
           <CollapsedAddressPill
             url={currentUrl}
+            glassHidden={!isChromeCollapsed}
+            contentStyle={isGlass ? pillOpacityStyle : undefined}
             onPress={() => {
               logBrowserChromeAction('expand', 'toolbar');
               onExpand();

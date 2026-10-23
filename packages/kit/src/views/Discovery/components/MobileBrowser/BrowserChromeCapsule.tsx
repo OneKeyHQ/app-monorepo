@@ -1,6 +1,7 @@
-import type { PropsWithChildren } from 'react';
+import type { ComponentProps, PropsWithChildren } from 'react';
 
 import { StyleSheet } from 'react-native';
+import Animated from 'react-native-reanimated';
 
 import {
   BlurView,
@@ -19,10 +20,15 @@ const styles = StyleSheet.create({
   glass: { borderRadius: 9999 },
 });
 
-type IBrowserChromeCapsuleProps = PropsWithChildren<{
+export type IBrowserChromeCapsuleProps = PropsWithChildren<{
   flex?: number;
   height?: number;
   px?: IXStackProps['px'];
+  // Liquid Glass only: dematerializes the glass (natively animated) while the
+  // capsule is hidden, instead of fading an ancestor, which breaks glass.
+  glassHidden?: boolean;
+  // Animated style for the contents, e.g. their fade while the glass hides.
+  contentStyle?: ComponentProps<typeof Animated.View>['style'];
 }>;
 
 // A pill (or circle, with a single child) hosting browser chrome buttons.
@@ -35,9 +41,11 @@ export function BrowserChromeCapsule({
   flex,
   height = BROWSER_CHROME_CAPSULE_HEIGHT,
   px = '$1',
+  glassHidden = false,
+  contentStyle,
 }: IBrowserChromeCapsuleProps) {
   const isFloatingBrowserChrome = useIsFloatingBrowserChrome();
-  const content = (
+  const inner = (
     <GlassHeaderProvider>
       <XStack
         h={height}
@@ -51,12 +59,21 @@ export function BrowserChromeCapsule({
       </XStack>
     </GlassHeaderProvider>
   );
+  const content = contentStyle ? (
+    <Animated.View style={contentStyle}>{inner}</Animated.View>
+  ) : (
+    inner
+  );
 
   if (isLiquidGlassAvailable()) {
     return (
       <GlassView
         isInteractive
-        glassEffectStyle="regular"
+        glassEffectStyle={{
+          style: glassHidden ? 'none' : 'regular',
+          animate: true,
+          animationDuration: 0.3,
+        }}
         style={flex ? [styles.glass, { flex }] : styles.glass}
       >
         {content}
