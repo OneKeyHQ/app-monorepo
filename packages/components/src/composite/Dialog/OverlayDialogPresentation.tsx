@@ -152,7 +152,8 @@ export function OverlayDialogPresentation({
           borderTopLeftRadius="$6"
           borderTopRightRadius="$6"
           borderCurve="continuous"
-          overflow="hidden"
+          // Use Yoga's scroll measurement so flex children retain intrinsic height.
+          overflow={platformEnv.isNative ? 'scroll' : 'hidden'}
         >
           {needsGestureRoot ? (
             <GestureHandlerRootView style={GESTURE_ROOT_FIT_STYLE}>
