@@ -25705,6 +25705,7 @@
     "packages/kit/src/views/Setting/pages/Tab/DevSettingsSection/navigationDiagnosticsUtils.ts": 8748,
     "packages/kit/src/views/Setting/pages/Tab/DevSettingsSection/showDevOnlyPasswordDialog.tsx": 21269,
     "packages/kit/src/views/Setting/pages/Tab/ListItem.tsx": 5640,
+    "packages/kit/src/views/Setting/pages/Tab/RestoreInfiniPendingTransactionsListItem.tsx": 274,
     "packages/kit/src/views/Setting/pages/Tab/SearchView.tsx": 10691,
     "packages/kit/src/views/Setting/pages/Tab/SettingList.tsx": 14106,
     "packages/kit/src/views/Setting/pages/Tab/SettingListSubModal.tsx": 7483,
