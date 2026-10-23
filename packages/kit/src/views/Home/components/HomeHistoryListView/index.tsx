@@ -18,7 +18,7 @@ import type { ViewStyle } from 'react-native';
 
 const SharedHistoryList = withBrowserProvider(NativeHistoryList);
 
-function WebHistoryPaginationObserver({
+export function WebHistoryPaginationObserver({
   enabled,
   hasMore,
   isLoadingMore,

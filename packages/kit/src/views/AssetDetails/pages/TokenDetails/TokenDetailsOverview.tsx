@@ -1,19 +1,21 @@
 import { memo, useCallback, useMemo, useRef } from 'react';
+import type { PropsWithChildren } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
+import { NativeScroller } from 'react-native-pager-view';
 
 import {
   Alert,
   Icon,
   SizableText,
   Stack,
-  Tabs,
   Toast,
   Tooltip,
   YStack,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { AppPagerContent } from '@onekeyhq/kit/src/components/AppPager/AppPagerContent';
 import { Currency } from '@onekeyhq/kit/src/components/Currency';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { NetworkAvatar } from '@onekeyhq/kit/src/components/NetworkAvatar';
@@ -69,6 +71,17 @@ type IProps = {
   isAllNetworks?: boolean;
   onSelectToken: (token: IAccountToken) => void;
 };
+
+function OverviewScroll({ children }: PropsWithChildren) {
+  if (platformEnv.isNative) {
+    return (
+      <NativeScroller style={{ flex: 1 }} showsVerticalScrollIndicator={false}>
+        {children}
+      </NativeScroller>
+    );
+  }
+  return <AppPagerContent>{children}</AppPagerContent>;
+}
 
 function TokenDetailsOverview(props: IProps) {
   const {
@@ -510,7 +523,7 @@ function TokenDetailsOverview(props: IProps) {
   );
 
   return (
-    <Tabs.ScrollView showsVerticalScrollIndicator={false}>
+    <OverviewScroll>
       {isWatchOnly ? (
         <Stack pt="$5" px="$5">
           <Alert
@@ -637,7 +650,7 @@ function TokenDetailsOverview(props: IProps) {
           );
         })}
       </YStack>
-    </Tabs.ScrollView>
+    </OverviewScroll>
   );
 }
 
