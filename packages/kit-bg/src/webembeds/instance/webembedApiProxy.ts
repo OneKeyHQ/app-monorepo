@@ -25,6 +25,10 @@ class WebembedApiProxy extends RemoteApiProxyBase implements IWebembedApi {
   // backgroundApiProxy = appGlobals.$backgroundApiProxy;
   // backgroundApiProxy = backgroundApiProxy;
 
+  private pendingReady: Promise<void> | undefined;
+
+  private readyRequestSequence = 0;
+
   override checkEnvAvailable(): void {
     if (!platformEnv.isNative) {
       throw new OneKeyLocalError(
@@ -43,27 +47,103 @@ class WebembedApiProxy extends RemoteApiProxyBase implements IWebembedApi {
   }
 
   override async waitRemoteApiReady(): Promise<void> {
-    const ready = await this.isSDKReady();
-    defaultLogger.app.webembed.webEmbedWaitRemoteApiReady({ isReady: !!ready });
-    if (!ready) {
-      return new Promise((resolve, reject) => {
-        const timerId = setTimeout(() => {
+    if (this.pendingReady) {
+      return this.pendingReady;
+    }
+
+    let resolvePending: () => void = () => {};
+    let rejectPending: (error: unknown) => void = () => {};
+    const pending = new Promise<void>((resolve, reject) => {
+      resolvePending = resolve;
+      rejectPending = reject;
+    });
+    this.pendingReady = pending;
+
+    this.readyRequestSequence += 1;
+    const requestId = `${appEventBus.nodeId}-${this.readyRequestSequence}`;
+    let settled = false;
+    let hasEmittedLoad = false;
+    let timerId: ReturnType<typeof setTimeout> | undefined;
+
+    const cleanup = () => {
+      if (timerId) {
+        clearTimeout(timerId);
+      }
+      appEventBus.off(
+        EAppEventBusNames.LoadWebEmbedWebViewComplete,
+        // eslint-disable-next-line no-use-before-define
+        onComplete,
+      );
+      appEventBus.off(
+        EAppEventBusNames.WebEmbedWebViewProviderReady,
+        // eslint-disable-next-line no-use-before-define
+        onProviderReady,
+      );
+      if (this.pendingReady === pending) {
+        this.pendingReady = undefined;
+      }
+    };
+    const complete = () => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      cleanup();
+      globalThis.$onekeyAppWebembedApiWebviewInitFailed = false;
+      resolvePending();
+    };
+    const fail = (error: unknown) => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      cleanup();
+      rejectPending(error);
+    };
+    const emitLoad = () => {
+      if (settled) {
+        return;
+      }
+      hasEmittedLoad = true;
+      appEventBus.emit(EAppEventBusNames.LoadWebEmbedWebView, { requestId });
+      defaultLogger.app.webembed.emitRenderEvent();
+    };
+    const onComplete = () => {
+      defaultLogger.app.webembed.loadWebEmbedWebViewComplete();
+      complete();
+    };
+    const onProviderReady = () => {
+      if (hasEmittedLoad) {
+        emitLoad();
+      }
+    };
+
+    appEventBus.on(EAppEventBusNames.LoadWebEmbedWebViewComplete, onComplete);
+    appEventBus.on(
+      EAppEventBusNames.WebEmbedWebViewProviderReady,
+      onProviderReady,
+    );
+    void this.isSDKReady()
+      .then((ready) => {
+        if (settled) {
+          return;
+        }
+        defaultLogger.app.webembed.webEmbedWaitRemoteApiReady({
+          isReady: !!ready,
+        });
+        if (ready) {
+          complete();
+          return;
+        }
+        timerId = setTimeout(() => {
           defaultLogger.app.webembed.initTimeout();
           globalThis.$onekeyAppWebembedApiWebviewInitFailed = true;
-          reject(new Error('WebEmbedApi not ready after 40s.'));
+          fail(new Error('WebEmbedApi not ready after 40s.'));
         }, WEB_EMBED_API_READY_TIMEOUT_MS);
-        appEventBus.once(EAppEventBusNames.LoadWebEmbedWebViewComplete, () => {
-          defaultLogger.app.webembed.loadWebEmbedWebViewComplete();
-          clearTimeout(timerId);
-          globalThis.$onekeyAppWebembedApiWebviewInitFailed = false;
-          resolve();
-        });
-
-        // use event emit to trigger the webview to render
-        appEventBus.emit(EAppEventBusNames.LoadWebEmbedWebView, undefined);
-        defaultLogger.app.webembed.emitRenderEvent();
-      });
-    }
+        emitLoad();
+      })
+      .catch(fail);
+    return pending;
   }
 
   protected override async callRemoteApi(options: {
@@ -140,6 +220,12 @@ class WebembedApiProxy extends RemoteApiProxyBase implements IWebembedApi {
 const webembedApiProxy = new WebembedApiProxy();
 export default webembedApiProxy;
 appGlobals.$webembedApiProxy = webembedApiProxy;
+
+// A page may become ready after a timed-out attempt; restore the fallback flag
+// without retaining that attempt's completion and provider-ready listeners.
+appEventBus.on(EAppEventBusNames.LoadWebEmbedWebViewComplete, () => {
+  globalThis.$onekeyAppWebembedApiWebviewInitFailed = false;
+});
 
 // Typed slot for shared/imageUtils. Routes via the same callRemoteApi path,
 // so single-thread (web/desktop/ext) and BG-thread (dual-thread native) both

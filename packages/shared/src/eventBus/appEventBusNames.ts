@@ -48,6 +48,7 @@ export enum EAppEventBusNames {
   FinishFirmwareUpdate = 'FinishFirmwareUpdate',
   FirmwareUpdateDetectStatusChanged = 'FirmwareUpdateDetectStatusChanged',
   LoadWebEmbedWebView = 'LoadWebEmbedWebView',
+  WebEmbedWebViewProviderReady = 'WebEmbedWebViewProviderReady',
   LoadWebEmbedWebViewComplete = 'LoadWebEmbedWebViewComplete',
   HardwareVerifyAfterDeviceConfirm = 'HardwareVerifyAfterDeviceConfirm',
   DeviceStageAuthAction = 'DeviceStageAuthAction',

@@ -310,7 +310,8 @@ export interface IAppEventBusPayload {
   [EAppEventBusNames.BeginFirmwareUpdate]: undefined;
   [EAppEventBusNames.FinishFirmwareUpdate]: undefined;
   [EAppEventBusNames.FirmwareUpdateDetectStatusChanged]: undefined;
-  [EAppEventBusNames.LoadWebEmbedWebView]: undefined;
+  [EAppEventBusNames.LoadWebEmbedWebView]: { requestId: string } | undefined;
+  [EAppEventBusNames.WebEmbedWebViewProviderReady]: undefined;
   [EAppEventBusNames.LoadWebEmbedWebViewComplete]: undefined;
   [EAppEventBusNames.HardwareVerifyAfterDeviceConfirm]: undefined;
   // The authenticity card's exits, from the DeviceStage driver back to
