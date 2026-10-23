@@ -4,7 +4,9 @@ import { act, renderHook } from '@testing-library/react';
 import type backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type { sendMarketDirectUnsignedTxs } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/hooks/marketDirectSendTx';
 import type { completeBroadcastedSwapSuccess } from '@onekeyhq/kit/src/views/Swap/hooks/swapBroadcastSuccess';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   IDustSweepSnapshot,
   IDustSweepToken,
@@ -23,15 +25,19 @@ const mockResult = jest.fn();
 const mockTxState: jest.MockedFunction<
   typeof backgroundApiProxy.serviceSwap.fetchTxState
 > = jest.fn();
+const mockBuild = jest.fn(
+  async ({ fromToken }: { fromToken: IDustSweepToken }) => ({
+    result: mockQuote(fromToken),
+  }),
+);
 
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
   default: {
     serviceNotification: { blockNotificationForTxId: async () => undefined },
     serviceSwap: {
-      fetchBuildTx: async ({ fromToken }: { fromToken: IDustSweepToken }) => ({
-        result: mockQuote(fromToken),
-      }),
+      fetchBuildTx: (...args: Parameters<typeof mockBuild>) =>
+        mockBuild(...args),
       fetchTxState: (...args: Parameters<typeof mockTxState>) =>
         mockTxState(...args),
     },
@@ -60,6 +66,9 @@ jest.mock(
   }),
 );
 jest.mock('@onekeyhq/kit/src/views/Swap/utils/swapBalanceUtils', () => ({
+  ...jest.requireActual<
+    typeof import('@onekeyhq/kit/src/views/Swap/utils/swapBalanceUtils')
+  >('@onekeyhq/kit/src/views/Swap/utils/swapBalanceUtils'),
   checkSwapLatestBalanceSufficient: async () => ({
     isSufficient: true,
     balance: '100',
@@ -146,11 +155,31 @@ async function broadcast(
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockBuild.mockReset().mockImplementation(async ({ fromToken }) => ({
+    result: mockQuote(fromToken),
+  }));
   mockTxState.mockResolvedValue({
     state: ESwapTxHistoryStatus.SUCCESS,
     dealReceiveAmount: '0.01',
   });
   mockHistory.mockResolvedValue(undefined);
+});
+
+it('preserves a bridge API build failure through the real executor and session', async () => {
+  mockBuild.mockRejectedValueOnce({
+    ...rejection(),
+    message: 'API build failed',
+  });
+  const { result } = renderHook(() => useDustSweepSession([], { minRunMs: 0 }));
+  await act(async () =>
+    result.current.start({ ...snapshot, tokens: [snapshot.tokens[0]] }),
+  );
+  expect(result.current.state.items[0]).toMatchObject({
+    status: 'skipped',
+    reason: 'unknown',
+    providerErrorMessage: 'API build failed',
+  });
+  expect(mockSend).not.toHaveBeenCalled();
 });
 
 it.each([0, 1, 2])(
@@ -300,3 +329,25 @@ it.each([
     expect(mockHistory).not.toHaveBeenCalled();
   },
 );
+
+it('preserves a localized signing error while keeping an unknown submission blocked', async () => {
+  mockSend.mockImplementation(async (params) => {
+    await params.onBeforeSignAndSend?.();
+    throw new OneKeyLocalError({
+      key: ETranslations.swap_page_toast_insufficient_balance_title,
+      info: { token: 'SOL' },
+    });
+  });
+  const { result } = renderHook(() => useDustSweepSession([], { minRunMs: 0 }));
+  await act(async () => result.current.start(snapshot));
+  expect(result.current.state.phase).toBe('blocked');
+  expect(result.current.state.items[0]).toMatchObject({
+    status: 'unknown',
+    localError: {
+      key: ETranslations.swap_page_toast_insufficient_balance_title,
+      values: { token: 'SOL' },
+    },
+  });
+  await act(async () => result.current.resume());
+  expect(mockSend).toHaveBeenCalledTimes(1);
+});

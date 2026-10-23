@@ -21,6 +21,9 @@ jest.mock('react-intl', () => ({
 
 jest.mock('@onekeyhq/components', () => {
   const React = jest.requireActual<typeof import('react')>('react');
+  const { runAfterActionListClose } = jest.requireActual<
+    typeof import('../../../../components/src/actions/ActionList/runAfterClose')
+  >('../../../../components/src/actions/ActionList/runAfterClose');
   const Primitive = ({
     children,
     flexBasis,
@@ -67,6 +70,7 @@ jest.mock('@onekeyhq/components', () => {
     XStack: Primitive,
     YStack: Primitive,
     useMedia: () => ({ gtMd: mockGtMd }),
+    runAfterActionListClose,
   };
 });
 
@@ -171,6 +175,28 @@ describe('ActivityHubContent', () => {
 
     resolveClose?.();
     await waitFor(() => expect(onOpenInviteeReward).toHaveBeenCalledTimes(1));
+  });
+
+  it('settles a canceled close without opening invitee rewards', async () => {
+    const { OverlayCloseCancelledError } = jest.requireActual<
+      typeof import('../../../../components/src/shared/overlayCloseCancellation')
+    >('../../../../components/src/shared/overlayCloseCancellation');
+    const closePopover = jest.fn(() =>
+      Promise.reject(new OverlayCloseCancelledError('reopened')),
+    );
+    const onOpenInviteeReward = jest.fn();
+    render(
+      <ActivityHubContent
+        source="Swap"
+        closePopover={closePopover}
+        onOpenInviteeReward={onOpenInviteeReward}
+      />,
+    );
+
+    fireEvent.click(screen.getByTestId('activity-hub-my-rewards'));
+    await waitFor(() => expect(closePopover).toHaveBeenCalledTimes(1));
+    await Promise.resolve();
+    expect(onOpenInviteeReward).not.toHaveBeenCalled();
   });
 
   it.each([

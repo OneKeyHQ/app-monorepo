@@ -451,9 +451,8 @@ export function DustSweepSummary({
     providerInfo,
   } = model;
   const { state } = session;
-  const assetSyncError = selecting && assetStatus === 'error';
-  const assetsLoading =
-    selecting && (loadStatus === 'loading' || assetStatus === 'refreshing');
+  const assetSyncError = selecting && assetStatus === 'error' && !canStart;
+  const assetsLoading = selecting && loadStatus === 'loading';
   const intl = useIntl();
   const formatFiat = useDustSweepFiatFormatter();
   const { totals, completed, unknown } = getDustSweepPresentation(state);

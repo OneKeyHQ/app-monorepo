@@ -352,9 +352,7 @@ function MarketDetail({
         active={shouldOwnSharedMarketDetailState}
         preview={resolvedTokenDetailPreview}
         stockTarget={isStockRoute ? tokenDetailTarget : undefined}
-        retainedTokenTarget={
-          usesRetainedMarketDetailRoutes ? tokenDetailTarget : undefined
-        }
+        retainedTokenTarget={tokenDetailTarget}
       />
       <Page>
         {isChartFullscreen && !platformEnv.isNative ? (

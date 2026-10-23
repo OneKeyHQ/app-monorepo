@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
+import BigNumber from 'bignumber.js';
+
 import { generateSwapHistoryItemForContext } from '@onekeyhq/kit/src/views/Swap/hooks/useSwapTxHistory';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type {
@@ -12,6 +14,7 @@ import {
   getDustSweepTotals,
   initialDustSweepState,
 } from '../stateMachine';
+import { DustSweepError } from '../utils/DustSweepError';
 import {
   DustSweepPaused,
   DustSweepRetryableError,
@@ -19,7 +22,6 @@ import {
   DustSweepUserCanceled,
   executeDustSweepItem,
 } from '../utils/execution';
-import { DustSweepSkip } from '../utils/quote';
 
 import type { IDustSweepState } from '../stateMachine';
 
@@ -54,13 +56,30 @@ export function useDustSweepSession(
       if (!current.snapshot || reported.current) return;
       reported.current = true;
       const totals = getDustSweepTotals(current.items);
+      // A missing receipt or an unsettled submission has no known final amount.
+      const receiptAvailable =
+        !totals.receiptUnavailable &&
+        !current.items.some((item) =>
+          ['broadcasted', 'unknown'].includes(item.status),
+        );
+      const receivedAmount = receiptAvailable
+        ? new BigNumber(totals.receivedAmount)
+        : undefined;
+      const nativePrice = new BigNumber(
+        current.snapshot.nativeToken.price ?? '',
+      );
       defaultLogger.dex.dustSweep.dustSweepResult({
         network: current.snapshot.networkId,
         totalCount: current.items.length,
         successCount: totals.successCount,
         skippedCount: totals.skippedCount,
         failedCount: totals.failedCount,
-        receiptAvailable: !totals.receiptUnavailable,
+        receiptAvailable,
+        receivedAmount: receivedAmount?.toNumber() ?? null,
+        receivedUsd:
+          receivedAmount && nativePrice.isFinite() && nativePrice.gt(0)
+            ? receivedAmount.times(nativePrice).toNumber()
+            : null,
         durationSec: Math.floor((Date.now() - started.current) / 1000),
         endReason,
       });
@@ -127,8 +146,13 @@ export function useDustSweepSession(
               }),
             onBroadcast: (txId) =>
               send({ ...identity, status: 'broadcasted', txId }),
-            onSubmissionError: (message) =>
-              send({ ...identity, type: 'submissionError', message }),
+            onSubmissionError: (message, localError) =>
+              send({
+                ...identity,
+                type: 'submissionError',
+                message,
+                localError,
+              }),
             generateSwapHistoryItem: (params) =>
               generateSwapHistoryItemForContext(params, {
                 swapNetworks: networks.map((entry) => entry.network),
@@ -155,6 +179,7 @@ export function useDustSweepSession(
           defaultLogger.dex.dustSweep.dustSweepItemResult({
             network: snapshot.networkId,
             tokenSymbol: item.token.symbol,
+            tokenValueUsd: new BigNumber(item.token.valueUsd).toNumber(),
             status: result.status,
             reason: result.status === 'failed' ? 'txFailed' : '',
           });
@@ -165,6 +190,7 @@ export function useDustSweepSession(
               status: 'unknown',
               reason: 'unknown',
               submissionErrorMessage: error.submissionErrorMessage,
+              localError: error.localError,
             });
             break;
           }
@@ -188,29 +214,35 @@ export function useDustSweepSession(
                 error instanceof DustSweepRetryableError
                   ? error.message
                   : undefined,
+              providerErrorMessage:
+                error instanceof DustSweepRetryableError
+                  ? error.providerErrorMessage
+                  : undefined,
+              localError:
+                error instanceof DustSweepRetryableError
+                  ? error.localError
+                  : undefined,
             });
             send({ type: 'pause' });
             break;
           }
-          const reason =
-            error instanceof DustSweepSkip ? error.reason : 'unknown';
+          const failure = DustSweepError.from(error);
           // Already settled, so record it even if Stop / Leave cut the hold.
           await holdBeforeLastResult();
           send({
             ...identity,
             status: 'skipped',
-            reason,
-            message: error instanceof Error ? error.message : undefined,
-            providerErrorMessage:
-              error instanceof DustSweepSkip
-                ? error.providerErrorMessage
-                : undefined,
+            reason: failure.reason,
+            message: failure.message,
+            providerErrorMessage: failure.providerErrorMessage,
+            localError: failure.localError,
           });
           defaultLogger.dex.dustSweep.dustSweepItemResult({
             network: snapshot.networkId,
             tokenSymbol: item.token.symbol,
+            tokenValueUsd: new BigNumber(item.token.valueUsd).toNumber(),
             status: 'skipped',
-            reason,
+            reason: failure.reason,
           });
         }
       }
@@ -231,7 +263,10 @@ export function useDustSweepSession(
   }, [networks, reportResult, send, minRunMs]);
 
   const start = useCallback(
-    (input: IDustSweepSnapshot) => {
+    (
+      input: IDustSweepSnapshot,
+      { hiddenTokenCount = 0 }: { hiddenTokenCount?: number } = {},
+    ) => {
       if (
         !mounted.current ||
         stateRef.current.phase !== 'selecting' ||
@@ -248,12 +283,15 @@ export function useDustSweepSession(
       defaultLogger.dex.dustSweep.dustSweepStart({
         network: snapshot.networkId,
         tokenCount: snapshot.tokens.length,
+        totalUsd: snapshot.tokens
+          .reduce((sum, token) => sum.plus(token.valueUsd), new BigNumber(0))
+          .toNumber(),
         slippage: snapshot.slippage,
       });
       defaultLogger.dex.dustSweep.dustSweepPageVisited({
         page: 'progress',
         tokenCount: snapshot.tokens.length,
-        hiddenTokenCount: 0,
+        hiddenTokenCount,
       });
       run();
       return snapshot.id;

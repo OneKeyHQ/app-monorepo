@@ -40,6 +40,7 @@ import { useMarketWatchlistTokenList } from '../../../MarketHomeV2/components/Ma
 import { useToDetailPage } from '../../../MarketHomeV2/components/MarketTokenList/hooks/useToMarketDetailPage';
 import { useWatchlistFilteredGroups } from '../../../MarketHomeV2/components/MarketTokenList/hooks/useWatchlistFilteredGroups';
 import { getMarketWatchlistRowKind } from '../../../MarketHomeV2/components/MarketTokenList/utils/marketWatchlistRowKind';
+import { useMarketHomeSelection } from '../../../MarketHomeV2/hooks/useMarketHomeSelection';
 import { useMarketDetailWatchlistIdentity } from '../../hooks/useMarketDetailWatchlistIdentity';
 import { useTokenDetail } from '../../hooks/useTokenDetail';
 import {
@@ -223,7 +224,11 @@ function MarketDetailWatchlistSidebarImpl({
   elevated?: boolean;
 }) {
   const intl = useIntl();
-  const [filter, setFilter] = useState<ISidebarFilter>('all');
+  // Persisted so closing and reopening the sidebar keeps the last filter.
+  const [filter, setFilter] = useMarketHomeSelection(
+    'detailWatchlistSidebarFilter',
+    'all',
+  );
   const [searchValue, setSearchValue] = useState('');
   const [sort, setSort] = useState<ISidebarSort | undefined>();
   const { stockId, assetId } = useMarketDetailWatchlistIdentity();
@@ -335,20 +340,18 @@ function MarketDetailWatchlistSidebarImpl({
 
   const renderItem = useCallback(
     ({ item, dragProps, isActive }: IRenderItemParams<IMarketToken>) => (
-      <Stack px={TOKEN_SELECTOR_TABLE_PADDING}>
-        <WatchlistSidebarRow
-          item={item}
-          isSelected={isCurrentDetailToken(item, {
-            stockId,
-            assetId,
-            networkId,
-            tokenAddress,
-          })}
-          isDragging={isActive}
-          dragProps={dragProps}
-          onPress={handleItemPress}
-        />
-      </Stack>
+      <WatchlistSidebarRow
+        item={item}
+        isSelected={isCurrentDetailToken(item, {
+          stockId,
+          assetId,
+          networkId,
+          tokenAddress,
+        })}
+        isDragging={isActive}
+        dragProps={dragProps}
+        onPress={handleItemPress}
+      />
     ),
     [assetId, handleItemPress, networkId, stockId, tokenAddress],
   );
@@ -457,16 +460,21 @@ function MarketDetailWatchlistSidebarImpl({
         {/* Rows sit absolutely positioned in the sortable list, so the header
             stays above it rather than inside as a list header. */}
         <YStack px={TOKEN_SELECTOR_TABLE_PADDING}>{tableHeader}</YStack>
-        <SortableListView
-          flex={1}
-          data={listData}
-          keyExtractor={keyExtractor}
-          getItemLayout={getItemLayout}
-          renderItem={renderItem}
-          enabled={isDraggable}
-          onDragEnd={handleDragEnd}
-          contentContainerStyle={{ pb: TOKEN_SELECTOR_TABLE_PADDING }}
-        />
+        {/* The inset sits outside the list, not in each row: the drag clone draws
+            its shadow around the whole row wrapper, so padding inside it would
+            show as a wider box around the dragged row. */}
+        <YStack flex={1} minHeight={0} px={TOKEN_SELECTOR_TABLE_PADDING}>
+          <SortableListView
+            flex={1}
+            data={listData}
+            keyExtractor={keyExtractor}
+            getItemLayout={getItemLayout}
+            renderItem={renderItem}
+            enabled={isDraggable}
+            onDragEnd={handleDragEnd}
+            contentContainerStyle={{ pb: TOKEN_SELECTOR_TABLE_PADDING }}
+          />
+        </YStack>
       </YStack>
     );
   }
@@ -494,7 +502,7 @@ function MarketDetailWatchlistSidebarImpl({
           top={SIDEBAR_DIVIDER_INSET}
           bottom={SIDEBAR_DIVIDER_INSET}
           width={1}
-          bg="$borderSubdued"
+          bg="$borderDisabled"
           pointerEvents="none"
         />
       )}

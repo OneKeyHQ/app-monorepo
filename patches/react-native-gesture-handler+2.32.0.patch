@@ -1,0 +1,57 @@
+diff --git a/node_modules/react-native-gesture-handler/android/src/main/java/com/swmansion/gesturehandler/react/RNGestureHandlerRootViewManager.kt b/node_modules/react-native-gesture-handler/android/src/main/java/com/swmansion/gesturehandler/react/RNGestureHandlerRootViewManager.kt
+index f209a7c..cc615af 100644
+--- a/node_modules/react-native-gesture-handler/android/src/main/java/com/swmansion/gesturehandler/react/RNGestureHandlerRootViewManager.kt
++++ b/node_modules/react-native-gesture-handler/android/src/main/java/com/swmansion/gesturehandler/react/RNGestureHandlerRootViewManager.kt
+@@ -1,10 +1,13 @@
+ package com.swmansion.gesturehandler.react
+ 
++import com.facebook.react.bridge.ReadableArray
+ import com.facebook.react.module.annotations.ReactModule
+ import com.facebook.react.uimanager.ThemedReactContext
+ import com.facebook.react.uimanager.ViewGroupManager
+ import com.facebook.react.uimanager.ViewManagerDelegate
++import com.facebook.react.uimanager.ViewProps
+ import com.facebook.react.uimanager.annotations.ReactProp
++import com.facebook.react.views.view.ReactViewManager
+ import com.facebook.react.viewmanagers.RNGestureHandlerRootViewManagerDelegate
+ import com.facebook.react.viewmanagers.RNGestureHandlerRootViewManagerInterface
+ 
+@@ -18,9 +21,25 @@ class RNGestureHandlerRootViewManager :
+   ViewGroupManager<RNGestureHandlerRootView>(),
+   RNGestureHandlerRootViewManagerInterface<RNGestureHandlerRootView> {
+   private val mDelegate: ViewManagerDelegate<RNGestureHandlerRootView>
++  private val pointerEventsViewManager = ReactViewManager()
+ 
+   init {
+-    mDelegate = RNGestureHandlerRootViewManagerDelegate<RNGestureHandlerRootView, RNGestureHandlerRootViewManager>(this)
++    // OneKey patch: the generated delegate omits pointerEvents on this full-window root.
++    // mDelegate = RNGestureHandlerRootViewManagerDelegate<RNGestureHandlerRootView, RNGestureHandlerRootViewManager>(this)
++    val generatedDelegate = RNGestureHandlerRootViewManagerDelegate<RNGestureHandlerRootView, RNGestureHandlerRootViewManager>(this)
++    mDelegate = object : ViewManagerDelegate<RNGestureHandlerRootView> {
++      override fun setProperty(view: RNGestureHandlerRootView, propName: String, value: Any?) {
++        if (propName == ViewProps.POINTER_EVENTS) {
++          setPointerEvents(view, value as String?)
++        } else {
++          generatedDelegate.setProperty(view, propName, value)
++        }
++      }
++
++      override fun receiveCommand(view: RNGestureHandlerRootView, commandName: String, args: ReadableArray) {
++        generatedDelegate.receiveCommand(view, commandName, args)
++      }
++    }
+   }
+ 
+   override fun getDelegate(): ViewManagerDelegate<RNGestureHandlerRootView> = mDelegate
+@@ -38,6 +57,11 @@ class RNGestureHandlerRootViewManager :
+     view.setUnstableForceActive(active)
+   }
+ 
++  @ReactProp(name = ViewProps.POINTER_EVENTS)
++  fun setPointerEvents(view: RNGestureHandlerRootView, value: String?) {
++    pointerEventsViewManager.setPointerEvents(view, value)
++  }
++
+   /**
+    * The following event configuration is necessary even if you are not using
+    * GestureHandlerRootView component directly.
