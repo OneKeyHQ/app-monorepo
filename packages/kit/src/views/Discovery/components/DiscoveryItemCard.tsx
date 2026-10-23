@@ -17,13 +17,8 @@ import type { IDApp } from '@onekeyhq/shared/types/discovery';
 
 import type { IMatchDAppItemType } from '../types';
 
-// Phones: a larger icon, so the edge-aligned 4-column grid keeps an even,
-// home-screen-like gap between icons instead of spreading them apart.
-export const DISCOVERY_ITEM_ICON_SIZE = platformEnv.isNative ? 60 : 56;
-const ICON_RADIUS = platformEnv.isNative ? 13 : 12;
-// Lets the outer labels pass their icon by 12pt at most (the grid aligns
-// outer icons with the page edge); longer names wrap to a second line.
-const NATIVE_LABEL_MAX_WIDTH = DISCOVERY_ITEM_ICON_SIZE + 24;
+const ICON_SIZE = 56;
+const ICON_RADIUS = 12;
 
 export interface IDiscoveryItemCardProps {
   logo?: string;
@@ -81,8 +76,8 @@ export function DiscoveryItemCard({
         userSelect="none"
       >
         <Skeleton
-          width={DISCOVERY_ITEM_ICON_SIZE}
-          height={DISCOVERY_ITEM_ICON_SIZE}
+          width={ICON_SIZE}
+          height={ICON_SIZE}
           borderRadius={ICON_RADIUS}
         />
         <Skeleton
@@ -111,8 +106,8 @@ export function DiscoveryItemCard({
         userSelect="none"
       >
         <Stack
-          width={DISCOVERY_ITEM_ICON_SIZE}
-          height={DISCOVERY_ITEM_ICON_SIZE}
+          width={ICON_SIZE}
+          height={ICON_SIZE}
           position="relative"
           borderRadius={ICON_RADIUS}
           borderCurve="continuous"
@@ -121,7 +116,7 @@ export function DiscoveryItemCard({
           <Image
             width="100%"
             height="100%"
-            resizeWidth={DISCOVERY_ITEM_ICON_SIZE}
+            resizeWidth={ICON_SIZE}
             source={{ uri: logo }}
             fallback={
               <Image.Fallback>
@@ -135,9 +130,10 @@ export function DiscoveryItemCard({
           ) : null}
         </Stack>
         <SizableText
-          px="$1"
+          // Narrow side padding so names like "PancakeSwap" fit on one line
+          // in a phone's quarter-width column.
+          px="$0.5"
           w="100%"
-          maxWidth={platformEnv.isNative ? NATIVE_LABEL_MAX_WIDTH : undefined}
           size="$bodySmMedium"
           textAlign="center"
           numberOfLines={2}

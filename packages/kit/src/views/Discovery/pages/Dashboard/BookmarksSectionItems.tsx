@@ -1,10 +1,9 @@
 import { useEffect, useState } from 'react';
 
 import type { IYStackProps } from '@onekeyhq/components';
-import { Stack, YStack, useMedia } from '@onekeyhq/components';
+import { YStack, useMedia } from '@onekeyhq/components';
 
 import { BookmarksSectionItem } from './BookmarksSectionItem';
-import { useEdgeAlignedGrid } from './useEdgeAlignedGrid';
 
 import type { IBrowserBookmark, IMatchDAppItemType } from '../../types';
 
@@ -18,7 +17,6 @@ export function BookmarksSectionItems({
 }) {
   const [numberOfItems, setNumberOfItems] = useState(0);
   const media = useMedia();
-  const { onLayout, marginHorizontal } = useEdgeAlignedGrid();
 
   useEffect(() => {
     const calculateNumberOfItems = () => {
@@ -31,32 +29,29 @@ export function BookmarksSectionItems({
   }, [media.gtXl, media.gt2Md, media.gtSm]);
 
   return (
-    <Stack onLayout={onLayout}>
-      <YStack
-        py="$2"
-        $platform-native={{ py: '$1', rowGap: '$3' }}
-        mx={marginHorizontal}
-        flexDirection="row"
-        flexWrap="wrap"
-        {...restProps}
-      >
-        {dataSource.slice(0, numberOfItems).map(({ logo, title, url }) => (
-          <YStack
-            key={title + url}
-            width="25%"
-            $gtSm={{ width: '20%' }}
-            $gt2Md={{ width: '16.6%' }}
-            $gtXl={{ width: '14.2%' }}
-          >
-            <BookmarksSectionItem
-              logo={logo}
-              title={title}
-              url={url}
-              handleOpenWebSite={handleOpenWebSite}
-            />
-          </YStack>
-        ))}
-      </YStack>
-    </Stack>
+    <YStack
+      py="$2"
+      $platform-native={{ py: '$1', rowGap: '$3' }}
+      flexDirection="row"
+      flexWrap="wrap"
+      {...restProps}
+    >
+      {dataSource.slice(0, numberOfItems).map(({ logo, title, url }) => (
+        <YStack
+          key={title + url}
+          width="25%"
+          $gtSm={{ width: '20%' }}
+          $gt2Md={{ width: '16.6%' }}
+          $gtXl={{ width: '14.2%' }}
+        >
+          <BookmarksSectionItem
+            logo={logo}
+            title={title}
+            url={url}
+            handleOpenWebSite={handleOpenWebSite}
+          />
+        </YStack>
+      ))}
+    </YStack>
   );
 }
