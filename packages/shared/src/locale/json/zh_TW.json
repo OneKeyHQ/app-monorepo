@@ -1549,7 +1549,7 @@
   "global.best": "最佳",
   "global.biometric": "生物識別",
   "global.biometric_disabled": "{authentication} 已暫時停用",
-  "global.biometric_disabled_desc": "由於檢測到設備變更，請手動重新啟用 {authentication}。",
+  "global.biometric_disabled_desc": "由於檢測到設備變更，請手動重新啟用{authentication}。",
   "global.block_explorer": "區塊鏈瀏覽器",
   "global.block_height": "區塊高度",
   "global.bluetooth": "藍牙",
