@@ -118,7 +118,10 @@ export function StockMobilePriceHeader() {
     useStockDetail();
   const sharePreview =
     stockPreview?.quote?.source === 'share' ? stockPreview.quote : undefined;
-  const isSharePrice = priceMode === 'share';
+  // The list quote is explicitly labeled until the default source is known.
+  const isSharePreview = !isPriceSourceReady && Boolean(sharePreview);
+  const isDisplayedPriceReady = isPriceSourceReady || isSharePreview;
+  const isSharePrice = isSharePreview || priceMode === 'share';
   const shareQuote =
     stockDetail?.price !== undefined ? stockDetail : sharePreview;
   const price = isSharePrice ? shareQuote?.price : tokenDetail?.price;
@@ -152,7 +155,7 @@ export function StockMobilePriceHeader() {
   let priceContent = (
     <SizableText size="$heading3xl">{STAT_FALLBACK_VALUE}</SizableText>
   );
-  if (!isPriceSourceReady) {
+  if (!isDisplayedPriceReady) {
     priceContent = (
       <Stack height={36} justifyContent="center">
         <Skeleton width={140} height={32} />
@@ -195,7 +198,7 @@ export function StockMobilePriceHeader() {
       <XStack alignItems="flex-start" justifyContent="space-between" gap="$3">
         <YStack flex={1} minWidth={0} gap="$0.5">
           {priceContent}
-          {isPriceSourceReady ? (
+          {isDisplayedPriceReady ? (
             <StockPriceChangeLine
               changeValueText={changeValueText}
               priceChangePercent={priceChangePercent}
@@ -234,6 +237,17 @@ export function StockMobilePriceHeader() {
         minHeight={20}
         justifyContent="center"
       >
+        {isSharePreview ? (
+          <SizableText
+            testID="stock-mobile-share-price-preview-label"
+            size="$bodyMd"
+            color="$textSubdued"
+          >
+            {intl.formatMessage({ id: ETranslations.market_share_price })}
+            {' · '}
+            {intl.formatMessage({ id: ETranslations.preview__action })}
+          </SizableText>
+        ) : null}
         {isPriceSourceReady ? (
           <StockMarketStatusBadge
             stock={stockStatus}

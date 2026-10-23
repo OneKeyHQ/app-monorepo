@@ -133,22 +133,12 @@ function timeLabel(
   );
 }
 
-export function buildNativeChartScene({
-  config,
-  width,
-  height,
-  measureText,
-}: {
-  config: ILightweightChartConfig;
-  width: number;
-  height: number;
-  measureText: IMeasureText;
-}): INativeChartScene {
-  const commands: ITradingViewNativeSkiaCommand[] = [];
-  const customPaintStyles: INativeChartScene['customPaintStyles'] = {};
+function buildPriceScale(config: ILightweightChartConfig, height: number) {
   const fontSize = config.fontSize ?? 12;
-  const showTimeScale = config.showTimeScale !== false;
-  const plotHeight = Math.max(0, height - (showTimeScale ? fontSize + 16 : 0));
+  const plotHeight = Math.max(
+    0,
+    height - (config.showTimeScale !== false ? fontSize + 16 : 0),
+  );
   const data = config.data.filter(
     (point) => Number.isFinite(point.value) && Number.isFinite(point.time),
   );
@@ -210,6 +200,26 @@ export function buildNativeChartScene({
     (config.priceScaleFormat === 'full'
       ? formatChartPriceFullTicks(ticks)
       : ticks.map((value) => formatNativeChartPrice(value, config)));
+  return {
+    fontSize,
+    plotHeight,
+    data,
+    secondary,
+    base,
+    yAtValue,
+    ticks,
+    tickLabels,
+  };
+}
+
+type IPriceScale = ReturnType<typeof buildPriceScale>;
+
+function measurePriceAxis(
+  config: ILightweightChartConfig,
+  scale: IPriceScale,
+  measureText: IMeasureText,
+) {
+  const { data, tickLabels } = scale;
   const axisWidth = config.showPriceScale
     ? Math.max(
         config.priceScaleMinimumWidth ?? 0,
@@ -222,13 +232,15 @@ export function buildNativeChartScene({
         ].map((text) => measureText(text, 'priceAxis') + 12),
       )
     : 0;
-  const axisOnLeft = config.priceScalePosition === 'left';
-  const plot = {
-    x: axisOnLeft ? axisWidth : 0,
-    y: 0,
-    width: Math.max(0, width - axisWidth),
-    height: plotHeight,
-  };
+  return axisWidth;
+}
+
+function buildSeriesGeometry(
+  config: ILightweightChartConfig,
+  scale: IPriceScale,
+  plot: INativeChartScene['plot'],
+) {
+  const { data, secondary, yAtValue } = scale;
   const lastX = Math.max(
     plot.x,
     plot.x + plot.width - (config.timeScaleRightOffsetPixels ?? 0) - 2,
@@ -278,6 +290,36 @@ export function buildNativeChartScene({
     time: Number(point.time),
     price: point.value,
   }));
+  return { firstX, lastX, indexByTime, xAtIndex, hoverPoints, points };
+}
+
+function buildChartLayout(
+  config: ILightweightChartConfig,
+  width: number,
+  height: number,
+  measureText: IMeasureText,
+) {
+  const scale = buildPriceScale(config, height);
+  const axisWidth = measurePriceAxis(config, scale, measureText);
+  const axisOnLeft = config.priceScalePosition === 'left';
+  const plot = {
+    x: axisOnLeft ? axisWidth : 0,
+    y: 0,
+    width: Math.max(0, width - axisWidth),
+    height: scale.plotHeight,
+  };
+  return {
+    ...scale,
+    axisWidth,
+    axisOnLeft,
+    plot,
+    ...buildSeriesGeometry(config, scale, plot),
+  };
+}
+
+function createScenePainter() {
+  const commands: INativeChartScene['commands'] = [];
+  const customPaintStyles: INativeChartScene['customPaintStyles'] = {};
   const style = (
     id: string,
     color: string,
@@ -319,21 +361,29 @@ export function buildNativeChartScene({
       y1,
       y2,
     });
-  style('axis', config.theme.textSubduedColor);
-  if (width <= 0 || height <= 0 || !points.length)
-    return {
-      commands,
-      customPaintStyles,
-      plot,
-      points,
-      hoverPoints,
-      axisWidth,
-      secondarySegments: [],
-      fontSize,
-      axisOnLeft,
-      crosshairColor: '',
-      showCrosshairPrice: false,
-    };
+  return { commands, customPaintStyles, style, line };
+}
+
+type IChartDrawingContext = {
+  config: ILightweightChartConfig;
+  layout: ReturnType<typeof buildChartLayout>;
+  painter: ReturnType<typeof createScenePainter>;
+};
+
+function getLinePoints(config: ILightweightChartConfig, source: IPoint[]) {
+  return config.lineType === 'steps'
+    ? source.flatMap((point, i) =>
+        i ? [{ x: point.x, y: source[i - 1].y }, point] : [point],
+      )
+    : source;
+}
+
+function drawGrid(context: IChartDrawingContext) {
+  const {
+    config,
+    layout: { ticks, plot, yAtValue },
+    painter: { line },
+  } = context;
   if (config.showHorzGridLines)
     ticks.forEach((price) =>
       line(
@@ -347,20 +397,21 @@ export function buildNativeChartScene({
         lineDash(config.horzLineStyle ?? 2),
       ),
     );
-  commands.push({ kind: 'clip', rect: plot });
-  const linePoints = (source: IPoint[]) =>
-    config.lineType === 'steps'
-      ? source.flatMap((point, i) =>
-          i ? [{ x: point.x, y: source[i - 1].y }, point] : [point],
-        )
-      : source;
+}
+
+function drawSeriesFill(context: IChartDrawingContext) {
+  const {
+    config,
+    layout: { points, plotHeight, base, yAtValue, plot, lastX },
+    painter: { commands, style },
+  } = context;
   const areaBottom =
     config.seriesType === 'baseline'
       ? Math.max(0, Math.min(plotHeight, yAtValue(base)))
       : plotHeight;
   const polygon = [
     { x: points[0].x, y: areaBottom },
-    ...linePoints(points),
+    ...getLinePoints(config, points),
     { x: points[points.length - 1].x, y: areaBottom },
   ];
   if (config.seriesType === 'dotted-area') {
@@ -417,6 +468,14 @@ export function buildNativeChartScene({
       });
     commands.push({ kind: 'restore' });
   }
+}
+
+function drawPrimarySeries(context: IChartDrawingContext) {
+  const {
+    config,
+    layout: { points, lastX, firstX, base, yAtValue, plotHeight, plot },
+    painter: { commands, style },
+  } = context;
   if (config.seriesType === 'histogram') {
     const options = config.histogramOptions;
     const barWidth = Math.max(
@@ -467,7 +526,7 @@ export function buildNativeChartScene({
         kind: 'polyline',
         paint: 'lineStroke',
         customPaintId: style(id, color, config.lineWidth),
-        points: linePoints(points),
+        points: getLinePoints(config, points),
       });
       commands.push({ kind: 'restore' });
     }
@@ -476,8 +535,12 @@ export function buildNativeChartScene({
       kind: 'polyline',
       paint: 'lineStroke',
       customPaintId: style('primary', config.theme.lineColor, config.lineWidth),
-      points: linePoints(points),
+      points: getLinePoints(config, points),
     });
+}
+
+function buildSecondarySegments(layout: IChartDrawingContext['layout']) {
+  const { secondary, indexByTime, xAtIndex, yAtValue } = layout;
   const secondarySegments: IPoint[][] = [];
   let segment: IPoint[] = [];
   secondary.forEach((point) => {
@@ -490,6 +553,17 @@ export function buildNativeChartScene({
     segment.push({ x: xAtIndex(index), y: yAtValue(point.value) });
   });
   if (segment.length) secondarySegments.push(segment);
+  return secondarySegments;
+}
+
+function drawSecondarySeries(
+  context: IChartDrawingContext,
+  secondarySegments: IPoint[][],
+) {
+  const {
+    config,
+    painter: { commands, style },
+  } = context;
   if (secondarySegments.length)
     style(
       'secondary',
@@ -517,6 +591,14 @@ export function buildNativeChartScene({
         radius: (config.secondaryLineWidth ?? 2) / 2,
       });
   });
+}
+
+function drawLastPointMarker(context: IChartDrawingContext) {
+  const {
+    config,
+    layout: { points },
+    painter: { commands, style },
+  } = context;
   const lastPoint = points[points.length - 1];
   if (
     config.showLastPointMarker !== false &&
@@ -530,6 +612,15 @@ export function buildNativeChartScene({
       cy: lastPoint.y,
       radius: 5.5,
     });
+}
+
+function drawPriceLines(context: IChartDrawingContext) {
+  const {
+    config,
+    layout: { plot, yAtValue, points },
+    painter: { line },
+  } = context;
+  const lastPoint = points[points.length - 1];
   if (config.referenceLine)
     line(
       'referenceLine',
@@ -560,214 +651,336 @@ export function buildNativeChartScene({
       1,
       lineDash(2),
     );
-  commands.push({ kind: 'restore' });
+}
+
+function drawPlot(context: IChartDrawingContext) {
+  const { layout, painter } = context;
+  drawGrid(context);
+  painter.commands.push({ kind: 'clip', rect: layout.plot });
+  drawSeriesFill(context);
+  drawPrimarySeries(context);
+  const secondarySegments = buildSecondarySegments(layout);
+  drawSecondarySeries(context, secondarySegments);
+  drawLastPointMarker(context);
+  drawPriceLines(context);
+  painter.commands.push({ kind: 'restore' });
+  return secondarySegments;
+}
+
+function getPriceAxisLabels(context: IChartDrawingContext) {
+  const {
+    config,
+    layout: { fontSize, plotHeight, yAtValue, points },
+  } = context;
+  const lastPoint = points[points.length - 1];
+  const labelHeight = fontSize + 6;
+  const clampLabelY = (value: number) =>
+    Math.min(
+      plotHeight - labelHeight / 2,
+      Math.max(labelHeight / 2, yAtValue(value)),
+    );
+  let lastLabelY = clampLabelY(lastPoint.price);
+  let referenceLabelY = config.referenceLine
+    ? clampLabelY(config.referenceLine.price)
+    : undefined;
+  if (
+    config.showLastValue &&
+    config.referenceLine?.axisLabelVisible &&
+    referenceLabelY !== undefined &&
+    Math.abs(lastLabelY - referenceLabelY) < labelHeight
+  ) {
+    const center = Math.max(
+      labelHeight,
+      Math.min(plotHeight - labelHeight, (lastLabelY + referenceLabelY) / 2),
+    );
+    const lastIsAbove = lastLabelY < referenceLabelY;
+    lastLabelY = center + ((lastIsAbove ? -1 : 1) * labelHeight) / 2;
+    referenceLabelY = center + ((lastIsAbove ? 1 : -1) * labelHeight) / 2;
+  }
+  return { labelHeight, clampLabelY, lastLabelY, referenceLabelY };
+}
+
+type IPriceAxisLabels = ReturnType<typeof getPriceAxisLabels>;
+
+function drawPriceTicks(
+  context: IChartDrawingContext,
+  labels: IPriceAxisLabels,
+) {
+  const {
+    config,
+    layout: {
+      ticks,
+      tickLabels,
+      fontSize,
+      plotHeight,
+      yAtValue,
+      axisOnLeft,
+      plot,
+    },
+    painter: { commands },
+  } = context;
+  const { labelHeight, lastLabelY, referenceLabelY } = labels;
   const axisX = axisOnLeft ? 6 : plot.x + plot.width + 6;
-  if (config.showPriceScale) {
-    const labelHeight = fontSize + 6;
-    const clampLabelY = (value: number) =>
-      Math.min(
-        plotHeight - labelHeight / 2,
-        Math.max(labelHeight / 2, yAtValue(value)),
-      );
-    let lastLabelY = clampLabelY(lastPoint.price);
-    let referenceLabelY = config.referenceLine
-      ? clampLabelY(config.referenceLine.price)
-      : undefined;
+  ticks.forEach((price, i) => {
+    const y = yAtValue(price);
     if (
-      config.showLastValue &&
-      config.referenceLine?.axisLabelVisible &&
-      referenceLabelY !== undefined &&
-      Math.abs(lastLabelY - referenceLabelY) < labelHeight
-    ) {
-      const center = Math.max(
-        labelHeight,
-        Math.min(plotHeight - labelHeight, (lastLabelY + referenceLabelY) / 2),
-      );
-      const lastIsAbove = lastLabelY < referenceLabelY;
-      lastLabelY = center + ((lastIsAbove ? -1 : 1) * labelHeight) / 2;
-      referenceLabelY = center + ((lastIsAbove ? 1 : -1) * labelHeight) / 2;
-    }
-    ticks.forEach((price, i) => {
-      const y = yAtValue(price);
-      if (
-        config.priceScaleEntireTextOnly &&
-        (y < fontSize || y > plotHeight - fontSize / 2)
-      )
-        return;
-      if (
-        (config.showLastValue && Math.abs(y - lastLabelY) < labelHeight) ||
-        (config.referenceLine?.axisLabelVisible &&
-          referenceLabelY !== undefined &&
-          Math.abs(y - referenceLabelY) < labelHeight)
-      )
-        return;
-      commands.push({
-        kind: 'text',
-        paint: 'axisText',
-        customPaintId: 'axis',
-        font: 'priceAxis',
-        text: tickLabels[i],
-        x: axisX,
-        y: y + fontSize * 0.35,
-      });
+      config.priceScaleEntireTextOnly &&
+      (y < fontSize || y > plotHeight - fontSize / 2)
+    )
+      return;
+    if (
+      (config.showLastValue && Math.abs(y - lastLabelY) < labelHeight) ||
+      (config.referenceLine?.axisLabelVisible &&
+        referenceLabelY !== undefined &&
+        Math.abs(y - referenceLabelY) < labelHeight)
+    )
+      return;
+    commands.push({
+      kind: 'text',
+      paint: 'axisText',
+      customPaintId: 'axis',
+      font: 'priceAxis',
+      text: tickLabels[i],
+      x: axisX,
+      y: y + fontSize * 0.35,
     });
-    const axisLabel = (
-      id: string,
-      price: number,
-      color: string,
-      textColor: string,
-      y: number,
-    ) => {
-      commands.push({
-        kind: 'rect',
-        paint: 'line',
-        customPaintId: style(id, color),
-        x: axisOnLeft ? 0 : plot.x + plot.width,
-        y: y - labelHeight / 2,
-        width: axisWidth,
-        height: labelHeight,
-      });
-      commands.push({
-        kind: 'text',
-        paint: 'axisText',
-        customPaintId: style(`${id}.text`, textColor),
-        font: 'priceAxis',
-        text: formatNativeChartPrice(price, config),
-        x: axisX,
-        y: y + fontSize * 0.35,
-      });
+  });
+}
+
+function createPriceAxisLabelPainter(
+  context: IChartDrawingContext,
+  labelHeight: number,
+) {
+  const {
+    config,
+    layout: { axisOnLeft, axisWidth, plot, fontSize },
+    painter: { commands, style },
+  } = context;
+  const axisX = axisOnLeft ? 6 : plot.x + plot.width + 6;
+  const axisLabel = (
+    id: string,
+    price: number,
+    color: string,
+    textColor: string,
+    y: number,
+  ) => {
+    commands.push({
+      kind: 'rect',
+      paint: 'line',
+      customPaintId: style(id, color),
+      x: axisOnLeft ? 0 : plot.x + plot.width,
+      y: y - labelHeight / 2,
+      width: axisWidth,
+      height: labelHeight,
+    });
+    commands.push({
+      kind: 'text',
+      paint: 'axisText',
+      customPaintId: style(`${id}.text`, textColor),
+      font: 'priceAxis',
+      text: formatNativeChartPrice(price, config),
+      x: axisX,
+      y: y + fontSize * 0.35,
+    });
+  };
+  return axisLabel;
+}
+
+function drawReferenceTitle(
+  context: IChartDrawingContext,
+  labelHeight: number,
+  measureText: IMeasureText,
+) {
+  const {
+    config,
+    layout: { axisOnLeft, plot, plotHeight, yAtValue, fontSize },
+    painter: { commands },
+  } = context;
+  const ref = config.referenceLine;
+  if (ref?.title) {
+    const textWidth = measureText(ref.title, 'referenceLineLabel');
+    const y = Math.min(
+      plotHeight - labelHeight,
+      Math.max(0, yAtValue(ref.price) - labelHeight),
+    );
+    const x = axisOnLeft ? plot.x : plot.x + plot.width - textWidth - 8;
+    commands.push({
+      kind: 'rect',
+      paint: 'line',
+      customPaintId: 'referenceLabel',
+      x,
+      y,
+      width: textWidth + 8,
+      height: labelHeight,
+    });
+    commands.push({
+      kind: 'text',
+      paint: 'axisText',
+      customPaintId: 'referenceLabel.text',
+      font: 'referenceLineLabel',
+      text: ref.title,
+      x: x + 4,
+      y: y + fontSize + 2,
+    });
+  }
+}
+
+function drawPriceAxis(
+  context: IChartDrawingContext,
+  measureText: IMeasureText,
+) {
+  const {
+    config,
+    layout: { points },
+  } = context;
+  if (!config.showPriceScale) return;
+  const labels = getPriceAxisLabels(context);
+  drawPriceTicks(context, labels);
+  const axisLabel = createPriceAxisLabelPainter(context, labels.labelHeight);
+  const ref = config.referenceLine;
+  if (ref?.axisLabelVisible) {
+    axisLabel(
+      'referenceLabel',
+      ref.price,
+      ref.axisLabelColor ?? ref.color,
+      ref.axisLabelTextColor ?? '#fff',
+      labels.referenceLabelY ?? labels.clampLabelY(ref.price),
+    );
+    drawReferenceTitle(context, labels.labelHeight, measureText);
+  }
+  const lastPoint = points[points.length - 1];
+  if (config.showLastValue)
+    axisLabel(
+      'lastLabel',
+      lastPoint.price,
+      config.lastValueLabelColor ?? getSeriesColor(config, lastPoint.price),
+      '#fff',
+      labels.lastLabelY,
+    );
+}
+
+function buildTimeLabels(context: IChartDrawingContext) {
+  const {
+    config,
+    layout: { points },
+  } = context;
+  // Resolve the default once, only when labels actually use the timezone.
+  const timeScaleConfig =
+    config.timeZone !== undefined || config.useTimeScaleTickMarkWithoutUnit
+      ? config
+      : {
+          ...config,
+          timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        };
+  const candidates = points.map((point, index) => {
+    const previous = points[index - 1];
+    const year = timeLabel(point.time, 0, timeScaleConfig);
+    const month = timeLabel(point.time, 1, timeScaleConfig);
+    const day = timeLabel(point.time, 2, timeScaleConfig);
+    let type = 3;
+    if (previous && year !== timeLabel(previous.time, 0, timeScaleConfig))
+      type = 0;
+    else if (previous && month !== timeLabel(previous.time, 1, timeScaleConfig))
+      type = 1;
+    else if (!previous || day !== timeLabel(previous.time, 2, timeScaleConfig))
+      type = 2;
+    return {
+      ...point,
+      text: timeLabel(point.time, type, timeScaleConfig),
+      priority: 4 - type,
     };
-    const ref = config.referenceLine;
-    if (ref?.axisLabelVisible) {
-      const color = ref.axisLabelColor ?? ref.color;
-      axisLabel(
-        'referenceLabel',
-        ref.price,
-        color,
-        ref.axisLabelTextColor ?? '#fff',
-        referenceLabelY ?? clampLabelY(ref.price),
-      );
-      if (ref.title) {
-        const textWidth = measureText(ref.title, 'referenceLineLabel');
-        const y = Math.min(
-          plotHeight - labelHeight,
-          Math.max(0, yAtValue(ref.price) - labelHeight),
-        );
-        const x = axisOnLeft ? plot.x : plot.x + plot.width - textWidth - 8;
-        commands.push({
-          kind: 'rect',
-          paint: 'line',
-          customPaintId: 'referenceLabel',
-          x,
-          y,
-          width: textWidth + 8,
-          height: labelHeight,
-        });
-        commands.push({
-          kind: 'text',
-          paint: 'axisText',
-          customPaintId: 'referenceLabel.text',
-          font: 'referenceLineLabel',
-          text: ref.title,
-          x: x + 4,
-          y: y + fontSize + 2,
-        });
-      }
-    }
-    if (config.showLastValue)
-      axisLabel(
-        'lastLabel',
-        lastPoint.price,
-        config.lastValueLabelColor ?? getSeriesColor(config, lastPoint.price),
-        '#fff',
-        lastLabelY,
-      );
+  });
+  return candidates;
+}
+
+function drawTimeAxis(
+  context: IChartDrawingContext,
+  measureText: IMeasureText,
+) {
+  const {
+    config,
+    layout: { plot, plotHeight, fontSize },
+    painter: { commands },
+  } = context;
+  if (config.showTimeScale === false) return;
+  const candidates = buildTimeLabels(context);
+  const positioned = candidates.map((point) => {
+    const textWidth = measureText(point.text, 'axis');
+    return {
+      ...point,
+      textWidth,
+      left: Math.max(
+        plot.x,
+        Math.min(plot.x + plot.width - textWidth, point.x - textWidth / 2),
+      ),
+    };
+  });
+  const chosen: typeof positioned = [];
+  for (const candidate of positioned.toSorted(
+    (a, b) => b.priority - a.priority || a.x - b.x,
+  )) {
+    if (
+      chosen.every(
+        (p) =>
+          candidate.left >= p.left + p.textWidth + 20 ||
+          p.left >= candidate.left + candidate.textWidth + 20,
+      )
+    )
+      chosen.push(candidate);
   }
-  if (showTimeScale) {
-    // Resolve the default once, only when labels actually use the timezone.
-    const timeScaleConfig =
-      config.timeZone !== undefined || config.useTimeScaleTickMarkWithoutUnit
-        ? config
-        : {
-            ...config,
-            timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-          };
-    const candidates = points.map((point, index) => {
-      const previous = points[index - 1];
-      const year = timeLabel(point.time, 0, timeScaleConfig);
-      const month = timeLabel(point.time, 1, timeScaleConfig);
-      const day = timeLabel(point.time, 2, timeScaleConfig);
-      let type = 3;
-      if (previous && year !== timeLabel(previous.time, 0, timeScaleConfig))
-        type = 0;
-      else if (
-        previous &&
-        month !== timeLabel(previous.time, 1, timeScaleConfig)
-      )
-        type = 1;
-      else if (
-        !previous ||
-        day !== timeLabel(previous.time, 2, timeScaleConfig)
-      )
-        type = 2;
-      return {
-        ...point,
-        text: timeLabel(point.time, type, timeScaleConfig),
-        priority: 4 - type,
-      };
+  chosen.forEach((point) => {
+    commands.push({
+      kind: 'text',
+      paint: 'axisText',
+      customPaintId: 'axis',
+      font: 'axis',
+      text: point.text,
+      x: point.left,
+      y: plotHeight + fontSize + 7,
     });
-    const positioned = candidates.map((point) => {
-      const textWidth = measureText(point.text, 'axis');
-      return {
-        ...point,
-        textWidth,
-        left: Math.max(
-          plot.x,
-          Math.min(plot.x + plot.width - textWidth, point.x - textWidth / 2),
-        ),
-      };
-    });
-    const chosen: typeof positioned = [];
-    for (const candidate of positioned.toSorted(
-      (a, b) => b.priority - a.priority || a.x - b.x,
-    )) {
-      if (
-        chosen.every(
-          (p) =>
-            candidate.left >= p.left + p.textWidth + 20 ||
-            p.left >= candidate.left + candidate.textWidth + 20,
-        )
-      )
-        chosen.push(candidate);
-    }
-    chosen.forEach((point) => {
-      commands.push({
-        kind: 'text',
-        paint: 'axisText',
-        customPaintId: 'axis',
-        font: 'axis',
-        text: point.text,
-        x: point.left,
-        y: plotHeight + fontSize + 7,
-      });
-    });
-  }
-  return {
-    commands,
-    customPaintStyles,
+  });
+}
+
+export function buildNativeChartScene({
+  config,
+  width,
+  height,
+  measureText,
+}: {
+  config: ILightweightChartConfig;
+  width: number;
+  height: number;
+  measureText: IMeasureText;
+}): INativeChartScene {
+  const layout = buildChartLayout(config, width, height, measureText);
+  const painter = createScenePainter();
+  painter.style('axis', config.theme.textSubduedColor);
+  const { plot, points, hoverPoints, axisWidth, fontSize, axisOnLeft } = layout;
+  const scene: INativeChartScene = {
+    commands: painter.commands,
+    customPaintStyles: painter.customPaintStyles,
     plot,
     points,
     hoverPoints,
     axisWidth,
-    secondarySegments,
-    lastPoint,
     fontSize,
     axisOnLeft,
-    crosshairColor: config.crosshairVertLineColor ?? 'rgba(150, 150, 150, 0.4)',
-    crosshairDash: lineDash(config.crosshairVertLineStyle),
-    showCrosshairPrice:
-      !config.hideCrosshairPriceLabel && !!config.showPriceScale,
+    secondarySegments: [],
+    crosshairColor: '',
+    showCrosshairPrice: false,
   };
+  if (width <= 0 || height <= 0 || !points.length) return scene;
+  const context = { config, layout, painter };
+  scene.secondarySegments = drawPlot(context);
+  drawPriceAxis(context, measureText);
+  drawTimeAxis(context, measureText);
+  scene.lastPoint = points[points.length - 1];
+  scene.crosshairColor =
+    config.crosshairVertLineColor ?? 'rgba(150, 150, 150, 0.4)';
+  scene.crosshairDash = lineDash(config.crosshairVertLineStyle);
+  scene.showCrosshairPrice =
+    !config.hideCrosshairPriceLabel && !!config.showPriceScale;
+  return scene;
 }
 
 export function getNativeChartHover(
@@ -804,16 +1017,18 @@ export function getNativeChartHover(
   };
 }
 
-export function buildNativeChartCrosshair(
+type ICrosshairOverlay = Pick<
+  INativeChartScene,
+  'commands' | 'customPaintStyles'
+>;
+type IHoverPoint = INativeChartScene['hoverPoints'][number];
+
+function buildCrosshairStyles(
   scene: INativeChartScene,
-  x: number,
-  y: number,
+  point?: IHoverPoint,
   scrub?: ILightweightChartConfig['nativeScrubOptions'],
 ) {
   'worklet';
-  const hover = getNativeChartHover(scene, x, y);
-  const point = scene.hoverPoints.find((p) => p.time === hover.time);
-  const commands: INativeChartScene['commands'] = [];
   const customPaintStyles: INativeChartScene['customPaintStyles'] = {
     ...scene.customPaintStyles,
     crosshair: {
@@ -833,7 +1048,16 @@ export function buildNativeChartCrosshair(
     hoverBackground: { color: '#4C525E', opacity: 1 },
     hoverText: { color: '#FFFFFF', opacity: 1 },
   };
-  if (!point) return { commands, customPaintStyles };
+  return customPaintStyles;
+}
+
+function drawCrosshairPlot(
+  scene: INativeChartScene,
+  point: IHoverPoint,
+  commands: INativeChartScene['commands'],
+  scrub?: ILightweightChartConfig['nativeScrubOptions'],
+) {
+  'worklet';
   commands.push({ kind: 'clip', rect: scene.plot });
   commands.push({
     kind: 'line',
@@ -874,6 +1098,14 @@ export function buildNativeChartCrosshair(
     radius: 3.5,
   });
   commands.push({ kind: 'restore' });
+}
+
+function drawCrosshairPrice(
+  scene: INativeChartScene,
+  point: IHoverPoint,
+  commands: INativeChartScene['commands'],
+) {
+  'worklet';
   const h = scene.fontSize + 6;
   if (scene.showCrosshairPrice) {
     const axisX = scene.axisOnLeft ? 0 : scene.plot.x + scene.plot.width;
@@ -898,6 +1130,18 @@ export function buildNativeChartCrosshair(
       y: top + scene.fontSize + 2,
     });
   }
+}
+
+function drawScrubTooltip(
+  scene: INativeChartScene,
+  point: IHoverPoint,
+  x: number,
+  y: number,
+  overlay: ICrosshairOverlay,
+  scrub?: ILightweightChartConfig['nativeScrubOptions'],
+) {
+  'worklet';
+  const { commands, customPaintStyles } = overlay;
   const label = scrub?.labels[point.time];
   if (scrub && label) {
     const width = 120;
@@ -960,5 +1204,24 @@ export function buildNativeChartCrosshair(
         y: top + height - 8,
       });
   }
-  return { commands, customPaintStyles };
+}
+
+export function buildNativeChartCrosshair(
+  scene: INativeChartScene,
+  x: number,
+  y: number,
+  scrub?: ILightweightChartConfig['nativeScrubOptions'],
+) {
+  'worklet';
+  const hover = getNativeChartHover(scene, x, y);
+  const point = scene.hoverPoints.find((p) => p.time === hover.time);
+  const overlay: ICrosshairOverlay = {
+    commands: [],
+    customPaintStyles: buildCrosshairStyles(scene, point, scrub),
+  };
+  if (!point) return overlay;
+  drawCrosshairPlot(scene, point, overlay.commands, scrub);
+  drawCrosshairPrice(scene, point, overlay.commands);
+  drawScrubTooltip(scene, point, x, y, overlay, scrub);
+  return overlay;
 }
