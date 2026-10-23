@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
 
 import type { IYStackProps } from '@onekeyhq/components';
-import { YStack, useMedia } from '@onekeyhq/components';
+import { Stack, YStack, useMedia } from '@onekeyhq/components';
 import type { IDApp } from '@onekeyhq/shared/types/discovery';
 
 import { TrendingSectionItem } from './TrendingSectionItem';
+import { useEdgeAlignedGrid } from './useEdgeAlignedGrid';
 
 import type { IMatchDAppItemType } from '../../types';
 
@@ -20,6 +21,7 @@ export function TrendingSectionItems({
 }) {
   const [numberOfItems, setNumberOfItems] = useState(0);
   const media = useMedia();
+  const { onLayout, marginHorizontal } = useEdgeAlignedGrid();
 
   const innerDataSource =
     dataSource.length > 0
@@ -52,31 +54,34 @@ export function TrendingSectionItems({
   }, [media.gtXl, media.gt2Md, media.gtSm, media]);
 
   return (
-    <YStack
-      flexDirection="row"
-      flexWrap="wrap"
-      rowGap="$4"
-      py="$2"
-      {...restProps}
-    >
-      {innerDataSource.slice(0, numberOfItems).map((dApp, index) => (
-        <YStack
-          key={dApp.dappId || index}
-          width="25%"
-          $gtSm={{ width: '20%' }}
-          $gt2Md={{ width: '16.6%' }}
-          $gtXl={{ width: '10%' }}
-        >
-          <TrendingSectionItem
-            logo={dApp.logo}
-            title={dApp.name}
-            url={dApp.url}
-            dApp={dApp}
-            isLoading={isLoading}
-            handleOpenWebSite={handleOpenWebSite}
-          />
-        </YStack>
-      ))}
-    </YStack>
+    <Stack onLayout={onLayout}>
+      <YStack
+        mx={marginHorizontal}
+        flexDirection="row"
+        flexWrap="wrap"
+        rowGap="$4"
+        py="$2"
+        {...restProps}
+      >
+        {innerDataSource.slice(0, numberOfItems).map((dApp, index) => (
+          <YStack
+            key={dApp.dappId || index}
+            width="25%"
+            $gtSm={{ width: '20%' }}
+            $gt2Md={{ width: '16.6%' }}
+            $gtXl={{ width: '10%' }}
+          >
+            <TrendingSectionItem
+              logo={dApp.logo}
+              title={dApp.name}
+              url={dApp.url}
+              dApp={dApp}
+              isLoading={isLoading}
+              handleOpenWebSite={handleOpenWebSite}
+            />
+          </YStack>
+        ))}
+      </YStack>
+    </Stack>
   );
 }

@@ -37,13 +37,13 @@ export function DiscoveryItemCard({
   handleOpenWebSite,
 }: IDiscoveryItemCardProps) {
   const { md } = useMedia();
-  const maxWordLength = useMemo(() => {
-    if (platformEnv.isNative) {
-      return 9;
-    }
-    return md ? 9 : 16;
-  }, [md]);
+  const maxWordLength = md ? 9 : 16;
   const displayTitle = useMemo(() => {
+    // Native wraps long names on its own (no forced hyphen); the manual
+    // break is only for web, where a long word would overflow instead.
+    if (platformEnv.isNative) {
+      return title;
+    }
     const words = title.split(' ');
     if (words[0].length > maxWordLength) {
       words[0] = `${words[0].slice(0, maxWordLength)}-\n${words[0].slice(
@@ -119,7 +119,7 @@ export function DiscoveryItemCard({
           ) : null}
         </Stack>
         <SizableText
-          px="$2"
+          px="$1"
           w="100%"
           size="$bodySmMedium"
           textAlign="center"

@@ -106,7 +106,12 @@ export function BookmarksSection() {
   }
 
   return (
-    <Stack minHeight="$40" testID={DiscoveryTestIDs.bookmarksSection}>
+    <Stack
+      // Phones size to the bookmarks they have, so one row doesn't leave a
+      // gap above Trending.
+      $gtSm={{ minHeight: '$40' }}
+      testID={DiscoveryTestIDs.bookmarksSection}
+    >
       <DashboardSectionHeader>
         <DashboardSectionHeader.Heading selected>
           {intl.formatMessage({ id: ETranslations.explore_bookmarks })}
