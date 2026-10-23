@@ -179,6 +179,21 @@ describe('ServiceHyperliquidExchange account guard', () => {
     globalThis.$onekeyIsInBackground = previousScope;
   });
 
+  it('preserves the localized price error when setting position TP/SL', async () => {
+    await expect(
+      service.setPositionTpsl({
+        assetId: 0,
+        expectedAccountAddress: ADDRESS_A,
+        positionSize: '0',
+        isBuy: true,
+        slTriggerPx: '0',
+      }),
+    ).rejects.toMatchObject({
+      message: ETranslations.perp_order_price_too_small__msg,
+    });
+    expect(orderCalls()).toBe(0);
+  });
+
   it('signs an add-position order with the confirmed account', async () => {
     await service.placeOrderByCoin(addPositionParams);
 
