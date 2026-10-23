@@ -60,7 +60,9 @@ import MobileBrowserHeader from '../../components/MobileBrowser/MobileBrowserHea
 import { OuterTabPagerView } from '../../components/OuterTabPagerView';
 import { useDAppNotifyChanges } from '../../hooks/useDAppNotifyChanges';
 // import { useEdgeSwipeDetection } from '../../hooks/useEdgeSwipeDetection';
-import useMobileBottomBarAnimation from '../../hooks/useMobileBottomBarAnimation';
+import useMobileBottomBarAnimation, {
+  isCompactBrowserChrome,
+} from '../../hooks/useMobileBottomBarAnimation';
 import {
   useActiveTabId,
   useDisplayHomePageFlag,
@@ -275,6 +277,7 @@ function MobileBrowser() {
     toolbarAnimatedStyle,
     toolbarOverlayStyle,
     webPageAnimatedStyle,
+    fullBarHeight,
   } = useMobileBottomBarAnimation(activeTabId);
   useDAppNotifyChanges({ tabId: activeTabId });
 
@@ -451,6 +454,11 @@ function MobileBrowser() {
     };
   }, [closeCurrentWebTab]);
 
+  // Phone layout only: the iPad split layout keeps the bar in-flow.
+  const webContentBottomInset =
+    isCompactBrowserChrome && !isTabletMainView && !isTabletDetailView
+      ? fullBarHeight
+      : undefined;
   const content = useMemo(
     () =>
       tabs.map((t) => (
@@ -459,9 +467,10 @@ function MobileBrowser() {
           key={t.id}
           isBrowserContentVisible={isBrowserWebPageVisible}
           onScroll={handleScroll}
+          contentBottomInset={webContentBottomInset}
         />
       )),
-    [tabs, handleScroll, isBrowserWebPageVisible],
+    [tabs, handleScroll, isBrowserWebPageVisible, webContentBottomInset],
   );
 
   useNotifyTabBarDisplay(

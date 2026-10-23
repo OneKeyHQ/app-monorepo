@@ -165,8 +165,11 @@ function useMobileBottomBarAnimation(activeTabId: string | null) {
           opacity: chromeProgress.value,
         },
   );
+  // The compact iOS bar floats over the page (Liquid Glass shows the content
+  // through it), so the WebView keeps its full height; scrollable content is
+  // kept reachable above the bar via the WebView contentInset instead.
   const webPageAnimatedStyle = useAnimatedStyle(() => ({
-    bottom: fullBarHeight * chromeProgress.value,
+    bottom: isCompactBrowserChrome ? 0 : fullBarHeight * chromeProgress.value,
   }));
 
   // Reset toolbar animation state when activeTabId changes.
@@ -183,6 +186,7 @@ function useMobileBottomBarAnimation(activeTabId: string | null) {
     toolbarOverlayStyle,
     webPageAnimatedStyle,
     chromeProgress,
+    fullBarHeight,
   };
 }
 

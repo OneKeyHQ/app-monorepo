@@ -46,6 +46,7 @@ type IWebContentProps = IWebTab &
     setBackEnabled: Dispatch<SetStateAction<boolean>>;
     setForwardEnabled: Dispatch<SetStateAction<boolean>>;
     customReceiveHandler?: IJsBridgeReceiveHandler;
+    contentBottomInset?: number;
   };
 
 function WebContent({
@@ -59,6 +60,7 @@ function WebContent({
   onScroll,
   siteMode,
   customReceiveHandler,
+  contentBottomInset,
 }: IWebContentProps) {
   const lastNavEventSnapshot = useRef('');
   const showHome = url === homeTab.url;
@@ -240,6 +242,12 @@ function WebContent({
         onLoadStart={onLoadStart}
         onLoadEnd={onLoadEnd as any}
         onScroll={onScroll}
+        {...(contentBottomInset
+          ? {
+              contentInset: { bottom: contentBottomInset },
+              scrollIndicatorInsets: { bottom: contentBottomInset },
+            }
+          : undefined)}
         displayProgressBar={false}
         onProgress={(p) => setProgress(p)}
       />
@@ -254,6 +262,7 @@ function WebContent({
       siteMode,
       url,
       customReceiveHandler,
+      contentBottomInset,
     ],
   );
 

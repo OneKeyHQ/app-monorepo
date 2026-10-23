@@ -40,10 +40,13 @@ function MobileBrowserContent({
   id,
   isBrowserContentVisible,
   onScroll,
+  contentBottomInset,
 }: {
   id: string;
   isBrowserContentVisible: boolean;
   onScroll?: (event: IWebViewOnScrollEvent) => void;
+  // iOS: room for chrome floating over the bottom of the page.
+  contentBottomInset?: number;
 }) {
   const { tab } = useWebTabDataById(id);
   const { activeTabId } = useActiveTabId();
@@ -140,6 +143,7 @@ function MobileBrowserContent({
             setForwardEnabled={setForwardEnabled}
             onScroll={onScroll}
             customReceiveHandler={customReceiveHandler}
+            contentBottomInset={contentBottomInset}
           />
         </Stack>
       </ViewShot>
