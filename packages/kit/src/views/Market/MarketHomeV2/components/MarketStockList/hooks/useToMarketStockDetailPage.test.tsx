@@ -288,9 +288,16 @@ describe('useToMarketStockDetailPage', () => {
     expect(mockPush).toHaveBeenCalled();
   });
 
-  it.each(['native', 'web', 'desktop'] as const)(
-    'keeps snapshot quotes native-only when opening a %s route',
-    async (platform) => {
+  it.each([
+    ['native', '123.45'],
+    ['native', 'NaN'],
+    ['native', 'Infinity'],
+    ['native', '-1'],
+    ['web', '123.45'],
+    ['desktop', '123.45'],
+  ] as const)(
+    'passes only valid share snapshots to the native route (%s, %s)',
+    async (platform, price) => {
       mockedPlatformEnv.isNative = platform === 'native';
       mockedPlatformEnv.isDesktop = platform === 'desktop';
       mockedPlatformEnv.isWeb = platform === 'web';
@@ -301,7 +308,8 @@ describe('useToMarketStockDetailPage', () => {
           symbol: 'AAPL',
           name: 'Apple',
           logoUrl: '',
-          price: '100',
+          price,
+          priceChange24hPercent: '1.5',
         });
       });
       const navigationArgs = mockNavigate.mock.calls[0] as [
@@ -309,13 +317,16 @@ describe('useToMarketStockDetailPage', () => {
         { params: { params: IMarketStockDetailRouteParams } },
       ];
       const params = navigationArgs[1].params.params;
-      if (platform === 'native')
+      if (platform === 'native' && price === '123.45')
         expect(params.stockPreviewQuote).toEqual({
           source: 'share',
-          price: '100',
+          price: '123.45',
+          priceChange24hPercent: '1.5',
         });
       else {
         expect(params.stockPreviewQuote).toBeUndefined();
+      }
+      if (platform !== 'native') {
         const path = getPathFromState(
           { routes: [{ name: 'MarketStockDetail', params }] },
           { screens: { MarketStockDetail: 'market/stock/:stockId' } },

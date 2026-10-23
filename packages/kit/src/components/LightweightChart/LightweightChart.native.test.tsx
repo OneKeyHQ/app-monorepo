@@ -2,7 +2,7 @@
 
 import type { ReactNode } from 'react';
 
-import { act, render } from '@testing-library/react';
+import { act, render, renderHook } from '@testing-library/react';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
@@ -22,6 +22,8 @@ const mockDraws: {
   }[];
 }[] = [];
 let mockTypeface: object | null = null;
+const mockLoadData = jest.fn<Promise<object>, [string]>();
+const mockLoadedFace = {};
 const mockFont = {
   getTypeface: () => ({}),
   measureText: (text: string) => ({ width: text.length * 6 }),
@@ -50,6 +52,9 @@ jest.mock('@onekeyhq/components', () => ({
     }, []);
     return <div>{children}</div>;
   },
+}));
+jest.mock('react-native', () => ({
+  Image: { resolveAssetSource: () => ({ uri: 'brand.ttf' }) },
 }));
 jest.mock('react-native-gesture-handler', () => ({
   GestureDetector: ({ children }: { children: ReactNode }) => children,
@@ -163,7 +168,11 @@ jest.mock('@shopify/react-native-skia', () => ({
     void picture.value;
     return null;
   },
-  Skia: { Font: (typeface: object) => mockSkiaFont(typeface) },
+  Skia: {
+    Font: (typeface: object) => mockSkiaFont(typeface),
+    Data: { fromURI: (uri: string) => mockLoadData(uri) },
+    Typeface: { MakeFreeTypeFaceFromData: () => mockLoadedFace },
+  },
   createPicture: (draw: (canvas: object) => void) => {
     draw({});
     return {};
@@ -383,4 +392,34 @@ it('reuses the static picture inside the plot and restores the full line outside
   act(() => mockGestureHandlers.end());
   expect(base.value).not.toBe(cut);
   expect(hasSolidLine()).toBe(true);
+});
+
+it('keeps the fallback on failure, shares the pending font and reuses it immediately on remount', async () => {
+  const { useChartTypeface } = jest.requireActual<
+    typeof import('./native/useChartTypeface')
+  >('./native/useChartTypeface');
+  mockLoadData.mockRejectedValueOnce(new OneKeyLocalError('Unavailable font'));
+  const failed = renderHook(useChartTypeface);
+  await act(async () => Promise.resolve());
+  expect(failed.result.current).toBeNull();
+  failed.unmount();
+
+  let resolveFont: (value: object) => void = () => undefined;
+  mockLoadData.mockImplementationOnce(
+    () =>
+      new Promise<object>((resolve) => {
+        resolveFont = resolve;
+      }),
+  );
+  const first = renderHook(useChartTypeface);
+  const second = renderHook(useChartTypeface);
+  expect(first.result.current).toBeNull();
+  expect(second.result.current).toBeNull();
+  first.unmount();
+  await act(async () => resolveFont({}));
+  expect(second.result.current).toBe(mockLoadedFace);
+
+  const remounted = renderHook(useChartTypeface);
+  expect(remounted.result.current).toBe(mockLoadedFace);
+  expect(mockLoadData).toHaveBeenCalledTimes(2);
 });
