@@ -55,7 +55,6 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { EarnHomeWithProvider } from '../../../Earn/EarnHome';
 import { HandleRebuildBrowserData } from '../../components/HandleData/HandleRebuildBrowserTabData';
-import { useIsFloatingBrowserChrome } from '../../components/MobileBrowser/browserChrome';
 import MobileBrowserBottomBar from '../../components/MobileBrowser/MobileBrowserBottomBar';
 import MobileBrowserHeader from '../../components/MobileBrowser/MobileBrowserHeader';
 import { OuterTabPagerView } from '../../components/OuterTabPagerView';
@@ -275,7 +274,6 @@ function MobileBrowser() {
     toolbarAnimatedStyle,
     toolbarOverlayStyle,
     webPageAnimatedStyle,
-    bottomInset: chromeBottomInset,
   } = useMobileBrowserChromeAnimation();
   useDAppNotifyChanges({ tabId: activeTabId });
 
@@ -455,13 +453,6 @@ function MobileBrowser() {
   // Only the legacy tablet layout requires display:none gating across panes;
   // phone layouts keep Market, Earn, and Browser in the outer pager.
   const useOuterPager = !isTabletMainView && !isTabletDetailView;
-  // Phone layout only: the iPad split layout keeps the bar in-flow.
-  const isFloatingBrowserChrome = useIsFloatingBrowserChrome();
-  // What the floating bar covers at the bottom of the page, for the WebView
-  // insets: the whole bar while expanded, only the address pill once
-  // collapsed (so fixed page content moves down with it, like Safari).
-  const webContentBottomInset =
-    isFloatingBrowserChrome && useOuterPager ? chromeBottomInset : undefined;
   const content = useMemo(
     () =>
       tabs.map((t) => (
@@ -470,10 +461,9 @@ function MobileBrowser() {
           key={t.id}
           isBrowserContentVisible={isBrowserWebPageVisible}
           onScroll={handleScroll}
-          contentBottomInset={webContentBottomInset}
         />
       )),
-    [tabs, handleScroll, isBrowserWebPageVisible, webContentBottomInset],
+    [tabs, handleScroll, isBrowserWebPageVisible],
   );
 
   useNotifyTabBarDisplay(
@@ -691,8 +681,8 @@ function MobileBrowser() {
                 </Stack>
               }
             />
-            {/* iOS WebView layer: keeps full height under the floating bar
-                (see useMobileBrowserChromeAnimation). */}
+            {/* iOS WebView layer: ends above the bottom bar (see
+                useMobileBrowserChromeAnimation). */}
             {platformEnv.isNativeIOS ? (
               <Animated.View
                 collapsable={false}

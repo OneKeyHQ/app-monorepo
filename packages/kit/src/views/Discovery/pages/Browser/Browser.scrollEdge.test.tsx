@@ -137,9 +137,6 @@ jest.mock(
   '../../components/MobileBrowser/MobileBrowserHeader',
   () => () => null,
 );
-jest.mock('../../components/MobileBrowser/browserChrome', () => ({
-  useIsFloatingBrowserChrome: () => false,
-}));
 jest.mock('../../hooks/useDAppNotifyChanges', () => ({
   useDAppNotifyChanges: jest.fn(),
 }));

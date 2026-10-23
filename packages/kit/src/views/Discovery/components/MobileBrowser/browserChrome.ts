@@ -16,16 +16,6 @@ import type { SharedValue } from 'react-native-reanimated';
 
 const BAR_TOP_GAP = 8;
 
-// Whether the bar floats over the page (the WebView running underneath it).
-// Off everywhere: WKWebView's public obscuredContentInsets (iOS 26) keeps
-// scrollable content reachable but doesn't move the page's fixed elements
-// (bottom sheets, cookie banners, bottom navs) above the bar, so they'd be
-// covered. The WebView ends above the bar instead, which is tinted with the
-// page color so the two still read as one surface.
-export function useIsFloatingBrowserChrome() {
-  return false;
-}
-
 // Scroll-driven chrome state shared by the header and the bottom bar.
 // `progress`: 1 = expanded, 0 = collapsed.
 export interface IMobileBrowserChrome {
@@ -92,28 +82,4 @@ export function useIsChromeCollapsed(progress?: SharedValue<number>) {
     [progress],
   );
   return isCollapsed;
-}
-
-// The bottom area the floating bar covers, in each chrome state.
-export interface IChromeBottomInset {
-  progress: SharedValue<number>;
-  expanded: number;
-  collapsed: number;
-}
-
-// Current bottom inset for the WebView: follows the bar as it collapses and
-// expands (flipping at the crossfade point, not every frame). Only the active
-// tab tracks it; background tabs keep the expanded value so they don't
-// re-render on every scroll gesture.
-export function useChromeBottomInset(
-  inset: IChromeBottomInset | undefined,
-  isActive: boolean,
-) {
-  const isCollapsed = useIsChromeCollapsed(
-    isActive ? inset?.progress : undefined,
-  );
-  if (!inset) {
-    return undefined;
-  }
-  return isCollapsed ? inset.collapsed : inset.expanded;
 }

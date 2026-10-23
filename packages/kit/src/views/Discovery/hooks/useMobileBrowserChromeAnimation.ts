@@ -14,7 +14,6 @@ import type { IWebViewOnScrollEvent } from '@onekeyhq/kit/src/components/WebView
 import {
   getBarReservedHeight,
   getCollapsedReservedHeight,
-  useIsFloatingBrowserChrome,
 } from '../components/MobileBrowser/browserChrome';
 import {
   DISPLAY_BOTTOM_BAR_DURATION,
@@ -145,35 +144,19 @@ function useMobileBrowserChromeAnimation() {
   const toolbarAnimatedStyle = useAnimatedStyle(() => ({
     height: Math.max(collapsedBarHeight, fullBarHeight * chromeProgress.value),
   }));
-  const webViewBottomInset = useMemo(
-    () => ({
-      progress: chromeProgress,
-      expanded: fullBarHeight,
-      collapsed: collapsedBarHeight,
-    }),
-    [chromeProgress, fullBarHeight, collapsedBarHeight],
-  );
   // Phone layout overlays the bar on the WebView layer in a fixed box
-  // (touches pass through via box-none) so the collapsed pill can float over
-  // the page.
+  // (touches pass through via box-none); the WebView itself ends above it.
   const toolbarOverlayStyle = useMemo(
     () => ({ height: fullBarHeight }),
     [fullBarHeight],
   );
   // The WebView ends above the bar, and above the collapsed pill's strip
   // once collapsed, so the chrome never covers page content.
-  const animatedWebPageStyle = useAnimatedStyle(() => ({
+  const webPageAnimatedStyle = useAnimatedStyle(() => ({
     bottom:
       collapsedBarHeight +
       (fullBarHeight - collapsedBarHeight) * chromeProgress.value,
   }));
-  // On iOS the bar floats over the page (Liquid Glass shows the content
-  // through it), so the WebView layer keeps its full height; scrollable
-  // content stays reachable above the bar via the WebView contentInset.
-  const isFloatingBrowserChrome = useIsFloatingBrowserChrome();
-  const webPageAnimatedStyle = isFloatingBrowserChrome
-    ? undefined
-    : animatedWebPageStyle;
 
   return {
     handleScroll,
@@ -182,9 +165,6 @@ function useMobileBrowserChromeAnimation() {
     toolbarAnimatedStyle,
     toolbarOverlayStyle,
     webPageAnimatedStyle,
-    // What the floating bar covers at the bottom, per chrome state, for the
-    // WebView insets.
-    bottomInset: webViewBottomInset,
   };
 }
 

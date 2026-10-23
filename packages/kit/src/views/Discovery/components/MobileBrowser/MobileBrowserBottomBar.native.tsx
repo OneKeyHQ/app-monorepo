@@ -36,7 +36,6 @@ import {
   getDisplayHostname,
   logBrowserChromeAction,
   useIsChromeCollapsed,
-  useIsFloatingBrowserChrome,
 } from './browserChrome';
 import { BrowserChromeCapsule } from './BrowserChromeCapsule';
 import { ChromePressable } from './ChromePressable';
@@ -291,7 +290,6 @@ function MobileBrowserBottomBar({
   // Match the page's light/dark look (glass, icons, text), like Safari.
   const { pageColor, pageThemeName } = usePageTheme(id);
   const appThemeName = useThemeName();
-  const isFloatingBrowserChrome = useIsFloatingBrowserChrome();
   const isChromeCollapsed = useIsChromeCollapsed(progress);
   // Matches the WebView's bottom edge (see useMobileBrowserChromeAnimation).
   const stripFullHeight = getBarReservedHeight(bottom);
@@ -359,27 +357,22 @@ function MobileBrowserBottomBar({
     // in-flow height on tablets.
     <Theme name={pageThemeName ?? appThemeName}>
       <Stack h="100%" zIndex={1} pointerEvents="box-none">
-        {isFloatingBrowserChrome ? null : (
-          <Animated.View
-            pointerEvents="none"
-            style={[styles.strip, stripStyle]}
-          >
-            {/* The WebView ends above the bar: the strip behind the bar takes
-              the page color, with a short fade above it so the page runs
-              into the bar instead of stopping at a hard edge. */}
-            {pageColor ? (
-              <LinearGradient
-                position="absolute"
-                left={0}
-                right={0}
-                top={-STRIP_FADE_HEIGHT}
-                height={STRIP_FADE_HEIGHT}
-                colors={[toTransparent(pageColor), pageColor]}
-              />
-            ) : null}
-            <Stack flex={1} bg="$bgApp" style={pageColorStyle} />
-          </Animated.View>
-        )}
+        <Animated.View pointerEvents="none" style={[styles.strip, stripStyle]}>
+          {/* The WebView ends above the bar: the strip behind the bar takes
+            the page color, with a short fade above it so the page runs
+            into the bar instead of stopping at a hard edge. */}
+          {pageColor ? (
+            <LinearGradient
+              position="absolute"
+              left={0}
+              right={0}
+              top={-STRIP_FADE_HEIGHT}
+              height={STRIP_FADE_HEIGHT}
+              colors={[toTransparent(pageColor), pageColor]}
+            />
+          ) : null}
+          <Stack flex={1} bg="$bgApp" style={pageColorStyle} />
+        </Animated.View>
         <Animated.View
           pointerEvents={isChromeCollapsed ? 'none' : 'box-none'}
           style={[styles.bar, { bottom: capsuleBottom }]}
