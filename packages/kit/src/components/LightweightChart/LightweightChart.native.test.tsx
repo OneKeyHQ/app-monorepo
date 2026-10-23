@@ -8,19 +8,19 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 import { LightweightChart } from './LightweightChart.native';
 
+import type { INativeChartScene } from './native/chartScene';
+import type { ILightweightChartProps } from './types';
+
 const mockPictures: { readonly value: unknown }[] = [];
 const mockReactions = new Set<() => void>();
-const mockGestureHandlers: Record<
-  string,
-  (event?: unknown, manager?: unknown) => void
-> = {};
-const mockDraws: {
-  commands: {
-    kind: string;
-    customPaintId?: string;
-    points?: { x: number; y: number }[];
-  }[];
-}[] = [];
+type IMockGestureHandler = (event?: unknown, manager?: unknown) => void;
+const mockGestureHandlers: Record<string, IMockGestureHandler> = {};
+type IMockDraw = Pick<INativeChartScene, 'commands'>;
+const mockDraws: IMockDraw[] = [];
+const chartData: ILightweightChartProps['data'] = [
+  [100, 1],
+  [200, 2],
+];
 let mockTypeface: object | null = null;
 const mockLoadData = jest.fn<Promise<object>, [string]>();
 const mockLoadedFace = {};
@@ -64,19 +64,19 @@ jest.mock('react-native-gesture-handler', () => ({
         enabled: () => gesture,
         activateAfterLongPress: () => gesture,
         maxPointers: () => gesture,
-        onTouchesDown: (fn: (event?: unknown, manager?: unknown) => void) => {
+        onTouchesDown: (fn: IMockGestureHandler) => {
           mockGestureHandlers.down = fn;
           return gesture;
         },
-        onStart: (fn: (event?: unknown) => void) => {
+        onStart: (fn: IMockGestureHandler) => {
           mockGestureHandlers.start = fn;
           return gesture;
         },
-        onUpdate: (fn: (event?: unknown) => void) => {
+        onUpdate: (fn: IMockGestureHandler) => {
           mockGestureHandlers.update = fn;
           return gesture;
         },
-        onFinalize: (fn: () => void) => {
+        onFinalize: (fn: IMockGestureHandler) => {
           mockGestureHandlers.end = fn;
           return gesture;
         },
@@ -137,20 +137,18 @@ jest.mock('react-native-reanimated', () => {
       prepare: () => unknown,
       react: (value: unknown, previous: unknown) => void,
     ) => {
-      const state = React.useRef({ prepare, react, previous: null as unknown });
-      state.current.prepare = prepare;
-      state.current.react = react;
+      const previous = React.useRef<unknown>(null);
       React.useEffect(() => {
         const run = () => {
-          const next = state.current.prepare();
-          state.current.react(next, state.current.previous);
-          state.current.previous = next;
+          const next = prepare();
+          react(next, previous.current);
+          previous.current = next;
         };
         mockReactions.add(run);
         return () => {
           mockReactions.delete(run);
         };
-      }, []);
+      }, [prepare, react]);
     },
     cancelAnimation: jest.fn(),
     withRepeat: () => 0,
@@ -184,13 +182,7 @@ jest.mock('./native/useChartTypeface', () => ({
 jest.mock('../TradingView/TradingViewNative/native/chartSkiaRenderer', () => ({
   createTradingViewNativeSkiaFontForText: () => mockFont,
   createTradingViewNativeSkiaResources: () => ({}),
-  createTradingViewNativeSkiaCommandPicture: (draw: {
-    commands: {
-      kind: string;
-      customPaintId?: string;
-      points?: { x: number; y: number }[];
-    }[];
-  }) => {
+  createTradingViewNativeSkiaCommandPicture: (draw: IMockDraw) => {
     mockDraws.push(draw);
     return {};
   },
@@ -246,28 +238,12 @@ it('paints late data into the same native canvas and applies subsequent resizing
   mockTypeface = {};
   rerender(<LightweightChart data={[]} height={280} />);
   expect(mockSkiaFont).toHaveBeenCalledWith(mockTypeface);
-  rerender(
-    <LightweightChart
-      data={[
-        [100, 1],
-        [200, 2],
-      ]}
-      height={280}
-    />,
-  );
+  rerender(<LightweightChart data={chartData} height={280} />);
   const original = mockDraws
     .at(-2)
     ?.commands.find((c) => c.kind === 'polyline');
   expect(original?.points).toHaveLength(2);
-  rerender(
-    <LightweightChart
-      data={[
-        [100, 1],
-        [200, 2],
-      ]}
-      height={456}
-    />,
-  );
+  rerender(<LightweightChart data={chartData} height={456} />);
   const resized = mockDraws.at(-1)?.commands.find((c) => c.kind === 'polyline');
   expect(resized?.points?.[0].y).not.toBe(original?.points?.[0].y);
   expect(getByTestId('skia-canvas')).toBe(canvas);
@@ -276,37 +252,22 @@ it('paints late data into the same native canvas and applies subsequent resizing
 it('reports scrub selection and releases it on gesture completion and unmount', () => {
   const onHover = jest.fn();
   const { unmount } = render(
-    <LightweightChart
-      data={[
-        [100, 1],
-        [200, 2],
-      ]}
-      height={280}
-      onHover={onHover}
-    />,
+    <LightweightChart data={chartData} height={280} onHover={onHover} />,
   );
-  act(() => {
-    mockGestureHandlers.start({ x: 2, y: 80 });
-  });
+  act(() => mockGestureHandlers.start({ x: 2, y: 80 }));
   flush();
   expect(onHover).toHaveBeenLastCalledWith(
     expect.objectContaining({ time: 100, price: 1 }),
   );
-  act(() => {
-    mockGestureHandlers.update({ x: 300, y: 100 });
-  });
+  act(() => mockGestureHandlers.update({ x: 300, y: 100 }));
   flush();
   expect(onHover).toHaveBeenLastCalledWith(
     expect.objectContaining({ time: 200, price: 2 }),
   );
-  act(() => {
-    mockGestureHandlers.end();
-  });
+  act(() => mockGestureHandlers.end());
   flush();
   expect(onHover).toHaveBeenLastCalledWith({});
-  act(() => {
-    mockGestureHandlers.start({ x: 2, y: 80 });
-  });
+  act(() => mockGestureHandlers.start({ x: 2, y: 80 }));
   flush();
   unmount();
   expect(onHover).toHaveBeenLastCalledWith({});
@@ -314,14 +275,7 @@ it('reports scrub selection and releases it on gesture completion and unmount', 
 
 it('leaves axis touches available to native page gestures', () => {
   render(
-    <LightweightChart
-      data={[
-        [100, 1],
-        [200, 2],
-      ]}
-      height={280}
-      onHover={jest.fn()}
-    />,
+    <LightweightChart data={chartData} height={280} onHover={jest.fn()} />,
   );
   const manager = { fail: jest.fn() };
   mockGestureHandlers.down({ changedTouches: [{ x: 401, y: 100 }] }, manager);
@@ -331,14 +285,8 @@ it('leaves axis touches available to native page gestures', () => {
 it('reuses the static picture inside the plot and restores the full line outside it', () => {
   render(
     <LightweightChart
-      data={[
-        [100, 1],
-        [200, 2],
-      ]}
-      secondaryLineData={[
-        [100, 1],
-        [200, 2],
-      ]}
+      data={chartData}
+      secondaryLineData={chartData}
       height={280}
       nativeScrubOptions={{
         labels: {},

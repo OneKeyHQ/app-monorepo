@@ -7,6 +7,11 @@ import {
 
 import type { ILightweightChartConfig, ILightweightChartTime } from '../types';
 
+const series = (values: number[]) =>
+  values.map((value, index) => ({
+    time: ((index + 1) * 100) as ILightweightChartTime,
+    value,
+  }));
 const config: ILightweightChartConfig = {
   theme: {
     bgColor: 'transparent',
@@ -19,11 +24,7 @@ const config: ILightweightChartConfig = {
   showPriceScale: true,
   showTimeScale: true,
   priceScaleFormat: 'stock',
-  data: [
-    { time: 100 as ILightweightChartTime, value: 100 },
-    { time: 200 as ILightweightChartTime, value: 110 },
-    { time: 300 as ILightweightChartTime, value: 105 },
-  ],
+  data: series([100, 110, 105]),
 };
 const scene = (
   overrides: Partial<ILightweightChartConfig> = {},
@@ -62,20 +63,15 @@ it('keeps stock formatting, custom precision and full-price tick formatting', ()
   ).toBe('-0.0123%');
   const chart = scene({
     priceScaleFormat: 'full',
-    data: [
-      { time: 100 as ILightweightChartTime, value: 2400 },
-      { time: 200 as ILightweightChartTime, value: 2500 },
-    ],
+    data: series([2400, 2500]),
   });
-  expect(
-    chart.commands.some(
-      (c) =>
-        c.kind === 'text' &&
-        c.font === 'priceAxis' &&
-        c.text.includes('$2,') &&
-        !c.text.includes('.'),
-    ),
-  ).toBe(true);
+  expect(chart.commands).toContainEqual(
+    expect.objectContaining({
+      kind: 'text',
+      font: 'priceAxis',
+      text: expect.stringMatching(/^\$2,\d{3}$/),
+    }),
+  );
 });
 
 it('clips the stock dot pattern under the curve and preserves the previous-close tag', () => {
@@ -91,30 +87,20 @@ it('clips the stock dot pattern under the curve and preserves the previous-close
     showLastValue: true,
     showLastValuePriceLine: false,
   });
-  expect(chart.commands.some((c) => c.kind === 'clipPolygon')).toBe(true);
-  expect(
-    chart.commands.some(
-      (c) => c.kind === 'circle' && c.customPaintId === 'pattern',
-    ),
-  ).toBe(true);
-  expect(
-    chart.commands.some(
-      (c) => c.kind === 'text' && c.text === 'Previous close',
-    ),
-  ).toBe(true);
-  expect(
-    chart.commands.some((c) => c.kind === 'text' && c.text === '$105.00'),
-  ).toBe(true);
-  expect(
-    chart.commands.some(
-      (c) => c.kind === 'line' && c.customPaintId === 'lastValueLine',
-    ),
-  ).toBe(false);
-  const reference = chart.commands.find(
-    (c) => c.kind === 'line' && c.customPaintId === 'referenceLine',
+  expect(chart.commands).toEqual(
+    expect.arrayContaining([
+      expect.objectContaining({ kind: 'clipPolygon' }),
+      expect.objectContaining({ kind: 'circle', customPaintId: 'pattern' }),
+      expect.objectContaining({ kind: 'line', customPaintId: 'referenceLine' }),
+      expect.objectContaining({ kind: 'text', text: 'Previous close' }),
+      expect.objectContaining({ kind: 'text', text: '$105.00' }),
+    ]),
   );
-  expect(reference).toEqual(
-    expect.objectContaining({ y1: expect.any(Number) }),
+  expect(chart.commands).not.toContainEqual(
+    expect.objectContaining({
+      kind: 'line',
+      customPaintId: 'lastValueLine',
+    }),
   );
 });
 
@@ -137,21 +123,19 @@ it('preserves overlay-only timestamps, gaps, isolated points and hover values', 
       secondaryPrice: 104,
     }),
   );
-  expect(
-    chart.commands.some(
-      (c) => c.kind === 'circle' && c.customPaintId === 'secondaryPoint',
-    ),
-  ).toBe(true);
+  expect(chart.commands).toContainEqual(
+    expect.objectContaining({
+      kind: 'circle',
+      customPaintId: 'secondaryPoint',
+    }),
+  );
 });
 
 it('fills baseline lobes toward zero and preserves both line colors', () => {
   const chart = scene({
     seriesType: 'baseline',
     priceScalePosition: 'left',
-    data: [
-      { time: 100 as ILightweightChartTime, value: -1 },
-      { time: 200 as ILightweightChartTime, value: 2 },
-    ],
+    data: series([-1, 2]),
     baselineOptions: {
       baseValue: { type: 'price', price: 0 },
       topLineColor: '#0f0',
@@ -159,12 +143,8 @@ it('fills baseline lobes toward zero and preserves both line colors', () => {
     },
   });
   const clip = chart.commands.find((c) => c.kind === 'clipPolygon');
-  expect(clip?.kind === 'clipPolygon' && clip.points[0].y).toBeGreaterThan(
-    chart.points[1].y,
-  );
-  expect(clip?.kind === 'clipPolygon' && clip.points[0].y).toBeLessThan(
-    chart.points[0].y,
-  );
+  expect(clip?.points[0].y).toBeGreaterThan(chart.points[1].y);
+  expect(clip?.points[0].y).toBeLessThan(chart.points[0].y);
   expect(chart.customPaintStyles.positive.color).toBe('#0f0');
   expect(chart.customPaintStyles.negative.color).toBe('#f00');
 });
@@ -172,11 +152,7 @@ it('fills baseline lobes toward zero and preserves both line colors', () => {
 it('draws narrow signed histogram bars and leaves exact zero empty', () => {
   const chart = scene({
     seriesType: 'histogram',
-    data: [
-      { time: 100 as ILightweightChartTime, value: -1 },
-      { time: 200 as ILightweightChartTime, value: 0 },
-      { time: 300 as ILightweightChartTime, value: 2 },
-    ],
+    data: series([-1, 0, 2]),
     histogramOptions: {
       positiveColor: '#0f0',
       negativeColor: '#f00',
@@ -185,22 +161,18 @@ it('draws narrow signed histogram bars and leaves exact zero empty', () => {
   });
   const bars = chart.commands.filter((c) => c.kind === 'rect');
   expect(bars).toHaveLength(2);
-  expect(
-    bars.every((c) => c.kind === 'rect' && c.width <= 4 && c.height > 0),
-  ).toBe(true);
+  expect(bars.every((c) => c.width <= 4 && c.height > 0)).toBe(true);
 });
 
 it('renders step segments and their area with matching geometry', () => {
   const chart = scene({ lineType: 'steps' });
   const stroke = chart.commands.find((c) => c.kind === 'polyline');
-  expect(stroke?.kind === 'polyline' && stroke.points[1]).toEqual({
+  expect(stroke?.points[1]).toEqual({
     x: chart.points[1].x,
     y: chart.points[0].y,
   });
   const clip = chart.commands.find((c) => c.kind === 'clipPolygon');
-  expect(clip?.kind === 'clipPolygon' && clip.points.slice(1, -1)).toEqual(
-    stroke?.kind === 'polyline' && stroke.points,
-  );
+  expect(clip?.points.slice(1, -1)).toEqual(stroke?.points);
 });
 
 it('draws a native scrub card and cuts only the solid overlay at the cursor', () => {
@@ -222,25 +194,22 @@ it('draws a native scrub card and cuts only the solid overlay at the cursor', ()
   expect(overlay.commands.find((c) => c.kind === 'polyline')).toEqual(
     expect.objectContaining({ points: chart.secondarySegments[0].slice(0, 2) }),
   );
-  expect(
-    overlay.commands.some((c) => c.kind === 'text' && c.text === '$110.00'),
-  ).toBe(true);
-  expect(
-    overlay.commands.some(
-      (c) =>
-        c.kind === 'roundRect' &&
-        c.customPaintId === 'tooltip' &&
-        c.radius === 8,
-    ),
-  ).toBe(true);
-  expect(
-    overlay.commands.some(
-      (c) =>
-        c.kind === 'rect' &&
-        c.customPaintId === 'hoverBackground' &&
-        c.y < chart.plot.height,
-    ),
-  ).toBe(false);
+  expect(overlay.commands).toEqual(
+    expect.arrayContaining([
+      expect.objectContaining({ kind: 'text', text: '$110.00' }),
+      expect.objectContaining({
+        kind: 'roundRect',
+        customPaintId: 'tooltip',
+        radius: 8,
+      }),
+    ]),
+  );
+  expect(overlay.commands).not.toContainEqual(
+    expect.objectContaining({
+      kind: 'rect',
+      customPaintId: 'hoverBackground',
+    }),
+  );
   expect(buildNativeChartCrosshair(chart, -1, 20).commands).toHaveLength(0);
 });
 
@@ -259,9 +228,12 @@ it('localizes axis dates in the configured timezone including year boundaries', 
     locale: 'en-US',
     timeZone: 'UTC',
   });
-  expect(
-    chart.commands.some((c) => c.kind === 'text' && c.text === '2026'),
-  ).toBe(true);
+  expect(chart.commands).toContainEqual(
+    expect.objectContaining({
+      kind: 'text',
+      text: '2026',
+    }),
+  );
 });
 
 it('separates nearby last-price and previous-close badges and clamps time labels without overlap', () => {
@@ -272,28 +244,19 @@ it('separates nearby last-price and previous-close badges and clamps time labels
     },
     180,
   );
-  const badges = chart.commands.filter(
-    (c) =>
-      c.kind === 'rect' &&
-      (c.customPaintId === 'lastLabel' || c.customPaintId === 'referenceLabel'),
-  );
-  expect(badges).toHaveLength(2);
-  if (badges[0].kind === 'rect' && badges[1].kind === 'rect')
-    expect(Math.abs(badges[0].y - badges[1].y)).toBeGreaterThanOrEqual(
-      badges[0].height,
-    );
+  const badges = chart.commands.filter((c) => c.kind === 'rect');
+  const last = badges.find((c) => c.customPaintId === 'lastLabel')!;
+  const reference = badges.find((c) => c.customPaintId === 'referenceLabel')!;
+  expect(Math.abs(last.y - reference.y)).toBeGreaterThanOrEqual(last.height);
   const times = chart.commands
-    .filter((c) => c.kind === 'text' && c.font === 'axis')
-    .toSorted((a, b) =>
-      a.kind === 'text' && b.kind === 'text' ? a.x - b.x : 0,
-    );
+    .filter((c) => c.kind === 'text')
+    .filter((c) => c.font === 'axis')
+    .toSorted((a, b) => a.x - b.x);
   for (let i = 1; i < times.length; i += 1) {
     const previous = times[i - 1];
-    const current = times[i];
-    if (previous.kind === 'text' && current.kind === 'text')
-      expect(current.x).toBeGreaterThanOrEqual(
-        previous.x + previous.text.length * 6 + 20,
-      );
+    expect(times[i].x).toBeGreaterThanOrEqual(
+      previous.x + previous.text.length * 6 + 20,
+    );
   }
 });
 
@@ -365,10 +328,7 @@ it.each(['baseline', 'histogram'] as const)(
     const chart = scene({
       seriesType,
       showLastValue: true,
-      data: [
-        { time: 100 as ILightweightChartTime, value: 1 },
-        { time: 200 as ILightweightChartTime, value: -1 },
-      ],
+      data: series([1, -1]),
       baselineOptions: { topLineColor: '#0f0', bottomLineColor: '#f00' },
       histogramOptions: { positiveColor: '#0f0', negativeColor: '#f00' },
     });
@@ -416,18 +376,13 @@ it.each([1, -1])(
   (sign) => {
     const chart = scene({
       seriesType: 'baseline',
-      data: [
-        { time: 100 as ILightweightChartTime, value: sign * 0.01 },
-        { time: 200 as ILightweightChartTime, value: sign * 0.0101 },
-      ],
+      data: series([sign * 0.01, sign * 0.0101]),
     });
     expect(Math.abs(chart.points[0].y - chart.points[1].y)).toBeGreaterThan(
       chart.plot.height / 2,
     );
     const polygon = chart.commands.find((c) => c.kind === 'clipPolygon');
-    expect(polygon?.kind === 'clipPolygon' && polygon.points[0].y).toBe(
-      sign > 0 ? chart.plot.height : 0,
-    );
+    expect(polygon?.points[0].y).toBe(sign > 0 ? chart.plot.height : 0);
   },
 );
 
@@ -437,10 +392,7 @@ it.each([
 ])('avoids duplicate tick labels on narrow ranges: %j', (overrides) => {
   const chart = scene({
     ...overrides,
-    data: [
-      { time: 100 as ILightweightChartTime, value: 4.12 },
-      { time: 200 as ILightweightChartTime, value: 4.121 },
-    ],
+    data: series([4.12, 4.121]),
   });
   const labels = chart.commands.flatMap((c) =>
     c.kind === 'text' && c.font === 'priceAxis' ? [c.text] : [],
