@@ -82,6 +82,17 @@ if (process.env.RN_HARNESS === 'true') {
   config.server.unstable_serverRoot = monorepoRoot;
   const expoRewrite = config.server.rewriteRequestUrl || ((url) => url);
   config.server.rewriteRequestUrl = (url) => {
+    if (
+      process.env.RN_HARNESS_NATIVE_STORAGE_BACKGROUND === 'true' &&
+      /^\/(?:apps\/mobile\/)?background\.bundle(?:\?|$)/u.test(url)
+    ) {
+      return expoRewrite(
+        url.replace(
+          /^\/(?:apps\/mobile\/)?background\.bundle/u,
+          '/apps/mobile/harness/nativeStorageBackgroundEntry.bundle',
+        ),
+      );
+    }
     // Handle Expo virtual entry first (before the general rewrite)
     if (url.includes('/.expo/.virtual-metro-entry.bundle')) {
       // oxlint-disable-next-line no-param-reassign
@@ -274,9 +285,10 @@ config.resolver.resolveRequest = (context, moduleName, platform) => {
       // noop
     }
   }
-  // Strip Developer/Gallery from production union builds
+  // Strip Developer/Gallery from all production builds.
   if (
-    (process.env.UNION_BUILD === 'true' ||
+    (process.env.NODE_ENV === 'production' ||
+      process.env.UNION_BUILD === 'true' ||
       process.env.SPLIT_BUNDLE_SEGMENTS === 'true') &&
     context.originModulePath &&
     (moduleName.includes('/Developer/router') ||

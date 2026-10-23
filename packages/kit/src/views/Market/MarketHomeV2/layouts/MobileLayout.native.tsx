@@ -822,9 +822,8 @@ function MobileLayoutComponent({
       : 0;
   const listContainerProps = useMemo(
     () => ({
-      emptyContentPaddingTop:
-        16 +
-        (platformEnv.isNativeAndroid ? headerHeight + stickyHeaderHeight : 0),
+      // The native pager already offsets the empty ScrollView below its headers.
+      emptyContentPaddingTop: 16,
       paddingBottom: contentPaddingBottom,
       emptyContentHeight: Math.max(
         0,

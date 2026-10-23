@@ -2,13 +2,17 @@ import BigNumber from 'bignumber.js';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { resolveQuoteShowTip } from '@onekeyhq/kit/src/views/Swap/utils/quoteShowTipUtils';
+import { getSwapQuoteLimitError } from '@onekeyhq/kit/src/views/Swap/utils/swapErrorUtils';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import tokenRebaseUtils from '@onekeyhq/shared/src/utils/tokenRebaseUtils';
-import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
+import {
+  checkWrappedTokenPair,
+  equalTokenNoCaseSensitive,
+} from '@onekeyhq/shared/src/utils/tokenUtils';
 import type {
   IDustSweepReason,
   IDustSweepSnapshot,
@@ -29,20 +33,16 @@ import {
   ESwapTabSwitchType,
 } from '@onekeyhq/shared/types/swap/types';
 
-// The backend source labels orders; Dust Sweep currently executes only OKX.
+import { DustSweepError } from './DustSweepError';
+
+export class DustSweepSkip extends DustSweepError {}
+
+// Unwrap quotes use the native wrapper contract instead of a DEX provider.
 export function isDustSweepQuoteCandidate(quote: IFetchQuoteResult) {
-  return quote.info?.provider === DUST_SWEEP_PROVIDER;
-}
-
-export class DustSweepSkip extends OneKeyLocalError {
-  reason: IDustSweepReason;
-  // Only a matching provider response may supply user-facing error text.
-  providerErrorMessage?: string;
-
-  constructor(reason: IDustSweepReason, message?: string) {
-    super(message ?? reason);
-    this.reason = reason;
-  }
+  return (
+    quote.info?.provider === DUST_SWEEP_PROVIDER ||
+    quote.info?.provider === 'wrapped'
+  );
 }
 
 function isSameDustSweepToken({
@@ -66,6 +66,61 @@ function getUsablePrice(localPrice?: string, quotePrice?: string) {
   return price.isFinite() && price.gt(0) ? localPrice : quotePrice;
 }
 
+function isMatchingDustSweepQuote(
+  quote: IFetchQuoteResult,
+  token: IDustSweepToken,
+  snapshot: IDustSweepSnapshot,
+) {
+  return !(
+    !isDustSweepQuoteCandidate(quote) ||
+    !isSameDustSweepToken({
+      quoteToken: quote.fromTokenInfo,
+      expectedToken: token,
+    }) ||
+    !isSameDustSweepToken({
+      quoteToken: quote.toTokenInfo,
+      expectedToken: snapshot.nativeToken,
+    }) ||
+    (quote.fromAmount !== undefined &&
+      !new BigNumber(quote.fromAmount).eq(token.amount)) ||
+    (quote.protocol !== undefined &&
+      quote.protocol !== EProtocolOfExchange.SWAP) ||
+    (quote.kind !== undefined && quote.kind !== ESwapQuoteKind.SELL)
+  );
+}
+
+export function getDustSweepQuoteErrorMessage(
+  quote: IFetchQuoteResult,
+  token: IDustSweepToken,
+  snapshot: IDustSweepSnapshot,
+) {
+  if (!isMatchingDustSweepQuote(quote, token, snapshot)) return undefined;
+  if (quote.errorMessage?.trim()) return quote.errorMessage.trim();
+  const { tip } = getDustSweepQuoteRiskResult(quote, token, snapshot);
+  return (
+    [tip?.title?.trim(), tip?.detail?.trim()].filter(Boolean).join('\n') ||
+    undefined
+  );
+}
+
+export function getDustSweepQuoteError(
+  reason: IDustSweepReason,
+  quote: IFetchQuoteResult,
+  token: IDustSweepToken,
+  snapshot: IDustSweepSnapshot,
+) {
+  return new DustSweepSkip(reason, {
+    providerErrorMessage: getDustSweepQuoteErrorMessage(quote, token, snapshot),
+    localError: isMatchingDustSweepQuote(quote, token, snapshot)
+      ? getSwapQuoteLimitError({
+          limit: quote.limit,
+          fromTokenAmount: token.amount,
+          fromTokenSymbol: token.symbol,
+        })
+      : undefined,
+  });
+}
+
 function getActualPriceImpactPercent({
   fromToken,
   toToken,
@@ -84,19 +139,23 @@ function getActualPriceImpactPercent({
   return fromValue.minus(toValue).dividedBy(fromValue).times(100);
 }
 
-export function getDustSweepQuoteRisk(
+function getDustSweepQuoteRiskResult(
   quote: IFetchQuoteResult,
   token: IDustSweepToken,
   snapshot: IDustSweepSnapshot,
-): IDustSweepReason | undefined {
+): { reason?: IDustSweepReason; tip?: IFetchQuoteResult['quoteShowTip'] } {
   const toAmount = new BigNumber(quote.toAmount ?? '');
   if (
     !isDustSweepQuoteCandidate(quote) ||
     quote.errorMessage ||
+    getSwapQuoteLimitError({
+      limit: quote.limit,
+      fromTokenAmount: token.amount,
+    }) ||
     !toAmount.isFinite() ||
     !toAmount.gt(0)
   )
-    return 'noQuote';
+    return { reason: 'noQuote' };
   if (
     (quote.protocol !== undefined &&
       quote.protocol !== EProtocolOfExchange.SWAP) ||
@@ -115,23 +174,50 @@ export function getDustSweepQuoteRisk(
     !new BigNumber(token.amount).gt(0) ||
     !new BigNumber(quote.fromAmount ?? '').eq(token.amount)
   )
-    return 'unknown';
+    return { reason: 'unknown' };
+  const isWrapped = quote.info.provider === 'wrapped';
+  if (isWrapped ? quote.isWrapped !== true : quote.isWrapped)
+    return { reason: 'unknown' };
+  if (
+    isWrapped &&
+    (token.isNative ||
+      quote.fromTokenInfo.isNative ||
+      !snapshot.nativeToken.isNative ||
+      !quote.toTokenInfo.isNative ||
+      token.decimals !== snapshot.nativeToken.decimals ||
+      !checkWrappedTokenPair({
+        fromToken: token,
+        toToken: snapshot.nativeToken,
+      }) ||
+      !toAmount.eq(token.amount) ||
+      quote.allowanceResult ||
+      quote.approvedInfo ||
+      quote.quoteShowTip?.showCheckbox ||
+      (quote.fee?.protocolFees !== undefined &&
+        !new BigNumber(quote.fee.protocolFees).isZero()) ||
+      (quote.fee !== undefined &&
+        !new BigNumber(quote.fee.percentageFee).isZero()))
+  )
+    return { reason: 'unknown' };
   if (
     quote.swapShouldSignedData ||
     quote.shouldWrappedToken ||
     tokenRebaseUtils.isScalingBalanceMultiplier(token.balanceMultiplier)
   )
-    return 'unknown';
+    return { reason: 'unknown' };
   for (const fee of quote.fee?.otherFeeInfos ?? []) {
     const amount = new BigNumber(fee.amount ?? '');
     if (
       !amount.isFinite() ||
       amount.isNegative() ||
+      (isWrapped && amount.gt(0)) ||
       (amount.gt(0) &&
         !isSameDustSweepToken({ quoteToken: fee.token, expectedToken: token }))
     )
-      return 'unknown';
+      return { reason: 'unknown' };
   }
+  // A verified 1:1 withdrawal has no market-price impact or slippage.
+  if (isWrapped) return {};
   const fromToken = {
     ...token,
     price: getUsablePrice(token.price, quote.fromTokenInfo.price),
@@ -147,8 +233,9 @@ export function getDustSweepQuoteRisk(
     fromAmount: token.amount,
     toAmount: quote.toAmount,
   });
-  if (tip?.type === EQuoteShowTipType.PRICE_IMPACT) return 'valueDrop';
-  if (tip) return 'unknown';
+  if (tip?.type === EQuoteShowTipType.PRICE_IMPACT)
+    return { reason: 'valueDrop', tip };
+  if (tip) return { reason: 'unknown', tip };
   const quotedImpact =
     quote.valueDropPercent ?? quote.quoteShowTip?.priceImpact;
   const impactPercent =
@@ -160,9 +247,17 @@ export function getDustSweepQuoteRisk(
           toAmount: quote.toAmount,
         })
       : new BigNumber(quotedImpact);
-  if (!impactPercent || !impactPercent.isFinite()) return 'unknown';
-  if (impactPercent.gt(snapshot.slippage)) return 'priceImpact';
-  return undefined;
+  if (!impactPercent || !impactPercent.isFinite()) return { reason: 'unknown' };
+  if (impactPercent.gt(snapshot.slippage)) return { reason: 'priceImpact' };
+  return {};
+}
+
+export function getDustSweepQuoteRisk(
+  quote: IFetchQuoteResult,
+  token: IDustSweepToken,
+  snapshot: IDustSweepSnapshot,
+): IDustSweepReason | undefined {
+  return getDustSweepQuoteRiskResult(quote, token, snapshot).reason;
 }
 
 let quoteSequence = 0;
@@ -177,7 +272,7 @@ export function fetchDustSweepQuote(
     let done = false;
     let unavailable = new DustSweepSkip('noQuote');
     const finishRef: {
-      current: (error?: Error, quote?: IFetchQuoteResult) => void;
+      current: (error?: unknown, quote?: IFetchQuoteResult) => void;
     } = {
       current: () => undefined,
     };
@@ -187,10 +282,9 @@ export function fetchDustSweepQuote(
       if (event.quoteRequestId !== quoteRequestId) return;
       if (event.type === 'error') {
         finishRef.current(
-          new DustSweepSkip(
-            'noQuote',
-            'message' in event.event ? event.event.message : undefined,
-          ),
+          new DustSweepSkip('noQuote', {
+            message: 'message' in event.event ? event.event.message : undefined,
+          }),
         );
         return;
       }
@@ -209,19 +303,12 @@ export function fetchDustSweepQuote(
             const risk = getDustSweepQuoteRisk(candidate, token, snapshot);
             if (risk) {
               if (isDustSweepQuoteCandidate(candidate)) {
-                unavailable = new DustSweepSkip(risk);
-                if (
-                  risk === 'noQuote' &&
-                  isSameDustSweepToken({
-                    quoteToken: candidate.fromTokenInfo,
-                    expectedToken: token,
-                  }) &&
-                  isSameDustSweepToken({
-                    quoteToken: candidate.toTokenInfo,
-                    expectedToken: snapshot.nativeToken,
-                  })
-                )
-                  unavailable.providerErrorMessage = candidate.errorMessage;
+                unavailable = getDustSweepQuoteError(
+                  risk,
+                  candidate,
+                  token,
+                  snapshot,
+                );
               }
               return false;
             }
@@ -230,7 +317,11 @@ export function fetchDustSweepQuote(
           if (quote) finishRef.current(undefined, quote);
         }
         if ('errorMessage' in payload && payload.errorMessage)
-          finishRef.current(new DustSweepSkip('noQuote', payload.errorMessage));
+          finishRef.current(
+            new DustSweepSkip('noQuote', {
+              providerErrorMessage: payload.errorMessage,
+            }),
+          );
         if ('totalQuoteCount' in payload && payload.totalQuoteCount === 0)
           finishRef.current(new DustSweepSkip('noQuote'));
       } catch {
@@ -238,7 +329,7 @@ export function fetchDustSweepQuote(
       }
     };
     const timeout = setTimeout(() => finishRef.current(unavailable), 25_000);
-    const finish = (error?: Error, quote?: IFetchQuoteResult) => {
+    const finish = (error?: unknown, quote?: IFetchQuoteResult) => {
       if (done) return;
       done = true;
       clearTimeout(timeout);
@@ -273,8 +364,6 @@ export function fetchDustSweepQuote(
         protocol: ESwapTabSwitchType.SWAP,
         quoteRequestId,
       })
-      .catch((error: unknown) =>
-        finish(error instanceof Error ? error : new DustSweepSkip('noQuote')),
-      );
+      .catch((error: unknown) => finish(error));
   });
 }

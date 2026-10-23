@@ -1,5 +1,6 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import { useOverlayPageScope } from '@onekeyfe/react-native-native-overlay';
 import { useIntl } from 'react-intl';
 
 import { Stack, useTheme } from '@onekeyhq/components';
@@ -324,6 +325,7 @@ export function TradingViewPerpsV2(
   const actions = useHyperliquidActions();
   const ensureTradingEnabled = useEnsureTradingEnabled();
   const intl = useIntl();
+  const sourcePage = useOverlayPageScope();
   const { restoreNonce } = useNetworkRestore();
 
   // szDecimals comes from the active instrument's universe — the same scoped
@@ -647,6 +649,7 @@ export function TradingViewPerpsV2(
           if (!isCurrentSymbolIntent) return;
           closeChartOrderDialog();
           chartOrderDialogRef.current = showLimitOrderDialog({
+            sourcePage,
             symbol: payload.symbol,
             price: payload.price,
             displayPair: isCurrentSymbolIntent ? displayPair : undefined,
@@ -683,6 +686,7 @@ export function TradingViewPerpsV2(
       displayPair,
       enablePerpsTradingUi,
       intl,
+      sourcePage,
     ],
   );
 

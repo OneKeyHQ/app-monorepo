@@ -28,3 +28,9 @@ export const WebViewNavigator = LazyLoad(async () => {
   const { WebViewNavigator: Component } = await import('./WebView/Navigator');
   return { default: Component };
 });
+
+export const TradingViewNativeFullscreenPage = LazyLoad(async () => {
+  const { TradingViewNativeFullscreenPage: Component } =
+    await import('../components/TradingView/TradingViewNative/TradingViewNativePresentation');
+  return { default: Component };
+});

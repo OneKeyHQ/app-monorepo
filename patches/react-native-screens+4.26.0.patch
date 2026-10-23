@@ -1,3 +1,484 @@
+diff --git a/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/NativeStackGestureController.kt b/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/NativeStackGestureController.kt
+new file mode 100644
+index 0000000..eaa5010
+--- /dev/null
++++ b/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/NativeStackGestureController.kt
+@@ -0,0 +1,457 @@
++package com.swmansion.rnscreens
++
++import android.animation.Animator
++import android.animation.AnimatorListenerAdapter
++import android.animation.ValueAnimator
++import android.content.Context
++import android.graphics.Canvas
++import android.graphics.Color
++import android.graphics.Paint
++import android.view.MotionEvent
++import android.view.VelocityTracker
++import android.view.View
++import android.view.ViewConfiguration
++import android.view.ViewGroup
++import android.view.animation.AlphaAnimation
++import android.view.animation.Animation
++import android.view.animation.AnimationSet
++import android.view.animation.AnimationUtils
++import android.view.animation.PathInterpolator
++import android.view.animation.Transformation
++import android.view.animation.TranslateAnimation
++import android.view.inputmethod.InputMethodManager
++import android.webkit.WebView
++import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
++import com.facebook.react.bridge.Arguments
++import com.facebook.react.bridge.WritableMap
++import com.facebook.react.uimanager.UIManagerHelper
++import com.facebook.react.uimanager.events.Event
++import com.facebook.react.uimanager.events.NativeGestureUtil
++import com.swmansion.rnscreens.ScreenFragment.ScreenLifecycleEvent
++import kotlin.math.abs
++import kotlin.math.max
++
++// OneKey patch: keep vertical dismiss gestures, settling and removal on the Android UI thread.
++// Horizontal swipe-back is intentionally unsupported because it conflicts with system back gestures.
++internal class NativeStackGestureController(private val stack: ScreenStack) {
++    private var top: Screen? = null
++    private var below: Screen? = null
++    private var topView: View? = null
++    private var velocityTracker: VelocityTracker? = null
++    private var animator: ValueAnimator? = null
++    private var downX = 0f
++    private var downY = 0f
++    private var eligible = false
++    private var dragging = false
++    private var awaitingPop = false
++    private var progress = 0f
++    private var belowAppearing = false
++    private val slop = ViewConfiguration.get(stack.context).scaledTouchSlop
++
++    fun intercept(event: MotionEvent): Boolean {
++        if (dragging || animator != null || awaitingPop) return true
++        if (event.actionMasked == MotionEvent.ACTION_DOWN) {
++            clearTracking()
++            val screen = stack.topScreen ?: return false
++            val wrappers = stack.fragments.filter { it.screen.activityState != Screen.ActivityState.INACTIVE }
++            val index = wrappers.indexOfFirst { it.screen === screen }
++            if (!screen.isGestureEnabled || !screen.usesVerticalDismissGesture || index < 1 ||
++                screen.stackPresentation == Screen.StackPresentation.FORM_SHEET) return false
++            top = screen
++            below = wrappers[index - 1].screen
++            downX = event.x
++            downY = event.y
++            val density = stack.resources.displayMetrics.density
++            val bounds = screen.gestureResponseDistance
++            val x = downX / density
++            val y = downY / density
++            eligible = (bounds[0] == -1f || x >= bounds[0]) &&
++                (bounds[1] == -1f || x <= bounds[1]) &&
++                (bounds[2] == -1f || y >= bounds[2]) &&
++                (bounds[3] == -1f || y <= bounds[3])
++            velocityTracker = VelocityTracker.obtain().also { it.addMovement(event) }
++            return false
++        }
++        if (event.pointerCount != 1) {
++            clearTracking()
++            return false
++        }
++        if (!eligible) return false
++        velocityTracker?.addMovement(event)
++        if (event.actionMasked == MotionEvent.ACTION_MOVE) {
++            val distance = event.y - downY
++            val cross = abs(event.x - downX)
++            if (distance < -slop || cross > max(distance, slop.toFloat()) * 1.2f) {
++                eligible = false
++                return false
++            }
++            if (distance > slop && distance > cross * 1.2f) {
++                val root = top?.fragment?.view ?: return false
++                // Hit-test where the drag began: by the time it passes the slop the finger may
++                // already be over different content (e.g. moved from a header into a WebView).
++                if (canScrollAt(root, downX - root.left, downY - root.top)) {
++                    eligible = false
++                    return false
++                }
++                if (!stack.prepareInteractiveTransition(top!!, below!!)) {
++                    eligible = false
++                    return false
++                }
++                topView = top?.fragment?.view
++                if (topView == null || below?.fragment?.view == null) {
++                    reset()
++                    stack.restoreAfterInteractiveTransition()
++                    return false
++                }
++                if (top?.hideKeyboardOnSwipe == true) {
++                    root.findFocus()?.clearFocus()
++                    (stack.context.getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager)
++                        .hideSoftInputFromWindow(root.windowToken, 0)
++                }
++                // Track from the recognition point so the screen does not jump by the touch slop.
++                downX = event.x
++                downY = event.y
++                stack.goingForward = false
++                dragging = true
++                stack.parent?.requestDisallowInterceptTouchEvent(true)
++                NativeGestureUtil.notifyNativeGestureStarted(stack, event)
++                top?.fragmentWrapper?.let { it.dispatchLifecycleEvent(ScreenLifecycleEvent.WILL_DISAPPEAR, it) }
++                below?.fragmentWrapper?.let {
++                    belowAppearing = it.canDispatchLifecycleEvent(ScreenLifecycleEvent.WILL_APPEAR)
++                    if (belowAppearing) it.dispatchLifecycleEvent(ScreenLifecycleEvent.WILL_APPEAR, it)
++                }
++                return true
++            }
++        }
++        if (event.actionMasked == MotionEvent.ACTION_UP || event.actionMasked == MotionEvent.ACTION_CANCEL) clearTracking()
++        return false
++    }
++
++    fun touch(event: MotionEvent): Boolean {
++        if (!dragging) return animator != null || awaitingPop
++        velocityTracker?.addMovement(event)
++        when (event.actionMasked) {
++            MotionEvent.ACTION_POINTER_DOWN -> {
++                dragging = false
++                NativeGestureUtil.notifyNativeGestureEnded(stack, event)
++                settle(false)
++                clearTracking()
++            }
++            MotionEvent.ACTION_MOVE -> {
++                if (event.pointerCount != 1) {
++                    dragging = false
++                    NativeGestureUtil.notifyNativeGestureEnded(stack, event)
++                    settle(false)
++                } else {
++                    applyProgress((event.y - downY) / extent())
++                }
++            }
++            MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
++                velocityTracker?.computeCurrentVelocity(1000)
++                val velocityDp = (velocityTracker?.yVelocity ?: 0f) / stack.resources.displayMetrics.density
++                // Dismiss on a downward fling, or when released past half height without an upward fling.
++                val shouldFinish = velocityDp > 1000f || (velocityDp >= -1000f && progress > 0.5f)
++                val wantsFinish = event.actionMasked == MotionEvent.ACTION_UP && shouldFinish
++                val blocked = wantsFinish && top?.preventNativeDismiss == true
++                if (blocked) {
++                    top?.let { screen ->
++                        screen.reactEventDispatcher?.dispatchEvent(NativeStackDismissCancelledEvent(UIManagerHelper.getSurfaceId(screen), screen.id))
++                    }
++                }
++                dragging = false
++                NativeGestureUtil.notifyNativeGestureEnded(stack, event)
++                settle(wantsFinish && !blocked)
++                clearTracking()
++            }
++        }
++        return true
++    }
++
++    private fun extent(): Float = max(1, topView?.height ?: stack.height).toFloat()
++
++    fun hasVerticalDismissStack(): Boolean {
++        val screen = stack.topScreen ?: return false
++        if (!screen.isGestureEnabled || !screen.usesVerticalDismissGesture) return false
++        val wrappers = stack.fragments.filter { it.screen.activityState != Screen.ActivityState.INACTIVE }
++        return wrappers.indexOfFirst { it.screen === screen } > 0
++    }
++
++    private fun canScrollAt(view: View, x: Float, y: Float): Boolean {
++        if (view.visibility != View.VISIBLE) return false
++        // An in-page dialog sheet owns its drag, even when its host screen is dismissible.
++        if (view.getTag(com.facebook.react.R.id.view_tag_native_id) == "onekey-dialog-sheet") return true
++        // A parent must not dismiss an entire flow before its nested stack can handle the
++        // gesture, nor while the nested screen on top opted out of gestures.
++        if (view is ScreenStack && view !== stack && view.blocksAncestorDismiss()) return true
++        // Pull-to-refresh and web content own vertical drags. A WebView only reports its main
++        // frame scroll, so inner scroll containers and page-handled drags are invisible here.
++        if (view is SwipeRefreshLayout && view.isEnabled) return true
++        if (view is WebView) return true
++        if (view is ViewGroup) {
++            for (index in view.childCount - 1 downTo 0) {
++                val child = view.getChildAt(index)
++                val childX = x + view.scrollX - child.x
++                val childY = y + view.scrollY - child.y
++                if (childX >= 0 && childX < child.width && childY >= 0 && childY < child.height && canScrollAt(child, childX, childY)) return true
++            }
++        }
++        return view.canScrollVertically(-1)
++    }
++
++    private fun applyProgress(value: Float) {
++        progress = value.coerceIn(0f, 1f)
++        topView?.translationY = progress * extent()
++        stack.scrim.update(topView, 1f - progress)
++        top?.fragmentWrapper?.dispatchTransitionProgressEvent(progress, true)
++        if (belowAppearing) below?.fragmentWrapper?.dispatchTransitionProgressEvent(progress, false)
++    }
++
++    private fun settle(finish: Boolean) {
++        awaitingPop = false
++        val start = progress
++        val target = if (finish) 1f else 0f
++        val settleAnimator = ValueAnimator.ofFloat(start, target).apply {
++            // Scale the standard transition time by the remaining distance.
++            duration = max(120L, (NativeStackTransitions.DURATION_MS * abs(target - start)).toLong())
++            interpolator = NativeStackTransitions.standardCurve()
++            addUpdateListener { applyProgress(it.animatedValue as Float) }
++            addListener(object : AnimatorListenerAdapter() {
++                override fun onAnimationEnd(animation: Animator) {
++                    if (animator !== animation) return
++                    animator = null
++                    val dismissedWrapper = if (finish) top?.fragmentWrapper as? ScreenStackFragmentWrapper else null
++                    if (dismissedWrapper != null) {
++                        awaitingPop = true
++                        // Remove natively like the header back button; the fragment's onDestroy emits
++                        // onDismissed so React Navigation syncs its state without driving the pop.
++                        stack.dismiss(dismissedWrapper)
++                        if (awaitingPop) reset(preserveCompletedForeground = true)
++                    } else {
++                        top?.let { screen ->
++                            screen.reactEventDispatcher?.dispatchEvent(NativeStackGestureCancelEvent(UIManagerHelper.getSurfaceId(screen), screen.id))
++                            restoreAppearance(screen)
++                        }
++                        if (belowAppearing) below?.let { restoreDisappearance(it) }
++                        reset()
++                        stack.restoreAfterInteractiveTransition()
++                    }
++                }
++            })
++        }
++        animator = settleAnimator
++        settleAnimator.start()
++    }
++
++    private fun restoreAppearance(screen: Screen) {
++        val wrapper = screen.fragmentWrapper ?: return
++        fun allowAppearance(fragment: ScreenFragmentWrapper) {
++            // A cancelled gesture reappears without a completed disappearance.
++            fragment.updateLastEventDispatched(ScreenLifecycleEvent.DID_DISAPPEAR)
++            fragment.childScreenContainers.forEach { container ->
++                container.topScreen?.fragmentWrapper?.let { allowAppearance(it) }
++            }
++        }
++        allowAppearance(wrapper)
++        wrapper.dispatchLifecycleEvent(ScreenLifecycleEvent.WILL_APPEAR, wrapper)
++        wrapper.dispatchLifecycleEvent(ScreenLifecycleEvent.DID_APPEAR, wrapper)
++        wrapper.dispatchTransitionProgressEvent(1f, false)
++    }
++
++    private fun restoreDisappearance(screen: Screen) {
++        val wrapper = screen.fragmentWrapper ?: return
++        fun allowDisappearance(fragment: ScreenFragmentWrapper) {
++            fragment.updateLastEventDispatched(ScreenLifecycleEvent.DID_APPEAR)
++            fragment.childScreenContainers.forEach { container ->
++                container.topScreen?.fragmentWrapper?.let { allowDisappearance(it) }
++            }
++        }
++        allowDisappearance(wrapper)
++        wrapper.dispatchLifecycleEvent(ScreenLifecycleEvent.WILL_DISAPPEAR, wrapper)
++        wrapper.dispatchLifecycleEvent(ScreenLifecycleEvent.DID_DISAPPEAR, wrapper)
++        wrapper.dispatchTransitionProgressEvent(1f, true)
++    }
++
++    fun beforeStackUpdate(newTop: Screen?): Boolean {
++        if (topView == null) {
++            top = null
++            below = null
++            clearTracking()
++            return false
++        }
++        if (newTop === top && stack.hasScreen(top?.fragmentWrapper)) return false
++        val completedPop = awaitingPop && newTop !== top && !stack.hasScreen(top?.fragmentWrapper)
++        // If an external pop removes this screen mid-gesture, let its normal exit animation
++        // continue from the current drag position instead of replaying from the top.
++        val handoffExit = !completedPop && below != null && newTop === below &&
++            !stack.hasScreen(top?.fragmentWrapper) &&
++            top?.stackAnimation == Screen.StackAnimation.SLIDE_FROM_BOTTOM &&
++            (topView?.translationY ?: 0f) > 0f
++        if (completedPop) {
++            top?.fragmentWrapper?.let { it.dispatchLifecycleEvent(ScreenLifecycleEvent.DID_DISAPPEAR, it) }
++            if (belowAppearing) below?.fragmentWrapper?.let { it.dispatchLifecycleEvent(ScreenLifecycleEvent.DID_APPEAR, it) }
++        } else if (belowAppearing && newTop !== below) {
++            below?.let { restoreDisappearance(it) }
++        }
++        if (newTop === top) top?.let { restoreAppearance(it) }
++        reset(preserveCompletedForeground = completedPop || handoffExit, preserveScrim = handoffExit)
++        return completedPop
++    }
++
++    fun reset(preserveCompletedForeground: Boolean = false, preserveScrim: Boolean = false) {
++        val running = animator
++        animator = null
++        running?.cancel()
++        if (!preserveScrim) stack.scrim.update(topView, 0f)
++        // Preserve the removed foreground's position until its exit finishes.
++        if (!preserveCompletedForeground) {
++            topView?.translationY = 0f
++        }
++        topView = null
++        top = null
++        below = null
++        dragging = false
++        awaitingPop = false
++        progress = 0f
++        belowAppearing = false
++        clearTracking()
++    }
++
++    private fun clearTracking() {
++        velocityTracker?.recycle()
++        velocityTracker = null
++        eligible = false
++    }
++}
++
++// OneKey patch: Material 3 shared axis X for pages and a slide with scrim for modals.
++internal object NativeStackTransitions {
++    const val DURATION_MS = 300L
++    private const val SHARED_AXIS_SLIDE_DP = 30f
++    // Fade through: the outgoing screen is gone by 35% before the incoming one fades in.
++    private const val FADE_THROUGH_THRESHOLD = 0.35f
++
++    fun standardCurve() = PathInterpolator(0.4f, 0f, 0.2f, 1f)
++
++    fun create(stack: ScreenStack?, view: View?, resource: Int): Animation? {
++        val context = view?.context ?: return null
++        val slide = SHARED_AXIS_SLIDE_DP * context.resources.displayMetrics.density
++        return when (resource) {
++            R.anim.rns_slide_in_from_right -> sharedAxis(slide, 0f, appearing = true)
++            R.anim.rns_slide_out_to_left -> sharedAxis(0f, -slide, appearing = false)
++            R.anim.rns_slide_in_from_left -> sharedAxis(-slide, 0f, appearing = true)
++            R.anim.rns_slide_out_to_right -> sharedAxis(0f, slide, appearing = false)
++            R.anim.rns_slide_in_from_bottom -> modalSlide(stack, view, appearing = true)
++            R.anim.rns_slide_out_to_bottom -> modalSlide(stack, view, appearing = false)
++            R.anim.rns_no_animation_medium -> AnimationUtils.loadAnimation(context, resource).apply { duration = DURATION_MS }
++            else -> null
++        }
++    }
++
++    private fun sharedAxis(fromX: Float, toX: Float, appearing: Boolean): Animation =
++        AnimationSet(false).apply {
++            addAnimation(TranslateAnimation(fromX, toX, 0f, 0f).apply {
++                duration = DURATION_MS
++                interpolator = standardCurve()
++            })
++            val fadeDuration = (DURATION_MS * FADE_THROUGH_THRESHOLD).toLong()
++            addAnimation(
++                if (appearing) {
++                    AlphaAnimation(0f, 1f).apply {
++                        startOffset = fadeDuration
++                        duration = DURATION_MS - fadeDuration
++                        interpolator = LinearOutSlowIn
++                        fillBefore = true
++                    }
++                } else {
++                    AlphaAnimation(1f, 0f).apply {
++                        duration = fadeDuration
++                        interpolator = FastOutLinearIn
++                        fillAfter = true
++                    }
++                },
++            )
++        }
++
++    private fun modalSlide(stack: ScreenStack?, view: View, appearing: Boolean): Animation {
++        val offset = if (appearing) 0f else (view.translationY / max(1, view.height)).coerceIn(0f, 1f)
++        val remaining = 1f - offset
++        val durationMs = if (offset > 0f) max(120L, (DURATION_MS * remaining).toLong()) else DURATION_MS
++        return AnimationSet(false).apply {
++            addAnimation(
++                TranslateAnimation(
++                    Animation.RELATIVE_TO_SELF, 0f, Animation.RELATIVE_TO_SELF, 0f,
++                    Animation.RELATIVE_TO_SELF, if (appearing) 1f else 0f,
++                    Animation.RELATIVE_TO_SELF, if (appearing) 0f else remaining,
++                ).apply {
++                    duration = durationMs
++                    interpolator = standardCurve()
++                },
++            )
++            if (stack != null) addAnimation(ScrimAnimation(stack, view, appearing, remaining, durationMs))
++        }
++    }
++
++    private val LinearOutSlowIn = PathInterpolator(0f, 0f, 0.2f, 1f)
++    private val FastOutLinearIn = PathInterpolator(0.4f, 0f, 1f, 1f)
++
++    // Drives the stack scrim behind a sliding modal; it transforms nothing itself.
++    private class ScrimAnimation(
++        private val stack: ScreenStack,
++        private val target: View,
++        private val appearing: Boolean,
++        private val remaining: Float,
++        durationMs: Long,
++    ) : Animation() {
++        init {
++            duration = durationMs
++            interpolator = standardCurve()
++        }
++
++        override fun applyTransformation(interpolatedTime: Float, t: Transformation) {
++            val visible = if (appearing) interpolatedTime else remaining * (1f - interpolatedTime)
++            // A fully presented modal covers the screen, so the scrim is no longer needed.
++            stack.scrim.update(target, if (interpolatedTime >= 1f) 0f else visible)
++        }
++    }
++}
++
++// OneKey patch: Material scrim drawn under the modal that is sliding or being dragged.
++internal class NativeStackScrim(private val stack: ScreenStack) {
++    private val paint = Paint().apply { color = Color.BLACK }
++    private var target: View? = null
++    private var amount = 0f
++
++    fun update(view: View?, value: Float) {
++        val next = value.coerceIn(0f, 1f)
++        if (next <= 0f) {
++            if (target !== view) return
++            target = null
++            amount = 0f
++        } else {
++            target = view
++            amount = next
++        }
++        stack.invalidate()
++    }
++
++    fun drawBefore(canvas: Canvas, child: View?) {
++        if (child == null || child !== target || amount <= 0f) return
++        paint.alpha = (SCRIM_OPACITY * amount * 255).toInt()
++        canvas.drawRect(0f, 0f, stack.width.toFloat(), stack.height.toFloat(), paint)
++    }
++
++    private companion object {
++        // Material 3 ScrimTokens.ContainerOpacity.
++        const val SCRIM_OPACITY = 0.32f
++    }
++}
++
++internal class NativeStackGestureCancelEvent(surfaceId: Int, viewId: Int) : Event<NativeStackGestureCancelEvent>(surfaceId, viewId) {
++    override fun getEventName(): String = "topGestureCancel"
++    override fun getEventData(): WritableMap? = null
++}
++
++internal class NativeStackDismissCancelledEvent(surfaceId: Int, viewId: Int) : Event<NativeStackDismissCancelledEvent>(surfaceId, viewId) {
++    override fun getEventName(): String = "topNativeDismissCancelled"
++    override fun getEventData(): WritableMap = Arguments.createMap().apply { putInt("dismissCount", 1) }
++}
+diff --git a/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/Screen.kt b/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/Screen.kt
+index 76bb694..ce23d5a 100644
+--- a/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/Screen.kt
++++ b/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/Screen.kt
+@@ -67,6 +67,13 @@ class Screen(
+     var replaceAnimation = ReplaceAnimation.POP
+     var stackAnimation = StackAnimation.DEFAULT
+     var isGestureEnabled = true
++    // OneKey patch: use existing screen props for native interactive transitions.
++    var swipeDirection = "horizontal"
++    var gestureResponseDistance = floatArrayOf(-1f, -1f, -1f, -1f)
++    var hideKeyboardOnSwipe = true
++    var preventNativeDismiss = false
++    internal val usesVerticalDismissGesture: Boolean
++        get() = swipeDirection == "vertical"
+     var screenOrientation: Int? = null
+         private set
+     var screenId: String? = null
 diff --git a/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenContainer.kt b/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenContainer.kt
 index 0fcccb3..99d9506 100644
 --- a/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenContainer.kt
@@ -36,6 +517,199 @@ index 0fcccb3..99d9506 100644
          }
      }
  
+diff --git a/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenStack.kt b/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenStack.kt
+index 9f9f864..af08486 100644
+--- a/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenStack.kt
++++ b/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenStack.kt
+@@ -3,6 +3,8 @@ package com.swmansion.rnscreens
+ import android.content.Context
+ import android.graphics.Canvas
+ import android.os.Build
++import android.util.Log
++import android.view.MotionEvent
+ import android.view.View
+ import com.facebook.react.bridge.ReactContext
+ import com.facebook.react.uimanager.UIManagerHelper
+@@ -34,6 +36,44 @@ class ScreenStack(
+     private var childrenDrawingOrderStrategy: ChildrenDrawingOrderStrategy? = null
+     private var disappearingTransitioningChildren: MutableList<View> = ArrayList()
+ 
++    // OneKey patch: reuse the native stack and route-removal events for interactive gestures.
++    private val gestureController = NativeStackGestureController(this)
++    internal val scrim = NativeStackScrim(this)
++
++    internal fun prepareInteractiveTransition(top: Screen, below: Screen): Boolean {
++        val manager = fragmentManager ?: return false
++        if (manager.isDestroyed || manager.isStateSaved || top !== topScreen) return false
++        val fragment = below.fragment ?: return false
++        if (!fragment.isAdded) {
++            createTransaction().add(id, fragment).commitNowAllowingStateLoss()
++        }
++        top.fragment?.view?.bringToFront()
++        return true
++    }
++
++    internal fun restoreAfterInteractiveTransition() {
++        performUpdatesNow()
++    }
++
++    internal fun hasVerticalDismissStack(): Boolean =
++        gestureController.hasVerticalDismissStack()
++
++    // An ancestor stack must not dismiss its screen while this nested stack can handle the
++    // vertical gesture itself, or while its top screen explicitly disabled gestures.
++    internal fun blocksAncestorDismiss(): Boolean =
++        hasVerticalDismissStack() || topScreen?.isGestureEnabled == false
++
++    override fun onInterceptTouchEvent(event: MotionEvent): Boolean =
++        gestureController.intercept(event) || super.onInterceptTouchEvent(event)
++
++    override fun onTouchEvent(event: MotionEvent): Boolean =
++        gestureController.touch(event) || super.onTouchEvent(event)
++
++    override fun onDetachedFromWindow() {
++        gestureController.reset()
++        super.onDetachedFromWindow()
++    }
++
+     var goingForward = false
+ 
+     /**
+@@ -83,7 +123,13 @@ class ScreenStack(
+             return
+         }
+ 
+-        super.endViewTransition(view)
++        // OneKey patch: guard against RecyclerView ItemAnimator tmp-detach recycling crash during screen detach
++        // super.endViewTransition(view)
++        try {
++            super.endViewTransition(view)
++        } catch (e: IllegalArgumentException) {
++            Log.w(TAG, "Suppressed IllegalArgumentException during endViewTransition", e)
++        }
+ 
+         disappearingTransitioningChildren.remove(view)
+ 
+@@ -179,6 +225,7 @@ class ScreenStack(
+                 .firstOrNull()
+                 ?.takeUnless { it === newTop }
+         currentVisibleBottom = visibleBottom
++        val completedInteractivePop = gestureController.beforeStackUpdate(newTop?.screen)
+ 
+         var shouldUseOpenAnimation = true
+         var stackAnimation: StackAnimation? = null
+@@ -256,7 +303,7 @@ class ScreenStack(
+ 
+         createTransaction().let { transaction ->
+             if (stackAnimation != null) {
+-                transaction.setTweenAnimations(stackAnimation, shouldUseOpenAnimation)
++                transaction.setTweenAnimations(if (completedInteractivePop) StackAnimation.NONE else stackAnimation, shouldUseOpenAnimation)
+             }
+ 
+             // Remove all screens that are currently on stack, but should be dismissed, because they're
+@@ -419,6 +466,7 @@ class ScreenStack(
+     private fun performDraw(op: DrawingOp) {
+         // Canvas parameter can not be null here https://developer.android.com/reference/android/view/ViewGroup#drawChild(android.graphics.Canvas,%20android.view.View,%20long)
+         // So if we are passing null here, we would crash anyway
++        scrim.drawBefore(op.canvas!!, op.child)
+         super.drawChild(op.canvas!!, op.child, op.drawingTime)
+     }
+ 
+diff --git a/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenStackFragment.kt b/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenStackFragment.kt
+index b9e6e2e..f7c1278 100644
+--- a/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenStackFragment.kt
++++ b/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenStackFragment.kt
+@@ -345,8 +345,10 @@ class ScreenStackFragment :
+         enter: Boolean,
+         nextAnim: Int,
+     ): Animation? {
+-        // Ensure onCreateAnimator is called
+-        return null
++        // OneKey patch: Material transitions for stock slide resources; others keep the onCreateAnimator path.
++        // A removed screen has already left its container, but its view is still attached to the stack.
++        val stack = (view?.parent as? ScreenStack) ?: (screen.container as? ScreenStack)
++        return NativeStackTransitions.create(stack, view, nextAnim)
+     }
+ 
+     override fun onCreateAnimator(
+diff --git a/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenViewManager.kt b/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenViewManager.kt
+index 4cb201b..a9fe51a 100644
+--- a/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenViewManager.kt
++++ b/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenViewManager.kt
+@@ -167,6 +167,11 @@ open class ScreenViewManager :
+             }
+     }
+ 
++    // OneKey patch: the generated prop is iOS-only; keep Android rotation unchanged.
++    override fun setScreenOrientationAnimated(view: Screen, animated: Boolean) = Unit
++
++    override fun setScreenContentReady(view: Screen, ready: Boolean) = Unit
++
+     override fun setScreenOrientation(
+         view: Screen,
+         screenOrientation: String?,
+@@ -268,10 +273,13 @@ open class ScreenViewManager :
+         value: Int,
+     ) = Unit
+ 
++    // OneKey patch: enable the existing vertical dismiss gesture options on Android.
+     override fun setHideKeyboardOnSwipe(
+         view: Screen?,
+         value: Boolean,
+-    ) = Unit
++    ) {
++        view?.hideKeyboardOnSwipe = value
++    }
+ 
+     override fun setCustomAnimationOnSwipe(
+         view: Screen?,
+@@ -281,7 +289,17 @@ open class ScreenViewManager :
+     override fun setGestureResponseDistance(
+         view: Screen?,
+         value: ReadableMap?,
+-    ) = Unit
++    ) {
++        view?.gestureResponseDistance = floatArrayOf(
++            gestureBoundary(value, "start"),
++            gestureBoundary(value, "end"),
++            gestureBoundary(value, "top"),
++            gestureBoundary(value, "bottom"),
++        )
++    }
++
++    private fun gestureBoundary(value: ReadableMap?, key: String): Float =
++        if (value != null && value.hasKey(key) && !value.isNull(key)) value.getDouble(key).toFloat() else -1f
+ 
+     override fun setHomeIndicatorHidden(
+         view: Screen?,
+@@ -291,12 +309,16 @@ open class ScreenViewManager :
+     override fun setPreventNativeDismiss(
+         view: Screen?,
+         value: Boolean,
+-    ) = Unit
++    ) {
++        view?.preventNativeDismiss = value
++    }
+ 
+     override fun setSwipeDirection(
+         view: Screen?,
+         value: String?,
+-    ) = Unit
++    ) {
++        view?.swipeDirection = value ?: "horizontal"
++    }
+ 
+     override fun setBottomScrollEdgeEffect(
+         view: Screen?,
+@@ -389,6 +411,8 @@ open class ScreenViewManager :
+ 
+     override fun getExportedCustomDirectEventTypeConstants(): MutableMap<String, Any> =
+         mutableMapOf(
++            "topGestureCancel" to hashMapOf("registrationName" to "onGestureCancel"),
++            "topNativeDismissCancelled" to hashMapOf("registrationName" to "onNativeDismissCancelled"),
+             ScreenDismissedEvent.EVENT_NAME to hashMapOf("registrationName" to "onDismissed"),
+             ScreenWillAppearEvent.EVENT_NAME to hashMapOf("registrationName" to "onWillAppear"),
+             ScreenAppearEvent.EVENT_NAME to hashMapOf("registrationName" to "onAppear"),
 diff --git a/node_modules/react-native-screens/ios/RNSFullWindowOverlay.mm b/node_modules/react-native-screens/ios/RNSFullWindowOverlay.mm
 index 1a820b4..6f60b43 100644
 --- a/node_modules/react-native-screens/ios/RNSFullWindowOverlay.mm
@@ -72,8 +746,24 @@ index 1a820b4..6f60b43 100644
  #pragma mark - Dynamic frameworks support
  
  // Needed because of this: https://github.com/facebook/react-native/pull/37274
+diff --git a/node_modules/react-native-screens/ios/RNSScreen.h b/node_modules/react-native-screens/ios/RNSScreen.h
+index b1f482c..9d49734 100644
+--- a/node_modules/react-native-screens/ios/RNSScreen.h
++++ b/node_modules/react-native-screens/ios/RNSScreen.h
+@@ -103,6 +103,11 @@ NS_ASSUME_NONNULL_BEGIN
+ @property (nonatomic) RNSStatusBarStyle statusBarStyle;
+ @property (nonatomic) UIStatusBarAnimation statusBarAnimation;
+ @property (nonatomic) UIInterfaceOrientationMask screenOrientation;
++// OneKey patch: allow individual screens to opt out of system rotation animation.
++@property (nonatomic) BOOL screenOrientationAnimated;
++@property (nonatomic) BOOL screenContentReady;
++- (void)retainTransitionSnapshot;
++- (void)releaseTransitionSnapshot;
+ @property (nonatomic) BOOL statusBarHidden;
+ @property (nonatomic) BOOL homeIndicatorHidden;
+ 
 diff --git a/node_modules/react-native-screens/ios/RNSScreen.mm b/node_modules/react-native-screens/ios/RNSScreen.mm
-index 9b66012..09393b0 100644
+index 9b66012..2f44eee 100644
 --- a/node_modules/react-native-screens/ios/RNSScreen.mm
 +++ b/node_modules/react-native-screens/ios/RNSScreen.mm
 @@ -8,6 +8,7 @@
@@ -84,7 +774,7 @@ index 9b66012..09393b0 100644
  #import <React/RCTRootComponentView.h>
  #import <React/RCTScrollViewComponentView.h>
  #import <React/RCTSurfaceTouchHandler.h>
-@@ -37,6 +38,20 @@
+@@ -37,6 +38,71 @@
  constexpr NSInteger SHEET_FIT_TO_CONTENTS = -1;
  constexpr NSInteger SHEET_LARGEST_UNDIMMED_DETENT_NONE = -1;
  
@@ -102,10 +792,61 @@ index 9b66012..09393b0 100644
 +// completion decrements. Flag is cleared only on the last decrement.
 +static NSInteger RNSScreenTransitionDepth = 0;
 +
++// OneKey patch: anchor the frozen frame in screen coordinates, not the window's
++// rotating coordinate space. The live controller can finish layout underneath.
++@interface RNSFixedTransitionSnapshot : UIView
++- (instancetype)initWithWindow:(UIWindow *)window;
++@end
++
++@implementation RNSFixedTransitionSnapshot {
++  UIView *_snapshot;
++  CGPoint _fixedOrigin;
++  CGPoint _fixedRight;
++  CGPoint _fixedBottom;
++}
++
++- (instancetype)initWithWindow:(UIWindow *)window
++{
++  if (self = [super initWithFrame:window.bounds]) {
++    _snapshot = [window snapshotViewAfterScreenUpdates:NO];
++    _snapshot.frame = window.bounds;
++    id<UICoordinateSpace> fixedSpace = window.screen.fixedCoordinateSpace;
++    _fixedOrigin = [window convertPoint:CGPointZero toCoordinateSpace:fixedSpace];
++    _fixedRight = [window convertPoint:CGPointMake(CGRectGetWidth(window.bounds), 0) toCoordinateSpace:fixedSpace];
++    _fixedBottom = [window convertPoint:CGPointMake(0, CGRectGetHeight(window.bounds)) toCoordinateSpace:fixedSpace];
++    self.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
++    self.layer.zPosition = CGFLOAT_MAX;
++    [self addSubview:_snapshot];
++  }
++  return self;
++}
++
++- (void)layoutSubviews
++{
++  [super layoutSubviews];
++  UIWindow *window = self.window;
++  if (window == nil || CGRectIsEmpty(_snapshot.bounds)) {
++    return;
++  }
++  id<UICoordinateSpace> fixedSpace = window.screen.fixedCoordinateSpace;
++  CGPoint origin = [window convertPoint:_fixedOrigin fromCoordinateSpace:fixedSpace];
++  CGPoint right = [window convertPoint:_fixedRight fromCoordinateSpace:fixedSpace];
++  CGPoint bottom = [window convertPoint:_fixedBottom fromCoordinateSpace:fixedSpace];
++  CGFloat width = CGRectGetWidth(_snapshot.bounds);
++  CGFloat height = CGRectGetHeight(_snapshot.bounds);
++  [UIView performWithoutAnimation:^{
++    self->_snapshot.transform = CGAffineTransformMake(
++        (right.x - origin.x) / width, (right.y - origin.y) / width,
++        (bottom.x - origin.x) / height, (bottom.y - origin.y) / height, 0, 0);
++    self->_snapshot.center = CGPointMake((right.x + bottom.x) / 2, (right.y + bottom.y) / 2);
++  }];
++}
++@end
++
  struct ContentWrapperBox {
    __weak RNSScreenContentWrapper *contentWrapper{nil};
    float contentHeightErrata{0.f};
-@@ -48,7 +63,12 @@ @interface RNSScreenView () <UIAdaptivePresentationControllerDelegate,
+@@ -48,7 +114,12 @@ @interface RNSScreenView () <UIAdaptivePresentationControllerDelegate,
                               UISheetPresentationControllerDelegate,
  #endif
                               RCTRNSScreenViewProtocol,
@@ -119,7 +860,7 @@ index 9b66012..09393b0 100644
  @end
  
  @implementation RNSScreenView {
-@@ -59,6 +79,7 @@ @implementation RNSScreenView {
+@@ -59,10 +130,12 @@ @implementation RNSScreenView {
    ContentWrapperBox _contentWrapperBox;
    bool _sheetHasInitialDetentSet;
    BOOL _shouldUpdateScrollEdgeEffects;
@@ -127,15 +868,74 @@ index 9b66012..09393b0 100644
    UITapGestureRecognizer *_backdropTapGestureRecognizer;
    RCTSurfaceTouchHandler *_touchHandler;
    react::RNSScreenShadowNode::ConcreteState::Shared _state;
-@@ -95,6 +116,7 @@ - (void)initCommonProps
+   NSMutableArray<UIView *> *_reactSubviews;
++  UIView *_transitionSnapshot;
+ }
+ 
+ - (instancetype)initWithFrame:(CGRect)frame
+@@ -95,7 +168,10 @@ - (void)initCommonProps
    _fullScreenSwipeEnabled = RNSOptionalBooleanUndefined;
    _fullScreenSwipeShadowEnabled = YES;
    _shouldUpdateScrollEdgeEffects = NO;
 +  _lastContentScrollViewForEdgeEffects = nil;
  #if !TARGET_OS_TV
++  _screenOrientationAnimated = YES;
++  _screenContentReady = YES;
    _sheetExpandsWhenScrolledToEdge = YES;
  #endif // !TARGET_OS_TV
-@@ -599,6 +621,20 @@ - (void)didMoveToWindow
+   _sheetsScrollView = nil;
+@@ -104,6 +180,50 @@ - (void)initCommonProps
+   _synchronousShadowStateUpdatesEnabled = YES;
+ }
+ 
++// OneKey patch: keep the last complete frame outside the rotating controller.
++// No image encoding or JS copy is needed; the screen owns the native snapshot.
++- (void)retainTransitionSnapshot
++{
++#if !TARGET_OS_TV
++  if (_screenContentReady || _transitionSnapshot != nil) {
++    return;
++  }
++  UIWindow *window = self.window ?: self.controller.presentingViewController.view.window;
++  if (window == nil) {
++    window = RCTKeyWindow();
++  }
++  if (window == nil) {
++    return;
++  }
++  _transitionSnapshot = [[RNSFixedTransitionSnapshot alloc] initWithWindow:window];
++  [window addSubview:_transitionSnapshot];
++#endif
++}
++
++- (void)releaseTransitionSnapshot
++{
++  [_transitionSnapshot removeFromSuperview];
++  _transitionSnapshot = nil;
++}
++
++#if !TARGET_OS_TV
++- (void)setScreenContentReady:(BOOL)ready
++{
++  _screenContentReady = ready;
++  if (ready) {
++    [self releaseTransitionSnapshot];
++  } else {
++    // Capture before presentation can rotate the presenting controller.
++    [self retainTransitionSnapshot];
++  }
++}
++#endif
++
++- (void)dealloc
++{
++  [self releaseTransitionSnapshot];
++}
++
+ - (BOOL)getFullScreenSwipeShadowEnabled
+ {
+   if (@available(iOS 26, *)) {
+@@ -599,6 +719,20 @@ - (void)didMoveToWindow
    } else {
      [_touchHandler detachFromView:self];
    }
@@ -156,7 +956,7 @@ index 9b66012..09393b0 100644
  }
  
  - (nullable RCTSurfaceTouchHandler *)touchHandler
-@@ -1105,10 +1141,46 @@ - (void)overrideScrollViewBehaviorInFirstDescendantChainIfNeeded
+@@ -1105,10 +1239,46 @@ - (void)overrideScrollViewBehaviorInFirstDescendantChainIfNeeded
    }
  }
  
@@ -205,7 +1005,17 @@ index 9b66012..09393b0 100644
  }
  
  #pragma mark - RNSSafeAreaProviding
-@@ -1385,6 +1457,14 @@ - (void)finalizeUpdates:(RNComponentViewUpdateMask)updateMask
+@@ -1274,6 +1444,9 @@ - (void)updateProps:(react::Props::Shared const &)props oldProps:(react::Props::
+                                                                      newScreenProps.statusBarAnimation)]];
+   }
+ 
++  // OneKey patch: apply the animation policy before requesting orientation changes.
++  [self setScreenOrientationAnimated:newScreenProps.screenOrientationAnimated];
++  [self setScreenContentReady:newScreenProps.screenContentReady];
+   if (newScreenProps.screenOrientation != oldScreenProps.screenOrientation) {
+     [self setScreenOrientation:[RCTConvert UIInterfaceOrientationMask:RCTNSStringFromStringNilIfEmpty(
+                                                                           newScreenProps.screenOrientation)]];
+@@ -1385,6 +1558,14 @@ - (void)finalizeUpdates:(RNComponentViewUpdateMask)updateMask
  #endif // !TARGET_OS_TV && !TARGET_OS_VISION
  }
  
@@ -220,10 +1030,12 @@ index 9b66012..09393b0 100644
  #pragma mark - Dynamic frameworks support
  
  // Needed because of this: https://github.com/facebook/react-native/pull/37274
-@@ -1437,6 +1517,28 @@ - (instancetype)initWithView:(UIView *)view
+@@ -1437,6 +1618,30 @@ - (instancetype)initWithView:(UIView *)view
  - (void)viewWillAppear:(BOOL)animated
  {
    [super viewWillAppear:animated];
++
++  [self.screenView retainTransitionSnapshot];
 +
 +  // Activate the freeze-implicit-animation flag during ANY animated UIKit
 +  // transition: modal present/dismiss, push/pop on a navigation stack
@@ -249,6 +1061,15 @@ index 9b66012..09393b0 100644
    if (!_isSwiping) {
      [self.screenView notifyWillAppear];
      if (self.transitionCoordinator.isInteractive) {
+@@ -1517,6 +1722,8 @@ - (void)viewDidAppear:(BOOL)animated
+ - (void)viewDidDisappear:(BOOL)animated
+ {
+   [super viewDidDisappear:animated];
++
++  [self.screenView releaseTransitionSnapshot];
+   if (self.parentViewController == nil && self.presentingViewController == nil) {
+     if (self.screenView.preventNativeDismiss) {
+       // if we want to prevent the native dismiss, we do not send dismissal event,
 diff --git a/node_modules/react-native-screens/ios/RNSScreenStack.mm b/node_modules/react-native-screens/ios/RNSScreenStack.mm
 index 192f5d2..19b411a 100644
 --- a/node_modules/react-native-screens/ios/RNSScreenStack.mm
@@ -864,6 +1685,55 @@ index 1c84484..976b44f 100644
    navctr.navigationBar.overrideUserInterfaceStyle = config.userInterfaceStyle;
  
  #if !TARGET_OS_TV
+diff --git a/node_modules/react-native-screens/ios/RNSScreenWindowTraits.mm b/node_modules/react-native-screens/ios/RNSScreenWindowTraits.mm
+index fd6f70d..3be9ee7 100644
+--- a/node_modules/react-native-screens/ios/RNSScreenWindowTraits.mm
++++ b/node_modules/react-native-screens/ios/RNSScreenWindowTraits.mm
+@@ -148,9 +148,6 @@ + (void)enforceDesiredDeviceOrientation
+ 
+         UIWindowSceneGeometryPreferencesIOS *geometryPreferences =
+             [[UIWindowSceneGeometryPreferencesIOS alloc] initWithInterfaceOrientations:orientationMask];
+-        [scene requestGeometryUpdateWithPreferences:geometryPreferences
+-                                       errorHandler:^(NSError *_Nonnull error){
+-                                       }];
+ 
+         // `attemptRotationToDeviceOrientation` is deprecated for modern OS versions
+         // so we need to use `setNeedsUpdateOfSupportedInterfaceOrientations`
+@@ -159,7 +156,33 @@ + (void)enforceDesiredDeviceOrientation
+           topController = topController.presentedViewController;
+         }
+ 
+-        [topController setNeedsUpdateOfSupportedInterfaceOrientations];
++        // OneKey patch: opt out per screen while preserving real scene orientation.
++        UIViewController *orientationController = topController;
++        if ([orientationController isKindOfClass:[UINavigationController class]]) {
++          orientationController = ((UINavigationController *)orientationController).topViewController;
++        }
++        if ([orientationController isKindOfClass:[RNSScreen class]]) {
++          orientationController = [(RNSScreen *)orientationController
++              findChildVCForConfigAndTrait:RNSWindowTraitOrientation
++                          includingModals:YES];
++        }
++        BOOL animated = ![orientationController isKindOfClass:[RNSScreen class]] ||
++            ((RNSScreen *)orientationController).screenView.screenOrientationAnimated;
++        void (^updateOrientation)(void) = ^{
++          [scene requestGeometryUpdateWithPreferences:geometryPreferences
++                                         errorHandler:^(NSError *_Nonnull error){
++                                         }];
++          [topController setNeedsUpdateOfSupportedInterfaceOrientations];
++        };
++        if (animated) {
++          updateOrientation();
++        } else {
++          [UIView performWithoutAnimation:^{
++            // Invalidate inside the block before a geometry request can start rotation.
++            [topController setNeedsUpdateOfSupportedInterfaceOrientations];
++            updateOrientation();
++          }];
++        }
+       } else
+ #endif // Check for iOS 16
+       {
 diff --git a/node_modules/react-native-screens/ios/helpers/scroll-view/RNSScrollEdgeEffectApplicator.h b/node_modules/react-native-screens/ios/helpers/scroll-view/RNSScrollEdgeEffectApplicator.h
 index b1c43b7..8678802 100644
 --- a/node_modules/react-native-screens/ios/helpers/scroll-view/RNSScrollEdgeEffectApplicator.h
@@ -1074,6 +1944,47 @@ index 732ba7d..0210ef6 100644
  };
  declare function FullWindowOverlay(props: FullWindowOverlayProps): React.JSX.Element;
  export default FullWindowOverlay;
+diff --git a/node_modules/react-native-screens/lib/typescript/fabric/ModalScreenNativeComponent.d.ts b/node_modules/react-native-screens/lib/typescript/fabric/ModalScreenNativeComponent.d.ts
+index e0efef1..269e22d 100644
+--- a/node_modules/react-native-screens/lib/typescript/fabric/ModalScreenNativeComponent.d.ts
++++ b/node_modules/react-native-screens/lib/typescript/fabric/ModalScreenNativeComponent.d.ts
+@@ -58,6 +58,8 @@ export interface NativeProps extends ViewProps {
+     statusBarColor?: ColorValue | undefined;
+     statusBarHidden?: boolean | undefined;
+     screenOrientation?: string | undefined;
++    screenOrientationAnimated?: CT.WithDefault<boolean, true>;
++  screenContentReady?: CT.WithDefault<boolean, true>;
+     statusBarAnimation?: string | undefined;
+     statusBarStyle?: string | undefined;
+     statusBarTranslucent?: boolean | undefined;
+diff --git a/node_modules/react-native-screens/lib/typescript/fabric/ScreenNativeComponent.d.ts b/node_modules/react-native-screens/lib/typescript/fabric/ScreenNativeComponent.d.ts
+index 9fe6da7..b1174dd 100644
+--- a/node_modules/react-native-screens/lib/typescript/fabric/ScreenNativeComponent.d.ts
++++ b/node_modules/react-native-screens/lib/typescript/fabric/ScreenNativeComponent.d.ts
+@@ -58,6 +58,8 @@ export interface NativeProps extends ViewProps {
+     statusBarColor?: ColorValue | undefined;
+     statusBarHidden?: boolean | undefined;
+     screenOrientation?: string | undefined;
++    screenOrientationAnimated?: CT.WithDefault<boolean, true>;
++  screenContentReady?: CT.WithDefault<boolean, true>;
+     statusBarAnimation?: string | undefined;
+     statusBarStyle?: string | undefined;
+     statusBarTranslucent?: boolean | undefined;
+diff --git a/node_modules/react-native-screens/lib/typescript/types.d.ts b/node_modules/react-native-screens/lib/typescript/types.d.ts
+index 10a3134..f5d1a18 100644
+--- a/node_modules/react-native-screens/lib/typescript/types.d.ts
++++ b/node_modules/react-native-screens/lib/typescript/types.d.ts
+@@ -305,6 +305,10 @@ export interface ScreenProps extends ViewProps {
+      * - "landscape_right" – landscape-right orientation is permitted
+      */
+     screenOrientation?: ScreenOrientationTypes | undefined;
++    /** OneKey patch: animate system orientation updates on iOS. Defaults to true. */
++    screenOrientationAnimated?: boolean | undefined;
++  /** OneKey patch: retain a native transition snapshot until content is drawn. */
++  screenContentReady?: boolean | undefined;
+     /**
+      * Describes heights where a sheet can rest.
+      * Works only when `presentation` is set to `formSheet`.
 diff --git a/node_modules/react-native-screens/src/components/FullWindowOverlay.tsx b/node_modules/react-native-screens/src/components/FullWindowOverlay.tsx
 index 711a012..c042779 100644
 --- a/node_modules/react-native-screens/src/components/FullWindowOverlay.tsx
@@ -1113,3 +2024,46 @@ index 4906480..df8afea 100644
  }
  
  export default codegenNativeComponent<NativeProps>('RNSFullWindowOverlay', {
+diff --git a/node_modules/react-native-screens/src/fabric/ModalScreenNativeComponent.ts b/node_modules/react-native-screens/src/fabric/ModalScreenNativeComponent.ts
+index 171e399..64e1871 100644
+--- a/node_modules/react-native-screens/src/fabric/ModalScreenNativeComponent.ts
++++ b/node_modules/react-native-screens/src/fabric/ModalScreenNativeComponent.ts
+@@ -102,6 +102,9 @@ export interface NativeProps extends ViewProps {
+   statusBarColor?: ColorValue | undefined;
+   statusBarHidden?: boolean | undefined;
+   screenOrientation?: string | undefined;
++  // OneKey patch: modal and regular screens must share the same native props.
++  screenOrientationAnimated?: CT.WithDefault<boolean, true>;
++  screenContentReady?: CT.WithDefault<boolean, true>;
+   statusBarAnimation?: string | undefined;
+   statusBarStyle?: string | undefined;
+   statusBarTranslucent?: boolean | undefined;
+diff --git a/node_modules/react-native-screens/src/fabric/ScreenNativeComponent.ts b/node_modules/react-native-screens/src/fabric/ScreenNativeComponent.ts
+index 4fa781c..2ab369e 100644
+--- a/node_modules/react-native-screens/src/fabric/ScreenNativeComponent.ts
++++ b/node_modules/react-native-screens/src/fabric/ScreenNativeComponent.ts
+@@ -102,6 +102,9 @@ export interface NativeProps extends ViewProps {
+   statusBarColor?: ColorValue | undefined;
+   statusBarHidden?: boolean | undefined;
+   screenOrientation?: string | undefined;
++  // OneKey patch: keep system rotation animation configurable per screen.
++  screenOrientationAnimated?: CT.WithDefault<boolean, true>;
++  screenContentReady?: CT.WithDefault<boolean, true>;
+   statusBarAnimation?: string | undefined;
+   statusBarStyle?: string | undefined;
+   statusBarTranslucent?: boolean | undefined;
+diff --git a/node_modules/react-native-screens/src/types.tsx b/node_modules/react-native-screens/src/types.tsx
+index 9c3ab4c..7197421 100644
+--- a/node_modules/react-native-screens/src/types.tsx
++++ b/node_modules/react-native-screens/src/types.tsx
+@@ -388,6 +388,10 @@ export interface ScreenProps extends ViewProps {
+    * - "landscape_right" – landscape-right orientation is permitted
+    */
+   screenOrientation?: ScreenOrientationTypes | undefined;
++  /** OneKey patch: animate system orientation updates on iOS. Defaults to true. */
++  screenOrientationAnimated?: boolean | undefined;
++  /** OneKey patch: retain a native transition snapshot until content is drawn. */
++  screenContentReady?: boolean | undefined;
+   /**
+    * Describes heights where a sheet can rest.
+    * Works only when `presentation` is set to `formSheet`.

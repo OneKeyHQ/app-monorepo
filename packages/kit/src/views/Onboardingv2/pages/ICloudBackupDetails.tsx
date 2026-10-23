@@ -19,6 +19,7 @@ import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { WalletAvatar } from '@onekeyhq/kit/src/components/WalletAvatar';
 import type { IBackupDataEncryptedPayload } from '@onekeyhq/shared/src/cloudBackup/cloudBackupTypes';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   EOnboardingPagesV2,
@@ -33,6 +34,7 @@ import type {
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { MultipleClickStack } from '../../../components/MultipleClickStack';
+import { useIsMounted } from '../../../hooks/useIsMounted';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { CloudAccountBar } from '../components/CloudAccountBar';
 import { showCloudBackupPasswordDialog } from '../components/CloudBackupDialogs';
@@ -55,21 +57,43 @@ export default function ICloudBackupDetails({
   const _backupTime = route.params?.backupTime;
   const actionType = route.params?.actionType;
   const hideRestoreButton = route.params?.hideRestoreButton;
+  const isMountedRef = useIsMounted();
+  const [accountRefreshNonce, setAccountRefreshNonce] = useState(0);
   const {
     doBackup,
+    prepareBackup,
     doDeleteBackup,
     doRestoreBackup,
     checkLoading,
     goToPageBackupList,
   } = useCloudBackup();
 
-  const { result: backupData, isLoading: fetchLoading } = usePromiseResult<
+  const {
+    result: backupData,
+    isLoading: fetchLoading,
+    run: reloadBackupData,
+  } = usePromiseResult<
     IPrimeTransferData | IBackupDataEncryptedPayload | undefined
   >(
     async () => {
       await timerUtils.wait(300);
       if (actionType === 'backup') {
-        return backgroundApiProxy.serviceCloudBackupV2.buildBackupData();
+        if (!isMountedRef.current) return undefined;
+        try {
+          const data = await prepareBackup();
+          if (!isMountedRef.current) return undefined;
+          if (data) setAccountRefreshNonce((nonce) => nonce + 1);
+          return data;
+        } catch (error) {
+          if (!isMountedRef.current) return undefined;
+          if (!errorToastUtils.isUserCancelStyleError(error)) {
+            errorToastUtils.toastIfError(error);
+            errorToastUtils.showToastOfError(error);
+          }
+          // Settle both automatic loading and Retry into the retryable empty
+          // result. User cancellation must not escape as an unhandled rejection.
+          return undefined;
+        }
       }
       if (actionType === 'restore') {
         if (!route.params?.backupId) {
@@ -85,7 +109,7 @@ export default function ICloudBackupDetails({
       }
       return undefined;
     },
-    [actionType, route.params?.backupId],
+    [actionType, route.params?.backupId, prepareBackup, isMountedRef],
     {
       watchLoading: true,
     },
@@ -185,6 +209,16 @@ export default function ICloudBackupDetails({
     if (fetchLoading) {
       return <CloudBackupLoadingSkeleton />;
     }
+    if (actionType === 'backup' && !backupData) {
+      return (
+        <Button
+          testID={OnboardingTestIDs.iCloudBackupDetailsRetryBtn}
+          onPress={() => reloadBackupData()}
+        >
+          {intl.formatMessage({ id: ETranslations.global_retry })}
+        </Button>
+      );
+    }
     if (!walletData?.length) {
       return <CloudBackupDetailsEmptyView />;
     }
@@ -278,7 +312,7 @@ export default function ICloudBackupDetails({
         paddingBottom: Math.max(bottom, 20),
       }}
     >
-      <CloudAccountBar />
+      <CloudAccountBar refreshNonce={accountRefreshNonce} />
       {renderContent()}
       <MultipleClickStack
         h="$10"

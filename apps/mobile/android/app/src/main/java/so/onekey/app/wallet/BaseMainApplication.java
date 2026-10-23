@@ -24,7 +24,10 @@ import com.facebook.react.ReactPackage;
 import com.facebook.react.bridge.ReactApplicationContext;
 import com.facebook.react.bridge.ReactContext;
 import com.facebook.react.defaults.DefaultNewArchitectureEntryPoint;
+import com.facebook.react.internal.featureflags.ReactNativeFeatureFlags;
+import com.facebook.react.internal.featureflags.ReactNativeNewArchitectureFeatureFlagsDefaults;
 import com.facebook.react.modules.systeminfo.AndroidInfoHelpers;
+import com.facebook.react.views.view.WindowUtilKt;
 import com.facebook.react.soloader.OpenSourceMergedSoMapping;
 import com.facebook.soloader.SoLoader;
 import com.tencent.mmkv.MMKV;
@@ -349,7 +352,7 @@ public class BaseMainApplication extends Application implements ReactApplication
     /**
      * Feeds the host Activity's resume/pause/destroy signals to
      * {@link BackgroundThreadManager} so an allowlisted subset of bg-host
-     * TurboModules (currently only react-native-google-signin) can observe
+     * TurboModules (Google Sign-In and CloudFs) can observe
      * getCurrentActivity() on the bg ReactContext. The manager does NOT
      * fan out these events through ReactHost / ReactContext lifecycle
      * APIs — see the comment block in BackgroundThreadManager.kt for the
@@ -367,6 +370,11 @@ public class BaseMainApplication extends Application implements ReactApplication
       // BackgroundThreadManager.kt before adding new prefixes.
       BackgroundThreadManager.getInstance()
           .addBgActivityBridgeListenerClassPrefix("com.reactnativegooglesignin.");
+      // CloudFs owns the pending Drive consent operation in the bg runtime.
+      // Its request codes (1, 11) do not overlap Google Sign-In (9001, 53294, 53295);
+      // its lifecycle callbacks are no-ops, so bridging does not duplicate resources.
+      BackgroundThreadManager.getInstance()
+          .addBgActivityBridgeListenerClassPrefix("com.rncloudfs.RNCloudFsModule");
 
       registerActivityLifecycleCallbacks(new ActivityLifecycleCallbacks() {
         @Override public void onActivityCreated(@NonNull Activity activity, @Nullable Bundle savedInstanceState) {}
@@ -570,6 +578,22 @@ public class BaseMainApplication extends Application implements ReactApplication
     );
     if (BuildConfig.IS_NEW_ARCHITECTURE_ENABLED) {
       DefaultNewArchitectureEntryPoint.load();
+      ReactNativeFeatureFlags.dangerouslyForceOverride(
+          new ReactNativeNewArchitectureFeatureFlagsDefaults() {
+            @Override
+            public boolean fixFindShadowNodeByTagRaceCondition() {
+              return true;
+            }
+
+            @Override
+            public boolean enableSchedulerDelegateInvalidation() {
+              return true;
+            }
+          });
+    }
+    // Mirrors ReactNativeApplicationEntryPoint, which this app does not use.
+    if (BuildConfig.IS_EDGE_TO_EDGE_ENABLED) {
+      WindowUtilKt.setEdgeToEdgeFeatureFlagOn();
     }
     long tAfterNewArch = System.currentTimeMillis();
     OneKeyLog.info(

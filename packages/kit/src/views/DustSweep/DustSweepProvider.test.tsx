@@ -1,10 +1,12 @@
 /** @jest-environment jsdom */
 
 import { useState } from 'react';
-import type { PropsWithChildren } from 'react';
+import type { Dispatch, PropsWithChildren, SetStateAction } from 'react';
 
 import { act, renderHook, waitFor } from '@testing-library/react';
 
+import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusNames';
 import type {
   IDustSweepItem,
   IDustSweepNetwork,
@@ -14,7 +16,10 @@ import type {
   IDustSweepToken,
 } from '@onekeyhq/shared/types/swap/dustSweep';
 import type { ISwapProviderInfo } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
-import { EProtocolOfExchange } from '@onekeyhq/shared/types/swap/types';
+import {
+  EProtocolOfExchange,
+  ESwapTxHistoryStatus,
+} from '@onekeyhq/shared/types/swap/types';
 
 import { DustSweepProvider, useDustSweep } from './DustSweepProvider';
 import {
@@ -27,13 +32,28 @@ import {
   loadDustSweepNetworks,
   refreshDustSweepNetwork,
 } from './utils/loadNetworks';
+import {
+  getDustSweepNetworksCache,
+  invalidateDustSweepNetworksCache,
+  setDustSweepNetworksCache,
+} from './utils/networkCache';
 
 import type { IDustSweepState } from './stateMachine';
 
+let mockDeferPreferences = false;
+const mockWritePreferences = jest.fn();
+let mockSetPreferences: Dispatch<
+  SetStateAction<{ threshold: IDustSweepThreshold }>
+>;
+
 function useMockPreferences() {
-  return useState<{ threshold: IDustSweepThreshold }>({
+  const result = useState<{ threshold: IDustSweepThreshold }>({
     threshold: 10,
   });
+  mockSetPreferences = result[1];
+  return mockDeferPreferences
+    ? ([result[0], mockWritePreferences] as const)
+    : result;
 }
 
 let mockFocused = true;
@@ -64,6 +84,11 @@ jest.mock('./utils/loadNetworks', () => ({
 jest.mock('./hooks/useDustSweepSession', () => ({
   useDustSweepSession: jest.fn(),
 }));
+jest.mock('@onekeyhq/shared/src/eventBus/appEventBus', () => {
+  const { EventEmitter } =
+    jest.requireActual<typeof import('events')>('events');
+  return { appEventBus: new EventEmitter() };
+});
 
 const mockLoadNetworks = jest.mocked(loadDustSweepNetworks);
 const mockRefreshNetwork = jest.mocked(refreshDustSweepNetwork);
@@ -191,10 +216,12 @@ function deferredLoad() {
 
 describe('Dust Sweep Provider request and selection ownership', () => {
   beforeEach(() => {
+    invalidateDustSweepNetworksCache(routeParams.walletId);
     jest.clearAllMocks();
     mockLoadNetworks.mockReset();
     mockRefreshNetwork.mockReset();
     mockFocused = true;
+    mockDeferPreferences = false;
     mockBatchSequence = 0;
     mockRefreshNetwork.mockImplementation(async ({ entry }) => entry);
     mockUseSession.mockImplementation(useMockSession);
@@ -202,6 +229,200 @@ describe('Dust Sweep Provider request and selection ownership', () => {
       networks: [base, ethereum],
       partialError: false,
     });
+  });
+
+  it('force-refreshes after returning without changing the network or manual selection', async () => {
+    const { result, rerender } = renderController();
+    await waitFor(() => expect(result.current.canStart).toBe(true));
+    act(() => result.current.selectThreshold(100));
+    act(() => {
+      result.current.toggle(base.tokens[1].key);
+      result.current.setSlippage(10);
+    });
+    expect(result.current.selected).toEqual([base.tokens[0]]);
+    expect(mockLoadNetworks).toHaveBeenCalledTimes(1);
+    mockFocused = false;
+    rerender();
+    const updated = {
+      ...base,
+      tokens: [
+        { ...base.tokens[0], amount: '0.3', valueUsd: '0.6' },
+        base.tokens[1],
+        { ...base.tokens[0], key: 'new-token' },
+      ],
+      balanceUsd: '1',
+    };
+    mockLoadNetworks.mockResolvedValueOnce({
+      networks: [ethereum, updated],
+      partialError: false,
+    });
+    mockFocused = true;
+    rerender();
+    await waitFor(() => expect(result.current.current).toBe(updated));
+    expect(mockLoadNetworks).toHaveBeenCalledTimes(2);
+    expect(mockLoadNetworks.mock.calls[1][3]).toEqual({
+      isManualRefresh: true,
+      skipCache: true,
+    });
+    expect(result.current.selected).toEqual([updated.tokens[0]]);
+    expect(result.current.slippage).toBe(10);
+    expect(result.current.threshold).toBe(100);
+    expect(result.current.canStart).toBe(true);
+  });
+
+  it('coalesces trade events during a pending load while retaining usable choices', async () => {
+    const first = deferredLoad();
+    const second = deferredLoad();
+    mockLoadNetworks
+      .mockReturnValueOnce(first.promise)
+      .mockReturnValueOnce(second.promise);
+    const { result } = renderController();
+    act(() => mockLoadNetworks.mock.calls[0][2]?.([ethereum]));
+    act(() => {
+      for (let i = 0; i < 3; i += 1)
+        appEventBus.emit(EAppEventBusNames.SwapTxHistoryStatusUpdate, {
+          status: ESwapTxHistoryStatus.SUCCESS,
+        });
+    });
+    expect(mockLoadNetworks).toHaveBeenCalledTimes(1);
+    expect(result.current.session.state.snapshot).toBeUndefined();
+    expect(result.current.canStart).toBe(true);
+    await act(async () => {
+      first.resolve({ networks: [ethereum], partialError: false });
+      await first.promise;
+    });
+    expect(mockLoadNetworks).toHaveBeenCalledTimes(2);
+    expect(result.current.canStart).toBe(true);
+    expect(mockLoadNetworks.mock.calls[1][3]).toEqual({
+      isManualRefresh: true,
+      skipCache: true,
+    });
+    await act(async () => {
+      second.resolve({ networks: [base], partialError: false });
+      await second.promise;
+    });
+    expect(result.current.canStart).toBe(true);
+  });
+
+  it('defers hidden trade events until focus returns', async () => {
+    const { result, rerender } = renderController();
+    await waitFor(() => expect(result.current.canStart).toBe(true));
+    mockFocused = false;
+    rerender();
+    act(() => {
+      appEventBus.emit(EAppEventBusNames.SwapTxHistoryStatusUpdate, {
+        status: ESwapTxHistoryStatus.SUCCESS,
+      });
+    });
+    expect(mockLoadNetworks).toHaveBeenCalledTimes(1);
+    mockFocused = true;
+    rerender();
+    await waitFor(() => expect(mockLoadNetworks).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(result.current.canStart).toBe(true));
+  });
+
+  it('retains the first displayed cached selection when fresh data adds a token', async () => {
+    const fresh = deferredLoad();
+    mockLoadNetworks.mockReturnValueOnce(fresh.promise);
+    const { result } = renderController();
+    act(() => mockLoadNetworks.mock.calls[0][2]?.([ethereum]));
+    expect(result.current.selected).toEqual(ethereum.tokens);
+    const updated = network('evm--1', ['4', '2']);
+    updated.tokens[0].amount = '0.5';
+
+    await act(async () => {
+      fresh.resolve({ networks: [updated], partialError: false });
+      await fresh.promise;
+    });
+
+    expect(result.current.current).toBe(updated);
+    expect(result.current.visible).toEqual(updated.tokens);
+    expect(result.current.selected).toEqual([updated.tokens[0]]);
+    expect(result.current.selected[0].amount).toBe('0.5');
+    expect(result.current.canStart).toBe(true);
+  });
+
+  it('keeps displayed selection keys when the fifteen-second refresh adds a token', async () => {
+    jest.useFakeTimers();
+    try {
+      const fresh = deferredLoad();
+      mockLoadNetworks
+        .mockResolvedValueOnce({ networks: [ethereum], partialError: false })
+        .mockReturnValueOnce(fresh.promise);
+      const { result } = renderController();
+      await act(async () => {});
+      expect(result.current.selected).toEqual(ethereum.tokens);
+      await act(async () => jest.advanceTimersByTime(14_999));
+      expect(mockLoadNetworks).toHaveBeenCalledTimes(1);
+      await act(async () => jest.advanceTimersByTime(1));
+      expect(mockLoadNetworks).toHaveBeenCalledTimes(2);
+      expect(result.current.refreshStatus).toBe('refreshing');
+      expect(result.current.canStart).toBe(true);
+      const updated = network('evm--1', ['4', '2']);
+
+      await act(async () => {
+        fresh.resolve({ networks: [updated], partialError: false });
+        await fresh.promise;
+      });
+
+      expect(result.current.current).toBe(updated);
+      expect(result.current.visible).toEqual(updated.tokens);
+      expect(result.current.selected).toEqual([updated.tokens[0]]);
+      expect(result.current.canStart).toBe(true);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('keeps the explicit network selection keys when manual refresh adds a token', async () => {
+    const fresh = deferredLoad();
+    mockLoadNetworks
+      .mockResolvedValueOnce({
+        networks: [base, ethereum],
+        partialError: false,
+      })
+      .mockReturnValueOnce(fresh.promise);
+    const { result } = renderController();
+    await waitFor(() => expect(result.current.current).toBe(base));
+    act(() => result.current.selectNetwork(ethereum.network.networkId));
+    expect(result.current.selected).toEqual(ethereum.tokens);
+    act(() => result.current.retry());
+    expect(result.current.canStart).toBe(true);
+    const updated = network('evm--1', ['4', '2']);
+
+    await act(async () => {
+      fresh.resolve({ networks: [base, updated], partialError: false });
+      await fresh.promise;
+    });
+
+    expect(result.current.current).toBe(updated);
+    expect(result.current.visible).toEqual(updated.tokens);
+    expect(result.current.selected).toEqual([updated.tokens[0]]);
+    expect(result.current.canStart).toBe(true);
+  });
+
+  it('keeps an executing or paused snapshot intact and refreshes after stopping', async () => {
+    const { result, rerender } = renderController();
+    await waitFor(() => expect(result.current.canStart).toBe(true));
+    act(() => {
+      result.current.start();
+    });
+    const snapshot = result.current.session.state.snapshot;
+    mockFocused = false;
+    rerender();
+    act(() => {
+      appEventBus.emit(EAppEventBusNames.SwapTxHistoryStatusUpdate, {
+        status: ESwapTxHistoryStatus.SUCCESS,
+      });
+      result.current.session.pause();
+    });
+    mockFocused = true;
+    rerender();
+    expect(result.current.session.state.snapshot).toBe(snapshot);
+    expect(result.current.session.state.phase).toBe('paused');
+    expect(mockLoadNetworks).toHaveBeenCalledTimes(1);
+    await act(async () => result.current.stop());
+    await waitFor(() => expect(mockLoadNetworks).toHaveBeenCalledTimes(2));
   });
 
   it.each([0, 0.1, 4.999, 50.01, NaN, Infinity])(
@@ -243,7 +464,7 @@ describe('Dust Sweep Provider request and selection ownership', () => {
       visible: [base.tokens[0]],
     },
   ])(
-    'displays a $description cache without making it executable',
+    'keeps a $description Home cache executable while refreshing',
     async ({ cached, current, visible }) => {
       const fresh = deferredLoad();
       mockLoadNetworks.mockReturnValueOnce(fresh.promise);
@@ -256,11 +477,10 @@ describe('Dust Sweep Provider request and selection ownership', () => {
       expect(result.current.refreshStatus).toBe('refreshing');
       expect(result.current.current).toBe(current);
       expect(result.current.visible).toEqual(visible);
-      expect(result.current.assetStatus).toBe('refreshing');
+      expect(result.current.assetStatus).toBe('ready');
       expect(result.current.providerInfo).toBeUndefined();
-      expect(result.current.canStart).toBe(false);
+      expect(result.current.canStart).toBe(true);
       act(() => {
-        result.current.start();
         result.current.retryAssets();
       });
       expect(result.current.session.state.snapshot).toBeUndefined();
@@ -317,9 +537,10 @@ describe('Dust Sweep Provider request and selection ownership', () => {
     expect(result.current.canStart).toBe(false);
   });
 
-  it('blocks a start in the same event that claims a full refresh', async () => {
+  it('starts from existing data in the same event as refresh and retires its late result', async () => {
     const { result } = renderController();
     await waitFor(() => expect(result.current.canStart).toBe(true));
+    const current = result.current.current;
     const fresh = deferredLoad();
     mockLoadNetworks.mockReturnValueOnce(fresh.promise);
 
@@ -328,12 +549,15 @@ describe('Dust Sweep Provider request and selection ownership', () => {
       result.current.start();
     });
 
-    expect(result.current.selecting).toBe(true);
-    expect(result.current.session.state.snapshot).toBeUndefined();
+    const snapshot = result.current.session.state.snapshot;
+    expect(result.current.session.state.phase).toBe('running');
+    expect(snapshot?.networkId).toBe(current?.network.networkId);
     expect(result.current.loadStatus).toBe('ready');
-    expect(result.current.refreshStatus).toBe('refreshing');
+    expect(result.current.refreshStatus).toBe('idle');
     expect(result.current.canStart).toBe(false);
     expect(mockLoadNetworks).toHaveBeenCalledTimes(2);
+    expect(mockLoadNetworks.mock.calls[1][1].aborted).toBe(true);
+    expect(getDustSweepNetworksCache(routeParams)).toBeUndefined();
     await act(async () => {
       fresh.resolve({
         networks: [ethereum],
@@ -342,8 +566,99 @@ describe('Dust Sweep Provider request and selection ownership', () => {
       });
       await fresh.promise;
     });
-    expect(result.current.canStart).toBe(true);
+    expect(result.current.current).toBe(current);
+    expect(result.current.session.state.snapshot).toBe(snapshot);
+    expect(result.current.session.state.phase).toBe('running');
+    expect(getDustSweepNetworksCache(routeParams)).toBeUndefined();
   });
+
+  it('does not reopen a request through old retry callbacks after starting in the same event', async () => {
+    const fresh = deferredLoad();
+    mockLoadNetworks.mockReturnValueOnce(fresh.promise);
+    const { result } = renderController();
+    act(() => mockLoadNetworks.mock.calls[0][2]?.([ethereum]));
+    const retryBeforeStart = result.current.retry;
+    const retryAssetsBeforeStart = result.current.retryAssets;
+    act(() => {
+      result.current.start();
+      retryBeforeStart();
+      retryAssetsBeforeStart();
+    });
+    const snapshot = result.current.session.state.snapshot;
+    expect(result.current.session.state.phase).toBe('running');
+    expect(mockLoadNetworks).toHaveBeenCalledTimes(1);
+    expect(mockLoadNetworks.mock.calls[0][1].aborted).toBe(true);
+    act(() => retryBeforeStart());
+    expect(mockLoadNetworks).toHaveBeenCalledTimes(1);
+    await act(async () => {
+      fresh.resolve({ networks: [], partialError: false });
+      await fresh.promise;
+    });
+    expect(result.current.current).toBe(ethereum);
+    expect(result.current.session.state.snapshot).toBe(snapshot);
+    expect(getDustSweepNetworksCache(routeParams)).toBeUndefined();
+  });
+
+  it.each(['Home', 'Dust'] as const)(
+    'starts from %s cache before refresh settles and keeps late data out of execution and reconciliation',
+    async (source) => {
+      const fresh = deferredLoad();
+      let resolveAssets!: (entry: IDustSweepNetwork) => void;
+      mockLoadNetworks.mockReturnValueOnce(fresh.promise);
+      mockRefreshNetwork.mockReturnValueOnce(
+        new Promise((resolve) => {
+          resolveAssets = resolve;
+        }),
+      );
+      if (source === 'Dust')
+        setDustSweepNetworksCache(routeParams, {
+          networks: [ethereum],
+          partialError: false,
+          providerInfo,
+        });
+      const { result } = renderController();
+      const onCache = mockLoadNetworks.mock.calls[0][2];
+      if (source === 'Home') act(() => onCache?.([ethereum]));
+      const current = result.current.current;
+      expect(current).toEqual(ethereum);
+      expect(result.current.refreshStatus).toBe('refreshing');
+      expect(result.current.assetStatus).toBe('ready');
+      expect(result.current.canStart).toBe(true);
+      act(() => {
+        result.current.start();
+      });
+      const snapshot = result.current.session.state.snapshot;
+      expect(snapshot?.tokens).toEqual(ethereum.tokens);
+      expect(mockLoadNetworks.mock.calls[0][1].aborted).toBe(true);
+      expect(getDustSweepNetworksCache(routeParams)).toBeUndefined();
+
+      await act(async () => {
+        fresh.resolve({ networks: [base], partialError: false, providerInfo });
+        await fresh.promise;
+      });
+      expect(result.current.session.state.phase).toBe('running');
+      expect(result.current.session.state.snapshot).toBe(snapshot);
+      expect(result.current.current).toBe(current);
+      expect(getDustSweepNetworksCache(routeParams)).toBeUndefined();
+      act(() => mockComplete());
+      act(() => result.current.sweepAgain());
+      act(() => onCache?.([base, ethereum]));
+      expect(result.current.current).toBe(current);
+      expect(result.current.assetStatus).toBe('refreshing');
+      expect(result.current.selected).toEqual([]);
+      expect(result.current.canStart).toBe(false);
+      expect(getDustSweepNetworksCache(routeParams)).toBeUndefined();
+
+      const settled = { ...ethereum, tokens: [], balanceUsd: '0' };
+      await act(async () => resolveAssets(settled));
+      expect(result.current.current).toBe(settled);
+      expect(result.current.selected).toEqual([]);
+      expect(result.current.assetStatus).toBe('ready');
+      expect(getDustSweepNetworksCache(routeParams)?.networks).toEqual([
+        settled,
+      ]);
+    },
+  );
 
   it('ignores a cache that arrives after live data, including during execution', async () => {
     const fresh = deferredLoad();
@@ -406,7 +721,8 @@ describe('Dust Sweep Provider request and selection ownership', () => {
     expect(result.current.partialError).toBe(true);
     expect(result.current.current).toBe(cached);
     expect(result.current.selected).toEqual([cached.tokens[0]]);
-    expect(result.current.canStart).toBe(false);
+    expect(result.current.assetStatus).toBe('ready');
+    expect(result.current.canStart).toBe(true);
     act(() => result.current.retryAssets());
     expect(mockLoadNetworks).toHaveBeenCalledTimes(2);
     expect(mockRefreshNetwork).not.toHaveBeenCalled();
@@ -510,7 +826,7 @@ describe('Dust Sweep Provider request and selection ownership', () => {
     },
   );
 
-  it('retains a failed network preview while allowing only fresh networks to start', async () => {
+  it('keeps failed network previews executable while retrying their full load', async () => {
     const fresh = deferredLoad();
     const retry = deferredLoad();
     mockLoadNetworks
@@ -525,6 +841,13 @@ describe('Dust Sweep Provider request and selection ownership', () => {
         partialError: true,
         providerInfo,
         failedNetworkIds: [base.network.networkId],
+        failedNetworkOwners: [
+          {
+            networkId: base.network.networkId,
+            accountId: base.accountId,
+            address: base.address,
+          },
+        ],
       });
       await fresh.promise;
     });
@@ -534,8 +857,9 @@ describe('Dust Sweep Provider request and selection ownership', () => {
     expect(result.current.networks).toContain(base);
     expect(result.current.loadStatus).toBe('ready');
     expect(result.current.refreshStatus).toBe('idle');
-    expect(result.current.assetStatus).toBe('error');
-    expect(result.current.canStart).toBe(false);
+    expect(result.current.partialError).toBe(true);
+    expect(result.current.assetStatus).toBe('ready');
+    expect(result.current.canStart).toBe(true);
     act(() => result.current.selectNetwork(ethereum.network.networkId));
     expect(result.current.canStart).toBe(true);
     act(() => result.current.selectNetwork(base.network.networkId));
@@ -652,7 +976,9 @@ describe('Dust Sweep Provider request and selection ownership', () => {
     expect(result.current.loadStatus).toBe('ready');
     expect(result.current.refreshStatus).toBe('error');
     expect(result.current.current).toBeUndefined();
-    expect(result.current.assetStatus).toBe('error');
+    expect(result.current.partialError).toBe(true);
+    expect(result.current.assetStatus).toBe('ready');
+    expect(result.current.canStart).toBe(false);
     act(() => result.current.retryAssets());
     expect(mockLoadNetworks).toHaveBeenCalledTimes(2);
     expect(mockRefreshNetwork).not.toHaveBeenCalled();
@@ -662,6 +988,82 @@ describe('Dust Sweep Provider request and selection ownership', () => {
     });
     expect(result.current.current).toBe(base);
     expect(result.current.canStart).toBe(true);
+  });
+
+  it.each(['executing', 'reconciling', 'settled'] as const)(
+    'preserves same-owner successful exclusions when identity changes while %s',
+    async (timing) => {
+      let resolveAssets!: (entry: IDustSweepNetwork) => void;
+      mockRefreshNetwork.mockReturnValueOnce(
+        new Promise((resolve) => {
+          resolveAssets = resolve;
+        }),
+      );
+      const { result } = renderController();
+      await waitFor(() => expect(result.current.canStart).toBe(true));
+      act(() => result.current.selectNetwork(ethereum.network.networkId));
+      act(() => {
+        result.current.start();
+      });
+      const invalidateIdentity = () => {
+        appEventBus.emit(EAppEventBusNames.GlobalDeriveTypeUpdate, {
+          networkImpl: 'btc',
+        });
+      };
+      if (timing === 'executing') act(invalidateIdentity);
+      act(() => mockComplete());
+      if (timing === 'settled') {
+        await act(async () => resolveAssets(ethereum));
+        expect(result.current.assetStatus).toBe('ready');
+      }
+      act(() => result.current.sweepAgain());
+      if (timing !== 'executing') act(invalidateIdentity);
+      await waitFor(() => expect(mockLoadNetworks).toHaveBeenCalledTimes(2));
+      await waitFor(() => expect(result.current.refreshStatus).toBe('idle'));
+      expect(result.current.assetStatus).toBe('ready');
+      expect(result.current.selected).toEqual([]);
+      act(() => result.current.selectNetwork(base.network.networkId));
+      expect(result.current.canStart).toBe(true);
+      act(() => result.current.selectNetwork(ethereum.network.networkId));
+      expect(result.current.selected).toEqual([]);
+      expect(result.current.canStart).toBe(false);
+      if (timing === 'reconciling') {
+        expect(mockRefreshNetwork.mock.calls[0][1].aborted).toBe(true);
+        await act(async () => resolveAssets({ ...ethereum, address: 'stale' }));
+        expect(result.current.current?.address).toBe(ethereum.address);
+        expect(result.current.selected).toEqual([]);
+      }
+    },
+  );
+
+  it('rejects an old start callback after the replacement identity has fully loaded', async () => {
+    const { result } = renderController();
+    await waitFor(() => expect(result.current.canStart).toBe(true));
+    const start = result.current.start;
+    const replacement = {
+      ...base,
+      accountId: 'replacement',
+      address: 'new-address',
+    };
+    mockLoadNetworks.mockResolvedValueOnce({
+      networks: [replacement],
+      partialError: false,
+    });
+    act(() => {
+      appEventBus.emit(EAppEventBusNames.GlobalDeriveTypeUpdate, {
+        networkImpl: 'evm',
+      });
+    });
+    await waitFor(() => expect(result.current.current).toBe(replacement));
+    act(() => {
+      expect(start()).toBeUndefined();
+    });
+    expect(result.current.selecting).toBe(true);
+    expect(result.current.current).toBe(replacement);
+    expect(result.current.canStart).toBe(true);
+    expect(getDustSweepNetworksCache(routeParams)?.networks).toEqual([
+      replacement,
+    ]);
   });
 
   it('recovers only refreshed owners and preserves swept tokens after a partial full load', async () => {
@@ -1163,7 +1565,7 @@ describe('Dust Sweep Provider request and selection ownership', () => {
     expect(result.current.providerInfo).toBeUndefined();
   });
 
-  it('clears metadata during retry and does not reuse it when the provider disappears', async () => {
+  it('retains metadata during retry and replaces it when the provider disappears', async () => {
     const replacement = deferredLoad();
     mockLoadNetworks
       .mockResolvedValueOnce({
@@ -1178,7 +1580,7 @@ describe('Dust Sweep Provider request and selection ownership', () => {
     );
 
     act(() => result.current.retry());
-    expect(result.current.providerInfo).toBeUndefined();
+    expect(result.current.providerInfo).toEqual(providerInfo);
     await act(async () => {
       replacement.resolve({ networks: [], partialError: false });
       await replacement.promise;
@@ -1320,6 +1722,80 @@ describe('Dust Sweep Provider request and selection ownership', () => {
     expect(
       result.current.networks.map((entry) => entry.network.networkId),
     ).toEqual(['evm--8453', 'evm--42161']);
+  });
+
+  it('updates the threshold, candidates and selection before persistence echoes back', async () => {
+    mockDeferPreferences = true;
+    const { result } = renderController();
+    await waitFor(() => expect(result.current.canStart).toBe(true));
+    act(() => result.current.toggle(base.tokens[0].key));
+    expect(result.current.selected).toEqual([]);
+
+    act(() => result.current.selectThreshold(100));
+    expect(result.current.threshold).toBe(100);
+    expect(result.current.visible).toEqual(base.tokens);
+    expect(result.current.selected).toEqual(base.tokens);
+    expect(result.current.selectedValueUsd).toBe('52');
+    expect(mockWritePreferences).toHaveBeenCalledTimes(1);
+    expect(mockLoadNetworks).toHaveBeenCalledTimes(1);
+
+    act(() => mockSetPreferences({ threshold: 1 }));
+    expect(result.current.threshold).toBe(100);
+    expect(result.current.visible).toEqual(base.tokens);
+    expect(result.current.selected).toEqual(base.tokens);
+  });
+
+  it('keeps the last rapid threshold selection despite stale preference echoes', async () => {
+    mockDeferPreferences = true;
+    const { result } = renderController();
+    await waitFor(() => expect(result.current.canStart).toBe(true));
+
+    act(() => {
+      result.current.selectThreshold(100);
+      result.current.selectThreshold(1);
+      result.current.selectThreshold(10);
+    });
+    expect(result.current.threshold).toBe(10);
+    expect(result.current.visible).toEqual([base.tokens[0]]);
+    expect(mockWritePreferences).toHaveBeenCalledTimes(3);
+
+    act(() => mockSetPreferences({ threshold: 100 }));
+    expect(result.current.threshold).toBe(10);
+    expect(result.current.visible).toEqual([base.tokens[0]]);
+    act(() => mockSetPreferences({ threshold: 1 }));
+    expect(result.current.threshold).toBe(10);
+    expect(result.current.selected).toEqual([base.tokens[0]]);
+    expect(mockLoadNetworks).toHaveBeenCalledTimes(1);
+  });
+
+  it('uses hydrated preferences until the user chooses a threshold', async () => {
+    mockDeferPreferences = true;
+    const { result } = renderController();
+    await waitFor(() => expect(result.current.canStart).toBe(true));
+
+    act(() => mockSetPreferences({ threshold: 100 }));
+    expect(result.current.threshold).toBe(100);
+    expect(result.current.visible).toEqual(base.tokens);
+    expect(result.current.selected).toEqual(base.tokens);
+
+    act(() => result.current.selectThreshold(1));
+    expect(result.current.threshold).toBe(1);
+    expect(result.current.visible).toEqual([]);
+    expect(result.current.selectedValueUsd).toBe('0');
+    act(() => mockSetPreferences({ threshold: 10 }));
+    expect(result.current.threshold).toBe(1);
+    expect(result.current.visible).toEqual([]);
+    expect(mockLoadNetworks).toHaveBeenCalledTimes(1);
+  });
+
+  it('preserves manual token choices when persisted preferences hydrate later', async () => {
+    mockDeferPreferences = true;
+    const { result } = renderController();
+    await waitFor(() => expect(result.current.canStart).toBe(true));
+    act(() => result.current.toggle(base.tokens[0].key));
+    act(() => mockSetPreferences({ threshold: 100 }));
+    expect(result.current.visible).toEqual(base.tokens);
+    expect(result.current.selected).toEqual([]);
   });
 
   it('keeps an explicitly requested hidden network selected and visible in the picker', async () => {
@@ -1699,6 +2175,28 @@ describe('Dust Sweep Provider request and selection ownership', () => {
       result.current.start();
     });
     expect(result.current.session.state.phase).toBe('selecting');
+  });
+
+  it('ignores a queued start from an unmounted page without invalidating the replacement page', async () => {
+    const previous = renderController();
+    await waitFor(() => expect(previous.result.current.canStart).toBe(true));
+    const start = previous.result.current.start;
+    previous.unmount();
+    const request = deferredLoad();
+    mockLoadNetworks.mockReturnValueOnce(request.promise);
+    const current = renderController();
+    act(() => {
+      expect(start()).toBeUndefined();
+    });
+    await act(async () => {
+      request.resolve({ networks: [ethereum], partialError: false });
+      await request.promise;
+    });
+    expect(current.result.current.current).toBe(ethereum);
+    expect(current.result.current.canStart).toBe(true);
+    expect(getDustSweepNetworksCache(routeParams)?.networks).toEqual([
+      ethereum,
+    ]);
   });
   it('does not start without a selection', async () => {
     mockLoadNetworks.mockResolvedValue({

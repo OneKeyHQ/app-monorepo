@@ -12,7 +12,10 @@ import {
 } from '@testing-library/react';
 
 import type { IMarketToken } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketTokenList/MarketTokenData';
-import type { IMarketSearchV2Token } from '@onekeyhq/shared/types/market';
+import type {
+  IMarketSearchV2Token,
+  IMarketWatchListItemV2,
+} from '@onekeyhq/shared/types/market';
 import type {
   IMarketSpotCategory,
   IMarketStockPublicItem,
@@ -30,6 +33,10 @@ const mockToStock = jest.fn();
 const mockUseToMarketStockDetailPage = jest.fn(
   (_options?: unknown) => mockToStock,
 );
+let mockWatchlistItems: Pick<
+  IMarketWatchListItemV2,
+  'perpsCoin' | 'stockId'
+>[] = [{}];
 let mockConfigLoading = false;
 let mockSpotCategories: IMarketSpotCategory[] = [];
 let mockStockCategories: Array<{ category: string; name: string }> = [];
@@ -89,6 +96,7 @@ jest.mock('react-intl', () => ({
 }));
 
 jest.mock('@onekeyhq/components', () => {
+  const React = jest.requireActual<typeof import('react')>('react');
   function StackComponent({
     children,
     onPress,
@@ -128,13 +136,27 @@ jest.mock('@onekeyhq/components', () => {
       renderContent: (props: { isOpen: boolean }) => ReactNode;
       renderTrigger: ReactNode;
     }) => {
+      const [mounted, setMounted] = React.useState(false);
+      React.useEffect(() => {
+        if (open) setMounted(true);
+      }, [open]);
       const RenderContent = renderContent;
       return (
         <>
           <div onClick={() => onOpenChange(true)} role="presentation">
             {renderTrigger}
           </div>
-          {open ? <RenderContent isOpen /> : null}
+          {open || mounted ? (
+            <>
+              <button type="button" onClick={() => onOpenChange(false)}>
+                Close selector
+              </button>
+              <RenderContent isOpen={open} />
+              <button type="button" onClick={() => setMounted(false)}>
+                Finish exit animation
+              </button>
+            </>
+          ) : null}
         </>
       );
     },
@@ -226,6 +248,9 @@ jest.mock('@onekeyhq/kit/src/hooks/useNetworkLogoUri', () => ({
 
 jest.mock('@onekeyhq/kit/src/states/jotai/contexts/marketV2', () => ({
   useTokenDetailActions: () => ({ current: {} }),
+  useMarketWatchListV2Atom: () => [
+    { data: mockWatchlistItems, isMounted: true },
+  ],
 }));
 
 jest.mock('@onekeyhq/kit/src/views/Market/hooks', () => ({
@@ -414,6 +439,7 @@ jest.mock('./navigateToMarketTokenDetail', () => ({
 
 describe('MarketTokenSelector stock default category', () => {
   beforeEach(() => {
+    mockWatchlistItems = [{}];
     mockSetSelectorConfig.mockReset();
     mockStockListMount.mockReset();
     mockTopCoinPress.mockReset();
@@ -430,6 +456,43 @@ describe('MarketTokenSelector stock default category', () => {
       { type: 'stocks', name: 'Stocks' },
     ];
     mockStockCategories = [];
+  });
+
+  it('retains content until exit completes and resets search on reopen', () => {
+    renderOpenStockSelector();
+    const search = screen.getByTestId('market-token-selector-search');
+    fireEvent.change(search, { target: { value: 'AAPL' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Close selector' }));
+
+    expect(screen.getByTestId('market-token-selector-search')).toBe(search);
+    expect((search as HTMLInputElement).value).toBe('AAPL');
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Finish exit animation' }),
+    );
+    expect(screen.queryByTestId('market-token-selector-search')).toBeNull();
+    fireEvent.click(screen.getByTestId('market-token-selector-trigger'));
+    expect(
+      (screen.getByTestId('market-token-selector-search') as HTMLInputElement)
+        .value,
+    ).toBe('');
+    expect(screen.getByTestId('stock-list')).toBeTruthy();
+  });
+
+  it('resets search on reopen before exit completes without clearing closing content', () => {
+    renderOpenStockSelector();
+    const search = screen.getByTestId('market-token-selector-search');
+    fireEvent.change(search, { target: { value: 'AAPL' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Close selector' }));
+
+    expect(screen.getByTestId('market-token-selector-search')).toBe(search);
+    expect((search as HTMLInputElement).value).toBe('AAPL');
+
+    fireEvent.click(screen.getByTestId('market-token-selector-trigger'));
+    const reopenedSearch = screen.getByTestId('market-token-selector-search');
+    expect(reopenedSearch).not.toBe(search);
+    expect((reopenedSearch as HTMLInputElement).value).toBe('');
+    expect(screen.getByTestId('stock-list')).toBeTruthy();
   });
 
   it('keeps the search input outside the swipe region while covering browse and search results', () => {
@@ -912,6 +975,7 @@ describe('MarketTokenSelector stock default category', () => {
 
 describe('Favorites category selection', () => {
   beforeEach(() => {
+    mockWatchlistItems = [{}];
     mockConfigLoading = false;
     mockSpotCategories = [
       { type: 'trending', name: 'Trending' },
@@ -926,7 +990,67 @@ describe('Favorites category selection', () => {
     mockMobileSearchTokenList = undefined;
   });
 
+  it.each([
+    { platform: 'desktop', perpsOnly: false },
+    { platform: 'mobile', perpsOnly: false },
+    { platform: 'desktop', perpsOnly: true },
+    { platform: 'mobile', perpsOnly: true },
+  ])(
+    'hides empty Favorites categories while preserving the $platform list (perps only: $perpsOnly)',
+    ({ platform, perpsOnly }) => {
+      mockWatchlistItems = perpsOnly ? [{ perpsCoin: 'BTC' }] : [];
+      if (platform === 'mobile') {
+        render(<MobileTokenSelector />);
+      } else {
+        render(<MarketTokenSelector />);
+        fireEvent.click(screen.getByTestId('market-token-selector-trigger'));
+      }
+      fireEvent.click(
+        screen.getByTestId('market-token-selector-tab-favorites'),
+      );
+      expect(screen.queryByText('prime_crypto_payment__label')).toBeNull();
+      const listId = platform === 'mobile' ? 'mobile-favorites' : 'token-list';
+      expect(screen.getByTestId(listId).getAttribute('data-filter')).toBe(
+        'all',
+      );
+      expect(
+        screen.getByTestId('market-token-selector-tab-favorites'),
+      ).toBeTruthy();
+    },
+  );
+
+  it.each([false, true])(
+    'returns to All when the last stock favorite is removed (remaining perps: %s)',
+    (keepsPerps) => {
+      const remainingFavorites = keepsPerps ? [{ perpsCoin: 'BTC' }] : [];
+      mockWatchlistItems = [{ stockId: 'AAPL' }, ...remainingFavorites];
+      const { result, rerender } = renderHook(() =>
+        useDetailSelectorBrowseState({
+          defaultCategory: 'trending',
+          isWatchlistMode: true,
+        }),
+      );
+      act(() => result.current.handleSubCategoryChange('stocks'));
+      expect(result.current.watchlistFilter).toBe('stocks');
+
+      mockWatchlistItems = remainingFavorites;
+      rerender();
+      expect(result.current.subCategories).toEqual([]);
+      expect(result.current.watchlistFilter).toBe('all');
+
+      mockWatchlistItems = [{ stockId: 'AAPL' }, ...remainingFavorites];
+      rerender();
+      expect(result.current.watchlistFilter).toBe('all');
+      expect(result.current.subCategories.map(({ id }) => id)).toEqual([
+        'all',
+        'spot',
+        'stocks',
+      ]);
+    },
+  );
+
   it('keeps Favorites, Stocks, and Tokens categories independent across tab switches and config refreshes', () => {
+    mockWatchlistItems = [{}, { perpsCoin: 'BTC' }];
     const { result, rerender } = renderHook(() =>
       useDetailSelectorBrowseState({
         defaultCategory: 'trending',

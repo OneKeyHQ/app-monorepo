@@ -19,6 +19,7 @@ import type { IPageScreenProps } from '@onekeyhq/components';
 import {
   HeaderScrollGestureContext,
   Page,
+  rootNavigationRef,
   useIsModalPage,
   useMedia,
   usePreventRemove,
@@ -32,6 +33,7 @@ import {
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { MARKET_TOP_COINS_CATEGORY_ID } from '@onekeyhq/shared/src/consts/marketConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { ERootRoutes } from '@onekeyhq/shared/src/routes';
 import type {
   ETabMarketRoutes,
   ITabMarketParamList,
@@ -54,7 +56,6 @@ import { useSettledHeaderHeight } from '../../Earn/hooks/useSettledHeaderHeight'
 import { useMarketEnterAnalytics } from '../hooks';
 import { MarketWatchListProviderMirrorV2 } from '../MarketWatchListProviderMirrorV2';
 import { MarketTestIDs } from '../testIDs';
-import { finishMarketDetailTabBarTransition } from '../utils/marketDetailNavigation';
 
 import { MarketDetailHeader } from './components/MarketDetailHeader';
 import {
@@ -65,6 +66,7 @@ import {
   useStockDetail,
 } from './hooks';
 import { useSyncMarketCurrentTokenLiveData } from './hooks/useAutoRefreshTokenDetail';
+import { useMarketDetailTabBarVisibility } from './hooks/useMarketDetailTabBarVisibility';
 import { MarketDetailResponsiveLayout } from './layouts/MarketDetailResponsiveLayout';
 import { shouldReplayFullscreenNavigationAction } from './utils/marketDetailFullscreenNavigation';
 import { preloadMarketDetailV2BodyModules } from './utils/marketDetailPagePreload';
@@ -317,8 +319,18 @@ function MarketDetail({
   // whole body mid-push. Reuse the height this device already settled on.
   const estimatedHeaderHeight = useNativeStackHeaderHeightEstimate();
   const headerHeightCacheKey = useHeaderHeightCacheKey();
+  const inlineHeaderHeightRef = useRef(headerHeight);
+  const preserveInlineHeader =
+    platformEnv.isNativeIOS &&
+    !platformEnv.isNativeIOSPad &&
+    (isChartFullscreen || !isRouteFocused);
+  if (!preserveInlineHeader) {
+    inlineHeaderHeightRef.current = headerHeight;
+  }
+  // Keep the portrait header until the detail regains focus. The fullscreen
+  // flag clears before UIKit has finished restoring the portrait geometry.
   const { paddingTop: settledHeaderHeight, isSettled: isHeaderHeightSettled } =
-    useSettledHeaderHeight(headerHeight, {
+    useSettledHeaderHeight(inlineHeaderHeightRef.current, {
       enabled: usesTranslucentHeader,
       estimatedHeaderHeight,
       cacheKey: headerHeightCacheKey,
@@ -340,9 +352,7 @@ function MarketDetail({
         active={shouldOwnSharedMarketDetailState}
         preview={resolvedTokenDetailPreview}
         stockTarget={isStockRoute ? tokenDetailTarget : undefined}
-        retainedTokenTarget={
-          usesRetainedMarketDetailRoutes ? tokenDetailTarget : undefined
-        }
+        retainedTokenTarget={tokenDetailTarget}
       />
       <Page>
         {isChartFullscreen && !platformEnv.isNative ? (
@@ -495,6 +505,7 @@ function MarketDetailV2(
       return;
     }
     navigation.setOptions({
+      orientation: platformEnv.isNativeIOSPad ? 'default' : 'portrait',
       gestureEnabled: true,
       fullScreenGestureEnabled: true,
       // Native stack checks the touch position after activation. Leave room
@@ -505,37 +516,35 @@ function MarketDetailV2(
     });
   }, [navigation]);
 
+  useLayoutEffect(() => {
+    if (!platformEnv.isNativeIOS || !effectiveIsChartFullscreen) return;
+    // Keep the underlying detail intact while its native fullscreen page opens.
+    const ownerId = createHideTabBarOwnerId('market-chart-fullscreen');
+    requestHideTabBar(ownerId);
+    return () => releaseHideTabBar(ownerId);
+  }, [effectiveIsChartFullscreen]);
+
   useFocusEffect(
     useCallback(() => {
       return () => {
+        const routes = rootNavigationRef.current?.getState().routes;
+        if (
+          platformEnv.isNativeIOS &&
+          routes?.some(
+            (route) => route.name === ERootRoutes.TradingViewNativeFullscreen,
+          )
+        ) {
+          return;
+        }
         handleChartFullscreenChange(false);
       };
     }, [handleChartFullscreenChange]),
   );
 
-  useFocusEffect(
-    useCallback(() => {
-      const shouldHideTabBar =
-        effectiveIsChartFullscreen ||
-        platformEnv.isNative ||
-        (!platformEnv.isExtension && media.md);
-
-      if (!shouldHideTabBar) {
-        return;
-      }
-
-      // Own the request per instance: switching tokens can collapse the stack
-      // while two detail instances are live, and the leaving one must not
-      // release the survivor's request and let the tab bar cover the trade
-      // buttons.
-      const ownerId = createHideTabBarOwnerId('market-detail');
-      requestHideTabBar(ownerId);
-      finishMarketDetailTabBarTransition();
-
-      return () => {
-        releaseHideTabBar(ownerId);
-      };
-    }, [effectiveIsChartFullscreen, media.md]),
+  useMarketDetailTabBarVisibility(
+    effectiveIsChartFullscreen ||
+      platformEnv.isNative ||
+      (!platformEnv.isExtension && media.md),
   );
 
   return (

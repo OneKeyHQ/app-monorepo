@@ -29,7 +29,9 @@ import {
   createTradingViewNativeIndicatorSettingsValue,
   getTradingViewNativeIndicatorSettings,
 } from './indicatorSettingsAdapter';
+import { TradingViewNativeChartActiveContext } from './TradingViewNativeChartActiveContext';
 import {
+  TradingViewNativeChartArea,
   TradingViewNativeContainer,
   updateTradingViewNativeSubIndicatorInstances,
 } from './TradingViewNativeContainer';
@@ -445,6 +447,39 @@ describe('TradingViewNativeContainer', () => {
   afterEach(() => {
     jest.restoreAllMocks();
     jest.useRealTimers();
+  });
+
+  it('restores retained inline dimensions and ignores a closing fullscreen layout', () => {
+    const onSizeChange = jest.fn();
+    const area = (isActive: boolean) => (
+      <TradingViewNativeChartActiveContext.Provider value={isActive}>
+        <TradingViewNativeChartArea onSizeChange={onSizeChange} />
+      </TradingViewNativeChartActiveContext.Provider>
+    );
+    const inline = render(area(true));
+    act(() => {
+      mockChartAreaOnLayout?.({
+        nativeEvent: { layout: { width: 360, height: 240 } },
+      });
+    });
+    inline.rerender(area(false));
+    const fullscreen = render(area(true));
+    act(() => {
+      mockChartAreaOnLayout?.({
+        nativeEvent: { layout: { width: 800, height: 400 } },
+      });
+    });
+    expect(onSizeChange).toHaveBeenLastCalledWith({ width: 800, height: 400 });
+    onSizeChange.mockClear();
+    inline.rerender(area(true));
+    fullscreen.rerender(area(false));
+    act(() => {
+      mockChartAreaOnLayout?.({
+        nativeEvent: { layout: { width: 360, height: 800 } },
+      });
+    });
+    expect(onSizeChange).toHaveBeenCalledTimes(1);
+    expect(onSizeChange).toHaveBeenLastCalledWith({ width: 360, height: 240 });
   });
 
   describe.each(['mobile', 'desktop'] as const)(
