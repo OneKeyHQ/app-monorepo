@@ -14,6 +14,7 @@ import type { IElement } from '@onekeyhq/components';
 import { ANIMATE_ONLY_OPACITY_TRANSFORM } from '@onekeyhq/components/src/utils/animationConstants';
 import type { IAmountInputFormItemProps } from '@onekeyhq/kit/src/components/AmountInput';
 import { AmountInput } from '@onekeyhq/kit/src/components/AmountInput';
+import { buildKeyboardPressProps } from '@onekeyhq/kit/src/views/Earn/components/desktopHome/earnDesktopPressable';
 import SwapPercentageStageBadge from '@onekeyhq/kit/src/views/Swap/components/SwapPercentageStageBadge';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -113,13 +114,32 @@ export function StakingAmountInput({
   const boxRef = useRef<IElement>(null);
   useHoldAutoFocus(boxRef, Boolean(inputProps?.autoFocus) && !disabled);
 
-  // A chip or Max pressed while typing keeps the cursor in the box, for the
-  // next keystroke: the press took the focus a moment ago
+  // A chip or Max clicked while typing keeps the cursor in the box, for the
+  // next keystroke: the click took the focus a moment ago. One reached with
+  // Tab and pressed with a key keeps the focus where the keyboard put it
   const blurredAtRef = useRef(Number.NEGATIVE_INFINITY);
+  const pointerDownAtRef = useRef(Number.NEGATIVE_INFINITY);
+  useEffect(() => {
+    if (!platformEnv.isRuntimeBrowser) {
+      return undefined;
+    }
+    const box = boxRef.current as unknown as HTMLElement | null;
+    if (!box?.addEventListener) {
+      return undefined;
+    }
+    const handlePointerDown = () => {
+      pointerDownAtRef.current = performance.now();
+    };
+    box.addEventListener('pointerdown', handlePointerDown, true);
+    return () =>
+      box.removeEventListener('pointerdown', handlePointerDown, true);
+  }, []);
   const keepTypingFocus = useCallback(() => {
+    const now = performance.now();
     if (
       !platformEnv.isRuntimeBrowser ||
-      performance.now() - blurredAtRef.current > REFOCUS_AFTER_PRESS_MS
+      now - blurredAtRef.current > REFOCUS_AFTER_PRESS_MS ||
+      now - pointerDownAtRef.current > REFOCUS_AFTER_PRESS_MS
     ) {
       return;
     }
@@ -145,6 +165,7 @@ export function StakingAmountInput({
                   keepTypingFocus();
                 }
               : undefined,
+            isKeyboardPressable: true,
           }
         : undefined,
     [balanceOnPress, keepTypingFocus, props.balanceProps],
@@ -198,6 +219,7 @@ export function StakingAmountInput({
                   key={`swap-percentage-input-stage-${stage}`}
                   stage={stage}
                   onSelectStage={handleSelectStage}
+                  {...buildKeyboardPressProps(() => handleSelectStage(stage))}
                 />
               ))}
             </XStack>

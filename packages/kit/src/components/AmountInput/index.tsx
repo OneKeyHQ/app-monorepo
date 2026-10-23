@@ -75,6 +75,8 @@ export type IAmountInputFormItemProps = IFormFieldProps<
       actionIconName?: IKeyOfIcons;
       // Spins the action icon in place while its request runs.
       actionLoading?: boolean;
+      // Web: Tab reaches the balance's action and Enter or Space press it
+      isKeyboardPressable?: boolean;
     };
     balanceHelperProps?: {
       onPress?: () => void;
@@ -450,6 +452,33 @@ export function AmountInput({
       const balanceActionColor = balanceProps.onPress
         ? '$textInteractive'
         : '$textPlaceholder';
+      const balanceKeyboardProps =
+        balanceProps.isKeyboardPressable &&
+        balanceActionPress &&
+        platformEnv.isRuntimeBrowser
+          ? {
+              tabIndex: 0,
+              focusVisibleStyle: {
+                outlineColor: '$focusRing',
+                outlineWidth: 2,
+                outlineStyle: 'solid',
+              },
+              onKeyDown: (event: {
+                key: string;
+                target?: unknown;
+                currentTarget?: unknown;
+                preventDefault: () => void;
+              }) => {
+                if (event.target !== event.currentTarget) {
+                  return;
+                }
+                if (event.key === 'Enter' || event.key === ' ') {
+                  event.preventDefault();
+                  balanceActionPress();
+                }
+              },
+            }
+          : undefined;
       const contentComponent = (
         <XStack
           alignItems="center"
@@ -458,6 +487,7 @@ export function AmountInput({
           py="$1"
           borderRadius={6}
           onPress={balanceActionPress}
+          {...balanceKeyboardProps}
           testID={balanceProps.testID}
           {...(enableMaxAmount && balanceActionPress
             ? {

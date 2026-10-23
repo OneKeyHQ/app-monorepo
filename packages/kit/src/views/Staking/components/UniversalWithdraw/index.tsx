@@ -216,6 +216,12 @@ type IWithdrawPathBox = {
   tip?: IEarnTransactionTip;
 };
 
+// Paid out at once with no fee. The server's fee line names the fee in
+// words; "No withdrawal fee" is the one it colors as good news
+const isInstantAndFreePath = (box: IWithdrawPathBox) =>
+  box.withdrawType === 'instant' &&
+  box.subtitleDescription?.color === '$textSuccess';
+
 // A line or a row of cards that comes with typing grows in this long
 const AMOUNT_LINE_MS = 200;
 // An emptied box keeps its figures this long, the answers' own debounce
@@ -1855,8 +1861,14 @@ export function UniversalWithdraw({
         withoutValues: showDashes,
       }),
     );
-    // One way out: when it pays and what it costs, under the result
-    if (withdrawPathConfirmBoxes.length === 1 && selectedWithdrawPath) {
+    // One way out: when it pays and what it costs, under the result. Paid
+    // out at once and free (Spark Savings) it tells nothing a withdrawal
+    // doesn't already promise, so it goes, as Morpho has none
+    if (
+      withdrawPathConfirmBoxes.length === 1 &&
+      selectedWithdrawPath &&
+      !isInstantAndFreePath(selectedWithdrawPath)
+    ) {
       items.push(
         <EarnFormRow
           key="withdraw-path"
