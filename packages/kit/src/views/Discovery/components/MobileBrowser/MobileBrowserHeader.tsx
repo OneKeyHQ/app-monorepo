@@ -21,11 +21,8 @@ import {
   useChromeCrossfadeStyles,
   useIsChromeCollapsed,
 } from './browserChrome';
-import { BrowserChromeCapsule } from './BrowserChromeCapsule';
 
 import type { IMobileBrowserChrome } from './browserChrome';
-
-const HEADER_ROW_BOTTOM_GAP = 4;
 
 const headerHeight = BROWSER_HEADER_HEIGHT;
 
@@ -52,6 +49,9 @@ interface IMobileBrowserHeaderProps {
 
 // Safari-style: the address lives in the bottom bar, so the header only keeps
 // "back to Explore" and the account. It collapses fully while scrolling down.
+// It stays in the layout (the page starts below it) rather than floating:
+// dApps commonly pin a fixed header with their Connect button at the top,
+// which a floating header would cover.
 function MobileBrowserHeader({
   chrome,
   onGoBackHome,
@@ -73,26 +73,23 @@ function MobileBrowserHeader({
           pointerEvents={isCollapsed ? 'none' : 'box-none'}
           style={[styles.content, expandedStyle]}
         >
-          {/* The row aligns to the bottom gap; the leftover height on top is
-              the header's top padding. */}
+          {/* A plain toolbar, not glass: the header sits on the app
+              background above the page, where glass would only show its
+              shadow halo. Glass is kept for the bar that floats over content.
+              Same padding as the app's other tab headers. */}
           <XStack
             flex={1}
-            px="$4"
-            pb={HEADER_ROW_BOTTOM_GAP}
-            alignItems="flex-end"
+            px="$5"
+            alignItems="center"
             justifyContent="space-between"
           >
-            <BrowserChromeCapsule>
-              <IconButton
-                variant="tertiary"
-                icon="MinimizeOutline"
-                onPress={onGoBackHome}
-                testID={DiscoveryTestIDs.browserMinimizeButton}
-              />
-            </BrowserChromeCapsule>
-            <BrowserChromeCapsule px="$2">
-              <HeaderRightToolBar showWalletAccountWhenDisconnected />
-            </BrowserChromeCapsule>
+            <IconButton
+              variant="tertiary"
+              icon="MinimizeOutline"
+              onPress={onGoBackHome}
+              testID={DiscoveryTestIDs.browserMinimizeButton}
+            />
+            <HeaderRightToolBar showWalletAccountWhenDisconnected />
           </XStack>
         </Animated.View>
       </Animated.View>
