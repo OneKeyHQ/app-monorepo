@@ -245,7 +245,10 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
       !platformEnv.isNative ? referFriendsTabConfig : undefined,
       isShowMDDiscover ? getDiscoverRouterConfig(params) : undefined,
       isShowDesktopDiscover ? getDiscoverRouterConfig(params) : undefined,
-      platformEnv.isDev
+      // TEMP(browser chrome review): hide the Dev mode tab so Discover stays
+      // on the tab bar instead of UIKit's "More" list. Revert before merge.
+      // oxlint-disable-next-line no-constant-condition
+      false && platformEnv.isDev
         ? {
             name: ETabRoutes.Developer,
             tabBarIcon: (focused?: boolean) =>
