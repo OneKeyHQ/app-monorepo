@@ -11,7 +11,6 @@ import {
   Select,
   SizableText,
   Stack,
-  View,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -100,6 +99,12 @@ const FILTER_LABELS: Record<ISidebarFilter, ETranslations> = {
 const FILTER_ORDER: ISidebarFilter[] = ['all', 'spot', 'stocks', 'perps'];
 
 const SIDEBAR_SKELETON_COUNT = 8;
+
+const SEARCH_TRIGGER_FOCUS_STYLE = {
+  outlineWidth: 2,
+  outlineStyle: 'solid',
+  outlineColor: '$focusRing',
+} as const;
 
 const keyExtractor = (item: IMarketToken) => item.id;
 
@@ -336,6 +341,19 @@ function MarketDetailWatchlistSidebarImpl({
       },
     });
   }, [navigation]);
+
+  const searchPlaceholder = intl.formatMessage({
+    id: ETranslations.market_search_token_stock_address,
+  });
+  const handleSearchTriggerKeyDown = useCallback(
+    (event: { key: string; preventDefault: () => void }) => {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        openMarketSearch();
+      }
+    },
+    [openMarketSearch],
+  );
 
   const { navigateToPerps } = usePerpsNavigation();
   const toMarketDetailPage = useToDetailPage({
@@ -574,27 +592,38 @@ function MarketDetailWatchlistSidebarImpl({
           onPress={onClose}
         />
       </XStack>
-      <XStack px="$5" pt="$4" pb="$2" position="relative">
-        <SearchBar
-          testID="market-detail-watchlist-sidebar-search"
-          size="small"
-          containerProps={{ flex: 1 }}
-          placeholder={intl.formatMessage({
-            id: ETranslations.market_search_token_stock_address,
-          })}
-        />
-        {/* The field only opens the search modal, like the Market home header
-            search, so a press anywhere on it lands on the overlay. */}
-        <View
+      <XStack px="$5" pt="$4" pb="$2">
+        {/* The field only opens the search modal, so the button is this
+            wrapper: it takes keyboard focus and opens on Enter or Space. The
+            search bar inside is just its look, read-only, out of the tab
+            order and inert to the pointer, so nothing editable sits under
+            the button. */}
+        <XStack
           testID="market-detail-watchlist-sidebar-search-trigger"
-          position="absolute"
-          top={0}
-          left={0}
-          right={0}
-          bottom={0}
+          flex={1}
+          role="button"
+          focusable
+          tabIndex={0}
+          aria-label={searchPlaceholder}
+          borderRadius="$full"
           cursor="default"
+          focusVisibleStyle={SEARCH_TRIGGER_FOCUS_STYLE}
           onPress={openMarketSearch}
-        />
+          onKeyDown={
+            platformEnv.isNative ? undefined : handleSearchTriggerKeyDown
+          }
+        >
+          <Stack flex={1} pointerEvents="none">
+            <SearchBar
+              testID="market-detail-watchlist-sidebar-search"
+              size="small"
+              containerProps={{ flex: 1 }}
+              placeholder={searchPlaceholder}
+              editable={false}
+              focusable={false}
+            />
+          </Stack>
+        </XStack>
       </XStack>
       <YStack flex={1} minHeight={0}>
         {content}
