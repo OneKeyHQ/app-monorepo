@@ -70,8 +70,7 @@ function MobileBrowserHeader({
   }));
 
   return (
-    // TEMP(debug): red marker to verify the new bundle is loaded. Remove.
-    <Stack pt={top} style={{ backgroundColor: 'red' }}>
+    <Stack pt={top} bg="$bgApp">
       <Animated.View style={[styles.container, containerAnimatedStyle]}>
         <Animated.View
           pointerEvents={isCollapsed ? 'none' : 'box-none'}
