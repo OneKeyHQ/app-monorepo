@@ -236,9 +236,12 @@ export function ReversePositionContent({
               }),
       });
     } finally {
-      submittingRef.current = false;
+      // Allow closing, but keep successful submissions locked through exit.
       onSubmittingChange?.(false);
-      if (mountedRef.current) setIsSubmitting(false);
+      if (!submitted) {
+        submittingRef.current = false;
+        if (mountedRef.current) setIsSubmitting(false);
+      }
     }
     if (submitted) onClose();
   }, [

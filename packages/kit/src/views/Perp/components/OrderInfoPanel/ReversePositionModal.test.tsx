@@ -237,6 +237,13 @@ describe('reverse position confirmation', () => {
     });
     expect(options.onBeforeClose?.()).toBe(true);
     expect(mockClose).toHaveBeenCalledTimes(1);
+    // Closing starts before the exit animation unmounts the content.
+    await act(async () => {
+      fireEvent.click(confirm);
+    });
+    expect(mockPlaceOrder).toHaveBeenCalledTimes(1);
+    expect((confirm as HTMLButtonElement).disabled).toBe(true);
+    expect(confirm.getAttribute('aria-busy')).toBe('true');
   });
   it.each(['preparation', 'submission'])(
     'restores dismissal and clears loading after %s fails',
