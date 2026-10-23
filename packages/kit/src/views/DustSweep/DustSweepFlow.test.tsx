@@ -78,8 +78,11 @@ let mockNative = false;
 let mockOverlay = true;
 let mockActualResults = false;
 let mockSafeBottom = 0;
+let mockIsRefreshing = false;
+let mockAutoRefreshTimerActive = true;
 let mockSelectionProps: { obscuredBottom?: number } = {};
 const mockAgain = jest.fn();
+const mockRetry = jest.fn();
 const mockDialogClose = jest.fn().mockResolvedValue(undefined);
 
 function Box({ children, testID }: PropsWithChildren<{ testID?: string }>) {
@@ -94,7 +97,10 @@ function LayoutBox({
   children,
   testID,
   onLayout,
-}: PropsWithChildren<{ testID?: string; onLayout?: ILayoutHandler }>) {
+}: PropsWithChildren<{
+  testID?: string;
+  onLayout?: ILayoutHandler;
+}>) {
   if (testID && onLayout) mockLayouts.set(testID, onLayout);
   return <div data-testid={testID}>{children}</div>;
 }
@@ -102,9 +108,25 @@ function Button({
   children,
   onPress,
   testID,
-}: PropsWithChildren<{ onPress?: () => void; testID?: string }>) {
+  disabled,
+  'aria-label': ariaLabel,
+  'aria-busy': ariaBusy,
+}: PropsWithChildren<{
+  onPress?: () => void;
+  testID?: string;
+  disabled?: boolean;
+  'aria-label'?: string;
+  'aria-busy'?: boolean;
+}>) {
   return (
-    <button type="button" onClick={onPress} data-testid={testID}>
+    <button
+      type="button"
+      onClick={onPress}
+      data-testid={testID}
+      disabled={disabled}
+      aria-label={ariaLabel}
+      aria-busy={ariaBusy}
+    >
       {children}
     </button>
   );
@@ -122,7 +144,13 @@ jest.mock('@onekeyhq/components', () => ({
     </Button>
   ),
   Page: Object.assign(Box, {
-    Header: () => null,
+    Header: ({
+      headerTitle,
+      headerShown,
+    }: {
+      headerTitle?: () => ReactNode;
+      headerShown?: boolean;
+    }) => (headerShown ? headerTitle?.() : null),
     Body: Box,
     Footer: Box,
     Container: Box,
@@ -145,10 +173,12 @@ jest.mock('@onekeyhq/components', () => ({
     </span>
   ),
   Button,
+  ButtonFrame: Button,
   Icon: () => null,
   IconButton: Button,
   Divider: () => null,
   Skeleton: () => null,
+  Spinner: () => <span data-testid="dust-sweep-title-spinner" />,
   useMedia: () => ({ gtMd: mockDesktop }),
   useSafeAreaInsets: () => ({ top: 0, bottom: mockSafeBottom }),
   Dialog: { show: (props: IDialogShowProps) => mockDialog(props) },
@@ -179,6 +209,20 @@ jest.mock('@onekeyhq/kit/src/components/TabPageHeader', () => ({
 jest.mock('@onekeyhq/kit/src/hooks/useAppNavigation', () => ({
   __esModule: true,
   default: () => ({ pop: jest.fn() }),
+}));
+jest.mock('@onekeyhq/kit/src/views/Swap/components/SwapRefreshButton', () => ({
+  SwapRefreshButtonBase: ({
+    autoRefreshTimerActive,
+  }: {
+    autoRefreshTimerActive?: boolean;
+  }) => (
+    <span
+      data-testid="dust-sweep-refresh-button"
+      data-timer-active={Boolean(autoRefreshTimerActive)}
+    >
+      Refresh
+    </span>
+  ),
 }));
 jest.mock('react-intl', () => ({
   useIntl: () => ({ formatMessage: ({ id }: { id: string }) => id }),
@@ -313,6 +357,9 @@ type IModel = Pick<
   | 'selectedValueUsd'
   | 'canStart'
   | 'assetStatus'
+  | 'isRefreshing'
+  | 'autoRefreshTimerActive'
+  | 'retry'
   | 'stop'
   | 'stopping'
 >;
@@ -342,6 +389,9 @@ function TestProvider({ children }: PropsWithChildren) {
       selectedValueUsd: '1',
       canStart: true,
       assetStatus: 'ready',
+      isRefreshing: mockIsRefreshing,
+      autoRefreshTimerActive: mockAutoRefreshTimerActive,
+      retry: mockRetry,
       stop: async () => {
         await session.stop();
       },
@@ -547,6 +597,8 @@ beforeEach(() => {
   mockOverlay = true;
   mockActualResults = false;
   mockSafeBottom = 0;
+  mockIsRefreshing = false;
+  mockAutoRefreshTimerActive = true;
   mockSelectionProps = {};
   mockLayouts.clear();
   mockLiveSheet = null;
@@ -570,6 +622,58 @@ beforeEach(() => {
       getForm: () => undefined,
     };
   });
+});
+
+it.each([true, false])(
+  'refreshes manually beside the title and reflects the data owner countdown (desktop=%s)',
+  (desktop) => {
+    mockDesktop = desktop;
+    mountFlow();
+    const refresh = screen.getByTestId('dust-sweep-refresh-button');
+    expect(refresh.getAttribute('data-timer-active')).toBe('true');
+    const control = screen.getByRole('button', {
+      name: ETranslations.global_refresh,
+    });
+    expect(control.tagName).toBe('BUTTON');
+    expect(control.hasAttribute('disabled')).toBe(false);
+    expect(mockRetry).not.toHaveBeenCalled();
+    fireEvent.click(control);
+    expect(mockRetry).toHaveBeenCalledTimes(1);
+  },
+);
+
+it.each([true, false])(
+  'shows refreshing beside the title while loading token data (desktop=%s)',
+  (desktop) => {
+    mockDesktop = desktop;
+    mockIsRefreshing = true;
+    mountFlow();
+    expect(screen.getByTestId('dust-sweep-title-spinner')).toBeTruthy();
+    expect(screen.queryByTestId('dust-sweep-refresh-button')).toBeNull();
+    const control = screen.getByRole('button', {
+      name: ETranslations.global_refresh,
+    });
+    expect(control.hasAttribute('disabled')).toBe(true);
+    expect(control.getAttribute('aria-busy')).toBe('true');
+    fireEvent.click(control);
+    expect(mockRetry).not.toHaveBeenCalled();
+  },
+);
+
+it('does not show a title refresh spinner while executing a cached selection', async () => {
+  const pending = deferred<IResult>();
+  execute.mockImplementation(async ({ onSigning, onBroadcast }) => {
+    onSigning();
+    onBroadcast('tx');
+    return pending.promise;
+  });
+  mockIsRefreshing = true;
+  mountFlow();
+  fireEvent.click(activeButton('Convert twice'));
+  expect(screen.queryByTestId('dust-sweep-title-spinner')).toBeNull();
+  expect(screen.queryByTestId('dust-sweep-refresh')).toBeNull();
+  expect(execute).toHaveBeenCalledTimes(1);
+  await act(async () => pending.resolve(success));
 });
 
 it('pushes exactly one execution route for double Convert and keeps the session mounted through Stop/Continue', async () => {

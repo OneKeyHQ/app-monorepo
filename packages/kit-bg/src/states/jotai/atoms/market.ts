@@ -16,6 +16,7 @@ export interface IMarketHomePreferences {
   selectedStockCategory?: string;
   selectedTopCoinsCategory?: string;
   watchlistFilter?: 'all' | 'spot' | 'stocks' | 'perps';
+  detailWatchlistSidebarFilter?: 'all' | 'spot' | 'stocks' | 'perps';
 }
 
 export interface IMarketHomePreferencesAtom extends IMarketHomePreferences {

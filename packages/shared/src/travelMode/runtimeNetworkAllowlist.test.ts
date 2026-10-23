@@ -11,6 +11,7 @@ describe('isTravelModeNetworkRequestAllowed', () => {
     ['utility', '/utility/v2/market/banner/token-list/banner-1', 'get'],
     ['utility', '/utility/v2/market/banner/perps-token-list/banner-1', 'get'],
     ['swap', '/swap/v1/networks', undefined],
+    ['swap', '/swap/v1/provider/support-networks?provider=SwapOKX', 'get'],
     ['swap', '/swap/v1/speed-config?networkId=evm--1', 'get'],
     ['swap', '/swap/v1/token/detail?networkId=evm--1', 'get'],
     ['swap', '/swap/v1/tokens?networkId=evm--1', 'get'],

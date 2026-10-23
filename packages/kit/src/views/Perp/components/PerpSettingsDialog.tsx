@@ -17,6 +17,7 @@ import {
   Toast,
   XStack,
   YStack,
+  runAfterActionListClose,
   useMedia,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -561,25 +562,33 @@ function PerpSettingsPopoverContent({
 
   const handleOpenActivityCenter = useCallback(() => {
     if (onOpenActivityCenter) {
-      void Promise.resolve(closePopover()).then(onOpenActivityCenter);
+      void runAfterActionListClose(closePopover, onOpenActivityCenter, {
+        waitForAnimation: false,
+      });
       return;
     }
     navigate('activityCenter');
   }, [closePopover, navigate, onOpenActivityCenter]);
 
   const handleOpenLayoutSettings = useCallback(() => {
-    void Promise.resolve(closePopover()).then(() => {
-      showPerpLayoutSettingsDialog({
-        title: intl.formatMessage({
-          id: ETranslations.perps_layout_settings__title,
-        }),
-      });
-    });
+    void runAfterActionListClose(
+      closePopover,
+      () => {
+        showPerpLayoutSettingsDialog({
+          title: intl.formatMessage({
+            id: ETranslations.perps_layout_settings__title,
+          }),
+        });
+      },
+      { waitForAnimation: false },
+    );
   }, [closePopover, intl]);
 
   const handleOpenGuide = useCallback(() => {
     if (onOpenGuide) {
-      void Promise.resolve(closePopover()).then(onOpenGuide);
+      void runAfterActionListClose(closePopover, onOpenGuide, {
+        waitForAnimation: false,
+      });
       return;
     }
     if (showActivityCenterEntry) {

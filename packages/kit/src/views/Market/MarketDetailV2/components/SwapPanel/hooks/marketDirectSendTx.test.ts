@@ -1,6 +1,7 @@
 import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import evmSettings from '@onekeyhq/kit-bg/src/vaults/impls/evm/settings';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   EProtocolOfExchange,
   ESwapNetworkFeeLevel,
@@ -753,6 +754,7 @@ describe('marketDirectSendTx', () => {
   it.each([
     { checked: true, isFeeInfoOverflow: true },
     { checked: false, skipReason: 'fee unavailable' },
+    { checked: false, isFeeInfoOverflow: true },
   ])(
     'rejects unconfirmed fee verification before signing: %j',
     async (feeResult) => {
@@ -762,20 +764,29 @@ describe('marketDirectSendTx', () => {
         txFeeInfoVerifyResult: feeResult,
       });
       const onBeforeSignAndSend = jest.fn();
-      await expect(
-        sendMarketDirectUnsignedTxs({
-          accountAddress: '0xuser',
+      const operation = sendMarketDirectUnsignedTxs({
+        accountAddress: '0xuser',
+        accountId: 'account-1',
+        networkId: 'evm--1',
+        buildUnsignedParams: {
           accountId: 'account-1',
           networkId: 'evm--1',
-          buildUnsignedParams: {
-            accountId: 'account-1',
-            networkId: 'evm--1',
-            encodedTx: unsignedTx.encodedTx,
-          },
-          rejectFeeInfoOverflow: true,
-          onBeforeSignAndSend,
-        }),
-      ).rejects.toBeInstanceOf(MarketDirectFeeOverflowError);
+          encodedTx: unsignedTx.encodedTx,
+        },
+        rejectFeeInfoOverflow: true,
+        onBeforeSignAndSend,
+      });
+      await expect(operation).rejects.toBeInstanceOf(
+        MarketDirectFeeOverflowError,
+      );
+      await expect(operation).rejects.toMatchObject({
+        key:
+          feeResult.checked &&
+          'isFeeInfoOverflow' in feeResult &&
+          feeResult.isFeeInfoOverflow
+            ? ETranslations.fee_alert_dialog_description
+            : 'onekey_error',
+      });
       expect(mockVerifyTransaction).toHaveBeenCalledWith(
         expect.objectContaining({
           skipVerifyError: true,

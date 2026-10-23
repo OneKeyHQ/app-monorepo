@@ -12,7 +12,10 @@ import {
 } from '@testing-library/react';
 
 import type { IMarketToken } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketTokenList/MarketTokenData';
-import type { IMarketSearchV2Token } from '@onekeyhq/shared/types/market';
+import type {
+  IMarketSearchV2Token,
+  IMarketWatchListItemV2,
+} from '@onekeyhq/shared/types/market';
 import type {
   IMarketSpotCategory,
   IMarketStockPublicItem,
@@ -30,6 +33,10 @@ const mockToStock = jest.fn();
 const mockUseToMarketStockDetailPage = jest.fn(
   (_options?: unknown) => mockToStock,
 );
+let mockWatchlistItems: Pick<
+  IMarketWatchListItemV2,
+  'perpsCoin' | 'stockId'
+>[] = [{}];
 let mockConfigLoading = false;
 let mockSpotCategories: IMarketSpotCategory[] = [];
 let mockStockCategories: Array<{ category: string; name: string }> = [];
@@ -241,6 +248,9 @@ jest.mock('@onekeyhq/kit/src/hooks/useNetworkLogoUri', () => ({
 
 jest.mock('@onekeyhq/kit/src/states/jotai/contexts/marketV2', () => ({
   useTokenDetailActions: () => ({ current: {} }),
+  useMarketWatchListV2Atom: () => [
+    { data: mockWatchlistItems, isMounted: true },
+  ],
 }));
 
 jest.mock('@onekeyhq/kit/src/views/Market/hooks', () => ({
@@ -429,6 +439,7 @@ jest.mock('./navigateToMarketTokenDetail', () => ({
 
 describe('MarketTokenSelector stock default category', () => {
   beforeEach(() => {
+    mockWatchlistItems = [{}];
     mockSetSelectorConfig.mockReset();
     mockStockListMount.mockReset();
     mockTopCoinPress.mockReset();
@@ -964,6 +975,7 @@ describe('MarketTokenSelector stock default category', () => {
 
 describe('Favorites category selection', () => {
   beforeEach(() => {
+    mockWatchlistItems = [{}];
     mockConfigLoading = false;
     mockSpotCategories = [
       { type: 'trending', name: 'Trending' },
@@ -978,7 +990,67 @@ describe('Favorites category selection', () => {
     mockMobileSearchTokenList = undefined;
   });
 
+  it.each([
+    { platform: 'desktop', perpsOnly: false },
+    { platform: 'mobile', perpsOnly: false },
+    { platform: 'desktop', perpsOnly: true },
+    { platform: 'mobile', perpsOnly: true },
+  ])(
+    'hides empty Favorites categories while preserving the $platform list (perps only: $perpsOnly)',
+    ({ platform, perpsOnly }) => {
+      mockWatchlistItems = perpsOnly ? [{ perpsCoin: 'BTC' }] : [];
+      if (platform === 'mobile') {
+        render(<MobileTokenSelector />);
+      } else {
+        render(<MarketTokenSelector />);
+        fireEvent.click(screen.getByTestId('market-token-selector-trigger'));
+      }
+      fireEvent.click(
+        screen.getByTestId('market-token-selector-tab-favorites'),
+      );
+      expect(screen.queryByText('prime_crypto_payment__label')).toBeNull();
+      const listId = platform === 'mobile' ? 'mobile-favorites' : 'token-list';
+      expect(screen.getByTestId(listId).getAttribute('data-filter')).toBe(
+        'all',
+      );
+      expect(
+        screen.getByTestId('market-token-selector-tab-favorites'),
+      ).toBeTruthy();
+    },
+  );
+
+  it.each([false, true])(
+    'returns to All when the last stock favorite is removed (remaining perps: %s)',
+    (keepsPerps) => {
+      const remainingFavorites = keepsPerps ? [{ perpsCoin: 'BTC' }] : [];
+      mockWatchlistItems = [{ stockId: 'AAPL' }, ...remainingFavorites];
+      const { result, rerender } = renderHook(() =>
+        useDetailSelectorBrowseState({
+          defaultCategory: 'trending',
+          isWatchlistMode: true,
+        }),
+      );
+      act(() => result.current.handleSubCategoryChange('stocks'));
+      expect(result.current.watchlistFilter).toBe('stocks');
+
+      mockWatchlistItems = remainingFavorites;
+      rerender();
+      expect(result.current.subCategories).toEqual([]);
+      expect(result.current.watchlistFilter).toBe('all');
+
+      mockWatchlistItems = [{ stockId: 'AAPL' }, ...remainingFavorites];
+      rerender();
+      expect(result.current.watchlistFilter).toBe('all');
+      expect(result.current.subCategories.map(({ id }) => id)).toEqual([
+        'all',
+        'spot',
+        'stocks',
+      ]);
+    },
+  );
+
   it('keeps Favorites, Stocks, and Tokens categories independent across tab switches and config refreshes', () => {
+    mockWatchlistItems = [{}, { perpsCoin: 'BTC' }];
     const { result, rerender } = renderHook(() =>
       useDetailSelectorBrowseState({
         defaultCategory: 'trending',

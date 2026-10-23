@@ -12,7 +12,7 @@ import type { ComponentProps, ReactNode } from 'react';
 
 import { noop } from 'lodash';
 import { useIntl } from 'react-intl';
-import { View, useWindowDimensions } from 'react-native';
+import { Keyboard, View, useWindowDimensions } from 'react-native';
 
 import type { IDialogInstance } from '@onekeyhq/components';
 import {
@@ -641,13 +641,9 @@ export function MobileLayout({
     }
     return windowWidth;
   }, [containerWidth, width, windowWidth]);
-  // iOS sizes pages from the measured viewport: its header and footer heights
-  // vary by OS version, so the estimate above only covers the first layout
-  // pass. Android keeps the estimate on tab pages because adjustResize shrinks
-  // the measured viewport while a keyboard is up; its overlays already hide
-  // the main tab bar, so they use the actual page viewport.
-  const usesMeasuredPageViewport =
-    platformEnv.isNativeIOS || (platformEnv.isNativeAndroid && isModalPage);
+  // Header and footer heights vary by device. Use the actual viewport after
+  // the first layout, keeping Android tab geometry stable while typing.
+  const usesMeasuredPageViewport = platformEnv.isNative;
   const preservesAndroidTabHeight = platformEnv.isNativeAndroid && !isModalPage;
   const layoutHeight =
     usesMeasuredPageViewport && pageViewportHeight > 0
@@ -747,6 +743,7 @@ export function MobileLayout({
       // hidden page's portrait layout ready for the return transition.
       if (
         !usesMeasuredPageViewport ||
+        (preservesAndroidTabHeight && Keyboard.isVisible()) ||
         preserveInlineViewport ||
         // A queued landscape layout can arrive after Dimensions is portrait.
         (preservesPortraitLayout &&
@@ -769,6 +766,7 @@ export function MobileLayout({
       pageViewportCacheKey,
       preserveInlineViewport,
       preservesPortraitLayout,
+      preservesAndroidTabHeight,
       usesMeasuredPageViewport,
       windowHeight,
       windowWidth,
