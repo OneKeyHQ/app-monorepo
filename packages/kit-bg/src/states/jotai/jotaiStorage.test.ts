@@ -445,11 +445,9 @@ describe('JotaiStorageNativeMMKV migration barrier', () => {
     ).rejects.toThrow('MMKV migration marker is missing');
     await mod.resetNativeJotaiStorageAfterMigrationMismatch();
 
-    expect(mockSetMigrationLedger).toHaveBeenCalledWith(
-      'jotai-storage-v1',
-      'resetting-v1',
-    );
-    expect(legacyData.has('g_states_v5:aAtom')).toBe(false);
+    expect(mockSetMigrationLedger).not.toHaveBeenCalled();
+    expect(legacyData.get('g_states_v5:aAtom')).toBe('"stale"');
+    expect(legacyStorage.multiRemove).not.toHaveBeenCalled();
     expect(mmkvInstance.getString('g_states_v5:aAtom')).toBeUndefined();
     expect(mmkvInstance.getString(MIGRATION_KEY)).toBe('1');
     expect(migrationLedger.get('jotai-storage-v1')).toBe('complete-v1');
@@ -473,6 +471,55 @@ describe('JotaiStorageNativeMMKV migration barrier', () => {
       'resetting-v1',
     );
     expect(migrationLedger.get('jotai-storage-v1')).toBe('complete-v1');
+  });
+
+  it('retains the legacy copy when repair fails and when an interrupted repair resumes', async () => {
+    migrationLedger.set('jotai-storage-v1', 'complete-v1');
+    legacyData.set('g_states_v5:aAtom', '"keep-original"');
+    const storage = createStorage();
+    mockSyncNativeStorageMMKV.mockRejectedValueOnce(
+      new OneKeyLocalError('sync failed'),
+    );
+    await expect(storage.resetAfterMigrationMismatch()).rejects.toThrow(
+      'sync failed',
+    );
+    expect(legacyData.get('g_states_v5:aAtom')).toBe('"keep-original"');
+    expect(migrationLedger.get('jotai-storage-v1')).toBe('complete-v1');
+    const restarted = createStorage();
+    await restarted.migrateFromAsyncStorage([], PROBE_KEY);
+    expect(legacyData.get('g_states_v5:aAtom')).toBe('"keep-original"');
+    expect(legacyStorage.multiRemove).not.toHaveBeenCalled();
+    expect(mmkvInstance.getString(LEGACY_RETENTION_KEY)).toBe('retained-v1');
+    expect(migrationLedger.get('jotai-storage-v1')).toBe('complete-v1');
+  });
+
+  it('keeps an interrupted manual rebuild separate from an explicit erase', async () => {
+    migrationLedger.set('jotai-storage-v1', 'complete-v1');
+    mmkvInstance.set('g_states_v5:aAtom', '"partial"');
+    legacyData.set('g_states_v5:aAtom', '"original"');
+    const storage = createStorage();
+    const clearSpy = jest
+      .spyOn(mmkvInstance, 'clearAll')
+      .mockImplementationOnce(() => {
+        throw new OneKeyLocalError('repair interrupted');
+      });
+    try {
+      await expect(storage.resetAfterMigrationMismatch()).rejects.toThrow(
+        'repair interrupted',
+      );
+      expect(migrationLedger.get('jotai-storage-v1')).toBe('complete-v1');
+      const restarted = createStorage();
+      await expect(
+        restarted.migrateFromAsyncStorage([], PROBE_KEY),
+      ).rejects.toThrow('MMKV migration marker is missing');
+      expect(legacyData.get('g_states_v5:aAtom')).toBe('"original"');
+      expect(legacyStorage.multiRemove).not.toHaveBeenCalled();
+      await restarted.resetAfterMigrationMismatch();
+      expect(legacyData.get('g_states_v5:aAtom')).toBe('"original"');
+      expect(mmkvInstance.getString(MIGRATION_KEY)).toBe('1');
+    } finally {
+      clearSpy.mockRestore();
+    }
   });
 
   it('resumes reset after legacy deletion but before MMKV clear', async () => {
@@ -524,6 +571,91 @@ describe('JotaiStorageNativeMMKV migration barrier', () => {
     await recoveredStorage.migrateFromAsyncStorage([], PROBE_KEY);
 
     expect(mmkvInstance.getString('g_states_v5:aAtom')).toBeUndefined();
+    expect(migrationLedger.get('jotai-storage-v1')).toBe('complete-v1');
+  });
+
+  it.each([
+    'intent',
+    'enumeration',
+    'partial-delete',
+    'target-clear',
+    'sync',
+    'completion-ledger',
+  ])(
+    'resumes an explicit preference erase interrupted at %s without restoring old values',
+    async (stage) => {
+      markJotaiStorageMigrated();
+      mmkvInstance.set('g_states_v5:aAtom', '"old-current"');
+      legacyData.set('g_states_v5:aAtom', '"old-source-a"');
+      legacyData.set('g_states_v5:bAtom', '"old-source-b"');
+      legacyData.set('unrelated', 'keep');
+      const storage = createStorage();
+      const failure = new OneKeyLocalError(`interrupted at ${stage}`);
+      let clearSpy: jest.SpyInstance | undefined;
+      if (stage === 'intent') {
+        mockSetMigrationLedger.mockImplementationOnce(async (key, value) => {
+          migrationLedger.set(key, value);
+          throw failure;
+        });
+      } else if (stage === 'enumeration')
+        legacyStorage.getAllKeys.mockRejectedValueOnce(failure);
+      else if (stage === 'partial-delete') {
+        legacyStorage.multiRemove.mockImplementationOnce(async (keys) => {
+          legacyData.delete(keys[0]);
+          throw failure;
+        });
+      } else if (stage === 'target-clear') {
+        clearSpy = jest
+          .spyOn(mmkvInstance, 'clearAll')
+          .mockImplementationOnce(() => {
+            throw failure;
+          });
+      } else if (stage === 'sync')
+        mockSyncNativeStorageMMKV.mockRejectedValueOnce(failure);
+      else mockSetMigrationLedgerComplete.mockRejectedValueOnce(failure);
+      try {
+        await expect(storage.clearAllForReset()).rejects.toThrow(
+          failure.message,
+        );
+        expect(migrationLedger.get('jotai-storage-v1')).toBe('resetting-v1');
+        expect(mockSetMigrationLedger.mock.invocationCallOrder[0]).toBeLessThan(
+          legacyStorage.getAllKeys.mock.invocationCallOrder[0] ?? Infinity,
+        );
+        const restarted = createStorage();
+        await restarted.migrateFromAsyncStorage(
+          ['g_states_v5:aAtom'],
+          PROBE_KEY,
+        );
+        expect(mmkvInstance.getString('g_states_v5:aAtom')).toBeUndefined();
+        expect(legacyData.has('g_states_v5:aAtom')).toBe(false);
+        expect(legacyData.has('g_states_v5:bAtom')).toBe(false);
+        expect(legacyData.get('unrelated')).toBe('keep');
+        expect(migrationLedger.get('jotai-storage-v1')).toBe('complete-v1');
+        await restarted.setItem('g_states_v5:newAtom', { fresh: true });
+        await expect(
+          restarted.getItem('g_states_v5:newAtom', null),
+        ).resolves.toEqual({ fresh: true });
+      } finally {
+        clearSpy?.mockRestore();
+      }
+    },
+  );
+
+  it('does not delete either copy when recording explicit erase intent fails', async () => {
+    markJotaiStorageMigrated();
+    mmkvInstance.set('g_states_v5:aAtom', '"current"');
+    legacyData.set('g_states_v5:aAtom', '"legacy"');
+    mockSetMigrationLedger.mockRejectedValueOnce(
+      new OneKeyLocalError('intent unavailable'),
+    );
+    const storage = createStorage();
+    await expect(storage.clearAllForReset()).rejects.toThrow(
+      'intent unavailable',
+    );
+    expect(legacyStorage.getAllKeys).not.toHaveBeenCalled();
+    expect(legacyStorage.multiRemove).not.toHaveBeenCalled();
+    expect(mmkvInstance.getString('g_states_v5:aAtom')).toBe('"current"');
+    expect(legacyData.get('g_states_v5:aAtom')).toBe('"legacy"');
     expect(migrationLedger.get('jotai-storage-v1')).toBe('complete-v1');
   });
 

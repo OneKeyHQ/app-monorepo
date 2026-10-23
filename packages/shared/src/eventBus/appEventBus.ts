@@ -116,6 +116,7 @@ export type IEventBusPayloadShowToast = {
   i18nInfo?: IOneKeyErrorI18nInfo;
   requestId?: string;
   diagnosticText?: string;
+  nativeStorageRecoveryTestSessionId?: string;
 };
 
 export type ILinuxUdevGuideReason =
