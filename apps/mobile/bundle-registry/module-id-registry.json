@@ -22963,6 +22963,7 @@
     "packages/kit/src/states/jotai/contexts/swap/index.ts": 6265,
     "packages/kit/src/states/jotai/contexts/swap/prepareSwapProEntry.ts": 20799,
     "packages/kit/src/states/jotai/contexts/swap/quoteProgress.ts": 16788,
+    "packages/kit/src/states/jotai/contexts/swap/tokenSelectorData.ts": 6736,
     "packages/kit/src/states/jotai/contexts/tokenList/actions.ts": 8736,
     "packages/kit/src/states/jotai/contexts/tokenList/atoms.ts": 18680,
     "packages/kit/src/states/jotai/contexts/tokenList/cells/apply.ts": 22149,

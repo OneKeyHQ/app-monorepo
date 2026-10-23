@@ -31,6 +31,7 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { ESwapTabSwitchType } from '@onekeyhq/shared/types/swap/types';
 
 import {
+  swapAllNetworkTokenListMapAtom,
   swapProSelectTokenAtom,
   swapSelectFromTokenAtom,
   swapSelectToTokenAtom,
@@ -38,6 +39,10 @@ import {
   swapTokenMapAtom,
   swapTypeSwitchAtom,
 } from '../contexts/swap/atoms';
+import {
+  SWAP_TOKEN_SELECTOR_SCOPE,
+  getSwapTokenSelectorStore,
+} from '../contexts/swap/tokenSelectorData';
 
 import {
   buildJotaiContextStoreId,
@@ -212,6 +217,7 @@ describe('jotaiContextStore reset flow', () => {
     jest.spyOn(console, 'log').mockImplementation(jest.fn());
     jest.spyOn(console, 'error').mockImplementation(jest.fn());
     jest.clearAllMocks();
+    mockReadContextAtomSnapshotRaw.mockReset();
     mockUpdateJotaiContextStoreRegistration.mockResolvedValue({
       map: {},
       mapChanged: false,
@@ -226,6 +232,12 @@ describe('jotaiContextStore reset flow', () => {
     jotaiContextStore.storeCache.clear();
     jotaiContextStore.storeResetRequests.clear();
     clearJotaiContextTrackerMap();
+    purgeOldColdStartRuntimeKeys(
+      CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapTokenMapAtom,
+    );
+    purgeOldColdStartRuntimeKeys(
+      CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapAllNetworkTokenListMapAtom,
+    );
   });
 
   afterEach(() => {
@@ -756,16 +768,36 @@ describe('jotaiContextStore reset flow', () => {
         purgeOldColdStartRuntimeKeys(selectorKey);
       });
 
-      it('restores a stored selector entry when the global snapshot only contains unrelated keys', () => {
+      it('restores a legacy selector snapshot into the shared owner without hydrating form stores', () => {
         (globalThis as IGlobalColdStartSnapshot).__ONEKEY_CTX_ATOM_SNAPSHOT__ =
           {
             'store:unrelated::ctx:value': { updatedAt: 2 },
           };
-        const store = jotaiContextStore.prepareStoreForImmediateUse({
-          storeName: EJotaiContextStoreNames.swapModal,
-        });
+        const forms = [
+          EJotaiContextStoreNames.swap,
+          EJotaiContextStoreNames.swapModal,
+          EJotaiContextStoreNames.marketSwap,
+          EJotaiContextStoreNames.marketSwapReview,
+        ].map((storeName) =>
+          jotaiContextStore.prepareStoreForImmediateUse({ storeName }),
+        );
+        for (const form of forms) {
+          expect(form.get(swapTokenMapAtom()).tokenCatch).toBeUndefined();
+        }
+        const store = getSwapTokenSelectorStore();
 
         expect(store.get(swapTokenMapAtom())).toEqual(cachedSelector);
+        expect(getSwapTokenSelectorStore()).toBe(store);
+        forms[0].set(swapTypeSwitchAtom(), ESwapTabSwitchType.BRIDGE);
+        expect(forms[1].get(swapTypeSwitchAtom())).toBe(
+          ESwapTabSwitchType.SWAP,
+        );
+        expect(forms[2].get(swapTypeSwitchAtom())).toBe(
+          ESwapTabSwitchType.SWAP,
+        );
+        expect(forms[3].get(swapTypeSwitchAtom())).toBe(
+          ESwapTabSwitchType.SWAP,
+        );
       });
 
       it('does not restore execution state removed by owner normalization from the unnormalized disk snapshot', () => {
@@ -830,11 +862,9 @@ describe('jotaiContextStore reset flow', () => {
           {
             [selectorKey]: undefined,
           };
-        const store = jotaiContextStore.prepareStoreForImmediateUse({
-          storeName: EJotaiContextStoreNames.swapModal,
-        });
+        const store = getSwapTokenSelectorStore();
 
-        expect(store.get(swapTokenMapAtom()).tokenCatch).toBeUndefined();
+        expect(store.get(swapTokenMapAtom()).tokenCatch).toEqual({});
       });
 
       it('prefers a newer global selector value over the stored snapshot', () => {
@@ -853,11 +883,62 @@ describe('jotaiContextStore reset flow', () => {
           {
             [selectorKey]: latestSelector,
           };
-        const store = jotaiContextStore.prepareStoreForImmediateUse({
-          storeName: EJotaiContextStoreNames.swapModal,
-        });
+        const store = getSwapTokenSelectorStore();
 
         expect(store.get(swapTokenMapAtom())).toEqual(latestSelector);
+      });
+
+      it('restores canonical token and holdings snapshots before any form provider mounts', () => {
+        const canonicalSelector = {
+          ...cachedSelector,
+          updatedAt: 2,
+          tokenCatch: {
+            [queryKey]: {
+              ...cachedSelector.tokenCatch[queryKey],
+              data: [],
+              updatedAt: 2,
+            },
+          },
+        };
+        const holdings = {
+          'wallet__account__Swap__USD':
+            cachedSelector.tokenCatch[queryKey].data,
+        };
+        mockReadContextAtomSnapshotRaw.mockReturnValue(
+          JSON.stringify({
+            [selectorKey]: cachedSelector,
+            [`${SWAP_TOKEN_SELECTOR_SCOPE}::${CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapTokenMapAtom}`]:
+              canonicalSelector,
+            [`${SWAP_TOKEN_SELECTOR_SCOPE}::${CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapAllNetworkTokenListMapAtom}`]:
+              holdings,
+          }),
+        );
+        const store = getSwapTokenSelectorStore();
+
+        expect(store.get(swapTokenMapAtom())).toEqual(canonicalSelector);
+        expect(store.get(swapAllNetworkTokenListMapAtom())).toEqual(holdings);
+        expect(
+          jotaiContextStore.getStore({
+            storeName: EJotaiContextStoreNames.swap,
+          }),
+        ).toBeUndefined();
+        expect(
+          jotaiContextStore.getStore({
+            storeName: EJotaiContextStoreNames.swapModal,
+          }),
+        ).toBeUndefined();
+      });
+
+      it('does not revive a legacy snapshot when the canonical owner was explicitly cleared', () => {
+        (globalThis as IGlobalColdStartSnapshot).__ONEKEY_CTX_ATOM_SNAPSHOT__ =
+          {
+            [`${SWAP_TOKEN_SELECTOR_SCOPE}::${CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapTokenMapAtom}`]:
+              undefined,
+          };
+
+        expect(
+          getSwapTokenSelectorStore().get(swapTokenMapAtom()).tokenCatch,
+        ).toEqual({});
       });
 
       it.each([true, false])(
@@ -886,11 +967,9 @@ describe('jotaiContextStore reset flow', () => {
             ),
           ).toBe(false);
 
-          const store = jotaiContextStore.prepareStoreForImmediateUse({
-            storeName: EJotaiContextStoreNames.swapModal,
-          });
+          const store = getSwapTokenSelectorStore();
 
-          expect(store.get(swapTokenMapAtom()).tokenCatch).toBeUndefined();
+          expect(store.get(swapTokenMapAtom()).tokenCatch).toEqual({});
         },
       );
     },

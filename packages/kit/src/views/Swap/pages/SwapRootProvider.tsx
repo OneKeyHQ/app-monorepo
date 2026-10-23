@@ -11,12 +11,6 @@ import { ESwapTabSwitchType } from '@onekeyhq/shared/types/swap/types';
 
 import {
   ProviderJotaiContextSwap,
-  swapAllNetworkActionLockAtom,
-  swapAllNetworkTokenListMapAtom,
-  swapAllNetworkTokenListStatusAtom,
-  swapTokenFetchingAtom,
-  swapTokenListRequestsAtom,
-  swapTokenMapAtom,
   useSwapDefaultConfigStatusAtom,
   useSwapFromTokenAmountAtom,
   useSwapInitialSelectedTokensSyncedAtom,
@@ -25,9 +19,9 @@ import {
   useSwapSelectToTokenAtom,
   useSwapSelectedTokensColdStartContextAtom,
   useSwapToTokenAmountAtom,
-  useSwapTokenMapAtom,
   useSwapTypeSwitchAtom,
 } from '../../../states/jotai/contexts/swap/atoms';
+import { getSwapTokenSelectorStore } from '../../../states/jotai/contexts/swap/tokenSelectorData';
 import { jotaiContextStore } from '../../../states/jotai/utils/jotaiContextStore';
 import { useJotaiContextRootStore } from '../../../states/jotai/utils/useJotaiContextRootStore';
 import {
@@ -38,30 +32,13 @@ import {
   shouldPreserveSwapUserInputOnAccountSwitch,
 } from '../utils/swapColdStartTokenCacheUtils';
 import { hydrateSwapDefaultTokensFromGlobalHomeSnapshot } from '../utils/swapRootColdStartUtils';
-import { registerSwapTokenSelectorStoreInvalidation } from '../utils/swapTokenSelectorCacheInvalidation';
 import { getVisibleSwapTabSwitchType } from '../utils/swapTypeUtils';
 
 export { hydrateSwapDefaultTokensFromGlobalHomeSnapshot } from '../utils/swapRootColdStartUtils';
 
-registerSwapTokenSelectorStoreInvalidation((store) => {
-  const previous = {
-    tokenMap: store.get(swapTokenMapAtom()),
-    requests: store.get(swapTokenListRequestsAtom()),
-    aggregateMap: store.get(swapAllNetworkTokenListMapAtom()),
-    aggregateLocks: store.get(swapAllNetworkActionLockAtom()),
-  };
-  store.set(swapTokenMapAtom(), { version: 1, updatedAt: 0 });
-  store.set(swapTokenListRequestsAtom(), {});
-  store.set(swapTokenFetchingAtom(), false);
-  store.set(swapAllNetworkActionLockAtom(), {});
-  store.set(swapAllNetworkTokenListMapAtom(), {});
-  store.set(swapAllNetworkTokenListStatusAtom(), {});
-  return previous;
-});
-
 function SwapTokenSelectorColdStartCacheSync() {
-  // Keep preload and transaction refreshes tracked while the selector is closed.
-  useSwapTokenMapAtom();
+  // Initialize the single data owner before boot snapshots are released.
+  getSwapTokenSelectorStore();
   return null;
 }
 

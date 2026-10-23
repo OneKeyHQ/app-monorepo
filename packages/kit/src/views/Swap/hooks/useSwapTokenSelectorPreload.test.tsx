@@ -111,6 +111,7 @@ describe('useSwapTokenSelectorPreload', () => {
       undefined,
       false,
       'usd',
+      { policy: 'preload' },
     );
   });
 
@@ -126,6 +127,7 @@ describe('useSwapTokenSelectorPreload', () => {
       'imported-account-2',
       false,
       'usd',
+      { policy: 'preload' },
     );
   });
 
@@ -247,6 +249,7 @@ describe('useSwapTokenSelectorPreload', () => {
       undefined,
       false,
       'eur',
+      { policy: 'preload' },
     );
     rerender({
       ...params,

@@ -74,7 +74,11 @@ export function createSwapTokenSelectorSession() {
     // Full desktop sweeps populate the same chain snapshots as selection.
     // Waiting here avoids a second request if account discovery finishes after
     // an independently fetched selected chain. Cached UI stays visible.
-    if (walletRefreshCoversChainLists && !isAllNetworks) {
+    if (
+      walletRefreshCoversChainLists &&
+      queryCoveredByWalletRefresh &&
+      !isAllNetworks
+    ) {
       await Promise.all(walletRequests);
     }
     if (!isCurrent() || state !== session) return undefined;
@@ -88,10 +92,12 @@ export function createSwapTokenSelectorSession() {
     const tokens = await fetchTokens(params, {
       policy: needsQueryRefresh ? 'revalidate' : 'snapshot',
       background: true,
+      priority: 'foreground',
     });
     // Native uses a separate account-only sweep; preserve its completion gate
     // for all-network lists without delaying independent keyword searches.
-    await Promise.all(walletRequests);
+    if (!walletRefreshCoversChainLists || isAllNetworks)
+      await Promise.all(walletRequests);
     return tokens;
   };
 }

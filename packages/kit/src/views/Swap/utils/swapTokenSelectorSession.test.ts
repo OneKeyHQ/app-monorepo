@@ -37,6 +37,20 @@ function setup() {
 }
 
 describe('token selector session', () => {
+  it('loads uncovered visible chains without waiting for the wallet sweep', async () => {
+    const { load, request, fetchTokens, refreshWallet } = setup();
+    const pending = deferred();
+    refreshWallet.mockReturnValue(pending.promise);
+    const result = load({ ...request, queryCoveredByWalletRefresh: false });
+    expect(fetchTokens).toHaveBeenCalledTimes(1);
+    await expect(result).resolves.toEqual([]);
+    expect(fetchTokens).toHaveBeenCalledWith(request.params, {
+      policy: 'revalidate',
+      background: true,
+      priority: 'foreground',
+    });
+    pending.resolve();
+  });
   it('revalidates uncovered chains once per open, including wallets without a chain account', async () => {
     const { load, request, fetchTokens } = setup();
     const uncovered = { ...request, queryCoveredByWalletRefresh: false };
@@ -44,9 +58,9 @@ describe('token selector session', () => {
     await load(uncovered);
     await createSwapTokenSelectorSession()(uncovered);
     expect(fetchTokens.mock.calls.map(([, options]) => options)).toEqual([
-      { policy: 'revalidate', background: true },
-      { policy: 'snapshot', background: true },
-      { policy: 'revalidate', background: true },
+      { policy: 'revalidate', background: true, priority: 'foreground' },
+      { policy: 'snapshot', background: true, priority: 'foreground' },
+      { policy: 'revalidate', background: true, priority: 'foreground' },
     ]);
   });
 
@@ -74,10 +88,10 @@ describe('token selector session', () => {
     await load(native);
     await load(defi);
     expect(fetchTokens.mock.calls.map(([, options]) => options)).toEqual([
-      { policy: 'revalidate', background: true },
-      { policy: 'revalidate', background: true },
-      { policy: 'snapshot', background: true },
-      { policy: 'snapshot', background: true },
+      { policy: 'revalidate', background: true, priority: 'foreground' },
+      { policy: 'revalidate', background: true, priority: 'foreground' },
+      { policy: 'snapshot', background: true, priority: 'foreground' },
+      { policy: 'snapshot', background: true, priority: 'foreground' },
     ]);
   });
   it('refreshes once per opening and reuses that refresh across chain changes', async () => {
@@ -91,8 +105,8 @@ describe('token selector session', () => {
     pending.resolve();
     await Promise.all([first, second]);
     expect(fetchTokens.mock.calls.map(([, options]) => options)).toEqual([
-      { policy: 'snapshot', background: true },
-      { policy: 'snapshot', background: true },
+      { policy: 'snapshot', background: true, priority: 'foreground' },
+      { policy: 'snapshot', background: true, priority: 'foreground' },
     ]);
     await load(request);
     expect(refreshWallet).toHaveBeenCalledTimes(1);
@@ -144,9 +158,9 @@ describe('token selector session', () => {
     await load(request);
     await load(all);
     expect(fetchTokens.mock.calls.map(([, options]) => options)).toEqual([
-      { policy: 'revalidate', background: true },
-      { policy: 'snapshot', background: true },
-      { policy: 'snapshot', background: true },
+      { policy: 'revalidate', background: true, priority: 'foreground' },
+      { policy: 'snapshot', background: true, priority: 'foreground' },
+      { policy: 'snapshot', background: true, priority: 'foreground' },
     ]);
   });
 

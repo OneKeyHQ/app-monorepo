@@ -712,6 +712,7 @@ export function useSwapTokenList(
       lastRefreshVersionRef.current !== cacheEpoch.refresh;
     lastRefreshVersionRef.current = cacheEpoch.refresh;
     let isCancelled = false;
+    const searchSubscription = keywords ? new AbortController() : undefined;
     void (async () => {
       try {
         const refreshWallet =
@@ -745,7 +746,13 @@ export function useSwapTokenList(
               requestCurrency,
               { policy: 'revalidate' },
             ),
-          fetchTokens: tokenListFetchAction,
+          fetchTokens: searchSubscription
+            ? (params, options) =>
+                tokenListFetchAction(params, {
+                  ...options,
+                  subscriberSignal: searchSubscription.signal,
+                })
+            : tokenListFetchAction,
         }).then(
           (tokens) => {
             if (!isCancelled && keywords) {
@@ -776,6 +783,7 @@ export function useSwapTokenList(
     })();
     return () => {
       isCancelled = true;
+      searchSubscription?.abort();
     };
   }, [
     indexedAccountId,

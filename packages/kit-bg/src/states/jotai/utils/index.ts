@@ -575,6 +575,45 @@ async function flushWebColdStartCacheNowIfNeeded() {
   }
 }
 
+/** Read one consistent batch, including runtime deletion tombstones. */
+export function readContextAtomColdStartCacheValues(
+  entries: {
+    coldStartScopeKey: string;
+    coldStartCacheKey: IContextAtomColdStartCacheKey;
+  }[],
+) {
+  const boot = (
+    globalThis as {
+      __ONEKEY_CTX_ATOM_SNAPSHOT__?: Record<string, unknown>;
+    }
+  ).__ONEKEY_CTX_ATOM_SNAPSHOT__;
+  let stored: Record<string, unknown> | undefined;
+  let storageRead = false;
+  return entries.map((entry) => {
+    const key = buildColdStartScopedKey(entry);
+    if (
+      coldStartValuesMap.has(key) &&
+      coldStartValuesMap.get(key) === undefined
+    ) {
+      return { exists: true, value: coldStartValuesMap.get(key) };
+    }
+    if (boot && Object.hasOwn(boot, key)) {
+      return { exists: true, value: boot[key] };
+    }
+    if (coldStartValuesMap.has(key)) {
+      return { exists: true, value: coldStartValuesMap.get(key) };
+    }
+    if (!storageRead) {
+      stored = readColdStartSnapshotFromStorage();
+      storageRead = true;
+    }
+    return {
+      exists: Boolean(stored && Object.hasOwn(stored, key)),
+      value: stored?.[key],
+    };
+  });
+}
+
 export async function writeContextAtomColdStartCacheValues({
   entries,
   flushImmediately,

@@ -1,4 +1,6 @@
+import { ESwapTabSwitchType } from '../../types/swap/types';
 import { CONTEXT_ATOM_COLD_START_CACHE_KEYS } from '../consts/jotaiConsts';
+import platformEnvLite from '../platformEnvLite';
 
 import {
   getSwapTokenListSnapshotEntries,
@@ -17,6 +19,24 @@ export const SWAP_PRO_POSITIONS_CACHE_MAX_BYTES = 256 * 1024;
 export const SWAP_PRO_POSITIONS_CACHE_VERSION = 1;
 
 type ISnapshotRecord = Record<string, unknown>;
+type ISelectorAggregateScope = {
+  scopeKey: string;
+  entries: { ownerKey: string; tokens: readonly unknown[] }[];
+};
+
+const aggregateTokensSerializedChars = new WeakMap<
+  readonly unknown[],
+  number
+>();
+
+function getAggregateTokensSerializedChars(tokens: readonly unknown[]) {
+  let chars = aggregateTokensSerializedChars.get(tokens);
+  if (chars === undefined) {
+    chars = JSON.stringify(tokens).length;
+    aggregateTokensSerializedChars.set(tokens, chars);
+  }
+  return chars;
+}
 
 type IPrepareColdStartSnapshotOptions = {
   maxSnapshotChars?: number;
@@ -374,18 +394,47 @@ export function prepareColdStartSnapshotForWrite(
       scopeKey,
       value: sanitizeSwapTokenListSnapshot(value),
     }));
-  if (selectorScopes.length === 0) {
+  const aggregateScopes: ISelectorAggregateScope[] = [];
+  const baselineSnapshot: ISnapshotRecord = {};
+  Object.entries(snapshot).forEach(([scopeKey, value]) => {
+    if (isScopedCacheKey(scopeKey, selectorKey)) return;
+    if (
+      (platformEnvLite.isDesktop || platformEnvLite.isWeb) &&
+      isScopedCacheKey(
+        scopeKey,
+        CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapAllNetworkTokenListMapAtom,
+      ) &&
+      isRecord(value)
+    ) {
+      const entries: ISelectorAggregateScope['entries'] = [];
+      const baselineOwners: ISnapshotRecord = {};
+      for (const [ownerKey, tokens] of Object.entries(value)) {
+        if (
+          !ownerKey.split('__').includes(ESwapTabSwitchType.STOCK) &&
+          Array.isArray(tokens)
+        ) {
+          entries.push({ ownerKey, tokens });
+        } else {
+          baselineOwners[ownerKey] = tokens;
+        }
+      }
+      if (entries.length > 0) {
+        aggregateScopes.push({ scopeKey, entries });
+        if (Object.keys(baselineOwners).length > 0)
+          baselineSnapshot[scopeKey] = baselineOwners;
+        return;
+      }
+    }
+    baselineSnapshot[scopeKey] = value;
+  });
+  if (selectorScopes.length === 0 && aggregateScopes.length === 0) {
     return prepareBaselineColdStartSnapshotForWrite(snapshot, options);
   }
 
   // The selector may consume spare capacity, but must not make existing SwapPro
   // or Perps caches eligible for eviction. Keep their baseline policy intact.
   const baseline = prepareBaselineColdStartSnapshotForWrite(
-    Object.fromEntries(
-      Object.entries(snapshot).filter(
-        ([key]) => !isScopedCacheKey(key, selectorKey),
-      ),
-    ),
+    baselineSnapshot,
     options,
   );
   const retainedSnapshot = { ...baseline.snapshot };
@@ -393,6 +442,34 @@ export function prepareColdStartSnapshotForWrite(
     options?.maxSnapshotChars ?? COLD_START_SNAPSHOT_MAX_CHARS;
   let remainingChars = maxSnapshotChars - baseline.serialized.length;
   let hasSnapshotValues = baseline.serialized !== '{}';
+  // Sidebar membership freezes from its first snapshot. Admit whole wallet
+  // projections before chain lists, including a valid empty holdings list.
+  for (const { scopeKey, entries } of aggregateScopes) {
+    const baselineOwners = retainedSnapshot[scopeKey];
+    let owners = isRecord(baselineOwners) ? { ...baselineOwners } : undefined;
+    let ownerCount = Object.keys(owners ?? {}).length;
+    for (const { ownerKey, tokens } of entries) {
+      const ownerChars =
+        JSON.stringify(ownerKey).length +
+        1 +
+        getAggregateTokensSerializedChars(tokens);
+      const additionalChars = owners
+        ? ownerChars + (ownerCount > 0 ? 1 : 0)
+        : JSON.stringify(scopeKey).length +
+          1 +
+          2 +
+          ownerChars +
+          (hasSnapshotValues ? 1 : 0);
+      if (additionalChars <= remainingChars) {
+        owners ??= {};
+        owners[ownerKey] = tokens;
+        retainedSnapshot[scopeKey] = owners;
+        ownerCount += 1;
+        hasSnapshotValues = true;
+        remainingChars -= additionalChars;
+      }
+    }
+  }
   const tokenCatchByScope = new Map<string, Record<string, ISwapTokenCatch>>();
   const candidates = selectorScopes
     .flatMap(({ scopeKey, value }) =>
@@ -459,7 +536,7 @@ export function prepareColdStartSnapshotForWrite(
     serialized: stringifySnapshot(retainedSnapshot),
     droppedKeys: [
       ...baseline.droppedKeys,
-      ...selectorScopes
+      ...[...aggregateScopes, ...selectorScopes]
         .filter(({ scopeKey }) => !(scopeKey in retainedSnapshot))
         .map(({ scopeKey }) => scopeKey),
     ],

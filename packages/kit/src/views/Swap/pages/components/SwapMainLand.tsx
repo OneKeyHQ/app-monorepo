@@ -1402,7 +1402,7 @@ const SwapMainLoad = ({
   const [swapNetworks] = useSwapNetworksAtom();
 
   useSwapTokenSelectorPreload({
-    enabled: !isAppLocked && !fetchLoading && !embeddedStockTrade,
+    enabled: isFocused && !isAppLocked && !fetchLoading && !embeddedStockTrade,
     fromAddressInfo: swapFromAddressInfo,
     toAddressInfo,
     networks: swapNetworks,

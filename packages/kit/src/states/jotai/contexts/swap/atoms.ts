@@ -16,12 +16,10 @@ import { isStockQuoteInputAmountMatched } from '@onekeyhq/kit/src/views/Swap/uti
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { dangerAllNetworkRepresent } from '@onekeyhq/shared/src/config/presetNetworks';
 import { CONTEXT_ATOM_COLD_START_CACHE_KEYS } from '@onekeyhq/shared/src/consts/jotaiConsts';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { ICustomPriorityFeeOverride } from '@onekeyhq/shared/src/utils/marketPresetFeeUtils';
 import { clampLimitRateDecimals } from '@onekeyhq/shared/src/utils/numberUtils';
 import type { ISwapSelectedTokensColdStartContext } from '@onekeyhq/shared/src/utils/swapColdStartCacheSnapshotUtils';
 import { sortSwapQuotes } from '@onekeyhq/shared/src/utils/swapQuoteSortUtils';
-import { sanitizeSwapTokenListSnapshot } from '@onekeyhq/shared/src/utils/swapTokenSelectorSnapshotUtils';
 import {
   checkWrappedTokenPair,
   equalTokenNoCaseSensitive,
@@ -55,7 +53,6 @@ import {
   type ISwapStep,
   type ISwapTips,
   type ISwapToken,
-  type ISwapTokenListSnapshotMap,
   LIMIT_PRICE_DEFAULT_DECIMALS,
   defaultLimitExpirationTime,
 } from '@onekeyhq/shared/types/swap/types';
@@ -79,6 +76,21 @@ const {
   useContextData,
 } = createJotaiContext();
 export { ProviderJotaiContextSwap, contextAtomMethod };
+
+export {
+  swapAllNetworkActionLockAtom,
+  swapAllNetworkTokenListMapAtom,
+  swapAllNetworkTokenListStatusAtom,
+  swapTokenFetchingAtom,
+  swapTokenListRequestsAtom,
+  swapTokenMapAtom,
+  useSwapAllNetworkActionLockAtom,
+  useSwapAllNetworkTokenListMapAtom,
+  useSwapAllNetworkTokenListStatusAtom,
+  useSwapTokenFetchingAtom,
+  useSwapTokenListRequestsAtom,
+  useSwapTokenMapAtom,
+} from './tokenSelectorData';
 
 export function useSwapColdStartScopeKey() {
   const { store } = useContextData();
@@ -139,30 +151,6 @@ const sanitizeSwapProSelectedTokenColdStartSnapshot = memoizeSnapshotTransform(
 const sanitizeSwapStockPayTokenColdStartSnapshot = memoizeSnapshotTransform(
   sanitizeSwapStockPayTokenDisplaySnapshot,
 );
-
-const SWAP_TOKEN_SELECTOR_COLD_START_MAX_CACHE_ENTRIES = 3;
-const SWAP_TOKEN_SELECTOR_COLD_START_MAX_TOKENS = 200;
-
-const sanitizeSwapAllNetworkTokenListMapColdStartSnapshot =
-  memoizeSnapshotTransform((value: Record<string, ISwapToken[]>) =>
-    Object.fromEntries(
-      Object.entries(value)
-        // Native, extension and Stock still load account-only lists. Their
-        // aggregate cannot be rebuilt from complete chain snapshots on restart.
-        .filter(
-          ([cacheKey]) =>
-            !(platformEnv.isDesktop || platformEnv.isWeb) ||
-            cacheKey.split('__').includes(ESwapTabSwitchType.STOCK),
-        )
-        .slice(-SWAP_TOKEN_SELECTOR_COLD_START_MAX_CACHE_ENTRIES)
-        .map(([cacheKey, tokens]) => [
-          cacheKey,
-          tokens.slice(0, SWAP_TOKEN_SELECTOR_COLD_START_MAX_TOKENS),
-        ]),
-    ),
-  );
-
-const sanitizeSwapTokenMapColdStartSnapshot = sanitizeSwapTokenListSnapshot;
 
 export type ISwapQuoteEventErrorState = {
   message: string;
@@ -225,34 +213,6 @@ export const {
   };
   return [allNetwork, ...networks];
 });
-
-export const { atom: swapTokenMapAtom, use: useSwapTokenMapAtom } =
-  contextAtom<ISwapTokenListSnapshotMap>(
-    { version: 1, updatedAt: 0 },
-    {
-      coldStartCache: true,
-      coldStartCacheKey: CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapTokenMapAtom,
-      coldStartCacheTransform: sanitizeSwapTokenMapColdStartSnapshot,
-    },
-  );
-
-export const { atom: swapTokenFetchingAtom, use: useSwapTokenFetchingAtom } =
-  contextAtom<boolean>(false);
-
-export const {
-  atom: swapTokenListRequestsAtom,
-  use: useSwapTokenListRequestsAtom,
-} = contextAtom<
-  Record<
-    string,
-    {
-      promise: Promise<ISwapToken[]>;
-      identityVersion: number;
-      refreshVersion: number;
-      pendingRefresh: boolean;
-    }
-  >
->({});
 
 // swap account
 export const {
@@ -447,50 +407,6 @@ export const {
   atom: swapSelectedToTokenBalanceAtom,
   use: useSwapSelectedToTokenBalanceAtom,
 } = contextAtom('');
-
-export const {
-  atom: swapAllNetworkTokenListMapAtom,
-  use: useSwapAllNetworkTokenListMapAtom,
-} = contextAtom<Record<string, ISwapToken[]>>(
-  {},
-  {
-    coldStartCache: true,
-    coldStartCacheKey:
-      CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapAllNetworkTokenListMapAtom,
-    coldStartCacheTransform:
-      sanitizeSwapAllNetworkTokenListMapColdStartSnapshot,
-  },
-);
-
-export const {
-  atom: swapAllNetworkActionLockAtom,
-  use: useSwapAllNetworkActionLockAtom,
-} = contextAtom<
-  Record<
-    string,
-    {
-      activeRequestKey: string;
-      completionPromise: Promise<void>;
-      pendingRequestKey?: string;
-    }
-  >
->({});
-
-export const {
-  atom: swapAllNetworkTokenListStatusAtom,
-  use: useSwapAllNetworkTokenListStatusAtom,
-} = contextAtom<
-  Record<
-    string,
-    {
-      requestKey: string;
-      status: 'success' | 'partial' | 'error';
-      updatedAt: number;
-      identityVersion: number;
-      refreshVersion: number;
-    }
-  >
->({});
 
 // swap quote
 export const {

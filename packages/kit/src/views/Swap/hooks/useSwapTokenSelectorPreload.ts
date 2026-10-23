@@ -96,14 +96,14 @@ export function useSwapTokenSelectorPreload({
         !requestedScopes.has(scopeKey)
       ) {
         requestedScopes.add(scopeKey);
-        // Warm missing snapshots and refresh after transaction/identity events,
-        // even while the selector is closed. Modal openings revalidate through
-        // the same loader, which shares any request already in progress.
+        // Fresh snapshots suppress speculative requests; opening the modal or
+        // invalidating transaction/identity data still revalidates the lists.
         void swapLoadAllNetworkTokenList(
           indexedAccountId,
           otherAccountId,
           false,
           currency,
+          { policy: 'preload' },
         ).catch(() => undefined);
       }
     }

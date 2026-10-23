@@ -14,8 +14,11 @@ import {
 import type { IJotaiContextStore } from '../../../states/jotai/utils/createJotaiContext';
 
 const SWAP_STORE_NAMES = [
+  EJotaiContextStoreNames.swapTokenSelector,
   EJotaiContextStoreNames.swap,
   EJotaiContextStoreNames.swapModal,
+  EJotaiContextStoreNames.marketSwap,
+  EJotaiContextStoreNames.marketSwapReview,
 ] as const;
 
 let registered = false;
@@ -28,7 +31,7 @@ let clearStoreCache:
     })
   | undefined;
 
-// The business provider supplies the atom references when it loads. Startup
+// The selector data owner supplies the atom references when it loads. Startup
 // cache removal must not eagerly import Swap's business/UI module graph.
 export function registerSwapTokenSelectorStoreInvalidation(
   clear: NonNullable<typeof clearStoreCache>,

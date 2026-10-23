@@ -332,6 +332,7 @@ export interface IFetchTokensParams {
   networkId?: string;
   contractSearchNetworkId?: string;
   searchNetworks?: ISwapTokenSearchNetwork[];
+  searchRequestId?: string;
   keywords?: string;
   limit?: number;
   accountAddress?: string;
@@ -342,6 +343,7 @@ export interface IFetchTokensParams {
   isAllNetworkFetchAccountTokens?: boolean;
   throwOnError?: boolean;
   isTokenListPrefetch?: boolean;
+  tokenListPriority?: 'foreground' | 'background';
   lpToken?: boolean;
   currency?: string;
 }
