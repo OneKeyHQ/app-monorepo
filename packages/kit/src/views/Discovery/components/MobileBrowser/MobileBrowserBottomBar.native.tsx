@@ -275,7 +275,7 @@ function MobileBrowserBottomBar({
             </Animated.View>
             {/* Same edge inset as the round buttons, so icons line up. */}
             <Animated.View style={[styles.capsule, capsuleStyle]}>
-              <BrowserChromeCapsule flex={1}>
+              <BrowserChromeCapsule flex={1} px="$2">
                 <ChromePressable
                   onPress={() => {
                     logBrowserChromeAction('menu', 'toolbar');
@@ -286,7 +286,7 @@ function MobileBrowserBottomBar({
                   <IconButton
                     variant="tertiary"
                     icon="MenuOutline"
-                    iconSize="$4"
+                    iconSize="$5"
                     disabled={displayHomePage}
                     testID="browser-bar-options"
                   />
@@ -305,7 +305,7 @@ function MobileBrowserBottomBar({
                   onPress={handleAddressPress}
                 />
                 <RefreshButton
-                  iconSize="$4"
+                  iconSize="$5"
                   onRefresh={() => {
                     logBrowserChromeAction('refresh', 'toolbar');
                     handleRefresh();

@@ -58,6 +58,7 @@ function TabCountButton({
   const { tabs } = useWebTabs();
   const tabCount = useMemo(() => tabs.length, [tabs]);
   const isLarge = size === 'large';
+  const badgeSize = isLarge ? 24 : 22;
   // Inside a Liquid Glass capsule the glass owns the shape and press feedback.
   const inGlass = useInGlassHeader();
   let padding: '$2' | '$3' | '$3.5' = isLarge ? '$3.5' : '$3';
@@ -83,12 +84,12 @@ function TabCountButton({
         pressStyle={inGlass ? undefined : { bg: '$bgActive' }}
         testID={testID}
       >
-        {/* Drawn like an SF Symbol: a hairline-ish 1.5pt stroke, continuous
-            corners and padding so two-digit counts don't touch the border. */}
+        {/* Drawn like an SF Symbol: a square with a 1.5pt stroke and
+            continuous corners, sized so two-digit counts fit inside it. */}
         <Stack
-          minWidth={isLarge ? '$6' : '$5'}
-          minHeight={isLarge ? '$6' : '$5'}
-          px={3}
+          minWidth={badgeSize}
+          h={badgeSize}
+          px={tabCount > 99 ? 3 : 0}
           borderRadius={6}
           borderCurve="continuous"
           borderWidth={1.5}
