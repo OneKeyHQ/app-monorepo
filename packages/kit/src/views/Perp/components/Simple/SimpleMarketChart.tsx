@@ -12,6 +12,7 @@ import {
   useTheme,
 } from '@onekeyhq/components';
 import { StockPriceLineChart } from '@onekeyhq/kit/src/components/StockPriceLineChart';
+import type { IStockPriceLineChartHoverPoint } from '@onekeyhq/kit/src/components/StockPriceLineChart';
 import { TRADING_VIEW_NATIVE_SUB_INDICATOR_PANE_HEIGHT } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative/chartConstants';
 import { tradingViewNativeHyperliquidGateway } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative/data/providers/hyperliquid/tradingViewNativeHyperliquidGateway';
 import {
@@ -49,22 +50,26 @@ const CHART_HEIGHT = 340;
 const LINE_CHART_HEIGHT =
   CHART_HEIGHT - TRADING_VIEW_NATIVE_CHART_CONTROLS_HEIGHT;
 
+export type ISimpleMarketChartPrice = ISimpleChartPerformance & {
+  price?: number;
+};
+
 function SimpleMarketLineChart({
   coin,
   range,
   active,
   livePrice,
-  onPerformanceChange,
+  onPriceChange,
 }: {
   coin: string;
   range: IMobileSimpleChartRange;
   active: boolean;
   livePrice?: string;
-  onPerformanceChange?: (
-    performance: ISimpleChartPerformance | undefined,
-  ) => void;
+  onPriceChange?: (price: ISimpleMarketChartPrice | undefined) => void;
 }) {
   const intl = useIntl();
+  const [hoverPoint, setHoverPoint] =
+    useState<IStockPriceLineChartHoverPoint>();
   const { result, run } = usePromiseResult(
     async () => {
       if (!active) return undefined;
@@ -111,13 +116,23 @@ function SimpleMarketLineChart({
       }),
     [current, livePrice],
   );
-
-  const performance = useMemo(() => getSimpleChartPerformance(data), [data]);
+  const displayPrice = useMemo<ISimpleMarketChartPrice | undefined>(() => {
+    if (!active) return undefined;
+    if (!current || current.error || !data.length) return { coin, range };
+    const price = hoverPoint?.price ?? data[data.length - 1][1];
+    return {
+      coin,
+      range,
+      price,
+      ...getSimpleChartPerformance(data, price),
+    };
+  }, [active, coin, range, current, data, hoverPoint]);
   useEffect(() => {
-    onPerformanceChange?.({ coin, range, ...performance });
-  }, [coin, range, performance, onPerformanceChange]);
+    onPriceChange?.(displayPrice);
+  }, [displayPrice, onPriceChange]);
+  useEffect(() => () => onPriceChange?.(undefined), [onPriceChange]);
 
-  if (!current) {
+  if (!active || !current) {
     return <Skeleton width="100%" height="100%" />;
   }
   if (current.error || !data.length) {
@@ -161,8 +176,10 @@ function SimpleMarketLineChart({
       data={data}
       height={LINE_CHART_HEIGHT}
       pulseLastPoint
-      showCurrentPriceLabel
-      hoverLabelLargePrice
+      showPriceScale={false}
+      showHoverLabel={false}
+      clearHoverOnTouchEnd
+      onHoverChange={setHoverPoint}
     />
   );
 }
@@ -171,14 +188,12 @@ export function SimpleMarketChart({
   coin,
   active,
   livePrice,
-  onPerformanceChange,
+  onPriceChange,
 }: {
   coin: string;
   active: boolean;
   livePrice?: string;
-  onPerformanceChange?: (
-    performance: ISimpleChartPerformance | undefined,
-  ) => void;
+  onPriceChange?: (price: ISimpleMarketChartPrice | undefined) => void;
 }) {
   const intl = useIntl();
   const theme = useTheme();
@@ -215,7 +230,6 @@ export function SimpleMarketChart({
       })}
       onPress={() => {
         setFullscreen(false);
-        onPerformanceChange?.(showCandles ? { coin, range } : undefined);
         setShowCandles((value) => !value);
       }}
     />
@@ -259,19 +273,16 @@ export function SimpleMarketChart({
           height={CHART_HEIGHT}
           range={range}
           chartRanges={TOKEN_SIMPLE_CHART_RANGES}
-          onRangeChange={(nextRange) => {
-            if (nextRange === range) return;
-            onPerformanceChange?.({ coin, range: nextRange });
-            setRange(nextRange);
-          }}
+          onRangeChange={setRange}
           modeControl={modeControl}
         >
           <SimpleMarketLineChart
+            key={`${coin}:${range}`}
             coin={coin}
             range={range}
             active={active}
             livePrice={livePrice}
-            onPerformanceChange={onPerformanceChange}
+            onPriceChange={onPriceChange}
           />
         </MobileSimpleChartFrame>
       ) : null}

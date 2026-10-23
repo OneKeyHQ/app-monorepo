@@ -1,4 +1,5 @@
 import {
+  getSimpleChartDisplayPerformance,
   getSimpleChartPerformance,
   getSimpleChartPoints,
   getSimpleChartRequest,
@@ -91,5 +92,53 @@ describe('simple Perps chart data', () => {
       [100, 1],
       [300, 3],
     ]);
+  });
+});
+
+describe('simple chart summary fallback', () => {
+  const dayPerformance = { change: '-10', changePercent: -5 };
+
+  it('uses 24-hour performance for an unavailable 1D range or candlestick mode', () => {
+    expect(getSimpleChartDisplayPerformance(undefined, dayPerformance)).toEqual(
+      dayPerformance,
+    );
+    expect(
+      getSimpleChartDisplayPerformance(
+        { coin: 'BTC', range: '1D' },
+        dayPerformance,
+      ),
+    ).toEqual(dayPerformance);
+  });
+
+  it('does not label 24-hour performance as a different selected range', () => {
+    const performance = { coin: 'BTC', range: '1W' as const };
+    expect(
+      getSimpleChartDisplayPerformance(performance, dayPerformance),
+    ).toEqual(performance);
+  });
+
+  it('preserves computed performance including a zero change', () => {
+    const performance = {
+      coin: 'BTC',
+      range: '1D' as const,
+      change: '0',
+      changePercent: 0,
+    };
+    expect(
+      getSimpleChartDisplayPerformance(performance, dayPerformance),
+    ).toEqual(performance);
+  });
+
+  it('calculates the amount and percent for a held chart point together', () => {
+    expect(
+      getSimpleChartPerformance(
+        [
+          [1, 100],
+          [2, 110],
+          [3, 120],
+        ],
+        110,
+      ),
+    ).toEqual({ change: '10', changePercent: 10 });
   });
 });

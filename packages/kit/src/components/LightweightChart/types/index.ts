@@ -71,6 +71,8 @@ export interface ILightweightChartNativeScrubOptions {
   textColor: string;
   timeColor: string;
   largePrice: boolean;
+  showTooltip?: boolean;
+  exitOnTouchEnd?: boolean;
 }
 
 export interface ILightweightChartConfig {

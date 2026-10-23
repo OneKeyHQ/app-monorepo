@@ -212,8 +212,8 @@ public class MainActivity extends ReactActivity {
     }
     // Manager re-dispatches only to an allowlisted subset of listeners on
     // the bg ReactContext (see BackgroundThreadManager.bgActivityListenerClassAllowlist).
-    // This lets google-signin's bg instance resolve its pending signIn
-    // promise without leaking the event to every other bg module.
+    // This lets Google Sign-In and CloudFs resolve authorization promises
+    // in the runtime that initiated them without notifying unrelated bg modules.
     BackgroundThreadManager.getInstance()
         .dispatchActivityResult(this, requestCode, resultCode, data);
   }

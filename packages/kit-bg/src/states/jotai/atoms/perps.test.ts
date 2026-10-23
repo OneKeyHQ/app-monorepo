@@ -1,3 +1,5 @@
+import { act, renderHook } from '@testing-library/react-native';
+
 import { EHyperLiquidAbstractionMode } from '@onekeyhq/shared/types/hyperliquid';
 
 import { EAtomNames, atomsConfig } from '../atomNames';
@@ -18,11 +20,13 @@ import {
   perpsActiveAccountStatusAtom,
   perpsActiveAccountStatusInfoAtom,
   perpsActiveAccountSummaryAtom,
+  perpsActiveAssetCtxAtom,
   perpsComputedAccountValueAtom,
   perpsCustomSettingsAtom,
   perpsShouldShowEnableTradingButtonAtom,
   perpsSpotBalancesAtom,
   tradingModeAtom,
+  usePerpsActiveAssetCtxMidPriceBySource,
 } from './perps';
 
 import type { IAtomNameKeys } from '../atomNames';
@@ -897,5 +901,47 @@ describe('perpsActiveAccountMmrAtom', () => {
       mmr: null,
       mmrPercent: null,
     });
+  });
+});
+
+describe('coin-scoped active mid prices', () => {
+  afterEach(() => {
+    jotaiDefaultStore.set(perpsActiveAssetCtxAtom.atom(), undefined);
+  });
+
+  it('rejects another coin until its own context arrives', () => {
+    const ctx = {
+      midPrice: '3000',
+      lastPrice: '3000',
+      markPrice: '3000',
+      oraclePrice: '3000',
+      prevDayPrice: '2900',
+      fundingRate: '0',
+      openInterest: '1',
+      volume24h: '100',
+      change24h: '100',
+      change24hPercent: 3,
+    };
+    jotaiDefaultStore.set(perpsActiveAssetCtxAtom.atom(), {
+      coin: 'ETH',
+      assetId: 1,
+      ctx,
+    });
+    const { result } = renderHook(() =>
+      usePerpsActiveAssetCtxMidPriceBySource('live', 'BTC'),
+    );
+    expect(result.current).toBeUndefined();
+    act(() => {
+      jotaiDefaultStore.set(perpsActiveAssetCtxAtom.atom(), {
+        coin: 'BTC',
+        assetId: 0,
+        ctx: { ...ctx, midPrice: '80000' },
+      });
+    });
+    expect(result.current).toBe('80000');
+    act(() => {
+      jotaiDefaultStore.set(perpsActiveAssetCtxAtom.atom(), undefined);
+    });
+    expect(result.current).toBeUndefined();
   });
 });

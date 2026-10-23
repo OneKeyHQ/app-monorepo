@@ -13,10 +13,13 @@ export type ISimpleChartPerformance = {
   changePercent?: number;
 };
 
-export function getSimpleChartPerformance(data: IMarketTokenChart) {
+export function getSimpleChartPerformance(
+  data: IMarketTokenChart,
+  price = data[data.length - 1]?.[1],
+) {
   if (data.length < 2) return undefined;
   const first = new BigNumber(data[0][1]);
-  const last = new BigNumber(data[data.length - 1][1]);
+  const last = new BigNumber(price);
   if (!first.isFinite() || !last.isFinite() || first.lte(0) || last.lte(0)) {
     return undefined;
   }
@@ -26,6 +29,21 @@ export function getSimpleChartPerformance(data: IMarketTokenChart) {
     changePercent: change.dividedBy(first).multipliedBy(100).toNumber(),
   };
 }
+export function getSimpleChartDisplayPerformance(
+  performance: ISimpleChartPerformance | undefined,
+  dayPerformance: Pick<ISimpleChartPerformance, 'change' | 'changePercent'>,
+) {
+  if (
+    !performance ||
+    (performance.range === '1D' &&
+      (performance.change === undefined ||
+        performance.changePercent === undefined))
+  ) {
+    return dayPerformance;
+  }
+  return performance;
+}
+
 const RANGE_CONFIG: Record<
   IMobileSimpleChartRange,
   {

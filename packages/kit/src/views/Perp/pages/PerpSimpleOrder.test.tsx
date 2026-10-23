@@ -21,13 +21,23 @@ const getWarning = jest.fn<
   IAggressiveLimitPriceWarning | undefined,
   unknown[]
 >();
+let focused = true;
 const navigation = {
   addListener: () => () => undefined,
-  isFocused: () => true,
+  isFocused: () => focused,
   getState: () => ({ index: 0, routes: [route] }),
   replace: jest.fn(),
 };
 let skipOrderConfirm = false;
+const instrument = { mode: 'perp', coin: 'BTC', assetId: 0 };
+const switchTradeInstrument = jest.fn(async () => true);
+const actions = {
+  current: {
+    submitOrder,
+    switchTradeInstrument,
+    refreshAllPerpsData: jest.fn(),
+  },
+};
 
 const Box = ({
   children,
@@ -65,6 +75,7 @@ const mocks = {
   '@react-navigation/native': {
     useRoute: () => route,
     useNavigation: () => navigation,
+    useIsFocused: () => focused,
   },
   '@onekeyhq/components': {
     Page: Object.assign(Box, { Header: Empty, Body: Box, Footer: Box }),
@@ -107,15 +118,15 @@ const mocks = {
   },
   '@onekeyhq/kit/src/background/instance/backgroundApiProxy': {
     __esModule: true,
-    default: {},
+    default: {
+      serviceHyperliquidSubscription: {
+        getSubscriptionsHandlerDisabledCount: async () => 0,
+      },
+    },
   },
   '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid': {
-    useActiveTradeInstrumentAtom: () => [
-      { mode: 'perp', coin: 'BTC', assetId: 0 },
-    ],
-    useHyperliquidActions: () => ({
-      current: { submitOrder, refreshAllPerpsData: jest.fn() },
-    }),
+    useActiveTradeInstrumentAtom: () => [instrument],
+    useHyperliquidActions: () => actions,
     useTradingLoadingAtom: () => [false],
   },
   '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms': {
@@ -130,7 +141,17 @@ const mocks = {
       jest.fn(),
     ],
   },
+  '@onekeyhq/shared/src/utils/appVisibility': {
+    getCurrentVisibilityState: () => true,
+    onVisibilityStateChange: () => () => undefined,
+  },
+  '@onekeyhq/shared/src/errors/utils/errorToastUtils': {
+    __esModule: true,
+    default: { toastIfError: jest.fn() },
+  },
   '@onekeyhq/kit-bg/src/states/jotai/atoms': {
+    appIsLocked: { get: async () => false },
+    useAppIsLockedAtom: () => [false],
     usePerpsAccountLoadingInfoAtom: () => [{ selectAccountLoading: false }],
     usePerpsActiveAccountAtom: () => [{ accountAddress: 'account-a' }],
     usePerpsActiveAccountSummaryAtom: () => [{ accountAddress: 'account-a' }],
@@ -149,7 +170,10 @@ const mocks = {
         maxTradeSzs: ['1', '1'],
       },
     ],
-    usePerpsCustomSettingsAtom: () => [{ skipOrderConfirm }, jest.fn()],
+    usePerpsCustomSettingsAtom: () => [
+      { skipOrderConfirm, mobileTradingMode: 'simple' },
+      jest.fn(),
+    ],
     usePerpsTradingPreferencesAtom: () => [{}, jest.fn()],
   },
   '@onekeyhq/kit/src/views/Send/components/SendAutoSizeAmountInput': {
@@ -210,6 +234,8 @@ const { default: PerpSimpleOrder } =
 beforeEach(() => {
   jest.clearAllMocks();
   skipOrderConfirm = false;
+  focused = true;
+  instrument.coin = 'BTC';
   sourcePage.ownerKey = undefined;
   getWarning.mockReturnValue(undefined);
 });
@@ -263,5 +289,22 @@ it('submits directly when confirmation is skipped and no warning is present', as
     expectedAccountAddress: 'account-a',
     price: '50000',
     formData: expect.objectContaining({ type: 'market', size: '0.002' }),
+  });
+});
+
+it('restores the order coin after leaving an in-flight token selection', async () => {
+  const { rerender } = render(<PerpSimpleOrder />);
+  focused = false;
+  instrument.coin = 'ETH';
+  await act(async () => rerender(<PerpSimpleOrder />));
+  expect(switchTradeInstrument).not.toHaveBeenCalled();
+
+  focused = true;
+  await act(async () => rerender(<PerpSimpleOrder />));
+  expect(switchTradeInstrument).toHaveBeenCalledTimes(1);
+  expect(switchTradeInstrument).toHaveBeenCalledWith({
+    mode: 'perp',
+    coin: 'BTC',
+    subscriptionRecoveryProof: { source: 'simple-market', disabledCount: 0 },
   });
 });

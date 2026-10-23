@@ -1,7 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useOverlayPageScope } from '@onekeyfe/react-native-native-overlay';
-import { useNavigation, useRoute } from '@react-navigation/native';
+import {
+  useIsFocused,
+  useNavigation,
+  useRoute,
+} from '@react-navigation/native';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 import { useWindowDimensions } from 'react-native';
@@ -75,6 +79,7 @@ import { usePerpsAccountScopedActivePositions } from '../hooks/usePerpsAccountSc
 import { usePerpsCrossAvailableAfterMaintenance } from '../hooks/usePerpsCrossAvailableAfterMaintenance';
 import { getCurrentPerpsMarketDataFreshness } from '../hooks/usePerpsMarketDataFreshness';
 import { useShowDepositWithdrawModal } from '../hooks/useShowDepositWithdrawModal';
+import { useSimpleMarketFocus } from '../hooks/useSimpleMarketFocus';
 import { useTradingPrice } from '../hooks/useTradingPrice';
 import { PerpsAccountSelectorProviderMirror } from '../PerpsAccountSelectorProviderMirror';
 import { PerpsProviderMirror } from '../PerpsProviderMirror';
@@ -239,6 +244,13 @@ function SimpleOrderContent() {
   const [tradingPreferences, setTradingPreferences] =
     usePerpsTradingPreferencesAtom();
   const [perpsSettings, setPerpsSettings] = usePerpsCustomSettingsAtom();
+  const focused = useIsFocused();
+  useSimpleMarketFocus(
+    route.params.coin,
+    focused &&
+      perpsSettings.mobileTradingMode === 'simple' &&
+      (platformEnv.isNative || !gtMd),
+  );
   const [account] = usePerpsActiveAccountAtom();
 
   const [accountLoading] = usePerpsAccountLoadingInfoAtom();

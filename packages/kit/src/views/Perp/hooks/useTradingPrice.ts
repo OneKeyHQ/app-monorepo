@@ -24,6 +24,7 @@ export interface IUseTradingPriceReturn {
 interface IUseTradingPriceOptions {
   source?: IPerpsActiveAssetCtxMidPriceSource;
   allowSpotMarkPriceFallback?: boolean;
+  perpCoin?: string;
 }
 
 function buildTradingPriceResult(
@@ -50,13 +51,19 @@ function buildTradingPriceResult(
 export function useTradingPrice({
   source = 'live',
   allowSpotMarkPriceFallback = true,
+  perpCoin,
 }: IUseTradingPriceOptions = {}): IUseTradingPriceReturn {
   const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
   const shouldSubscribeLiveMids = source === 'live';
   const activeMidPrice = usePerpsMidByCoin(
-    shouldSubscribeLiveMids ? (activeTradeInstrument?.coin ?? '') : '',
+    shouldSubscribeLiveMids
+      ? (perpCoin ?? activeTradeInstrument?.coin ?? '')
+      : '',
   );
-  const activeAssetCtxMidPrice = usePerpsActiveAssetCtxMidPriceBySource(source);
+  const activeAssetCtxMidPrice = usePerpsActiveAssetCtxMidPriceBySource(
+    source,
+    perpCoin,
+  );
   const [activeSpotAssetCtxMidPrice] = useSpotActiveAssetCtxMidPriceAtom();
   const [activeSpotAssetCtxMarkPrice] = useSpotActiveAssetCtxMarkPriceAtom();
 
@@ -69,7 +76,7 @@ export function useTradingPrice({
       };
     }
 
-    const coin = activeTradeInstrument?.coin;
+    const coin = perpCoin ?? activeTradeInstrument?.coin;
     if (!coin) {
       return {
         midPrice: undefined,
@@ -79,7 +86,7 @@ export function useTradingPrice({
     }
 
     const midPrice =
-      activeTradeInstrument.mode === 'spot'
+      !perpCoin && activeTradeInstrument.mode === 'spot'
         ? activeSpotAssetCtxMidPrice ||
           (allowSpotMarkPriceFallback
             ? activeSpotAssetCtxMarkPrice
@@ -96,6 +103,7 @@ export function useTradingPrice({
     activeMidPrice,
     activeTradeInstrument,
     source,
+    perpCoin,
   ]);
 
   return result;
