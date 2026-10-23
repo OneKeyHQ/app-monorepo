@@ -156,6 +156,16 @@ jobs:
           yarn install --immutable --immutable-cache --check-cache
           echo "✅ All dependencies verified successfully"
 
+      # Step 7: Warm TypeScript incremental build info cache in global Yarn cache
+      - name: Warm TypeScript incremental cache
+        if: runner.os == 'Linux'
+        shell: bash
+        env:
+          NODE_OPTIONS: '--max_old_space_size=4096'
+        run: |
+          echo "Warming TypeScript incremental build info cache..."
+          yarn _tsc || echo "⚠️ TypeScript cache warm-up exited non-zero; continuing cache refresh"
+
       # Another run may have published this exact key while installation ran.
       - name: Check dependency image before building
         id: existing-snapshot

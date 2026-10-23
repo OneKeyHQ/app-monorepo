@@ -277,6 +277,7 @@ function parseArgs() {
     const idx = process.argv.indexOf(`--${name}`);
     return idx >= 0 ? process.argv[idx + 1] : undefined;
   };
+  const hasFlag = (name) => process.argv.includes(`--${name}`);
 
   return {
     platform: readArg('platform') || 'ios',
@@ -287,6 +288,7 @@ function parseArgs() {
     backgroundBundleOutput: readArg('background-bundle-output'),
     backgroundSourceMapOutput: readArg('background-sourcemap-output'),
     assetsDest: readArg('assets-dest'),
+    reportOnly: hasFlag('report-only'),
   };
 }
 
@@ -1303,6 +1305,7 @@ async function writeBundle({
   moduleIdToAbsPath,
   externalModulePaths,
   runtimeVariants,
+  reportOnly = false,
 }) {
   const { serializedEntries, pre } = getSerializedBundleParts({
     cacheKey,
@@ -1399,33 +1402,35 @@ async function writeBundle({
       })
     : '';
 
-  const bundle = bundleToString({
-    pre: preSection,
-    post: postSection,
-    modules: selectedWrappedModules,
-  });
+  if (!reportOnly) {
+    const bundle = bundleToString({
+      pre: preSection,
+      post: postSection,
+      modules: selectedWrappedModules,
+    });
 
-  const prependForSourceMap = includePre ? prepend : [];
-  const appendScripts = includePost
-    ? getAppendScripts(
-        entryPoint,
-        [...prependForSourceMap, ...selectedGraphModules],
-        bundleOptions,
-      )
-    : [];
-  const map = await sourceMapStringNonBlocking(
-    [...prependForSourceMap, ...selectedGraphModules, ...appendScripts],
-    {
-      excludeSource: false,
-      processModuleFilter: bundleOptions.processModuleFilter,
-      shouldAddToIgnoreList: bundleOptions.shouldAddToIgnoreList,
-      getSourceUrl: bundleOptions.getSourceUrl,
-    },
-  );
+    const prependForSourceMap = includePre ? prepend : [];
+    const appendScripts = includePost
+      ? getAppendScripts(
+          entryPoint,
+          [...prependForSourceMap, ...selectedGraphModules],
+          bundleOptions,
+        )
+      : [];
+    const map = await sourceMapStringNonBlocking(
+      [...prependForSourceMap, ...selectedGraphModules, ...appendScripts],
+      {
+        excludeSource: false,
+        processModuleFilter: bundleOptions.processModuleFilter,
+        shouldAddToIgnoreList: bundleOptions.shouldAddToIgnoreList,
+        getSourceUrl: bundleOptions.getSourceUrl,
+      },
+    );
 
-  await fs.ensureDir(path.dirname(bundleOutput));
-  await fs.writeFile(bundleOutput, bundle.code);
-  await fs.writeFile(sourceMapOutput, map);
+    await fs.ensureDir(path.dirname(bundleOutput));
+    await fs.writeFile(bundleOutput, bundle.code);
+    await fs.writeFile(sourceMapOutput, map);
+  }
 
   return { startupModuleIds: selectedStartupModuleIds };
 }
@@ -1438,6 +1443,7 @@ async function writeSegments({
   mainEagerAbsPaths,
   bgEagerAbsPaths,
   commonEagerAbsPaths,
+  reportOnly = false,
 }) {
   const promotedSet = new Set(promotedSegments);
 
@@ -1509,14 +1515,16 @@ async function writeSegments({
     );
     const relativeOutputPath = `${relativeDir}/${safeName}.seg.hbc`;
 
-    await fs.writeFile(outputPath, code);
+    if (!reportOnly) {
+      await fs.writeFile(outputPath, code);
 
-    const sourceMap = await generateSegmentSourceMap(
-      segModules,
-      graph,
-      moduleIdToAbsPath,
-    );
-    await fs.writeFile(packagerMapPath, sourceMap);
+      const sourceMap = await generateSegmentSourceMap(
+        segModules,
+        graph,
+        moduleIdToAbsPath,
+      );
+      await fs.writeFile(packagerMapPath, sourceMap);
+    }
 
     const entry = {
       id: segmentId,
@@ -1902,10 +1910,12 @@ async function writeSegments({
   // produce byte-identical .seg.hbc — but we make buildSegments detect
   // the already-compiled file and skip the redundant work to keep total
   // build time the same.
-  await compileEmittedSegmentsAndRewriteSha256({
-    mainManifest,
-    backgroundManifest,
-  });
+  if (!reportOnly) {
+    await compileEmittedSegmentsAndRewriteSha256({
+      mainManifest,
+      backgroundManifest,
+    });
+  }
 
   const mergedManifest = mergeSegmentManifests(
     mainManifest,
@@ -2294,6 +2304,7 @@ async function main() {
         ...runtimeOwnership.bgStartupAbsPaths,
       ]),
       commonEagerAbsPaths: plannedCommonEagerAbsPaths,
+      reportOnly: args.reportOnly,
     });
 
     // ── Common bundle ──────────────────────────────────────────────────
@@ -2335,6 +2346,7 @@ async function main() {
         main: mainRuntimeAsyncPaths,
         background: backgroundRuntimeAsyncPaths,
       },
+      reportOnly: args.reportOnly,
     });
 
     // Main bundle: main-only eager modules + entry require
@@ -2356,6 +2368,7 @@ async function main() {
       moduleToSegment: mainSerializedModuleToSegment,
       moduleIdToAbsPath: mainModuleIndex.moduleIdToAbsPath,
       externalModulePaths: plannedCommonEagerAbsPaths,
+      reportOnly: args.reportOnly,
     });
 
     // Background bundle: bg-only eager modules + entry require
@@ -2377,6 +2390,7 @@ async function main() {
       moduleToSegment: backgroundSerializedModuleToSegment,
       moduleIdToAbsPath: backgroundModuleIndex.moduleIdToAbsPath,
       externalModulePaths: plannedCommonEagerAbsPaths,
+      reportOnly: args.reportOnly,
     });
 
     // --- Bundle completeness validation ---
@@ -2703,11 +2717,16 @@ async function main() {
       ),
     );
 
-    const assets = await metroServer._getAssetsFromDependencies(
-      mergeDependencyMaps(mainGraph.dependencies, backgroundGraph.dependencies),
-      args.platform,
-    );
-    await saveAssets(assets, args.platform, args.assetsDest);
+    if (!args.reportOnly) {
+      const assets = await metroServer._getAssetsFromDependencies(
+        mergeDependencyMaps(
+          mainGraph.dependencies,
+          backgroundGraph.dependencies,
+        ),
+        args.platform,
+      );
+      await saveAssets(assets, args.platform, args.assetsDest);
+    }
 
     if (commonViolations.length > 0) {
       console.warn(
