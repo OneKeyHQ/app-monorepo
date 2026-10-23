@@ -10,6 +10,7 @@ import { LightweightChart } from './LightweightChart.native';
 
 import type { INativeChartScene } from './native/chartScene';
 import type { ILightweightChartProps } from './types';
+import type { createTradingViewNativeSkiaFontForText } from '../TradingView/TradingViewNative/native/chartSkiaRenderer';
 
 const mockPictures: { readonly value: unknown }[] = [];
 const mockReactions = new Set<() => void>();
@@ -28,6 +29,12 @@ const mockFont = {
   getTypeface: () => ({}),
   measureText: (text: string) => ({ width: text.length * 6 }),
 };
+const mockSelectFont = jest.fn<
+  typeof mockFont,
+  [Parameters<typeof createTradingViewNativeSkiaFontForText>[0]]
+>(() => ({ ...mockFont }));
+const mockResources = jest.fn(() => ({}));
+const mockPan = jest.fn();
 const mockSkiaFont = jest.fn((typeface: object | undefined) => {
   if (!typeface)
     throw new OneKeyLocalError('Value is undefined, expected an Object');
@@ -60,6 +67,7 @@ jest.mock('react-native-gesture-handler', () => ({
   GestureDetector: ({ children }: { children: ReactNode }) => children,
   Gesture: {
     Pan: () => {
+      mockPan();
       const gesture = {
         enabled: () => gesture,
         activateAfterLongPress: () => gesture,
@@ -106,32 +114,37 @@ jest.mock('react-native-reanimated', () => {
       }, []);
     },
     // Track shared-value dependencies and suppress equal derived values, as the native mapper does.
-    useDerivedValue: (get: () => unknown) => {
-      let initialized = false;
-      let cached: unknown;
-      let inputs = new Map<IValue, unknown>();
-      const node: IValue = {
-        get value() {
-          const parent = reads;
-          reads = undefined;
-          const changed =
-            !initialized ||
-            [...inputs].some(
-              ([input, previous]) => !Object.is(input.value, previous),
-            );
-          if (changed) {
-            reads = new Map<IValue, unknown>();
-            cached = get();
-            inputs = reads;
-            initialized = true;
-          }
-          reads = parent;
-          reads?.set(node, cached);
-          return cached;
-        },
-      };
-      return node;
-    },
+    useDerivedValue: (
+      get: () => unknown,
+      dependencies: readonly unknown[] = [],
+    ) =>
+      React.useMemo(() => {
+        let initialized = false;
+        let cached: unknown;
+        let inputs = new Map<IValue, unknown>();
+        const node: IValue = {
+          get value() {
+            const parent = reads;
+            reads = undefined;
+            const changed =
+              !initialized ||
+              [...inputs].some(
+                ([input, previous]) => !Object.is(input.value, previous),
+              );
+            if (changed) {
+              reads = new Map<IValue, unknown>();
+              cached = get();
+              inputs = reads;
+              initialized = true;
+            }
+            reads = parent;
+            reads?.set(node, cached);
+            return cached;
+          },
+        };
+        return node;
+        // eslint-disable-next-line react-hooks/exhaustive-deps -- The mock forwards the caller's dependency list.
+      }, dependencies),
     runOnJS: (fn: (...args: unknown[]) => void) => fn,
     useAnimatedReaction: (
       prepare: () => unknown,
@@ -180,8 +193,10 @@ jest.mock('./native/useChartTypeface', () => ({
   useChartTypeface: () => mockTypeface,
 }));
 jest.mock('../TradingView/TradingViewNative/native/chartSkiaRenderer', () => ({
-  createTradingViewNativeSkiaFontForText: () => mockFont,
-  createTradingViewNativeSkiaResources: () => ({}),
+  createTradingViewNativeSkiaFontForText: (
+    request: Parameters<typeof createTradingViewNativeSkiaFontForText>[0],
+  ) => mockSelectFont(request),
+  createTradingViewNativeSkiaResources: () => mockResources(),
   createTradingViewNativeSkiaCommandPicture: (draw: IMockDraw) => {
     mockDraws.push(draw);
     return {};
@@ -196,10 +211,12 @@ jest.mock('./hooks/useChartConfig', () => ({
   useChartConfig: ({
     data,
     secondaryLineData,
-  }: {
-    data: [number, number][];
-    secondaryLineData?: [number, number][];
-  }) => ({
+    locale,
+  }: Pick<
+    ILightweightChartProps,
+    'data' | 'secondaryLineData' | 'locale'
+  >) => ({
+    locale,
     theme: {
       lineColor: '#0a5',
       topColor: '#0a5333',
@@ -370,4 +387,74 @@ it('keeps the fallback on failure, shares the pending font and reuses it immedia
   const remounted = renderHook(useChartTypeface);
   expect(remounted.result.current).toBe(mockLoadedFace);
   expect(mockLoadData).toHaveBeenCalledTimes(2);
+});
+
+it('reuses fonts, resources and gestures across quote updates with the same glyphs', () => {
+  const options: NonNullable<ILightweightChartProps['nativeScrubOptions']> = {
+    labels: { 100: { time: '10:00', price: '$12.12' } },
+    backgroundColor: '#fff',
+    borderColor: '#ddd',
+    textColor: '#000',
+    timeColor: '#888',
+    largePrice: false,
+  };
+  const { rerender } = render(
+    <LightweightChart
+      data={chartData}
+      height={280}
+      locale="en"
+      nativeScrubOptions={options}
+    />,
+  );
+  const update = (next: typeof options, locale = 'en') =>
+    rerender(
+      <LightweightChart
+        data={[
+          [100, 2],
+          [200, 1],
+        ]}
+        height={280}
+        locale={locale}
+        nativeScrubOptions={next}
+      />,
+    );
+  const fontCalls = mockSelectFont.mock.calls.length;
+  const resourceCalls = mockResources.mock.calls.length;
+  const panCalls = mockPan.mock.calls.length;
+  expect(resourceCalls).toBeGreaterThan(0);
+  act(() => mockGestureHandlers.start({ x: 2, y: 80 }));
+  for (const price of ['$21.21', '$12.12']) {
+    update({ ...options, labels: { 100: { time: '00:10', price } } });
+    expect(mockSelectFont).toHaveBeenCalledTimes(fontCalls);
+    expect(mockResources).toHaveBeenCalledTimes(resourceCalls);
+    expect(mockPan).toHaveBeenCalledTimes(panCalls);
+    expect(mockDraws.at(-1)?.commands).toContainEqual(
+      expect.objectContaining({ kind: 'text', text: price }),
+    );
+  }
+  const newGlyph = {
+    ...options,
+    labels: { 100: { time: '10:00', price: '€12.12' } },
+  };
+  update(newGlyph);
+  expect(mockSelectFont).toHaveBeenCalledTimes(fontCalls + 1);
+  expect(mockSelectFont).toHaveBeenLastCalledWith(
+    expect.objectContaining({ requiredText: '.012:€' }),
+  );
+  expect(mockResources).toHaveBeenCalledTimes(resourceCalls + 1);
+  const large = { ...newGlyph, largePrice: true };
+  update(large);
+  expect(mockSelectFont).toHaveBeenCalledTimes(fontCalls + 2);
+  expect(mockSelectFont).toHaveBeenLastCalledWith(
+    expect.objectContaining({ fontSize: 16 }),
+  );
+  update(large, 'zh-CN');
+  expect(mockSelectFont).toHaveBeenCalledWith(
+    expect.objectContaining({
+      fontSize: 16,
+      locale: 'zh-CN',
+      requiredText: '.012:€',
+    }),
+  );
+  expect(mockResources).toHaveBeenCalledTimes(resourceCalls + 3);
 });

@@ -81,19 +81,27 @@ export function LightweightChart(props: ILightweightChartProps) {
     () => getTradingViewNativeSkiaDigitWidth(axisFont),
     [axisFont],
   );
+  const labelFontSize = nativeScrubOptions?.largePrice ? 16 : 14;
+  const labelCharacters = useMemo(() => {
+    const text = [
+      config.referenceLine?.title ?? '',
+      ...Object.values(nativeScrubOptions?.labels ?? {}).map(
+        (label) => `${label.time}${label.price ?? ''}`,
+      ),
+    ].join('');
+    return Array.from(new Set(text.replaceAll(/\s/g, '')))
+      .toSorted()
+      .join('');
+  }, [config.referenceLine?.title, nativeScrubOptions?.labels]);
   const labelFont = useMemo(
     () =>
       createTradingViewNativeSkiaFontForText({
         fontFamily: FONT_FAMILY,
-        fontSize: nativeScrubOptions?.largePrice ? 16 : 14,
+        fontSize: labelFontSize,
         locale: config.locale ?? 'en',
-        requiredText: `${config.referenceLine?.title ?? ''}${Object.values(
-          nativeScrubOptions?.labels ?? {},
-        )
-          .map((label) => `${label.time}${label.price ?? ''}`)
-          .join('')}`,
+        requiredText: labelCharacters,
       }),
-    [config.locale, config.referenceLine?.title, nativeScrubOptions],
+    [config.locale, labelFontSize, labelCharacters],
   );
   const timeFont = useMemo(
     () =>
@@ -184,13 +192,14 @@ export function LightweightChart(props: ILightweightChartProps) {
   );
   const active = useSharedValue(false);
   const touch = useSharedValue({ x: 0, y: 0 });
+  const isScrubEnabled = Boolean(nativeScrubOptions);
   const isScrubInPlot = useDerivedValue(
     () =>
-      !!nativeScrubOptions &&
+      isScrubEnabled &&
       active.value &&
       getNativeChartHover(scene, touch.value.x, touch.value.y).time !==
         undefined,
-    [scene, nativeScrubOptions],
+    [scene, isScrubEnabled],
   );
   const picture = useDerivedValue(() => {
     const commands = isScrubInPlot.value
@@ -255,10 +264,12 @@ export function LightweightChart(props: ILightweightChartProps) {
   );
   useEffect(() => () => onHoverRef.current?.({}), []);
   const { excludeStartEdgeWidth } = useContext(HeaderScrollGestureContext);
+  const { x: plotX, width: plotWidth, height: plotHeight } = scene.plot;
+  const isGestureEnabled = Boolean(onHover) || isScrubEnabled;
   const gesture = useMemo(
     () =>
       Gesture.Pan()
-        .enabled(!!onHover || !!nativeScrubOptions)
+        .enabled(isGestureEnabled)
         .activateAfterLongPress(
           TRADING_VIEW_NATIVE_CROSSHAIR_LONG_PRESS_DURATION,
         )
@@ -268,9 +279,9 @@ export function LightweightChart(props: ILightweightChartProps) {
           const point = event.changedTouches[0];
           if (
             point &&
-            (point.x < Math.max(scene.plot.x, excludeStartEdgeWidth) ||
-              point.x > scene.plot.x + scene.plot.width ||
-              point.y > scene.plot.height)
+            (point.x < Math.max(plotX, excludeStartEdgeWidth) ||
+              point.x > plotX + plotWidth ||
+              point.y > plotHeight)
           )
             manager.fail();
         })
@@ -288,9 +299,10 @@ export function LightweightChart(props: ILightweightChartProps) {
           active.value = false;
         }),
     [
-      onHover,
-      nativeScrubOptions,
-      scene.plot,
+      isGestureEnabled,
+      plotX,
+      plotWidth,
+      plotHeight,
       excludeStartEdgeWidth,
       active,
       touch,
