@@ -24264,6 +24264,7 @@
     "packages/kit/src/views/Market/MarketDetailV2/components/InformationTabs/layout/legacyMobileInformationTabs.tsx": 4426,
     "packages/kit/src/views/Market/MarketDetailV2/components/MarketAboutDescription.tsx": 9517,
     "packages/kit/src/views/Market/MarketDetailV2/components/MarketChartSettingsModal.tsx": 24206,
+    "packages/kit/src/views/Market/MarketDetailV2/components/MarketChartSourceSettingsRow.tsx": 3003,
     "packages/kit/src/views/Market/MarketDetailV2/components/MarketDetailEmbeddedSwap.tsx": 3451,
     "packages/kit/src/views/Market/MarketDetailV2/components/MarketDetailHeader/MarketDetailHeader.tsx": 8242,
     "packages/kit/src/views/Market/MarketDetailV2/components/MarketDetailHeader/TabPageHeaderContainer.tsx": 728,
