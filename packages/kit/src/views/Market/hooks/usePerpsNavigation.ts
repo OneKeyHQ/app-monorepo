@@ -4,7 +4,7 @@ import { findFocusedRoute } from '@react-navigation/core';
 import { Semaphore } from 'async-mutex';
 import { useIntl } from 'react-intl';
 
-import { Toast, rootNavigationRef } from '@onekeyhq/components';
+import { Toast, rootNavigationRef, switchTabAsync } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePerpTabConfig } from '@onekeyhq/kit/src/hooks/usePerpTabConfig';
 import { WEBVIEW_PERP_TRADE_INITIAL_WAIT_MS } from '@onekeyhq/shared/src/consts/perp';
@@ -81,7 +81,7 @@ export function usePerpsNavigation(source?: EPerpPageEnterSource) {
   const { perpDisabled, perpTabShowWeb } = usePerpTabConfig();
 
   const navigateToPerps = useCallback(
-    (coin: string) => {
+    (coin: string, options?: { dismissOverlays?: boolean }) => {
       if (!coin.trim() || perpDisabled) return;
       const requestId = generateUUID();
       latestPerpsNavigationRequestId = requestId;
@@ -191,7 +191,7 @@ export function usePerpsNavigation(source?: EPerpPageEnterSource) {
             };
           let navigationCommitted = false;
           try {
-            if (entryRouteKey) {
+            if (entryRouteKey && !options?.dismissOverlays) {
               const result = perpTabShowWeb
                 ? dismissDiscoveryMarketDetailForTrade(
                     entryRouteKey,
@@ -206,7 +206,18 @@ export function usePerpsNavigation(source?: EPerpPageEnterSource) {
             }
             setPerpPageEnterSource(source ?? EPerpPageEnterSource.MarketList);
             if (perpTabShowWeb) {
-              navigation.switchTab(ETabRoutes.WebviewPerpTrade, webTradeParams);
+              if (options?.dismissOverlays) {
+                await switchTabAsync(ETabRoutes.WebviewPerpTrade, {
+                  params: webTradeParams,
+                  shouldContinue: isCurrentRequest,
+                });
+                if (!isCurrentRequest()) return;
+              } else {
+                navigation.switchTab(
+                  ETabRoutes.WebviewPerpTrade,
+                  webTradeParams,
+                );
+              }
               const committed =
                 await proxy?.serviceWebviewPerp.commitTradeTarget({
                   requestId,
@@ -219,7 +230,14 @@ export function usePerpsNavigation(source?: EPerpPageEnterSource) {
               navigationCommitted = true;
               return;
             }
-            navigation.switchTab(targetTab);
+            if (options?.dismissOverlays) {
+              await switchTabAsync(targetTab, {
+                shouldContinue: isCurrentRequest,
+              });
+              if (!isCurrentRequest()) return;
+            } else {
+              navigation.switchTab(targetTab);
+            }
             navigationCommitted = true;
             if (!proxy) return;
             try {

@@ -593,7 +593,7 @@ function TwapHistoryRow({
   spotDisplayMap,
   spotPairDisplayNameMap,
   isMobile,
-  onBeforeSwitchInstrument,
+  onSwitchInstrument,
 }: {
   record: ITwapHistoryRecord;
   activatedAt?: number;
@@ -607,18 +607,21 @@ function TwapHistoryRow({
   spotDisplayMap: Record<string, string>;
   spotPairDisplayNameMap: Record<string, string>;
   isMobile?: boolean;
-  onBeforeSwitchInstrument?: () => void;
+  onSwitchInstrument?: (coin: string) => void;
 }) {
   const intl = useIntl();
   const { state } = record;
   const actions = useHyperliquidActions();
   const handleSwitchInstrument = useCallback(() => {
-    onBeforeSwitchInstrument?.();
+    if (onSwitchInstrument) {
+      onSwitchInstrument(state.coin);
+      return;
+    }
     void actions.current.switchTradeInstrument({
       mode: isSpotInstrument(state.coin) ? 'spot' : 'perp',
       coin: state.coin,
     });
-  }, [actions, onBeforeSwitchInstrument, state.coin]);
+  }, [actions, onSwitchInstrument, state.coin]);
   const statusValue = record.status.status;
   const isActivated = record.status.status === 'activated';
   const isWaitingForTrigger = record.status.status === 'waitingForTrigger';
@@ -968,7 +971,7 @@ function TwapFillRow({
   spotPairDisplayNameMap,
   builderFeeRate,
   isMobile,
-  onBeforeSwitchInstrument,
+  onSwitchInstrument,
 }: {
   record: ITwapSliceFill;
   cellMinWidth: number;
@@ -981,18 +984,21 @@ function TwapFillRow({
   spotPairDisplayNameMap: Record<string, string>;
   builderFeeRate?: number;
   isMobile?: boolean;
-  onBeforeSwitchInstrument?: () => void;
+  onSwitchInstrument?: (coin: string) => void;
 }) {
   const intl = useIntl();
   const { fill } = record;
   const actions = useHyperliquidActions();
   const handleSwitchInstrument = useCallback(() => {
-    onBeforeSwitchInstrument?.();
+    if (onSwitchInstrument) {
+      onSwitchInstrument(fill.coin);
+      return;
+    }
     void actions.current.switchTradeInstrument({
       mode: isSpotInstrument(fill.coin) ? 'spot' : 'perp',
       coin: fill.coin,
     });
-  }, [actions, fill.coin, onBeforeSwitchInstrument]);
+  }, [actions, fill.coin, onSwitchInstrument]);
   const dateInfo = useMemo(() => formatTwapDateTime(fill.time), [fill.time]);
   const assetSymbol = useMemo(
     () =>
@@ -1298,7 +1304,7 @@ function TwapFillRow({
 
 interface IPerpTwapListProps {
   isMobile?: boolean;
-  onBeforeSwitchInstrument?: () => void;
+  onSwitchInstrument?: (coin: string) => void;
   useTabsList?: boolean;
   disableListScroll?: boolean;
   initialTab?: ITwapPanelTab;
@@ -1307,7 +1313,7 @@ interface IPerpTwapListProps {
 
 function PerpTwapList({
   isMobile,
-  onBeforeSwitchInstrument,
+  onSwitchInstrument,
   useTabsList,
   disableListScroll,
   initialTab = 'active',
@@ -1840,7 +1846,7 @@ function PerpTwapList({
           spotDisplayMap={spotDisplayMap}
           spotPairDisplayNameMap={spotPairDisplayNameMap}
           isMobile={isMobile}
-          onBeforeSwitchInstrument={onBeforeSwitchInstrument}
+          onSwitchInstrument={onSwitchInstrument}
         />
       );
     },
@@ -1849,7 +1855,7 @@ function PerpTwapList({
       historyColumns,
       historyMinWidth,
       isMobile,
-      onBeforeSwitchInstrument,
+      onSwitchInstrument,
       now,
       spotDisplayMap,
       spotPairDisplayNameMap,
@@ -1876,7 +1882,7 @@ function PerpTwapList({
         spotPairDisplayNameMap={spotPairDisplayNameMap}
         builderFeeRate={builderFeeRate}
         isMobile={isMobile}
-        onBeforeSwitchInstrument={onBeforeSwitchInstrument}
+        onSwitchInstrument={onSwitchInstrument}
       />
     ),
     [
@@ -1884,7 +1890,7 @@ function PerpTwapList({
       fillColumns,
       fillMinWidth,
       isMobile,
-      onBeforeSwitchInstrument,
+      onSwitchInstrument,
       spotDisplayMap,
       spotPairDisplayNameMap,
     ],

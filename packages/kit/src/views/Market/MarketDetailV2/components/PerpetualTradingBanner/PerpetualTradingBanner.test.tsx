@@ -1,12 +1,13 @@
 /** @jest-environment jsdom */
 import type { PropsWithChildren } from 'react';
 
-import { act, render, screen } from '@testing-library/react';
+import { act, render, renderHook, screen } from '@testing-library/react';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 
+import { usePerpsNavigation } from '../../../hooks/usePerpsNavigation';
 import { EModalMarketRoutes } from '../../../router/types';
 
 import { PerpetualTradingBanner } from './PerpetualTradingBanner';
@@ -32,6 +33,9 @@ let mockPerpDisabled = false;
 let mockPerpTabShowWeb = false;
 let mockPress: (() => void) | undefined;
 const mockSwitchTab = jest.fn();
+const mockSwitchTabAsync = jest
+  .fn<Promise<void>, unknown[]>()
+  .mockResolvedValue(undefined);
 const mockDismissDiscoveryDetail = jest
   .fn<'ready' | 'cancelled', unknown[]>()
   .mockReturnValue('ready');
@@ -141,6 +145,7 @@ jest.mock('../../../utils/marketDetailNavigation', () => ({
     mockDismissDiscoveryDetail(...args),
 }));
 jest.mock('@onekeyhq/components', () => ({
+  switchTabAsync: (...args: unknown[]) => mockSwitchTabAsync(...args),
   rootNavigationRef: {
     current: {
       getCurrentRoute: () =>
@@ -170,6 +175,7 @@ jest.mock('@onekeyhq/components', () => ({
 beforeEach(() => {
   jest.clearAllMocks();
   mockProxyUnavailable = false;
+  mockSwitchTabAsync.mockReset().mockResolvedValue(undefined);
   mockTicker = undefined;
   mockDismissed = false;
   mockPerpDisabled = false;
@@ -472,6 +478,7 @@ it.each(['chunk', 'target'])(
     });
     if (failure === 'chunk') expect(mockWebTarget).not.toHaveBeenCalled();
     mockProxyUnavailable = false;
+    mockSwitchTabAsync.mockReset().mockResolvedValue(undefined);
     await act(async () => {
       mockPress?.();
       await jest.advanceTimersByTimeAsync(80);
@@ -767,4 +774,73 @@ it('cleans up a selector wait that never completes', async () => {
   expect(mockPendingInstrument).not.toHaveBeenCalled();
   expect(mockSwitchTab).not.toHaveBeenCalled();
   expect(jest.getTimerCount()).toBe(0);
+});
+
+it.each(['ETH', 'xyz:AAPL', '@107'])(
+  'prepares the exact webview target %s before leaving a TWAP overlay',
+  async (coin) => {
+    jest.useFakeTimers();
+    mockPerpTabShowWeb = true;
+    mockRouteKey = 'twap-history';
+    let finishSwitch: (() => void) | undefined;
+    mockSwitchTabAsync.mockImplementation(
+      () =>
+        new Promise<void>((resolve) => {
+          finishSwitch = resolve;
+        }),
+    );
+    const { result } = renderHook(() => usePerpsNavigation());
+    act(() => result.current.navigateToPerps(coin, { dismissOverlays: true }));
+    await act(async () => {
+      await jest.advanceTimersByTimeAsync(80);
+    });
+    const request = mockWebTarget.mock.calls[0][0];
+    expect(request.coin).toBe(coin);
+    expect(mockSwitchTabAsync).toHaveBeenCalledWith(
+      ETabRoutes.WebviewPerpTrade,
+      {
+        params: {
+          screen: ETabRoutes.WebviewPerpTrade,
+          params: {
+            tradeRequest: {
+              requestId: request.requestId,
+              expiresAt: expect.any(Number),
+            },
+          },
+        },
+        shouldContinue: expect.any(Function),
+      },
+    );
+    expect(mockCommitWebTarget).not.toHaveBeenCalled();
+    expect(mockSwitchTab).not.toHaveBeenCalled();
+    expect(mockPendingInstrument).not.toHaveBeenCalled();
+    await act(async () => {
+      finishSwitch?.();
+    });
+    expect(mockCommitWebTarget).toHaveBeenCalledWith({
+      requestId: request.requestId,
+    });
+    expect(mockClearWebTarget).not.toHaveBeenCalled();
+    jest.useRealTimers();
+  },
+);
+
+it('keeps the TWAP overlay open when the webview target cannot be prepared', async () => {
+  jest.useFakeTimers();
+  mockPerpTabShowWeb = true;
+  mockWebTarget.mockRejectedValueOnce(new OneKeyLocalError('Unavailable'));
+  const { result } = renderHook(() => usePerpsNavigation());
+  act(() =>
+    result.current.navigateToPerps('xyz:AAPL', { dismissOverlays: true }),
+  );
+  await act(async () => {
+    await jest.advanceTimersByTimeAsync(80);
+  });
+  expect(mockSwitchTabAsync).not.toHaveBeenCalled();
+  expect(mockCommitWebTarget).not.toHaveBeenCalled();
+  expect(mockClearWebTarget).toHaveBeenCalledWith({
+    requestId: expect.any(String),
+  });
+  expect(mockToastError).toHaveBeenCalledTimes(1);
+  jest.useRealTimers();
 });

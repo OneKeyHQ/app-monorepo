@@ -158,7 +158,17 @@ it.each([ETabRoutes.Perp, ETabRoutes.WebviewPerpTrade])(
       },
     });
 
-    const switching = switchTabAsync(targetTab);
+    const params =
+      targetTab === ETabRoutes.WebviewPerpTrade
+        ? ({
+            screen: ETabRoutes.WebviewPerpTrade,
+            params: { tradeRequest: { requestId: 'twap', expiresAt: 2000 } },
+          } as const)
+        : undefined;
+    const switching =
+      targetTab === ETabRoutes.WebviewPerpTrade
+        ? switchTabAsync(targetTab, { params })
+        : switchTabAsync(targetTab);
     expect(dispatch).toHaveBeenCalledWith({
       type: 'RESET',
       payload: { index: 0, routes: [mainRoute] },
@@ -170,11 +180,33 @@ it.each([ETabRoutes.Perp, ETabRoutes.WebviewPerpTrade])(
 
     expect(mockRootNavigate).toHaveBeenCalledWith(ERootRoutes.Main, {
       screen: targetTab,
+      ...(params ? { params } : {}),
     });
     expect(mockTabletNavigate).toHaveBeenCalledWith(
       ERootRoutes.Main,
-      { screen: targetTab },
+      { screen: targetTab, ...(params ? { params } : {}) },
       { pop: true },
     );
   },
 );
+
+it('forwards async entry params even when the trading tab is already selected', async () => {
+  const params = {
+    screen: ETabRoutes.WebviewPerpTrade,
+    params: { tradeRequest: { requestId: 'twap', expiresAt: 2000 } },
+  } as const;
+  await switchTabAsync(ETabRoutes.WebviewPerpTrade, { params });
+  await jest.runAllTimersAsync();
+  expect(mockRootNavigate).toHaveBeenCalledWith(ERootRoutes.Main, {
+    screen: ETabRoutes.WebviewPerpTrade,
+    params,
+  });
+  expect(mockTabletNavigate).toHaveBeenCalledWith(
+    ERootRoutes.Main,
+    {
+      screen: ETabRoutes.WebviewPerpTrade,
+      params,
+    },
+    { pop: true },
+  );
+});

@@ -151,29 +151,23 @@ jest.mock('./CommonTableListView', () => ({
 beforeEach(() => mockSwitchInstrument.mockClear());
 
 it.each(['history', 'fills'] as const)(
-  'dismisses the modal before switching from a %s symbol',
+  'delegates a %s symbol to the configured trading destination',
   async (tab) => {
-    const dismissModal = jest.fn();
+    const switchDestination = jest.fn();
     const screen = render(
       <PerpTwapList
         isMobile
         initialTab={tab}
         enabledTabs={[tab]}
-        onBeforeSwitchInstrument={dismissModal}
+        onSwitchInstrument={switchDestination}
       />,
     );
     await act(async () => {
       await Promise.resolve();
     });
     fireEvent.click(screen.getByText('ETH'));
-    expect(dismissModal).toHaveBeenCalledTimes(1);
-    expect(mockSwitchInstrument).toHaveBeenCalledWith({
-      mode: 'perp',
-      coin: 'ETH',
-    });
-    expect(dismissModal.mock.invocationCallOrder[0]).toBeLessThan(
-      mockSwitchInstrument.mock.invocationCallOrder[0],
-    );
+    expect(switchDestination).toHaveBeenCalledWith('ETH');
+    expect(mockSwitchInstrument).not.toHaveBeenCalled();
   },
 );
 

@@ -19,6 +19,8 @@ import { PageHeader } from '@onekeyhq/components/src/layouts/Page/PageHeader';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { NotificationEnableAlert } from '@onekeyhq/kit/src/components/NotificationEnableAlert';
 import { usePerpTabConfig } from '@onekeyhq/kit/src/hooks/usePerpTabConfig';
+import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
+import { usePerpsNavigation } from '@onekeyhq/kit/src/views/Market/hooks/usePerpsNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import {
@@ -26,6 +28,7 @@ import {
   type IModalPerpParamList,
   type IPerpHistoryTab,
 } from '@onekeyhq/shared/src/routes/perp';
+import { isSpotInstrument } from '@onekeyhq/shared/src/utils/perpsUtils';
 
 import {
   usePerpFundingHistoryViewAllUrl,
@@ -133,11 +136,22 @@ function TabHeader({
 export function PerpTradersHistoryListModal() {
   const intl = useIntl();
   const { perpTabShowWeb } = usePerpTabConfig();
-  const handleBeforeSwitchInstrument = useCallback(() => {
-    void switchTabAsync(
-      perpTabShowWeb ? ETabRoutes.WebviewPerpTrade : ETabRoutes.Perp,
-    );
-  }, [perpTabShowWeb]);
+  const actions = useHyperliquidActions();
+  const { navigateToPerps } = usePerpsNavigation();
+  const handleSwitchInstrument = useCallback(
+    (coin: string) => {
+      if (perpTabShowWeb) {
+        navigateToPerps(coin, { dismissOverlays: true });
+        return;
+      }
+      void switchTabAsync(ETabRoutes.Perp);
+      void actions.current.switchTradeInstrument({
+        mode: isSpotInstrument(coin) ? 'spot' : 'perp',
+        coin,
+      });
+    },
+    [actions, navigateToPerps, perpTabShowWeb],
+  );
   const navigation = useNavigation<IPageNavigationProp<IModalPerpParamList>>();
   const route =
     useRoute<
@@ -293,7 +307,7 @@ export function PerpTradersHistoryListModal() {
               <PerpTwapList
                 isMobile
                 useTabsList={false}
-                onBeforeSwitchInstrument={handleBeforeSwitchInstrument}
+                onSwitchInstrument={handleSwitchInstrument}
                 initialTab="history"
                 enabledTabs={['history', 'fills']}
               />
