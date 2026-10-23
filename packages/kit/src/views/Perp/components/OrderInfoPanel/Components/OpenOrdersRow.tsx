@@ -24,6 +24,7 @@ import {
 import type { IPerpsFrontendOrder } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
 import { PerpTestIDs } from '../../../testIDs';
+import { PERP_TEXT_ACTION_HOVER_STYLE } from '../../../utils/styleUtils';
 import {
   calcCellAlign,
   getColumnStyle,
@@ -625,6 +626,9 @@ const OpenOrdersRow = memo(
                   gap="$1"
                   alignItems="center"
                   cursor={isChasingOrder ? 'default' : 'pointer'}
+                  hoverStyle={
+                    isChasingOrder ? undefined : PERP_TEXT_ACTION_HOVER_STYLE
+                  }
                   onPress={isChasingOrder ? undefined : handleChaseOrder}
                 >
                   <SizableText
@@ -639,7 +643,7 @@ const OpenOrdersRow = memo(
               ) : null}
               <SizableText
                 color="$bgAccent"
-                hoverStyle={{ size: '$bodySmMedium', fontWeight: 600 }}
+                hoverStyle={PERP_TEXT_ACTION_HOVER_STYLE}
                 size="$bodySmMedium"
                 cursor="pointer"
                 onPress={handleCancelOrder}

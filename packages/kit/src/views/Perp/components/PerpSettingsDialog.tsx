@@ -578,6 +578,9 @@ function PerpSettingsPopoverContent({
           title: intl.formatMessage({
             id: ETranslations.perps_layout_settings__title,
           }),
+          positionActionsTitle: intl.formatMessage({
+            id: ETranslations.perp_position_action_buttons__title,
+          }),
         });
       },
       { waitForAnimation: false },
