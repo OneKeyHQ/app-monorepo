@@ -3,8 +3,6 @@ import { memo, useCallback, useMemo, useState } from 'react';
 import { StyleSheet } from 'react-native';
 import Animated, {
   interpolate,
-  runOnJS,
-  useAnimatedReaction,
   useAnimatedStyle,
 } from 'react-native-reanimated';
 
@@ -44,6 +42,7 @@ import TabCountButton from './TabCountButton';
 import { useMobileBrowserBottomBarData } from './useMobileBrowserBottomBarData';
 import { useMobileBrowserOptions } from './useMobileBrowserOptions';
 
+import type { IGlassFade } from './BrowserChromeCapsule';
 import type { IMobileBrowserBottomBarProps } from './useMobileBrowserBottomBarData';
 import type { SharedValue } from 'react-native-reanimated';
 
@@ -84,32 +83,6 @@ function toTransparent(rgb: string) {
 const SIDE_FADE_START = 0.4;
 const CAPSULE_FADE_START = 0.25;
 const PILL_FADE_END = 0.75;
-// Margin before a fade reaches 0 at which its glass is switched off.
-const GLASS_OFF_MARGIN = 0.02;
-
-// True while progress is past `edge` (minus the glass-off margin) in the
-// given direction; flips only when crossing it, not every frame.
-function useIsProgressPast(
-  progress: SharedValue<number>,
-  edge: number,
-  direction: 'below' | 'above',
-) {
-  const [past, setPast] = useState(false);
-  useAnimatedReaction(
-    () =>
-      direction === 'below'
-        ? progress.value < edge + GLASS_OFF_MARGIN
-        : progress.value > edge - GLASS_OFF_MARGIN,
-    (value, previous) => {
-      if (value !== previous) {
-        runOnJS(setPast)(value);
-      }
-    },
-    [progress, edge, direction],
-  );
-  return past;
-}
-
 // The side buttons move this far towards the center while collapsing, and
 // shrink to this scale.
 const SIDE_COLLAPSE_TRAVEL_X = 40;
@@ -225,18 +198,18 @@ const translatePopoverAnchor = <Stack position="absolute" w={1} h={1} />;
 function CollapsedAddressPill({
   url,
   onPress,
-  glassHidden,
+  glassFade,
 }: {
   url?: string;
   onPress?: () => void;
-  glassHidden: boolean;
+  glassFade: IGlassFade;
 }) {
   const hostname = useMemo(() => getDisplayHostname(url), [url]);
   return (
     <BrowserChromeCapsule
       height={BROWSER_COLLAPSED_PILL_HEIGHT}
       px="$4"
-      glassHidden={glassHidden}
+      glassFade={glassFade}
     >
       <ChromePressable onPress={onPress}>
         <XStack
@@ -306,13 +279,18 @@ function MobileBrowserBottomBar({
   // Liquid Glass stops rendering for good once an ancestor's opacity reaches
   // 0, so each layer switches its glass off just before its fade does (see
   // useBarMorphStyles) and back on as it starts to fade in.
-  const sideGlassHidden = useIsProgressPast(progress, SIDE_FADE_START, 'below');
-  const capsuleGlassHidden = useIsProgressPast(
-    progress,
-    CAPSULE_FADE_START,
-    'below',
+  const sideGlassFade = useMemo<IGlassFade>(
+    () => ({ progress, edge: SIDE_FADE_START, direction: 'below' }),
+    [progress],
   );
-  const pillGlassHidden = useIsProgressPast(progress, PILL_FADE_END, 'above');
+  const capsuleGlassFade = useMemo<IGlassFade>(
+    () => ({ progress, edge: CAPSULE_FADE_START, direction: 'below' }),
+    [progress],
+  );
+  const pillGlassFade = useMemo<IGlassFade>(
+    () => ({ progress, edge: PILL_FADE_END, direction: 'above' }),
+    [progress],
+  );
   const pillBottom = getCollapsedPillBottom(bottom);
   const capsuleBottom = getBarCapsuleBottom(bottom);
   // Distance between the bar capsule's center and the pill's center.
@@ -384,7 +362,7 @@ function MobileBrowserBottomBar({
             alignItems="center"
           >
             <Animated.View style={leftStyle}>
-              <BrowserChromeCapsule glassHidden={sideGlassHidden}>
+              <BrowserChromeCapsule glassFade={sideGlassFade}>
                 <ChromePressable
                   onPress={() => {
                     logBrowserChromeAction('back', 'toolbar');
@@ -407,7 +385,7 @@ function MobileBrowserBottomBar({
               <BrowserChromeCapsule
                 flex={1}
                 px="$2"
-                glassHidden={capsuleGlassHidden}
+                glassFade={capsuleGlassFade}
               >
                 <ChromePressable
                   onPress={() => {
@@ -447,7 +425,7 @@ function MobileBrowserBottomBar({
               </BrowserChromeCapsule>
             </Animated.View>
             <Animated.View style={rightStyle}>
-              <BrowserChromeCapsule glassHidden={sideGlassHidden}>
+              <BrowserChromeCapsule glassFade={sideGlassFade}>
                 <TabCountButton
                   testID={DiscoveryTestIDs.tabListButton}
                   onPressed={() => logBrowserChromeAction('tabs', 'toolbar')}
@@ -461,7 +439,7 @@ function MobileBrowserBottomBar({
           style={[styles.pillRow, { bottom: pillBottom }, pillStyle]}
         >
           <CollapsedAddressPill
-            glassHidden={pillGlassHidden}
+            glassFade={pillGlassFade}
             url={currentUrl}
             onPress={() => {
               logBrowserChromeAction('expand', 'toolbar');
