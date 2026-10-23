@@ -2,14 +2,13 @@ import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Dialog, IconButton } from '@onekeyhq/components';
+import { IconButton } from '@onekeyhq/components';
 import { HEADER_ICON_BUTTON_STYLE_PROPS } from '@onekeyhq/kit/src/components/TradingView/TradingViewChartControls/utils/NativeChartControlsShared';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { EModalMarketRoutes } from '@onekeyhq/kit/src/views/Market/router/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 
-import { TradingViewMobileChartSettingsDialogContent } from './TradingViewMobileChartSettingsDialogContent';
 import { pushTradingViewNativeFullscreenModal } from './TradingViewNativePresentation';
 
 import type { ITradingViewNativeStorageNamespace } from './types';
@@ -53,36 +52,26 @@ export function TradingViewNativeChartSettingsButton({
       params: {
         showPreviousClose: enablePreviousClose,
         ...(storageNamespace ? { storageNamespace } : {}),
+        ...(onChartSwitch
+          ? {
+              chartMode: 'native' as const,
+              isChartSwitchDisabled,
+              onChartSwitch,
+            }
+          : {}),
       },
     };
     if (pushTradingViewNativeFullscreenModal(EModalRoutes.MarketModal, params))
       return;
     onBeforeOpenSettings?.();
     navigation.pushModal(EModalRoutes.MarketModal, params);
-  }, [enablePreviousClose, navigation, onBeforeOpenSettings, storageNamespace]);
-  const handlePress = useCallback(() => {
-    Dialog.show({
-      title: intl.formatMessage({ id: ETranslations.global_settings }),
-      showFooter: false,
-      testID: 'trading-view-native-chart-settings-quick-dialog',
-      renderContent: (
-        <TradingViewMobileChartSettingsDialogContent
-          storageNamespace={storageNamespace}
-          chartMode="native"
-          isChartSwitchDisabled={isChartSwitchDisabled}
-          showPreviousClose={enablePreviousClose}
-          onChartSwitch={onChartSwitch}
-          onOpenSettings={openChartSettingsModal}
-        />
-      ),
-    });
   }, [
     enablePreviousClose,
-    intl,
     isChartSwitchDisabled,
+    navigation,
+    onBeforeOpenSettings,
     onChartSwitch,
     storageNamespace,
-    openChartSettingsModal,
   ]);
 
   return (
@@ -106,7 +95,7 @@ export function TradingViewNativeChartSettingsButton({
       accessibilityLabel={intl.formatMessage({
         id: ETranslations.market_chart_settings,
       })}
-      onPress={handlePress}
+      onPress={openChartSettingsModal}
       {...HEADER_ICON_BUTTON_STYLE_PROPS}
       bg={isToolbar ? '$transparent' : '$bgApp'}
       borderWidth={0}

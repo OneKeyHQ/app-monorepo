@@ -2,8 +2,6 @@
  * @jest-environment jsdom
  */
 
-import type { ReactElement } from 'react';
-
 import { render } from '@testing-library/react';
 
 import {
@@ -11,18 +9,6 @@ import {
   getTradingViewNativeChartSettingsButtonRight,
 } from './TradingViewNativeChartSettingsButton';
 
-type IMockDialogConfig = {
-  renderContent: ReactElement<{
-    chartMode: 'native';
-    isChartSwitchDisabled?: boolean;
-    onChartSwitch?: () => void;
-    onOpenSettings: () => void;
-    showPreviousClose?: boolean;
-  }>;
-  testID?: string;
-};
-
-const mockDialogShow = jest.fn<void, [IMockDialogConfig]>();
 const mockIconButton = jest.fn<null, [Record<string, unknown>]>(() => null);
 const mockPushModal = jest.fn();
 
@@ -33,9 +19,6 @@ jest.mock('react-intl', () => ({
 }));
 
 jest.mock('@onekeyhq/components', () => ({
-  Dialog: {
-    show: (config: IMockDialogConfig) => mockDialogShow(config),
-  },
   IconButton: (props: Record<string, unknown>) => mockIconButton(props),
 }));
 
@@ -52,9 +35,12 @@ jest.mock('@onekeyhq/kit/src/hooks/useAppNavigation', () => () => ({
   pushModal: mockPushModal,
 }));
 
-jest.mock('./TradingViewMobileChartSettingsDialogContent', () => ({
-  TradingViewMobileChartSettingsDialogContent: () => null,
-}));
+const pressSettingsButton = () => {
+  const buttonProps = mockIconButton.mock.calls[0][0] as {
+    onPress: () => void;
+  };
+  buttonProps.onPress();
+};
 
 describe('TradingViewNativeChartSettingsButton', () => {
   beforeEach(() => {
@@ -89,7 +75,7 @@ describe('TradingViewNativeChartSettingsButton', () => {
   });
 
   it.each(['chart', 'toolbar'] as const)(
-    'opens the native quick settings dialog from the %s',
+    'opens the chart settings page with the chart switch from the %s',
     (placement) => {
       const handleChartSwitch = jest.fn();
       render(
@@ -101,32 +87,21 @@ describe('TradingViewNativeChartSettingsButton', () => {
         />,
       );
 
-      const buttonProps = mockIconButton.mock.calls[0][0] as {
-        onPress: () => void;
-      };
-      buttonProps.onPress();
+      pressSettingsButton();
 
-      expect(mockDialogShow).toHaveBeenCalledWith(
-        expect.objectContaining({
-          testID: 'trading-view-native-chart-settings-quick-dialog',
-        }),
-      );
-      expect(mockDialogShow.mock.calls[0][0].renderContent.props).toEqual(
-        expect.objectContaining({
+      expect(mockPushModal).toHaveBeenCalledWith('MarketModal', {
+        screen: 'MarketChartSettings',
+        params: {
+          showPreviousClose: false,
           chartMode: 'native',
           isChartSwitchDisabled: true,
           onChartSwitch: handleChartSwitch,
-        }),
-      );
-      mockDialogShow.mock.calls[0][0].renderContent.props.onOpenSettings();
-      expect(mockPushModal).toHaveBeenCalledWith('MarketModal', {
-        screen: 'MarketChartSettings',
-        params: { showPreviousClose: false },
+        },
       });
     },
   );
 
-  it('carries the Prev close opt-in into quick and full settings', () => {
+  it('carries the Prev close opt-in into the chart settings page', () => {
     render(
       <TradingViewNativeChartSettingsButton
         priceAxisWidth={52}
@@ -134,14 +109,8 @@ describe('TradingViewNativeChartSettingsButton', () => {
       />,
     );
 
-    const buttonProps = mockIconButton.mock.calls[0][0] as {
-      onPress: () => void;
-    };
-    buttonProps.onPress();
+    pressSettingsButton();
 
-    const content = mockDialogShow.mock.calls[0][0].renderContent;
-    expect(content.props.showPreviousClose).toBe(true);
-    content.props.onOpenSettings();
     expect(mockPushModal).toHaveBeenCalledWith('MarketModal', {
       screen: 'MarketChartSettings',
       params: { showPreviousClose: true },
@@ -158,14 +127,8 @@ describe('TradingViewNativeChartSettingsButton', () => {
       />,
     );
 
-    const buttonProps = mockIconButton.mock.calls[0][0] as {
-      onPress: () => void;
-    };
-    buttonProps.onPress();
-    expect(onBeforeOpenSettings).not.toHaveBeenCalled();
-    expect(mockPushModal).not.toHaveBeenCalled();
+    pressSettingsButton();
 
-    mockDialogShow.mock.calls[0][0].renderContent.props.onOpenSettings();
     expect(onBeforeOpenSettings).toHaveBeenCalledTimes(1);
     expect(mockPushModal).toHaveBeenCalledWith('MarketModal', {
       screen: 'MarketChartSettings',

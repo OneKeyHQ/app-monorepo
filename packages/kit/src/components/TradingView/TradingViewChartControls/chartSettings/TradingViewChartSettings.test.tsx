@@ -108,23 +108,34 @@ jest.mock('@onekeyhq/components', () => {
     ),
     ScrollView: View,
     Select: ({
+      defaultTriggerInputProps,
       items,
       onChange,
       testID,
       value,
     }: {
-      items: { label: string; value: string }[];
+      defaultTriggerInputProps?: { leftIconName?: string };
+      items: {
+        label: string;
+        value: string;
+        leading?: { props: { name?: string } };
+      }[];
       onChange: (value: string) => void;
       testID: string;
       value: string;
     }) => (
       <select
         data-testid={testID}
+        data-left-icon={defaultTriggerInputProps?.leftIconName}
         value={value}
         onChange={(event) => onChange(event.target.value)}
       >
         {items.map((item) => (
-          <option key={item.value} value={item.value}>
+          <option
+            key={item.value}
+            value={item.value}
+            data-icon={item.leading?.props.name}
+          >
             {item.label}
           </option>
         ))}
@@ -219,9 +230,26 @@ describe('TradingViewChartSettings', () => {
       />,
     );
 
+    const chartTypeSelect = screen.getByTestId(
+      'trading-view-settings-select-chart-type',
+    );
+    expect(chartTypeSelect.textContent).toContain('global.auto');
+    expect(chartTypeSelect.getAttribute('data-left-icon')).toBe(
+      'MagicStickOutline',
+    );
     expect(
-      screen.getByTestId('trading-view-settings-select-chart-type').textContent,
-    ).toContain('global.auto');
+      Array.from(chartTypeSelect.querySelectorAll('option')).map((option) => [
+        option.value,
+        option.getAttribute('data-icon'),
+      ]),
+    ).toEqual([
+      ['auto', 'MagicStickOutline'],
+      ['candlestick', 'TradingViewCandlesOutline'],
+      ['heikinAshi', 'TradingViewBarsOutline'],
+      ['bars', 'TradingViewCandlesHlcOutline'],
+      ['line', 'TradingViewLineOutline'],
+      ['area', 'ChartTrending2Outline'],
+    ]);
 
     fireEvent.change(
       screen.getByTestId('trading-view-settings-select-chart-type'),

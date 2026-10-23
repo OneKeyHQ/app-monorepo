@@ -8,12 +8,14 @@ import {
   Checkbox,
   ColorPicker,
   Divider,
+  Icon,
   Select,
   SizableText,
   XStack,
   YStack,
   useMedia,
 } from '@onekeyhq/components';
+import type { IKeyOfIcons } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 const LINE_STYLE_WIDTHS: Partial<Record<string, number>> = {
@@ -70,6 +72,8 @@ export function formatTestID(value: string) {
 // line. Checkbox rows indent that line past the 20px box and the label's 8px
 // leading padding so it lines up with the first letter of the label.
 export const SETTINGS_ROW_CHECKBOX_LABEL_INDENT = 28;
+// Chart display selects share a width so their boxes line up in the group.
+export const CHART_DISPLAY_SELECT_WIDTH = 160;
 
 export function SettingsGroup({
   title,
@@ -276,6 +280,7 @@ export function SettingsSelect<TValue extends string>({
   renderOptionLabel,
   optionLabels,
   optionTranslationIds,
+  optionIcons,
 }: {
   testID: string;
   title: string;
@@ -288,6 +293,7 @@ export function SettingsSelect<TValue extends string>({
   renderOptionLabel?: (value: TValue) => ReactNode;
   optionLabels?: Partial<Record<TValue, string>>;
   optionTranslationIds?: Partial<Record<TValue, ETranslations>>;
+  optionIcons?: Partial<Record<TValue, IKeyOfIcons>>;
 }) {
   const intl = useIntl();
   const items = useMemo(
@@ -305,9 +311,13 @@ export function SettingsSelect<TValue extends string>({
               lineWidth={LINE_STYLE_WIDTHS[option] ?? 1}
             />
           ) : undefined),
+        leading: optionIcons?.[option] ? (
+          <Icon name={optionIcons[option]} size="$5" color="$iconSubdued" />
+        ) : undefined,
       })),
     [
       intl,
+      optionIcons,
       optionLabels,
       optionTranslationIds,
       options,
@@ -327,7 +337,16 @@ export function SettingsSelect<TValue extends string>({
       floatingPanelProps={
         showLinePreview ? LINE_PREVIEW_FLOATING_PANEL_PROPS : undefined
       }
-      defaultTriggerInputProps={{ size: 'small', width, pr: '$8' }}
+      defaultTriggerInputProps={{
+        size: 'small',
+        width,
+        pr: '$8',
+        // The default trigger sets flex: 1 on the input. Native resolves that
+        // to a zero flex basis that ignores `width`, so the input shrinks to
+        // its padding and hides the value. flex: 0 keeps `width` as the basis.
+        flex: 0,
+        leftIconName: optionIcons?.[value],
+      }}
       items={items}
     />
   );

@@ -1,4 +1,5 @@
 import { useCallback, useMemo } from 'react';
+import type { ReactNode } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -18,9 +19,12 @@ import {
 } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative/chartSettingsAdapter';
 import type { ITradingViewNativeStorageNamespace } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative/types';
 import { useTradingViewNativeChartSettings } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative/useTradingViewNativeSettings';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
+import { MarketChartSourceSettingsRow } from './MarketChartSourceSettingsRow';
 
 import type {
   EModalMarketRoutes,
@@ -60,6 +64,7 @@ type IMarketChartSettingsContentProps = {
   mobileLayout?: boolean;
   usePageFooter?: boolean;
   showPreviousClose?: boolean;
+  chartDisplayLeadingRow?: ReactNode;
   onClose?: () => void;
 };
 
@@ -76,6 +81,7 @@ function ChartSettingsContent({
   mobileLayout = false,
   usePageFooter = false,
   showPreviousClose = false,
+  chartDisplayLeadingRow,
   onClose,
 }: IMarketChartSettingsContentProps & {
   settingsState: ReturnType<typeof useTradingViewNativeChartSettings>;
@@ -118,6 +124,7 @@ function ChartSettingsContent({
       usePageFooter={usePageFooter}
       mobileLayout={mobileLayout}
       showChartType={mobileLayout}
+      chartDisplayLeadingRow={chartDisplayLeadingRow}
       hiddenAppearanceSectionIds={NATIVE_HIDDEN_APPEARANCE_SECTION_IDS}
       hiddenOptionIds={hiddenOptionIds}
       onChange={mobileLayout ? handleMobileSettingsChange : undefined}
@@ -150,11 +157,20 @@ export function showMarketChartSettingsDialog({
 export default function MarketChartSettingsModal() {
   const intl = useIntl();
   const { md } = useMedia();
+  const navigation = useAppNavigation();
   const route = useAppRoute<
     IModalMarketParamList,
     EModalMarketRoutes.MarketChartSettings
   >();
   const showPreviousClose = route.params?.showPreviousClose ?? false;
+  const chartMode = route.params?.chartMode;
+  const isChartSwitchDisabled = route.params?.isChartSwitchDisabled ?? false;
+  const onChartSwitch = route.params?.onChartSwitch;
+  const handleChartSwitch = useCallback(() => {
+    // Leave settings first: switching remounts the chart and may exit fullscreen.
+    navigation.pop();
+    onChartSwitch?.();
+  }, [navigation, onChartSwitch]);
 
   return (
     <Page>
@@ -167,6 +183,15 @@ export default function MarketChartSettingsModal() {
           usePageFooter={!md}
           mobileLayout={md}
           showPreviousClose={showPreviousClose}
+          chartDisplayLeadingRow={
+            chartMode && onChartSwitch ? (
+              <MarketChartSourceSettingsRow
+                chartMode={chartMode}
+                isDisabled={isChartSwitchDisabled}
+                onChartSwitch={handleChartSwitch}
+              />
+            ) : undefined
+          }
         />
       </Page.Body>
     </Page>

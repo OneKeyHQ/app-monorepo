@@ -5,6 +5,8 @@ import {
   TRADING_VIEW_NATIVE_CANDLE_BODY_WIDTH,
   TRADING_VIEW_NATIVE_CHART_DOWN_COLOR,
   TRADING_VIEW_NATIVE_CHART_UP_COLOR,
+  TRADING_VIEW_NATIVE_CURRENT_PRICE_LINE_DASH_GAP,
+  TRADING_VIEW_NATIVE_CURRENT_PRICE_LINE_DASH_LENGTH,
   TRADING_VIEW_NATIVE_MAX_ZOOM_SCALE,
   TRADING_VIEW_NATIVE_PRICE_AXIS_LABEL_LEFT_PADDING,
 } from '../chartConstants';
@@ -489,9 +491,13 @@ describe('TradingViewNative shared chart scene', () => {
       color: '#ABCDEF',
       dash: undefined,
     });
+    // The latest price line stays dashed even when a solid style was stored.
     expect(scene.customPaintStyles['chart.latestPrice.line.up']).toMatchObject({
       color: '#123456',
-      dash: undefined,
+      dash: [
+        TRADING_VIEW_NATIVE_CURRENT_PRICE_LINE_DASH_LENGTH,
+        TRADING_VIEW_NATIVE_CURRENT_PRICE_LINE_DASH_GAP,
+      ],
     });
     expect(
       scene.commands.find(
