@@ -422,7 +422,7 @@ function PrimeLoginEmailDialogV2(props: IPrimeLoginEmailDialogV2Props) {
                 onPress={() => void submit()}
               >
                 {intl.formatMessage({
-                  id: ETranslations.sign_in_or_sign_up__action,
+                  id: ETranslations.global_sign_in,
                 })}
               </Button>
             ) : null}
