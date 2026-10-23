@@ -43,6 +43,19 @@ const network: ISwapNetwork = {
   backendIndex: true,
   isDeFiEnabled: true,
 };
+const allNetwork: ISwapNetwork = {
+  ...network,
+  networkId: getNetworkIdsMap().onekeyall,
+  name: 'All networks',
+  isAllNetworks: true,
+};
+const solanaNetwork: ISwapNetwork = {
+  ...network,
+  networkId: 'sol--101',
+  name: 'Solana',
+  symbol: 'SOL',
+};
+const solanaContract = '6p6xgHyF7AeE6TZkSmFsko444wqoP15icUSqi2jfGiPN';
 const token: ISwapToken = {
   networkId: network.networkId,
   contractAddress: '0xtoken',
@@ -52,6 +65,7 @@ const token: ISwapToken = {
   price: '1',
 };
 let mockNetworks = [network];
+let mockSelectedNetwork: ISwapNetwork | undefined;
 let mockDeriveType: string | undefined;
 let mockFocused = true;
 let mockTokenCatch: Record<string, ISwapTokenCatch> = {};
@@ -121,7 +135,7 @@ jest.mock('../../../states/jotai/contexts/swap', () => ({
   useSwapAllNetworkTokenListStatusAtom: () => [mockAllNetworkStatus],
   useSwapNetworksAtom: () => [mockNetworks],
   useSwapNetworksIncludeAllNetworkAtom: () => [mockNetworks],
-  useSwapSelectTokenNetworkAtom: () => [undefined],
+  useSwapSelectTokenNetworkAtom: () => [mockSelectedNetwork],
   useSwapTokenListRequestsAtom: () => [mockTokenListRequests],
 }));
 
@@ -192,6 +206,26 @@ function renderSearchList(keywords = '', searchRound = 0) {
   );
 }
 
+function renderNetworkSearch(query: string, pending = false) {
+  mockNetworks = [allNetwork, network, solanaNetwork];
+  mockSelectedNetwork = allNetwork;
+  return renderHook(
+    ({ networkId, isPending }) =>
+      useSwapTokenList(
+        ESwapDirectionType.FROM,
+        networkId,
+        query,
+        ESwapTabSwitchType.SWAP,
+        false,
+        undefined,
+        undefined,
+        1,
+        isPending,
+      ),
+    { initialProps: { networkId: allNetwork.networkId, isPending: pending } },
+  );
+}
+
 function getDisplayedTokens(result: ReturnType<typeof useSwapTokenList>) {
   return result.currentTokens.map((item) =>
     'item' in item ? item.item : item,
@@ -205,6 +239,7 @@ describe('useSwapTokenList loading lifecycle', () => {
     });
     jest.clearAllMocks();
     mockNetworks = [network];
+    mockSelectedNetwork = undefined;
     mockDeriveType = undefined;
     mockFocused = true;
     mockTokenCatch = {};
@@ -871,6 +906,125 @@ describe('useSwapTokenList loading lifecycle', () => {
       unmount();
     },
   );
+
+  it('refreshes completed contract searches on network changes even with the same HTTP identity', async () => {
+    mockFetchTokenList.mockResolvedValue([]);
+    const { result, rerender, unmount } = renderNetworkSearch(solanaContract);
+    await waitFor(() => expect(result.current.fetchLoading).toBe(false));
+    expect(mockFetchTokenList).toHaveBeenCalledTimes(1);
+    const refresh = deferred();
+    mockFetchTokenList.mockImplementationOnce(async () => {
+      await refresh.promise;
+      return [];
+    });
+    mockSelectedNetwork = solanaNetwork;
+    rerender({ networkId: solanaNetwork.networkId, isPending: false });
+    expect(result.current.fetchLoading).toBe(true);
+    expect(result.current.currentTokens).toEqual([]);
+    expect(mockFetchTokenList).toHaveBeenCalledTimes(2);
+    await act(async () => refresh.resolve());
+    expect(result.current.fetchLoading).toBe(false);
+
+    mockSelectedNetwork = network;
+    rerender({ networkId: network.networkId, isPending: false });
+    await waitFor(() => expect(result.current.fetchLoading).toBe(false));
+    expect(mockFetchTokenList).toHaveBeenCalledTimes(3);
+    mockSelectedNetwork = allNetwork;
+    rerender({ networkId: allNetwork.networkId, isPending: false });
+    await waitFor(() => expect(result.current.fetchLoading).toBe(false));
+    expect(mockFetchTokenList).toHaveBeenCalledTimes(4);
+    expect(
+      new Set(
+        mockFetchTokenList.mock.calls.map(([params]) =>
+          buildSwapTokenListCacheKey(params),
+        ),
+      ).size,
+    ).toBe(1);
+    mockSelectedNetwork = { ...allNetwork };
+    rerender({ networkId: allNetwork.networkId, isPending: false });
+    expect(mockFetchTokenList).toHaveBeenCalledTimes(4);
+    expect(mockLoadAllNetworks).toHaveBeenCalledTimes(1);
+    unmount();
+  });
+
+  it('resubscribes to the same pending search after switching networks and back', async () => {
+    const request = deferred();
+    const searchedToken = { ...token, contractAddress: solanaContract };
+    mockFetchTokenList.mockImplementation(async () => {
+      await request.promise;
+      return [searchedToken];
+    });
+    const { result, rerender, unmount } = renderNetworkSearch(solanaContract);
+    await waitFor(() => expect(mockFetchTokenList).toHaveBeenCalledTimes(1));
+    mockSelectedNetwork = solanaNetwork;
+    rerender({ networkId: solanaNetwork.networkId, isPending: false });
+    mockSelectedNetwork = allNetwork;
+    rerender({ networkId: allNetwork.networkId, isPending: false });
+    expect(mockFetchTokenList).toHaveBeenCalledTimes(3);
+    expect(result.current.fetchLoading).toBe(true);
+    expect(
+      new Set(
+        mockFetchTokenList.mock.calls.map(([params]) =>
+          buildSwapTokenListCacheKey(params),
+        ),
+      ).size,
+    ).toBe(1);
+    await act(async () => request.resolve());
+    expect(getDisplayedTokens(result.current)).toEqual([searchedToken]);
+    expect(result.current.fetchLoading).toBe(false);
+    expect(mockLoadAllNetworks).toHaveBeenCalledTimes(1);
+    unmount();
+  });
+
+  it('keeps text debounce pending across network changes before starting the search', async () => {
+    mockFetchTokenList.mockResolvedValue([]);
+    const { result, rerender, unmount } = renderNetworkSearch(
+      solanaContract,
+      true,
+    );
+    await waitFor(() =>
+      expect(mockGetSupportAccounts).toHaveBeenCalledTimes(1),
+    );
+    mockSelectedNetwork = solanaNetwork;
+    rerender({ networkId: solanaNetwork.networkId, isPending: true });
+    expect(mockFetchTokenList).not.toHaveBeenCalled();
+    rerender({ networkId: solanaNetwork.networkId, isPending: false });
+    await waitFor(() => expect(result.current.fetchLoading).toBe(false));
+    expect(mockFetchTokenList).toHaveBeenCalledTimes(1);
+    expect(mockFetchTokenList.mock.calls[0][0]).toMatchObject({
+      networkId: allNetwork.networkId,
+      keywords: solanaContract,
+      searchNetworks: expect.arrayContaining([
+        expect.objectContaining({ networkId: solanaNetwork.networkId }),
+      ]),
+    });
+    unmount();
+  });
+
+  it('ignores a previous network response that finishes after the new symbol search', async () => {
+    const previousRequest = deferred();
+    const currentRequest = deferred();
+    const currentToken = { ...token, networkId: solanaNetwork.networkId };
+    mockFetchTokenList.mockImplementation(async (params) => {
+      if (params.networkId === allNetwork.networkId) {
+        await previousRequest.promise;
+        return [token];
+      }
+      await currentRequest.promise;
+      return [currentToken];
+    });
+    const { result, rerender, unmount } = renderNetworkSearch('TOKEN');
+    await waitFor(() => expect(mockFetchTokenList).toHaveBeenCalledTimes(1));
+    mockSelectedNetwork = solanaNetwork;
+    rerender({ networkId: solanaNetwork.networkId, isPending: false });
+    expect(result.current.fetchLoading).toBe(true);
+    await act(async () => currentRequest.resolve());
+    expect(getDisplayedTokens(result.current)).toEqual([currentToken]);
+    await act(async () => previousRequest.resolve());
+    expect(getDisplayedTokens(result.current)).toEqual([currentToken]);
+    expect(result.current.fetchLoading).toBe(false);
+    unmount();
+  });
 
   it('does not read an old completed search snapshot or refetch on an equivalent render', async () => {
     cacheScopedTokens(

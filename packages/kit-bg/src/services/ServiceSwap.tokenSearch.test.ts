@@ -31,7 +31,7 @@ describe('ServiceSwap token search', () => {
     networkId: 'evm--1',
   };
 
-  it('shares six search slots across keywords, releases failures and leaves preloads independent', async () => {
+  it('shares six request slots across search rounds and preloads and releases failures', async () => {
     let active = 0;
     let peak = 0;
     let started = 0;
@@ -40,19 +40,16 @@ describe('ServiceSwap token search', () => {
     const client = axios.create({
       adapter: async (config) => {
         const params = config.params as IFetchTokenListParams;
-        if (params.keywords) {
-          started += 1;
-          const firstRequest = started === 1;
-          active += 1;
-          peak = Math.max(peak, active);
-          try {
-            await new Promise<void>((resolve) => releases.push(resolve));
-            if (firstRequest) throw new OneKeyLocalError('one chain failed');
-          } finally {
-            active -= 1;
-          }
-        } else {
-          preloadStarted = true;
+        started += 1;
+        const firstRequest = started === 1;
+        if (!params.keywords) preloadStarted = true;
+        active += 1;
+        peak = Math.max(peak, active);
+        try {
+          await new Promise<void>((resolve) => releases.push(resolve));
+          if (firstRequest) throw new OneKeyLocalError('one chain failed');
+        } finally {
+          active -= 1;
         }
         return {
           data: { data: [bnbUsdt] },
@@ -91,22 +88,81 @@ describe('ServiceSwap token search', () => {
     await flushPending();
     expect(started).toBe(6);
     expect(active).toBe(6);
-    await service.fetchSwapTokens({
+    const preload = service.fetchSwapTokens({
       networkId: 'evm--1',
       currency: 'usd',
       isTokenListPrefetch: true,
       throwOnError: true,
     });
-    expect(preloadStarted).toBe(true);
+    await flushPending();
+    expect(preloadStarted).toBe(false);
+    expect(active).toBe(6);
     for (let batch = 0; batch < 4; batch += 1) {
       releases.splice(0).forEach((release) => release());
       await flushPending();
     }
-    await expect(Promise.all([first, second])).resolves.toEqual([
+    await expect(Promise.all([first, second, preload])).resolves.toEqual([
+      [bnbUsdt],
       [bnbUsdt],
       [bnbUsdt],
     ]);
-    expect(started).toBe(18);
+    expect(preloadStarted).toBe(true);
+    expect(started).toBe(19);
+    expect(peak).toBe(6);
+    expect(active).toBe(0);
+  });
+
+  it('bounds simultaneous default lists and preloads with one six-request pool', async () => {
+    let active = 0;
+    let peak = 0;
+    let started = 0;
+    const releases: (() => void)[] = [];
+    const client = axios.create({
+      adapter: async (config) => {
+        started += 1;
+        active += 1;
+        peak = Math.max(peak, active);
+        try {
+          await new Promise<void>((resolve) => releases.push(resolve));
+          return {
+            data: { data: [] },
+            status: 200,
+            statusText: 'OK',
+            headers: {},
+            config,
+          };
+        } finally {
+          active -= 1;
+        }
+      },
+    });
+    const service = new ServiceSwap({
+      backgroundApi: {
+        serviceAccountProfile: {
+          _getWalletTypeHeader: jest.fn().mockResolvedValue({}),
+        },
+      },
+    });
+    jest.spyOn(service, 'getClient').mockResolvedValue(client);
+    const requests = Array.from({ length: 14 }, (_, index) =>
+      service.fetchSwapTokens({
+        networkId: `evm--${index + 1}`,
+        currency: index % 2 ? 'usd' : 'cny',
+        isTokenListPrefetch: index % 2 === 0,
+        throwOnError: true,
+      }),
+    );
+    const flushPending = async () => {
+      for (let index = 0; index < 40; index += 1) await Promise.resolve();
+    };
+    await flushPending();
+    expect(started).toBe(6);
+    for (let batch = 0; batch < 3; batch += 1) {
+      releases.splice(0).forEach((release) => release());
+      await flushPending();
+    }
+    await expect(Promise.all(requests)).resolves.toHaveLength(14);
+    expect(started).toBe(14);
     expect(peak).toBe(6);
     expect(active).toBe(0);
   });

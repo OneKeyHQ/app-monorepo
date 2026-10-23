@@ -449,6 +449,11 @@ export function useSwapTokenList(
     cacheEpoch,
     networks: allNetworkSwapNetworksReadyKey,
   });
+  // Chain selection starts a new search intent even when contract searches
+  // share the same all-network HTTP identity and in-flight request.
+  const selectedSearchNetworkId = keywords
+    ? (currentSelectNetwork?.networkId ?? currentNetworkId)
+    : undefined;
   const tokenListFetchEffectKey = useMemo(
     () =>
       JSON.stringify({
@@ -458,6 +463,7 @@ export function useSwapTokenList(
         indexedAccountId,
         otherWalletTypeAccountId,
         searchRound: keywords ? searchRound : undefined,
+        selectedSearchNetworkId,
       }),
     [
       allNetworkSwapNetworksReadyKey,
@@ -467,6 +473,7 @@ export function useSwapTokenList(
       cacheEpoch,
       keywords,
       searchRound,
+      selectedSearchNetworkId,
     ],
   );
   const [settledTokenListFetchEffectKey, setSettledTokenListFetchEffectKey] =
