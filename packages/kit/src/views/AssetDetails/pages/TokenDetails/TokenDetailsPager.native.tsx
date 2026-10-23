@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { ReactNode } from 'react';
 
-import { View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { CollapsiblePagerView } from 'react-native-pager-view';
 
 import { useTheme } from '@onekeyhq/components';
+import { BRAND_FONT_NATIVE_FAMILY } from '@onekeyhq/components/src/hocs/Provider/fonts/brandFont';
 import type { IAppPagerProps } from '@onekeyhq/kit/src/components/AppPager';
 import {
   AppPagerContext,
@@ -12,6 +14,8 @@ import {
 import type { IAppPagerPage } from '@onekeyhq/kit/src/components/AppPager/types';
 import { useAppPagerController } from '@onekeyhq/kit/src/components/AppPager/useAppPagerController';
 import { useRouteIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
+
+import type { LayoutChangeEvent } from 'react-native';
 
 function TokenDetailsPage({
   page,
@@ -35,17 +39,22 @@ function TokenDetailsPage({
   );
 }
 
+const TAB_BAR_HEIGHT = 44;
+const STICKY_HEADER_HEIGHT = Math.ceil(
+  TAB_BAR_HEIGHT + StyleSheet.hairlineWidth,
+);
+
 export function TokenDetailsPager({
   ref,
   pages,
   initialTabName,
-  renderTabBar,
+  toolbar,
   onTabChange,
   onIndexChange,
   width,
-}: IAppPagerProps & { width?: number }) {
+}: IAppPagerProps & { width?: number; toolbar?: ReactNode }) {
   const pagerRef = useRef<CollapsiblePagerView>(null);
-  const [stickyHeight, setStickyHeight] = useState(48);
+  const [toolbarWidth, setToolbarWidth] = useState(0);
   const theme = useTheme();
   const isRouteFocused = useRouteIsFocused();
   const controller = useAppPagerController({
@@ -55,14 +64,7 @@ export function TokenDetailsPager({
     ref,
     onSelectionChange: onTabChange,
   });
-  const {
-    initialIndex,
-    selectedIndex,
-    focusedName,
-    focusedTab,
-    indexDecimal,
-    jumpToTab,
-  } = controller;
+  const { initialIndex, selectedIndex, focusedName, indexDecimal } = controller;
   const [visitedKeys, setVisitedKeys] = useState(
     () => new Set(pages[initialIndex] ? [pages[initialIndex].key] : []),
   );
@@ -85,6 +87,12 @@ export function TokenDetailsPager({
     () => ({ focusedName, scrollToTop }),
     [focusedName, scrollToTop],
   );
+  const handleToolbarLayout = useCallback((event: LayoutChangeEvent) => {
+    const measuredWidth = Math.ceil(event.nativeEvent.layout.width);
+    setToolbarWidth((current) =>
+      current === measuredWidth ? current : measuredWidth,
+    );
+  }, []);
   return (
     <AppPagerContext.Provider value={context}>
       <CollapsiblePagerView
@@ -94,26 +102,63 @@ export function TokenDetailsPager({
         nestedScrollEnabled
         header={null}
         headerHeight={0}
-        stickyHeaderHeight={stickyHeight}
+        stickyHeaderHeight={STICKY_HEADER_HEIGHT}
+        nativeTabBar={{
+          items: pages.map((page) => ({
+            key: page.key,
+            title: page.name,
+          })),
+          style: {
+            height: TAB_BAR_HEIGHT,
+            contentPaddingHorizontal: 12,
+            itemSpacing: 4,
+            fontSize: 16,
+            fontFamily: BRAND_FONT_NATIVE_FAMILY.medium,
+            backgroundColor: theme.bgApp.val,
+            activeTextColor: theme.text.val,
+            inactiveTextColor: theme.textSubdued.val,
+            indicatorColor: theme.text.val,
+            indicatorHeight: 2,
+            indicatorBottom: 0,
+            trailingReservedWidth: toolbarWidth,
+          },
+        }}
         stickyHeader={
           <View
-            onLayout={(event) => {
-              const height = Math.ceil(event.nativeEvent.layout.height);
-              setStickyHeight((current) =>
-                current === height ? current : height,
-              );
+            pointerEvents="box-none"
+            style={{
+              flex: 1,
+              borderBottomColor: theme.borderSubdued.val,
+              borderBottomWidth: StyleSheet.hairlineWidth,
             }}
           >
-            {renderTabBar?.({
-              focusedTab,
-              indexDecimal,
-              tabNames: pages.map((page) => page.name),
-              onTabPress: jumpToTab,
-            })}
+            <View
+              pointerEvents="box-none"
+              onLayout={handleToolbarLayout}
+              style={{
+                position: 'absolute',
+                end: 0,
+                top: 0,
+                height: TAB_BAR_HEIGHT,
+                backgroundColor: theme.bgApp.val,
+                justifyContent: 'center',
+              }}
+            >
+              {toolbar}
+            </View>
           </View>
         }
         pageRetentionDistance={pages.length}
         offscreenPageLimit={1}
+        onNativeTabPress={({ nativeEvent }) => {
+          const { position, key } = nativeEvent;
+          if (!Number.isInteger(position) || pages[position]?.key !== key) {
+            return;
+          }
+          setVisitedKeys((current) =>
+            current.has(key) ? current : new Set([...current, key]),
+          );
+        }}
         onPageScroll={({ nativeEvent }) => {
           indexDecimal.value = nativeEvent.position + nativeEvent.offset;
         }}

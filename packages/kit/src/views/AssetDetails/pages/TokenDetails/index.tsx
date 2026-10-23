@@ -24,7 +24,6 @@ import {
   SizableText,
   Spinner,
   Stack,
-  Tabs,
   Toast,
   XStack,
   useClipboard,
@@ -941,18 +940,12 @@ function TokenDetailsView() {
             ref={tabsRef}
             pages={tabs}
             onIndexChange={handleTabIndexChange}
-            renderTabBar={(props) => (
-              <Tabs.TabBar
-                {...props}
-                scrollable
-                renderToolbar={() => (
-                  <TokenDetailsTabToolbar
-                    tokens={tokens}
-                    onSelected={jumpToMemberTab}
-                  />
-                )}
+            toolbar={
+              <TokenDetailsTabToolbar
+                tokens={tokens}
+                onSelected={jumpToMemberTab}
               />
-            )}
+            }
           />
         );
       }

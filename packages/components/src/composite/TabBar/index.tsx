@@ -2,6 +2,8 @@ import {
   Fragment,
   useCallback,
   useEffect,
+  useInsertionEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -32,7 +34,11 @@ import { getFontToken } from '../../utils/getFontSize';
 import { fs } from '../../utils/scale';
 import { webFontFamily } from '../../utils/webFontFamily';
 
-import type { IListViewRef, IScrollViewProps } from '../../layouts';
+import type {
+  IListViewRef,
+  IScrollViewProps,
+  IScrollViewRef,
+} from '../../layouts';
 import type {
   ISizableTextProps,
   IXStackProps,
@@ -807,6 +813,7 @@ export function TabBar({
   showsHorizontalScrollIndicator?: boolean;
 }) {
   const listViewRef = useRef<IListViewRef<string>>(null);
+  const scrollViewRef = useRef<IScrollViewRef>(null);
   const listViewTimerId = useRef<ReturnType<typeof setTimeout> | null>(null);
   const directTabPressTimerId = useRef<ReturnType<typeof setTimeout> | null>(
     null,
@@ -814,6 +821,15 @@ export function TabBar({
   const directTabPressSettleTimerId = useRef<ReturnType<
     typeof setTimeout
   > | null>(null);
+  const scrollableTabStructure = JSON.stringify(tabNames);
+  const scrollableTabStructureRef = useRef(scrollableTabStructure);
+  const previousScrollableTabNamesRef = useRef(tabNames);
+  const scrollableItemLayoutsRef = useRef<Map<string, IItemLayout>>(new Map());
+  const scrollableItemNodesRef = useRef<Map<string, HTMLElement>>(new Map());
+  const scrollableViewportWidthRef = useRef(0);
+  const scrollableContentWidthRef = useRef(0);
+  const pendingScrollTabRef = useRef<string | null>(null);
+  const lastScrollAlignmentRef = useRef<string | null>(null);
   const lastAlignedTabNamesRef = useRef<string[] | null>(null);
   const directTabPressResyncCountRef = useRef(0);
   const [currentTab, setCurrentTab] = useState<string>(focusedTab.value);
@@ -901,10 +917,135 @@ export function TabBar({
     }
   }, []);
 
+  useInsertionEffect(() => {
+    if (platformEnv.isNative || !scrollable) {
+      return;
+    }
+    if (scrollableTabStructureRef.current === scrollableTabStructure) {
+      return;
+    }
+    scrollableTabStructureRef.current = scrollableTabStructure;
+    const previousNames = previousScrollableTabNamesRef.current;
+    let stablePrefix = 0;
+    while (
+      stablePrefix < tabNames.length &&
+      previousNames[stablePrefix] === tabNames[stablePrefix]
+    ) {
+      stablePrefix += 1;
+    }
+    const stableNames = new Set(tabNames.slice(0, stablePrefix));
+    for (const name of scrollableItemLayoutsRef.current.keys()) {
+      if (!stableNames.has(name)) {
+        scrollableItemLayoutsRef.current.delete(name);
+      }
+    }
+    previousScrollableTabNamesRef.current = tabNames;
+    scrollableContentWidthRef.current = 0;
+    lastScrollAlignmentRef.current = null;
+    clearListViewTimer();
+    pendingScrollTabRef.current = null;
+  }, [clearListViewTimer, scrollable, scrollableTabStructure, tabNames]);
+
+  const alignScrollableTab = useCallback(
+    (tabName: string) => {
+      const index = tabNames.indexOf(tabName);
+      const innerView = scrollViewRef.current?.getInnerViewNode?.() as
+        | HTMLElement
+        | undefined;
+      const innerLeft = innerView?.getBoundingClientRect?.().left;
+      if (innerLeft !== undefined) {
+        for (const name of [tabName, tabNames[0]]) {
+          const node = scrollableItemNodesRef.current.get(name);
+          if (node?.getBoundingClientRect) {
+            const rect = node.getBoundingClientRect();
+            scrollableItemLayoutsRef.current.set(name, {
+              x: rect.left - innerLeft,
+              width: rect.width,
+            });
+          }
+        }
+      }
+      const layout = scrollableItemLayoutsRef.current.get(tabName);
+      const scrollNode = scrollViewRef.current?.getScrollableNode?.() as
+        | HTMLElement
+        | undefined;
+      if (scrollNode?.clientWidth) {
+        scrollableViewportWidthRef.current = scrollNode.clientWidth;
+      }
+      if (scrollNode?.scrollWidth) {
+        scrollableContentWidthRef.current = scrollNode.scrollWidth;
+      }
+      const viewportWidth = scrollableViewportWidthRef.current;
+      const contentWidth = scrollableContentWidthRef.current;
+      const isRTL =
+        !!scrollNode &&
+        globalThis.getComputedStyle(scrollNode).direction === 'rtl';
+      if (
+        index < 0 ||
+        !layout ||
+        viewportWidth <= 0 ||
+        contentWidth <= 0 ||
+        !scrollViewRef.current
+      ) {
+        return false;
+      }
+      let logicalPosition: number | null | undefined;
+      if (keepFocusedTabVisible) {
+        logicalPosition = 0.5;
+        if (index === 0) {
+          logicalPosition = 0;
+        } else if (index === tabNames.length - 1) {
+          logicalPosition = 1;
+        }
+      } else if (index < 3) {
+        logicalPosition = null;
+      }
+      const position =
+        typeof logicalPosition === 'number' && isRTL
+          ? 1 - logicalPosition
+          : logicalPosition;
+      const leadingLayout =
+        position === null
+          ? scrollableItemLayoutsRef.current.get(tabNames[0])
+          : layout;
+      let targetX: number;
+      if (typeof position === 'number') {
+        targetX = layout.x - (viewportWidth - layout.width) * position;
+      } else if (isRTL) {
+        targetX =
+          (leadingLayout?.x ?? 0) + (leadingLayout?.width ?? 0) - viewportWidth;
+      } else {
+        targetX = leadingLayout?.x ?? 0;
+      }
+      const x = Math.max(0, Math.min(targetX, contentWidth - viewportWidth));
+      const scrollX = isRTL ? x - Math.max(0, contentWidth - viewportWidth) : x;
+      const alignment = `${scrollableTabStructure}:${tabName}:${layout.x}:${layout.width}:${viewportWidth}:${contentWidth}:${scrollX}`;
+      if (lastScrollAlignmentRef.current !== alignment) {
+        scrollViewRef.current.scrollTo({ x: scrollX, animated: true });
+        lastScrollAlignmentRef.current = alignment;
+      }
+      return true;
+    },
+    [keepFocusedTabVisible, scrollableTabStructure, tabNames],
+  );
+
+  const scheduleScrollableTabAlignment = useCallback(() => {
+    if (listViewTimerId.current || !pendingScrollTabRef.current) {
+      return;
+    }
+    listViewTimerId.current = setTimeout(() => {
+      listViewTimerId.current = null;
+      const tabName = pendingScrollTabRef.current;
+      if (tabName && alignScrollableTab(tabName)) {
+        pendingScrollTabRef.current = null;
+      }
+    }, 100);
+  }, [alignScrollableTab]);
+
   const scrollToTab = useCallback(
     (tabName: string) => {
       clearListViewTimer();
-      if (listViewRef.current) {
+      if (platformEnv.isNative && listViewRef.current) {
         const index = tabNames.findIndex((name) => name === tabName);
         if (keepFocusedTabVisible && index < 0) {
           return;
@@ -919,41 +1060,101 @@ export function TabBar({
           listViewTimerId.current = null;
           listViewRef.current?.scrollToIndex(
             keepFocusedTabVisible
-              ? {
-                  index,
-                  viewPosition: focusedTabViewPosition,
-                }
+              ? { index, viewPosition: focusedTabViewPosition }
               : { index: index < 3 ? 0 : index },
           );
         }, 100);
+        return;
+      }
+      if (scrollableTabStructureRef.current !== scrollableTabStructure) {
+        return;
+      }
+      if (tabNames.includes(tabName)) {
+        pendingScrollTabRef.current = tabName;
+        lastScrollAlignmentRef.current = null;
+        scheduleScrollableTabAlignment();
       }
     },
-    [clearListViewTimer, keepFocusedTabVisible, tabNames],
+    [
+      clearListViewTimer,
+      keepFocusedTabVisible,
+      scheduleScrollableTabAlignment,
+      scrollableTabStructure,
+      tabNames,
+    ],
   );
 
   const handleScrollableTabBarReady = useCallback(() => {
     if (!scrollable || !keepFocusedTabVisible) {
       return;
     }
-    const tabName = currentTab || focusedTab.value;
+    const tabName = tabNames.includes(currentTab)
+      ? currentTab
+      : focusedTab.value;
     if (!tabName || !tabNames.includes(tabName)) {
       return;
     }
-    const lastAlignedTabNames = lastAlignedTabNamesRef.current;
-    if (
-      lastAlignedTabNames?.length === tabNames.length &&
-      lastAlignedTabNames.every((name, index) => name === tabNames[index])
-    ) {
+    if (platformEnv.isNative) {
+      const lastAlignedTabNames = lastAlignedTabNamesRef.current;
+      if (
+        lastAlignedTabNames?.length === tabNames.length &&
+        lastAlignedTabNames.every((name, index) => name === tabNames[index])
+      ) {
+        return;
+      }
+      lastAlignedTabNamesRef.current = [...tabNames];
+      scrollToTab(tabName);
       return;
     }
-    lastAlignedTabNamesRef.current = [...tabNames];
-    scrollToTab(tabName);
+    pendingScrollTabRef.current = tabName;
+    scheduleScrollableTabAlignment();
   }, [
     currentTab,
     focusedTab,
     keepFocusedTabVisible,
+    scheduleScrollableTabAlignment,
     scrollToTab,
     scrollable,
+    tabNames,
+  ]);
+
+  useLayoutEffect(() => {
+    if (platformEnv.isNative || !scrollable) {
+      return;
+    }
+    const innerView = scrollViewRef.current?.getInnerViewNode?.() as
+      | HTMLElement
+      | undefined;
+    if (!innerView?.getBoundingClientRect) {
+      return;
+    }
+    const scrollNode = scrollViewRef.current?.getScrollableNode?.() as
+      | HTMLElement
+      | undefined;
+    if (scrollNode?.clientWidth) {
+      scrollableViewportWidthRef.current = scrollNode.clientWidth;
+    }
+    if (scrollNode?.scrollWidth) {
+      scrollableContentWidthRef.current = scrollNode.scrollWidth;
+    }
+    const innerLeft = innerView.getBoundingClientRect().left;
+    for (const name of tabNames) {
+      const node = scrollableItemNodesRef.current.get(name);
+      if (node?.getBoundingClientRect) {
+        const rect = node.getBoundingClientRect();
+        scrollableItemLayoutsRef.current.set(name, {
+          x: rect.left - innerLeft,
+          width: rect.width,
+        });
+      }
+    }
+    handleScrollableTabBarReady();
+    scheduleScrollableTabAlignment();
+  }, [
+    handleScrollableTabBarReady,
+    scheduleScrollableTabAlignment,
+    scrollable,
+    scrollableTabStructure,
     tabNames,
   ]);
 
@@ -1446,6 +1647,64 @@ export function TabBar({
     ],
   );
 
+  const handleScrollableItemLayout = useCallback(
+    (name: string, structure: string, event: LayoutChangeEvent) => {
+      if (structure !== scrollableTabStructureRef.current) {
+        return;
+      }
+      let { x, width } = event.nativeEvent.layout;
+      const node = scrollableItemNodesRef.current.get(name);
+      const innerView = scrollViewRef.current?.getInnerViewNode?.() as
+        | HTMLElement
+        | undefined;
+      if (node?.getBoundingClientRect && innerView?.getBoundingClientRect) {
+        const rect = node.getBoundingClientRect();
+        x = rect.left - innerView.getBoundingClientRect().left;
+        width = rect.width;
+      }
+      const previous = scrollableItemLayoutsRef.current.get(name);
+      if (previous?.x === x && previous.width === width) {
+        return;
+      }
+      scrollableItemLayoutsRef.current.set(name, { x, width });
+      lastScrollAlignmentRef.current = null;
+      handleScrollableTabBarReady();
+      scheduleScrollableTabAlignment();
+    },
+    [handleScrollableTabBarReady, scheduleScrollableTabAlignment],
+  );
+
+  const handleScrollableLayout = useCallback(
+    (structure: string, event: LayoutChangeEvent) => {
+      if (structure !== scrollableTabStructureRef.current) {
+        return;
+      }
+      const width = event.nativeEvent.layout.width;
+      if (scrollableViewportWidthRef.current !== width) {
+        scrollableViewportWidthRef.current = width;
+        lastScrollAlignmentRef.current = null;
+      }
+      handleScrollableTabBarReady();
+      scheduleScrollableTabAlignment();
+    },
+    [handleScrollableTabBarReady, scheduleScrollableTabAlignment],
+  );
+
+  const handleScrollableContentSizeChange = useCallback(
+    (structure: string, width: number) => {
+      if (structure !== scrollableTabStructureRef.current) {
+        return;
+      }
+      if (scrollableContentWidthRef.current !== width) {
+        scrollableContentWidthRef.current = width;
+        lastScrollAlignmentRef.current = null;
+      }
+      handleScrollableTabBarReady();
+      scheduleScrollableTabAlignment();
+    },
+    [handleScrollableTabBarReady, scheduleScrollableTabAlignment],
+  );
+
   return scrollable ? (
     <YStack
       position={TAB_BAR_POSITION as any}
@@ -1456,23 +1715,74 @@ export function TabBar({
       {...containerStyle}
     >
       <XStack alignItems="center" gap="$2" justifyContent="space-between">
-        <ListView
-          style={
-            fillAvailableSpace
-              ? TAB_LIST_FILL_AVAILABLE_SPACE_STYLE
-              : TAB_LIST_VIEW_STYLE
-          }
-          useFlashList
-          data={tabNames}
-          ref={listViewRef}
-          horizontal
-          pr="$4"
-          contentContainerStyle={TAB_CONTENT_CONTAINER_STYLE}
-          renderItem={handleRenderItem as any}
-          onLayout={handleScrollableTabBarReady}
-          onContentSizeChange={handleScrollableTabBarReady}
-          showsHorizontalScrollIndicator={showsHorizontalScrollIndicator}
-        />
+        {platformEnv.isNative ? (
+          <ListView
+            style={
+              fillAvailableSpace
+                ? TAB_LIST_FILL_AVAILABLE_SPACE_STYLE
+                : TAB_LIST_VIEW_STYLE
+            }
+            useFlashList
+            data={tabNames}
+            ref={listViewRef}
+            horizontal
+            pr="$4"
+            contentContainerStyle={TAB_CONTENT_CONTAINER_STYLE}
+            renderItem={handleRenderItem as any}
+            onLayout={handleScrollableTabBarReady}
+            onContentSizeChange={handleScrollableTabBarReady}
+            showsHorizontalScrollIndicator={showsHorizontalScrollIndicator}
+          />
+        ) : (
+          <ScrollView
+            style={
+              fillAvailableSpace
+                ? TAB_LIST_FILL_AVAILABLE_SPACE_STYLE
+                : TAB_LIST_VIEW_STYLE
+            }
+            ref={scrollViewRef}
+            horizontal
+            pr="$4"
+            contentContainerStyle={TAB_CONTENT_CONTAINER_STYLE}
+            // eslint-disable-next-line react-perf/jsx-no-new-function-as-prop
+            onLayout={(event) =>
+              handleScrollableLayout(scrollableTabStructure, event)
+            }
+            // eslint-disable-next-line react-perf/jsx-no-new-function-as-prop
+            onContentSizeChange={(width) =>
+              handleScrollableContentSizeChange(scrollableTabStructure, width)
+            }
+            showsHorizontalScrollIndicator={showsHorizontalScrollIndicator}
+          >
+            {tabNames.map((name, index) => (
+              <View
+                key={name}
+                testID={`tab-bar-scroll-item-${name}`}
+                // eslint-disable-next-line react-perf/jsx-no-new-function-as-prop
+                ref={(node) => {
+                  if (node) {
+                    scrollableItemNodesRef.current.set(
+                      name,
+                      node as unknown as HTMLElement,
+                    );
+                  } else {
+                    scrollableItemNodesRef.current.delete(name);
+                  }
+                }}
+                // eslint-disable-next-line react-perf/jsx-no-new-function-as-prop
+                onLayout={(event: LayoutChangeEvent) =>
+                  handleScrollableItemLayout(
+                    name,
+                    scrollableTabStructure,
+                    event,
+                  )
+                }
+              >
+                {handleRenderItem({ item: name, index })}
+              </View>
+            ))}
+          </ScrollView>
+        )}
         {renderToolbar ? (
           <XStack>{renderToolbar({ focusedTab: currentTab })}</XStack>
         ) : null}

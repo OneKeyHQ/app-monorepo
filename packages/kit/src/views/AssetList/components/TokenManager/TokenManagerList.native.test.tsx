@@ -27,7 +27,6 @@ let mockRowAction: ((event: RowActionEvent) => void) | undefined;
 let mockAnchorInvalidated:
   | ((event: ActionAnchorInvalidatedEvent) => void)
   | undefined;
-let mockLegacyRendered = false;
 const mockSetActionAnchorState = jest.fn();
 const mockButtonClick = jest.spyOn(defaultLogger.ui.button, 'click');
 
@@ -116,23 +115,25 @@ jest.mock('@onekeyhq/shared/src/utils/networkUtils', () => ({
     getLocalNetworkInfo: () => undefined,
   },
 }));
-jest.mock('react-intl', () => ({
-  useIntl: () => ({
-    formatMessage: ({ id }: { id: string }) => id,
-  }),
-}));
+jest.mock('react-intl', () => {
+  const intl = { formatMessage: ({ id }: { id: string }) => id };
+  return { useIntl: () => intl };
+});
 jest.mock('@onekeyhq/kit/src/hooks/useThemeVariant', () => ({
   useThemeVariant: () => 'light',
 }));
 jest.mock(
   '@onekeyhq/kit/src/components/TokenListView/TokenListViewContext',
-  () => ({
-    useTokenListViewContext: () => ({
-      allAggregateTokenMap: {},
-      ownedAggregateTokenListMap: {},
-      networksMap: undefined,
-    }),
-  }),
+  () => {
+    const emptyMap = {};
+    return {
+      useTokenListViewContext: () => ({
+        allAggregateTokenMap: emptyMap,
+        ownedAggregateTokenListMap: emptyMap,
+        networksMap: undefined,
+      }),
+    };
+  },
 );
 jest.mock('@onekeyhq/kit/src/components/TokenListView/TokenIconView', () => ({
   __esModule: true,
@@ -155,10 +156,6 @@ jest.mock('@onekeyhq/components', () => {
     LazyTooltip: ({ renderContent }: { renderContent: ReactNode }) => (
       <div data-testid="token-tooltip">{renderContent}</div>
     ),
-    SectionList: () => {
-      mockLegacyRendered = true;
-      return <div data-testid="legacy-list" />;
-    },
     SizableText: Wrap,
     Skeleton: Wrap,
     Stack: Wrap,
@@ -253,7 +250,6 @@ beforeEach(() => {
   mockSnapshot = undefined;
   mockRowAction = undefined;
   mockAnchorInvalidated = undefined;
-  mockLegacyRendered = false;
   mockButtonClick.mockClear();
   mockSetActionAnchorState.mockClear();
 });
@@ -486,6 +482,10 @@ it('shows BTC help on DOM hover without enabling or tracking the action', () => 
     onHide,
   });
   const row = mockSnapshot?.rows.find((item) => item.type === 'identity');
+  const currentAnchor = {
+    ...actionAnchor,
+    generation: mockSnapshot?.generation ?? 0,
+  };
   expect(row).toMatchObject({
     trailing: [
       { disabled: true, actionKey: 'hide', hoverActionKey: 'cannot-remove' },
@@ -495,7 +495,7 @@ it('shows BTC help on DOM hover without enabling or tracking the action', () => 
     mockRowAction?.({
       rowKey: row?.key,
       actionKey: 'cannot-remove',
-      anchor: { ...actionAnchor, source: 'row' },
+      anchor: { ...currentAnchor, source: 'row' },
     });
   });
   expect(screen.queryByTestId('token-tooltip')).toBeNull();
@@ -503,14 +503,14 @@ it('shows BTC help on DOM hover without enabling or tracking the action', () => 
     mockRowAction?.({
       rowKey: row?.key,
       actionKey: 'cannot-remove',
-      anchor: actionAnchor,
+      anchor: currentAnchor,
     });
   });
   expect(screen.getByTestId('token-tooltip').textContent).toBe(
     ETranslations.manage_token_native_token_cannot_removed,
   );
   expect(mockSetActionAnchorState).toHaveBeenCalledWith({
-    token: actionAnchor.token,
+    token: currentAnchor.token,
     open: true,
   });
   expect(onAdd).not.toHaveBeenCalled();
@@ -518,11 +518,11 @@ it('shows BTC help on DOM hover without enabling or tracking the action', () => 
   expect(mockButtonClick).not.toHaveBeenCalled();
 
   act(() => {
-    mockAnchorInvalidated?.({ token: actionAnchor.token, reason: 'scroll' });
+    mockAnchorInvalidated?.({ token: currentAnchor.token, reason: 'scroll' });
   });
   expect(screen.queryByTestId('token-tooltip')).toBeNull();
   expect(mockSetActionAnchorState).toHaveBeenCalledWith({
-    token: actionAnchor.token,
+    token: currentAnchor.token,
     open: false,
     restoreFocus: true,
   });
@@ -531,7 +531,7 @@ it('shows BTC help on DOM hover without enabling or tracking the action', () => 
     mockRowAction?.({
       rowKey: row?.key,
       actionKey: 'cannot-remove',
-      anchor: actionAnchor,
+      anchor: currentAnchor,
     });
   });
   expect(screen.getByTestId('token-tooltip')).toBeTruthy();
@@ -555,7 +555,7 @@ it('shows BTC help on DOM hover without enabling or tracking the action', () => 
     mockRowAction?.({
       rowKey: row?.key,
       actionKey: 'cannot-remove',
-      anchor: actionAnchor,
+      anchor: currentAnchor,
     });
   });
   expect(screen.queryByTestId('token-tooltip')).toBeNull();
@@ -578,19 +578,152 @@ it('uses NativeList on DOM targets', () => {
   mockIsNative = false;
   renderList();
   expect(screen.getByTestId('native-list')).toBeTruthy();
-  expect(mockLegacyRendered).toBe(false);
   expect(mockSnapshot?.rows).toHaveLength(2);
   expect(mockSnapshot?.theme).toBeDefined();
   expect(mockSnapshot?.theme?.rowHoverBackground).toBe('#123456');
 });
 
-it('keeps rows with no stable key in the existing list', () => {
+it('keeps missing and duplicate identities as distinct actionable rows', () => {
   const missingKeyToken = {
     ...token,
     $key: '',
     address: '',
   };
-  renderList({ sections: [{ title: 'Added', data: [missingKeyToken] }] });
-  expect(screen.getByTestId('legacy-list')).toBeTruthy();
-  expect(mockSnapshot).toBeUndefined();
+  const duplicate = { ...token, symbol: 'EX2' };
+  const onAdd = jest.fn(
+    (_item?: ICustomTokenItem) => new Promise<void>(() => {}),
+  );
+  const view = renderList({
+    sections: [{ title: 'Added', data: [missingKeyToken, token, duplicate] }],
+    onAdd,
+  });
+  const rows = mockSnapshot?.rows.filter((row) => row.type === 'identity');
+  expect(rows).toHaveLength(3);
+  expect(new Set(rows?.map((row) => row.key)).size).toBe(3);
+  act(() => {
+    mockRowAction?.({ rowKey: rows?.[0]?.key, actionKey: 'add' });
+    mockRowAction?.({ rowKey: rows?.[1]?.key, actionKey: 'add' });
+    mockRowAction?.({ rowKey: rows?.[2]?.key, actionKey: 'add' });
+  });
+  expect(onAdd.mock.calls.map(([item]) => item)).toEqual([
+    missingKeyToken,
+    token,
+  ]);
+  const oldAction = mockRowAction;
+  view.rerender(
+    <TokenManagerList
+      dataSource={[
+        { title: 'Added', data: [missingKeyToken, token, duplicate] },
+      ]}
+      onAddCustomToken={onAdd}
+      onHiddenToken={jest.fn().mockResolvedValue(undefined)}
+      isLoadingRemoteData={false}
+      networkId="evm--1"
+      isAllNetwork={false}
+      networkMaps={{}}
+      checkTokenExistInTokenList={() => undefined}
+      searchValue=""
+      searchResult={null}
+    />,
+  );
+  expect(
+    mockSnapshot?.rows.find((row) => row.type === 'identity')?.key,
+  ).not.toBe(rows?.[0]?.key);
+  act(() => {
+    oldAction?.({ rowKey: rows?.[0]?.key, actionKey: 'add' });
+    mockRowAction?.({ rowKey: rows?.[0]?.key, actionKey: 'add' });
+  });
+  expect(onAdd).toHaveBeenCalledTimes(2);
+});
+
+it('keeps a long business identity behind a short stable row key and rejects stale actions', () => {
+  const longToken = { ...token, $key: `evm--1_${'a'.repeat(600)}` };
+  const onAdd = jest.fn();
+  const first = renderList({
+    sections: [{ title: 'Added', data: [longToken] }],
+    onAdd,
+  });
+  const firstKey = mockSnapshot?.rows.find(
+    (row) => row.type === 'identity',
+  )?.key;
+  const firstGeneration = mockSnapshot?.generation;
+  const oldAction = mockRowAction;
+  expect(firstKey?.length).toBeLessThan(32);
+  expect(JSON.stringify(mockSnapshot)).not.toContain(longToken.$key);
+
+  first.rerender(
+    <TokenManagerList
+      dataSource={[{ title: 'Added', data: [{ ...longToken }] }]}
+      onAddCustomToken={onAdd}
+      onHiddenToken={jest.fn().mockResolvedValue(undefined)}
+      isLoadingRemoteData={false}
+      networkId="evm--1"
+      isAllNetwork={false}
+      networkMaps={{}}
+      checkTokenExistInTokenList={() => undefined}
+      searchValue=""
+      searchResult={null}
+    />,
+  );
+  expect(mockSnapshot?.rows.find((row) => row.type === 'identity')?.key).toBe(
+    firstKey,
+  );
+  expect(mockSnapshot?.generation).toBeGreaterThan(firstGeneration ?? 0);
+  act(() => {
+    oldAction?.({ rowKey: firstKey, actionKey: 'add' });
+    mockRowAction?.({
+      rowKey: firstKey,
+      actionKey: 'add',
+      anchor: { ...actionAnchor, generation: firstGeneration ?? 0 },
+    });
+  });
+  expect(onAdd).not.toHaveBeenCalled();
+  act(() => {
+    mockRowAction?.({ rowKey: firstKey, actionKey: 'add' });
+  });
+  expect(onAdd).toHaveBeenCalledTimes(1);
+  expect(onAdd).toHaveBeenCalledWith(longToken);
+});
+
+it('keeps unique row keys through reorder and does not reuse a removed identity key', () => {
+  const other = {
+    ...token,
+    $key: 'evm--1_0x456',
+    address: '0x456',
+    symbol: 'OTHER',
+  };
+  const onAdd = jest.fn();
+  const viewFor = (items: ICustomTokenItem[]) => (
+    <TokenManagerList
+      dataSource={[{ title: 'Added', data: items }]}
+      onAddCustomToken={onAdd}
+      onHiddenToken={jest.fn().mockResolvedValue(undefined)}
+      isLoadingRemoteData={false}
+      networkId="evm--1"
+      isAllNetwork={false}
+      networkMaps={{}}
+      checkTokenExistInTokenList={() => undefined}
+      searchValue=""
+      searchResult={null}
+    />
+  );
+  const view = render(viewFor([token, other]));
+  const identityRows = () =>
+    mockSnapshot?.rows.filter((row) => row.type === 'identity') ?? [];
+  const [firstKey, otherKey] = identityRows().map((row) => row.key);
+
+  view.rerender(viewFor([other, token]));
+  expect(identityRows().map((row) => row.key)).toEqual([otherKey, firstKey]);
+  view.rerender(viewFor([token]));
+  view.rerender(viewFor([token, other]));
+  const restoredKey = identityRows()[1]?.key;
+  expect(restoredKey).not.toBe(otherKey);
+  act(() => {
+    mockRowAction?.({ rowKey: otherKey, actionKey: 'add' });
+  });
+  expect(onAdd).not.toHaveBeenCalled();
+  act(() => {
+    mockRowAction?.({ rowKey: restoredKey, actionKey: 'add' });
+  });
+  expect(onAdd).toHaveBeenCalledWith(other);
 });

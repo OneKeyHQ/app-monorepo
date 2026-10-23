@@ -218,6 +218,7 @@ export function NativeHistoryList(
     tableLayout = false,
     initialized,
     frozenTopEnabled,
+    observeFrozenTop,
     onAwayFromTopChange,
     ListHeaderComponent,
     onEndReached,
@@ -997,12 +998,12 @@ export function NativeHistoryList(
             ? {
                 start: FREEZE_RELEASE_OFFSET,
                 end: FREEZE_ENGAGE_OFFSET,
-                enabled: frozenTopEnabled,
+                enabled: frozenTopEnabled && observeFrozenTop,
               }
             : undefined
         }
         onScrollPositionThresholdChange={
-          platformEnv.isNative
+          platformEnv.isNative && observeFrozenTop
             ? ({ isBeyondThreshold }) => onAwayFromTopChange(isBeyondThreshold)
             : undefined
         }

@@ -16,6 +16,8 @@ let mockSnapshot: NativeListSnapshot;
 let mockNativeListProps: {
   onRefresh?: () => void;
   onEndReached?: () => void;
+  scrollPositionThresholds?: { enabled: boolean };
+  onScrollPositionThresholdChange?: () => void;
 };
 let mockResolveVault: (value: { hideFeeInfoInHistoryList: boolean }) => void;
 let mockIsNative = true;
@@ -42,6 +44,8 @@ jest.mock('@onekeyfe/react-native-native-list', () => ({
     snapshot: NativeListSnapshot;
     onRefresh?: () => void;
     onEndReached?: () => void;
+    scrollPositionThresholds?: { enabled: boolean };
+    onScrollPositionThresholdChange?: () => void;
   }) => {
     mockSnapshot = snapshot;
     mockNativeListProps = props;
@@ -207,6 +211,19 @@ const baseProps = {
   observeFrozenTop: false,
   onAwayFromTopChange() {},
 } as IHomeHistoryListViewProps;
+
+it('only observes the native scroll position when requested', () => {
+  const view = render(<NativeHistoryList {...baseProps} frozenTopEnabled />);
+  expect(mockNativeListProps.scrollPositionThresholds?.enabled).toBe(false);
+  expect(mockNativeListProps.onScrollPositionThresholdChange).toBeUndefined();
+
+  view.rerender(
+    <NativeHistoryList {...baseProps} frozenTopEnabled observeFrozenTop />,
+  );
+  expect(mockNativeListProps.scrollPositionThresholds?.enabled).toBe(true);
+  expect(mockNativeListProps.onScrollPositionThresholdChange).toBeDefined();
+  expect(mockNativeListProps.onRefresh).toBeDefined();
+});
 
 it('keeps Home defaults and disables detail refresh while hiding the leading slot', () => {
   const { rerender } = render(<NativeHistoryList {...baseProps} />);

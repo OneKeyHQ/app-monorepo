@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
 import {
   NativeList,
@@ -7,11 +14,9 @@ import {
 import { useIntl } from 'react-intl';
 
 import {
-  Badge,
   Button,
   Divider,
   Empty,
-  SectionList,
   SizableText,
   Skeleton,
   Stack,
@@ -23,7 +28,6 @@ import {
 } from '@onekeyhq/components';
 import { LazyTooltip } from '@onekeyhq/components/src/actions/LazyTooltip';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
-import TokenIconView from '@onekeyhq/kit/src/components/TokenListView/TokenIconView';
 import { useTokenListViewContext } from '@onekeyhq/kit/src/components/TokenListView/TokenListViewContext';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -32,7 +36,6 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 import type {
-  IAccountToken,
   IAggregateToken,
   ICustomTokenItem,
 } from '@onekeyhq/shared/types/token';
@@ -72,8 +75,18 @@ type ITokenManagerListProps = {
   aggregateTokenConfigMap?: Record<string, IAggregateToken>;
 };
 
+type ITokenRowTarget = {
+  item: ICustomTokenItem;
+  pendingKey: string;
+};
+
+type ICommittedKeys = {
+  generation: number;
+  nextId: number;
+  byIdentity: Map<string, string>;
+};
+
 const MAX_NATIVE_TEXT_LENGTH = 4096;
-const MAX_NATIVE_KEY_LENGTH = 256;
 
 function truncateNativeText(text: unknown): string {
   if (typeof text !== 'string') return '';
@@ -92,16 +105,18 @@ function nativeImageUri(uri: unknown): string | undefined {
     : undefined;
 }
 
-function tokenRowKey(item: ICustomTokenItem, fallbackNetworkId: string) {
-  if (!item || typeof item !== 'object') return '';
+function tokenIdentity(
+  item: ICustomTokenItem,
+  fallbackNetworkId: string,
+): string | undefined {
+  if (!item || typeof item !== 'object') return undefined;
   const entityKey = item.$key || item.address;
-  if (typeof entityKey !== 'string' || !entityKey.trim()) return '';
-  const key = JSON.stringify([
+  if (typeof entityKey !== 'string' || !entityKey.trim()) return undefined;
+  return JSON.stringify([
     typeof item.networkId === 'string' ? item.networkId : fallbackNetworkId,
     typeof item.accountId === 'string' ? item.accountId : '',
     entityKey,
   ]);
-  return key.length <= MAX_NATIVE_KEY_LENGTH ? key : '';
 }
 
 function ListHeaderComponent({
@@ -249,7 +264,12 @@ function NativeTokenManagerList({
     ownedAggregateTokenListMap,
     networksMap: contextNetworksMap,
   } = useTokenListViewContext();
-  const pendingActions = useRef(new Set<string>());
+  const pendingActions = useRef(new Map<string, symbol>());
+  const committedKeys = useRef<ICommittedKeys>({
+    generation: 0,
+    nextId: 0,
+    byIdentity: new Map(),
+  });
   const active = useRef(true);
   const listRef = useRef<NativeListRef>(null);
   const [tooltip, setTooltip] = useState<{
@@ -319,9 +339,22 @@ function NativeTokenManagerList({
   const leadingEmptySection =
     dataSource[0]?.data.length === 0 ? dataSource[0] : undefined;
 
-  const { snapshot, tokensByKey } = useMemo(() => {
+  const { snapshot, tokensByKey, nextKeys } = useMemo(() => {
     const rows: RowModel[] = [];
-    const tokenMap = new Map<string, ICustomTokenItem>();
+    const tokenMap = new Map<string, ITokenRowTarget>();
+    const generation = committedKeys.current.generation + 1;
+    let nextId = committedKeys.current.nextId;
+    let rowOrdinal = 0;
+    const nextByIdentity = new Map<string, string>();
+    const identityCounts = new Map<string, number>();
+    dataSource.forEach((section) =>
+      section.data.forEach((item) => {
+        const identity = tokenIdentity(item, networkId);
+        if (identity) {
+          identityCounts.set(identity, (identityCounts.get(identity) ?? 0) + 1);
+        }
+      }),
+    );
 
     if (hasTokenRows) {
       dataSource.forEach((section, sectionIndex) => {
@@ -359,9 +392,19 @@ function NativeTokenManagerList({
         });
 
         section.data.forEach((item) => {
-          const key = tokenRowKey(item, networkId);
-          if (!key) return;
-          tokenMap.set(key, item);
+          const identity = tokenIdentity(item, networkId);
+          const isUnique = identity && identityCounts.get(identity) === 1;
+          let key: string;
+          if (isUnique) {
+            const existingKey = committedKeys.current.byIdentity.get(identity);
+            key = existingKey ?? `t${nextId}`;
+            if (!existingKey) nextId += 1;
+            nextByIdentity.set(identity, key);
+          } else {
+            key = `g${generation.toString(36)}:${rowOrdinal.toString(36)}`;
+          }
+          rowOrdinal += 1;
+          tokenMap.set(key, { item, pendingKey: identity ?? key });
           const isAdded = !!checkTokenExistInTokenList(item);
           const disabled = isAdded && networkUtils.isBTCNetwork(item.networkId);
           const ownedTokens =
@@ -546,7 +589,7 @@ function NativeTokenManagerList({
 
     const nextSnapshot: NativeListSnapshot = {
       schemaVersion: 1,
-      generation: 1,
+      generation,
       layout: {
         kind: 'sectioned',
         stickyHeaders: false,
@@ -558,6 +601,7 @@ function NativeTokenManagerList({
     return {
       snapshot: validateSnapshot(nextSnapshot),
       tokensByKey: tokenMap,
+      nextKeys: { generation, nextId, byIdentity: nextByIdentity },
     };
   }, [
     dataSource,
@@ -580,10 +624,14 @@ function NativeTokenManagerList({
     themeVariant,
   ]);
 
+  useLayoutEffect(() => {
+    committedKeys.current = nextKeys;
+  }, [nextKeys]);
+
   useEffect(() => {
     const current = tooltipRef.current;
     if (!current) return;
-    const item = tokensByKey.get(current.rowKey);
+    const item = tokensByKey.get(current.rowKey)?.item;
     if (
       !item ||
       !checkTokenExistInTokenList(item) ||
@@ -595,9 +643,16 @@ function NativeTokenManagerList({
 
   const handleRowAction = useCallback(
     (event: RowActionEvent) => {
-      if (!active.current || !event.rowKey) return;
-      const item = tokensByKey.get(event.rowKey);
-      if (!item || pendingActions.current.has(event.rowKey)) return;
+      if (
+        !active.current ||
+        !event.rowKey ||
+        committedKeys.current.generation !== snapshot.generation ||
+        (event.anchor && event.anchor.generation !== snapshot.generation)
+      )
+        return;
+      const target = tokensByKey.get(event.rowKey);
+      if (!target || pendingActions.current.has(target.pendingKey)) return;
+      const { item, pendingKey } = target;
       const isAdded = !!checkTokenExistInTokenList(item);
       if (event.actionKey === 'cannot-remove') {
         if (
@@ -621,21 +676,30 @@ function NativeTokenManagerList({
       if (event.actionKey !== (isAdded ? 'hide' : 'add')) return;
       if (isAdded && networkUtils.isBTCNetwork(item.networkId)) return;
 
-      pendingActions.current.add(event.rowKey);
+      const pendingToken = Symbol('token-manager-action');
+      pendingActions.current.set(pendingKey, pendingToken);
       try {
         defaultLogger.ui.button.click({
           trackId: AssetListTestIDs.tokenManagerToggleBtn,
         });
         const action = isAdded ? onHiddenToken(item) : onAddCustomToken(item);
         void Promise.resolve(action).finally(() => {
-          pendingActions.current.delete(event.rowKey ?? '');
+          if (pendingActions.current.get(pendingKey) === pendingToken)
+            pendingActions.current.delete(pendingKey);
         });
       } catch (error) {
-        pendingActions.current.delete(event.rowKey);
+        if (pendingActions.current.get(pendingKey) === pendingToken)
+          pendingActions.current.delete(pendingKey);
         throw error;
       }
     },
-    [tokensByKey, checkTokenExistInTokenList, onHiddenToken, onAddCustomToken],
+    [
+      tokensByKey,
+      snapshot.generation,
+      checkTokenExistInTokenList,
+      onHiddenToken,
+      onAddCustomToken,
+    ],
   );
 
   return (
@@ -725,180 +789,11 @@ function NativeTokenManagerList({
   );
 }
 
-function TokenManagerList({
-  dataSource,
-  onAddCustomToken,
-  onHiddenToken,
-  isLoadingRemoteData,
-  isLoadingLocalData,
-  networkId,
-  isAllNetwork,
-  networkMaps,
-  checkTokenExistInTokenList,
-  searchValue,
-  searchResult,
-  showListHeader = true,
-}: ITokenManagerListProps) {
-  const intl = useIntl();
-  const { bottom } = useSafeAreaInsets();
-
-  const renderItemBadge = useCallback(
-    (item: IAccountToken) => {
-      if (item.isAggregateToken) {
-        return (
-          <Badge>
-            {intl.formatMessage({ id: ETranslations.global__multichain })}
-          </Badge>
-        );
-      }
-
-      if (isAllNetwork) {
-        return <Badge>{networkMaps?.[item.networkId ?? '']?.name ?? ''}</Badge>;
-      }
-
-      return null;
-    },
-    [intl, isAllNetwork, networkMaps],
-  );
-
-  if (isLoadingRemoteData || !dataSource) {
+function TokenManagerList(props: ITokenManagerListProps) {
+  if (props.isLoadingRemoteData || !props.dataSource) {
     return <SkeletonList />;
   }
-  const keys = dataSource.flatMap((section) =>
-    section.data.map((item) => tokenRowKey(item, networkId)),
-  );
-  const hasUnsupportedEmptySection = dataSource.some(
-    (section, index) => index > 0 && section.data.length === 0,
-  );
-  const validKeys = keys.filter(Boolean);
-  if (
-    !hasUnsupportedEmptySection &&
-    validKeys.length === keys.length &&
-    new Set(validKeys).size === validKeys.length
-  ) {
-    return (
-      <NativeTokenManagerList
-        dataSource={dataSource}
-        onAddCustomToken={onAddCustomToken}
-        onHiddenToken={onHiddenToken}
-        isLoadingRemoteData={isLoadingRemoteData}
-        isLoadingLocalData={isLoadingLocalData}
-        networkId={networkId}
-        isAllNetwork={isAllNetwork}
-        networkMaps={networkMaps}
-        checkTokenExistInTokenList={checkTokenExistInTokenList}
-        searchValue={searchValue}
-        searchResult={searchResult}
-        showListHeader={showListHeader}
-      />
-    );
-  }
-  return (
-    <SectionList
-      ListHeaderComponent={
-        showListHeader ? (
-          <ListHeaderComponent onAddCustomToken={onAddCustomToken} />
-        ) : null
-      }
-      sections={dataSource}
-      estimatedItemSize={60}
-      renderSectionHeader={({ section: { title, data } }) => (
-        <>
-          <SizableText mt={10} px="$5" size="$bodyMd" color="$textSubdued">
-            {title}
-          </SizableText>
-          {Array.isArray(data) && !data.length ? (
-            <ListEmptyComponent
-              onAddCustomToken={onAddCustomToken}
-              isLoading={isLoadingRemoteData || !!isLoadingLocalData}
-            />
-          ) : null}
-        </>
-      )}
-      keyExtractor={(item) => (item as ICustomTokenItem).$key}
-      renderItem={({ item }: { item: ICustomTokenItem }) => (
-        <ListItem>
-          <TokenIconView
-            $key={item.$key}
-            icon={item.logoURI}
-            networkId={item.networkId ?? networkId}
-            isAllNetworks
-            showNetworkIcon={isAllNetwork || item.isAggregateToken}
-          />
-          <YStack flex={1}>
-            <XStack gap="$2" alignItems="center" flexShrink={1}>
-              <SizableText
-                size="$bodyLgMedium"
-                color="$text"
-                flexShrink={1}
-                numberOfLines={1}
-              >
-                {item.symbol}
-              </SizableText>
-              {renderItemBadge(item)}
-            </XStack>
-            <SizableText
-              size="$bodyMd"
-              color="$textSubdued"
-              flexShrink={1}
-              numberOfLines={1}
-            >
-              {item.name}
-            </SizableText>
-          </YStack>
-          <ListItem.IconButton
-            testID={AssetListTestIDs.tokenManagerToggleBtn}
-            disabled={
-              !!(
-                checkTokenExistInTokenList(item) &&
-                networkUtils.isBTCNetwork(item.networkId)
-              )
-            }
-            title={
-              checkTokenExistInTokenList(item) &&
-              networkUtils.isBTCNetwork(item.networkId)
-                ? intl.formatMessage({
-                    id: ETranslations.manage_token_native_token_cannot_removed,
-                  })
-                : undefined
-            }
-            icon={
-              checkTokenExistInTokenList(item)
-                ? 'MinusCircleOutline'
-                : 'PlusCircleOutline'
-            }
-            onPress={() =>
-              checkTokenExistInTokenList(item)
-                ? onHiddenToken(item)
-                : onAddCustomToken(item)
-            }
-            {...(checkTokenExistInTokenList(item) && {
-              iconProps: {
-                color: '$iconCritical',
-              },
-            })}
-          />
-        </ListItem>
-      )}
-      ListFooterComponent={
-        <>
-          <ListFooterComponent
-            searchValue={searchValue}
-            searchResult={searchResult}
-            onAddCustomToken={onAddCustomToken}
-          />
-          <Stack h={bottom || '$3'} />
-        </>
-      }
-      ListEmptyComponent={
-        <ListEmptyComponent
-          onAddCustomToken={onAddCustomToken}
-          isLoading={isLoadingRemoteData || !!isLoadingLocalData}
-        />
-      }
-      keyboardDismissMode="on-drag"
-    />
-  );
+  return <NativeTokenManagerList {...props} dataSource={props.dataSource} />;
 }
 
 export { TokenManagerList };
