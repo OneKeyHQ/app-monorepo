@@ -1008,10 +1008,3 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries â€
 **Root Cause**: The new production files are imported by the hardware sales page, so they enter the native graph, but no stable IDs were committed.
 **Fix**: Register both files in apps/mobile/bundle-registry/module-id-registry.json and pass a strict iOS union build.
 **Catchable by**: Section 4: a new file that the native bundle imports must be added to module-id-registry.json before the release bundle runs.
-
-## Case: Legacy notification click read a foreground navigation ref in native background
-**Date**: 2026-10-23 | **Platforms**: Android/iOS native background and main JS runtimes
-**Symptom**: Sentry issue 154527087 captured `Cannot read property 'current' of undefined` in `navigateToNotificationDetail`. The selected Android 6.6.1 event did not retain its notification payload, so its exact click mode is unconfirmed.
-**Root Cause**: A reproducible legacy notification click with no mode reaches the helper's final modal branch in the background runtime, which has no foreground navigation ref. The earlier route-state read was guarded, but the final dispatch still dereferenced that ref.
-**Fix**: Relay the complete modal route through the existing durable page-navigation event and replay the legacy `StackActions.push` in main. Keep modern payloads, foreground navigation, and extension behavior on their existing paths.
-**Catchable by**: Section 6: call the production notification helper with a native background runtime and no navigation ref; verify both default and transaction-detail intents, delayed foreground processing, exact push params, and unchanged modern URL validation.
