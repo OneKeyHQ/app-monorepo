@@ -1635,3 +1635,6 @@ pumpfun
 sunpump
 Jsign
 misttrack
+Borsh
+Galxe
+Hookable
