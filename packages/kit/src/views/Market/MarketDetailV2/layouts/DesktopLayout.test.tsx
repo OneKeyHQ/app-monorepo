@@ -173,7 +173,15 @@ jest.mock(
 );
 
 jest.mock('../hooks/StockDetailContext', () => ({
-  useStockDetail: jest.fn(() => mockStockDetailState),
+  useStockDetail: jest.fn(() => ({
+    ...mockStockDetailState,
+    priceSource: {
+      priceMode:
+        mockStockDetailState.stockId && !mockStockDetailState.isStockDetailError
+          ? mockMarketPriceSource
+          : 'token',
+    },
+  })),
 }));
 
 jest.mock('../hooks/useMarketDetailDisplayData', () => ({

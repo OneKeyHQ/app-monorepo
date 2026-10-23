@@ -37,6 +37,8 @@ export type IPromiseResultOptions<T> = {
   keepResultIfError?: boolean;
   undefinedResultIfReRun?: boolean;
   pollingInterval?: number;
+  // Start the first deps effect directly; later interval changes keep their schedule.
+  runImmediatelyOnMount?: boolean;
   // Run immediately when a polling interval becomes active or changes. The
   // default keeps the historical delay so callers can opt in per request.
   runImmediatelyOnPollingIntervalChange?: boolean;
@@ -484,6 +486,7 @@ export function usePromiseResult<T>(
   );
 
   const runAtRef = useRef(0);
+  const isInitialRunRef = useRef(true);
   const prevPollingInterval = usePrevious(optionsRef.current.pollingInterval);
   useEffect(() => {
     const callback = () => {
@@ -498,8 +501,14 @@ export function usePromiseResult<T>(
         pollingNonce: pollingNonceRef.current,
       });
     };
-    // execute immediately when the timer has not changed.
-    if (prevPollingInterval === optionsRef.current.pollingInterval) {
+    const runOnMount =
+      isInitialRunRef.current && optionsRef.current.runImmediatelyOnMount;
+    isInitialRunRef.current = false;
+    // Opted-in mounts avoid the timer queue; interval-change behavior is unchanged.
+    if (
+      runOnMount ||
+      prevPollingInterval === optionsRef.current.pollingInterval
+    ) {
       callback();
       // the interval duration of the call needs to be readjusted after the polling interval duration changes。
     } else {

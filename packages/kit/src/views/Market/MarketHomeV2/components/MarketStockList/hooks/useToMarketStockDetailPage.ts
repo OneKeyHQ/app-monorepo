@@ -14,6 +14,7 @@ import {
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useTokenDetailActions } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 import { preloadMarketDetailV2Page } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/marketDetailPagePreload';
+import { buildMarketStockDetailPreview } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/marketDetailPreview';
 import {
   getCurrentMarketStockDetailRoute,
   openOrReplaceMarketDetailRoute,
@@ -35,17 +36,26 @@ import {
 import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
 import { closeExtensionPopupAfterExpandTabOpen } from '@onekeyhq/shared/src/utils/extUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
-import type { IMarketStockDetailPreview } from '@onekeyhq/shared/types/marketV2';
+import type {
+  IMarketStockDetailPreview,
+  IMarketStockPublicItem,
+} from '@onekeyhq/shared/types/marketV2';
 
 interface IUseToMarketStockDetailPageOptions {
   replaceCurrentDetail?: boolean;
 }
 
-export type IMarketStockDetailNavigationTarget = IMarketStockDetailPreview & {
-  tokenAddress?: string;
-  networkId?: string;
-  isNative?: boolean;
-};
+export type IMarketStockDetailNavigationTarget = IMarketStockDetailPreview &
+  Partial<
+    Pick<
+      IMarketStockPublicItem,
+      'price' | 'priceChange24hPercent' | 'quoteUpdatedAt'
+    >
+  > & {
+    tokenAddress?: string;
+    networkId?: string;
+    isNative?: boolean;
+  };
 
 export type IMarketStockDetailNavigationInput =
   | string
@@ -138,6 +148,9 @@ export function useToMarketStockDetailPage(
       if (!isCurrentRequest()) return false;
       const stockId = typeof stock === 'string' ? stock : stock.stockId;
       const stockPreview = typeof stock === 'string' ? undefined : stock;
+      const stockPreviewQuote = stockPreview
+        ? buildMarketStockDetailPreview(stockPreview)?.quote
+        : undefined;
       const stockTokenParams =
         stockPreview?.tokenAddress && stockPreview.networkId
           ? {
@@ -230,6 +243,7 @@ export function useToMarketStockDetailPage(
                 stockPreviewSymbol: stockPreview.symbol,
                 stockPreviewName: stockPreview.name,
                 stockPreviewLogoUrl: stockPreview.logoUrl,
+                ...(stockPreviewQuote ? { stockPreviewQuote } : undefined),
               }
             : undefined),
         };
@@ -277,6 +291,7 @@ export function useToMarketStockDetailPage(
               stockPreviewSymbol: stockPreview?.symbol,
               stockPreviewName: stockPreview?.name,
               stockPreviewLogoUrl: stockPreview?.logoUrl,
+              stockPreviewQuote,
             });
           } else {
             // Reset the tab stack so returning from the selected stock does not
@@ -305,6 +320,7 @@ export function useToMarketStockDetailPage(
                   stockPreviewSymbol: stockPreview.symbol,
                   stockPreviewName: stockPreview.name,
                   stockPreviewLogoUrl: stockPreview.logoUrl,
+                  ...(stockPreviewQuote ? { stockPreviewQuote } : undefined),
                 }
               : undefined),
           },

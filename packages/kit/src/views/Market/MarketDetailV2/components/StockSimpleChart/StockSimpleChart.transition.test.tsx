@@ -73,9 +73,12 @@ jest.mock('@onekeyhq/kit/src/hooks/usePromiseResult', () => ({
     return mockPromiseResult();
   },
 }));
-const mockChart = jest.fn<void, [{ data: IMarketTokenChart }]>();
+const mockChart = jest.fn<
+  void,
+  [{ data: IMarketTokenChart; height: number }]
+>();
 jest.mock('@onekeyhq/kit/src/components/StockPriceLineChart', () => ({
-  StockPriceLineChart: (props: { data: IMarketTokenChart }) => {
+  StockPriceLineChart: (props: { data: IMarketTokenChart; height: number }) => {
     mockChart(props);
     return <div data-testid="rendered-chart" />;
   },
@@ -241,4 +244,11 @@ it('uses the real live-price polling hook to replace the stale Swap snapshot end
   expect(
     mockMarketActions.current.applyChartPriceUpdate,
   ).not.toHaveBeenCalled();
+});
+
+it('uses the known mobile chart height before its first layout measurement', () => {
+  render(
+    <StockSimpleChartContent {...base} isNative={false} initialHeight={280} />,
+  );
+  expect(mockChart.mock.calls[0][0].height).toBe(280);
 });

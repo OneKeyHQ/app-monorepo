@@ -422,6 +422,10 @@ function MarketDetailV2(
       'stockPreviewName' in props.route.params
         ? props.route.params.stockPreviewName
         : undefined,
+    quote:
+      'stockPreviewQuote' in props.route.params
+        ? props.route.params.stockPreviewQuote
+        : undefined,
     logoUrl:
       'stockPreviewLogoUrl' in props.route.params
         ? props.route.params.stockPreviewLogoUrl

@@ -12,10 +12,7 @@ import { getTradingViewNativeSourceKey } from '@onekeyhq/kit/src/components/Trad
 import { getTradingViewNativeIntervalStorageNamespace } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative/data/tradingViewNativeIntervalStorage';
 import type { IMarketKLineDataFallback } from '@onekeyhq/kit/src/components/TradingView/utils/fetchMarketKLineData';
 import { fetchMarketStockKLineData } from '@onekeyhq/kit/src/components/TradingView/utils/fetchMarketStockKLineData';
-import {
-  useMarketDetailChartDisplayModePersistAtom,
-  useMarketPriceSourceAtom,
-} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { useMarketDetailChartDisplayModePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   TRADING_VIEW_LOCALHOST_ORIGIN,
   TRADING_VIEW_URL,
@@ -36,7 +33,7 @@ import { useStockDetail } from '../hooks/StockDetailContext';
 import { useMarketDetailDisplayData } from '../hooks/useMarketDetailDisplayData';
 import { useMarketKlineLivePrice } from '../hooks/useMarketKlineLivePrice';
 import { useMarketNativeChartPriceUpdate } from '../hooks/useMarketNativeChartPriceUpdate';
-import { resolveDisplayedStockPriceMode } from '../hooks/useStockPriceSource';
+import { useStockPriceSource } from '../hooks/useStockPriceSource';
 import {
   useMarketTradingViewParams,
   useTokenDetail,
@@ -197,18 +194,12 @@ export function DesktopLayout({
     selectedTokenVariant,
     stockDetail,
     stockId,
-    isStockDetailError,
   } = useStockDetail();
   const shouldUseStockDesktopLayout = isStockRoute && Boolean(stockId);
   const shouldUseTopCoinsDesktopLayout =
     !shouldUseStockDesktopLayout &&
     marketTokenCategory === MARKET_TOP_COINS_CATEGORY_ID;
-  const [{ source: stockPriceSource }] = useMarketPriceSourceAtom();
-  const displayedStockPriceSource = resolveDisplayedStockPriceMode({
-    stockId,
-    isStockDetailError,
-    storedPriceMode: stockPriceSource,
-  });
+  const { priceMode: displayedStockPriceSource } = useStockPriceSource();
   const isStockSharePrice =
     shouldUseStockDesktopLayout && displayedStockPriceSource === 'share';
   // Stock detail charts offer Prev close in both price modes.

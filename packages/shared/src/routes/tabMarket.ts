@@ -1,6 +1,7 @@
 import type { IMarketPreferredToken } from '../../types/market';
 import type {
   EMarketBannerType,
+  IMarketStockDetailPreview,
   IMarketTokenDetailPreview,
 } from '../../types/marketV2';
 import type { EEnterWay } from '../logger/scopes/dex';
@@ -37,6 +38,7 @@ export type IMarketStockDetailRouteParams = {
   stockPreviewSymbol?: string;
   stockPreviewName?: string;
   stockPreviewLogoUrl?: string;
+  stockPreviewQuote?: IMarketStockDetailPreview['quote'];
   tokenAddress?: string;
   network?: string;
   isNative?: boolean;

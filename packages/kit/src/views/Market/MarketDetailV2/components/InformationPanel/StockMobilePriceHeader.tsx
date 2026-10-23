@@ -6,6 +6,7 @@ import {
   Button,
   NumberSizeableText,
   SizableText,
+  Skeleton,
   Stack,
   XStack,
   YStack,
@@ -98,23 +99,36 @@ function StockPriceChangeLine({
   );
 }
 
+// 36pt price, 20pt change, 2pt gap, 20pt status, 12pt row gap, and 36pt padding.
+export const STOCK_MOBILE_PRICE_HEADER_HEIGHT = 126;
+
 export function StockMobilePriceHeader() {
   const intl = useIntl();
-  const { priceMode, handlePriceModeChange, sharePriceAvailable } =
-    useStockPriceSource();
+  const {
+    priceMode,
+    handlePriceModeChange,
+    sharePriceAvailable,
+    isPriceSourceReady,
+  } = useStockPriceSource();
   const { tokenDetail } = useTokenDetail();
-  const { stockDetail, selectedTokenVariant, stockId } = useStockDetail();
+  const { stockDetail, stockPreview, selectedTokenVariant, stockId } =
+    useStockDetail();
+  const sharePreview =
+    stockPreview?.quote?.source === 'share' ? stockPreview.quote : undefined;
   const isSharePrice = priceMode === 'share';
-  const price = isSharePrice ? stockDetail?.price : tokenDetail?.price;
+  const shareQuote =
+    stockDetail?.price !== undefined ? stockDetail : sharePreview;
+  const price = isSharePrice ? shareQuote?.price : tokenDetail?.price;
   const priceChangePercent = isSharePrice
-    ? stockDetail?.priceChange24hPercent
+    ? shareQuote?.priceChange24hPercent
     : tokenDetail?.priceChange24hPercent;
   const priceChangeValue = resolveDisplayedPriceChange({
     price,
     priceChangePercent,
-    reportedPriceChangeValue: isSharePrice
-      ? stockDetail?.priceChange24hValue
-      : undefined,
+    reportedPriceChangeValue:
+      isSharePrice && stockDetail?.price !== undefined
+        ? stockDetail.priceChange24hValue
+        : undefined,
   });
   const { color: priceChangeColor } =
     formatPriceChangeDisplay(priceChangePercent);
@@ -132,9 +146,36 @@ export function StockMobilePriceHeader() {
   const tokenSymbol =
     stockDetail?.symbol ?? tokenDetail?.symbol ?? stockId ?? '';
 
+  let priceContent = (
+    <SizableText size="$heading3xl">{STAT_FALLBACK_VALUE}</SizableText>
+  );
+  if (!isPriceSourceReady) {
+    priceContent = (
+      <Stack height={36} justifyContent="center">
+        <Skeleton width={140} height={32} />
+      </Stack>
+    );
+  } else if (price) {
+    priceContent = (
+      <MarketTokenPrice
+        size="$heading3xl"
+        price={price}
+        cacheKey={`stock-mobile-${stockId ?? 'unknown'}-${priceMode}`}
+        tokenName={tokenName}
+        tokenSymbol={tokenSymbol}
+        lastUpdated={
+          isSharePrice
+            ? shareQuote?.quoteUpdatedAt
+            : tokenDetail?.lastUpdated?.toString()
+        }
+      />
+    );
+  }
+
   return (
     <YStack
       testID="stock-mobile-price-header"
+      minHeight={STOCK_MOBILE_PRICE_HEADER_HEIGHT}
       px="$5"
       pt="$3"
       pb="$6"
@@ -143,27 +184,18 @@ export function StockMobilePriceHeader() {
     >
       <XStack alignItems="flex-start" justifyContent="space-between" gap="$3">
         <YStack flex={1} minWidth={0} gap="$0.5">
-          {price ? (
-            <MarketTokenPrice
-              size="$heading3xl"
-              price={price}
-              cacheKey={`stock-mobile-${stockId ?? 'unknown'}-${priceMode}`}
-              tokenName={tokenName}
-              tokenSymbol={tokenSymbol}
-              lastUpdated={
-                isSharePrice
-                  ? stockDetail?.quoteUpdatedAt
-                  : tokenDetail?.lastUpdated?.toString()
-              }
+          {priceContent}
+          {isPriceSourceReady ? (
+            <StockPriceChangeLine
+              changeValueText={changeValueText}
+              priceChangePercent={priceChangePercent}
+              color={priceChangeColor}
             />
           ) : (
-            <SizableText size="$heading3xl">{STAT_FALLBACK_VALUE}</SizableText>
+            <Stack height={20} justifyContent="center">
+              <Skeleton width={100} height={16} />
+            </Stack>
           )}
-          <StockPriceChangeLine
-            changeValueText={changeValueText}
-            priceChangePercent={priceChangePercent}
-            color={priceChangeColor}
-          />
         </YStack>
         {sharePriceAvailable ? (
           <XStack alignItems="center" gap="$0.5" flexShrink={0}>
@@ -172,7 +204,7 @@ export function StockMobilePriceHeader() {
               label={intl.formatMessage({
                 id: ETranslations.market_share_price,
               })}
-              selected={priceMode === 'share'}
+              selected={isPriceSourceReady && priceMode === 'share'}
               onPress={() => handlePriceModeChange('share')}
             />
             <PriceModeButton
@@ -180,7 +212,7 @@ export function StockMobilePriceHeader() {
               label={intl.formatMessage({
                 id: ETranslations.market_token_price,
               })}
-              selected={priceMode === 'token'}
+              selected={isPriceSourceReady && priceMode === 'token'}
               onPress={() => handlePriceModeChange('token')}
             />
           </XStack>
@@ -192,11 +224,13 @@ export function StockMobilePriceHeader() {
         minHeight={20}
         justifyContent="center"
       >
-        <StockMarketStatusBadge
-          stock={stockStatus}
-          variant="inline"
-          showLastUpdate={isSharePrice}
-        />
+        {isPriceSourceReady ? (
+          <StockMarketStatusBadge
+            stock={stockStatus}
+            variant="inline"
+            showLastUpdate={isSharePrice}
+          />
+        ) : null}
       </Stack>
     </YStack>
   );

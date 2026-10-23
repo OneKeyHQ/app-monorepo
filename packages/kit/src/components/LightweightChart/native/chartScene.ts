@@ -36,6 +36,7 @@ export type INativeChartScene = {
     price?: number;
     secondaryPrice?: number;
     priceLabel: string;
+    color: string;
   })[];
   axisWidth: number;
   secondarySegments: IPoint[][];
@@ -80,7 +81,23 @@ export function formatNativeChartPrice(
     );
   }
   const precision = config.priceFormatterPrecision ?? 2;
-  return `${Number(price.toFixed(precision))}${config.priceFormatterType === 'percent' ? '%' : ''}`;
+  return config.priceFormatterType === 'percent'
+    ? `${price.toFixed(precision)}%`
+    : String(Number(price.toFixed(precision)));
+}
+
+function getSeriesColor(config: ILightweightChartConfig, price: number) {
+  if (config.seriesType === 'baseline') {
+    return price >= (config.baselineOptions?.baseValue?.price ?? 0)
+      ? (config.baselineOptions?.topLineColor ?? config.theme.lineColor)
+      : (config.baselineOptions?.bottomLineColor ?? config.theme.lineColor);
+  }
+  if (config.seriesType === 'histogram') {
+    return price >= (config.histogramOptions?.base ?? 0)
+      ? (config.histogramOptions?.positiveColor ?? config.theme.lineColor)
+      : (config.histogramOptions?.negativeColor ?? config.theme.lineColor);
+  }
+  return config.theme.lineColor;
 }
 
 function niceStep(value: number) {
@@ -96,14 +113,6 @@ function timeLabel(
   type: number,
   config: ILightweightChartConfig,
 ) {
-  const label =
-    formatChartTickMarkInTimeZone({
-      time: time as ILightweightChartTime,
-      tickMarkType: type,
-      timeZone:
-        config.timeZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone,
-      locale: config.locale,
-    }) ?? '';
   if (config.useTimeScaleTickMarkWithoutUnit && !config.timeZone) {
     return (
       formatChartTickMarkWithoutUnit(
@@ -113,7 +122,15 @@ function timeLabel(
       ) ?? ''
     );
   }
-  return label;
+  return (
+    formatChartTickMarkInTimeZone({
+      time: time as ILightweightChartTime,
+      tickMarkType: type,
+      timeZone:
+        config.timeZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone,
+      locale: config.locale,
+    }) ?? ''
+  );
 }
 
 export function buildNativeChartScene({
@@ -146,8 +163,7 @@ export function buildNativeChartScene({
     config.seriesType === 'baseline'
       ? (config.baselineOptions?.baseValue?.price ?? 0)
       : (config.histogramOptions?.base ?? 0);
-  if (config.seriesType === 'baseline' || config.seriesType === 'histogram')
-    values.push(base);
+  if (config.seriesType === 'histogram') values.push(base);
   if (config.referenceLine?.includeInAutoscale)
     values.push(config.referenceLine.price);
   let min = values.length ? Math.min(...values) : 0;
@@ -167,7 +183,16 @@ export function buildNativeChartScene({
     max - ((y - plotHeight * margins.top) / drawableHeight) * range;
   const yAtValue = (price: number) =>
     plotHeight * margins.top + ((max - price) / range) * drawableHeight;
+  const precision =
+    config.priceFormatterPrecision ??
+    (config.priceFormatterType === 'percent' && !config.priceFormatter
+      ? 2
+      : undefined);
+  let minimumStep = precision === undefined ? 0 : 10 ** -precision;
+  if (config.priceFormatBase && config.priceFormatBase > 0)
+    minimumStep = 1 / config.priceFormatBase;
   const step = Math.max(
+    minimumStep,
     config.priceFormatterTickStep ?? 0,
     niceStep(range / Math.max(2, drawableHeight / (fontSize * 3))),
   );
@@ -240,6 +265,10 @@ export function buildNativeChartScene({
         price,
         secondaryPrice,
         priceLabel: formatNativeChartPrice(value, config),
+        color:
+          price === undefined
+            ? (config.secondaryLineColor ?? config.theme.lineColor)
+            : getSeriesColor(config, price),
       },
     ];
   });
@@ -326,7 +355,9 @@ export function buildNativeChartScene({
         )
       : source;
   const areaBottom =
-    config.seriesType === 'baseline' ? yAtValue(base) : plotHeight;
+    config.seriesType === 'baseline'
+      ? Math.max(0, Math.min(plotHeight, yAtValue(base)))
+      : plotHeight;
   const polygon = [
     { x: points[0].x, y: areaBottom },
     ...linePoints(points),
@@ -459,11 +490,12 @@ export function buildNativeChartScene({
     segment.push({ x: xAtIndex(index), y: yAtValue(point.value) });
   });
   if (segment.length) secondarySegments.push(segment);
-  style(
-    'secondary',
-    config.secondaryLineColor ?? config.theme.lineColor,
-    config.secondaryLineWidth ?? 2,
-  );
+  if (secondarySegments.length)
+    style(
+      'secondary',
+      config.secondaryLineColor ?? config.theme.lineColor,
+      config.secondaryLineWidth ?? 2,
+    );
   secondarySegments.forEach((part) => {
     if (part.length > 1)
       commands.push({
@@ -520,7 +552,7 @@ export function buildNativeChartScene({
   if (config.showLastValue && config.showLastValuePriceLine !== false)
     line(
       'lastValueLine',
-      config.lastValueLabelColor ?? config.theme.lineColor,
+      config.lastValueLabelColor ?? getSeriesColor(config, lastPoint.price),
       plot.x,
       lastPoint.y,
       plot.x + plot.width,
@@ -646,26 +678,41 @@ export function buildNativeChartScene({
       axisLabel(
         'lastLabel',
         lastPoint.price,
-        config.lastValueLabelColor ?? config.theme.lineColor,
+        config.lastValueLabelColor ?? getSeriesColor(config, lastPoint.price),
         '#fff',
         lastLabelY,
       );
   }
   if (showTimeScale) {
+    // Resolve the default once, only when labels actually use the timezone.
+    const timeScaleConfig =
+      config.timeZone !== undefined || config.useTimeScaleTickMarkWithoutUnit
+        ? config
+        : {
+            ...config,
+            timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+          };
     const candidates = points.map((point, index) => {
       const previous = points[index - 1];
-      const year = timeLabel(point.time, 0, config);
-      const month = timeLabel(point.time, 1, config);
-      const day = timeLabel(point.time, 2, config);
+      const year = timeLabel(point.time, 0, timeScaleConfig);
+      const month = timeLabel(point.time, 1, timeScaleConfig);
+      const day = timeLabel(point.time, 2, timeScaleConfig);
       let type = 3;
-      if (previous && year !== timeLabel(previous.time, 0, config)) type = 0;
-      else if (previous && month !== timeLabel(previous.time, 1, config))
+      if (previous && year !== timeLabel(previous.time, 0, timeScaleConfig))
+        type = 0;
+      else if (
+        previous &&
+        month !== timeLabel(previous.time, 1, timeScaleConfig)
+      )
         type = 1;
-      else if (!previous || day !== timeLabel(previous.time, 2, config))
+      else if (
+        !previous ||
+        day !== timeLabel(previous.time, 2, timeScaleConfig)
+      )
         type = 2;
       return {
         ...point,
-        text: timeLabel(point.time, type, config),
+        text: timeLabel(point.time, type, timeScaleConfig),
         priority: 4 - type,
       };
     });
@@ -778,9 +825,9 @@ export function buildNativeChartCrosshair(
     },
     hoverDot: {
       color:
-        scene.customPaintStyles.secondary?.color ??
-        scene.customPaintStyles.primary?.color ??
-        '#33C641',
+        scrub && point?.secondaryPrice !== undefined
+          ? (scene.customPaintStyles.secondary?.color ?? point.color)
+          : (point?.color ?? '#33C641'),
       opacity: 1,
     },
     hoverBackground: { color: '#4C525E', opacity: 1 },

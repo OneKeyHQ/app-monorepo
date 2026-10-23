@@ -1,5 +1,8 @@
 import type { ITradingViewNativeStorageNamespace } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative/types';
-import type { EMarketBannerType } from '@onekeyhq/shared/types/marketV2';
+import type {
+  EMarketBannerType,
+  IMarketStockDetailPreview,
+} from '@onekeyhq/shared/types/marketV2';
 import type { ITradingViewNativeAnyIndicatorId } from '@onekeyhq/shared/types/tradingViewNative';
 
 export enum EModalMarketRoutes {
@@ -18,6 +21,7 @@ export type IModalMarketParamList = {
     stockPreviewSymbol?: string;
     stockPreviewName?: string;
     stockPreviewLogoUrl?: string;
+    stockPreviewQuote?: IMarketStockDetailPreview['quote'];
     isNative?: boolean;
     showFavoriteButton?: boolean;
   };

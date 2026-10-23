@@ -216,6 +216,7 @@ it('renders step segments and their area with matching geometry', () => {
 it('draws a native scrub card and cuts only the solid overlay at the cursor', () => {
   const chart = scene({
     secondaryLineData: config.data,
+    secondaryLineColor: '#0f0',
     hideCrosshairPriceLabel: true,
   });
   const point = chart.points[1];
@@ -227,6 +228,7 @@ it('draws a native scrub card and cuts only the solid overlay at the cursor', ()
     timeColor: '#888',
     largePrice: false,
   });
+  expect(overlay.customPaintStyles.hoverDot.color).toBe('#0f0');
   expect(overlay.commands.find((c) => c.kind === 'polyline')).toEqual(
     expect.objectContaining({ points: chart.secondarySegments[0].slice(0, 2) }),
   );
@@ -303,4 +305,157 @@ it('separates nearby last-price and previous-close badges and clamps time labels
         previous.x + previous.text.length * 6 + 20,
       );
   }
+});
+
+it('keeps unitless time labels without creating unused timezone formatters', () => {
+  const formatter = jest.spyOn(Intl, 'DateTimeFormat');
+  try {
+    const chart = scene({
+      useTimeScaleTickMarkWithoutUnit: true,
+      data: Array.from({ length: 288 }, (_, index) => ({
+        time: (Date.UTC(2026, 9, 22) / 1000 +
+          index * 300) as ILightweightChartTime,
+        value: 100 + index / 10,
+      })),
+    });
+    const labels = chart.commands.filter(
+      (command) => command.kind === 'text' && command.font === 'axis',
+    );
+    expect(labels.length).toBeGreaterThan(1);
+    expect(
+      labels.every(
+        (command) =>
+          command.kind === 'text' && /^(\d{2}|\d{2}:\d{2})$/.test(command.text),
+      ),
+    ).toBe(true);
+    expect(formatter).not.toHaveBeenCalled();
+  } finally {
+    formatter.mockRestore();
+  }
+});
+
+it('resolves the default timezone once while preserving explicit-zone labels', () => {
+  const data = Array.from({ length: 48 }, (_, index) => ({
+    time: (Date.UTC(2026, 9, 22) / 1000 +
+      index * 1800) as ILightweightChartTime,
+    value: 100 + index,
+  }));
+  const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const expected = scene({ data, timeZone: timezone, locale: 'en-US' });
+  const formatter = jest.spyOn(Intl, 'DateTimeFormat');
+  try {
+    expect(scene({ data, locale: 'en-US' })).toEqual(expected);
+    expect(formatter).toHaveBeenCalledTimes(1);
+  } finally {
+    formatter.mockRestore();
+  }
+});
+
+it('preserves fixed precision for default percent readouts', () => {
+  expect(
+    formatNativeChartPrice(4, {
+      ...config,
+      priceScaleFormat: undefined,
+      priceFormatterType: 'percent',
+    }),
+  ).toBe('4.00%');
+  expect(
+    formatNativeChartPrice(4.5, {
+      ...config,
+      priceScaleFormat: undefined,
+      priceFormatterType: 'percent',
+      priceFormatterPrecision: 4,
+    }),
+  ).toBe('4.5000%');
+});
+
+it.each(['baseline', 'histogram'] as const)(
+  'uses signed %s colors for hover, the last value and its price line',
+  (seriesType) => {
+    const chart = scene({
+      seriesType,
+      showLastValue: true,
+      data: [
+        { time: 100 as ILightweightChartTime, value: 1 },
+        { time: 200 as ILightweightChartTime, value: -1 },
+      ],
+      baselineOptions: { topLineColor: '#0f0', bottomLineColor: '#f00' },
+      histogramOptions: { positiveColor: '#0f0', negativeColor: '#f00' },
+    });
+    expect(chart.customPaintStyles.lastLabel.color).toBe('#f00');
+    expect(chart.customPaintStyles.lastValueLine.color).toBe('#f00');
+    for (const [index, color] of [
+      [0, '#0f0'],
+      [1, '#f00'],
+    ] as const) {
+      const point = chart.points[index];
+      expect(
+        buildNativeChartCrosshair(chart, point.x, point.y).customPaintStyles
+          .hoverDot.color,
+      ).toBe(color);
+    }
+    expect(
+      scene({ seriesType, showLastValue: true, lastValueLabelColor: '#abc' })
+        .customPaintStyles.lastLabel.color,
+    ).toBe('#abc');
+  },
+);
+
+it('uses the primary color at shared timestamps and the secondary color only for overlay-only points', () => {
+  const chart = scene({
+    secondaryLineColor: '#00f',
+    secondaryLineData: [
+      { time: 100 as ILightweightChartTime, value: 102 },
+      { time: 150 as ILightweightChartTime, value: 104 },
+    ],
+  });
+  for (const [time, color] of [
+    [100, config.theme.lineColor],
+    [150, '#00f'],
+  ] as const) {
+    const point = chart.hoverPoints.find((p) => p.time === time)!;
+    expect(
+      buildNativeChartCrosshair(chart, point.x, point.y).customPaintStyles
+        .hoverDot.color,
+    ).toBe(color);
+  }
+  const primaryOnly = scene({ secondaryLineColor: '#00f' });
+  expect(primaryOnly.customPaintStyles.secondary).toBeUndefined();
+});
+
+it.each([1, -1])(
+  'autoscales narrow baseline data on the same side of zero (%s)',
+  (sign) => {
+    const chart = scene({
+      seriesType: 'baseline',
+      data: [
+        { time: 100 as ILightweightChartTime, value: sign * 0.01 },
+        { time: 200 as ILightweightChartTime, value: sign * 0.0101 },
+      ],
+    });
+    expect(Math.abs(chart.points[0].y - chart.points[1].y)).toBeGreaterThan(
+      chart.plot.height / 2,
+    );
+    const polygon = chart.commands.find((c) => c.kind === 'clipPolygon');
+    expect(polygon?.kind === 'clipPolygon' && polygon.points[0].y).toBe(
+      sign > 0 ? chart.plot.height : 0,
+    );
+  },
+);
+
+it.each([
+  { priceScaleFormat: undefined, priceFormatterType: 'percent' as const },
+  { priceFormatBase: 100 },
+])('avoids duplicate tick labels on narrow ranges: %j', (overrides) => {
+  const chart = scene({
+    ...overrides,
+    data: [
+      { time: 100 as ILightweightChartTime, value: 4.12 },
+      { time: 200 as ILightweightChartTime, value: 4.121 },
+    ],
+  });
+  const labels = chart.commands.flatMap((c) =>
+    c.kind === 'text' && c.font === 'priceAxis' ? [c.text] : [],
+  );
+  expect(labels.length).toBeLessThanOrEqual(1);
 });

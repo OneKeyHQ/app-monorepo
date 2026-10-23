@@ -70,3 +70,29 @@ describe('hasValidMarketDetailPreview', () => {
     ).toBe(false);
   });
 });
+
+it('keeps a valid list quote explicitly scoped to share prices', () => {
+  expect(
+    buildMarketStockDetailPreview({
+      stockId: 'AAPL',
+      symbol: 'AAPL',
+      name: 'Apple',
+      price: '123.45',
+      priceChange24hPercent: '1.5',
+    })?.quote,
+  ).toEqual({ source: 'share', price: '123.45', priceChange24hPercent: '1.5' });
+});
+
+it.each(['NaN', 'Infinity', '-1'])(
+  'rejects an invalid preview quote: %s',
+  (price) => {
+    expect(
+      buildMarketStockDetailPreview({
+        stockId: 'AAPL',
+        symbol: 'AAPL',
+        name: 'Apple',
+        price,
+      })?.quote,
+    ).toBeUndefined();
+  },
+);

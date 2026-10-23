@@ -8,13 +8,19 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 import { LightweightChart } from './LightweightChart.native';
 
+import type { ILightweightChartProps } from './types';
+
 const mockReactions = new Set<() => void>();
 const mockGestureHandlers: Record<
   string,
   (event?: unknown, manager?: unknown) => void
 > = {};
 const mockDraws: {
-  commands: { kind: string; points?: { x: number; y: number }[] }[];
+  commands: {
+    kind: string;
+    customPaintId?: string;
+    points?: { x: number; y: number }[];
+  }[];
 }[] = [];
 let mockTypeface: object | null = null;
 const mockFont = {
@@ -127,13 +133,19 @@ jest.mock('@shopify/react-native-skia', () => ({
     draw({});
     return {};
   },
-  useTypeface: () => mockTypeface,
+}));
+jest.mock('./native/useChartTypeface', () => ({
+  useChartTypeface: () => mockTypeface,
 }));
 jest.mock('../TradingView/TradingViewNative/native/chartSkiaRenderer', () => ({
   createTradingViewNativeSkiaFontForText: () => mockFont,
   createTradingViewNativeSkiaResources: () => ({}),
   createTradingViewNativeSkiaCommandPicture: (draw: {
-    commands: { kind: string; points?: { x: number; y: number }[] }[];
+    commands: {
+      kind: string;
+      customPaintId?: string;
+      points?: { x: number; y: number }[];
+    }[];
   }) => {
     mockDraws.push(draw);
     return {};
@@ -145,7 +157,13 @@ jest.mock('../TradingView/TradingViewNative/native/chartSkiaText', () => ({
     text.length * 6,
 }));
 jest.mock('./hooks/useChartConfig', () => ({
-  useChartConfig: ({ data }: { data: [number, number][] }) => ({
+  useChartConfig: ({
+    data,
+    secondaryLineData,
+  }: {
+    data: [number, number][];
+    secondaryLineData?: [number, number][];
+  }) => ({
     theme: {
       lineColor: '#0a5',
       topColor: '#0a5333',
@@ -157,6 +175,10 @@ jest.mock('./hooks/useChartConfig', () => ({
     showTimeScale: true,
     priceScaleFormat: 'stock',
     data: data.map(([time, value]) => ({ time, value })),
+    secondaryLineData: secondaryLineData?.map(([time, value]) => ({
+      time,
+      value,
+    })),
   }),
 }));
 
@@ -266,4 +288,49 @@ it('leaves axis touches available to native page gestures', () => {
   const manager = { fail: jest.fn() };
   mockGestureHandlers.down({ changedTouches: [{ x: 401, y: 100 }] }, manager);
   expect(manager.fail).toHaveBeenCalledTimes(1);
+});
+
+it('restores the full solid line when an active scrub leaves the plot and cuts it again on re-entry', () => {
+  const props: ILightweightChartProps = {
+    data: [
+      [100, 1],
+      [200, 2],
+    ] as [number, number][],
+    secondaryLineData: [
+      [100, 1],
+      [200, 2],
+    ] as [number, number][],
+    height: 280,
+    nativeScrubOptions: {
+      labels: {},
+      largePrice: false,
+      backgroundColor: '#fff',
+      borderColor: '#ddd',
+      textColor: '#000',
+      timeColor: '#888',
+    },
+  };
+  const { rerender } = render(<LightweightChart {...props} />);
+  const hasSolidLine = () =>
+    mockDraws
+      .at(-2)
+      ?.commands.some(
+        (c) => c.kind === 'polyline' && c.customPaintId === 'secondary',
+      );
+  act(() => mockGestureHandlers.start({ x: 2, y: 80 }));
+  rerender(<LightweightChart {...props} />);
+  expect(hasSolidLine()).toBe(false);
+  for (const point of [
+    { x: 401, y: 80 },
+    { x: 20, y: 270 },
+    { x: -1, y: 80 },
+  ]) {
+    act(() => mockGestureHandlers.update(point));
+    rerender(<LightweightChart {...props} />);
+    expect(hasSolidLine()).toBe(true);
+    expect(mockDraws.at(-1)?.commands).toHaveLength(0);
+  }
+  act(() => mockGestureHandlers.update({ x: 20, y: 80 }));
+  rerender(<LightweightChart {...props} />);
+  expect(hasSolidLine()).toBe(false);
 });

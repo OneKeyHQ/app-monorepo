@@ -3,7 +3,10 @@ import type { PropsWithChildren } from 'react';
 
 import { render, screen } from '@testing-library/react';
 
-import type { IMarketStockInfo } from '@onekeyhq/shared/types/marketV2';
+import type {
+  IMarketStockDetailPreview,
+  IMarketStockInfo,
+} from '@onekeyhq/shared/types/marketV2';
 
 import { StockMobilePriceHeader } from './StockMobilePriceHeader';
 
@@ -21,6 +24,7 @@ jest.mock('@onekeyhq/components', () => {
     </div>
   );
   return {
+    Skeleton: Frame,
     Button: Frame,
     NumberSizeableText: Frame,
     SizableText: Frame,
@@ -30,7 +34,11 @@ jest.mock('@onekeyhq/components', () => {
   };
 });
 jest.mock('@onekeyhq/kit/src/views/Market/components/MarketTokenPrice', () => ({
-  MarketTokenPrice: () => <span>loaded price</span>,
+  MarketTokenPrice: ({ price }: { price: string }) => (
+    <span>
+      loaded price<span data-testid="displayed-price">{price}</span>
+    </span>
+  ),
 }));
 jest.mock(
   '@onekeyhq/kit/src/views/Market/components/PriceChangePercentage',
@@ -44,12 +52,16 @@ jest.mock('../../../components/PerpsBadges', () => ({
   StockMarketStatusBadge: ({ stock }: { stock?: IMarketStockInfo }) =>
     stock ? <span>Market closed</span> : null,
 }));
+let mockPreview: IMarketStockDetailPreview | undefined;
+let mockPriceMode: 'share' | 'token' = 'token';
 jest.mock('../../hooks/StockDetailContext', () => ({
-  useStockDetail: () => ({ stockId: 'AAPL' }),
+  useStockDetail: () => ({ stockId: 'AAPL', stockPreview: mockPreview }),
 }));
+let mockPriceSourceReady = true;
 jest.mock('../../hooks/useStockPriceSource', () => ({
   useStockPriceSource: () => ({
-    priceMode: 'token',
+    priceMode: mockPriceMode,
+    isPriceSourceReady: mockPriceSourceReady,
     sharePriceAvailable: true,
     handlePriceModeChange: jest.fn(),
   }),
@@ -81,4 +93,35 @@ it('reserves the same market-status row before and after the first quote arrives
   expect(loadedRow.style.minHeight).toBe('20px');
   expect(screen.getByText('Market closed')).toBeTruthy();
   expect(screen.getByText('loaded price')).toBeTruthy();
+});
+
+it('holds a stable price skeleton until the initial price mode is resolved', () => {
+  mockLoaded = true;
+  mockPriceSourceReady = false;
+  const { rerender } = render(<StockMobilePriceHeader />);
+  const header = screen.getByTestId('stock-mobile-price-header');
+  expect(screen.queryByText('loaded price')).toBeNull();
+  expect(screen.queryByText('Market closed')).toBeNull();
+  mockPriceSourceReady = true;
+  rerender(<StockMobilePriceHeader />);
+  expect(screen.getByTestId('stock-mobile-price-header')).toBe(header);
+  expect(screen.getByText('loaded price')).toBeTruthy();
+});
+
+it('uses a share preview only for the share price mode', () => {
+  mockLoaded = false;
+  mockPriceSourceReady = true;
+  mockPriceMode = 'share';
+  mockPreview = {
+    stockId: 'AAPL',
+    symbol: 'AAPL',
+    name: 'Apple',
+    logoUrl: '',
+    quote: { source: 'share', price: '123.45' },
+  };
+  const { rerender } = render(<StockMobilePriceHeader />);
+  expect(screen.getByTestId('displayed-price').textContent).toBe('123.45');
+  mockPriceMode = 'token';
+  rerender(<StockMobilePriceHeader />);
+  expect(screen.queryByTestId('displayed-price')).toBeNull();
 });

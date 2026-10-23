@@ -13,9 +13,7 @@ import {
   Group,
   Picture,
   Skia,
-  useTypeface,
 } from '@shopify/react-native-skia';
-import { Image } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import {
   cancelAnimation,
@@ -48,12 +46,10 @@ import {
   buildNativeChartScene,
   getNativeChartHover,
 } from './native/chartScene';
+import { useChartTypeface } from './native/useChartTypeface';
 
 import type { ILightweightChartProps } from './types';
 
-const FONT_SOURCE =
-  require('@onekeyhq/components/src/hocs/Provider/fonts/brand/BrandSans-Regular.ttf') as number;
-const FONT_URI = Image.resolveAssetSource(FONT_SOURCE)?.uri;
 const FONT_FAMILY = platformEnv.isNativeAndroid ? 'sans-serif' : 'System';
 
 export function LightweightChart(props: ILightweightChartProps) {
@@ -68,7 +64,7 @@ export function LightweightChart(props: ILightweightChartProps) {
     [chartConfig, props.hideCrosshairPriceLabel],
   );
   const fontSize = config.fontSize ?? 12;
-  const typeface = useTypeface(FONT_URI ?? null);
+  const typeface = useChartTypeface();
   const axisFont = useMemo(
     () =>
       typeface
@@ -190,7 +186,10 @@ export function LightweightChart(props: ILightweightChartProps) {
   const touch = useSharedValue({ x: 0, y: 0 });
   const picture = useDerivedValue(() => {
     const commands =
-      nativeScrubOptions && active.value
+      nativeScrubOptions &&
+      active.value &&
+      getNativeChartHover(scene, touch.value.x, touch.value.y).time !==
+        undefined
         ? scene.commands.filter(
             (command) =>
               command.kind !== 'polyline' ||

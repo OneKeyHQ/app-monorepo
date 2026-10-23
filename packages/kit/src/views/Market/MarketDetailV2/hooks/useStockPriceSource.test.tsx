@@ -1,15 +1,19 @@
 /** @jest-environment jsdom */
 
+import type { SetStateAction } from 'react';
+
 import { act, renderHook } from '@testing-library/react';
 
 import type { IMarketPriceSource } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
 import {
   resolveDisplayedStockPriceMode,
-  useStockPriceSource,
-} from './useStockPriceSource';
+  useStockPriceSourceState,
+} from './stockPriceSourceState';
 
 let mockInitialPriceSource: IMarketPriceSource = 'share';
+let mockDeferPriceSource = false;
+let mockPendingPriceSourceUpdates: (() => void)[] = [];
 
 let mockStock: {
   stockId?: string;
@@ -17,16 +21,24 @@ let mockStock: {
   isStockDetailError?: boolean;
 };
 
-jest.mock('./StockDetailContext', () => ({
-  useStockDetail: () => mockStock,
-}));
+const useStockPriceSource = () => useStockPriceSourceState(mockStock);
 
 jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
   useMarketPriceSourceAtom: () => {
-    const { useState } = jest.requireActual<typeof import('react')>('react');
-    return useState<{ source: IMarketPriceSource }>({
+    const { useCallback, useState } =
+      jest.requireActual<typeof import('react')>('react');
+    const [state, setState] = useState<{ source: IMarketPriceSource }>({
       source: mockInitialPriceSource,
     });
+    const setSource = useCallback(
+      (update: SetStateAction<{ source: IMarketPriceSource }>) => {
+        const apply = () => setState(update);
+        if (mockDeferPriceSource) mockPendingPriceSourceUpdates.push(apply);
+        else apply();
+      },
+      [],
+    );
+    return [state, setSource];
   },
 }));
 
@@ -56,6 +68,8 @@ describe.each(['share', 'token'] as const)(
   (initialSource) => {
     beforeEach(() => {
       mockInitialPriceSource = initialSource;
+      mockDeferPriceSource = false;
+      mockPendingPriceSourceUpdates = [];
       mockStock = { stockId: 'AAPL' };
     });
 
@@ -65,11 +79,13 @@ describe.each(['share', 'token'] as const)(
     ] as const)('defaults isOpen=%s to %s after loading', (isOpen, source) => {
       const { result, rerender } = renderHook(() => useStockPriceSource());
       expect(result.current.priceMode).toBe('token');
+      expect(result.current.isPriceSourceReady).toBe(false);
 
       mockStock.stockDetail = { marketStatus: { isOpen } };
       rerender();
 
       expect(result.current.priceMode).toBe(source);
+      expect(result.current.isPriceSourceReady).toBe(true);
     });
 
     it.each([false, true])(
@@ -80,6 +96,20 @@ describe.each(['share', 'token'] as const)(
         expect(result.current.priceMode).toBe(isOpen ? 'share' : 'token');
       },
     );
+
+    it('reveals the resolved mode locally before the native atom round-trip', () => {
+      mockInitialPriceSource = 'token';
+      mockDeferPriceSource = true;
+      mockStock.stockDetail = { marketStatus: { isOpen: true } };
+      const { result } = renderHook(() => useStockPriceSource());
+      expect(result.current.isPriceSourceReady).toBe(true);
+      expect(result.current.priceMode).toBe('share');
+      act(() => {
+        for (const apply of mockPendingPriceSourceUpdates.splice(0)) apply();
+      });
+      expect(result.current.isPriceSourceReady).toBe(true);
+      expect(result.current.priceMode).toBe('share');
+    });
 
     it('defaults a closed market to Token Price on both cold entry and cached re-entry', () => {
       const first = renderHook(() => useStockPriceSource());
@@ -167,6 +197,7 @@ describe.each(['share', 'token'] as const)(
       mockStock = { stockId: 'MSFT' };
       rerender();
       expect(result.current.priceMode).toBe('token');
+      expect(result.current.isPriceSourceReady).toBe(false);
       mockStock.stockDetail = { marketStatus: { isOpen: true } };
       rerender();
       expect(result.current.priceMode).toBe('share');
@@ -180,3 +211,33 @@ describe.each(['share', 'token'] as const)(
     });
   },
 );
+
+it('keeps a manual local choice when delayed global updates arrive', () => {
+  mockDeferPriceSource = true;
+  mockStock = {
+    stockId: 'MANUAL',
+    stockDetail: { marketStatus: { isOpen: true } },
+  };
+  const { result } = renderHook(() => useStockPriceSource());
+  expect(result.current.priceMode).toBe('share');
+  act(() => result.current.handlePriceModeChange('token'));
+  expect(result.current.priceMode).toBe('token');
+  act(() => {
+    for (const apply of mockPendingPriceSourceUpdates.splice(0).toReversed())
+      apply();
+  });
+  expect(result.current.priceMode).toBe('token');
+  mockDeferPriceSource = false;
+});
+
+it('does not restore a previous stock manual choice after visiting a pending stock', () => {
+  mockStock = { stockId: 'A' };
+  const { result, rerender } = renderHook(() => useStockPriceSource());
+  act(() => result.current.handlePriceModeChange('share'));
+  mockStock = { stockId: 'B' };
+  rerender();
+  mockStock = { stockId: 'A' };
+  rerender();
+  expect(result.current.priceMode).toBe('token');
+  expect(result.current.isPriceSourceReady).toBe(false);
+});
