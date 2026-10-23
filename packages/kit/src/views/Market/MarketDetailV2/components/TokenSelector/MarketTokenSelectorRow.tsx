@@ -20,10 +20,15 @@ import { useNetworkLogoUri } from '@onekeyhq/kit/src/hooks/useNetworkLogoUri';
 import { getTokenAgeLabel } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketTokenList/hooks/useMarketTokenColumns/tokenAgeLabel';
 import { MarketTestIDs } from '@onekeyhq/kit/src/views/Market/testIDs';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { parseDexCoin } from '@onekeyhq/shared/src/utils/perpsUtils';
 import { getTokenPriceChangeStyle } from '@onekeyhq/shared/src/utils/tokenUtils';
 
 import { CommunityRecognizedBadge } from '../../../components/CommunityRecognizedBadge';
-import { StockSourceLogo } from '../../../components/PerpsBadges';
+import {
+  LeverageBadge,
+  PerpDexBadge,
+  StockSourceLogo,
+} from '../../../components/PerpsBadges';
 import { prewarmMarketTokenImages } from '../../utils/marketDetailImagePreload';
 
 import {
@@ -103,6 +108,19 @@ const MarketTokenSelectorRow = memo(
       return 'price' as const;
     }, [item.price]);
 
+    // Perps rows carry their change without a `priceChangeRaw`.
+    let priceChange: number | undefined;
+    if (item.perpsCoin) {
+      priceChange = Number.isFinite(item.change24h)
+        ? item.change24h
+        : undefined;
+    } else if (
+      item.priceChangeRaw !== undefined &&
+      item.priceChangeRaw !== '-'
+    ) {
+      priceChange = item.change24h;
+    }
+
     const { changeColor, showPlusMinusSigns } = getTokenPriceChangeStyle({
       priceChange: item.change24h,
     });
@@ -141,8 +159,7 @@ const MarketTokenSelectorRow = memo(
             <MissingValue />
           );
         case 'change':
-          return item.priceChangeRaw === undefined ||
-            item.priceChangeRaw === '-' ? (
+          return priceChange === undefined ? (
             <MissingValue />
           ) : (
             <NumberSizeableText
@@ -158,11 +175,7 @@ const MarketTokenSelectorRow = memo(
           return (
             <SelectorPriceChangeCell
               price={Number.isFinite(item.price) ? item.price : undefined}
-              change={
-                item.priceChangeRaw === undefined || item.priceChangeRaw === '-'
-                  ? undefined
-                  : item.change24h
-              }
+              change={priceChange}
             />
           );
         case 'marketCap':
@@ -268,7 +281,12 @@ const MarketTokenSelectorRow = memo(
           </XStack>
         ) : null;
     } else {
-      const displayName = (item.selectorSubtitle ?? item.name).trim();
+      // A favorited perp reads by its alias (none when it has no alias).
+      const displayName = (
+        item.perpsCoin
+          ? (item.perpsSubtitle ?? '')
+          : (item.selectorSubtitle ?? item.name)
+      ).trim();
       const stockTags = item.stockTags?.filter(Boolean) ?? [];
       subtitle =
         displayName || stockTags.length > 0 ? (
@@ -354,6 +372,16 @@ const MarketTokenSelectorRow = memo(
                 <SizableText size="$headingSm" numberOfLines={1} flexShrink={1}>
                   {item.symbol}
                 </SizableText>
+                {item.maxLeverage ? (
+                  <LeverageBadge leverage={item.maxLeverage} />
+                ) : null}
+                <PerpDexBadge
+                  dexLabel={
+                    item.perpsCoin
+                      ? parseDexCoin(item.perpsCoin).dexLabel
+                      : undefined
+                  }
+                />
                 {item.communityRecognized ? <CommunityRecognizedBadge /> : null}
                 <StockSourceLogo stock={item.stock} />
               </XStack>
