@@ -996,7 +996,7 @@ describe('Favorites category selection', () => {
     { platform: 'desktop', perpsOnly: true },
     { platform: 'mobile', perpsOnly: true },
   ])(
-    'hides empty Favorites categories while preserving the $platform list (perps only: $perpsOnly)',
+    'shows Favorites categories only when favorites exist on $platform (perps only: $perpsOnly)',
     ({ platform, perpsOnly }) => {
       mockWatchlistItems = perpsOnly ? [{ perpsCoin: 'BTC' }] : [];
       if (platform === 'mobile') {
@@ -1008,7 +1008,10 @@ describe('Favorites category selection', () => {
       fireEvent.click(
         screen.getByTestId('market-token-selector-tab-favorites'),
       );
-      expect(screen.queryByText('prime_crypto_payment__label')).toBeNull();
+      // A perps-only watchlist is not empty: perps have their own category.
+      expect(Boolean(screen.queryByText('prime_crypto_payment__label'))).toBe(
+        perpsOnly,
+      );
       const listId = platform === 'mobile' ? 'mobile-favorites' : 'token-list';
       expect(screen.getByTestId(listId).getAttribute('data-filter')).toBe(
         'all',
@@ -1019,35 +1022,52 @@ describe('Favorites category selection', () => {
     },
   );
 
-  it.each([false, true])(
-    'returns to All when the last stock favorite is removed (remaining perps: %s)',
-    (keepsPerps) => {
-      const remainingFavorites = keepsPerps ? [{ perpsCoin: 'BTC' }] : [];
-      mockWatchlistItems = [{ stockId: 'AAPL' }, ...remainingFavorites];
-      const { result, rerender } = renderHook(() =>
-        useDetailSelectorBrowseState({
-          defaultCategory: 'trending',
-          isWatchlistMode: true,
-        }),
-      );
-      act(() => result.current.handleSubCategoryChange('stocks'));
-      expect(result.current.watchlistFilter).toBe('stocks');
+  it('keeps the categories when only perps favorites remain', () => {
+    mockWatchlistItems = [{ stockId: 'AAPL' }, { perpsCoin: 'BTC' }];
+    const { result, rerender } = renderHook(() =>
+      useDetailSelectorBrowseState({
+        defaultCategory: 'trending',
+        isWatchlistMode: true,
+      }),
+    );
+    act(() => result.current.handleSubCategoryChange('perps'));
+    mockWatchlistItems = [{ perpsCoin: 'BTC' }];
+    rerender();
+    expect(result.current.watchlistFilter).toBe('perps');
+    expect(result.current.subCategories.map(({ id }) => id)).toEqual([
+      'all',
+      'spot',
+      'stocks',
+      'perps',
+    ]);
+  });
 
-      mockWatchlistItems = remainingFavorites;
-      rerender();
-      expect(result.current.subCategories).toEqual([]);
-      expect(result.current.watchlistFilter).toBe('all');
+  it('returns to All when the last favorite is removed', () => {
+    mockWatchlistItems = [{ stockId: 'AAPL' }];
+    const { result, rerender } = renderHook(() =>
+      useDetailSelectorBrowseState({
+        defaultCategory: 'trending',
+        isWatchlistMode: true,
+      }),
+    );
+    act(() => result.current.handleSubCategoryChange('stocks'));
+    expect(result.current.watchlistFilter).toBe('stocks');
 
-      mockWatchlistItems = [{ stockId: 'AAPL' }, ...remainingFavorites];
-      rerender();
-      expect(result.current.watchlistFilter).toBe('all');
-      expect(result.current.subCategories.map(({ id }) => id)).toEqual([
-        'all',
-        'spot',
-        'stocks',
-      ]);
-    },
-  );
+    mockWatchlistItems = [];
+    rerender();
+    expect(result.current.subCategories).toEqual([]);
+    expect(result.current.watchlistFilter).toBe('all');
+
+    mockWatchlistItems = [{ stockId: 'AAPL' }];
+    rerender();
+    expect(result.current.watchlistFilter).toBe('all');
+    expect(result.current.subCategories.map(({ id }) => id)).toEqual([
+      'all',
+      'spot',
+      'stocks',
+      'perps',
+    ]);
+  });
 
   it('keeps Favorites, Stocks, and Tokens categories independent across tab switches and config refreshes', () => {
     mockWatchlistItems = [{}, { perpsCoin: 'BTC' }];
@@ -1062,6 +1082,7 @@ describe('Favorites category selection', () => {
       'all',
       'spot',
       'stocks',
+      'perps',
     ]);
     act(() => result.current.handleSubCategoryChange('stocks'));
     expect(result.current.selectedSubCategoryId).toBe('stocks');
@@ -1077,8 +1098,10 @@ describe('Favorites category selection', () => {
     expect(result.current.selectedSubCategoryId).toBe('stocks');
     expect(result.current.tokenCategoryId).toBe('robinhood_meme');
     expect(result.current.stockCategoryId).toBe('ai-chip');
-    act(() => result.current.handleSubCategoryChange('perps'));
+    act(() => result.current.handleSubCategoryChange('unknown'));
     expect(result.current.watchlistFilter).toBe('stocks');
+    act(() => result.current.handleSubCategoryChange('perps'));
+    expect(result.current.watchlistFilter).toBe('perps');
   });
 
   it.each(['desktop', 'mobile'])(

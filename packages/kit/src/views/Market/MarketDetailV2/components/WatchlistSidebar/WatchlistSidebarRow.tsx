@@ -141,7 +141,9 @@ function BasicWatchlistSidebarRow({
       gap="$3"
       alignItems="center"
       borderRadius="$3"
-      cursor="pointer"
+      // A default arrow like the Market table rows; only the header sort
+      // controls take the pointer.
+      cursor="default"
       bg={isSelected && !isDragging ? '$bgActive' : '$bgApp'}
       hoverStyle={{ bg: '$bgHover' }}
       pressStyle={{ bg: '$bgActive' }}
