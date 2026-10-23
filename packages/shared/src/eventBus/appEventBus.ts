@@ -32,7 +32,11 @@ import platformEnv, { ERuntimeRole } from '../platformEnv';
 
 import { EAppEventBusNames } from './appEventBusNames';
 
-import type { EAccountSelectorSceneName, EHomeTab } from '../../types';
+import type {
+  EAccountSelectorSceneName,
+  EHomeTab,
+  IServerNetwork,
+} from '../../types';
 import type {
   IDeFiProtocol,
   IFetchAccountDeFiPositionsResp,
@@ -497,6 +501,9 @@ export interface IAppEventBusPayload {
   // changes the set (e.g. a network delisted to TRASH). All network selectors
   // listen to it to re-pull their network list.
   [EAppEventBusNames.AddedCustomNetwork]: undefined;
+  // Emitted by bg whenever a network is recorded as recently used, so the
+  // UI can keep its selector cache slot exact for writers it does not see.
+  [EAppEventBusNames.RecentNetworkRecorded]: { network: IServerNetwork };
   [EAppEventBusNames.SyncDappAccountToHomeAccount]: {
     expectedSelectedAccount: IAccountSelectorSelectedAccount;
     selectedAccount: IAccountSelectorSelectedAccount;

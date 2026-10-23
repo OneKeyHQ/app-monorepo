@@ -111,6 +111,7 @@ export enum EAppEventBusNames {
   SwapSpeedBuildTxSuccess = 'SwapSpeedBuildTxSuccess',
   SwapStockTokenSelected = 'SwapStockTokenSelected',
   AddedCustomNetwork = 'AddedCustomNetwork',
+  RecentNetworkRecorded = 'RecentNetworkRecorded',
   ShowFindInWebPage = 'ShowFindInWebPage',
   ChangeTokenDetailTabVerticalScrollEnabled = 'ChangeTokenDetailTabVerticalScrollEnabled',
   RefreshNetInfo = 'RefreshNetInfo',

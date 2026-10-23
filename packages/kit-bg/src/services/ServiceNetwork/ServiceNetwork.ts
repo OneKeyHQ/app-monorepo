@@ -32,6 +32,10 @@ import {
   SEPERATOR,
 } from '@onekeyhq/shared/src/engine/engineConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { getVendorProfile } from '@onekeyhq/shared/src/hardware/config/vendorProfile';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
@@ -1610,9 +1614,13 @@ class ServiceNetwork extends ServiceBase {
       return;
     }
     const timestamp = Date.now();
-    return this.backgroundApi.simpleDb.recentNetworks.updateRecentNetworks({
+    await this.backgroundApi.simpleDb.recentNetworks.updateRecentNetworks({
       [networkId]: { updatedAt: timestamp },
     });
+    const network = await this.getNetworkSafe({ networkId });
+    if (network) {
+      appEventBus.emit(EAppEventBusNames.RecentNetworkRecorded, { network });
+    }
   }
 
   @backgroundMethod()

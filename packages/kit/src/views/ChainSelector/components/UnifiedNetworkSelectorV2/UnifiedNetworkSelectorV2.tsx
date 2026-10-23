@@ -35,6 +35,7 @@ import {
   EChainSelectorPages as EChainSelectorPagesEnum,
   type IChainSelectorParamList,
 } from '@onekeyhq/shared/src/routes';
+import { EAppSWRCacheScopes } from '@onekeyhq/shared/src/storage/syncStorageKeys';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils, {
   isEnabledNetworksInAllNetworks,
@@ -48,6 +49,10 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { useFindNetworksWithoutAccount } from '../../hooks/useFindNetworksWithoutAccount';
 import { ChainSelectorTestIDs } from '../../testIDs';
+import {
+  buildRecentNetworksSwrKey,
+  prependRecentNetworkToSwrCache,
+} from '../recentNetworksCache';
 import { TabSwitcher } from '../UnifiedNetworkSelector/TabSwitcher';
 
 import { NetworkContentV2 } from './NetworkContentV2';
@@ -437,6 +442,19 @@ function UnifiedNetworkSelectorV2() {
     };
   }, [refreshNetworkMeta]);
 
+  // The slot the network tab's RecentNetworks chips paint from
+  // (NetworkContentV2 renders them with the All Networks chip enabled).
+  const recentNetworksSwrKey = useMemo(
+    () =>
+      buildRecentNetworksSwrKey({
+        scope: EAppSWRCacheScopes.editableChainSelector,
+        showAllNetwork: true,
+        walletId,
+        accountId,
+      }),
+    [accountId, walletId],
+  );
+
   // Network tab callbacks
   const handleNetworkPressItem = useCallback(
     async (item: IServerNetwork) => {
@@ -450,6 +468,11 @@ function UnifiedNetworkSelectorV2() {
       if (recordNetworkHistoryEnabled && activeNetwork) {
         void backgroundApiProxy.serviceNetwork.updateRecentNetwork({
           networkId: activeNetwork.id,
+        });
+        prependRecentNetworkToSwrCache({
+          swrKey: recentNetworksSwrKey,
+          network: activeNetwork,
+          showAllNetwork: true,
         });
       }
 
@@ -466,7 +489,14 @@ function UnifiedNetworkSelectorV2() {
         resetChainSelectorModal();
       }
     },
-    [actions, num, recordNetworkHistoryEnabled, activeNetwork, sceneName],
+    [
+      actions,
+      num,
+      recordNetworkHistoryEnabled,
+      activeNetwork,
+      recentNetworksSwrKey,
+      sceneName,
+    ],
   );
 
   const handleAddCustomNetwork = useCallback(() => {
@@ -595,6 +625,15 @@ function UnifiedNetworkSelectorV2() {
         void backgroundApiProxy.serviceNetwork.updateRecentNetwork({
           networkId: getNetworkIdsMap().onekeyall,
         });
+        // Same object the chips fetch (`getNetwork`) returns, so the first
+        // paint matches it exactly; `allNetworkItem` carries a localized name.
+        prependRecentNetworkToSwrCache({
+          swrKey: recentNetworksSwrKey,
+          network: networks.allNetworks.find(
+            (item) => item.id === getNetworkIdsMap().onekeyall,
+          ),
+          showAllNetwork: true,
+        });
 
         void actions.current.updateSelectedAccountNetwork({
           num,
@@ -622,8 +661,10 @@ function UnifiedNetworkSelectorV2() {
     networkId,
     networksState.disabledNetworks,
     networksState.enabledNetworks,
+    networks.allNetworks,
     num,
     onNetworksChanged,
+    recentNetworksSwrKey,
     refreshNetworkMeta,
     walletId,
     isSameEnabledNetworks,

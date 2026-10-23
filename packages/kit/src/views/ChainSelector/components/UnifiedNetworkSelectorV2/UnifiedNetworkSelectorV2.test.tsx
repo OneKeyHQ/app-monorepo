@@ -155,11 +155,13 @@ jest.mock('@onekeyhq/shared/src/utils/networkUtils', () => ({
     enabledNetworks[networkId] && !disabledNetworks[networkId],
 }));
 jest.mock('@onekeyhq/shared/src/utils/swrCacheUtils', () => ({
-  swrCacheUtils: { get: () => mockCachedMeta },
+  swrCacheUtils: { get: () => mockCachedMeta, set: jest.fn() },
   swrKeys: {
     unifiedNetworkSelectorMeta: ({ walletId }: { walletId: string }) =>
       `meta:${walletId}`,
     unifiedNetworkSelectorValues: () => 'values',
+    recentNetworks: ({ walletId }: { walletId?: string }) =>
+      `recent:${walletId ?? ''}`,
   },
 }));
 jest.mock('./PortfolioContentV2', () => ({
