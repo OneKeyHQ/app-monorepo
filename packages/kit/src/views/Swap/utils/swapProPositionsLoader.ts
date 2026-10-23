@@ -8,7 +8,6 @@ import type {
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
-import { swapProStockPositionsListMinValue } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type {
   ISwapNetwork,
   ISwapToken,
@@ -34,6 +33,7 @@ import {
   compareSwapProPositionNetworkIds,
 } from './swapProPositionsKeyUtils';
 import { buildStockPositionTokens } from './swapStockPositionsUtils';
+import { isTradePositionVisible } from './tradePositionUtils';
 
 export type ISwapProPositionsLoadOptions = {
   forceRefresh?: boolean;
@@ -296,9 +296,10 @@ export const loadSwapProPositions: ISwapProPositionsLoader = async (
         if (stockNetworkIds.has(accountNetworkId)) {
           try {
             const stockCandidateTokens = tokens.filter((token) =>
-              new BigNumber(token.fiatValue ?? '0').gt(
-                swapProStockPositionsListMinValue,
-              ),
+              isTradePositionVisible({
+                balance: token.balanceParsed,
+                isStock: true,
+              }),
             );
             if (stockCandidateTokens.length === 0) {
               stockTokens = [];

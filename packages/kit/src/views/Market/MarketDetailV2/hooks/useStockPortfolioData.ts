@@ -1,12 +1,11 @@
 import { useCallback, useMemo, useRef } from 'react';
 
-import BigNumber from 'bignumber.js';
-
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { useSelectedDeriveTypeAtom } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2/atoms';
 import { getSelectedDeriveTypeForNetwork } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2/marketDeriveType';
+import { isTradePositionVisible } from '@onekeyhq/kit/src/views/Swap/utils/tradePositionUtils';
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import {
@@ -161,7 +160,8 @@ export async function fetchStockPortfolioData({
                   networkId: variant.networkId,
                   contractAddress: variant.contractAddress,
                 },
-              }) && new BigNumber(item.amount).gt(0),
+              }) &&
+              isTradePositionVisible({ balance: item.amount, isStock: true }),
           )
           .map<IMarketAccountPortfolioDisplayItem>((item) => ({
             ...item,
