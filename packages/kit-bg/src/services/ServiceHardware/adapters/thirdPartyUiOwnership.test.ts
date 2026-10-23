@@ -1,6 +1,7 @@
 import { EConnectorInteraction, UI_REQUEST } from '@onekeyfe/hwk-adapter-core';
 
 import {
+  EThirdPartyHardwareUiAction,
   type IThirdPartyHardwareUiState,
   thirdPartyHardwareUiStateAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -55,6 +56,99 @@ describe('third-party UI ownership', () => {
   });
 
   afterEach(() => jest.restoreAllMocks());
+
+  it('keeps the current Trezor request owned after ignoring another operation close', async () => {
+    let finish: (value: unknown) => void = () => undefined;
+    const pending = new Promise<unknown>((resolve) => {
+      finish = resolve;
+    });
+    const { adapter, listeners } = createAdapter(TrezorAdapter, {
+      evmGetAddress: jest.fn().mockReturnValue(pending),
+    });
+    const result = adapter.hw.evmGetAddress('usb', 'device', {
+      path: "m/44'/60'/0'/0/0",
+      operationId: 'operation-new',
+    });
+    listeners.get(UI_REQUEST.REQUEST_PIN)?.({
+      payload: { operationId: 'operation-new' },
+    });
+    const expected = state;
+    listeners.get(UI_REQUEST.CLOSE_UI_WINDOW)?.({
+      payload: { operationId: 'operation-old' },
+    });
+    expect(state).toBe(expected);
+    listeners.get(UI_REQUEST.CLOSE_UI_WINDOW)?.({
+      payload: { operationId: 'operation-new' },
+    });
+    expect(state).toMatchObject({
+      action: EThirdPartyHardwareUiAction.processing,
+      operationId: 'operation-new',
+    });
+    finish({ success: true, payload: { address: 'synthetic-address' } });
+    await result;
+    expect(state).toBeUndefined();
+  });
+
+  it.each([
+    [LedgerAdapter, UI_REQUEST.REQUEST_BTC_HIGH_INDEX_CONFIRM],
+    [TrezorAdapter, UI_REQUEST.REQUEST_PIN],
+  ] as const)(
+    '%p ignores a close event from another operation',
+    (Adapter, requestType) => {
+      const { listeners } = createAdapter(Adapter);
+      listeners.get(requestType)?.({
+        payload: { operationId: 'operation-new' },
+      });
+      const expected = state;
+      listeners.get(UI_REQUEST.CLOSE_UI_WINDOW)?.({
+        payload: { operationId: 'operation-old' },
+      });
+      expect(state).toBe(expected);
+      listeners.get(UI_REQUEST.CLOSE_UI_WINDOW)?.({
+        payload: { operationId: 'operation-new' },
+      });
+      expect(state).toBeUndefined();
+    },
+  );
+
+  it.each([
+    [LedgerAdapter, UI_REQUEST.REQUEST_BTC_HIGH_INDEX_CONFIRM],
+    [TrezorAdapter, UI_REQUEST.REQUEST_PIN],
+    [KeystoneAdapter, UI_REQUEST.REQUEST_QR_SCAN],
+  ] as const)(
+    '%p ends only UI requests explicitly owned by the ended operation',
+    async (Adapter, requestType) => {
+      for (const requestOperationId of [
+        undefined,
+        'operation-new',
+        'operation-old',
+      ]) {
+        const { adapter, listeners } = createAdapter(Adapter);
+        const connected = adapter as unknown as { activeOperationId?: string };
+        connected.activeOperationId = 'operation-old';
+        listeners.get(requestType)?.({
+          payload: {
+            ...(requestOperationId ? { operationId: requestOperationId } : {}),
+            path: "m/84'/0'/100'",
+            accountIndex: 100,
+          },
+        });
+        const expected = state;
+        expect(expected).toBeDefined();
+        if (requestOperationId) {
+          expect(expected).toMatchObject({ operationId: requestOperationId });
+        }
+
+        listeners.get('operation-ended')?.({
+          payload: { operationId: 'operation-old', reason: 'timeout' },
+        });
+        await Promise.resolve();
+        if (requestOperationId === 'operation-old')
+          expect(state).toBeUndefined();
+        else expect(state).toBe(expected);
+      }
+    },
+  );
 
   it.each([LedgerAdapter, TrezorAdapter, KeystoneAdapter])(
     '%p completion, cancellation and reset preserve another vendor prompt',

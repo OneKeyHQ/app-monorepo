@@ -581,10 +581,11 @@ export class ThirdPartyPathForbidden extends ThirdPartyHardwareError {
   constructor(props?: IOneKeyErrorHardwareProps & { vendor?: string }) {
     super(
       normalizeErrorProps(props, {
-        // Keystone refuses a path only for Bitcoin beyond account #1.
-        defaultKey: isKeystoneVendor(props?.vendor)
-          ? ETranslations.hardware_third_party_keystone_btc_account_one_only__msg
-          : ETranslations.hardware_third_party_path_not_supported__msg,
+        defaultKey:
+          isKeystoneVendor(props?.vendor) &&
+          props?.payload?.params?.reason === 'btc-account-limit'
+            ? ETranslations.hardware_third_party_keystone_btc_account_one_only__msg
+            : ETranslations.hardware_third_party_path_not_supported__msg,
         defaultAutoToast: true,
       }),
     );

@@ -236,6 +236,9 @@ export class TrezorAdapter
               {
                 action: EThirdPartyHardwareUiAction.searching,
                 vendor: EHardwareVendor.trezor,
+                ...(event.operationId
+                  ? { operationId: event.operationId }
+                  : {}),
               },
               event.payload?.sessionId,
             );
@@ -246,6 +249,7 @@ export class TrezorAdapter
             EThirdPartyHardwareUiAction.confirmOnDevice,
             undefined,
             event.payload?.sessionId,
+            event.operationId,
           );
           break;
         case EConnectorInteraction.InteractionComplete:
@@ -277,6 +281,9 @@ export class TrezorAdapter
       this.emitUiEvent({
         kind: 'request',
         type: EThirdPartyHardwareUiAction.requestDeviceNotFound,
+        ...(event.payload.operationId
+          ? { operationId: event.payload.operationId }
+          : {}),
         payload: {
           vendor,
           reason,
@@ -292,6 +299,7 @@ export class TrezorAdapter
     this.hw.on(UI_REQUEST.REQUEST_TREZOR_THP_PAIRING, (event) => {
       const payload = event.payload as {
         connectId?: string;
+        operationId?: string;
         availableMethods?: number[];
         selectedMethod?: number;
         nfcData?: string;
@@ -306,6 +314,7 @@ export class TrezorAdapter
       void this.publishUiState({
         action: EThirdPartyHardwareUiAction.requestTrezorThpPairing,
         vendor: EHardwareVendor.trezor,
+        ...(payload.operationId ? { operationId: payload.operationId } : {}),
         payload: {
           connectId: payload.connectId,
           availableMethods: payload.availableMethods,
@@ -351,6 +360,7 @@ export class TrezorAdapter
         connectId?: string;
         passphraseState?: string;
         useEmptyPassphrase?: boolean;
+        operationId?: string;
       };
       const connectId = payload.connectId;
       if (payload.useEmptyPassphrase === true) {
@@ -371,6 +381,7 @@ export class TrezorAdapter
         void this.publishUiState({
           action: EThirdPartyHardwareUiAction.requestTrezorPassphrase,
           vendor: EHardwareVendor.trezor,
+          ...(payload.operationId ? { operationId: payload.operationId } : {}),
           payload: {
             connectId,
             ...(passphraseState ? { passphraseState } : {}),
@@ -384,6 +395,7 @@ export class TrezorAdapter
       void this.publishUiState({
         action: EThirdPartyHardwareUiAction.requestTrezorPassphrase,
         vendor: EHardwareVendor.trezor,
+        ...(payload.operationId ? { operationId: payload.operationId } : {}),
         payload: {},
       });
     });
@@ -391,13 +403,18 @@ export class TrezorAdapter
     // Old button devices prompt for the PIN on the host matrix → RECEIVE_PIN
     // (touchscreen devices enter on-device via REQUEST_BUTTON instead).
     this.hw.on(UI_REQUEST.REQUEST_PIN, (event) => {
-      const payload = event.payload as { connectId?: string; type?: string };
+      const payload = event.payload as {
+        connectId?: string;
+        type?: string;
+        operationId?: string;
+      };
       defaultLogger.hardware.sdkLog.log(
         '[3rdPartyHW][Trezor] REQUEST_PIN -> host PIN matrix',
       );
       void this.publishUiState({
         action: EThirdPartyHardwareUiAction.requestTrezorPin,
         vendor: EHardwareVendor.trezor,
+        ...(payload.operationId ? { operationId: payload.operationId } : {}),
         payload: payload.connectId ? { connectId: payload.connectId } : {},
       });
     });
@@ -412,7 +429,7 @@ export class TrezorAdapter
     // handler is the SOLE source of "user has to interact with device"
     // signals for the Trezor path.
     this.hw.on(UI_REQUEST.REQUEST_BUTTON, (event) => {
-      const payload = event.payload as { code?: string };
+      const payload = event.payload as { code?: string; operationId?: string };
       const code = payload.code ?? 'ButtonRequest_Other';
       defaultLogger.hardware.sdkLog.log(
         `[3rdPartyHW][Trezor] REQUEST_BUTTON code=${code}`,
@@ -422,6 +439,7 @@ export class TrezorAdapter
         void this.publishUiState({
           action: EThirdPartyHardwareUiAction.unlockDevice,
           vendor: EHardwareVendor.trezor,
+          ...(payload.operationId ? { operationId: payload.operationId } : {}),
         });
         return;
       }
@@ -436,6 +454,7 @@ export class TrezorAdapter
       void this.publishUiState({
         action: EThirdPartyHardwareUiAction.confirmOnDevice,
         vendor: EHardwareVendor.trezor,
+        ...(payload.operationId ? { operationId: payload.operationId } : {}),
       });
     });
 
@@ -482,9 +501,9 @@ export class TrezorAdapter
       });
     });
 
-    this.hw.on(UI_REQUEST.CLOSE_UI_WINDOW, () => {
+    this.hw.on(UI_REQUEST.CLOSE_UI_WINDOW, (event) => {
       defaultLogger.hardware.sdkLog.log('[3rdPartyHW][Trezor] CLOSE_UI_WINDOW');
-      this._clearUiState();
+      this._clearUiState(undefined, event.payload?.operationId);
     });
 
     this.hw.on('operation-ended', (event) => {
@@ -494,7 +513,7 @@ export class TrezorAdapter
       this.emitConnectionStateChange({ type: 'disconnected', operationId });
       if (this.activeOperationId !== operationId) return;
       void (async () => {
-        await this.clearUiState();
+        await this.clearUiState(undefined, operationId);
         if (this.activeOperationId === operationId) {
           this.activeOperationId = undefined;
         }
@@ -506,6 +525,7 @@ export class TrezorAdapter
         void this.publishUiState({
           action: event.type as EThirdPartyHardwareUiAction,
           vendor: EHardwareVendor.trezor,
+          ...(event.operationId ? { operationId: event.operationId } : {}),
           payload: event.payload as IThirdPartyHardwareUiState['payload'],
         });
       }
@@ -516,26 +536,29 @@ export class TrezorAdapter
     action: EThirdPartyHardwareUiAction,
     payload?: IThirdPartyHardwareUiState['payload'],
     sessionId?: string,
+    operationId?: string,
   ): void {
     void this.publishUiState(
       {
         action,
         vendor: EHardwareVendor.trezor,
+        ...(operationId ? { operationId } : {}),
         ...(payload ? { payload } : {}),
       },
       sessionId,
     );
   }
 
-  private _clearUiState(sessionId?: string): void {
+  private _clearUiState(sessionId?: string, operationId?: string): void {
     if (this._processingDepth > 0) {
       void this.restoreProcessingUiState(
         EThirdPartyHardwareUiAction.processing,
         sessionId,
+        operationId,
       );
       return;
     }
-    void this.clearUiState(sessionId);
+    void this.clearUiState(sessionId, operationId);
   }
 
   private _forceClearUiState(): void {

@@ -81,6 +81,7 @@ export class LedgerAdapter
             {
               action: EThirdPartyHardwareUiAction.searching,
               vendor: EHardwareVendor.ledger,
+              ...(event.operationId ? { operationId: event.operationId } : {}),
             },
             event.payload?.sessionId,
           );
@@ -90,6 +91,7 @@ export class LedgerAdapter
             {
               action: EThirdPartyHardwareUiAction.openApp,
               vendor: EHardwareVendor.ledger,
+              ...(event.operationId ? { operationId: event.operationId } : {}),
             },
             event.payload?.sessionId,
           );
@@ -99,6 +101,7 @@ export class LedgerAdapter
             {
               action: EThirdPartyHardwareUiAction.unlockDevice,
               vendor: EHardwareVendor.ledger,
+              ...(event.operationId ? { operationId: event.operationId } : {}),
             },
             event.payload?.sessionId,
           );
@@ -108,6 +111,7 @@ export class LedgerAdapter
             {
               action: EThirdPartyHardwareUiAction.confirmOnDevice,
               vendor: EHardwareVendor.ledger,
+              ...(event.operationId ? { operationId: event.operationId } : {}),
             },
             event.payload?.sessionId,
           );
@@ -130,6 +134,7 @@ export class LedgerAdapter
           // coexists with any device-prompt toast.
           void thirdPartyAppInstallAtom.set({
             vendor: EHardwareVendor.ledger,
+            ...(event.operationId ? { operationId: event.operationId } : {}),
             appName,
             progress,
           });
@@ -159,6 +164,9 @@ export class LedgerAdapter
       this.emitUiEvent({
         kind: 'request',
         type: EThirdPartyHardwareUiAction.requestDeviceNotFound,
+        ...(event.payload.operationId
+          ? { operationId: event.payload.operationId }
+          : {}),
         payload: {
           vendor,
           reason,
@@ -185,6 +193,9 @@ export class LedgerAdapter
       this.emitUiEvent({
         kind: 'request',
         type: EThirdPartyHardwareUiAction.requestDeviceSelection,
+        ...(event.payload.operationId
+          ? { operationId: event.payload.operationId }
+          : {}),
         payload: {
           vendor: EHardwareVendor.ledger,
           deviceSearchTargets,
@@ -205,6 +216,9 @@ export class LedgerAdapter
       this.emitUiEvent({
         kind: 'request',
         type: EThirdPartyHardwareUiAction.requestBtcHighIndexConfirm,
+        ...(event.payload.operationId
+          ? { operationId: event.payload.operationId }
+          : {}),
         payload: {
           vendor,
           path,
@@ -221,14 +235,22 @@ export class LedgerAdapter
       // Drive the dedicated install dialog (confirm state: no progress yet).
       void thirdPartyAppInstallAtom.set({
         vendor: EHardwareVendor.ledger,
+        ...(event.payload.operationId
+          ? { operationId: event.payload.operationId }
+          : {}),
         appName,
       });
     });
 
-    this.hw.on(UI_REQUEST.CLOSE_UI_WINDOW, () => {
+    this.hw.on(UI_REQUEST.CLOSE_UI_WINDOW, (event) => {
       defaultLogger.hardware.sdkLog.log('[3rdPartyHW][Ledger] CLOSE_UI_WINDOW');
-      void this.clearUiState();
-      void thirdPartyAppInstallAtom.set(undefined);
+      const operationId = event.payload?.operationId;
+      void this.clearUiState(undefined, operationId);
+      void thirdPartyAppInstallAtom.set((state) =>
+        operationId === undefined || state?.operationId === operationId
+          ? undefined
+          : state,
+      );
     });
 
     this.hw.on('operation-ended', (event) => {
@@ -238,9 +260,9 @@ export class LedgerAdapter
       this.emitConnectionStateChange({ type: 'disconnected', operationId });
       if (this.activeOperationId !== operationId) return;
       void Promise.all([
-        this.clearUiState(),
+        this.clearUiState(undefined, operationId),
         thirdPartyAppInstallAtom.set((state) =>
-          this.activeOperationId === operationId &&
+          state?.operationId === operationId &&
           state?.vendor === EHardwareVendor.ledger
             ? undefined
             : state,
@@ -265,6 +287,7 @@ export class LedgerAdapter
         void this.publishUiState({
           action: event.type as EThirdPartyHardwareUiAction,
           vendor: EHardwareVendor.ledger,
+          ...(event.operationId ? { operationId: event.operationId } : {}),
           payload: {
             reason,
             message,

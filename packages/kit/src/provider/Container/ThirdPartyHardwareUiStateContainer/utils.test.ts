@@ -15,6 +15,31 @@ import {
 } from './utils';
 
 describe('ThirdPartyHardwareUiStateContainer utils', () => {
+  it.each([undefined, 'operation-current'])(
+    'cancels only the operation explicitly owned by the request (%s)',
+    async (operationId) => {
+      const uiResponse = jest.fn(async () => undefined);
+      const cancel = jest.fn(async () => undefined);
+      const clearState = jest.fn(async () => undefined);
+      await cancelThirdPartyHardwareUiRequest({
+        state: {
+          vendor: EHardwareVendor.keystone,
+          action: EThirdPartyHardwareUiAction.requestKeystoneQrScan,
+          ...(operationId ? { operationId } : {}),
+        },
+        uiResponse,
+        cancel,
+        clearState,
+      });
+      expect(uiResponse).not.toHaveBeenCalled();
+      expect(cancel).toHaveBeenCalledWith({
+        vendor: EHardwareVendor.keystone,
+        ...(operationId ? { connectId: operationId } : {}),
+      });
+      expect(clearState).toHaveBeenCalledTimes(1);
+    },
+  );
+
   it('builds a declined device-connect response', () => {
     expect(
       buildThirdPartyHardwareUiResponse(

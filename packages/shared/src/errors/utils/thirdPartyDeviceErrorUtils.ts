@@ -316,7 +316,7 @@ export function isKeystoneBtcAccountLimitError(
 //   (the device has no app for these chains).
 // - genuineFailures: failures other than AppNotInstalled (surface these).
 export function classifyThirdPartyHwCreateFailures<
-  T extends { error: Pick<IOneKeyError, 'code' | 'key'> },
+  T extends { error: Pick<IOneKeyError, 'code' | 'key' | 'payload'> },
 >(params: {
   addedCount: number;
   failedAccounts: T[];
@@ -333,6 +333,14 @@ export function classifyThirdPartyHwCreateFailures<
     if (isThirdPartyInstallAppUserCancelCode(f.error.code)) return false;
     // Like a missing Ledger app: quiet while other chains were added, reported when none were.
     if (addedCount > 0 && isKeystoneBtcAccountLimitError(f.error)) return false;
+    // A manual export can omit other requested accounts while its matching accounts succeed.
+    if (
+      addedCount > 0 &&
+      f.error.code === ThirdPartyHwErrorCode.DevicePathForbidden &&
+      f.error.payload?.params?.reason === 'account-not-exported'
+    ) {
+      return false;
+    }
     // If at least one chain succeeded, transient mid-flow re-pair errors with
     // changed BLE/USB connectId shouldn't fail the flow.
     if (

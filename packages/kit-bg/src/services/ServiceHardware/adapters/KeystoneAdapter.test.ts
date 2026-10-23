@@ -77,6 +77,7 @@ describe('KeystoneAdapter', () => {
           urType: 'crypto-request',
           urData: 'a1b2',
           animated: true,
+          allowAccountExport: true,
         },
       },
     });
@@ -88,6 +89,7 @@ describe('KeystoneAdapter', () => {
         urType: 'crypto-request',
         urData: 'a1b2',
         animated: true,
+        allowAccountExport: true,
       },
     });
 

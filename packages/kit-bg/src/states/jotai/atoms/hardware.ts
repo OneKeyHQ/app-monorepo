@@ -347,6 +347,8 @@ export function isThirdPartyConfirmOnDevice(
 export type IThirdPartyHardwareUiState = {
   /** Runtime-only publication id; stable across serialization and independent of SDK request ids. */
   uiRequestId?: string;
+  /** Supplied by the current SDK call; an independent request has no operation owner. */
+  operationId?: string;
   action: EThirdPartyHardwareUiAction;
   vendor: EHardwareVendor;
   payload?: {
@@ -377,6 +379,8 @@ export type IThirdPartyHardwareUiState = {
     urData?: string;
     /** Keystone QR: hints the display payload needs multi-frame animated rendering. */
     animated?: boolean;
+    /** The current QR requests public accounts and accepts a device export instead. */
+    allowAccountExport?: boolean;
   };
 };
 
@@ -418,6 +422,7 @@ export async function publishThirdPartyHardwareUiState(
 
 export type IThirdPartyAppInstallState = {
   vendor: EHardwareVendor;
+  operationId?: string;
   appName: string;
   progress?: number;
 };

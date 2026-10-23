@@ -93,6 +93,7 @@ export type IAdapterUiRequestType =
 export type IAdapterUiRequest = {
   kind: 'request';
   type: IAdapterUiRequestType;
+  operationId?: string;
   payload?: {
     /** Vendor that emitted the request, e.g. 'ledger'. */
     vendor?: string;
@@ -113,6 +114,8 @@ export type IAdapterUiRequest = {
     urData?: string;
     /** Keystone QR: hints the display payload needs multi-frame animated rendering. */
     animated?: boolean;
+    /** The current QR requests public accounts and accepts a device export instead. */
+    allowAccountExport?: boolean;
   };
 };
 

@@ -10,6 +10,7 @@ import type { EHardwareVendor } from '@onekeyhq/shared/types/device';
 export function createThirdPartyDeviceSelectionDialogCallbacks({
   vendor,
   requestId,
+  operationId,
   dialogInstanceRef,
   settledRef,
   uiResponse,
@@ -18,13 +19,17 @@ export function createThirdPartyDeviceSelectionDialogCallbacks({
 }: {
   vendor: EHardwareVendor;
   requestId?: string;
+  operationId?: string;
   dialogInstanceRef: { current: unknown | null };
   settledRef: { current: boolean };
   uiResponse: (params: {
     vendor: EHardwareVendor;
     response: IAdapterUiResponse;
   }) => Promise<void>;
-  cancel: (params: { vendor: EHardwareVendor }) => Promise<void>;
+  cancel: (params: {
+    vendor: EHardwareVendor;
+    connectId?: string;
+  }) => Promise<void>;
   clearState: () => Promise<void>;
 }) {
   return {
@@ -51,7 +56,11 @@ export function createThirdPartyDeviceSelectionDialogCallbacks({
               payload: { requestId, cancelled: true },
             },
           });
-        } else await cancel({ vendor });
+        } else
+          await cancel({
+            vendor,
+            ...(operationId ? { connectId: operationId } : {}),
+          });
       } finally {
         await clearState();
       }
@@ -72,7 +81,11 @@ export function createThirdPartyDeviceSelectionDialogCallbacks({
               payload: { requestId, cancelled: true },
             },
           });
-        } else await cancel({ vendor });
+        } else
+          await cancel({
+            vendor,
+            ...(operationId ? { connectId: operationId } : {}),
+          });
       } finally {
         await clearState();
       }
@@ -89,7 +102,7 @@ export function buildThirdPartyHardwareUiResponse(
     passphraseOnDevice?: boolean;
     save?: boolean;
     pin?: string;
-    qrResponse?: { urType: string; urData: string };
+    qrResponse?: { urType: string; urData: string; accountExport?: boolean };
   },
 ): IAdapterUiResponse | null {
   switch (action) {
@@ -172,7 +185,10 @@ export async function cancelThirdPartyHardwareUiRequest({
     vendor: EHardwareVendor;
     response: IAdapterUiResponse;
   }) => Promise<void>;
-  cancel: (params: { vendor: EHardwareVendor }) => Promise<void>;
+  cancel: (params: {
+    vendor: EHardwareVendor;
+    connectId?: string;
+  }) => Promise<void>;
   clearState: () => Promise<void>;
 }) {
   const vendor = state?.vendor;
@@ -183,7 +199,10 @@ export async function cancelThirdPartyHardwareUiRequest({
       if (response) {
         await uiResponse({ vendor, response });
       } else {
-        await cancel({ vendor });
+        await cancel({
+          vendor,
+          ...(state?.operationId ? { connectId: state.operationId } : {}),
+        });
       }
     }
   } finally {
