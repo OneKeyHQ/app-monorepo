@@ -21,6 +21,7 @@ import {
   useInPageDialog,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -372,6 +373,33 @@ async function lockBriefly() {
 }
 
 // Every Dialog now renders in the native overlay (P4c).
+function DialogIntrinsicHeightContent() {
+  const [selected, setSelected] = useState('None');
+
+  return (
+    <YStack flex={1} testID="native-overlay-dialog-intrinsic-outer">
+      <YStack flex={1} testID="native-overlay-dialog-intrinsic-inner">
+        <Input
+          testID="native-overlay-dialog-intrinsic-input"
+          placeholder="Type here"
+        />
+        {['Ledger', 'Trezor', 'Keystone'].map((device) => (
+          <ListItem
+            key={device}
+            testID={`native-overlay-dialog-intrinsic-${device.toLowerCase()}`}
+            title={device}
+            drillIn
+            onPress={() => setSelected(device)}
+          />
+        ))}
+        <SizableText testID="native-overlay-dialog-intrinsic-selection">
+          {`Selected: ${selected}`}
+        </SizableText>
+      </YStack>
+    </YStack>
+  );
+}
+
 function DialogDemos() {
   const inPageDialog = useInPageDialog();
   const navigation = useNavigation<NavigationProp<ParamListBase>>();
@@ -402,6 +430,18 @@ function DialogDemos() {
         }
       >
         Form dialog
+      </Button>
+      <Button
+        testID="native-overlay-intrinsic-dialog-open"
+        onPress={() =>
+          Dialog.show({
+            title: 'Intrinsic height',
+            renderContent: <DialogIntrinsicHeightContent />,
+            showFooter: false,
+          })
+        }
+      >
+        Flex content and list
       </Button>
       <Button
         onPress={() =>
