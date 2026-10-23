@@ -30,9 +30,11 @@ const COLLAPSED = 0;
 // Like Safari, the chrome comes back near the top and at the end of a page.
 const EDGE_EXPAND_DISTANCE = 24;
 
+// Emphasized ease-out: starts quickly and settles softly, so the bar/pill
+// morph reads as one fluid motion rather than a snap.
 const timingConfig = {
   duration: DISPLAY_BOTTOM_BAR_DURATION,
-  easing: Easing.inOut(Easing.quad),
+  easing: Easing.bezier(0.2, 0, 0, 1),
 };
 
 // Drives the mobile browser chrome (header + bottom bar) from WebView scroll:

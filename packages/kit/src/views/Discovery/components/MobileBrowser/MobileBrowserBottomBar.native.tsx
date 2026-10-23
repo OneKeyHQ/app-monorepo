@@ -1,7 +1,10 @@
 import { memo, useCallback, useMemo, useState } from 'react';
 
 import { StyleSheet } from 'react-native';
-import Animated from 'react-native-reanimated';
+import Animated, {
+  interpolate,
+  useAnimatedStyle,
+} from 'react-native-reanimated';
 
 import {
   Haptics,
@@ -11,9 +14,12 @@ import {
   XStack,
 } from '@onekeyhq/components';
 import { useBrowserTabActions } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import type { IBrowserToolbarAction } from '@onekeyhq/shared/src/logger/scopes/discovery/scenes/browser';
 
 import {
   BROWSER_BOTTOM_BAR_HEIGHT,
+  BROWSER_CHROME_CAPSULE_HEIGHT,
   BROWSER_COLLAPSED_PILL_HEIGHT,
 } from '../../config/Animation.constants';
 import { TranslatePopoverTrigger } from '../../hooks/usePageTranslation';
@@ -25,7 +31,6 @@ import { AddressSwipeArea } from './AddressSwipeArea';
 import {
   getCollapsedPillBottom,
   getDisplayHostname,
-  useChromeCrossfadeStyles,
   useIsChromeCollapsed,
 } from './browserChrome';
 import { BrowserChromeCapsule } from './BrowserChromeCapsule';
@@ -36,6 +41,7 @@ import { useMobileBrowserBottomBarData } from './useMobileBrowserBottomBarData';
 import { useMobileBrowserOptions } from './useMobileBrowserOptions';
 
 import type { IMobileBrowserBottomBarProps } from './useMobileBrowserBottomBarData';
+import type { SharedValue } from 'react-native-reanimated';
 
 const styles = StyleSheet.create({
   // Bottom-anchored so the in-flow (tablet) container can shrink to the pill
@@ -46,6 +52,7 @@ const styles = StyleSheet.create({
     right: 0,
     height: BROWSER_BOTTOM_BAR_HEIGHT,
   },
+  capsule: { flex: 1 },
   pillRow: {
     position: 'absolute',
     left: 0,
@@ -55,6 +62,71 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
 });
+
+function logToolbarAction(action: IBrowserToolbarAction) {
+  defaultLogger.discovery.browser.browserToolbarAction({
+    action,
+    entry: 'toolbar',
+  });
+}
+
+// Collapsed size of the address capsule, about the pill's size.
+const CAPSULE_COLLAPSED_SCALE =
+  BROWSER_COLLAPSED_PILL_HEIGHT / BROWSER_CHROME_CAPSULE_HEIGHT;
+
+// Morphs the address capsule into the collapsed pill (and back), like
+// Safari: the capsule shrinks and slides down to the pill's spot while the
+// pill grows out of it; the side buttons fade and slide outwards. Both
+// layers overlap mid-way so it reads as one element changing shape.
+function useBarMorphStyles(progress: SharedValue<number>, travelY: number) {
+  const leftStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(progress.value, [0.4, 1], [0, 1], 'clamp'),
+    transform: [
+      { translateX: interpolate(progress.value, [0, 1], [-16, 0], 'clamp') },
+      { scale: interpolate(progress.value, [0, 1], [0.8, 1], 'clamp') },
+    ],
+  }));
+  const rightStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(progress.value, [0.4, 1], [0, 1], 'clamp'),
+    transform: [
+      { translateX: interpolate(progress.value, [0, 1], [16, 0], 'clamp') },
+      { scale: interpolate(progress.value, [0, 1], [0.8, 1], 'clamp') },
+    ],
+  }));
+  const capsuleStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(progress.value, [0.25, 0.75], [0, 1], 'clamp'),
+    transform: [
+      {
+        translateY: interpolate(progress.value, [0, 1], [travelY, 0], 'clamp'),
+      },
+      {
+        scale: interpolate(
+          progress.value,
+          [0, 1],
+          [CAPSULE_COLLAPSED_SCALE, 1],
+          'clamp',
+        ),
+      },
+    ],
+  }));
+  const pillStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(progress.value, [0.25, 0.75], [1, 0], 'clamp'),
+    transform: [
+      {
+        translateY: interpolate(progress.value, [0, 1], [0, -travelY], 'clamp'),
+      },
+      {
+        scale: interpolate(
+          progress.value,
+          [0, 1],
+          [1, 1 / CAPSULE_COLLAPSED_SCALE],
+          'clamp',
+        ),
+      },
+    ],
+  }));
+  return { leftStyle, rightStyle, capsuleStyle, pillStyle };
+}
 
 // The translate sheet is opened from the menu; this anchor only positions the
 // tablet popover, out of the layout flow so it doesn't shift the address.
@@ -120,9 +192,16 @@ function MobileBrowserBottomBar({
 
   const { progress, onExpand, onSearchBarPress } = chrome;
   const isChromeCollapsed = useIsChromeCollapsed(progress);
-  const { expandedStyle, collapsedStyle } = useChromeCrossfadeStyles(progress, {
-    hiddenOffsetY: 16,
-  });
+  const pillBottom = getCollapsedPillBottom(bottom);
+  // Distance between the bar capsule's center and the pill's center.
+  const morphTravelY =
+    bottom +
+    BROWSER_BOTTOM_BAR_HEIGHT / 2 -
+    (pillBottom + BROWSER_COLLAPSED_PILL_HEIGHT / 2);
+  const { leftStyle, rightStyle, capsuleStyle, pillStyle } = useBarMorphStyles(
+    progress,
+    morphTravelY,
+  );
 
   const [translateOpen, setTranslateOpen] = useState(false);
   const handleTranslatePress = useCallback(() => {
@@ -132,13 +211,11 @@ function MobileBrowserBottomBar({
   const showOptions = useMobileBrowserOptions({
     isBookmark: tab?.isBookmark ?? false,
     onBookmarkPress: handleBookmarkPress,
-    onRefresh: handleRefresh,
     onShare,
     onCopyUrl,
     isPinned: tab?.isPinned ?? false,
     onPinnedPress: handlePinTab,
     onBrowserOpen: handleBrowserOpen,
-    onGoBackHomePage,
     onCloseTab: handleCloseTab,
     displayDisconnectOption: !!hasConnectedAccount,
     onDisconnect: handleDisconnect,
@@ -152,6 +229,7 @@ function MobileBrowserBottomBar({
 
   const currentUrl = tab?.displayUrl ?? tab?.url;
   const handleAddressPress = useCallback(() => {
+    logToolbarAction('address');
     onSearchBarPress(currentUrl ?? '');
   }, [onSearchBarPress, currentUrl]);
 
@@ -163,6 +241,7 @@ function MobileBrowserBottomBar({
       const index = tabs.findIndex((t) => t.id === activeTabId);
       const target = index < 0 ? undefined : tabs[index + direction];
       if (target) {
+        logToolbarAction('swipeTab');
         Haptics.selection();
         setCurrentWebTab(target.id);
       }
@@ -176,7 +255,7 @@ function MobileBrowserBottomBar({
     <Stack h="100%" zIndex={1} pointerEvents="box-none">
       <Animated.View
         pointerEvents={isChromeCollapsed ? 'none' : 'box-none'}
-        style={[styles.bar, { bottom }, expandedStyle]}
+        style={[styles.bar, { bottom }]}
       >
         <XStack
           h={BROWSER_BOTTOM_BAR_HEIGHT}
@@ -184,58 +263,86 @@ function MobileBrowserBottomBar({
           gap="$2"
           alignItems="center"
         >
-          <BrowserChromeCapsule>
-            <ChromePressable onPress={handleGoBack} disabled={disabledGoBack}>
-              <IconButton
-                variant="tertiary"
-                icon="ChevronLeftOutline"
+          <Animated.View style={leftStyle}>
+            <BrowserChromeCapsule>
+              <ChromePressable
+                onPress={() => {
+                  logToolbarAction('back');
+                  handleGoBack();
+                }}
                 disabled={disabledGoBack}
-                accessible={!disabledGoBack}
-                testID={DiscoveryTestIDs.browserBackButton}
-              />
-            </ChromePressable>
-          </BrowserChromeCapsule>
+              >
+                <IconButton
+                  variant="tertiary"
+                  icon="ChevronLeftOutline"
+                  disabled={disabledGoBack}
+                  accessible={!disabledGoBack}
+                  testID={DiscoveryTestIDs.browserBackButton}
+                />
+              </ChromePressable>
+            </BrowserChromeCapsule>
+          </Animated.View>
           {/* Same edge inset as the round buttons, so icons line up. */}
-          <BrowserChromeCapsule flex={1}>
-            <ChromePressable onPress={showOptions} disabled={displayHomePage}>
-              <IconButton
-                variant="tertiary"
-                icon="MenuOutline"
+          <Animated.View style={[styles.capsule, capsuleStyle]}>
+            <BrowserChromeCapsule flex={1}>
+              <ChromePressable
+                onPress={() => {
+                  logToolbarAction('menu');
+                  showOptions();
+                }}
                 disabled={displayHomePage}
-                testID="browser-bar-options"
+              >
+                <IconButton
+                  variant="tertiary"
+                  icon="MenuOutline"
+                  disabled={displayHomePage}
+                  testID="browser-bar-options"
+                />
+              </ChromePressable>
+              <TranslatePopoverTrigger
+                isTranslated={isTranslated}
+                onTranslate={handleTranslate}
+                onRetranslate={handleRetranslate}
+                onTestAITranslateError={handleTranslateTestAIError}
+                open={translateOpen}
+                onOpenChange={setTranslateOpen}
+                trigger={translatePopoverAnchor}
               />
-            </ChromePressable>
-            <TranslatePopoverTrigger
-              isTranslated={isTranslated}
-              onTranslate={handleTranslate}
-              onRetranslate={handleRetranslate}
-              onTestAITranslateError={handleTranslateTestAIError}
-              open={translateOpen}
-              onOpenChange={setTranslateOpen}
-              trigger={translatePopoverAnchor}
-            />
-            <AddressSwipeArea onSwipe={handleSwipeTab}>
-              <AddressCapsuleTitle
-                url={currentUrl}
-                onPress={handleAddressPress}
+              <AddressSwipeArea onSwipe={handleSwipeTab}>
+                <AddressCapsuleTitle
+                  url={currentUrl}
+                  onPress={handleAddressPress}
+                />
+              </AddressSwipeArea>
+              <RefreshButton
+                onRefresh={() => {
+                  logToolbarAction('refresh');
+                  handleRefresh();
+                }}
               />
-            </AddressSwipeArea>
-            <RefreshButton onRefresh={handleRefresh} />
-          </BrowserChromeCapsule>
-          <BrowserChromeCapsule>
-            <TabCountButton testID={DiscoveryTestIDs.tabListButton} />
-          </BrowserChromeCapsule>
+            </BrowserChromeCapsule>
+          </Animated.View>
+          <Animated.View style={rightStyle}>
+            <BrowserChromeCapsule>
+              <TabCountButton
+                testID={DiscoveryTestIDs.tabListButton}
+                onPressed={() => logToolbarAction('tabs')}
+              />
+            </BrowserChromeCapsule>
+          </Animated.View>
         </XStack>
       </Animated.View>
       <Animated.View
         pointerEvents={isChromeCollapsed ? 'box-none' : 'none'}
-        style={[
-          styles.pillRow,
-          { bottom: getCollapsedPillBottom(bottom) },
-          collapsedStyle,
-        ]}
+        style={[styles.pillRow, { bottom: pillBottom }, pillStyle]}
       >
-        <CollapsedAddressPill url={currentUrl} onPress={onExpand} />
+        <CollapsedAddressPill
+          url={currentUrl}
+          onPress={() => {
+            logToolbarAction('expand');
+            onExpand();
+          }}
+        />
       </Animated.View>
     </Stack>
   );

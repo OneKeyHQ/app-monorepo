@@ -12,19 +12,18 @@ import {
   XStack,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
 import { BROWSER_HEADER_HEIGHT } from '../../config/Animation.constants';
 import { DiscoveryTestIDs } from '../../testIDs';
 import HeaderRightToolBar from '../HeaderRightToolBar';
 
-import {
-  useChromeCrossfadeStyles,
-  useIsChromeCollapsed,
-} from './browserChrome';
+import { useChromeExpandedStyle, useIsChromeCollapsed } from './browserChrome';
 
 import type { IMobileBrowserChrome } from './browserChrome';
 
 const headerHeight = BROWSER_HEADER_HEIGHT;
+const ACCOUNT_CHIP_HEIGHT = 36;
 
 const styles = StyleSheet.create({
   container: {
@@ -59,7 +58,7 @@ function MobileBrowserHeader({
   const { top } = useSafeAreaInsets();
   const { progress } = chrome;
   const isCollapsed = useIsChromeCollapsed(progress);
-  const { expandedStyle } = useChromeCrossfadeStyles(progress, {
+  const expandedStyle = useChromeExpandedStyle(progress, {
     hiddenOffsetY: -8,
   });
   const containerAnimatedStyle = useAnimatedStyle(() => ({
@@ -86,10 +85,28 @@ function MobileBrowserHeader({
             <IconButton
               variant="tertiary"
               icon="MinimizeOutline"
-              onPress={onGoBackHome}
+              onPress={() => {
+                defaultLogger.discovery.browser.browserToolbarAction({
+                  action: 'minimize',
+                  entry: 'header',
+                });
+                onGoBackHome();
+              }}
               testID={DiscoveryTestIDs.browserMinimizeButton}
             />
-            <HeaderRightToolBar showWalletAccountWhenDisconnected />
+            {/* One compact chip for every account state (connected,
+                not connected, no wallet), so the right side keeps the same
+                shape instead of switching between loose triggers. */}
+            <XStack
+              h={ACCOUNT_CHIP_HEIGHT}
+              px="$1"
+              bg="$bgStrong"
+              borderRadius="$full"
+              borderCurve="continuous"
+              alignItems="center"
+            >
+              <HeaderRightToolBar variant="mobileBrowser" />
+            </XStack>
           </XStack>
         </Animated.View>
       </Animated.View>

@@ -1,7 +1,7 @@
 export const BROWSER_BOTTOM_BAR_HEIGHT = 54;
 export const MIN_TOGGLE_BROWSER_VISIBLE_DISTANCE =
   BROWSER_BOTTOM_BAR_HEIGHT * 2;
-export const DISPLAY_BOTTOM_BAR_DURATION = 180;
+export const DISPLAY_BOTTOM_BAR_DURATION = 300;
 // Mobile browser header (below the safe-area top inset); it collapses fully
 // while scrolling down, the address stays visible in the bottom pill.
 export const BROWSER_HEADER_HEIGHT = 48;

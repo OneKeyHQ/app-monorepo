@@ -3,6 +3,25 @@ import type { IWebTab } from '@onekeyhq/kit/src/views/Discovery/types';
 import { BaseScene } from '../../../base/baseScene';
 import { LogToLocal, LogToServer } from '../../../base/decorators';
 
+export type IBrowserToolbarAction =
+  | 'back'
+  | 'forward'
+  | 'refresh'
+  | 'tabs'
+  | 'menu'
+  | 'address'
+  | 'siteInfo'
+  | 'swipeTab'
+  | 'expand'
+  | 'minimize'
+  | 'account'
+  | 'createWallet'
+  | 'translate'
+  | 'share'
+  | 'copyUrl'
+  | 'openInBrowser'
+  | 'siteMode';
+
 export class BrowserScene extends BaseScene {
   @LogToLocal({ level: 'info' })
   public tabsData(tabs: IWebTab[]) {
@@ -76,5 +95,17 @@ export class BrowserScene extends BaseScene {
   @LogToLocal()
   public tabDragSorting() {
     return {};
+  }
+
+  // Mobile browser chrome usage (bottom bar, its menu, header), to see which
+  // controls earn a top-level slot. Menu actions that already have their own
+  // event (bookmark, pin, close tab, disconnect) are not repeated here.
+  @LogToServer()
+  @LogToLocal()
+  public browserToolbarAction(params: {
+    action: IBrowserToolbarAction;
+    entry: 'toolbar' | 'menu' | 'header';
+  }) {
+    return params;
   }
 }

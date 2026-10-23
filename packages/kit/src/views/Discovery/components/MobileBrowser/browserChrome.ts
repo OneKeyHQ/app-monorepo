@@ -56,14 +56,13 @@ export function useIsChromeCollapsed(progress: SharedValue<number>) {
   return isCollapsed;
 }
 
-// The expanded layer fades out in the first half of a collapse while the
-// collapsed layer fades in during the second half, so they never overlap.
-// Opacity + translate only: scaling Liquid Glass re-composites every frame.
-export function useChromeCrossfadeStyles(
+// Fades the header out in the first half of a collapse (opacity + a small
+// slide), so it is gone before its row height reaches zero.
+export function useChromeExpandedStyle(
   progress: SharedValue<number>,
   { hiddenOffsetY }: { hiddenOffsetY: number },
 ) {
-  const expandedStyle = useAnimatedStyle(() => ({
+  return useAnimatedStyle(() => ({
     opacity: interpolate(
       progress.value,
       [BROWSER_CHROME_CROSSFADE_POINT, 1],
@@ -81,13 +80,4 @@ export function useChromeCrossfadeStyles(
       },
     ],
   }));
-  const collapsedStyle = useAnimatedStyle(() => ({
-    opacity: interpolate(
-      progress.value,
-      [0, BROWSER_CHROME_CROSSFADE_POINT],
-      [1, 0],
-      'clamp',
-    ),
-  }));
-  return { expandedStyle, collapsedStyle };
 }

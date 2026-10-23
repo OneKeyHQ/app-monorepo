@@ -18,9 +18,9 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { AccountAvatar } from '@onekeyhq/kit/src/components/AccountAvatar';
 import {
   AccountSelectorProviderMirror,
-  AccountSelectorTriggerHome,
   NetworkSelectorTriggerBrowserSingle,
 } from '@onekeyhq/kit/src/components/AccountSelector';
+import { useAccountSelectorTrigger } from '@onekeyhq/kit/src/components/AccountSelector/hooks/useAccountSelectorTrigger';
 import { AccountSelectorTriggerBrowserSingle } from '@onekeyhq/kit/src/components/AccountSelector/AccountSelectorTrigger/AccountSelectorTriggerDApp';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
@@ -35,6 +35,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
@@ -108,6 +109,61 @@ export function SingleAccountAndNetworkSelectorTrigger({
   );
 }
 
+function logHeaderAction(action: 'account' | 'createWallet') {
+  defaultLogger.discovery.browser.browserToolbarAction({
+    action,
+    entry: 'header',
+  });
+}
+
+// Compact version of the home account trigger for the browser header chip:
+// avatar + account name. Opens the same home-scene account selector.
+function CompactWalletAccountTrigger() {
+  const intl = useIntl();
+  const {
+    activeAccount: { account, indexedAccount, network },
+  } = useActiveAccount({ num: 0 });
+  const linkNetwork = !network?.isAllNetworks;
+  const { showAccountSelector } = useAccountSelectorTrigger({
+    num: 0,
+    editable: true,
+    keepAllOtherAccounts: true,
+    allowSelectEmptyAccount: true,
+    hideAddress: true,
+    linkNetwork,
+    linkNetworkId: linkNetwork ? network?.id : undefined,
+  });
+  const accountName =
+    indexedAccount?.name ||
+    account?.name ||
+    intl.formatMessage({ id: ETranslations.no_account });
+
+  return (
+    <XStack
+      role="button"
+      gap="$1.5"
+      pl="$0.5"
+      pr="$1"
+      alignItems="center"
+      onPress={() => {
+        logHeaderAction('account');
+        showAccountSelector();
+      }}
+      testID="browser-header-account"
+    >
+      <AccountAvatar
+        size="small"
+        account={account}
+        indexedAccount={indexedAccount}
+      />
+      <SizableText size="$bodyMdMedium" numberOfLines={1} maxWidth={140}>
+        {accountName}
+      </SizableText>
+      <Icon name="ChevronDownSmallOutline" color="$iconSubdued" size="$4" />
+    </XStack>
+  );
+}
+
 // Mobile, site not connected: the active wallet account, or an onboarding
 // entry when there is no usable wallet yet.
 function WalletAccountOrOnboardingEntry() {
@@ -119,7 +175,7 @@ function WalletAccountOrOnboardingEntry() {
   const toOnBoardingPage = useToOnBoardingPage();
 
   if (!accountUtils.hasNoUsableWallet({ wallet, account })) {
-    return <AccountSelectorTriggerHome num={0} hideAddress />;
+    return <CompactWalletAccountTrigger />;
   }
   if (isSyncLoading) {
     return <Spinner size="small" />;
@@ -136,6 +192,7 @@ function WalletAccountOrOnboardingEntry() {
         disabled
           ? undefined
           : () => {
+              logHeaderAction('createWallet');
               void toOnBoardingPage();
             }
       }
@@ -283,15 +340,14 @@ function AccountSelectorPopoverContent({
 }
 
 interface IHeaderRightToolBarProps {
-  // Mobile: when the site has no connected account, still show the active
-  // wallet account (from the surrounding home-scene account selector) so
-  // users always know which account the browser will connect with.
-  showWalletAccountWhenDisconnected?: boolean;
+  // Mobile browser header chip: when the site has no connected account,
+  // still show the active wallet account (from the surrounding home-scene
+  // account selector), and mark a connected site with a status dot.
+  variant?: 'mobileBrowser';
 }
 
-function HeaderRightToolBar({
-  showWalletAccountWhenDisconnected,
-}: IHeaderRightToolBarProps) {
+function HeaderRightToolBar({ variant }: IHeaderRightToolBarProps) {
+  const isMobileBrowser = variant === 'mobileBrowser';
   const [isOpen, setIsOpen] = useState(false);
   const { activeTabId } = useActiveTabId();
   const { tab } = useWebTabDataById(activeTabId ?? '');
@@ -378,7 +434,7 @@ function HeaderRightToolBar({
       return <Spinner />;
     }
     if (!connectedAccountsInfo?.length || !origin) {
-      if (showWalletAccountWhenDisconnected) {
+      if (isMobileBrowser) {
         return <WalletAccountOrOnboardingEntry />;
       }
       return <ShortcutsActionButton />;
@@ -452,9 +508,18 @@ function HeaderRightToolBar({
     handleOpenChange,
     renderPopoverContent,
     afterChangeAccount,
-    showWalletAccountWhenDisconnected,
+    isMobileBrowser,
   ]);
 
+  if (isMobileBrowser && connectedAccountsInfo?.length && origin) {
+    return (
+      <XStack alignItems="center" gap="$1.5" pl="$2">
+        {/* This site is connected. */}
+        <Stack w="$2" h="$2" borderRadius="$full" bg="$iconSuccess" />
+        {content}
+      </XStack>
+    );
+  }
   return <>{content}</>;
 }
 

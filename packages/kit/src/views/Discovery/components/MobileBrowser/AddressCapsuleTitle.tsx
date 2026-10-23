@@ -4,6 +4,7 @@ import { useIntl } from 'react-intl';
 
 import { Icon, Popover, SizableText, XStack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
 import { useUrlRiskConfig } from '../../hooks/useUrlRiskConfig';
 import { DiscoveryTestIDs } from '../../testIDs';
@@ -38,7 +39,13 @@ export function AddressCapsuleTitle({
         renderTrigger={
           <ChromePressable
             disabled={!url || !hostSecurity}
-            onPress={() => setSiteInfoOpen(true)}
+            onPress={() => {
+              defaultLogger.discovery.browser.browserToolbarAction({
+                action: 'siteInfo',
+                entry: 'toolbar',
+              });
+              setSiteInfoOpen(true);
+            }}
           >
             <Icon
               name={url ? iconConfig.iconName : 'SearchOutline'}

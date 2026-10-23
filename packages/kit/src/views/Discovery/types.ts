@@ -105,13 +105,11 @@ export interface IWebTabsAtom {
 export interface IMobileBottomOptionsProps {
   isBookmark: boolean;
   onBookmarkPress: (bookmark: boolean) => void;
-  onRefresh: () => void;
   onShare: () => void;
   onCopyUrl: () => void;
   isPinned: boolean;
   onPinnedPress: (pinned: boolean) => void;
   onBrowserOpen: () => void;
-  onGoBackHomePage?: () => void;
   onCloseTab: () => void;
   displayDisconnectOption: boolean;
   onDisconnect: () => void;

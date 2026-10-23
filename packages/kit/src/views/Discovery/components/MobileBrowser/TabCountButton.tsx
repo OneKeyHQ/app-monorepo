@@ -22,6 +22,8 @@ import { ChromePressable } from './ChromePressable';
 interface ITabCountButtonProps {
   testID: string;
   size?: 'medium' | 'large';
+  // Called on press, before the tab list opens (e.g. for analytics).
+  onPressed?: () => void;
 }
 
 // Snapshot the current page for its tab card, then open the tab list.
@@ -65,6 +67,7 @@ function TabCountButton({ testID, size = 'medium' }: ITabCountButtonProps) {
   return (
     <ChromePressable
       onPress={() => {
+        onPressed?.();
         void handleShowTabList();
       }}
     >
