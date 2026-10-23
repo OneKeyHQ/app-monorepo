@@ -99,6 +99,7 @@ function MobileBrowserHeader({
                 variant="tertiary"
                 m={0}
                 icon="MinimizeOutline"
+                iconProps={{ color: '$icon' }}
                 onPress={() => {
                   defaultLogger.discovery.browser.browserToolbarAction({
                     action: 'minimize',
@@ -115,7 +116,7 @@ function MobileBrowserHeader({
             <XStack
               h={ACCOUNT_CHIP_HEIGHT}
               px="$1"
-              bg="$bgStrong"
+              bg="$bgSubdued"
               borderRadius="$full"
               borderCurve="continuous"
               alignItems="center"

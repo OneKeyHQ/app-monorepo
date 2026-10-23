@@ -18,7 +18,6 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { IBrowserToolbarAction } from '@onekeyhq/shared/src/logger/scopes/discovery/scenes/browser';
 
 import {
-  BROWSER_BOTTOM_BAR_HEIGHT,
   BROWSER_CHROME_CAPSULE_HEIGHT,
   BROWSER_CHROME_SIDE_PADDING,
   BROWSER_COLLAPSED_PILL_HEIGHT,
@@ -30,6 +29,7 @@ import { DiscoveryTestIDs } from '../../testIDs';
 import { AddressCapsuleTitle } from './AddressCapsuleTitle';
 import { AddressSwipeArea } from './AddressSwipeArea';
 import {
+  getBarCapsuleBottom,
   getCollapsedPillBottom,
   getDisplayHostname,
   useIsChromeCollapsed,
@@ -51,7 +51,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 0,
     right: 0,
-    height: BROWSER_BOTTOM_BAR_HEIGHT,
+    height: BROWSER_CHROME_CAPSULE_HEIGHT,
   },
   capsule: { flex: 1 },
   pillRow: {
@@ -194,10 +194,11 @@ function MobileBrowserBottomBar({
   const { progress, onExpand, onSearchBarPress } = chrome;
   const isChromeCollapsed = useIsChromeCollapsed(progress);
   const pillBottom = getCollapsedPillBottom(bottom);
+  const capsuleBottom = getBarCapsuleBottom(bottom);
   // Distance between the bar capsule's center and the pill's center.
   const morphTravelY =
-    bottom +
-    BROWSER_BOTTOM_BAR_HEIGHT / 2 -
+    capsuleBottom +
+    BROWSER_CHROME_CAPSULE_HEIGHT / 2 -
     (pillBottom + BROWSER_COLLAPSED_PILL_HEIGHT / 2);
   const { leftStyle, rightStyle, capsuleStyle, pillStyle } = useBarMorphStyles(
     progress,
@@ -256,10 +257,10 @@ function MobileBrowserBottomBar({
     <Stack h="100%" zIndex={1} pointerEvents="box-none">
       <Animated.View
         pointerEvents={isChromeCollapsed ? 'none' : 'box-none'}
-        style={[styles.bar, { bottom }]}
+        style={[styles.bar, { bottom: capsuleBottom }]}
       >
         <XStack
-          h={BROWSER_BOTTOM_BAR_HEIGHT}
+          h={BROWSER_CHROME_CAPSULE_HEIGHT}
           px={BROWSER_CHROME_SIDE_PADDING}
           gap="$2"
           alignItems="center"

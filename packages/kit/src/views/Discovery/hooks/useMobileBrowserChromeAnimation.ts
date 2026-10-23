@@ -12,11 +12,11 @@ import { useSafeAreaInsets } from '@onekeyhq/components';
 import type { IWebViewOnScrollEvent } from '@onekeyhq/kit/src/components/WebView/types';
 
 import {
+  getBarReservedHeight,
   getCollapsedPillBottom,
   isFloatingBrowserChrome,
 } from '../components/MobileBrowser/browserChrome';
 import {
-  BROWSER_BOTTOM_BAR_HEIGHT,
   BROWSER_COLLAPSED_PILL_HEIGHT,
   DISPLAY_BOTTOM_BAR_DURATION,
   MIN_TOGGLE_BROWSER_VISIBLE_DISTANCE,
@@ -42,7 +42,7 @@ const timingConfig = {
 // or a non-scrollable page brings them back.
 function useMobileBrowserChromeAnimation() {
   const { bottom: bottomInset } = useSafeAreaInsets();
-  const fullBarHeight = BROWSER_BOTTOM_BAR_HEIGHT + bottomInset;
+  const fullBarHeight = getBarReservedHeight(bottomInset);
   // 1 = chrome fully expanded, 0 = collapsed.
   const chromeProgress = useSharedValue(EXPANDED);
   const lastScrollY = useSharedValue(UNSET);

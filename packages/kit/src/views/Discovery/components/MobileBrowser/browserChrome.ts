@@ -10,9 +10,14 @@ import {
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 
-import { BROWSER_CHROME_CROSSFADE_POINT } from '../../config/Animation.constants';
+import {
+  BROWSER_CHROME_CAPSULE_HEIGHT,
+  BROWSER_CHROME_CROSSFADE_POINT,
+} from '../../config/Animation.constants';
 
 import type { SharedValue } from 'react-native-reanimated';
+
+const BAR_TOP_GAP = 8;
 
 // Safari-style chrome on both platforms: the address lives in the bottom bar
 // and a compact address pill stays visible while collapsed. Only iOS lets the
@@ -31,6 +36,23 @@ export interface IMobileBrowserChrome {
 // Sits just above the home indicator, overlapping the bottom safe area.
 export function getCollapsedPillBottom(bottomInset: number) {
   return Math.max(bottomInset - 20, 8);
+}
+
+// Bottom edge of the expanded bar's capsules. Like Safari, they sit low,
+// dipping into the bottom safe area just above the home indicator, instead of
+// stacking a full toolbar on top of the inset.
+export function getBarCapsuleBottom(bottomInset: number) {
+  return Math.max(bottomInset - 10, 8);
+}
+
+// Height the expanded bar covers from the screen bottom (capsules plus a gap
+// above them); the WebView reserves this much room for it.
+export function getBarReservedHeight(bottomInset: number) {
+  return (
+    getBarCapsuleBottom(bottomInset) +
+    BROWSER_CHROME_CAPSULE_HEIGHT +
+    BAR_TOP_GAP
+  );
 }
 
 export function getDisplayHostname(url?: string) {
