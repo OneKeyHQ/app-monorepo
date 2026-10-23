@@ -1,4 +1,10 @@
-import { Icon, SizableText, XStack, YStack } from '@onekeyhq/components';
+import {
+  Icon,
+  SizableText,
+  Skeleton,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
 import type { ISizableTextProps } from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { PerpDexBadge } from '@onekeyhq/kit/src/views/Market/components/PerpsBadges';
@@ -12,6 +18,7 @@ export function SimpleMarketHeader({
   width,
   price,
   changeLabel,
+  changeLoading,
   changeColor,
   onPress,
   testID,
@@ -21,6 +28,7 @@ export function SimpleMarketHeader({
   width: number;
   price: string;
   changeLabel: string;
+  changeLoading?: boolean;
   changeColor: ISizableTextProps['color'];
   onPress?: () => void;
   testID?: string;
@@ -93,9 +101,13 @@ export function SimpleMarketHeader({
           >
             {price}
           </SizableText>
-          <SizableText size="$bodySm" color={changeColor} numberOfLines={1}>
-            {changeLabel}
-          </SizableText>
+          {changeLoading ? (
+            <Skeleton width="$12" height="$4" />
+          ) : (
+            <SizableText size="$bodySm" color={changeColor} numberOfLines={1}>
+              {changeLabel}
+            </SizableText>
+          )}
         </XStack>
       </YStack>
     </XStack>
