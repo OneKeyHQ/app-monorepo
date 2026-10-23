@@ -131,9 +131,11 @@ function MobileBrowserContent({
     }
     const webView = (
       <ViewShot ref={initCaptureViewRef} style={{ flex: 1 }}>
+        {/* No top margin: the page starts right under the browser header,
+            which now takes the page's color, so a gap would show the app
+            background as a strip. */}
         <Stack
           flex={1}
-          mt="$3"
           // https://github.com/gre/react-native-view-shot/issues/7
           collapsable={platformEnv.isNativeAndroid ? false : undefined}
           bg={platformEnv.isNativeAndroid ? '$bgApp' : undefined}
