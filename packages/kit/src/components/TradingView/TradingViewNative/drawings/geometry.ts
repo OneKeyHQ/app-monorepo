@@ -1,263 +1,323 @@
-import { formatTradingViewNativePriceTick } from '../utils/chartLayout';
-
+import { appendAdvancedLevels } from './advancedLevels';
+import { appendFibonacciGeometry } from './fibonacci';
+import { appendGeometricTools } from './geometricTools';
 import {
-  DEFAULT_DRAWING_FONT_SIZE,
-  DEFAULT_DRAWING_STYLE,
+  getDrawingLabelBackground,
+  getDrawingLabelLayout,
+} from './labelLayout';
+import { formatDrawingNumber, getDrawingMeasurement } from './measurement';
+import {
   drawingPointToScreen,
   getFreehandBounds,
-  isFreehandTool,
+  isFibonacciTool,
+  isRangeTool,
 } from './model';
+import {
+  drawingArrowHead,
+  extendDrawingLine,
+  smoothDrawingStroke,
+} from './pathUtils';
+import { appendPatternGeometry } from './patternGeometry';
+import { appendProjectionGeometry } from './projectionGeometry';
 
+import type { IDrawingLabel } from './labelLayout';
 import type { IDrawing, IDrawingProjection, IScreenPoint } from './model';
 
+export type { IDrawingLabel } from './labelLayout';
 export type IDrawingPath = {
   points: IScreenPoint[];
   fill?: boolean;
+  stroke?: boolean;
+  fillOpacity?: number;
+  fillColor?: string;
   dashed?: boolean;
   color?: string;
   width?: number;
   opacity?: number;
 };
-export type IDrawingLabel = IScreenPoint & { text: string; fontSize?: number };
 export type IDrawingGeometry = {
   handles: IScreenPoint[];
   paths: IDrawingPath[];
   labels: IDrawingLabel[];
 };
 
-function extendLine(
-  a: IScreenPoint,
-  b: IScreenPoint,
-  projection: IDrawingProjection,
-  extent: 'segment' | 'ray' | 'line',
-): IScreenPoint[] {
-  'worklet';
-
-  const dx = b.x - a.x;
-  const dy = b.y - a.y;
-  if (Math.hypot(dx, dy) < 0.01) return [a, b];
-  let start = extent === 'line' ? -Infinity : 0;
-  let end = extent === 'segment' ? 1 : Infinity;
-  const boundaries = [
-    [-dx, a.x],
-    [dx, projection.layout.priceAxisX - a.x],
-    [-dy, a.y],
-    [dy, projection.layout.mainChartBottom - a.y],
-  ];
-  for (const [direction, distance] of boundaries) {
-    if (direction === 0) {
-      if (distance < 0) return [];
-    } else if (direction < 0) start = Math.max(start, distance / direction);
-    else end = Math.min(end, distance / direction);
-  }
-  return start <= end
-    ? [
-        { x: a.x + start * dx, y: a.y + start * dy },
-        { x: a.x + end * dx, y: a.y + end * dy },
-      ]
-    : [];
-}
-
 export function getDrawingGeometry(
   drawing: IDrawing,
   projection: IDrawingProjection,
 ): IDrawingGeometry {
   'worklet';
-
   const handles = drawing.points.map((point) =>
     drawingPointToScreen(point, projection),
   );
+  const geometry: IDrawingGeometry = { handles, paths: [], labels: [] };
+  const { paths, labels } = geometry;
   const [a, second] = handles;
+  if (!a) return geometry;
   const b = second ?? a;
   const c = handles[2] ?? b;
-  const paths: IDrawingPath[] = [];
-  const labels: IDrawingLabel[] = [];
-  if (!a) return { handles, paths, labels };
   const { priceAxisX: width, mainChartBottom: height } = projection.layout;
-  let extent: 'segment' | 'ray' | 'line' = 'segment';
-  if (drawing.tool === 'extended') extent = 'line';
-  else if (drawing.tool === 'ray') extent = 'ray';
+  const rectangle = [a, { x: b.x, y: a.y }, b, { x: a.x, y: b.y }, a];
+  const shapeStyle = {
+    fill: drawing.showBackground !== false,
+    stroke: drawing.showBorder !== false,
+    fillColor: drawing.fillColor,
+    fillOpacity: drawing.fillOpacity ?? 0.2,
+  };
+  if (
+    appendGeometricTools(drawing, projection, geometry) ||
+    appendPatternGeometry(drawing, projection, geometry) ||
+    appendAdvancedLevels(drawing, projection, geometry) ||
+    appendProjectionGeometry(drawing, projection, geometry)
+  )
+    return geometry;
+  if (isFibonacciTool(drawing.tool)) {
+    appendFibonacciGeometry(drawing, projection, geometry);
+    return geometry;
+  }
+  if (isRangeTool(drawing.tool)) {
+    const measurement = getDrawingMeasurement(drawing, projection);
+    let color = drawing.color;
+    if (drawing.tool === 'measure')
+      color = measurement.delta < 0 ? '#F7525F' : '#2962FF';
+    const left =
+      drawing.extendLeft && drawing.tool === 'priceRange'
+        ? 0
+        : Math.min(a.x, b.x);
+    const right =
+      drawing.extendRight && drawing.tool === 'priceRange'
+        ? width
+        : Math.max(a.x, b.x);
+    const top =
+      drawing.extendLeft && drawing.tool === 'dateRange'
+        ? 0
+        : Math.min(a.y, b.y);
+    const bottom =
+      drawing.extendRight && drawing.tool === 'dateRange'
+        ? height
+        : Math.max(a.y, b.y);
+    paths.push({
+      points: [
+        { x: left, y: top },
+        { x: right, y: top },
+        { x: right, y: bottom },
+        { x: left, y: bottom },
+        { x: left, y: top },
+      ],
+      fill: drawing.showBackground !== false,
+      stroke: drawing.showBorder === true,
+      color,
+      fillColor: drawing.fillColor,
+      fillOpacity: drawing.fillOpacity ?? 0.15,
+    });
+    const centerX = (a.x + b.x) / 2;
+    const centerY = (a.y + b.y) / 2;
+    const lines: string[] = [];
+    if (drawing.tool !== 'dateRange') {
+      const start = { x: centerX, y: a.y };
+      const end = { x: centerX, y: b.y };
+      paths.push(
+        { points: [start, end], color },
+        { points: drawingArrowHead(start, end, 7), color },
+      );
+      if (drawing.tool === 'priceRange') {
+        paths.push(
+          {
+            points: [
+              { x: left, y: a.y },
+              { x: right, y: a.y },
+            ],
+            color,
+          },
+          {
+            points: [
+              { x: left, y: b.y },
+              { x: right, y: b.y },
+            ],
+            color,
+          },
+        );
+      }
+      lines.push(measurement.priceText);
+    }
+    if (drawing.tool !== 'priceRange') {
+      const start = { x: a.x, y: centerY };
+      const end = { x: b.x, y: centerY };
+      paths.push(
+        { points: [start, end], color },
+        { points: drawingArrowHead(start, end, 7), color },
+      );
+      if (drawing.tool === 'dateRange')
+        paths.push(
+          {
+            points: [
+              { x: a.x, y: top },
+              { x: a.x, y: bottom },
+            ],
+            color,
+          },
+          {
+            points: [
+              { x: b.x, y: top },
+              { x: b.x, y: bottom },
+            ],
+            color,
+          },
+        );
+      lines.push(measurement.timeText);
+      if (drawing.showVolume !== false) lines.push(measurement.volumeText);
+    }
+    if (drawing.showLabels !== false) {
+      const below = drawing.tool === 'dateRange' || b.y >= a.y;
+      labels.push({
+        x: centerX,
+        y: below ? bottom + 10 : top - 10,
+        text: lines.join('\n'),
+        lineHeight: (drawing.fontSize ?? 12) + 6,
+        fontSize: drawing.fontSize ?? 12,
+        color: drawing.textColor ?? '#FFFFFF',
+        background: color,
+        align: 'center',
+        verticalAlign: below ? 'top' : 'bottom',
+        padding: 8,
+        radius: 4,
+        keepInPane: true,
+      });
+    }
+    if (drawing.tool === 'measure') geometry.handles = [];
+    else if (handles.length === 2)
+      handles.push({ x: a.x, y: b.y }, { x: b.x, y: a.y });
+    return geometry;
+  }
   switch (drawing.tool) {
     case 'brush':
     case 'highlighter':
       paths.push({
-        points: handles,
+        points: smoothDrawingStroke(handles),
         width:
-          drawing.tool === 'highlighter' ? drawing.width * 6 : drawing.width,
-        opacity: drawing.tool === 'highlighter' ? 0.3 : 1,
+          drawing.tool === 'highlighter' ? drawing.width * 5 : drawing.width,
+        opacity: drawing.opacity ?? (drawing.tool === 'highlighter' ? 0.5 : 1),
       });
+      geometry.handles = getFreehandBounds(drawing, projection);
       break;
     case 'rectangle':
-    case 'priceRange':
-    case 'dateRange':
-    case 'datePriceRange': {
+      paths.push({ points: rectangle, ...shapeStyle });
+      if (handles.length === 2)
+        handles.push({ x: a.x, y: b.y }, { x: b.x, y: a.y });
+      break;
+    case 'ellipse':
       paths.push({
-        points: [a, { x: b.x, y: a.y }, b, { x: a.x, y: b.y }, a],
-        fill: true,
+        points: Array.from({ length: 97 }, (_, index) => {
+          const angle = (index * Math.PI) / 48;
+          return {
+            x: (a.x + b.x) / 2 + ((b.x - a.x) / 2) * Math.cos(angle),
+            y: (a.y + b.y) / 2 + ((b.y - a.y) / 2) * Math.sin(angle),
+          };
+        }),
+        ...shapeStyle,
       });
-      if (drawing.tool !== 'rectangle') {
-        const from = drawing.points[0];
-        const to = drawing.points[1] ?? from;
-        const delta = to.price - from.price;
-        const percent = from.price ? (delta / from.price) * 100 : 0;
-        const bars = Math.round((to.time - from.time) / projection.interval);
-        const labelParts: string[] = [];
-        if (drawing.tool !== 'dateRange')
-          labelParts.push(
-            `${formatTradingViewNativePriceTick(delta)} (${percent.toFixed(2)}%)`,
-          );
-        if (drawing.tool !== 'priceRange')
-          labelParts.push(
-            `${bars} bars · ${Math.round((to.time - from.time) / 60)}m`,
-          );
-        labels.push({
-          x: Math.min(a.x, b.x) + 6,
-          y: Math.min(a.y, b.y) - 8,
-          text: labelParts.join(' · '),
-        });
-      }
+      if (handles.length === 2)
+        handles.push({ x: a.x, y: b.y }, { x: b.x, y: a.y });
       break;
-    }
-    case 'ellipse': {
-      const ellipse = Array.from({ length: 65 }, (_, index) => {
-        const angle = (index * Math.PI) / 32;
-        return {
-          x: (a.x + b.x) / 2 + ((b.x - a.x) / 2) * Math.cos(angle),
-          y: (a.y + b.y) / 2 + ((b.y - a.y) / 2) * Math.sin(angle),
-        };
-      });
-      paths.push({ points: ellipse, fill: true });
-      break;
-    }
     case 'triangle':
-      paths.push({ points: [a, b, c, a], fill: true });
+      paths.push({ points: [a, b, c, a], ...shapeStyle });
       break;
     case 'text':
-    case 'priceLabel':
-    case 'callout': {
-      const position = drawing.tool === 'callout' ? b : a;
-      const fontSize = drawing.fontSize ?? DEFAULT_DRAWING_FONT_SIZE;
-      const text =
-        drawing.tool === 'priceLabel'
-          ? formatTradingViewNativePriceTick(drawing.points[0].price)
-          : (drawing.text ?? 'Text');
-      text.split('\n').forEach((line, index) =>
-        labels.push({
-          x: position.x + 6,
-          y: position.y - 6 + index * (fontSize + 4),
-          text: line,
-          fontSize,
-        }),
-      );
-      if (drawing.tool === 'callout') paths.push({ points: [a, b] });
+      labels.push({
+        x: a.x,
+        y: a.y,
+        verticalAlign: 'top',
+        text: drawing.text ?? 'Text',
+        fontSize: drawing.fontSize ?? 12,
+        color: drawing.textColor ?? drawing.color,
+        background: drawing.showBackground
+          ? (drawing.fillColor ?? drawing.color)
+          : undefined,
+        borderColor: drawing.showBorder ? drawing.color : undefined,
+        borderWidth: drawing.width,
+        opacity: drawing.fillOpacity ?? 0.2,
+        padding: drawing.showBackground || drawing.showBorder ? 4 : 0,
+      });
+      break;
+    case 'callout':
+    case 'priceLabel': {
+      const priceLabel = drawing.tool === 'priceLabel';
+      labels.push({
+        x: priceLabel ? a.x + 14 : b.x,
+        y: priceLabel ? a.y - 14 : b.y,
+        verticalAlign: priceLabel ? 'bottom' : 'middle',
+        align: priceLabel ? 'left' : 'center',
+        text: priceLabel
+          ? formatDrawingNumber(
+              drawing.points[0].price,
+              projection.priceDecimalPlaces,
+            )
+          : (drawing.text ?? 'Text'),
+        fontSize: drawing.fontSize,
+        color: drawing.textColor ?? '#FFFFFF',
+        background:
+          drawing.showBackground === false
+            ? undefined
+            : (drawing.fillColor ?? drawing.color),
+        borderColor: drawing.showBorder === false ? undefined : drawing.color,
+        borderWidth: drawing.width,
+        padding: 6,
+        radius: 4,
+        pointer: a,
+        opacity: drawing.fillOpacity ?? 1,
+      });
       break;
     }
-    case 'channel':
-    case 'fibChannel': {
-      // The third anchor controls the channel's vertical offset at its own time.
+    case 'channel': {
       const baseY =
         b.x === a.x ? a.y : a.y + ((b.y - a.y) * (c.x - a.x)) / (b.x - a.x);
       const offset = c.y - baseY;
-      const levels =
-        drawing.tool === 'fibChannel'
-          ? [0, 0.236, 0.382, 0.5, 0.618, 1, 1.618]
-          : [0, 0.5, 1];
-      paths.push({
-        points: [
-          a,
-          b,
-          { x: b.x, y: b.y + offset },
-          { x: a.x, y: a.y + offset },
-          a,
-        ],
-        fill: true,
-      });
-      for (const level of levels) {
-        paths.push({
-          points: [
-            { x: a.x, y: a.y + offset * level },
-            { x: b.x, y: b.y + offset * level },
-          ],
-          dashed: level === 0.5,
-        });
-        if (drawing.tool === 'fibChannel')
-          labels.push({
-            x: b.x + 4,
-            y: b.y + offset * level - 4,
-            text: String(level),
-          });
-      }
-      break;
-    }
-    case 'fib':
-    case 'fibExtension': {
-      const levels =
-        drawing.tool === 'fib'
-          ? [0, 0.236, 0.382, 0.5, 0.618, 0.786, 1]
-          : [0, 0.618, 1, 1.618, 2.618, 3.618];
-      const colors = [
-        '#787B86',
-        '#F23645',
-        '#FF9800',
-        '#4CAF50',
-        '#089981',
-        '#00BCD4',
-        '#2962FF',
+      geometry.handles = [
+        a,
+        b,
+        { x: a.x, y: a.y + offset },
+        { x: b.x, y: b.y + offset },
+        { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 },
+        { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 + offset },
       ];
-      const from = drawing.points[0].price;
-      const to = drawing.points[1]?.price ?? from;
-      const origin = drawing.points[2]?.price ?? to;
-      const left = Math.min(a.x, b.x);
-      const right = Math.max(a.x, b.x, c.x);
-      paths.push({ points: [a, b], dashed: true });
-      if (drawing.tool === 'fibExtension')
-        paths.push({ points: [b, c], dashed: true });
-      levels.forEach((level, index) => {
-        const price =
-          drawing.tool === 'fib'
-            ? to + (from - to) * level
-            : origin + (to - from) * level;
-        const y = drawingPointToScreen(
-          { time: drawing.points[0].time, price },
-          projection,
-        ).y;
+      const upper = extendDrawingLine(
+        a,
+        b,
+        projection,
+        drawing.extendLeft ?? false,
+        drawing.extendRight ?? false,
+      );
+      const lower = extendDrawingLine(
+        { x: a.x, y: a.y + offset },
+        { x: b.x, y: b.y + offset },
+        projection,
+        drawing.extendLeft ?? false,
+        drawing.extendRight ?? false,
+      );
+      if (
+        upper.length === 2 &&
+        lower.length === 2 &&
+        drawing.showBackground !== false
+      )
         paths.push({
-          points: [
-            { x: left, y },
-            { x: right, y },
-          ],
-          color:
-            drawing.color === DEFAULT_DRAWING_STYLE.color
-              ? colors[index % colors.length]
-              : drawing.color,
+          points: [upper[0], upper[1], lower[1], lower[0]],
+          ...shapeStyle,
+          stroke: false,
         });
-        labels.push({
-          x: right + 4,
-          y: y - 3,
-          text: `${level} (${formatTradingViewNativePriceTick(price)})`,
+      paths.push({ points: upper }, { points: lower });
+      if (drawing.showMiddleLine !== false)
+        paths.push({
+          points: extendDrawingLine(
+            { x: a.x, y: a.y + offset / 2 },
+            { x: b.x, y: b.y + offset / 2 },
+            projection,
+            drawing.extendLeft ?? false,
+            drawing.extendRight ?? false,
+          ),
+          dashed: true,
+          width: 1,
         });
-      });
       break;
     }
-    case 'fibFan':
-      for (const level of [0.382, 0.5, 0.618, 1]) {
-        const target = { x: b.x, y: a.y + (b.y - a.y) * level };
-        paths.push({ points: extendLine(a, target, projection, 'ray') });
-        labels.push({ x: target.x + 4, y: target.y - 4, text: String(level) });
-      }
-      break;
-    case 'fibTime':
-      for (const level of [0, 1, 2, 3, 5, 8, 13, 21]) {
-        const x = a.x + (b.x - a.x) * level;
-        paths.push({
-          points: [
-            { x, y: 0 },
-            { x, y: height },
-          ],
-        });
-        labels.push({ x: x + 4, y: 20, text: String(level) });
-      }
-      break;
     case 'horizontal':
     case 'horizontalRay':
     case 'cross':
@@ -283,57 +343,66 @@ export function getDrawingGeometry(
         ],
       });
       break;
-    default:
-      paths.push({
-        points: extendLine(a, b, projection, extent),
-      });
-      if (drawing.tool === 'arrow') {
+    default: {
+      const line = extendDrawingLine(
+        a,
+        b,
+        projection,
+        drawing.extendLeft ?? drawing.tool === 'extended',
+        drawing.extendRight ??
+          (drawing.tool === 'extended' || drawing.tool === 'ray'),
+      );
+      paths.push({ points: line });
+      if (drawing.tool === 'arrow')
+        paths.push({ points: drawingArrowHead(a, b, 8 + drawing.width * 2) });
+      if (drawing.tool === 'angle') {
         const angle = Math.atan2(b.y - a.y, b.x - a.x);
+        const radius = Math.min(40, Math.hypot(b.x - a.x, b.y - a.y) / 2);
         paths.push({
-          points: [
-            {
-              x: b.x - 12 * Math.cos(angle - Math.PI / 6),
-              y: b.y - 12 * Math.sin(angle - Math.PI / 6),
-            },
-            b,
-            {
-              x: b.x - 12 * Math.cos(angle + Math.PI / 6),
-              y: b.y - 12 * Math.sin(angle + Math.PI / 6),
-            },
-          ],
+          points: [a, { x: a.x + radius + 12, y: a.y }],
+          dashed: true,
+          width: 1,
+        });
+        paths.push({
+          points: Array.from({ length: 25 }, (_, index) => ({
+            x: a.x + radius * Math.cos((angle * index) / 24),
+            y: a.y + radius * Math.sin((angle * index) / 24),
+          })),
+          width: 1,
+        });
+        labels.push({
+          x: a.x + (radius + 14) * Math.cos(angle / 2),
+          y: a.y + (radius + 14) * Math.sin(angle / 2),
+          text: `${((-angle * 180) / Math.PI).toFixed(1)}°`,
+          fontSize: drawing.fontSize,
+          color: drawing.textColor ?? drawing.color,
+          align: 'center',
+          verticalAlign: 'middle',
         });
       }
-      if (drawing.tool === 'angle') {
-        const angle = (-Math.atan2(b.y - a.y, b.x - a.x) * 180) / Math.PI;
-        labels.push({ x: b.x + 8, y: b.y - 8, text: `${angle.toFixed(1)}°` });
-        paths.push({ points: [a, { x: a.x + 40, y: a.y }], dashed: true });
-      }
-      if (drawing.tool === 'info' && drawing.points[1]) {
-        const delta = drawing.points[1].price - drawing.points[0].price;
-        const percent = drawing.points[0].price
-          ? (delta / drawing.points[0].price) * 100
-          : 0;
-        const bars = Math.round(
-          (drawing.points[1].time - drawing.points[0].time) /
-            projection.interval,
-        );
+      if (
+        drawing.tool === 'info' &&
+        drawing.points[1] &&
+        drawing.showLabels !== false
+      ) {
+        const stats = getDrawingMeasurement(drawing, projection);
         labels.push({
           x: (a.x + b.x) / 2,
-          y: (a.y + b.y) / 2 - 12,
-          text: `${formatTradingViewNativePriceTick(delta)} (${percent.toFixed(2)}%) · ${bars} bars`,
+          y: Math.min(a.y, b.y) - 10,
+          text: `${stats.priceText}\n${stats.timeText}`,
+          fontSize: drawing.fontSize,
+          color: drawing.textColor ?? '#FFFFFF',
+          background: '#363A45',
+          align: 'center',
+          verticalAlign: 'bottom',
+          padding: 6,
+          radius: 4,
+          keepInPane: true,
         });
       }
+    }
   }
-  if (drawing.tool === 'rectangle' && handles.length === 2) {
-    handles.push({ x: a.x, y: b.y }, { x: b.x, y: a.y });
-  }
-  return {
-    handles: isFreehandTool(drawing.tool)
-      ? getFreehandBounds(drawing, projection)
-      : handles,
-    paths,
-    labels,
-  };
+  return geometry;
 }
 
 function containsPoint(point: IScreenPoint, polygon: IScreenPoint[]) {
@@ -403,21 +472,28 @@ export function hitTestDrawings(
       geometry.paths.some(
         (path) => path.fill && containsPoint(point, path.points),
       ) ||
-      geometry.paths.some((path) =>
-        path.points.some(
-          (anchor, anchorIndex) =>
-            anchorIndex > 0 &&
-            distanceToSegment(point, path.points[anchorIndex - 1], anchor) <=
-              Math.max(tolerance - 2, drawing.width / 2 + 3),
-        ),
+      geometry.paths.some(
+        (path) =>
+          path.stroke !== false &&
+          path.points.some(
+            (anchor, anchorIndex) =>
+              anchorIndex > 0 &&
+              distanceToSegment(point, path.points[anchorIndex - 1], anchor) <=
+                Math.max(tolerance - 2, (path.width ?? drawing.width) / 2 + 3),
+          ),
       ) ||
       geometry.labels.some((label) => {
-        const fontSize = label.fontSize ?? DEFAULT_DRAWING_FONT_SIZE;
+        const bounds = getDrawingLabelLayout(label, projection);
+        if (
+          label.pointer &&
+          containsPoint(point, getDrawingLabelBackground(label, bounds))
+        )
+          return true;
         return (
-          point.x >= label.x &&
-          point.x <= label.x + (label.text.length * 7 * fontSize) / 12 &&
-          point.y >= label.y - fontSize - 2 &&
-          point.y <= label.y + 4
+          point.x >= bounds.x - 2 &&
+          point.x <= bounds.x + bounds.width + 2 &&
+          point.y >= bounds.y - 2 &&
+          point.y <= bounds.y + bounds.height + 2
         );
       });
     if (hit) return { drawing, handle: null };

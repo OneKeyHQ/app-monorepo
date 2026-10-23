@@ -4134,6 +4134,7 @@
   "prime_google_play__label": "Google Play",
   "prime_keep_subscription__action": "Manter assinatura",
   "prime_keep_waiting__action": "Continuar aguardando",
+  "prime_member_try_again__msg": "Você já é membro Prime. Tente o recurso novamente.",
   "prime_membership_valid_until__desc": "Assinatura válida até {date}",
   "prime_next_invoice__label": "Data da fatura de renovação",
   "prime_no_crypto_subscription__desc": "Esta página exibe apenas assinaturas Prime pagas com criptomoedas.",
