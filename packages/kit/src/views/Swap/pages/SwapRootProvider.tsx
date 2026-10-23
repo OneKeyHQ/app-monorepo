@@ -19,6 +19,7 @@ import {
   useSwapSelectToTokenAtom,
   useSwapSelectedTokensColdStartContextAtom,
   useSwapToTokenAmountAtom,
+  useSwapTokenMapAtom,
   useSwapTypeSwitchAtom,
 } from '../../../states/jotai/contexts/swap/atoms';
 import { jotaiContextStore } from '../../../states/jotai/utils/jotaiContextStore';
@@ -34,6 +35,12 @@ import { hydrateSwapDefaultTokensFromGlobalHomeSnapshot } from '../utils/swapRoo
 import { getVisibleSwapTabSwitchType } from '../utils/swapTypeUtils';
 
 export { hydrateSwapDefaultTokensFromGlobalHomeSnapshot } from '../utils/swapRootColdStartUtils';
+
+function SwapTokenSelectorColdStartCacheSync() {
+  // Keep preload and transaction refreshes tracked while the selector is closed.
+  useSwapTokenMapAtom();
+  return null;
+}
 
 function SwapColdStartCacheSync() {
   const [defaultConfigStatus] = useSwapDefaultConfigStatusAtom();
@@ -246,6 +253,7 @@ export const SwapRootProvider = memo(() => {
   return (
     <ProviderJotaiContextSwap store={store}>
       <SwapColdStartCacheSync />
+      <SwapTokenSelectorColdStartCacheSync />
     </ProviderJotaiContextSwap>
   );
 });
@@ -257,6 +265,7 @@ export const SwapModalRootProvider = memo(() => {
   return (
     <ProviderJotaiContextSwap store={store}>
       <SwapColdStartCacheSync />
+      <SwapTokenSelectorColdStartCacheSync />
     </ProviderJotaiContextSwap>
   );
 });

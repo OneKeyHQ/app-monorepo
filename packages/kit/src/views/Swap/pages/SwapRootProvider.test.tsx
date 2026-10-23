@@ -16,6 +16,7 @@ import {
   swapSelectFromTokenAtom,
   swapSelectToTokenAtom,
   swapSelectedTokensColdStartContextAtom,
+  swapTokenMapAtom,
 } from '../../../states/jotai/contexts/swap/atoms';
 import { jotaiContextStore } from '../../../states/jotai/utils/jotaiContextStore';
 
@@ -129,6 +130,56 @@ describe.each(['native main', 'desktop single runtime'])(
       );
       expect(store.get(swapInitialSelectedTokensSyncedAtom())).toBe(false);
       mirror.unmount();
+      view.unmount();
+    });
+
+    it('tracks background token snapshots without mounting the selector', async () => {
+      setSnapshot(automaticContext);
+      const view = render(<SwapRootProvider />);
+      const store = jotaiContextStore.getOrCreateStore({
+        storeName: EJotaiContextStoreNames.swap,
+      });
+      const queryKey = JSON.stringify({
+        networkId: 'evm--1',
+        keywords: '',
+        accountId: 'account-1',
+        accountAddress: '0xwallet',
+      });
+      await act(async () => {
+        store.set(swapTokenMapAtom(), {
+          version: 1,
+          updatedAt: 20,
+          tokenCatch: {
+            [queryKey]: {
+              data: [fromToken],
+              updatedAt: 20,
+              refreshVersion: 0,
+              identityVersion: 0,
+            },
+          },
+        });
+      });
+      const snapshot = (
+        globalThis as typeof globalThis & {
+          __ONEKEY_CTX_ATOM_SNAPSHOT__?: Record<string, unknown>;
+        }
+      ).__ONEKEY_CTX_ATOM_SNAPSHOT__;
+      expect(
+        snapshot?.[
+          `store:swap::${CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapTokenMapAtom}`
+        ],
+      ).toEqual({
+        version: 1,
+        updatedAt: 20,
+        tokenCatch: {
+          [queryKey]: {
+            data: [fromToken],
+            updatedAt: 20,
+            identityVersion: 0,
+            persisted: true,
+          },
+        },
+      });
       view.unmount();
     });
 

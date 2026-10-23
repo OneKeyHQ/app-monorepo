@@ -795,10 +795,57 @@ export function hydrateContextColdStartCacheForProvider({
   scopeSet.add(scope);
 
   try {
-    const snapshot =
-      ((globalThis as any).__ONEKEY_CTX_ATOM_SNAPSHOT__ as
-        | Record<string, unknown>
-        | undefined) ?? readColdStartSnapshotFromStorage();
+    const globalSnapshot = (
+      globalThis as { __ONEKEY_CTX_ATOM_SNAPSHOT__?: Record<string, unknown> }
+    ).__ONEKEY_CTX_ATOM_SNAPSHOT__;
+    let storageSnapshot: Record<string, unknown> | undefined;
+    let hasReadStorageSnapshot = false;
+    const readStorageSnapshot = () => {
+      if (!hasReadStorageSnapshot) {
+        storageSnapshot = readColdStartSnapshotFromStorage();
+        hasReadStorageSnapshot = true;
+      }
+      return storageSnapshot;
+    };
+    const getCachedSnapshotValue = (
+      coldStartCacheKey: IContextAtomColdStartCacheKey,
+    ) => {
+      const scopedKey = buildColdStartScopedKey({
+        coldStartScopeKey: scope,
+        coldStartCacheKey,
+      });
+      if (
+        (platformEnv.isDesktop || platformEnv.isWeb) &&
+        coldStartCacheKey ===
+          CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapTokenMapAtom
+      ) {
+        // Home cleanup removes the boot snapshot; later tracked writes can
+        // recreate only part of it. Only this display cache may restore a
+        // missing key: normalization deliberately removes execution state.
+        if (globalSnapshot && Object.hasOwn(globalSnapshot, scopedKey)) {
+          return globalSnapshot[scopedKey];
+        }
+        if (coldStartValuesMap.has(scopedKey)) {
+          return coldStartValuesMap.get(scopedKey);
+        }
+        const storedSnapshot = readStorageSnapshot();
+        return storedSnapshot
+          ? getScopedColdStartSnapshotValue({
+              snapshot: storedSnapshot,
+              coldStartScopeKey: scope,
+              coldStartCacheKey,
+            })
+          : undefined;
+      }
+      const snapshot = globalSnapshot ?? readStorageSnapshot();
+      return snapshot
+        ? getScopedColdStartSnapshotValue({
+            snapshot,
+            coldStartScopeKey: scope,
+            coldStartCacheKey,
+          })
+        : undefined;
+    };
     for (const [
       cacheKey,
       { atom: atomBuilder, transform },
@@ -813,12 +860,8 @@ export function hydrateContextColdStartCacheForProvider({
         isDappConnectionBackedAccountSelectorColdStartScope(scope);
       const cached =
         recentAccountSelectorCached ??
-        (!shouldSkipScopedSnapshot && snapshot
-          ? getScopedColdStartSnapshotValue({
-              snapshot,
-              coldStartScopeKey: scope,
-              coldStartCacheKey: typedCacheKey,
-            })
+        (!shouldSkipScopedSnapshot
+          ? getCachedSnapshotValue(typedCacheKey)
           : undefined);
       if (cached !== undefined && cached !== null) {
         const scopedCacheKey = buildColdStartScopedKey({

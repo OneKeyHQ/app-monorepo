@@ -26,6 +26,34 @@ function createAllNetworkAccountInfo(
 }
 
 describe('buildSwapTokenFetchParams', () => {
+  it('passes the supported chain plan only to non-Stock all-network searches', () => {
+    const searchNetworks = [
+      { networkId: 'evm--1', lpToken: false },
+      { networkId: 'sol--101' },
+    ];
+    const base = {
+      currentSelectNetworkId: 'onekeyall--0',
+      keywords: 'USDC',
+      swapType: ESwapTabSwitchType.SWAP,
+      searchNetworks,
+      shouldUseCurrentAccountAddress: false,
+    };
+    expect(buildSwapTokenFetchParams(base).searchNetworks).toEqual(
+      searchNetworks,
+    );
+    expect(
+      buildSwapTokenFetchParams({ ...base, keywords: '' }),
+    ).not.toHaveProperty('searchNetworks');
+    expect(
+      buildSwapTokenFetchParams({ ...base, currentSelectNetworkId: 'evm--1' }),
+    ).not.toHaveProperty('searchNetworks');
+    expect(
+      buildSwapTokenFetchParams({
+        ...base,
+        swapType: ESwapTabSwitchType.STOCK,
+      }),
+    ).not.toHaveProperty('searchNetworks');
+  });
   it('preserves the selected chain lookup when contract search expands to all networks', () => {
     expect(
       buildSwapTokenFetchParams({

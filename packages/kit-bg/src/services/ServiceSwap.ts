@@ -64,6 +64,7 @@ import {
   mergeDenyProviderStrings,
 } from '@onekeyhq/shared/src/utils/swapProviderManagerUtils';
 import { capRecentTokenPairsPreservingOrder } from '@onekeyhq/shared/src/utils/swapRecentTokenPairsUtils';
+import { buildSwapTokenSearchRequests } from '@onekeyhq/shared/src/utils/swapTokenSearchRequestUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { shouldSendSwapLpTokenParam } from '@onekeyhq/shared/src/utils/tokenSelectorFilterUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
@@ -524,8 +525,6 @@ function trackPrivateSendOrderFinalStatusIfNeeded({
 export default class ServiceSwap extends ServiceBase {
   private _checkTokenApproveAllowanceAbortController?: AbortController;
 
-  private _tokenListAbortController?: AbortController;
-
   private _perpDepositQuoteController?: AbortController;
 
   private _quoteEventSources = new Map<
@@ -663,14 +662,6 @@ export default class ServiceSwap extends ServiceBase {
   }
 
   @backgroundMethod()
-  async cancelFetchTokenList() {
-    if (this._tokenListAbortController) {
-      this._tokenListAbortController.abort();
-      this._tokenListAbortController = undefined;
-    }
-  }
-
-  @backgroundMethod()
   async cancelFetchPerpDepositQuote() {
     if (this._perpDepositQuoteController) {
       this._perpDepositQuoteController.abort();
@@ -796,6 +787,7 @@ export default class ServiceSwap extends ServiceBase {
   async fetchSwapTokens({
     networkId,
     contractSearchNetworkId,
+    searchNetworks,
     keywords,
     limit = 50,
     accountAddress,
@@ -805,10 +797,13 @@ export default class ServiceSwap extends ServiceBase {
     onlySwapTokens,
     isAllNetworkFetchAccountTokens,
     throwOnError,
+    isTokenListPrefetch,
     protocol,
     lpToken,
     currency,
   }: IFetchTokensParams): Promise<ISwapToken[]> {
+    // Token lists are shared by query key with foreground and preload callers.
+    // Switching chains/searches releases the UI subscriber, not the shared load.
     const accountContext = resolveSwapRequestAccountContext({
       accountAddress,
       accountId,
@@ -820,12 +815,7 @@ export default class ServiceSwap extends ServiceBase {
     const requestAccountAddress = accountContext.accountAddress;
     const requestAccountId = accountContext.accountId;
     const requestAccountNetworkId = accountContext.accountNetworkId;
-    const requestIsAllNetworkFetchAccountTokens =
-      accountContext.isAllNetworkFetchAccountTokens;
     const requestOnlyAccountTokens = accountContext.onlyAccountTokens;
-    if (!requestIsAllNetworkFetchAccountTokens) {
-      await this.cancelFetchTokenList();
-    }
     const targetNetworkId = networkId ?? getNetworkIdsMap().onekeyall;
     const requestProtocol = getProtocolOfExchangeFromSwapTab(protocol);
     const params: IFetchTokenListParams = {
@@ -842,9 +832,6 @@ export default class ServiceSwap extends ServiceBase {
       onlySwapTokens,
       ...(shouldSendSwapLpTokenParam(lpToken) ? { lpToken } : {}),
     };
-    if (!requestIsAllNetworkFetchAccountTokens) {
-      this._tokenListAbortController = new AbortController();
-    }
     const client = await this.getClient(EServiceEndpointEnum.Swap);
     const requestCurrency =
       currency ??
@@ -898,9 +885,6 @@ export default class ServiceSwap extends ServiceBase {
     try {
       const requestConfig = {
         params,
-        signal: !requestIsAllNetworkFetchAccountTokens
-          ? this._tokenListAbortController?.signal
-          : undefined,
         headers: {
           ...(await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader(
             {
@@ -910,41 +894,17 @@ export default class ServiceSwap extends ServiceBase {
           'x-onekey-request-currency': requestCurrency,
         },
       };
-      const endpoints =
-        keywords && onlySwapTokens
-          ? ['/swap/v1/tokens', '/swap/v1/swap-tokens']
-          : ['/swap/v1/tokens'];
-      const requests = endpoints.map((endpoint) => ({
-        endpoint,
-        config: requestConfig,
-      }));
-      if (
-        keywords &&
-        contractSearchNetworkId &&
-        requestProtocol !== EProtocolOfExchange.STOCK &&
-        networkUtils.isAllNetwork({ networkId: targetNetworkId }) &&
-        !networkUtils.isAllNetwork({ networkId: contractSearchNetworkId })
-      ) {
-        // All-network discovery can miss a contract that the chain-specific
-        // lookup resolves. Keep that lookup alongside cross-network results.
-        requests.unshift({
-          endpoint: '/swap/v1/tokens',
-          config: {
-            ...requestConfig,
-            params: {
-              ...params,
-              networkId: contractSearchNetworkId,
-              accountAddress: undefined,
-              accountNetworkId: undefined,
-              accountXpub: undefined,
-              onlyAccountTokens: undefined,
-            },
-          },
-        });
-      }
+      const requests = buildSwapTokenSearchRequests({
+        params,
+        contractSearchNetworkId,
+        searchNetworks,
+      });
       const responses = await Promise.allSettled(
-        requests.map(({ endpoint, config }) =>
-          client.get<IFetchResponse<ISwapToken[]>>(endpoint, config),
+        requests.map(({ endpoint, params: requestParams }) =>
+          client.get<IFetchResponse<ISwapToken[]>>(endpoint, {
+            ...requestConfig,
+            params: requestParams,
+          }),
         ),
       );
       const canceledResponse = responses.find(
@@ -980,11 +940,13 @@ export default class ServiceSwap extends ServiceBase {
         });
       } else {
         const error = e as { code: number; message: string; requestId: string };
-        void this.backgroundApi.serviceApp.showToast({
-          method: 'error',
-          title: error?.message,
-          message: error?.requestId,
-        });
+        if (!isTokenListPrefetch) {
+          void this.backgroundApi.serviceApp.showToast({
+            method: 'error',
+            title: error?.message,
+            message: error?.requestId,
+          });
+        }
         if (throwOnError) {
           throw e;
         }

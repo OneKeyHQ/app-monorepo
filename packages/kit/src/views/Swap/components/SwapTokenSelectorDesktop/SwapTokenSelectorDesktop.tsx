@@ -27,19 +27,28 @@ import type {
 
 import SwapPopularTokenGroup from '../SwapPopularTokenGroup';
 
-import { buildSwapTokenSelectorNetworkGroups } from './SwapTokenSelectorDesktop.utils';
+import {
+  resolveSwapTokenSelectorAssetNetworks,
+  resolveSwapTokenSelectorNetworkGroups,
+  updateSwapTokenSelectorNetworkSnapshot,
+} from './SwapTokenSelectorDesktop.utils';
 
-import type { ISwapNetworkAsset } from './SwapTokenSelectorDesktop.utils';
+import type {
+  ISwapNetworkAsset,
+  ISwapTokenSelectorNetworkSnapshot,
+} from './SwapTokenSelectorDesktop.utils';
 import type { FlatList } from 'react-native';
 
 type ISwapTokenItem = ISwapToken | IFuseResult<ISwapToken>;
 
 type ISwapTokenSelectorDesktopProps = {
+  sessionScopeKey: string;
+  networksReady: boolean;
   allNetwork: ISwapNetwork;
   networks: ISwapNetwork[];
   sameChainNetwork?: ISwapNetwork;
   selectedNetwork?: ISwapNetwork;
-  assetNetworks: ISwapNetworkAsset[];
+  assetNetworks?: ISwapNetworkAsset[];
   disableNetworks: string[];
   networkSearchValue: string;
   tokenSearchValue: string;
@@ -236,12 +245,14 @@ function NetworkSectionLabel({
 }
 
 export function SwapTokenSelectorDesktop({
-  allNetwork,
+  sessionScopeKey,
+  networksReady,
+  allNetwork: latestAllNetwork,
   networks,
-  sameChainNetwork,
+  sameChainNetwork: latestSameChainNetwork,
   selectedNetwork,
-  assetNetworks,
-  disableNetworks,
+  assetNetworks: latestAssetNetworks,
+  disableNetworks: latestDisableNetworks,
   networkSearchValue,
   tokenSearchValue,
   tokenSearchPlaceholder,
@@ -264,18 +275,77 @@ export function SwapTokenSelectorDesktop({
   tokenListEmptyComponent,
 }: ISwapTokenSelectorDesktopProps) {
   const intl = useIntl();
+  const [networkSnapshot, setNetworkSnapshot] =
+    useState<ISwapTokenSelectorNetworkSnapshot>({ scopeKey: sessionScopeKey });
+  const currentSnapshot = updateSwapTokenSelectorNetworkSnapshot({
+    snapshot: networkSnapshot,
+    scopeKey: sessionScopeKey,
+    networksReady,
+    allNetwork: latestAllNetwork,
+    sameChainNetwork: latestSameChainNetwork,
+    networks,
+    assetNetworks: latestAssetNetworks,
+  });
+  if (currentSnapshot !== networkSnapshot) {
+    setNetworkSnapshot(currentSnapshot);
+  }
+  const networkMap = useMemo(
+    () =>
+      new Map(
+        [
+          latestAllNetwork,
+          ...networks,
+          ...(latestSameChainNetwork ? [latestSameChainNetwork] : []),
+        ].map((network) => [network.networkId, network]),
+      ),
+    [latestAllNetwork, latestSameChainNetwork, networks],
+  );
+  const allNetwork = currentSnapshot.structure?.allNetwork ?? latestAllNetwork;
+  const snapshotSameChainNetwork = currentSnapshot.structure?.sameChainNetwork;
+  const sameChainNetwork = snapshotSameChainNetwork
+    ? (networkMap.get(snapshotSameChainNetwork.networkId) ??
+      snapshotSameChainNetwork)
+    : undefined;
   const networkGroups = useMemo(
     () =>
-      buildSwapTokenSelectorNetworkGroups({
-        networks: [
-          allNetwork,
-          ...networks,
-          ...(sameChainNetwork ? [sameChainNetwork] : []),
-        ],
+      resolveSwapTokenSelectorNetworkGroups({
+        groups: currentSnapshot.structure?.groups ?? [],
+        networkMap,
         searchValue: networkSearchValue,
       }),
-    [allNetwork, networkSearchValue, networks, sameChainNetwork],
+    [currentSnapshot.structure, networkMap, networkSearchValue],
   );
+  const assetNetworks = useMemo(
+    () =>
+      resolveSwapTokenSelectorAssetNetworks({
+        snapshot: currentSnapshot.assetNetworks,
+        assetNetworks: latestAssetNetworks,
+        networkMap,
+      }),
+    [currentSnapshot.assetNetworks, latestAssetNetworks, networkMap],
+  );
+  const disableNetworks = useMemo(() => {
+    const snapshotNetworks = [
+      ...networkGroups.flatMap(({ network, children }) => [
+        network,
+        ...children,
+      ]),
+      ...assetNetworks.map(({ network }) => network),
+      ...(sameChainNetwork ? [sameChainNetwork] : []),
+    ];
+    return [
+      ...latestDisableNetworks,
+      ...snapshotNetworks
+        .filter((network) => !networkMap.has(network.networkId))
+        .map((network) => network.networkId),
+    ];
+  }, [
+    assetNetworks,
+    latestDisableNetworks,
+    networkGroups,
+    networkMap,
+    sameChainNetwork,
+  ]);
   const hasNetworkSearch = networkSearchValue.trim().length > 0;
   const normalizedNetworkSearch = networkSearchValue.trim().toLowerCase();
   const allNetworkMatches =
