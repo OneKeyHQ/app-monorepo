@@ -49,27 +49,83 @@ describe('native popover exit lifecycle', () => {
     expect(result.current.isNativePortalMounted).toBe(true);
   });
 
-  it('cancels pre-presentation opens without waiting for a missing exit event', () => {
+  it('ignores the previous exit while a reopened popover closes again', () => {
+    const onAnimationComplete = jest.fn();
     const { result, rerender } = renderHook(
-      ({ isOpen }) => useNativePortalLifecycle({ isOpen }),
+      ({ isOpen }) =>
+        useNativePortalLifecycle({
+          isOpen,
+          sheetProps: { onAnimationComplete },
+        }),
+      { initialProps: { isOpen: true } },
+    );
+    act(() => jest.advanceTimersByTime(16));
+    rerender({ isOpen: false });
+    const previousClose =
+      result.current.resolvedSheetProps?.onAnimationComplete;
+    rerender({ isOpen: true });
+    act(() => jest.advanceTimersByTime(16));
+    rerender({ isOpen: false });
+
+    act(() => previousClose?.({ open: false }));
+    expect(result.current.isNativePortalMounted).toBe(true);
+    expect(onAnimationComplete).not.toHaveBeenCalled();
+
+    act(() =>
+      result.current.resolvedSheetProps?.onAnimationComplete?.({ open: false }),
+    );
+    expect(result.current.isNativePortalMounted).toBe(false);
+    expect(onAnimationComplete).toHaveBeenCalledTimes(1);
+  });
+
+  it('cancels pre-presentation opens without waiting for a missing exit event', () => {
+    const onAnimationComplete = jest.fn();
+    const { result, rerender } = renderHook(
+      ({ isOpen }) =>
+        useNativePortalLifecycle({
+          isOpen,
+          sheetProps: { onAnimationComplete },
+        }),
       { initialProps: { isOpen: true } },
     );
     rerender({ isOpen: false });
     act(() => jest.advanceTimersByTime(16));
     expect(result.current.isNativePortalMounted).toBe(false);
     expect(result.current.popoverOpen).toBe(false);
+    expect(onAnimationComplete).toHaveBeenCalledTimes(1);
+    expect(onAnimationComplete).toHaveBeenCalledWith({ open: false });
   });
 
   it('falls back when native never reports completion and clears timers on unmount', () => {
     const { result, rerender, unmount } = openPopover();
     rerender({ isOpen: false });
-    act(() => jest.advanceTimersByTime(1000));
+    act(() => jest.advanceTimersByTime(1352));
+    expect(result.current.isNativePortalMounted).toBe(true);
+    act(() => jest.advanceTimersByTime(4148));
     expect(result.current.isNativePortalMounted).toBe(false);
     rerender({ isOpen: true });
     act(() => jest.advanceTimersByTime(16));
     rerender({ isOpen: false });
     unmount();
     expect(jest.getTimerCount()).toBe(0);
+  });
+
+  it('forwards an abnormal exit fallback to the caller once', () => {
+    const onAnimationComplete = jest.fn();
+    const { result, rerender } = renderHook(
+      ({ isOpen }) =>
+        useNativePortalLifecycle({
+          isOpen,
+          sheetProps: { onAnimationComplete },
+        }),
+      { initialProps: { isOpen: true } },
+    );
+    act(() => jest.advanceTimersByTime(16));
+    rerender({ isOpen: false });
+    act(() => jest.advanceTimersByTime(5500));
+    expect(result.current.isNativePortalMounted).toBe(false);
+    expect(onAnimationComplete).toHaveBeenCalledTimes(1);
+    expect(onAnimationComplete).toHaveBeenCalledWith({ open: false });
   });
 
   it('supports repeated open and close cycles and forwards completion', () => {

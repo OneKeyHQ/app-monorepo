@@ -10,13 +10,17 @@ import { MobileSimpleChartFrame } from '@onekeyhq/kit/src/views/Market/MarketDet
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IMarketTokenChart } from '@onekeyhq/shared/types/market';
 
+import { getSimpleChartDisplayPerformance } from '../../utils/simpleChart';
+
 import { SimpleMarketChart } from './SimpleMarketChart';
+import { SimpleMarketHeader } from './SimpleMarketHeader';
 
 import type { ISimpleMarketChartPrice } from './SimpleMarketChart';
 
 const mockSubscribe = jest.fn();
 const mockUnsubscribe = jest.fn();
 let mockChartProps: ILightweightChartProps;
+let mockIsLoading = false;
 let mockSeries:
   | {
       coin: string;
@@ -25,6 +29,15 @@ let mockSeries:
       error: boolean;
     }
   | undefined;
+
+jest.mock('@onekeyhq/kit/src/components/Token', () => ({ Token: () => null }));
+jest.mock('@onekeyhq/kit/src/views/Market/components/PerpsBadges', () => ({
+  PerpDexBadge: () => null,
+}));
+jest.mock('@onekeyhq/shared/src/utils/perpsUtils', () => ({
+  getHyperliquidTokenImageUris: () => [],
+  parseDexCoin: (coin: string) => ({ displayName: coin }),
+}));
 
 jest.mock('react-intl', () => ({
   useIntl: () => ({ formatMessage: ({ id }: { id: string }) => id }),
@@ -94,7 +107,9 @@ jest.mock('@onekeyhq/components', () => {
     Icon: Box,
     SizableText: Box,
     NumberSizeableText: Box,
-    Skeleton: Box,
+    Skeleton: (props: { width?: string; height?: string }) => (
+      <Box {...props} testID="loading-skeleton" />
+    ),
     Stack: Box,
     XStack: Box,
     YStack: Box,
@@ -110,7 +125,11 @@ jest.mock('@onekeyhq/kit/src/hooks/useThemeVariant', () => ({
   useThemeVariant: () => 'light',
 }));
 jest.mock('@onekeyhq/kit/src/hooks/usePromiseResult', () => ({
-  usePromiseResult: () => ({ result: mockSeries, run: jest.fn() }),
+  usePromiseResult: () => ({
+    result: mockSeries,
+    isLoading: mockIsLoading,
+    run: jest.fn(),
+  }),
 }));
 jest.mock('@onekeyhq/kit/src/components/LightweightChart', () => ({
   LightweightChart: (props: ILightweightChartProps) => {
@@ -227,6 +246,7 @@ jest.mock(
 );
 
 beforeEach(() => {
+  mockIsLoading = false;
   jest.clearAllMocks();
   mockSeries = undefined;
   Object.assign(platformEnv, { isNative: false, isNativeAndroid: false });
@@ -235,16 +255,32 @@ beforeEach(() => {
 function PriceHeader({
   coin = 'BTC',
   active = true,
+  dayPerformance = {},
 }: {
   coin?: string;
   active?: boolean;
+  dayPerformance?: { change?: string; changePercent?: number };
 }) {
   const [price, setPrice] = useState<ISimpleMarketChartPrice>();
+  const performance = getSimpleChartDisplayPerformance(price, dayPerformance);
+  const changeKnown =
+    performance.changePercent !== undefined &&
+    Number.isFinite(performance.changePercent);
   return (
     <>
       <output data-testid="price-header">
         {JSON.stringify(price) ?? 'live'}
       </output>
+      <div data-testid="market-header">
+        <SimpleMarketHeader
+          coin={coin}
+          width={200}
+          price="120"
+          changeLabel={changeKnown ? String(performance.changePercent) : '--'}
+          changeLoading={!changeKnown && price?.isLoading}
+          changeColor="$textSubdued"
+        />
+      </div>
       <SimpleMarketChart coin={coin} active={active} onPriceChange={setPrice} />
     </>
   );
@@ -353,26 +389,50 @@ it('discards a selected point when the range, coin, or focus changes', () => {
   fireEvent.click(getByTestId('scrub-price'));
   rerender(<PriceHeader coin="ETH" />);
   expect(getByTestId('price-header').textContent).toBe(
-    '{"coin":"ETH","range":"1H"}',
+    '{"coin":"ETH","range":"1H","isLoading":true}',
   );
   rerender(<PriceHeader coin="ETH" active={false} />);
   expect(getByTestId('price-header').textContent).toBe('live');
 });
 
-it('reports unavailable range changes during loading, failure, and empty history', () => {
+it('shows a change skeleton only while unavailable history is loading', () => {
   const { getByTestId, rerender } = render(<PriceHeader />);
-  expect(getByTestId('price-header').textContent).toBe(
-    '{"coin":"BTC","range":"1D"}',
-  );
+  const header = () => getByTestId('market-header');
+  expect(
+    header().querySelector('[data-testid="loading-skeleton"]'),
+  ).not.toBeNull();
+
   mockSeries = { coin: 'BTC', range: '1D', error: true };
   rerender(<PriceHeader />);
-  expect(getByTestId('price-header').textContent).toBe(
-    '{"coin":"BTC","range":"1D"}',
-  );
+  expect(header().querySelector('[data-testid="loading-skeleton"]')).toBeNull();
+  expect(header().textContent).toContain('--');
+
+  mockIsLoading = true;
+  rerender(<PriceHeader />);
+  expect(
+    header().querySelector('[data-testid="loading-skeleton"]'),
+  ).not.toBeNull();
+
+  mockIsLoading = false;
   mockSeries = { coin: 'BTC', range: '1D', data: [], error: false };
   rerender(<PriceHeader />);
+  expect(header().querySelector('[data-testid="loading-skeleton"]')).toBeNull();
+  expect(header().textContent).toContain('--');
+
+  mockSeries = {
+    coin: 'BTC',
+    range: '1D',
+    data: [
+      [1000, 100],
+      [2000, 120],
+    ],
+    error: false,
+  };
+  mockIsLoading = true;
+  rerender(<PriceHeader />);
+  expect(header().querySelector('[data-testid="loading-skeleton"]')).toBeNull();
   expect(getByTestId('price-header').textContent).toBe(
-    '{"coin":"BTC","range":"1D"}',
+    '{"coin":"BTC","range":"1D","price":120,"change":"20","changePercent":20}',
   );
 });
 
@@ -472,4 +532,26 @@ it('preserves the extracted frame height and range selection', () => {
   );
   fireEvent.click(getByTestId('chart-frame-range-1H'));
   expect(onRangeChange).toHaveBeenCalledWith('1H');
+});
+
+it('keeps available 1D performance visible during loading but shows the skeleton for another range', () => {
+  const dayPerformance = { change: '-10', changePercent: -5 };
+  const { getByTestId, rerender } = render(
+    <PriceHeader dayPerformance={dayPerformance} />,
+  );
+  const header = () => getByTestId('market-header');
+  expect(header().querySelector('[data-testid="loading-skeleton"]')).toBeNull();
+  expect(header().textContent).toContain('-5');
+  mockSeries = { coin: 'BTC', range: '1D', error: true };
+  rerender(<PriceHeader dayPerformance={dayPerformance} />);
+  expect(header().textContent).toContain('-5');
+  fireEvent.click(getByTestId('perps-simple-market-chart-range-1H'));
+  expect(
+    header().querySelector('[data-testid="loading-skeleton"]'),
+  ).not.toBeNull();
+  mockSeries = { coin: 'BTC', range: '1H', error: true };
+  rerender(<PriceHeader dayPerformance={dayPerformance} />);
+  expect(header().querySelector('[data-testid="loading-skeleton"]')).toBeNull();
+  expect(header().textContent).toContain('--');
+  expect(header().textContent).not.toContain('-5');
 });

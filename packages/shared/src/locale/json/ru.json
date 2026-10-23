@@ -4134,6 +4134,7 @@
   "prime_google_play__label": "Google Play",
   "prime_keep_subscription__action": "Сохранить подписку",
   "prime_keep_waiting__action": "Продолжить ожидание",
+  "prime_member_try_again__msg": "Вы уже участник Prime. Попробуйте еще раз.",
   "prime_membership_valid_until__desc": "Подписка действует до {date}",
   "prime_next_invoice__label": "Дата счёта на продление",
   "prime_no_crypto_subscription__desc": "На этой странице отображаются только подписки Prime, оплаченные криптовалютой.",

@@ -30,6 +30,8 @@ type IMockLayoutEvent = { nativeEvent: { layout: { height: number } } };
 type IMockListContainerProps = {
   paddingBottom: number;
   emptyContentHeight?: number;
+  emptyContentPaddingTop?: number;
+  emptyScrollContentMinHeight?: number;
 };
 
 type IMockPagerProps = {
@@ -294,9 +296,12 @@ jest.mock('../components/MarketNativeList/MobileMarketNativeLists', () => ({
   },
   MobileMarketNativeWatchlist: ({
     selectedFilter,
+    listContainerProps,
   }: {
     selectedFilter: string;
+    listContainerProps: IMockListContainerProps;
   }) => {
+    mockListContainerProps = listContainerProps;
     mockNativeSelections.watchlist = selectedFilter;
     return null;
   },
@@ -894,4 +899,26 @@ it('keeps native Market controller inputs stable on unrelated renders', () => {
   expect(next.pages).toBe(first.pages);
   expect(next.onSelectionChange).toBe(first.onSelectionChange);
   expect(mockSetPageWithoutAnimation).toHaveBeenCalledTimes(commands);
+});
+
+it('leaves Android header avoidance to the pager while keeping empty Favorites scrollable', () => {
+  jest.replaceProperty(platformEnv, 'isNativeIOS', false);
+  jest.replaceProperty(platformEnv, 'isNativeAndroid', true);
+  render(
+    <MobileLayout
+      filterBarProps={filterBarProps}
+      selectedNetworkId="evm--1"
+      onTabChange={jest.fn()}
+    />,
+  );
+  measureMarketViewport(700);
+  expect(mockListContainerProps?.emptyContentPaddingTop).toBe(16);
+  expect(mockListContainerProps?.emptyScrollContentMinHeight).toBeGreaterThan(
+    700,
+  );
+
+  act(() => {
+    mockStickyHeaderLayout?.({ nativeEvent: { layout: { height: 132 } } });
+  });
+  expect(mockListContainerProps?.emptyContentPaddingTop).toBe(16);
 });

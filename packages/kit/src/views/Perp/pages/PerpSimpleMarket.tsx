@@ -12,6 +12,7 @@ import {
   Page,
   ScrollView,
   SizableText,
+  Skeleton,
   XStack,
   YStack,
   useMedia,
@@ -150,6 +151,7 @@ function SimpleMarketContent() {
   });
   const change = valid ? performance?.changePercent : undefined;
   const changeKnown = change !== undefined && Number.isFinite(change);
+  const changeLoading = !changeKnown && currentChartPrice?.isLoading;
   const changeLabel = changeKnown
     ? `${change >= 0 ? '+' : ''}${change.toFixed(2)}%`
     : '--';
@@ -180,6 +182,7 @@ function SimpleMarketContent() {
         width={headerWidth}
         price={headerPrice}
         changeLabel={changeLabel}
+        changeLoading={changeLoading}
         changeColor={changeColor}
         onPress={openTokenSelector}
         priceVisibility={{ visible: showHeaderPrice, reducedMotion }}
@@ -191,6 +194,7 @@ function SimpleMarketContent() {
       headerPrice,
       changeColor,
       changeLabel,
+      changeLoading,
       openTokenSelector,
       reducedMotion,
       showHeaderPrice,
@@ -246,16 +250,22 @@ function SimpleMarketContent() {
                 {headerPrice}
               </SizableText>
               <XStack alignItems="center" gap="$1">
-                <SizableText size="$bodySmMedium" color={changeColor}>
-                  {changeAmountLabel}
-                </SizableText>
-                <SizableText
-                  testID="perps-simple-market-change"
-                  size="$bodySmMedium"
-                  color={changeColor}
-                >
-                  {changeKnown ? `(${changeLabel})` : '--'}
-                </SizableText>
+                {changeLoading ? (
+                  <Skeleton width="$24" height="$4" />
+                ) : (
+                  <>
+                    <SizableText size="$bodySmMedium" color={changeColor}>
+                      {changeAmountLabel}
+                    </SizableText>
+                    <SizableText
+                      testID="perps-simple-market-change"
+                      size="$bodySmMedium"
+                      color={changeColor}
+                    >
+                      {changeKnown ? `(${changeLabel})` : '--'}
+                    </SizableText>
+                  </>
+                )}
                 <SizableText size="$bodySm" color="$textSubdued">
                   {changeRange}
                 </SizableText>
