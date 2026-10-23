@@ -621,11 +621,14 @@ describe('Dust Sweep serial execution boundaries', () => {
     );
     mockBuild
       .mockResolvedValueOnce({
-        result: createQuote('0xfirst'),
+        result: { ...createQuote('0xfirst'), toAmount: '0.0099' },
         ctx: { order: 'before' },
       })
       .mockResolvedValueOnce({
-        result: createQuote('0xfirst'),
+        result: {
+          ...createQuote('0xfirst'),
+          toAmount: '0.009800000000000019',
+        },
         ctx: { order: 'after' },
       });
     mockPayload
@@ -648,11 +651,15 @@ describe('Dust Sweep serial execution boundaries', () => {
       }
       return {
         state: ESwapTxHistoryStatus.SUCCESS,
-        dealReceiveAmount: '0.009',
       };
     });
     const options = createOptions();
-    await executeDustSweepItem(options);
+    await expect(executeDustSweepItem(options)).resolves.toEqual({
+      status: 'success',
+      receivedAmount: '0.009310000000000018',
+      receivedAmountEstimated: true,
+      receiptUnavailable: false,
+    });
     expect(options.onSigning).toHaveBeenCalledTimes(2);
     expect(mockSend).toHaveBeenCalledTimes(2);
     expect(mockFetchQuote).toHaveBeenCalledTimes(2);
@@ -2473,15 +2480,20 @@ describe('Dust Sweep serial execution boundaries', () => {
     );
   });
 
-  it('completes a terminal success with an unavailable receipt without claiming zero', async () => {
-    mockTxState.mockResolvedValue({ state: ESwapTxHistoryStatus.SUCCESS });
-    await expect(executeDustSweepItem(createOptions())).resolves.toEqual({
-      status: 'success',
-      receiptUnavailable: true,
-      receivedAmount: undefined,
-    });
-    expect(mockTxState).toHaveBeenCalledTimes(1);
-  });
+  it.each(['0', '0.009123456789012345678'])(
+    'prefers the actual receipt amount over the build estimate: %s',
+    async (dealReceiveAmount) => {
+      mockTxState.mockResolvedValue({
+        state: ESwapTxHistoryStatus.SUCCESS,
+        dealReceiveAmount,
+      });
+      await expect(executeDustSweepItem(createOptions())).resolves.toEqual({
+        status: 'success',
+        receiptUnavailable: false,
+        receivedAmount: dealReceiveAmount,
+      });
+    },
+  );
 
   it('keeps long pending broadcasts pending without a resend', async () => {
     jest.useFakeTimers();

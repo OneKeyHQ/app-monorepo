@@ -60,6 +60,7 @@ type IDustSweepAction =
       approvalTxIds?: string[];
       txId?: string;
       receivedAmount?: string;
+      receivedAmountEstimated?: boolean;
       receiptUnavailable?: boolean;
       reason?: IDustSweepReason;
       message?: string;
@@ -172,6 +173,10 @@ export function dustSweepReducer(
               receivedAmount: action.receiptUnavailable
                 ? undefined
                 : action.receivedAmount,
+              receivedAmountEstimated:
+                action.status === 'success' && !action.receiptUnavailable
+                  ? action.receivedAmountEstimated
+                  : undefined,
               receiptUnavailable: action.receiptUnavailable,
               reason: action.reason,
               message: action.message,
@@ -202,6 +207,9 @@ export function getDustSweepTotals(items: IDustSweepItem[]) {
   const success = items.filter((item) => item.status === 'success');
   return {
     receiptUnavailable: success.some((item) => item.receiptUnavailable),
+    receivedAmountEstimated: success.some(
+      (item) => item.receivedAmountEstimated,
+    ),
     successCount: success.length,
     skippedCount: items.filter((item) => item.status === 'skipped').length,
     failedCount: items.filter((item) => item.status === 'failed').length,

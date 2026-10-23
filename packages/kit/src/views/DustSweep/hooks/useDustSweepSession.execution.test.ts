@@ -182,6 +182,47 @@ it('preserves a bridge API build failure through the real executor and session',
   expect(mockSend).not.toHaveBeenCalled();
 });
 
+it('discounts only missing receipts in a batch with actual amounts including zero', async () => {
+  mockTxState
+    .mockResolvedValueOnce({
+      state: ESwapTxHistoryStatus.SUCCESS,
+      dealReceiveAmount: '0.012',
+    })
+    .mockResolvedValueOnce({ state: ESwapTxHistoryStatus.SUCCESS })
+    .mockResolvedValueOnce({
+      state: ESwapTxHistoryStatus.SUCCESS,
+      dealReceiveAmount: '0',
+    });
+  mockSend.mockImplementation(async (params) => {
+    await params.onBeforeSignAndSend?.();
+    return broadcast(params);
+  });
+  const { result } = renderHook(() => useDustSweepSession([], { minRunMs: 0 }));
+  await act(async () => result.current.start(snapshot));
+  expect(result.current.state.items.map((item) => item.receivedAmount)).toEqual(
+    ['0.012', '0.0095', '0'],
+  );
+  expect(
+    result.current.state.items.map((item) => item.receivedAmountEstimated),
+  ).toEqual([undefined, true, undefined]);
+  expect(getDustSweepPresentation(result.current.state)).toMatchObject({
+    outcome: 'success',
+    totals: {
+      receivedAmount: '0.0215',
+      receivedAmountEstimated: true,
+      receiptUnavailable: false,
+      successCount: 3,
+    },
+  });
+  expect(mockResult).toHaveBeenCalledWith(
+    expect.objectContaining({
+      receiptAvailable: false,
+      receivedAmount: null,
+      receivedUsd: null,
+    }),
+  );
+});
+
 it.each([0, 1, 2])(
   'settles a rejection at index %s and continues the real executor/session through the final result',
   async (failedIndex) => {

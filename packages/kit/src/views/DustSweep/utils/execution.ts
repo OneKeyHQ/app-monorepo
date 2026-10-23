@@ -729,10 +729,13 @@ async function estimateApprovalBudget(
   return gasInfos;
 }
 
-export async function executeDustSweepItem(
-  options: IExecutionOptions,
-): Promise<
-  | { status: 'success'; receivedAmount?: string; receiptUnavailable: boolean }
+export async function executeDustSweepItem(options: IExecutionOptions): Promise<
+  | {
+      status: 'success';
+      receivedAmount?: string;
+      receivedAmountEstimated?: boolean;
+      receiptUnavailable: boolean;
+    }
   | { status: 'failed'; message?: string }
 > {
   const {
@@ -962,7 +965,7 @@ export async function executeDustSweepItem(
     }
   }
   if (!txId) throw new DustSweepUnknownSubmission();
-  const { execution } = prepared;
+  const { execution, buildRes } = prepared;
   await completeBroadcastedSwapSuccess({
     txId,
     swapInfo: execution.swapInfo,
@@ -980,13 +983,24 @@ export async function executeDustSweepItem(
         ));
       confirmedRecovery = undefined;
       if (result.state === ESwapTxHistoryStatus.SUCCESS) {
-        const received = new BigNumber(result.dealReceiveAmount ?? '');
-        const receiptUnavailable =
-          !received.isFinite() || received.isNegative();
+        const actual = new BigNumber(result.dealReceiveAmount ?? '');
+        const hasActual = actual.isFinite() && !actual.isNegative();
+        // Discount the final post-approval build estimate by 5%.
+        // Unwrap only has a synthetic quote, so it still requires a receipt.
+        const estimate = new BigNumber(
+          execution.wrappedInfo ? '' : (buildRes.result.toAmount ?? ''),
+        );
+        let received: BigNumber | undefined;
+        if (hasActual) received = actual;
+        else if (estimate.isFinite() && !estimate.isNegative())
+          received = estimate
+            .times('0.95')
+            .decimalPlaces(snapshot.nativeToken.decimals, BigNumber.ROUND_DOWN);
         return {
           status: 'success',
-          receivedAmount: receiptUnavailable ? undefined : received.toFixed(),
-          receiptUnavailable,
+          receivedAmount: received?.toFixed(),
+          receiptUnavailable: !received,
+          ...(!hasActual && received ? { receivedAmountEstimated: true } : {}),
         };
       }
       if (

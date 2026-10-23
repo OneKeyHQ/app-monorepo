@@ -59,6 +59,7 @@ export function useDustSweepSession(
       // A missing receipt or an unsettled submission has no known final amount.
       const receiptAvailable =
         !totals.receiptUnavailable &&
+        !totals.receivedAmountEstimated &&
         !current.items.some((item) =>
           ['broadcasted', 'unknown'].includes(item.status),
         );
@@ -167,6 +168,10 @@ export function useDustSweepSession(
             status: result.status,
             receivedAmount:
               result.status === 'success' ? result.receivedAmount : undefined,
+            receivedAmountEstimated:
+              result.status === 'success'
+                ? result.receivedAmountEstimated
+                : undefined,
             receiptUnavailable:
               result.status === 'success'
                 ? result.receiptUnavailable
