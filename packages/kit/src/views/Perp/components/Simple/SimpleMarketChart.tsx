@@ -51,6 +51,7 @@ export type ISimpleMarketChartPrice = {
   coin: string;
   price?: number;
   changePercent?: string;
+  isLoading?: boolean;
 };
 
 function SimpleMarketLineChart({
@@ -69,7 +70,7 @@ function SimpleMarketLineChart({
   const intl = useIntl();
   const [hoverPoint, setHoverPoint] =
     useState<IStockPriceLineChartHoverPoint>();
-  const { result, run } = usePromiseResult(
+  const { result, isLoading, run } = usePromiseResult(
     async () => {
       if (!active) return undefined;
       const request = getSimpleChartRequest(
@@ -98,6 +99,7 @@ function SimpleMarketLineChart({
     },
     [active, coin, range],
     {
+      watchLoading: true,
       pollingInterval: 30_000,
       revalidateOnFocus: true,
       revalidateOnReconnect: true,
@@ -117,7 +119,9 @@ function SimpleMarketLineChart({
   );
   const displayPrice = useMemo<ISimpleMarketChartPrice | undefined>(() => {
     if (!active) return undefined;
-    if (!current || current.error || !data.length) return { coin };
+    if (!current || ((current.error || !data.length) && isLoading))
+      return { coin, isLoading: true };
+    if (current.error || !data.length) return { coin };
     const price = hoverPoint?.price ?? data[data.length - 1][1];
     const base = data[0][1];
     return {
@@ -128,7 +132,7 @@ function SimpleMarketLineChart({
           ? String(((price - base) / base) * 100)
           : undefined,
     };
-  }, [active, coin, current, data, hoverPoint]);
+  }, [active, coin, current, data, hoverPoint, isLoading]);
   useEffect(() => {
     onPriceChange?.(displayPrice);
   }, [displayPrice, onPriceChange]);
