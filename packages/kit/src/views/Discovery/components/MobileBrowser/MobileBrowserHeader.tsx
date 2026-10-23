@@ -1,5 +1,6 @@
-import { memo } from 'react';
+import { memo, useEffect } from 'react';
 
+import { useIsFocused } from '@react-navigation/native';
 import { StatusBar, StyleSheet } from 'react-native';
 import Animated, {
   interpolate,
@@ -61,6 +62,26 @@ interface IMobileBrowserHeaderProps {
 // It stays in the layout (the page starts below it) rather than floating:
 // dApps commonly pin a fixed header with their Connect button at the top,
 // which a floating header would cover.
+// Status bar text matching the page color. A <StatusBar> element would lose to
+// pages mounted later (other tabs, lazily mounted screens) since the newest
+// stack entry wins, so push an entry while the browser is focused and
+// re-push whenever the page theme changes.
+function usePageStatusBarStyle(pageThemeName: 'light' | 'dark' | undefined) {
+  const isFocused = useIsFocused();
+  useEffect(() => {
+    if (!isFocused || !pageThemeName) {
+      return;
+    }
+    const entry = StatusBar.pushStackEntry({
+      barStyle: pageThemeName === 'dark' ? 'light-content' : 'dark-content',
+      animated: true,
+    });
+    return () => {
+      StatusBar.popStackEntry(entry);
+    };
+  }, [isFocused, pageThemeName]);
+}
+
 function MobileBrowserHeader({
   chrome,
   onGoBackHome,
@@ -88,6 +109,14 @@ function MobileBrowserHeader({
   // Keep the Theme wrapper mounted (falling back to the app theme) so the
   // header subtree isn't remounted when the page color arrives.
   const appThemeName = useThemeName();
+  usePageStatusBarStyle(pageThemeName);
+  // A translucent fill over the page color, so the chip takes on the page's
+  // hue instead of a fixed gray that clashes with colored pages.
+  let accountChipBg = '$bgSubdued';
+  if (pageThemeName) {
+    accountChipBg =
+      pageThemeName === 'dark' ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.06)';
+  }
   const containerAnimatedStyle = useAnimatedStyle(() => ({
     height: interpolate(
       progress.value,
@@ -104,14 +133,6 @@ function MobileBrowserHeader({
         bg="$bgApp"
         style={pageColor ? { backgroundColor: pageColor } : undefined}
       >
-        {pageThemeName ? (
-          <StatusBar
-            animated
-            barStyle={
-              pageThemeName === 'dark' ? 'light-content' : 'dark-content'
-            }
-          />
-        ) : null}
         <Animated.View style={[styles.container, containerAnimatedStyle]}>
           <Animated.View
             pointerEvents={isCollapsed ? 'none' : 'box-none'}
@@ -154,7 +175,7 @@ function MobileBrowserHeader({
               <XStack
                 h={ACCOUNT_CHIP_HEIGHT}
                 px="$1"
-                bg="$bgSubdued"
+                bg={accountChipBg}
                 borderRadius={ACCOUNT_CHIP_RADIUS}
                 borderCurve="continuous"
                 alignItems="center"
