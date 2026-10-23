@@ -19,8 +19,6 @@ import {
 
 import { ChromePressable } from './ChromePressable';
 
-const TABULAR_NUMS = { fontVariant: ['tabular-nums' as const] };
-
 interface ITabCountButtonProps {
   testID: string;
   size?: 'medium' | 'large';
@@ -101,7 +99,9 @@ function TabCountButton({
           <SizableText
             size="$bodySmMedium"
             fontWeight="600"
-            style={TABULAR_NUMS}
+            // Proportional digits with slight tightening, so the count reads as
+            // one glyph inside the small square.
+            letterSpacing={-0.5}
             color={inGlass ? '$text' : '$iconSubdued'}
           >
             {tabCount}

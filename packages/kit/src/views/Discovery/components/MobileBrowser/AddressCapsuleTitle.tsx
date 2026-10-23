@@ -20,10 +20,10 @@ import { DappInfoPopoverContent } from '../DappInfoPopoverContent';
 import { getDisplayHostname, logBrowserChromeAction } from './browserChrome';
 import { ChromePressable } from './ChromePressable';
 
-// Everything inside the address capsule (menu, site badge, domain, reload)
-// shares one 16pt size.
-export const ADDRESS_CAPSULE_ICON_SIZE = 16;
-const RISK_ICON_SIZE = ADDRESS_CAPSULE_ICON_SIZE;
+// The site badge matches the 16pt domain text. Icon sizes are tokens: a raw
+// number is looked up as a token key, not as pt.
+const RISK_ICON_SIZE = '$4';
+const RISK_ICON_WIDTH = 16;
 
 const styles = StyleSheet.create({
   fill: { flex: 1, alignSelf: 'stretch', overflow: 'hidden' },
@@ -171,13 +171,13 @@ export function AddressCapsuleTitle({
       <ChromePressable fill onPress={onPress}>
         <XStack
           flex={1}
-          px="$2"
+          pl="$2"
           alignItems="center"
           justifyContent="center"
         >
           <DomainLabel
             testID={DiscoveryTestIDs.searchBar}
-            trailingBalance={RISK_ICON_SIZE + 8}
+            trailingBalance={RISK_ICON_WIDTH + 8}
             text={
               url
                 ? hostname
