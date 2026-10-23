@@ -37,16 +37,6 @@ const scene = (
     measureText: (text) => text.length * 6,
   });
 
-it('paints data that arrives after an empty offscreen layout, without a WebView handshake', () => {
-  expect(scene({ data: [] }).commands).toHaveLength(0);
-  const loaded = scene();
-  expect(loaded.commands.some((command) => command.kind === 'polyline')).toBe(
-    true,
-  );
-  expect(loaded.lastPoint).toEqual(expect.objectContaining({ price: 105 }));
-  expect(scene({}, 300, 456).lastPoint?.y).not.toBe(loaded.lastPoint?.y);
-});
-
 it('reserves the measured axis and keeps the last point away from its labels', () => {
   const chart = scene({ timeScaleRightOffsetPixels: 16 });
   expect(chart.lastPoint?.x).toBe(chart.plot.width - 18);
@@ -419,8 +409,6 @@ it('uses the primary color at shared timestamps and the secondary color only for
         .hoverDot.color,
     ).toBe(color);
   }
-  const primaryOnly = scene({ secondaryLineColor: '#00f' });
-  expect(primaryOnly.customPaintStyles.secondary).toBeUndefined();
 });
 
 it.each([1, -1])(

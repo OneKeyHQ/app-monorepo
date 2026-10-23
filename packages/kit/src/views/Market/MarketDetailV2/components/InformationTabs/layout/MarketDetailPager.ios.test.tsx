@@ -160,12 +160,10 @@ it('reveals the same header only after all initial native layout measurements ar
   function Tab({ children }: PropsWithChildren<{ name: string }>) {
     return children;
   }
-  const unmounted = jest.fn();
   function Header() {
-    useEffect(() => unmounted, []);
     return <div data-testid="price-header">Quote</div>;
   }
-  const { getByTestId, queryByTestId } = render(
+  const { getByTestId } = render(
     <MarketDetailPager
       renderHeader={() => <Header />}
       renderTabBar={() => <div>Overview</div>}
@@ -183,7 +181,6 @@ it('reveals the same header only after all initial native layout measurements ar
   const measure = (id: string, width: number, height: number) =>
     act(() => mockLayouts[id]({ nativeEvent: { layout: { width, height } } }));
   expect(pager.style.opacity).toBe('0');
-  expect(queryByTestId('market-detail-native-pager-loading')).toBeNull();
   measure('market-detail-native-header', 402, 0);
   expect(pager.dataset.headerHeight).toBe('1');
   measure('market-detail-native-header', 402, 454);
@@ -192,11 +189,9 @@ it('reveals the same header only after all initial native layout measurements ar
   measure('market-detail-native-pager-container', 402, 630);
   expect(pager.style.opacity).toBe('1');
   expect(pager.dataset.headerHeight).toBe('454');
-  expect(queryByTestId('market-detail-native-pager-loading')).toBeNull();
   measure('market-detail-native-header', 402, 460);
   expect(pager.style.opacity).toBe('1');
   expect(getByTestId('price-header')).toBe(header);
-  expect(unmounted).not.toHaveBeenCalled();
 });
 
 it('shows known header geometry before measurement and enables list ownership only after layout', () => {

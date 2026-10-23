@@ -89,33 +89,23 @@ beforeEach(() => {
 });
 afterEach(() => jest.restoreAllMocks());
 
-it('reserves the same market-status row before and after the first quote arrives', () => {
-  mockLoaded = false;
-  const { rerender } = render(<StockMobilePriceHeader />);
-  const pendingRow = screen.getByTestId('stock-mobile-market-status-row');
-  expect(pendingRow.style.minHeight).toBe('20px');
-  expect(screen.queryByText('Market closed')).toBeNull();
-
-  mockLoaded = true;
-  rerender(<StockMobilePriceHeader />);
-  const loadedRow = screen.getByTestId('stock-mobile-market-status-row');
-  expect(loadedRow).toBe(pendingRow);
-  expect(loadedRow.style.minHeight).toBe('20px');
-  expect(screen.getByText('Market closed')).toBeTruthy();
-  expect(screen.getByText('100')).toBeTruthy();
-});
-
-it('holds a stable price skeleton until the initial price mode is resolved', () => {
+it('keeps header geometry while waiting for the initial price mode', () => {
   mockLoaded = true;
   mockPriceSourceReady = false;
   const { rerender } = render(<StockMobilePriceHeader />);
   const header = screen.getByTestId('stock-mobile-price-header');
+  const statusRow = screen.getByTestId('stock-mobile-market-status-row');
+  expect(statusRow.style.minHeight).toBe('20px');
   expect(screen.queryByText('100')).toBeNull();
   expect(screen.queryByText('Market closed')).toBeNull();
+
   mockPriceSourceReady = true;
   rerender(<StockMobilePriceHeader />);
   expect(screen.getByTestId('stock-mobile-price-header')).toBe(header);
+  expect(screen.getByTestId('stock-mobile-market-status-row')).toBe(statusRow);
+  expect(statusRow.style.minHeight).toBe('20px');
   expect(screen.getByText('100')).toBeTruthy();
+  expect(screen.getByText('Market closed')).toBeTruthy();
 });
 
 it('uses a share preview only for the share price mode', () => {
@@ -137,9 +127,8 @@ it('uses a share preview only for the share price mode', () => {
 });
 
 it.each(['share', 'token'] as const)(
-  'shows a labeled share preview while the default mode is unresolved (%s)',
-  (pendingMode) => {
-    mockPriceMode = pendingMode;
+  'replaces the pending preview with the resolved %s price in the same header',
+  (resolvedMode) => {
     mockPriceSourceReady = false;
     mockLoaded = true;
     mockPreview = {
@@ -149,7 +138,9 @@ it.each(['share', 'token'] as const)(
       logoUrl: '',
       quote: { source: 'share', price: '123.45', priceChange24hPercent: '1.5' },
     };
-    render(<StockMobilePriceHeader />);
+    const { rerender } = render(<StockMobilePriceHeader />);
+    const header = screen.getByTestId('stock-mobile-price-header');
+    const statusRow = screen.getByTestId('stock-mobile-market-status-row');
     expect(screen.getByText('123.45')).toBeTruthy();
     expect(screen.getByText('1.5')).toBeTruthy();
     expect(
@@ -157,27 +148,8 @@ it.each(['share', 'token'] as const)(
     ).toBe('market.share_price · preview__action');
     expect(screen.queryByText('100')).toBeNull();
     expect(screen.queryByText('Market closed')).toBeNull();
-  },
-);
-
-it.each(['share', 'token'] as const)(
-  'replaces the pending preview with the resolved %s price in the same header',
-  (resolvedMode) => {
-    mockPriceSourceReady = false;
-    mockPreview = {
-      stockId: 'AAPL',
-      symbol: 'AAPL',
-      name: 'Apple',
-      logoUrl: '',
-      quote: { source: 'share', price: '123.45' },
-    };
-    const { rerender } = render(<StockMobilePriceHeader />);
-    const header = screen.getByTestId('stock-mobile-price-header');
-    const statusRow = screen.getByTestId('stock-mobile-market-status-row');
-    expect(screen.getByText('123.45')).toBeTruthy();
     mockPriceSourceReady = true;
     mockPriceMode = resolvedMode;
-    mockLoaded = true;
     mockStockDetail = {
       price: '200',
       marketStatus: { isOpen: resolvedMode === 'share' },

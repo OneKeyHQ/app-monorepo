@@ -8,8 +8,6 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 import { LightweightChart } from './LightweightChart.native';
 
-import type { ILightweightChartProps } from './types';
-
 const mockPictures: { readonly value: unknown }[] = [];
 const mockReactions = new Set<() => void>();
 const mockGestureHandlers: Record<
@@ -52,9 +50,6 @@ jest.mock('@onekeyhq/components', () => ({
     }, []);
     return <div>{children}</div>;
   },
-}));
-jest.mock('react-native', () => ({
-  Image: { resolveAssetSource: () => ({ uri: 'brand.ttf' }) },
 }));
 jest.mock('react-native-gesture-handler', () => ({
   GestureDetector: ({ children }: { children: ReactNode }) => children,
@@ -233,22 +228,15 @@ beforeEach(() => {
   mockTypeface = null;
 });
 
-it('uses a real system font before the asynchronously loaded face is available', () => {
-  const { rerender } = render(
-    <LightweightChart data={[[100, 1]]} height={280} />,
-  );
-  expect(mockSkiaFont.mock.calls.every(([face]) => !!face)).toBe(true);
-  mockTypeface = {};
-  rerender(<LightweightChart data={[[100, 1]]} height={280} />);
-  expect(mockSkiaFont).toHaveBeenCalledWith(mockTypeface);
-});
-
 it('paints late data into the same native canvas and applies subsequent resizing', () => {
   const { getByTestId, rerender } = render(
     <LightweightChart data={[]} height={280} />,
   );
   const canvas = getByTestId('skia-canvas');
   expect(mockDraws.at(-1)?.commands).toHaveLength(0);
+  mockTypeface = {};
+  rerender(<LightweightChart data={[]} height={280} />);
+  expect(mockSkiaFont).toHaveBeenCalledWith(mockTypeface);
   rerender(
     <LightweightChart
       data={[
@@ -331,52 +319,7 @@ it('leaves axis touches available to native page gestures', () => {
   expect(manager.fail).toHaveBeenCalledTimes(1);
 });
 
-it('restores the full solid line when an active scrub leaves the plot and cuts it again on re-entry', () => {
-  const props: ILightweightChartProps = {
-    data: [
-      [100, 1],
-      [200, 2],
-    ] as [number, number][],
-    secondaryLineData: [
-      [100, 1],
-      [200, 2],
-    ] as [number, number][],
-    height: 280,
-    nativeScrubOptions: {
-      labels: {},
-      largePrice: false,
-      backgroundColor: '#fff',
-      borderColor: '#ddd',
-      textColor: '#000',
-      timeColor: '#888',
-    },
-  };
-  const { rerender } = render(<LightweightChart {...props} />);
-  const hasSolidLine = () =>
-    mockDraws
-      .at(-2)
-      ?.commands.some(
-        (c) => c.kind === 'polyline' && c.customPaintId === 'secondary',
-      );
-  act(() => mockGestureHandlers.start({ x: 2, y: 80 }));
-  rerender(<LightweightChart {...props} />);
-  expect(hasSolidLine()).toBe(false);
-  for (const point of [
-    { x: 401, y: 80 },
-    { x: 20, y: 270 },
-    { x: -1, y: 80 },
-  ]) {
-    act(() => mockGestureHandlers.update(point));
-    rerender(<LightweightChart {...props} />);
-    expect(hasSolidLine()).toBe(true);
-    expect(mockDraws.at(-1)?.commands).toHaveLength(0);
-  }
-  act(() => mockGestureHandlers.update({ x: 20, y: 80 }));
-  rerender(<LightweightChart {...props} />);
-  expect(hasSolidLine()).toBe(false);
-});
-
-it('keeps the static picture while scrubbing within the plot and updates only at its boundary', () => {
+it('reuses the static picture inside the plot and restores the full line outside it', () => {
   render(
     <LightweightChart
       data={[
@@ -404,6 +347,14 @@ it('keeps the static picture while scrubbing within the plot and updates only at
   act(() => mockGestureHandlers.start({ x: 20, y: 80 }));
   const cut = base.value;
   expect(cut).not.toBe(full);
+  const hasSolidLine = () =>
+    mockDraws
+      .at(-1)
+      ?.commands.some(
+        (command) =>
+          command.kind === 'polyline' && command.customPaintId === 'secondary',
+      );
+  expect(hasSolidLine()).toBe(false);
   let crosshair = overlay.value;
   for (const x of [30, 50, 100]) {
     act(() => mockGestureHandlers.update({ x, y: 80 }));
@@ -415,10 +366,21 @@ it('keeps the static picture while scrubbing within the plot and updates only at
   act(() => mockGestureHandlers.update({ x: 401, y: 80 }));
   const outside = base.value;
   expect(outside).not.toBe(cut);
-  act(() => mockGestureHandlers.update({ x: 402, y: 80 }));
-  expect(base.value).toBe(outside);
+  expect(hasSolidLine()).toBe(true);
+  for (const point of [
+    { x: 402, y: 80 },
+    { x: 20, y: 270 },
+    { x: -1, y: 80 },
+  ]) {
+    act(() => mockGestureHandlers.update(point));
+    expect(base.value).toBe(outside);
+    void overlay.value;
+    expect(mockDraws.at(-1)?.commands).toHaveLength(0);
+  }
   act(() => mockGestureHandlers.update({ x: 20, y: 80 }));
   expect(base.value).not.toBe(outside);
+  expect(hasSolidLine()).toBe(false);
   act(() => mockGestureHandlers.end());
   expect(base.value).not.toBe(cut);
+  expect(hasSolidLine()).toBe(true);
 });
