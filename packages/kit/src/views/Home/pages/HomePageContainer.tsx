@@ -3,6 +3,7 @@ import { useMemo, useState } from 'react';
 import { Stack, useIsDesktopModeUIInTabPages } from '@onekeyhq/components';
 import DAppConnectExtensionFloatingTrigger from '@onekeyhq/kit/src/views/DAppConnection/components/DAppConnectExtensionFloatingTrigger';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { useDebugComponentRemountLog } from '@onekeyhq/shared/src/utils/debug/debugUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
@@ -19,6 +20,7 @@ import { useJotaiContextRootStore } from '../../../states/jotai/utils/useJotaiCo
 import { NotificationRegisterDaily } from '../../Notifications/components/NotificationRegisterDaily';
 import { OnboardingOnMount } from '../../Onboarding/components';
 import { BTCFreshAddressProvider } from '../components/BTCFreshAddressProvider';
+import { NativeStorageRecoveryTestOnHome } from '../components/NativeStorageRecoveryTestOnHome';
 
 import { HomePageView } from './HomePageView';
 
@@ -88,6 +90,7 @@ function HomePageContainer() {
           <ExtOneKeyIdAuthOnMount />
           <NotificationRegisterDaily />
           <BTCFreshAddressProvider />
+          {platformEnv.isNative ? <NativeStorageRecoveryTestOnHome /> : null}
           {/* <UrlAccountAutoReplaceHistory num={0} /> */}
 
           {process.env.NODE_ENV !== 'production' ? (

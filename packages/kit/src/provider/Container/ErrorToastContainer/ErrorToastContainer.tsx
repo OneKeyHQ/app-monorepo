@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Toast, globalNetInfo } from '@onekeyhq/components';
+import { Button, Toast, globalNetInfo } from '@onekeyhq/components';
 import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import {
   EAppEventBusNames,
@@ -12,7 +12,10 @@ import {
   ETranslations,
   isKnownTranslationKey,
 } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { subscribeNativeStorageContractViolations } from '@onekeyhq/shared/src/storage/nativeStorageContractViolationSubscription';
+import { requestNativeStorageRecovery } from '@onekeyhq/shared/src/storage/nativeStorageRecovery';
+import { getNativeStorageMigrationRecoveryTarget } from '@onekeyhq/shared/src/storage/nativeStorageTypes';
 
 import { getErrorAction } from './ErrorToasts';
 import {
@@ -76,6 +79,38 @@ export function ErrorToastContainer() {
   useEffect(() => {
     const fn = (p: IAppEventBusPayload[EAppEventBusNames.ShowToast]) => {
       if (!p.title) {
+        return;
+      }
+      const recoveryTarget = platformEnv.isNative
+        ? getNativeStorageMigrationRecoveryTarget(
+            `${p.title}; ${p.message ?? ''}`,
+          )
+        : undefined;
+      if (recoveryTarget) {
+        const testSessionId =
+          recoveryTarget === 'appStorage'
+            ? p.nativeStorageRecoveryTestSessionId
+            : undefined;
+        const toastId = testSessionId
+          ? `native-storage-migration-test:${testSessionId}`
+          : `native-storage-migration:${recoveryTarget}`;
+        Toast.error({
+          title: 'Local storage needs repair',
+          toastId,
+          duration: 10_000,
+          actions: (
+            <Button
+              size="small"
+              testID="native-storage-repair-toast-action"
+              onPress={() => {
+                Toast.dismiss(toastId);
+                requestNativeStorageRecovery(recoveryTarget, testSessionId);
+              }}
+            >
+              {intl.formatMessage({ id: ETranslations.global_retry })}
+            </Button>
+          ),
+        });
         return;
       }
       const isInternetReachable =
