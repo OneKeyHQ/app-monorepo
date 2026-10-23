@@ -1549,7 +1549,7 @@
   "global.best": "最佳",
   "global.biometric": "生物识别",
   "global.biometric_disabled": "{authentication} 已暂时停用",
-  "global.biometric_disabled_desc": "由于检测到设备更改，请手动重新启用 {authentication}。",
+  "global.biometric_disabled_desc": "由于检测到设备更改，请手动重新启用{authentication}。",
   "global.block_explorer": "区块链浏览器",
   "global.block_height": "区块高度",
   "global.bluetooth": "蓝牙",
