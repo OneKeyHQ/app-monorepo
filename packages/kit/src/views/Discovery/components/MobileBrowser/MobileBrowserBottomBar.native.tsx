@@ -31,8 +31,8 @@ import { AddressCapsuleTitle } from './AddressCapsuleTitle';
 import {
   getBarCapsuleBottom,
   getBarReservedHeight,
-  getCollapsedReservedHeight,
   getCollapsedPillBottom,
+  getCollapsedReservedHeight,
   getDisplayHostname,
   logBrowserChromeAction,
   useIsChromeCollapsed,
