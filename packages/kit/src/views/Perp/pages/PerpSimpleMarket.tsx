@@ -12,6 +12,7 @@ import {
   Page,
   ScrollView,
   SizableText,
+  Skeleton,
   XStack,
   YStack,
   useMedia,
@@ -133,6 +134,7 @@ function SimpleMarketContent() {
   const headerWidth = Math.max(100, Math.min(264, width - 152));
   const currentChartPrice =
     chartPrice?.coin === route.params.coin ? chartPrice : undefined;
+  const changeLoading = currentChartPrice?.isLoading;
   const priceChange = currentChartPrice
     ? Number(currentChartPrice.changePercent)
     : assetCtx?.change24hPercent;
@@ -162,6 +164,7 @@ function SimpleMarketContent() {
         width={headerWidth}
         price={headerPrice}
         changeLabel={changeLabel}
+        changeLoading={changeLoading}
         changeColor={changeColor}
         onPress={openTokenSelector}
         priceVisibility={{ visible: showHeaderPrice, reducedMotion }}
@@ -173,6 +176,7 @@ function SimpleMarketContent() {
       headerPrice,
       changeColor,
       changeLabel,
+      changeLoading,
       openTokenSelector,
       reducedMotion,
       showHeaderPrice,
@@ -231,13 +235,17 @@ function SimpleMarketContent() {
                 <SizableText size="$bodySm" color="$textSubdued">
                   {hasMarketData ? `≈${headerPrice}` : '--'}
                 </SizableText>
-                <SizableText
-                  testID="perps-simple-market-change"
-                  size="$bodySmMedium"
-                  color={changeColor}
-                >
-                  {changeLabel}
-                </SizableText>
+                {changeLoading ? (
+                  <Skeleton width="$12" height="$4" />
+                ) : (
+                  <SizableText
+                    testID="perps-simple-market-change"
+                    size="$bodySmMedium"
+                    color={changeColor}
+                  >
+                    {changeLabel}
+                  </SizableText>
+                )}
               </XStack>
             </YStack>
             <XStack
