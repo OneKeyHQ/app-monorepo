@@ -108,6 +108,11 @@ jest.mock('../../../components/MarketStarV2', () => ({
 }));
 
 jest.mock('../../../components/PerpsBadges', () => ({
+  LeverageBadge: ({ leverage }: { leverage: number }) => (
+    <span>{`${leverage}x`}</span>
+  ),
+  PerpDexBadge: ({ dexLabel }: { dexLabel?: string }) =>
+    dexLabel ? <span>{dexLabel}</span> : null,
   StockSourceLogo: () => null,
 }));
 

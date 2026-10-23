@@ -24,7 +24,11 @@ export type IDetailSelectorDefaultCategory =
   | 'stocks';
 
 export type IDetailSelectorBrowseTab = 'favorites' | 'stocks' | 'tokens';
-export type IDetailSelectorWatchlistFilter = 'all' | 'spot' | 'stocks';
+export type IDetailSelectorWatchlistFilter =
+  | 'all'
+  | 'spot'
+  | 'stocks'
+  | 'perps';
 
 export const DETAIL_SELECTOR_TOKEN_CATEGORY = 'trending';
 const DETAIL_SELECTOR_STOCK_CATEGORY = 'all';
@@ -186,6 +190,10 @@ export function useDetailSelectorBrowseState({
           id: ETranslations.perps_token_selector_stocks,
         }),
       },
+      {
+        id: 'perps',
+        name: intl.formatMessage({ id: ETranslations.global_perp }),
+      },
     ],
     [intl],
   );
@@ -246,7 +254,8 @@ export function useDetailSelectorBrowseState({
         if (
           categoryId === 'all' ||
           categoryId === 'spot' ||
-          categoryId === 'stocks'
+          categoryId === 'stocks' ||
+          categoryId === 'perps'
         ) {
           setWatchlistFilter(categoryId);
         }

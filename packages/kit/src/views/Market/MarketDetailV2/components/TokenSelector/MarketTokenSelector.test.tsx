@@ -1045,6 +1045,7 @@ describe('Favorites category selection', () => {
         'all',
         'spot',
         'stocks',
+        'perps',
       ]);
     },
   );
@@ -1062,6 +1063,7 @@ describe('Favorites category selection', () => {
       'all',
       'spot',
       'stocks',
+      'perps',
     ]);
     act(() => result.current.handleSubCategoryChange('stocks'));
     expect(result.current.selectedSubCategoryId).toBe('stocks');
@@ -1077,8 +1079,10 @@ describe('Favorites category selection', () => {
     expect(result.current.selectedSubCategoryId).toBe('stocks');
     expect(result.current.tokenCategoryId).toBe('robinhood_meme');
     expect(result.current.stockCategoryId).toBe('ai-chip');
-    act(() => result.current.handleSubCategoryChange('perps'));
+    act(() => result.current.handleSubCategoryChange('unknown'));
     expect(result.current.watchlistFilter).toBe('stocks');
+    act(() => result.current.handleSubCategoryChange('perps'));
+    expect(result.current.watchlistFilter).toBe('perps');
   });
 
   it.each(['desktop', 'mobile'])(
