@@ -307,7 +307,7 @@ function getEarnValue(
   // One dollar figure only when every item has one. Otherwise the first
   // title stays visible, and usdPart is the dollars already known.
   const values = items.map((item) => readEarnItemUsd(item));
-  const usdPart = values.reduce(
+  const usdPart = values.reduce<BigNumber>(
     (sum, value) => (value === undefined ? sum : sum.plus(value)),
     new BigNumber(0),
   );
