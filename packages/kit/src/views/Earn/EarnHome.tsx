@@ -825,8 +825,6 @@ function BasicEarnHome({
             isRefreshing={isOverviewRefreshing}
             onOpenPortfolio={handleOpenPortfolio}
             onRefresh={handleDesktopRefresh}
-            onOpenLoans={handleOpenBorrowHome}
-            onOpenProtocols={handleOpenAllProtocols}
             onRegisterRefresh={handleRegisterDesktopRefresh}
             onRegisterBorrowRefresh={handleRegisterBorrowRefresh}
             onBorrowNetworksChange={handleBorrowNetworksChange}

@@ -69,5 +69,4 @@ export const EARN_DESKTOP_DEMO_COPY = {
   guideDoneBody:
     'Your deposit is on the positions page, with Redeem on its row.',
   guideGoToPosition: 'Go to position',
-  guideHide: 'Hide guide',
 };

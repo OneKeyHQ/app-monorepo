@@ -36,7 +36,6 @@ export type IEarnGuideSaved = {
   /** What that deposit was, in the token, for step 4 */
   amount?: string;
   completed?: boolean;
-  hidden?: boolean;
 };
 
 export type IEarnGuideState = {
@@ -114,7 +113,7 @@ export function shouldShowGuide({
   if (previewStep) {
     return true;
   }
-  if (isLoading || saved.hidden || saved.completed) {
+  if (isLoading) {
     return false;
   }
   if (!hasWallet) {
@@ -123,7 +122,11 @@ export function shouldShowGuide({
   if (isWatching) {
     return false;
   }
-  return !hasPositions || Boolean(saved.depositedAt);
+  // Without positions it always shows: the guide can't be put away
+  if (!hasPositions) {
+    return true;
+  }
+  return Boolean(saved.depositedAt) && !saved.completed;
 }
 
 /** The wallet's ETH on Base, from the home's balances a network at a time */

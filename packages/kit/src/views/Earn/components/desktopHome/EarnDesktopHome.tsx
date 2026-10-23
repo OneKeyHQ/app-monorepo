@@ -33,6 +33,7 @@ import {
   buildHoldingShares,
   buildProtocolShares,
   collectLendingOffers,
+  collectTileRows,
   computeNetWorth,
   deriveLendingSupply,
   estimateBorrowInterest24h,
@@ -41,6 +42,7 @@ import {
   sumPortfolioDeposits,
 } from './earnDesktopHome.utils';
 import { buildKeyboardPressProps } from './earnDesktopPressable';
+import { EarnDesktopRewardPills } from './EarnDesktopRewardPills';
 import { EarnDesktopTiles } from './EarnDesktopTiles';
 import { useEarnDesktopGuide } from './useEarnDesktopGuide';
 import { useEarnDesktopHoldRows } from './useEarnDesktopHoldRows';
@@ -155,8 +157,6 @@ export function EarnDesktopHome({
   isRefreshing,
   onOpenPortfolio,
   onRefresh,
-  onOpenLoans,
-  onOpenProtocols,
   onRegisterRefresh,
   onRegisterBorrowRefresh,
   onBorrowNetworksChange,
@@ -173,8 +173,6 @@ export function EarnDesktopHome({
   onOpenPortfolio: () => void;
   /** The page's refresh, for the button beside Net Worth */
   onRefresh?: () => void;
-  onOpenLoans: () => void;
-  onOpenProtocols: () => void;
   /** The page's refresh (pull or a settled Earn transaction) asks this too */
   onRegisterRefresh?: (handler: (() => Promise<void>) | null) => void;
   /** Asked once a Borrow transaction on one of these networks settles */
@@ -301,6 +299,14 @@ export function EarnDesktopHome({
     .toFixed();
   const portfolioDeposits = useMemo(
     () => sumPortfolioDeposits(investments),
+    [investments],
+  );
+  // The rewards ready to claim now, the largest first
+  const claimableRewards = useMemo(
+    () =>
+      collectTileRows(investments).rewards.rows.filter(
+        (row) => !row.isPending && row.action,
+      ),
     [investments],
   );
   const hasPositions =
@@ -461,9 +467,12 @@ export function EarnDesktopHome({
                 minHeight={hasBanner ? BANNER_MIN_HEIGHT : undefined}
                 onOpenPortfolio={onOpenPortfolio}
                 onRefresh={onRefresh}
-                onOpenTokens={handleOpenTokens}
-                onOpenLoans={onOpenLoans}
-                onOpenProtocols={onOpenProtocols}
+                rewards={
+                  <EarnDesktopRewardPills
+                    rows={claimableRewards}
+                    onOpenMore={onOpenPortfolio}
+                  />
+                }
                 onHeightChange={setHeroHeight}
               />
             )}

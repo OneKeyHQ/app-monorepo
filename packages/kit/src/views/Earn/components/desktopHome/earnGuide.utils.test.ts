@@ -166,11 +166,18 @@ describe('when the guide card shows', () => {
     ).toBe(true);
   });
 
-  it('is gone once hidden or finished', () => {
-    expect(shouldShowGuide({ ...base, saved: { hidden: true } })).toBe(false);
-    expect(shouldShowGuide({ ...base, saved: { completed: true } })).toBe(
-      false,
-    );
+  it('always shows without positions, finished before or not', () => {
+    expect(shouldShowGuide({ ...base, saved: { completed: true } })).toBe(true);
+  });
+
+  it('is gone once finished with a position', () => {
+    expect(
+      shouldShowGuide({
+        ...base,
+        hasPositions: true,
+        saved: { depositedAt: 1, completed: true },
+      }),
+    ).toBe(false);
   });
 
   it('shows in preview whatever the account holds', () => {

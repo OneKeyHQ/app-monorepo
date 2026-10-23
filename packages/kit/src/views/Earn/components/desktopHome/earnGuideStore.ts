@@ -46,7 +46,7 @@ type IEarnGuideSnapshot = {
   isModalOpen?: boolean;
   /** The modal's green header, where the growing card's green ends */
   headerHeight?: number;
-  /** The modal closed on a finish (Done, Hide guide, Go to position), not
+  /** The modal closed on a finish (Done, Go to position), not
       back to the card */
   closesOnFinish?: boolean;
   /** From the press until the guide is back in the card: the card's place

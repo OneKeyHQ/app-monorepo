@@ -157,6 +157,7 @@ const WrappedActionButtonCmp = ({
   buttonProps,
   isAlwaysButton,
   onBeforeAction,
+  renderTrigger,
 }: {
   asset:
     | IEarnPortfolioInvestment['assets'][number]
@@ -170,6 +171,13 @@ const WrappedActionButtonCmp = ({
   isAlwaysButton?: boolean;
   /** phone positions page: the claim sheet closes itself as a claim starts */
   onBeforeAction?: () => void;
+  /** desktop home's reward pills: the claim's trigger drawn by the caller */
+  renderTrigger?: (trigger: {
+    onPress: () => void;
+    loading: boolean;
+    disabled: boolean;
+    text: NonNullable<ReturnType<typeof getRewardButtonText>>;
+  }) => React.ReactNode;
 }) => {
   const { activeAccount } = useActiveAccount({ num: 0 });
   const { account, indexedAccount } = activeAccount;
@@ -315,6 +323,14 @@ const WrappedActionButtonCmp = ({
 
   if (!buttonText) {
     return null;
+  }
+  if (renderTrigger) {
+    return renderTrigger({
+      onPress,
+      loading: loading || isPending,
+      disabled: Boolean(loading || buttonDisabled),
+      text: buttonText,
+    });
   }
   if (!isDesktopLayout || isAlwaysButton) {
     return (

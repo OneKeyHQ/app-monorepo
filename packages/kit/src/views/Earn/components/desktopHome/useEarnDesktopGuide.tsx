@@ -78,6 +78,15 @@ export function useEarnDesktopGuide({
     });
   }, [gas, guideScope, hasPositions, hasWallet, isLoading, walletId]);
   const guide = useEarnGuide();
+  // The guide can't be put away: an account back to no positions after
+  // finishing it starts over
+  const isFinishedWithoutPositions =
+    !isLoading && hasWallet && !hasPositions && Boolean(guide.saved.completed);
+  useEffect(() => {
+    if (isFinishedWithoutPositions) {
+      earnGuideStore.reset(guideScope);
+    }
+  }, [guideScope, isFinishedWithoutPositions]);
 
   // The preview key: Shift+G steps the card and the modal through every
   // state with sample data, then starts the account's guide over. Nothing in

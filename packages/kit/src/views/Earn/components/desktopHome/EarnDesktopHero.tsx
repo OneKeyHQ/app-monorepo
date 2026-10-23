@@ -4,9 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
-import type { IKeyOfIcons } from '@onekeyhq/components';
 import {
-  Button,
   Icon,
   IconButton,
   PROPORTIONAL_NUMS,
@@ -16,7 +14,6 @@ import {
   XStack,
   YStack,
   getFontSize,
-  useMedia,
 } from '@onekeyhq/components';
 import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeableTextWrapper';
 import { Token } from '@onekeyhq/kit/src/components/Token';
@@ -95,33 +92,6 @@ function useTickingTotal(total: number, change24h: number, isRunning: boolean) {
   }, [tickMs]);
   const elapsedSeconds = Math.max(0, (now - anchor.at) / 1000);
   return total + perSecond * elapsedSeconds;
-}
-
-function HeroButton({
-  icon,
-  label,
-  testID,
-  onPress,
-}: {
-  icon: IKeyOfIcons;
-  label: string;
-  testID: string;
-  onPress: () => void;
-}) {
-  const media = useMedia();
-  return (
-    <Button
-      testID={testID}
-      // Three a row at a phone's width too
-      size={media.gtMd ? 'medium' : 'small'}
-      variant="secondary"
-      icon={icon}
-      borderRadius="$full"
-      onPress={onPress}
-    >
-      {label}
-    </Button>
-  );
 }
 
 function TotalValue({
@@ -271,9 +241,7 @@ export function EarnDesktopHero({
   minHeight,
   onOpenPortfolio,
   onRefresh,
-  onOpenTokens,
-  onOpenLoans,
-  onOpenProtocols,
+  rewards,
   onHeightChange,
 }: {
   totalFiatValue: string;
@@ -301,9 +269,8 @@ export function EarnDesktopHero({
   onOpenPortfolio: () => void;
   /** The page's refresh, the one pulling down runs on the phone */
   onRefresh?: () => void;
-  onOpenTokens: () => void;
-  onOpenLoans: () => void;
-  onOpenProtocols: () => void;
+  /** The rewards to claim, in the row under the totals */
+  rewards?: ReactNode;
   onHeightChange?: (height: number) => void;
 }) {
   const intl = useIntl();
@@ -618,28 +585,7 @@ export function EarnDesktopHero({
         )}
         {earningsRow}
       </YStack>
-      <XStack gap="$2" flexWrap="wrap">
-        <HeroButton
-          icon="DollarOutline"
-          label={intl.formatMessage({ id: ETranslations.earn_tokens__title })}
-          testID={EarnTestIDs.homeShortcut('tokens')}
-          onPress={onOpenTokens}
-        />
-        <HeroButton
-          icon="HandCoinsOutline"
-          label={intl.formatMessage({ id: ETranslations.earn_loans__action })}
-          testID={EarnTestIDs.borrowEntryButton}
-          onPress={onOpenLoans}
-        />
-        <HeroButton
-          icon="FileTextOutline"
-          label={intl.formatMessage({
-            id: ETranslations.earn_protocols__title,
-          })}
-          testID={EarnTestIDs.homeShortcut('protocols')}
-          onPress={onOpenProtocols}
-        />
-      </XStack>
+      {isLoading || isReadyToEarn ? null : rewards}
       {split}
     </YStack>
   );

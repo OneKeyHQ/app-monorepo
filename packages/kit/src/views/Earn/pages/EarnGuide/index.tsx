@@ -513,15 +513,6 @@ function EarnGuidePage() {
   const handleClose = useCallback(() => {
     navigation.pop();
   }, [navigation]);
-  const handleHide = useCallback(() => {
-    earnGuideStore.setClosesOnFinish(true);
-    if (isPreview) {
-      earnGuideStore.setPreview(undefined);
-    } else {
-      earnGuideStore.save(scope, { hidden: true });
-    }
-    navigation.pop();
-  }, [isPreview, navigation, scope]);
   // On to the deposit, from step 2 or from a visit back to it (still at 1
   // without the ETH). Until a deposit the pick is the guide's vault; after
   // one it is only the next deposit's
@@ -744,7 +735,6 @@ function EarnGuidePage() {
       <EarnGuideHeader
         shownStep={shownStep}
         onPickStep={setPicked}
-        onHide={handleHide}
         onClose={handleClose}
       />
       <ScrollView flex={1}>

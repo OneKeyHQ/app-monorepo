@@ -3,7 +3,6 @@ import { Fragment, useEffect, useRef } from 'react';
 import { useIntl } from 'react-intl';
 
 import {
-  Button,
   IconButton,
   SizableText,
   Theme,
@@ -24,19 +23,17 @@ import { earnGuideStore, useEarnGuide } from './earnGuideStore';
 import type { IEarnGuideStep } from './earnGuide.utils';
 
 /**
- * The guide modal's green header: its title, Hide guide and close, and the
+ * The guide modal's green header: its title and close, and the
  * four steps. The card's ghost draws a copy as it grows into the modal
  */
 export function EarnGuideHeader({
   shownStep,
   onPickStep,
-  onHide,
   onClose,
   isCopy,
 }: {
   shownStep: IEarnGuideStep;
   onPickStep?: (step: IEarnGuideStep) => void;
-  onHide?: () => void;
   onClose?: () => void;
   // The ghost's copy: no green of its own, no title (the card's carries on
   // into its place), nothing to press or find
@@ -103,14 +100,6 @@ export function EarnGuideHeader({
               {EARN_DESKTOP_DEMO_COPY.guideTitle}
             </SizableText>
           </YStack>
-          <Button
-            testID={tid('earn-guide-hide')}
-            size="small"
-            variant="tertiary"
-            onPress={onHide}
-          >
-            {EARN_DESKTOP_DEMO_COPY.guideHide}
-          </Button>
           <IconButton
             testID={tid('earn-guide-close')}
             variant="tertiary"
