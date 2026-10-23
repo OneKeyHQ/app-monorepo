@@ -45,16 +45,34 @@ const styles = StyleSheet.create({
 // Domain text at a fixed 16pt that is never ellipsized: when its natural
 // width is wider than the room, the end of the domain (the part that
 // identifies the site) stays visible and the start fades out.
-function DomainLabel({ text, testID }: { text: string; testID?: string }) {
+//
+// `trailingBalance` is room reserved after the text so it centers in the
+// whole capsule rather than beside the leading badge; it gives way first as
+// the text grows, so the badge never pushes a fitting domain into the fade.
+function DomainLabel({
+  text,
+  testID,
+  trailingBalance,
+}: {
+  text: string;
+  testID?: string;
+  trailingBalance: number;
+}) {
   const [availableWidth, setAvailableWidth] = useState(0);
   const [textWidth, setTextWidth] = useState(0);
   const overflows = availableWidth > 0 && textWidth > availableWidth + 0.5;
+  const balance = overflows
+    ? 0
+    : Math.min(trailingBalance, Math.max(0, availableWidth - textWidth));
 
   const row = (
     <View
       style={[
         styles.row,
-        { justifyContent: overflows ? 'flex-end' : 'center' },
+        {
+          justifyContent: overflows ? 'flex-end' : 'center',
+          paddingRight: balance,
+        },
       ]}
     >
       <SizableText
@@ -108,7 +126,7 @@ function DomainLabel({ text, testID }: { text: string; testID?: string }) {
 
 // The address inside the bottom bar capsule: site risk badge (opens site info)
 // and, like Safari, only the domain (opens search). The domain is centered in
-// the capsule; the trailing padding mirrors the badge to balance it.
+// the capsule while it fits.
 export function AddressCapsuleTitle({
   url,
   onPress,
@@ -154,12 +172,12 @@ export function AddressCapsuleTitle({
         <XStack
           flex={1}
           px="$2"
-          pr={RISK_ICON_SIZE + 8}
           alignItems="center"
           justifyContent="center"
         >
           <DomainLabel
             testID={DiscoveryTestIDs.searchBar}
+            trailingBalance={RISK_ICON_SIZE + 8}
             text={
               url
                 ? hostname
