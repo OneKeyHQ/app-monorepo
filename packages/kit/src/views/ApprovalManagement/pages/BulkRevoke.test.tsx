@@ -20,6 +20,11 @@ import BulkRevoke from './BulkRevoke';
 
 const mockPopStack = jest.fn();
 const mockBatchSignAndSendTransaction = jest.fn<Promise<unknown>, unknown[]>();
+const mockGetNextNonce = jest.fn<Promise<number>, unknown[]>(async () => 1);
+// Every string rendered through SizableText, so a test can assert on frames
+// that are already gone by the time waitFor settles (e.g. a stale progress
+// index painted for one render).
+const mockRenderedTexts: string[] = [];
 let mockRouteParams: {
   unsignedTxs: IUnsignedTxPro[];
   contractMap: Record<string, unknown>;
@@ -109,7 +114,7 @@ jest.mock('../../../background/instance/backgroundApiProxy', () => ({
     },
     serviceSend: {
       preCheckIsFeeInfoOverflow: jest.fn(async () => false),
-      getNextNonce: jest.fn(async () => 1),
+      getNextNonce: (...args: unknown[]) => mockGetNextNonce(...args),
       updateUnsignedTx: jest.fn(
         async ({ unsignedTx }: { unsignedTx: unknown }) => unsignedTx,
       ),
@@ -197,9 +202,12 @@ jest.mock('@onekeyhq/components', () => {
       <span>{children}</span>
     ),
     Page,
-    SizableText: ({ children }: { children?: ReactNode }) => (
-      <span>{children}</span>
-    ),
+    SizableText: ({ children }: { children?: ReactNode }) => {
+      if (typeof children === 'string') {
+        mockRenderedTexts.push(children);
+      }
+      return <span>{children}</span>;
+    },
     Stack: Box,
     XStack: Box,
     YStack: Box,
@@ -252,6 +260,7 @@ function getConfirmButton() {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockRenderedTexts.length = 0;
 });
 
 describe('BulkRevoke cancel / retry', () => {
@@ -317,6 +326,42 @@ describe('BulkRevoke cancel / retry', () => {
     expect(mockBatchSignAndSendTransaction).toHaveBeenCalledTimes(2);
   });
 
+  it('aborts without signing when cancel is pressed while paused right before the sign call', async () => {
+    const pendingNonce = createDeferred<number>();
+    mockGetNextNonce.mockReturnValueOnce(pendingNonce.promise);
+    mockRouteParams = {
+      unsignedTxs: [createTx('tx-1')],
+      contractMap: {},
+    };
+
+    render(<BulkRevoke />);
+
+    await waitFor(() => expect(mockGetNextNonce).toHaveBeenCalledTimes(1));
+    // Pause lands while the nonce fetch is pending, so once it resolves the
+    // loop parks in waitUntilInProgress() immediately before the sign call.
+    fireEvent.click(getConfirmButton());
+    expect(getConfirmButton().textContent).toBe(ETranslations.global_resume);
+    await act(async () => {
+      pendingNonce.resolve(1);
+    });
+    await flushAsyncWork();
+    expect(mockBatchSignAndSendTransaction).not.toHaveBeenCalled();
+
+    fireEvent.click(getCancelRetryButton());
+
+    expect(mockPopStack).toHaveBeenCalledTimes(1);
+    // The parked wait polls once a second; the loop only exits (and marks the
+    // run finished) after it observes the abort.
+    await waitFor(
+      () =>
+        expect(getConfirmButton().textContent).toBe(
+          ETranslations.global_finish,
+        ),
+      { timeout: 3000 },
+    );
+    expect(mockBatchSignAndSendTransaction).not.toHaveBeenCalled();
+  });
+
   it('retries only the unfinished txs once the run has finished', async () => {
     const retrySign = createDeferred<unknown>();
     mockBatchSignAndSendTransaction
@@ -349,8 +394,13 @@ describe('BulkRevoke cancel / retry', () => {
     expect(retryParams.unsignedTxs.map((tx) => tx.uuid)).toEqual(['tx-2']);
     expect(mockPopStack).not.toHaveBeenCalled();
     expect(screen.queryByTestId('revoke-item-tx-1')).toBeNull();
-    // Progress restarts from the first remaining tx instead of carrying the
-    // index of the previous run over a shorter list.
+    // Progress restarts from the first remaining tx. The previous run ended
+    // on index 1, so without the reset the first frame after Retry reads
+    // "2/1" over the shortened list; waitFor above has already moved past
+    // that frame, hence the check over every rendered frame.
+    expect(mockRenderedTexts.some((text) => text.startsWith('2/1 '))).toBe(
+      false,
+    );
     expect(
       screen.getByText((content) => content.startsWith('1/1 ')),
     ).toBeTruthy();

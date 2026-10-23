@@ -125,12 +125,15 @@ function BulkRevoke() {
   const isAborted = useRef(false);
   const progressStateRef = useRef(progressState);
 
+  // Parks a paused run until it is resumed or cancelled. Resolves to false
+  // once the run is aborted so the caller leaves the loop without touching
+  // the device or the network again: an abort that lands while the run is
+  // parked here is only observable after the wait returns.
   const waitUntilInProgress: () => Promise<boolean> = useCallback(async () => {
-    if (
-      progressStateRef.current === ERevokeProgressState.InProgress ||
-      isAborted.current
-    )
-      return Promise.resolve(true);
+    if (isAborted.current) return false;
+    if (progressStateRef.current === ERevokeProgressState.InProgress) {
+      return true;
+    }
     await timerUtils.wait(1000);
     return waitUntilInProgress();
   }, [isAborted]);
@@ -181,11 +184,9 @@ function BulkRevoke() {
         continue;
       }
 
-      if (isAborted.current) {
+      if (!(await waitUntilInProgress())) {
         break;
       }
-
-      await waitUntilInProgress();
       const uuid = tx.uuid ?? '';
 
       if (!uuid || !tx.networkId || !tx.accountId) {
@@ -224,11 +225,9 @@ function BulkRevoke() {
         console.error('=====>>>>>> fetchAccountNativeBalance error', error);
       }
 
-      if (isAborted.current) {
+      if (!(await waitUntilInProgress())) {
         break;
       }
-
-      await waitUntilInProgress();
 
       try {
         if (networkStatusRef.current[tx.networkId ?? '']?.isInsufficientFunds) {
@@ -265,10 +264,9 @@ function BulkRevoke() {
             accountId: tx.accountId,
           });
 
-        if (isAborted.current) {
+        if (!(await waitUntilInProgress())) {
           break;
         }
-        await waitUntilInProgress();
 
         const { encodedTx, estimateFeeParams } =
           await backgroundApiProxy.serviceGas.buildEstimateFeeParams({
@@ -343,10 +341,9 @@ function BulkRevoke() {
           continue;
         }
 
-        if (isAborted.current) {
+        if (!(await waitUntilInProgress())) {
           break;
         }
-        await waitUntilInProgress();
 
         const isFeeInfoOverflow =
           await backgroundApiProxy.serviceSend.preCheckIsFeeInfoOverflow({
@@ -357,10 +354,9 @@ function BulkRevoke() {
             accountAddress,
           });
 
-        if (isAborted.current) {
+        if (!(await waitUntilInProgress())) {
           break;
         }
-        await waitUntilInProgress();
 
         if (isFeeInfoOverflow) {
           setRevokeTxsStatusMap((prev) => ({
@@ -392,10 +388,9 @@ function BulkRevoke() {
             feeInfo,
           });
         }
-        if (isAborted.current) {
+        if (!(await waitUntilInProgress())) {
           break;
         }
-        await waitUntilInProgress();
 
         const sendSelectedFeeInfo: ISendSelectedFeeInfo = {
           feeInfo,
@@ -425,10 +420,9 @@ function BulkRevoke() {
               .minus(feeResult.totalNativeForDisplay ?? feeResult.totalNative)
               .toFixed();
         }
-        if (isAborted.current) {
+        if (!(await waitUntilInProgress())) {
           break;
         }
-        await waitUntilInProgress();
 
         // Read the result here, inside the try: a state updater runs during
         // render, where a malformed result would take the whole page down
