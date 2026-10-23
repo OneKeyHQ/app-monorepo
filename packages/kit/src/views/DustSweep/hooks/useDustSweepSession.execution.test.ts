@@ -308,12 +308,19 @@ it('collects a sender failure after broadcast without losing transaction identit
     'skipped',
   ]);
   expect(mockSend).toHaveBeenCalledTimes(3);
-  expect(mockHistory).not.toHaveBeenCalled();
+  expect(mockHistory).toHaveBeenCalledTimes(3);
   expect(mockTxState).not.toHaveBeenCalled();
   expect(result.current.state.items.every((item) => item.txId)).toBe(true);
+  expect(
+    result.current.state.items.every(
+      (item) => item.providerErrorMessage === message,
+    ),
+  ).toBe(true);
   expect(mockResult).toHaveBeenCalledWith(
     expect.objectContaining({ receiptAvailable: false }),
   );
+  await act(async () => result.current.leave());
+  expect(result.current.state.phase).toBe('left');
 });
 
 it('honors a pause while the rejected submission is outstanding, then continues only the next token', async () => {

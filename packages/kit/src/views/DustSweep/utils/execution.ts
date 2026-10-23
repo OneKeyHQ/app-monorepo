@@ -830,6 +830,13 @@ export async function executeDustSweepItem(options: IExecutionOptions): Promise<
           { txId: context.txId },
         );
       }
+      const historyTxId = txId ?? context?.txId;
+      if (historyTxId)
+        await completeBroadcastedSwapSuccess({
+          txId: historyTxId,
+          swapInfo: execution.swapInfo,
+          generateSwapHistoryItem,
+        });
       throw error;
     }
   } catch (error) {

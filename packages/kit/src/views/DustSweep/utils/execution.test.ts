@@ -476,7 +476,7 @@ describe('Dust Sweep serial execution boundaries', () => {
     );
     expect(options.onBroadcast).toHaveBeenCalledWith('swap');
     expect(mockSend).toHaveBeenCalledTimes(1);
-    expect(mockHistory).not.toHaveBeenCalled();
+    expect(mockHistory).toHaveBeenCalledTimes(1);
   });
 
   it('does not send an unwrap after its quote resolves into a paused queue', async () => {
@@ -1816,7 +1816,7 @@ describe('Dust Sweep serial execution boundaries', () => {
         await expect(completion).resolves.toMatchObject({ status: 'success' });
       expect(mockSend).toHaveBeenCalledTimes(1);
       expect(mockBlockNotification).toHaveBeenCalledTimes(1);
-      expect(mockHistory).toHaveBeenCalledTimes(fails ? 0 : 1);
+      expect(mockHistory).toHaveBeenCalledTimes(1);
     },
   );
 
@@ -2132,24 +2132,30 @@ describe('Dust Sweep serial execution boundaries', () => {
       );
       expect(options.onBroadcast).not.toHaveBeenCalled();
       expect(options.onApprovalBroadcast).not.toHaveBeenCalled();
-      expect(mockHistory).not.toHaveBeenCalled();
+      expect(mockHistory).toHaveBeenCalledTimes(kind === 'swap' ? 1 : 0);
+      if (kind === 'swap')
+        expect(mockHistory).toHaveBeenCalledWith(
+          expect.objectContaining({ txId }),
+        );
       expect(mockTxState).not.toHaveBeenCalled();
       expect(mockSend).toHaveBeenCalledTimes(1);
     },
   );
 
   it('propagates a post-broadcast sender error while retaining its hash', async () => {
+    const error = new OneKeyLocalError('history unavailable');
     mockSend.mockImplementation(async (params: ISendParams) => {
       await sendTransaction(params);
-      throw new OneKeyLocalError('history unavailable');
+      throw error;
     });
     const options = createOptions();
-    await expect(executeDustSweepItem(options)).rejects.toThrow(
-      'history unavailable',
-    );
+    await expect(executeDustSweepItem(options)).rejects.toBe(error);
     expect(options.onBroadcast).toHaveBeenCalledWith('swap');
     expect(mockSend).toHaveBeenCalledTimes(1);
-    expect(mockHistory).not.toHaveBeenCalled();
+    expect(mockHistory).toHaveBeenCalledTimes(1);
+    expect(mockHistory).toHaveBeenCalledWith(
+      expect.objectContaining({ txId: 'swap' }),
+    );
     expect(mockTxState).not.toHaveBeenCalled();
   });
 
