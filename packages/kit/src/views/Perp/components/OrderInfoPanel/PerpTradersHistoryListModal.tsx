@@ -140,7 +140,7 @@ export function PerpTradersHistoryListModal() {
   const { onViewAllUrl: onViewAllFundingUrl } =
     usePerpFundingHistoryViewAllUrl();
   const [activeTab, setActiveTab] = useState<ITabName>(initialTab);
-  const tradeHistoryFilters = useTradeHistoryFilters();
+  const tradeHistoryFilters = useTradeHistoryFilters(route.params?.coin);
   const [fundingHistorySideFilter, setFundingHistorySideFilter] =
     useState<IFundingHistorySideFilter>('all');
   const [fundingHistoryMarketFilter, setFundingHistoryMarketFilter] = useState<
@@ -272,6 +272,7 @@ export function PerpTradersHistoryListModal() {
                 </XStack>
                 <PerpTradesHistoryList
                   isMobile
+                  sourceSimpleMarketCoin={route.params?.sourceSimpleMarketCoin}
                   useTabsList={false}
                   filters={tradeHistoryFilters.filters}
                   onMarketOptionsChange={

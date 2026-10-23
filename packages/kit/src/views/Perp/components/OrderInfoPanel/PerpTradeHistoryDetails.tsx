@@ -1,4 +1,4 @@
-import { Fragment, useCallback, useState } from 'react';
+import { Fragment, useCallback } from 'react';
 
 import { useFocusEffect, useRoute } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
@@ -20,7 +20,6 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { Token } from '@onekeyhq/kit/src/components/Token';
-import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
@@ -45,6 +44,7 @@ import {
   parseDexCoin,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
 
+import { usePerpGoToTrade } from '../../hooks/usePerpGoToTrade';
 import { useShareTradeHistory } from '../../hooks/useShareTradeHistory';
 import { PerpsAccountSelectorProviderMirror } from '../../PerpsAccountSelectorProviderMirror';
 import { PerpsProviderMirror } from '../../PerpsProviderMirror';
@@ -62,7 +62,6 @@ import type { RouteProp } from '@react-navigation/native';
 
 function TradeHistoryDetails() {
   const intl = useIntl();
-  const navigation = useAppNavigation();
   const actions = useHyperliquidActions();
   useFocusEffect(
     useCallback(() => {
@@ -75,14 +74,21 @@ function TradeHistoryDetails() {
       };
     }, [actions]),
   );
-  const [switchingAsset, setSwitchingAsset] = useState(false);
   const { copyText } = useClipboard();
   const {
-    params: { fill, builderFeeRate, pairName: routePairName },
+    params: {
+      fill,
+      builderFeeRate,
+      pairName: routePairName,
+      sourceSimpleMarketCoin,
+    },
   } =
     useRoute<
       RouteProp<IModalPerpParamList, EModalPerpRoutes.PerpTradeHistoryDetails>
     >();
+  const { goToTrade, switchingAsset } = usePerpGoToTrade(
+    sourceSimpleMarketCoin,
+  );
   const [spotDisplayMap] = useSpotPairDisplayMapAtom();
   const [spotPairDisplayMap] = useSpotPairDisplayNameMapAtom();
   const shareTrade = useShareTradeHistory();
@@ -167,23 +173,6 @@ function TradeHistoryDetails() {
       ) : null,
     [fill, intl, shareTrade],
   );
-  const handleGoToTrade = useCallback(async () => {
-    setSwitchingAsset(true);
-    try {
-      const subscriptionRecoveryProof =
-        await actions.current.captureInstrumentSwitchSubscriptionProof({
-          source: 'trade-history-details',
-        });
-      navigation.popStack();
-      await actions.current.switchTradeInstrument({
-        mode: isSpotInstrument(fill.coin) ? 'spot' : 'perp',
-        coin: fill.coin,
-        subscriptionRecoveryProof,
-      });
-    } finally {
-      setSwitchingAsset(false);
-    }
-  }, [actions, fill.coin, navigation]);
   const rows = [
     {
       label: ETranslations.perp_open_orders_time,
@@ -260,7 +249,7 @@ function TradeHistoryDetails() {
               size="small"
               childrenAsText={false}
               loading={switchingAsset}
-              onPress={handleGoToTrade}
+              onPress={() => goToTrade(fill.coin)}
               testID="perps-trade-detail-go-to-trade"
             >
               <XStack alignItems="center" gap="$0.5">

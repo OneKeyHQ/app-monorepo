@@ -189,13 +189,13 @@ function areSideRatioPropsEqual(
     animated?: boolean;
     bidDepth: BigNumber;
     askDepth: BigNumber;
-    size?: 'default' | 'compact' | 'mobile';
+    size?: 'default' | 'compact' | 'mobile' | 'summary';
   },
   next: {
     animated?: boolean;
     bidDepth: BigNumber;
     askDepth: BigNumber;
-    size?: 'default' | 'compact' | 'mobile';
+    size?: 'default' | 'compact' | 'mobile' | 'summary';
   },
 ): boolean {
   return (
@@ -479,6 +479,15 @@ const styles = StyleSheet.create({
   },
   sideRatioTrackMobile: {
     gap: 2,
+  },
+  sideRatioContainerSummary: {
+    height: 28,
+    gap: 8,
+    marginTop: 0,
+    paddingHorizontal: 0,
+  },
+  sideRatioSegmentSummary: {
+    height: 6,
   },
   sideRatioSegment: {
     height: 4,
@@ -825,7 +834,7 @@ const useBlockColorsMobile = () => {
   }, [themeName]);
 };
 
-const OrderBookSideRatio = memo(
+export const OrderBookSideRatio = memo(
   ({
     animated = true,
     bidDepth,
@@ -835,8 +844,9 @@ const OrderBookSideRatio = memo(
     animated?: boolean;
     bidDepth: BigNumber;
     askDepth: BigNumber;
-    size?: 'default' | 'compact' | 'mobile';
+    size?: 'default' | 'compact' | 'mobile' | 'summary';
   }) => {
+    const intl = useIntl();
     const textColor = useTextColor();
     const sideRatioColors = useSideRatioColors();
     const totalDepth = useMemo(
@@ -860,6 +870,7 @@ const OrderBookSideRatio = memo(
     }, [bidDepth, totalDepth]);
     const isCompact = size === 'compact' || size === 'mobile';
     const isMobile = size === 'mobile';
+    const isSummary = size === 'summary';
 
     return (
       <View
@@ -867,19 +878,31 @@ const OrderBookSideRatio = memo(
           styles.sideRatioContainer,
           isCompact ? styles.sideRatioContainerCompact : null,
           isMobile ? styles.sideRatioContainerMobile : null,
+          isSummary ? styles.sideRatioContainerSummary : null,
         ]}
       >
-        <PerpBookText
-          numberOfLines={1}
-          style={[
-            styles.sideRatioLabel,
-            isCompact ? styles.sideRatioLabelCompact : null,
-            isMobile ? styles.sideRatioLabelMobile : null,
-            { color: textColor.green },
-          ]}
-        >
-          B {formatSideRatioPercentage(bidPercentage)}
-        </PerpBookText>
+        {isSummary ? (
+          <SizableText
+            size="$headingSm"
+            numberOfLines={1}
+            style={{ color: textColor.green }}
+          >
+            {intl.formatMessage({ id: ETranslations.perp_position_b })}{' '}
+            {formatSideRatioPercentage(bidPercentage)}
+          </SizableText>
+        ) : (
+          <PerpBookText
+            numberOfLines={1}
+            style={[
+              styles.sideRatioLabel,
+              isCompact ? styles.sideRatioLabelCompact : null,
+              isMobile ? styles.sideRatioLabelMobile : null,
+              { color: textColor.green },
+            ]}
+          >
+            B {formatSideRatioPercentage(bidPercentage)}
+          </PerpBookText>
+        )}
 
         <View
           style={[
@@ -894,26 +917,41 @@ const OrderBookSideRatio = memo(
             askPercentage={askPercentage}
             longColor={sideRatioColors.long}
             shortColor={sideRatioColors.short}
-            segmentStyle={styles.sideRatioSegment}
+            segmentStyle={
+              isSummary
+                ? styles.sideRatioSegmentSummary
+                : styles.sideRatioSegment
+            }
             startSegmentStyle={styles.sideRatioSegmentStart}
             endSegmentStyle={styles.sideRatioSegmentEnd}
           />
         </View>
 
-        <PerpBookText
-          numberOfLines={1}
-          style={[
-            styles.sideRatioLabel,
-            isCompact ? styles.sideRatioLabelCompact : null,
-            isMobile ? styles.sideRatioLabelMobile : null,
-            {
-              color: textColor.red,
-              textAlign: 'right',
-            },
-          ]}
-        >
-          {formatSideRatioPercentage(askPercentage)} S
-        </PerpBookText>
+        {isSummary ? (
+          <SizableText
+            size="$headingSm"
+            numberOfLines={1}
+            style={{ color: textColor.red }}
+          >
+            {formatSideRatioPercentage(askPercentage)}{' '}
+            {intl.formatMessage({ id: ETranslations.perp_position_s })}
+          </SizableText>
+        ) : (
+          <PerpBookText
+            numberOfLines={1}
+            style={[
+              styles.sideRatioLabel,
+              isCompact ? styles.sideRatioLabelCompact : null,
+              isMobile ? styles.sideRatioLabelMobile : null,
+              {
+                color: textColor.red,
+                textAlign: 'right',
+              },
+            ]}
+          >
+            {formatSideRatioPercentage(askPercentage)} S
+          </PerpBookText>
+        )}
       </View>
     );
   },

@@ -1686,10 +1686,12 @@ function getDataState({
 }
 
 export function useTradingViewNativeKLine({
+  active = true,
   onRealtimePoint,
   source,
   storageNamespace,
 }: {
+  active?: boolean;
   onRealtimePoint?: (point: IMarketTokenKLineDataPoint) => void;
   source: ITradingViewNativeSource;
   storageNamespace?: ITradingViewNativeStorageNamespace;
@@ -2067,8 +2069,12 @@ export function useTradingViewNativeKLine({
     historyBoundaryAvailableTimeRange,
     setHistoryBoundaryAvailableTimeRange,
   ] = useState<IHistoryBoundaryAvailableTimeRange | null>(null);
-  const [isVisible, setIsVisible] = useState(() => getCurrentVisibilityState());
+  const [isAppVisible, setIsAppVisible] = useState(() =>
+    getCurrentVisibilityState(),
+  );
+  const isVisible = active && isAppVisible;
   const isVisibleRef = useRef(isVisible);
+  const isAppVisibleRef = useRef(isAppVisible);
   const [historyRefreshRevision, setHistoryRefreshRevision] = useState(0);
   const [realtimeRetryRevision, setRealtimeRetryRevision] = useState(0);
   const [subscriberId] = useState(() => {
@@ -2134,21 +2140,27 @@ export function useTradingViewNativeKLine({
       details: { visible: currentVisibility },
       name: 'visibility.initial',
     });
-    isVisibleRef.current = currentVisibility;
-    setIsVisible(currentVisibility);
+    isAppVisibleRef.current = currentVisibility;
+    setIsAppVisible(currentVisibility);
     return onVisibilityStateChange((nextVisibility) => {
-      const wasVisible = isVisibleRef.current;
+      const wasVisible = isAppVisibleRef.current;
       emitTradingViewNativeDebugEvent({
         details: { from: wasVisible, to: nextVisibility },
         name: 'visibility.changed',
       });
-      isVisibleRef.current = nextVisibility;
-      setIsVisible(nextVisibility);
-      if (!wasVisible && nextVisibility) {
-        setHistoryRefreshRevision((current) => current + 1);
-      }
+      isAppVisibleRef.current = nextVisibility;
+      setIsAppVisible(nextVisibility);
     });
   }, []);
+
+  useEffect(() => {
+    if (!isVisibleRef.current && isVisible) {
+      // Pre-blur ticks must not override the completed candles in fresh history.
+      realtimePointBufferRef.current.clear();
+      setHistoryRefreshRevision((current) => current + 1);
+    }
+    isVisibleRef.current = isVisible;
+  }, [isVisible]);
 
   useEffect(() => {
     realtimeScopeRef.current = { interval: activeInterval, seriesKey };
@@ -4409,6 +4421,33 @@ export function useTradingViewNativeKLine({
         currentChartData.interval === requestedInterval.value
           ? mergeKLinePoints(currentChartData.points, points)
           : points;
+      const latestVisibleRange = visiblePointRangeRef.current;
+      let anchorTimestamp: number | undefined;
+      if (
+        currentChartData?.seriesKey === seriesKey &&
+        currentChartData.interval === requestedInterval.value &&
+        latestVisibleRange?.seriesKey === seriesKey &&
+        latestVisibleRange.interval === requestedInterval.value &&
+        latestVisibleRange.endIndex < currentChartData.points.length
+      ) {
+        const previousLatestPoint = currentChartData.points.at(-1);
+        const previousTimestamps = new Set(
+          currentChartData.points.map((point) => point.t),
+        );
+        if (
+          previousLatestPoint &&
+          nextPoints.some(
+            (point) =>
+              point.t < previousLatestPoint.t &&
+              !previousTimestamps.has(point.t),
+          )
+        ) {
+          anchorTimestamp = getVisiblePointAnchorTimestamp({
+            points: currentChartData.points,
+            range: latestVisibleRange,
+          });
+        }
+      }
       if (
         pagination.seriesKey === seriesKey &&
         pagination.interval === requestedInterval.value
@@ -4434,6 +4473,21 @@ export function useTradingViewNativeKLine({
             ? mergeKLinePoints(currentData.points, points)
             : points,
       }));
+      if (anchorTimestamp !== undefined) {
+        viewportRequestIdRef.current += 1;
+        const nextViewportRequest = {
+          interval: requestedInterval.value,
+          preserveVisibleAnchor: true,
+          requestId: viewportRequestIdRef.current,
+          seriesKey,
+          target: {
+            kind: 'timestamp' as const,
+            timestamp: anchorTimestamp,
+          },
+        };
+        viewportNavigationAnchorRef.current = nextViewportRequest;
+        setScopedViewportRequest(nextViewportRequest);
+      }
       setHistoryState({
         interval: requestedInterval.value,
         lastUpdatedAt: Date.now(),
