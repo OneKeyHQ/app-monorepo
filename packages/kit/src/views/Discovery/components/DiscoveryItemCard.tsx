@@ -81,11 +81,7 @@ export function DiscoveryItemCard({
   if (isLoading) {
     return (
       <Stack {...CARD_FRAME_PROPS}>
-        <Skeleton
-          width={ICON_SIZE}
-          height={ICON_SIZE}
-          borderRadius={ICON_RADIUS}
-        />
+        <Skeleton width={ICON_SIZE} height={ICON_SIZE} borderRadius="$4" />
         <Skeleton
           width="$18"
           $gtMd={{
@@ -131,7 +127,8 @@ export function DiscoveryItemCard({
           // Side padding keeps neighboring names apart. Multi-word names wrap
           // at spaces; a single long word ("PancakeSwap") shrinks a little to
           // stay on one line instead of breaking mid-word.
-          px="$1.5"
+          px="$2"
+          $platform-native={{ px: '$1.5' }}
           w="100%"
           size="$bodySmMedium"
           textAlign="center"

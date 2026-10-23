@@ -109,7 +109,8 @@ export function BookmarksSection() {
     <Stack
       // Phones size to the bookmarks they have, so one row doesn't leave a
       // gap above Trending.
-      $gtSm={{ minHeight: '$40' }}
+      minHeight="$40"
+      $platform-native={{ minHeight: 0 }}
       testID={DiscoveryTestIDs.bookmarksSection}
     >
       <DashboardSectionHeader>
