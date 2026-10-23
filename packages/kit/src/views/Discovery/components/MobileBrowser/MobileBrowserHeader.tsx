@@ -147,7 +147,7 @@ function MobileBrowserHeader({
   // backgrounds need a stronger fill than dark ones to read as clearly.
   const chromeThemeName = pageThemeName ?? appThemeName;
   const accountChipBg =
-    chromeThemeName === 'dark' ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.09)';
+    chromeThemeName === 'dark' ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.06)';
   const containerAnimatedStyle = useAnimatedStyle(() => ({
     height: interpolate(
       progress.value,
