@@ -1,7 +1,7 @@
 /** @jest-environment jsdom */
 import type { PropsWithChildren } from 'react';
 
-import { render } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 
 import { DustSweepSelection } from './DustSweepSelection';
 
@@ -10,13 +10,18 @@ const mockScroll = jest.fn((_options: { bottomInset: number }) => ({
   onRowsLayout: () => undefined,
 }));
 let mockSelecting = false;
+let mockLoadStatus: 'loading' | 'ready' | 'error' = 'ready';
+let mockRefreshStatus: 'refreshing' | 'idle' | 'error' = 'idle';
 
 jest.mock('react-intl', () => ({
   useIntl: () => ({ formatMessage: ({ id }: { id: string }) => id }),
 }));
 jest.mock('@onekeyhq/components', () => {
-  function MockBox({ children }: PropsWithChildren) {
-    return <div>{children}</div>;
+  function MockBox({
+    children,
+    testID,
+  }: PropsWithChildren<{ testID?: string }>) {
+    return <div data-testid={testID}>{children}</div>;
   }
   return {
     Button: MockBox,
@@ -41,9 +46,9 @@ jest.mock('../DustSweepProvider', () => ({
     session: {
       state: { phase: mockSelecting ? 'selecting' : 'running', items: [] },
     },
-    loadStatus: 'ready',
-    refreshStatus: 'idle',
-    assetStatus: 'ready',
+    loadStatus: mockLoadStatus,
+    refreshStatus: mockRefreshStatus,
+    assetStatus: mockRefreshStatus === 'refreshing' ? 'refreshing' : 'ready',
     partialError: false,
   }),
 }));
@@ -55,7 +60,7 @@ jest.mock('./DustSweepFilters', () => ({ DustSweepFilters: () => null }));
 jest.mock('./DustSweepSummary', () => ({ DUST_SWEEP_ACTION_HEIGHT: 46 }));
 jest.mock('./DustSweepTokenRow', () => ({
   DUST_SWEEP_ROW_HEIGHT: 64,
-  DustSweepTokenRow: () => null,
+  DustSweepTokenRow: () => <span data-testid="dust-sweep-skeleton-row" />,
 }));
 
 function lastBottomInset() {
@@ -65,6 +70,8 @@ function lastBottomInset() {
 beforeEach(() => {
   mockScroll.mockClear();
   mockSelecting = false;
+  mockLoadStatus = 'ready';
+  mockRefreshStatus = 'idle';
 });
 
 it('keeps the active row above the mobile live sheet while sweeping', () => {
@@ -81,4 +88,20 @@ it('only clears the direction circle while selecting on mobile', () => {
 it('has no bottom inset on desktop', () => {
   render(<DustSweepSelection desktop obscuredBottom={434} />);
   expect(lastBottomInset()).toBe(0);
+});
+
+it('shows skeleton rows only while the initial data is unavailable', () => {
+  mockSelecting = true;
+  mockLoadStatus = 'loading';
+  mockRefreshStatus = 'refreshing';
+  render(<DustSweepSelection desktop />);
+  expect(screen.getAllByTestId('dust-sweep-skeleton-row')).toHaveLength(7);
+});
+
+it('keeps a known empty selection visible during a background refresh', () => {
+  mockSelecting = true;
+  mockRefreshStatus = 'refreshing';
+  render(<DustSweepSelection desktop />);
+  expect(screen.queryByTestId('dust-sweep-skeleton-row')).toBeNull();
+  expect(screen.getByText('empty_noMatchingTokens')).toBeTruthy();
 });
