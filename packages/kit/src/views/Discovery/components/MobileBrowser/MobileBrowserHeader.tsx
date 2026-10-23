@@ -12,9 +12,11 @@ import {
   Stack,
   Theme,
   XStack,
+  setSystemBarsOverride,
   useSafeAreaInsets,
   useThemeName,
 } from '@onekeyhq/components';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import {
   BROWSER_CHROME_CROSSFADE_POINT,
@@ -82,6 +84,16 @@ function usePageStatusBarStyle(pageThemeName: 'light' | 'dark' | undefined) {
   useEffect(() => {
     if (!isFocused || !pageThemeName) {
       return;
+    }
+    // Android: the system bars (status bar icons, navigation bar, and the
+    // window behind edge-to-edge bars) have one owner, the appearance
+    // module; pin it to the page's variant while the browser is foreground,
+    // like onboarding does, and hand it back after.
+    if (platformEnv.isNativeAndroid) {
+      setSystemBarsOverride(pageThemeName);
+      return () => {
+        setSystemBarsOverride(null);
+      };
     }
     const barStyle =
       pageThemeName === 'dark' ? 'light-content' : 'dark-content';
