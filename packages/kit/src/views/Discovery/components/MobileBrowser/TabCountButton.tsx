@@ -21,7 +21,6 @@ import { ChromePressable } from './ChromePressable';
 
 interface ITabCountButtonProps {
   testID: string;
-  size?: 'medium' | 'large';
   // Called on press, before the tab list opens (e.g. for analytics).
   onPressed?: () => void;
 }
@@ -47,22 +46,21 @@ function useShowMobileTabList() {
   }, [takeScreenshot, navigation, displayHomePage]);
 }
 
-function TabCountButton({
-  testID,
-  size = 'medium',
-  onPressed,
-}: ITabCountButtonProps) {
+// Drawn to match the 24pt outline icons around it (back chevron, history
+// clock): a 20pt rounded square with the same 2pt stroke, in a 24pt slot.
+const GLYPH_SLOT = 24;
+const GLYPH_SIZE = 20;
+const GLYPH_STROKE = 2;
+
+function TabCountButton({ testID, onPressed }: ITabCountButtonProps) {
   const { displayHomePage } = useDisplayHomePageFlag();
   const { tabs } = useWebTabs();
   const tabCount = useMemo(() => tabs.length, [tabs]);
-  const isLarge = size === 'large';
-  const badgeSize = isLarge ? 24 : 22;
-  // Inside a Liquid Glass capsule the glass owns the shape and press feedback.
+  // Inside a Liquid Glass capsule the glass owns the shape and press feedback;
+  // elsewhere it sits like a tertiary header IconButton (same padding and
+  // negative margin), so it spaces evenly next to one.
   const inGlass = useInGlassHeader();
-  let padding: '$2' | '$3' | '$3.5' = isLarge ? '$3.5' : '$3';
-  if (inGlass) {
-    padding = '$2';
-  }
+  const color = inGlass ? '$text' : '$iconSubdued';
   const handleShowTabList = useShowMobileTabList();
 
   if (displayHomePage && tabCount === 0) {
@@ -76,31 +74,41 @@ function TabCountButton({
         void handleShowTabList();
       }}
     >
-      <Stack p={padding} borderRadius="$full" testID={testID}>
-        {/* Drawn like an SF Symbol: a square with a 1.5pt stroke and
-            continuous corners, sized so two-digit counts fit inside it. */}
+      <Stack
+        p={inGlass ? '$2' : '$1.5'}
+        m={inGlass ? undefined : -7}
+        borderRadius="$full"
+        testID={testID}
+      >
         <Stack
-          minWidth={badgeSize}
-          h={badgeSize}
-          px={tabCount > 99 ? 3 : 0}
-          borderRadius={6}
-          borderCurve="continuous"
-          borderWidth={1.5}
-          // Same contrast bump IconButton applies on glass.
-          borderColor={inGlass ? '$text' : '$iconSubdued'}
+          minWidth={GLYPH_SLOT}
+          h={GLYPH_SLOT}
           alignItems="center"
           justifyContent="center"
         >
-          <SizableText
-            size="$bodySmMedium"
-            fontWeight="600"
-            // Proportional digits with slight tightening, so the count reads as
-            // one glyph inside the small square.
-            letterSpacing={-0.5}
-            color={inGlass ? '$text' : '$iconSubdued'}
+          <Stack
+            minWidth={GLYPH_SIZE}
+            h={GLYPH_SIZE}
+            px={tabCount > 99 ? 3 : 0}
+            borderRadius={5}
+            borderCurve="continuous"
+            borderWidth={GLYPH_STROKE}
+            borderColor={color}
+            alignItems="center"
+            justifyContent="center"
           >
-            {tabCount}
-          </SizableText>
+            <SizableText
+              fontSize={tabCount > 9 ? 11 : 12}
+              lineHeight={14}
+              fontWeight="600"
+              // Tight tracking so two digits read as one count, not as two
+              // separate characters.
+              letterSpacing={tabCount > 9 ? -0.8 : 0}
+              color={color}
+            >
+              {tabCount}
+            </SizableText>
+          </Stack>
         </Stack>
       </Stack>
     </ChromePressable>
