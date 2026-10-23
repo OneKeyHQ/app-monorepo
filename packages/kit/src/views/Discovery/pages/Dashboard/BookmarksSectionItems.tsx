@@ -4,6 +4,7 @@ import type { IYStackProps } from '@onekeyhq/components';
 import { Stack, YStack, useMedia } from '@onekeyhq/components';
 
 import { BookmarksSectionItem } from './BookmarksSectionItem';
+import { useEdgeAlignedGrid } from './useEdgeAlignedGrid';
 
 import type { IBrowserBookmark, IMatchDAppItemType } from '../../types';
 
