@@ -117,15 +117,3 @@ export function isChipFullyVisible({
     chipLeft + chipWidth <= scrollLeft + viewportWidth + tolerancePx
   );
 }
-
-export function getStickySidebarMaxHeight({
-  viewportHeight,
-  stickyLine,
-  bottomGap,
-}: {
-  viewportHeight: number;
-  stickyLine: number;
-  bottomGap: number;
-}): number {
-  return Math.max(0, viewportHeight - stickyLine - bottomGap);
-}

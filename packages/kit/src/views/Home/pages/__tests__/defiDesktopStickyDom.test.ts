@@ -1,7 +1,6 @@
 import {
   findActiveProtocolKey,
   findScrollableAncestorFromLocalNode,
-  getStickySidebarMaxHeight,
   isChipFullyVisible,
   shouldQueueProtocolNavigation,
   shouldReleasePinLock,
@@ -80,26 +79,6 @@ describe('defiDesktopStickyDom', () => {
     const localNode = createFakeElement({ parent });
 
     expect(findScrollableAncestorFromLocalNode(localNode)).toBeNull();
-  });
-
-  it('computes sticky sidebar max height from viewport height, sticky line, and bottom gap', () => {
-    expect(
-      getStickySidebarMaxHeight({
-        viewportHeight: 900,
-        stickyLine: 140,
-        bottomGap: 24,
-      }),
-    ).toBe(736);
-  });
-
-  it('clamps sticky sidebar max height at zero', () => {
-    expect(
-      getStickySidebarMaxHeight({
-        viewportHeight: 120,
-        stickyLine: 100,
-        bottomGap: 40,
-      }),
-    ).toBe(0);
   });
 
   describe('findActiveProtocolKey', () => {
