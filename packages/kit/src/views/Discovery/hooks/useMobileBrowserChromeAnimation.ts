@@ -35,11 +35,6 @@ const timingConfig = {
   easing: Easing.inOut(Easing.quad),
 };
 
-// On iOS the bar floats over the page (Liquid Glass shows the content through
-// it), so the WebView keeps its full height; scrollable content is kept
-// reachable above the bar via the WebView contentInset instead.
-const floatingWebPageStyle = { bottom: 0 };
-
 // Drives the mobile browser chrome (header + bottom bar) from WebView scroll:
 // scrolling down collapses both; scrolling up, reaching an edge of the page,
 // or a non-scrollable page brings them back.
@@ -157,8 +152,11 @@ function useMobileBrowserChromeAnimation() {
   const animatedWebPageStyle = useAnimatedStyle(() => ({
     bottom: fullBarHeight * chromeProgress.value,
   }));
+  // On iOS the bar floats over the page (Liquid Glass shows the content
+  // through it), so the WebView layer keeps its full height; scrollable
+  // content stays reachable above the bar via the WebView contentInset.
   const webPageAnimatedStyle = isFloatingBrowserChrome
-    ? floatingWebPageStyle
+    ? undefined
     : animatedWebPageStyle;
 
   return {

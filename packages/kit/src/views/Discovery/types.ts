@@ -103,7 +103,6 @@ export interface IWebTabsAtom {
 }
 
 export interface IMobileBottomOptionsProps {
-  disabled: boolean;
   isBookmark: boolean;
   onBookmarkPress: (bookmark: boolean) => void;
   onRefresh: () => void;
@@ -117,11 +116,11 @@ export interface IMobileBottomOptionsProps {
   displayDisconnectOption: boolean;
   onDisconnect: () => void;
   siteMode?: ESiteMode;
-  // Optional page actions folded into the menu by the mobile bottom bar.
-  canGoForward?: boolean;
-  onGoForward?: () => void;
-  isTranslated?: boolean;
-  onTranslatePress?: () => void;
+  // Page actions folded into the menu by the mobile bottom bar.
+  canGoForward: boolean;
+  onGoForward: () => void;
+  isTranslated: boolean;
+  onTranslatePress: () => void;
   onRequestSiteMode: (siteMode: ESiteMode) => void;
 }
 

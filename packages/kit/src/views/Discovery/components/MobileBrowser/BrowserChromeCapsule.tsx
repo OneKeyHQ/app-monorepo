@@ -14,7 +14,6 @@ type IBrowserChromeCapsuleProps = PropsWithChildren<{
   flex?: number;
   height?: number;
   px?: IXStackProps['px'];
-  testID?: string;
 }>;
 
 // A pill (or circle, with a single child) hosting browser chrome buttons.
@@ -26,7 +25,6 @@ export function BrowserChromeCapsule({
   flex,
   height = BROWSER_CHROME_CAPSULE_HEIGHT,
   px = '$1',
-  testID,
 }: IBrowserChromeCapsuleProps) {
   const content = (
     <GlassHeaderProvider>
@@ -37,7 +35,6 @@ export function BrowserChromeCapsule({
         gap="$1"
         alignItems="center"
         justifyContent="center"
-        testID={testID}
       >
         {children}
       </XStack>

@@ -303,12 +303,7 @@ function MobileBrowser() {
     if (isBrowserWebPageVisible) {
       expandBrowserChrome();
     }
-  }, [
-    activeTabId,
-    isBrowserWebPageVisible,
-    fullBarHeight,
-    expandBrowserChrome,
-  ]);
+  }, [activeTabId, isBrowserWebPageVisible, expandBrowserChrome]);
   const isBrowserDashboardActive =
     showDiscoveryPage &&
     (isBrowserHeaderTabSelected || visibleOuterPages.includes(1));
@@ -457,11 +452,12 @@ function MobileBrowser() {
     };
   }, [closeCurrentWebTab]);
 
+  // Only the legacy tablet layout requires display:none gating across panes;
+  // phone layouts keep Market, Earn, and Browser in the outer pager.
+  const useOuterPager = !isTabletMainView && !isTabletDetailView;
   // Phone layout only: the iPad split layout keeps the bar in-flow.
   const webContentBottomInset =
-    isFloatingBrowserChrome && !isTabletMainView && !isTabletDetailView
-      ? fullBarHeight
-      : undefined;
+    isFloatingBrowserChrome && useOuterPager ? fullBarHeight : undefined;
   const content = useMemo(
     () =>
       tabs.map((t) => (
@@ -483,19 +479,26 @@ function MobileBrowser() {
       selectedHeaderTab === ETranslations.global_browser,
   );
 
+  // Read through refs so the chrome callbacks (and the memoized header/bar)
+  // stay stable while tabs update.
+  const tabsRef = useRef(tabs);
+  tabsRef.current = tabs;
+  const activeTabIdRef = useRef(activeTabId);
+  activeTabIdRef.current = activeTabId;
   const handleSearchBarPress = useCallback(
     (url: string) => {
-      const tab = tabs.find((t) => t.id === activeTabId);
+      const currentTabId = activeTabIdRef.current;
+      const tab = tabsRef.current.find((t) => t.id === currentTabId);
       navigation.pushModal(EModalRoutes.DiscoveryModal, {
         screen: EDiscoveryModalRoutes.SearchModal,
         params: {
           url,
-          tabId: activeTabId ?? undefined,
-          useCurrentWindow: tab?.isPinned ? false : !!activeTabId,
+          tabId: currentTabId ?? undefined,
+          useCurrentWindow: tab?.isPinned ? false : !!currentTabId,
         },
       });
     },
-    [tabs, navigation, activeTabId],
+    [navigation],
   );
   const browserChrome = useMemo(
     () => ({
@@ -506,9 +509,6 @@ function MobileBrowser() {
     [chromeProgress, expandBrowserChrome, handleSearchBarPress],
   );
 
-  // Only the legacy tablet layout requires display:none gating across panes;
-  // phone layouts keep Market, Earn, and Browser in the outer pager.
-  const useOuterPager = !isTabletMainView && !isTabletDetailView;
   const { top } = useSafeAreaInsets();
   // iOS 26: the Discover search bar opts into the Liquid Glass capsule (so it
   // matches the Wallet header's glass search bar) and is nudged down so its
@@ -687,8 +687,8 @@ function MobileBrowser() {
                 </Stack>
               }
             />
-            {/* Resize the iOS WebView with the toolbar so fixed page content
-                stays visible above it. */}
+            {/* iOS WebView layer: keeps full height under the floating bar
+                (see useMobileBrowserChromeAnimation). */}
             {platformEnv.isNativeIOS ? (
               <Animated.View
                 collapsable={false}

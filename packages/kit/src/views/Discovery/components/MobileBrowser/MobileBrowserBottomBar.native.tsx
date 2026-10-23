@@ -1,7 +1,7 @@
 import { memo, useCallback, useMemo, useState } from 'react';
 
 import { StyleSheet } from 'react-native';
-import Animated, { useSharedValue } from 'react-native-reanimated';
+import Animated from 'react-native-reanimated';
 
 import {
   Haptics,
@@ -19,8 +19,8 @@ import {
 import { TranslatePopoverTrigger } from '../../hooks/usePageTranslation';
 import { useActiveTabId, useWebTabs } from '../../hooks/useWebTabs';
 import { DiscoveryTestIDs } from '../../testIDs';
-import CustomHeaderTitle from '../CustomHeaderTitle';
 
+import { AddressCapsuleTitle } from './AddressCapsuleTitle';
 import { AddressSwipeArea } from './AddressSwipeArea';
 import {
   getCollapsedPillBottom,
@@ -29,9 +29,9 @@ import {
   useIsChromeCollapsed,
 } from './browserChrome';
 import { BrowserChromeCapsule } from './BrowserChromeCapsule';
-import { ChromeTap, chromeOnPress, chromeTapHandlesPress } from './ChromeTap';
+import { ChromePressable } from './ChromePressable';
 import RefreshButton from './RefreshButton';
-import TabCountButton, { useShowMobileTabList } from './TabCountButton';
+import TabCountButton from './TabCountButton';
 import { useMobileBrowserBottomBarData } from './useMobileBrowserBottomBarData';
 import { useMobileBrowserOptions } from './useMobileBrowserOptions';
 
@@ -70,18 +70,17 @@ function CollapsedAddressPill({
   const hostname = useMemo(() => getDisplayHostname(url), [url]);
   return (
     <BrowserChromeCapsule height={BROWSER_COLLAPSED_PILL_HEIGHT} px="$4">
-      <ChromeTap onPress={onPress}>
+      <ChromePressable onPress={onPress}>
         <XStack
-          h="100%"
+          h={BROWSER_COLLAPSED_PILL_HEIGHT}
           alignItems="center"
-          onPress={chromeOnPress(onPress)}
           testID={DiscoveryTestIDs.browserCollapsedHeader}
         >
           <SizableText size="$bodyMdMedium" numberOfLines={1} maxWidth={220}>
             {hostname}
           </SizableText>
         </XStack>
-      </ChromeTap>
+      </ChromePressable>
     </BrowserChromeCapsule>
   );
 }
@@ -94,7 +93,6 @@ function MobileBrowserBottomBar({
   id,
   onGoBackHomePage,
   chrome,
-  ...rest
 }: IMobileBrowserBottomBarProps) {
   const {
     bottom,
@@ -120,9 +118,7 @@ function MobileBrowserBottomBar({
     handleTranslateTestAIError,
   } = useMobileBrowserBottomBarData({ id, onGoBackHomePage });
 
-  // Without a driver (e.g. the bar is rendered standalone) stay expanded.
-  const fallbackProgress = useSharedValue(1);
-  const progress = chrome?.progress ?? fallbackProgress;
+  const { progress, onExpand, onSearchBarPress } = chrome;
   const isChromeCollapsed = useIsChromeCollapsed(progress);
   const { expandedStyle, collapsedStyle } = useChromeCrossfadeStyles(progress, {
     hiddenOffsetY: 16,
@@ -154,15 +150,9 @@ function MobileBrowserBottomBar({
     onTranslatePress: handleTranslatePress,
   });
 
-  const showTabList = useShowMobileTabList();
-  const handleShowTabList = useCallback(() => {
-    void showTabList();
-  }, [showTabList]);
-
   const currentUrl = tab?.displayUrl ?? tab?.url;
-  const onSearchBarPress = chrome?.onSearchBarPress;
   const handleAddressPress = useCallback(() => {
-    onSearchBarPress?.(currentUrl ?? '');
+    onSearchBarPress(currentUrl ?? '');
   }, [onSearchBarPress, currentUrl]);
 
   const { tabs } = useWebTabs();
@@ -183,7 +173,7 @@ function MobileBrowserBottomBar({
   return (
     // Fills the container: a fixed full-height box on phones, an animated
     // in-flow height on tablets.
-    <Stack h="100%" zIndex={1} pointerEvents="box-none" {...rest}>
+    <Stack h="100%" zIndex={1} pointerEvents="box-none">
       <Animated.View
         pointerEvents={isChromeCollapsed ? 'none' : 'box-none'}
         style={[styles.bar, { bottom }, expandedStyle]}
@@ -195,27 +185,25 @@ function MobileBrowserBottomBar({
           alignItems="center"
         >
           <BrowserChromeCapsule>
-            <ChromeTap onPress={handleGoBack} disabled={disabledGoBack}>
+            <ChromePressable onPress={handleGoBack} disabled={disabledGoBack}>
               <IconButton
                 variant="tertiary"
                 icon="ChevronLeftOutline"
                 disabled={disabledGoBack}
                 accessible={!disabledGoBack}
-                onPress={chromeOnPress(handleGoBack)}
                 testID={DiscoveryTestIDs.browserBackButton}
               />
-            </ChromeTap>
+            </ChromePressable>
           </BrowserChromeCapsule>
           <BrowserChromeCapsule flex={1} px="$1.5">
-            <ChromeTap onPress={showOptions} disabled={displayHomePage}>
+            <ChromePressable onPress={showOptions} disabled={displayHomePage}>
               <IconButton
                 variant="tertiary"
                 icon="MenuOutline"
                 disabled={displayHomePage}
-                onPress={chromeOnPress(showOptions)}
                 testID="browser-bar-options"
               />
-            </ChromeTap>
+            </ChromePressable>
             <TranslatePopoverTrigger
               isTranslated={isTranslated}
               onTranslate={handleTranslate}
@@ -226,25 +214,15 @@ function MobileBrowserBottomBar({
               trigger={translatePopoverAnchor}
             />
             <AddressSwipeArea onSwipe={handleSwipeTab}>
-              <CustomHeaderTitle
-                embedded
-                handleSearchBarPress={handleAddressPress}
+              <AddressCapsuleTitle
+                url={currentUrl}
+                onPress={handleAddressPress}
               />
             </AddressSwipeArea>
-            <ChromeTap onPress={handleRefresh}>
-              <RefreshButton
-                onRefresh={handleRefresh}
-                pressable={!chromeTapHandlesPress}
-              />
-            </ChromeTap>
+            <RefreshButton onRefresh={handleRefresh} />
           </BrowserChromeCapsule>
           <BrowserChromeCapsule>
-            <ChromeTap onPress={handleShowTabList}>
-              <TabCountButton
-                testID={DiscoveryTestIDs.tabListButton}
-                pressable={!chromeTapHandlesPress}
-              />
-            </ChromeTap>
+            <TabCountButton testID={DiscoveryTestIDs.tabListButton} />
           </BrowserChromeCapsule>
         </XStack>
       </Animated.View>
@@ -256,7 +234,7 @@ function MobileBrowserBottomBar({
           collapsedStyle,
         ]}
       >
-        <CollapsedAddressPill url={currentUrl} onPress={chrome?.onExpand} />
+        <CollapsedAddressPill url={currentUrl} onPress={onExpand} />
       </Animated.View>
     </Stack>
   );

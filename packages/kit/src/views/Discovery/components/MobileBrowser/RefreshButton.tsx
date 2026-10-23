@@ -6,18 +6,14 @@ import { IconButton } from '@onekeyhq/components';
 
 import { DiscoveryTestIDs } from '../../testIDs';
 
+import { ChromePressable } from './ChromePressable';
+
 interface IRefreshButtonProps {
   onRefresh: () => void;
   size?: 'small' | 'medium' | 'large';
-  // False when the parent handles the press (e.g. via ChromeTap on Android).
-  pressable?: boolean;
 }
 
-function RefreshButton({
-  onRefresh,
-  size = 'medium',
-  pressable = true,
-}: IRefreshButtonProps) {
+function RefreshButton({ onRefresh, size = 'medium' }: IRefreshButtonProps) {
   const rotateAnim = useRef(new Animated.Value(0)).current;
 
   const handleRefresh = useCallback(() => {
@@ -37,15 +33,16 @@ function RefreshButton({
   });
 
   return (
-    <Animated.View style={{ transform: [{ rotate: spin }] }}>
-      <IconButton
-        variant="tertiary"
-        size={size}
-        icon="RefreshCwOutline"
-        onPress={pressable ? handleRefresh : undefined}
-        testID={DiscoveryTestIDs.browserRefreshButton}
-      />
-    </Animated.View>
+    <ChromePressable onPress={handleRefresh}>
+      <Animated.View style={{ transform: [{ rotate: spin }] }}>
+        <IconButton
+          variant="tertiary"
+          size={size}
+          icon="RefreshCwOutline"
+          testID={DiscoveryTestIDs.browserRefreshButton}
+        />
+      </Animated.View>
+    </ChromePressable>
   );
 }
 

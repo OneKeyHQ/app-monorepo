@@ -17,15 +17,15 @@ import {
   useWebTabs,
 } from '../../hooks/useWebTabs';
 
+import { ChromePressable } from './ChromePressable';
+
 interface ITabCountButtonProps {
   testID: string;
   size?: 'medium' | 'large';
-  // False when the parent handles the press (e.g. via ChromeTap on Android).
-  pressable?: boolean;
 }
 
 // Snapshot the current page for its tab card, then open the tab list.
-export function useShowMobileTabList() {
+function useShowMobileTabList() {
   const { displayHomePage } = useDisplayHomePageFlag();
   const { activeTabId } = useActiveTabId();
   const takeScreenshot = useTakeScreenshot(activeTabId);
@@ -45,11 +45,7 @@ export function useShowMobileTabList() {
   }, [takeScreenshot, navigation, displayHomePage]);
 }
 
-function TabCountButton({
-  testID,
-  size = 'medium',
-  pressable = true,
-}: ITabCountButtonProps) {
+function TabCountButton({ testID, size = 'medium' }: ITabCountButtonProps) {
   const { displayHomePage } = useDisplayHomePageFlag();
   const { tabs } = useWebTabs();
   const tabCount = useMemo(() => tabs.length, [tabs]);
@@ -67,43 +63,36 @@ function TabCountButton({
   }
 
   return (
-    <Stack
-      p={padding}
-      borderRadius="$full"
-      pressStyle={
-        inGlass || !pressable
-          ? undefined
-          : {
-              bg: '$bgActive',
-            }
-      }
-      onPress={
-        pressable
-          ? () => {
-              void handleShowTabList();
-            }
-          : undefined
-      }
-      testID={testID}
+    <ChromePressable
+      onPress={() => {
+        void handleShowTabList();
+      }}
     >
       <Stack
-        minWidth={isLarge ? '$6' : '$5'}
-        minHeight={isLarge ? '$6' : '$5'}
-        borderRadius="$1"
-        borderWidth="$0.5"
-        // Same contrast bump IconButton applies on glass.
-        borderColor={inGlass ? '$text' : '$iconSubdued'}
-        alignItems="center"
-        justifyContent="center"
+        p={padding}
+        borderRadius="$full"
+        pressStyle={inGlass ? undefined : { bg: '$bgActive' }}
+        testID={testID}
       >
-        <SizableText
-          size="$bodySmMedium"
-          color={inGlass ? '$text' : '$iconSubdued'}
+        <Stack
+          minWidth={isLarge ? '$6' : '$5'}
+          minHeight={isLarge ? '$6' : '$5'}
+          borderRadius="$1"
+          borderWidth="$0.5"
+          // Same contrast bump IconButton applies on glass.
+          borderColor={inGlass ? '$text' : '$iconSubdued'}
+          alignItems="center"
+          justifyContent="center"
         >
-          {tabCount}
-        </SizableText>
+          <SizableText
+            size="$bodySmMedium"
+            color={inGlass ? '$text' : '$iconSubdued'}
+          >
+            {tabCount}
+          </SizableText>
+        </Stack>
       </Stack>
-    </Stack>
+    </ChromePressable>
   );
 }
 

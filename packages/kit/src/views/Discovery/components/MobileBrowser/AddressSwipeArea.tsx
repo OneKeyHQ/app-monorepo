@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useCallback, useMemo, useRef } from 'react';
 import type { PropsWithChildren } from 'react';
 
 import { StyleSheet } from 'react-native';
@@ -30,6 +30,12 @@ export function AddressSwipeArea({
   onSwipe,
 }: PropsWithChildren<{ onSwipe: (direction: 1 | -1) => void }>) {
   const translateX = useSharedValue(0);
+  // Keep the gesture stable while the handler identity changes.
+  const onSwipeRef = useRef(onSwipe);
+  onSwipeRef.current = onSwipe;
+  const handleSwipe = useCallback((direction: 1 | -1) => {
+    onSwipeRef.current(direction);
+  }, []);
   const gesture = useMemo(
     () =>
       Gesture.Pan()
@@ -44,7 +50,7 @@ export function AddressSwipeArea({
           'worklet';
 
           if (Math.abs(event.translationX) >= BROWSER_ADDRESS_SWIPE_DISTANCE) {
-            runOnJS(onSwipe)(event.translationX < 0 ? 1 : -1);
+            runOnJS(handleSwipe)(event.translationX < 0 ? 1 : -1);
           }
         })
         .onFinalize(() => {
@@ -52,7 +58,7 @@ export function AddressSwipeArea({
 
           translateX.value = withSpring(0, springConfig);
         }),
-    [onSwipe, translateX],
+    [handleSwipe, translateX],
   );
   const animatedStyle = useAnimatedStyle(() => ({
     opacity: interpolate(

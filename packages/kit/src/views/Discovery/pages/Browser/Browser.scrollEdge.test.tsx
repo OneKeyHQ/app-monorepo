@@ -125,7 +125,6 @@ jest.mock('../../components/OuterTabPagerView', () => ({
     </div>
   ),
 }));
-jest.mock('../../components/CustomHeaderTitle', () => () => null);
 jest.mock('../../components/HandleData/HandleRebuildBrowserTabData', () => ({
   HandleRebuildBrowserData: () => null,
 }));
