@@ -17,9 +17,7 @@ import {
 } from '@onekeyhq/components';
 
 import {
-  BROWSER_CHROME_CAPSULE_HEIGHT,
   BROWSER_CHROME_CROSSFADE_POINT,
-  BROWSER_CHROME_SIDE_PADDING,
   BROWSER_HEADER_HEIGHT,
 } from '../../config/Animation.constants';
 import { useActiveTabId } from '../../hooks/useWebTabs';
@@ -31,6 +29,9 @@ import { logBrowserChromeAction, useIsChromeCollapsed } from './browserChrome';
 
 import type { IMobileBrowserChrome } from './browserChrome';
 
+const HEADER_EDGE_INSET = 16;
+// IconButton's medium padding ($1.5), so the glyph itself sits at the inset.
+const MINIMIZE_BUTTON_PADDING = 6;
 const ACCOUNT_CHIP_HEIGHT = 36;
 // Concentric with the 24pt account avatar (4pt corners) inset 6pt: a rounded
 // square chip instead of a pill, so the chip and avatar read as one shape.
@@ -115,7 +116,7 @@ function MobileBrowserHeader({
   let accountChipBg = '$bgSubdued';
   if (pageThemeName) {
     accountChipBg =
-      pageThemeName === 'dark' ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.06)';
+      pageThemeName === 'dark' ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.04)';
   }
   const containerAnimatedStyle = useAnimatedStyle(() => ({
     height: interpolate(
@@ -141,18 +142,17 @@ function MobileBrowserHeader({
             {/* A plain toolbar, not glass: the header sits on the app
               background above the page, where glass would only show its
               shadow halo. Glass is kept for the bar that floats over content.
-              Edges line up with the bottom bar: same side padding, and the
-              minimize icon sits in a capsule-sized slot so it shares a column
-              with the back button below; the chip's right edge matches the
-              tabs button. */}
+              Tighter than the bottom bar, like a navigation bar: the
+              minimize glyph and the chip's right edge sit 16pt from the
+              screen edges, in line with typical page content. */}
             <XStack
               flex={1}
-              px={BROWSER_CHROME_SIDE_PADDING}
+              pl={HEADER_EDGE_INSET - MINIMIZE_BUTTON_PADDING}
+              pr={HEADER_EDGE_INSET}
               alignItems="center"
               justifyContent="space-between"
             >
               <Stack
-                w={BROWSER_CHROME_CAPSULE_HEIGHT}
                 h={ACCOUNT_CHIP_HEIGHT}
                 alignItems="center"
                 justifyContent="center"
