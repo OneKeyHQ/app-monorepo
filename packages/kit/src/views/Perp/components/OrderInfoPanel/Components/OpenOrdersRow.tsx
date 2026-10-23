@@ -281,11 +281,15 @@ const OpenOrdersRow = memo(
             width="100%"
             alignItems="center"
           >
-            <YStack onPress={handleSwitchInstrument} cursor="pointer">
+            <YStack>
               <SizableText
                 numberOfLines={1}
                 ellipsizeMode="tail"
                 size="$bodyMdMedium"
+                alignSelf="flex-start"
+                maxWidth="100%"
+                onPress={handleSwitchInstrument}
+                cursor="pointer"
               >
                 {assetInfo.assetSymbol}
               </SizableText>
@@ -460,8 +464,6 @@ const OpenOrdersRow = memo(
               {...getColumnStyle(columnConfigs[1])}
               justifyContent="center"
               alignItems={calcCellAlign(columnConfigs[1].align)}
-              onPress={handleSwitchInstrument}
-              cursor="pointer"
             >
               <SizableText
                 size="$bodySm"
@@ -469,6 +471,9 @@ const OpenOrdersRow = memo(
                 numberOfLines={1}
                 color={assetInfo.typeColor}
                 ellipsizeMode="tail"
+                maxWidth="100%"
+                onPress={handleSwitchInstrument}
+                cursor="pointer"
               >
                 {assetInfo.assetSymbol}
               </SizableText>

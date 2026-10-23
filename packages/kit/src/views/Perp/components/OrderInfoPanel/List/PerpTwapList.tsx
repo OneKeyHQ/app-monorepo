@@ -404,6 +404,13 @@ function TwapActiveRow({
 }) {
   const intl = useIntl();
   const { state } = order;
+  const actions = useHyperliquidActions();
+  const handleSwitchInstrument = useCallback(() => {
+    void actions.current.switchTradeInstrument({
+      mode: isSpotInstrument(state.coin) ? 'spot' : 'perp',
+      coin: state.coin,
+    });
+  }, [actions, state.coin]);
   const sideInfo = useMemo(() => getTwapSideInfo(state, intl), [intl, state]);
   const baseInfo = useMemo(
     () =>
@@ -458,6 +465,9 @@ function TwapActiveRow({
               size="$bodySmMedium"
               fontWeight={600}
               color={sideInfo.color}
+              maxWidth="100%"
+              onPress={handleSwitchInstrument}
+              cursor="pointer"
             >
               {baseInfo.assetSymbol}
             </SizableText>
@@ -599,6 +609,13 @@ function TwapHistoryRow({
 }) {
   const intl = useIntl();
   const { state } = record;
+  const actions = useHyperliquidActions();
+  const handleSwitchInstrument = useCallback(() => {
+    void actions.current.switchTradeInstrument({
+      mode: isSpotInstrument(state.coin) ? 'spot' : 'perp',
+      coin: state.coin,
+    });
+  }, [actions, state.coin]);
   const statusValue = record.status.status;
   const isActivated = record.status.status === 'activated';
   const isWaitingForTrigger = record.status.status === 'waitingForTrigger';
@@ -697,7 +714,13 @@ function TwapHistoryRow({
         >
           <YStack flex={1} gap="$1">
             <XStack gap="$2" alignItems="center" flexWrap="wrap">
-              <SizableText size="$bodyMdMedium" numberOfLines={1}>
+              <SizableText
+                size="$bodyMdMedium"
+                numberOfLines={1}
+                maxWidth="100%"
+                onPress={handleSwitchInstrument}
+                cursor="pointer"
+              >
                 {baseInfo.assetSymbol}
               </SizableText>
               <SizableText
@@ -827,7 +850,13 @@ function TwapHistoryRow({
             justifyContent="center"
             alignItems={calcCellAlign(columnConfigs[1].align)}
           >
-            <SizableText size="$bodySmMedium" color={sideInfo.color}>
+            <SizableText
+              size="$bodySmMedium"
+              color={sideInfo.color}
+              maxWidth="100%"
+              onPress={handleSwitchInstrument}
+              cursor="pointer"
+            >
               {baseInfo.assetSymbol}
             </SizableText>
           </YStack>
@@ -951,6 +980,13 @@ function TwapFillRow({
 }) {
   const intl = useIntl();
   const { fill } = record;
+  const actions = useHyperliquidActions();
+  const handleSwitchInstrument = useCallback(() => {
+    void actions.current.switchTradeInstrument({
+      mode: isSpotInstrument(fill.coin) ? 'spot' : 'perp',
+      coin: fill.coin,
+    });
+  }, [actions, fill.coin]);
   const dateInfo = useMemo(() => formatTwapDateTime(fill.time), [fill.time]);
   const assetSymbol = useMemo(
     () =>
@@ -1053,7 +1089,13 @@ function TwapFillRow({
         >
           <YStack gap="$1">
             <XStack gap="$2" alignItems="center">
-              <SizableText size="$bodyMdMedium">{assetSymbol}</SizableText>
+              <SizableText
+                size="$bodyMdMedium"
+                onPress={handleSwitchInstrument}
+                cursor="pointer"
+              >
+                {assetSymbol}
+              </SizableText>
               <SizableText size="$bodySm" color={directionInfo.color}>
                 {directionInfo.text}
               </SizableText>
@@ -1168,7 +1210,14 @@ function TwapFillRow({
             justifyContent={calcCellAlign(columnConfigs[1].align)}
             alignItems="center"
           >
-            <SizableText size="$bodySmMedium">{assetSymbol}</SizableText>
+            <SizableText
+              size="$bodySmMedium"
+              maxWidth="100%"
+              onPress={handleSwitchInstrument}
+              cursor="pointer"
+            >
+              {assetSymbol}
+            </SizableText>
           </XStack>
           <XStack
             {...getColumnStyle(columnConfigs[2])}

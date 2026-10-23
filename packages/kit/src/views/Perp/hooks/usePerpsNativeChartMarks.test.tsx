@@ -118,8 +118,8 @@ it('relocalizes loaded and live fills immediately without reloading history', as
     '做空\n1.25 @ 146.75',
     '平多\n1.25 @ 146.75',
     '平空\n1.25 @ 146.75',
-    'Long > Short\n1.25 @ 146.75',
-    'Short > Long\n1.25 @ 146.75',
+    '多转空\n1.25 @ 146.75',
+    '空转多\n1.25 @ 146.75',
     'Liquidated Cross Long\n1.25 @ 146.75',
   ]);
   expect(
@@ -143,11 +143,11 @@ it('relocalizes loaded and live fills immediately without reloading history', as
     expect.objectContaining({ label: 'B', text: '做多\n1.25 @ 146.75' }),
     expect.objectContaining({
       label: 'S',
-      text: 'Long > Short\n1.25 @ 146.75',
+      text: '多转空\n1.25 @ 146.75',
     }),
     expect.objectContaining({
       label: 'B',
-      text: 'Short > Long\n1.25 @ 146.75',
+      text: '空转多\n1.25 @ 146.75',
     }),
     expect.objectContaining({
       label: 'S',
