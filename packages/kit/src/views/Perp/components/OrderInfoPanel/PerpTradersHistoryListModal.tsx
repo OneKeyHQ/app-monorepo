@@ -12,13 +12,15 @@ import {
   Stack,
   XStack,
   YStack,
-  resetAboveMainRoute,
+  switchTabAsync,
 } from '@onekeyhq/components';
 import { PageBody } from '@onekeyhq/components/src/layouts/Page/PageBody';
 import { PageHeader } from '@onekeyhq/components/src/layouts/Page/PageHeader';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { NotificationEnableAlert } from '@onekeyhq/kit/src/components/NotificationEnableAlert';
+import { usePerpTabConfig } from '@onekeyhq/kit/src/hooks/usePerpTabConfig';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import {
   EModalPerpRoutes,
   type IModalPerpParamList,
@@ -130,6 +132,12 @@ function TabHeader({
 
 export function PerpTradersHistoryListModal() {
   const intl = useIntl();
+  const { perpTabShowWeb } = usePerpTabConfig();
+  const handleBeforeSwitchInstrument = useCallback(() => {
+    void switchTabAsync(
+      perpTabShowWeb ? ETabRoutes.WebviewPerpTrade : ETabRoutes.Perp,
+    );
+  }, [perpTabShowWeb]);
   const navigation = useNavigation<IPageNavigationProp<IModalPerpParamList>>();
   const route =
     useRoute<
@@ -285,7 +293,7 @@ export function PerpTradersHistoryListModal() {
               <PerpTwapList
                 isMobile
                 useTabsList={false}
-                onBeforeSwitchInstrument={resetAboveMainRoute}
+                onBeforeSwitchInstrument={handleBeforeSwitchInstrument}
                 initialTab="history"
                 enabledTabs={['history', 'fills']}
               />

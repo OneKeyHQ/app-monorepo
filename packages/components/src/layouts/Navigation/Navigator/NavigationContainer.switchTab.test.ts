@@ -5,6 +5,7 @@ import {
   resetAboveMainRoute,
   rootNavigationRef,
   switchTab,
+  switchTabAsync,
   tabletMainViewNavigationRef,
 } from './NavigationContainer';
 
@@ -127,3 +128,53 @@ it('leaves the trading route alone when there are no overlays', () => {
 
   expect(dispatch).not.toHaveBeenCalled();
 });
+
+it.each([ETabRoutes.Perp, ETabRoutes.WebviewPerpTrade])(
+  'dismisses nested history overlays from Home before selecting %s',
+  async (targetTab) => {
+    const mainRoute = {
+      name: ERootRoutes.Main,
+      state: { index: 0, routes: [{ name: ETabRoutes.Home }] },
+    };
+    const dispatch = jest.fn();
+    Object.assign(rootNavigationRef, {
+      current: {
+        getRootState: () => ({
+          index: 2,
+          routes: [
+            mainRoute,
+            { key: 'deposit', name: ERootRoutes.Modal },
+            { key: 'history', name: ERootRoutes.Modal },
+          ],
+        }),
+        dispatch,
+        navigate: mockRootNavigate,
+      },
+    });
+    Object.assign(tabletMainViewNavigationRef, {
+      current: {
+        getRootState: () => ({ index: 0, routes: [mainRoute] }),
+        navigate: mockTabletNavigate,
+      },
+    });
+
+    const switching = switchTabAsync(targetTab);
+    expect(dispatch).toHaveBeenCalledWith({
+      type: 'RESET',
+      payload: { index: 0, routes: [mainRoute] },
+    });
+    expect(mockRootNavigate).not.toHaveBeenCalled();
+
+    await jest.runAllTimersAsync();
+    await switching;
+
+    expect(mockRootNavigate).toHaveBeenCalledWith(ERootRoutes.Main, {
+      screen: targetTab,
+    });
+    expect(mockTabletNavigate).toHaveBeenCalledWith(
+      ERootRoutes.Main,
+      { screen: targetTab },
+      { pop: true },
+    );
+  },
+);
