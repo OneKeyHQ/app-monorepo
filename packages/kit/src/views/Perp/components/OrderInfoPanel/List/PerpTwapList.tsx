@@ -57,6 +57,7 @@ import type {
 import { useEnsureTradingEnabled } from '../../../hooks/useEnableTradingWithDepositFallback';
 import { usePerpTwapHistoryViewAllUrl } from '../../../hooks/usePerpOrderInfoPanel';
 import { usePerpsAccountScopedActiveTwapOrders } from '../../../hooks/usePerpsAccountScopedActiveTwapOrders';
+import { PERP_TEXT_ACTION_HOVER_STYLE } from '../../../utils/styleUtils';
 import { OrderInfoSubTabs } from '../Components/OrderInfoSubTabs';
 import { PerpDesktopEmptyState } from '../Components/PerpDesktopEmptyState';
 import { PerpMobileEmptyState } from '../Components/PerpMobileEmptyState';
@@ -555,7 +556,7 @@ function TwapActiveRow({
         >
           <SizableText
             color="$bgCriticalStrong"
-            hoverStyle={{ size: '$bodySmMedium', fontWeight: 600 }}
+            hoverStyle={PERP_TEXT_ACTION_HOVER_STYLE}
             size="$bodySm"
             fontWeight={400}
             onPress={onTerminate}
