@@ -4134,6 +4134,7 @@
   "prime_google_play__label": "Google Play",
   "prime_keep_subscription__action": "Tetap berlangganan",
   "prime_keep_waiting__action": "Lanjut menunggu",
+  "prime_member_try_again__msg": "Sudah menjadi anggota Prime. Coba fitur lagi.",
   "prime_membership_valid_until__desc": "Keanggotaan berlaku hingga {date}",
   "prime_next_invoice__label": "Tanggal invoice perpanjangan",
   "prime_no_crypto_subscription__desc": "Halaman ini hanya menampilkan langganan Prime yang dibayar dengan kripto.",
