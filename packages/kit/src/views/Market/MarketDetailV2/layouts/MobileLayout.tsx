@@ -596,6 +596,7 @@ export function MobileLayout({
     networkId,
     accountAddress,
     xpub,
+    isStock: Boolean(isStockToken || isStockRoute),
   });
   const isModalPage = useIsOverlayPage();
   const inPageDialog = useInPageDialog(

@@ -126,6 +126,36 @@ describe('usePortfolioData', () => {
     ]);
   });
 
+  it('keeps tiny Stock holdings without changing non-Stock portfolio rules', () => {
+    const tinyHolding = {
+      ...portfolioItem,
+      amount: '0.00000001',
+      totalPrice: '0',
+    };
+    const zeroHolding = { ...portfolioItem, amount: '0' };
+    mockPortfolioResult = {
+      list: [tinyHolding, zeroHolding],
+      networkId: 'evm--1',
+      tokenAddress: '0xSAME',
+      accountAddress: '0xaccount',
+    };
+
+    const { result, rerender } = renderHook(
+      ({ isStock }) =>
+        usePortfolioData({
+          tokenAddress: '0xSAME',
+          networkId: 'evm--1',
+          accountAddress: '0xaccount',
+          isStock,
+        }),
+      { initialProps: { isStock: true } },
+    );
+
+    expect(result.current.portfolioData).toEqual([tinyHolding]);
+    rerender({ isStock: false });
+    expect(result.current.portfolioData).toEqual([tinyHolding, zeroHolding]);
+  });
+
   it('does not expose a stale result from another network', () => {
     mockPortfolioResult = {
       list: [portfolioItem],

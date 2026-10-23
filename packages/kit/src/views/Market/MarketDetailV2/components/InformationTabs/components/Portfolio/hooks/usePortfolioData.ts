@@ -1,7 +1,8 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { isTradePositionVisible } from '@onekeyhq/kit/src/views/Swap/utils/tradePositionUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { IMarketAccountPortfolioResponse } from '@onekeyhq/shared/types/marketV2';
@@ -11,6 +12,7 @@ interface IUsePortfolioDataProps {
   networkId: string;
   accountAddress?: string;
   xpub?: string;
+  isStock?: boolean;
 }
 
 type IScopedPortfolioData = IMarketAccountPortfolioResponse & {
@@ -36,6 +38,7 @@ export function usePortfolioData({
   networkId,
   accountAddress,
   xpub,
+  isStock = false,
 }: IUsePortfolioDataProps) {
   // The scope whose last request failed, so its first load stops showing a
   // skeleton. Cleared by the next successful request.
@@ -107,8 +110,17 @@ export function usePortfolioData({
     failedScopeKey !==
       getPortfolioScopeKey({ networkId, tokenAddress, accountAddress });
 
+  const portfolioData = useMemo(() => {
+    const items = isCurrentPortfolioScope ? portfolioResult?.list || [] : [];
+    return isStock
+      ? items.filter((item) =>
+          isTradePositionVisible({ balance: item.amount, isStock: true }),
+        )
+      : items;
+  }, [isCurrentPortfolioScope, isStock, portfolioResult]);
+
   return {
-    portfolioData: isCurrentPortfolioScope ? portfolioResult?.list || [] : [],
+    portfolioData,
     isPortfolioPending,
     fetchPortfolio,
     isRefreshing,

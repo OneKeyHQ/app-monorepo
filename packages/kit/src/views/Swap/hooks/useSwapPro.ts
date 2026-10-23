@@ -35,8 +35,6 @@ import type {
 import {
   SWAP_PRO_QUOTE_INPUT_DEBOUNCE_MS,
   swapProPositionsListMaxCount,
-  swapProPositionsListMinValue,
-  swapProStockPositionsListMinValue,
   wrappedTokens,
 } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type {
@@ -107,6 +105,7 @@ import {
   filterSwapProCounterpartyTokens,
   getSwapProDefaultTokens,
 } from '../utils/swapTypeUtils';
+import { isTradePositionVisible } from '../utils/tradePositionUtils';
 
 import { backfillSwapProTokenStockIdentity } from './swapStockChannelUtils';
 import { useSwapSlippagePercentageModeInfo } from './useSwapState';
@@ -1915,14 +1914,13 @@ export function useSwapProPositionsListFilter(
   isStockPositions?: boolean,
 ) {
   const filterMinValueTokenList = useMemo(() => {
-    // Stock positions use a lower $0.1 floor (vs $1) and skip the max-count cap,
-    // so small stock holdings still show and aren't pushed out of the top N.
-    const minValue = isStockPositions
-      ? swapProStockPositionsListMinValue
-      : swapProPositionsListMinValue;
-    return sourceTokenList.filter((token) => {
-      return new BigNumber(token.fiatValue || '0').gt(minValue);
-    });
+    return sourceTokenList.filter((token) =>
+      isTradePositionVisible({
+        balance: token.balanceParsed,
+        fiatValue: token.fiatValue,
+        isStock: isStockPositions,
+      }),
+    );
   }, [sourceTokenList, isStockPositions]);
 
   const filterDefaultTokenList = useMemo(() => {

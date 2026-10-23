@@ -133,7 +133,7 @@ const solVariant = buildVariant({
 // Value per contract so each test can shape the table it expects.
 const holdings: Record<string, { amount: string; totalPrice: string }> = {
   '0xAAPL': { amount: '0.06', totalPrice: '21.19' },
-  '0xAAPLbsc': { amount: '0.00001', totalPrice: '0.003' },
+  '0xAAPLbsc': { amount: '0.00000001', totalPrice: '0' },
   AaplSolana: { amount: '0.065', totalPrice: '22.27' },
 };
 
@@ -294,17 +294,13 @@ describe('useSwapStockPortfolioData', () => {
     );
   });
 
-  it('lists the holdings largest first and keeps dust out of the table only', async () => {
+  it('lists every positive holding largest first, including dust', async () => {
     const { result } = renderHook(() => useSwapStockPortfolioData());
 
     await waitFor(() => expect(result.current.portfolioData).toHaveLength(3));
 
     expect(result.current.positionListData.map((item) => item.tokenId)).toEqual(
-      ['aapl-xstocks-solana', 'aapl-ondo-ethereum'],
-    );
-    // The selector still needs the dust holding to report a real balance.
-    expect(result.current.portfolioData.map((item) => item.tokenId)).toContain(
-      'aapl-ondo-bsc',
+      ['aapl-xstocks-solana', 'aapl-ondo-ethereum', 'aapl-ondo-bsc'],
     );
     expect(result.current.resolvedVariantKeys).toHaveLength(3);
   });
