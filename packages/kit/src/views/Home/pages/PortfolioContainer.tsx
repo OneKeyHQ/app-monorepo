@@ -30,7 +30,7 @@ import { TokenListBlock } from '../components/TokenListBlock';
 import { Upgrade } from '../components/Upgrade';
 import { PORTFOLIO_CONTAINER_RIGHT_SIDE_FIXED_WIDTH } from '../types';
 
-import { findScrollableAncestorFromLocalNode } from './defiDesktopStickyDom';
+import { findOverflowAncestorFromLocalNode } from './defiDesktopStickyDom';
 import { buildPortfolioSidebarStickyStyle } from './portfolioSidebarSticky';
 
 // Visual max-width for the wallet page main content. Has to match the
@@ -57,10 +57,13 @@ function PortfolioContainer() {
 
   useListenTabFocusState(ETabRoutes.Home, handleHomeRouteFocusChange);
 
-  // Height of the page scroller the sidebar sticks inside. Only a size is
-  // observed (never a position), so a stale value while the Home tab is
-  // hidden can at worst shorten the cap by a few pixels until the next
-  // resize; it can never move the sidebar.
+  // Height of the page scroller the sidebar sticks inside. The scroller is
+  // resolved by its overflow style, not by whether it scrolls yet: on a short
+  // first frame nothing overflows until the lists load, but it is the same
+  // element and its height is already the cap. Only a size is observed
+  // (never a position), so a stale value while the Home tab is hidden can at
+  // worst shorten the cap by a few pixels until the next resize; it can
+  // never move the sidebar.
   const [scrollerHeight, setScrollerHeight] = useState(0);
   const [sidebarNode, setSidebarNode] = useState<HTMLElement | null>(null);
   const registerSidebarRef = useCallback((node: unknown) => {
@@ -79,7 +82,7 @@ function PortfolioContainer() {
     ) {
       return undefined;
     }
-    const scroller = findScrollableAncestorFromLocalNode(sidebarNode);
+    const scroller = findOverflowAncestorFromLocalNode(sidebarNode);
     if (!scroller) {
       return undefined;
     }

@@ -1,5 +1,6 @@
 import {
   findActiveProtocolKey,
+  findOverflowAncestorFromLocalNode,
   findScrollableAncestorFromLocalNode,
   isChipFullyVisible,
   shouldQueueProtocolNavigation,
@@ -79,6 +80,33 @@ describe('defiDesktopStickyDom', () => {
     const localNode = createFakeElement({ parent });
 
     expect(findScrollableAncestorFromLocalNode(localNode)).toBeNull();
+  });
+
+  it('finds the overflow container before its content overflows', () => {
+    const scroller = createFakeElement({
+      overflowY: 'auto',
+      scrollHeight: 200,
+      clientHeight: 200,
+    });
+    const wrapper = createFakeElement({
+      parent: scroller,
+      overflowY: 'hidden',
+      scrollHeight: 500,
+      clientHeight: 200,
+    });
+    const localNode = createFakeElement({ parent: wrapper });
+
+    expect(findOverflowAncestorFromLocalNode(localNode)).toBe(scroller);
+    expect(findScrollableAncestorFromLocalNode(localNode)).toBeNull();
+  });
+
+  it('returns null when no ancestor owns vertical scrolling', () => {
+    const root = createFakeElement({ overflowY: 'hidden' });
+    const localNode = createFakeElement({
+      parent: createFakeElement({ parent: root }),
+    });
+
+    expect(findOverflowAncestorFromLocalNode(localNode)).toBeNull();
   });
 
   describe('findActiveProtocolKey', () => {
