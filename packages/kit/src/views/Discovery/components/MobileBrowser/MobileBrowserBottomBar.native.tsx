@@ -41,7 +41,6 @@ import TabCountButton from './TabCountButton';
 import { useMobileBrowserBottomBarData } from './useMobileBrowserBottomBarData';
 import { useMobileBrowserOptions } from './useMobileBrowserOptions';
 
-import type { IBrowserChromeCapsuleProps } from './BrowserChromeCapsule';
 import type { IMobileBrowserBottomBarProps } from './useMobileBrowserBottomBarData';
 import type { SharedValue } from 'react-native-reanimated';
 
@@ -55,37 +54,45 @@ const styles = StyleSheet.create({
     height: BROWSER_CHROME_CAPSULE_HEIGHT,
   },
   capsule: { flex: 1 },
-  pillRow: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    height: BROWSER_COLLAPSED_PILL_HEIGHT,
+  capsuleContent: {
+    flex: 1,
+    alignSelf: 'stretch',
     flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  pillContent: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
     justifyContent: 'center',
+    paddingHorizontal: 16,
   },
 });
 
 // Collapsed size of the address capsule, about the pill's size.
 const CAPSULE_COLLAPSED_SCALE =
   BROWSER_COLLAPSED_PILL_HEIGHT / BROWSER_CHROME_CAPSULE_HEIGHT;
+const PILL_FONT_SIZE = Math.round(14 / CAPSULE_COLLAPSED_SCALE);
+const PILL_LINE_HEIGHT = Math.round(20 / CAPSULE_COLLAPSED_SCALE);
 
 // Morphs the address capsule into the collapsed pill (and back), like
-// Safari: the capsule shrinks and slides down to the pill's spot while the
-// pill grows out of it; the side buttons fade and slide outwards. Both
-// layers overlap mid-way so it reads as one element changing shape.
+// Safari: one capsule shrinks and slides down to the pill's spot while its
+// contents fade over to the pill's domain; the side buttons fade and slide
+// outwards. A single glass shape (not a capsule and a pill fading over each other)
+// keeps it reading as one element and avoids two glass layers overlapping.
 //
 // Opacity is returned apart from the transforms: Liquid Glass breaks under a
 // translucent ancestor (once faded to 0 it doesn't come back), so on glass the
-// fade applies to the capsule contents and the glass itself (de)materializes
-// natively; elsewhere the whole capsule fades.
+// side buttons fade their contents and the glass (de)materializes natively;
+// elsewhere the whole button fades.
 function useBarMorphStyles(progress: SharedValue<number>, travelY: number) {
   const sideOpacityStyle = useAnimatedStyle(() => ({
     opacity: interpolate(progress.value, [0.4, 1], [0, 1], 'clamp'),
   }));
-  const capsuleOpacityStyle = useAnimatedStyle(() => ({
+  const capsuleContentStyle = useAnimatedStyle(() => ({
     opacity: interpolate(progress.value, [0.25, 0.75], [0, 1], 'clamp'),
   }));
-  const pillOpacityStyle = useAnimatedStyle(() => ({
+  const pillContentStyle = useAnimatedStyle(() => ({
     opacity: interpolate(progress.value, [0.25, 0.75], [1, 0], 'clamp'),
   }));
   const leftStyle = useAnimatedStyle(() => ({
@@ -115,67 +122,19 @@ function useBarMorphStyles(progress: SharedValue<number>, travelY: number) {
       },
     ],
   }));
-  const pillStyle = useAnimatedStyle(() => ({
-    transform: [
-      {
-        translateY: interpolate(progress.value, [0, 1], [0, -travelY], 'clamp'),
-      },
-      {
-        scale: interpolate(
-          progress.value,
-          [0, 1],
-          [1, 1 / CAPSULE_COLLAPSED_SCALE],
-          'clamp',
-        ),
-      },
-    ],
-  }));
   return {
     leftStyle,
     rightStyle,
     capsuleStyle,
-    pillStyle,
     sideOpacityStyle,
-    capsuleOpacityStyle,
-    pillOpacityStyle,
+    capsuleContentStyle,
+    pillContentStyle,
   };
 }
 
 // The translate sheet is opened from the menu; this anchor only positions the
 // tablet popover, out of the layout flow so it doesn't shift the address.
 const translatePopoverAnchor = <Stack position="absolute" w={1} h={1} />;
-
-function CollapsedAddressPill({
-  url,
-  onPress,
-  glassHidden,
-  contentStyle,
-}: {
-  url?: string;
-  onPress?: () => void;
-} & Pick<IBrowserChromeCapsuleProps, 'glassHidden' | 'contentStyle'>) {
-  const hostname = useMemo(() => getDisplayHostname(url), [url]);
-  return (
-    <BrowserChromeCapsule
-      height={BROWSER_COLLAPSED_PILL_HEIGHT}
-      px="$4"
-      glassHidden={glassHidden}
-      contentStyle={contentStyle}
-    >
-      <ChromePressable onPress={onPress}>
-        <XStack
-          h={BROWSER_COLLAPSED_PILL_HEIGHT}
-          alignItems="center"
-          testID={DiscoveryTestIDs.browserCollapsedHeader}
-        >
-          <SizableText size="$bodyMdMedium" numberOfLines={1} maxWidth={220}>
-            {hostname}
-          </SizableText>
-        </XStack>
-      </ChromePressable>
-    </BrowserChromeCapsule>
-  );
-}
 
 // Safari-style bar: [back] [menu · address · reload] [tabs]. Forward,
 // translate, bookmark etc. live in the menu. While scrolling down the bar
@@ -227,10 +186,9 @@ function MobileBrowserBottomBar({
     leftStyle,
     rightStyle,
     capsuleStyle,
-    pillStyle,
     sideOpacityStyle,
-    capsuleOpacityStyle,
-    pillOpacityStyle,
+    capsuleContentStyle,
+    pillContentStyle,
   } = useBarMorphStyles(progress, morphTravelY);
   const isGlass = isLiquidGlassAvailable();
 
@@ -256,6 +214,7 @@ function MobileBrowserBottomBar({
   });
 
   const currentUrl = tab?.displayUrl ?? tab?.url;
+  const hostname = useMemo(() => getDisplayHostname(currentUrl), [currentUrl]);
   const handleAddressPress = useCallback(() => {
     logBrowserChromeAction('address', 'toolbar');
     onSearchBarPress(currentUrl ?? '');
@@ -278,7 +237,7 @@ function MobileBrowserBottomBar({
         }
       >
         <Animated.View
-          pointerEvents={isChromeCollapsed ? 'none' : 'box-none'}
+          pointerEvents="box-none"
           style={[styles.bar, { bottom: capsuleBottom }]}
         >
           <XStack
@@ -286,8 +245,10 @@ function MobileBrowserBottomBar({
             px={BROWSER_CHROME_SIDE_PADDING}
             gap="$2"
             alignItems="center"
+            pointerEvents="box-none"
           >
             <Animated.View
+              pointerEvents={isChromeCollapsed ? 'none' : 'auto'}
               style={isGlass ? leftStyle : [leftStyle, sideOpacityStyle]}
             >
               <BrowserChromeCapsule
@@ -312,57 +273,83 @@ function MobileBrowserBottomBar({
               </BrowserChromeCapsule>
             </Animated.View>
             {/* Same edge inset as the round buttons, so icons line up. */}
-            <Animated.View
-              style={
-                isGlass
-                  ? [styles.capsule, capsuleStyle]
-                  : [styles.capsule, capsuleStyle, capsuleOpacityStyle]
-              }
-            >
-              <BrowserChromeCapsule
-                flex={1}
-                px="$2"
-                glassHidden={isChromeCollapsed}
-                contentStyle={isGlass ? capsuleOpacityStyle : undefined}
-              >
-                <ChromePressable
-                  onPress={() => {
-                    logBrowserChromeAction('menu', 'toolbar');
-                    showOptions();
-                  }}
-                  disabled={displayHomePage}
+            <Animated.View style={[styles.capsule, capsuleStyle]}>
+              <BrowserChromeCapsule flex={1} px="$2">
+                <Animated.View
+                  pointerEvents={isChromeCollapsed ? 'none' : 'box-none'}
+                  style={[styles.capsuleContent, capsuleContentStyle]}
                 >
-                  <IconButton
-                    variant="tertiary"
-                    icon="MenuOutline"
-                    iconSize="$5"
+                  <ChromePressable
+                    onPress={() => {
+                      logBrowserChromeAction('menu', 'toolbar');
+                      showOptions();
+                    }}
                     disabled={displayHomePage}
-                    testID="browser-bar-options"
+                  >
+                    <IconButton
+                      variant="tertiary"
+                      icon="MenuOutline"
+                      iconSize="$5"
+                      disabled={displayHomePage}
+                      testID="browser-bar-options"
+                    />
+                  </ChromePressable>
+                  <TranslatePopoverTrigger
+                    isTranslated={isTranslated}
+                    onTranslate={handleTranslate}
+                    onRetranslate={handleRetranslate}
+                    onTestAITranslateError={handleTranslateTestAIError}
+                    open={translateOpen}
+                    onOpenChange={setTranslateOpen}
+                    trigger={translatePopoverAnchor}
                   />
-                </ChromePressable>
-                <TranslatePopoverTrigger
-                  isTranslated={isTranslated}
-                  onTranslate={handleTranslate}
-                  onRetranslate={handleRetranslate}
-                  onTestAITranslateError={handleTranslateTestAIError}
-                  open={translateOpen}
-                  onOpenChange={setTranslateOpen}
-                  trigger={translatePopoverAnchor}
-                />
-                <AddressCapsuleTitle
-                  url={currentUrl}
-                  onPress={handleAddressPress}
-                />
-                <RefreshButton
-                  iconSize="$5"
-                  onRefresh={() => {
-                    logBrowserChromeAction('refresh', 'toolbar');
-                    handleRefresh();
-                  }}
-                />
+                  <AddressCapsuleTitle
+                    url={currentUrl}
+                    onPress={handleAddressPress}
+                  />
+                  <RefreshButton
+                    iconSize="$5"
+                    onRefresh={() => {
+                      logBrowserChromeAction('refresh', 'toolbar');
+                      handleRefresh();
+                    }}
+                  />
+                </Animated.View>
+                {/* The collapsed pill's domain, drawn inside the same capsule
+                  and sized up so it reads at 14pt once the capsule is scaled
+                  down to the pill. */}
+                <Animated.View
+                  pointerEvents={isChromeCollapsed ? 'auto' : 'none'}
+                  style={[styles.pillContent, pillContentStyle]}
+                >
+                  <ChromePressable
+                    fill
+                    onPress={() => {
+                      logBrowserChromeAction('expand', 'toolbar');
+                      onExpand();
+                    }}
+                  >
+                    <XStack
+                      flex={1}
+                      alignItems="center"
+                      justifyContent="center"
+                      testID={DiscoveryTestIDs.browserCollapsedHeader}
+                    >
+                      <SizableText
+                        size="$bodyMdMedium"
+                        fontSize={PILL_FONT_SIZE}
+                        lineHeight={PILL_LINE_HEIGHT}
+                        numberOfLines={1}
+                      >
+                        {hostname}
+                      </SizableText>
+                    </XStack>
+                  </ChromePressable>
+                </Animated.View>
               </BrowserChromeCapsule>
             </Animated.View>
             <Animated.View
+              pointerEvents={isChromeCollapsed ? 'none' : 'auto'}
               style={isGlass ? rightStyle : [rightStyle, sideOpacityStyle]}
             >
               <BrowserChromeCapsule
@@ -376,29 +363,6 @@ function MobileBrowserBottomBar({
               </BrowserChromeCapsule>
             </Animated.View>
           </XStack>
-        </Animated.View>
-        <Animated.View
-          pointerEvents={isChromeCollapsed ? 'box-none' : 'none'}
-          style={
-            isGlass
-              ? [styles.pillRow, { bottom: pillBottom }, pillStyle]
-              : [
-                  styles.pillRow,
-                  { bottom: pillBottom },
-                  pillStyle,
-                  pillOpacityStyle,
-                ]
-          }
-        >
-          <CollapsedAddressPill
-            url={currentUrl}
-            glassHidden={!isChromeCollapsed}
-            contentStyle={isGlass ? pillOpacityStyle : undefined}
-            onPress={() => {
-              logBrowserChromeAction('expand', 'toolbar');
-              onExpand();
-            }}
-          />
         </Animated.View>
       </Stack>
     </Theme>
