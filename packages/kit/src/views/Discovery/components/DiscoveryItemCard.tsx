@@ -57,6 +57,8 @@ export function DiscoveryItemCard({
     return title;
   }, [title, maxWordLength]);
 
+  const isSingleWord = !title.trim().includes(' ');
+
   const handlePress = useCallback(() => {
     handleOpenWebSite({
       dApp,
@@ -70,7 +72,7 @@ export function DiscoveryItemCard({
         py="$2"
         gap="$3"
         // Phones: a tighter icon/label pairing, like a home-screen grid.
-        $platform-native={{ py: '$1', gap: '$1.5' }}
+        $platform-native={{ py: '$1', gap: '$2' }}
         justifyContent="center"
         alignItems="center"
         userSelect="none"
@@ -100,7 +102,7 @@ export function DiscoveryItemCard({
         py="$2"
         gap="$3"
         // Phones: a tighter icon/label pairing, like a home-screen grid.
-        $platform-native={{ py: '$1', gap: '$1.5' }}
+        $platform-native={{ py: '$1', gap: '$2' }}
         justifyContent="center"
         alignItems="center"
         userSelect="none"
@@ -130,13 +132,16 @@ export function DiscoveryItemCard({
           ) : null}
         </Stack>
         <SizableText
-          // Narrow side padding so names like "PancakeSwap" fit on one line
-          // in a phone's quarter-width column.
-          px="$0.5"
+          // Side padding keeps neighboring names apart. Multi-word names wrap
+          // at spaces; a single long word ("PancakeSwap") shrinks a little to
+          // stay on one line instead of breaking mid-word.
+          px="$1.5"
           w="100%"
           size="$bodySmMedium"
           textAlign="center"
-          numberOfLines={2}
+          numberOfLines={isSingleWord ? 1 : 2}
+          adjustsFontSizeToFit={platformEnv.isNative && isSingleWord}
+          minimumFontScale={0.8}
         >
           {displayTitle}
         </SizableText>

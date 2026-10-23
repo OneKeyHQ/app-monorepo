@@ -31,7 +31,7 @@ export function BookmarksSectionItems({
   return (
     <YStack
       py="$2"
-      $platform-native={{ py: '$1', rowGap: '$3' }}
+      $platform-native={{ py: '$1', rowGap: '$4' }}
       flexDirection="row"
       flexWrap="wrap"
       {...restProps}
