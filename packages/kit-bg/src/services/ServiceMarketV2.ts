@@ -11,7 +11,7 @@ import {
   DEFAULT_MARKET_STOCK_SORT_TYPE,
   MARKET_STOCK_BATCH_MAX_IDS,
 } from '@onekeyhq/shared/src/consts/marketConsts';
-import { OneKeyError } from '@onekeyhq/shared/src/errors';
+import { OneKeyError, OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -634,35 +634,45 @@ class ServiceMarketV2 extends ServiceBase {
 
     const { data } = response.data;
 
-    if (!data?.list) {
-      console.error(
-        '[ServiceMarketV2] fetchMarketTokenListBatch: unexpected empty response',
-        {
-          requestIds: missingTokens.map(
-            (t) => `${t.chainId}:${t.contractAddress}`,
-          ),
-        },
-      );
-      return { list: cachedResults };
+    if (!Array.isArray(data?.list)) {
+      throw new OneKeyLocalError('Invalid market token batch response');
     }
 
-    // Update cache and merge results using positional index (API preserves
-    // request order). Cache keys use the request-side chainId:contractAddress
-    // to stay consistent with the lookup keys built above.
-    data.list.forEach((item, apiIndex) => {
-      const token = missingTokens[apiIndex];
-      if (!token) return;
+    // The API omits unknown tokens, so response indices cannot identify requests.
+    data.list.forEach((item) => {
+      if (!item) return;
+      const itemNetworkId = item.networkId || item.chainId;
+      const itemAddress = (item.address ?? '').toLowerCase();
+      const matches = missingTokens.filter(
+        (token) =>
+          (!itemNetworkId || token.chainId === itemNetworkId) &&
+          (token.isNative && item.isNative !== false
+            ? item.isNative === true ||
+              itemAddress === '' ||
+              itemAddress === token.contractAddress.toLowerCase()
+            : itemAddress === token.contractAddress.toLowerCase()),
+      );
+      if (matches.length !== 1) return;
+      const token = matches[0];
       const cacheKey = `${cacheLocale}:${
         token.chainId
       }:${token.contractAddress.toLowerCase()}`;
       const originalIndex = tokenIndexMap.get(cacheKey);
 
       // Update cache
-      this._marketTokenBatchCache.set(cacheKey, { data: item, timestamp: now });
+      const matchedItem = {
+        ...item,
+        networkId: itemNetworkId || token.chainId,
+        isNative: item.isNative ?? token.isNative,
+      };
+      this._marketTokenBatchCache.set(cacheKey, {
+        data: matchedItem,
+        timestamp: now,
+      });
 
       // Place in correct position
       if (originalIndex !== undefined) {
-        cachedResults[originalIndex] = item;
+        cachedResults[originalIndex] = matchedItem;
       }
     });
 

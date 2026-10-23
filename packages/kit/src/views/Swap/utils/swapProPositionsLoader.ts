@@ -5,7 +5,6 @@ import type {
   IJotaiGetter,
   IJotaiSetter,
 } from '@onekeyhq/kit-bg/src/states/jotai/types';
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type {
@@ -319,11 +318,6 @@ export const loadSwapProPositions: ISwapProPositionsLoader = async (
                 marketItems: response.list ?? [],
                 tokens: stockCandidateTokens,
               });
-              if (!stockTokens) {
-                throw new OneKeyLocalError(
-                  'Incomplete market metadata response for Stock positions',
-                );
-              }
             }
             for (const scope of scopesToLoad) {
               if (scope.stockOnly && scope.networkIds.has(accountNetworkId)) {
