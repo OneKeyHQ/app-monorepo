@@ -405,6 +405,37 @@ describe('useWalletBoundReferralCode', () => {
     ).not.toHaveBeenCalled();
   });
 
+  it('keeps bind status unknown when the wallet id is missing', async () => {
+    globalMockBag.__referralWalletLookupMock?.mockImplementation(
+      async (walletId: string | undefined) => {
+        if (!walletId) {
+          return { status: 'unavailable' };
+        }
+        return {
+          status: 'ready',
+          walletInfo: createWalletInfo(),
+        };
+      },
+    );
+
+    const { result } = renderHook(() => useWalletBoundReferralCode());
+
+    let displayStatus = 'unsupported';
+    await act(async () => {
+      displayStatus = await result.current.getReferralCodeBindDisplayStatus({
+        walletId: undefined,
+      });
+    });
+
+    expect(displayStatus).toBe('unknown');
+    expect(globalMockBag.__referralWalletLookupMock).toHaveBeenCalledWith(
+      undefined,
+    );
+    expect(
+      globalMockBag.__referralBg?.serviceReferralCode.checkWalletBindStatus,
+    ).not.toHaveBeenCalled();
+  });
+
   it('reports a wallet that can never take a code as unsupported', async () => {
     globalMockBag.__referralWalletLookupMock?.mockResolvedValue({
       status: 'unsupported',

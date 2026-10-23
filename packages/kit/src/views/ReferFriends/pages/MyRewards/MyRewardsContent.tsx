@@ -271,7 +271,7 @@ function readEarnItemUsd(item: IEarnRewardItem): BigNumber | undefined {
   if (serverUsd !== undefined) {
     return serverUsd;
   }
-  if (!isUsdStablecoinSymbol(item.token.symbol)) {
+  if (!isUsdStablecoinSymbol(item.token?.symbol)) {
     return undefined;
   }
   return readServerUsd(item.amount) ?? readUsdAmount(item.title.text);
