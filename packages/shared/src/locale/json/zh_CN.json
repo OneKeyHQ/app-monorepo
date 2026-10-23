@@ -3057,6 +3057,7 @@
   "onekey_defi_third_party_loss_disclaimer__desc": "OneKey 不对第三方产品造成的任何损失负责，也不提供赔偿。",
   "onekey_defi_third_party_operation__desc": "OneKey DeFi 包含多个由第三方独立运营的 DeFi 产品，OneKey 仅提供访问入口，不参与其运营。",
   "onekey_id_auto_create__desc": "首次使用将自动创建，无需单独注册。",
+  "onekey_id_email_existing_only__desc": "仅限已有账户，新账户需用 Apple 或 Google 创建",
   "onekey_id_oauth_reauth_account_mismatch__desc": "此 {provider} 账户未关联当前 OneKey ID。请选择已关联的账户后重试。",
   "onekey_id_sign_in_or_sign_up__desc": "首次使用时将自动创建 OneKey ID。",
   "onekey_id_sign_in_or_sign_up__title": "登录",

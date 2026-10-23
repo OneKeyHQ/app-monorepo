@@ -3057,6 +3057,7 @@
   "onekey_defi_third_party_loss_disclaimer__desc": "OneKey décline toute responsabilité pour les pertes causées par des produits tiers et ne verse aucune indemnisation.",
   "onekey_defi_third_party_operation__desc": "OneKey DeFi comprend plusieurs produits DeFi exploités de manière indépendante par des tiers. OneKey fournit uniquement un accès à ces produits et ne participe pas à leur exploitation.",
   "onekey_id_auto_create__desc": "Vous n’avez pas encore de OneKey ID ? Nous en créerons un automatiquement.",
+  "onekey_id_email_existing_only__desc": "Réservé aux comptes existants. Pour créer un compte, continuez avec Apple ou Google.",
   "onekey_id_oauth_reauth_account_mismatch__desc": "Ce compte {provider} n’est pas associé à votre OneKey ID actuel. Choisissez le compte associé et réessayez.",
   "onekey_id_sign_in_or_sign_up__desc": "Un OneKey ID sera créé automatiquement lors de votre première utilisation.",
   "onekey_id_sign_in_or_sign_up__title": "Se connecter",
