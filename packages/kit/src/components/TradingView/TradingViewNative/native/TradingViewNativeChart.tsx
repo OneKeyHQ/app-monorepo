@@ -129,6 +129,7 @@ const EMPTY_SUB_INDICATOR_PANES: readonly ITradingViewNativeSubIndicatorRenderPa
 export const TradingViewNativeChart = memo(
   ({
     drawingStorageKey,
+    loadDrawingHistory,
     enableDrawings = false,
     prioritizePageScroll = false,
     candleIntervalSeconds,
@@ -248,6 +249,9 @@ export const TradingViewNativeChart = memo(
       indicatorSeries,
       subIndicatorPanes,
       storageKey: drawingStorageKey,
+      loadHistory: loadDrawingHistory,
+      candleIntervalSeconds,
+      priceDecimalPlaces,
       chartRuntime,
       decayOffset,
     });
