@@ -19,8 +19,8 @@ import type { IMatchDAppItemType } from '../types';
 
 // Phones: a larger icon, so the edge-aligned 4-column grid keeps an even,
 // home-screen-like gap between icons instead of spreading them apart.
-export const DISCOVERY_ITEM_ICON_SIZE = platformEnv.isNative ? 64 : 56;
-const ICON_RADIUS = platformEnv.isNative ? 14 : 12;
+export const DISCOVERY_ITEM_ICON_SIZE = platformEnv.isNative ? 60 : 56;
+const ICON_RADIUS = platformEnv.isNative ? 13 : 12;
 // Lets the outer labels pass their icon by 12pt at most (the grid aligns
 // outer icons with the page edge); longer names wrap to a second line.
 const NATIVE_LABEL_MAX_WIDTH = DISCOVERY_ITEM_ICON_SIZE + 24;
