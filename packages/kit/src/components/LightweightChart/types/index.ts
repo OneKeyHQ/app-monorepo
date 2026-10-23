@@ -64,6 +64,15 @@ export type ILightweightChartTime = UTCTimestamp;
 // [time, value] pairs for the overlay line; a null value is a gap.
 export type ILightweightSecondaryLineChart = [number, number | null][];
 
+export interface ILightweightChartNativeScrubOptions {
+  labels: Record<string, { time: string; price?: string }>;
+  backgroundColor: string;
+  borderColor: string;
+  textColor: string;
+  timeColor: string;
+  largePrice: boolean;
+}
+
 export interface ILightweightChartConfig {
   theme: ILightweightChartTheme;
   data: ILightweightChartData[];
@@ -113,6 +122,8 @@ export interface ILightweightChartConfig {
   locale?: string;
   hideCrosshairPriceLabel?: boolean;
   pulseLastPoint?: boolean;
+  nativeScrubOptions?: ILightweightChartNativeScrubOptions;
+  notifyOnHover?: boolean;
 }
 
 export interface ILightweightChartProps {
@@ -195,6 +206,8 @@ export interface ILightweightChartProps {
   // Web/desktop only. Keep the chart instance alive when only data changes,
   // then update series data in place to avoid axis/marker flicker.
   preserveChartInstanceOnDataChange?: boolean;
+  // Native only: keep the solid line and tooltip in the chart's touch runtime.
+  nativeScrubOptions?: ILightweightChartNativeScrubOptions;
   onHover?: (data: {
     time?: number;
     price?: number;

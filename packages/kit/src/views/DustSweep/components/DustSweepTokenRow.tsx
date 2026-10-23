@@ -19,6 +19,7 @@ import {
 import { Currency } from '@onekeyhq/kit/src/components/Currency';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { SwapStepStatusIcon } from '@onekeyhq/kit/src/views/Swap/components/PreSwapStep';
+import { formatSwapErrorMessage } from '@onekeyhq/kit/src/views/Swap/utils/swapErrorUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
@@ -26,6 +27,7 @@ import type {
   IDustSweepReason,
   IDustSweepToken,
 } from '@onekeyhq/shared/types/swap/dustSweep';
+import type { ISwapErrorMessage } from '@onekeyhq/shared/types/swap/types';
 
 export const DUST_SWEEP_ROW_HEIGHT = 60;
 export const DUST_SWEEP_TOKEN_SIZE = 32;
@@ -35,9 +37,10 @@ export const dustSweepReasonMessageIds: Record<
   ETranslations
 > = {
   priceImpact: ETranslations.toast_price_impact_exceeded_skipped,
-  valueDrop: ETranslations.private_send_high_value_drop_title,
+  valueDrop: ETranslations.global_unknown_error,
   noQuote: ETranslations.swap_page_provider_rate_unavailable,
   insufficientGas: ETranslations.insufficient_native_for_network_fees__msg,
+  insufficientBalance: ETranslations.swap_page_button_insufficient_balance,
   txFailed: ETranslations.swap_review_transaction_failed,
   unknown: ETranslations.global_unknown_error,
 };
@@ -47,12 +50,13 @@ export function getDustSweepReasonMessage(
   reason: IDustSweepReason,
   nativeTokenSymbol?: string,
   providerErrorMessage?: string,
+  localError?: ISwapErrorMessage,
 ) {
-  if (
-    (reason === 'noQuote' || reason === 'txFailed') &&
-    providerErrorMessage?.trim()
-  )
-    return providerErrorMessage.trim();
+  if (providerErrorMessage?.trim()) return providerErrorMessage.trim();
+  if (localError) {
+    const { title, message } = formatSwapErrorMessage(intl, localError);
+    return [title, message].filter(Boolean).join('\n');
+  }
   if (reason === 'insufficientGas') {
     const symbol = nativeTokenSymbol?.trim();
     return symbol
@@ -78,6 +82,7 @@ export function getDustSweepItemReasonMessage(
     item.reason ?? 'unknown',
     nativeTokenSymbol,
     item.providerErrorMessage,
+    item.localError,
   );
 }
 
@@ -101,7 +106,7 @@ const DustSweepTokenRowBase = ({
   if (item)
     reasonDescription =
       item.submissionErrorMessage ||
-      (item.status === 'unknown'
+      (item.status === 'unknown' && !item.localError
         ? intl.formatMessage({ id: ETranslations.swap_review_tx_pending })
         : getDustSweepItemReasonMessage(intl, item, nativeTokenSymbol));
   // Errors only surface once the sweep starts, as the leading status icon.
@@ -121,7 +126,9 @@ const DustSweepTokenRowBase = ({
   if (item) {
     if (
       ['preparing', 'signing', 'broadcasted'].includes(item.status) &&
-      !item.submissionErrorMessage
+      !item.submissionErrorMessage &&
+      !item.providerErrorMessage &&
+      !item.localError
     )
       statusIcon = (
         <SwapStepStatusIcon isLoading success={false} failed={false} />
@@ -132,7 +139,9 @@ const DustSweepTokenRowBase = ({
       );
     else if (
       ['failed', 'skipped', 'unknown'].includes(item.status) ||
-      item.submissionErrorMessage
+      item.submissionErrorMessage ||
+      item.providerErrorMessage ||
+      item.localError
     )
       statusIcon = (
         <Tooltip

@@ -2,8 +2,10 @@
 import { act, renderHook } from '@testing-library/react';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IDustSweepSnapshot } from '@onekeyhq/shared/types/swap/dustSweep';
 
+import { DustSweepError } from '../utils/DustSweepError';
 import {
   DustSweepPaused,
   DustSweepRetryableError,
@@ -11,7 +13,6 @@ import {
   DustSweepUserCanceled,
   executeDustSweepItem,
 } from '../utils/execution';
-import { DustSweepSkip } from '../utils/quote';
 
 import { useDustSweepSession } from './useDustSweepSession';
 
@@ -41,17 +42,10 @@ jest.mock('../utils/execution', () => ({
   executeDustSweepItem: jest.fn(),
   DustSweepUnknownSubmission: jest.fn(),
   DustSweepUserCanceled: jest.fn(),
-  DustSweepRetryableError: jest.fn(),
+  DustSweepRetryableError: jest.requireActual<
+    typeof import('../utils/DustSweepRetryableError')
+  >('../utils/DustSweepRetryableError').DustSweepRetryableError,
   DustSweepPaused: jest.fn(),
-}));
-jest.mock('../utils/quote', () => ({
-  DustSweepSkip: class extends Error {
-    reason: string;
-    constructor(reason: string) {
-      super(reason);
-      this.reason = reason;
-    }
-  },
 }));
 
 const snapshot: IDustSweepSnapshot = {
@@ -95,6 +89,27 @@ const success: IResult = {
 };
 
 beforeEach(() => jest.clearAllMocks());
+
+it('preserves an existing localized App error through the session without exposing its diagnostic message', async () => {
+  execute.mockRejectedValueOnce({
+    className: 'OneKeyAppError',
+    key: ETranslations.swap_page_toast_insufficient_balance_title,
+    info: { token: 'DUST' },
+    message: 'Internal balance diagnostic',
+  });
+  const { result } = renderHook(() => useDustSweepSession([], { minRunMs: 0 }));
+  await act(async () =>
+    result.current.start({ ...snapshot, tokens: [snapshot.tokens[0]] }),
+  );
+  expect(result.current.state.items[0]).toMatchObject({
+    status: 'skipped',
+    localError: {
+      key: ETranslations.swap_page_toast_insufficient_balance_title,
+      values: { token: 'DUST' },
+    },
+  });
+  expect(result.current.state.items[0].providerErrorMessage).toBeUndefined();
+});
 
 it('pauses immediately while retaining the broadcast worker and its eventual result', async () => {
   const first = deferred<IResult>();
@@ -362,7 +377,7 @@ it('pauses a retryable preparation failure with approval identity intact', async
       onSigning();
       onApprovalBroadcast?.(['approval-known']);
       onPrepared();
-      throw new DustSweepRetryableError('History failed');
+      throw new DustSweepRetryableError('History failed', 'API rebuild error');
     },
   );
   const { result } = renderHook(() => useDustSweepSession([], { minRunMs: 0 }));
@@ -371,12 +386,14 @@ it('pauses a retryable preparation failure with approval identity intact', async
   expect(result.current.state.items[0]).toMatchObject({
     status: 'waiting',
     approvalTxIds: ['approval-known'],
+    providerErrorMessage: 'API rebuild error',
   });
 });
 
 it('submits every token, keeps execution quote failures and rejects duplicate starts', async () => {
-  const providerFailure = new DustSweepSkip('noQuote');
-  providerFailure.providerErrorMessage = 'Execution provider error';
+  const providerFailure = new DustSweepError('noQuote', {
+    providerErrorMessage: 'Execution provider error',
+  });
   execute.mockRejectedValueOnce(providerFailure);
   execute.mockImplementation(async ({ onSigning, onBroadcast }) => {
     onSigning();
@@ -409,6 +426,52 @@ it('submits every token, keeps execution quote failures and rejects duplicate st
   });
   expect(result.current.state.items[1].status).toBe('success');
 });
+
+it('consumes normalized domain errors without losing the reason or exposing diagnostics', async () => {
+  execute.mockRejectedValueOnce(
+    new DustSweepError('valueDrop', {
+      message: 'Internal quote diagnostics',
+      providerErrorMessage: 'API risk title\nAPI risk detail',
+    }),
+  );
+  const { result } = renderHook(() => useDustSweepSession([], { minRunMs: 0 }));
+  await act(async () =>
+    result.current.start({ ...snapshot, tokens: [snapshot.tokens[0]] }),
+  );
+  expect(result.current.state.items[0]).toMatchObject({
+    status: 'skipped',
+    reason: 'valueDrop',
+    message: 'Internal quote diagnostics',
+    providerErrorMessage: 'API risk title\nAPI risk detail',
+  });
+});
+
+it.each([
+  [
+    { className: 'OneKeyServerApiError', message: 'API preparation error' },
+    'API preparation error',
+  ],
+  [new OneKeyLocalError('Internal preparation error'), undefined],
+  [{ message: 'Transport diagnostics' }, undefined],
+] as const)(
+  'preserves only trusted API text from preparation failures (%j)',
+  async (error, providerErrorMessage) => {
+    execute.mockRejectedValueOnce(error);
+    const { result } = renderHook(() =>
+      useDustSweepSession([], { minRunMs: 0 }),
+    );
+    await act(async () =>
+      result.current.start({ ...snapshot, tokens: [snapshot.tokens[0]] }),
+    );
+    expect(result.current.state.items[0]).toMatchObject({
+      status: 'skipped',
+      reason: 'unknown',
+    });
+    expect(result.current.state.items[0].providerErrorMessage).toBe(
+      providerErrorMessage,
+    );
+  },
+);
 
 it('isolates late callbacks even when a later run uses the same caller id', async () => {
   let oldBroadcast: ((txId: string) => void) | undefined;
@@ -685,4 +748,15 @@ it('keeps a settled last result when Stop cuts the minimum run hold short', asyn
     status: 'success',
     txId: 'tx-a',
   });
+});
+
+it('keeps API copy as the single display source when an API error also has a local key', () => {
+  const error = DustSweepError.from({
+    className: 'OneKeyServerApiError',
+    message: 'Original API message',
+    key: ETranslations.swap_page_toast_insufficient_balance_title,
+    info: { token: 'SOL' },
+  });
+  expect(error.providerErrorMessage).toBe('Original API message');
+  expect(error.localError).toBeUndefined();
 });

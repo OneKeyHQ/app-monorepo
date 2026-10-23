@@ -9,7 +9,10 @@ import type { IMarketAssetListItem } from '@onekeyhq/shared/types/market';
 import type { IMarketStockPublicItem } from '@onekeyhq/shared/types/marketV2';
 
 import { parseMarketStockNumber } from '../MarketStockList/utils';
-import { getStockListingName } from '../MarketTokenList/utils/marketWatchlistRowKind';
+import {
+  getMarketWatchlistRowKind,
+  getStockListingName,
+} from '../MarketTokenList/utils/marketWatchlistRowKind';
 import { marketTokenKey } from '../MarketTokenList/utils/tokenListHelpers';
 
 import type { IMarketPerpsToken } from '../MarketPerpsList/hooks/useMarketPerpsTokenList';
@@ -315,6 +318,29 @@ function rowStyleForChange(
   };
 }
 
+// The second line of a token-shaped row. Favorites rows show only the 24h
+// volume, as the detail page's favorites sidebar does, except a stock listing:
+// its volume is the shares' own trading, not the tokenized variants traded
+// here, so it reads by company name alone. Other lists lead the volume with a
+// tokenized stock's company or a perp's alias.
+function resolveTokenRowSubtitle(
+  item: IMarketToken,
+  watchlist: boolean,
+): Pick<MarketRow, 'subtitle' | 'subtitlePrefix'> {
+  if (!watchlist) {
+    return {
+      subtitle: formatVolume(item.turnover),
+      subtitlePrefix: buildNameSubtitlePrefix(
+        item.stock?.subtitle ?? item.perpsSubtitle ?? getStockListingName(item),
+      ),
+    };
+  }
+  if (getMarketWatchlistRowKind(item) === 'stock') {
+    return { subtitle: getStockListingName(item) };
+  }
+  return { subtitle: formatVolume(item.turnover) };
+}
+
 // Long press opens the Favorites menu (move to top / remove) on watchlist
 // rows, and the add/remove favorite menu on every other list.
 function resolveLongPressActionKey({
@@ -348,8 +374,6 @@ export function buildTokenMarketRow({
   const dexLabel = item.perpsCoin
     ? parseDexCoin(item.perpsCoin).dexLabel
     : undefined;
-  const subtitlePrefix =
-    item.stock?.subtitle ?? item.perpsSubtitle ?? getStockListingName(item);
   let imageUri: string | undefined;
   if (presentation.webImageSources) {
     imageUri = item.tokenImageUris?.length
@@ -387,8 +411,7 @@ export function buildTokenMarketRow({
       borderColor: presentation.tokenBorderColor,
     },
     title: item.symbol,
-    subtitle: formatVolume(item.turnover),
-    subtitlePrefix: buildNameSubtitlePrefix(subtitlePrefix),
+    ...resolveTokenRowSubtitle(item, watchlist),
     price: price.text,
     priceSegments: price.textSegments,
     change,

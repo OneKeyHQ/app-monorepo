@@ -2,7 +2,7 @@ import { useCallback, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { DialogContainer, Portal } from '@onekeyhq/components';
+import { DialogContainer } from '@onekeyhq/components';
 import { useLocalDbOpenErrorAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/localDb';
 import { useAppIsLockedAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/passwordLock';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -55,7 +55,7 @@ export function LocalDbDowngradeDialogContainer() {
   }
 
   return (
-    <Portal.Body container={Portal.Constant.FULL_WINDOW_OVERLAY_PORTAL}>
+    <>
       <DialogContainer
         open
         testID="local-db-downgrade-dialog"
@@ -81,6 +81,6 @@ export function LocalDbDowngradeDialogContainer() {
         onConfirm={handleConfirm}
         onClose={handleClose}
       />
-    </Portal.Body>
+    </>
   );
 }

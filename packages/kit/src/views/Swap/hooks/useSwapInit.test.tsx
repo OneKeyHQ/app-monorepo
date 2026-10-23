@@ -6,6 +6,7 @@ import { act, renderHook, waitFor } from '@testing-library/react';
 // eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import { createStore } from 'jotai';
 
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { swapDefaultSetTokens } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import {
   ESwapDirectionType,
@@ -26,9 +27,11 @@ import {
   swapNetworks,
   swapSelectFromTokenAtom,
   swapSelectToTokenAtom,
+  swapSelectedTokensColdStartContextAtom,
   swapToTokenAmountAtom,
   swapTypeSwitchAtom,
 } from '../../../states/jotai/contexts/swap/atoms';
+import { buildSwapDefaultSelectedTokensFromHomeAccount } from '../utils/swapColdStartTokenCacheUtils';
 import { getLatestHomeSelectedAccountInfo } from '../utils/swapHomeSelectedAccountUtils';
 
 import { useSwapInit } from './useSwapGlobal';
@@ -968,5 +971,251 @@ describe('asset entry default counterpart ownership', () => {
       expect(mockStore.get(swapSelectFromTokenAtom())).toEqual(solUsdt),
     );
     expect(mockStore.get(swapSelectToTokenAtom())).toEqual(marketToken);
+  });
+});
+
+describe('automatic default pair ownership', () => {
+  const selectedAccount = {
+    walletId: 'ok64946-wallet',
+    indexedAccountId: 'ok64946-account',
+    deriveType: 'default',
+    networkId: 'sol--101',
+  } as const;
+  const activeAccount = {
+    ready: true,
+    wallet: { id: selectedAccount.walletId },
+    indexedAccount: { id: selectedAccount.indexedAccountId },
+    deriveType: selectedAccount.deriveType,
+    network: { id: selectedAccount.networkId },
+  };
+  const accountSelectorMock = jest.requireMock<{
+    useActiveAccount: () => { activeAccount: typeof activeAccount };
+    useSelectedAccount: () => { selectedAccount: typeof selectedAccount };
+  }>('../../../states/jotai/contexts/accountSelector');
+  const configuredNetwork: ISwapNetwork = {
+    ...solNetwork,
+    defaultSelectTokenDetail: { from: solUsdt, to: sol },
+  };
+  const entries: { label: string; params: ISwapInitParams }[] = [
+    { label: 'root Trade', params: {} },
+    {
+      label: 'Wallet Home network-only modal',
+      params: {
+        swapSource: ESwapSource.WALLET_HOME,
+        importNetworkId: sol.networkId,
+      },
+    },
+  ];
+  async function startPendingEntry(params: ISwapInitParams) {
+    const defaults = buildSwapDefaultSelectedTokensFromHomeAccount({
+      homeSelectedAccount: selectedAccount,
+      swapType: ESwapTabSwitchType.SWAP,
+      swapNetworks: [],
+      defaultConfigStatus: 'pending',
+    });
+    if (!defaults?.fromToken || !defaults.toToken) {
+      throw new OneKeyLocalError('SOL automatic default fixture unavailable');
+    }
+    mockStore.set(swapTypeSwitchAtom(), ESwapTabSwitchType.SWAP);
+    mockStore.set(swapSelectFromTokenAtom(), defaults.fromToken);
+    mockStore.set(swapSelectToTokenAtom(), defaults.toToken);
+    mockStore.set(swapSelectedTokensColdStartContextAtom(), defaults.context);
+    mockStore.set(swapInitialSelectedTokensSyncedAtom(), false);
+    mockStore.set(swapDefaultConfigStatusAtom(), 'pending');
+    mockStore.set(swapFromTokenAmountAtom(), { value: '', isInput: false });
+    mockStore.set(swapToTokenAmountAtom(), { value: '', isInput: false });
+    const request = deferred<ISwapNetwork[]>();
+    mockFetchNetworks.mockReturnValue(request.promise);
+    const view = renderMarket(params);
+    await waitFor(() => expect(mockFetchNetworks).toHaveBeenCalledTimes(1));
+    if (mockIsFocused) {
+      await waitFor(() =>
+        expect(getLatestHomeSelectedAccountInfo).toHaveBeenCalled(),
+      );
+    }
+    await act(async () => {});
+    return { defaults, request, view };
+  }
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockStore = createStore();
+    mockIsFocused = true;
+    mockFetchNetworks.mockReset();
+    mockGetNetworkCache.mockResolvedValue({ data: [] });
+    mockSwapActions.current.syncNetworksSort.mockReset();
+    jest
+      .mocked(getLatestHomeSelectedAccountInfo)
+      .mockReset()
+      .mockResolvedValue(emptyHomeAccountInfo);
+    jest
+      .spyOn(accountSelectorMock, 'useActiveAccount')
+      .mockReturnValue({ activeAccount });
+    jest
+      .spyOn(accountSelectorMock, 'useSelectedAccount')
+      .mockReturnValue({ selectedAccount });
+    const addressInfoMock = jest.requireMock<{
+      useSwapAddressInfo: () => {
+        networkId: string;
+        accountInfo: { ready: boolean };
+      };
+    }>('./useSwapAccount');
+    jest.spyOn(addressInfoMock, 'useSwapAddressInfo').mockReturnValue({
+      networkId: sol.networkId,
+      accountInfo: { ready: true },
+    });
+  });
+  afterEach(() => jest.restoreAllMocks());
+  async function finish(
+    request: ReturnType<typeof deferred<ISwapNetwork[]>>,
+    networks = [configuredNetwork],
+  ) {
+    await act(async () => request.resolve(networks));
+    await waitFor(() =>
+      expect(mockStore.get(swapDefaultConfigStatusAtom())).toBe('success'),
+    );
+    await act(async () => {});
+  }
+  it.each(entries)(
+    '$label adopts fresh defaults for an untouched automatic pair',
+    async ({ params }) => {
+      const { defaults, request } = await startPendingEntry(params);
+      const seedWhilePending = mockStore.get(
+        swapSelectedTokensColdStartContextAtom(),
+      )?.defaultTokenSeed;
+      await finish(request);
+      expect({
+        seedWhilePending,
+        from: mockStore.get(swapSelectFromTokenAtom()),
+        to: mockStore.get(swapSelectToTokenAtom()),
+      }).toEqual({
+        seedWhilePending: defaults.context.defaultTokenSeed,
+        from: solUsdt,
+        to: sol,
+      });
+    },
+  );
+  it.each(
+    entries.flatMap((entry) => [
+      { ...entry, direction: ESwapDirectionType.FROM },
+      { ...entry, direction: ESwapDirectionType.TO },
+    ]),
+  )(
+    '$label preserves a manual $direction token after fresh defaults arrive',
+    async ({ params, direction }) => {
+      const { defaults, request } = await startPendingEntry(params);
+      const tokenAtom =
+        direction === ESwapDirectionType.FROM
+          ? swapSelectFromTokenAtom()
+          : swapSelectToTokenAtom();
+      await act(async () => {
+        mockStore.set(tokenAtom, solUsdt);
+      });
+      await finish(request);
+      expect(mockStore.get(swapSelectFromTokenAtom())).toEqual(
+        direction === ESwapDirectionType.FROM ? solUsdt : defaults.fromToken,
+      );
+      expect(mockStore.get(swapSelectToTokenAtom())).toEqual(
+        direction === ESwapDirectionType.TO ? solUsdt : defaults.toToken,
+      );
+    },
+  );
+  it.each(
+    entries.flatMap((entry) => [
+      { ...entry, direction: ESwapDirectionType.FROM },
+      { ...entry, direction: ESwapDirectionType.TO },
+    ]),
+  )(
+    '$label preserves a pair owned by a nonempty $direction amount',
+    async ({ params, direction }) => {
+      const amountAtom =
+        direction === ESwapDirectionType.FROM
+          ? swapFromTokenAmountAtom()
+          : swapToTokenAmountAtom();
+      const { defaults, request } = await startPendingEntry(params);
+      await act(async () => {
+        mockStore.set(amountAtom, { value: '0.25', isInput: true });
+      });
+      await finish(request);
+      expect(mockStore.get(swapSelectFromTokenAtom())).toEqual(
+        defaults.fromToken,
+      );
+      expect(mockStore.get(swapSelectToTokenAtom())).toEqual(defaults.toToken);
+      expect(mockStore.get(amountAtom)).toEqual({
+        value: '0.25',
+        isInput: true,
+      });
+    },
+  );
+
+  it('adopts settled defaults on the first focused Wallet Home initialization', async () => {
+    mockIsFocused = false;
+    const params: ISwapInitParams = {
+      swapSource: ESwapSource.WALLET_HOME,
+      importNetworkId: sol.networkId,
+    };
+    const { defaults, request, view } = await startPendingEntry(params);
+    await finish(request);
+    expect(mockStore.get(swapSelectFromTokenAtom())).toEqual(
+      defaults.fromToken,
+    );
+    expect(mockStore.get(swapSelectToTokenAtom())).toEqual(defaults.toToken);
+    mockIsFocused = true;
+    view.rerender(params);
+    await waitFor(() =>
+      expect(mockStore.get(swapSelectFromTokenAtom())).toEqual(solUsdt),
+    );
+    expect(mockStore.get(swapSelectToTokenAtom())).toEqual(sol);
+  });
+
+  it('preserves an explicitly imported pair when the configuration differs', async () => {
+    const { request } = await startPendingEntry({
+      swapSource: ESwapSource.WALLET_HOME,
+      importNetworkId: sol.networkId,
+      importFromToken: sol,
+      importToToken: solUsdt,
+    });
+    await finish(request);
+    await waitFor(() =>
+      expect(mockStore.get(swapSelectToTokenAtom())).toEqual(solUsdt),
+    );
+    expect(mockStore.get(swapSelectFromTokenAtom())).toEqual(sol);
+    expect(
+      mockStore.get(swapSelectedTokensColdStartContextAtom())?.defaultTokenSeed,
+    ).toBeUndefined();
+  });
+
+  it('preserves the pair and amount supplied by a network-only entry', async () => {
+    const { defaults, request } = await startPendingEntry({
+      swapSource: ESwapSource.WALLET_HOME,
+      importNetworkId: sol.networkId,
+      fromAmount: '0.25',
+    });
+    await finish(request);
+    expect(mockStore.get(swapSelectFromTokenAtom())).toEqual(
+      defaults.fromToken,
+    );
+    expect(mockStore.get(swapSelectToTokenAtom())).toEqual(defaults.toToken);
+    expect(mockStore.get(swapFromTokenAmountAtom())).toEqual({
+      value: '0.25',
+      isInput: true,
+    });
+    expect(
+      mockStore.get(swapSelectedTokensColdStartContextAtom())?.defaultTokenSeed,
+    ).toBeUndefined();
+  });
+
+  it('clears the pair when the imported network does not support Swap', async () => {
+    const { request } = await startPendingEntry({
+      swapSource: ESwapSource.WALLET_HOME,
+      importNetworkId: sol.networkId,
+    });
+    await finish(request, [
+      {
+        ...configuredNetwork,
+        supportSingleSwap: false,
+        supportCrossChainSwap: false,
+      },
+    ]);
+    await waitFor(expectEmptyPair);
   });
 });

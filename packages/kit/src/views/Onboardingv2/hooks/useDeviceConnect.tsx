@@ -588,6 +588,7 @@ export function useDeviceConnect({
             connectId: device.connectId ?? '',
             deviceType: device.deviceType ?? undefined,
             deviceName: device.name ?? undefined,
+            deviceColor: deviceUtils.getDeviceColorFromSearchDevice(device),
           });
         // The iOS wait is for the legacy Sheet's mount acknowledgement —
         // with the stage owning the surface no Sheet mounts, so waiting

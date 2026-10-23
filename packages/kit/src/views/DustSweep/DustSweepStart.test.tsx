@@ -10,12 +10,13 @@ import type {
 } from '@onekeyhq/shared/types/swap/dustSweep';
 
 import { DustSweepProvider, useDustSweep } from './DustSweepProvider';
+import { DustSweepError } from './utils/DustSweepError';
 import { DustSweepPaused, executeDustSweepItem } from './utils/execution';
 import {
   loadDustSweepNetworks,
   refreshDustSweepNetwork,
 } from './utils/loadNetworks';
-import { DustSweepSkip } from './utils/quote';
+import { invalidateDustSweepNetworksCache } from './utils/networkCache';
 
 function useMockPreferences() {
   return useState<{ threshold: IDustSweepThreshold }>({ threshold: 10 });
@@ -46,16 +47,6 @@ jest.mock('@onekeyhq/kit/src/views/Swap/hooks/useSwapTxHistory', () => ({
 jest.mock('./utils/loadNetworks', () => ({
   loadDustSweepNetworks: jest.fn(),
   refreshDustSweepNetwork: jest.fn(),
-}));
-jest.mock('./utils/quote', () => ({
-  DustSweepSkip: class extends Error {
-    reason: string;
-
-    constructor(reason: string) {
-      super(reason);
-      this.reason = reason;
-    }
-  },
 }));
 jest.mock('./utils/execution', () => ({
   executeDustSweepItem: jest.fn(),
@@ -91,7 +82,10 @@ const bnb: IDustSweepNetwork = {
   balanceUsd: '5',
 };
 
-beforeEach(() => jest.resetAllMocks());
+beforeEach(() => {
+  invalidateDustSweepNetworksCache('w');
+  jest.resetAllMocks();
+});
 
 it('skips a token that gets no quote on submit and settles the sweep', async () => {
   jest.mocked(loadDustSweepNetworks).mockResolvedValue({
@@ -100,7 +94,7 @@ it('skips a token that gets no quote on submit and settles the sweep', async () 
   });
   jest
     .mocked(executeDustSweepItem)
-    .mockRejectedValue(new DustSweepSkip('noQuote'));
+    .mockRejectedValue(new DustSweepError('noQuote'));
   function Wrapper({ children }: PropsWithChildren) {
     return (
       <DustSweepProvider

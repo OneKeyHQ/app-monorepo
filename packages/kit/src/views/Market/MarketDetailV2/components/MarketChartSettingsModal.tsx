@@ -11,6 +11,7 @@ import type {
   ITradingViewChartSettingsProps,
   ITradingViewChartSettingsValue,
 } from '@onekeyhq/kit/src/components/TradingView/TradingViewChartControls/chartSettings';
+import type { ITradingViewSettingsDialogRef } from '@onekeyhq/kit/src/components/TradingView/TradingViewChartControls/chartSettings/TradingViewSettingsDialog';
 import {
   getTradingViewChartSettingsValue,
   getTradingViewNativeChartSettings,
@@ -54,6 +55,7 @@ const NON_NATIVE_HIDDEN_OPTION_IDS = [
 >;
 
 type IMarketChartSettingsContentProps = {
+  dialogRef?: ITradingViewSettingsDialogRef;
   storageNamespace?: ITradingViewNativeStorageNamespace;
   mobileLayout?: boolean;
   usePageFooter?: boolean;
@@ -69,6 +71,7 @@ function MarketChartSettingsContent(props: IMarketChartSettingsContentProps) {
 }
 
 function ChartSettingsContent({
+  dialogRef,
   settingsState,
   mobileLayout = false,
   usePageFooter = false,
@@ -110,6 +113,7 @@ function ChartSettingsContent({
 
   return (
     <TradingViewChartSettings
+      dialogRef={dialogRef}
       value={settingsValue}
       usePageFooter={usePageFooter}
       mobileLayout={mobileLayout}
@@ -132,8 +136,9 @@ export function showMarketChartSettingsDialog({
   storageNamespace?: ITradingViewNativeStorageNamespace;
 } = {}) {
   return showTradingViewChartSettingsDialog({
-    renderContent: (closeDialog) => (
+    renderContent: (closeDialog, dialogRef) => (
       <MarketChartSettingsContent
+        dialogRef={dialogRef}
         storageNamespace={storageNamespace}
         showPreviousClose={showPreviousClose}
         onClose={closeDialog}

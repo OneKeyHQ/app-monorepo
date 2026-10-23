@@ -433,19 +433,19 @@ class ServiceThirdPartyHardware extends ServiceBase {
     const device = await localDb.getDevice(dbDeviceId);
     const { vendor } = device;
     let identity: BindBleDeviceParams['identity'];
+    let fallbackIdentities: BindBleDeviceParams['fallbackIdentities'];
     if (vendor === EHardwareVendor.trezor && device.deviceId) {
       identity = { vendor, type: 'deviceId', value: device.deviceId };
     } else if (vendor === EHardwareVendor.ledger) {
       // A recorded fingerprint must match the picked device; without one the
-      // pick is bound as-is.
-      const chain = LEDGER_FINGERPRINT_CHAINS.find(
-        (candidate) => device.settings?.chainFingerprints?.[candidate],
-      );
-      const value = chain && device.settings?.chainFingerprints?.[chain];
-      identity =
-        chain && value
-          ? { vendor, type: 'chainFingerprint', chain, value }
-          : undefined;
+      // pick is bound as-is. Later chains are checked only when an earlier app is missing.
+      const recorded = LEDGER_FINGERPRINT_CHAINS.flatMap((chain) => {
+        const value = device.settings?.chainFingerprints?.[chain];
+        return value
+          ? [{ vendor, type: 'chainFingerprint' as const, chain, value }]
+          : [];
+      });
+      [identity, ...fallbackIdentities] = recorded;
     } else {
       throw new OneKeyLocalError({
         message: appLocale.intl.formatMessage({
@@ -463,6 +463,7 @@ class ServiceThirdPartyHardware extends ServiceBase {
     }
     const result = await adapter.hw.bindBleDevice({
       identity,
+      fallbackIdentities,
       extra: { dbDeviceId },
     });
     if (!result.success) {

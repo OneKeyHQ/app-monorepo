@@ -124,7 +124,6 @@ function DataRow({
         flexShrink={1}
         fontSize={12}
         lineHeight={25}
-        fontVariant={['tabular-nums']}
         textAlign="right"
         wordWrap="break-word"
       >

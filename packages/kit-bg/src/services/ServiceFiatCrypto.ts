@@ -26,6 +26,7 @@ import {
   type IGenerateWidgetUrlResponse,
   type IGenerateWidgetUrlWithAccountId,
   type IGetTokensListParams,
+  type IHeadlessBuyAbandonReason,
   type IHeadlessBuyOrder,
   type IOnramperSessionResponse,
   type IOnramperTransactionLookupItem,
@@ -390,7 +391,7 @@ class ServiceFiatCrypto extends ServiceBase {
   // iOS a `failed` can follow `paymentAuthorized` while addHeadlessBuyOrder
   // is still resolving metadata. The insert that follows replays the discard,
   // so an authorized order is surfaced at once instead of by the 24 h rule.
-  private abandonedBeforeRecord = new Map<string, 'cancelled' | 'failed'>();
+  private abandonedBeforeRecord = new Map<string, IHeadlessBuyAbandonReason>();
 
   private emitHeadlessBuyOrdersChanged() {
     appEventBus.emit(EAppEventBusNames.HeadlessBuyOrdersChanged, undefined);
@@ -514,22 +515,38 @@ class ServiceFiatCrypto extends ServiceBase {
   public async markHeadlessBuyOrderSubmitted({
     transactionId,
     order: fallback,
+    paymentSeen,
   }: {
     transactionId: string;
     order?: IAddHeadlessBuyOrderParams;
+    // True when the SDK reported a paid outcome (`completed` /
+    // `paymentPending`): payment evidence, so the 24 h no-payment rule never
+    // fails the order even when no `paymentAuthorized` event preceded it.
+    // The abandon / replay paths leave it unset.
+    paymentSeen?: boolean;
   }): Promise<void> {
     const { simpleDb } = this.backgroundApi;
     const existing = await simpleDb.headlessBuyOrders.getOrder({
       transactionId,
     });
     if (existing?.submittedAt !== undefined) {
+      if (paymentSeen && !existing.paymentSeen) {
+        await simpleDb.headlessBuyOrders.patchOrder({
+          transactionId,
+          patch: { paymentSeen: true },
+        });
+        this.emitHeadlessBuyOrdersChanged();
+      }
       return;
     }
     const submittedAt = Date.now();
+    const patch = paymentSeen
+      ? { submittedAt, paymentSeen: true }
+      : { submittedAt };
     let recordedBeforePayment = Boolean(existing);
     let next = await simpleDb.headlessBuyOrders.patchOrder({
       transactionId,
-      patch: { submittedAt },
+      patch,
     });
     if (!next) {
       if (!fallback) {
@@ -544,13 +561,13 @@ class ServiceFiatCrypto extends ServiceBase {
       recordedBeforePayment = false;
       const inserted = await this.insertHeadlessBuyOrder({
         ...built,
-        submittedAt,
+        ...patch,
       });
       next = inserted
-        ? { ...built, submittedAt }
+        ? { ...built, ...patch }
         : await simpleDb.headlessBuyOrders.patchOrder({
             transactionId,
-            patch: { submittedAt },
+            patch,
           });
       if (!next) {
         return;
@@ -567,16 +584,17 @@ class ServiceFiatCrypto extends ServiceBase {
 
   // cancelled / failed before completion: nothing was paid, drop the hidden
   // record. A visible (paid) order is never discarded by a checkout event,
-  // and neither is a hidden one whose Apple Pay sheet was already authorized:
-  // money may have moved, so that record is surfaced for the user to track
-  // and the next status lookup settles it.
+  // and neither is a hidden one whose Apple Pay sheet was already authorized
+  // or whose payment surface failed with the outcome unknown (SDK 1.3
+  // `providerFailed`): money may have moved, so that record is surfaced for
+  // the user to track and the next status lookup settles it.
   @backgroundMethod()
   public async discardHeadlessBuyOrder({
     transactionId,
     reason,
   }: {
     transactionId: string;
-    reason: 'cancelled' | 'failed';
+    reason: IHeadlessBuyAbandonReason;
   }): Promise<void> {
     const { simpleDb } = this.backgroundApi;
     // Noted before the read so an insert racing with this call replays the
@@ -614,14 +632,25 @@ class ServiceFiatCrypto extends ServiceBase {
     reason,
   }: {
     order: IHeadlessBuyOrder;
-    reason: 'cancelled' | 'failed';
+    reason: IHeadlessBuyAbandonReason;
   }): Promise<void> {
     const { simpleDb } = this.backgroundApi;
     const { transactionId } = order;
     if (order.submittedAt !== undefined) {
       return;
     }
-    if (!order.paymentSeen) {
+    // `providerFailed` is not evidence of a payment (paymentSeen stays as it
+    // is, so the 24 h rule can still fail the order), but it is not proof of
+    // no payment either: the record is never dropped on it, and the unknown
+    // outcome is remembered so a later backend failure reason cannot read as
+    // "not charged".
+    if (reason === 'providerFailed' && !order.paymentOutcomeUnknown) {
+      await simpleDb.headlessBuyOrders.patchOrder({
+        transactionId,
+        patch: { paymentOutcomeUnknown: true },
+      });
+    }
+    if (!order.paymentSeen && reason !== 'providerFailed') {
       // Conditional inside the storage lock: a `completed` or
       // `paymentAuthorized` write that lands after the read above wins.
       const removed = await simpleDb.headlessBuyOrders.removeOrderIfHidden({

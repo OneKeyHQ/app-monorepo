@@ -67,6 +67,7 @@ import {
   EMultiTabBrowserRoutes,
   EOnboardingPagesV2,
   EOnboardingV2Routes,
+  ETabDeveloperRoutes,
   ETabEarnRoutes,
   ETabMarketRoutes,
   ETabRoutes,
@@ -392,8 +393,13 @@ const useDesktopEvents = platformEnv.isDesktop
             });
             break;
           case EShortcutEvents.TabDeveloper:
+            if (!platformEnv.isDev) {
+              break;
+            }
             ensureModalClosedAndNavigate(() => {
-              navigation.switchTab(ETabRoutes.Developer);
+              navigation.pushModal(EModalRoutes.DeveloperModal, {
+                screen: ETabDeveloperRoutes.TabDeveloper,
+              });
             });
             break;
           case EShortcutEvents.NewTab2:
@@ -915,6 +921,17 @@ export function Bootstrap() {
         Choose which page to open when launching the app
       */
       const timer = setTimeout(() => {
+        if (
+          (platformEnv.isNative ||
+            platformEnv.isDesktop ||
+            platformEnv.isExtension) &&
+          autoNavigation.selectedTab === ETabRoutes.Developer
+        ) {
+          navigation.pushModal(EModalRoutes.DeveloperModal, {
+            screen: ETabDeveloperRoutes.TabDeveloper,
+          });
+          return;
+        }
         navigation.switchTab(autoNavigation.selectedTab as ETabRoutes);
         // ----------------------------------------------
         // navigate to auth gallery

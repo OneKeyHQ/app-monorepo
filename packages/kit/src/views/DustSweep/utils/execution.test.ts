@@ -13,12 +13,14 @@ import type { getSwapRequiredNativeBalanceAmount } from '@onekeyhq/kit/src/views
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import { withBroadcastTxContext } from '@onekeyhq/shared/src/errors/utils/broadcastTxErrorUtils';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   IDustSweepSnapshot,
   IDustSweepToken,
 } from '@onekeyhq/shared/types/swap/dustSweep';
 import {
   EProtocolOfExchange,
+  EQuoteShowTipType,
   ESwapQuoteKind,
   ESwapStepType,
   ESwapTabSwitchType,
@@ -84,6 +86,9 @@ jest.mock('@onekeyhq/kit/src/views/Swap/hooks/swapBroadcastSuccess', () => ({
   completeBroadcastedSwapSuccess: mockHistory,
 }));
 jest.mock('@onekeyhq/kit/src/views/Swap/utils/swapBalanceUtils', () => ({
+  ...jest.requireActual<
+    typeof import('@onekeyhq/kit/src/views/Swap/utils/swapBalanceUtils')
+  >('@onekeyhq/kit/src/views/Swap/utils/swapBalanceUtils'),
   checkSwapLatestBalanceSufficient: mockBalance,
   getSwapRequiredNativeBalanceAmount: mockGasRequirement,
 }));
@@ -418,7 +423,7 @@ describe('Dust Sweep serial execution boundaries', () => {
     mockBalance.mockResolvedValueOnce({ isSufficient: true, balance: '1' });
     mockBalance.mockResolvedValueOnce({ isSufficient: false, balance: '0' });
     await expect(executeDustSweepItem(options)).rejects.toMatchObject({
-      reason: 'unknown',
+      reason: 'insufficientBalance',
     });
     expect(options.onSigning).not.toHaveBeenCalled();
     expect(options.onBroadcast).not.toHaveBeenCalled();
@@ -986,6 +991,27 @@ describe('Dust Sweep serial execution boundaries', () => {
     expect(options.onBroadcast).not.toHaveBeenCalled();
   });
 
+  it('preserves an API rebuild error after approval without losing retry identity', async () => {
+    mockAllowance.mockResolvedValueOnce(createAllowance({ isApproved: false }));
+    mockBuild
+      .mockResolvedValueOnce({ result: createQuote() })
+      .mockRejectedValueOnce({
+        className: EOneKeyErrorClassNames.OneKeyServerApiError,
+        message: 'API rebuild rejected',
+      });
+    const options = createOptions();
+    const error: unknown = await executeDustSweepItem(options).catch(
+      (failure: unknown) => failure,
+    );
+    expect(error).toBeInstanceOf(DustSweepRetryableError);
+    expect(error).toMatchObject({
+      providerErrorMessage: 'API rebuild rejected',
+    });
+    expect(options.onApprovalBroadcast).toHaveBeenCalledWith(['approval-0']);
+    expect(options.onBroadcast).not.toHaveBeenCalled();
+    expect(mockSend).toHaveBeenCalledTimes(1);
+  });
+
   it('still treats an unconfirmed swap signing attempt after a known approval as unknown', async () => {
     mockAllowance.mockResolvedValueOnce(
       createAllowance({ isApproved: false, approveAmounted: '0' }),
@@ -1033,13 +1059,19 @@ describe('Dust Sweep serial execution boundaries', () => {
   });
 
   it('does not build or sign if a previously broadcast approval failed', async () => {
-    mockTxState.mockResolvedValueOnce({ state: ESwapTxHistoryStatus.FAILED });
+    mockTxState.mockResolvedValueOnce({
+      state: ESwapTxHistoryStatus.FAILED,
+      stateDetail: 'Approval execution reverted',
+    });
     await expect(
       executeDustSweepItem({
         ...createOptions(),
         pendingApprovalTxIds: ['approval-failed'],
       }),
-    ).rejects.toMatchObject({ reason: 'txFailed' });
+    ).rejects.toMatchObject({
+      reason: 'txFailed',
+      providerErrorMessage: 'Approval execution reverted',
+    });
     expect(mockFetchQuote).not.toHaveBeenCalled();
     expect(mockSend).not.toHaveBeenCalled();
   });
@@ -1453,11 +1485,43 @@ describe('Dust Sweep serial execution boundaries', () => {
       balance: '10',
     }));
     await expect(executeDustSweepItem(createOptions())).rejects.toMatchObject({
-      reason: 'unknown',
+      reason: 'insufficientBalance',
+      localError: {
+        key: ETranslations.swap_page_toast_insufficient_balance_title,
+        values: { token: 'DUST' },
+        detail: expect.objectContaining({
+          key: ETranslations.swap_page_toast_insufficient_balance_content,
+        }),
+      },
     });
     expect(mockBalance).toHaveBeenCalledWith(
       expect.objectContaining({ token, amount: '11' }),
     );
+    expect(mockSend).not.toHaveBeenCalled();
+  });
+
+  it('uses the Swap balance decision when no balance is available', async () => {
+    mockBalance.mockResolvedValue({ isSufficient: true });
+    await expect(executeDustSweepItem(createOptions())).resolves.toMatchObject({
+      status: 'success',
+    });
+    expect(mockSend).toHaveBeenCalledTimes(1);
+  });
+
+  it('shows the Swap source balance error without a reserve hint when the source amount itself is insufficient', async () => {
+    mockBalance.mockResolvedValue({
+      isSufficient: false,
+      balance: '9',
+      tokenSymbol: 'DUST',
+    });
+    await expect(executeDustSweepItem(createOptions())).rejects.toMatchObject({
+      reason: 'insufficientBalance',
+      localError: {
+        key: ETranslations.swap_page_toast_insufficient_balance_title,
+        values: { token: 'DUST' },
+        detail: undefined,
+      },
+    });
     expect(mockSend).not.toHaveBeenCalled();
   });
 
@@ -1489,6 +1553,75 @@ describe('Dust Sweep serial execution boundaries', () => {
     expect(mockSend).not.toHaveBeenCalled();
     expect(options.onSigning).not.toHaveBeenCalled();
   });
+
+  it('preserves a build API error before approval or signing', async () => {
+    mockBuild.mockResolvedValue({
+      result: { ...createQuote(), errorMessage: 'Build amount is too small' },
+    });
+    const options = createOptions();
+    await expect(executeDustSweepItem(options)).rejects.toMatchObject({
+      reason: 'noQuote',
+      providerErrorMessage: 'Build amount is too small',
+    });
+    expect(mockSend).not.toHaveBeenCalled();
+    expect(options.onSigning).not.toHaveBeenCalled();
+  });
+
+  it('requires the balance helper to preserve request errors before signing', async () => {
+    const error = {
+      className: EOneKeyErrorClassNames.OneKeyServerApiError,
+      message: 'Balance API unavailable',
+    };
+    mockBalance.mockRejectedValueOnce(error);
+    const options = createOptions();
+    await expect(executeDustSweepItem(options)).rejects.toBe(error);
+    expect(mockBalance).toHaveBeenCalledWith(
+      expect.objectContaining({ throwOnError: true }),
+    );
+    expect(options.onSigning).not.toHaveBeenCalled();
+    expect(mockSend).not.toHaveBeenCalled();
+  });
+
+  it('preserves active build risk copy before approval or signing', async () => {
+    mockBuild.mockResolvedValue({
+      result: {
+        ...createQuote(),
+        toAmount: '0.002',
+        quoteShowTip: {
+          type: EQuoteShowTipType.PRICE_IMPACT,
+          title: 'Build risk title',
+          detail: 'Build risk detail',
+        },
+      },
+    });
+    const options = createOptions();
+    await expect(executeDustSweepItem(options)).rejects.toMatchObject({
+      reason: 'valueDrop',
+      providerErrorMessage: 'Build risk title\nBuild risk detail',
+    });
+    expect(mockSend).not.toHaveBeenCalled();
+    expect(options.onSigning).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    { fromTokenInfo: { ...token, contractAddress: '0xother' } },
+    { info: { provider: 'SwapLiquidMesh', providerName: 'LiquidMesh' } },
+  ])(
+    'does not display build errors from another quote identity (%j)',
+    async (identity) => {
+      mockBuild.mockResolvedValue({
+        result: {
+          ...createQuote(),
+          ...identity,
+          errorMessage: 'Unrelated quote error',
+        },
+      });
+      await expect(executeDustSweepItem(createOptions())).rejects.toMatchObject(
+        { providerErrorMessage: undefined },
+      );
+      expect(mockSend).not.toHaveBeenCalled();
+    },
+  );
 
   it('rejects undisclosed native fees in the build before approval', async () => {
     mockBuild.mockResolvedValue({
@@ -2060,6 +2193,27 @@ describe('Dust Sweep serial execution boundaries', () => {
           { networkId: snapshot.networkId, txId },
         );
       });
+    });
+
+    it('preserves the confirmed failure detail without resending', async () => {
+      mockTxState.mockResolvedValue({
+        state: ESwapTxHistoryStatus.FAILED,
+        blockNumber: 12_345,
+        stateDetail: 'Confirmed provider failure',
+      });
+      const operation = executeDustSweepItem(createOptions());
+      if (kind === 'approval') {
+        await expect(operation).rejects.toMatchObject({
+          reason: 'txFailed',
+          providerErrorMessage: 'Confirmed provider failure',
+        });
+      } else {
+        await expect(operation).resolves.toMatchObject({
+          status: 'failed',
+          message: 'Confirmed provider failure',
+        });
+      }
+      expect(mockSend).toHaveBeenCalledTimes(1);
     });
 
     it.each([

@@ -17,9 +17,11 @@ import {
 } from './TradingViewNativePresentation.ios';
 
 import type { LayoutChangeEvent } from 'react-native';
+import type { Edge } from 'react-native-safe-area-context';
 
 let mockPageLayout: ((event: LayoutChangeEvent) => void) | undefined;
 let mockChartReady: (() => void) | undefined;
+let mockIsNativeIOSPad = false;
 const mockDispatch = jest.fn();
 const mockPageNavigation = {
   setOptions: jest.fn(),
@@ -67,7 +69,11 @@ jest.mock('@onekeyhq/components', () => ({
 }));
 jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   __esModule: true,
-  default: { isNativeIOSPad: false },
+  default: {
+    get isNativeIOSPad() {
+      return mockIsNativeIOSPad;
+    },
+  },
 }));
 jest.mock('react-native', () => ({
   StatusBar: () => null,
@@ -80,10 +86,26 @@ jest.mock('react-native-gesture-handler', () => ({
 }));
 jest.mock('react-native-safe-area-context', () => ({
   SafeAreaProvider: ({ children }: PropsWithChildren) => <div>{children}</div>,
-  SafeAreaView: ({ children }: PropsWithChildren) => <div>{children}</div>,
+  SafeAreaView: ({
+    children,
+    edges = ['top', 'right', 'bottom', 'left'],
+  }: PropsWithChildren<{ edges?: Edge[] }>) => (
+    <div
+      data-testid="safe-area"
+      style={{
+        paddingTop: edges.includes('top') ? 62 : 0,
+        paddingRight: edges.includes('right') ? 62 : 0,
+        paddingBottom: edges.includes('bottom') ? 20 : 0,
+        paddingLeft: edges.includes('left') ? 62 : 0,
+      }}
+    >
+      {children}
+    </div>
+  ),
 }));
 
 beforeEach(() => {
+  mockIsNativeIOSPad = false;
   mockDispatch.mockReset();
   mockChartReady = undefined;
   mockPageNavigation.setOptions.mockClear();
@@ -111,6 +133,28 @@ function layout(width: number, height: number) {
     } as LayoutChangeEvent);
   });
 }
+
+it.each([
+  { isPad: false, topPadding: '0px' },
+  { isPad: true, topPadding: '62px' },
+])(
+  'handles a retained portrait top inset without losing cutout protection (iPad: $isPad)',
+  ({ isPad, topPadding }) => {
+    mockIsNativeIOSPad = isPad;
+    render(
+      <TradingViewNativePresentation isFullscreen>
+        <Chart label="Chart" />
+      </TradingViewNativePresentation>,
+    );
+    const page = render(<TradingViewNativeFullscreenPage />);
+    layout(874, 402);
+    const safeArea = page.getByTestId('safe-area');
+    expect(safeArea.style.paddingTop).toBe(topPadding);
+    expect(safeArea.style.paddingRight).toBe('62px');
+    expect(safeArea.style.paddingBottom).toBe('20px');
+    expect(safeArea.style.paddingLeft).toBe('62px');
+  },
+);
 
 it('keeps the inline canvas mounted while the native page receives updates', () => {
   const onClose = jest.fn();

@@ -43,7 +43,7 @@ export function getTradingViewNativeCanvasFont(
     return `600 ${TRADING_LINE_LABEL_FONT_SIZE}px sans-serif`;
   }
   if (font === 'priceAxis' || font === 'referenceLineLabel') {
-    return `${priceAxisFontSize}px "${PRICE_AXIS_FONT_FAMILY}", monospace`;
+    return `${priceAxisFontSize}px ${PRICE_AXIS_FONT_FAMILY}`;
   }
   return `${font === 'axis' ? timeAxisFontSize : LEGEND_FONT_SIZE}px sans-serif`;
 }

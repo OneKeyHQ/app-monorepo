@@ -24,6 +24,7 @@ import {
   TRADING_VIEW_NATIVE_INDICATORS,
   TRADING_VIEW_NATIVE_SUB_INDICATORS,
 } from './utils/chartIndicators';
+import { buildTradingViewNativeIndicatorSeries } from './utils/chartIndicators/series';
 
 describe('indicatorSettingsAdapter', () => {
   it('builds settings only for indicators supported by the native renderer', () => {
@@ -476,6 +477,84 @@ describe('indicatorSettingsAdapter', () => {
         ?.parameters?.find((parameter) => parameter.id === 'band:upper')?.value,
     ).toBe(-30);
     expect(instance?.settings?.bands?.upper?.value).toBe(-30);
+  });
+
+  it.each(['MA', 'EMA', 'BOLL'] as const)(
+    'preserves %s line patterns and widths from settings through rendering',
+    (id) => {
+      const value = createTradingViewNativeIndicatorSettingsValue();
+      const indicator = value.indicators.find((item) => item.id === id);
+      expect(indicator).toBeDefined();
+      if (!indicator) {
+        return;
+      }
+      indicator.active = true;
+      const lines = indicator.lines.filter((line) => line.showStyle);
+      expect(lines).toHaveLength(3);
+      for (const line of lines) {
+        expect(line.showSecondaryStyle).toBe(true);
+        line.secondaryStyle = 'dashed';
+        line.style = 'bold';
+      }
+      const settings = getTradingViewNativeIndicatorSettings(value);
+      const restored = getTradingViewNativeIndicatorSettingsValue(
+        settings,
+      ).indicators.find((item) => item.id === id);
+      for (const line of lines) {
+        expect(
+          restored?.lines.find((item) => item.id === line.id),
+        ).toMatchObject({
+          id: line.id,
+          secondaryStyle: 'dashed',
+          style: 'bold',
+          showSecondaryStyle: true,
+        });
+      }
+      const series = buildTradingViewNativeIndicatorSeries({
+        activeIndicatorValues:
+          getTradingViewNativeActiveMainIndicators(settings),
+        indicatorSettings: getTradingViewNativeMainIndicatorSettings(settings),
+        points: Array.from({ length: 25 }, (_, index) => ({
+          c: index + 2,
+          h: index + 3,
+          l: index,
+          o: index + 1,
+          t: 1_700_000_000 + index * 3600,
+          v: 10,
+        })),
+      });
+      expect(series).toHaveLength(3);
+      for (const item of series) {
+        expect(item.style).toMatchObject({ lineStyle: 'dashed', lineWidth: 3 });
+      }
+    },
+  );
+
+  it('lets sub-indicator plot patterns change without changing line width', () => {
+    const value = createTradingViewNativeIndicatorSettingsValue();
+    const obv = value.indicators.find((indicator) => indicator.id === 'OBV');
+    const plot = obv?.lines.find((line) => line.id === 'plot:obv');
+    expect(plot).toMatchObject({ showStyle: true, showSecondaryStyle: true });
+    if (!obv || !plot) {
+      return;
+    }
+    obv.active = true;
+    plot.style = 'bold';
+    plot.secondaryStyle = 'dashed';
+
+    const settings = getTradingViewNativeIndicatorSettings(value);
+    const instance = getTradingViewNativeSubIndicatorInstances(settings).find(
+      (candidate) => candidate.indicator === 'OBV',
+    );
+    expect(instance?.settings?.plots?.obv).toMatchObject({
+      lineStyle: 'dashed',
+      lineWidth: 3,
+    });
+    expect(
+      getTradingViewNativeIndicatorSettingsValue(settings)
+        .indicators.find((indicator) => indicator.id === 'OBV')
+        ?.lines.find((line) => line.id === 'plot:obv'),
+    ).toMatchObject({ secondaryStyle: 'dashed', style: 'bold' });
   });
 
   it('keeps sub-indicator band width and line pattern independent', () => {

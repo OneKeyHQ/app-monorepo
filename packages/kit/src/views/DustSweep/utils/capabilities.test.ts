@@ -35,6 +35,7 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
     },
     serviceSwap: {
       fetchSwapNetworks: jest.fn(),
+      fetchSwapProviderSupportNetworks: jest.fn(),
       getSwapProviderManager: jest.fn(),
     },
     serviceToken: {
@@ -92,6 +93,7 @@ describe('Dust Sweep network capabilities', () => {
   it('requires both general Swap support and OKX single-swap support', () => {
     expect(
       getDustSweepSupportedNetworks({
+        providerSupportedNetworks: [ethereum, bnb],
         networks: [ethereum, bnb],
         providers: [okxProvider()],
         savedProviders: [],
@@ -99,6 +101,7 @@ describe('Dust Sweep network capabilities', () => {
     ).toEqual([ethereum]);
     expect(
       getDustSweepSupportedNetworks({
+        providerSupportedNetworks: [ethereum, bnb],
         networks: [{ ...ethereum, supportSingleSwap: false }],
         providers: [okxProvider()],
         savedProviders: [],
@@ -114,6 +117,7 @@ describe('Dust Sweep network capabilities', () => {
   ])('excludes disabled or unsupported provider networks (%j)', (overrides) => {
     expect(
       getDustSweepSupportedNetworks({
+        providerSupportedNetworks: [ethereum, bnb],
         networks: [ethereum],
         providers: [okxProvider(overrides)],
         savedProviders: [],
@@ -129,6 +133,7 @@ describe('Dust Sweep network capabilities', () => {
   ])('respects current and legacy saved Swap settings (%j)', (settings) => {
     expect(
       getDustSweepSupportedNetworks({
+        providerSupportedNetworks: [ethereum, bnb],
         networks: [ethereum],
         providers: [okxProvider()],
         savedProviders: [
@@ -146,6 +151,7 @@ describe('Dust Sweep network capabilities', () => {
   it('preserves optional single-swap capability semantics', () => {
     expect(
       getDustSweepSupportedNetworks({
+        providerSupportedNetworks: [ethereum, bnb],
         networks: [ethereum],
         providers: [okxProvider({ isSupportSingleSwap: undefined })],
         savedProviders: [],
@@ -158,6 +164,7 @@ describe('Dust Sweep network capabilities', () => {
     otherProvider.providerInfo.provider = 'OtherProvider';
     expect(
       getDustSweepSupportedNetworks({
+        providerSupportedNetworks: [ethereum, bnb],
         networks: [ethereum],
         providers: [otherProvider],
         savedProviders: [],
@@ -182,6 +189,25 @@ describe('Dust Sweep network capabilities', () => {
     }
   });
 
+  it.each([
+    { providerSupportedNetworks: [ethereum] },
+    { providerSupportedNetworks: [] },
+  ])(
+    'requires the provider support endpoint to include each network (%j)',
+    ({ providerSupportedNetworks }) => {
+      expect(
+        getDustSweepSupportedNetworks({
+          networks: [ethereum, bnb],
+          providers: [
+            okxProvider({ supportSingleSwapNetworks: [ethereum, bnb] }),
+          ],
+          providerSupportedNetworks,
+          savedProviders: [],
+        }),
+      ).toEqual(providerSupportedNetworks);
+    },
+  );
+
   it('checks the current network against the same complete capability set', () => {
     const supportedNetworkIds = new Set([ethereum.networkId]);
     expect(
@@ -204,24 +230,28 @@ describe('optional Home capability loading', () => {
   it('returns the same supported networks from one group of capability reads', async () => {
     const fetchNetworks = jest.fn().mockResolvedValue([ethereum, bnb]);
     const fetchProviders = jest.fn().mockResolvedValue([okxProvider()]);
+    const fetchProviderNetworks = jest.fn().mockResolvedValue([ethereum]);
     const getSavedProviders = jest.fn().mockResolvedValue([]);
     await expect(
       loadDustSweepEntryCapabilities({
         fetchNetworks,
         fetchProviders,
+        fetchProviderNetworks,
         getSavedProviders,
       }),
     ).resolves.toEqual([ethereum]);
     expect(fetchNetworks).toHaveBeenCalledTimes(1);
     expect(fetchProviders).toHaveBeenCalledTimes(1);
+    expect(fetchProviderNetworks).toHaveBeenCalledTimes(1);
     expect(getSavedProviders).toHaveBeenCalledTimes(1);
   });
 
   it('suppresses each auto-toast even when later branches fail after rejection', async () => {
     const networks = deferred<ISwapNetwork[]>();
     const providers = deferred<ISwapServiceProvider[]>();
+    const providerNetworks = deferred<ISwapNetwork[]>();
     const savedProviders = deferred<ISwapProviderManager[]>();
-    const errors = [0, 1, 2].map((index) =>
+    const errors = [0, 1, 2, 3].map((index) =>
       Object.assign(new Error(`Capability read ${index} failed`), {
         autoToast: true,
       }),
@@ -231,6 +261,7 @@ describe('optional Home capability loading', () => {
       const result = loadDustSweepEntryCapabilities({
         fetchNetworks: () => networks.promise,
         fetchProviders: () => providers.promise,
+        fetchProviderNetworks: () => providerNetworks.promise,
         getSavedProviders: () => savedProviders.promise,
       });
       networks.reject(errors[0]);
@@ -238,7 +269,8 @@ describe('optional Home capability loading', () => {
       expect(errors[0].autoToast).toBe(false);
 
       providers.reject(errors[1]);
-      savedProviders.reject(errors[2]);
+      providerNetworks.reject(errors[2]);
+      savedProviders.reject(errors[3]);
       await Promise.resolve();
       for (const error of errors) {
         expect(error.autoToast).toBe(false);

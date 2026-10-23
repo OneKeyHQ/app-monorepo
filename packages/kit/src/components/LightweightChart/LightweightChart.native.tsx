@@ -87,6 +87,7 @@ export function LightweightChart({
   locale,
   hideCrosshairPriceLabel,
   pulseLastPoint,
+  nativeScrubOptions,
   onHover,
 }: ILightweightChartProps) {
   const webViewRef = useRef<WebView>(null);
@@ -142,8 +143,17 @@ export function LightweightChart({
       showLastValue: !!showLastValue,
       hideCrosshairPriceLabel,
       pulseLastPoint: !!pulseLastPoint,
+      nativeScrubOptions,
+      notifyOnHover: !!onHover,
     }),
-    [chartConfig, hideCrosshairPriceLabel, pulseLastPoint, showLastValue],
+    [
+      chartConfig,
+      hideCrosshairPriceLabel,
+      pulseLastPoint,
+      showLastValue,
+      nativeScrubOptions,
+      onHover,
+    ],
   );
   const latestConfigRef = useRef(nativeConfig);
   latestConfigRef.current = nativeConfig;

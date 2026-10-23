@@ -206,6 +206,37 @@ describe('ServiceFiatCrypto headless buy orders', () => {
     expect(store.has('ghost')).toBe(false);
   });
 
+  test('markHeadlessBuyOrderSubmitted records payment evidence for a paid checkout outcome', async () => {
+    const { service, store } = createService([baseOrder()]);
+    // `completed` / `paymentPending` are the SDK's paid outcomes: the order
+    // must never be failed by the 24 h no-payment rule afterwards, even when
+    // no `paymentAuthorized` event preceded them (non-Coinbase flows).
+    await service.markHeadlessBuyOrderSubmitted({
+      transactionId: '01M3',
+      paymentSeen: true,
+    });
+    expect(store.get('01M3')).toMatchObject({
+      submittedAt: T0 + 1000,
+      paymentSeen: true,
+    });
+    // Same when the pre-payment record never landed and the fallback creates it.
+    await service.markHeadlessBuyOrderSubmitted({
+      transactionId: 'late',
+      order: baseOrder({ transactionId: 'late' }),
+      paymentSeen: true,
+    });
+    expect(store.get('late')).toMatchObject({
+      submittedAt: T0 + 1000,
+      paymentSeen: true,
+    });
+    // Without the flag (abandon / replay paths) nothing is claimed.
+    await service.markHeadlessBuyOrderSubmitted({
+      transactionId: 'plain',
+      order: baseOrder({ transactionId: 'plain' }),
+    });
+    expect(store.get('plain')?.paymentSeen).toBeFalsy();
+  });
+
   test('payment-seen and viewed flags are set once', async () => {
     const { service, store, simpleDb } = createService([
       baseOrder(),
@@ -349,6 +380,62 @@ describe('ServiceFiatCrypto headless buy orders', () => {
       submittedAt: T0 + 1000,
       paymentSeen: true,
       status: EHeadlessBuyOrderStatus.Processing,
+    });
+  });
+
+  test('discardHeadlessBuyOrder surfaces a hidden order when the provider failed without confirming the payment', async () => {
+    const { service, store } = createService([
+      baseOrder(),
+      baseOrder({ transactionId: 'paid', submittedAt: T0 }),
+    ]);
+    // SDK 1.3 `providerFailed`: the checkout surface broke with the payment
+    // outcome unknown, so the user may have been charged. The record is
+    // shown for tracking instead of being dropped, but nothing proved a
+    // payment: without backend progress the 24 h rule may still fail it.
+    await service.discardHeadlessBuyOrder({
+      transactionId: '01M3',
+      reason: 'providerFailed',
+    });
+    await service.discardHeadlessBuyOrder({
+      transactionId: 'paid',
+      reason: 'providerFailed',
+    });
+    expect(store.get('01M3')).toMatchObject({
+      submittedAt: T0 + 1000,
+      status: EHeadlessBuyOrderStatus.Processing,
+      // Remembered on the record so a later backend failure reason never
+      // reads as "not charged".
+      paymentOutcomeUnknown: true,
+    });
+    expect(store.get('01M3')?.paymentSeen).toBeFalsy();
+    // An already visible order is left alone, flag included.
+    expect(store.get('paid')?.submittedAt).toBe(T0);
+    expect(store.get('paid')?.paymentOutcomeUnknown).toBeUndefined();
+  });
+
+  test('addHeadlessBuyOrder surfaces a record whose provider failure overtook its metadata lookups', async () => {
+    const { service, store, backgroundApi } = createService([]);
+    let releaseAccount: (account: { name: string }) => void = () => undefined;
+    backgroundApi.serviceAccount.getAccount.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          releaseAccount = resolve;
+        }),
+    );
+    const adding = service.addHeadlessBuyOrder(baseOrder());
+    await flushPromises();
+    await service.discardHeadlessBuyOrder({
+      transactionId: '01M3',
+      reason: 'providerFailed',
+    });
+    expect(store.has('01M3')).toBe(false);
+    releaseAccount({ name: 'Account 1' });
+    await adding;
+    expect(store.get('01M3')).toMatchObject({
+      submittedAt: T0 + 1000,
+      status: EHeadlessBuyOrderStatus.Processing,
+      accountName: 'Account 1',
+      paymentOutcomeUnknown: true,
     });
   });
 

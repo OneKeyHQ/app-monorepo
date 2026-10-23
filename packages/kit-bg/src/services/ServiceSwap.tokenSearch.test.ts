@@ -1,7 +1,10 @@
 import axios from 'axios';
 
 import { ESwapFetchCancelCause } from '@onekeyhq/shared/types/swap/types';
-import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
+import type {
+  IFetchTokenListParams,
+  ISwapToken,
+} from '@onekeyhq/shared/types/swap/types';
 
 import ServiceSwap from './ServiceSwap';
 
@@ -14,6 +17,95 @@ describe('ServiceSwap token search', () => {
 
   afterAll(() => {
     globalThis.$onekeyIsInBackground = previousBackgroundScope;
+  });
+
+  const bnbUsdt: ISwapToken = {
+    networkId: 'evm--56',
+    contractAddress: '0x55d398326f99059ff775485246999027b3197955',
+    decimals: 18,
+    symbol: 'USDT',
+  };
+  const otherNetworkToken: ISwapToken = {
+    ...bnbUsdt,
+    networkId: 'evm--1',
+  };
+
+  it.each([
+    { allNetworkTokens: [] },
+    { allNetworkTokens: [bnbUsdt, otherNetworkToken] },
+  ])(
+    'preserves the selected-chain contract result alongside all-network results %j',
+    async ({ allNetworkTokens }) => {
+      const get = jest.fn(
+        (_endpoint: string, { params }: { params: IFetchTokenListParams }) =>
+          Promise.resolve({
+            data: {
+              data:
+                params.networkId === 'evm--56' ? [bnbUsdt] : allNetworkTokens,
+            },
+          }),
+      );
+      const service = new ServiceSwap({
+        backgroundApi: {
+          serviceAccountProfile: {
+            _getWalletTypeHeader: jest.fn().mockResolvedValue({}),
+          },
+        },
+      });
+      jest.spyOn(service, 'getClient').mockResolvedValue({ get } as never);
+
+      await expect(
+        service.fetchSwapTokens({
+          networkId: 'onekeyall--0',
+          contractSearchNetworkId: 'evm--56',
+          keywords: bnbUsdt.contractAddress,
+          onlySwapTokens: true,
+          currency: 'usd',
+          throwOnError: true,
+        }),
+      ).resolves.toEqual(
+        allNetworkTokens.length ? [bnbUsdt, otherNetworkToken] : [bnbUsdt],
+      );
+      expect(get).toHaveBeenCalledTimes(3);
+      expect(get).toHaveBeenCalledWith(
+        '/swap/v1/tokens',
+        expect.objectContaining({
+          params: expect.objectContaining({
+            networkId: 'evm--56',
+            accountAddress: undefined,
+            accountNetworkId: undefined,
+          }),
+        }),
+      );
+    },
+  );
+
+  it('keeps cross-network discovery when the selected-chain lookup fails', async () => {
+    const get = jest.fn(
+      (_endpoint: string, { params }: { params: IFetchTokenListParams }) =>
+        params.networkId === 'evm--56'
+          ? Promise.reject(new Error('selected chain unavailable'))
+          : Promise.resolve({ data: { data: [otherNetworkToken] } }),
+    );
+    const service = new ServiceSwap({
+      backgroundApi: {
+        serviceAccountProfile: {
+          _getWalletTypeHeader: jest.fn().mockResolvedValue({}),
+        },
+      },
+    });
+    jest.spyOn(service, 'getClient').mockResolvedValue({ get } as never);
+
+    await expect(
+      service.fetchSwapTokens({
+        networkId: 'onekeyall--0',
+        contractSearchNetworkId: 'evm--56',
+        keywords: bnbUsdt.contractAddress,
+        onlySwapTokens: true,
+        currency: 'usd',
+        throwOnError: true,
+      }),
+    ).resolves.toEqual([otherNetworkToken]);
   });
 
   it.each(['/swap/v1/tokens', '/swap/v1/swap-tokens'])(

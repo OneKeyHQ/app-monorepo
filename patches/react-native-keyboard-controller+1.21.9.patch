@@ -1,16 +1,86 @@
+diff --git a/node_modules/react-native-keyboard-controller/android/src/main/java/com/reactnativekeyboardcontroller/modules/KeyboardControllerModuleImpl.kt b/node_modules/react-native-keyboard-controller/android/src/main/java/com/reactnativekeyboardcontroller/modules/KeyboardControllerModuleImpl.kt
+index 8bffcae..f598510 100644
+--- a/node_modules/react-native-keyboard-controller/android/src/main/java/com/reactnativekeyboardcontroller/modules/KeyboardControllerModuleImpl.kt
++++ b/node_modules/react-native-keyboard-controller/android/src/main/java/com/reactnativekeyboardcontroller/modules/KeyboardControllerModuleImpl.kt
+@@ -110,6 +110,11 @@ class KeyboardControllerModuleImpl(
+       map.putDouble("y", location[1].toFloat().dp)
+       map.putDouble("width", view.width.toFloat().dp)
+       map.putDouble("height", view.height.toFloat().dp)
++      val viewToken = view.windowToken
++      val activityToken = mReactContext.currentActivity?.window?.decorView?.windowToken
++      if (view.isAttachedToWindow && view.hasFocus() && viewToken != null && activityToken != null) {
++        map.putBoolean("isInActivityWindow", viewToken == activityToken)
++      }
+       promise.resolve(map)
+     }
+   }
+diff --git a/node_modules/react-native-keyboard-controller/android/src/main/java/com/reactnativekeyboardcontroller/modules/statusbar/StatusBarManagerCompatModuleImpl.kt b/node_modules/react-native-keyboard-controller/android/src/main/java/com/reactnativekeyboardcontroller/modules/statusbar/StatusBarManagerCompatModuleImpl.kt
+index a3c84b0..d109b49 100644
+--- a/node_modules/react-native-keyboard-controller/android/src/main/java/com/reactnativekeyboardcontroller/modules/statusbar/StatusBarManagerCompatModuleImpl.kt
++++ b/node_modules/react-native-keyboard-controller/android/src/main/java/com/reactnativekeyboardcontroller/modules/statusbar/StatusBarManagerCompatModuleImpl.kt
+@@ -5,6 +5,7 @@ import android.animation.ValueAnimator
+ import android.annotation.SuppressLint
+ import android.app.Activity
+ import android.os.Build
++import android.view.WindowInsetsController
+ import androidx.core.view.WindowInsetsCompat
+ import androidx.core.view.WindowInsetsControllerCompat
+ import com.facebook.react.bridge.ReactApplicationContext
+@@ -97,13 +98,30 @@ class StatusBarManagerCompatModuleImpl(
+   }
+ 
+   fun setStyle(style: String) {
+-    if (!isEnabled()) {
+-      return original.setStyle(style)
+-    }
+-
+-    UiThreadUtil.runOnUiThread {
+-      getController()?.isAppearanceLightStatusBars = style == "dark-content"
++    // OneKey patch: React Native's StatusBarModule already supports edge-to-edge.
++    // The compat controller below leaves dark icons on Android 12-14 once the
++    // window is edge-to-edge, so always let React Native apply the style.
++    original.setStyle(style)
++    // On Android 11 React Native writes the legacy SYSTEM_UI_FLAG_LIGHT_STATUS_BAR,
++    // which the platform ignores once anything (e.g. the navigation bar appearance)
++    // used WindowInsetsController on the window. Mirror the style there as well.
++    if (Build.VERSION.SDK_INT == Build.VERSION_CODES.R) {
++      UiThreadUtil.runOnUiThread {
++        mReactContext.currentActivity?.window?.insetsController?.setSystemBarsAppearance(
++          if (style == "dark-content") WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS else 0,
++          WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS,
++        )
++      }
+     }
++    return
++
++    // if (!isEnabled()) {
++    //   return original.setStyle(style)
++    // }
++    //
++    // UiThreadUtil.runOnUiThread {
++    //   getController()?.isAppearanceLightStatusBars = style == "dark-content"
++    // }
+   }
+ 
+   fun getConstants(): MutableMap<String, Any>? = original.getConstants()
 diff --git a/node_modules/react-native-keyboard-controller/src/module.ts b/node_modules/react-native-keyboard-controller/src/module.ts
+index b666df1..895e9b6 100644
 --- a/node_modules/react-native-keyboard-controller/src/module.ts
 +++ b/node_modules/react-native-keyboard-controller/src/module.ts
 @@ -1,3 +1,5 @@
-+import { Platform } from "react-native";
++import { findNodeHandle, Keyboard, Platform, TextInput } from "react-native";
 +
  import { KeyboardControllerNative, KeyboardEvents } from "./bindings";
  
  import type {
-@@ -32,17 +34,41 @@ const dismiss = async (options?: Partial<DismissOptions>): Promise<void> => {
+@@ -31,18 +33,141 @@ const dismiss = async (options?: Partial<DismissOptions>): Promise<void> => {
+   const animated = options?.animated ?? true;
  
    return new Promise((resolve) => {
-     if (isClosed) {
+-    if (isClosed) {
++    const focusedAndroidInput =
++      Platform.OS === "android" ? TextInput.State.currentlyFocusedInput() : null;
++    if (isClosed && !focusedAndroidInput) {
 +      // Android keyboards can live in a separate window (for example a
 +      // BottomSheetDialog). The activity listener does not observe that
 +      // window, so its cached visibility can be stale even while an input is
@@ -24,10 +94,12 @@ diff --git a/node_modules/react-native-keyboard-controller/src/module.ts b/node_
      }
  
 -    const subscription = KeyboardEvents.addListener("keyboardDidHide", () => {
--      resolve(undefined);
 +    let settled = false;
++    let decisionMade = false;
++    let nativeSent = false;
 +    let fallbackTimer: ReturnType<typeof setTimeout> | undefined;
-+    let subscription: ReturnType<typeof KeyboardEvents.addListener>;
++    let queryTimer: ReturnType<typeof setTimeout> | undefined;
++    let subscription: ReturnType<typeof KeyboardEvents.addListener> | undefined;
 +    const finish = () => {
 +      if (settled) {
 +        return;
@@ -36,19 +108,127 @@ diff --git a/node_modules/react-native-keyboard-controller/src/module.ts b/node_
 +      if (fallbackTimer) {
 +        clearTimeout(fallbackTimer);
 +      }
-       subscription.remove();
++      if (queryTimer) {
++        clearTimeout(queryTimer);
++      }
++      subscription?.remove();
+       resolve(undefined);
+-      subscription.remove();
 -    });
-+      resolve(undefined);
 +    };
-+    subscription = KeyboardEvents.addListener("keyboardDidHide", finish);
++    const sendNormalDismiss = () => {
++      if (settled || decisionMade) {
++        return;
++      }
++      decisionMade = true;
++      subscription = KeyboardEvents.addListener("keyboardDidHide", finish);
++      KeyboardControllerNative.dismiss(keepFocus, animated);
++      if (Platform.OS === "android" && !keepFocus) {
++        // React Native tracks focus inside Dialog windows separately from the
++        // activity's native keyboard controller.
++        Keyboard.dismiss();
++      }
++    };
  
-     KeyboardControllerNative.dismiss(keepFocus, animated);
+-    KeyboardControllerNative.dismiss(keepFocus, animated);
++    if (isClosed && focusedAndroidInput) {
++      let queryHandled = false;
++      const sendPreservingNativeDismiss = () => {
++        if (settled || nativeSent) {
++          return;
++        }
++        nativeSent = true;
++        subscription = KeyboardEvents.addListener("keyboardDidHide", finish);
++        KeyboardControllerNative.dismiss(true, animated);
++      };
++      const dismissIfStillFocused = () => {
++        if (settled) {
++          return;
++        }
++        if (TextInput.State.currentlyFocusedInput() !== focusedAndroidInput) {
++          finish();
++          return;
++        }
++        sendPreservingNativeDismiss();
++      };
++      const handleQuery = (isInActivityWindow?: boolean) => {
++        if (settled || queryHandled) {
++          return;
++        }
++        queryHandled = true;
++        if (queryTimer) {
++          clearTimeout(queryTimer);
++          queryTimer = undefined;
++        }
++        if (TextInput.State.currentlyFocusedInput() !== focusedAndroidInput) {
++          finish();
++          return;
++        }
++        sendPreservingNativeDismiss();
++        if (settled) {
++          return;
++        }
++        if (isInActivityWindow === true && isClosed) {
++          finish();
++        } else if (
++          isInActivityWindow === false ||
++          (isInActivityWindow === true && !isClosed)
++        ) {
++          if (
++            !keepFocus &&
++            TextInput.State.currentlyFocusedInput() === focusedAndroidInput
++          ) {
++            TextInput.State.blurTextInput(focusedAndroidInput);
++          }
++        }
++      };
++      // Dialog windows may not emit keyboardDidHide to the activity listener.
++      fallbackTimer = setTimeout(() => {
++        dismissIfStillFocused();
++        finish();
++      }, 500);
++      const tag = findNodeHandle(focusedAndroidInput);
++      if (tag == null) {
++        handleQuery();
++        return;
++      }
++      // Leave time for the hide request without assuming a slow query owns
++      // the activity window or blurring a newer focused input.
++      queryTimer = setTimeout(dismissIfStillFocused, 100);
++      try {
++        KeyboardControllerNative.viewPositionInWindow(tag).then(
++          (result) => {
++            handleQuery(result?.isInActivityWindow);
++          },
++          () => handleQuery(),
++        );
++      } catch {
++        handleQuery();
++      }
++      return;
++    }
 +    if (Platform.OS === "android") {
 +      // WindowInsets events from custom Dialog windows are not delivered to
 +      // the controller attached to the activity root. Do not leave callers
 +      // and this event subscription pending forever when that happens.
-+      fallbackTimer = setTimeout(finish, 500);
++      fallbackTimer = setTimeout(() => {
++        sendNormalDismiss();
++        finish();
++      }, 500);
 +    }
++    sendNormalDismiss();
    });
  };
  const isVisible = () => !isClosed;
+diff --git a/node_modules/react-native-keyboard-controller/src/types/module.ts b/node_modules/react-native-keyboard-controller/src/types/module.ts
+index 0d60d55..70f8354 100644
+--- a/node_modules/react-native-keyboard-controller/src/types/module.ts
++++ b/node_modules/react-native-keyboard-controller/src/types/module.ts
+@@ -114,6 +114,7 @@ export type ViewPositionInWindowResult = {
+   y: number;
+   width: number;
+   height: number;
++  isInActivityWindow?: boolean;
+ };
+ export type KeyboardControllerNativeModule = {
+   // android only

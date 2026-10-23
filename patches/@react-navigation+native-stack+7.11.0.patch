@@ -1,7 +1,22 @@
 diff --git a/node_modules/@react-navigation/native-stack/lib/module/views/NativeStackView.native.js b/node_modules/@react-navigation/native-stack/lib/module/views/NativeStackView.native.js
-index a21f04f..d1ec133 100644
+index a21f04f..81949ab 100644
 --- a/node_modules/@react-navigation/native-stack/lib/module/views/NativeStackView.native.js
 +++ b/node_modules/@react-navigation/native-stack/lib/module/views/NativeStackView.native.js
+@@ -242,10 +242,10 @@ const SceneView = ({
+         fullScreenSwipeEnabled: fullScreenGestureEnabled,
+         fullScreenSwipeShadowEnabled: fullScreenGestureShadowEnabled,
+         freezeOnBlur: freezeOnBlur,
+-        gestureEnabled: Platform.OS === 'android' ?
+-        // This prop enables handling of system back gestures on Android
+-        // Since we handle them in JS side, we disable this
+-        false : gestureEnabled,
++        // OneKey patch: forward the option on Android too. Native screens default to
++        // enabled; only vertical dismiss gestures act on it, and an explicit false on a
++        // nested screen also blocks its ancestor modal from being dragged away.
++        gestureEnabled: gestureEnabled,
+         homeIndicatorHidden: autoHideHomeIndicator,
+         hideKeyboardOnSwipe: keyboardHandlingEnabled,
+         navigationBarColor: navigationBarColor,
 @@ -255,6 +255,8 @@ const SceneView = ({
          stackPresentation: presentation === 'card' ? 'push' : presentation,
          stackAnimation: animation,
@@ -11,13 +26,6 @@ index a21f04f..d1ec133 100644
          sheetAllowedDetents: sheetAllowedDetents,
          sheetLargestUndimmedDetentIndex: sheetLargestUndimmedDetentIndex,
          sheetGrabberVisible: sheetGrabberVisible,
-@@ -489,4 +491,4 @@ const styles = StyleSheet.create({
-     overflow: 'hidden'
-   }
- });
--//# sourceMappingURL=NativeStackView.native.js.map
-\ No newline at end of file
-+//# sourceMappingURL=NativeStackView.native.js.map
 diff --git a/node_modules/@react-navigation/native-stack/lib/module/views/useHeaderConfigProps.js b/node_modules/@react-navigation/native-stack/lib/module/views/useHeaderConfigProps.js
 index 492390b..a2da541 100644
 --- a/node_modules/@react-navigation/native-stack/lib/module/views/useHeaderConfigProps.js
@@ -49,13 +57,6 @@ index 98c516c..b46ab1d 100644
      /**
       * Whether inactive screens should be suspended from re-rendering. Defaults to `false`.
       * Defaults to `true` when `enableFreeze()` is run at the top of the application.
-@@ -1099,4 +1103,4 @@ export type NativeStackDescriptorMap = {
-     [key: string]: NativeStackDescriptor;
- };
- export {};
--//# sourceMappingURL=types.d.ts.map
-\ No newline at end of file
-+//# sourceMappingURL=types.d.ts.map
 diff --git a/node_modules/@react-navigation/native-stack/src/types.tsx b/node_modules/@react-navigation/native-stack/src/types.tsx
 index 12c5cf6..328398e 100644
 --- a/node_modules/@react-navigation/native-stack/src/types.tsx
@@ -72,10 +73,26 @@ index 12c5cf6..328398e 100644
     * Whether inactive screens should be suspended from re-rendering. Defaults to `false`.
     * Defaults to `true` when `enableFreeze()` is run at the top of the application.
 diff --git a/node_modules/@react-navigation/native-stack/src/views/NativeStackView.native.tsx b/node_modules/@react-navigation/native-stack/src/views/NativeStackView.native.tsx
-index e694525..ff05c6f 100644
+index e694525..1a46e86 100644
 --- a/node_modules/@react-navigation/native-stack/src/views/NativeStackView.native.tsx
 +++ b/node_modules/@react-navigation/native-stack/src/views/NativeStackView.native.tsx
-@@ -384,6 +384,8 @@ const SceneView = ({
+@@ -369,11 +369,10 @@ const SceneView = ({
+           fullScreenSwipeShadowEnabled={fullScreenGestureShadowEnabled}
+           freezeOnBlur={freezeOnBlur}
+           gestureEnabled={
+-            Platform.OS === 'android'
+-              ? // This prop enables handling of system back gestures on Android
+-                // Since we handle them in JS side, we disable this
+-                false
+-              : gestureEnabled
++            // OneKey patch: forward the option on Android too. Native screens default to
++            // enabled; only vertical dismiss gestures act on it, and an explicit false on a
++            // nested screen also blocks its ancestor modal from being dragged away.
++            gestureEnabled
+           }
+           homeIndicatorHidden={autoHideHomeIndicator}
+           hideKeyboardOnSwipe={keyboardHandlingEnabled}
+@@ -384,6 +383,8 @@ const SceneView = ({
            stackPresentation={presentation === 'card' ? 'push' : presentation}
            stackAnimation={animation}
            screenOrientation={orientation}

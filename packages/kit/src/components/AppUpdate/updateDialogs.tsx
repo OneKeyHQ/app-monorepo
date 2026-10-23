@@ -8,7 +8,6 @@ import {
   type ILottieViewProps,
   LottieView,
   YStack,
-  type useInTabDialog,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -135,7 +134,7 @@ export const showUpdateDialogUI = ({
   lastUpdateDialogShownAt,
   onConfirm,
 }: {
-  dialog: ReturnType<typeof useInTabDialog>;
+  dialog: Pick<typeof Dialog, 'show'>;
   themeVariant: 'light' | 'dark';
   intl: IntlShape;
   summary: string;

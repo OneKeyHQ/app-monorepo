@@ -1,11 +1,23 @@
 import type { IKeyOfIcons } from '@onekeyhq/components';
 
+import { ADDITIONAL_DRAWING_ICON_PATHS } from '../../drawings/additionalTools';
+
+import type { IAdditionalDrawingTool } from '../../drawings/additionalTools';
 import type { TRADING_VIEW_DRAWING_ICONS as ISharedDrawingIcons } from '../../drawings/icons';
 
 type IDrawingIconDefinition = { icon: IKeyOfIcons } | { path: string };
 
 // Match the project icons' 24 px grid, 2 px strokes and square corners.
 export const TRADING_VIEW_DRAWING_ICONS = {
+  ...(Object.fromEntries(
+    Object.entries(ADDITIONAL_DRAWING_ICON_PATHS).map(([tool, path]) => [
+      tool,
+      { path },
+    ]),
+  ) as Record<IAdditionalDrawingTool, { path: string }>),
+  measure: {
+    path: 'm3 16 13-13 5 5L8 21zM13 6l2 2M10 9l3 3M7 12l2 2M4 15l3 3',
+  },
   trend: { path: 'M8 16 16 8M4 16h4v4H4zM16 4h4v4h-4z' },
   ray: { path: 'M8 16 20 4M4 16h4v4H4zM14 4h6v6' },
   extended: { path: 'M3 21 21 3M3 15v6h6M15 3h6v6' },

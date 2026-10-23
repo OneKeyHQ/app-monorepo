@@ -8,6 +8,7 @@ import {
 } from 'react';
 import type { MutableRefObject } from 'react';
 
+import { useOverlayPageScope } from '@onekeyfe/react-native-native-overlay';
 import { BigNumber } from 'bignumber.js';
 import { useIntl } from 'react-intl';
 import { useDebouncedCallback } from 'use-debounce';
@@ -447,6 +448,7 @@ function SideButtonInternal({
   justifyContent = 'flex-start',
 }: ISideButtonProps) {
   const intl = useIntl();
+  const sourcePage = useOverlayPageScope();
   const actions = useHyperliquidActions();
   const layoutRef = useRef<IPerpsMobileLayoutTraceRect | undefined>(undefined);
   const [{ perpConfigCommon }] = usePerpsCommonConfigPersistAtom();
@@ -1629,6 +1631,7 @@ function SideButtonInternal({
         })
       ) {
         showOrderConfirmDialog({
+          sourcePage,
           overrideSide: side,
           intl,
           aggressiveLimitPriceWarning,

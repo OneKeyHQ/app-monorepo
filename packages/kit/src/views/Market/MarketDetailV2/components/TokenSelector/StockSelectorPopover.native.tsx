@@ -95,8 +95,6 @@ export function StockSelectorPopover({
     if (sheetProps?.snapPointsMode === 'percent') {
       requestedHeight =
         (viewportHeight * firstSnapPoint) / 100 - systemBottomInset;
-    } else if (sheetProps?.snapPointsMode === 'constant') {
-      requestedHeight = firstSnapPoint - systemBottomInset;
     }
   }
   const height =

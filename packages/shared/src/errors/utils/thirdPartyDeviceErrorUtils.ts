@@ -2,6 +2,7 @@ import { HardwareErrorCode as ThirdPartyHwErrorCode } from '@onekeyfe/hwk-adapte
 
 import { EHardwareVendor } from '../../../types/device';
 import * as ThirdPartyErrors from '../errors/thirdPartyHardwareErrors';
+import { EOneKeyErrorClassNames } from '../types/errorTypes';
 
 import type {
   IHardwareErrorRecoveryHint,
@@ -339,7 +340,12 @@ export function shouldOfferLedgerCoreAppInstallForCreateFailures(params: {
 }
 
 export function filterThirdPartyHwCreateFailureToasts<
-  T extends { error: Pick<IOneKeyError, 'autoToast' | 'code'> },
+  T extends {
+    error: Pick<
+      IOneKeyError,
+      'autoToast' | 'code' | 'className' | '$isHardwareError'
+    >;
+  },
 >(failedAccounts: T[]): T[] {
   let deviceOutOfMemoryShown = false;
   let passphraseAlwaysOnDeviceShown = false;
@@ -347,7 +353,13 @@ export function filterThirdPartyHwCreateFailureToasts<
     if (isThirdPartyInstallAppUserCancelCode(failedAccount.error.code)) {
       return false;
     }
-    if (failedAccount.error.autoToast === false) {
+    // The device stage clears autoToast on every hardware error and shows it without the chain, so
+    // a hardware failure still gets this per-chain toast; other errors keep their explicit opt-out.
+    const isHardwareError =
+      failedAccount.error.$isHardwareError === true ||
+      failedAccount.error.className ===
+        EOneKeyErrorClassNames.OneKeyHardwareError;
+    if (failedAccount.error.autoToast === false && !isHardwareError) {
       return false;
     }
     if (failedAccount.error.code === ThirdPartyHwErrorCode.DeviceOutOfMemory) {

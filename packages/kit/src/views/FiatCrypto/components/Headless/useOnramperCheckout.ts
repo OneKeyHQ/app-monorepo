@@ -12,6 +12,7 @@ import {
   getOnramperErrorFieldsForLog,
   getUrlHostForLog,
   isStructuralOnramperError,
+  sanitizeOnramperLogRecord,
 } from '@onekeyhq/shared/src/modules3rdParty/onramper';
 import type {
   IOnramperButtonStyle,
@@ -20,6 +21,8 @@ import type {
   IOnramperQuote,
   IOnramperSession,
 } from '@onekeyhq/shared/src/modules3rdParty/onramper';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import type { IHeadlessBuyAbandonReason } from '@onekeyhq/shared/types/fiatCrypto';
 
 import { getOnramperErrorMessage } from './onramperErrorCopy';
 import { EBuyActionState } from './types';
@@ -43,6 +46,10 @@ type IParams = {
   buttonStyle: IOnramperButtonStyle;
   // Surface that launched the buy page — rides on every funnel event.
   entryFrom?: string;
+  // The checkout reached its paid outcome: `completed`, or (SDK 1.3+)
+  // `paymentPending` — accepted but not settled, which the SDK ends on
+  // INSTEAD of `completed`. Either way the order is submitted and the status
+  // page tracks settlement by transactionId.
   onCompleted: (event: IOnramperEvent) => void;
   // Fired once per transaction id, on the FIRST SDK event that carries one
   // (checkoutFinalized on 1.2.x) — i.e. before Apple Pay. The page records
@@ -50,10 +57,12 @@ type IParams = {
   onTransactionCreated?: (transactionId: string) => void;
   // paymentAuthorized: the user approved the Apple Pay sheet.
   onPaymentAuthorized?: (transactionId: string) => void;
-  // cancelled / failed without a completed: the (hidden) order is dead.
+  // cancelled / failed without a completed: the (hidden) order is dead —
+  // except `providerFailed` (SDK 1.3+), where the payment outcome is unknown
+  // and the service keeps the record for tracking.
   onCheckoutAbandoned?: (
     transactionId: string,
-    reason: 'cancelled' | 'failed',
+    reason: IHeadlessBuyAbandonReason,
   ) => void;
 };
 
@@ -148,6 +157,19 @@ export function useOnramperCheckout({
       createOnramperClient({
         // Real config on device (clientId from Onramper); the mock ignores it.
         ...getOnramperConfig(),
+        // SDK 1.3 structured log records → device log only. Production keeps
+        // the native log level off (see realClient getLogLevel), so this
+        // only fires in dev builds; even there only format-checked
+        // identifier / code fields are persisted and the free-form message
+        // stays dev-only, because dev device logs get exported too.
+        onLog: (record) => {
+          defaultLogger.fiatCrypto.onramper.sdkLog({
+            ...getLogContext(),
+            ...sanitizeOnramperLogRecord(record, {
+              keepMessage: Boolean(platformEnv.isDev),
+            }),
+          });
+        },
         onSessionExpired: async () => {
           defaultLogger.fiatCrypto.onramper.sessionRefreshRequested(
             getLogContext(),
@@ -243,6 +265,8 @@ export function useOnramperCheckout({
             code: event.errorCode,
             message: event.message,
             info: event.info,
+            userMessage: event.userMessage,
+            supportCode: event.supportCode,
           }),
         );
         setErrorCode(event.errorCode);
@@ -257,8 +281,13 @@ export function useOnramperCheckout({
       noteTransactionId(event.transactionId);
       if (event.transactionId) {
         // Regardless of `stale` below: a failed checkout's hidden order is
-        // dead either way (the service ignores already-submitted orders).
-        onCheckoutAbandonedRef.current?.(event.transactionId, 'failed');
+        // dead either way (the service ignores already-submitted orders) —
+        // unless the payment surface failed with the outcome unknown, which
+        // the service treats as "possibly paid" and keeps.
+        onCheckoutAbandonedRef.current?.(
+          event.transactionId,
+          event.errorCode === 'providerFailed' ? 'providerFailed' : 'failed',
+        );
       }
       // The failure belongs to the checkout mounted by quote #quoteSeq. Once a
       // newer quote request exists (amount / address edit, review exit) that
@@ -271,6 +300,7 @@ export function useOnramperCheckout({
           code: event.errorCode,
           message: event.message,
           info: event.info,
+          supportCode: event.supportCode,
         }),
         amount: amountRef.current,
         ramp: quoteRef.current?.ramp,
@@ -288,11 +318,15 @@ export function useOnramperCheckout({
   const handleCheckoutFailedRef = useRef(handleCheckoutFailed);
   handleCheckoutFailedRef.current = handleCheckoutFailed;
 
+  // `completed`, or SDK 1.3's `paymentPending` (accepted, settlement pending,
+  // no `completed` follows): both hand the order to the status page.
   const handleCheckoutCompleted = useCallback(
     (event: IOnramperEvent) => {
       noteTransactionId(event.transactionId);
       defaultLogger.fiatCrypto.onramper.checkoutCompleted({
         ...getLogContext(),
+        outcome:
+          event.type === 'paymentPending' ? 'paymentPending' : 'completed',
         amount: amountRef.current,
         ramp: quoteRef.current?.ramp,
         checkoutId: event.checkoutId,
@@ -353,7 +387,7 @@ export function useOnramperCheckout({
     const removeListeners = [
       ...ONRAMPER_EVENT_NAMES.map((name) =>
         client.addEventListener(name, (event) => {
-          if (name === 'completed') {
+          if (name === 'completed' || name === 'paymentPending') {
             handleCheckoutCompletedRef.current(event);
           } else if (name === 'failed') {
             handleCheckoutFailedRef.current(event);
@@ -426,6 +460,7 @@ export function useOnramperCheckout({
         defaultLogger.fiatCrypto.onramper.clientInitialized({
           ...getLogContext(),
           durationMs: Date.now() - initStartedAt,
+          sdkVersion: client.sdkVersion,
         });
         setReady(true);
       }
@@ -577,6 +612,8 @@ export function useOnramperCheckout({
             code?: string;
             message?: string;
             info?: Record<string, unknown>;
+            userMessage?: string;
+            supportCode?: string;
           };
           defaultLogger.fiatCrypto.onramper.quoteFailed({
             ...getLogContext(),
@@ -584,6 +621,7 @@ export function useOnramperCheckout({
               code: err?.code,
               message: err?.message,
               info: err?.info,
+              supportCode: err?.supportCode,
             }),
             seq,
             durationMs,
@@ -606,6 +644,8 @@ export function useOnramperCheckout({
             errorCode: err?.code,
             message: err?.message,
             info: err?.info,
+            userMessage: err?.userMessage,
+            supportCode: err?.supportCode,
           });
         }
       })();

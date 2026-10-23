@@ -59,6 +59,7 @@ import { getValidUnsignedMessage } from '@onekeyhq/shared/src/utils/messageUtils
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import {
+  isPrimeInfiniPaymentExplicitlyFailedSnapshot,
   isPrimeInfiniPaymentPreBroadcastSnapshotSendable,
   isSamePrimeInfiniNetworkAddress,
   isValidPrimeInfiniPaymentContract,
@@ -75,7 +76,10 @@ import type {
   ISendSelectedFeeInfo,
   ITronResourceRentalInfo,
 } from '@onekeyhq/shared/types/fee';
-import { EOnChainHistoryTxType } from '@onekeyhq/shared/types/history';
+import {
+  EOnChainHistoryTxType,
+  type IAccountHistoryTx,
+} from '@onekeyhq/shared/types/history';
 import type { IPrimeInfiniBeforeBroadcastAction } from '@onekeyhq/shared/types/prime/primeTypes';
 import type { ESendPreCheckTimingEnum } from '@onekeyhq/shared/types/send';
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
@@ -202,8 +206,10 @@ class ServiceSend extends ServiceBase {
     accountId,
     networkId,
     replaceTxInfo,
+    unsignedTxs,
   }: ISendTxBaseParams & {
     replaceTxInfo?: IReplaceTxInfo;
+    unsignedTxs: IUnsignedTxPro[];
   }) {
     if (
       replaceTxInfo?.replaceType !== EReplaceTxType.SpeedUp ||
@@ -211,14 +217,75 @@ class ServiceSend extends ServiceBase {
     ) {
       return undefined;
     }
+    const unavailable = () =>
+      new OneKeyLocalError({
+        key: ETranslations.prime_close_and_try_again__desc,
+        autoToast: true,
+      });
+    if (
+      await this.backgroundApi.simpleDb.prime.isInfiniReplacementBlocked({
+        accountId,
+        networkId,
+        historyId: replaceTxInfo.replaceHistoryId,
+      })
+    )
+      throw unavailable();
     const historyTx =
       await this.backgroundApi.serviceHistory.getLocalHistoryTxById({
         accountId,
         networkId,
         historyId: replaceTxInfo.replaceHistoryId,
       });
+    if (!historyTx) {
+      // Decode the actual candidate only to classify the missing binding, never
+      // as a substitute for the original nonce/payload verification.
+      const vault = await vaultFactory.getVault({ accountId, networkId });
+      const accountAddress =
+        await this.backgroundApi.serviceAccount.getAccountAddressForApi({
+          accountId,
+          networkId,
+        });
+      if (!unsignedTxs.length) throw unavailable();
+      for (const unsignedTx of unsignedTxs) {
+        const decodedTx = await vault.buildDecodedTx({ unsignedTx });
+        const action = decodedTx.actions[0];
+        const transfer = action?.assetTransfer?.sends[0];
+        if (
+          decodedTx.networkId !== networkId ||
+          decodedTx.accountId !== accountId ||
+          !isSamePrimeInfiniNetworkAddress({
+            networkId,
+            first: decodedTx.signer,
+            second: accountAddress,
+          }) ||
+          decodedTx.actions.length !== 1 ||
+          action.type !== EDecodedTxActionType.ASSET_TRANSFER ||
+          action.assetTransfer?.sends.length !== 1 ||
+          !transfer ||
+          typeof transfer.tokenIdOnNetwork !== 'string' ||
+          !transfer.to ||
+          !transfer.from ||
+          !new BigNumber(transfer.amount).isFinite()
+        )
+          throw unavailable();
+        const session =
+          await this.backgroundApi.simpleDb.prime.findInfiniPaymentForTransfer({
+            transferClaim: {
+              accountId,
+              networkId,
+              accountAddress,
+              fromAddress: transfer.from,
+              toAddress: transfer.to,
+              contractAddress: transfer.tokenIdOnNetwork,
+              amount: transfer.amount,
+            },
+          });
+        if (session) throw unavailable();
+      }
+      return undefined;
+    }
     // A speed-up of a cancel still sends zero to self, not the invoice.
-    if (!historyTx || historyTx.replacedType === EReplaceTxType.Cancel) {
+    if (historyTx.replacedType === EReplaceTxType.Cancel) {
       return undefined;
     }
     let action = historyTx.primeInfiniPayment;
@@ -271,7 +338,14 @@ class ServiceSend extends ServiceBase {
           ),
         )
       : (historyTx.decodedTx.encodedTx as IEncodedTxEvm);
-    return { action, originalTx, nonce: historyTx.decodedTx.nonce };
+    return {
+      action,
+      originalTx,
+      nonce: historyTx.decodedTx.nonce,
+      originalTxid: historyTx.decodedTx.txid,
+      originalHistoryId: historyTx.id,
+      originalHistoryTx: historyTx,
+    };
   }
 
   private assertPrimeInfiniReplacementTransaction({
@@ -751,6 +825,10 @@ class ServiceSend extends ServiceBase {
     transferPayload,
     ensureBroadcastDeadline,
     mode,
+    originalTxid,
+    originalHistoryId,
+    originalNonce,
+    originalHistoryTx,
   }: ISendTxBaseParams & {
     accountAddress: string;
     signedTx: ISignedTxPro;
@@ -759,6 +837,10 @@ class ServiceSend extends ServiceBase {
     transferPayload?: IBatchSignTransactionParamsBase['transferPayload'];
     ensureBroadcastDeadline: () => void;
     mode: 'initial' | 'speedUp';
+    originalTxid?: string;
+    originalHistoryId?: string;
+    originalNonce?: number;
+    originalHistoryTx?: IAccountHistoryTx;
   }) {
     // Both paths originate from wallet-built transfers. Replacement callers
     // additionally verify the signed EVM payload against the original history.
@@ -882,6 +964,56 @@ class ServiceSend extends ServiceBase {
       payment: latestPayment,
     });
     if (
+      mode === 'speedUp' &&
+      originalTxid &&
+      originalHistoryId &&
+      originalHistoryTx &&
+      latestPayment.paymentId === paymentCacheKey.paymentId &&
+      new BigNumber(transferClaim.amount).eq(latestPayment.amountDue) &&
+      isSamePrimeInfiniNetworkAddress({
+        networkId,
+        first: transferClaim.toAddress,
+        second: latestPayment.address,
+      }) &&
+      (quoteFailure === 'quoteExpired' ||
+        (!quoteFailure &&
+          isPrimeInfiniPaymentExplicitlyFailedSnapshot(latestPayment)))
+    ) {
+      // Hide only the original local pending entry. Its transfer can still
+      // confirm on-chain, so retain the durable payment claim and server history.
+      // A storage failure must not replace the payment validation error.
+      try {
+        // Persist the fence before hiding history; if storage fails, keep the
+        // original binding available and still reject the payment below.
+        await this.backgroundApi.simpleDb.prime.blockInfiniReplacement({
+          accountId,
+          networkId,
+          historyId: originalHistoryId,
+          accountAddress,
+          nonce: originalNonce ?? NaN,
+          historyTx: originalHistoryTx,
+        });
+        await this.backgroundApi.serviceHistory.clearLocalHistoryPendingTxByTxId(
+          {
+            accountId,
+            networkId,
+            accountAddress,
+            txid: originalTxid,
+          },
+        );
+      } catch {
+        // Preserve the validation error rather than replacing it with cleanup failure.
+      }
+      // Terminal failures take precedence over warnings and cleanup failures.
+      // Replacement screens rely on the shared error toast for feedback.
+      if (!quoteFailure) {
+        throw new OneKeyLocalError({
+          key: ETranslations.prime_close_and_try_again__desc,
+          autoToast: true,
+        });
+      }
+    }
+    if (
       quoteFailure ||
       hasUnconfirmedPrimeInfiniPaymentWarnings({
         payment: latestPayment,
@@ -898,6 +1030,14 @@ class ServiceSend extends ServiceBase {
         failureReason: quoteFailure ?? 'transferSnapshotChanged',
         remainingMs: latestPayment.expiresAt - Date.now(),
       });
+      // Replacement confirmations have no Prime payment screen to display
+      // validation failures. Let the shared send error handler show expiry.
+      if (mode === 'speedUp' && quoteFailure === 'quoteExpired') {
+        throw new InvoiceExpiredError({
+          autoToast: true,
+          data: { paymentValidationFailure: quoteFailure },
+        });
+      }
       throw createPrimeInfiniPaymentValidationError(
         quoteFailure ?? 'transferSnapshotChanged',
       );
@@ -1018,6 +1158,7 @@ class ServiceSend extends ServiceBase {
       accountId,
       networkId,
       replaceTxInfo,
+      unsignedTxs: [unsignedTx],
     });
     const beforeBroadcastAction = replaceTxInfo
       ? replacementContext?.action
@@ -1045,6 +1186,49 @@ class ServiceSend extends ServiceBase {
         accountId,
         networkId,
       });
+
+    const checkReservedNonce = async (
+      encodedTx: IEncodedTx | null,
+      fallbackNonce?: number,
+    ) => {
+      if (!networkUtils.isEvmNetwork({ networkId })) return;
+      const nonce = new BigNumber(
+        (encodedTx as IEncodedTxEvm | null)?.nonce ?? fallbackNonce ?? NaN,
+      ).toNumber();
+      if (!Number.isSafeInteger(nonce)) return;
+      const reserved =
+        await this.backgroundApi.simpleDb.prime.getInfiniReservedNonces({
+          networkId,
+          accountAddress,
+        });
+      if (reserved.includes(nonce)) {
+        const tx = encodedTx as IEncodedTxEvm | null;
+        // Recovery uses the explicit Cancel confirmation. Verify its actual
+        // payload both before and after signing rather than trusting the label.
+        if (
+          replaceTxInfo?.replaceType === EReplaceTxType.Cancel &&
+          tx &&
+          isSamePrimeInfiniNetworkAddress({
+            networkId,
+            first: tx.from ?? '',
+            second: accountAddress,
+          }) &&
+          isSamePrimeInfiniNetworkAddress({
+            networkId,
+            first: tx.to ?? '',
+            second: accountAddress,
+          }) &&
+          new BigNumber(tx.value).eq(0) &&
+          (tx.data ?? '0x').toLowerCase() === '0x'
+        )
+          return;
+        throw new OneKeyLocalError({
+          key: ETranslations.prime_close_and_try_again__desc,
+          autoToast: true,
+        });
+      }
+    };
+    await checkReservedNonce(unsignedTx.encodedTx, unsignedTx.nonce);
 
     const isExternalAccount = accountUtils.isExternalAccount({ accountId });
     let staticBroadcastSkipReason: string | undefined;
@@ -1107,6 +1291,7 @@ class ServiceSend extends ServiceBase {
     });
 
     diagnosticState.context = signedTx.solanaTxDiagnostic ?? diagnostic;
+    await checkReservedNonce(signedTx.encodedTx, unsignedTx.nonce);
     if (replacementContext) {
       this.assertPrimeInfiniReplacementTransaction({
         ...replacementContext,
@@ -1211,6 +1396,10 @@ class ServiceSend extends ServiceBase {
             transferPayload,
             ensureBroadcastDeadline,
             mode: replacementContext ? 'speedUp' : 'initial',
+            originalTxid: replacementContext?.originalTxid,
+            originalHistoryId: replacementContext?.originalHistoryId,
+            originalNonce: replacementContext?.nonce,
+            originalHistoryTx: replacementContext?.originalHistoryTx,
           });
         infiniPaymentExpiresAt = markedSession.payment.expiresAt;
         effectiveBroadcastDeadline = Math.min(
@@ -1610,6 +1799,7 @@ class ServiceSend extends ServiceBase {
           accountId,
           networkId,
           replaceTxInfo,
+          unsignedTxs,
         })))
     ) {
       throw new OneKeyLocalError({
@@ -1863,6 +2053,76 @@ class ServiceSend extends ServiceBase {
     return result;
   }
 
+  private async restoreInfiniPendingTransaction({
+    historyTx,
+    accountAddress,
+    nonce,
+  }: {
+    historyTx: IAccountHistoryTx;
+    accountAddress: string;
+    nonce: number;
+  }): Promise<boolean> {
+    const { accountId, networkId } = historyTx.decodedTx;
+    const currentAddress = await this.backgroundApi.serviceAccount
+      .getAccountAddressForApi({ accountId, networkId })
+      .catch(() => undefined);
+    if (
+      !currentAddress ||
+      !networkUtils.isEvmNetwork({ networkId }) ||
+      !isSamePrimeInfiniNetworkAddress({
+        networkId,
+        first: currentAddress,
+        second: accountAddress,
+      })
+    )
+      return false;
+    const confirmedNonce = await this.fetchReplaceTxOnChainNextNonce({
+      accountId,
+      networkId,
+      // Permanent cleanup must use the default confirmed source even when a
+      // custom node is enabled; its nonce view may be forked or bypassed.
+      useDefaultRpc: true,
+    }).catch(() => undefined);
+    if (
+      confirmedNonce !== undefined &&
+      Number.isSafeInteger(confirmedNonce) &&
+      confirmedNonce > nonce
+    ) {
+      await this.backgroundApi.simpleDb.prime.pruneInfiniConsumedNonces({
+        networkId,
+        accountAddress,
+        confirmedNonce,
+      });
+      return false;
+    }
+    const current =
+      await this.backgroundApi.serviceHistory.getLocalHistoryTxById({
+        accountId,
+        networkId,
+        historyId: historyTx.id,
+      });
+    if (current) return false;
+    // Restoring history is not evidence that a payment was dropped. Keep the
+    // reservation, replacement fence and payment claim until confirmed nonce
+    // consumption; the user can now open the existing Cancel confirmation.
+    return this.backgroundApi.simpleDb.localHistory.restoreLocalHistoryPendingTx(
+      { networkId, accountAddress, historyTx },
+    );
+  }
+
+  @backgroundMethod()
+  public async restoreInfiniPendingTransactions(): Promise<number> {
+    const recoveries =
+      await this.backgroundApi.simpleDb.prime.getInfiniPendingTransactionRecoveries();
+    let restored = 0;
+    for (const recovery of recoveries) {
+      if (await this.restoreInfiniPendingTransaction(recovery)) restored += 1;
+    }
+    if (restored)
+      appEventBus.emit(EAppEventBusNames.HistoryTxStatusChanged, undefined);
+    return restored;
+  }
+
   @backgroundMethod()
   public async getNextNonce({
     accountId,
@@ -1909,16 +2169,56 @@ class ServiceSend extends ServiceBase {
         accountAddress,
         networkId,
       });
+    let reservedNonces = networkUtils.isEvmNetwork({ networkId })
+      ? await this.backgroundApi.simpleDb.prime.getInfiniReservedNonces({
+          networkId,
+          accountAddress,
+        })
+      : [];
+    if (reservedNonces.length) {
+      // The allocation nonce can include pending transactions or come from the
+      // UI's prefetch. Only the default confirmed source can permanently retire
+      // protection, independently of this send's custom RPC selection.
+      const confirmedNonce = await this.fetchReplaceTxOnChainNextNonce({
+        accountId,
+        networkId,
+        useDefaultRpc: true,
+      }).catch(() => undefined);
+      if (
+        confirmedNonce !== undefined &&
+        Number.isSafeInteger(confirmedNonce) &&
+        reservedNonces.some((nonce) => nonce < confirmedNonce)
+      ) {
+        await this.backgroundApi.simpleDb.prime.pruneInfiniConsumedNonces({
+          networkId,
+          accountAddress,
+          confirmedNonce,
+        });
+        reservedNonces =
+          await this.backgroundApi.simpleDb.prime.getInfiniReservedNonces({
+            networkId,
+            accountAddress,
+          });
+      }
+    }
+    // Chain nonce is the lower bound: consumed reservations cannot create holes
+    // below it, while hidden pending transactions still occupy their nonce.
+    const occupiedNonces = new Set([...pendingNonceList, ...reservedNonces]);
     let nextNonce = Math.max(
       isNil(maxPendingNonce) ? 0 : maxPendingNonce + 1,
       onChainNextNonce,
+      reservedNonces.reduce(
+        (highestReservedNextNonce, nonce) =>
+          Math.max(highestReservedNextNonce, nonce + 1),
+        0,
+      ),
     );
     if (Number.isNaN(nextNonce)) {
       nextNonce = onChainNextNonce;
     }
     if (nextNonce > onChainNextNonce) {
       for (let i = onChainNextNonce; i < nextNonce; i += 1) {
-        if (!pendingNonceList.includes(i)) {
+        if (!occupiedNonces.has(i)) {
           nextNonce = i;
           break;
         }

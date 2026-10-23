@@ -33,7 +33,6 @@ import { LocalDbDowngradeDialogContainer } from './LocalDbDowngradeDialogContain
 import { LocalSecretEnvelopeErrorDialogContainer } from './LocalSecretEnvelopeErrorDialogContainer';
 import { NavigationContainer } from './NavigationContainer';
 import PageTrackerContainer from './PageTrackerContainer';
-import { PasswordVerifyPortalContainer } from './PasswordVerifyPortalContainer';
 import { PerpsUnifoldDepositTerminalDeliveryContainer } from './PerpsUnifoldDepositTerminalDeliveryContainer';
 import { PrevCheckBeforeSendingContainer } from './PrevCheckBeforeSendingContainer';
 import { PrimeGlobalEffectLazy } from './PrimeGlobalEffectLazy';
@@ -96,7 +95,6 @@ function DetailRouter() {
       <ColdStartByNotification />
       <PrimeGlobalEffectLazy />
       <WebPerformanceMonitorContainer />
-      <PasswordVerifyPortalContainer />
       <RookieShareContainerLazy />
       <Suspense fallback={null}>
         <WalletConnectPayDialogContainerLazy />

@@ -18,6 +18,7 @@ import {
   Tooltip,
   XStack,
   resetToRoute,
+  runAfterActionListClose,
   useIsOverlayPage,
   useMedia,
   usePopoverContext,
@@ -139,10 +140,11 @@ function IncognitoPopoverContent({ description }: { description: string }) {
   const { closePopover } = usePopoverContext();
   const handleAction = useCallback(
     (url: string) => {
-      void (async () => {
-        await closePopover?.();
-        openUrlExternal(url);
-      })();
+      void runAfterActionListClose(
+        () => closePopover?.(),
+        () => openUrlExternal(url),
+        { waitForAnimation: false },
+      );
     },
     [closePopover],
   );

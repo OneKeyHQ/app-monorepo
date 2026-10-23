@@ -1,5 +1,5 @@
 // cspell:ignore heikin Ashi
-import { useState } from 'react';
+import { useMemo } from 'react';
 import type { ReactNode } from 'react';
 
 import { useIntl } from 'react-intl';
@@ -8,8 +8,7 @@ import {
   Checkbox,
   ColorPicker,
   Divider,
-  Icon,
-  Popover,
+  Select,
   SizableText,
   XStack,
   YStack,
@@ -17,7 +16,13 @@ import {
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
-import { TRADING_VIEW_SETTINGS_COLOR_PALETTE } from './TradingViewSettingsShared';
+const LINE_STYLE_WIDTHS: Partial<Record<string, number>> = {
+  solid: 1,
+  medium: 2,
+  bold: 3,
+  extraBold: 4,
+};
+const LINE_PREVIEW_FLOATING_PANEL_PROPS = { width: 144 };
 
 export const SELECT_OPTION_TRANSLATION_IDS: Record<string, ETranslations> = {
   auto: ETranslations.global_auto,
@@ -140,6 +145,7 @@ export function SettingsCheckboxRow({
   value,
   disabled,
   children,
+  controlsIndent = SETTINGS_ROW_CHECKBOX_LABEL_INDENT,
   onChange,
 }: {
   label: string;
@@ -147,6 +153,7 @@ export function SettingsCheckboxRow({
   value: boolean;
   disabled: boolean;
   children?: ReactNode;
+  controlsIndent?: number;
   onChange: (value: boolean) => void;
 }) {
   return (
@@ -181,7 +188,7 @@ export function SettingsCheckboxRow({
         onChange={(checked) => onChange(Boolean(checked))}
       />
       {children ? (
-        <XStack ml={SETTINGS_ROW_CHECKBOX_LABEL_INDENT} flexShrink={1}>
+        <XStack ml={controlsIndent} flexShrink={1}>
           {children}
         </XStack>
       ) : null}
@@ -203,8 +210,6 @@ export function SettingsColorPicker({
   return (
     <ColorPicker
       value={value}
-      colors={TRADING_VIEW_SETTINGS_COLOR_PALETTE}
-      columns={5}
       triggerSize={32}
       disabled={disabled}
       testID={testID}
@@ -245,17 +250,15 @@ export function SettingsColorField({
 
 export function SettingsLineStylePreview({
   style,
+  lineWidth = 1,
 }: {
   style: 'solid' | 'dashed';
+  lineWidth?: number;
 }) {
-  if (style === 'solid') {
-    return <XStack width="$8" height={2} bg="$iconSubdued" />;
-  }
-
   return (
-    <XStack width="$8" gap="$0.5" alignItems="center">
-      {Array.from({ length: 5 }).map((_, index) => (
-        <XStack key={index} width="$1" height={2} bg="$iconSubdued" />
+    <XStack width="100%" height="$5" alignItems="center" gap="$1">
+      {Array.from({ length: style === 'dashed' ? 5 : 1 }).map((_, index) => (
+        <XStack key={index} flex={1} height={lineWidth} bg="$iconSubdued" />
       ))}
     </XStack>
   );
@@ -268,9 +271,10 @@ export function SettingsSelect<TValue extends string>({
   options,
   disabled,
   onChange,
+  width = 128,
   showLinePreview = false,
-  renderOption,
-  renderTriggerContent,
+  renderOptionLabel,
+  optionLabels,
   optionTranslationIds,
 }: {
   testID: string;
@@ -279,104 +283,52 @@ export function SettingsSelect<TValue extends string>({
   options: readonly TValue[];
   disabled: boolean;
   onChange: (value: TValue) => void;
+  width?: number;
   showLinePreview?: boolean;
-  renderOption?: (value: TValue) => ReactNode;
-  renderTriggerContent?: (value: TValue) => ReactNode;
+  renderOptionLabel?: (value: TValue) => ReactNode;
+  optionLabels?: Partial<Record<TValue, string>>;
   optionTranslationIds?: Partial<Record<TValue, ETranslations>>;
 }) {
   const intl = useIntl();
-  const [isOpen, setIsOpen] = useState(false);
-  const { md } = useMedia();
+  const items = useMemo(
+    () =>
+      options.map((option) => ({
+        value: option,
+        label:
+          optionLabels?.[option] ??
+          formatOptionLabel(intl, option, optionTranslationIds),
+        labelComponent:
+          renderOptionLabel?.(option) ??
+          (showLinePreview ? (
+            <SettingsLineStylePreview
+              style={option === 'dashed' ? 'dashed' : 'solid'}
+              lineWidth={LINE_STYLE_WIDTHS[option] ?? 1}
+            />
+          ) : undefined),
+      })),
+    [
+      intl,
+      optionLabels,
+      optionTranslationIds,
+      options,
+      renderOptionLabel,
+      showLinePreview,
+    ],
+  );
 
   return (
-    <Popover
+    <Select
+      testID={`trading-view-settings-select-${testID}`}
       title={title}
-      showHeader={md}
-      open={disabled ? false : isOpen}
-      onOpenChange={(nextOpen) => {
-        if (!disabled) {
-          setIsOpen(nextOpen);
-        }
-      }}
+      value={value}
+      disabled={disabled}
+      onChange={onChange}
       placement="bottom-end"
-      floatingPanelProps={{ width: 240 }}
-      renderTrigger={
-        <XStack
-          testID={`trading-view-settings-select-${testID}`}
-          gap="$1.5"
-          alignItems="center"
-          cursor={disabled ? 'default' : 'pointer'}
-          opacity={disabled ? 0.5 : 1}
-        >
-          {renderTriggerContent
-            ? renderTriggerContent(value)
-            : (renderOption?.(value) ?? (
-                <>
-                  {showLinePreview ? (
-                    <SettingsLineStylePreview
-                      style={value as 'solid' | 'dashed'}
-                    />
-                  ) : null}
-                  <SizableText size="$bodyMd" color="$textSubdued">
-                    {formatOptionLabel(intl, value, optionTranslationIds)}
-                  </SizableText>
-                </>
-              ))}
-          <Icon
-            name={isOpen ? 'ChevronTopSmallOutline' : 'ChevronDownSmallOutline'}
-            size="$4.5"
-            color="$iconSubdued"
-          />
-        </XStack>
+      floatingPanelProps={
+        showLinePreview ? LINE_PREVIEW_FLOATING_PANEL_PROPS : undefined
       }
-      renderContent={({ closePopover }) => (
-        <YStack p={md ? '$3' : '$1'} gap={md ? '$1' : '$0.5'}>
-          {options.map((option) => {
-            const selected = value === option;
-            return (
-              <XStack
-                key={option}
-                testID={`trading-view-settings-select-${testID}-${option}`}
-                minHeight={md ? 48 : 36}
-                px={md ? '$2.5' : '$2'}
-                py={md ? '$2.5' : '$1.5'}
-                alignItems="center"
-                justifyContent="space-between"
-                borderRadius="$2"
-                cursor="pointer"
-                hoverStyle={{ bg: '$bgHover' }}
-                pressStyle={{ bg: '$bgActive' }}
-                onPress={() => {
-                  onChange(option);
-                  closePopover();
-                }}
-              >
-                {renderOption ? (
-                  renderOption(option)
-                ) : (
-                  <XStack gap="$2" alignItems="center">
-                    {showLinePreview ? (
-                      <SettingsLineStylePreview
-                        style={option as 'solid' | 'dashed'}
-                      />
-                    ) : null}
-                    <SizableText size="$bodyMd">
-                      {formatOptionLabel(intl, option, optionTranslationIds)}
-                    </SizableText>
-                  </XStack>
-                )}
-                {selected ? (
-                  <Icon
-                    name="CheckLargeOutline"
-                    size="$4"
-                    color="$iconActive"
-                  />
-                ) : null}
-              </XStack>
-            );
-          })}
-        </YStack>
-      )}
+      defaultTriggerInputProps={{ size: 'small', width, pr: '$8' }}
+      items={items}
     />
   );
 }

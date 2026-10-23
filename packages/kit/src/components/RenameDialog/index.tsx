@@ -34,11 +34,9 @@ import type { IntlShape } from 'react-intl';
 function V4AccountNameSelector({
   onChange,
   indexedAccount,
-  nativeSheet,
 }: {
   onChange?: (val: string) => void;
   indexedAccount: IDBIndexedAccount;
-  nativeSheet?: boolean;
 }) {
   const intl = useIntl();
   const [val] = useState('');
@@ -95,7 +93,6 @@ function V4AccountNameSelector({
         title={intl.formatMessage({
           id: ETranslations.v4_select_account_name_label,
         })}
-        nativeSheet={nativeSheet}
       />
     </Stack>
   );
@@ -120,7 +117,6 @@ export function RenameInputWithNameSelector({
   keyboardType,
   autoCorrect,
   autoCapitalize,
-  nativeSheet,
 }: {
   maxLength?: number;
   value?: string;
@@ -146,7 +142,6 @@ export function RenameInputWithNameSelector({
   keyboardType?: IInputProps['keyboardType'];
   autoCorrect?: IInputProps['autoCorrect'];
   autoCapitalize?: IInputProps['autoCapitalize'];
-  nativeSheet?: boolean;
 }) {
   const intl = useIntl();
   const valueLength = trimOuterWhitespace
@@ -187,7 +182,6 @@ export function RenameInputWithNameSelector({
                   buildChangeHistoryInputAddon({
                     changeHistoryInfo: nameHistoryInfo,
                     onChange,
-                    nativeSheet,
                   }),
                 ]
               : undefined
@@ -197,7 +191,6 @@ export function RenameInputWithNameSelector({
           <V4AccountNameSelector
             indexedAccount={indexedAccount}
             onChange={onChange}
-            nativeSheet={nativeSheet}
           />
         ) : null}
       </Stack>
@@ -239,7 +232,6 @@ export const showRenameDialog = (
     inputTestID,
     confirmTestID,
     intl,
-    nativeSheet = false,
     ...dialogProps
   }: IDialogShowProps & {
     indexedAccount?: IDBIndexedAccount;
@@ -285,7 +277,6 @@ export const showRenameDialog = (
             disabledMaxLengthLabel={disabledMaxLengthLabel}
             nameHistoryInfo={nameHistoryInfo}
             inputTestID={inputTestID}
-            nativeSheet={nativeSheet}
           />
         </Dialog.FormField>
       </Dialog.Form>
@@ -302,7 +293,6 @@ export const showRenameDialog = (
       });
     },
     ...dialogProps,
-    nativeSheet,
     ...(confirmTestID
       ? {
           confirmButtonProps: {

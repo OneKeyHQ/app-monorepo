@@ -297,7 +297,7 @@ describe('desktop selector recommendations', () => {
     },
   );
 
-  it('does not truncate the selectable favorites after a page of perps', () => {
+  it('does not truncate the favorites after a page of perps', () => {
     mockWatchlistAtom.mockReturnValue([
       {
         data: Array.from({ length: 101 }, () => ({
@@ -341,7 +341,9 @@ describe('desktop selector recommendations', () => {
       />,
     );
     expect(screen.queryByTestId('recommendations')).toBeNull();
-    expect(screen.getByTestId('list').textContent).toBe('TOKEN100');
+    const symbols = screen.getByTestId('list').textContent?.split(',');
+    expect(symbols).toHaveLength(101);
+    expect(symbols?.at(-1)).toBe('TOKEN100');
   });
 
   const favorite = {
@@ -366,9 +368,10 @@ describe('desktop selector recommendations', () => {
   };
 
   it.each([
-    ['all', 'BTC,AAPL,NVDAx,LEGACY,ETH'],
+    ['all', 'BTC,AAPL,NVDAx,LEGACY,ETH,PERP'],
     ['spot', 'BTC,ETH'],
     ['stocks', 'AAPL,NVDAx,LEGACY'],
+    ['perps', 'PERP'],
   ] as const)(
     'filters %s with the home watchlist rules while preserving order',
     (filter, expected) => {
