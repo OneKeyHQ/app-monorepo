@@ -7,6 +7,7 @@ import {
   calculateSwapStockEstimatedShares,
   getValidStockTokenToAssetRatio,
   resolveStockTokenToAssetRatio,
+  resolveSwapStockReviewToken,
 } from './swapStockReviewUtils';
 
 const currencyMap = {
@@ -98,6 +99,95 @@ describe('swapStockReviewUtils', () => {
       ).toBe('0.9985');
     },
   );
+
+  it('prefers the matching variant ratio when token detail omits or disagrees with it', () => {
+    for (const detailRatio of [undefined, '0.9']) {
+      const result = resolveSwapStockReviewToken({
+        stockToken,
+        selectedTokenVariant: { ...stockToken, tokenToAssetRatio: '1' },
+        tokenDetail: {
+          networkId: stockToken.networkId,
+          address: stockToken.contractAddress,
+          stock: { ...stockInfo, tokenToAssetRatio: detailRatio },
+        },
+        underlyingSymbol: 'AAPL',
+      });
+      expect(result?.stock?.tokenToAssetRatio).toBe('1');
+      expect(result?.stock?.underlyingAssetTicker).toBe('AAPL');
+    }
+  });
+
+  it.each(['', '0', '-1', 'NaN', 'Infinity'])(
+    'falls back to matching detail when Market config and variant ratio are invalid: %p',
+    (ratio) => {
+      const result = resolveSwapStockReviewToken({
+        stockToken,
+        selectedTokenVariant: { ...stockToken, tokenToAssetRatio: ratio },
+        tokenDetail: {
+          address: stockToken.contractAddress,
+          stock: stockInfo,
+        },
+        stockTradeConfig: { tokenToAssetRatio: ratio },
+      });
+      expect(result?.stock?.tokenToAssetRatio).toBe('0.9985');
+    },
+  );
+
+  it.each([
+    { networkId: 'evm--56', contractAddress: stockToken.contractAddress },
+    { networkId: stockToken.networkId, contractAddress: '0xother' },
+  ])(
+    'does not use a leading variant or Market config for another identity: %o',
+    (identity) => {
+      const result = resolveSwapStockReviewToken({
+        stockToken,
+        selectedTokenVariant: { ...identity, tokenToAssetRatio: '2' },
+        tokenDetail: {
+          networkId: stockToken.networkId,
+          address: stockToken.contractAddress,
+          stock: stockInfo,
+        },
+        stockTradeConfig: {
+          tokenToAssetRatio: '3',
+          underlyingSymbol: 'OTHER',
+        },
+      });
+      expect(result?.stock?.tokenToAssetRatio).toBeUndefined();
+      expect(result?.stock?.underlyingAssetTicker).toBe('AAPL');
+    },
+  );
+
+  it.each([
+    { networkId: 'evm--56', address: stockToken.contractAddress },
+    { networkId: stockToken.networkId, address: '0xother' },
+  ])(
+    'rejects detail for another identity instead of retaining a cached ratio: %o',
+    (identity) => {
+      const result = resolveSwapStockReviewToken({
+        stockToken,
+        selectedTokenVariant: { ...stockToken, tokenToAssetRatio: undefined },
+        tokenDetail: { ...identity, stock: stockInfo },
+      });
+      expect(result?.stock?.tokenToAssetRatio).toBeUndefined();
+    },
+  );
+
+  it('uses fresh detail before variants arrive and clears a withdrawn ratio', () => {
+    const resolvedToken = resolveSwapStockReviewToken({
+      stockToken,
+      tokenDetail: { address: stockToken.contractAddress, stock: stockInfo },
+    });
+    expect(resolvedToken?.stock?.tokenToAssetRatio).toBe('0.9985');
+    const clearedToken = resolveSwapStockReviewToken({
+      stockToken: resolvedToken,
+      tokenDetail: {
+        address: stockToken.contractAddress,
+        stock: { ...stockInfo, tokenToAssetRatio: undefined },
+      },
+    });
+    expect(clearedToken?.stock).toHaveProperty('tokenToAssetRatio', undefined);
+    expect(stockToken.stock?.tokenToAssetRatio).toBe('0.9985');
+  });
 
   it('builds estimated shares and effective share price for a buy quote', () => {
     const result = buildSwapStockReviewDisplay({
