@@ -434,10 +434,10 @@ function AccountSelectorPopoverContent({
       enabledNum={accountsInfo.map((account) => account.num)}
       availableNetworksMap={availableNetworksMap}
     >
-      {/* On phones the popover is a sheet whose header already pads 20pt
-          below the title; skip the top padding so the list doesn't sit 40pt
-          under it. */}
-      <YStack p="$5" $md={{ pt: '$0' }} gap="$2">
+      {/* On native the popover is always a sheet whose header already pads
+          20pt below the title; skip the top padding so the list doesn't sit
+          40pt under it. */}
+      <YStack p="$5" $platform-native={{ pt: '$0' }} gap="$2">
         {accountsInfo.map((account) => (
           <DAppAccountListItem
             key={account.num}

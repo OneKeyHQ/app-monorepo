@@ -68,17 +68,12 @@ interface IMobileBrowserHeaderProps {
   onGoBackHome: () => void;
 }
 
-// Safari-style: the address lives in the bottom bar, so the header only keeps
-// "back to Explore" and the account. It collapses fully while scrolling down.
-// It stays in the layout (the page starts below it) rather than floating:
-// dApps commonly pin a fixed header with their Connect button at the top,
-// which a floating header would cover.
-// Status bar text matching the page color. A <StatusBar> element would lose to
-// pages mounted later (other tabs, lazily mounted screens) since the newest
-// stack entry wins, so push an entry while the browser is focused and
-// re-push whenever the page theme changes.
 const STATUS_BAR_REASSERT_DELAY_MS = 400;
 
+// System bars matching the page color while the browser is focused. Android
+// pins the appearance module's override. iOS pushes a status bar stack entry
+// (a <StatusBar> element would lose to pages mounted later, since the newest
+// entry wins), re-pushed whenever the page theme changes.
 function usePageStatusBarStyle(pageThemeName: 'light' | 'dark' | undefined) {
   const isFocused = useIsFocused();
   useEffect(() => {
@@ -113,6 +108,11 @@ function usePageStatusBarStyle(pageThemeName: 'light' | 'dark' | undefined) {
   }, [isFocused, pageThemeName]);
 }
 
+// Safari-style: the address lives in the bottom bar, so the header only keeps
+// "back to Explore" and the account. It collapses fully while scrolling down.
+// It stays in the layout (the page starts below it) rather than floating:
+// dApps commonly pin a fixed header with their Connect button at the top,
+// which a floating header would cover.
 function MobileBrowserHeader({
   chrome,
   onGoBackHome,
@@ -145,10 +145,9 @@ function MobileBrowserHeader({
   // background when the page reports none), so the chip takes on the page's
   // hue instead of a fixed gray that clashes with colored pages. Light
   // backgrounds need a stronger fill than dark ones to read as clearly.
+  const chromeThemeName = pageThemeName ?? appThemeName;
   const accountChipBg =
-    (pageThemeName ?? appThemeName) === 'dark'
-      ? 'rgba(255,255,255,0.07)'
-      : 'rgba(0,0,0,0.09)';
+    chromeThemeName === 'dark' ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.09)';
   const containerAnimatedStyle = useAnimatedStyle(() => ({
     height: interpolate(
       progress.value,
@@ -159,7 +158,7 @@ function MobileBrowserHeader({
   }));
 
   return (
-    <Theme name={pageThemeName ?? appThemeName}>
+    <Theme name={chromeThemeName}>
       <Stack
         pt={top}
         bg="$bgApp"

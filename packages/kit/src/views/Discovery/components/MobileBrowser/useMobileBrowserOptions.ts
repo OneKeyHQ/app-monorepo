@@ -18,6 +18,16 @@ import type { IntlShape } from 'react-intl';
 
 export const ACTION_LIST_CLOSE_ANIMATION_DELAY_MS = 350;
 
+// For actions that open another sheet or modal (or close the page under the
+// menu): close the menu and wait for its animation first.
+function runAfterMenuClose(action: () => void) {
+  return async (close: () => void) => {
+    close();
+    await timerUtils.wait(ACTION_LIST_CLOSE_ANIMATION_DELAY_MS);
+    action();
+  };
+}
+
 function withMenuLog<TArgs extends unknown[], TResult>(
   action: IBrowserToolbarAction,
   handler: (...args: TArgs) => TResult,
@@ -101,11 +111,7 @@ function buildOptionsSections(
           }),
           icon: isTranslated ? 'TranslateSolid' : 'TranslateOutline',
           // The translate sheet can only open once this menu is gone.
-          onPress: async (close: () => void) => {
-            close();
-            await timerUtils.wait(ACTION_LIST_CLOSE_ANIMATION_DELAY_MS);
-            onTranslatePress();
-          },
+          onPress: runAfterMenuClose(onTranslatePress),
           testID: 'browser-bar-translate',
         },
         platformEnv.isNativeIOSPad
@@ -160,11 +166,7 @@ function buildOptionsSections(
           }),
           icon: 'GlobusOutline',
           // The network selector opens as a modal once this menu is gone.
-          onPress: async (close: () => void) => {
-            close();
-            await timerUtils.wait(ACTION_LIST_CLOSE_ANIMATION_DELAY_MS);
-            onSwitchNetwork();
-          },
+          onPress: runAfterMenuClose(onSwitchNetwork),
           testID: 'action-list-item-switch-network',
         },
         displayDisconnectOption && {
@@ -183,11 +185,7 @@ function buildOptionsSections(
           }),
           icon: 'CrossedLargeOutline',
           destructive: true,
-          onPress: async (close: () => void) => {
-            close();
-            await timerUtils.wait(ACTION_LIST_CLOSE_ANIMATION_DELAY_MS);
-            onCloseTab();
-          },
+          onPress: runAfterMenuClose(onCloseTab),
           testID: DiscoveryTestIDs.tabActionClose,
         },
       ].filter(Boolean) as IActionListItemProps[],

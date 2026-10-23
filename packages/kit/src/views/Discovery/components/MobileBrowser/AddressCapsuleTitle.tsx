@@ -43,14 +43,6 @@ const styles = StyleSheet.create({
   },
 });
 
-// Domain text that is never ellipsized. At 16pt when it fits; when it
-// doesn't, it first shrinks (down to 14pt), and only if it still doesn't fit
-// does the end of the domain (the part that identifies the site) stay visible
-// while the start fades out.
-//
-// `trailingBalance` is room reserved after the text so it centers in the
-// whole capsule rather than beside the leading badge; it gives way first as
-// the text grows, so the badge never pushes a fitting domain into the fade.
 const DOMAIN_FONT_SIZE = 16;
 const DOMAIN_MIN_FONT_SIZE = 14;
 
@@ -77,6 +69,14 @@ function fitDomainText(fullTextWidth: number, availableWidth: number) {
   };
 }
 
+// Domain text that is never ellipsized. At 16pt when it fits; when it
+// doesn't, it first shrinks (down to 14pt), and only if it still doesn't fit
+// does the end of the domain (the part that identifies the site) stay visible
+// while the start fades out.
+//
+// `trailingBalance` is room reserved after the text so it centers in the
+// whole capsule rather than beside the leading badge; it gives way first as
+// the text grows, so the badge never pushes a fitting domain into the fade.
 function DomainLabel({
   text,
   testID,
@@ -125,7 +125,9 @@ function DomainLabel({
   return (
     <View
       style={styles.fill}
-      onLayout={(e) => setAvailableWidth(e.nativeEvent.layout.width)}
+      onLayout={(e) =>
+        setAvailableWidth(Math.round(e.nativeEvent.layout.width))
+      }
     >
       <View style={styles.measure} pointerEvents="none">
         <SizableText

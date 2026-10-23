@@ -20,6 +20,10 @@ function subscribe(listener: () => void) {
   };
 }
 
+// Below this alpha a color counts as translucent: rejected here, and skipped
+// by the page script (e.g. a modal's dimming backdrop).
+const MIN_OPAQUE_ALPHA = 0.95;
+
 // Accept only opaque rgb()/rgba() values (the script normalizes to these), so
 // a page can't feed arbitrary strings into native styles.
 const RGB_PATTERN =
@@ -32,7 +36,7 @@ function parseRgb(color: string) {
   }
   const [r, g, b] = [match[1], match[2], match[3]].map(Number);
   const alpha = match[4] === undefined ? 1 : Number(match[4]);
-  if ([r, g, b].some((v) => v > 255) || !(alpha >= 0.95)) {
+  if ([r, g, b].some((v) => v > 255) || !(alpha >= MIN_OPAQUE_ALPHA)) {
     return undefined;
   }
   return { r, g, b };
@@ -134,7 +138,7 @@ export const PAGE_THEME_COLOR_SCRIPT = `(function () {
     var isOpaque = function (bg) {
       if (!bg || bg === 'transparent') return false;
       var m = /rgba\\([^,]+,[^,]+,[^,]+,\\s*([\\d.]+)\\s*\\)/.exec(bg);
-      return !m || parseFloat(m[1]) >= 0.95;
+      return !m || parseFloat(m[1]) >= ${MIN_OPAQUE_ALPHA};
     };
     var backgroundOf = function (el) {
       while (el && el.nodeType === 1) {
@@ -146,6 +150,7 @@ export const PAGE_THEME_COLOR_SCRIPT = `(function () {
       }
       return '';
     };
+    var lastColor;
     var read = function () {
       var color =
         backgroundOf(document.elementFromPoint(window.innerWidth / 2, 2)) ||
@@ -161,6 +166,8 @@ export const PAGE_THEME_COLOR_SCRIPT = `(function () {
           }
         }
       }
+      if (color === lastColor) return;
+      lastColor = color;
       window.ReactNativeWebView &&
         window.ReactNativeWebView.postMessage(
           JSON.stringify({ type: '${PAGE_THEME_MESSAGE_TYPE}', color: color }),
@@ -171,20 +178,45 @@ export const PAGE_THEME_COLOR_SCRIPT = `(function () {
     setTimeout(read, 800);
     var scheme = window.matchMedia('(prefers-color-scheme: dark)');
     scheme.addEventListener && scheme.addEventListener('change', read);
-    // Debounced: theme toggles touch several attributes at once, and the new
-    // colors may land a frame or a transition later.
+    // Throttled (at most one read per 300ms, trailing): theme toggles touch
+    // several attributes at once and the new colors may land a frame or a
+    // transition later, while pages that mutate constantly still get reads.
     var pending;
     var schedule = function () {
-      clearTimeout(pending);
-      pending = setTimeout(read, 300);
+      if (pending) return;
+      pending = setTimeout(function () {
+        pending = null;
+        read();
+      }, 300);
+    };
+    var isThemeMeta = function (node) {
+      return (
+        node &&
+        node.nodeName === 'META' &&
+        node.getAttribute('name') === 'theme-color'
+      );
     };
     if (window.MutationObserver) {
       var attrs = { attributes: true, attributeFilter: ['class', 'style', 'data-theme', 'data-color-mode', 'data-mode'] };
       var observer = new MutationObserver(schedule);
       observer.observe(document.documentElement, attrs);
       document.body && observer.observe(document.body, attrs);
+      // <head> churns with style/script tags (CSS-in-JS, SPA routing); only
+      // theme-color changes matter there.
       document.head &&
-        observer.observe(document.head, {
+        new MutationObserver(function (mutations) {
+          for (var i = 0; i < mutations.length; i++) {
+            var m = mutations[i];
+            if (isThemeMeta(m.target)) return schedule();
+            var nodes = [].concat(
+              [].slice.call(m.addedNodes),
+              [].slice.call(m.removedNodes),
+            );
+            for (var j = 0; j < nodes.length; j++) {
+              if (isThemeMeta(nodes[j])) return schedule();
+            }
+          }
+        }).observe(document.head, {
           childList: true,
           subtree: true,
           attributes: true,

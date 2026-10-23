@@ -12,12 +12,23 @@ import {
   Stack,
   useMedia,
 } from '@onekeyhq/components';
+import type { IStackProps } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IDApp } from '@onekeyhq/shared/types/discovery';
 
 import type { IMatchDAppItemType } from '../types';
 
 const ICON_SIZE = 56;
+
+// Phones: a tighter icon/label pairing, like a home-screen grid.
+const CARD_FRAME_PROPS = {
+  py: '$2',
+  gap: '$3',
+  '$platform-native': { py: '$1', gap: '$2' },
+  justifyContent: 'center',
+  alignItems: 'center',
+  userSelect: 'none',
+} as const satisfies IStackProps;
 const ICON_RADIUS = 12;
 
 export interface IDiscoveryItemCardProps {
@@ -42,8 +53,8 @@ export function DiscoveryItemCard({
   const { md } = useMedia();
   const maxWordLength = md ? 9 : 16;
   const displayTitle = useMemo(() => {
-    // Native wraps long names on its own (no forced hyphen); the manual
-    // break is only for web, where a long word would overflow instead.
+    // Web only: a long first word gets a manual break, since it would
+    // overflow instead of wrapping. Native fits single words instead (below).
     if (platformEnv.isNative) {
       return title;
     }
@@ -57,7 +68,8 @@ export function DiscoveryItemCard({
     return title;
   }, [title, maxWordLength]);
 
-  const isSingleWord = !title.trim().includes(' ');
+  // Native: a single long word shrinks onto one line rather than breaking.
+  const fitSingleWord = platformEnv.isNative && !title.trim().includes(' ');
 
   const handlePress = useCallback(() => {
     handleOpenWebSite({
@@ -68,15 +80,7 @@ export function DiscoveryItemCard({
 
   if (isLoading) {
     return (
-      <Stack
-        py="$2"
-        gap="$3"
-        // Phones: a tighter icon/label pairing, like a home-screen grid.
-        $platform-native={{ py: '$1', gap: '$2' }}
-        justifyContent="center"
-        alignItems="center"
-        userSelect="none"
-      >
+      <Stack {...CARD_FRAME_PROPS}>
         <Skeleton
           width={ICON_SIZE}
           height={ICON_SIZE}
@@ -98,15 +102,7 @@ export function DiscoveryItemCard({
   // through components other than Button or TouchableOpacity after hidden views are restored.
   return (
     <TouchableOpacity onPress={handlePress} activeOpacity={1}>
-      <Stack
-        py="$2"
-        gap="$3"
-        // Phones: a tighter icon/label pairing, like a home-screen grid.
-        $platform-native={{ py: '$1', gap: '$2' }}
-        justifyContent="center"
-        alignItems="center"
-        userSelect="none"
-      >
+      <Stack {...CARD_FRAME_PROPS}>
         <Stack
           width={ICON_SIZE}
           height={ICON_SIZE}
@@ -139,8 +135,8 @@ export function DiscoveryItemCard({
           w="100%"
           size="$bodySmMedium"
           textAlign="center"
-          numberOfLines={isSingleWord ? 1 : 2}
-          adjustsFontSizeToFit={platformEnv.isNative && isSingleWord}
+          numberOfLines={fitSingleWord ? 1 : 2}
+          adjustsFontSizeToFit={fitSingleWord}
           minimumFontScale={0.8}
         >
           {displayTitle}

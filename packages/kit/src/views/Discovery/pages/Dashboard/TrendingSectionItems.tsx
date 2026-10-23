@@ -57,7 +57,7 @@ export function TrendingSectionItems({
       flexWrap="wrap"
       rowGap="$4"
       py="$2"
-      $platform-native={{ py: '$1', rowGap: '$4' }}
+      $platform-native={{ py: '$1' }}
       {...restProps}
     >
       {innerDataSource.slice(0, numberOfItems).map((dApp, index) => (
