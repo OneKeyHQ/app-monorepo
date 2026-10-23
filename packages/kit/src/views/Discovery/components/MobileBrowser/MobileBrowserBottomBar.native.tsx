@@ -11,7 +11,9 @@ import {
   IconButton,
   SizableText,
   Stack,
+  Theme,
   XStack,
+  useThemeName,
 } from '@onekeyhq/components';
 import { useBrowserTabActions } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -25,6 +27,7 @@ import {
 import { TranslatePopoverTrigger } from '../../hooks/usePageTranslation';
 import { useActiveTabId, useWebTabs } from '../../hooks/useWebTabs';
 import { DiscoveryTestIDs } from '../../testIDs';
+import { isDarkColor, usePageThemeColor } from '../../utils/pageThemeColor';
 
 import { AddressCapsuleTitle } from './AddressCapsuleTitle';
 import { AddressSwipeArea } from './AddressSwipeArea';
@@ -32,6 +35,7 @@ import {
   getBarCapsuleBottom,
   getCollapsedPillBottom,
   getDisplayHostname,
+  isFloatingBrowserChrome,
   useIsChromeCollapsed,
 } from './browserChrome';
 import { BrowserChromeCapsule } from './BrowserChromeCapsule';
@@ -192,6 +196,13 @@ function MobileBrowserBottomBar({
   } = useMobileBrowserBottomBarData({ id, onGoBackHomePage });
 
   const { progress, onExpand, onSearchBarPress } = chrome;
+  // Match the page's light/dark look (glass, icons, text), like Safari.
+  const pageColor = usePageThemeColor(id);
+  const appThemeName = useThemeName();
+  let pageThemeName: 'light' | 'dark' | undefined;
+  if (pageColor) {
+    pageThemeName = isDarkColor(pageColor) ? 'dark' : 'light';
+  }
   const isChromeCollapsed = useIsChromeCollapsed(progress);
   const pillBottom = getCollapsedPillBottom(bottom);
   const capsuleBottom = getBarCapsuleBottom(bottom);
@@ -254,99 +265,112 @@ function MobileBrowserBottomBar({
   return (
     // Fills the container: a fixed full-height box on phones, an animated
     // in-flow height on tablets.
-    <Stack h="100%" zIndex={1} pointerEvents="box-none">
-      <Animated.View
-        pointerEvents={isChromeCollapsed ? 'none' : 'box-none'}
-        style={[styles.bar, { bottom: capsuleBottom }]}
+    <Theme name={pageThemeName ?? appThemeName}>
+      <Stack
+        h="100%"
+        zIndex={1}
+        pointerEvents="box-none"
+        // When the WebView resizes instead of running under the bar (Android,
+        // iOS < 26), the strip behind the bar takes the page color too.
+        style={
+          !isFloatingBrowserChrome && pageColor
+            ? { backgroundColor: pageColor }
+            : undefined
+        }
       >
-        <XStack
-          h={BROWSER_CHROME_CAPSULE_HEIGHT}
-          px={BROWSER_CHROME_SIDE_PADDING}
-          gap="$2"
-          alignItems="center"
+        <Animated.View
+          pointerEvents={isChromeCollapsed ? 'none' : 'box-none'}
+          style={[styles.bar, { bottom: capsuleBottom }]}
         >
-          <Animated.View style={leftStyle}>
-            <BrowserChromeCapsule>
-              <ChromePressable
-                onPress={() => {
-                  logToolbarAction('back');
-                  handleGoBack();
-                }}
-                disabled={disabledGoBack}
-              >
-                <IconButton
-                  variant="tertiary"
-                  icon="ChevronLeftOutline"
+          <XStack
+            h={BROWSER_CHROME_CAPSULE_HEIGHT}
+            px={BROWSER_CHROME_SIDE_PADDING}
+            gap="$2"
+            alignItems="center"
+          >
+            <Animated.View style={leftStyle}>
+              <BrowserChromeCapsule>
+                <ChromePressable
+                  onPress={() => {
+                    logToolbarAction('back');
+                    handleGoBack();
+                  }}
                   disabled={disabledGoBack}
-                  accessible={!disabledGoBack}
-                  testID={DiscoveryTestIDs.browserBackButton}
-                />
-              </ChromePressable>
-            </BrowserChromeCapsule>
-          </Animated.View>
-          {/* Same edge inset as the round buttons, so icons line up. */}
-          <Animated.View style={[styles.capsule, capsuleStyle]}>
-            <BrowserChromeCapsule flex={1}>
-              <ChromePressable
-                onPress={() => {
-                  logToolbarAction('menu');
-                  showOptions();
-                }}
-                disabled={displayHomePage}
-              >
-                <IconButton
-                  variant="tertiary"
-                  icon="MenuOutline"
+                >
+                  <IconButton
+                    variant="tertiary"
+                    icon="ChevronLeftOutline"
+                    disabled={disabledGoBack}
+                    accessible={!disabledGoBack}
+                    testID={DiscoveryTestIDs.browserBackButton}
+                  />
+                </ChromePressable>
+              </BrowserChromeCapsule>
+            </Animated.View>
+            {/* Same edge inset as the round buttons, so icons line up. */}
+            <Animated.View style={[styles.capsule, capsuleStyle]}>
+              <BrowserChromeCapsule flex={1}>
+                <ChromePressable
+                  onPress={() => {
+                    logToolbarAction('menu');
+                    showOptions();
+                  }}
                   disabled={displayHomePage}
-                  testID="browser-bar-options"
+                >
+                  <IconButton
+                    variant="tertiary"
+                    icon="MenuOutline"
+                    disabled={displayHomePage}
+                    testID="browser-bar-options"
+                  />
+                </ChromePressable>
+                <TranslatePopoverTrigger
+                  isTranslated={isTranslated}
+                  onTranslate={handleTranslate}
+                  onRetranslate={handleRetranslate}
+                  onTestAITranslateError={handleTranslateTestAIError}
+                  open={translateOpen}
+                  onOpenChange={setTranslateOpen}
+                  trigger={translatePopoverAnchor}
                 />
-              </ChromePressable>
-              <TranslatePopoverTrigger
-                isTranslated={isTranslated}
-                onTranslate={handleTranslate}
-                onRetranslate={handleRetranslate}
-                onTestAITranslateError={handleTranslateTestAIError}
-                open={translateOpen}
-                onOpenChange={setTranslateOpen}
-                trigger={translatePopoverAnchor}
-              />
-              <AddressSwipeArea onSwipe={handleSwipeTab}>
-                <AddressCapsuleTitle
-                  url={currentUrl}
-                  onPress={handleAddressPress}
+                <AddressSwipeArea onSwipe={handleSwipeTab}>
+                  <AddressCapsuleTitle
+                    url={currentUrl}
+                    onPress={handleAddressPress}
+                  />
+                </AddressSwipeArea>
+                <RefreshButton
+                  onRefresh={() => {
+                    logToolbarAction('refresh');
+                    handleRefresh();
+                  }}
                 />
-              </AddressSwipeArea>
-              <RefreshButton
-                onRefresh={() => {
-                  logToolbarAction('refresh');
-                  handleRefresh();
-                }}
-              />
-            </BrowserChromeCapsule>
-          </Animated.View>
-          <Animated.View style={rightStyle}>
-            <BrowserChromeCapsule>
-              <TabCountButton
-                testID={DiscoveryTestIDs.tabListButton}
-                onPressed={() => logToolbarAction('tabs')}
-              />
-            </BrowserChromeCapsule>
-          </Animated.View>
-        </XStack>
-      </Animated.View>
-      <Animated.View
-        pointerEvents={isChromeCollapsed ? 'box-none' : 'none'}
-        style={[styles.pillRow, { bottom: pillBottom }, pillStyle]}
-      >
-        <CollapsedAddressPill
-          url={currentUrl}
-          onPress={() => {
-            logToolbarAction('expand');
-            onExpand();
-          }}
-        />
-      </Animated.View>
-    </Stack>
+              </BrowserChromeCapsule>
+            </Animated.View>
+            <Animated.View style={rightStyle}>
+              <BrowserChromeCapsule>
+                <TabCountButton
+                  testID={DiscoveryTestIDs.tabListButton}
+                  onPressed={() => logToolbarAction('tabs')}
+                />
+              </BrowserChromeCapsule>
+            </Animated.View>
+          </XStack>
+        </Animated.View>
+        <Animated.View
+          pointerEvents={isChromeCollapsed ? 'box-none' : 'none'}
+          style={[styles.pillRow, { bottom: pillBottom }, pillStyle]}
+        >
+          <CollapsedAddressPill
+            url={currentUrl}
+            onPress={() => {
+              logToolbarAction('expand');
+              onExpand();
+            }}
+          />
+        </Animated.View>
+      </Stack>
+    </Theme>
   );
 }
 

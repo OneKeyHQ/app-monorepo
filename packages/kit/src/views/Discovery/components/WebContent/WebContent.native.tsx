@@ -24,6 +24,11 @@ import {
   isBitrefillEmbedUrl,
 } from '../../utils/bitrefillUtils';
 import { webviewRefs } from '../../utils/explorerUtils';
+import {
+  PAGE_THEME_COLOR_SCRIPT,
+  setPageThemeColor,
+  tryDispatchPageThemeMessage,
+} from '../../utils/pageThemeColor';
 import { showTabBar } from '../../utils/tabBarUtils';
 import BlockAccessView from '../BlockAccessView';
 
@@ -92,12 +97,34 @@ function WebContent({
     }
   };
 
+  // Ask the page for its color (once per URL) so the browser chrome can tint
+  // itself to match, like Safari.
+  const lastThemeUrlRef = useRef('');
+  const requestPageThemeColor = useCallback(
+    (pageUrl: string) => {
+      if (!pageUrl || pageUrl === lastThemeUrlRef.current) {
+        return;
+      }
+      lastThemeUrlRef.current = pageUrl;
+      try {
+        (
+          webviewRefs[id]?.innerRef as ReactNativeWebview | undefined
+        )?.injectJavaScript?.(PAGE_THEME_COLOR_SCRIPT);
+      } catch {
+        // best-effort injection
+      }
+    },
+    [id],
+  );
+
   const onLoadEnd = ({ nativeEvent }: WebViewNavigationEvent) => {
     if (nativeEvent.loading) {
       return;
     }
     notifyTabNavigationEnd(id);
     changeNavigationInfo({ ...nativeEvent });
+    lastThemeUrlRef.current = '';
+    requestPageThemeColor(nativeEvent.url);
     // Inject Bitrefill bridge for raw postMessage → JSBridge forwarding.
     if (isBitrefillEmbedUrl(nativeEvent.url)) {
       const webview = webviewRefs[id]?.innerRef as
@@ -137,8 +164,12 @@ function WebContent({
         loading,
         id,
       });
+      // In-page (SPA) navigations don't fire onLoadEnd.
+      if (!loading) {
+        requestPageThemeColor(navUrl);
+      }
     },
-    [id, onNavigation],
+    [id, onNavigation, requestPageThemeColor],
   );
 
   const onShouldStartLoadWithRequest = useCallback(
@@ -170,6 +201,9 @@ function WebContent({
 
   const handleMessage = useCallback(
     (event: WebViewMessageEvent) => {
+      if (tryDispatchPageThemeMessage(id, event.nativeEvent.data)) {
+        return;
+      }
       tryDispatchTranslateMessage(id, event.nativeEvent.data);
     },
     [id],
@@ -193,6 +227,7 @@ function WebContent({
       if (id !== homeTab.id) {
         delete webviewRefs[id];
       }
+      setPageThemeColor(id, undefined);
     },
     [id],
   );

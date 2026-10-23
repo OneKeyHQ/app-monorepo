@@ -20,10 +20,12 @@ import type { SharedValue } from 'react-native-reanimated';
 const BAR_TOP_GAP = 8;
 
 // Safari-style chrome on both platforms: the address lives in the bottom bar
-// and a compact address pill stays visible while collapsed. Only iOS lets the
-// bar float over the page: WKWebView's contentInset keeps scrollable content
-// reachable above it, which Android WebView has no equivalent for.
-export const isFloatingBrowserChrome = platformEnv.isNativeIOS;
+// and a compact address pill stays visible while collapsed. Only iOS 26+ lets
+// the bar float over the page: the WebView's contentInset keeps scrollable
+// content reachable above it, and obscuredContentInsets (patched into
+// react-native-webview) keeps the page's fixed elements, like bottom sheets,
+// above it as in Safari. Older iOS and Android resize the WebView instead.
+export const isFloatingBrowserChrome = !!platformEnv.isNativeIOS26Plus;
 
 // Scroll-driven chrome state shared by the header and the bottom bar.
 // `progress`: 1 = expanded, 0 = collapsed.

@@ -133,7 +133,7 @@ index 07f73fd..f808b15 100644
                  if (mAllowsProtectedMedia) {
                    grantedPermissions.add(requestedResource);
 diff --git a/node_modules/react-native-webview/android/src/main/java/com/reactnativecommunity/webview/RNCWebView.java b/node_modules/react-native-webview/android/src/main/java/com/reactnativecommunity/webview/RNCWebView.java
-index 80c6803..911a0b9 100644
+index 80c6803..57fa013 100644
 --- a/node_modules/react-native-webview/android/src/main/java/com/reactnativecommunity/webview/RNCWebView.java
 +++ b/node_modules/react-native-webview/android/src/main/java/com/reactnativecommunity/webview/RNCWebView.java
 @@ -78,6 +78,21 @@ public class RNCWebView extends WebView implements LifecycleEventListener {
@@ -435,7 +435,7 @@ diff --git a/node_modules/react-native-webview/apple/RNCWebView.mm b/node_module
 index c0816b6..3a32f01 100644
 --- a/node_modules/react-native-webview/apple/RNCWebView.mm
 +++ b/node_modules/react-native-webview/apple/RNCWebView.mm
-@@ -65,6 +65,7 @@ @interface RNCWebView () <RCTRNCWebViewViewProtocol>
+@@ -65,6 +65,7 @@ static inline std::string nullSafeStringWithLength(id value) {
  
  @implementation RNCWebView {
      RNCWebViewImpl * _view;
@@ -443,7 +443,7 @@ index c0816b6..3a32f01 100644
  }
  
  + (ComponentDescriptorProvider)componentDescriptorProvider
-@@ -76,6 +77,7 @@ + (ComponentDescriptorProvider)componentDescriptorProvider
+@@ -76,6 +77,7 @@ static inline std::string nullSafeStringWithLength(id value) {
  // Reproduce the idea from here: https://github.com/facebook/react-native/blob/8bd3edec88148d0ab1f225d2119435681fbbba33/React/Fabric/Mounting/ComponentViews/InputAccessory/RCTInputAccessoryComponentView.mm#L142
  - (void)prepareForRecycle {
      [super prepareForRecycle];
@@ -451,7 +451,7 @@ index c0816b6..3a32f01 100644
      [_view destroyWebView];
  }
  #endif // !TARGET_OS_OSX
-@@ -512,7 +514,11 @@ - (void)updateProps:(Props::Shared const &)props oldProps:(Props::Shared const &
+@@ -512,7 +514,11 @@ static inline std::string nullSafeStringWithLength(id value) {
      if (!newViewProps.newSource.method.empty()) {
          [source setValue:RCTNSStringFromString(newViewProps.newSource.method) forKey:@"method"];
      }
@@ -464,7 +464,7 @@ index c0816b6..3a32f01 100644
  
      [super updateProps:props oldProps:oldProps];
  }
-@@ -540,7 +546,7 @@ - (void)injectJavaScript:(nonnull NSString *)javascript {
+@@ -540,7 +546,7 @@ Class<RCTComponentViewProtocol> RNCWebViewCls(void)
  }
  
  - (void)loadUrl:(nonnull NSString *)url {
@@ -486,10 +486,10 @@ index 1f6bbfd..e4c9cd7 100644
  #if !TARGET_OS_OSX
  @property (nonatomic, assign) WKDataDetectorTypes dataDetectorTypes;
 diff --git a/node_modules/react-native-webview/apple/RNCWebViewImpl.m b/node_modules/react-native-webview/apple/RNCWebViewImpl.m
-index 7f5c24d..10d922d 100644
+index 7f5c24d..8ed079f 100644
 --- a/node_modules/react-native-webview/apple/RNCWebViewImpl.m
 +++ b/node_modules/react-native-webview/apple/RNCWebViewImpl.m
-@@ -23,6 +23,61 @@
+@@ -23,6 +23,61 @@ static NSString *const MessageHandlerName = @"ReactNativeWebView";
  static NSURLCredential* clientAuthenticationCredential;
  static NSDictionary* customCertificatesForHost;
  
@@ -551,7 +551,7 @@ index 7f5c24d..10d922d 100644
  NSString *const CUSTOM_SELECTOR = @"_CUSTOM_SELECTOR_";
  
  #if TARGET_OS_IOS
-@@ -126,6 +181,7 @@ @interface RNCWebViewImpl () <WKUIDelegate, WKNavigationDelegate, WKScriptMessag
+@@ -126,6 +181,7 @@ RCTAutoInsetsProtocol>
  @property (nonatomic, strong) WKUserScript *injectedObjectJsonScript;
  @property (nonatomic, strong) WKUserScript *atStartScript;
  @property (nonatomic, strong) WKUserScript *atEndScript;
@@ -559,7 +559,33 @@ index 7f5c24d..10d922d 100644
  @end
  
  @implementation RNCWebViewImpl
-@@ -874,7 +930,7 @@ - (void)visitSource
+@@ -820,9 +876,25 @@ RCTAutoInsetsProtocol>
+   [RCTView autoAdjustInsetsForView:self
+                     withScrollView:_webView.scrollView
+                       updateOffset:NO];
++  [self applyObscuredContentInsets];
+ #endif // !TARGET_OS_OSX
+ }
+ 
++// OneKey patch: tell WebKit (iOS 26+) which edges are covered by app chrome
++// floating over the web view, like Safari's toolbar. Pages then keep their
++// fixed/sticky elements (e.g. bottom sheets) inside the unobscured area,
++// while scrolling content still passes under the chrome. Mirrors contentInset.
++- (void)applyObscuredContentInsets
++{
++#if !TARGET_OS_OSX && defined(__IPHONE_26_0) && __IPHONE_OS_VERSION_MAX_ALLOWED >= __IPHONE_26_0
++  if (@available(iOS 26.0, *)) {
++    if (_webView != nil) {
++      _webView.obscuredContentInsets = _contentInset;
++    }
++  }
++#endif
++}
++
+ - (void)refreshContentInset
+ {
+ #if !TARGET_OS_OSX
+@@ -874,7 +946,7 @@ RCTAutoInsetsProtocol>
        [webView loadHTMLString:@"" baseURL:nil];
        return;
      }
@@ -568,7 +594,15 @@ index 7f5c24d..10d922d 100644
        [webView loadRequest:request];
      }
      else {
-@@ -1149,6 +1205,11 @@ + (void)setCustomCertificatesForHost:(nullable NSDictionary*)certificates {
+@@ -1126,6 +1198,7 @@ RCTAutoInsetsProtocol>
+   _webView.frame = self.bounds;
+ #if !TARGET_OS_OSX
+   _webView.scrollView.contentInset = _contentInset;
++  [self applyObscuredContentInsets];
+ #endif // !TARGET_OS_OSX
+ }
+ 
+@@ -1149,6 +1222,11 @@ RCTAutoInsetsProtocol>
    customCertificatesForHost = certificates;
  }
  
@@ -580,7 +614,7 @@ index 7f5c24d..10d922d 100644
  - (void)                    webView:(WKWebView *)webView
    didReceiveAuthenticationChallenge:(NSURLAuthenticationChallenge *)challenge
                    completionHandler:(void (^)(NSURLSessionAuthChallengeDisposition disposition, NSURLCredential * _Nullable))completionHandler
-@@ -1245,44 +1306,8 @@ - (void)webView:(WKWebView *)webView runJavaScriptConfirmPanelWithMessage:(NSStr
+@@ -1245,44 +1323,8 @@ RCTAutoInsetsProtocol>
   * prompt
   */
  - (void)webView:(WKWebView *)webView runJavaScriptTextInputPanelWithPrompt:(NSString *)prompt defaultText:(NSString *)defaultText initiatedByFrame:(WKFrameInfo *)frame completionHandler:(void (^)(NSString *))completionHandler{
@@ -626,7 +660,7 @@ index 7f5c24d..10d922d 100644
  }
  
  #if defined(__IPHONE_OS_VERSION_MAX_ALLOWED) && __IPHONE_OS_VERSION_MAX_ALLOWED >= 150000 /* iOS 15 */
-@@ -1294,6 +1319,12 @@ - (void)                         webView:(WKWebView *)webView
+@@ -1294,6 +1336,12 @@ RCTAutoInsetsProtocol>
                          initiatedByFrame:(WKFrameInfo *)frame
                                      type:(WKMediaCaptureType)type
                           decisionHandler:(void (^)(WKPermissionDecision decision))decisionHandler {
@@ -643,7 +677,7 @@ diff --git a/node_modules/react-native-webview/apple/RNCWebViewManager.mm b/node
 index f8f375f..a83678d 100644
 --- a/node_modules/react-native-webview/apple/RNCWebViewManager.mm
 +++ b/node_modules/react-native-webview/apple/RNCWebViewManager.mm
-@@ -102,6 +102,9 @@ - (RNCView *)view
+@@ -102,6 +102,9 @@ RCT_EXPORT_VIEW_PROPERTY(textInteractionEnabled, BOOL)
  #if defined(__IPHONE_OS_VERSION_MAX_ALLOWED) && __IPHONE_OS_VERSION_MAX_ALLOWED >= 150000 /* iOS 15 */
  RCT_EXPORT_VIEW_PROPERTY(mediaCapturePermissionGrantType, RNCWebViewPermissionGrantType)
  #endif
@@ -653,7 +687,7 @@ index f8f375f..a83678d 100644
  
  #if defined(__IPHONE_OS_VERSION_MAX_ALLOWED) && __IPHONE_OS_VERSION_MAX_ALLOWED >= 130000 /* iOS 13 */
  RCT_EXPORT_VIEW_PROPERTY(fraudulentWebsiteWarningEnabled, BOOL)
-@@ -206,6 +209,19 @@ - (RNCView *)view
+@@ -206,6 +209,19 @@ RCT_EXPORT_METHOD(name:(nonnull NSNumber *)reactTag in_param)
    }];                                                                                                                                   \
  }
  
