@@ -360,6 +360,16 @@ function PrimeLoginEmailDialogV2(props: IPrimeLoginEmailDialogV2Props) {
                   id: ETranslations.email__label,
                 })}
                 name="email"
+                description={
+                  <Form.FieldDescription
+                    size="$bodySm"
+                    testID="prime-login-email-existing-only-hint"
+                  >
+                    {intl.formatMessage({
+                      id: ETranslations.onekey_id_email_existing_only__desc,
+                    })}
+                  </Form.FieldDescription>
+                }
                 rules={{
                   validate: (value) => {
                     if (!value) {
