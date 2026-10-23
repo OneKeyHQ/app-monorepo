@@ -15,5 +15,3 @@ export const BROWSER_CHROME_SIDE_PADDING = 16;
 // The expanded chrome fades out in the first half of a collapse and the
 // collapsed address pill fades in during the second half.
 export const BROWSER_CHROME_CROSSFADE_POINT = 0.5;
-// Horizontal swipe on the address capsule that switches tabs.
-export const BROWSER_ADDRESS_SWIPE_DISTANCE = 56;

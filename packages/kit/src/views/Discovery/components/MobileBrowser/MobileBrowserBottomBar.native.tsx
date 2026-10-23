@@ -7,7 +7,6 @@ import Animated, {
 } from 'react-native-reanimated';
 
 import {
-  Haptics,
   IconButton,
   SizableText,
   Stack,
@@ -15,7 +14,6 @@ import {
   XStack,
   useThemeName,
 } from '@onekeyhq/components';
-import { useBrowserTabActions } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
 
 import {
   BROWSER_CHROME_CAPSULE_HEIGHT,
@@ -23,12 +21,10 @@ import {
   BROWSER_COLLAPSED_PILL_HEIGHT,
 } from '../../config/Animation.constants';
 import { TranslatePopoverTrigger } from '../../hooks/usePageTranslation';
-import { useActiveTabId, useWebTabs } from '../../hooks/useWebTabs';
 import { DiscoveryTestIDs } from '../../testIDs';
 import { usePageTheme } from '../../utils/pageThemeColor';
 
 import { AddressCapsuleTitle } from './AddressCapsuleTitle';
-import { AddressSwipeArea } from './AddressSwipeArea';
 import {
   getBarCapsuleBottom,
   getCollapsedPillBottom,
@@ -155,9 +151,9 @@ function CollapsedAddressPill({
 }
 
 // Safari-style bar: [back] [menu · address · reload] [tabs]. Forward,
-// translate, bookmark etc. live in the menu; swiping the address switches
-// tabs. While scrolling down the bar fades out and a small address pill stays
-// above the home indicator. iOS 26 renders the capsules as Liquid Glass.
+// translate, bookmark etc. live in the menu. While scrolling down the bar
+// fades out and a small address pill stays above the home indicator. iOS 26
+// renders the capsules as Liquid Glass.
 function MobileBrowserBottomBar({
   id,
   onGoBackHomePage,
@@ -232,22 +228,6 @@ function MobileBrowserBottomBar({
     onSearchBarPress(currentUrl ?? '');
   }, [onSearchBarPress, currentUrl]);
 
-  const { tabs } = useWebTabs();
-  const { activeTabId } = useActiveTabId();
-  const { setCurrentWebTab } = useBrowserTabActions().current;
-  const handleSwipeTab = useCallback(
-    (direction: 1 | -1) => {
-      const index = tabs.findIndex((t) => t.id === activeTabId);
-      const target = index < 0 ? undefined : tabs[index + direction];
-      if (target) {
-        logBrowserChromeAction('swipeTab', 'toolbar');
-        Haptics.selection();
-        setCurrentWebTab(target.id);
-      }
-    },
-    [tabs, activeTabId, setCurrentWebTab],
-  );
-
   return (
     // Fills the container: a fixed full-height box on phones, an animated
     // in-flow height on tablets.
@@ -319,12 +299,10 @@ function MobileBrowserBottomBar({
                   onOpenChange={setTranslateOpen}
                   trigger={translatePopoverAnchor}
                 />
-                <AddressSwipeArea onSwipe={handleSwipeTab}>
-                  <AddressCapsuleTitle
-                    url={currentUrl}
-                    onPress={handleAddressPress}
-                  />
-                </AddressSwipeArea>
+                <AddressCapsuleTitle
+                  url={currentUrl}
+                  onPress={handleAddressPress}
+                />
                 <RefreshButton
                   onRefresh={() => {
                     logBrowserChromeAction('refresh', 'toolbar');

@@ -11,7 +11,6 @@ export type IBrowserToolbarAction =
   | 'menu'
   | 'address'
   | 'siteInfo'
-  | 'swipeTab'
   | 'expand'
   | 'minimize'
   | 'account'
