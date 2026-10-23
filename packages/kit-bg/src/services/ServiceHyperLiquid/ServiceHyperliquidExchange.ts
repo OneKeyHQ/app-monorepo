@@ -13,6 +13,7 @@ import {
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import {
+  DEFAULT_PERPS_SLIPPAGE,
   DISABLE_PERPS_WALLET_BIND,
   type EHyperLiquidAgentName,
   PERPS_EMPTY_ADDRESS,
@@ -212,7 +213,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
     | undefined = undefined;
 
   // TODO: Apply to all trades and allow user configuration
-  public slippage = 0.08;
+  public slippage = DEFAULT_PERPS_SLIPPAGE;
 
   private get exchangeClient(): ExchangeClient {
     if (!this._account || !this._exchangeClient) {

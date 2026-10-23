@@ -1179,6 +1179,9 @@ export type IPerpsLastAdvancedOrderType = ETriggerOrderType | 'scale' | 'twap';
 export type IPerpsChartPosition = 'top' | 'bottom' | 'hidden';
 
 export interface IPerpsCustomSettings {
+  positionActionVisibility?: Partial<
+    Record<'add' | 'tpsl' | 'close' | 'reverse', boolean>
+  >;
   skipOrderConfirm: boolean;
   showTradeMarks: boolean;
   showChartLines: boolean;

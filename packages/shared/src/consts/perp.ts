@@ -10,6 +10,7 @@ export const WEBVIEW_PERP_TRADE_INITIAL_WAIT_MS = 2000;
 export const WEBVIEW_PERP_TRADE_REQUEST_TTL_MS = 60_000;
 
 export const PERPS_ROUTE_PATH = '/perps';
+export const DEFAULT_PERPS_SLIPPAGE = 0.08;
 export const PERP_USER_FUNDING_HISTORY_LIMIT = 2000;
 export const HYPERLIQUID_AGENT_CREDENTIAL_PREFIX = 'hyperliquid-agent';
 export const HYPERLIQUID_REFERRAL_CODE = '1KREF';
