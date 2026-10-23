@@ -243,6 +243,24 @@ function MarketDetailWatchlistSidebarImpl({
   const [sort, setSort] = useState<ISidebarSort | undefined>();
   const { stockId, assetId } = useMarketDetailWatchlistIdentity();
   const { networkId, tokenAddress } = useTokenDetail();
+  // The floating overlay closes once the page shows another asset. A sidebar
+  // row closes it before navigating, but the search modal navigates on its
+  // own, so follow the detail identity instead; a star alone changes nothing
+  // here, so the modal and the overlay stay open while favorites are edited.
+  const detailIdentityKey = [
+    stockId ?? '',
+    assetId ?? '',
+    networkId ?? '',
+    (tokenAddress ?? '').toLowerCase(),
+  ].join('|');
+  const detailIdentityKeyRef = useRef(detailIdentityKey);
+  useEffect(() => {
+    if (detailIdentityKeyRef.current === detailIdentityKey) {
+      return;
+    }
+    detailIdentityKeyRef.current = detailIdentityKey;
+    onNavigate?.();
+  }, [detailIdentityKey, onNavigate]);
 
   const [{ data: watchListData, isMounted }] = useMarketWatchListV2Atom();
   const watchListActions = useWatchListV2Actions();

@@ -119,8 +119,9 @@ export function useDetailSelectorBrowseState({
   const intl = useIntl();
   const [{ data: watchlist, isMounted: isWatchlistMounted }] =
     useMarketWatchListV2Atom();
-  const isWatchlistEmpty =
-    isWatchlistMounted && !watchlist?.some((item) => !item.perpsCoin);
+  // Perps are favorites too, with their own category, so only a watchlist
+  // with nothing stored reads as empty.
+  const isWatchlistEmpty = isWatchlistMounted && !watchlist?.length;
   const [browseTab, setBrowseTab] = useState<IDetailSelectorBrowseTab>(() =>
     getInitialDetailSelectorBrowseTab({
       defaultCategory,
