@@ -10,6 +10,8 @@ import { MobileSimpleChartFrame } from '@onekeyhq/kit/src/views/Market/MarketDet
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IMarketTokenChart } from '@onekeyhq/shared/types/market';
 
+import { getSimpleChartDisplayPerformance } from '../../utils/simpleChart';
+
 import { SimpleMarketChart } from './SimpleMarketChart';
 import { SimpleMarketHeader } from './SimpleMarketHeader';
 
@@ -253,11 +255,17 @@ beforeEach(() => {
 function PriceHeader({
   coin = 'BTC',
   active = true,
+  dayPerformance = {},
 }: {
   coin?: string;
   active?: boolean;
+  dayPerformance?: { change?: string; changePercent?: number };
 }) {
   const [price, setPrice] = useState<ISimpleMarketChartPrice>();
+  const performance = getSimpleChartDisplayPerformance(price, dayPerformance);
+  const changeKnown =
+    performance.changePercent !== undefined &&
+    Number.isFinite(performance.changePercent);
   return (
     <>
       <output data-testid="price-header">
@@ -268,8 +276,8 @@ function PriceHeader({
           coin={coin}
           width={200}
           price="120"
-          changeLabel={price?.changePercent ?? '--'}
-          changeLoading={price?.isLoading}
+          changeLabel={changeKnown ? String(performance.changePercent) : '--'}
+          changeLoading={!changeKnown && price?.isLoading}
           changeColor="$textSubdued"
         />
       </div>
@@ -298,7 +306,7 @@ it.each([
     };
     const { getByTestId } = render(<PriceHeader />);
     expect(getByTestId('price-header').textContent).toBe(
-      '{"coin":"BTC","price":120,"changePercent":"20"}',
+      '{"coin":"BTC","range":"1D","price":120,"change":"20","changePercent":20}',
     );
     expect(mockChartProps.showPriceScale).toBe(false);
     expect(mockChartProps.showLastValue).toBe(false);
@@ -312,29 +320,29 @@ it.each([
     if (!platform.isNative) {
       fireEvent.click(getByTestId('scrub-price'));
       expect(getByTestId('price-header').textContent).toBe(
-        '{"coin":"BTC","price":120,"changePercent":"20"}',
+        '{"coin":"BTC","range":"1D","price":120,"change":"20","changePercent":20}',
       );
     }
     fireEvent.pointerDown(chart);
     fireEvent.click(getByTestId('scrub-price'));
     expect(getByTestId('price-header').textContent).toBe(
-      '{"coin":"BTC","price":110,"changePercent":"10"}',
+      '{"coin":"BTC","range":"1D","price":110,"change":"10","changePercent":10}',
     );
     fireEvent.touchEnd(chart);
     expect(getByTestId('price-header').textContent).toBe(
-      '{"coin":"BTC","price":120,"changePercent":"20"}',
+      '{"coin":"BTC","range":"1D","price":120,"change":"20","changePercent":20}',
     );
     fireEvent.pointerDown(chart);
     fireEvent.click(getByTestId('scrub-price'));
     fireEvent.touchCancel(chart);
     expect(getByTestId('price-header').textContent).toBe(
-      '{"coin":"BTC","price":120,"changePercent":"20"}',
+      '{"coin":"BTC","range":"1D","price":120,"change":"20","changePercent":20}',
     );
     fireEvent.pointerDown(chart);
     fireEvent.click(getByTestId('scrub-price'));
     fireEvent.pointerUp(chart);
     expect(getByTestId('price-header').textContent).toBe(
-      '{"coin":"BTC","price":120,"changePercent":"20"}',
+      '{"coin":"BTC","range":"1D","price":120,"change":"20","changePercent":20}',
     );
     fireEvent.click(getByTestId('perps-simple-chart-mode-toggle'));
     expect(getByTestId('price-header').textContent).toBe('live');
@@ -367,7 +375,7 @@ it('discards a selected point when the range, coin, or focus changes', () => {
   };
   fireEvent.click(getByTestId('perps-simple-market-chart-range-1H'));
   expect(getByTestId('price-header').textContent).toBe(
-    '{"coin":"BTC","price":121,"changePercent":"10"}',
+    '{"coin":"BTC","range":"1H","price":121,"change":"11","changePercent":10}',
   );
   fireEvent.pointerDown(getByTestId('perps-simple-price-line-chart'));
   fireEvent.click(getByTestId('scrub-price'));
@@ -375,13 +383,13 @@ it('discards a selected point when the range, coin, or focus changes', () => {
   expect(getByTestId('price-header').textContent).toBe('live');
   rerender(<PriceHeader />);
   expect(getByTestId('price-header').textContent).toBe(
-    '{"coin":"BTC","price":121,"changePercent":"10"}',
+    '{"coin":"BTC","range":"1H","price":121,"change":"11","changePercent":10}',
   );
   fireEvent.pointerDown(getByTestId('perps-simple-price-line-chart'));
   fireEvent.click(getByTestId('scrub-price'));
   rerender(<PriceHeader coin="ETH" />);
   expect(getByTestId('price-header').textContent).toBe(
-    '{"coin":"ETH","isLoading":true}',
+    '{"coin":"ETH","range":"1H","isLoading":true}',
   );
   rerender(<PriceHeader coin="ETH" active={false} />);
   expect(getByTestId('price-header').textContent).toBe('live');
@@ -424,7 +432,7 @@ it('shows a change skeleton only while unavailable history is loading', () => {
   rerender(<PriceHeader />);
   expect(header().querySelector('[data-testid="loading-skeleton"]')).toBeNull();
   expect(getByTestId('price-header').textContent).toBe(
-    '{"coin":"BTC","price":120,"changePercent":"20"}',
+    '{"coin":"BTC","range":"1D","price":120,"change":"20","changePercent":20}',
   );
 });
 
@@ -453,15 +461,15 @@ it('retains a held historical point during live updates and releases to the new 
   };
   rerender(<PriceHeader />);
   expect(getByTestId('price-header').textContent).toBe(
-    '{"coin":"BTC","price":110,"changePercent":"10"}',
+    '{"coin":"BTC","range":"1D","price":110,"change":"10","changePercent":10}',
   );
   fireEvent.pointerCancel(chart);
   expect(getByTestId('price-header').textContent).toBe(
-    '{"coin":"BTC","price":125,"changePercent":"25"}',
+    '{"coin":"BTC","range":"1D","price":125,"change":"25","changePercent":25}',
   );
   fireEvent.click(getByTestId('scrub-price'));
   expect(getByTestId('price-header').textContent).toBe(
-    '{"coin":"BTC","price":125,"changePercent":"25"}',
+    '{"coin":"BTC","range":"1D","price":125,"change":"25","changePercent":25}',
   );
 });
 
@@ -524,4 +532,26 @@ it('preserves the extracted frame height and range selection', () => {
   );
   fireEvent.click(getByTestId('chart-frame-range-1H'));
   expect(onRangeChange).toHaveBeenCalledWith('1H');
+});
+
+it('keeps available 1D performance visible during loading but shows the skeleton for another range', () => {
+  const dayPerformance = { change: '-10', changePercent: -5 };
+  const { getByTestId, rerender } = render(
+    <PriceHeader dayPerformance={dayPerformance} />,
+  );
+  const header = () => getByTestId('market-header');
+  expect(header().querySelector('[data-testid="loading-skeleton"]')).toBeNull();
+  expect(header().textContent).toContain('-5');
+  mockSeries = { coin: 'BTC', range: '1D', error: true };
+  rerender(<PriceHeader dayPerformance={dayPerformance} />);
+  expect(header().textContent).toContain('-5');
+  fireEvent.click(getByTestId('perps-simple-market-chart-range-1H'));
+  expect(
+    header().querySelector('[data-testid="loading-skeleton"]'),
+  ).not.toBeNull();
+  mockSeries = { coin: 'BTC', range: '1H', error: true };
+  rerender(<PriceHeader dayPerformance={dayPerformance} />);
+  expect(header().querySelector('[data-testid="loading-skeleton"]')).toBeNull();
+  expect(header().textContent).toContain('--');
+  expect(header().textContent).not.toContain('-5');
 });
