@@ -116,6 +116,12 @@ export function SingleAccountAndNetworkSelectorTrigger({
   );
 }
 
+// A small AccountAvatar's network badge hangs 4pt past its bottom-right
+// corner. In the compact header chip, lift the avatar by half of that so the
+// avatar plus badge is vertically centered (not bottom-heavy), and keep the
+// overhang's room on the right so the badge doesn't crowd what follows.
+const BADGED_AVATAR_BALANCE = { y: -2, mr: 4 } as const;
+
 // The connected account in the mobile browser header chip: avatar, name and
 // chevron, the same shape as the not-connected chip. The network badge on the
 // avatar is what marks the site as connected (a connection is always on a
@@ -147,12 +153,14 @@ function CompactConnectedAccountTrigger({ num }: { num: number }) {
       }}
       testID="browser-header-connected-account"
     >
-      <AccountAvatar
-        size="small"
-        account={account}
-        indexedAccount={indexedAccount}
-        networkId={network?.id}
-      />
+      <Stack {...BADGED_AVATAR_BALANCE}>
+        <AccountAvatar
+          size="small"
+          account={account}
+          indexedAccount={indexedAccount}
+          networkId={network?.id}
+        />
+      </Stack>
       <SizableText size="$bodyMdMedium" numberOfLines={1} maxWidth={120}>
         {accountName}
       </SizableText>
@@ -296,6 +304,7 @@ function AvatarStackTrigger({
             borderWidth={compact ? 0 : 2}
             borderColor="$bgApp"
             ml={compact ? undefined : '$-0.5'}
+            {...(compact && BADGED_AVATAR_BALANCE)}
             {...(index === 0 && {
               zIndex: 1,
             })}
