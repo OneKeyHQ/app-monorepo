@@ -3,11 +3,13 @@ import { EOAuthSocialLoginProvider } from '@onekeyhq/shared/src/consts/authConst
 import { PRIME_WEB_CHECKOUT_PENDING_SESSION_TTL_MS } from '@onekeyhq/shared/src/consts/primeConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { getPrimeInfiniPaymentAssetKey } from '@onekeyhq/shared/src/utils/primeInfiniPaymentCacheUtils';
+import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
 import {
   EPrimeAuthSessionSource,
   type IPrimeInfiniPendingPaymentSession,
   type IPrimeWebCheckoutPendingSession,
 } from '@onekeyhq/shared/types/prime/primeTypes';
+import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
 
 import {
   type IIdentityExitJournalEntry,
@@ -3817,6 +3819,96 @@ describe('SimpleDbEntityPrime prime-profile analytics TTL', () => {
   });
 });
 
+describe('Infini replacement history fence', () => {
+  test('survives session cleanup and reload without blocking another account or history', async () => {
+    let persisted: ISimpleDBPrime = {};
+    const writer = new SimpleDbEntityPrime();
+    jest.spyOn(writer, 'setRawData').mockImplementation(async (updater) => {
+      persisted =
+        typeof updater === 'function' ? await updater(persisted) : updater;
+      return persisted;
+    });
+    const identity = {
+      accountId: 'account-1',
+      networkId: 'evm--1',
+      historyId: 'history-1',
+    };
+    const historyTx: IAccountHistoryTx = {
+      id: identity.historyId,
+      decodedTx: {
+        accountId: identity.accountId,
+        networkId: identity.networkId,
+        txid: '0xoriginal',
+        signer: '0xabc',
+        owner: '0xabc',
+        nonce: 5,
+        status: EDecodedTxStatus.Pending,
+        actions: [],
+        extraInfo: null,
+        encodedTx: { from: '0xabc', to: '0xinvoice', value: '0x1', nonce: 5 },
+      },
+    };
+    await writer.blockInfiniReplacement({
+      ...identity,
+      accountAddress: '0xABC',
+      nonce: 5,
+      historyTx,
+    });
+    await writer.blockInfiniReplacement({
+      ...identity,
+      accountAddress: '0xabc',
+      nonce: 5,
+      historyTx,
+    });
+    persisted.infiniPendingPaymentSessionByUserId = {};
+    persisted.infiniSupersededPaymentSessionsByUserId = {};
+    const reader = new SimpleDbEntityPrime();
+    jest.spyOn(reader, 'getRawData').mockImplementation(async () => persisted);
+    await expect(
+      reader.getInfiniReservedNonces({
+        networkId: 'evm--1',
+        accountAddress: '0xabc',
+      }),
+    ).resolves.toEqual([5]);
+    await expect(
+      reader.getInfiniReservedNonces({
+        networkId: 'evm--10',
+        accountAddress: '0xabc',
+      }),
+    ).resolves.toEqual([]);
+    await expect(
+      reader.getInfiniReservedNonces({
+        networkId: 'evm--1',
+        accountAddress: '0xother',
+      }),
+    ).resolves.toEqual([]);
+    await expect(reader.isInfiniReplacementBlocked(identity)).resolves.toBe(
+      true,
+    );
+    await expect(
+      reader.isInfiniReplacementBlocked({ ...identity, historyId: 'other' }),
+    ).resolves.toBe(false);
+    await expect(
+      reader.isInfiniReplacementBlocked({ ...identity, accountId: 'other' }),
+    ).resolves.toBe(false);
+    await expect(
+      reader.isInfiniReplacementBlocked({ ...identity, networkId: 'evm--10' }),
+    ).resolves.toBe(false);
+  });
+
+  test('does not turn unreadable storage into an unblocked transaction', async () => {
+    const entity = new SimpleDbEntityPrime();
+    jest.spyOn(entity, 'getRawData').mockRejectedValue(new Error('Unreadable'));
+    await expect(
+      entity.isInfiniReplacementBlocked({
+        accountId: 'a',
+        networkId: 'n',
+        historyId: 'h',
+      }),
+    ).rejects.toThrow('Unreadable');
+  });
+});
+
 describe('SimpleDbEntityPrime web checkout pending session', () => {
   const buildSession = (
     overrides: Partial<IPrimeWebCheckoutPendingSession> = {},
@@ -3986,4 +4078,142 @@ describe('SimpleDbEntityPrime web checkout pending session', () => {
       getPersisted().webCheckoutPendingSessionByUserId?.['user-1']?.extension,
     ).toEqual(extension);
   });
+});
+
+describe('Infini recoverable replacement protection', () => {
+  const historyTx: IAccountHistoryTx = {
+    id: 'hidden-history',
+    decodedTx: {
+      accountId: 'account-1',
+      networkId: 'evm--1',
+      txid: '0xoriginal',
+      signer: '0xabc',
+      owner: '0xabc',
+      nonce: 5,
+      status: EDecodedTxStatus.Pending,
+      actions: [],
+      extraInfo: null,
+      encodedTx: { from: '0xabc', to: '0xinvoice', value: '0x1', nonce: 5 },
+    },
+  };
+  function makeStore() {
+    let persisted: ISimpleDBPrime = {};
+    const entity = new SimpleDbEntityPrime();
+    jest.spyOn(entity, 'getRawData').mockImplementation(async () => persisted);
+    jest.spyOn(entity, 'setRawData').mockImplementation(async (updater) => {
+      persisted =
+        typeof updater === 'function' ? await updater(persisted) : updater;
+      return persisted;
+    });
+    return { entity, getPersisted: () => persisted };
+  }
+  const block = {
+    accountId: 'account-1',
+    networkId: 'evm--1',
+    historyId: historyTx.id,
+    accountAddress: '0xABC',
+    nonce: 5,
+    historyTx,
+  };
+
+  test('persists an original recovery snapshot atomically with the nonce and fence, across session cleanup', async () => {
+    const { entity, getPersisted } = makeStore();
+    await entity.blockInfiniReplacement(block);
+    const persisted = getPersisted();
+    persisted.infiniPendingPaymentSessionByUserId = {};
+    persisted.infiniSupersededPaymentSessionsByUserId = {};
+    const reloaded = new SimpleDbEntityPrime();
+    jest.spyOn(reloaded, 'getRawData').mockResolvedValue(persisted);
+    await expect(
+      reloaded.getInfiniPendingTransactionRecoveries(),
+    ).resolves.toEqual([{ accountAddress: '0xabc', nonce: 5, historyTx }]);
+    await expect(reloaded.isInfiniReplacementBlocked(block)).resolves.toBe(
+      true,
+    );
+    await expect(reloaded.getInfiniReservedNonces(block)).resolves.toEqual([5]);
+  });
+
+  test('bounds admission without evicting any live fence or reservation', async () => {
+    const { entity, getPersisted } = makeStore();
+    for (let n = 0; n < 100; n += 1) {
+      const tx = {
+        ...historyTx,
+        id: `history-${n}`,
+        decodedTx: { ...historyTx.decodedTx, nonce: n },
+      };
+      await entity.blockInfiniReplacement({
+        ...block,
+        historyId: tx.id,
+        nonce: n,
+        historyTx: tx,
+      });
+    }
+    await expect(
+      entity.blockInfiniReplacement({
+        ...block,
+        historyId: 'overflow',
+        historyTx: { ...historyTx, id: 'overflow' },
+      }),
+    ).rejects.toThrow('Infini replacement protection is full');
+    expect(
+      Object.keys(getPersisted().infiniBlockedReplacements ?? {}),
+    ).toHaveLength(100);
+    expect(await entity.getInfiniReservedNonces(block)).toHaveLength(100);
+    // Idempotent retries still succeed at capacity.
+    await expect(
+      entity.blockInfiniReplacement({
+        ...block,
+        historyId: 'history-5',
+        historyTx: { ...historyTx, id: 'history-5' },
+      }),
+    ).resolves.toBeUndefined();
+  });
+
+  test('compacts only consumed nonces for the same chain/address and retains legacy fences', async () => {
+    const { entity, getPersisted } = makeStore();
+    await entity.blockInfiniReplacement(block);
+    await entity.blockInfiniReplacement({
+      ...block,
+      historyId: 'next',
+      nonce: 6,
+      historyTx: {
+        ...historyTx,
+        id: 'next',
+        decodedTx: { ...historyTx.decodedTx, nonce: 6 },
+      },
+    });
+    getPersisted().infiniBlockedReplacements = {
+      ...getPersisted().infiniBlockedReplacements,
+      legacy: true,
+    };
+    await entity.pruneInfiniConsumedNonces({
+      ...block,
+      networkId: 'evm--10',
+      confirmedNonce: 99,
+    });
+    await expect(entity.isInfiniReplacementBlocked(block)).resolves.toBe(true);
+    await entity.pruneInfiniConsumedNonces({ ...block, confirmedNonce: 5 });
+    await expect(entity.isInfiniReplacementBlocked(block)).resolves.toBe(true);
+    await entity.pruneInfiniConsumedNonces({ ...block, confirmedNonce: 6 });
+    await expect(entity.isInfiniReplacementBlocked(block)).resolves.toBe(false);
+    await expect(
+      entity.isInfiniReplacementBlocked({ ...block, historyId: 'next' }),
+    ).resolves.toBe(true);
+    await expect(entity.getInfiniReservedNonces(block)).resolves.toEqual([6]);
+    expect(getPersisted().infiniBlockedReplacements?.legacy).toBe(true);
+  });
+
+  test.each([NaN, Infinity, -1, 1.1])(
+    'rejects invalid chain evidence %s without discarding protection',
+    async (confirmedNonce) => {
+      const { entity } = makeStore();
+      await entity.blockInfiniReplacement(block);
+      await expect(
+        entity.pruneInfiniConsumedNonces({ ...block, confirmedNonce }),
+      ).rejects.toThrow();
+      await expect(entity.isInfiniReplacementBlocked(block)).resolves.toBe(
+        true,
+      );
+    },
+  );
 });

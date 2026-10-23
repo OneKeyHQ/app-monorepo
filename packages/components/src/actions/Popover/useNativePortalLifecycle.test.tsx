@@ -1,6 +1,8 @@
 /**
  * @jest-environment jsdom
  */
+import { useState } from 'react';
+
 import { act, renderHook } from '@testing-library/react';
 
 import { useNativePortalLifecycle } from './useNativePortalLifecycle.native';
@@ -35,6 +37,42 @@ describe('native popover exit lifecycle', () => {
     expect(jest.getTimerCount()).toBe(0);
   });
 
+  it('accepts native dismiss completion before the requested close commits', () => {
+    const onAnimationComplete = jest.fn();
+    const { result } = renderHook(() => {
+      const [isOpen, setIsOpen] = useState(true);
+      return {
+        lifecycle: useNativePortalLifecycle({
+          isOpen,
+          sheetProps: { onAnimationComplete },
+        }),
+        requestClose: () => setIsOpen(false),
+      };
+    });
+    act(() => jest.advanceTimersByTime(16));
+    expect(result.current.lifecycle.popoverOpen).toBe(true);
+
+    act(() => {
+      const { lifecycle, requestClose } = result.current;
+      requestClose();
+      lifecycle.resolvedSheetProps?.onAnimationComplete?.({ open: false });
+    });
+
+    expect(result.current.lifecycle.isNativePortalMounted).toBe(false);
+    expect(onAnimationComplete).toHaveBeenCalledTimes(1);
+    expect(onAnimationComplete).toHaveBeenCalledWith({ open: false });
+    expect(jest.getTimerCount()).toBe(0);
+
+    act(() => {
+      result.current.lifecycle.resolvedSheetProps?.onAnimationComplete?.({
+        open: false,
+      });
+      jest.advanceTimersByTime(5500);
+    });
+    expect(onAnimationComplete).toHaveBeenCalledTimes(1);
+    expect(result.current.lifecycle.isNativePortalMounted).toBe(false);
+  });
+
   it('does not unmount a reopened popover on a previous close callback', () => {
     const { result, rerender } = openPopover();
     rerender({ isOpen: false });
@@ -47,6 +85,67 @@ describe('native popover exit lifecycle', () => {
 
     expect(result.current.popoverOpen).toBe(true);
     expect(result.current.isNativePortalMounted).toBe(true);
+  });
+
+  it('restores a controlled sheet when its owner ignores a native close', () => {
+    const onAnimationComplete = jest.fn();
+    const { result } = renderHook(() =>
+      useNativePortalLifecycle({
+        isOpen: true,
+        sheetProps: { onAnimationComplete },
+      }),
+    );
+    act(() => jest.advanceTimersByTime(16));
+    act(() =>
+      result.current.resolvedSheetProps?.onAnimationComplete?.({ open: false }),
+    );
+    expect(result.current.isNativePortalMounted).toBe(true);
+    expect(onAnimationComplete).not.toHaveBeenCalled();
+    act(() => jest.advanceTimersByTime(16));
+    expect(result.current.popoverOpen).toBe(true);
+    expect(result.current.isNativePortalMounted).toBe(true);
+  });
+
+  it('keeps a reopened portal when an old exit uses the latest callback', () => {
+    const { result, rerender } = openPopover();
+    rerender({ isOpen: false });
+    rerender({ isOpen: true });
+    act(() => jest.advanceTimersByTime(16));
+    act(() =>
+      result.current.resolvedSheetProps?.onAnimationComplete?.({ open: false }),
+    );
+    expect(result.current.isNativePortalMounted).toBe(true);
+    act(() => jest.advanceTimersByTime(16));
+    expect(result.current.popoverOpen).toBe(true);
+    rerender({ isOpen: false });
+    expect(result.current.isNativePortalMounted).toBe(true);
+    act(() =>
+      result.current.resolvedSheetProps?.onAnimationComplete?.({ open: false }),
+    );
+    expect(result.current.isNativePortalMounted).toBe(false);
+    expect(jest.getTimerCount()).toBe(0);
+  });
+
+  it('cleans up a delayed controlled close before a replacement sheet opens', () => {
+    const onAnimationComplete = jest.fn();
+    const { result, rerender } = renderHook(
+      ({ isOpen }) =>
+        useNativePortalLifecycle({
+          isOpen,
+          sheetProps: { onAnimationComplete },
+        }),
+      { initialProps: { isOpen: true } },
+    );
+    act(() => jest.advanceTimersByTime(16));
+    act(() =>
+      result.current.resolvedSheetProps?.onAnimationComplete?.({ open: false }),
+    );
+    expect(result.current.isNativePortalMounted).toBe(true);
+    rerender({ isOpen: false });
+    expect(result.current.isNativePortalMounted).toBe(false);
+    expect(onAnimationComplete).toHaveBeenCalledTimes(1);
+    expect(onAnimationComplete).toHaveBeenCalledWith({ open: false });
+    expect(jest.getTimerCount()).toBe(0);
   });
 
   it('ignores the previous exit while a reopened popover closes again', () => {
