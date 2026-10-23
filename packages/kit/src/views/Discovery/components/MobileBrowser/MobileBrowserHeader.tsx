@@ -36,6 +36,7 @@ const ACCOUNT_CHIP_HEIGHT = 36;
 // Concentric with the 24pt account avatar (4pt corners) inset 6pt: a rounded
 // square chip instead of a pill, so the chip and avatar read as one shape.
 const ACCOUNT_CHIP_RADIUS = 10;
+const HEADER_BOTTOM_GAP = 6;
 
 const styles = StyleSheet.create({
   container: {
@@ -50,6 +51,9 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     height: BROWSER_HEADER_HEIGHT,
+    // The status bar area above already leaves room, so the row sits high
+    // and keeps a clear gap between the account chip and the page below.
+    paddingBottom: HEADER_BOTTOM_GAP,
   },
 });
 

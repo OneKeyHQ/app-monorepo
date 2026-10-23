@@ -3,6 +3,8 @@ import { memo, useCallback, useMemo, useState } from 'react';
 import { StyleSheet } from 'react-native';
 import Animated, {
   interpolate,
+  runOnJS,
+  useAnimatedReaction,
   useAnimatedStyle,
 } from 'react-native-reanimated';
 
@@ -63,6 +65,36 @@ const styles = StyleSheet.create({
   },
 });
 
+// Fade ranges of the bar/pill morph (progress: 1 = expanded, 0 = collapsed).
+const SIDE_FADE_START = 0.4;
+const CAPSULE_FADE_START = 0.25;
+const PILL_FADE_END = 0.75;
+// Margin before a fade reaches 0 at which its glass is switched off.
+const GLASS_OFF_MARGIN = 0.02;
+
+// True while progress is past `edge` (minus the glass-off margin) in the
+// given direction; flips only when crossing it, not every frame.
+function useIsProgressPast(
+  progress: SharedValue<number>,
+  edge: number,
+  direction: 'below' | 'above',
+) {
+  const [past, setPast] = useState(false);
+  useAnimatedReaction(
+    () =>
+      direction === 'below'
+        ? progress.value < edge + GLASS_OFF_MARGIN
+        : progress.value > edge - GLASS_OFF_MARGIN,
+    (value, previous) => {
+      if (value !== previous) {
+        runOnJS(setPast)(value);
+      }
+    },
+    [progress, edge, direction],
+  );
+  return past;
+}
+
 // Collapsed size of the address capsule, about the pill's size.
 const CAPSULE_COLLAPSED_SCALE =
   BROWSER_COLLAPSED_PILL_HEIGHT / BROWSER_CHROME_CAPSULE_HEIGHT;
@@ -73,21 +105,26 @@ const CAPSULE_COLLAPSED_SCALE =
 // layers overlap mid-way so it reads as one element changing shape.
 function useBarMorphStyles(progress: SharedValue<number>, travelY: number) {
   const leftStyle = useAnimatedStyle(() => ({
-    opacity: interpolate(progress.value, [0.4, 1], [0, 1], 'clamp'),
+    opacity: interpolate(progress.value, [SIDE_FADE_START, 1], [0, 1], 'clamp'),
     transform: [
       { translateX: interpolate(progress.value, [0, 1], [-16, 0], 'clamp') },
       { scale: interpolate(progress.value, [0, 1], [0.8, 1], 'clamp') },
     ],
   }));
   const rightStyle = useAnimatedStyle(() => ({
-    opacity: interpolate(progress.value, [0.4, 1], [0, 1], 'clamp'),
+    opacity: interpolate(progress.value, [SIDE_FADE_START, 1], [0, 1], 'clamp'),
     transform: [
       { translateX: interpolate(progress.value, [0, 1], [16, 0], 'clamp') },
       { scale: interpolate(progress.value, [0, 1], [0.8, 1], 'clamp') },
     ],
   }));
   const capsuleStyle = useAnimatedStyle(() => ({
-    opacity: interpolate(progress.value, [0.25, 0.75], [0, 1], 'clamp'),
+    opacity: interpolate(
+      progress.value,
+      [CAPSULE_FADE_START, PILL_FADE_END],
+      [0, 1],
+      'clamp',
+    ),
     transform: [
       {
         translateY: interpolate(progress.value, [0, 1], [travelY, 0], 'clamp'),
@@ -103,7 +140,12 @@ function useBarMorphStyles(progress: SharedValue<number>, travelY: number) {
     ],
   }));
   const pillStyle = useAnimatedStyle(() => ({
-    opacity: interpolate(progress.value, [0.25, 0.75], [1, 0], 'clamp'),
+    opacity: interpolate(
+      progress.value,
+      [CAPSULE_FADE_START, PILL_FADE_END],
+      [1, 0],
+      'clamp',
+    ),
     transform: [
       {
         translateY: interpolate(progress.value, [0, 1], [0, -travelY], 'clamp'),
@@ -128,13 +170,19 @@ const translatePopoverAnchor = <Stack position="absolute" w={1} h={1} />;
 function CollapsedAddressPill({
   url,
   onPress,
+  glassHidden,
 }: {
   url?: string;
   onPress?: () => void;
+  glassHidden: boolean;
 }) {
   const hostname = useMemo(() => getDisplayHostname(url), [url]);
   return (
-    <BrowserChromeCapsule height={BROWSER_COLLAPSED_PILL_HEIGHT} px="$4">
+    <BrowserChromeCapsule
+      height={BROWSER_COLLAPSED_PILL_HEIGHT}
+      px="$4"
+      glassHidden={glassHidden}
+    >
       <ChromePressable onPress={onPress}>
         <XStack
           h={BROWSER_COLLAPSED_PILL_HEIGHT}
@@ -189,6 +237,16 @@ function MobileBrowserBottomBar({
   const appThemeName = useThemeName();
   const isFloatingBrowserChrome = useIsFloatingBrowserChrome();
   const isChromeCollapsed = useIsChromeCollapsed(progress);
+  // Liquid Glass stops rendering for good once an ancestor's opacity reaches
+  // 0, so each layer switches its glass off just before its fade does (see
+  // useBarMorphStyles) and back on as it starts to fade in.
+  const sideGlassHidden = useIsProgressPast(progress, SIDE_FADE_START, 'below');
+  const capsuleGlassHidden = useIsProgressPast(
+    progress,
+    CAPSULE_FADE_START,
+    'below',
+  );
+  const pillGlassHidden = useIsProgressPast(progress, PILL_FADE_END, 'above');
   const pillBottom = getCollapsedPillBottom(bottom);
   const capsuleBottom = getBarCapsuleBottom(bottom);
   // Distance between the bar capsule's center and the pill's center.
@@ -255,7 +313,7 @@ function MobileBrowserBottomBar({
             alignItems="center"
           >
             <Animated.View style={leftStyle}>
-              <BrowserChromeCapsule>
+              <BrowserChromeCapsule glassHidden={sideGlassHidden}>
                 <ChromePressable
                   onPress={() => {
                     logBrowserChromeAction('back', 'toolbar');
@@ -275,7 +333,11 @@ function MobileBrowserBottomBar({
             </Animated.View>
             {/* Same edge inset as the round buttons, so icons line up. */}
             <Animated.View style={[styles.capsule, capsuleStyle]}>
-              <BrowserChromeCapsule flex={1} px="$2">
+              <BrowserChromeCapsule
+                flex={1}
+                px="$2"
+                glassHidden={capsuleGlassHidden}
+              >
                 <ChromePressable
                   onPress={() => {
                     logBrowserChromeAction('menu', 'toolbar');
@@ -314,7 +376,7 @@ function MobileBrowserBottomBar({
               </BrowserChromeCapsule>
             </Animated.View>
             <Animated.View style={rightStyle}>
-              <BrowserChromeCapsule>
+              <BrowserChromeCapsule glassHidden={sideGlassHidden}>
                 <TabCountButton
                   testID={DiscoveryTestIDs.tabListButton}
                   onPressed={() => logBrowserChromeAction('tabs', 'toolbar')}
@@ -328,6 +390,7 @@ function MobileBrowserBottomBar({
           style={[styles.pillRow, { bottom: pillBottom }, pillStyle]}
         >
           <CollapsedAddressPill
+            glassHidden={pillGlassHidden}
             url={currentUrl}
             onPress={() => {
               logBrowserChromeAction('expand', 'toolbar');

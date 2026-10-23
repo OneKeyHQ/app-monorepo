@@ -23,6 +23,11 @@ type IBrowserChromeCapsuleProps = PropsWithChildren<{
   flex?: number;
   height?: number;
   px?: IXStackProps['px'];
+  // Liquid Glass only: turn the glass off while the capsule is faded out.
+  // Glass under an ancestor at opacity 0 stops rendering and doesn't come
+  // back, so callers fading the capsule switch it off just before 0 (the
+  // approach Expo documents for fading glass).
+  glassHidden?: boolean;
 }>;
 
 // A pill (or circle, with a single child) hosting browser chrome buttons.
@@ -35,6 +40,7 @@ export function BrowserChromeCapsule({
   flex,
   height = BROWSER_CHROME_CAPSULE_HEIGHT,
   px = '$1',
+  glassHidden = false,
 }: IBrowserChromeCapsuleProps) {
   const isFloatingBrowserChrome = useIsFloatingBrowserChrome();
   const content = (
@@ -56,7 +62,7 @@ export function BrowserChromeCapsule({
     return (
       <GlassView
         isInteractive
-        glassEffectStyle="regular"
+        glassEffectStyle={glassHidden ? 'none' : 'regular'}
         style={flex ? [styles.glass, { flex }] : styles.glass}
       >
         {content}

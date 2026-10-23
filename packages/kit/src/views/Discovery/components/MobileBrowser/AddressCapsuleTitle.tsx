@@ -169,12 +169,7 @@ export function AddressCapsuleTitle({
         )}
       />
       <ChromePressable fill onPress={onPress}>
-        <XStack
-          flex={1}
-          pl="$2"
-          alignItems="center"
-          justifyContent="center"
-        >
+        <XStack flex={1} pl="$2" alignItems="center" justifyContent="center">
           <DomainLabel
             testID={DiscoveryTestIDs.searchBar}
             trailingBalance={RISK_ICON_WIDTH + 8}

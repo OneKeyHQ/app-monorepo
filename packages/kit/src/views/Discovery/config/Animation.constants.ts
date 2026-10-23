@@ -4,7 +4,7 @@ export const MIN_TOGGLE_BROWSER_VISIBLE_DISTANCE = 108;
 export const DISPLAY_BOTTOM_BAR_DURATION = 300;
 // Mobile browser header (below the safe-area top inset); it collapses fully
 // while scrolling down, the address stays visible in the bottom pill.
-export const BROWSER_HEADER_HEIGHT = 44;
+export const BROWSER_HEADER_HEIGHT = 46;
 // Safari-style collapsed address pill shown at the bottom while scrolling.
 export const BROWSER_COLLAPSED_PILL_HEIGHT = 30;
 // Capsule/circle height of the mobile browser chrome.
