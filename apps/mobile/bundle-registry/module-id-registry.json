@@ -26225,6 +26225,7 @@
     "packages/kit/src/views/Swap/utils/swapTokenRiskUtils.ts": 10614,
     "packages/kit/src/views/Swap/utils/swapTokenTaxUtils.ts": 8842,
     "packages/kit/src/views/Swap/utils/swapTypeUtils.ts": 15403,
+    "packages/kit/src/views/Swap/utils/tradePositionUtils.ts": 2436,
     "packages/kit/src/views/Swap/utils/utils.ts": 14343,
     "packages/kit/src/views/Swap/utils/wrappedQuoteUtils.ts": 8464,
     "packages/kit/src/views/TestModal/pages/TestSimpleModal.tsx": 21809,
