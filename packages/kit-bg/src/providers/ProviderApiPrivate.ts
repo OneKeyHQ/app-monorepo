@@ -632,16 +632,81 @@ class ProviderApiPrivate extends ProviderApiBase {
 
   isWebEmbedApiReady = false;
 
+  private webEmbedRequestId: string | undefined;
+
+  private webEmbedMountId: string | undefined;
+
+  private webEmbedMountSequence = 0;
+
+  reserveWebEmbedRequest(requestId: string): { ready: boolean } {
+    if (this.isWebEmbedApiReady && this.webEmbedMountId) {
+      return { ready: true };
+    }
+    this.webEmbedRequestId = requestId;
+    this.webEmbedMountId = undefined;
+    this.isWebEmbedApiReady = false;
+    return { ready: false };
+  }
+
+  activateWebEmbedMount({
+    mountId,
+    mountSequence,
+    requestId,
+  }: {
+    mountId: string;
+    mountSequence: number;
+    requestId?: string;
+  }): boolean {
+    if (
+      (requestId && requestId !== this.webEmbedRequestId) ||
+      mountSequence < this.webEmbedMountSequence
+    ) {
+      return false;
+    }
+    if (mountSequence === this.webEmbedMountSequence) {
+      return mountId === this.webEmbedMountId;
+    }
+    this.webEmbedMountSequence = mountSequence;
+    this.webEmbedMountId = mountId;
+    this.isWebEmbedApiReady = false;
+    return true;
+  }
+
+  deactivateWebEmbedMount(mountId: string): void {
+    if (this.webEmbedMountId === mountId) {
+      this.webEmbedMountId = undefined;
+      this.isWebEmbedApiReady = false;
+    }
+  }
+
+  getWebEmbedApiReadyState(): { ready: boolean; mountId?: string } {
+    return {
+      ready: this.isWebEmbedApiReady,
+      mountId: this.webEmbedMountId,
+    };
+  }
+
   @providerApiMethod()
-  async webEmbedApiReady(): Promise<void> {
+  async webEmbedApiReady(
+    _payload: IJsBridgeMessagePayload,
+    params?: { mountId?: string },
+  ): Promise<void> {
+    if (!params?.mountId || params.mountId !== this.webEmbedMountId) {
+      return;
+    }
     defaultLogger.app.webembed.webembedApiReady();
     this.isWebEmbedApiReady = true;
-    appEventBus.emit(EAppEventBusNames.LoadWebEmbedWebViewComplete, undefined);
-    return Promise.resolve();
+    appEventBus.emit(EAppEventBusNames.LoadWebEmbedWebViewComplete, {
+      mountId: params.mountId,
+      requestId: this.webEmbedRequestId,
+    });
   }
 
   @providerApiMethod()
   async webEmbedApiNotReady(): Promise<void> {
+    if (this.webEmbedMountId) {
+      return;
+    }
     defaultLogger.app.webembed.webembedApiNotReady();
     this.isWebEmbedApiReady = false;
     return Promise.resolve();
@@ -661,7 +726,9 @@ class ProviderApiPrivate extends ProviderApiBase {
     });
 
     await waitForDataLoaded({
-      data: () => this.isWebEmbedApiReady && Boolean(bg?.webEmbedBridge),
+      data: () =>
+        this.isWebEmbedApiReady &&
+        bg?.isWebEmbedBridgeOwnedBy(this.webEmbedMountId),
       logName: `ProviderApiPrivate.callWebEmbedApiProxy: ${JSON.stringify({
         module: data?.module,
         method: data?.method,
@@ -672,7 +739,11 @@ class ProviderApiPrivate extends ProviderApiBase {
       timeout: timerUtils.getTimeDurationMs({ minute: 3 }),
     });
 
-    if (!bg?.webEmbedBridge?.request) {
+    if (
+      !bg?.webEmbedBridge?.request ||
+      !this.isWebEmbedApiReady ||
+      !bg.isWebEmbedBridgeOwnedBy(this.webEmbedMountId)
+    ) {
       throw new OneKeyLocalError('webembed webview bridge not ready.');
     }
 

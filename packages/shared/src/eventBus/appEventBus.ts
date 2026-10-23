@@ -311,8 +311,15 @@ export interface IAppEventBusPayload {
   [EAppEventBusNames.FinishFirmwareUpdate]: undefined;
   [EAppEventBusNames.FirmwareUpdateDetectStatusChanged]: undefined;
   [EAppEventBusNames.LoadWebEmbedWebView]: { requestId: string } | undefined;
+  [EAppEventBusNames.WebEmbedWebViewMountRequested]: {
+    mountId: string;
+    mountSequence: number;
+  };
   [EAppEventBusNames.WebEmbedWebViewProviderReady]: undefined;
-  [EAppEventBusNames.LoadWebEmbedWebViewComplete]: undefined;
+  [EAppEventBusNames.LoadWebEmbedWebViewComplete]: {
+    mountId: string;
+    requestId?: string;
+  };
   [EAppEventBusNames.HardwareVerifyAfterDeviceConfirm]: undefined;
   // The authenticity card's exits, from the DeviceStage driver back to
   // whoever is running the check (OK-59934).

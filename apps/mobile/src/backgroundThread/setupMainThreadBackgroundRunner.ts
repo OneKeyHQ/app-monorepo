@@ -213,6 +213,8 @@ type INativeBackgroundThreadTransport = {
     params: {
       channel: IBackgroundThreadBridgeChannel;
       bridge: JsBridgeBase | null;
+      mountId?: string;
+      mountSequence?: number;
     },
     localFallback: () => Promise<any>,
   ) => Promise<any>;
@@ -1366,6 +1368,8 @@ function handleBackgroundThreadBridgeSend(value: string | number | boolean) {
   });
 }
 
+const WEBEMBED_BRIDGE_READY_TIMEOUT_MS = 30 * 1000;
+
 async function handleWebEmbedBridgeRequest(
   sharedRPC: ISharedRPC,
   key: string,
@@ -1376,9 +1380,10 @@ async function handleWebEmbedBridgeRequest(
 
   try {
     const data = typeof value === 'string' ? JSON.parse(value) : undefined;
+    await awaitWebEmbedReady(WEBEMBED_BRIDGE_READY_TIMEOUT_MS);
     const bridge = mainThreadBridgeMap.webEmbed;
 
-    if (!bridge) {
+    if (!bridge || !isMainThreadWebEmbedReady()) {
       sharedRPC.write(
         responseKey,
         JSON.stringify({
@@ -1646,8 +1651,6 @@ function emitAppEventRequest(
   return callRemoteRequest(request, localFallback);
 }
 
-const WEBEMBED_BRIDGE_READY_TIMEOUT_MS = 30 * 1000;
-
 // Local readiness has TWO independent components and the gate must require
 // BOTH:
 //   (a) page-side JS handshake done — `webEmbedReady`, set by
@@ -1664,6 +1667,9 @@ const WEBEMBED_BRIDGE_READY_TIMEOUT_MS = 30 * 1000;
 // gated on (a), the next call would skip waiting and crash with
 // `webEmbed bridge not available on main thread`.
 let webEmbedReady = false;
+let expectedWebEmbedMountId: string | undefined;
+let expectedWebEmbedMountSequence = 0;
+let connectedWebEmbedMountId: string | undefined;
 // Bumped on every webEmbed teardown (null bridge sync). Used by
 // `checkBackgroundWebEmbedReady` to discard a BG `true` read whose RPC was
 // in flight across the unmount → next-mount boundary, so the stale flag
@@ -1684,7 +1690,12 @@ let webEmbedBgFallbackEnabled = true;
 const webEmbedReadyWaiters: Array<() => void> = [];
 
 function isMainThreadWebEmbedReady(): boolean {
-  return webEmbedReady && Boolean(mainThreadBridgeMap.webEmbed);
+  return (
+    webEmbedReady &&
+    Boolean(mainThreadBridgeMap.webEmbed) &&
+    Boolean(expectedWebEmbedMountId) &&
+    connectedWebEmbedMountId === expectedWebEmbedMountId
+  );
 }
 
 function flushWebEmbedReadyWaiters() {
@@ -1696,12 +1707,35 @@ function syncBridgeConnection(
   params: {
     channel: IBackgroundThreadBridgeChannel;
     bridge: JsBridgeBase | null;
+    mountId?: string;
+    mountSequence?: number;
   },
   localFallback: () => Promise<any>,
 ) {
+  if (
+    params.channel === 'webEmbed' &&
+    !params.mountId &&
+    expectedWebEmbedMountId
+  ) {
+    return Promise.resolve(false);
+  }
+  if (params.channel === 'webEmbed' && params.mountId) {
+    if (
+      params.mountId !== expectedWebEmbedMountId ||
+      params.mountSequence !== expectedWebEmbedMountSequence ||
+      (!params.bridge && connectedWebEmbedMountId !== params.mountId)
+    ) {
+      return Promise.resolve(false);
+    }
+  }
   mainThreadBridgeMap[params.channel] = params.bridge;
   if (params.channel === 'webEmbed') {
+    connectedWebEmbedMountId = params.bridge ? params.mountId : undefined;
     if (params.bridge) {
+      // A bridge effect can reconnect the same mounted page without another
+      // page-ready message. Recheck the canonical owner after reconnecting.
+      webEmbedBgFallbackEnabled = true;
+      void checkBackgroundWebEmbedReady();
       // Bridge just came up — if BG-reported `webEmbedReady` already arrived
       // ahead of the transport sync, release any waiters now that gate (b)
       // is satisfied. `flushWebEmbedReadyWaiters` no-ops when (a) is still
@@ -1769,7 +1803,21 @@ function installNativeStorageBridge() {
     );
 }
 
-appEventBus.on(EAppEventBusNames.LoadWebEmbedWebViewComplete, () => {
+appEventBus.on(EAppEventBusNames.WebEmbedWebViewMountRequested, (payload) => {
+  if (payload.mountSequence <= expectedWebEmbedMountSequence) {
+    return;
+  }
+  expectedWebEmbedMountSequence = payload.mountSequence;
+  expectedWebEmbedMountId = payload.mountId;
+  webEmbedReady = false;
+  webEmbedMountGeneration += 1;
+  webEmbedBgFallbackEnabled = false;
+});
+
+appEventBus.on(EAppEventBusNames.LoadWebEmbedWebViewComplete, (payload) => {
+  if (!payload || payload.mountId !== expectedWebEmbedMountId) {
+    return;
+  }
   webEmbedReady = true;
   // BG re-emits this event only *after* the live page sent
   // `webEmbedApiReady`, which means BG's canonical flag has been updated
@@ -1798,9 +1846,10 @@ async function checkBackgroundWebEmbedReady(): Promise<boolean> {
   const generationAtStart = webEmbedMountGeneration;
   try {
     const bgApiProxy = appGlobals?.$backgroundApiProxy;
-    const ready = await bgApiProxy?.serviceDApp?.isWebEmbedApiReady?.();
+    const state = await bgApiProxy?.serviceDApp?.getWebEmbedApiReadyState?.();
     if (
-      ready &&
+      state?.ready &&
+      state.mountId === expectedWebEmbedMountId &&
       webEmbedMountGeneration === generationAtStart &&
       webEmbedBgFallbackEnabled
     ) {
@@ -1855,7 +1904,7 @@ async function ensureMainThreadWebEmbedBridge(): Promise<JsBridgeBase> {
     await awaitWebEmbedReady(WEBEMBED_BRIDGE_READY_TIMEOUT_MS);
   }
   const bridge = mainThreadBridgeMap.webEmbed;
-  if (!bridge) {
+  if (!bridge || !isMainThreadWebEmbedReady()) {
     throw new OneKeyLocalError('webEmbed bridge not available on main thread');
   }
   const origin = bridge.remoteInfo?.origin || '';
@@ -1872,6 +1921,9 @@ async function callMainThreadWebEmbedImageUtils<T>(
   params: unknown[],
 ): Promise<T> {
   const bridge = await ensureMainThreadWebEmbedBridge();
+  if (bridge !== mainThreadBridgeMap.webEmbed || !isMainThreadWebEmbedReady()) {
+    throw new OneKeyLocalError('webEmbed bridge not available on main thread');
+  }
   const result = await bridge.request({
     scope: '$private',
     data: { module: 'imageUtils', method, params },

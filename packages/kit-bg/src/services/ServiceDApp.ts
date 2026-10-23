@@ -2108,11 +2108,50 @@ class ServiceDApp extends ServiceBase {
     return Promise.resolve(privateProvider?.isWebEmbedApiReady);
   }
 
-  // Flip BG's canonical `isWebEmbedApiReady` back to false when the WebView
-  // host tears down. Without this, the flag stays sticky-true from the first
-  // mount, and `checkBackgroundWebEmbedReady` on the main thread can promote a
-  // stale BG ready into the next mount before that page has actually replayed
-  // its `webEmbedApiReady` handshake.
+  @backgroundMethod()
+  reserveWebEmbedRequest(requestId: string) {
+    const privateProvider = this.backgroundApi.providers.$private as
+      | ProviderApiPrivate
+      | undefined;
+    return Promise.resolve(
+      privateProvider?.reserveWebEmbedRequest(requestId) ?? { ready: false },
+    );
+  }
+
+  @backgroundMethod()
+  activateWebEmbedMount(params: {
+    mountId: string;
+    mountSequence: number;
+    requestId?: string;
+  }) {
+    const privateProvider = this.backgroundApi.providers.$private as
+      | ProviderApiPrivate
+      | undefined;
+    return Promise.resolve(
+      privateProvider?.activateWebEmbedMount(params) ?? false,
+    );
+  }
+
+  @backgroundMethod()
+  deactivateWebEmbedMount(mountId: string) {
+    const privateProvider = this.backgroundApi.providers.$private as
+      | ProviderApiPrivate
+      | undefined;
+    privateProvider?.deactivateWebEmbedMount(mountId);
+    return Promise.resolve();
+  }
+
+  @backgroundMethod()
+  getWebEmbedApiReadyState() {
+    const privateProvider = this.backgroundApi.providers.$private as
+      | ProviderApiPrivate
+      | undefined;
+    return Promise.resolve(
+      privateProvider?.getWebEmbedApiReadyState() ?? { ready: false },
+    );
+  }
+
+  // Legacy hosts may reset readiness when no owned API mount is active.
   @backgroundMethod()
   markWebEmbedApiNotReady() {
     const privateProvider = this.backgroundApi.providers.$private as

@@ -11,8 +11,13 @@ import platformEnv, { ERuntimeRole } from '@onekeyhq/shared/src/platformEnv';
 import { WebViewWebEmbedProvider } from './WebViewWebEmbedProvider';
 
 const mockIsWebEmbedApiReady = jest.fn<Promise<boolean>, []>();
+const mockReserveWebEmbedRequest = jest.fn<
+  Promise<{ ready: boolean }>,
+  [string]
+>();
 const mockWebViewMount = jest.fn();
 const mockWebViewUnmount = jest.fn();
+let mockCurrentMountId: string | undefined;
 
 jest.mock('@onekeyhq/shared/src/appGlobals', () => ({
   __esModule: true,
@@ -20,6 +25,8 @@ jest.mock('@onekeyhq/shared/src/appGlobals', () => ({
     $backgroundApiProxy: {
       serviceDApp: {
         isWebEmbedApiReady: () => mockIsWebEmbedApiReady(),
+        reserveWebEmbedRequest: (requestId: string) =>
+          mockReserveWebEmbedRequest(requestId),
       },
     },
   },
@@ -60,14 +67,15 @@ jest.mock('@onekeyhq/shared/src/utils/imageUtils.embedBridge', () => ({
 }));
 
 jest.mock('../components/WebViewWebEmbed', () => ({
-  WebViewWebEmbedSingleton: () => {
+  WebViewWebEmbedSingleton: ({ mountId }: { mountId: string }) => {
     const { useEffect } = jest.requireActual<typeof import('react')>('react');
     useEffect(() => {
+      mockCurrentMountId = mountId;
       mockWebViewMount();
       return () => {
         mockWebViewUnmount();
       };
-    }, []);
+    }, [mountId]);
     return null;
   },
 }));
@@ -81,6 +89,8 @@ describe('WebEmbed API startup request', () => {
     jest.useFakeTimers();
     jest.clearAllMocks();
     mockIsWebEmbedApiReady.mockResolvedValue(false);
+    mockReserveWebEmbedRequest.mockResolvedValue({ ready: false });
+    mockCurrentMountId = undefined;
     platformEnv.runtimeRole = ERuntimeRole.Main;
     jest.isolateModules(() => {
       backgroundBus = require('@onekeyhq/shared/src/eventBus/appEventBus')
@@ -128,6 +138,17 @@ describe('WebEmbed API startup request', () => {
     jest.useRealTimers();
   });
 
+  function completeCurrent(requestId?: string) {
+    const latestLoad = backgroundEmitSpy.mock.calls
+      .filter(([type]) => type === EAppEventBusNames.LoadWebEmbedWebView)
+      .at(-1);
+    backgroundBus.emit(EAppEventBusNames.LoadWebEmbedWebViewComplete, {
+      mountId: mockCurrentMountId as string,
+      requestId:
+        requestId ?? (latestLoad?.[1] as { requestId?: string })?.requestId,
+    });
+  }
+
   it('renders the WebView when a request arrives before the provider subscribes', async () => {
     let pending: Promise<void> | undefined;
     await act(async () => {
@@ -145,10 +166,7 @@ describe('WebEmbed API startup request', () => {
     );
     expect(loadCalls).toHaveLength(2);
     expect(loadCalls[0]?.[1]).toEqual(loadCalls[1]?.[1]);
-    backgroundBus.emit(
-      EAppEventBusNames.LoadWebEmbedWebViewComplete,
-      undefined,
-    );
+    completeCurrent();
     await pending;
   });
 
@@ -163,10 +181,7 @@ describe('WebEmbed API startup request', () => {
 
     expect(mockWebViewMount).toHaveBeenCalledTimes(1);
     expect(mockWebViewUnmount).not.toHaveBeenCalled();
-    backgroundBus.emit(
-      EAppEventBusNames.LoadWebEmbedWebViewComplete,
-      undefined,
-    );
+    completeCurrent();
     await pending;
   });
 
@@ -204,10 +219,7 @@ describe('WebEmbed API startup request', () => {
     expect(retriedLoadCalls[1]?.[1]).toEqual(initialLoadCalls[0]?.[1]);
     expect(mockWebViewMount).toHaveBeenCalledTimes(1);
     expect(mockWebViewUnmount).not.toHaveBeenCalled();
-    backgroundBus.emit(
-      EAppEventBusNames.LoadWebEmbedWebViewComplete,
-      undefined,
-    );
+    completeCurrent();
     await Promise.all([first, second]);
   });
 
@@ -240,10 +252,7 @@ describe('WebEmbed API startup request', () => {
       ),
     ).toBe(providerReadyBaseline);
 
-    backgroundBus.emit(
-      EAppEventBusNames.LoadWebEmbedWebViewComplete,
-      undefined,
-    );
+    completeCurrent();
     expect(globalThis.$onekeyAppWebembedApiWebviewInitFailed).toBe(false);
     expect(
       backgroundBus.listenerCount(
@@ -261,10 +270,7 @@ describe('WebEmbed API startup request', () => {
       retry = backgroundProxy.waitRemoteApiReady();
       await Promise.resolve();
     });
-    backgroundBus.emit(
-      EAppEventBusNames.LoadWebEmbedWebViewComplete,
-      undefined,
-    );
+    completeCurrent();
     await retry;
     expect(mockWebViewMount).toHaveBeenCalledTimes(2);
     expect(mockWebViewUnmount).toHaveBeenCalledTimes(1);
@@ -278,6 +284,61 @@ describe('WebEmbed API startup request', () => {
         EAppEventBusNames.WebEmbedWebViewProviderReady,
       ),
     ).toBe(providerReadyBaseline);
+  });
+
+  it('does not finish a retry when the previous page reports ready late', async () => {
+    render(<WebViewWebEmbedProvider />);
+
+    const first = backgroundProxy.waitRemoteApiReady();
+    void first.catch(() => {});
+    await act(async () => {
+      await Promise.resolve();
+    });
+    const firstLoad = backgroundEmitSpy.mock.calls.find(
+      ([type]) => type === EAppEventBusNames.LoadWebEmbedWebView,
+    );
+    const firstRequestId = (firstLoad?.[1] as { requestId: string }).requestId;
+    const firstMountId = mockCurrentMountId as string;
+
+    await act(async () => {
+      await jest.advanceTimersByTimeAsync(40_000);
+    });
+    await expect(first).rejects.toThrow('WebEmbedApi not ready after 40s.');
+
+    const retry = backgroundProxy.waitRemoteApiReady();
+    const onRetryReady = jest.fn();
+    void retry.then(onRetryReady);
+    await act(async () => {
+      await Promise.resolve();
+    });
+    const loadCalls = backgroundEmitSpy.mock.calls.filter(
+      ([type]) => type === EAppEventBusNames.LoadWebEmbedWebView,
+    );
+    const retryRequestId = (loadCalls.at(-1)?.[1] as { requestId: string })
+      .requestId;
+    expect(retryRequestId).not.toBe(firstRequestId);
+
+    backgroundBus.dispatchInboundFromForeground({
+      type: EAppEventBusNames.LoadWebEmbedWebViewComplete,
+      payload: { mountId: firstMountId, requestId: firstRequestId },
+      originNodeId: 'previous-page',
+    });
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(onRetryReady).not.toHaveBeenCalled();
+
+    backgroundBus.dispatchInboundFromForeground({
+      type: EAppEventBusNames.LoadWebEmbedWebViewComplete,
+      payload: {
+        mountId: mockCurrentMountId as string,
+        requestId: retryRequestId,
+      },
+      originNodeId: 'current-page',
+    });
+    await retry;
+    expect(onRetryReady).toHaveBeenCalledTimes(1);
   });
 
   it('cleans up a failed ready query and allows the next request to succeed', async () => {
@@ -310,10 +371,7 @@ describe('WebEmbed API startup request', () => {
     });
     expect(mockIsWebEmbedApiReady).toHaveBeenCalledTimes(2);
     expect(mockWebViewMount).toHaveBeenCalledTimes(1);
-    backgroundBus.emit(
-      EAppEventBusNames.LoadWebEmbedWebViewComplete,
-      undefined,
-    );
+    completeCurrent();
     await retry;
   });
 
@@ -337,18 +395,13 @@ describe('WebEmbed API startup request', () => {
     expect(mockIsWebEmbedApiReady).not.toHaveBeenCalled();
   });
 
-  it('settles a completion emitted during the ready query without a stale pending attempt', async () => {
+  it('accepts a ready state rechecked atomically after the query', async () => {
     render(<WebViewWebEmbedProvider />);
-    mockIsWebEmbedApiReady.mockImplementationOnce(() => {
-      backgroundBus.emit(
-        EAppEventBusNames.LoadWebEmbedWebViewComplete,
-        undefined,
-      );
-      return Promise.resolve(false);
-    });
+    mockReserveWebEmbedRequest.mockResolvedValueOnce({ ready: true });
 
     await backgroundProxy.waitRemoteApiReady();
     expect(mockWebViewMount).not.toHaveBeenCalled();
+    expect(mockReserveWebEmbedRequest).toHaveBeenCalledTimes(1);
     expect(
       backgroundBus.listenerCount(
         EAppEventBusNames.LoadWebEmbedWebViewComplete,
@@ -362,10 +415,7 @@ describe('WebEmbed API startup request', () => {
     });
     expect(mockIsWebEmbedApiReady).toHaveBeenCalledTimes(2);
     expect(mockWebViewMount).toHaveBeenCalledTimes(1);
-    backgroundBus.emit(
-      EAppEventBusNames.LoadWebEmbedWebViewComplete,
-      undefined,
-    );
+    completeCurrent();
     await retry;
   });
 

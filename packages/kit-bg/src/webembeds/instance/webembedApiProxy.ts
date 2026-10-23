@@ -108,7 +108,10 @@ class WebembedApiProxy extends RemoteApiProxyBase implements IWebembedApi {
       appEventBus.emit(EAppEventBusNames.LoadWebEmbedWebView, { requestId });
       defaultLogger.app.webembed.emitRenderEvent();
     };
-    const onComplete = () => {
+    const onComplete = (payload?: { requestId?: string }) => {
+      if (payload?.requestId !== requestId) {
+        return;
+      }
       defaultLogger.app.webembed.loadWebEmbedWebViewComplete();
       complete();
     };
@@ -124,7 +127,7 @@ class WebembedApiProxy extends RemoteApiProxyBase implements IWebembedApi {
       onProviderReady,
     );
     void this.isSDKReady()
-      .then((ready) => {
+      .then(async (ready) => {
         if (settled) {
           return;
         }
@@ -132,6 +135,17 @@ class WebembedApiProxy extends RemoteApiProxyBase implements IWebembedApi {
           isReady: !!ready,
         });
         if (ready) {
+          complete();
+          return;
+        }
+        const reservation =
+          await appGlobals.$backgroundApiProxy?.serviceDApp.reserveWebEmbedRequest(
+            requestId,
+          );
+        if (settled) {
+          return;
+        }
+        if (reservation?.ready) {
           complete();
           return;
         }

@@ -1022,3 +1022,10 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries â€
 **Root Cause**: The existing Sentry filter recognized other expected local error types but not this specific Axios cancellation from the Home token request registry.
 **Fix**: Filter only the exact `CanceledError` type and message pair. The Sentry regression test keeps the local log and confirms other cancellation messages, the same text under `TypeError` or `Error`, and a real network error still reach reporting.
 **Catchable by**: Section 6: assert both the expected cancellation and nearby real-error boundaries when changing error-reporting filters.
+
+## Case: Stale WebEmbed readiness could settle a retry
+**Date**: 2026-10-23 | **Platforms**: iOS, Android (native main and background JS runtimes)
+**Symptom**: A previous WebView's late ready message could satisfy a new background wait after its first 40-second wait timed out, allowing a call before the retry's page and bridge were ready.
+**Root Cause**: The completion event carried no identity for the page that sent it. The background request attempt, main host mount, and bridge connection could advance independently across the two JS runtimes.
+**Fix**: Reserve each background attempt, assign an owner to each real WebView mount, tag the existing page callback at the host, and accept readiness only for the current owner. Match both readiness and bridge ownership before dispatch; preserve legacy untagged rebuilds without letting their cleanup revoke an owned API mount.
+**Catchable by**: Section 6: drive the production proxy, host message forwarder, private provider, and main bridge gate through timeout, retry, stale callback and activation acknowledgement, current legacy mount, same-owner reconnect, and bridge replacement. These JS and bridge tests do not establish a device reproduction or the cause of a particular production event.

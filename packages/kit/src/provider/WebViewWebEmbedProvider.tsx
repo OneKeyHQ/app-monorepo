@@ -8,11 +8,22 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
 import { WebViewWebEmbedSingleton } from '../components/WebViewWebEmbed';
 
+let webEmbedMountSequence = 0;
+
 function BasicWebViewWebEmbedProvider() {
   const [isShow, setIsShow] = useState(false);
   const isShowRef = useRef<boolean>(isShow);
   isShowRef.current = isShow;
-  const [ts, setTs] = useState(0);
+  const [mount, setMount] = useState<{
+    mountId: string;
+    mountSequence: number;
+    requestId?: string;
+  }>();
+  const currentMountIdRef = useRef<string | undefined>(undefined);
+  const isCurrentMount = useCallback(
+    (mountId: string) => currentMountIdRef.current === mountId,
+    [],
+  );
   const lastRequestIdRef = useRef<string | undefined>(undefined);
   const showWebEmbedWebView = useCallback(
     ({ reason, requestId }: { reason?: string; requestId?: string }) => {
@@ -20,12 +31,20 @@ function BasicWebViewWebEmbedProvider() {
         return;
       }
       lastRequestIdRef.current = requestId;
+      webEmbedMountSequence += 1;
+      const mountSequence = webEmbedMountSequence;
+      const mountId = `${appEventBus.nodeId}-${mountSequence}`;
+      currentMountIdRef.current = mountId;
+      appEventBus.emit(EAppEventBusNames.WebEmbedWebViewMountRequested, {
+        mountId,
+        mountSequence,
+      });
       defaultLogger.app.webembed.showWebEmbedWebView({ reason });
       defaultLogger.app.webembed.webEmbedProviderEventReceived({
         reason: reason || 'unknown',
       });
       setIsShow(true);
-      setTs((previous) => Math.max(previous + 1, Date.now()));
+      setMount({ mountId, mountSequence, requestId });
     },
     [],
   );
@@ -54,7 +73,15 @@ function BasicWebViewWebEmbedProvider() {
       appEventBus.off(EAppEventBusNames.LoadWebEmbedWebView, fn);
     };
   }, [showWebEmbedWebView]);
-  return isShow ? <WebViewWebEmbedSingleton key={ts} /> : null;
+  return isShow && mount ? (
+    <WebViewWebEmbedSingleton
+      key={mount.mountId}
+      mountId={mount.mountId}
+      mountSequence={mount.mountSequence}
+      requestId={mount.requestId}
+      isCurrentMount={isCurrentMount}
+    />
+  ) : null;
 }
 
 export const WebViewWebEmbedProvider = memo(BasicWebViewWebEmbedProvider);
