@@ -17,6 +17,8 @@ import type { IDApp } from '@onekeyhq/shared/types/discovery';
 
 import type { IMatchDAppItemType } from '../types';
 
+const NATIVE_LABEL_MAX_WIDTH = 80;
+
 export interface IDiscoveryItemCardProps {
   logo?: string;
   title: string;
@@ -121,6 +123,10 @@ export function DiscoveryItemCard({
         <SizableText
           px="$1"
           w="100%"
+          // Phone grids align the outer icons with the page edge, so a label
+          // wider than this would run past the page padding; long names wrap
+          // to a second line instead.
+          maxWidth={platformEnv.isNative ? NATIVE_LABEL_MAX_WIDTH : undefined}
           size="$bodySmMedium"
           textAlign="center"
           numberOfLines={2}
