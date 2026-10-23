@@ -4134,6 +4134,7 @@
   "prime_google_play__label": "Google Play",
   "prime_keep_subscription__action": "สมัครสมาชิกต่อ",
   "prime_keep_waiting__action": "รอต่อ",
+  "prime_member_try_again__msg": "คุณเป็นสมาชิก Prime แล้ว ลองใช้ฟีเจอร์นี้อีกครั้ง",
   "prime_membership_valid_until__desc": "สมาชิกใช้ได้จนถึง {date}",
   "prime_next_invoice__label": "วันที่ส่งใบแจ้งหนี้ต่ออายุ",
   "prime_no_crypto_subscription__desc": "หน้านี้แสดงเฉพาะการสมัครสมาชิก Prime ที่ชำระด้วยคริปโตเท่านั้น",
