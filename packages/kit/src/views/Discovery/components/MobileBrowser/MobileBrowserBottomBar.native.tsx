@@ -20,6 +20,7 @@ import type { IBrowserToolbarAction } from '@onekeyhq/shared/src/logger/scopes/d
 import {
   BROWSER_BOTTOM_BAR_HEIGHT,
   BROWSER_CHROME_CAPSULE_HEIGHT,
+  BROWSER_CHROME_SIDE_PADDING,
   BROWSER_COLLAPSED_PILL_HEIGHT,
 } from '../../config/Animation.constants';
 import { TranslatePopoverTrigger } from '../../hooks/usePageTranslation';
@@ -259,7 +260,7 @@ function MobileBrowserBottomBar({
       >
         <XStack
           h={BROWSER_BOTTOM_BAR_HEIGHT}
-          px="$4"
+          px={BROWSER_CHROME_SIDE_PADDING}
           gap="$2"
           alignItems="center"
         >

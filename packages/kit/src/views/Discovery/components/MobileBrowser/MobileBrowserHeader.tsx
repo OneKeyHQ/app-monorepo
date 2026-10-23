@@ -14,7 +14,11 @@ import {
 } from '@onekeyhq/components';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
-import { BROWSER_HEADER_HEIGHT } from '../../config/Animation.constants';
+import {
+  BROWSER_CHROME_CAPSULE_HEIGHT,
+  BROWSER_CHROME_SIDE_PADDING,
+  BROWSER_HEADER_HEIGHT,
+} from '../../config/Animation.constants';
 import { DiscoveryTestIDs } from '../../testIDs';
 import HeaderRightToolBar from '../HeaderRightToolBar';
 
@@ -75,25 +79,36 @@ function MobileBrowserHeader({
           {/* A plain toolbar, not glass: the header sits on the app
               background above the page, where glass would only show its
               shadow halo. Glass is kept for the bar that floats over content.
-              Same padding as the app's other tab headers. */}
+              Edges line up with the bottom bar: same side padding, and the
+              minimize icon sits in a capsule-sized slot so it shares a column
+              with the back button below; the chip's right edge matches the
+              tabs button. */}
           <XStack
             flex={1}
-            px="$5"
+            px={BROWSER_CHROME_SIDE_PADDING}
             alignItems="center"
             justifyContent="space-between"
           >
-            <IconButton
-              variant="tertiary"
-              icon="MinimizeOutline"
-              onPress={() => {
-                defaultLogger.discovery.browser.browserToolbarAction({
-                  action: 'minimize',
-                  entry: 'header',
-                });
-                onGoBackHome();
-              }}
-              testID={DiscoveryTestIDs.browserMinimizeButton}
-            />
+            <Stack
+              w={BROWSER_CHROME_CAPSULE_HEIGHT}
+              h={BROWSER_CHROME_CAPSULE_HEIGHT}
+              alignItems="center"
+              justifyContent="center"
+            >
+              <IconButton
+                variant="tertiary"
+                m={0}
+                icon="MinimizeOutline"
+                onPress={() => {
+                  defaultLogger.discovery.browser.browserToolbarAction({
+                    action: 'minimize',
+                    entry: 'header',
+                  });
+                  onGoBackHome();
+                }}
+                testID={DiscoveryTestIDs.browserMinimizeButton}
+              />
+            </Stack>
             {/* One compact chip for every account state (connected,
                 not connected, no wallet), so the right side keeps the same
                 shape instead of switching between loose triggers. */}
