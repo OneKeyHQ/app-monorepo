@@ -410,35 +410,21 @@ const ProtocolHeader = ({
   );
 };
 
-function ChartSection({
+function useProtocolChartData({
   networkId,
   symbol,
   provider,
   vault,
-  showTimeRangeControls,
-  apyBreakdownItems,
 }: {
   networkId: string;
   symbol: string;
   provider: string;
   vault?: string;
-  // Phone layout shows 1H/1D/1W/Max for every provider. ApyChart already
-  // filters to whatever data falls in the window, so a sparse history simply
-  // draws fewer points rather than needing its own guard.
-  showTimeRangeControls?: boolean;
-  // The APY popup's breakdown rows, used to name the two lines. Taking the
-  // names from the same payload the Yield sheet renders means the chart and the
-  // sheet can never disagree about what the orange line is.
-  apyBreakdownItems?: NonNullable<IEarnPopupActionIcon['data']['items']>;
 }) {
-  const intl = useIntl();
-  const { gtMd } = useMedia();
-  const isPendleProvider = useMemo(
-    () => earnUtils.isPendleProvider({ providerName: provider }),
-    [provider],
-  );
-
-  // Fetch chart data to get high/low values
+  const isPendleProvider = earnUtils.isPendleProvider({
+    providerName: provider,
+  });
+  const requestKey = `${networkId}:${provider}:${symbol}:${vault ?? ''}`;
   const { result: chartData, isLoading: isChartLoading } =
     usePromiseResult(async () => {
       if (isPendleProvider) {
@@ -466,6 +452,8 @@ function ChartSection({
         );
 
         return {
+          requestKey,
+          ptHistory: underlyingApyHistoryData.results,
           impliedApyHistory,
           underlyingApyHistory,
           hasNonZeroUnderlyingApy:
@@ -507,11 +495,36 @@ function ChartSection({
         : impliedApyHistory.find((item) => item.extraApyKind)?.extraApyKind;
 
       return {
+        requestKey,
         impliedApyHistory,
         extraApyHistory,
         extraApyKind,
       };
-    }, [networkId, symbol, provider, vault, isPendleProvider]);
+    }, [networkId, symbol, provider, vault, isPendleProvider, requestKey]);
+
+  return {
+    chartData: chartData?.requestKey === requestKey ? chartData : undefined,
+    isChartLoading,
+  };
+}
+
+function ChartSection({
+  provider,
+  chartRequest,
+  showTimeRangeControls,
+  apyBreakdownItems,
+}: {
+  provider: string;
+  chartRequest: ReturnType<typeof useProtocolChartData>;
+  showTimeRangeControls?: boolean;
+  apyBreakdownItems?: NonNullable<IEarnPopupActionIcon['data']['items']>;
+}) {
+  const intl = useIntl();
+  const { gtMd } = useMedia();
+  const isPendleProvider = earnUtils.isPendleProvider({
+    providerName: provider,
+  });
+  const { chartData, isChartLoading } = chartRequest;
 
   const {
     impliedApyHistory,
@@ -902,6 +915,12 @@ const DetailsPartComponent = ({
   holdingRedeem?: IEarnHoldingRedeem;
 }) => {
   const now = useMemo(() => Date.now(), []);
+  const chartRequest = useProtocolChartData({
+    networkId,
+    symbol,
+    provider,
+    vault,
+  });
 
   // The positions page's Manage lands on the position: once the page has
   // loaded with a Portfolio tab, scroll the tabs to the top of the view, once.
@@ -1008,10 +1027,8 @@ const DetailsPartComponent = ({
                   yieldSheetData={yieldSheetData}
                 />
                 <ChartSection
-                  networkId={networkId}
-                  symbol={symbol}
                   provider={provider}
-                  vault={vault}
+                  chartRequest={chartRequest}
                   showTimeRangeControls
                   apyBreakdownItems={popupData?.items}
                 />
@@ -1055,7 +1072,11 @@ const DetailsPartComponent = ({
                       {earnUtils.isPendleProvider({
                         providerName: provider,
                       }) ? (
-                        <PendleRulesSection data={detailInfo.rules} />
+                        <PendleRulesSection
+                          data={detailInfo.rules}
+                          maturity={detailInfo.maturity}
+                          history={chartRequest.chartData?.ptHistory}
+                        />
                       ) : (
                         <GridSection data={detailInfo.rules} />
                       )}
@@ -1105,10 +1126,8 @@ const DetailsPartComponent = ({
                 onShare={onShare}
               />
               <ChartSection
-                networkId={networkId}
-                symbol={symbol}
                 provider={provider}
-                vault={vault}
+                chartRequest={chartRequest}
                 apyBreakdownItems={popupData?.items}
               />
               {/* Protocol Tips (OK-58972)：图表下方浅灰卡片，dashboard 配置 */}
@@ -1125,7 +1144,11 @@ const DetailsPartComponent = ({
             {earnUtils.isPendleProvider({
               providerName: provider,
             }) ? (
-              <PendleRulesSection data={detailInfo.rules} />
+              <PendleRulesSection
+                data={detailInfo.rules}
+                maturity={detailInfo.maturity}
+                history={chartRequest.chartData?.ptHistory}
+              />
             ) : (
               <GridSection data={detailInfo.rules} />
             )}

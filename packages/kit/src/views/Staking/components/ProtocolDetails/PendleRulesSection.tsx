@@ -5,7 +5,10 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
-import type { IStakeEarnDetail } from '@onekeyhq/shared/types/staking';
+import type {
+  IStakeEarnDetail,
+  IUnderlyingApyHistoryItem,
+} from '@onekeyhq/shared/types/staking';
 
 import { EarnText } from './EarnText';
 import { EarnTooltip } from './EarnTooltip';
@@ -48,8 +51,12 @@ function RuleItem({
 
 export function PendleRulesSection({
   data,
+  maturity,
+  history,
 }: {
   data?: IStakeEarnDetail['rules'];
+  maturity?: IStakeEarnDetail['maturity'];
+  history?: IUnderlyingApyHistoryItem[];
 }) {
   if (!data?.items?.length) {
     return null;
@@ -73,7 +80,13 @@ export function PendleRulesSection({
             {data.chart.description}
           </SizableText>
         ) : null}
-        {data.chart ? <PendlePtConvergenceChart chart={data.chart} /> : null}
+        {data.chart ? (
+          <PendlePtConvergenceChart
+            chart={data.chart}
+            maturity={maturity}
+            history={history}
+          />
+        ) : null}
       </YStack>
       <Divider />
     </>

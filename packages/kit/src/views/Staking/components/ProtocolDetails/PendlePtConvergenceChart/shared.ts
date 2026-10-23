@@ -1,4 +1,10 @@
-import type { IStakeEarnDetail } from '@onekeyhq/shared/types/staking';
+import { parse, parseISO } from 'date-fns';
+import { enUS } from 'date-fns/locale';
+
+import type {
+  IStakeEarnDetail,
+  IUnderlyingApyHistoryItem,
+} from '@onekeyhq/shared/types/staking';
 
 export type IPtConvergenceChartData = NonNullable<
   NonNullable<IStakeEarnDetail['rules']>['chart']
@@ -6,113 +12,200 @@ export type IPtConvergenceChartData = NonNullable<
 
 export interface IPendlePtConvergenceChartProps {
   chart: IPtConvergenceChartData;
+  maturity?: IStakeEarnDetail['maturity'];
+  history?: IUnderlyingApyHistoryItem[];
 }
 
-export const SVG_WIDTH = 632;
-export const SVG_HEIGHT = 232;
+export interface IPtPricePoint {
+  timestamp: number;
+  price: number;
+  source: 'history' | 'current' | 'estimate';
+}
 
-export const CHART_WIDTH = 512;
-
-export const NOW_X = 133;
-export const DOT_X = 134;
-export const END_X = 488;
-export const MID_X = (NOW_X + END_X) / 2;
-
-export const TARGET_Y = 28;
-export const CURRENT_REFERENCE_Y = 158;
-export const BOTTOM_Y = 190;
-export const LABEL_Y = 222;
-
-export const REFERENCE_TARGET_RATE = 1;
-export const REFERENCE_CURRENT_RATE = 0.9841;
-const REFERENCE_RATE_GAP = REFERENCE_TARGET_RATE - REFERENCE_CURRENT_RATE;
-const REFERENCE_CURVE_SPAN = CURRENT_REFERENCE_Y - TARGET_Y;
-const CHART_Y_SPAN = BOTTOM_Y - TARGET_Y;
-// Axis padding keeps small rate gaps readable without flattening the curve too much.
-const AXIS_PADDING_GAP =
-  (REFERENCE_RATE_GAP * (CHART_Y_SPAN - REFERENCE_CURVE_SPAN)) /
-  REFERENCE_CURVE_SPAN;
-const MAX_CURVE_SCALE = CHART_Y_SPAN / REFERENCE_CURVE_SPAN;
-
-const BADGE_HORIZONTAL_PADDING = 12;
-const AVG_CHAR_WIDTH = 6.6;
-
-export const COLORS = {
-  greenStroke: 'rgba(0,131,71,0.84)',
-  fillTop: 'rgba(66,255,164,0.15)',
-  fillBottom: 'rgba(66,255,164,0)',
-  badge: '#4D525D',
-} as const;
-
-// Full-width wavy curve path in absolute SVG coordinates (valid at reference curveScale=1).
-// The curve oscillates like a real market chart and converges to TARGET_Y at END_X.
-// Key anchor: at NOW_X (133) the curve sits at CURRENT_REFERENCE_Y (158).
-export const FULL_CURVE_PATH =
-  'M 10 162 C 30 163 58 132 78 136 C 98 140 116 154 133 158 C 148 162 158 184 176 184 C 196 184 218 108 244 108 C 265 108 275 126 296 114 C 320 98 342 83 362 74 C 384 66 415 44 435 41 C 455 36 473 29 488 28';
-
-// Same curve closed to the bottom for the gradient fill area.
-export const FULL_FILL_PATH =
-  'M 10 162 C 30 163 58 132 78 136 C 98 140 116 154 133 158 C 148 162 158 184 176 184 C 196 184 218 108 244 108 C 265 108 275 126 296 114 C 320 98 342 83 362 74 C 384 66 415 44 435 41 C 455 36 473 29 488 28 L 488 190 L 10 190 Z';
+export const DAY_MS = 24 * 60 * 60 * 1000;
+const YEAR_MS = 365 * DAY_MS;
+const MAX_HISTORY_MS = 60 * DAY_MS;
+const PROJECTION_STEPS = 48;
 
 export function clamp(value: number, min: number, max: number) {
   return Math.min(Math.max(value, min), max);
 }
 
-export function getCurveScale({
-  currentRate,
-  targetRate,
-}: {
-  currentRate: number;
-  targetRate: number;
-}) {
-  const gap = Math.max(targetRate - currentRate, 0);
-  if (!Number.isFinite(gap) || REFERENCE_RATE_GAP <= 0) {
-    return 1;
-  }
-  const scaledSpan = (CHART_Y_SPAN * gap) / (gap + AXIS_PADDING_GAP);
-  const rawScale = scaledSpan / REFERENCE_CURVE_SPAN;
-  return clamp(rawScale, 0, MAX_CURVE_SCALE);
-}
-
-export function getCurrentPointY(curveScale: number) {
-  return TARGET_Y + curveScale * (CURRENT_REFERENCE_Y - TARGET_Y);
-}
-
 export function formatRate(rate: number) {
-  if (!Number.isFinite(rate)) {
-    return '--';
-  }
-  return Number(rate.toFixed(4)).toString();
+  if (!Number.isFinite(rate)) return '--';
+  return Number(
+    rate !== 0 && Math.abs(rate) < 0.0001
+      ? rate.toPrecision(4)
+      : rate.toFixed(4),
+  ).toString();
 }
 
-export function fitTextToWidth(text: string, maxWidth: number) {
-  const normalized = text.trim();
-  if (!normalized || maxWidth <= 0) {
-    return normalized;
+export function getMaturityTimestamp(date?: string) {
+  if (!date?.trim()) return undefined;
+  if (date.includes('T')) {
+    const timestamp = parseISO(date.trim()).getTime();
+    return Number.isFinite(timestamp) ? timestamp : undefined;
   }
-  const maxChars = Math.max(
-    1,
-    Math.floor((maxWidth - BADGE_HORIZONTAL_PADDING) / AVG_CHAR_WIDTH),
+  // The detail contract formats expiry as an English UTC calendar date.
+  // Parse that calendar day independently of the app locale and device zone.
+  let calendarDate = parse(date.trim(), 'dd MMM yyyy', new Date(0), {
+    locale: enUS,
+  });
+  if (!Number.isFinite(calendarDate.getTime())) {
+    calendarDate = parse(date.trim(), 'yyyy-MM-dd', new Date(0));
+  }
+  const timestamp = Date.UTC(
+    calendarDate.getFullYear(),
+    calendarDate.getMonth(),
+    calendarDate.getDate(),
   );
-  if (normalized.length <= maxChars) {
-    return normalized;
-  }
-  if (maxChars === 1) {
-    return '…';
-  }
-  return `${normalized.slice(0, maxChars - 1)}…`;
+  return Number.isFinite(timestamp) ? timestamp : undefined;
 }
 
-export function getBadgeWidth({
-  text,
-  minWidth,
-  maxWidth,
-}: {
-  text: string;
-  minWidth: number;
-  maxWidth: number;
-}) {
-  const estimatedWidth =
-    text.length * AVG_CHAR_WIDTH + BADGE_HORIZONTAL_PADDING;
-  return clamp(estimatedWidth, minWidth, maxWidth);
+export function buildPtPriceChart({
+  chart,
+  maturity,
+  history,
+  now = Date.now(),
+}: IPendlePtConvergenceChartProps & { now?: number }) {
+  const { currentRate, targetRate, remainingDays, accountingSymbol, ptSymbol } =
+    chart;
+  if (
+    !Number.isFinite(now) ||
+    !Number.isFinite(currentRate) ||
+    currentRate <= 0 ||
+    !Number.isFinite(targetRate) ||
+    targetRate <= 0 ||
+    !Number.isFinite(remainingDays) ||
+    remainingDays < 0 ||
+    !accountingSymbol?.trim() ||
+    !ptSymbol?.trim()
+  ) {
+    return undefined;
+  }
+
+  const expiry = getMaturityTimestamp(maturity?.date);
+  const end = expiry ?? now + remainingDays * DAY_MS;
+  // Matured markets have no future trajectory; do not extend a stale snapshot.
+  if (
+    maturity?.isMatured ||
+    end <= now ||
+    !Number.isFinite(end) ||
+    !Number.isFinite(new Date(end).getTime())
+  )
+    return undefined;
+
+  const windowStart = now - Math.min(end - now, MAX_HISTORY_MS);
+  const priceByTimestamp = new Map<number, IPtPricePoint>();
+  // The existing API returns historical implied APY in percent, rounded to
+  // two decimals. Reconstruct approximate PT/accounting-asset prices using
+  // Pendle's discount formula; never invent observations or smooth volatility.
+  // https://docs.pendle.finance/pendle-v2-dev/Oracles/OracleOverview
+  if (expiry !== undefined) {
+    (history ?? []).forEach((item) => {
+      const apy = Number(item.impliedApy);
+      if (
+        !item.impliedApy?.trim() ||
+        !Number.isFinite(apy) ||
+        apy <= -100 ||
+        !Number.isFinite(item.timestamp) ||
+        item.timestamp < windowStart ||
+        item.timestamp >= now
+      ) {
+        return;
+      }
+      const price =
+        targetRate * (1 + apy / 100) ** (-(end - item.timestamp) / YEAR_MS);
+      if (Number.isFinite(price) && price > 0) {
+        priceByTimestamp.set(item.timestamp, {
+          timestamp: item.timestamp,
+          price,
+          source: 'history',
+        });
+      }
+    });
+  }
+  const historical = Array.from(priceByTimestamp.values()).toSorted(
+    (a, b) => a.timestamp - b.timestamp,
+  );
+  // Keep only observed timestamps; do not fill missing history with projections.
+  const start = historical[0]?.timestamp ?? now;
+  const current: IPtPricePoint = {
+    timestamp: now,
+    price: currentRate,
+    source: 'current',
+  };
+  const projection: IPtPricePoint[] = Array.from(
+    { length: PROJECTION_STEPS + 1 },
+    (_, index) => {
+      const fraction = index / PROJECTION_STEPS;
+      return {
+        timestamp: now + (end - now) * fraction,
+        // Hold today's implied discount rate constant, reaching redemption
+        // exactly at expiry. This illustrates convergence, not market prices.
+        price:
+          index === 0
+            ? currentRate
+            : discountedPrice(currentRate, targetRate, fraction),
+        source: index === 0 ? 'current' : 'estimate',
+      };
+    },
+  );
+  const points = [...historical, ...projection];
+  let low = Math.min(currentRate, targetRate);
+  let high = Math.max(currentRate, targetRate);
+  for (const point of historical) {
+    low = Math.min(low, point.price);
+    high = Math.max(high, point.price);
+  }
+  const padding = Math.max((high - low) * 0.16, targetRate * 0.0005);
+  if (!Number.isFinite(high + padding)) return undefined;
+  return {
+    start,
+    end,
+    now,
+    current,
+    historical,
+    projection,
+    points,
+    minPrice: Math.max(0, low - padding),
+    maxPrice: high + padding,
+  };
+}
+
+export type IPtPriceChart = NonNullable<ReturnType<typeof buildPtPriceChart>>;
+
+function discountedPrice(current: number, target: number, fraction: number) {
+  if (fraction >= 1) return target;
+  return Math.exp(
+    Math.log(current) * (1 - fraction) + Math.log(target) * fraction,
+  );
+}
+
+export function getPtPriceAtTime(model: IPtPriceChart, timestamp: number) {
+  if (timestamp < model.start || timestamp > model.end) return undefined;
+  if (timestamp > model.now) {
+    return {
+      timestamp,
+      price: discountedPrice(
+        model.current.price,
+        model.projection[model.projection.length - 1].price,
+        (timestamp - model.now) / (model.end - model.now),
+      ),
+      source: 'estimate' as const,
+    };
+  }
+  return findNearestPoint([...model.historical, model.current], timestamp);
+}
+
+export function findNearestPoint(points: IPtPricePoint[], timestamp: number) {
+  return points.reduce<IPtPricePoint | undefined>(
+    (nearest, point) =>
+      !nearest ||
+      Math.abs(point.timestamp - timestamp) <
+        Math.abs(nearest.timestamp - timestamp)
+        ? point
+        : nearest,
+    undefined,
+  );
 }
