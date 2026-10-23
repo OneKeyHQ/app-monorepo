@@ -73,9 +73,15 @@ export class ZcashPrivacyMode {
     }
   }
 
-  async getPrivacyModeState({ accountId }: { accountId: string }) {
+  async getPrivacyModeState({
+    accountId,
+    includePendingRescan,
+  }: {
+    accountId: string;
+    includePendingRescan?: boolean;
+  }) {
     return this.backgroundApi.simpleDb.privacyChainState.getZcashPrivacyModeState(
-      { accountId },
+      { accountId, includePendingRescan },
     );
   }
 
@@ -84,6 +90,7 @@ export class ZcashPrivacyMode {
     accountId: string;
     birthdayHeight?: number;
     birthdayTimestamp?: number;
+    forceViewingKeyDerivation?: boolean;
   }): Promise<void> {
     await getZcashPrivacyModeOperationMutex(params.accountId).runExclusive(() =>
       this.enablePrivacyModeImpl(params),
@@ -95,11 +102,13 @@ export class ZcashPrivacyMode {
     accountId,
     birthdayHeight,
     birthdayTimestamp,
+    forceViewingKeyDerivation = false,
   }: {
     networkId: string;
     accountId: string;
     birthdayHeight?: number;
     birthdayTimestamp?: number;
+    forceViewingKeyDerivation?: boolean;
   }): Promise<void> {
     await this.assertZcashAccountContext({ networkId, accountId });
     const hasExplicitBirthday =
@@ -111,6 +120,7 @@ export class ZcashPrivacyMode {
         },
       );
     if (
+      !forceViewingKeyDerivation &&
       !hasExplicitBirthday &&
       state.intent === 'on' &&
       state.operation === undefined
@@ -162,11 +172,11 @@ export class ZcashPrivacyMode {
     // durable runtime repair. A retry must still reconcile that intent.
     const needsBirthdayUpdate =
       !!existingMeta &&
-      (hasExplicitBirthday ||
-        (selectedBirthdayHeight !== undefined
-          ? selectedBirthdayHeight !== existingMeta.birthdayHeight
-          : selectedBirthdayTimestamp !== existingMeta.birthdayTimestamp));
+      (selectedBirthdayHeight !== undefined
+        ? selectedBirthdayHeight !== existingMeta.birthdayHeight
+        : selectedBirthdayTimestamp !== existingMeta.birthdayTimestamp);
     const needsViewingKeyDerivation =
+      forceViewingKeyDerivation ||
       !existingMeta?.birthdayHeight ||
       !(await hasZcashAccountViewingKey({
         backgroundApi: this.backgroundApi,
@@ -214,14 +224,21 @@ export class ZcashPrivacyMode {
       if (needsViewingKeyDerivation) {
         if (isHwWallet) {
           await this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
-            () => vault.zcashRetryLocalWalletSetup({ deviceParams }),
+            () =>
+              vault.zcashRetryLocalWalletSetup({
+                deviceParams,
+                ...(forceViewingKeyDerivation ? { forceDerivation: true } : {}),
+              }),
             {
               deviceParams,
               debugMethodName: 'zcashPrivacyMode.enablePrivacyMode',
             },
           );
         } else {
-          await vault.zcashRetryLocalWalletSetup({ password });
+          await vault.zcashRetryLocalWalletSetup({
+            password,
+            ...(forceViewingKeyDerivation ? { forceDerivation: true } : {}),
+          });
         }
       }
       const meta =
@@ -257,21 +274,30 @@ export class ZcashPrivacyMode {
                 timestamp: checkIsDefined(selectedBirthdayTimestamp),
               };
       }
-      await vault.zcashPreparePrivacyModeAccount({
-        accountId,
-        fromHeight: enableFromHeight,
-        birthday,
-        onPrepared: async () => {
-          const settings = await getVaultSettings({ networkId });
-          await this.assertZcashAccountContext({ networkId, accountId });
-          await this.backgroundApi.simpleDb.privacyChainState.completeZcashPrivacyModeEnable(
-            {
-              accountId,
-              maxEnabledAccounts: settings.localWallet?.maxEnabledAccounts,
-            },
-          );
-        },
-      });
+      const completeEnable = async () => {
+        const settings = await getVaultSettings({ networkId });
+        await this.assertZcashAccountContext({ networkId, accountId });
+        await this.backgroundApi.simpleDb.privacyChainState.completeZcashPrivacyModeEnable(
+          {
+            accountId,
+            maxEnabledAccounts: settings.localWallet?.maxEnabledAccounts,
+          },
+        );
+      };
+      if (needsBirthdayUpdate) {
+        // Persist the reconciliation request; the scheduler applies it at a
+        // safe boundary before registering or scanning this identity.
+        await vault.rescanLocalWallet({
+          accountId,
+          from: checkIsDefined(birthday),
+        });
+      } else if (existingMeta && state.resumeFromHeight !== undefined) {
+        // A resume cursor is not the account's original recovery birthday.
+        await this.backgroundApi.simpleDb.privacyChainState.markZcashScanExcluded(
+          { accountId, fromHeight: enableFromHeight },
+        );
+      }
+      await completeEnable();
     } catch (error) {
       await this.backgroundApi.simpleDb.privacyChainState.cancelZcashPendingEnables(
         {
@@ -283,20 +309,18 @@ export class ZcashPrivacyMode {
     }
     // The account is already on and past rollback; a notification failure
     // must not report the enable as failed.
-    try {
-      await this.backgroundApi.servicePrivacyChain.onLocalWalletAccountsChanged(
-        {
-          networkId,
-          accountIds: [accountId],
-          backfillActive: true,
-        },
-      );
-    } catch (error) {
-      console.error(
-        '[zcash] privacy enable completed but notification failed',
-        error instanceof Error ? error.message : '',
-      );
-    }
+    void this.backgroundApi.servicePrivacyChain
+      .onLocalWalletAccountsChanged({
+        networkId,
+        accountIds: [accountId],
+        backfillActive: true,
+      })
+      .catch((error: unknown) => {
+        console.error(
+          '[zcash] privacy enable completed but notification failed',
+          error instanceof Error ? error.message : '',
+        );
+      });
   }
 
   async disablePrivacyMode(params: {

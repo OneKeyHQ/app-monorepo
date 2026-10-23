@@ -78,6 +78,9 @@ function createService({
   }));
   const service = Object.assign(Object.create(ServicePrivacyChain.prototype), {
     backgroundApi: {
+      simpleDb: {
+        privacyChainState: { listPendingAccountDeletions: async () => [] },
+      },
       serviceAccount: {
         getWalletSafe,
         getDBAccountSafe: async ({ accountId }: { accountId: string }) => ({

@@ -25,6 +25,7 @@ export type IPrivacyChainRuntimeFailure =
   | 'crashed'
   | 'invalidResponse'
   | 'reset'
+  | 'trapped'
   | 'storage';
 
 function runtimeFailureError(
@@ -292,12 +293,20 @@ export function createPrivacyChainWorkerClient<TApi>(options: {
         return;
       }
 
-      const { id, ok, result, error, requiresWorkerRestart } = event.data as {
+      const {
+        id,
+        ok,
+        result,
+        error,
+        requiresWorkerRestart,
+        workerRestartReason,
+      } = event.data as {
         id: number;
         ok: boolean;
         result?: unknown;
         error?: Record<string, unknown>;
         requiresWorkerRestart?: boolean;
+        workerRestartReason?: 'trapped';
       };
       const pending = current.pending.get(id);
       if (!pending) {
@@ -311,14 +320,28 @@ export function createPrivacyChainWorkerClient<TApi>(options: {
           String(error?.message ?? `${label} worker: call failed`),
         );
         Object.assign(workerError, error);
+        if (requiresWorkerRestart && workerRestartReason === 'trapped') {
+          const originalData = error?.data;
+          workerError.data = {
+            ...(typeof originalData === 'object' && originalData !== null
+              ? originalData
+              : {}),
+            privacyChainRuntimeFailure: 'trapped',
+          };
+        }
         pending.reject(workerError);
       }
       if (requiresWorkerRestart) {
         // Keep this call's result (even an uncertain broadcast outcome), but
-        // never let a poisoned database serve another request.
+        // never let a poisoned runtime serve another request.
+        const failure =
+          workerRestartReason === 'trapped' ? 'trapped' : 'storage';
         dispose(
           current,
-          runtimeFailureError(`${label} worker: storage failed`, 'storage'),
+          runtimeFailureError(
+            `${label} worker: ${failure === 'trapped' ? 'wasm trapped' : 'storage failed'}`,
+            failure,
+          ),
         );
       }
     };
@@ -526,6 +549,35 @@ export function workerCarrierHasHostRequest(): boolean {
   return carrierHasHostRequest;
 }
 
+type IWorkerRuntimeState = {
+  label: string;
+  trapped: boolean;
+};
+
+// Installed only by the server in its dedicated Worker heap.
+let workerRuntimeState: IWorkerRuntimeState | undefined;
+
+export async function runPrivacyChainWorkerOperation<T>(
+  operation: () => T | Promise<T>,
+): Promise<T> {
+  const current = workerRuntimeState;
+  if (current?.trapped) {
+    throw runtimeFailureError(
+      `${current.label} worker: wasm trapped`,
+      'trapped',
+    );
+  }
+  try {
+    return await operation();
+  } catch (error) {
+    if (current && error instanceof WebAssembly.RuntimeError) {
+      // Latch before an internal execution queue can release its next call.
+      current.trapped = true;
+    }
+    throw error;
+  }
+}
+
 export function servePrivacyChainWorker<TApi extends object>(options: {
   label: string;
   methods: readonly string[];
@@ -558,6 +610,8 @@ export function servePrivacyChainWorker<TApi extends object>(options: {
   const methodSet = new Set<string>(methods);
 
   let apiPromise: Promise<TApi> | undefined;
+  const runtimeState: IWorkerRuntimeState = { label, trapped: false };
+  workerRuntimeState = runtimeState;
   const getApi = async (): Promise<TApi> => {
     if (!apiPromise) {
       apiPromise = loadApi().catch((error) => {
@@ -607,26 +661,37 @@ export function servePrivacyChainWorker<TApi extends object>(options: {
             `${label} worker: unknown method ${method}`,
           );
         }
-        const api = await getApi();
+        const api = await runPrivacyChainWorkerOperation(getApi);
+        // Block queued exports before the host has time to terminate us.
+        if (runtimeState.trapped) {
+          throw new OneKeyLocalError(`${label} worker: wasm trapped`);
+        }
         if (storageRequiresRestart()) {
           throw new OneKeyLocalError(`${label} worker: storage failed`);
         }
         const fn = (api as Record<string, unknown>)[method] as (
           ...a: unknown[]
         ) => unknown;
-        const result = await fn.apply(api, args);
+        const result = await runPrivacyChainWorkerOperation(() =>
+          fn.apply(api, args),
+        );
         scope.postMessage({
           id,
           ok: true,
           result,
-          requiresWorkerRestart: storageRequiresRestart(),
+          requiresWorkerRestart:
+            runtimeState.trapped || storageRequiresRestart(),
+          workerRestartReason: runtimeState.trapped ? 'trapped' : undefined,
         });
       } catch (e) {
+        runtimeState.trapped ||= e instanceof WebAssembly.RuntimeError;
         scope.postMessage({
           id,
           ok: false,
           error: toPlainError(e),
-          requiresWorkerRestart: storageRequiresRestart(),
+          requiresWorkerRestart:
+            runtimeState.trapped || storageRequiresRestart(),
+          workerRestartReason: runtimeState.trapped ? 'trapped' : undefined,
         });
       }
     })();

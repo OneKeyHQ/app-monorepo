@@ -90,6 +90,9 @@ describe('Privacy Mode enabled-account ceiling', () => {
       },
       {
         backgroundApi: {
+          simpleDb: {
+            privacyChainState: { listPendingAccountDeletions: async () => [] },
+          },
           serviceAccount: { getWalletSafe: async () => ({ isTemp: false }) },
         },
         enableMutexByNetwork: new Map<string, Mutex>(),

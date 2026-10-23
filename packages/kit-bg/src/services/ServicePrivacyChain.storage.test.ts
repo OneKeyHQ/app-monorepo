@@ -709,6 +709,7 @@ describe('pending local data drop retry', () => {
       pendingLocalDataDropRetry: retry.promise,
       requireAccountCapability: async () => ({ enableAccount }),
       backgroundApi: {
+        simpleDb: { privacyChainState: createPrivacyChainDb() },
         serviceAccount: { getWalletSafe: async () => ({ isTemp: false }) },
       },
     });
@@ -729,18 +730,10 @@ describe('pending local data drop retry', () => {
 describe.each(['zec--0', 'xmr--0'])(
   'deleting local data on %s',
   (chainNetworkId) => {
-    function createDeleteHarness(initial: {
-      enabled: boolean;
-      pendingOperation?: 'enable' | 'disable';
-    }) {
+    function createDeleteHarness() {
       const calls: string[] = [];
-      let state = { ...initial };
       const capability = {
-        getAccountState: jest.fn(async () => state),
-        disableAccount: jest.fn(async () => {
-          calls.push('disable');
-          state = { enabled: false };
-        }),
+        getAccountState: jest.fn(async () => ({ enabled: false })),
         deleteRuntimeAccount: jest.fn(async () => {
           calls.push('delete');
           return { orphaned: false };
@@ -750,6 +743,9 @@ describe.each(['zec--0', 'xmr--0'])(
             calls.push(`clearPending:${scope}`);
           },
         ),
+        enableAccount: jest.fn(async () => {
+          calls.push('enable');
+        }),
       };
       mockGetVaultSettings.mockResolvedValue({ localWallet: {} });
       const privacyChainKeys = createKeysDb([liveAccountId, hiddenAccountId]);
@@ -769,6 +765,8 @@ describe.each(['zec--0', 'xmr--0'])(
         },
         enableMutexByNetwork: new Map<string, Mutex>(),
         requireAccountCapability: async () => capability,
+        isTempWalletAccount: async () => false,
+        onLocalWalletAccountsChanged: jest.fn(async () => undefined),
         forgetCachedLocalWalletBalance,
       });
       return {
@@ -778,146 +776,212 @@ describe.each(['zec--0', 'xmr--0'])(
         privacyChainKeys,
         privacyChainState,
         forgetCachedLocalWalletBalance,
-        setState: (next: typeof state) => {
-          state = next;
-        },
       };
     }
+    const params = { networkId: chainNetworkId, accountId: liveAccountId };
 
-    it('turns an enabled account off before deleting', async () => {
-      const { service, calls, forgetCachedLocalWalletBalance } =
-        createDeleteHarness({ enabled: true });
-
-      await service.deleteLocalWalletAccountData({
-        networkId: chainNetworkId,
-        accountId: liveAccountId,
+    it('accepts the saved request while cleanup is still waiting for a database step', async () => {
+      const { service, capability, privacyChainState, privacyChainKeys } =
+        createDeleteHarness();
+      const step = deferred();
+      capability.deleteRuntimeAccount.mockImplementationOnce(async () => {
+        await step.promise;
+        return { orphaned: false };
       });
-
-      // Only sends that can no longer be mined go with the data.
-      expect(calls).toEqual(['disable', 'delete', 'clearPending:expired']);
-      // The account set changed: the runtime orphan cleanup is due again.
-      expect(service.orphanCleanupGeneration.get(chainNetworkId)).toBe(1);
-      expect(forgetCachedLocalWalletBalance).toHaveBeenCalledWith({
-        networkId: chainNetworkId,
-        accountId: liveAccountId,
+      await privacyChainState.saveXmrEnabledAccount({
+        ...params,
+        vkFp: 'a'.repeat(32),
+        birthdayHeight: 100,
       });
-    });
-
-    it('finishes an interrupted operation through the same disable', async () => {
-      const { service, calls } = createDeleteHarness({
-        enabled: false,
-        pendingOperation: 'enable',
-      });
-
-      await service.deleteLocalWalletAccountData({
-        networkId: chainNetworkId,
-        accountId: liveAccountId,
-      });
-
-      expect(calls).toEqual(['disable', 'delete', 'clearPending:expired']);
-    });
-
-    it('refuses to delete an account still on after the disable', async () => {
-      const { service, capability } = createDeleteHarness({ enabled: true });
-      capability.disableAccount.mockImplementationOnce(async () => undefined);
-
       await expect(
-        service.deleteLocalWalletAccountData({
-          networkId: chainNetworkId,
-          accountId: liveAccountId,
-        }),
-      ).rejects.toThrow('turn scanning off before deleting local data');
-      expect(capability.deleteRuntimeAccount).not.toHaveBeenCalled();
-    });
-
-    it('deletes an account that is already off directly', async () => {
-      const { service, capability, calls, privacyChainKeys } =
-        createDeleteHarness({
-          enabled: false,
-        });
-
-      await service.deleteLocalWalletAccountData({
-        networkId: chainNetworkId,
-        accountId: liveAccountId,
+        service.deleteLocalWalletAccountData(params),
+      ).resolves.toBeUndefined();
+      expect(await privacyChainState.getXmrAccountState(params)).toMatchObject({
+        intent: 'off',
       });
-
-      expect(capability.disableAccount).not.toHaveBeenCalled();
-      expect(calls).toEqual(['delete', 'clearPending:expired']);
-      // The viewing key goes with the data on both chains; others stay.
-      await expect(privacyChainKeys.listAccountIds()).resolves.toEqual([
+      expect(
+        await privacyChainState.listPendingAccountDeletions(),
+      ).toHaveLength(1);
+      expect(await privacyChainKeys.listAccountIds()).toContain(liveAccountId);
+      step.resolve();
+      await service.resumePendingAccountDeletions();
+      expect(await privacyChainState.listPendingAccountDeletions()).toEqual([]);
+      expect(await privacyChainKeys.listAccountIds()).toEqual([
         hiddenAccountId,
       ]);
     });
 
-    it('marks the network when the runtime account could not be named', async () => {
-      const { service, capability, privacyChainState } = createDeleteHarness({
-        enabled: false,
-      });
+    it('deletes local data and expired sends while preserving other accounts', async () => {
+      const {
+        service,
+        calls,
+        privacyChainKeys,
+        forgetCachedLocalWalletBalance,
+      } = createDeleteHarness();
+      await service.deleteLocalWalletAccountData(params);
+      await service.resumePendingAccountDeletions();
+      expect(calls).toEqual(['delete', 'clearPending:expired']);
+      expect(await privacyChainKeys.listAccountIds()).toEqual([
+        hiddenAccountId,
+      ]);
+      expect(service.orphanCleanupGeneration.get(chainNetworkId)).toBe(1);
+      expect(forgetCachedLocalWalletBalance).toHaveBeenCalledWith(params);
+    });
+
+    it('marks orphan cleanup when the runtime identity cannot be named', async () => {
+      const { service, capability, privacyChainState } = createDeleteHarness();
       capability.deleteRuntimeAccount.mockResolvedValueOnce({ orphaned: true });
-
-      await service.deleteLocalWalletAccountData({
-        networkId: chainNetworkId,
-        accountId: liveAccountId,
-      });
-
-      await expect(
-        privacyChainState.hasRuntimeOrphans({ networkId: chainNetworkId }),
-      ).resolves.toBe(true);
+      await service.deleteLocalWalletAccountData(params);
+      await service.resumePendingAccountDeletions();
+      expect(await privacyChainState.hasRuntimeOrphans(params)).toBe(true);
     });
 
-    it('does not delete when turning the account off fails', async () => {
-      const { service, capability } = createDeleteHarness({ enabled: true });
-      capability.disableAccount.mockRejectedValueOnce(
-        new Error('birthday missing'),
-      );
-
-      await expect(
-        service.deleteLocalWalletAccountData({
-          networkId: chainNetworkId,
-          accountId: liveAccountId,
-        }),
-      ).rejects.toThrow('birthday missing');
-      expect(capability.deleteRuntimeAccount).not.toHaveBeenCalled();
-    });
-
-    it('keeps the viewing key when deleting the data fails', async () => {
-      const { service, capability, privacyChainKeys } = createDeleteHarness({
-        enabled: false,
-      });
-      capability.deleteRuntimeAccount.mockRejectedValueOnce(
+    it('retains keys and the saved request after a busy runtime, then retries', async () => {
+      const { service, capability, privacyChainKeys, privacyChainState } =
+        createDeleteHarness();
+      const publishSyncError = jest.spyOn(service, 'publishSyncError');
+      capability.deleteRuntimeAccount.mockRejectedValue(
         new Error('runtime busy'),
       );
+      await service.deleteLocalWalletAccountData(params);
+      await service.resumePendingAccountDeletions();
+      expect(await privacyChainKeys.listAccountIds()).toContain(liveAccountId);
+      expect(
+        await privacyChainState.listPendingAccountDeletions(),
+      ).toHaveLength(1);
+      expect(publishSyncError).not.toHaveBeenCalled();
+      capability.deleteRuntimeAccount.mockResolvedValue({ orphaned: false });
+      await service.resumePendingAccountDeletions();
+      expect(await privacyChainKeys.listAccountIds()).toEqual([
+        hiddenAccountId,
+      ]);
+      expect(await privacyChainState.listPendingAccountDeletions()).toEqual([]);
+    });
 
-      await expect(
-        service.deleteLocalWalletAccountData({
-          networkId: chainNetworkId,
-          accountId: liveAccountId,
-        }),
-      ).rejects.toThrow('runtime busy');
-      await expect(privacyChainKeys.listAccountIds()).resolves.toEqual([
-        liveAccountId,
+    it('replays an interrupted deletion after host cleanup but before key deletion', async () => {
+      const first = createDeleteHarness();
+      const blocked = jest
+        .spyOn(first.privacyChainKeys, 'removeKeys')
+        .mockRejectedValue(new Error('storage busy'));
+      await first.service.deleteLocalWalletAccountData(params);
+      await first.service.resumePendingAccountDeletions();
+      const saved = await first.privacyChainState.getRawData();
+      expect(
+        await first.privacyChainState.listPendingAccountDeletions(),
+      ).toHaveLength(1);
+      blocked.mockRestore();
+      const recovered = createDeleteHarness();
+      const restoredState = createPrivacyChainDb({ data: saved, updatedAt: 1 });
+      Object.assign(recovered.service.backgroundApi.simpleDb, {
+        privacyChainState: restoredState,
+        privacyChainKeys: first.privacyChainKeys,
+      });
+      await recovered.service.resumePendingAccountDeletions();
+      expect(await restoredState.listPendingAccountDeletions()).toEqual([]);
+      expect(await first.privacyChainKeys.listAccountIds()).toEqual([
         hiddenAccountId,
       ]);
     });
 
-    it('waits for an enable already in progress', async () => {
-      const { service, calls } = createDeleteHarness({ enabled: false });
+    it('replays real generic balance cache write failures before completing deletion', async () => {
+      const { service, privacyChainState } = createDeleteHarness();
+      delete (
+        service as unknown as { forgetCachedLocalWalletBalance?: unknown }
+      ).forgetCachedLocalWalletBalance;
+      const removeAccountTokenList = jest
+        .fn(async () => undefined)
+        .mockRejectedValueOnce(new Error('storage temporarily unavailable'));
+      const removeAccountNetworkValue = jest.fn(async () => undefined);
+      Object.assign(service.backgroundApi, {
+        serviceAccount: {
+          getDBAccountSafe: async () => ({ id: liveAccountId }),
+          getAccount: async () => ({ address: 'synthetic-address' }),
+        },
+      });
+      Object.assign(service.backgroundApi.simpleDb, {
+        localTokens: { removeAccountTokenList },
+        accountValue: { removeAccountNetworkValue },
+      });
+      await service.deleteLocalWalletAccountData(params);
+      await service.resumePendingAccountDeletions();
+      expect(
+        await privacyChainState.listPendingAccountDeletions(),
+      ).toHaveLength(1);
+      await service.resumePendingAccountDeletions();
+      expect(await privacyChainState.listPendingAccountDeletions()).toEqual([]);
+      expect(removeAccountTokenList).toHaveBeenCalledTimes(2);
+      expect(removeAccountNetworkValue).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not touch the runtime if the deletion request cannot be saved', async () => {
+      const { service, capability, privacyChainState } = createDeleteHarness();
+      jest.spyOn(privacyChainState, 'setRawData').mockResolvedValue(undefined);
+      await expect(
+        service.deleteLocalWalletAccountData(params),
+      ).rejects.toThrow('request could not be persisted');
+      expect(capability.deleteRuntimeAccount).not.toHaveBeenCalled();
+    });
+
+    it('accepts deletion without waiting for an earlier enable, then cleans up in order', async () => {
+      const { service, calls, privacyChainState } = createDeleteHarness();
       const enableDone = deferred();
       const mutex = new Mutex();
       service.enableMutexByNetwork.set(chainNetworkId, mutex);
       const holding = mutex.runExclusive(() => enableDone.promise);
-
-      const deleting = service.deleteLocalWalletAccountData({
-        networkId: chainNetworkId,
-        accountId: liveAccountId,
-      });
-      await flushPromises();
+      await service.deleteLocalWalletAccountData(params);
       expect(calls).toEqual([]);
-
+      expect(
+        await privacyChainState.listPendingAccountDeletions(),
+      ).toHaveLength(1);
       enableDone.resolve();
       await holding;
-      await deleting;
+      await service.resumePendingAccountDeletions();
       expect(calls).toEqual(['delete', 'clearPending:expired']);
+    });
+
+    it('saves a new enable while old runtime cleanup waits, then preserves the authorization', async () => {
+      const {
+        service,
+        capability,
+        calls,
+        privacyChainState,
+        privacyChainKeys,
+      } = createDeleteHarness();
+      capability.enableAccount.mockImplementation(async () => {
+        calls.push('enable');
+        await privacyChainState.saveXmrEnabledAccount({
+          ...params,
+          vkFp: 'a'.repeat(32),
+          birthdayHeight: 200,
+        });
+      });
+      const cleanup = deferred();
+      const entered = deferred();
+      capability.deleteRuntimeAccount.mockImplementationOnce(async () => {
+        calls.push('delete');
+        entered.resolve();
+        await cleanup.promise;
+        return { orphaned: false };
+      });
+      await service.deleteLocalWalletAccountData(params);
+      await entered.promise;
+      await service.enableLocalWalletAccount(params);
+      expect(capability.enableAccount).toHaveBeenCalledTimes(1);
+      expect(
+        await privacyChainState.listPendingAccountDeletions(),
+      ).toMatchObject([{ reenabled: true }]);
+      expect(await privacyChainState.listXmrEnabledAccountIds(params)).toEqual(
+        [],
+      );
+      cleanup.resolve();
+      await service.resumePendingAccountDeletions();
+      expect(calls).toEqual(['delete', 'enable', 'clearPending:expired']);
+      expect(await privacyChainState.listPendingAccountDeletions()).toEqual([]);
+      expect(await privacyChainState.getXmrAccountState(params)).toMatchObject({
+        intent: 'on',
+        birthdayHeight: 200,
+      });
+      expect(await privacyChainKeys.listAccountIds()).toContain(liveAccountId);
     });
   },
 );

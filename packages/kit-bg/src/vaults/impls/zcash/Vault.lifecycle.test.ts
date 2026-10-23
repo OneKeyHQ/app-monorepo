@@ -1,5 +1,8 @@
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
+import { SimpleDbEntityPrivacyChainState } from '../../../dbs/simple/entity/SimpleDbEntityPrivacyChainState';
+
+import { getZcashSyncMutex } from './lifecycle';
 import Vault from './Vault';
 import { zcashRebuildRuntimeDatabase } from './vaultLifecycle';
 
@@ -23,6 +26,7 @@ describe('Zcash local lifecycle operations do not depend on pending history', ()
       return ['11'.repeat(32)];
     });
     const purgeWallet = jest.fn(async () => undefined);
+    const rescanWallet = jest.fn(async () => undefined);
     const dropWalletDatabase = jest.fn(async () => undefined);
     const clearAccountScanData = jest.fn(async () => undefined);
     const saveAccountMeta = jest.fn(async () => undefined);
@@ -38,6 +42,7 @@ describe('Zcash local lifecycle operations do not depend on pending history', ()
         simpleDb: {
           privacyChainState: {
             getZcashAccountMeta: async () => account,
+            isAccountDeletionPending: async () => false,
             getZcashPrivacyModeState: async () => ({ intent: 'off' }),
             isZcashPrivacyModeEnabled: async () => true,
             listZcashAccountMetas: async () => [{ accountId, meta: account }],
@@ -61,6 +66,7 @@ describe('Zcash local lifecycle operations do not depend on pending history', ()
       listLocalWalletAccounts: async () => ({ accounts: [{ accountId }] }),
       zcashGetApi: async () => ({
         purgeWallet,
+        rescanWallet,
         dropWalletDatabase,
         getPendingBroadcasts: readPending,
       }),
@@ -72,6 +78,7 @@ describe('Zcash local lifecycle operations do not depend on pending history', ()
       repair,
       readPending,
       purgeWallet,
+      rescanWallet,
       dropWalletDatabase,
       clearAccountScanData,
       saveAccountMeta,
@@ -96,8 +103,10 @@ describe('Zcash local lifecycle operations do not depend on pending history', ()
       await zcashRebuildRuntimeDatabase(f.vault);
 
       expect(f.readPending).not.toHaveBeenCalled();
-      expect(f.purgeWallet).toHaveBeenCalledTimes(3);
+      expect(f.purgeWallet).toHaveBeenCalledTimes(1);
       expect(f.purgeWallet).toHaveBeenCalledWith(f.account);
+      expect(f.rescanWallet).toHaveBeenCalledTimes(2);
+      expect(f.rescanWallet).toHaveBeenCalledWith(f.account);
       expect(f.dropWalletDatabase).toHaveBeenCalledWith('main');
       expect(f.saveAccountMeta).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -111,9 +120,7 @@ describe('Zcash local lifecycle operations do not depend on pending history', ()
         accountId: f.accountId,
         expectedRepair: f.repair,
       });
-      // Delete and rewind leave epochs to the lifecycle executor; the
-      // journaled rescan and the rebuild destroy data on their own, so they
-      // rotate right before it goes.
+      // Invalidate reads before a journaled rescan or database rebuild.
       expect(f.rotateAccountEpochs.mock.calls).toEqual([
         [{ accountIds: [f.accountId] }],
         [{ accountIds: [f.accountId] }],
@@ -144,12 +151,13 @@ describe('Zcash local lifecycle operations do not depend on pending history', ()
       accountId: f.accountId,
       repair: { ...f.repair, birthdayTimestamp: undefined },
     });
-    expect(f.purgeWallet).toHaveBeenCalledTimes(1);
+    expect(f.rescanWallet).toHaveBeenCalledTimes(1);
+    expect(f.purgeWallet).not.toHaveBeenCalled();
   });
 
-  it('rotates the epochs of every alias right before the rescan purge', async () => {
+  it('rotates the epochs of every alias before the non-destructive rescan', async () => {
     const f = fixture('pending');
-    f.purgeWallet.mockImplementationOnce(async () => {
+    f.rescanWallet.mockImplementationOnce(async () => {
       expect(f.rotateAccountEpochs).toHaveBeenCalledWith({
         accountIds: [f.accountId],
       });
@@ -158,7 +166,8 @@ describe('Zcash local lifecycle operations do not depend on pending history', ()
       accountId: f.accountId,
       repair: f.repair,
     });
-    expect(f.purgeWallet).toHaveBeenCalledTimes(1);
+    expect(f.rescanWallet).toHaveBeenCalledTimes(1);
+    expect(f.purgeWallet).not.toHaveBeenCalled();
   });
 
   it('rotates every account of the network before rebuilding the database', async () => {
@@ -197,4 +206,249 @@ describe('Zcash local lifecycle operations do not depend on pending history', ()
       }),
     );
   });
+
+  it('accepts a user birthday after saving the journal without waiting for runtime work', async () => {
+    const f = fixture('pending');
+    const apply = jest
+      .spyOn(f.vault, 'applyPendingRescan')
+      .mockRejectedValue(new Error('runtime is busy'));
+    const save = jest.fn(async () => undefined);
+    Object.assign(f.vault.backgroundApi.simpleDb.privacyChainState, {
+      saveZcashPendingRescan: save,
+    });
+    await expect(
+      f.vault.rescanLocalWallet({
+        accountId: f.accountId,
+        from: { type: 'height', height: 2_500_000 },
+      }),
+    ).resolves.toEqual({ fromHeight: 2_500_000 });
+    expect(save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        accountId: f.accountId,
+        repair: expect.objectContaining({ birthdayHeight: 2_500_000 }),
+      }),
+    );
+    expect(apply).not.toHaveBeenCalled();
+    expect(f.rescanWallet).not.toHaveBeenCalled();
+    expect(f.purgeWallet).not.toHaveBeenCalled();
+  });
+
+  it('waits for an active scan to finish before deleting its runtime rows', async () => {
+    const f = fixture('pending');
+    let release: () => void = () => {};
+    const step = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const scanning = getZcashSyncMutex('main').runExclusive(() => step);
+    const deleting = f.vault.zcashDeleteRuntimeAccount({
+      accountId: f.accountId,
+    });
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(f.purgeWallet).not.toHaveBeenCalled();
+    release();
+    await scanning;
+    await expect(deleting).resolves.toEqual({ orphaned: false });
+    expect(f.purgeWallet).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('Zcash automatic database recovery', () => {
+  it.each([
+    undefined,
+    'migration failed: invalid schema',
+    'Wallet database is corrupted: Network type mismatch: account UFVK is for mainnet but attempting to initialize for testnet.',
+    'Wallet database is corrupted: invalid account metadata',
+    'SQLITE_READONLY',
+    'database is locked',
+    'no space left on device',
+  ])(
+    'preserves the database and original migration error: %s',
+    async (detail) => {
+      const error = Object.assign(new Error('DATABASE_ERROR'), {
+        code: 'DATABASE_ERROR',
+        params: { operation: 'migrate' },
+        detail,
+      });
+      const rebuild = jest.fn(async () => undefined);
+      const vault = Object.assign(Object.create(Vault.prototype) as Vault, {
+        syncLocalWalletGroupImpl: jest.fn().mockRejectedValue(error),
+        zcashRebuildRuntimeDatabase: rebuild,
+      });
+
+      await expect(
+        vault.syncLocalWalletGroup({ accountIds: ['synthetic-account'] }),
+      ).rejects.toBe(error);
+      expect(rebuild).not.toHaveBeenCalled();
+    },
+  );
+});
+
+describe('automatic Zcash repair uses the original account snapshot', () => {
+  it.each(['pending', 'applied', 'alias', 'none'] as const)(
+    'preserves a newer user birthday (%s)',
+    async (change) => {
+      const accountId = 'hd-1--race';
+      const networkId = 'zec--0';
+      const meta = {
+        vkFp: 'c'.repeat(32),
+        unifiedAddress: 'u1',
+        transparentAddress: 't1',
+        seedFingerprintHex: 'd'.repeat(64),
+        hdIndex: 0,
+        birthdayHeight: 2_000_000,
+        birthdaySource: 'manual-height' as const,
+        createdAt: 1,
+      };
+      let saved: unknown;
+      const db = new SimpleDbEntityPrivacyChainState();
+      (db as { appStorage: unknown }).appStorage = {
+        getItem: async () => saved,
+        setItem: async (_key: string, value: unknown) => {
+          saved = value;
+        },
+      };
+      for (const id of [accountId, 'hd-1--alias']) {
+        // eslint-disable-next-line no-await-in-loop
+        await db.beginZcashPrivacyModeEnable({
+          networkId,
+          accountId: id,
+          birthdayHeight: meta.birthdayHeight,
+        });
+        // eslint-disable-next-line no-await-in-loop
+        await db.saveZcashAccountMeta({ accountId: id, meta });
+        // eslint-disable-next-line no-await-in-loop
+        await db.completeZcashPrivacyModeEnable({ accountId: id });
+      }
+      let release: () => void = () => undefined;
+      let entered: () => void = () => undefined;
+      const progressGate = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      const progressEntered = new Promise<void>((resolve) => {
+        entered = resolve;
+      });
+      const rescanWallet = jest.fn(async () => undefined);
+      const vault = Object.assign(Object.create(Vault.prototype) as Vault, {
+        networkId,
+        backgroundApi: {
+          simpleDb: { privacyChainState: db },
+          serviceAccount: { getDBAccountSafe: async () => ({ id: accountId }) },
+        },
+        zcashGetAccountMeta: () => db.getZcashAccountMeta({ accountId }),
+        zcashGetWalletAccount: async () => ({
+          ...(await db.getZcashAccountMeta({ accountId })),
+          ufvk: 'synthetic-ufvk',
+        }),
+        zcashHealOutOfRangeBirthdays: async () => undefined,
+        getLocalWalletAccountAliases: async () => [accountId],
+        zcashGetApi: async () => ({
+          prepareWalletAccounts: async (accounts: unknown) => accounts,
+          getSyncProgress: async () => {
+            entered();
+            await progressGate;
+            return { birthdayHeight: 2_500_000 };
+          },
+          rescanWallet,
+        }),
+      });
+      const preparing = vault.zcashPrepareAccounts({ accountIds: [accountId] });
+      await progressEntered;
+      const repair = {
+        birthdayHeight: 3_000_000,
+        birthdaySource: 'manual-height' as const,
+        requestedAt: 2,
+      };
+      if (change !== 'none')
+        await db.saveZcashPendingRescan({
+          accountId: change === 'alias' ? 'hd-1--alias' : accountId,
+          repair,
+        });
+      if (change === 'applied')
+        await vault.applyPendingRescan({ accountId, repair });
+      rescanWallet.mockClear();
+      release();
+      await preparing;
+      if (change === 'none') expect(rescanWallet).toHaveBeenCalledTimes(1);
+      else expect(rescanWallet).not.toHaveBeenCalled();
+      if (change === 'pending' || change === 'alias')
+        expect(await db.listZcashPendingRescans({ networkId })).toEqual([
+          { accountId: change === 'alias' ? 'hd-1--alias' : accountId, repair },
+        ]);
+      if (change === 'applied')
+        expect(await db.getZcashAccountMeta({ accountId })).toMatchObject({
+          birthdayHeight: 3_000_000,
+        });
+    },
+  );
+});
+
+it('heals only the surviving account after filtering a pending deletion', async () => {
+  let saved: unknown;
+  const db = new SimpleDbEntityPrivacyChainState();
+  (db as { appStorage: unknown }).appStorage = {
+    getItem: async () => saved,
+    setItem: async (_key: string, value: unknown) => {
+      saved = value;
+    },
+  };
+  const networkId = 'zec--0';
+  const meta = {
+    vkFp: 'c'.repeat(32),
+    unifiedAddress: 'u1',
+    transparentAddress: 't1',
+    seedFingerprintHex: 'd'.repeat(64),
+    hdIndex: 0,
+    birthdaySource: 'manual-height' as const,
+    createdAt: 1,
+  };
+  for (const [accountId, birthdayHeight] of [
+    ['hd-1--a', 2_000_000],
+    ['hd-1--b', 4_000_000],
+  ] as const) {
+    // eslint-disable-next-line no-await-in-loop
+    await db.beginZcashPrivacyModeEnable({
+      networkId,
+      accountId,
+      birthdayHeight,
+    });
+    // eslint-disable-next-line no-await-in-loop
+    await db.saveZcashAccountMeta({
+      accountId,
+      meta: { ...meta, birthdayHeight },
+    });
+    // eslint-disable-next-line no-await-in-loop
+    await db.completeZcashPrivacyModeEnable({ accountId });
+  }
+  await db.requestAccountDeletion({ networkId, accountId: 'hd-1--a' });
+  const prepareWalletAccounts = jest.fn(
+    async (accounts: unknown[]) => accounts,
+  );
+  const vault = Object.assign(Object.create(Vault.prototype) as Vault, {
+    networkId,
+    backgroundApi: { simpleDb: { privacyChainState: db } },
+    zcashGetAccountMeta: (params: { accountId: string }) =>
+      db.getZcashAccountMeta(params),
+    zcashGetWalletAccount: async ({ accountId }: { accountId: string }) => ({
+      ...(await db.getZcashAccountMeta({ accountId })),
+      ufvk: accountId,
+    }),
+    zcashGetApi: async () => ({
+      prepareWalletAccounts,
+      getSyncProgress: async () => ({ birthdayHeight: null }),
+    }),
+  });
+  await vault.zcashPrepareAccounts({
+    accountIds: ['hd-1--a', 'hd-1--b'],
+    chainTip: 3_000_000,
+  });
+  expect(await db.getZcashAccountMeta({ accountId: 'hd-1--a' })).toMatchObject({
+    birthdayHeight: 2_000_000,
+  });
+  expect(await db.getZcashAccountMeta({ accountId: 'hd-1--b' })).toMatchObject({
+    birthdayHeight: 3_000_000,
+  });
+  expect(prepareWalletAccounts).toHaveBeenCalledWith([
+    expect.objectContaining({ ufvk: 'hd-1--b', birthdayHeight: 3_000_000 }),
+  ]);
 });

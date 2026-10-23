@@ -5,6 +5,9 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { getRuntime, withWallet } from './carrier';
 import {
   canonicalizeZcashWalletAccounts,
+  getBalance,
+  getHistory,
+  getSyncProgress,
   getTxDetails,
   prepareWalletAccounts,
   purgeWallet,
@@ -77,6 +80,29 @@ describe('getTxDetails', () => {
       feeZat: '10000',
     });
   });
+});
+
+describe('unregistered account reads', () => {
+  afterEach(() => jest.mocked(withWallet).mockReset());
+
+  it.each([
+    ['balance', getBalance],
+    ['progress', getSyncProgress],
+    ['history', getHistory],
+  ] as const)(
+    'keeps %s unavailable without importing the account',
+    async (_name, read) => {
+      const error = Object.assign(new Error('ACCOUNT_NOT_FOUND'), {
+        code: 'ACCOUNT_NOT_FOUND',
+      });
+      jest.mocked(withWallet).mockReset().mockRejectedValue(error);
+      await expect(read(account)).rejects.toBe(error);
+      expect(withWallet).toHaveBeenCalledTimes(1);
+      expect(
+        jest.mocked(withWallet).mock.calls[0][1]?.registerIfMissing,
+      ).not.toBe(true);
+    },
+  );
 });
 
 function createRuntime({

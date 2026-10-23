@@ -58,6 +58,8 @@ function getLocalWalletUserMessage(error: unknown): string | undefined {
       return localWalletText(ETranslations.privacy_error_webview_outdated__msg);
     case 'DATABASE_TOO_NEW':
       return localWalletText(ETranslations.database_read_error_update_app__msg);
+    case 'DATABASE_ERROR':
+      return localWalletText(ETranslations.global_unknown_error_retry_message);
     default:
       return undefined;
   }

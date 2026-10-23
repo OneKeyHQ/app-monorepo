@@ -5,11 +5,33 @@ jest.mock('../../../dbs/local/localDbInstance', () => ({
   default: {},
 }));
 
+import * as runtime from 'onekey-zcash-runtime';
+
 import { ZCASH_NETWORK_MAIN } from '@onekeyhq/core/src/chains/zcash/sdkZcash/constants';
+import sdk from '@onekeyhq/core/src/chains/zcash/sdkZcash/impl';
+import { forgetOpenWallet } from '@onekeyhq/core/src/chains/zcash/sdkZcash/impl/carrier';
 
 import Vault from './Vault';
 
 import type { IZcashPrivacyModeStateView } from '../../../dbs/simple/entity/SimpleDbEntityPrivacyChainState';
+
+jest.mock('onekey-zcash-runtime', () => ({
+  __esModule: true,
+  default: async () => undefined,
+  init: async () => undefined,
+  storageRequiresWorkerRestart: () => false,
+  openWallet: jest.fn(async () => undefined),
+  setLightwalletdUrl: jest.fn(),
+  accountByUfvk: jest.fn(),
+  importAccountUfvk: jest.fn(),
+  listAccounts: jest.fn(),
+  accountBalance: jest.fn(),
+  accountSyncStatus: jest.fn(),
+  syncPeek: jest.fn(),
+  syncPrepare: jest.fn(async () => undefined),
+  syncStep: jest.fn(),
+  deleteWallet: jest.fn(async () => undefined),
+}));
 
 it('refreshes queued scans and serializes enable rescans with every active key', async () => {
   const states: Record<string, IZcashPrivacyModeStateView> = {
@@ -53,6 +75,7 @@ it('refreshes queued scans and serializes enable rescans with every active key',
         servicePrivacyChain: { isLocalWalletScanAllowed: async () => true },
         simpleDb: {
           privacyChainState: {
+            isAccountDeletionPending: async () => false,
             getZcashPrivacyModeState: async ({
               accountId,
             }: {
@@ -151,6 +174,7 @@ it('keeps a queued peer scan behind recovery admission until the recovering key 
       servicePrivacyChain: { isLocalWalletScanAllowed: async () => true },
       simpleDb: {
         privacyChainState: {
+          isAccountDeletionPending: async () => false,
           getZcashPrivacyModeState: async ({
             accountId,
           }: {
@@ -220,6 +244,7 @@ it('scans without an account whose viewing key cannot be read', async () => {
       servicePrivacyChain: { isLocalWalletScanAllowed: async () => true },
       simpleDb: {
         privacyChainState: {
+          isAccountDeletionPending: async () => false,
           getZcashPrivacyModeState: async ({
             accountId,
           }: {
@@ -261,4 +286,229 @@ it('scans without an account whose viewing key cannot be read', async () => {
     accountId: 'lost',
     fromHeight: 2_000_000,
   });
+});
+
+describe('runtime registration during background group sync', () => {
+  beforeEach(() => {
+    forgetOpenWallet('main');
+    jest.clearAllMocks();
+  });
+  afterEach(() => jest.restoreAllMocks());
+
+  async function createVault() {
+    const registered = new Set<string>();
+    const scan = { allowPending: false, remaining: 0, scanned: 2_000_000 };
+    const failure = Object.assign(new Error('DATABASE_ERROR'), {
+      payload: {
+        code: 'DATABASE_ERROR',
+        params: { operation: 'importAccount' },
+        detail: 'retains checkpoints both above and below the requested height',
+      },
+    });
+    jest
+      .mocked(runtime.accountByUfvk)
+      .mockImplementation((ufvk) =>
+        JSON.stringify(registered.has(ufvk) ? { uuid: ufvk } : null),
+      );
+    jest
+      .mocked(runtime.importAccountUfvk)
+      .mockImplementation(async (_name, ufvk) => {
+        if (ufvk === 'pending' && !scan.allowPending) throw failure;
+        registered.add(ufvk);
+        return ufvk;
+      });
+    jest
+      .mocked(runtime.listAccounts)
+      .mockImplementation(() => JSON.stringify([...registered]));
+    jest.mocked(runtime.accountBalance).mockImplementation(() =>
+      JSON.stringify({
+        chainTip: 3_000_000,
+        fullyScannedHeight: scan.scanned,
+      }),
+    );
+    jest.mocked(runtime.accountSyncStatus).mockImplementation(() =>
+      JSON.stringify({
+        birthdayHeight: 2_000_000,
+        chainTip: 3_000_000,
+        scannedToHeight: scan.scanned,
+        remainingBlocks: scan.remaining,
+        isComplete: scan.remaining === 0,
+      }),
+    );
+    jest
+      .mocked(runtime.syncPeek)
+      .mockImplementation(() =>
+        JSON.stringify({ totalBlocks: scan.remaining }),
+      );
+    jest.mocked(runtime.syncStep).mockImplementation(async () => {
+      const blocksScanned = scan.remaining > 0 ? 1 : 0;
+      scan.remaining -= blocksScanned;
+      scan.scanned += blocksScanned;
+      return JSON.stringify({ blocksScanned, done: scan.remaining === 0 });
+    });
+    const api = await sdk.getZcashApi();
+    const syncWallet = jest.spyOn(api, 'syncWallet');
+    const rotateAccountEpochs = jest.fn(async () => undefined);
+    const vault = Object.assign(Object.create(Vault.prototype) as Vault, {
+      networkId: 'zec--0',
+      backgroundApi: {
+        servicePrivacyChain: {
+          isLocalWalletScanAllowed: jest.fn(async () => true),
+        },
+        simpleDb: {
+          privacyChainState: {
+            isAccountDeletionPending: async () => false,
+            getAccountEpoch: async () => undefined,
+            getZcashAccountMeta: async () => undefined,
+            getZcashPrivacyModeState: async () => ({ intent: 'on' }),
+            listAccountIds: async () => ['pending', 'healthy'],
+            rotateAccountEpochs,
+          },
+        },
+      },
+      listLocalWalletAccounts: async () => ({
+        accounts: ['pending', 'healthy'].map((accountId) => ({
+          accountId,
+          runtimeKey: 'main',
+          accountRuntimeKey: accountId,
+          syncEnabled: true,
+        })),
+      }),
+      zcashHasAccountViewingKey: async () => true,
+      zcashResumePendingRescans: async () => undefined,
+      zcashHealOutOfRangeBirthdays: async () => undefined,
+      zcashGetWalletAccount: async ({ accountId }: { accountId: string }) => ({
+        network: 'main',
+        ufvk: accountId,
+        hdIndex: accountId === 'pending' ? 0 : 1,
+        birthdayHeight: 2_000_000,
+        seedFingerprintHex: 'synthetic-fingerprint',
+        lightwalletdUrl: 'https://example.invalid',
+      }),
+      zcashGetApi: async () => api,
+    });
+    return { vault, scan, syncWallet, rotateAccountEpochs };
+  }
+
+  it('keeps other accounts scanning without deleting data, and retries registration only after scan progress', async () => {
+    const { vault, scan, syncWallet, rotateAccountEpochs } =
+      await createVault();
+    const params = { accountIds: ['pending', 'healthy'], chainTip: 3_000_000 };
+    await expect(vault.syncLocalWalletGroup(params)).resolves.toMatchObject({
+      synced: true,
+      stateChanged: false,
+    });
+    expect(syncWallet).toHaveBeenLastCalledWith(
+      expect.objectContaining({ ufvk: 'healthy' }),
+      { activeUfvks: ['healthy'], chainTip: 3_000_000 },
+    );
+    expect(runtime.importAccountUfvk).toHaveBeenCalledTimes(2);
+    await vault.syncLocalWalletGroup(params);
+    expect(runtime.importAccountUfvk).toHaveBeenCalledTimes(2);
+
+    scan.remaining = 1;
+    await expect(vault.syncLocalWalletGroup(params)).resolves.toMatchObject({
+      synced: true,
+      stateChanged: true,
+      backfillRemaining: true,
+    });
+    expect(runtime.importAccountUfvk).toHaveBeenCalledTimes(2);
+    scan.allowPending = true;
+    await vault.syncLocalWalletGroup(params);
+    expect(runtime.importAccountUfvk).toHaveBeenCalledTimes(3);
+    expect(syncWallet).toHaveBeenLastCalledWith(
+      expect.objectContaining({ ufvk: 'pending' }),
+      { activeUfvks: ['pending', 'healthy'], chainTip: 3_000_000 },
+    );
+    expect(runtime.deleteWallet).not.toHaveBeenCalled();
+    expect(rotateAccountEpochs).not.toHaveBeenCalled();
+  });
+
+  it('still rotates every epoch and rebuilds for actual SQLite corruption', async () => {
+    const { vault, rotateAccountEpochs } = await createVault();
+    const corruption = Object.assign(new Error('DATABASE_ERROR'), {
+      code: 'DATABASE_ERROR',
+      params: { operation: 'syncStep' },
+      detail: 'database disk image is malformed',
+    });
+    jest.mocked(runtime.syncPeek).mockImplementationOnce(() => {
+      throw corruption;
+    });
+    await expect(
+      vault.syncLocalWalletGroup({
+        accountIds: ['pending', 'healthy'],
+        chainTip: 3_000_000,
+      }),
+    ).resolves.toEqual({ synced: false });
+    expect(rotateAccountEpochs).toHaveBeenCalledWith({
+      accountIds: ['pending', 'healthy'],
+    });
+    expect(runtime.deleteWallet).toHaveBeenCalledWith('zcash-main.db');
+    expect(rotateAccountEpochs.mock.invocationCallOrder[0]).toBeLessThan(
+      jest.mocked(runtime.deleteWallet).mock.invocationCallOrder[0],
+    );
+  });
+
+  it('propagates a locked migration without rebuilding or rotating epochs', async () => {
+    const { vault, rotateAccountEpochs } = await createVault();
+    forgetOpenWallet('main');
+    const locked = Object.assign(new Error('DATABASE_ERROR'), {
+      payload: {
+        code: 'DATABASE_ERROR',
+        params: { operation: 'migrate' },
+        detail: 'database is locked',
+      },
+    });
+    jest.mocked(runtime.openWallet).mockRejectedValueOnce(locked);
+    await expect(
+      vault.syncLocalWalletGroup({ accountIds: ['pending', 'healthy'] }),
+    ).rejects.toBe(locked);
+    expect(runtime.deleteWallet).not.toHaveBeenCalled();
+    expect(rotateAccountEpochs).not.toHaveBeenCalled();
+  });
+});
+
+it('excludes a stale deletion candidate without blocking a healthy account', async () => {
+  const syncWallet = jest.fn(async () => ({ stateChanged: true }));
+  const zcashPrepareAccounts = jest.fn(
+    async ({ accountIds }: { accountIds: string[] }) =>
+      accountIds.map((ufvk) => ({ ufvk })),
+  );
+  const vault = Object.assign(Object.create(Vault.prototype) as Vault, {
+    backgroundApi: {
+      servicePrivacyChain: { isLocalWalletScanAllowed: async () => true },
+      simpleDb: {
+        privacyChainState: {
+          isAccountDeletionPending: async ({
+            accountId,
+          }: {
+            accountId: string;
+          }) => accountId === 'a',
+          getZcashPrivacyModeState: async () => ({ intent: 'on' }),
+        },
+      },
+    },
+    listLocalWalletAccounts: async () => ({
+      accounts: ['a', 'b'].map((accountId) => ({
+        accountId,
+        runtimeKey: ZCASH_NETWORK_MAIN,
+        accountRuntimeKey: accountId,
+        syncEnabled: true,
+      })),
+    }),
+    zcashHasAccountViewingKey: async () => true,
+    zcashResumePendingRescans: async () => undefined,
+    zcashPrepareAccounts,
+    zcashGetApi: async () => ({ syncWallet }),
+  });
+  await expect(
+    vault.syncLocalWalletGroup({ accountIds: ['a', 'b'] }),
+  ).resolves.toMatchObject({ synced: true });
+  expect(zcashPrepareAccounts).toHaveBeenCalledWith(
+    expect.objectContaining({ accountIds: ['b'] }),
+  );
+  expect(syncWallet).toHaveBeenCalledWith(
+    expect.anything(),
+    expect.objectContaining({ activeUfvks: ['b'] }),
+  );
 });

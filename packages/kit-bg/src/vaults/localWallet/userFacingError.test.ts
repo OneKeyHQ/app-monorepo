@@ -77,6 +77,32 @@ describe('toLocalWalletUserFacingError', () => {
     );
   });
 
+  it.each([
+    [
+      'flat',
+      Object.assign(new Error('DATABASE_ERROR'), { code: 'DATABASE_ERROR' }),
+    ],
+    [
+      'payload',
+      Object.assign(new Error('DATABASE_ERROR'), {
+        payload: { code: 'DATABASE_ERROR', params: {} },
+      }),
+    ],
+    ['Monero', xmrRuntimeError('DATABASE_ERROR')],
+  ])(
+    'words a %s database failure without claiming data is damaged',
+    (_, error) => {
+      const out = toLocalWalletUserFacingError(error);
+      expect(out).toMatchObject({
+        message: localWalletText(
+          ETranslations.global_unknown_error_retry_message,
+        ),
+        autoToast: true,
+      });
+      expect(out).not.toMatchObject({ message: 'DATABASE_ERROR' });
+    },
+  );
+
   it('turns on the toast for a plain Error, keeping it as is', () => {
     const error = new Error('something broke');
     const out = toLocalWalletUserFacingError(error);
@@ -131,7 +157,7 @@ describe('toastLocalWalletError', () => {
     calls = 0;
 
     @toastLocalWalletError()
-    async enable(fail: unknown): Promise<string> {
+    async enable(fail: Error | undefined): Promise<string> {
       this.calls += 1;
       if (fail) throw fail;
       return 'ok';
@@ -149,6 +175,17 @@ describe('toastLocalWalletError', () => {
       new Service().enable(workerFailure('xmr worker: crashed')),
     ).rejects.toMatchObject({
       message: ETranslationsMock.privacy_error_runtime_unavailable__msg,
+      autoToast: true,
+    });
+  });
+
+  it('replaces the raw database code on a user-initiated action', async () => {
+    await expect(
+      new Service().enable(zcashRuntimeError('DATABASE_ERROR')),
+    ).rejects.toMatchObject({
+      message: localWalletText(
+        ETranslations.global_unknown_error_retry_message,
+      ),
       autoToast: true,
     });
   });

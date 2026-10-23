@@ -36,6 +36,16 @@ export function isZcashRuntimeError(e: unknown, code: string): boolean {
   return readZcashRuntimeError(e)?.code === code;
 }
 
+export function isZcashAccountImportCheckpointError(e: unknown): boolean {
+  const error = readZcashRuntimeError(e);
+  return (
+    error?.code === 'DATABASE_ERROR' &&
+    error.params.operation === 'importAccount' &&
+    (error.params.reason === 'checkpointsDiverged' ||
+      /retains checkpoints both above and below/i.test(error.detail ?? ''))
+  );
+}
+
 /**
  * A numeric (zatoshi) field from the failure's params. `null`, not 0, when
  * missing: 0 would read as "you have nothing" in a shortfall message.

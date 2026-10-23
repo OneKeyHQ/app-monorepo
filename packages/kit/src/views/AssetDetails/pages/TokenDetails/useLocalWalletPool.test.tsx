@@ -13,6 +13,7 @@ import type {
   ILocalWalletAccountBalance,
   ILocalWalletAccountState,
   ILocalWalletAccountSupport,
+  ILocalWalletSyncProgress,
 } from '@onekeyhq/kit-bg/src/vaults/localWallet/types';
 import type { IVaultSettings } from '@onekeyhq/kit-bg/src/vaults/types';
 import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusNames';
@@ -46,6 +47,10 @@ const mockGetBalance = jest.fn<
   [IAccountParams]
 >();
 const mockEnableAccount = jest.fn<Promise<void>, [IAccountParams]>();
+const mockGetSyncProgress = jest.fn<
+  Promise<ILocalWalletSyncProgress | undefined>,
+  [IAccountParams]
+>();
 
 jest.mock('@onekeyhq/shared/src/eventBus/appEventBus', () => ({
   appEventBus: {
@@ -71,7 +76,8 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
         mockGetAddresses(params),
       getLocalWalletAccountBalance: (params: IAccountParams) =>
         mockGetBalance(params),
-      getLocalWalletSyncProgress: async () => undefined,
+      getLocalWalletSyncProgress: (params: IAccountParams) =>
+        mockGetSyncProgress(params),
       enableLocalWalletAccount: (params: IAccountParams) =>
         mockEnableAccount(params),
       // jest hoists this factory above the `var` declarations below.
@@ -198,6 +204,7 @@ beforeEach(() => {
   mockWalletSupport = 'supported';
   mockDisplay = undefined;
   mockListeners.clear();
+  mockGetSyncProgress.mockReset().mockResolvedValue(undefined);
   mockGetState.mockReset().mockImplementation(async () => ({
     enabled: mockEnabled,
     paused: !mockEnabled,
@@ -259,6 +266,38 @@ describe('useLocalWalletPool first balance read', () => {
     expect(mockGetBalance).toHaveBeenCalledTimes(1);
     expect(result.current.balance?.pools[0]?.totalParsed).toBe('1');
   });
+});
+
+it('shows a pending registration as preparing and keeps private sending disabled', async () => {
+  mockGetSyncProgress.mockResolvedValue({
+    birthdayHeight: 2_000_000,
+    backfillScannedHeight: null,
+    backfillTargetHeight: null,
+    backfillProgress: 0,
+    isBackfillComplete: false,
+    tipScannedHeight: null,
+    chainTip: null,
+    tipLag: null,
+    isTipCaughtUp: false,
+    isSyncing: true,
+  });
+  mockGetBalance.mockResolvedValue({
+    pools: [
+      {
+        key: 'ironwood',
+        balanceStatus: 'unavailable',
+        hints: [],
+        move: { type: 'withdraw', enabled: false },
+      },
+    ],
+  });
+  const { result } = renderHook(useLocalWalletPool, { initialProps: props });
+  await flushReads();
+  expect(result.current.enabled).toBe(true);
+  expect(result.current.isReady).toBe(true);
+  expect(result.current.syncStatusText).toBe('global.preparing');
+  expect(result.current.poolBalance?.totalParsed).toBeUndefined();
+  expect(mockDisplay?.action?.disabled).toBe(true);
 });
 
 describe('useLocalWalletPool with account data from the caller', () => {
@@ -323,6 +362,24 @@ describe('useLocalWalletPool after a failed background sync', () => {
     expect(result.current.syncStatusText).toBe('sync-error:runtimeUnavailable');
   });
 
+  it('exposes a sync failure before any runtime read completes without inventing a balance', async () => {
+    setPublishedScanState({
+      syncErrorByNetworkId: { [props.networkId]: 'runtimeUnavailable' },
+    });
+    mockGetBalance.mockImplementation(() => new Promise(() => undefined));
+    mockGetAddresses.mockImplementation(() => new Promise(() => undefined));
+    mockGetSyncProgress.mockImplementation(() => new Promise(() => undefined));
+    const { result } = renderHook(useLocalWalletPool, { initialProps: props });
+    await flushReads();
+
+    expect(result.current.isReady).toBe(true);
+    expect(result.current.syncStatusText).toBe('sync-error:runtimeUnavailable');
+    expect(result.current.balance).toBeUndefined();
+    expect(mockDisplay?.balanceParsed).toBeUndefined();
+    expect(mockDisplay?.balanceSettled).toBe(true);
+    expect(mockDisplay?.action).toBeUndefined();
+  });
+
   it('stays quiet about it while the network is paused', async () => {
     setPublishedScanState({
       pausedNetworkIds: [props.networkId],
@@ -330,8 +387,21 @@ describe('useLocalWalletPool after a failed background sync', () => {
     });
     const { result } = renderHook(useLocalWalletPool, { initialProps: props });
     await flushReads();
-    expect(result.current.syncStatusText).toBeNull();
+    expect(result.current.syncStatusText).toBe('syncing_paused__title');
   });
+});
+
+it('shows preparing after authorization while the first runtime reads are pending', async () => {
+  mockGetBalance.mockImplementation(() => new Promise(() => undefined));
+  mockGetAddresses.mockImplementation(() => new Promise(() => undefined));
+  mockGetSyncProgress.mockImplementation(() => new Promise(() => undefined));
+  const { result } = renderHook(useLocalWalletPool, { initialProps: props });
+  await flushReads();
+
+  expect(result.current.isReady).toBe(true);
+  expect(result.current.syncStatusText).toBe('global.preparing');
+  expect(result.current.balance).toBeUndefined();
+  expect(mockDisplay?.action).toBeUndefined();
 });
 
 describe('useLocalWalletPool enable failure', () => {

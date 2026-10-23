@@ -11,7 +11,7 @@ import { SimpleDbEntityPrivacyChainState } from '../../../dbs/simple/entity/Simp
 import Vault from './Vault';
 
 it.each([false, true])(
-  'applies an explicit birthday durably before enabling (purge interrupted: %s)',
+  'applies an explicit birthday durably before enabling (rescan interrupted: %s)',
   async (interrupt) => {
     const accountId = 'account';
     const networkId = 'zec--0';
@@ -85,7 +85,7 @@ it.each([false, true])(
         ...(await entity.getZcashAccountMeta({ accountId })),
         network: 'main',
       }),
-      zcashGetApi: async () => ({ purgeWallet: purge }),
+      zcashGetApi: async () => ({ rescanWallet: purge }),
       getLocalWalletChainTip: async () => 3_000_000,
       zcashPrepareAccounts: async () => {
         registered = true;

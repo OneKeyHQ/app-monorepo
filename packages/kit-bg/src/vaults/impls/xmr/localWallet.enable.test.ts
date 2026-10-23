@@ -1,5 +1,8 @@
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
+import { SimpleDbEntityPrivacyChainState } from '../../../dbs/simple/entity/SimpleDbEntityPrivacyChainState';
+
+import { XMR_BIRTHDAY_PENDING_SOURCE } from './birthday';
 import { buildXmrLocalWalletCapability } from './localWallet';
 
 import type Vault from './Vault';
@@ -11,206 +14,164 @@ jest.mock('@onekeyhq/core/src/chains/xmr/sdkXmrRuntime', () => ({
   ).readXmrRuntimeError,
 }));
 
-const TIP = 3_768_162;
-const runtime = {
-  addAccount: jest.fn(
-    async (
-      _uuid: string,
-      _spendPublicKeyHex: string,
-      _viewPrivateKeyHex: string,
-      _birthdayHeight: string,
-    ) => JSON.stringify({ accountId: 3 }),
-  ),
-  listAccounts: async () =>
-    JSON.stringify({ items: [{ accountId: 3, uuid: 'acc' }] }),
-  registerSubaddress: jest.fn(async () => '{}'),
-  updateChainTip: jest.fn(async () => '{}'),
-  rewindTo: jest.fn(async () => '{}'),
-  chainTip: async () => JSON.stringify({ height: TIP }),
-};
-
+const mockRuntime = jest.fn(async () => {
+  throw new OneKeyLocalError('synthetic offline runtime');
+});
 let mockBusy = false;
-const mockForgetStaleFirst = jest.fn<void, [string[] | undefined]>();
 jest.mock('./runtime', () => ({
-  forgetXmrStaleFirst: (accountIds?: string[]) =>
-    mockForgetStaleFirst(accountIds),
-  // Every account here shares one view key.
-  getXmrRuntimeUuid: async () => 'fp-shared',
-  getXmrRuntime: async () => runtime,
-  getXmrLocalRuntime: async () => runtime,
+  getXmrRuntime: () => mockRuntime(),
+  getXmrLocalRuntime: () => mockRuntime(),
   getXmrIdentityId: async () => '3',
-  getXmrChainTip: async () => TIP,
-  getXmrLastKnownChainTip: async () => TIP,
-  readXmrStaleFirst: async <T>(p: {
+  getXmrRuntimeUuid: async () => 'a'.repeat(32),
+  getXmrLastKnownChainTip: async () => undefined,
+  forgetXmrStaleFirst: jest.fn(),
+  readXmrStaleFirst: async <T>(params: {
     read: () => Promise<T>;
     fallback: T;
-  }): Promise<T> => (mockBusy ? p.fallback : p.read()),
+  }) => (mockBusy ? params.fallback : params.read()),
 }));
 
-function build(stored: { birthdayHeight?: number } = {}) {
-  const calls: string[] = [];
-  const rotateAccountEpochs = jest.fn(async () => {
-    calls.push('rotate');
-  });
-  const completed: { birthdayHeight?: number }[] = [];
+const accountId = 'hd-1--xmr';
+const networkId = 'xmr--0';
+const vkFp = 'a'.repeat(32);
+const timestamp = Date.UTC(2024, 0, 1);
+
+function build() {
+  const state = new SimpleDbEntityPrivacyChainState();
+  let stored: unknown = null;
+  (state as { appStorage: unknown }).appStorage = {
+    getItem: async () => stored,
+    setItem: async (_key: string, value: unknown) => {
+      stored = value;
+    },
+  };
   const notify = jest.fn(async () => undefined);
-  const disabled: { resumeFromHeight?: number }[] = [];
   const vault = {
-    networkId: 'xmr--0',
-    getXmrViewingKeys: async () => ({
-      primaryAddress: '4...',
-      spendPublicKeyHex: 'aa',
-      viewPrivateKeyHex: 'bb',
-    }),
+    networkId,
+    getXmrViewingKeys: async () => ({ vkFp }),
     backgroundApi: {
-      simpleDb: {
-        privacyChainState: {
-          getAccountEpoch: async () => 'e1',
-          rotateAccountEpochs,
-          // An alias sharing this account's key.
-          listAccountIds: async () => ['acc', 'alias'],
-          beginXmrEnable: async () => calls.push('beginEnable'),
-          completeXmrEnable: async (params: { birthdayHeight?: number }) => {
-            calls.push('completeEnable');
-            completed.push(params);
-          },
-          getXmrAccountState: async () => ({
-            intent: 'on',
-            operation: undefined,
-            ...stored,
-          }),
-          beginXmrDisable: async (params: { resumeFromHeight?: number }) => {
-            disabled.push(params);
-          },
-          completeXmrDisable: async () => undefined,
-        },
+      simpleDb: { privacyChainState: state },
+      servicePrivacyChain: {
+        onLocalWalletAccountsChanged: notify,
+        ensureLocalWalletViewingKey: async () => 'synthetic-key',
       },
-      servicePrivacyChain: { onLocalWalletAccountsChanged: notify },
     },
   } as unknown as Vault;
-  return {
-    capability: buildXmrLocalWalletCapability(vault),
-    calls,
-    completed,
-    notify,
-    disabled,
-    rotateAccountEpochs,
-  };
+  return { state, notify, capability: buildXmrLocalWalletCapability(vault) };
 }
 
 beforeEach(() => {
-  runtime.addAccount.mockClear();
-  runtime.registerSubaddress.mockClear();
-  runtime.updateChainTip.mockClear();
-  runtime.rewindTo.mockClear();
+  mockRuntime.mockClear();
+  mockBusy = false;
 });
 
-describe('xmr enableAccount', () => {
-  // The runtime queues birthday..tip only once it learns the tip.
-  it('queues the first scan range right away', async () => {
-    const { capability } = build();
-    await capability.enableAccount({
-      accountId: 'acc',
-      birthdayTimestamp: Date.UTC(2024, 0, 1),
+describe('xmr legacy enable and resume admission', () => {
+  it('resumes a saved date without opening the offline Runtime', async () => {
+    const { state, capability } = build();
+    await state.beginXmrEnable({
+      networkId,
+      accountId,
+      birthdayHeight: 1,
+      birthdaySource: XMR_BIRTHDAY_PENDING_SOURCE,
+      birthdayTimestamp: timestamp,
     });
-    expect(runtime.updateChainTip).toHaveBeenCalledWith('3', String(TIP));
+    await state.completeXmrEnable({ accountId, vkFp });
+    await state.beginXmrDisable({ accountId, resumeFromHeight: 1 });
+    await state.completeXmrDisable({ accountId });
+
+    await capability.enableAccount({ accountId });
+
+    expect(await state.getXmrAccountState({ accountId })).toMatchObject({
+      intent: 'on',
+      birthdayHeight: 1,
+      birthdayTimestamp: timestamp,
+      birthdaySource: XMR_BIRTHDAY_PENDING_SOURCE,
+    });
+    expect(mockRuntime).not.toHaveBeenCalled();
   });
 
-  it('converts a chosen month into a height below the tip', async () => {
-    const { capability } = build();
-    await capability.enableAccount({
-      accountId: 'acc',
-      birthdayTimestamp: Date.UTC(2024, 0, 1),
+  it('migrates an interrupted enable journal without losing its date', async () => {
+    const { state, capability } = build();
+    await state.beginXmrEnable({
+      networkId,
+      accountId,
+      birthdayHeight: 1,
+      birthdaySource: XMR_BIRTHDAY_PENDING_SOURCE,
+      birthdayTimestamp: timestamp,
     });
-    const height = Number(runtime.addAccount.mock.calls[0][3]);
-    expect(height).toBeLessThan(TIP);
-    expect(height).toBeGreaterThan(0);
+
+    await capability.retryAccountSetup({ accountId });
+
+    const saved = await state.getXmrAccountState({ accountId });
+    expect(saved).toMatchObject({
+      intent: 'on',
+      birthdayTimestamp: timestamp,
+      birthdaySource: XMR_BIRTHDAY_PENDING_SOURCE,
+    });
+    expect(saved.operation).toBeUndefined();
+    expect(mockRuntime).not.toHaveBeenCalled();
   });
 
-  it('wakes the scheduler and the UI once the account is on', async () => {
-    const { capability, calls, notify } = build();
-    await capability.enableAccount({ accountId: 'acc' });
-    expect(calls).toEqual(['beginEnable', 'completeEnable']);
-    expect(notify).toHaveBeenCalledWith({
-      networkId: 'xmr--0',
-      accountIds: ['acc'],
-      backfillActive: true,
-    });
-  });
-
-  // Resume passes no birthday, so the tip goes in; the runtime keeps the
-  // existing identity's birthday, and that is what must be stored.
-  it("stores the runtime's birthday when the identity already exists", async () => {
-    runtime.addAccount.mockImplementationOnce(async () =>
-      JSON.stringify({ accountId: 3, birthdayHeight: 3_000_000 }),
-    );
-    const { capability, completed } = build();
-    await capability.enableAccount({ accountId: 'acc' });
-    expect(runtime.addAccount.mock.calls[0][3]).toBe(String(TIP));
-    expect(completed).toEqual([
-      { accountId: 'acc', birthdayHeight: 3_000_000 },
-    ]);
-  });
-
-  // If the scanned data is gone, resuming from the tip would hide old funds.
-  it('resumes from the original start, not the tip', async () => {
-    const { capability } = build({ birthdayHeight: 3_000_000 });
-    await capability.enableAccount({ accountId: 'acc' });
-    expect(runtime.addAccount.mock.calls[0][3]).toBe('3000000');
-    expect(runtime.rewindTo).not.toHaveBeenCalled();
-  });
-
-  // Blocks after the old start were scanned without the older outputs, so
-  // an earlier start means rescanning from it.
-  it('rescans from a start chosen earlier than the existing one', async () => {
-    runtime.addAccount.mockImplementationOnce(async () =>
-      JSON.stringify({ accountId: 3, birthdayHeight: 3_500_000 }),
-    );
-    const { capability, completed, rotateAccountEpochs } = build({
-      birthdayHeight: 3_500_000,
-    });
-    runtime.rewindTo.mockImplementationOnce(async () => {
-      // Caches of the identity's data are stale before it goes.
-      expect(rotateAccountEpochs).toHaveBeenCalledWith({
-        accountIds: ['acc', 'alias'],
-      });
-      return '{}';
-    });
-    await capability.enableAccount({
-      accountId: 'acc',
+  it('preserves the original resolved start when resuming', async () => {
+    const { state, capability } = build();
+    await state.beginXmrEnable({
+      networkId,
+      accountId,
       birthdayHeight: 3_000_000,
     });
-    expect(runtime.rewindTo).toHaveBeenCalledWith('3', '2999999', String(TIP));
-    expect(mockForgetStaleFirst).toHaveBeenCalledWith(['acc', 'alias']);
-    expect(completed).toEqual([
-      { accountId: 'acc', birthdayHeight: 3_000_000 },
-    ]);
-  });
+    await state.completeXmrEnable({ accountId, vkFp });
+    await state.beginXmrDisable({ accountId, resumeFromHeight: 3_700_000 });
+    await state.completeXmrDisable({ accountId });
 
-  it('does not report a failed notification as a failed enable', async () => {
-    const { capability, notify } = build();
-    notify.mockImplementationOnce(async () => {
-      throw new OneKeyLocalError('bridge down');
+    await capability.enableAccount({ accountId });
+
+    expect(await state.getXmrAccountState({ accountId })).toMatchObject({
+      intent: 'on',
+      birthdayHeight: 3_000_000,
     });
+    expect(mockRuntime).not.toHaveBeenCalled();
+  });
+
+  it('saves a changed target without waiting for node or scan preparation', async () => {
+    const { state, capability, notify } = build();
+    await state.saveXmrEnabledAccount({
+      networkId,
+      accountId,
+      vkFp,
+      birthdayHeight: 3_000_000,
+    });
+    await capability.enableAccount({ accountId, birthdayHeight: 3_700_000 });
+    expect(await state.getXmrAccountState({ accountId })).toMatchObject({
+      birthdayHeight: 3_700_000,
+    });
+    expect(mockRuntime).not.toHaveBeenCalled();
+    expect(notify).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps successful admission when scheduler notification fails', async () => {
+    const { state, capability, notify } = build();
+    notify.mockRejectedValueOnce(
+      new OneKeyLocalError('synthetic bridge failure'),
+    );
     await expect(
-      capability.enableAccount({ accountId: 'acc' }),
+      capability.enableAccount({ accountId, birthdayTimestamp: timestamp }),
     ).resolves.toBeUndefined();
-  });
-});
-
-describe('xmr disableAccount', () => {
-  afterEach(() => {
-    mockBusy = false;
+    expect((await state.getXmrAccountState({ accountId })).intent).toBe('on');
   });
 
-  // Mid-step the progress read has no height; the account must still read as
-  // paused afterwards, not as never enabled.
-  it('marks the account paused even while a step holds the runtime', async () => {
+  it('keeps the resume start when a busy Runtime has no fresh progress', async () => {
+    const { state, capability } = build();
+    await state.saveXmrEnabledAccount({
+      networkId,
+      accountId,
+      vkFp,
+      birthdayHeight: 3_000_000,
+    });
     mockBusy = true;
-    const { capability, disabled } = build({ birthdayHeight: 3_000_000 });
-    await capability.disableAccount({ accountId: 'acc' });
-    expect(disabled).toEqual([
-      { accountId: 'acc', resumeFromHeight: 3_000_000 },
-    ]);
+    await capability.disableAccount({ accountId });
+    expect(await state.getXmrAccountState({ accountId })).toMatchObject({
+      intent: 'off',
+      resumeFromHeight: 3_000_000,
+    });
   });
 });

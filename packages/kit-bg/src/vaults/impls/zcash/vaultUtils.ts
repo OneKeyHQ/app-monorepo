@@ -124,12 +124,27 @@ export function isZcashRuntimeDatabaseBroken(e: unknown): boolean {
   if (!runtimeError || runtimeError.code !== 'DATABASE_ERROR') {
     return false;
   }
-  const operation = (runtimeError.params as { operation?: unknown } | undefined)
-    ?.operation;
-  if (operation === 'migrate') {
-    return true;
+  const { operation, reason } = runtimeError.params;
+  if (operation === 'importAccount') {
+    return false;
   }
-  return /malformed|corrupt/i.test(runtimeError.detail ?? '');
+  const detail = `${runtimeError.detail ?? ''} ${typeof reason === 'string' ? reason : ''}`;
+  if (
+    /locked|busy|\bi\/?o\b|ioerr|input\/output|read[_ -]?only|permission|access[_ -]?denied|no space|out[_ -]?of[_ -]?(?:disk[_ -]?)?space|disk (?:is )?full|sqlite_full|quota|too[_ -]?new|newer (?:version|app)|unknown migrations?|network(?:[_ -]?type)?[_ -]?mismatch/i.test(
+      detail,
+    )
+  ) {
+    return false;
+  }
+  // Runtime errors can wrap incompatible parameters and business rules as
+  // "corrupted"; only physical SQLite corruption permits a rebuild.
+  return (
+    /database disk image is malformed|\bsqlite_(?:corrupt(?:_\w+)?|notadb)\b|file is not a database|invalid disk image/i.test(
+      detail,
+    ) ||
+    (operation !== 'migrate' &&
+      /^database is corrupt(?:ed)?$/i.test(detail.trim()))
+  );
 }
 
 export function createZcashSetupIncompleteError(): Error {

@@ -6,6 +6,7 @@ import { parseXmrTransaction } from '@onekeyhq/core/src/chains/xmr/transactionRe
 import {
   XMR_BUILT_IN_NODE_URLS,
   XMR_DECIMALS,
+  XMR_EARLIEST_SCAN_HEIGHT,
   XMR_SEND_MAX_BLOCKS_LEFT,
   XMR_SYNC_EXPECTED_STEP_MS,
   XMR_SYNC_STEP_BLOCKS,
@@ -27,10 +28,12 @@ import {
 import { runBoundedSyncTurn } from '../../localWallet/syncTurn';
 
 import {
+  XMR_BIRTHDAY_PENDING_SOURCE,
   estimateXmrBirthdayHeight,
   estimateXmrHeightDaysAgo,
 } from './birthday';
 import { KeyringHd } from './KeyringHd';
+import { getXmrLifecycleMutex } from './lifecycle';
 import {
   deleteXmrDatabase,
   forgetXmrStaleFirst,
@@ -91,6 +94,24 @@ export function buildXmrLocalWalletCapability(
 ): ILocalWalletCapability {
   const stateDb = () => vault.backgroundApi.simpleDb.privacyChainState;
   const { networkId } = vault;
+  const lifecycleMutex = getXmrLifecycleMutex(networkId);
+
+  const isCurrentRequest = async (
+    accountId: string,
+    expected: IXmrAccountScanState,
+  ): Promise<boolean> => {
+    const current = await stateDb().getXmrAccountState({ accountId });
+    return (
+      !current.deletionPending &&
+      !expected.deletionPending &&
+      current.epoch === expected.epoch &&
+      current.intent === expected.intent &&
+      current.operation === undefined &&
+      current.birthdayHeight === expected.birthdayHeight &&
+      current.birthdayTimestamp === expected.birthdayTimestamp &&
+      current.birthdaySource === expected.birthdaySource
+    );
+  };
 
   // Runtime here already has its DB open and node configured (see runtime.ts).
   const requireRuntime = () => getXmrRuntime(vault);
@@ -109,40 +130,206 @@ export function buildXmrLocalWalletCapability(
   const registerIdentity = async (
     accountId: string,
     birthdayHeight: number,
-  ): Promise<string> => {
+    expected?: IXmrAccountScanState,
+    forceRescan = false,
+  ): Promise<string | undefined> => {
+    const owner =
+      expected ?? (await stateDb().getXmrAccountState({ accountId }));
     const keys = await vault.getXmrViewingKeys({ accountId });
     const api = await getXmrLocalRuntime(vault);
-    await api.addAccount(
-      keys.vkFp,
-      keys.spendPublicKeyHex,
-      keys.viewPrivateKeyHex,
-      String(birthdayHeight),
-    );
-    return accountRuntimeId(accountId);
+    return lifecycleMutex.runExclusive(async () => {
+      if (!(await isCurrentRequest(accountId, owner))) return undefined;
+      const add = api.addAccount.bind(
+        api,
+        keys.vkFp,
+        keys.spendPublicKeyHex,
+        keys.viewPrivateKeyHex,
+        String(birthdayHeight),
+      );
+      const added = JSON.parse(await (forceRescan ? add(true) : add())) as {
+        birthdayHeight?: number;
+        scanResetSupported?: boolean;
+      };
+      if (
+        added.birthdayHeight !== birthdayHeight ||
+        (forceRescan && added.scanResetSupported !== true)
+      ) {
+        const error = new OneKeyLocalError(
+          'xmr: safe scan reset requires a newer runtime',
+        );
+        Object.assign(error, {
+          code: 'DATABASE_TOO_NEW',
+          params: { feature: 'safeScanReset' },
+        });
+        throw error;
+      }
+      return accountRuntimeId(accountId);
+    });
   };
 
   // Cached password only; never prompts. False while locked.
   const deriveScanningAccountKey = async (accountId: string) => {
     const state = await stateDb().getXmrAccountState({ accountId });
-    if (state.intent !== 'on') return false;
+    if (state.deletionPending) return false;
+    if (state.intent !== 'on' && state.operation?.type !== 'enable')
+      return false;
     const key = await vault.backgroundApi.servicePrivacyChain
-      .ensureLocalWalletViewingKey({ networkId, accountId })
+      .ensureLocalWalletViewingKey({
+        networkId,
+        accountId,
+        expectedEpoch: state.epoch,
+      })
       .catch(() => undefined);
     return key !== undefined;
   };
 
+  // Accounts sharing this account's view key, and so its runtime identity.
+  const getAccountAliases = async ({
+    accountId,
+  }: {
+    accountId: string;
+  }): Promise<string[]> => {
+    const vkFp = await getXmrRuntimeUuid({ vault, accountId });
+    if (vkFp === undefined) return [accountId];
+    const aliases = [accountId];
+    for (const otherId of await stateDb().listAccountIds({ networkId })) {
+      if (
+        otherId !== accountId &&
+        // eslint-disable-next-line no-await-in-loop
+        (await getXmrRuntimeUuid({ vault, accountId: otherId })) === vkFp
+      ) {
+        aliases.push(otherId);
+      }
+    }
+    return aliases;
+  };
+
   // Re-registers an enabled account the runtime lost (rebuilt DB or failed
   // resync).
-  const ensureRegistered = async (accountId: string): Promise<string> => {
+  const ensureRegistered = async (
+    accountId: string,
+    chainTip: number,
+  ): Promise<
+    | {
+        runtimeId: string;
+        rewound: boolean;
+        owner: IXmrAccountScanState;
+      }
+    | undefined
+  > => {
+    let state = await stateDb().getXmrAccountState({ accountId });
+    if (
+      state.deletionPending ||
+      state.intent !== 'on' ||
+      state.operation !== undefined
+    )
+      return undefined;
+    if (
+      state.birthdaySource === XMR_BIRTHDAY_PENDING_SOURCE &&
+      state.birthdayTimestamp !== undefined
+    ) {
+      await stateDb().updateXmrBirthday({
+        accountId,
+        birthdayHeight: Math.max(
+          XMR_EARLIEST_SCAN_HEIGHT,
+          estimateXmrBirthdayHeight({
+            birthdayTimestamp: state.birthdayTimestamp,
+            now: Date.now(),
+            chainTip,
+          }),
+        ),
+        birthdayTimestamp: state.birthdayTimestamp,
+        birthdaySource: 'restore-month',
+        expectedState: state,
+      });
+      state = await stateDb().getXmrAccountState({ accountId });
+    }
+    if (
+      state.intent !== 'on' ||
+      state.operation !== undefined ||
+      state.birthdaySource === XMR_BIRTHDAY_PENDING_SOURCE
+    ) {
+      return undefined;
+    }
+    let runtimeId: string;
+    let created = false;
     try {
-      return await accountRuntimeId(accountId);
+      runtimeId = await accountRuntimeId(accountId);
     } catch (error) {
-      const state = await stateDb().getXmrAccountState({ accountId });
+      const latest = await stateDb().getXmrAccountState({ accountId });
+      if (
+        latest.epoch !== state.epoch ||
+        latest.intent !== 'on' ||
+        latest.operation !== undefined ||
+        latest.birthdayHeight !== state.birthdayHeight ||
+        latest.birthdayTimestamp !== state.birthdayTimestamp ||
+        latest.birthdaySource !== state.birthdaySource
+      )
+        return undefined;
       if (state.intent !== 'on' || state.birthdayHeight === undefined) {
         throw error;
       }
-      return registerIdentity(accountId, state.birthdayHeight);
+      const birthdayHeight = Math.max(
+        XMR_EARLIEST_SCAN_HEIGHT,
+        Math.min(state.birthdayHeight, chainTip),
+      );
+      if (birthdayHeight !== state.birthdayHeight) {
+        await stateDb().updateXmrBirthday({
+          accountId,
+          birthdayHeight,
+          birthdayTimestamp: state.birthdayTimestamp,
+          birthdaySource: 'automatic-recovery',
+          expectedState: state,
+        });
+        const current = await stateDb().getXmrAccountState({ accountId });
+        if (
+          current.intent !== 'on' ||
+          current.operation !== undefined ||
+          current.birthdayHeight !== birthdayHeight ||
+          current.birthdaySource !== 'automatic-recovery' ||
+          current.birthdayTimestamp !== state.birthdayTimestamp
+        )
+          return undefined;
+        state = current;
+      }
+      const registered = await registerIdentity(
+        accountId,
+        birthdayHeight,
+        state,
+        state.forceRescan,
+      );
+      if (registered === undefined) return undefined;
+      runtimeId = registered;
+      created = true;
     }
+    const api = await getXmrLocalRuntime(vault);
+    const peek = JSON.parse(await api.syncPeek(runtimeId)) as {
+      birthdayHeight?: number;
+    };
+    const pendingPreparation =
+      state.epoch !== undefined && state.appliedEpoch !== state.epoch;
+    let rewound = false;
+    if (
+      !created &&
+      state.birthdayHeight !== undefined &&
+      (state.forceRescan || peek.birthdayHeight !== state.birthdayHeight)
+    ) {
+      const configured = await registerIdentity(
+        accountId,
+        state.birthdayHeight,
+        state,
+        state.forceRescan,
+      );
+      if (configured === undefined) return undefined;
+      runtimeId = configured;
+      forgetXmrStaleFirst(await getAccountAliases({ accountId }));
+      rewound = true;
+    }
+    if (pendingPreparation && state.epoch !== undefined) {
+      await stateDb().completeXmrPreparation({ accountId, epoch: state.epoch });
+    }
+    if (!(await isCurrentRequest(accountId, state))) return undefined;
+    return { runtimeId, rewound, owner: state };
   };
 
   // Whether another account keeps this identity's scan data: 'alias' for
@@ -169,48 +356,6 @@ export function buildXmrLocalWalletCapability(
       if (otherVkFp === undefined) held = 'maybe';
     }
     return held;
-  };
-
-  // Accounts sharing this account's view key, and so its runtime identity.
-  const getAccountAliases = async ({
-    accountId,
-  }: {
-    accountId: string;
-  }): Promise<string[]> => {
-    const vkFp = await getXmrRuntimeUuid({ vault, accountId });
-    if (vkFp === undefined) return [accountId];
-    const aliases = [accountId];
-    for (const otherId of await stateDb().listAccountIds({ networkId })) {
-      if (
-        otherId !== accountId &&
-        // eslint-disable-next-line no-await-in-loop
-        (await getXmrRuntimeUuid({ vault, accountId: otherId })) === vkFp
-      ) {
-        aliases.push(otherId);
-      }
-    }
-    return aliases;
-  };
-
-  // The caller rotates the epochs of the account and its aliases first.
-  const rewindLocalAccount = async (accountId: string, fromHeight: number) => {
-    const api = await getXmrLocalRuntime(vault);
-    const runtimeId = await getXmrIdentityId({ api, vault, accountId });
-    const peek = JSON.parse(await api.syncPeek(runtimeId)) as {
-      scannedToHeight: number | null;
-      ranges: { start: number; end: number }[];
-    };
-    const observedTip = Math.max(
-      (await getXmrLastKnownChainTip(vault)) ?? 0,
-      peek.scannedToHeight ?? 0,
-      ...peek.ranges.map((range) => range.end - 1),
-    );
-    await api.rewindTo(
-      runtimeId,
-      String(Math.max(fromHeight - 1, 0)),
-      String(observedTip),
-    );
-    forgetXmrStaleFirst(await getAccountAliases({ accountId }));
   };
 
   const readBalance = async (
@@ -329,12 +474,11 @@ export function buildXmrLocalWalletCapability(
 
   // A page turned away by a busy runtime asks the scan to save a balance
   // after its current step; nobody asking, no work.
-  const saveScannedBalance = async (accountId: string) => {
+  const saveScannedBalance = async (
+    accountId: string,
+    epoch: string | undefined,
+  ) => {
     try {
-      const epoch = await readLocalWalletCacheEpoch({
-        backgroundApi: vault.backgroundApi,
-        accountId,
-      });
       const value = await readBalance(accountId);
       if (value) {
         await saveLastLocalWalletBalance({
@@ -397,6 +541,70 @@ export function buildXmrLocalWalletCapability(
     sendMaxBlocksLeft: XMR_SEND_MAX_BLOCKS_LEFT,
   };
 
+  const enableAccount = async (
+    {
+      accountId,
+      birthdayHeight,
+      birthdayTimestamp,
+    }: Parameters<ILocalWalletCapability['enableAccount']>[0],
+    expectedState?: IXmrAccountScanState,
+  ): Promise<void> => {
+    const previous =
+      expectedState ?? (await stateDb().getXmrAccountState({ accountId }));
+    if (
+      birthdayHeight !== undefined &&
+      (!Number.isSafeInteger(birthdayHeight) || birthdayHeight < 0)
+    ) {
+      throw new OneKeyLocalError('xmr: invalid privacy birthday height');
+    }
+    if (
+      birthdayTimestamp !== undefined &&
+      (!Number.isFinite(birthdayTimestamp) || birthdayTimestamp <= 0)
+    ) {
+      throw new OneKeyLocalError('xmr: invalid privacy birthday timestamp');
+    }
+    const account = await vault.getXmrViewingKeys({ accountId });
+    const pendingTimestamp =
+      birthdayHeight === undefined &&
+      (birthdayTimestamp !== undefined ||
+        previous.birthdaySource === XMR_BIRTHDAY_PENDING_SOURCE);
+    let height = birthdayHeight;
+    if (height === undefined) {
+      height = previous.birthdayHeight;
+      if (
+        pendingTimestamp ||
+        (height === undefined && previous.resumeFromHeight !== undefined)
+      )
+        height = XMR_EARLIEST_SCAN_HEIGHT;
+    }
+    const timestamp =
+      birthdayHeight === undefined
+        ? (birthdayTimestamp ?? previous.birthdayTimestamp)
+        : birthdayTimestamp;
+    if (height === undefined || (pendingTimestamp && timestamp === undefined)) {
+      throw new OneKeyLocalError('xmr: privacy birthday is required');
+    }
+    let birthdaySource = previous.birthdaySource;
+    if (pendingTimestamp) birthdaySource = XMR_BIRTHDAY_PENDING_SOURCE;
+    else if (birthdayHeight !== undefined) birthdaySource = 'manual-height';
+    const accepted = await stateDb().saveXmrEnabledAccount({
+      networkId,
+      accountId,
+      vkFp: account.vkFp,
+      expectedState: previous,
+      birthdayHeight: Math.max(XMR_EARLIEST_SCAN_HEIGHT, height),
+      birthdayTimestamp: timestamp,
+      birthdaySource,
+    });
+    // Legacy enable/resume journals converge to the same durable target.
+    if (accepted)
+      void notifyAccountsChanged({ accountId, backfillActive: true });
+    else if (!expectedState)
+      throw new OneKeyLocalError(
+        'xmr: privacy request changed during authorization',
+      );
+  };
+
   return {
     reviewTransaction(encodedTx) {
       const tx = parseXmrTransaction(encodedTx);
@@ -420,102 +628,39 @@ export function buildXmrLocalWalletCapability(
       };
     },
 
-    async enableAccount({ accountId, birthdayHeight, birthdayTimestamp }) {
-      const api = await requireRuntime();
-      const chainTip = await getXmrChainTip(api);
-      const previous = await stateDb().getXmrAccountState({ accountId });
-      // The enable dialog collects a month, never a height.
-      let height = birthdayHeight;
-      if (height === undefined && birthdayTimestamp !== undefined) {
-        height = estimateXmrBirthdayHeight({
-          birthdayTimestamp,
-          now: Date.now(),
-          chainTip,
-        });
-      }
-      const chosen = height !== undefined;
-      // Resume keeps its original start so a lost scan still covers old
-      // funds; a fresh enable starts at tip (zero would scan from genesis).
-      height ??= previous.birthdayHeight ?? chainTip;
-
-      // Journal intent first so resumePendingOperations() can finish a crash.
-      await stateDb().beginXmrEnable({
-        networkId,
-        accountId,
-        birthdayHeight: height,
-        birthdayTimestamp,
-      });
-
-      const account = await vault.getXmrViewingKeys({ accountId });
-      // Named by vkFp: an alias reuses the identity, and one named by an old
-      // account id is renamed by the runtime (matched by primary address).
-      const added = JSON.parse(
-        await api.addAccount(
-          account.vkFp,
-          account.spendPublicKeyHex,
-          account.viewPrivateKeyHex,
-          String(height),
-        ),
-      ) as { birthdayHeight?: number };
-
-      // Sub-addresses need no registration: the runtime keeps a lookahead
-      // window past the highest one that has received funds.
-      const runtimeId = await accountRuntimeId(accountId);
-      // Runtime only queues the birthday..tip scan range once it learns the
-      // tip; addAccount alone queues nothing.
-      await api.updateChainTip(runtimeId, String(chainTip));
-
-      // An earlier start rewinds: later blocks were scanned without the older
-      // outputs, so their spends were never checked.
-      let runtimeBirthday = added.birthdayHeight;
-      if (chosen && runtimeBirthday !== undefined && height < runtimeBirthday) {
-        // Aliases share the scanned data this drops.
-        const aliases = await getAccountAliases({ accountId });
-        await stateDb().rotateAccountEpochs({ accountIds: aliases });
-        await api.rewindTo(
-          runtimeId,
-          String(Math.max(height - 1, 0)),
-          String(chainTip),
-        );
-        forgetXmrStaleFirst(aliases);
-        runtimeBirthday = height;
-      }
-
-      // Store the runtime's value: rescan-from-birthday reads it.
-      await stateDb().completeXmrEnable({
-        accountId,
-        birthdayHeight: runtimeBirthday,
-        vkFp: account.vkFp,
-      });
-
-      // Already enabled; a failed notification must not look like a failed enable.
-      await notifyAccountsChanged({ accountId, backfillActive: true });
-    },
+    enableAccount,
 
     async disableAccount({ accountId }) {
       // Record the resume position first; losing it means a full rescan.
       const progress = await this.getSyncProgress({ accountId });
       const state = await stateDb().getXmrAccountState({ accountId });
-      await stateDb().beginXmrDisable({
+      await stateDb().saveXmrDisabledAccount({
         accountId,
         resumeFromHeight:
           progress?.tipScannedHeight ?? state.birthdayHeight ?? 0,
       });
-      await stateDb().completeXmrDisable({ accountId });
       await notifyAccountsChanged({ accountId, backfillActive: false });
     },
 
     async retryAccountSetup({ accountId }) {
       const state = await stateDb().getXmrAccountState({ accountId });
       if (state.operation?.type === 'enable') {
-        await this.enableAccount({
-          accountId,
-          birthdayHeight: state.birthdayHeight,
-        });
+        if (!(await deriveScanningAccountKey(accountId))) return;
+        await enableAccount(
+          {
+            accountId,
+            birthdayHeight:
+              state.birthdaySource === XMR_BIRTHDAY_PENDING_SOURCE
+                ? undefined
+                : state.birthdayHeight,
+            birthdayTimestamp: state.birthdayTimestamp,
+          },
+          state,
+        );
         return;
       }
       if (state.operation?.type === 'disable') {
-        await stateDb().completeXmrDisable({ accountId });
+        await stateDb().completeXmrDisable({ accountId, expectedState: state });
       }
     },
 
@@ -549,17 +694,25 @@ export function buildXmrLocalWalletCapability(
       return vault.keyring.xmrDeriveViewingKey({ password });
     },
 
-    async deleteRuntimeAccount({ accountId }) {
-      if (!hasXmrRuntimeApiLoader()) return { orphaned: false };
-      // Without a stored key nothing names the identity; orphan cleanup
-      // removes it.
-      const vkFp = await getXmrRuntimeUuid({ vault, accountId });
-      if (vkFp === undefined) return { orphaned: true };
-      const held = await identityHeldByOtherAccount({ accountId, vkFp });
-      if (held !== 'no') return { orphaned: held === 'maybe' };
-      const api = await getXmrLocalRuntime(vault);
-      await api.removeAccount(vkFp);
-      return { orphaned: false };
+    async deleteRuntimeAccount({ accountId, deletionRequestId }) {
+      return lifecycleMutex.runExclusive(async () => {
+        if (
+          deletionRequestId !== undefined &&
+          !(await stateDb().isAccountDeletionPending({
+            accountId,
+            requestId: deletionRequestId,
+          }))
+        )
+          return { orphaned: false };
+        if (!hasXmrRuntimeApiLoader()) return { orphaned: false };
+        const vkFp = await getXmrRuntimeUuid({ vault, accountId });
+        if (vkFp === undefined) return { orphaned: true };
+        const held = await identityHeldByOtherAccount({ accountId, vkFp });
+        if (held !== 'no') return { orphaned: held === 'maybe' };
+        const api = await getXmrLocalRuntime(vault);
+        await api.removeAccount(vkFp);
+        return { orphaned: false };
+      });
     },
 
     async forgetMemoryCaches({ accountIds }) {
@@ -582,7 +735,13 @@ export function buildXmrLocalWalletCapability(
       // just not advancing.
       const paused =
         state.intent === 'off' && state.resumeFromHeight !== undefined;
-      if ((state.intent !== 'on' && !paused) || state.operation) return null;
+      if (
+        state.deletionPending ||
+        (state.intent !== 'on' && !paused) ||
+        state.operation
+      )
+        return null;
+      if (!paused && state.epoch !== state.appliedEpoch) return null;
       if (!hasXmrRuntimeApiLoader()) return null;
 
       // UI read: the saved balance while a scan step holds the runtime or
@@ -688,6 +847,7 @@ export function buildXmrLocalWalletCapability(
 
       let stateChanged = false;
       let backfillRemaining = false;
+      let synced = false;
       // Aliases share one identity; it is stepped once per turn.
       const steppedRuntimeIds = new Set<string>();
       let skipped = 0;
@@ -708,81 +868,114 @@ export function buildXmrLocalWalletCapability(
           continue;
         }
         // eslint-disable-next-line no-await-in-loop
-        const runtimeId = await ensureRegistered(accountId);
+        const registered = await ensureRegistered(accountId, tip);
+        if (registered === undefined) {
+          skipped += 1;
+          // eslint-disable-next-line no-continue
+          continue;
+        }
+        const { runtimeId, rewound, owner } = registered;
+        // The admitted account list may precede a delete or birthday request.
+        // Every Worker mutation shares the delete boundary and checks its owner.
+        // eslint-disable-next-line no-await-in-loop, no-continue
+        if (!(await isCurrentRequest(accountId, owner))) continue;
+        if (rewound) {
+          stateChanged = true;
+          // This alias may rewind an identity already stepped this turn.
+          backfillRemaining = true;
+        }
         if (steppedRuntimeIds.has(runtimeId)) {
           // eslint-disable-next-line no-continue
           continue;
         }
         steppedRuntimeIds.add(runtimeId);
         // eslint-disable-next-line no-await-in-loop
-        await api.updateChainTip(runtimeId, String(tip));
+        await lifecycleMutex.runExclusive(async () => {
+          if (await isCurrentRequest(accountId, owner)) {
+            await api.updateChainTip(runtimeId, String(tip));
+          }
+        });
         // eslint-disable-next-line no-await-in-loop
         const result = await runBoundedSyncTurn({
           budgetMs: turn.budgetMs,
           expectedStepMs: turn.expectedStepMs,
           // Publish after every step; readers pick it up on their own clocks.
-          onStep: () =>
-            vault.backgroundApi.servicePrivacyChain.publishLocalWalletSyncProgress(
-              { networkId: vault.networkId, accountIds: [accountId] },
-            ),
-          step: async () => {
-            const stepStartedAt = Date.now();
-            let raw: string;
-            try {
-              raw = await api.syncStep(runtimeId, String(turn.stepBlocks));
-            } catch (error) {
-              const runtimeError = readXmrRuntimeError(error);
-              // Reorg: roll back to the runtime's safe height and rescan
-              // forward, else every later step hits the same orphaned block.
-              const rewindHeight =
-                runtimeError?.code === 'REORG_DETECTED'
-                  ? Number(runtimeError.params?.suggestedRewindHeight)
-                  : NaN;
-              if (Number.isSafeInteger(rewindHeight) && rewindHeight >= 0) {
-                console.warn('[xmr] chain reorganised; re-scanning', {
-                  atHeight: runtimeError?.params?.atHeight,
-                  rewindHeight,
-                });
-                await api.rewindTo(
-                  runtimeId,
-                  String(rewindHeight),
-                  String(tip),
-                );
-                return { done: false, stateChanged: true };
-              }
-              const plainMessage =
-                error instanceof Error ? error.message : String(error);
-              console.error('[xmr] step failed', {
-                ms: Date.now() - stepStartedAt,
-                code: runtimeError?.code,
-                operation: runtimeError?.params?.operation,
-                detail: runtimeError?.detail,
-                error: runtimeError ? undefined : plainMessage,
-              });
-              throw error;
+          onStep: async () => {
+            if (await isCurrentRequest(accountId, owner)) {
+              await vault.backgroundApi.servicePrivacyChain.publishLocalWalletSyncProgress(
+                { networkId: vault.networkId, accountIds: [accountId] },
+              );
             }
-            const progress = JSON.parse(raw) as {
-              blocksScanned: number;
-              done: boolean;
-              outputsFound: number;
-              spendsDetected?: number;
-              sendsFailed?: number;
-              sendsRestored?: number;
-            };
-            if (xmrBalanceWanted.delete(`${vault.networkId}:${accountId}`)) {
-              await saveScannedBalance(accountId);
-            }
-            return {
-              done: progress.done,
-              // A spend seen on chain or a send given up both move balance.
-              stateChanged:
-                progress.outputsFound > 0 ||
-                (progress.spendsDetected ?? 0) > 0 ||
-                (progress.sendsFailed ?? 0) > 0 ||
-                (progress.sendsRestored ?? 0) > 0,
-            };
           },
+          step: () =>
+            lifecycleMutex.runExclusive(async () => {
+              if (!(await isCurrentRequest(accountId, owner))) {
+                return { done: true, stateChanged: false };
+              }
+              const stepStartedAt = Date.now();
+              let raw: string;
+              try {
+                raw = await api.syncStep(runtimeId, String(turn.stepBlocks));
+              } catch (error) {
+                const runtimeError = readXmrRuntimeError(error);
+                // Reorg: roll back to the runtime's safe height and rescan
+                // forward, else every later step hits the same orphaned block.
+                const rewindHeight =
+                  runtimeError?.code === 'REORG_DETECTED'
+                    ? Number(runtimeError.params?.suggestedRewindHeight)
+                    : NaN;
+                if (Number.isSafeInteger(rewindHeight) && rewindHeight >= 0) {
+                  if (!(await isCurrentRequest(accountId, owner)))
+                    return { done: true, stateChanged: false };
+                  console.warn('[xmr] chain reorganised; re-scanning', {
+                    atHeight: runtimeError?.params?.atHeight,
+                    rewindHeight,
+                  });
+                  await api.rewindTo(
+                    runtimeId,
+                    String(rewindHeight),
+                    String(tip),
+                  );
+                  return { done: false, stateChanged: true };
+                }
+                const plainMessage =
+                  error instanceof Error ? error.message : String(error);
+                console.error('[xmr] step failed', {
+                  ms: Date.now() - stepStartedAt,
+                  code: runtimeError?.code,
+                  operation: runtimeError?.params?.operation,
+                  detail: runtimeError?.detail,
+                  error: runtimeError ? undefined : plainMessage,
+                });
+                throw error;
+              }
+              const progress = JSON.parse(raw) as {
+                blocksScanned: number;
+                done: boolean;
+                outputsFound: number;
+                spendsDetected?: number;
+                sendsFailed?: number;
+                sendsRestored?: number;
+              };
+              if (!(await isCurrentRequest(accountId, owner)))
+                return { done: true, stateChanged: false };
+              if (xmrBalanceWanted.delete(`${vault.networkId}:${accountId}`)) {
+                await saveScannedBalance(accountId, owner.epoch);
+              }
+              return {
+                done: progress.done,
+                // A spend seen on chain or a send given up both move balance.
+                stateChanged:
+                  progress.outputsFound > 0 ||
+                  (progress.spendsDetected ?? 0) > 0 ||
+                  (progress.sendsFailed ?? 0) > 0 ||
+                  (progress.sendsRestored ?? 0) > 0,
+              };
+            }),
         });
+        // eslint-disable-next-line no-await-in-loop, no-continue
+        if (!(await isCurrentRequest(accountId, owner))) continue;
+        synced = true;
         if (result.stateChanged) stateChanged = true;
         if (!result.done) backfillRemaining = true;
       }
@@ -792,17 +985,19 @@ export function buildXmrLocalWalletCapability(
           count: skipped,
         });
       }
-      if (steppedRuntimeIds.size === 0) {
+      if (!synced) {
         return { synced: false };
       }
       return { synced: true, stateChanged, chainTip: tip, backfillRemaining };
     },
 
-    // Drop scanned data but keep the opt-in, then rescan from birthday.
     async rewindAccount({ accountId }) {
       const state = await stateDb().getXmrAccountState({ accountId });
-      if (hasXmrRuntimeApiLoader() && state.birthdayHeight !== undefined) {
-        await rewindLocalAccount(accountId, state.birthdayHeight);
+      if (state.intent === 'on' && state.birthdayHeight !== undefined) {
+        await this.rescan({
+          accountId,
+          from: { type: 'height', height: state.birthdayHeight },
+        });
       }
     },
 
@@ -912,6 +1107,7 @@ export function buildXmrLocalWalletCapability(
       if (!hasXmrRuntimeApiLoader()) return undefined;
       const state = await stateDb().getXmrAccountState({ accountId });
       if (state.intent !== 'on') return undefined;
+      if (state.epoch !== state.appliedEpoch) return undefined;
 
       // Mid-step reads return the last known progress or a placeholder.
       return readXmrStaleFirst({
@@ -934,6 +1130,9 @@ export function buildXmrLocalWalletCapability(
     },
 
     async rescan({ accountId, from, dryRun }) {
+      const current = dryRun
+        ? undefined
+        : await stateDb().getXmrAccountState({ accountId });
       const tip = await getXmrLastKnownChainTip(vault);
 
       let fromHeight: number;
@@ -956,28 +1155,31 @@ export function buildXmrLocalWalletCapability(
       }
       if (dryRun) return { fromHeight };
 
-      if (hasXmrRuntimeApiLoader()) {
-        await rewindLocalAccount(accountId, fromHeight);
-        // Like the runtime, only ever move the stored birthday earlier: a later
-        // one would drop the funds in between on rebuild.
-        const current = await stateDb().getXmrAccountState({ accountId });
-        const movesEarlier =
-          current.birthdayHeight === undefined ||
-          fromHeight < current.birthdayHeight;
-        if (movesEarlier) {
-          let birthdayTimestamp: number | undefined;
-          if (from.type === 'timestamp') {
-            birthdayTimestamp = from.timestamp;
-          } else if (from.type === 'daysAgo') {
-            birthdayTimestamp = Date.now() - from.daysAgo * 24 * 60 * 60 * 1000;
-          }
-          await stateDb().updateXmrBirthday({
-            accountId,
-            birthdayHeight: fromHeight,
-            birthdayTimestamp,
-          });
-        }
-      }
+      if (
+        !current ||
+        current.intent !== 'on' ||
+        current.operation !== undefined
+      )
+        throw new OneKeyLocalError('xmr: enable privacy before rescanning');
+      const keys = await vault.getXmrViewingKeys({ accountId });
+      fromHeight = Math.max(XMR_EARLIEST_SCAN_HEIGHT, fromHeight);
+      let birthdayTimestamp: number | undefined;
+      if (from.type === 'timestamp') birthdayTimestamp = from.timestamp;
+      else if (from.type === 'daysAgo')
+        birthdayTimestamp = Date.now() - from.daysAgo * 24 * 60 * 60 * 1000;
+      const accepted = await stateDb().saveXmrEnabledAccount({
+        networkId,
+        accountId,
+        vkFp: keys.vkFp,
+        birthdayHeight: fromHeight,
+        birthdaySource:
+          from.type === 'height' ? 'manual-height' : 'restore-month',
+        birthdayTimestamp,
+        forceRescan: true,
+        expectedState: current,
+      });
+      if (accepted)
+        void notifyAccountsChanged({ accountId, backfillActive: true });
       return { fromHeight };
     },
   };

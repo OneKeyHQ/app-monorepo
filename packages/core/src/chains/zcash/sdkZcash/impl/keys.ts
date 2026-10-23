@@ -84,7 +84,8 @@ export async function deriveAccount(
   try {
     const rt = await getRuntime();
     chainTip = await rt.chainTipAt(lightwalletdUrl);
-  } catch {
+  } catch (error) {
+    if (error instanceof WebAssembly.RuntimeError) throw error;
     // Offline, or no wallet runtime: null is a documented outcome, not a
     // failure - caller already handles null when picking a birthday.
     chainTip = null;
@@ -336,7 +337,8 @@ export async function getChainTip(
   try {
     const rt = await getRuntime();
     return await rt.chainTipAt(params.lightwalletdUrl);
-  } catch {
+  } catch (error) {
+    if (error instanceof WebAssembly.RuntimeError) throw error;
     // Contract: null on failure, not a throw - callers must handle it when offline.
     return null;
   }

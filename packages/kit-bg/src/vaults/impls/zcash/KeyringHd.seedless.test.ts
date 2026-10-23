@@ -215,7 +215,7 @@ describe('Zcash KeyringHd never hands the seed to the SDK', () => {
     expectIssuedSeedsWiped();
   });
 
-  it('sets up the viewing key once and wipes the Orchard sk before the chain tip', async () => {
+  it('sets up the viewing key offline and wipes the Orchard sk before saving metadata', async () => {
     const expected = deriveZcashAccountViewingSecrets({
       seed: TEST_SEED,
       accountIndex: 0,
@@ -260,23 +260,21 @@ describe('Zcash KeyringHd never hands the seed to the SDK', () => {
       accountXpub: expected.accountXpub,
       hdIndex: 0,
     });
-    expect(getChainTip).toHaveBeenCalledWith({
-      network: 'main',
-      lightwalletdUrl: 'https://lwd.example',
-    });
+    expect(getChainTip).not.toHaveBeenCalled();
+    expect(passedSk?.every((b) => b === 0)).toBe(true);
     expectNoSeed(deriveAccountKeys.mock.calls as unknown[][]);
     expectIssuedSeedsWiped();
     expect(derived).toEqual({
       ufvk: 'ufvk',
       unifiedAddress: 'u1',
       transparentAddress: 't1',
-      chainTip: 3_000_000,
+      chainTip: null,
       seedFingerprintHex: expected.seedFingerprintHex,
     });
     expected.orchardSk.fill(0);
   });
 
-  it('retries only the chain tip, never re-sending the Orchard sk', async () => {
+  it('does not wait for node retries after deriving the viewing key', async () => {
     jest.useFakeTimers();
     let warnSpy: jest.SpyInstance | undefined;
     try {
@@ -311,11 +309,9 @@ describe('Zcash KeyringHd never hands the seed to the SDK', () => {
       await pending;
 
       expect(deriveAccountKeys).toHaveBeenCalledTimes(1);
-      expect(getChainTip).toHaveBeenCalledTimes(2);
-      expect(fetchZcashChainTipDirect).toHaveBeenCalledWith({
-        lightwalletdUrl: 'https://lwd.example',
-      });
-      expect(derived).toMatchObject({ ufvk: 'ufvk', chainTip: 3_100_000 });
+      expect(getChainTip).not.toHaveBeenCalled();
+      expect(fetchZcashChainTipDirect).not.toHaveBeenCalled();
+      expect(derived).toMatchObject({ ufvk: 'ufvk', chainTip: null });
       expectIssuedSeedsWiped();
       expected.orchardSk.fill(0);
     } finally {

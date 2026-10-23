@@ -1,4 +1,5 @@
 import {
+  isZcashAccountImportCheckpointError,
   isZcashRuntimeError,
   readZcashRuntimeError,
   zcashErrorAmount,
@@ -110,3 +111,64 @@ describe('readZcashRuntimeError', () => {
     expect(zcashErrorAmount(e, 'notThere')).toBeNull();
   });
 });
+
+describe.each(['flat', 'payload'])(
+  'account import checkpoint error (%s)',
+  (shape) => {
+    it.each([
+      {
+        code: 'DATABASE_ERROR',
+        operation: 'importAccount',
+        reason: 'checkpointsDiverged',
+        expected: true,
+      },
+      {
+        code: 'DATABASE_ERROR',
+        operation: 'importAccount',
+        detail:
+          'The tree retains checkpoints both above and below the requested height',
+        expected: true,
+      },
+      {
+        code: 'DATABASE_ERROR',
+        operation: 'syncStep',
+        reason: 'checkpointsDiverged',
+        expected: false,
+      },
+      {
+        code: 'DATABASE_ERROR',
+        operation: 'migrate',
+        detail: 'retains checkpoints both above and below',
+        expected: false,
+      },
+      {
+        code: 'DATABASE_ERROR',
+        operation: 'importAccount',
+        detail: 'database is malformed',
+        expected: false,
+      },
+      {
+        code: 'DATABASE_ERROR',
+        operation: 'importAccount',
+        reason: 'locked',
+        expected: false,
+      },
+      {
+        code: 'NETWORK_ERROR',
+        operation: 'importAccount',
+        reason: 'checkpointsDiverged',
+        expected: false,
+      },
+    ])(
+      'recognizes only the recoverable import: $code/$operation/$reason/$detail',
+      ({ code, operation, reason, detail, expected }) => {
+        const fields = { code, params: { operation, reason }, detail };
+        const error = Object.assign(
+          new Error(code),
+          shape === 'payload' ? { payload: fields } : fields,
+        );
+        expect(isZcashAccountImportCheckpointError(error)).toBe(expected);
+      },
+    );
+  },
+);

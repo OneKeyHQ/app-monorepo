@@ -10,7 +10,6 @@ import type {
   IZcashAccountViewingSecrets,
 } from '@onekeyhq/core/src/chains/zcash/accountSecrets';
 import { ZCASH_NETWORK_MAIN } from '@onekeyhq/core/src/chains/zcash/sdkZcash/constants';
-import { fetchZcashChainTipDirect } from '@onekeyhq/core/src/chains/zcash/sdkZcash/impl/chainTipDirect';
 import type {
   IZcashDeriveAccountKeysResult,
   IZcashPcztReviewRequest,
@@ -272,8 +271,10 @@ export class KeyringHd extends KeyringHdBtc {
   // persisted by ServicePrivacyChain. Account creation never enters this path.
   async retryLocalWalletSetup({
     password,
+    forceDerivation,
   }: {
     password: string;
+    forceDerivation?: boolean;
   }): Promise<void> {
     const accountId = this.vault.accountId;
     const privacyModeState =
@@ -306,6 +307,7 @@ export class KeyringHd extends KeyringHdBtc {
         this.zcashDeriveAndSaveOneAccountMeta({
           account,
           secrets,
+          forceDerivation,
         }),
     );
   }
@@ -313,15 +315,18 @@ export class KeyringHd extends KeyringHdBtc {
   private async zcashDeriveAndSaveOneAccountMeta({
     account,
     secrets,
+    forceDerivation,
   }: {
     account: IDBAccount;
     secrets: IZcashAccountViewingSecrets;
+    forceDerivation?: boolean;
   }) {
     const secretsHdIndex = checkIsDefined(account.pathIndex);
     await resolveAndSaveZcashAccountMeta({
       backgroundApi: this.backgroundApi,
       networkId: this.vault.networkId,
       account,
+      forceDerivation,
       derive: async ({ hdIndex }) => {
         if (hdIndex !== secretsHdIndex) {
           throw new OneKeyLocalError('zcash: account index mismatch');
@@ -337,49 +342,13 @@ export class KeyringHd extends KeyringHdBtc {
             hdIndex,
           });
         } finally {
-          // The chain-tip retries below need only public data.
           secrets.orchardSk.fill(0);
         }
         const viewing = {
           ...keys,
           seedFingerprintHex: secrets.seedFingerprintHex,
         };
-        const lightwalletdUrl = await vault.zcashResolveLightwalletdUrl();
-
-        // lightwalletd calls go through a proxy that occasionally resets
-        // mid-response (transient, not a real failure) -- absorb a few retries.
-        const maxAttempts = 3;
-        for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
-          try {
-            // eslint-disable-next-line no-await-in-loop
-            const chainTip = await api.getChainTip({
-              network: ZCASH_NETWORK_MAIN,
-              lightwalletdUrl,
-            });
-            if (chainTip !== null) return { ...viewing, chainTip };
-            return {
-              ...viewing,
-              // eslint-disable-next-line no-await-in-loop
-              chainTip: await fetchZcashChainTipDirect({
-                lightwalletdUrl,
-              }),
-            };
-          } catch (e) {
-            if (attempt === maxAttempts) {
-              throw e;
-            }
-            console.warn('[zcash] chain tip attempt failed, retrying', {
-              accountId: account.id,
-              attempt,
-              error: e instanceof Error ? e.message : String(e),
-            });
-            // eslint-disable-next-line no-await-in-loop
-            await new Promise((resolve) => setTimeout(resolve, 1000 * attempt));
-          }
-        }
-        throw new OneKeyLocalError(
-          'zcash: chain tip retry loop exited unexpectedly',
-        );
+        return { ...viewing, chainTip: null };
       },
     });
   }

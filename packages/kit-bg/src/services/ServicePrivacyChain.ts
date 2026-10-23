@@ -67,6 +67,7 @@ import type {
   IPrivacyChainSyncReason,
 } from './PrivacyChainSyncScheduler';
 import type { IBackgroundApi } from '../apis/IBackgroundApi';
+import type { IPrivacyChainPendingAccountDeletion } from '../dbs/simple/entity/SimpleDbEntityPrivacyChainState';
 import type { VaultBaseChainOnly } from '../vaults/base/VaultBase';
 import type {
   ILocalWalletLifecycleAction,
@@ -164,6 +165,8 @@ type ILocalWalletLifecycleTarget = {
   // Accounts whose runtime data the runtime step acts on; defaults to
   // `accountIds` (a rescan rotates aliases but rewinds one account).
   runtimeAccountIds?: string[];
+  // A newer, durably authorized enable survives the old runtime cleanup.
+  preserveAuthorization?: boolean;
 };
 
 // Chain-agnostic singleton behind vaultSettings.localWallet: runs the
@@ -264,6 +267,7 @@ class ServicePrivacyChain extends ServiceBase {
         // Delay comes from the quiet-window clamp, not from this call site.
         this.scheduleBackgroundSync(0);
         this.periodicSyncTimer = setInterval(() => {
+          void this.resumePendingAccountDeletions();
           this.scheduleBackgroundSync(0);
         }, PRIVACY_CHAIN_TIP_POLL_MS);
         this.initialized = true;
@@ -280,6 +284,7 @@ class ServicePrivacyChain extends ServiceBase {
   }
 
   async resumePendingLocalWalletOperations(): Promise<void> {
+    void this.resumePendingAccountDeletions();
     try {
       await this.forEachLocalWalletCapability((capability) =>
         capability.resumePendingOperations(),
@@ -380,16 +385,44 @@ class ServicePrivacyChain extends ServiceBase {
   async ensureLocalWalletViewingKey({
     networkId,
     accountId,
+    expectedEpoch,
   }: {
     networkId: string;
     accountId: string;
+    expectedEpoch?: string;
   }): Promise<string | undefined> {
-    const key = await this.obtainLocalWalletViewingKey({
-      networkId,
-      accountId,
-      promptForPassword: false,
+    if (expectedEpoch === undefined) {
+      return (
+        await getLocalWalletViewingKey({
+          backgroundApi: this.backgroundApi,
+          networkId,
+          accountId,
+        })
+      )?.value;
+    }
+    return this.getEnableMutex(networkId).runExclusive(async () => {
+      const isCurrent = async () => {
+        if (expectedEpoch === undefined) return false;
+        const capability = await this.requireAccountCapability(networkId);
+        const state = await capability.getAccountState({ accountId });
+        const epoch =
+          await this.backgroundApi.simpleDb.privacyChainState.getAccountEpoch({
+            accountId,
+          });
+        return (
+          (state.enabled || state.pendingOperation === 'enable') &&
+          epoch === expectedEpoch
+        );
+      };
+      if (!(await isCurrent())) return undefined;
+      const key = await this.obtainLocalWalletViewingKey({
+        networkId,
+        accountId,
+        promptForPassword: false,
+        isCurrent,
+      });
+      return key?.value;
     });
-    return key?.value;
   }
 
   // `created`: no key was stored before this call. Prompting is for the
@@ -398,17 +431,22 @@ class ServicePrivacyChain extends ServiceBase {
     networkId,
     accountId,
     promptForPassword,
+    forceDerivation = false,
+    isCurrent,
   }: {
     networkId: string;
     accountId: string;
     promptForPassword: boolean;
+    forceDerivation?: boolean;
+    isCurrent?: () => Promise<boolean>;
   }): Promise<{ value: string; created: boolean } | undefined> {
     const stored = await getLocalWalletViewingKey({
       backgroundApi: this.backgroundApi,
       networkId,
       accountId,
     });
-    if (stored) return { value: stored.value, created: false };
+    if (stored && !forceDerivation)
+      return { value: stored.value, created: false };
     if (!accountUtils.isHdAccount({ accountId })) return undefined;
     if (await this.isTempWalletAccount({ accountId })) return undefined;
     // Account-bound: deriving needs the account's keyring.
@@ -428,6 +466,7 @@ class ServicePrivacyChain extends ServiceBase {
     }
     if (!password) return undefined;
     const value = await derive({ accountId, password });
+    if (isCurrent && !(await isCurrent())) return undefined;
     // A derived key that differs from the stored identity stops here.
     await saveLocalWalletViewingKey({
       backgroundApi: this.backgroundApi,
@@ -435,7 +474,7 @@ class ServicePrivacyChain extends ServiceBase {
       accountId,
       value,
     });
-    return { value, created: true };
+    return { value, created: !stored };
   }
 
   // Called as soon as a password is cached (unlock, or any prompt): work that
@@ -851,11 +890,24 @@ class ServicePrivacyChain extends ServiceBase {
     // Once runtime data is gone the rest is best-effort: stopping there
     // would leave caches, progress and pages describing destroyed data.
     let runtimeDone = false;
+    const cleanupResult: { error?: Error } = {};
     const runStep = async (step: string, run: () => Promise<void>) => {
       try {
         await run();
       } catch (e) {
-        if (!runtimeDone) throw e;
+        if (
+          !runtimeDone ||
+          (step === 'viewingKeys:delete' && event === 'appReset')
+        )
+          throw e;
+        // Finish cache/UI cleanup, but never report a successful key deletion.
+        if (step === 'viewingKeys:delete' || event === 'deleteLocalData')
+          cleanupResult.error ??=
+            e instanceof Error
+              ? e
+              : new OneKeyLocalError(
+                  'privacy chain: local data cleanup failed',
+                );
         console.error('[privacy-chain] lifecycle cleanup step failed', {
           event,
           step,
@@ -911,6 +963,7 @@ class ServicePrivacyChain extends ServiceBase {
         }
       }
     }
+    if (cleanupResult.error && event !== 'appReset') throw cleanupResult.error;
     return { failedNetworkIds: [...failedNetworkIds] };
   }
 
@@ -1033,11 +1086,13 @@ class ServicePrivacyChain extends ServiceBase {
         });
         return;
       case 'accountState:keepBirthday':
+        if (target.preserveAuthorization) return;
         await forEachAccount((accountId) =>
           stateDb.clearAccountScanData({ accountId }),
         );
         return;
       case 'viewingKeys:delete':
+        if (target.preserveAuthorization) return;
         if (scope === 'network' && networkId) {
           await removeNetworkLocalWalletViewingKeys({
             backgroundApi,
@@ -1104,14 +1159,7 @@ class ServicePrivacyChain extends ServiceBase {
         if (!networkId) return;
         // Per account: one whose row is gone must not stop the others.
         await forEachAccount((accountId) =>
-          this.clearAccountLocalHistory({ networkId, accountId }).catch(
-            (e: unknown) => {
-              console.error('[privacy-chain] could not clear local history', {
-                networkId,
-                ...describePrivacyChainError(e),
-              });
-            },
-          ),
+          this.clearAccountLocalHistory({ networkId, accountId }),
         );
         return;
       case 'memoryCaches:delete':
@@ -1734,6 +1782,8 @@ class ServicePrivacyChain extends ServiceBase {
       );
       const runnableCandidates = candidates.filter(
         (c) =>
+          // A pause may arrive while enumeration is waiting for the node tip.
+          !this.boostPausedByNetwork[c.networkId] &&
           !this.quarantinedSyncs.has(c.runtimeStateKey) &&
           !backedOff.includes(c) &&
           !this.storageUnsupportedNetworkIds.has(c.networkId),
@@ -2328,6 +2378,7 @@ class ServicePrivacyChain extends ServiceBase {
     const dbAccount = await this.backgroundApi.serviceAccount.getDBAccountSafe({
       accountId,
     });
+    if (!dbAccount) return;
     const [accountAddress, xpub] = await Promise.all([
       this.backgroundApi.serviceAccount.getAccountAddressForApi({
         dbAccount,
@@ -2715,6 +2766,124 @@ class ServicePrivacyChain extends ServiceBase {
 
   enableMutexByNetwork = new Map<string, Mutex>();
 
+  private accountDeletionJobs?: Map<string, Promise<void>>;
+  private accountDeletionMutexByNetwork?: Map<string, Mutex>;
+
+  async resumePendingAccountDeletions(): Promise<void> {
+    try {
+      const pending =
+        await this.backgroundApi.simpleDb.privacyChainState.listPendingAccountDeletions();
+      await Promise.allSettled(
+        pending.map((request) => this.processPendingAccountDeletion(request)),
+      );
+    } catch (error) {
+      console.error('[privacy-chain] could not read pending deletions', {
+        ...describePrivacyChainError(error),
+      });
+    }
+  }
+
+  private processPendingAccountDeletion(
+    request: IPrivacyChainPendingAccountDeletion,
+    capability?: ILocalWalletCapability,
+  ): Promise<void> {
+    const jobs = (this.accountDeletionJobs ??= new Map<
+      string,
+      Promise<void>
+    >());
+    const key = `${request.networkId}:${request.accountId}:${request.requestId}`;
+    const running = jobs.get(key);
+    if (running) return running;
+    const lanes = (this.accountDeletionMutexByNetwork ??= new Map<
+      string,
+      Mutex
+    >());
+    let lane = lanes.get(request.networkId);
+    if (!lane) {
+      lane = new Mutex();
+      lanes.set(request.networkId, lane);
+    }
+    const job = lane
+      .runExclusive(() =>
+        this.finishPendingAccountDeletion(request, capability),
+      )
+      .catch((error: unknown) => {
+        console.error('[privacy-chain] account deletion deferred', {
+          networkId: request.networkId,
+          accountId: request.accountId,
+          ...describePrivacyChainError(error),
+        });
+        throw error;
+      })
+      .finally(() => {
+        if (jobs.get(key) === job) jobs.delete(key);
+      });
+    jobs.set(key, job);
+    return job;
+  }
+
+  // Only host writes share the enable mutex. A long runtime transaction must
+  // not hold up saving a newly authorized user intent.
+  private async finishPendingAccountDeletion(
+    request: IPrivacyChainPendingAccountDeletion,
+    providedCapability?: ILocalWalletCapability,
+  ): Promise<void> {
+    if (resetUtils.getIsResetting() || (await this.isPersistenceMasked()))
+      return;
+    const stateDb = this.backgroundApi.simpleDb.privacyChainState;
+    const readPending = async () =>
+      (await stateDb.listPendingAccountDeletions()).find(
+        (item) =>
+          item.accountId === request.accountId &&
+          item.networkId === request.networkId &&
+          item.requestId === request.requestId,
+      );
+    // Earlier authorization finishes before destructive work begins.
+    const pending = await this.getEnableMutex(request.networkId).runExclusive(
+      readPending,
+    );
+    if (!pending) return;
+    const capability =
+      providedCapability ??
+      (await this.requireAccountCapability(request.networkId));
+    const { orphaned } = await capability.deleteRuntimeAccount({
+      accountId: request.accountId,
+      deletionRequestId: request.requestId,
+    });
+    if (orphaned)
+      await stateDb.markRuntimeOrphans({ networkId: request.networkId });
+    await this.getEnableMutex(request.networkId).runExclusive(async () => {
+      const current = await readPending();
+      if (!current) return;
+      await this.runLocalWalletLifecycle({
+        event: 'deleteLocalData',
+        targets: [
+          {
+            scope: 'accounts',
+            networkId: request.networkId,
+            capability,
+            accountIds: [request.accountId],
+            runtimeAccountIds: [],
+            preserveAuthorization: current.reenabled,
+          },
+        ],
+      });
+      await stateDb.completeAccountDeletion(request);
+      void this.onLocalWalletAccountsChanged({
+        networkId: request.networkId,
+        accountIds: [request.accountId],
+        backfillActive: !!current.reenabled,
+      }).catch((error: unknown) => {
+        console.error(
+          '[privacy-chain] deletion completion notification failed',
+          {
+            ...describePrivacyChainError(error),
+          },
+        );
+      });
+    });
+  }
+
   private getEnableMutex(networkId: string): Mutex {
     let mutex = this.enableMutexByNetwork.get(networkId);
     if (!mutex) {
@@ -2741,6 +2910,17 @@ class ServicePrivacyChain extends ServiceBase {
       await this.pendingLocalDataDropRetry;
       const capability = await this.requireAccountCapability(networkId);
       await this.assertNotTempWalletAccount(accountId);
+      const pendingDeletion = (
+        await this.backgroundApi.simpleDb.privacyChainState.listPendingAccountDeletions()
+      ).find(
+        (request) =>
+          request.networkId === networkId && request.accountId === accountId,
+      );
+      if (pendingDeletion) {
+        await this.backgroundApi.simpleDb.privacyChainState.beginAccountReenable(
+          pendingDeletion,
+        );
+      }
       await this.assertEnabledAccountLimit({
         networkId,
         accountId,
@@ -2753,13 +2933,20 @@ class ServicePrivacyChain extends ServiceBase {
             networkId,
             accountId,
             promptForPassword: true,
+            forceDerivation: !!pendingDeletion,
           })
         : undefined;
+      if (capability.deriveViewingKey && !viewingKey) {
+        throw new OneKeyLocalError(
+          'privacy chain: viewing authorization was not saved',
+        );
+      }
       try {
         await capability.enableAccount({
           accountId,
           birthdayHeight,
           birthdayTimestamp,
+          ...(pendingDeletion ? { forceViewingKeyDerivation: true } : {}),
         });
       } catch (error) {
         if (viewingKey?.created) {
@@ -2770,6 +2957,12 @@ class ServicePrivacyChain extends ServiceBase {
         }
         await this.noteStorageUnsupported(networkId, error);
         throw error;
+      }
+      if (pendingDeletion) {
+        void this.processPendingAccountDeletion(
+          pendingDeletion,
+          capability,
+        ).catch(() => undefined);
       }
     });
   }
@@ -2824,11 +3017,29 @@ class ServicePrivacyChain extends ServiceBase {
         .filter((account) => account.slotEnabled ?? account.syncEnabled)
         .map((account) => account.accountRuntimeKey),
     );
+    const reenabled = (
+      await this.backgroundApi.simpleDb.privacyChainState.listPendingAccountDeletions()
+    ).filter((request) => request.networkId === networkId && request.reenabled);
+    for (const request of reenabled) {
+      // These authorizations occupy a slot while old runtime cleanup finishes.
+      // eslint-disable-next-line no-await-in-loop
+      const key =
+        await this.backgroundApi.simpleDb.privacyChainState.getAccountVkFp(
+          request,
+        );
+      enabledKeys.add(key ?? request.accountId);
+    }
     // A never-enabled account has no runtime identity yet, so it falls
     // through to the ceiling check -- enabling it does add a key.
-    const targetKey = accounts.find(
-      (account) => account.accountId === accountId,
-    )?.accountRuntimeKey;
+    const targetKey =
+      accounts.find((account) => account.accountId === accountId)
+        ?.accountRuntimeKey ??
+      (reenabled.some((request) => request.accountId === accountId)
+        ? await this.backgroundApi.simpleDb.privacyChainState.getAccountVkFp({
+            networkId,
+            accountId,
+          })
+        : undefined);
     if (targetKey !== undefined && enabledKeys.has(targetKey)) {
       return;
     }
@@ -2950,11 +3161,13 @@ class ServicePrivacyChain extends ServiceBase {
     networkId: string;
     accountId: string;
   }): Promise<void> {
-    await this.disableLocalWalletAccountUnlocked({
-      networkId,
-      accountId,
-      capability: await this.requireAccountCapability(networkId),
-    });
+    await this.getEnableMutex(networkId).runExclusive(async () =>
+      this.disableLocalWalletAccountUnlocked({
+        networkId,
+        accountId,
+        capability: await this.requireAccountCapability(networkId),
+      }),
+    );
   }
 
   private async disableLocalWalletAccountUnlocked({
@@ -3049,10 +3262,8 @@ class ServicePrivacyChain extends ServiceBase {
     return capability.getAccountBalance({ accountId });
   }
 
-  // Deletes one account's local privacy data, viewing key included; the next
-  // enable derives the key again. Only for an account that is not scanning:
-  // it is turned off the way the switch does it first, since a sync still
-  // scanning it would register it again behind the delete.
+  // Persist the stopped intent before handing cleanup to the background.
+  // In-flight writes finish under the chain's normal database ordering.
   @backgroundMethod()
   @toastLocalWalletError()
   async deleteLocalWalletAccountData({
@@ -3063,32 +3274,28 @@ class ServicePrivacyChain extends ServiceBase {
     accountId: string;
   }): Promise<void> {
     const capability = await this.requireAccountCapability(networkId);
-    // Shares the enable lock so an enable cannot land midway.
-    await this.getEnableMutex(networkId).runExclusive(async () => {
-      const state = await capability.getAccountState({ accountId });
-      if (state.enabled || state.pendingOperation !== undefined) {
-        await this.disableLocalWalletAccountUnlocked({
+    if (await this.isPersistenceMasked()) {
+      throw new OneKeyLocalError(
+        'privacy-chain: local scan data cannot change in Travel Mode',
+      );
+    }
+    const request =
+      await this.backgroundApi.simpleDb.privacyChainState.requestAccountDeletion(
+        {
           networkId,
           accountId,
-          capability,
-        });
-      }
-      const after = await capability.getAccountState({ accountId });
-      if (after.enabled || after.pendingOperation !== undefined) {
-        throw new OneKeyLocalError(
-          'privacy-chain: turn scanning off before deleting local data',
-        );
-      }
-      await this.runLocalWalletLifecycle({
-        event: 'deleteLocalData',
-        targets: [
-          {
-            scope: 'accounts',
-            networkId,
-            capability,
-            accountIds: [accountId],
-          },
-        ],
+        },
+      );
+    void this.processPendingAccountDeletion(request, capability).catch(
+      () => undefined,
+    );
+    void this.onLocalWalletAccountsChanged({
+      networkId,
+      accountIds: [accountId],
+      backfillActive: false,
+    }).catch((error: unknown) => {
+      console.error('[privacy-chain] deletion notification deferred', {
+        ...describePrivacyChainError(error),
       });
     });
   }
@@ -3103,28 +3310,23 @@ class ServicePrivacyChain extends ServiceBase {
     networkId: string;
     accountId: string;
   }): Promise<void> {
-    try {
-      const account = await this.backgroundApi.serviceAccount.getAccount({
-        accountId,
-        networkId,
-      });
-      const owner = {
-        networkId,
-        accountAddress: account.address,
-        xpub: 'xpub' in account ? account.xpub : undefined,
-      };
-      await this.backgroundApi.simpleDb.localTokens.removeAccountTokenList(
-        owner,
-      );
-      await this.backgroundApi.simpleDb.accountValue.removeAccountNetworkValue(
-        owner,
-      );
-    } catch (e) {
-      console.error('[privacy-chain] could not forget cached balance', {
-        networkId,
-        ...describePrivacyChainError(e),
-      });
-    }
+    const dbAccount = await this.backgroundApi.serviceAccount.getDBAccountSafe({
+      accountId,
+    });
+    if (!dbAccount) return;
+    const account = await this.backgroundApi.serviceAccount.getAccount({
+      accountId,
+      networkId,
+    });
+    const owner = {
+      networkId,
+      accountAddress: account.address,
+      xpub: 'xpub' in account ? account.xpub : undefined,
+    };
+    await this.backgroundApi.simpleDb.localTokens.removeAccountTokenList(owner);
+    await this.backgroundApi.simpleDb.accountValue.removeAccountNetworkValue(
+      owner,
+    );
   }
 
   // Settings "Clear cache": saved balances, tips and in-memory copies. Never

@@ -30,6 +30,7 @@ export const ZCASH_SDK_METHODS = [
   'prepareWalletAccounts',
   'syncWallet',
   'queueRescanFrom',
+  'rescanWallet',
   'getSyncProgress',
   'getEndpointHealth',
   'diagnoseWalletDatabase',

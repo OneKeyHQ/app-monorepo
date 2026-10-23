@@ -472,7 +472,7 @@ export type IZcashSdkApi = {
   prepareWalletAccounts: (
     accounts: IZcashWalletAccount[],
     options?: { retainedUfvks: string[] },
-  ) => Promise<void>;
+  ) => Promise<IZcashWalletAccount[]>;
   syncWallet: (
     account: IZcashWalletAccount,
     options: { activeUfvks: string[]; chainTip?: number | null },
@@ -481,6 +481,7 @@ export type IZcashSdkApi = {
     account: IZcashWalletAccount,
     params: { fromHeight: number },
   ) => Promise<{ queued: boolean; fromHeight: number; toHeight: number }>;
+  rescanWallet: (account: IZcashWalletAccount) => Promise<void>;
   getSyncProgress: (
     account: IZcashWalletAccount,
   ) => Promise<IZcashSyncProgress>;

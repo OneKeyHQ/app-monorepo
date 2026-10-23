@@ -575,7 +575,7 @@ describe('Zcash KeyringHardware', () => {
     },
   );
 
-  it('saves device-provided viewing metadata on privacy setup', async () => {
+  it('saves and verifies device-provided viewing metadata without querying the node', async () => {
     const saveAccountMeta = jest.fn();
     const zcashGetAddress = jest.fn().mockResolvedValue({
       success: true,
@@ -592,10 +592,8 @@ describe('Zcash KeyringHardware', () => {
       unifiedAddress: 'u1app',
       transparentAddress: 't1account',
     });
-    mockGetZcashApi.mockResolvedValue({
-      deriveAddressFromUfvk,
-      getChainTip: jest.fn().mockResolvedValue(3_000_000),
-    });
+    const getChainTip = jest.fn().mockResolvedValue(3_000_000);
+    mockGetZcashApi.mockResolvedValue({ deriveAddressFromUfvk, getChainTip });
     const keyring = createKeyring({
       sdk: { zcashGetAddress },
       simpleDbZcash: {
@@ -623,6 +621,7 @@ describe('Zcash KeyringHardware', () => {
     expect(deriveAddressFromUfvk).toHaveBeenCalledWith(
       expect.objectContaining({ lightwalletdUrl: 'https://custom.lwd:443' }),
     );
+    expect(getChainTip).not.toHaveBeenCalled();
     expect(zcashGetAddress).toHaveBeenCalledWith('connect-1', 'device-1', {
       passphraseState: 'pp',
       bundle: [

@@ -40,6 +40,8 @@ export type IEncodedTxXmr = {
   changeAtomic?: string;
   /** The tip the decoys were chosen against. */
   chainTip?: number;
+  /** Local scan request that supplied the reviewed inputs. */
+  privacyEpoch?: string;
 };
 
 /**

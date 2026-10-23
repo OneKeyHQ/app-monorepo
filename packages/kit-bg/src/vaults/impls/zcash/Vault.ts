@@ -515,6 +515,7 @@ export default class Vault extends VaultBtc {
 
   async zcashDeleteRuntimeAccount(params: {
     accountId: string;
+    deletionRequestId?: string;
   }): Promise<{ orphaned: boolean }> {
     return zcashLifecycle.zcashDeleteRuntimeAccount(this, params);
   }
@@ -522,6 +523,7 @@ export default class Vault extends VaultBtc {
   async zcashRetryLocalWalletSetup(params: {
     password?: string;
     deviceParams?: IDeviceSharedCallParams;
+    forceDerivation?: boolean;
   }): Promise<void> {
     return zcashLifecycle.zcashRetryLocalWalletSetup(this, params);
   }
@@ -592,6 +594,7 @@ export default class Vault extends VaultBtc {
     birthdayHeight: number;
     birthdaySource: IZcashBirthdaySource;
     birthdayTimestamp?: number;
+    deferApply?: boolean;
   }): Promise<void> {
     return zcashLifecycle.zcashRescanFromHeight(this, params);
   }

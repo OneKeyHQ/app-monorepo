@@ -633,10 +633,12 @@ export async function getLocalWalletBalance(
           const api = await vault.zcashGetApi();
           return await api.getBalance(account);
         } catch (e) {
-          console.error('[zcash] getLocalWalletBalance failed', {
-            accountId,
-            ...zcashDescribeError(e),
-          });
+          if (readZcashRuntimeError(e)?.code !== 'ACCOUNT_NOT_FOUND') {
+            console.error('[zcash] getLocalWalletBalance failed', {
+              accountId,
+              ...zcashDescribeError(e),
+            });
+          }
           throw e;
         }
       },
@@ -672,7 +674,8 @@ export async function zcashGetBalanceSafe(
     return await api.getBalance(account);
   } catch (e) {
     // Self-heal missing shielded meta here, since every trigger lands in this catch; no-op if locked.
-    if (readZcashRuntimeError(e)?.code === 'NOT_SYNCED') return null;
+    const code = readZcashRuntimeError(e)?.code;
+    if (code === 'NOT_SYNCED' || code === 'ACCOUNT_NOT_FOUND') return null;
     // Only an unfinished setup is repairable here; retrying on any other failure would re-derive keys every poll.
     const repaired =
       isZcashSetupIncompleteError(e) &&
@@ -685,7 +688,9 @@ export async function zcashGetBalanceSafe(
         const api = await vault.zcashGetApi();
         return await api.getBalance(account);
       } catch (e2) {
-        if (readZcashRuntimeError(e2)?.code === 'NOT_SYNCED') return null;
+        const retryCode = readZcashRuntimeError(e2)?.code;
+        if (retryCode === 'NOT_SYNCED' || retryCode === 'ACCOUNT_NOT_FOUND')
+          return null;
         console.error('[zcash] getBalance still failing after auto repair', {
           accountId: vault.accountId,
           ...zcashDescribeError(e2),
