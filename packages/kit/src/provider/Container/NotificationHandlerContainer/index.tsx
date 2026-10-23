@@ -14,6 +14,7 @@ import {
   EPerpPageEnterSource,
   setPerpPageEnterSource,
 } from '@onekeyhq/shared/src/logger/scopes/perp/perpPageSource';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   ETabRoutes,
   type IWebViewPageParams,
@@ -231,12 +232,16 @@ function BaseNotificationHandlerContainer() {
     ) => {
       openWebView(params);
     };
-    // Durable registration: drains any intent buffered before this UI mounted
-    // (cold-start safe), instead of a transient appEventBus.on that drops
-    // events emitted before the handler was registered.
+    // Pull the BG-owned legacy intent after the UI processor registers. The
+    // event wake may have arrived before main installed its SharedRPC observer.
     const unregisterPageNavigationProcessor =
       registerNotificationPageNavigationProcessor(
         handleShowNotificationPageNavigation,
+        platformEnv.isNativeMainThread &&
+          platformEnv.enableNativeBackgroundThread
+          ? () =>
+              backgroundApiProxy.serviceNotification.consumePendingLegacyNavigation()
+          : undefined,
       );
     appEventBus.on(
       EAppEventBusNames.ShowNotificationInDappPage,

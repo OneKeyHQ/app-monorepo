@@ -116,12 +116,8 @@ export async function navigateToNotificationDetailByLocalParams({
       'navigateToNotificationDetail: payload has no target screen',
     );
   }
-  if (navigationAction === 'push' && screen === ERootRoutes.Modal) {
-    appGlobals.$navigationRef.current?.dispatch(
-      StackActions.push(screen, navigationParams),
-    );
-    return;
-  }
+  const isLegacyModalPush =
+    navigationAction === 'push' && screen === ERootRoutes.Modal;
   // Recursively find and merge the deepest params
 
   const localParams = { ...originalLocalParams };
@@ -131,7 +127,13 @@ export async function navigateToNotificationDetailByLocalParams({
     targetParams = targetParams.params;
   }
 
-  if (targetParams) {
+  const hasLocalTemplate =
+    isLegacyModalPush &&
+    Object.values(targetParams || {}).some(
+      (value) => typeof value === 'string' && /\{local_\w+\}/.test(value),
+    );
+
+  if (targetParams && (!isLegacyModalPush || hasLocalTemplate)) {
     if (targetParams?.networkId) {
       const accountInfos = await getEarnAccount({
         accountId: localParams.accountId || '',
@@ -305,6 +307,37 @@ export async function navigateToNotificationDetailByLocalParams({
       redirectTab();
     }
   } else if (screen === ERootRoutes.Modal) {
+    if (isLegacyModalPush) {
+      if (
+        navigationParams?.screen === EModalRoutes.NotificationsModal &&
+        navigationParams?.params?.screen ===
+          EModalNotificationsRoutes.NotificationList
+      ) {
+        const state = appGlobals.$navigationRef.current?.getState();
+        const currentRoute = state?.routes[state.index ?? 0];
+        const currentModalParams = currentRoute?.params as
+          | { screen?: EModalRoutes }
+          | undefined;
+        const currentModalState = currentRoute?.state;
+        const currentModalRoute =
+          currentModalState?.routes[currentModalState.index ?? 0];
+        if (
+          currentRoute?.name === ERootRoutes.Modal &&
+          (currentModalRoute?.name ?? currentModalParams?.screen) ===
+            EModalRoutes.NotificationsModal
+        ) {
+          appEventBus.emit(
+            EAppEventBusNames.UpdateNotificationBadge,
+            undefined,
+          );
+          return;
+        }
+      }
+      appGlobals.$navigationRef.current?.dispatch(
+        StackActions.push(screen, navigationParams),
+      );
+      return;
+    }
     let rootNavigator = appGlobals.$navigationRef.current;
     const rootState = appGlobals.$navigationRef.current?.getRootState();
     if (rootState?.routes?.[rootState.index]?.name === ERootRoutes.Modal) {
@@ -334,32 +367,110 @@ export interface INavigateToNotificationDetailParams {
 export type INotificationPageNavigationEvent =
   IAppEventBusPayload[EAppEventBusNames.ShowNotificationPageNavigation];
 
-// --- Durable page-navigation delivery -------------------------------------
-// Notification page-navigation (e.g. Perps deep-link) is emitted via
-// appEventBus. On native, the click is processed in the BACKGROUND runtime
-// (system push / cold start) and reaches the foreground via the cross-process
-// bus — but during a cold start the foreground UI handler is mounted LATE, so a
-// plain emit is dropped (the race that broke OK-55681).
-//
-// To make it cold-start safe we register a PERMANENT foreground listener at
-// module load that BUFFERS the latest intent, and let the UI register a
-// processor that drains the buffer whenever it mounts. The intent therefore
-// survives until the UI is ready, regardless of ordering.
+// Foreground page events are buffered after they reach this JS runtime. Native
+// BG legacy clicks also keep their latest intent in BG until the UI pulls it:
+// SharedRPC writes made before main installs its observer are not replayed.
 type INotificationPageNavigationProcessor = (
   event: INotificationPageNavigationEvent,
-) => void;
+) => void | Promise<void>;
+type IConsumePendingLegacyNavigation = () => Promise<
+  INotificationPageNavigationEvent | undefined
+>;
+type INotificationPageNavigationRegistration = {
+  processor: INotificationPageNavigationProcessor;
+  consumePendingLegacyNavigation?: IConsumePendingLegacyNavigation;
+};
 
-let notificationPageNavigationProcessor: INotificationPageNavigationProcessor | null =
+let notificationPageNavigationRegistration: INotificationPageNavigationRegistration | null =
   null;
 let pendingNotificationPageNavigationEvent: INotificationPageNavigationEvent | null =
   null;
+let pendingLegacyNavigationEvent: INotificationPageNavigationEvent | undefined;
+let pendingTakenLegacyNavigationEvent:
+  | INotificationPageNavigationEvent
+  | undefined;
+let legacyNavigationDrainPromise: Promise<void> | undefined;
+let legacyNavigationDrainDirty = false;
+
+export function takePendingLegacyNavigationEvent() {
+  const pending = pendingLegacyNavigationEvent;
+  pendingLegacyNavigationEvent = undefined;
+  return pending;
+}
+
+async function drainPendingLegacyNavigation() {
+  for (;;) {
+    const registration = notificationPageNavigationRegistration;
+    if (!registration?.consumePendingLegacyNavigation) {
+      return;
+    }
+    let event = pendingTakenLegacyNavigationEvent;
+    if (event) {
+      pendingTakenLegacyNavigationEvent = undefined;
+    } else if (legacyNavigationDrainDirty) {
+      legacyNavigationDrainDirty = false;
+      try {
+        event = await registration.consumePendingLegacyNavigation();
+      } catch (error) {
+        console.error(
+          'Failed to consume pending legacy notification navigation',
+          error,
+        );
+        return;
+      }
+    } else {
+      return;
+    }
+
+    if (event) {
+      const currentRegistration = notificationPageNavigationRegistration;
+      if (!currentRegistration?.consumePendingLegacyNavigation) {
+        pendingTakenLegacyNavigationEvent = event;
+        return;
+      }
+      try {
+        await currentRegistration.processor(event);
+      } catch (error) {
+        console.error(
+          'Failed to process legacy notification navigation',
+          error,
+        );
+      }
+    }
+  }
+}
+
+function startLegacyNavigationDrain() {
+  if (
+    legacyNavigationDrainPromise ||
+    !notificationPageNavigationRegistration?.consumePendingLegacyNavigation ||
+    (!legacyNavigationDrainDirty && !pendingTakenLegacyNavigationEvent)
+  ) {
+    return;
+  }
+  legacyNavigationDrainPromise = Promise.resolve()
+    .then(drainPendingLegacyNavigation)
+    .finally(() => {
+      legacyNavigationDrainPromise = undefined;
+      startLegacyNavigationDrain();
+    });
+}
+
+function requestLegacyNavigationDrain() {
+  legacyNavigationDrainDirty = true;
+  startLegacyNavigationDrain();
+}
 
 function deliverNotificationPageNavigation(
   event: INotificationPageNavigationEvent,
 ) {
-  if (notificationPageNavigationProcessor) {
+  if (event.navigationAction === 'push') {
+    requestLegacyNavigationDrain();
+    return;
+  }
+  if (notificationPageNavigationRegistration) {
     pendingNotificationPageNavigationEvent = null;
-    notificationPageNavigationProcessor(event);
+    void notificationPageNavigationRegistration.processor(event);
     return;
   }
   pendingNotificationPageNavigationEvent = event;
@@ -367,16 +478,21 @@ function deliverNotificationPageNavigation(
 
 export function registerNotificationPageNavigationProcessor(
   processor: INotificationPageNavigationProcessor,
+  consumePendingLegacyNavigation?: IConsumePendingLegacyNavigation,
 ) {
-  notificationPageNavigationProcessor = processor;
+  const registration = { processor, consumePendingLegacyNavigation };
+  notificationPageNavigationRegistration = registration;
   const pending = pendingNotificationPageNavigationEvent;
   if (pending) {
     pendingNotificationPageNavigationEvent = null;
-    processor(pending);
+    void processor(pending);
+  }
+  if (consumePendingLegacyNavigation) {
+    requestLegacyNavigationDrain();
   }
   return () => {
-    if (notificationPageNavigationProcessor === processor) {
-      notificationPageNavigationProcessor = null;
+    if (notificationPageNavigationRegistration === registration) {
+      notificationPageNavigationRegistration = null;
     }
   };
 }
@@ -736,10 +852,12 @@ async function navigateToNotificationDetail({
       routeParams: params,
     });
     if (platformEnv.isNativeBackgroundThread) {
-      appEventBus.emit(EAppEventBusNames.ShowNotificationPageNavigation, {
+      const event: INotificationPageNavigationEvent = {
         payload: modalParams,
         navigationAction: 'push',
-      });
+      };
+      pendingLegacyNavigationEvent = event;
+      appEventBus.emit(EAppEventBusNames.ShowNotificationPageNavigation, event);
     } else if (
       navigation &&
       routes?.length === 3 &&
