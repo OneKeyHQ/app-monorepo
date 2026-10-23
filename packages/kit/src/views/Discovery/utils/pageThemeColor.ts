@@ -109,8 +109,10 @@ export function tryDispatchPageThemeMessage(tabId: string, data: string) {
 // Reports the page color the way Safari 26 tints its chrome: the background
 // behind the top of the viewport (a fixed header, else body/html). Safari 26
 // no longer uses <meta name="theme-color">; it is only a last fallback here.
-// Re-reads after a short delay (late SPA paint) and when the system color
-// scheme changes.
+// Re-reads after a short delay (late SPA paint), when the system color scheme
+// changes, and when the page switches its own theme (class/style/data-*
+// changes on <html>/<body>, or a new theme-color), like Safari tracking a
+// site's light/dark toggle.
 export const PAGE_THEME_COLOR_SCRIPT = `(function () {
   try {
     if (window.__onekeyReadPageTheme) {
@@ -127,10 +129,17 @@ export const PAGE_THEME_COLOR_SCRIPT = `(function () {
       probe.remove();
       return rgb;
     };
+    // Opaque backgrounds only: translucent layers (e.g. a modal's dimming
+    // backdrop) are skipped so the page's own color shows through.
+    var isOpaque = function (bg) {
+      if (!bg || bg === 'transparent') return false;
+      var m = /rgba\\([^,]+,[^,]+,[^,]+,\\s*([\\d.]+)\\s*\\)/.exec(bg);
+      return !m || parseFloat(m[1]) >= 0.95;
+    };
     var backgroundOf = function (el) {
       while (el && el.nodeType === 1) {
         var bg = getComputedStyle(el).backgroundColor;
-        if (bg && bg !== 'transparent' && !/rgba\\(.*,\\s*0\\)$/.test(bg)) {
+        if (isOpaque(bg)) {
           return bg;
         }
         el = el.parentElement;
@@ -162,6 +171,26 @@ export const PAGE_THEME_COLOR_SCRIPT = `(function () {
     setTimeout(read, 800);
     var scheme = window.matchMedia('(prefers-color-scheme: dark)');
     scheme.addEventListener && scheme.addEventListener('change', read);
+    // Debounced: theme toggles touch several attributes at once, and the new
+    // colors may land a frame or a transition later.
+    var pending;
+    var schedule = function () {
+      clearTimeout(pending);
+      pending = setTimeout(read, 300);
+    };
+    if (window.MutationObserver) {
+      var attrs = { attributes: true, attributeFilter: ['class', 'style', 'data-theme', 'data-color-mode', 'data-mode'] };
+      var observer = new MutationObserver(schedule);
+      observer.observe(document.documentElement, attrs);
+      document.body && observer.observe(document.body, attrs);
+      document.head &&
+        observer.observe(document.head, {
+          childList: true,
+          subtree: true,
+          attributes: true,
+          attributeFilter: ['content'],
+        });
+    }
   } catch (e) {}
 })();
 true;`;
