@@ -44,12 +44,14 @@ import {
   NUMBER_FORMATTER,
   formatDisplayNumber,
 } from '@onekeyhq/shared/src/utils/numberUtils';
+import { parseDexCoin } from '@onekeyhq/shared/src/utils/perpsUtils';
 import { getTokenPriceChangeStyle } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { IMarketAssetListItem } from '@onekeyhq/shared/types/market';
 import type { IMarketStockPublicItem } from '@onekeyhq/shared/types/marketV2';
 
 import { CommunityRecognizedBadge } from '../../../components/CommunityRecognizedBadge';
 import { MarketListingStar } from '../../../components/MarketListingStar';
+import { LeverageBadge, PerpDexBadge } from '../../../components/PerpsBadges';
 import { prewarmMarketTokenImages } from '../../utils/marketDetailImagePreload';
 
 import {
@@ -180,6 +182,7 @@ function BasicMobileMarketSelectorListItem({
   networkId,
   symbol,
   communityRecognized,
+  titleBadges,
   subtitle,
   price,
   priceChange,
@@ -196,6 +199,8 @@ function BasicMobileMarketSelectorListItem({
   networkId?: string;
   symbol: string;
   communityRecognized?: boolean;
+  /** Badges after the symbol, e.g. a perp's leverage and DEX. */
+  titleBadges?: ReactNode;
   subtitle: ReactNode;
   price?: number;
   /** `undefined` when the feed has no change data. */
@@ -260,6 +265,7 @@ function BasicMobileMarketSelectorListItem({
           <SizableText size="$headingMd" numberOfLines={1} flexShrink={1}>
             {symbol}
           </SizableText>
+          {titleBadges}
           {communityRecognized ? <CommunityRecognizedBadge /> : null}
         </XStack>
         {subtitle}
@@ -300,7 +306,11 @@ export const MobileMarketSelectorListItem = memo(
 
 // No change data reads as `--`, like the desktop rows: the feed either omits
 // the field (normalized to 0 on conversion) or sends '-'. A real '0' stays 0%.
+// Perps rows carry their change without a `priceChangeRaw`.
 function getTokenPriceChange(item: IMarketToken) {
+  if (item.perpsCoin) {
+    return Number.isFinite(item.change24h) ? item.change24h : undefined;
+  }
   return item.priceChangeRaw === undefined || item.priceChangeRaw === '-'
     ? undefined
     : item.change24h;
@@ -333,9 +343,31 @@ const MobileSelectorTokenRow = memo(
       [item],
     );
     let subtitle: ReactNode;
+    let titleBadges: ReactNode;
     switch (getMarketWatchlistRowKind(item)) {
       case 'stock':
         subtitle = <StockSubtitle tags={item.stockTags} name={item.name} />;
+        break;
+      case 'perps':
+        // A favorited perp reads by its alias, if any; the leverage and DEX
+        // badges tell it apart from the spot or stock row of the same symbol.
+        subtitle = item.perpsSubtitle ? (
+          <NameSubtitle name={item.perpsSubtitle} />
+        ) : null;
+        titleBadges = (
+          <>
+            {item.maxLeverage ? (
+              <LeverageBadge leverage={item.maxLeverage} />
+            ) : null}
+            <PerpDexBadge
+              dexLabel={
+                item.perpsCoin
+                  ? parseDexCoin(item.perpsCoin).dexLabel
+                  : undefined
+              }
+            />
+          </>
+        );
         break;
       case 'asset':
         subtitle = <NameSubtitle name={item.name} />;
@@ -357,6 +389,7 @@ const MobileSelectorTokenRow = memo(
         networkId={item.networkId}
         symbol={item.symbol}
         communityRecognized={item.communityRecognized}
+        titleBadges={titleBadges}
         subtitle={subtitle}
         price={item.price}
         priceChange={getTokenPriceChange(item)}
@@ -502,7 +535,7 @@ function useLiveOverriddenTokens(
   );
 }
 
-/** Favorites: the watchlist in the user's own order, perps excluded. */
+/** Favorites: the watchlist in the user's own order, perps included. */
 export function MobileSelectorWatchlistList({
   watchlistFilter = 'all',
   onItemPress,
@@ -534,7 +567,7 @@ export function MobileSelectorWatchlistList({
     pageSize: Math.max(watchListData?.length ?? 0, 1),
     pollingInterval: TOKEN_SELECTOR_POLLING_INTERVAL,
   });
-  const groups = useWatchlistFilteredGroups(data, { hidePerps: true });
+  const groups = useWatchlistFilteredGroups(data);
   const rows = useLiveOverriddenTokens(
     groups[watchlistFilter],
     liveTokenOverride,
@@ -552,7 +585,12 @@ export function MobileSelectorWatchlistList({
     );
   }
   if (rows.length === 0) {
-    if (groups.all.length === 0 && watchlistFilter !== 'stocks') {
+    // The recommendations are spot tokens, so only the crypto views fall back
+    // to them; Stocks and Perps read as an empty list.
+    if (
+      groups.all.length === 0 &&
+      (watchlistFilter === 'all' || watchlistFilter === 'spot')
+    ) {
       return <SelectorWatchlistRecommendations />;
     }
     return (

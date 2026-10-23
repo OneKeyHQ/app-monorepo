@@ -18,7 +18,10 @@ import {
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
-import { usePerpsActiveAccountAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  usePerpsActiveAccountAtom,
+  usePerpsCustomSettingsAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
@@ -40,9 +43,11 @@ import { usePerpsAccountScopedOpenOrdersByCoin } from '../../../hooks/usePerpsAc
 import { usePerpsMidPrice } from '../../../hooks/usePerpsMidPrice';
 import { useShowPositionShare } from '../../../hooks/useShowPositionShare';
 import { PerpTestIDs } from '../../../testIDs';
+import { PERP_TEXT_ACTION_HOVER_STYLE } from '../../../utils/styleUtils';
 import { showAddPositionDialog } from '../AddPositionModal';
 import { showAdjustPositionMarginDialog } from '../AdjustPositionMarginModal';
 import { showClosePositionDialog } from '../ClosePositionModal';
+import { showReversePositionDialog } from '../ReversePositionModal';
 import { showSetTpslDialog } from '../SetTpslModal';
 import { calcCellAlign, getColumnStyle } from '../utils';
 import { MOBILE_POSITION_ACTION_TEXT_SIZE } from '../utils/positionActionPresentation';
@@ -475,6 +480,8 @@ const PositionRowDesktopTPSL = memo(
     onViewTpslOrders: () => void;
   }) => {
     const intl = useIntl();
+    const [settings] = usePerpsCustomSettingsAtom();
+    const canSetTpsl = settings.positionActionVisibility?.tpsl !== false;
     const currentAssetOpenOrders = usePerpsAccountScopedOpenOrdersByCoin(coin);
     const tpslInfo = useMemo(() => {
       const emptyPrice = '--';
@@ -525,7 +532,7 @@ const PositionRowDesktopTPSL = memo(
           {tpslInfo.showOrder ? (
             <XStack alignItems="center" gap="$1">
               <SizableText
-                hoverStyle={{ size: '$bodySmMedium' }}
+                hoverStyle={PERP_TEXT_ACTION_HOVER_STYLE}
                 color="$bgAccent"
                 size="$bodySmMedium"
                 onPress={onViewTpslOrders}
@@ -535,19 +542,21 @@ const PositionRowDesktopTPSL = memo(
                   id: ETranslations.perp_position_view_orders,
                 })}
               </SizableText>
-              <DesktopActionIconButton
-                testID="perp-icon-btn"
-                icon="HighlightOutline"
-                iconSize="$3.5"
-                onPress={onSetTpsl}
-              />
+              {canSetTpsl ? (
+                <DesktopActionIconButton
+                  testID="perp-icon-btn"
+                  icon="HighlightOutline"
+                  iconSize="$3.5"
+                  onPress={onSetTpsl}
+                />
+              ) : null}
             </XStack>
           ) : (
             <XStack
               alignItems="center"
               gap="$1"
-              cursor="pointer"
-              onPress={onSetTpsl}
+              cursor={canSetTpsl ? 'pointer' : undefined}
+              onPress={canSetTpsl ? onSetTpsl : undefined}
             >
               <SizableText
                 numberOfLines={1}
@@ -556,11 +565,13 @@ const PositionRowDesktopTPSL = memo(
               >
                 {tpslInfo.tpsl}
               </SizableText>
-              <DesktopActionIconButton
-                testID="perp-icon-btn"
-                icon="HighlightOutline"
-                iconSize="$3.5"
-              />
+              {canSetTpsl ? (
+                <DesktopActionIconButton
+                  testID="perp-icon-btn"
+                  icon="HighlightOutline"
+                  iconSize="$3.5"
+                />
+              ) : null}
             </XStack>
           )}
         </XStack>
@@ -574,13 +585,16 @@ const PositionRowDesktopActions = memo(
   ({
     columnConfig,
     onAddPosition,
+    onReversePosition,
     onClosePosition,
   }: {
     columnConfig: IColumnConfig;
     onAddPosition: () => void;
+    onReversePosition: () => void;
     onClosePosition: (type: 'market' | 'limit') => void;
   }) => {
     const intl = useIntl();
+    const [settings] = usePerpsCustomSettingsAtom();
     return (
       <DebugRenderTracker
         position="bottom-right"
@@ -593,40 +607,66 @@ const PositionRowDesktopActions = memo(
           alignItems="center"
           gap="$2"
         >
-          <XStack onPress={onAddPosition} cursor="pointer">
-            <SizableText
-              testID={PerpTestIDs.PositionAddButton}
-              hoverStyle={{ size: '$bodySmMedium', fontWeight: 600 }}
-              color="$bgAccent"
-              size="$bodySmMedium"
+          {settings.positionActionVisibility?.add !== false ? (
+            <XStack
+              onPress={onAddPosition}
+              cursor="pointer"
+              hoverStyle={PERP_TEXT_ACTION_HOVER_STYLE}
             >
-              {intl.formatMessage({
-                id: ETranslations.add_position__action,
-              })}
-            </SizableText>
-          </XStack>
-          <XStack onPress={() => onClosePosition('market')} cursor="pointer">
-            <SizableText
-              hoverStyle={{ size: '$bodySmMedium', fontWeight: 600 }}
-              color="$bgAccent"
-              size="$bodySmMedium"
+              <SizableText
+                testID={PerpTestIDs.PositionAddButton}
+                color="$bgAccent"
+                size="$bodySmMedium"
+              >
+                {intl.formatMessage({
+                  id: ETranslations.add_position__action,
+                })}
+              </SizableText>
+            </XStack>
+          ) : null}
+          {settings.positionActionVisibility?.reverse !== false ? (
+            <XStack
+              onPress={onReversePosition}
+              cursor="pointer"
+              hoverStyle={PERP_TEXT_ACTION_HOVER_STYLE}
             >
-              {intl.formatMessage({
-                id: ETranslations.perp_position_market,
-              })}
-            </SizableText>
-          </XStack>
-          <XStack onPress={() => onClosePosition('limit')} cursor="pointer">
-            <SizableText
-              hoverStyle={{ size: '$bodySmMedium', fontWeight: 600 }}
-              color="$bgAccent"
-              size="$bodySmMedium"
-            >
-              {intl.formatMessage({
-                id: ETranslations.perp_position_limit,
-              })}
-            </SizableText>
-          </XStack>
+              <SizableText
+                testID={PerpTestIDs.PositionReverseButton}
+                color="$bgAccent"
+                size="$bodySmMedium"
+              >
+                {intl.formatMessage({
+                  id: ETranslations.perp_reverse_position__action,
+                })}
+              </SizableText>
+            </XStack>
+          ) : null}
+          {settings.positionActionVisibility?.close !== false ? (
+            <>
+              <XStack
+                onPress={() => onClosePosition('market')}
+                cursor="pointer"
+                hoverStyle={PERP_TEXT_ACTION_HOVER_STYLE}
+              >
+                <SizableText color="$bgAccent" size="$bodySmMedium">
+                  {intl.formatMessage({
+                    id: ETranslations.perp_position_market,
+                  })}
+                </SizableText>
+              </XStack>
+              <XStack
+                onPress={() => onClosePosition('limit')}
+                cursor="pointer"
+                hoverStyle={PERP_TEXT_ACTION_HOVER_STYLE}
+              >
+                <SizableText color="$bgAccent" size="$bodySmMedium">
+                  {intl.formatMessage({
+                    id: ETranslations.perp_position_limit,
+                  })}
+                </SizableText>
+              </XStack>
+            </>
+          ) : null}
         </XStack>
       </DebugRenderTracker>
     );
@@ -647,6 +687,7 @@ interface IPositionRowDesktopProps {
   onChangeAsset: () => void;
   onSetTpsl: () => void;
   onAddPosition: () => void;
+  onReversePosition: () => void;
   onClosePosition: (type: 'market' | 'limit') => void;
   onAdjustMargin: () => void;
   onViewTpslOrders: () => void;
@@ -673,6 +714,7 @@ const PositionRowDesktop = memo(
     onChangeAsset,
     onSetTpsl,
     onAddPosition,
+    onReversePosition,
     onClosePosition,
     onAdjustMargin,
     onViewTpslOrders,
@@ -765,6 +807,7 @@ const PositionRowDesktop = memo(
             <PositionRowDesktopActions
               columnConfig={columnConfigs[9]}
               onAddPosition={onAddPosition}
+              onReversePosition={onReversePosition}
               onClosePosition={onClosePosition}
             />
           ) : null}
@@ -1239,12 +1282,45 @@ const PositionRowMobileActions = memo(
     onAddPosition,
     onSetTpsl,
     onClosePosition,
+    onReversePosition,
   }: {
     onAddPosition: () => void;
     onSetTpsl: () => void;
     onClosePosition: (type: 'market' | 'limit') => void;
+    onReversePosition: () => void;
   }) => {
     const intl = useIntl();
+    const [settings] = usePerpsCustomSettingsAtom();
+    const actions = [
+      {
+        key: 'add',
+        label: ETranslations.add_position__action,
+        onPress: onAddPosition,
+        testID: PerpTestIDs.PositionAddButton,
+      },
+      {
+        key: 'reverse',
+        label: ETranslations.perp_reverse_position__action,
+        onPress: onReversePosition,
+        testID: PerpTestIDs.PositionReverseButton,
+      },
+      {
+        key: 'tpsl',
+        label: ETranslations.perp_position_tp_sl_short,
+        onPress: onSetTpsl,
+        testID: PerpTestIDs.PositionSetTpslButton,
+      },
+      {
+        key: 'close',
+        label: ETranslations.perp_position_close_short,
+        onPress: () => onClosePosition('market'),
+        testID: PerpTestIDs.PositionCloseMarketButton,
+      },
+    ] as const;
+    const visibleActions = actions.filter(
+      (action) => settings.positionActionVisibility?.[action.key] !== false,
+    );
+    if (!visibleActions.length) return null;
     return (
       <XStack
         width="100%"
@@ -1252,78 +1328,31 @@ const PositionRowMobileActions = memo(
         justifyContent="space-between"
         position="relative"
       >
-        <Button
-          testID={PerpTestIDs.PositionAddButton}
-          size="medium"
-          variant="secondary"
-          onPress={onAddPosition}
-          flex={1}
-          flexBasis={0}
-          minWidth={0}
-          childrenAsText={false}
-        >
-          <SizableText
-            size={MOBILE_POSITION_ACTION_TEXT_SIZE}
-            width="100%"
+        {visibleActions.map((action) => (
+          <Button
+            key={action.key}
+            testID={action.testID}
+            size="medium"
+            variant="secondary"
+            onPress={action.onPress}
+            flex={1}
+            flexBasis={0}
             minWidth={0}
-            numberOfLines={1}
-            adjustsFontSizeToFit
-            minimumFontScale={0.75}
-            textAlign="center"
+            childrenAsText={false}
           >
-            {intl.formatMessage({
-              id: ETranslations.add_position__action,
-            })}
-          </SizableText>
-        </Button>
-        <Button
-          size="medium"
-          variant="secondary"
-          onPress={onSetTpsl}
-          flex={1}
-          flexBasis={0}
-          minWidth={0}
-          childrenAsText={false}
-          testID="perp-intl-btn"
-        >
-          <SizableText
-            size={MOBILE_POSITION_ACTION_TEXT_SIZE}
-            width="100%"
-            minWidth={0}
-            numberOfLines={1}
-            adjustsFontSizeToFit
-            minimumFontScale={0.75}
-            textAlign="center"
-          >
-            {intl.formatMessage({
-              id: ETranslations.perp_position_tp_sl_short,
-            })}
-          </SizableText>
-        </Button>
-        <Button
-          testID="perp-intl-btn"
-          size="medium"
-          variant="secondary"
-          onPress={() => onClosePosition('market')}
-          flex={1}
-          flexBasis={0}
-          minWidth={0}
-          childrenAsText={false}
-        >
-          <SizableText
-            size={MOBILE_POSITION_ACTION_TEXT_SIZE}
-            width="100%"
-            minWidth={0}
-            numberOfLines={1}
-            adjustsFontSizeToFit
-            minimumFontScale={0.75}
-            textAlign="center"
-          >
-            {intl.formatMessage({
-              id: ETranslations.perp_position_close_short,
-            })}
-          </SizableText>
-        </Button>
+            <SizableText
+              size={MOBILE_POSITION_ACTION_TEXT_SIZE}
+              width="100%"
+              minWidth={0}
+              numberOfLines={1}
+              adjustsFontSizeToFit
+              minimumFontScale={0.75}
+              textAlign="center"
+            >
+              {intl.formatMessage({ id: action.label })}
+            </SizableText>
+          </Button>
+        ))}
       </XStack>
     );
   },
@@ -1343,6 +1372,7 @@ interface IPositionRowMobileProps {
   onChangeAsset: () => void;
   onSetTpsl: () => void;
   onAddPosition: () => void;
+  onReversePosition: () => void;
   onClosePosition: (type: 'market' | 'limit') => void;
   onAdjustMargin: () => void;
   onSizeViewChange: () => void;
@@ -1363,6 +1393,7 @@ const PositionRowMobile = memo(
     onChangeAsset,
     onSetTpsl,
     onAddPosition,
+    onReversePosition,
     onClosePosition,
     onAdjustMargin,
     onSizeViewChange,
@@ -1412,6 +1443,7 @@ const PositionRowMobile = memo(
           </XStack>
           <PositionRowMobileActions
             onAddPosition={onAddPosition}
+            onReversePosition={onReversePosition}
             onSetTpsl={onSetTpsl}
             onClosePosition={onClosePosition}
           />
@@ -1644,6 +1676,18 @@ const PositionRow = memo(
       });
     }, [activeAccount?.accountAddress, coin, intl, pos.szi]);
 
+    const handleReversePosition = useCallback(() => {
+      if (!activeAccount?.accountAddress) return;
+      showReversePositionDialog(
+        {
+          coin,
+          accountAddress: activeAccount.accountAddress,
+          positionSize: pos.szi,
+        },
+        intl.formatMessage({ id: ETranslations.perp_reverse_position__title }),
+      );
+    }, [activeAccount?.accountAddress, coin, intl, pos.szi]);
+
     const handleChangeAsset = useCallback(() => {
       void actions.current.changeActiveAsset({
         coin: assetInfo.rawCoin,
@@ -1696,6 +1740,7 @@ const PositionRow = memo(
           isSizeViewChange={isSizeViewChange}
           onChangeAsset={handleChangeAsset}
           onAddPosition={handleAddPosition}
+          onReversePosition={handleReversePosition}
           onSetTpsl={handleSetTpsl}
           onClosePosition={handleClosePosition}
           onAdjustMargin={handleAdjustMargin}
@@ -1718,6 +1763,7 @@ const PositionRow = memo(
         isIsolatedMode={isIsolatedMode}
         onChangeAsset={handleChangeAsset}
         onAddPosition={handleAddPosition}
+        onReversePosition={handleReversePosition}
         onSetTpsl={handleSetTpsl}
         onClosePosition={handleClosePosition}
         onAdjustMargin={handleAdjustMargin}

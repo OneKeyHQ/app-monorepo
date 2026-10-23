@@ -43,6 +43,7 @@ import {
   isPerpsAccountAddressMatched,
   isPerpsAccountScopedDataReady,
 } from '../../../utils/accountScopedData';
+import { PERP_TEXT_ACTION_HOVER_STYLE } from '../../../utils/styleUtils';
 import { showCancelAllOrdersDialog } from '../CancelAllOrdersModal';
 import { showChaseOrderConfirmDialog } from '../ChaseOrderConfirmModal';
 import { MobileOpenOrdersListHeader } from '../Components/MobileOpenOrdersListHeader';
@@ -180,6 +181,7 @@ function useOpenOrdersColumnsConfig({
         fixed: true,
         ...(enableCancelAll &&
           openOrdersLength > 0 && {
+            headerHoverStyle: PERP_TEXT_ACTION_HOVER_STYLE,
             onPress: () =>
               showCancelAllOrdersDialog(undefined, scopedAccountAddress),
           }),
@@ -815,7 +817,7 @@ function PerpOpenOrdersList({
                 {intl.formatMessage({ id: ETranslations.chase__action })}
               </SizableText>
             ) : null}
-            <SizableText size="$bodySmMedium" fontWeight={600}>
+            <SizableText size="$bodySmMedium">
               {intl.formatMessage({
                 id: ETranslations.perp_open_orders_cancel,
               })}
