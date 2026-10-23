@@ -4139,6 +4139,7 @@ export enum ETranslations {
   prime_google_play__label = 'prime_google_play__label',
   prime_keep_subscription__action = 'prime_keep_subscription__action',
   prime_keep_waiting__action = 'prime_keep_waiting__action',
+  prime_member_try_again__msg = 'prime_member_try_again__msg',
   prime_membership_valid_until__desc = 'prime_membership_valid_until__desc',
   prime_next_invoice__label = 'prime_next_invoice__label',
   prime_no_crypto_subscription__desc = 'prime_no_crypto_subscription__desc',
