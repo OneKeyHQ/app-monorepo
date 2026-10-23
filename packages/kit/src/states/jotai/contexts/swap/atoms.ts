@@ -16,6 +16,7 @@ import { isStockQuoteInputAmountMatched } from '@onekeyhq/kit/src/views/Swap/uti
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { dangerAllNetworkRepresent } from '@onekeyhq/shared/src/config/presetNetworks';
 import { CONTEXT_ATOM_COLD_START_CACHE_KEYS } from '@onekeyhq/shared/src/consts/jotaiConsts';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { ICustomPriorityFeeOverride } from '@onekeyhq/shared/src/utils/marketPresetFeeUtils';
 import { clampLimitRateDecimals } from '@onekeyhq/shared/src/utils/numberUtils';
 import type { ISwapSelectedTokensColdStartContext } from '@onekeyhq/shared/src/utils/swapColdStartCacheSnapshotUtils';
@@ -139,9 +140,29 @@ const sanitizeSwapStockPayTokenColdStartSnapshot = memoizeSnapshotTransform(
   sanitizeSwapStockPayTokenDisplaySnapshot,
 );
 
-const sanitizeSwapTokenMapColdStartSnapshot = memoizeSnapshotTransform(
-  (value: ISwapTokenListSnapshotMap) => sanitizeSwapTokenListSnapshot(value),
-);
+const SWAP_TOKEN_SELECTOR_COLD_START_MAX_CACHE_ENTRIES = 3;
+const SWAP_TOKEN_SELECTOR_COLD_START_MAX_TOKENS = 200;
+
+const sanitizeSwapAllNetworkTokenListMapColdStartSnapshot =
+  memoizeSnapshotTransform((value: Record<string, ISwapToken[]>) =>
+    Object.fromEntries(
+      Object.entries(value)
+        // Native, extension and Stock still load account-only lists. Their
+        // aggregate cannot be rebuilt from complete chain snapshots on restart.
+        .filter(
+          ([cacheKey]) =>
+            !(platformEnv.isDesktop || platformEnv.isWeb) ||
+            cacheKey.split('__').includes(ESwapTabSwitchType.STOCK),
+        )
+        .slice(-SWAP_TOKEN_SELECTOR_COLD_START_MAX_CACHE_ENTRIES)
+        .map(([cacheKey, tokens]) => [
+          cacheKey,
+          tokens.slice(0, SWAP_TOKEN_SELECTOR_COLD_START_MAX_TOKENS),
+        ]),
+    ),
+  );
+
+const sanitizeSwapTokenMapColdStartSnapshot = sanitizeSwapTokenListSnapshot;
 
 export type ISwapQuoteEventErrorState = {
   message: string;
@@ -430,7 +451,16 @@ export const {
 export const {
   atom: swapAllNetworkTokenListMapAtom,
   use: useSwapAllNetworkTokenListMapAtom,
-} = contextAtom<Record<string, ISwapToken[]>>({});
+} = contextAtom<Record<string, ISwapToken[]>>(
+  {},
+  {
+    coldStartCache: true,
+    coldStartCacheKey:
+      CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapAllNetworkTokenListMapAtom,
+    coldStartCacheTransform:
+      sanitizeSwapAllNetworkTokenListMapColdStartSnapshot,
+  },
+);
 
 export const {
   atom: swapAllNetworkActionLockAtom,

@@ -6,6 +6,7 @@ import type {
 import {
   buildSwapTokenSelectorAssetNetworks,
   buildSwapTokenSelectorNetworkGroups,
+  getSwapTokenSelectorTokenKey,
   resolveSwapTokenSelectorAssetNetworks,
   resolveSwapTokenSelectorNetworkGroups,
   updateSwapTokenSelectorNetworkSnapshot,
@@ -32,6 +33,62 @@ const token = (
   }) as ISwapToken;
 
 describe('SwapTokenSelectorDesktop.utils', () => {
+  it('keeps token row identity across balance, logo, checksum and search-wrapper updates', () => {
+    const initial = {
+      ...token('evm--1', '1', '10'),
+      contractAddress: '0xAbCd',
+      logoURI: 'https://example.com/old.png',
+    };
+    const updated = {
+      ...initial,
+      contractAddress: '0xabcd',
+      balanceParsed: '2',
+      fiatValue: '20',
+      logoURI: 'https://example.com/new.png',
+    };
+    const key = getSwapTokenSelectorTokenKey(initial);
+    expect(getSwapTokenSelectorTokenKey(updated)).toBe(key);
+    expect(getSwapTokenSelectorTokenKey({ item: updated, refIndex: 15 })).toBe(
+      key,
+    );
+  });
+
+  it('distinguishes networks and case-sensitive Solana contracts in row keys', () => {
+    const evmToken = {
+      ...token('evm--1', '1', '10'),
+      contractAddress: '0xAbCd',
+    };
+    expect(
+      getSwapTokenSelectorTokenKey({ ...evmToken, networkId: 'evm--56' }),
+    ).not.toBe(getSwapTokenSelectorTokenKey(evmToken));
+    expect(
+      getSwapTokenSelectorTokenKey({
+        ...evmToken,
+        networkId: 'sol--101',
+        contractAddress: 'AbCd',
+      }),
+    ).not.toBe(
+      getSwapTokenSelectorTokenKey({
+        ...evmToken,
+        networkId: 'sol--101',
+        contractAddress: 'abcd',
+      }),
+    );
+  });
+
+  it('keeps native-token row keys unique across networks without using list indexes', () => {
+    const tokens = ['evm--1', 'evm--56'].map((networkId) => ({
+      ...token(networkId, '1', '10'),
+      contractAddress: '',
+      isNative: true,
+    }));
+    const keys = tokens.map(getSwapTokenSelectorTokenKey);
+    expect(new Set(keys).size).toBe(2);
+    expect([...tokens].toReversed().map(getSwapTokenSelectorTokenKey)).toEqual(
+      [...keys].toReversed(),
+    );
+  });
+
   it('groups L2 networks under their server-provided parent and keeps orphan L2s flat', () => {
     const groups = buildSwapTokenSelectorNetworkGroups({
       networks: [

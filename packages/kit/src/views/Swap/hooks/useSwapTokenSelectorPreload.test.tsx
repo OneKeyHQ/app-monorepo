@@ -143,7 +143,7 @@ describe('useSwapTokenSelectorPreload', () => {
 
     rerender({
       ...params,
-      networks: [{ ...ethereum, backendIndex: undefined }],
+      networks: [{ ...ethereum, supportSingleSwap: undefined }],
     });
     expect(mockLoadAllNetworks).not.toHaveBeenCalled();
 
@@ -171,6 +171,41 @@ describe('useSwapTokenSelectorPreload', () => {
     rerender({ ...preloadParams(), networks: [arbitrum, ethereum] });
 
     expect(mockLoadAllNetworks).toHaveBeenCalledTimes(1);
+  });
+
+  it('preloads ordinary lists when basic networks are ready without DeFi metadata', () => {
+    renderHook(useSwapTokenSelectorPreload, {
+      initialProps: {
+        ...preloadParams(),
+        networks: [{ ...ethereum, isDeFiEnabled: undefined }],
+      },
+    });
+    expect(mockLoadAllNetworks).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not rewarm a deleted owner retained by selection while the next owner resolves', () => {
+    const params = {
+      ...preloadParams(),
+      fromAddressInfo: addressInfo('removed-preload-owner'),
+      toAddressInfo: addressInfo('removed-preload-owner'),
+    };
+    const { rerender } = renderHook(useSwapTokenSelectorPreload, {
+      initialProps: params,
+    });
+    expect(mockLoadAllNetworks).toHaveBeenCalledTimes(1);
+    act(() => {
+      appEventBus.emit(EAppEventBusNames.AccountRemove, {
+        indexedAccountId: 'removed-preload-owner',
+      });
+    });
+    expect(mockLoadAllNetworks).toHaveBeenCalledTimes(1);
+    rerender({
+      ...params,
+      fromAddressInfo: addressInfo('next-preload-owner'),
+      toAddressInfo: addressInfo('next-preload-owner'),
+    });
+    expect(mockLoadAllNetworks).toHaveBeenCalledTimes(2);
+    expect(mockLoadAllNetworks.mock.calls[1][0]).toBe('next-preload-owner');
   });
 
   it('defers invalidated data while hidden and loads only the current wallet on activation', () => {

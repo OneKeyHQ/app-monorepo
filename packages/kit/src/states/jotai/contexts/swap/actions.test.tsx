@@ -24,7 +24,10 @@ import {
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { settingsAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { globalJotaiStorageReadyHandler } from '@onekeyhq/kit-bg/src/states/jotai/jotaiStorage';
-import { contextAtomSnapshotRegistry } from '@onekeyhq/kit-bg/src/states/jotai/utils';
+import {
+  contextAtomSnapshotRegistry,
+  writeContextAtomColdStartCacheValues,
+} from '@onekeyhq/kit-bg/src/states/jotai/utils';
 import {
   WALLET_NO_IMPORTED,
   WALLET_TYPE_EXTERNAL,
@@ -115,6 +118,7 @@ import {
   swapTokenListRequestsAtom,
   swapTokenMapAtom,
   swapTypeSwitchAtom,
+  useSwapAllNetworkTokenListMapAtom,
   useSwapBalanceDisplayCacheAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
@@ -1222,12 +1226,7 @@ describe('useSwapActions', () => {
     expect(mockFetchSwapTokens).not.toHaveBeenCalled();
   });
 
-  it('persists complete single-chain snapshots as the only cold-start owner', () => {
-    expect(
-      contextAtomSnapshotRegistry.get(
-        CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapAllNetworkTokenListMapAtom,
-      ),
-    ).toBeUndefined();
+  it('persists complete single-chain snapshots for desktop Swap selection', () => {
     const transform = contextAtomSnapshotRegistry.get(
       CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapTokenMapAtom,
     )?.transform;
@@ -1254,6 +1253,191 @@ describe('useSwapActions', () => {
       },
     });
   });
+
+  it.each(['desktop', 'web', 'native', 'extension'] as const)(
+    'preserves aggregate snapshots only for account-only loading on %s',
+    (platform) => {
+      const previousPlatform = {
+        isDesktop: platformEnv.isDesktop,
+        isWeb: platformEnv.isWeb,
+        isNative: platformEnv.isNative,
+        isExtension: platformEnv.isExtension,
+      };
+      Object.assign(platformEnv, {
+        isDesktop: platform === 'desktop',
+        isWeb: platform === 'web',
+        isNative: platform === 'native',
+        isExtension: platform === 'extension',
+      });
+      try {
+        const transform = contextAtomSnapshotRegistry.get(
+          CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapAllNetworkTokenListMapAtom,
+        )?.transform;
+        if (!transform)
+          throw new OneKeyLocalError('Missing aggregate snapshot transform');
+        const swapKey = buildSwapAllNetworkTokenListCacheKey({
+          accountId: 'wallet-1',
+          protocol: ESwapTabSwitchType.SWAP,
+          currency: 'usd',
+        });
+        const stockKey = buildSwapAllNetworkTokenListCacheKey({
+          accountId: 'wallet-1',
+          protocol: ESwapTabSwitchType.STOCK,
+          currency: 'usd',
+        });
+        const source = {
+          [swapKey]: [ethToken],
+          [stockKey]: [stockTokenA],
+        };
+        const snapshot = transform(source);
+        expect(transform(source)).toBe(snapshot);
+        expect(snapshot).toEqual(
+          platform === 'desktop' || platform === 'web'
+            ? { [stockKey]: [stockTokenA] }
+            : source,
+        );
+      } finally {
+        Object.assign(platformEnv, previousPlatform);
+      }
+    },
+  );
+
+  it.each([
+    { platform: 'native', protocol: ESwapTabSwitchType.SWAP },
+    { platform: 'extension', protocol: ESwapTabSwitchType.SWAP },
+    { platform: 'desktop', protocol: ESwapTabSwitchType.STOCK },
+  ] as const)(
+    'restores the $platform $protocol account-only sweep in a fresh UI store during a failed refresh',
+    async ({ platform, protocol }) => {
+      const previousPlatform = {
+        isDesktop: platformEnv.isDesktop,
+        isWeb: platformEnv.isWeb,
+        isNative: platformEnv.isNative,
+        isExtension: platformEnv.isExtension,
+      };
+      Object.assign(platformEnv, {
+        isDesktop: platform === 'desktop',
+        isWeb: false,
+        isNative: platform === 'native',
+        isExtension: platform === 'extension',
+      });
+      const globalCache = globalThis as typeof globalThis & {
+        __ONEKEY_CTX_ATOM_SNAPSHOT__?: Record<string, unknown>;
+      };
+      const previousSnapshot = globalCache.__ONEKEY_CTX_ATOM_SNAPSHOT__;
+      const scope = `store:selector-roundtrip-${platform}-${protocol}`;
+      const snapshotKey = `${scope}::${CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapAllNetworkTokenListMapAtom}`;
+      const cacheKey = buildSwapAllNetworkTokenListCacheKey({
+        accountId: 'wallet-1',
+        protocol,
+        lpToken: false,
+        currency: 'usd',
+      });
+      const heldToken = {
+        ...stockTokenA,
+        networkId: 'evm--56',
+        balanceParsed: '1',
+      };
+      const setup = (store: ReturnType<typeof createStore>) => {
+        Object.assign(store, { __ONEKEY_JOTAI_COLD_START_SCOPE_KEY__: scope });
+        store.set(swapTypeSwitchAtom(), protocol);
+      };
+      const source = createWrapperWithStore(setup);
+      const sourceUi = renderHook(
+        () => ({
+          actions: useSwapActions().current,
+          holdings: useSwapAllNetworkTokenListMapAtom()[0],
+        }),
+        { wrapper: source.Wrapper },
+      );
+      let freshUi: typeof sourceUi | undefined;
+      try {
+        mockGetSupportSwapAllAccounts.mockResolvedValue({
+          supportAccountsFetchFailed: false,
+          swapSupportAccounts: [
+            {
+              networkId: heldToken.networkId,
+              accountId: 'account-bsc',
+              apiAddress: '0xbsc',
+            },
+          ],
+        });
+        mockFetchSwapTokens.mockResolvedValue([heldToken]);
+        await act(async () => {
+          await sourceUi.result.current.actions.swapLoadAllNetworkTokenList(
+            'wallet-1',
+            undefined,
+            false,
+            'usd',
+          );
+        });
+        expect(sourceUi.result.current.holdings[cacheKey]).toEqual([heldToken]);
+        expect(mockFetchSwapTokens).toHaveBeenCalledWith(
+          expect.objectContaining({
+            onlyAccountTokens: protocol !== ESwapTabSwitchType.STOCK,
+            isAllNetworkFetchAccountTokens: true,
+          }),
+        );
+        // Serialize the UI-tracked snapshot, then hydrate a fresh UI store.
+        // No background-runtime memory or full-chain cache is carried forward.
+        const serialized = JSON.stringify({
+          [snapshotKey]:
+            globalCache.__ONEKEY_CTX_ATOM_SNAPSHOT__?.[snapshotKey],
+        });
+        sourceUi.unmount();
+        globalCache.__ONEKEY_CTX_ATOM_SNAPSHOT__ = JSON.parse(serialized);
+        const fresh = createWrapperWithStore(setup);
+        freshUi = renderHook(
+          () => ({
+            actions: useSwapActions().current,
+            holdings: useSwapAllNetworkTokenListMapAtom()[0],
+          }),
+          { wrapper: fresh.Wrapper },
+        );
+        expect(fresh.store).not.toBe(source.store);
+        expect(freshUi.result.current.holdings[cacheKey]).toEqual([heldToken]);
+        expect(fresh.store.get(swapTokenMapAtom()).tokenCatch).toBeUndefined();
+        const response = createDeferred<ISwapToken[]>();
+        mockFetchSwapTokens.mockReturnValue(response.promise);
+        let refresh: Promise<void> | undefined;
+        act(() => {
+          refresh = freshUi?.result.current.actions.swapLoadAllNetworkTokenList(
+            'wallet-1',
+            undefined,
+            false,
+            'usd',
+            { policy: 'revalidate' },
+          );
+        });
+        await waitFor(() =>
+          expect(mockFetchSwapTokens).toHaveBeenCalledTimes(2),
+        );
+        expect(freshUi.result.current.holdings[cacheKey]).toEqual([heldToken]);
+        await act(async () => {
+          response.reject(new OneKeyLocalError('network unavailable'));
+          await refresh;
+        });
+        expect(freshUi.result.current.holdings[cacheKey]).toEqual([heldToken]);
+        expect(fresh.store.get(swapTokenMapAtom()).tokenCatch).toBeUndefined();
+      } finally {
+        sourceUi.unmount();
+        freshUi?.unmount();
+        await writeContextAtomColdStartCacheValues({
+          entries: [
+            {
+              coldStartScopeKey: scope,
+              coldStartCacheKey:
+                CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapAllNetworkTokenListMapAtom,
+              value: undefined,
+            },
+          ],
+          flushImmediately: true,
+        });
+        globalCache.__ONEKEY_CTX_ATOM_SNAPSHOT__ = previousSnapshot;
+        Object.assign(platformEnv, previousPlatform);
+      }
+    },
+  );
 
   it('keeps the last-good all-network list when account discovery fails', async () => {
     const cacheKey = buildSwapAllNetworkTokenListCacheKey({
@@ -1358,6 +1542,47 @@ describe('useSwapActions', () => {
       stockTokenA,
     ]);
     expect(store.get(swapTokenFetchingAtom())).toBe(false);
+  });
+
+  it('returns a successful list when future-dated snapshots evict its cache entry', async () => {
+    const previousDesktop = platformEnv.isDesktop;
+    platformEnv.isDesktop = true;
+    try {
+      const futureUpdatedAt = Date.now() + 60_000;
+      const token = { ...stockTokenA, networkId: 'evm--1' };
+      mockFetchSwapTokens.mockResolvedValue([token]);
+      const { store, Wrapper } = createWrapperWithStore((instance) => {
+        instance.set(swapTypeSwitchAtom(), ESwapTabSwitchType.SWAP);
+        instance.set(swapTokenMapAtom(), {
+          version: 1,
+          updatedAt: futureUpdatedAt,
+          tokenCatch: Object.fromEntries(
+            Array.from({ length: 100 }, (_, index) => [
+              buildSwapTokenListCacheKey({ networkId: `evm--${index + 10}` }),
+              { data: [stockTokenA], updatedAt: futureUpdatedAt },
+            ]),
+          ),
+        });
+      });
+      const { result } = renderHook(() => useSwapActions().current, {
+        wrapper: Wrapper,
+      });
+      const params = { networkId: 'evm--1', currency: 'usd' };
+      let tokens: ISwapToken[] | undefined;
+      await act(async () => {
+        tokens = await result.current.tokenListFetchAction(params);
+      });
+      expect(tokens).toEqual([expect.objectContaining(token)]);
+      expect(mockFetchSwapTokens).toHaveBeenCalledTimes(1);
+      const key = buildSwapTokenListCacheKey({
+        ...params,
+        protocol: ESwapTabSwitchType.SWAP,
+      });
+      expect(store.get(swapTokenMapAtom()).tokenCatch?.[key]).toBeUndefined();
+      expect(store.get(swapTokenListRequestsAtom())).toEqual({});
+    } finally {
+      platformEnv.isDesktop = previousDesktop;
+    }
   });
 
   it('shares canonical in-flight requests and reuses successful empty snapshots without a TTL', async () => {

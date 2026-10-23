@@ -1,5 +1,5 @@
 import type { MutableRefObject, ReactElement } from 'react';
-import { useMemo, useState } from 'react';
+import { memo, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -28,6 +28,7 @@ import type {
 import SwapPopularTokenGroup from '../SwapPopularTokenGroup';
 
 import {
+  getSwapTokenSelectorTokenKey,
   resolveSwapTokenSelectorAssetNetworks,
   resolveSwapTokenSelectorNetworkGroups,
   updateSwapTokenSelectorNetworkSnapshot,
@@ -75,17 +76,18 @@ type ISwapTokenSelectorDesktopProps = {
   tokenListEmptyComponent?: ReactElement | null;
 };
 
-function NetworkLogo({ network }: { network: ISwapNetwork }) {
-  if (network.isAllNetworks) {
+const NetworkLogo = memo(function NetworkLogo({
+  logoURI,
+  isAllNetworks,
+}: Pick<ISwapNetwork, 'logoURI' | 'isAllNetworks'>) {
+  if (isAllNetworks) {
     return <Icon name="AllNetworksSolid" size="$6" color="$iconActive" />;
   }
-  if (network.logoURI) {
-    return (
-      <Image size="$6" borderRadius="$full" source={{ uri: network.logoURI }} />
-    );
+  if (logoURI) {
+    return <Image size="$6" borderRadius="$full" src={logoURI} />;
   }
   return <Icon name="GlobusOutline" size="$6" color="$iconSubdued" />;
-}
+});
 
 // Sections of the network column that may list the same network.
 type INetworkSection = 'sameChain' | 'assets' | 'all';
@@ -136,7 +138,10 @@ function NetworkRow({
       }}
       onPress={onPress}
     >
-      <NetworkLogo network={network} />
+      <NetworkLogo
+        logoURI={network.logoURI}
+        isAllNetworks={network.isAllNetworks}
+      />
       <SizableText size="$bodyMdMedium" flex={1} minWidth={0} numberOfLines={1}>
         {network.name}
       </SizableText>
@@ -653,6 +658,7 @@ export function SwapTokenSelectorDesktop({
           <ListView
             ref={listViewRef}
             data={tokens}
+            keyExtractor={getSwapTokenSelectorTokenKey}
             renderItem={renderToken}
             estimatedItemSize={60}
             ListEmptyComponent={

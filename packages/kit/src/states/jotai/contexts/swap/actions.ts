@@ -40,6 +40,7 @@ import {
   SWAP_TOKEN_SELECTOR_DESKTOP_CACHE_SIZE,
   buildSwapTokenListCacheKey,
   getSwapTokenSelectorCacheEpoch,
+  isSwapTokenSelectorAccountRemoved,
   isSwapTokenSelectorSnapshotCurrent,
 } from '@onekeyhq/kit/src/views/Swap/utils/swapTokenSelectorCacheUtils';
 import { getSwapQuoteTokenTaxPercentages } from '@onekeyhq/kit/src/views/Swap/utils/swapTokenTaxUtils';
@@ -911,17 +912,16 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       const networks = get(swapNetworks());
       const updatedAt = Date.now();
       const epoch = getSwapTokenSelectorCacheEpoch();
+      const data = tokens.map((token) => {
+        const network = networks.find((n) => n.networkId === token.networkId);
+        return network && token.networkLogoURI !== network.logoURI
+          ? { ...token, networkLogoURI: network.logoURI }
+          : token;
+      });
       const tokenCatch = {
         ...previous.tokenCatch,
         [key]: {
-          data: tokens.map((token) => {
-            const network = networks.find(
-              (n) => n.networkId === token.networkId,
-            );
-            return network
-              ? { ...token, networkLogoURI: network.logoURI }
-              : token;
-          }),
+          data,
           updatedAt,
           refreshVersion: epoch.refresh,
           identityVersion: epoch.identity,
@@ -943,6 +943,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       }
       // Record every successful snapshot, even when its contents are unchanged.
       set(swapTokenMapAtom(), { version: 1, tokenCatch, updatedAt });
+      return data;
     },
   );
 
@@ -1258,7 +1259,11 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       params: IFetchTokensParams,
       options?: ISwapTokenSelectorLoadOptions,
     ): Promise<ISwapToken[] | undefined> => {
-      if (!params.networkId) return undefined;
+      if (
+        !params.networkId ||
+        isSwapTokenSelectorAccountRemoved({ accountId: params.accountId })
+      )
+        return undefined;
       const requestParams = {
         ...params,
         protocol: params.protocol ?? get(swapTypeSwitchAtom()),
@@ -1345,9 +1350,16 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
                     ? requestError
                     : new OneKeyLocalError(String(requestError));
                 }
-                if (!requestParams.keywords) {
-                  this.catchSwapTokensMap.call(set, key, result);
-                }
+                const tokensWithNetworkLogos = !requestParams.keywords
+                  ? this.catchSwapTokensMap.call(set, key, result)
+                  : result.map((token) => {
+                      const network = get(swapNetworks()).find(
+                        (item) => item.networkId === token.networkId,
+                      );
+                      return network && token.networkLogoURI !== network.logoURI
+                        ? { ...token, networkLogoURI: network.logoURI }
+                        : token;
+                    });
                 // Publishing can synchronously notify transaction subscribers.
                 // Drain their refresh before completing the shared operation.
                 const publishedEpoch = getSwapTokenSelectorCacheEpoch();
@@ -1360,18 +1372,10 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
                   !get(swapTokenListRequestsAtom())[key]?.pendingRefresh &&
                   publishedEpoch.refresh === requestEpoch.refresh
                 ) {
-                  const networks = get(swapNetworks());
                   // Stop accepting joiners before resolving the promise; a new
                   // event must not join a completed request awaiting finally.
                   releaseRequest(requestPromise);
-                  return result.map((token) => {
-                    const network = networks.find(
-                      (item) => item.networkId === token.networkId,
-                    );
-                    return network
-                      ? { ...token, networkLogoURI: network.logoURI }
-                      : token;
-                  });
+                  return tokensWithNetworkLogos;
                 }
               }
             }
@@ -3366,6 +3370,13 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       currency?: string,
       options?: ISwapTokenSelectorLoadOptions,
     ) => {
+      if (
+        isSwapTokenSelectorAccountRemoved({
+          indexedAccountId,
+          accountId: otherWalletTypeAccountId,
+        })
+      )
+        return;
       const swapTypeSwitchValue = get(swapTypeSwitchAtom());
       const tokenListCacheKey = buildSwapAllNetworkTokenListCacheKey({
         accountId:
@@ -3463,7 +3474,11 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
               });
             const isCurrentIdentity = () =>
               getSwapTokenSelectorCacheEpoch().identity ===
-              runContext.epoch.identity;
+                runContext.epoch.identity &&
+              !isSwapTokenSelectorAccountRemoved({
+                indexedAccountId,
+                accountId: otherWalletTypeAccountId,
+              });
             const isCurrentRun = () =>
               isCurrentIdentity() &&
               getSwapTokenSelectorCacheEpoch().refresh ===

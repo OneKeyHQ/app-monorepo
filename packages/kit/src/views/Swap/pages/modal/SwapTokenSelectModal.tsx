@@ -95,6 +95,7 @@ import SwapPopularTokenGroup from '../../components/SwapPopularTokenGroup';
 import {
   SwapTokenSelectorDesktop,
   buildSwapTokenSelectorAssetNetworks,
+  getSwapTokenSelectorTokenKey,
 } from '../../components/SwapTokenSelectorDesktop';
 import { useSwapAddressInfo } from '../../hooks/useSwapAccount';
 import { useSwapTokenRiskCheck } from '../../hooks/useSwapTokenRiskCheck';
@@ -1394,6 +1395,7 @@ const SwapTokenSelectPage = ({
                 useFlashList={platformEnv.isNative}
                 ref={listViewRef}
                 data={displayTokens}
+                keyExtractor={getSwapTokenSelectorTokenKey}
                 renderItem={renderItem}
                 estimatedItemSize={60}
                 ListHeaderComponent={

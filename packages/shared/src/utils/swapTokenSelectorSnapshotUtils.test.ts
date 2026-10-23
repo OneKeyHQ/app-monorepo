@@ -64,6 +64,73 @@ describe('token selector persistent snapshots', () => {
     expect(Object.keys(result.tokenCatch ?? {})).toEqual([key('evm--2')]);
   });
 
+  it('reuses snapshots when independent provider sources are read alternately', () => {
+    const first = {
+      version: 1,
+      tokenCatch: { [key('evm--1')]: { data: [token], updatedAt: 1 } },
+    };
+    const second = {
+      version: 1,
+      tokenCatch: { [key('evm--2')]: { data: [token], updatedAt: 2 } },
+    };
+    const firstSnapshot = sanitizeSwapTokenListSnapshot(first);
+    const secondSnapshot = sanitizeSwapTokenListSnapshot(second);
+    expect(sanitizeSwapTokenListSnapshot(first)).toBe(firstSnapshot);
+    expect(sanitizeSwapTokenListSnapshot(second)).toBe(secondSnapshot);
+  });
+
+  it('reuses unchanged entry validation and serialized sizes as chains arrive', () => {
+    const firstKey = key('evm--1');
+    const secondKey = key('evm--2');
+    const firstEntry = { data: [{ ...token }], updatedAt: 1 };
+    const secondEntry = { data: [{ ...token }], updatedAt: 2 };
+    const stringify = jest.spyOn(JSON, 'stringify');
+    try {
+      const firstSnapshot = sanitizeSwapTokenListSnapshot({
+        version: 1,
+        tokenCatch: { [firstKey]: firstEntry },
+      });
+      const nextSnapshot = sanitizeSwapTokenListSnapshot({
+        version: 1,
+        tokenCatch: { [firstKey]: firstEntry, [secondKey]: secondEntry },
+      });
+      expect(nextSnapshot.tokenCatch?.[firstKey]).toBe(
+        firstSnapshot.tokenCatch?.[firstKey],
+      );
+      expect(
+        stringify.mock.calls.filter(
+          ([value]) =>
+            typeof value === 'object' &&
+            value !== null &&
+            'data' in value &&
+            value.data === firstEntry.data,
+        ),
+      ).toHaveLength(1);
+    } finally {
+      stringify.mockRestore();
+    }
+  });
+
+  it('includes the snapshot envelope in its exact serialized character budget', () => {
+    const source = {
+      version: 1,
+      tokenCatch: {
+        [key('evm--1')]: { data: [token], updatedAt: 12_345 },
+        [key('evm--2')]: { data: [token], updatedAt: 23_456 },
+      },
+    };
+    const maxChars = JSON.stringify(
+      sanitizeSwapTokenListSnapshot(source, { maxEntries: 1 }),
+    ).length;
+    const result = sanitizeSwapTokenListSnapshot(source, { maxChars });
+    expect(JSON.stringify(result)).toHaveLength(maxChars);
+    expect(Object.keys(result.tokenCatch ?? {})).toEqual([key('evm--2')]);
+    const tooSmall = sanitizeSwapTokenListSnapshot(source, {
+      maxChars: maxChars - 1,
+    });
+    expect(tooSmall.tokenCatch).toEqual({});
+  });
+
   it('retains a complete 35-chain wallet snapshot above the previous 256 KiB budget', () => {
     const tokenCatch = Object.fromEntries(
       Array.from({ length: 35 }, (_chain, chainIndex) => {

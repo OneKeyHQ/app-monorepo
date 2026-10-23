@@ -226,6 +226,57 @@ describe('useSwapTokenList loading lifecycle', () => {
   });
 
   it.each([
+    { platform: 'desktop', query: '', allNetworks: false },
+    { platform: 'web', query: '', allNetworks: true },
+    { platform: 'desktop', query: 'TOKEN', allNetworks: false },
+    { platform: 'web', query: 'TOKEN', allNetworks: true },
+  ])(
+    'loads basic-ready $platform tokens without DeFi metadata (query=$query, all=$allNetworks)',
+    async ({ platform, query, allNetworks }) => {
+      platformEnv.isDesktop = platform === 'desktop';
+      platformEnv.isWeb = platform === 'web';
+      mockNetworks = [{ ...network, isDeFiEnabled: undefined }];
+      mockFetchTokenList.mockImplementation(async (params) => {
+        if (!params.keywords) cacheScopedTokens(params, [token]);
+        return [token];
+      });
+      const { result, unmount } = renderHook(() =>
+        useSwapTokenList(
+          ESwapDirectionType.FROM,
+          allNetworks ? getNetworkIdsMap().onekeyall : network.networkId,
+          query,
+          ESwapTabSwitchType.SWAP,
+          false,
+        ),
+      );
+      await waitFor(() => expect(mockFetchTokenList).toHaveBeenCalledTimes(1));
+      await waitFor(() => expect(result.current.fetchLoading).toBe(false));
+      expect(getDisplayedTokens(result.current)).toEqual([token]);
+      unmount();
+    },
+  );
+
+  it('waits for DeFi metadata only when the DeFi filter is requested', async () => {
+    platformEnv.isDesktop = true;
+    mockNetworks = [{ ...network, isDeFiEnabled: undefined }];
+    const { rerender, unmount } = renderHook(() =>
+      useSwapTokenList(
+        ESwapDirectionType.FROM,
+        network.networkId,
+        undefined,
+        ESwapTabSwitchType.SWAP,
+        true,
+      ),
+    );
+    await waitFor(() => expect(mockGetSupportAccounts).toHaveBeenCalled());
+    expect(mockFetchTokenList).not.toHaveBeenCalled();
+    mockNetworks = [network];
+    rerender();
+    await waitFor(() => expect(mockFetchTokenList).toHaveBeenCalled());
+    unmount();
+  });
+
+  it.each([
     { platform: 'desktop', isDesktop: true, isWeb: false },
     { platform: 'web', isDesktop: false, isWeb: true },
   ])(

@@ -26226,6 +26226,7 @@
     "packages/kit/src/views/Swap/utils/swapStockReviewUtils.ts": 20166,
     "packages/kit/src/views/Swap/utils/swapStockTradeControl.ts": 13568,
     "packages/kit/src/views/Swap/utils/swapTokenRiskUtils.ts": 10614,
+    "packages/kit/src/views/Swap/utils/swapTokenSelectorCacheInvalidation.ts": 6959,
     "packages/kit/src/views/Swap/utils/swapTokenSelectorCacheUtils.ts": 3799,
     "packages/kit/src/views/Swap/utils/swapTokenSelectorSession.ts": 4122,
     "packages/kit/src/views/Swap/utils/swapTokenTaxUtils.ts": 8842,

@@ -1,5 +1,6 @@
 import axios from 'axios';
 
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ESwapFetchCancelCause } from '@onekeyhq/shared/types/swap/types';
 import type {
   IFetchTokenListParams,
@@ -29,6 +30,86 @@ describe('ServiceSwap token search', () => {
     ...bnbUsdt,
     networkId: 'evm--1',
   };
+
+  it('shares six search slots across keywords, releases failures and leaves preloads independent', async () => {
+    let active = 0;
+    let peak = 0;
+    let started = 0;
+    let preloadStarted = false;
+    const releases: (() => void)[] = [];
+    const client = axios.create({
+      adapter: async (config) => {
+        const params = config.params as IFetchTokenListParams;
+        if (params.keywords) {
+          started += 1;
+          const firstRequest = started === 1;
+          active += 1;
+          peak = Math.max(peak, active);
+          try {
+            await new Promise<void>((resolve) => releases.push(resolve));
+            if (firstRequest) throw new OneKeyLocalError('one chain failed');
+          } finally {
+            active -= 1;
+          }
+        } else {
+          preloadStarted = true;
+        }
+        return {
+          data: { data: [bnbUsdt] },
+          status: 200,
+          statusText: 'OK',
+          headers: {},
+          config,
+        };
+      },
+    });
+    const service = new ServiceSwap({
+      backgroundApi: {
+        serviceAccountProfile: {
+          _getWalletTypeHeader: jest.fn().mockResolvedValue({}),
+        },
+      },
+    });
+    jest.spyOn(service, 'getClient').mockResolvedValue(client);
+    const search = (keywords: string) =>
+      service.fetchSwapTokens({
+        networkId: 'onekeyall--0',
+        searchNetworks: Array.from({ length: 8 }, (_, index) => ({
+          networkId: `evm--${index + 1}`,
+        })),
+        keywords,
+        onlySwapTokens: true,
+        currency: 'usd',
+        isTokenListPrefetch: true,
+        throwOnError: true,
+      });
+    const flushPending = async () => {
+      for (let index = 0; index < 40; index += 1) await Promise.resolve();
+    };
+    const first = search('first');
+    const second = search('second');
+    await flushPending();
+    expect(started).toBe(6);
+    expect(active).toBe(6);
+    await service.fetchSwapTokens({
+      networkId: 'evm--1',
+      currency: 'usd',
+      isTokenListPrefetch: true,
+      throwOnError: true,
+    });
+    expect(preloadStarted).toBe(true);
+    for (let batch = 0; batch < 4; batch += 1) {
+      releases.splice(0).forEach((release) => release());
+      await flushPending();
+    }
+    await expect(Promise.all([first, second])).resolves.toEqual([
+      [bnbUsdt],
+      [bnbUsdt],
+    ]);
+    expect(started).toBe(18);
+    expect(peak).toBe(6);
+    expect(active).toBe(0);
+  });
 
   it('keeps normal chain requests and prefetches independent', async () => {
     const requestedNetworks: (string | undefined)[] = [];

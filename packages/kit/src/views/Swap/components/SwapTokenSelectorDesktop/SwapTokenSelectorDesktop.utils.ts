@@ -1,9 +1,22 @@
 import BigNumber from 'bignumber.js';
 
+import type { IFuseResult } from '@onekeyhq/shared/src/modules3rdParty/fuse';
+import { normalizeTokenContractAddress } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type {
   ISwapNetwork,
   ISwapToken,
 } from '@onekeyhq/shared/types/swap/types';
+
+export function getSwapTokenSelectorTokenKey(
+  item: ISwapToken | IFuseResult<ISwapToken>,
+) {
+  const token = 'item' in item ? item.item : item;
+  const contractAddress = normalizeTokenContractAddress({
+    networkId: token.networkId,
+    contractAddress: token.contractAddress,
+  });
+  return `${token.networkId}:${contractAddress ?? ''}`;
+}
 
 export type ISwapNetworkGroup = {
   network: ISwapNetwork;

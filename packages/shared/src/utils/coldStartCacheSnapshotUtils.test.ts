@@ -1,16 +1,47 @@
 import { CONTEXT_ATOM_COLD_START_CACHE_KEYS } from '../consts/jotaiConsts';
 
 import {
+  COLD_START_SNAPSHOT_MAX_CHARS,
   SWAP_PRO_POSITIONS_CACHE_VERSION,
   parseColdStartSnapshotRaw,
   prepareColdStartSnapshotForWrite,
 } from './coldStartCacheSnapshotUtils';
+import { sanitizeSwapTokenListSnapshot } from './swapTokenSelectorSnapshotUtils';
+
+import type { ISwapTokenListSnapshotMap } from '../../types/swap/types';
 
 const perpsScope = 'store:perps';
 const positionKey = `${perpsScope}::${CONTEXT_ATOM_COLD_START_CACHE_KEYS.perpsActivePositionAtom}`;
 const openOrdersKey = `${perpsScope}::${CONTEXT_ATOM_COLD_START_CACHE_KEYS.perpsActiveOpenOrdersAtom}`;
 const activeInstrumentKey = `${perpsScope}::${CONTEXT_ATOM_COLD_START_CACHE_KEYS.perpsActiveTradeInstrumentAtom}`;
 const swapPositionsKey = `store:swap::${CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapProPositionsCacheAtom}`;
+const selectorKey = `store:swap::${CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapTokenMapAtom}`;
+const modalSelectorKey = `store:swapModal::${CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapTokenMapAtom}`;
+
+function createSelectorSnapshot(updatedAt: number, chainCount = 1) {
+  return {
+    version: 1,
+    updatedAt,
+    tokenCatch: Object.fromEntries(
+      Array.from({ length: chainCount }, (_, index) => {
+        const networkId = `evm--${index + 1}`;
+        return [
+          JSON.stringify({ networkId, keywords: '' }),
+          {
+            updatedAt: updatedAt + index,
+            data: Array.from({ length: 15 }, (_token, tokenIndex) => ({
+              networkId,
+              contractAddress: `0x${tokenIndex}`,
+              symbol: 'TOKEN',
+              decimals: 18,
+              logoURI: `https://example.com/${'a'.repeat(1000)}.png`,
+            })),
+          },
+        ];
+      }),
+    ),
+  };
+}
 
 describe('coldStartCacheSnapshotUtils', () => {
   it('parses object snapshots and rejects oversized raw payloads before JSON parsing', () => {
@@ -214,6 +245,111 @@ describe('coldStartCacheSnapshotUtils', () => {
     ).toEqual({ byOwner: { a: '1' } });
     expect(result.droppedKeys).toEqual([swapPositionsKey]);
     expect(result.serialized.length).toBeLessThanOrEqual(300);
+  });
+
+  it('shares spare capacity across selector scopes without evicting other modules', () => {
+    const baseline = {
+      [activeInstrumentKey]: { mode: 'perp', coin: 'BTC' },
+      [positionKey]: { activePositions: [{ coin: 'BTC' }] },
+      [openOrdersKey]: {
+        openOrders: [{ coin: 'BTC', oid: 1 }],
+        openOrdersByCoin: { BTC: [{ coin: 'BTC', oid: 1 }] },
+      },
+      [swapPositionsKey]: {
+        version: SWAP_PRO_POSITIONS_CACHE_VERSION,
+        byOwner: {
+          current: { updatedAt: 1, tokens: [{ id: 'ETH' }] },
+        },
+      },
+    };
+    const original = prepareColdStartSnapshotForWrite(baseline);
+    const first = createSelectorSnapshot(1, 35);
+    const second = createSelectorSnapshot(100, 35);
+    const result = prepareColdStartSnapshotForWrite({
+      ...baseline,
+      [selectorKey]: first,
+      [modalSelectorKey]: second,
+    });
+
+    expect(JSON.stringify(first).length).toBeGreaterThan(
+      COLD_START_SNAPSHOT_MAX_CHARS / 2,
+    );
+    expect(result.serialized.length).toBeLessThanOrEqual(
+      COLD_START_SNAPSHOT_MAX_CHARS,
+    );
+    Object.entries(original.snapshot).forEach(([key, value]) => {
+      expect(result.snapshot[key]).toEqual(value);
+      expect(result.droppedKeys).not.toContain(key);
+    });
+    let queryCount = 0;
+    [selectorKey, modalSelectorKey].forEach((scopeKey) => {
+      const value = result.snapshot[scopeKey] as
+        | ISwapTokenListSnapshotMap
+        | undefined;
+      Object.values(value?.tokenCatch ?? {}).forEach((entry) => {
+        expect(entry.data).toHaveLength(15);
+        queryCount += 1;
+      });
+    });
+    expect(queryCount).toBeGreaterThan(0);
+    expect(queryCount).toBeLessThan(70);
+    expect(
+      Object.keys(
+        (result.snapshot[modalSelectorKey] as ISwapTokenListSnapshotMap)
+          .tokenCatch ?? {},
+      ),
+    ).toHaveLength(35);
+  });
+
+  it('keeps the newest complete query globally and accounts for exact scope envelopes', () => {
+    const baseline = { [activeInstrumentKey]: { coin: 'BTC' } };
+    const newest = sanitizeSwapTokenListSnapshot(createSelectorSnapshot(20));
+    const maxSnapshotChars = JSON.stringify({
+      ...baseline,
+      [modalSelectorKey]: newest,
+    }).length;
+    const result = prepareColdStartSnapshotForWrite(
+      {
+        ...baseline,
+        [selectorKey]: createSelectorSnapshot(10),
+        [modalSelectorKey]: newest,
+      },
+      { maxSnapshotChars },
+    );
+    expect(result.snapshot[activeInstrumentKey]).toEqual(
+      baseline[activeInstrumentKey],
+    );
+    expect(result.snapshot[modalSelectorKey]).toEqual(newest);
+    expect(result.snapshot[selectorKey]).toBeUndefined();
+    expect(result.droppedKeys).toEqual([selectorKey]);
+    expect(result.serialized).toHaveLength(maxSnapshotChars);
+  });
+
+  it('preserves the previous baseline eviction policy before admitting selectors', () => {
+    const baseline = {
+      [activeInstrumentKey]: { coin: 'BTC' },
+      [positionKey]: {
+        activePositions: [{ coin: 'BTC', payload: 'x'.repeat(500) }],
+      },
+      [swapPositionsKey]: {
+        version: SWAP_PRO_POSITIONS_CACHE_VERSION,
+        byOwner: {
+          current: {
+            updatedAt: 1,
+            tokens: [{ id: 'ETH', payload: 'x'.repeat(500) }],
+          },
+        },
+      },
+    };
+    const options = { maxSnapshotChars: 200 };
+    const original = prepareColdStartSnapshotForWrite(baseline, options);
+    const result = prepareColdStartSnapshotForWrite(
+      { ...baseline, [selectorKey]: createSelectorSnapshot(10) },
+      options,
+    );
+    expect(result.snapshot).toEqual(original.snapshot);
+    expect(result.droppedKeys).toEqual([...original.droppedKeys, selectorKey]);
+    expect(result.serialized).toBe(original.serialized);
   });
 
   it('fails closed when a persisted Swap positions schema is unsupported', () => {

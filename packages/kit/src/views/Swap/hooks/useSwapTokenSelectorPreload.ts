@@ -9,10 +9,11 @@ import {
 
 import {
   buildSwapNetworkReadyKey,
-  isSwapNetworkCacheCompatible,
+  isSwapNetworkCacheReadyForBasicList,
 } from '../utils/swapNetworkCacheUtils';
 import {
   getSwapTokenSelectorCacheEpoch,
+  isSwapTokenSelectorAccountRemoved,
   subscribeSwapTokenSelectorCache,
 } from '../utils/swapTokenSelectorCacheUtils';
 
@@ -66,7 +67,7 @@ export function useSwapTokenSelectorPreload({
       ? (toAddressInfo.accountInfo?.account?.id ??
         toAddressInfo.accountInfo?.dbAccount?.id)
       : undefined;
-  const networkReadyKey = isSwapNetworkCacheCompatible(networks)
+  const networkReadyKey = isSwapNetworkCacheReadyForBasicList(networks)
     ? buildSwapNetworkReadyKey(networks)
     : '';
 
@@ -88,6 +89,10 @@ export function useSwapTokenSelectorPreload({
       const scopeKey = JSON.stringify([indexedAccountId, otherAccountId]);
       if (
         (indexedAccountId || otherAccountId) &&
+        !isSwapTokenSelectorAccountRemoved({
+          indexedAccountId,
+          accountId: otherAccountId,
+        }) &&
         !requestedScopes.has(scopeKey)
       ) {
         requestedScopes.add(scopeKey);

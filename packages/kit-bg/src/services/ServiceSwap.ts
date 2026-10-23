@@ -523,6 +523,8 @@ function trackPrivateSendOrderFinalStatusIfNeeded({
 
 @backgroundClass()
 export default class ServiceSwap extends ServiceBase {
+  private readonly tokenSearchSemaphore = new Semaphore(6);
+
   private _checkTokenApproveAllowanceAbortController?: AbortController;
 
   private _perpDepositQuoteController?: AbortController;
@@ -899,13 +901,23 @@ export default class ServiceSwap extends ServiceBase {
         contractSearchNetworkId,
         searchNetworks,
       });
+      const limitSearchConcurrency =
+        Boolean(keywords) &&
+        requestProtocol !== EProtocolOfExchange.STOCK &&
+        networkUtils.isAllNetwork({ networkId: targetNetworkId });
       const responses = await Promise.allSettled(
-        requests.map(({ endpoint, params: requestParams }) =>
-          client.get<IFetchResponse<ISwapToken[]>>(endpoint, {
-            ...requestConfig,
-            params: requestParams,
-          }),
-        ),
+        requests.map(({ endpoint, params: requestParams }) => {
+          const fetchTokens = () =>
+            client.get<IFetchResponse<ISwapToken[]>>(endpoint, {
+              ...requestConfig,
+              params: requestParams,
+            });
+          // Share the pool across search rounds; default-list preloads remain
+          // independent, and failures release their slot through runExclusive.
+          return limitSearchConcurrency
+            ? this.tokenSearchSemaphore.runExclusive(fetchTokens)
+            : fetchTokens();
+        }),
       );
       const canceledResponse = responses.find(
         (response) =>

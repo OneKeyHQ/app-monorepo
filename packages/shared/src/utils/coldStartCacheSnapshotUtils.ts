@@ -1,5 +1,12 @@
 import { CONTEXT_ATOM_COLD_START_CACHE_KEYS } from '../consts/jotaiConsts';
 
+import {
+  getSwapTokenListSnapshotEntries,
+  sanitizeSwapTokenListSnapshot,
+} from './swapTokenSelectorSnapshotUtils';
+
+import type { ISwapTokenCatch } from '../../types/swap/types';
+
 export const COLD_START_SNAPSHOT_MAX_CHARS = 1024 * 1024;
 export const COLD_START_SNAPSHOT_HARD_MAX_CHARS = 4 * 1024 * 1024;
 const DEFAULT_MAX_PERPS_LIST_ITEMS = 100;
@@ -274,7 +281,7 @@ export function parseColdStartSnapshotRaw(
   }
 }
 
-export function prepareColdStartSnapshotForWrite(
+function prepareBaselineColdStartSnapshotForWrite(
   snapshot: ISnapshotRecord,
   options?: IPrepareColdStartSnapshotOptions,
 ): {
@@ -353,5 +360,108 @@ export function prepareColdStartSnapshotForWrite(
     snapshot: reducedSnapshot,
     serialized: stringifySnapshot(reducedSnapshot),
     droppedKeys,
+  };
+}
+
+export function prepareColdStartSnapshotForWrite(
+  snapshot: ISnapshotRecord,
+  options?: IPrepareColdStartSnapshotOptions,
+) {
+  const selectorKey = CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapTokenMapAtom;
+  const selectorScopes = Object.entries(snapshot)
+    .filter(([key, value]) => isScopedCacheKey(key, selectorKey) && value)
+    .map(([scopeKey, value]) => ({
+      scopeKey,
+      value: sanitizeSwapTokenListSnapshot(value),
+    }));
+  if (selectorScopes.length === 0) {
+    return prepareBaselineColdStartSnapshotForWrite(snapshot, options);
+  }
+
+  // The selector may consume spare capacity, but must not make existing SwapPro
+  // or Perps caches eligible for eviction. Keep their baseline policy intact.
+  const baseline = prepareBaselineColdStartSnapshotForWrite(
+    Object.fromEntries(
+      Object.entries(snapshot).filter(
+        ([key]) => !isScopedCacheKey(key, selectorKey),
+      ),
+    ),
+    options,
+  );
+  const retainedSnapshot = { ...baseline.snapshot };
+  const maxSnapshotChars =
+    options?.maxSnapshotChars ?? COLD_START_SNAPSHOT_MAX_CHARS;
+  let remainingChars = maxSnapshotChars - baseline.serialized.length;
+  let hasSnapshotValues = baseline.serialized !== '{}';
+  const tokenCatchByScope = new Map<string, Record<string, ISwapTokenCatch>>();
+  const candidates = selectorScopes
+    .flatMap(({ scopeKey, value }) =>
+      getSwapTokenListSnapshotEntries(value).map((entry) => ({
+        scopeKey,
+        entry,
+      })),
+    )
+    .toSorted(
+      (left, right) =>
+        right.entry.snapshot.updatedAt - left.entry.snapshot.updatedAt,
+    );
+
+  for (const { scopeKey, entry } of candidates) {
+    const tokenCatch = tokenCatchByScope.get(scopeKey);
+    const scopeEnvelope = {
+      version: 1,
+      updatedAt: Math.max(0, entry.snapshot.updatedAt),
+      tokenCatch: {},
+    };
+    const additionalChars = tokenCatch
+      ? 1 + entry.serializedChars
+      : JSON.stringify(scopeKey).length +
+        1 +
+        JSON.stringify(scopeEnvelope).length +
+        entry.serializedChars +
+        (hasSnapshotValues ? 1 : 0);
+    if (additionalChars <= remainingChars) {
+      if (tokenCatch) {
+        tokenCatch[entry.key] = entry.snapshot;
+      } else {
+        const nextTokenCatch = { [entry.key]: entry.snapshot };
+        tokenCatchByScope.set(scopeKey, nextTokenCatch);
+        retainedSnapshot[scopeKey] = {
+          ...scopeEnvelope,
+          tokenCatch: nextTokenCatch,
+        };
+      }
+      hasSnapshotValues = true;
+      remainingChars -= additionalChars;
+    }
+  }
+
+  for (const { scopeKey, value } of selectorScopes) {
+    if (
+      !tokenCatchByScope.has(scopeKey) &&
+      Object.keys(value.tokenCatch ?? {}).length === 0
+    ) {
+      const chars =
+        JSON.stringify(scopeKey).length +
+        1 +
+        JSON.stringify(value).length +
+        (hasSnapshotValues ? 1 : 0);
+      if (chars <= remainingChars) {
+        retainedSnapshot[scopeKey] = value;
+        hasSnapshotValues = true;
+        remainingChars -= chars;
+      }
+    }
+  }
+
+  return {
+    snapshot: retainedSnapshot,
+    serialized: stringifySnapshot(retainedSnapshot),
+    droppedKeys: [
+      ...baseline.droppedKeys,
+      ...selectorScopes
+        .filter(({ scopeKey }) => !(scopeKey in retainedSnapshot))
+        .map(({ scopeKey }) => scopeKey),
+    ],
   };
 }

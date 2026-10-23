@@ -72,6 +72,7 @@ import {
 import {
   buildSwapTokenListCacheKey,
   getSwapTokenSelectorCacheEpoch,
+  isSwapTokenSelectorAccountRemoved,
   subscribeSwapTokenSelectorCache,
 } from '../utils/swapTokenSelectorCacheUtils';
 import { createSwapTokenSelectorSession } from '../utils/swapTokenSelectorSession';
@@ -119,6 +120,14 @@ appEventBus.on(
   invalidateSwapSupportAllAccounts,
 );
 appEventBus.on(EAppEventBusNames.WalletClear, invalidateSwapSupportAllAccounts);
+appEventBus.on(
+  EAppEventBusNames.WalletRemove,
+  invalidateSwapSupportAllAccounts,
+);
+appEventBus.on(
+  EAppEventBusNames.AccountRemove,
+  invalidateSwapSupportAllAccounts,
+);
 
 export function useSwapTokenSearchKeyword() {
   const [searchIntent, setSearchIntent] = useState({
@@ -187,6 +196,10 @@ export function useSwapTokenList(
     ? (swapAddressInfo?.accountInfo?.account?.id ??
       swapAddressInfo?.accountInfo?.dbAccount?.id)
     : undefined;
+  const isSelectorAccountRemoved = isSwapTokenSelectorAccountRemoved({
+    indexedAccountId,
+    accountId: otherWalletTypeAccountId,
+  });
   const supportAccountsGeneration = useSyncExternalStore(
     subscribeSwapSupportAllAccounts,
     getSwapSupportAllAccountsGeneration,
@@ -243,6 +256,13 @@ export function useSwapTokenList(
     const requestGeneration = swapSupportAllAccountsCacheGeneration;
     void (async () => {
       try {
+        if (isSelectorAccountRemoved) {
+          setSwapSupportAllAccountsState({
+            requestKey: swapSupportAllAccountsRequestKey,
+            accounts: EMPTY_SWAP_SUPPORT_ALL_ACCOUNTS,
+          });
+          return;
+        }
         const { swapSupportAccounts, supportAccountsFetchFailed } =
           await backgroundApiProxy.serviceSwap.getSupportSwapAllAccounts({
             indexedAccountId,
@@ -294,6 +314,7 @@ export function useSwapTokenList(
     };
   }, [
     indexedAccountId,
+    isSelectorAccountRemoved,
     otherWalletTypeAccountId,
     swapSupportAllAccountsCacheKey,
     swapSupportAllAccountsReadCacheKey,
@@ -404,7 +425,9 @@ export function useSwapTokenList(
         account.accountId === tokenFetchParams.accountId &&
         account.apiAddress === tokenFetchParams.accountAddress,
     );
-  const desktopNetworksReady = isSwapNetworkCacheCompatible(swapNetworks);
+  const desktopNetworksReady = lpToken
+    ? isSwapNetworkCacheCompatible(swapNetworks)
+    : isSwapNetworkCacheReadyForBasicList(swapNetworks);
   const allNetworkTokenListReady = useMemo(() => {
     if (!isTokenFetchAllNetworks) {
       return true;
@@ -563,7 +586,7 @@ export function useSwapTokenList(
           const swapNet = swapNetworks.find(
             (net) => net.networkId === token.networkId,
           );
-          if (swapNet) {
+          if (swapNet && token.networkLogoURI !== swapNet.logoURI) {
             return { ...token, networkLogoURI: swapNet.logoURI };
           }
           return token;
@@ -669,6 +692,7 @@ export function useSwapTokenList(
       return;
     }
     if (
+      isSelectorAccountRemoved ||
       !isSwapSupportAllAccountsReady ||
       isSearchPending ||
       (keywords && isTokenFetchAllNetworks && !allNetworkTokenListReady) ||
@@ -748,6 +772,7 @@ export function useSwapTokenList(
     };
   }, [
     indexedAccountId,
+    isSelectorAccountRemoved,
     desktopNetworksReady,
     refreshFullChainLists,
     queryCoveredByWalletRefresh,

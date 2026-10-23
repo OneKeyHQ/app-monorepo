@@ -2,6 +2,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import {
   getSwapTokenSearchContractNetworkId,
   normalizeSwapTokenSearchNetworks,
@@ -20,12 +21,37 @@ export type ISwapTokenSelectorLoadOptions = {
 // closed when a transaction settled or the wallet's derivation changed.
 let cacheEpoch = { refresh: 0, identity: 0 };
 const listeners = new Set<() => void>();
+let removalListener: ((clearAll: boolean) => void) | undefined;
+const removedWalletIds = new Set<string>();
+const removedAccountIds = new Set<string>();
 
-function invalidate(identityChanged: boolean) {
+export function retireSwapTokenSelectorAccount(accountId: string) {
+  removedAccountIds.add(accountId);
+}
+
+export function isSwapTokenSelectorAccountRemoved({
+  accountId,
+  indexedAccountId,
+}: {
+  accountId?: string;
+  indexedAccountId?: string;
+}) {
+  return [accountId, indexedAccountId].some(
+    (id) =>
+      id &&
+      (removedAccountIds.has(id) ||
+        removedWalletIds.has(
+          accountUtils.getWalletIdFromAccountId({ accountId: id }),
+        )),
+  );
+}
+
+function invalidate(identityChanged: boolean, clearAll?: boolean) {
   cacheEpoch = {
     refresh: cacheEpoch.refresh + 1,
     identity: cacheEpoch.identity + (identityChanged ? 1 : 0),
   };
+  if (clearAll !== undefined) removalListener?.(clearAll);
   listeners.forEach((listener) => listener());
 }
 
@@ -38,7 +64,40 @@ appEventBus.on(EAppEventBusNames.HistoryTxStatusChanged, () =>
 appEventBus.on(EAppEventBusNames.GlobalDeriveTypeUpdate, () =>
   invalidate(true),
 );
-appEventBus.on(EAppEventBusNames.WalletClear, () => invalidate(true));
+appEventBus.on(EAppEventBusNames.WalletClear, () => invalidate(true, true));
+appEventBus.on(EAppEventBusNames.WalletRemove, ({ walletId }) => {
+  removedWalletIds.add(walletId);
+  invalidate(true, false);
+});
+appEventBus.on(EAppEventBusNames.AccountRemove, (payload) => {
+  if (payload?.accountId) retireSwapTokenSelectorAccount(payload.accountId);
+  if (payload?.indexedAccountId)
+    retireSwapTokenSelectorAccount(payload.indexedAccountId);
+  invalidate(true, false);
+});
+appEventBus.on(
+  EAppEventBusNames.AddDBAccountsToWallet,
+  ({ walletId, accounts }) => {
+    let revived = removedWalletIds.delete(walletId);
+    for (const account of accounts) {
+      revived = removedAccountIds.delete(account.id) || revived;
+      if (account.indexedAccountId)
+        revived = removedAccountIds.delete(account.indexedAccountId) || revived;
+    }
+    if (revived) invalidate(true);
+  },
+);
+appEventBus.on(EAppEventBusNames.AccountUpdate, (payload) => {
+  let revived = false;
+  for (const id of payload?.createdIndexedAccountIds ?? []) {
+    revived = removedAccountIds.delete(id) || revived;
+    revived =
+      removedWalletIds.delete(
+        accountUtils.getWalletIdFromAccountId({ accountId: id }),
+      ) || revived;
+  }
+  if (revived) invalidate(true);
+});
 
 export function getSwapTokenSelectorCacheEpoch() {
   return cacheEpoch;
@@ -49,6 +108,12 @@ export function subscribeSwapTokenSelectorCache(listener: () => void) {
   return () => {
     listeners.delete(listener);
   };
+}
+
+export function registerSwapTokenSelectorRemoval(
+  listener: (clearAll: boolean) => void,
+) {
+  removalListener = listener;
 }
 
 export function buildSwapTokenListCacheKey(params: IFetchTokensParams) {
