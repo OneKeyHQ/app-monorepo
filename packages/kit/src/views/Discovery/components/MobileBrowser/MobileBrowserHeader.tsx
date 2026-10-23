@@ -75,17 +75,27 @@ interface IMobileBrowserHeaderProps {
 // pages mounted later (other tabs, lazily mounted screens) since the newest
 // stack entry wins, so push an entry while the browser is focused and
 // re-push whenever the page theme changes.
+const STATUS_BAR_REASSERT_DELAY_MS = 400;
+
 function usePageStatusBarStyle(pageThemeName: 'light' | 'dark' | undefined) {
   const isFocused = useIsFocused();
   useEffect(() => {
     if (!isFocused || !pageThemeName) {
       return;
     }
-    const entry = StatusBar.pushStackEntry({
-      barStyle: pageThemeName === 'dark' ? 'light-content' : 'dark-content',
-      animated: true,
-    });
+    const barStyle =
+      pageThemeName === 'dark' ? 'light-content' : 'dark-content';
+    const entry = StatusBar.pushStackEntry({ barStyle, animated: true });
+    // Imperative writers (StatusBar.setBarStyle, e.g. the app appearance
+    // module) bypass the stack and leave its cached value stale, so a later
+    // push of the same style is skipped as "unchanged" and the wrong style
+    // stays on screen. Re-assert once things settle (after a closing modal
+    // or a late page-color update) so the bar always ends on the page style.
+    const timer = setTimeout(() => {
+      StatusBar.setBarStyle(barStyle, true);
+    }, STATUS_BAR_REASSERT_DELAY_MS);
     return () => {
+      clearTimeout(timer);
       StatusBar.popStackEntry(entry);
     };
   }, [isFocused, pageThemeName]);
