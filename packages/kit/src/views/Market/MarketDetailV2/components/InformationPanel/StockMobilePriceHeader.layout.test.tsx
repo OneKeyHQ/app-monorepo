@@ -6,6 +6,7 @@ import { render, screen } from '@testing-library/react';
 import type {
   IMarketStockDetailPreview,
   IMarketStockInfo,
+  IMarketStockPublicDetail,
 } from '@onekeyhq/shared/types/marketV2';
 
 import { StockMobilePriceHeader } from './StockMobilePriceHeader';
@@ -33,13 +34,6 @@ jest.mock('@onekeyhq/components', () => {
     YStack: Frame,
   };
 });
-jest.mock('@onekeyhq/kit/src/views/Market/components/MarketTokenPrice', () => ({
-  MarketTokenPrice: ({ price }: { price: string }) => (
-    <span>
-      loaded price<span data-testid="displayed-price">{price}</span>
-    </span>
-  ),
-}));
 jest.mock(
   '@onekeyhq/kit/src/views/Market/components/PriceChangePercentage',
   () => ({
@@ -52,10 +46,16 @@ jest.mock('../../../components/PerpsBadges', () => ({
   StockMarketStatusBadge: ({ stock }: { stock?: IMarketStockInfo }) =>
     stock ? <span>Market closed</span> : null,
 }));
+let mockStockDetail: Partial<IMarketStockPublicDetail> | undefined;
+let mockStockId = 'AAPL';
 let mockPreview: IMarketStockDetailPreview | undefined;
 let mockPriceMode: 'share' | 'token' = 'token';
 jest.mock('../../hooks/StockDetailContext', () => ({
-  useStockDetail: () => ({ stockId: 'AAPL', stockPreview: mockPreview }),
+  useStockDetail: () => ({
+    stockId: mockStockId,
+    stockPreview: mockPreview,
+    stockDetail: mockStockDetail,
+  }),
 }));
 let mockPriceSourceReady = true;
 jest.mock('../../hooks/useStockPriceSource', () => ({
@@ -79,6 +79,16 @@ jest.mock('../../hooks/useTokenDetail', () => ({
   }),
 }));
 
+beforeEach(() => {
+  mockPreview = undefined;
+  mockPriceMode = 'token';
+  mockStockDetail = undefined;
+  mockStockId = 'AAPL';
+  mockPriceSourceReady = true;
+  mockLoaded = false;
+});
+afterEach(() => jest.restoreAllMocks());
+
 it('reserves the same market-status row before and after the first quote arrives', () => {
   mockLoaded = false;
   const { rerender } = render(<StockMobilePriceHeader />);
@@ -92,7 +102,7 @@ it('reserves the same market-status row before and after the first quote arrives
   expect(loadedRow).toBe(pendingRow);
   expect(loadedRow.style.minHeight).toBe('20px');
   expect(screen.getByText('Market closed')).toBeTruthy();
-  expect(screen.getByText('loaded price')).toBeTruthy();
+  expect(screen.getByText('100')).toBeTruthy();
 });
 
 it('holds a stable price skeleton until the initial price mode is resolved', () => {
@@ -100,12 +110,12 @@ it('holds a stable price skeleton until the initial price mode is resolved', () 
   mockPriceSourceReady = false;
   const { rerender } = render(<StockMobilePriceHeader />);
   const header = screen.getByTestId('stock-mobile-price-header');
-  expect(screen.queryByText('loaded price')).toBeNull();
+  expect(screen.queryByText('100')).toBeNull();
   expect(screen.queryByText('Market closed')).toBeNull();
   mockPriceSourceReady = true;
   rerender(<StockMobilePriceHeader />);
   expect(screen.getByTestId('stock-mobile-price-header')).toBe(header);
-  expect(screen.getByText('loaded price')).toBeTruthy();
+  expect(screen.getByText('100')).toBeTruthy();
 });
 
 it('uses a share preview only for the share price mode', () => {
@@ -120,8 +130,33 @@ it('uses a share preview only for the share price mode', () => {
     quote: { source: 'share', price: '123.45' },
   };
   const { rerender } = render(<StockMobilePriceHeader />);
-  expect(screen.getByTestId('displayed-price').textContent).toBe('123.45');
+  expect(screen.getByText('123.45').textContent).toBe('123.45');
   mockPriceMode = 'token';
   rerender(<StockMobilePriceHeader />);
-  expect(screen.queryByTestId('displayed-price')).toBeNull();
+  expect(screen.queryByText('123.45')).toBeNull();
 });
+
+it.each([undefined, '2030-01-01T00:00:00Z'])(
+  'lets an authoritative quote replace a preview regardless of its timestamp (%s)',
+  (quoteUpdatedAt) => {
+    jest.spyOn(Date, 'now').mockReturnValue(Date.parse('2031-01-01T00:00:00Z'));
+    mockPriceMode = 'share';
+    mockStockId = `PREVIEW-${quoteUpdatedAt ?? 'missing'}`;
+    mockPreview = {
+      stockId: mockStockId,
+      symbol: 'AAPL',
+      name: 'Apple',
+      logoUrl: '',
+      quote: { source: 'share', price: '123.45', quoteUpdatedAt },
+    };
+    const { rerender, unmount } = render(<StockMobilePriceHeader />);
+    expect(screen.getByText('123.45')).toBeTruthy();
+    mockStockDetail = { price: '200', quoteUpdatedAt: '2029-01-01T00:00:00Z' };
+    rerender(<StockMobilePriceHeader />);
+    expect(screen.getByText('200')).toBeTruthy();
+    expect(screen.queryByText('123.45')).toBeNull();
+    unmount();
+    render(<StockMobilePriceHeader />);
+    expect(screen.getByText('200')).toBeTruthy();
+  },
+);

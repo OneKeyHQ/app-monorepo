@@ -148,9 +148,11 @@ export function useToMarketStockDetailPage(
       if (!isCurrentRequest()) return false;
       const stockId = typeof stock === 'string' ? stock : stock.stockId;
       const stockPreview = typeof stock === 'string' ? undefined : stock;
-      const stockPreviewQuote = stockPreview
-        ? buildMarketStockDetailPreview(stockPreview)?.quote
-        : undefined;
+      // Snapshot quotes are an in-memory native header optimization, never URL params.
+      const stockPreviewQuote =
+        platformEnv.isNative && stockPreview
+          ? buildMarketStockDetailPreview(stockPreview)?.quote
+          : undefined;
       const stockTokenParams =
         stockPreview?.tokenAddress && stockPreview.networkId
           ? {

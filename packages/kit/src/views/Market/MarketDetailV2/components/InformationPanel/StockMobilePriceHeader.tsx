@@ -11,7 +11,10 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
-import { MarketTokenPrice } from '@onekeyhq/kit/src/views/Market/components/MarketTokenPrice';
+import {
+  BaseMarketTokenPrice,
+  MarketTokenPrice,
+} from '@onekeyhq/kit/src/views/Market/components/MarketTokenPrice';
 import { PriceChangePercentage } from '@onekeyhq/kit/src/views/Market/components/PriceChangePercentage';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IMarketStockInfo } from '@onekeyhq/shared/types/marketV2';
@@ -156,20 +159,27 @@ export function StockMobilePriceHeader() {
       </Stack>
     );
   } else if (price) {
-    priceContent = (
-      <MarketTokenPrice
-        size="$heading3xl"
-        price={price}
-        cacheKey={`stock-mobile-${stockId ?? 'unknown'}-${priceMode}`}
-        tokenName={tokenName}
-        tokenSymbol={tokenSymbol}
-        lastUpdated={
-          isSharePrice
-            ? shareQuote?.quoteUpdatedAt
-            : tokenDetail?.lastUpdated?.toString()
-        }
-      />
-    );
+    const priceProps = {
+      size: '$heading3xl' as const,
+      price,
+      tokenName,
+      tokenSymbol,
+    };
+    // A list snapshot must not seed the live cache with its local receive time.
+    priceContent =
+      isSharePrice && stockDetail?.price === undefined ? (
+        <BaseMarketTokenPrice {...priceProps} />
+      ) : (
+        <MarketTokenPrice
+          {...priceProps}
+          cacheKey={`stock-mobile-${stockId ?? 'unknown'}-${priceMode}`}
+          lastUpdated={
+            isSharePrice
+              ? shareQuote?.quoteUpdatedAt
+              : tokenDetail?.lastUpdated?.toString()
+          }
+        />
+      );
   }
 
   return (

@@ -184,18 +184,22 @@ export function LightweightChart(props: ILightweightChartProps) {
   );
   const active = useSharedValue(false);
   const touch = useSharedValue({ x: 0, y: 0 });
-  const picture = useDerivedValue(() => {
-    const commands =
-      nativeScrubOptions &&
+  const isScrubInPlot = useDerivedValue(
+    () =>
+      !!nativeScrubOptions &&
       active.value &&
       getNativeChartHover(scene, touch.value.x, touch.value.y).time !==
-        undefined
-        ? scene.commands.filter(
-            (command) =>
-              command.kind !== 'polyline' ||
-              command.customPaintId !== 'secondary',
-          )
-        : scene.commands;
+        undefined,
+    [scene, nativeScrubOptions],
+  );
+  const picture = useDerivedValue(() => {
+    const commands = isScrubInPlot.value
+      ? scene.commands.filter(
+          (command) =>
+            command.kind !== 'polyline' ||
+            command.customPaintId !== 'secondary',
+        )
+      : scene.commands;
     return createTradingViewNativeSkiaCommandPicture({
       commands,
       customPaintStyles: scene.customPaintStyles,
@@ -203,7 +207,7 @@ export function LightweightChart(props: ILightweightChartProps) {
       width,
       height,
     });
-  }, [scene, width, height, nativeScrubOptions]);
+  }, [scene, width, height, isScrubInPlot]);
   const crosshair = useDerivedValue(() => {
     const overlay = active.value
       ? buildNativeChartCrosshair(

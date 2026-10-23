@@ -10,6 +10,7 @@ import { LightweightChart } from './LightweightChart.native';
 
 import type { ILightweightChartProps } from './types';
 
+const mockPictures: { readonly value: unknown }[] = [];
 const mockReactions = new Set<() => void>();
 const mockGestureHandlers: Record<
   string,
@@ -85,14 +86,52 @@ jest.mock('react-native-gesture-handler', () => ({
   },
 }));
 jest.mock('react-native-reanimated', () => {
+  type IValue = { readonly value: unknown };
+  let reads: Map<IValue, unknown> | undefined;
   const React = jest.requireActual<typeof import('react')>('react');
   return {
-    useSharedValue: (value: unknown) => React.useRef({ value }).current,
-    useDerivedValue: (get: () => unknown) => ({
-      get value() {
-        return get();
-      },
-    }),
+    useSharedValue: (initial: unknown) => {
+      const ref = React.useRef(initial);
+      return React.useMemo(() => {
+        const node = {
+          get value() {
+            reads?.set(node, ref.current);
+            return ref.current;
+          },
+          set value(next: unknown) {
+            ref.current = next;
+          },
+        };
+        return node;
+      }, []);
+    },
+    // Track shared-value dependencies and suppress equal derived values, as the native mapper does.
+    useDerivedValue: (get: () => unknown) => {
+      let initialized = false;
+      let cached: unknown;
+      let inputs = new Map<IValue, unknown>();
+      const node: IValue = {
+        get value() {
+          const parent = reads;
+          reads = undefined;
+          const changed =
+            !initialized ||
+            [...inputs].some(
+              ([input, previous]) => !Object.is(input.value, previous),
+            );
+          if (changed) {
+            reads = new Map<IValue, unknown>();
+            cached = get();
+            inputs = reads;
+            initialized = true;
+          }
+          reads = parent;
+          reads?.set(node, cached);
+          return cached;
+        },
+      };
+      return node;
+    },
     runOnJS: (fn: (...args: unknown[]) => void) => fn,
     useAnimatedReaction: (
       prepare: () => unknown,
@@ -125,6 +164,7 @@ jest.mock('@shopify/react-native-skia', () => ({
   Circle: () => null,
   Group: ({ children }: { children: ReactNode }) => children,
   Picture: ({ picture }: { picture: { value: unknown } }) => {
+    mockPictures.push(picture);
     void picture.value;
     return null;
   },
@@ -189,6 +229,7 @@ const flush = () =>
 beforeEach(() => {
   jest.clearAllMocks();
   mockDraws.length = 0;
+  mockPictures.length = 0;
   mockTypeface = null;
 });
 
@@ -333,4 +374,51 @@ it('restores the full solid line when an active scrub leaves the plot and cuts i
   act(() => mockGestureHandlers.update({ x: 20, y: 80 }));
   rerender(<LightweightChart {...props} />);
   expect(hasSolidLine()).toBe(false);
+});
+
+it('keeps the static picture while scrubbing within the plot and updates only at its boundary', () => {
+  render(
+    <LightweightChart
+      data={[
+        [100, 1],
+        [200, 2],
+      ]}
+      secondaryLineData={[
+        [100, 1],
+        [200, 2],
+      ]}
+      height={280}
+      nativeScrubOptions={{
+        labels: {},
+        largePrice: false,
+        backgroundColor: '#fff',
+        borderColor: '#ddd',
+        textColor: '#000',
+        timeColor: '#888',
+      }}
+    />,
+  );
+  const base = mockPictures.at(-2)!;
+  const overlay = mockPictures.at(-1)!;
+  const full = base.value;
+  act(() => mockGestureHandlers.start({ x: 20, y: 80 }));
+  const cut = base.value;
+  expect(cut).not.toBe(full);
+  let crosshair = overlay.value;
+  for (const x of [30, 50, 100]) {
+    act(() => mockGestureHandlers.update({ x, y: 80 }));
+    expect(base.value).toBe(cut);
+    const next = overlay.value;
+    expect(next).not.toBe(crosshair);
+    crosshair = next;
+  }
+  act(() => mockGestureHandlers.update({ x: 401, y: 80 }));
+  const outside = base.value;
+  expect(outside).not.toBe(cut);
+  act(() => mockGestureHandlers.update({ x: 402, y: 80 }));
+  expect(base.value).toBe(outside);
+  act(() => mockGestureHandlers.update({ x: 20, y: 80 }));
+  expect(base.value).not.toBe(outside);
+  act(() => mockGestureHandlers.end());
+  expect(base.value).not.toBe(cut);
 });
