@@ -1,3 +1,6 @@
+import { parse, parseISO } from 'date-fns';
+import { enUS } from 'date-fns/locale';
+
 import type { IStakeEarnDetail } from '@onekeyhq/shared/types/staking';
 
 export type IPtConvergenceChartData = NonNullable<
@@ -6,113 +9,169 @@ export type IPtConvergenceChartData = NonNullable<
 
 export interface IPendlePtConvergenceChartProps {
   chart: IPtConvergenceChartData;
+  history?: { timestamp: number; apy?: string }[];
+  maturityDate?: string;
+  isHistoryLoading?: boolean;
 }
 
-export const SVG_WIDTH = 632;
-export const SVG_HEIGHT = 232;
+export type IPtPricePoint = {
+  timestamp: number;
+  price: number;
+  estimated: boolean;
+};
 
-export const CHART_WIDTH = 512;
-
-export const NOW_X = 133;
-export const DOT_X = 134;
-export const END_X = 488;
-export const MID_X = (NOW_X + END_X) / 2;
-
-export const TARGET_Y = 28;
-export const CURRENT_REFERENCE_Y = 158;
-export const BOTTOM_Y = 190;
-export const LABEL_Y = 222;
-
-export const REFERENCE_TARGET_RATE = 1;
-export const REFERENCE_CURRENT_RATE = 0.9841;
-const REFERENCE_RATE_GAP = REFERENCE_TARGET_RATE - REFERENCE_CURRENT_RATE;
-const REFERENCE_CURVE_SPAN = CURRENT_REFERENCE_Y - TARGET_Y;
-const CHART_Y_SPAN = BOTTOM_Y - TARGET_Y;
-// Axis padding keeps small rate gaps readable without flattening the curve too much.
-const AXIS_PADDING_GAP =
-  (REFERENCE_RATE_GAP * (CHART_Y_SPAN - REFERENCE_CURVE_SPAN)) /
-  REFERENCE_CURVE_SPAN;
-const MAX_CURVE_SCALE = CHART_Y_SPAN / REFERENCE_CURVE_SPAN;
-
-const BADGE_HORIZONTAL_PADDING = 12;
-const AVG_CHAR_WIDTH = 6.6;
-
-export const COLORS = {
-  greenStroke: 'rgba(0,131,71,0.84)',
-  fillTop: 'rgba(66,255,164,0.15)',
-  fillBottom: 'rgba(66,255,164,0)',
-  badge: '#4D525D',
-} as const;
-
-// Full-width wavy curve path in absolute SVG coordinates (valid at reference curveScale=1).
-// The curve oscillates like a real market chart and converges to TARGET_Y at END_X.
-// Key anchor: at NOW_X (133) the curve sits at CURRENT_REFERENCE_Y (158).
-export const FULL_CURVE_PATH =
-  'M 10 162 C 30 163 58 132 78 136 C 98 140 116 154 133 158 C 148 162 158 184 176 184 C 196 184 218 108 244 108 C 265 108 275 126 296 114 C 320 98 342 83 362 74 C 384 66 415 44 435 41 C 455 36 473 29 488 28';
-
-// Same curve closed to the bottom for the gradient fill area.
-export const FULL_FILL_PATH =
-  'M 10 162 C 30 163 58 132 78 136 C 98 140 116 154 133 158 C 148 162 158 184 176 184 C 196 184 218 108 244 108 C 265 108 275 126 296 114 C 320 98 342 83 362 74 C 384 66 415 44 435 41 C 455 36 473 29 488 28 L 488 190 L 10 190 Z';
+export const DAY_MS = 86_400_000;
+const YEAR_MS = DAY_MS * 365;
+const MAX_HISTORY_MS = DAY_MS * 60;
 
 export function clamp(value: number, min: number, max: number) {
   return Math.min(Math.max(value, min), max);
 }
 
-export function getCurveScale({
-  currentRate,
-  targetRate,
-}: {
-  currentRate: number;
-  targetRate: number;
-}) {
-  const gap = Math.max(targetRate - currentRate, 0);
-  if (!Number.isFinite(gap) || REFERENCE_RATE_GAP <= 0) {
-    return 1;
-  }
-  const scaledSpan = (CHART_Y_SPAN * gap) / (gap + AXIS_PADDING_GAP);
-  const rawScale = scaledSpan / REFERENCE_CURVE_SPAN;
-  return clamp(rawScale, 0, MAX_CURVE_SCALE);
-}
-
-export function getCurrentPointY(curveScale: number) {
-  return TARGET_Y + curveScale * (CURRENT_REFERENCE_Y - TARGET_Y);
-}
-
 export function formatRate(rate: number) {
-  if (!Number.isFinite(rate)) {
-    return '--';
-  }
-  return Number(rate.toFixed(4)).toString();
+  return Number.isFinite(rate) ? Number(rate.toFixed(4)).toString() : '--';
 }
 
-export function fitTextToWidth(text: string, maxWidth: number) {
-  const normalized = text.trim();
-  if (!normalized || maxWidth <= 0) {
-    return normalized;
-  }
-  const maxChars = Math.max(
-    1,
-    Math.floor((maxWidth - BADGE_HORIZONTAL_PADDING) / AVG_CHAR_WIDTH),
-  );
-  if (normalized.length <= maxChars) {
-    return normalized;
-  }
-  if (maxChars === 1) {
-    return '…';
-  }
-  return `${normalized.slice(0, maxChars - 1)}…`;
+function getMaturityTimestamp(maturityDate?: string) {
+  if (!maturityDate) return NaN;
+  const isoTimestamp = parseISO(maturityDate).getTime();
+  if (Number.isFinite(isoTimestamp)) return isoTimestamp;
+  // The detail contract also returns calendar dates such as "26 Nov 2026".
+  // Parse explicitly because Hermes need not accept this via new Date().
+  return parse(maturityDate, 'd MMM yyyy', new Date(0), {
+    locale: enUS,
+  }).getTime();
 }
 
-export function getBadgeWidth({
-  text,
-  minWidth,
-  maxWidth,
-}: {
-  text: string;
-  minWidth: number;
-  maxWidth: number;
+export function buildConvergenceModel({
+  chart,
+  history,
+  maturityDate,
+  now,
+  asOf = now,
+}: Omit<IPendlePtConvergenceChartProps, 'isHistoryLoading'> & {
+  now: number;
+  asOf?: number;
 }) {
-  const estimatedWidth =
-    text.length * AVG_CHAR_WIDTH + BADGE_HORIZONTAL_PADDING;
-  return clamp(estimatedWidth, minWidth, maxWidth);
+  const { currentRate, targetRate, remainingDays, accountingSymbol } = chart;
+  const serverMaturity = getMaturityTimestamp(maturityDate);
+  const hasMaturityDate = Number.isFinite(serverMaturity);
+  const maturity = hasMaturityDate
+    ? serverMaturity
+    : asOf + remainingDays * DAY_MS;
+  if (
+    !Number.isFinite(new Date(now).getTime()) ||
+    !Number.isFinite(new Date(maturity).getTime()) ||
+    !Number.isFinite(currentRate) ||
+    !Number.isFinite(targetRate) ||
+    currentRate <= 0 ||
+    targetRate <= 0 ||
+    !accountingSymbol.trim()
+  ) {
+    return undefined;
+  }
+  const isMatured = maturity <= now;
+  const anchorTime = Math.min(now, maturity);
+  const historyWindow = Math.min(
+    Math.max(maturity - now, DAY_MS),
+    MAX_HISTORY_MS,
+  );
+  const historyStart = anchorTime - (isMatured ? MAX_HISTORY_MS : historyWindow);
+  const byTime = new Map<number, IPtPricePoint>();
+  // Implied APY is a percentage in OneKey's history contract. Pendle's
+  // ptExchangeRate = (1 + APY) ^ yearsToExpiry; price is its reciprocal.
+  // Require the server's maturity date; remainingDays alone is a snapshot.
+  if (hasMaturityDate) {
+    for (const item of history ?? []) {
+      const timestamp = Number(item.timestamp);
+      if (
+        item.apy?.trim() &&
+        Number.isFinite(timestamp) &&
+        timestamp >= historyStart &&
+        timestamp < anchorTime
+      ) {
+        const apy = Number(item.apy) / 100;
+        const price =
+          targetRate / (1 + apy) ** ((maturity - timestamp) / YEAR_MS);
+        if (
+          Number.isFinite(apy) &&
+          apy > -1 &&
+          Number.isFinite(price) &&
+          price > 0
+        ) {
+          byTime.set(timestamp, { timestamp, price, estimated: false });
+        }
+      }
+    }
+  }
+  const observed = Array.from(byTime.values()).toSorted(
+    (a, b) => a.timestamp - b.timestamp,
+  );
+  const current: IPtPricePoint = {
+    timestamp: anchorTime,
+    price: isMatured ? targetRate : currentRate,
+    estimated: false,
+  };
+  const historical = observed.length >= 2 ? [...observed, current] : [];
+  const forecast: IPtPricePoint[] = [];
+  if (!isMatured) {
+    for (let index = 0; index <= 32; index += 1) {
+      const fraction = index / 32;
+      forecast.push({
+        timestamp: now + fraction * (maturity - now),
+        // Constant implied yield is an illustration, never a price prediction.
+        price:
+          index === 0
+            ? currentRate
+            : index === 32
+              ? targetRate
+              : Math.exp(
+                  Math.log(currentRate) * (1 - fraction) +
+                    Math.log(targetRate) * fraction,
+                ),
+        estimated: index > 0,
+      });
+    }
+  }
+  const points = [...historical, ...forecast];
+  const prices = points.length
+    ? points.map((point) => point.price)
+    : [targetRate];
+  const min = Math.min(...prices);
+  const max = Math.max(...prices);
+  const padding = max === min ? max * 0.005 : (max - min) * 0.2;
+  const axisMin = min - padding;
+  const axisMax = max + padding;
+  const axisRange = axisMax - axisMin;
+  if (!Number.isFinite(axisRange) || axisRange <= 0) return undefined;
+  return {
+    historical,
+    forecast,
+    current,
+    isMatured,
+    maturity,
+    start: historical[0]?.timestamp ?? anchorTime,
+    min: axisMin,
+    max: axisMax,
+    points: points.length ? points : [current],
+  };
+}
+
+export type IConvergenceModel = NonNullable<
+  ReturnType<typeof buildConvergenceModel>
+>;
+
+export function findNearestPoint(points: IPtPricePoint[], timestamp: number) {
+  let low = 0;
+  let high = points.length - 1;
+  while (low < high) {
+    const mid = Math.floor((low + high) / 2);
+    if (points[mid].timestamp < timestamp) low = mid + 1;
+    else high = mid;
+  }
+  const after = points[low];
+  const before = points[Math.max(0, low - 1)];
+  return timestamp - before.timestamp < after.timestamp - timestamp
+    ? before
+    : after;
 }

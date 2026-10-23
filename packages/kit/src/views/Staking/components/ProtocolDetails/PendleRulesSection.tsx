@@ -11,6 +11,8 @@ import { EarnText } from './EarnText';
 import { EarnTooltip } from './EarnTooltip';
 import { PendlePtConvergenceChart } from './PendlePtConvergenceChart';
 
+import type { IPendlePtConvergenceChartProps } from './PendlePtConvergenceChart';
+
 function RuleItem({
   item,
   isLast,
@@ -48,9 +50,12 @@ function RuleItem({
 
 export function PendleRulesSection({
   data,
+  history,
+  maturityDate,
+  isHistoryLoading,
 }: {
   data?: IStakeEarnDetail['rules'];
-}) {
+} & Omit<IPendlePtConvergenceChartProps, 'chart'>) {
   if (!data?.items?.length) {
     return null;
   }
@@ -73,7 +78,14 @@ export function PendleRulesSection({
             {data.chart.description}
           </SizableText>
         ) : null}
-        {data.chart ? <PendlePtConvergenceChart chart={data.chart} /> : null}
+        {data.chart ? (
+          <PendlePtConvergenceChart
+            chart={data.chart}
+            history={history}
+            maturityDate={maturityDate}
+            isHistoryLoading={isHistoryLoading}
+          />
+        ) : null}
       </YStack>
       <Divider />
     </>
