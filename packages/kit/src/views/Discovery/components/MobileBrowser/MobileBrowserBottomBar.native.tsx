@@ -95,27 +95,67 @@ function useIsProgressPast(
   return past;
 }
 
+// The side buttons move this far towards the center while collapsing, and
+// shrink to this scale.
+const SIDE_COLLAPSE_TRAVEL_X = 40;
+const SIDE_COLLAPSED_SCALE = 0.5;
+
 // Collapsed size of the address capsule, about the pill's size.
 const CAPSULE_COLLAPSED_SCALE =
   BROWSER_COLLAPSED_PILL_HEIGHT / BROWSER_CHROME_CAPSULE_HEIGHT;
 
 // Morphs the address capsule into the collapsed pill (and back), like
 // Safari: the capsule shrinks and slides down to the pill's spot while the
-// pill grows out of it; the side buttons fade and slide outwards. Both
+// pill grows out of it; the side buttons shrink and fade towards the
+// pill, so the whole bar draws into its center. Both
 // layers overlap mid-way so it reads as one element changing shape.
 function useBarMorphStyles(progress: SharedValue<number>, travelY: number) {
   const leftStyle = useAnimatedStyle(() => ({
     opacity: interpolate(progress.value, [SIDE_FADE_START, 1], [0, 1], 'clamp'),
     transform: [
-      { translateX: interpolate(progress.value, [0, 1], [-16, 0], 'clamp') },
-      { scale: interpolate(progress.value, [0, 1], [0.8, 1], 'clamp') },
+      {
+        translateX: interpolate(
+          progress.value,
+          [0, 1],
+          [SIDE_COLLAPSE_TRAVEL_X, 0],
+          'clamp',
+        ),
+      },
+      {
+        translateY: interpolate(progress.value, [0, 1], [travelY, 0], 'clamp'),
+      },
+      {
+        scale: interpolate(
+          progress.value,
+          [0, 1],
+          [SIDE_COLLAPSED_SCALE, 1],
+          'clamp',
+        ),
+      },
     ],
   }));
   const rightStyle = useAnimatedStyle(() => ({
     opacity: interpolate(progress.value, [SIDE_FADE_START, 1], [0, 1], 'clamp'),
     transform: [
-      { translateX: interpolate(progress.value, [0, 1], [16, 0], 'clamp') },
-      { scale: interpolate(progress.value, [0, 1], [0.8, 1], 'clamp') },
+      {
+        translateX: interpolate(
+          progress.value,
+          [0, 1],
+          [-SIDE_COLLAPSE_TRAVEL_X, 0],
+          'clamp',
+        ),
+      },
+      {
+        translateY: interpolate(progress.value, [0, 1], [travelY, 0], 'clamp'),
+      },
+      {
+        scale: interpolate(
+          progress.value,
+          [0, 1],
+          [SIDE_COLLAPSED_SCALE, 1],
+          'clamp',
+        ),
+      },
     ],
   }));
   const capsuleStyle = useAnimatedStyle(() => ({
