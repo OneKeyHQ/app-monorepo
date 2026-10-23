@@ -168,9 +168,10 @@ describe('MarketChartSettingsModal', () => {
     });
   });
 
-  it('shows the chart switch and leaves settings before switching', () => {
+  it('saves pending edits, then leaves settings before switching', async () => {
     mockIsMobileLayout = true;
     const handleChartSwitch = jest.fn();
+    const confirmDraft = jest.fn(() => Promise.resolve(true));
     mockRouteParams = {
       chartMode: 'native',
       isChartSwitchDisabled: true,
@@ -178,19 +179,53 @@ describe('MarketChartSettingsModal', () => {
     };
     render(<MarketChartSettingsModal />);
 
-    const row = mockTradingViewChartSettings.mock.calls[0][0]
-      .chartDisplayLeadingRow as ReactElement<IChartSourceRowProps>;
+    const row =
+      mockTradingViewChartSettings.mock.calls[0][0].renderChartDisplayLeadingRow?.(
+        {
+          confirmDraft,
+        },
+      ) as ReactElement<IChartSourceRowProps>;
     expect(row.props).toEqual(
       expect.objectContaining({ chartMode: 'native', isDisabled: true }),
     );
 
-    row.props.onChartSwitch();
+    await act(async () => {
+      row.props.onChartSwitch();
+    });
 
+    expect(confirmDraft).toHaveBeenCalledTimes(1);
     expect(mockNavigationPop).toHaveBeenCalledTimes(1);
     expect(handleChartSwitch).toHaveBeenCalledTimes(1);
+    expect(confirmDraft.mock.invocationCallOrder[0]).toBeLessThan(
+      mockNavigationPop.mock.invocationCallOrder[0],
+    );
     expect(mockNavigationPop.mock.invocationCallOrder[0]).toBeLessThan(
       handleChartSwitch.mock.invocationCallOrder[0],
     );
+  });
+
+  it('stays on settings when pending edits fail to save', async () => {
+    mockIsMobileLayout = false;
+    const handleChartSwitch = jest.fn();
+    mockRouteParams = {
+      chartMode: 'native',
+      onChartSwitch: handleChartSwitch,
+    };
+    render(<MarketChartSettingsModal />);
+
+    const row =
+      mockTradingViewChartSettings.mock.calls[0][0].renderChartDisplayLeadingRow?.(
+        {
+          confirmDraft: () => Promise.resolve(false),
+        },
+      ) as ReactElement<IChartSourceRowProps>;
+
+    await act(async () => {
+      row.props.onChartSwitch();
+    });
+
+    expect(mockNavigationPop).not.toHaveBeenCalled();
+    expect(handleChartSwitch).not.toHaveBeenCalled();
   });
 
   it('keeps chart style on wide native screens opened from the chart', () => {
@@ -208,7 +243,8 @@ describe('MarketChartSettingsModal', () => {
     render(<MarketChartSettingsModal />);
 
     expect(
-      mockTradingViewChartSettings.mock.calls[0][0].chartDisplayLeadingRow,
+      mockTradingViewChartSettings.mock.calls[0][0]
+        .renderChartDisplayLeadingRow,
     ).toBeUndefined();
   });
 

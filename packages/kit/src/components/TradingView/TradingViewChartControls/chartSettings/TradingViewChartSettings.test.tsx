@@ -2,7 +2,7 @@
 
 import type { ReactNode } from 'react';
 
-import { fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 
 import { TradingViewChartSettings } from './TradingViewChartSettings';
 import { createTradingViewChartSettingsValue } from './TradingViewSettingsMockState';
@@ -215,6 +215,41 @@ describe('TradingViewChartSettings', () => {
 
     const nextValue = onChange.mock.calls.at(-1)?.[0];
     expect(nextValue?.options.previousClose).toBe(true);
+  });
+
+  it('lets the chart display leading row confirm pending edits', async () => {
+    const onConfirm = jest.fn<Promise<void>, [ITradingViewChartSettingsValue]>(
+      () => Promise.resolve(),
+    );
+    let confirmDraft: (() => Promise<boolean>) | undefined;
+
+    render(
+      <TradingViewChartSettings
+        defaultValue={createTradingViewChartSettingsValue()}
+        mobileLayout
+        showChartType
+        onConfirm={onConfirm}
+        renderChartDisplayLeadingRow={(helpers) => {
+          confirmDraft = helpers.confirmDraft;
+          return null;
+        }}
+      />,
+    );
+
+    fireEvent.change(
+      screen.getByTestId('trading-view-settings-select-chart-type'),
+      { target: { value: 'line' } },
+    );
+
+    let confirmed = false;
+    await act(async () => {
+      confirmed = (await confirmDraft?.()) ?? false;
+    });
+
+    expect(confirmed).toBe(true);
+    expect(onConfirm).toHaveBeenCalledWith(
+      expect.objectContaining({ chartType: 'line' }),
+    );
   });
 
   it('shows native chart types in settings and updates the preference', () => {

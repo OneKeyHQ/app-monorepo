@@ -1,5 +1,4 @@
 import { useCallback, useMemo } from 'react';
-import type { ReactNode } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -65,7 +64,7 @@ type IMarketChartSettingsContentProps = {
   usePageFooter?: boolean;
   showPreviousClose?: boolean;
   showChartType?: boolean;
-  chartDisplayLeadingRow?: ReactNode;
+  renderChartDisplayLeadingRow?: ITradingViewChartSettingsProps['renderChartDisplayLeadingRow'];
   onClose?: () => void;
 };
 
@@ -83,7 +82,7 @@ function ChartSettingsContent({
   usePageFooter = false,
   showPreviousClose = false,
   showChartType,
-  chartDisplayLeadingRow,
+  renderChartDisplayLeadingRow,
   onClose,
 }: IMarketChartSettingsContentProps & {
   settingsState: ReturnType<typeof useTradingViewNativeChartSettings>;
@@ -126,7 +125,7 @@ function ChartSettingsContent({
       usePageFooter={usePageFooter}
       mobileLayout={mobileLayout}
       showChartType={showChartType ?? mobileLayout}
-      chartDisplayLeadingRow={chartDisplayLeadingRow}
+      renderChartDisplayLeadingRow={renderChartDisplayLeadingRow}
       hiddenAppearanceSectionIds={NATIVE_HIDDEN_APPEARANCE_SECTION_IDS}
       hiddenOptionIds={hiddenOptionIds}
       onChange={mobileLayout ? handleMobileSettingsChange : undefined}
@@ -168,11 +167,18 @@ export default function MarketChartSettingsModal() {
   const chartMode = route.params?.chartMode;
   const isChartSwitchDisabled = route.params?.isChartSwitchDisabled ?? false;
   const onChartSwitch = route.params?.onChartSwitch;
-  const handleChartSwitch = useCallback(() => {
-    // Leave settings first: switching remounts the chart and may exit fullscreen.
-    navigation.pop();
-    onChartSwitch?.();
-  }, [navigation, onChartSwitch]);
+  const handleChartSwitch = useCallback(
+    async (confirmDraft: () => Promise<boolean>) => {
+      // Wide layouts keep edits in a draft; save them before leaving.
+      if (!(await confirmDraft())) {
+        return;
+      }
+      // Leave settings first: switching remounts the chart and may exit fullscreen.
+      navigation.pop();
+      onChartSwitch?.();
+    },
+    [navigation, onChartSwitch],
+  );
 
   return (
     <Page>
@@ -186,14 +192,18 @@ export default function MarketChartSettingsModal() {
           mobileLayout={md}
           showPreviousClose={showPreviousClose}
           showChartType={route.params?.showChartType}
-          chartDisplayLeadingRow={
-            chartMode && onChartSwitch ? (
-              <MarketChartSourceSettingsRow
-                chartMode={chartMode}
-                isDisabled={isChartSwitchDisabled}
-                onChartSwitch={handleChartSwitch}
-              />
-            ) : undefined
+          renderChartDisplayLeadingRow={
+            chartMode && onChartSwitch
+              ? ({ confirmDraft }) => (
+                  <MarketChartSourceSettingsRow
+                    chartMode={chartMode}
+                    isDisabled={isChartSwitchDisabled}
+                    onChartSwitch={() => {
+                      void handleChartSwitch(confirmDraft);
+                    }}
+                  />
+                )
+              : undefined
           }
         />
       </Page.Body>

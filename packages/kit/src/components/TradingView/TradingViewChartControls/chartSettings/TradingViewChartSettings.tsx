@@ -361,8 +361,13 @@ export type ITradingViewChartSettingsProps = {
   mobileLayout?: boolean;
   /** Show native chart type preferences in the settings content. */
   showChartType?: boolean;
-  /** Rendered first in the chart display group, such as a chart source switch. */
-  chartDisplayLeadingRow?: ReactNode;
+  /**
+   * Renders the first row of the chart display group, such as a chart source
+   * switch. Call confirmDraft before leaving the page so pending edits persist.
+   */
+  renderChartDisplayLeadingRow?: (helpers: {
+    confirmDraft: () => Promise<boolean>;
+  }) => ReactNode;
   /** Hide sections that the consuming chart does not currently implement. */
   hiddenAppearanceSectionIds?: readonly ITradingViewSettingsMockAppearanceSectionId[];
   /** Hide options that the consuming chart does not currently implement. */
@@ -383,7 +388,7 @@ export function TradingViewChartSettings({
   usePageFooter = false,
   mobileLayout = false,
   showChartType = false,
-  chartDisplayLeadingRow,
+  renderChartDisplayLeadingRow,
   hiddenAppearanceSectionIds,
   hiddenOptionIds,
 }: ITradingViewChartSettingsProps) {
@@ -531,6 +536,10 @@ export function TradingViewChartSettings({
     }
     return didConfirm;
   };
+
+  const chartDisplayLeadingRow = renderChartDisplayLeadingRow?.({
+    confirmDraft: handleConfirm,
+  });
 
   const renderCandleSettings = () => (
     <YStack>
