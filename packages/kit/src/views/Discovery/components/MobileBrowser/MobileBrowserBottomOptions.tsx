@@ -37,151 +37,154 @@ function MobileBrowserBottomOptions({
 }: PropsWithChildren<IMobileBottomOptionsProps>) {
   const intl = useIntl();
   const actionSectionItems = useMemo(
-    () => [
-      {
-        items: [
-          onGoForward && canGoForward
-            ? {
-                label: intl.formatMessage({
-                  id: ETranslations.shortcut_go_forward,
-                }),
-                icon: 'ChevronRightOutline',
-                onPress: onGoForward,
-                testID: DiscoveryTestIDs.browserForwardButton,
-              }
-            : undefined,
-          onTranslatePress
-            ? {
-                label: intl.formatMessage({
-                  id: ETranslations.browser_translate_settings_title,
-                }),
-                icon: isTranslated ? 'TranslateSolid' : 'TranslateOutline',
-                // The translate sheet can only open once this menu is gone.
-                onPress: async (close: () => void) => {
-                  close();
-                  await timerUtils.wait(ACTION_LIST_CLOSE_ANIMATION_DELAY_MS);
-                  onTranslatePress();
-                },
-                testID: 'browser-bar-translate',
-              }
-            : undefined,
-        ].filter(Boolean) as IActionListItemProps[],
-      },
-      {
-        items: [
-          {
-            label: intl.formatMessage({ id: ETranslations.explore_reload }),
-            icon: 'RotateClockwiseOutline',
-            onPress: onRefresh,
-            testID: 'action-list-item-reload',
-          },
-          {
-            label: intl.formatMessage({
-              id: isBookmark
-                ? ETranslations.explore_remove_bookmark
-                : ETranslations.explore_add_bookmark,
-            }),
-            icon: isBookmark ? 'StarSolid' : 'StarOutline',
-            onPress: () => onBookmarkPress(!isBookmark),
-            testID: DiscoveryTestIDs.tabActionBookmark,
-          },
-          {
-            label: intl.formatMessage({
-              id: isPinned
-                ? ETranslations.explore_unpin
-                : ETranslations.explore_pin,
-            }),
-            icon: isPinned ? 'ThumbtackSolid' : 'ThumbtackOutline',
-            onPress: () => onPinnedPress(!isPinned),
-            testID: DiscoveryTestIDs.tabActionPin(!!isPinned),
-          },
-          platformEnv.isNativeIOSPad
-            ? undefined
-            : {
-                label: intl.formatMessage({
-                  id:
+    () =>
+      [
+        {
+          items: [
+            onGoForward && canGoForward
+              ? {
+                  label: intl.formatMessage({
+                    id: ETranslations.shortcut_go_forward,
+                  }),
+                  icon: 'ChevronRightOutline',
+                  onPress: onGoForward,
+                  testID: DiscoveryTestIDs.browserForwardButton,
+                }
+              : undefined,
+            onTranslatePress
+              ? {
+                  label: intl.formatMessage({
+                    id: ETranslations.browser_translate_settings_title,
+                  }),
+                  icon: isTranslated ? 'TranslateSolid' : 'TranslateOutline',
+                  // The translate sheet can only open once this menu is gone.
+                  onPress: async (close: () => void) => {
+                    close();
+                    await timerUtils.wait(ACTION_LIST_CLOSE_ANIMATION_DELAY_MS);
+                    onTranslatePress();
+                  },
+                  testID: 'browser-bar-translate',
+                }
+              : undefined,
+          ].filter(Boolean) as IActionListItemProps[],
+        },
+        {
+          items: [
+            {
+              label: intl.formatMessage({ id: ETranslations.explore_reload }),
+              icon: 'RotateClockwiseOutline',
+              onPress: onRefresh,
+              testID: 'action-list-item-reload',
+            },
+            {
+              label: intl.formatMessage({
+                id: isBookmark
+                  ? ETranslations.explore_remove_bookmark
+                  : ETranslations.explore_add_bookmark,
+              }),
+              icon: isBookmark ? 'StarSolid' : 'StarOutline',
+              onPress: () => onBookmarkPress(!isBookmark),
+              testID: DiscoveryTestIDs.tabActionBookmark,
+            },
+            {
+              label: intl.formatMessage({
+                id: isPinned
+                  ? ETranslations.explore_unpin
+                  : ETranslations.explore_pin,
+              }),
+              icon: isPinned ? 'ThumbtackSolid' : 'ThumbtackOutline',
+              onPress: () => onPinnedPress(!isPinned),
+              testID: DiscoveryTestIDs.tabActionPin(!!isPinned),
+            },
+            platformEnv.isNativeIOSPad
+              ? undefined
+              : {
+                  label: intl.formatMessage({
+                    id:
+                      siteMode === ESiteMode.desktop
+                        ? ETranslations.browser_request_mobile_site
+                        : ETranslations.browser_request_desktop_site,
+                  }),
+                  icon:
                     siteMode === ESiteMode.desktop
-                      ? ETranslations.browser_request_mobile_site
-                      : ETranslations.browser_request_desktop_site,
-                }),
-                icon:
-                  siteMode === ESiteMode.desktop
-                    ? 'PhoneOutline'
-                    : 'ComputerOutline',
-                onPress: () => {
-                  onRequestSiteMode(
-                    siteMode === ESiteMode.desktop
-                      ? ESiteMode.mobile
-                      : ESiteMode.desktop,
-                  );
+                      ? 'PhoneOutline'
+                      : 'ComputerOutline',
+                  onPress: () => {
+                    onRequestSiteMode(
+                      siteMode === ESiteMode.desktop
+                        ? ESiteMode.mobile
+                        : ESiteMode.desktop,
+                    );
+                  },
+                  testID: `action-list-item-${
+                    siteMode === ESiteMode.desktop ? 'mobile' : 'desktop'
+                  }`,
                 },
-                testID: `action-list-item-${
-                  siteMode === ESiteMode.desktop ? 'mobile' : 'desktop'
-                }`,
+            {
+              label: intl.formatMessage({
+                id: ETranslations.explore_open_in_browser,
+              }),
+              icon: 'CompassCircleOutline',
+              onPress: () => onBrowserOpen(),
+              testID: 'action-list-item-open-in-browser',
+            },
+          ].filter(Boolean) as IActionListItemProps[],
+        },
+        {
+          items: [
+            {
+              label: intl.formatMessage({ id: ETranslations.global_copy_url }),
+              icon: 'LinkOutline',
+              onPress: () => {
+                onCopyUrl();
               },
-          {
-            label: intl.formatMessage({
-              id: ETranslations.explore_open_in_browser,
-            }),
-            icon: 'CompassCircleOutline',
-            onPress: () => onBrowserOpen(),
-            testID: 'action-list-item-open-in-browser',
-          },
-        ].filter(Boolean) as IActionListItemProps[],
-      },
-      {
-        items: [
-          {
-            label: intl.formatMessage({ id: ETranslations.global_copy_url }),
-            icon: 'LinkOutline',
-            onPress: () => {
-              onCopyUrl();
+              testID: `action-list-item-copy`,
             },
-            testID: `action-list-item-copy`,
-          },
-          {
-            label: intl.formatMessage({ id: ETranslations.explore_share }),
-            icon: 'ShareOutline',
-            onPress: () => onShare(),
-            testID: DiscoveryTestIDs.browserShareButton,
-          },
-        ].filter(Boolean) as IActionListItemProps[],
-      },
-      {
-        items: [
-          displayDisconnectOption && {
-            label: intl.formatMessage({ id: ETranslations.explore_disconnect }),
-            icon: 'BrokenLinkOutline',
-            onPress: onDisconnect,
-            testID: 'action-list-item-disconnect-in-browser',
-          },
-          {
-            label: intl.formatMessage({
-              id: isPinned
-                ? ETranslations.explore_close_pin_tab
-                : ETranslations.explore_close_tab,
-            }),
-            icon: 'CrossedLargeOutline',
-            onPress: async (close: () => void) => {
-              close();
-              await timerUtils.wait(ACTION_LIST_CLOSE_ANIMATION_DELAY_MS);
-              onCloseTab();
+            {
+              label: intl.formatMessage({ id: ETranslations.explore_share }),
+              icon: 'ShareOutline',
+              onPress: () => onShare(),
+              testID: DiscoveryTestIDs.browserShareButton,
             },
-            testID: DiscoveryTestIDs.tabActionClose,
-          },
-          onGoBackHomePage
-            ? {
-                label: intl.formatMessage({
-                  id: ETranslations.explore_back_to_home,
-                }),
-                icon: 'HomeOpenOutline',
-                onPress: onGoBackHomePage,
-                testID: 'action-list-item-back-to-home',
-              }
-            : undefined,
-        ].filter(Boolean) as IActionListItemProps[],
-      },
-    ],
+          ].filter(Boolean) as IActionListItemProps[],
+        },
+        {
+          items: [
+            displayDisconnectOption && {
+              label: intl.formatMessage({
+                id: ETranslations.explore_disconnect,
+              }),
+              icon: 'BrokenLinkOutline',
+              onPress: onDisconnect,
+              testID: 'action-list-item-disconnect-in-browser',
+            },
+            {
+              label: intl.formatMessage({
+                id: isPinned
+                  ? ETranslations.explore_close_pin_tab
+                  : ETranslations.explore_close_tab,
+              }),
+              icon: 'CrossedLargeOutline',
+              onPress: async (close: () => void) => {
+                close();
+                await timerUtils.wait(ACTION_LIST_CLOSE_ANIMATION_DELAY_MS);
+                onCloseTab();
+              },
+              testID: DiscoveryTestIDs.tabActionClose,
+            },
+            onGoBackHomePage
+              ? {
+                  label: intl.formatMessage({
+                    id: ETranslations.explore_back_to_home,
+                  }),
+                  icon: 'HomeOpenOutline',
+                  onPress: onGoBackHomePage,
+                  testID: 'action-list-item-back-to-home',
+                }
+              : undefined,
+          ].filter(Boolean) as IActionListItemProps[],
+        },
+      ].filter((section) => section.items.length > 0),
     [
       intl,
       canGoForward,
@@ -209,7 +212,7 @@ function MobileBrowserBottomOptions({
       title={intl.formatMessage({ id: ETranslations.explore_options })}
       renderTrigger={children}
       disabled={disabled}
-      sections={actionSectionItems.filter((section) => section.items.length)}
+      sections={actionSectionItems}
     />
   );
 }

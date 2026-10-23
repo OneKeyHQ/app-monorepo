@@ -55,14 +55,13 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { EarnHomeWithProvider } from '../../../Earn/EarnHome';
 import { HandleRebuildBrowserData } from '../../components/HandleData/HandleRebuildBrowserTabData';
+import { isCompactBrowserChrome } from '../../components/MobileBrowser/browserChrome';
 import MobileBrowserBottomBar from '../../components/MobileBrowser/MobileBrowserBottomBar';
 import MobileBrowserHeader from '../../components/MobileBrowser/MobileBrowserHeader';
 import { OuterTabPagerView } from '../../components/OuterTabPagerView';
 import { useDAppNotifyChanges } from '../../hooks/useDAppNotifyChanges';
 // import { useEdgeSwipeDetection } from '../../hooks/useEdgeSwipeDetection';
-import useMobileBottomBarAnimation, {
-  isCompactBrowserChrome,
-} from '../../hooks/useMobileBottomBarAnimation';
+import useMobileBrowserChromeAnimation from '../../hooks/useMobileBrowserChromeAnimation';
 import {
   useActiveTabId,
   useDisplayHomePageFlag,
@@ -272,13 +271,12 @@ function MobileBrowser() {
   const {
     handleScroll,
     expandBrowserChrome,
-    isChromeCollapsed,
     chromeProgress,
     toolbarAnimatedStyle,
     toolbarOverlayStyle,
     webPageAnimatedStyle,
     fullBarHeight,
-  } = useMobileBottomBarAnimation(activeTabId);
+  } = useMobileBrowserChromeAnimation();
   useDAppNotifyChanges({ tabId: activeTabId });
 
   useDebugComponentRemountLog({
@@ -300,12 +298,17 @@ function MobileBrowser() {
   const isBrowserWebPageVisible =
     isBrowserHeaderTabSelected && !showDiscoveryPage && !displayHomePage;
   // The dashboard scroll shares the chrome animation, so make sure the web page
-  // always opens with its header and bottom bar expanded.
+  // always opens (or switches tab) with its header and bottom bar expanded.
   useEffect(() => {
     if (isBrowserWebPageVisible) {
       expandBrowserChrome();
     }
-  }, [isBrowserWebPageVisible, expandBrowserChrome]);
+  }, [
+    activeTabId,
+    isBrowserWebPageVisible,
+    fullBarHeight,
+    expandBrowserChrome,
+  ]);
   const isBrowserDashboardActive =
     showDiscoveryPage &&
     (isBrowserHeaderTabSelected || visibleOuterPages.includes(1));
@@ -494,6 +497,14 @@ function MobileBrowser() {
     },
     [tabs, navigation, activeTabId],
   );
+  const browserChrome = useMemo(
+    () => ({
+      progress: chromeProgress,
+      onExpand: expandBrowserChrome,
+      onSearchBarPress: handleSearchBarPress,
+    }),
+    [chromeProgress, expandBrowserChrome, handleSearchBarPress],
+  );
 
   // Only the legacy tablet layout requires display:none gating across panes;
   // phone layouts keep Market, Earn, and Browser in the outer pager.
@@ -621,11 +632,8 @@ function MobileBrowser() {
         </YStack>
       ) : (
         <MobileBrowserHeader
-          chromeProgress={chromeProgress}
-          isCollapsed={isChromeCollapsed}
+          chrome={browserChrome}
           onGoBackHome={handleGoBackHome}
-          onSearchBarPress={handleSearchBarPress}
-          onExpand={expandBrowserChrome}
         />
       )}
       <Page.Body>
@@ -714,10 +722,7 @@ function MobileBrowser() {
                 <MobileBrowserBottomBar
                   id={activeTabId ?? ''}
                   onGoBackHomePage={handleGoBackHome}
-                  chromeProgress={chromeProgress}
-                  isChromeCollapsed={isChromeCollapsed}
-                  onExpandChrome={expandBrowserChrome}
-                  onSearchBarPress={handleSearchBarPress}
+                  chrome={browserChrome}
                 />
               </Animated.View>
             </Freeze>
@@ -806,10 +811,7 @@ function MobileBrowser() {
                   <MobileBrowserBottomBar
                     id={activeTabId ?? ''}
                     onGoBackHomePage={handleGoBackHome}
-                    chromeProgress={chromeProgress}
-                    isChromeCollapsed={isChromeCollapsed}
-                    onExpandChrome={expandBrowserChrome}
-                    onSearchBarPress={handleSearchBarPress}
+                    chrome={browserChrome}
                   />
                 </Animated.View>
               </Freeze>

@@ -1,10 +1,8 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback } from 'react';
 
 import {
   Easing,
-  runOnJS,
   runOnUI,
-  useAnimatedReaction,
   useAnimatedStyle,
   useSharedValue,
   withTiming,
@@ -12,12 +10,14 @@ import {
 
 import { useSafeAreaInsets } from '@onekeyhq/components';
 import type { IWebViewOnScrollEvent } from '@onekeyhq/kit/src/components/WebView/types';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import {
+  getCollapsedPillBottom,
+  isCompactBrowserChrome,
+} from '../components/MobileBrowser/browserChrome';
 import {
   BROWSER_BOTTOM_BAR_HEIGHT,
   BROWSER_COLLAPSED_PILL_HEIGHT,
-  BROWSER_HEADER_CROSSFADE_POINT,
   DISPLAY_BOTTOM_BAR_DURATION,
   MIN_TOGGLE_BROWSER_VISIBLE_DISTANCE,
 } from '../config/Animation.constants';
@@ -27,32 +27,29 @@ const UNSET = -1;
 
 const EXPANDED = 1;
 const COLLAPSED = 0;
+// Like Safari, the chrome comes back near the top and at the end of a page.
+const EDGE_EXPAND_DISTANCE = 24;
 
 const timingConfig = {
   duration: DISPLAY_BOTTOM_BAR_DURATION,
   easing: Easing.inOut(Easing.quad),
 };
 
-// iOS uses the Safari-style chrome: glass capsules in the bottom bar and a
-// compact address pill that stays visible while the chrome is collapsed.
-export const isCompactBrowserChrome = platformEnv.isNativeIOS;
-
-// Sits just above the home indicator, overlapping the bottom safe area.
-export function getCollapsedPillBottom(bottomInset: number) {
-  return Math.max(bottomInset - 20, 8);
-}
+// The compact iOS bar floats over the page (Liquid Glass shows the content
+// through it), so the WebView keeps its full height; scrollable content is
+// kept reachable above the bar via the WebView contentInset instead.
+const compactWebPageStyle = { bottom: 0 };
 
 // Drives the mobile browser chrome (header + bottom bar) from WebView scroll:
-// scrolling down hides the bottom bar and collapses the header into a compact
-// domain strip; scrolling up (or a non-scrollable page) brings both back.
-function useMobileBottomBarAnimation(activeTabId: string | null) {
+// scrolling down collapses both; scrolling up, reaching an edge of the page,
+// or a non-scrollable page brings them back.
+function useMobileBrowserChromeAnimation() {
   const { bottom: bottomInset } = useSafeAreaInsets();
   const fullBarHeight = BROWSER_BOTTOM_BAR_HEIGHT + bottomInset;
-  // 1 = chrome fully expanded, 0 = bottom bar hidden + header collapsed.
+  // 1 = chrome fully expanded, 0 = collapsed.
   const chromeProgress = useSharedValue(EXPANDED);
   const lastScrollY = useSharedValue(UNSET);
   const lastTurnScrollY = useSharedValue(UNSET);
-  const [isChromeCollapsed, setIsChromeCollapsed] = useState(false);
   // Room the collapsed pill needs when the bar is laid out in-flow (iPad).
   const collapsedBarHeight = isCompactBrowserChrome
     ? getCollapsedPillBottom(bottomInset) + BROWSER_COLLAPSED_PILL_HEIGHT + 4
@@ -62,7 +59,12 @@ function useMobileBottomBarAnimation(activeTabId: string | null) {
   // WebView onScroll is JS-thread only, so we extract numeric values in JS
   // and dispatch via runOnUI to avoid an extra JS→UI hop for withTiming.
   const processScroll = useCallback(
-    (contentOffsetY: number, canScroll: boolean, isOutOfBounds: boolean) => {
+    (
+      contentOffsetY: number,
+      maxOffsetY: number,
+      canScroll: boolean,
+      isOutOfBounds: boolean,
+    ) => {
       'worklet';
 
       if (isOutOfBounds) {
@@ -71,8 +73,14 @@ function useMobileBottomBarAnimation(activeTabId: string | null) {
         return;
       }
 
-      if (!canScroll) {
-        chromeProgress.value = withTiming(EXPANDED, timingConfig);
+      if (
+        !canScroll ||
+        contentOffsetY <= EDGE_EXPAND_DISTANCE ||
+        contentOffsetY >= maxOffsetY - EDGE_EXPAND_DISTANCE
+      ) {
+        if (chromeProgress.value !== EXPANDED) {
+          chromeProgress.value = withTiming(EXPANDED, timingConfig);
+        }
         return;
       }
 
@@ -93,10 +101,10 @@ function useMobileBottomBarAnimation(activeTabId: string | null) {
       if (Math.abs(distanceOffsetY) <= MIN_TOGGLE_BROWSER_VISIBLE_DISTANCE) {
         return;
       }
-      chromeProgress.value = withTiming(
-        distanceOffsetY < 0 ? EXPANDED : COLLAPSED,
-        timingConfig,
-      );
+      const target = distanceOffsetY < 0 ? EXPANDED : COLLAPSED;
+      if (chromeProgress.value !== target) {
+        chromeProgress.value = withTiming(target, timingConfig);
+      }
     },
     [chromeProgress, lastScrollY, lastTurnScrollY],
   );
@@ -106,18 +114,24 @@ function useMobileBottomBarAnimation(activeTabId: string | null) {
       const { contentOffset, contentSize, contentInset, layoutMeasurement } =
         nativeEvent;
       const contentOffsetY = contentOffset.y;
-      const scrollableHeight =
-        contentSize.height -
-        (layoutMeasurement.height + contentInset.top + contentInset.bottom);
+      // contentInset extends the scroll range (the iOS bar inset adds room
+      // at the bottom), so the bounce zone starts past it.
+      const maxOffsetY =
+        contentSize.height + contentInset.bottom - layoutMeasurement.height;
       const isOutOfBounds =
-        contentOffsetY < 0 ||
-        Math.round(contentOffsetY) > Math.round(scrollableHeight);
+        contentOffsetY < -contentInset.top ||
+        Math.round(contentOffsetY) > Math.round(maxOffsetY);
       const canScroll =
         Math.round(contentSize.height) >
         Math.round(layoutMeasurement.height) +
           MIN_TOGGLE_BROWSER_VISIBLE_DISTANCE;
 
-      runOnUI(processScroll)(contentOffsetY, canScroll, isOutOfBounds);
+      runOnUI(processScroll)(
+        contentOffsetY,
+        maxOffsetY,
+        canScroll,
+        isOutOfBounds,
+      );
     },
     [processScroll],
   );
@@ -132,19 +146,9 @@ function useMobileBottomBarAnimation(activeTabId: string | null) {
     })();
   }, [chromeProgress, lastScrollY, lastTurnScrollY]);
 
-  // Only flip JS state when crossing the crossfade point, so touch targets
-  // follow the visible header layer without re-rendering on every frame.
-  useAnimatedReaction(
-    () => chromeProgress.value < BROWSER_HEADER_CROSSFADE_POINT,
-    (collapsed, previous) => {
-      if (collapsed !== previous) {
-        runOnJS(setIsChromeCollapsed)(collapsed);
-      }
-    },
-  );
-
-  // In-flow bar container (tablet layout). The compact iOS bar fades its own
-  // content and keeps room for the collapsed pill.
+  // Bar container. Android (and the in-flow iPad layout) shrinks it with the
+  // chrome; the compact iOS bar fades its own content and only keeps room for
+  // the collapsed pill.
   const toolbarAnimatedStyle = useAnimatedStyle(() => {
     const height = Math.max(
       collapsedBarHeight,
@@ -154,40 +158,28 @@ function useMobileBottomBarAnimation(activeTabId: string | null) {
       ? { height }
       : { height, opacity: chromeProgress.value };
   });
-  // Bar container overlaid on the WebView layer (phone layout). The compact
-  // iOS bar keeps a fixed box (touches pass through via box-none) so the
-  // collapsed pill can float over the page.
-  const toolbarOverlayStyle = useAnimatedStyle(() =>
-    isCompactBrowserChrome
-      ? { height: fullBarHeight }
-      : {
-          height: fullBarHeight * chromeProgress.value,
-          opacity: chromeProgress.value,
-        },
-  );
-  // The compact iOS bar floats over the page (Liquid Glass shows the content
-  // through it), so the WebView keeps its full height; scrollable content is
-  // kept reachable above the bar via the WebView contentInset instead.
-  const webPageAnimatedStyle = useAnimatedStyle(() => ({
-    bottom: isCompactBrowserChrome ? 0 : fullBarHeight * chromeProgress.value,
+  // Phone layout overlays the bar on the WebView layer. The compact iOS bar
+  // keeps a fixed box (touches pass through via box-none) so the collapsed
+  // pill can float over the page.
+  const toolbarOverlayStyle = isCompactBrowserChrome
+    ? { height: fullBarHeight }
+    : toolbarAnimatedStyle;
+  const animatedWebPageStyle = useAnimatedStyle(() => ({
+    bottom: fullBarHeight * chromeProgress.value,
   }));
-
-  // Reset toolbar animation state when activeTabId changes.
-  useEffect(() => {
-    expandBrowserChrome();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTabId, fullBarHeight]);
+  const webPageAnimatedStyle = isCompactBrowserChrome
+    ? compactWebPageStyle
+    : animatedWebPageStyle;
 
   return {
     handleScroll,
     expandBrowserChrome,
-    isChromeCollapsed,
+    chromeProgress,
     toolbarAnimatedStyle,
     toolbarOverlayStyle,
     webPageAnimatedStyle,
-    chromeProgress,
     fullBarHeight,
   };
 }
 
-export default useMobileBottomBarAnimation;
+export default useMobileBrowserChromeAnimation;

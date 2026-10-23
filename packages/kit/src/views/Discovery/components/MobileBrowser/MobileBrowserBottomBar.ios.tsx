@@ -1,32 +1,24 @@
-import { useCallback, useState } from 'react';
+import { memo, useCallback, useMemo, useState } from 'react';
 
 import { StyleSheet } from 'react-native';
-import Animated, {
-  interpolate,
-  useAnimatedStyle,
-  useSharedValue,
-} from 'react-native-reanimated';
+import Animated, { useSharedValue } from 'react-native-reanimated';
 
-import {
-  GlassView,
-  IconButton,
-  SizableText,
-  Stack,
-  XStack,
-  isLiquidGlassAvailable,
-} from '@onekeyhq/components';
-import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
+import { IconButton, SizableText, Stack, XStack } from '@onekeyhq/components';
 
 import {
   BROWSER_BOTTOM_BAR_HEIGHT,
   BROWSER_COLLAPSED_PILL_HEIGHT,
-  BROWSER_HEADER_CROSSFADE_POINT,
 } from '../../config/Animation.constants';
-import { getCollapsedPillBottom } from '../../hooks/useMobileBottomBarAnimation';
 import { TranslatePopoverTrigger } from '../../hooks/usePageTranslation';
 import { DiscoveryTestIDs } from '../../testIDs';
 import CustomHeaderTitle from '../CustomHeaderTitle';
 
+import {
+  getCollapsedPillBottom,
+  getDisplayHostname,
+  useChromeCrossfadeStyles,
+  useIsChromeCollapsed,
+} from './browserChrome';
 import { BrowserChromeCapsule } from './BrowserChromeCapsule';
 import MobileBrowserBottomOptions from './MobileBrowserBottomOptions';
 import RefreshButton from './RefreshButton';
@@ -52,11 +44,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'center',
   },
-  pillGlass: {
-    height: BROWSER_COLLAPSED_PILL_HEIGHT,
-    borderRadius: 9999,
-  },
 });
+
+// The translate sheet is opened from the menu; this anchor only positions the
+// iPad popover.
+const translatePopoverAnchor = <Stack w={1} h={1} />;
 
 function CollapsedAddressPill({
   url,
@@ -65,36 +57,20 @@ function CollapsedAddressPill({
   url?: string;
   onPress?: () => void;
 }) {
-  const hostname = uriUtils.safeParseURL(url ?? '')?.hostname || url;
-  const label = (
-    <XStack
-      h={BROWSER_COLLAPSED_PILL_HEIGHT}
-      px="$4"
-      alignItems="center"
-      justifyContent="center"
-      onPress={onPress}
-      testID={DiscoveryTestIDs.browserCollapsedHeader}
-    >
-      <SizableText size="$bodyMdMedium" numberOfLines={1} maxWidth={220}>
-        {hostname}
-      </SizableText>
-    </XStack>
-  );
-  if (isLiquidGlassAvailable()) {
-    return (
-      <GlassView
-        isInteractive
-        glassEffectStyle="regular"
-        style={styles.pillGlass}
-      >
-        {label}
-      </GlassView>
-    );
-  }
+  const hostname = useMemo(() => getDisplayHostname(url), [url]);
   return (
-    <Stack bg="$bgStrong" borderRadius="$full" borderCurve="continuous">
-      {label}
-    </Stack>
+    <BrowserChromeCapsule height={BROWSER_COLLAPSED_PILL_HEIGHT} px="$4">
+      <XStack
+        h="100%"
+        alignItems="center"
+        onPress={onPress}
+        testID={DiscoveryTestIDs.browserCollapsedHeader}
+      >
+        <SizableText size="$bodyMdMedium" numberOfLines={1} maxWidth={220}>
+          {hostname}
+        </SizableText>
+      </XStack>
+    </BrowserChromeCapsule>
   );
 }
 
@@ -104,10 +80,7 @@ function CollapsedAddressPill({
 function MobileBrowserBottomBar({
   id,
   onGoBackHomePage,
-  chromeProgress,
-  isChromeCollapsed = false,
-  onExpandChrome,
-  onSearchBarPress,
+  chrome,
   ...rest
 }: IMobileBrowserBottomBarProps) {
   const {
@@ -136,7 +109,11 @@ function MobileBrowserBottomBar({
 
   // Without a driver (e.g. the bar is rendered standalone) stay expanded.
   const fallbackProgress = useSharedValue(1);
-  const progress = chromeProgress ?? fallbackProgress;
+  const progress = chrome?.progress ?? fallbackProgress;
+  const isChromeCollapsed = useIsChromeCollapsed(progress);
+  const { expandedStyle, collapsedStyle } = useChromeCrossfadeStyles(progress, {
+    hiddenOffsetY: 16,
+  });
 
   const [translateOpen, setTranslateOpen] = useState(false);
   const handleTranslatePress = useCallback(() => {
@@ -144,34 +121,10 @@ function MobileBrowserBottomBar({
   }, []);
 
   const currentUrl = tab?.displayUrl ?? tab?.url;
+  const onSearchBarPress = chrome?.onSearchBarPress;
   const handleAddressPress = useCallback(() => {
     onSearchBarPress?.(currentUrl ?? '');
   }, [onSearchBarPress, currentUrl]);
-
-  const barAnimatedStyle = useAnimatedStyle(() => ({
-    opacity: interpolate(
-      progress.value,
-      [BROWSER_HEADER_CROSSFADE_POINT, 1],
-      [0, 1],
-      'clamp',
-    ),
-    transform: [
-      {
-        translateY: interpolate(progress.value, [0, 1], [16, 0], 'clamp'),
-      },
-      {
-        scale: interpolate(progress.value, [0, 1], [0.92, 1], 'clamp'),
-      },
-    ],
-  }));
-  const pillAnimatedStyle = useAnimatedStyle(() => ({
-    opacity: interpolate(
-      progress.value,
-      [0, BROWSER_HEADER_CROSSFADE_POINT],
-      [1, 0],
-      'clamp',
-    ),
-  }));
 
   return (
     // Fills the container: a fixed full-height box on phones, an animated
@@ -179,7 +132,7 @@ function MobileBrowserBottomBar({
     <Stack h="100%" zIndex={1} pointerEvents="box-none" {...rest}>
       <Animated.View
         pointerEvents={isChromeCollapsed ? 'none' : 'box-none'}
-        style={[styles.bar, { bottom }, barAnimatedStyle]}
+        style={[styles.bar, { bottom }, expandedStyle]}
       >
         <XStack
           h={BROWSER_BOTTOM_BAR_HEIGHT}
@@ -226,7 +179,6 @@ function MobileBrowserBottomBar({
                 testID="browser-bar-options"
               />
             </MobileBrowserBottomOptions>
-            {/* Opened from the menu; the anchor only positions the iPad popover. */}
             <TranslatePopoverTrigger
               isTranslated={isTranslated}
               onTranslate={handleTranslate}
@@ -234,7 +186,7 @@ function MobileBrowserBottomBar({
               onTestAITranslateError={handleTranslateTestAIError}
               open={translateOpen}
               onOpenChange={setTranslateOpen}
-              trigger={<Stack w={1} h={1} />}
+              trigger={translatePopoverAnchor}
             />
             <CustomHeaderTitle
               embedded
@@ -252,13 +204,13 @@ function MobileBrowserBottomBar({
         style={[
           styles.pillRow,
           { bottom: getCollapsedPillBottom(bottom) },
-          pillAnimatedStyle,
+          collapsedStyle,
         ]}
       >
-        <CollapsedAddressPill url={currentUrl} onPress={onExpandChrome} />
+        <CollapsedAddressPill url={currentUrl} onPress={chrome?.onExpand} />
       </Animated.View>
     </Stack>
   );
 }
 
-export default MobileBrowserBottomBar;
+export default memo(MobileBrowserBottomBar);

@@ -12,6 +12,7 @@ import { BROWSER_CHROME_CAPSULE_HEIGHT } from '../../config/Animation.constants'
 
 type IBrowserChromeCapsuleProps = PropsWithChildren<{
   flex?: number;
+  height?: number;
   px?: IXStackProps['px'];
   testID?: string;
 }>;
@@ -23,14 +24,15 @@ type IBrowserChromeCapsuleProps = PropsWithChildren<{
 export function BrowserChromeCapsule({
   children,
   flex,
+  height = BROWSER_CHROME_CAPSULE_HEIGHT,
   px = '$1',
   testID,
 }: IBrowserChromeCapsuleProps) {
   const content = (
     <GlassHeaderProvider>
       <XStack
-        h={BROWSER_CHROME_CAPSULE_HEIGHT}
-        minWidth={BROWSER_CHROME_CAPSULE_HEIGHT}
+        h={height}
+        minWidth={height}
         px={px}
         gap="$1"
         alignItems="center"

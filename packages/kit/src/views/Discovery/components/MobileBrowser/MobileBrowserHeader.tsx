@@ -1,4 +1,4 @@
-import { memo } from 'react';
+import { memo, useMemo } from 'react';
 
 import { StyleSheet } from 'react-native';
 import Animated, {
@@ -14,24 +14,27 @@ import {
   XStack,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
-import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 
 import {
   BROWSER_HEADER_COLLAPSED_HEIGHT,
   BROWSER_HEADER_COLLAPSED_HEIGHT_ANDROID,
-  BROWSER_HEADER_CROSSFADE_POINT,
   BROWSER_HEADER_HEIGHT,
   BROWSER_HEADER_HEIGHT_ANDROID,
 } from '../../config/Animation.constants';
-import { isCompactBrowserChrome } from '../../hooks/useMobileBottomBarAnimation';
 import { useActiveTabId, useWebTabDataById } from '../../hooks/useWebTabs';
 import { DiscoveryTestIDs } from '../../testIDs';
 import CustomHeaderTitle from '../CustomHeaderTitle';
 import HeaderRightToolBar from '../HeaderRightToolBar';
 
+import {
+  getDisplayHostname,
+  isCompactBrowserChrome,
+  useChromeCrossfadeStyles,
+  useIsChromeCollapsed,
+} from './browserChrome';
 import { BrowserChromeCapsule } from './BrowserChromeCapsule';
 
-import type { SharedValue } from 'react-native-reanimated';
+import type { IMobileBrowserChrome } from './browserChrome';
 
 const HEADER_ROW_BOTTOM_GAP = 4;
 
@@ -68,8 +71,8 @@ const styles = StyleSheet.create({
 function CollapsedDomain({ onPress }: { onPress: () => void }) {
   const { activeTabId } = useActiveTabId();
   const { tab } = useWebTabDataById(activeTabId ?? '');
-  const currentUrl = tab?.displayUrl ?? tab?.url ?? '';
-  const hostname = uriUtils.safeParseURL(currentUrl)?.hostname || currentUrl;
+  const currentUrl = tab?.displayUrl ?? tab?.url;
+  const hostname = useMemo(() => getDisplayHostname(currentUrl), [currentUrl]);
 
   return (
     <XStack
@@ -129,48 +132,25 @@ function DefaultHeaderRow({
 }
 
 interface IMobileBrowserHeaderProps {
-  chromeProgress: SharedValue<number>;
-  isCollapsed: boolean;
+  chrome: IMobileBrowserChrome;
   onGoBackHome: () => void;
-  onSearchBarPress: (url: string) => void;
-  onExpand: () => void;
 }
 
 function MobileBrowserHeader({
-  chromeProgress,
-  isCollapsed,
+  chrome,
   onGoBackHome,
-  onSearchBarPress,
-  onExpand,
 }: IMobileBrowserHeaderProps) {
   const { top } = useSafeAreaInsets();
-
+  const { progress } = chrome;
+  const isCollapsed = useIsChromeCollapsed(progress);
+  const { expandedStyle, collapsedStyle } = useChromeCrossfadeStyles(progress, {
+    hiddenOffsetY: -8,
+  });
   const containerAnimatedStyle = useAnimatedStyle(() => ({
     height: interpolate(
-      chromeProgress.value,
+      progress.value,
       [0, 1],
       [collapsedHeaderHeight, headerHeight],
-    ),
-  }));
-  const contentAnimatedStyle = useAnimatedStyle(() => ({
-    opacity: interpolate(
-      chromeProgress.value,
-      [BROWSER_HEADER_CROSSFADE_POINT, 1],
-      [0, 1],
-      'clamp',
-    ),
-    transform: [
-      {
-        scale: interpolate(chromeProgress.value, [0, 1], [0.9, 1], 'clamp'),
-      },
-    ],
-  }));
-  const collapsedAnimatedStyle = useAnimatedStyle(() => ({
-    opacity: interpolate(
-      chromeProgress.value,
-      [0, BROWSER_HEADER_CROSSFADE_POINT],
-      [1, 0],
-      'clamp',
     ),
   }));
 
@@ -179,7 +159,7 @@ function MobileBrowserHeader({
       <Animated.View style={[styles.container, containerAnimatedStyle]}>
         <Animated.View
           pointerEvents={isCollapsed ? 'none' : 'box-none'}
-          style={[styles.content, contentAnimatedStyle]}
+          style={[styles.content, expandedStyle]}
         >
           {/* Rows align to the bottom gap; the leftover height on top is the
               header's top padding (4pt on iOS, 12pt on Android). */}
@@ -194,17 +174,18 @@ function MobileBrowserHeader({
             ) : (
               <DefaultHeaderRow
                 onGoBackHome={onGoBackHome}
-                onSearchBarPress={onSearchBarPress}
+                onSearchBarPress={chrome.onSearchBarPress}
               />
             )}
           </XStack>
         </Animated.View>
-        {collapsedHeaderHeight > 0 ? (
+        {/* Android only: iOS shows the collapsed address in the bottom pill. */}
+        {!isCompactBrowserChrome ? (
           <Animated.View
             pointerEvents={isCollapsed ? 'auto' : 'none'}
-            style={[styles.collapsed, collapsedAnimatedStyle]}
+            style={[styles.collapsed, collapsedStyle]}
           >
-            <CollapsedDomain onPress={onExpand} />
+            <CollapsedDomain onPress={chrome.onExpand} />
           </Animated.View>
         ) : null}
       </Animated.View>

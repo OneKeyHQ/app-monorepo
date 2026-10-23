@@ -141,7 +141,7 @@ jest.mock(
 jest.mock('../../hooks/useDAppNotifyChanges', () => ({
   useDAppNotifyChanges: jest.fn(),
 }));
-jest.mock('../../hooks/useMobileBottomBarAnimation', () => () => ({}));
+jest.mock('../../hooks/useMobileBrowserChromeAnimation', () => () => ({}));
 jest.mock('../../hooks/useWebTabs', () => ({
   useWebTabs: () => ({ tabs: mockTabs }),
   useActiveTabId: () => ({}),
