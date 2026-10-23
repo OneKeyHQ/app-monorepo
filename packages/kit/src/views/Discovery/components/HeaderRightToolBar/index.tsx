@@ -135,8 +135,10 @@ function CompactWalletAccountTrigger() {
     <XStack
       role="button"
       gap="$1.5"
+      // The avatar sits close to the chip edge (concentric with its corner);
+      // text and chevron get more room so the right side doesn't feel cramped.
       pl="$0.5"
-      pr="$1"
+      pr="$2"
       alignItems="center"
       onPress={() => {
         logBrowserChromeAction('account', 'header');
