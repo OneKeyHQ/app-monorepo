@@ -47,8 +47,10 @@ import { FavoriteButton } from '../components/TokenSelector/PerpTokenSelectorRow
 import { usePerpsAccountScopedActivePositions } from '../hooks/usePerpsAccountScopedActivePositions';
 import { usePerpsAssetCtx } from '../hooks/usePerpsAssetCtx';
 import { useSimpleMarketFocus } from '../hooks/useSimpleMarketFocus';
+import { useTradingPrice } from '../hooks/useTradingPrice';
 import { PerpsAccountSelectorProviderMirror } from '../PerpsAccountSelectorProviderMirror';
 import { PerpsProviderMirror } from '../PerpsProviderMirror';
+import { getSimpleChartDisplayPerformance } from '../utils/simpleChart';
 import { simplePrice, simpleUsd } from '../utils/simpleDisplay';
 
 import type { ISimpleMarketChartPrice } from '../components/Simple/SimpleMarketChart';
@@ -124,7 +126,15 @@ function SimpleMarketContent() {
     [updateHeaderPriceVisibility],
   );
   const [infoExpanded, setInfoExpanded] = useState(false);
-  const [chartPrice, setChartPrice] = useState<ISimpleMarketChartPrice>();
+  const [chartPrice, setChartPrice] = useState<
+    ISimpleMarketChartPrice | undefined
+  >({
+    coin: route.params.coin,
+    range: '1D',
+  });
+  const { midPrice, isValid: hasMidPrice } = useTradingPrice({
+    perpCoin: route.params.coin,
+  });
   const { assetCtx, isLoading } = usePerpsAssetCtx({
     assetId: instrument.assetId ?? -1,
   });
@@ -134,20 +144,28 @@ function SimpleMarketContent() {
   const headerWidth = Math.max(100, Math.min(264, width - 152));
   const currentChartPrice =
     chartPrice?.coin === route.params.coin ? chartPrice : undefined;
-  const changeLoading = currentChartPrice?.isLoading;
-  const priceChange = currentChartPrice
-    ? Number(currentChartPrice.changePercent)
-    : assetCtx?.change24hPercent;
-  const change = hasMarketData ? priceChange : undefined;
+  const changeRange = currentChartPrice?.range.toUpperCase() ?? '1D';
+  const performance = getSimpleChartDisplayPerformance(currentChartPrice, {
+    change: hasMarketData ? assetCtx?.change24h : undefined,
+    changePercent: hasMarketData ? assetCtx?.change24hPercent : undefined,
+  });
+  const change = valid ? performance?.changePercent : undefined;
   const changeKnown = change !== undefined && Number.isFinite(change);
+  const changeLoading = !changeKnown && currentChartPrice?.isLoading;
   const changeLabel = changeKnown
     ? `${change >= 0 ? '+' : ''}${change.toFixed(2)}%`
+    : '--';
+  const changeAmount = new BigNumber(valid ? (performance?.change ?? '') : '');
+  const changeAmountLabel = changeAmount.isFinite()
+    ? `${changeAmount.lt(0) ? '-' : '+'}${simplePrice(changeAmount.abs())}`
     : '--';
   const directionColor = (change ?? 0) >= 0 ? '$textSuccess' : '$textCritical';
   const changeColor = changeKnown ? directionColor : '$textSubdued';
   const markPrice = hasMarketData ? simplePrice(assetCtx?.markPrice) : '--';
-  const headerPrice = hasMarketData
-    ? simplePrice(currentChartPrice?.price ?? assetCtx?.markPrice)
+  const headerPrice = valid
+    ? simplePrice(
+        currentChartPrice?.price ?? (hasMidPrice ? midPrice : undefined),
+      )
     : '--';
   const openTokenSelector = useCallback(() => {
     if (submitting) return;
@@ -229,23 +247,28 @@ function SimpleMarketContent() {
                 numberOfLines={1}
                 adjustsFontSizeToFit
               >
-                {headerPrice.replace('$', '')}
+                {headerPrice}
               </SizableText>
-              <XStack alignItems="center" gap="$2">
-                <SizableText size="$bodySm" color="$textSubdued">
-                  {hasMarketData ? `≈${headerPrice}` : '--'}
-                </SizableText>
+              <XStack alignItems="center" gap="$1">
                 {changeLoading ? (
-                  <Skeleton width="$12" height="$4" />
+                  <Skeleton width="$24" height="$4" />
                 ) : (
-                  <SizableText
-                    testID="perps-simple-market-change"
-                    size="$bodySmMedium"
-                    color={changeColor}
-                  >
-                    {changeLabel}
-                  </SizableText>
+                  <>
+                    <SizableText size="$bodySmMedium" color={changeColor}>
+                      {changeAmountLabel}
+                    </SizableText>
+                    <SizableText
+                      testID="perps-simple-market-change"
+                      size="$bodySmMedium"
+                      color={changeColor}
+                    >
+                      {changeKnown ? `(${changeLabel})` : '--'}
+                    </SizableText>
+                  </>
                 )}
+                <SizableText size="$bodySm" color="$textSubdued">
+                  {changeRange}
+                </SizableText>
               </XStack>
             </YStack>
             <XStack
@@ -365,7 +388,7 @@ function SimpleMarketContent() {
               key={`chart-${route.params.coin}`}
               coin={route.params.coin}
               active={focused}
-              livePrice={assetCtx?.markPrice}
+              livePrice={valid && hasMidPrice ? midPrice : undefined}
               onPriceChange={setChartPrice}
             />
           ) : null}

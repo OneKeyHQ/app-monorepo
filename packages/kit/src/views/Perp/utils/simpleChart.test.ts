@@ -1,6 +1,49 @@
-import { getSimpleChartPoints, getSimpleChartRequest } from './simpleChart';
+import {
+  getSimpleChartDisplayPerformance,
+  getSimpleChartPerformance,
+  getSimpleChartPoints,
+  getSimpleChartRequest,
+} from './simpleChart';
 
 describe('simple Perps chart data', () => {
+  it('calculates the displayed range change using its first and latest prices', () => {
+    expect(
+      getSimpleChartPerformance([
+        [1, 100],
+        [2, 80],
+        [3, 110],
+      ]),
+    ).toEqual({
+      change: '10',
+      changePercent: 10,
+    });
+    expect(
+      getSimpleChartPerformance([
+        [1, 0.000_04],
+        [2, 0.000_03],
+      ]),
+    ).toEqual({
+      change: '-0.00001',
+      changePercent: -25,
+    });
+  });
+
+  it('leaves the change unavailable when the range has no valid baseline', () => {
+    expect(getSimpleChartPerformance([])).toBeUndefined();
+    expect(getSimpleChartPerformance([[1, 100]])).toBeUndefined();
+    expect(
+      getSimpleChartPerformance([
+        [1, 0],
+        [2, 100],
+      ]),
+    ).toBeUndefined();
+    expect(
+      getSimpleChartPerformance([
+        [1, 100],
+        [2, NaN],
+      ]),
+    ).toBeUndefined();
+  });
   it.each([
     ['1H', '1m', 3600],
     ['1D', '5m', 86_400],
@@ -49,5 +92,53 @@ describe('simple Perps chart data', () => {
       [100, 1],
       [300, 3],
     ]);
+  });
+});
+
+describe('simple chart summary fallback', () => {
+  const dayPerformance = { change: '-10', changePercent: -5 };
+
+  it('uses 24-hour performance for an unavailable 1D range or candlestick mode', () => {
+    expect(getSimpleChartDisplayPerformance(undefined, dayPerformance)).toEqual(
+      dayPerformance,
+    );
+    expect(
+      getSimpleChartDisplayPerformance(
+        { coin: 'BTC', range: '1D' },
+        dayPerformance,
+      ),
+    ).toEqual(dayPerformance);
+  });
+
+  it('does not label 24-hour performance as a different selected range', () => {
+    const performance = { coin: 'BTC', range: '1W' as const };
+    expect(
+      getSimpleChartDisplayPerformance(performance, dayPerformance),
+    ).toEqual(performance);
+  });
+
+  it('preserves computed performance including a zero change', () => {
+    const performance = {
+      coin: 'BTC',
+      range: '1D' as const,
+      change: '0',
+      changePercent: 0,
+    };
+    expect(
+      getSimpleChartDisplayPerformance(performance, dayPerformance),
+    ).toEqual(performance);
+  });
+
+  it('calculates the amount and percent for a held chart point together', () => {
+    expect(
+      getSimpleChartPerformance(
+        [
+          [1, 100],
+          [2, 110],
+          [3, 120],
+        ],
+        110,
+      ),
+    ).toEqual({ change: '10', changePercent: 10 });
   });
 });

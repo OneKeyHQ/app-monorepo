@@ -39,18 +39,19 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import {
+  getSimpleChartPerformance,
   getSimpleChartPoints,
   getSimpleChartRequest,
 } from '../../utils/simpleChart';
+
+import type { ISimpleChartPerformance } from '../../utils/simpleChart';
 
 const CHART_HEIGHT = 340;
 const LINE_CHART_HEIGHT =
   CHART_HEIGHT - TRADING_VIEW_NATIVE_CHART_CONTROLS_HEIGHT;
 
-export type ISimpleMarketChartPrice = {
-  coin: string;
+export type ISimpleMarketChartPrice = ISimpleChartPerformance & {
   price?: number;
-  changePercent?: string;
   isLoading?: boolean;
 };
 
@@ -120,19 +121,16 @@ function SimpleMarketLineChart({
   const displayPrice = useMemo<ISimpleMarketChartPrice | undefined>(() => {
     if (!active) return undefined;
     if (!current || ((current.error || !data.length) && isLoading))
-      return { coin, isLoading: true };
-    if (current.error || !data.length) return { coin };
+      return { coin, range, isLoading: true };
+    if (current.error || !data.length) return { coin, range };
     const price = hoverPoint?.price ?? data[data.length - 1][1];
-    const base = data[0][1];
     return {
       coin,
+      range,
       price,
-      changePercent:
-        Number.isFinite(base) && base > 0
-          ? String(((price - base) / base) * 100)
-          : undefined,
+      ...getSimpleChartPerformance(data, price),
     };
-  }, [active, coin, current, data, hoverPoint, isLoading]);
+  }, [active, coin, range, current, data, hoverPoint, isLoading]);
   useEffect(() => {
     onPriceChange?.(displayPrice);
   }, [displayPrice, onPriceChange]);
