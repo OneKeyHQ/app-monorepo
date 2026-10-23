@@ -68,6 +68,8 @@ export function DiscoveryItemCard({
       <Stack
         py="$2"
         gap="$3"
+        // Phones: a tighter icon/label pairing, like a home-screen grid.
+        $platform-native={{ py: '$1', gap: '$1.5' }}
         justifyContent="center"
         alignItems="center"
         userSelect="none"
@@ -92,6 +94,8 @@ export function DiscoveryItemCard({
       <Stack
         py="$2"
         gap="$3"
+        // Phones: a tighter icon/label pairing, like a home-screen grid.
+        $platform-native={{ py: '$1', gap: '$1.5' }}
         justifyContent="center"
         alignItems="center"
         userSelect="none"

@@ -34,6 +34,7 @@ export function BookmarksSectionItems({
     <Stack onLayout={onLayout}>
       <YStack
         py="$2"
+        $platform-native={{ py: '$1', rowGap: '$3' }}
         mx={marginHorizontal}
         flexDirection="row"
         flexWrap="wrap"
