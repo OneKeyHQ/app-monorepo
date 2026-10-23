@@ -17,6 +17,7 @@ import {
 } from '@onekeyhq/components';
 import type { IKeyOfIcons } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 const LINE_STYLE_WIDTHS: Partial<Record<string, number>> = {
   solid: 1,
@@ -343,8 +344,8 @@ export function SettingsSelect<TValue extends string>({
         pr: '$8',
         // The default trigger sets flex: 1 on the input. Native resolves that
         // to a zero flex basis that ignores `width`, so the input shrinks to
-        // its padding and hides the value. flex: 0 keeps `width` as the basis.
-        flex: 0,
+        // its padding and hides the value. Web keeps an auto basis.
+        ...(platformEnv.isNative ? { flex: 0 } : {}),
         leftIconName: optionIcons?.[value],
       }}
       items={items}
