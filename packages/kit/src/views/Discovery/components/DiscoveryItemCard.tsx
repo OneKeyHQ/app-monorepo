@@ -17,7 +17,13 @@ import type { IDApp } from '@onekeyhq/shared/types/discovery';
 
 import type { IMatchDAppItemType } from '../types';
 
-const NATIVE_LABEL_MAX_WIDTH = 80;
+// Phones: a larger icon, so the edge-aligned 4-column grid keeps an even,
+// home-screen-like gap between icons instead of spreading them apart.
+export const DISCOVERY_ITEM_ICON_SIZE = platformEnv.isNative ? 64 : 56;
+const ICON_RADIUS = platformEnv.isNative ? 14 : 12;
+// Lets the outer labels pass their icon by 12pt at most (the grid aligns
+// outer icons with the page edge); longer names wrap to a second line.
+const NATIVE_LABEL_MAX_WIDTH = DISCOVERY_ITEM_ICON_SIZE + 24;
 
 export interface IDiscoveryItemCardProps {
   logo?: string;
@@ -74,7 +80,11 @@ export function DiscoveryItemCard({
         alignItems="center"
         userSelect="none"
       >
-        <Skeleton width="$14" height="$14" borderRadius="$4" />
+        <Skeleton
+          width={DISCOVERY_ITEM_ICON_SIZE}
+          height={DISCOVERY_ITEM_ICON_SIZE}
+          borderRadius={ICON_RADIUS}
+        />
         <Skeleton
           width="$18"
           $gtMd={{
@@ -101,17 +111,17 @@ export function DiscoveryItemCard({
         userSelect="none"
       >
         <Stack
-          width="$14"
-          height="$14"
+          width={DISCOVERY_ITEM_ICON_SIZE}
+          height={DISCOVERY_ITEM_ICON_SIZE}
           position="relative"
-          borderRadius="$3"
+          borderRadius={ICON_RADIUS}
           borderCurve="continuous"
           overflow="hidden"
         >
           <Image
             width="100%"
             height="100%"
-            resizeWidth={56}
+            resizeWidth={DISCOVERY_ITEM_ICON_SIZE}
             source={{ uri: logo }}
             fallback={
               <Image.Fallback>
@@ -119,7 +129,7 @@ export function DiscoveryItemCard({
               </Image.Fallback>
             }
           />
-          <InnerStroke borderRadius="$3" />
+          <InnerStroke borderRadius={ICON_RADIUS} />
           {isAd ? (
             <AdCornerBadge badgeSize="sm" placement="bottom-right" />
           ) : null}
@@ -127,9 +137,6 @@ export function DiscoveryItemCard({
         <SizableText
           px="$1"
           w="100%"
-          // Phone grids align the outer icons with the page edge, so a label
-          // wider than this would run past the page padding; long names wrap
-          // to a second line instead.
           maxWidth={platformEnv.isNative ? NATIVE_LABEL_MAX_WIDTH : undefined}
           size="$bodySmMedium"
           textAlign="center"

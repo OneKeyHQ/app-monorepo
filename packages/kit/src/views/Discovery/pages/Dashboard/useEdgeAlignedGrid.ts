@@ -2,10 +2,10 @@ import { useCallback, useState } from 'react';
 
 import { useMedia } from '@onekeyhq/components';
 
+import { DISCOVERY_ITEM_ICON_SIZE as ICON_SIZE } from '../../components/DiscoveryItemCard';
+
 import type { LayoutChangeEvent } from 'react-native';
 
-// Width of the dApp icon in DiscoveryItemCard.
-const ICON_SIZE = 56;
 const PHONE_COLUMNS = 4;
 
 // On phones the 4-column dApp grids center each icon in its column, so the
