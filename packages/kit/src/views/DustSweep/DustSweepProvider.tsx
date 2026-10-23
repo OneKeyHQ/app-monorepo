@@ -421,8 +421,23 @@ function useDustSweepController(params: IDustSweepRouteParams) {
       owner: getDustSweepSnapshotOwner(snapshot),
       keys: new Set(snapshot.tokens.map((token) => token.key)),
     });
-    return startSession(snapshot, { hiddenTokenCount: hidden.length });
-  }, [snapshot, canStart, loadParams, startSession, hidden.length, suspend]);
+    const sessionId = startSession(snapshot, {
+      hiddenTokenCount: hidden.length,
+    });
+    if (sessionId === undefined) {
+      executionScope.current = undefined;
+      resume();
+    }
+    return sessionId;
+  }, [
+    snapshot,
+    canStart,
+    loadParams,
+    startSession,
+    hidden.length,
+    suspend,
+    resume,
+  ]);
   const retryAssets = useCallback(() => {
     if (!selecting || isRefreshingNetworks()) return;
     if (currentReconciliation?.status === 'error' && current)

@@ -90,6 +90,34 @@ const success: IResult = {
 
 beforeEach(() => jest.clearAllMocks());
 
+it('starts exactly once after selection effects reconnect', async () => {
+  const first = deferred<IResult>();
+  execute.mockImplementationOnce(async ({ onSigning, onBroadcast }) => {
+    onSigning();
+    onBroadcast('tx-a');
+    return first.promise;
+  });
+  const { result } = renderHook(
+    () => useDustSweepSession([], { minRunMs: 0 }),
+    { reactStrictMode: true },
+  );
+  let sessionId: string | undefined;
+  act(() => {
+    sessionId = result.current.start({
+      ...snapshot,
+      tokens: [snapshot.tokens[0]],
+    });
+    expect(result.current.start(snapshot)).toBeUndefined();
+  });
+  expect(sessionId).toBeDefined();
+  expect(result.current.state.phase).toBe('running');
+  expect(execute).toHaveBeenCalledTimes(1);
+  expect(execute.mock.calls[0][0].signal.aborted).toBe(false);
+  await act(async () => first.resolve(success));
+  expect(result.current.state.phase).toBe('completed');
+  expect(mockResultLog).toHaveBeenCalledTimes(1);
+});
+
 it('preserves an existing localized App error through the session without exposing its diagnostic message', async () => {
   execute.mockRejectedValueOnce({
     className: 'OneKeyAppError',

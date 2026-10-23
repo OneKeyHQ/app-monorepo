@@ -364,7 +364,8 @@ export function useDustSweepSession(
     mounted.current = true;
     return () => {
       mounted.current = false;
-      send({ type: 'leave' });
+      // Effect reconnection preserves selection state; there is no run to leave.
+      if (stateRef.current.phase !== 'selecting') send({ type: 'leave' });
       controller.current?.abort();
       reportResult('left');
     };

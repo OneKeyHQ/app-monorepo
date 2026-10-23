@@ -270,6 +270,23 @@ describe('Dust Sweep Provider request and selection ownership', () => {
     expect(result.current.canStart).toBe(true);
   });
 
+  it('restores asset refresh when the session declines to start', async () => {
+    mockUseSession.mockImplementation(() => ({
+      ...useMockSession(),
+      start: () => undefined,
+    }));
+    const { result } = renderController();
+    await waitFor(() => expect(result.current.refreshStatus).toBe('idle'));
+    act(() => {
+      expect(result.current.start()).toBeUndefined();
+    });
+    expect(result.current.session.state.phase).toBe('selecting');
+    act(() => result.current.retry());
+    await waitFor(() => expect(result.current.refreshStatus).toBe('idle'));
+    expect(mockLoadNetworks).toHaveBeenCalledTimes(2);
+    expect(result.current.canStart).toBe(true);
+  });
+
   it('coalesces trade events during a pending load while retaining usable choices', async () => {
     const first = deferredLoad();
     const second = deferredLoad();
