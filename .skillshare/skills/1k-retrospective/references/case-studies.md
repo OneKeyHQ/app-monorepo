@@ -1015,3 +1015,17 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries â€
 **Root Cause**: `result?.walletId === walletId` is true when both sides are undefined, and the true branch then read `result.status`.
 **Fix**: Require `result` itself before comparing wallet ids.
 **Catchable by**: Section 7: type check. A comparison of two optional ids does not prove the object exists.
+
+## Case: Perks Enter Code hidden when wallet lookup fails
+**Date**: 2026-10-23 | **Platforms**: iOS, Android, extension main, desktop, web
+**Symptom**: When the wallet or first account could not be read yet, the Perks empty state treated the wallet as not applicable and hid Enter Code, with no refresh.
+**Root Cause**: Wallet lookup returned null for both ineligible wallets and transient getWallet/getAccount failures. Bind display status mapped every null to unsupported.
+**Fix**: Return unavailable for a failed or unfinished lookup and unsupported only for wallets that can never take a code. Display status stays unknown when the lookup is unavailable.
+**Catchable by**: Section 4: distinguish not loaded from ineligible; Section 6: lookup failure stays unknown, and an ineligible wallet stays unsupported.
+
+## Case: Priced Earn token dropped when a sibling has no USD
+**Date**: 2026-10-23 | **Platforms**: desktop, web, extension, iOS, Android
+**Symptom**: A server-priced WETH reward counted as $0 in Perks totals when another reward in the same group had no usdValue.
+**Root Cause**: getEarnValue required every item to have usdValue. One gap switched the whole group to title parsing, which only counts stablecoins.
+**Fix**: Price each item with server USD first, then a stablecoin amount or title. Return a dollar amount only when every item has one; otherwise keep the token text and sum the known dollars.
+**Catchable by**: Section 6: priced WETH plus unpriced ARB keeps the WETH dollars in usdPart.

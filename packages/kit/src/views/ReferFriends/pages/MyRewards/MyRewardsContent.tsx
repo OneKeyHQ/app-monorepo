@@ -260,16 +260,21 @@ function readServerUsd(value: string | null | undefined) {
   return amount.isFinite() ? amount : undefined;
 }
 
-// A dollar total only when every item has one. A missing price stays out
-// rather than being treated as zero.
-function sumCompleteServerUsd(
-  items: readonly { usdValue?: string | null }[],
-): BigNumber | undefined {
-  const values = items.map((item) => readServerUsd(item.usdValue));
-  if (!values.every((value): value is BigNumber => value !== undefined)) {
+type IEarnRewardItem =
+  | IEarnSummaryV2['distributed'][number]
+  | IEarnSummaryV2['undistributed'][number];
+
+// Server USD wins. A stable coin without one counts its amount, then its
+// title, at 1:1. Any other token without a server price is left out.
+function readEarnItemUsd(item: IEarnRewardItem): BigNumber | undefined {
+  const serverUsd = readServerUsd(item.usdValue);
+  if (serverUsd !== undefined) {
+    return serverUsd;
+  }
+  if (!isUsdStablecoinSymbol(item.token.symbol)) {
     return undefined;
   }
-  return values.reduce((sum, value) => sum.plus(value), new BigNumber(0));
+  return readServerUsd(item.amount) ?? readUsdAmount(item.title.text);
 }
 
 // Stablecoin quantities are shown as wallet-currency dollars. Any other token
@@ -299,26 +304,14 @@ function getEarnValue(
   if (!items.length) {
     return undefined;
   }
-  // The server prices every token, including WETH, into one USD figure.
-  // Older responses omit it, and those still fall through to the title.
-  const serverUsd = sumCompleteServerUsd(items);
-  if (serverUsd !== undefined) {
-    return serverUsd.gt(0)
-      ? { kind: 'amount', amount: serverUsd.toFixed() }
-      : undefined;
-  }
-  // Only stablecoin titles are USD. "0.5 ETH" must stay in token units, and
-  // other tokens must not be added together.
-  const amounts = items.map((item) =>
-    isUsdStablecoinSymbol(item.token?.symbol)
-      ? readUsdAmount(item.title.text)
-      : undefined,
-  );
-  const usdPart = amounts.reduce<BigNumber>(
-    (sum, amount) => (amount ? sum.plus(amount) : sum),
+  // One dollar figure only when every item has one. Otherwise the first
+  // title stays visible, and usdPart is the dollars already known.
+  const values = items.map((item) => readEarnItemUsd(item));
+  const usdPart = values.reduce(
+    (sum, value) => (value === undefined ? sum : sum.plus(value)),
     new BigNumber(0),
   );
-  if (amounts.every((amount) => amount !== undefined)) {
+  if (values.every((value) => value !== undefined)) {
     return usdPart.gt(0)
       ? { kind: 'amount', amount: usdPart.toFixed() }
       : undefined;

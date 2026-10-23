@@ -5,7 +5,7 @@
 
 import { act, renderHook, waitFor } from '@testing-library/react-native';
 
-type IWalletInfoGetter = (walletId: string | undefined) => Promise<unknown>;
+type IWalletLookup = (walletId: string | undefined) => Promise<unknown>;
 
 const globalMockBag = globalThis as typeof globalThis & {
   __referralBg?: {
@@ -26,14 +26,19 @@ const globalMockBag = globalThis as typeof globalThis & {
     success: jest.Mock;
     error: jest.Mock;
   };
-  __referralWalletInfoMock?: jest.Mock;
+  __referralWalletLookupMock?: jest.Mock;
 };
 
-function getWalletInfoMock(): IWalletInfoGetter {
+function getWalletLookupMock(): IWalletLookup {
   const mockBag = globalThis as typeof globalThis & {
-    __referralWalletInfoMock?: IWalletInfoGetter;
+    __referralWalletLookupMock?: IWalletLookup;
   };
-  return mockBag.__referralWalletInfoMock ?? (async () => null);
+  return (
+    mockBag.__referralWalletLookupMock ??
+    (async () => ({
+      status: 'unavailable',
+    }))
+  );
 }
 
 jest.mock('react-intl', () => ({
@@ -72,7 +77,8 @@ jest.mock('./InviteCodeDialog', () => ({
 }));
 
 jest.mock('./useGetReferralCodeWalletInfo', () => ({
-  useGetReferralCodeWalletInfo: () => getWalletInfoMock(),
+  lookupReferralCodeWallet: (walletId: string | undefined) =>
+    getWalletLookupMock()(walletId),
 }));
 
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => {
@@ -116,9 +122,10 @@ describe('useWalletBoundReferralCode', () => {
     jest.clearAllMocks();
     jest.useRealTimers();
 
-    globalMockBag.__referralWalletInfoMock = jest
-      .fn()
-      .mockResolvedValue(createWalletInfo());
+    globalMockBag.__referralWalletLookupMock = jest.fn().mockResolvedValue({
+      status: 'ready',
+      walletInfo: createWalletInfo(),
+    });
 
     globalMockBag.__referralBg?.serviceReferralCode.getWalletReferralCode.mockResolvedValue(
       null,
@@ -376,5 +383,45 @@ describe('useWalletBoundReferralCode', () => {
       globalMockBag.__referralBg?.serviceReferralCode.setWalletReferralCode,
     ).not.toHaveBeenCalled();
     expect(result.current.shouldBondReferralCode).toBeUndefined();
+  });
+
+  it('keeps bind status unknown when the wallet or account lookup is not ready', async () => {
+    globalMockBag.__referralWalletLookupMock?.mockResolvedValue({
+      status: 'unavailable',
+    });
+
+    const { result } = renderHook(() => useWalletBoundReferralCode());
+
+    let displayStatus = 'unsupported';
+    await act(async () => {
+      displayStatus = await result.current.getReferralCodeBindDisplayStatus({
+        walletId: 'hd-1',
+      });
+    });
+
+    expect(displayStatus).toBe('unknown');
+    expect(
+      globalMockBag.__referralBg?.serviceReferralCode.checkWalletBindStatus,
+    ).not.toHaveBeenCalled();
+  });
+
+  it('reports a wallet that can never take a code as unsupported', async () => {
+    globalMockBag.__referralWalletLookupMock?.mockResolvedValue({
+      status: 'unsupported',
+    });
+
+    const { result } = renderHook(() => useWalletBoundReferralCode());
+
+    let displayStatus = 'unknown';
+    await act(async () => {
+      displayStatus = await result.current.getReferralCodeBindDisplayStatus({
+        walletId: 'imported',
+      });
+    });
+
+    expect(displayStatus).toBe('unsupported');
+    expect(
+      globalMockBag.__referralBg?.serviceReferralCode.checkWalletBindStatus,
+    ).not.toHaveBeenCalled();
   });
 });

@@ -12,94 +12,94 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 import type { IReferralCodeWalletInfo } from './types';
 
-export function useGetReferralCodeWalletInfo() {
-  return useCallback(
-    async (
-      queryWalletId: string | undefined,
-    ): Promise<IReferralCodeWalletInfo | null> => {
-      if (!queryWalletId) {
-        return null;
-      }
+// ready: the wallet can be checked with the server.
+// unsupported: this wallet can never take a referral code.
+// unavailable: the wallet or its first account could not be read yet.
+export type IReferralCodeWalletLookup =
+  | { status: 'ready'; walletInfo: IReferralCodeWalletInfo }
+  | { status: 'unsupported' }
+  | { status: 'unavailable' };
 
-      const walletId = queryWalletId;
-      let wallet: IDBWallet | undefined;
-
-      if (
-        !accountUtils.isHdWallet({ walletId }) &&
-        !accountUtils.isHwWallet({ walletId })
-      ) {
-        return null;
-      }
-
-      try {
-        wallet = await backgroundApiProxy.serviceAccount.getWallet({
-          walletId,
-        });
-        // Hidden wallets and third-party hardware (Ledger, Trezor, Keystone)
-        // cannot take a code, matching the bind dialog. A missing vendor
-        // stays OneKey.
-        if (
-          accountUtils.isHwHiddenWallet({ wallet }) ||
-          getVendorProfile(wallet.associatedDeviceInfo?.vendor).isThirdParty
-        ) {
-          return null;
-        }
-      } catch {
-        return null;
-      }
-
-      const isBtcOnlyWallet =
-        await backgroundApiProxy.serviceHardware.isBtcOnlyWallet({ walletId });
-
-      if (isBtcOnlyWallet) {
-        const firstBtcTaprootAccountId = `${walletId}--${FIRST_BTC_TAPROOT_ADDRESS_PATH}`;
-        try {
-          const networkId = getNetworkIdsMap().btc;
-          const account = await backgroundApiProxy.serviceAccount.getAccount({
-            accountId: firstBtcTaprootAccountId,
-            networkId,
-          });
-          if (!account) {
-            return null;
-          }
-          return {
-            wallet,
-            walletId,
-            networkId,
-            accountId: firstBtcTaprootAccountId,
-            address: account.address,
-            pubkey: account.pub,
-            isBtcOnlyWallet,
-          };
-        } catch {
-          return null;
-        }
-      }
-
-      // get first evm account, if btc only firmware, get first btc taproot account
-      const firstEvmAccountId = `${walletId}--${FIRST_EVM_ADDRESS_PATH}`;
-      try {
-        const networkId = getNetworkIdsMap().eth;
-        const account = await backgroundApiProxy.serviceAccount.getAccount({
-          accountId: firstEvmAccountId,
-          networkId,
-        });
-        if (!account) {
-          return null;
-        }
-        return {
-          wallet,
-          walletId,
-          networkId,
-          accountId: firstEvmAccountId,
-          address: account.address,
-          pubkey: account.pub,
-          isBtcOnlyWallet,
-        };
-      } catch {
-        return null;
-      }
-    },
-    [],
+function isReferralWalletId(walletId: string) {
+  return (
+    accountUtils.isHdWallet({ walletId }) ||
+    accountUtils.isHwWallet({ walletId })
   );
+}
+
+// Hidden wallets and third-party hardware (Ledger, Trezor, Keystone)
+// cannot take a code, matching the bind dialog. A missing vendor
+// stays OneKey.
+function cannotTakeReferralCode(wallet: IDBWallet) {
+  return (
+    accountUtils.isHwHiddenWallet({ wallet }) ||
+    getVendorProfile(wallet.associatedDeviceInfo?.vendor).isThirdParty
+  );
+}
+
+async function readReadyReferralWallet(
+  walletId: string,
+): Promise<IReferralCodeWalletLookup> {
+  const wallet = await backgroundApiProxy.serviceAccount.getWallet({
+    walletId,
+  });
+  if (cannotTakeReferralCode(wallet)) {
+    return { status: 'unsupported' };
+  }
+
+  const isBtcOnlyWallet =
+    await backgroundApiProxy.serviceHardware.isBtcOnlyWallet({ walletId });
+  const networkId = isBtcOnlyWallet
+    ? getNetworkIdsMap().btc
+    : getNetworkIdsMap().eth;
+  const accountPath = isBtcOnlyWallet
+    ? FIRST_BTC_TAPROOT_ADDRESS_PATH
+    : FIRST_EVM_ADDRESS_PATH;
+  const accountId = `${walletId}--${accountPath}`;
+  const account = await backgroundApiProxy.serviceAccount.getAccount({
+    accountId,
+    networkId,
+  });
+  if (!account) {
+    return { status: 'unavailable' };
+  }
+  return {
+    status: 'ready',
+    walletInfo: {
+      wallet,
+      walletId,
+      networkId,
+      accountId,
+      address: account.address,
+      pubkey: account.pub,
+      isBtcOnlyWallet,
+    },
+  };
+}
+
+// Callers that only need an address keep receiving null for both
+// unsupported wallets and lookups that are not ready yet.
+export async function lookupReferralCodeWallet(
+  queryWalletId: string | undefined,
+): Promise<IReferralCodeWalletLookup> {
+  if (!queryWalletId) {
+    return { status: 'unavailable' };
+  }
+  // QR, watch-only, imported and external wallets can never take a code.
+  if (!isReferralWalletId(queryWalletId)) {
+    return { status: 'unsupported' };
+  }
+
+  try {
+    return await readReadyReferralWallet(queryWalletId);
+  } catch {
+    return { status: 'unavailable' };
+  }
+}
+
+export function useGetReferralCodeWalletInfo() {
+  return useCallback(async (queryWalletId: string | undefined) => {
+    const lookup = await lookupReferralCodeWallet(queryWalletId);
+    return lookup.status === 'ready' ? lookup.walletInfo : null;
+  }, []);
 }
