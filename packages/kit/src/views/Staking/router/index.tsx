@@ -17,6 +17,9 @@ const InvestmentDetails = LazyLoad(
 const ManagePosition = LazyLoad(
   () => import('@onekeyhq/kit/src/views/Staking/pages/ManagePosition'),
 );
+// Loaded as a home row is pointed at (or the holdings show on a narrow
+// screen), so the deposit modal's first open doesn't suspend
+export const preloadManagePosition = () => ManagePosition.preload();
 
 const ProtocolDetails = LazyLoad(
   () => import('@onekeyhq/kit/src/views/Staking/pages/ProtocolDetails'),

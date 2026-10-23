@@ -175,6 +175,7 @@ export function useManagePositionState(props: IManagePositionProps): {
       // UI configuration
       showApyDetail: props.showApyDetail ?? false,
       beforeFooter: props.beforeFooter,
+      isEarnForm: Boolean(props.isEarnForm) && props.action === 'supply',
     }),
     [
       props.accountId,
@@ -197,6 +198,7 @@ export function useManagePositionState(props: IManagePositionProps): {
       props.selectableAssetsLoading,
       props.showApyDetail,
       props.beforeFooter,
+      props.isEarnForm,
       price,
       token,
       network?.logoURI,

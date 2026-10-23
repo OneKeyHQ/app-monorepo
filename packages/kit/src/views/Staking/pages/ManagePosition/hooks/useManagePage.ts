@@ -4,6 +4,12 @@ import BigNumber from 'bignumber.js';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import {
+  buildManagePageFirstFrameKey,
+  keepFirstFrame,
+  readFirstFrame,
+  warmFirstFrame,
+} from '@onekeyhq/kit/src/views/Earn/pages/EarnRouter/earnFirstFrameCache';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { ISupportedSymbol } from '@onekeyhq/shared/types/earn';
@@ -23,6 +29,119 @@ import {
 } from './useManagePage.utils';
 
 export { EManagePositionType };
+
+type IManagePageParams = {
+  accountId: string;
+  indexedAccountId: string | undefined;
+  networkId: string;
+  symbol: ISupportedSymbol;
+  provider: string;
+  vault: string | undefined;
+  type?: EManagePositionType;
+  reserveAddress?: string;
+  marketAddress?: string;
+};
+
+export async function loadManagePageData({
+  accountId,
+  networkId,
+  indexedAccountId,
+  symbol,
+  provider,
+  vault,
+  type = EManagePositionType.Staking,
+  reserveAddress,
+  marketAddress,
+  requestKey,
+}: IManagePageParams & { requestKey: string }) {
+  try {
+    const isBorrowType = [
+      EManagePositionType.Supply,
+      EManagePositionType.Borrow,
+      EManagePositionType.Withdraw,
+      EManagePositionType.Repay,
+    ].includes(type);
+
+    const earnAccount = await backgroundApiProxy.serviceStaking.getEarnAccount({
+      accountId,
+      networkId,
+      indexedAccountId,
+      btcOnlyTaproot: true,
+    });
+
+    if (!earnAccount || !earnAccount.accountAddress) {
+      return undefined;
+    }
+
+    if (isBorrowType) {
+      const managePageData =
+        await backgroundApiProxy.serviceStaking.getBorrowManagePage({
+          accountId,
+          networkId,
+          provider,
+          marketAddress: marketAddress || '',
+          reserveAddress: reserveAddress || '',
+          type: type as 'supply' | 'withdraw' | 'borrow' | 'repay',
+        });
+
+      return {
+        managePageData,
+        protocolList: undefined,
+        earnAccount,
+        requestKey,
+      };
+    }
+
+    const [managePageData, protocolList] = await Promise.all([
+      backgroundApiProxy.serviceStaking.getManagePage({
+        accountId,
+        networkId,
+        symbol,
+        provider,
+        vault,
+        accountAddress: earnAccount.accountAddress,
+        publicKey: networkUtils.isBTCNetwork(networkId)
+          ? earnAccount.account.pub
+          : undefined,
+      }),
+      backgroundApiProxy.serviceStaking.getProtocolList({
+        symbol,
+        accountId,
+        networkId,
+        filterNetworkId: networkId,
+        includeWithdrawOnly: true,
+      }),
+    ]);
+
+    return { managePageData, protocolList, earnAccount, requestKey };
+  } catch {
+    // Settle the result with the CURRENT requestKey on failure. Otherwise a
+    // rejected switch would keep the previous protocol's requestKey around,
+    // leaving isStaleData (and the switch-loading confirm button) stuck
+    // forever with no retry path — this modal doesn't revalidate on focus.
+    // Falling back to an empty result matches the pre-remount failure
+    // behavior (empty form); the user can switch protocols again to retry.
+    return {
+      managePageData: undefined,
+      protocolList: undefined,
+      earnAccount: undefined,
+      requestKey,
+    };
+  }
+}
+
+type IManagePageData = Awaited<ReturnType<typeof loadManagePageData>>;
+
+// The data for a form about to open (a home row pointed at), kept for its
+// first frame
+export function warmManagePageData(params: IManagePageParams) {
+  const type = params.type ?? EManagePositionType.Staking;
+  const requestKey = buildManagePageRequestKey({ ...params, type });
+  return warmFirstFrame(buildManagePageFirstFrameKey(requestKey), async () => {
+    const data = await loadManagePageData({ ...params, type, requestKey });
+    return data?.managePageData ? data : undefined;
+  });
+}
 
 export const useManagePage = ({
   accountId,
@@ -67,87 +186,31 @@ export const useManagePage = ({
     marketAddress,
   });
 
+  // Opened before (or warmed from a home row), it starts on the kept data
+  // and this request replaces it in place
+  const firstFrameKey = buildManagePageFirstFrameKey(requestKey);
   const {
     result,
     isLoading = true,
     run,
   } = usePromiseResult(
     async () => {
-      try {
-        const isBorrowType = [
-          EManagePositionType.Supply,
-          EManagePositionType.Borrow,
-          EManagePositionType.Withdraw,
-          EManagePositionType.Repay,
-        ].includes(type);
-
-        const earnAccount =
-          await backgroundApiProxy.serviceStaking.getEarnAccount({
-            accountId,
-            networkId,
-            indexedAccountId,
-            btcOnlyTaproot: true,
-          });
-
-        if (!earnAccount || !earnAccount.accountAddress) {
-          return undefined;
-        }
-
-        if (isBorrowType) {
-          const managePageData =
-            await backgroundApiProxy.serviceStaking.getBorrowManagePage({
-              accountId,
-              networkId,
-              provider,
-              marketAddress: marketAddress || '',
-              reserveAddress: reserveAddress || '',
-              type: type as 'supply' | 'withdraw' | 'borrow' | 'repay',
-            });
-
-          return {
-            managePageData,
-            protocolList: undefined,
-            earnAccount,
-            requestKey,
-          };
-        }
-
-        const [managePageData, protocolList] = await Promise.all([
-          backgroundApiProxy.serviceStaking.getManagePage({
-            accountId,
-            networkId,
-            symbol,
-            provider,
-            vault,
-            accountAddress: earnAccount.accountAddress,
-            publicKey: networkUtils.isBTCNetwork(networkId)
-              ? earnAccount.account.pub
-              : undefined,
-          }),
-          backgroundApiProxy.serviceStaking.getProtocolList({
-            symbol,
-            accountId,
-            networkId,
-            filterNetworkId: networkId,
-            includeWithdrawOnly: true,
-          }),
-        ]);
-
-        return { managePageData, protocolList, earnAccount, requestKey };
-      } catch {
-        // Settle the result with the CURRENT requestKey on failure. Otherwise a
-        // rejected switch would keep the previous protocol's requestKey around,
-        // leaving isStaleData (and the switch-loading confirm button) stuck
-        // forever with no retry path — this modal doesn't revalidate on focus.
-        // Falling back to an empty result matches the pre-remount failure
-        // behavior (empty form); the user can switch protocols again to retry.
-        return {
-          managePageData: undefined,
-          protocolList: undefined,
-          earnAccount: undefined,
-          requestKey,
-        };
+      const data = await loadManagePageData({
+        accountId,
+        networkId,
+        indexedAccountId,
+        symbol,
+        provider,
+        vault,
+        type,
+        reserveAddress,
+        marketAddress,
+        requestKey,
+      });
+      if (data?.managePageData) {
+        keepFirstFrame(firstFrameKey, data);
       }
+      return data;
     },
     [
       networkId,
@@ -160,8 +223,14 @@ export const useManagePage = ({
       reserveAddress,
       marketAddress,
       requestKey,
+      firstFrameKey,
     ],
-    { watchLoading: true, revalidateOnFocus, undefinedResultIfReRun },
+    {
+      watchLoading: true,
+      revalidateOnFocus,
+      undefinedResultIfReRun,
+      initResult: readFirstFrame<IManagePageData>(firstFrameKey),
+    },
   );
 
   const { managePageData, protocolList, earnAccount } = result || {};

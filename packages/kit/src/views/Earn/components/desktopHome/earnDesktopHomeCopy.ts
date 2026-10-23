@@ -16,10 +16,16 @@ export const EARN_DESKTOP_DEMO_COPY = {
   // as the vaults' "Approve and Deposit" is
   approveAnd: (action: string) => `Approve and ${action}`,
   estAnnualRewards: 'Est. annual rewards',
+  // Pendle's result before its first quote, in the server's own words for
+  // it once the quote is in
+  atMaturityYouGet: 'At Maturity You Get',
   // After a withdrawal: the same token's better rate on the same network,
   // against the rate the withdrawal left
   earnMoreOn: (symbol: string) => `Earn more on ${symbol}`,
   paysRate: (protocol: string, rate: string) => `${protocol} pays ${rate}`,
+  // Under "Transaction submitted" once a deposit or withdrawal is out
+  depositedTo: (amount: string, target: string) => `${amount} to ${target}`,
+  withdrewFrom: (amount: string, target: string) => `${amount} from ${target}`,
   // The hero without positions: the wallet's tokens that can earn here
   readyToEarn: 'Ready to earn',
   readyToEarnInfo:

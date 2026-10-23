@@ -2,7 +2,14 @@ import { useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Icon, SizableText, XStack } from '@onekeyhq/components';
+import {
+  Icon,
+  SizableText,
+  Spinner,
+  Stack,
+  XStack,
+} from '@onekeyhq/components';
+import { ANIMATE_ONLY_OPACITY } from '@onekeyhq/components/src/utils/animationConstants';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EApproveType } from '@onekeyhq/shared/types/staking';
 
@@ -20,6 +27,35 @@ interface IStakeProgressProps {
   step2LabelId?: ETranslations;
   /** Optional step 3 label — when provided, renders a 3-step indicator */
   step3LabelId?: ETranslations;
+  /** A step is under way: the current one spins until it is done */
+  isRunning?: boolean;
+}
+
+const CHECK_ENTER = { opacity: 0 } as const;
+
+// After a step's label: a check once done, a spinner while it runs
+function StepStatus({ done, running }: { done: boolean; running: boolean }) {
+  if (done) {
+    return (
+      <Stack
+        // Keyed apart from the spinner's stack, which uses other hooks
+        key="done"
+        transition="quick"
+        animateOnly={ANIMATE_ONLY_OPACITY}
+        enterStyle={CHECK_ENTER}
+      >
+        <Icon name="CheckRadioOutline" size="$4" color="$iconSuccess" />
+      </Stack>
+    );
+  }
+  if (running) {
+    return (
+      <Stack key="running" w="$4" h="$4" ai="center" jc="center">
+        <Spinner size="small" color="$iconSubdued" scale={0.8} />
+      </Stack>
+    );
+  }
+  return null;
 }
 
 export enum EStakeProgressStep {
@@ -36,6 +72,7 @@ export function StakeProgress({
   step2Label,
   step2LabelId,
   step3LabelId,
+  isRunning = false,
 }: IStakeProgressProps) {
   const intl = useIntl();
   const isStep1Done = currentStep >= EStakeProgressStep.deposit;
@@ -83,9 +120,7 @@ export function StakeProgress({
         >
           1. {resolvedStep1Label}
         </SizableText>
-        {isStep1Done ? (
-          <Icon name="CheckRadioOutline" size="$4" color="$iconSuccess" />
-        ) : null}
+        <StepStatus done={isStep1Done} running={isRunning} />
       </XStack>
       <Icon
         name="ArrowRightOutline"
@@ -96,9 +131,7 @@ export function StakeProgress({
         <SizableText size="$bodyMdMedium" color={step2Color}>
           2. {resolvedStep2Label}
         </SizableText>
-        {isStep2Done ? (
-          <Icon name="CheckRadioOutline" size="$4" color="$iconSuccess" />
-        ) : null}
+        <StepStatus done={isStep2Done} running={isRunning && isStep1Done} />
       </XStack>
       {hasStep3 ? (
         <>
@@ -107,12 +140,15 @@ export function StakeProgress({
             size="$4"
             color={isStep2Done ? '$icon' : '$iconSubdued'}
           />
-          <SizableText
-            size="$bodyMdMedium"
-            color={isStep2Done ? undefined : '$textDisabled'}
-          >
-            3. {intl.formatMessage({ id: step3LabelId })}
-          </SizableText>
+          <XStack ai="center" gap="$1.5">
+            <SizableText
+              size="$bodyMdMedium"
+              color={isStep2Done ? undefined : '$textDisabled'}
+            >
+              3. {intl.formatMessage({ id: step3LabelId })}
+            </SizableText>
+            <StepStatus done={false} running={isRunning && isStep2Done} />
+          </XStack>
         </>
       ) : null}
     </XStack>

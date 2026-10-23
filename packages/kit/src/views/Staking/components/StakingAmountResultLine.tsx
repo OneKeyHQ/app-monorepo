@@ -7,11 +7,14 @@ export function StakingAmountResultLine({
   label,
   value,
   loading,
+  isPlaceholder,
   testID,
 }: {
   label: string;
   value: string;
   loading?: boolean;
+  // Nothing typed or quoted yet: grey, as the box's own "0" is
+  isPlaceholder?: boolean;
   testID?: string;
 }) {
   return (
@@ -24,6 +27,7 @@ export function StakingAmountResultLine({
       ) : (
         <SizableText
           size="$bodyMdMedium"
+          color={isPlaceholder ? '$textDisabled' : undefined}
           textAlign="right"
           numberOfLines={1}
           flexShrink={1}

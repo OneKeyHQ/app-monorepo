@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -19,6 +19,12 @@ import {
 } from '../../components/desktopHome/earnDesktopHome.utils';
 import { useEarnDesktopMarkets } from '../../components/desktopHome/useEarnDesktopHomeData';
 import { EarnAprSuffixText } from '../../components/EarnAprSuffixText';
+
+import {
+  buildOffersFirstFrameKey,
+  keepFirstFrame,
+  readFirstFrame,
+} from './earnFirstFrameCache';
 
 import type { IEarnDesktopHoldOffer } from '../../components/desktopHome/earnDesktopHome.utils';
 
@@ -50,7 +56,17 @@ export function useEarnRouterOffers({
   const { markets, isLoaded: isMarketsLoaded } = useEarnDesktopMarkets({
     isActive: enabled,
   });
-  const offers = useMemo(() => {
+  // The offers the home row counted (or the last read), until these are in
+  const firstFrameKey = buildOffersFirstFrameKey({
+    accountId,
+    networkId,
+    symbol,
+  });
+  const isFetched = Boolean(protocols) && isMarketsLoaded;
+  const keptOffers = isFetched
+    ? undefined
+    : readFirstFrame<IEarnDesktopHoldOffer[]>(firstFrameKey);
+  const fetchedOffers = useMemo(() => {
     if (!protocols) {
       return EMPTY_OFFERS;
     }
@@ -61,7 +77,16 @@ export function useEarnRouterOffers({
         collectLendingOffers({ markets }).get(symbol.toLowerCase()) ?? [],
     });
   }, [markets, networkId, protocols, symbol]);
-  return { offers, isLoaded: Boolean(protocols) && isMarketsLoaded };
+  useEffect(() => {
+    if (enabled && isFetched && fetchedOffers.length) {
+      keepFirstFrame(firstFrameKey, fetchedOffers);
+    }
+  }, [enabled, fetchedOffers, firstFrameKey, isFetched]);
+  const hasKeptOffers = enabled && Boolean(keptOffers?.length);
+  return {
+    offers: hasKeptOffers && keptOffers ? keptOffers : fetchedOffers,
+    isLoaded: isFetched || hasKeptOffers,
+  };
 }
 
 export const getOfferName = (offer: IEarnDesktopHoldOffer) =>
@@ -82,6 +107,23 @@ export const getOfferSubtitle = (offer: IEarnDesktopHoldOffer) => {
   return offer.isFixedRate
     ? offer.item.provider.maturity
     : offer.item.provider.vaultName;
+};
+
+// Where a deposit goes, in a line: the protocol, then its vault where it has
+// one ("Morpho Pangolins USDC"). A vault already named after its protocol
+// ("Bitway Absolute Return") stands alone
+export const getOfferTarget = (offer: IEarnDesktopHoldOffer) => {
+  const name = getOfferName(offer);
+  const vaultName =
+    offer.kind === 'lending' || offer.isFixedRate
+      ? undefined
+      : offer.item.provider.vaultName?.trim();
+  if (!vaultName) {
+    return name;
+  }
+  return vaultName.toLowerCase().startsWith(name.toLowerCase())
+    ? vaultName
+    : `${name} ${vaultName}`;
 };
 
 export const getOfferTvl = (offer: IEarnDesktopHoldOffer) =>

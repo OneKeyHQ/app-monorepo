@@ -117,6 +117,8 @@ import {
   hasProtocolIntroContent,
 } from './components/ProtocolIntroSection';
 import { ProtocolTipsSection } from './components/ProtocolTipsSection';
+import { StickyFormColumn } from './components/StickyFormColumn';
+import { WarmDepositPage } from './components/WarmDepositPage';
 import { YieldBreakdownSheet } from './components/YieldBreakdownSheet';
 import { useDetailHoldingPosition } from './hooks/useDetailHoldingPosition';
 import { useProtocolDetailBreadcrumb } from './hooks/useProtocolDetailBreadcrumb';
@@ -1837,7 +1839,7 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
           />
         </Stack>
         {gtMd ? (
-          <Stack width={gtMd ? '35%' : undefined}>
+          <StickyFormColumn>
             <ManagePositionPart
               networkId={networkId}
               symbol={symbol}
@@ -1850,7 +1852,15 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
               onCreateAddress={onCreateAddress}
               onStakeWithdrawSuccess={handleActionSuccess}
             />
-          </Stack>
+          </StickyFormColumn>
+        ) : null}
+        {!gtMd && detailInfo && protocolInfo?.earnAccount?.accountAddress ? (
+          <WarmDepositPage
+            networkId={networkId}
+            symbol={symbol}
+            providerName={provider}
+            vault={detailInfo.protocol?.vault ?? vault}
+          />
         ) : null}
       </XStack>
     </EarnPageContainer>

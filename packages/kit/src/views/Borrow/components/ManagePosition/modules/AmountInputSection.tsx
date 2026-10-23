@@ -1,8 +1,15 @@
 import { useMemo } from 'react';
 
+import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
-import { Alert, Stack, YStack } from '@onekeyhq/components';
+import {
+  Alert,
+  HeightTransition,
+  SizableText,
+  Stack,
+  YStack,
+} from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useBrowserAction } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
 import { EarnText } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/EarnText';
@@ -40,6 +47,9 @@ export function AmountInputSection({
     currentValue,
     currencySymbol,
     tokenSelectorTriggerProps,
+    isEarnForm,
+    amountBoxBottom,
+    amountBoxTestID,
   } = state;
 
   const { checkAmountMessage, checkAmountAlerts, isCheckAmountMessageError } =
@@ -103,14 +113,27 @@ export function AmountInputSection({
     [balance, maxBalance, action, balanceIconText, amountInputDisabled, onMax],
   );
 
-  // Value props
+  // Value props. The Earn forms show "$0.00" before an amount, as Swap does
   const valueProps = useMemo(
     () => ({
       value: currentValue,
-      currency: currentValue ? currencySymbol : undefined,
+      currency: currentValue || isEarnForm ? currencySymbol : undefined,
     }),
-    [currentValue, currencySymbol],
+    [currentValue, currencySymbol, isEarnForm],
   );
+
+  // The Earn forms say what is wrong with the amount in one red line under
+  // the box: the server's check, else more than the balance
+  let amountErrorText: string | undefined;
+  if (isEarnForm && new BigNumber(amountValue).gt(0)) {
+    if (isCheckAmountMessageError) {
+      amountErrorText = checkAmountMessage;
+    } else if (isInsufficientBalance) {
+      amountErrorText = intl.formatMessage({
+        id: ETranslations.earn_insufficient_balance,
+      });
+    }
+  }
 
   // Max amount text
   const maxAmountText = useMemo(
@@ -118,34 +141,59 @@ export function AmountInputSection({
     [intl],
   );
 
+  const amountBox = (
+    <Stack position="relative" opacity={amountInputDisabled ? 0.7 : 1}>
+      <StakingAmountInput
+        title={actionLabel}
+        disabled={amountInputDisabled}
+        hasError={hasError}
+        value={amountValue}
+        onChange={onChangeAmountValue}
+        onBlur={onBlurAmountValue}
+        tokenSelectorTriggerProps={tokenSelectorTriggerProps}
+        inputProps={inputProps}
+        balanceProps={balanceProps}
+        valueProps={valueProps}
+        enableMaxAmount
+        maxAmountText={maxAmountText}
+        onSelectPercentageStage={onSelectPercentageStage}
+        bottomContent={amountBoxBottom}
+        boxTestID={amountBoxTestID}
+      />
+      {showOverlayMask ? (
+        <Stack position="absolute" w="100%" h="100%" zIndex={1} />
+      ) : null}
+    </Stack>
+  );
+
   return (
     // With a card under the box, the section spaces as the deposit forms do
     <YStack gap={afterInput ? '$4' : '$3'}>
-      {/* Amount Input */}
-      <Stack position="relative" opacity={amountInputDisabled ? 0.7 : 1}>
-        <StakingAmountInput
-          title={actionLabel}
-          disabled={amountInputDisabled}
-          hasError={hasError}
-          value={amountValue}
-          onChange={onChangeAmountValue}
-          onBlur={onBlurAmountValue}
-          tokenSelectorTriggerProps={tokenSelectorTriggerProps}
-          inputProps={inputProps}
-          balanceProps={balanceProps}
-          valueProps={valueProps}
-          enableMaxAmount
-          maxAmountText={maxAmountText}
-          onSelectPercentageStage={onSelectPercentageStage}
-        />
-        {showOverlayMask ? (
-          <Stack position="absolute" w="100%" h="100%" zIndex={1} />
-        ) : null}
-      </Stack>
+      {isEarnForm ? (
+        // The line brings its own space, so no line leaves no gap
+        <YStack>
+          {amountBox}
+          <HeightTransition duration={200}>
+            {amountErrorText ? (
+              <YStack pt="$2" px="$3.5">
+                <SizableText
+                  testID="earn-amount-error"
+                  size="$bodyMd"
+                  color="$textCritical"
+                >
+                  {amountErrorText}
+                </SizableText>
+              </YStack>
+            ) : null}
+          </HeightTransition>
+        </YStack>
+      ) : (
+        amountBox
+      )}
       {afterInput}
 
       {/* Error Alert */}
-      {isCheckAmountMessageError ? (
+      {isCheckAmountMessageError && !isEarnForm ? (
         <Alert
           icon="InfoCircleOutline"
           type="critical"

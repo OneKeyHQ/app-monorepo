@@ -23,6 +23,7 @@ import type {
 } from '@onekeyhq/components';
 import { getSharedInputStyles } from '@onekeyhq/components/src/forms/Input/sharedStyles';
 import type { IFormFieldProps } from '@onekeyhq/components/src/forms/types';
+import { ANIMATE_ONLY_TRANSFORM } from '@onekeyhq/components/src/utils/animationConstants';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { NUMBER_FORMATTER } from '@onekeyhq/shared/src/utils/numberUtils';
@@ -94,6 +95,9 @@ export type IAmountInputFormItemProps = IFormFieldProps<
       loading?: boolean;
       disabled?: boolean;
       popover?: ITokenSelectorPopoverProps;
+      // Set when the trigger unfolds its list in place (Earn's Pay with): the
+      // chevron turns with the list
+      isExpanded?: boolean;
     } & IXStackProps;
     reversible?: boolean;
   } & Omit<IStackProps, 'onChange'>
@@ -231,6 +235,7 @@ export function AmountInput({
       loading,
       disabled,
       onPress,
+      isExpanded,
       ...triggerStackProps
     } = tokenSelectorTriggerProps ?? {};
 
@@ -262,6 +267,7 @@ export function AmountInput({
         {...triggerStackProps}
         {...(hasOnPress && {
           role: 'button',
+          'aria-expanded': isExpanded,
           hoverStyle: {
             bg: '$bgHover',
           },
@@ -345,13 +351,19 @@ export function AmountInput({
             intl.formatMessage({ id: ETranslations.token_selector_title })}
         </SizableText>
         {hasOnPress && !disabled ? (
-          <Icon
+          <Stack
             flexShrink={0}
-            name="ChevronDownSmallOutline"
-            size="$5"
             mr="$-1"
-            color="$iconSubdued"
-          />
+            transition="fast"
+            animateOnly={ANIMATE_ONLY_TRANSFORM}
+            rotate={isExpanded ? '180deg' : '0deg'}
+          >
+            <Icon
+              name="ChevronDownSmallOutline"
+              size="$5"
+              color="$iconSubdued"
+            />
+          </Stack>
         ) : null}
       </XStack>
     );

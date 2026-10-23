@@ -10,21 +10,18 @@ import {
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
-import { StyleSheet } from 'react-native';
 
 import {
   Alert,
-  Divider,
-  HeightTransition,
   Page,
   SizableText,
   Stack,
   Toast,
-  XStack,
   YStack,
   useDeepCompareEffect,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import type { IAmountInputFormItemProps } from '@onekeyhq/kit/src/components/AmountInput';
 import { PercentageStageOnKeyboard } from '@onekeyhq/kit/src/components/PercentageStageOnKeyboard';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
@@ -50,7 +47,7 @@ import type {
 import type { IFetchQuoteResult } from '@onekeyhq/shared/types/swap/types';
 import type { ISendTxOnSuccessData } from '@onekeyhq/shared/types/tx';
 
-import { BorrowInfoCard } from '../../../Borrow/components/ManagePosition/modules/InfoDisplaySection';
+import { EarnLendingSummary } from '../../../Borrow/components/ManagePosition/modules/InfoDisplaySection/EarnLendingSummary';
 import {
   EStakeProgressStep,
   StakeProgress,
@@ -62,12 +59,11 @@ import {
 import { StakingAmountResultLine } from '../../../Staking/components/StakingAmountResultLine';
 import StakingFormWrapper from '../../../Staking/components/StakingFormWrapper';
 import {
-  StakingApyHeader,
-  StakingDetailsAccordion,
-  StakingReceiveRow,
-  StakingRewardsSummary,
-  hasStakingRewardsSummary,
-} from '../../../Staking/components/UniversalStake/StakingConfirmationSummary';
+  EarnFormSummary,
+  buildRewardNoteRows,
+  buildRewardsOutcome,
+} from '../../../Staking/components/UniversalStake/EarnFormSummary';
+import { StakingReceiveRow } from '../../../Staking/components/UniversalStake/StakingConfirmationSummary';
 import { completeBroadcastedSwapSuccess } from '../../../Swap/hooks/swapBroadcastSuccess';
 import { generateSwapHistoryItemForContext } from '../../../Swap/hooks/useSwapTxHistory';
 import { EARN_DESKTOP_DEMO_COPY } from '../../components/desktopHome/earnDesktopHomeCopy';
@@ -98,6 +94,7 @@ import type {
   IEarnSwapPrepared,
   IEarnSwapReason,
 } from './earnRouterSwap';
+import type { IEarnOutcome } from '../../../Staking/components/UniversalStake/EarnFormSummary';
 import type { IManagePositionFooterAction } from '../../../Staking/pages/ManagePosition/components/ManagePositionContent';
 
 // The deposit estimate keeps at most this many decimals, rounded down
@@ -135,15 +132,17 @@ export type IEarnRouterSummaryRequest =
 
 type IDepositSummary = {
   staking?: IStakeTransactionConfirmation;
+  // The amount the staking summary answers for ("0" for none)
+  stakingAmount?: string;
   lending?: IBorrowTransactionConfirmation;
   lendingLoading: boolean;
 };
 
 const NO_SUMMARY: IDepositSummary = { lendingLoading: false };
 
-// The provider form's card for what reaches the provider, asked the way that
-// form asks: a staking summary once there is an amount, kept while the next
-// one loads; a lending card for any amount, its skeleton while each loads
+// The provider form's rows for what reaches the provider, asked the way that
+// form asks: for an empty amount too, so the rows hold their places, and the
+// last answer kept while the next one loads
 function useDepositSummary({
   networkId,
   request,
@@ -162,12 +161,9 @@ function useDepositSummary({
       return;
     }
     const hasAmount = new BigNumber(amount).gt(0);
-    if (request.kind === 'staking' && !hasAmount) {
-      setSummary(NO_SUMMARY);
-      return;
-    }
+    const requestAmount = hasAmount ? amount : '0';
     if (request.kind === 'lending') {
-      setSummary({ lendingLoading: true });
+      setSummary((prev) => ({ ...prev, lendingLoading: true }));
     }
     let isCurrent = true;
     const timer = setTimeout(() => {
@@ -183,7 +179,7 @@ function useDepositSummary({
                   reserveAddress: request.reserveAddress,
                   accountId: request.accountId,
                   action: 'supply',
-                  amount: hasAmount ? amount : '0',
+                  amount: requestAmount,
                 },
               );
             if (isCurrent) {
@@ -199,18 +195,25 @@ function useDepositSummary({
               vault: request.vault,
               accountAddress: request.accountAddress,
               action: ECheckAmountActionType.STAKING,
-              amount,
+              amount: requestAmount,
               inputTokenAddress: request.inputTokenAddress,
               outputTokenAddress: request.outputTokenAddress,
             });
           if (isCurrent) {
-            setSummary({ staking, lendingLoading: false });
+            setSummary({
+              staking,
+              stakingAmount: requestAmount,
+              lendingLoading: false,
+            });
           }
         } catch {
-          // A staking form keeps its last summary; a lending form drops its
-          // card
-          if (isCurrent && request.kind === 'lending') {
-            setSummary(NO_SUMMARY);
+          // The last rows stay
+          if (isCurrent) {
+            setSummary((prev) => ({
+              ...prev,
+              stakingAmount: requestAmount,
+              lendingLoading: false,
+            }));
           }
         }
       })();
@@ -274,6 +277,7 @@ export function EarnRouterSwapDepositForm({
   payToken,
   depositToken,
   onOpenPayWith,
+  onOpenPayWithFromKeyboard,
   onSwapped,
   beforeSwap,
   footerActionOverride,
@@ -283,7 +287,9 @@ export function EarnRouterSwapDepositForm({
   initialAmount,
   onAmountChange,
   summaryRequest,
-  showApyDetail,
+  payWithTrigger,
+  amountBoxBottom,
+  amountBoxTestID,
 }: {
   accountId: string;
   networkId: string;
@@ -299,6 +305,8 @@ export function EarnRouterSwapDepositForm({
   payToken: IEarnRouterPayToken;
   depositToken: IEarnRouterSwapDepositToken;
   onOpenPayWith: () => void;
+  // The same from the keyboard, which also focuses the list's first token
+  onOpenPayWithFromKeyboard?: () => void;
   /** The swap's tokens are in the wallet: what to deposit, and the balance
    * read on chain */
   onSwapped: (result: { amount: string; balance?: string }) => void;
@@ -325,8 +333,14 @@ export function EarnRouterSwapDepositForm({
    * Without it the card estimates the year at the provider's rate
    */
   summaryRequest?: IEarnRouterSummaryRequest;
-  /** The form shows the rate atop its summary card (a modal) */
-  showApyDetail?: boolean;
+  // Pay with's chip as the caller has it: the token just picked while its
+  // list folds, the chevron turned while the list is open
+  payWithTrigger?: Partial<
+    NonNullable<IAmountInputFormItemProps['tokenSelectorTriggerProps']>
+  >;
+  // Inside the amount box under its balance line: Pay with's token list
+  amountBoxBottom?: ReactNode;
+  amountBoxTestID?: string;
 }) {
   const intl = useIntl();
   const [{ currencyInfo }] = useSettingsPersistAtom();
@@ -780,108 +794,94 @@ export function EarnRouterSwapDepositForm({
     overridesState && !footerActionOverride.isSwitchWait
       ? footerActionOverride.text
       : EARN_DESKTOP_DEMO_COPY.swapAnd(actionLabel);
-  const progress =
-    hasAmount || isBusy ? (
-      <StakeProgress
-        currentStep={getProgressStep(flow)}
-        step1Label={intl.formatMessage({ id: ETranslations.global_swap })}
-        step2Label={actionLabel}
-      />
-    ) : null;
+  // The steps show once pressed: the button already names them
+  const progress = isBusy ? (
+    <StakeProgress
+      currentStep={getProgressStep(flow)}
+      step1Label={intl.formatMessage({ id: ETranslations.global_swap })}
+      step2Label={actionLabel}
+      isRunning
+    />
+  ) : null;
 
-  const hasSwitch = Boolean(protocolSwitch);
+  // What it gets you, as the provider's own form shows it: the server's
+  // rewards for a vault, a year at the supply rate for a lending market,
+  // else a year at the provider's rate. With nothing typed the rows keep
+  // their places with a dash
+  const isSummaryPlaceholder = !hasAmount || hasNoRoute;
   const stakingSummary = depositSummary.staking;
-  const apyDetail =
-    showApyDetail && !hasSwitch ? stakingSummary?.apyDetail : undefined;
-  let summary: ReactNode = null;
-  if (summaryRequest?.kind === 'staking') {
-    if (
-      hasStakingRewardsSummary({
-        transactionConfirmation: stakingSummary,
-        infoOnly: hasSwitch,
-      })
-    ) {
-      summary = (
-        <StakingRewardsSummary
-          transactionConfirmation={stakingSummary}
-          infoOnly={hasSwitch}
-        />
-      );
-    }
-  } else if (rewards) {
-    summary = (
-      <YStack gap="$1.5">
-        <SizableText size="$bodyMd" color="$textSubdued">
-          {EARN_DESKTOP_DEMO_COPY.estAnnualRewards}
-        </SizableText>
-        <XStack gap="$1" ai="center" flexWrap="wrap">
-          <SizableText size="$bodyLgMedium">
-            {`${numberFormat(rewards.amount, {
-              formatter: 'balance',
-            })} ${depositToken.symbol}`}
-          </SizableText>
-          <SizableText size="$bodyLgMedium" color="$textSubdued">
-            {`(${numberFormat(rewards.fiat, {
-              formatter: 'value',
-              formatterOptions: { currency: currencyInfo.symbol },
-            })})`}
-          </SizableText>
-        </XStack>
-      </YStack>
-    );
-  }
-
-  // Details: what the deposit gives back, as the provider's form lists it;
-  // a form with a protocol switcher shows none, as that form does
-  const receive =
-    summaryRequest?.kind === 'staking' && !hasSwitch
-      ? stakingSummary?.receive
-      : undefined;
-  const detailItems = receive
-    ? [<StakingReceiveRow key="receive" receive={receive} />]
-    : [];
-
-  // As the deposit forms: no card while the provider takes nothing
-  let card: ReactNode = null;
-  if (!isDisabled && summaryRequest?.kind === 'lending') {
-    // The lending form's own card; its swap row is left out, as this form
-    // is that swap
-    card = (
-      <BorrowInfoCard
-        action="supply"
-        isDisabled={false}
-        accountId={summaryRequest.accountId}
-        networkId={networkId}
-        showApyDetail={Boolean(showApyDetail)}
+  let summary: ReactNode;
+  if (summaryRequest?.kind === 'lending') {
+    summary = isDisabled ? null : (
+      <EarnLendingSummary
+        amountValue={depositAmount}
+        tokenSymbol={depositToken.symbol}
+        price={depositToken.priceUsd}
+        currencySymbol={currencyInfo.symbol}
         transactionConfirmation={depositSummary.lending}
         transactionConfirmationLoading={depositSummary.lendingLoading}
-        showSwapOrBridge={false}
       />
     );
-  } else if (!isDisabled && (apyDetail || summary || detailItems.length)) {
-    // The staking form's card: the rate in a modal, the year's rewards,
-    // then Details. With a protocol switcher only highlighted rewards stay
-    card = (
-      <YStack
-        p="$3.5"
-        pt={apyDetail || summary ? '$5' : '$3.5'}
-        borderRadius="$3"
-        borderWidth={StyleSheet.hairlineWidth}
-        borderColor="$borderSubdued"
-      >
-        {apyDetail ? <StakingApyHeader apyDetail={apyDetail} /> : null}
-        <HeightTransition>
-          {summary ? (
-            <>
-              {summary}
-              {detailItems.length ? <Divider my="$5" /> : null}
-            </>
-          ) : null}
-        </HeightTransition>
-        {detailItems.length ? (
-          <StakingDetailsAccordion items={detailItems} />
-        ) : null}
-      </YStack>
+  } else {
+    const isStakingUpdating =
+      summaryRequest?.kind === 'staking' &&
+      Boolean(depositAmount) &&
+      depositSummary.stakingAmount !== depositAmount;
+    const outcome: IEarnOutcome =
+      summaryRequest?.kind === 'staking'
+        ? buildRewardsOutcome({
+            transactionConfirmation: stakingSummary,
+            placeholderLabel: EARN_DESKTOP_DEMO_COPY.estAnnualRewards,
+            withoutValues: isSummaryPlaceholder || !depositAmount,
+          })
+        : {
+            label: EARN_DESKTOP_DEMO_COPY.estAnnualRewards,
+            values: rewards
+              ? [
+                  {
+                    main: `${numberFormat(rewards.amount, {
+                      formatter: 'balance',
+                    })} ${depositToken.symbol}`,
+                    suffix: numberFormat(rewards.fiat, {
+                      formatter: 'value',
+                      formatterOptions: { currency: currencyInfo.symbol },
+                    }),
+                  },
+                ]
+              : [],
+            isEarning: true,
+          };
+    const receive =
+      summaryRequest?.kind === 'staking' ? stakingSummary?.receive : undefined;
+    const rows = [
+      ...(summaryRequest?.kind === 'staking'
+        ? buildRewardNoteRows({
+            transactionConfirmation: stakingSummary,
+            withoutValues: isSummaryPlaceholder || !depositAmount,
+          })
+        : []),
+      ...(receive
+        ? [
+            <StakingReceiveRow
+              key="receive"
+              receive={
+                isSummaryPlaceholder || !depositAmount
+                  ? {
+                      ...receive,
+                      description: { text: '–', color: '$textDisabled' },
+                    }
+                  : receive
+              }
+            />,
+          ]
+        : []),
+    ];
+    summary = isDisabled ? null : (
+      <EarnFormSummary
+        outcome={outcome}
+        isLoading={isQuoting || isStakingUpdating}
+        rows={rows}
+      />
     );
   }
 
@@ -893,23 +893,13 @@ export function EarnRouterSwapDepositForm({
       formatter: 'balance',
     })} ${depositToken.symbol}`;
   } else if (hasAmount) {
-    depositLine = '-';
+    depositLine = '–';
   }
 
-  let alert: ReactNode = null;
-  if (isInsufficient) {
-    // Where the deposit form warns about its amount
-    alert = (
-      <Alert
-        icon="InfoCircleOutline"
-        type="critical"
-        title={intl.formatMessage({
-          id: ETranslations.earn_insufficient_balance,
-        })}
-      />
-    );
-  } else if (hasNoRoute || (hasAmount && !isSwappable)) {
-    alert = (
+  // A route problem is not the amount's: it stays a notice under the
+  // protocol
+  const routeAlert =
+    !isInsufficient && (hasNoRoute || (hasAmount && !isSwappable)) ? (
       <Alert
         icon="InfoCircleOutline"
         type="warning"
@@ -917,12 +907,11 @@ export function EarnRouterSwapDepositForm({
           id: ETranslations.swap_page_alert_no_provider_supports_trade,
         })}
       />
-    );
-  }
+    ) : null;
 
   return (
     <StakingFormWrapper>
-      <YStack gap="$2">
+      <YStack>
         <StakingAmountInput
           title={EARN_DESKTOP_DEMO_COPY.payWith}
           disabled={isLocked}
@@ -936,7 +925,12 @@ export function EarnRouterSwapDepositForm({
             selectedNetworkImageUri: network?.logoURI,
             disabled: isLocked,
             onPress: onOpenPayWith,
-            ...buildKeyboardPressProps(isLocked ? undefined : onOpenPayWith),
+            ...buildKeyboardPressProps(
+              isLocked
+                ? undefined
+                : (onOpenPayWithFromKeyboard ?? onOpenPayWith),
+            ),
+            ...payWithTrigger,
           }}
           balanceProps={{
             value: payToken.amount,
@@ -945,24 +939,44 @@ export function EarnRouterSwapDepositForm({
           inputProps={{ placeholder: '0', autoFocus: !isLocked }}
           valueProps={{
             value: payFiat,
-            currency: payFiat ? currencyInfo.symbol : undefined,
+            // "$0.00" before an amount, as on the Swap page
+            currency: currencyInfo.symbol,
           }}
           enableMaxAmount
           onSelectPercentageStage={handleSelectPercentage}
+          bottomContent={amountBoxBottom}
+          boxTestID={amountBoxTestID}
         />
-        {/* What goes into the vault, under what pays for it */}
-        <StakingAmountResultLine
-          testID="earn-router-swap-deposit-amount"
-          label={depositLineLabel}
-          value={depositLine}
-          loading={isQuoting}
-        />
+        {/* What goes into the vault, under what pays for it; more than the
+            balance says so in its place, in red */}
+        <YStack pt="$2">
+          {isInsufficient ? (
+            <SizableText
+              testID="earn-amount-error"
+              px="$3.5"
+              size="$bodyMd"
+              color="$textCritical"
+            >
+              {intl.formatMessage({
+                id: ETranslations.earn_insufficient_balance,
+              })}
+            </SizableText>
+          ) : (
+            <StakingAmountResultLine
+              testID="earn-router-swap-deposit-amount"
+              label={depositLineLabel}
+              value={depositLine}
+              isPlaceholder={!depositAmount}
+              loading={isQuoting}
+            />
+          )}
+        </YStack>
       </YStack>
       {/* The protocol stays under the amount; what typing brings up goes
           below it */}
       {protocolSwitch ?? offerSwitch}
-      {alert}
-      {card}
+      {routeAlert}
+      {summary}
       {isInModalContext ? (
         <Page.Footer>
           <Stack
@@ -974,9 +988,13 @@ export function EarnRouterSwapDepositForm({
               jc: 'space-between',
             }}
           >
-            <Stack pl="$5" $md={{ pt: '$5' }}>
-              {progress}
-            </Stack>
+            {progress ? (
+              <Stack pl="$5" $md={{ pt: '$5' }}>
+                {progress}
+              </Stack>
+            ) : (
+              <Stack />
+            )}
             <Page.FooterActions
               onConfirmText={confirmText}
               confirmButtonProps={confirmButtonProps}

@@ -1,0 +1,98 @@
+// What the deposit modal shows in its first frame, kept from the last time it
+// was read, or warmed while the pointer is on a home row: the token's offers,
+// the form's data and its rows before an amount. The modal opens complete on
+// these and its own requests replace them in place. Held in memory only, for
+// a couple of minutes
+const FRESH_MS = 2 * 60 * 1000;
+
+type IEntry = {
+  value?: unknown;
+  promise?: Promise<unknown>;
+  at: number;
+};
+
+const entries = new Map<string, IEntry>();
+
+const isFresh = (entry: IEntry) => Date.now() - entry.at < FRESH_MS;
+
+export function readFirstFrame<T>(key: string): T | undefined {
+  const entry = entries.get(key);
+  if (!entry || entry.value === undefined) {
+    return undefined;
+  }
+  if (!isFresh(entry)) {
+    entries.delete(key);
+    return undefined;
+  }
+  return entry.value as T;
+}
+
+export function keepFirstFrame<T>(key: string, value: T | undefined) {
+  if (value === undefined) {
+    return;
+  }
+  entries.set(key, { value, at: Date.now() });
+}
+
+// One request per key at a time, none while a fresh value is kept
+export function warmFirstFrame<T>(
+  key: string,
+  load: () => Promise<T | undefined>,
+): Promise<T | undefined> {
+  const entry = entries.get(key);
+  if (entry && isFresh(entry)) {
+    if (entry.value !== undefined) {
+      return Promise.resolve(entry.value as T);
+    }
+    if (entry.promise) {
+      return entry.promise as Promise<T | undefined>;
+    }
+  }
+  const promise = load()
+    .then((value) => {
+      if (value === undefined) {
+        entries.delete(key);
+      } else {
+        entries.set(key, { value, at: Date.now() });
+      }
+      return value;
+    })
+    .catch(() => {
+      entries.delete(key);
+      return undefined;
+    });
+  entries.set(key, { promise, at: Date.now() });
+  return promise;
+}
+
+export const buildOffersFirstFrameKey = ({
+  accountId,
+  networkId,
+  symbol,
+}: {
+  accountId?: string;
+  networkId: string;
+  symbol: string;
+}) => `offers:${accountId ?? ''}:${networkId}:${symbol.toLowerCase()}`;
+
+export const buildManagePageFirstFrameKey = (requestKey: string) =>
+  `manage:${requestKey}`;
+
+// The rows before an amount (and a withdrawal's ways out): labels and the
+// protocol's own terms, no figures, so any account's answer will do
+export const buildEmptyAmountFirstFrameKey = ({
+  action = 'stake',
+  networkId,
+  providerName,
+  symbol,
+  vault,
+}: {
+  action?: 'stake' | 'unstake';
+  networkId: string;
+  providerName: string;
+  symbol: string;
+  vault?: string;
+}) =>
+  `${action}-empty:${networkId}:${providerName.toLowerCase()}:${symbol.toLowerCase()}:${(
+    vault ?? ''
+  ).toLowerCase()}`;

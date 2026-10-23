@@ -173,9 +173,9 @@ export function StakingReceiveRow({
 }) {
   return (
     <CalculationListItem>
+      {/* The rows' label color, not the one the server sends for its card */}
       <CalculationListItem.Label
         size={receive.title.size || '$bodyMd'}
-        color={receive.title.color}
         tooltip={
           receive.tooltip?.type === 'text'
             ? receive.tooltip.data?.title?.text

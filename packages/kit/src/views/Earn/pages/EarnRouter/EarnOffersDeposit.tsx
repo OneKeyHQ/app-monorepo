@@ -2,6 +2,7 @@ import type { ReactNode, RefObject } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
+import { useReducedMotion } from 'react-native-reanimated';
 
 import type { IElement } from '@onekeyhq/components';
 import { Accordion, SizableText, YStack } from '@onekeyhq/components';
@@ -16,6 +17,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 
 import { ProtocolSwitchRow } from '../../../Staking/components/UniversalStake';
+import { EarnOutcomeCarryContext } from '../../../Staking/components/UniversalStake/EarnFormSummary';
 import { useEarnAccount } from '../../../Staking/hooks/useEarnAccount';
 import {
   ManagePositionContent,
@@ -24,13 +26,27 @@ import {
 import { EManagePositionType } from '../../../Staking/pages/ManagePosition/hooks/useManagePage';
 import { buildKeyboardPressProps } from '../../components/desktopHome/earnDesktopPressable';
 
-import { buildOfferRowProps, useEarnRouterOffers } from './EarnRouterOffer';
+import {
+  buildOfferRowProps,
+  getOfferTarget,
+  useEarnRouterOffers,
+} from './EarnRouterOffer';
+import {
+  EarnFormChoiceContext,
+  LIST_PICK_APPLY_MS,
+  getListHeightTransition,
+  getListRowMotion,
+} from './EarnRouterPayWith';
 
+import type { IEarnDepositDoneInfo } from './EarnDepositDone';
+import type { IEarnFormChoice } from './EarnRouterPayWith';
+import type { IEarnOutcome } from '../../../Staking/components/UniversalStake/EarnFormSummary';
 import type { IHeaderRightViewProps } from '../../../Staking/pages/ManagePosition/components/HeaderRight';
 import type {
   IManagePositionFooterAction,
   IManagePositionPayWith,
 } from '../../../Staking/pages/ManagePosition/components/ManagePositionContent';
+import type { IWithdrawSuccessInfo } from '../../../Staking/pages/ManagePosition/components/WithdrawSection';
 import type { IEarnDesktopHoldOffer } from '../../components/desktopHome/earnDesktopHome.utils';
 
 // An offer under the switcher's row when the list is open: the same row,
@@ -38,16 +54,20 @@ import type { IEarnDesktopHoldOffer } from '../../components/desktopHome/earnDes
 // as it is
 function OfferSwitcherItem({
   offer,
+  index,
   networkLogoURI,
   onSelect,
   focusRef,
 }: {
   offer: IEarnDesktopHoldOffer;
+  // Its place in the list: each row comes in a moment after the one above
+  index: number;
   networkLogoURI?: string;
   onSelect: (offer: IEarnDesktopHoldOffer) => void;
   // Set for the first row when the list opens from the keyboard
   focusRef?: RefObject<boolean>;
 }) {
+  const reduceMotion = useReducedMotion();
   const handlePress = useCallback(() => onSelect(offer), [offer, onSelect]);
   const rowRef = useRef<IElement>(null);
   useEffect(() => {
@@ -57,17 +77,19 @@ function OfferSwitcherItem({
     }
   }, [focusRef]);
   return (
-    <ProtocolSwitchRow
-      ref={rowRef}
-      testID={`earn-offer-${offer.key}`}
-      {...buildOfferRowProps(offer)}
-      networkLogoURI={networkLogoURI}
-      isSwitchEnabled
-      showChevron={false}
-      chevronSpace
-      onPress={handlePress}
-      keyboardProps={buildKeyboardPressProps(handlePress)}
-    />
+    <YStack {...getListRowMotion(index, reduceMotion)}>
+      <ProtocolSwitchRow
+        ref={rowRef}
+        testID={`earn-offer-${offer.key}`}
+        {...buildOfferRowProps(offer)}
+        networkLogoURI={networkLogoURI}
+        isSwitchEnabled
+        showChevron={false}
+        chevronSpace
+        onPress={handlePress}
+        keyboardProps={buildKeyboardPressProps(handlePress)}
+      />
+    </YStack>
   );
 }
 
@@ -108,6 +130,7 @@ export function EarnOfferSwitcher({
 }) {
   const focusFirstRef = useRef(false);
   const rowRef = useRef<IElement>(null);
+  const reduceMotion = useReducedMotion();
   const canSwitch = offers.length > 1 && Boolean(onSelect);
   const handleToggle = useCallback(
     () => onOpenChange?.(!isOpen),
@@ -171,19 +194,30 @@ export function EarnOfferSwitcher({
         }
       >
         <Accordion.Item value={OFFER_LIST_VALUE}>
-          {row}
-          <Accordion.HeightAnimator transition="quick">
+          {/* A pick fades into the row as the list folds under it */}
+          <YStack
+            key={selected.key}
+            transition="quick"
+            animateOnly={ANIMATE_ONLY_OPACITY}
+            enterStyle={OFFER_LIST_HIDDEN_STYLE}
+          >
+            {row}
+          </YStack>
+          <Accordion.HeightAnimator
+            transition={getListHeightTransition(isOpen, reduceMotion)}
+          >
+            {/* The rows come in themselves; the list fades out as it folds */}
             <Accordion.Content
               unstyled
               transition="quick"
               animateOnly={ANIMATE_ONLY_OPACITY}
-              enterStyle={OFFER_LIST_HIDDEN_STYLE}
               exitStyle={OFFER_LIST_HIDDEN_STYLE}
             >
               {listed.map((offer, index) => (
                 <OfferSwitcherItem
                   key={offer.key}
                   offer={offer}
+                  index={index}
                   networkLogoURI={networkLogoURI}
                   onSelect={handlePick}
                   focusRef={index === 0 ? focusFirstRef : undefined}
@@ -196,9 +230,6 @@ export function EarnOfferSwitcher({
     </YStack>
   );
 }
-
-// The list's fold (the quick transition, 150 ms) and a frame to spare
-const APPLY_AFTER_FOLD_MS = 180;
 
 // The form a protocol fills, as ManagePositionContent picks it. A switch
 // within one form keeps it, typed amount and all: it shows the last
@@ -254,7 +285,7 @@ function OfferDepositForm({
   offerSwitch: ReactNode;
   onAmountChange: (amount: string) => void;
   onHeaderRightChange?: (view: IHeaderRightViewProps | null) => void;
-  onDeposited?: (amount?: string) => void;
+  onDeposited?: (amount?: string, info?: IWithdrawSuccessInfo) => void;
   footerActionOverride?: IManagePositionFooterAction;
 }) {
   const { activeAccount } = useActiveAccount({ num: 0 });
@@ -357,9 +388,9 @@ export function EarnOffersDeposit({
   // An amount of the token itself to start on (what a withdrawal took out)
   amount?: string;
   onHeaderRightChange?: (view: IHeaderRightViewProps | null) => void;
-  // Once the deposit is out, with what was typed, in place of closing: the
-  // guide shows its last step
-  onDeposited?: (amount: string) => void;
+  // Once the deposit is out, in place of closing: what went in and where,
+  // for the modal's done view (the guide shows its last step)
+  onDeposited?: (amount: string, done: IEarnDepositDoneInfo) => void;
   footerActionOverride?: IManagePositionFooterAction;
   onAmountChange?: (amount: string) => void;
   // The offer the form is on, as it starts and after each switch
@@ -419,21 +450,42 @@ export function EarnOffersDeposit({
     },
     [onAmountChange],
   );
+  // The last protocol's result, shown dimmed by the next one's form until its
+  // own figures are in, so a switch doesn't blank the rows
+  const outcomeCarry = useMemo<{ current?: IEarnOutcome }>(() => ({}), []);
   // What went in: the form's own figure when it has one (paid in another
-  // token), else the amount typed
+  // token), else the amount typed. Read as the deposit lands, with the
+  // result the form showed for it
+  const selectedRef = useRef(selected);
+  selectedRef.current = selected;
   const handleDeposited = useMemo(
     () =>
       onDeposited
-        ? (deposited?: string) =>
-            onDeposited(deposited || typedAmountRef.current)
+        ? (deposited?: string, info?: IWithdrawSuccessInfo) => {
+            const amountIn = deposited || typedAmountRef.current;
+            const offer = selectedRef.current;
+            onDeposited(amountIn, {
+              amount: amountIn,
+              symbol: info?.symbol || symbol,
+              target: offer ? getOfferTarget(offer) : undefined,
+              outcome: outcomeCarry.current,
+            });
+          }
         : undefined,
-    [onDeposited],
+    [onDeposited, outcomeCarry, symbol],
   );
   // A pick shows in the switcher's row at once and the list folds under it;
   // the form takes the pick once the list is shut. An offer that fills
   // another form swaps the one the switcher sits in, and an open list would
   // be built again mid-fold
-  const [isListOpen, setIsListOpen] = useState(false);
+  // One choice open at a time: the protocol list, or Pay with's tokens in
+  // the amount box
+  const [openChoice, setOpenChoice] = useState<IEarnFormChoice>();
+  const choiceContext = useMemo(
+    () => ({ open: openChoice, setOpen: setOpenChoice }),
+    [openChoice],
+  );
+  const isListOpen = openChoice === 'protocol';
   const [listedWithout, setListedWithout] = useState<string>();
   const [shownKey, setShownKey] = useState<string>();
   const shown = useMemo(
@@ -448,19 +500,21 @@ export function EarnOffersDeposit({
     (open: boolean) => {
       if (open) {
         setListedWithout(shown?.key);
+        setOpenChoice('protocol');
+        return;
       }
-      setIsListOpen(open);
+      setOpenChoice((prev) => (prev === 'protocol' ? undefined : prev));
     },
     [shown?.key],
   );
   const handleSelect = useCallback((offer: IEarnDesktopHoldOffer) => {
     setShownKey(offer.key);
-    setIsListOpen(false);
+    setOpenChoice((prev) => (prev === 'protocol' ? undefined : prev));
     clearTimeout(applyTimerRef.current);
     applyTimerRef.current = setTimeout(() => {
       setStartAmount(typedAmountRef.current || undefined);
       setPickedKey(offer.key);
-    }, APPLY_AFTER_FOLD_MS);
+    }, LIST_PICK_APPLY_MS);
   }, []);
 
   const offerSwitch = shown ? (
@@ -500,19 +554,23 @@ export function EarnOffersDeposit({
     );
   }
   return (
-    <OfferDepositForm
-      key={getOfferFormKind(selected, symbol)}
-      offer={selected}
-      symbol={symbol}
-      networkId={networkId}
-      logoURI={logoURI}
-      initialAmount={startAmount}
-      payWith={payWith}
-      offerSwitch={offerSwitch}
-      onAmountChange={handleAmountChange}
-      onHeaderRightChange={onHeaderRightChange}
-      onDeposited={handleDeposited}
-      footerActionOverride={footerActionOverride}
-    />
+    <EarnFormChoiceContext.Provider value={choiceContext}>
+      <EarnOutcomeCarryContext.Provider value={outcomeCarry}>
+        <OfferDepositForm
+          key={getOfferFormKind(selected, symbol)}
+          offer={selected}
+          symbol={symbol}
+          networkId={networkId}
+          logoURI={logoURI}
+          initialAmount={startAmount}
+          payWith={payWith}
+          offerSwitch={offerSwitch}
+          onAmountChange={handleAmountChange}
+          onHeaderRightChange={onHeaderRightChange}
+          onDeposited={handleDeposited}
+          footerActionOverride={footerActionOverride}
+        />
+      </EarnOutcomeCarryContext.Provider>
+    </EarnFormChoiceContext.Provider>
   );
 }

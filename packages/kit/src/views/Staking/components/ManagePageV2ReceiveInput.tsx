@@ -139,7 +139,8 @@ export function ManagePageV2ReceiveInput({
       }
       valueProps={{
         value: receiveFiatValue,
-        currency: receiveFiatValue !== '0' ? fiatSymbol : undefined,
+        // "$0.00" before a quote, as the box above it says
+        currency: fiatSymbol,
         moreComponent: priceImpactComponent,
         loading,
       }}

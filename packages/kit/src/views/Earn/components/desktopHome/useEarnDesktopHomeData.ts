@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 
 import pLimit from 'p-limit';
 
@@ -21,6 +21,10 @@ import { buildBorrowMarketKey } from '../../../Borrow/borrowMarketKey';
 import { hasPositiveBorrowBalance } from '../../../Borrow/components/borrowRepayPosition.utils';
 import { useBorrowMarkets } from '../../../Borrow/hooks/useBorrowMarkets';
 import { isBorrowReservesPayloadUsable } from '../../../Borrow/hooks/useBorrowReserves';
+import {
+  keepFirstFrame,
+  readFirstFrame,
+} from '../../pages/EarnRouter/earnFirstFrameCache';
 
 import { sumWalletHoldings } from './earnDesktopHome.utils';
 
@@ -300,8 +304,18 @@ export function useEarnDesktopWalletHoldings({
   const accountId = activeAccount?.account?.id;
   const indexedAccountId = activeAccount?.indexedAccount?.id;
   const scope = `${accountId ?? ''}|${indexedAccountId ?? ''}`;
+  // Another view's lists for this account (the home's, for the deposit
+  // modal) start this one loaded; its own fetches then replace them
+  const cacheKey = `wallet-cache:${scope}`;
+  const freshKey = `wallet-fresh:${scope}`;
+  const [keptCache] = useState(
+    () => readFirstFrame<IWalletCache>(cacheKey) ?? INITIAL_WALLET_CACHE,
+  );
+  const [keptFresh] = useState(
+    () => readFirstFrame<IWalletFresh>(freshKey) ?? INITIAL_WALLET_FRESH,
+  );
 
-  const cacheRef = useRef(INITIAL_WALLET_CACHE);
+  const cacheRef = useRef(keptCache);
   const { result: cache = INITIAL_WALLET_CACHE, run: runCache } =
     usePromiseResult(
       async () => {
@@ -367,17 +381,20 @@ export function useEarnDesktopWalletHoldings({
           }
         }
         cacheRef.current = next;
+        if (next.scope === scope) {
+          keepFirstFrame(cacheKey, next);
+        }
         return next;
       },
-      [accountId, indexedAccountId, isActive, scope],
+      [accountId, cacheKey, indexedAccountId, isActive, scope],
       {
-        initResult: INITIAL_WALLET_CACHE,
+        initResult: keptCache,
         revalidateOnFocus: true,
       },
     );
 
   const refreshKey = refreshNetworkIds.join(',');
-  const freshRef = useRef(INITIAL_WALLET_FRESH);
+  const freshRef = useRef(keptFresh);
   const freshRunRef = useRef(0);
   // Set by refresh(), so the next pass skips the age check
   const isForcedRef = useRef(false);
@@ -451,11 +468,12 @@ export function useEarnDesktopWalletHoldings({
       // A slower, older pass must not replace a newer one's lists
       if (run === freshRunRef.current) {
         freshRef.current = next;
+        keepFirstFrame(freshKey, next);
       }
       return next;
     },
-    [cache, indexedAccountId, isActive, refreshKey, scope],
-    { initResult: INITIAL_WALLET_FRESH },
+    [cache, freshKey, indexedAccountId, isActive, refreshKey, scope],
+    { initResult: keptFresh },
   );
 
   const { holdings, networkGroups } = useMemo(() => {

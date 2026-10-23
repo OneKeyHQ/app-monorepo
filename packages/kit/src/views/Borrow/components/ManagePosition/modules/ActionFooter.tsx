@@ -43,6 +43,7 @@ export function ActionFooter({
     isInsufficientBalance,
     isAmountInvalid,
     isInModalContext: isInModalContextState,
+    isEarnForm,
   } = state;
 
   const {
@@ -54,6 +55,7 @@ export function ActionFooter({
 
   const { onSubmit, onSelectPercentageStage, setSubmitting } = actions;
   const {
+    approving,
     isFormInteractionLocked,
     approvalProgressStarted,
     loadingAllowance,
@@ -201,8 +203,13 @@ export function ActionFooter({
     />
   );
 
+  // The Earn forms show the steps once pressed, not before: the button
+  // already names them ("Approve and Supply")
   const isShowStakeProgress =
-    !!amountValue && (shouldApprove || approvalProgressStarted);
+    !!amountValue &&
+    (isEarnForm
+      ? approvalProgressStarted
+      : shouldApprove || approvalProgressStarted);
 
   const progressContent = isShowStakeProgress ? (
     <StakeProgress
@@ -211,6 +218,9 @@ export function ActionFooter({
       }
       step1LabelId={ETranslations.global_approve}
       step2Label={businessActionLabel}
+      isRunning={
+        isEarnForm && (approving || submitting || isFormInteractionLocked)
+      }
     />
   ) : null;
 

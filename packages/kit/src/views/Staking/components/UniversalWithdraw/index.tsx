@@ -3,14 +3,12 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
-import { Keyboard, StyleSheet } from 'react-native';
+import { Keyboard } from 'react-native';
 import { useDebouncedCallback } from 'use-debounce';
 
 import {
-  Accordion,
   Alert,
   Dialog,
-  Divider,
   HeightTransition,
   Icon,
   IconButton,
@@ -21,7 +19,6 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import type { IAlertType } from '@onekeyhq/components';
-import { ANIMATE_ONLY_OPACITY } from '@onekeyhq/components/src/utils/animationConstants';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
   PercentageStageOnKeyboard,
@@ -36,12 +33,20 @@ import {
   fillLeadingZero,
   validateAmountInputForStaking,
 } from '@onekeyhq/kit/src/utils/validateAmountInput';
+import { EARN_DESKTOP_DEMO_COPY } from '@onekeyhq/kit/src/views/Earn/components/desktopHome/earnDesktopHomeCopy';
+import { buildKeyboardPressProps } from '@onekeyhq/kit/src/views/Earn/components/desktopHome/earnDesktopPressable';
+import {
+  buildEmptyAmountFirstFrameKey,
+  keepFirstFrame,
+  readFirstFrame,
+} from '@onekeyhq/kit/src/views/Earn/pages/EarnRouter/earnFirstFrameCache';
 import { useEarnRiskWarningGate } from '@onekeyhq/kit/src/views/Staking/components/EarnRiskWarningDialog';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
+import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import {
   EApproveType,
   ECheckAmountActionType,
@@ -65,27 +70,15 @@ import { usePendleLayoutState } from '../../hooks/usePendleLayoutState';
 import { useQuoteRefresh } from '../../hooks/useQuoteRefresh';
 import { useTrackTokenAllowance } from '../../hooks/useUtilsHooks';
 import { useHandleWithdraw } from '../../pages/ProtocolDetails/useHandleActions';
-import {
-  countDecimalPlaces,
-  isInvalidAmount,
-  shouldShowStakingSummaryCard,
-} from '../../utils/utils';
+import { countDecimalPlaces, isInvalidAmount } from '../../utils/utils';
 import { EstimateNetworkFee } from '../EstimateNetworkFee';
 import {
   type IManagePageV2ReceiveInputConfig,
   ManagePageV2ReceiveInput,
 } from '../ManagePageV2ReceiveInput';
-import {
-  ActionPopupContent,
-  EarnActionIcon,
-} from '../ProtocolDetails/EarnActionIcon';
-import { EarnAmountText } from '../ProtocolDetails/EarnAmountText';
+import { ActionPopupContent } from '../ProtocolDetails/EarnActionIcon';
 import { EarnText } from '../ProtocolDetails/EarnText';
-import { EarnTooltip } from '../ProtocolDetails/EarnTooltip';
-import {
-  PendleAccordionTriggerContent,
-  PendleSummarySection,
-} from '../ProtocolDetails/PendleSharedComponents';
+import { usePendleTransactionDetails } from '../ProtocolDetails/PendleSharedComponents';
 import {
   calcPriceImpactInfo,
   showHighPriceImpactDialog,
@@ -96,6 +89,12 @@ import {
   useOnBlurAmountValue,
 } from '../StakingAmountInput';
 import StakingFormWrapper from '../StakingFormWrapper';
+import {
+  EarnFormRow,
+  EarnFormSummary,
+  buildRewardNoteRows,
+  buildRewardsOutcome,
+} from '../UniversalStake/EarnFormSummary';
 import { StakingReceiveRow } from '../UniversalStake/StakingConfirmationSummary';
 
 import {
@@ -107,7 +106,10 @@ import {
   selectCurrentTransactionConfirmation,
 } from './transactionConfirmationRequestUtils';
 
-import type { FontSizeTokens } from 'tamagui';
+import type {
+  IEarnOutcome,
+  IEarnOutcomeValue,
+} from '../UniversalStake/EarnFormSummary';
 
 type IFooterActionOverride = {
   text: string;
@@ -204,8 +206,6 @@ type IUniversalWithdrawProps = {
   tokenInfo?: IEarnTokenInfo;
 };
 
-const WITHDRAW_ACCORDION_KEY = 'withdraw-accordion-content';
-
 type IWithdrawPathBox = {
   title: IEarnText;
   description: IEarnText;
@@ -216,129 +216,95 @@ type IWithdrawPathBox = {
   tip?: IEarnTransactionTip;
 };
 
-type IWithdrawPathDialogContentProps = {
-  boxes: IWithdrawPathBox[];
-  initialSelectedIndex: number;
-  selectedIndexRef: {
-    current: number;
-  };
-  onTipAction?: (tip: IEarnTransactionTip) => void | Promise<void>;
-};
+// A line or a row of cards that comes with typing grows in this long
+const AMOUNT_LINE_MS = 200;
 
-function WithdrawPathDialogContent({
+// The ways out side by side, as Lido shows its two withdrawal routes: each
+// card says when it pays and what it costs, in the server's words. The one
+// picked is a lighter card with a check, no border, as the guide's vault
+// cards; a pick only moves the check. The amount it pays shows once, in
+// "You receive" under the cards
+function WithdrawPathCards({
   boxes,
-  initialSelectedIndex,
-  selectedIndexRef,
-  onTipAction,
-}: IWithdrawPathDialogContentProps) {
-  const [selectedIndex, setSelectedIndex] = useState(initialSelectedIndex);
-  const handleSelect = useCallback(
-    (index: number) => {
-      selectedIndexRef.current = index;
-      setSelectedIndex(index);
-    },
-    [selectedIndexRef],
-  );
-
+  selectedIndex,
+  onSelect,
+  disabled,
+}: {
+  boxes: IWithdrawPathBox[];
+  selectedIndex: number;
+  onSelect: (index: number) => void;
+  disabled?: boolean;
+}) {
   return (
-    <YStack>
+    <XStack role="radiogroup" gap="$2" flexWrap="wrap">
       {boxes.map((box, index) => {
         const isSelected = index === selectedIndex;
-        const isDisabled = !!box.disabled;
-        const tipAction =
-          box.tip?.button?.type === EStakingActionType.CancelWithdrawal
-            ? {
-                primary: box.tip.button.text.text,
-                onPrimaryPress: () => {
-                  if (box.tip) {
-                    void onTipAction?.(box.tip);
-                  }
-                },
-              }
-            : undefined;
+        const isDisabled = Boolean(box.disabled) || Boolean(disabled);
+        const handlePress = () => {
+          if (!isDisabled) {
+            onSelect(index);
+          }
+        };
         return (
-          <YStack key={index} gap="$2">
-            <XStack
-              py="$2.5"
-              gap="$3"
-              ai="center"
-              userSelect="none"
-              cursor={isDisabled ? 'not-allowed' : 'pointer'}
-              opacity={isDisabled ? 0.5 : 1}
-              onPress={() => {
-                if (isDisabled) return;
-                handleSelect(index);
-              }}
-            >
-              <Stack
-                w="$5"
-                h="$5"
-                my="$0.5"
-                borderWidth="$0.5"
-                borderColor={isSelected ? '$transparent' : '$borderStrong'}
-                bg={isSelected ? '$bgPrimary' : '$transparent'}
-                borderRadius="$full"
-                ai="center"
-                jc="center"
-              >
-                {isSelected ? (
-                  <Stack
-                    w="$2.5"
-                    h="$2.5"
-                    bg="$iconInverse"
-                    borderRadius="$full"
-                  />
-                ) : null}
-              </Stack>
-              <YStack flex={1} gap="$1">
-                <SizableText size="$bodyLgMedium" color="$text">
-                  {box.title.text}
-                </SizableText>
-                {box.subtitle?.text ? (
-                  <SizableText
-                    size="$bodyMd"
-                    color={box.subtitle?.color || '$textSubdued'}
-                  >
-                    {box.subtitle.text}
-                  </SizableText>
-                ) : null}
-              </YStack>
-              {/* textAlign is required besides ai="flex-end": long i18n copy
-                  wraps to multiple lines and wrapped lines default to
-                  left-alignment inside the text box (OK-58722) */}
-              <YStack flex={1} gap="$1" ai="flex-end">
-                <EarnAmountText
-                  size="$headingMd"
-                  color="$text"
-                  textAlign="right"
-                >
-                  {box.description.text}
-                </EarnAmountText>
-                {box.subtitleDescription?.text ? (
-                  <SizableText
-                    size="$bodyMd"
-                    color={box.subtitleDescription?.color || '$textSubdued'}
-                    textAlign="right"
-                  >
-                    {box.subtitleDescription.text}
-                  </SizableText>
-                ) : null}
-              </YStack>
-            </XStack>
-            {box.tip?.text ? (
-              <Alert
-                icon="InfoCircleOutline"
-                type={resolveEarnAlertType(box.tip?.type)}
-                renderTitle={() => (
-                  <EarnText text={box.tip?.text} size="$bodyMdMedium" />
-                )}
-                action={tipAction}
+          <YStack
+            key={`${box.withdrawType ?? ''}-${index}`}
+            testID={`earn-withdraw-path-${box.withdrawType ?? index}`}
+            role="radio"
+            aria-checked={isSelected}
+            aria-disabled={isDisabled}
+            flexGrow={1}
+            flexBasis={0}
+            minWidth="$36"
+            gap="$1"
+            pl="$3"
+            // The check's glyph has its own inner space, so less padding on
+            // its side looks even and leaves a server title such as "Queued
+            // withdrawal" its one line in a 171 px card (390 px phone)
+            pr="$2"
+            py="$3"
+            bg={isSelected ? '$bgActive' : '$bgSubdued'}
+            borderRadius="$3"
+            borderCurve="continuous"
+            userSelect="none"
+            cursor={isDisabled ? 'not-allowed' : 'pointer'}
+            opacity={box.disabled ? 0.5 : 1}
+            hoverStyle={
+              !isDisabled && !isSelected ? { bg: '$bgHover' } : undefined
+            }
+            pressStyle={!isDisabled ? { bg: '$bgActive' } : undefined}
+            onPress={isDisabled ? undefined : handlePress}
+            {...(isDisabled ? undefined : buildKeyboardPressProps(handlePress))}
+          >
+            <XStack ai="center" gap="$0.5">
+              <SizableText size="$bodyMdMedium" flex={1}>
+                {box.title.text}
+              </SizableText>
+              <Icon
+                name={
+                  isSelected ? 'CheckRadioSolid' : 'CirclePlaceholderOnOutline'
+                }
+                color={isSelected ? '$iconSuccess' : '$iconSubdued'}
+                size="$4"
+                flexShrink={0}
               />
+            </XStack>
+            {box.subtitle?.text ? (
+              <SizableText size="$bodySm" color="$textSubdued">
+                {box.subtitle.text}
+              </SizableText>
+            ) : null}
+            {box.subtitleDescription?.text ? (
+              <SizableText
+                size="$bodySm"
+                color={box.subtitleDescription.color || '$textSubdued'}
+              >
+                {box.subtitleDescription.text}
+              </SizableText>
             ) : null}
           </YStack>
         );
       })}
-    </YStack>
+    </XStack>
   );
 }
 
@@ -467,12 +433,34 @@ export function UniversalWithdraw({
       }),
     [providerName],
   );
+  const actionSymbol = useMemo(
+    () => requestSymbol || tokenSymbol || '',
+    [requestSymbol, tokenSymbol],
+  );
+  // The server's answer for an empty amount: the ways out (withdrawal paths)
+  // and the rows, so they are in place before anything is typed. The last
+  // answer for this position opens the form complete while it is asked again
+  const emptyAmountKey = buildEmptyAmountFirstFrameKey({
+    action: 'unstake',
+    networkId: networkId || '',
+    providerName: providerName || '',
+    symbol: actionSymbol || '',
+    vault: shouldSendProtocolVault ? protocolVault : undefined,
+  });
+  const [emptyAmountConfirmation, setEmptyAmountConfirmation] = useState<
+    IStakeTransactionConfirmation | undefined
+  >(() => readFirstFrame(emptyAmountKey));
 
   const withdrawPathConfirmBoxes = useMemo(() => {
     return (
-      transactionConfirmationSnapshot?.withdrawPath?.data?.confirmBoxes ?? []
+      transactionConfirmationSnapshot?.withdrawPath?.data?.confirmBoxes ??
+      emptyAmountConfirmation?.withdrawPath?.data?.confirmBoxes ??
+      []
     );
-  }, [transactionConfirmationSnapshot?.withdrawPath?.data?.confirmBoxes]);
+  }, [
+    emptyAmountConfirmation?.withdrawPath?.data?.confirmBoxes,
+    transactionConfirmationSnapshot?.withdrawPath?.data?.confirmBoxes,
+  ]);
 
   const effectiveSelectedWithdrawPathIndex = useMemo(() => {
     if (withdrawPathConfirmBoxes.length <= 1) return 0;
@@ -889,10 +877,6 @@ export function UniversalWithdraw({
     trackAllowance,
     waitForAllowanceAfterApprove,
   ]);
-  const actionSymbol = useMemo(
-    () => requestSymbol || tokenSymbol || '',
-    [requestSymbol, tokenSymbol],
-  );
   const [checkAmountMessage, setCheckoutAmountMessage] = useState('');
   const [checkAmountAlerts, setCheckAmountAlerts] = useState<
     ICheckAmountAlert[]
@@ -1313,6 +1297,51 @@ export function UniversalWithdraw({
   onPressRef.current = onPress;
   fetchTransactionConfirmationRef.current = fetchTransactionConfirmation;
 
+  // Asked once per position, apart from the amount's own quote (which skips
+  // an empty amount, OK-59850): nothing waits on it and no spinner shows
+  useEffect(() => {
+    if (isDisabled || isCancelWithdrawal) {
+      return undefined;
+    }
+    let cancelled = false;
+    backgroundApiProxy.serviceStaking
+      .getTransactionConfirmation({
+        networkId: networkId || '',
+        provider: providerName || '',
+        symbol: actionSymbol || '',
+        vault: shouldSendProtocolVault ? protocolVault || '' : '',
+        accountAddress,
+        action: ECheckAmountActionType.UNSTAKING,
+        amount: '0',
+        identity,
+        inputTokenAddress: transactionInputTokenAddress,
+        outputTokenAddress: transactionOutputTokenAddress,
+      })
+      .then((resp) => {
+        if (!cancelled) {
+          setEmptyAmountConfirmation(resp);
+          keepFirstFrame(emptyAmountKey, resp);
+        }
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    accountAddress,
+    actionSymbol,
+    emptyAmountKey,
+    identity,
+    isCancelWithdrawal,
+    isDisabled,
+    networkId,
+    protocolVault,
+    providerName,
+    shouldSendProtocolVault,
+    transactionInputTokenAddress,
+    transactionOutputTokenAddress,
+  ]);
+
   const debouncedFetchTransactionConfirmation = useDebouncedCallback(
     async ({
       amount,
@@ -1532,15 +1561,7 @@ export function UniversalWithdraw({
 
   const {
     isPendleLikeLayout,
-    pendleAccordionItems,
-    pendleRewardRows,
-    usePendleSummaryLayout,
-    transactionDetailsTriggerText,
-    apyDetail,
-    showApyHeader,
-    hasSummarySection,
     pendleTipText,
-    showPendleTransactionSection,
     showExpiredRefresh,
     showReceiveInput,
     effectiveReceiveInputConfig,
@@ -1564,113 +1585,270 @@ export function UniversalWithdraw({
     return isDisabled || initialAmount !== undefined || isCancelWithdrawal;
   }, [isDisabled, initialAmount, isCancelWithdrawal]);
 
-  const accordionContent = useMemo(() => {
+  const isPositiveAmount =
+    !isInvalidAmount(amountValue) && new BigNumber(amountValue).gt(0);
+  // With no amount the rows keep their places, each value a dash
+  const isRowsPlaceholder = !isCancelWithdrawal && !isPositiveAmount;
+  const lastConfirmationRef = useRef<IStakeTransactionConfirmation | undefined>(
+    undefined,
+  );
+  if (transactionConfirmation) {
+    lastConfirmationRef.current = transactionConfirmation;
+  }
+  // What the rows show: this amount's answer; until it is in (a provider
+  // whose path must be current shows none stale), the last rows with dashes
+  const isAnswerMissing = !isRowsPlaceholder && !transactionConfirmation;
+  const rowsConfirmation =
+    isRowsPlaceholder || isAnswerMissing
+      ? (lastConfirmationRef.current ?? emptyAmountConfirmation)
+      : transactionConfirmation;
+  const showDashes = isRowsPlaceholder || isAnswerMissing;
+  const isQuoteUpdating = isPositiveAmount && quoteLoading;
+
+  const pendleDetailRows = usePendleTransactionDetails({
+    transactionConfirmation: rowsConfirmation,
+    amountValue,
+    isPendleLikeLayout,
+    placeholder: showDashes,
+  });
+
+  // The result: what reaches the wallet, by the chosen way out where there
+  // are ways to choose. Pendle's second box already says it
+  const youReceiveLabel = intl.formatMessage({
+    id: ETranslations.swap_review_you_receive,
+  });
+  let outcome: IEarnOutcome | undefined;
+  if (!isPendleLikeLayout) {
+    const values: IEarnOutcomeValue[] = [];
+    const pathAmountText = selectedWithdrawPath?.description;
+    if (!showDashes && pathAmountText?.text?.trim()) {
+      const pathAmount = new BigNumber(
+        earnUtils.extractAmountFromText(pathAmountText),
+      );
+      values.push({
+        main: pathAmountText.text.trim(),
+        suffix:
+          Number(price) > 0 && pathAmount.gt(0)
+            ? numberFormat(pathAmount.times(price).toFixed(), {
+                formatter: 'value',
+                formatterOptions: { currency: symbol },
+              })
+            : undefined,
+      });
+    } else if (!showDashes) {
+      values.push(
+        ...buildRewardsOutcome({
+          transactionConfirmation: rowsConfirmation,
+          placeholderLabel: youReceiveLabel,
+        }).values,
+      );
+    }
+    outcome = {
+      // Cancelling a queued withdrawal keeps the server's own words
+      label: isCancelWithdrawal
+        ? rowsConfirmation?.title?.text?.trim() || youReceiveLabel
+        : youReceiveLabel,
+      tooltip: rowsConfirmation?.tooltip,
+      values,
+      isEarning: false,
+    };
+  }
+
+  // Lido has no fee estimate for a withdrawal
+  const isLidoWithdraw = earnUtils.isLidoProvider({
+    providerName: providerName ?? '',
+  });
+  const summaryRows = useMemo(() => {
     const items: ReactElement[] = [];
-    if (!isCancelWithdrawal && Number(amountValue) <= 0) {
+    if (isPendleLikeLayout) {
+      (rowsConfirmation?.rewards ?? [])
+        .filter(
+          (reward) =>
+            !!reward?.title?.text?.trim() &&
+            !!reward?.description?.text?.trim(),
+        )
+        .forEach((reward, index) => {
+          items.push(
+            <EarnFormRow
+              key={`pendle-reward-${index}`}
+              label={reward.title.text}
+              tooltip={reward.tooltip}
+              value={
+                showDashes ? undefined : (
+                  <EarnText
+                    text={reward.description}
+                    size="$bodyMdMedium"
+                    textAlign="right"
+                  />
+                )
+              }
+            />,
+          );
+        });
+      items.push(...pendleDetailRows);
       return items;
     }
-
-    if (isPendleLikeLayout) {
-      return pendleAccordionItems;
-    }
-
-    if (transactionConfirmation?.receive) {
+    // Lines of the result that are not amounts ("Claim available in 4 days")
+    items.push(
+      ...buildRewardNoteRows({
+        transactionConfirmation: rowsConfirmation,
+        withoutValues: showDashes,
+      }),
+    );
+    // One way out: when it pays and what it costs, under the result
+    if (withdrawPathConfirmBoxes.length === 1 && selectedWithdrawPath) {
       items.push(
-        <StakingReceiveRow
-          key="receive"
-          receive={transactionConfirmation.receive}
+        <EarnFormRow
+          key="withdraw-path"
+          label={selectedWithdrawPath.title.text}
+          value={
+            <YStack ai="flex-end">
+              {selectedWithdrawPath.subtitle?.text ? (
+                <SizableText size="$bodyMdMedium" textAlign="right">
+                  {selectedWithdrawPath.subtitle.text}
+                </SizableText>
+              ) : null}
+              {selectedWithdrawPath.subtitleDescription?.text ? (
+                <SizableText
+                  size="$bodySm"
+                  color={
+                    selectedWithdrawPath.subtitleDescription.color ||
+                    '$textSubdued'
+                  }
+                  textAlign="right"
+                >
+                  {selectedWithdrawPath.subtitleDescription.text}
+                </SizableText>
+              ) : null}
+            </YStack>
+          }
         />,
       );
     }
-    if (estimateFeeResp) {
+    // Why an instant withdrawal may not cover the amount (Bitway's flash
+    // pool, Spark's liquidity), OK-58353
+    const liquidity = rowsConfirmation?.availableLiquidity;
+    if (liquidity) {
+      items.push(
+        <EarnFormRow
+          key="available-liquidity"
+          label={liquidity.title.text}
+          tooltip={liquidity.tooltip}
+          value={
+            <EarnText
+              text={liquidity.description}
+              size="$bodyMdMedium"
+              textAlign="right"
+            />
+          }
+        />,
+      );
+    }
+    const receive = rowsConfirmation?.receive;
+    if (receive) {
+      items.push(
+        <StakingReceiveRow
+          key="receive"
+          receive={
+            showDashes
+              ? {
+                  ...receive,
+                  description: { text: '–', color: '$textDisabled' },
+                }
+              : receive
+          }
+        />,
+      );
+    }
+    // The row hides itself on a zero estimate, so that counts as none
+    if (
+      estimateFeeResp &&
+      Number(estimateFeeResp.feeFiatValue) > 0 &&
+      (isCancelWithdrawal || isPositiveAmount)
+    ) {
       items.push(
         <EstimateNetworkFee
           key="network-fee"
           estimateFeeResp={estimateFeeResp}
-          isVisible={isCancelWithdrawal || Number(amountValue) > 0}
+          isVisible
+        />,
+      );
+    } else if (!isLidoWithdraw) {
+      // Held in place until this amount's estimate is in, so the button
+      // doesn't move on the first digit
+      items.push(
+        <EarnFormRow
+          key="network-fee-placeholder"
+          label={intl.formatMessage({
+            id: ETranslations.global_est_network_fee,
+          })}
         />,
       );
     }
     return items;
   }, [
-    amountValue,
     estimateFeeResp,
+    intl,
+    isLidoWithdraw,
     isCancelWithdrawal,
     isPendleLikeLayout,
-    pendleAccordionItems,
-    transactionConfirmation?.receive,
+    isPositiveAmount,
+    pendleDetailRows,
+    rowsConfirmation,
+    selectedWithdrawPath,
+    showDashes,
+    withdrawPathConfirmBoxes.length,
   ]);
-  const isAccordionTriggerDisabled = !amountValue;
 
-  const showWithdrawPathSelector =
-    (!requiresEarnWithdrawPath || isTransactionConfirmationCurrent) &&
-    withdrawPathConfirmBoxes.length > 1 &&
-    !!selectedWithdrawPath;
+  const showWithdrawPathCards =
+    withdrawPathConfirmBoxes.length > 1 && !!selectedWithdrawPath;
+  // Cards there from the first frame (a kept answer) show at once
+  const [hasPathCardsFromStart] = useState(showWithdrawPathCards);
+  // The steps show once pressed: the button already names them
+  const isWithdrawRunning =
+    approving || loading || withdrawProgressStep > EStakeProgressStep.approve;
   const shouldShowPendleWithdrawProgress =
     useApprove &&
     !!amountValue &&
     !isInvalidAmount(amountValue) &&
+    isWithdrawRunning &&
     (shouldApprove || withdrawProgressStep > EStakeProgressStep.approve);
   const isEthenaCooldownWithdrawPath =
-    shouldShowPendleWithdrawProgress &&
+    useApprove &&
     withdrawPathConfirmBoxes.length > 1 &&
-    effectiveSelectedWithdrawPathIndex === 0;
+    effectiveSelectedWithdrawPathIndex === 0 &&
+    (shouldApprove || withdrawProgressStep > EStakeProgressStep.approve);
   const shouldResumeEthenaCooldownUnstake =
     isEthenaCooldownWithdrawPath && pendingEthenaCooldownUnstake;
 
-  const showWithdrawPathDialog = useCallback(() => {
-    const selectedIndexRef = {
-      current: effectiveSelectedWithdrawPathIndex,
-    };
-    const dialogRef: {
-      close?: () => Promise<void> | void;
-    } = {};
-    const dialog = Dialog.show({
-      title:
-        transactionConfirmation?.withdrawPath?.text?.text ||
-        intl.formatMessage({
-          id: ETranslations.defi_withdrawal_options,
-        }),
-      renderContent: (
-        <WithdrawPathDialogContent
-          boxes={withdrawPathConfirmBoxes}
-          initialSelectedIndex={effectiveSelectedWithdrawPathIndex}
-          selectedIndexRef={selectedIndexRef}
-          onTipAction={async (tip) => {
-            await dialogRef.close?.();
-            await handleTipAction(tip);
-          }}
-        />
-      ),
-      onConfirm: () => {
-        if (selectedIndexRef.current !== effectiveSelectedWithdrawPathIndex) {
-          handleSelectWithdrawPath(selectedIndexRef.current);
-        }
-      },
-    });
-    dialogRef.close = dialog.close;
-  }, [
-    effectiveSelectedWithdrawPathIndex,
-    handleSelectWithdrawPath,
-    handleTipAction,
-    intl,
-    transactionConfirmation?.withdrawPath?.text?.text,
-    withdrawPathConfirmBoxes,
-  ]);
-
+  const withdrawActionLabel = intl.formatMessage({
+    id: isPendleProvider
+      ? ETranslations.global_swap
+      : ETranslations.global_withdraw,
+  });
   const confirmText = useMemo(() => {
-    if (shouldApprove) return ETranslations.global_approve;
-    if (effectiveShowExpiredRefresh) return ETranslations.global_refresh;
-    if (shouldResumeEthenaCooldownUnstake) return ETranslations.defi_unstake;
-    if (isCancelWithdrawal) return ETranslations.global_confirm;
-    if (isPendleProvider) return ETranslations.global_swap;
-    return ETranslations.global_withdraw;
+    // One press approves, then withdraws by itself once the approval is on
+    // chain, so the button names both
+    if (shouldApprove) {
+      return EARN_DESKTOP_DEMO_COPY.approveAnd(withdrawActionLabel);
+    }
+    if (effectiveShowExpiredRefresh) {
+      return intl.formatMessage({ id: ETranslations.global_refresh });
+    }
+    if (shouldResumeEthenaCooldownUnstake) {
+      return intl.formatMessage({ id: ETranslations.defi_unstake });
+    }
+    if (isCancelWithdrawal) {
+      return intl.formatMessage({ id: ETranslations.global_confirm });
+    }
+    return withdrawActionLabel;
   }, [
     shouldApprove,
     effectiveShowExpiredRefresh,
     shouldResumeEthenaCooldownUnstake,
     isCancelWithdrawal,
-    isPendleProvider,
+    intl,
+    withdrawActionLabel,
   ]);
 
   const confirmOnPress = useMemo(() => {
@@ -1711,8 +1889,7 @@ export function UniversalWithdraw({
     return isDisable;
   }, [shouldApprove, effectiveShowExpiredRefresh, isDisable]);
 
-  const effectiveConfirmText =
-    footerActionOverride?.text ?? intl.formatMessage({ id: confirmText });
+  const effectiveConfirmText = footerActionOverride?.text ?? confirmText;
   const effectiveConfirmOnPress =
     footerActionOverride?.onPress ?? confirmOnPress;
   const effectiveConfirmLoading = footerActionOverride
@@ -1722,66 +1899,120 @@ export function UniversalWithdraw({
     ? Boolean(footerActionOverride.disabled)
     : confirmDisabled;
 
-  // Outside Pendle the section is a "Details" row over the receive and fee
-  // rows, so it shows once there are rows to open
-  const showDetailsSection =
-    showPendleTransactionSection &&
-    (isPendleLikeLayout || accordionContent.length > 0);
-  const shouldShowSummaryCard = shouldShowStakingSummaryCard({
-    isDisabled,
-    isPendleProvider,
-    amountValue,
-    hasSummarySection,
-    showPendleTransactionSection: showDetailsSection,
-  });
+  const withdrawProgress = shouldShowPendleWithdrawProgress ? (
+    <StakeProgress
+      approveType={approveType}
+      currentStep={
+        shouldApprove
+          ? EStakeProgressStep.approve
+          : (Math.max(
+              withdrawProgressStep,
+              EStakeProgressStep.deposit,
+            ) as EStakeProgressStep)
+      }
+      // Plain "Approve", also when it is a signature (permit)
+      step1LabelId={ETranslations.global_approve}
+      step2Label={withdrawActionLabel}
+      step3LabelId={
+        isEthenaCooldownWithdrawPath ? ETranslations.defi_unstake : undefined
+      }
+      isRunning={approving || loading}
+    />
+  ) : null;
+
+  const selectedPathTip = selectedWithdrawPath?.tip?.text
+    ? selectedWithdrawPath.tip
+    : undefined;
+  // An info tip with nothing to press is a note under the rows, not a box
+  // (Pendle's "Selling early may…"); one the note already says isn't repeated
+  const isFormTipNote =
+    !!formTransactionTip?.text?.text?.trim() &&
+    formTransactionTip.type === 'info' &&
+    !formTransactionTip.button &&
+    !formTransactionTip.description;
+  const isFormTipInFootnote =
+    !!pendleTipText &&
+    formTransactionTip?.text?.text?.trim() === pendleTipText.text;
+  const formTipAlert =
+    formTransactionTip?.text && !isFormTipNote && !isFormTipInFootnote
+      ? formTransactionTip
+      : undefined;
+  const footnoteText =
+    pendleTipText ?? (isFormTipNote ? formTransactionTip?.text : undefined);
 
   return (
     <StakingFormWrapper>
       <Stack position="relative">
         <YStack gap="$2">
-          <Stack position="relative" opacity={amountInputDisabled ? 0.7 : 1}>
-            <StakingAmountInput
-              title={
-                inputTitle ||
-                intl.formatMessage({ id: ETranslations.global_withdraw })
-              }
-              disabled={amountInputDisabled}
-              hasError={isCheckAmountMessageError}
-              value={amountValue}
-              onChange={onChangeAmountValue}
-              onBlur={onBlurAmountValue}
-              tokenSelectorTriggerProps={{
-                selectedTokenImageUri: tokenImageUri,
-                selectedTokenSymbol: tokenSymbol,
-                selectedNetworkImageUri: network?.logoURI,
-              }}
-              inputProps={{
-                placeholder: '0',
-                autoFocus: !amountInputDisabled,
-              }}
-              balanceProps={{
-                value: balance,
-                // As the lending form says it, so the action's name stays on
-                // the button
-                iconText: intl.formatMessage({
-                  id: ETranslations.global_available,
-                }),
-                onPress: onMax,
-              }}
-              valueProps={{
-                value: currentValue,
-                currency: currentValue ? symbol : undefined,
-              }}
-              enableMaxAmount
-              onSelectPercentageStage={onSelectPercentageStage}
-            />
-            {amountInputDisabled ? (
-              <Stack position="absolute" w="100%" h="100%" zIndex={1} />
-            ) : null}
-          </Stack>
+          {/* The error line brings its own space, so no error leaves no gap */}
+          <YStack>
+            <Stack position="relative" opacity={amountInputDisabled ? 0.7 : 1}>
+              <StakingAmountInput
+                title={
+                  inputTitle ||
+                  intl.formatMessage({ id: ETranslations.global_withdraw })
+                }
+                disabled={amountInputDisabled}
+                hasError={isCheckAmountMessageError}
+                value={amountValue}
+                onChange={onChangeAmountValue}
+                onBlur={onBlurAmountValue}
+                tokenSelectorTriggerProps={{
+                  selectedTokenImageUri: tokenImageUri,
+                  selectedTokenSymbol: tokenSymbol,
+                  selectedNetworkImageUri: network?.logoURI,
+                }}
+                inputProps={{
+                  placeholder: '0',
+                  autoFocus: !amountInputDisabled,
+                }}
+                balanceProps={{
+                  value: balance,
+                  // As the lending form says it, so the action's name stays on
+                  // the button
+                  iconText: intl.formatMessage({
+                    id: ETranslations.global_available,
+                  }),
+                  onPress: onMax,
+                }}
+                valueProps={{
+                  value: currentValue,
+                  // "$0.00" before an amount, as on the Swap page
+                  currency: symbol,
+                }}
+                enableMaxAmount
+                onSelectPercentageStage={onSelectPercentageStage}
+              />
+              {amountInputDisabled ? (
+                <Stack position="absolute" w="100%" h="100%" zIndex={1} />
+              ) : null}
+            </Stack>
+            <HeightTransition duration={AMOUNT_LINE_MS}>
+              {isCheckAmountMessageError ? (
+                <YStack pt="$2" px="$3.5">
+                  <SizableText
+                    testID="earn-amount-error"
+                    size="$bodyMd"
+                    color="$textCritical"
+                  >
+                    {checkAmountMessage}
+                  </SizableText>
+                </YStack>
+              ) : null}
+            </HeightTransition>
+          </YStack>
           <ManagePageV2ReceiveInput
             receive={transactionConfirmation?.receive}
-            config={effectiveReceiveInputConfig}
+            // One name before and after the quote; the server's would
+            // replace it once a quote is in
+            config={
+              effectiveReceiveInputConfig
+                ? {
+                    ...effectiveReceiveInputConfig,
+                    title: effectiveReceiveInputConfig.title || youReceiveLabel,
+                  }
+                : undefined
+            }
             fiatSymbol={symbol}
             payFiatValue={currentValue}
             loading={quoteLoading}
@@ -1813,79 +2044,57 @@ export function UniversalWithdraw({
           </Stack>
         ) : null}
       </Stack>
-      {/* The protocol stays under the amount; what typing brings up goes
-          below it */}
-      {offerSwitch}
-
-      {showWithdrawPathSelector && selectedWithdrawPath ? (
-        <XStack
-          borderWidth={StyleSheet.hairlineWidth}
-          borderColor="$borderSubdued"
-          borderRadius="$3"
-          p="$3.5"
-          gap="$2.5"
-          ai="center"
-          userSelect="none"
-          cursor="pointer"
-          hoverStyle={{ bg: '$bgHover' }}
-          onPress={showWithdrawPathDialog}
-        >
-          <YStack flex={1} gap="$1">
-            <SizableText size="$bodyMdMedium" color="$text">
-              {selectedWithdrawPath.title.text}
-            </SizableText>
-            {selectedWithdrawPath.subtitle?.text ? (
-              <SizableText
-                size="$bodySm"
-                color={selectedWithdrawPath.subtitle?.color || '$textSubdued'}
-              >
-                {selectedWithdrawPath.subtitle.text}
-              </SizableText>
+      {/* Where it comes from, then the ways out when there are two: cards
+          side by side, each with when it pays and what it costs. The cards
+          bring their own space above, so none leave no gap */}
+      {offerSwitch || showWithdrawPathCards ? (
+        <YStack>
+          {offerSwitch}
+          <HeightTransition
+            duration={AMOUNT_LINE_MS}
+            skipInitialAnimation={hasPathCardsFromStart}
+          >
+            {showWithdrawPathCards && selectedWithdrawPath ? (
+              <YStack pt={offerSwitch ? '$2' : undefined}>
+                <WithdrawPathCards
+                  boxes={withdrawPathConfirmBoxes}
+                  selectedIndex={effectiveSelectedWithdrawPathIndex}
+                  onSelect={handleSelectWithdrawPath}
+                  disabled={isTransacting}
+                />
+              </YStack>
             ) : null}
-          </YStack>
-          <YStack gap="$1" ai="flex-end">
-            <EarnAmountText size="$bodyMdMedium" color="$text">
-              {selectedWithdrawPath.description.text}
-            </EarnAmountText>
-            {selectedWithdrawPath.subtitleDescription?.text ? (
-              <XStack ai="center">
-                <SizableText
-                  size="$bodySmMedium"
-                  color={
-                    selectedWithdrawPath.subtitleDescription?.color ||
-                    '$textSubdued'
-                  }
-                >
-                  {selectedWithdrawPath.subtitleDescription.text}
-                </SizableText>
-              </XStack>
-            ) : null}
-          </YStack>
-          <Icon
-            name="ChevronRightSmallOutline"
-            size="$5"
-            color="$iconSubdued"
-          />
-        </XStack>
+          </HeightTransition>
+        </YStack>
       ) : null}
 
-      {formTransactionTip?.text ? (
+      {selectedPathTip ? (
         <Alert
           icon="InfoCircleOutline"
-          type={resolveEarnAlertType(formTransactionTip.type)}
+          type={resolveEarnAlertType(selectedPathTip.type)}
           renderTitle={() => (
-            <EarnText text={formTransactionTip.text} size="$bodyMdMedium" />
+            <EarnText text={selectedPathTip.text} size="$bodyMdMedium" />
+          )}
+          action={buildTipAlertAction(selectedPathTip)}
+        />
+      ) : null}
+      {formTipAlert ? (
+        <Alert
+          icon="InfoCircleOutline"
+          type={resolveEarnAlertType(formTipAlert.type)}
+          renderTitle={() => (
+            <EarnText text={formTipAlert.text} size="$bodyMdMedium" />
           )}
           descriptionComponent={
-            formTransactionTip.description ? (
+            formTipAlert.description ? (
               <EarnText
-                text={formTransactionTip.description}
+                text={formTipAlert.description}
                 size="$bodyMd"
                 color="$textSubdued"
               />
             ) : undefined
           }
-          action={buildTipAlertAction(formTransactionTip)}
+          action={buildTipAlertAction(formTipAlert)}
         />
       ) : null}
 
@@ -1897,13 +2106,6 @@ export function UniversalWithdraw({
             { id: ETranslations.earn_unstake_all_due_to_min_withdrawal },
             { number: minAmount, symbol: tokenSymbol },
           )}
-        />
-      ) : null}
-      {isCheckAmountMessageError ? (
-        <Alert
-          icon="InfoCircleOutline"
-          type="critical"
-          title={checkAmountMessage}
         />
       ) : null}
       {checkAmountAlerts.length > 0 ? (
@@ -1940,249 +2142,57 @@ export function UniversalWithdraw({
           ))}
         </>
       ) : null}
-      {shouldShowSummaryCard ? (
-        <YStack
-          p="$3.5"
-          pt={hasSummarySection ? '$5' : '$3.5'}
-          pb={hasSummarySection ? '$5' : '$3.5'}
-          borderRadius="$3"
-          borderWidth={StyleSheet.hairlineWidth}
-          borderColor="$borderSubdued"
-        >
-          <HeightTransition>
-            {showApyHeader && apyDetail ? (
-              <XStack gap="$1" ai="center" mb="$3.5">
-                <EarnText
-                  text={apyDetail.description}
-                  size="$headingLg"
-                  color="$textSuccess"
-                />
-                <EarnActionIcon
-                  title={apyDetail.title.text}
-                  actionIcon={apyDetail.button}
-                />
-              </XStack>
-            ) : null}
-            {hasSummarySection && usePendleSummaryLayout ? (
-              <PendleSummarySection
-                rewardRows={pendleRewardRows}
-                tipText={pendleTipText}
-                loading={quoteLoading}
-              />
-            ) : null}
-            {hasSummarySection && !usePendleSummaryLayout ? (
-              <YStack gap="$1.5">
-                <XStack ai="center" gap="$1">
-                  <EarnText
-                    text={transactionConfirmation?.title}
-                    color="$textSubdued"
-                    size="$bodyMd"
-                  />
-                  {transactionConfirmation?.tooltip ? (
-                    <EarnTooltip
-                      title={transactionConfirmation?.title?.text}
-                      tooltip={transactionConfirmation?.tooltip}
-                    />
-                  ) : null}
-                </XStack>
-                {transactionConfirmation?.rewards?.map((reward) => {
-                  const hasTooltip = reward.tooltip?.type === 'text';
-                  let descriptionTextSize = (
-                    hasTooltip ? '$bodyMd' : '$bodyLgMedium'
-                  ) as FontSizeTokens;
-                  if (reward.description.size) {
-                    descriptionTextSize = reward.description.size;
-                  }
-                  return (
-                    <XStack
-                      key={reward.title.text}
-                      gap="$1"
-                      ai="flex-start"
-                      flexWrap="wrap"
-                    >
-                      <XStack gap="$1" flex={1} flexWrap="wrap" ai="center">
-                        <EarnText
-                          text={reward.title}
-                          color={reward.title.color}
-                          size={reward.title.size}
-                        />
-                        <XStack gap="$1" flex={1} flexWrap="wrap" ai="center">
-                          <EarnText
-                            text={reward.description}
-                            size={descriptionTextSize}
-                            color={reward.description.color ?? '$textSubdued'}
-                            flexShrink={1}
-                          />
-                          {hasTooltip ? (
-                            <EarnTooltip
-                              title={reward.title.text}
-                              tooltip={reward.tooltip}
-                            />
-                          ) : null}
-                        </XStack>
-                      </XStack>
-                    </XStack>
-                  );
-                })}
-                {transactionConfirmation?.availableLiquidity ? (
-                  // Server-driven "Available liquidity" row (e.g. Bitway:
-                  // instant withdrawal is capped by the flash pool balance, so
-                  // amounts above it must go through the queued path). Kept in
-                  // the always-visible summary so users can see why instant
-                  // withdrawal is unavailable. (OK-58353)
-                  <XStack ai="center" jc="space-between" flexWrap="wrap">
-                    <XStack ai="center" gap="$1">
-                      <EarnText
-                        text={transactionConfirmation.availableLiquidity.title}
-                        color={
-                          transactionConfirmation.availableLiquidity.title
-                            .color ?? '$textSubdued'
-                        }
-                        size={
-                          transactionConfirmation.availableLiquidity.title
-                            .size ?? '$bodyMd'
-                        }
-                      />
-                      {transactionConfirmation.availableLiquidity.tooltip ? (
-                        <EarnTooltip
-                          title={
-                            transactionConfirmation.availableLiquidity.title
-                              .text
-                          }
-                          tooltip={
-                            transactionConfirmation.availableLiquidity.tooltip
-                          }
-                        />
-                      ) : null}
-                    </XStack>
-                    <EarnText
-                      text={
-                        transactionConfirmation.availableLiquidity.description
-                      }
-                      size={
-                        transactionConfirmation.availableLiquidity.description
-                          .size ?? '$bodyMdMedium'
-                      }
-                      color={
-                        transactionConfirmation.availableLiquidity.description
-                          .color
-                      }
-                    />
-                  </XStack>
-                ) : null}
-              </YStack>
-            ) : null}
-            {hasSummarySection && showDetailsSection ? (
-              <Divider my="$5" />
-            ) : null}
-          </HeightTransition>
-          {showDetailsSection ? (
-            <Accordion
-              overflow="hidden"
-              width="100%"
-              type="single"
-              collapsible
-              defaultValue={isPendleLikeLayout ? '' : WITHDRAW_ACCORDION_KEY}
-            >
-              <Accordion.Item value={WITHDRAW_ACCORDION_KEY}>
-                <Accordion.Trigger
-                  unstyled
-                  flexDirection="row"
-                  alignItems="center"
-                  alignSelf="flex-start"
-                  px="$1"
-                  mx="$-1"
-                  width="100%"
-                  justifyContent="space-between"
-                  borderWidth={0}
-                  bg="$transparent"
-                  userSelect="none"
-                  borderRadius="$1"
-                  cursor={
-                    isAccordionTriggerDisabled ? 'not-allowed' : 'pointer'
-                  }
-                  disabled={isAccordionTriggerDisabled}
-                >
-                  {({ open }: { open: boolean }) => (
-                    <>
-                      {isPendleLikeLayout ? (
-                        <PendleAccordionTriggerContent
-                          open={open}
-                          triggerText={transactionDetailsTriggerText?.text}
-                          isDisabled={isAccordionTriggerDisabled}
-                        />
-                      ) : (
-                        // The protocol is named above the form already
-                        <PendleAccordionTriggerContent
-                          open={open}
-                          triggerText={intl.formatMessage({
-                            id: ETranslations.global_details,
-                          })}
-                          isDisabled={isAccordionTriggerDisabled}
-                        />
-                      )}
-                    </>
-                  )}
-                </Accordion.Trigger>
-                <Accordion.HeightAnimator transition="quick">
-                  <Accordion.Content
-                    transition="quick"
-                    animateOnly={ANIMATE_ONLY_OPACITY}
-                    exitStyle={{ opacity: 0 }}
-                    px={0}
-                    pb={0}
-                    pt={accordionContent.length > 0 ? '$3.5' : '$0'}
-                    gap={isPendleLikeLayout ? '$3.5' : '$2.5'}
-                  >
-                    {accordionContent}
-                  </Accordion.Content>
-                </Accordion.HeightAnimator>
-              </Accordion.Item>
-            </Accordion>
-          ) : null}
-        </YStack>
-      ) : null}
+      {/* What reaches the wallet, then the withdrawal's own rows */}
+      <EarnFormSummary
+        outcome={outcome}
+        isLoading={isQuoteUpdating}
+        rows={summaryRows}
+        footnote={
+          footnoteText ? (
+            <EarnText
+              text={footnoteText}
+              size="$bodySm"
+              color={footnoteText.color ?? '$textInfo'}
+            />
+          ) : undefined
+        }
+      />
       {beforeFooter}
-      {shouldShowPendleWithdrawProgress ? (
-        <StakeProgress
-          approveType={approveType}
-          currentStep={
-            shouldApprove
-              ? EStakeProgressStep.approve
-              : (Math.max(
-                  withdrawProgressStep,
-                  EStakeProgressStep.deposit,
-                ) as EStakeProgressStep)
-          }
-          step2LabelId={
-            isPendleProvider
-              ? ETranslations.global_swap
-              : ETranslations.global_withdraw
-          }
-          step3LabelId={
-            isEthenaCooldownWithdrawPath
-              ? ETranslations.defi_unstake
-              : undefined
-          }
-        />
-      ) : null}
       {isInModalContext ? (
         <Page.Footer>
-          <Page.FooterActions
-            onConfirmText={effectiveConfirmText}
-            confirmButtonProps={{
-              onPress: effectiveConfirmOnPress,
-              loading: effectiveConfirmLoading,
-              disabled: effectiveConfirmDisabled,
+          <Stack
+            bg="$bgApp"
+            flexDirection="column"
+            $gtMd={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              jc: 'space-between',
             }}
-          />
+          >
+            {withdrawProgress ? (
+              <Stack pl="$5" $md={{ pt: '$5' }}>
+                {withdrawProgress}
+              </Stack>
+            ) : (
+              <Stack />
+            )}
+            <Page.FooterActions
+              onConfirmText={effectiveConfirmText}
+              confirmButtonProps={{
+                onPress: effectiveConfirmOnPress,
+                loading: effectiveConfirmLoading,
+                disabled: effectiveConfirmDisabled,
+              }}
+            />
+          </Stack>
           <PercentageStageOnKeyboard
             onSelectPercentageStage={onSelectPercentageStage}
             reserveSpaceUntilKeyboardShown={!amountInputDisabled}
           />
         </Page.Footer>
       ) : (
-        <YStack>
+        <YStack bg="$bgApp" gap="$5">
+          {withdrawProgress}
           <Page.FooterActions
             p={0}
             onConfirmText={effectiveConfirmText}

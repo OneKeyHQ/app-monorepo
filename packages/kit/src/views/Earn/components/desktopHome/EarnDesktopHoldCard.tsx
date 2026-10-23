@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -26,6 +26,7 @@ import {
 import { USD_CURRENCY_ID } from '@onekeyhq/shared/src/consts/currencyConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
+import { useWarmOffersDeposit } from '../../pages/EarnRouter/useWarmOffersDeposit';
 import { AprText } from '../AprText';
 
 import { EARN_DESKTOP_DEMO_COPY } from './earnDesktopHomeCopy';
@@ -44,6 +45,9 @@ import type {
 
 // Five rows, then the rest open in place
 const ROW_LIMIT = 5;
+// The pointer resting this long on a row gets its deposit form's data ready;
+// passing over the list doesn't
+const WARM_INTENT_MS = 100;
 const ROW_HEIGHT = 68;
 const ROW_GAP = '$3';
 const ACTION_WIDTH = 72;
@@ -181,16 +185,46 @@ function HoldRow({
   networkName,
   isWide,
   onPress,
+  onWarm,
 }: {
   row: IEarnDesktopHoldRow;
   networkName?: string;
   isWide: boolean;
   onPress: () => void;
+  // Gets the deposit modal's form ready, so it opens complete
+  onWarm: () => void;
 }) {
   const intl = useIntl();
   // The cards' steps: at rest a tile is the card color, never the hover or
   // open-row color the Earn table below uses
-  const { surface, handlers } = usePressableSurface(true);
+  const { surface, handlers: surfaceHandlers } = usePressableSurface(true);
+  const warmTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(
+    undefined,
+  );
+  useEffect(() => () => clearTimeout(warmTimerRef.current), []);
+  const handlers = useMemo(
+    () =>
+      surfaceHandlers
+        ? {
+            ...surfaceHandlers,
+            onHoverIn: () => {
+              surfaceHandlers.onHoverIn();
+              clearTimeout(warmTimerRef.current);
+              warmTimerRef.current = setTimeout(onWarm, WARM_INTENT_MS);
+            },
+            onHoverOut: () => {
+              surfaceHandlers.onHoverOut();
+              clearTimeout(warmTimerRef.current);
+            },
+            // A touch has no hover: the press itself starts it
+            onPressIn: () => {
+              surfaceHandlers.onPressIn();
+              onWarm();
+            },
+          }
+        : undefined,
+    [onWarm, surfaceHandlers],
+  );
   const [best] = row.offers;
   const symbol = row.token.symbol;
   const fixedLine = best.isFixedRate ? (
@@ -213,6 +247,8 @@ function HoldRow({
         cursor="pointer"
         userSelect="none"
         onPress={onPress}
+        // Reached by Tab, Enter comes next: as the pointer resting on it
+        onFocus={onWarm}
         {...handlers}
         {...buildKeyboardPressProps(onPress)}
       >
@@ -391,6 +427,12 @@ function HoldLabels() {
   );
 }
 
+const toWarmTarget = (row: IEarnDesktopHoldRow) => ({
+  symbol: row.asset.symbol,
+  networkId: row.networkId,
+  offers: row.offers,
+});
+
 /**
  * Earns on your holding: what the wallet holds, a row per token per network,
  * with the best rate Earn has for it on that network. The title and labels
@@ -412,6 +454,12 @@ export function EarnDesktopHoldCard({
   const isWide = media.gtMd;
   const [isExpanded, setIsExpanded] = useState(false);
   const shown = isExpanded ? rows : rows.slice(0, ROW_LIMIT);
+  const warm = useWarmOffersDeposit();
+  // The deposit modal's code and every row's offers as the holdings show,
+  // with no request; a row's form data once the pointer rests on it
+  useEffect(() => {
+    rows.forEach((row) => warm(toWarmTarget(row), { withData: false }));
+  }, [rows, warm]);
   const moreCount = rows.length - ROW_LIMIT;
   return (
     // The wider gap above sets the title apart from the hero
@@ -428,6 +476,7 @@ export function EarnDesktopHoldCard({
             networkName={networkNames.get(row.networkId)}
             isWide={isWide}
             onPress={() => onOpenRow(row)}
+            onWarm={() => warm(toWarmTarget(row))}
           />
         ))}
       </YStack>

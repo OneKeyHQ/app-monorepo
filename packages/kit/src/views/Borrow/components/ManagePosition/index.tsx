@@ -167,7 +167,12 @@ export function ManagePosition(props: IManagePositionProps) {
     onApprovedSubmit: submitBorrowAction,
   });
 
-  const { onTokenSelectorPress } = props;
+  const {
+    onTokenSelectorPress,
+    payWithTrigger,
+    amountBoxBottom,
+    amountBoxTestID,
+  } = props;
   const effectiveTokenSelectorTriggerProps = useMemo(() => {
     if (approval.isFormInteractionLocked) {
       return {
@@ -185,12 +190,14 @@ export function ManagePosition(props: IManagePositionProps) {
         popover: undefined,
         // Reachable from the keyboard, as a picker that opens on press
         ...buildKeyboardPressProps(onTokenSelectorPress),
+        ...payWithTrigger,
       };
     }
     return tokenSelectorTriggerProps;
   }, [
     approval.isFormInteractionLocked,
     onTokenSelectorPress,
+    payWithTrigger,
     tokenSelectorTriggerProps,
   ]);
 
@@ -202,6 +209,8 @@ export function ManagePosition(props: IManagePositionProps) {
       submitting,
       tokenSelectorMode: selectorMode,
       tokenSelectorTriggerProps: effectiveTokenSelectorTriggerProps,
+      amountBoxBottom,
+      amountBoxTestID,
     }),
     [
       baseState,
@@ -209,6 +218,8 @@ export function ManagePosition(props: IManagePositionProps) {
       submitting,
       selectorMode,
       effectiveTokenSelectorTriggerProps,
+      amountBoxBottom,
+      amountBoxTestID,
     ],
   );
 

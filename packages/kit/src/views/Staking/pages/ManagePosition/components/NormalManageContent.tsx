@@ -1,10 +1,24 @@
 import type { ReactNode } from 'react';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  startTransition,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
 import { useIntl } from 'react-intl';
-import { useSharedValue } from 'react-native-reanimated';
+import { useReducedMotion } from 'react-native-reanimated';
 
-import { Dialog, SizableText, Tabs, XStack } from '@onekeyhq/components';
+import {
+  Dialog,
+  SegmentControl,
+  SizableText,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
+import { ANIMATE_ONLY_OPACITY } from '@onekeyhq/components/src/utils/animationConstants';
 import SlippageSettingDialog from '@onekeyhq/kit/src/components/SlippageSettingDialog';
 import type { IAppNavigation } from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -44,6 +58,117 @@ import type { IWithdrawSuccessInfo } from './WithdrawSection';
 
 type IBorrowAction = 'supply' | 'withdraw' | 'borrow' | 'repay';
 type IManageActionData = IEarnManagePageActionData | undefined;
+
+// Switching sides on the details page: the side on screen fades out, then
+// the other fades in (fade through), as the selected background slides
+// between the two tabs
+const TAB_CONTENT_OUT_MS = 100;
+const TAB_CONTENT_OUT_TRANSITION: ['quick', { duration: number }] = [
+  'quick',
+  { duration: TAB_CONTENT_OUT_MS },
+];
+// Laid over the side on screen, invisible, until that one has faded out
+const TAB_CONTENT_PREPARED_STYLE = {
+  position: 'absolute',
+  top: 0,
+  left: 0,
+  right: 0,
+  pointerEvents: 'none',
+  'aria-hidden': true,
+} as const;
+// The tabs' look before the background slid: no track, the selected one on
+// a flat block
+const TAB_ITEM_STYLE = {
+  px: '$2',
+  py: '$1.5',
+  borderRadius: '$2',
+} as const;
+
+function useTabContentFade(selectedIndex: number, enabled: boolean) {
+  const reduceMotion = useReducedMotion();
+  const animates = enabled && !reduceMotion;
+  const [shownIndex, setShownIndex] = useState(selectedIndex);
+  // The other side is put together out of sight while this one fades out
+  // (a form takes a few frames to mount), so it can fade in at once
+  const [preparedIndex, setPreparedIndex] = useState<number>();
+  useEffect(() => {
+    if (!animates) {
+      setShownIndex(selectedIndex);
+      setPreparedIndex(undefined);
+      return undefined;
+    }
+    if (shownIndex === selectedIndex) {
+      setPreparedIndex(undefined);
+      return undefined;
+    }
+    // Once the fade's first frame is drawn, and rendered in slices, so the
+    // fade and the tab's slide keep their frames while it mounts
+    let prepareTimer: ReturnType<typeof setTimeout> | undefined;
+    const frame = requestAnimationFrame(() => {
+      prepareTimer = setTimeout(() =>
+        startTransition(() => setPreparedIndex(selectedIndex)),
+      );
+    });
+    const timer = setTimeout(
+      () => setShownIndex(selectedIndex),
+      TAB_CONTENT_OUT_MS,
+    );
+    return () => {
+      cancelAnimationFrame(frame);
+      clearTimeout(prepareTimer);
+      clearTimeout(timer);
+    };
+  }, [animates, selectedIndex, shownIndex]);
+  const index = animates ? shownIndex : selectedIndex;
+  return {
+    shownIndex: index,
+    preparedIndex:
+      animates && preparedIndex !== index ? preparedIndex : undefined,
+    isLeaving: index !== selectedIndex,
+    animates,
+  };
+}
+
+// The sides come in as elements made by the parent: its timing state lives
+// here, so a swap re-renders this alone and the forms are left as they are
+function TabContentFade({
+  selectedIndex,
+  enabled,
+  sides,
+}: {
+  selectedIndex: number;
+  enabled: boolean;
+  sides: ReactNode[];
+}) {
+  const { shownIndex, preparedIndex, isLeaving, animates } = useTabContentFade(
+    selectedIndex,
+    enabled,
+  );
+  if (!animates) {
+    return <>{sides[selectedIndex]}</>;
+  }
+  return (
+    <YStack>
+      {[shownIndex, preparedIndex].map((index) => {
+        if (index === undefined) {
+          return null;
+        }
+        const isPrepared = index !== shownIndex;
+        return (
+          <YStack
+            key={index}
+            {...(isPrepared ? TAB_CONTENT_PREPARED_STYLE : null)}
+            opacity={isPrepared || isLeaving ? 0 : 1}
+            transition={isLeaving ? TAB_CONTENT_OUT_TRANSITION : 'quick'}
+            animateOnly={ANIMATE_ONLY_OPACITY}
+          >
+            {sides[index]}
+          </YStack>
+        );
+      })}
+    </YStack>
+  );
+}
 
 interface INormalManageContentProps {
   networkId: string;
@@ -595,30 +720,15 @@ export function NormalManageContent({
     return tabNames;
   }, [depositOnly, withdrawOnly, tabNames]);
 
-  const initialTabName = useMemo(() => {
-    if (defaultTab === 'withdraw' || withdrawOnly) return tabNames[1];
-    return tabNames[0];
-  }, [defaultTab, withdrawOnly, tabNames]);
-
-  const focusedTab = useSharedValue(initialTabName);
-
   useEffect(() => {
     if (depositOnly) {
       return;
     }
     if (depositDisabled && selectedTabIndex === 0) {
       setSelectedTabIndex(1);
-      focusedTab.value = tabNames[1];
       onTabChange?.('withdraw');
     }
-  }, [
-    depositOnly,
-    depositDisabled,
-    selectedTabIndex,
-    focusedTab,
-    tabNames,
-    onTabChange,
-  ]);
+  }, [depositOnly, depositDisabled, selectedTabIndex, onTabChange]);
 
   const isWithdrawOrder = useMemo(() => {
     return (
@@ -673,7 +783,6 @@ export function NormalManageContent({
           return;
         }
 
-        focusedTab.value = name;
         setSelectedTabIndex(index);
 
         const newTab = index === 0 ? 'deposit' : 'withdraw';
@@ -683,7 +792,6 @@ export function NormalManageContent({
     [
       isWithdrawOrder,
       shouldDisablePrimaryTab,
-      focusedTab,
       tabData,
       onTabChange,
       openWithdrawOptions,
@@ -709,7 +817,6 @@ export function NormalManageContent({
     withdrawOrderHandoffRef.current = true;
     // With the withdraw side alone there is no Deposit to leave behind it
     if (!depositDisabled && !withdrawOnly) {
-      focusedTab.value = tabNames[0];
       setSelectedTabIndex(0);
       onTabChange?.('deposit');
     }
@@ -720,8 +827,6 @@ export function NormalManageContent({
     earnAccount?.accountId,
     depositDisabled,
     withdrawOnly,
-    focusedTab,
-    tabNames,
     onTabChange,
     openWithdrawOptions,
   ]);
@@ -754,6 +859,78 @@ export function NormalManageContent({
     />
   );
 
+  const stakeSection = withdrawOnly ? null : (
+    <StakeSection
+      accountId={earnAccount?.accountId || ''}
+      networkId={networkId}
+      tokenInfo={stakeTokenInfo}
+      protocolInfo={protocolInfo}
+      isDisabled={depositDisabled}
+      onSuccess={onSuccess}
+      beforeFooter={stakeBeforeFooter}
+      footerActionOverride={footerActionOverride}
+      showApyDetail={showApyDetail}
+      suppressPlatformBonus={suppressPlatformBonus}
+      isInModalContext={isInModalContext}
+      fallbackTokenImageUri={fallbackTokenImageUri}
+      protocolSwitchConfig={stakeProtocolSwitchConfig}
+      payWith={payWith}
+      initialAmount={initialAmount}
+      offerSwitch={offerSwitch}
+      onAmountChange={onAmountChange}
+      ongoingValidator={ongoingValidator}
+      useBorrowApi={useBorrowApi}
+      borrowMarketAddress={marketAddress}
+      borrowReserveAddress={reserveAddress}
+      borrowAction={borrowActionPrimary}
+      borrowActionLabel={borrowActionLabelPrimary}
+      receiveInputConfig={stakeReceiveInputConfig}
+      pendleSlippage={pendleSlippageValue}
+      isQuoteExpired={stakeCountdown.isExpired}
+      onQuoteReset={handleStakeQuoteReset}
+      refreshKey={stakeRefreshKey}
+      onQuoteRefreshingChange={handleStakeQuoteRefreshingChange}
+      onRefreshTokenInfo={onIndicatorRefresh}
+    />
+  );
+
+  const withdrawSection = depositOnly ? null : (
+    <WithdrawSection
+      accountId={earnAccount?.accountId || ''}
+      networkId={networkId}
+      tokenInfo={withdrawTokenInfo}
+      protocolInfo={protocolInfo}
+      isDisabled={withdrawDisabled}
+      onSuccess={onSuccess}
+      beforeFooter={withdrawBeforeFooter}
+      footerActionOverride={footerActionOverride}
+      showApyDetail={showApyDetail}
+      isInModalContext={isInModalContext}
+      fallbackTokenImageUri={fallbackTokenImageUri}
+      useBorrowApi={useBorrowApi}
+      borrowMarketAddress={marketAddress}
+      borrowReserveAddress={reserveAddress}
+      borrowAction={borrowActionSecondary}
+      defaultCollateralReserveAddress={
+        managePageData?.collateral?.data?.reserveAddress
+      }
+      borrowActionLabel={borrowActionLabelSecondary}
+      receiveInputConfig={withdrawReceiveInputConfig}
+      pendleSlippage={pendleSlippageValue}
+      isQuoteExpired={withdrawCountdown.isExpired}
+      onQuoteReset={handleWithdrawQuoteReset}
+      refreshKey={withdrawRefreshKey}
+      onQuoteRefreshingChange={handleWithdrawQuoteRefreshingChange}
+      repayWithCollateralSetupReadyProgressKey={
+        repayWithCollateralSetupReadyProgressKey
+      }
+      onRepayWithCollateralSetupReadyProgressKeyChange={
+        setRepayWithCollateralSetupReadyProgressKey
+      }
+      offerSwitch={offerSwitch}
+    />
+  );
+
   return (
     <>
       {liftsHeaderControls ? (
@@ -778,131 +955,56 @@ export function NormalManageContent({
               {visibleTabNames[0]}
             </SizableText>
           ) : (
-            <Tabs.TabBar
-              divider={false}
-              onTabPress={handleTabChange}
-              tabNames={visibleTabNames}
-              focusedTab={focusedTab}
-              renderItem={({ name, isFocused }) => {
+            <SegmentControl
+              value={tabNames[selectedTabIndex] ?? visibleTabNames[0]}
+              onChange={(value) => handleTabChange(String(value))}
+              options={visibleTabNames.map((name, index) => {
                 const isDisabled =
                   shouldDisablePrimaryTab && name === tabNames[0];
                 let textColor: '$textDisabled' | '$text' | '$textSubdued' =
                   '$textSubdued';
-
                 if (isDisabled) {
                   textColor = '$textDisabled';
-                } else if (isFocused) {
+                } else if (name === tabNames[selectedTabIndex]) {
                   textColor = '$text';
                 }
-
-                return (
-                  <XStack
-                    px="$2"
-                    py="$1.5"
-                    mr="$1"
-                    bg={isFocused ? '$bgActive' : '$bg'}
-                    borderRadius="$2"
-                    borderCurve="continuous"
-                    opacity={isDisabled ? 0.4 : 1}
-                    hoverStyle={
-                      !isFocused && !isDisabled
-                        ? {
-                            bg: '$bgHover',
-                          }
-                        : null
-                    }
-                    onPress={() => {
-                      if (isDisabled) {
-                        return;
-                      }
-                      handleTabChange(name);
-                    }}
-                  >
+                return {
+                  value: name,
+                  disabled: isDisabled,
+                  testID:
+                    index === 0
+                      ? 'earn-manage-tab-deposit'
+                      : 'earn-manage-tab-withdraw',
+                  label: (
                     <SizableText
                       size="$headingMd"
                       color={textColor}
                       letterSpacing={-0.15}
+                      numberOfLines={1}
                     >
                       {name}
                     </SizableText>
-                  </XStack>
-                );
-              }}
+                  ),
+                };
+              })}
+              slotBackgroundColor="$transparent"
+              activeBackgroundColor="$bgActive"
+              h="auto"
+              p={0}
+              gap="$1"
+              borderRadius="$2"
+              overflow="visible"
+              segmentControlItemStyleProps={TAB_ITEM_STYLE}
             />
           )}
           {headerRight}
         </XStack>
       )}
-      {selectedTabIndex === 0 && !withdrawOnly ? (
-        <StakeSection
-          accountId={earnAccount?.accountId || ''}
-          networkId={networkId}
-          tokenInfo={stakeTokenInfo}
-          protocolInfo={protocolInfo}
-          isDisabled={depositDisabled}
-          onSuccess={onSuccess}
-          beforeFooter={stakeBeforeFooter}
-          footerActionOverride={footerActionOverride}
-          showApyDetail={showApyDetail}
-          suppressPlatformBonus={suppressPlatformBonus}
-          isInModalContext={isInModalContext}
-          fallbackTokenImageUri={fallbackTokenImageUri}
-          protocolSwitchConfig={stakeProtocolSwitchConfig}
-          payWith={payWith}
-          initialAmount={initialAmount}
-          offerSwitch={offerSwitch}
-          onAmountChange={onAmountChange}
-          ongoingValidator={ongoingValidator}
-          useBorrowApi={useBorrowApi}
-          borrowMarketAddress={marketAddress}
-          borrowReserveAddress={reserveAddress}
-          borrowAction={borrowActionPrimary}
-          borrowActionLabel={borrowActionLabelPrimary}
-          receiveInputConfig={stakeReceiveInputConfig}
-          pendleSlippage={pendleSlippageValue}
-          isQuoteExpired={stakeCountdown.isExpired}
-          onQuoteReset={handleStakeQuoteReset}
-          refreshKey={stakeRefreshKey}
-          onQuoteRefreshingChange={handleStakeQuoteRefreshingChange}
-          onRefreshTokenInfo={onIndicatorRefresh}
-        />
-      ) : null}
-      {selectedTabIndex === 1 && !depositOnly ? (
-        <WithdrawSection
-          accountId={earnAccount?.accountId || ''}
-          networkId={networkId}
-          tokenInfo={withdrawTokenInfo}
-          protocolInfo={protocolInfo}
-          isDisabled={withdrawDisabled}
-          onSuccess={onSuccess}
-          beforeFooter={withdrawBeforeFooter}
-          footerActionOverride={footerActionOverride}
-          showApyDetail={showApyDetail}
-          isInModalContext={isInModalContext}
-          fallbackTokenImageUri={fallbackTokenImageUri}
-          useBorrowApi={useBorrowApi}
-          borrowMarketAddress={marketAddress}
-          borrowReserveAddress={reserveAddress}
-          borrowAction={borrowActionSecondary}
-          defaultCollateralReserveAddress={
-            managePageData?.collateral?.data?.reserveAddress
-          }
-          borrowActionLabel={borrowActionLabelSecondary}
-          receiveInputConfig={withdrawReceiveInputConfig}
-          pendleSlippage={pendleSlippageValue}
-          isQuoteExpired={withdrawCountdown.isExpired}
-          onQuoteReset={handleWithdrawQuoteReset}
-          refreshKey={withdrawRefreshKey}
-          onQuoteRefreshingChange={handleWithdrawQuoteRefreshingChange}
-          repayWithCollateralSetupReadyProgressKey={
-            repayWithCollateralSetupReadyProgressKey
-          }
-          onRepayWithCollateralSetupReadyProgressKeyChange={
-            setRepayWithCollateralSetupReadyProgressKey
-          }
-          offerSwitch={offerSwitch}
-        />
-      ) : null}
+      <TabContentFade
+        selectedIndex={selectedTabIndex}
+        enabled={!isInModalContext && visibleTabNames.length > 1}
+        sides={[stakeSection, withdrawSection]}
+      />
     </>
   );
 }

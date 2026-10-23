@@ -2,24 +2,27 @@ import BigNumber from 'bignumber.js';
 import { noop } from 'lodash';
 import { useIntl } from 'react-intl';
 
-import { Icon, Page, SizableText, XStack, YStack } from '@onekeyhq/components';
-import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeableTextWrapper';
-import { Token } from '@onekeyhq/kit/src/components/Token';
+import { Page, SizableText, YStack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { ProtocolSwitchRow } from '../../../Staking/components/UniversalStake';
 import { EARN_DESKTOP_DEMO_COPY } from '../../components/desktopHome/earnDesktopHomeCopy';
 
-import { buildOfferRowProps, getOfferName } from './EarnRouterOffer';
+import { EarnDoneHeader, formatDoneAmount } from './EarnDepositDone';
+import {
+  buildOfferRowProps,
+  getOfferName,
+  getOfferTarget,
+} from './EarnRouterOffer';
 
 import type { IEarnDesktopHoldOffer } from '../../components/desktopHome/earnDesktopHome.utils';
 
-// The withdraw modal once the withdrawal is out: what it took, and the same
-// token's better rate on the same network, one press from depositing it
-// there, under the rate the withdrawal left
+// The withdraw modal once the withdrawal is out: what it took and from
+// where, under the same top as a deposit's done view, then the same token's
+// better rate on the same network, one press from depositing it there, under
+// the rate the withdrawal left
 export function EarnWithdrawDone({
   symbol,
-  tokenImageUri,
   amount,
   offer,
   fromOffer,
@@ -27,7 +30,6 @@ export function EarnWithdrawDone({
   onDeposit,
 }: {
   symbol: string;
-  tokenImageUri?: string;
   amount: string;
   offer: IEarnDesktopHoldOffer;
   fromOffer?: IEarnDesktopHoldOffer;
@@ -35,29 +37,20 @@ export function EarnWithdrawDone({
   onDeposit: () => void;
 }) {
   const intl = useIntl();
+  const withdrawn = formatDoneAmount(amount, symbol);
   return (
     <>
       <YStack px="$5" pt="$5" pb="$5" gap="$8">
-        <YStack ai="center" gap="$3">
-          <Icon name="CheckRadioSolid" size="$12" color="$iconSuccess" />
-          <YStack ai="center" gap="$1">
-            <XStack ai="center" gap="$2">
-              <Token size="sm" tokenImageUri={tokenImageUri} />
-              <NumberSizeableTextWrapper
-                size="$headingXl"
-                formatter="balance"
-                formatterOptions={{ tokenSymbol: symbol }}
-              >
-                {amount}
-              </NumberSizeableTextWrapper>
-            </XStack>
-            <SizableText size="$bodyMd" color="$textSubdued">
-              {intl.formatMessage({
-                id: ETranslations.feedback_transaction_submitted,
-              })}
-            </SizableText>
-          </YStack>
-        </YStack>
+        <EarnDoneHeader
+          line={
+            fromOffer
+              ? EARN_DESKTOP_DEMO_COPY.withdrewFrom(
+                  withdrawn,
+                  getOfferTarget(fromOffer),
+                )
+              : withdrawn
+          }
+        />
         <YStack gap="$2">
           <YStack gap="$0.5" px="$1">
             <SizableText size="$headingSm">

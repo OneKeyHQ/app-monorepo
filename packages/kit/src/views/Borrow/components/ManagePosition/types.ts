@@ -81,6 +81,12 @@ export interface IManagePositionProps {
   initialAmount?: string;
   // The caller's own token picker (Pay with) in place of the reserve picker
   onTokenSelectorPress?: () => void;
+  // Pay with's chip as the caller has it (the token just picked while its
+  // list folds, the chevron turned while open), and its list, inside the
+  // amount box under the balance line
+  payWithTrigger?: Partial<ITokenSelectorTriggerProps>;
+  amountBoxBottom?: ReactNode;
+  amountBoxTestID?: string;
   // The amount box's label, in place of the action's name
   inputTitle?: string;
   // Off where the caller pays with another token itself (Pay with): no
@@ -114,6 +120,10 @@ export interface IManagePositionProps {
   showApyDetail?: boolean;
   actionLabel?: string;
   isInModalContext?: boolean;
+  // The Earn deposit forms' layout for a supply: the result first ("Est.
+  // annual rewards" at the supply rate), plain rows, "$0.00", an amount
+  // error as a line under the box, and the steps only once pressed
+  isEarnForm?: boolean;
 
   // Token selection (for withdraw/repay popover mode)
   selectableAssets?: IBorrowAsset[];
@@ -184,6 +194,9 @@ export interface IManagePositionState {
   // UI configuration
   showApyDetail: boolean;
   beforeFooter?: ReactElement | null;
+  isEarnForm: boolean;
+  amountBoxBottom?: ReactNode;
+  amountBoxTestID?: string;
 }
 
 // ============================================================================
@@ -301,13 +314,15 @@ export interface ISwapOrBridgeInfoProps {
 
 export interface ITokenSelectorTriggerProps extends Pick<
   IXStackProps,
-  'tabIndex' | 'onKeyDown' | 'focusVisibleStyle'
+  'tabIndex' | 'onKeyDown' | 'focusVisibleStyle' | 'testID'
 > {
   selectedTokenImageUri?: string;
   selectedTokenSymbol?: string;
   selectedNetworkImageUri?: string;
   onPress?: () => void;
   disabled?: boolean;
+  // A list unfolding in place under the trigger is open (Earn's Pay with)
+  isExpanded?: boolean;
   popover?: {
     title: string;
     content:

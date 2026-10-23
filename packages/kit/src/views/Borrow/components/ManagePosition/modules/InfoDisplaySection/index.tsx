@@ -7,6 +7,7 @@ import { useManagePositionContext } from '../../ManagePositionContext';
 import { ApyInfo } from './ApyInfo';
 import { BorrowInfoSectionSkeleton } from './BorrowInfoSectionSkeleton';
 import { CollateralInfo } from './CollateralInfo';
+import { EarnLendingSummary } from './EarnLendingSummary';
 import { FeeInfo } from './FeeInfo';
 import { HealthFactorInfo } from './HealthFactorInfo';
 import { PositionInfo } from './PositionInfo';
@@ -188,6 +189,21 @@ export function InfoDisplaySection({
   showSwapOrBridge = true,
 }: IInfoDisplaySectionProps) {
   const { state, actionResult } = useManagePositionContext();
+
+  if (state.isEarnForm) {
+    return (
+      <EarnLendingSummary
+        amountValue={state.amountValue}
+        tokenSymbol={state.tokenSymbol ?? state.token?.symbol}
+        price={state.price}
+        currencySymbol={state.currencySymbol}
+        transactionConfirmation={actionResult.transactionConfirmation}
+        transactionConfirmationLoading={
+          actionResult.transactionConfirmationLoading
+        }
+      />
+    );
+  }
 
   return (
     <BorrowInfoCard

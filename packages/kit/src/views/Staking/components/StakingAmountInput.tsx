@@ -1,4 +1,5 @@
-import { useCallback, useRef, useState } from 'react';
+import type { ReactNode, RefObject } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { InputAccessoryView } from 'react-native';
@@ -9,6 +10,7 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import type { IElement } from '@onekeyhq/components';
 import { ANIMATE_ONLY_OPACITY_TRANSFORM } from '@onekeyhq/components/src/utils/animationConstants';
 import type { IAmountInputFormItemProps } from '@onekeyhq/kit/src/components/AmountInput';
 import { AmountInput } from '@onekeyhq/kit/src/components/AmountInput';
@@ -22,7 +24,52 @@ import type { BlurEvent, StyleProp, TextStyle } from 'react-native';
 export const stakingInputAccessoryViewID =
   'staking-amount-input-accessory-view';
 
-export const StakingPercentageInputStage = [25, 50, 75, 100];
+// No 100%: the Max beside the balance is the whole balance
+export const StakingPercentageInputStage = [25, 50, 75];
+
+// A form that opens complete takes the focus as a modal is still opening,
+// and the opening can drop it a moment later. This long it is taken back
+const AUTO_FOCUS_HOLD_MS = 800;
+
+function useHoldAutoFocus(
+  boxRef: RefObject<IElement | null>,
+  autoFocus: boolean,
+) {
+  useEffect(() => {
+    if (!autoFocus || !platformEnv.isRuntimeBrowser) {
+      return undefined;
+    }
+    const box = boxRef.current as unknown as HTMLElement | null;
+    const input = box?.querySelector?.('input');
+    if (!input) {
+      return undefined;
+    }
+    let frame = 0;
+    const handleBlur = (event: FocusEvent) => {
+      // Moved by the user (or a script) to another element: theirs
+      if (event.relatedTarget) {
+        return;
+      }
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => {
+        const active = globalThis.document?.activeElement;
+        if (!active || active === globalThis.document.body) {
+          input.focus({ preventScroll: true });
+        }
+      });
+    };
+    input.addEventListener('blur', handleBlur);
+    const timer = setTimeout(
+      () => input.removeEventListener('blur', handleBlur),
+      AUTO_FOCUS_HOLD_MS,
+    );
+    return () => {
+      clearTimeout(timer);
+      cancelAnimationFrame(frame);
+      input.removeEventListener('blur', handleBlur);
+    };
+  }, [autoFocus, boxRef]);
+}
 
 export const useOnBlurAmountValue = (
   amountValue: string,
@@ -50,21 +97,36 @@ export function StakingAmountInput({
   onSelectPercentageStage,
   value,
   onBlur,
+  bottomContent,
+  boxTestID,
   ...props
 }: IAmountInputFormItemProps & {
   title: string;
   forceSubduedBackground?: boolean;
   onSelectPercentageStage: (percent: number) => void;
+  // Inside the box under the balance line: Pay with's token list
+  bottomContent?: ReactNode;
+  boxTestID?: string;
 }) {
   const [percentageInputStageShow, setPercentageInputStageShow] =
     useState(false);
+  const boxRef = useRef<IElement>(null);
+  useHoldAutoFocus(boxRef, Boolean(inputProps?.autoFocus) && !disabled);
+  // The chips leave a moment after the box loses focus, so a press on one
+  // lands first; focus back in time keeps them
+  const hideStagesTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(
+    undefined,
+  );
+  useEffect(() => () => clearTimeout(hideStagesTimerRef.current), []);
   const onFromInputFocus = useCallback(() => {
+    clearTimeout(hideStagesTimerRef.current);
     setPercentageInputStageShow(true);
   }, []);
 
   const onFromInputBlur = useCallback(
     (e: BlurEvent) => {
-      setTimeout(() => {
+      clearTimeout(hideStagesTimerRef.current);
+      hideStagesTimerRef.current = setTimeout(() => {
         setPercentageInputStageShow(false);
       }, 200);
       onBlur?.(e as any);
@@ -74,6 +136,8 @@ export function StakingAmountInput({
 
   return (
     <YStack
+      ref={boxRef}
+      testID={boxTestID}
       borderRadius="$3"
       backgroundColor={
         disabled && !forceSubduedBackground ? '$bgDisabled' : '$bgSubdued'
@@ -138,6 +202,7 @@ export function StakingAmountInput({
           props.onChange?.(val);
         }}
       />
+      {bottomContent}
       {platformEnv.isNativeIOS ? (
         <InputAccessoryView nativeID={stakingInputAccessoryViewID}>
           <SizableText h="$0" />

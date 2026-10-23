@@ -213,15 +213,18 @@ export function usePendleTransactionDetails({
   amountValue,
   isPendleLikeLayout,
   loading,
+  placeholder,
 }: {
   transactionConfirmation?: IStakeTransactionConfirmation;
   amountValue: string;
   isPendleLikeLayout: boolean;
   loading?: boolean;
+  // No amount: the last quote's rows, each value a dash
+  placeholder?: boolean;
 }): ReactElement[] {
   return useMemo(() => {
     const items: ReactElement[] = [];
-    if (Number(amountValue) <= 0 || !isPendleLikeLayout) {
+    if (!isPendleLikeLayout || (!placeholder && Number(amountValue) <= 0)) {
       return items;
     }
 
@@ -287,6 +290,13 @@ export function usePendleTransactionDetails({
             </CalculationListItem.Label>
           )}
           {(() => {
+            if (placeholder) {
+              return (
+                <SizableText size="$bodyMdMedium" color="$textDisabled">
+                  –
+                </SizableText>
+              );
+            }
             if (loading) {
               return (
                 <Stack py="$0.5">
@@ -368,5 +378,11 @@ export function usePendleTransactionDetails({
     }
 
     return items;
-  }, [amountValue, isPendleLikeLayout, loading, transactionConfirmation]);
+  }, [
+    amountValue,
+    isPendleLikeLayout,
+    loading,
+    placeholder,
+    transactionConfirmation,
+  ]);
 }

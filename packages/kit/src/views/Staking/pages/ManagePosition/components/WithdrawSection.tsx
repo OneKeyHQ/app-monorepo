@@ -76,6 +76,8 @@ import type { IManagePageV2ReceiveInputConfig } from '../../../components/Manage
 // What a withdrawal took, for whoever opened the form
 export type IWithdrawSuccessInfo = {
   amount?: string;
+  // The token, for a deposit's done view
+  symbol?: string;
   logoURI?: string;
   // It waits out a cooldown or a queue, so the tokens are not in the wallet yet
   isQueued?: boolean;

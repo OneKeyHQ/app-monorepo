@@ -1,5 +1,12 @@
 import type { ReactElement, ReactNode } from 'react';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -30,11 +37,17 @@ import {
   findOffer,
   resolvePayMode,
 } from '@onekeyhq/kit/src/views/Earn/pages/EarnRouter/earnRouter.utils';
+import type { IEarnRouterPayToken } from '@onekeyhq/kit/src/views/Earn/pages/EarnRouter/earnRouter.utils';
 import { useEarnRouterOffers } from '@onekeyhq/kit/src/views/Earn/pages/EarnRouter/EarnRouterOffer';
 import {
-  showPayWithPicker,
+  EarnFormChoiceContext,
+  EarnPayWithList,
+  LIST_PICK_APPLY_MS,
+  PAY_WITH_BOX_TEST_ID,
+  PAY_WITH_TRIGGER_TEST_ID,
   usePayTokens,
 } from '@onekeyhq/kit/src/views/Earn/pages/EarnRouter/EarnRouterPayWith';
+import type { IEarnFormChoice } from '@onekeyhq/kit/src/views/Earn/pages/EarnRouter/EarnRouterPayWith';
 import { EarnRouterSwapDepositForm } from '@onekeyhq/kit/src/views/Earn/pages/EarnRouter/EarnRouterSwapDepositForm';
 import type { IEarnRouterSummaryRequest } from '@onekeyhq/kit/src/views/Earn/pages/EarnRouter/EarnRouterSwapDepositForm';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -83,6 +96,7 @@ import type {
   IManagePositionPayWith,
   IManagePositionProtocolSwitchConfig,
 } from './ManagePositionContent';
+import type { IWithdrawSuccessInfo } from './WithdrawSection';
 import type { IManagePageV2ReceiveInputConfig } from '../../../components/ManagePageV2ReceiveInput';
 
 export const StakeSection = ({
@@ -122,7 +136,8 @@ export const StakeSection = ({
   tokenInfo?: IEarnTokenInfo;
   protocolInfo?: IProtocolInfo;
   isDisabled?: boolean;
-  onSuccess?: () => void;
+  // What went in, for the deposit modal's done view
+  onSuccess?: (info?: IWithdrawSuccessInfo) => void;
   beforeFooter?: ReactElement | null;
   footerActionOverride?: IManagePositionFooterAction;
   showApyDetail?: boolean;
@@ -344,18 +359,91 @@ export const StakeSection = ({
       setPayKey(heldDepositKey);
     }
   }, [handoff, heldDepositKey, payKey, setPayKey]);
+  // Pay with's tokens unfold inside the amount box. In the deposit modal
+  // the protocol list shares one open state with them, so one is open at a
+  // time; elsewhere (the details page) the list keeps its own
+  const choice = useContext(EarnFormChoiceContext);
+  const [ownChoice, setOwnChoice] = useState<IEarnFormChoice>();
+  const openChoice = choice ? choice.open : ownChoice;
+  const setOpenChoice = choice ? choice.setOpen : setOwnChoice;
+  const isPayListOpen = openChoice === 'payWith';
+  // The other tokens, the deposit token first: the one in use is the chip
+  const payListTokens = useMemo(
+    () => pay.tokens.filter((item) => item.key !== payToken?.key),
+    [pay.tokens, payToken?.key],
+  );
+  const hasOtherPayTokens = hasPayTokens && payListTokens.length > 0;
+  const focusFirstPayRowRef = useRef(false);
   const handleOpenPayWith = useCallback(() => {
-    showPayWithPicker({
-      tokens: pay.tokens,
-      selectedKey: payToken?.key,
-      onSelect: (item) => {
+    setOpenChoice((prev) => (prev === 'payWith' ? undefined : 'payWith'));
+  }, [setOpenChoice]);
+  const handleKeyboardOpenPayWith = useCallback(() => {
+    focusFirstPayRowRef.current = !isPayListOpen;
+    handleOpenPayWith();
+  }, [handleOpenPayWith, isPayListOpen]);
+  const handleClosePayWith = useCallback(() => {
+    setOpenChoice((prev) => (prev === 'payWith' ? undefined : prev));
+  }, [setOpenChoice]);
+  // A pick shows in the chip at once and the list folds under it; the form
+  // takes the token once the list is shut, as the protocol list does. An
+  // amount of the last token means nothing in this one, so it starts empty
+  const [shownPayKey, setShownPayKey] = useState<string>();
+  const payApplyTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(
+    undefined,
+  );
+  useEffect(() => () => clearTimeout(payApplyTimerRef.current), []);
+  const handlePickPayToken = useCallback(
+    (item: IEarnRouterPayToken) => {
+      setShownPayKey(item.key);
+      handleClosePayWith();
+      clearTimeout(payApplyTimerRef.current);
+      payApplyTimerRef.current = setTimeout(() => {
+        setShownPayKey(undefined);
         setStartAmount(undefined);
         typedAmountRef.current = undefined;
+        onAmountChange?.('');
         setHandoff(undefined);
         setPayKey(item.key);
-      },
-    });
-  }, [pay.tokens, payToken?.key, setPayKey]);
+      }, LIST_PICK_APPLY_MS);
+    },
+    [handleClosePayWith, onAmountChange, setPayKey],
+  );
+  const shownPayToken = shownPayKey
+    ? pay.tokens.find((item) => item.key === shownPayKey)
+    : undefined;
+  // The chip as the list has it, laid over each form's own; with no other
+  // token to pick it is the token alone
+  const payWithTrigger = useMemo(
+    () =>
+      hasOtherPayTokens
+        ? {
+            testID: PAY_WITH_TRIGGER_TEST_ID,
+            isExpanded: isPayListOpen,
+            ...(shownPayToken
+              ? {
+                  selectedTokenSymbol: shownPayToken.token.symbol,
+                  selectedTokenImageUri: shownPayToken.token.logoURI,
+                }
+              : undefined),
+          }
+        : {
+            disabled: true,
+            onPress: undefined,
+            tabIndex: undefined,
+            onKeyDown: undefined,
+          },
+    [hasOtherPayTokens, isPayListOpen, shownPayToken],
+  );
+  const payWithList = hasOtherPayTokens ? (
+    <EarnPayWithList
+      tokens={payListTokens}
+      isOpen={isPayListOpen}
+      onPick={handlePickPayToken}
+      onClose={handleClosePayWith}
+      focusFirstRef={focusFirstPayRowRef}
+    />
+  ) : undefined;
+  const payWithBoxTestID = hasOtherPayTokens ? PAY_WITH_BOX_TEST_ID : undefined;
   const payMode = handoff
     ? 'direct'
     : resolvePayMode({
@@ -656,11 +744,12 @@ export const StakeSection = ({
 
   const stakeTokenSelectorTriggerProps = useMemo(() => {
     if (hasPayTokens) {
-      // Pay with opens from the keyboard too, as its picker's rows do
+      // Pay with opens from the keyboard too, its first token focused
       return {
         disabled: false,
         onPress: handleOpenPayWith,
-        ...buildKeyboardPressProps(handleOpenPayWith),
+        ...buildKeyboardPressProps(handleKeyboardOpenPayWith),
+        ...payWithTrigger,
       };
     }
     if (
@@ -680,6 +769,8 @@ export const StakeSection = ({
   }, [
     hasPayTokens,
     handleOpenPayWith,
+    handleKeyboardOpenPayWith,
+    payWithTrigger,
     isPendleProvider,
     isNativeProvider,
     selectableStakeAssets.length,
@@ -883,7 +974,11 @@ export const StakeSection = ({
         // Stakefish specific param
         validatorPublicKey: validatorPubkey,
         onSuccess: async (txs) => {
-          onSuccess?.();
+          onSuccess?.({
+            amount,
+            symbol: token?.symbol,
+            logoURI: token?.logoURI,
+          });
           defaultLogger.staking.page.staking({
             token,
             stakingProtocol: providerName,
@@ -1115,7 +1210,11 @@ export const StakeSection = ({
             }
           : undefined,
         onSuccess: async () => {
-          onSuccess?.();
+          onSuccess?.({
+            amount,
+            symbol: token?.symbol,
+            logoURI: token?.logoURI,
+          });
         },
       });
     },
@@ -1167,6 +1266,7 @@ export const StakeSection = ({
           showSwapOrBridge={!canPayWith}
           offerSwitch={offerSwitch}
           isInModalContext={isInModalContext}
+          isEarnForm
         />
       );
     }
@@ -1237,12 +1337,15 @@ export const StakeSection = ({
           inputDecimals: protocolInfo?.protocolInputDecimals,
         }}
         onOpenPayWith={handleOpenPayWith}
+        onOpenPayWithFromKeyboard={handleKeyboardOpenPayWith}
+        payWithTrigger={payWithTrigger}
+        amountBoxBottom={payWithList}
+        amountBoxTestID={payWithBoxTestID}
         onSwapped={handleSwapped}
         beforeSwap={handleBeforeSwap}
         footerActionOverride={footerActionOverride}
         isInModalContext={isInModalContext}
         summaryRequest={paySummaryRequest}
-        showApyDetail={showApyDetail}
         initialAmount={inputStartAmount}
         onAmountChange={handleAmountChange}
         protocolSwitch={
@@ -1280,6 +1383,16 @@ export const StakeSection = ({
           offerSwitch={offerSwitch}
           onAmountChange={handleAmountChange}
           onTokenSelectorPress={hasPayTokens ? handleOpenPayWith : undefined}
+          payWithTrigger={
+            hasPayTokens
+              ? {
+                  ...buildKeyboardPressProps(handleKeyboardOpenPayWith),
+                  ...payWithTrigger,
+                }
+              : undefined
+          }
+          amountBoxBottom={payWithList}
+          amountBoxTestID={payWithBoxTestID}
           inputTitle={payInputTitle}
           showSwapOrBridge={!canPayWith}
           tokenImageUri={tokenInfo?.token.logoURI || fallbackTokenImageUri}
@@ -1311,6 +1424,7 @@ export const StakeSection = ({
           showApyDetail={showApyDetail}
           actionLabel={borrowActionLabel}
           isInModalContext={isInModalContext}
+          isEarnForm
         />
       ) : (
         <UniversalStake
@@ -1382,6 +1496,8 @@ export const StakeSection = ({
           inputTitle={payInputTitle}
           hideTradeOrBuy={canPayWith}
           tokenSelectorTriggerProps={stakeTokenSelectorTriggerProps}
+          amountBoxBottom={payWithList}
+          amountBoxTestID={payWithBoxTestID}
           requestSymbol={stakeRequestSymbol}
           transactionInputTokenAddress={selectedStakeTokenAddress}
           transactionOutputTokenAddress={receiveInputConfig?.tokenAddress ?? ''}

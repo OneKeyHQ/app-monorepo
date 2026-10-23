@@ -139,7 +139,7 @@ export interface IManagePositionContentProps {
   // With the deposit side alone: called once the deposit is out, in place of
   // closing the modal, by a caller with a next step (the desktop Earn guide);
   // with what went in when the form knows it (paid in another token)
-  onDeposited?: (amount?: string) => void;
+  onDeposited?: (amount?: string, info?: IWithdrawSuccessInfo) => void;
   // The caller's own action in the footer, ahead of every other one (the
   // guide's preview, which sends nothing)
   footerActionOverride?: IManagePositionFooterAction;
@@ -924,7 +924,7 @@ export function ManagePositionContent({
         return;
       }
       if (depositOnly && onDeposited) {
-        onDeposited(info?.amount);
+        onDeposited(info?.amount, info);
         return;
       }
       if (isInModalContext) {

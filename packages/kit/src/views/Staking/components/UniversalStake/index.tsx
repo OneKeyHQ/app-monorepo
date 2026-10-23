@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
-import { Keyboard, StyleSheet } from 'react-native';
+import { Keyboard } from 'react-native';
 import { useDebouncedCallback } from 'use-debounce';
 
 import type {
@@ -12,10 +12,8 @@ import type {
   IXStackProps,
 } from '@onekeyhq/components';
 import {
-  Accordion,
   Alert,
   Dialog,
-  Divider,
   HeightTransition,
   Icon,
   Page,
@@ -27,10 +25,7 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
-import {
-  ANIMATE_ONLY_OPACITY,
-  ANIMATE_ONLY_TRANSFORM,
-} from '@onekeyhq/components/src/utils/animationConstants';
+import { ANIMATE_ONLY_TRANSFORM } from '@onekeyhq/components/src/utils/animationConstants';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type { IAmountInputFormItemProps } from '@onekeyhq/kit/src/components/AmountInput';
 import {
@@ -49,8 +44,14 @@ import {
   fillLeadingZero,
   validateAmountInputForStaking,
 } from '@onekeyhq/kit/src/utils/validateAmountInput';
+import { EARN_DESKTOP_DEMO_COPY } from '@onekeyhq/kit/src/views/Earn/components/desktopHome/earnDesktopHomeCopy';
 import { EarnAprSuffixText } from '@onekeyhq/kit/src/views/Earn/components/EarnAprSuffixText';
 import { ProtocolListContent } from '@onekeyhq/kit/src/views/Earn/components/showProtocolListDialog';
+import {
+  buildEmptyAmountFirstFrameKey,
+  keepFirstFrame,
+  readFirstFrame,
+} from '@onekeyhq/kit/src/views/Earn/pages/EarnRouter/earnFirstFrameCache';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IApproveInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -84,11 +85,7 @@ import { useEarnSignMessageWithoutVerify } from '../../hooks/useEarnSignMessageW
 import { usePendleLayoutState } from '../../hooks/usePendleLayoutState';
 import { useQuoteRefresh } from '../../hooks/useQuoteRefresh';
 import { useTrackTokenAllowance } from '../../hooks/useUtilsHooks';
-import {
-  countDecimalPlaces,
-  isInvalidAmount,
-  shouldShowStakingSummaryCard,
-} from '../../utils/utils';
+import { countDecimalPlaces, isInvalidAmount } from '../../utils/utils';
 import { BtcFeeRateInput } from '../BtcFeeRateInput';
 import { showEarnRiskWarningDialog } from '../EarnRiskWarningDialog';
 import {
@@ -98,10 +95,7 @@ import {
 import { EarnPlatformBonusSection } from '../ProtocolDetails/EarnPlatformBonusSection';
 import { EarnText } from '../ProtocolDetails/EarnText';
 import { EarnValidatorSelect } from '../ProtocolDetails/EarnValidatorSelect';
-import {
-  PendleAccordionTriggerContent,
-  PendleSummarySection,
-} from '../ProtocolDetails/PendleSharedComponents';
+import { usePendleTransactionDetails } from '../ProtocolDetails/PendleSharedComponents';
 import { ProtocolImage, formatTvl } from '../ProtocolDisplayShared';
 import {
   calcPriceImpactInfo,
@@ -118,12 +112,19 @@ import { TradeOrBuy } from '../TradeOrBuy';
 import { formatStakingDistanceToNowStrict } from '../utils';
 
 import {
-  StakingApyHeader,
+  EarnFormRow,
+  EarnFormSummary,
+  buildOutcomeValueFromText,
+  buildRewardNoteRows,
+  buildRewardsOutcome,
+  splitPendleRewardRows,
+} from './EarnFormSummary';
+import {
   StakingReceiveRow,
-  StakingRewardsSummary,
   hasStakingRewardsSummary,
 } from './StakingConfirmationSummary';
 
+import type { IEarnOutcome } from './EarnFormSummary';
 import type {
   IManagePositionFooterAction,
   IManagePositionProtocolSwitchConfig,
@@ -369,7 +370,7 @@ export function ProtocolSwitchRow({
         {showChevron && isExpanded !== undefined ? (
           // As the form's Details row turns its chevron
           <YStack
-            transition="quick"
+            transition="fast"
             animateOnly={ANIMATE_ONLY_TRANSFORM}
             rotate={isExpanded ? '180deg' : '0deg'}
           >
@@ -517,6 +518,9 @@ export function ProtocolSwitcher({
   );
 }
 
+// A line under the amount box (an error) grows or folds in this long
+const AMOUNT_LINE_MS = 200;
+
 type IUniversalStakeProps = {
   accountId: string;
   networkId: string;
@@ -596,6 +600,9 @@ type IUniversalStakeProps = {
   tokenSelectorTriggerProps?: Partial<
     NonNullable<IAmountInputFormItemProps['tokenSelectorTriggerProps']>
   >;
+  // Inside the amount box under its balance line: Pay with's token list
+  amountBoxBottom?: ReactNode;
+  amountBoxTestID?: string;
   isQuoteExpired?: boolean;
   onQuoteReset?: () => void;
   refreshKey?: number;
@@ -644,6 +651,8 @@ export function UniversalStake({
   stakeType,
   inputTitle,
   tokenSelectorTriggerProps,
+  amountBoxBottom,
+  amountBoxTestID,
   isQuoteExpired,
   onQuoteReset,
   refreshKey,
@@ -851,13 +860,6 @@ export function UniversalStake({
 
   const [transactionConfirmationLoading, setTransactionConfirmationLoading] =
     useState(false);
-  // Whether getTransactionConfirmation has settled at least once (success OR
-  // failure). The summary placeholder below is restricted to this first-load
-  // window: protocols whose response carries no summary would otherwise pulse
-  // the skeleton on every amount edit, and a failed first request would leave
-  // the skeleton stuck forever.
-  const [transactionConfirmationSettled, setTransactionConfirmationSettled] =
-    useState(false);
   // What the amount buys (Pendle), kept with the amount it was quoted for
   const [receiveQuote, setReceiveQuote] = useState<
     { amount?: string; description?: IEarnText } | undefined
@@ -881,7 +883,6 @@ export function UniversalStake({
         // keep stale state
       } finally {
         if (transactionConfirmationAmountRef.current === amount) {
-          setTransactionConfirmationSettled(true);
           setTransactionConfirmationLoading(false);
           setReceiveQuote({ amount, description: receiveDescription });
         }
@@ -889,6 +890,41 @@ export function UniversalStake({
     },
     350,
   );
+
+  // What the rows show while there is no amount: the last quote's rows,
+  // else what the server gives for an empty amount. So the rows keep their
+  // places with a dash rather than coming and going with the amount. Only
+  // their labels show, so the last answer for this offer opens the form
+  // complete while this one is fetched
+  const emptyAmountKey = buildEmptyAmountFirstFrameKey({
+    networkId,
+    providerName,
+    symbol: actionSymbol,
+    vault: shouldSendProtocolVault ? protocolInfo?.vault : undefined,
+  });
+  const [emptyAmountConfirmation, setEmptyAmountConfirmation] = useState<
+    IStakeTransactionConfirmation | undefined
+  >(() => readFirstFrame(emptyAmountKey));
+  useEffect(() => {
+    let cancelled = false;
+    fetchTransactionConfirmation('0')
+      .then((resp) => {
+        if (!cancelled) {
+          setEmptyAmountConfirmation(resp);
+          keepFirstFrame(emptyAmountKey, resp);
+        }
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [emptyAmountKey, fetchTransactionConfirmation]);
+  const lastConfirmationRef = useRef<IStakeTransactionConfirmation | undefined>(
+    undefined,
+  );
+  if (transactionConfirmation) {
+    lastConfirmationRef.current = transactionConfirmation;
+  }
 
   const protocolVault = shouldSendProtocolVault
     ? protocolInfo?.vault || ''
@@ -2055,15 +2091,8 @@ export function UniversalStake({
 
   const {
     isPendleLikeLayout,
-    pendleAccordionItems,
-    pendleRewardRows,
-    usePendleSummaryLayout,
-    transactionDetailsTriggerText,
     apyDetail,
-    showApyHeader,
-    hasSummarySection,
     pendleTipText,
-    showPendleTransactionSection,
     showExpiredRefresh,
     showReceiveInput,
     effectiveReceiveInputConfig,
@@ -2083,25 +2112,123 @@ export function UniversalStake({
   const isTransacting = approving || submitting;
   const effectiveShowExpiredRefresh = showExpiredRefresh && !isTransacting;
 
-  const accordionContent = useMemo(() => {
+  const isPositiveAmount = useMemo(() => {
+    const amountBN = new BigNumber(amountValue);
+    return !amountBN.isNaN() && amountBN.gt(0);
+  }, [amountValue]);
+  // With no amount the rows keep their places, each value a dash
+  const isRowsPlaceholder = !isPositiveAmount;
+  const rowsConfirmation = isPositiveAmount
+    ? transactionConfirmation
+    : (lastConfirmationRef.current ?? emptyAmountConfirmation);
+  // From the keystroke until this amount's quote is in: the figures shown
+  // are the last amount's, dimmed
+  const isQuoteUpdating =
+    isPositiveAmount && (quoteLoading || receiveQuote?.amount !== amountValue);
+
+  const pendleRows = useMemo(
+    () =>
+      splitPendleRewardRows(
+        isPendleLikeLayout
+          ? (rowsConfirmation?.rewards ?? []).filter(
+              (reward) =>
+                !!reward?.title?.text?.trim() &&
+                !!reward?.description?.text?.trim(),
+            )
+          : [],
+      ),
+    [isPendleLikeLayout, rowsConfirmation?.rewards],
+  );
+  const pendleDetailRows = usePendleTransactionDetails({
+    transactionConfirmation: rowsConfirmation,
+    amountValue,
+    isPendleLikeLayout,
+    placeholder: isRowsPlaceholder,
+  });
+
+  // Whether this protocol's quotes carry rewards at all: one that doesn't
+  // leaves the result out, rather than a dash that never fills
+  const quoteHasRewardsRef = useRef<boolean | undefined>(undefined);
+  if (isPositiveAmount && transactionConfirmation && !isQuoteUpdating) {
+    quoteHasRewardsRef.current = hasStakingRewardsSummary({
+      transactionConfirmation,
+    });
+  }
+
+  let outcome: IEarnOutcome | undefined;
+  if (isPendleLikeLayout) {
+    const { outcomeRow } = pendleRows;
+    const outcomeValue = isRowsPlaceholder
+      ? undefined
+      : buildOutcomeValueFromText(outcomeRow?.description);
+    outcome = {
+      label:
+        outcomeRow?.title.text.trim() ||
+        EARN_DESKTOP_DEMO_COPY.atMaturityYouGet,
+      tooltip: outcomeRow?.tooltip,
+      values: outcomeValue ? [outcomeValue] : [],
+      isEarning: true,
+    };
+  } else if (quoteHasRewardsRef.current !== false) {
+    outcome = buildRewardsOutcome({
+      transactionConfirmation: rowsConfirmation,
+      placeholderLabel: EARN_DESKTOP_DEMO_COPY.estAnnualRewards,
+      withoutValues: isRowsPlaceholder,
+    });
+  }
+
+  const summaryRows = useMemo(() => {
     const items: ReactElement[] = [];
-    if (Number(amountValue) <= 0) {
+    if (isPendleLikeLayout) {
+      pendleRows.detailRows.forEach((reward, index) => {
+        items.push(
+          <EarnFormRow
+            key={`pendle-reward-${index}`}
+            label={reward.title.text}
+            tooltip={reward.tooltip}
+            value={
+              isRowsPlaceholder ? undefined : (
+                <EarnText
+                  text={reward.description}
+                  size="$bodyMdMedium"
+                  textAlign="right"
+                />
+              )
+            }
+          />,
+        );
+      });
+      items.push(...pendleDetailRows);
       return items;
     }
-
-    if (isPendleLikeLayout) {
-      return pendleAccordionItems;
-    }
-
-    if (transactionConfirmation?.receive) {
+    items.push(
+      ...buildRewardNoteRows({
+        transactionConfirmation: rowsConfirmation,
+        withoutValues: isRowsPlaceholder,
+      }),
+    );
+    const receive = rowsConfirmation?.receive;
+    if (receive) {
       items.push(
         <StakingReceiveRow
           key="receive"
-          receive={transactionConfirmation.receive}
+          receive={
+            isRowsPlaceholder
+              ? {
+                  ...receive,
+                  description: { text: '–', color: '$textDisabled' },
+                }
+              : receive
+          }
         />,
       );
     }
-    if (estimateFeeResp) {
+    // The row hides itself on a zero estimate, so that counts as none
+    if (
+      estimateFeeResp &&
+      Number(estimateFeeResp.feeFiatValue) > 0 &&
+      isPositiveAmount
+    ) {
       items.push(
         <EstimateNetworkFee
           key="network-fee"
@@ -2115,43 +2242,51 @@ export function UniversalStake({
           }}
         />,
       );
-    }
-
-    if (
-      providerName?.toLowerCase() === EEarnProviderEnum.Babylon.toLowerCase() &&
-      estimateFeeUTXO
-    ) {
+    } else if (!usePermit2Approve) {
+      // Held in place until this amount's estimate is in, so the button
+      // doesn't move on the first digit. A permit deposit has no estimate to
+      // wait for (it signs a permit first), so it holds no row
       items.push(
-        <BtcFeeRateInput
-          key="btc-fee-rate-input"
-          estimateFeeUTXO={estimateFeeUTXO}
-          onFeeRateChange={onFeeRateChange}
+        <EarnFormRow
+          key="network-fee-placeholder"
+          label={intl.formatMessage({
+            id: ETranslations.global_est_network_fee,
+          })}
         />,
       );
     }
     return items;
   }, [
-    amountValue,
     daysSpent,
     estimateFeeResp,
-    estimateFeeUTXO,
+    intl,
+    usePermit2Approve,
     isPendleLikeLayout,
-    onFeeRateChange,
-    pendleAccordionItems,
-    providerName,
+    isPositiveAmount,
+    isRowsPlaceholder,
+    pendleDetailRows,
+    pendleRows.detailRows,
+    rowsConfirmation,
     showEstimateGasAlert,
-    transactionConfirmation?.receive,
   ]);
-  const isAccordionTriggerDisabled = !amountValue;
-  const isPositiveAmount = useMemo(() => {
-    const amountBN = new BigNumber(amountValue);
-    return !amountBN.isNaN() && amountBN.gt(0);
-  }, [amountValue]);
+  const showBtcFeeRateInput =
+    providerName?.toLowerCase() === EEarnProviderEnum.Babylon.toLowerCase() &&
+    Boolean(estimateFeeUTXO) &&
+    isPositiveAmount;
+  // The steps show once the button is pressed, not before: the button
+  // already names them ("Approve and Deposit")
+  const isStakeRunning =
+    approving ||
+    submitting ||
+    Boolean(showStakeProgressRef.current[amountValue]) ||
+    (isWrapStake && stakeProgressStep > EStakeProgressStep.approve);
   const isShowStakeProgress =
     isPositiveAmount &&
+    isStakeRunning &&
     (isWrapStake ||
       (useApprove &&
         (shouldApprove || showStakeProgressRef.current[amountValue])));
+
   const stakeProgressCurrentStep = useMemo(() => {
     if (isWrapStake) {
       return stakeProgressStep;
@@ -2161,6 +2296,18 @@ export function UniversalStake({
     }
     return EStakeProgressStep.deposit;
   }, [isDisable, isWrapStake, shouldApprove, stakeProgressStep]);
+  const stakeProgress = (
+    <StakeProgress
+      approveType={approveType}
+      currentStep={stakeProgressCurrentStep}
+      step1Label={isWrapStake ? wrapStakeLabel : undefined}
+      // Plain "Approve", also when it is a signature (permit)
+      step1LabelId={ETranslations.global_approve}
+      step2LabelId={stakeProgressStep2LabelId}
+      step3LabelId={stakeProgressStep3LabelId}
+      isRunning={approving || submitting}
+    />
+  );
 
   const onConfirmText = useMemo(() => {
     if (effectiveShowExpiredRefresh) {
@@ -2177,12 +2324,15 @@ export function UniversalStake({
       });
     }
     if (shouldApprove) {
+      // One press approves, then deposits or buys by itself once the
+      // approval is on chain, so the button names both
+      if (isPendleProvider) {
+        return EARN_DESKTOP_DEMO_COPY.approveAnd(
+          intl.formatMessage({ id: ETranslations.global_buy }),
+        );
+      }
       return intl.formatMessage(
-        {
-          id: usePermit2Approve
-            ? ETranslations.earn_approve_deposit
-            : ETranslations.global_approve,
-        },
+        { id: ETranslations.earn_approve_deposit },
         { amount: amountValue, symbol: tokenInfo?.token.symbol || '' },
       );
     }
@@ -2198,7 +2348,6 @@ export function UniversalStake({
     intl,
     isWrapStake,
     wrapStakeLabel,
-    usePermit2Approve,
     amountValue,
     tokenInfo?.token.symbol,
     isPendleProvider,
@@ -2262,17 +2411,7 @@ export function UniversalStake({
 
   const footerContent = (
     <YStack bg="$bgApp" gap="$5">
-      {isShowStakeProgress ? (
-        <Stack>
-          <StakeProgress
-            approveType={approveType}
-            currentStep={stakeProgressCurrentStep}
-            step1Label={isWrapStake ? wrapStakeLabel : undefined}
-            step2LabelId={stakeProgressStep2LabelId}
-            step3LabelId={stakeProgressStep3LabelId}
-          />
-        </Stack>
-      ) : null}
+      {isShowStakeProgress ? <Stack>{stakeProgress}</Stack> : null}
       <Page.FooterActions
         p={0}
         onConfirmText={effectiveOnConfirmText}
@@ -2291,45 +2430,6 @@ export function UniversalStake({
       />
     </YStack>
   );
-
-  const summaryContent = useMemo(() => {
-    if (!hasSummarySection) return null;
-    if (usePendleSummaryLayout) {
-      return (
-        <PendleSummarySection
-          rewardRows={pendleRewardRows}
-          tipText={pendleTipText}
-          loading={quoteLoading}
-        />
-      );
-    }
-
-    // When entering from trending list (protocolSwitchConfig present),
-    // only show info-style rewards (those with title.color).
-    // For details page and Position Manage modal, show the full content
-    // including the "Est. annual rewards" title and all reward rows.
-    const isFromTrending = !!protocolSwitchConfig;
-    if (
-      isFromTrending &&
-      !hasStakingRewardsSummary({ transactionConfirmation, infoOnly: true })
-    ) {
-      return null;
-    }
-    return (
-      <StakingRewardsSummary
-        transactionConfirmation={transactionConfirmation}
-        infoOnly={isFromTrending}
-      />
-    );
-  }, [
-    hasSummarySection,
-    usePendleSummaryLayout,
-    pendleRewardRows,
-    pendleTipText,
-    transactionConfirmation,
-    quoteLoading,
-    protocolSwitchConfig,
-  ]);
 
   const tradeOrBuyContent =
     isPendleProvider || hideTradeOrBuy ? null : (
@@ -2357,79 +2457,6 @@ export function UniversalStake({
     />
   ) : null;
 
-  // The "Est. annual rewards" summary depends on a second request
-  // (getTransactionConfirmation) that resolves after managePageData. Without a
-  // placeholder it pops in on the second stage and shoves the rest of the card
-  // down. Reserve its space with a skeleton, but only during the first-load
-  // window: once the quote settles (success or failure) never show it again,
-  // so no-summary protocols don't pulse on amount edits and a failed request
-  // doesn't leave the skeleton stuck.
-  // Stakefish's trending entry uses a compact colored "earn starts" row instead
-  // of the full title/value summary, so reserve the height of that row as well.
-  const shouldReserveCompactSummary =
-    Boolean(protocolSwitchConfig) && isStakefishProvider;
-  const summaryPending =
-    !hasSummarySection &&
-    !isPendleLikeLayout &&
-    (!protocolSwitchConfig || shouldReserveCompactSummary) &&
-    !isDisabled &&
-    isPositiveAmount &&
-    !transactionConfirmationSettled;
-
-  const summaryLoadingContent = useMemo(() => {
-    if (!summaryPending) {
-      return null;
-    }
-    if (shouldReserveCompactSummary) {
-      return (
-        <YStack mt="$1.5">
-          <Skeleton.BodyLg w={160} />
-        </YStack>
-      );
-    }
-    return (
-      <YStack gap="$1.5">
-        <Skeleton.BodyMd w={96} />
-        <Skeleton.BodyLg w={140} />
-      </YStack>
-    );
-  }, [shouldReserveCompactSummary, summaryPending]);
-
-  // When entering from the trending list, the protocol selector is rendered as a
-  // standalone (border-less) card above the summary card. The bordered summary
-  // card should then only render when it actually has body content, otherwise it
-  // would show up as an empty bordered box.
-  const summaryCardHasBodyContent = Boolean(
-    summaryContent ||
-    summaryLoadingContent ||
-    ongoingValidator ||
-    (!shouldShowPlatformBonus && tradeOrBuyContent),
-  );
-
-  // Outside Pendle the section is a "Details" row over the receive and fee
-  // rows, so it shows once there are rows to open
-  const showDetailsSection =
-    showPendleTransactionSection &&
-    !protocolSwitchConfig &&
-    (isPendleLikeLayout || accordionContent.length > 0);
-  // What sits under the rewards, below their divider
-  const hasSummaryCardFooter = Boolean(
-    ongoingValidator ||
-    showDetailsSection ||
-    (!shouldShowPlatformBonus && tradeOrBuyContent),
-  );
-  // Outside Pendle the card waits for something to show: the rewards for an
-  // amount, or a row under them
-  const shouldShowSummaryCard = shouldShowStakingSummaryCard({
-    isDisabled,
-    isPendleProvider,
-    amountValue,
-    hasSummarySection,
-    showPendleTransactionSection: isPendleLikeLayout
-      ? showPendleTransactionSection
-      : hasSummaryCardFooter || Boolean(summaryLoadingContent),
-  });
-
   // What the amount buys (Pendle's Buy): nothing before an amount, a
   // skeleton until a quote for this very amount is in, a dash without one
   const receiveSymbol = effectiveReceiveInputConfig?.tokenSymbol ?? '';
@@ -2440,68 +2467,114 @@ export function UniversalStake({
     const bought = earnUtils.extractAmountFromText(receiveQuote?.description);
     receiveLine = new BigNumber(bought).gt(0)
       ? `≈ ${numberFormat(bought, { formatter: 'balance' })} ${receiveSymbol}`
-      : '-';
+      : '–';
   }
+  const isReceiveLinePlaceholder = !receiveLine.startsWith('≈');
+
+  // What is wrong with the amount, as one red line under the box: the
+  // server's check, else more than the balance
+  let amountErrorText: string | undefined;
+  if (isPositiveAmount) {
+    if (isCheckAmountMessageError) {
+      amountErrorText = checkAmountMessage;
+    } else if (isInsufficientBalance) {
+      amountErrorText = intl.formatMessage({
+        id: ETranslations.earn_insufficient_balance,
+      });
+    }
+  }
+
+  const summaryFootnote =
+    pendleTipText || (!shouldShowPlatformBonus && tradeOrBuyContent) ? (
+      <YStack gap="$3">
+        {pendleTipText ? (
+          <EarnText
+            text={pendleTipText}
+            size="$bodySm"
+            color={pendleTipText.color ?? '$textInfo'}
+          />
+        ) : null}
+        {shouldShowPlatformBonus ? null : tradeOrBuyContent}
+      </YStack>
+    ) : undefined;
 
   return (
     <StakingFormWrapper>
-      <Stack position="relative">
-        <YStack gap="$2">
-          <Stack position="relative" opacity={amountInputDisabled ? 0.7 : 1}>
-            <StakingAmountInput
-              title={
-                inputTitle ||
-                intl.formatMessage({ id: ETranslations.earn_deposit })
-              }
-              disabled={amountInputDisabled}
-              hasError={isInsufficientBalance || isCheckAmountMessageError}
-              value={amountValue}
-              onChange={onChangeAmountValue}
-              onBlur={onBlurAmountValue}
-              tokenSelectorTriggerProps={{
-                selectedTokenImageUri: tokenImageUri,
-                selectedTokenImageLoading: tokenImageLoading,
-                selectedTokenSymbol: tokenSymbol,
-                selectedNetworkImageUri: networkLogoURI,
-                ...tokenSelectorTriggerProps,
-              }}
-              balanceProps={{
-                value: balance,
-                onPress: onMax,
-                // During a protocol switch the on-screen balance still belongs
-                // to the previous protocol/network — show the built-in balance
-                // skeleton instead of a stale value that jumps on load.
-                loading: Boolean(footerActionOverride?.loading),
-              }}
-              inputProps={{
-                placeholder: '0',
-                autoFocus: !amountInputDisabled,
-              }}
-              valueProps={{
-                value: currentValue,
-                currency: currentValue ? currencySymbol : undefined,
-              }}
-              enableMaxAmount
-              onSelectPercentageStage={onSelectPercentageStage}
-            />
-            {amountInputDisabled ? (
-              <Stack position="absolute" w="100%" h="100%" zIndex={1} />
-            ) : null}
-          </Stack>
-          {showReceiveInput ? (
+      {/* The lines under the box bring their own space, so a line that is
+          not there leaves no gap */}
+      <YStack>
+        <Stack position="relative" opacity={amountInputDisabled ? 0.7 : 1}>
+          <StakingAmountInput
+            title={
+              inputTitle ||
+              intl.formatMessage({ id: ETranslations.earn_deposit })
+            }
+            disabled={amountInputDisabled}
+            hasError={isInsufficientBalance || isCheckAmountMessageError}
+            value={amountValue}
+            onChange={onChangeAmountValue}
+            onBlur={onBlurAmountValue}
+            tokenSelectorTriggerProps={{
+              selectedTokenImageUri: tokenImageUri,
+              selectedTokenImageLoading: tokenImageLoading,
+              selectedTokenSymbol: tokenSymbol,
+              selectedNetworkImageUri: networkLogoURI,
+              ...tokenSelectorTriggerProps,
+            }}
+            balanceProps={{
+              value: balance,
+              onPress: onMax,
+              // During a protocol switch the on-screen balance still belongs
+              // to the previous protocol/network — show the built-in balance
+              // skeleton instead of a stale value that jumps on load.
+              loading: Boolean(footerActionOverride?.loading),
+            }}
+            inputProps={{
+              placeholder: '0',
+              autoFocus: !amountInputDisabled,
+            }}
+            valueProps={{
+              value: currentValue,
+              // "$0.00" before an amount, as on the Swap page
+              currency: currencySymbol,
+            }}
+            enableMaxAmount
+            onSelectPercentageStage={onSelectPercentageStage}
+            bottomContent={amountBoxBottom}
+            boxTestID={amountBoxTestID}
+          />
+          {amountInputDisabled ? (
+            <Stack position="absolute" w="100%" h="100%" zIndex={1} />
+          ) : null}
+        </Stack>
+        <HeightTransition duration={AMOUNT_LINE_MS}>
+          {amountErrorText ? (
+            <YStack pt="$2" px="$3.5">
+              <SizableText
+                testID="earn-amount-error"
+                size="$bodyMd"
+                color="$textCritical"
+              >
+                {amountErrorText}
+              </SizableText>
+            </YStack>
+          ) : null}
+        </HeightTransition>
+        {showReceiveInput && !amountErrorText ? (
+          <YStack pt="$2">
             <StakingAmountResultLine
               testID="earn-pendle-receive-amount"
               label={intl.formatMessage({
                 id: ETranslations.swap_review_you_receive,
               })}
               value={receiveLine}
+              isPlaceholder={isReceiveLinePlaceholder}
               loading={isReceiveQuoting}
             />
-          ) : null}
-        </YStack>
-      </Stack>
-      {/* The protocol stays under the amount; what typing brings up goes
-          below it */}
+          </YStack>
+        ) : null}
+      </YStack>
+      {/* Where it goes: the protocol, and a validator where there is one */}
       {protocolSwitchConfig ? (
         <ProtocolSwitcher
           tokenSymbol={actionSymbol}
@@ -2515,11 +2588,12 @@ export function UniversalStake({
       ) : (
         offerSwitch
       )}
-      {isCheckAmountMessageError ? (
-        <Alert
-          icon="InfoCircleOutline"
-          type="critical"
-          title={checkAmountMessage}
+      {ongoingValidator ? (
+        <EarnValidatorSelect
+          field={ongoingValidator}
+          value={selectedValidator}
+          onChange={setSelectedValidator}
+          disabled={amountInputDisabled}
         />
       ) : null}
       {checkAmountAlerts.length > 0 ? (
@@ -2556,114 +2630,18 @@ export function UniversalStake({
           ))}
         </>
       ) : null}
-
-      {shouldShowSummaryCard &&
-      (!protocolSwitchConfig || summaryCardHasBodyContent) ? (
-        <YStack
-          p="$3.5"
-          // The larger top padding exists to breathe above the summary heading
-          // (est. rewards / APY / validator). When the card only holds the
-          // trade-or-buy row (trending entry), keep the padding symmetric.
-          pt={
-            (showApyHeader && apyDetail && !protocolSwitchConfig) ||
-            summaryContent ||
-            summaryLoadingContent ||
-            ongoingValidator
-              ? '$5'
-              : '$3.5'
-          }
-          borderRadius="$3"
-          borderWidth={StyleSheet.hairlineWidth}
-          borderColor="$borderSubdued"
-        >
-          {showApyHeader && apyDetail && !protocolSwitchConfig ? (
-            <StakingApyHeader apyDetail={apyDetail} />
-          ) : null}
-          <HeightTransition>
-            {summaryContent || summaryLoadingContent ? (
-              <>
-                {summaryContent}
-                {summaryLoadingContent}
-                {hasSummaryCardFooter ? <Divider my="$5" /> : null}
-              </>
-            ) : null}
-          </HeightTransition>
-          <YStack gap="$5">
-            {ongoingValidator ? (
-              <EarnValidatorSelect
-                field={ongoingValidator}
-                value={selectedValidator}
-                onChange={setSelectedValidator}
-                disabled={amountInputDisabled}
-              />
-            ) : null}
-            {showDetailsSection ? (
-              <Accordion
-                overflow="hidden"
-                width="100%"
-                type="single"
-                collapsible
-                defaultValue=""
-              >
-                <Accordion.Item value="staking-accordion-content">
-                  <Accordion.Trigger
-                    unstyled
-                    flexDirection="row"
-                    alignItems="center"
-                    alignSelf="flex-start"
-                    px="$1"
-                    mx="$-1"
-                    width="100%"
-                    justifyContent="space-between"
-                    borderWidth={0}
-                    bg="$transparent"
-                    userSelect="none"
-                    borderRadius="$1"
-                    cursor={
-                      isAccordionTriggerDisabled ? 'not-allowed' : 'pointer'
-                    }
-                    disabled={isAccordionTriggerDisabled}
-                  >
-                    {({ open }: { open: boolean }) => (
-                      <>
-                        {isPendleLikeLayout ? (
-                          <PendleAccordionTriggerContent
-                            open={open}
-                            triggerText={transactionDetailsTriggerText?.text}
-                            isDisabled={isAccordionTriggerDisabled}
-                          />
-                        ) : (
-                          // The protocol is named above the form already
-                          <PendleAccordionTriggerContent
-                            open={open}
-                            triggerText={intl.formatMessage({
-                              id: ETranslations.global_details,
-                            })}
-                            isDisabled={isAccordionTriggerDisabled}
-                          />
-                        )}
-                      </>
-                    )}
-                  </Accordion.Trigger>
-                  <Accordion.HeightAnimator transition="quick">
-                    <Accordion.Content
-                      transition="quick"
-                      animateOnly={ANIMATE_ONLY_OPACITY}
-                      exitStyle={{ opacity: 0 }}
-                      px={0}
-                      pb={0}
-                      pt="$3.5"
-                      gap="$2.5"
-                    >
-                      {accordionContent}
-                    </Accordion.Content>
-                  </Accordion.HeightAnimator>
-                </Accordion.Item>
-              </Accordion>
-            ) : null}
-            {shouldShowPlatformBonus ? null : tradeOrBuyContent}
-          </YStack>
-        </YStack>
+      {/* What it gets you, then the transaction's own rows */}
+      <EarnFormSummary
+        outcome={outcome}
+        isLoading={isQuoteUpdating}
+        rows={summaryRows}
+        footnote={summaryFootnote}
+      />
+      {showBtcFeeRateInput && estimateFeeUTXO ? (
+        <BtcFeeRateInput
+          estimateFeeUTXO={estimateFeeUTXO}
+          onFeeRateChange={onFeeRateChange}
+        />
       ) : null}
       {platformBonusContent}
       {beforeFooter}
@@ -2678,18 +2656,13 @@ export function UniversalStake({
               jc: 'space-between',
             }}
           >
-            <Stack pl="$5" $md={{ pt: '$5' }}>
-              {isShowStakeProgress ? (
-                <StakeProgress
-                  approveType={approveType}
-                  currentStep={stakeProgressCurrentStep}
-                  step1Label={isWrapStake ? wrapStakeLabel : undefined}
-                  step2LabelId={stakeProgressStep2LabelId}
-                  step3LabelId={stakeProgressStep3LabelId}
-                />
-              ) : null}
-            </Stack>
-
+            {isShowStakeProgress ? (
+              <Stack pl="$5" $md={{ pt: '$5' }}>
+                {stakeProgress}
+              </Stack>
+            ) : (
+              <Stack />
+            )}
             <Page.FooterActions
               onConfirmText={effectiveOnConfirmText}
               confirmButtonProps={{

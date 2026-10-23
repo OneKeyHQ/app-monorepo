@@ -2,8 +2,10 @@ import type { ReactNode } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
+import { useReducedMotion } from 'react-native-reanimated';
 
-import { Page } from '@onekeyhq/components';
+import { Page, YStack } from '@onekeyhq/components';
+import { ANIMATE_ONLY_OPACITY } from '@onekeyhq/components/src/utils/animationConstants';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -14,6 +16,7 @@ import {
   useSelectedAccount,
 } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   type EModalStakingRoutes,
   type IModalStakingParamList,
@@ -21,10 +24,13 @@ import {
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { type ISupportedSymbol } from '@onekeyhq/shared/types/earn';
+import { getEarnProviderDisplayName } from '@onekeyhq/shared/types/earn/earnProvider.constants';
 import type { IStakeProtocolListItem } from '@onekeyhq/shared/types/staking';
 
 import { DiscoveryBrowserProviderMirror } from '../../../Discovery/components/DiscoveryBrowserProviderMirror';
 import { EarnProviderMirror } from '../../../Earn/EarnProviderMirror';
+import { EarnNavigation } from '../../../Earn/earnUtils';
+import { EarnDepositDone } from '../../../Earn/pages/EarnRouter/EarnDepositDone';
 import {
   EarnOfferSwitcher,
   EarnOffersDeposit,
@@ -33,8 +39,13 @@ import {
   findOffer,
   pickBetterOffer,
 } from '../../../Earn/pages/EarnRouter/earnRouter.utils';
-import { useEarnRouterOffers } from '../../../Earn/pages/EarnRouter/EarnRouterOffer';
+import {
+  getOfferTarget,
+  useEarnRouterOffers,
+} from '../../../Earn/pages/EarnRouter/EarnRouterOffer';
 import { EarnWithdrawDone } from '../../../Earn/pages/EarnRouter/EarnWithdrawDone';
+import { EarnOutcomeCarryContext } from '../../components/UniversalStake/EarnFormSummary';
+import { useFitModalHeight } from '../../hooks/useFitModalHeight';
 
 import { HeaderRightView } from './components/HeaderRight';
 import {
@@ -44,6 +55,9 @@ import {
 } from './components/ManagePositionContent';
 
 import type { IHeaderRightViewProps } from './components/HeaderRight';
+import type { IWithdrawSuccessInfo } from './components/WithdrawSection';
+import type { IEarnDepositDoneInfo } from '../../../Earn/pages/EarnRouter/EarnDepositDone';
+import type { IEarnOutcome } from '../../components/UniversalStake/EarnFormSummary';
 
 type ISelectedProtocol = {
   networkId: string;
@@ -53,6 +67,8 @@ type ISelectedProtocol = {
 
 // Every deposit here can be paid with another token the wallet holds
 const PAY_WITH: IManagePositionPayWith = {};
+// Once a deposit is out the form fades this long, then the done view
+const FORM_OUT_MS = 150;
 
 function getProtocolKey(protocol: ISelectedProtocol) {
   return `${protocol.provider.toLowerCase()}-${protocol.networkId}-${protocol.vault ?? ''}`;
@@ -81,6 +97,7 @@ const ManagePositionPage = () => {
     IModalStakingParamList,
     EModalStakingRoutes.ManagePosition
   >();
+  const fitModalRef = useFitModalHeight();
   const { activeAccount } = useActiveAccount({ num: 0 });
   const { selectedAccount } = useSelectedAccount({ num: 0 });
 
@@ -258,6 +275,71 @@ const ManagePositionPage = () => {
     setWithdrawn(undefined);
   }, [withdrawn]);
 
+  // A deposit that went out: the form fades, then what went where shows in
+  // its place until Done or My portfolio closes the modal
+  const reduceMotion = useReducedMotion();
+  const [depositDone, setDepositDone] = useState<IEarnDepositDoneInfo>();
+  const [isFormLeaving, setIsFormLeaving] = useState(false);
+  const doneTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(
+    undefined,
+  );
+  useEffect(() => () => clearTimeout(doneTimerRef.current), []);
+  const showDepositDone = useCallback(
+    (info: IEarnDepositDoneInfo) => {
+      if (reduceMotion) {
+        setDepositDone(info);
+        return;
+      }
+      setIsFormLeaving(true);
+      clearTimeout(doneTimerRef.current);
+      doneTimerRef.current = setTimeout(() => {
+        setDepositDone(info);
+        setIsFormLeaving(false);
+      }, FORM_OUT_MS);
+    },
+    [reduceMotion],
+  );
+  const handleOffersDeposited = useCallback(
+    (_amount: string, info: IEarnDepositDoneInfo) => showDepositDone(info),
+    [showDepositDone],
+  );
+  // The figure the form showed for the amount, read as the deposit lands
+  const sideOutcomeCarry = useMemo<{ current?: IEarnOutcome }>(() => ({}), []);
+  const handleSideDeposited = useCallback(
+    (amount?: string, info?: IWithdrawSuccessInfo) => {
+      if (!amount) {
+        navigation.popStack();
+        return;
+      }
+      showDepositDone({
+        amount,
+        symbol: info?.symbol || symbol,
+        target: positionOffer
+          ? getOfferTarget(positionOffer)
+          : getEarnProviderDisplayName(selectedProtocol.provider),
+        outcome: sideOutcomeCarry.current,
+      });
+    },
+    [
+      navigation,
+      positionOffer,
+      selectedProtocol.provider,
+      showDepositDone,
+      sideOutcomeCarry,
+      symbol,
+    ],
+  );
+  // The positions page, the way the details page's Positions link opens it:
+  // the deposit is among them there
+  const handleDonePortfolio = useCallback(() => {
+    navigation.popStack();
+    if (platformEnv.isNative) {
+      EarnNavigation.pushToEarnPositions(navigation);
+      return;
+    }
+    void EarnNavigation.popToEarnHome(navigation, { tab: 'portfolio' });
+  }, [navigation]);
+
   const { result: protocols, isLoading: isProtocolListLoading } =
     usePromiseResult(
       async () => {
@@ -329,7 +411,15 @@ const ManagePositionPage = () => {
   ]);
 
   let body: ReactNode;
-  if (offersEntry) {
+  if (depositDone) {
+    body = (
+      <EarnDepositDone
+        info={depositDone}
+        onPortfolio={handleDonePortfolio}
+        onDone={() => navigation.popStack()}
+      />
+    );
+  } else if (offersEntry) {
     body = (
       <EarnOffersDeposit
         symbol={symbol}
@@ -338,13 +428,13 @@ const ManagePositionPage = () => {
         offerKey={offersEntry.offerKey}
         amount={offersEntry.amount}
         onHeaderRightChange={setHeaderControls}
+        onDeposited={handleOffersDeposited}
       />
     );
   } else if (withdrawn) {
     body = (
       <EarnWithdrawDone
         symbol={symbol}
-        tokenImageUri={withdrawn.tokenImageUri ?? tokenImageUri}
         amount={withdrawn.amount}
         offer={withdrawn.offer}
         fromOffer={withdrawn.fromOffer}
@@ -358,27 +448,30 @@ const ManagePositionPage = () => {
       // while refetching, so the switcher / trade-or-buy / input stay put
       // and only the changed values update — no full skeleton flash on
       // switch.
-      <ManagePositionContent
-        showApyDetail={!positionRow}
-        isInModalContext
-        networkId={selectedProtocol.networkId}
-        symbol={symbol}
-        provider={selectedProtocol.provider}
-        vault={selectedProtocol.vault}
-        accountId={accountId}
-        indexedAccountId={indexedAccountId}
-        fallbackTokenImageUri={tokenImageUri}
-        defaultTab={selectedTab}
-        onTabChange={setSelectedTab}
-        depositOnly={side === 'deposit'}
-        withdrawOnly={side === 'withdraw'}
-        payWith={side === 'withdraw' ? undefined : PAY_WITH}
-        stakeProtocolSwitchConfig={stakeProtocolSwitchConfig}
-        onStakeWithdrawSuccess={onStakeWithdrawSuccess}
-        onWithdrawn={better ? handleWithdrawn : undefined}
-        onHeaderRightChange={setHeaderControls}
-        offerSwitch={positionRow}
-      />
+      <EarnOutcomeCarryContext.Provider value={sideOutcomeCarry}>
+        <ManagePositionContent
+          showApyDetail={!positionRow}
+          isInModalContext
+          networkId={selectedProtocol.networkId}
+          symbol={symbol}
+          provider={selectedProtocol.provider}
+          vault={selectedProtocol.vault}
+          accountId={accountId}
+          indexedAccountId={indexedAccountId}
+          fallbackTokenImageUri={tokenImageUri}
+          defaultTab={selectedTab}
+          onTabChange={setSelectedTab}
+          depositOnly={side === 'deposit'}
+          withdrawOnly={side === 'withdraw'}
+          payWith={side === 'withdraw' ? undefined : PAY_WITH}
+          stakeProtocolSwitchConfig={stakeProtocolSwitchConfig}
+          onStakeWithdrawSuccess={onStakeWithdrawSuccess}
+          onWithdrawn={better ? handleWithdrawn : undefined}
+          onDeposited={side === 'deposit' ? handleSideDeposited : undefined}
+          onHeaderRightChange={setHeaderControls}
+          offerSwitch={positionRow}
+        />
+      </EarnOutcomeCarryContext.Provider>
     );
   }
 
@@ -392,7 +485,17 @@ const ManagePositionPage = () => {
             : undefined
         }
       />
-      <Page.Body>{body}</Page.Body>
+      <Page.Body>
+        {/* What the modal fits its height to, up to its usual size */}
+        <YStack
+          ref={fitModalRef}
+          opacity={isFormLeaving ? 0 : 1}
+          transition="quick"
+          animateOnly={ANIMATE_ONLY_OPACITY}
+        >
+          {body}
+        </YStack>
+      </Page.Body>
     </Page>
   );
 };

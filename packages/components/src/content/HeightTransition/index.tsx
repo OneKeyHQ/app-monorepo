@@ -1,5 +1,5 @@
 import type { ComponentProps } from 'react';
-import { useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { PixelRatio, StyleSheet } from 'react-native';
 import Animated, {
@@ -37,6 +37,12 @@ export type IHeightTransitionProps = {
   duration?: number;
   /** Normalize layout precision before rounding up to avoid animation restarts. */
   roundHeightToNearestPixel?: boolean;
+  /**
+   * The first height it measures shows at once, for content that is there
+   * from the first frame; later changes animate. `onHeightDidAnimate` is not
+   * called for that first height. Default: `false`.
+   */
+  skipInitialAnimation?: boolean;
 } & ComponentProps<typeof MotiView>;
 
 // The animation duration on Android is twice that of iOS, so the duration has been shortened on Android.
@@ -50,9 +56,14 @@ function HeightTransition({
   initialHeight = 0,
   duration = defaultTransitionDuration,
   roundHeightToNearestPixel = false,
+  skipInitialAnimation = false,
 }: IHeightTransitionProps) {
   const measuredHeight = useSharedValue(initialHeight);
   const transition = useMemo(() => ({ duration }), [duration]);
+  // Until the first height has been drawn, styles are set without timing
+  const [isInitialPending, setIsInitialPending] =
+    useState(skipInitialAnimation);
+  const isInitialPendingRef = useRef(skipInitialAnimation);
 
   // On Android with Fabric/New Architecture, guard against stale worklet
   // callbacks that can cause SIGSEGV in Value::~Value during navigation
@@ -66,23 +77,25 @@ function HeightTransition({
     [isMounted],
   );
 
-  const childStyle = useAnimatedStyle(
-    () => ({
-      opacity: withTiming(!measuredHeight.value || hide ? 0 : 1, transition),
-    }),
-    [hide, measuredHeight, transition],
-  );
+  const childStyle = useAnimatedStyle(() => {
+    const opacity = !measuredHeight.value || hide ? 0 : 1;
+    return {
+      opacity: isInitialPending ? opacity : withTiming(opacity, transition),
+    };
+  }, [hide, isInitialPending, measuredHeight, transition]);
 
-  const containerStyle = useAnimatedStyle(
-    () => ({
-      height: withTiming(hide ? 0 : measuredHeight.value, transition, () => {
-        if (onHeightDidAnimate && isMounted.value) {
-          runOnJS(onHeightDidAnimate)(measuredHeight.value);
-        }
-      }),
-    }),
-    [hide, measuredHeight, isMounted, transition],
-  );
+  const containerStyle = useAnimatedStyle(() => {
+    const height = hide ? 0 : measuredHeight.value;
+    return {
+      height: isInitialPending
+        ? height
+        : withTiming(height, transition, () => {
+            if (onHeightDidAnimate && isMounted.value) {
+              runOnJS(onHeightDidAnimate)(measuredHeight.value);
+            }
+          }),
+    };
+  }, [hide, isInitialPending, measuredHeight, isMounted, transition]);
 
   const handleLayout = useCallback(
     ({ nativeEvent }: { nativeEvent: { layout: { height: number } } }) => {
@@ -94,6 +107,13 @@ function HeightTransition({
           ? PixelRatio.roundToNearestPixel(height)
           : height,
       );
+      // Timing starts once the first height has been drawn as it is
+      if (isInitialPendingRef.current && height > 0) {
+        isInitialPendingRef.current = false;
+        requestAnimationFrame(() =>
+          requestAnimationFrame(() => setIsInitialPending(false)),
+        );
+      }
     },
     [measuredHeight, roundHeightToNearestPixel],
   );
