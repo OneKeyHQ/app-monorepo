@@ -2090,10 +2090,17 @@ class ServiceHardware extends ServiceBase {
             }
           }
 
+          // Method logs are noisy, but FirmwareUpdateV4 ones carry the failed
+          // install target and per-file transfer timing.
+          const isFirmwareUpdateLog =
+            messageType === '[Method]' &&
+            typeof messages.payload[1] === 'string' &&
+            messages.payload[1].startsWith('[FirmwareUpdateV4]');
           if (
             messageType.includes('@onekey/hd-core') ||
             messageType.includes('@onekey/hd-transport') ||
-            messageType.includes('@onekey/hd-ble-transport')
+            messageType.includes('@onekey/hd-ble-transport') ||
+            isFirmwareUpdateLog
           ) {
             defaultLogger.hardware.sdkLog.log(messages.event, message);
           }
