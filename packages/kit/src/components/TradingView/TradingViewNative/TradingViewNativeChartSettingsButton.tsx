@@ -51,6 +51,7 @@ export function TradingViewNativeChartSettingsButton({
       screen: EModalMarketRoutes.MarketChartSettings,
       params: {
         showPreviousClose: enablePreviousClose,
+        showChartType: true,
         ...(storageNamespace ? { storageNamespace } : {}),
         ...(onChartSwitch
           ? {

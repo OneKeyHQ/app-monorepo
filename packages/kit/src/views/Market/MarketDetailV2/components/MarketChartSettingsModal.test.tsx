@@ -51,6 +51,7 @@ const mockChartSourceRow = jest.fn<null, [IChartSourceRowProps]>(() => null);
 let mockRouteParams:
   | {
       showPreviousClose?: boolean;
+      showChartType?: boolean;
       chartMode?: 'native' | 'tradingView';
       isChartSwitchDisabled?: boolean;
       onChartSwitch?: () => void;
@@ -190,6 +191,16 @@ describe('MarketChartSettingsModal', () => {
     expect(mockNavigationPop.mock.invocationCallOrder[0]).toBeLessThan(
       handleChartSwitch.mock.invocationCallOrder[0],
     );
+  });
+
+  it('keeps chart style on wide native screens opened from the chart', () => {
+    mockIsMobileLayout = false;
+    mockRouteParams = { showChartType: true };
+    render(<MarketChartSettingsModal />);
+
+    const props = mockTradingViewChartSettings.mock.calls[0][0];
+    expect(props.mobileLayout).toBe(false);
+    expect(props.showChartType).toBe(true);
   });
 
   it('omits the chart switch when the chart cannot switch source', () => {

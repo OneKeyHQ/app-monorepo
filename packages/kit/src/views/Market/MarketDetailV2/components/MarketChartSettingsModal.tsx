@@ -64,6 +64,7 @@ type IMarketChartSettingsContentProps = {
   mobileLayout?: boolean;
   usePageFooter?: boolean;
   showPreviousClose?: boolean;
+  showChartType?: boolean;
   chartDisplayLeadingRow?: ReactNode;
   onClose?: () => void;
 };
@@ -81,6 +82,7 @@ function ChartSettingsContent({
   mobileLayout = false,
   usePageFooter = false,
   showPreviousClose = false,
+  showChartType,
   chartDisplayLeadingRow,
   onClose,
 }: IMarketChartSettingsContentProps & {
@@ -123,7 +125,7 @@ function ChartSettingsContent({
       value={settingsValue}
       usePageFooter={usePageFooter}
       mobileLayout={mobileLayout}
-      showChartType={mobileLayout}
+      showChartType={showChartType ?? mobileLayout}
       chartDisplayLeadingRow={chartDisplayLeadingRow}
       hiddenAppearanceSectionIds={NATIVE_HIDDEN_APPEARANCE_SECTION_IDS}
       hiddenOptionIds={hiddenOptionIds}
@@ -183,6 +185,7 @@ export default function MarketChartSettingsModal() {
           usePageFooter={!md}
           mobileLayout={md}
           showPreviousClose={showPreviousClose}
+          showChartType={route.params?.showChartType}
           chartDisplayLeadingRow={
             chartMode && onChartSwitch ? (
               <MarketChartSourceSettingsRow
