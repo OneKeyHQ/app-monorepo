@@ -123,7 +123,6 @@ function WebContent({
     }
     notifyTabNavigationEnd(id);
     changeNavigationInfo({ ...nativeEvent });
-    lastThemeUrlRef.current = '';
     requestPageThemeColor(nativeEvent.url);
     // Inject Bitrefill bridge for raw postMessage → JSBridge forwarding.
     if (isBitrefillEmbedUrl(nativeEvent.url)) {

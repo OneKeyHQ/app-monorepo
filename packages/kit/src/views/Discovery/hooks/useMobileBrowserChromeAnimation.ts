@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import {
   Easing,
@@ -13,11 +13,10 @@ import type { IWebViewOnScrollEvent } from '@onekeyhq/kit/src/components/WebView
 
 import {
   getBarReservedHeight,
-  getCollapsedPillBottom,
+  getCollapsedReservedHeight,
   useIsFloatingBrowserChrome,
 } from '../components/MobileBrowser/browserChrome';
 import {
-  BROWSER_COLLAPSED_PILL_HEIGHT,
   DISPLAY_BOTTOM_BAR_DURATION,
   MIN_TOGGLE_BROWSER_VISIBLE_DISTANCE,
 } from '../config/Animation.constants';
@@ -48,8 +47,7 @@ function useMobileBrowserChromeAnimation() {
   const lastScrollY = useSharedValue(UNSET);
   const lastTurnScrollY = useSharedValue(UNSET);
   // Room the collapsed pill needs when the bar is laid out in-flow (tablets).
-  const collapsedBarHeight =
-    getCollapsedPillBottom(bottomInset) + BROWSER_COLLAPSED_PILL_HEIGHT + 4;
+  const collapsedBarHeight = getCollapsedReservedHeight(bottomInset);
 
   // Direction detection + SharedValue writes run entirely on UI thread.
   // WebView onScroll is JS-thread only, so we extract numeric values in JS
@@ -147,10 +145,21 @@ function useMobileBrowserChromeAnimation() {
   const toolbarAnimatedStyle = useAnimatedStyle(() => ({
     height: Math.max(collapsedBarHeight, fullBarHeight * chromeProgress.value),
   }));
+  const webViewBottomInset = useMemo(
+    () => ({
+      progress: chromeProgress,
+      expanded: fullBarHeight,
+      collapsed: collapsedBarHeight,
+    }),
+    [chromeProgress, fullBarHeight, collapsedBarHeight],
+  );
   // Phone layout overlays the bar on the WebView layer in a fixed box
   // (touches pass through via box-none) so the collapsed pill can float over
   // the page.
-  const toolbarOverlayStyle = { height: fullBarHeight };
+  const toolbarOverlayStyle = useMemo(
+    () => ({ height: fullBarHeight }),
+    [fullBarHeight],
+  );
   const animatedWebPageStyle = useAnimatedStyle(() => ({
     bottom: fullBarHeight * chromeProgress.value,
   }));
@@ -169,8 +178,9 @@ function useMobileBrowserChromeAnimation() {
     toolbarAnimatedStyle,
     toolbarOverlayStyle,
     webPageAnimatedStyle,
-    fullBarHeight,
-    collapsedBarHeight,
+    // What the floating bar covers at the bottom, per chrome state, for the
+    // WebView insets.
+    bottomInset: webViewBottomInset,
   };
 }
 

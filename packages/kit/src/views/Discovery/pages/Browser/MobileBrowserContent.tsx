@@ -51,7 +51,6 @@ function MobileBrowserContent({
   // iOS: room for chrome floating over the bottom of the page.
   contentBottomInset?: IChromeBottomInset;
 }) {
-  const bottomInset = useChromeBottomInset(contentBottomInset);
   const { tab } = useWebTabDataById(id);
   const { activeTabId } = useActiveTabId();
   const [, setBackEnabled] = useState(false);
@@ -61,6 +60,7 @@ function MobileBrowserContent({
     () => activeTabId === tab?.id,
     [tab?.id, activeTabId],
   );
+  const bottomInset = useChromeBottomInset(contentBottomInset, isActive);
 
   // Keep-alive LRU: tabs outside the window unmount their WebView to free
   // memory. The active tab is always alive, so it stays mounted here.

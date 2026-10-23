@@ -275,8 +275,7 @@ function MobileBrowser() {
     toolbarAnimatedStyle,
     toolbarOverlayStyle,
     webPageAnimatedStyle,
-    fullBarHeight,
-    collapsedBarHeight,
+    bottomInset: chromeBottomInset,
   } = useMobileBrowserChromeAnimation();
   useDAppNotifyChanges({ tabId: activeTabId });
 
@@ -461,23 +460,8 @@ function MobileBrowser() {
   // What the floating bar covers at the bottom of the page, for the WebView
   // insets: the whole bar while expanded, only the address pill once
   // collapsed (so fixed page content moves down with it, like Safari).
-  const webContentBottomInset = useMemo(
-    () =>
-      isFloatingBrowserChrome && useOuterPager
-        ? {
-            progress: chromeProgress,
-            expanded: fullBarHeight,
-            collapsed: collapsedBarHeight,
-          }
-        : undefined,
-    [
-      isFloatingBrowserChrome,
-      useOuterPager,
-      chromeProgress,
-      fullBarHeight,
-      collapsedBarHeight,
-    ],
-  );
+  const webContentBottomInset =
+    isFloatingBrowserChrome && useOuterPager ? chromeBottomInset : undefined;
   const content = useMemo(
     () =>
       tabs.map((t) => (

@@ -14,23 +14,22 @@ import {
   useSafeAreaInsets,
   useThemeName,
 } from '@onekeyhq/components';
-import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
 import {
   BROWSER_CHROME_CAPSULE_HEIGHT,
+  BROWSER_CHROME_CROSSFADE_POINT,
   BROWSER_CHROME_SIDE_PADDING,
   BROWSER_HEADER_HEIGHT,
 } from '../../config/Animation.constants';
 import { useActiveTabId } from '../../hooks/useWebTabs';
 import { DiscoveryTestIDs } from '../../testIDs';
-import { isDarkColor, usePageThemeColor } from '../../utils/pageThemeColor';
+import { usePageTheme } from '../../utils/pageThemeColor';
 import HeaderRightToolBar from '../HeaderRightToolBar';
 
-import { useChromeExpandedStyle, useIsChromeCollapsed } from './browserChrome';
+import { logBrowserChromeAction, useIsChromeCollapsed } from './browserChrome';
 
 import type { IMobileBrowserChrome } from './browserChrome';
 
-const headerHeight = BROWSER_HEADER_HEIGHT;
 const ACCOUNT_CHIP_HEIGHT = 36;
 // Concentric with the 24pt account avatar (4pt corners) inset 6pt: a rounded
 // square chip instead of a pill, so the chip and avatar read as one shape.
@@ -48,7 +47,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    height: headerHeight,
+    height: BROWSER_HEADER_HEIGHT,
   },
 });
 
@@ -69,22 +68,33 @@ function MobileBrowserHeader({
   const { top } = useSafeAreaInsets();
   const { progress } = chrome;
   const isCollapsed = useIsChromeCollapsed(progress);
-  const expandedStyle = useChromeExpandedStyle(progress, {
-    hiddenOffsetY: -8,
-  });
+  // Fades out (with a small upward slide) in the first half of a collapse,
+  // so the row is gone before its height reaches zero.
+  const expandedStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(
+      progress.value,
+      [BROWSER_CHROME_CROSSFADE_POINT, 1],
+      [0, 1],
+      'clamp',
+    ),
+    transform: [
+      { translateY: interpolate(progress.value, [0, 1], [-8, 0], 'clamp') },
+    ],
+  }));
   // Tint like Safari: take the page's color, and switch icons/text/status bar
   // to the matching light or dark theme.
   const { activeTabId } = useActiveTabId();
-  const pageColor = usePageThemeColor(activeTabId);
+  const { pageColor, pageThemeName } = usePageTheme(activeTabId);
   // Keep the Theme wrapper mounted (falling back to the app theme) so the
   // header subtree isn't remounted when the page color arrives.
   const appThemeName = useThemeName();
-  let pageThemeName: 'light' | 'dark' | undefined;
-  if (pageColor) {
-    pageThemeName = isDarkColor(pageColor) ? 'dark' : 'light';
-  }
   const containerAnimatedStyle = useAnimatedStyle(() => ({
-    height: interpolate(progress.value, [0, 1], [0, headerHeight], 'clamp'),
+    height: interpolate(
+      progress.value,
+      [0, 1],
+      [0, BROWSER_HEADER_HEIGHT],
+      'clamp',
+    ),
   }));
 
   return (
@@ -132,10 +142,7 @@ function MobileBrowserHeader({
                   icon="MinimizeOutline"
                   iconProps={{ color: '$icon' }}
                   onPress={() => {
-                    defaultLogger.discovery.browser.browserToolbarAction({
-                      action: 'minimize',
-                      entry: 'header',
-                    });
+                    logBrowserChromeAction('minimize', 'header');
                     onGoBackHome();
                   }}
                   testID={DiscoveryTestIDs.browserMinimizeButton}

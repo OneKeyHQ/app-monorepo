@@ -35,7 +35,6 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
@@ -46,6 +45,7 @@ import { useHandleDiscoveryAccountChanged } from '../../../DAppConnection/hooks/
 import { useShouldUpdateConnectedAccount } from '../../hooks/useDAppNotifyChanges';
 import { useActiveTabId, useWebTabDataById } from '../../hooks/useWebTabs';
 import { withBrowserProvider } from '../../pages/Browser/WithBrowserProvider';
+import { logBrowserChromeAction } from '../MobileBrowser/browserChrome';
 import { SyncDappAccountToHomeProvider } from '../SyncDappAccountToHomeProvider';
 
 import { ShortcutsActionButton } from './ShortcutsActionButton';
@@ -109,13 +109,6 @@ export function SingleAccountAndNetworkSelectorTrigger({
   );
 }
 
-function logHeaderAction(action: 'account' | 'createWallet') {
-  defaultLogger.discovery.browser.browserToolbarAction({
-    action,
-    entry: 'header',
-  });
-}
-
 // Compact version of the home account trigger for the browser header chip:
 // avatar + account name. Opens the same home-scene account selector.
 function CompactWalletAccountTrigger() {
@@ -146,7 +139,7 @@ function CompactWalletAccountTrigger() {
       pr="$1"
       alignItems="center"
       onPress={() => {
-        logHeaderAction('account');
+        logBrowserChromeAction('account', 'header');
         showAccountSelector();
       }}
       testID="browser-header-account"
@@ -192,7 +185,7 @@ function WalletAccountOrOnboardingEntry() {
         disabled
           ? undefined
           : () => {
-              logHeaderAction('createWallet');
+              logBrowserChromeAction('createWallet', 'header');
               void toOnBoardingPage();
             }
       }

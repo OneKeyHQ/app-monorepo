@@ -61,13 +61,24 @@ export function usePageThemeColor(tabId: string | null | undefined) {
 }
 
 // Relative luminance below the midpoint reads as a dark page.
-export function isDarkColor(color: string) {
+function isDarkColor(color: string) {
   const rgb = parseRgb(color);
   if (!rgb) {
     return false;
   }
   const luminance = (0.2126 * rgb.r + 0.7152 * rgb.g + 0.0722 * rgb.b) / 255;
   return luminance < 0.5;
+}
+
+// The page's color and the light/dark theme the chrome should use on top of
+// it; no page color means the chrome keeps the app theme.
+export function usePageTheme(tabId: string | null | undefined) {
+  const pageColor = usePageThemeColor(tabId);
+  let pageThemeName: 'light' | 'dark' | undefined;
+  if (pageColor) {
+    pageThemeName = isDarkColor(pageColor) ? 'dark' : 'light';
+  }
+  return { pageColor, pageThemeName };
 }
 
 export function tryDispatchPageThemeMessage(tabId: string, data: string) {

@@ -1,6 +1,6 @@
-export const BROWSER_BOTTOM_BAR_HEIGHT = 54;
-export const MIN_TOGGLE_BROWSER_VISIBLE_DISTANCE =
-  BROWSER_BOTTOM_BAR_HEIGHT * 2;
+// Scroll distance in one direction before the browser chrome collapses or
+// expands, so small scroll jitters don't toggle it.
+export const MIN_TOGGLE_BROWSER_VISIBLE_DISTANCE = 108;
 export const DISPLAY_BOTTOM_BAR_DURATION = 300;
 // Mobile browser header (below the safe-area top inset); it collapses fully
 // while scrolling down, the address stays visible in the bottom pill.

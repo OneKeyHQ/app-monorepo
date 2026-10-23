@@ -16,8 +16,6 @@ import {
   useThemeName,
 } from '@onekeyhq/components';
 import { useBrowserTabActions } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
-import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import type { IBrowserToolbarAction } from '@onekeyhq/shared/src/logger/scopes/discovery/scenes/browser';
 
 import {
   BROWSER_CHROME_CAPSULE_HEIGHT,
@@ -27,7 +25,7 @@ import {
 import { TranslatePopoverTrigger } from '../../hooks/usePageTranslation';
 import { useActiveTabId, useWebTabs } from '../../hooks/useWebTabs';
 import { DiscoveryTestIDs } from '../../testIDs';
-import { isDarkColor, usePageThemeColor } from '../../utils/pageThemeColor';
+import { usePageTheme } from '../../utils/pageThemeColor';
 
 import { AddressCapsuleTitle } from './AddressCapsuleTitle';
 import { AddressSwipeArea } from './AddressSwipeArea';
@@ -35,6 +33,7 @@ import {
   getBarCapsuleBottom,
   getCollapsedPillBottom,
   getDisplayHostname,
+  logBrowserChromeAction,
   useIsChromeCollapsed,
   useIsFloatingBrowserChrome,
 } from './browserChrome';
@@ -67,13 +66,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
 });
-
-function logToolbarAction(action: IBrowserToolbarAction) {
-  defaultLogger.discovery.browser.browserToolbarAction({
-    action,
-    entry: 'toolbar',
-  });
-}
 
 // Collapsed size of the address capsule, about the pill's size.
 const CAPSULE_COLLAPSED_SCALE =
@@ -197,13 +189,9 @@ function MobileBrowserBottomBar({
 
   const { progress, onExpand, onSearchBarPress } = chrome;
   // Match the page's light/dark look (glass, icons, text), like Safari.
-  const pageColor = usePageThemeColor(id);
+  const { pageColor, pageThemeName } = usePageTheme(id);
   const appThemeName = useThemeName();
   const isFloatingBrowserChrome = useIsFloatingBrowserChrome();
-  let pageThemeName: 'light' | 'dark' | undefined;
-  if (pageColor) {
-    pageThemeName = isDarkColor(pageColor) ? 'dark' : 'light';
-  }
   const isChromeCollapsed = useIsChromeCollapsed(progress);
   const pillBottom = getCollapsedPillBottom(bottom);
   const capsuleBottom = getBarCapsuleBottom(bottom);
@@ -218,10 +206,6 @@ function MobileBrowserBottomBar({
   );
 
   const [translateOpen, setTranslateOpen] = useState(false);
-  const handleTranslatePress = useCallback(() => {
-    setTranslateOpen(true);
-  }, []);
-
   const showOptions = useMobileBrowserOptions({
     isBookmark: tab?.isBookmark ?? false,
     onBookmarkPress: handleBookmarkPress,
@@ -238,12 +222,13 @@ function MobileBrowserBottomBar({
     canGoForward: !disabledGoForward,
     onGoForward: handleGoForward,
     isTranslated,
-    onTranslatePress: handleTranslatePress,
+    // The options hook reads its props through a ref, so inline is fine.
+    onTranslatePress: () => setTranslateOpen(true),
   });
 
   const currentUrl = tab?.displayUrl ?? tab?.url;
   const handleAddressPress = useCallback(() => {
-    logToolbarAction('address');
+    logBrowserChromeAction('address', 'toolbar');
     onSearchBarPress(currentUrl ?? '');
   }, [onSearchBarPress, currentUrl]);
 
@@ -255,7 +240,7 @@ function MobileBrowserBottomBar({
       const index = tabs.findIndex((t) => t.id === activeTabId);
       const target = index < 0 ? undefined : tabs[index + direction];
       if (target) {
-        logToolbarAction('swipeTab');
+        logBrowserChromeAction('swipeTab', 'toolbar');
         Haptics.selection();
         setCurrentWebTab(target.id);
       }
@@ -293,7 +278,7 @@ function MobileBrowserBottomBar({
               <BrowserChromeCapsule>
                 <ChromePressable
                   onPress={() => {
-                    logToolbarAction('back');
+                    logBrowserChromeAction('back', 'toolbar');
                     handleGoBack();
                   }}
                   disabled={disabledGoBack}
@@ -313,7 +298,7 @@ function MobileBrowserBottomBar({
               <BrowserChromeCapsule flex={1}>
                 <ChromePressable
                   onPress={() => {
-                    logToolbarAction('menu');
+                    logBrowserChromeAction('menu', 'toolbar');
                     showOptions();
                   }}
                   disabled={displayHomePage}
@@ -342,7 +327,7 @@ function MobileBrowserBottomBar({
                 </AddressSwipeArea>
                 <RefreshButton
                   onRefresh={() => {
-                    logToolbarAction('refresh');
+                    logBrowserChromeAction('refresh', 'toolbar');
                     handleRefresh();
                   }}
                 />
@@ -352,7 +337,7 @@ function MobileBrowserBottomBar({
               <BrowserChromeCapsule>
                 <TabCountButton
                   testID={DiscoveryTestIDs.tabListButton}
-                  onPressed={() => logToolbarAction('tabs')}
+                  onPressed={() => logBrowserChromeAction('tabs', 'toolbar')}
                 />
               </BrowserChromeCapsule>
             </Animated.View>
@@ -365,7 +350,7 @@ function MobileBrowserBottomBar({
           <CollapsedAddressPill
             url={currentUrl}
             onPress={() => {
-              logToolbarAction('expand');
+              logBrowserChromeAction('expand', 'toolbar');
               onExpand();
             }}
           />

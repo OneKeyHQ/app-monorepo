@@ -5,13 +5,14 @@ import { useIntl } from 'react-intl';
 import type { IActionListItemProps } from '@onekeyhq/components';
 import { ActionList } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { IBrowserToolbarAction } from '@onekeyhq/shared/src/logger/scopes/discovery/scenes/browser';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import { DiscoveryTestIDs } from '../../testIDs';
 import { ESiteMode, type IMobileBottomOptionsProps } from '../../types';
+
+import { logBrowserChromeAction } from './browserChrome';
 
 import type { IntlShape } from 'react-intl';
 
@@ -22,10 +23,7 @@ function withMenuLog<TArgs extends unknown[], TResult>(
   handler: (...args: TArgs) => TResult,
 ) {
   return (...args: TArgs) => {
-    defaultLogger.discovery.browser.browserToolbarAction({
-      action,
-      entry: 'menu',
-    });
+    logBrowserChromeAction(action, 'menu');
     return handler(...args);
   };
 }

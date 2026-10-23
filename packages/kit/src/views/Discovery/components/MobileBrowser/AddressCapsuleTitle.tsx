@@ -12,13 +12,12 @@ import {
   XStack,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
 import { useUrlRiskConfig } from '../../hooks/useUrlRiskConfig';
 import { DiscoveryTestIDs } from '../../testIDs';
 import { DappInfoPopoverContent } from '../DappInfoPopoverContent';
 
-import { getDisplayHostname } from './browserChrome';
+import { getDisplayHostname, logBrowserChromeAction } from './browserChrome';
 import { ChromePressable } from './ChromePressable';
 
 // Smaller than the 24pt menu/reload icons beside it, so the address reads as
@@ -135,10 +134,7 @@ export function AddressCapsuleTitle({
           <ChromePressable
             disabled={!url || !hostSecurity}
             onPress={() => {
-              defaultLogger.discovery.browser.browserToolbarAction({
-                action: 'siteInfo',
-                entry: 'toolbar',
-              });
+              logBrowserChromeAction('siteInfo', 'toolbar');
               setSiteInfoOpen(true);
             }}
           >
