@@ -1,8 +1,6 @@
-import { useState } from 'react';
 import type { PropsWithChildren } from 'react';
 
 import { StyleSheet } from 'react-native';
-import { runOnJS, useAnimatedReaction } from 'react-native-reanimated';
 
 import {
   GlassHeaderProvider,
@@ -13,6 +11,8 @@ import {
 import type { IXStackProps } from '@onekeyhq/components';
 
 import { BROWSER_CHROME_CAPSULE_HEIGHT } from '../../config/Animation.constants';
+
+import { useIsProgressPast } from './browserChrome';
 
 import type { SharedValue } from 'react-native-reanimated';
 
@@ -41,28 +41,6 @@ export interface IGlassFade {
 
 const GLASS_OFF_MARGIN = 0.02;
 
-function useIsGlassFadedOut(fade: IGlassFade | undefined) {
-  const [fadedOut, setFadedOut] = useState(false);
-  useAnimatedReaction(
-    () => {
-      if (!fade) {
-        return false;
-      }
-      const value = fade.progress.value;
-      return fade.direction === 'below'
-        ? value < fade.edge + GLASS_OFF_MARGIN
-        : value > fade.edge - GLASS_OFF_MARGIN;
-    },
-    (next, previous) => {
-      if (next !== previous) {
-        runOnJS(setFadedOut)(next);
-      }
-    },
-    [fade],
-  );
-  return fadedOut;
-}
-
 // A pill (or circle, with a single child) hosting browser chrome buttons.
 // iOS 26: Liquid Glass. Elsewhere: a solid filled pill (the bar sits on the
 // page-colored strip below the WebView, so there's nothing to blur).
@@ -75,7 +53,13 @@ export function BrowserChromeCapsule({
   px = '$1',
   glassFade,
 }: IBrowserChromeCapsuleProps) {
-  const glassHidden = useIsGlassFadedOut(glassFade);
+  const glassHidden = useIsProgressPast(
+    glassFade?.progress,
+    glassFade?.direction === 'above'
+      ? (glassFade?.edge ?? 0) - GLASS_OFF_MARGIN
+      : (glassFade?.edge ?? 0) + GLASS_OFF_MARGIN,
+    glassFade?.direction,
+  );
   const content = (
     <GlassHeaderProvider>
       <XStack

@@ -76,12 +76,7 @@ function TabCountButton({
         void handleShowTabList();
       }}
     >
-      <Stack
-        p={padding}
-        borderRadius="$full"
-        pressStyle={inGlass ? undefined : { bg: '$bgActive' }}
-        testID={testID}
-      >
+      <Stack p={padding} borderRadius="$full" testID={testID}>
         {/* Drawn like an SF Symbol: a square with a 1.5pt stroke and
             continuous corners, sized so two-digit counts fit inside it. */}
         <Stack

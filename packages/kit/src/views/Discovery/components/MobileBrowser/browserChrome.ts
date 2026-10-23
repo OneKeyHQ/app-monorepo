@@ -67,19 +67,37 @@ export function getDisplayHostname(url?: string) {
   return uriUtils.safeParseURL(url)?.hostname || url;
 }
 
-// Flips only when crossing the crossfade point, so each chrome component can
-// route touches to its visible layer without re-rendering every frame (and
-// without re-rendering the whole browser page).
-export function useIsChromeCollapsed(progress?: SharedValue<number>) {
-  const [isCollapsed, setIsCollapsed] = useState(false);
+// Whether `progress` is past `edge` (below it, or above it); flips only when
+// crossing the edge, so a component re-renders once per crossing rather than
+// every frame.
+export function useIsProgressPast(
+  progress: SharedValue<number> | undefined,
+  edge: number,
+  direction: 'below' | 'above' = 'below',
+) {
+  const [isPast, setIsPast] = useState(false);
   useAnimatedReaction(
-    () => (progress ? progress.value < BROWSER_CHROME_CROSSFADE_POINT : false),
-    (collapsed, previous) => {
-      if (collapsed !== previous) {
-        runOnJS(setIsCollapsed)(collapsed);
+    () => {
+      if (!progress) {
+        return false;
+      }
+      return direction === 'below'
+        ? progress.value < edge
+        : progress.value > edge;
+    },
+    (past, previous) => {
+      if (past !== previous) {
+        runOnJS(setIsPast)(past);
       }
     },
-    [progress],
+    [progress, edge, direction],
   );
-  return isCollapsed;
+  return isPast;
+}
+
+// Flips at the crossfade point, so each chrome component can route touches
+// to its visible layer without re-rendering every frame (and without
+// re-rendering the whole browser page).
+export function useIsChromeCollapsed(progress?: SharedValue<number>) {
+  return useIsProgressPast(progress, BROWSER_CHROME_CROSSFADE_POINT);
 }

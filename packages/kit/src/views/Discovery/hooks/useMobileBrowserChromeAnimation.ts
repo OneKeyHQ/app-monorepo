@@ -130,12 +130,14 @@ function useMobileBrowserChromeAnimation() {
   );
 
   const expandBrowserChrome = useCallback(() => {
-    chromeProgress.value = withTiming(EXPANDED, timingConfig);
     runOnUI(() => {
       'worklet';
 
       lastScrollY.value = UNSET;
       lastTurnScrollY.value = UNSET;
+      if (chromeProgress.value !== EXPANDED) {
+        chromeProgress.value = withTiming(EXPANDED, timingConfig);
+      }
     })();
   }, [chromeProgress, lastScrollY, lastTurnScrollY]);
 

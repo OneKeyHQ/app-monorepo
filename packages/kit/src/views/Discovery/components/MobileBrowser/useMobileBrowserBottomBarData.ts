@@ -26,24 +26,17 @@ import {
 import { webviewRefs } from '../../utils/explorerUtils';
 import { showTabBar } from '../../utils/tabBarUtils';
 
-import type { ESiteMode } from '../../types';
 import type { IMobileBrowserChrome } from './browserChrome';
+import type { ESiteMode } from '../../types';
 import type WebView from 'react-native-webview';
 
 export interface IMobileBrowserBottomBarProps {
   id: string;
-  onGoBackHomePage?: () => void;
   // Scroll-driven chrome state and address actions.
   chrome: IMobileBrowserChrome;
 }
 
-export function useMobileBrowserBottomBarData({
-  id,
-  onGoBackHomePage,
-}: {
-  id: string;
-  onGoBackHomePage?: () => void;
-}) {
+export function useMobileBrowserBottomBarData({ id }: { id: string }) {
   const intl = useIntl();
   const { bottom } = useSafeAreaInsets();
 

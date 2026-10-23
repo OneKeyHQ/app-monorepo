@@ -57,6 +57,10 @@ const styles = StyleSheet.create({
   },
 });
 
+// Hoisted: the same element across renders lets React skip the heavy account
+// subtree when the header re-renders on collapse or page-theme changes.
+const accountToolbar = <HeaderRightToolBar variant="mobileBrowser" />;
+
 interface IMobileBrowserHeaderProps {
   chrome: IMobileBrowserChrome;
   onGoBackHome: () => void;
@@ -184,7 +188,7 @@ function MobileBrowserHeader({
                 borderCurve="continuous"
                 alignItems="center"
               >
-                <HeaderRightToolBar variant="mobileBrowser" />
+                {accountToolbar}
               </XStack>
             </XStack>
           </Animated.View>

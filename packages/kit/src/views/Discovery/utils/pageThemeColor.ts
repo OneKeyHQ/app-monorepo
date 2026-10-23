@@ -38,6 +38,12 @@ function parseRgb(color: string) {
   return { r, g, b };
 }
 
+// The page color (as stored here) at the given alpha.
+export function withAlpha(color: string, alpha: number) {
+  const rgb = parseRgb(color);
+  return rgb ? `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${alpha})` : color;
+}
+
 export function setPageThemeColor(tabId: string, color: string | undefined) {
   const rgb = color ? parseRgb(color) : undefined;
   const next = rgb ? `rgb(${rgb.r}, ${rgb.g}, ${rgb.b})` : undefined;

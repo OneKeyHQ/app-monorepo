@@ -23,7 +23,7 @@ import {
   BITREFILL_BRIDGE_SCRIPT,
   isBitrefillEmbedUrl,
 } from '../../utils/bitrefillUtils';
-import { webviewRefs } from '../../utils/explorerUtils';
+import { getWebviewWrapperRef, webviewRefs } from '../../utils/explorerUtils';
 import {
   PAGE_THEME_COLOR_SCRIPT,
   setPageThemeColor,
@@ -52,6 +52,17 @@ type IWebContentProps = IWebTab &
     setForwardEnabled: Dispatch<SetStateAction<boolean>>;
     customReceiveHandler?: IJsBridgeReceiveHandler;
   };
+
+// Best-effort script injection into a tab's WebView.
+function injectScript(tabId: string, script: string) {
+  try {
+    (
+      getWebviewWrapperRef(tabId)?.innerRef as ReactNativeWebview | undefined
+    )?.injectJavaScript?.(script);
+  } catch {
+    // best-effort injection
+  }
+}
 
 function WebContent({
   id,
@@ -104,13 +115,7 @@ function WebContent({
         return;
       }
       lastThemeUrlRef.current = pageUrl;
-      try {
-        (
-          webviewRefs[id]?.innerRef as ReactNativeWebview | undefined
-        )?.injectJavaScript?.(PAGE_THEME_COLOR_SCRIPT);
-      } catch {
-        // best-effort injection
-      }
+      injectScript(id, PAGE_THEME_COLOR_SCRIPT);
     },
     [id],
   );
@@ -124,14 +129,7 @@ function WebContent({
     requestPageThemeColor(nativeEvent.url);
     // Inject Bitrefill bridge for raw postMessage → JSBridge forwarding.
     if (isBitrefillEmbedUrl(nativeEvent.url)) {
-      const webview = webviewRefs[id]?.innerRef as
-        | ReactNativeWebview
-        | undefined;
-      try {
-        webview?.injectJavaScript?.(BITREFILL_BRIDGE_SCRIPT);
-      } catch {
-        // best-effort injection
-      }
+      injectScript(id, BITREFILL_BRIDGE_SCRIPT);
     }
   };
 

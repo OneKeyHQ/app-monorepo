@@ -715,7 +715,6 @@ function MobileBrowser() {
               >
                 <MobileBrowserBottomBar
                   id={activeTabId ?? ''}
-                  onGoBackHomePage={handleGoBackHome}
                   chrome={browserChrome}
                 />
               </Animated.View>
@@ -804,7 +803,6 @@ function MobileBrowser() {
                 >
                   <MobileBrowserBottomBar
                     id={activeTabId ?? ''}
-                    onGoBackHomePage={handleGoBackHome}
                     chrome={browserChrome}
                   />
                 </Animated.View>

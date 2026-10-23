@@ -23,7 +23,7 @@ import {
 } from '../../config/Animation.constants';
 import { TranslatePopoverTrigger } from '../../hooks/usePageTranslation';
 import { DiscoveryTestIDs } from '../../testIDs';
-import { usePageTheme } from '../../utils/pageThemeColor';
+import { usePageTheme, withAlpha } from '../../utils/pageThemeColor';
 
 import { AddressCapsuleTitle } from './AddressCapsuleTitle';
 import {
@@ -73,11 +73,6 @@ const styles = StyleSheet.create({
 });
 
 const STRIP_FADE_HEIGHT = 16;
-
-// `rgb(r, g, b)` (the page color format) at zero alpha, for the fade.
-function toTransparent(rgb: string) {
-  return rgb.replace(/^rgb\((.*)\)$/, 'rgba($1, 0)');
-}
 
 // Fade ranges of the bar/pill morph (progress: 1 = expanded, 0 = collapsed).
 const SIDE_FADE_START = 0.4;
@@ -230,11 +225,7 @@ function CollapsedAddressPill({
 // translate, bookmark etc. live in the menu. While scrolling down the bar
 // fades out and a small address pill stays above the home indicator. iOS 26
 // renders the capsules as Liquid Glass.
-function MobileBrowserBottomBar({
-  id,
-  onGoBackHomePage,
-  chrome,
-}: IMobileBrowserBottomBarProps) {
+function MobileBrowserBottomBar({ id, chrome }: IMobileBrowserBottomBarProps) {
   const {
     bottom,
     tab,
@@ -257,7 +248,7 @@ function MobileBrowserBottomBar({
     handleTranslate,
     handleRetranslate,
     handleTranslateTestAIError,
-  } = useMobileBrowserBottomBarData({ id, onGoBackHomePage });
+  } = useMobileBrowserBottomBarData({ id });
 
   const { progress, onExpand, onSearchBarPress } = chrome;
   // Match the page's light/dark look (glass, icons, text), like Safari.
@@ -346,7 +337,7 @@ function MobileBrowserBottomBar({
               right={0}
               top={-STRIP_FADE_HEIGHT}
               height={STRIP_FADE_HEIGHT}
-              colors={[toTransparent(pageColor), pageColor]}
+              colors={[withAlpha(pageColor, 0), pageColor]}
             />
           ) : null}
           <Stack flex={1} bg="$bgApp" style={pageColorStyle} />
