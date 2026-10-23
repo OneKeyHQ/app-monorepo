@@ -31,6 +31,11 @@ import {
   SubtitleText,
 } from '@onekeyhq/kit/src/views/Market/components/PerpsBadges';
 import { useNavigateToMarketTab } from '@onekeyhq/kit/src/views/Market/hooks';
+import {
+  MARKET_CELL_LINE_GAP,
+  MARKET_CELL_LOGO_GAP,
+  MARKET_CELL_SUBTITLE_SIZE,
+} from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketListCell';
 import { useMarketPerpsTokenList } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketPerpsList/hooks/useMarketPerpsTokenList';
 import { isSpotHoldingVisible } from '@onekeyhq/kit/src/views/Perp/components/OrderInfoPanel/utils';
 import { useShowDepositWithdrawModal } from '@onekeyhq/kit/src/views/Perp/hooks/useShowDepositWithdrawModal';
@@ -700,7 +705,7 @@ function PerpsEmptyRecommendSection() {
         </Button>
       </XStack>
       <YStack display="none" $gtMd={{ display: 'flex' }}>
-        <XStack mx="$-3" px="$3" pb="$2.5">
+        <XStack mx="$-3" px="$3" py="$2">
           <Stack style={HOT_MARKETS_DESKTOP_GRID}>
             <SizableText
               size="$headingXs"
@@ -751,14 +756,18 @@ function PerpsEmptyRecommendSection() {
             py="$2"
           >
             <Stack style={HOT_MARKETS_DESKTOP_GRID}>
-              <XStack alignItems="center" gap="$3" minWidth={0}>
+              <XStack
+                alignItems="center"
+                gap={MARKET_CELL_LOGO_GAP}
+                minWidth={0}
+              >
                 <Token
                   size="md"
                   borderRadius="$full"
                   tokenImageUri={token.tokenImageUrl}
                   fallbackIcon="CryptoCoinOutline"
                 />
-                <YStack flex={1} minWidth={0}>
+                <YStack flex={1} minWidth={0} gap={MARKET_CELL_LINE_GAP}>
                   <XStack
                     alignItems="center"
                     gap="$1"
@@ -779,7 +788,10 @@ function PerpsEmptyRecommendSection() {
                   </XStack>
                   {token.subtitle ? (
                     <XStack alignItems="center" minWidth={0}>
-                      <SubtitleText subtitle={token.subtitle} />
+                      <SubtitleText
+                        subtitle={token.subtitle}
+                        size={MARKET_CELL_SUBTITLE_SIZE}
+                      />
                     </XStack>
                   ) : null}
                 </YStack>

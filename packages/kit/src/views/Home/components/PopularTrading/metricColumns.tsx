@@ -35,6 +35,8 @@ function renderPopularTradingTokenIdentity(
   record: IFavoriteTokenDisplay,
   { showVolume }: { showVolume: boolean },
 ) {
+  const name = record.perpsCoin ? record.perpsSubtitle : record.name;
+
   return (
     <TokenIdentityItem
       tokenLogoURI={record.logoUrl}
@@ -45,7 +47,7 @@ function renderPopularTradingTokenIdentity(
           : record.chainId
       }
       symbol={record.symbol}
-      name={!showVolume && !record.perpsCoin ? record.name : undefined}
+      name={!showVolume ? name : undefined}
       address={record.contractAddress}
       showVolume={showVolume}
       volume={record.volume24h}
