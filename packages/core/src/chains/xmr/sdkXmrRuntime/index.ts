@@ -32,6 +32,7 @@ export type IXmrRuntimeApi = {
     spendPublicKeyHex: string,
     viewPrivateKeyHex: string,
     birthdayHeight: string,
+    forceRescan?: boolean,
   ) => Promise<string>;
   listAccounts: () => Promise<string>;
   removeAccount: (uuid: string) => Promise<string>;

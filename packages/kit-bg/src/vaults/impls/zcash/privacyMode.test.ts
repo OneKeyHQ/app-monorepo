@@ -1,4 +1,21 @@
+import { withWallet } from '@onekeyhq/core/src/chains/zcash/sdkZcash/impl/carrier';
+import { prepareWalletAccounts } from '@onekeyhq/core/src/chains/zcash/sdkZcash/impl/wallet';
+
 import { getViewingKeyFingerprint } from '../../localWallet/viewingKeyFingerprint';
+
+import type VaultZcash from './Vault';
+import type { IZcashPrivacyModeStateView } from '../../../dbs/simple/entity/SimpleDbEntityPrivacyChainState';
+
+jest.mock('../../../dbs/local/localDbInstance', () => ({
+  __esModule: true,
+  default: {},
+}));
+jest.mock('@onekeyhq/core/src/chains/zcash/sdkZcash/impl/carrier', () => ({
+  ...jest.requireActual<
+    typeof import('@onekeyhq/core/src/chains/zcash/sdkZcash/impl/carrier')
+  >('@onekeyhq/core/src/chains/zcash/sdkZcash/impl/carrier'),
+  withWallet: jest.fn(),
+}));
 
 const mockGetChainOnlyVault = jest.fn();
 const mockGetVault = jest.fn();
@@ -15,6 +32,7 @@ const { getZcashLifecycleMutex, getZcashPrivacyModeOperationMutex } =
 
 const { ZcashPrivacyMode } =
   require('./privacyMode') as typeof import('./privacyMode');
+const { default: Vault } = require('./Vault') as typeof import('./Vault');
 
 const accountId = "hd-1--m/44'/133'/0'";
 const syntheticVkFp = getViewingKeyFingerprint({
@@ -44,7 +62,9 @@ function createService({
         .mockResolvedValue({ password: 'test-password' }),
     },
     servicePrivacyChain: {
-      onLocalWalletAccountsChanged: jest.fn(),
+      onLocalWalletAccountsChanged: jest.fn(
+        async (): Promise<void> => undefined,
+      ),
       // Enable checks the slot ceiling itself; direct callers skip the generic pre-check.
       assertEnabledAccountLimit: jest.fn(async () => undefined),
     },
@@ -59,6 +79,7 @@ function createService({
         beginZcashPrivacyModeEnable: jest.fn(),
         completeZcashPrivacyModeEnable: jest.fn(),
         cancelZcashPendingEnables: jest.fn(),
+        markZcashScanExcluded: jest.fn(),
         beginZcashPrivacyModeDisable: jest.fn(),
         completeZcashPrivacyModeDisable: jest.fn(),
         getZcashAccountMeta: jest.fn().mockResolvedValue({
@@ -235,7 +256,7 @@ describe('Zcash Privacy Mode privacy lifecycle', () => {
     expect(mutex.isLocked()).toBe(false);
   });
 
-  it('prepares the enable rescan without starting a scan before admission', async () => {
+  it('completes a new enable after saving authorization without preparing the scan database', async () => {
     const { backgroundApi, service } = createService();
     // First enable: no viewing metadata yet, so derivation must run. The
     // second read is the post-derivation check inside the service.
@@ -266,19 +287,86 @@ describe('Zcash Privacy Mode privacy lifecycle', () => {
     });
 
     expect(syncGroup).not.toHaveBeenCalled();
-    expect(zcashPreparePrivacyModeAccount).toHaveBeenCalledWith(
-      expect.objectContaining({ accountId, fromHeight: 2_000_000 }),
-    );
+    expect(zcashPreparePrivacyModeAccount).not.toHaveBeenCalled();
     expect(
       backgroundApi.simpleDb.privacyChainState.completeZcashPrivacyModeEnable,
     ).toHaveBeenCalledWith({ accountId, maxEnabledAccounts: 5 });
-    expect(
-      zcashPreparePrivacyModeAccount.mock.invocationCallOrder[0],
-    ).toBeLessThan(
-      backgroundApi.simpleDb.privacyChainState.completeZcashPrivacyModeEnable
-        .mock.invocationCallOrder[0],
-    );
     expect(zcashRetryLocalWalletSetup).toHaveBeenCalledTimes(1);
+  });
+
+  it('retries a saved authorization without opening a failing scan database', async () => {
+    const { backgroundApi, service } = createService();
+    const prepare = jest.fn().mockRejectedValue(new Error('SQLITE_READONLY'));
+    mockGetVault.mockResolvedValue({ zcashPreparePrivacyModeAccount: prepare });
+
+    await expect(
+      service.enablePrivacyMode({
+        networkId: 'zec--0',
+        accountId,
+        birthdayHeight: 2_000_000,
+      }),
+    ).resolves.toBeUndefined();
+    expect(prepare).not.toHaveBeenCalled();
+    expect(
+      backgroundApi.simpleDb.privacyChainState.completeZcashPrivacyModeEnable,
+    ).toHaveBeenCalledTimes(1);
+    expect(
+      backgroundApi.servicePassword.promptPasswordVerifyByAccount,
+    ).not.toHaveBeenCalled();
+  });
+
+  it('does not report enable success when its final local commit fails', async () => {
+    const { backgroundApi, service } = createService();
+    mockGetVault.mockResolvedValue({});
+    const failure = new Error('local storage full');
+    backgroundApi.simpleDb.privacyChainState.completeZcashPrivacyModeEnable.mockRejectedValue(
+      failure,
+    );
+
+    await expect(
+      service.enablePrivacyMode({
+        networkId: 'zec--0',
+        accountId,
+        birthdayHeight: 2_000_000,
+      }),
+    ).rejects.toBe(failure);
+    expect(
+      backgroundApi.servicePrivacyChain.onLocalWalletAccountsChanged,
+    ).not.toHaveBeenCalled();
+  });
+
+  it('does not hold a committed enable behind background initialization', async () => {
+    const { backgroundApi, service } = createService();
+    mockGetVault.mockResolvedValue({});
+    let finishNotification: () => void = () => undefined;
+    const notification = new Promise<void>((resolve) => {
+      finishNotification = resolve;
+    });
+    backgroundApi.servicePrivacyChain.onLocalWalletAccountsChanged.mockReturnValue(
+      notification,
+    );
+    let completed = false;
+    const enable = service
+      .enablePrivacyMode({
+        networkId: 'zec--0',
+        accountId,
+        birthdayHeight: 2_000_000,
+      })
+      .then(() => {
+        completed = true;
+      });
+    try {
+      await new Promise<void>((resolve) => {
+        setImmediate(resolve);
+      });
+      expect(completed).toBe(true);
+      expect(
+        backgroundApi.simpleDb.privacyChainState.completeZcashPrivacyModeEnable,
+      ).toHaveBeenCalledTimes(1);
+    } finally {
+      finishNotification();
+      await enable;
+    }
   });
 });
 
@@ -331,6 +419,119 @@ describe('Zcash Privacy Mode turning off before a delete', () => {
 });
 
 describe('Zcash Privacy Mode enable failure cleanup', () => {
+  it.each([false, true])(
+    'completes a new enable with its birthday when registration is pending (structured reason: %s)',
+    async (structured) => {
+      const { backgroundApi, service } = createService();
+      let state: IZcashPrivacyModeStateView = { intent: 'off' };
+      const birthdayHeight = 2_000_000;
+      backgroundApi.simpleDb.privacyChainState.getZcashPrivacyModeState.mockImplementation(
+        async () => state,
+      );
+      backgroundApi.simpleDb.privacyChainState.getZcashAccountMeta.mockResolvedValue(
+        undefined,
+      );
+      backgroundApi.simpleDb.privacyChainState.beginZcashPrivacyModeEnable.mockImplementation(
+        async () => {
+          state = {
+            intent: 'off',
+            birthdayHeight,
+            operation: { type: 'enable', requestedAt: 1 },
+          };
+        },
+      );
+      backgroundApi.simpleDb.privacyChainState.completeZcashPrivacyModeEnable.mockImplementation(
+        async () => {
+          state = { ...state, intent: 'on', operation: undefined };
+        },
+      );
+      const fields = {
+        code: 'DATABASE_ERROR',
+        params: {
+          operation: 'importAccount',
+          ...(structured ? { reason: 'checkpointsDiverged' } : {}),
+        },
+        detail: structured
+          ? undefined
+          : 'retains checkpoints both above and below the requested height',
+      };
+      jest
+        .mocked(withWallet)
+        .mockRejectedValue(
+          Object.assign(
+            new Error('DATABASE_ERROR'),
+            structured ? { payload: fields } : fields,
+          ),
+        );
+      const syncWallet = jest.fn();
+      const vault = Object.assign(
+        Object.create(Vault.prototype) as VaultZcash,
+        {
+          networkId: 'zec--0',
+          backgroundApi,
+          listLocalWalletAccounts: async () => ({
+            accounts: [
+              {
+                accountId,
+                runtimeKey: 'main',
+                accountRuntimeKey: syntheticVkFp,
+                syncEnabled: false,
+              },
+            ],
+          }),
+          zcashRetryLocalWalletSetup: async () => {
+            backgroundApi.simpleDb.privacyChainState.getZcashAccountMeta.mockResolvedValue(
+              { vkFp: syntheticVkFp, birthdayHeight },
+            );
+          },
+          zcashResumePendingRescans: async () => undefined,
+          zcashHealOutOfRangeBirthdays: async () => undefined,
+          zcashGetWalletAccount: async () => ({
+            network: 'main',
+            ufvk: 'synthetic-ufvk',
+            seedFingerprintHex: 'synthetic-fingerprint',
+            hdIndex: 0,
+            birthdayHeight,
+            lightwalletdUrl: 'https://example.invalid',
+          }),
+          zcashGetApi: async () => ({ prepareWalletAccounts, syncWallet }),
+          queueLocalWalletRescanFrom: async () => {
+            throw Object.assign(new Error('ACCOUNT_NOT_FOUND'), {
+              code: 'ACCOUNT_NOT_FOUND',
+            });
+          },
+        },
+      );
+      mockGetVault.mockResolvedValue(vault);
+      await expect(
+        service.enablePrivacyMode({
+          networkId: 'zec--0',
+          accountId,
+          birthdayHeight,
+        }),
+      ).resolves.toBeUndefined();
+      expect(state).toEqual({
+        intent: 'on',
+        birthdayHeight,
+        operation: undefined,
+      });
+      expect(
+        await backgroundApi.simpleDb.privacyChainState.getZcashAccountMeta(),
+      ).toMatchObject({ birthdayHeight });
+      expect(
+        backgroundApi.simpleDb.privacyChainState.cancelZcashPendingEnables,
+      ).not.toHaveBeenCalled();
+      expect(
+        backgroundApi.servicePrivacyChain.onLocalWalletAccountsChanged,
+      ).toHaveBeenCalledWith({
+        networkId: 'zec--0',
+        accountIds: [accountId],
+        backfillActive: true,
+      });
+      expect(syncWallet).not.toHaveBeenCalled();
+    },
+  );
+
   it('clears only the failed enable operation when viewing setup rejects', async () => {
     const { backgroundApi, service } = createService();
     backgroundApi.simpleDb.privacyChainState.getZcashAccountMeta
@@ -372,6 +573,7 @@ describe('Zcash Privacy Mode enable failure cleanup', () => {
     const zcashRetryLocalWalletSetup = jest.fn();
     mockGetVault.mockResolvedValue({
       zcashRetryLocalWalletSetup,
+      rescanLocalWallet: jest.fn(async () => ({ fromHeight: 2_500_000 })),
       zcashPreparePrivacyModeAccount: jest.fn(
         async ({ onPrepared }: { onPrepared: () => Promise<void> }) =>
           onPrepared(),
@@ -402,6 +604,7 @@ describe('Zcash Privacy Mode enable failure cleanup', () => {
     const zcashRetryLocalWalletSetup = jest.fn();
     mockGetVault.mockResolvedValue({
       zcashRetryLocalWalletSetup,
+      rescanLocalWallet: jest.fn(async () => ({ fromHeight: 2_500_000 })),
       zcashPreparePrivacyModeAccount: jest.fn(
         async ({ onPrepared }: { onPrepared: () => Promise<void> }) =>
           onPrepared(),
@@ -430,6 +633,7 @@ describe('Zcash Privacy Mode enable failure cleanup', () => {
     const zcashRetryLocalWalletSetup = jest.fn();
     mockGetVault.mockResolvedValue({
       zcashRetryLocalWalletSetup,
+      rescanLocalWallet: jest.fn(async () => ({ fromHeight: 2_500_000 })),
       zcashPreparePrivacyModeAccount: jest.fn(
         async ({ onPrepared }: { onPrepared: () => Promise<void> }) =>
           onPrepared(),
@@ -445,6 +649,7 @@ describe('Zcash Privacy Mode enable failure cleanup', () => {
     const { backgroundApi, service } = createService();
     mockGetVault.mockResolvedValue({
       zcashRetryLocalWalletSetup: jest.fn(),
+      rescanLocalWallet: jest.fn(async () => ({ fromHeight: 2_500_000 })),
       zcashPreparePrivacyModeAccount: jest.fn(
         async ({ onPrepared }: { onPrepared: () => Promise<void> }) =>
           onPrepared(),
@@ -495,12 +700,14 @@ it.each([false, true])(
           birthdayTimestamp,
         });
     }
+    const rescan = jest.fn(async () => ({ fromHeight: 1_800_000 }));
     const prepare = jest.fn(
       async ({ onPrepared }: { onPrepared: () => Promise<void> }) =>
         onPrepared(),
     );
     mockGetVault.mockResolvedValue({
       zcashRetryLocalWalletSetup: jest.fn(),
+      rescanLocalWallet: rescan,
       zcashPreparePrivacyModeAccount: prepare,
     });
     await service.enablePrivacyMode({
@@ -517,14 +724,15 @@ it.each([false, true])(
       birthdayTimestamp,
       resetResumeFromHeight: true,
     });
-    expect(prepare).toHaveBeenCalledWith(
-      expect.objectContaining({
-        fromHeight: retained ? 2_000_000 : 1_800_000,
-        birthday: retained
-          ? { type: 'timestamp', timestamp: birthdayTimestamp }
-          : undefined,
-      }),
-    );
+    if (retained) {
+      expect(rescan).toHaveBeenCalledWith({
+        accountId,
+        from: { type: 'timestamp', timestamp: birthdayTimestamp },
+      });
+    } else {
+      expect(rescan).not.toHaveBeenCalled();
+    }
+    expect(prepare).not.toHaveBeenCalled();
   },
 );
 
@@ -540,13 +748,17 @@ it('reconciles persisted birthday intent after interruption before runtime repai
   const prepare = jest.fn(
     async ({ onPrepared }: { onPrepared: () => Promise<void> }) => onPrepared(),
   );
-  mockGetVault.mockResolvedValue({ zcashPreparePrivacyModeAccount: prepare });
+  const rescan = jest.fn(async () => ({ fromHeight: 1_800_000 }));
+  mockGetVault.mockResolvedValue({
+    rescanLocalWallet: rescan,
+    zcashPreparePrivacyModeAccount: prepare,
+  });
   await service.enablePrivacyMode({ networkId: 'zec--0', accountId });
-  expect(prepare).toHaveBeenCalledWith(
-    expect.objectContaining({
-      birthday: { type: 'timestamp', timestamp: birthdayTimestamp },
-    }),
-  );
+  expect(rescan).toHaveBeenCalledWith({
+    accountId,
+    from: { type: 'timestamp', timestamp: birthdayTimestamp },
+  });
+  expect(prepare).not.toHaveBeenCalled();
   expect(
     backgroundApi.servicePassword.promptPasswordVerifyByAccount,
   ).not.toHaveBeenCalled();

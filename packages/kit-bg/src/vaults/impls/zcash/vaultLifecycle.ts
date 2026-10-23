@@ -60,6 +60,7 @@ import type { KeyringHd } from './KeyringHd';
 import type Vault from './Vault';
 import type { IDBUtxoAccount } from '../../../dbs/local/types';
 import type {
+  IZcashAccountMeta,
   IZcashBirthdaySource,
   IZcashPendingRescan,
   IZcashPrivacyModeStateView,
@@ -187,6 +188,57 @@ function forgetZcashMemoryCaches(vault: Vault, accountIds?: string[]) {
   }
 }
 
+// Orphan cleanup: the runtime drops every account whose UFVK is not retained.
+// Runs under the scan lane, never behind a held one (it may be stuck).
+export async function zcashPurgeRuntimeOrphans(
+  vault: Vault,
+  { retained }: { retained: ILocalWalletRetainedIdentity[] },
+): Promise<boolean> {
+  const syncMutex = getZcashSyncMutex(ZCASH_NETWORK_MAIN);
+  if (syncMutex.isLocked()) {
+    return false;
+  }
+  return syncMutex.runExclusive(async () => {
+    const metas =
+      await vault.backgroundApi.simpleDb.privacyChainState.listZcashAccountMetas(
+        {
+          networkId: vault.networkId,
+        },
+      );
+    const metaVkFps = new Map(
+      metas.map(({ accountId, meta }) => [accountId, meta.vkFp]),
+    );
+    // A key that names another identity than its account record is a broken
+    // setup; nothing is purged until Repair settles it.
+    if (
+      retained.some(
+        ({ accountId, vkFp }) =>
+          metaVkFps.has(accountId) && metaVkFps.get(accountId) !== vkFp,
+      )
+    ) {
+      return false;
+    }
+    // The runtime opens its database through an account; use one the scan
+    // registers anyway, so this registers nothing new.
+    const { accounts } = await vault.listLocalWalletAccounts();
+    const retainedIds = new Set(retained.map(({ accountId }) => accountId));
+    const opener = accounts.find(
+      ({ accountId, syncEnabled }) => syncEnabled && retainedIds.has(accountId),
+    );
+    if (!opener) {
+      return false;
+    }
+    const account = await vault.zcashGetWalletAccount({
+      accountId: opener.accountId,
+    });
+    const api = await vault.zcashGetApi();
+    await api.prepareWalletAccounts([account], {
+      retainedUfvks: uniq(retained.map(({ viewingKey }) => viewingKey)),
+    });
+    return true;
+  });
+}
+
 export function getLocalWalletCapability(vault: Vault): ILocalWalletCapability {
   return {
     reviewTransaction: (encodedTx) => {
@@ -283,6 +335,7 @@ export function getLocalWalletCapability(vault: Vault): ILocalWalletCapability {
     getAccountState: async ({ accountId }) => {
       const state = await vault.zcashPrivacyMode().getPrivacyModeState({
         accountId,
+        includePendingRescan: true,
       });
       return {
         enabled: state.intent === 'on' && state.operation === undefined,
@@ -477,57 +530,6 @@ export async function getLocalWalletAccountAliases(
   );
 }
 
-// Orphan cleanup: the runtime drops every account whose UFVK is not retained.
-// Runs under the scan lane, never behind a held one (it may be stuck).
-export async function zcashPurgeRuntimeOrphans(
-  vault: Vault,
-  { retained }: { retained: ILocalWalletRetainedIdentity[] },
-): Promise<boolean> {
-  const syncMutex = getZcashSyncMutex(ZCASH_NETWORK_MAIN);
-  if (syncMutex.isLocked()) {
-    return false;
-  }
-  return syncMutex.runExclusive(async () => {
-    const metas =
-      await vault.backgroundApi.simpleDb.privacyChainState.listZcashAccountMetas(
-        {
-          networkId: vault.networkId,
-        },
-      );
-    const metaVkFps = new Map(
-      metas.map(({ accountId, meta }) => [accountId, meta.vkFp]),
-    );
-    // A key that names another identity than its account record is a broken
-    // setup; nothing is purged until Repair settles it.
-    if (
-      retained.some(
-        ({ accountId, vkFp }) =>
-          metaVkFps.has(accountId) && metaVkFps.get(accountId) !== vkFp,
-      )
-    ) {
-      return false;
-    }
-    // The runtime opens its database through an account; use one the scan
-    // registers anyway, so this registers nothing new.
-    const { accounts } = await vault.listLocalWalletAccounts();
-    const retainedIds = new Set(retained.map(({ accountId }) => accountId));
-    const opener = accounts.find(
-      ({ accountId, syncEnabled }) => syncEnabled && retainedIds.has(accountId),
-    );
-    if (!opener) {
-      return false;
-    }
-    const account = await vault.zcashGetWalletAccount({
-      accountId: opener.accountId,
-    });
-    const api = await vault.zcashGetApi();
-    await api.prepareWalletAccounts([account], {
-      retainedUfvks: uniq(retained.map(({ viewingKey }) => viewingKey)),
-    });
-    return true;
-  });
-}
-
 export async function zcashPrepareAccounts(
   vault: Vault,
   {
@@ -539,14 +541,45 @@ export async function zcashPrepareAccounts(
   },
 ): Promise<IZcashWalletAccount[]> {
   const accounts: IZcashWalletAccount[] = [];
+  const owners: {
+    epoch: string | undefined;
+    meta: IZcashAccountMeta | undefined;
+  }[] = [];
+  const eligibleIds: string[] = [];
   for (const accountId of accountIds) {
+    // eslint-disable-next-line no-await-in-loop
+    if (
+      await vault.backgroundApi.simpleDb.privacyChainState.isAccountDeletionPending(
+        { accountId },
+      )
+    ) {
+      // eslint-disable-next-line no-continue
+      continue;
+    }
+    // Capture ownership before constructing the runtime snapshot. A late
+    // automatic repair cannot replace a newer birthday request.
+    // eslint-disable-next-line no-await-in-loop
+    const [epoch, meta] = await Promise.all([
+      vault.backgroundApi.simpleDb.privacyChainState.getAccountEpoch({
+        accountId,
+      }),
+      vault.zcashGetAccountMeta({ accountId }),
+    ]);
+    owners.push({ epoch, meta });
+    eligibleIds.push(accountId);
     // eslint-disable-next-line no-await-in-loop
     accounts.push(await vault.zcashGetWalletAccount({ accountId }));
   }
-  await vault.zcashHealOutOfRangeBirthdays({ accountIds, accounts, chainTip });
+  if (!accounts.length) return [];
+  await vault.zcashHealOutOfRangeBirthdays({
+    accountIds: eligibleIds,
+    accounts,
+    chainTip,
+  });
   const api = await vault.zcashGetApi();
   // No purge here: orphans go only through the gated cleanup.
-  await api.prepareWalletAccounts(accounts);
+  let prepared = await api.prepareWalletAccounts(accounts);
+  const registeredUfvks = new Set(prepared.map(({ ufvk }) => ufvk));
 
   // A later alias can register the same UFVK with an earlier birthday than already registered; detect and repair via the durable journal.
   const groups = new Map<
@@ -558,18 +591,18 @@ export async function zcashPrepareAccounts(
     const existing = groups.get(candidate.ufvk);
     if (!existing) {
       groups.set(candidate.ufvk, {
-        accountId: accountIds[index],
+        accountId: eligibleIds[index],
         account: candidate,
-        aliases: [accountIds[index]],
+        aliases: [eligibleIds[index]],
       });
     } else {
-      existing.aliases.push(accountIds[index]);
+      existing.aliases.push(eligibleIds[index]);
       if (
         candidate.birthdayHeight !== undefined &&
         (existing.account.birthdayHeight === undefined ||
           candidate.birthdayHeight < existing.account.birthdayHeight)
       ) {
-        existing.accountId = accountIds[index];
+        existing.accountId = eligibleIds[index];
         existing.account = candidate;
       }
     }
@@ -577,7 +610,10 @@ export async function zcashPrepareAccounts(
   let repairedBirthday = false;
   for (const group of groups.values()) {
     const expectedBirthday = group.account.birthdayHeight;
-    if (expectedBirthday === undefined) {
+    if (
+      expectedBirthday === undefined ||
+      !registeredUfvks.has(group.account.ufvk)
+    ) {
       // eslint-disable-next-line no-continue
       continue;
     }
@@ -590,10 +626,12 @@ export async function zcashPrepareAccounts(
       // eslint-disable-next-line no-continue
       continue;
     }
-    // eslint-disable-next-line no-await-in-loop
-    const meta = await vault.zcashGetAccountMeta({
-      accountId: group.accountId,
-    });
+    const owner = owners[eligibleIds.indexOf(group.accountId)];
+    if (!owner?.meta || owner.meta.birthdayHeight !== expectedBirthday) {
+      // eslint-disable-next-line no-continue
+      continue;
+    }
+    const { meta } = owner;
     const repair: IZcashPendingRescan = {
       birthdayHeight: expectedBirthday,
       birthdaySource: meta?.birthdaySource ?? 'automatic-recovery',
@@ -601,12 +639,18 @@ export async function zcashPrepareAccounts(
       requestedAt: Date.now(),
     };
     // eslint-disable-next-line no-await-in-loop
-    await vault.backgroundApi.simpleDb.privacyChainState.saveZcashPendingRescan(
-      {
-        accountId: group.accountId,
-        repair,
-      },
-    );
+    const accepted =
+      await vault.backgroundApi.simpleDb.privacyChainState.saveZcashPendingRescan(
+        {
+          accountId: group.accountId,
+          repair,
+          automaticOwner: { epoch: owner.epoch, meta: owner.meta },
+        },
+      );
+    if (!accepted) {
+      // eslint-disable-next-line no-continue
+      continue;
+    }
     try {
       // eslint-disable-next-line no-await-in-loop
       await vault.applyPendingRescan({
@@ -623,9 +667,10 @@ export async function zcashPrepareAccounts(
     }
   }
   if (repairedBirthday) {
-    await api.prepareWalletAccounts(accounts);
+    prepared = await api.prepareWalletAccounts(accounts);
   }
-  return accounts;
+  const readyUfvks = new Set(prepared.map(({ ufvk }) => ufvk));
+  return accounts.filter(({ ufvk }) => readyUfvks.has(ufvk));
 }
 
 // Clamping a birthday only ever costs scan time, never funds. Left
@@ -916,6 +961,16 @@ export async function syncLocalWalletGroupImpl(
     const states = new Map<string, IZcashPrivacyModeStateView>();
     const excludedRescans: { accountId: string; fromHeight: number }[] = [];
     for (const candidate of registered) {
+      // A candidate may predate deletion followed by a new authorization.
+      // eslint-disable-next-line no-await-in-loop
+      if (
+        await vault.backgroundApi.simpleDb.privacyChainState.isAccountDeletionPending(
+          { accountId: candidate.accountId },
+        )
+      ) {
+        // eslint-disable-next-line no-continue
+        continue;
+      }
       // eslint-disable-next-line no-await-in-loop
       const state =
         await vault.backgroundApi.simpleDb.privacyChainState.getZcashPrivacyModeState(
@@ -950,7 +1005,11 @@ export async function syncLocalWalletGroupImpl(
         // eslint-disable-next-line no-continue
         continue;
       }
-      const state = checkIsDefined(states.get(candidate.accountId));
+      const state = states.get(candidate.accountId);
+      if (!state) {
+        // eslint-disable-next-line no-continue
+        continue;
+      }
       // Aliases share scan progress; hiding one must not trigger recovery work while another alias is active.
       if (activeViewingKeys.has(candidate.accountRuntimeKey)) {
         if (state.scanExcludedFromHeight !== undefined) {
@@ -1012,6 +1071,7 @@ export async function syncLocalWalletGroupImpl(
         accountId: prepareAccountId,
         from: prepareBirthday,
       });
+      await vault.zcashResumePendingRescans(prepareAccountId);
       const meta =
         await vault.backgroundApi.simpleDb.privacyChainState.getZcashAccountMeta(
           {
@@ -1032,19 +1092,28 @@ export async function syncLocalWalletGroupImpl(
       try {
         await vault.queueLocalWalletRescanFrom(effectiveRescanFrom);
       } catch (error) {
-        if (readZcashRuntimeError(error)?.code !== 'NOT_SYNCED') {
+        const code = readZcashRuntimeError(error)?.code;
+        if (code !== 'NOT_SYNCED' && code !== 'ACCOUNT_NOT_FOUND') {
           throw error;
         }
       }
     }
+    const queuedExcludedRescans: typeof excludedRescans = [];
     for (const excluded of excludedRescans) {
       // Registration must precede the requeue; a freshly rebuilt runtime has no account range until then.
-      // eslint-disable-next-line no-await-in-loop
-      await vault.queueLocalWalletRescanFrom(excluded);
+      try {
+        // eslint-disable-next-line no-await-in-loop
+        await vault.queueLocalWalletRescanFrom(excluded);
+        queuedExcludedRescans.push(excluded);
+      } catch (error) {
+        if (readZcashRuntimeError(error)?.code !== 'ACCOUNT_NOT_FOUND') {
+          throw error;
+        }
+      }
     }
     // Enabling establishes viewing state and queues work; only the scheduler may start scanning after admission checks.
     if (prepareAccountId !== undefined) {
-      // Registration/requeue and admission must be atomic to other scans; the
+      // Preparation and admission must stay atomic to other scans; the
       // callback stays in bg and must not reacquire the network mutex.
       await onPrepared?.();
       return { synced: true, backfillRemaining: true };
@@ -1056,14 +1125,14 @@ export async function syncLocalWalletGroupImpl(
       return { synced: false };
     }
     // The shared database trial-decrypts every registered key in one pass, so any account advances the whole group.
-    const accountId = accountIds[0];
-    const account = await vault.zcashGetWalletAccount({ accountId });
+    const account = accounts[0];
+    if (!account) return { synced: false };
     const api = await vault.zcashGetApi();
     const result = await api.syncWallet(account, {
       activeUfvks: Array.from(new Set(accounts.map((item) => item.ufvk))),
       chainTip,
     });
-    for (const excluded of excludedRescans) {
+    for (const excluded of queuedExcludedRescans) {
       // A failed/interrupted scan leaves the durable cursor for retry.
       // eslint-disable-next-line no-await-in-loop
       await vault.backgroundApi.simpleDb.privacyChainState.clearZcashScanExcluded(
@@ -1077,13 +1146,14 @@ export async function syncLocalWalletGroupImpl(
       synced: true,
       stateChanged: result.stateChanged,
       chainTip: result.chainTip,
-      backfillRemaining: result.backfillRemaining,
+      backfillRemaining:
+        result.backfillRemaining ||
+        (accounts.length < accountIds.length && result.stateChanged),
     };
   });
 }
 
-// Drops the scanned data the account shares with its aliases; the next
-// sync scans again from the birthday. The caller rotates their epochs.
+// Requeues the account without deleting local transaction evidence.
 export async function zcashRewindAccount(
   vault: Vault,
   { accountId }: { accountId: string },
@@ -1095,7 +1165,7 @@ export async function zcashRewindAccount(
   });
   await lifecycleMutex.runExclusive(async () => {
     const api = await vault.zcashGetApi();
-    await api.purgeWallet(account);
+    await api.rescanWallet(account);
   });
 }
 
@@ -1104,7 +1174,10 @@ export async function zcashRewindAccount(
 // enable scans them back.
 export async function zcashDeleteRuntimeAccount(
   vault: Vault,
-  { accountId }: { accountId: string },
+  {
+    accountId,
+    deletionRequestId,
+  }: { accountId: string; deletionRequestId?: string },
 ): Promise<{ orphaned: boolean }> {
   const stateDb = vault.backgroundApi.simpleDb.privacyChainState;
   const targetMeta = await stateDb.getZcashAccountMeta({ accountId });
@@ -1112,39 +1185,49 @@ export async function zcashDeleteRuntimeAccount(
   if (!targetMeta) {
     return { orphaned: false };
   }
-  return getZcashLifecycleMutex(targetMeta.vkFp).runExclusive(async () => {
-    const [metas, metaAccountIds, holders] = await Promise.all([
-      stateDb.listZcashAccountMetas({ networkId: vault.networkId }),
-      stateDb.listZcashMetaAccountIds({ networkId: vault.networkId }),
-      stateDb.listScanDataAccountIds({ networkId: vault.networkId }),
-    ]);
-    // Unreadable, or a record that may be an alias but can't be read: an
-    // alias can't be ruled out, so the data stays for the orphan pass.
-    const readableIds = new Set(metas.map((item) => item.accountId));
-    if (
-      !holders ||
-      metaAccountIds.some(
-        (id) =>
-          id !== accountId && !readableIds.has(id) && holders.includes(id),
-      )
-    ) {
-      return { orphaned: true };
-    }
-    for (const item of metas) {
+  return getZcashSyncMutex(ZCASH_NETWORK_MAIN).runExclusive(() =>
+    getZcashLifecycleMutex(targetMeta.vkFp).runExclusive(async () => {
       if (
-        item.accountId !== accountId &&
-        item.meta.vkFp === targetMeta.vkFp &&
-        holders.includes(item.accountId) &&
-        // eslint-disable-next-line no-await-in-loop
-        (await vault.backgroundApi.serviceAccount.getDBAccountSafe({
-          accountId: item.accountId,
+        deletionRequestId !== undefined &&
+        !(await stateDb.isAccountDeletionPending({
+          accountId,
+          requestId: deletionRequestId,
         }))
-      ) {
+      )
         return { orphaned: false };
+      const [metas, metaAccountIds, holders] = await Promise.all([
+        stateDb.listZcashAccountMetas({ networkId: vault.networkId }),
+        stateDb.listZcashMetaAccountIds({ networkId: vault.networkId }),
+        stateDb.listScanDataAccountIds({ networkId: vault.networkId }),
+      ]);
+      // Unreadable, or a record that may be an alias but can't be read: an
+      // alias can't be ruled out, so the data stays for the orphan pass.
+      const readableIds = new Set(metas.map((item) => item.accountId));
+      if (
+        !holders ||
+        metaAccountIds.some(
+          (id) =>
+            id !== accountId && !readableIds.has(id) && holders.includes(id),
+        )
+      ) {
+        return { orphaned: true };
       }
-    }
-    return purgeZcashRuntimeAccount(vault, accountId);
-  });
+      for (const item of metas) {
+        if (
+          item.accountId !== accountId &&
+          item.meta.vkFp === targetMeta.vkFp &&
+          holders.includes(item.accountId) &&
+          // eslint-disable-next-line no-await-in-loop
+          (await vault.backgroundApi.serviceAccount.getDBAccountSafe({
+            accountId: item.accountId,
+          }))
+        ) {
+          return { orphaned: false };
+        }
+      }
+      return purgeZcashRuntimeAccount(vault, accountId);
+    }),
+  );
 }
 
 // Retries a shielded-meta derivation that never completed; only call on a full account-bound vault (has a keyring).
@@ -1153,19 +1236,23 @@ export async function zcashRetryLocalWalletSetup(
   {
     password,
     deviceParams,
+    forceDerivation,
   }: {
     password?: string;
     deviceParams?: IDeviceSharedCallParams;
+    forceDerivation?: boolean;
   },
 ): Promise<void> {
   if (vault.keyring instanceof KeyringHardware) {
     await vault.keyring.retryLocalWalletSetup({
       deviceParams: checkIsDefined(deviceParams),
+      forceDerivation,
     });
     return;
   }
   await (vault.keyring as KeyringHd).retryLocalWalletSetup({
     password: checkIsDefined(password),
+    forceDerivation,
   });
 }
 
@@ -1217,29 +1304,35 @@ export async function getLocalWalletSyncProgress(
     accountId: string;
   },
 ): Promise<IZcashSyncProgress> {
+  let birthdayHeight: number | null = null;
   try {
     if (!(await vault.zcashPrivacyModeIsActive(accountId))) {
       throw createZcashSetupIncompleteError();
     }
     const account = await vault.zcashGetWalletAccount({ accountId });
+    birthdayHeight = account.birthdayHeight ?? null;
     const api = await vault.zcashGetApi();
     return await api.getSyncProgress(account);
   } catch (e) {
-    console.error('[zcash] getLocalWalletSyncProgress failed', {
-      accountId,
-      ...zcashDescribeError(e),
-    });
+    const registrationPending =
+      readZcashRuntimeError(e)?.code === 'ACCOUNT_NOT_FOUND';
+    if (!registrationPending) {
+      console.error('[zcash] getLocalWalletSyncProgress failed', {
+        accountId,
+        ...zcashDescribeError(e),
+      });
+    }
     return {
-      birthdayHeight: null,
+      birthdayHeight: registrationPending ? birthdayHeight : null,
       backfillScannedHeight: null,
       backfillTargetHeight: null,
-      backfillProgress: null,
+      backfillProgress: registrationPending ? 0 : null,
       isBackfillComplete: false,
       tipScannedHeight: null,
       chainTip: null,
       tipLag: null,
       isTipCaughtUp: false,
-      isSyncing: false,
+      isSyncing: registrationPending,
     };
   }
 }
@@ -1282,12 +1375,14 @@ export async function applyPendingRescan(
       !owner ||
       !currentMeta ||
       currentMeta.vkFp !== meta.vkFp ||
+      (await vault.backgroundApi.simpleDb.privacyChainState.isAccountDeletionPending(
+        { accountId },
+      )) ||
       !isSameZcashPendingRescan(pending, repair)
     ) {
       return;
     }
-    // Save the corrected birthday BEFORE purging: purging first could wedge
-    // the account if the stored birthday never resolves. Crash-safe via the journal.
+    // Keep the request journal until the non-destructive rescan is prepared.
     await vault.backgroundApi.simpleDb.privacyChainState.saveZcashAccountMeta({
       accountId,
       expectedMeta: currentMeta,
@@ -1299,18 +1394,22 @@ export async function applyPendingRescan(
       },
     });
     const account = await vault.zcashGetWalletAccount({ accountId });
-    // Aliases share the scanned data this purges.
+    // Aliases share the scan state that is about to be requeued.
     await vault.backgroundApi.simpleDb.privacyChainState.rotateAccountEpochs({
       accountIds: await vault.getLocalWalletAccountAliases({ accountId }),
     });
     const api = await vault.zcashGetApi();
-    await api.purgeWallet(account);
+    await api.rescanWallet(account);
     await vault.backgroundApi.simpleDb.privacyChainState.removeZcashPendingRescan(
       {
         accountId,
         expectedRepair: repair,
       },
     );
+    appEventBus.emit(EAppEventBusNames.LocalWalletAccountsChanged, {
+      networkId: vault.networkId,
+      accountIds: [accountId],
+    });
   });
 }
 
@@ -1366,11 +1465,13 @@ export async function zcashRescanFromHeight(
     birthdayHeight,
     birthdaySource,
     birthdayTimestamp,
+    deferApply = false,
   }: {
     accountId: string;
     birthdayHeight: number;
     birthdaySource: IZcashBirthdaySource;
     birthdayTimestamp?: number;
+    deferApply?: boolean;
   },
 ): Promise<void> {
   const meta = await vault.zcashGetAccountMeta({ accountId });
@@ -1391,10 +1492,10 @@ export async function zcashRescanFromHeight(
     accountId,
     repair,
   });
-  await vault.applyPendingRescan({ accountId, repair });
+  if (!deferApply) await vault.applyPendingRescan({ accountId, repair });
 }
 
-// Resolves the scan start from whichever form the caller gives, then clamps/persists/applies it.
+// Accept the user's scan target without waiting for runtime writes or a node.
 export async function rescanLocalWallet(
   vault: Vault,
   {
@@ -1434,6 +1535,7 @@ export async function rescanLocalWallet(
       birthdayHeight,
       birthdaySource,
       birthdayTimestamp,
+      deferApply: true,
     });
   }
   return { fromHeight: birthdayHeight };

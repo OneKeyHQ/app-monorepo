@@ -230,6 +230,7 @@ export type ILocalWalletCapability = {
     accountId: string;
     birthdayHeight?: number;
     birthdayTimestamp?: number;
+    forceViewingKeyDerivation?: boolean;
   }) => Promise<void>;
   disableAccount: (params: { accountId: string }) => Promise<void>;
   retryAccountSetup: (params: { accountId: string }) => Promise<void>;
@@ -242,6 +243,7 @@ export type ILocalWalletCapability = {
   // `orphaned`: rows may remain that no stored key names any more.
   deleteRuntimeAccount: (params: {
     accountId: string;
+    deletionRequestId?: string;
   }) => Promise<{ orphaned: boolean }>;
   // Rebuilds an HD account's viewing material from its mnemonic, for accounts
   // that arrived without it (Prime transfer, cloud restore).

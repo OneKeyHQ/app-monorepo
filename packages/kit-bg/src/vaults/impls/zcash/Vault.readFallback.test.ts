@@ -62,6 +62,20 @@ describe('Zcash private history when the runtime read fails', () => {
     accountAddress: 't1-own',
   };
 
+  it('returns empty pending history without rejecting while registration is pending', async () => {
+    zcashLastPrivateHistory.delete('acc');
+    const missing = Object.assign(new Error('ACCOUNT_NOT_FOUND'), {
+      code: 'ACCOUNT_NOT_FOUND',
+    });
+    const getHistory = jest.fn().mockRejectedValue(missing);
+    const vault = createVault(getHistory);
+    await expect(vault.fetchAccountHistoryFromLocal(params)).resolves.toEqual(
+      [],
+    );
+    expect(getHistory).toHaveBeenCalledTimes(1);
+    expect(zcashLastPrivateHistory.has('acc')).toBe(false);
+  });
+
   it('keeps the last private rows read', async () => {
     const getHistory = jest
       .fn()
@@ -151,6 +165,78 @@ describe('Zcash private balance when the runtime read fails', () => {
       zcashGetApi: async () => ({ getBalance }),
     });
   }
+
+  it('reports preparing progress and unavailable private funds without repairing a pending registration', async () => {
+    jest.useFakeTimers();
+    try {
+      const missing = Object.assign(new Error('ACCOUNT_NOT_FOUND'), {
+        payload: { code: 'ACCOUNT_NOT_FOUND', params: {} },
+      });
+      const getBalance = jest.fn().mockRejectedValue(missing);
+      const vault = createVault(getBalance, memoryCache());
+      const repair = jest.fn();
+      Object.assign(vault, {
+        accountId: 'balance-acc',
+        zcashPrivacyModeIsActive: async () => true,
+        zcashTryAutoRepairLocalWalletSetupIfUnlocked: repair,
+        zcashGetWalletAccount: async () => ({ birthdayHeight: 2_000_000 }),
+        zcashGetApi: async () => ({
+          getBalance,
+          getSyncProgress: async () => {
+            throw missing;
+          },
+        }),
+        zcashGetIndexerTransparentBalance: async () => ({}),
+      });
+      Object.assign(vault.backgroundApi, {
+        serviceAccount: { getDBAccount: async () => ({ id: 'balance-acc' }) },
+      });
+      Object.assign(vault.backgroundApi.simpleDb.privacyChainState, {
+        getZcashPrivacyModeState: async () => ({ intent: 'on' }),
+      });
+      await expect(
+        vault.getLocalWalletBalance({ accountId: 'balance-acc' }),
+      ).resolves.toBeNull();
+      await expect(vault.zcashGetBalanceSafe()).resolves.toBeNull();
+      await expect(
+        vault.getLocalWalletSyncProgress({ accountId: 'balance-acc' }),
+      ).resolves.toEqual({
+        birthdayHeight: 2_000_000,
+        backfillScannedHeight: null,
+        backfillTargetHeight: null,
+        backfillProgress: 0,
+        isBackfillComplete: false,
+        tipScannedHeight: null,
+        chainTip: null,
+        tipLag: null,
+        isTipCaughtUp: false,
+        isSyncing: true,
+      });
+      const balance = await vault.getLocalWalletAccountBalance({
+        accountId: 'balance-acc',
+      });
+      for (const key of ['ironwood', 'orchard']) {
+        expect(balance?.pools.find((item) => item.key === key)).toMatchObject({
+          balanceStatus: 'unavailable',
+          total: undefined,
+          spendable: undefined,
+          move: { enabled: false },
+        });
+      }
+      const sendPools = await vault.listLocalWalletSendPools({
+        accountId: 'balance-acc',
+      });
+      expect(
+        sendPools?.find((item) => item.key === 'ironwood')?.spendable,
+      ).toBeUndefined();
+      expect(
+        sendPools?.find((item) => item.key === 'orchard')?.spendable,
+      ).toBeUndefined();
+      expect(repair).not.toHaveBeenCalled();
+    } finally {
+      jest.useRealTimers();
+    }
+  });
 
   // Kept on disk, so a restart whose first read fails still has it, shown as
   // not current.

@@ -119,6 +119,11 @@ export default class CoreChainSoftware extends CoreChainApiBase {
       network: payload.networkInfo.isTestnet ? 'testnet' : 'mainnet',
       bip32PrivateKeyHex: await signer.getPrvkeyHex(),
     });
+    if (derived.primaryAddress !== payload.account.address) {
+      throw new OneKeyLocalError(
+        'xmr: derived viewing key does not match this account',
+      );
+    }
     return serializeXmrViewingKeyPair(derived);
   }
 

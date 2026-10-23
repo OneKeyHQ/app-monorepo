@@ -4,6 +4,7 @@
  * this loader inside a Worker or the main thread freezes silently.
  */
 
+import { runPrivacyChainWorkerOperation } from '@onekeyhq/core/src/utils/privacyChainWorkerClient';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 import { setXmrRuntimeApiLoader } from '..';
@@ -34,8 +35,10 @@ function toAsyncRuntime(mod: Record<string, unknown>): IXmrRuntimeApi {
         `xmr: onekey-monero-runtime is missing "${method}"; the installed package is older than this app expects`,
       );
     }
-    api[method] = async (...args: unknown[]) =>
-      (fn as (...a: unknown[]) => unknown)(...coerceXmrU64Args(method, args));
+    api[method] = (...args: unknown[]) =>
+      runPrivacyChainWorkerOperation(() =>
+        (fn as (...a: unknown[]) => unknown)(...coerceXmrU64Args(method, args)),
+      );
   }
   return api as unknown as IXmrRuntimeApi;
 }
@@ -74,6 +77,7 @@ async function importRuntimeModule(): Promise<IXmrRuntimeApi> {
     await api.init();
     storageError = undefined;
   } catch (error) {
+    if (error instanceof WebAssembly.RuntimeError) throw error;
     storageError = error;
   }
   // A stale Worker still releasing its handles is transient, so retry here.
@@ -84,6 +88,7 @@ async function importRuntimeModule(): Promise<IXmrRuntimeApi> {
         await api.init();
         storageError = undefined;
       } catch (error) {
+        if (error instanceof WebAssembly.RuntimeError) throw error;
         storageError = error;
         throw new OneKeyLocalError(
           `xmr: persistent storage is unavailable in this process, so no wallet can be opened. ${

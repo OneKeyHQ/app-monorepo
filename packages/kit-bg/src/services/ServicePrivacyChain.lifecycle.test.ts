@@ -138,6 +138,7 @@ describe('init', () => {
       {
         initialized: false,
         initPromise: undefined,
+        resumePendingAccountDeletions: jest.fn(async () => undefined),
         backfillActiveByAccount: {},
         syncFailureBackoff: new Map(),
         orphanCleanupGeneration: new Map(),

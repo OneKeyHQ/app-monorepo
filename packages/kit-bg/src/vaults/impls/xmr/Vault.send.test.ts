@@ -47,6 +47,7 @@ type IFakeRuntime = IXmrRuntimeApi & {
 };
 
 const LIVE_TIP = 3_767_827;
+const PRIVACY_EPOCH = '01'.repeat(8);
 
 function createVault(options?: {
   prepare?: (args: { maxSend: boolean }) => Record<string, unknown>;
@@ -54,6 +55,11 @@ function createVault(options?: {
   recordXmrSent?: () => Promise<void>;
 }) {
   const prepared: IFakeRuntime['prepared'] = [];
+  const state = {
+    intent: 'on',
+    epoch: PRIVACY_EPOCH,
+    appliedEpoch: PRIVACY_EPOCH,
+  };
 
   const runtime = {
     prepared,
@@ -93,6 +99,7 @@ function createVault(options?: {
     backgroundApi: {
       simpleDb: {
         privacyChainKeys,
+        privacyChainState: { getXmrAccountState: async () => ({ ...state }) },
         privacyChainXmrSent: {
           recordXmrSent: jest.fn(
             options?.recordXmrSent ?? (async () => undefined),
@@ -141,7 +148,7 @@ function createVault(options?: {
     .spyOn(vault, 'buildTxTransferAssetAction')
     .mockImplementation(async ({ transfers }) => ({ transfers }) as never);
 
-  return { vault, runtime };
+  return { vault, runtime, state };
 }
 
 afterEach(() => {
@@ -377,6 +384,7 @@ describe('xmr send: max', () => {
 });
 
 const broadcastEncodedTx: IEncodedTxXmr = {
+  privacyEpoch: PRIVACY_EPOCH,
   from: PRIMARY,
   to: RECIPIENT,
   amount: '1',
@@ -390,6 +398,45 @@ const broadcastEncodedTx: IEncodedTxXmr = {
 };
 
 describe('xmr send: broadcast', () => {
+  it('rejects a reviewed draft after a same-value delete and re-enable', async () => {
+    const broadcast = jest.fn(async () => JSON.stringify({ txid: 'deadbeef' }));
+    const { vault, state } = createVault({ broadcast });
+    state.epoch = '02'.repeat(8);
+    state.appliedEpoch = state.epoch;
+    await expect(
+      vault.broadcastTransaction({
+        signedTx: {
+          txid: 'deadbeef',
+          rawTx: '00ff',
+          encodedTx: broadcastEncodedTx,
+        },
+      } as never),
+    ).rejects.toThrow(ETranslations.privacy_error_review_expired__msg);
+    expect(broadcast).not.toHaveBeenCalled();
+  });
+
+  it('cannot prepare or broadcast while the saved target is awaiting runtime preparation', async () => {
+    const broadcast = jest.fn(async () => JSON.stringify({ txid: 'deadbeef' }));
+    const { vault, runtime, state } = createVault({ broadcast });
+    state.appliedEpoch = '03'.repeat(8);
+    await expect(
+      vault.buildUnsignedTx({
+        transfersInfo: [{ from: PRIMARY, to: RECIPIENT, amount: '0.001' }],
+      } as never),
+    ).rejects.toThrow(ETranslations.privacy_error_review_expired__msg);
+    expect(runtime.prepared).toHaveLength(0);
+    await expect(
+      vault.broadcastTransaction({
+        signedTx: {
+          txid: 'deadbeef',
+          rawTx: '00ff',
+          encodedTx: broadcastEncodedTx,
+        },
+      } as never),
+    ).rejects.toThrow(ETranslations.privacy_error_review_expired__msg);
+    expect(broadcast).not.toHaveBeenCalled();
+  });
+
   it('does not broadcast when signed transaction verification fails', async () => {
     const broadcast = jest.fn(async () => JSON.stringify({ txid: 'deadbeef' }));
     const { vault, runtime } = createVault({ broadcast });

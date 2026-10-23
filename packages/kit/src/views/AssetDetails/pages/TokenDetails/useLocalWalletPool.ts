@@ -116,7 +116,11 @@ export function buildLocalWalletSyncStatusText({
     syncProgress.tipScannedHeight,
     syncProgress.chainTip,
   ].some((height) => typeof height === 'number');
-  if (!heightsPresent) return null;
+  if (!heightsPresent) {
+    return syncProgress.isSyncing
+      ? intl.formatMessage({ id: ETranslations.global_preparing })
+      : null;
+  }
 
   // A chain has no finish line; only backfill does, so only backfill shows a percentage/ETA.
   if (!syncProgress.isBackfillComplete) {
@@ -450,6 +454,35 @@ export function useLocalWalletPool({
     scanRatePerSecRef.current = null;
   }, [readScope]);
 
+  const syncStateAtom = useMemo(
+    () =>
+      selectAtom(
+        privacyChainAtom.atom(),
+        (value) => ({
+          storageUnsupported:
+            value.storageUnsupportedNetworkIds.includes(networkId),
+          paused: value.pausedNetworkIds.includes(networkId),
+          error: value.pausedNetworkIds.includes(networkId)
+            ? undefined
+            : value.syncErrorByNetworkId[networkId],
+        }),
+        isEqual,
+      ),
+    [networkId],
+  );
+  const {
+    storageUnsupported: isStorageUnsupported,
+    paused: isSyncPaused,
+    error: syncError,
+  } = useAtomValue(syncStateAtom);
+  const hasSyncError = isStorageUnsupported || syncError !== undefined;
+  const isPreparing =
+    enabled &&
+    !isSyncPaused &&
+    !hasSyncError &&
+    (!syncProgress ||
+      (syncProgress.isSyncing && syncProgress.backfillScannedHeight === null));
+
   const poolBalance: ILocalWalletPoolBalance | undefined = useMemo(
     () => balance?.pools.find((item) => item.key === pool?.key),
     [balance?.pools, pool?.key],
@@ -468,7 +501,7 @@ export function useLocalWalletPool({
       address: poolAddress,
       balanceParsed: poolBalance?.totalParsed,
       balanceStatus: poolBalance?.balanceStatus,
-      balanceSettled: hasAttemptedBalance,
+      balanceSettled: hasAttemptedBalance || hasSyncError || isSyncPaused,
       action: move
         ? {
             type: move.type,
@@ -494,7 +527,9 @@ export function useLocalWalletPool({
     canReadBalance,
     handleActionDone,
     hasAttemptedBalance,
+    hasSyncError,
     isActive,
+    isSyncPaused,
     networkId,
     pool,
     poolAddress,
@@ -516,30 +551,14 @@ export function useLocalWalletPool({
     return clearDisplay;
   }, [accountId, canReadBalance, networkId, poolId, setPoolDisplay]);
 
-  // Only this network's flag: the whole atom changes on every scan pass.
-  const isStorageUnsupportedAtom = useMemo(
-    () =>
-      selectAtom(privacyChainAtom.atom(), (value) =>
-        value.storageUnsupportedNetworkIds.includes(networkId),
-      ),
-    [networkId],
-  );
-  const isStorageUnsupported = useAtomValue(isStorageUnsupportedAtom);
-  const syncErrorAtom = useMemo(
-    () =>
-      // A paused network is not retrying, so its last failure is not news.
-      selectAtom(privacyChainAtom.atom(), (value) =>
-        value.pausedNetworkIds.includes(networkId)
-          ? undefined
-          : value.syncErrorByNetworkId[networkId],
-      ),
-    [networkId],
-  );
-  const syncError = useAtomValue(syncErrorAtom);
   let syncStatusText: string | null;
   if (isStorageUnsupported) {
     syncStatusText = intl.formatMessage({
       id: ETranslations.privacy_error_webview_outdated__msg,
+    });
+  } else if (isSyncPaused) {
+    syncStatusText = intl.formatMessage({
+      id: ETranslations.syncing_paused__title,
     });
   } else {
     // A failed background sync replaces the figures; it retries on its own.
@@ -550,7 +569,10 @@ export function useLocalWalletPool({
         settings,
         scanRatePerSec: scanRatePerSecRef.current,
         intl,
-      });
+      }) ??
+      (enabled
+        ? intl.formatMessage({ id: ETranslations.global_preparing })
+        : null);
   }
 
   const runBusy = useCallback(async (fn: () => Promise<void>) => {
@@ -610,19 +632,14 @@ export function useLocalWalletPool({
       }),
     [accountId, networkId, refreshState, runBusy, setPoolDisplay],
   );
-  // Consumers gate on this so the private UI appears once, complete, instead of popping in piece by piece.
+  // Authorization visibility must not wait for successful scan-database reads.
   const isReady = (() => {
     if (!hasPooledBalance) return true;
     // An unsupported wallet has no state to read and nothing to enable, so it's complete as soon as it lands.
     if (isWalletSupported === undefined) return false;
     if (!isWalletSupported) return true;
     if (state === undefined) return false;
-    if (!enabled) return true;
-    return (
-      balance !== undefined &&
-      addresses !== undefined &&
-      syncProgress !== undefined
-    );
+    return true;
   })();
 
   return {
@@ -642,6 +659,9 @@ export function useLocalWalletPool({
     addresses,
     syncProgress,
     syncStatusText,
+    isPreparing,
+    isSyncPaused,
+    hasSyncError,
     hasAttemptedBalance,
     busy,
     accountName: account?.name,

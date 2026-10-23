@@ -84,6 +84,7 @@ describe('Privacy sync failure state', () => {
     return Object.assign(
       Object.create(ServicePrivacyChain.prototype) as {
         backgroundSyncTick: () => Promise<void>;
+        pauseLocalWalletScan: (params: { networkId: string }) => Promise<void>;
         startForegroundBoost: (params: {
           networkId: string;
           trigger: 'manual-sync';
@@ -91,6 +92,7 @@ describe('Privacy sync failure state', () => {
       },
       {
         backgroundApi: {
+          simpleDb: { privacyChainState: {} },
           serviceAccount: {
             getDBAccountSafe: async () => ({ id: 'account' }),
             getWalletSafe: async () => ({ isTemp: false }),
@@ -168,5 +170,42 @@ describe('Privacy sync failure state', () => {
     await service.startForegroundBoost({ networkId, trigger: 'manual-sync' });
 
     expect(mockPublished.syncErrorByNetworkId).toEqual({});
+  });
+
+  it('honors a pause made while the node tip is loading and resumes only on an explicit request', async () => {
+    let resolveTip: (height: number) => void = () => undefined;
+    let markTipRequested: () => void = () => undefined;
+    const tip = new Promise<number>((resolve) => {
+      resolveTip = resolve;
+    });
+    const tipRequested = new Promise<void>((resolve) => {
+      markTipRequested = resolve;
+    });
+    const syncGroup = jest
+      .fn()
+      .mockResolvedValue({ synced: true, chainTip: 100 });
+    const service = createService({
+      syncGroup,
+      getChainTip: async () => {
+        markTipRequested();
+        return tip;
+      },
+    });
+
+    const tick = service.backgroundSyncTick();
+    try {
+      await tipRequested;
+      await service.pauseLocalWalletScan({ networkId });
+    } finally {
+      resolveTip(100);
+      await tick;
+    }
+    expect(syncGroup).not.toHaveBeenCalled();
+
+    await service.backgroundSyncTick();
+    expect(syncGroup).not.toHaveBeenCalled();
+    await service.startForegroundBoost({ networkId, trigger: 'manual-sync' });
+    await service.backgroundSyncTick();
+    expect(syncGroup).toHaveBeenCalledTimes(1);
   });
 });

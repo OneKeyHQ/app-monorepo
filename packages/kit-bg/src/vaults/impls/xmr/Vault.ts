@@ -80,8 +80,10 @@ import {
 } from '../../localWallet/privacyChainCacheStore';
 import { buildLocalWalletNativeTokenList } from '../../localWallet/tokenList';
 import { getViewingKeyFingerprint } from '../../localWallet/viewingKeyFingerprint';
+import { getLocalWalletViewingKey } from '../../localWallet/viewingKeyStore';
 
 import { KeyringHd } from './KeyringHd';
+import { getXmrLifecycleMutex } from './lifecycle';
 import {
   buildXmrLocalHistoryDetail,
   buildXmrLocalHistoryTx,
@@ -221,8 +223,8 @@ export default class Vault extends VaultBase {
 
   /**
    * The account's viewing pair (`spendPub:viewPriv`, the analogue of a Zcash
-   * UFVK) from the privacy-chain viewing key store. A missing copy is rebuilt
-   * from the mnemonic once a password is cached; until then this throws.
+   * UFVK) from the privacy-chain viewing key store. Derivation is owned by
+   * the service's epoch-guarded authorization path, never a read.
    */
   async getXmrViewingKeys({
     accountId,
@@ -234,7 +236,8 @@ export default class Vault extends VaultBase {
         accountId,
         networkId: this.networkId,
       }),
-      this.backgroundApi.servicePrivacyChain.ensureLocalWalletViewingKey({
+      getLocalWalletViewingKey({
+        backgroundApi: this.backgroundApi,
         networkId: this.networkId,
         accountId,
       }),
@@ -249,9 +252,9 @@ export default class Vault extends VaultBase {
       // The runtime identity's name; see getXmrRuntimeUuid.
       vkFp: getViewingKeyFingerprint({
         networkId: this.networkId,
-        viewingKey: stored,
+        viewingKey: stored.value,
       }),
-      ...parseXmrViewingKeyPair(stored),
+      ...parseXmrViewingKeyPair(stored.value),
     };
   }
 
@@ -426,6 +429,26 @@ export default class Vault extends VaultBase {
     };
   }
 
+  // A saved request cannot send until the runtime has applied its scan target.
+  private async xmrPreparedEpoch(): Promise<string> {
+    const state =
+      await this.backgroundApi.simpleDb.privacyChainState.getXmrAccountState({
+        accountId: this.accountId,
+      });
+    if (
+      state.deletionPending ||
+      state.intent !== 'on' ||
+      state.operation !== undefined ||
+      state.epoch === undefined ||
+      state.appliedEpoch !== state.epoch
+    ) {
+      throw new OneKeyLocalError(
+        localWalletText(ETranslations.privacy_error_review_expired__msg),
+      );
+    }
+    return state.epoch;
+  }
+
   /**
    * Built at review time, not at signing: recomputing later could let the
    * confirmed fee/amount drift from what's actually signed.
@@ -433,6 +456,7 @@ export default class Vault extends VaultBase {
   private async xmrPrepareTransaction(
     encodedTx: IEncodedTxXmr,
   ): Promise<IEncodedTxXmr> {
+    const privacyEpoch = await this.xmrPreparedEpoch();
     const api = await this.getXmrRuntimeApi();
     const identityId = await getXmrIdentityId({
       api,
@@ -458,6 +482,11 @@ export default class Vault extends VaultBase {
     }
 
     const result = parseXmrPreparedTransaction(JSON.parse(raw));
+    if ((await this.xmrPreparedEpoch()) !== privacyEpoch) {
+      throw new OneKeyLocalError(
+        localWalletText(ETranslations.privacy_error_review_expired__msg),
+      );
+    }
     if (
       encodedTx.isMaxSend !== true &&
       result.amountAtomic !== encodedTx.amountAtomic
@@ -473,6 +502,7 @@ export default class Vault extends VaultBase {
         .shiftedBy(-XMR_DECIMALS)
         .toFixed(),
       chainTip,
+      privacyEpoch,
     });
   }
 
@@ -719,33 +749,38 @@ export default class Vault extends VaultBase {
       accountId: this.accountId,
     });
 
-    let raw: string;
-    try {
-      raw = await api.broadcastTransaction(
-        identityId,
-        signedTx.rawTx,
-        String(encodedTx.chainTip ?? (await getXmrChainTip(api))),
-        new BigNumber(reviewed.amountAtomic).plus(reviewed.feeAtomic).toFixed(),
-        reviewed.changeAtomic,
-        reviewed.signableHex,
-        reviewJson,
-      );
-    } catch (error) {
-      console.error('[xmr] broadcast failed', {
-        txid: signedTx.txid,
-        error,
-      });
-      // A runtime error is definite: rejected, or refused before sending.
-      // Network trouble comes back as a recorded "unknown" instead.
-      if (readXmrRuntimeError(error)) {
-        throw toXmrUserFacingError(error);
-      }
-      // The call itself was lost (bridge timeout, carrier restart): the node
-      // may have the transaction and the runtime may have recorded it.
-      throw new OneKeyLocalError(
-        localWalletText(ETranslations.privacy_error_broadcast_unknown__msg),
-      );
-    }
+    const raw = await getXmrLifecycleMutex(this.networkId).runExclusive(
+      async () => {
+        if ((await this.xmrPreparedEpoch()) !== reviewed.privacyEpoch) {
+          throw new OneKeyLocalError(
+            localWalletText(ETranslations.privacy_error_review_expired__msg),
+          );
+        }
+        try {
+          return await api.broadcastTransaction(
+            identityId,
+            signedTx.rawTx,
+            String(reviewed.chainTip),
+            new BigNumber(reviewed.amountAtomic)
+              .plus(reviewed.feeAtomic)
+              .toFixed(),
+            reviewed.changeAtomic,
+            reviewed.signableHex,
+            reviewJson,
+          );
+        } catch (error) {
+          console.error('[xmr] broadcast failed', {
+            txid: signedTx.txid,
+            error,
+          });
+          if (readXmrRuntimeError(error)) throw toXmrUserFacingError(error);
+          // A lost call may already have been recorded and sent by the Worker.
+          throw new OneKeyLocalError(
+            localWalletText(ETranslations.privacy_error_broadcast_unknown__msg),
+          );
+        }
+      },
+    );
 
     const {
       txid,

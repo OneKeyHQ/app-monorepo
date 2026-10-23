@@ -15,7 +15,9 @@ const LIVE = 'hd-1--0';
 const PAUSED = 'hd-1--1';
 
 function createVault({ pausedMetaVkFp = 'fp-paused' } = {}) {
-  const prepareWalletAccounts = jest.fn(async () => undefined);
+  const prepareWalletAccounts = jest.fn(
+    async (prepared: { ufvk: string }[]) => prepared,
+  );
   const accounts: Record<string, { ufvk: string }> = {
     [LIVE]: { ufvk: 'ufvk-live' },
     [PAUSED]: { ufvk: 'ufvk-paused' },

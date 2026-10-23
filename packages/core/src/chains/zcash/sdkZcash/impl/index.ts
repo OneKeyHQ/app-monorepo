@@ -47,6 +47,7 @@ import {
   readBalance,
   readHistory,
   readSyncProgress,
+  rescanWallet,
   syncWallet,
 } from './wallet';
 
@@ -199,6 +200,7 @@ function forgetLastReads(
 const leasedPurgeWallet = leased(purgeWallet);
 const leasedDropWalletDatabase = leased(dropWalletDatabase);
 const leasedQueueRescanFrom = leased(queueRescanFrom);
+const leasedRescanWallet = leased(rescanWallet);
 
 const leasedGetSyncProgress = leased(getSyncProgress);
 const leasedGetBalance = leased(getBalance);
@@ -237,6 +239,10 @@ const api: IZcashSdkApi = {
     const queued = await leasedQueueRescanFrom(account, params);
     forgetLastReads(account, ['getSyncProgress']);
     return queued;
+  },
+  rescanWallet: async (account) => {
+    await leasedRescanWallet(account);
+    forgetLastReads(null);
   },
   getEndpointHealth,
   // Lock-free when the wallet database is already open (see readOnlyOrLeased above); these are the three surfaces a user stares at.

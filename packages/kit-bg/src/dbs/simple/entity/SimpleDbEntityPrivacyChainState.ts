@@ -85,6 +85,14 @@ export interface IZcashAccountMeta {
 }
 
 export type IXmrAccountScanState = {
+  // Internal runtime admission fence; not a UI operation/state.
+  deletionPending?: boolean;
+  /** Identifies the persisted request, including a same-value re-enable. */
+  epoch?: string;
+  /** Runtime preparation completed for this persisted request. */
+  appliedEpoch?: string;
+  /** An explicit rescan also invalidates observations at an unchanged birthday. */
+  forceRescan?: boolean;
   /** What the user asked for. Distinct from whether it has taken effect. */
   intent: 'on' | 'off';
   /**
@@ -127,11 +135,22 @@ const accountRecordSchema = z.object({
     .string()
     .regex(/^[0-9a-f]{32}$/)
     .optional(),
-  // Random 64-bit hex, renewed whenever scanned data is destroyed, so a cache
-  // written for older data can tell it is stale.
+  // Random 64-bit hex, renewed when scan data or its requested target changes,
+  // so older work and cached results cannot overwrite the current request.
   epoch: z.string().regex(/^[0-9a-f]{16}$/),
   scan: z.object({
     intent: z.enum(['on', 'off']),
+    deletion: z
+      .object({
+        requestId: z.string().regex(/^[0-9a-f]{16}$/),
+        reenable: z.boolean().optional(),
+      })
+      .optional(),
+    appliedEpoch: z
+      .string()
+      .regex(/^[0-9a-f]{16}$/)
+      .optional(),
+    forceRescan: z.boolean().optional(),
     // Enable/disable journal; a crash leaves it for the next start to settle.
     operation: z
       .object({
@@ -150,8 +169,8 @@ const accountRecordSchema = z.object({
       })
       .optional(),
     resumeFromHeight: finiteNumber.optional(),
-    // Zcash repair journal: resumes a process death between purging the
-    // scanned data and saving the new birthday. Separate from `operation`
+    // Zcash repair journal: resumes a process death before the runtime has
+    // applied the requested scan target. Separate from `operation`
     // because an enable can run a rescan while its own journal is open.
     rescan: z
       .object({
@@ -184,6 +203,13 @@ const accountRecordSchema = z.object({
 });
 
 export type IPrivacyChainAccountRecord = z.infer<typeof accountRecordSchema>;
+
+export type IPrivacyChainPendingAccountDeletion = {
+  accountId: string;
+  networkId: string;
+  requestId: string;
+  reenabled?: boolean;
+};
 
 const walletRecordSchema = z.object({
   // True only for a freshly generated mnemonic. Absent means not proven
@@ -320,12 +346,17 @@ function holdsScanData(record: IPrivacyChainAccountRecord): boolean {
     record.scan.intent === 'on' ||
     record.scan.operation !== undefined ||
     record.scan.resumeFromHeight !== undefined ||
-    record.scan.rescan !== undefined
+    record.scan.rescan !== undefined ||
+    record.scan.deletion !== undefined
   );
 }
 
 function isScanning(record: IPrivacyChainAccountRecord): boolean {
-  return record.scan.intent === 'on' && record.scan.operation === undefined;
+  return (
+    record.scan.intent === 'on' &&
+    record.scan.operation === undefined &&
+    record.scan.deletion === undefined
+  );
 }
 
 // The identity a Zcash account holds a slot with, counted once setup stored
@@ -347,17 +378,27 @@ function zcashWalletMonthHint(
 function buildZcashStateView(
   record: IPrivacyChainAccountRecord,
   wallet: IPrivacyChainWalletRecord | undefined,
+  includePendingRescan = false,
 ): IZcashPrivacyModeStateView {
   const { scan } = record;
   const request = scan.birthdayRequest;
-  const birthdayHeight = request ? request.height : scan.birthday?.height;
-  const birthdayTimestamp = request
+  // Show the saved user target while the runtime still owns the old range.
+  const pendingBirthday =
+    includePendingRescan && !scan.operation ? scan.rescan?.birthday : undefined;
+  let birthdayHeight = request ? request.height : scan.birthday?.height;
+  let birthdayTimestamp = request
     ? request.timestamp
     : scan.birthday?.timestamp;
+  if (pendingBirthday) {
+    birthdayHeight = pendingBirthday.height;
+    birthdayTimestamp = pendingBirthday.timestamp;
+  }
   return compact({
     intent: scan.intent,
     birthdayHeight,
-    birthdaySource: scan.birthday?.source as IZcashBirthdaySource | undefined,
+    birthdaySource: (pendingBirthday?.source ?? scan.birthday?.source) as
+      | IZcashBirthdaySource
+      | undefined,
     birthdayTimestamp,
     // A fresh wallet recommends its creation month; otherwise the month this
     // account was last asked to start from.
@@ -435,6 +476,10 @@ function buildXmrView(
 ): IXmrAccountScanState {
   const { scan } = record;
   return compact({
+    deletionPending: record.scan.deletion ? true : undefined,
+    epoch: record.epoch,
+    appliedEpoch: scan.appliedEpoch,
+    forceRescan: scan.forceRescan,
     intent: scan.intent,
     operation: scan.operation,
     birthdayHeight: scan.birthday?.height,
@@ -481,6 +526,9 @@ function readOrCreateAccount(
     throw new OneKeyLocalError(
       'privacy chain: account state belongs to another network',
     );
+  }
+  if (existing?.scan.deletion && !existing.scan.deletion.reenable) {
+    throw new OneKeyLocalError('privacy chain: account deletion is pending');
   }
   if (existing) return existing;
   const now = Date.now();
@@ -539,8 +587,10 @@ export class SimpleDbEntityPrivacyChainState extends SimpleDbEntityBase<IPrivacy
     this.epochMirrorVersion += 1;
   }
 
-  private async update(build: (state: IMutableState) => void): Promise<void> {
-    await this.setRawData((raw) => {
+  private async update(
+    build: (state: IMutableState) => void,
+  ): Promise<boolean> {
+    const committed = await this.setRawData((raw) => {
       const state: IMutableState = {
         device: raw?.device,
         pendingLocalDataDrop: raw?.pendingLocalDataDrop,
@@ -571,6 +621,7 @@ export class SimpleDbEntityPrivacyChainState extends SimpleDbEntityBase<IPrivacy
         accounts: state.accounts,
       });
     });
+    return committed !== undefined;
   }
 
   private async readAccountRecord(accountId: string): Promise<
@@ -824,6 +875,136 @@ export class SimpleDbEntityPrivacyChainState extends SimpleDbEntityBase<IPrivacy
     });
   }
 
+  // Stop admitting work before waiting for a running database transaction.
+  async requestAccountDeletion({
+    networkId,
+    accountId,
+  }: {
+    networkId: string;
+    accountId: string;
+  }): Promise<IPrivacyChainPendingAccountDeletion> {
+    let requestId = '';
+    const committed = await this.update((state) => {
+      const existing = readAccount(state, accountId);
+      if (
+        existing?.networkId === networkId &&
+        existing.scan.deletion &&
+        !existing.scan.deletion.reenable
+      ) {
+        requestId = existing.scan.deletion.requestId;
+        return;
+      }
+      const record = readOrCreateAccount(state, { networkId, accountId });
+      requestId = createEpoch();
+      writeAccount(state, accountId, {
+        ...record,
+        epoch: createEpoch(),
+        scan: {
+          ...record.scan,
+          intent: 'off',
+          operation: undefined,
+          resumeFromHeight: undefined,
+          rescan: undefined,
+          deletion: { requestId },
+        },
+      });
+    });
+    if (!committed) {
+      throw new OneKeyLocalError(
+        'privacy chain: deletion request could not be persisted',
+      );
+    }
+    return { networkId, accountId, requestId };
+  }
+
+  async listPendingAccountDeletions(): Promise<
+    IPrivacyChainPendingAccountDeletion[]
+  > {
+    const raw = await this.getRawData();
+    return Object.entries(raw?.accounts ?? {}).flatMap(([accountId, value]) => {
+      const record = parseAccountRecord(value);
+      return record?.scan.deletion
+        ? [
+            {
+              accountId,
+              networkId: record.networkId,
+              requestId: record.scan.deletion.requestId,
+              ...(record.scan.deletion.reenable &&
+              record.scan.intent === 'on' &&
+              !record.scan.operation
+                ? { reenabled: true }
+                : {}),
+            },
+          ]
+        : [];
+    });
+  }
+
+  // Authorization may be saved while the old runtime transaction finishes.
+  // The deletion marker continues to exclude this account from scanning.
+  async beginAccountReenable({
+    accountId,
+    requestId,
+  }: {
+    accountId: string;
+    requestId: string;
+  }): Promise<void> {
+    const committed = await this.update((state) => {
+      const record = readAccount(state, accountId);
+      if (record?.scan.deletion?.requestId !== requestId) {
+        throw new OneKeyLocalError('privacy chain: deletion request changed');
+      }
+      writeAccount(state, accountId, {
+        ...record,
+        epoch: createEpoch(),
+        scan: {
+          ...record.scan,
+          deletion: { requestId, reenable: true },
+        },
+      });
+    });
+    if (!committed) {
+      throw new OneKeyLocalError(
+        'privacy chain: enable request could not be persisted',
+      );
+    }
+  }
+
+  async isAccountDeletionPending({
+    accountId,
+    requestId,
+  }: {
+    accountId: string;
+    requestId?: string;
+  }): Promise<boolean> {
+    const record = (await this.readAccountRecord(accountId))?.record;
+    return requestId === undefined
+      ? !!record?.scan.deletion
+      : record?.scan.deletion?.requestId === requestId;
+  }
+
+  async completeAccountDeletion({
+    accountId,
+    requestId,
+  }: {
+    accountId: string;
+    requestId: string;
+  }): Promise<void> {
+    const committed = await this.update((state) => {
+      const record = readAccount(state, accountId);
+      if (record?.scan.deletion?.requestId !== requestId) return;
+      writeAccount(state, accountId, {
+        ...record,
+        scan: { ...record.scan, deletion: undefined },
+      });
+    });
+    if (!committed) {
+      throw new OneKeyLocalError(
+        'privacy chain: deletion completion could not be persisted',
+      );
+    }
+  }
+
   // App Reset: the network's database is gone. Wallet facts stay; they do
   // not describe that database.
   async removeNetworkAccounts({
@@ -875,7 +1056,8 @@ export class SimpleDbEntityPrivacyChainState extends SimpleDbEntityBase<IPrivacy
     accountIds: string[];
   }): Promise<void> {
     if (accountIds.length === 0) return;
-    const rotated = new Map(uniq(accountIds).map((id) => [id, createEpoch()]));
+    const batchEpoch = createEpoch();
+    const rotated = new Map(uniq(accountIds).map((id) => [id, batchEpoch]));
     rotated.forEach((epoch, accountId) =>
       this.setMirroredEpoch(accountId, epoch),
     );
@@ -900,10 +1082,16 @@ export class SimpleDbEntityPrivacyChainState extends SimpleDbEntityBase<IPrivacy
   }: {
     accountId: string;
   }): Promise<void> {
-    await this.update((state) => {
+    const committed = await this.update((state) => {
       const record = readAccount(state, accountId);
       delete state.accounts[accountId];
-      if (!record?.scan.birthday && !record?.scan.birthdayRequest) return;
+      if (
+        !record ||
+        (!record.scan.birthday &&
+          !record.scan.birthdayRequest &&
+          !record.scan.deletion)
+      )
+        return;
       writeAccount(state, accountId, {
         networkId: record.networkId,
         walletId: record.walletId,
@@ -912,11 +1100,17 @@ export class SimpleDbEntityPrivacyChainState extends SimpleDbEntityBase<IPrivacy
           intent: 'off',
           birthday: record.scan.birthday,
           birthdayRequest: record.scan.birthdayRequest,
+          deletion: record.scan.deletion,
         },
         createdAt: record.createdAt,
         updatedAt: record.updatedAt,
       });
     });
+    if (!committed) {
+      throw new OneKeyLocalError(
+        'privacy chain: local data cleanup could not be persisted',
+      );
+    }
   }
 
   async getAccountVkFp({
@@ -935,8 +1129,10 @@ export class SimpleDbEntityPrivacyChainState extends SimpleDbEntityBase<IPrivacy
 
   async getZcashPrivacyModeState({
     accountId,
+    includePendingRescan = false,
   }: {
     accountId: string;
+    includePendingRescan?: boolean;
   }): Promise<IZcashPrivacyModeStateView> {
     const raw = await this.getRawData();
     const record = parseAccountRecord(raw?.accounts?.[accountId]);
@@ -944,6 +1140,7 @@ export class SimpleDbEntityPrivacyChainState extends SimpleDbEntityBase<IPrivacy
       return buildZcashStateView(
         record,
         parseWalletRecord(raw?.wallets?.[record.walletId]),
+        includePendingRescan,
       );
     }
     // Never enabled: a fresh wallet still recommends its creation month.
@@ -1005,7 +1202,7 @@ export class SimpleDbEntityPrivacyChainState extends SimpleDbEntityBase<IPrivacy
         'zcash: privacy birthday timestamp is invalid',
       );
     }
-    await this.update((state) => {
+    const committed = await this.update((state) => {
       const record = readOrCreateAccount(state, { networkId, accountId });
       const zcash = record.chain?.zcash;
       writeAccount(state, accountId, {
@@ -1031,6 +1228,10 @@ export class SimpleDbEntityPrivacyChainState extends SimpleDbEntityBase<IPrivacy
             : record.chain,
       });
     });
+    if (!committed)
+      throw new OneKeyLocalError(
+        'zcash: enable request could not be persisted',
+      );
   }
 
   async completeZcashPrivacyModeEnable({
@@ -1040,7 +1241,7 @@ export class SimpleDbEntityPrivacyChainState extends SimpleDbEntityBase<IPrivacy
     accountId: string;
     maxEnabledAccounts?: number;
   }): Promise<void> {
-    await this.update((state) => {
+    const committed = await this.update((state) => {
       const current = readAccount(state, accountId);
       if (!current || current.scan.operation?.type !== 'enable') {
         throw new OneKeyLocalError(
@@ -1060,7 +1261,8 @@ export class SimpleDbEntityPrivacyChainState extends SimpleDbEntityBase<IPrivacy
             const vkFp = zcashRecordVkFp(record);
             return record &&
               record.networkId === current.networkId &&
-              isScanning(record) &&
+              record.scan.intent === 'on' &&
+              !record.scan.operation &&
               vkFp
               ? [vkFp]
               : [];
@@ -1086,6 +1288,11 @@ export class SimpleDbEntityPrivacyChainState extends SimpleDbEntityBase<IPrivacy
         },
       });
     });
+    if (!committed) {
+      throw new OneKeyLocalError(
+        'zcash: privacy authorization could not be persisted',
+      );
+    }
   }
 
   async cancelZcashPendingEnables({
@@ -1181,14 +1388,13 @@ export class SimpleDbEntityPrivacyChainState extends SimpleDbEntityBase<IPrivacy
     accountId: string;
     fromHeight: number;
   }): Promise<void> {
-    await this.update((state) => {
+    const committed = await this.update((state) => {
       const record = readAccount(state, accountId);
       const zcash = record?.chain?.zcash;
       if (
         !record ||
         !zcash ||
-        !isScanning(record) ||
-        zcash.scanExcludedFromHeight !== undefined
+        (!isScanning(record) && record.scan.operation?.type !== 'enable')
       ) {
         return;
       }
@@ -1196,10 +1402,21 @@ export class SimpleDbEntityPrivacyChainState extends SimpleDbEntityBase<IPrivacy
         ...record,
         chain: {
           ...record.chain,
-          zcash: { ...zcash, scanExcludedFromHeight: fromHeight },
+          zcash: {
+            ...zcash,
+            scanExcludedFromHeight: Math.min(
+              zcash.scanExcludedFromHeight ?? fromHeight,
+              fromHeight,
+            ),
+          },
         },
       });
     });
+    if (!committed) {
+      throw new OneKeyLocalError(
+        'zcash: resume request could not be persisted',
+      );
+    }
   }
 
   async clearZcashScanExcluded({
@@ -1280,7 +1497,7 @@ export class SimpleDbEntityPrivacyChainState extends SimpleDbEntityBase<IPrivacy
     expectedPrivacyModeState?: IZcashPrivacyModeStateView;
     expectedMeta?: IZcashAccountMeta;
   }): Promise<void> {
-    await this.update((state) => {
+    const committed = await this.update((state) => {
       const record = readAccount(state, accountId);
       const wallet = record ? readWallet(state, record.walletId) : undefined;
       if (
@@ -1351,6 +1568,10 @@ export class SimpleDbEntityPrivacyChainState extends SimpleDbEntityBase<IPrivacy
         },
       });
     });
+    if (!committed)
+      throw new OneKeyLocalError(
+        'zcash: viewing metadata could not be persisted',
+      );
   }
 
   async listZcashPendingRescans({
@@ -1366,17 +1587,46 @@ export class SimpleDbEntityPrivacyChainState extends SimpleDbEntityBase<IPrivacy
     );
   }
 
-  // Journaled before the scanned data is purged; the purge rotates the epoch.
+  // User requests replace older journals. Automatic repair must still own
+  // its snapshot and must not replace a user's request on any alias.
   async saveZcashPendingRescan({
     accountId,
     repair,
+    automaticOwner,
   }: {
     accountId: string;
     repair: IZcashPendingRescan;
-  }): Promise<void> {
-    await this.update((state) => {
+    automaticOwner?: { epoch: string | undefined; meta: IZcashAccountMeta };
+  }): Promise<boolean> {
+    let accepted = false;
+    const committed = await this.update((state) => {
       const record = readAccount(state, accountId);
-      if (!record) return;
+      if (automaticOwner) {
+        if (
+          !record ||
+          record.scan.deletion ||
+          record.scan.operation ||
+          record.epoch !== automaticOwner.epoch ||
+          !isEqual(
+            buildZcashMetaView(record, readWallet(state, record.walletId)),
+            automaticOwner.meta,
+          ) ||
+          Object.values(state.accounts).some((value) => {
+            const alias = parseAccountRecord(value);
+            return (
+              alias?.networkId === record.networkId &&
+              alias.vkFp === record.vkFp &&
+              !!alias.scan.rescan
+            );
+          })
+        )
+          return;
+      }
+      if (!record || (record.scan.deletion && !record.scan.deletion.reenable)) {
+        throw new OneKeyLocalError(
+          'zcash: account is unavailable for rescanning',
+        );
+      }
       writeAccount(state, accountId, {
         ...record,
         scan: {
@@ -1391,7 +1641,14 @@ export class SimpleDbEntityPrivacyChainState extends SimpleDbEntityBase<IPrivacy
           },
         },
       });
+      accepted = true;
     });
+    if (!committed) {
+      throw new OneKeyLocalError(
+        'zcash: rescan request could not be persisted',
+      );
+    }
+    return accepted;
   }
 
   // With an expected repair, an older completion never consumes a newer one.
@@ -1433,6 +1690,131 @@ export class SimpleDbEntityPrivacyChainState extends SimpleDbEntityBase<IPrivacy
     return found ? buildXmrView(found.record) : { intent: 'off' };
   }
 
+  // Authorization is durable before background runtime preparation starts.
+  async saveXmrEnabledAccount({
+    networkId,
+    accountId,
+    vkFp,
+    birthdayHeight,
+    birthdaySource,
+    birthdayTimestamp,
+    forceRescan,
+    expectedState,
+  }: {
+    networkId: string;
+    accountId: string;
+    vkFp: string;
+    birthdayHeight: number;
+    birthdaySource?: string;
+    birthdayTimestamp?: number;
+    forceRescan?: boolean;
+    expectedState?: IXmrAccountScanState;
+  }): Promise<boolean> {
+    let applied = false;
+    const committed = await this.update((state) => {
+      if (expectedState) {
+        const current = readAccount(state, accountId);
+        if (
+          current?.epoch !== expectedState.epoch ||
+          (current?.scan.intent ?? 'off') !== expectedState.intent ||
+          !isEqual(current?.scan.operation, expectedState.operation)
+        )
+          return;
+      }
+      const record = readOrCreateAccount(state, { networkId, accountId });
+      if (record.vkFp !== undefined && record.vkFp !== vkFp) {
+        throw new OneKeyLocalError(
+          'xmr: viewing identity does not match this account',
+        );
+      }
+      const epoch = createEpoch();
+      const birthday = {
+        height: birthdayHeight,
+        source: birthdaySource,
+        timestamp: birthdayTimestamp,
+      };
+      const rescanRequired = forceRescan ?? record.scan.forceRescan;
+      const alreadyApplied =
+        !rescanRequired &&
+        record.scan.appliedEpoch === record.epoch &&
+        isEqual(compact(record.scan.birthday ?? {}), compact(birthday));
+      writeAccount(state, accountId, {
+        ...record,
+        vkFp,
+        epoch,
+        scan: {
+          ...record.scan,
+          intent: 'on',
+          operation: undefined,
+          appliedEpoch: alreadyApplied ? epoch : undefined,
+          forceRescan: rescanRequired || undefined,
+          birthday,
+        },
+      });
+      // Aliases share one runtime identity and one latest birthday target.
+      Object.keys(state.accounts).forEach((otherId) => {
+        if (otherId === accountId) return;
+        const other = readAccount(state, otherId);
+        if (other?.networkId !== networkId || other.vkFp !== vkFp) return;
+        writeAccount(state, otherId, {
+          ...other,
+          epoch,
+          scan: {
+            ...other.scan,
+            birthday,
+            appliedEpoch: alreadyApplied ? epoch : undefined,
+            forceRescan: rescanRequired || undefined,
+          },
+        });
+      });
+      applied = true;
+    });
+    if (!committed) {
+      throw new OneKeyLocalError(
+        'xmr: privacy authorization could not be persisted',
+      );
+    }
+    return applied;
+  }
+
+  async completeXmrPreparation({
+    accountId,
+    epoch,
+  }: {
+    accountId: string;
+    epoch: string;
+  }): Promise<void> {
+    const committed = await this.update((state) => {
+      const record = readAccount(state, accountId);
+      if (
+        !record ||
+        record.scan.deletion ||
+        record.epoch !== epoch ||
+        record.scan.intent !== 'on' ||
+        record.scan.operation
+      )
+        return;
+      Object.keys(state.accounts).forEach((otherId) => {
+        const other = readAccount(state, otherId);
+        if (
+          other?.networkId !== record.networkId ||
+          other.scan.deletion ||
+          other.vkFp !== record.vkFp ||
+          other.epoch !== epoch
+        )
+          return;
+        writeAccount(state, otherId, {
+          ...other,
+          scan: { ...other.scan, appliedEpoch: epoch, forceRescan: undefined },
+        });
+      });
+    });
+    if (!committed)
+      throw new OneKeyLocalError(
+        'xmr: scan preparation could not be persisted',
+      );
+  }
+
   /**
    * Journal intent before doing work: a crash here is resumed by
    * resumePendingOperations, else the account would claim 'off' with a
@@ -1451,7 +1833,7 @@ export class SimpleDbEntityPrivacyChainState extends SimpleDbEntityBase<IPrivacy
     birthdaySource?: string;
     birthdayTimestamp?: number;
   }): Promise<void> {
-    await this.update((state) => {
+    const committed = await this.update((state) => {
       const record = readOrCreateAccount(state, { networkId, accountId });
       writeAccount(state, accountId, {
         ...record,
@@ -1467,6 +1849,11 @@ export class SimpleDbEntityPrivacyChainState extends SimpleDbEntityBase<IPrivacy
         },
       });
     });
+    if (!committed) {
+      throw new OneKeyLocalError(
+        'xmr: privacy authorization could not be persisted',
+      );
+    }
   }
 
   async completeXmrEnable({
@@ -1478,9 +1865,13 @@ export class SimpleDbEntityPrivacyChainState extends SimpleDbEntityBase<IPrivacy
     birthdayHeight?: number;
     vkFp?: string;
   }): Promise<void> {
-    await this.update((state) => {
+    const committed = await this.update((state) => {
       const record = readAccount(state, accountId);
-      if (!record) return;
+      if (!record) {
+        throw new OneKeyLocalError(
+          'xmr: privacy enable operation is not pending',
+        );
+      }
       if (
         vkFp !== undefined &&
         record.vkFp !== undefined &&
@@ -1488,6 +1879,11 @@ export class SimpleDbEntityPrivacyChainState extends SimpleDbEntityBase<IPrivacy
       ) {
         throw new OneKeyLocalError(
           'xmr: viewing identity does not match this account',
+        );
+      }
+      if (record.scan.operation?.type !== 'enable') {
+        throw new OneKeyLocalError(
+          'xmr: privacy enable operation is not pending',
         );
       }
       const height = birthdayHeight ?? record.scan.birthday?.height;
@@ -1505,6 +1901,37 @@ export class SimpleDbEntityPrivacyChainState extends SimpleDbEntityBase<IPrivacy
         },
       });
     });
+    if (!committed) {
+      throw new OneKeyLocalError(
+        'xmr: privacy authorization could not be persisted',
+      );
+    }
+  }
+
+  async saveXmrDisabledAccount({
+    accountId,
+    resumeFromHeight,
+  }: {
+    accountId: string;
+    resumeFromHeight?: number;
+  }): Promise<void> {
+    const committed = await this.update((state) => {
+      const record = readAccount(state, accountId);
+      if (!record) return;
+      writeAccount(state, accountId, {
+        ...record,
+        scan: {
+          ...record.scan,
+          intent: 'off',
+          operation: undefined,
+          resumeFromHeight: resumeFromHeight ?? record.scan.resumeFromHeight,
+        },
+      });
+    });
+    if (!committed)
+      throw new OneKeyLocalError(
+        'xmr: privacy configuration could not be persisted',
+      );
   }
 
   async beginXmrDisable({
@@ -1530,42 +1957,81 @@ export class SimpleDbEntityPrivacyChainState extends SimpleDbEntityBase<IPrivacy
 
   async completeXmrDisable({
     accountId,
+    expectedState,
   }: {
     accountId: string;
+    expectedState?: IXmrAccountScanState;
   }): Promise<void> {
-    await this.update((state) => {
+    const committed = await this.update((state) => {
       const record = readAccount(state, accountId);
       if (!record) return;
+      if (
+        expectedState &&
+        (record.epoch !== expectedState.epoch ||
+          record.scan.intent !== expectedState.intent ||
+          !isEqual(record.scan.operation, expectedState.operation))
+      )
+        return;
       writeAccount(state, accountId, {
         ...record,
         scan: { ...record.scan, intent: 'off', operation: undefined },
       });
     });
+    if (!committed)
+      throw new OneKeyLocalError(
+        'xmr: privacy configuration could not be persisted',
+      );
   }
 
-  // A rescan only ever moves the start earlier; the caller decides that.
+  // Background preparation must not overwrite a newer account configuration.
   async updateXmrBirthday({
     accountId,
     birthdayHeight,
     birthdayTimestamp,
+    birthdaySource,
+    expectedState,
   }: {
     accountId: string;
     birthdayHeight: number;
     birthdayTimestamp?: number;
+    birthdaySource?: string;
+    expectedState?: IXmrAccountScanState;
   }): Promise<void> {
     await this.update((state) => {
       const record = readAccount(state, accountId);
       if (!record) return;
-      writeAccount(state, accountId, {
-        ...record,
-        scan: {
-          ...record.scan,
-          birthday: {
-            height: birthdayHeight,
-            source: record.scan.birthday?.source,
-            timestamp: birthdayTimestamp,
+      if (
+        expectedState &&
+        ((expectedState.epoch !== undefined &&
+          record.epoch !== expectedState.epoch) ||
+          record.scan.intent !== expectedState.intent ||
+          record.scan.operation !== undefined ||
+          record.scan.birthday?.height !== expectedState.birthdayHeight ||
+          record.scan.birthday?.timestamp !== expectedState.birthdayTimestamp ||
+          record.scan.birthday?.source !== expectedState.birthdaySource)
+      )
+        return;
+      Object.keys(state.accounts).forEach((otherId) => {
+        const other = readAccount(state, otherId);
+        if (!other) return;
+        if (
+          otherId !== accountId &&
+          (record.vkFp === undefined ||
+            other.networkId !== record.networkId ||
+            other.vkFp !== record.vkFp)
+        )
+          return;
+        writeAccount(state, otherId, {
+          ...other,
+          scan: {
+            ...other.scan,
+            birthday: {
+              height: birthdayHeight,
+              source: birthdaySource ?? record.scan.birthday?.source,
+              timestamp: birthdayTimestamp,
+            },
           },
-        },
+        });
       });
     });
   }

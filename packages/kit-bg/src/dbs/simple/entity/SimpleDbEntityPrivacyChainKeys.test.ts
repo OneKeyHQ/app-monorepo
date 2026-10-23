@@ -34,6 +34,38 @@ function record(
 }
 
 describe('SimpleDbEntityPrivacyChainKeys', () => {
+  it.each(['account', 'network'] as const)(
+    'rejects a blocked %s key deletion and retains the stored key',
+    async (scope) => {
+      const { entity } = createEntity();
+      await entity.saveKey({
+        accountId: 'a',
+        record: record('xmr--0', 'synthetic-key'),
+      });
+      jest.spyOn(entity, 'setRawData').mockResolvedValue(undefined);
+      await expect(
+        scope === 'account'
+          ? entity.removeKeys({ accountIds: ['a'] })
+          : entity.removeNetworkKeys({ networkId: 'xmr--0' }),
+      ).rejects.toThrow('removal could not be persisted');
+      expect(await entity.getKey({ accountId: 'a' })).toBeDefined();
+    },
+  );
+
+  it('rejects a key save when persistence blocks the write', async () => {
+    const { entity } = createEntity();
+    jest.spyOn(entity, 'setRawData').mockResolvedValue(undefined);
+
+    await expect(
+      entity.saveKey({
+        accountId: 'a',
+        record: record('xmr--0', 'synthetic-key'),
+      }),
+    ).rejects.toThrow('viewing key could not be persisted');
+
+    await expect(entity.getKey({ accountId: 'a' })).resolves.toBeUndefined();
+  });
+
   it('stores and reads one record per account', async () => {
     const { entity } = createEntity();
     await entity.saveKey({ accountId: 'a', record: record('xmr--0', 'k') });

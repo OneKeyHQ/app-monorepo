@@ -1,7 +1,9 @@
+import { runPrivacyChainWorkerOperation } from '@onekeyhq/core/src/utils/privacyChainWorkerClient';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { ZCASH_LIGHTWALLETD_MAINNET } from '../constants';
+import { isZcashAccountImportCheckpointError } from '../runtimeError';
 
 import { wrapKeysModuleWithStackCleanup } from './keysMemory';
 
@@ -31,6 +33,43 @@ export function walletDbName(account: IZcashWalletAccount): string {
 // Which database the runtime currently has open, to avoid reopening on every call.
 let openDbName: string | undefined;
 
+// Failed imports roll back; unchanged requests wait for scan progress before retrying.
+const registrationRetries = new Map<
+  string,
+  {
+    scanProgress: number;
+    failures: Map<
+      string,
+      {
+        scanProgress: number;
+        birthdayHeight?: number;
+        lightwalletdUrl: string;
+        seedFingerprintHex: string;
+        hdIndex: number;
+        error: unknown;
+      }
+    >;
+  }
+>();
+
+export function recordWalletScanProgress(account: IZcashWalletAccount): void {
+  const retries = registrationRetries.get(walletDbName(account));
+  if (retries) retries.scanProgress += 1;
+}
+
+export function forgetWalletAccountRegistration(
+  account: IZcashWalletAccount,
+): void {
+  registrationRetries.get(walletDbName(account))?.failures.delete(account.ufvk);
+}
+
+// Kept synchronously reachable: an await here would yield to the event loop, where the scan could retake the lease.
+let loadedRuntime: IRuntimeModule | undefined;
+
+export function storageRequiresWorkerRestart(): boolean {
+  return loadedRuntime?.storageRequiresWorkerRestart() ?? false;
+}
+
 // Serializes every wallet operation: opening a different database mid-call would corrupt
 // shared state. Must cover the whole public operation (sync = prepare + many steps), not just the open.
 let lease: Promise<unknown> = Promise.resolve();
@@ -44,12 +83,13 @@ export function isWalletLeaseBusy(): boolean {
 
 export function withWalletLease<T>(operation: () => Promise<T>): Promise<T> {
   leasePendingCount += 1;
-  const guardedOperation = () => {
-    if (storageRequiresWorkerRestart()) {
-      throw new OneKeyLocalError('zcash worker: storage failed');
-    }
-    return operation();
-  };
+  const guardedOperation = () =>
+    runPrivacyChainWorkerOperation(() => {
+      if (storageRequiresWorkerRestart()) {
+        throw new OneKeyLocalError('zcash worker: storage failed');
+      }
+      return operation();
+    });
   const run = lease.then(guardedOperation, guardedOperation);
   // Keep the chain alive regardless of outcome: a rejected op must not wedge later ones.
   lease = run.then(
@@ -65,13 +105,6 @@ export function withWalletLease<T>(operation: () => Promise<T>): Promise<T> {
     },
   );
   return run;
-}
-
-// Kept synchronously reachable: an await here would yield to the event loop, where the scan could retake the lease.
-let loadedRuntime: IRuntimeModule | undefined;
-
-export function storageRequiresWorkerRestart(): boolean {
-  return loadedRuntime?.storageRequiresWorkerRestart() ?? false;
 }
 
 export async function getRuntimeWasm(): Promise<IRuntimeModule> {
@@ -132,7 +165,8 @@ export function tryReadOnlyHandle(account: IZcashWalletAccount): {
       return null;
     }
     return { rt, accountUuid: existing.uuid };
-  } catch {
+  } catch (error) {
+    if (error instanceof WebAssembly.RuntimeError) throw error;
     // DB is busy mid-await from an async op; let the caller join the lease instead of a false WALLET_NOT_OPEN.
     return null;
   }
@@ -298,7 +332,7 @@ let selectedEndpointUrl: string | undefined;
 export async function withWallet(
   account: IZcashWalletAccount,
   options?: {
-    // Only prepareWalletAccounts should set this; elsewhere a missing account means it was purged.
+    // Only prepareWalletAccounts may register; reads and sends must wait for it.
     registerIfMissing?: boolean;
   },
 ): Promise<{
@@ -321,6 +355,7 @@ export async function withWallet(
     uuid: string;
   } | null;
   if (existing) {
+    registrationRetries.get(dbName)?.failures.delete(account.ufvk);
     return { rt, accountUuid: existing.uuid };
   }
   if (options?.registerIfMissing !== true) {
@@ -334,21 +369,60 @@ export async function withWallet(
     throw err;
   }
 
+  let retries = registrationRetries.get(dbName);
+  if (!retries) {
+    retries = { scanProgress: 0, failures: new Map() };
+    registrationRetries.set(dbName, retries);
+  }
+  const failure = retries.failures.get(account.ufvk);
+  if (
+    failure &&
+    failure.scanProgress === retries.scanProgress &&
+    failure.birthdayHeight === account.birthdayHeight &&
+    failure.lightwalletdUrl === account.lightwalletdUrl &&
+    failure.seedFingerprintHex === account.seedFingerprintHex &&
+    failure.hdIndex === account.hdIndex
+  ) {
+    throw failure.error;
+  }
+
   // Registering a new account rewinds and re-scans every account above this birthday (host warns the user).
   const birthday = account.birthdayHeight ?? (await rt.chainTip());
-  const accountUuid = await rt.importAccountUfvk(
-    `hd-${account.hdIndex}`,
-    account.ufvk,
-    birthday,
-    account.seedFingerprintHex,
-    account.hdIndex,
-  );
-  return { rt, accountUuid };
+  try {
+    const accountUuid = await rt.importAccountUfvk(
+      `hd-${account.hdIndex}`,
+      account.ufvk,
+      birthday,
+      account.seedFingerprintHex,
+      account.hdIndex,
+    );
+    retries.failures.delete(account.ufvk);
+    return { rt, accountUuid };
+  } catch (error) {
+    if (isZcashAccountImportCheckpointError(error)) {
+      retries.failures.set(account.ufvk, {
+        scanProgress: retries.scanProgress,
+        birthdayHeight: account.birthdayHeight,
+        lightwalletdUrl: account.lightwalletdUrl,
+        seedFingerprintHex: account.seedFingerprintHex,
+        hdIndex: account.hdIndex,
+        error,
+      });
+      console.warn(
+        '[zcash] account registration deferred until scan progress',
+        {
+          error: error instanceof Error ? error.message : '',
+        },
+      );
+    }
+    throw error;
+  }
 }
 
 // Callers that delete a database must call this first, or the runtime keeps a SQLite handle to deleted bytes.
-export function forgetOpenWallet(): void {
+export function forgetOpenWallet(network: IZcashNetwork): void {
   openDbName = undefined;
+  registrationRetries.delete(walletDbNameForNetwork(network));
 }
 
 // Last-resort recovery for a wedged carrier: swaps in a fresh lease so new calls stop queueing behind it.

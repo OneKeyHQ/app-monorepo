@@ -1,3 +1,5 @@
+import { servePrivacyChainWorker } from '@onekeyhq/core/src/utils/privacyChainWorkerClient';
+
 import { XMR_RUNTIME_METHODS } from '../methods';
 
 import { loadXmrRuntime, xmrStorageRequiresWorkerRestart } from './loadRuntime';
@@ -52,5 +54,58 @@ describe('xmr storage restart signal', () => {
     check.mockReturnValue(true);
     expect(xmrStorageRequiresWorkerRestart()).toBe(true);
     expect(check).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe('xmr runtime trap guard', () => {
+  it('blocks an already admitted call before a second synchronous export runs', async () => {
+    const api = await loadXmrRuntime();
+    const scope = globalThis as unknown as {
+      onmessage: ((event: MessageEvent) => void) | null;
+      postMessage: (message: unknown) => void;
+    };
+    const saved = {
+      onmessage: scope.onmessage,
+      postMessage: scope.postMessage,
+    };
+    const callsBeforeTrap = mockOpenWallet.mock.calls.length;
+    mockOpenWallet.mockImplementationOnce(() => {
+      throw new WebAssembly.RuntimeError('unreachable');
+    });
+    const responses: unknown[] = [];
+    const answered = new Promise<void>((resolve) => {
+      scope.postMessage = (message) => {
+        responses.push(message);
+        if (responses.length === 2) resolve();
+      };
+    });
+    try {
+      servePrivacyChainWorker({
+        label: 'xmr',
+        methods: ['openWallet'],
+        loadApi: async () => api,
+      });
+      for (const id of [1, 2]) {
+        scope.onmessage?.({
+          data: { id, method: 'openWallet', args: ['xmr-mainnet', 'mainnet'] },
+        } as MessageEvent);
+      }
+      await answered;
+      expect(mockOpenWallet.mock.calls.length - callsBeforeTrap).toBe(1);
+      expect(responses).toEqual([
+        expect.objectContaining({
+          ok: false,
+          requiresWorkerRestart: true,
+          workerRestartReason: 'trapped',
+        }),
+        expect.objectContaining({
+          ok: false,
+          requiresWorkerRestart: true,
+          workerRestartReason: 'trapped',
+        }),
+      ]);
+    } finally {
+      Object.assign(scope, saved);
+    }
   });
 });

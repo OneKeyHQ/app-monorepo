@@ -136,8 +136,10 @@ function createHarness() {
       schedulingHalted: false,
     },
   );
-  service.scheduleBackgroundSync = jest.fn();
-  service.publishBoostingNetworks = jest.fn(async () => undefined);
+  const scheduleBackgroundSync = jest.fn();
+  const publishBoostingNetworks = jest.fn(async () => undefined);
+  service.scheduleBackgroundSync = scheduleBackgroundSync;
+  service.publishBoostingNetworks = publishBoostingNetworks;
   service.getLocalWalletNetworkIds = jest.fn(async () => [networkId]);
   // Published progress is in-memory session state.
   mockAtomSet.mockImplementation(async () => {
@@ -146,7 +148,15 @@ function createHarness() {
   mockGetChainOnlyVault.mockResolvedValue({
     getLocalWalletCapability: () => capability,
   });
-  return { service, capability, backgroundApi, calls };
+  return {
+    service: Object.assign(service, {
+      scheduleBackgroundSync,
+      publishBoostingNetworks,
+    }),
+    capability,
+    backgroundApi,
+    calls,
+  };
 }
 
 function targetFor(
@@ -357,6 +367,42 @@ describe('privacy chain lifecycle executor: failures, timers and Travel Mode', (
     jest.restoreAllMocks();
   });
 
+  it('finishes cache and memory cleanup but reports a failed viewing-key deletion', async () => {
+    const { service, capability, backgroundApi, calls } = createHarness();
+    jest.spyOn(console, 'error').mockImplementation(() => undefined);
+    const error = new Error('key deletion could not be persisted');
+    (
+      backgroundApi.simpleDb.privacyChainKeys.removeKeys as jest.Mock
+    ).mockRejectedValue(error);
+    await expect(
+      service.runLocalWalletLifecycle({
+        event: 'deleteLocalData',
+        targets: [targetFor('deleteLocalData', capability)],
+      }),
+    ).rejects.toBe(error);
+    expect(calls).toContain('displayCaches');
+    expect(calls).toContain('memoryCaches');
+    expect(service.scheduleBackgroundSync).toHaveBeenCalled();
+  });
+
+  it('reports a network for App Reset retry when its Runtime was dropped but its key deletion failed', async () => {
+    const { service, capability, backgroundApi } = createHarness();
+    jest.spyOn(console, 'error').mockImplementation(() => undefined);
+    (
+      backgroundApi.simpleDb.privacyChainKeys.removeNetworkKeys as jest.Mock
+    ).mockRejectedValue(new Error('key deletion could not be persisted'));
+    await expect(
+      service.runLocalWalletLifecycle({
+        event: 'appReset',
+        targets: [targetFor('appReset', capability)],
+      }),
+    ).resolves.toEqual({ failedNetworkIds: [networkId] });
+    expect(capability.dropLocalData).toHaveBeenCalled();
+    expect(
+      backgroundApi.simpleDb.privacyChainKeys.removeNetworkKeys,
+    ).toHaveBeenCalledWith({ networkId });
+  });
+
   it('once runtime data is gone, a later failure still lets cleanup, memory and notify run', async () => {
     const { service, capability, backgroundApi, calls } = createHarness();
     jest.spyOn(console, 'error').mockImplementation(() => undefined);
@@ -364,6 +410,11 @@ describe('privacy chain lifecycle executor: failures, timers and Travel Mode', (
       backgroundApi.simpleDb.privacyChainCache.removeLastBalances as jest.Mock
     ).mockRejectedValue(new Error('storage busy'));
     // One account's row is gone, so its history can't be found.
+    (
+      backgroundApi.serviceAccount.getDBAccountSafe as jest.Mock
+    ).mockImplementation(async ({ accountId: id }: { accountId: string }) =>
+      id === 'hd-gone--0' ? undefined : { id },
+    );
     (
       backgroundApi.serviceAccount.getAccountAddressForApi as jest.Mock
     ).mockImplementation(async ({ accountId: id }: { accountId: string }) => {

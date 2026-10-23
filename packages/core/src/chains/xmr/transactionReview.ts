@@ -31,7 +31,13 @@ const sendSchema = z.object({
 });
 const transactionSchema = preparedSchema
   .merge(sendSchema)
-  .extend({ chainTip: z.number().int().nonnegative().safe() })
+  .extend({
+    chainTip: z.number().int().nonnegative().safe(),
+    privacyEpoch: z
+      .string()
+      .regex(/^[0-9a-f]{16}$/)
+      .optional(),
+  })
   .refine((value) => {
     const amount = new BigNumber(value.amount);
     return amount.isFinite() && amount.shiftedBy(12).eq(value.amountAtomic);

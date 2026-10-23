@@ -2,14 +2,20 @@
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
-import { isZcashRuntimeError, zcashErrorAmount } from '../runtimeError';
+import {
+  isZcashAccountImportCheckpointError,
+  isZcashRuntimeError,
+  zcashErrorAmount,
+} from '../runtimeError';
 
 import {
   forgetOpenWallet,
+  forgetWalletAccountRegistration,
   getRuntime,
   noteNetworkOutcome,
   getEndpointHealth as readEndpointHealth,
   recordEndpointHealth,
+  recordWalletScanProgress,
   walletDbName,
   walletDbNameForNetwork,
   withWallet,
@@ -150,6 +156,7 @@ async function purgeAccountsUnknownToHost(
       // eslint-disable-next-line no-await-in-loop
       await rt.removeAccount(uuid);
     } catch (e) {
+      if (e instanceof WebAssembly.RuntimeError) throw e;
       // Failed storage cleanup is retried on the next orphan cleanup pass.
       console.error('[zcash] purge of unknown runtime account failed', {
         uuid,
@@ -162,20 +169,63 @@ async function purgeAccountsUnknownToHost(
 export async function prepareWalletAccounts(
   accounts: IZcashWalletAccount[],
   options?: { retainedUfvks: string[] },
-): Promise<void> {
+): Promise<IZcashWalletAccount[]> {
   // Opens and migrates each account's DB up front, one at a time — the runtime holds only one database open.
   const canonical = canonicalizeZcashWalletAccounts(accounts);
+  const registered: IZcashWalletAccount[] = [];
+  let runtime: Awaited<ReturnType<typeof withWallet>>['rt'] | undefined;
   for (const account of canonical) {
-    await withWallet(account, { registerIfMissing: true });
+    try {
+      const { rt } = await withWallet(account, { registerIfMissing: true });
+      registered.push(account);
+      runtime = rt;
+    } catch (error) {
+      if (!isZcashAccountImportCheckpointError(error)) throw error;
+    }
   }
-  if (canonical.length > 0 && options) {
-    const { rt } = await withWallet(canonical[0], { registerIfMissing: true });
+  if (runtime && options) {
     // Paused accounts keep their cache outside the active scan set; retention must be explicit or purge can't tell what's still owned.
-    await purgeAccountsUnknownToHost(rt, [
+    await purgeAccountsUnknownToHost(runtime, [
       ...options.retainedUfvks,
       ...canonical.map(({ ufvk }) => ufvk),
     ]);
   }
+  return registered;
+}
+
+function readScanMark(
+  rt: Awaited<ReturnType<typeof withWallet>>['rt'],
+  account: IZcashWalletAccount,
+): { chainTip: number | null; fullyScanned: number | null } {
+  try {
+    const accounts = JSON.parse(rt.listAccounts()) as string[];
+    if (!accounts.length) return { chainTip: null, fullyScanned: null };
+    const b = JSON.parse(
+      rt.accountBalance(
+        accounts[0],
+        TRUSTED_CONFIRMATIONS,
+        UNTRUSTED_CONFIRMATIONS,
+        ALLOW_ZERO_CONF_SHIELDING,
+      ),
+    ) as IRuntimeBalance;
+    return { chainTip: b.chainTip, fullyScanned: b.fullyScannedHeight };
+  } catch (error) {
+    if (error instanceof WebAssembly.RuntimeError) throw error;
+    // Before the first scan there is no summary at all; that is not an error.
+    void account;
+    return { chainTip: null, fullyScanned: null };
+  }
+}
+
+function ratio(
+  from: number | null,
+  current: number | null,
+  target: number | null,
+): number | null {
+  if (from === null || current === null || target === null) return null;
+  const span = target - from;
+  if (span <= 0) return 1;
+  return Math.min(1, Math.max(0, (current - from) / span));
 }
 
 // Per-database TTL for downloaded subtree roots, so backfill doesn't re-pay syncPrepare's full download every round.
@@ -217,6 +267,7 @@ export async function syncWallet(
     try {
       liveTip = await rt.chainTip();
     } catch (e) {
+      if (e instanceof WebAssembly.RuntimeError) throw e;
       recordOutcome(e);
       // Offline: fall through and let the real sync path report the failure.
     }
@@ -306,6 +357,7 @@ export async function syncWallet(
         });
       }
       if (r.blocksScanned === 0) break;
+      recordWalletScanProgress(account);
       recordOutcome(null);
       if (lane === 'historic' && !r.done) backfillRemaining = true;
       // Yields between batches (setTimeout, not just await) so the synchronous wasm scan doesn't freeze a UI sharing its thread.
@@ -329,6 +381,7 @@ export async function syncWallet(
     const peek = JSON.parse(rt.syncPeek()) as { totalBlocks: number };
     queuedAfter = peek.totalBlocks;
   } catch (e) {
+    if (e instanceof WebAssembly.RuntimeError) throw e;
     console.error('[zcash] scan queue unavailable', e);
   }
   // Queue length is the truth about remaining work; the historic lane alone can report done while a rescan still has queued blocks.
@@ -368,6 +421,40 @@ export async function queueRescanFrom(
     fromHeight: number;
     toHeight: number;
   };
+}
+
+export async function rescanWallet(
+  account: IZcashWalletAccount,
+): Promise<void> {
+  const { rt, accountUuid } = await withWallet(account, {
+    registerIfMissing: true,
+  });
+  const status = JSON.parse(rt.accountSyncStatus(accountUuid)) as {
+    birthdayHeight: number;
+    chainTip: number | null;
+  };
+  const fromHeight = account.birthdayHeight ?? status.birthdayHeight;
+  const rescan = (
+    rt as typeof rt & {
+      rescanAccount?: (uuid: string, height: number) => Promise<string>;
+    }
+  ).rescanAccount;
+  if (rescan) {
+    await rescan(accountUuid, fromHeight);
+    return;
+  }
+  // Older runtimes can safely requeue, but cannot lower an existing birthday.
+  if (fromHeight < status.birthdayHeight) {
+    const error = new OneKeyLocalError(
+      'zcash: safe birthday rescan requires a newer runtime',
+    );
+    Object.assign(error, {
+      code: 'DATABASE_TOO_NEW',
+      params: { feature: 'safeAccountRescan' },
+    });
+    throw error;
+  }
+  if (status.chainTip !== null) rt.queueRescanFrom(fromHeight);
 }
 
 // Pure synchronous read, split out so the lock-free fast path and the leased path share one body.
@@ -446,7 +533,8 @@ export function readBalance(
       isComplete: boolean;
     };
     isComplete = status.isComplete === true;
-  } catch {
+  } catch (error) {
+    if (error instanceof WebAssembly.RuntimeError) throw error;
     // The amounts already read are useful, but cannot be presented as totals.
   }
 
@@ -657,9 +745,9 @@ export async function getEndpointHealth(): Promise<
   return readEndpointHealth();
 }
 
-// Removes the ACCOUNT, not the database — every account of every mnemonic shares one database
-// per network, so deleting the file would wipe every other account's scan state too.
-// Everything dropped here is derived cache (rebuildable from UFVK + birthday); nothing unrecoverable is lost.
+// Removes the runtime account and its local transaction state; callers must
+// preserve pending transaction state required by their lifecycle operation.
+// The shared network database remains while other runtime accounts exist.
 export async function purgeWallet(account: IZcashWalletAccount): Promise<void> {
   // Registering it just to remove it would rewind the shared database and requeue every other
   // account's range; an unregistered account has nothing to drop.
@@ -676,12 +764,13 @@ export async function purgeWallet(account: IZcashWalletAccount): Promise<void> {
   }
 
   const remaining = JSON.parse(rt.listAccounts()) as string[];
+  forgetWalletAccountRegistration(account);
   if (remaining.length > 0) return;
 
   // Last one out deletes the file: close and clear the carrier's cached handle first, or the next call
   // reuses a handle to deleted bytes. WALLET_BUSY propagates rather than deleting an open database.
   rt.closeWallet();
-  forgetOpenWallet();
+  forgetOpenWallet(account.network);
   // A re-created database starts without subtree roots; the freshness mark must be cleared with the file.
   subtreeRootsFreshUntil.delete(walletDbName(account));
   await rt.deleteWallet(walletDbName(account));
@@ -693,41 +782,7 @@ export async function dropWalletDatabase(
 ): Promise<void> {
   const rt = await getRuntime();
   const dbName = walletDbNameForNetwork(network);
-  forgetOpenWallet();
+  forgetOpenWallet(network);
   subtreeRootsFreshUntil.delete(dbName);
   await rt.deleteWallet(dbName);
-}
-
-function readScanMark(
-  rt: Awaited<ReturnType<typeof withWallet>>['rt'],
-  account: IZcashWalletAccount,
-): { chainTip: number | null; fullyScanned: number | null } {
-  try {
-    const accounts = JSON.parse(rt.listAccounts()) as string[];
-    if (!accounts.length) return { chainTip: null, fullyScanned: null };
-    const b = JSON.parse(
-      rt.accountBalance(
-        accounts[0],
-        TRUSTED_CONFIRMATIONS,
-        UNTRUSTED_CONFIRMATIONS,
-        ALLOW_ZERO_CONF_SHIELDING,
-      ),
-    ) as IRuntimeBalance;
-    return { chainTip: b.chainTip, fullyScanned: b.fullyScannedHeight };
-  } catch {
-    // Before the first scan there is no summary at all; that is not an error.
-    void account;
-    return { chainTip: null, fullyScanned: null };
-  }
-}
-
-function ratio(
-  from: number | null,
-  current: number | null,
-  target: number | null,
-): number | null {
-  if (from === null || current === null || target === null) return null;
-  const span = target - from;
-  if (span <= 0) return 1;
-  return Math.min(1, Math.max(0, (current - from) / span));
 }

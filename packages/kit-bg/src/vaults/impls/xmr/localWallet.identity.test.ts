@@ -43,6 +43,7 @@ class FakeXmrRuntime {
       uuid: identity.uuid,
       primaryAddress: identity.primaryAddress,
       birthdayHeight: identity.birthdayHeight,
+      scanResetSupported: true,
     });
   }
 
@@ -51,14 +52,17 @@ class FakeXmrRuntime {
       const primaryAddress = `4${spend}${view}`;
       const byUuid = this.identities.find((item) => item.uuid === uuid);
       if (byUuid) {
-        if (byUuid.primaryAddress === primaryAddress) return this.row(byUuid);
-        this.identities = this.identities.filter((item) => item !== byUuid);
+        if (byUuid.primaryAddress !== primaryAddress)
+          throw new OneKeyLocalError('identityKeyMismatch');
+        byUuid.birthdayHeight = Number(birthday);
+        return this.row(byUuid);
       }
       const byAddress = this.identities.find(
         (item) => item.primaryAddress === primaryAddress,
       );
       if (byAddress) {
         byAddress.uuid = uuid;
+        byAddress.birthdayHeight = Number(birthday);
         return this.row(byAddress);
       }
       const created: IFakeIdentity = {
@@ -91,11 +95,33 @@ class FakeXmrRuntime {
   });
 
   updateChainTip = jest.fn(async () => '{}');
+  balance = jest.fn(async () =>
+    JSON.stringify({
+      totalAtomic: '1000000000000',
+      unlockedAtomic: '1000000000000',
+      unverifiableAtomic: '0',
+      pendingChangeAtomic: '0',
+    }),
+  );
 
-  rewindTo = jest.fn(async () => '{}');
+  rewindTo = jest.fn(async (id: string, height: string, _tip: string) => {
+    const identity = this.identities.find((item) => String(item.id) === id);
+    if (identity) {
+      identity.birthdayHeight = Math.min(
+        identity.birthdayHeight,
+        Number(height) + 1,
+      );
+    }
+    return '{}';
+  });
 
-  syncPeek = jest.fn(async () =>
-    JSON.stringify({ scannedToHeight: 3_700_000, ranges: [] }),
+  syncPeek = jest.fn(async (id: string) =>
+    JSON.stringify({
+      scannedToHeight: 3_700_000,
+      ranges: [],
+      birthdayHeight: this.identities.find((item) => String(item.id) === id)
+        ?.birthdayHeight,
+    }),
   );
 
   syncStep = jest.fn(async (id: string) => {
@@ -120,7 +146,7 @@ jest.mock('@onekeyhq/core/src/chains/xmr/sdkXmrRuntime/sdk/install', () => ({
 // The real lookup (account -> stored key -> vkFp -> runtime row); only the
 // session and node are replaced.
 jest.mock('./runtime', () => ({
-  ...jest.requireActual('./runtime'),
+  ...jest.requireActual<typeof import('./runtime')>('./runtime'),
   getXmrRuntime: async () => mockRuntime,
   getXmrLocalRuntime: async () => mockRuntime,
   getXmrChainTip: async () => TIP,
@@ -227,6 +253,7 @@ function createHarness() {
     capability: buildXmrLocalWalletCapability(vault),
     xmr,
     saveKey,
+    backgroundApi,
   };
 }
 
@@ -249,15 +276,15 @@ describe('xmr runtime identity named by viewing key', () => {
     await saveKey(ALIAS_A, SHARED_KEY);
     await saveKey(ALIAS_B, SHARED_KEY);
 
-    await capability.enableAccount({ accountId: ALIAS_A });
-    await capability.enableAccount({ accountId: ALIAS_B });
-
-    expect(mockRuntime.addAccount.mock.calls.map(([uuid]) => uuid)).toEqual([
-      SHARED_FP,
-      SHARED_FP,
-    ]);
-    expect(mockRuntime.identities).toHaveLength(1);
-    expect(mockRuntime.identities[0].uuid).toBe(SHARED_FP);
+    await capability.enableAccount({
+      accountId: ALIAS_A,
+      birthdayHeight: 3_600_000,
+    });
+    await capability.enableAccount({
+      accountId: ALIAS_B,
+      birthdayHeight: 3_600_000,
+    });
+    expect(mockRuntime.addAccount).not.toHaveBeenCalled();
 
     // One slot, one alias group, one scan per turn.
     const { accounts } = await capability.listAccounts();
@@ -272,6 +299,11 @@ describe('xmr runtime identity named by viewing key', () => {
       accountIds: [ALIAS_A, ALIAS_B],
       chainTip: TIP,
     });
+    expect(mockRuntime.addAccount.mock.calls.map(([uuid]) => uuid)).toEqual([
+      SHARED_FP,
+    ]);
+    expect(mockRuntime.identities).toHaveLength(1);
+    expect(mockRuntime.identities[0].uuid).toBe(SHARED_FP);
     expect(mockRuntime.steppedIds).toEqual(['1']);
   });
 
@@ -279,8 +311,18 @@ describe('xmr runtime identity named by viewing key', () => {
     const { capability, saveKey, xmr } = createHarness();
     await saveKey(ALIAS_A, SHARED_KEY);
     await saveKey(ALIAS_B, SHARED_KEY);
-    await capability.enableAccount({ accountId: ALIAS_A });
-    await capability.enableAccount({ accountId: ALIAS_B });
+    await capability.enableAccount({
+      accountId: ALIAS_A,
+      birthdayHeight: 3_600_000,
+    });
+    await capability.enableAccount({
+      accountId: ALIAS_B,
+      birthdayHeight: 3_600_000,
+    });
+    await capability.syncGroup({
+      accountIds: [ALIAS_A, ALIAS_B],
+      chainTip: TIP,
+    });
 
     await expect(
       capability.deleteRuntimeAccount({ accountId: ALIAS_A }),
@@ -296,24 +338,101 @@ describe('xmr runtime identity named by viewing key', () => {
     expect(mockRuntime.identities).toHaveLength(0);
   });
 
+  it('moves an existing shared identity earlier when a freshly enabled alias needs older history', async () => {
+    const { capability, saveKey, xmr } = createHarness();
+    await saveKey(ALIAS_A, SHARED_KEY);
+    await saveKey(ALIAS_B, SHARED_KEY);
+    await capability.enableAccount({
+      accountId: ALIAS_A,
+      birthdayHeight: 3_600_000,
+    });
+    await capability.syncGroup({ accountIds: [ALIAS_A], chainTip: TIP });
+    mockRuntime.identities[0].sends.push('pending-outgoing');
+    const oldEpoch = await xmr.getAccountEpoch({ accountId: ALIAS_A });
+
+    await capability.enableAccount({
+      accountId: ALIAS_B,
+      birthdayHeight: 3_000_000,
+    });
+    expect(mockRuntime.rewindTo).not.toHaveBeenCalled();
+    await expect(
+      capability.syncGroup({ accountIds: [ALIAS_A, ALIAS_B], chainTip: TIP }),
+    ).resolves.toMatchObject({ backfillRemaining: true, stateChanged: true });
+
+    expect(mockRuntime.rewindTo).not.toHaveBeenCalled();
+    expect(mockRuntime.addAccount).toHaveBeenLastCalledWith(
+      SHARED_FP,
+      'aa',
+      'bb',
+      '3000000',
+    );
+    expect(mockRuntime.identities).toEqual([
+      {
+        id: 1,
+        uuid: SHARED_FP,
+        primaryAddress: '4aabb',
+        birthdayHeight: 3_000_000,
+        sends: ['pending-outgoing'],
+      },
+    ]);
+    expect(await xmr.getAccountEpoch({ accountId: ALIAS_A })).not.toBe(
+      oldEpoch,
+    );
+    expect(mockRuntime.addAccount).toHaveBeenCalledTimes(2);
+    expect(mockRuntime.removeAccount).not.toHaveBeenCalled();
+  });
+
   it('keeps the shared identity for a paused alias', async () => {
     const { capability, saveKey } = createHarness();
     await saveKey(ALIAS_A, SHARED_KEY);
     await saveKey(ALIAS_B, SHARED_KEY);
-    await capability.enableAccount({ accountId: ALIAS_A });
-    await capability.enableAccount({ accountId: ALIAS_B });
+    await capability.enableAccount({
+      accountId: ALIAS_A,
+      birthdayHeight: 3_600_000,
+    });
+    await capability.enableAccount({
+      accountId: ALIAS_B,
+      birthdayHeight: 3_600_000,
+    });
+    await capability.syncGroup({
+      accountIds: [ALIAS_A, ALIAS_B],
+      chainTip: TIP,
+    });
     await capability.disableAccount({ accountId: ALIAS_B });
 
     await capability.deleteRuntimeAccount({ accountId: ALIAS_A });
     expect(mockRuntime.identities).toHaveLength(1);
   });
 
+  it('keeps a legacy paused balance readable before the first applied-epoch marker exists', async () => {
+    const { capability, saveKey, xmr } = createHarness();
+    await saveKey(ALIAS_A, SHARED_KEY);
+    await seedScanState(xmr, ALIAS_A, 'paused', 3_000_000);
+    await mockRuntime.addAccount(SHARED_FP, 'aa', 'bb', '3000000');
+    expect(
+      (await xmr.getXmrAccountState({ accountId: ALIAS_A })).appliedEpoch,
+    ).toBeUndefined();
+    await expect(
+      capability.getAccountBalance({ accountId: ALIAS_A }),
+    ).resolves.toMatchObject({ total: '1000000000000' });
+  });
+
   it('removes a lone account identity, not one with another key', async () => {
     const { capability, saveKey } = createHarness();
     await saveKey(ALIAS_A, SHARED_KEY);
     await saveKey(ALIAS_B, 'cc:dd');
-    await capability.enableAccount({ accountId: ALIAS_A });
-    await capability.enableAccount({ accountId: ALIAS_B });
+    await capability.enableAccount({
+      accountId: ALIAS_A,
+      birthdayHeight: 3_600_000,
+    });
+    await capability.enableAccount({
+      accountId: ALIAS_B,
+      birthdayHeight: 3_600_000,
+    });
+    await capability.syncGroup({
+      accountIds: [ALIAS_A, ALIAS_B],
+      chainTip: TIP,
+    });
 
     await capability.deleteRuntimeAccount({ accountId: ALIAS_A });
     expect(mockRuntime.identities.map((item) => item.uuid)).toEqual([
@@ -336,18 +455,137 @@ describe('xmr runtime identity named by viewing key', () => {
 
     await capability.syncGroup({ accountIds: [ALIAS_A], chainTip: TIP });
 
-    // Renamed in place: same row, same scan data and pending send.
+    // Renamed in place, applying the saved target while retaining the send.
     expect(mockRuntime.identities).toEqual([
       {
         id: 7,
         uuid: SHARED_FP,
         primaryAddress: '4aabb',
-        birthdayHeight: 3_600_000,
+        birthdayHeight: 3_700_000,
         sends: ['pending-outgoing'],
       },
     ]);
     expect(mockRuntime.steppedIds).toEqual(['7']);
     expect(mockRuntime.removeAccount).not.toHaveBeenCalled();
+  });
+
+  it('applies the latest forward or backward target to every alias without replacing its identity', async () => {
+    const { capability, saveKey, xmr } = createHarness();
+    await saveKey(ALIAS_A, SHARED_KEY);
+    await saveKey(ALIAS_B, SHARED_KEY);
+    await capability.enableAccount({
+      accountId: ALIAS_A,
+      birthdayHeight: 3_000_000,
+    });
+    await capability.enableAccount({
+      accountId: ALIAS_B,
+      birthdayHeight: 3_000_000,
+    });
+    await capability.syncGroup({
+      accountIds: [ALIAS_A, ALIAS_B],
+      chainTip: TIP,
+    });
+    const identity = mockRuntime.identities[0];
+    identity.sends.push('pending-send');
+    for (const [accountId, height] of [
+      [ALIAS_A, 3_600_000],
+      [ALIAS_B, 3_100_000],
+      [ALIAS_A, 3_700_000],
+    ] as const) {
+      await capability.rescan({ accountId, from: { type: 'height', height } });
+    }
+    const latest = await xmr.getXmrAccountState({ accountId: ALIAS_A });
+    expect(await xmr.getXmrAccountState({ accountId: ALIAS_B })).toMatchObject({
+      birthdayHeight: 3_700_000,
+      epoch: latest.epoch,
+    });
+    await capability.syncGroup({
+      accountIds: [ALIAS_B, ALIAS_A],
+      chainTip: TIP,
+    });
+    expect(mockRuntime.identities).toEqual([
+      expect.objectContaining({
+        id: identity.id,
+        birthdayHeight: 3_700_000,
+        sends: ['pending-send'],
+      }),
+    ]);
+    for (const accountId of [ALIAS_A, ALIAS_B]) {
+      expect(await xmr.getXmrAccountState({ accountId })).toMatchObject({
+        birthdayHeight: 3_700_000,
+        epoch: latest.epoch,
+        appliedEpoch: latest.epoch,
+      });
+    }
+    expect(mockRuntime.removeAccount).not.toHaveBeenCalled();
+  });
+
+  it('forces an explicit same-birthday rescan while adopting a legacy UUID', async () => {
+    const { capability, saveKey, xmr } = createHarness();
+    await saveKey(ALIAS_A, SHARED_KEY);
+    await capability.enableAccount({
+      accountId: ALIAS_A,
+      birthdayHeight: 3_000_000,
+    });
+    await capability.syncGroup({ accountIds: [ALIAS_A], chainTip: TIP });
+    mockRuntime.identities[0].uuid = ALIAS_A;
+    await capability.rescan({
+      accountId: ALIAS_A,
+      from: { type: 'height', height: 3_000_000 },
+    });
+    await capability.syncGroup({ accountIds: [ALIAS_A], chainTip: TIP });
+    expect(mockRuntime.addAccount).toHaveBeenLastCalledWith(
+      SHARED_FP,
+      'aa',
+      'bb',
+      '3000000',
+      true,
+    );
+    const current = await xmr.getXmrAccountState({ accountId: ALIAS_A });
+    expect(current.appliedEpoch).toBe(current.epoch);
+    expect(current.forceRescan).toBeUndefined();
+    expect(mockRuntime.identities).toHaveLength(1);
+  });
+
+  it('does not cache an old step balance under a newly saved birthday', async () => {
+    const { capability, saveKey, xmr, backgroundApi } = createHarness();
+    await saveKey(ALIAS_A, SHARED_KEY);
+    await capability.enableAccount({
+      accountId: ALIAS_A,
+      birthdayHeight: 3_000_000,
+    });
+    await capability.syncGroup({ accountIds: [ALIAS_A], chainTip: TIP });
+    mockBusy = true;
+    await capability.getAccountBalance({ accountId: ALIAS_A });
+    mockBusy = false;
+    let release: () => void = () => undefined;
+    let reached: () => void = () => undefined;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const requested = new Promise<void>((resolve) => {
+      reached = resolve;
+    });
+    mockRuntime.syncStep.mockImplementationOnce(async () => {
+      reached();
+      await gate;
+      return JSON.stringify({ blocksScanned: 1, done: true, outputsFound: 1 });
+    });
+    const old = capability.syncGroup({ accountIds: [ALIAS_A], chainTip: TIP });
+    await requested;
+    await capability.rescan({
+      accountId: ALIAS_A,
+      from: { type: 'height', height: 3_600_000 },
+    });
+    const latest = await xmr.getXmrAccountState({ accountId: ALIAS_A });
+    release();
+    await old;
+    const cached =
+      await backgroundApi.simpleDb.privacyChainCache.getLastBalance({
+        accountId: ALIAS_A,
+      });
+    expect(cached?.epoch).not.toBe(latest.epoch);
+    expect(mockRuntime.balance).not.toHaveBeenCalled();
   });
 });
 

@@ -129,6 +129,7 @@ export async function resolveAndSaveZcashAccountMeta({
   networkId,
   account,
   derive,
+  forceDerivation = false,
 }: {
   backgroundApi: IBackgroundApi;
   networkId: string;
@@ -136,6 +137,7 @@ export async function resolveAndSaveZcashAccountMeta({
   derive: (params: {
     hdIndex: number;
   }) => Promise<IZcashDerivedViewingMeta & { chainTip: number | null }>;
+  forceDerivation?: boolean;
 }): Promise<void> {
   const hdIndex = checkIsDefined(account.pathIndex);
   const [existing, privacyModeState, storedKey] = await Promise.all([
@@ -152,7 +154,7 @@ export async function resolveAndSaveZcashAccountMeta({
     }),
   ]);
   const keyMatchesMeta = !!existing && storedKey?.vkFp === existing.vkFp;
-  if (existing?.birthdayHeight && keyMatchesMeta) {
+  if (existing?.birthdayHeight && keyMatchesMeta && !forceDerivation) {
     return;
   }
   if (

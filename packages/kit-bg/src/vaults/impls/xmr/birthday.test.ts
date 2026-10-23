@@ -6,6 +6,18 @@ import {
 } from './birthday';
 
 describe('xmr birthday', () => {
+  it.each([Date.UTC(2014, 3, 18), Date.UTC(2015, 0, 1), Date.UTC(2016, 2, 22)])(
+    'keeps a birthday crossing the one-minute-block era safely early: %s',
+    (birthdayTimestamp) => {
+      expect(
+        estimateXmrBirthdayHeight({
+          birthdayTimestamp,
+          now: Date.UTC(2026, 8, 23),
+          chainTip: 3_768_162,
+        }),
+      ).toBe(1);
+    },
+  );
   it('counts back from the tip at the target block rate', () => {
     expect(XMR_BLOCKS_PER_DAY).toBe(720);
     expect(estimateXmrHeightDaysAgo({ daysAgo: 10, chainTip: 3_768_162 })).toBe(

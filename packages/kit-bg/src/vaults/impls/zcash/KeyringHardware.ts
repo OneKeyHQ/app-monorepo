@@ -1,6 +1,5 @@
 import { getBtcForkNetwork } from '@onekeyhq/core/src/chains/btc/sdkBtc';
 import { ZCASH_NETWORK_MAIN } from '@onekeyhq/core/src/chains/zcash/sdkZcash/constants';
-import { fetchZcashChainTipDirect } from '@onekeyhq/core/src/chains/zcash/sdkZcash/impl/chainTipDirect';
 import type { IZcashTransparentTxRequest } from '@onekeyhq/core/src/chains/zcash/sdkZcash/types/sdk';
 import { getSupportedZcashUnifiedAddressReceiverTypes } from '@onekeyhq/core/src/chains/zcash/sdkZcash/unifiedAddress';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
@@ -311,8 +310,10 @@ export class KeyringHardware extends KeyringHardwareBase {
   // material comes from the device instead of the seed.
   async retryLocalWalletSetup({
     deviceParams,
+    forceDerivation,
   }: {
     deviceParams: IDeviceSharedCallParams;
+    forceDerivation?: boolean;
   }): Promise<void> {
     const accountId = this.vault.accountId;
     const privacyModeState =
@@ -336,6 +337,7 @@ export class KeyringHardware extends KeyringHardwareBase {
       backgroundApi: this.backgroundApi,
       networkId: this.vault.networkId,
       account,
+      forceDerivation,
       derive: async ({ hdIndex }) => {
         const [item] = await this.fetchDeviceViewingKeys({
           deviceParams,
@@ -351,23 +353,11 @@ export class KeyringHardware extends KeyringHardwareBase {
         const ufvk = checkIsDefined(item.ufvk);
         // The node the user configured, like every other Zcash request.
         const lightwalletdUrl = await vault.zcashResolveLightwalletdUrl();
-        const [derived, chainTip] = await Promise.all([
-          api.deriveAddressFromUfvk({
-            network: ZCASH_NETWORK_MAIN,
-            ufvk,
-            lightwalletdUrl,
-          }),
-          api
-            .getChainTip({
-              network: ZCASH_NETWORK_MAIN,
-              lightwalletdUrl,
-            })
-            .then((tip) =>
-              tip !== null
-                ? tip
-                : fetchZcashChainTipDirect({ lightwalletdUrl }),
-            ),
-        ]);
+        const derived = await api.deriveAddressFromUfvk({
+          network: ZCASH_NETWORK_MAIN,
+          ufvk,
+          lightwalletdUrl,
+        });
         if (derived.transparentAddress !== account.address) {
           throw new OneKeyLocalError(
             'zcash: device viewing key does not match this account',
@@ -384,7 +374,7 @@ export class KeyringHardware extends KeyringHardwareBase {
               : derived.unifiedAddress,
           transparentAddress: derived.transparentAddress,
           seedFingerprintHex: checkIsDefined(item.seedFingerprint),
-          chainTip,
+          chainTip: null,
         };
       },
     });

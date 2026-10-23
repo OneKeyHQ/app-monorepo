@@ -65,8 +65,11 @@ export class SimpleDbEntityPrivacyChainKeys extends SimpleDbEntityBase<IPrivacyC
 
   private async updateKeys(
     build: (keys: Record<string, unknown>) => Record<string, unknown>,
-  ): Promise<void> {
-    await this.setRawData((raw) => ({ keys: build({ ...raw?.keys }) }));
+  ): Promise<boolean> {
+    const committed = await this.setRawData((raw) => ({
+      keys: build({ ...raw?.keys }),
+    }));
+    return committed !== undefined;
   }
 
   async getKey({
@@ -91,7 +94,7 @@ export class SimpleDbEntityPrivacyChainKeys extends SimpleDbEntityBase<IPrivacyC
     if (!parsed) {
       throw new OneKeyLocalError('privacy chain: invalid viewing key record');
     }
-    await this.updateKeys((keys) => {
+    const committed = await this.updateKeys((keys) => {
       const existing = parseKeyRecord(keys[accountId]);
       if (
         existing &&
@@ -108,6 +111,11 @@ export class SimpleDbEntityPrivacyChainKeys extends SimpleDbEntityBase<IPrivacyC
       }
       return { ...keys, [accountId]: parsed };
     });
+    if (!committed) {
+      throw new OneKeyLocalError(
+        'privacy chain: viewing key could not be persisted',
+      );
+    }
   }
 
   async removeKeys({ accountIds }: { accountIds: string[] }): Promise<void> {
@@ -115,24 +123,32 @@ export class SimpleDbEntityPrivacyChainKeys extends SimpleDbEntityBase<IPrivacyC
     if (!accountIds.some((id) => raw?.keys?.[id] !== undefined)) {
       return;
     }
-    await this.updateKeys((keys) => {
+    const committed = await this.updateKeys((keys) => {
       accountIds.forEach((id) => {
         delete keys[id];
       });
       return keys;
     });
+    if (!committed)
+      throw new OneKeyLocalError(
+        'privacy chain: viewing key removal could not be persisted',
+      );
   }
 
   // Readable records of one network; a malformed one names no network and is
   // left for removed-account cleanup.
   async removeNetworkKeys({ networkId }: { networkId: string }): Promise<void> {
-    await this.updateKeys((keys) =>
+    const committed = await this.updateKeys((keys) =>
       Object.fromEntries(
         Object.entries(keys).filter(
           ([, record]) => parseKeyRecord(record)?.networkId !== networkId,
         ),
       ),
     );
+    if (!committed)
+      throw new OneKeyLocalError(
+        'privacy chain: viewing key removal could not be persisted',
+      );
   }
 
   // Includes malformed records, so removed-account cleanup reaches them.

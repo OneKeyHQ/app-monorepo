@@ -3,7 +3,10 @@ import type { ReactNode } from 'react';
 
 import { act, fireEvent, render, screen } from '@testing-library/react';
 
-import { LocalWalletPoolStatus } from './LocalWalletPoolStatus';
+import {
+  LocalWalletPoolStatus,
+  LocalWalletSyncRow,
+} from './LocalWalletPoolStatus';
 
 import type { ILocalWalletPool } from './useLocalWalletPool';
 
@@ -28,8 +31,20 @@ jest.mock('./LocalWalletRepairControls', () => ({
   BirthdayDialogForm: () => null,
   LocalWalletDebugControl: () => null,
   PrivacyEnableDisclosure: () => null,
-  ScanRepairControl: () => null,
-  SetupRepairControl: () => null,
+  ScanRepairControl: () => (
+    <button
+      type="button"
+      data-testid="mock-scan-repair"
+      aria-label="Repair scan"
+    />
+  ),
+  SetupRepairControl: () => (
+    <button
+      type="button"
+      data-testid="mock-setup-repair"
+      aria-label="Retry setup"
+    />
+  ),
   createEnableBirthdayForm: () => ({ current: {} }),
   // `var` below: jest hoists this factory above it.
   // eslint-disable-next-line @typescript-eslint/no-use-before-define
@@ -164,12 +179,101 @@ describe('LocalWalletPoolStatus for an identity mismatch', () => {
 
     expect(screen.queryByTestId('local-wallet-identity-mismatch')).toBeNull();
     expect(screen.queryByTestId('local-wallet-identity-delete-btn')).toBeNull();
+    expect(screen.getByTestId('mock-setup-repair')).toBeTruthy();
   });
 });
+
+it.each([false, true])(
+  'shows preparing without errors or repair controls while registration is pending (settings: %s)',
+  (settingsMode) => {
+    const pending = pool({
+      enabled: true,
+      hasAttemptedBalance: true,
+      state: { enabled: true, paused: false },
+      addresses: { publicAddress: 't1', privateAddress: 'u1' },
+      balance: null,
+      syncProgress: {
+        birthdayHeight: 2_000_000,
+        backfillScannedHeight: null,
+        backfillTargetHeight: null,
+        backfillProgress: 0,
+        isBackfillComplete: false,
+        tipScannedHeight: null,
+        chainTip: null,
+        tipLag: null,
+        isTipCaughtUp: false,
+        isSyncing: true,
+      },
+      syncStatusText: 'global.preparing',
+      isPreparing: true,
+    });
+    render(
+      <>
+        <LocalWalletPoolStatus
+          networkId="zec--0"
+          accountId="hd-1--0"
+          pool={pending}
+          settingsMode={settingsMode}
+        />
+        <LocalWalletSyncRow
+          networkId="zec--0"
+          accountId="hd-1--0"
+          pool={pending}
+        />
+      </>,
+    );
+    expect(screen.getAllByText('global.preparing').length).toBeGreaterThan(0);
+    expect(
+      screen.queryByText('privacy_error_setup_incomplete__msg'),
+    ).toBeNull();
+    expect(screen.queryByText('privacy_balance_unavailable__msg')).toBeNull();
+    expect(screen.queryByText('DATABASE_ERROR')).toBeNull();
+    expect(screen.queryByTestId('mock-setup-repair')).toBeNull();
+    expect(screen.queryByTestId('mock-scan-repair')).toBeNull();
+  },
+);
 
 type IConfirmArgs = {
   onConfirm: (params: { preventClose: () => void }) => Promise<void>;
 };
+
+it.each([
+  {
+    hasSyncError: true,
+    isSyncPaused: false,
+    syncStatusText: 'background synchronization failed',
+  },
+  { hasSyncError: false, isSyncPaused: true, syncStatusText: 'global.paused' },
+])('shows $syncStatusText without asking for authorization again', (status) => {
+  const waiting = pool({
+    enabled: true,
+    state: { enabled: true, paused: false },
+    hasAttemptedBalance: true,
+    balance: null,
+    addresses: undefined,
+    isPreparing: false,
+    ...status,
+  });
+  render(
+    <>
+      <LocalWalletPoolStatus
+        networkId="zec--0"
+        accountId="hd-1--0"
+        pool={waiting}
+      />
+      <LocalWalletSyncRow
+        networkId="zec--0"
+        accountId="hd-1--0"
+        pool={waiting}
+      />
+    </>,
+  );
+
+  expect(screen.getAllByText(status.syncStatusText).length).toBeGreaterThan(0);
+  expect(screen.queryByTestId('mock-setup-repair')).toBeNull();
+  expect(screen.queryByText('privacy_error_setup_incomplete__msg')).toBeNull();
+  expect(screen.queryByText('privacy_balance_unavailable__msg')).toBeNull();
+});
 
 describe('LocalWalletPoolStatus enable failure', () => {
   const { Dialog } = jest.requireMock<{

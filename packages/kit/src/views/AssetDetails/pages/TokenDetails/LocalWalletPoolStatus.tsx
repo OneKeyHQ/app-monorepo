@@ -254,6 +254,8 @@ export function LocalWalletPoolStatus({
   // Retry would derive the same other key again; only deleting local data
   // lets the next enable adopt it.
   const identityMismatch = lw.state?.identityMismatch === true;
+  const isPreparing = lw.isPreparing;
+  const canRepairSetup = !lw.hasSyncError && !lw.isSyncPaused;
   const deleteForMismatch = identityMismatch ? (
     <Button
       testID="local-wallet-identity-delete-btn"
@@ -281,7 +283,12 @@ export function LocalWalletPoolStatus({
         })}
       </SizableText>
     );
-  } else if (!lw.addresses && lw.hasAttemptedBalance) {
+  } else if (
+    !isPreparing &&
+    canRepairSetup &&
+    !lw.addresses &&
+    lw.hasAttemptedBalance
+  ) {
     balanceNote = (
       <SizableText size="$bodySm" color="$textCaution">
         {intl.formatMessage({
@@ -289,7 +296,12 @@ export function LocalWalletPoolStatus({
         })}
       </SizableText>
     );
-  } else if (!lw.balance && lw.hasAttemptedBalance) {
+  } else if (
+    !isPreparing &&
+    canRepairSetup &&
+    !lw.balance &&
+    lw.hasAttemptedBalance
+  ) {
     balanceNote = (
       <SizableText size="$bodySm" color="$textCritical">
         {intl.formatMessage({
@@ -331,26 +343,35 @@ export function LocalWalletPoolStatus({
   let syncActions: React.ReactNode = null;
   if (settingsMode && identityMismatch) {
     syncActions = deleteForMismatch;
-  } else if (settingsMode) {
-    syncActions = lw.addresses ? (
-      <ScanRepairControl
-        networkId={networkId}
-        accountId={accountId}
-        currentBirthdayHeight={lw.state?.birthdayHeight}
-        earliestBirthday={lw.settings?.accountSetup.earliestBirthday}
-        onDone={lw.refresh}
-      />
-    ) : (
-      <SetupRepairControl
-        networkId={networkId}
-        accountId={accountId}
-        onDone={lw.refresh}
-      />
-    );
+  } else if (settingsMode && !isPreparing) {
+    if (lw.addresses) {
+      syncActions = (
+        <ScanRepairControl
+          networkId={networkId}
+          accountId={accountId}
+          currentBirthdayHeight={lw.state?.birthdayHeight}
+          earliestBirthday={lw.settings?.accountSetup.earliestBirthday}
+          onDone={lw.refresh}
+        />
+      );
+    } else if (canRepairSetup) {
+      syncActions = (
+        <SetupRepairControl
+          networkId={networkId}
+          accountId={accountId}
+          onDone={lw.refresh}
+        />
+      );
+    }
   }
 
   // The note says "Tap Retry"; nothing else on the token page offers it, under the same condition statusLine uses.
-  const setupIncomplete = !!lw.pool && !lw.addresses && lw.hasAttemptedBalance;
+  const setupIncomplete =
+    !isPreparing &&
+    canRepairSetup &&
+    !!lw.pool &&
+    !lw.addresses &&
+    lw.hasAttemptedBalance;
   let inlineSetupRetry: React.ReactNode = null;
   if (!settingsMode && identityMismatch) {
     inlineSetupRetry = deleteForMismatch;

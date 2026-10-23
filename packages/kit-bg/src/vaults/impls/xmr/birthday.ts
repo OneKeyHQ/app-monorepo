@@ -1,4 +1,13 @@
-import { XMR_TARGET_BLOCK_SECONDS } from '@onekeyhq/shared/src/config/xmr';
+import {
+  XMR_EARLIEST_SCAN_HEIGHT,
+  XMR_TARGET_BLOCK_SECONDS,
+} from '@onekeyhq/shared/src/config/xmr';
+
+export const XMR_BIRTHDAY_PENDING_SOURCE = 'pending-timestamp';
+
+// v2 activated on 2016-03-22. Earlier dates used 60-second blocks; avoid
+// applying the current cadence across that boundary, including the fork day.
+const XMR_V2_DAY_END_MS = Date.UTC(2016, 2, 23);
 
 /** 120-second target blocks: 720 a day. */
 export const XMR_BLOCKS_PER_DAY = Math.round(
@@ -37,6 +46,9 @@ export function estimateXmrBirthdayHeight({
   now: number;
   chainTip: number;
 }): number {
+  if (birthdayTimestamp < XMR_V2_DAY_END_MS) {
+    return XMR_EARLIEST_SCAN_HEIGHT;
+  }
   return estimateXmrHeightDaysAgo({
     daysAgo: (now - birthdayTimestamp) / (24 * 60 * 60 * 1000),
     chainTip,
