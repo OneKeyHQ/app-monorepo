@@ -1,4 +1,4 @@
-import { type PropsWithChildren, useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -13,9 +13,9 @@ import { ESiteMode, type IMobileBottomOptionsProps } from '../../types';
 
 import { ACTION_LIST_CLOSE_ANIMATION_DELAY_MS } from './useMobileBrowserBottomBarData';
 
-function MobileBrowserBottomOptions({
-  children,
-  disabled,
+// The browser "options" menu, opened programmatically so it also works from
+// the Android bottom bar (see ChromeTap) where trigger components get no touch.
+export function useMobileBrowserOptions({
   isBookmark,
   onBookmarkPress,
   onRefresh,
@@ -34,7 +34,7 @@ function MobileBrowserBottomOptions({
   onGoForward,
   isTranslated,
   onTranslatePress,
-}: PropsWithChildren<IMobileBottomOptionsProps>) {
+}: Omit<IMobileBottomOptionsProps, 'disabled'>) {
   const intl = useIntl();
   const actionSectionItems = useMemo(
     () =>
@@ -207,14 +207,10 @@ function MobileBrowserBottomOptions({
       onShare,
     ],
   );
-  return (
-    <ActionList
-      title={intl.formatMessage({ id: ETranslations.explore_options })}
-      renderTrigger={children}
-      disabled={disabled}
-      sections={actionSectionItems}
-    />
-  );
+  return useCallback(() => {
+    ActionList.show({
+      title: intl.formatMessage({ id: ETranslations.explore_options }),
+      sections: actionSectionItems,
+    });
+  }, [actionSectionItems, intl]);
 }
-
-export default MobileBrowserBottomOptions;

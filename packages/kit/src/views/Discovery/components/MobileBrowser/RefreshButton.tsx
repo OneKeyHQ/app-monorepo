@@ -9,9 +9,15 @@ import { DiscoveryTestIDs } from '../../testIDs';
 interface IRefreshButtonProps {
   onRefresh: () => void;
   size?: 'small' | 'medium' | 'large';
+  // False when the parent handles the press (e.g. via ChromeTap on Android).
+  pressable?: boolean;
 }
 
-function RefreshButton({ onRefresh, size = 'medium' }: IRefreshButtonProps) {
+function RefreshButton({
+  onRefresh,
+  size = 'medium',
+  pressable = true,
+}: IRefreshButtonProps) {
   const rotateAnim = useRef(new Animated.Value(0)).current;
 
   const handleRefresh = useCallback(() => {
@@ -36,7 +42,7 @@ function RefreshButton({ onRefresh, size = 'medium' }: IRefreshButtonProps) {
         variant="tertiary"
         size={size}
         icon="RefreshCwOutline"
-        onPress={handleRefresh}
+        onPress={pressable ? handleRefresh : undefined}
         testID={DiscoveryTestIDs.browserRefreshButton}
       />
     </Animated.View>

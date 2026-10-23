@@ -13,7 +13,7 @@ import type { IWebViewOnScrollEvent } from '@onekeyhq/kit/src/components/WebView
 
 import {
   getCollapsedPillBottom,
-  isCompactBrowserChrome,
+  isFloatingBrowserChrome,
 } from '../components/MobileBrowser/browserChrome';
 import {
   BROWSER_BOTTOM_BAR_HEIGHT,
@@ -35,10 +35,10 @@ const timingConfig = {
   easing: Easing.inOut(Easing.quad),
 };
 
-// The compact iOS bar floats over the page (Liquid Glass shows the content
-// through it), so the WebView keeps its full height; scrollable content is
-// kept reachable above the bar via the WebView contentInset instead.
-const compactWebPageStyle = { bottom: 0 };
+// On iOS the bar floats over the page (Liquid Glass shows the content through
+// it), so the WebView keeps its full height; scrollable content is kept
+// reachable above the bar via the WebView contentInset instead.
+const floatingWebPageStyle = { bottom: 0 };
 
 // Drives the mobile browser chrome (header + bottom bar) from WebView scroll:
 // scrolling down collapses both; scrolling up, reaching an edge of the page,
@@ -50,10 +50,9 @@ function useMobileBrowserChromeAnimation() {
   const chromeProgress = useSharedValue(EXPANDED);
   const lastScrollY = useSharedValue(UNSET);
   const lastTurnScrollY = useSharedValue(UNSET);
-  // Room the collapsed pill needs when the bar is laid out in-flow (iPad).
-  const collapsedBarHeight = isCompactBrowserChrome
-    ? getCollapsedPillBottom(bottomInset) + BROWSER_COLLAPSED_PILL_HEIGHT + 4
-    : 0;
+  // Room the collapsed pill needs when the bar is laid out in-flow (tablets).
+  const collapsedBarHeight =
+    getCollapsedPillBottom(bottomInset) + BROWSER_COLLAPSED_PILL_HEIGHT + 4;
 
   // Direction detection + SharedValue writes run entirely on UI thread.
   // WebView onScroll is JS-thread only, so we extract numeric values in JS
@@ -146,29 +145,20 @@ function useMobileBrowserChromeAnimation() {
     })();
   }, [chromeProgress, lastScrollY, lastTurnScrollY]);
 
-  // Bar container. Android (and the in-flow iPad layout) shrinks it with the
-  // chrome; the compact iOS bar fades its own content and only keeps room for
-  // the collapsed pill.
-  const toolbarAnimatedStyle = useAnimatedStyle(() => {
-    const height = Math.max(
-      collapsedBarHeight,
-      fullBarHeight * chromeProgress.value,
-    );
-    return isCompactBrowserChrome
-      ? { height }
-      : { height, opacity: chromeProgress.value };
-  });
-  // Phone layout overlays the bar on the WebView layer. The compact iOS bar
-  // keeps a fixed box (touches pass through via box-none) so the collapsed
-  // pill can float over the page.
-  const toolbarOverlayStyle = isCompactBrowserChrome
-    ? { height: fullBarHeight }
-    : toolbarAnimatedStyle;
+  // In-flow bar container (tablet layout): shrinks with the chrome but keeps
+  // room for the collapsed pill. The bar fades its own content.
+  const toolbarAnimatedStyle = useAnimatedStyle(() => ({
+    height: Math.max(collapsedBarHeight, fullBarHeight * chromeProgress.value),
+  }));
+  // Phone layout overlays the bar on the WebView layer in a fixed box
+  // (touches pass through via box-none) so the collapsed pill can float over
+  // the page.
+  const toolbarOverlayStyle = { height: fullBarHeight };
   const animatedWebPageStyle = useAnimatedStyle(() => ({
     bottom: fullBarHeight * chromeProgress.value,
   }));
-  const webPageAnimatedStyle = isCompactBrowserChrome
-    ? compactWebPageStyle
+  const webPageAnimatedStyle = isFloatingBrowserChrome
+    ? floatingWebPageStyle
     : animatedWebPageStyle;
 
   return {

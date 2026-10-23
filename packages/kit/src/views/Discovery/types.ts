@@ -117,7 +117,7 @@ export interface IMobileBottomOptionsProps {
   displayDisconnectOption: boolean;
   onDisconnect: () => void;
   siteMode?: ESiteMode;
-  // Optional page actions folded into the menu by the compact iOS bar.
+  // Optional page actions folded into the menu by the mobile bottom bar.
   canGoForward?: boolean;
   onGoForward?: () => void;
   isTranslated?: boolean;

@@ -20,26 +20,19 @@ import {
 interface ITabCountButtonProps {
   testID: string;
   size?: 'medium' | 'large';
+  // False when the parent handles the press (e.g. via ChromeTap on Android).
+  pressable?: boolean;
 }
 
-function TabCountButton({ testID, size = 'medium' }: ITabCountButtonProps) {
+// Snapshot the current page for its tab card, then open the tab list.
+export function useShowMobileTabList() {
   const { displayHomePage } = useDisplayHomePageFlag();
-  const { tabs } = useWebTabs();
   const { activeTabId } = useActiveTabId();
-  const tabCount = useMemo(() => tabs.length, [tabs]);
-  const isLarge = size === 'large';
-  // Inside a Liquid Glass capsule the glass owns the shape and press feedback.
-  const inGlass = useInGlassHeader();
-  let padding: '$2' | '$3' | '$3.5' = isLarge ? '$3.5' : '$3';
-  if (inGlass) {
-    padding = '$2';
-  }
   const takeScreenshot = useTakeScreenshot(activeTabId);
-
   const navigation =
     useAppNavigation<IPageNavigationProp<IDiscoveryModalParamList>>();
 
-  const handleShowTabList = useCallback(async () => {
+  return useCallback(async () => {
     if (!displayHomePage) {
       await Promise.race([
         takeScreenshot(),
@@ -50,6 +43,24 @@ function TabCountButton({ testID, size = 'medium' }: ITabCountButtonProps) {
       screen: EDiscoveryModalRoutes.MobileTabList,
     });
   }, [takeScreenshot, navigation, displayHomePage]);
+}
+
+function TabCountButton({
+  testID,
+  size = 'medium',
+  pressable = true,
+}: ITabCountButtonProps) {
+  const { displayHomePage } = useDisplayHomePageFlag();
+  const { tabs } = useWebTabs();
+  const tabCount = useMemo(() => tabs.length, [tabs]);
+  const isLarge = size === 'large';
+  // Inside a Liquid Glass capsule the glass owns the shape and press feedback.
+  const inGlass = useInGlassHeader();
+  let padding: '$2' | '$3' | '$3.5' = isLarge ? '$3.5' : '$3';
+  if (inGlass) {
+    padding = '$2';
+  }
+  const handleShowTabList = useShowMobileTabList();
 
   if (displayHomePage && tabCount === 0) {
     return null;
@@ -60,15 +71,19 @@ function TabCountButton({ testID, size = 'medium' }: ITabCountButtonProps) {
       p={padding}
       borderRadius="$full"
       pressStyle={
-        inGlass
+        inGlass || !pressable
           ? undefined
           : {
               bg: '$bgActive',
             }
       }
-      onPress={() => {
-        void handleShowTabList();
-      }}
+      onPress={
+        pressable
+          ? () => {
+              void handleShowTabList();
+            }
+          : undefined
+      }
       testID={testID}
     >
       <Stack
@@ -76,11 +91,15 @@ function TabCountButton({ testID, size = 'medium' }: ITabCountButtonProps) {
         minHeight={isLarge ? '$6' : '$5'}
         borderRadius="$1"
         borderWidth="$0.5"
-        borderColor="$iconSubdued"
+        // Same contrast bump IconButton applies on glass.
+        borderColor={inGlass ? '$text' : '$iconSubdued'}
         alignItems="center"
         justifyContent="center"
       >
-        <SizableText size="$bodySmMedium" color="$iconSubdued">
+        <SizableText
+          size="$bodySmMedium"
+          color={inGlass ? '$text' : '$iconSubdued'}
+        >
           {tabCount}
         </SizableText>
       </Stack>

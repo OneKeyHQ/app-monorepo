@@ -10,13 +10,15 @@ import {
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 
-import { BROWSER_HEADER_CROSSFADE_POINT } from '../../config/Animation.constants';
+import { BROWSER_CHROME_CROSSFADE_POINT } from '../../config/Animation.constants';
 
 import type { SharedValue } from 'react-native-reanimated';
 
-// iOS uses the Safari-style chrome: the address lives in a floating glass
-// bottom bar, and a compact address pill stays visible while collapsed.
-export const isCompactBrowserChrome = platformEnv.isNativeIOS;
+// Safari-style chrome on both platforms: the address lives in the bottom bar
+// and a compact address pill stays visible while collapsed. Only iOS lets the
+// bar float over the page: WKWebView's contentInset keeps scrollable content
+// reachable above it, which Android WebView has no equivalent for.
+export const isFloatingBrowserChrome = platformEnv.isNativeIOS;
 
 // Scroll-driven chrome state shared by the header and the bottom bar.
 // `progress`: 1 = expanded, 0 = collapsed.
@@ -44,7 +46,7 @@ export function getDisplayHostname(url?: string) {
 export function useIsChromeCollapsed(progress: SharedValue<number>) {
   const [isCollapsed, setIsCollapsed] = useState(false);
   useAnimatedReaction(
-    () => progress.value < BROWSER_HEADER_CROSSFADE_POINT,
+    () => progress.value < BROWSER_CHROME_CROSSFADE_POINT,
     (collapsed, previous) => {
       if (collapsed !== previous) {
         runOnJS(setIsCollapsed)(collapsed);
@@ -64,7 +66,7 @@ export function useChromeCrossfadeStyles(
   const expandedStyle = useAnimatedStyle(() => ({
     opacity: interpolate(
       progress.value,
-      [BROWSER_HEADER_CROSSFADE_POINT, 1],
+      [BROWSER_CHROME_CROSSFADE_POINT, 1],
       [0, 1],
       'clamp',
     ),
@@ -82,7 +84,7 @@ export function useChromeCrossfadeStyles(
   const collapsedStyle = useAnimatedStyle(() => ({
     opacity: interpolate(
       progress.value,
-      [0, BROWSER_HEADER_CROSSFADE_POINT],
+      [0, BROWSER_CHROME_CROSSFADE_POINT],
       [1, 0],
       'clamp',
     ),

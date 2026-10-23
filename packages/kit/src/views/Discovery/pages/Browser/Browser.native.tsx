@@ -55,7 +55,7 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { EarnHomeWithProvider } from '../../../Earn/EarnHome';
 import { HandleRebuildBrowserData } from '../../components/HandleData/HandleRebuildBrowserTabData';
-import { isCompactBrowserChrome } from '../../components/MobileBrowser/browserChrome';
+import { isFloatingBrowserChrome } from '../../components/MobileBrowser/browserChrome';
 import MobileBrowserBottomBar from '../../components/MobileBrowser/MobileBrowserBottomBar';
 import MobileBrowserHeader from '../../components/MobileBrowser/MobileBrowserHeader';
 import { OuterTabPagerView } from '../../components/OuterTabPagerView';
@@ -459,7 +459,7 @@ function MobileBrowser() {
 
   // Phone layout only: the iPad split layout keeps the bar in-flow.
   const webContentBottomInset =
-    isCompactBrowserChrome && !isTabletMainView && !isTabletDetailView
+    isFloatingBrowserChrome && !isTabletMainView && !isTabletDetailView
       ? fullBarHeight
       : undefined;
   const content = useMemo(
