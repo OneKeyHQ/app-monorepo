@@ -1,3 +1,4 @@
+/* cspell:ignore Infini */
 import type { ComponentType } from 'react';
 import { useMemo } from 'react';
 
@@ -83,6 +84,7 @@ import {
 } from './CustomElement';
 import { ExportDiagnosticLogsListItem } from './exportLogs/ExportDiagnosticLogsListItem';
 import { OFFICIAL_CHANNELS_SEARCH_KEYWORDS } from './officialChannels';
+import { RestoreInfiniPendingTransactionsListItem } from './RestoreInfiniPendingTransactionsListItem';
 import { getSettingsDisplayTitle } from './settingsDisplay';
 import { SETTINGS_SIDEBAR_ORDER } from './settingsRootLayout';
 // import { OneKeyIdSubSettings } from './OneKeyIdSubSettings';
@@ -246,6 +248,12 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
         id: ETranslations.settings_clear_pending_transactions,
       }),
       renderElement: <ClearPendingTransactionsListItem />,
+    };
+    const restoreInfiniPendingTransactionsItem: ISubSettingConfig = {
+      id: 'restore-infini-pending-transactions',
+      icon: 'ClockTimeHistoryOutline',
+      title: `Infini: ${intl.formatMessage({ id: ETranslations.global_restore })} ${intl.formatMessage({ id: ETranslations.tray_pending_transactions_title })}`,
+      renderElement: <RestoreInfiniPendingTransactionsListItem />,
     };
     const config: ISettingsConfig = [
       // OneKey ID tab with custom rendering
@@ -524,6 +532,9 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
             platformEnv.isWebDappMode
               ? clearPendingTransactionsItem
               : undefined,
+            platformEnv.isWebDappMode
+              ? restoreInfiniPendingTransactionsItem
+              : undefined,
           ],
           [
             {
@@ -651,7 +662,10 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                   renderElement: <BTCFreshAddressListItem />,
                 },
               ],
-              [clearPendingTransactionsItem],
+              [
+                clearPendingTransactionsItem,
+                restoreInfiniPendingTransactionsItem,
+              ],
             ],
           },
       platformEnv.isWebDappMode
