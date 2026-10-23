@@ -17,6 +17,7 @@ import { PageBody } from '@onekeyhq/components/src/layouts/Page/PageBody';
 import { PageHeader } from '@onekeyhq/components/src/layouts/Page/PageHeader';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { NotificationEnableAlert } from '@onekeyhq/kit/src/components/NotificationEnableAlert';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   EModalPerpRoutes,
@@ -129,6 +130,10 @@ function TabHeader({
 
 export function PerpTradersHistoryListModal() {
   const intl = useIntl();
+  const appNavigation = useAppNavigation();
+  const handleBeforeSwitchInstrument = useCallback(() => {
+    appNavigation.popStack();
+  }, [appNavigation]);
   const navigation = useNavigation<IPageNavigationProp<IModalPerpParamList>>();
   const route =
     useRoute<
@@ -284,6 +289,7 @@ export function PerpTradersHistoryListModal() {
               <PerpTwapList
                 isMobile
                 useTabsList={false}
+                onBeforeSwitchInstrument={handleBeforeSwitchInstrument}
                 initialTab="history"
                 enabledTabs={['history', 'fills']}
               />

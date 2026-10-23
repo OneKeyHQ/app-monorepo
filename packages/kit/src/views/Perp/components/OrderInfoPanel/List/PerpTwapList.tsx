@@ -593,6 +593,7 @@ function TwapHistoryRow({
   spotDisplayMap,
   spotPairDisplayNameMap,
   isMobile,
+  onBeforeSwitchInstrument,
 }: {
   record: ITwapHistoryRecord;
   activatedAt?: number;
@@ -606,16 +607,18 @@ function TwapHistoryRow({
   spotDisplayMap: Record<string, string>;
   spotPairDisplayNameMap: Record<string, string>;
   isMobile?: boolean;
+  onBeforeSwitchInstrument?: () => void;
 }) {
   const intl = useIntl();
   const { state } = record;
   const actions = useHyperliquidActions();
   const handleSwitchInstrument = useCallback(() => {
+    onBeforeSwitchInstrument?.();
     void actions.current.switchTradeInstrument({
       mode: isSpotInstrument(state.coin) ? 'spot' : 'perp',
       coin: state.coin,
     });
-  }, [actions, state.coin]);
+  }, [actions, onBeforeSwitchInstrument, state.coin]);
   const statusValue = record.status.status;
   const isActivated = record.status.status === 'activated';
   const isWaitingForTrigger = record.status.status === 'waitingForTrigger';
@@ -965,6 +968,7 @@ function TwapFillRow({
   spotPairDisplayNameMap,
   builderFeeRate,
   isMobile,
+  onBeforeSwitchInstrument,
 }: {
   record: ITwapSliceFill;
   cellMinWidth: number;
@@ -977,16 +981,18 @@ function TwapFillRow({
   spotPairDisplayNameMap: Record<string, string>;
   builderFeeRate?: number;
   isMobile?: boolean;
+  onBeforeSwitchInstrument?: () => void;
 }) {
   const intl = useIntl();
   const { fill } = record;
   const actions = useHyperliquidActions();
   const handleSwitchInstrument = useCallback(() => {
+    onBeforeSwitchInstrument?.();
     void actions.current.switchTradeInstrument({
       mode: isSpotInstrument(fill.coin) ? 'spot' : 'perp',
       coin: fill.coin,
     });
-  }, [actions, fill.coin]);
+  }, [actions, fill.coin, onBeforeSwitchInstrument]);
   const dateInfo = useMemo(() => formatTwapDateTime(fill.time), [fill.time]);
   const assetSymbol = useMemo(
     () =>
@@ -1292,6 +1298,7 @@ function TwapFillRow({
 
 interface IPerpTwapListProps {
   isMobile?: boolean;
+  onBeforeSwitchInstrument?: () => void;
   useTabsList?: boolean;
   disableListScroll?: boolean;
   initialTab?: ITwapPanelTab;
@@ -1300,6 +1307,7 @@ interface IPerpTwapListProps {
 
 function PerpTwapList({
   isMobile,
+  onBeforeSwitchInstrument,
   useTabsList,
   disableListScroll,
   initialTab = 'active',
@@ -1832,6 +1840,7 @@ function PerpTwapList({
           spotDisplayMap={spotDisplayMap}
           spotPairDisplayNameMap={spotPairDisplayNameMap}
           isMobile={isMobile}
+          onBeforeSwitchInstrument={onBeforeSwitchInstrument}
         />
       );
     },
@@ -1840,6 +1849,7 @@ function PerpTwapList({
       historyColumns,
       historyMinWidth,
       isMobile,
+      onBeforeSwitchInstrument,
       now,
       spotDisplayMap,
       spotPairDisplayNameMap,
@@ -1866,6 +1876,7 @@ function PerpTwapList({
         spotPairDisplayNameMap={spotPairDisplayNameMap}
         builderFeeRate={builderFeeRate}
         isMobile={isMobile}
+        onBeforeSwitchInstrument={onBeforeSwitchInstrument}
       />
     ),
     [
@@ -1873,6 +1884,7 @@ function PerpTwapList({
       fillColumns,
       fillMinWidth,
       isMobile,
+      onBeforeSwitchInstrument,
       spotDisplayMap,
       spotPairDisplayNameMap,
     ],
