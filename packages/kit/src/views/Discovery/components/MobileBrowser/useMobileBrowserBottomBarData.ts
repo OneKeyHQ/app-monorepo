@@ -28,6 +28,7 @@ import { webviewRefs } from '../../utils/explorerUtils';
 import { showTabBar } from '../../utils/tabBarUtils';
 
 import type { ESiteMode } from '../../types';
+import type { SharedValue } from 'react-native-reanimated';
 import type WebView from 'react-native-webview';
 
 export const ACTION_LIST_CLOSE_ANIMATION_DELAY_MS = 350;
@@ -35,6 +36,11 @@ export const ACTION_LIST_CLOSE_ANIMATION_DELAY_MS = 350;
 export interface IMobileBrowserBottomBarProps extends IStackProps {
   id: string;
   onGoBackHomePage?: () => void;
+  // Compact (iOS) bar only: scroll-driven chrome state and address actions.
+  chromeProgress?: SharedValue<number>;
+  isChromeCollapsed?: boolean;
+  onExpandChrome?: () => void;
+  onSearchBarPress?: (url: string) => void;
 }
 
 export function useMobileBrowserBottomBarData({

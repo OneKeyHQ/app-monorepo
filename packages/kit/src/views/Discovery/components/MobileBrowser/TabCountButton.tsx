@@ -1,6 +1,6 @@
 import { useCallback, useMemo } from 'react';
 
-import { SizableText, Stack } from '@onekeyhq/components';
+import { SizableText, Stack, useInGlassHeader } from '@onekeyhq/components';
 import type { IPageNavigationProp } from '@onekeyhq/components/src/layouts/Navigation';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import type { IDiscoveryModalParamList } from '@onekeyhq/shared/src/routes';
@@ -28,6 +28,12 @@ function TabCountButton({ testID, size = 'medium' }: ITabCountButtonProps) {
   const { activeTabId } = useActiveTabId();
   const tabCount = useMemo(() => tabs.length, [tabs]);
   const isLarge = size === 'large';
+  // Inside a Liquid Glass capsule the glass owns the shape and press feedback.
+  const inGlass = useInGlassHeader();
+  let padding: '$2' | '$3' | '$3.5' = isLarge ? '$3.5' : '$3';
+  if (inGlass) {
+    padding = '$2';
+  }
   const takeScreenshot = useTakeScreenshot(activeTabId);
 
   const navigation =
@@ -51,11 +57,15 @@ function TabCountButton({ testID, size = 'medium' }: ITabCountButtonProps) {
 
   return (
     <Stack
-      p={isLarge ? '$3.5' : '$3'}
+      p={padding}
       borderRadius="$full"
-      pressStyle={{
-        bg: '$bgActive',
-      }}
+      pressStyle={
+        inGlass
+          ? undefined
+          : {
+              bg: '$bgActive',
+            }
+      }
       onPress={() => {
         void handleShowTabList();
       }}

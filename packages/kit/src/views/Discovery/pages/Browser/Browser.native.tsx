@@ -7,10 +7,8 @@ import { BackHandler, StyleSheet, View } from 'react-native';
 import Animated, { useSharedValue } from 'react-native-reanimated';
 
 import {
-  Icon,
   Page,
   Stack,
-  XStack,
   YStack,
   isLiquidGlassAvailable,
   rootNavigationRef,
@@ -56,10 +54,9 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { EarnHomeWithProvider } from '../../../Earn/EarnHome';
-import CustomHeaderTitle from '../../components/CustomHeaderTitle';
 import { HandleRebuildBrowserData } from '../../components/HandleData/HandleRebuildBrowserTabData';
-import HeaderRightToolBar from '../../components/HeaderRightToolBar';
 import MobileBrowserBottomBar from '../../components/MobileBrowser/MobileBrowserBottomBar';
+import MobileBrowserHeader from '../../components/MobileBrowser/MobileBrowserHeader';
 import { OuterTabPagerView } from '../../components/OuterTabPagerView';
 import { useDAppNotifyChanges } from '../../hooks/useDAppNotifyChanges';
 // import { useEdgeSwipeDetection } from '../../hooks/useEdgeSwipeDetection';
@@ -270,8 +267,15 @@ function MobileBrowser() {
   const { tab: activeTabData } = useWebTabDataById(activeTabId ?? '');
   const navigation =
     useAppNavigation<IPageNavigationProp<IDiscoveryModalParamList>>();
-  const { handleScroll, toolbarAnimatedStyle, webPageAnimatedStyle } =
-    useMobileBottomBarAnimation(activeTabId);
+  const {
+    handleScroll,
+    expandBrowserChrome,
+    isChromeCollapsed,
+    chromeProgress,
+    toolbarAnimatedStyle,
+    toolbarOverlayStyle,
+    webPageAnimatedStyle,
+  } = useMobileBottomBarAnimation(activeTabId);
   useDAppNotifyChanges({ tabId: activeTabId });
 
   useDebugComponentRemountLog({
@@ -292,6 +296,13 @@ function MobileBrowser() {
     selectedHeaderTab === ETranslations.global_browser;
   const isBrowserWebPageVisible =
     isBrowserHeaderTabSelected && !showDiscoveryPage && !displayHomePage;
+  // The dashboard scroll shares the chrome animation, so make sure the web page
+  // always opens with its header and bottom bar expanded.
+  useEffect(() => {
+    if (isBrowserWebPageVisible) {
+      expandBrowserChrome();
+    }
+  }, [isBrowserWebPageVisible, expandBrowserChrome]);
   const isBrowserDashboardActive =
     showDiscoveryPage &&
     (isBrowserHeaderTabSelected || visibleOuterPages.includes(1));
@@ -600,20 +611,13 @@ function MobileBrowser() {
           />
         </YStack>
       ) : (
-        <XStack
-          pt={top}
-          px="$5"
-          alignItems="center"
-          my="$1"
-          mt={platformEnv.isNativeAndroid ? '$3' : undefined}
-        >
-          <Stack onPress={handleGoBackHome}>
-            <Icon name="MinimizeOutline" mr="$4" />
-          </Stack>
-
-          <CustomHeaderTitle handleSearchBarPress={handleSearchBarPress} />
-          <HeaderRightToolBar />
-        </XStack>
+        <MobileBrowserHeader
+          chromeProgress={chromeProgress}
+          isCollapsed={isChromeCollapsed}
+          onGoBackHome={handleGoBackHome}
+          onSearchBarPress={handleSearchBarPress}
+          onExpand={expandBrowserChrome}
+        />
       )}
       <Page.Body>
         {/* HandleRebuildBrowserData must mount early regardless of active tab */}
@@ -689,10 +693,10 @@ function MobileBrowser() {
             ) : null}
             <Freeze freeze={!displayBottomBar}>
               <Animated.View
-                pointerEvents={shouldShowRootWebPageLayer ? 'auto' : 'none'}
+                pointerEvents={shouldShowRootWebPageLayer ? 'box-none' : 'none'}
                 style={[
                   styles.webPageRootToolbar,
-                  toolbarAnimatedStyle,
+                  toolbarOverlayStyle,
                   {
                     display: shouldShowRootWebPageLayer ? 'flex' : 'none',
                   },
@@ -701,6 +705,10 @@ function MobileBrowser() {
                 <MobileBrowserBottomBar
                   id={activeTabId ?? ''}
                   onGoBackHomePage={handleGoBackHome}
+                  chromeProgress={chromeProgress}
+                  isChromeCollapsed={isChromeCollapsed}
+                  onExpandChrome={expandBrowserChrome}
+                  onSearchBarPress={handleSearchBarPress}
                 />
               </Animated.View>
             </Freeze>
@@ -789,6 +797,10 @@ function MobileBrowser() {
                   <MobileBrowserBottomBar
                     id={activeTabId ?? ''}
                     onGoBackHomePage={handleGoBackHome}
+                    chromeProgress={chromeProgress}
+                    isChromeCollapsed={isChromeCollapsed}
+                    onExpandChrome={expandBrowserChrome}
+                    onSearchBarPress={handleSearchBarPress}
                   />
                 </Animated.View>
               </Freeze>

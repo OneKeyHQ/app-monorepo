@@ -30,10 +30,43 @@ function MobileBrowserBottomOptions({
   onDisconnect,
   siteMode,
   onRequestSiteMode,
+  canGoForward,
+  onGoForward,
+  isTranslated,
+  onTranslatePress,
 }: PropsWithChildren<IMobileBottomOptionsProps>) {
   const intl = useIntl();
   const actionSectionItems = useMemo(
     () => [
+      {
+        items: [
+          onGoForward && canGoForward
+            ? {
+                label: intl.formatMessage({
+                  id: ETranslations.shortcut_go_forward,
+                }),
+                icon: 'ChevronRightOutline',
+                onPress: onGoForward,
+                testID: DiscoveryTestIDs.browserForwardButton,
+              }
+            : undefined,
+          onTranslatePress
+            ? {
+                label: intl.formatMessage({
+                  id: ETranslations.browser_translate_settings_title,
+                }),
+                icon: isTranslated ? 'TranslateSolid' : 'TranslateOutline',
+                // The translate sheet can only open once this menu is gone.
+                onPress: async (close: () => void) => {
+                  close();
+                  await timerUtils.wait(ACTION_LIST_CLOSE_ANIMATION_DELAY_MS);
+                  onTranslatePress();
+                },
+                testID: 'browser-bar-translate',
+              }
+            : undefined,
+        ].filter(Boolean) as IActionListItemProps[],
+      },
       {
         items: [
           {
@@ -151,6 +184,10 @@ function MobileBrowserBottomOptions({
     ],
     [
       intl,
+      canGoForward,
+      onGoForward,
+      isTranslated,
+      onTranslatePress,
       onRefresh,
       isBookmark,
       isPinned,
@@ -172,7 +209,7 @@ function MobileBrowserBottomOptions({
       title={intl.formatMessage({ id: ETranslations.explore_options })}
       renderTrigger={children}
       disabled={disabled}
-      sections={actionSectionItems}
+      sections={actionSectionItems.filter((section) => section.items.length)}
     />
   );
 }

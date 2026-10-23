@@ -134,6 +134,10 @@ jest.mock(
   '../../components/MobileBrowser/MobileBrowserBottomBar',
   () => () => null,
 );
+jest.mock(
+  '../../components/MobileBrowser/MobileBrowserHeader',
+  () => () => null,
+);
 jest.mock('../../hooks/useDAppNotifyChanges', () => ({
   useDAppNotifyChanges: jest.fn(),
 }));

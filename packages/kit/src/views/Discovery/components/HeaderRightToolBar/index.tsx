@@ -17,6 +17,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { AccountAvatar } from '@onekeyhq/kit/src/components/AccountAvatar';
 import {
   AccountSelectorProviderMirror,
+  AccountSelectorTriggerHome,
   NetworkSelectorTriggerBrowserSingle,
 } from '@onekeyhq/kit/src/components/AccountSelector';
 import { AccountSelectorTriggerBrowserSingle } from '@onekeyhq/kit/src/components/AccountSelector/AccountSelectorTrigger/AccountSelectorTriggerDApp';
@@ -234,7 +235,16 @@ function AccountSelectorPopoverContent({
   );
 }
 
-function HeaderRightToolBar() {
+interface IHeaderRightToolBarProps {
+  // Mobile: when the site has no connected account, still show the active
+  // wallet account (from the surrounding home-scene account selector) so
+  // users always know which account the browser will connect with.
+  showWalletAccountWhenDisconnected?: boolean;
+}
+
+function HeaderRightToolBar({
+  showWalletAccountWhenDisconnected,
+}: IHeaderRightToolBarProps) {
   const [isOpen, setIsOpen] = useState(false);
   const { activeTabId } = useActiveTabId();
   const { tab } = useWebTabDataById(activeTabId ?? '');
@@ -320,7 +330,10 @@ function HeaderRightToolBar() {
     if (isLoading) {
       return <Spinner />;
     }
-    if (!connectedAccountsInfo || !origin) {
+    if (!connectedAccountsInfo?.length || !origin) {
+      if (showWalletAccountWhenDisconnected) {
+        return <AccountSelectorTriggerHome num={0} hideAddress />;
+      }
       return <ShortcutsActionButton />;
     }
 
@@ -392,12 +405,13 @@ function HeaderRightToolBar() {
     handleOpenChange,
     renderPopoverContent,
     afterChangeAccount,
+    showWalletAccountWhenDisconnected,
   ]);
 
   return <>{content}</>;
 }
 
-function HeaderRightToolBarWrapper() {
+function HeaderRightToolBarWrapper(props: IHeaderRightToolBarProps) {
   const [isSwitchingNetwork, setIsSwitchingNetwork] = useState(false);
 
   useEffect(() => {
@@ -414,7 +428,9 @@ function HeaderRightToolBarWrapper() {
     return <HeaderRightToolBarSkeleton />;
   }
 
-  return <HeaderRightToolBar />;
+  return <HeaderRightToolBar {...props} />;
 }
 
-export default withBrowserProvider(HeaderRightToolBarWrapper);
+export default withBrowserProvider<IHeaderRightToolBarProps>(
+  HeaderRightToolBarWrapper,
+);

@@ -48,6 +48,11 @@ const barStyles = StyleSheet.create({
 function MobileBrowserBottomBar({
   id,
   onGoBackHomePage,
+  // Only used by the compact iOS bar; keep them off the Stack.
+  chromeProgress: _chromeProgress,
+  isChromeCollapsed: _isChromeCollapsed,
+  onExpandChrome: _onExpandChrome,
+  onSearchBarPress: _onSearchBarPress,
   ...rest
 }: IMobileBrowserBottomBarProps) {
   const {

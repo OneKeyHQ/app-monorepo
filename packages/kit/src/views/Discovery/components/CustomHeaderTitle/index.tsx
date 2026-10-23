@@ -14,9 +14,15 @@ import { DappInfoPopoverContent } from '../DappInfoPopoverContent';
 
 interface ICustomHeaderTitleProps {
   handleSearchBarPress: (url: string) => void;
+  // Rendered inside a host pill (the iOS bottom address capsule): no own
+  // background or press fill, centered compact text.
+  embedded?: boolean;
 }
 
-function CustomHeaderTitle({ handleSearchBarPress }: ICustomHeaderTitleProps) {
+function CustomHeaderTitle({
+  handleSearchBarPress,
+  embedded,
+}: ICustomHeaderTitleProps) {
   const intl = useIntl();
   const { activeTabId } = useActiveTabId();
   const { tab } = useWebTabDataById(activeTabId ?? '');
@@ -34,18 +40,15 @@ function CustomHeaderTitle({ handleSearchBarPress }: ICustomHeaderTitleProps) {
       alignItems="center"
       px="$2"
       py="$1.5"
-      bg="$bgStrong"
+      bg={embedded ? '$transparent' : '$bgStrong'}
       borderRadius="$3"
       $md={{
         flex: 1,
       }}
       $platform-native={{ flex: 1 }}
-      hoverStyle={{
-        bg: '$bgHover',
-      }}
-      pressStyle={{
-        bg: '$bgActive',
-      }}
+      justifyContent={embedded ? 'center' : undefined}
+      hoverStyle={embedded ? undefined : { bg: '$bgHover' }}
+      pressStyle={embedded ? undefined : { bg: '$bgActive' }}
       onPress={() => handleSearchBarPress(currentUrl ?? '')}
       borderCurve="continuous"
     >
@@ -79,10 +82,11 @@ function CustomHeaderTitle({ handleSearchBarPress }: ICustomHeaderTitleProps) {
 
       <SizableText
         pl="$2"
-        pb="$1"
-        size="$bodyLg"
-        color="$textSubdued"
-        flex={1}
+        pb={embedded ? undefined : '$1'}
+        size={embedded ? '$bodyLgMedium' : '$bodyLg'}
+        color={embedded ? '$text' : '$textSubdued'}
+        flex={embedded ? undefined : 1}
+        flexShrink={1}
         numberOfLines={1}
         testID={DiscoveryTestIDs.searchBar}
       >
