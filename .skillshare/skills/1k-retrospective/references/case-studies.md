@@ -1008,3 +1008,17 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries â€
 **Root Cause**: The new production files are imported by the hardware sales page, so they enter the native graph, but no stable IDs were committed.
 **Fix**: Register both files in apps/mobile/bundle-registry/module-id-registry.json and pass a strict iOS union build.
 **Catchable by**: Section 4: a new file that the native bundle imports must be added to module-id-registry.json before the release bundle runs.
+
+## Case: Passphrase dialog cancellation was reported as an unexpected error
+**Date**: 2026-10-23 | **Platforms**: iOS, Android (native main UI runtime)
+**Symptom**: Canceling the passphrase dialog rejected the switch action with a plain `Error('User canceled')`, which could reach Sentry as an unexpected failure.
+**Root Cause**: The cancel callback did not use the existing `OneKeyLocalError` classification that Sentry filters for expected local errors.
+**Fix**: Reject with `OneKeyLocalError` while preserving the rejection needed to roll back the optimistic switch. The component regression test verifies cancellation does not update the device, confirmation does, and a real update failure remains unchanged.
+**Catchable by**: Section 6: exercise cancel, confirm, and actual failure through the same stateful action; expected cancellation must retain rollback semantics and its error classification.
+
+## Case: Superseded Home token requests reached Sentry
+**Date**: 2026-10-23 | **Platforms**: iOS, Android (native main and background JS runtimes)
+**Symptom**: A Home token request superseded by a newer request produced `CanceledError('Home token request superseded')` events in Sentry during normal cancellation.
+**Root Cause**: The existing Sentry filter recognized other expected local error types but not this specific Axios cancellation from the Home token request registry.
+**Fix**: Filter only the exact `CanceledError` type and message pair. The Sentry regression test keeps the local log and confirms other cancellation messages, the same text under `TypeError` or `Error`, and a real network error still reach reporting.
+**Catchable by**: Section 6: assert both the expected cancellation and nearby real-error boundaries when changing error-reporting filters.
