@@ -27,6 +27,7 @@ import {
   toPrimeInfiniPaymentPersistenceError,
 } from '@onekeyhq/shared/src/utils/primeInfiniPaymentValidation';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
+import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
 import type { IExplicitLocalOneKeyIdLogoutProjection } from '@onekeyhq/shared/types/prime/identityExitTypes';
 import {
   EPrimeAuthSessionSource,
@@ -41,6 +42,7 @@ import {
   type IPrimeWebCheckoutExtensionContext,
   type IPrimeWebCheckoutPendingSession,
 } from '@onekeyhq/shared/types/prime/primeTypes';
+import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
 
 import {
   clearAuthSessionBySessionSource,
@@ -106,7 +108,30 @@ type IPrimeInfiniSupersededPaymentSession =
     supersededReason: 'user-forced-replacement';
   };
 
+type IInfiniBlockedReplacement = {
+  accountId: string;
+  networkId: string;
+  historyId: string;
+};
+
+type IInfiniPendingTransactionRecovery = {
+  accountAddress: string;
+  nonce: number;
+  historyTx: IAccountHistoryTx;
+};
+
+const MAX_INFINI_REPLACEMENT_FENCES = 100;
+const MAX_INFINI_REPLACEMENT_PROTECTION_SIZE = 512 * 1024;
+
 export interface ISimpleDBPrime {
+  // Independent of expiring payment sessions: stale confirmations must remain
+  // blocked after their original pending history has been removed.
+  infiniBlockedReplacements?: Record<
+    string,
+    true | IInfiniPendingTransactionRecovery
+  >;
+  // Hidden transactions may still occupy a nonce on-chain. No age-based pruning.
+  infiniReservedNonces?: Record<string, number[]>;
   // Deprecated token copy. Supabase/OAuth session storage is the source of truth.
   authToken?: string;
   authSessionSource?: EPrimeAuthSessionSource;
@@ -2340,6 +2365,155 @@ export class SimpleDbEntityPrime extends SimpleDbEntityBase<ISimpleDBPrime> {
       };
     });
     return latchedSession;
+  }
+
+  @backgroundMethod()
+  async blockInfiniReplacement({
+    accountAddress,
+    nonce,
+    historyTx,
+    ...identity
+  }: IInfiniBlockedReplacement & IInfiniPendingTransactionRecovery) {
+    if (
+      !accountAddress ||
+      !Number.isSafeInteger(nonce) ||
+      nonce < 0 ||
+      historyTx.id !== identity.historyId ||
+      historyTx.decodedTx.accountId !== identity.accountId ||
+      historyTx.decodedTx.networkId !== identity.networkId ||
+      historyTx.decodedTx.nonce !== nonce ||
+      historyTx.decodedTx.status !== EDecodedTxStatus.Pending ||
+      historyTx.decodedTx.signer.toLowerCase() !==
+        accountAddress.toLowerCase() ||
+      !historyTx.decodedTx.txid ||
+      !historyTx.decodedTx.encodedTx ||
+      historyTx.replacedNextId
+    ) {
+      throw new OneKeyLocalError('Invalid Infini nonce reservation');
+    }
+    const key = stringUtils.stableStringify(identity);
+    const nonceKey = stringUtils.stableStringify({
+      networkId: identity.networkId,
+      accountAddress: accountAddress.toLowerCase(),
+    });
+    await this.setRawData((rawData) => {
+      const infiniBlockedReplacements = {
+        ...rawData?.infiniBlockedReplacements,
+        [key]: {
+          accountAddress: accountAddress.toLowerCase(),
+          nonce,
+          historyTx,
+        },
+      };
+      const infiniReservedNonces = {
+        ...rawData?.infiniReservedNonces,
+        [nonceKey]: Array.from(
+          new Set([
+            ...(rawData?.infiniReservedNonces?.[nonceKey] ?? []),
+            nonce,
+          ]),
+        ),
+      };
+      // Refuse new hides at capacity. Never evict live protection to make room;
+      // the caller retains visible history if this atomic write fails.
+      if (
+        Object.keys(infiniBlockedReplacements).length >
+          MAX_INFINI_REPLACEMENT_FENCES ||
+        stringUtils.stableStringify({
+          infiniBlockedReplacements,
+          infiniReservedNonces,
+        }).length > MAX_INFINI_REPLACEMENT_PROTECTION_SIZE
+      ) {
+        throw new OneKeyLocalError('Infini replacement protection is full');
+      }
+      return { ...rawData, infiniBlockedReplacements, infiniReservedNonces };
+    });
+  }
+
+  @backgroundMethod()
+  async getInfiniPendingTransactionRecoveries(): Promise<
+    IInfiniPendingTransactionRecovery[]
+  > {
+    const rawData = await this.getRawData();
+    return Object.values(rawData?.infiniBlockedReplacements ?? {}).filter(
+      (entry): entry is IInfiniPendingTransactionRecovery => entry !== true,
+    );
+  }
+
+  @backgroundMethod()
+  async pruneInfiniConsumedNonces({
+    networkId,
+    accountAddress,
+    confirmedNonce,
+  }: {
+    networkId: string;
+    accountAddress: string;
+    confirmedNonce: number;
+  }) {
+    if (
+      !accountAddress ||
+      !Number.isSafeInteger(confirmedNonce) ||
+      confirmedNonce < 0
+    ) {
+      throw new OneKeyLocalError('Invalid confirmed Infini nonce');
+    }
+    const nonceKey = stringUtils.stableStringify({
+      networkId,
+      accountAddress: accountAddress.toLowerCase(),
+    });
+    await this.setRawData((rawData) => {
+      const infiniBlockedReplacements = {
+        ...rawData?.infiniBlockedReplacements,
+      };
+      for (const [key, entry] of Object.entries(infiniBlockedReplacements)) {
+        // Legacy boolean fences lack an address/nonce binding and stay closed.
+        if (
+          entry !== true &&
+          entry.historyTx.decodedTx.networkId === networkId &&
+          entry.accountAddress.toLowerCase() === accountAddress.toLowerCase() &&
+          entry.nonce < confirmedNonce
+        ) {
+          delete infiniBlockedReplacements[key];
+        }
+      }
+      const infiniReservedNonces = { ...rawData?.infiniReservedNonces };
+      const remaining = (infiniReservedNonces[nonceKey] ?? []).filter(
+        (nonce) => nonce >= confirmedNonce,
+      );
+      if (remaining.length) infiniReservedNonces[nonceKey] = remaining;
+      else delete infiniReservedNonces[nonceKey];
+      return { ...rawData, infiniBlockedReplacements, infiniReservedNonces };
+    });
+  }
+
+  @backgroundMethod()
+  async getInfiniReservedNonces({
+    networkId,
+    accountAddress,
+  }: {
+    networkId: string;
+    accountAddress: string;
+  }): Promise<number[]> {
+    const rawData = await this.getRawData();
+    const key = stringUtils.stableStringify({
+      networkId,
+      accountAddress: accountAddress.toLowerCase(),
+    });
+    return rawData?.infiniReservedNonces?.[key] ?? [];
+  }
+
+  @backgroundMethod()
+  async isInfiniReplacementBlocked({
+    accountId,
+    networkId,
+    historyId,
+  }: IInfiniBlockedReplacement) {
+    const rawData = await this.getRawData();
+    return Boolean(
+      rawData?.infiniBlockedReplacements?.[
+        stringUtils.stableStringify({ accountId, networkId, historyId })
+      ],
+    );
   }
 
   @backgroundMethod()

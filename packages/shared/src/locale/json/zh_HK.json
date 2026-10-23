@@ -4134,6 +4134,7 @@
   "prime_google_play__label": "Google Play",
   "prime_keep_subscription__action": "繼續訂閱",
   "prime_keep_waiting__action": "繼續等待",
+  "prime_member_try_again__msg": "已是 Prime 會員，請再試一次",
   "prime_membership_valid_until__desc": "會員有效期至 {date}",
   "prime_next_invoice__label": "續費賬單寄送時間",
   "prime_no_crypto_subscription__desc": "此頁面僅顯示透過加密貨幣付款的 Prime 訂閱。",

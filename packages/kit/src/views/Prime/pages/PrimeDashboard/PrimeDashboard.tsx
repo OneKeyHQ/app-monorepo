@@ -14,6 +14,7 @@ import {
   Spinner,
   Stack,
   Theme,
+  Toast,
   XStack,
   YStack,
   useIsModalPage,
@@ -56,6 +57,11 @@ import { usePrimeSubscribeResume } from './usePrimeSubscribeResume';
 import type { IPrimePendingSubscribe } from './usePrimeSubscribeResume';
 import type { ISubscriptionPeriod } from '../../hooks/usePrimePaymentTypes';
 import type { RouteProp } from '@react-navigation/core';
+
+// 'closed': this login already popped the dashboard.
+// 'cancelled': the member is active, but this screen is covered or gone.
+// 'continue': the caller proceeds with checkout or the deep-link handoff.
+type IPrimeDashboardLoginReturn = 'closed' | 'cancelled' | 'continue';
 
 const FooterGradient = memo(() => {
   const theme = useTheme();
@@ -169,6 +175,7 @@ export default function PrimeDashboard({
   const loginInFlightRef = useRef<Promise<void> | null>(null);
   const fromDeepLinkRef = useRef(Boolean(fromDeepLink));
   const consumedDeepLinkHandoffRef = useRef(false);
+  const activeMemberReturnConsumedRef = useRef(false);
   const isMountedRef = useIsMounted();
   const [isSubscribeLazyLoading, setIsSubscribeLazyLoading] = useState(false);
   const [didDashboardLoginFail, setDidDashboardLoginFail] = useState(false);
@@ -178,8 +185,61 @@ export default function PrimeDashboard({
   }
   fromDeepLinkRef.current = Boolean(fromDeepLink);
 
+  // Opened from a gated feature: an existing member who logs in here goes
+  // back to the feature instead of staying on the dashboard.
+  const closeIfPrimeActiveAfterLogin =
+    useCallback(async (): Promise<IPrimeDashboardLoginReturn> => {
+      if (!fromFeature || fromDeepLinkRef.current) {
+        return 'continue';
+      }
+      // Login taps share one login promise, and Subscribe can resume after
+      // that return. A second pass must not pop again or start checkout.
+      if (activeMemberReturnConsumedRef.current) {
+        return 'closed';
+      }
+      // Login already drops the pre-login user info cache, so this shares the
+      // global post-login refresh. An unknown status stays on the dashboard.
+      const info = await backgroundApiProxy.servicePrime
+        .apiFetchPrimeUserInfo()
+        .catch(() => undefined);
+      if (activeMemberReturnConsumedRef.current) {
+        return 'closed';
+      }
+      if (!info?.userInfo.isLoggedIn || !info.primeSubscription?.isActive) {
+        return 'continue';
+      }
+      // PrimeFeatures is pushed over this page, so mounted is not enough.
+      // navigation.pop() goes back from the focused route and would close it.
+      if (!isMountedRef.current || !isFocusedRef.current) {
+        return 'cancelled';
+      }
+      activeMemberReturnConsumedRef.current = true;
+      Toast.message({
+        title: intl.formatMessage({
+          id: ETranslations.prime_member_try_again__msg,
+        }),
+      });
+      // Back to the opener: the page below in the Prime stack (Cloud Sync), or
+      // out of the modal when the dashboard is its first screen.
+      navigation.pop();
+      return 'closed';
+    }, [fromFeature, intl, isFocusedRef, isMountedRef, navigation]);
+
+  // A logged-out Subscribe press resumes here after login.
+  const ensurePrimeSubscriptionActiveOnResume = useCallback<
+    typeof ensurePrimeSubscriptionActive
+  >(
+    async (params) => {
+      if ((await closeIfPrimeActiveAfterLogin()) !== 'continue') {
+        return;
+      }
+      await ensurePrimeSubscriptionActiveRef.current(params);
+    },
+    [closeIfPrimeActiveAfterLogin],
+  );
+
   usePrimeSubscribeResume({
-    ensurePrimeSubscriptionActive,
+    ensurePrimeSubscriptionActive: ensurePrimeSubscriptionActiveOnResume,
     featureName: fromFeature,
     isLoggedIn,
     onLoadingChange: setIsSubscribeLazyLoading,
@@ -243,8 +303,12 @@ export default function PrimeDashboard({
       return;
     }
     setDidDashboardLoginFail(false);
+    if ((await closeIfPrimeActiveAfterLogin()) !== 'continue') {
+      return;
+    }
     consumeDeepLinkHandoff();
   }, [
+    closeIfPrimeActiveAfterLogin,
     consumeDeepLinkHandoff,
     ensureDashboardLogin,
     handleDashboardLoginError,

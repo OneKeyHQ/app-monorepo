@@ -14,7 +14,7 @@ import {
   useNavigation,
   useRoute,
 } from '@react-navigation/native';
-import { useWindowDimensions } from 'react-native';
+import { StatusBar, useWindowDimensions } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 
@@ -174,6 +174,7 @@ export function TradingViewNativeFullscreenPage() {
       onLayout={handleLayout}
       testID="trading-view-native-fullscreen-layer"
     >
+      {platformEnv.isNativeIOSPad ? null : <StatusBar hidden />}
       <GestureHandlerRootView
         style={
           platformEnv.isNativeIOSPad
@@ -185,7 +186,15 @@ export function TradingViewNativeFullscreenPage() {
         }
       >
         <SafeAreaProvider style={{ flex: 1 }}>
-          <SafeAreaView style={{ flex: 1 }}>
+          {/* The portrait presenter can leave a stale top inset after rotation. */}
+          <SafeAreaView
+            edges={
+              platformEnv.isNativeIOSPad
+                ? undefined
+                : ['left', 'right', 'bottom']
+            }
+            style={{ flex: 1 }}
+          >
             <TradingViewNativeChartActiveContext.Provider
               value={!entry?.closing}
             >
