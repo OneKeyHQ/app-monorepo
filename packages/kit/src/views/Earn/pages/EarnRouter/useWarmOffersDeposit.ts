@@ -1,6 +1,7 @@
 import { useCallback } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { preloadModalNavigator } from '@onekeyhq/kit/src/routes/Modal/lazyModalNavigator';
 import {
   useActiveAccount,
   useSelectedAccount,
@@ -24,6 +25,14 @@ import {
 } from './earnFirstFrameCache';
 
 import type { IEarnDesktopHoldOffer } from '../../components/desktopHome/earnDesktopHome.utils';
+
+// The deposit page's code and the app's modal navigator it opens in (loaded
+// with the first modal otherwise, about 0.3 s on a page's first open). A
+// failure is left to the open, which loads them again
+function preloadDepositPage() {
+  preloadModalNavigator().catch(() => undefined);
+  preloadManagePosition().catch(() => undefined);
+}
 
 type IWarmTarget = {
   symbol: string;
@@ -126,7 +135,7 @@ export function useWarmDepositForm() {
   const { othersWalletAccountId, indexedAccountId } = useDepositPageAccounts();
   return useCallback(
     (target: IWarmFormTarget) => {
-      preloadManagePosition().catch(() => undefined);
+      preloadDepositPage();
       warmFormData({
         accountId: othersWalletAccountId || '',
         indexedAccountId,
@@ -156,7 +165,7 @@ export function useWarmOffersDeposit() {
       { symbol, networkId, offers }: IWarmTarget,
       { withData = true }: { withData?: boolean } = {},
     ) => {
-      preloadManagePosition().catch(() => undefined);
+      preloadDepositPage();
       keepFirstFrame(
         buildOffersFirstFrameKey({ accountId, networkId, symbol }),
         offers.length ? offers : undefined,
