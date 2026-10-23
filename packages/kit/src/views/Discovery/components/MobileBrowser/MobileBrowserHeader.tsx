@@ -8,6 +8,7 @@ import Animated, {
 
 import {
   IconButton,
+  Page,
   Stack,
   XStack,
   useSafeAreaInsets,
@@ -71,6 +72,11 @@ function MobileBrowserHeader({
 
   return (
     <Stack pt={top} bg="$bgApp">
+      {/* This header replaces the native navigation bar. Keep the native bar
+          hidden for this screen so an iOS 26 glass back button can't be left
+          drawn on top of it (seen when entering a dApp from universal
+          search). The Explore dashboard header does the same (MDHeader). */}
+      <Page.Header headerShown={false} />
       <Animated.View style={[styles.container, containerAnimatedStyle]}>
         <Animated.View
           pointerEvents={isCollapsed ? 'none' : 'box-none'}
