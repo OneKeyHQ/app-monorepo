@@ -150,17 +150,19 @@ it('keeps drawing tool icons at full opacity while another coin restores its dra
   for (const name of [
     'Trend Line',
     'Fib Retracement',
-    'Rectangle',
-    'Brush',
-    'Text',
+    'XABCD Pattern',
     'Price Range',
+    'Rectangle',
+    'Text',
+    'Emojis',
+    'Measure',
   ]) {
     for (const button of screen.getAllByRole('button', { name })) {
       expect(button.hasAttribute('disabled')).toBe(true);
       expect(getComputedStyle(button).opacity).toBe('1');
     }
   }
-  const undo = screen.getByRole('button', { name: 'Undo drawing (Ctrl/⌘ Z)' });
+  const undo = screen.getByRole('button', { name: /Undo drawing/ });
   expect(undo.hasAttribute('disabled')).toBe(true);
   expect(getComputedStyle(undo).opacity).toBe('0.3');
 
