@@ -20,10 +20,11 @@ import { DappInfoPopoverContent } from '../DappInfoPopoverContent';
 import { getDisplayHostname, logBrowserChromeAction } from './browserChrome';
 import { ChromePressable } from './ChromePressable';
 
-// The site badge matches the 16pt domain text. Icon sizes are tokens: a raw
-// number is looked up as a token key, not as pt.
-const RISK_ICON_SIZE = '$4';
-const RISK_ICON_WIDTH = 16;
+// The site badge is the same 20pt icon box as the capsule's menu and reload
+// icons, so the three read as one set beside the 16pt domain. Icon sizes are
+// tokens: a raw number is looked up as a token key, not as pt.
+const RISK_ICON_SIZE = '$5';
+const RISK_ICON_WIDTH = 20;
 
 const styles = StyleSheet.create({
   fill: { flex: 1, alignSelf: 'stretch', overflow: 'hidden' },
