@@ -1625,7 +1625,8 @@ class ServiceNetwork extends ServiceBase {
 
   @backgroundMethod()
   async clearRecentNetworks() {
-    return this.backgroundApi.simpleDb.recentNetworks.clearRecentNetworks();
+    await this.backgroundApi.simpleDb.recentNetworks.clearRecentNetworks();
+    appEventBus.emit(EAppEventBusNames.RecentNetworksCleared, undefined);
   }
 
   @backgroundMethod()

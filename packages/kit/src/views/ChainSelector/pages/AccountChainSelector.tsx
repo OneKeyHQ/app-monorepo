@@ -276,10 +276,12 @@ function AccountChainSelector({
         void backgroundApiProxy.serviceNetwork.updateRecentNetwork({
           networkId: activeNetwork.id,
         });
+        // EditableChainSelector's chips list All Networks (`allNetworkItem`
+        // is in their availableNetworks), so it belongs in this slot.
         prependRecentNetworkToSwrCache({
           swrKey: recentNetworksSwrKey,
           network: activeNetwork,
-          showAllNetwork: true,
+          includeAllNetwork: true,
         });
       }
 

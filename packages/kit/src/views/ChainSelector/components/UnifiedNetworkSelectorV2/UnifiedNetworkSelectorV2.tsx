@@ -469,10 +469,12 @@ function UnifiedNetworkSelectorV2() {
         void backgroundApiProxy.serviceNetwork.updateRecentNetwork({
           networkId: activeNetwork.id,
         });
+        // The chips here never list All Networks (NetworkContentV2 hands
+        // them mainnet/testnet items only), so leaving it writes nothing.
         prependRecentNetworkToSwrCache({
           swrKey: recentNetworksSwrKey,
           network: activeNetwork,
-          showAllNetwork: true,
+          includeAllNetwork: false,
         });
       }
 
@@ -620,19 +622,12 @@ function UnifiedNetworkSelectorV2() {
         appEventBus.emit(EAppEventBusNames.EnabledNetworksChanged, undefined);
       }
 
-      // 4. Switch to All Networks if not already on it
+      // 4. Switch to All Networks if not already on it. Recorded in the DB
+      // only: this selector's recent chips never list All Networks, so the
+      // SWR slot is left as the fetch will return it.
       if (!networkUtils.isAllNetwork({ networkId })) {
         void backgroundApiProxy.serviceNetwork.updateRecentNetwork({
           networkId: getNetworkIdsMap().onekeyall,
-        });
-        // Same object the chips fetch (`getNetwork`) returns, so the first
-        // paint matches it exactly; `allNetworkItem` carries a localized name.
-        prependRecentNetworkToSwrCache({
-          swrKey: recentNetworksSwrKey,
-          network: networks.allNetworks.find(
-            (item) => item.id === getNetworkIdsMap().onekeyall,
-          ),
-          showAllNetwork: true,
         });
 
         void actions.current.updateSelectedAccountNetwork({
@@ -661,10 +656,8 @@ function UnifiedNetworkSelectorV2() {
     networkId,
     networksState.disabledNetworks,
     networksState.enabledNetworks,
-    networks.allNetworks,
     num,
     onNetworksChanged,
-    recentNetworksSwrKey,
     refreshNetworkMeta,
     walletId,
     isSameEnabledNetworks,

@@ -80,7 +80,7 @@ describe('prependRecentNetworkToSwrCache', () => {
     prependRecentNetworkToSwrCache({
       swrKey: key,
       network: network('evm--1', 'Ethereum'),
-      showAllNetwork: true,
+      includeAllNetwork: true,
     });
     expect(swrCacheUtils.get<IServerNetwork[]>(key)?.map((n) => n.id)).toEqual([
       'evm--1',
@@ -97,7 +97,7 @@ describe('prependRecentNetworkToSwrCache', () => {
     prependRecentNetworkToSwrCache({
       swrKey: key,
       network: network('fresh'),
-      showAllNetwork: true,
+      includeAllNetwork: true,
     });
     const ids = swrCacheUtils.get<IServerNetwork[]>(key)?.map((n) => n.id);
     expect(ids).toHaveLength(RECENT_NETWORKS_LIMIT);
@@ -109,17 +109,17 @@ describe('prependRecentNetworkToSwrCache', () => {
     prependRecentNetworkToSwrCache({
       swrKey: key,
       network: network('evm--1'),
-      showAllNetwork: true,
+      includeAllNetwork: true,
     });
     expect(swrCacheUtils.get(key)).toBeUndefined();
   });
 
-  it('skips All Networks when the surface hides it', () => {
+  it('skips All Networks for a surface whose chips never list it', () => {
     swrCacheUtils.set(key, [network('sol')]);
     prependRecentNetworkToSwrCache({
       swrKey: key,
       network: network(getNetworkIdsMap().onekeyall),
-      showAllNetwork: false,
+      includeAllNetwork: false,
     });
     expect(swrCacheUtils.get<IServerNetwork[]>(key)?.map((n) => n.id)).toEqual([
       'sol',
@@ -131,7 +131,7 @@ describe('prependRecentNetworkToSwrCache', () => {
       prependRecentNetworkToSwrCache({
         swrKey: undefined,
         network: network('sol'),
-        showAllNetwork: true,
+        includeAllNetwork: true,
       }),
     ).not.toThrow();
   });

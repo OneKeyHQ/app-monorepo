@@ -28,10 +28,11 @@ export async function isRecentNetworkAvailableForAccount({
   walletId: string;
   accountId?: string;
 }): Promise<boolean> {
-  // Not account-scoped; `prependRecentNetworkToSwrCache` gates it by the
-  // surface's `showAllNetwork` instead.
+  // The home selector (UnifiedNetworkSelectorV2) never lists All Networks in
+  // its chips: NetworkContentV2 hands them mainnet/testnet items only, and the
+  // compatibility lookup below drops `onekeyall` as well.
   if (networkUtils.isAllNetwork({ networkId: network.id })) {
-    return true;
+    return false;
   }
   const { mainnetItems, testnetItems } =
     await backgroundApiProxy.serviceNetwork.getChainSelectorNetworksCompatibleWithAccountId(
@@ -70,16 +71,32 @@ export function useRecentNetworksCacheSync({
       walletId,
       accountId,
     });
+    // Lookups are chained so prepends land in recording order even when an
+    // earlier lookup resolves last; otherwise the warm slot could put an
+    // older network ahead of a newer one and disagree with the fetch.
+    let chain: Promise<void> = Promise.resolve();
+    // Clearing the history makes every lookup still in flight stale: the
+    // fetch is about to write `[]`, and a late prepend would resurrect a
+    // chip the user just removed. The generation captured at event time
+    // tells such a result to drop itself.
+    let generation = 0;
+    const onCleared = () => {
+      generation += 1;
+    };
     const onRecorded = ({ network }: { network: IServerNetwork }) => {
-      void isRecentNetworkAvailableForAccount({ network, walletId, accountId })
+      const recordedGeneration = generation;
+      chain = chain
+        .then(() =>
+          isRecentNetworkAvailableForAccount({ network, walletId, accountId }),
+        )
         .then((available) => {
-          if (!available) {
+          if (!available || recordedGeneration !== generation) {
             return;
           }
           prependRecentNetworkToSwrCache({
             swrKey,
             network,
-            showAllNetwork: true,
+            includeAllNetwork: false,
           });
         })
         .catch(() => {
@@ -87,8 +104,10 @@ export function useRecentNetworksCacheSync({
         });
     };
     appEventBus.on(EAppEventBusNames.RecentNetworkRecorded, onRecorded);
+    appEventBus.on(EAppEventBusNames.RecentNetworksCleared, onCleared);
     return () => {
       appEventBus.off(EAppEventBusNames.RecentNetworkRecorded, onRecorded);
+      appEventBus.off(EAppEventBusNames.RecentNetworksCleared, onCleared);
     };
   }, [accountId, enabled, walletId]);
 }

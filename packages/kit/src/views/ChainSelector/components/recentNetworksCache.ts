@@ -39,19 +39,29 @@ export function buildRecentNetworksSwrKey({
 // before this press, so without this the next open would paint the previous
 // list and then grow by one chip when the fetch returned. A cold slot is left
 // alone: the fetch fills it and there is nothing to keep stable yet.
+//
+// `includeAllNetwork` says whether the surface's chips can list All Networks,
+// i.e. whether its `availableNetworks` carry `allNetworkItem`. The V1 editable
+// selector does; UnifiedNetworkSelectorV2 does not (NetworkContentV2 hands the
+// chips mainnet/testnet items only), so writing All Networks into its slot
+// would paint a chip the fetch then removes — the jump this cache exists to
+// prevent.
 export function prependRecentNetworkToSwrCache({
   swrKey,
   network,
-  showAllNetwork,
+  includeAllNetwork,
 }: {
   swrKey: string | undefined;
   network: IServerNetwork | undefined;
-  showAllNetwork: boolean;
+  includeAllNetwork: boolean;
 }) {
   if (!swrKey || !network) {
     return;
   }
-  if (!showAllNetwork && networkUtils.isAllNetwork({ networkId: network.id })) {
+  if (
+    !includeAllNetwork &&
+    networkUtils.isAllNetwork({ networkId: network.id })
+  ) {
     return;
   }
   const cached = swrCacheUtils.get<IServerNetwork[]>(swrKey);
