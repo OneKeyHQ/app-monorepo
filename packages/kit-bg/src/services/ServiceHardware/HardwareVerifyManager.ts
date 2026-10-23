@@ -162,10 +162,12 @@ export class HardwareVerifyManager extends ServiceHardwareManagerBase {
       uuid: serialNo,
     });
     return this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
-      async () => {
+      async (oneKeyOperationLease) => {
         const payload = await this.getFirmwareVerificationPayload({
           connectId,
           deviceType: device.deviceType,
+          oneKeyOperationLease,
+          unlockBeforeVerify: true,
         });
         const response = await this.requestFirmwareVerification(payload);
         const result = response.data;
