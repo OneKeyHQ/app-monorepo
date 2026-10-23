@@ -21,6 +21,8 @@ type ISwapLatestBalanceCheckParams = {
   amount: string;
   accountId?: string;
   accountAddress?: string;
+  /** Preserve request errors for flows that require a fresh balance. */
+  throwOnError?: boolean;
 };
 
 export type ISwapLatestBalanceCheckResult =
@@ -443,6 +445,7 @@ export async function checkSwapLatestBalanceSufficient({
   amount,
   accountId,
   accountAddress,
+  throwOnError = false,
 }: ISwapLatestBalanceCheckParams): Promise<ISwapLatestBalanceCheckResult> {
   const amountBN = new BigNumber(amount || 0);
   if (
@@ -465,6 +468,7 @@ export async function checkSwapLatestBalanceSufficient({
         accountAddress,
         accountId,
         currency: 'usd',
+        ...(throwOnError ? { throwOnError } : {}),
       });
     const balanceBN = new BigNumber(
       tokenBalanceInfo?.[0]?.balanceParsed ?? NaN,
@@ -473,6 +477,7 @@ export async function checkSwapLatestBalanceSufficient({
       balance = balanceBN.toFixed();
     }
   } catch (error) {
+    if (throwOnError) throw error;
     console.error('checkSwapLatestBalanceSufficient error', error);
   }
 

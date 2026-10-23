@@ -6,6 +6,7 @@ import type {
   IDustSweepReason,
   IDustSweepSnapshot,
 } from '@onekeyhq/shared/types/swap/dustSweep';
+import type { ISwapErrorMessage } from '@onekeyhq/shared/types/swap/types';
 
 export type IDustSweepState = {
   phase:
@@ -48,7 +49,8 @@ type IDustSweepAction =
       type: 'submissionError';
       sessionId: string;
       key: string;
-      message: string;
+      message?: string;
+      localError?: ISwapErrorMessage;
     }
   | {
       type: 'item';
@@ -63,6 +65,7 @@ type IDustSweepAction =
       message?: string;
       submissionErrorMessage?: string;
       providerErrorMessage?: string;
+      localError?: ISwapErrorMessage;
     };
 
 export function isDustSweepItemTerminal(item: IDustSweepItem) {
@@ -136,7 +139,11 @@ export function dustSweepReducer(
         ...state,
         items: state.items.map((item) =>
           item.token.key === action.key && !isDustSweepItemTerminal(item)
-            ? { ...item, submissionErrorMessage: action.message }
+            ? {
+                ...item,
+                submissionErrorMessage: action.message,
+                localError: action.localError,
+              }
             : item,
         ),
       };
@@ -170,6 +177,7 @@ export function dustSweepReducer(
               message: action.message,
               submissionErrorMessage: action.submissionErrorMessage,
               providerErrorMessage: action.providerErrorMessage,
+              localError: action.localError,
             }
           : item,
       );

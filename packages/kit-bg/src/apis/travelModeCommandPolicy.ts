@@ -133,6 +133,7 @@ const TRAVEL_MODE_ALLOWED_METHODS: Readonly<
     'fetchSwapConfigs',
     'fetchSwapNativeTokenConfig',
     'fetchSwapNetworks',
+    'fetchSwapProviderSupportNetworks',
     'fetchSpeedSwapConfig',
     'fetchSwapTokenDetails',
     'fetchSwapTokens',
