@@ -62,6 +62,15 @@ function TabCountButton({ testID, onPressed }: ITabCountButtonProps) {
   const inGlass = useInGlassHeader();
   const color = inGlass ? '$text' : '$iconSubdued';
   const handleShowTabList = useShowMobileTabList();
+  // Optical centering: iOS also applies letter spacing after the last digit,
+  // which pushes the digits right by half of it, and a leading "1" carries
+  // extra space on its left, so nudge those cases back to the box center.
+  let digitsOffsetX = 0;
+  if (tabCount > 9) {
+    digitsOffsetX = String(tabCount).startsWith('1') ? -1 : -0.4;
+  } else if (tabCount === 1) {
+    digitsOffsetX = -0.5;
+  }
 
   if (displayHomePage && tabCount === 0) {
     return null;
@@ -75,7 +84,9 @@ function TabCountButton({ testID, onPressed }: ITabCountButtonProps) {
       }}
     >
       <Stack
-        p={inGlass ? '$2' : '$1.5'}
+        // IconButton's medium padding, so the slot is as wide as the back
+        // button's and both glass capsules stay perfect circles.
+        p="$1.5"
         m={inGlass ? undefined : -7}
         borderRadius="$full"
         testID={testID}
@@ -105,6 +116,7 @@ function TabCountButton({ testID, onPressed }: ITabCountButtonProps) {
               // separate characters.
               letterSpacing={tabCount > 9 ? -0.8 : 0}
               color={color}
+              style={{ transform: [{ translateX: digitsOffsetX }] }}
             >
               {tabCount}
             </SizableText>
