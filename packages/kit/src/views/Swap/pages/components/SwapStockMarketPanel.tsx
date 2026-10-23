@@ -181,6 +181,7 @@ function StockPrice({
           <MarketTooltipLabel
             testID="swap-stock-price-tooltip-trigger"
             hovering
+            placement="bottom"
             alignSelf="baseline"
             tooltip={intl.formatMessage({
               id:
@@ -490,6 +491,7 @@ export function SwapStockMarketPanel() {
       <YStack gap="$4">
         <SwapStockTickerSelector />
         <XStack
+          mt="$4"
           alignItems="flex-start"
           justifyContent="space-between"
           gap="$2"
