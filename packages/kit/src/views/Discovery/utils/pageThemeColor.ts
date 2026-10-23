@@ -89,9 +89,11 @@ export function tryDispatchPageThemeMessage(tabId: string, data: string) {
   }
 }
 
-// Reports the page color: its theme-color meta (honouring media queries),
-// otherwise the background behind the top of the viewport. Re-reads after a
-// short delay (late SPA paint) and when the system color scheme changes.
+// Reports the page color the way Safari 26 tints its chrome: the background
+// behind the top of the viewport (a fixed header, else body/html). Safari 26
+// no longer uses <meta name="theme-color">; it is only a last fallback here.
+// Re-reads after a short delay (late SPA paint) and when the system color
+// scheme changes.
 export const PAGE_THEME_COLOR_SCRIPT = `(function () {
   try {
     if (window.__onekeyReadPageTheme) {
@@ -119,20 +121,19 @@ export const PAGE_THEME_COLOR_SCRIPT = `(function () {
       return '';
     };
     var read = function () {
-      var color = '';
-      var metas = document.querySelectorAll('meta[name="theme-color"]');
-      for (var i = 0; i < metas.length; i++) {
-        var media = metas[i].getAttribute('media');
-        if (!media || window.matchMedia(media).matches) {
-          color = toRgb(metas[i].getAttribute('content'));
-          break;
-        }
-      }
+      var color =
+        backgroundOf(document.elementFromPoint(window.innerWidth / 2, 2)) ||
+        backgroundOf(document.body) ||
+        backgroundOf(document.documentElement);
       if (!color) {
-        color =
-          backgroundOf(document.elementFromPoint(window.innerWidth / 2, 2)) ||
-          backgroundOf(document.body) ||
-          backgroundOf(document.documentElement);
+        var metas = document.querySelectorAll('meta[name="theme-color"]');
+        for (var i = 0; i < metas.length; i++) {
+          var media = metas[i].getAttribute('media');
+          if (!media || window.matchMedia(media).matches) {
+            color = toRgb(metas[i].getAttribute('content'));
+            break;
+          }
+        }
       }
       window.ReactNativeWebView &&
         window.ReactNativeWebView.postMessage(
