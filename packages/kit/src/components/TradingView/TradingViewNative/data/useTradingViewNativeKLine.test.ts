@@ -1252,6 +1252,37 @@ describe('TradingViewNative K-line data state machine', () => {
     );
   });
 
+  it('limits drawing history to the displayed chart interval and refreshes the loader on interval changes', async () => {
+    mockReadTradingViewNativeActiveInterval.mockReturnValue('1');
+    mockFetchHistory.mockResolvedValue(buildResponse(100, 100_000));
+    const { result } = renderHook(() =>
+      useTradingViewNativeKLine({ source: buildMarketSource() }),
+    );
+    await waitFor(() => expect(result.current.points).toHaveLength(1));
+    const minuteLoader = result.current.loadDrawingHistory;
+    const requestsBefore = mockFetchHistory.mock.calls.length;
+    await expect(
+      minuteLoader(0, 6000 * 60, new AbortController().signal),
+    ).resolves.toBeNull();
+    expect(mockFetchHistory).toHaveBeenCalledTimes(requestsBefore);
+
+    act(() => result.current.handleIntervalChange('60'));
+    await waitFor(() =>
+      expect(result.current.loadDrawingHistory).not.toBe(minuteLoader),
+    );
+    const data = await result.current.loadDrawingHistory(
+      0,
+      6000 * 60,
+      new AbortController().signal,
+    );
+    expect(data?.interval).toBe(300);
+    expect(mockFetchHistory).toHaveBeenCalledWith(
+      expect.objectContaining({
+        interval: expect.objectContaining({ value: '5' }),
+      }),
+    );
+  });
+
   it('restores a new source namespace before effects can persist the old interval', async () => {
     mockReadTradingViewNativeActiveInterval.mockImplementation((namespace) =>
       namespace === 'native' ? '240' : '15',
