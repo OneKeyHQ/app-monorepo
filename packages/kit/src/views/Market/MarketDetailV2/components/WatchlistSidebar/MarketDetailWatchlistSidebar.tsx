@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useMemo, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIsFocused } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
@@ -11,6 +11,7 @@ import {
   Select,
   SizableText,
   Stack,
+  View,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -19,6 +20,8 @@ import type {
   IDragEndParamsWithItem,
   IRenderItemParams,
 } from '@onekeyhq/components/src/layouts/SortableListView/types';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { useRouteIsFocusedWhenEnabled } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import {
   useMarketWatchListV2Atom,
   useWatchListV2Actions,
@@ -30,7 +33,13 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { EModalRoutes } from '@onekeyhq/shared/src/routes';
+import { EUniversalSearchPages } from '@onekeyhq/shared/src/routes/universalSearch';
 import type { IMarketWatchListItemV2 } from '@onekeyhq/shared/types/market';
+import {
+  EUniversalSearchSource,
+  EUniversalSearchType,
+} from '@onekeyhq/shared/types/search';
 
 import {
   MARKET_HOME_WS_MAX_SUBSCRIPTIONS,
@@ -49,10 +58,7 @@ import {
 } from '../TokenSelector/constants';
 import { SelectorWatchlistRecommendations } from '../TokenSelector/SelectorWatchlistRecommendations';
 
-import {
-  filterWatchlistTokens,
-  getWatchlistSidebarPriceChange,
-} from './filterWatchlistTokens';
+import { getWatchlistSidebarPriceChange } from './filterWatchlistTokens';
 import {
   WATCHLIST_SIDEBAR_ROW_HEIGHT,
   WatchlistSidebarRow,
@@ -229,7 +235,6 @@ function MarketDetailWatchlistSidebarImpl({
     'detailWatchlistSidebarFilter',
     'all',
   );
-  const [searchValue, setSearchValue] = useState('');
   const [sort, setSort] = useState<ISidebarSort | undefined>();
   const { stockId, assetId } = useMarketDetailWatchlistIdentity();
   const { networkId, tokenAddress } = useTokenDetail();
@@ -254,6 +259,24 @@ function MarketDetailWatchlistSidebarImpl({
     pageSize: Math.max(watchListData?.length ?? 0, 1),
     pollingInterval: TOKEN_SELECTOR_POLLING_INTERVAL,
   });
+  // A star in the search modal changes favorites while this page sits under
+  // the modal. The list skips fetching while its page is unfocused, and every
+  // favorites rewrite then cancels any request still in flight, so a one-off
+  // refresh on the change event is discarded too. Refetch past the focus gate
+  // after each favorites change instead: this effect runs after the list's own
+  // dependency effect, so its request is the one that lands. A focused page
+  // already fetches again on its own.
+  const isRouteFocused = useRouteIsFocusedWhenEnabled({ enabled: true });
+  const isRouteFocusedRef = useRef(isRouteFocused);
+  isRouteFocusedRef.current = isRouteFocused;
+  const refetchAllRef = useRef(refetchAll);
+  refetchAllRef.current = refetchAll;
+  useEffect(() => {
+    if (!isMounted || isRouteFocusedRef.current) {
+      return;
+    }
+    void refetchAllRef.current({ alwaysSetState: true });
+  }, [isMounted, watchListData]);
   // Live ticks on top of the poll, as the Market Favorites tab gets them: the
   // same subscription hook, only while this detail page is the focused one,
   // and under the same cap. The watchlist has no size limit, so only the first
@@ -274,8 +297,8 @@ function MarketDetailWatchlistSidebarImpl({
   });
   const groups = useWatchlistFilteredGroups(liveData);
   const listData = useMemo(
-    () => sortTokens(filterWatchlistTokens(groups[filter], searchValue), sort),
-    [groups, filter, searchValue, sort],
+    () => sortTokens(groups[filter], sort),
+    [groups, filter, sort],
   );
 
   const filterItems = useMemo(
@@ -294,6 +317,25 @@ function MarketDetailWatchlistSidebarImpl({
     () => setSort((prev) => nextSort(prev, 'change')),
     [],
   );
+
+  // The search field finds any market asset, not only favorites: it opens the
+  // universal search narrowed to stocks, tokens and perps, where a result's
+  // star adds or removes a favorite and this list follows through
+  // `MarketWatchListV2Changed`.
+  const navigation = useAppNavigation();
+  const openMarketSearch = useCallback(() => {
+    navigation.pushModal(EModalRoutes.UniversalSearchModal, {
+      screen: EUniversalSearchPages.UniversalSearch,
+      params: {
+        source: EUniversalSearchSource.Market,
+        filterTypes: [
+          EUniversalSearchType.MarketStock,
+          EUniversalSearchType.V2MarketToken,
+          EUniversalSearchType.Perp,
+        ],
+      },
+    });
+  }, [navigation]);
 
   const { navigateToPerps } = usePerpsNavigation();
   const toMarketDetailPage = useToDetailPage({
@@ -319,10 +361,9 @@ function MarketDetailWatchlistSidebarImpl({
 
   // Same reorder as the Market Favorites tab, so both lists stay in step: the
   // dragged row takes a sortIndex between its visible neighbors, which leaves
-  // the order inside every other category untouched. A column sort or a
-  // search shows rows out of their stored order, so dragging waits for both
-  // to clear.
-  const isDraggable = !sort && !searchValue.trim();
+  // the order inside every other category untouched. A column sort shows rows
+  // out of their stored order, so dragging waits for it to clear.
+  const isDraggable = !sort;
   const handleDragEnd = useCallback(
     ({
       dragItem,
@@ -361,9 +402,7 @@ function MarketDetailWatchlistSidebarImpl({
   // favorites that are stored but came back with no rows read as a failed
   // load rather than an empty watchlist.
   const storedCount = watchListData?.length ?? 0;
-  // A search with nothing stored reads as no results, not as recommendations.
-  const isWatchlistEmpty =
-    isMounted && storedCount === 0 && !searchValue.trim();
+  const isWatchlistEmpty = isMounted && storedCount === 0;
   const showSkeleton = !isMounted || (isLoading && data.length === 0);
   const isLoadFailed = data.length === 0 && (isError || storedCount > 0);
 
@@ -535,16 +574,26 @@ function MarketDetailWatchlistSidebarImpl({
           onPress={onClose}
         />
       </XStack>
-      <XStack px="$5" pt="$4" pb="$2">
+      <XStack px="$5" pt="$4" pb="$2" position="relative">
         <SearchBar
           testID="market-detail-watchlist-sidebar-search"
           size="small"
           containerProps={{ flex: 1 }}
           placeholder={intl.formatMessage({
-            id: ETranslations.global_search,
+            id: ETranslations.market_search_token_stock_address,
           })}
-          value={searchValue}
-          onChangeText={setSearchValue}
+        />
+        {/* The field only opens the search modal, like the Market home header
+            search, so a press anywhere on it lands on the overlay. */}
+        <View
+          testID="market-detail-watchlist-sidebar-search-trigger"
+          position="absolute"
+          top={0}
+          left={0}
+          right={0}
+          bottom={0}
+          cursor="default"
+          onPress={openMarketSearch}
         />
       </XStack>
       <YStack flex={1} minHeight={0}>
