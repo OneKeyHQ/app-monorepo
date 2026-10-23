@@ -160,8 +160,12 @@ function useMobileBrowserChromeAnimation() {
     () => ({ height: fullBarHeight }),
     [fullBarHeight],
   );
+  // The WebView ends above the bar, and above the collapsed pill's strip
+  // once collapsed, so the chrome never covers page content.
   const animatedWebPageStyle = useAnimatedStyle(() => ({
-    bottom: fullBarHeight * chromeProgress.value,
+    bottom:
+      collapsedBarHeight +
+      (fullBarHeight - collapsedBarHeight) * chromeProgress.value,
   }));
   // On iOS the bar floats over the page (Liquid Glass shows the content
   // through it), so the WebView layer keeps its full height; scrollable

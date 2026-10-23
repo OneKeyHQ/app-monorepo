@@ -10,6 +10,7 @@ import Animated, {
 
 import {
   IconButton,
+  LinearGradient,
   SizableText,
   Stack,
   Theme,
@@ -29,6 +30,8 @@ import { usePageTheme } from '../../utils/pageThemeColor';
 import { AddressCapsuleTitle } from './AddressCapsuleTitle';
 import {
   getBarCapsuleBottom,
+  getBarReservedHeight,
+  getCollapsedReservedHeight,
   getCollapsedPillBottom,
   getDisplayHostname,
   logBrowserChromeAction,
@@ -55,6 +58,12 @@ const styles = StyleSheet.create({
     height: BROWSER_CHROME_CAPSULE_HEIGHT,
   },
   capsule: { flex: 1 },
+  strip: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+  },
   pillRow: {
     position: 'absolute',
     left: 0,
@@ -64,6 +73,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
 });
+
+const STRIP_FADE_HEIGHT = 16;
+
+// `rgb(r, g, b)` (the page color format) at zero alpha, for the fade.
+function toTransparent(rgb: string) {
+  return rgb.replace(/^rgb\((.*)\)$/, 'rgba($1, 0)');
+}
 
 // Fade ranges of the bar/pill morph (progress: 1 = expanded, 0 = collapsed).
 const SIDE_FADE_START = 0.4;
@@ -277,6 +293,18 @@ function MobileBrowserBottomBar({
   const appThemeName = useThemeName();
   const isFloatingBrowserChrome = useIsFloatingBrowserChrome();
   const isChromeCollapsed = useIsChromeCollapsed(progress);
+  // Matches the WebView's bottom edge (see useMobileBrowserChromeAnimation).
+  const stripFullHeight = getBarReservedHeight(bottom);
+  const stripCollapsedHeight = getCollapsedReservedHeight(bottom);
+  const stripStyle = useAnimatedStyle(() => ({
+    height:
+      stripCollapsedHeight +
+      (stripFullHeight - stripCollapsedHeight) * progress.value,
+  }));
+  const pageColorStyle = useMemo(
+    () => (pageColor ? { backgroundColor: pageColor } : undefined),
+    [pageColor],
+  );
   // Liquid Glass stops rendering for good once an ancestor's opacity reaches
   // 0, so each layer switches its glass off just before its fade does (see
   // useBarMorphStyles) and back on as it starts to fade in.
@@ -330,18 +358,28 @@ function MobileBrowserBottomBar({
     // Fills the container: a fixed full-height box on phones, an animated
     // in-flow height on tablets.
     <Theme name={pageThemeName ?? appThemeName}>
-      <Stack
-        h="100%"
-        zIndex={1}
-        pointerEvents="box-none"
-        // When the WebView resizes instead of running under the bar (Android,
-        // iOS < 26), the strip behind the bar takes the page color too.
-        style={
-          !isFloatingBrowserChrome && pageColor
-            ? { backgroundColor: pageColor }
-            : undefined
-        }
-      >
+      <Stack h="100%" zIndex={1} pointerEvents="box-none">
+        {isFloatingBrowserChrome ? null : (
+          <Animated.View
+            pointerEvents="none"
+            style={[styles.strip, stripStyle]}
+          >
+            {/* The WebView ends above the bar: the strip behind the bar takes
+              the page color, with a short fade above it so the page runs
+              into the bar instead of stopping at a hard edge. */}
+            {pageColor ? (
+              <LinearGradient
+                position="absolute"
+                left={0}
+                right={0}
+                top={-STRIP_FADE_HEIGHT}
+                height={STRIP_FADE_HEIGHT}
+                colors={[toTransparent(pageColor), pageColor]}
+              />
+            ) : null}
+            <Stack flex={1} bg="$bgApp" style={pageColorStyle} />
+          </Animated.View>
+        )}
         <Animated.View
           pointerEvents={isChromeCollapsed ? 'none' : 'box-none'}
           style={[styles.bar, { bottom: capsuleBottom }]}

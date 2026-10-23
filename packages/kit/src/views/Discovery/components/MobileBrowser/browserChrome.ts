@@ -1,12 +1,9 @@
-import { useState, useSyncExternalStore } from 'react';
+import { useState } from 'react';
 
-import semver from 'semver';
 import { runOnJS, useAnimatedReaction } from 'react-native-reanimated';
 
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { IBrowserToolbarAction } from '@onekeyhq/shared/src/logger/scopes/discovery/scenes/browser';
-import { BundleUpdate } from '@onekeyhq/shared/src/modules3rdParty/auto-update';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 
 import {
@@ -19,57 +16,14 @@ import type { SharedValue } from 'react-native-reanimated';
 
 const BAR_TOP_GAP = 8;
 
-// Safari-style chrome on both platforms: the address lives in the bottom bar
-// and a compact address pill stays visible while collapsed. Only iOS 26+ lets
-// the bar float over the page: the WebView's contentInset keeps scrollable
-// content reachable above it, and obscuredContentInsets (patched into
-// react-native-webview) keeps the page's fixed elements, like bottom sheets,
-// above it as in Safari. Older iOS and Android resize the WebView instead.
-//
-// The obscuredContentInsets patch is native, so a JS bundle updated over the
-// air can run on an older native build without it; floating there would hide
-// fixed page content again. Float only once the native app is known to carry
-// it, and resize the WebView (the safe layout) until then.
-const FLOATING_CHROME_MIN_NATIVE_VERSION = '6.7.0';
-
-// Local builds carry the patch from patches/ whatever their version.
-let floatingChromeSupported =
-  !!platformEnv.isNativeIOS26Plus && !!platformEnv.isDev;
-let floatingChromeChecked =
-  !platformEnv.isNativeIOS26Plus || !!platformEnv.isDev;
-const floatingChromeListeners = new Set<() => void>();
-
-// Read the native version lazily, the first time the browser chrome mounts,
-// rather than as a side effect of importing this module at startup.
-function checkFloatingChromeSupport() {
-  if (floatingChromeChecked) {
-    return;
-  }
-  floatingChromeChecked = true;
-  void BundleUpdate.getNativeAppVersion()
-    .then((nativeVersion) => {
-      const version = semver.coerce(nativeVersion);
-      floatingChromeSupported =
-        !!version && semver.gte(version, FLOATING_CHROME_MIN_NATIVE_VERSION);
-      floatingChromeListeners.forEach((listener) => listener());
-    })
-    .catch(() => undefined);
-}
-
-function subscribeFloatingChrome(listener: () => void) {
-  floatingChromeListeners.add(listener);
-  checkFloatingChromeSupport();
-  return () => {
-    floatingChromeListeners.delete(listener);
-  };
-}
-
+// Whether the bar floats over the page (the WebView running underneath it).
+// Off everywhere: WKWebView's public obscuredContentInsets (iOS 26) keeps
+// scrollable content reachable but doesn't move the page's fixed elements
+// (bottom sheets, cookie banners, bottom navs) above the bar, so they'd be
+// covered. The WebView ends above the bar instead, which is tinted with the
+// page color so the two still read as one surface.
 export function useIsFloatingBrowserChrome() {
-  return useSyncExternalStore(
-    subscribeFloatingChrome,
-    () => floatingChromeSupported,
-    () => floatingChromeSupported,
-  );
+  return false;
 }
 
 // Scroll-driven chrome state shared by the header and the bottom bar.
