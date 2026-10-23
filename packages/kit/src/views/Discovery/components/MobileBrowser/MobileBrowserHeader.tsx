@@ -141,13 +141,14 @@ function MobileBrowserHeader({
   // header subtree isn't remounted when the page color arrives.
   const appThemeName = useThemeName();
   usePageStatusBarStyle(pageThemeName);
-  // A translucent fill over the page color, so the chip takes on the page's
-  // hue instead of a fixed gray that clashes with colored pages.
-  let accountChipBg = '$bgSubdued';
-  if (pageThemeName) {
-    accountChipBg =
-      pageThemeName === 'dark' ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.07)';
-  }
+  // A translucent fill over the header color (the page's, or the app
+  // background when the page reports none), so the chip takes on the page's
+  // hue instead of a fixed gray that clashes with colored pages. Light
+  // backgrounds need a stronger fill than dark ones to read as clearly.
+  const accountChipBg =
+    (pageThemeName ?? appThemeName) === 'dark'
+      ? 'rgba(255,255,255,0.07)'
+      : 'rgba(0,0,0,0.09)';
   const containerAnimatedStyle = useAnimatedStyle(() => ({
     height: interpolate(
       progress.value,
