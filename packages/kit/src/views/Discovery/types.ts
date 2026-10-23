@@ -119,6 +119,8 @@ export interface IMobileBottomOptionsProps {
   onGoForward: () => void;
   isTranslated: boolean;
   onTranslatePress: () => void;
+  // Present only when the site is connected and supports several networks.
+  onSwitchNetwork?: () => void;
   onRequestSiteMode: (siteMode: ESiteMode) => void;
 }
 

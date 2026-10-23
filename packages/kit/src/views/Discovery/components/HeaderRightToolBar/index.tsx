@@ -80,7 +80,8 @@ export function SingleAccountAndNetworkSelectorTrigger({
   num: number;
   account: IConnectionAccountInfoWithNum;
   afterChangeAccount: () => void;
-  // Mobile browser header chip: network badge plus account name and chevron.
+  // Mobile browser header chip: the account with its network as a badge (the
+  // network switch lives in the bottom bar menu).
   compact?: boolean;
 }) {
   const { handleAccountInfoChanged } = useShouldUpdateConnectedAccount();
@@ -102,15 +103,7 @@ export function SingleAccountAndNetworkSelectorTrigger({
     handleAccountChanged,
   });
   if (compact) {
-    return (
-      <XStack gap="$2" alignItems="center">
-        <NetworkSelectorTriggerBrowserSingle
-          num={num}
-          recordNetworkHistoryEnabled
-        />
-        <CompactConnectedAccountTrigger num={num} />
-      </XStack>
-    );
+    return <CompactConnectedAccountTrigger num={num} />;
   }
   return (
     <XStack gap="$6" alignItems="center" $platform-native={{ gap: '$2' }}>
@@ -124,12 +117,14 @@ export function SingleAccountAndNetworkSelectorTrigger({
 }
 
 // The connected account in the mobile browser header chip: avatar, name and
-// chevron, like the not-connected chip, so both states read the same. Opens
-// the dApp account selector (same options as AccountSelectorTriggerBrowserSingle).
+// chevron, the same shape as the not-connected chip. The network badge on the
+// avatar is what marks the site as connected (a connection is always on a
+// chain; the not-connected chip has no badge). Opens the dApp account
+// selector (same options as AccountSelectorTriggerBrowserSingle).
 function CompactConnectedAccountTrigger({ num }: { num: number }) {
   const intl = useIntl();
   const {
-    activeAccount: { account, indexedAccount },
+    activeAccount: { account, indexedAccount, network },
     showAccountSelector,
   } = useAccountSelectorTrigger({
     num,
@@ -143,6 +138,7 @@ function CompactConnectedAccountTrigger({ num }: { num: number }) {
     <XStack
       role="button"
       gap="$1.5"
+      pl="$0.5"
       pr="$1"
       alignItems="center"
       onPress={() => {
@@ -155,6 +151,7 @@ function CompactConnectedAccountTrigger({ num }: { num: number }) {
         size="small"
         account={account}
         indexedAccount={indexedAccount}
+        networkId={network?.id}
       />
       <SizableText size="$bodyMdMedium" numberOfLines={1} maxWidth={120}>
         {accountName}
@@ -290,6 +287,8 @@ function AvatarStackTrigger({
         testID="multi-avatar"
         alignItems="center"
         gap={compact ? '$0.5' : undefined}
+        pl={compact ? '$0.5' : undefined}
+        pr={compact ? '$1' : undefined}
       >
         {accounts?.slice(0, 2).map((account, index) => (
           <Stack
@@ -408,7 +407,7 @@ function AccountSelectorPopoverContent({
 interface IHeaderRightToolBarProps {
   // Mobile browser header chip: when the site has no connected account,
   // still show the active wallet account (from the surrounding home-scene
-  // account selector), and mark a connected site with a status dot.
+  // account selector); connected accounts carry their network as a badge.
   variant?: 'mobileBrowser';
 }
 
@@ -581,15 +580,6 @@ function HeaderRightToolBar({ variant }: IHeaderRightToolBarProps) {
     isMobileBrowser,
   ]);
 
-  if (isMobileBrowser && connectedAccountsInfo?.length && origin) {
-    return (
-      <XStack alignItems="center" gap="$1.5" pl="$2">
-        {/* This site is connected. */}
-        <Stack w="$2" h="$2" borderRadius="$full" bg="$iconSuccess" />
-        {content}
-      </XStack>
-    );
-  }
   return <>{content}</>;
 }
 

@@ -43,21 +43,20 @@ export function useMobileBrowserBottomBarData({ id }: { id: string }) {
   const { tab } = useWebTabDataById(id);
 
   const origin = tab?.url ? new URL(tab.url).origin : null;
-  const { result: hasConnectedAccount, run: refreshConnectState } =
+  const { result: connectedAccounts, run: refreshConnectState } =
     usePromiseResult(async () => {
       try {
         if (!origin) {
-          return false;
+          return null;
         }
-        const connectedAccount =
-          await backgroundApiProxy.serviceDApp.findInjectedAccountByOrigin(
-            origin,
-          );
-        return (connectedAccount ?? []).length > 0;
+        return await backgroundApiProxy.serviceDApp.findInjectedAccountByOrigin(
+          origin,
+        );
       } catch {
-        return false;
+        return null;
       }
     }, [origin]);
+  const hasConnectedAccount = (connectedAccounts?.length ?? 0) > 0;
 
   const { displayHomePage } = useDisplayHomePageFlag();
   const { setPinnedTab, closeWebTab, setSiteMode, setDisplayHomePage } =
@@ -189,6 +188,8 @@ export function useMobileBrowserBottomBarData({ id }: { id: string }) {
   return {
     bottom,
     tab,
+    origin,
+    connectedAccounts,
     hasConnectedAccount,
     displayHomePage,
     handleBookmarkPress,

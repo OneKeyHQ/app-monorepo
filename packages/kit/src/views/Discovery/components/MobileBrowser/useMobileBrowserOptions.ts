@@ -51,6 +51,7 @@ function buildOptionsSections(
     onGoForward,
     isTranslated,
     onTranslatePress,
+    onSwitchNetwork,
   }: IMobileBottomOptionsProps,
 ) {
   return [
@@ -153,6 +154,19 @@ function buildOptionsSections(
           onPress: () => onPinnedPress(!isPinned),
           testID: DiscoveryTestIDs.tabActionPin(!!isPinned),
         },
+        onSwitchNetwork && {
+          label: intl.formatMessage({
+            id: ETranslations.global_select_network,
+          }),
+          icon: 'GlobusOutline',
+          // The network selector opens as a modal once this menu is gone.
+          onPress: async (close: () => void) => {
+            close();
+            await timerUtils.wait(ACTION_LIST_CLOSE_ANIMATION_DELAY_MS);
+            onSwitchNetwork();
+          },
+          testID: 'action-list-item-switch-network',
+        },
         displayDisconnectOption && {
           label: intl.formatMessage({
             id: ETranslations.explore_disconnect,
@@ -201,6 +215,9 @@ export function useMobileBrowserOptions(props: IMobileBottomOptionsProps) {
         onCopyUrl: withMenuLog('copyUrl', current.onCopyUrl),
         onBrowserOpen: withMenuLog('openInBrowser', current.onBrowserOpen),
         onRequestSiteMode: withMenuLog('siteMode', current.onRequestSiteMode),
+        onSwitchNetwork: current.onSwitchNetwork
+          ? withMenuLog('switchNetwork', current.onSwitchNetwork)
+          : undefined,
       }),
     });
   }, [intl]);

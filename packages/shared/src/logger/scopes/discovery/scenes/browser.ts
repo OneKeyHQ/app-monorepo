@@ -19,7 +19,8 @@ export type IBrowserToolbarAction =
   | 'share'
   | 'copyUrl'
   | 'openInBrowser'
-  | 'siteMode';
+  | 'siteMode'
+  | 'switchNetwork';
 
 export class BrowserScene extends BaseScene {
   @LogToLocal({ level: 'info' })

@@ -37,6 +37,7 @@ import {
 } from './browserChrome';
 import { BrowserChromeCapsule } from './BrowserChromeCapsule';
 import { ChromePressable } from './ChromePressable';
+import { ConnectedNetworkSwitch } from './ConnectedNetworkSwitch';
 import RefreshButton from './RefreshButton';
 import TabCountButton from './TabCountButton';
 import { useMobileBrowserBottomBarData } from './useMobileBrowserBottomBarData';
@@ -229,6 +230,8 @@ function MobileBrowserBottomBar({ id, chrome }: IMobileBrowserBottomBarProps) {
   const {
     bottom,
     tab,
+    origin,
+    connectedAccounts,
     hasConnectedAccount,
     displayHomePage,
     handleBookmarkPress,
@@ -295,6 +298,17 @@ function MobileBrowserBottomBar({ id, chrome }: IMobileBrowserBottomBarProps) {
   );
 
   const [translateOpen, setTranslateOpen] = useState(false);
+  // The network switch for a single connected account (multi-account
+  // connections switch per account from the header popover).
+  const singleConnectedAccount =
+    connectedAccounts?.length === 1 ? connectedAccounts[0] : undefined;
+  const [switchNetwork, setSwitchNetwork] = useState<{
+    handler: (() => void) | undefined;
+  }>({ handler: undefined });
+  const handleSwitchNetworkChange = useCallback(
+    (handler: (() => void) | undefined) => setSwitchNetwork({ handler }),
+    [],
+  );
   const showOptions = useMobileBrowserOptions({
     isBookmark: tab?.isBookmark ?? false,
     onBookmarkPress: handleBookmarkPress,
@@ -313,6 +327,7 @@ function MobileBrowserBottomBar({ id, chrome }: IMobileBrowserBottomBarProps) {
     isTranslated,
     // The options hook reads its props through a ref, so inline is fine.
     onTranslatePress: () => setTranslateOpen(true),
+    onSwitchNetwork: singleConnectedAccount ? switchNetwork.handler : undefined,
   });
 
   const currentUrl = tab?.displayUrl ?? tab?.url;
@@ -326,6 +341,13 @@ function MobileBrowserBottomBar({ id, chrome }: IMobileBrowserBottomBarProps) {
     // in-flow height on tablets.
     <Theme name={pageThemeName ?? appThemeName}>
       <Stack h="100%" zIndex={1} pointerEvents="box-none">
+        {origin && singleConnectedAccount ? (
+          <ConnectedNetworkSwitch
+            origin={origin}
+            account={singleConnectedAccount}
+            onChange={handleSwitchNetworkChange}
+          />
+        ) : null}
         <Animated.View pointerEvents="none" style={[styles.strip, stripStyle]}>
           {/* The WebView ends above the bar: the strip behind the bar takes
             the page color, with a short fade above it so the page runs
