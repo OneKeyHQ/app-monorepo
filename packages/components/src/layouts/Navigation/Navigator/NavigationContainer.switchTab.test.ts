@@ -2,13 +2,16 @@
 import { ERootRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
 
 import {
+  resetAboveMainRoute,
   rootNavigationRef,
   switchTab,
   tabletMainViewNavigationRef,
 } from './NavigationContainer';
 
 jest.mock('@react-navigation/native', () => ({
-  CommonActions: {},
+  CommonActions: {
+    reset: (state: unknown) => ({ type: 'RESET', payload: state }),
+  },
   StackActions: {},
   DefaultTheme: {},
   DarkTheme: {},
@@ -88,4 +91,39 @@ it('preserves the selected tab without navigation when no new params are supplie
   jest.runAllTimers();
   expect(mockRootNavigate).not.toHaveBeenCalled();
   expect(mockTabletNavigate).not.toHaveBeenCalled();
+});
+
+it('dismisses both deposit and history overlays while preserving the trading tab', () => {
+  const mainRoute = getRootState().routes[0];
+  const dispatch = jest.fn();
+  Object.assign(rootNavigationRef, {
+    current: {
+      getRootState: () => ({
+        index: 2,
+        routes: [
+          mainRoute,
+          { key: 'deposit', name: ERootRoutes.Modal },
+          { key: 'history', name: ERootRoutes.Modal },
+        ],
+      }),
+      dispatch,
+    },
+  });
+
+  resetAboveMainRoute();
+
+  expect(dispatch).toHaveBeenCalledTimes(1);
+  expect(dispatch).toHaveBeenCalledWith({
+    type: 'RESET',
+    payload: { index: 0, routes: [mainRoute] },
+  });
+});
+
+it('leaves the trading route alone when there are no overlays', () => {
+  const dispatch = jest.fn();
+  Object.assign(rootNavigationRef, { current: { getRootState, dispatch } });
+
+  resetAboveMainRoute();
+
+  expect(dispatch).not.toHaveBeenCalled();
 });
