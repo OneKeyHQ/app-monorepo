@@ -19,6 +19,8 @@ import {
 
 import { ChromePressable } from './ChromePressable';
 
+const TABULAR_NUMS = { fontVariant: ['tabular-nums' as const] };
+
 interface ITabCountButtonProps {
   testID: string;
   size?: 'medium' | 'large';
@@ -47,7 +49,11 @@ function useShowMobileTabList() {
   }, [takeScreenshot, navigation, displayHomePage]);
 }
 
-function TabCountButton({ testID, size = 'medium' }: ITabCountButtonProps) {
+function TabCountButton({
+  testID,
+  size = 'medium',
+  onPressed,
+}: ITabCountButtonProps) {
   const { displayHomePage } = useDisplayHomePageFlag();
   const { tabs } = useWebTabs();
   const tabCount = useMemo(() => tabs.length, [tabs]);
@@ -77,11 +83,15 @@ function TabCountButton({ testID, size = 'medium' }: ITabCountButtonProps) {
         pressStyle={inGlass ? undefined : { bg: '$bgActive' }}
         testID={testID}
       >
+        {/* Drawn like an SF Symbol: a hairline-ish 1.5pt stroke, continuous
+            corners and padding so two-digit counts don't touch the border. */}
         <Stack
           minWidth={isLarge ? '$6' : '$5'}
           minHeight={isLarge ? '$6' : '$5'}
-          borderRadius="$1"
-          borderWidth="$0.5"
+          px={3}
+          borderRadius={6}
+          borderCurve="continuous"
+          borderWidth={1.5}
           // Same contrast bump IconButton applies on glass.
           borderColor={inGlass ? '$text' : '$iconSubdued'}
           alignItems="center"
@@ -89,6 +99,8 @@ function TabCountButton({ testID, size = 'medium' }: ITabCountButtonProps) {
         >
           <SizableText
             size="$bodySmMedium"
+            fontWeight="600"
+            style={TABULAR_NUMS}
             color={inGlass ? '$text' : '$iconSubdued'}
           >
             {tabCount}
