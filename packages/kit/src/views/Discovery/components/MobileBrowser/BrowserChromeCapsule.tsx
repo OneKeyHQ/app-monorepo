@@ -1,6 +1,9 @@
 import type { PropsWithChildren } from 'react';
 
+import { StyleSheet } from 'react-native';
+
 import {
+  BlurView,
   GlassHeaderProvider,
   GlassView,
   XStack,
@@ -10,6 +13,12 @@ import type { IXStackProps } from '@onekeyhq/components';
 
 import { BROWSER_CHROME_CAPSULE_HEIGHT } from '../../config/Animation.constants';
 
+import { isFloatingBrowserChrome } from './browserChrome';
+
+const styles = StyleSheet.create({
+  glass: { borderRadius: 9999 },
+});
+
 type IBrowserChromeCapsuleProps = PropsWithChildren<{
   flex?: number;
   height?: number;
@@ -17,7 +26,8 @@ type IBrowserChromeCapsuleProps = PropsWithChildren<{
 }>;
 
 // A pill (or circle, with a single child) hosting browser chrome buttons.
-// iOS 26: Liquid Glass. Elsewhere: a solid filled pill with the same metrics.
+// iOS 26: Liquid Glass. Older iOS: frosted blur, since the bar floats over
+// the page there. Android (bar never floats): a solid filled pill.
 // GlassHeaderProvider makes inner IconButtons drop their own background and
 // tertiary negative margin, so icons center inside the pill in both cases.
 export function BrowserChromeCapsule({
@@ -46,10 +56,33 @@ export function BrowserChromeCapsule({
       <GlassView
         isInteractive
         glassEffectStyle="regular"
-        style={{ borderRadius: 9999, flex }}
+        style={flex ? [styles.glass, { flex }] : styles.glass}
       >
         {content}
       </GlassView>
+    );
+  }
+  if (isFloatingBrowserChrome) {
+    return (
+      <XStack
+        flex={flex}
+        borderRadius="$full"
+        borderCurve="continuous"
+        borderWidth={StyleSheet.hairlineWidth}
+        borderColor="$borderSubdued"
+        overflow="hidden"
+      >
+        <BlurView
+          position="absolute"
+          top={0}
+          right={0}
+          bottom={0}
+          left={0}
+          intensity={80}
+          borderRadius="$full"
+        />
+        {content}
+      </XStack>
     );
   }
   return (

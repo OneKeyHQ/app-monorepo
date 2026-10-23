@@ -57,8 +57,8 @@ const styles = StyleSheet.create({
 });
 
 // The translate sheet is opened from the menu; this anchor only positions the
-// tablet popover.
-const translatePopoverAnchor = <Stack w={1} h={1} />;
+// tablet popover, out of the layout flow so it doesn't shift the address.
+const translatePopoverAnchor = <Stack position="absolute" w={1} h={1} />;
 
 function CollapsedAddressPill({
   url,
@@ -195,7 +195,8 @@ function MobileBrowserBottomBar({
               />
             </ChromePressable>
           </BrowserChromeCapsule>
-          <BrowserChromeCapsule flex={1} px="$1.5">
+          {/* Same edge inset as the round buttons, so icons line up. */}
+          <BrowserChromeCapsule flex={1}>
             <ChromePressable onPress={showOptions} disabled={displayHomePage}>
               <IconButton
                 variant="tertiary"

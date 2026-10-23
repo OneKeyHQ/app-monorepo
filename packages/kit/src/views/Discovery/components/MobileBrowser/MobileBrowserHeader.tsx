@@ -12,12 +12,8 @@ import {
   XStack,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import {
-  BROWSER_HEADER_HEIGHT,
-  BROWSER_HEADER_HEIGHT_ANDROID,
-} from '../../config/Animation.constants';
+import { BROWSER_HEADER_HEIGHT } from '../../config/Animation.constants';
 import { DiscoveryTestIDs } from '../../testIDs';
 import HeaderRightToolBar from '../HeaderRightToolBar';
 
@@ -31,9 +27,7 @@ import type { IMobileBrowserChrome } from './browserChrome';
 
 const HEADER_ROW_BOTTOM_GAP = 4;
 
-const headerHeight = platformEnv.isNativeAndroid
-  ? BROWSER_HEADER_HEIGHT_ANDROID
-  : BROWSER_HEADER_HEIGHT;
+const headerHeight = BROWSER_HEADER_HEIGHT;
 
 const styles = StyleSheet.create({
   container: {

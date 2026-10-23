@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useIntl } from 'react-intl';
 
 import {
+  Icon,
   Popover,
   SizableText,
   Skeleton,
@@ -22,6 +23,12 @@ import {
 } from '@onekeyhq/kit/src/components/AccountSelector';
 import { AccountSelectorTriggerBrowserSingle } from '@onekeyhq/kit/src/components/AccountSelector/AccountSelectorTrigger/AccountSelectorTriggerDApp';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import {
+  useActiveAccount,
+  useIsAccountSelectorSyncLoading,
+} from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import { shouldRedirectOnboardingToTravelMode } from '@onekeyhq/kit/src/utils/onboardingEntryGate';
+import { useToOnBoardingPage } from '@onekeyhq/kit/src/views/Onboarding/hooks/useToOnBoardingPage';
 import type { IDBIndexedAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import {
   EAppEventBusNames,
@@ -29,6 +36,7 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IConnectionAccountInfoWithNum } from '@onekeyhq/shared/types/dappConnection';
 
@@ -90,16 +98,55 @@ export function SingleAccountAndNetworkSelectorTrigger({
     handleAccountChanged,
   });
   return (
-    <XStack
-      gap="$6"
-      alignItems="center"
-      $platform-native={{ gap: '$2', pl: '$3' }}
-    >
+    <XStack gap="$6" alignItems="center" $platform-native={{ gap: '$2' }}>
       <NetworkSelectorTriggerBrowserSingle
         num={num}
         recordNetworkHistoryEnabled
       />
       <AccountSelectorTriggerBrowserSingle num={num} />
+    </XStack>
+  );
+}
+
+// Mobile, site not connected: the active wallet account, or an onboarding
+// entry when there is no usable wallet yet.
+function WalletAccountOrOnboardingEntry() {
+  const intl = useIntl();
+  const {
+    activeAccount: { wallet, account },
+  } = useActiveAccount({ num: 0 });
+  const isSyncLoading = useIsAccountSelectorSyncLoading(0);
+  const toOnBoardingPage = useToOnBoardingPage();
+
+  if (!accountUtils.hasNoUsableWallet({ wallet, account })) {
+    return <AccountSelectorTriggerHome num={0} hideAddress />;
+  }
+  if (isSyncLoading) {
+    return <Spinner size="small" />;
+  }
+  const disabled = shouldRedirectOnboardingToTravelMode();
+  return (
+    <XStack
+      role="button"
+      gap="$1.5"
+      px="$1.5"
+      alignItems="center"
+      opacity={disabled ? 0.5 : 1}
+      onPress={
+        disabled
+          ? undefined
+          : () => {
+              void toOnBoardingPage();
+            }
+      }
+      testID="browser-header-create-wallet"
+    >
+      <Icon name="WalletOutline" size="$5" color="$text" />
+      <SizableText size="$bodyMdMedium" numberOfLines={1}>
+        {intl.formatMessage({
+          id: ETranslations.onboarding_create_or_import_wallet,
+        })}
+      </SizableText>
     </XStack>
   );
 }
@@ -332,7 +379,7 @@ function HeaderRightToolBar({
     }
     if (!connectedAccountsInfo?.length || !origin) {
       if (showWalletAccountWhenDisconnected) {
-        return <AccountSelectorTriggerHome num={0} hideAddress />;
+        return <WalletAccountOrOnboardingEntry />;
       }
       return <ShortcutsActionButton />;
     }
