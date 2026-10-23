@@ -42,13 +42,40 @@ const styles = StyleSheet.create({
   },
 });
 
-// Domain text at a fixed 16pt that is never ellipsized: when its natural
-// width is wider than the room, the end of the domain (the part that
-// identifies the site) stays visible and the start fades out.
+// Domain text that is never ellipsized. At 16pt when it fits; when it
+// doesn't, it first shrinks (down to 14pt), and only if it still doesn't fit
+// does the end of the domain (the part that identifies the site) stay visible
+// while the start fades out.
 //
 // `trailingBalance` is room reserved after the text so it centers in the
 // whole capsule rather than beside the leading badge; it gives way first as
 // the text grows, so the badge never pushes a fitting domain into the fade.
+const DOMAIN_FONT_SIZE = 16;
+const DOMAIN_MIN_FONT_SIZE = 14;
+
+function fitDomainText(fullTextWidth: number, availableWidth: number) {
+  if (!availableWidth || !fullTextWidth || fullTextWidth <= availableWidth) {
+    return {
+      fontSize: DOMAIN_FONT_SIZE,
+      textWidth: fullTextWidth,
+      overflows: false,
+    };
+  }
+  // Half-point steps rounded down, with a point of slack, so glyph rounding
+  // never tips a shrunk domain back over the edge.
+  const fitted =
+    Math.floor(
+      ((DOMAIN_FONT_SIZE * (availableWidth - 1)) / fullTextWidth) * 2,
+    ) / 2;
+  const fontSize = Math.max(DOMAIN_MIN_FONT_SIZE, fitted);
+  const textWidth = Math.ceil((fullTextWidth * fontSize) / DOMAIN_FONT_SIZE);
+  return {
+    fontSize,
+    textWidth,
+    overflows: fitted < DOMAIN_MIN_FONT_SIZE,
+  };
+}
+
 function DomainLabel({
   text,
   testID,
@@ -59,8 +86,12 @@ function DomainLabel({
   trailingBalance: number;
 }) {
   const [availableWidth, setAvailableWidth] = useState(0);
-  const [textWidth, setTextWidth] = useState(0);
-  const overflows = availableWidth > 0 && textWidth > availableWidth + 0.5;
+  // Natural width at the full font size; width scales linearly with size.
+  const [fullTextWidth, setFullTextWidth] = useState(0);
+  const { fontSize, textWidth, overflows } = fitDomainText(
+    fullTextWidth,
+    availableWidth,
+  );
   const balance = overflows
     ? 0
     : Math.min(trailingBalance, Math.max(0, availableWidth - textWidth));
@@ -77,6 +108,7 @@ function DomainLabel({
     >
       <SizableText
         size="$bodyLgMedium"
+        fontSize={fontSize}
         numberOfLines={1}
         flexShrink={0}
         // A fixed width lets the line overflow to the left instead of
@@ -98,7 +130,9 @@ function DomainLabel({
         <SizableText
           size="$bodyLgMedium"
           numberOfLines={1}
-          onLayout={(e) => setTextWidth(Math.ceil(e.nativeEvent.layout.width))}
+          onLayout={(e) =>
+            setFullTextWidth(Math.ceil(e.nativeEvent.layout.width))
+          }
         >
           {text}
         </SizableText>
