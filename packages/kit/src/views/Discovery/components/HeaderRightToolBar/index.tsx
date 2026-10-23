@@ -116,6 +116,21 @@ export function SingleAccountAndNetworkSelectorTrigger({
   );
 }
 
+// The chevron that closes every header chip. Nudged down: a "v" carries its
+// weight at the top, so a geometrically centered one reads high; next to
+// badged avatars (badges hang 4pt below the avatar) it follows their lower
+// visual center too.
+function ChipChevron({ badged }: { badged?: boolean }) {
+  return (
+    <Icon
+      name="ChevronDownSmallOutline"
+      color="$iconSubdued"
+      size="$4"
+      y={badged ? 2 : 1}
+    />
+  );
+}
+
 // The connected account in the mobile browser header chip: avatar, name and
 // chevron, the same shape as the not-connected chip. The network badge on the
 // avatar is what marks the site as connected (a connection is always on a
@@ -156,7 +171,7 @@ function CompactConnectedAccountTrigger({ num }: { num: number }) {
       <SizableText size="$bodyMdMedium" numberOfLines={1} maxWidth={120}>
         {accountName}
       </SizableText>
-      <Icon name="ChevronDownSmallOutline" color="$iconSubdued" size="$4" />
+      <ChipChevron badged />
     </XStack>
   );
 }
@@ -204,7 +219,7 @@ function CompactWalletAccountTrigger() {
       <SizableText size="$bodyMdMedium" numberOfLines={1} maxWidth={140}>
         {accountName}
       </SizableText>
-      <Icon name="ChevronDownSmallOutline" color="$iconSubdued" size="$4" />
+      <ChipChevron />
     </XStack>
   );
 }
@@ -327,12 +342,9 @@ function AvatarStackTrigger({
           </XStack>
         ) : null}
         {compact ? (
-          <Icon
-            name="ChevronDownSmallOutline"
-            color="$iconSubdued"
-            size="$4"
-            ml="$1"
-          />
+          <Stack ml="$1">
+            <ChipChevron badged />
+          </Stack>
         ) : null}
       </XStack>
       <ShortcutsActionButton />
