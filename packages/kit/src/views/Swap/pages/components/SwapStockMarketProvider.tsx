@@ -20,7 +20,6 @@ import {
 import { resolveMarketStockId } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/resolveIsStockToken';
 import {
   type EJotaiContextStoreNames,
-  useSwapFromMarketJumpTokenAtom,
   useSwapStockIssuerPreferencePersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
@@ -36,12 +35,13 @@ import type {
   IMarketStockPublicItem,
   IMarketStockTokenVariant,
 } from '@onekeyhq/shared/types/marketV2';
-import {
-  ESwapTabSwitchType,
-  type ISwapToken,
-} from '@onekeyhq/shared/types/swap/types';
+import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 
-import { getTokenIdentityKey } from '../../hooks/swapStockChannelUtils';
+import {
+  getTokenIdentityKey,
+  isSwapStockTokenKeySettled,
+  settleSwapStockTokenKey,
+} from '../../hooks/swapStockChannelUtils';
 import { ESwapStockChannelAsyncStatus } from '../../hooks/useSwapStockChannel';
 import { useSwapTokenRiskCheck } from '../../hooks/useSwapTokenRiskCheck';
 import {
@@ -93,10 +93,6 @@ const SwapStockSelectionContext = createContext<
   ISwapStockSelection | undefined
 >(undefined);
 
-// Stock token keys this app run has already settled: checked against the
-// issuer rule once, or set by the user. In memory only, so a cold start checks
-// the restored token again while tab switches keep the user's own picks.
-const settledSwapStockTokenKeys = new Set<string>();
 // Upper bound for holding the trade target while the variant list that decides
 // a restored token is still loading, so a stalled request cannot hide it.
 const AUTO_VARIANT_WAIT_MS = 8000;
@@ -121,7 +117,6 @@ function SwapStockSelectionProvider({
     isTokenVariantsFresh,
     defaultTokenId,
   } = useStockDetail();
-  const [swapFromMarketJumpToken] = useSwapFromMarketJumpTokenAtom();
   const { currentStockToken, selectStockSwapToken, stockTokenStatus } =
     useSwapStockTradeContext();
   const navigation =
@@ -163,19 +158,11 @@ function SwapStockSelectionProvider({
   // carry an issuer that has since been retired, and the decision is final.
   const [, setSettledVersion] = useState(0);
   const firstTokenKeyRef = useRef<string | undefined>(undefined);
-  const isMarketJumpToken = Boolean(
-    currentStockToken &&
-    swapFromMarketJumpToken?.type === ESwapTabSwitchType.STOCK &&
-    equalTokenNoCaseSensitive({
-      token1: swapFromMarketJumpToken.token,
-      token2: currentStockToken,
-    }),
-  );
+  // Tokens an explicit entry brought in (Market's Buy/Sell) arrive settled.
   const isAutoVariantCandidate = Boolean(
     identity &&
     (firstTokenKeyRef.current ?? identity) === identity &&
-    !settledSwapStockTokenKeys.has(identity) &&
-    !isMarketJumpToken,
+    !isSwapStockTokenKeySettled(identity),
   );
   const isAutoVariantListReady =
     isTokenVariantsFresh && !isTokenVariantPending && !!selectedVariant;
@@ -442,22 +429,20 @@ function SwapStockSelectionProvider({
   );
 
   const markSettled = useCallback((key: string) => {
-    settledSwapStockTokenKeys.add(key);
+    settleSwapStockTokenKey(key);
     setSettledVersion((version) => version + 1);
   }, []);
   useEffect(() => {
     if (!identity) return;
     firstTokenKeyRef.current ??= identity;
     if (identity !== firstTokenKeyRef.current) {
-      settledSwapStockTokenKeys.add(identity);
+      settleSwapStockTokenKey(identity);
       return;
     }
-    if (settledSwapStockTokenKeys.has(identity) || operation.phase !== 'idle') {
+    if (isSwapStockTokenKeySettled(identity) || operation.phase !== 'idle') {
       return;
     }
-    if (isMarketJumpToken) {
-      markSettled(identity);
-    } else if (autoVariantTarget && stockId) {
+    if (autoVariantTarget && stockId) {
       markSettled(identity);
       const cached = getCachedSwapStockVariantToken(
         autoVariantTarget,
@@ -480,7 +465,6 @@ function SwapStockSelectionProvider({
     identity,
     isAutoVariantListBlocked,
     isAutoVariantListReady,
-    isMarketJumpToken,
     locale,
     markSettled,
     operation.phase,

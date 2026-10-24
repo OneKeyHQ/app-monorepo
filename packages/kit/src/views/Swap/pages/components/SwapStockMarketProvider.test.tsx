@@ -12,6 +12,11 @@ import type {
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 
 import {
+  getTokenIdentityKey,
+  settleSwapStockTokenKey,
+} from '../../hooks/swapStockChannelUtils';
+
+import {
   SwapStockMarketProvider,
   useSwapStockSelection,
 } from './SwapStockMarketProvider';
@@ -198,17 +203,18 @@ it('mounts the cached parent even when the selected child has no own metadata ca
   expect(mockFetchIdentity).not.toHaveBeenCalled();
 });
 
+const variant = (issuer: string, contractAddress: string) =>
+  ({
+    tokenId: `${issuer}-${contractAddress}`,
+    networkId: 'evm--1',
+    contractAddress,
+    issuer,
+    status: 'active',
+    tradingEnabled: true,
+    isPaused: false,
+  }) as IMarketStockTokenVariant;
+
 it('moves a restored token to bStocks only once the fetched variant list confirms it', async () => {
-  const variant = (issuer: string, contractAddress: string) =>
-    ({
-      tokenId: `${issuer}-tsla`,
-      networkId: 'evm--1',
-      contractAddress,
-      issuer,
-      status: 'active',
-      tradingEnabled: true,
-      isPaused: false,
-    }) as IMarketStockTokenVariant;
   const ondo = variant('ondo', '0xtslaon');
   const bStocks = variant('bstocks', '0xtslab');
   const bStocksToken: ISwapToken = {
@@ -234,4 +240,25 @@ it('moves a restored token to bStocks only once the fetched variant list confirm
   expect(mockCommitToken).toHaveBeenCalledWith(bStocksToken, {
     resetReceiveAmount: true,
   });
+});
+
+it('keeps a non-bStocks token that Market Buy/Sell brought in', async () => {
+  const xStocks = variant('xstock', '0xmsftx');
+  const bStocks = variant('bstocks', '0xmsftb');
+  mockCurrentToken = {
+    ...targetToken,
+    contractAddress: xStocks.contractAddress,
+    stock: { stockId: 'MSFT', subtitle: '', sourceLogoUri: '' },
+  };
+  mockStockId = 'MSFT';
+  mockTokenVariants = [xStocks, bStocks];
+  mockVariantsFresh = true;
+  // What prepareStockSwapEntry does for the token picked on Market.
+  settleSwapStockTokenKey(getTokenIdentityKey(mockCurrentToken));
+  await act(async () => {
+    render(<Subject />);
+  });
+  expect(mockFetchVariantToken).not.toHaveBeenCalled();
+  expect(mockCommitToken).not.toHaveBeenCalled();
+  expect(mockSelection?.loadingScopes.tradeTarget).toBe(false);
 });
