@@ -52,6 +52,7 @@ function useShowMobileTabList() {
 const GLYPH_SLOT = 24;
 const GLYPH_SIZE = 20;
 const GLYPH_STROKE = 2;
+const TABULAR_NUMS: ['tabular-nums'] = ['tabular-nums'];
 
 function TabCountButton({ testID, onPressed }: ITabCountButtonProps) {
   const { displayHomePage } = useDisplayHomePageFlag();
@@ -63,15 +64,6 @@ function TabCountButton({ testID, onPressed }: ITabCountButtonProps) {
   const inGlass = useInGlassHeader();
   const color = inGlass ? '$text' : '$iconSubdued';
   const handleShowTabList = useShowMobileTabList();
-  // Optical centering: iOS also applies letter spacing after the last digit,
-  // which pushes the digits right by half of it, and a leading "1" carries
-  // extra space on its left, so nudge those cases back to the box center.
-  let digitsOffsetX = 0;
-  if (tabCount > 9) {
-    digitsOffsetX = String(tabCount).startsWith('1') ? -1 : -0.4;
-  } else if (tabCount === 1) {
-    digitsOffsetX = -0.5;
-  }
 
   if (displayHomePage && tabCount === 0) {
     return null;
@@ -114,11 +106,12 @@ function TabCountButton({ testID, onPressed }: ITabCountButtonProps) {
               fontSize={tabCount > 9 ? 11 : 12}
               lineHeight={14}
               fontWeight="600"
-              // Tight tracking so two digits read as one count, not as two
-              // separate characters.
-              letterSpacing={tabCount > 9 ? -0.8 : 0}
               color={color}
-              style={{ transform: [{ translateX: digitsOffsetX }] }}
+              // Tabular digits all share one advance width with the glyph
+              // centered in it, so every count (a narrow "1" included) sits
+              // centered without per-digit nudges. No letter spacing: iOS
+              // adds it after the last digit too, which offsets the text.
+              fontVariant={TABULAR_NUMS}
             >
               {tabCount}
             </SizableText>
