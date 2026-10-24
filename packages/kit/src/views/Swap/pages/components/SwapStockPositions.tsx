@@ -155,18 +155,24 @@ export function SwapStockPositions({
       $platform-web={mobile ? undefined : SWAP_DESKTOP_CARD_SHADOW_WEB_STYLE}
       style={mobile ? undefined : SWAP_DESKTOP_CARD_SHADOW_NATIVE_STYLE}
     >
+      {/* Mobile title row mirrors the Pro tab bar (TabBarItem) so both trade
+          tabs share the same font, height and underline (OK-63758). */}
       <XStack
-        h={mobile ? 48 : undefined}
-        borderBottomWidth={mobile ? 1 : 0}
+        borderBottomWidth={mobile ? '$0.5' : 0}
         borderColor="$borderSubdued"
       >
         <XStack
-          h={mobile ? '100%' : undefined}
+          py={mobile ? '$2' : undefined}
           alignItems="center"
-          borderBottomWidth={mobile ? 2 : 0}
+          borderBottomWidth={mobile ? 1.5 : 0}
           borderColor="$borderActive"
         >
-          <SizableText size="$bodyLgMedium">
+          <SizableText
+            size={mobile ? '$headingXs' : '$bodyLgMedium'}
+            textTransform="none"
+            letterSpacing={mobile ? 0 : undefined}
+            pr={mobile ? '$0.5' : undefined}
+          >
             {intl.formatMessage({
               id: mobile
                 ? ETranslations.title_my_positions
