@@ -303,7 +303,11 @@ describe('useSwapSelectedTokenInfo requested refresh', () => {
 
     // Later ordinary loads (a token change) are not held back either.
     rerender({
-      selected: { ...token, networkId: 'sol--101', contractAddress: solanaContract },
+      selected: {
+        ...token,
+        networkId: 'sol--101',
+        contractAddress: solanaContract,
+      },
     });
     act(() => {
       jest.advanceTimersByTime(300);
