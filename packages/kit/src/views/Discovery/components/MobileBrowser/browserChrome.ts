@@ -4,6 +4,7 @@ import { runOnJS, useAnimatedReaction } from 'react-native-reanimated';
 
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { IBrowserToolbarAction } from '@onekeyhq/shared/src/logger/scopes/discovery/scenes/browser';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 
 import {
@@ -24,16 +25,22 @@ export interface IMobileBrowserChrome {
   onSearchBarPress: (url: string) => void;
 }
 
-// Sits just above the home indicator, overlapping the bottom safe area.
+// iOS's bottom inset (~34pt) leaves room below the home indicator, so the
+// chrome dips into it like Safari. Android's gesture-bar inset is much
+// shorter (~16-24dp, or 0 when the app isn't drawn edge-to-edge), with the
+// handle near its top, so the chrome sits fully above it.
+const isAndroid = platformEnv.isNativeAndroid;
+
+// Sits just above the home indicator / gesture handle.
 export function getCollapsedPillBottom(bottomInset: number) {
-  return Math.max(bottomInset - 20, 8);
+  return isAndroid ? bottomInset + 4 : Math.max(bottomInset - 20, 8);
 }
 
-// Bottom edge of the expanded bar's capsules. Like Safari, they sit low,
-// dipping into the bottom safe area just above the home indicator, instead of
-// stacking a full toolbar on top of the inset.
+// Bottom edge of the expanded bar's capsules. On iOS they sit low, dipping
+// into the bottom safe area just above the home indicator (like Safari),
+// instead of stacking a full toolbar on top of the inset.
 export function getBarCapsuleBottom(bottomInset: number) {
-  return Math.max(bottomInset - 10, 8);
+  return isAndroid ? bottomInset + 8 : Math.max(bottomInset - 10, 8);
 }
 
 // Height the expanded bar covers from the screen bottom (capsules plus a gap
