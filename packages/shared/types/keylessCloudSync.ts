@@ -8,9 +8,19 @@
 /**
  * Keyless sync credentials (derived from the unique Keyless wallet mnemonic)
  */
+export type IHardwareCloudSyncKeySource = {
+  type: 'hardware';
+  walletId: string;
+  walletXfp: string;
+  credentialId: string;
+  derivationVersion: 1;
+};
+
 export interface IKeylessCloudSyncCredential {
   /** Keyless wallet ID */
   keylessWalletId: string;
+  // Absent on existing Keyless credentials. This metadata never leaves the App.
+  source?: IHardwareCloudSyncKeySource;
   /** Signing private key (hex) - derivation path m/44'/1919'/0'/0/0 */
   signingPrivateKey: string;
   /** Signing public key (hex) */

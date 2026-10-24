@@ -212,7 +212,6 @@ import { vaultFactory } from '../../vaults/factory';
 import { getVaultSettings } from '../../vaults/settings';
 import ServiceBase from '../ServiceBase';
 import { identityLifecycleMutex } from '../ServiceIdentityExit/identityLifecycleMutex';
-import keylessSyncCredentialStorage from '../ServiceKeylessWallet/utils/keylessSyncCredentialStorage';
 import { isBotWalletInCurrentKeylessSyncScope } from '../ServicePrimeCloudSync/botWalletCloudSyncUtils';
 import keylessCloudSyncUtils from '../ServicePrimeCloudSync/keylessCloudSyncUtils';
 
@@ -4659,8 +4658,7 @@ class ServiceAccount extends ServiceBase {
                   seed: seedBuffer,
                   keylessWalletId,
                 });
-              await keylessSyncCredentialStorage.saveCredential(credential);
-              this.backgroundApi.serviceKeylessCloudSync.setKeylessCloudSyncCredentialCache(
+              await this.backgroundApi.serviceKeylessCloudSync.persistNewKeylessCloudSyncCredential(
                 credential,
               );
             } catch (error) {

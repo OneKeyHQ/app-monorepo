@@ -33,6 +33,7 @@ import { CoreSDKLoader } from '@onekeyhq/shared/src/hardware/instance';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
+import { assertNoHardwareCloudSyncSigningRequest } from '@onekeyhq/shared/src/utils/hardwareCloudSyncGuards';
 import type { IDeriveContextHashKeyringParams } from '@onekeyhq/shared/types/ProviderApis/ProviderApiBtc.type';
 
 import { KeyringHardwareBase } from '../../base/KeyringHardwareBase';
@@ -56,6 +57,11 @@ export abstract class KeyringHardwareBtcBase extends KeyringHardwareBase {
     params: IDeriveContextHashKeyringParams,
   ): Promise<string> {
     const account = await this.vault.getAccount();
+    assertNoHardwareCloudSyncSigningRequest({
+      path: account.path,
+      appName: params.appName,
+      context: params.context,
+    });
     const { dbDevice, deviceCommonParams } = checkIsDefined(
       params.deviceParams,
     );
@@ -466,11 +472,16 @@ export abstract class KeyringHardwareBtcBase extends KeyringHardwareBase {
   }
 
   async signMessage(params: ISignMessageParams): Promise<ISignedMessagePro> {
+    assertNoHardwareCloudSyncSigningRequest(params.messages);
     const network = await this.getNetwork();
     const coinName = await checkIsDefined(this.coreApi).getCoinName({
       network,
     });
     const dbAccount = await this.vault.getAccount();
+    assertNoHardwareCloudSyncSigningRequest({
+      path: dbAccount.path,
+      receiveAddressPath: params.chainExtraParams?.receiveAddressPath,
+    });
     const deviceParams = checkIsDefined(params.deviceParams);
     const { connectId, deviceId } = deviceParams.dbDevice;
     const { receiveAddressPath } = params.chainExtraParams || {};

@@ -2,6 +2,10 @@ import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
 import { EDeviceType, HardwareErrorCode } from '@onekeyfe/hd-shared';
 
 import {
+  HARDWARE_CLOUD_SYNC_PATH,
+  buildHardwareCloudSyncMessage,
+} from '@onekeyhq/shared/src/consts/hardwareCloudSyncConsts';
+import {
   UnknownMethod,
   UserCancel,
 } from '@onekeyhq/shared/src/errors/errors/hardwareErrors';
@@ -308,5 +312,37 @@ describe('BTC deriveContextHash hardware integration', () => {
     expect(
       h.backgroundApi.serviceDApp.stageDeriveContextHashRequest,
     ).not.toHaveBeenCalled();
+  });
+
+  it('rejects a reserved Cloud request before staging an approval', async () => {
+    const h = createHarness();
+    await expect(
+      h.service.stageDeriveContextHashRequest({
+        accountId: h.accountId,
+        networkId: 'btc--0',
+        walletId: 'hw-test',
+        address: 'test-address',
+        appName: 'onekey-cloud-key-v1',
+        context: Buffer.from(
+          buildHardwareCloudSyncMessage('0123456789abcdef'),
+        ).toString('hex'),
+      }),
+    ).rejects.toThrow('OneKey Cloud key operations');
+    expect(h.openModal).not.toHaveBeenCalled();
+    expect(h.btcDeriveContextHash).not.toHaveBeenCalled();
+  });
+
+  it('rejects a reserved account at execution before prompting or deriving', async () => {
+    const h = createHarness();
+    await h.provider.deriveContextHash(REQUEST, PARAMS);
+    const { nonce } = h.openModal.mock.calls[0][0];
+    h.account.path = HARDWARE_CLOUD_SYNC_PATH;
+    await expect(h.service.executeDeriveContextHash({ nonce })).rejects.toThrow(
+      'OneKey Cloud key operations',
+    );
+    expect(
+      h.backgroundApi.servicePassword.promptPasswordVerifyByAccount,
+    ).not.toHaveBeenCalled();
+    expect(h.btcDeriveContextHash).not.toHaveBeenCalled();
   });
 });

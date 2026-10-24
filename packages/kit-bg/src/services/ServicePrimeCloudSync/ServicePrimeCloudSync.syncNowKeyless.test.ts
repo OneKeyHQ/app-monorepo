@@ -1,3 +1,5 @@
+import { Semaphore } from 'async-mutex';
+
 import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import { ECloudSyncMode } from '@onekeyhq/shared/types/keylessCloudSync';
 
@@ -135,6 +137,8 @@ function buildService({
     backgroundApi: {
       serviceKeylessCloudSync: {
         repairKeylessSyncCredentialIfNeeded,
+        runWithCloudSyncKeyLock: (operation: () => Promise<unknown>) =>
+          operation(),
       },
     },
   }) as ISyncNowKeylessService;
@@ -253,4 +257,67 @@ describe('ServicePrimeCloudSync.syncNowKeyless', () => {
       forceSync: true,
     });
   });
+
+  test.each([false, true])(
+    'legacy cleanup preserves hardware source=%s without reacquiring a held lock',
+    async (hasHardwareSource) => {
+      const sourceMutex = new Semaphore(1);
+      const runWithCloudSyncKeyLock = jest.fn(
+        (operation: () => Promise<unknown>) =>
+          sourceMutex.runExclusive(operation),
+      );
+      const clearKeylessCloudSyncCredentialCache = jest.fn();
+      const clearLocalMasterPassword = jest.fn(async () => undefined);
+      const service = new ServicePrimeCloudSync({
+        backgroundApi: {
+          serviceKeylessCloudSync: {
+            runWithCloudSyncKeyLock,
+            clearKeylessCloudSyncCredentialCache,
+          },
+          serviceMasterPassword: { clearLocalMasterPassword },
+        },
+      });
+      const hardwareSource = hasHardwareSource
+        ? {
+            type: 'hardware' as const,
+            walletId: 'hw-local',
+            walletXfp: 'public-test-xfp',
+            credentialId: 'hardware-cloud-v1-test',
+            derivationVersion: 1 as const,
+          }
+        : undefined;
+      const state = {
+        isCloudSyncEnabled: !hasHardwareSource,
+        isCloudSyncEnabledKeyless: hasHardwareSource,
+        hasEverEnabledOneKeyIdSync: true,
+        hardwareCloudSyncKeySource: hardwareSource,
+      };
+      jest.mocked(primeCloudSyncPersistAtom.get).mockResolvedValue(state);
+      jest
+        .mocked(primeCloudSyncPersistAtom.set)
+        .mockImplementation(async (update) => {
+          if (typeof update === 'function') Object.assign(state, update(state));
+        });
+
+      const [, release] = await sourceMutex.acquire();
+      try {
+        // This is the nested call made by clearLocalMasterPassword when R1
+        // decryption fails while a sync flow owns the same semaphore.
+        const cleanup = service.setCloudSyncEnabled(false, {
+          skipClearLocalMasterPassword: true,
+        });
+        // Assert before awaiting so a reentrant regression fails immediately.
+        expect(runWithCloudSyncKeyLock).not.toHaveBeenCalled();
+        await cleanup;
+        expect(sourceMutex.isLocked()).toBe(true);
+        expect(state.isCloudSyncEnabled).toBe(false);
+        expect(state.isCloudSyncEnabledKeyless).toBe(hasHardwareSource);
+        expect(state.hardwareCloudSyncKeySource).toBe(hardwareSource);
+        expect(clearKeylessCloudSyncCredentialCache).toHaveBeenCalledTimes(1);
+        expect(clearLocalMasterPassword).not.toHaveBeenCalled();
+      } finally {
+        release();
+      }
+    },
+  );
 });

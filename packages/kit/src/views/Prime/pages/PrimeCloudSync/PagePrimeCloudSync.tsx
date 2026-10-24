@@ -53,6 +53,8 @@ import { ECloudSyncMode } from '@onekeyhq/shared/types/keylessCloudSync';
 
 import { AppAutoLockSettingsView } from '../../../Setting/pages/AppAutoLock';
 
+import { HardwareCloudSyncKeySection } from './HardwareCloudSyncKeySection';
+
 function isAutoLockValueNotAllowed(value: number) {
   return isNeverLockDuration(value) || value === Number(ELockDuration.Hour4);
 }
@@ -990,6 +992,7 @@ function AppDataSection() {
 
 export default function PagePrimeCloudSync() {
   const intl = useIntl();
+  const [config] = usePrimeCloudSyncPersistAtom();
   const navigation = useAppNavigation();
   useEffect(() => {
     void backgroundApiProxy.servicePrimeCloudSync.showAlertDialogIfLocalPasswordNotSet();
@@ -1020,7 +1023,10 @@ export default function PagePrimeCloudSync() {
       />
       <Page.Body>
         <LocalSystemTimeErrorAlert />
-        <AppDataSection />
+        {platformEnv.isDev || config.hardwareCloudSyncKeySource ? (
+          <HardwareCloudSyncKeySection />
+        ) : null}
+        {!config.hardwareCloudSyncKeySource ? <AppDataSection /> : null}
         <MultipleClickStack
           h="$10"
           showDevBgColor

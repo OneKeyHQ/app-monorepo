@@ -51,6 +51,7 @@ import {
   getValidDeviceStateVersionKeys,
   projectLegacyDeviceFeaturesFromState,
 } from '@onekeyhq/shared/src/hardware/deviceStateUtils';
+import { HardwareCloudKeyPrerequisiteError } from '@onekeyhq/shared/src/hardware/hardwareCloudSyncErrors';
 import {
   CoreSDKLoader,
   getHardwareSDKInstance,
@@ -476,6 +477,26 @@ class ServiceHardware extends ServiceBase {
   private connectProtocolMigrationPromise: Promise<void> | undefined;
 
   private activeHardwareSDKInstance: IProtocolAwareCoreApi | undefined;
+
+  private sensitiveCloudKeyOperationDepth = 0;
+
+  // Internal background scope only. Never expose raw Cloud-key signatures over
+  // the bridge or copy SDK log payloads into application logs during this scope.
+  async runWithSensitiveCloudKeyOperation<T>(operation: () => Promise<T>) {
+    const debug =
+      await this.backgroundApi.serviceDevSetting.getFirmwareUpdateDevSettings(
+        'showDeviceDebugLogs',
+      );
+    if (debug) {
+      throw new HardwareCloudKeyPrerequisiteError('logging');
+    }
+    this.sensitiveCloudKeyOperationDepth += 1;
+    try {
+      return await operation();
+    } finally {
+      this.sensitiveCloudKeyOperationDepth -= 1;
+    }
+  }
 
   private activeHardwareTransportType: EHardwareTransportType | undefined;
 
@@ -1188,6 +1209,9 @@ class ServiceHardware extends ServiceBase {
       await this.backgroundApi.serviceDevSetting.getFirmwareUpdateDevSettings(
         'showDeviceDebugLogs',
       );
+    if (this.sensitiveCloudKeyOperationDepth > 0 && debugMode) {
+      throw new HardwareCloudKeyPrerequisiteError('logging');
+    }
     const showSdkDebugLogs =
       platformEnv.isDev === true &&
       (platformEnv.isNative === true || platformEnv.isDesktop === true) &&
@@ -1249,6 +1273,15 @@ class ServiceHardware extends ServiceBase {
       effectiveForceTransportType ??
       options.hardwareTransportType ??
       currentTransportType;
+    if (
+      this.sensitiveCloudKeyOperationDepth > 0 &&
+      platformEnv.isDesktop &&
+      hardwareTransportType !== EHardwareTransportType.WEBUSB &&
+      hardwareTransportType !== EHardwareTransportType.DesktopWebBle
+    ) {
+      // The bridge/web SDK embeds a separate unpatched copy of the logger.
+      throw new HardwareCloudKeyPrerequisiteError('transport');
+    }
 
     // connectionManager 会在 UI 展示前提交选路结果，因此不能再用它的
     // currentTransportType 判断 SDK 是否需要重建。单独记录实际 SDK transport，
@@ -2078,6 +2111,9 @@ class ServiceHardware extends ServiceBase {
       instance.on(
         LOG_EVENT,
         (messages: { event: string; type: string; payload: string[] }) => {
+          if (this.sensitiveCloudKeyOperationDepth > 0) {
+            return;
+          }
           const messageType =
             messages.payload.length > 0 ? messages.payload[0] : '';
           const message = messages.payload.join(' ');
