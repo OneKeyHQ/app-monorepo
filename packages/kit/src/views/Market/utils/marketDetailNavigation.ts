@@ -3,6 +3,7 @@ import {
   StackActions,
   TabRouter,
 } from '@react-navigation/native';
+import { isEqual, omit } from 'lodash';
 
 import { rootNavigationRef } from '@onekeyhq/components';
 import { EEnterWay } from '@onekeyhq/shared/src/logger/scopes/dex';
@@ -698,6 +699,20 @@ function resolveEntryBackAction({
  * stack changes underneath it. Frames pause in a hidden window, so a short
  * timeout makes sure the step still happens.
  */
+/**
+ * Whether a params change only consumed the one-shot `initialSection` request.
+ * That is not a new entry: entry analytics and the Swap trip carry on.
+ */
+export function isInitialSectionConsumed(previous: unknown, next: unknown) {
+  const prev = previous as { initialSection?: unknown } | undefined;
+  const cur = next as { initialSection?: unknown } | undefined;
+  return Boolean(
+    prev?.initialSection !== undefined &&
+    cur?.initialSection === undefined &&
+    isEqual(omit(prev, 'initialSection'), omit(cur, 'initialSection')),
+  );
+}
+
 // Detail routes (by key) opened by Swap's "view full data" whose trip back to
 // Swap has ended: the user left the Market tab another way, so a later back
 // from that detail belongs to Market again. A new entry restarts the trip.

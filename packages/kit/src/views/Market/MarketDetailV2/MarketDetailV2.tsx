@@ -20,13 +20,11 @@ import {
   HeaderScrollGestureContext,
   Page,
   rootNavigationRef,
-  switchTab,
   useIsModalPage,
   useMedia,
   usePreventRemove,
   useSplitSubView,
 } from '@onekeyhq/components';
-import useListenTabFocusState from '@onekeyhq/kit/src/hooks/useListenTabFocusState';
 import { getRootRoutersLength } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import { useSetSplitViewDetailFullscreen } from '@onekeyhq/kit/src/provider/Container/TableSplitViewContainer';
 import {
@@ -37,7 +35,7 @@ import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms
 import { MARKET_TOP_COINS_CATEGORY_ID } from '@onekeyhq/shared/src/consts/marketConsts';
 import { EEnterWay } from '@onekeyhq/shared/src/logger/scopes/dex';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { ERootRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
+import { ERootRoutes } from '@onekeyhq/shared/src/routes';
 import type {
   ETabMarketRoutes,
   ITabMarketParamList,
@@ -60,11 +58,6 @@ import { useSettledHeaderHeight } from '../../Earn/hooks/useSettledHeaderHeight'
 import { useMarketEnterAnalytics } from '../hooks';
 import { MarketWatchListProviderMirrorV2 } from '../MarketWatchListProviderMirrorV2';
 import { MarketTestIDs } from '../testIDs';
-import {
-  isSwapStockTripEnded,
-  runAfterNextFrame,
-  setSwapStockTripEnded,
-} from '../utils/marketDetailNavigation';
 
 import { MarketDetailHeader } from './components/MarketDetailHeader';
 import {
@@ -75,6 +68,7 @@ import {
   useStockDetail,
 } from './hooks';
 import { useSyncMarketCurrentTokenLiveData } from './hooks/useAutoRefreshTokenDetail';
+import { useSwapStockBackTrip } from './hooks/useMarketDetailBackNavigation';
 import { useMarketDetailTabBarVisibility } from './hooks/useMarketDetailTabBarVisibility';
 import { MarketDetailResponsiveLayout } from './layouts/MarketDetailResponsiveLayout';
 import { shouldReplayFullscreenNavigationAction } from './utils/marketDetailFullscreenNavigation';
@@ -261,59 +255,19 @@ function MarketDetail({
   const handleInitialSectionShown = useCallback(() => {
     navigation.setParams({ initialSection: undefined });
   }, [navigation]);
-  // Swap's "view full data" switched tabs to get here. Every back that pops
-  // this detail (the desktop title bar's shared header and the in-page back
-  // button alike) finishes the trip to the Swap tab the user left. Other
-  // removals (tab re-press, resets, stock switches) and the tablet split view
-  // keep their behavior.
+  // Back from Swap's "view full data" returns to Swap (not in the tablet
+  // split view, which keeps its own back behavior).
   const isTabletDetailView = useSplitSubView();
-  const isFromSwapStock =
-    !isTabletDetailView &&
-    'from' in params &&
-    params.from === EEnterWay.SwapStock;
-  const isChartFullscreenRef = useRef(isChartFullscreen);
-  isChartFullscreenRef.current = isChartFullscreen;
-  // The trip is one-shot: leaving the Market tab any other way (sidebar, tab
-  // bar) ends it, so a later visit's back stays in Market. Tracked outside the
-  // params, whose changes would re-record the market entry analytics. A new
-  // entry (fresh params) restarts it.
-  const routeKey = route.key;
-  const isReturningToSwapRef = useRef(false);
-  const hasShownMarketTabRef = useRef(false);
-  useEffect(() => {
-    hasShownMarketTabRef.current = false;
-    isReturningToSwapRef.current = false;
-    setSwapStockTripEnded(routeKey, false);
-  }, [params, routeKey]);
-  useEffect(() => () => setSwapStockTripEnded(routeKey, false), [routeKey]);
-  useListenTabFocusState(ETabRoutes.Market, (isFocus) => {
-    if (!isFromSwapStock) return;
-    if (isFocus) {
-      hasShownMarketTabRef.current = true;
-    } else if (hasShownMarketTabRef.current && !isReturningToSwapRef.current) {
-      setSwapStockTripEnded(routeKey, true);
-    }
+  useSwapStockBackTrip({
+    navigation,
+    params,
+    routeKey: route.key,
+    isFromSwapStock:
+      !isTabletDetailView &&
+      'from' in params &&
+      params.from === EEnterWay.SwapStock,
+    isChartFullscreen,
   });
-  useEffect(() => {
-    if (!isFromSwapStock) return;
-    return navigation.addListener('beforeRemove', (event) => {
-      const { action } = event.data;
-      if (
-        isReturningToSwapRef.current ||
-        isSwapStockTripEnded(routeKey) ||
-        isChartFullscreenRef.current ||
-        (action.type !== 'GO_BACK' && action.type !== 'POP')
-      ) {
-        return;
-      }
-      // Switch tabs before the pop: popping first shows the Market list for
-      // a frame before Swap comes back.
-      event.preventDefault();
-      isReturningToSwapRef.current = true;
-      switchTab(ETabRoutes.Swap);
-      runAfterNextFrame(() => navigation.dispatch(action));
-    });
-  }, [isFromSwapStock, navigation, routeKey]);
   const routeTokenDetailPreview =
     'legacyTokenPreview' in params ? params.legacyTokenPreview : undefined;
   const tokenDetailPreview = useMemo(
