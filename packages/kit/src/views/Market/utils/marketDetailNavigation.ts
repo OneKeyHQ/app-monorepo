@@ -698,6 +698,20 @@ function resolveEntryBackAction({
  * stack changes underneath it. Frames pause in a hidden window, so a short
  * timeout makes sure the step still happens.
  */
+// Detail routes (by key) opened by Swap's "view full data" whose trip back to
+// Swap has ended: the user left the Market tab another way, so a later back
+// from that detail belongs to Market again. A new entry restarts the trip.
+const endedSwapStockTripRouteKeys = new Set<string>();
+
+export function setSwapStockTripEnded(routeKey: string, ended: boolean) {
+  if (ended) endedSwapStockTripRouteKeys.add(routeKey);
+  else endedSwapStockTripRouteKeys.delete(routeKey);
+}
+
+export function isSwapStockTripEnded(routeKey: string) {
+  return endedSwapStockTripRouteKeys.has(routeKey);
+}
+
 export function runAfterNextFrame(callback: () => void) {
   let done = false;
   const run = () => {

@@ -26,6 +26,7 @@ import {
   usePreventRemove,
   useSplitSubView,
 } from '@onekeyhq/components';
+import useListenTabFocusState from '@onekeyhq/kit/src/hooks/useListenTabFocusState';
 import { getRootRoutersLength } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import { useSetSplitViewDetailFullscreen } from '@onekeyhq/kit/src/provider/Container/TableSplitViewContainer';
 import {
@@ -59,7 +60,11 @@ import { useSettledHeaderHeight } from '../../Earn/hooks/useSettledHeaderHeight'
 import { useMarketEnterAnalytics } from '../hooks';
 import { MarketWatchListProviderMirrorV2 } from '../MarketWatchListProviderMirrorV2';
 import { MarketTestIDs } from '../testIDs';
-import { runAfterNextFrame } from '../utils/marketDetailNavigation';
+import {
+  isSwapStockTripEnded,
+  runAfterNextFrame,
+  setSwapStockTripEnded,
+} from '../utils/marketDetailNavigation';
 
 import { MarketDetailHeader } from './components/MarketDetailHeader';
 import {
@@ -268,13 +273,34 @@ function MarketDetail({
     params.from === EEnterWay.SwapStock;
   const isChartFullscreenRef = useRef(isChartFullscreen);
   isChartFullscreenRef.current = isChartFullscreen;
+  // The trip is one-shot: leaving the Market tab any other way (sidebar, tab
+  // bar) ends it, so a later visit's back stays in Market. Tracked outside the
+  // params, whose changes would re-record the market entry analytics. A new
+  // entry (fresh params) restarts it.
+  const routeKey = route.key;
+  const isReturningToSwapRef = useRef(false);
+  const hasShownMarketTabRef = useRef(false);
+  useEffect(() => {
+    hasShownMarketTabRef.current = false;
+    isReturningToSwapRef.current = false;
+    setSwapStockTripEnded(routeKey, false);
+  }, [params, routeKey]);
+  useEffect(() => () => setSwapStockTripEnded(routeKey, false), [routeKey]);
+  useListenTabFocusState(ETabRoutes.Market, (isFocus) => {
+    if (!isFromSwapStock) return;
+    if (isFocus) {
+      hasShownMarketTabRef.current = true;
+    } else if (hasShownMarketTabRef.current && !isReturningToSwapRef.current) {
+      setSwapStockTripEnded(routeKey, true);
+    }
+  });
   useEffect(() => {
     if (!isFromSwapStock) return;
-    let isReturningToSwap = false;
     return navigation.addListener('beforeRemove', (event) => {
       const { action } = event.data;
       if (
-        isReturningToSwap ||
+        isReturningToSwapRef.current ||
+        isSwapStockTripEnded(routeKey) ||
         isChartFullscreenRef.current ||
         (action.type !== 'GO_BACK' && action.type !== 'POP')
       ) {
@@ -283,11 +309,11 @@ function MarketDetail({
       // Switch tabs before the pop: popping first shows the Market list for
       // a frame before Swap comes back.
       event.preventDefault();
-      isReturningToSwap = true;
+      isReturningToSwapRef.current = true;
       switchTab(ETabRoutes.Swap);
       runAfterNextFrame(() => navigation.dispatch(action));
     });
-  }, [isFromSwapStock, navigation]);
+  }, [isFromSwapStock, navigation, routeKey]);
   const routeTokenDetailPreview =
     'legacyTokenPreview' in params ? params.legacyTokenPreview : undefined;
   const tokenDetailPreview = useMemo(

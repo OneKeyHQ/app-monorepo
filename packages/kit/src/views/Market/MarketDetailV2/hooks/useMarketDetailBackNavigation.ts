@@ -8,11 +8,12 @@ import {
 
 import { useSplitSubView } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import type { EEnterWay } from '@onekeyhq/shared/src/logger/scopes/dex';
+import { EEnterWay } from '@onekeyhq/shared/src/logger/scopes/dex';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabMarketRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
 
 import {
+  isSwapStockTripEnded,
   resolveMarketDetailBackAction,
   runAfterNextFrame,
 } from '../../utils/marketDetailNavigation';
@@ -26,10 +27,14 @@ export function useMarketDetailBackNavigation() {
 
   const handleBackPress = useCallback(() => {
     const state = reactNavigation.getState();
+    const from =
+      params?.from === EEnterWay.SwapStock && isSwapStockTripEnded(route.key)
+        ? undefined
+        : params?.from;
     const action = resolveMarketDetailBackAction({
       isTabletDetailView,
       isNative: Boolean(platformEnv.isNative),
-      from: params?.from,
+      from,
       routes: state?.routes,
       index: state?.index,
     });
@@ -72,7 +77,7 @@ export function useMarketDetailBackNavigation() {
         ],
       }),
     );
-  }, [params, reactNavigation, navigation, isTabletDetailView]);
+  }, [params, route.key, reactNavigation, navigation, isTabletDetailView]);
 
   return { handleBackPress };
 }
