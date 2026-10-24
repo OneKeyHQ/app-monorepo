@@ -438,6 +438,7 @@ export const StakeSection = ({
   const payWithList = hasOtherPayTokens ? (
     <EarnPayWithList
       tokens={payListTokens}
+      networkId={networkId}
       isOpen={isPayListOpen}
       onPick={handlePickPayToken}
       onClose={handleClosePayWith}

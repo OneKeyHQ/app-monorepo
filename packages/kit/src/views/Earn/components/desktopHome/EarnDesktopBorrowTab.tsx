@@ -43,6 +43,7 @@ import {
 } from './earnDesktopHome.utils';
 import { EARN_DESKTOP_DEMO_COPY } from './earnDesktopHomeCopy';
 import { buildKeyboardPressProps } from './earnDesktopPressable';
+import { EarnDesktopSortLabel } from './EarnDesktopSortLabel';
 
 import type {
   IEarnDesktopLoanAssetType,
@@ -60,12 +61,13 @@ const PAGE_SIZE = 20;
 const column = (
   flex: number,
   align: 'flex-start' | 'flex-end' = 'flex-start',
+  minWidth = 0,
 ) =>
   ({
     flexGrow: flex,
     flexShrink: 1,
     flexBasis: 0,
-    minWidth: 0,
+    minWidth,
     ai: align,
   }) as const;
 const COLUMNS = {
@@ -74,7 +76,9 @@ const COLUMNS = {
   market: column(2.2),
   supply: column(1.2, 'flex-end'),
   borrowApy: column(1.2, 'flex-end'),
-  net: column(1.3, 'flex-end'),
+  // Wide enough for its label, the info button and "Net APY (50% LTV)" with
+  // its sort chevron, so the label doesn't run into Borrow APY's
+  net: column(1.3, 'flex-end', 168),
 };
 const SEARCH_BAR_CONTAINER_PROPS = {
   w: 220,
@@ -197,59 +201,6 @@ function HeaderLabel({ children }: { children: string }) {
   );
 }
 
-// A rate's label that sorts the list by it, as the Market list's labels do
-function SortLabel({
-  children,
-  sort,
-  current,
-  onPress,
-}: {
-  children: string;
-  sort: IEarnDesktopLoanSort;
-  current: { key: IEarnDesktopLoanSort; direction: 'asc' | 'desc' };
-  onPress: (sort: IEarnDesktopLoanSort) => void;
-}) {
-  const isActive = current.key === sort;
-  let iconName:
-    | 'ChevronGrabberVerOutline'
-    | 'ChevronDownSmallOutline'
-    | 'ChevronTopSmallOutline' = 'ChevronGrabberVerOutline';
-  if (isActive) {
-    iconName =
-      current.direction === 'desc'
-        ? 'ChevronDownSmallOutline'
-        : 'ChevronTopSmallOutline';
-  }
-  const handlePress = () => onPress(sort);
-  return (
-    <XStack
-      testID={`earn-desktop-loans-sort-${sort}`}
-      role="button"
-      aria-pressed={isActive}
-      ai="center"
-      gap="$0.5"
-      cursor="pointer"
-      userSelect="none"
-      hitSlop={8}
-      onPress={handlePress}
-      {...buildKeyboardPressProps(handlePress, 2)}
-    >
-      <SizableText
-        size="$bodySmMedium"
-        color={isActive ? '$text' : '$textSubdued'}
-        numberOfLines={1}
-      >
-        {children}
-      </SizableText>
-      <Icon
-        name={iconName}
-        size="$4"
-        color={isActive ? '$icon' : '$iconSubdued'}
-      />
-    </XStack>
-  );
-}
-
 function NetApyInfo() {
   const intl = useIntl();
   const title = intl.formatMessage({ id: ETranslations.defi_net_apy });
@@ -280,16 +231,11 @@ function NetApyInfo() {
 
 const formatRate = (value: number) => `${value.toFixed(2)}%`;
 
-// Green when the collateral earns more than the loan costs, red when less, as
-// the Borrow page colors a position's Net APY
+// Red when the loan costs more than the collateral earns. A gain stays in the
+// text color: in a list of loans, green read as borrowing to earn more
 function NetApyText({ value }: { value: number }) {
   const rounded = Number(value.toFixed(2));
-  let color: '$textSuccess' | '$textCritical' | '$text' = '$text';
-  if (rounded > 0) {
-    color = '$textSuccess';
-  } else if (rounded < 0) {
-    color = '$textCritical';
-  }
+  const color = rounded < 0 ? '$textCritical' : '$text';
   return (
     <SizableText size="$bodyLgMedium" color={color} numberOfLines={1}>
       {`${rounded > 0 ? '+' : ''}${formatRate(rounded)}`}
@@ -562,12 +508,11 @@ export function EarnDesktopBorrowTab({
     [pairs, walletTokenKeys],
   );
 
-  // Until one is picked, the filters follow the data: collateral the wallet
-  // holds once it holds any, and stable tokens to borrow, the loan most take
+  // Until one is picked: every collateral, and stable tokens to borrow, the
+  // loan most take. "In your wallet" is one pick away
   const [pickedCollateral, setPickedCollateral] = useState<IAssetFilter>();
   const [pickedBorrow, setPickedBorrow] = useState<IAssetFilter>();
-  const collateralFilter =
-    pickedCollateral ?? (walletPairs.length ? 'wallet' : 'all');
+  const collateralFilter = pickedCollateral ?? 'all';
   const borrowFilter = pickedBorrow ?? 'stable';
   const [selectedNetworkIds, setSelectedNetworkIds] = useState<string[]>([]);
   const [searchText, setSearchText] = useState('');
@@ -675,7 +620,10 @@ export function EarnDesktopBorrowTab({
   const borrowApyLabel = intl.formatMessage({
     id: ETranslations.defi_borrow_apy,
   });
-  const netApyLabel = intl.formatMessage({ id: ETranslations.defi_net_apy });
+  // The loan every row is worked out for, named where the rate is
+  const netApyLabel = EARN_DESKTOP_DEMO_COPY.loanNetApyHeader(
+    `${EARN_DESKTOP_LOAN_LTV * 100}%`,
+  );
 
   let list = null;
   if (isLoading) {
@@ -791,14 +739,24 @@ export function EarnDesktopBorrowTab({
                   </HeaderLabel>
                 </Stack>
                 <Stack {...COLUMNS.supply}>
-                  <SortLabel sort="supply" current={sort} onPress={handleSort}>
+                  <EarnDesktopSortLabel
+                    sort="supply"
+                    current={sort}
+                    onPress={handleSort}
+                    testID="earn-desktop-loans-sort-supply"
+                  >
                     {supplyApyLabel}
-                  </SortLabel>
+                  </EarnDesktopSortLabel>
                 </Stack>
                 <Stack {...COLUMNS.borrowApy}>
-                  <SortLabel sort="borrow" current={sort} onPress={handleSort}>
+                  <EarnDesktopSortLabel
+                    sort="borrow"
+                    current={sort}
+                    onPress={handleSort}
+                    testID="earn-desktop-loans-sort-borrow"
+                  >
                     {borrowApyLabel}
-                  </SortLabel>
+                  </EarnDesktopSortLabel>
                 </Stack>
               </>
             ) : (
@@ -813,9 +771,14 @@ export function EarnDesktopBorrowTab({
               gap="$1"
             >
               <NetApyInfo />
-              <SortLabel sort="net" current={sort} onPress={handleSort}>
+              <EarnDesktopSortLabel
+                sort="net"
+                current={sort}
+                onPress={handleSort}
+                testID="earn-desktop-loans-sort-net"
+              >
                 {netApyLabel}
-              </SortLabel>
+              </EarnDesktopSortLabel>
             </XStack>
             <Stack w="$5" />
           </ListItem>

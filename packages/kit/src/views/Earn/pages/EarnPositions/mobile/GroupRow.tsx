@@ -2,7 +2,14 @@ import { useCallback, useState } from 'react';
 
 import { StyleSheet } from 'react-native';
 
-import { Icon, SizableText, View, XStack, YStack } from '@onekeyhq/components';
+import {
+  Badge,
+  Icon,
+  SizableText,
+  View,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { PendingIndicator } from '@onekeyhq/kit/src/views/Staking/components/StakingActivityIndicator';
 
@@ -42,6 +49,8 @@ type IGroupRowProps = {
   logoURI?: string;
   /** shown as the network badge on the logo when the group is one network */
   networkId?: string;
+  /** beside the name when another group has the same name, "Katana" */
+  networkName?: string;
   total: React.ReactNode;
   /** under the name in the wide layout's card header, "3 Positions" */
   subtitle?: string;
@@ -54,6 +63,16 @@ type IGroupRowProps = {
   children: React.ReactNode;
 };
 
+// The wallet token list's network badge (TokenNameView). Short of room it
+// gives up its width well before the name does
+function NetworkNameBadge({ name }: { name: string }) {
+  return (
+    <Badge flexShrink={100} minWidth={0}>
+      <Badge.Text numberOfLines={1}>{name}</Badge.Text>
+    </Badge>
+  );
+}
+
 /**
  * The wide layout's group: the wallet DeFi Portfolio's desktop protocol card
  * (ProtocolDesktopLayout), a hairline-bordered card whose header row carries
@@ -64,6 +83,7 @@ function GroupCard({
   name,
   logoURI,
   networkId,
+  networkName,
   total,
   subtitle,
   pendingCount = 0,
@@ -115,6 +135,7 @@ function GroupCard({
               <SizableText size="$headingLg" numberOfLines={1} flexShrink={1}>
                 {name}
               </SizableText>
+              {networkName ? <NetworkNameBadge name={networkName} /> : null}
               {pendingCount > 0 ? (
                 <PendingIndicator num={pendingCount} />
               ) : null}
@@ -167,6 +188,7 @@ export function GroupRow(props: IGroupRowProps) {
     name,
     logoURI,
     networkId,
+    networkName,
     total,
     pendingCount = 0,
     expanded,
@@ -201,6 +223,7 @@ export function GroupRow(props: IGroupRowProps) {
           <SizableText size="$bodyLgMedium" numberOfLines={1}>
             {name}
           </SizableText>
+          {networkName ? <NetworkNameBadge name={networkName} /> : null}
           {pendingCount > 0 ? <PendingIndicator num={pendingCount} /> : null}
         </XStack>
         <XStack ai="center" gap="$2" flexShrink={0}>

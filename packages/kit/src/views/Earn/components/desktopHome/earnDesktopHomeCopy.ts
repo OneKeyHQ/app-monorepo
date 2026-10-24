@@ -40,6 +40,7 @@ export const EARN_DESKTOP_DEMO_COPY = {
   // Loans as collateral and borrow pairs
   inYourWallet: 'In your wallet',
   showMore: (count: number) => `Show ${count} more`,
+  loanNetApyHeader: (ltv: string) => `Net APY (${ltv} LTV)`,
   loanNetApyInfo: (ltv: string) =>
     `What the collateral earns less what the loan costs in a year, over your net worth in the market. Worked out for a loan of half the collateral's value (${ltv} LTV), so every row compares the same loan. Pairs that can't lend that much aren't listed.`,
   // The guide for a wallet without positions: the card's rows, and the

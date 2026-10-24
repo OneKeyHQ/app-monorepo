@@ -1,9 +1,11 @@
 import { useCallback, useMemo } from 'react';
 
-import { YStack } from '@onekeyhq/components';
+import { YStack, useMedia } from '@onekeyhq/components';
 import { ProviderJotaiContextDeFiList } from '@onekeyhq/kit/src/states/jotai/contexts/deFiList';
-import { DeFiAllocationCard } from '@onekeyhq/kit/src/views/Home/components/DeFiListBlock/DeFiAllocationCard';
-import { buildPortfolioStats } from '@onekeyhq/kit/src/views/Home/components/DeFiListBlock/DeFiPortfolioStats';
+import { buildValueShares } from '@onekeyhq/kit/src/views/Earn/components/desktopHome/earnDesktopHome.utils';
+import { ProtocolSplit } from '@onekeyhq/kit/src/views/Earn/components/desktopHome/EarnDesktopProtocolSplit';
+import { DeFiOverviewGrid } from '@onekeyhq/kit/src/views/Home/components/DeFiListBlock/DeFiOverviewGrid';
+import { resolveOverviewCols } from '@onekeyhq/kit/src/views/Home/components/DeFiListBlock/overviewColsResolver';
 import defiUtils from '@onekeyhq/shared/src/utils/defiUtils';
 import type {
   IDeFiProtocol,
@@ -13,10 +15,11 @@ import type {
 import type { IEarnProtocolView } from '../mobile/earnPositionModel';
 
 /**
- * The wide layout's allocation overview: the wallet DeFi Portfolio's own
- * stacked bar and protocol tiles over the positions shown, shown from two
- * protocols up as the wallet does. Each protocol counts what its card's
- * header reads, so a tile and its card agree. The tiles keep their "More"
+ * The wide layout's allocation overview over the positions shown, from two
+ * protocols up as the wallet does: the home hero's split bar (lightness
+ * steps, whole percents, the rest as "N more"), then the wallet DeFi
+ * Portfolio's protocol tiles. Each protocol counts what its card's header
+ * reads, so the bar, a tile and its card agree. The tiles keep their "More"
  * state in a DeFi list store of their own.
  */
 export function EarnPortfolioOverview({
@@ -32,6 +35,11 @@ export function EarnPortfolioOverview({
   protocolMap: Record<string, IProtocolSummary>;
   onPressProtocol: (protocol: IDeFiProtocol) => void;
 }) {
+  const media = useMedia();
+  const cols = useMemo(
+    () => resolveOverviewCols({ gtXl: media.gtXl, gtLg: media.gtLg }),
+    [media.gtXl, media.gtLg],
+  );
   const valueByKey = useMemo(
     () =>
       new Map(
@@ -61,24 +69,29 @@ export function EarnPortfolioOverview({
       ) ?? 0,
     [valueByKey],
   );
-  const stats = useMemo(
+  // By protocol across networks, as the home splits its total
+  const shares = useMemo(
     () =>
-      buildPortfolioStats({
-        protocols: shownProtocols,
-        protocolMap,
-        getNetWorth,
+      buildValueShares({
+        items: protocols.map((protocol) => ({
+          key: protocol.protocol.toLowerCase(),
+          name: protocol.name,
+          logoURI: protocol.logoURI,
+          value: protocol.value.value,
+        })),
       }),
-    [shownProtocols, protocolMap, getNetWorth],
+    [protocols],
   );
 
-  if (shownProtocols.length < 2 || stats.slices.length === 0) {
+  if (shownProtocols.length < 2 || shares.top.length === 0) {
     return null;
   }
   return (
     <ProviderJotaiContextDeFiList>
-      <YStack px="$5">
-        <DeFiAllocationCard
-          stats={stats}
+      <YStack px="$5" gap="$6" userSelect="none">
+        <ProtocolSplit shares={shares} />
+        <DeFiOverviewGrid
+          cols={cols}
           protocols={shownProtocols}
           protocolMap={protocolMap}
           getNetWorth={getNetWorth}

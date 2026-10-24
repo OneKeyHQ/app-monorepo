@@ -65,7 +65,8 @@ function BeforeAfter({
 /**
  * A lending supply's part under the amount, as the Earn forms show it: what a
  * year at the supply rate earns on the amount, then the position's rows
- * (My Supply, Health Factor where there are loans, Use as Collateral)
+ * (My Supply; where the account has loans on the market, Health Factor and
+ * Use as Collateral). Supplying only, collateral isn't something to weigh
  */
 export function EarnLendingSummary({
   amountValue,
@@ -120,17 +121,13 @@ export function EarnLendingSummary({
   }
 
   const rows: ReactElement[] = [];
-  // Before the first answer: a supply always has these two, so they hold
-  // their places with a dash and the button doesn't move when it lands
+  // Before the first answer: a supply always has this one, so it holds its
+  // place with a dash and the button doesn't move when it lands
   if (!confirmation) {
     rows.push(
       <EarnFormRow
         key="my-supply"
         label={intl.formatMessage({ id: ETranslations.defi_my_supply })}
-      />,
-      <EarnFormRow
-        key="collateral"
-        label={intl.formatMessage({ id: ETranslations.defi_use_as_collateral })}
       />,
     );
   }
@@ -156,7 +153,10 @@ export function EarnLendingSummary({
   const healthFactor = isPositiveAmount
     ? confirmation?.healthFactor
     : undefined;
-  if (confirmation?.healthFactor || confirmation?.liquidationAt) {
+  const hasLoans = Boolean(
+    confirmation?.healthFactor || confirmation?.liquidationAt,
+  );
+  if (confirmation && hasLoans) {
     rows.push(
       <EarnFormRow
         key="health-factor"
@@ -191,8 +191,9 @@ export function EarnLendingSummary({
   const usageAsCollateral = confirmation?.usageAsCollateral;
   // Older responses omit usageAsCollateral; the switch state isn't guessed
   if (
-    canBeCollateral === false ||
-    (canBeCollateral === true && usageAsCollateral !== undefined)
+    hasLoans &&
+    (canBeCollateral === false ||
+      (canBeCollateral === true && usageAsCollateral !== undefined))
   ) {
     rows.push(
       <CollateralInfo

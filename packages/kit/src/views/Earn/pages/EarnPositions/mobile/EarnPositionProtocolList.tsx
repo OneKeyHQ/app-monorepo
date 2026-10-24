@@ -9,6 +9,7 @@ import { EarnTestIDs } from '../../../testIDs';
 
 import { EarnPositionCard } from './EarnPositionCard';
 import { GroupRow } from './GroupRow';
+import { useRepeatedProtocolNetworkNames } from './useRepeatedProtocolNetworkNames';
 
 import type { IEarnPositionCardHandlers } from './EarnPositionCard';
 import type { IEarnProtocolView } from './earnPositionModel';
@@ -32,6 +33,7 @@ export function EarnPositionProtocolList({
 } & IEarnPositionCardHandlers) {
   const intl = useIntl();
   const currencyInfo = useCurrency();
+  const networkNames = useRepeatedProtocolNetworkNames(protocols);
   const priceUnavailableLabel = intl.formatMessage({
     id: ETranslations.wallet_price_unavailable,
   });
@@ -44,6 +46,7 @@ export function EarnPositionProtocolList({
           name={protocol.name}
           logoURI={protocol.logoURI}
           networkId={protocol.networkId}
+          networkName={networkNames.get(protocol.key)}
           pendingCount={pendingCountByProvider?.[protocol.protocol] ?? 0}
           expanded={expansion.isExpanded(protocol.key)}
           onToggle={() => expansion.toggle(protocol.key)}

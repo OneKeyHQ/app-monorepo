@@ -108,10 +108,12 @@ function HoldingTableRow({
         gap="$0.5"
       >
         {isCheck ? null : (
+          // The amount alone: the Value column beside it has the figure
           <ProtocolAssetBalanceText
             asset={asset}
             currencySymbol={currencyInfo.symbol}
             priceUnavailableLabel={priceUnavailableLabel}
+            showFiatValue={false}
           />
         )}
         {days ? <DaysLeftText days={days} /> : null}

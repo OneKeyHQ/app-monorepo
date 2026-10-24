@@ -34,7 +34,7 @@ const FETCH_CONCURRENCY = 10;
 // 5s), causing a 5s+ skeleton on each entry.
 const AGGREGATED_CACHE_MAX_AGE = 5 * 60 * 1000;
 
-function getItemTvlValue(item: IStakeProtocolListItem): number {
+export function getItemTvlValue(item: IStakeProtocolListItem): number {
   return parseFormattedLiquidityValue(
     item.provider.totalFiatValue || item.provider.tvl || item.tvl?.text,
   );

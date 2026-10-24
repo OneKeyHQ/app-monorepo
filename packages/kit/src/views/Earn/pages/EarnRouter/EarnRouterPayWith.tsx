@@ -115,11 +115,14 @@ export const getListRowMotion = (
 // under it, inset so its hover reads as one item of the box
 function PayTokenRow({
   item,
+  networkId,
   index,
   onSelect,
   focusRef,
 }: {
   item: IEarnRouterPayToken;
+  // Every token in the list is on the deposit's network; its badge says which
+  networkId: string;
   // Its place in the list: each row comes in a moment after the one above
   index: number;
   onSelect: (item: IEarnRouterPayToken) => void;
@@ -155,7 +158,12 @@ function PayTokenRow({
       onPress={handlePress}
       {...buildKeyboardPressProps(handlePress)}
     >
-      <Token size="md" tokenImageUri={item.token.logoURI} />
+      <Token
+        size="md"
+        tokenImageUri={item.token.logoURI}
+        showNetworkIcon
+        networkId={networkId}
+      />
       <YStack flex={1} minWidth={0} gap="$0.5">
         <SizableText size="$bodyLgMedium" numberOfLines={1}>
           {item.token.symbol}
@@ -214,12 +222,14 @@ const PAY_LIST_MAX_HEIGHT = 280;
  */
 export function EarnPayWithList({
   tokens,
+  networkId,
   isOpen,
   onPick,
   onClose,
   focusFirstRef,
 }: {
   tokens: IEarnRouterPayToken[];
+  networkId: string;
   isOpen: boolean;
   onPick: (item: IEarnRouterPayToken) => void;
   onClose: () => void;
@@ -270,6 +280,7 @@ export function EarnPayWithList({
                     <PayTokenRow
                       key={item.key}
                       item={item}
+                      networkId={networkId}
                       index={index}
                       onSelect={onPick}
                       focusRef={index === 0 ? focusFirstRef : undefined}

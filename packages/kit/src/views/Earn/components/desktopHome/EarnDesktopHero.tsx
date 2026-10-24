@@ -10,13 +10,11 @@ import {
   PROPORTIONAL_NUMS,
   Popover,
   SizableText,
-  Skeleton,
   XStack,
   YStack,
   getFontSize,
 } from '@onekeyhq/components';
 import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeableTextWrapper';
-import { Token } from '@onekeyhq/kit/src/components/Token';
 import { convertFiat } from '@onekeyhq/kit/src/utils/fiatConvert';
 import {
   settingsValuePersistAtom,
@@ -30,16 +28,16 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EarnTestIDs } from '../../testIDs';
 import { getNumberColor } from '../../utils/getNumberColor';
 
-import { formatSharePercent } from './earnDesktopHome.utils';
 import { EARN_DESKTOP_DEMO_COPY } from './earnDesktopHomeCopy';
 import { buildKeyboardPressProps } from './earnDesktopPressable';
+import {
+  ProtocolSplit,
+  ProtocolSplitSkeleton,
+  SkeletonLine,
+} from './EarnDesktopProtocolSplit';
 
 import type { IEarnDesktopShares } from './earnDesktopHome.utils';
 
-// Lightness steps, the biggest share brightest. Color on this page means
-// status (earnings, risk), so the protocols' logos tell them apart instead
-const SHARE_COLORS = ['$neutral11', '$neutral9', '$neutral7'] as const;
-const REST_SHARE_COLOR = '$neutral5';
 const SECONDS_PER_DAY = 24 * 60 * 60;
 // The wallet home's balance size, with the same line height. A total too long
 // for the hero beside the banner takes the largest of these that fits, the way
@@ -149,81 +147,6 @@ function TotalValue({
   ) : (
     <YStack minWidth={0} x={x}>
       {amount}
-    </YStack>
-  );
-}
-
-// Skeletons in the loaded hero's boxes, so nothing below moves as it loads
-function SkeletonLine({
-  height,
-  width,
-  barHeight,
-}: {
-  height: number;
-  width: number | string;
-  barHeight: number;
-}) {
-  return (
-    <YStack h={height} jc="center">
-      <Skeleton w={width} h={barHeight} borderRadius="$2" />
-    </YStack>
-  );
-}
-
-function ProtocolSplitSkeleton() {
-  return (
-    <YStack gap="$3.5">
-      <Skeleton h="$2.5" w="100%" borderRadius="$full" />
-      <XStack gap="$8">
-        {Array.from({ length: 3 }).map((_, index) => (
-          <YStack key={index} gap="$1">
-            <SkeletonLine height={20} width={96} barHeight={14} />
-            <SkeletonLine height={24} width={40} barHeight={16} />
-          </YStack>
-        ))}
-      </XStack>
-    </YStack>
-  );
-}
-
-// Where the hero's total sits: by protocol, or without positions, by token
-function ProtocolSplit({ shares }: { shares: IEarnDesktopShares }) {
-  const restValue =
-    shares.total - shares.top.reduce((sum, item) => sum + item.value, 0);
-  return (
-    <YStack gap="$3.5">
-      <XStack h="$2.5" gap="$0.5" borderRadius="$full" overflow="hidden">
-        {shares.top.map((item, index) => (
-          <YStack key={item.key} flex={item.value} bg={SHARE_COLORS[index]} />
-        ))}
-        {shares.rest ? <YStack flex={restValue} bg={REST_SHARE_COLOR} /> : null}
-      </XStack>
-      {/* Four a row at a phone's width too */}
-      <XStack gap="$8" $md={{ gap: '$5' }} flexWrap="wrap">
-        {shares.top.map((item) => (
-          <YStack key={item.key} gap="$1">
-            <XStack gap="$1.5" ai="center">
-              <Token size="xs" tokenImageUri={item.logoURI} />
-              <SizableText size="$bodyMd" color="$textSubdued">
-                {item.name}
-              </SizableText>
-            </XStack>
-            <SizableText size="$bodyLgMedium">
-              {formatSharePercent(item.percent)}
-            </SizableText>
-          </YStack>
-        ))}
-        {shares.rest ? (
-          <YStack gap="$1">
-            <SizableText size="$bodyMd" color="$textSubdued">
-              {EARN_DESKTOP_DEMO_COPY.more(shares.rest.count)}
-            </SizableText>
-            <SizableText size="$bodyLgMedium">
-              {formatSharePercent(shares.rest.percent)}
-            </SizableText>
-          </YStack>
-        ) : null}
-      </XStack>
     </YStack>
   );
 }

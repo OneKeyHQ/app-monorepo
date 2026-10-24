@@ -4,6 +4,7 @@ import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import {
+  Badge,
   Button,
   Icon,
   SizableText,
@@ -109,6 +110,16 @@ export function OfferRate({
   );
 }
 
+// The rate shown is the best offer's, so its badge (a bonus, and why the
+// rate is green) is too, as the offer cards and the Earn table show it
+const getOfferBadge = (offer: IEarnDesktopHoldOffer | undefined) =>
+  offer?.kind === 'protocol' ? offer.item.provider.badges?.[0] : undefined;
+
+// A phone's width: the rate's column, and the width it takes in every row
+// once one row's rate carries a badge, so the balances keep one edge
+const NARROW_RATE_WIDTH = 96;
+const NARROW_BADGED_RATE_WIDTH = 112;
+
 // What the balance would earn in a year at that rate
 function YearlyLine({ row }: { row: IEarnDesktopHoldRow }) {
   const [best] = row.offers;
@@ -188,12 +199,14 @@ function HoldRow({
   row,
   networkName,
   isWide,
+  narrowRateWidth,
   onPress,
   onWarm,
 }: {
   row: IEarnDesktopHoldRow;
   networkName?: string;
   isWide: boolean;
+  narrowRateWidth: number;
   onPress: () => void;
   // Gets the deposit modal's form ready, so it opens complete
   onWarm: () => void;
@@ -239,6 +252,17 @@ function HoldRow({
   );
   const [best] = row.offers;
   const symbol = row.token.symbol;
+  const badge = getOfferBadge(best);
+  const badgeElement = badge ? (
+    <Badge badgeType={badge.badgeType} badgeSize="sm" flexShrink={0}>
+      <Badge.Text>{badge.tag}</Badge.Text>
+    </Badge>
+  ) : null;
+  const symbolText = (
+    <SizableText size="$bodyLgMedium" numberOfLines={1} flexShrink={1}>
+      {symbol}
+    </SizableText>
+  );
   const fixedLine = best.isFixedRate ? (
     <SizableText size="$bodySm" color="$textSubdued" numberOfLines={1}>
       {intl.formatMessage({ id: ETranslations.defi_fixed_rate })}
@@ -275,9 +299,10 @@ function HoldRow({
                 networkId={row.networkId}
               />
               <YStack flex={1} minWidth={0}>
-                <SizableText size="$bodyLgMedium" numberOfLines={1}>
-                  {symbol}
-                </SizableText>
+                <XStack ai="center" gap="$1.5" minWidth={0}>
+                  {symbolText}
+                  {badgeElement}
+                </XStack>
                 {fixedLine}
               </YStack>
             </XStack>
@@ -320,9 +345,7 @@ function HoldRow({
               networkId={row.networkId}
             />
             <YStack flex={1} minWidth={0}>
-              <SizableText size="$bodyLgMedium" numberOfLines={1}>
-                {symbol}
-              </SizableText>
+              {symbolText}
               <SizableText
                 size="$bodySm"
                 color="$textSubdued"
@@ -334,8 +357,13 @@ function HoldRow({
             <YStack ai="flex-end" flexShrink={1} minWidth={0}>
               <RowBalance row={row} />
             </YStack>
-            <YStack ai="flex-end" flexShrink={0} minWidth={96}>
-              <OfferRate offer={best} />
+            {/* A phone's width has no room for the badge beside the symbol;
+                beside the rate it still says why the rate is green */}
+            <YStack ai="flex-end" flexShrink={0} minWidth={narrowRateWidth}>
+              <XStack ai="center" gap="$1.5">
+                {badgeElement}
+                <OfferRate offer={best} />
+              </XStack>
               <YearlyLine row={row} />
             </YStack>
           </>
@@ -494,6 +522,10 @@ export function EarnDesktopHoldCard({
     return () => clearTimeout(timer);
   }, [shownKey, warm]);
   const moreCount = rows.length - ROW_LIMIT;
+  // Over every row, so showing more doesn't move the columns
+  const narrowRateWidth = rows.some((row) => getOfferBadge(row.offers[0]))
+    ? NARROW_BADGED_RATE_WIDTH
+    : NARROW_RATE_WIDTH;
   return (
     // The wider gap above sets the title apart from the hero
     <YStack mt="$4">
@@ -508,6 +540,7 @@ export function EarnDesktopHoldCard({
             row={row}
             networkName={networkNames.get(row.networkId)}
             isWide={isWide}
+            narrowRateWidth={narrowRateWidth}
             onPress={() => onOpenRow(row)}
             onWarm={() => warm(toWarmTarget(row))}
           />
@@ -625,7 +658,7 @@ export function EarnDesktopHoldCardSkeleton() {
                 <YStack ai="flex-end">
                   <SkeletonPair top={72} bottom={48} />
                 </YStack>
-                <YStack ai="flex-end" minWidth={96}>
+                <YStack ai="flex-end" minWidth={NARROW_RATE_WIDTH}>
                   <SkeletonPair top={48} bottom={88} />
                 </YStack>
               </>

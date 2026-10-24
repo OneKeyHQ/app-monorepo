@@ -39,15 +39,22 @@ import type { IStakeProtocolListItem } from '@onekeyhq/shared/types/staking';
 import { BorrowNavigation } from '../../../Borrow/borrowUtils';
 import { EarnText } from '../../../Staking/components/ProtocolDetails/EarnText';
 import { EarnNavigation } from '../../earnUtils';
-import { useEarnAllProtocols } from '../../hooks/useEarnAllProtocols';
+import {
+  getItemTvlValue,
+  useEarnAllProtocols,
+} from '../../hooks/useEarnAllProtocols';
 import { EarnTestIDs } from '../../testIDs';
-import { parseAprPercentValue } from '../../utils/availableAssetsUtils';
+import {
+  parseAprPercentValue,
+  parseFormattedLiquidityValue,
+} from '../../utils/availableAssetsUtils';
 import { AprText } from '../AprText';
 import { EarnListEmptyState } from '../EarnListEmptyState';
 import { NetworkFilterControl } from '../NetworkFilterControl';
 
 import {
   findPositionDeposit,
+  getAssetSortApr,
   isFixedRateProtocol,
 } from './earnDesktopHome.utils';
 import {
@@ -56,6 +63,7 @@ import {
   buildKeyboardPressProps,
   usePressableSurface,
 } from './earnDesktopPressable';
+import { EarnDesktopSortLabel } from './EarnDesktopSortLabel';
 import { useEarnDesktopSurfaces } from './useEarnDesktopSurfaces';
 
 import type {
@@ -63,6 +71,7 @@ import type {
   IEarnDesktopPortfolioDeposits,
   IEarnDesktopWalletHolding,
 } from './earnDesktopHome.utils';
+import type { IEarnDesktopSortState } from './EarnDesktopSortLabel';
 
 type ITokenCategory = 'all' | 'stable' | 'nonStable' | 'fixedIncome';
 
@@ -208,13 +217,23 @@ function HeaderLabel({
 }
 
 type IOfferRow =
-  | { kind: 'protocol'; key: string; apr: number; item: IStakeProtocolListItem }
+  | {
+      kind: 'protocol';
+      key: string;
+      apr: number;
+      tvl: number;
+      item: IStakeProtocolListItem;
+    }
   | {
       kind: 'lending';
       key: string;
       apr: number;
+      tvl: number;
       offer: IEarnDesktopLendingOffer;
     };
+
+type IOfferSort = 'apr' | 'tvl';
+type ITokenSort = 'apr';
 
 function OfferRowFrame({
   children,
@@ -329,6 +348,7 @@ function TokenOffers({
         kind: 'protocol',
         key: `${item.network.networkId}-${item.provider.name}-${item.provider.vault ?? ''}`,
         apr: parseAprPercentValue(item.provider.aprWithoutFee),
+        tvl: getItemTvlValue(item),
         item,
       }));
     // A market the protocol list already carries (Kamino USDC has a staking
@@ -352,10 +372,29 @@ function TokenOffers({
             kind: 'lending',
             key: offer.key,
             apr: parseAprPercentValue(offer.apy),
+            tvl: parseFormattedLiquidityValue(offer.tvlText),
             offer,
           }));
-    return [...protocolRows, ...lendingRows].toSorted((a, b) => b.apr - a.apr);
+    return [...protocolRows, ...lendingRows];
   }, [isFixedRate, lendingOffers, protocols]);
+
+  // The best rate first until a header is picked
+  const [offerSort, setOfferSort] = useState<IEarnDesktopSortState<IOfferSort>>(
+    { key: 'apr', direction: 'desc' },
+  );
+  const sortedOffers = useMemo(() => {
+    const sign = offerSort.direction === 'desc' ? -1 : 1;
+    return offers.toSorted(
+      (a, b) => sign * (a[offerSort.key] - b[offerSort.key]),
+    );
+  }, [offerSort, offers]);
+  const handleOfferSort = useCallback((key: IOfferSort) => {
+    setOfferSort((current) =>
+      current.key === key
+        ? { key, direction: current.direction === 'desc' ? 'asc' : 'desc' }
+        : { key, direction: 'desc' },
+    );
+  }, []);
 
   // What each offer holds of the token
   const depositByKey = useMemo(
@@ -467,18 +506,28 @@ function TokenOffers({
           ) : null}
         </Stack>
         <Stack {...COLUMNS.balance} {...WIDE_ONLY}>
-          <HeaderLabel align="right">
+          <EarnDesktopSortLabel
+            sort="tvl"
+            current={offerSort}
+            onPress={handleOfferSort}
+            testID={`earn-desktop-offers-sort-tvl-${row.key}`}
+          >
             {intl.formatMessage({ id: ETranslations.earn_tvl })}
-          </HeaderLabel>
+          </EarnDesktopSortLabel>
         </Stack>
         <Stack {...COLUMNS.apr}>
-          <HeaderLabel align="right">
+          <EarnDesktopSortLabel
+            sort="apr"
+            current={offerSort}
+            onPress={handleOfferSort}
+            testID={`earn-desktop-offers-sort-apr-${row.key}`}
+          >
             {intl.formatMessage({ id: ETranslations.defi_apr_apy })}
-          </HeaderLabel>
+          </EarnDesktopSortLabel>
         </Stack>
         <Stack w="$5" />
       </XStack>
-      {offers.map((offer) => {
+      {sortedOffers.map((offer) => {
         const deposited = depositByKey.get(offer.key) ?? 0;
         if (offer.kind === 'lending') {
           const { offer: lending } = offer;
@@ -796,6 +845,10 @@ export function EarnDesktopEarnTab({
   const [searchText, setSearchText] = useState('');
   const [selectedNetworkIds, setSelectedNetworkIds] = useState<string[]>([]);
   const [openKey, setOpenKey] = useState<string>();
+  // No sort: tokens you hold or have deposited first, then by TVL
+  const [tokenSort, setTokenSort] = useState<
+    IEarnDesktopSortState<ITokenSort> | undefined
+  >();
 
   const { result: stableAssets } = usePromiseResult(
     () =>
@@ -940,6 +993,29 @@ export function EarnDesktopEarnTab({
     });
   }, [categoryRows, searchText, selectedNetworkIds]);
 
+  // Highest first, then lowest first, then the list's own order again
+  const sortedRows = useMemo(() => {
+    if (!tokenSort) {
+      return rows;
+    }
+    const sign = tokenSort.direction === 'desc' ? -1 : 1;
+    return rows.toSorted(
+      (a, b) =>
+        sign * (getAssetSortApr(a.asset) - getAssetSortApr(b.asset)) ||
+        b.tvl - a.tvl,
+    );
+  }, [rows, tokenSort]);
+  const handleTokenSort = useCallback((key: ITokenSort) => {
+    setTokenSort((current) => {
+      if (current?.key !== key) {
+        return { key, direction: 'desc' };
+      }
+      return current.direction === 'desc'
+        ? { key, direction: 'asc' }
+        : undefined;
+    });
+  }, []);
+
   const handleToggle = useCallback((key: string) => {
     setOpenKey((current) => (current === key ? undefined : key));
   }, []);
@@ -995,9 +1071,14 @@ export function EarnDesktopEarnTab({
               </HeaderLabel>
             </Stack>
             <Stack {...COLUMNS.apr}>
-              <HeaderLabel align="right">
+              <EarnDesktopSortLabel
+                sort="apr"
+                current={tokenSort}
+                onPress={handleTokenSort}
+                testID="earn-desktop-earn-sort-apr"
+              >
                 {intl.formatMessage({ id: ETranslations.defi_apr_apy })}
-              </HeaderLabel>
+              </EarnDesktopSortLabel>
             </Stack>
             <Stack w="$5" />
           </ListItem>
@@ -1017,7 +1098,7 @@ export function EarnDesktopEarnTab({
                   <Stack w="$5" />
                 </ListItem>
               ))
-            : rows.map((row) => (
+            : sortedRows.map((row) => (
                 <TokenRow
                   key={row.key}
                   row={row}

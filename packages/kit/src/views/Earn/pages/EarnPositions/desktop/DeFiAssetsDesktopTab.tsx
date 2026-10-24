@@ -14,6 +14,7 @@ import type {
 
 import { EarnTestIDs } from '../../../testIDs';
 import { GroupRow, useGroupExpansion } from '../mobile/GroupRow';
+import { useRepeatedProtocolNetworkNames } from '../mobile/useRepeatedProtocolNetworkNames';
 
 import { EarnPortfolioOverview } from './EarnPortfolioOverview';
 import { EarnPositionDesktopBlock } from './EarnPositionDesktopBlock';
@@ -50,6 +51,7 @@ export function DeFiAssetsDesktopTab({
   const currencyInfo = useCurrency();
   const expansion = useGroupExpansion();
   const { open } = expansion;
+  const networkNames = useRepeatedProtocolNetworkNames(protocols);
   const anchorsRef = useRef(new Map<string, HTMLElement>());
   const positionsLabel = intl.formatMessage({
     id: ETranslations.earn_positions,
@@ -119,6 +121,7 @@ export function DeFiAssetsDesktopTab({
               name={protocol.name}
               logoURI={protocol.logoURI}
               networkId={protocol.networkId}
+              networkName={networkNames.get(protocol.key)}
               subtitle={`${protocol.positions.length} ${positionsLabel}`}
               pendingCount={pendingCountByProvider[protocol.protocol] ?? 0}
               expanded={expansion.isExpanded(protocol.key)}

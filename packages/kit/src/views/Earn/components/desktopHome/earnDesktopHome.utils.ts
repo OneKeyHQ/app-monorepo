@@ -123,6 +123,21 @@ export function sumWalletHoldings(
   );
 }
 
+// ---------- Earn table ----------
+
+// What a token's rate cell reads (AprText), as one number to sort by: a range
+// by its top, otherwise the rate shown
+export function getAssetSortApr(
+  asset: Pick<IEarnAvailableAsset, 'aprWithoutFee' | 'aprInfo' | 'maxAprInfo'>,
+): number {
+  return parseAprPercentValue(
+    asset.maxAprInfo?.normal?.text ??
+      asset.aprInfo?.highlight?.text ??
+      asset.aprInfo?.normal?.text ??
+      asset.aprWithoutFee,
+  );
+}
+
 // ---------- Hero split bar ----------
 
 export type IEarnDesktopShare = {
@@ -392,36 +407,49 @@ export function buildProtocolShares({
   lendingSupplies?: IEarnDesktopLendingSupply[];
   topCount?: number;
 }): IEarnDesktopShares {
-  const byProvider = new Map<string, Omit<IEarnDesktopShare, 'percent'>>();
-  const add = (item: Omit<IEarnDesktopShare, 'percent'>) => {
+  return buildValueShares({
+    items: [
+      ...investments.map((investment) => {
+        const detail = investment.protocol.providerDetail;
+        return {
+          key: detail.code.toLowerCase(),
+          name: detail.name,
+          logoURI: detail.logoURI,
+          value: toNumber(investment.totalFiatValue),
+        };
+      }),
+      ...lendingSupplies.map((supply) => ({
+        key: supply.provider.toLowerCase(),
+        name: supply.name,
+        logoURI: supply.logoURI,
+        value: supply.fiatValue,
+      })),
+    ],
+    topCount,
+  });
+}
+
+// The same bar over any list: items with one key add up, the first one's
+// name and logo kept
+export function buildValueShares({
+  items,
+  topCount = 3,
+}: {
+  items: Omit<IEarnDesktopShare, 'percent'>[];
+  topCount?: number;
+}): IEarnDesktopShares {
+  const byKey = new Map<string, Omit<IEarnDesktopShare, 'percent'>>();
+  items.forEach((item) => {
     if (item.value <= 0) {
       return;
     }
-    const current = byProvider.get(item.key);
-    byProvider.set(item.key, {
+    const current = byKey.get(item.key);
+    byKey.set(item.key, {
       ...(current ?? item),
       value: (current?.value ?? 0) + item.value,
     });
-  };
-  investments.forEach((investment) => {
-    const detail = investment.protocol.providerDetail;
-    add({
-      key: detail.code.toLowerCase(),
-      name: detail.name,
-      logoURI: detail.logoURI,
-      value: toNumber(investment.totalFiatValue),
-    });
   });
-  lendingSupplies.forEach((supply) => {
-    add({
-      key: supply.provider.toLowerCase(),
-      name: supply.name,
-      logoURI: supply.logoURI,
-      value: supply.fiatValue,
-    });
-  });
-
-  return rankShares(byProvider.values(), topCount);
+  return rankShares(byKey.values(), topCount);
 }
 
 // The bar's legend: the biggest shares by name and the rest together, the

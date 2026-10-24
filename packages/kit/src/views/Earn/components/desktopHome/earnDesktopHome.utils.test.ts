@@ -15,6 +15,7 @@ import {
   buildMarketCard,
   buildOfferRows,
   buildProtocolShares,
+  buildValueShares,
   collectLendingOffers,
   collectNetworkOffers,
   collectTileRows,
@@ -23,6 +24,7 @@ import {
   estimateBorrowInterest24h,
   findPositionDeposit,
   formatSharePercent,
+  getAssetSortApr,
   getLoanAssetType,
   getLoanNetApy,
   parseCompactFiatText,
@@ -343,6 +345,56 @@ describe('buildProtocolShares', () => {
     expect(shares.rest).toEqual({ count: 1, percent: 0 });
     expect(formatSharePercent(shares.rest?.percent ?? 0)).toBe('<1%');
     expect(formatSharePercent(shares.top[0].percent)).toBe('60%');
+  });
+});
+
+describe('buildValueShares', () => {
+  it('adds up one protocol across networks, keeping its first name', () => {
+    const shares = buildValueShares({
+      items: [
+        { key: 'morpho', name: 'Morpho', value: 40 },
+        { key: 'pendle', name: 'Pendle', value: 30 },
+        { key: 'morpho', name: 'Morpho Blue', value: 20 },
+        { key: 'spark', name: 'Spark', value: 6 },
+        { key: 'lido', name: 'Lido', value: 4 },
+        { key: 'aave', name: 'Aave', value: 0 },
+      ],
+    });
+    expect(shares.top.map((item) => [item.name, item.percent])).toEqual([
+      ['Morpho', 60],
+      ['Pendle', 30],
+      ['Spark', 6],
+    ]);
+    expect(shares.rest).toEqual({ count: 1, percent: 4 });
+  });
+});
+
+describe('getAssetSortApr', () => {
+  it('sorts a range by its top', () => {
+    expect(
+      getAssetSortApr({
+        aprWithoutFee: '14.78',
+        maxAprInfo: { normal: { text: '15.87% APY' } },
+      } as IEarnAvailableAsset),
+    ).toBe(15.87);
+  });
+
+  it('reads the highlighted rate before the plain one', () => {
+    expect(
+      getAssetSortApr({
+        aprWithoutFee: '4.1',
+        aprInfo: {
+          highlight: { text: '5.42%' },
+          normal: { text: '4.10%' },
+        },
+      } as IEarnAvailableAsset),
+    ).toBe(5.42);
+  });
+
+  it('falls back to the rate without fee', () => {
+    expect(
+      getAssetSortApr({ aprWithoutFee: '3.5' } as IEarnAvailableAsset),
+    ).toBe(3.5);
   });
 });
 
