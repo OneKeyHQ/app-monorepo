@@ -1,4 +1,7 @@
 import appGlobals from '../../appGlobals';
+import { OneKeyLocalError } from '../../errors';
+
+import { INTERCOM_SUPPORT_ORIGIN } from './bridge';
 
 const INTERCOM_LANGUAGE_OVERRIDES: Record<string, string> = {
   bn: 'bn',
@@ -122,7 +125,7 @@ export const getIntercomLanguageOverride = async (): Promise<string> =>
 export const buildIntercomUrl = (
   baseUrl: string,
   params?: {
-    token?: string;
+    supportSession?: string;
     instanceId?: string;
     requestId?: string;
     languageOverride?: string;
@@ -130,10 +133,9 @@ export const buildIntercomUrl = (
 ): string => {
   let url = baseUrl;
 
-  // Add token if provided
-  if (params?.token) {
+  if (params?.supportSession) {
     const separator = url.includes('?') ? '&' : '?';
-    url += `${separator}intercom_user_jwt=${encodeURIComponent(params.token)}`;
+    url += `${separator}supportSession=${encodeURIComponent(params.supportSession)}`;
   }
 
   // Add instanceId if provided
@@ -156,4 +158,20 @@ export const buildIntercomUrl = (
   }
 
   return url;
+};
+
+export const getIntercomSupportUrl = async (params?: {
+  requestId?: string;
+}) => {
+  const backgroundApiProxy = appGlobals.$backgroundApiProxy;
+  if (!backgroundApiProxy)
+    throw new OneKeyLocalError('Support bridge is unavailable');
+  const supportSession =
+    await backgroundApiProxy.servicePrime.createIntercomSupportSession();
+  return buildIntercomUrl(`${INTERCOM_SUPPORT_ORIGIN}/`, {
+    supportSession,
+    instanceId: await getInstanceId(),
+    requestId: params?.requestId,
+    languageOverride: await getIntercomLanguageOverride(),
+  });
 };

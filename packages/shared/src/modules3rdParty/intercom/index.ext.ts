@@ -1,20 +1,11 @@
-import { buildIntercomUrl, getCustomerJWT, getInstanceId } from './utils';
+import { getIntercomSupportUrl } from './utils';
 
 export const initIntercom = async () => {
   console.log('initIntercom');
 };
 
 export const showIntercom = async (params?: { requestId?: string }) => {
-  const token = await getCustomerJWT();
-  const instanceId = await getInstanceId();
-
-  const baseUrl = 'https://onekey.so/?openMessenger';
-  const url = buildIntercomUrl(baseUrl, {
-    token,
-    instanceId,
-    requestId: params?.requestId,
-  });
-
+  const url = await getIntercomSupportUrl(params);
   window.open(url);
 };
 
