@@ -1,4 +1,13 @@
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  Suspense,
+  lazy,
+  memo,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -19,7 +28,6 @@ import type {
 import { LazyPopover } from '@onekeyhq/components/src/actions/LazyPopover';
 import { LazyTooltip } from '@onekeyhq/components/src/actions/LazyTooltip';
 import type { ITooltipRef } from '@onekeyhq/components/src/actions/Tooltip';
-import { TradingHoursTrigger } from '@onekeyhq/kit/src/components/TradingHoursPanel';
 import useFormatDate from '@onekeyhq/kit/src/hooks/useFormatDate';
 import { useUSMarketStatus } from '@onekeyhq/kit/src/hooks/useUSMarketStatus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -35,6 +43,13 @@ import { formatStockLastUpdateTime } from '../utils/stockLastUpdate';
 
 import { shouldShowOptionalSegment } from './utils/inlineStatusFit';
 import { truncatePerpsSubtitle } from './utils/perpsSubtitle';
+
+// Ordinary list badges do not need the trading-hours panel in the startup graph.
+const TradingHoursTrigger = lazy(async () => {
+  const { TradingHoursTrigger: Component } =
+    await import('@onekeyhq/kit/src/components/TradingHoursPanel');
+  return { default: Component };
+});
 
 const LeverageBadge = memo(
   ({ leverage, compact }: { leverage: number; compact?: boolean }) => (
@@ -677,21 +692,52 @@ const StockMarketStatusBadge = memo(
     variant?: 'badge' | 'inline';
     showLastUpdate?: boolean;
   }) => {
+    const stockKey =
+      stock && stock.isUSListing !== false
+        ? `${stock.source ?? ''}:${stock.stockId ?? stock.title ?? stock.subtitle}`
+        : undefined;
+    const [pendingStockKey, setPendingStockKey] = useState<string>();
+    useEffect(() => {
+      setPendingStockKey(undefined);
+    }, [stockKey]);
+    const handleDefaultOpenConsumed = useCallback(() => {
+      setPendingStockKey(undefined);
+    }, []);
     if (!stock) {
       return null;
     }
-    return (
-      <TradingHoursTrigger
+    const trigger = (
+      <StockIsOpenBadge
         stock={stock}
-        renderTrigger={
-          <StockIsOpenBadge
-            stock={stock}
-            disableTooltip
-            variant={variant}
-            showLastUpdate={showLastUpdate}
-          />
-        }
+        disableTooltip
+        variant={variant}
+        showLastUpdate={showLastUpdate}
       />
+    );
+    if (stock.isUSListing === false) {
+      return trigger;
+    }
+    return (
+      <Suspense
+        fallback={
+          <Stack
+            cursor="pointer"
+            onPress={(event) => {
+              event.stopPropagation();
+              setPendingStockKey(stockKey);
+            }}
+          >
+            {trigger}
+          </Stack>
+        }
+      >
+        <TradingHoursTrigger
+          stock={stock}
+          renderTrigger={trigger}
+          defaultOpen={stockKey !== undefined && pendingStockKey === stockKey}
+          onDefaultOpenConsumed={handleDefaultOpenConsumed}
+        />
+      </Suspense>
     );
   },
 );

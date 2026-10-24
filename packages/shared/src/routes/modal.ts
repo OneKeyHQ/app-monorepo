@@ -37,6 +37,7 @@ import type { IModalSignAndVerifyParamList } from './signAndVerify';
 import type { IModalSignatureConfirmParamList } from './signatureConfirm';
 import type { IModalStakingParamList } from './staking';
 import type { IModalSwapParamList } from './swap';
+import type { ITabDeveloperParamList } from './tabDeveloper';
 import type { ITabHomeUrlAccountParamList } from './tabHome';
 import type { ITestModalPagesParam } from './testModal';
 import type { IUniversalSearchParamList } from './universalSearch';
@@ -49,6 +50,7 @@ export enum EModalRoutes {
   DiscoveryModal = 'DiscoveryModal',
   SettingModal = 'SettingModal',
   TestModal = 'TestModal',
+  DeveloperModal = 'DeveloperModal',
   SwapModal = 'SwapModal',
   PerpModal = 'PerpModal',
   MarketModal = 'MarketModal',
@@ -99,6 +101,7 @@ export type IModalParamList = {
   [EModalRoutes.DAppConnectionModal]: IDAppConnectionModalParamList;
   [EModalRoutes.DeviceManagementModal]: IModalDeviceManagementParamList;
   [EModalRoutes.DiscoveryModal]: IDiscoveryModalParamList;
+  [EModalRoutes.DeveloperModal]: ITabDeveloperParamList;
   [EModalRoutes.FiatCryptoModal]: IModalFiatCryptoParamList;
   [EModalRoutes.FirmwareUpdateModal]: IModalFirmwareUpdateParamList;
   [EModalRoutes.KeyTagModal]: IModalKeyTagParamList;

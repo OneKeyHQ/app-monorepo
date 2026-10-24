@@ -188,6 +188,7 @@ function JotaiContextRootProviderRendererCmp({
           case EJotaiContextStoreNames.swapModal: {
             return <SwapModalRootProviderLazy key={key} />;
           }
+          case EJotaiContextStoreNames.swapTokenSelector:
           case EJotaiContextStoreNames.marketSwap:
           case EJotaiContextStoreNames.marketSwapReview: {
             return null;

@@ -26,6 +26,7 @@ import { getTradingButtonStyleProps } from '../utils/styleUtils';
 import { showEnableTradingStepsDialog } from './TradingPanel/modals/EnableTradingStepsDialog';
 
 interface ITradingGuardWrapperProps {
+  beforeDeposit?: () => void;
   children?: ReactNode;
   forceShowEnableTrading?: boolean;
   bypassEnableTradingGuard?: boolean;
@@ -34,6 +35,7 @@ interface ITradingGuardWrapperProps {
 }
 
 function TradingGuardWrapperInternal({
+  beforeDeposit,
   children,
   forceShowEnableTrading = false,
   bypassEnableTradingGuard = false,
@@ -94,6 +96,7 @@ function TradingGuardWrapperInternal({
         getEnableTradingDialogConfirmDecision(latestPerpsAccountStatus) ===
         'deposit'
       ) {
+        beforeDeposit?.();
         await showDepositWithdrawModal('deposit');
         return;
       }
@@ -109,7 +112,10 @@ function TradingGuardWrapperInternal({
             };
           }
           return requestEnableTradingWithDepositFallback({
-            beforeDeposit: closeDialog,
+            beforeDeposit: () => {
+              closeDialog();
+              beforeDeposit?.();
+            },
           });
         },
       });
@@ -121,8 +127,9 @@ function TradingGuardWrapperInternal({
       return;
     }
 
-    await requestEnableTradingWithDepositFallback();
+    await requestEnableTradingWithDepositFallback({ beforeDeposit });
   }, [
+    beforeDeposit,
     confirmHyperliquidTerms,
     disabled,
     isEnableTradingLoading,

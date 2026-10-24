@@ -1,4 +1,4 @@
-import { memo, useCallback, useRef } from 'react';
+import { memo, useCallback, useLayoutEffect, useRef } from 'react';
 
 import { UI_RESPONSE } from '@onekeyfe/hwk-adapter-core/ui-events';
 import { Keyboard } from 'react-native';
@@ -45,6 +45,7 @@ import { EHardwareTransportType } from '@onekeyhq/shared/types';
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 import type { IDeviceStageExitViaValue } from '@onekeyhq/shared/types/deviceStage';
 
+import { registerHardwareStageBackHandler } from '../FullWindowOverlayContainer/HardwareStageOverlayContainer';
 import { buildThirdPartyHardwareUiResponse } from '../ThirdPartyHardwareUiStateContainer/utils';
 
 import { DeviceStageQrScanner } from './DeviceStageQrScanner';
@@ -264,6 +265,13 @@ function DeviceStageContainerCmp() {
   const handleNativeBackPress = useCallback(
     () => handleBackPressRef.current('back'),
     [],
+  );
+  useLayoutEffect(
+    () =>
+      platformEnv.isNativeAndroid
+        ? registerHardwareStageBackHandler(handleNativeBackPress)
+        : undefined,
+    [handleNativeBackPress],
   );
   useBackHandler(handleNativeBackPress, platformEnv.isNative && step !== 'off');
   const handleEscape = useCallback(() => {

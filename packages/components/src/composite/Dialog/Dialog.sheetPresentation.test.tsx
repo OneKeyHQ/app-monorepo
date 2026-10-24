@@ -2,10 +2,10 @@
  * @jest-environment jsdom
  * @jest-environment-options {"customExportConditions": ["node", "node-addons"]}
  */
+// Tests drive host callbacks with fresh fixture props.
+/* oxlint-disable react-perf/jsx-no-new-object-as-prop, react-perf/jsx-no-new-function-as-prop */
 
 import type { ReactNode } from 'react';
-
-import assert from 'node:assert/strict';
 
 import { Dialog, DialogContainer } from '.';
 
@@ -17,7 +17,7 @@ import {
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { useBackHandler, useKeyboardEventWithoutNavigation } from '../../hooks';
+import { useKeyboardEventWithoutNavigation } from '../../hooks';
 
 import type { KeyboardEvent } from 'react-native';
 
@@ -36,90 +36,21 @@ jest.mock('@onekeyhq/components', () => {
   return {
     useMedia: () => ({ md: mockMediaMd.current }),
     AnimatePresence: Wrapper,
-    Sheet: Object.assign(
-      ({ children }: { children?: ReactNode }) => (
-        <div data-testid="phone-sheet">{children}</div>
-      ),
-      {
-        Frame: Wrapper,
-        Overlay: () => null,
-      },
-    ),
-    TMDialog: Object.assign(
-      ({ children }: { children?: ReactNode }) => (
-        <div data-testid="floating-dialog">{children}</div>
-      ),
-      {
-        Content: ({
-          children,
-          width,
-          maxWidth,
-        }: {
-          children?: ReactNode;
-          width?: number;
-          maxWidth?: string;
-        }) => (
-          <div
-            data-testid="floating-content"
-            data-width={width}
-            data-max-width={maxWidth}
-          >
-            {children}
-          </div>
-        ),
-        Overlay: ({ onPress }: { onPress?: () => void }) => (
-          <button
-            type="button"
-            data-testid="floating-overlay"
-            onClick={onPress}
-          >
-            Overlay
-          </button>
-        ),
-        Title: () => null,
-      },
-    ),
   };
 });
-
-jest.mock('../../shared/tamagui', () => ({
-  Sheet: {
-    ScrollView: ({
-      children,
-      maxHeight,
-      height,
-      keyboardShouldPersistTaps,
-      testID,
-    }: {
-      children?: ReactNode;
-      maxHeight?: number;
-      height?: number;
-      keyboardShouldPersistTaps?: string;
-      testID?: string;
-    }) => (
-      <div
-        data-testid={testID || 'sheet-scroll-view'}
-        data-scroll-kind="sheet"
-        data-max-height={maxHeight === undefined ? '' : String(maxHeight)}
-        data-height={height === undefined ? '' : String(height)}
-        data-keyboard-persist={keyboardShouldPersistTaps || ''}
-      >
-        {children}
-      </div>
-    ),
-  },
-}));
 
 jest.mock('../../layouts/ScrollView', () => ({
   ScrollView: ({
     children,
     maxHeight,
     height,
+    keyboardShouldPersistTaps,
     testID,
   }: {
     children?: ReactNode;
     maxHeight?: number;
     height?: number;
+    keyboardShouldPersistTaps?: string;
     testID?: string;
   }) => (
     <div
@@ -127,17 +58,77 @@ jest.mock('../../layouts/ScrollView', () => ({
       data-scroll-kind="plain"
       data-max-height={maxHeight === undefined ? '' : String(maxHeight)}
       data-height={height === undefined ? '' : String(height)}
+      data-keyboard-persist={keyboardShouldPersistTaps || ''}
     >
       {children}
     </div>
   ),
 }));
 
-jest.mock('../../hocs/NativeSheetPresentation', () => ({
-  NATIVE_SHEET_PRESENTATION_SUPPORTED: true,
-  NativeSheetPresentation: ({ children }: { children?: ReactNode }) => (
-    <div data-testid="native-sheet-presentation">{children}</div>
+jest.mock('./OverlayDialogPresentation', () => ({
+  OverlayDialogPresentation: ({
+    children,
+    open,
+    isSheet,
+    cardProps,
+    dismissOnOverlayPress,
+    dismissOnBackPress,
+    onRequestClose,
+    disableDrag,
+    onAnimationComplete,
+  }: {
+    children?: ReactNode;
+    open: boolean;
+    isSheet: boolean;
+    cardProps?: { maxWidth?: string };
+    dismissOnOverlayPress: boolean;
+    dismissOnBackPress: boolean;
+    onRequestClose: () => void;
+    disableDrag: boolean;
+    onAnimationComplete?: (info: { open: boolean }) => void;
+  }) => (
+    <div
+      data-testid="overlay-dialog"
+      data-sheet={isSheet ? 'true' : 'false'}
+      data-max-width={cardProps?.maxWidth}
+      data-disable-drag={String(disableDrag)}
+    >
+      <button
+        type="button"
+        data-testid="overlay-backdrop"
+        disabled={!dismissOnOverlayPress}
+        onClick={onRequestClose}
+      >
+        Backdrop
+      </button>
+      <button
+        type="button"
+        data-testid="overlay-back"
+        disabled={!dismissOnBackPress}
+        onClick={onRequestClose}
+      >
+        Back
+      </button>
+      <button
+        type="button"
+        data-testid="sheet-presented"
+        onClick={() => onAnimationComplete?.({ open: true })}
+      >
+        Presented
+      </button>
+      {open ? children : null}
+    </div>
   ),
+}));
+jest.mock('@react-navigation/native', () => ({
+  NavigationRouteContext: jest
+    .requireActual<typeof import('react')>('react')
+    .createContext(undefined),
+}));
+
+jest.mock('@onekeyfe/react-native-native-overlay', () => ({
+  useNestedOverlayLevel: () => 'modal',
+  useOverlayPageScope: () => ({}),
 }));
 
 jest.mock('react-intl', () => ({
@@ -198,7 +189,6 @@ jest.mock('../../hooks', () => ({
   useBackHandler: jest.fn(),
   useKeyboardEventWithoutNavigation: jest.fn(),
   useModalNavigatorContextPortalId: () => undefined,
-  useOverlayZIndex: () => 1,
   useSafeAreaInsets: () => mockSafeAreaInsets.current,
 }));
 jest.mock('react-native-keyboard-controller', () => ({
@@ -325,63 +315,56 @@ beforeEach(() => {
   };
   jest.mocked(KeyboardController.setInputMode).mockClear();
   jest.mocked(KeyboardController.setDefaultMode).mockClear();
-  jest.mocked(useBackHandler).mockClear();
 });
 
 describe('Dialog sheet scroll view presentation', () => {
-  it('uses the plain ScrollView inside a native sheet presentation', () => {
-    render(<DialogContainer {...dialogProps} nativeSheet />);
+  it('uses the plain ScrollView inside the native overlay sheet', () => {
+    render(<DialogContainer {...dialogProps} />);
 
-    expect(screen.getByTestId('native-sheet-presentation')).toBeTruthy();
+    expect(
+      screen.getByTestId('overlay-dialog').getAttribute('data-sheet'),
+    ).toBe('true');
     expect(screen.getByTestId('plain-scroll-view')).toBeTruthy();
     expect(screen.queryByTestId('sheet-scroll-view')).toBeNull();
-  });
-
-  it('uses Sheet.ScrollView inside the Tamagui sheet fallback', () => {
-    render(<DialogContainer {...dialogProps} nativeSheet={false} />);
-
-    expect(screen.queryByTestId('native-sheet-presentation')).toBeNull();
-    expect(screen.getByTestId('sheet-scroll-view')).toBeTruthy();
-    expect(screen.queryByTestId('plain-scroll-view')).toBeNull();
-    expect(screen.queryByTestId('dialog-bounded-scroll')).toBeNull();
   });
 });
 
 describe('Dialog native centered opt-in', () => {
   it.each([
-    ['iOS', false, 450, 347],
-    ['Android', true, 416, 381],
+    ['iOS', false, 450],
+    ['Android', true, 416],
   ] as const)(
-    'centers without sheet chrome and keeps safe-area and keyboard padding outside the card on %s',
-    (_name, isAndroid, expectedMaxHeight, expectedPaddingBottom) => {
+    'centers without sheet chrome and bounds scroll content for the keyboard on %s',
+    (_name, isAndroid, expectedMaxHeight) => {
       platformEnv.isNativeAndroid = isAndroid;
       platformEnv.isNativeIOS = !isAndroid;
       render(
         <DialogContainer
           {...boundedDialogProps}
           boundedSheetLayout={false}
-          nativeSheet
           nativeCentered
           sheetDragArea="header"
         />,
       );
 
-      expect(screen.getByTestId('floating-dialog')).toBeTruthy();
+      expect(
+        screen.getByTestId('overlay-dialog').getAttribute('data-sheet'),
+      ).toBe('false');
       expect(screen.queryByTestId('phone-sheet')).toBeNull();
       expect(screen.queryByTestId('native-sheet-presentation')).toBeNull();
       expect(screen.queryByTestId('header-drag-zone')).toBeNull();
       expect(screen.queryByTestId('sheet-grabber')).toBeNull();
       expect(screen.getByTestId('dialog-bounded-close')).toBeTruthy();
-      const content = screen.getByTestId('floating-content');
-      const frame = content.parentElement;
+      const content = screen.getByTestId('overlay-dialog');
       const scroll = screen.getByTestId('dialog-bounded-scroll');
       expect(scroll.getAttribute('data-scroll-kind')).toBe('plain');
       expect(scroll.getAttribute('data-height')).toBe('');
       expect(content.getAttribute('data-max-width')).toBe('90%');
-      expect(frame?.getAttribute('data-padding-top')).toBe('47');
-      expect(frame?.getAttribute('data-padding-bottom')).toBe('47');
+
       expect(
-        content.firstElementChild?.getAttribute('data-animated-style'),
+        content
+          .querySelector('[data-animated-style]')
+          ?.getAttribute('data-animated-style'),
       ).toBe('none');
       expect(scroll.getAttribute('data-max-height')).toBe('750');
       const keyboardHandlers = jest
@@ -393,15 +376,14 @@ describe('Dialog native centered opt-in', () => {
           endCoordinates: { height: 300 },
         } as KeyboardEvent);
       });
-      expect(frame?.getAttribute('data-padding-top')).toBe('47');
-      expect(frame?.getAttribute('data-padding-bottom')).toBe(
-        String(expectedPaddingBottom),
-      );
+
       expect(scroll.getAttribute('data-max-height')).toBe(
         String(expectedMaxHeight),
       );
       expect(
-        content.firstElementChild?.getAttribute('data-animated-style'),
+        content
+          .querySelector('[data-animated-style]')
+          ?.getAttribute('data-animated-style'),
       ).toBe('none');
 
       act(() => {
@@ -409,7 +391,7 @@ describe('Dialog native centered opt-in', () => {
           endCoordinates: { height: 0 },
         } as KeyboardEvent);
       });
-      expect(frame?.getAttribute('data-padding-bottom')).toBe('47');
+
       expect(scroll.getAttribute('data-max-height')).toBe('750');
     },
   );
@@ -424,9 +406,9 @@ describe('Dialog native centered opt-in', () => {
     };
     render(<DialogContainer {...boundedDialogProps} nativeCentered />);
 
-    const frame = screen.getByTestId('floating-content').parentElement;
-    expect(frame?.getAttribute('data-padding-top')).toBe('34');
-    expect(frame?.getAttribute('data-padding-bottom')).toBe('34');
+    expect(
+      screen.getByTestId('overlay-dialog').getAttribute('data-sheet'),
+    ).toBe('false');
     expect(
       screen
         .getByTestId('dialog-bounded-scroll')
@@ -439,7 +421,9 @@ describe('Dialog native centered opt-in', () => {
     platformEnv.isNativeIOS = false;
     render(<DialogContainer {...dialogProps} nativeCentered />);
 
-    expect(screen.getByTestId('phone-sheet')).toBeTruthy();
+    expect(
+      screen.getByTestId('overlay-dialog').getAttribute('data-sheet'),
+    ).toBe('true');
     expect(screen.queryByTestId('floating-dialog')).toBeNull();
     expect(screen.queryByTestId('dialog-bounded-scroll')).toBeNull();
   });
@@ -459,10 +443,8 @@ describe('Dialog native centered opt-in', () => {
     );
 
     await act(async () => {
-      fireEvent.click(screen.getByTestId('floating-overlay'));
-      const onBack = jest.mocked(useBackHandler).mock.calls.at(-1)?.[0];
-      assert(onBack, 'Expected a registered back handler');
-      expect(onBack()).toBe(true);
+      fireEvent.click(screen.getByTestId('overlay-backdrop'));
+      fireEvent.click(screen.getByTestId('overlay-back'));
     });
     expect(onClose).not.toHaveBeenCalled();
 
@@ -487,16 +469,14 @@ describe('Dialog native centered opt-in', () => {
     );
 
     await act(async () => {
-      fireEvent.click(screen.getByTestId('floating-overlay'));
+      fireEvent.click(screen.getByTestId('overlay-backdrop'));
     });
     expect(onBeforeClose).toHaveBeenCalledTimes(1);
     expect(onClose).not.toHaveBeenCalled();
 
     onBeforeClose.mockResolvedValue(true);
     await act(async () => {
-      const onBack = jest.mocked(useBackHandler).mock.calls.at(-1)?.[0];
-      assert(onBack, 'Expected a registered back handler');
-      expect(onBack()).toBe(true);
+      fireEvent.click(screen.getByTestId('overlay-back'));
     });
     expect(onBeforeClose).toHaveBeenCalledTimes(2);
     expect(onClose).toHaveBeenCalledTimes(1);
@@ -510,7 +490,7 @@ describe('Dialog bounded sheet layout opt-in', () => {
     const scroll = screen.getByTestId('dialog-bounded-scroll');
     const close = screen.getByTestId('dialog-bounded-close');
 
-    expect(scroll.getAttribute('data-scroll-kind')).toBe('sheet');
+    expect(scroll.getAttribute('data-scroll-kind')).toBe('plain');
     expect(screen.getByTestId('header-drag-zone')).toBeTruthy();
     expect(screen.getByTestId('sheet-grabber')).toBeTruthy();
     expect(
@@ -526,7 +506,6 @@ describe('Dialog bounded sheet layout opt-in', () => {
     expect(scroll.getAttribute('data-max-height')).not.toBe('');
     expect(scroll.getAttribute('data-height')).toBe('');
     expect(scroll.getAttribute('data-keyboard-persist')).toBe('handled');
-    expect(screen.queryByTestId('native-sheet-presentation')).toBeNull();
     expect(screen.queryByTestId('plain-scroll-view')).toBeNull();
   });
 
@@ -673,4 +652,19 @@ describe('Dialog bounded sheet layout opt-in', () => {
     expect(screen.queryByTestId('plain-scroll-view')).toBeNull();
     expect(screen.getByTestId('dialog-bounded-close')).toBeTruthy();
   });
+});
+
+it('honors sheet pan dismissal and forwards its presentation callback', () => {
+  const onAnimationComplete = jest.fn();
+  render(
+    <DialogContainer
+      {...dialogProps}
+      sheetDragArea="header"
+      sheetProps={{ dismissOnSnapToBottom: false, onAnimationComplete }}
+    />,
+  );
+  expect(screen.getByTestId('overlay-dialog').dataset.disableDrag).toBe('true');
+  expect(screen.queryByTestId('header-drag-zone')).toBeNull();
+  fireEvent.click(screen.getByTestId('sheet-presented'));
+  expect(onAnimationComplete).toHaveBeenCalledWith({ open: true });
 });

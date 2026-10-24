@@ -26,6 +26,81 @@ function createAllNetworkAccountInfo(
 }
 
 describe('buildSwapTokenFetchParams', () => {
+  it('passes the supported chain plan only to non-Stock all-network searches', () => {
+    const searchNetworks = [
+      { networkId: 'evm--1', lpToken: false },
+      { networkId: 'sol--101' },
+    ];
+    const base = {
+      currentSelectNetworkId: 'onekeyall--0',
+      keywords: 'USDC',
+      swapType: ESwapTabSwitchType.SWAP,
+      searchNetworks,
+      shouldUseCurrentAccountAddress: false,
+    };
+    expect(buildSwapTokenFetchParams(base).searchNetworks).toEqual(
+      searchNetworks,
+    );
+    expect(
+      buildSwapTokenFetchParams({ ...base, keywords: '' }),
+    ).not.toHaveProperty('searchNetworks');
+    expect(
+      buildSwapTokenFetchParams({ ...base, currentSelectNetworkId: 'evm--1' }),
+    ).not.toHaveProperty('searchNetworks');
+    expect(
+      buildSwapTokenFetchParams({
+        ...base,
+        swapType: ESwapTabSwitchType.STOCK,
+      }),
+    ).not.toHaveProperty('searchNetworks');
+  });
+  it('preserves the selected chain lookup when contract search expands to all networks', () => {
+    expect(
+      buildSwapTokenFetchParams({
+        currentSelectNetworkId: 'evm--56',
+        searchNetworkId: 'onekeyall--0',
+        keywords: '0x55d398326f99059ff775485246999027b3197955',
+        swapType: ESwapTabSwitchType.SWAP,
+        shouldUseCurrentAccountAddress: false,
+      }),
+    ).toMatchObject({
+      networkId: 'onekeyall--0',
+      contractSearchNetworkId: 'evm--56',
+      onlySwapTokens: true,
+    });
+  });
+
+  it.each([
+    {
+      selectedNetworkId: 'onekeyall--0',
+      keywords: '0x55d398326f99059ff775485246999027b3197955',
+      swapType: ESwapTabSwitchType.SWAP,
+    },
+    {
+      selectedNetworkId: 'evm--56',
+      keywords: 'USDT',
+      swapType: ESwapTabSwitchType.SWAP,
+    },
+    {
+      selectedNetworkId: 'evm--56',
+      keywords: '0x55d398326f99059ff775485246999027b3197955',
+      swapType: ESwapTabSwitchType.STOCK,
+    },
+  ])(
+    'does not add a chain lookup for $selectedNetworkId / $keywords / $swapType',
+    ({ selectedNetworkId, keywords, swapType }) => {
+      expect(
+        buildSwapTokenFetchParams({
+          currentSelectNetworkId: selectedNetworkId,
+          searchNetworkId: 'onekeyall--0',
+          keywords,
+          swapType,
+          shouldUseCurrentAccountAddress: false,
+        }),
+      ).not.toHaveProperty('contractSearchNetworkId');
+    },
+  );
+
   it('keeps matched account params for Stock token lists', () => {
     expect(
       buildSwapTokenFetchParams({

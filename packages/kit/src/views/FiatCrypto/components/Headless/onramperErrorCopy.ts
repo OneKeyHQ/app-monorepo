@@ -4,7 +4,8 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 // page (quote stage and checkout events). The raw SDK messages are technical
 // and must never reach the user. Hardcoded English pending the i18n pass,
 // same as the rest of the Headless UI. Codes mirror the SDK's
-// `OnramperErrorCode` union (1.1.1).
+// `OnramperErrorCode` union (1.3.1). SDK 1.3 also ships customer-safe
+// `userMessage` copy; it is used for codes this table does not know.
 const ERROR_COPY: Record<string, string> = {
   // User-fixable input errors. `quoteUnavailable` (backend 40003) also covers
   // below-minimum amounts — Onramper doesn't expose the limits at quote time,
@@ -38,6 +39,15 @@ const ERROR_COPY: Record<string, string> = {
   // Payment surface.
   webviewLoadFailed: 'Unable to open the payment page. Try again',
   deepLinkFailed: 'Unable to open the payment page. Try again',
+  applePayNotConfigured: 'Set up Apple Pay in Wallet to continue',
+  // Payment outcomes (SDK 1.3). `providerFailed` means the payment surface
+  // broke without confirming the outcome: the order is kept and shown under
+  // Orders, and the copy sends the user there before a second attempt.
+  paymentFailed: 'Payment failed. Try again or use a different card',
+  providerFailed:
+    'Payment status unknown. Check your orders before trying again',
+  // Stale client after teardown (SDK 1.3).
+  clientDestroyed: 'This page has expired. Try again',
   // Device security (retry copy; genuinely blocked devices surface structural
   // codes and go to the web fallback instead).
   securityStorageFailed: 'Device security check failed. Try again',
@@ -56,8 +66,16 @@ export function getOnramperErrorMessage(err: {
   code?: string;
   message?: string;
   info?: Record<string, unknown>;
+  // SDK 1.3+ customer-safe copy and support code (absent on older payloads).
+  userMessage?: string;
+  supportCode?: string;
 }): string {
-  let copy = (err?.code && ERROR_COPY[err.code]) || DEFAULT_ERROR_COPY;
+  // Our table first (tuned to the two-line slot), then the SDK's own customer
+  // copy for a code we do not know, then the generic fallback.
+  let copy =
+    (err?.code && ERROR_COPY[err.code]) ||
+    err?.userMessage?.trim() ||
+    DEFAULT_ERROR_COPY;
   // `amountOutOfRange` is validated locally by the SDK and its `info` carries
   // the provider's min/max in the source fiat (per the official docs) — show
   // the real bounds instead of the generic "adjust the amount" copy. The
@@ -72,7 +90,15 @@ export function getOnramperErrorMessage(err: {
   } else if (max !== undefined) {
     copy = `The maximum purchase is $${max}. Adjust the amount`;
   }
-  // Dev builds append the raw code so on-device QA screenshots map back to the
-  // SDK error without a log capture.
-  return platformEnv.isDev && err?.code ? `${copy} (${err.code})` : copy;
+  // Dev builds append the raw code (and the SDK support code when it differs)
+  // so on-device QA screenshots map back to the SDK error without a log
+  // capture.
+  if (!platformEnv.isDev || !err?.code) {
+    return copy;
+  }
+  const supportCode =
+    err.supportCode && err.supportCode !== err.code
+      ? ` · ${err.supportCode}`
+      : '';
+  return `${copy} (${err.code}${supportCode})`;
 }

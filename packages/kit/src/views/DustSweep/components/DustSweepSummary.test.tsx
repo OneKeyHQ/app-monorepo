@@ -66,7 +66,6 @@ jest.mock('@onekeyhq/components', () => {
   return {
     Badge: MockStack,
     Button: MockButton,
-    Dialog: { show: jest.fn() },
     Divider: () => null,
     Icon: ({ name }: { name: string }) => <span data-testid={name} />,
     IconButton: MockButton,
@@ -121,7 +120,6 @@ jest.mock('@onekeyhq/components', () => {
       <div data-testid={testID ?? 'skeleton'} />
     ),
     Stack: MockStack,
-    Tooltip: () => null,
     XStack: MockStack,
     YStack: MockStack,
   };
@@ -214,10 +212,7 @@ jest.mock('../DustSweepProvider', () => ({
     selected: mockSelected,
     providerInfo: mockProviderInfo,
     selectedValueUsd: mockSelectedValueUsd,
-    canStart:
-      mockSelected.length > 0 &&
-      mockAssetStatus === 'ready' &&
-      mockLoadStatus === 'ready',
+    canStart: mockSelected.length > 0 && mockLoadStatus === 'ready',
     isFocused: true,
     loadStatus: mockLoadStatus,
     assetStatus: mockAssetStatus,
@@ -281,14 +276,18 @@ it.each([true, false])(
 );
 
 it.each([true, false])(
-  'keeps the known token while refreshing cached assets with a loading-only button (desktop=%s)',
+  'keeps cached assets executable while they refresh silently (desktop=%s)',
   (desktop) => {
     mockAssetStatus = 'refreshing';
     render(<DustSweepSummary desktop={desktop} onDetails={jest.fn()} />);
-    expect(
-      screen.getByTestId('dust-sweep-action').getAttribute('data-loading'),
-    ).toBe('true');
-    expect(screen.getByTestId('dust-sweep-action').textContent).toBe('');
+    const action = screen.getByTestId('dust-sweep-action');
+    expect(action.getAttribute('data-loading')).toBe('false');
+    expect(action.hasAttribute('disabled')).toBe(false);
+    expect(action.textContent).toContain(
+      ETranslations.button_convert_tokens_estimated_amount,
+    );
+    fireEvent.click(action);
+    expect(mockStart).toHaveBeenCalledTimes(1);
     expect(screen.queryByTestId('dust-sweep-receive-token-loading')).toBeNull();
     expect(screen.getByTestId('receive-token')).toBeTruthy();
   },
@@ -297,6 +296,7 @@ it.each([true, false])(
 it.each([true, false])(
   'retains error retry without a loading button or token skeleton (desktop=%s)',
   (desktop) => {
+    mockSelected = [];
     mockAssetStatus = 'error';
     render(<DustSweepSummary desktop={desktop} onDetails={jest.fn()} />);
     const action = screen.getByTestId('dust-sweep-action');
@@ -307,6 +307,23 @@ it.each([true, false])(
     fireEvent.click(action);
     expect(mockRetryAssets).toHaveBeenCalledTimes(1);
     expect(mockStart).not.toHaveBeenCalled();
+  },
+);
+
+it.each([true, false])(
+  'keeps conversion available after a background refresh fails with cached assets (desktop=%s)',
+  (desktop) => {
+    mockAssetStatus = 'error';
+    render(<DustSweepSummary desktop={desktop} onDetails={jest.fn()} />);
+    const action = screen.getByTestId('dust-sweep-action');
+    expect(action.getAttribute('data-loading')).toBe('false');
+    expect(action.hasAttribute('disabled')).toBe(false);
+    expect(action.textContent).toContain(
+      ETranslations.button_convert_tokens_estimated_amount,
+    );
+    fireEvent.click(action);
+    expect(mockStart).toHaveBeenCalledTimes(1);
+    expect(mockRetryAssets).not.toHaveBeenCalled();
   },
 );
 
@@ -388,6 +405,7 @@ it.each([true, false])(
     // $10 of selected tokens at a $1000 native price; nothing is quoted yet.
     expect(screen.getByText('0.01 ETH')).toBeTruthy();
     expect(screen.getByText('$10.00')).toBeTruthy();
+    expect(screen.queryByTestId('dust-sweep-result-estimate-help')).toBeNull();
     expect(screen.getByText(configuredProvider.providerName)).toBeTruthy();
     expect(screen.getByTestId('provider-icon').getAttribute('data-uri')).toBe(
       configuredProvider.logo,
@@ -480,6 +498,35 @@ it('formats received USD to two decimal places without padding native amounts', 
     '+0.01 ETH',
   );
   expect(screen.getByText('$10.00')).toBeTruthy();
+  expect(screen.queryByTestId('dust-sweep-result-estimate-help')).toBeNull();
+});
+
+it('explains a total containing both actual receipts and a build estimate', () => {
+  const state = completedState([
+    { key: 'estimated', status: 'success' },
+    { key: 'actual', status: 'success' },
+  ]);
+  state.items[0].receivedAmountEstimated = true;
+  render(<DustSweepResult desktop state={state} />);
+  const help = screen.getByTestId('dust-sweep-result-estimate-help');
+  expect(help.getAttribute('aria-label')).toBe(
+    ETranslations.dust_description_network_limit_estimate,
+  );
+});
+
+it('does not describe an unavailable total as an estimate', () => {
+  const state = completedState([
+    { key: 'estimated', status: 'success' },
+    { key: 'unavailable', status: 'success' },
+  ]);
+  state.items[0].receivedAmountEstimated = true;
+  state.items[1].receiptUnavailable = true;
+  state.items[1].receivedAmount = undefined;
+  render(<DustSweepResult desktop state={state} />);
+  expect(screen.getByTestId('dust-sweep-result-amount').textContent).toBe(
+    '— ETH',
+  );
+  expect(screen.queryByTestId('dust-sweep-result-estimate-help')).toBeNull();
 });
 
 it.each([true, false])(

@@ -209,7 +209,7 @@ export function DustSweepSlippage() {
   const openEditor = useCallback(() => {
     const dialog = Dialog.show({
       testID: 'dust-sweep-slippage-sheet',
-      nativeSheet: true,
+
       boundedSheetLayout: true,
       showHeader: false,
       showFooter: false,

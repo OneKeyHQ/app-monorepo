@@ -27,6 +27,7 @@ export const CONTEXT_ATOM_COLD_START_CACHE_KEYS = {
   swapSelectedTokensColdStartContextAtom:
     'ctx:swapSelectedTokensColdStartContextAtom',
   swapAllNetworkTokenListMapAtom: 'ctx:swapAllNetworkTokenListMapAtom',
+  swapTokenMapAtom: 'ctx:swapTokenMapAtom:v1',
   swapStockSelectedTokenAtom: 'ctx:swapStockSelectedTokenAtom',
   swapStockPayTokenPreferenceAtom: 'ctx:swapStockPayTokenPreferenceAtom',
   swapStockPayTokenDisplayAtom: 'ctx:swapStockPayTokenDisplayAtom',

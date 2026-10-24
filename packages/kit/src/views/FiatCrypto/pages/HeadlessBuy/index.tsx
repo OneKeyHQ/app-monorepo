@@ -43,7 +43,10 @@ import { EModalFiatCryptoRoutes } from '@onekeyhq/shared/src/routes';
 import type { IModalFiatCryptoParamList } from '@onekeyhq/shared/src/routes';
 import { openFiatCryptoUrl } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import { EHeadlessBuyEntry } from '@onekeyhq/shared/types/fiatCrypto';
-import type { IAddHeadlessBuyOrderParams } from '@onekeyhq/shared/types/fiatCrypto';
+import type {
+  IAddHeadlessBuyOrderParams,
+  IHeadlessBuyAbandonReason,
+} from '@onekeyhq/shared/types/fiatCrypto';
 
 import { BuyActionZone } from '../../components/Headless/BuyActionZone';
 import { CheckoutInfoCard } from '../../components/Headless/CheckoutInfoCard';
@@ -299,7 +302,8 @@ function HeadlessBuyPage() {
 
   // Order lifecycle → background store (product spec 2026-10-16): record on
   // the first transaction id (before Apple Pay), note payment authorization,
-  // drop the hidden record on cancel / pre-payment failure.
+  // drop the hidden record on cancel / pre-payment failure (but keep it when
+  // the provider failed with the payment outcome unknown).
   const handleTransactionCreated = useCallback((transactionId: string) => {
     void backgroundApiProxy.serviceFiatCrypto.addHeadlessBuyOrder(
       buildOrderParamsRef.current(transactionId),
@@ -311,7 +315,7 @@ function HeadlessBuyPage() {
     });
   }, []);
   const handleCheckoutAbandoned = useCallback(
-    (transactionId: string, reason: 'cancelled' | 'failed') => {
+    (transactionId: string, reason: IHeadlessBuyAbandonReason) => {
       void backgroundApiProxy.serviceFiatCrypto.discardHeadlessBuyOrder({
         transactionId,
         reason,
@@ -320,6 +324,8 @@ function HeadlessBuyPage() {
     [],
   );
 
+  // Reached on `completed` and on SDK 1.3's `paymentPending` (accepted, not
+  // settled): either way the order is submitted and tracked by status.
   const handleCompleted = useCallback(
     async (event: IOnramperEvent) => {
       // No id would mean an SDK older than 1.2.1; keep a local record anyway
@@ -333,6 +339,10 @@ function HeadlessBuyPage() {
           {
             transactionId,
             order: buildOrderParamsRef.current(transactionId),
+            // Both outcomes mean the provider accepted the payment: evidence
+            // enough that the 24 h no-payment rule must never fail this
+            // order (flows without a `paymentAuthorized` event included).
+            paymentSeen: true,
           },
         );
       } catch (error) {

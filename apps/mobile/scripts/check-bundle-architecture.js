@@ -306,25 +306,26 @@ function main() {
   // unexpected sync import path pulling background code into UI segments.
   {
     const manifestPath = path.join(distDir, 'segment-manifest.json');
+    let segments = mainReport?.segments || {};
     if (fs.existsSync(manifestPath)) {
       const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
-      const segments = manifest.segments || {};
-      for (const [segKey, segInfo] of Object.entries(segments)) {
-        // oxlint-disable-next-line eslint/no-continue
-        if (segInfo.runtime !== 'main') continue;
-        for (const rule of FORBIDDEN_IN_MAIN_SEGMENTS) {
-          if (
-            segKey.includes(
-              rule.pattern
-                .replace(/\//g, '.')
-                .replace('packages.', '')
-                .replace('.src.', '.'),
-            )
-          ) {
-            errors.push(
-              `[segment] ${segKey} has runtime=main but matches forbidden pattern "${rule.pattern}" — ${rule.reason}`,
-            );
-          }
+      segments = manifest.segments || segments;
+    }
+    for (const [segKey, segInfo] of Object.entries(segments)) {
+      // oxlint-disable-next-line eslint/no-continue
+      if (segInfo.runtime !== 'main') continue;
+      for (const rule of FORBIDDEN_IN_MAIN_SEGMENTS) {
+        if (
+          segKey.includes(
+            rule.pattern
+              .replace(/\//g, '.')
+              .replace('packages.', '')
+              .replace('.src.', '.'),
+          )
+        ) {
+          errors.push(
+            `[segment] ${segKey} has runtime=main but matches forbidden pattern "${rule.pattern}" — ${rule.reason}`,
+          );
         }
       }
     }

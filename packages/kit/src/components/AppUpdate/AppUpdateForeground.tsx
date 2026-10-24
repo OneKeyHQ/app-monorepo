@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef } from 'react';
 import { useIntl } from 'react-intl';
 import { AppState } from 'react-native';
 
-import { useInTabDialog } from '@onekeyhq/components';
+import { Dialog } from '@onekeyhq/components';
 import { acquireDeferredGuideBlocker } from '@onekeyhq/components/src/hooks/useDeferredGuideBlocker';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import { useAppUpdatePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -117,7 +117,7 @@ export function useAppUpdateForegroundEffects(enabled = true) {
   const intl = useIntl();
   const themeVariant = useThemeVariant();
   const navigation = useAppNavigation();
-  const dialog = useInTabDialog();
+  const dialog = Dialog;
   const [appUpdateInfo] = useAppUpdatePersistAtom();
   const guideBlockerReleases = useRef(new Set<() => void>());
   const mounted = useRef(true);

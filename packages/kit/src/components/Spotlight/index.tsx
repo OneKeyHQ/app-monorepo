@@ -15,13 +15,15 @@ import {
   useState,
 } from 'react';
 
+import {
+  OverlayView,
+  useNestedOverlayLevel,
+} from '@onekeyfe/react-native-native-overlay';
 import { useIntl } from 'react-intl';
 import { I18nManager, useWindowDimensions } from 'react-native';
 
 import {
   Button,
-  EPortalContainerConstantName,
-  Portal,
   SizableText,
   Stack,
   View,
@@ -50,6 +52,7 @@ import { useSplitViewDetailOffset } from '../../provider/Container/TableSplitVie
 
 import { useSpotlightAnchorVisibility } from './useSpotlightAnchorVisibility';
 
+import type { IOverlayLevel } from '@onekeyfe/react-native-native-overlay';
 import type { View as NativeView } from 'react-native';
 
 export type ISpotlightViewProps = PropsWithChildren<{
@@ -127,7 +130,13 @@ export type ISpotlightProps = PropsWithChildren<{
 function SpotlightContent({
   initProps,
   triggerPropsRef,
+  level,
+  visible,
+  onClose,
 }: {
+  level: IOverlayLevel;
+  visible: boolean;
+  onClose: () => void;
   initProps: ISpotlightContentEvent;
   triggerPropsRef: MutableRefObject<{
     defer?: IDeferredPromise<unknown>;
@@ -143,6 +152,7 @@ function SpotlightContent({
   const [props, setProps] = useState(initProps);
   const usePortalCoordinates =
     platformEnv.isNative && props.alignCardToAnchorEnd;
+  // Track pane changes for measurement; the overlay itself spans the window.
   const detailOffset = useSplitViewDetailOffset();
   const portalStartOffset =
     platformEnv.isNativeAndroid && usePortalCoordinates ? detailOffset : 0;
@@ -202,7 +212,6 @@ function SpotlightContent({
     }
   }, [initProps.triggerRef, measureTriggerInWindow, triggerPropsRef]);
   const {
-    visible,
     children,
     content,
     cardBorderRadius,
@@ -270,8 +279,6 @@ function SpotlightContent({
   useLayoutEffect(() => {
     if (shouldMeasurePortal) {
       measurePortalInWindow();
-    } else {
-      setPortalFrame(undefined);
     }
     return () => {
       portalMeasureRequest.current += 1;
@@ -353,9 +360,31 @@ function SpotlightContent({
   ]);
 
   const handleBackPress = useCallback(() => true, []);
-  useBackHandler(handleBackPress);
-  if (visible && isRendered && !(deferUntilIdle && isGuideBlocked))
-    return (
+  const overlayVisible =
+    visible && isRendered && !(deferUntilIdle && isGuideBlocked);
+  const handleConfirm = useCallback(() => {
+    if (overlayVisible) onConfirm?.();
+  }, [onConfirm, overlayVisible]);
+  const hasOverlayRef = useRef(false);
+  if (overlayVisible) hasOverlayRef.current = true;
+  const handleOverlayClose = useCallback(() => {
+    hasOverlayRef.current = false;
+    setPortalFrame(undefined);
+    onClose();
+  }, [onClose]);
+  useEffect(() => {
+    // A cancelled, unmeasured or deferred guide has no host exit to await.
+    if (!visible && !hasOverlayRef.current) onClose();
+  }, [onClose, visible]);
+  useBackHandler(handleBackPress, overlayVisible);
+  return (
+    <OverlayView
+      visible={overlayVisible}
+      onClose={handleOverlayClose}
+      level={level}
+      presentation="fullscreen"
+      dismissOnBackPress={false}
+    >
       <Stack
         ref={usePortalCoordinates ? portalRef : undefined}
         onLayout={usePortalCoordinates ? measurePortalInWindow : undefined}
@@ -368,10 +397,8 @@ function SpotlightContent({
         position="absolute"
         top={0}
         bottom={0}
-        // Home is in the main pane, while this portal is hosted in the detail pane.
-        // Extend only the opted-in Android guide, as the hardware stage does.
         {...(platformEnv.isNativeAndroid && usePortalCoordinates
-          ? { start: -portalStartOffset, end: 0 }
+          ? { start: 0, end: 0 }
           : { left: 0, right: 0 })}
         enterStyle={{
           opacity: 0,
@@ -384,7 +411,7 @@ function SpotlightContent({
               testID="spotlight-backdrop"
               position="absolute"
               inset={0}
-              onPress={closeOnBackdropPress ? onConfirm : undefined}
+              onPress={closeOnBackdropPress ? handleConfirm : undefined}
               accessible={false}
             />
             <Stack
@@ -419,7 +446,7 @@ function SpotlightContent({
                   opacity={highlightBackgroundOpacity}
                 />
               ) : null}
-              {children}
+              <Stack position="relative">{children}</Stack>
             </Stack>
             <YStack
               testID="spotlight-card"
@@ -444,7 +471,7 @@ function SpotlightContent({
                   borderRadius={confirmButtonBorderRadius ?? '$2'}
                   px={confirmButtonPaddingHorizontal}
                   size="small"
-                  onPress={onConfirm}
+                  onPress={handleConfirm}
                 >
                   {confirmText ??
                     intl.formatMessage({ id: ETranslations.global_done })}
@@ -454,9 +481,8 @@ function SpotlightContent({
           </>
         ) : null}
       </Stack>
-    );
-
-  return null;
+    </OverlayView>
+  );
 }
 
 export function SpotlightView({
@@ -487,10 +513,20 @@ export function SpotlightView({
   matchTriggerSize,
   deferUntilIdle,
 }: ISpotlightViewProps) {
+  const level = useNestedOverlayLevel();
   useDeferredGuideBlocker(visible && !deferUntilIdle);
   const defer = useDeferredPromise();
   const localTriggerRef = useRef<IElement | null>(null);
   const triggerRef = anchorRef ?? localTriggerRef;
+  const [contentMounted, setContentMounted] = useState(visible);
+  const visibleRef = useRef(visible);
+  visibleRef.current = visible;
+  useEffect(() => {
+    if (visible) setContentMounted(true);
+  }, [visible]);
+  const handleClose = useCallback(() => {
+    if (!visibleRef.current) setContentMounted(false);
+  }, []);
   const triggerPropsRef = useRef<{
     trigger: ((props: ISpotlightContentEvent) => void) | undefined;
     defer: IDeferredPromise<unknown>;
@@ -577,40 +613,38 @@ export function SpotlightView({
           {children}
         </View>
       )}
-      {visible ? (
-        <Portal.Body
-          destroyDelayMs={deferUntilIdle ? 0 : 1200}
-          container={EPortalContainerConstantName.SPOTLIGHT_OVERLAY_PORTAL}
-        >
-          <SpotlightContent
-            triggerPropsRef={triggerPropsRef}
-            initProps={{
-              visible,
-              children: replaceChildren || children,
-              content,
-              cardBorderRadius,
-              highlightBorderRadius,
-              confirmButtonBorderRadius,
-              confirmButtonPaddingHorizontal,
-              cardPadding,
-              cardPaddingBottom,
-              cardGap,
-              cardMaxWidth,
-              alignCardToAnchorEnd,
-              onConfirm,
-              confirmText,
-              closeOnBackdropPress,
-              matchTriggerSize,
-              deferUntilIdle,
-              floatingOffset,
-              childrenPaddingVertical,
-              childrenPaddingHorizontal,
-              showHighlightBackground,
-              highlightBackgroundOpacity,
-              triggerRef: triggerRef as RefObject<NativeView>,
-            }}
-          />
-        </Portal.Body>
+      {visible || contentMounted ? (
+        <SpotlightContent
+          visible={visible}
+          onClose={handleClose}
+          level={level}
+          triggerPropsRef={triggerPropsRef}
+          initProps={{
+            visible,
+            children: replaceChildren || children,
+            content,
+            cardBorderRadius,
+            highlightBorderRadius,
+            confirmButtonBorderRadius,
+            confirmButtonPaddingHorizontal,
+            cardPadding,
+            cardPaddingBottom,
+            cardGap,
+            cardMaxWidth,
+            alignCardToAnchorEnd,
+            onConfirm,
+            confirmText,
+            closeOnBackdropPress,
+            matchTriggerSize,
+            deferUntilIdle,
+            floatingOffset,
+            childrenPaddingVertical,
+            childrenPaddingHorizontal,
+            showHighlightBackground,
+            highlightBackgroundOpacity,
+            triggerRef: triggerRef as RefObject<NativeView>,
+          }}
+        />
       ) : null}
     </>
   );

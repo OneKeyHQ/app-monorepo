@@ -1,3 +1,4 @@
+/* cspell:ignore Infini */
 import type { ComponentType } from 'react';
 import { useMemo } from 'react';
 
@@ -44,6 +45,7 @@ import {
   EModalRoutes,
   EModalSettingRoutes,
   ESettingsTabNames,
+  ETabDeveloperRoutes,
 } from '@onekeyhq/shared/src/routes';
 import { EManualBackupRoutes } from '@onekeyhq/shared/src/routes/manualBackup';
 import { EPrimeFeatures, EPrimePages } from '@onekeyhq/shared/src/routes/prime';
@@ -82,6 +84,7 @@ import {
 } from './CustomElement';
 import { ExportDiagnosticLogsListItem } from './exportLogs/ExportDiagnosticLogsListItem';
 import { OFFICIAL_CHANNELS_SEARCH_KEYWORDS } from './officialChannels';
+import { RestoreInfiniPendingTransactionsListItem } from './RestoreInfiniPendingTransactionsListItem';
 import { getSettingsDisplayTitle } from './settingsDisplay';
 import { SETTINGS_SIDEBAR_ORDER } from './settingsRootLayout';
 // import { OneKeyIdSubSettings } from './OneKeyIdSubSettings';
@@ -245,6 +248,12 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
         id: ETranslations.settings_clear_pending_transactions,
       }),
       renderElement: <ClearPendingTransactionsListItem />,
+    };
+    const restoreInfiniPendingTransactionsItem: ISubSettingConfig = {
+      id: 'restore-infini-pending-transactions',
+      icon: 'ClockTimeHistoryOutline',
+      title: `Infini: ${intl.formatMessage({ id: ETranslations.global_restore })} ${intl.formatMessage({ id: ETranslations.tray_pending_transactions_title })}`,
+      renderElement: <RestoreInfiniPendingTransactionsListItem />,
     };
     const config: ISettingsConfig = [
       // OneKey ID tab with custom rendering
@@ -523,6 +532,9 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
             platformEnv.isWebDappMode
               ? clearPendingTransactionsItem
               : undefined,
+            platformEnv.isWebDappMode
+              ? restoreInfiniPendingTransactionsItem
+              : undefined,
           ],
           [
             {
@@ -650,7 +662,10 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                   renderElement: <BTCFreshAddressListItem />,
                 },
               ],
-              [clearPendingTransactionsItem],
+              [
+                clearPendingTransactionsItem,
+                restoreInfiniPendingTransactionsItem,
+              ],
             ],
           },
       platformEnv.isWebDappMode
@@ -1049,7 +1064,8 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
           ],
         ],
       },
-      devSettings.enabled
+      devSettings.enabled ||
+      (platformEnv.isDev && (platformEnv.isDesktop || platformEnv.isExtension))
         ? {
             icon: 'CodeSolid',
             mobileIcon: 'CodeOutline',
@@ -1069,14 +1085,32 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
             },
             configs: [
               [
-                {
-                  id: 'dev-mode',
-                  icon: 'CodeOutline',
-                  title: intl.formatMessage({
-                    id: ETranslations.global_dev_mode,
-                  }),
-                  renderElement: <DevSettingsSection />,
-                },
+                platformEnv.isDev &&
+                (platformEnv.isDesktop || platformEnv.isExtension)
+                  ? {
+                      id: 'developer-pages',
+                      icon: 'CodeBracketsOutline',
+                      title: intl.formatMessage({
+                        id: ETranslations.global_dev_mode,
+                      }),
+                      testID: 'setting-developer-pages',
+                      onPress: (navigation) => {
+                        navigation?.pushModal(EModalRoutes.DeveloperModal, {
+                          screen: ETabDeveloperRoutes.TabDeveloper,
+                        });
+                      },
+                    }
+                  : undefined,
+                devSettings.enabled
+                  ? {
+                      id: 'dev-mode',
+                      icon: 'CodeOutline',
+                      title: intl.formatMessage({
+                        id: ETranslations.global_dev_mode,
+                      }),
+                      renderElement: <DevSettingsSection />,
+                    }
+                  : undefined,
               ],
             ],
           }

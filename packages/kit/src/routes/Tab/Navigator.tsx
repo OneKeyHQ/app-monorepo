@@ -6,15 +6,12 @@ import { useIntl } from 'react-intl';
 import type { ITabNavigatorConfig } from '@onekeyhq/components';
 import {
   Button,
-  EPortalContainerConstantName,
-  Portal,
   Stack,
   TabStackNavigator,
   rootNavigationRef,
   switchTab,
   useIsSplitView,
   useMedia,
-  useSplitMainView,
   useSplitSubView,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -31,23 +28,6 @@ import { TabFreezeOnBlurContext } from '../../provider/Container/TabFreezeOnBlur
 
 import { getTabPreloadPolicy } from './preloadPolicy';
 import { tabExtraConfig, useTabRouterConfig } from './router';
-
-// When using navigation.preload, the web layer will re-render the interface with sidebar,
-// which may cause duplicate Portal rendering. Use isRendered to prevent duplicate Portal rendering.
-let isRendered = false;
-function InPageTabContainer() {
-  const isRenderedRef = useRef(isRendered);
-  const isTabletMainView = useSplitMainView();
-  if (isRenderedRef.current || isTabletMainView) {
-    return null;
-  }
-  isRendered = true;
-  return (
-    <Portal.Container
-      name={EPortalContainerConstantName.IN_PAGE_TAB_CONTAINER}
-    />
-  );
-}
 
 const useCheckTabsChangedInDev = platformEnv.isDev
   ? (config: ITabNavigatorConfig<ETabRoutes>[]) => {
@@ -219,7 +199,6 @@ export function TabNavigator() {
         <FloatingDevModeBackButton />
       ) : null}
       {platformEnv.isWebDappMode && gtMd ? <Footer /> : null}
-      <InPageTabContainer />
     </>
   );
 }

@@ -9,8 +9,12 @@ import type {
   ITradingViewIndicatorSettingsProps,
   ITradingViewIndicatorSettingsValue,
 } from '../TradingViewChartControls/chartSettings';
+import type { ITradingViewSettingsDialogRef } from '../TradingViewChartControls/chartSettings/TradingViewSettingsDialog';
 
 type IDialogConfig = {
+  dialogContainer?: (props: {
+    ref: ITradingViewSettingsDialogRef;
+  }) => ReactElement<ITradingViewIndicatorSettingsProps>;
   onOpenAutoFocus?: (event: Event) => void;
   floatingPanelProps: {
     maxWidth: number | string;
@@ -43,6 +47,7 @@ describe('showTradingViewNativeIndicatorSettingsDialog', () => {
 
   it('moves opening focus to the container and leaves inputs available for manual focus', () => {
     showTradingViewNativeIndicatorSettingsDialog({
+      displayMode: 'focused',
       intl: { formatMessage: ({ id }) => id },
       onConfirm: jest.fn(),
       value: { indicators: [], schemaVersion: 1 },
@@ -102,5 +107,19 @@ describe('showTradingViewNativeIndicatorSettingsDialog', () => {
 
     await props.onConfirmSuccess?.();
     expect(mockCloseDialog).toHaveBeenCalledTimes(1);
+  });
+
+  it('mounts the full editor through the common dialog container', () => {
+    showTradingViewNativeIndicatorSettingsDialog({
+      intl: { formatMessage: ({ id }) => id },
+      onConfirm: jest.fn(),
+      value: { indicators: [], schemaVersion: 1 },
+    });
+    const dialogRef: ITradingViewSettingsDialogRef = { current: null };
+    const props = mockShowDialog.mock.calls[0][0].dialogContainer?.({
+      ref: dialogRef,
+    }).props;
+    expect(props?.displayMode).toBe('full');
+    expect(props?.dialogRef).toBe(dialogRef);
   });
 });

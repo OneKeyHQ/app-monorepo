@@ -4,6 +4,7 @@ import type { ReactNode } from 'react';
 
 import { act, render, screen } from '@testing-library/react';
 
+import { showLimitOrderDialog } from '@onekeyhq/kit/src/views/Perp/components/TradingPanel/panels/LimitOrderForm';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { TradingViewPerpsV2 } from './TradingViewPerpsV2';
@@ -28,6 +29,11 @@ const mockChartLines = jest.fn<
 }));
 const mockResetControls = jest.fn();
 const mockSetMounted = jest.fn();
+const mockSourcePage = { hostKey: 'main', ownerKey: 'perps' };
+
+jest.mock('@onekeyfe/react-native-native-overlay', () => ({
+  useOverlayPageScope: () => mockSourcePage,
+}));
 
 jest.mock('react-intl', () => ({ useIntl: () => ({}) }));
 jest.mock('@onekeyhq/components', () => {
@@ -200,6 +206,27 @@ describe('Perps chart navigation readiness', () => {
     );
     expect(mockResetControls).toHaveBeenCalledTimes(
       navigation.shouldReset ? 1 : 0,
+    );
+  });
+
+  it('captures the page source only when opening a chart limit order', async () => {
+    render(
+      <TradingViewPerpsV2
+        symbol="BTC"
+        userAddress={undefined}
+        enablePerpsTradingUi
+      />,
+    );
+    await act(async () => {
+      mockMessageHandlerProps.mock.calls.at(-1)?.[0].onChartOrderIntent?.({
+        intent: 'limitEntry',
+        symbol: 'BTC',
+        price: '83000',
+      });
+      await Promise.resolve();
+    });
+    expect(showLimitOrderDialog).toHaveBeenCalledWith(
+      expect.objectContaining({ sourcePage: mockSourcePage }),
     );
   });
 });

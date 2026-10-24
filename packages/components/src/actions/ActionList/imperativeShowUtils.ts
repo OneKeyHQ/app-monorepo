@@ -29,6 +29,8 @@ export function createImperativeActionListLifecycle({
   onOpenChange,
   onClose,
   destroy,
+  requestClose,
+  getCloseCompletion,
   schedule = (callback, delay) => {
     setTimeout(callback, delay);
   },
@@ -36,6 +38,8 @@ export function createImperativeActionListLifecycle({
   onOpenChange?: (isOpen: boolean) => void;
   onClose?: () => void;
   destroy: () => void;
+  requestClose?: () => void | Promise<void>;
+  getCloseCompletion?: () => Promise<void> | undefined;
   schedule?: (callback: () => void, delay: number) => void;
 }) {
   let isClosed = false;
@@ -57,16 +61,34 @@ export function createImperativeActionListLifecycle({
     }
 
     isClosed = true;
-    onOpenChange?.(false);
-    if (onClose) {
-      schedule(onClose, 0);
+    try {
+      onOpenChange?.(false);
+    } finally {
+      if (onClose) {
+        schedule(onClose, 0);
+      }
+      if (getCloseCompletion) {
+        const completion = getCloseCompletion();
+        if (completion) {
+          void completion.then(destroyOnce, destroyOnce);
+        } else {
+          destroyOnce();
+        }
+      } else {
+        schedule(destroyOnce, CLOSE_ANIMATION_DURATION);
+      }
     }
-    schedule(destroyOnce, CLOSE_ANIMATION_DURATION);
   };
 
   return {
     handleOpenChange,
-    close: () => handleOpenChange(false),
+    close: () => {
+      if (getCloseCompletion && !isClosed) {
+        void requestClose?.();
+      }
+      handleOpenChange(false);
+      return getCloseCompletion?.();
+    },
     closeImmediately: () => {
       handleOpenChange(false);
       destroyOnce();

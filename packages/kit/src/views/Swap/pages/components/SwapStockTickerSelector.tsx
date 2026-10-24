@@ -101,6 +101,7 @@ function StockTickerList({ closePopover }: { closePopover: () => void }) {
         />
       </Stack>
       <ScrollView
+        nestedScrollEnabled
         flex={isSheet ? 1 : undefined}
         maxHeight={isSheet ? undefined : 604}
         keyboardDismissMode={platformEnv.isNative ? 'on-drag' : 'none'}

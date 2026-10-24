@@ -18,6 +18,7 @@ const PERPS_BANNER_ID = 'perps-trading-banner';
 export function PerpetualTradingBanner({
   pl,
   pr,
+  pb,
   px,
   py = '$3',
   stableLayout = false,
@@ -26,6 +27,7 @@ export function PerpetualTradingBanner({
 }: {
   pl?: string;
   pr?: string;
+  pb?: string;
   px?: string;
   py?: string;
   stableLayout?: boolean;
@@ -91,6 +93,7 @@ export function PerpetualTradingBanner({
         ? {}
         : { 'aria-hidden': !isVisible, inert: !isVisible })}
       py={py}
+      pb={pb ?? py}
       pl={pl ?? px}
       pr={pr ?? px}
       alignItems="center"

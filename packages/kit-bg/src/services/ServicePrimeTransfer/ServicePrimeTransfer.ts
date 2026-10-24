@@ -100,6 +100,7 @@ import { EPrimeTransferServerType } from '@onekeyhq/shared/types/prime/primeTran
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
 import localDb from '../../dbs/local/localDb';
+import { ELocalDBStoreNames } from '../../dbs/local/localDBStoreNames';
 import { shouldUnwrapCredentialForPortableExport } from '../../dbs/local/localSecretEnvelope';
 import { checkIsOneKeyDomain } from '../../endpoints';
 import {
@@ -3920,6 +3921,12 @@ class ServicePrimeTransfer extends ServiceBase {
       string,
       IAccountDeriveTypes | undefined
     >();
+    const restoredAccountIds = new Set<string>();
+    const rememberRestoredAccounts = (accounts: IDBAccount[]) => {
+      for (const account of accounts) {
+        restoredAccountIds.add(account.id);
+      }
+    };
     this.resetImportItemErrorLog();
     try {
       // Only use these parameters for credential preparation outside DB writes.
@@ -4530,6 +4537,7 @@ class ServicePrimeTransfer extends ServiceBase {
                 }),
             );
             addedAccountsUsed = addedAccounts;
+            rememberRestoredAccounts(addedAccounts);
             if (!addedAccountsUsed?.length && restoreDeriveTypes?.length) {
               const exportedPrivateKeyResult = await this.withImportTaskLog(
                 taskUUID,
@@ -4576,6 +4584,7 @@ class ServicePrimeTransfer extends ServiceBase {
                   }),
               );
               addedAccountsUsed = fallbackResult.addedAccounts;
+              rememberRestoredAccounts(fallbackResult.addedAccounts);
             }
           } finally {
             exportedPrivateKey = '';
@@ -4799,6 +4808,7 @@ class ServicePrimeTransfer extends ServiceBase {
               ...addedAccounts,
               ...(result?.addedAccounts || []),
             ];
+            rememberRestoredAccounts(result.addedAccounts);
           }
 
           const watchingAccountXpub = watchingAccountUtxo?.xpub;
@@ -4829,6 +4839,7 @@ class ServicePrimeTransfer extends ServiceBase {
               ...addedAccounts,
               ...(result?.addedAccounts || []),
             ];
+            rememberRestoredAccounts(result.addedAccounts);
           }
 
           const watchingAccountXpubSegwit = watchingAccountUtxo?.xpubSegwit;
@@ -4859,6 +4870,7 @@ class ServicePrimeTransfer extends ServiceBase {
               ...addedAccounts,
               ...(result?.addedAccounts || []),
             ];
+            rememberRestoredAccounts(result.addedAccounts);
           }
 
           const watchingAccountAddress = watchingAccount?.address;
@@ -4889,6 +4901,7 @@ class ServicePrimeTransfer extends ServiceBase {
               ...addedAccounts,
               ...(result?.addedAccounts || []),
             ];
+            rememberRestoredAccounts(result.addedAccounts);
           }
           // An unsuccessful candidate may still recover through another input or
           // derivation. Count the item as failed only after all fallbacks finish.
@@ -4929,6 +4942,40 @@ class ServicePrimeTransfer extends ServiceBase {
       }
 
       if (this.currentImportTaskUUID !== taskUUID) return cancelledResult;
+      if (restoredAccountIds.size > 0) {
+        try {
+          // Restore candidates suppress per-item events. Announce committed
+          // survivors once per wallet, excluding accounts deleted meanwhile.
+          const { records } = await localDb.getRecordsByIds({
+            name: ELocalDBStoreNames.Account,
+            ids: [...restoredAccountIds],
+          });
+          this.assertImportTaskActive(taskUUID);
+          const accountsByWallet = new Map<string, IDBAccount[]>();
+          for (const account of records) {
+            if (account) {
+              const walletId = accountUtils.getWalletIdFromAccountId({
+                accountId: account.id,
+              });
+              const accounts = accountsByWallet.get(walletId) ?? [];
+              accounts.push(account);
+              accountsByWallet.set(walletId, accounts);
+            }
+          }
+          for (const [walletId, accounts] of accountsByWallet) {
+            this.assertImportTaskActive(taskUUID);
+            appEventBus.emit(EAppEventBusNames.AddDBAccountsToWallet, {
+              walletId,
+              accounts,
+            });
+          }
+        } catch {
+          // A display-cache notification must not turn committed imports into
+          // failures. Cancellation still belongs to the original task owner.
+          this.assertImportTaskActive(taskUUID);
+        }
+      }
+      if (this.currentImportTaskUUID !== taskUUID) return cancelledResult;
       return {
         success: true,
         errorsInfo,
@@ -4941,6 +4988,7 @@ class ServicePrimeTransfer extends ServiceBase {
       throw error;
     } finally {
       importedAccountDeriveTypeCache.clear();
+      restoredAccountIds.clear();
       this.resetImportItemErrorLog();
       this.runningImportTaskUUID = undefined;
     }

@@ -531,6 +531,91 @@ test('formatPrice', () => {
   ).toEqual(['$', '0.0', { 'type': 'sub', 'value': 7 }, '2146']);
 });
 
+test('custom leading-zero threshold preserves defaults and explicit suppression', () => {
+  const options = { currency: '$', minLeadingZeros: 3 };
+  expect(formatDisplayNumber(formatPrice('0.001831', options))).toBe(
+    '$0.001831',
+  );
+  expect(formatDisplayNumber(formatPrice('0.0001831', options))).toEqual([
+    '$',
+    '0.0',
+    { value: 3, type: 'sub' },
+    '1831',
+  ]);
+  expect(formatDisplayNumber(formatPrice('0.00001831', options))).toEqual([
+    '$',
+    '0.0',
+    { value: 4, type: 'sub' },
+    '1831',
+  ]);
+  expect(formatDisplayNumber(formatPrice('0.0001831', { currency: '$' }))).toBe(
+    '$0.0001831',
+  );
+  expect(
+    formatDisplayNumber(
+      formatPrice('0.0001831', { ...options, keepLeadingZero: true }),
+    ),
+  ).toBe('$0.0001831');
+});
+
+test.each([
+  {
+    value: '0.00099994',
+    options: { minLeadingZeros: 3 },
+    expected: ['$', '0.0', { value: 3, type: 'sub' }, '9999'],
+  },
+  {
+    value: '0.00099995',
+    options: { minLeadingZeros: 3 },
+    expected: '$0.001',
+  },
+  {
+    value: '0.00099999',
+    options: { minLeadingZeros: 3 },
+    expected: '$0.001',
+  },
+  {
+    value: '0.000099999',
+    options: { minLeadingZeros: 3 },
+    expected: ['$', '0.0', { value: 3, type: 'sub' }, '1'],
+  },
+  {
+    value: '-0.000099999',
+    options: { minLeadingZeros: 3 },
+    expected: ['-', '$', '0.0', { value: 3, type: 'sub' }, '1'],
+  },
+  { value: '0.0000099999', options: {}, expected: '$0.00001' },
+  {
+    value: '0.00000099999',
+    options: {},
+    expected: ['$', '0.0', { value: 5, type: 'sub' }, '1'],
+  },
+  {
+    value: '0.000099999',
+    options: { minLeadingZeros: 3, keepLeadingZero: true },
+    expected: '$0.0001',
+  },
+])(
+  'preserves significant digits after rounding $value',
+  ({ value, options, expected }) => {
+    expect(
+      formatDisplayNumber(formatPrice(value, { currency: '$', ...options })),
+    ).toEqual(expected);
+  },
+);
+
+test('keeps balance and split-decimal display aligned after rounding', () => {
+  expect(
+    formatDisplayNumber(formatBalance('0.000099999', { minLeadingZeros: 3 })),
+  ).toEqual(['0.0', { value: 3, type: 'sub' }, '1']);
+  expect(
+    formatDisplayNumber(
+      formatPrice('0.00099999', { currency: '$', minLeadingZeros: 3 }),
+      { splitDecimal: true },
+    ),
+  ).toEqual(['$', '0', { value: '.001', type: 'decimal' }]);
+});
+
 test('formatPriceChange', () => {
   expect(formatDisplayNumber(formatPriceChange('1abc1'))).toEqual('1abc1');
 

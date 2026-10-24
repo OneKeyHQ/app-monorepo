@@ -83,6 +83,15 @@ export enum EHeadlessBuyOrderStatus {
   Refunded = 'refunded',
 }
 
+// Why a checkout ended without `completed`. `cancelled` / `failed` mean the
+// SDK knows no payment was taken (the hidden record is dropped);
+// `providerFailed` (SDK 1.3+) means the payment surface broke with the
+// outcome unknown, so the record is kept and shown for tracking.
+export type IHeadlessBuyAbandonReason =
+  | 'cancelled'
+  | 'failed'
+  | 'providerFailed';
+
 export type IAddHeadlessBuyOrderParams = {
   // Onramper durable transaction id (SDK 1.2.1+); the storage key and the
   // handle for status lookups.
@@ -118,6 +127,10 @@ export type IHeadlessBuyOrder = IAddHeadlessBuyOrderParams & {
   // paymentAuthorized seen locally, or backend status pending/paid. Such an
   // order is never auto-failed by the 24 h rule.
   paymentSeen?: boolean;
+  // SDK 1.3 `providerFailed`: the payment surface failed without confirming
+  // whether the user was charged. Not payment evidence (the 24 h rule still
+  // applies), but failure copy must never claim "not charged" for it.
+  paymentOutcomeUnknown?: boolean;
   status: EHeadlessBuyOrderStatus;
   rawStatus?: string;
   statusReason?: string;

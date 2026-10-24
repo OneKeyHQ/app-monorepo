@@ -994,3 +994,17 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries â€
 **Root Cause**: Inline formatter options changed object identity on every parent render. The shared numeric component uses that identity as a formatting memo dependency, while its locale is read globally rather than listed in the memo dependencies.
 **Fix**: Memoize each options object by token symbol and key the numeric component by the current locale so language changes rebuild the cached numeric output. Keep the shared formatter and amount calculations unchanged.
 **Catchable by**: Section 6: trace the shared formatter's memo dependencies and rerender both receipt and estimate with changed token symbols and locale-specific decimal/group separators while the raw amount stays fixed.
+
+## Case: Hardware rebate empty state had no copy link (OK-64959)
+**Date**: 2026-10-21 | **Platforms**: desktop, web, extension, iOS, Android
+**Symptom**: After filtering hardware sales by date, the empty state asked users to share an invite code but showed no copy button.
+**Root Cause**: HardwareSales empty UI rendered title and description only. Swap and Perps already copy a subject-specific link; hardware's share URL is the summary invite URL plus `/shop`.
+**Fix**: Show a copy-link button on the empty list and copy that shop invite URL once summary info is ready. Keep the button disabled when the URL is missing.
+**Catchable by**: Section 4: shared empty-state copy must include the action it describes; Section 6: cover loading and missing-URL states.
+
+## Case: Hardware empty-state modules missing native module IDs (OK-64959)
+**Date**: 2026-10-21 | **Platforms**: iOS, Android (native union and production bundles)
+**Symptom**: Strict native bundling throws because HardwareEmptyData.tsx and useHardwareShopInviteUrl.ts are not in the module ID registry.
+**Root Cause**: The new production files are imported by the hardware sales page, so they enter the native graph, but no stable IDs were committed.
+**Fix**: Register both files in apps/mobile/bundle-registry/module-id-registry.json and pass a strict iOS union build.
+**Catchable by**: Section 4: a new file that the native bundle imports must be added to module-id-registry.json before the release bundle runs.

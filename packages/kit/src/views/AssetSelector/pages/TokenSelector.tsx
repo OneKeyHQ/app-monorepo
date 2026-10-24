@@ -2233,7 +2233,7 @@ function TokenSelector() {
   );
 
   return (
-    <Page lazyLoad onClose={clearSearchKey} onUnmounted={clearSearchKey}>
+    <Page onClose={clearSearchKey} onUnmounted={clearSearchKey}>
       <Page.Header
         title={
           title ??

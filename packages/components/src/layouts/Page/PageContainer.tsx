@@ -10,7 +10,6 @@ import type { IPageProps } from './type';
 
 export function PageContainer({
   children,
-  lazyLoad,
   fullPage,
   testID,
   backgroundColor,
@@ -20,7 +19,6 @@ export function PageContainer({
   return useMemo(
     () => (
       <BasicPage
-        lazyLoad={lazyLoad}
         fullPage={fullPage}
         testID={testID}
         backgroundColor={backgroundColor}
@@ -33,14 +31,6 @@ export function PageContainer({
         <BasicPageFooter />
       </BasicPage>
     ),
-    [
-      lazyLoad,
-      fullPage,
-      testID,
-      backgroundColor,
-      scrollEnabled,
-      scrollProps,
-      children,
-    ],
+    [fullPage, testID, backgroundColor, scrollEnabled, scrollProps, children],
   );
 }

@@ -10,7 +10,7 @@ import type { ITradingViewIndicatorSettingsValue } from './TradingViewSettingsMo
 type IMockIndicatorSettingsDialogProps = {
   displayMode: 'focused' | 'full';
   maxActiveSubIndicatorCount: number | null;
-  onConfirm?: () => void | Promise<void>;
+  onConfirm?: () => boolean | Promise<boolean>;
   onReset: () => void;
   selectedIndicatorId: string;
   selectedIndicatorScope: 'main' | 'sub';
@@ -18,6 +18,11 @@ type IMockIndicatorSettingsDialogProps = {
 };
 
 const mockIndicatorSettingsDialog = jest.fn<null, [unknown]>(() => null);
+
+jest.mock('@onekeyhq/components', () => ({
+  Button: () => null,
+  Dialog: { show: jest.fn() },
+}));
 
 jest.mock('./TradingViewIndicatorContent', () => ({
   TradingViewIndicatorSettingsDialog: (props: unknown) =>
@@ -84,6 +89,38 @@ describe('TradingViewIndicatorSettings', () => {
     });
     expect(onConfirm).toHaveBeenCalledTimes(1);
     expect(getActiveSubIndicatorCount(onConfirm.mock.calls[0][0])).toBe(5);
+  });
+
+  it('keeps the dialog open when saving fails and allows retrying', async () => {
+    const error = new Error('Save failed');
+    const onConfirm = jest
+      .fn()
+      .mockRejectedValueOnce(error)
+      .mockResolvedValue(undefined);
+    const onConfirmSuccess = jest.fn();
+    const onConfirmError = jest.fn();
+    render(
+      <TradingViewIndicatorSettings
+        onConfirm={onConfirm}
+        onConfirmSuccess={onConfirmSuccess}
+        onConfirmError={onConfirmError}
+      />,
+    );
+
+    const getProps = () =>
+      mockIndicatorSettingsDialog.mock.calls.at(
+        -1,
+      )?.[0] as IMockIndicatorSettingsDialogProps;
+    await act(async () => {
+      expect(await getProps().onConfirm?.()).toBe(false);
+    });
+    expect(onConfirmSuccess).not.toHaveBeenCalled();
+    expect(onConfirmError).toHaveBeenCalledWith(error);
+
+    await act(async () => {
+      expect(await getProps().onConfirm?.()).toBe(true);
+    });
+    expect(onConfirmSuccess).toHaveBeenCalledTimes(1);
   });
 
   it('opens on the requested indicator', () => {

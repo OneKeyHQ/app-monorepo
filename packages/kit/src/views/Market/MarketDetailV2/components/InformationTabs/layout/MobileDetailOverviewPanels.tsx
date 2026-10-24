@@ -1,7 +1,6 @@
 // cspell:ignore Financials
 import type { ReactNode } from 'react';
 
-import { Stack } from '@onekeyhq/components';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { IMarketAssetDetailData } from '@onekeyhq/shared/types/market';
 
@@ -26,7 +25,6 @@ function OverviewScroll({
   return (
     <MarketDetailScrollView scrollEnabled={scrollEnabled}>
       {children}
-      <Stack h={100} />
     </MarketDetailScrollView>
   );
 }
