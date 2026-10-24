@@ -2,8 +2,20 @@ import { useCallback, useRef } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import type { IActionListItemProps } from '@onekeyhq/components';
-import { ActionList } from '@onekeyhq/components';
+import type {
+  IActionListItemProps,
+  IActionListSection,
+  IKeyOfIcons,
+} from '@onekeyhq/components';
+import {
+  ActionList,
+  Divider,
+  Icon,
+  SizableText,
+  Stack,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IBrowserToolbarAction } from '@onekeyhq/shared/src/logger/scopes/discovery/scenes/browser';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -17,6 +29,87 @@ import { logBrowserChromeAction } from './browserChrome';
 import type { IntlShape } from 'react-intl';
 
 export const ACTION_LIST_CLOSE_ANIMATION_DELAY_MS = 350;
+
+interface IQuickAction {
+  label: string;
+  icon: IKeyOfIcons;
+  onPress: () => void;
+  // Run once the menu has closed (e.g. it opens a system sheet).
+  afterClose?: boolean;
+  testID: string;
+}
+
+function QuickActionTile({
+  action,
+  onClose,
+}: {
+  action: IQuickAction;
+  onClose: () => void;
+}) {
+  return (
+    <YStack
+      flex={1}
+      alignItems="center"
+      gap="$2"
+      onPress={async () => {
+        onClose();
+        if (action.afterClose) {
+          await timerUtils.wait(ACTION_LIST_CLOSE_ANIMATION_DELAY_MS);
+        }
+        action.onPress();
+      }}
+      testID={action.testID}
+    >
+      <Stack
+        w="$14"
+        h="$14"
+        borderRadius="$4"
+        borderCurve="continuous"
+        bg="$bgStrong"
+        alignItems="center"
+        justifyContent="center"
+      >
+        <Icon name={action.icon} size="$6" color="$icon" />
+      </Stack>
+      <SizableText size="$bodySmMedium" textAlign="center" numberOfLines={2}>
+        {action.label}
+      </SizableText>
+    </YStack>
+  );
+}
+
+// Tiles for the frequent page actions, then the regular list sections.
+function OptionsMenuContent({
+  quickActions,
+  sections,
+  onClose,
+}: {
+  quickActions: IQuickAction[];
+  sections: IActionListSection[];
+  onClose: () => void;
+}) {
+  return (
+    <YStack>
+      <XStack px="$2" pt="$1" pb="$3" gap="$2">
+        {quickActions.map((action) => (
+          <QuickActionTile
+            key={action.testID}
+            action={action}
+            onClose={onClose}
+          />
+        ))}
+      </XStack>
+      {sections.map((section, index) => (
+        <YStack key={index}>
+          <Divider mx="$2" my="$1" />
+          {section.items.map((item) => (
+            <ActionList.Item key={item.label} {...item} onClose={onClose} />
+          ))}
+        </YStack>
+      ))}
+    </YStack>
+  );
+}
 
 // For actions that open another sheet or modal (or close the page under the
 // menu): close the menu and wait for its animation first.
@@ -38,10 +131,10 @@ function withMenuLog<TArgs extends unknown[], TResult>(
   };
 }
 
-// Ordered by usage (30-day analytics): bookmark/share/copy first, page
-// tools (translate is used by very few people) next, tab/session actions
-// last. Reload and back-to-Explore are left out: the bar's refresh button
-// and the header's minimize button already cover them.
+// Ordered by usage (30-day analytics): the frequent page actions (copy,
+// bookmark, share, open elsewhere) as a row of tiles on top, then page tools
+// (translate is used by very few people), then tab/session actions. Reload
+// and exit are left out: the bar's refresh and the header's ✕ cover them.
 function buildOptionsSections(
   intl: IntlShape,
   {
@@ -63,7 +156,39 @@ function buildOptionsSections(
     onTranslatePress,
   }: IMobileBottomOptionsProps,
 ) {
-  return [
+  const quickActions: IQuickAction[] = [
+    {
+      label: intl.formatMessage({ id: ETranslations.global_copy_url }),
+      icon: 'Copy3Outline',
+      onPress: () => onCopyUrl(),
+      testID: 'action-list-item-copy',
+    },
+    {
+      label: intl.formatMessage({
+        id: isBookmark
+          ? ETranslations.explore_remove_bookmark
+          : ETranslations.explore_add_bookmark,
+      }),
+      icon: isBookmark ? 'StarSolid' : 'StarOutline',
+      onPress: () => onBookmarkPress(!isBookmark),
+      testID: DiscoveryTestIDs.tabActionBookmark,
+    },
+    {
+      label: intl.formatMessage({ id: ETranslations.explore_share }),
+      icon: 'ShareOutline',
+      // The system share sheet can only open once this menu is gone.
+      afterClose: true,
+      onPress: () => onShare(),
+      testID: DiscoveryTestIDs.browserShareButton,
+    },
+    {
+      label: intl.formatMessage({ id: ETranslations.explore_open_in_browser }),
+      icon: 'CompassCircleOutline',
+      onPress: () => onBrowserOpen(),
+      testID: 'action-list-item-open-in-browser',
+    },
+  ];
+  const sections: IActionListSection[] = [
     {
       items: [
         canGoForward
@@ -76,30 +201,6 @@ function buildOptionsSections(
               testID: DiscoveryTestIDs.browserForwardButton,
             }
           : undefined,
-        {
-          label: intl.formatMessage({
-            id: isBookmark
-              ? ETranslations.explore_remove_bookmark
-              : ETranslations.explore_add_bookmark,
-          }),
-          icon: isBookmark ? 'StarSolid' : 'StarOutline',
-          onPress: () => onBookmarkPress(!isBookmark),
-          testID: DiscoveryTestIDs.tabActionBookmark,
-        },
-        {
-          label: intl.formatMessage({ id: ETranslations.explore_share }),
-          icon: 'ShareOutline',
-          onPress: () => onShare(),
-          testID: DiscoveryTestIDs.browserShareButton,
-        },
-        {
-          label: intl.formatMessage({ id: ETranslations.global_copy_url }),
-          icon: 'LinkOutline',
-          onPress: () => {
-            onCopyUrl();
-          },
-          testID: `action-list-item-copy`,
-        },
       ].filter(Boolean) as IActionListItemProps[],
     },
     {
@@ -137,14 +238,6 @@ function buildOptionsSections(
                 siteMode === ESiteMode.desktop ? 'mobile' : 'desktop'
               }`,
             },
-        {
-          label: intl.formatMessage({
-            id: ETranslations.explore_open_in_browser,
-          }),
-          icon: 'CompassCircleOutline',
-          onPress: () => onBrowserOpen(),
-          testID: 'action-list-item-open-in-browser',
-        },
       ].filter(Boolean) as IActionListItemProps[],
     },
     {
@@ -180,7 +273,8 @@ function buildOptionsSections(
         },
       ].filter(Boolean) as IActionListItemProps[],
     },
-  ];
+  ].filter((section) => section.items.length > 0);
+  return { quickActions, sections };
 }
 
 // The browser "options" menu, opened programmatically so it also works from
@@ -193,17 +287,24 @@ export function useMobileBrowserOptions(props: IMobileBottomOptionsProps) {
   propsRef.current = props;
   return useCallback(() => {
     const current = propsRef.current;
+    const { quickActions, sections } = buildOptionsSections(intl, {
+      ...current,
+      onGoForward: withMenuLog('forward', current.onGoForward),
+      onTranslatePress: withMenuLog('translate', current.onTranslatePress),
+      onShare: withMenuLog('share', current.onShare),
+      onCopyUrl: withMenuLog('copyUrl', current.onCopyUrl),
+      onBrowserOpen: withMenuLog('openInBrowser', current.onBrowserOpen),
+      onRequestSiteMode: withMenuLog('siteMode', current.onRequestSiteMode),
+    });
     ActionList.show({
       title: intl.formatMessage({ id: ETranslations.explore_options }),
-      sections: buildOptionsSections(intl, {
-        ...current,
-        onGoForward: withMenuLog('forward', current.onGoForward),
-        onTranslatePress: withMenuLog('translate', current.onTranslatePress),
-        onShare: withMenuLog('share', current.onShare),
-        onCopyUrl: withMenuLog('copyUrl', current.onCopyUrl),
-        onBrowserOpen: withMenuLog('openInBrowser', current.onBrowserOpen),
-        onRequestSiteMode: withMenuLog('siteMode', current.onRequestSiteMode),
-      }),
+      renderItems: ({ handleActionListClose }) => (
+        <OptionsMenuContent
+          quickActions={quickActions}
+          sections={sections}
+          onClose={handleActionListClose}
+        />
+      ),
     });
   }, [intl]);
 }

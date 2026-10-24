@@ -15,6 +15,7 @@ import {
   XStack,
   useThemeName,
 } from '@onekeyhq/components';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import {
   BROWSER_CHROME_CAPSULE_HEIGHT,
@@ -382,10 +383,10 @@ function MobileBrowserBottomBar({ id, chrome }: IMobileBrowserBottomBarProps) {
                     variant="tertiary"
                     icon="ChevronLeftOutline"
                     iconSize="$5"
-                    // The chevron glyph is narrow inside its box, so the
-                    // button's padding plus the row gap left a wider gap to
-                    // the site badge than to the capsule edge; pull it in.
-                    mr={-6}
+                    // Android: the solid capsule left a wider gap between the
+                    // narrow chevron and the site badge than to the capsule
+                    // edge; pull it in (iOS glass was already even).
+                    mr={platformEnv.isNativeAndroid ? -6 : undefined}
                     disabled={disabledGoBack}
                     accessible={!disabledGoBack}
                     testID={DiscoveryTestIDs.browserBackButton}
