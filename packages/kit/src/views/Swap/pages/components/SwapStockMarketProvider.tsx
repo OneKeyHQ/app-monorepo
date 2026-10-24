@@ -148,9 +148,10 @@ function SwapStockSelectionProvider({
   const selectionError = operation.phase === 'failed';
 
   // Only the first token this page shows can be implicit (restored, or the
-  // default loader's pick); any later token came from a user action. Decide
-  // from the variant list already at hand (the persisted cache on revisits) so
-  // a token about to move is never shown, only the loading state.
+  // default loader's pick); any later token came from a user action. The token
+  // is held in the loading state until it is decided, so one about to move is
+  // never shown. Decide only from a fetched list: a persisted cache can still
+  // carry an issuer that has since been retired, and the decision is final.
   const [, setSettledVersion] = useState(0);
   const firstTokenKeyRef = useRef<string | undefined>(undefined);
   const isMarketJumpToken = Boolean(
@@ -167,7 +168,8 @@ function SwapStockSelectionProvider({
     !settledSwapStockTokenKeys.has(identity) &&
     !isMarketJumpToken,
   );
-  const isAutoVariantListReady = !isTokenVariantPending && !!selectedVariant;
+  const isAutoVariantListReady =
+    isTokenVariantsFresh && !isTokenVariantPending && !!selectedVariant;
   // Nothing more will arrive to decide with: keep the token as it is.
   const isAutoVariantListBlocked =
     isTokenVariantsError ||
