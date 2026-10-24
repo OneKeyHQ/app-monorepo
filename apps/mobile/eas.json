@@ -48,6 +48,19 @@
         "credentialsSource": "local"
       }
     },
+    "production-store-startup-profile": {
+      "extends": "production-store",
+      "env": {
+        "ONEKEY_STARTUP_PROFILE": "1"
+      }
+    },
+    "production-store-function-trace": {
+      "extends": "production-store",
+      "env": {
+        "ONEKEY_STARTUP_PROFILE": "1",
+        "ONEKEY_FUNCTION_TRACE": "1"
+      }
+    },
     "production": {
       "extends": "base",
       "distribution": "store",
@@ -66,6 +79,19 @@
         "buildConfiguration": "Release",
         "distribution": "internal",
         "credentialsSource": "local"
+      }
+    },
+    "production-startup-profile": {
+      "extends": "production",
+      "env": {
+        "ONEKEY_STARTUP_PROFILE": "1"
+      }
+    },
+    "production-function-trace": {
+      "extends": "production",
+      "env": {
+        "ONEKEY_STARTUP_PROFILE": "1",
+        "ONEKEY_FUNCTION_TRACE": "1"
       }
     },
     "qa-internal": {
@@ -95,6 +121,13 @@
         "ONEKEY_STARTUP_PROFILE": "1"
       }
     },
+    "qa-internal-function-trace": {
+      "extends": "qa-internal",
+      "env": {
+        "ONEKEY_STARTUP_PROFILE": "1",
+        "ONEKEY_FUNCTION_TRACE": "1"
+      }
+    },
     "qa-internal-store": {
       "extends": "base",
       "distribution": "store",
@@ -113,6 +146,19 @@
         "enterpriseProvisioning": "universal",
         "buildConfiguration": "Release",
         "credentialsSource": "local"
+      }
+    },
+    "qa-internal-store-startup-profile": {
+      "extends": "qa-internal-store",
+      "env": {
+        "ONEKEY_STARTUP_PROFILE": "1"
+      }
+    },
+    "qa-internal-store-function-trace": {
+      "extends": "qa-internal-store",
+      "env": {
+        "ONEKEY_STARTUP_PROFILE": "1",
+        "ONEKEY_FUNCTION_TRACE": "1"
       }
     },
     "simulator": {
@@ -141,6 +187,12 @@
         "track": "internal"
       }
     },
+    "production-store-startup-profile": {
+      "extends": "production-store"
+    },
+    "production-store-function-trace": {
+      "extends": "production-store"
+    },
     "qa-internal-store": {
       "ios": {
         "ascAppId": "1609559473",
@@ -152,6 +204,12 @@
       "android": {
         "track": "internal"
       }
+    },
+    "qa-internal-store-startup-profile": {
+      "extends": "qa-internal-store"
+    },
+    "qa-internal-store-function-trace": {
+      "extends": "qa-internal-store"
     }
   }
 }
