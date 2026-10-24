@@ -6,7 +6,7 @@ import type { StyleProp, ViewStyle } from 'react-native';
 
 export type IGlassViewProps = PropsWithChildren<{
   style?: StyleProp<ViewStyle>;
-  glassEffectStyle?: 'clear' | 'regular';
+  glassEffectStyle?: 'clear' | 'regular' | 'none';
   tintColor?: string;
   isInteractive?: boolean;
 }>;
