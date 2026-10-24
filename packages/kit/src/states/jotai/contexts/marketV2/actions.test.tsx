@@ -2,10 +2,12 @@
 
 import type { ReactNode } from 'react';
 
-import { act, renderHook } from '@testing-library/react';
+import { act, renderHook, waitFor } from '@testing-library/react';
 import { createStore } from 'jotai';
 
+import { useAutoRefreshTokenDetail } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/hooks/useAutoRefreshTokenDetail';
 import { useMarketNativeChartPriceUpdate } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/hooks/useMarketNativeChartPriceUpdate';
+import { MARKET_TOP_COINS_CATEGORY_ID } from '@onekeyhq/shared/src/consts/marketConsts';
 import type {
   IMarketAssetDetailData,
   IMarketWatchListItemV2,
@@ -35,6 +37,7 @@ const mockFetchMarketAssetDetail: jest.MockedFunction<
     assetId: string;
     variantId?: string;
     currency?: string;
+    reuseInitialResult?: boolean;
   }) => Promise<IMarketAssetDetailData>
 > = jest.fn();
 const mockFetchMarketTokenDetailByTokenAddress: jest.MockedFunction<
@@ -65,6 +68,7 @@ const mockResolveMarketPerpsInfoBySymbol: jest.MockedFunction<
   (params: { symbol: string }) => Promise<{ hlTicker: string } | undefined>
 > = jest.fn();
 const mockLogError = jest.fn();
+let mockPromiseResultFactory: (() => Promise<unknown>) | undefined;
 
 function createDeferred<T>() {
   let resolve: (value: T) => void = () => undefined;
@@ -87,6 +91,27 @@ jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
     },
   },
 }));
+
+jest.mock('@onekeyhq/kit/src/hooks/usePromiseResult', () => ({
+  usePromiseResult: (factory: () => Promise<unknown>) => {
+    mockPromiseResultFactory = factory;
+    return { result: undefined, isLoading: false };
+  },
+}));
+
+jest.mock('@onekeyhq/kit/src/hooks/useLocaleVariant', () => ({
+  useLocaleVariant: () => 'en-US',
+}));
+
+jest.mock(
+  '@onekeyhq/kit/src/views/Market/MarketDetailV2/hooks/useTokenDetail',
+  () => ({
+    useTokenDetail: () => ({
+      tokenDetail: undefined,
+      isLoading: false,
+    }),
+  }),
+);
 
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
@@ -450,6 +475,7 @@ describe('cached token detail seed', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    mockPromiseResultFactory = undefined;
     marketTokenDetailSnapshotCache.clear();
   });
 
@@ -794,6 +820,223 @@ describe('marketV2 asset token detail actions', () => {
       lastUpdated: 1_788_332_400_000,
     });
   });
+
+  it('requests an initial reusable Asset result and then refreshes normally', async () => {
+    const { store, Wrapper } = createWrapper();
+    const { result } = renderHook(
+      () => ({
+        actions: useTokenDetailActions().current,
+        fetchAssetTokenDetail: useMarketAssetTokenDetailAction(),
+      }),
+      { wrapper: Wrapper },
+    );
+    act(() => {
+      result.current.actions.prepareTokenDetailPreview({
+        address: '',
+        networkId: 'doge--0',
+        isNative: true,
+        name: 'Dogecoin',
+        symbol: 'DOGE',
+        decimals: 8,
+        selectedAt: 1_788_332_399_000,
+      });
+    });
+
+    const payload = {
+      assetId: 'doge',
+      variantId: 'doge-doge--0-1',
+      tokenAddress: '',
+      networkId: 'doge--0',
+    };
+    await act(async () => {
+      await result.current.fetchAssetTokenDetail({
+        ...payload,
+        reuseInitialResult: true,
+      });
+    });
+    expect(mockFetchMarketAssetDetail).toHaveBeenCalledWith({
+      assetId: 'doge',
+      variantId: 'doge-doge--0-1',
+      currency: 'usd',
+      reuseInitialResult: true,
+    });
+    expect(store.get(tokenDetailAtom())?.symbol).toBe('DOGE');
+
+    await act(async () => {
+      await result.current.fetchAssetTokenDetail(payload);
+    });
+    expect(mockFetchMarketAssetDetail.mock.calls).toHaveLength(2);
+  });
+
+  it('shows contract Asset prices before metadata and only patches current decimals', async () => {
+    const metadata = createDeferred<{ info: { decimals: number } }>();
+    mockFetchTokenInfoOnly.mockReturnValue(metadata.promise);
+    const contractDetail: IMarketAssetDetailData = {
+      ...dogeAssetDetail,
+      selectedVariant: {
+        ...dogeAssetDetail.selectedVariant,
+        variantId: 'doge-evm--1-0xabc',
+        networkId: 'evm--1',
+        tokenAddress: '0xabc',
+        isNative: false,
+      },
+    };
+    mockFetchMarketAssetDetail.mockResolvedValue(contractDetail);
+    const { store, Wrapper } = createWrapper();
+    const { result } = renderHook(() => useMarketAssetTokenDetailAction(), {
+      wrapper: Wrapper,
+    });
+
+    await act(async () => {
+      await result.current({
+        assetId: 'doge',
+        tokenAddress: '',
+        networkId: '',
+        reuseInitialResult: true,
+      });
+    });
+    expect(store.get(tokenDetailAtom())).toMatchObject({
+      address: '0xabc',
+      networkId: 'evm--1',
+      price: '0.25',
+      decimalsResolved: false,
+    });
+    expect(mockFetchTokenInfoOnly).toHaveBeenCalledTimes(1);
+
+    const current = store.get(tokenDetailAtom());
+    expect(current).toBeDefined();
+    act(() => {
+      store.set(tokenDetailAtom(), {
+        ...current!,
+        price: '0.30',
+        chartPriceUpdatedAt: Date.now(),
+      });
+    });
+    await act(async () => {
+      metadata.resolve({ info: { decimals: 18 } });
+    });
+    expect(store.get(tokenDetailAtom())).toMatchObject({
+      price: '0.30',
+      decimals: 18,
+      decimalsResolved: true,
+    });
+
+    await act(async () => {
+      await result.current({
+        assetId: 'doge',
+        variantId: 'doge-evm--1-0xabc',
+        tokenAddress: '',
+        networkId: '',
+      });
+    });
+    expect(store.get(tokenDetailAtom())).toMatchObject({
+      price: '0.30',
+      decimals: 18,
+      decimalsResolved: true,
+    });
+    expect(mockFetchTokenInfoOnly).toHaveBeenCalledTimes(1);
+  });
+
+  it.each(['inactive', 'new-request'])(
+    'ignores late Asset metadata after %s takes ownership away',
+    async (ownerChange) => {
+      const metadata = createDeferred<{ info: { decimals: number } }>();
+      mockFetchTokenInfoOnly.mockReturnValue(metadata.promise);
+      mockFetchMarketAssetDetail.mockResolvedValue({
+        ...dogeAssetDetail,
+        selectedVariant: {
+          ...dogeAssetDetail.selectedVariant,
+          variantId: 'doge-evm--1-0xabc',
+          networkId: 'evm--1',
+          tokenAddress: '0xabc',
+          isNative: false,
+        },
+      });
+      let active = true;
+      const { store, Wrapper } = createWrapper();
+      const { result } = renderHook(() => useMarketAssetTokenDetailAction(), {
+        wrapper: Wrapper,
+      });
+      await act(async () => {
+        await result.current({
+          assetId: 'doge',
+          tokenAddress: '',
+          networkId: '',
+          isCurrentRequest: () => active,
+        });
+      });
+      if (ownerChange === 'inactive') {
+        active = false;
+      } else {
+        store.set(
+          tokenDetailRequestIdAtom(),
+          store.get(tokenDetailRequestIdAtom()) + 1,
+        );
+      }
+      await act(async () => {
+        metadata.resolve({ info: { decimals: 18 } });
+      });
+      expect(store.get(tokenDetailAtom())?.decimalsResolved).toBe(false);
+    },
+  );
+
+  it.each(['pending', 'completed'])(
+    'shares the %s Asset bootstrap with the mounted detail action',
+    async (phase) => {
+      const request = createDeferred<IMarketAssetDetailData>();
+      const httpRequest = jest.fn(() => request.promise);
+      let initialRequest: Promise<IMarketAssetDetailData> | undefined;
+      mockFetchMarketAssetDetail.mockImplementation(
+        ({ reuseInitialResult }) => {
+          if (reuseInitialResult) {
+            initialRequest ??= httpRequest();
+            return initialRequest;
+          }
+          return httpRequest();
+        },
+      );
+      void mockFetchMarketAssetDetail({
+        assetId: 'doge',
+        reuseInitialResult: true,
+      });
+      if (phase === 'completed') {
+        request.resolve(dogeAssetDetail);
+      }
+      const { store, Wrapper } = createWrapper();
+      const { result } = renderHook(
+        () =>
+          useAutoRefreshTokenDetail({
+            tokenAddress: '',
+            networkId: '',
+            isNative: false,
+            marketTokenId: 'doge',
+            marketTokenCategory: MARKET_TOP_COINS_CATEGORY_ID,
+          }),
+        { wrapper: Wrapper },
+      );
+      if (phase === 'pending') {
+        expect(result.current.isInitialTokenDetailPending).toBe(true);
+        expect(mockFetchMarketAssetDetail.mock.calls).toHaveLength(1);
+      }
+      const refresh = mockPromiseResultFactory;
+      const pendingDetail = refresh?.();
+      expect(httpRequest).toHaveBeenCalledTimes(1);
+      if (phase === 'pending') {
+        await act(async () => request.resolve(dogeAssetDetail));
+      }
+      await act(async () => {
+        await pendingDetail;
+      });
+      await waitFor(() => {
+        expect(
+          result.current.resolvedMarketAssetIdentity?.marketVariantId,
+        ).toBe('doge-doge--0-1');
+      });
+      expect(store.get(tokenDetailAtom())?.symbol).toBe('DOGE');
+      expect(httpRequest).toHaveBeenCalledTimes(1);
+      expect(mockFetchMarketAssetDetail.mock.calls).toHaveLength(2);
+    },
+  );
 
   it('resolves perps info for the asset detail path', async () => {
     mockResolveMarketPerpsInfoBySymbol.mockResolvedValue({ hlTicker: 'DOGE' });

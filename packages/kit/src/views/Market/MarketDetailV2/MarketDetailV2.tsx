@@ -9,10 +9,14 @@ import {
 
 import { useHeaderHeight } from '@react-navigation/elements';
 import { useFocusEffect, useIsFocused } from '@react-navigation/native';
+import { useIntl } from 'react-intl';
 
 import type { IPageScreenProps } from '@onekeyhq/components';
 import {
+  Button,
   Page,
+  SizableText,
+  YStack,
   useIsModalPage,
   useMedia,
   usePreventRemove,
@@ -22,6 +26,7 @@ import { useSetSplitViewDetailFullscreen } from '@onekeyhq/kit/src/provider/Cont
 import { useTokenDetailActions } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { MARKET_TOP_COINS_CATEGORY_ID } from '@onekeyhq/shared/src/consts/marketConsts';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   ETabMarketRoutes,
@@ -123,6 +128,7 @@ function MarketDetail({
   isTradingViewNative,
   onChartSwitch,
   onChartFullscreenChange,
+  navigation,
   route,
 }: IPageScreenProps<
   ITabMarketParamList,
@@ -139,6 +145,7 @@ function MarketDetail({
     | ITabMarketParamList[ETabMarketRoutes.MarketDetailV2]
     | ITabMarketParamList[ETabMarketRoutes.MarketStockDetail]
     | ITabMarketParamList[ETabMarketRoutes.MarketNativeDetail];
+  const intl = useIntl();
 
   const {
     isStockRoute,
@@ -186,35 +193,46 @@ function MarketDetail({
   );
   const marketTokenSymbol =
     'marketTokenSymbol' in params ? params.marketTokenSymbol : undefined;
-  const { identity: resolvedMarketAssetIdentity, shouldSkipMarketDataFetch } =
-    useResolvedMarketAssetRouteIdentity({
-      enabled: shouldResolveMarketAsset,
-      active: isRouteFocused,
-      tokenAddress: routeTokenAddress,
-      networkId: routeNetworkId,
-      symbol: marketTokenSymbol,
-      isNative: routeIsNative,
-    });
-  const networkId =
-    resolvedMarketAssetIdentity?.networkId ??
-    selectedTokenVariant?.networkId ??
-    routeNetworkId;
-  const tokenAddress =
-    resolvedMarketAssetIdentity?.tokenAddress ??
-    selectedTokenVariant?.contractAddress ??
-    routeTokenAddress;
-  const isNativeBoolean =
-    resolvedMarketAssetIdentity?.isNative ?? routeIsNative;
-  const disableTrade = params.disableTrade;
-  const marketTokenId =
-    resolvedMarketAssetIdentity?.marketTokenId ??
-    ('marketTokenId' in params ? params.marketTokenId : undefined);
-  const marketVariantId =
-    resolvedMarketAssetIdentity?.marketVariantId ??
-    ('marketVariantId' in params ? params.marketVariantId : undefined);
+  const routeMarketTokenId =
+    'marketTokenId' in params ? params.marketTokenId : undefined;
   const routeMarketTokenCategory =
     'marketTokenCategory' in params ? params.marketTokenCategory : undefined;
-  const marketTokenCategory = resolvedMarketAssetIdentity
+  const isAssetOnlyRoute = Boolean(
+    routeMarketTokenId &&
+    routeMarketTokenCategory === MARKET_TOP_COINS_CATEGORY_ID &&
+    !routeNetworkId &&
+    !routeTokenAddress,
+  );
+  const {
+    identity: symbolResolvedMarketAssetIdentity,
+    shouldSkipMarketDataFetch,
+  } = useResolvedMarketAssetRouteIdentity({
+    enabled: shouldResolveMarketAsset,
+    active: isRouteFocused,
+    tokenAddress: routeTokenAddress,
+    networkId: routeNetworkId,
+    symbol: marketTokenSymbol,
+    isNative: routeIsNative,
+  });
+  const requestNetworkId = isAssetOnlyRoute
+    ? routeNetworkId
+    : (symbolResolvedMarketAssetIdentity?.networkId ??
+      selectedTokenVariant?.networkId ??
+      routeNetworkId);
+  const requestTokenAddress = isAssetOnlyRoute
+    ? routeTokenAddress
+    : (symbolResolvedMarketAssetIdentity?.tokenAddress ??
+      selectedTokenVariant?.contractAddress ??
+      routeTokenAddress);
+  const requestIsNative =
+    symbolResolvedMarketAssetIdentity?.isNative ?? routeIsNative;
+  const disableTrade = params.disableTrade;
+  const requestMarketTokenId =
+    symbolResolvedMarketAssetIdentity?.marketTokenId ?? routeMarketTokenId;
+  const requestMarketVariantId =
+    symbolResolvedMarketAssetIdentity?.marketVariantId ??
+    ('marketVariantId' in params ? params.marketVariantId : undefined);
+  const requestMarketTokenCategory = symbolResolvedMarketAssetIdentity
     ? MARKET_TOP_COINS_CATEGORY_ID
     : (routeMarketTokenCategory ??
       (shouldSkipMarketDataFetch ? MARKET_TOP_COINS_CATEGORY_ID : undefined));
@@ -232,6 +250,34 @@ function MarketDetail({
     () => parseTokenDetailPreviewParam(routeTokenDetailPreview),
     [routeTokenDetailPreview],
   );
+  const {
+    marketAssetDetail,
+    isMarketAssetDetailLoading,
+    isInitialTokenDetailPending,
+    resolvedMarketAssetIdentity: assetOnlyResolvedIdentity,
+    hasAssetError: assetIdentityError,
+    retryAssetDetail: retryAssetIdentity,
+  } = useAutoRefreshTokenDetail({
+    active: shouldOwnSharedMarketDetailState,
+    resumeOnEffectReconnect: usesRetainedMarketDetailRoutes,
+    tokenAddress: requestTokenAddress,
+    networkId: requestNetworkId,
+    isNative: requestIsNative,
+    skipMarketDataFetch: skipMarketDataFetch || shouldSkipMarketDataFetch,
+    marketTokenId: requestMarketTokenId,
+    marketVariantId: requestMarketVariantId,
+    marketTokenCategory: requestMarketTokenCategory,
+  });
+  const resolvedMarketAssetIdentity =
+    assetOnlyResolvedIdentity ?? symbolResolvedMarketAssetIdentity;
+  const networkId = resolvedMarketAssetIdentity?.networkId ?? requestNetworkId;
+  const tokenAddress =
+    resolvedMarketAssetIdentity?.tokenAddress ?? requestTokenAddress;
+  const isNativeBoolean =
+    resolvedMarketAssetIdentity?.isNative ?? requestIsNative;
+  const marketTokenId =
+    resolvedMarketAssetIdentity?.marketTokenId ?? requestMarketTokenId;
+  const marketTokenCategory = requestMarketTokenCategory;
   const resolvedTokenDetailPreview = useMemo(
     () =>
       resolvedMarketAssetIdentity && tokenDetailPreview
@@ -264,21 +310,6 @@ function MarketDetail({
 
   // Start auto-refresh for token details every 6 seconds
   // Use actualNetworkId (converted from shortcode if needed) for API calls
-  const {
-    marketAssetDetail,
-    isMarketAssetDetailLoading,
-    isInitialTokenDetailPending,
-  } = useAutoRefreshTokenDetail({
-    active: shouldOwnSharedMarketDetailState,
-    resumeOnEffectReconnect: usesRetainedMarketDetailRoutes,
-    tokenAddress,
-    networkId,
-    isNative: isNativeBoolean,
-    skipMarketDataFetch: skipMarketDataFetch || shouldSkipMarketDataFetch,
-    marketTokenId,
-    marketVariantId,
-    marketTokenCategory,
-  });
   // Desktop/Web detail screens stay mounted in the navigation stack. Only the
   // focused screen may own the shared Swap state and page footer. Keep that
   // owner mounted while a child modal is open so quote listeners remain
@@ -340,30 +371,61 @@ function MarketDetail({
           opacity={isHeaderHeightSettled ? 1 : 0}
           testID={MarketTestIDs.detailPage}
         >
-          <MarketDetailResponsiveLayout
-            active={shouldOwnSharedMarketDetailState}
-            isLayoutPending={shouldSkipMarketDataFetch}
-            disablePerpsBanner={skipMarketDataFetch}
-            isInitialContentPending={
-              !hasValidInitialContentPreview &&
-              (isTokenVariantPending || isInitialTokenDetailPending)
-            }
-            isDesktopLayout={isDesktopLayout}
-            isChartFullscreen={isChartFullscreen}
-            isTradingViewNative={isTradingViewNative}
-            onChartSwitch={onChartSwitch}
-            onChartFullscreenChange={onChartFullscreenChange}
-            isNative={isNativeBoolean}
-            networkId={networkId}
-            tokenAddress={tokenAddress}
-            isTokenDetailRequestPending={isInitialTokenDetailPending}
-            marketTokenId={marketTokenId}
-            marketAssetDetail={marketAssetDetail}
-            isMarketAssetDetailLoading={isMarketAssetDetailLoading}
-            marketTokenCategory={marketTokenCategory}
-            showFavoriteButton={showFavoriteButton}
-            disableTrade={shouldDisableTrade}
-          />
+          {assetIdentityError ? (
+            <YStack
+              flex={1}
+              alignItems="center"
+              justifyContent="center"
+              gap="$2"
+            >
+              <SizableText color="$textSubdued">
+                {intl.formatMessage({
+                  id: ETranslations.global_unknown_error_retry_message,
+                })}
+              </SizableText>
+              <Button
+                testID="market-asset-detail-retry"
+                onPress={retryAssetIdentity}
+              >
+                {intl.formatMessage({ id: ETranslations.global_retry })}
+              </Button>
+              <Button
+                testID="market-asset-detail-back"
+                variant="tertiary"
+                onPress={() => navigation.goBack()}
+              >
+                {intl.formatMessage({ id: ETranslations.global_back })}
+              </Button>
+            </YStack>
+          ) : (
+            <MarketDetailResponsiveLayout
+              active={shouldOwnSharedMarketDetailState}
+              isLayoutPending={
+                shouldSkipMarketDataFetch ||
+                (isAssetOnlyRoute && !resolvedMarketAssetIdentity)
+              }
+              disablePerpsBanner={skipMarketDataFetch}
+              isInitialContentPending={
+                !hasValidInitialContentPreview &&
+                (isTokenVariantPending || isInitialTokenDetailPending)
+              }
+              isDesktopLayout={isDesktopLayout}
+              isChartFullscreen={isChartFullscreen}
+              isTradingViewNative={isTradingViewNative}
+              onChartSwitch={onChartSwitch}
+              onChartFullscreenChange={onChartFullscreenChange}
+              isNative={isNativeBoolean}
+              networkId={networkId}
+              tokenAddress={tokenAddress}
+              isTokenDetailRequestPending={isInitialTokenDetailPending}
+              marketTokenId={marketTokenId}
+              marketAssetDetail={marketAssetDetail}
+              isMarketAssetDetailLoading={isMarketAssetDetailLoading}
+              marketTokenCategory={marketTokenCategory}
+              showFavoriteButton={showFavoriteButton}
+              disableTrade={shouldDisableTrade}
+            />
+          )}
         </Page.Body>
       </Page>
     </BtcMetadataProvider>

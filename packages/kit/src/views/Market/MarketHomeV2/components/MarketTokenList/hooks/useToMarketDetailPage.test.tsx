@@ -186,7 +186,7 @@ describe('useToDetailPage', () => {
     });
   });
 
-  it('consumes failed asset navigation requests and displays an error', async () => {
+  it('opens the existing detail route even when Asset prefetch fails', async () => {
     jest
       .spyOn(backgroundApiProxy.serviceMarket, 'fetchMarketAssetDetail')
       .mockRejectedValueOnce(new Error('offline'));
@@ -201,9 +201,14 @@ describe('useToDetailPage', () => {
         }),
       ).resolves.toBeUndefined();
     });
-    expect(Toast.error).toHaveBeenCalledTimes(1);
+    expect(Toast.error).not.toHaveBeenCalled();
     expect(mockNavigationPush).not.toHaveBeenCalled();
-    expect(openExtensionMarketTokenDetailMock).not.toHaveBeenCalled();
+    expect(openExtensionMarketTokenDetailMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        marketTokenId: 'bitcoin',
+        marketTokenCategory: 'top_coins',
+      }),
+    );
   });
 
   it('reports a failed extension handoff without closing the popup', async () => {
@@ -322,7 +327,7 @@ describe('useToDetailPage', () => {
     ['stock', stockItem],
     ['token', tokenItem],
   ])(
-    'ignores a late asset response after selecting another %s',
+    'does not navigate again when a late Asset response follows another %s',
     async (_type, nextItem) => {
       Object.assign(platformEnv, { isExtensionUiPopup: false });
       const first = deferred<typeof assetDetail>();
@@ -339,14 +344,14 @@ describe('useToDetailPage', () => {
       await act(async () => {
         await result.current(nextItem);
       });
-      expect(mockNavigationPush).toHaveBeenCalledTimes(1);
-      const lastNavigation = mockNavigationPush.mock.calls[0];
+      expect(mockNavigationPush).toHaveBeenCalledTimes(2);
+      const lastNavigation = mockNavigationPush.mock.calls[1];
       await act(async () => {
         first.resolve(assetDetail);
         await firstNavigation;
       });
-      expect(mockNavigationPush).toHaveBeenCalledTimes(1);
-      expect(mockNavigationPush.mock.calls[0]).toEqual(lastNavigation);
+      expect(mockNavigationPush).toHaveBeenCalledTimes(2);
+      expect(mockNavigationPush.mock.calls[1]).toEqual(lastNavigation);
       expect(Toast.error).not.toHaveBeenCalled();
     },
   );
@@ -368,7 +373,7 @@ describe('useToDetailPage', () => {
     });
     expect(Toast.error).not.toHaveBeenCalled();
     expect(openExtensionMarketStockDetailMock).toHaveBeenCalledTimes(1);
-    expect(openExtensionMarketTokenDetailMock).not.toHaveBeenCalled();
+    expect(openExtensionMarketTokenDetailMock).toHaveBeenCalledTimes(1);
   });
 
   it('ignores superseded native preload completion', async () => {
@@ -800,6 +805,43 @@ describe('useToDetailPage', () => {
       marketTokenCategory: 'top_coins',
     });
     mockedPlatformEnv.isExtensionUiPopup = true;
+  });
+
+  it('keeps Asset entry controls while detail prefetch never resolves', async () => {
+    Object.assign(platformEnv, { isExtensionUiPopup: false });
+    const fetchMarketAssetDetail = jest
+      .spyOn(backgroundApiProxy.serviceMarket, 'fetchMarketAssetDetail')
+      .mockReturnValue(new Promise(() => undefined));
+    const { result } = renderHook(() => useToDetailPage());
+
+    await act(async () => {
+      await result.current({
+        assetId: 'bitcoin',
+        marketVariantId: 'bitcoin-evm--1-0xbtc',
+        networkId: 'evm--1',
+        tokenAddress: '0xbtc',
+        symbol: 'BTC',
+        disableTrade: true,
+        showFavoriteButton: false,
+      });
+    });
+
+    expect(fetchMarketAssetDetail).toHaveBeenCalledWith({
+      assetId: 'bitcoin',
+      variantId: 'bitcoin-evm--1-0xbtc',
+      currency: 'usd',
+      autoHandleError: false,
+      reuseInitialResult: true,
+    });
+    expect(mockNavigationPush).toHaveBeenCalledWith('MarketDetailV2', {
+      isNative: undefined,
+      from: undefined,
+      marketTokenId: 'bitcoin',
+      marketVariantId: 'bitcoin-evm--1-0xbtc',
+      marketTokenCategory: 'top_coins',
+      disableTrade: true,
+      showFavoriteButton: false,
+    });
   });
 
   it('navigates immediately and defers Asset identity resolution to detail', async () => {

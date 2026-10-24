@@ -125,7 +125,6 @@ export function useMarketTopCoinNavigation({
   replaceCurrentDetail = false,
 }: IUseMarketTopCoinNavigationOptions = {}) {
   const intl = useIntl();
-  const resolveMarketTopCoin = useMarketTopCoinResolver();
   const toMarketDetailPage = useToDetailPage({
     marketTokenCategory: MARKET_TOP_COINS_CATEGORY_ID,
     replaceCurrentDetail,
@@ -142,10 +141,7 @@ export function useMarketTopCoinNavigation({
       }
       isNavigatingRef.current = true;
       try {
-        const token = await resolveMarketTopCoin(item);
-        if (token) {
-          await toMarketDetailPage(token);
-        }
+        await toMarketDetailPage(item);
       } catch (_error) {
         Toast.error({
           title: intl.formatMessage({
@@ -156,7 +152,7 @@ export function useMarketTopCoinNavigation({
         isNavigatingRef.current = false;
       }
     },
-    [intl, resolveMarketTopCoin, toMarketDetailPage],
+    [intl, toMarketDetailPage],
   );
 
   return handleItemPress;

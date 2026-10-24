@@ -413,8 +413,8 @@ class ServiceApp extends ServiceBase {
 
   @backgroundMethod()
   async openExtensionMarketTokenDetail(params: {
-    tokenAddress: string;
-    network: string;
+    tokenAddress?: string;
+    network?: string;
     marketTokenId?: string;
     marketVariantId?: string;
     skipMarketDataFetch?: boolean;
@@ -443,17 +443,26 @@ class ServiceApp extends ServiceBase {
       tokenDetailPreview,
     } = params;
     const routeParams: IOpenUrlRouteInfo['params'] = {};
+    const isAssetOnly = Boolean(
+      marketTokenId &&
+      marketTokenCategory === 'top_coins' &&
+      !network &&
+      !tokenAddress,
+    );
 
     if (
-      typeof tokenAddress !== 'string' ||
-      typeof network !== 'string' ||
-      !network ||
-      (!tokenAddress && isNative === false)
+      !isAssetOnly &&
+      (typeof tokenAddress !== 'string' ||
+        typeof network !== 'string' ||
+        !network ||
+        (!tokenAddress && isNative === false))
     ) {
       throw new OneKeyLocalError('Invalid market token identity');
     }
-    const routeIsNative = isNative ?? tokenAddress.length === 0;
-    routeParams.isNative = routeIsNative;
+    const routeIsNative = isNative ?? tokenAddress?.length === 0;
+    if (!isAssetOnly) {
+      routeParams.isNative = routeIsNative;
+    }
     if (from) {
       routeParams.from = from;
     }
@@ -481,7 +490,11 @@ class ServiceApp extends ServiceBase {
     if (typeof disableTrade === 'boolean') {
       routeParams.disableTrade = disableTrade;
     }
-    if (tokenDetailPreview) {
+    if (
+      tokenDetailPreview &&
+      network !== undefined &&
+      tokenAddress !== undefined
+    ) {
       const previewId = await storeExtensionTokenPreview(
         { network, tokenAddress, isNative: routeIsNative },
         tokenDetailPreview,
@@ -492,8 +505,15 @@ class ServiceApp extends ServiceBase {
       throw new OneKeyLocalError('Unable to transfer market token preview');
     }
 
+    if (isAssetOnly) {
+      return extUtils.openExpandTab({
+        path: '/market/token',
+        params: routeParams,
+      });
+    }
+
     return extUtils.openExpandTab({
-      path: `/market/token/${encodeURIComponent(network)}/${encodeURIComponent(tokenAddress)}`,
+      path: `/market/token/${encodeURIComponent(network ?? '')}/${encodeURIComponent(tokenAddress ?? '')}`,
       params: routeParams,
     });
   }

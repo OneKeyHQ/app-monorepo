@@ -130,6 +130,8 @@ interface IMarketAssetTokenDetailPayload {
   variantId?: string;
   tokenAddress: string;
   networkId: string;
+  reuseInitialResult?: boolean;
+  isCurrentRequest?: () => boolean;
 }
 
 async function fetchMarketAssetTokenDetail(
@@ -137,14 +139,29 @@ async function fetchMarketAssetTokenDetail(
   set: IJotaiSetter,
   payload: IMarketAssetTokenDetailPayload,
 ): Promise<IMarketAssetDetailData> {
-  const { assetId, variantId, tokenAddress, networkId } = payload;
+  const {
+    assetId,
+    variantId,
+    tokenAddress,
+    networkId,
+    reuseInitialResult,
+    isCurrentRequest,
+  } = payload;
+  const isAssetOnly = !tokenAddress && !networkId;
+  const expectedTokenAddress = isAssetOnly
+    ? get(tokenAddressAtom())
+    : tokenAddress;
+  const expectedNetworkId = isAssetOnly ? get(networkIdAtom()) : networkId;
   const requestId = get(tokenDetailRequestIdAtom()) + 1;
   set(tokenDetailRequestIdAtom(), requestId);
   let isStale = false;
+  let resolvedIdentity: { tokenAddress: string; networkId: string } | undefined;
   const isCurrentIdentity = () =>
     get(tokenDetailRequestIdAtom()) === requestId &&
-    get(tokenAddressAtom()) === tokenAddress &&
-    get(networkIdAtom()) === networkId;
+    (isCurrentRequest?.() ?? true) &&
+    get(tokenAddressAtom()) ===
+      (resolvedIdentity?.tokenAddress ?? expectedTokenAddress) &&
+    get(networkIdAtom()) === (resolvedIdentity?.networkId ?? expectedNetworkId);
 
   try {
     set(tokenDetailLoadingAtom(), true);
@@ -154,6 +171,7 @@ async function fetchMarketAssetTokenDetail(
         assetId,
         variantId,
         currency: MARKET_ASSET_DETAIL_CURRENCY,
+        ...(reuseInitialResult ? { reuseInitialResult: true } : undefined),
       });
 
     if (!isCurrentIdentity()) {
@@ -162,6 +180,10 @@ async function fetchMarketAssetTokenDetail(
     }
 
     const { selectedVariant } = assetDetail;
+    const detailTokenAddress = isAssetOnly
+      ? selectedVariant.tokenAddress
+      : tokenAddress;
+    const detailNetworkId = isAssetOnly ? selectedVariant.networkId : networkId;
     const selectedVariantMatchesRoute = equalTokenNoCaseSensitive({
       token1: {
         networkId,
@@ -173,7 +195,10 @@ async function fetchMarketAssetTokenDetail(
       },
     });
     if (
-      !selectedVariantMatchesRoute ||
+      assetDetail.asset.assetId !== assetId ||
+      (!isAssetOnly && !selectedVariantMatchesRoute) ||
+      !networkUtils.getLocalNetworkInfo(selectedVariant.networkId) ||
+      (!selectedVariant.isNative && !selectedVariant.tokenAddress) ||
       (variantId && selectedVariant.variantId !== variantId)
     ) {
       throw new OneKeyLocalError(
@@ -186,16 +211,16 @@ async function fetchMarketAssetTokenDetail(
     const currentDecimals =
       isSameMarketTokenDetail({
         tokenDetail: currentTokenDetail,
-        tokenAddress,
-        networkId,
+        tokenAddress: detailTokenAddress,
+        networkId: detailNetworkId,
       }) && currentTokenDetail?.decimalsResolved !== false
         ? currentTokenDetail?.decimals
         : undefined;
     const previewMatchesRoute = tokenDetailPreview
       ? equalTokenNoCaseSensitive({
           token1: {
-            networkId,
-            contractAddress: tokenAddress,
+            networkId: detailNetworkId,
+            contractAddress: detailTokenAddress,
           },
           token2: {
             networkId: tokenDetailPreview.networkId,
@@ -207,24 +232,10 @@ async function fetchMarketAssetTokenDetail(
       ? tokenDetailPreview?.decimals
       : currentDecimals;
 
-    if (!isValidTokenDecimals(decimals)) {
-      if (selectedVariant.isNative) {
-        decimals = networkUtils.getLocalNetworkInfo(
-          selectedVariant.networkId,
-        )?.decimals;
-      }
-      if (!isValidTokenDecimals(decimals)) {
-        try {
-          const tokenInfo =
-            await backgroundApiProxy.serviceToken.fetchTokenInfoOnly({
-              networkId: selectedVariant.networkId,
-              tokenAddress: selectedVariant.tokenAddress,
-            });
-          decimals = tokenInfo?.info?.decimals;
-        } catch {
-          decimals = undefined;
-        }
-      }
+    if (!isValidTokenDecimals(decimals) && selectedVariant.isNative) {
+      decimals = networkUtils.getLocalNetworkInfo(
+        selectedVariant.networkId,
+      )?.decimals;
     }
 
     if (!isCurrentIdentity()) {
@@ -242,8 +253,8 @@ async function fetchMarketAssetTokenDetail(
     const hasFreshKLinePrice =
       isSameMarketTokenDetail({
         tokenDetail: currentTokenDetail,
-        tokenAddress,
-        networkId,
+        tokenAddress: detailTokenAddress,
+        networkId: detailNetworkId,
       }) &&
       typeof chartPriceUpdatedAt === 'number' &&
       Number.isFinite(chartPriceUpdatedAt) &&
@@ -257,10 +268,47 @@ async function fetchMarketAssetTokenDetail(
         }
       : tokenData;
 
+    if (isAssetOnly) {
+      resolvedIdentity = {
+        tokenAddress: selectedVariant.tokenAddress,
+        networkId: selectedVariant.networkId,
+      };
+      set(tokenAddressAtom(), selectedVariant.tokenAddress);
+      set(networkIdAtom(), selectedVariant.networkId);
+    }
     set(tokenDetailAtom(), finalTokenData);
     set(tokenDetailPreviewAtom(), undefined);
     set(tokenDetailWebsocketAtom(), undefined);
     set(isNativeAtom(), selectedVariant.isNative);
+    if (!isValidTokenDecimals(decimals)) {
+      void backgroundApiProxy.serviceToken
+        .fetchTokenInfoOnly({
+          networkId: selectedVariant.networkId,
+          tokenAddress: selectedVariant.tokenAddress,
+        })
+        .then((tokenInfo) => {
+          const resolvedDecimals = tokenInfo?.info?.decimals;
+          if (!isValidTokenDecimals(resolvedDecimals) || !isCurrentIdentity()) {
+            return;
+          }
+          const latestTokenDetail = get(tokenDetailAtom());
+          if (
+            latestTokenDetail &&
+            isSameMarketTokenDetail({
+              tokenDetail: latestTokenDetail,
+              tokenAddress: selectedVariant.tokenAddress,
+              networkId: selectedVariant.networkId,
+            })
+          ) {
+            set(tokenDetailAtom(), {
+              ...latestTokenDetail,
+              decimals: resolvedDecimals,
+              decimalsResolved: true,
+            });
+          }
+        })
+        .catch(() => undefined);
+    }
     void applyMarketAssetPerpsInfo({
       set,
       symbol: finalTokenData.symbol,

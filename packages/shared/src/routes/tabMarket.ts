@@ -15,11 +15,7 @@ export enum ETabMarketRoutes {
 }
 
 export type IMarketTokenDetailRouteParams = {
-  tokenAddress: string;
-  network: string;
-  marketTokenId?: string;
   marketVariantId?: string;
-  marketTokenCategory?: string;
   marketTokenSymbol?: string;
   resolveMarketAsset?: boolean;
   skipMarketDataFetch?: boolean;
@@ -30,7 +26,20 @@ export type IMarketTokenDetailRouteParams = {
   from?: EEnterWay;
   disableTrade?: boolean;
   showFavoriteButton?: boolean;
-};
+} & (
+  | {
+      tokenAddress: string;
+      network: string;
+      marketTokenId?: string;
+      marketTokenCategory?: string;
+    }
+  | {
+      tokenAddress?: never;
+      network?: never;
+      marketTokenId: string;
+      marketTokenCategory: 'top_coins';
+    }
+);
 
 export type IMarketStockDetailRouteParams = {
   stockId: string;
