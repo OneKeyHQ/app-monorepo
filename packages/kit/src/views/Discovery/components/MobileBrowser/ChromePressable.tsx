@@ -12,6 +12,8 @@ export function ChromePressable({
   onPress?: () => void;
   disabled?: boolean;
   fill?: boolean;
+  // Native only (see ChromePressable.native).
+  hitSlop?: { vertical?: number; horizontal?: number };
   children: ReactElement;
 }) {
   return (

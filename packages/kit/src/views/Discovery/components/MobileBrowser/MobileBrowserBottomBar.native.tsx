@@ -28,6 +28,7 @@ import { usePageTheme, withAlpha } from '../../utils/pageThemeColor';
 
 import { AddressCapsuleTitle } from './AddressCapsuleTitle';
 import {
+  CAPSULE_BUTTON_HIT_SLOP,
   getBarCapsuleBottom,
   getBarReservedHeight,
   getCollapsedPillBottom,
@@ -74,6 +75,7 @@ const styles = StyleSheet.create({
 });
 
 const STRIP_FADE_HEIGHT = 16;
+const PILL_HIT_SLOP = { vertical: 8, horizontal: 16 };
 
 // Fade ranges of the bar/pill morph (progress: 1 = expanded, 0 = collapsed).
 const SIDE_FADE_START = 0.4;
@@ -207,7 +209,9 @@ function CollapsedAddressPill({
       px="$4"
       glassFade={glassFade}
     >
-      <ChromePressable onPress={onPress}>
+      {/* The pill is 30pt tall; extend its tap area to ~46pt and over its
+        side padding. */}
+      <ChromePressable onPress={onPress} hitSlop={PILL_HIT_SLOP}>
         <XStack
           h={BROWSER_COLLAPSED_PILL_HEIGHT}
           alignItems="center"
@@ -378,6 +382,7 @@ function MobileBrowserBottomBar({ id, chrome }: IMobileBrowserBottomBarProps) {
                     handleGoBack();
                   }}
                   disabled={disabledGoBack}
+                  hitSlop={CAPSULE_BUTTON_HIT_SLOP}
                 >
                   <IconButton
                     variant="tertiary"
@@ -422,6 +427,7 @@ function MobileBrowserBottomBar({ id, chrome }: IMobileBrowserBottomBarProps) {
                     showOptions();
                   }}
                   disabled={displayHomePage}
+                  hitSlop={CAPSULE_BUTTON_HIT_SLOP}
                 >
                   <IconButton
                     variant="tertiary"

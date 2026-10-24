@@ -25,6 +25,7 @@ import { ChromePressable } from './ChromePressable';
 // tokens: a raw number is looked up as a token key, not as pt.
 const RISK_ICON_SIZE = '$5';
 const RISK_ICON_WIDTH = 20;
+const RISK_ICON_HIT_SLOP = { vertical: 13, horizontal: 6 };
 
 const styles = StyleSheet.create({
   fill: { flex: 1, alignSelf: 'stretch', overflow: 'hidden' },
@@ -220,6 +221,8 @@ export function AddressCapsuleTitle({
         renderTrigger={
           <ChromePressable
             disabled={!url || !hostSecurity}
+            // The 20pt badge alone is too small a target.
+            hitSlop={RISK_ICON_HIT_SLOP}
             onPress={() => {
               logBrowserChromeAction('siteInfo', 'toolbar');
               setSiteInfoOpen(true);

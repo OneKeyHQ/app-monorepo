@@ -108,3 +108,7 @@ export function useIsProgressPast(
 export function useIsChromeCollapsed(progress?: SharedValue<number>) {
   return useIsProgressPast(progress, BROWSER_CHROME_CROSSFADE_POINT);
 }
+
+// Capsule buttons render ~36pt inside the 46pt capsules; this slop makes the
+// whole capsule height tappable.
+export const CAPSULE_BUTTON_HIT_SLOP = { vertical: 5 };

@@ -7,6 +7,7 @@ import type { IIconButtonProps } from '@onekeyhq/components';
 
 import { DiscoveryTestIDs } from '../../testIDs';
 
+import { CAPSULE_BUTTON_HIT_SLOP } from './browserChrome';
 import { ChromePressable } from './ChromePressable';
 
 interface IRefreshButtonProps {
@@ -39,7 +40,7 @@ function RefreshButton({
   });
 
   return (
-    <ChromePressable onPress={handleRefresh}>
+    <ChromePressable onPress={handleRefresh} hitSlop={CAPSULE_BUTTON_HIT_SLOP}>
       <Animated.View style={{ transform: [{ rotate: spin }] }}>
         <IconButton
           variant="tertiary"

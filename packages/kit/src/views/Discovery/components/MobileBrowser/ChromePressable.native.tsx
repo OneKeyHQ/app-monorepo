@@ -15,16 +15,22 @@ const styles = StyleSheet.create({
   fill: { flex: 1, alignSelf: 'stretch' },
 });
 
+export type IChromeHitSlop = { vertical?: number; horizontal?: number };
+
 export function ChromePressable({
   onPress,
   disabled,
   fill,
+  hitSlop,
   children,
 }: {
   onPress?: () => void;
   disabled?: boolean;
   // Grow to fill the parent row (e.g. the address area of a capsule).
   fill?: boolean;
+  // Extends the tap area past the visible element, e.g. to a capsule's full
+  // height around a smaller icon.
+  hitSlop?: IChromeHitSlop;
   children: ReactElement;
 }) {
   // Keep the gesture stable while the handler identity changes.
@@ -37,12 +43,13 @@ export function ChromePressable({
     () =>
       Gesture.Tap()
         .enabled(!disabled)
+        .hitSlop(hitSlop ?? 0)
         .onEnd(() => {
           'worklet';
 
           runOnJS(handlePress)();
         }),
-    [disabled, handlePress],
+    [disabled, handlePress, hitSlop],
   );
   return (
     <GestureDetector gesture={gesture}>

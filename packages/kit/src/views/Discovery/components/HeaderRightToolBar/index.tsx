@@ -187,6 +187,8 @@ function HeaderAccountChip({
       pl="$0.5"
       pr="$1"
       alignItems="center"
+      // 36pt chip: extend to the 46pt header row.
+      hitSlop={{ top: 5, bottom: 5 }}
       onPress={() => {
         logBrowserChromeAction('account', 'header');
         onPress();

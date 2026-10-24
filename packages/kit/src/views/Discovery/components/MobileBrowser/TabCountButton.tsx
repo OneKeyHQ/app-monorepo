@@ -17,6 +17,7 @@ import {
   useWebTabs,
 } from '../../hooks/useWebTabs';
 
+import { CAPSULE_BUTTON_HIT_SLOP } from './browserChrome';
 import { ChromePressable } from './ChromePressable';
 
 interface ITabCountButtonProps {
@@ -78,6 +79,7 @@ function TabCountButton({ testID, onPressed }: ITabCountButtonProps) {
 
   return (
     <ChromePressable
+      hitSlop={inGlass ? CAPSULE_BUTTON_HIT_SLOP : undefined}
       onPress={() => {
         onPressed?.();
         void handleShowTabList();

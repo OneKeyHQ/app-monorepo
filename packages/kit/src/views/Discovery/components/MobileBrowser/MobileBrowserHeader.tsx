@@ -192,6 +192,9 @@ function MobileBrowserHeader({
                   m={0}
                   // Leaves the browser for the wallet; tabs stay open.
                   icon="CrossedLargeOutline"
+                  // 36pt button: extend to the 46pt header row and a bit
+                  // sideways for an easier target.
+                  hitSlop={{ top: 5, bottom: 5, left: 8, right: 8 }}
                   iconProps={{ color: '$icon' }}
                   onPress={() => {
                     logBrowserChromeAction('minimize', 'header');
