@@ -234,7 +234,13 @@ describe('useSwapSelectedTokenInfo requested refresh', () => {
     act(() => {
       jest.advanceTimersByTime(300);
     });
-    expect(mockLoadSelectedToken).not.toHaveBeenCalled();
+    // Ordinary loads still run; only the forced balance waits.
+    expect(mockLoadSelectedToken).toHaveBeenLastCalledWith(
+      ESwapDirectionType.FROM,
+      expect.anything(),
+      false,
+    );
+    expect(mockRefreshRequested.from).toBe(true);
 
     mockSelectedNetwork = undefined;
     mockBalanceAddressInfo = { networkId: 'evm--1', isAddressInfoReady: false };
@@ -242,8 +248,13 @@ describe('useSwapSelectedTokenInfo requested refresh', () => {
     act(() => {
       jest.advanceTimersByTime(300);
     });
-    expect(mockLoadSelectedToken).not.toHaveBeenCalled();
+    expect(mockLoadSelectedToken).toHaveBeenLastCalledWith(
+      ESwapDirectionType.FROM,
+      expect.anything(),
+      false,
+    );
     expect(mockRefreshRequested.from).toBe(true);
+    mockLoadSelectedToken.mockClear();
 
     mockBalanceAddressInfo = {
       address: 'latest-wallet',
@@ -266,6 +277,38 @@ describe('useSwapSelectedTokenInfo requested refresh', () => {
       jest.advanceTimersByTime(300);
     });
     expect(mockLoadSelectedToken).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps loading TO details and drops the request when the FROM wallet has no address', () => {
+    mockRefreshRequested = { from: false, to: true };
+    mockBalanceAddressInfo = { networkId: 'evm--1', isAddressInfoReady: true };
+    const { rerender } = renderHook(
+      ({ selected }: { selected: ISwapToken }) =>
+        useSwapSelectedTokenInfo({
+          type: ESwapDirectionType.TO,
+          token: selected,
+        }),
+      { initialProps: { selected: token } },
+    );
+    act(() => {
+      jest.advanceTimersByTime(300);
+    });
+    expect(mockLoadSelectedToken).toHaveBeenCalledTimes(1);
+    expect(mockLoadSelectedToken).toHaveBeenCalledWith(
+      ESwapDirectionType.TO,
+      expect.objectContaining({ isAddressInfoReady: true }),
+      false,
+    );
+    expect(mockRefreshRequested.to).toBe(false);
+
+    // Later ordinary loads (a token change) are not held back either.
+    rerender({
+      selected: { ...token, networkId: 'sol--101', contractAddress: solanaContract },
+    });
+    act(() => {
+      jest.advanceTimersByTime(300);
+    });
+    expect(mockLoadSelectedToken).toHaveBeenCalledTimes(2);
   });
 
   it('does not retain a forced flag in debounce after the refresh intent is cancelled', () => {

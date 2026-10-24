@@ -1034,18 +1034,19 @@ export function useSwapSelectedTokenInfo({
     () =>
       debounce((fetchBalance: boolean) => {
         const addressInfo = swapAddressInfoRef.current;
-        // Browsing selector networks must not refresh the trading pair with
-        // the selector's address. Keep the request pending until it is ready.
+        let shouldFetchBalance = fetchBalance;
+        // Only the forced balance refresh waits: browsing selector networks
+        // must not refresh the trading pair with the selector's address, so
+        // the request stays pending until the wallet is ready. Ordinary
+        // loads (balance by account, missing prices) still run meanwhile.
         if (
           refreshRequestedRef.current &&
-          (selectorNetworkRef.current ||
-            !addressInfo.isAddressInfoReady ||
-            !addressInfo.address)
+          !selectorNetworkRef.current &&
+          addressInfo.isAddressInfoReady
         ) {
-          return;
-        }
-        const shouldFetchBalance = fetchBalance || refreshRequestedRef.current;
-        if (refreshRequestedRef.current) {
+          // A ready wallet without an address will not gain one; drop the
+          // request instead of holding it forever.
+          shouldFetchBalance ||= Boolean(addressInfo.address);
           setBalanceRefreshRequested((previous) => ({
             ...previous,
             [type]: false,
