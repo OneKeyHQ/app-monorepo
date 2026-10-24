@@ -6,6 +6,7 @@ import type {
   IDustSweepReason,
   IDustSweepSnapshot,
 } from '@onekeyhq/shared/types/swap/dustSweep';
+import type { ISwapErrorMessage } from '@onekeyhq/shared/types/swap/types';
 
 export type IDustSweepState = {
   phase:
@@ -48,7 +49,10 @@ type IDustSweepAction =
       type: 'submissionError';
       sessionId: string;
       key: string;
-      message: string;
+      message?: string;
+      localError?: ISwapErrorMessage;
+      txId?: string;
+      approvalTxIds?: string[];
     }
   | {
       type: 'item';
@@ -58,11 +62,13 @@ type IDustSweepAction =
       approvalTxIds?: string[];
       txId?: string;
       receivedAmount?: string;
+      receivedAmountEstimated?: boolean;
       receiptUnavailable?: boolean;
       reason?: IDustSweepReason;
       message?: string;
       submissionErrorMessage?: string;
       providerErrorMessage?: string;
+      localError?: ISwapErrorMessage;
     };
 
 export function isDustSweepItemTerminal(item: IDustSweepItem) {
@@ -73,7 +79,7 @@ const transitions: Record<IDustSweepItemStatus, IDustSweepItemStatus[]> = {
   waiting: ['preparing'],
   preparing: ['waiting', 'signing', 'skipped'],
   signing: ['preparing', 'broadcasted', 'failed', 'skipped', 'unknown'],
-  broadcasted: ['success', 'failed'],
+  broadcasted: ['success', 'failed', 'skipped'],
   unknown: ['broadcasted'],
   success: [],
   skipped: [],
@@ -136,7 +142,13 @@ export function dustSweepReducer(
         ...state,
         items: state.items.map((item) =>
           item.token.key === action.key && !isDustSweepItemTerminal(item)
-            ? { ...item, submissionErrorMessage: action.message }
+            ? {
+                ...item,
+                submissionErrorMessage: action.message,
+                localError: action.localError,
+                txId: action.txId ?? item.txId,
+                approvalTxIds: action.approvalTxIds ?? item.approvalTxIds,
+              }
             : item,
         ),
       };
@@ -165,11 +177,16 @@ export function dustSweepReducer(
               receivedAmount: action.receiptUnavailable
                 ? undefined
                 : action.receivedAmount,
+              receivedAmountEstimated:
+                action.status === 'success' && !action.receiptUnavailable
+                  ? action.receivedAmountEstimated
+                  : undefined,
               receiptUnavailable: action.receiptUnavailable,
               reason: action.reason,
               message: action.message,
               submissionErrorMessage: action.submissionErrorMessage,
               providerErrorMessage: action.providerErrorMessage,
+              localError: action.localError,
             }
           : item,
       );
@@ -194,6 +211,9 @@ export function getDustSweepTotals(items: IDustSweepItem[]) {
   const success = items.filter((item) => item.status === 'success');
   return {
     receiptUnavailable: success.some((item) => item.receiptUnavailable),
+    receivedAmountEstimated: success.some(
+      (item) => item.receivedAmountEstimated,
+    ),
     successCount: success.length,
     skippedCount: items.filter((item) => item.status === 'skipped').length,
     failedCount: items.filter((item) => item.status === 'failed').length,

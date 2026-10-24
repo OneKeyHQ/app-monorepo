@@ -450,9 +450,21 @@ export function useMarketWatchlistTokenList({
     (spotItems.length > 0 && spotResult?.failed) ||
     (perpsItems.length > 0 && perpsResult?.failed),
   );
-  const refetch = useCallback(async () => {
-    await Promise.all([refetchData(), refetchPerpsData(), refetchListings()]);
-  }, [refetchData, refetchPerpsData, refetchListings]);
+  // `alwaysSetState` lets a caller refresh while its page sits under a modal,
+  // where the focus gate would otherwise skip the fetch.
+  const refetch = useCallback(
+    async (options?: { alwaysSetState?: boolean }) => {
+      const config = options?.alwaysSetState
+        ? { alwaysSetState: true }
+        : undefined;
+      await Promise.all([
+        refetchData(config),
+        refetchPerpsData(config),
+        refetchListings(config),
+      ]);
+    },
+    [refetchData, refetchPerpsData, refetchListings],
+  );
 
   // ── Build perps IMarketToken items from backend ──
   const perpsTokenMap = useMemo(() => {

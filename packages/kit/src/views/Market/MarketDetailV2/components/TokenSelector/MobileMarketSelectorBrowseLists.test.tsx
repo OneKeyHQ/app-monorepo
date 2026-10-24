@@ -184,6 +184,13 @@ jest.mock('../../../components/CommunityRecognizedBadge', () => ({
 jest.mock('../../../components/MarketListingStar', () => ({
   MarketListingStar: () => null,
 }));
+jest.mock('../../../components/PerpsBadges', () => ({
+  LeverageBadge: ({ leverage }: { leverage: number }) => (
+    <span>{`${leverage}x`}</span>
+  ),
+  PerpDexBadge: ({ dexLabel }: { dexLabel?: string }) =>
+    dexLabel ? <span>{dexLabel}</span> : null,
+}));
 jest.mock('../../utils/marketDetailImagePreload', () => ({
   prewarmMarketTokenImages: jest.fn(),
 }));
@@ -475,11 +482,39 @@ describe('mobile selector recommendations', () => {
     expect(onItemPress).not.toHaveBeenCalled();
   });
 
-  it('shows recommendations when the only favorites are excluded perps', () => {
+  it('lists perps favorites instead of recommendations', () => {
     mockWatchlistCount = 1;
-    mockBrowseData = [{ ...searchToken, perpsCoin: 'BTC' }];
+    mockBrowseData = [
+      {
+        ...searchToken,
+        symbol: 'BTC',
+        perpsCoin: 'xyz:BTC',
+        perpsSubtitle: 'Bitcoin',
+        maxLeverage: 40,
+        priceChangeRaw: undefined,
+        change24h: -1.9,
+      },
+    ];
     render(<MobileSelectorWatchlistList onItemPress={jest.fn()} />);
-    expect(screen.getByTestId('recommendations')).toBeTruthy();
+    expect(screen.queryByTestId('recommendations')).toBeNull();
+    expect(screen.getByText('BTC')).toBeTruthy();
+    expect(screen.getByText('40x')).toBeTruthy();
+    expect(screen.getByText('xyz')).toBeTruthy();
+    expect(screen.getByText('Bitcoin')).toBeTruthy();
+    // A perp's change has no `priceChangeRaw` and still renders as a number.
+    expect(screen.getByText('-1.9')).toBeTruthy();
+  });
+
+  it('shows no results, not recommendations, on an empty Perps view', () => {
+    mockWatchlistCount = 0;
+    mockBrowseData = [];
+    render(
+      <MobileSelectorWatchlistList
+        watchlistFilter="perps"
+        onItemPress={jest.fn()}
+      />,
+    );
+    expect(screen.queryByTestId('recommendations')).toBeNull();
   });
 
   it.each(['initializing', 'loading', 'error'])(
@@ -522,9 +557,10 @@ describe('mobile Favorites categories', () => {
   });
 
   it.each([
-    ['all', ['BTC', 'AAPL', 'NVDAx', 'ETH']],
+    ['all', ['BTC', 'AAPL', 'NVDAx', 'ETH', 'PERP']],
     ['spot', ['BTC', 'ETH']],
     ['stocks', ['AAPL', 'NVDAx']],
+    ['perps', ['PERP']],
   ] as const)(
     'shows only %s favorites and keeps row navigation intact',
     (filter, expected) => {

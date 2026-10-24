@@ -36,6 +36,7 @@ import {
   EGasAccountRequestStage,
   markGasAccountRequestStage,
 } from '@onekeyhq/shared/src/errors/utils/gasAccountErrorUtils';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IGasAccountAnalyticsContext } from '@onekeyhq/shared/src/logger/scopes/transaction/types';
 import { calculateFeeForSend } from '@onekeyhq/shared/src/utils/feeUtils';
 import { applyCustomPriorityFeeToGasInfo } from '@onekeyhq/shared/src/utils/marketPresetFeeUtils';
@@ -1320,7 +1321,12 @@ async function updateUnsignedTxAndSendTx({
     (!feeVerification?.txFeeInfoVerifyResult?.checked ||
       feeVerification.txFeeInfoVerifyResult.isFeeInfoOverflow)
   ) {
-    throw new MarketDirectFeeOverflowError();
+    throw new MarketDirectFeeOverflowError(
+      feeVerification?.txFeeInfoVerifyResult?.checked &&
+        feeVerification.txFeeInfoVerifyResult.isFeeInfoOverflow
+        ? { key: ETranslations.fee_alert_dialog_description }
+        : undefined,
+    );
   }
 
   const gasAccountUiState = buildDirectSwapGasAccountUiState({

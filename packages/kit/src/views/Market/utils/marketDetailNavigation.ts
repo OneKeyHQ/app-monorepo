@@ -155,6 +155,7 @@ const DETAIL_ROUTE_PARAM_KEYS = [
   'stockPreviewSymbol',
   'stockPreviewName',
   'stockPreviewLogoUrl',
+  'stockPreviewQuote',
   'from',
   'disableTrade',
   'showFavoriteButton',

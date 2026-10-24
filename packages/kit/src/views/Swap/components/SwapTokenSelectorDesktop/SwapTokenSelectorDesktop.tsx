@@ -128,7 +128,7 @@ function NetworkRow({
       onPress={onPress}
     >
       <NetworkLogo network={network} />
-      <SizableText size="$bodyMdMedium" flex={1} numberOfLines={1}>
+      <SizableText size="$bodyMdMedium" flex={1} minWidth={0} numberOfLines={1}>
         {network.name}
       </SizableText>
       {badgeText ? (
@@ -141,8 +141,18 @@ function NetworkRow({
           hideValue
           size="$bodySm"
           color="$textSubdued"
-          formatter="value"
-          formatterOptions={{ currency: currencySymbol }}
+          autoFormatter="price-marketCap"
+          autoFormatterThreshold={1000}
+          formatterOptions={{
+            currency: currencySymbol,
+            minLeadingZeros: 3,
+          }}
+          numberOfLines={1}
+          ellipsizeMode="tail"
+          maxWidth="8ch"
+          minWidth={0}
+          flexShrink={1}
+          textAlign="right"
         >
           {fiatValue}
         </NumberSizeableTextWrapper>

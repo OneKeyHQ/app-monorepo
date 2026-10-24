@@ -126,13 +126,13 @@ const ciFailureConfigs = {
     diagnostics: [
       'Download the allocation-reports artifact and inspect bundle-architecture-check.log plus allocation-report-*.json.',
       'Start from ERROR lines, then trace which sync import or segment assignment pulled forbidden code into common, main, or background.',
-      'For main/common regressions, inspect startup.modules, violations, and segment-manifest*.json before changing code.',
+      'For main/common regressions, inspect startup.modules, violations, and segments in allocation-report-*.json before changing code.',
       'If a native/storage/startup path is involved, explicitly label whether the impact is main, background, or both.',
     ],
     commands: [
       'yarn install --immutable',
       'cd apps/mobile',
-      'ENABLE_NATIVE_BACKGROUND_THREAD=true UNION_BUILD=true NODE_OPTIONS=--max_old_space_size=8192 node scripts/unionBuild.js --platform ios --common-bundle-output dist-ci/common.jsbundle --common-sourcemap-output dist-ci/common.jsbundle.map --main-bundle-output dist-ci/main.jsbundle --main-sourcemap-output dist-ci/main.jsbundle.map --background-bundle-output dist-ci/background.bundle.js --background-sourcemap-output dist-ci/background.bundle.map --assets-dest dist-ci/assets',
+      'ENABLE_NATIVE_BACKGROUND_THREAD=true UNION_BUILD=true NODE_OPTIONS=--max_old_space_size=8192 node scripts/unionBuild.js --platform ios --report-only --common-bundle-output dist-ci/common.jsbundle --common-sourcemap-output dist-ci/common.jsbundle.map --main-bundle-output dist-ci/main.jsbundle --main-sourcemap-output dist-ci/main.jsbundle.map --background-bundle-output dist-ci/background.bundle.js --background-sourcemap-output dist-ci/background.bundle.map --assets-dest dist-ci/assets',
       'node scripts/check-bundle-architecture.js',
     ],
     constraints: [

@@ -1101,6 +1101,7 @@ const SwapTokenSelectPage = ({
                     <ListItem.IconButton
                       icon="DotVerSolid"
                       variant="tertiary"
+                      {...(useDesktopTokenSelector ? { m: '$0' } : {})}
                     />
                   }
                   items={[

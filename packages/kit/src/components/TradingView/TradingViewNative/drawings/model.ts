@@ -8,6 +8,8 @@ import { getTradingViewNativePriceY } from '../utils/chartLayout';
 import { getTradingViewNativeCandleX } from '../utils/chartViewport';
 import { getTradingViewNativePriceAtProgress } from '../utils/priceScale';
 
+import { ADDITIONAL_DRAWING_TOOLS } from './additionalTools';
+
 import type { ITradingViewNativeChartLayout } from '../utils/chartLayout';
 import type { ITradingViewNativeChartRuntimeViewport } from '../utils/chartRuntime';
 
@@ -40,6 +42,7 @@ export const DRAWING_TOOLS = {
   text: { label: 'Text', group: 'Text', points: 1 },
   callout: { label: 'Callout', group: 'Text', points: 2 },
   priceLabel: { label: 'Price Label', group: 'Text', points: 1 },
+  measure: { label: 'Measure', group: 'Measure', points: 2 },
   priceRange: { label: 'Price Range', group: 'Measure', points: 2 },
   dateRange: { label: 'Date Range', group: 'Measure', points: 2 },
   datePriceRange: {
@@ -47,17 +50,84 @@ export const DRAWING_TOOLS = {
     group: 'Measure',
     points: 2,
   },
+  ...ADDITIONAL_DRAWING_TOOLS,
 } as const;
 
 export type IDrawingTool = keyof typeof DRAWING_TOOLS;
+
+export const DRAWING_TOOLBAR_GROUPS = [
+  'Lines',
+  'Fibonacci',
+  'Patterns',
+  'Forecasting',
+  'Shapes',
+  'Text',
+  'Icons',
+  'Measure',
+] as const;
+
+export function getDrawingToolbarGroup(tool: IDrawingTool) {
+  const group = DRAWING_TOOLS[tool].group;
+  if (group === 'Pitchforks') return 'Lines';
+  if (group === 'Gann') return 'Fibonacci';
+  if (group === 'Elliott Waves' || group === 'Cycles') return 'Patterns';
+  if (
+    group === 'Projection' ||
+    group === 'Volume' ||
+    (group === 'Measure' && tool !== 'measure')
+  )
+    return 'Forecasting';
+  if (group === 'Brushes') return 'Shapes';
+  return group;
+}
 export type IDrawingPoint = { time: number; price: number };
 export type IScreenPoint = { x: number; y: number };
+export type IDrawingLevel = { value: number; color: string; visible: boolean };
 export type IDrawingStyle = {
   color: string;
   width: number;
   dash: 'solid' | 'dashed' | 'dotted';
   fontSize?: number;
+  opacity?: number;
+  fillOpacity?: number;
+  fillColor?: string;
+  textColor?: string;
+  showBackground?: boolean;
+  showBorder?: boolean;
+  extendLeft?: boolean;
+  extendRight?: boolean;
+  showLabels?: boolean;
+  showPrices?: boolean;
+  showVolume?: boolean;
+  showMiddleLine?: boolean;
+  showFans?: boolean;
+  showArcs?: boolean;
+  reverse?: boolean;
+  labelPosition?: 'left' | 'center' | 'right';
+  levels?: IDrawingLevel[];
+  deviation?: number;
+  candleRange?: number;
+  candleVariance?: number;
+  accountSize?: number;
+  riskPercent?: number;
+  profileRows?: number;
+  valueAreaPercent?: number;
+  stamp?:
+    | 'smile'
+    | 'heart'
+    | 'star'
+    | 'check'
+    | 'cross'
+    | 'arrowUp'
+    | 'arrowDown';
 };
+export type IDrawingVolumeBin = {
+  low: number;
+  high: number;
+  up: number;
+  down: number;
+};
+
 export type IDrawing = IDrawingStyle & {
   id: string;
   tool: IDrawingTool;
@@ -66,12 +136,20 @@ export type IDrawing = IDrawingStyle & {
   text?: string;
   name?: string;
   hidden?: boolean;
+  anchor?: IScreenPoint;
+  source?: IMarketTokenKLineDataPoint[];
+  sourceInterval?: number;
+  // Computed from finer history for rendering; never persisted with the drawing.
+  volumeProfile?: { bins: IDrawingVolumeBin[]; interval: number };
 };
 export type IDrawingProjection = {
   layout: ITradingViewNativeChartLayout;
   points: IMarketTokenKLineDataPoint[];
   interval: number;
   viewport: ITradingViewNativeChartRuntimeViewport;
+  priceDecimalPlaces?: number;
+  size?: { width: number; height: number };
+  showPriceAxis?: boolean;
 };
 
 export const DEFAULT_DRAWING_FONT_SIZE = 12;
@@ -88,10 +166,78 @@ export const DEFAULT_DRAWING_STYLE: IDrawingStyle = {
 export const MAX_DRAWINGS = 200;
 export const MAX_DRAWING_POINTS = 2000;
 
+export function isFibonacciTool(tool: IDrawingTool | 'cursor') {
+  'worklet';
+  return tool.startsWith('fib');
+}
+
+export function isRangeTool(tool: IDrawingTool | 'cursor') {
+  'worklet';
+  return (
+    tool === 'measure' ||
+    tool === 'priceRange' ||
+    tool === 'dateRange' ||
+    tool === 'datePriceRange'
+  );
+}
+
+export function getDrawingDefaultStyle(tool: IDrawingTool): IDrawingStyle {
+  'worklet';
+  const style: IDrawingStyle = { ...DEFAULT_DRAWING_STYLE };
+  if (tool === 'measure') style.width = 1;
+  if (tool === 'text') style.fontSize = 20;
+  if (tool === 'anchoredText') style.fontSize = 20;
+  if (['note', 'priceNote', 'pin', 'comment', 'signpost'].includes(tool)) {
+    style.fontSize = 14;
+    style.textColor = '#FFFFFF';
+    style.fillOpacity = 1;
+  }
+  if (['icon', 'emoji', 'sticker'].includes(tool)) style.fontSize = 32;
+  if (tool === 'callout' || tool === 'priceLabel') {
+    style.textColor = '#FFFFFF';
+    style.fillOpacity = 1;
+    style.fontSize = 14;
+  }
+  if (tool === 'highlighter') {
+    style.color = '#FFEB3B';
+    style.width = 4;
+    style.opacity = 0.5;
+  }
+  if (
+    [
+      'xabcd',
+      'cypher',
+      'abcd',
+      'trianglePattern',
+      'headShoulders',
+      'threeDrives',
+    ].includes(tool)
+  )
+    style.color = '#9C27B0';
+  return style;
+}
+
 export function isTextDrawingTool(tool: IDrawingTool | 'cursor') {
   'worklet';
 
-  return tool === 'text' || tool === 'callout' || tool === 'priceLabel';
+  return [
+    'text',
+    'callout',
+    'priceLabel',
+    'anchoredText',
+    'note',
+    'priceNote',
+    'pin',
+    'table',
+    'comment',
+    'signpost',
+    'flag',
+  ].includes(tool);
+}
+
+export function isPathTool(tool: IDrawingTool | 'cursor') {
+  'worklet';
+  return tool === 'path' || tool === 'polyline' || tool === 'ghostFeed';
 }
 
 export function isFreehandTool(tool: IDrawingTool) {
@@ -124,7 +270,10 @@ export function constrainDrawingPoint(
   };
 }
 
-function timeAtIndex(index: number, { points, interval }: IDrawingProjection) {
+export function timeAtIndex(
+  index: number,
+  { points, interval }: Pick<IDrawingProjection, 'points' | 'interval'>,
+) {
   'worklet';
 
   const lastIndex = points.length - 1;
@@ -138,7 +287,10 @@ function timeAtIndex(index: number, { points, interval }: IDrawingProjection) {
   );
 }
 
-function indexAtTime(time: number, { points, interval }: IDrawingProjection) {
+export function indexAtTime(
+  time: number,
+  { points, interval }: Pick<IDrawingProjection, 'points' | 'interval'>,
+) {
   'worklet';
 
   const lastIndex = points.length - 1;
@@ -261,6 +413,137 @@ export function moveDrawing(
 ): IDrawing {
   'worklet';
 
+  if (drawing.anchor)
+    return {
+      ...drawing,
+      anchor: {
+        x: drawing.anchor.x + delta.x / projection.layout.priceAxisX,
+        y: drawing.anchor.y + delta.y / projection.layout.mainChartBottom,
+      },
+    };
+
+  if (
+    drawing.tool === 'channel' &&
+    drawing.points.length >= 3 &&
+    handle !== null
+  ) {
+    const [a, b, c] = drawing.points.map((point) =>
+      drawingPointToScreen(point, projection),
+    );
+    const slope = b.x === a.x ? 0 : (b.y - a.y) / (b.x - a.x);
+    let offset = c.y - a.y - slope * (c.x - a.x);
+    if (handle === 0 || handle === 1) {
+      const point = handle === 0 ? a : b;
+      point.x += delta.x;
+      point.y += delta.y;
+    } else if (handle === 2 || handle === 3) {
+      const point = handle === 2 ? a : b;
+      point.x += delta.x;
+      point.y += slope * delta.x;
+      offset += delta.y - slope * delta.x;
+    } else if (handle === 4) {
+      a.x += delta.x;
+      b.x += delta.x;
+      a.y += delta.y;
+      b.y += delta.y;
+      offset -= delta.y - slope * delta.x;
+    } else if (handle === 5) offset += delta.y - slope * delta.x;
+    return {
+      ...drawing,
+      points: [a, b, { x: a.x, y: a.y + offset }].map((point) =>
+        screenToDrawingPoint(point, projection, magnet),
+      ),
+    };
+  }
+  if (
+    (drawing.tool === 'longPosition' || drawing.tool === 'shortPosition') &&
+    drawing.points.length >= 3 &&
+    handle !== null
+  ) {
+    if (handle === 0)
+      return moveDrawing(drawing, delta, projection, null, magnet);
+    const [entry, target, stop] = drawing.points;
+    const direction = drawing.tool === 'longPosition' ? 1 : -1;
+    const tick = 10 ** -(projection.priceDecimalPlaces ?? 8);
+    const targetScreen = drawingPointToScreen(target, projection);
+    const stopScreen = drawingPointToScreen(stop, projection);
+    const changedTarget = screenToDrawingPoint(
+      {
+        x: targetScreen.x + (handle === 1 ? delta.x : 0),
+        y: targetScreen.y + (handle === 2 ? delta.y : 0),
+      },
+      projection,
+      magnet,
+    );
+    const changedStop = screenToDrawingPoint(
+      { x: stopScreen.x, y: stopScreen.y + (handle === 3 ? delta.y : 0) },
+      projection,
+      magnet,
+    );
+    return {
+      ...drawing,
+      points: [
+        entry,
+        {
+          time: Math.max(entry.time + projection.interval, changedTarget.time),
+          price:
+            direction *
+            Math.max(
+              direction * changedTarget.price,
+              direction * entry.price + tick,
+            ),
+        },
+        {
+          time: entry.time,
+          price:
+            direction *
+            Math.min(
+              direction * changedStop.price,
+              direction * entry.price - tick,
+            ),
+        },
+      ],
+    };
+  }
+
+  if (
+    drawing.tool === 'projection' &&
+    drawing.points.length >= 3 &&
+    handle !== null
+  ) {
+    if (handle === 0)
+      return moveDrawing(drawing, delta, projection, null, magnet);
+    const [a, b, c] = drawing.points.map((point) =>
+      drawingPointToScreen(point, projection),
+    );
+    const radius = Math.hypot(b.x - a.x, b.y - a.y);
+    const angle = Math.atan2(c.y - a.y, c.x - a.x);
+    const target = {
+      x: a.x + radius * Math.cos(angle),
+      y: a.y + radius * Math.sin(angle),
+    };
+    if (handle === 1) {
+      b.x += delta.x;
+      b.y += delta.y;
+    } else {
+      target.x += delta.x;
+      target.y += delta.y;
+    }
+    const nextRadius = Math.hypot(b.x - a.x, b.y - a.y);
+    const nextAngle = Math.atan2(target.y - a.y, target.x - a.x);
+    return {
+      ...drawing,
+      points: [
+        a,
+        b,
+        {
+          x: a.x + nextRadius * Math.cos(nextAngle),
+          y: a.y + nextRadius * Math.sin(nextAngle),
+        },
+      ].map((point) => screenToDrawingPoint(point, projection, magnet)),
+    };
+  }
+
   if (isFreehandTool(drawing.tool) && handle !== null) {
     const bounds = getFreehandBounds(drawing, projection);
     const anchor = bounds[handle];
@@ -292,7 +575,13 @@ export function moveDrawing(
   return {
     ...drawing,
     points: drawing.points.map((point, index) => {
-      if (drawing.tool === 'rectangle' && handle !== null && handle >= 2) {
+      if (
+        (drawing.tool === 'rectangle' ||
+          drawing.tool === 'ellipse' ||
+          isRangeTool(drawing.tool)) &&
+        handle !== null &&
+        handle >= 2
+      ) {
         const screen = drawingPointToScreen(point, projection);
         const moveX = handle === 2 ? index === 0 : index === 1;
         return screenToDrawingPoint(
@@ -339,6 +628,101 @@ export function parseDrawings(value: string | null): IDrawing[] {
           (drawing.fontSize !== undefined &&
             !DRAWING_FONT_SIZES.includes(drawing.fontSize)) ||
           !['solid', 'dashed', 'dotted'].includes(drawing.dash ?? '') ||
+          ![drawing.opacity, drawing.fillOpacity].every(
+            (opacity) =>
+              opacity === undefined ||
+              (typeof opacity === 'number' &&
+                Number.isFinite(opacity) &&
+                opacity >= 0 &&
+                opacity <= 1),
+          ) ||
+          ![drawing.fillColor, drawing.textColor].every(
+            (color) =>
+              color === undefined ||
+              (typeof color === 'string' && /^#[\da-f]{6}$/i.test(color)),
+          ) ||
+          ![
+            drawing.deviation,
+            drawing.candleRange,
+            drawing.candleVariance,
+            drawing.sourceInterval,
+            drawing.accountSize,
+            drawing.riskPercent,
+            drawing.profileRows,
+            drawing.valueAreaPercent,
+          ].every(
+            (number) =>
+              number === undefined ||
+              (typeof number === 'number' &&
+                Number.isFinite(number) &&
+                number >= 0 &&
+                number <= 1e12),
+          ) ||
+          (drawing.stamp !== undefined &&
+            ![
+              'smile',
+              'heart',
+              'star',
+              'check',
+              'cross',
+              'arrowUp',
+              'arrowDown',
+            ].includes(drawing.stamp)) ||
+          (drawing.anchor !== undefined &&
+            (!drawing.anchor ||
+              !Number.isFinite(drawing.anchor.x) ||
+              !Number.isFinite(drawing.anchor.y))) ||
+          (drawing.source !== undefined &&
+            (!Array.isArray(drawing.source) ||
+              drawing.source.length > MAX_DRAWING_POINTS ||
+              !drawing.source.every(
+                (point) =>
+                  point &&
+                  ['t', 'o', 'h', 'l', 'c', 'v'].every((key) =>
+                    Number.isFinite(
+                      point[key as keyof IMarketTokenKLineDataPoint],
+                    ),
+                  ),
+              ))) ||
+          ![
+            drawing.showBackground,
+            drawing.showBorder,
+            drawing.extendLeft,
+            drawing.extendRight,
+            drawing.showLabels,
+            drawing.showPrices,
+            drawing.showVolume,
+            drawing.showMiddleLine,
+            drawing.showFans,
+            drawing.showArcs,
+            drawing.reverse,
+          ].every((flag) => flag === undefined || typeof flag === 'boolean') ||
+          (drawing.labelPosition !== undefined &&
+            !['left', 'center', 'right'].includes(drawing.labelPosition)) ||
+          (drawing.levels !== undefined &&
+            (!Array.isArray(drawing.levels) ||
+              drawing.levels.length > 24 ||
+              !drawing.levels.every((level: unknown) => {
+                if (!level || typeof level !== 'object') return false;
+                const entry = level as Partial<IDrawingLevel>;
+                return (
+                  typeof entry.value === 'number' &&
+                  Number.isFinite(entry.value) &&
+                  Math.abs(entry.value) <= 1000 &&
+                  typeof entry.visible === 'boolean' &&
+                  typeof entry.color === 'string' &&
+                  /^#[\da-f]{6}$/i.test(entry.color)
+                );
+              }))) ||
+          (drawing.sourceInterval !== undefined &&
+            drawing.sourceInterval <= 0) ||
+          (drawing.profileRows !== undefined &&
+            (drawing.profileRows < 1 ||
+              drawing.profileRows > 100 ||
+              !Number.isInteger(drawing.profileRows))) ||
+          (drawing.valueAreaPercent !== undefined &&
+            (drawing.valueAreaPercent < 1 || drawing.valueAreaPercent > 100)) ||
+          (drawing.riskPercent !== undefined && drawing.riskPercent > 100) ||
           typeof drawing.locked !== 'boolean' ||
           (drawing.hidden !== undefined &&
             typeof drawing.hidden !== 'boolean') ||
@@ -364,7 +748,12 @@ export function parseDrawings(value: string | null): IDrawing[] {
         ids.add(drawing.id);
         return true;
       })
-      .slice(0, MAX_DRAWINGS);
+      .slice(0, MAX_DRAWINGS)
+      .map((drawing) => {
+        const restored = { ...drawing };
+        delete restored.volumeProfile;
+        return restored;
+      });
   } catch {
     return [];
   }

@@ -1,4 +1,5 @@
 /** @jest-environment jsdom */
+/* cspell:ignore Infini */
 
 import SettingTab from './';
 
@@ -225,6 +226,9 @@ jest.mock('./useSearch', () => ({
 jest.mock('./SearchView', () => ({ SearchView: () => null }));
 jest.mock('./useSettingsPageStyle', () => ({
   useSettingsPageStyle: () => ({}),
+}));
+jest.mock('./RestoreInfiniPendingTransactionsListItem', () => ({
+  RestoreInfiniPendingTransactionsListItem: () => null,
 }));
 jest.mock('./CustomElement', () => {
   const React = jest.requireActual<typeof import('react')>('react');
