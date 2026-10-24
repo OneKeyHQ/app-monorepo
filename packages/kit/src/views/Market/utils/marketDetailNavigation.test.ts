@@ -23,6 +23,7 @@ import {
   prepareMarketDetailTabBarTransition,
   replaceFocusedMarketDetailRoute,
   resolveMarketDetailBackAction,
+  runAfterNextFrame,
 } from './marketDetailNavigation';
 
 import type { INavigationStateNode } from './marketDetailNavigation';
@@ -1490,5 +1491,100 @@ describe('marketDetailNavigation', () => {
       name: 'TabMarket',
       params: getNativeMarketListResetParams(),
     });
+  });
+});
+
+describe('back from a stock detail opened by Swap view full data', () => {
+  const stockStack = [{ name: 'TabMarket' }, { name: 'MarketStockDetail' }];
+
+  it.each([true, false])(
+    'pops onto the Market list; the page switches to Swap (native=%p)',
+    (isNative) => {
+      expect(
+        resolveMarketDetailBackAction({
+          isTabletDetailView: false,
+          isNative,
+          from: EEnterWay.SwapStock,
+          routes: stockStack,
+          index: 1,
+        }),
+      ).toEqual({ type: 'pop' });
+    },
+  );
+
+  it('resets a detail-only Market stack before returning to Swap', () => {
+    expect(
+      resolveMarketDetailBackAction({
+        isTabletDetailView: false,
+        isNative: false,
+        from: EEnterWay.SwapStock,
+        routes: [{ name: 'MarketStockDetail' }],
+        index: 0,
+      }),
+    ).toEqual({ type: 'resetAndSwitchSwap' });
+  });
+
+  it('keeps the tablet split view on its own pop', () => {
+    expect(
+      resolveMarketDetailBackAction({
+        isTabletDetailView: true,
+        isNative: true,
+        from: EEnterWay.SwapStock,
+        routes: stockStack,
+        index: 1,
+      }),
+    ).toEqual({ type: 'pop' });
+  });
+
+  it.each([undefined, EEnterWay.HomeTab, EEnterWay.Others, EEnterWay.Link])(
+    'leaves other entries (%p) on the Market list',
+    (from) => {
+      expect(
+        resolveMarketDetailBackAction({
+          isTabletDetailView: false,
+          isNative: false,
+          from,
+          routes: stockStack,
+          index: 1,
+        }),
+      ).toEqual({ type: 'pop' });
+    },
+  );
+});
+
+describe('runAfterNextFrame', () => {
+  const originalRaf = globalThis.requestAnimationFrame;
+  let frames: FrameRequestCallback[] = [];
+
+  beforeEach(() => {
+    jest.useFakeTimers();
+    frames = [];
+    globalThis.requestAnimationFrame = (callback) => {
+      frames.push(callback);
+      return frames.length;
+    };
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+    globalThis.requestAnimationFrame = originalRaf;
+  });
+
+  it('runs once on the next frame', () => {
+    const callback = jest.fn();
+    runAfterNextFrame(callback);
+    frames.forEach((frame) => frame(0));
+    jest.advanceTimersByTime(300);
+    expect(callback).toHaveBeenCalledTimes(1);
+  });
+
+  it('still runs once when frames are paused (hidden window)', () => {
+    const callback = jest.fn();
+    runAfterNextFrame(callback);
+    expect(callback).not.toHaveBeenCalled();
+    jest.advanceTimersByTime(300);
+    expect(callback).toHaveBeenCalledTimes(1);
+    frames.forEach((frame) => frame(0));
+    expect(callback).toHaveBeenCalledTimes(1);
   });
 });

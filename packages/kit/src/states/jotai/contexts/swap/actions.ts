@@ -180,6 +180,7 @@ import {
   swapSelectedFromTokenBalanceAtom,
   swapSelectedToTokenBalanceAtom,
   swapSelectedTokenBalanceMetaAtom,
+  swapSelectedTokenBalanceRefreshRequestedAtom,
   swapSelectedTokensColdStartContextAtom,
   swapShouldRefreshQuoteAtom,
   swapSilenceQuoteLoading,
@@ -2995,6 +2996,20 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
     set(swapWarningRequestIdAtom(), get(swapWarningRequestIdAtom()) + 1);
   });
 
+  requestSelectedTokenBalanceRefresh = contextAtomMethod((get, set) => {
+    const swapType = get(swapTypeSwitchAtom());
+    if (
+      swapType === ESwapTabSwitchType.STOCK ||
+      (platformEnv.isNative && swapType === ESwapTabSwitchType.LIMIT)
+    ) {
+      return;
+    }
+    set(swapSelectedTokenBalanceRefreshRequestedAtom(), {
+      from: Boolean(get(swapSelectFromTokenAtom())),
+      to: Boolean(get(swapSelectToTokenAtom())),
+    });
+  });
+
   loadSwapSelectTokenDetail = contextAtomMethod(
     async (
       get,
@@ -4003,6 +4018,10 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       const normalizedType = getVisibleSwapTabSwitchType(type) ?? type;
       const oldVisibleType = getVisibleSwapTabSwitchType(oldType) ?? oldType;
       if (normalizedType !== oldVisibleType) {
+        set(swapSelectedTokenBalanceRefreshRequestedAtom(), {
+          from: false,
+          to: false,
+        });
         set(swapSelectedTokensColdStartContextAtom(), (context) =>
           context?.defaultTokenSeed
             ? { ...context, defaultTokenSeed: undefined }
@@ -4657,6 +4676,8 @@ export const useSwapActions = () => {
   const tokenListFetchAction = actions.tokenListFetchAction.use();
   const quoteEventHandler = actions.quoteEventHandler.use();
   const loadSwapSelectTokenDetail = actions.loadSwapSelectTokenDetail.use();
+  const requestSelectedTokenBalanceRefresh =
+    actions.requestSelectedTokenBalanceRefresh.use();
   const swapLoadAllNetworkTokenList = actions.swapLoadAllNetworkTokenList.use();
   const swapTypeSwitchAction = actions.swapTypeSwitchAction.use();
   const limitOrderMarketPriceIntervalAction =
@@ -4705,6 +4726,7 @@ export const useSwapActions = () => {
     checkSwapWarning,
     invalidateSwapWarningCheck,
     loadSwapSelectTokenDetail,
+    requestSelectedTokenBalanceRefresh,
     quoteEventHandler,
     swapLoadAllNetworkTokenList,
     closeQuoteEvent,

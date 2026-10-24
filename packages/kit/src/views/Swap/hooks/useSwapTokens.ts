@@ -56,6 +56,7 @@ import {
   useSwapNetworksAtom,
   useSwapNetworksIncludeAllNetworkAtom,
   useSwapSelectTokenNetworkAtom,
+  useSwapSelectedTokenBalanceRefreshRequestedAtom,
   useSwapTokenListRequestsAtom,
   useSwapTokenMapAtom,
 } from '../../../states/jotai/contexts/swap';
@@ -1003,6 +1004,14 @@ export function useSwapSelectedTokenInfo({
   const swapAddressInfoTo = useSwapAddressInfo(ESwapDirectionType.TO);
   const [{ swapHistoryPendingList }] = useInAppNotificationAtom();
   const { loadSwapSelectTokenDetail } = useSwapActions().current;
+  const [balanceRefreshRequested, setBalanceRefreshRequested] =
+    useSwapSelectedTokenBalanceRefreshRequestedAtom();
+  const refreshRequested = balanceRefreshRequested[type];
+  const refreshRequestedRef = useRef(refreshRequested);
+  refreshRequestedRef.current = refreshRequested;
+  const [selectorNetwork] = useSwapSelectTokenNetworkAtom();
+  const selectorNetworkRef = useRef(selectorNetwork);
+  selectorNetworkRef.current = selectorNetwork;
   const swapHistoryPendingListRef = useRef(swapHistoryPendingList);
   if (swapHistoryPendingListRef.current !== swapHistoryPendingList) {
     swapHistoryPendingListRef.current = swapHistoryPendingList;
@@ -1021,12 +1030,31 @@ export function useSwapSelectedTokenInfo({
   if (tokenInfoRef.current !== token) {
     tokenInfoRef.current = token;
   }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const loadSwapSelectTokenDetailDeb = useCallback(
-    debounce((direction, addressInfo, fetchBalance) => {
-      void loadSwapSelectTokenDetail(direction, addressInfo, fetchBalance);
-    }, 300),
-    [],
+  const loadSwapSelectTokenDetailDeb = useMemo(
+    () =>
+      debounce((fetchBalance: boolean) => {
+        const addressInfo = swapAddressInfoRef.current;
+        let shouldFetchBalance = fetchBalance;
+        // Only the forced balance refresh waits: browsing selector networks
+        // must not refresh the trading pair with the selector's address, so
+        // the request stays pending until the wallet is ready. Ordinary
+        // loads (balance by account, missing prices) still run meanwhile.
+        if (
+          refreshRequestedRef.current &&
+          !selectorNetworkRef.current &&
+          addressInfo.isAddressInfoReady
+        ) {
+          // A ready wallet without an address will not gain one; drop the
+          // request instead of holding it forever.
+          shouldFetchBalance ||= Boolean(addressInfo.address);
+          setBalanceRefreshRequested((previous) => ({
+            ...previous,
+            [type]: false,
+          }));
+        }
+        void loadSwapSelectTokenDetail(type, addressInfo, shouldFetchBalance);
+      }, 300),
+    [loadSwapSelectTokenDetail, setBalanceRefreshRequested, type],
   );
   useEffect(
     () => () => {
@@ -1069,11 +1097,7 @@ export function useSwapSelectedTokenInfo({
             },
           }))
       ) {
-        void loadSwapSelectTokenDetailDeb(
-          type,
-          swapAddressInfoRef.current,
-          true,
-        );
+        loadSwapSelectTokenDetailDeb(true);
       }
     },
     [type, loadSwapSelectTokenDetailDeb],
@@ -1094,17 +1118,14 @@ export function useSwapSelectedTokenInfo({
 
   useEffect(() => {
     if (isFocused) {
-      void loadSwapSelectTokenDetailDeb(
-        type,
-        swapAddressInfoRef.current,
-        false,
-      );
+      loadSwapSelectTokenDetailDeb(false);
     }
   }, [
     isFocused,
     type,
     swapAddressInfo,
     swapAddressInfoTo.accountInfo?.deriveType,
+    selectorNetwork,
     token?.networkId,
     token?.contractAddress,
     token?.balanceParsed,
@@ -1112,6 +1133,12 @@ export function useSwapSelectedTokenInfo({
     token?.reservationValue,
     token?.isNative,
   ]);
+
+  useEffect(() => {
+    if (isFocused && refreshRequested) {
+      loadSwapSelectTokenDetailDeb(false);
+    }
+  }, [isFocused, loadSwapSelectTokenDetailDeb, refreshRequested]);
 
   useListenTabFocusState(
     ETabRoutes.Swap,

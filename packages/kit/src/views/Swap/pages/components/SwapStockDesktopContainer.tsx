@@ -748,7 +748,11 @@ function StockActionGate({
   if (stockChannel.readyForQuote || shouldPreserveStockActionsState) {
     return (
       <SwapActionsState
-        disabled={stockTradeIdentityLoading || !stockChannel.readyForQuote}
+        disabled={
+          stockSelection?.availability === 'pending' ||
+          stockTradeIdentityLoading ||
+          !stockChannel.readyForQuote
+        }
         forceQuoteActionLoading={
           forceQuoteActionLoading ||
           (hasPositiveInputAmount && shouldPreserveStockActionsState)
@@ -1008,7 +1012,9 @@ function StockAmountInput({
           loading: contentLoading,
           placeholder: '0.0',
           inputAccessoryViewID:
-            platformEnv.isNativeIOS && balanceActionsReady && !contentLoading
+            platformEnv.isNativeIOSPhone &&
+            balanceActionsReady &&
+            !contentLoading
               ? SwapAmountInputAccessoryViewID
               : undefined,
           onFocus: handleAmountInputFocus,
@@ -1052,7 +1058,9 @@ function StockAmountInput({
         }}
         enableMaxAmount={Boolean(inputToken) && !contentLoading}
       />
-      {platformEnv.isNativeIOS && balanceActionsReady && !contentLoading ? (
+      {platformEnv.isNativeIOSPhone &&
+      balanceActionsReady &&
+      !contentLoading ? (
         <InputAccessoryView nativeID={SwapAmountInputAccessoryViewID}>
           <PercentageStageOnKeyboard
             onSelectPercentageStage={onSelectPercentageStage}

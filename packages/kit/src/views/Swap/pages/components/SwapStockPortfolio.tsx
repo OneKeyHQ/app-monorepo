@@ -73,7 +73,9 @@ export function SwapStockMyPosition() {
     },
     [positions?.positionTokenList, selection, stockId, tokenVariants],
   );
-  const portfolioData = portfolio?.positionListData ?? [];
+  const portfolioData = selection?.stockSelectionPending
+    ? []
+    : (portfolio?.positionListData ?? []);
   return (
     // Include the table gutters inside the reveal's clipping boundary while
     // keeping the parent gap collapsed when there are no positions.

@@ -3,6 +3,7 @@ import {
   StackActions,
   TabRouter,
 } from '@react-navigation/native';
+import { isEqual, omit } from 'lodash';
 
 import { rootNavigationRef } from '@onekeyhq/components';
 import { EEnterWay } from '@onekeyhq/shared/src/logger/scopes/dex';
@@ -185,6 +186,10 @@ export type IMarketDetailBackAction =
   | { type: 'pop' }
   | { type: 'popToTop' }
   | { type: 'popAndSwitchMarket' }
+  // A Swap "view full data" detail that is its stack's only screen: reset the
+  // Market tab to its list, then return to Swap. Deeper stacks just pop and
+  // the detail page's beforeRemove listener does the switch.
+  | { type: 'resetAndSwitchSwap' }
   | { type: 'reset'; name: string; params?: Record<string, unknown> };
 
 type INavigationLike = {
@@ -679,7 +684,58 @@ function resolveEntryBackAction({
   if (from === EEnterWay.SwapPro || from === EEnterWay.BannerList) {
     return { type: 'pop' };
   }
+  // Swap's "view full data" switches tabs; the detail page sends a popped
+  // detail back to Swap itself, so only a detail-only stack needs more.
+  if (from === EEnterWay.SwapStock) {
+    return !routes?.length || routes.length <= 1
+      ? { type: 'resetAndSwitchSwap' }
+      : { type: 'pop' };
+  }
   return undefined;
+}
+
+/**
+ * Runs once after the next paint, so a tab switch commits before the Market
+ * stack changes underneath it. Frames pause in a hidden window, so a short
+ * timeout makes sure the step still happens.
+ */
+/**
+ * Whether a params change only consumed the one-shot `initialSection` request.
+ * That is not a new entry: entry analytics and the Swap trip carry on.
+ */
+export function isInitialSectionConsumed(previous: unknown, next: unknown) {
+  const prev = previous as { initialSection?: unknown } | undefined;
+  const cur = next as { initialSection?: unknown } | undefined;
+  return Boolean(
+    prev?.initialSection !== undefined &&
+    cur?.initialSection === undefined &&
+    isEqual(omit(prev, 'initialSection'), omit(cur, 'initialSection')),
+  );
+}
+
+// Detail routes (by key) opened by Swap's "view full data" whose trip back to
+// Swap has ended: the user left the Market tab another way, so a later back
+// from that detail belongs to Market again. A new entry restarts the trip.
+const endedSwapStockTripRouteKeys = new Set<string>();
+
+export function setSwapStockTripEnded(routeKey: string, ended: boolean) {
+  if (ended) endedSwapStockTripRouteKeys.add(routeKey);
+  else endedSwapStockTripRouteKeys.delete(routeKey);
+}
+
+export function isSwapStockTripEnded(routeKey: string) {
+  return endedSwapStockTripRouteKeys.has(routeKey);
+}
+
+export function runAfterNextFrame(callback: () => void) {
+  let done = false;
+  const run = () => {
+    if (done) return;
+    done = true;
+    callback();
+  };
+  requestAnimationFrame(run);
+  setTimeout(run, 300);
 }
 
 export function resolveMarketDetailBackAction({

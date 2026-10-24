@@ -33,6 +33,9 @@ export type IMarketTokenDetailRouteParams = {
   showFavoriteButton?: boolean;
 };
 
+// A section the desktop detail page scrolls to on open, below the chart.
+export type IMarketStockDetailInitialSection = 'overview';
+
 export type IMarketStockDetailRouteParams = {
   stockId: string;
   stockPreviewSymbol?: string;
@@ -45,6 +48,7 @@ export type IMarketStockDetailRouteParams = {
   from?: EEnterWay;
   disableTrade?: boolean;
   showFavoriteButton?: boolean;
+  initialSection?: IMarketStockDetailInitialSection;
 };
 
 export type ITabMarketParamList = {
