@@ -131,8 +131,14 @@ export function tryDispatchPageThemeMessage(
       typeof message.color === 'string' ? message.color : undefined,
     );
     const origin = originOf(pageUrl);
-    if (stored && origin) {
-      originColors.set(origin, stored);
+    if (origin) {
+      // A page that reports no color also drops its stale cache, so the next
+      // visit doesn't open on an old tint.
+      if (stored) {
+        originColors.set(origin, stored);
+      } else {
+        originColors.delete(origin);
+      }
     }
     return true;
   } catch {
@@ -153,15 +159,30 @@ export const PAGE_THEME_COLOR_SCRIPT = `(function () {
       window.__onekeyReadPageTheme();
       return;
     }
+    // Any CSS color as rgba(): computed styles keep modern color spaces
+    // (oklch(), color(), e.g. Tailwind v4), which the app side can't parse,
+    // so those are drawn on a 1px canvas and read back. An unparsable value
+    // leaves the transparent fill and reads as no color.
+    var ctx;
     var toRgb = function (value) {
-      if (!value || !document.body) return '';
-      var probe = document.createElement('div');
-      probe.style.display = 'none';
-      probe.style.color = value;
-      document.body.appendChild(probe);
-      var rgb = getComputedStyle(probe).color;
-      probe.remove();
-      return rgb;
+      if (!value || value === 'transparent') return '';
+      if (/^rgba?\\(/.test(value)) return value;
+      try {
+        if (!ctx) {
+          var canvas = document.createElement('canvas');
+          canvas.width = 1;
+          canvas.height = 1;
+          ctx = canvas.getContext('2d', { willReadFrequently: true });
+        }
+        ctx.clearRect(0, 0, 1, 1);
+        ctx.fillStyle = 'rgba(0, 0, 0, 0)';
+        ctx.fillStyle = value;
+        ctx.fillRect(0, 0, 1, 1);
+        var d = ctx.getImageData(0, 0, 1, 1).data;
+        return 'rgba(' + d[0] + ', ' + d[1] + ', ' + d[2] + ', ' + d[3] / 255 + ')';
+      } catch (e) {
+        return '';
+      }
     };
     // Opaque backgrounds only: translucent layers (e.g. a modal's dimming
     // backdrop) are skipped so the page's own color shows through.
@@ -172,7 +193,7 @@ export const PAGE_THEME_COLOR_SCRIPT = `(function () {
     };
     var backgroundOf = function (el) {
       while (el && el.nodeType === 1) {
-        var bg = getComputedStyle(el).backgroundColor;
+        var bg = toRgb(getComputedStyle(el).backgroundColor);
         if (isOpaque(bg)) {
           return bg;
         }
@@ -203,7 +224,19 @@ export const PAGE_THEME_COLOR_SCRIPT = `(function () {
           JSON.stringify({ type: '${PAGE_THEME_MESSAGE_TYPE}', color: color }),
         );
     };
-    window.__onekeyReadPageTheme = read;
+    // Re-injection (SPA navigation) and restores from the back-forward cache
+    // land on a document that already reported: the app may be showing
+    // another page's color by now, so report again even if unchanged, and
+    // re-read once the new route has painted.
+    var refresh = function () {
+      lastColor = undefined;
+      read();
+      setTimeout(read, 800);
+    };
+    window.__onekeyReadPageTheme = refresh;
+    window.addEventListener('pageshow', function (event) {
+      if (event.persisted) refresh();
+    });
     read();
     setTimeout(read, 800);
     var scheme = window.matchMedia('(prefers-color-scheme: dark)');

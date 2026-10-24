@@ -232,18 +232,29 @@ export function AddressCapsuleTitle({
   const hostname = useMemo(() => getDisplayHostname(url), [url]);
   const { hostSecurity, iconConfig } = useUrlRiskConfig(url);
   const [siteInfoOpen, setSiteInfoOpen] = useState(false);
+  // The Popover trigger opens on its own press too, so the open state itself
+  // is gated: no site info for an empty tab or an unchecked host.
+  const canShowSiteInfo = !!url && !!hostSecurity;
+  const domainText = url
+    ? hostname
+    : intl.formatMessage({
+        id: ETranslations.browser_search_dapp_or_enter_url,
+      });
 
   return (
     <XStack flex={1} alignSelf="stretch" alignItems="center">
       <Popover
         title={intl.formatMessage({ id: ETranslations.global_info })}
-        open={siteInfoOpen}
-        onOpenChange={setSiteInfoOpen}
+        open={siteInfoOpen && canShowSiteInfo}
+        onOpenChange={(open) => setSiteInfoOpen(open && canShowSiteInfo)}
         renderTrigger={
           <ChromePressable
-            disabled={!url || !hostSecurity}
+            disabled={!canShowSiteInfo}
             // The 20pt badge alone is too small a target.
             hitSlop={RISK_ICON_HIT_SLOP}
+            accessibilityLabel={intl.formatMessage({
+              id: ETranslations.global_info,
+            })}
             onPress={() => {
               logBrowserChromeAction('siteInfo', 'toolbar');
               setSiteInfoOpen(true);
@@ -264,7 +275,7 @@ export function AddressCapsuleTitle({
           />
         )}
       />
-      <ChromePressable fill onPress={onPress}>
+      <ChromePressable fill onPress={onPress} accessibilityLabel={domainText}>
         <XStack flex={1} pl="$2" alignItems="center" justifyContent="center">
           <DomainLabel
             testID={DiscoveryTestIDs.searchBar}
@@ -272,13 +283,7 @@ export function AddressCapsuleTitle({
             // badge and its gap, less the back button's pull) so the domain
             // centers in the whole capsule.
             trailingBalance={RISK_ICON_WIDTH + 8 - CAPSULE_BACK_BUTTON_PULL}
-            text={
-              url
-                ? hostname
-                : intl.formatMessage({
-                    id: ETranslations.browser_search_dapp_or_enter_url,
-                  })
-            }
+            text={domainText}
           />
         </XStack>
       </ChromePressable>

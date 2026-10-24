@@ -180,6 +180,9 @@ function HeaderAccountChip({
   onNetworkPress?: () => void;
   testID: string;
 }) {
+  // The badge sits inside the chip, so one tap must not reach both handlers
+  // (on web the press bubbles; the time check covers any native path too).
+  const networkPressAtRef = useRef(0);
   return (
     <XStack
       role="button"
@@ -190,6 +193,9 @@ function HeaderAccountChip({
       // 36pt chip: extend to the 46pt header row.
       hitSlop={{ top: 5, bottom: 5 }}
       onPress={() => {
+        if (Date.now() - networkPressAtRef.current < 500) {
+          return;
+        }
         logBrowserChromeAction('account', 'header');
         onPress();
       }}
@@ -212,7 +218,9 @@ function HeaderAccountChip({
             w={24}
             h={24}
             hitSlop={6}
-            onPress={() => {
+            onPress={(e) => {
+              e?.stopPropagation?.();
+              networkPressAtRef.current = Date.now();
               logBrowserChromeAction('switchNetwork', 'header');
               onNetworkPress();
             }}
@@ -245,7 +253,7 @@ function CompactConnectedAccountTrigger({ num }: { num: number }) {
     hideNonBackedUpWallet: true,
   });
   const { networkIds, showChainSelector } = useNetworkSelectorTrigger({ num });
-  const canSwitchNetwork = (networkIds ?? []).length > 1;
+  const canSwitchNetwork = (networkIds?.length ?? 0) > 1;
   const accountName =
     account?.name ||
     intl.formatMessage({ id: ETranslations.wallet_no_address });
@@ -558,9 +566,12 @@ function HeaderRightToolBar({ variant }: IHeaderRightToolBarProps) {
 
   const handleOpenChange = useCallback(
     (value: boolean) => {
+      if (value && isMobileBrowser) {
+        logBrowserChromeAction('account', 'header');
+      }
       setIsOpen(value);
     },
-    [setIsOpen],
+    [setIsOpen, isMobileBrowser],
   );
 
   const renderPopoverContent = useCallback(() => {

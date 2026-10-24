@@ -50,7 +50,11 @@ function QuickActionTile({
 }) {
   return (
     <YStack
-      w={QUICK_ACTION_COLUMN_WIDTH}
+      // Shrinks below 72pt on the narrowest phones (320dp) so the last tile
+      // isn't cut off; the 56pt square still fits.
+      flexBasis={QUICK_ACTION_COLUMN_WIDTH}
+      flexShrink={1}
+      minWidth={0}
       alignItems="center"
       gap="$2"
       onPress={() => {

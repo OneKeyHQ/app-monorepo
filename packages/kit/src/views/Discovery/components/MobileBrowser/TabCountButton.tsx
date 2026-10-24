@@ -1,8 +1,16 @@
 import { useCallback } from 'react';
 
-import { SizableText, Stack, useInGlassHeader } from '@onekeyhq/components';
+import { useIntl } from 'react-intl';
+
+import {
+  PROPORTIONAL_NUMS,
+  SizableText,
+  Stack,
+  useInGlassHeader,
+} from '@onekeyhq/components';
 import type { IPageNavigationProp } from '@onekeyhq/components/src/layouts/Navigation';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IDiscoveryModalParamList } from '@onekeyhq/shared/src/routes';
 import {
@@ -54,9 +62,11 @@ const GLYPH_SLOT = 24;
 const GLYPH_SIZE = 20;
 const GLYPH_STROKE = 2;
 const TABULAR_NUMS: ['tabular-nums'] = ['tabular-nums'];
+const NON_GLASS_HIT_SLOP = { vertical: 7, horizontal: 7 };
 const MULTI_DIGIT_TRACKING = -0.6;
 
 function TabCountButton({ testID, onPressed }: ITabCountButtonProps) {
+  const intl = useIntl();
   const { displayHomePage } = useDisplayHomePageFlag();
   const { tabs } = useWebTabs();
   const tabCount = tabs.length;
@@ -82,7 +92,13 @@ function TabCountButton({ testID, onPressed }: ITabCountButtonProps) {
 
   return (
     <ChromePressable
-      hitSlop={inGlass ? CAPSULE_BUTTON_HIT_SLOP : undefined}
+      // Outside glass the -7 margin shrinks the wrapper (and with it the tap
+      // area) to the 22pt glyph slot; the slop gives the margin back.
+      hitSlop={inGlass ? CAPSULE_BUTTON_HIT_SLOP : NON_GLASS_HIT_SLOP}
+      accessibilityLabel={intl.formatMessage(
+        { id: ETranslations.explore_tabs_count },
+        { number: tabCount },
+      )}
       onPress={() => {
         onPressed?.();
         void handleShowTabList();
@@ -122,7 +138,7 @@ function TabCountButton({ testID, onPressed }: ITabCountButtonProps) {
               // advance, so a narrow "1" sits centered too. Two or more keep
               // proportional digits (tabular ones space a "11" too far apart)
               // with slightly tight tracking so they read as one count.
-              fontVariant={tabCount < 10 ? TABULAR_NUMS : undefined}
+              fontVariant={tabCount < 10 ? TABULAR_NUMS : PROPORTIONAL_NUMS}
               letterSpacing={tracking}
               style={trackingOffset}
             >

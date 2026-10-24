@@ -69,26 +69,45 @@ interface IMobileBrowserHeaderProps {
 }
 
 const STATUS_BAR_REASSERT_DELAY_MS = 400;
+const BROWSER_SYSTEM_BARS_OWNER = 'discovery-browser';
 
 // System bars matching the page color while the browser is focused. Android
 // pins the appearance module's override. iOS pushes a status bar stack entry
 // (a <StatusBar> element would lose to pages mounted later, since the newest
 // entry wins), re-pushed whenever the page theme changes.
-function usePageStatusBarStyle(pageThemeName: 'light' | 'dark' | undefined) {
+function usePageStatusBarStyle(
+  pageThemeName: 'light' | 'dark' | undefined,
+  pageColor: string | undefined,
+) {
   const isFocused = useIsFocused();
+  // Android: the system bars (status bar surface and icons up to Android 14,
+  // the window behind the edge-to-edge bars from 15, and the navigation bar)
+  // are owned by the appearance module. Pin them to the page's color and
+  // variant while the browser is foreground, in the browser's own slot (so
+  // releasing it can't clear onboarding's), and release it after. Updated in
+  // place on color changes rather than released and re-pinned.
   useEffect(() => {
-    if (!isFocused || !pageThemeName) {
+    if (!platformEnv.isNativeAndroid) {
       return;
     }
-    // Android: the system bars (status bar icons, navigation bar, and the
-    // window behind edge-to-edge bars) have one owner, the appearance
-    // module; pin it to the page's variant while the browser is foreground,
-    // like onboarding does, and hand it back after.
-    if (platformEnv.isNativeAndroid) {
-      setSystemBarsOverride(pageThemeName);
-      return () => {
-        setSystemBarsOverride(null);
-      };
+    setSystemBarsOverride(
+      BROWSER_SYSTEM_BARS_OWNER,
+      isFocused && pageThemeName
+        ? { variant: pageThemeName, color: pageColor }
+        : null,
+    );
+  }, [isFocused, pageThemeName, pageColor]);
+  useEffect(
+    () => () => {
+      if (platformEnv.isNativeAndroid) {
+        setSystemBarsOverride(BROWSER_SYSTEM_BARS_OWNER, null);
+      }
+    },
+    [],
+  );
+  useEffect(() => {
+    if (platformEnv.isNativeAndroid || !isFocused || !pageThemeName) {
+      return;
     }
     const barStyle =
       pageThemeName === 'dark' ? 'light-content' : 'dark-content';
@@ -140,7 +159,7 @@ function MobileBrowserHeader({
   // Keep the Theme wrapper mounted (falling back to the app theme) so the
   // header subtree isn't remounted when the page color arrives.
   const appThemeName = useThemeName();
-  usePageStatusBarStyle(pageThemeName);
+  usePageStatusBarStyle(pageThemeName, pageColor);
   // A translucent fill over the header color (the page's, or the app
   // background when the page reports none), so the chip takes on the page's
   // hue instead of a fixed gray that clashes with colored pages. Light

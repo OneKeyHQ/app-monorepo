@@ -13,6 +13,13 @@ import type { IChromeHitSlop } from './browserChrome';
 // intercepts touches in the tab bar area even while hidden, so RN's touch
 // system never reaches the bottom bar. RNGH handles the touch at the
 // GestureHandlerRootView level instead. iOS uses the same path for parity.
+//
+// Screen readers don't send gestures: TalkBack/VoiceOver activate the focused
+// element instead, so the wrapper is the accessible button and forwards that
+// activation to the same handler.
+const ACCESSIBILITY_ACTIONS = [{ name: 'activate' as const }];
+const DISABLED_STATE = { disabled: true };
+
 const styles = StyleSheet.create({
   fill: { flex: 1, alignSelf: 'stretch' },
 });
@@ -22,6 +29,7 @@ export function ChromePressable({
   disabled,
   fill,
   hitSlop,
+  accessibilityLabel,
   children,
 }: {
   onPress?: () => void;
@@ -31,6 +39,7 @@ export function ChromePressable({
   // Extends the tap area past the visible element, e.g. to a capsule's full
   // height around a smaller icon.
   hitSlop?: IChromeHitSlop;
+  accessibilityLabel?: string;
   children: ReactElement;
 }) {
   // Keep the gesture stable while the handler identity changes.
@@ -44,16 +53,37 @@ export function ChromePressable({
       Gesture.Tap()
         .enabled(!disabled)
         .hitSlop(hitSlop ?? 0)
-        .onEnd(() => {
+        .onEnd((_event, success) => {
           'worklet';
 
-          runOnJS(handlePress)();
+          // A cancelled or failed tap (finger dragged off, interrupted)
+          // still ends; only a recognized tap presses.
+          if (success) {
+            runOnJS(handlePress)();
+          }
         }),
     [disabled, handlePress, hitSlop],
   );
   return (
     <GestureDetector gesture={gesture}>
-      <View collapsable={false} style={fill ? styles.fill : undefined}>
+      <View
+        collapsable={false}
+        style={fill ? styles.fill : undefined}
+        accessible
+        accessibilityRole="button"
+        accessibilityLabel={accessibilityLabel}
+        accessibilityState={disabled ? DISABLED_STATE : undefined}
+        accessibilityActions={ACCESSIBILITY_ACTIONS}
+        onAccessibilityAction={
+          disabled
+            ? undefined
+            : (e) => {
+                if (e.nativeEvent.actionName === 'activate') {
+                  handlePress();
+                }
+              }
+        }
+      >
         {children}
       </View>
     </GestureDetector>

@@ -1,5 +1,6 @@
 import { memo, useCallback, useMemo, useState } from 'react';
 
+import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 import Animated, {
   interpolate,
@@ -15,6 +16,7 @@ import {
   XStack,
   useThemeName,
 } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import {
   BROWSER_CHROME_CAPSULE_HEIGHT,
@@ -216,7 +218,11 @@ function CollapsedAddressPill({
     >
       {/* The pill is 30pt tall; extend its tap area to ~46pt and over its
         side padding. */}
-      <ChromePressable onPress={onPress} hitSlop={PILL_HIT_SLOP}>
+      <ChromePressable
+        onPress={onPress}
+        hitSlop={PILL_HIT_SLOP}
+        accessibilityLabel={hostname}
+      >
         <XStack
           h={BROWSER_COLLAPSED_PILL_HEIGHT}
           alignItems="center"
@@ -236,6 +242,7 @@ function CollapsedAddressPill({
 // fades out and a small address pill stays above the home indicator. iOS 26
 // renders the capsules as Liquid Glass.
 function MobileBrowserBottomBar({ id, chrome }: IMobileBrowserBottomBarProps) {
+  const intl = useIntl();
   const {
     bottom,
     tab,
@@ -388,6 +395,9 @@ function MobileBrowserBottomBar({ id, chrome }: IMobileBrowserBottomBarProps) {
                   }}
                   disabled={disabledGoBack}
                   hitSlop={CAPSULE_BUTTON_HIT_SLOP}
+                  accessibilityLabel={intl.formatMessage({
+                    id: ETranslations.global_back,
+                  })}
                 >
                   <IconButton
                     variant="tertiary"
@@ -432,6 +442,9 @@ function MobileBrowserBottomBar({ id, chrome }: IMobileBrowserBottomBarProps) {
                   }}
                   disabled={displayHomePage}
                   hitSlop={CAPSULE_BUTTON_HIT_SLOP}
+                  accessibilityLabel={intl.formatMessage({
+                    id: ETranslations.explore_options,
+                  })}
                 >
                   <IconButton
                     variant="tertiary"

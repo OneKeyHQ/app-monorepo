@@ -296,12 +296,20 @@ function MobileBrowser() {
   const isBrowserWebPageVisible =
     isBrowserHeaderTabSelected && !showDiscoveryPage && !displayHomePage;
   // The dashboard scroll shares the chrome animation, so make sure the web page
-  // always opens (or switches tab) with its header and bottom bar expanded.
+  // always opens (or switches tab, or navigates) with its header and bottom
+  // bar expanded: a short page has no scroll to bring a collapsed bar back.
+  // The hash is ignored, since pages often update it while scrolling.
+  const activePageUrl = activeTabData?.url?.split('#')[0];
   useEffect(() => {
     if (isBrowserWebPageVisible) {
       expandBrowserChrome();
     }
-  }, [activeTabId, isBrowserWebPageVisible, expandBrowserChrome]);
+  }, [
+    activeTabId,
+    activePageUrl,
+    isBrowserWebPageVisible,
+    expandBrowserChrome,
+  ]);
   const isBrowserDashboardActive =
     showDiscoveryPage &&
     (isBrowserHeaderTabSelected || visibleOuterPages.includes(1));

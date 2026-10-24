@@ -87,6 +87,11 @@ function useMobileBrowserChromeAnimation() {
         contentOffsetY <= EDGE_EXPAND_DISTANCE ||
         contentOffsetY >= maxOffsetY - EDGE_EXPAND_DISTANCE
       ) {
+        // Restart direction tracking from here: expanding shrinks the WebView
+        // and moves the bottom edge, and a stale turn point from before would
+        // read the next event as a long scroll down and collapse again.
+        lastScrollYRef.current = contentOffsetY;
+        lastTurnScrollYRef.current = contentOffsetY;
         animateTo(EXPANDED);
         return;
       }

@@ -1,9 +1,11 @@
 import { useCallback, useRef } from 'react';
 
+import { useIntl } from 'react-intl';
 import { Animated } from 'react-native';
 
 import { IconButton } from '@onekeyhq/components';
 import type { IIconButtonProps } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { DiscoveryTestIDs } from '../../testIDs';
 
@@ -21,6 +23,7 @@ function RefreshButton({
   size = 'medium',
   iconSize,
 }: IRefreshButtonProps) {
+  const intl = useIntl();
   const rotateAnim = useRef(new Animated.Value(0)).current;
 
   const handleRefresh = useCallback(() => {
@@ -40,7 +43,13 @@ function RefreshButton({
   });
 
   return (
-    <ChromePressable onPress={handleRefresh} hitSlop={CAPSULE_BUTTON_HIT_SLOP}>
+    <ChromePressable
+      onPress={handleRefresh}
+      hitSlop={CAPSULE_BUTTON_HIT_SLOP}
+      accessibilityLabel={intl.formatMessage({
+        id: ETranslations.global_refresh,
+      })}
+    >
       <Animated.View style={{ transform: [{ rotate: spin }] }}>
         <IconButton
           variant="tertiary"
