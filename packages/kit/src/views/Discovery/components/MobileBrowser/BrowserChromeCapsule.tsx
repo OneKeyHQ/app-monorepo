@@ -5,6 +5,7 @@ import { StyleSheet } from 'react-native';
 import {
   GlassHeaderProvider,
   GlassView,
+  Stack,
   XStack,
   isLiquidGlassAvailable,
 } from '@onekeyhq/components';
@@ -86,14 +87,17 @@ export function BrowserChromeCapsule({
       </GlassView>
     );
   }
+  // A column container like GlassView, so the inner row stretches to the
+  // capsule's width (as a row child it would shrink to its content, leaving
+  // the flexible address area no room).
   return (
-    <XStack
+    <Stack
       flex={flex}
       bg="$bgStrong"
       borderRadius="$full"
       borderCurve="continuous"
     >
       {content}
-    </XStack>
+    </Stack>
   );
 }
