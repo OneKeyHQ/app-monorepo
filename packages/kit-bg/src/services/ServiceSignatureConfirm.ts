@@ -493,20 +493,19 @@ class ServiceSignatureConfirm extends ServiceBase {
         ? getPermit2ServerDisplayExtras(parsedTx?.display)
         : undefined;
 
-      // The server may flag a risky counterparty only via `Address.tags`
-      // (no `display.alerts`); local Address components carry `tags: []`,
-      // so merge the server risk tags back or SecurityCheckCard would
-      // report "No issues" for a flagged address on the rebase-forced path.
-      const rebaseMergedComponents = isRebaseForcedLocal
-        ? mergeServerAddressRiskTagsIntoComponents({
-            localComponents: txDisplayComponents,
-            serverComponents: parsedTx?.display?.components,
-          })
-        : txDisplayComponents;
+      // Permit2 and rebase local displays must retain address-only server
+      // risks even when display.alerts is empty.
+      const mergedComponents =
+        isRebaseForcedLocal || useLocalPermit2Display
+          ? mergeServerAddressRiskTagsIntoComponents({
+              localComponents: txDisplayComponents,
+              serverComponents: parsedTx?.display?.components,
+            })
+          : txDisplayComponents;
 
       decodedTx.txDisplay = {
         title: '',
-        components: [...rebaseMergedComponents, ...serverSimulationComponents],
+        components: [...mergedComponents, ...serverSimulationComponents],
         alerts: rebaseDisplayExtras?.alerts?.length
           ? rebaseDisplayExtras.alerts
           : serverAlerts,

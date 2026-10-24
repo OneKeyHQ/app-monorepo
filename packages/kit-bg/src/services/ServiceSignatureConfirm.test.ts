@@ -49,6 +49,7 @@ import {
   EParseTxComponentType,
   EParseTxType,
   type IDisplayComponent,
+  type IDisplayComponentAddress,
   type IDisplayComponentApprove,
   type IDisplayComponentSimulation,
   type IParseTransactionResp,
@@ -57,6 +58,7 @@ import {
 import { EEarnLabels } from '@onekeyhq/shared/types/staking';
 // eslint-disable-next-line import-js/order, import/first
 import {
+  EApproveType,
   EDecodedTxActionType,
   EDecodedTxStatus,
   type IDecodedTx,
@@ -267,6 +269,113 @@ describe('ServiceSignatureConfirm.buildDecodedTx', () => {
     expect(decodedTx.isLocalParsed).toBeUndefined();
     expect(decodedTx.txDisplay).toBe(parsedTx.display);
   });
+
+  it.each([
+    [EParseTxType.Approve, []],
+    [EParseTxType.Unknown, []],
+    [EParseTxType.Approve, ['Server risk alert']],
+    [EParseTxType.RevokeApproval, []],
+  ] as const)(
+    'retains Permit2 address risk tags for %s with alerts %j',
+    async (type, alerts) => {
+      const riskTag: IDisplayComponentAddress['tags'][number] = {
+        value: 'Scam address',
+        displayType: 'critical',
+      };
+      const simulation: IDisplayComponentSimulation = {
+        type: EParseTxComponentType.Simulation,
+        label: 'Simulation',
+        assets: [],
+      };
+      const parsedTx = buildParsedTx({
+        components: [
+          {
+            type: EParseTxComponentType.Address,
+            label: 'Server spender',
+            address: evmChecksumSpender,
+            tags: [riskTag],
+          },
+          simulation,
+        ],
+        alerts: [...alerts],
+      });
+      parsedTx.type = type;
+      const service = buildService(parsedTx);
+      const permit2Address = '0x000000000022d473030f116ddee9f6b43ac78ba3';
+      const tokenInfo = {
+        address: evmLowerAddress,
+        name: 'Test token',
+        symbol: 'TEST',
+        decimals: 6,
+        isNative: false,
+      };
+      const localDecodedTx = buildLocalDecodedTx();
+      localDecodedTx.actions = [
+        {
+          type: EDecodedTxActionType.TOKEN_APPROVE,
+          tokenApprove: {
+            from: accountAddress,
+            to: permit2Address,
+            spender: evmLowerSpender,
+            amount: '0',
+            icon: '',
+            name: tokenInfo.name,
+            symbol: tokenInfo.symbol,
+            decimals: tokenInfo.decimals,
+            tokenIdOnNetwork: tokenInfo.address,
+            isInfiniteAmount: false,
+            approveType: EApproveType.Approve,
+          },
+        },
+      ];
+      (vaultFactory.getVault as unknown as jest.Mock).mockResolvedValue({
+        buildDecodedTx: jest.fn().mockResolvedValue(localDecodedTx),
+      });
+
+      const decodedTx = await service.buildDecodedTx({
+        networkId,
+        accountId,
+        accountAddress,
+        unsignedTx: {
+          encodedTx: {},
+          approveInfo: {
+            owner: accountAddress,
+            spender: evmLowerSpender,
+            amount: '0',
+            tokenInfo,
+            permit2Info: { permit2Address, expirationSeconds: '1785444349' },
+          },
+        },
+      });
+
+      expect(decodedTx.txDisplay?.components).toContainEqual(
+        expect.objectContaining({
+          type: EParseTxComponentType.Address,
+          address: evmChecksumSpender,
+          tags: [riskTag],
+        }),
+      );
+      expect(decodedTx.txDisplay?.components).toContainEqual(simulation);
+      expect(decodedTx.txDisplay?.alerts).toEqual(alerts);
+      if (type === EParseTxType.RevokeApproval) {
+        expect(decodedTx.isLocalParsed).toBeUndefined();
+        expect(decodedTx.txDisplay).toBe(parsedTx.display);
+      } else {
+        expect(decodedTx.isLocalParsed).toBe(true);
+        expect(decodedTx.txDisplay?.components).toContainEqual(
+          expect.objectContaining({
+            type: EParseTxComponentType.Approve,
+            amountParsed: '0',
+            isEditable: false,
+            isInfiniteAmount: false,
+          }),
+        );
+        expect(decodedTx.txDisplay?.components).not.toContainEqual(
+          expect.objectContaining({ label: 'Server spender' }),
+        );
+      }
+    },
+  );
 
   it('checksums EVM addresses on the server display', async () => {
     const parsedTx = buildParsedTx({
