@@ -1,11 +1,19 @@
 import { getPathFromState, getStateFromPath } from '@react-navigation/core';
 
 import {
+  ERootRoutes,
+  ETabMarketRoutes,
+  ETabRoutes,
+} from '@onekeyhq/shared/src/routes';
+import {
   marketTokenPreviewRouteConfig,
   parseTokenDetailPreviewParam,
 } from '@onekeyhq/shared/src/utils/marketTokenPreviewRoute';
+import { buildAllowList } from '@onekeyhq/shared/src/utils/routeUtils';
 
 import { marketRouters } from '../Tab/Marktet/router';
+
+import { getWebDappAllowListRule } from './webDappUrlFallback';
 
 jest.mock('../../components/LazyLoadPage', () => ({
   LazyLoadPage: () => () => null,
@@ -163,5 +171,70 @@ it('maps Asset-only, native and contract URLs to their existing Market routes', 
       actualConfig,
     );
     expect(roundtrip?.routes[0].name).toBe(screen);
+  }
+});
+
+it('keeps Asset-only URLs and their variant query in the production allowlist', () => {
+  const routePath = (name: string) =>
+    marketRouters.find((route) => route.name === name)?.rewrite ?? '';
+  const screens = {
+    [ERootRoutes.Main]: {
+      path: '/',
+      exact: false,
+      screens: {
+        [ETabRoutes.Market]: {
+          path: '/market',
+          exact: false,
+          screens: {
+            [ETabMarketRoutes.TabMarket]: { path: '/', exact: false },
+            [ETabMarketRoutes.MarketDetailV2]: {
+              path: routePath(ETabMarketRoutes.MarketDetailV2),
+              exact: false,
+            },
+            [ETabMarketRoutes.MarketNativeDetail]: {
+              path: routePath(ETabMarketRoutes.MarketNativeDetail),
+              exact: false,
+            },
+          },
+        },
+      },
+    },
+  };
+  const allowList = buildAllowList(screens, false, false);
+  const params = {
+    marketTokenId: 'bitcoin',
+    marketTokenCategory: 'top_coins',
+    marketVariantId: 'bitcoin-evm--1-0xbtc',
+  };
+  const path = getPathFromState(
+    {
+      routes: [
+        {
+          name: ERootRoutes.Main,
+          state: {
+            routes: [
+              {
+                name: ETabRoutes.Market,
+                state: {
+                  routes: [{ name: ETabMarketRoutes.MarketDetailV2, params }],
+                },
+              },
+            ],
+          },
+        },
+      ],
+    },
+    { screens },
+  );
+  expect(path).toContain('/market/token/?');
+  expect(path).toContain('marketVariantId=bitcoin-evm--1-0xbtc');
+  for (const pathname of ['/market/token', '/market/token/']) {
+    expect(
+      getWebDappAllowListRule({
+        allowList,
+        allowListKeys: Object.keys(allowList),
+        path: pathname,
+      }),
+    ).toEqual({ showUrl: true, showParams: true });
   }
 });

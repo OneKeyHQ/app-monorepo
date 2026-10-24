@@ -248,7 +248,7 @@ describe('navigateToMarketTokenDetail', () => {
     },
   );
 
-  it('does not resolve a known asset favorite again through search', async () => {
+  it('keeps an explicit Asset variant when navigating from a favorite', async () => {
     mockFetchAssetDetail.mockResolvedValueOnce({
       selectedVariant: {
         tokenAddress: '',
@@ -258,7 +258,12 @@ describe('navigateToMarketTokenDetail', () => {
       },
     });
     await navigateToMarketTokenDetail(
-      { assetId: 'bitcoin', address: '', networkId: '' },
+      {
+        assetId: 'bitcoin',
+        address: '',
+        networkId: '',
+        marketVariantId: 'btc-native',
+      },
       {
         tokenDetailActions,
         resolveMarketAsset: true,
@@ -277,9 +282,6 @@ describe('navigateToMarketTokenDetail', () => {
           marketTokenId: 'bitcoin',
           marketVariantId: 'btc-native',
           marketTokenCategory: 'top_coins',
-          tokenAddress: '',
-          network: 'eth',
-          isNative: true,
         },
       },
     });
@@ -354,21 +356,24 @@ describe('navigateToMarketTokenDetail', () => {
     },
   );
 
-  it('resolves an asset only on navigation and preserves the asset route', async () => {
-    mockFetchAssetDetail.mockResolvedValue({
-      selectedVariant: {
-        tokenAddress: '',
-        networkId: 'btc--0',
-        isNative: true,
-        variantId: 'btc-native',
-      },
-    });
+  it('opens an Asset route while the detail prefetch is pending', async () => {
+    mockFetchAssetDetail.mockReturnValue(new Promise(() => undefined));
+    const beforeNavigate = jest.fn();
     await navigateToMarketTokenDetail(
       { address: '', networkId: '', assetId: 'bitcoin' },
       {
         tokenDetailActions,
+        beforeNavigate,
       },
     );
+    expect(beforeNavigate).toHaveBeenCalledTimes(1);
+    expect(mockFetchAssetDetail).toHaveBeenCalledWith({
+      assetId: 'bitcoin',
+      variantId: undefined,
+      currency: 'usd',
+      autoHandleError: false,
+      reuseInitialResult: true,
+    });
     jest.runAllTimers();
     expect(navigateMock).toHaveBeenCalledWith(
       expect.anything(),
@@ -376,7 +381,6 @@ describe('navigateToMarketTokenDetail', () => {
         params: expect.objectContaining({
           params: expect.objectContaining({
             marketTokenId: 'bitcoin',
-            marketVariantId: 'btc-native',
             marketTokenCategory: 'top_coins',
           }),
         }),
@@ -551,7 +555,7 @@ describe('navigateToMarketTokenDetail', () => {
       }
       await first;
       jest.runAllTimers();
-      expect(beforeNavigate).not.toHaveBeenCalled();
+      expect(beforeNavigate).toHaveBeenCalledTimes(1);
       expect(onError).not.toHaveBeenCalled();
       expect(changeActiveTokenMock).not.toHaveBeenCalled();
       expect(navigateMock).toHaveBeenCalledTimes(1);

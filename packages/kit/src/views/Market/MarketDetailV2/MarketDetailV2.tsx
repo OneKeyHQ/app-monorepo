@@ -204,37 +204,35 @@ function MarketDetail({
     !routeTokenAddress,
   );
   const {
-    identity: resolvedMarketAssetIdentity,
-    assetDetail: initialMarketAssetDetail,
-    hasError: assetIdentityError,
-    retry: retryAssetIdentity,
+    identity: symbolResolvedMarketAssetIdentity,
     shouldSkipMarketDataFetch,
   } = useResolvedMarketAssetRouteIdentity({
-    enabled: shouldResolveMarketAsset || isAssetOnlyRoute,
+    enabled: shouldResolveMarketAsset,
     active: isRouteFocused,
     tokenAddress: routeTokenAddress,
     networkId: routeNetworkId,
     symbol: marketTokenSymbol,
     isNative: routeIsNative,
-    assetId: isAssetOnlyRoute ? routeMarketTokenId : undefined,
   });
-  const networkId =
-    resolvedMarketAssetIdentity?.networkId ??
-    selectedTokenVariant?.networkId ??
-    routeNetworkId;
-  const tokenAddress =
-    resolvedMarketAssetIdentity?.tokenAddress ??
-    selectedTokenVariant?.contractAddress ??
-    routeTokenAddress;
-  const isNativeBoolean =
-    resolvedMarketAssetIdentity?.isNative ?? routeIsNative;
+  const requestNetworkId = isAssetOnlyRoute
+    ? routeNetworkId
+    : (symbolResolvedMarketAssetIdentity?.networkId ??
+      selectedTokenVariant?.networkId ??
+      routeNetworkId);
+  const requestTokenAddress = isAssetOnlyRoute
+    ? routeTokenAddress
+    : (symbolResolvedMarketAssetIdentity?.tokenAddress ??
+      selectedTokenVariant?.contractAddress ??
+      routeTokenAddress);
+  const requestIsNative =
+    symbolResolvedMarketAssetIdentity?.isNative ?? routeIsNative;
   const disableTrade = params.disableTrade;
-  const marketTokenId =
-    resolvedMarketAssetIdentity?.marketTokenId ?? routeMarketTokenId;
-  const marketVariantId =
-    resolvedMarketAssetIdentity?.marketVariantId ??
+  const requestMarketTokenId =
+    symbolResolvedMarketAssetIdentity?.marketTokenId ?? routeMarketTokenId;
+  const requestMarketVariantId =
+    symbolResolvedMarketAssetIdentity?.marketVariantId ??
     ('marketVariantId' in params ? params.marketVariantId : undefined);
-  const marketTokenCategory = resolvedMarketAssetIdentity
+  const requestMarketTokenCategory = symbolResolvedMarketAssetIdentity
     ? MARKET_TOP_COINS_CATEGORY_ID
     : (routeMarketTokenCategory ??
       (shouldSkipMarketDataFetch ? MARKET_TOP_COINS_CATEGORY_ID : undefined));
@@ -252,6 +250,34 @@ function MarketDetail({
     () => parseTokenDetailPreviewParam(routeTokenDetailPreview),
     [routeTokenDetailPreview],
   );
+  const {
+    marketAssetDetail,
+    isMarketAssetDetailLoading,
+    isInitialTokenDetailPending,
+    resolvedMarketAssetIdentity: assetOnlyResolvedIdentity,
+    hasAssetError: assetIdentityError,
+    retryAssetDetail: retryAssetIdentity,
+  } = useAutoRefreshTokenDetail({
+    active: shouldOwnSharedMarketDetailState,
+    resumeOnEffectReconnect: usesRetainedMarketDetailRoutes,
+    tokenAddress: requestTokenAddress,
+    networkId: requestNetworkId,
+    isNative: requestIsNative,
+    skipMarketDataFetch: skipMarketDataFetch || shouldSkipMarketDataFetch,
+    marketTokenId: requestMarketTokenId,
+    marketVariantId: requestMarketVariantId,
+    marketTokenCategory: requestMarketTokenCategory,
+  });
+  const resolvedMarketAssetIdentity =
+    assetOnlyResolvedIdentity ?? symbolResolvedMarketAssetIdentity;
+  const networkId = resolvedMarketAssetIdentity?.networkId ?? requestNetworkId;
+  const tokenAddress =
+    resolvedMarketAssetIdentity?.tokenAddress ?? requestTokenAddress;
+  const isNativeBoolean =
+    resolvedMarketAssetIdentity?.isNative ?? requestIsNative;
+  const marketTokenId =
+    resolvedMarketAssetIdentity?.marketTokenId ?? requestMarketTokenId;
+  const marketTokenCategory = requestMarketTokenCategory;
   const resolvedTokenDetailPreview = useMemo(
     () =>
       resolvedMarketAssetIdentity && tokenDetailPreview
@@ -284,22 +310,6 @@ function MarketDetail({
 
   // Start auto-refresh for token details every 6 seconds
   // Use actualNetworkId (converted from shortcode if needed) for API calls
-  const {
-    marketAssetDetail,
-    isMarketAssetDetailLoading,
-    isInitialTokenDetailPending,
-  } = useAutoRefreshTokenDetail({
-    active: shouldOwnSharedMarketDetailState,
-    resumeOnEffectReconnect: usesRetainedMarketDetailRoutes,
-    tokenAddress,
-    networkId,
-    isNative: isNativeBoolean,
-    skipMarketDataFetch: skipMarketDataFetch || shouldSkipMarketDataFetch,
-    marketTokenId,
-    marketVariantId,
-    marketTokenCategory,
-    initialMarketAssetDetail,
-  });
   // Desktop/Web detail screens stay mounted in the navigation stack. Only the
   // focused screen may own the shared Swap state and page footer. Keep that
   // owner mounted while a child modal is open so quote listeners remain
@@ -390,7 +400,10 @@ function MarketDetail({
           ) : (
             <MarketDetailResponsiveLayout
               active={shouldOwnSharedMarketDetailState}
-              isLayoutPending={shouldSkipMarketDataFetch}
+              isLayoutPending={
+                shouldSkipMarketDataFetch ||
+                (isAssetOnlyRoute && !resolvedMarketAssetIdentity)
+              }
               disablePerpsBanner={skipMarketDataFetch}
               isInitialContentPending={
                 !hasValidInitialContentPreview &&

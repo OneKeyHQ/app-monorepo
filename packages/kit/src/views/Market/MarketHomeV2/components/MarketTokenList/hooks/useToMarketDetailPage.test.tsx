@@ -817,6 +817,7 @@ describe('useToDetailPage', () => {
     await act(async () => {
       await result.current({
         assetId: 'bitcoin',
+        marketVariantId: 'bitcoin-evm--1-0xbtc',
         networkId: 'evm--1',
         tokenAddress: '0xbtc',
         symbol: 'BTC',
@@ -827,6 +828,7 @@ describe('useToDetailPage', () => {
 
     expect(fetchMarketAssetDetail).toHaveBeenCalledWith({
       assetId: 'bitcoin',
+      variantId: 'bitcoin-evm--1-0xbtc',
       currency: 'usd',
       autoHandleError: false,
       reuseInitialResult: true,
@@ -835,6 +837,7 @@ describe('useToDetailPage', () => {
       isNative: undefined,
       from: undefined,
       marketTokenId: 'bitcoin',
+      marketVariantId: 'bitcoin-evm--1-0xbtc',
       marketTokenCategory: 'top_coins',
       disableTrade: true,
       showFavoriteButton: false,

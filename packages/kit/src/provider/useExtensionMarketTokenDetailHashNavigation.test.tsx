@@ -144,13 +144,14 @@ describe('useExtensionMarketTokenDetailHashNavigation', () => {
   it('parses an Asset-only hash into the existing token detail route', () => {
     expect(
       getMarketTokenDetailNavigationTargetFromHash(
-        '#/market/token?marketTokenId=bitcoin&marketTokenCategory=top_coins&disableTrade=true',
+        '#/market/token?marketTokenId=bitcoin&marketTokenCategory=top_coins&marketVariantId=bitcoin-evm--1-0xbtc&disableTrade=true',
       ),
     ).toEqual({
       screen: ETabMarketRoutes.MarketDetailV2,
       params: {
         marketTokenId: 'bitcoin',
         marketTokenCategory: 'top_coins',
+        marketVariantId: 'bitcoin-evm--1-0xbtc',
         disableTrade: true,
       },
     });

@@ -155,6 +155,7 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
             name: selectedItem.name,
             networkId: '',
             tokenAddress: '',
+            marketVariantId: selectedToken.marketVariantId,
             disableTrade: selectedToken.disableTrade,
             showFavoriteButton: selectedToken.showFavoriteButton,
           }
@@ -165,6 +166,7 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
         void backgroundApiProxy.serviceMarket
           .fetchMarketAssetDetail({
             assetId: item.assetId,
+            variantId: item.marketVariantId,
             currency: 'usd',
             autoHandleError: false,
             reuseInitialResult: true,
