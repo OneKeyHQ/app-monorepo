@@ -90,7 +90,7 @@ function StockTickerList({ closePopover }: { closePopover: () => void }) {
       <Stack px="$4" pt="$4" pb="$4">
         <SearchBar
           testID="swap-stock-ticker-search"
-          autoFocus
+          autoFocus={!platformEnv.isNative}
           placeholder={intl.formatMessage({
             id: ETranslations.placeholder_stock_search,
           })}
