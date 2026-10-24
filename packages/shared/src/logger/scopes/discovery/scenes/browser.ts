@@ -20,7 +20,11 @@ export type IBrowserToolbarAction =
   | 'copyUrl'
   | 'openInBrowser'
   | 'siteMode'
-  | 'switchNetwork';
+  | 'switchNetwork'
+  | 'bookmark'
+  | 'pin'
+  | 'disconnect'
+  | 'closeTab';
 
 export class BrowserScene extends BaseScene {
   @LogToLocal({ level: 'info' })
@@ -98,8 +102,9 @@ export class BrowserScene extends BaseScene {
   }
 
   // Mobile browser chrome usage (bottom bar, its menu, header), to see which
-  // controls earn a top-level slot. Menu actions that already have their own
-  // event (bookmark, pin, close tab, disconnect) are not repeated here.
+  // controls earn a top-level slot. Menu actions that also have their own
+  // event (bookmark, pin, close tab, disconnect) are logged here too, to
+  // attribute them to the menu.
   @LogToServer()
   @LogToLocal()
   public browserToolbarAction(params: {

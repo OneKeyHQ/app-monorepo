@@ -301,6 +301,13 @@ export function useMobileBrowserOptions(props: IMobileBottomOptionsProps) {
       onCopyUrl: withMenuLog('copyUrl', current.onCopyUrl),
       onBrowserOpen: withMenuLog('openInBrowser', current.onBrowserOpen),
       onRequestSiteMode: withMenuLog('siteMode', current.onRequestSiteMode),
+      // These also have their own events (addBookmark, pinTab, disconnect,
+      // closeTab) that don't say where they came from; closeTab from the tab
+      // list and from this menu even share closeMethod 'Menu'.
+      onBookmarkPress: withMenuLog('bookmark', current.onBookmarkPress),
+      onPinnedPress: withMenuLog('pin', current.onPinnedPress),
+      onDisconnect: withMenuLog('disconnect', current.onDisconnect),
+      onCloseTab: withMenuLog('closeTab', current.onCloseTab),
     });
     ActionList.show({
       title: intl.formatMessage({ id: ETranslations.explore_options }),
