@@ -173,7 +173,7 @@ function FeeInfoItem({
   );
 }
 
-function TxFeeEditor(props: IProps) {
+function TxFeeEditorContent(props: IProps) {
   const {
     networkId,
     feeSelectorItems: feeSelectorItemsProp,
@@ -2177,6 +2177,21 @@ function TxFeeEditor(props: IProps) {
       </Stack>
     </>
   );
+}
+
+function TxFeeEditor(props: IProps) {
+  const feeDecimals = (props.originalCustomFee ?? props.selectedFee?.feeInfo)
+    ?.common?.feeDecimals;
+
+  if (
+    typeof feeDecimals !== 'number' ||
+    !Number.isSafeInteger(feeDecimals) ||
+    feeDecimals < 0
+  ) {
+    return null;
+  }
+
+  return <TxFeeEditorContent {...props} />;
 }
 
 export { TxFeeEditor };
