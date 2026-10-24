@@ -159,6 +159,20 @@ export function getTokenIdentityKey(token?: Partial<ISwapTokenBase>) {
   }`;
 }
 
+// Stock token keys this app run has already settled against the default
+// issuer rule: checked once, picked by the user, or brought in by an explicit
+// entry such as Market's Buy/Sell. In memory only, so a cold start checks a
+// restored token again while tab switches keep the user's own picks.
+const settledSwapStockTokenKeys = new Set<string>();
+
+export function settleSwapStockTokenKey(key: string) {
+  if (key) settledSwapStockTokenKeys.add(key);
+}
+
+export function isSwapStockTokenKeySettled(key: string) {
+  return settledSwapStockTokenKeys.has(key);
+}
+
 export function resolveDisplayedStockToken({
   coldStartStockToken,
   controlledStockToken,
