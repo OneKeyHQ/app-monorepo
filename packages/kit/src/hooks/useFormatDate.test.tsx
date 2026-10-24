@@ -53,4 +53,14 @@ describe('useFormatDate', () => {
     rerender();
     expect(result.current.formatDate(date)).toBe('10/14/2026 19:26');
   });
+
+  it('honors custom templates and time zones with the hook precision defaults', () => {
+    const { result } = renderHook(() => useFormatDate());
+    expect(
+      result.current.formatDate('2026-10-14T16:26:32Z', {
+        formatTemplate: 'yyyy/LL/dd, HH:mm:ss',
+        timeZone: 'Asia/Shanghai',
+      }),
+    ).toBe('2026/10/15, 00:26');
+  });
 });

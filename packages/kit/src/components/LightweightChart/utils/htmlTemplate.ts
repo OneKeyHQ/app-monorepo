@@ -138,6 +138,18 @@ function getChartInitScript(): string {
       var timeScaleFormatterCache = new Map();
       function formatTimeScaleTickMark(time, tickMarkType, nextConfig) {
         var date = new Date(time * 1000);
+        if (tickMarkType === 1) {
+          var monthKey = 'month:' + (nextConfig.locale || 'en') + ':' + (nextConfig.timeZone || '');
+          var monthFormatter = timeScaleFormatterCache.get(monthKey);
+          if (!monthFormatter) {
+            monthFormatter = new Intl.DateTimeFormat(nextConfig.locale || 'en', {
+              month: 'short', calendar: 'gregory', numberingSystem: 'latn',
+              timeZone: nextConfig.timeZone,
+            });
+            timeScaleFormatterCache.set(monthKey, monthFormatter);
+          }
+          return monthFormatter.format(date);
+        }
         var formatterKey = nextConfig.timeZone || '';
         var formatter = timeScaleFormatterCache.get(formatterKey);
         if (!formatter) {
@@ -152,7 +164,6 @@ function getChartInitScript(): string {
         var parts = {};
         formatter.formatToParts(date).forEach(function(part) { parts[part.type] = part.value; });
         if (tickMarkType === 0) return parts.year;
-        if (tickMarkType === 1) return parts.month;
         if (tickMarkType === 2) return parts.day;
         if (tickMarkType === 3) return parts.hour + ':' + parts.minute;
         if (tickMarkType === 4) return parts.hour + ':' + parts.minute + ':' + parts.second;

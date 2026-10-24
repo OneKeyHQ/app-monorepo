@@ -217,6 +217,51 @@ describe('App date and time display policy', () => {
     ).toBe('14/10/2026 19:26');
   });
 
+  it('honors the requested time zone with explicit date and time templates', () => {
+    const date = '2026-10-14T16:26:32.007Z';
+    expect(
+      formatDate(date, {
+        formatTemplate: "yyyy-MM-dd'T'HH:mm:ss.SSSXXX",
+        timeZone: 'America/New_York',
+        locale: 'en',
+      }),
+    ).toBe('2026-10-14T12:26:32.007-04:00');
+    expect(
+      formatTime(date, {
+        formatTemplate: 'yyyyLLdd-HHmmss.SSS',
+        timeZone: 'Asia/Shanghai',
+      }),
+    ).toBe('20261015-002632.007');
+    expect(
+      formatDate(date, {
+        formatTemplate: 'yyyy/LL/dd, HH:mm:ss',
+        timeZone: 'Asia/Shanghai',
+        hideYear: true,
+        hideSeconds: true,
+      }),
+    ).toBe('10/15, 00:26');
+    expect(
+      formatTime(date, {
+        formatTemplate: 'HH:mm:ss.SSS',
+        timeZone: 'UTC',
+        hideSeconds: true,
+      }),
+    ).toBe('16:26');
+  });
+
+  it('preserves distinct DST offsets for repeated hours in explicit templates', () => {
+    const options = {
+      formatTemplate: 'yyyy-MM-dd HH:mm XXX',
+      timeZone: 'America/New_York',
+    };
+    expect(formatDate('2026-11-01T05:30:00Z', options)).toBe(
+      '2026-11-01 01:30 -04:00',
+    );
+    expect(formatDate('2026-11-01T06:30:00Z', options)).toBe(
+      '2026-11-01 01:30 -05:00',
+    );
+  });
+
   it.each([new Date(Number.NaN), 'invalid'])(
     'renders invalid dates as a placeholder',
     (date) => {

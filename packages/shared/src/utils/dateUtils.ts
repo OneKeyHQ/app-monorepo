@@ -10,6 +10,7 @@ import {
   millisecondsToSeconds,
   parseISO,
 } from 'date-fns';
+import { formatInTimeZone } from 'date-fns-tz';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
@@ -201,6 +202,7 @@ export function formatDateFns(
   date: Date | string,
   _format?: string,
   localeSymbol: ILocaleSymbol = appLocale.getLocale(),
+  timeZone?: string,
 ) {
   let parsedDate: Date;
   if (typeof date === 'string') {
@@ -209,13 +211,11 @@ export function formatDateFns(
     parsedDate = date;
   }
   try {
-    return fnsFormat(
-      parsedDate,
-      _format ?? `${getDateFormatTemplate(localeSymbol)} HH:mm`,
-      {
-        locale: parseToDateFnsLocale(localeSymbol),
-      },
-    );
+    const template = _format ?? `${getDateFormatTemplate(localeSymbol)} HH:mm`;
+    const options = { locale: parseToDateFnsLocale(localeSymbol) };
+    return timeZone
+      ? formatInTimeZone(parsedDate, timeZone, template, options)
+      : fnsFormat(parsedDate, template, options);
   } catch (_error) {
     return '-';
   }
@@ -279,7 +279,9 @@ export function formatDate(date: Date | string, options?: IFormatDateOptions) {
   if (options.onlyTime) {
     formatTemplate = options.hideSeconds ? 'HH:mm' : 'HH:mm:ss';
   }
-  return formatDateFns(parsedDate, formatTemplate, locale) ?? '';
+  return (
+    formatDateFns(parsedDate, formatTemplate, locale, options.timeZone) ?? ''
+  );
 }
 
 export function formatMonth(
@@ -414,7 +416,14 @@ export function formatTime(date: Date | string, options?: IFormatDateOptions) {
       formatTemplate,
     );
   }
-  return formatDateFns(parsedDate, formatTemplate, options?.locale) ?? '';
+  return (
+    formatDateFns(
+      parsedDate,
+      formatTemplate,
+      options?.locale,
+      options?.timeZone,
+    ) ?? ''
+  );
 }
 
 export function formatMillisecondsToDays(milliseconds: number): number {

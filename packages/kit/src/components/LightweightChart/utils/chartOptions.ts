@@ -35,6 +35,8 @@ const CHART_TICK_MARK_TYPE = {
   TimeWithSeconds: 4,
 } as const;
 
+const monthLabelFormatters = new Map<string, Intl.DateTimeFormat>();
+
 function padTimePart(value: number) {
   return value.toString().padStart(2, '0');
 }
@@ -129,8 +131,6 @@ function getTimeScaleTemplate(
   switch (tickMarkType) {
     case CHART_TICK_MARK_TYPE.Year:
       return 'yyyy';
-    case CHART_TICK_MARK_TYPE.Month:
-      return 'MM';
     case CHART_TICK_MARK_TYPE.DayOfMonth:
       return 'dd';
     case CHART_TICK_MARK_TYPE.Time:
@@ -179,6 +179,21 @@ export function formatChartTickMarkInTimeZone({
 
   if (!Number.isFinite(date.getTime())) {
     return null;
+  }
+
+  if (tickMarkType === CHART_TICK_MARK_TYPE.Month) {
+    const key = `${locale ?? 'en'}:${formatterTimeZone}`;
+    let formatter = monthLabelFormatters.get(key);
+    if (!formatter) {
+      formatter = new Intl.DateTimeFormat(locale ?? 'en', {
+        month: 'short',
+        calendar: 'gregory',
+        numberingSystem: 'latn',
+        timeZone: formatterTimeZone,
+      });
+      monthLabelFormatters.set(key, formatter);
+    }
+    return formatter.format(date);
   }
 
   return formatDateTimeParts(

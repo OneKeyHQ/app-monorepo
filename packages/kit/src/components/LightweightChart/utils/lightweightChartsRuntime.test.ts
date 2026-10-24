@@ -5,6 +5,7 @@ import type { ILightweightChartConfig } from '../types';
 import type {
   IPrimitivePaneRenderer,
   ISeriesPrimitive,
+  TickMarkFormatter,
   UTCTimestamp,
 } from 'lightweight-charts';
 
@@ -126,7 +127,12 @@ function createNativeChartPage(
   runInNewContext(document.scripts[1].textContent ?? '', {
     document,
     window: pageWindow,
-    Date: { now: () => 1000 },
+    Date: new Proxy(Date, {
+      get: (dateConstructor, property): unknown =>
+        property === 'now'
+          ? () => 1000
+          : Reflect.get(dateConstructor, property),
+    }),
     LightweightCharts: {
       createChart: () => chart,
       CrosshairMode: { Normal: 0 },
@@ -151,6 +157,28 @@ function createNativeChartPage(
     getView,
   };
 }
+
+it.each([
+  ['en', 'Nov'],
+  ['zh-CN', '11月'],
+  ['fr-FR', 'nov.'],
+])(
+  'keeps WebView month-boundary labels distinct from days in %s',
+  (locale, month) => {
+    const { chart } = createNativeChartPage({
+      timeZone: 'Asia/Shanghai',
+      locale,
+    });
+    const options = chart.applyOptions.mock.calls.at(-1)?.[0] as
+      | { timeScale?: { tickMarkFormatter?: TickMarkFormatter } }
+      | undefined;
+    const tick = options?.timeScale?.tickMarkFormatter;
+    const time = (Date.UTC(2026, 9, 31, 16) / 1000) as UTCTimestamp;
+    expect(tick).toBeDefined();
+    expect(tick?.(time, 1, locale)).toBe(month);
+    expect(tick?.(time, 2, locale)).toBe('01');
+  },
+);
 
 it('scrubs locally on the cursor layer and clears immediately when touch tracking exits', () => {
   const {
