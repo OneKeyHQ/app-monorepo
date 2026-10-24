@@ -15,7 +15,6 @@ import {
   XStack,
   useThemeName,
 } from '@onekeyhq/components';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import {
   BROWSER_CHROME_CAPSULE_HEIGHT,
@@ -28,6 +27,7 @@ import { usePageTheme, withAlpha } from '../../utils/pageThemeColor';
 
 import { AddressCapsuleTitle } from './AddressCapsuleTitle';
 import {
+  CAPSULE_BACK_BUTTON_PULL,
   CAPSULE_BUTTON_HIT_SLOP,
   getBarCapsuleBottom,
   getBarReservedHeight,
@@ -391,7 +391,7 @@ function MobileBrowserBottomBar({ id, chrome }: IMobileBrowserBottomBarProps) {
                     // Android: the solid capsule left a wider gap between the
                     // narrow chevron and the site badge than to the capsule
                     // edge; pull it in (iOS glass was already even).
-                    mr={platformEnv.isNativeAndroid ? -6 : undefined}
+                    mr={-CAPSULE_BACK_BUTTON_PULL}
                     disabled={disabledGoBack}
                     accessible={!disabledGoBack}
                     testID={DiscoveryTestIDs.browserBackButton}

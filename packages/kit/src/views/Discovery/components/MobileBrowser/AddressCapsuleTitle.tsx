@@ -17,7 +17,11 @@ import { useUrlRiskConfig } from '../../hooks/useUrlRiskConfig';
 import { DiscoveryTestIDs } from '../../testIDs';
 import { DappInfoPopoverContent } from '../DappInfoPopoverContent';
 
-import { getDisplayHostname, logBrowserChromeAction } from './browserChrome';
+import {
+  CAPSULE_BACK_BUTTON_PULL,
+  getDisplayHostname,
+  logBrowserChromeAction,
+} from './browserChrome';
 import { ChromePressable } from './ChromePressable';
 
 // The site badge is the same 20pt icon box as the capsule's menu and reload
@@ -247,7 +251,10 @@ export function AddressCapsuleTitle({
         <XStack flex={1} pl="$2" alignItems="center" justifyContent="center">
           <DomainLabel
             testID={DiscoveryTestIDs.searchBar}
-            trailingBalance={RISK_ICON_WIDTH + 8}
+            // Mirrors what sits left of the domain but not right of it (the
+            // badge and its gap, less the back button's pull) so the domain
+            // centers in the whole capsule.
+            trailingBalance={RISK_ICON_WIDTH + 8 - CAPSULE_BACK_BUTTON_PULL}
             text={
               url
                 ? hostname

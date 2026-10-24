@@ -31,6 +31,10 @@ export interface IMobileBrowserChrome {
 // handle near its top, so the chrome sits fully above it.
 const isAndroid = platformEnv.isNativeAndroid;
 
+// Android only: how far the capsule's back button is pulled toward the site
+// badge (its narrow chevron left a wider gap there on the solid capsule).
+export const CAPSULE_BACK_BUTTON_PULL = isAndroid ? 6 : 0;
+
 // Sits just above the home indicator / gesture handle.
 export function getCollapsedPillBottom(bottomInset: number) {
   return isAndroid ? bottomInset + 4 : Math.max(bottomInset - 20, 8);
