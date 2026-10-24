@@ -21,6 +21,7 @@ import {
 import { MARKET_TOP_COINS_CATEGORY_ID } from '@onekeyhq/shared/src/consts/marketConsts';
 import LazyLoad from '@onekeyhq/shared/src/lazyLoad';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import type { IMarketStockDetailInitialSection } from '@onekeyhq/shared/src/routes';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { IMarketAssetDetailData } from '@onekeyhq/shared/types/market';
 
@@ -48,7 +49,10 @@ import {
 } from '../utils/marketTokenIdentity';
 import { buildMarketStockTokenMetadata } from '../utils/resolveIsStockToken';
 
-import { StockDesktopLayout } from './StockDesktopLayout';
+import {
+  STOCK_DETAIL_TABS_TEST_ID,
+  StockDesktopLayout,
+} from './StockDesktopLayout';
 import { TokenDesktopLayout } from './TokenDesktopLayout';
 import { TopCoinsDesktopLayout } from './TopCoinsDesktopLayout';
 
@@ -157,6 +161,8 @@ export interface IDesktopLayoutProps {
   marketTokenCategory?: string;
   disableTrade?: boolean;
   showFavoriteButton?: boolean;
+  initialSection?: IMarketStockDetailInitialSection;
+  onInitialSectionShown?: () => void;
 }
 
 export function DesktopLayout({
@@ -175,6 +181,8 @@ export function DesktopLayout({
   marketTokenCategory,
   disableTrade,
   showFavoriteButton = true,
+  initialSection,
+  onInitialSectionShown,
 }: IDesktopLayoutProps) {
   const {
     tokenAddress: storeTokenAddress,
@@ -195,6 +203,7 @@ export function DesktopLayout({
     selectedTokenVariant,
     stockDetail,
     stockId,
+    isStockDetailReady,
   } = useStockDetail();
   const shouldUseStockDesktopLayout = isStockRoute && Boolean(stockId);
   const shouldUseTopCoinsDesktopLayout =
@@ -378,6 +387,38 @@ export function DesktopLayout({
   useEffect(() => {
     scrollContainerRef.current?.scrollTo({ top: 0 });
   }, [networkId, stockId, tokenAddress]);
+  // Entries from a page that already shows this chart (Swap's "view full
+  // data") open on Overview instead, or the jump looks like it did nothing.
+  // Waits for the stock detail so the header above has its final height.
+  useEffect(() => {
+    if (
+      initialSection !== 'overview' ||
+      !shouldUseStockDesktopLayout ||
+      !isStockDetailReady
+    ) {
+      return;
+    }
+    const frame = requestAnimationFrame(() => {
+      const container = scrollContainerRef.current;
+      const anchor = container?.querySelector(
+        `[data-testid="${STOCK_DETAIL_TABS_TEST_ID}"]`,
+      );
+      if (!container || !anchor) return;
+      container.scrollTo({
+        top:
+          anchor.getBoundingClientRect().top -
+          container.getBoundingClientRect().top +
+          container.scrollTop,
+      });
+      onInitialSectionShown?.();
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [
+    initialSection,
+    isStockDetailReady,
+    onInitialSectionShown,
+    shouldUseStockDesktopLayout,
+  ]);
   useIframeWheelPassthrough({
     disabled: isChartFullscreen || isTradingViewNative,
     scrollRef: scrollContainerRef,

@@ -672,6 +672,9 @@ export function SwapStockMarketPanel() {
                 logoUrl: stockDetail?.logoUrl ?? '',
                 networkId: currentStockToken?.networkId,
                 tokenAddress: currentStockToken?.contractAddress,
+                // This panel already shows the chart; landing on the same
+                // chart reads as if nothing happened (OK-64089).
+                initialSection: 'overview',
               });
           }}
         >

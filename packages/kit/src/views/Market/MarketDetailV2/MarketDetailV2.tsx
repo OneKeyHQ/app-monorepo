@@ -142,6 +142,7 @@ function MarketDetail({
   onChartSwitch,
   onChartFullscreenChange,
   route,
+  navigation,
 }: IPageScreenProps<
   ITabMarketParamList,
   | ETabMarketRoutes.MarketDetailV2
@@ -244,6 +245,13 @@ function MarketDetail({
     params.showFavoriteButton,
     true,
   );
+  const initialSection =
+    'initialSection' in params ? params.initialSection : undefined;
+  // One-shot: once shown, going back or switching stocks keeps the user's
+  // own scroll position instead of jumping again.
+  const handleInitialSectionShown = useCallback(() => {
+    navigation.setParams({ initialSection: undefined });
+  }, [navigation]);
   const routeTokenDetailPreview =
     'legacyTokenPreview' in params ? params.legacyTokenPreview : undefined;
   const tokenDetailPreview = useMemo(
@@ -393,6 +401,8 @@ function MarketDetail({
             marketTokenCategory={marketTokenCategory}
             showFavoriteButton={showFavoriteButton}
             disableTrade={shouldDisableTrade}
+            initialSection={initialSection}
+            onInitialSectionShown={handleInitialSectionShown}
           />
         </Page.Body>
       </Page>

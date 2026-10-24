@@ -31,6 +31,7 @@ import {
   ERootRoutes,
   ETabMarketRoutes,
   ETabRoutes,
+  type IMarketStockDetailInitialSection,
   type ITabMarketParamList,
 } from '@onekeyhq/shared/src/routes';
 import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
@@ -55,6 +56,7 @@ export type IMarketStockDetailNavigationTarget = IMarketStockDetailPreview &
     tokenAddress?: string;
     networkId?: string;
     isNative?: boolean;
+    initialSection?: IMarketStockDetailInitialSection;
   };
 
 export type IMarketStockDetailNavigationInput =
@@ -324,6 +326,9 @@ export function useToMarketStockDetailPage(
                   stockPreviewLogoUrl: stockPreview.logoUrl,
                   ...(stockPreviewQuote ? { stockPreviewQuote } : undefined),
                 }
+              : undefined),
+            ...(stockPreview?.initialSection
+              ? { initialSection: stockPreview.initialSection }
               : undefined),
           },
         },

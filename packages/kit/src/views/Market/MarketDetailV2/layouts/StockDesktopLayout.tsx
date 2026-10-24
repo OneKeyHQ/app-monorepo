@@ -100,6 +100,10 @@ import {
 
 type IStockDetailTab = 'overview' | 'position';
 
+// The Overview / My position tab row: the anchor for entries that open the
+// page below the chart.
+export const STOCK_DETAIL_TABS_TEST_ID = 'stock-detail-tabs';
+
 function StockPageHeader({
   showFavoriteButton,
 }: {
@@ -1196,6 +1200,7 @@ function StockOverview({
   return (
     <YStack>
       <XStack
+        testID={STOCK_DETAIL_TABS_TEST_ID}
         height={44}
         px={STOCK_DETAIL_HORIZONTAL_GUTTER}
         gap="$6"
