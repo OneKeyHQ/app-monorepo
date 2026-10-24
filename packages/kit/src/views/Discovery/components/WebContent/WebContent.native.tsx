@@ -1,7 +1,7 @@
 import type { Dispatch, SetStateAction } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { Progress, Stack, useBackHandler } from '@onekeyhq/components';
+import { Stack, useBackHandler } from '@onekeyhq/components';
 import WebView from '@onekeyhq/kit/src/components/WebView';
 import {
   notifyTabNavigation,
@@ -32,6 +32,8 @@ import {
 } from '../../utils/pageThemeColor';
 import { showTabBar } from '../../utils/tabBarUtils';
 import BlockAccessView from '../BlockAccessView';
+
+import BrowserLoadingBar from './BrowserLoadingBar';
 
 import type { IWebTab } from '../../types';
 import type { IJsBridgeReceiveHandler } from '@onekeyfe/cross-inpage-provider-types';
@@ -303,24 +305,6 @@ function WebContent({
     ],
   );
 
-  const progressBar = useMemo(() => {
-    if (progress < 100) {
-      return (
-        <Progress
-          value={progress}
-          width="100%"
-          position="absolute"
-          left={0}
-          top={0}
-          right={0}
-          zIndex={10}
-          borderRadius={0}
-        />
-      );
-    }
-    return null;
-  }, [progress]);
-
   const blockAccessView = useMemo(
     () => (
       <Stack position="absolute" top={0} bottom={0} left={0} right={0}>
@@ -345,7 +329,7 @@ function WebContent({
 
   return (
     <>
-      {progressBar}
+      <BrowserLoadingBar progress={progress} />
       {webview}
       {showBlockAccessView ? blockAccessView : null}
     </>
