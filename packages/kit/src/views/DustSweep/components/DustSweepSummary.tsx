@@ -371,7 +371,10 @@ export function DustSweepResult({
             key={graphicStatus}
             entering={animateLayout ? graphicEntering : undefined}
           >
-            <SwapTransactionResultStatus status={graphicStatus} />
+            <SwapTransactionResultStatus
+              status={graphicStatus}
+              paused={state.phase === 'paused'}
+            />
           </Animated.View>
           <XStack
             testID="dust-sweep-result-title"

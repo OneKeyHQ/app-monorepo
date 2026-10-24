@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -13,6 +13,7 @@ import {
   YStack,
   useMedia,
 } from '@onekeyhq/components';
+import type { ILottieViewHandle } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { SUPPORT_URL } from '@onekeyhq/shared/src/config/appConfig';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -34,11 +35,26 @@ export function SwapTransactionResultStatus({
   status,
   size = 110,
   animated = true,
+  paused = false,
 }: {
   status: 'success' | 'failed' | 'pending';
   size?: number;
   animated?: boolean;
+  // Holds the pending hourglass on its current frame (a paused dust sweep);
+  // clearing it continues from there.
+  paused?: boolean;
 }) {
+  const lottieRef = useRef<ILottieViewHandle>(null);
+  const wasPausedRef = useRef(false);
+  useEffect(() => {
+    if (paused) {
+      wasPausedRef.current = true;
+      lottieRef.current?.pause();
+    } else if (wasPausedRef.current) {
+      wasPausedRef.current = false;
+      lottieRef.current?.resume();
+    }
+  }, [paused, status]);
   if (status === 'failed') return <Illustration size={size} name="XMark" />;
   if (!animated)
     return (
@@ -53,6 +69,7 @@ export function SwapTransactionResultStatus({
     );
   return (
     <LottieView
+      ref={lottieRef}
       source={
         status === 'success'
           ? require('@onekeyhq/kit/assets/animations/lottie-swap-done.json')
