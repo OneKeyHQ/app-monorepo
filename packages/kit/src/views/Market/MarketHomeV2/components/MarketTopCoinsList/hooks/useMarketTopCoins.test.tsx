@@ -119,7 +119,7 @@ describe('useMarketTopCoins', () => {
     serviceMarket.fetchMarketAssetDetail.mockRejectedValue(
       new Error('utility unavailable'),
     );
-    serviceToken.fetchTokenInfoOnly.mockResolvedValue({
+    serviceToken.fetchTokenInfoOnly.mockReset().mockResolvedValue({
       info: { decimals: 8 },
     } as Awaited<ReturnType<typeof serviceToken.fetchTokenInfoOnly>>);
     mockToMarketDetailPage.mockResolvedValue(undefined);
@@ -139,7 +139,9 @@ describe('useMarketTopCoins', () => {
         currency: 'usd',
       },
     ]);
-    expect(serviceToken.fetchTokenInfoOnly.mock.calls).toHaveLength(0);
+    expect(serviceToken.fetchTokenInfoOnly.mock.calls).toEqual([
+      [{ networkId: 'evm--1', tokenAddress: '0xbtc' }],
+    ]);
     expect(mockToMarketDetailPage).toHaveBeenCalledWith({
       address: '0xbtc',
       change24h: 1,
@@ -176,7 +178,32 @@ describe('useMarketTopCoins', () => {
         marketVariantId: 'btc-evm--1-0xbtc',
       }),
     );
-    expect(serviceToken.fetchTokenInfoOnly.mock.calls).toHaveLength(0);
+    expect(serviceToken.fetchTokenInfoOnly.mock.calls).toHaveLength(1);
+    expect(
+      serviceToken.fetchTokenInfoOnly.mock.invocationCallOrder[0],
+    ).toBeLessThan(mockToMarketDetailPage.mock.invocationCallOrder[0]);
+    expect(Toast.error).not.toHaveBeenCalled();
+  });
+
+  it('keeps navigation available when metadata prefetch fails', async () => {
+    serviceMarket.fetchMarketAssetDetail.mockResolvedValueOnce(bitcoinDetail);
+    serviceToken.fetchTokenInfoOnly.mockRejectedValueOnce(
+      new Error('metadata unavailable'),
+    );
+    const { result } = renderHook(() => useMarketTopCoins());
+
+    await act(async () => {
+      await result.current.handleItemPress(bitcoin);
+    });
+
+    expect(serviceToken.fetchTokenInfoOnly.mock.calls).toHaveLength(1);
+    expect(mockToMarketDetailPage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        decimals: undefined,
+        marketTokenId: 'btc',
+        marketVariantId: 'btc-evm--1-0xbtc',
+      }),
+    );
     expect(Toast.error).not.toHaveBeenCalled();
   });
 
