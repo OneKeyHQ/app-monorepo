@@ -1171,6 +1171,8 @@ async function resolveTargetDevice({
   chooseDevice = promptIosSimulator,
   runForOutputCommand = runForOutput,
   runCheckedCommand = runChecked,
+  fileSystem = fs,
+  developerDirectory = process.env.DEVELOPER_DIR,
 }) {
   const candidates =
     platform === 'android'
@@ -1209,13 +1211,43 @@ async function resolveTargetDevice({
   if (platform === 'ios' && !selected.physical) {
     // Wait for the selected simulator to finish booting, starting it if necessary.
     runCheckedCommand('xcrun', ['simctl', 'bootstatus', selected.id, '-b']);
-    runCheckedCommand('open', [
-      '-a',
-      'Simulator',
-      '--args',
-      '-CurrentDeviceUDID',
-      selected.id,
-    ]);
+    const selectedXcodePath = path.resolve(
+      developerDirectory?.trim() ||
+        runForOutputCommand('xcode-select', ['-p']).trim(),
+    );
+    const selectedDeveloperDirectory = selectedXcodePath.endsWith('.app')
+      ? path.join(selectedXcodePath, 'Contents', 'Developer')
+      : selectedXcodePath;
+    const simulatorApp = path.join(
+      selectedDeveloperDirectory,
+      'Applications',
+      'Simulator.app',
+    );
+    const deviceHubApp = path.resolve(
+      selectedDeveloperDirectory,
+      '..',
+      'Applications',
+      'DeviceHub.app',
+    );
+    if (fileSystem.existsSync(simulatorApp)) {
+      runCheckedCommand('open', [
+        '-a',
+        simulatorApp,
+        '--args',
+        '-CurrentDeviceUDID',
+        selected.id,
+      ]);
+    } else if (fileSystem.existsSync(deviceHubApp)) {
+      runCheckedCommand('open', [
+        '-a',
+        deviceHubApp,
+        `devices://device/open?id=${encodeURIComponent(selected.id)}`,
+      ]);
+    } else {
+      throw new Error(
+        `[nativeDevShell] Neither Simulator.app nor DeviceHub.app exists in selected Xcode: ${selectedDeveloperDirectory}`,
+      );
+    }
   }
   return selected;
 }

@@ -1,10 +1,4 @@
-import {
-  useCallback,
-  useImperativeHandle,
-  useMemo,
-  useRef,
-  useState,
-} from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import type { ReactNode, Ref } from 'react';
 
 import { View } from 'react-native';
@@ -88,10 +82,16 @@ export function AppPager({
   isRouteFocused = true,
 }: IAppPagerProps) {
   const pagerRef = useRef<WebCollapsiblePagerView>(null);
+  const restoreScrollPosition = useCallback(
+    () => pagerRef.current?.restoreScrollPosition() ?? false,
+    [],
+  );
   const controller = useAppPagerController({
     pages,
     initialTabName,
     pagerRef,
+    ref,
+    restoreScrollPosition,
     onSelectionChange: (event) => {
       onTabChange?.(event);
     },
@@ -101,26 +101,7 @@ export function AppPager({
     () => setResetGeneration((value) => value + 1),
     [],
   );
-  const {
-    setIndex,
-    jumpToTab,
-    getCurrentIndex,
-    getFocusedTab,
-    syncCurrentPage,
-  } = controller;
-  useImperativeHandle(
-    ref,
-    () => ({
-      setIndex,
-      jumpToTab,
-      getCurrentIndex,
-      getFocusedTab,
-      syncCurrentPage,
-      restoreScrollPosition: () =>
-        pagerRef.current?.restoreScrollPosition() ?? false,
-    }),
-    [setIndex, jumpToTab, getCurrentIndex, getFocusedTab, syncCurrentPage],
-  );
+  const { jumpToTab } = controller;
   const context = useMemo(
     () => ({ focusedName: controller.focusedName, scrollToTop }),
     [controller.focusedName, scrollToTop],
