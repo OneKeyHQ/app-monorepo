@@ -382,6 +382,10 @@ function MobileBrowserBottomBar({ id, chrome }: IMobileBrowserBottomBarProps) {
                     variant="tertiary"
                     icon="ChevronLeftOutline"
                     iconSize="$5"
+                    // The chevron glyph is narrow inside its box, so the
+                    // button's padding plus the row gap left a wider gap to
+                    // the site badge than to the capsule edge; pull it in.
+                    mr={-6}
                     disabled={disabledGoBack}
                     accessible={!disabledGoBack}
                     testID={DiscoveryTestIDs.browserBackButton}
