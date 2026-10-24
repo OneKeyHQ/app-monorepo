@@ -62,6 +62,7 @@ function createStockDetailState(): ReturnType<typeof useStockDetail> {
     isTokenVariantsLoading: false,
     isTokenVariantPending: false,
     isTokenVariantsError: false,
+    isTokenVariantsFresh: true,
     retryTokenVariants: jest
       .fn<Promise<void>, []>()
       .mockResolvedValue(undefined),
@@ -215,6 +216,7 @@ jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
     { mode: 'simple' },
     jest.fn(),
   ],
+  useSwapStockIssuerPreferencePersistAtom: () => [{}, jest.fn()],
 }));
 jest.mock('../modal/swapKLineTradingViewNativeUtils', () => ({
   getSwapKLineTradingViewNativeSource: () => undefined,

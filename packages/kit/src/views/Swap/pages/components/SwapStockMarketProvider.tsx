@@ -17,7 +17,11 @@ import {
   useStockDetail,
 } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/hooks/StockDetailContext';
 import { resolveMarketStockId } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/resolveIsStockToken';
-import type { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  type EJotaiContextStoreNames,
+  useSwapFromMarketJumpTokenAtom,
+  useSwapStockIssuerPreferencePersistAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import {
   EModalSwapRoutes,
@@ -30,7 +34,10 @@ import type {
   IMarketStockPublicItem,
   IMarketStockTokenVariant,
 } from '@onekeyhq/shared/types/marketV2';
-import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
+import {
+  ESwapTabSwitchType,
+  type ISwapToken,
+} from '@onekeyhq/shared/types/swap/types';
 
 import { getTokenIdentityKey } from '../../hooks/swapStockChannelUtils';
 import { ESwapStockChannelAsyncStatus } from '../../hooks/useSwapStockChannel';
@@ -42,6 +49,7 @@ import {
   fetchSwapStockSelection,
   fetchSwapStockTokenIdentity,
   fetchSwapStockVariantToken,
+  resolveSwapStockAutoVariant,
   resolveSwapStockAvailability,
   resolveSwapStockLoadingScopes,
   resolveSwapStockSelectionToken,
@@ -75,6 +83,14 @@ const SwapStockSelectionContext = createContext<
   ISwapStockSelection | undefined
 >(undefined);
 
+// Stock token keys this app run has already settled: checked against the
+// issuer rule once, or set by the user. In memory only, so a cold start checks
+// the restored token again while tab switches keep the user's own picks.
+const settledSwapStockTokenKeys = new Set<string>();
+// Upper bound for holding the trade target while the variant list that decides
+// a restored token is still loading, so a stalled request cannot hide it.
+const AUTO_VARIANT_WAIT_MS = 8000;
+
 function SwapStockSelectionProvider({
   children,
   identityResolutionError,
@@ -91,12 +107,17 @@ function SwapStockSelectionProvider({
     tokenVariants,
     isTokenVariantPending,
     isTokenVariantsError,
+    isTokenVariantsFresh,
+    defaultTokenId,
   } = useStockDetail();
+  const [swapFromMarketJumpToken] = useSwapFromMarketJumpTokenAtom();
   const { currentStockToken, selectStockSwapToken, stockTokenStatus } =
     useSwapStockTradeContext();
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSwapParamList>>();
   const checkRiskToken = useSwapTokenRiskCheck();
+  const [{ issuer: preferredIssuer }] =
+    useSwapStockIssuerPreferencePersistAtom();
   const [operation, setOperation] = useState<ISwapStockSelectionOperation>({
     phase: 'idle',
   });
@@ -121,15 +142,67 @@ function SwapStockSelectionProvider({
       ? operation.stockPreview
       : undefined;
   const selectionError = operation.phase === 'failed';
-  const loadingScopes = useMemo(
-    () =>
-      resolveSwapStockLoadingScopes({
-        operation,
-        currentTokenKey: identity,
-        isTokenVariantPending,
-      }),
-    [identity, isTokenVariantPending, operation],
+
+  // Only the first token this page shows can be implicit (restored, or the
+  // default loader's pick); any later token came from a user action. Decide
+  // from the variant list already at hand (the persisted cache on revisits) so
+  // a token about to move is never shown, only the loading state.
+  const [, setSettledVersion] = useState(0);
+  const firstTokenKeyRef = useRef<string | undefined>(undefined);
+  const isMarketJumpToken = Boolean(
+    currentStockToken &&
+    swapFromMarketJumpToken?.type === ESwapTabSwitchType.STOCK &&
+    equalTokenNoCaseSensitive({
+      token1: swapFromMarketJumpToken.token,
+      token2: currentStockToken,
+    }),
   );
+  const isAutoVariantCandidate = Boolean(
+    identity &&
+    (firstTokenKeyRef.current ?? identity) === identity &&
+    !settledSwapStockTokenKeys.has(identity) &&
+    !isMarketJumpToken,
+  );
+  const isAutoVariantListReady = !isTokenVariantPending && !!selectedVariant;
+  // Nothing more will arrive to decide with: keep the token as it is.
+  const isAutoVariantListBlocked =
+    isTokenVariantsError ||
+    identityResolutionError ||
+    (isTokenVariantsFresh && !selectedVariant);
+  const autoVariantTarget = useMemo(
+    () =>
+      isAutoVariantCandidate && isAutoVariantListReady && currentStockToken
+        ? resolveSwapStockAutoVariant({
+            variants: tokenVariants,
+            currentToken: currentStockToken,
+            defaultTokenId,
+            preferredIssuer,
+          })
+        : undefined,
+    [
+      currentStockToken,
+      defaultTokenId,
+      isAutoVariantCandidate,
+      isAutoVariantListReady,
+      preferredIssuer,
+      tokenVariants,
+    ],
+  );
+  const isAutoVariantPending =
+    isAutoVariantCandidate &&
+    operation.phase === 'idle' &&
+    (!!autoVariantTarget ||
+      (!isAutoVariantListReady && !isAutoVariantListBlocked));
+  const loadingScopes = useMemo(() => {
+    const scopes = resolveSwapStockLoadingScopes({
+      operation,
+      currentTokenKey: identity,
+      isTokenVariantPending,
+    });
+    return isAutoVariantPending
+      ? { ...scopes, tradeTarget: true, amountInput: true }
+      : scopes;
+  }, [identity, isAutoVariantPending, isTokenVariantPending, operation]);
   const stockSelectionPending = loadingScopes.stock;
   const availability = resolveSwapStockAvailability({
     pending:
@@ -192,6 +265,9 @@ function SwapStockSelectionProvider({
       kind: ISwapStockSelectionKind,
       fetchToken: () => Promise<ISwapToken>,
       stockPreview?: IMarketStockDetailPreview,
+      // Automatic switches keep the current token on failure: no error state
+      // and no risk prompt the user did not ask for.
+      silent = false,
     ) => {
       requestRef.current += 1;
       const request = requestRef.current;
@@ -225,6 +301,10 @@ function SwapStockSelectionProvider({
         ) {
           return false;
         }
+        if (isRiskToken && silent) {
+          setOperation({ phase: 'idle' });
+          return false;
+        }
         if (isRiskToken) {
           setOperation({ phase: 'idle' });
           navigation.pushModal(EModalRoutes.SwapModal, {
@@ -244,7 +324,7 @@ function SwapStockSelectionProvider({
         return true;
       } catch (_error) {
         if (request === requestRef.current)
-          setOperation({ phase: 'failed', kind });
+          setOperation(silent ? { phase: 'idle' } : { phase: 'failed', kind });
         return false;
       }
     },
@@ -253,11 +333,15 @@ function SwapStockSelectionProvider({
   const selectStock = useCallback(
     (stock: IMarketStockPublicItem, query?: string) => {
       const retry = () =>
-        select('ticker', () => fetchSwapStockSelection(stock, query), stock);
+        select(
+          'ticker',
+          () => fetchSwapStockSelection(stock, query, preferredIssuer),
+          stock,
+        );
       retrySelectionRef.current = retry;
       return retry();
     },
-    [select],
+    [preferredIssuer, select],
   );
   const selectVariant = useCallback(
     (variant: IMarketStockTokenVariant) => {
@@ -281,6 +365,52 @@ function SwapStockSelectionProvider({
     },
     [select],
   );
+
+  useEffect(() => {
+    if (!identity) return;
+    firstTokenKeyRef.current ??= identity;
+    if (identity !== firstTokenKeyRef.current) {
+      settledSwapStockTokenKeys.add(identity);
+      return;
+    }
+    if (settledSwapStockTokenKeys.has(identity) || operation.phase !== 'idle') {
+      return;
+    }
+    const settle = () => {
+      settledSwapStockTokenKeys.add(identity);
+      setSettledVersion((version) => version + 1);
+    };
+    if (isMarketJumpToken) {
+      settle();
+    } else if (autoVariantTarget && stockId) {
+      settle();
+      void select(
+        'variant',
+        () => fetchSwapStockVariantToken(autoVariantTarget, stockId),
+        undefined,
+        true,
+      );
+    } else if (isAutoVariantListReady || isAutoVariantListBlocked) {
+      settle();
+    }
+  }, [
+    autoVariantTarget,
+    identity,
+    isAutoVariantListBlocked,
+    isAutoVariantListReady,
+    isMarketJumpToken,
+    operation.phase,
+    select,
+    stockId,
+  ]);
+  useEffect(() => {
+    if (!isAutoVariantPending || autoVariantTarget || !identity) return;
+    const timer = setTimeout(() => {
+      settledSwapStockTokenKeys.add(identity);
+      setSettledVersion((version) => version + 1);
+    }, AUTO_VARIANT_WAIT_MS);
+    return () => clearTimeout(timer);
+  }, [autoVariantTarget, identity, isAutoVariantPending]);
 
   const value = useMemo(
     () => ({

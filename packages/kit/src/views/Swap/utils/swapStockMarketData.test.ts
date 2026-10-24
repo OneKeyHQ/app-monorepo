@@ -11,6 +11,7 @@ import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 import {
   fetchSwapStockSelection,
   fetchSwapStockVariantToken,
+  resolveSwapStockAutoVariant,
   resolveSwapStockAvailability,
   resolveSwapStockLoadingScopes,
   resolveSwapStockSelectionToken,
@@ -661,5 +662,82 @@ describe('Swap stock selection response mapping', () => {
       'No tradable stock token',
     );
     expect(fetchDetailMock).not.toHaveBeenCalled();
+  });
+});
+
+describe('issuer preference in Swap stock defaults', () => {
+  const ondo = buildVariant();
+  const ondoBsc = buildVariant({
+    tokenId: 'apple-ondo-bsc',
+    networkId: 'evm--56',
+    contractAddress: '0x0000000000000000000000000000000000000056',
+  });
+  const bStocks = buildVariant({
+    tokenId: 'apple-bstocks-bsc',
+    issuer: 'bStocks',
+    symbol: 'AAPLB',
+    networkId: 'evm--56',
+    contractAddress: '0x00000000000000000000000000000000000000b5',
+  });
+
+  it('switches stocks to the remembered issuer ahead of bStocks', () => {
+    expect(
+      selectSwapStockVariant({
+        items: [bStocks, ondo],
+        preferredIssuer: 'ondo',
+      }),
+    ).toBe(ondo);
+    expect(selectSwapStockVariant({ items: [ondo, bStocks] })).toBe(bStocks);
+  });
+
+  it('moves a restored non-bStocks token to bStocks without a preference', () => {
+    expect(
+      resolveSwapStockAutoVariant({
+        variants: [ondo, bStocks],
+        currentToken: ondo,
+      }),
+    ).toBe(bStocks);
+  });
+
+  it('moves a restored token to the remembered issuer', () => {
+    expect(
+      resolveSwapStockAutoVariant({
+        variants: [bStocks, ondo],
+        currentToken: bStocks,
+        preferredIssuer: 'ondo',
+      }),
+    ).toBe(ondo);
+  });
+
+  it('keeps a token whose issuer already matches the rule, on any network', () => {
+    expect(
+      resolveSwapStockAutoVariant({
+        variants: [bStocks, ondo, ondoBsc],
+        currentToken: ondoBsc,
+        defaultTokenId: ondo.tokenId,
+        preferredIssuer: 'ondo',
+      }),
+    ).toBeUndefined();
+    expect(
+      resolveSwapStockAutoVariant({
+        variants: [ondo, bStocks],
+        currentToken: bStocks,
+      }),
+    ).toBeUndefined();
+  });
+
+  it('keeps tokens the fetched list does not know or cannot replace', () => {
+    expect(
+      resolveSwapStockAutoVariant({
+        variants: [ondo, bStocks],
+        currentToken: ondoBsc,
+      }),
+    ).toBeUndefined();
+    expect(
+      resolveSwapStockAutoVariant({
+        variants: [ondo, { ...bStocks, tradingEnabled: false }],
+        currentToken: ondo,
+      }),
+    ).toBeUndefined();
   });
 });

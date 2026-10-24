@@ -2,7 +2,7 @@
 
 import type { ReactNode } from 'react';
 
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, within } from '@testing-library/react';
 
 import type { IMarketStockTokenVariant } from '@onekeyhq/shared/types/marketV2';
 
@@ -12,6 +12,11 @@ import { StockTokenVariantSelector } from './StockTokenVariantSelector';
 
 const setSelectedTokenIdMock = jest.fn();
 const closePopoverMock = jest.fn();
+const setIssuerPreferenceMock = jest.fn();
+
+jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
+  useSwapStockIssuerPreferencePersistAtom: () => [{}, setIssuerPreferenceMock],
+}));
 
 jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   __esModule: true,
@@ -238,6 +243,7 @@ describe('StockTokenVariantSelector', () => {
   beforeEach(() => {
     setSelectedTokenIdMock.mockReset();
     closePopoverMock.mockReset();
+    setIssuerPreferenceMock.mockReset();
     mockStockDetailState.tokenVariants = mockVariants;
     mockStockDetailState.selectedTokenId = mockVariants[0].tokenId;
     mockStockDetailState.portfolioNetworkId = mockVariants[0].networkId;
@@ -300,6 +306,7 @@ describe('StockTokenVariantSelector', () => {
     fireEvent.click(secondRow);
 
     expect(setSelectedTokenIdMock).toHaveBeenCalledWith('aapl-bsc');
+    expect(setIssuerPreferenceMock).toHaveBeenCalledWith({ issuer: 'ondo' });
     expect(closePopoverMock).toHaveBeenCalledTimes(1);
   });
 
@@ -309,7 +316,36 @@ describe('StockTokenVariantSelector', () => {
     fireEvent.click(screen.getByTestId('stock-token-variant-row-2'));
 
     expect(setSelectedTokenIdMock).not.toHaveBeenCalled();
+    expect(setIssuerPreferenceMock).not.toHaveBeenCalled();
     expect(closePopoverMock).not.toHaveBeenCalled();
+  });
+
+  it('remembers the issuer only after an asynchronous selection succeeds', async () => {
+    let resolveSelection: (selected: boolean) => void = () => undefined;
+    const onSelect = jest.fn(
+      () =>
+        new Promise<boolean>((resolve) => {
+          resolveSelection = resolve;
+        }),
+    );
+    const { unmount } = render(
+      <StockTokenVariantSelector onSelect={onSelect} />,
+    );
+    fireEvent.click(screen.getByTestId('stock-token-variant-row-1'));
+    expect(setIssuerPreferenceMock).not.toHaveBeenCalled();
+    await act(async () => {
+      resolveSelection(true);
+    });
+    expect(setIssuerPreferenceMock).toHaveBeenCalledWith({ issuer: 'ondo' });
+    unmount();
+
+    setIssuerPreferenceMock.mockReset();
+    render(
+      <StockTokenVariantSelector onSelect={() => Promise.resolve(false)} />,
+    );
+    fireEvent.click(screen.getByTestId('stock-token-variant-row-1'));
+    await act(async () => undefined);
+    expect(setIssuerPreferenceMock).not.toHaveBeenCalled();
   });
 
   it('closes before an asynchronous variant selection finishes', () => {

@@ -4,6 +4,7 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import {
   getDefaultStockTokenVariant,
   isStockTokenVariantTradable,
+  normalizeStockIssuer,
 } from '@onekeyhq/shared/src/utils/stockTokenVariant';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type {
@@ -137,10 +138,12 @@ export function selectSwapStockVariant({
   items,
   defaultTokenId,
   query,
+  preferredIssuer,
 }: {
   items: IMarketStockTokenVariant[];
   defaultTokenId?: string;
   query?: string;
+  preferredIssuer?: string;
 }) {
   const search = query?.trim();
   const explicitMatches = search
@@ -153,14 +156,52 @@ export function selectSwapStockVariant({
       )
     : [];
   if (explicitMatches.length)
-    return getDefaultStockTokenVariant(explicitMatches, defaultTokenId);
+    return getDefaultStockTokenVariant(
+      explicitMatches,
+      defaultTokenId,
+      preferredIssuer,
+    );
   if (
     search &&
     (/^0x[0-9a-f]{40}$/i.test(search) ||
       /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(search))
   )
     return undefined;
-  return getDefaultStockTokenVariant(items, defaultTokenId);
+  return getDefaultStockTokenVariant(items, defaultTokenId, preferredIssuer);
+}
+
+/**
+ * The variant a restored or default-loaded stock token should move to under
+ * the issuer rule, or undefined to keep it. A token already from the chosen
+ * issuer stays put, so its network is not second-guessed.
+ */
+export function resolveSwapStockAutoVariant({
+  variants,
+  currentToken,
+  defaultTokenId,
+  preferredIssuer,
+}: {
+  variants: IMarketStockTokenVariant[];
+  currentToken: Pick<ISwapToken, 'networkId' | 'contractAddress'>;
+  defaultTokenId?: string;
+  preferredIssuer?: string;
+}) {
+  const current = variants.find((variant) =>
+    equalTokenNoCaseSensitive({ token1: variant, token2: currentToken }),
+  );
+  if (!current) return undefined;
+  const target = getDefaultStockTokenVariant(
+    variants,
+    defaultTokenId,
+    preferredIssuer,
+  );
+  if (
+    !target ||
+    normalizeStockIssuer(target.issuer) === normalizeStockIssuer(current.issuer)
+  ) {
+    return undefined;
+  }
+  return target;
 }
 
 export async function fetchSwapStockVariantToken(
@@ -220,12 +261,17 @@ export async function fetchSwapStockVariantToken(
 export async function fetchSwapStockSelection(
   stock: IMarketStockPublicItem,
   query?: string,
+  preferredIssuer?: string,
 ) {
   const response =
     await backgroundApiProxy.serviceMarketV2.fetchMarketStockTokenVariants({
       stockId: stock.stockId,
     });
-  const variant = selectSwapStockVariant({ ...response, query });
+  const variant = selectSwapStockVariant({
+    ...response,
+    query,
+    preferredIssuer,
+  });
   if (!variant) throw new OneKeyLocalError('No tradable stock token');
   return fetchSwapStockVariantToken(variant, stock.stockId);
 }

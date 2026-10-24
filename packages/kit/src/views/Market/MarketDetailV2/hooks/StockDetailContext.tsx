@@ -12,6 +12,7 @@ import type { PropsWithChildren } from 'react';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useLocaleVariant } from '@onekeyhq/kit/src/hooks/useLocaleVariant';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { useSwapStockIssuerPreferencePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import {
   swrCacheUtils,
@@ -51,6 +52,10 @@ type IStockDetailContextValue = {
   isTokenVariantsLoading: boolean;
   isTokenVariantPending: boolean;
   isTokenVariantsError: boolean;
+  // True once this mount fetched the current stock's list from the network;
+  // a cached snapshot alone can be stale about which variants still trade.
+  isTokenVariantsFresh: boolean;
+  defaultTokenId?: string;
   retryTokenVariants: () => Promise<void>;
   selectedTokenId?: string;
   selectedTokenVariant?: IMarketStockTokenVariant;
@@ -78,6 +83,7 @@ const StockDetailContext = createContext<IStockDetailContextValue>({
   isTokenVariantsLoading: false,
   isTokenVariantPending: false,
   isTokenVariantsError: false,
+  isTokenVariantsFresh: false,
   retryTokenVariants: async () => undefined,
   setSelectedTokenId: () => undefined,
 });
@@ -148,6 +154,8 @@ export function StockDetailProvider({
       : undefined;
   // Stock copy (about, trading-hour reasons) is localized.
   const locale = useLocaleVariant().toLowerCase();
+  const [{ issuer: preferredIssuer }] =
+    useSwapStockIssuerPreferencePersistAtom();
   const stockDetailSwrKey = normalizedStockId
     ? swrKeys.marketStockDetail({ stockId: normalizedStockId, locale })
     : undefined;
@@ -178,6 +186,7 @@ export function StockDetailProvider({
       defaultTokenId: cached.defaultTokenId,
       routeNetworkId: initialNetworkId,
       routeTokenAddress: initialTokenAddress,
+      preferredIssuer,
     })?.tokenId;
   });
   const [selectedTokenId, setSelectedTokenId] = useState<string | undefined>(
@@ -408,12 +417,14 @@ export function StockDetailProvider({
         defaultTokenId: tokenVariantResult?.defaultTokenId,
         routeNetworkId: initialNetworkId,
         routeTokenAddress: initialTokenAddress,
+        preferredIssuer,
       })?.tokenId,
     );
   }, [
     hasCurrentTokenVariants,
     initialNetworkId,
     initialTokenAddress,
+    preferredIssuer,
     preserveInitialToken,
     normalizedStockId,
     selectedTokenId,
@@ -504,6 +515,13 @@ export function StockDetailProvider({
         tokenVariantResult?.stockId === normalizedStockId &&
         tokenVariantResult.failed,
       ),
+      isTokenVariantsFresh: Boolean(
+        normalizedStockId &&
+        tokenVariantResult?.stockId === normalizedStockId &&
+        !tokenVariantResult.failed &&
+        fetchedTokenVariantsStockIdRef.current === normalizedStockId,
+      ),
+      defaultTokenId: tokenVariantResult?.defaultTokenId,
       retryTokenVariants,
       selectedTokenId: preserveInitialToken
         ? selectedTokenVariant?.tokenId
@@ -530,6 +548,7 @@ export function StockDetailProvider({
       selectedTokenId,
       selectedTokenVariant,
       stockPreview,
+      tokenVariantResult?.defaultTokenId,
       tokenVariantResult?.failed,
       tokenVariantResult?.stockId,
       currentStockDetail,
