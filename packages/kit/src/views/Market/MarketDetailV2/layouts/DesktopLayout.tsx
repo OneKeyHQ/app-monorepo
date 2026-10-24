@@ -187,6 +187,7 @@ export function DesktopLayout({
     isNative: storeIsNative,
     websocketConfig,
     perpsInfo,
+    isStockToken,
     isLoading: isTokenDetailLoading,
   } = useTokenDetail();
   const { tokenDetail: displayTokenDetail } = useMarketDetailDisplayData();
@@ -264,6 +265,7 @@ export function DesktopLayout({
     networkId,
     accountAddress: shouldUseStockDesktopLayout ? undefined : accountAddress,
     xpub: shouldUseStockDesktopLayout ? undefined : xpub,
+    isStock: Boolean(isStockToken || isStockRoute),
   });
 
   const isBTCNetwork = networkUtils.isBTCNetwork(networkId);

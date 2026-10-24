@@ -70,6 +70,7 @@ const mockDialog = jest.fn<
   ReturnType<typeof import('@onekeyhq/components').Dialog.show>,
   [IDialogShowProps]
 >();
+const mockInPageDialog = { show: mockDialog };
 const mockWarning = jest.fn<void, [unknown]>();
 let mockProviderMounts = 0;
 let mockProviderUnmounts = 0;
@@ -135,6 +136,7 @@ jest.mock('@onekeyhq/components', () => ({
   createStackNavigator: () => createTestStack(),
   useTheme: () => ({ bgApp: { val: '#fff' }, text: { val: '#000' } }),
   useIsOverlayPage: () => mockOverlay,
+  useInPageDialog: () => mockInPageDialog,
   usePageType: () => 'modal',
   makeModalStackNavigatorOptions: () => ({}),
   makeTabScreenOptions: () => ({}),

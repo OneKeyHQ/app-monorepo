@@ -14,15 +14,13 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import type { IMarketAccountPortfolioDisplayItem } from '@onekeyhq/shared/types/marketV2';
 
+import { isTradePositionVisible } from '../utils/tradePositionUtils';
+
 import {
   resolveSwapBalanceAccount,
   resolveSwapTargetNetworkAccount,
 } from './useSwapAccount.utils';
 import { useSwapProPositionAccountIdentity } from './useSwapPro';
-
-// Dust floor for the My position table. The raw list still carries every
-// holding so the token selector can report a real balance for each variant.
-const SWAP_STOCK_POSITION_LIST_MIN_VALUE_USD = 0.01;
 
 function buildPortfolioOwnerKey({
   accountId,
@@ -217,14 +215,12 @@ export function useSwapStockPortfolioData() {
     () => currentPortfolioResult?.items ?? [],
     [currentPortfolioResult],
   );
-  // What the table shows: dust dropped, largest holding first.
+  // Keep every held variant, largest holding first.
   const positionListData = useMemo(
     () =>
       portfolioData
         .filter((item) =>
-          new BigNumber(item.totalPrice ?? '0').gte(
-            SWAP_STOCK_POSITION_LIST_MIN_VALUE_USD,
-          ),
+          isTradePositionVisible({ balance: item.amount, isStock: true }),
         )
         .toSorted((left, right) =>
           new BigNumber(right.totalPrice ?? '0').comparedTo(
