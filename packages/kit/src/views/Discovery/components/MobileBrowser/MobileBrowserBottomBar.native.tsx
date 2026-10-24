@@ -37,14 +37,12 @@ import {
 } from './browserChrome';
 import { BrowserChromeCapsule } from './BrowserChromeCapsule';
 import { ChromePressable } from './ChromePressable';
-import { ConnectedNetworkSwitch } from './ConnectedNetworkSwitch';
 import RefreshButton from './RefreshButton';
 import TabCountButton from './TabCountButton';
 import { useMobileBrowserBottomBarData } from './useMobileBrowserBottomBarData';
 import { useMobileBrowserOptions } from './useMobileBrowserOptions';
 
 import type { IGlassFade } from './BrowserChromeCapsule';
-import type { ISwitchNetworkHandler } from './ConnectedNetworkSwitch';
 import type { IMobileBrowserBottomBarProps } from './useMobileBrowserBottomBarData';
 import type { SharedValue } from 'react-native-reanimated';
 
@@ -223,7 +221,7 @@ function CollapsedAddressPill({
   );
 }
 
-// Safari-style bar: [back] [menu · address · reload] [tabs]. Forward,
+// Bar: [tabs] [back · address · reload] [menu]. Forward,
 // translate, bookmark etc. live in the menu. While scrolling down the bar
 // fades out and a small address pill stays above the home indicator. iOS 26
 // renders the capsules as Liquid Glass.
@@ -231,8 +229,6 @@ function MobileBrowserBottomBar({ id, chrome }: IMobileBrowserBottomBarProps) {
   const {
     bottom,
     tab,
-    origin,
-    connectedAccounts,
     hasConnectedAccount,
     displayHomePage,
     handleBookmarkPress,
@@ -299,17 +295,6 @@ function MobileBrowserBottomBar({ id, chrome }: IMobileBrowserBottomBarProps) {
   );
 
   const [translateOpen, setTranslateOpen] = useState(false);
-  // The network switch for a single connected account (multi-account
-  // connections switch per account from the header popover).
-  const singleConnectedAccount =
-    connectedAccounts?.length === 1 ? connectedAccounts[0] : undefined;
-  const [switchNetworkHandler, setSwitchNetworkHandler] =
-    useState<ISwitchNetworkHandler>();
-  const handleSwitchNetworkChange = useCallback(
-    // Wrapped so React stores the handler instead of calling it as an updater.
-    (handler: ISwitchNetworkHandler) => setSwitchNetworkHandler(() => handler),
-    [],
-  );
   const showOptions = useMobileBrowserOptions({
     isBookmark: tab?.isBookmark ?? false,
     onBookmarkPress: handleBookmarkPress,
@@ -328,7 +313,6 @@ function MobileBrowserBottomBar({ id, chrome }: IMobileBrowserBottomBarProps) {
     isTranslated,
     // The options hook reads its props through a ref, so inline is fine.
     onTranslatePress: () => setTranslateOpen(true),
-    onSwitchNetwork: switchNetworkHandler,
   });
 
   const currentUrl = tab?.displayUrl ?? tab?.url;
@@ -342,13 +326,6 @@ function MobileBrowserBottomBar({ id, chrome }: IMobileBrowserBottomBarProps) {
     // in-flow height on tablets.
     <Theme name={pageThemeName ?? appThemeName}>
       <Stack h="100%" zIndex={1} pointerEvents="box-none">
-        {origin && singleConnectedAccount ? (
-          <ConnectedNetworkSwitch
-            origin={origin}
-            account={singleConnectedAccount}
-            onChange={handleSwitchNetworkChange}
-          />
-        ) : null}
         <Animated.View pointerEvents="none" style={[styles.strip, stripStyle]}>
           {/* The WebView ends above the bar: the strip behind the bar takes
             the page color, with a short fade above it so the page runs
@@ -375,8 +352,25 @@ function MobileBrowserBottomBar({ id, chrome }: IMobileBrowserBottomBarProps) {
             gap="$2"
             alignItems="center"
           >
+            {/* Wallet-browser layout: tabs on the left, page navigation in
+              the address capsule (back · site badge · domain · refresh), the
+              page menu on the right. Account and exit live in the header. */}
             <Animated.View style={leftStyle}>
               <BrowserChromeCapsule glassFade={sideGlassFade}>
+                <TabCountButton
+                  testID={DiscoveryTestIDs.tabListButton}
+                  onPressed={() => logBrowserChromeAction('tabs', 'toolbar')}
+                />
+              </BrowserChromeCapsule>
+            </Animated.View>
+            <Animated.View style={[styles.capsule, capsuleStyle]}>
+              <BrowserChromeCapsule
+                flex={1}
+                px="$2"
+                glassFade={capsuleGlassFade}
+              >
+                {/* Kept in place (dimmed) when there is no history, so the
+                  domain doesn't shift. */}
                 <ChromePressable
                   onPress={() => {
                     logBrowserChromeAction('back', 'toolbar');
@@ -387,33 +381,10 @@ function MobileBrowserBottomBar({ id, chrome }: IMobileBrowserBottomBarProps) {
                   <IconButton
                     variant="tertiary"
                     icon="ChevronLeftOutline"
+                    iconSize="$5"
                     disabled={disabledGoBack}
                     accessible={!disabledGoBack}
                     testID={DiscoveryTestIDs.browserBackButton}
-                  />
-                </ChromePressable>
-              </BrowserChromeCapsule>
-            </Animated.View>
-            {/* Same edge inset as the round buttons, so icons line up. */}
-            <Animated.View style={[styles.capsule, capsuleStyle]}>
-              <BrowserChromeCapsule
-                flex={1}
-                px="$2"
-                glassFade={capsuleGlassFade}
-              >
-                <ChromePressable
-                  onPress={() => {
-                    logBrowserChromeAction('menu', 'toolbar');
-                    showOptions();
-                  }}
-                  disabled={displayHomePage}
-                >
-                  <IconButton
-                    variant="tertiary"
-                    icon="MenuOutline"
-                    iconSize="$5"
-                    disabled={displayHomePage}
-                    testID="browser-bar-options"
                   />
                 </ChromePressable>
                 <TranslatePopoverTrigger
@@ -440,10 +411,20 @@ function MobileBrowserBottomBar({ id, chrome }: IMobileBrowserBottomBarProps) {
             </Animated.View>
             <Animated.View style={rightStyle}>
               <BrowserChromeCapsule glassFade={sideGlassFade}>
-                <TabCountButton
-                  testID={DiscoveryTestIDs.tabListButton}
-                  onPressed={() => logBrowserChromeAction('tabs', 'toolbar')}
-                />
+                <ChromePressable
+                  onPress={() => {
+                    logBrowserChromeAction('menu', 'toolbar');
+                    showOptions();
+                  }}
+                  disabled={displayHomePage}
+                >
+                  <IconButton
+                    variant="tertiary"
+                    icon="DotHorOutline"
+                    disabled={displayHomePage}
+                    testID="browser-bar-options"
+                  />
+                </ChromePressable>
               </BrowserChromeCapsule>
             </Animated.View>
           </XStack>

@@ -23,6 +23,7 @@ import {
 } from '@onekeyhq/kit/src/components/AccountSelector';
 import { AccountSelectorTriggerBrowserSingle } from '@onekeyhq/kit/src/components/AccountSelector/AccountSelectorTrigger/AccountSelectorTriggerDApp';
 import { useAccountSelectorTrigger } from '@onekeyhq/kit/src/components/AccountSelector/hooks/useAccountSelectorTrigger';
+import { useNetworkSelectorTrigger } from '@onekeyhq/kit/src/components/AccountSelector/hooks/useNetworkSelectorTrigger';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
   useActiveAccount,
@@ -167,6 +168,7 @@ function HeaderAccountChip({
   networkId,
   name,
   onPress,
+  onNetworkPress,
   testID,
 }: Pick<
   ComponentProps<typeof AccountAvatar>,
@@ -174,6 +176,8 @@ function HeaderAccountChip({
 > & {
   name: string;
   onPress: () => void;
+  // Makes the chain badge its own tap target (multi-chain dApps).
+  onNetworkPress?: () => void;
   testID: string;
 }) {
   return (
@@ -189,12 +193,31 @@ function HeaderAccountChip({
       }}
       testID={testID}
     >
-      <AccountAvatar
-        size="small"
-        account={account}
-        indexedAccount={indexedAccount}
-        networkId={networkId}
-      />
+      <Stack>
+        <AccountAvatar
+          size="small"
+          account={account}
+          indexedAccount={indexedAccount}
+          networkId={networkId}
+        />
+        {onNetworkPress ? (
+          // Over the small avatar's bottom-right badge; the slop gives it a
+          // ~36pt target without covering the rest of the chip.
+          <Stack
+            position="absolute"
+            top={8}
+            left={8}
+            w={24}
+            h={24}
+            hitSlop={6}
+            onPress={() => {
+              logBrowserChromeAction('switchNetwork', 'header');
+              onNetworkPress();
+            }}
+            testID="browser-header-network-badge"
+          />
+        ) : null}
+      </Stack>
       <SizableText size="$bodyMdMedium" numberOfLines={1} maxWidth={130}>
         {name}
       </SizableText>
@@ -207,7 +230,8 @@ function HeaderAccountChip({
 // chevron, the same shape as the not-connected chip. The network badge on the
 // avatar is what marks the site as connected (a connection is always on a
 // chain; the not-connected chip has no badge). Opens the dApp account
-// selector (same options as AccountSelectorTriggerBrowserSingle).
+// selector (same options as AccountSelectorTriggerBrowserSingle); on
+// multi-chain dApps the badge itself opens the network picker.
 function CompactConnectedAccountTrigger({ num }: { num: number }) {
   const intl = useIntl();
   const {
@@ -218,6 +242,8 @@ function CompactConnectedAccountTrigger({ num }: { num: number }) {
     linkNetwork: true,
     hideNonBackedUpWallet: true,
   });
+  const { networkIds, showChainSelector } = useNetworkSelectorTrigger({ num });
+  const canSwitchNetwork = (networkIds ?? []).length > 1;
   const accountName =
     account?.name ||
     intl.formatMessage({ id: ETranslations.wallet_no_address });
@@ -228,6 +254,11 @@ function CompactConnectedAccountTrigger({ num }: { num: number }) {
       networkId={network?.id}
       name={accountName}
       onPress={showAccountSelector}
+      onNetworkPress={
+        canSwitchNetwork
+          ? () => showChainSelector({ recordNetworkHistoryEnabled: true })
+          : undefined
+      }
       testID="browser-header-connected-account"
     />
   );

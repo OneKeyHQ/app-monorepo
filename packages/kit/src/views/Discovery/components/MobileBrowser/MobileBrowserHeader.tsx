@@ -109,7 +109,7 @@ function usePageStatusBarStyle(pageThemeName: 'light' | 'dark' | undefined) {
 }
 
 // Safari-style: the address lives in the bottom bar, so the header only keeps
-// "back to Explore" and the account. It collapses fully while scrolling down.
+// exit (back to the wallet, tabs kept) and the account. It collapses fully while scrolling down.
 // It stays in the layout (the page starts below it) rather than floating:
 // dApps commonly pin a fixed header with their Connect button at the top,
 // which a floating header would cover.
@@ -173,7 +173,7 @@ function MobileBrowserHeader({
               background above the page, where glass would only show its
               shadow halo. Glass is kept for the bar that floats over content.
               Tighter than the bottom bar, like a navigation bar: the
-              minimize glyph and the chip's right edge sit 16pt from the
+              exit glyph and the chip's right edge sit 16pt from the
               screen edges, in line with typical page content. */}
             <XStack
               flex={1}
@@ -190,7 +190,8 @@ function MobileBrowserHeader({
                 <IconButton
                   variant="tertiary"
                   m={0}
-                  icon="MinimizeOutline"
+                  // Leaves the browser for the wallet; tabs stay open.
+                  icon="CrossedLargeOutline"
                   iconProps={{ color: '$icon' }}
                   onPress={() => {
                     logBrowserChromeAction('minimize', 'header');
