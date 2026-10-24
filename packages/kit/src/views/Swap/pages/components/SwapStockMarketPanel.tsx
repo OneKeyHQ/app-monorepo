@@ -315,6 +315,9 @@ export function SwapStockMobileHeader() {
           )}
           onRetry={retryStockDetail}
           status={status}
+          // Mobile trade quotes the token only, so the share price's
+          // last-update note does not apply; show the token's countdown.
+          showLastUpdate={false}
         />
       </Stack>
     </YStack>
