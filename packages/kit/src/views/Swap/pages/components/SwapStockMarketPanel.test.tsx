@@ -44,6 +44,12 @@ const publicStockDetail: IMarketStockPublicDetail = {
 
 function createStockDetailState(): ReturnType<typeof useStockDetail> {
   return {
+    priceSource: {
+      priceMode: 'token',
+      sharePriceAvailable: true,
+      isPriceSourceReady: true,
+      handlePriceModeChange: jest.fn(),
+    },
     stockId: 'AAPL',
     stockDetail: publicStockDetail,
     isStockRoute: true,
@@ -201,6 +207,10 @@ jest.mock(
   () => ({ useToMarketStockDetailPage: () => jest.fn() }),
 );
 jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
+  useMarketPriceSourceAtom: () => {
+    const { useState } = jest.requireActual<typeof import('react')>('react');
+    return useState({ source: 'token' });
+  },
   useMarketDetailChartDisplayModePersistAtom: () => [
     { mode: 'simple' },
     jest.fn(),

@@ -12,10 +12,7 @@ import {
 } from '@onekeyhq/components';
 import type { IKeyOfIcons } from '@onekeyhq/components';
 import { TRADING_VIEW_NATIVE_CHART_CONTROLS_HEIGHT } from '@onekeyhq/kit/src/components/TradingView/TradingViewV2/components/TradingViewV2ChartControls';
-import {
-  useMarketDetailChartDisplayModePersistAtom,
-  useMarketPriceSourceAtom,
-} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { useMarketDetailChartDisplayModePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import {
@@ -26,12 +23,12 @@ import {
   resolveStockSimpleChartRangeForPriceMode,
 } from '../components/StockSimpleChart';
 import { useStockDetail } from '../hooks/StockDetailContext';
-import { resolveDisplayedStockPriceMode } from '../hooks/useStockPriceSource';
+import { useStockPriceSource } from '../hooks/useStockPriceSource';
 
 import { MARKET_SIMPLE_CHART_RANGE_LABEL_IDS } from './components/marketSimpleChartConstants';
 
 // Keep Simple compact and independent of Pro's indicator panes.
-const MOBILE_SIMPLE_CHART_HEIGHT = 280;
+export const MOBILE_SIMPLE_CHART_HEIGHT = 280;
 // The range row mirrors the Pro interval bar (TradingViewChartControls on a
 // non-compact mobile layout): 8pt padding, 30pt pills, at least 42pt wide.
 const RANGE_BUTTON_HEIGHT = 30;
@@ -107,15 +104,8 @@ export function MobileSimpleChart({
 }) {
   const intl = useIntl();
   const [selectedRange, setRange] = useState<IStockSimpleChartRange>('1D');
-  const { stockId, isStockDetailError } = useStockDetail();
-  const [{ source: priceSource }] = useMarketPriceSourceAtom();
-  // Share price is what draws the previous-close line. Crypto charts, and
-  // stock tokens whose share quote cannot load, stay on the token quote.
-  const priceMode = resolveDisplayedStockPriceMode({
-    stockId,
-    isStockDetailError,
-    storedPriceMode: priceSource,
-  });
+  const { stockId } = useStockDetail();
+  const { priceMode } = useStockPriceSource();
   const range = resolveStockSimpleChartRangeForPriceMode({
     priceMode,
     range: selectedRange,
@@ -164,6 +154,7 @@ export function MobileSimpleChart({
       </XStack>
       <Stack height={MOBILE_SIMPLE_CHART_HEIGHT} width="100%">
         <StockSimpleChart
+          initialHeight={MOBILE_SIMPLE_CHART_HEIGHT}
           marketAssetId={marketAssetId}
           range={range}
           priceMode={priceMode}
