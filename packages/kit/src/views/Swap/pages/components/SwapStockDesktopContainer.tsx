@@ -748,7 +748,11 @@ function StockActionGate({
   if (stockChannel.readyForQuote || shouldPreserveStockActionsState) {
     return (
       <SwapActionsState
-        disabled={stockTradeIdentityLoading || !stockChannel.readyForQuote}
+        disabled={
+          stockSelection?.availability === 'pending' ||
+          stockTradeIdentityLoading ||
+          !stockChannel.readyForQuote
+        }
         forceQuoteActionLoading={
           forceQuoteActionLoading ||
           (hasPositiveInputAmount && shouldPreserveStockActionsState)

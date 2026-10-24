@@ -646,7 +646,9 @@ export function SwapStockMarketPanel() {
         </YStack>
       </YStack>
       <SwapStockMyPosition />
-      <SwapStockMarketDataGrid tokenDetail={marketData} />
+      <SwapStockMarketDataGrid
+        tokenDetail={selection?.stockSelectionPending ? undefined : marketData}
+      />
       <SwapStockTokenDetails
         summary
         tokenDetail={tokenDetail}

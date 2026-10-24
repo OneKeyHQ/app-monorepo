@@ -10,6 +10,7 @@ import {
   ScrollView,
   SearchBar,
   SizableText,
+  Skeleton,
   Spinner,
   Stack,
   XStack,
@@ -22,15 +23,12 @@ import { PriceChangePercentage } from '@onekeyhq/kit/src/views/Market/components
 import { StockSelectorPopover } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/TokenSelector/StockSelectorPopover';
 import { useMarketStockSelectorList } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/TokenSelector/useMarketStockSelectorList';
 import { useStockDetail } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/hooks/StockDetailContext';
-import { resolveMarketStockId } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/resolveIsStockToken';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { SwapTestIDs } from '../../testIDs';
-import { getSwapStockTokenDisplayName } from '../modal/SwapTokenSelectModal.utils';
 
 import { useSwapStockSelection } from './SwapStockMarketProvider';
-import { useSwapStockTradeContext } from './SwapStockTradeProvider';
 
 import type { NativeScrollEvent, NativeSyntheticEvent } from 'react-native';
 
@@ -267,41 +265,23 @@ export function SwapStockTickerSelector() {
   // sheet then renders rows immediately instead of flashing a loading state.
   useMarketStockSelectorList({ query: '' });
   const { stockDetail, stockPreview, stockId } = useStockDetail();
-  const { currentStockToken } = useSwapStockTradeContext();
-  const stock = stockDetail ?? stockPreview;
+  const stock = selection?.stockSelectionPending
+    ? undefined
+    : (stockDetail ?? stockPreview);
   const selectedStockPreview = selection?.selectedStockPreview;
-  const listPreview =
-    selection?.pendingStock ??
-    (selection?.stockSelectionPending ||
+  const committedPreview =
     selectedStockPreview?.stockId.toUpperCase() === stockId?.toUpperCase()
       ? selectedStockPreview
-      : undefined);
-  const stockTokenMatches = Boolean(
-    currentStockToken &&
-    (!stockId || resolveMarketStockId(currentStockToken) === stockId),
-  );
-  const fallbackStock = stockTokenMatches
-    ? currentStockToken?.stock
-    : undefined;
+      : undefined;
+  const listPreview = selection?.stockSelectionPending
+    ? selection.pendingStock
+    : committedPreview;
   // The list item already carries the underlying stock's brand icon. Keep it
   // through the token and stock-detail transition instead of showing the old
   // stock or the issuer token's artwork.
-  const tokenImageUri = listPreview?.logoUrl ?? stock?.logoUrl;
-  const tokenSymbol =
-    listPreview?.symbol ??
-    stock?.symbol ??
-    fallbackStock?.underlyingAssetTicker ??
-    stockId ??
-    currentStockToken?.symbol;
-  const tokenName =
-    listPreview?.name ??
-    stock?.name ??
-    (fallbackStock || currentStockToken?.name
-      ? getSwapStockTokenDisplayName({
-          stock: fallbackStock,
-          tokenName: currentStockToken?.name,
-        })
-      : undefined);
+  const stockLogoUri = listPreview?.logoUrl || stock?.logoUrl;
+  const stockSymbol = listPreview?.symbol || stock?.symbol;
+  const stockName = listPreview?.name || stock?.name;
   const trigger = (
     // eslint-disable-next-line props-checker/validator -- StockSelectorPopover supplies the trigger handlers.
     <XStack
@@ -319,18 +299,33 @@ export function SwapStockTickerSelector() {
       cursor="pointer"
       hoverStyle={{ bg: '$bgHover' }}
     >
-      <Token size="xl" tokenImageUri={tokenImageUri} />
+      {stockLogoUri ? (
+        <Token size="xl" tokenImageUri={stockLogoUri} />
+      ) : (
+        <Skeleton width="$12" height="$12" borderRadius="$full" />
+      )}
       <YStack minWidth={0} flexShrink={1}>
-        <SizableText size={md ? '$headingLg' : '$headingXl'} numberOfLines={1}>
-          {tokenSymbol ?? '--'}
-        </SizableText>
-        <SizableText
-          size={md ? '$bodyMd' : '$bodyMdMedium'}
-          color="$textSubdued"
-          numberOfLines={1}
-        >
-          {tokenName ?? '--'}
-        </SizableText>
+        {stockSymbol ? (
+          <SizableText
+            size={md ? '$headingLg' : '$headingXl'}
+            numberOfLines={1}
+          >
+            {stockSymbol}
+          </SizableText>
+        ) : (
+          <Skeleton width="$20" height="$6" mb="$1" />
+        )}
+        {stockName ? (
+          <SizableText
+            size={md ? '$bodyMd' : '$bodyMdMedium'}
+            color="$textSubdued"
+            numberOfLines={1}
+          >
+            {stockName}
+          </SizableText>
+        ) : (
+          <Skeleton width="$24" height="$4" />
+        )}
       </YStack>
       <Icon name="ChevronDownSmallOutline" size="$5" color="$iconSubdued" />
     </XStack>

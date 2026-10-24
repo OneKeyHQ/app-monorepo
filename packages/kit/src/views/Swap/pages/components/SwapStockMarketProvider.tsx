@@ -11,6 +11,7 @@ import {
 
 import type { IPageNavigationProp } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { useLocaleVariant } from '@onekeyhq/kit/src/hooks/useLocaleVariant';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
   StockDetailProvider,
@@ -39,9 +40,14 @@ import {
   type ISwapStockAvailability,
   type ISwapStockSelectionKind,
   type ISwapStockSelectionOperation,
+  type ISwapStockTokenIdentityResult,
   fetchSwapStockSelection,
   fetchSwapStockTokenIdentity,
   fetchSwapStockVariantToken,
+  getCachedSwapStockAssetPreview,
+  getCachedSwapStockId,
+  getCachedSwapStockSelection,
+  getCachedSwapStockVariantToken,
   resolveSwapStockAvailability,
   resolveSwapStockLoadingScopes,
   resolveSwapStockSelectionToken,
@@ -86,6 +92,7 @@ function SwapStockSelectionProvider({
     'identityResolutionError' | 'retryIdentityResolution'
   > & { storeName: EJotaiContextStoreNames }
 >) {
+  const locale = useLocaleVariant().toLowerCase();
   const {
     stockId,
     tokenVariants,
@@ -115,9 +122,11 @@ function SwapStockSelectionProvider({
       currentStockToken &&
       equalTokenNoCaseSensitive({ token1: variant, token2: currentStockToken }),
   );
-  const selecting = operation.phase === 'resolving';
+  const selecting =
+    operation.phase === 'resolving' || operation.phase === 'checkingRisk';
   const pendingStock =
-    operation.phase === 'resolving' && operation.kind === 'ticker'
+    (operation.phase === 'resolving' || operation.phase === 'applying') &&
+    operation.kind === 'ticker'
       ? operation.stockPreview
       : undefined;
   const selectionError = operation.phase === 'failed';
@@ -133,6 +142,7 @@ function SwapStockSelectionProvider({
   const stockSelectionPending = loadingScopes.stock;
   const availability = resolveSwapStockAvailability({
     pending:
+      operation.phase === 'checkingRisk' ||
       loadingScopes.tradeTarget ||
       isTokenVariantPending ||
       stockTokenStatus === ESwapStockChannelAsyncStatus.Initializing ||
@@ -188,15 +198,27 @@ function SwapStockSelectionProvider({
   );
 
   const select = useCallback(
-    async (
-      kind: ISwapStockSelectionKind,
-      fetchToken: () => Promise<ISwapToken>,
-      stockPreview?: IMarketStockDetailPreview,
-    ) => {
+    async ({
+      kind,
+      fetchToken,
+      stockPreview,
+      hasCachedToken = false,
+    }: {
+      kind: ISwapStockSelectionKind;
+      fetchToken: () => Promise<ISwapToken>;
+      stockPreview?: IMarketStockDetailPreview;
+      hasCachedToken?: boolean;
+    }) => {
       requestRef.current += 1;
       const request = requestRef.current;
       const initialIdentity = identityRef.current;
-      setOperation({ phase: 'resolving', kind, stockPreview });
+      // Cached data needs only the risk check. Keep the committed display
+      // coherent until that check permits the new token to commit.
+      setOperation(
+        hasCachedToken
+          ? { phase: 'checkingRisk', kind }
+          : { phase: 'resolving', kind, stockPreview },
+      );
       try {
         const token = await fetchToken();
         if (
@@ -214,6 +236,7 @@ function SwapStockSelectionProvider({
               phase: 'applying',
               kind,
               tokenKey: getTokenIdentityKey(token),
+              stockPreview,
             });
             selectStockSwapToken(token, { resetReceiveAmount: true });
           }
@@ -252,34 +275,59 @@ function SwapStockSelectionProvider({
   );
   const selectStock = useCallback(
     (stock: IMarketStockPublicItem, query?: string) => {
-      const retry = () =>
-        select('ticker', () => fetchSwapStockSelection(stock, query), stock);
+      const retry = () => {
+        const cached = getCachedSwapStockSelection(stock, query, locale);
+        return select({
+          kind: 'ticker',
+          fetchToken: async () =>
+            cached ?? fetchSwapStockSelection(stock, query, locale),
+          stockPreview: stock,
+          hasCachedToken: Boolean(cached),
+        });
+      };
       retrySelectionRef.current = retry;
       return retry();
     },
-    [select],
+    [locale, select],
   );
   const selectVariant = useCallback(
     (variant: IMarketStockTokenVariant) => {
       if (!stockId) return Promise.resolve(false);
-      const retry = () =>
-        select('variant', () => fetchSwapStockVariantToken(variant, stockId));
+      const retry = () => {
+        const cached = getCachedSwapStockVariantToken(variant, stockId, locale);
+        return select({
+          kind: 'variant',
+          fetchToken: async () =>
+            cached ?? fetchSwapStockVariantToken(variant, stockId, locale),
+          hasCachedToken: Boolean(cached),
+        });
+      };
       retrySelectionRef.current = retry;
       return retry();
     },
-    [select, stockId],
+    [locale, select, stockId],
   );
   const selectToken = useCallback(
     (token: ISwapToken) => {
-      const retry = () =>
-        select(
-          resolveSwapStockTokenSelectionKind(token, currentStockIdRef.current),
-          () => resolveSwapStockSelectionToken(token),
-        );
+      const retry = () => {
+        const stockPreview = getCachedSwapStockAssetPreview(token, locale);
+        return select({
+          kind:
+            stockPreview?.stockId === currentStockIdRef.current
+              ? 'token'
+              : resolveSwapStockTokenSelectionKind(
+                  token,
+                  currentStockIdRef.current,
+                ),
+          fetchToken: () => resolveSwapStockSelectionToken(token, locale),
+          stockPreview,
+          hasCachedToken: Boolean(stockPreview),
+        });
+      };
       retrySelectionRef.current = retry;
       return retry();
     },
-    [select],
+    [locale, select],
   );
 
   const value = useMemo(
@@ -331,16 +379,21 @@ export function SwapStockMarketProvider({
 }: PropsWithChildren<{ storeName: EJotaiContextStoreNames }>) {
   const { currentStockToken, displayStockTokenDetail } =
     useSwapStockTradeContext();
+  const locale = useLocaleVariant().toLowerCase();
   const explicitStockId =
     resolveMarketStockId(displayStockTokenDetail ?? {}) ??
-    resolveMarketStockId(currentStockToken ?? {});
+    (currentStockToken
+      ? getCachedSwapStockId(currentStockToken, locale)
+      : undefined);
   const tokenIdentity = getTokenIdentityKey(currentStockToken);
   const networkId = currentStockToken?.networkId;
   const contractAddress = currentStockToken?.contractAddress;
   const identityResolutionSwrKey = tokenIdentity
     ? swrKeys.swapStockTokenIdentity({ tokenScope: tokenIdentity })
     : undefined;
-  const { result: resolvedStock, run: retryResolution } = usePromiseResult(
+  const { result: resolvedStock, run: retryResolution } = usePromiseResult<
+    ISwapStockTokenIdentityResult | undefined
+  >(
     async () => {
       if (explicitStockId || !contractAddress || !networkId) return undefined;
       try {

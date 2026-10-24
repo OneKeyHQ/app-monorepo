@@ -25,6 +25,11 @@ const mockFetchMarketAccountPortfolio = jest.fn<
   [{ accountAddress: string; tokenAddress: string }]
 >();
 const mockGetGlobalDeriveTypeOfNetwork = jest.fn<Promise<string>, [unknown]>();
+let mockCurrency = 'usd';
+
+jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
+  useSettingsPersistAtom: () => [{ currencyInfo: { id: mockCurrency } }],
+}));
 
 // Arrow wrappers: the hoisted factory must not touch the `mock*` bindings
 // before their declarations run.
@@ -149,6 +154,7 @@ function setStockDetail(
 }
 
 beforeEach(() => {
+  mockCurrency = 'usd';
   jest.clearAllMocks();
   mockUseAccountIdentity.mockReturnValue({
     indexedAccountId: 'indexed-1',
@@ -383,6 +389,60 @@ describe('useSwapStockPortfolioData', () => {
         'nvda-ondo-ethereum',
       ]),
     );
+  });
+
+  it('restores the accepted same-owner rows immediately on a warm revisit', async () => {
+    const { result, rerender } = renderHook(() => useSwapStockPortfolioData());
+    await waitFor(() => expect(result.current.portfolioData).toHaveLength(3));
+    const appleRows = result.current.portfolioData;
+    setStockDetail('NVDA', [
+      buildVariant({ tokenId: 'nvda', contractAddress: '0xNVDA' }),
+    ]);
+    fetchMarketAccountPortfolio.mockResolvedValue({ list: [] });
+    rerender({});
+    await waitFor(() =>
+      expect(result.current.resolvedVariantKeys).toHaveLength(1),
+    );
+    fetchMarketAccountPortfolio.mockImplementation(
+      () => new Promise(() => undefined),
+    );
+    setStockDetail('AAPL', [ethVariant, bscVariant, solVariant]);
+    rerender({});
+    expect(result.current.portfolioData).toEqual(appleRows);
+    expect(result.current.resolvedVariantKeys).toEqual([]);
+  });
+
+  it('replaces a warm positive snapshot with an authoritative empty portfolio', async () => {
+    const { result, rerender } = renderHook(() => useSwapStockPortfolioData());
+    await waitFor(() => expect(result.current.portfolioData).toHaveLength(3));
+    setStockDetail('NVDA', [
+      buildVariant({ tokenId: 'nvda', contractAddress: '0xNVDA' }),
+    ]);
+    fetchMarketAccountPortfolio.mockResolvedValue({ list: [] });
+    rerender({});
+    await waitFor(() =>
+      expect(result.current.resolvedVariantKeys).toHaveLength(1),
+    );
+    setStockDetail('AAPL', [ethVariant, bscVariant, solVariant]);
+    rerender({});
+    expect(result.current.portfolioData).toHaveLength(3);
+    await waitFor(() =>
+      expect(result.current.resolvedVariantKeys).toHaveLength(3),
+    );
+    expect(result.current.portfolioData).toEqual([]);
+  });
+
+  it('does not reuse display prices after the currency changes and its refresh fails', async () => {
+    const { result, rerender } = renderHook(() => useSwapStockPortfolioData());
+    await waitFor(() => expect(result.current.portfolioData).toHaveLength(3));
+    mockCurrency = 'eur';
+    fetchMarketAccountPortfolio.mockRejectedValue(new Error('offline'));
+    rerender({});
+    expect(result.current.portfolioData).toEqual([]);
+    expect(result.current.resolvedVariantKeys).toEqual([]);
+    await waitFor(() => expect(result.current.isRefreshing).toBe(false));
+    expect(result.current.portfolioData).toEqual([]);
+    expect(result.current.resolvedVariantKeys).toEqual([]);
   });
 
   it('does not show the previous account while the same stock loads', async () => {

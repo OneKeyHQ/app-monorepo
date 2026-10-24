@@ -124,6 +124,17 @@ export function readSwrCacheEntry(
   }
 }
 
+/** Readable candidate keys only; digested keys cannot be discovered by prefix. */
+export function readSwrCacheKeysByPrefix(prefix: string): string[] {
+  try {
+    return getCache(swrKeyNamespace(prefix))
+      .keys()
+      .filter((key) => key.startsWith(prefix));
+  } catch {
+    return [];
+  }
+}
+
 export function writeSwrCacheEntries(
   entries: readonly (readonly [string, ISwrCacheStoredEntry])[],
 ): void {
