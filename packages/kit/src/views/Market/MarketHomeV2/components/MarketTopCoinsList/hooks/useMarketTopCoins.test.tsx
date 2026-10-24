@@ -139,16 +139,11 @@ describe('useMarketTopCoins', () => {
         currency: 'usd',
       },
     ]);
-    expect(serviceToken.fetchTokenInfoOnly.mock.calls).toContainEqual([
-      {
-        networkId: 'evm--1',
-        tokenAddress: '0xbtc',
-      },
-    ]);
+    expect(serviceToken.fetchTokenInfoOnly.mock.calls).toHaveLength(0);
     expect(mockToMarketDetailPage).toHaveBeenCalledWith({
       address: '0xbtc',
       change24h: 1,
-      decimals: 8,
+      decimals: undefined,
       isNative: false,
       marketCap: 2_000_000,
       marketTokenId: 'btc',
@@ -163,15 +158,15 @@ describe('useMarketTopCoins', () => {
     });
   });
 
-  it('keeps navigation available when token metadata is temporarily unavailable', async () => {
+  it('navigates without waiting for token metadata to resolve', async () => {
     serviceMarket.fetchMarketAssetDetail.mockResolvedValueOnce(bitcoinDetail);
-    serviceToken.fetchTokenInfoOnly.mockRejectedValueOnce(
-      new Error('metadata unavailable'),
+    serviceToken.fetchTokenInfoOnly.mockReturnValue(
+      new Promise(() => undefined),
     );
     const { result } = renderHook(() => useMarketTopCoins());
 
     await act(async () => {
-      await result.current.handleItemPress(bitcoin);
+      void result.current.handleItemPress(bitcoin);
     });
 
     expect(mockToMarketDetailPage).toHaveBeenCalledWith(
@@ -181,7 +176,50 @@ describe('useMarketTopCoins', () => {
         marketVariantId: 'btc-evm--1-0xbtc',
       }),
     );
+    expect(serviceToken.fetchTokenInfoOnly.mock.calls).toHaveLength(0);
     expect(Toast.error).not.toHaveBeenCalled();
+  });
+
+  it('preserves local decimals for native token navigation', async () => {
+    serviceMarket.fetchMarketAssetDetail.mockResolvedValueOnce({
+      ...bitcoinDetail,
+      selectedVariant: {
+        ...bitcoinDetail.selectedVariant,
+        tokenAddress: '',
+        isNative: true,
+      },
+    });
+    const { result } = renderHook(() => useMarketTopCoins());
+
+    await act(async () => {
+      await result.current.handleItemPress(bitcoin);
+    });
+
+    expect(mockToMarketDetailPage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        decimals: 18,
+        isNative: true,
+        networkId: 'evm--1',
+        tokenAddress: '',
+      }),
+    );
+    expect(serviceToken.fetchTokenInfoOnly.mock.calls).toHaveLength(0);
+  });
+
+  it('ignores repeated presses while navigation is pending', async () => {
+    serviceMarket.fetchMarketAssetDetail.mockResolvedValue(bitcoinDetail);
+    mockToMarketDetailPage.mockReturnValueOnce(new Promise(() => undefined));
+    const { result } = renderHook(() => useMarketTopCoins());
+
+    await act(async () => {
+      void result.current.handleItemPress(bitcoin);
+    });
+    await act(async () => {
+      await result.current.handleItemPress(bitcoin);
+    });
+
+    expect(serviceMarket.fetchMarketAssetDetail.mock.calls).toHaveLength(1);
+    expect(mockToMarketDetailPage).toHaveBeenCalledTimes(1);
   });
 
   it('reports a detail lookup failure without opening a CoinGecko route', async () => {
