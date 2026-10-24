@@ -109,6 +109,7 @@ import {
   swapSelectedFromTokenBalanceAtom,
   swapSelectedToTokenBalanceAtom,
   swapSelectedTokenBalanceMetaAtom,
+  swapSelectedTokenBalanceRefreshRequestedAtom,
   swapSelectedTokensColdStartContextAtom,
   swapShouldRefreshQuoteAtom,
   swapStockExecutionTokenSyncIdAtom,
@@ -3694,6 +3695,58 @@ describe('useSwapActions', () => {
       getSwapTokenSelectorStore().get(swapAllNetworkActionLockAtom()),
     ).toEqual({});
   });
+
+  it('requests balances only for the currently selected sides without loading token lists', () => {
+    const { store, Wrapper } = createWrapperWithStore((currentStore) => {
+      currentStore.set(swapTypeSwitchAtom(), ESwapTabSwitchType.SWAP);
+      currentStore.set(swapSelectToTokenAtom(), undefined);
+    });
+    const { result } = renderHook(() => useSwapActions().current, {
+      wrapper: Wrapper,
+    });
+    act(() => {
+      result.current.requestSelectedTokenBalanceRefresh();
+    });
+    expect(store.get(swapSelectedTokenBalanceRefreshRequestedAtom())).toEqual({
+      from: true,
+      to: false,
+    });
+    act(() => {
+      store.set(swapSelectToTokenAtom(), {
+        ...ethToken,
+        networkId: 'sol--101',
+      });
+      result.current.requestSelectedTokenBalanceRefresh();
+    });
+    expect(store.get(swapSelectedTokenBalanceRefreshRequestedAtom())).toEqual({
+      from: true,
+      to: true,
+    });
+    expect(mockFetchSwapTokenDetails).not.toHaveBeenCalled();
+    expect(mockFetchSwapTokens).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    { type: ESwapTabSwitchType.STOCK, native: false },
+    { type: ESwapTabSwitchType.LIMIT, native: true },
+  ])(
+    'does not request shared balances for $type on native=$native',
+    ({ type, native }) => {
+      platformEnv.isNative = native;
+      const { store, Wrapper } = createWrapperWithStore((currentStore) => {
+        currentStore.set(swapTypeSwitchAtom(), type);
+      });
+      const { result } = renderHook(() => useSwapActions().current, {
+        wrapper: Wrapper,
+      });
+      act(() => {
+        result.current.requestSelectedTokenBalanceRefresh();
+      });
+      expect(store.get(swapSelectedTokenBalanceRefreshRequestedAtom())).toEqual(
+        { from: false, to: false },
+      );
+    },
+  );
 
   it('pins selected token detail price fetches to USD for rate-difference math', async () => {
     mockFetchSwapTokenDetails.mockResolvedValue([
