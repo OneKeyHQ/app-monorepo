@@ -186,13 +186,21 @@ function BalanceRowMobile({ item, onChangeAsset }: IBalanceRowProps) {
           alignItems="center"
           gap="$3"
         >
-          <Token size="md" tokenImageUri={item.logoURI} />
+          <XStack
+            onPress={isAssetClickable ? onChangeAsset : undefined}
+            cursor={isAssetClickable ? 'pointer' : 'default'}
+          >
+            <Token size="md" tokenImageUri={item.logoURI} />
+          </XStack>
           <YStack flex={1} minWidth={0} gap="$0.5">
             <XStack
               minWidth={0}
               alignItems="center"
               gap="$1"
+              alignSelf="flex-start"
+              maxWidth="100%"
               onPress={isAssetClickable ? onChangeAsset : undefined}
+              cursor={isAssetClickable ? 'pointer' : 'default'}
             >
               <SizableText
                 size="$bodyMdMedium"

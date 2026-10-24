@@ -21,6 +21,7 @@ import {
   Divider,
   IconButton,
   NumberSizeableText,
+  Popover,
   ScrollView,
   SizableText,
   Skeleton,
@@ -327,6 +328,9 @@ export function DustSweepResult({
   else if (converting)
     title = intl.formatMessage({ id: ETranslations.sweep_dust_sweep_paused });
   const token = state.snapshot?.nativeToken;
+  const estimateDescription = intl.formatMessage({
+    id: ETranslations.dust_description_network_limit_estimate,
+  });
   let value = formatFiat('0');
   if (totals.receiptUnavailable || (!converting && !hasSuccess)) value = '—';
   else if (hasSuccess)
@@ -409,14 +413,47 @@ export function DustSweepResult({
                   />
                 )}
               </Stack>
-              <SizableText
-                size="$bodyLgMedium"
-                color="$textSubdued"
+              <XStack
+                alignItems="center"
+                gap="$1"
                 height={24}
                 mt={desktop ? 4 : 6}
               >
-                {value}
-              </SizableText>
+                <SizableText size="$bodyLgMedium" color="$textSubdued">
+                  {value}
+                </SizableText>
+                {totals.receivedAmountEstimated &&
+                !totals.receiptUnavailable ? (
+                  <Popover
+                    title={intl.formatMessage({
+                      id: ETranslations.sign_swap_estimate_receive,
+                    })}
+                    mountNativePortalBeforeOpen
+                    renderTrigger={
+                      <IconButton
+                        testID="dust-sweep-result-estimate-help"
+                        icon="InfoCircleOutline"
+                        iconProps={{ color: '$iconSubdued', size: '$4' }}
+                        size="small"
+                        variant="tertiary"
+                        hotKey
+                        p={0}
+                        m={0}
+                        width={20}
+                        height={20}
+                        minHeight={20}
+                        hitSlop={12}
+                        accessibilityLabel={estimateDescription}
+                      />
+                    }
+                    renderContent={
+                      <SizableText p="$4" size="$bodyMd">
+                        {estimateDescription}
+                      </SizableText>
+                    }
+                  />
+                ) : null}
+              </XStack>
             </>
           )}
           <Divider width="100%" mt="$6" mb="$4" />

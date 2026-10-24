@@ -59,8 +59,11 @@ export function useDustSweepSession(
       // A missing receipt or an unsettled submission has no known final amount.
       const receiptAvailable =
         !totals.receiptUnavailable &&
-        !current.items.some((item) =>
-          ['broadcasted', 'unknown'].includes(item.status),
+        !totals.receivedAmountEstimated &&
+        !current.items.some(
+          (item) =>
+            ['broadcasted', 'unknown'].includes(item.status) ||
+            (item.status === 'skipped' && Boolean(item.txId)),
         );
       const receivedAmount = receiptAvailable
         ? new BigNumber(totals.receivedAmount)
@@ -146,12 +149,13 @@ export function useDustSweepSession(
               }),
             onBroadcast: (txId) =>
               send({ ...identity, status: 'broadcasted', txId }),
-            onSubmissionError: (message, localError) =>
+            onSubmissionError: (message, localError, context) =>
               send({
                 ...identity,
                 type: 'submissionError',
                 message,
                 localError,
+                ...context,
               }),
             generateSwapHistoryItem: (params) =>
               generateSwapHistoryItemForContext(params, {
@@ -167,6 +171,10 @@ export function useDustSweepSession(
             status: result.status,
             receivedAmount:
               result.status === 'success' ? result.receivedAmount : undefined,
+            receivedAmountEstimated:
+              result.status === 'success'
+                ? result.receivedAmountEstimated
+                : undefined,
             receiptUnavailable:
               result.status === 'success'
                 ? result.receiptUnavailable
@@ -227,7 +235,7 @@ export function useDustSweepSession(
             break;
           }
           const failure = DustSweepError.from(error);
-          // Already settled, so record it even if Stop / Leave cut the hold.
+          // Record the finished attempt even if Stop / Leave cut the hold.
           await holdBeforeLastResult();
           send({
             ...identity,
@@ -364,7 +372,8 @@ export function useDustSweepSession(
     mounted.current = true;
     return () => {
       mounted.current = false;
-      send({ type: 'leave' });
+      // Effect reconnection preserves selection state; there is no run to leave.
+      if (stateRef.current.phase !== 'selecting') send({ type: 'leave' });
       controller.current?.abort();
       reportResult('left');
     };

@@ -40,6 +40,7 @@ import {
   Toast,
   XStack,
   YStack,
+  useInPageDialog,
   useMedia,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
@@ -296,6 +297,7 @@ function DustSweepPageContent() {
   const intl = useIntl();
   const { exit, continueRemoval, execution } = useDustSweepFlow();
   const desktop = useDustSweepDesktopLayout();
+  const liveSheetDialog = useInPageDialog();
   // As a Home sub page on iOS 26 the transparent nav bar overlaps the body, so
   // offset it by the settled bar height (same approach as the Borrow home).
   const headerHeight = useHeaderHeight();
@@ -558,7 +560,7 @@ function DustSweepPageContent() {
       return;
     }
     if (liveSheet.current) return;
-    const dialog = Dialog.show({
+    const dialog = liveSheetDialog.show({
       testID: 'dust-sweep-live-sheet',
       showHeader: false,
       showFooter: false,
@@ -577,7 +579,7 @@ function DustSweepPageContent() {
       ),
     });
     liveSheet.current = dialog;
-  }, [liveStore, showLiveSheet]);
+  }, [liveSheetDialog, liveStore, showLiveSheet]);
   useEffect(
     () => () => {
       const dialog = liveSheet.current;

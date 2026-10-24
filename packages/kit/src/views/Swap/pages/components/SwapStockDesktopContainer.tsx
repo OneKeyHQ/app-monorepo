@@ -46,6 +46,7 @@ import { TokenList } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/compone
 import { TradeTypeSelector } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/components/TradeTypeSelector';
 import { ESwapDirection } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/hooks/useTradeType';
 import type { IToken } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/types';
+import { useStockDetail } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/hooks/StockDetailContext';
 import {
   type EJotaiContextStoreNames,
   useInAppNotificationAtom,
@@ -106,6 +107,7 @@ import {
 import {
   calculateSwapStockEstimatedShares,
   getValidStockTokenToAssetRatio,
+  resolveSwapStockReviewToken,
 } from '../../utils/swapStockReviewUtils';
 import {
   getStockQuoteTradeControl,
@@ -164,7 +166,7 @@ interface ISwapStockDesktopContainerProps {
   fetchLoading: boolean;
   onSelectPercentageStage: (stage: number) => void;
   onBalanceMaxPress: () => void;
-  onPreSwap: () => void;
+  onPreSwap: (stockReviewToken?: ISwapToken) => void;
   onToAnotherAddressModal: () => void;
   onOpenProviderList: () => void;
   refreshAction: () => void;
@@ -235,6 +237,7 @@ function StockEstimatedReceive({
   quoteEventFetching,
   stockChannel,
   stockTradeConfig,
+  stockReviewToken,
 }: {
   forceLoading?: boolean;
   quoteResult?: IFetchQuoteResult;
@@ -242,6 +245,7 @@ function StockEstimatedReceive({
   quoteEventFetching: boolean;
   stockChannel: IUseSwapStockChannelReturn;
   stockTradeConfig?: ISwapStockTradeConfig;
+  stockReviewToken?: ISwapToken;
 }) {
   const intl = useIntl();
   const [fromTokenAmount] = useSwapFromTokenAmountAtom();
@@ -300,10 +304,7 @@ function StockEstimatedReceive({
     stockChannel.tradeSide === ESwapStockTradeSide.Buy
       ? quoteResult?.toAmount
       : quoteResult?.fromAmount;
-  const tokenToAssetRatio =
-    stockTradeConfig?.tokenToAssetRatio ??
-    stockChannel.activeStockTokenDetail?.stock?.tokenToAssetRatio ??
-    stockChannel.currentStockToken?.stock?.tokenToAssetRatio;
+  const tokenToAssetRatio = stockReviewToken?.stock?.tokenToAssetRatio;
   const estimatedShares = calculateSwapStockEstimatedShares({
     stockTokenAmount: quoteMatchesStockTrade
       ? estimatedStockTokenAmount
@@ -311,12 +312,8 @@ function StockEstimatedReceive({
     tokenToAssetRatio,
   });
   const stockUnderlyingSymbol =
-    stockTradeConfig?.underlyingSymbol ??
-    stockChannel.activeStockTokenDetail?.stock?.underlyingAssetTicker ??
-    stockChannel.currentStockToken?.symbol ??
-    '';
+    stockReviewToken?.stock?.underlyingAssetTicker ?? '';
   const shouldShowEstimatedShares = Boolean(
-    (stockTradeConfig || stockChannel.currentStockToken) &&
     getValidStockTokenToAssetRatio(tokenToAssetRatio),
   );
   const hasReceiveAmount = Boolean(receiveAmount && receiveTokenSymbol);
@@ -1103,6 +1100,28 @@ function StockTradeTicket({
   stockTradeIdentityLoading?: boolean;
 }) {
   const standaloneSelection = useSwapStockSelection();
+  const { selectedTokenVariant, stockDetail } = useStockDetail();
+  const stockReviewToken = useMemo(
+    () =>
+      resolveSwapStockReviewToken({
+        stockToken: stockChannel.currentStockToken,
+        selectedTokenVariant,
+        tokenDetail: stockChannel.activeStockTokenDetail,
+        stockTradeConfig,
+        underlyingSymbol: stockDetail?.symbol,
+      }),
+    [
+      selectedTokenVariant,
+      stockChannel.currentStockToken,
+      stockChannel.activeStockTokenDetail,
+      stockTradeConfig,
+      stockDetail?.symbol,
+    ],
+  );
+  const onStockPreSwap = useCallback(
+    () => onPreSwap(stockReviewToken),
+    [onPreSwap, stockReviewToken],
+  );
   const swapFromAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
   const swapToAddressInfo = useSwapAddressInfo(ESwapDirectionType.TO);
   const amountInputState = useSwapStockAmountInputState({ stockChannel });
@@ -1167,7 +1186,7 @@ function StockTradeTicket({
       balanceActionsReady={amountInputState.balanceActionsReady}
       stockChannel={stockChannel}
       stockTradeIdentityLoading={showStockTradeIdentitySkeleton}
-      onPreSwap={onPreSwap}
+      onPreSwap={onStockPreSwap}
       onToAnotherAddressModal={onToAnotherAddressModal}
       onSelectPercentageStage={amountInputState.onSelectPercentageStage}
     />
@@ -1197,6 +1216,7 @@ function StockTradeTicket({
           quoteEventFetching={quoteEventFetching}
           stockChannel={stockChannel}
           stockTradeConfig={stockTradeConfig}
+          stockReviewToken={stockReviewToken}
         />
         {renderActionGateOutsideTicket ? null : stockActionGate}
         {showStockTradeIdentitySkeleton ? null : (

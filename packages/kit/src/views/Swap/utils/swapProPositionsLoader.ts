@@ -5,10 +5,8 @@ import type {
   IJotaiGetter,
   IJotaiSetter,
 } from '@onekeyhq/kit-bg/src/states/jotai/types';
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
-import { swapProStockPositionsListMinValue } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type {
   ISwapNetwork,
   ISwapToken,
@@ -34,6 +32,7 @@ import {
   compareSwapProPositionNetworkIds,
 } from './swapProPositionsKeyUtils';
 import { buildStockPositionTokens } from './swapStockPositionsUtils';
+import { isTradePositionVisible } from './tradePositionUtils';
 
 export type ISwapProPositionsLoadOptions = {
   forceRefresh?: boolean;
@@ -296,9 +295,10 @@ export const loadSwapProPositions: ISwapProPositionsLoader = async (
         if (stockNetworkIds.has(accountNetworkId)) {
           try {
             const stockCandidateTokens = tokens.filter((token) =>
-              new BigNumber(token.fiatValue ?? '0').gt(
-                swapProStockPositionsListMinValue,
-              ),
+              isTradePositionVisible({
+                balance: token.balanceParsed,
+                isStock: true,
+              }),
             );
             if (stockCandidateTokens.length === 0) {
               stockTokens = [];
@@ -318,11 +318,6 @@ export const loadSwapProPositions: ISwapProPositionsLoader = async (
                 marketItems: response.list ?? [],
                 tokens: stockCandidateTokens,
               });
-              if (!stockTokens) {
-                throw new OneKeyLocalError(
-                  'Incomplete market metadata response for Stock positions',
-                );
-              }
             }
             for (const scope of scopesToLoad) {
               if (scope.stockOnly && scope.networkIds.has(accountNetworkId)) {

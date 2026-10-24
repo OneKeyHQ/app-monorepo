@@ -51,6 +51,8 @@ type IDustSweepAction =
       key: string;
       message?: string;
       localError?: ISwapErrorMessage;
+      txId?: string;
+      approvalTxIds?: string[];
     }
   | {
       type: 'item';
@@ -60,6 +62,7 @@ type IDustSweepAction =
       approvalTxIds?: string[];
       txId?: string;
       receivedAmount?: string;
+      receivedAmountEstimated?: boolean;
       receiptUnavailable?: boolean;
       reason?: IDustSweepReason;
       message?: string;
@@ -76,7 +79,7 @@ const transitions: Record<IDustSweepItemStatus, IDustSweepItemStatus[]> = {
   waiting: ['preparing'],
   preparing: ['waiting', 'signing', 'skipped'],
   signing: ['preparing', 'broadcasted', 'failed', 'skipped', 'unknown'],
-  broadcasted: ['success', 'failed'],
+  broadcasted: ['success', 'failed', 'skipped'],
   unknown: ['broadcasted'],
   success: [],
   skipped: [],
@@ -143,6 +146,8 @@ export function dustSweepReducer(
                 ...item,
                 submissionErrorMessage: action.message,
                 localError: action.localError,
+                txId: action.txId ?? item.txId,
+                approvalTxIds: action.approvalTxIds ?? item.approvalTxIds,
               }
             : item,
         ),
@@ -172,6 +177,10 @@ export function dustSweepReducer(
               receivedAmount: action.receiptUnavailable
                 ? undefined
                 : action.receivedAmount,
+              receivedAmountEstimated:
+                action.status === 'success' && !action.receiptUnavailable
+                  ? action.receivedAmountEstimated
+                  : undefined,
               receiptUnavailable: action.receiptUnavailable,
               reason: action.reason,
               message: action.message,
@@ -202,6 +211,9 @@ export function getDustSweepTotals(items: IDustSweepItem[]) {
   const success = items.filter((item) => item.status === 'success');
   return {
     receiptUnavailable: success.some((item) => item.receiptUnavailable),
+    receivedAmountEstimated: success.some(
+      (item) => item.receivedAmountEstimated,
+    ),
     successCount: success.length,
     skippedCount: items.filter((item) => item.status === 'skipped').length,
     failedCount: items.filter((item) => item.status === 'failed').length,

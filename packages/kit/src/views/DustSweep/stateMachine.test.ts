@@ -153,11 +153,14 @@ describe('Dust Sweep terminal and retry boundaries', () => {
       ...identity,
       status: 'success',
       receiptUnavailable: true,
+      receivedAmountEstimated: true,
     });
     expect(completed.phase).toBe('completed');
     expect(completed.items[0].receivedAmount).toBeUndefined();
+    expect(completed.items[0].receivedAmountEstimated).toBeUndefined();
     expect(getDustSweepTotals(completed.items)).toMatchObject({
       receiptUnavailable: true,
+      receivedAmountEstimated: false,
       successCount: 1,
     });
   });
