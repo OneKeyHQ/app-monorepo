@@ -12,7 +12,6 @@ import {
   Divider,
   Icon,
   SizableText,
-  Stack,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -47,10 +46,21 @@ function QuickActionTile({
   onClose: () => void;
 }) {
   return (
+    // A whole-card tile (icon and label inside): the row of cards spans the
+    // same width as the list below, so its edges line up with the list icons
+    // and dividers instead of floating icons centered in columns.
     <YStack
       flex={1}
-      alignItems="center"
+      minHeight={84}
+      py="$3"
+      px="$1"
       gap="$2"
+      alignItems="center"
+      justifyContent="center"
+      borderRadius="$4"
+      borderCurve="continuous"
+      bg="$bgStrong"
+      pressStyle={{ bg: '$bgActive' }}
       onPress={async () => {
         onClose();
         if (action.afterClose) {
@@ -60,17 +70,7 @@ function QuickActionTile({
       }}
       testID={action.testID}
     >
-      <Stack
-        w="$14"
-        h="$14"
-        borderRadius="$4"
-        borderCurve="continuous"
-        bg="$bgStrong"
-        alignItems="center"
-        justifyContent="center"
-      >
-        <Icon name={action.icon} size="$6" color="$icon" />
-      </Stack>
+      <Icon name={action.icon} size="$6" color="$icon" />
       <SizableText size="$bodySmMedium" textAlign="center" numberOfLines={2}>
         {action.label}
       </SizableText>
@@ -90,7 +90,7 @@ function OptionsMenuContent({
 }) {
   return (
     <YStack>
-      <XStack px="$2" pt="$1" pb="$3" gap="$2">
+      <XStack px="$2" pb="$2" gap="$2">
         {quickActions.map((action) => (
           <QuickActionTile
             key={action.testID}
