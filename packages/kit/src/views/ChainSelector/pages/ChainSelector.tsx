@@ -36,6 +36,8 @@ export default function ChainSelectorPage({
     hideLowValueNetworkValue,
     indexedAccountId,
     accountId,
+    networkValues,
+    networkValueCurrency,
     featuredNetwork,
   } = route.params ?? {};
   const { result } = usePromiseResult(
@@ -72,7 +74,15 @@ export default function ChainSelectorPage({
       }
       let accountNetworkValues: Record<string, string> | undefined;
       let accountNetworkValueCurrency: string | undefined;
-      if (showNetworkValues) {
+      if (networkValues) {
+        accountNetworkValues = networkValues;
+        accountNetworkValueCurrency = networkValueCurrency;
+        networks.sort((a, b) =>
+          new BigNumber(networkValues[b.id] || 0).comparedTo(
+            new BigNumber(networkValues[a.id] || 0),
+          ),
+        );
+      } else if (showNetworkValues) {
         let valueAccountId = indexedAccountId || '';
         if (!valueAccountId && accountId) {
           if (accountUtils.isOthersAccount({ accountId })) {
@@ -153,6 +163,8 @@ export default function ChainSelectorPage({
       showNetworkValues,
       indexedAccountId,
       accountId,
+      networkValues,
+      networkValueCurrency,
       featuredNetwork,
     ],
     {
@@ -170,6 +182,9 @@ export default function ChainSelectorPage({
       accountNetworkValues={result?.accountNetworkValues}
       accountNetworkValueCurrency={result?.accountNetworkValueCurrency}
       hideLowValueNetworkValue={hideLowValueNetworkValue}
+      // Caller-supplied values (Dust sweep) also get the wallet selector's
+      // "Networks with assets" section; account-value callers keep A-Z.
+      groupByNetworkValue={Boolean(networkValues)}
       featuredNetwork={featuredNetwork}
       onPressItem={(network) => {
         onSelect?.(network);

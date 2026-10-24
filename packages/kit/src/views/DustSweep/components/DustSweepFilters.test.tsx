@@ -212,8 +212,12 @@ it('retains the compact network selector menu', () => {
     expect.objectContaining({
       defaultNetworkId: 'evm--1',
       networkIds: ['evm--1', 'evm--56'],
+      // The desktop chips' balances, grouped like the wallet network selector.
+      networkValues: { 'evm--1': '1', 'evm--56': '1' },
+      networkValueCurrency: 'usd',
     }),
   );
+  expect(mockOpenChainSelector.mock.calls[0][0]).not.toHaveProperty('grouped');
 });
 
 describe('resolveCollapsedNetworkIds', () => {

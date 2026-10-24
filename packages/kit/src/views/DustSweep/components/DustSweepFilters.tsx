@@ -491,7 +491,15 @@ export function DustSweepNetworks({
                 title,
                 defaultNetworkId: current?.network.networkId,
                 networkIds: networks.map((entry) => entry.network.networkId),
-                grouped: false,
+                // Same networks and balances as the desktop chips, listed like
+                // the wallet's network selector: valued ones first by value.
+                networkValues: Object.fromEntries(
+                  networks.map((entry) => [
+                    entry.network.networkId,
+                    entry.balanceUsd,
+                  ]),
+                ),
+                networkValueCurrency: 'usd',
                 excludeAllNetworkItem: true,
                 onSelect: (network) => selectNetwork(network.id),
               })
