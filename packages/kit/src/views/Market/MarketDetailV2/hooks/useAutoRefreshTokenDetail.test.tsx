@@ -1,5 +1,7 @@
 /** @jest-environment jsdom */
 
+import { StrictMode } from 'react';
+
 import { act, renderHook } from '@testing-library/react';
 
 import {
@@ -40,6 +42,7 @@ let promiseFactory: (() => Promise<unknown>) | undefined;
 let promiseOptions: Record<string, unknown> | undefined;
 let promiseResult: unknown;
 let mockCurrencyId = 'usd';
+let mockLocale = 'en-US';
 
 jest.mock('@onekeyhq/kit/src/components/Currency', () => ({
   useCurrency: () => ({ id: mockCurrencyId }),
@@ -57,7 +60,7 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
 }));
 
 jest.mock('@onekeyhq/kit/src/hooks/useLocaleVariant', () => ({
-  useLocaleVariant: () => 'en-US',
+  useLocaleVariant: () => mockLocale,
 }));
 
 jest.mock('@onekeyhq/kit/src/hooks/usePromiseResult', () => ({
@@ -68,7 +71,13 @@ jest.mock('@onekeyhq/kit/src/hooks/usePromiseResult', () => ({
   ) => {
     promiseFactory = factory;
     promiseOptions = options;
-    return { result: promiseResult, isLoading: false };
+    return {
+      result: promiseResult,
+      isLoading: false,
+      run: async () => {
+        await factory();
+      },
+    };
   },
 }));
 
@@ -148,6 +157,7 @@ describe('useAutoRefreshTokenDetail', () => {
     promiseOptions = undefined;
     promiseResult = undefined;
     mockCurrencyId = 'usd';
+    mockLocale = 'en-US';
     mockResolveMarketAssetRouteIdentity.mockResolvedValue(undefined);
   });
 
@@ -169,12 +179,15 @@ describe('useAutoRefreshTokenDetail', () => {
       await promiseFactory?.();
     });
 
-    expect(mockFetchAssetTokenDetail).toHaveBeenCalledWith({
-      assetId: 'doge',
-      variantId: 'doge-doge--0-1',
-      tokenAddress: '',
-      networkId: 'doge--0',
-    });
+    expect(mockFetchAssetTokenDetail).toHaveBeenCalledWith(
+      expect.objectContaining({
+        assetId: 'doge',
+        variantId: 'doge-doge--0-1',
+        tokenAddress: '',
+        networkId: 'doge--0',
+        reuseInitialResult: true,
+      }),
+    );
     expect(mockFetchTokenDetail).not.toHaveBeenCalled();
     expect(promiseOptions).toMatchObject({
       undefinedResultIfError: true,
@@ -182,7 +195,32 @@ describe('useAutoRefreshTokenDetail', () => {
     expect(promiseOptions).not.toHaveProperty('watchLoading');
   });
 
-  it('consumes the bootstrap Asset result once and refreshes on later ticks', async () => {
+  it('keeps the current Asset request valid after StrictMode effect reconnect', async () => {
+    mockFetchAssetTokenDetail.mockResolvedValue(initialAssetDetail);
+    const { unmount } = renderHook(
+      () =>
+        useAutoRefreshTokenDetail({
+          tokenAddress: '',
+          networkId: '',
+          isNative: false,
+          marketTokenId: 'bitcoin',
+          marketTokenCategory: MARKET_TOP_COINS_CATEGORY_ID,
+        }),
+      { wrapper: StrictMode },
+    );
+
+    await act(async () => {
+      await promiseFactory?.();
+    });
+    const isCurrentRequest = mockFetchAssetTokenDetail.mock.calls[0]?.[0]
+      ?.isCurrentRequest as (() => boolean) | undefined;
+    expect(isCurrentRequest?.()).toBe(true);
+
+    unmount();
+    expect(isCurrentRequest?.()).toBe(false);
+  });
+
+  it('reuses the first Asset request and refreshes on later ticks', async () => {
     mockFetchAssetTokenDetail.mockResolvedValue(initialAssetDetail);
     renderHook(() =>
       useAutoRefreshTokenDetail({
@@ -192,7 +230,6 @@ describe('useAutoRefreshTokenDetail', () => {
         marketTokenId: 'bitcoin',
         marketVariantId: 'bitcoin-evm--1-0xbtc',
         marketTokenCategory: MARKET_TOP_COINS_CATEGORY_ID,
-        initialMarketAssetDetail: initialAssetDetail,
       }),
     );
 
@@ -200,29 +237,59 @@ describe('useAutoRefreshTokenDetail', () => {
       await promiseFactory?.();
       await promiseFactory?.();
     });
-    expect(mockFetchAssetTokenDetail.mock.calls).toEqual([
-      [
-        {
-          assetId: 'bitcoin',
-          variantId: 'bitcoin-evm--1-0xbtc',
-          tokenAddress: '0xbtc',
-          networkId: 'evm--1',
-          initialAssetDetail,
-        },
-      ],
-      [
-        {
-          assetId: 'bitcoin',
-          variantId: 'bitcoin-evm--1-0xbtc',
-          tokenAddress: '0xbtc',
-          networkId: 'evm--1',
-        },
-      ],
-    ]);
+    expect(mockFetchAssetTokenDetail.mock.calls).toHaveLength(2);
+    expect(mockFetchAssetTokenDetail.mock.calls[0]?.[0]).toMatchObject({
+      assetId: 'bitcoin',
+      variantId: 'bitcoin-evm--1-0xbtc',
+      reuseInitialResult: true,
+    });
+    expect(mockFetchAssetTokenDetail.mock.calls[1]?.[0]).toMatchObject({
+      assetId: 'bitcoin',
+      variantId: 'bitcoin-evm--1-0xbtc',
+      reuseInitialResult: false,
+    });
     expect(promiseOptions).toMatchObject({
       pollingInterval: 6000,
       revalidateOnFocus: true,
       revalidateOnReconnect: true,
+    });
+  });
+
+  it('drops a completed Asset result when currency or locale changes', async () => {
+    mockFetchAssetTokenDetail.mockResolvedValue(initialAssetDetail);
+    const input = {
+      tokenAddress: '',
+      networkId: '',
+      isNative: false,
+      marketTokenId: 'bitcoin',
+      marketTokenCategory: MARKET_TOP_COINS_CATEGORY_ID,
+    };
+    const { result, rerender } = renderHook(() =>
+      useAutoRefreshTokenDetail(input),
+    );
+    await act(async () => {
+      await promiseFactory?.();
+    });
+    expect(result.current.marketAssetDetail).toBe(initialAssetDetail);
+
+    mockCurrencyId = 'sgd';
+    rerender();
+    expect(result.current.marketAssetDetail).toBeUndefined();
+    await act(async () => {
+      await promiseFactory?.();
+    });
+    expect(mockFetchAssetTokenDetail.mock.calls[1]?.[0]).toMatchObject({
+      reuseInitialResult: true,
+    });
+
+    mockLocale = 'zh-CN';
+    rerender();
+    expect(result.current.marketAssetDetail).toBeUndefined();
+    await act(async () => {
+      await promiseFactory?.();
+    });
+    expect(mockFetchAssetTokenDetail.mock.calls[2]?.[0]).toMatchObject({
+      reuseInitialResult: true,
     });
   });
 
@@ -289,17 +356,19 @@ describe('useAutoRefreshTokenDetail', () => {
       await promiseFactory?.();
     });
 
-    expect(mockFetchAssetTokenDetail).toHaveBeenCalledWith({
-      assetId: 'doge',
-      variantId: undefined,
-      tokenAddress: '',
-      networkId: 'doge--0',
-    });
+    expect(mockFetchAssetTokenDetail).toHaveBeenCalledWith(
+      expect.objectContaining({
+        assetId: 'doge',
+        variantId: undefined,
+        tokenAddress: '',
+        networkId: 'doge--0',
+      }),
+    );
   });
 
   it('does not expose an asset result from a previous route', () => {
     promiseResult = {
-      requestKey: 'asset:btc::btc--0:',
+      requestKey: 'asset:btc::btc--0::usd:en-us',
       assetDetail: { asset: { assetId: 'btc' } },
     };
 
@@ -334,13 +403,13 @@ describe('useAutoRefreshTokenDetail', () => {
 
     await act(async () => {
       await expect(promiseFactory?.()).resolves.toEqual({
-        requestKey: 'asset:doge::doge--0:',
+        requestKey: 'asset:doge::doge--0::usd:en-us',
         assetDetail,
       });
     });
     await act(async () => {
       await expect(promiseFactory?.()).resolves.toEqual({
-        requestKey: 'asset:doge::doge--0:',
+        requestKey: 'asset:doge::doge--0::usd:en-us',
         assetDetail,
       });
     });
@@ -384,7 +453,7 @@ describe('useAutoRefreshTokenDetail', () => {
 
     await act(async () => {
       await expect(fetchBtc?.()).resolves.toEqual({
-        requestKey: 'asset:btc::btc--0:',
+        requestKey: 'asset:btc::btc--0::usd:en-us',
         assetDetail: btcAssetDetail,
       });
     });
@@ -396,7 +465,7 @@ describe('useAutoRefreshTokenDetail', () => {
 
     await act(async () => {
       await expect(fetchBtc?.()).resolves.toEqual({
-        requestKey: 'asset:btc::btc--0:',
+        requestKey: 'asset:btc::btc--0::usd:en-us',
         assetDetail: btcAssetDetail,
       });
     });
@@ -453,83 +522,6 @@ describe('useAutoRefreshTokenDetail', () => {
 describe('useResolvedMarketAssetRouteIdentity', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-  });
-
-  it('waits on the initial Asset request and exposes its selected identity', async () => {
-    let resolveAsset!: (detail: IMarketAssetDetailData) => void;
-    mockFetchMarketAssetDetail.mockReturnValueOnce(
-      new Promise((resolve) => {
-        resolveAsset = resolve;
-      }),
-    );
-    const { result } = renderHook(() =>
-      useResolvedMarketAssetRouteIdentity({
-        enabled: true,
-        assetId: 'bitcoin',
-        tokenAddress: '',
-        networkId: '',
-        isNative: false,
-      }),
-    );
-    expect(result.current.isResolving).toBe(true);
-    expect(result.current.shouldSkipMarketDataFetch).toBe(true);
-    expect(mockFetchMarketAssetDetail.mock.calls).toEqual([
-      [
-        {
-          assetId: 'bitcoin',
-          currency: 'usd',
-          autoHandleError: false,
-          reuseInitialResult: true,
-        },
-      ],
-    ]);
-
-    await act(async () => {
-      resolveAsset(initialAssetDetail);
-    });
-    expect(result.current.identity).toEqual({
-      isNative: false,
-      marketTokenId: 'bitcoin',
-      marketVariantId: 'bitcoin-evm--1-0xbtc',
-      networkId: 'evm--1',
-      tokenAddress: '0xbtc',
-    });
-    expect(result.current.assetDetail).toBe(initialAssetDetail);
-    expect(result.current.shouldSkipMarketDataFetch).toBe(false);
-  });
-
-  it('retries a rejected or invalid Asset response with a fresh request', async () => {
-    mockFetchMarketAssetDetail
-      .mockResolvedValueOnce({
-        ...initialAssetDetail,
-        selectedVariant: {
-          ...initialAssetDetail.selectedVariant,
-          tokenAddress: '',
-        },
-      })
-      .mockResolvedValueOnce(initialAssetDetail);
-    const { result } = renderHook(() =>
-      useResolvedMarketAssetRouteIdentity({
-        enabled: true,
-        assetId: 'bitcoin',
-        tokenAddress: '',
-        networkId: '',
-        isNative: false,
-      }),
-    );
-    await act(async () => {});
-    expect(result.current.hasError).toBe(true);
-
-    await act(async () => {
-      result.current.retry();
-    });
-    expect(mockFetchMarketAssetDetail.mock.calls[1]?.[0]).toEqual({
-      assetId: 'bitcoin',
-      currency: 'usd',
-      autoHandleError: false,
-      reuseInitialResult: false,
-    });
-    expect(result.current.identity?.marketTokenId).toBe('bitcoin');
   });
 
   it('resolves Asset identity after detail mounts', async () => {

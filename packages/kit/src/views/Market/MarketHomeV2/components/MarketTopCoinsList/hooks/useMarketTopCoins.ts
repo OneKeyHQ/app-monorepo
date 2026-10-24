@@ -47,16 +47,21 @@ export async function resolveMarketTopCoinNavigationTarget(
   if (!networkInfo || !hasTokenIdentity) {
     throw new OneKeyLocalError('Invalid market asset variant');
   }
-  if (!selectedVariant.isNative) {
-    // Warm the background promise cache for the detail page without blocking navigation.
-    void backgroundApiProxy.serviceToken
-      .fetchTokenInfoOnly({
-        networkId: selectedVariant.networkId,
-        tokenAddress: selectedVariant.tokenAddress,
-      })
-      .catch(() => undefined);
+  let decimals: number | undefined;
+  if (selectedVariant.isNative) {
+    decimals = networkInfo.decimals;
+  } else {
+    try {
+      const tokenInfo =
+        await backgroundApiProxy.serviceToken.fetchTokenInfoOnly({
+          networkId: selectedVariant.networkId,
+          tokenAddress: selectedVariant.tokenAddress,
+        });
+      decimals = tokenInfo?.info?.decimals;
+    } catch {
+      decimals = undefined;
+    }
   }
-  let decimals = selectedVariant.isNative ? networkInfo.decimals : undefined;
   if (
     typeof decimals !== 'number' ||
     !Number.isFinite(decimals) ||

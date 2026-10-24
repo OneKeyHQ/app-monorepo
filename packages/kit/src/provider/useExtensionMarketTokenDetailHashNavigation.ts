@@ -105,6 +105,7 @@ export function getMarketTokenDetailNavigationTargetFromHash(
         params: {
           marketTokenId,
           marketTokenCategory,
+          ...(marketVariantId ? { marketVariantId } : undefined),
           ...(from ? { from: from as EEnterWay } : undefined),
           ...(disableTrade === undefined ? undefined : { disableTrade }),
           ...(showFavoriteButton === undefined
