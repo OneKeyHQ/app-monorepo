@@ -64,7 +64,11 @@ import { useNativeStackHeaderHeightEstimate } from '../Earn/hooks/useNativeStack
 import { useSettledHeaderHeight } from '../Earn/hooks/useSettledHeaderHeight';
 
 import { DustSweepDetails } from './components/DustSweepDetails';
-import { DustSweepNetworks } from './components/DustSweepFilters';
+import {
+  DUST_SWEEP_NETWORK_ROW_GAP,
+  DUST_SWEEP_NETWORK_ROW_HEIGHT,
+  DustSweepNetworks,
+} from './components/DustSweepFilters';
 import {
   DUST_SWEEP_DESKTOP_CARD_MAX_HEIGHT,
   DUST_SWEEP_DESKTOP_CARD_MIN_HEIGHT,
@@ -90,6 +94,9 @@ const DESKTOP_DIRECTION_SIZE = 40;
 // Let the page content fill the window so the cards can take the remaining
 // height instead of a fixed one that overflows short windows.
 const DESKTOP_SCROLL_PROPS = { contentContainerStyle: { flexGrow: 1 } };
+// Extra rows from expanding the network bar come out of the cards' minimum
+// height, so the action button keeps its place on short windows.
+const DESKTOP_CARD_MIN_HEIGHT_FLOOR = 400;
 
 function useDustSweepDesktopLayout() {
   const media = useMedia();
@@ -297,6 +304,13 @@ function DustSweepPageContent() {
   const intl = useIntl();
   const { exit, continueRemoval, execution } = useDustSweepFlow();
   const desktop = useDustSweepDesktopLayout();
+  const [networkRows, setNetworkRows] = useState(1);
+  const desktopCardMinHeight = Math.max(
+    DUST_SWEEP_DESKTOP_CARD_MIN_HEIGHT -
+      (networkRows - 1) *
+        (DUST_SWEEP_NETWORK_ROW_HEIGHT + DUST_SWEEP_NETWORK_ROW_GAP),
+    DESKTOP_CARD_MIN_HEIGHT_FLOOR,
+  );
   const liveSheetDialog = useInPageDialog();
   // As a Home sub page on iOS 26 the transparent nav bar overlaps the body, so
   // offset it by the settled bar height (same approach as the Borrow home).
@@ -629,12 +643,14 @@ function DustSweepPageContent() {
               <SizableText size="$heading2xl">{title}</SizableText>
               <DustSweepRefreshControl />
             </XStack>
-            {showNetworks ? <DustSweepNetworks desktop /> : null}
+            {showNetworks ? (
+              <DustSweepNetworks desktop onRowsChange={setNetworkRows} />
+            ) : null}
             {/* Stretch so the summary card always matches the token list card height. */}
             <XStack
               mt={showNetworks ? 30 : 0}
               flex={1}
-              minHeight={DUST_SWEEP_DESKTOP_CARD_MIN_HEIGHT}
+              minHeight={desktopCardMinHeight}
               maxHeight={DUST_SWEEP_DESKTOP_CARD_MAX_HEIGHT}
               alignItems="stretch"
             >
