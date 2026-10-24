@@ -245,6 +245,8 @@ function makeService() {
     fetchAccountDetailsByRpc: jest
       .fn()
       .mockResolvedValue({ data: { data: { nonce: 99 } } }),
+    checkSignedTxBroadcastStatus: jest.fn().mockResolvedValue('unknown'),
+    isSignedTxRejectedByBroadcast: jest.fn().mockResolvedValue(false),
     refreshUnsignedTxBeforeBatchSign: jest.fn((tx: IUnsignedTxPro) =>
       Promise.resolve(tx),
     ),

@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef } from 'react';
 import { useIntl } from 'react-intl';
 import { AppState } from 'react-native';
 
-import { Dialog } from '@onekeyhq/components';
+import { Dialog, Toast } from '@onekeyhq/components';
 import { acquireDeferredGuideBlocker } from '@onekeyhq/components/src/hooks/useDeferredGuideBlocker';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import { useAppUpdatePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -21,8 +21,14 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { BundleUpdate } from '@onekeyhq/shared/src/modules3rdParty/auto-update';
+import {
+  EUpdateErrorCode,
+  createUpdateError,
+  getUpdateError,
+} from '@onekeyhq/shared/src/modules3rdParty/auto-update/error';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EAppUpdateRoutes, EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
@@ -470,13 +476,14 @@ export function useAppUpdateForegroundEffects(enabled = true) {
       }
 
       const forceUpdate = isForceUpdateStrategy(info.updateStrategy);
-      const isDesktopAppShellRecovery =
-        platformEnv.isDesktop &&
-        getUpdateFileType(info) === EUpdateFileType.appShell;
+      const shouldShowIncompleteRecovery =
+        getUpdateFileType(info) === EUpdateFileType.jsBundle
+          ? !isAutoUpdateStrategy(info.updateStrategy)
+          : platformEnv.isDesktop;
       if (
         info.status === EAppUpdateStatus.updateIncomplete &&
         !forceUpdate &&
-        isDesktopAppShellRecovery
+        shouldShowIncompleteRecovery
       ) {
         showUpdateInCompleteDialogWhenUnlocked();
         return;
@@ -509,7 +516,22 @@ export function useAppUpdateForegroundEffects(enabled = true) {
               info.downloadedEvent?.signature &&
               info.downloadedEvent?.sha256
             ) {
-              void BundleUpdate.installBundle(info.downloadedEvent);
+              void BundleUpdate.installBundle(info.downloadedEvent).catch(
+                async (error: unknown) => {
+                  defaultLogger.app.appUpdate.endInstallPackage(
+                    false,
+                    createUpdateError(getUpdateError(error, 'install')),
+                  );
+                  if (
+                    getUpdateError(error, 'install').code ===
+                    EUpdateErrorCode.packageMissing
+                  ) {
+                    await backgroundApiProxy.serviceAppUpdate
+                      .reconcileAppShellPackage()
+                      .catch(() => undefined);
+                  }
+                },
+              );
             } else {
               defaultLogger.app.appUpdate.endInstallPackage(
                 false,
@@ -611,13 +633,23 @@ export function useAppUpdateForegroundEffects(enabled = true) {
   useEffect(() => {
     if (!enabled) return undefined;
     const handler = () => {
-      showUpdateInCompleteDialogWhenUnlocked();
+      Toast.error({
+        title: intl.formatMessage({ id: ETranslations.global_update_failed }),
+      });
     };
-    appEventBus.on(EAppEventBusNames.ShowAppUpdateIncompleteDialog, handler);
+    appEventBus.on(EAppEventBusNames.BundleUpdateRestartFailed, handler);
+    appEventBus.on(
+      EAppEventBusNames.ShowAppUpdateIncompleteDialog,
+      showUpdateInCompleteDialogWhenUnlocked,
+    );
     return () => {
-      appEventBus.off(EAppEventBusNames.ShowAppUpdateIncompleteDialog, handler);
+      appEventBus.off(EAppEventBusNames.BundleUpdateRestartFailed, handler);
+      appEventBus.off(
+        EAppEventBusNames.ShowAppUpdateIncompleteDialog,
+        showUpdateInCompleteDialogWhenUnlocked,
+      );
     };
-  }, [enabled, showUpdateInCompleteDialogWhenUnlocked]);
+  }, [enabled, intl, showUpdateInCompleteDialogWhenUnlocked]);
 
   // Single AppState listener for the whole app — replaces the per-mount
   // listeners that previously lived in `useAppUpdateInfo`. The service-

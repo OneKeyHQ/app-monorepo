@@ -31,6 +31,7 @@ import { useRedirectWhenNotLoggedIn } from '@onekeyhq/kit/src/views/ReferFriends
 import { useInviteLevelDetail } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/CurrentLevelCard/hooks/useCurrentLevelCard';
 import { getInviteEarningsState } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/getInviteEarningsState';
 import { InviteLevelPill } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/InviteLevelPill';
+import { InviteRewardSettingsButton } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/InviteRewardSettingsButton';
 import { InviteTabContent } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/InviteTabContent';
 import { useInviteValueSummary } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/InviteValueLine';
 import { LogoutButton } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/LogoutButton';
@@ -104,7 +105,12 @@ const ReferralPageHeader = memo(function ReferralPageHeader({
     if (activeTab !== EReferralPageTab.invite) {
       return null;
     }
-    return <RulesButton />;
+    return (
+      <XStack gap="$2" ai="center">
+        <RulesButton />
+        <InviteRewardSettingsButton />
+      </XStack>
+    );
   }, [activeTab]);
 
   if (isCompactHeader) {
@@ -632,6 +638,7 @@ function InviteRewardPage() {
                   ) : null}
                   <XStack gap="$4" ai="center">
                     <RulesButton />
+                    <InviteRewardSettingsButton />
                     {platformEnv.isWeb ? <LogoutButton /> : null}
                   </XStack>
                 </XStack>
