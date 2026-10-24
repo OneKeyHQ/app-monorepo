@@ -359,7 +359,8 @@ export function SwapStockVariantSelector() {
             onOpenChange={(open) => {
               if (open) selection?.cancelSelection();
             }}
-            onSelect={selection?.selectVariant}
+            // Remembers the picked issuer only once the switch commits.
+            onSelect={selection?.pickVariant}
             portfolioData={portfolio?.portfolioData}
             resolvedVariantKeys={portfolio?.resolvedVariantKeys}
           />

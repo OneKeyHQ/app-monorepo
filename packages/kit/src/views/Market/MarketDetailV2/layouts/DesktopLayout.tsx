@@ -384,7 +384,13 @@ export function DesktopLayout({
     isTerminalStockTradeUnavailable;
 
   const scrollContainerRef = useRef<HTMLElement>(null);
+  // The stock an Overview entry has already placed: its variant resolving
+  // afterwards changes networkId / tokenAddress, which must not scroll the
+  // page back to the chart. A different stock resets as before.
+  const sectionShownStockIdRef = useRef<string | undefined>(undefined);
   useEffect(() => {
+    if (stockId && sectionShownStockIdRef.current === stockId) return;
+    sectionShownStockIdRef.current = undefined;
     scrollContainerRef.current?.scrollTo({ top: 0 });
   }, [networkId, stockId, tokenAddress]);
   // Entries from a page that already shows this chart (Swap's "view full
@@ -410,6 +416,7 @@ export function DesktopLayout({
           container.getBoundingClientRect().top +
           container.scrollTop,
       });
+      sectionShownStockIdRef.current = stockId;
       onInitialSectionShown?.();
     });
     return () => cancelAnimationFrame(frame);
@@ -418,6 +425,7 @@ export function DesktopLayout({
     isStockDetailReady,
     onInitialSectionShown,
     shouldUseStockDesktopLayout,
+    stockId,
   ]);
   useIframeWheelPassthrough({
     disabled: isChartFullscreen || isTradingViewNative,

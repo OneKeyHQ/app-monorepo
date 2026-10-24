@@ -517,8 +517,8 @@ export function StockDetailProvider({
       ),
       isTokenVariantsFresh: Boolean(
         normalizedStockId &&
-        tokenVariantResult?.stockId === normalizedStockId &&
-        !tokenVariantResult.failed &&
+        hasCurrentTokenVariants &&
+        !tokenVariantResult?.failed &&
         fetchedTokenVariantsStockIdRef.current === normalizedStockId,
       ),
       defaultTokenId: tokenVariantResult?.defaultTokenId,

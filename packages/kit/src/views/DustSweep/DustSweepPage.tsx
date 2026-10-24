@@ -64,11 +64,7 @@ import { useNativeStackHeaderHeightEstimate } from '../Earn/hooks/useNativeStack
 import { useSettledHeaderHeight } from '../Earn/hooks/useSettledHeaderHeight';
 
 import { DustSweepDetails } from './components/DustSweepDetails';
-import {
-  DUST_SWEEP_NETWORK_ROW_GAP,
-  DUST_SWEEP_NETWORK_ROW_HEIGHT,
-  DustSweepNetworks,
-} from './components/DustSweepFilters';
+import { DustSweepNetworks } from './components/DustSweepFilters';
 import {
   DUST_SWEEP_DESKTOP_CARD_MAX_HEIGHT,
   DUST_SWEEP_DESKTOP_CARD_MIN_HEIGHT,
@@ -304,11 +300,9 @@ function DustSweepPageContent() {
   const intl = useIntl();
   const { exit, continueRemoval, execution } = useDustSweepFlow();
   const desktop = useDustSweepDesktopLayout();
-  const [networkRows, setNetworkRows] = useState(1);
+  const [networkExtraHeight, setNetworkExtraHeight] = useState(0);
   const desktopCardMinHeight = Math.max(
-    DUST_SWEEP_DESKTOP_CARD_MIN_HEIGHT -
-      (networkRows - 1) *
-        (DUST_SWEEP_NETWORK_ROW_HEIGHT + DUST_SWEEP_NETWORK_ROW_GAP),
+    DUST_SWEEP_DESKTOP_CARD_MIN_HEIGHT - networkExtraHeight,
     DESKTOP_CARD_MIN_HEIGHT_FLOOR,
   );
   const liveSheetDialog = useInPageDialog();
@@ -644,7 +638,10 @@ function DustSweepPageContent() {
               <DustSweepRefreshControl />
             </XStack>
             {showNetworks ? (
-              <DustSweepNetworks desktop onRowsChange={setNetworkRows} />
+              <DustSweepNetworks
+                desktop
+                onExtraHeightChange={setNetworkExtraHeight}
+              />
             ) : null}
             {/* Stretch so the summary card always matches the token list card height. */}
             <XStack

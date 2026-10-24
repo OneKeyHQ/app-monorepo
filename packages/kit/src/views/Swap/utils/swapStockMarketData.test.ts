@@ -94,6 +94,17 @@ describe('resolveSwapStockLoadingScopes', () => {
     ).toEqual(allLoading);
   });
 
+  it('holds the trade target while a restored token awaits the issuer rule', () => {
+    expect(
+      resolveSwapStockLoadingScopes({
+        operation: { phase: 'idle' },
+        currentTokenKey: 'restored-token',
+        isTokenVariantPending: false,
+        isAutoVariantPending: true,
+      }),
+    ).toEqual(tradeLoading);
+  });
+
   it('loads only the trade target and input while a variant changes', () => {
     expect(
       resolveSwapStockLoadingScopes({
@@ -694,7 +705,7 @@ describe('issuer preference in Swap stock defaults', () => {
     expect(
       resolveSwapStockAutoVariant({
         variants: [ondo, bStocks],
-        currentToken: ondo,
+        current: ondo,
       }),
     ).toBe(bStocks);
   });
@@ -703,7 +714,7 @@ describe('issuer preference in Swap stock defaults', () => {
     expect(
       resolveSwapStockAutoVariant({
         variants: [bStocks, ondo],
-        currentToken: bStocks,
+        current: bStocks,
         preferredIssuer: 'ondo',
       }),
     ).toBe(ondo);
@@ -713,7 +724,7 @@ describe('issuer preference in Swap stock defaults', () => {
     expect(
       resolveSwapStockAutoVariant({
         variants: [bStocks, ondo, ondoBsc],
-        currentToken: ondoBsc,
+        current: ondoBsc,
         defaultTokenId: ondo.tokenId,
         preferredIssuer: 'ondo',
       }),
@@ -721,22 +732,16 @@ describe('issuer preference in Swap stock defaults', () => {
     expect(
       resolveSwapStockAutoVariant({
         variants: [ondo, bStocks],
-        currentToken: bStocks,
+        current: bStocks,
       }),
     ).toBeUndefined();
   });
 
-  it('keeps tokens the fetched list does not know or cannot replace', () => {
-    expect(
-      resolveSwapStockAutoVariant({
-        variants: [ondo, bStocks],
-        currentToken: ondoBsc,
-      }),
-    ).toBeUndefined();
+  it('keeps the token when no tradable variant can replace it', () => {
     expect(
       resolveSwapStockAutoVariant({
         variants: [ondo, { ...bStocks, tradingEnabled: false }],
-        currentToken: ondo,
+        current: ondo,
       }),
     ).toBeUndefined();
   });

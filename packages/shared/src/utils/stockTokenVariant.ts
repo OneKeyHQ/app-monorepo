@@ -1,18 +1,14 @@
 import type { IMarketStockTokenVariant } from '@onekeyhq/shared/types/marketV2';
 
 // Backend issuer values come in several spellings; collapse them to one key so
-// labels, defaults and the remembered preference agree on the same issuer.
+// labels, defaults, Ondo trading hours and the remembered preference agree.
 const STOCK_ISSUER_ALIASES: Record<string, string> = {
   // cspell:disable-next-line
   bstock: 'bstocks',
-  // cspell:disable-next-line
-  bstocks: 'bstocks',
+  // Legacy source some Ondo stocks still report.
   coingecko: 'ondo',
-  ondo: 'ondo',
   // cspell:disable-next-line
   xstock: 'xstocks',
-  // cspell:disable-next-line
-  xstocks: 'xstocks',
 };
 
 export function normalizeStockIssuer(issuer: string | undefined) {
@@ -50,21 +46,17 @@ export function getDefaultStockTokenVariant(
   defaultTokenId?: string,
   preferredIssuer?: string,
 ) {
-  const preferredIssuerKey = normalizeStockIssuer(preferredIssuer);
-  if (preferredIssuerKey) {
-    const userPreferred = pickTradableStockTokenVariant(
-      items.filter(
-        (item) => normalizeStockIssuer(item.issuer) === preferredIssuerKey,
-      ),
-      defaultTokenId,
-    );
-    if (userPreferred) return userPreferred;
+  // cspell:disable-next-line
+  for (const issuer of [normalizeStockIssuer(preferredIssuer), 'bstocks']) {
+    const picked = issuer
+      ? pickTradableStockTokenVariant(
+          items.filter((item) => normalizeStockIssuer(item.issuer) === issuer),
+          defaultTokenId,
+        )
+      : undefined;
+    if (picked) return picked;
   }
-  const preferredItems = items.filter(isPreferredStockTokenVariant);
-  return pickTradableStockTokenVariant(
-    preferredItems.length ? preferredItems : items,
-    defaultTokenId,
-  );
+  return pickTradableStockTokenVariant(items, defaultTokenId);
 }
 
 export function isPreferredStockTokenVariant(

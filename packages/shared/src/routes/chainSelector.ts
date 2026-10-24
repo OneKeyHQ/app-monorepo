@@ -50,6 +50,9 @@ export type IChainSelectorParams = {
   // shown and sorted like account values without reading the account cache.
   networkValues?: Record<string, string>;
   networkValueCurrency?: string;
+  // Grouped list only: lift valued networks into a top "Networks with assets"
+  // section like the wallet network selector, instead of A-Z only.
+  groupByNetworkValue?: boolean;
   featuredNetwork?: {
     networkId: string;
     badgeText: string;

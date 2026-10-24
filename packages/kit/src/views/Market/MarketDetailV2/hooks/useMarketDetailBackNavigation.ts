@@ -12,7 +12,10 @@ import type { EEnterWay } from '@onekeyhq/shared/src/logger/scopes/dex';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabMarketRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
 
-import { resolveMarketDetailBackAction } from '../../utils/marketDetailNavigation';
+import {
+  resolveMarketDetailBackAction,
+  runAfterNextFrame,
+} from '../../utils/marketDetailNavigation';
 
 export function useMarketDetailBackNavigation() {
   const navigation = useAppNavigation();
@@ -40,18 +43,17 @@ export function useMarketDetailBackNavigation() {
       navigation.switchTab(ETabRoutes.Market);
       return;
     }
-    if (action.type === 'popAndSwitchSwap') {
-      if (action.resetToList) {
+    if (action.type === 'resetAndSwitchSwap') {
+      // Switch first so the Market list never shows for a frame.
+      navigation.switchTab(ETabRoutes.Swap);
+      runAfterNextFrame(() =>
         reactNavigation.dispatch(
           CommonActions.reset({
             index: 0,
             routes: [{ name: ETabMarketRoutes.TabMarket }],
           }),
-        );
-      } else {
-        navigation.pop();
-      }
-      navigation.switchTab(ETabRoutes.Swap);
+        ),
+      );
       return;
     }
     if (action.type === 'popToTop') {

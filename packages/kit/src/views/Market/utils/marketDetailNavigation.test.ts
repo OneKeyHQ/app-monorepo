@@ -23,6 +23,7 @@ import {
   prepareMarketDetailTabBarTransition,
   replaceFocusedMarketDetailRoute,
   resolveMarketDetailBackAction,
+  runAfterNextFrame,
 } from './marketDetailNavigation';
 
 import type { INavigationStateNode } from './marketDetailNavigation';
@@ -1497,7 +1498,7 @@ describe('back from a stock detail opened by Swap view full data', () => {
   const stockStack = [{ name: 'TabMarket' }, { name: 'MarketStockDetail' }];
 
   it.each([true, false])(
-    'leaves the Market list underneath and returns to Swap (native=%p)',
+    'pops onto the Market list; the page switches to Swap (native=%p)',
     (isNative) => {
       expect(
         resolveMarketDetailBackAction({
@@ -1507,7 +1508,7 @@ describe('back from a stock detail opened by Swap view full data', () => {
           routes: stockStack,
           index: 1,
         }),
-      ).toEqual({ type: 'popAndSwitchSwap', resetToList: false });
+      ).toEqual({ type: 'pop' });
     },
   );
 
@@ -1520,7 +1521,7 @@ describe('back from a stock detail opened by Swap view full data', () => {
         routes: [{ name: 'MarketStockDetail' }],
         index: 0,
       }),
-    ).toEqual({ type: 'popAndSwitchSwap', resetToList: true });
+    ).toEqual({ type: 'resetAndSwitchSwap' });
   });
 
   it('keeps the tablet split view on its own pop', () => {
@@ -1549,4 +1550,41 @@ describe('back from a stock detail opened by Swap view full data', () => {
       ).toEqual({ type: 'pop' });
     },
   );
+});
+
+describe('runAfterNextFrame', () => {
+  const originalRaf = globalThis.requestAnimationFrame;
+  let frames: FrameRequestCallback[] = [];
+
+  beforeEach(() => {
+    jest.useFakeTimers();
+    frames = [];
+    globalThis.requestAnimationFrame = (callback) => {
+      frames.push(callback);
+      return frames.length;
+    };
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+    globalThis.requestAnimationFrame = originalRaf;
+  });
+
+  it('runs once on the next frame', () => {
+    const callback = jest.fn();
+    runAfterNextFrame(callback);
+    frames.forEach((frame) => frame(0));
+    jest.advanceTimersByTime(300);
+    expect(callback).toHaveBeenCalledTimes(1);
+  });
+
+  it('still runs once when frames are paused (hidden window)', () => {
+    const callback = jest.fn();
+    runAfterNextFrame(callback);
+    expect(callback).not.toHaveBeenCalled();
+    jest.advanceTimersByTime(300);
+    expect(callback).toHaveBeenCalledTimes(1);
+    frames.forEach((frame) => frame(0));
+    expect(callback).toHaveBeenCalledTimes(1);
+  });
 });

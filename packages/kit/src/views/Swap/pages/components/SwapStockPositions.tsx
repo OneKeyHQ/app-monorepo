@@ -23,6 +23,7 @@ import type {
   ISwapToken,
 } from '@onekeyhq/shared/types/swap/types';
 
+import { ETabName, TabBarItem } from '../../../Perp/layouts/PerpMobileLayout';
 import { useSwapProSupportNetworksTokenList } from '../../hooks/useSwapPro';
 import {
   SWAP_DESKTOP_CARD_SHADOW_NATIVE_STYLE,
@@ -34,6 +35,8 @@ import { useSwapStockSelection } from './SwapStockMarketProvider';
 import { useSwapStockTradeContext } from './SwapStockTradeProvider';
 
 type IPositions = ReturnType<typeof useSwapProSupportNetworksTokenList>;
+// The stock page has a single positions tab, so its title is not a switch.
+const ignoreTitlePress = () => undefined;
 const PositionsContext = createContext<IPositions | undefined>(undefined);
 
 // The stock detail page's portfolio polls every 15s. This list is checked at
@@ -155,32 +158,26 @@ export function SwapStockPositions({
       $platform-web={mobile ? undefined : SWAP_DESKTOP_CARD_SHADOW_WEB_STYLE}
       style={mobile ? undefined : SWAP_DESKTOP_CARD_SHADOW_NATIVE_STYLE}
     >
-      {/* Mobile title row mirrors the Pro tab bar (TabBarItem) so both trade
-          tabs share the same font, height and underline (OK-63758). */}
-      <XStack
-        borderBottomWidth={mobile ? '$0.5' : 0}
-        borderColor="$borderSubdued"
-      >
+      {mobile ? (
+        // The Pro tab bar's own item and bottom rule, so both trade tabs'
+        // positions titles stay identical (OK-63758).
+        // pointerEvents: a single title, so no hover, cursor or press state.
         <XStack
-          py={mobile ? '$2' : undefined}
-          alignItems="center"
-          borderBottomWidth={mobile ? 1.5 : 0}
-          borderColor="$borderActive"
+          borderBottomWidth="$0.5"
+          borderBottomColor="$borderSubdued"
+          pointerEvents="none"
         >
-          <SizableText
-            size={mobile ? '$headingXs' : '$bodyLgMedium'}
-            textTransform="none"
-            letterSpacing={mobile ? 0 : undefined}
-            pr={mobile ? '$0.5' : undefined}
-          >
-            {intl.formatMessage({
-              id: mobile
-                ? ETranslations.perp_position_title
-                : ETranslations.title_all_positions,
-            })}
-          </SizableText>
+          <TabBarItem
+            name={ETabName.Positions}
+            isFocused
+            onPress={ignoreTitlePress}
+          />
         </XStack>
-      </XStack>
+      ) : (
+        <SizableText size="$bodyLgMedium">
+          {intl.formatMessage({ id: ETranslations.title_all_positions })}
+        </SizableText>
+      )}
       {mobile ? (
         <XStack
           pt="$2"

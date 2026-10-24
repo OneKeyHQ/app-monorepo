@@ -170,18 +170,20 @@ it('folds overflow into a +N toggle and keeps the selected network', () => {
 
 it('expands downward, stays open after a pick, and folds on the toggle', () => {
   mockNetworks = makeNetworks(['a', 'b', 'c', 'd', 'e', 'f']);
-  const onRowsChange = jest.fn();
-  render(<DustSweepNetworks desktop onRowsChange={onRowsChange} />);
+  const onExtraHeightChange = jest.fn();
+  render(
+    <DustSweepNetworks desktop onExtraHeightChange={onExtraHeightChange} />,
+  );
   measureSixNetworks();
-  expect(onRowsChange).toHaveBeenLastCalledWith(1);
+  expect(onExtraHeightChange).toHaveBeenLastCalledWith(0);
 
   fireEvent.click(screen.getByTestId('dust-sweep-network-toggle'));
   expect(visibleChipIds()).toEqual(['a', 'b', 'c', 'd', 'e', 'f']);
   expect(screen.getByTestId('dust-sweep-network-toggle').textContent).toBe(
     'global.collapse',
   );
-  // a b c | d e f | Collapse
-  expect(onRowsChange).toHaveBeenLastCalledWith(3);
+  // a b c | d e f | Collapse: two rows of 36 + 8 below the first
+  expect(onExtraHeightChange).toHaveBeenLastCalledWith(88);
 
   fireEvent.click(screen.getByTestId('dust-sweep-network-e'));
   expect(mockSelectNetwork).toHaveBeenCalledWith('e');
@@ -194,7 +196,7 @@ it('expands downward, stays open after a pick, and folds on the toggle', () => {
   expect(screen.getByTestId('dust-sweep-network-toggle').textContent).toBe(
     '+3',
   );
-  expect(onRowsChange).toHaveBeenLastCalledWith(1);
+  expect(onExtraHeightChange).toHaveBeenLastCalledWith(0);
 });
 
 it('keeps network changes locked during execution', () => {
@@ -215,6 +217,7 @@ it('retains the compact network selector menu', () => {
       // The desktop chips' balances, grouped like the wallet network selector.
       networkValues: { 'evm--1': '1', 'evm--56': '1' },
       networkValueCurrency: 'usd',
+      groupByNetworkValue: true,
     }),
   );
   expect(mockOpenChainSelector.mock.calls[0][0]).not.toHaveProperty('grouped');

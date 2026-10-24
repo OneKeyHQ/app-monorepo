@@ -185,9 +185,10 @@ export type IMarketDetailBackAction =
   | { type: 'pop' }
   | { type: 'popToTop' }
   | { type: 'popAndSwitchMarket' }
-  // Leave the Market tab on its list, then return to the Swap tab the user
-  // came from. `resetToList` covers a detail that is the stack's only screen.
-  | { type: 'popAndSwitchSwap'; resetToList: boolean }
+  // A Swap "view full data" detail that is its stack's only screen: reset the
+  // Market tab to its list, then return to Swap. Deeper stacks just pop and
+  // the detail page's beforeRemove listener does the switch.
+  | { type: 'resetAndSwitchSwap' }
   | { type: 'reset'; name: string; params?: Record<string, unknown> };
 
 type INavigationLike = {
@@ -682,15 +683,30 @@ function resolveEntryBackAction({
   if (from === EEnterWay.SwapPro || from === EEnterWay.BannerList) {
     return { type: 'pop' };
   }
-  // Swap's "view full data" switches tabs, so popping alone would only land
-  // on the Market list; send the user back to the trade they left.
+  // Swap's "view full data" switches tabs; the detail page sends a popped
+  // detail back to Swap itself, so only a detail-only stack needs more.
   if (from === EEnterWay.SwapStock) {
-    return {
-      type: 'popAndSwitchSwap',
-      resetToList: !routes?.length || routes.length <= 1,
-    };
+    return !routes?.length || routes.length <= 1
+      ? { type: 'resetAndSwitchSwap' }
+      : { type: 'pop' };
   }
   return undefined;
+}
+
+/**
+ * Runs once after the next paint, so a tab switch commits before the Market
+ * stack changes underneath it. Frames pause in a hidden window, so a short
+ * timeout makes sure the step still happens.
+ */
+export function runAfterNextFrame(callback: () => void) {
+  let done = false;
+  const run = () => {
+    if (done) return;
+    done = true;
+    callback();
+  };
+  requestAnimationFrame(run);
+  setTimeout(run, 300);
 }
 
 export function resolveMarketDetailBackAction({

@@ -421,18 +421,18 @@ function StockTokenVariantSelectorContent({
             isPortfolioScope={variant.tokenId === portfolioScopeTokenId}
             portfolioData={portfolioData}
             onSelect={(item) => {
-              // A hand-picked issuer becomes the default for every stock.
-              const rememberIssuer = () =>
-                setIssuerPreference({
-                  issuer: normalizeStockIssuer(item.issuer),
-                });
               if (onSelect) {
-                void onSelect(item).then((selected) => {
-                  if (selected) rememberIssuer();
-                });
+                // The caller applies the pick and remembers its issuer once
+                // the switch commits (Swap: after any risk confirmation).
+                void onSelect(item);
               } else {
                 setSelectedTokenId(item.tokenId);
-                rememberIssuer();
+                // A hand-picked issuer becomes the default for every stock.
+                const issuer = normalizeStockIssuer(item.issuer);
+                // Unchanged picks skip the persisted write and its broadcast.
+                setIssuerPreference((previous) =>
+                  previous.issuer === issuer ? previous : { issuer },
+                );
               }
               closePopover();
             }}

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { memo, useCallback, useEffect, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -114,10 +114,9 @@ export function countWrappedRows({
   return rows;
 }
 
-export const DUST_SWEEP_NETWORK_ROW_HEIGHT = NETWORK_CHIP_HEIGHT;
-export const DUST_SWEEP_NETWORK_ROW_GAP = NETWORK_CHIP_GAP;
-
-function DustSweepNetworkChip({
+// Memoized: the bar also renders an off-screen measuring copy of every chip,
+// and the Dust sweep context re-renders it on each token toggle.
+const DustSweepNetworkChip = memo(function DustSweepNetworkChip({
   entry,
   selected,
   canSelect,
@@ -149,7 +148,7 @@ function DustSweepNetworkChip({
         my={0}
         testID={measureOnly ? undefined : `dust-sweep-network-${networkId}`}
         size="small"
-        height={36}
+        height={NETWORK_CHIP_HEIGHT}
         px="$2"
         borderRadius="$full"
         variant={selected ? 'secondary' : 'tertiary'}
@@ -177,9 +176,9 @@ function DustSweepNetworkChip({
       </Button>
     </Stack>
   );
-}
+});
 
-function DustSweepNetworkToggle({
+const DustSweepNetworkToggle = memo(function DustSweepNetworkToggle({
   expanded,
   hiddenCount,
   onPress,
@@ -241,14 +240,14 @@ function DustSweepNetworkToggle({
       </Button>
     </Stack>
   );
-}
+});
 
 // Desktop bar: one row that expands downward instead of scrolling sideways,
 // which mice without horizontal scrolling cannot reach (OK-65481).
 function DustSweepDesktopNetworks({
-  onRowsChange,
+  onExtraHeightChange,
 }: {
-  onRowsChange?: (rows: number) => void;
+  onExtraHeightChange?: (height: number) => void;
 }) {
   const { networks, current, canSelectNetwork, selectNetwork, loadStatus } =
     useDustSweep();
@@ -268,11 +267,22 @@ function DustSweepDesktopNetworks({
     },
     [],
   );
-  // Web layout callbacks fire once, not on later resizes, so the bar's width
-  // and the measured chip widths (an amount can grow) follow ResizeObserver.
-  const networkIdsKey = networks
-    .map((entry) => entry.network.networkId)
-    .join(',');
+  const handleToggleMeasure = useCallback((event: LayoutChangeEvent) => {
+    setToggleWidth(Math.ceil(event.nativeEvent.layout.width));
+  }, []);
+  const handleCollapseToggleMeasure = useCallback(
+    (event: LayoutChangeEvent) => {
+      setCollapseToggleWidth(Math.ceil(event.nativeEvent.layout.width));
+    },
+    [],
+  );
+  const toggleExpanded = useCallback(() => setExpanded((value) => !value), []);
+  const ids = networks.map((entry) => entry.network.networkId);
+  // On web, Tamagui's onLayout re-measures on a throttled poll that lagged or
+  // missed resizes here, so the bar's width and each measured chip (an amount
+  // can grow) also follow ResizeObserver. onLayout still gives the first
+  // measure, and is what tests drive.
+  const networkIdsKey = ids.join(',');
   const [barNode, setBarNode] = useState<HTMLElement | null>(null);
   const [measureNode, setMeasureNode] = useState<HTMLElement | null>(null);
   const registerBar = useCallback((node: unknown) => {
@@ -325,7 +335,6 @@ function DustSweepDesktopNetworks({
       .forEach((node) => observer.observe(node));
     return () => observer.disconnect();
   }, [barNode, measureNode, networkIdsKey]);
-  const ids = networks.map((entry) => entry.network.networkId);
   const collapsed = resolveCollapsedNetworkIds({
     ids,
     widths: chipWidths,
@@ -337,8 +346,8 @@ function DustSweepDesktopNetworks({
   const showsAll = expanded || !collapsed;
   const visibleIds = new Set(showsAll ? ids : collapsed.visibleIds);
   const showToggle = hiddenCount > 0 || (expanded && Boolean(collapsed));
-  // Computed from measured widths: a layout callback on the wrapping row does
-  // not fire again on web when only its height changes.
+  // The height the expanded rows add, from the measured widths, so the page
+  // can give it back from the cards in the same pass.
   const rows =
     expanded && collapsed
       ? countWrappedRows({
@@ -346,9 +355,10 @@ function DustSweepDesktopNetworks({
           containerWidth,
         })
       : 1;
+  const extraHeight = (rows - 1) * (NETWORK_CHIP_HEIGHT + NETWORK_CHIP_GAP);
   useEffect(() => {
-    onRowsChange?.(rows);
-  }, [onRowsChange, rows]);
+    onExtraHeightChange?.(extraHeight);
+  }, [extraHeight, onExtraHeightChange]);
   return (
     <Stack
       ref={registerBar}
@@ -397,7 +407,7 @@ function DustSweepDesktopNetworks({
           <DustSweepNetworkToggle
             expanded={expanded}
             hiddenCount={hiddenCount}
-            onPress={() => setExpanded((value) => !value)}
+            onPress={toggleExpanded}
           />
         ) : null}
       </XStack>
@@ -428,17 +438,13 @@ function DustSweepDesktopNetworks({
           expanded={false}
           hiddenCount={networks.length}
           measureOnly
-          onMeasure={(event) =>
-            setToggleWidth(Math.ceil(event.nativeEvent.layout.width))
-          }
+          onMeasure={handleToggleMeasure}
         />
         <DustSweepNetworkToggle
           expanded
           hiddenCount={0}
           measureOnly
-          onMeasure={(event) =>
-            setCollapseToggleWidth(Math.ceil(event.nativeEvent.layout.width))
-          }
+          onMeasure={handleCollapseToggleMeasure}
         />
       </XStack>
     </Stack>
@@ -447,18 +453,21 @@ function DustSweepDesktopNetworks({
 
 export function DustSweepNetworks({
   desktop = false,
-  onRowsChange,
+  onExtraHeightChange,
 }: {
   desktop?: boolean;
-  // Desktop only: how many rows the expanded bar takes.
-  onRowsChange?: (rows: number) => void;
+  // Desktop only: the height the expanded rows add below the first one.
+  onExtraHeightChange?: (height: number) => void;
 }) {
   const { networks, current, canSelectNetwork, selectNetwork } = useDustSweep();
   const intl = useIntl();
   const openChainSelector = useConfigurableChainSelector();
   const title = intl.formatMessage({ id: ETranslations.global_select_network });
   const networkSelectionDisabled = !canSelectNetwork || !networks.length;
-  if (desktop) return <DustSweepDesktopNetworks onRowsChange={onRowsChange} />;
+  if (desktop)
+    return (
+      <DustSweepDesktopNetworks onExtraHeightChange={onExtraHeightChange} />
+    );
   return (
     <NetworksFilterItem
       testID="dust-sweep-network-menu"
@@ -500,6 +509,7 @@ export function DustSweepNetworks({
                   ]),
                 ),
                 networkValueCurrency: 'usd',
+                groupByNetworkValue: true,
                 excludeAllNetworkItem: true,
                 onSelect: (network) => selectNetwork(network.id),
               })

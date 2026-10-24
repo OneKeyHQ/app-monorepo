@@ -96,14 +96,19 @@ export function resolveSwapStockLoadingScopes({
   operation,
   currentTokenKey,
   isTokenVariantPending,
+  isAutoVariantPending = false,
 }: {
   operation: ISwapStockSelectionOperation;
   currentTokenKey: string;
   isTokenVariantPending: boolean;
+  // A restored token waiting on the issuer rule: hold the trade target rather
+  // than show a token that is about to change.
+  isAutoVariantPending?: boolean;
 }) {
   // A selection owns these skeletons only until its exact token identity and
   // variant settle. Polling and quote requests keep their own loading state.
   const pending =
+    isAutoVariantPending ||
     operation.phase === 'resolving' ||
     (operation.phase === 'applying' &&
       (operation.tokenKey !== currentTokenKey || isTokenVariantPending));
@@ -177,19 +182,16 @@ export function selectSwapStockVariant({
  */
 export function resolveSwapStockAutoVariant({
   variants,
-  currentToken,
+  current,
   defaultTokenId,
   preferredIssuer,
 }: {
   variants: IMarketStockTokenVariant[];
-  currentToken: Pick<ISwapToken, 'networkId' | 'contractAddress'>;
+  // The variant the page currently trades, from the same list.
+  current: IMarketStockTokenVariant;
   defaultTokenId?: string;
   preferredIssuer?: string;
 }) {
-  const current = variants.find((variant) =>
-    equalTokenNoCaseSensitive({ token1: variant, token2: currentToken }),
-  );
-  if (!current) return undefined;
   const target = getDefaultStockTokenVariant(
     variants,
     defaultTokenId,

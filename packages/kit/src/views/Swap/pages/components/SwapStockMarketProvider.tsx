@@ -27,6 +27,7 @@ import {
   EModalSwapRoutes,
   type IModalSwapParamList,
 } from '@onekeyhq/shared/src/routes/swap';
+import { normalizeStockIssuer } from '@onekeyhq/shared/src/utils/stockTokenVariant';
 import { swrKeys } from '@onekeyhq/shared/src/utils/swrCacheUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type {
@@ -76,6 +77,9 @@ type ISwapStockSelection = {
     query?: string,
   ) => Promise<boolean>;
   selectVariant: (variant: IMarketStockTokenVariant) => Promise<boolean>;
+  // A hand pick from the issuer list: also remembers the issuer once the
+  // switch commits (not when a risk prompt is cancelled).
+  pickVariant: (variant: IMarketStockTokenVariant) => Promise<boolean>;
   selectToken: (token: ISwapToken) => Promise<boolean>;
 };
 
@@ -116,7 +120,7 @@ function SwapStockSelectionProvider({
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSwapParamList>>();
   const checkRiskToken = useSwapTokenRiskCheck();
-  const [{ issuer: preferredIssuer }] =
+  const [{ issuer: preferredIssuer }, setIssuerPreference] =
     useSwapStockIssuerPreferencePersistAtom();
   const [operation, setOperation] = useState<ISwapStockSelectionOperation>({
     phase: 'idle',
@@ -171,20 +175,20 @@ function SwapStockSelectionProvider({
     (isTokenVariantsFresh && !selectedVariant);
   const autoVariantTarget = useMemo(
     () =>
-      isAutoVariantCandidate && isAutoVariantListReady && currentStockToken
+      isAutoVariantCandidate && isAutoVariantListReady && selectedVariant
         ? resolveSwapStockAutoVariant({
             variants: tokenVariants,
-            currentToken: currentStockToken,
+            current: selectedVariant,
             defaultTokenId,
             preferredIssuer,
           })
         : undefined,
     [
-      currentStockToken,
       defaultTokenId,
       isAutoVariantCandidate,
       isAutoVariantListReady,
       preferredIssuer,
+      selectedVariant,
       tokenVariants,
     ],
   );
@@ -193,16 +197,16 @@ function SwapStockSelectionProvider({
     operation.phase === 'idle' &&
     (!!autoVariantTarget ||
       (!isAutoVariantListReady && !isAutoVariantListBlocked));
-  const loadingScopes = useMemo(() => {
-    const scopes = resolveSwapStockLoadingScopes({
-      operation,
-      currentTokenKey: identity,
-      isTokenVariantPending,
-    });
-    return isAutoVariantPending
-      ? { ...scopes, tradeTarget: true, amountInput: true }
-      : scopes;
-  }, [identity, isAutoVariantPending, isTokenVariantPending, operation]);
+  const loadingScopes = useMemo(
+    () =>
+      resolveSwapStockLoadingScopes({
+        operation,
+        currentTokenKey: identity,
+        isTokenVariantPending,
+        isAutoVariantPending,
+      }),
+    [identity, isAutoVariantPending, isTokenVariantPending, operation],
+  );
   const stockSelectionPending = loadingScopes.stock;
   const availability = resolveSwapStockAvailability({
     pending:
@@ -264,10 +268,18 @@ function SwapStockSelectionProvider({
     async (
       kind: ISwapStockSelectionKind,
       fetchToken: () => Promise<ISwapToken>,
-      stockPreview?: IMarketStockDetailPreview,
-      // Automatic switches keep the current token on failure: no error state
-      // and no risk prompt the user did not ask for.
-      silent = false,
+      {
+        stockPreview,
+        silent = false,
+        onCommitted,
+      }: {
+        stockPreview?: IMarketStockDetailPreview;
+        // Automatic switches keep the current token on failure: no error
+        // state and no risk prompt the user did not ask for.
+        silent?: boolean;
+        // Runs once the token is actually applied (after a risk confirm).
+        onCommitted?: () => void;
+      } = {},
     ) => {
       requestRef.current += 1;
       const request = requestRef.current;
@@ -292,6 +304,7 @@ function SwapStockSelectionProvider({
               tokenKey: getTokenIdentityKey(token),
             });
             selectStockSwapToken(token, { resetReceiveAmount: true });
+            onCommitted?.();
           }
         };
         const isRiskToken = await checkRiskToken(token);
@@ -301,12 +314,10 @@ function SwapStockSelectionProvider({
         ) {
           return false;
         }
-        if (isRiskToken && silent) {
-          setOperation({ phase: 'idle' });
-          return false;
-        }
         if (isRiskToken) {
           setOperation({ phase: 'idle' });
+          // An automatic switch never raises a prompt the user did not ask for.
+          if (silent) return false;
           navigation.pushModal(EModalRoutes.SwapModal, {
             screen: EModalSwapRoutes.TokenRiskReminder,
             params: {
@@ -336,7 +347,7 @@ function SwapStockSelectionProvider({
         select(
           'ticker',
           () => fetchSwapStockSelection(stock, query, preferredIssuer),
-          stock,
+          { stockPreview: stock },
         );
       retrySelectionRef.current = retry;
       return retry();
@@ -353,6 +364,22 @@ function SwapStockSelectionProvider({
     },
     [select, stockId],
   );
+  const pickVariant = useCallback(
+    (variant: IMarketStockTokenVariant) => {
+      if (!stockId) return Promise.resolve(false);
+      const issuer = normalizeStockIssuer(variant.issuer);
+      const retry = () =>
+        select('variant', () => fetchSwapStockVariantToken(variant, stockId), {
+          onCommitted: () =>
+            setIssuerPreference((previous) =>
+              previous.issuer === issuer ? previous : { issuer },
+            ),
+        });
+      retrySelectionRef.current = retry;
+      return retry();
+    },
+    [select, setIssuerPreference, stockId],
+  );
   const selectToken = useCallback(
     (token: ISwapToken) => {
       const retry = () =>
@@ -366,6 +393,10 @@ function SwapStockSelectionProvider({
     [select],
   );
 
+  const markSettled = useCallback((key: string) => {
+    settledSwapStockTokenKeys.add(key);
+    setSettledVersion((version) => version + 1);
+  }, []);
   useEffect(() => {
     if (!identity) return;
     firstTokenKeyRef.current ??= identity;
@@ -376,22 +407,17 @@ function SwapStockSelectionProvider({
     if (settledSwapStockTokenKeys.has(identity) || operation.phase !== 'idle') {
       return;
     }
-    const settle = () => {
-      settledSwapStockTokenKeys.add(identity);
-      setSettledVersion((version) => version + 1);
-    };
     if (isMarketJumpToken) {
-      settle();
+      markSettled(identity);
     } else if (autoVariantTarget && stockId) {
-      settle();
+      markSettled(identity);
       void select(
         'variant',
         () => fetchSwapStockVariantToken(autoVariantTarget, stockId),
-        undefined,
-        true,
+        { silent: true },
       );
     } else if (isAutoVariantListReady || isAutoVariantListBlocked) {
-      settle();
+      markSettled(identity);
     }
   }, [
     autoVariantTarget,
@@ -399,18 +425,16 @@ function SwapStockSelectionProvider({
     isAutoVariantListBlocked,
     isAutoVariantListReady,
     isMarketJumpToken,
+    markSettled,
     operation.phase,
     select,
     stockId,
   ]);
   useEffect(() => {
     if (!isAutoVariantPending || autoVariantTarget || !identity) return;
-    const timer = setTimeout(() => {
-      settledSwapStockTokenKeys.add(identity);
-      setSettledVersion((version) => version + 1);
-    }, AUTO_VARIANT_WAIT_MS);
+    const timer = setTimeout(() => markSettled(identity), AUTO_VARIANT_WAIT_MS);
     return () => clearTimeout(timer);
-  }, [autoVariantTarget, identity, isAutoVariantPending]);
+  }, [autoVariantTarget, identity, isAutoVariantPending, markSettled]);
 
   const value = useMemo(
     () => ({
@@ -428,6 +452,7 @@ function SwapStockSelectionProvider({
       retryIdentityResolution,
       selectStock,
       selectVariant,
+      pickVariant,
       selectToken,
     }),
     [
@@ -445,6 +470,7 @@ function SwapStockSelectionProvider({
       retryIdentityResolution,
       selectStock,
       selectVariant,
+      pickVariant,
       selectToken,
     ],
   );

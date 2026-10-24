@@ -24,6 +24,7 @@ import {
   useIsModalPage,
   useMedia,
   usePreventRemove,
+  useSplitSubView,
 } from '@onekeyhq/components';
 import { getRootRoutersLength } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import { useSetSplitViewDetailFullscreen } from '@onekeyhq/kit/src/provider/Container/TableSplitViewContainer';
@@ -58,6 +59,7 @@ import { useSettledHeaderHeight } from '../../Earn/hooks/useSettledHeaderHeight'
 import { useMarketEnterAnalytics } from '../hooks';
 import { MarketWatchListProviderMirrorV2 } from '../MarketWatchListProviderMirrorV2';
 import { MarketTestIDs } from '../testIDs';
+import { runAfterNextFrame } from '../utils/marketDetailNavigation';
 
 import { MarketDetailHeader } from './components/MarketDetailHeader';
 import {
@@ -254,12 +256,16 @@ function MarketDetail({
   const handleInitialSectionShown = useCallback(() => {
     navigation.setParams({ initialSection: undefined });
   }, [navigation]);
-  // Swap's "view full data" switched tabs to get here. The desktop title-bar
-  // back is the shared stack header, which only pops this detail onto the
-  // Market list; finish the trip back to the Swap tab the user left. Other
-  // removals (tab re-press, resets, stock switches) keep their behavior.
+  // Swap's "view full data" switched tabs to get here. Every back that pops
+  // this detail (the desktop title bar's shared header and the in-page back
+  // button alike) finishes the trip to the Swap tab the user left. Other
+  // removals (tab re-press, resets, stock switches) and the tablet split view
+  // keep their behavior.
+  const isTabletDetailView = useSplitSubView();
   const isFromSwapStock =
-    'from' in params && params.from === EEnterWay.SwapStock;
+    !isTabletDetailView &&
+    'from' in params &&
+    params.from === EEnterWay.SwapStock;
   const isChartFullscreenRef = useRef(isChartFullscreen);
   isChartFullscreenRef.current = isChartFullscreen;
   useEffect(() => {
@@ -279,7 +285,7 @@ function MarketDetail({
       event.preventDefault();
       isReturningToSwap = true;
       switchTab(ETabRoutes.Swap);
-      requestAnimationFrame(() => navigation.dispatch(action));
+      runAfterNextFrame(() => navigation.dispatch(action));
     });
   }, [isFromSwapStock, navigation]);
   const routeTokenDetailPreview =
