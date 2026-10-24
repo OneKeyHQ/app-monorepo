@@ -96,7 +96,7 @@ const STOCK_DETAIL_POLLING_INTERVAL = 15 * 1000;
 const STOCK_DETAIL_STATUS_TTL_MS = 60 * 1000;
 const stockDetailSessionId = generateUUID();
 
-type IStockDetailRequestResult = {
+export type IStockDetailRequestResult = {
   stockId?: string;
   data?: IMarketStockPublicDetail | null;
   failed?: boolean;
@@ -121,7 +121,7 @@ function isStockDetailStatusFresh(
   );
 }
 
-type IStockTokenVariantsRequestResult = {
+export type IStockTokenVariantsRequestResult = {
   stockId?: string;
   items: IMarketStockTokenVariant[];
   defaultTokenId?: string;
@@ -231,11 +231,12 @@ export function StockDetailProvider({
       : undefined;
     if (
       normalizedStockId &&
+      tokenVariantsSwrKey &&
       cached &&
       !cached.failed &&
       cached.stockId === normalizedStockId
     ) {
-      seeded.set(normalizedStockId, cached);
+      seeded.set(tokenVariantsSwrKey, cached);
     }
     return seeded;
   });
@@ -272,7 +273,13 @@ export function StockDetailProvider({
       } catch (_error) {
         // Preserve display data, but a fallback must not refresh its successful
         // timestamp or grant status readiness to a cold or expired snapshot.
-        const lastStockDetail = successfulStockDetails.get(stockDetailSwrKey);
+        const cached =
+          swrCacheUtils.get<IStockDetailRequestResult>(stockDetailSwrKey);
+        const lastStockDetail =
+          successfulStockDetails.get(stockDetailSwrKey) ??
+          (cached?.stockId === normalizedStockId && !cached.failed
+            ? cached
+            : undefined);
         if (lastStockDetail) {
           return { ...lastStockDetail, requestFailed: true };
         }
@@ -309,7 +316,7 @@ export function StockDetailProvider({
     run: retryTokenVariants,
   } = usePromiseResult<IStockTokenVariantsRequestResult>(
     async () => {
-      if (!normalizedStockId) return { items: [] };
+      if (!normalizedStockId || !tokenVariantsSwrKey) return { items: [] };
       try {
         const response =
           await backgroundApiProxy.serviceMarketV2.fetchMarketStockTokenVariants(
@@ -320,11 +327,20 @@ export function StockDetailProvider({
           items: response.items,
           defaultTokenId: response.defaultTokenId,
         };
-        successfulTokenVariants.set(normalizedStockId, result);
+        successfulTokenVariants.set(tokenVariantsSwrKey, result);
         fetchedTokenVariantsStockIdRef.current = normalizedStockId;
         return result;
       } catch (_error) {
-        const cachedResult = successfulTokenVariants.get(normalizedStockId);
+        const cached = tokenVariantsSwrKey
+          ? swrCacheUtils.get<IStockTokenVariantsRequestResult>(
+              tokenVariantsSwrKey,
+            )
+          : undefined;
+        const cachedResult =
+          successfulTokenVariants.get(tokenVariantsSwrKey) ??
+          (cached?.stockId === normalizedStockId && !cached.failed
+            ? cached
+            : undefined);
         return {
           stockId: normalizedStockId,
           items: cachedResult?.items ?? [],
@@ -333,7 +349,7 @@ export function StockDetailProvider({
         };
       }
     },
-    [normalizedStockId, successfulTokenVariants],
+    [normalizedStockId, successfulTokenVariants, tokenVariantsSwrKey],
     {
       watchLoading: true,
       // Same focus contract as the detail request above, and `revalidateOnFocus`

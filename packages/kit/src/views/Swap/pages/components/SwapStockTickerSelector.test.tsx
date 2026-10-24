@@ -6,6 +6,7 @@ import { act, fireEvent, render, screen } from '@testing-library/react';
 
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IMarketStockPublicItem } from '@onekeyhq/shared/types/marketV2';
+import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 
 import { SwapStockTickerSelector } from './SwapStockTickerSelector';
 
@@ -15,6 +16,13 @@ const mockSelectStock = jest.fn<
   [IMarketStockPublicItem, string?]
 >();
 let mockSelectionError = false;
+let mockCurrentStockToken: ISwapToken | undefined;
+let mockHeaderOnly = false;
+let mockPendingState: {
+  stockSelectionPending?: boolean;
+  pendingStock?: IMarketStockPublicItem;
+  selectedStockPreview?: IMarketStockPublicItem;
+} = {};
 const mockLoadMore = jest.fn();
 const mockStock: IMarketStockPublicItem = {
   stockId: 'AAPL',
@@ -84,6 +92,7 @@ jest.mock('@onekeyhq/components', () => {
       />
     ),
     SizableText: Wrapper,
+    Skeleton: () => <div data-testid="stock-identity-skeleton" />,
     Spinner: () => null,
     Stack: Wrapper,
     XStack: Wrapper,
@@ -92,7 +101,9 @@ jest.mock('@onekeyhq/components', () => {
   };
 });
 jest.mock('@onekeyhq/kit/src/components/Token', () => ({
-  Token: () => null,
+  Token: ({ tokenImageUri }: { tokenImageUri?: string }) => (
+    <img alt="stock icon" src={tokenImageUri} />
+  ),
 }));
 jest.mock(
   '@onekeyhq/kit/src/views/Market/components/PriceChangePercentage',
@@ -103,9 +114,16 @@ jest.mock(
   () => ({
     StockSelectorPopover: ({
       renderContent: Content,
+      renderTrigger,
     }: {
       renderContent: ComponentType<{ closePopover: () => void }>;
-    }) => <Content closePopover={mockClosePopover} />,
+      renderTrigger: ReactNode;
+    }) =>
+      mockHeaderOnly ? (
+        renderTrigger
+      ) : (
+        <Content closePopover={mockClosePopover} />
+      ),
   }),
 );
 jest.mock(
@@ -118,17 +136,17 @@ jest.mock(
     useStockDetail: () => ({ stockId: 'AAPL', stockPreview: mockStock }),
   }),
 );
-jest.mock('../modal/SwapTokenSelectModal.utils', () => ({
-  getSwapStockTokenDisplayName: () => 'Apple',
-}));
 jest.mock('./SwapStockMarketProvider', () => ({
   useSwapStockSelection: () => ({
     selectStock: mockSelectStock,
     selectionError: mockSelectionError,
+    ...mockPendingState,
   }),
 }));
 jest.mock('./SwapStockTradeProvider', () => ({
-  useSwapStockTradeContext: () => ({ currentStockToken: undefined }),
+  useSwapStockTradeContext: () => ({
+    currentStockToken: mockCurrentStockToken,
+  }),
 }));
 
 describe('SwapStockTickerSelector', () => {
@@ -137,6 +155,9 @@ describe('SwapStockTickerSelector', () => {
     jest.clearAllMocks();
     mockSelectStock.mockReset().mockResolvedValue(true);
     mockSelectionError = false;
+    mockCurrentStockToken = undefined;
+    mockHeaderOnly = false;
+    mockPendingState = {};
     mockListResult.items = [];
     mockListResult.canLoadMore = false;
     mockListResult.isLoadMoreError = false;
@@ -145,6 +166,63 @@ describe('SwapStockTickerSelector', () => {
 
   afterEach(() => {
     jest.useRealTimers();
+  });
+
+  it('shows skeletons instead of token or issuer metadata while asset identity is unresolved', () => {
+    mockHeaderOnly = true;
+    mockPendingState = {
+      stockSelectionPending: true,
+      selectedStockPreview: mockStock,
+    };
+    mockCurrentStockToken = {
+      networkId: 'evm--1',
+      contractAddress: '0xnvda',
+      decimals: 18,
+      symbol: 'NVDAB',
+      stock: {
+        subtitle: 'NVIDIA',
+        sourceLogoUri: 'https://example.com/bstock.png',
+      },
+    };
+    render(<SwapStockTickerSelector />);
+    expect(screen.queryByText('NVDAB')).toBeNull();
+    expect(screen.queryByText('Apple')).toBeNull();
+    expect(screen.queryByRole('img')).toBeNull();
+    expect(screen.getAllByTestId('stock-identity-skeleton')).toHaveLength(3);
+  });
+
+  it('renders available asset fields and only skeletons the missing asset logo', () => {
+    mockHeaderOnly = true;
+    mockPendingState = {
+      stockSelectionPending: true,
+      pendingStock: { ...mockStock, logoUrl: '' },
+    };
+    render(<SwapStockTickerSelector />);
+    expect(screen.getByText('AAPL')).toBeTruthy();
+    expect(screen.getByText('Apple')).toBeTruthy();
+    expect(screen.queryByRole('img')).toBeNull();
+    expect(screen.getAllByTestId('stock-identity-skeleton')).toHaveLength(1);
+  });
+
+  it('uses the cached company preview immediately for a pending position', () => {
+    mockHeaderOnly = true;
+    mockPendingState = {
+      stockSelectionPending: true,
+      selectedStockPreview: mockStock,
+      pendingStock: {
+        ...mockStock,
+        stockId: 'GOOGL',
+        symbol: 'GOOGL',
+        name: 'Google',
+        logoUrl: 'https://example.com/google.png',
+      },
+    };
+    render(<SwapStockTickerSelector />);
+    expect(screen.getByText('GOOGL')).toBeTruthy();
+    expect(screen.queryByText('Apple')).toBeNull();
+    expect(screen.getByRole('img').getAttribute('src')).toBe(
+      'https://example.com/google.png',
+    );
   });
 
   it('keeps an empty page with a cursor reachable through the more button', () => {
