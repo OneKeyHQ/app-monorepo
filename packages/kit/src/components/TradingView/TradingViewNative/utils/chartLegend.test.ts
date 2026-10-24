@@ -31,9 +31,9 @@ describe('TradingViewNative chart legend', () => {
     ).toEqual({
       isUp: true,
       priceItems: [
-        { label: '开', value: '120.00' },
-        { label: '高', value: '125.00' },
-        { label: '低', value: '119.50' },
+        { label: '开', value: '120' },
+        { label: '高', value: '125' },
+        { label: '低', value: '119.5' },
         { label: '收', value: '123.46' },
         {
           label: '',
@@ -78,7 +78,7 @@ describe('TradingViewNative chart legend', () => {
     const expectedLegend = {
       isUp: false,
       priceItems: [
-        { label: 'Price', value: '9.00' },
+        { label: 'Price', value: '9' },
         { label: '', value: '-1 (-10%)', valueColorRole: 'trend' },
       ],
       volumeItem: { label: 'Volume', value: '500' },
@@ -110,6 +110,32 @@ describe('TradingViewNative chart legend', () => {
       valueColorRole: 'trend',
     });
   });
+
+  it.each([
+    [11.123, 4, '11.123'],
+    [110, 4, '110'],
+    [0, 4, '0'],
+    [0.000_000_123_4, 12, '0.0000001234'],
+    [11.123_456, 4, '11.1235'],
+    [Number.NaN, 4, '--'],
+  ])(
+    'trims legend padding while preserving price precision: %s',
+    (price, decimals, expected) => {
+      const legend = getTradingViewNativeChartLegend(
+        { c: price, h: price, l: price, o: price, t: 1, v: 0 },
+        CANDLE_LABELS,
+        'candlestick',
+        undefined,
+        decimals,
+      );
+      expect(legend.priceItems.slice(0, 4).map(({ value }) => value)).toEqual([
+        expected,
+        expected,
+        expected,
+        expected,
+      ]);
+    },
+  );
 
   it('formats signed candle price and percentage changes', () => {
     expect(

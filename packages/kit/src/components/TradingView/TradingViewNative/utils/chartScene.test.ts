@@ -927,7 +927,7 @@ describe('TradingViewNative shared chart scene', () => {
       (command) =>
         command.kind === 'text' &&
         command.font === 'legend' &&
-        command.text === '110.00',
+        command.text === '110',
     );
     const linePriceChange = scene.commands.find(
       (command) => command.kind === 'text' && command.text === '+10 (+10%)',
@@ -985,7 +985,7 @@ describe('TradingViewNative shared chart scene', () => {
         (command) =>
           command.kind === 'text' &&
           command.font === 'legend' &&
-          command.text === '90.00',
+          command.text === '90',
       ),
     ).toMatchObject({ paint: 'line' });
     expect(
@@ -1028,7 +1028,7 @@ describe('TradingViewNative shared chart scene', () => {
     const priceLegendValue = scene.commands.find(
       (command) =>
         command.kind === 'text' &&
-        command.text === '104.00' &&
+        command.text === '104' &&
         command.paint === 'up',
     );
     const text = scene.commands.flatMap((command) =>
