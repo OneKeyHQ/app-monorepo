@@ -22,6 +22,7 @@ import {
 } from './SwapStockMarketProvider';
 
 const mockCommitToken = jest.fn();
+const mockPushModal = jest.fn();
 const mockRiskCheck = jest.fn().mockResolvedValue(false);
 const mockFetchSelection = jest.fn<Promise<ISwapToken>, []>();
 const mockFetchIdentity = jest.fn<Promise<IMarketStockPublicItem>, []>();
@@ -41,7 +42,7 @@ let mockSelection: ReturnType<typeof useSwapStockSelection>;
 
 jest.mock('@onekeyhq/kit/src/hooks/useAppNavigation', () => ({
   __esModule: true,
-  default: () => ({ pushModal: jest.fn() }),
+  default: () => ({ pushModal: mockPushModal }),
 }));
 jest.mock('@onekeyhq/kit/src/hooks/useLocaleVariant', () => ({
   useLocaleVariant: () => 'en-US',
@@ -292,4 +293,46 @@ it('gives up a stalled automatic issuer switch and keeps the current token', asy
   } finally {
     jest.useRealTimers();
   }
+});
+
+it('keeps a manual pick confirmed in the risk prompt when the variant list lands meanwhile', async () => {
+  const ondo = variant('ondo', '0xmetaon');
+  const bStocks = variant('bstocks', '0xmetab');
+  const positionToken: ISwapToken = {
+    ...targetToken,
+    contractAddress: '0xposition-b',
+    stock: { stockId: 'META', subtitle: '', sourceLogoUri: '' },
+  };
+  mockCurrentToken = {
+    ...targetToken,
+    contractAddress: ondo.contractAddress,
+    stock: { stockId: 'META', subtitle: '', sourceLogoUri: '' },
+  };
+  mockStockId = 'META';
+  mockTokenVariants = [ondo, bStocks];
+  mockVariantsFresh = false;
+  mockRiskCheck.mockResolvedValueOnce(true);
+  const { rerender } = render(<Subject />);
+
+  // The user picks a position that raises the risk prompt.
+  await act(async () => {
+    await mockSelection?.selectToken(positionToken);
+  });
+  expect(mockPushModal).toHaveBeenCalledTimes(1);
+
+  // The restored token's variant list lands while the prompt is open.
+  mockVariantsFresh = true;
+  await act(async () => {
+    rerender(<Subject />);
+  });
+  expect(mockFetchVariantToken).not.toHaveBeenCalled();
+
+  const { onConfirm } = mockPushModal.mock.calls[0][1].params as {
+    onConfirm: (close: () => void) => void;
+  };
+  act(() => onConfirm(() => undefined));
+  expect(mockCommitToken).toHaveBeenCalledWith(
+    expect.objectContaining({ contractAddress: '0xposition-b' }),
+    { resetReceiveAmount: true },
+  );
 });

@@ -298,6 +298,12 @@ function SwapStockSelectionProvider({
       requestRef.current += 1;
       const request = requestRef.current;
       const initialIdentity = identityRef.current;
+      // A user's own pick ends the implicit correction of the first token, so
+      // a variant list landing during its risk prompt cannot replace it.
+      if (!silent && initialIdentity) {
+        settleSwapStockTokenKey(initialIdentity);
+        setSettledVersion((version) => version + 1);
+      }
       // Cached data needs only the risk check. Keep the committed display
       // coherent until that check permits the new token to commit.
       setOperation(
