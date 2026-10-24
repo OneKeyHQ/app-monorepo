@@ -31,7 +31,11 @@ import {
   getSwapTokenSelectorCacheEpoch,
 } from '../utils/swapTokenSelectorCacheUtils';
 
-import { useSwapTokenList, useSwapTokenSearchKeyword } from './useSwapTokens';
+import {
+  useSwapSelectedTokenInfo,
+  useSwapTokenList,
+  useSwapTokenSearchKeyword,
+} from './useSwapTokens';
 
 const network: ISwapNetwork = {
   networkId: 'evm--1',
@@ -89,9 +93,28 @@ const mockFetchTokenList = jest.fn<
   [IFetchTokensParams]
 >();
 const mockLoadAllNetworks = jest.fn<Promise<void>, unknown[]>();
+const mockLoadSelectedToken = jest.fn<Promise<void>, unknown[]>();
+let mockRefreshRequested = { from: false, to: false };
+const mockSetRefreshRequested = jest.fn(
+  (
+    update: (
+      previous: typeof mockRefreshRequested,
+    ) => typeof mockRefreshRequested,
+  ) => {
+    mockRefreshRequested = update(mockRefreshRequested);
+  },
+);
+let mockBalanceAddressInfo:
+  | {
+      address?: string;
+      networkId: string;
+      isAddressInfoReady: boolean;
+    }
+  | undefined;
 const mockActions = {
   tokenListFetchAction: mockFetchTokenList,
   swapLoadAllNetworkTokenList: mockLoadAllNetworks,
+  loadSwapSelectTokenDetail: mockLoadSelectedToken,
 };
 const mockAccountInfo = { indexedAccount: { id: 'loading-test-account' } };
 const originalDesktop = platformEnv.isDesktop;
@@ -111,10 +134,17 @@ jest.mock('../../../hooks/useListenTabFocusState', () => ({
   default: jest.fn(),
 }));
 jest.mock('./useSwapAccount', () => ({
-  useSwapAddressInfo: () => ({
-    accountInfo: mockAccountInfo,
-    deriveType: mockDeriveType,
-  }),
+  useSwapAddressInfo: (type: ESwapDirectionType) =>
+    mockBalanceAddressInfo && type === ESwapDirectionType.FROM
+      ? mockBalanceAddressInfo
+      : {
+          accountInfo: mockAccountInfo,
+          deriveType: mockDeriveType,
+          ...mockBalanceAddressInfo,
+          ...(mockBalanceAddressInfo && type === ESwapDirectionType.TO
+            ? { address: 'custom-recipient', networkId: 'sol--101' }
+            : {}),
+        },
 }));
 jest.mock('../../../background/instance/backgroundApiProxy', () => ({
   __esModule: true,
@@ -127,6 +157,7 @@ jest.mock('../../../background/instance/backgroundApiProxy', () => ({
 }));
 jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
   useSettingsPersistAtom: () => [{ currencyInfo: { id: 'usd' } }],
+  useInAppNotificationAtom: () => [{ swapHistoryPendingList: [] }],
 }));
 jest.mock('../../../states/jotai/contexts/swap', () => ({
   useSwapActions: () => ({ current: mockActions }),
@@ -136,8 +167,143 @@ jest.mock('../../../states/jotai/contexts/swap', () => ({
   useSwapNetworksAtom: () => [mockNetworks],
   useSwapNetworksIncludeAllNetworkAtom: () => [mockNetworks],
   useSwapSelectTokenNetworkAtom: () => [mockSelectedNetwork],
+  useSwapSelectedTokenBalanceRefreshRequestedAtom: () => [
+    mockRefreshRequested,
+    mockSetRefreshRequested,
+  ],
   useSwapTokenListRequestsAtom: () => [mockTokenListRequests],
 }));
+
+describe('useSwapSelectedTokenInfo requested refresh', () => {
+  beforeEach(() => {
+    jest.useFakeTimers();
+    jest.clearAllMocks();
+    mockFocused = true;
+    mockSelectedNetwork = undefined;
+    mockRefreshRequested = { from: false, to: false };
+    mockBalanceAddressInfo = {
+      address: 'current-from-wallet',
+      networkId: 'evm--1',
+      isAddressInfoReady: true,
+    };
+    mockLoadSelectedToken.mockResolvedValue(undefined);
+  });
+  afterEach(() => {
+    mockBalanceAddressInfo = undefined;
+    jest.useRealTimers();
+  });
+
+  it('forces only the two selected tokens using the FROM wallet for both directions', () => {
+    mockRefreshRequested = { from: true, to: true };
+    renderHook(() => {
+      useSwapSelectedTokenInfo({ type: ESwapDirectionType.FROM, token });
+      useSwapSelectedTokenInfo({
+        type: ESwapDirectionType.TO,
+        token: {
+          ...token,
+          networkId: 'sol--101',
+          contractAddress: solanaContract,
+        },
+      });
+    });
+    act(() => {
+      jest.advanceTimersByTime(300);
+    });
+
+    expect(mockLoadSelectedToken).toHaveBeenCalledTimes(2);
+    for (const direction of [ESwapDirectionType.FROM, ESwapDirectionType.TO]) {
+      expect(mockLoadSelectedToken).toHaveBeenCalledWith(
+        direction,
+        expect.objectContaining({
+          address: 'current-from-wallet',
+          networkId: 'evm--1',
+        }),
+        true,
+      );
+    }
+    expect(mockRefreshRequested).toEqual({ from: false, to: false });
+    expect(mockLoadAllNetworks).not.toHaveBeenCalled();
+  });
+
+  it('retains forced refresh through selector browsing, unresolved address and ordinary debounce replacement', () => {
+    mockRefreshRequested = { from: true, to: false };
+    mockSelectedNetwork = solanaNetwork;
+    const { rerender } = renderHook(() =>
+      useSwapSelectedTokenInfo({ type: ESwapDirectionType.FROM, token }),
+    );
+    act(() => {
+      jest.advanceTimersByTime(300);
+    });
+    expect(mockLoadSelectedToken).not.toHaveBeenCalled();
+
+    mockSelectedNetwork = undefined;
+    mockBalanceAddressInfo = { networkId: 'evm--1', isAddressInfoReady: false };
+    rerender();
+    act(() => {
+      jest.advanceTimersByTime(300);
+    });
+    expect(mockLoadSelectedToken).not.toHaveBeenCalled();
+    expect(mockRefreshRequested.from).toBe(true);
+
+    mockBalanceAddressInfo = {
+      address: 'latest-wallet',
+      networkId: 'evm--1',
+      isAddressInfoReady: true,
+    };
+    rerender();
+    act(() => {
+      jest.advanceTimersByTime(300);
+    });
+    expect(mockLoadSelectedToken).toHaveBeenCalledTimes(1);
+    expect(mockLoadSelectedToken).toHaveBeenCalledWith(
+      ESwapDirectionType.FROM,
+      expect.objectContaining({ address: 'latest-wallet' }),
+      true,
+    );
+    expect(mockRefreshRequested.from).toBe(false);
+    rerender();
+    act(() => {
+      jest.advanceTimersByTime(300);
+    });
+    expect(mockLoadSelectedToken).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not retain a forced flag in debounce after the refresh intent is cancelled', () => {
+    mockRefreshRequested = { from: true, to: false };
+    const { rerender } = renderHook(() =>
+      useSwapSelectedTokenInfo({ type: ESwapDirectionType.FROM, token }),
+    );
+    mockRefreshRequested = { from: false, to: false };
+    rerender();
+    act(() => {
+      jest.advanceTimersByTime(300);
+    });
+    expect(mockLoadSelectedToken).toHaveBeenCalledTimes(1);
+    expect(mockLoadSelectedToken.mock.calls[0][2]).toBe(false);
+  });
+
+  it('keeps an undispatched refresh through unmount and consumes it on return', () => {
+    mockRefreshRequested = { from: true, to: false };
+    const first = renderHook(() =>
+      useSwapSelectedTokenInfo({ type: ESwapDirectionType.FROM, token }),
+    );
+    first.unmount();
+    act(() => {
+      jest.advanceTimersByTime(300);
+    });
+    expect(mockLoadSelectedToken).not.toHaveBeenCalled();
+    expect(mockRefreshRequested.from).toBe(true);
+
+    renderHook(() =>
+      useSwapSelectedTokenInfo({ type: ESwapDirectionType.FROM, token }),
+    );
+    act(() => {
+      jest.advanceTimersByTime(300);
+    });
+    expect(mockLoadSelectedToken).toHaveBeenCalledTimes(1);
+    expect(mockLoadSelectedToken.mock.calls[0][2]).toBe(true);
+  });
+});
 
 function deferred() {
   let resolve: () => void = () => {};
