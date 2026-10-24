@@ -115,11 +115,18 @@ function DomainLabel({
   // Natural single-line widths at the full and the minimum font size.
   const [fullTextWidth, setFullTextWidth] = useState(0);
   const [minTextWidth, setMinTextWidth] = useState(0);
-  const { fontSize, textWidth, overflows } = fitDomainText(
-    fullTextWidth,
-    minTextWidth,
-    availableWidth,
-  );
+  const fit = fitDomainText(fullTextWidth, minTextWidth, availableWidth);
+  const { fontSize, overflows } = fit;
+  // The picked in-between size is interpolated, and glyph widths don't scale
+  // exactly linearly, so it is measured too; the interpolated width stands
+  // in until that measurement lands.
+  const isInBetweenSize =
+    fontSize > DOMAIN_MIN_FONT_SIZE && fontSize < DOMAIN_FONT_SIZE;
+  const [fitMeasure, setFitMeasure] = useState({ fontSize: 0, width: 0 });
+  const textWidth =
+    isInBetweenSize && fitMeasure.fontSize === fontSize && fitMeasure.width
+      ? fitMeasure.width + DOMAIN_WIDTH_SLACK
+      : fit.textWidth;
   const balance = overflows
     ? 0
     : Math.min(
@@ -141,6 +148,8 @@ function DomainLabel({
         size="$bodyLgMedium"
         fontSize={fontSize}
         numberOfLines={1}
+        // Never an ellipsis: if the box is still a hair narrow, clip instead.
+        ellipsizeMode="clip"
         flexShrink={0}
         // A width from the measurements keeps the line whole: it overflows
         // to the left (behind the fade) instead of being ellipsized.
@@ -182,6 +191,21 @@ function DomainLabel({
         >
           {text}
         </SizableText>
+        {isInBetweenSize ? (
+          <SizableText
+            size="$bodyLgMedium"
+            fontSize={fontSize}
+            numberOfLines={1}
+            onLayout={(e) =>
+              setFitMeasure({
+                fontSize,
+                width: Math.ceil(e.nativeEvent.layout.width),
+              })
+            }
+          >
+            {text}
+          </SizableText>
+        ) : null}
       </View>
       {overflows ? (
         <MaskedView
