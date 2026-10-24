@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { CSSProperties, ReactNode } from 'react';
 
 import BigNumber from 'bignumber.js';
@@ -28,6 +28,7 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EWatchlistFrom } from '@onekeyhq/shared/src/logger/scopes/dex';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import type { IMarketStockDetailInitialSection } from '@onekeyhq/shared/src/routes';
 import type {
   IMarketAccountPortfolioDisplayItem,
   IMarketStockInfo,
@@ -1172,22 +1173,20 @@ export function StockAbout({
   );
 }
 
-function StockOverview({
-  portfolioData,
-  isRefreshing,
-  hasAccount,
-}: {
-  portfolioData: IMarketAccountPortfolioDisplayItem[];
-  isRefreshing: boolean;
-  hasAccount: boolean;
-}) {
-  const intl = useIntl();
+export function useStockDetailTab(
+  initialSection?: IMarketStockDetailInitialSection,
+) {
   const { preferPosition, recordTabChange } = useMarketDetailPositionTab();
   // Opens on My position when that was the last tab picked on any detail
-  // page; switching stocks in place keeps the tab on screen.
+  // page; switching stocks in place keeps the tab on screen. An explicit
+  // Overview entry (Swap's "view full data") wins over that preference
+  // without changing it.
   const [activeTab, setActiveTab] = useState<IStockDetailTab>(() =>
-    preferPosition ? 'position' : 'overview',
+    initialSection !== 'overview' && preferPosition ? 'position' : 'overview',
   );
+  useEffect(() => {
+    if (initialSection === 'overview') setActiveTab('overview');
+  }, [initialSection]);
   const selectTab = useCallback(
     (tab: IStockDetailTab) => {
       setActiveTab(tab);
@@ -1195,6 +1194,22 @@ function StockOverview({
     },
     [recordTabChange],
   );
+  return { activeTab, selectTab };
+}
+
+function StockOverview({
+  portfolioData,
+  isRefreshing,
+  hasAccount,
+  initialSection,
+}: {
+  portfolioData: IMarketAccountPortfolioDisplayItem[];
+  isRefreshing: boolean;
+  hasAccount: boolean;
+  initialSection?: IMarketStockDetailInitialSection;
+}) {
+  const intl = useIntl();
+  const { activeTab, selectTab } = useStockDetailTab(initialSection);
   const { stockId } = useStockDetail();
 
   return (
@@ -1286,6 +1301,7 @@ export function StockDesktopLayout({
   chartFullscreenZIndex,
   onChartSwitch,
   onEnterChartFullscreen,
+  initialSection,
 }: {
   active?: boolean;
   marketTradingView: ReactNode;
@@ -1302,6 +1318,7 @@ export function StockDesktopLayout({
   // Pro renders the source and expand controls itself, because the widget's
   // control row hands its trailing slots to this page's stable overlay.
   onEnterChartFullscreen: () => void;
+  initialSection?: IMarketStockDetailInitialSection;
 }) {
   const { selectedTokenVariant, stockDetail } = useStockDetail();
   const {
@@ -1368,6 +1385,7 @@ export function StockDesktopLayout({
             portfolioData={stockPortfolioData}
             isRefreshing={isStockPortfolioRefreshing}
             hasAccount={hasStockPortfolioAccount}
+            initialSection={initialSection}
           />
         </YStack>
 

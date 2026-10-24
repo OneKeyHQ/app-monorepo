@@ -681,6 +681,7 @@ export function DesktopLayout({
           chartFullscreenZIndex={CHART_FULLSCREEN_Z_INDEX}
           onChartSwitch={onChartSwitch}
           onEnterChartFullscreen={handleEnterChartFullscreen}
+          initialSection={initialSection}
         />
       </Stack>
     );

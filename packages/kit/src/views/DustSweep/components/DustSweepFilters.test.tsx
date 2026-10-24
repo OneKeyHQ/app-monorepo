@@ -50,12 +50,24 @@ jest.mock('@onekeyhq/components', () => {
     children,
     testID,
     onLayout,
+    flexWrap,
+    flexShrink,
   }: PropsWithChildren<{
     testID?: string;
     onLayout?: (event: LayoutChangeEvent) => void;
+    flexWrap?: string;
+    flexShrink?: number;
   }>) {
     if (testID && onLayout) mockLayouts.set(testID, onLayout);
-    return <div data-testid={testID}>{children}</div>;
+    return (
+      <div
+        data-testid={testID}
+        data-flex-wrap={flexWrap}
+        data-flex-shrink={flexShrink}
+      >
+        {children}
+      </div>
+    );
   }
   return {
     Button: ({
@@ -168,6 +180,34 @@ it('folds overflow into a +N toggle and keeps the selected network', () => {
   );
 });
 
+it('keeps the toggle on the row when the selected chip is too wide', () => {
+  mockNetworks = makeNetworks(['a', 'b', 'c']);
+  mockCurrentId = 'c';
+  render(<DustSweepNetworks desktop />);
+  layout('dust-sweep-network-scroll', 200);
+  layout('dust-sweep-chip-measure-a', 100);
+  layout('dust-sweep-chip-measure-b', 100);
+  layout('dust-sweep-chip-measure-c', 180);
+  layout('dust-sweep-toggle-measure-collapsed', 60);
+  layout('dust-sweep-toggle-measure-expanded', 80);
+  expect(visibleChipIds()).toEqual(['c']);
+  expect(screen.getByTestId('dust-sweep-network-toggle').textContent).toBe(
+    '+2',
+  );
+  // One unwrapped row whose selected chip gives up width to the toggle.
+  expect(
+    screen
+      .getByTestId('dust-sweep-network-toggle')
+      .closest('[data-flex-wrap]')
+      ?.getAttribute('data-flex-wrap'),
+  ).toBe('nowrap');
+  expect(
+    screen
+      .getByTestId('dust-sweep-chip-layout-c')
+      .getAttribute('data-flex-shrink'),
+  ).toBe('1');
+});
+
 it('expands downward, stays open after a pick, and folds on the toggle', () => {
   mockNetworks = makeNetworks(['a', 'b', 'c', 'd', 'e', 'f']);
   const onExtraHeightChange = jest.fn();
@@ -254,7 +294,11 @@ describe('resolveCollapsedNetworkIds', () => {
   it('shows everything without a toggle when one row fits', () => {
     expect(
       resolveCollapsedNetworkIds({ ...base, containerWidth: 424 }),
-    ).toEqual({ visibleIds: ['a', 'b', 'c', 'd'], hiddenCount: 0 });
+    ).toEqual({
+      visibleIds: ['a', 'b', 'c', 'd'],
+      hiddenCount: 0,
+      pinnedOverflows: false,
+    });
   });
 
   it('keeps list order and stops at the first chip that does not fit', () => {
@@ -264,7 +308,7 @@ describe('resolveCollapsedNetworkIds', () => {
         widths: { ...widths, b: 200 },
         containerWidth: 300,
       }),
-    ).toEqual({ visibleIds: ['a'], hiddenCount: 3 });
+    ).toEqual({ visibleIds: ['a'], hiddenCount: 3, pinnedOverflows: false });
   });
 
   it('keeps a selected network that sits in the hidden part', () => {
@@ -274,14 +318,33 @@ describe('resolveCollapsedNetworkIds', () => {
         containerWidth: 300,
         selectedId: 'd',
       }),
-    ).toEqual({ visibleIds: ['a', 'd'], hiddenCount: 2 });
+    ).toEqual({
+      visibleIds: ['a', 'd'],
+      hiddenCount: 2,
+      pinnedOverflows: false,
+    });
     expect(
       resolveCollapsedNetworkIds({
         ...base,
         containerWidth: 300,
         selectedId: 'a',
       }),
-    ).toEqual({ visibleIds: ['a', 'b'], hiddenCount: 2 });
+    ).toEqual({
+      visibleIds: ['a', 'b'],
+      hiddenCount: 2,
+      pinnedOverflows: false,
+    });
+  });
+
+  it('flags a selected chip too wide to share the row with the toggle', () => {
+    expect(
+      resolveCollapsedNetworkIds({
+        ...base,
+        widths: { ...widths, d: 250 },
+        containerWidth: 300,
+        selectedId: 'd',
+      }),
+    ).toEqual({ visibleIds: ['d'], hiddenCount: 3, pinnedOverflows: true });
   });
 });
 

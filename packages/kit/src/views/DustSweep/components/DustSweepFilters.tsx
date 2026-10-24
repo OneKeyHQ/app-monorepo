@@ -48,6 +48,8 @@ function readWidth(node: Element | null) {
  * The chips the collapsed one-row bar shows (OK-65481). Keeps list order,
  * always keeps the selected network, and leaves room for the "+N" toggle
  * whenever something is hidden. Undefined until every width is measured.
+ * `pinnedOverflows` flags a selected chip too wide to share the row with the
+ * toggle; the bar then shrinks that chip so the toggle stays reachable.
  */
 export function resolveCollapsedNetworkIds({
   ids,
@@ -63,7 +65,9 @@ export function resolveCollapsedNetworkIds({
   toggleWidth: number;
   selectedId?: string;
   gap?: number;
-}): { visibleIds: string[]; hiddenCount: number } | undefined {
+}):
+  | { visibleIds: string[]; hiddenCount: number; pinnedOverflows: boolean }
+  | undefined {
   if (
     !containerWidth ||
     !toggleWidth ||
@@ -75,7 +79,9 @@ export function resolveCollapsedNetworkIds({
     (sum, id, index) => sum + widths[id] + (index ? gap : 0),
     0,
   );
-  if (fullWidth <= containerWidth) return { visibleIds: ids, hiddenCount: 0 };
+  if (fullWidth <= containerWidth) {
+    return { visibleIds: ids, hiddenCount: 0, pinnedOverflows: false };
+  }
   const budget = containerWidth - toggleWidth - gap;
   const pinnedId = selectedId && ids.includes(selectedId) ? selectedId : '';
   const visible = new Set(pinnedId ? [pinnedId] : []);
@@ -88,7 +94,11 @@ export function resolveCollapsedNetworkIds({
     used = next;
   }
   const visibleIds = ids.filter((id) => visible.has(id));
-  return { visibleIds, hiddenCount: ids.length - visibleIds.length };
+  return {
+    visibleIds,
+    hiddenCount: ids.length - visibleIds.length,
+    pinnedOverflows: Boolean(pinnedId) && widths[pinnedId] > budget,
+  };
 }
 
 /** Rows a wrapping bar needs for these widths; 1 for an empty bar. */
@@ -122,6 +132,7 @@ const DustSweepNetworkChip = memo(function DustSweepNetworkChip({
   canSelect,
   onSelect,
   measureOnly = false,
+  shrink = false,
   onMeasure,
 }: {
   entry: IDustSweepNetwork;
@@ -129,6 +140,9 @@ const DustSweepNetworkChip = memo(function DustSweepNetworkChip({
   canSelect: boolean;
   onSelect: (networkId: string) => void;
   measureOnly?: boolean;
+  // Lets the chip give up width (clipping its amount) instead of pushing the
+  // toggle off the collapsed row.
+  shrink?: boolean;
   onMeasure?: (networkId: string, event: LayoutChangeEvent) => void;
 }) {
   const networkId = entry.network.networkId;
@@ -140,7 +154,9 @@ const DustSweepNetworkChip = memo(function DustSweepNetworkChip({
           : `dust-sweep-chip-layout-${networkId}`
       }
       height={NETWORK_CHIP_HEIGHT}
-      flexShrink={0}
+      flexShrink={shrink ? 1 : 0}
+      minWidth={shrink ? 0 : undefined}
+      overflow={shrink ? 'hidden' : undefined}
       onLayout={onMeasure ? (event) => onMeasure(networkId, event) : undefined}
     >
       <Button
@@ -346,6 +362,7 @@ function DustSweepDesktopNetworks({
   const showsAll = expanded || !collapsed;
   const visibleIds = new Set(showsAll ? ids : collapsed.visibleIds);
   const showToggle = hiddenCount > 0 || (expanded && Boolean(collapsed));
+  const shrinkPinned = !expanded && Boolean(collapsed?.pinnedOverflows);
   // The height the expanded rows add, from the measured widths, so the page
   // can give it back from the cards in the same pass.
   const rows =
@@ -376,7 +393,7 @@ function DustSweepDesktopNetworks({
       cursor={canSelectNetwork ? undefined : 'not-allowed'}
     >
       <XStack
-        flexWrap="wrap"
+        flexWrap={shrinkPinned ? 'nowrap' : 'wrap'}
         alignItems="center"
         gap="$2"
         pointerEvents={canSelectNetwork ? 'auto' : 'none'}
@@ -399,6 +416,7 @@ function DustSweepDesktopNetworks({
               entry={entry}
               selected={entry === current}
               canSelect={canSelectNetwork}
+              shrink={shrinkPinned && entry === current}
               // Stays expanded after a pick; only the toggle folds it back.
               onSelect={selectNetwork}
             />
