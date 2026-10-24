@@ -5,6 +5,8 @@ import { StyleSheet, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { runOnJS } from 'react-native-reanimated';
 
+import type { IChromeHitSlop } from './browserChrome';
+
 // Owns the press for a piece of the mobile browser chrome; the wrapped element
 // must not handle it too. Taps go through react-native-gesture-handler:
 // on Android the native bottom tab navigator (react-native-bottom-tabs)
@@ -14,8 +16,6 @@ import { runOnJS } from 'react-native-reanimated';
 const styles = StyleSheet.create({
   fill: { flex: 1, alignSelf: 'stretch' },
 });
-
-export type IChromeHitSlop = { vertical?: number; horizontal?: number };
 
 export function ChromePressable({
   onPress,

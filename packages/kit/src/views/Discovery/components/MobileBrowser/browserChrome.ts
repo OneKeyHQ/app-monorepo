@@ -113,6 +113,10 @@ export function useIsChromeCollapsed(progress?: SharedValue<number>) {
   return useIsProgressPast(progress, BROWSER_CHROME_CROSSFADE_POINT);
 }
 
+// Tap-area extension for ChromePressable. Pass a stable (module-level)
+// object: the gesture is rebuilt when it changes.
+export type IChromeHitSlop = { vertical?: number; horizontal?: number };
+
 // Capsule buttons render ~36pt inside the 46pt capsules; this slop makes the
 // whole capsule height tappable.
-export const CAPSULE_BUTTON_HIT_SLOP = { vertical: 5 };
+export const CAPSULE_BUTTON_HIT_SLOP: IChromeHitSlop = { vertical: 5 };

@@ -2,6 +2,8 @@ import type { ReactElement } from 'react';
 
 import { Stack } from '@onekeyhq/components';
 
+import type { IChromeHitSlop } from './browserChrome';
+
 // Web/desktop counterpart of ChromePressable.native: a plain press wrapper.
 export function ChromePressable({
   onPress,
@@ -13,7 +15,7 @@ export function ChromePressable({
   disabled?: boolean;
   fill?: boolean;
   // Native only (see ChromePressable.native).
-  hitSlop?: { vertical?: number; horizontal?: number };
+  hitSlop?: IChromeHitSlop;
   children: ReactElement;
 }) {
   return (

@@ -108,8 +108,8 @@ function usePageStatusBarStyle(pageThemeName: 'light' | 'dark' | undefined) {
   }, [isFocused, pageThemeName]);
 }
 
-// Safari-style: the address lives in the bottom bar, so the header only keeps
-// exit (back to the wallet, tabs kept) and the account. It collapses fully while scrolling down.
+// The address lives in the bottom bar, so the header only keeps exit (back to
+// the wallet, tabs kept) and the account. It collapses fully on scroll down.
 // It stays in the layout (the page starts below it) rather than floating:
 // dApps commonly pin a fixed header with their Connect button at the top,
 // which a floating header would cover.
@@ -197,6 +197,7 @@ function MobileBrowserHeader({
                   hitSlop={{ top: 5, bottom: 5, left: 8, right: 8 }}
                   iconProps={{ color: '$icon' }}
                   onPress={() => {
+                    // 'minimize' kept for analytics continuity.
                     logBrowserChromeAction('minimize', 'header');
                     onGoBackHome();
                   }}

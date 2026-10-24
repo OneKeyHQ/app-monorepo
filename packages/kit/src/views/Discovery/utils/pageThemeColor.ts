@@ -1,23 +1,21 @@
 import { useSyncExternalStore } from 'react';
 
+import { LRUCache } from '@onekeyhq/shared/src/utils/cacheUtils';
+import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
+
 // Per-tab page color, reported by the page itself (see PAGE_THEME_COLOR_SCRIPT)
 // so the mobile browser chrome can tint itself like Safari: a dark page gets a
 // dark header, status bar and bottom bar.
 
-export const PAGE_THEME_MESSAGE_TYPE = '$onekeyPageThemeColor';
+const PAGE_THEME_MESSAGE_TYPE = '$onekeyPageThemeColor';
 
 const colors = new Map<string, string>();
 // Last color seen per origin (this session), so a revisited site tints the
 // chrome as soon as it starts loading instead of after its first report.
-const originColors = new Map<string, string>();
-const ORIGIN_CACHE_LIMIT = 100;
+const originColors = new LRUCache<string, string>({ max: 100 });
 
 function originOf(url: string | undefined) {
-  try {
-    return url ? new URL(url).origin : undefined;
-  } catch {
-    return undefined;
-  }
+  return url ? uriUtils.safeParseURL(url)?.origin : undefined;
 }
 const listeners = new Set<() => void>();
 
@@ -60,11 +58,12 @@ export function withAlpha(color: string, alpha: number) {
   return rgb ? `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${alpha})` : color;
 }
 
+// Returns the normalized color that was stored.
 export function setPageThemeColor(tabId: string, color: string | undefined) {
   const rgb = color ? parseRgb(color) : undefined;
   const next = rgb ? `rgb(${rgb.r}, ${rgb.g}, ${rgb.b})` : undefined;
   if (colors.get(tabId) === next) {
-    return;
+    return next;
   }
   if (next) {
     colors.set(tabId, next);
@@ -72,9 +71,10 @@ export function setPageThemeColor(tabId: string, color: string | undefined) {
     colors.delete(tabId);
   }
   emit();
+  return next;
 }
 
-export function usePageThemeColor(tabId: string | null | undefined) {
+function usePageThemeColor(tabId: string | null | undefined) {
   return useSyncExternalStore(
     subscribe,
     () => (tabId ? colors.get(tabId) : undefined),
@@ -113,21 +113,6 @@ export function applyCachedPageThemeColor(tabId: string, url: string) {
   }
 }
 
-function rememberOriginColor(url: string | undefined, color: string) {
-  const origin = originOf(url);
-  if (!origin) {
-    return;
-  }
-  originColors.delete(origin);
-  originColors.set(origin, color);
-  if (originColors.size > ORIGIN_CACHE_LIMIT) {
-    const oldest = originColors.keys().next().value;
-    if (oldest !== undefined) {
-      originColors.delete(oldest);
-    }
-  }
-}
-
 export function tryDispatchPageThemeMessage(
   tabId: string,
   data: string,
@@ -141,13 +126,13 @@ export function tryDispatchPageThemeMessage(
     if (message?.type !== PAGE_THEME_MESSAGE_TYPE) {
       return false;
     }
-    setPageThemeColor(
+    const stored = setPageThemeColor(
       tabId,
       typeof message.color === 'string' ? message.color : undefined,
     );
-    const stored = colors.get(tabId);
-    if (stored) {
-      rememberOriginColor(pageUrl, stored);
+    const origin = originOf(pageUrl);
+    if (stored && origin) {
+      originColors.set(origin, stored);
     }
     return true;
   } catch {

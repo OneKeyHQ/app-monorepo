@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback } from 'react';
 
 import { SizableText, Stack, useInGlassHeader } from '@onekeyhq/components';
 import type { IPageNavigationProp } from '@onekeyhq/components/src/layouts/Navigation';
@@ -56,7 +56,7 @@ const GLYPH_STROKE = 2;
 function TabCountButton({ testID, onPressed }: ITabCountButtonProps) {
   const { displayHomePage } = useDisplayHomePageFlag();
   const { tabs } = useWebTabs();
-  const tabCount = useMemo(() => tabs.length, [tabs]);
+  const tabCount = tabs.length;
   // Inside a Liquid Glass capsule the glass owns the shape and press feedback;
   // elsewhere it sits like a tertiary header IconButton (same padding and
   // negative margin), so it spaces evenly next to one.

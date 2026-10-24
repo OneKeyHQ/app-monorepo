@@ -95,9 +95,16 @@ function WebContent({
     setForwardEnabled(siteInfo.canGoForward);
   };
 
+  // Ask the page for its color (once per URL) so the browser chrome can tint
+  // itself to match, like Safari.
+  const lastThemeUrlRef = useRef('');
+
   const onLoadStart = ({ nativeEvent }: WebViewNavigationEvent) => {
     notifyTabNavigation(id);
     applyCachedPageThemeColor(id, nativeEvent.url);
+    // A full load runs the theme script itself (injectedJavaScript); only
+    // SPA navigations need it injected again.
+    lastThemeUrlRef.current = nativeEvent.url;
 
     if (
       nativeEvent.url !== url &&
@@ -108,9 +115,6 @@ function WebContent({
     }
   };
 
-  // Ask the page for its color (once per URL) so the browser chrome can tint
-  // itself to match, like Safari.
-  const lastThemeUrlRef = useRef('');
   const requestPageThemeColor = useCallback(
     (pageUrl: string) => {
       if (!pageUrl || pageUrl === lastThemeUrlRef.current) {
@@ -128,7 +132,6 @@ function WebContent({
     }
     notifyTabNavigationEnd(id);
     changeNavigationInfo({ ...nativeEvent });
-    requestPageThemeColor(nativeEvent.url);
     // Inject Bitrefill bridge for raw postMessage → JSBridge forwarding.
     if (isBitrefillEmbedUrl(nativeEvent.url)) {
       injectScript(id, BITREFILL_BRIDGE_SCRIPT);

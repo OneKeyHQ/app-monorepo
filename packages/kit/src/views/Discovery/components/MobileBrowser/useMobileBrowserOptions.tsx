@@ -28,7 +28,7 @@ import { logBrowserChromeAction } from './browserChrome';
 
 import type { IntlShape } from 'react-intl';
 
-export const ACTION_LIST_CLOSE_ANIMATION_DELAY_MS = 350;
+const ACTION_LIST_CLOSE_ANIMATION_DELAY_MS = 350;
 
 const QUICK_ACTION_COLUMN_WIDTH = 72;
 
@@ -53,12 +53,13 @@ function QuickActionTile({
       w={QUICK_ACTION_COLUMN_WIDTH}
       alignItems="center"
       gap="$2"
-      onPress={async () => {
-        onClose();
+      onPress={() => {
         if (action.afterClose) {
-          await timerUtils.wait(ACTION_LIST_CLOSE_ANIMATION_DELAY_MS);
+          void runAfterMenuClose(action.onPress)(onClose);
+        } else {
+          onClose();
+          action.onPress();
         }
-        action.onPress();
       }}
       testID={action.testID}
     >

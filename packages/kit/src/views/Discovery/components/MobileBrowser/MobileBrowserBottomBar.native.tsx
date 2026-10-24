@@ -75,7 +75,12 @@ const styles = StyleSheet.create({
 });
 
 const STRIP_FADE_HEIGHT = 16;
-const PILL_HIT_SLOP = { vertical: 8, horizontal: 16 };
+// Grows the 30pt pill's tap area to the bar capsule's height, and over its
+// side padding.
+const PILL_HIT_SLOP = {
+  vertical: (BROWSER_CHROME_CAPSULE_HEIGHT - BROWSER_COLLAPSED_PILL_HEIGHT) / 2,
+  horizontal: 16,
+};
 
 // Fade ranges of the bar/pill morph (progress: 1 = expanded, 0 = collapsed).
 const SIDE_FADE_START = 0.4;
