@@ -52,6 +52,7 @@ export type IDustSweepItem = {
   approvalTxIds?: string[];
   txId?: string;
   receivedAmount?: string;
+  receivedAmountEstimated?: boolean;
   receiptUnavailable?: boolean;
   reason?: IDustSweepReason;
   message?: string;

@@ -82,7 +82,7 @@ function getDatePartsFromChartTime(time: Parameters<TickMarkFormatter>[0]) {
   };
 }
 
-const formatChartTickMarkWithoutUnit: TickMarkFormatter = (
+export const formatChartTickMarkWithoutUnit: TickMarkFormatter = (
   time,
   tickMarkType,
 ) => {

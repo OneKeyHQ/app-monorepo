@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
@@ -29,13 +36,12 @@ import type { ITokenListItemProps } from '@onekeyhq/kit/src/components/TokenList
 import { TokenListItem } from '@onekeyhq/kit/src/components/TokenListItem';
 import { TokenSelectorLpTokenSwitch } from '@onekeyhq/kit/src/components/TokenSelectorFilter';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector/actions';
 import {
   useSwapActions,
   useSwapAllNetworkTokenListMapAtom,
+  useSwapAllNetworkTokenListStatusAtom,
   useSwapNetworksAtom,
   useSwapNetworksIncludeAllNetworkAtom,
   useSwapSelectFromTokenAtom,
@@ -89,20 +95,25 @@ import SwapPopularTokenGroup from '../../components/SwapPopularTokenGroup';
 import {
   SwapTokenSelectorDesktop,
   buildSwapTokenSelectorAssetNetworks,
+  getSwapTokenSelectorTokenKey,
 } from '../../components/SwapTokenSelectorDesktop';
 import { useSwapAddressInfo } from '../../hooks/useSwapAccount';
 import { useSwapTokenRiskCheck } from '../../hooks/useSwapTokenRiskCheck';
-import { useSwapTokenList } from '../../hooks/useSwapTokens';
 import {
-  buildSwapNetworkReadyKey,
-  isSwapNetworkCacheReadyForBasicList,
-} from '../../utils/swapNetworkCacheUtils';
+  useSwapTokenList,
+  useSwapTokenSearchKeyword,
+} from '../../hooks/useSwapTokens';
+import { isSwapNetworkCacheReadyForBasicList } from '../../utils/swapNetworkCacheUtils';
 import {
   SWAP_STOCK_ANALYTICS_TOKEN_LIST_TYPE_STOCK,
   SWAP_STOCK_ANALYTICS_TOKEN_ROLE_STOCK,
   getSwapAnalyticsTokenListType,
   getSwapAnalyticsTokenRole,
 } from '../../utils/swapStockAnalytics';
+import {
+  getSwapTokenSelectorCacheEpoch,
+  subscribeSwapTokenSelectorCache,
+} from '../../utils/swapTokenSelectorCacheUtils';
 import { SwapProviderMirror } from '../SwapProviderMirror';
 
 import {
@@ -316,15 +327,15 @@ const SwapTokenSelectPage = ({
     : undefined;
   const intl = useIntl();
   const [searchInputValue, setSearchInputValue] = useState<string>('');
-  const [searchKeyword, setSearchKeyword] = useState<string>('');
+  const {
+    searchKeyword,
+    setSearchKeyword,
+    requestedSearchKeyword,
+    searchRound,
+    isSearchKeywordSettling,
+  } = useSwapTokenSearchKeyword();
   const [networkSearchInputValue, setNetworkSearchInputValue] =
     useState<string>('');
-  const searchKeywordDebounce = useDebounce(searchKeyword, 500);
-  // Reset to the default token list immediately when the input is cleared.
-  const requestedSearchKeyword = searchKeyword
-    ? searchKeywordDebounce
-    : searchKeyword;
-  const isSearchKeywordSettling = searchKeyword !== requestedSearchKeyword;
   const [rawSwapNetworks] = useSwapNetworksAtom();
   const [swapNetworksIncludeAllNetworkBase] =
     useSwapNetworksIncludeAllNetworkAtom();
@@ -345,18 +356,21 @@ const SwapTokenSelectPage = ({
   const [fromToken, setSwapSelectFromToken] = useSwapSelectFromTokenAtom();
   const [swapTypeSwitch] = useSwapTypeSwitchAtom();
   const [swapAllNetworkTokenListMap] = useSwapAllNetworkTokenListMapAtom();
+  const [swapAllNetworkTokenListStatus] =
+    useSwapAllNetworkTokenListStatusAtom();
+  const tokenSelectorCacheEpoch = useSyncExternalStore(
+    subscribeSwapTokenSelectorCache,
+    getSwapTokenSelectorCacheEpoch,
+    getSwapTokenSelectorCacheEpoch,
+  );
   const swapFromAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
   const swapToAddressInfo = useSwapAddressInfo(ESwapDirectionType.TO);
   const [toToken, setSwapSelectToToken] = useSwapSelectToTokenAtom();
   const [settingsPersistAtom] = useSettingsPersistAtom();
   const [tokenSelectorFilter, setTokenSelectorFilter] =
     useTokenSelectorFilterPersistAtom();
-  const {
-    selectFromToken,
-    selectToToken,
-    syncNetworksSort,
-    swapLoadAllNetworkTokenList,
-  } = useSwapActions().current;
+  const { selectFromToken, selectToToken, syncNetworksSort } =
+    useSwapActions().current;
   const [currentSelectNetwork, setCurrentSelectNetwork] =
     useSwapSelectTokenNetworkAtom();
   const showLpTokenFilterSwitch = useMemo(() => {
@@ -391,7 +405,6 @@ const SwapTokenSelectPage = ({
     return undefined;
   }, [isSwapStockSelectTarget, showLpTokenFilterSwitch, showLpTokensOnly]);
   const { gtMd, md } = useMedia();
-  const isFocused = useIsFocused();
   const useDesktopTokenSelector =
     (platformEnv.isDesktop || platformEnv.isWeb) &&
     gtMd &&
@@ -425,45 +438,19 @@ const SwapTokenSelectPage = ({
   );
   const desktopAllNetworkTokens =
     swapAllNetworkTokenListMap[desktopAllNetworkTokenListCacheKey];
+  const desktopAllNetworkStatus =
+    swapAllNetworkTokenListStatus[desktopAllNetworkTokenListCacheKey];
+  const desktopAssetSnapshotReady =
+    desktopAllNetworkTokens !== undefined &&
+    (desktopAllNetworkStatus
+      ? desktopAllNetworkStatus.identityVersion ===
+        tokenSelectorCacheEpoch.identity
+      : tokenSelectorCacheEpoch.identity === 0);
+  const desktopSessionScopeKey = `${desktopAllNetworkTokenListCacheKey}__${tokenSelectorCacheEpoch.identity}`;
   const desktopAllNetworkTokenListReady = useMemo(
     () => isSwapNetworkCacheReadyForBasicList(rawSwapNetworks),
     [rawSwapNetworks],
   );
-  const desktopAllNetworkSwapNetworksReadyKey = useMemo(
-    () =>
-      desktopAllNetworkTokenListReady
-        ? buildSwapNetworkReadyKey(rawSwapNetworks)
-        : '',
-    [desktopAllNetworkTokenListReady, rawSwapNetworks],
-  );
-
-  // The cold snapshot is only for first paint. Every selector entry starts a
-  // fresh request so balance-sensitive values are never gated by cache age.
-  useEffect(() => {
-    if (
-      !isFocused ||
-      !useDesktopTokenSelector ||
-      !desktopAllNetworkTokenListReady
-    ) {
-      return;
-    }
-    void swapLoadAllNetworkTokenList(
-      desktopIndexedAccountId,
-      desktopOtherWalletTypeAccountId,
-      false,
-      settingsPersistAtom.currencyInfo.id,
-    ).catch(() => undefined);
-  }, [
-    desktopIndexedAccountId,
-    desktopOtherWalletTypeAccountId,
-    settingsPersistAtom.currencyInfo.id,
-    swapTypeSwitch,
-    swapLoadAllNetworkTokenList,
-    useDesktopTokenSelector,
-    desktopAllNetworkTokenListReady,
-    desktopAllNetworkSwapNetworksReadyKey,
-    isFocused,
-  ]);
   const fromTokenRef = useRef<ISwapToken | undefined>(fromToken);
   const toTokenRef = useRef<ISwapToken | undefined>(toToken);
   const hasUserSelectedNetworkRef = useRef(false);
@@ -643,6 +630,8 @@ const SwapTokenSelectPage = ({
     requestLpToken,
     searchAnalyticsOverride,
     swapNetworksIncludeAllNetwork,
+    searchRound,
+    isSearchKeywordSettling,
   );
   const stockSearchBaseNetworkId = currentSelectNetwork?.networkId;
   const stockSearchBaseTokensRef = useRef<{
@@ -937,7 +926,7 @@ const SwapTokenSelectPage = ({
       setSearchInputValue(trimmedText);
       setSearchKeyword(trimmedText);
     }
-  }, [getClipboard]);
+  }, [getClipboard, setSearchKeyword]);
 
   const disableNetworksOnClick = useCallback(() => {
     // STOCK keeps the legacy copy until stock-specific copy is defined
@@ -1185,13 +1174,19 @@ const SwapTokenSelectPage = ({
   );
   const desktopAssetNetworks = useMemo(
     () =>
-      buildSwapTokenSelectorAssetNetworks({
-        networks: swapAllSupportNetworks.filter(
-          (network) => !network.isAllNetworks,
-        ),
-        tokens: desktopAllNetworkTokens,
-      }),
-    [desktopAllNetworkTokens, swapAllSupportNetworks],
+      desktopAssetSnapshotReady
+        ? buildSwapTokenSelectorAssetNetworks({
+            networks: swapAllSupportNetworks.filter(
+              (network) => !network.isAllNetworks,
+            ),
+            tokens: desktopAllNetworkTokens,
+          })
+        : undefined,
+    [
+      desktopAssetSnapshotReady,
+      desktopAllNetworkTokens,
+      swapAllSupportNetworks,
+    ],
   );
 
   const openChainSelector = useConfigurableChainSelector();
@@ -1268,6 +1263,9 @@ const SwapTokenSelectPage = ({
       <Page.Body>
         {useDesktopTokenSelector && allNetwork ? (
           <SwapTokenSelectorDesktop
+            key={desktopSessionScopeKey}
+            sessionScopeKey={desktopSessionScopeKey}
+            networksReady={desktopAllNetworkTokenListReady}
             allNetwork={allNetwork}
             networks={networkFilterData.networks}
             sameChainNetwork={networkFilterData.sameChainNetwork}
@@ -1397,6 +1395,7 @@ const SwapTokenSelectPage = ({
                 useFlashList={platformEnv.isNative}
                 ref={listViewRef}
                 data={displayTokens}
+                keyExtractor={getSwapTokenSelectorTokenKey}
                 renderItem={renderItem}
                 estimatedItemSize={60}
                 ListHeaderComponent={

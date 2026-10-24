@@ -32,10 +32,13 @@ import {
   resolveStockTokenVariantSelection,
 } from '../utils/stockTokenVariant';
 
+import { useStockPriceSourceState } from './stockPriceSourceState';
+
 export { isStockTokenVariantTradable } from '../utils/stockTokenVariant';
 
 type IStockDetailContextValue = {
   stockId?: string;
+  priceSource: ReturnType<typeof useStockPriceSourceState>;
   isStockRoute: boolean;
   stockPreview?: IMarketStockDetailPreview;
   stockDetail?: IMarketStockPublicDetail | null;
@@ -59,6 +62,12 @@ type IStockDetailContextValue = {
 };
 
 const StockDetailContext = createContext<IStockDetailContextValue>({
+  priceSource: {
+    priceMode: 'token',
+    sharePriceAvailable: false,
+    isPriceSourceReady: true,
+    handlePriceModeChange: () => undefined,
+  },
   isStockRoute: false,
   isStockDetailReady: false,
   isStockDetailLoading: false,
@@ -454,19 +463,27 @@ export function StockDetailProvider({
     [tokenVariants],
   );
 
+  const isStockDetailError = Boolean(
+    normalizedStockId &&
+    stockDetailResult?.stockId === normalizedStockId &&
+    stockDetailResult.failed,
+  );
+  const priceSource = useStockPriceSourceState({
+    stockId: normalizedStockId,
+    stockDetail: currentStockDetail,
+    isStockDetailError,
+  });
+
   const value = useMemo<IStockDetailContextValue>(
     () => ({
       stockId: normalizedStockId,
+      priceSource,
       isStockRoute: Boolean(normalizedStockId),
       stockPreview,
       stockDetail: currentStockDetail,
       isStockDetailReady,
       isStockDetailLoading: Boolean(normalizedStockId && isStockDetailLoading),
-      isStockDetailError: Boolean(
-        normalizedStockId &&
-        stockDetailResult?.stockId === normalizedStockId &&
-        stockDetailResult.failed,
-      ),
+      isStockDetailError,
       isStockDetailStatusError,
       retryStockDetail,
       tokenVariants,
@@ -499,6 +516,8 @@ export function StockDetailProvider({
       hasCurrentTokenVariants,
       initialNetworkId,
       isStockDetailLoading,
+      isStockDetailError,
+      priceSource,
       isStockDetailReady,
       isStockDetailStatusError,
       isTokenVariantsLoading,
@@ -511,8 +530,6 @@ export function StockDetailProvider({
       selectedTokenId,
       selectedTokenVariant,
       stockPreview,
-      stockDetailResult?.failed,
-      stockDetailResult?.stockId,
       tokenVariantResult?.failed,
       tokenVariantResult?.stockId,
       currentStockDetail,

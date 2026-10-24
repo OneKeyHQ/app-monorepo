@@ -2,13 +2,17 @@
 import { ERootRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
 
 import {
+  resetAboveMainRoute,
   rootNavigationRef,
   switchTab,
+  switchTabAsync,
   tabletMainViewNavigationRef,
 } from './NavigationContainer';
 
 jest.mock('@react-navigation/native', () => ({
-  CommonActions: {},
+  CommonActions: {
+    reset: (state: unknown) => ({ type: 'RESET', payload: state }),
+  },
   StackActions: {},
   DefaultTheme: {},
   DarkTheme: {},
@@ -88,4 +92,121 @@ it('preserves the selected tab without navigation when no new params are supplie
   jest.runAllTimers();
   expect(mockRootNavigate).not.toHaveBeenCalled();
   expect(mockTabletNavigate).not.toHaveBeenCalled();
+});
+
+it('dismisses both deposit and history overlays while preserving the trading tab', () => {
+  const mainRoute = getRootState().routes[0];
+  const dispatch = jest.fn();
+  Object.assign(rootNavigationRef, {
+    current: {
+      getRootState: () => ({
+        index: 2,
+        routes: [
+          mainRoute,
+          { key: 'deposit', name: ERootRoutes.Modal },
+          { key: 'history', name: ERootRoutes.Modal },
+        ],
+      }),
+      dispatch,
+    },
+  });
+
+  resetAboveMainRoute();
+
+  expect(dispatch).toHaveBeenCalledTimes(1);
+  expect(dispatch).toHaveBeenCalledWith({
+    type: 'RESET',
+    payload: { index: 0, routes: [mainRoute] },
+  });
+});
+
+it('leaves the trading route alone when there are no overlays', () => {
+  const dispatch = jest.fn();
+  Object.assign(rootNavigationRef, { current: { getRootState, dispatch } });
+
+  resetAboveMainRoute();
+
+  expect(dispatch).not.toHaveBeenCalled();
+});
+
+it.each([ETabRoutes.Perp, ETabRoutes.WebviewPerpTrade])(
+  'dismisses nested history overlays from Home before selecting %s',
+  async (targetTab) => {
+    const mainRoute = {
+      name: ERootRoutes.Main,
+      state: { index: 0, routes: [{ name: ETabRoutes.Home }] },
+    };
+    const dispatch = jest.fn();
+    Object.assign(rootNavigationRef, {
+      current: {
+        getRootState: () => ({
+          index: 2,
+          routes: [
+            mainRoute,
+            { key: 'deposit', name: ERootRoutes.Modal },
+            { key: 'history', name: ERootRoutes.Modal },
+          ],
+        }),
+        dispatch,
+        navigate: mockRootNavigate,
+      },
+    });
+    Object.assign(tabletMainViewNavigationRef, {
+      current: {
+        getRootState: () => ({ index: 0, routes: [mainRoute] }),
+        navigate: mockTabletNavigate,
+      },
+    });
+
+    const params =
+      targetTab === ETabRoutes.WebviewPerpTrade
+        ? ({
+            screen: ETabRoutes.WebviewPerpTrade,
+            params: { tradeRequest: { requestId: 'twap', expiresAt: 2000 } },
+          } as const)
+        : undefined;
+    const switching =
+      targetTab === ETabRoutes.WebviewPerpTrade
+        ? switchTabAsync(targetTab, { params })
+        : switchTabAsync(targetTab);
+    expect(dispatch).toHaveBeenCalledWith({
+      type: 'RESET',
+      payload: { index: 0, routes: [mainRoute] },
+    });
+    expect(mockRootNavigate).not.toHaveBeenCalled();
+
+    await jest.runAllTimersAsync();
+    await switching;
+
+    expect(mockRootNavigate).toHaveBeenCalledWith(ERootRoutes.Main, {
+      screen: targetTab,
+      ...(params ? { params } : {}),
+    });
+    expect(mockTabletNavigate).toHaveBeenCalledWith(
+      ERootRoutes.Main,
+      { screen: targetTab, ...(params ? { params } : {}) },
+      { pop: true },
+    );
+  },
+);
+
+it('forwards async entry params even when the trading tab is already selected', async () => {
+  const params = {
+    screen: ETabRoutes.WebviewPerpTrade,
+    params: { tradeRequest: { requestId: 'twap', expiresAt: 2000 } },
+  } as const;
+  await switchTabAsync(ETabRoutes.WebviewPerpTrade, { params });
+  await jest.runAllTimersAsync();
+  expect(mockRootNavigate).toHaveBeenCalledWith(ERootRoutes.Main, {
+    screen: ETabRoutes.WebviewPerpTrade,
+    params,
+  });
+  expect(mockTabletNavigate).toHaveBeenCalledWith(
+    ERootRoutes.Main,
+    {
+      screen: ETabRoutes.WebviewPerpTrade,
+      params,
+    },
+    { pop: true },
+  );
 });
