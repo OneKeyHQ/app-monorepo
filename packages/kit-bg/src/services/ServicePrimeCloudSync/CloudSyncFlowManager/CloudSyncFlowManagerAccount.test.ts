@@ -4,7 +4,9 @@ import type { IDBUtxoAccount } from '../../../dbs/local/types';
 
 describe('CloudSyncFlowManagerAccount', () => {
   const manager = new CloudSyncFlowManagerAccount({
-    backgroundApi: {} as any,
+    backgroundApi: {
+      localDb: { getWalletSafe: jest.fn(async () => undefined) },
+    } as any,
   });
 
   test('buildSyncPayload never leaks btc findAddresses (local-only field)', async () => {
@@ -31,7 +33,7 @@ describe('CloudSyncFlowManagerAccount', () => {
     expect(payload).not.toHaveProperty('addresses');
   });
 
-  test('isSupportSync excludes hd/hw/qr accounts (find-address account types never sync)', async () => {
+  test('isSupportSync excludes accounts without a matching public snapshot wallet', async () => {
     await expect(
       manager.isSupportSync({
         account: { id: "hd-1--m/84'/0'/0'" },

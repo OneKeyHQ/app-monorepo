@@ -1,0 +1,511 @@
+import { cloneDeep } from 'lodash';
+
+import { EPrimeCloudSyncDataType } from '@onekeyhq/shared/src/consts/primeConsts';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+
+import { EDBAccountType } from './consts';
+import { LocalDbBase } from './LocalDbBase';
+import { ELocalDBStoreNames } from './localDBStoreNames';
+
+import type {
+  EIndexedDBBucketNames,
+  IDBAccount,
+  IDBBaseObject,
+  IDBCloudSyncItem,
+  IDBIndexedAccount,
+  IDBWallet,
+  ILocalDBGetRecordsByIdsParams,
+  ILocalDBGetRecordsByIdsResult,
+  ILocalDBRecord,
+  ILocalDBTransaction,
+  ILocalDBTxAddRecordsParams,
+  ILocalDBTxAddRecordsResult,
+  ILocalDBTxGetAllRecordsParams,
+  ILocalDBTxGetAllRecordsResult,
+  ILocalDBTxGetRecordsByIdsParams,
+  ILocalDBTxGetRecordsByIdsResult,
+  ILocalDBTxRemoveRecordsParams,
+  ILocalDBTxUpdateRecordsParams,
+  ILocalDBWithTransactionOptions,
+} from './types';
+import type { IBackgroundApi } from '../../apis/IBackgroundApi';
+
+function account(walletId = 'hd-1', index = 0): IDBAccount {
+  return {
+    id: `${walletId}--m/44'/60'/0'/0/${index}`,
+    indexedAccountId: `${walletId}--${index}`,
+    name: 'Public test account',
+    type: EDBAccountType.SIMPLE,
+    impl: 'evm',
+    coinType: '60',
+    path: `m/44'/60'/0'/0/${index}`,
+    pathIndex: index,
+    template: "m/44'/60'/0'/0/$$INDEX$$",
+    address: '0x1111111111111111111111111111111111111111',
+    pub: '',
+  };
+}
+
+function wallet(id: string, extra: Partial<IDBWallet> = {}): IDBWallet {
+  return {
+    id,
+    type: id.startsWith('hw-') ? 'hw' : 'hd',
+    name: 'Public test wallet',
+    walletNo: 1,
+    backuped: true,
+    accounts: [],
+    nextIds: {},
+    ...extra,
+  };
+}
+
+function snapshotKey(record: IDBAccount): string {
+  return `test-snapshot:${record.id}`;
+}
+
+class DeletionTestDb extends LocalDbBase {
+  override readyDb = Promise.resolve(this);
+
+  stores = new Map<ELocalDBStoreNames, Map<string, IDBBaseObject>>();
+
+  failTombstoneWrite = false;
+
+  buildTombstone = jest.fn(
+    async ({ dbRecord }: { dbRecord: IDBAccount }) =>
+      ({
+        id: snapshotKey(dbRecord),
+        dataType: EPrimeCloudSyncDataType.Account,
+        rawKey: '',
+        rawData: 'public-snapshot',
+        data: 'encrypted-public-snapshot',
+        dataTime: 2,
+        isDeleted: true,
+        pwdHash: 'test-pwd-hash',
+        localSceneUpdated: true,
+        serverUploaded: false,
+      }) as IDBCloudSyncItem | undefined,
+  );
+
+  syncFlow = jest.fn(async () => undefined);
+
+  constructor() {
+    super();
+    const buildLegacyTarget = async ({
+      dbRecord,
+    }: {
+      dbRecord: IDBBaseObject;
+    }) => ({ dbRecord });
+    const buildLegacyKey = async ({
+      target,
+    }: {
+      target: { dbRecord: IDBBaseObject };
+    }) => ({ key: `legacy:${target.dbRecord.id}` });
+    this.setBackgroundApi({
+      servicePrimeCloudSync: {
+        getSyncCredentialSafe: async () => undefined,
+        startServerSyncFlowSilently: this.syncFlow,
+        syncManagers: {
+          account: {
+            buildSyncItemByDBQuery: this.buildTombstone,
+            buildSyncTargetByDBQuery: buildLegacyTarget,
+            buildSyncKeyAndPayload: buildLegacyKey,
+          },
+          wallet: {
+            buildSyncTargetByDBQuery: buildLegacyTarget,
+            buildSyncKeyAndPayload: buildLegacyKey,
+          },
+        },
+      },
+    } as unknown as IBackgroundApi);
+  }
+
+  put<TRecord extends IDBBaseObject>(
+    name: ELocalDBStoreNames,
+    record: TRecord,
+  ) {
+    if (!this.stores.has(name)) this.stores.set(name, new Map());
+    this.stores.get(name)?.set(record.id, cloneDeep(record));
+  }
+
+  read<T extends IDBBaseObject>(
+    name: ELocalDBStoreNames,
+    id: string,
+  ): T | undefined {
+    return this.stores.get(name)?.get(id) as T | undefined;
+  }
+
+  override async reset() {}
+
+  override async withTransaction<T>(
+    _bucket: EIndexedDBBucketNames,
+    fn: (tx: ILocalDBTransaction) => Promise<T>,
+    _options?: ILocalDBWithTransactionOptions,
+  ): Promise<T> {
+    const original = cloneDeep(this.stores);
+    try {
+      return await fn({} as ILocalDBTransaction);
+    } catch (error) {
+      this.stores = original;
+      throw error;
+    }
+  }
+
+  override async getWallet({ walletId }: { walletId: string }) {
+    const result = this.read<IDBWallet>(ELocalDBStoreNames.Wallet, walletId);
+    if (!result) throw new OneKeyLocalError('Missing test wallet');
+    return cloneDeep(result);
+  }
+
+  override async getAllWallets() {
+    return {
+      wallets: Array.from(
+        this.stores.get(ELocalDBStoreNames.Wallet)?.values() ?? [],
+      ) as IDBWallet[],
+    };
+  }
+
+  override async getNormalHwQrWalletInSameDevice({
+    associatedDevice,
+  }: {
+    associatedDevice: string | undefined;
+  }) {
+    return (await this.getAllWallets()).wallets.filter(
+      (record) =>
+        record.associatedDevice === associatedDevice &&
+        !accountUtils.isHwHiddenWallet({ wallet: record }),
+    );
+  }
+
+  override async getAccountSafe({ accountId }: { accountId: string }) {
+    return cloneDeep(
+      this.read<IDBAccount>(ELocalDBStoreNames.Account, accountId),
+    );
+  }
+
+  override async getIndexedAccountSafe({ id }: { id: string }) {
+    return cloneDeep(
+      this.read<IDBIndexedAccount>(ELocalDBStoreNames.IndexedAccount, id),
+    );
+  }
+
+  override async getRecordsByIds<T extends ELocalDBStoreNames>(
+    params: ILocalDBGetRecordsByIdsParams<T>,
+  ): Promise<ILocalDBGetRecordsByIdsResult<T>> {
+    return this.txGetRecordsByIds({ ...params, tx: {} as ILocalDBTransaction });
+  }
+
+  override async txGetRecordsByIds<T extends ELocalDBStoreNames>({
+    name,
+    ids,
+  }: ILocalDBTxGetRecordsByIdsParams<T>): Promise<
+    ILocalDBTxGetRecordsByIdsResult<T>
+  > {
+    const records = ids.map(
+      (id) => this.read(name, id) as ILocalDBRecord<T> | undefined,
+    );
+    return {
+      records,
+      recordPairs: records.map((record) =>
+        record ? [record, null] : undefined,
+      ),
+    };
+  }
+
+  override async txGetAllRecords<T extends ELocalDBStoreNames>({
+    name,
+  }: ILocalDBTxGetAllRecordsParams<T>): Promise<
+    ILocalDBTxGetAllRecordsResult<T>
+  > {
+    const records = Array.from(
+      this.stores.get(name)?.values() ?? [],
+    ) as ILocalDBRecord<T>[];
+    return { records, recordPairs: records.map((record) => [record, null]) };
+  }
+
+  override async txAddRecords<T extends ELocalDBStoreNames>({
+    name,
+    records,
+  }: ILocalDBTxAddRecordsParams<T>): Promise<ILocalDBTxAddRecordsResult> {
+    if (name === ELocalDBStoreNames.CloudSyncItem && this.failTombstoneWrite)
+      throw new OneKeyLocalError('Test storage full');
+    const addedIds: string[] = [];
+    for (const record of records) {
+      if (!this.read(name, record.id)) {
+        this.put(name, record);
+        addedIds.push(record.id);
+      }
+    }
+    return {
+      addedIds,
+      added: addedIds.length,
+      skipped: records.length - addedIds.length,
+    };
+  }
+
+  override async txRemoveRecords<T extends ELocalDBStoreNames>({
+    name,
+    ids,
+    recordPairs,
+  }: ILocalDBTxRemoveRecordsParams<T>): Promise<void> {
+    const recordIds =
+      ids ??
+      recordPairs?.flatMap(([record]) => (record ? [record.id] : [])) ??
+      [];
+    for (const id of recordIds) this.stores.get(name)?.delete(id);
+  }
+
+  override async txUpdateRecords<T extends ELocalDBStoreNames>({
+    name,
+    ids,
+    updater,
+  }: ILocalDBTxUpdateRecordsParams<T>): Promise<void> {
+    for (const id of ids ?? []) {
+      const record = this.read(name, id) as ILocalDBRecord<T> | undefined;
+      if (record) this.put(name, await updater(record));
+    }
+  }
+
+  addAccount(record: IDBAccount) {
+    this.put(ELocalDBStoreNames.Account, record);
+    this.put(ELocalDBStoreNames.IndexedAccount, {
+      id: record.indexedAccountId ?? '',
+      walletId: accountUtils.getWalletIdFromAccountId({ accountId: record.id }),
+      index: record.pathIndex,
+      name: record.name,
+    });
+  }
+}
+
+describe('public account deletion tombstones', () => {
+  beforeEach(() => jest.useFakeTimers());
+  afterEach(() => jest.useRealTimers());
+
+  test('single HD/HW deletion retains the tombstone and triggers sync after commit', async () => {
+    const db = new DeletionTestDb();
+    const record = account('hw-test');
+    db.put(ELocalDBStoreNames.Wallet, wallet('hw-test'));
+    db.addAccount(record);
+    db.put(ELocalDBStoreNames.CloudSyncItem, {
+      ...(await db.buildTombstone({ dbRecord: record })),
+      id: snapshotKey(record),
+      dataTime: 1,
+      isDeleted: false,
+    });
+    db.buildTombstone.mockClear();
+    await db.removeAccount({ accountId: record.id, walletId: 'hw-test' });
+    expect(db.read(ELocalDBStoreNames.Account, record.id)).toBeUndefined();
+    expect(
+      db.read(ELocalDBStoreNames.CloudSyncItem, snapshotKey(record)),
+    ).toMatchObject({ isDeleted: true, serverUploaded: false });
+    expect(db.buildTombstone).toHaveBeenCalledWith({
+      dbRecord: record,
+      isDeleted: true,
+      dataTime: undefined,
+      syncCredential: undefined,
+    });
+    expect(db.syncFlow).not.toHaveBeenCalled();
+    await jest.advanceTimersByTimeAsync(1000);
+    expect(db.syncFlow).toHaveBeenCalledTimes(1);
+  });
+
+  test('batch deletion writes every tombstone but makes one debounced sync request', async () => {
+    const db = new DeletionTestDb();
+    const records = [account('hd-1', 0), account('hd-1', 1)];
+    db.put(ELocalDBStoreNames.Wallet, wallet('hd-1'));
+    records.forEach((record) => db.addAccount(record));
+    await db.removeAccountsByIds({ ids: records.map((record) => record.id) });
+    expect(
+      records.every(
+        (record) =>
+          db.read<IDBCloudSyncItem>(
+            ELocalDBStoreNames.CloudSyncItem,
+            snapshotKey(record),
+          )?.isDeleted,
+      ),
+    ).toBe(true);
+    await jest.advanceTimersByTimeAsync(1000);
+    expect(db.syncFlow).toHaveBeenCalledTimes(1);
+  });
+
+  test('tombstone failure rolls back both account deletion and wallet references', async () => {
+    const db = new DeletionTestDb();
+    const record = account();
+    db.put(
+      ELocalDBStoreNames.Wallet,
+      wallet('hd-1', { accounts: [record.id] }),
+    );
+    db.addAccount(record);
+    db.failTombstoneWrite = true;
+    await expect(
+      db.removeAccount({ accountId: record.id, walletId: 'hd-1' }),
+    ).rejects.toThrow('Test storage full');
+    expect(db.read(ELocalDBStoreNames.Account, record.id)).toEqual(record);
+    expect(
+      db.read<IDBWallet>(ELocalDBStoreNames.Wallet, 'hd-1')?.accounts,
+    ).toEqual([record.id]);
+    expect(
+      db.read(ELocalDBStoreNames.CloudSyncItem, snapshotKey(record)),
+    ).toBeUndefined();
+    await jest.advanceTimersByTimeAsync(1000);
+    expect(db.syncFlow).not.toHaveBeenCalled();
+  });
+
+  test.each([false, true])(
+    'index deletion bulk=%s covers associated account snapshots',
+    async (bulk) => {
+      const db = new DeletionTestDb();
+      const record = account();
+      db.put(ELocalDBStoreNames.Wallet, wallet('hd-1'));
+      db.addAccount(record);
+      const indexed = db.read<IDBIndexedAccount>(
+        ELocalDBStoreNames.IndexedAccount,
+        record.indexedAccountId ?? '',
+      );
+      expect(indexed).toBeDefined();
+      if (bulk && indexed)
+        await db.removeIndexedAccounts({ indexedAccounts: [indexed] });
+      else
+        await db.removeIndexedAccount({
+          indexedAccountId: record.indexedAccountId ?? '',
+          walletId: 'hd-1',
+        });
+      expect(
+        db.read(
+          ELocalDBStoreNames.IndexedAccount,
+          record.indexedAccountId ?? '',
+        ),
+      ).toBeUndefined();
+      expect(
+        db.read(ELocalDBStoreNames.CloudSyncItem, snapshotKey(record)),
+      ).toMatchObject({ isDeleted: true });
+      await jest.advanceTimersByTimeAsync(1000);
+      expect(db.syncFlow).toHaveBeenCalledTimes(1);
+    },
+  );
+
+  test('wallet unbinding and implicit hidden-wallet removal stay local', async () => {
+    const db = new DeletionTestDb();
+    db.put(
+      ELocalDBStoreNames.Wallet,
+      wallet('hw-test', { associatedDevice: 'device-test' }),
+    );
+    db.put(
+      ELocalDBStoreNames.Wallet,
+      wallet('hw-test-hidden', {
+        associatedDevice: 'device-test',
+        passphraseState: 'hidden-session',
+      }),
+    );
+    const records = [account('hw-test'), account('hw-test-hidden')];
+    records.forEach((record) => db.addAccount(record));
+    await db.removeWallet({ walletId: 'hw-test' });
+    expect(
+      db.read(ELocalDBStoreNames.Wallet, 'hw-test-hidden'),
+    ).toBeUndefined();
+    expect(db.buildTombstone).not.toHaveBeenCalled();
+    expect(db.stores.get(ELocalDBStoreNames.CloudSyncItem)?.size ?? 0).toBe(0);
+    await jest.advanceTimersByTimeAsync(1000);
+    expect(db.syncFlow).not.toHaveBeenCalled();
+  });
+
+  test('bulk wallet cleanup during automatic merging creates no global tombstones', async () => {
+    const db = new DeletionTestDb();
+    const records = [account('hd-1'), account('hd-2')];
+    for (const record of records) {
+      const walletId = accountUtils.getWalletIdFromAccountId({
+        accountId: record.id,
+      });
+      db.put(ELocalDBStoreNames.Wallet, wallet(walletId));
+      db.addAccount(record);
+    }
+    await db.removeWallets({ walletIds: ['hd-1', 'hd-2'] });
+    expect(db.stores.get(ELocalDBStoreNames.Wallet)?.size).toBe(0);
+    expect(db.buildTombstone).not.toHaveBeenCalled();
+    expect(db.stores.get(ELocalDBStoreNames.CloudSyncItem)?.size ?? 0).toBe(0);
+    await jest.advanceTimersByTimeAsync(1000);
+    expect(db.syncFlow).not.toHaveBeenCalled();
+  });
+
+  test('unsupported future records keep their existing pool item on local deletion', async () => {
+    const db = new DeletionTestDb();
+    const record = account();
+    db.put(ELocalDBStoreNames.Wallet, wallet('hd-1'));
+    db.addAccount(record);
+    const future: IDBCloudSyncItem = {
+      id: snapshotKey(record),
+      rawKey: '',
+      rawData: '',
+      dataType: EPrimeCloudSyncDataType.Account,
+      data: 'future-version-ciphertext',
+      dataTime: 5,
+      isDeleted: false,
+      pwdHash: 'test-pwd-hash',
+      localSceneUpdated: false,
+      serverUploaded: true,
+    };
+    db.put(ELocalDBStoreNames.CloudSyncItem, future);
+    db.buildTombstone.mockResolvedValue(undefined);
+    await db.removeAccount({ accountId: record.id, walletId: 'hd-1' });
+    expect(db.read(ELocalDBStoreNames.CloudSyncItem, future.id)).toEqual(
+      future,
+    );
+    await jest.advanceTimersByTimeAsync(1000);
+    expect(db.syncFlow).not.toHaveBeenCalled();
+  });
+
+  test.each(['account', 'index'])(
+    'missing wallet cleanup via %s never produces tombstones',
+    async (mode) => {
+      const db = new DeletionTestDb();
+      const record = account();
+      db.addAccount(record);
+      if (mode === 'account') {
+        await db.removeAccountsByIds({
+          ids: [record.id, account('hd-missing').id],
+        });
+      } else {
+        const indexed = db.read<IDBIndexedAccount>(
+          ELocalDBStoreNames.IndexedAccount,
+          record.indexedAccountId ?? '',
+        );
+        expect(indexed).toBeDefined();
+        if (indexed)
+          await db.removeIndexedAccounts({ indexedAccounts: [indexed] });
+      }
+      expect(db.buildTombstone).not.toHaveBeenCalled();
+      expect(db.stores.get(ELocalDBStoreNames.CloudSyncItem)?.size ?? 0).toBe(
+        0,
+      );
+    },
+  );
+
+  test.each(['watching', 'imported'] as const)(
+    'legacy %s removal keeps its existing pool cleanup',
+    async (kind) => {
+      const db = new DeletionTestDb();
+      const record = {
+        ...account(),
+        id: `${kind}--evm--legacy`,
+        indexedAccountId: undefined,
+      };
+      db.put(ELocalDBStoreNames.Wallet, wallet(kind, { type: kind }));
+      db.addAccount(record);
+      if (kind === 'imported') {
+        db.put(ELocalDBStoreNames.Credential, {
+          id: record.id,
+          credential: 'encrypted-test-only',
+        });
+      }
+      db.put(ELocalDBStoreNames.CloudSyncItem, { id: `legacy:${record.id}` });
+      await db.removeAccount({ accountId: record.id, walletId: kind });
+      expect(db.read(ELocalDBStoreNames.Credential, record.id)).toBeUndefined();
+      expect(
+        db.read(ELocalDBStoreNames.CloudSyncItem, `legacy:${record.id}`),
+      ).toBeUndefined();
+      expect(db.buildTombstone).not.toHaveBeenCalled();
+      await jest.advanceTimersByTimeAsync(1000);
+      expect(db.syncFlow).not.toHaveBeenCalled();
+    },
+  );
+});

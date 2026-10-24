@@ -5,6 +5,7 @@ import type { EPrimeCloudSyncDataType } from '@onekeyhq/shared/src/consts/primeC
 import { PRIME_CLOUD_SYNC_CREATE_GENESIS_TIME } from '@onekeyhq/shared/src/consts/primeConsts';
 import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import cloudSyncUtils from '@onekeyhq/shared/src/utils/cloudSyncUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IKeylessCloudSyncCredential } from '@onekeyhq/shared/types/keylessCloudSync';
 import type {
   ICloudSyncCredential,
@@ -810,9 +811,10 @@ export abstract class CloudSyncFlowManagerBase<
     initDataTime: number | undefined;
     syncCredential: ICloudSyncCredential | undefined;
   }) {
-    return (
-      await Promise.all(
-        dbRecords.map(async (record) => {
+    const results: IDBCloudSyncItem[] = [];
+    for (let offset = 0; offset < dbRecords.length; offset += 50) {
+      const batch = await Promise.all(
+        dbRecords.slice(offset, offset + 50).map(async (record) => {
           const dbRecord = record as TRecord;
           const target = await this.buildSyncTargetByDBQuery({
             dbRecord,
@@ -830,8 +832,9 @@ export abstract class CloudSyncFlowManagerBase<
           if (
             existingSyncItem &&
             syncCredential &&
-            syncCredential.masterPasswordUUID &&
-            existingSyncItem.pwdHash === syncCredential.masterPasswordUUID
+            cloudSyncItemBuilder.getPwdHash(syncCredential) &&
+            existingSyncItem.pwdHash ===
+              cloudSyncItemBuilder.getPwdHash(syncCredential)
           ) {
             // pwdHash matched, do not need rebuild sync item
             return null;
@@ -845,7 +848,10 @@ export abstract class CloudSyncFlowManagerBase<
           });
           return item;
         }),
-      )
-    ).filter(Boolean);
+      );
+      results.push(...batch.filter((item): item is IDBCloudSyncItem => !!item));
+      if (offset + 50 < dbRecords.length) await timerUtils.wait(0);
+    }
+    return results;
   }
 }

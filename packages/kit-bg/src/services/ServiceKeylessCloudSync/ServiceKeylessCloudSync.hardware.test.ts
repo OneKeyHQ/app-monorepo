@@ -91,6 +91,7 @@ function setup(items: Array<{ pwdHash?: string }> = []) {
       getKeylessWallet: jest.fn(async () => ({ id: 'hd-keyless-test' })),
     },
     servicePrimeCloudSync: {
+      cancelPublicAccountSnapshotImport: jest.fn(async () => undefined),
       getAllLocalSyncItems: jest.fn(async () => ({ items })),
       clearCachedSyncCredential,
       initLocalSyncItemsDB,

@@ -1023,6 +1023,38 @@ export default function PagePrimeCloudSync() {
       />
       <Page.Body>
         <LocalSystemTimeErrorAlert />
+        {config.publicAccountSnapshotStatus?.needsUpdate ? (
+          <Alert
+            mx="$5"
+            mt="$2"
+            type="warning"
+            title={intl.formatMessage({
+              id: ETranslations.update_update_required,
+            })}
+            description={intl.formatMessage({
+              id: ETranslations.update_app_update_latest_version,
+            })}
+          />
+        ) : null}
+        {config.publicAccountSnapshotStatus?.conflicts ||
+        config.publicAccountSnapshotStatus?.rejected ? (
+          <Alert
+            mx="$5"
+            mt="$2"
+            type="warning"
+            title={intl.formatMessage({ id: ETranslations.global_sync_error })}
+            description={intl.formatMessage({
+              id: ETranslations.global_an_error_occurred_desc,
+            })}
+          />
+        ) : null}
+        {config.publicAccountSnapshotStatus?.pending ? (
+          <SizableText px="$5">
+            {intl.formatMessage({ id: ETranslations.global_accounts })} ·{' '}
+            {intl.formatMessage({ id: ETranslations.global_pending })}:{' '}
+            {config.publicAccountSnapshotStatus.pending}
+          </SizableText>
+        ) : null}
         {platformEnv.isDev || config.hardwareCloudSyncKeySource ? (
           <HardwareCloudSyncKeySection />
         ) : null}

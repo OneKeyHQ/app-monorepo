@@ -67,6 +67,14 @@ export type IPrimeCloudSyncPersistAtomData = {
   isCloudSyncEnabledKeyless?: boolean;
   currentCloudSyncKeylessWalletId?: string | null;
   hardwareCloudSyncKeySource?: IHardwareCloudSyncKeySource;
+  publicAccountSnapshotStatus?: {
+    needsUpdate: number;
+    pending: number;
+    conflicts: number;
+    rejected: number;
+    added: number;
+    unchanged: number;
+  };
 };
 export const {
   target: primeCloudSyncPersistAtom,

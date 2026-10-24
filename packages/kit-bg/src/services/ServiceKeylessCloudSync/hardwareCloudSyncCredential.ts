@@ -7,6 +7,7 @@ import {
   buildHardwareCloudSyncMessage,
 } from '@onekeyhq/shared/src/consts/hardwareCloudSyncConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { normalizeFullWalletXfp } from '@onekeyhq/shared/src/utils/walletXfpUtils';
 import type { IKeylessCloudSyncCredential } from '@onekeyhq/shared/types/keylessCloudSync';
 
 import keylessCloudSyncUtils from '../ServicePrimeCloudSync/keylessCloudSyncUtils';
@@ -47,13 +48,11 @@ function identityError(): OneKeyLocalError {
 }
 
 export function normalizeHardwareCloudWalletXfp(walletXfp: string): string {
-  const parts = /^([\da-fA-F]{1,8})--([1-9A-HJ-NP-Za-km-z]{100,120})$/.exec(
-    walletXfp,
-  );
-  if (!parts) {
+  try {
+    return normalizeFullWalletXfp(walletXfp);
+  } catch {
     throw identityError();
   }
-  return `${parts[1].toLowerCase().padStart(8, '0')}--${parts[2]}`;
 }
 
 export function getHardwareCloudSyncIdentityTag(walletXfp: string): string {

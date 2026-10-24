@@ -41,6 +41,7 @@ import {
   ensureSensitiveTextEncoded,
   getSecretEncryptV2LocalTargetIterations,
   sha256,
+  sha256Sync,
   shouldUpgradeSecretEncryptPayload,
 } from '@onekeyhq/core/src/secret';
 import type {
@@ -159,6 +160,16 @@ import type {
 } from '@onekeyhq/shared/types/signatureRecord';
 
 import keylessSyncCredentialStorage from '../../services/ServiceKeylessWallet/utils/keylessSyncCredentialStorage';
+import {
+  normalizePublicAccountWalletXfp,
+  publicAccountIdentityEqual,
+} from '../../services/ServicePrimeCloudSync/publicAccountSnapshot';
+import {
+  hasPublicAccountSnapshotWriteGuard,
+  isRejectedPublicAccountSnapshotWrite,
+  matchesPublicAccountSnapshotWrite,
+  rejectPublicAccountSnapshotWrite,
+} from '../../services/ServicePrimeCloudSync/publicAccountSnapshotWriteGuard';
 import { markCredentialLocalSecretEnvelopeUnavailableError } from '../../utils/localSecretEnvelopeErrorUtils';
 
 import { EDBAccountType } from './consts';
@@ -4571,10 +4582,12 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     firstEvmAddress,
     index,
     indexedAccountId,
+    useSynchronousHash = false,
   }: {
     firstEvmAddress: string | undefined;
     index: number | undefined;
     indexedAccountId: string;
+    useSynchronousHash?: boolean;
     // dbDevice: IDBDevice | undefined;
   }) {
     // const hashContent = dbDevice
@@ -4586,7 +4599,10 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       firstEvmAddress && !isNil(index)
         ? `${firstEvmAddress}--${index.toString()}`
         : indexedAccountId;
-    const hashBuffer = await sha256(bufferUtils.toBuffer(hashContent, 'utf-8'));
+    const input = bufferUtils.toBuffer(hashContent, 'utf-8');
+    const hashBuffer = useSynchronousHash
+      ? sha256Sync(input)
+      : await sha256(input);
     let idHash = bufferUtils.bytesToHex(hashBuffer);
     idHash = idHash.slice(-42);
     checkIsDefined(idHash);
@@ -5477,12 +5493,37 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     skipUpdate,
     skipUploadToServer,
   }: ITxAddAndUpdateSyncItemsParams) {
+    const guardedItems = items.filter(hasPublicAccountSnapshotWriteGuard);
+    if (guardedItems.length) {
+      const { records } = await this.txGetRecordsByIds({
+        tx,
+        name: ELocalDBStoreNames.CloudSyncItem,
+        ids: Array.from(new Set(guardedItems.map((item) => item.id))),
+      });
+      const currentById = new Map(
+        records
+          .filter((record): record is IDBCloudSyncItem => Boolean(record))
+          .map((record) => [record.id, record]),
+      );
+      for (const item of guardedItems) {
+        if (
+          !matchesPublicAccountSnapshotWrite(item, currentById.get(item.id))
+        ) {
+          rejectPublicAccountSnapshotWrite(item);
+        }
+      }
+    }
+    const writableItems = items.filter(
+      (item) => !isRejectedPublicAccountSnapshotWrite(item),
+    );
+    if (!writableItems.length) return;
+
     // add new item
     await this.txAddRecords({
       tx,
       name: ELocalDBStoreNames.CloudSyncItem,
       skipIfExists: true,
-      records: items,
+      records: writableItems,
     });
 
     // update existing item
@@ -5490,9 +5531,11 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       await this.txUpdateRecords({
         tx,
         name: ELocalDBStoreNames.CloudSyncItem,
-        ids: items.map((item) => item.id),
+        ids: writableItems.map((item) => item.id),
         updater: (record) => {
-          const recordToUpdate = items.find((item) => item.id === record.id);
+          const recordToUpdate = writableItems.find(
+            (item) => item.id === record.id,
+          );
           if (recordToUpdate) {
             this._updateCloudSyncPoolItemFn({
               item: record,
@@ -5514,7 +5557,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       // full sync uploads it once sync becomes available.
       this.backgroundApi?.servicePrimeCloudSync
         .apiUploadItems({
-          localItems: items,
+          localItems: writableItems,
         })
         .catch((error) => {
           errorUtils.autoPrintErrorIgnore(error);
@@ -8468,6 +8511,258 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     return val ?? defaultValue;
   }
 
+  async importPublicCloudAccounts({
+    walletId,
+    expectedWallet,
+    expectedCredential,
+    accounts,
+    isCurrent,
+  }: {
+    walletId: string;
+    expectedWallet: {
+      kind: 'hardware' | 'hd';
+      xfp: string;
+      hidden: boolean;
+      associatedDevice?: string;
+      passphraseState?: string;
+    };
+    expectedCredential?: string;
+    accounts: IDBAccount[];
+    isCurrent: () => boolean;
+  }): Promise<{
+    added: number;
+    unchanged: number;
+    pending: number;
+    conflicts: number;
+    cancelled: boolean;
+    appliedAccountIds: string[];
+  }> {
+    if (accounts.length > 50) {
+      throw new OneKeyLocalError('Cloud account import batch is too large');
+    }
+    const unchangedResult = {
+      added: 0,
+      unchanged: 0,
+      pending: accounts.length,
+      conflicts: 0,
+      cancelled: false,
+      appliedAccountIds: [] as string[],
+    };
+    const cancelled = new OneKeyLocalError('Cloud account import cancelled');
+    const checkCurrent = () => {
+      if (!isCurrent()) throw cancelled;
+    };
+    try {
+      checkCurrent();
+      return await this.withTransaction(
+        EIndexedDBBucketNames.account,
+        async (tx) => {
+          const {
+            records: [wallet],
+          } = await this.txGetRecordsByIds({
+            tx,
+            name: ELocalDBStoreNames.Wallet,
+            ids: [walletId],
+          });
+          checkCurrent();
+          if (
+            !wallet ||
+            wallet.isMocked ||
+            wallet.isTemp ||
+            accountUtils.isHwWallet({ walletId }) !==
+              (expectedWallet.kind === 'hardware') ||
+            (expectedWallet.kind === 'hd' &&
+              (!accountUtils.isHdWallet({ walletId }) ||
+                accountUtils.isBotWallet({ walletId }))) ||
+            Boolean(wallet.passphraseState) !== expectedWallet.hidden ||
+            wallet.passphraseState !== expectedWallet.passphraseState ||
+            wallet.associatedDevice !== expectedWallet.associatedDevice
+          ) {
+            return unchangedResult;
+          }
+          try {
+            if (
+              normalizePublicAccountWalletXfp(wallet.xfp || '') !==
+              expectedWallet.xfp
+            )
+              return unchangedResult;
+          } catch (_error) {
+            return unchangedResult;
+          }
+          if (expectedWallet.kind === 'hardware') {
+            if (!wallet.associatedDevice) return unchangedResult;
+            const {
+              records: [device],
+            } = await this.txGetRecordsByIds({
+              tx,
+              name: ELocalDBStoreNames.Device,
+              ids: [wallet.associatedDevice],
+            });
+            checkCurrent();
+            if (
+              !device ||
+              (parseDeviceSettingsRaw(device.settingsRaw).vendor ??
+                EHardwareVendor.onekey) !== EHardwareVendor.onekey
+            )
+              return unchangedResult;
+          } else {
+            const {
+              records: [credential],
+            } = await this.txGetRecordsByIds({
+              tx,
+              name: ELocalDBStoreNames.Credential,
+              ids: [walletId],
+            });
+            checkCurrent();
+            if (
+              !expectedCredential ||
+              credential?.credential !== expectedCredential
+            )
+              return unchangedResult;
+          }
+
+          const result = {
+            ...unchangedResult,
+            pending: 0,
+            appliedAccountIds: [] as string[],
+          };
+          const toAdd: IDBAccount[] = [];
+          const conflictingIds = new Set<string>();
+          for (const account of accounts) {
+            if (
+              accounts.some(
+                (other) =>
+                  other.id === account.id &&
+                  !publicAccountIdentityEqual(account, other),
+              )
+            )
+              conflictingIds.add(account.id);
+          }
+          const indexedToAdd = new Map<string, IDBIndexedAccount>();
+          const { records: existingAccounts } = await this.txGetRecordsByIds({
+            tx,
+            name: ELocalDBStoreNames.Account,
+            ids: accounts.map((account) => account.id),
+          });
+          checkCurrent();
+          const { records: existingIndexes } = await this.txGetRecordsByIds({
+            tx,
+            name: ELocalDBStoreNames.IndexedAccount,
+            ids: accounts
+              .map((account) => account.indexedAccountId)
+              .filter((id): id is string => Boolean(id)),
+          });
+          checkCurrent();
+          const prepareAccount = async (account: IDBAccount) => {
+            checkCurrent();
+            if (conflictingIds.has(account.id)) {
+              result.conflicts += 1;
+              return;
+            }
+            const index = account.pathIndex;
+            if (
+              isNil(index) ||
+              !Number.isSafeInteger(index) ||
+              index < 0 ||
+              index >= 2 ** 31 ||
+              account.id !==
+                accountUtils.buildHDAccountId({
+                  walletId,
+                  path: account.path,
+                  idSuffix: accountUtils.parseAccountId({
+                    accountId: account.id,
+                  }).idSuffix,
+                  isUtxo: account.type === EDBAccountType.UTXO,
+                }) ||
+              account.indexedAccountId !==
+                accountUtils.buildIndexedAccountId({ walletId, index })
+            ) {
+              result.conflicts += 1;
+              return;
+            }
+            const existing = existingAccounts.find(
+              (item) => item?.id === account.id,
+            );
+            const duplicate =
+              existing || toAdd.find((item) => item.id === account.id);
+            if (duplicate) {
+              if (publicAccountIdentityEqual(duplicate, account)) {
+                result.unchanged += 1;
+                result.appliedAccountIds.push(account.id);
+              } else result.conflicts += 1;
+              return;
+            }
+            const indexedId = accountUtils.buildIndexedAccountId({
+              walletId,
+              index,
+            });
+            const existingIndex = existingIndexes.find(
+              (item) => item?.id === indexedId,
+            );
+            if (
+              existingIndex &&
+              (existingIndex.walletId !== walletId ||
+                existingIndex.index !== index)
+            ) {
+              result.conflicts += 1;
+              return;
+            }
+            if (!existingIndex && !indexedToAdd.has(indexedId)) {
+              const idHash = await this.buildIndexedAccountIdHash({
+                firstEvmAddress: wallet.firstEvmAddress,
+                indexedAccountId: indexedId,
+                index,
+                // A native/WebCrypto task would let an IndexedDB transaction close.
+                useSynchronousHash: true,
+              });
+              checkCurrent();
+              indexedToAdd.set(indexedId, {
+                id: indexedId,
+                walletId,
+                index,
+                idHash,
+                name:
+                  account.name ||
+                  accountUtils.buildIndexedAccountName({ pathIndex: index }),
+              });
+            }
+            toAdd.push(account);
+          };
+          for (const account of accounts) {
+            await prepareAccount(account);
+          }
+          // Write both record types in one transaction, without Cloud hooks or
+          // per-account events. Existing records are never removed or updated.
+          if (toAdd.length) {
+            await this.txAddRecords({
+              tx,
+              name: ELocalDBStoreNames.IndexedAccount,
+              records: Array.from(indexedToAdd.values()),
+              skipIfExists: true,
+            });
+            checkCurrent();
+            const added = await this.txAddRecords({
+              tx,
+              name: ELocalDBStoreNames.Account,
+              records: toAdd,
+              skipIfExists: true,
+            });
+            checkCurrent();
+            result.added = added.added;
+            result.appliedAccountIds.push(...added.addedIds);
+          }
+          return {
+            ...result,
+            appliedAccountIds: Array.from(new Set(result.appliedAccountIds)),
+          };
+        },
+      );
+    } catch (error) {
+      if (error === cancelled) return { ...unchangedResult, cancelled: true };
+      throw error;
+    }
+  }
+
   async addAccountsToWallet({
     allAccountsBelongToNetworkId,
     walletId,
@@ -9307,11 +9602,108 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     }
   }
 
+  private async getPublicAccountDeletionCandidates({
+    accountIds,
+    walletIds,
+    indexedAccountIds,
+  }: {
+    accountIds?: string[];
+    walletIds?: ReadonlySet<string>;
+    indexedAccountIds?: ReadonlySet<string>;
+  }): Promise<IDBAccount[]> {
+    if (
+      accountIds?.length === 0 ||
+      walletIds?.size === 0 ||
+      indexedAccountIds?.size === 0
+    ) {
+      return [];
+    }
+    return this.withTransaction(
+      EIndexedDBBucketNames.account,
+      async (tx) => {
+        const { records } = accountIds
+          ? await this.txGetRecordsByIds({
+              tx,
+              name: ELocalDBStoreNames.Account,
+              ids: accountIds,
+            })
+          : await this.txGetAllRecords({
+              tx,
+              name: ELocalDBStoreNames.Account,
+            });
+        return records.filter((account): account is IDBAccount => {
+          if (!account) return false;
+          const walletId = accountUtils.getWalletIdFromAccountId({
+            accountId: account.id,
+          });
+          return (
+            (accountUtils.isHdWallet({ walletId }) ||
+              accountUtils.isHwWallet({ walletId })) &&
+            !accountUtils.isBotWallet({ walletId }) &&
+            (!walletIds || walletIds.has(walletId)) &&
+            (!indexedAccountIds ||
+              (!!account.indexedAccountId &&
+                indexedAccountIds.has(account.indexedAccountId)))
+          );
+        });
+      },
+      { readOnly: true },
+    );
+  }
+
+  private async buildPublicAccountDeletionSyncItems(
+    accounts: IDBAccount[],
+  ): Promise<IDBCloudSyncItem[]> {
+    const supportedAccounts = accounts.filter((account) => {
+      const walletId = accountUtils.getWalletIdFromAccountId({
+        accountId: account.id,
+      });
+      return (
+        (accountUtils.isHdWallet({ walletId }) ||
+          accountUtils.isHwWallet({ walletId })) &&
+        !accountUtils.isBotWallet({ walletId })
+      );
+    });
+    if (!supportedAccounts.length) return [];
+    const syncService = this.backgroundApi.servicePrimeCloudSync;
+    const syncCredential = await syncService.getSyncCredentialSafe();
+    const items: IDBCloudSyncItem[] = [];
+    for (const account of supportedAccounts) {
+      const walletId = accountUtils.getWalletIdFromAccountId({
+        accountId: account.id,
+      });
+      // Orphan rows from a missing wallet are not a deletion instruction.
+      if (await this.getWalletSafe({ walletId })) {
+        const item =
+          await syncService.syncManagers.account.buildSyncItemByDBQuery({
+            dbRecord: account,
+            isDeleted: true,
+            dataTime: undefined,
+            syncCredential,
+          });
+        if (item) items.push(item);
+      }
+    }
+    return uniqBy(items, (item) => item.id);
+  }
+
+  private startPublicAccountDeletionSyncDebounced = debounce(() => {
+    void this.backgroundApi.servicePrimeCloudSync
+      .startServerSyncFlowSilently({ callerName: 'Public account deletion' })
+      .catch((error) => errorUtils.autoPrintErrorIgnore(error));
+  }, 1000);
+
   async removeIndexedAccounts({
     indexedAccounts,
   }: {
     indexedAccounts: IDBIndexedAccount[];
   }) {
+    const publicAccountDeletionItems =
+      await this.buildPublicAccountDeletionSyncItems(
+        await this.getPublicAccountDeletionCandidates({
+          indexedAccountIds: new Set(indexedAccounts.map((item) => item.id)),
+        }),
+      );
     await this.withSpaceFreeingTransaction(
       EIndexedDBBucketNames.account,
       async (tx) => {
@@ -9320,8 +9712,18 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           name: ELocalDBStoreNames.IndexedAccount,
           ids: indexedAccounts.map((item) => item.id),
         });
+        if (publicAccountDeletionItems.length) {
+          await this.txAddAndUpdateSyncItems({
+            tx,
+            items: publicAccountDeletionItems,
+            skipUploadToServer: true,
+          });
+        }
       },
     );
+    if (publicAccountDeletionItems.length) {
+      this.startPublicAccountDeletionSyncDebounced();
+    }
   }
 
   // TODO remove associated account
@@ -9354,6 +9756,14 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     };
     // const syncItemKey = await getSyncItemKeyFn();
 
+    const publicAccountDeletionItems =
+      await this.buildPublicAccountDeletionSyncItems(
+        await this.getPublicAccountDeletionCandidates({
+          walletIds: new Set([walletId]),
+          indexedAccountIds: new Set([indexedAccountId]),
+        }),
+      );
+
     await this.withSpaceFreeingTransaction(
       EIndexedDBBucketNames.account,
       async (tx) => {
@@ -9370,8 +9780,18 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         //     keys: [syncItemKey],
         //   });
         // }
+        if (publicAccountDeletionItems.length) {
+          await this.txAddAndUpdateSyncItems({
+            tx,
+            items: publicAccountDeletionItems,
+            skipUploadToServer: true,
+          });
+        }
       },
     );
+    if (publicAccountDeletionItems.length) {
+      this.startPublicAccountDeletionSyncDebounced();
+    }
   }
 
   async removeAccountsByIds({ ids }: { ids: string[] }) {
@@ -9387,6 +9807,12 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       return accountId;
     });
     const mapEntries = Object.entries(walletToRemovedAccountsMap);
+    const publicAccountDeletionItems =
+      await this.buildPublicAccountDeletionSyncItems(
+        await this.getPublicAccountDeletionCandidates({
+          accountIds: accountIdsToRemove,
+        }),
+      );
 
     // Removal and the wallet-reference cleanup share ONE space-freeing
     // transaction. Split across two, the second was refused while the
@@ -9419,8 +9845,18 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
             },
           });
         }
+        if (publicAccountDeletionItems.length) {
+          await this.txAddAndUpdateSyncItems({
+            tx,
+            items: publicAccountDeletionItems,
+            skipUploadToServer: true,
+          });
+        }
       },
     );
+    if (publicAccountDeletionItems.length) {
+      this.startPublicAccountDeletionSyncDebounced();
+    }
   }
 
   async removeAccounts({ accounts }: { accounts: IDBAccount[] }) {
@@ -9441,7 +9877,15 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       accountId,
     });
     let syncItemKey: string | undefined;
-    if (account) {
+    const isPublicAccountWallet =
+      (accountUtils.isHdWallet({ walletId }) ||
+        accountUtils.isHwWallet({ walletId })) &&
+      !accountUtils.isBotWallet({ walletId });
+    const publicAccountDeletionItems =
+      await this.buildPublicAccountDeletionSyncItems(
+        account && isPublicAccountWallet ? [account] : [],
+      );
+    if (account && !isPublicAccountWallet) {
       const target = await syncManagers.account.buildSyncTargetByDBQuery({
         dbRecord: account,
       });
@@ -9480,8 +9924,19 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
             ids: [accountId],
           });
         }
+        if (publicAccountDeletionItems.length) {
+          await this.txAddAndUpdateSyncItems({
+            tx,
+            items: publicAccountDeletionItems,
+            skipUploadToServer: true,
+          });
+        }
       },
     );
+
+    if (publicAccountDeletionItems.length) {
+      this.startPublicAccountDeletionSyncDebounced();
+    }
 
     if (syncItemKey) {
       await this.removeCloudSyncPoolItems({ keys: [syncItemKey] });

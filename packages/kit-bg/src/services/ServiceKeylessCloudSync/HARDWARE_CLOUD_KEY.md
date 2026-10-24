@@ -5,7 +5,8 @@ protocol. One Keyless wallet or one standard OneKey hardware wallet supplies the
 global Cloud key. Existing Keyless credential persistence, cache, request signing,
 request nonce, encryption, and sync services are shared. Existing Keyless seed
 derivation is unchanged. Full hardware account snapshots and recovery without
-device interaction belong to phase 2 and are not implemented here.
+device interaction belong to phase 2; its implementation and boundaries are
+documented in [PUBLIC_ACCOUNT_SYNC.md](../ServicePrimeCloudSync/PUBLIC_ACCOUNT_SYNC.md).
 
 ## Frozen derivation contract
 
