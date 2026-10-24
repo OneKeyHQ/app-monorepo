@@ -262,3 +262,34 @@ it('keeps a non-bStocks token that Market Buy/Sell brought in', async () => {
   expect(mockCommitToken).not.toHaveBeenCalled();
   expect(mockSelection?.loadingScopes.tradeTarget).toBe(false);
 });
+
+it('gives up a stalled automatic issuer switch and keeps the current token', async () => {
+  jest.useFakeTimers();
+  try {
+    const ondo = variant('ondo', '0xamznon');
+    const bStocks = variant('bstocks', '0xamznb');
+    mockFetchVariantToken.mockReturnValue(new Promise(() => undefined));
+    mockCurrentToken = {
+      ...targetToken,
+      contractAddress: ondo.contractAddress,
+      stock: { stockId: 'AMZN', subtitle: '', sourceLogoUri: '' },
+    };
+    mockStockId = 'AMZN';
+    mockTokenVariants = [ondo, bStocks];
+    mockVariantsFresh = true;
+    await act(async () => {
+      render(<Subject />);
+    });
+    expect(mockFetchVariantToken).toHaveBeenCalledWith(bStocks);
+    expect(mockSelection?.loadingScopes.tradeTarget).toBe(true);
+
+    await act(async () => {
+      jest.advanceTimersByTime(8000);
+    });
+    expect(mockSelection?.loadingScopes.tradeTarget).toBe(false);
+    expect(mockSelection?.selectionError).toBe(false);
+    expect(mockCommitToken).not.toHaveBeenCalled();
+  } finally {
+    jest.useRealTimers();
+  }
+});

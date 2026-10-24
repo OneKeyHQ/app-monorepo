@@ -22,6 +22,7 @@ import {
   type EJotaiContextStoreNames,
   useSwapStockIssuerPreferencePersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import {
   EModalSwapRoutes,
@@ -93,9 +94,21 @@ const SwapStockSelectionContext = createContext<
   ISwapStockSelection | undefined
 >(undefined);
 
-// Upper bound for holding the trade target while the variant list that decides
-// a restored token is still loading, so a stalled request cannot hide it.
+// Upper bound for holding the trade target while the automatic issuer switch
+// is undecided (variant list) or in flight (target token), so a stalled
+// request cannot hide it.
 const AUTO_VARIANT_WAIT_MS = 8000;
+
+function withAutoVariantTimeout<T>(request: Promise<T>) {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(
+      () => reject(new OneKeyLocalError('Stock variant switch timed out')),
+      AUTO_VARIANT_WAIT_MS,
+    );
+  });
+  return Promise.race([request, timeout]).finally(() => clearTimeout(timer));
+}
 
 function SwapStockSelectionProvider({
   children,
@@ -449,11 +462,15 @@ function SwapStockSelectionProvider({
         stockId,
         locale,
       );
+      // Silent: a timeout or failure keeps the current token without an
+      // error state, and the token stays settled so it is not retried.
       void select({
         kind: 'variant',
         fetchToken: async () =>
           cached ??
-          fetchSwapStockVariantToken(autoVariantTarget, stockId, locale),
+          withAutoVariantTimeout(
+            fetchSwapStockVariantToken(autoVariantTarget, stockId, locale),
+          ),
         hasCachedToken: Boolean(cached),
         silent: true,
       });
