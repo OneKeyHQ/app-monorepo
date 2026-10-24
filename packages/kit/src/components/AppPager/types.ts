@@ -21,7 +21,7 @@ export interface IAppPagerRef {
 export type IAppPagerTabBarProps = {
   focusedTab: SharedValue<string>;
   tabNames: string[];
-  onTabPress: (name: string) => void;
+  onTabPress: (name: string, animated?: boolean) => void;
   indexDecimal?: SharedValue<number>;
 };
 export type IAppPagerCommands = {
