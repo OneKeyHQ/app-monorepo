@@ -179,7 +179,13 @@ function DomainLabel({
             setFullTextWidth(Math.ceil(e.nativeEvent.layout.width))
           }
         >
-          <SizableText size="$bodyLgMedium" numberOfLines={1}>
+          <SizableText
+            size="$bodyLgMedium"
+            // The size token is scaled to 14 on narrow Android. Pass the
+            // same explicit size the visible text uses, or this probe lies.
+            fontSize={DOMAIN_FONT_SIZE}
+            numberOfLines={1}
+          >
             {text}
           </SizableText>
         </View>
