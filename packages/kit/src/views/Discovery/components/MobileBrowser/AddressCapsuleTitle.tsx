@@ -31,18 +31,24 @@ const RISK_ICON_SIZE = '$5';
 const RISK_ICON_WIDTH = 20;
 const RISK_ICON_HIT_SLOP = { vertical: 13, horizontal: 6 };
 
+const WIDE_ROW_WIDTH = 10_000;
+
 const styles = StyleSheet.create({
   fill: { flex: 1, alignSelf: 'stretch', overflow: 'hidden' },
-  row: {
-    flex: 1,
+  // Wide enough that the domain is laid out on a single line at its natural
+  // width; a box sized to the capsule would make Android ellipsize (or clip)
+  // and iOS wrap a domain that is even slightly too long for it.
+  wideRow: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    width: WIDE_ROW_WIDTH,
     flexDirection: 'row',
     alignItems: 'center',
   },
-  // Wide enough that the domain is measured on a single line at its natural
-  // width; iOS would otherwise wrap a too-long domain to fit the capsule.
   measure: {
     position: 'absolute',
-    width: 10_000,
+    width: WIDE_ROW_WIDTH,
     flexDirection: 'row',
     opacity: 0,
   },
@@ -51,9 +57,8 @@ const styles = StyleSheet.create({
 const DOMAIN_FONT_SIZE = 16;
 const DOMAIN_MIN_FONT_SIZE = 14;
 
-// Slack added to a shrunk or overflowing label's box: the text is laid out
-// in a box sized from measurements, and a box even a hair too narrow makes
-// Android ellipsize it (or iOS wrap it).
+// Margin kept when deciding whether a shrunk domain fits, so one that only
+// just fits by the measurements isn't cut by a pixel at the capsule edge.
 const DOMAIN_WIDTH_SLACK = 2;
 
 // Picks the font size from the domain's measured widths at the full and the
@@ -115,18 +120,11 @@ function DomainLabel({
   // Natural single-line widths at the full and the minimum font size.
   const [fullTextWidth, setFullTextWidth] = useState(0);
   const [minTextWidth, setMinTextWidth] = useState(0);
-  const fit = fitDomainText(fullTextWidth, minTextWidth, availableWidth);
-  const { fontSize, overflows } = fit;
-  // The picked in-between size is interpolated, and glyph widths don't scale
-  // exactly linearly, so it is measured too; the interpolated width stands
-  // in until that measurement lands.
-  const isInBetweenSize =
-    fontSize > DOMAIN_MIN_FONT_SIZE && fontSize < DOMAIN_FONT_SIZE;
-  const [fitMeasure, setFitMeasure] = useState({ fontSize: 0, width: 0 });
-  const textWidth =
-    isInBetweenSize && fitMeasure.fontSize === fontSize && fitMeasure.width
-      ? fitMeasure.width + DOMAIN_WIDTH_SLACK
-      : fit.textWidth;
+  const { fontSize, textWidth, overflows } = fitDomainText(
+    fullTextWidth,
+    minTextWidth,
+    availableWidth,
+  );
   const balance = overflows
     ? 0
     : Math.min(
@@ -134,26 +132,29 @@ function DomainLabel({
         Math.max(0, availableWidth - (textWidth ?? fullTextWidth)),
       );
 
+  // The text sits in a row far wider than the capsule, so its own box is
+  // never constrained: positioned so the text is centered in the space left
+  // of the balance, or, when it overflows, ends at the right edge (its start
+  // fades). The capsule clips whatever falls outside.
   const row = (
     <View
       style={[
-        styles.row,
-        {
-          justifyContent: overflows ? 'flex-end' : 'center',
-          paddingRight: balance,
-        },
+        styles.wideRow,
+        overflows
+          ? {
+              left: availableWidth - WIDE_ROW_WIDTH,
+              justifyContent: 'flex-end',
+            }
+          : {
+              left: (availableWidth - balance - WIDE_ROW_WIDTH) / 2,
+              justifyContent: 'center',
+            },
       ]}
     >
       <SizableText
         size="$bodyLgMedium"
         fontSize={fontSize}
         numberOfLines={1}
-        // Never an ellipsis: if the box is still a hair narrow, clip instead.
-        ellipsizeMode="clip"
-        flexShrink={0}
-        // A width from the measurements keeps the line whole: it overflows
-        // to the left (behind the fade) instead of being ellipsized.
-        width={textWidth}
         // Hidden until measured, so a long domain doesn't flash at 16pt
         // (ellipsized on Android) before its size is picked.
         opacity={fullTextWidth && availableWidth ? 1 : 0}
@@ -191,21 +192,6 @@ function DomainLabel({
         >
           {text}
         </SizableText>
-        {isInBetweenSize ? (
-          <SizableText
-            size="$bodyLgMedium"
-            fontSize={fontSize}
-            numberOfLines={1}
-            onLayout={(e) =>
-              setFitMeasure({
-                fontSize,
-                width: Math.ceil(e.nativeEvent.layout.width),
-              })
-            }
-          >
-            {text}
-          </SizableText>
-        ) : null}
       </View>
       {overflows ? (
         <MaskedView
