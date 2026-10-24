@@ -36,6 +36,7 @@ import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/Acco
 import { CountDownCalendarAlert } from '@onekeyhq/kit/src/components/CountDownCalendarAlert';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import useFormatDate from '@onekeyhq/kit/src/hooks/useFormatDate';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
   useActiveAccount,
@@ -195,6 +196,7 @@ const ProtocolHeader = ({
   yieldSheetData?: IEarnPopupActionIcon['data'];
 }) => {
   const intl = useIntl();
+  const { formatDate } = useFormatDate();
   const navigation = useAppNavigation();
 
   const handleMyPortfolio = useCallback(() => {
@@ -213,15 +215,11 @@ const ProtocolHeader = ({
     try {
       const date = new Date(maturity.date);
       if (Number.isNaN(date.getTime())) return maturity.date;
-      return intl.formatDate(date, {
-        day: '2-digit',
-        month: 'short',
-        year: 'numeric',
-      });
+      return formatDate(date, { hideTimeForever: true });
     } catch {
       return maturity.date;
     }
-  }, [maturity?.date, maturityText?.text, intl]);
+  }, [maturity?.date, maturityText?.text, formatDate]);
 
   // Green base + bonus in the campaign color, split from the same kind/rate
   // fields the Yield sheet's bar uses so the two can never disagree. Falls back

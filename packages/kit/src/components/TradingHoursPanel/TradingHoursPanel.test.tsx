@@ -10,6 +10,10 @@ import type { IFetchUSMarketStatusResult } from '@onekeyhq/shared/types/swap/typ
 
 let mockStatus: IFetchUSMarketStatusResult | undefined;
 
+jest.mock('@onekeyhq/kit/src/hooks/useLocaleVariant', () => ({
+  useLocaleVariant: () => 'en',
+}));
+
 jest.mock('react-intl', () => ({
   useIntl: () => ({
     formatMessage: ({ id }: { id: string }) => id,

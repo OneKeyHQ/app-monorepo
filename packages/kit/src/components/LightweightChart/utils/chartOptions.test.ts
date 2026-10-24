@@ -133,4 +133,26 @@ describe('createChartOptions', () => {
       }),
     ).toBe(expected);
   });
+
+  it.each(['en', 'zh-CN', 'bn', 'id', 'th-TH', 'ko-KR'])(
+    'uses Latin digits and colon-separated midnight for %s',
+    (locale) => {
+      expect(
+        formatChartTickMarkInTimeZone({
+          time: (Date.UTC(2026, 9, 14, 0, 5) / 1000) as UTCTimestamp,
+          tickMarkType: 3,
+          timeZone: 'UTC',
+          locale,
+        }),
+      ).toBe('00:05');
+      expect(
+        formatChartTickMarkInTimeZone({
+          time: (Date.UTC(2026, 9, 14) / 1000) as UTCTimestamp,
+          tickMarkType: 0,
+          timeZone: 'UTC',
+          locale,
+        }),
+      ).toBe('2026');
+    },
+  );
 });

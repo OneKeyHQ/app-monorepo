@@ -37,38 +37,192 @@ export type IFormatDateOptions = {
   hideTheMonth?: boolean;
   hideYear?: boolean;
   hideMonth?: boolean;
+  hideDay?: boolean;
   hideTimeForever?: boolean;
   hideSeconds?: boolean;
+  onlyTime?: boolean;
   formatTemplate?: string;
   hideMilliseconds?: boolean;
+  locale?: ILocaleSymbol;
+  timeZone?: string;
 };
 
 export type IFormatMonthOptions = {
   hideTheYear?: boolean;
   hideYear?: boolean;
+  locale?: ILocaleSymbol;
 };
 
-export function formatDateFns(date: Date | string, _format?: string) {
+const DATE_FORMAT_TEMPLATES: Record<
+  Exclude<ILocaleSymbol, 'system'>,
+  string
+> = {
+  'en': 'MM/dd/yyyy',
+  'en-US': 'MM/dd/yyyy',
+  'zh-CN': 'yyyy/MM/dd',
+  'zh-HK': 'dd/MM/yyyy',
+  'zh-TW': 'yyyy/MM/dd',
+  'ja-JP': 'yyyy/MM/dd',
+  'ko-KR': 'yyyy. MM. dd.',
+  'bn': 'dd/MM/yyyy',
+  'de': 'dd.MM.yyyy',
+  'es': 'dd/MM/yyyy',
+  'fr-FR': 'dd/MM/yyyy',
+  'hi-IN': 'dd/MM/yyyy',
+  'id': 'dd/MM/yyyy',
+  'it-IT': 'dd/MM/yyyy',
+  'pt': 'dd/MM/yyyy',
+  'pt-BR': 'dd/MM/yyyy',
+  'ru': 'dd.MM.yyyy',
+  'th-TH': 'dd/MM/yyyy',
+  'uk-UA': 'dd.MM.yyyy',
+  'vi': 'dd/MM/yyyy',
+};
+
+export function getDateFormatTemplate(
+  localeSymbol: string = appLocale.getLocale(),
+  options?: Pick<IFormatDateOptions, 'hideYear' | 'hideMonth' | 'hideDay'>,
+) {
+  const locale = localeSymbol === 'system' ? getDefaultLocale() : localeSymbol;
+  const template = Object.hasOwn(DATE_FORMAT_TEMPLATES, locale)
+    ? DATE_FORMAT_TEMPLATES[locale as Exclude<ILocaleSymbol, 'system'>]
+    : DATE_FORMAT_TEMPLATES.en;
+  return omitDateFormatFields(template, options);
+}
+
+export function omitDateFormatFields(
+  template: string,
+  options?: Pick<IFormatDateOptions, 'hideYear' | 'hideMonth' | 'hideDay'>,
+) {
+  'worklet';
+
+  const parts = template
+    .split(/[/. -]+/)
+    .filter(
+      (part) =>
+        part &&
+        !(part === 'yyyy' && options?.hideYear) &&
+        !(part === 'MM' && options?.hideMonth) &&
+        !(part === 'dd' && options?.hideDay),
+    );
+  let separator = '/';
+  if (template.includes('-')) {
+    separator = '-';
+  } else if (template.includes('.')) {
+    separator = '.';
+  }
+  if (template.includes('. ')) {
+    separator = '. ';
+  }
+  return `${parts.join(separator)}${template.endsWith('.') && parts.length ? '.' : ''}`;
+}
+
+type IDateTimeParts = {
+  year: number;
+  month: number;
+  day: number;
+  hours: number;
+  minutes: number;
+  seconds: number;
+  milliseconds: number;
+};
+
+// Numeric display templates are also used on the native chart UI runtime.
+export function formatDateTimeParts(parts: IDateTimeParts, template: string) {
+  'worklet';
+
+  const values: Record<string, string> = {
+    yyyy: String(parts.year).padStart(4, '0'),
+    MM: String(parts.month).padStart(2, '0'),
+    dd: String(parts.day).padStart(2, '0'),
+    HH: String(parts.hours).padStart(2, '0'),
+    mm: String(parts.minutes).padStart(2, '0'),
+    ss: String(parts.seconds).padStart(2, '0'),
+    SSS: String(parts.milliseconds).padStart(3, '0'),
+  };
+  return template.replace(/yyyy|MM|dd|HH|mm|ss|SSS/g, (token) => values[token]);
+}
+
+export function getDateTimeParts(date: Date): IDateTimeParts {
+  'worklet';
+
+  return {
+    year: date.getFullYear(),
+    month: date.getMonth() + 1,
+    day: date.getDate(),
+    hours: date.getHours(),
+    minutes: date.getMinutes(),
+    seconds: date.getSeconds(),
+    milliseconds: date.getMilliseconds(),
+  };
+}
+
+const timeZoneFormatters = new Map<string, Intl.DateTimeFormat>();
+
+export function getDateTimePartsInTimeZone(
+  date: Date,
+  timeZone?: string,
+): IDateTimeParts {
+  if (!timeZone) {
+    return getDateTimeParts(date);
+  }
+  let formatter = timeZoneFormatters.get(timeZone);
+  if (!formatter) {
+    // Extract Gregorian/Latin fields only; UI ordering is defined above.
+    formatter = new Intl.DateTimeFormat('en-US', {
+      calendar: 'gregory',
+      numberingSystem: 'latn',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hourCycle: 'h23',
+      timeZone,
+    });
+    timeZoneFormatters.set(timeZone, formatter);
+  }
+  const parts = formatter.formatToParts(date);
+  const get = (type: Intl.DateTimeFormatPartTypes) =>
+    Number(parts.find((part) => part.type === type)?.value);
+  return {
+    year: get('year'),
+    month: get('month'),
+    day: get('day'),
+    hours: get('hour'),
+    minutes: get('minute'),
+    seconds: get('second'),
+    milliseconds: date.getMilliseconds(),
+  };
+}
+
+export function formatDateFns(
+  date: Date | string,
+  _format?: string,
+  localeSymbol: ILocaleSymbol = appLocale.getLocale(),
+) {
   let parsedDate: Date;
-  const locale = appLocale.getLocale();
   if (typeof date === 'string') {
     parsedDate = parseISO(date);
   } else {
     parsedDate = date;
   }
   try {
-    return fnsFormat(parsedDate, _format ?? 'PPp', {
-      locale: parseToDateFnsLocale(locale),
-    });
+    return fnsFormat(
+      parsedDate,
+      _format ?? `${getDateFormatTemplate(localeSymbol)} HH:mm`,
+      {
+        locale: parseToDateFnsLocale(localeSymbol),
+      },
+    );
   } catch (_error) {
     return '-';
   }
 }
 
 export function formatLocaleDate(date: Date) {
-  return fnsFormat(date, 'PPP', {
-    locale: parseToDateFnsLocale(appLocale.getLocale()),
-  });
+  return formatDate(date, { hideTimeForever: true });
 }
 
 export function formatDate(date: Date | string, options?: IFormatDateOptions) {
@@ -79,30 +233,40 @@ export function formatDate(date: Date | string, options?: IFormatDateOptions) {
     parsedDate = date;
   }
 
-  let formatTemplate = options?.formatTemplate || '';
-
-  if (!formatTemplate) {
-    const locale = appLocale.getLocale();
-    formatTemplate = 'yyyy/LL/dd, HH:mm:ss';
-    if (['de', 'es', 'en-US', 'fr-FR', 'it-IT', 'uk-UA'].includes(locale)) {
-      formatTemplate = 'LL/dd/yyyy, HH:mm:ss';
-    }
+  if (!Number.isFinite(parsedDate.getTime())) {
+    return '-';
+  }
+  const locale = options?.locale ?? appLocale.getLocale();
+  const parts = getDateTimePartsInTimeZone(parsedDate, options?.timeZone);
+  const current = getDateTimePartsInTimeZone(new Date(), options?.timeZone);
+  const hideYear =
+    options?.hideYear || (options?.hideTheYear && current.year === parts.year);
+  const hideMonth =
+    options?.hideMonth ||
+    (options?.hideTheMonth && current.month === parts.month);
+  if (!options?.formatTemplate) {
+    const dateTemplate = getDateFormatTemplate(locale, {
+      hideYear,
+      hideMonth,
+      hideDay: options?.hideDay,
+    });
+    const timeTemplate = options?.hideSeconds ? 'HH:mm' : 'HH:mm:ss';
+    const template = options?.onlyTime
+      ? timeTemplate
+      : [dateTemplate, options?.hideTimeForever ? '' : timeTemplate]
+          .filter(Boolean)
+          .join(' ');
+    return formatDateTimeParts(parts, template);
   }
 
-  const currentYear = new Date().getFullYear();
-  const currentMonth = new Date().getMonth();
+  // Explicit templates are also used for filenames and machine-readable values.
+  let formatTemplate = options.formatTemplate;
 
-  if (
-    (currentYear === parsedDate.getFullYear() && options?.hideTheYear) ||
-    options?.hideYear
-  ) {
+  if (hideYear) {
     formatTemplate = formatTemplate.replace('yyyy/', '');
     formatTemplate = formatTemplate.replace('/yyyy', '');
   }
-  if (
-    (currentMonth === parsedDate.getMonth() && options?.hideTheMonth) ||
-    options?.hideMonth
-  ) {
+  if (hideMonth) {
     formatTemplate = formatTemplate.replace('LL/', '');
   }
   if (options?.hideTimeForever) {
@@ -112,7 +276,10 @@ export function formatDate(date: Date | string, options?: IFormatDateOptions) {
     formatTemplate = formatTemplate.replace('HH:mm:ss', 'HH:mm');
   }
 
-  return formatDateFns(parsedDate, formatTemplate) ?? '';
+  if (options.onlyTime) {
+    formatTemplate = options.hideSeconds ? 'HH:mm' : 'HH:mm:ss';
+  }
+  return formatDateFns(parsedDate, formatTemplate, locale) ?? '';
 }
 
 export function formatMonth(
@@ -126,14 +293,11 @@ export function formatMonth(
     parsedDate = date;
   }
 
-  const currentYear = new Date().getFullYear();
-  if (
-    (currentYear === parsedDate.getFullYear() && options?.hideTheYear) ||
-    options?.hideYear
-  ) {
-    return formatDateFns(parsedDate, 'MMMM') ?? '';
-  }
-  return formatDateFns(parsedDate, 'MMMM, yyyy') ?? '';
+  return formatDate(parsedDate, {
+    ...options,
+    hideDay: true,
+    hideTimeForever: true,
+  });
 }
 
 export function formatDistanceStrict(
@@ -207,7 +371,6 @@ export function formatRelativeDate(date: Date) {
     today: appLocale.intl.formatMessage({
       id: ETranslations.global_date_today,
     }),
-    other: 'yyyy/LL/dd',
   };
 
   let formattedDate;
@@ -217,7 +380,7 @@ export function formatRelativeDate(date: Date) {
   } else if (isYesterday(date)) {
     formattedDate = formatRelativeLocale.yesterday;
   } else {
-    formattedDate = formatDateFns(date, formatRelativeLocale.other);
+    formattedDate = formatDate(date, { hideTimeForever: true });
   }
 
   return formattedDate;
@@ -242,7 +405,16 @@ export function formatTime(date: Date | string, options?: IFormatDateOptions) {
     formatTemplate = formatTemplate.replace('.SSS', '');
   }
 
-  return formatDateFns(parsedDate, formatTemplate) ?? '';
+  if (!Number.isFinite(parsedDate.getTime())) {
+    return '-';
+  }
+  if (options?.timeZone && !options.formatTemplate) {
+    return formatDateTimeParts(
+      getDateTimePartsInTimeZone(parsedDate, options.timeZone),
+      formatTemplate,
+    );
+  }
+  return formatDateFns(parsedDate, formatTemplate, options?.locale) ?? '';
 }
 
 export function formatMillisecondsToDays(milliseconds: number): number {

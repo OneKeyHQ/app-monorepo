@@ -28,7 +28,7 @@ import {
   useSpotPairDisplayNameMapAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { formatTime } from '@onekeyhq/shared/src/utils/dateUtils';
+import { formatDate, formatTime } from '@onekeyhq/shared/src/utils/dateUtils';
 import {
   formatTwapPriceForDisplay,
   getActiveTwapRuntimeStatus,
@@ -126,7 +126,7 @@ const TWAP_EMPTY_STATE_MAP: Record<ITwapPanelTab, { titleId: ETranslations }> =
 
 function formatTwapDateTime(timestamp: number) {
   const timeDate = new Date(timestamp);
-  const date = formatTime(timeDate, { formatTemplate: 'yyyy-LL-dd' });
+  const date = formatDate(timeDate, { hideTimeForever: true });
   const time = formatTime(timeDate, { formatTemplate: 'HH:mm:ss' });
   return {
     date,

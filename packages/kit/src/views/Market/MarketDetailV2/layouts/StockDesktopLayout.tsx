@@ -878,7 +878,7 @@ export function StockAnalystRatings({
 } = {}) {
   const resolvedGaugeWidth = Math.min(gaugeWidth, STOCK_ANALYST_GAUGE_WIDTH);
   const intl = useIntl();
-  const { format } = useFormatDate();
+  const { formatDate } = useFormatDate();
   const { stockDetail, isStockDetailLoading } = useStockDetail();
   const ratings = stockDetail?.analystRatings;
   const isLoading = isStockDetailLoading && !stockDetail;
@@ -889,7 +889,7 @@ export function StockAnalystRatings({
     [stockDetail?.underlyingMeta],
   );
   const lastUpdatedText = ratings?.updatedAt
-    ? format(ratings.updatedAt, 'MMM d, yyyy')
+    ? formatDate(ratings.updatedAt, { hideTimeForever: true })
     : STAT_FALLBACK_VALUE;
   const lastUpdatedLabel = intl.formatMessage({
     id: ETranslations.market_last_updated,
