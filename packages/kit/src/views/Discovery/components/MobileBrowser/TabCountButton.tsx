@@ -3,6 +3,7 @@ import { useCallback } from 'react';
 import { SizableText, Stack, useInGlassHeader } from '@onekeyhq/components';
 import type { IPageNavigationProp } from '@onekeyhq/components/src/layouts/Navigation';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IDiscoveryModalParamList } from '@onekeyhq/shared/src/routes';
 import {
   EDiscoveryModalRoutes,
@@ -53,6 +54,7 @@ const GLYPH_SLOT = 24;
 const GLYPH_SIZE = 20;
 const GLYPH_STROKE = 2;
 const TABULAR_NUMS: ['tabular-nums'] = ['tabular-nums'];
+const MULTI_DIGIT_TRACKING = -0.6;
 
 function TabCountButton({ testID, onPressed }: ITabCountButtonProps) {
   const { displayHomePage } = useDisplayHomePageFlag();
@@ -64,6 +66,15 @@ function TabCountButton({ testID, onPressed }: ITabCountButtonProps) {
   const inGlass = useInGlassHeader();
   const color = inGlass ? '$text' : '$iconSubdued';
   const handleShowTabList = useShowMobileTabList();
+
+  const tracking = tabCount > 9 ? MULTI_DIGIT_TRACKING : 0;
+  // Android splits letter spacing around each glyph, so centered text stays
+  // centered. iOS (CoreText kerning) adds all of it after each glyph, the last
+  // included, which shifts the digits by half of it; shift them back.
+  const trackingOffset =
+    platformEnv.isNativeIOS && tracking
+      ? { transform: [{ translateX: tracking / 2 }] }
+      : undefined;
 
   if (displayHomePage && tabCount === 0) {
     return null;
@@ -109,10 +120,11 @@ function TabCountButton({ testID, onPressed }: ITabCountButtonProps) {
               color={color}
               // A single digit uses a tabular glyph, centered in its fixed
               // advance, so a narrow "1" sits centered too. Two or more keep
-              // proportional digits: tabular ones space a "11" too far apart.
-              // No letter spacing: iOS also adds it after the last digit,
-              // which offsets the text.
+              // proportional digits (tabular ones space a "11" too far apart)
+              // with slightly tight tracking so they read as one count.
               fontVariant={tabCount < 10 ? TABULAR_NUMS : undefined}
+              letterSpacing={tracking}
+              style={trackingOffset}
             >
               {tabCount}
             </SizableText>
