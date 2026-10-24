@@ -267,7 +267,8 @@ function buildOptionsSections(
               : ETranslations.explore_close_tab,
           }),
           icon: 'CrossedLargeOutline',
-          destructive: true,
+          // Not styled destructive: closing a tab is routine and easy to
+          // undo by reopening the site.
           onPress: runAfterMenuClose(onCloseTab),
           testID: DiscoveryTestIDs.tabActionClose,
         },
