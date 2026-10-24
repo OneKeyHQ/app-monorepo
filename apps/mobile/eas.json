@@ -124,7 +124,10 @@
       },
       "ios": {
         "simulator": true,
-        "buildConfiguration": "Release"
+        "buildConfiguration": "Release",
+        "env": {
+          "GYM_XCARGS": "ARCHS=arm64"
+        }
       }
     }
   },

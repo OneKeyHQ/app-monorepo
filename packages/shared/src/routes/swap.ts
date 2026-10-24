@@ -78,6 +78,7 @@ export type IModalSwapParamList = {
     storeName: EJotaiContextStoreNames;
   };
   [EModalSwapRoutes.SwapHistoryDetail]: {
+    liveActivityOrderKey?: string;
     txHistoryOrderId?: string;
     txHistoryList?: ISwapTxHistory[];
     // storeName: EJotaiContextStoreNames;
