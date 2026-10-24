@@ -23,12 +23,15 @@ import { PriceChangePercentage } from '@onekeyhq/kit/src/views/Market/components
 import { StockSelectorPopover } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/TokenSelector/StockSelectorPopover';
 import { useMarketStockSelectorList } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/TokenSelector/useMarketStockSelectorList';
 import { useStockDetail } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/hooks/StockDetailContext';
+import { resolveMarketStockId } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/resolveIsStockToken';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { SwapTestIDs } from '../../testIDs';
+import { getSwapStockTokenDisplayName } from '../modal/SwapTokenSelectModal.utils';
 
 import { useSwapStockSelection } from './SwapStockMarketProvider';
+import { useSwapStockTradeContext } from './SwapStockTradeProvider';
 
 import type { NativeScrollEvent, NativeSyntheticEvent } from 'react-native';
 
@@ -264,7 +267,9 @@ export function SwapStockTickerSelector() {
   // and the Market Home list may be older than the cache window. Opening the
   // sheet then renders rows immediately instead of flashing a loading state.
   useMarketStockSelectorList({ query: '' });
-  const { stockDetail, stockPreview, stockId } = useStockDetail();
+  const { stockDetail, stockPreview, stockId, isStockDetailError } =
+    useStockDetail();
+  const { currentStockToken } = useSwapStockTradeContext();
   const stock = selection?.stockSelectionPending
     ? undefined
     : (stockDetail ?? stockPreview);
@@ -280,8 +285,34 @@ export function SwapStockTickerSelector() {
   // through the token and stock-detail transition instead of showing the old
   // stock or the issuer token's artwork.
   const stockLogoUri = listPreview?.logoUrl || stock?.logoUrl;
-  const stockSymbol = listPreview?.symbol || stock?.symbol;
-  const stockName = listPreview?.name || stock?.name;
+  // Once asset detail has failed nothing more will arrive: fall back to the
+  // committed token's own stock metadata instead of skeletons forever. Never
+  // while a selection is pending, so a switch never shows the old stock.
+  const fallbackToken =
+    isStockDetailError &&
+    !selection?.stockSelectionPending &&
+    !stock &&
+    currentStockToken &&
+    (!stockId || resolveMarketStockId(currentStockToken) === stockId)
+      ? currentStockToken
+      : undefined;
+  const stockSymbol =
+    listPreview?.symbol ||
+    stock?.symbol ||
+    (fallbackToken
+      ? fallbackToken.stock?.underlyingAssetTicker ||
+        stockId ||
+        fallbackToken.symbol
+      : undefined);
+  const stockName =
+    listPreview?.name ||
+    stock?.name ||
+    (fallbackToken
+      ? getSwapStockTokenDisplayName({
+          stock: fallbackToken.stock,
+          tokenName: fallbackToken.name,
+        })
+      : undefined);
   const trigger = (
     // eslint-disable-next-line props-checker/validator -- StockSelectorPopover supplies the trigger handlers.
     <XStack
@@ -299,7 +330,8 @@ export function SwapStockTickerSelector() {
       cursor="pointer"
       hoverStyle={{ bg: '$bgHover' }}
     >
-      {stockLogoUri ? (
+      {stockLogoUri || fallbackToken ? (
+        // The fallback keeps the default icon rather than issuer artwork.
         <Token size="xl" tokenImageUri={stockLogoUri} />
       ) : (
         <Skeleton width="$12" height="$12" borderRadius="$full" />

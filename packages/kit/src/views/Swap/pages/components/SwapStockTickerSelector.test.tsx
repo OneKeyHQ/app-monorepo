@@ -17,6 +17,7 @@ const mockSelectStock = jest.fn<
 >();
 let mockSelectionError = false;
 let mockCurrentStockToken: ISwapToken | undefined;
+let mockStockDetailOverrides: Record<string, unknown> = {};
 let mockHeaderOnly = false;
 let mockPendingState: {
   stockSelectionPending?: boolean;
@@ -133,7 +134,11 @@ jest.mock(
 jest.mock(
   '@onekeyhq/kit/src/views/Market/MarketDetailV2/hooks/StockDetailContext',
   () => ({
-    useStockDetail: () => ({ stockId: 'AAPL', stockPreview: mockStock }),
+    useStockDetail: () => ({
+      stockId: 'AAPL',
+      stockPreview: mockStock,
+      ...mockStockDetailOverrides,
+    }),
   }),
 );
 jest.mock('./SwapStockMarketProvider', () => ({
@@ -151,6 +156,7 @@ jest.mock('./SwapStockTradeProvider', () => ({
 
 describe('SwapStockTickerSelector', () => {
   beforeEach(() => {
+    mockStockDetailOverrides = {};
     jest.useFakeTimers();
     jest.clearAllMocks();
     mockSelectStock.mockReset().mockResolvedValue(true);
@@ -189,6 +195,39 @@ describe('SwapStockTickerSelector', () => {
     expect(screen.queryByText('Apple')).toBeNull();
     expect(screen.queryByRole('img')).toBeNull();
     expect(screen.getAllByTestId('stock-identity-skeleton')).toHaveLength(3);
+  });
+
+  it('falls back to the committed token metadata once asset detail fails', () => {
+    mockHeaderOnly = true;
+    mockStockDetailOverrides = {
+      stockId: 'NVDA',
+      stockPreview: undefined,
+      stockDetail: undefined,
+      isStockDetailError: true,
+    };
+    mockCurrentStockToken = {
+      networkId: 'evm--1',
+      contractAddress: '0xnvda',
+      decimals: 18,
+      symbol: 'NVDAB',
+      name: 'NVIDIA bStocks',
+      stock: {
+        stockId: 'NVDA',
+        underlyingAssetTicker: 'NVDA',
+        subtitle: 'NVIDIA',
+        sourceLogoUri: 'https://example.com/bstock.png',
+      },
+    };
+    render(<SwapStockTickerSelector />);
+    expect(screen.getByText('NVDA')).toBeTruthy();
+    expect(screen.queryByTestId('stock-identity-skeleton')).toBeNull();
+    // Default icon, never the issuer artwork.
+    expect(screen.getByRole('img').getAttribute('src')).toBeNull();
+
+    // While a switch is pending the skeletons stay.
+    mockPendingState = { stockSelectionPending: true };
+    render(<SwapStockTickerSelector />);
+    expect(screen.getAllByTestId('stock-identity-skeleton').length).toBe(3);
   });
 
   it('renders available asset fields and only skeletons the missing asset logo', () => {
