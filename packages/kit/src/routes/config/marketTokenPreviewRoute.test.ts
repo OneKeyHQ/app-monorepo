@@ -5,6 +5,28 @@ import {
   parseTokenDetailPreviewParam,
 } from '@onekeyhq/shared/src/utils/marketTokenPreviewRoute';
 
+import { marketRouters } from '../Tab/Marktet/router';
+
+jest.mock('../../components/LazyLoadPage', () => ({
+  LazyLoadPage: () => () => null,
+  LazyLoadRootTabPage: () => () => null,
+}));
+jest.mock('../../views/Market/MarketDetailV2/MarketDetailV2Route', () => ({
+  createMarketDetailV2Route: () => () => null,
+}));
+jest.mock(
+  '../../views/Market/MarketHomeV2/components/MarketHomeLoadingFallback',
+  () => ({
+    MarketHomeLoadingFallback: () => null,
+  }),
+);
+jest.mock('../Tab/RootTabLoadingFallback', () => ({
+  RootTabLoadingFallback: () => null,
+}));
+jest.mock('../Tab/Marktet/MarketDetailV2LoadingFallback', () => ({
+  MarketDetailV2LoadingFallback: () => null,
+}));
+
 const preview = {
   address: '0xabc',
   networkId: 'evm--1',
@@ -107,4 +129,39 @@ describe('market preview URL boundary', () => {
       );
     }
   });
+});
+
+it('maps Asset-only, native and contract URLs to their existing Market routes', () => {
+  const routePath = (name: string) =>
+    `market${marketRouters.find((route) => route.name === name)?.rewrite ?? ''}`;
+  const actualConfig = {
+    screens: {
+      MarketDetailV2: {
+        path: routePath('MarketDetailV2'),
+        ...marketTokenPreviewRouteConfig,
+      },
+      MarketNativeDetail: {
+        path: routePath('MarketNativeDetail'),
+        ...marketTokenPreviewRouteConfig,
+      },
+      MarketStockDetail: { path: routePath('MarketStockDetail') },
+    },
+  };
+  for (const [path, screen] of [
+    [
+      '/market/token?marketTokenId=bitcoin&marketTokenCategory=top_coins',
+      'MarketDetailV2',
+    ],
+    ['/market/token/eth', 'MarketNativeDetail'],
+    ['/market/token/eth/0xabc', 'MarketDetailV2'],
+    ['/market/stock/AAPL', 'MarketStockDetail'],
+  ]) {
+    const state = getStateFromPath(path, actualConfig);
+    expect(state?.routes[0].name).toBe(screen);
+    const roundtrip = getStateFromPath(
+      getPathFromState(state!, actualConfig),
+      actualConfig,
+    );
+    expect(roundtrip?.routes[0].name).toBe(screen);
+  }
 });

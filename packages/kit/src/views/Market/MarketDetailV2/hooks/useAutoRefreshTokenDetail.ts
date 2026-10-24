@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useCurrency } from '@onekeyhq/kit/src/components/Currency';
 import { useLocaleVariant } from '@onekeyhq/kit/src/hooks/useLocaleVariant';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
@@ -12,6 +13,7 @@ import {
 } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/resolveMarketAssetRouteIdentity';
 import { useMarketCurrentTokenLiveDataAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { MARKET_TOP_COINS_CATEGORY_ID } from '@onekeyhq/shared/src/consts/marketConsts';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { swrKeys } from '@onekeyhq/shared/src/utils/swrCacheUtils';
 import { normalizeTokenContractAddress } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { IMarketAssetDetailData } from '@onekeyhq/shared/types/market';
@@ -26,6 +28,7 @@ interface IUseMarketDetailDataProps {
   marketTokenId?: string;
   marketVariantId?: string;
   marketTokenCategory?: string;
+  initialMarketAssetDetail?: IMarketAssetDetailData;
 }
 
 interface IUseResolvedMarketAssetRouteIdentityProps {
@@ -35,6 +38,7 @@ interface IUseResolvedMarketAssetRouteIdentityProps {
   networkId: string;
   symbol?: string;
   isNative: boolean;
+  assetId?: string;
 }
 
 type IMarketAssetRouteIdentityResult = Omit<
@@ -42,6 +46,9 @@ type IMarketAssetRouteIdentityResult = Omit<
   'enabled'
 > & {
   identity?: IMarketAssetRouteIdentity;
+  assetId?: string;
+  assetDetail?: IMarketAssetDetailData;
+  failed?: boolean;
 };
 
 function toFiniteNumber(value?: string | number) {
@@ -57,10 +64,17 @@ export function useResolvedMarketAssetRouteIdentity({
   networkId,
   symbol,
   isNative,
+  assetId,
 }: IUseResolvedMarketAssetRouteIdentityProps) {
   const [result, setResult] = useState<IMarketAssetRouteIdentityResult>();
+  const [retryState, setRetryState] = useState<{
+    assetId?: string;
+    generation: number;
+  }>({ generation: 0 });
+  const isAssetOnly = Boolean(assetId && !networkId && !tokenAddress);
   const isCurrentResult = Boolean(
     result &&
+    result.assetId === assetId &&
     result.tokenAddress === tokenAddress &&
     result.networkId === networkId &&
     result.symbol === symbol &&
@@ -71,7 +85,7 @@ export function useResolvedMarketAssetRouteIdentity({
 
   useEffect(() => {
     // Keep the canonical identity for this route across focus changes.
-    if (!enabled || !active || !symbol || hasResolvedIdentity) {
+    if (!enabled || !active || !symbol || isAssetOnly || hasResolvedIdentity) {
       return;
     }
 
@@ -83,7 +97,14 @@ export function useResolvedMarketAssetRouteIdentity({
       isNative,
     }).then((identity) => {
       if (isActive) {
-        setResult({ tokenAddress, networkId, symbol, isNative, identity });
+        setResult({
+          tokenAddress,
+          networkId,
+          symbol,
+          isNative,
+          assetId,
+          identity,
+        });
       }
     });
 
@@ -92,18 +113,112 @@ export function useResolvedMarketAssetRouteIdentity({
     };
   }, [
     active,
+    assetId,
     enabled,
     hasResolvedIdentity,
+    isAssetOnly,
     isNative,
     networkId,
     symbol,
     tokenAddress,
   ]);
 
+  useEffect(() => {
+    if (
+      !enabled ||
+      !active ||
+      !isAssetOnly ||
+      !assetId ||
+      hasResolvedIdentity ||
+      (isCurrentResult && result?.failed)
+    ) {
+      return;
+    }
+
+    let isActive = true;
+    void backgroundApiProxy.serviceMarket
+      .fetchMarketAssetDetail({
+        assetId,
+        currency: 'usd',
+        autoHandleError: false,
+        reuseInitialResult: retryState.assetId !== assetId,
+      })
+      .then((assetDetail) => {
+        if (!isActive) return;
+        const variant = assetDetail.selectedVariant;
+        const valid =
+          assetDetail.asset.assetId === assetId &&
+          Boolean(networkUtils.getLocalNetworkInfo(variant.networkId)) &&
+          Boolean(variant.isNative || variant.tokenAddress);
+        setResult({
+          tokenAddress,
+          networkId,
+          symbol,
+          isNative,
+          assetId,
+          assetDetail: valid ? assetDetail : undefined,
+          identity: valid
+            ? {
+                isNative: variant.isNative,
+                marketTokenId: assetId,
+                marketVariantId: variant.variantId,
+                networkId: variant.networkId,
+                tokenAddress: variant.tokenAddress,
+              }
+            : undefined,
+          failed: !valid,
+        });
+      })
+      .catch(() => {
+        if (isActive) {
+          setResult({
+            tokenAddress,
+            networkId,
+            symbol,
+            isNative,
+            assetId,
+            failed: true,
+          });
+        }
+      });
+
+    return () => {
+      isActive = false;
+    };
+  }, [
+    active,
+    assetId,
+    enabled,
+    hasResolvedIdentity,
+    isAssetOnly,
+    isCurrentResult,
+    isNative,
+    networkId,
+    result?.failed,
+    retryState.assetId,
+    retryState.generation,
+    symbol,
+    tokenAddress,
+  ]);
+
   return {
     identity: enabled && isCurrentResult ? result?.identity : undefined,
-    isResolving: Boolean(enabled && active && symbol && !isCurrentResult),
-    shouldSkipMarketDataFetch: Boolean(enabled && symbol && !isCurrentResult),
+    assetDetail: enabled && isCurrentResult ? result?.assetDetail : undefined,
+    hasError: Boolean(enabled && isCurrentResult && result?.failed),
+    retry: () => {
+      setResult(undefined);
+      setRetryState((current) => ({
+        assetId,
+        generation: current.generation + 1,
+      }));
+    },
+    isResolving: Boolean(
+      enabled && active && (symbol || isAssetOnly) && !isCurrentResult,
+    ),
+    shouldSkipMarketDataFetch: Boolean(
+      enabled &&
+      (isAssetOnly ? !hasResolvedIdentity : symbol && !isCurrentResult),
+    ),
   };
 }
 
@@ -173,6 +288,9 @@ export function useAutoRefreshTokenDetail(data: IUseMarketDetailDataProps) {
       }
     | undefined
   >(undefined);
+  const consumedInitialAssetRequestKeyRef = useRef<string | undefined>(
+    undefined,
+  );
 
   // Sync tokenDetail to global atom so mobile modal can read it
   useEffect(() => {
@@ -329,11 +447,21 @@ export function useAutoRefreshTokenDetail(data: IUseMarketDetailDataProps) {
       try {
         if (isMarketAssetRequest && data.marketTokenId) {
           try {
+            const initialAssetDetail =
+              data.initialMarketAssetDetail &&
+              consumedInitialAssetRequestKeyRef.current !==
+                tokenDetailRequestKey
+                ? data.initialMarketAssetDetail
+                : undefined;
+            if (initialAssetDetail) {
+              consumedInitialAssetRequestKeyRef.current = tokenDetailRequestKey;
+            }
             const assetDetail = await fetchMarketAssetTokenDetail({
               assetId: data.marketTokenId,
               variantId: data.marketVariantId,
               tokenAddress: data.tokenAddress,
               networkId: data.networkId,
+              ...(initialAssetDetail ? { initialAssetDetail } : undefined),
             });
             if (
               currentTokenDetailRequestKeyRef.current !== tokenDetailRequestKey
@@ -377,6 +505,7 @@ export function useAutoRefreshTokenDetail(data: IUseMarketDetailDataProps) {
       active,
       currencyInfo.id,
       data.isNative,
+      data.initialMarketAssetDetail,
       data.marketTokenId,
       data.marketVariantId,
       data.tokenAddress,

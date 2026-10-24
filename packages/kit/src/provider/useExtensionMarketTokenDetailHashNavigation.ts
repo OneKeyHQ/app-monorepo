@@ -63,11 +63,7 @@ export function getMarketTokenDetailNavigationTargetFromHash(
   const [path, query = ''] = hashPath.split('?');
   const segments = path.replace(/^\/+|\/+$/g, '').split('/');
 
-  if (
-    segments[0] !== 'market' ||
-    !['stock', 'token'].includes(segments[1]) ||
-    !segments[2]
-  ) {
+  if (segments[0] !== 'market' || !['stock', 'token'].includes(segments[1])) {
     return undefined;
   }
 
@@ -97,6 +93,30 @@ export function getMarketTokenDetailNavigationTargetFromHash(
     const from = searchParams.get('from');
     const marketTokenPreviewId =
       searchParams.get('marketTokenPreviewId') || undefined;
+
+    if (
+      segments[1] === 'token' &&
+      segments.length === 2 &&
+      marketTokenId &&
+      marketTokenCategory === 'top_coins'
+    ) {
+      return {
+        screen: ETabMarketRoutes.MarketDetailV2,
+        params: {
+          marketTokenId,
+          marketTokenCategory,
+          ...(from ? { from: from as EEnterWay } : undefined),
+          ...(disableTrade === undefined ? undefined : { disableTrade }),
+          ...(showFavoriteButton === undefined
+            ? undefined
+            : { showFavoriteButton }),
+        },
+      };
+    }
+
+    if (!segments[2]) {
+      return undefined;
+    }
 
     if (segments[1] === 'stock') {
       const stockId = decodeURIComponent(segments[2]);
@@ -373,7 +393,10 @@ export const useExtensionMarketTokenDetailHashNavigation =
 
             if (
               target.screen !== ETabMarketRoutes.MarketStockDetail &&
-              target.params.marketTokenPreviewId
+              target.params.marketTokenPreviewId &&
+              target.params.network &&
+              (target.screen === ETabMarketRoutes.MarketNativeDetail ||
+                typeof target.params.tokenAddress === 'string')
             ) {
               const tokenTarget = target;
               void readExtensionTokenPreview(
@@ -382,7 +405,7 @@ export const useExtensionMarketTokenDetailHashNavigation =
                   network: target.params.network,
                   tokenAddress:
                     'tokenAddress' in target.params
-                      ? target.params.tokenAddress
+                      ? (target.params.tokenAddress ?? '')
                       : '',
                   isNative: normalizeRouteBooleanParam(
                     target.params.isNative,

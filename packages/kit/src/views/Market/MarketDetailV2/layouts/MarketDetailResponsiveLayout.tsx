@@ -26,21 +26,20 @@ export function MarketDetailResponsiveLayout({
   showFavoriteButton,
   disableTrade,
 }: IMarketDetailResponsiveLayoutProps) {
+  // Wait for the Asset identity before mounting either chart or trade layout.
+  if (isLayoutPending) {
+    return (
+      <Stack
+        testID="market-detail-layout-loading"
+        flex={1}
+        alignItems="center"
+        justifyContent="center"
+      >
+        <Spinner size="large" />
+      </Stack>
+    );
+  }
   if (isDesktopLayout) {
-    // Resolve the layout before mounting either chart implementation. Replacing
-    // TokenDesktopLayout with TopCoinsDesktopLayout destroys their chart subtree.
-    if (isLayoutPending) {
-      return (
-        <Stack
-          testID="market-detail-layout-loading"
-          flex={1}
-          alignItems="center"
-          justifyContent="center"
-        >
-          <Spinner size="large" />
-        </Stack>
-      );
-    }
     return (
       <DesktopLayout
         active={active}
