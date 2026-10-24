@@ -6,6 +6,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
 } from 'react';
 
 import { useAtomValue } from 'jotai';
@@ -65,6 +66,11 @@ import type { ISpotUniverse } from '@onekeyhq/shared/types/hyperliquid';
 import { usePerpsAssetCtx } from '../../hooks/usePerpsAssetCtx';
 import { PerpTestIDs } from '../../testIDs';
 
+export type IKeyboardFavoriteRegistration = (
+  coin: string,
+  toggle: () => Promise<unknown> | void,
+) => () => void;
+
 interface IPerpTokenSelectorRowProps {
   mockedToken: {
     index: number;
@@ -79,9 +85,15 @@ interface IPerpTokenSelectorRowProps {
   isOnModal?: boolean;
   skipMarkRequired?: boolean;
   desktopLayout?: 'perp' | 'spot' | 'mixed';
+  isKeyboardSelected?: boolean;
+  registerKeyboardRow?: (coin: string, node: unknown) => void;
+  registerKeyboardFavorite?: IKeyboardFavoriteRegistration;
 }
 
 interface ITokenSelectorRowContextValue {
+  isKeyboardSelected?: boolean;
+  registerKeyboardRow?: (coin: string, node: unknown) => void;
+  registerKeyboardFavorite?: IKeyboardFavoriteRegistration;
   isSpot?: boolean;
   desktopLayout?: 'perp' | 'spot' | 'mixed';
   // Spot favorite key — the HL pair id ("PURR/USDC", "@149"), distinct from
@@ -223,11 +235,13 @@ export const FavoriteButton = memo(
     isMobile,
     iconSize,
     isSpot,
+    registerKeyboardFavorite,
   }: {
     coin: string;
     isMobile?: boolean;
     iconSize?: string;
     isSpot?: boolean;
+    registerKeyboardFavorite?: IKeyboardFavoriteRegistration;
   }) => {
     const [perpFavs, setPerpFavs] = usePerpTokenFavoritesPersistAtom();
     const [spotFavs, setSpotFavs] = useSpotTokenFavoritesPersistAtom();
@@ -272,7 +286,7 @@ export const FavoriteButton = memo(
         }),
       }));
 
-      void backgroundApiProxy.serviceHyperliquid.updateTokenSelectorFavorite({
+      return backgroundApiProxy.serviceHyperliquid.updateTokenSelectorFavorite({
         mode,
         coin,
         action,
@@ -287,6 +301,11 @@ export const FavoriteButton = memo(
       setSpotFavs,
       spotFavs.favorites,
     ]);
+
+    useEffect(
+      () => registerKeyboardFavorite?.(coin, handleToggle),
+      [coin, handleToggle, registerKeyboardFavorite],
+    );
 
     return (
       <IconButton
@@ -346,7 +365,7 @@ TradingModeBadge.displayName = 'TradingModeBadge';
 
 // Desktop cell components
 const TokenInfoCellDesktop = memo(() => {
-  const { token, isSpot, pairCoin, desktopLayout } =
+  const { token, isSpot, pairCoin, desktopLayout, registerKeyboardFavorite } =
     useTokenSelectorRowContext();
   const useFlexibleLayout = isSpot || desktopLayout === 'mixed';
   const columnLayout = getFlexibleDesktopColumnLayout(desktopLayout);
@@ -368,7 +387,11 @@ const TokenInfoCellDesktop = memo(() => {
           gap="$1.5"
           alignItems="center"
         >
-          <FavoriteButton coin={pairCoin ?? token.name} isSpot={isSpot} />
+          <FavoriteButton
+            coin={pairCoin ?? token.name}
+            isSpot={isSpot}
+            registerKeyboardFavorite={registerKeyboardFavorite}
+          />
           <XStack
             gap="$1.5"
             alignItems="center"
@@ -434,6 +457,7 @@ const TokenInfoCellDesktop = memo(() => {
       pairCoin,
       useFlexibleLayout,
       columnLayout.asset.flex,
+      registerKeyboardFavorite,
     ],
   );
   return content;
@@ -774,8 +798,30 @@ const TokenOpenInterestCellDesktop = memo(() => {
 TokenOpenInterestCellDesktop.displayName = 'TokenOpenInterestCellDesktop';
 
 const TokenSelectorRowDesktop = memo(() => {
-  const { onPress, isSpot, desktopLayout, token } =
-    useTokenSelectorRowContext();
+  const {
+    onPress,
+    isSpot,
+    desktopLayout,
+    token,
+    pairCoin,
+    isKeyboardSelected,
+    registerKeyboardRow,
+  } = useTokenSelectorRowContext();
+  const rowRef = useRef<HTMLElement | null>(null);
+  const setRowRef = useCallback(
+    (node: unknown) => {
+      rowRef.current =
+        typeof HTMLElement !== 'undefined' && node instanceof HTMLElement
+          ? node
+          : null;
+      registerKeyboardRow?.(pairCoin ?? token.name, node);
+    },
+    [pairCoin, registerKeyboardRow, token.name],
+  );
+  useEffect(() => {
+    if (isKeyboardSelected)
+      rowRef.current?.scrollIntoView({ block: 'nearest' });
+  }, [isKeyboardSelected]);
 
   const content = useMemo(
     () => (
@@ -785,12 +831,14 @@ const TokenSelectorRowDesktop = memo(() => {
         name="TokenSelectorRowDesktop"
       >
         <XStack
+          ref={setRowRef}
           onPress={onPress}
           testID={PerpTestIDs.TokenSelectorRow(token.name)}
           borderRadius="$0"
           justifyContent="flex-start"
           width="100%"
           hoverStyle={{ bg: '$bgHover' }}
+          bg={isKeyboardSelected ? '$bgHover' : undefined}
           px="$4"
           py="$3"
           minHeight={48}
@@ -824,7 +872,7 @@ const TokenSelectorRowDesktop = memo(() => {
         </XStack>
       </DebugRenderTracker>
     ),
-    [onPress, isSpot, desktopLayout, token.name],
+    [onPress, isSpot, desktopLayout, token.name, isKeyboardSelected, setRowRef],
   );
   return content;
 });
@@ -1072,11 +1120,17 @@ const SpotTokenSelectorRowInner = memo(
     onPress,
     isOnModal,
     desktopLayout,
+    isKeyboardSelected,
+    registerKeyboardRow,
+    registerKeyboardFavorite,
   }: {
     spotUniverse: ISpotUniverse;
     onPress: (name: string) => void;
     isOnModal?: boolean;
     desktopLayout?: 'perp' | 'spot' | 'mixed';
+    isKeyboardSelected?: boolean;
+    registerKeyboardRow?: (coin: string, node: unknown) => void;
+    registerKeyboardFavorite?: IKeyboardFavoriteRegistration;
   }) => {
     // Use pair name (@107 or PURR/USDC) as key — matches universe.name
     const ctx = useSpotAssetCtxByPair(spotUniverse.name);
@@ -1139,6 +1193,9 @@ const SpotTokenSelectorRowInner = memo(
       () => ({
         isSpot: true,
         desktopLayout,
+        isKeyboardSelected,
+        registerKeyboardRow,
+        registerKeyboardFavorite,
         pairCoin: spotUniverse.name,
         token: {
           name: getSpotTokenDisplayName(spotUniverse.baseName),
@@ -1170,6 +1227,9 @@ const SpotTokenSelectorRowInner = memo(
         marketCapDisplay,
         handlePress,
         desktopLayout,
+        isKeyboardSelected,
+        registerKeyboardRow,
+        registerKeyboardFavorite,
       ],
     );
 
@@ -1189,6 +1249,9 @@ const PerpTokenSelectorRowPerps = memo(
     isOnModal,
     skipMarkRequired,
     desktopLayout,
+    isKeyboardSelected,
+    registerKeyboardRow,
+    registerKeyboardFavorite,
   }: IPerpTokenSelectorRowProps) => {
     // Static token data is pre-computed in the parent list and passed via mockedToken.
     // This avoids subscribing to usePerpsAllAssetsFilteredAtom (150+ subscriptions).
@@ -1215,6 +1278,9 @@ const PerpTokenSelectorRowPerps = memo(
     const contextValue: ITokenSelectorRowContextValue = useMemo(
       () => ({
         desktopLayout,
+        isKeyboardSelected,
+        registerKeyboardRow,
+        registerKeyboardFavorite,
         token: {
           name: tokenName,
           displayName: parsed.displayName,
@@ -1245,6 +1311,9 @@ const PerpTokenSelectorRowPerps = memo(
         isLoading,
         handlePress,
         desktopLayout,
+        isKeyboardSelected,
+        registerKeyboardRow,
+        registerKeyboardFavorite,
       ],
     );
 
@@ -1277,6 +1346,9 @@ const PerpTokenSelectorRow = memo(
     isOnModal,
     skipMarkRequired,
     desktopLayout,
+    isKeyboardSelected,
+    registerKeyboardRow,
+    registerKeyboardFavorite,
   }: IPerpTokenSelectorRowProps) => {
     // Spot path: render from spotUniverse data
     if (mockedToken.spotUniverse) {
@@ -1286,6 +1358,9 @@ const PerpTokenSelectorRow = memo(
           onPress={onPress}
           isOnModal={isOnModal}
           desktopLayout={desktopLayout}
+          isKeyboardSelected={isKeyboardSelected}
+          registerKeyboardRow={registerKeyboardRow}
+          registerKeyboardFavorite={registerKeyboardFavorite}
         />
       );
     }
@@ -1298,6 +1373,9 @@ const PerpTokenSelectorRow = memo(
         isOnModal={isOnModal}
         skipMarkRequired={skipMarkRequired}
         desktopLayout={desktopLayout}
+        isKeyboardSelected={isKeyboardSelected}
+        registerKeyboardRow={registerKeyboardRow}
+        registerKeyboardFavorite={registerKeyboardFavorite}
       />
     );
   },

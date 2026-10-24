@@ -9,11 +9,15 @@ import {
   useState,
 } from 'react';
 
+import { overlayStore } from '@onekeyfe/react-native-native-overlay';
+import { useIsFocused } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
+import { useWindowDimensions } from 'react-native';
 
 import {
   Badge,
   DebugRenderTracker,
+  type IInputProps,
   type IListViewRef,
   Icon,
   ListView,
@@ -29,10 +33,12 @@ import {
   YStack,
   useIsSplitMainActive,
   usePopoverContext,
+  useShortcuts,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import useListenTabFocusState from '@onekeyhq/kit/src/hooks/useListenTabFocusState';
 import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
   usePerpsAllAssetCtxsAtom,
@@ -56,8 +62,15 @@ import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusNames';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import { EModalRoutes } from '@onekeyhq/shared/src/routes';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { EModalRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalPerpRoutes } from '@onekeyhq/shared/src/routes/perp';
+import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
+import { shortcutsKeys } from '@onekeyhq/shared/src/shortcuts/shortcutsKeys.enum';
+import {
+  getKeyboardEventKey,
+  isImeComposingKeyboardEvent,
+} from '@onekeyhq/shared/src/utils/imeUtils';
 import { toCtxIndex } from '@onekeyhq/shared/src/utils/perpsDexUtils';
 import {
   SPOT_SELECTOR_MIN_VOLUME,
@@ -119,6 +132,7 @@ import {
 
 import { FavoritesEmptyState } from './FavoritesEmptyState';
 import {
+  type IKeyboardFavoriteRegistration,
   MIXED_TOKEN_SELECTOR_DESKTOP_COLUMN_LAYOUT,
   PerpTokenSelectorRow,
   SPOT_TOKEN_SELECTOR_DESKTOP_COLUMN_LAYOUT,
@@ -159,6 +173,71 @@ function waitForTokenSelectorOpenPrewarm(task: Promise<unknown>) {
     task.catch(() => undefined),
     timerUtils.wait(TOKEN_SELECTOR_OPEN_PREWARM_TIMEOUT_MS),
   ]);
+}
+
+function usePerpTokenSelectorShortcut({
+  onOpen,
+  onBlur,
+  isOpen = false,
+}: {
+  onOpen: () => void;
+  onBlur?: () => void;
+  isOpen?: boolean;
+}) {
+  const pageFocused = useIsFocused();
+  const onBlurRef = useRef(onBlur);
+  onBlurRef.current = onBlur;
+  useEffect(() => {
+    if (!pageFocused) onBlurRef.current?.();
+  }, [pageFocused]);
+  const shortcutRouteFocused = useRef(false);
+  useListenTabFocusState(ETabRoutes.Perp, (focused, hiddenByModal) => {
+    shortcutRouteFocused.current = focused && !hiddenByModal;
+    if (!shortcutRouteFocused.current) {
+      onBlurRef.current?.();
+    }
+  });
+  const openFromShortcut = useCallback(() => {
+    if (platformEnv.isNative || !pageFocused || !shortcutRouteFocused.current)
+      return false;
+    if (isOpen) return true;
+    const activeElement = document.activeElement;
+    if (
+      overlayStore.resolveBack().kind !== 'pass' ||
+      activeElement?.closest(
+        'input, textarea, select, [contenteditable]:not([contenteditable="false"])',
+      )
+    ) {
+      return false;
+    }
+    onOpen();
+    return true;
+  }, [isOpen, onOpen, pageFocused]);
+  const handleShortcut = useCallback(
+    (event: EShortcutEvents) => {
+      if (event === EShortcutEvents.UniversalSearch) openFromShortcut();
+    },
+    [openFromShortcut],
+  );
+  useShortcuts(EShortcutEvents.UniversalSearch, handleShortcut);
+  useEffect(() => {
+    if (platformEnv.isNative || platformEnv.isDesktop) return;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (
+        event.defaultPrevented ||
+        event.repeat ||
+        isImeComposingKeyboardEvent(event) ||
+        event.key.toLowerCase() !== 'k' ||
+        !(event.metaKey || event.ctrlKey) ||
+        event.altKey ||
+        event.shiftKey
+      )
+        return;
+      if (openFromShortcut()) event.preventDefault();
+    };
+    globalThis.addEventListener('keydown', handleKeyDown);
+    return () => globalThis.removeEventListener('keydown', handleKeyDown);
+  }, [openFromShortcut]);
 }
 
 const PrimaryTabItem = memo(
@@ -361,7 +440,7 @@ function TokenListHeader({
   );
 }
 
-function BasePerpTokenSelectorContent() {
+function BasePerpTokenSelectorContent({ maxHeight }: { maxHeight?: number }) {
   const intl = useIntl();
   const [activePerpsAccount] = usePerpsActiveAccountAtom();
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -369,8 +448,39 @@ function BasePerpTokenSelectorContent() {
     usePerpTokenSelector();
   const { closePopover } = usePopoverContext();
   const actions = useHyperliquidActions();
+  const inputQueryRef = useRef(searchQuery);
+  const keyboardSubmitPending = useRef(false);
+  const keyboardRowRefs = useRef(new Map<string, HTMLElement>());
+  const keyboardFavoriteActions = useRef(
+    new Map<string, () => Promise<unknown> | void>(),
+  );
+  const keyboardFavoritesPending = useRef(new Set<string>());
+  const registerKeyboardFavorite = useCallback<IKeyboardFavoriteRegistration>(
+    (coin, toggle) => {
+      keyboardFavoriteActions.current.set(coin, toggle);
+      return () => {
+        if (keyboardFavoriteActions.current.get(coin) === toggle) {
+          keyboardFavoriteActions.current.delete(coin);
+        }
+      };
+    },
+    [],
+  );
+  const registerKeyboardRow = useCallback((coin: string, node: unknown) => {
+    if (typeof HTMLElement !== 'undefined' && node instanceof HTMLElement) {
+      keyboardRowRefs.current.set(coin, node);
+    } else {
+      keyboardRowRefs.current.delete(coin);
+    }
+  }, []);
+  const [keyboardSelection, setKeyboardSelection] = useState<{
+    key: string;
+    query: string;
+    tab: string;
+  }>();
 
-  const [{ assetsByDex }] = usePerpsAllAssetsFilteredAtom();
+  const [{ assetsByDex, query: filteredQuery }] =
+    usePerpsAllAssetsFilteredAtom();
   const [{ assetCtxsByDex }] = usePerpsAllAssetCtxsAtom();
   const [tokenSearchAliases] = usePerpsTokenSearchAliasesAtom();
   const [selectorConfig, setSelectorConfig] =
@@ -473,6 +583,7 @@ function BasePerpTokenSelectorContent() {
   );
   const setActiveTab = useCallback(
     (tab: string) => {
+      setKeyboardSelection(undefined);
       defaultLogger.perp.tokenSelector.perpTokenSelectorCategoryTabClick({
         tab,
         previousTab: displayActiveTab,
@@ -487,6 +598,7 @@ function BasePerpTokenSelectorContent() {
       if (tab === displayPrimaryTab) {
         return;
       }
+      setKeyboardSelection(undefined);
       defaultLogger.perp.tokenSelector.perpTokenSelectorPrimaryTabClick({
         tab,
         previousTab: displayPrimaryTab,
@@ -1098,6 +1210,160 @@ function BasePerpTokenSelectorContent() {
     (item: ITokenSelectorListItem) => getTokenSelectorListItemKey(item),
     [],
   );
+  const keyboardResultsReady =
+    isPerpTokenSelectorSpotTab(displayPrimaryTab) ||
+    (filteredQuery ?? '') === searchQuery;
+  const keyboardSelectedKey =
+    keyboardResultsReady &&
+    keyboardSelection?.query === searchQuery &&
+    keyboardSelection?.tab === displayActiveTab
+      ? keyboardSelection.key
+      : undefined;
+  const keyboardSelectedIndex = activeTabData.findIndex(
+    (item) => keyExtractor(item) === keyboardSelectedKey,
+  );
+  const handleSearchInputChange = useCallback<
+    NonNullable<IInputProps['onChange']>
+  >((event) => {
+    inputQueryRef.current = event.nativeEvent.text.trim().slice(0, 64);
+    setKeyboardSelection(undefined);
+  }, []);
+  const handleSearchQueryChange = useCallback(
+    (query: string) => {
+      inputQueryRef.current = query.trim().slice(0, 64);
+      setKeyboardSelection(undefined);
+      setSearchQuery(query);
+    },
+    [setSearchQuery],
+  );
+  const handleKeyboardNavigation = useCallback<
+    NonNullable<IInputProps['onKeyPress']>
+  >(
+    (event) => {
+      if (isImeComposingKeyboardEvent(event)) return;
+      const key = getKeyboardEventKey(event);
+      const keyboardEvent = event.nativeEvent as Partial<KeyboardEvent>;
+      if (
+        key.toLowerCase() === 's' &&
+        (keyboardEvent.metaKey || keyboardEvent.ctrlKey) &&
+        !keyboardEvent.altKey &&
+        !keyboardEvent.shiftKey
+      ) {
+        event.preventDefault();
+        const inputTarget = keyboardEvent.target;
+        const currentQuery =
+          typeof HTMLInputElement !== 'undefined' &&
+          inputTarget instanceof HTMLInputElement
+            ? inputTarget.value.trim().slice(0, 64)
+            : inputQueryRef.current;
+        if (
+          keyboardEvent.repeat ||
+          keyboardSelectedIndex < 0 ||
+          !keyboardResultsReady ||
+          currentQuery !== searchQuery ||
+          inputQueryRef.current !== searchQuery
+        ) {
+          return;
+        }
+        const item = activeTabData[keyboardSelectedIndex];
+        const coin = item?.spotUniverse?.name ?? item?.tokenName;
+        const toggle = coin
+          ? keyboardFavoriteActions.current.get(coin)
+          : undefined;
+        if (coin && toggle && !keyboardFavoritesPending.current.has(coin)) {
+          keyboardFavoritesPending.current.add(coin);
+          void Promise.resolve(toggle())
+            .catch((error) => {
+              console.error('Failed to update token favorite:', error);
+            })
+            .finally(() => {
+              keyboardFavoritesPending.current.delete(coin);
+            });
+        }
+        return;
+      }
+      if (key !== 'ArrowDown' && key !== 'ArrowUp') return;
+      event.preventDefault();
+      if (
+        inputQueryRef.current !== searchQuery ||
+        !keyboardResultsReady ||
+        !activeTabData.length
+      ) {
+        return;
+      }
+      let nextIndex: number;
+      if (keyboardSelectedIndex < 0) {
+        nextIndex = key === 'ArrowDown' ? 0 : activeTabData.length - 1;
+      } else {
+        nextIndex = Math.max(
+          0,
+          Math.min(
+            activeTabData.length - 1,
+            keyboardSelectedIndex + (key === 'ArrowDown' ? 1 : -1),
+          ),
+        );
+      }
+      const nextItem = activeTabData[nextIndex];
+      setKeyboardSelection({
+        key: keyExtractor(nextItem),
+        query: searchQuery,
+        tab: displayActiveTab,
+      });
+      const coin = nextItem.spotUniverse?.name ?? nextItem.tokenName;
+      const row = coin ? keyboardRowRefs.current.get(coin) : undefined;
+      if (row) {
+        row.scrollIntoView({ block: 'nearest' });
+      } else {
+        // Mount virtualized targets before their actual bounds are scrolled.
+        listRef.current?.scrollToOffset?.({
+          offset: Math.max(
+            0,
+            (nextIndex - 3) * TOKEN_SELECTOR_DESKTOP_ROW_HEIGHT,
+          ),
+          animated: false,
+        });
+      }
+    },
+    [
+      activeTabData,
+      displayActiveTab,
+      keyExtractor,
+      keyboardResultsReady,
+      keyboardSelectedIndex,
+      searchQuery,
+    ],
+  );
+  const handleKeyboardSubmit = useCallback<
+    NonNullable<IInputProps['onSubmitEditing']>
+  >(
+    (event) => {
+      if (
+        keyboardSubmitPending.current ||
+        keyboardSelectedIndex < 0 ||
+        !keyboardResultsReady ||
+        inputQueryRef.current !== searchQuery ||
+        event.nativeEvent.text.trim().slice(0, 64) !== searchQuery
+      ) {
+        return;
+      }
+      const item = activeTabData[keyboardSelectedIndex];
+      const coin = item?.spotUniverse?.name ?? item?.tokenName;
+      if (coin) {
+        event.preventDefault();
+        keyboardSubmitPending.current = true;
+        void handleSelectToken(coin).finally(() => {
+          keyboardSubmitPending.current = false;
+        });
+      }
+    },
+    [
+      activeTabData,
+      handleSelectToken,
+      keyboardResultsReady,
+      keyboardSelectedIndex,
+      searchQuery,
+    ],
+  );
   const desktopListLayout = useMemo((): 'perp' | 'spot' | 'mixed' => {
     if (isPerpTokenSelectorSpotTab(displayPrimaryTab)) {
       return 'spot';
@@ -1131,9 +1397,19 @@ function BasePerpTokenSelectorContent() {
         onPress={handleSelectToken}
         skipMarkRequired
         desktopLayout={getRowDesktopLayout(mockedToken)}
+        isKeyboardSelected={keyExtractor(mockedToken) === keyboardSelectedKey}
+        registerKeyboardRow={registerKeyboardRow}
+        registerKeyboardFavorite={registerKeyboardFavorite}
       />
     ),
-    [getRowDesktopLayout, handleSelectToken],
+    [
+      getRowDesktopLayout,
+      handleSelectToken,
+      keyExtractor,
+      keyboardSelectedKey,
+      registerKeyboardRow,
+      registerKeyboardFavorite,
+    ],
   );
 
   const hasPerpTokenDataLoaded = useMemo(
@@ -1187,8 +1463,8 @@ function BasePerpTokenSelectorContent() {
   ]);
 
   const content = (
-    <YStack>
-      <YStack gap="$1">
+    <YStack minHeight={0} maxHeight={maxHeight} flexShrink={1}>
+      <YStack gap="$1" minHeight={0} flexShrink={1}>
         <XStack px="$2" pt="$2">
           <SearchBar
             testID={PerpTestIDs.TokenSelectorSearch}
@@ -1202,7 +1478,18 @@ function BasePerpTokenSelectorContent() {
             placeholder={intl.formatMessage({
               id: ETranslations.global_search_asset,
             })}
-            onChangeText={setSearchQuery}
+            onChangeText={
+              platformEnv.isNative ? setSearchQuery : handleSearchQueryChange
+            }
+            onChange={
+              platformEnv.isNative ? undefined : handleSearchInputChange
+            }
+            onKeyPress={
+              platformEnv.isNative ? undefined : handleKeyboardNavigation
+            }
+            onSubmitEditing={
+              platformEnv.isNative ? undefined : handleKeyboardSubmit
+            }
             // value={searchQuery} // keep value undefined to make debounce works
           />
         </XStack>
@@ -1254,15 +1541,21 @@ function BasePerpTokenSelectorContent() {
             </ScrollView>
           </XStack>
         ) : null}
-        <YStack>
+        <YStack minHeight={0} flexShrink={1}>
           {showFavoritesEmpty ? (
-            <YStack height={350}>
+            <YStack height={350} minHeight={0} flexShrink={1}>
               <FavoritesEmptyState />
             </YStack>
           ) : (
-            <YStack width="100%" minWidth={0} overflow="hidden">
+            <YStack
+              width="100%"
+              minWidth={0}
+              minHeight={0}
+              flexShrink={1}
+              overflow="hidden"
+            >
               <TokenListHeader layoutMode={desktopListLayout} />
-              <YStack height={350} minWidth={0}>
+              <YStack height={350} minWidth={0} minHeight={0} flexShrink={1}>
                 <ListView
                   ref={listRef}
                   showsVerticalScrollIndicator={false}
@@ -1283,6 +1576,67 @@ function BasePerpTokenSelectorContent() {
           )}
         </YStack>
       </YStack>
+      {!platformEnv.isNative ? (
+        <SizableText
+          role="status"
+          aria-live="polite"
+          aria-atomic
+          position="absolute"
+          width={1}
+          height={1}
+          overflow="hidden"
+          opacity={0}
+        >
+          {activeTabData[keyboardSelectedIndex]?.spotUniverse?.displayName ??
+            activeTabData[keyboardSelectedIndex]?.tokenName ??
+            ''}
+        </SizableText>
+      ) : null}
+      {!platformEnv.isNative ? (
+        <XStack
+          px="$4"
+          py="$2"
+          gap="$4"
+          alignItems="center"
+          flexShrink={0}
+          borderTopWidth="$px"
+          borderTopColor="$borderSubdued"
+        >
+          <XStack gap="$1">
+            <Badge badgeSize="sm">↑</Badge>
+            <Badge badgeSize="sm">↓</Badge>
+          </XStack>
+          <XStack
+            gap="$1.5"
+            alignItems="center"
+            opacity={keyboardSelectedIndex < 0 ? 0.5 : 1}
+          >
+            <Badge badgeSize="sm">Enter</Badge>
+            <SizableText size="$bodySm" color="$textSubdued">
+              {intl.formatMessage({ id: ETranslations.dexmarket_select_token })}
+            </SizableText>
+          </XStack>
+          <XStack
+            gap="$1.5"
+            alignItems="center"
+            opacity={keyboardSelectedIndex < 0 ? 0.5 : 1}
+          >
+            <XStack gap="$1">
+              <Badge badgeSize="sm">{shortcutsKeys.CmdOrCtrl}</Badge>
+              <Badge badgeSize="sm">S</Badge>
+            </XStack>
+            <SizableText size="$bodySm" color="$textSubdued">
+              {intl.formatMessage({ id: ETranslations.global_favorites })}
+            </SizableText>
+          </XStack>
+          <XStack gap="$1.5" alignItems="center" ml="auto">
+            <Badge badgeSize="sm">Esc</Badge>
+            <SizableText size="$bodySm" color="$textSubdued">
+              {intl.formatMessage({ id: ETranslations.global_close })}
+            </SizableText>
+          </XStack>
+        </XStack>
+      ) : null}
     </YStack>
   );
   return (
@@ -1292,8 +1646,8 @@ function BasePerpTokenSelectorContent() {
   );
 }
 
-function PerpTokenSelectorContent() {
-  return <BasePerpTokenSelectorContent />;
+function PerpTokenSelectorContent({ maxHeight }: { maxHeight?: number }) {
+  return <BasePerpTokenSelectorContent maxHeight={maxHeight} />;
 }
 
 const PerpTokenSelectorContentMemo = memo(PerpTokenSelectorContent);
@@ -1303,6 +1657,12 @@ function BasePerpTokenSelector() {
   const [activePerpsAccount] = usePerpsActiveAccountAtom();
   const actions = useHyperliquidActions();
   const [isOpen, setIsOpen] = useState(false);
+  const { height: viewportHeight, width: viewportWidth } =
+    useWindowDimensions();
+  const [contentMaxHeight, setContentMaxHeight] = useState<number>();
+  useEffect(() => {
+    setContentMaxHeight(undefined);
+  }, [viewportHeight, viewportWidth]);
   const [contentGeneration, setContentGeneration] = useState(0);
   const isOpeningRef = useRef(false);
   const {
@@ -1340,6 +1700,52 @@ function BasePerpTokenSelector() {
       );
     };
   }, []);
+  const handleOpenChange = useCallback(
+    (open: boolean) => {
+      if (!open) {
+        isOpeningRef.current = false;
+        setIsOpen(false);
+        return;
+      }
+      if (isOpen || isOpeningRef.current) {
+        return;
+      }
+      isOpeningRef.current = true;
+      setContentMaxHeight(undefined);
+      void waitForTokenSelectorOpenPrewarm(
+        Promise.resolve().then(() => prewarmTokenSelectorImages()),
+      ).finally(() => {
+        isOpeningRef.current = false;
+      });
+      defaultLogger.perp.tokenSelector.perpTokenSelectorOpen({
+        currentToken: baseName,
+        tradeMode: mode === 'spot' ? 'spot' : 'perp',
+        walletType: activePerpsAccount.walletType ?? 'unknown',
+      });
+      setContentGeneration((generation) => generation + 1);
+      setIsOpen(true);
+    },
+    [
+      isOpen,
+      prewarmTokenSelectorImages,
+      baseName,
+      mode,
+      activePerpsAccount.walletType,
+    ],
+  );
+  const openFromShortcut = useCallback(
+    () => handleOpenChange(true),
+    [handleOpenChange],
+  );
+  const closeOnBlur = useCallback(() => {
+    isOpeningRef.current = false;
+    setIsOpen(false);
+  }, []);
+  usePerpTokenSelectorShortcut({
+    onOpen: openFromShortcut,
+    onBlur: closeOnBlur,
+    isOpen,
+  });
   const triggerLabel = mode === 'spot' ? displayName : `${displayName}USDC`;
   const content = useMemo(
     () => (
@@ -1349,31 +1755,13 @@ function BasePerpTokenSelector() {
         })}
         floatingPanelProps={{
           width: DESKTOP_TOKEN_SELECTOR_PANEL_WIDTH,
+          onLayout: (event) => {
+            const height = event.nativeEvent.layout.height;
+            if (height > 0) setContentMaxHeight(height);
+          },
         }}
         open={isOpen}
-        onOpenChange={(open) => {
-          if (!open) {
-            isOpeningRef.current = false;
-            setIsOpen(false);
-            return;
-          }
-          if (isOpen || isOpeningRef.current) {
-            return;
-          }
-          isOpeningRef.current = true;
-          void waitForTokenSelectorOpenPrewarm(
-            Promise.resolve().then(() => prewarmTokenSelectorImages()),
-          ).finally(() => {
-            isOpeningRef.current = false;
-          });
-          defaultLogger.perp.tokenSelector.perpTokenSelectorOpen({
-            currentToken: baseName,
-            tradeMode: mode === 'spot' ? 'spot' : 'perp',
-            walletType: activePerpsAccount.walletType ?? 'unknown',
-          });
-          setContentGeneration((generation) => generation + 1);
-          setIsOpen(true);
-        }}
+        onOpenChange={handleOpenChange}
         placement="bottom-start"
         renderTrigger={
           <Badge
@@ -1440,12 +1828,17 @@ function BasePerpTokenSelector() {
             <Icon name="ChevronBottomOutline" size="$4" />
           </Badge>
         }
-        renderContent={<PerpTokenSelectorContentMemo key={contentGeneration} />}
+        renderContent={
+          <PerpTokenSelectorContentMemo
+            key={contentGeneration}
+            maxHeight={contentMaxHeight}
+          />
+        }
       />
     ),
     [
-      activePerpsAccount.walletType,
       contentGeneration,
+      contentMaxHeight,
       isOpen,
       triggerLabel,
       activeCoin,
@@ -1454,7 +1847,7 @@ function BasePerpTokenSelector() {
       dexLabel,
       builderFeeRate,
       intl,
-      prewarmTokenSelectorImages,
+      handleOpenChange,
     ],
   );
   return (
@@ -1598,6 +1991,8 @@ function BasePerpTokenSelectorMobile() {
     navigation,
     prewarmTokenSelectorImages,
   ]);
+
+  usePerpTokenSelectorShortcut({ onOpen: onPressTokenSelector });
 
   return (
     <BasePerpTokenSelectorMobileView

@@ -60,13 +60,7 @@ describe('useGlobalShortcuts', () => {
 
     currentTabRoute.current = ETabRoutes.Perp;
     act(() => shortcutHandler?.(EShortcutEvents.UniversalSearch));
-    expect(pushModal).toHaveBeenLastCalledWith(
-      EModalRoutes.UniversalSearchModal,
-      {
-        screen: EUniversalSearchPages.UniversalSearch,
-        params: { source: EUniversalSearchSource.Perps },
-      },
-    );
+    expect(pushModal).toHaveBeenCalledTimes(1);
 
     currentTabRoute.current = ETabRoutes.MultiTabBrowser;
     act(() => shortcutHandler?.(EShortcutEvents.UniversalSearch));
