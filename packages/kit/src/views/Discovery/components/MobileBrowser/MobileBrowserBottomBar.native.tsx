@@ -393,9 +393,8 @@ function MobileBrowserBottomBar({ id, chrome }: IMobileBrowserBottomBarProps) {
                     variant="tertiary"
                     icon="ChevronLeftOutline"
                     iconSize="$5"
-                    // Android: the solid capsule left a wider gap between the
-                    // narrow chevron and the site badge than to the capsule
-                    // edge; pull it in (iOS glass was already even).
+                    // The narrow chevron left a wider gap to the site badge
+                    // than to the capsule edge; pull it in.
                     mr={-CAPSULE_BACK_BUTTON_PULL}
                     disabled={disabledGoBack}
                     accessible={!disabledGoBack}
