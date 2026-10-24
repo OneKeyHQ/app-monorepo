@@ -146,6 +146,8 @@ export type IEventBusPayloadAccountDataUpdate =
 export type IEventBusPayloadAccountUpdate = {
   /** Whether account-scoped network data changed. */
   isAccountDataChanged?: boolean;
+  /** Indexed owners that were committed by an explicit creation operation. */
+  createdIndexedAccountIds?: string[];
 };
 
 // The item shape is owned by kit's settings config; it stays opaque here so
@@ -196,7 +198,9 @@ export interface IAppEventBusPayload {
     walletId: string;
   };
   [EAppEventBusNames.AccountUpdate]: IEventBusPayloadAccountUpdate | undefined;
-  [EAppEventBusNames.AccountRemove]: undefined;
+  [EAppEventBusNames.AccountRemove]:
+    | { accountId?: string; indexedAccountId?: string }
+    | undefined;
   [EAppEventBusNames.AddDBAccountsToWallet]: {
     walletId: string;
     accounts: IDBAccount[];
