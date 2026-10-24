@@ -130,6 +130,7 @@ interface IMarketAssetTokenDetailPayload {
   variantId?: string;
   tokenAddress: string;
   networkId: string;
+  initialAssetDetail?: IMarketAssetDetailData;
 }
 
 async function fetchMarketAssetTokenDetail(
@@ -137,7 +138,8 @@ async function fetchMarketAssetTokenDetail(
   set: IJotaiSetter,
   payload: IMarketAssetTokenDetailPayload,
 ): Promise<IMarketAssetDetailData> {
-  const { assetId, variantId, tokenAddress, networkId } = payload;
+  const { assetId, variantId, tokenAddress, networkId, initialAssetDetail } =
+    payload;
   const requestId = get(tokenDetailRequestIdAtom()) + 1;
   set(tokenDetailRequestIdAtom(), requestId);
   let isStale = false;
@@ -150,11 +152,12 @@ async function fetchMarketAssetTokenDetail(
     set(tokenDetailLoadingAtom(), true);
 
     const assetDetail =
-      await backgroundApiProxy.serviceMarket.fetchMarketAssetDetail({
+      initialAssetDetail ??
+      (await backgroundApiProxy.serviceMarket.fetchMarketAssetDetail({
         assetId,
         variantId,
         currency: MARKET_ASSET_DETAIL_CURRENCY,
-      });
+      }));
 
     if (!isCurrentIdentity()) {
       isStale = true;
@@ -173,6 +176,7 @@ async function fetchMarketAssetTokenDetail(
       },
     });
     if (
+      assetDetail.asset.assetId !== assetId ||
       !selectedVariantMatchesRoute ||
       (variantId && selectedVariant.variantId !== variantId)
     ) {

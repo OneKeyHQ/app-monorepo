@@ -112,6 +112,24 @@ it('opens an ordinary detail without a preview when storage is unavailable', asy
   });
 });
 
+it('opens the existing Market detail path with an Asset-only identity', async () => {
+  const service = new ServiceApp({ backgroundApi: {} });
+  await service.openExtensionMarketTokenDetail({
+    marketTokenId: 'bitcoin',
+    marketTokenCategory: 'top_coins',
+    disableTrade: true,
+  });
+  expect(extUtils.openExpandTab).toHaveBeenCalledWith({
+    path: '/market/token',
+    params: {
+      marketTokenId: 'bitcoin',
+      marketTokenCategory: 'top_coins',
+      disableTrade: true,
+    },
+  });
+  expect(storeExtensionTokenPreview).not.toHaveBeenCalled();
+});
+
 it('rejects an explicitly non-native empty address before writing a handoff', async () => {
   const service = new ServiceApp({ backgroundApi: {} });
   await expect(

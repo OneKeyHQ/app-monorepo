@@ -125,116 +125,22 @@ describe('useMarketTopCoins', () => {
     mockToMarketDetailPage.mockResolvedValue(undefined);
   });
 
-  it('navigates with the default variant returned by the Asset detail API', async () => {
-    serviceMarket.fetchMarketAssetDetail.mockResolvedValueOnce(bitcoinDetail);
-    const { result } = renderHook(() => useMarketTopCoins());
-
-    await act(async () => {
-      await result.current.handleItemPress(bitcoin);
-    });
-
-    expect(serviceMarket.fetchMarketAssetDetail.mock.calls).toContainEqual([
-      {
-        assetId: 'btc',
-        currency: 'usd',
-      },
-    ]);
-    expect(serviceToken.fetchTokenInfoOnly.mock.calls).toEqual([
-      [{ networkId: 'evm--1', tokenAddress: '0xbtc' }],
-    ]);
-    expect(mockToMarketDetailPage).toHaveBeenCalledWith({
-      address: '0xbtc',
-      change24h: 1,
-      decimals: undefined,
-      isNative: false,
-      marketCap: 2_000_000,
-      marketTokenId: 'btc',
-      marketVariantId: 'btc-evm--1-0xbtc',
-      name: 'Bitcoin',
-      networkId: 'evm--1',
-      price: 100_000,
-      symbol: 'BTC',
-      tokenAddress: '0xbtc',
-      tokenImageUri: 'https://example.com/btc.png',
-      turnover: 1_000_000,
-    });
-  });
-
-  it('navigates without waiting for token metadata to resolve', async () => {
-    serviceMarket.fetchMarketAssetDetail.mockResolvedValueOnce(bitcoinDetail);
-    serviceToken.fetchTokenInfoOnly.mockReturnValue(
+  it('hands the Asset list item to detail navigation before detail resolves', async () => {
+    serviceMarket.fetchMarketAssetDetail.mockReturnValueOnce(
       new Promise(() => undefined),
     );
     const { result } = renderHook(() => useMarketTopCoins());
 
     await act(async () => {
-      void result.current.handleItemPress(bitcoin);
-    });
-
-    expect(mockToMarketDetailPage).toHaveBeenCalledWith(
-      expect.objectContaining({
-        decimals: undefined,
-        marketTokenId: 'btc',
-        marketVariantId: 'btc-evm--1-0xbtc',
-      }),
-    );
-    expect(serviceToken.fetchTokenInfoOnly.mock.calls).toHaveLength(1);
-    expect(
-      serviceToken.fetchTokenInfoOnly.mock.invocationCallOrder[0],
-    ).toBeLessThan(mockToMarketDetailPage.mock.invocationCallOrder[0]);
-    expect(Toast.error).not.toHaveBeenCalled();
-  });
-
-  it('keeps navigation available when metadata prefetch fails', async () => {
-    serviceMarket.fetchMarketAssetDetail.mockResolvedValueOnce(bitcoinDetail);
-    serviceToken.fetchTokenInfoOnly.mockRejectedValueOnce(
-      new Error('metadata unavailable'),
-    );
-    const { result } = renderHook(() => useMarketTopCoins());
-
-    await act(async () => {
       await result.current.handleItemPress(bitcoin);
     });
 
-    expect(serviceToken.fetchTokenInfoOnly.mock.calls).toHaveLength(1);
-    expect(mockToMarketDetailPage).toHaveBeenCalledWith(
-      expect.objectContaining({
-        decimals: undefined,
-        marketTokenId: 'btc',
-        marketVariantId: 'btc-evm--1-0xbtc',
-      }),
-    );
+    expect(mockToMarketDetailPage).toHaveBeenCalledWith(bitcoin);
+    expect(serviceMarket.fetchMarketAssetDetail.mock.calls).toHaveLength(0);
     expect(Toast.error).not.toHaveBeenCalled();
-  });
-
-  it('preserves local decimals for native token navigation', async () => {
-    serviceMarket.fetchMarketAssetDetail.mockResolvedValueOnce({
-      ...bitcoinDetail,
-      selectedVariant: {
-        ...bitcoinDetail.selectedVariant,
-        tokenAddress: '',
-        isNative: true,
-      },
-    });
-    const { result } = renderHook(() => useMarketTopCoins());
-
-    await act(async () => {
-      await result.current.handleItemPress(bitcoin);
-    });
-
-    expect(mockToMarketDetailPage).toHaveBeenCalledWith(
-      expect.objectContaining({
-        decimals: 18,
-        isNative: true,
-        networkId: 'evm--1',
-        tokenAddress: '',
-      }),
-    );
-    expect(serviceToken.fetchTokenInfoOnly.mock.calls).toHaveLength(0);
   });
 
   it('ignores repeated presses while navigation is pending', async () => {
-    serviceMarket.fetchMarketAssetDetail.mockResolvedValue(bitcoinDetail);
     mockToMarketDetailPage.mockReturnValueOnce(new Promise(() => undefined));
     const { result } = renderHook(() => useMarketTopCoins());
 
@@ -245,11 +151,10 @@ describe('useMarketTopCoins', () => {
       await result.current.handleItemPress(bitcoin);
     });
 
-    expect(serviceMarket.fetchMarketAssetDetail.mock.calls).toHaveLength(1);
     expect(mockToMarketDetailPage).toHaveBeenCalledTimes(1);
   });
 
-  it('reports a detail lookup failure without opening a CoinGecko route', async () => {
+  it('lets a later press navigate after the first navigation finishes', async () => {
     const { result } = renderHook(() => useMarketTopCoins());
 
     await act(async () => {
@@ -257,41 +162,7 @@ describe('useMarketTopCoins', () => {
       await result.current.handleItemPress(bitcoin);
     });
 
-    expect(serviceMarket.fetchMarketAssetDetail.mock.calls).toHaveLength(2);
-    expect(mockToMarketDetailPage).not.toHaveBeenCalled();
-    expect(Toast.error).toHaveBeenCalledTimes(2);
-  });
-
-  it.each([
-    {
-      name: 'a non-native variant without a token address',
-      selectedVariant: {
-        ...bitcoinDetail.selectedVariant,
-        tokenAddress: '',
-      },
-    },
-    {
-      name: 'a variant with an unknown network',
-      selectedVariant: {
-        ...bitcoinDetail.selectedVariant,
-        networkId: 'unknown--network',
-      },
-    },
-  ])('rejects $name', async ({ selectedVariant }) => {
-    serviceMarket.fetchMarketAssetDetail.mockResolvedValueOnce({
-      ...bitcoinDetail,
-      selectedVariant,
-    });
-    const { result } = renderHook(() => useMarketTopCoins());
-
-    await act(async () => {
-      await result.current.handleItemPress(bitcoin);
-    });
-
-    expect(mockToMarketDetailPage).not.toHaveBeenCalled();
-    expect(Toast.error).toHaveBeenCalledWith({
-      title: ETranslations.global_an_error_occurred,
-    });
+    expect(mockToMarketDetailPage).toHaveBeenCalledTimes(2);
   });
 
   it('does not open a Top Coin while travel mode is active', async () => {

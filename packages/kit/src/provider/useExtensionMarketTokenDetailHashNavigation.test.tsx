@@ -141,6 +141,26 @@ describe('useExtensionMarketTokenDetailHashNavigation', () => {
     });
   });
 
+  it('parses an Asset-only hash into the existing token detail route', () => {
+    expect(
+      getMarketTokenDetailNavigationTargetFromHash(
+        '#/market/token?marketTokenId=bitcoin&marketTokenCategory=top_coins&disableTrade=true',
+      ),
+    ).toEqual({
+      screen: ETabMarketRoutes.MarketDetailV2,
+      params: {
+        marketTokenId: 'bitcoin',
+        marketTokenCategory: 'top_coins',
+        disableTrade: true,
+      },
+    });
+    expect(
+      getMarketTokenDetailNavigationTargetFromHash(
+        '#/market/token?marketTokenId=bitcoin',
+      ),
+    ).toBeUndefined();
+  });
+
   it('ignores a serialized token preview in the expand-tab hash', () => {
     const legacyTokenPreview = {
       address: '0xabc',

@@ -9,10 +9,14 @@ import {
 
 import { useHeaderHeight } from '@react-navigation/elements';
 import { useFocusEffect, useIsFocused } from '@react-navigation/native';
+import { useIntl } from 'react-intl';
 
 import type { IPageScreenProps } from '@onekeyhq/components';
 import {
+  Button,
   Page,
+  SizableText,
+  YStack,
   useIsModalPage,
   useMedia,
   usePreventRemove,
@@ -22,6 +26,7 @@ import { useSetSplitViewDetailFullscreen } from '@onekeyhq/kit/src/provider/Cont
 import { useTokenDetailActions } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { MARKET_TOP_COINS_CATEGORY_ID } from '@onekeyhq/shared/src/consts/marketConsts';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   ETabMarketRoutes,
@@ -123,6 +128,7 @@ function MarketDetail({
   isTradingViewNative,
   onChartSwitch,
   onChartFullscreenChange,
+  navigation,
   route,
 }: IPageScreenProps<
   ITabMarketParamList,
@@ -139,6 +145,7 @@ function MarketDetail({
     | ITabMarketParamList[ETabMarketRoutes.MarketDetailV2]
     | ITabMarketParamList[ETabMarketRoutes.MarketStockDetail]
     | ITabMarketParamList[ETabMarketRoutes.MarketNativeDetail];
+  const intl = useIntl();
 
   const {
     isStockRoute,
@@ -186,15 +193,31 @@ function MarketDetail({
   );
   const marketTokenSymbol =
     'marketTokenSymbol' in params ? params.marketTokenSymbol : undefined;
-  const { identity: resolvedMarketAssetIdentity, shouldSkipMarketDataFetch } =
-    useResolvedMarketAssetRouteIdentity({
-      enabled: shouldResolveMarketAsset,
-      active: isRouteFocused,
-      tokenAddress: routeTokenAddress,
-      networkId: routeNetworkId,
-      symbol: marketTokenSymbol,
-      isNative: routeIsNative,
-    });
+  const routeMarketTokenId =
+    'marketTokenId' in params ? params.marketTokenId : undefined;
+  const routeMarketTokenCategory =
+    'marketTokenCategory' in params ? params.marketTokenCategory : undefined;
+  const isAssetOnlyRoute = Boolean(
+    routeMarketTokenId &&
+    routeMarketTokenCategory === MARKET_TOP_COINS_CATEGORY_ID &&
+    !routeNetworkId &&
+    !routeTokenAddress,
+  );
+  const {
+    identity: resolvedMarketAssetIdentity,
+    assetDetail: initialMarketAssetDetail,
+    hasError: assetIdentityError,
+    retry: retryAssetIdentity,
+    shouldSkipMarketDataFetch,
+  } = useResolvedMarketAssetRouteIdentity({
+    enabled: shouldResolveMarketAsset || isAssetOnlyRoute,
+    active: isRouteFocused,
+    tokenAddress: routeTokenAddress,
+    networkId: routeNetworkId,
+    symbol: marketTokenSymbol,
+    isNative: routeIsNative,
+    assetId: isAssetOnlyRoute ? routeMarketTokenId : undefined,
+  });
   const networkId =
     resolvedMarketAssetIdentity?.networkId ??
     selectedTokenVariant?.networkId ??
@@ -207,13 +230,10 @@ function MarketDetail({
     resolvedMarketAssetIdentity?.isNative ?? routeIsNative;
   const disableTrade = params.disableTrade;
   const marketTokenId =
-    resolvedMarketAssetIdentity?.marketTokenId ??
-    ('marketTokenId' in params ? params.marketTokenId : undefined);
+    resolvedMarketAssetIdentity?.marketTokenId ?? routeMarketTokenId;
   const marketVariantId =
     resolvedMarketAssetIdentity?.marketVariantId ??
     ('marketVariantId' in params ? params.marketVariantId : undefined);
-  const routeMarketTokenCategory =
-    'marketTokenCategory' in params ? params.marketTokenCategory : undefined;
   const marketTokenCategory = resolvedMarketAssetIdentity
     ? MARKET_TOP_COINS_CATEGORY_ID
     : (routeMarketTokenCategory ??
@@ -278,6 +298,7 @@ function MarketDetail({
     marketTokenId,
     marketVariantId,
     marketTokenCategory,
+    initialMarketAssetDetail,
   });
   // Desktop/Web detail screens stay mounted in the navigation stack. Only the
   // focused screen may own the shared Swap state and page footer. Keep that
@@ -340,30 +361,58 @@ function MarketDetail({
           opacity={isHeaderHeightSettled ? 1 : 0}
           testID={MarketTestIDs.detailPage}
         >
-          <MarketDetailResponsiveLayout
-            active={shouldOwnSharedMarketDetailState}
-            isLayoutPending={shouldSkipMarketDataFetch}
-            disablePerpsBanner={skipMarketDataFetch}
-            isInitialContentPending={
-              !hasValidInitialContentPreview &&
-              (isTokenVariantPending || isInitialTokenDetailPending)
-            }
-            isDesktopLayout={isDesktopLayout}
-            isChartFullscreen={isChartFullscreen}
-            isTradingViewNative={isTradingViewNative}
-            onChartSwitch={onChartSwitch}
-            onChartFullscreenChange={onChartFullscreenChange}
-            isNative={isNativeBoolean}
-            networkId={networkId}
-            tokenAddress={tokenAddress}
-            isTokenDetailRequestPending={isInitialTokenDetailPending}
-            marketTokenId={marketTokenId}
-            marketAssetDetail={marketAssetDetail}
-            isMarketAssetDetailLoading={isMarketAssetDetailLoading}
-            marketTokenCategory={marketTokenCategory}
-            showFavoriteButton={showFavoriteButton}
-            disableTrade={shouldDisableTrade}
-          />
+          {assetIdentityError ? (
+            <YStack
+              flex={1}
+              alignItems="center"
+              justifyContent="center"
+              gap="$2"
+            >
+              <SizableText color="$textSubdued">
+                {intl.formatMessage({
+                  id: ETranslations.global_unknown_error_retry_message,
+                })}
+              </SizableText>
+              <Button
+                testID="market-asset-detail-retry"
+                onPress={retryAssetIdentity}
+              >
+                {intl.formatMessage({ id: ETranslations.global_retry })}
+              </Button>
+              <Button
+                testID="market-asset-detail-back"
+                variant="tertiary"
+                onPress={() => navigation.goBack()}
+              >
+                {intl.formatMessage({ id: ETranslations.global_back })}
+              </Button>
+            </YStack>
+          ) : (
+            <MarketDetailResponsiveLayout
+              active={shouldOwnSharedMarketDetailState}
+              isLayoutPending={shouldSkipMarketDataFetch}
+              disablePerpsBanner={skipMarketDataFetch}
+              isInitialContentPending={
+                !hasValidInitialContentPreview &&
+                (isTokenVariantPending || isInitialTokenDetailPending)
+              }
+              isDesktopLayout={isDesktopLayout}
+              isChartFullscreen={isChartFullscreen}
+              isTradingViewNative={isTradingViewNative}
+              onChartSwitch={onChartSwitch}
+              onChartFullscreenChange={onChartFullscreenChange}
+              isNative={isNativeBoolean}
+              networkId={networkId}
+              tokenAddress={tokenAddress}
+              isTokenDetailRequestPending={isInitialTokenDetailPending}
+              marketTokenId={marketTokenId}
+              marketAssetDetail={marketAssetDetail}
+              isMarketAssetDetailLoading={isMarketAssetDetailLoading}
+              marketTokenCategory={marketTokenCategory}
+              showFavoriteButton={showFavoriteButton}
+              disableTrade={shouldDisableTrade}
+            />
+          )}
         </Page.Body>
       </Page>
     </BtcMetadataProvider>
