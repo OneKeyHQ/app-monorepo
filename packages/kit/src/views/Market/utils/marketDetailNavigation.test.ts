@@ -1492,3 +1492,61 @@ describe('marketDetailNavigation', () => {
     });
   });
 });
+
+describe('back from a stock detail opened by Swap view full data', () => {
+  const stockStack = [{ name: 'TabMarket' }, { name: 'MarketStockDetail' }];
+
+  it.each([true, false])(
+    'leaves the Market list underneath and returns to Swap (native=%p)',
+    (isNative) => {
+      expect(
+        resolveMarketDetailBackAction({
+          isTabletDetailView: false,
+          isNative,
+          from: EEnterWay.SwapStock,
+          routes: stockStack,
+          index: 1,
+        }),
+      ).toEqual({ type: 'popAndSwitchSwap', resetToList: false });
+    },
+  );
+
+  it('resets a detail-only Market stack before returning to Swap', () => {
+    expect(
+      resolveMarketDetailBackAction({
+        isTabletDetailView: false,
+        isNative: false,
+        from: EEnterWay.SwapStock,
+        routes: [{ name: 'MarketStockDetail' }],
+        index: 0,
+      }),
+    ).toEqual({ type: 'popAndSwitchSwap', resetToList: true });
+  });
+
+  it('keeps the tablet split view on its own pop', () => {
+    expect(
+      resolveMarketDetailBackAction({
+        isTabletDetailView: true,
+        isNative: true,
+        from: EEnterWay.SwapStock,
+        routes: stockStack,
+        index: 1,
+      }),
+    ).toEqual({ type: 'pop' });
+  });
+
+  it.each([undefined, EEnterWay.HomeTab, EEnterWay.Others, EEnterWay.Link])(
+    'leaves other entries (%p) on the Market list',
+    (from) => {
+      expect(
+        resolveMarketDetailBackAction({
+          isTabletDetailView: false,
+          isNative: false,
+          from,
+          routes: stockStack,
+          index: 1,
+        }),
+      ).toEqual({ type: 'pop' });
+    },
+  );
+});

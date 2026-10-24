@@ -10,7 +10,7 @@ import { useSplitSubView } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import type { EEnterWay } from '@onekeyhq/shared/src/logger/scopes/dex';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { ETabRoutes } from '@onekeyhq/shared/src/routes';
+import { ETabMarketRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
 
 import { resolveMarketDetailBackAction } from '../../utils/marketDetailNavigation';
 
@@ -38,6 +38,20 @@ export function useMarketDetailBackNavigation() {
     if (action.type === 'popAndSwitchMarket') {
       navigation.pop();
       navigation.switchTab(ETabRoutes.Market);
+      return;
+    }
+    if (action.type === 'popAndSwitchSwap') {
+      if (action.resetToList) {
+        reactNavigation.dispatch(
+          CommonActions.reset({
+            index: 0,
+            routes: [{ name: ETabMarketRoutes.TabMarket }],
+          }),
+        );
+      } else {
+        navigation.pop();
+      }
+      navigation.switchTab(ETabRoutes.Swap);
       return;
     }
     if (action.type === 'popToTop') {

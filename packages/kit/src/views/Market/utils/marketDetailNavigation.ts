@@ -185,6 +185,9 @@ export type IMarketDetailBackAction =
   | { type: 'pop' }
   | { type: 'popToTop' }
   | { type: 'popAndSwitchMarket' }
+  // Leave the Market tab on its list, then return to the Swap tab the user
+  // came from. `resetToList` covers a detail that is the stack's only screen.
+  | { type: 'popAndSwitchSwap'; resetToList: boolean }
   | { type: 'reset'; name: string; params?: Record<string, unknown> };
 
 type INavigationLike = {
@@ -678,6 +681,14 @@ function resolveEntryBackAction({
   }
   if (from === EEnterWay.SwapPro || from === EEnterWay.BannerList) {
     return { type: 'pop' };
+  }
+  // Swap's "view full data" switches tabs, so popping alone would only land
+  // on the Market list; send the user back to the trade they left.
+  if (from === EEnterWay.SwapStock) {
+    return {
+      type: 'popAndSwitchSwap',
+      resetToList: !routes?.length || routes.length <= 1,
+    };
   }
   return undefined;
 }

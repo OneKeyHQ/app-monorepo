@@ -20,6 +20,7 @@ import {
   HeaderScrollGestureContext,
   Page,
   rootNavigationRef,
+  switchTab,
   useIsModalPage,
   useMedia,
   usePreventRemove,
@@ -32,8 +33,9 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { MARKET_TOP_COINS_CATEGORY_ID } from '@onekeyhq/shared/src/consts/marketConsts';
+import { EEnterWay } from '@onekeyhq/shared/src/logger/scopes/dex';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { ERootRoutes } from '@onekeyhq/shared/src/routes';
+import { ERootRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
 import type {
   ETabMarketRoutes,
   ITabMarketParamList,
@@ -252,6 +254,34 @@ function MarketDetail({
   const handleInitialSectionShown = useCallback(() => {
     navigation.setParams({ initialSection: undefined });
   }, [navigation]);
+  // Swap's "view full data" switched tabs to get here. The desktop title-bar
+  // back is the shared stack header, which only pops this detail onto the
+  // Market list; finish the trip back to the Swap tab the user left. Other
+  // removals (tab re-press, resets, stock switches) keep their behavior.
+  const isFromSwapStock =
+    'from' in params && params.from === EEnterWay.SwapStock;
+  const isChartFullscreenRef = useRef(isChartFullscreen);
+  isChartFullscreenRef.current = isChartFullscreen;
+  useEffect(() => {
+    if (!isFromSwapStock) return;
+    let isReturningToSwap = false;
+    return navigation.addListener('beforeRemove', (event) => {
+      const { action } = event.data;
+      if (
+        isReturningToSwap ||
+        isChartFullscreenRef.current ||
+        (action.type !== 'GO_BACK' && action.type !== 'POP')
+      ) {
+        return;
+      }
+      // Switch tabs before the pop: popping first shows the Market list for
+      // a frame before Swap comes back.
+      event.preventDefault();
+      isReturningToSwap = true;
+      switchTab(ETabRoutes.Swap);
+      requestAnimationFrame(() => navigation.dispatch(action));
+    });
+  }, [isFromSwapStock, navigation]);
   const routeTokenDetailPreview =
     'legacyTokenPreview' in params ? params.legacyTokenPreview : undefined;
   const tokenDetailPreview = useMemo(

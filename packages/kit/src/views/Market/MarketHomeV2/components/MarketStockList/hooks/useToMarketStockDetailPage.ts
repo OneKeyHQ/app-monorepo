@@ -57,6 +57,7 @@ export type IMarketStockDetailNavigationTarget = IMarketStockDetailPreview &
     networkId?: string;
     isNative?: boolean;
     initialSection?: IMarketStockDetailInitialSection;
+    from?: EEnterWay;
   };
 
 export type IMarketStockDetailNavigationInput =
@@ -330,6 +331,7 @@ export function useToMarketStockDetailPage(
             ...(stockPreview?.initialSection
               ? { initialSection: stockPreview.initialSection }
               : undefined),
+            ...(stockPreview?.from ? { from: stockPreview.from } : undefined),
           },
         },
       });
