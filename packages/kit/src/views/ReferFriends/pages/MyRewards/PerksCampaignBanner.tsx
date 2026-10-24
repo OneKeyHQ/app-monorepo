@@ -145,8 +145,14 @@ function PerksBannerSlide({
       ai="center"
       role="button"
       cursor="default"
-      hoverStyle={{ bg: '$bgHover' }}
-      pressStyle={{ bg: '$bgActive' }}
+      // A swipe keeps the finger down, so a press fill flashes across the
+      // whole card and reads as a shadow. Compact layouts are swipe-first.
+      {...(compact
+        ? {}
+        : {
+            hoverStyle: { bg: '$bgHover' },
+            pressStyle: { bg: '$bgActive' },
+          })}
       onPress={handlePress}
     >
       <YStack flex={1} minWidth={0} alignSelf="stretch" jc="space-between">
