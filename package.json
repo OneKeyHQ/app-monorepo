@@ -538,7 +538,7 @@
     "@metamask/eth-sig-util": "5.1.0",
     "@polkadot/api": "14.3.1",
     "@polkadot/util": "13.2.3",
-    "electron": "44.5.1",
+    "electron": "44.9.3",
     "@walletconnect/core": "2.23.10",
     "@walletconnect/utils": "2.23.10",
     "@walletconnect/types": "2.23.10",
