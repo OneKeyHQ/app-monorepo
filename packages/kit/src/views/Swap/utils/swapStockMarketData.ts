@@ -357,7 +357,12 @@ export function getCachedSwapStockVariantToken(
     age < STOCK_SELECTION_CACHE_TTL_MS
   ) {
     try {
-      return buildSwapStockVariantToken(variant, stockId, cached.token);
+      // The detail cache holds the display-currency response, while this
+      // token labels its price USD. Leave the price to the USD refresh.
+      return buildSwapStockVariantToken(variant, stockId, {
+        ...cached.token,
+        price: undefined,
+      });
     } catch {
       // A malformed snapshot must go through the authoritative request.
     }

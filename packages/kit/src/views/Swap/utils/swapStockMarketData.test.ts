@@ -664,15 +664,25 @@ describe('Swap stock selection caches', () => {
         sourceLogoUri: 'https://example.com/xstocks.png',
       },
     });
-    await expect(
-      fetchSwapStockSelection(stock, 'AAPLon', locale),
-    ).resolves.toMatchObject({
-      networkId: 'evm--1',
-      currency: 'usd',
-      price: '311.25',
-    });
+    const cachedSelection = await fetchSwapStockSelection(
+      stock,
+      'AAPLon',
+      locale,
+    );
+    expect(cachedSelection).toMatchObject({ networkId: 'evm--1' });
+    // The cached detail may carry a display-currency price; it must not be
+    // relabeled as USD, so the price waits for the USD refresh.
+    expect(cachedSelection?.price).toBeUndefined();
+    expect(cachedSelection?.currency).toBeUndefined();
     expect(fetchVariantsMock).not.toHaveBeenCalled();
     expect(fetchDetailMock).not.toHaveBeenCalled();
+  });
+
+  it('keeps the USD price from an authoritative detail request', async () => {
+    fetchDetailMock.mockResolvedValue(buildDetailResponse());
+    await expect(
+      fetchSwapStockVariantToken(buildVariant(), stock.stockId, locale),
+    ).resolves.toMatchObject({ currency: 'usd', price: '311.25' });
   });
 
   it.each([
