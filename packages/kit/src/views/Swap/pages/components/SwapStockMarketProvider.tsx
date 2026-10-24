@@ -62,6 +62,7 @@ import {
   resolveSwapStockLoadingScopes,
   resolveSwapStockSelectionToken,
   resolveSwapStockTokenSelectionKind,
+  withCachedStockRiskPrice,
 } from '../../utils/swapStockMarketData';
 
 import { useSwapStockTradeContext } from './SwapStockTradeProvider';
@@ -328,7 +329,9 @@ function SwapStockSelectionProvider({
             onCommitted?.();
           }
         };
-        const isRiskToken = await checkRiskToken(token);
+        const isRiskToken = await checkRiskToken(
+          withCachedStockRiskPrice(token, locale),
+        );
         if (
           request !== requestRef.current ||
           initialIdentity !== identityRef.current
@@ -360,7 +363,7 @@ function SwapStockSelectionProvider({
         return false;
       }
     },
-    [checkRiskToken, navigation, selectStockSwapToken, storeName],
+    [checkRiskToken, locale, navigation, selectStockSwapToken, storeName],
   );
   const selectStock = useCallback(
     (stock: IMarketStockPublicItem, query?: string) => {

@@ -19,13 +19,16 @@ import {
   fetchSwapStockVariantToken,
   getCachedSwapStockAssetPreview,
   getCachedSwapStockId,
+  getCachedSwapStockVariantToken,
   resolveSwapStockAutoVariant,
   resolveSwapStockAvailability,
   resolveSwapStockLoadingScopes,
   resolveSwapStockSelectionToken,
   resolveSwapStockTokenSelectionKind,
   selectSwapStockVariant,
+  withCachedStockRiskPrice,
 } from './swapStockMarketData';
+import { isSwapTokenRisky } from './swapTokenRiskUtils';
 
 jest.mock('@onekeyhq/shared/src/utils/swrCacheUtils', () => {
   const actual = jest.requireActual<
@@ -676,6 +679,25 @@ describe('Swap stock selection caches', () => {
     expect(cachedSelection?.currency).toBeUndefined();
     expect(fetchVariantsMock).not.toHaveBeenCalled();
     expect(fetchDetailMock).not.toHaveBeenCalled();
+  });
+
+  it('lends a cache-built stock token its cached price for the risk check only', () => {
+    seedDetail(buildDetail());
+    const cachedToken = getCachedSwapStockVariantToken(
+      buildVariant(),
+      stock.stockId,
+      locale,
+    );
+    expect(cachedToken).toBeDefined();
+    expect(cachedToken?.price).toBeUndefined();
+    // Without a price a normal stock token would raise the risk prompt.
+    expect(isSwapTokenRisky(cachedToken!)).toBe(true);
+    const riskToken = withCachedStockRiskPrice(cachedToken!, locale);
+    expect(riskToken.price).toBe('311.25');
+    expect(isSwapTokenRisky(riskToken)).toBe(false);
+    // An uncached token is left as it is.
+    const uncached = { ...cachedToken!, contractAddress: '0xuncached' };
+    expect(withCachedStockRiskPrice(uncached, locale)).toBe(uncached);
   });
 
   it('keeps the USD price from an authoritative detail request', async () => {

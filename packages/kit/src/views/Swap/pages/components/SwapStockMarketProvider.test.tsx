@@ -96,6 +96,10 @@ jest.mock('../../utils/swapStockMarketData', () => {
     fetchSwapStockSelection: () => mockFetchSelection(),
     fetchSwapStockTokenIdentity: () => mockFetchIdentity(),
     getCachedSwapStockVariantToken: () => undefined,
+    withCachedStockRiskPrice: (token: ISwapToken) => ({
+      ...token,
+      price: token.price ?? 'cached-price',
+    }),
     fetchSwapStockVariantToken: (variant: IMarketStockTokenVariant) =>
       mockFetchVariantToken(variant),
   };
@@ -237,6 +241,10 @@ it('moves a restored token to bStocks only once the fetched variant list confirm
     rerender(<Subject />);
   });
   expect(mockFetchVariantToken).toHaveBeenCalledWith(bStocks);
+  // The risk check sees a priced copy; the committed token is the one built.
+  expect(mockRiskCheck).toHaveBeenCalledWith(
+    expect.objectContaining({ price: 'cached-price' }),
+  );
   expect(mockCommitToken).toHaveBeenCalledWith(bStocksToken, {
     resetReceiveAmount: true,
   });
