@@ -23,7 +23,6 @@ import {
   BITREFILL_BRIDGE_SCRIPT,
   isBitrefillEmbedUrl,
 } from '../../utils/bitrefillUtils';
-import { DAPP_LAYOUT_COMPAT_SCRIPT } from '../../utils/dappLayoutCompat';
 import { getWebviewWrapperRef, webviewRefs } from '../../utils/explorerUtils';
 import {
   PAGE_THEME_COLOR_SCRIPT,
@@ -67,8 +66,6 @@ function injectScript(tabId: string, script: string) {
     // best-effort injection
   }
 }
-
-const DOCUMENT_END_SCRIPT = `${DAPP_LAYOUT_COMPAT_SCRIPT}\n${PAGE_THEME_COLOR_SCRIPT}`;
 
 function WebContent({
   id,
@@ -288,7 +285,7 @@ function WebContent({
         onLoadStart={onLoadStart}
         // Read the page color as soon as the document is parsed (document
         // end), rather than waiting for onLoadEnd and every subresource.
-        injectedJavaScript={DOCUMENT_END_SCRIPT}
+        injectedJavaScript={PAGE_THEME_COLOR_SCRIPT}
         onLoadEnd={onLoadEnd as any}
         onScroll={onScroll}
         displayProgressBar={false}
