@@ -253,7 +253,7 @@ export function registerBalanceCommand(program: Command): void {
                   contractAddress: '',
                   balance: account.balance,
                 },
-                { chain: chainName },
+                { chain: chainName, quietValueKey: 'balance' },
               );
               return;
             }
@@ -272,7 +272,7 @@ export function registerBalanceCommand(program: Command): void {
                   },
                 ],
               },
-              { chain: chainName },
+              { chain: chainName, quietValueKey: 'balance' },
             );
             return;
           }
@@ -359,7 +359,7 @@ export function registerBalanceCommand(program: Command): void {
               balance: balance ?? '0',
               balanceRaw: balanceRaw ?? '0',
             },
-            { chain: chainName },
+            { chain: chainName, quietValueKey: 'balance' },
           );
         } catch (error) {
           const appError = AppError.from(error);

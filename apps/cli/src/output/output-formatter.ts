@@ -21,10 +21,15 @@ export class OutputFormatter {
     target.write(message.endsWith('\n') ? message : `${message}\n`);
   }
 
-  success<T>(data: T, _metadata?: Partial<IOutputMetadata>): void {
+  success<T>(data: T, metadata?: Partial<IOutputMetadata>): void {
     if (this.mode === 'quiet') {
       if (data && typeof data === 'object') {
-        const values = Object.values(data as Record<string, unknown>);
+        const record = data as Record<string, unknown>;
+        const values =
+          metadata?.quietValueKey &&
+          Object.prototype.hasOwnProperty.call(record, metadata.quietValueKey)
+            ? [record[metadata.quietValueKey]]
+            : Object.values(record);
         if (values.length > 0) {
           process.stdout.write(`${String(values[0])}\n`);
         }
