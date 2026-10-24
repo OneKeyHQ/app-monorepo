@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 
 import MaskedView from '@react-native-masked-view/masked-view';
 import { useIntl } from 'react-intl';
-import { StyleSheet, View } from 'react-native';
+import { type LayoutChangeEvent, StyleSheet, View } from 'react-native';
 
 import {
   Icon,
@@ -99,7 +99,7 @@ function fitDomainText(
   };
 }
 
-// Domain text that is never ellipsized. At 16pt when it fits; when it
+// Domain text that never ends in an ellipsis. At 16pt when it fits; when it
 // doesn't, it first shrinks (down to 14pt), and only if it still doesn't fit
 // does the end of the domain (the part that identifies the site) stay visible
 // while the start fades out.
@@ -156,7 +156,7 @@ function DomainLabel({
         fontSize={fontSize}
         numberOfLines={1}
         // Hidden until measured, so a long domain doesn't flash at 16pt
-        // (ellipsized on Android) before its size is picked.
+        // (cut with an ellipsis on Android) before its size is picked.
         opacity={fullTextWidth && availableWidth ? 1 : 0}
         testID={testID}
       >
@@ -173,25 +173,29 @@ function DomainLabel({
       }
     >
       <View style={styles.measure} pointerEvents="none">
-        <SizableText
-          size="$bodyLgMedium"
-          numberOfLines={1}
-          onLayout={(e) =>
+        {/* SizableText does not accept onLayout; the wrapper is the measured box. */}
+        <View
+          onLayout={(e: LayoutChangeEvent) =>
             setFullTextWidth(Math.ceil(e.nativeEvent.layout.width))
           }
         >
-          {text}
-        </SizableText>
-        <SizableText
-          size="$bodyLgMedium"
-          fontSize={DOMAIN_MIN_FONT_SIZE}
-          numberOfLines={1}
-          onLayout={(e) =>
+          <SizableText size="$bodyLgMedium" numberOfLines={1}>
+            {text}
+          </SizableText>
+        </View>
+        <View
+          onLayout={(e: LayoutChangeEvent) =>
             setMinTextWidth(Math.ceil(e.nativeEvent.layout.width))
           }
         >
-          {text}
-        </SizableText>
+          <SizableText
+            size="$bodyLgMedium"
+            fontSize={DOMAIN_MIN_FONT_SIZE}
+            numberOfLines={1}
+          >
+            {text}
+          </SizableText>
+        </View>
       </View>
       {overflows ? (
         <MaskedView
