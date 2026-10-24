@@ -1008,7 +1008,9 @@ function StockAmountInput({
           loading: contentLoading,
           placeholder: '0.0',
           inputAccessoryViewID:
-            platformEnv.isNativeIOS && balanceActionsReady && !contentLoading
+            platformEnv.isNativeIOSPhone &&
+            balanceActionsReady &&
+            !contentLoading
               ? SwapAmountInputAccessoryViewID
               : undefined,
           onFocus: handleAmountInputFocus,
@@ -1052,7 +1054,9 @@ function StockAmountInput({
         }}
         enableMaxAmount={Boolean(inputToken) && !contentLoading}
       />
-      {platformEnv.isNativeIOS && balanceActionsReady && !contentLoading ? (
+      {platformEnv.isNativeIOSPhone &&
+      balanceActionsReady &&
+      !contentLoading ? (
         <InputAccessoryView nativeID={SwapAmountInputAccessoryViewID}>
           <PercentageStageOnKeyboard
             onSelectPercentageStage={onSelectPercentageStage}
