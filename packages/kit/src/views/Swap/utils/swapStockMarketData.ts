@@ -107,20 +107,6 @@ function getCachedStockIdFromVariants(token: ISwapToken, locale: string) {
   return stockIds.size === 1 ? Array.from(stockIds)[0] : undefined;
 }
 
-/**
- * The risk check only needs proof that the token has a non-zero price, not
- * its currency. A cache-built stock token carries no price (the cache may hold
- * a display-currency value), so lend it the cached one for that check only.
- */
-export function withCachedStockRiskPrice(token: ISwapToken, locale: string) {
-  if (token.price) return token;
-  const price = getCachedStockTokenDetail(
-    { ...token, isNative: Boolean(token.isNative) },
-    locale,
-  )?.token?.price;
-  return price ? { ...token, price } : token;
-}
-
 export function getCachedSwapStockId(token: ISwapToken, locale: string) {
   const stockId = resolveMarketStockId(token);
   if (stockId) return stockId;
@@ -371,12 +357,9 @@ export function getCachedSwapStockVariantToken(
     age < STOCK_SELECTION_CACHE_TTL_MS
   ) {
     try {
-      // The detail cache holds the display-currency response, while this
-      // token labels its price USD. Leave the price to the USD refresh.
-      return buildSwapStockVariantToken(variant, stockId, {
-        ...cached.token,
-        price: undefined,
-      });
+      // The detail's primary price is always USD (a display currency only
+      // fills priceConverted), so the cached token keeps a correct USD price.
+      return buildSwapStockVariantToken(variant, stockId, cached.token);
     } catch {
       // A malformed snapshot must go through the authoritative request.
     }
