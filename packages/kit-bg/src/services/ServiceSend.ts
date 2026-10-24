@@ -56,6 +56,7 @@ import {
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import bulkSendUtils from '@onekeyhq/shared/src/utils/bulkSendUtils';
 import cacheUtils from '@onekeyhq/shared/src/utils/cacheUtils';
+import { assertNoHardwareCloudSyncSigningRequest } from '@onekeyhq/shared/src/utils/hardwareCloudSyncGuards';
 import { getValidUnsignedMessage } from '@onekeyhq/shared/src/utils/messageUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
@@ -2605,10 +2606,13 @@ class ServiceSend extends ServiceBase {
     useNonBlockingKdf?: boolean;
   }) {
     assertAccountCanSign(accountId);
+    assertNoHardwareCloudSyncSigningRequest({ unsignedMessage, accountId });
     const vault = await vaultFactory.getVault({
       networkId,
       accountId,
     });
+    const account = await vault.getAccount();
+    assertNoHardwareCloudSyncSigningRequest({ path: account.path });
 
     let validUnsignedMessage = unsignedMessage;
     if (unsignedMessage) {
@@ -2619,6 +2623,7 @@ class ServiceSend extends ServiceBase {
     if (!validUnsignedMessage) {
       throw new OneKeyLocalError('Invalid unsigned message');
     }
+    assertNoHardwareCloudSyncSigningRequest(validUnsignedMessage);
 
     const kdfParams = useNonBlockingKdf
       ? getPbkdf2KdfParamsForNonDbTxNoCache()

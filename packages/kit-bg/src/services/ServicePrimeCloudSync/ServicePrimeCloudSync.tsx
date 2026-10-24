@@ -1370,6 +1370,29 @@ class ServicePrimeCloudSync extends ServiceBase {
     noDebounceUpload,
     forceSync,
   }: IStartServerSyncFlowParams = {}) {
+    return this.backgroundApi.serviceKeylessCloudSync.runWithCloudSyncKeyLock(
+      () =>
+        this.startServerSyncFlowWithSelectedKey({
+          isFlush,
+          encryptedSecurityPasswordR1ForServer,
+          setUndefinedTimeToNow,
+          throwError,
+          callerName,
+          noDebounceUpload,
+          forceSync,
+        }),
+    );
+  }
+
+  private async startServerSyncFlowWithSelectedKey({
+    isFlush,
+    encryptedSecurityPasswordR1ForServer,
+    setUndefinedTimeToNow,
+    throwError,
+    callerName,
+    noDebounceUpload,
+    forceSync,
+  }: IStartServerSyncFlowParams) {
     try {
       // const syncMode = await this.getActiveSyncMode();
 
@@ -1747,6 +1770,35 @@ class ServicePrimeCloudSync extends ServiceBase {
       skipClearLocalMasterPassword?: boolean;
     } = {},
   ) {
+    // Legacy credential-error cleanup can run inside a locked sync flow.
+    // Disabling preserves the selected source and its credential storage.
+    if (!enabled) {
+      return this.setCloudSyncEnabledWithKeyLock(false, {
+        skipClearLocalMasterPassword,
+      });
+    }
+    return this.backgroundApi.serviceKeylessCloudSync.runWithCloudSyncKeyLock(
+      () =>
+        this.setCloudSyncEnabledWithKeyLock(enabled, {
+          skipClearLocalMasterPassword,
+        }),
+    );
+  }
+
+  async setCloudSyncEnabledWithKeyLock(
+    enabled: boolean,
+    {
+      skipClearLocalMasterPassword,
+    }: { skipClearLocalMasterPassword?: boolean } = {},
+  ) {
+    if (
+      enabled &&
+      (await primeCloudSyncPersistAtom.get()).hardwareCloudSyncKeySource
+    ) {
+      throw new OneKeyError(
+        'Changing an existing hardware Cloud key requires an explicit migration.',
+      );
+    }
     if (!enabled && !skipClearLocalMasterPassword) {
       await this.backgroundApi.serviceMasterPassword.clearLocalMasterPassword({
         skipDisableCloudSync: true,
@@ -1880,10 +1932,20 @@ class ServicePrimeCloudSync extends ServiceBase {
     if (!syncCredential) {
       return false;
     }
-    await this.initLocalSyncItemsDB({
-      syncCredential,
-      password,
-    });
+    await this.backgroundApi.serviceKeylessCloudSync.runWithCloudSyncKeyLock(
+      async () => {
+        const selected = await this.getSyncCredentialSafe();
+        if (
+          selected?.keylessCredential?.signingPublicKey !==
+          syncCredential.keylessCredential?.signingPublicKey
+        ) {
+          throw new OneKeyError(
+            'Cloud key selection changed. Try syncing again.',
+          );
+        }
+        await this.initLocalSyncItemsDB({ syncCredential, password });
+      },
+    );
     await this.startServerSyncFlow({
       callerName,
       noDebounceUpload,

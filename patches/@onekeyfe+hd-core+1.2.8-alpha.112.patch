@@ -1,0 +1,26 @@
+diff --git a/node_modules/@onekeyfe/hd-core/dist/index.js b/node_modules/@onekeyfe/hd-core/dist/index.js
+index 84e79b8..31eadb6 100644
+--- a/node_modules/@onekeyfe/hd-core/dist/index.js
++++ b/node_modules/@onekeyfe/hd-core/dist/index.js
+@@ -2433,6 +2433,8 @@ const LogBlockEvent = new Set([
+     UI_RESPONSE.RECEIVE_PASSPHRASE,
+ ]);
+ const LogPayloadBlockMethod = new Set([
++    // OneKey patch: BTC message signatures can be secret Cloud-key material.
++    'btcSignMessage',
+     'btcDeriveContextHash',
+     'deviceUploadNft',
+     'deviceUploadWallpaper',
+diff --git a/node_modules/@onekeyfe/hd-core/src/events/logBlockEvent.ts b/node_modules/@onekeyfe/hd-core/src/events/logBlockEvent.ts
+index 598c533..0b6f8ba 100644
+--- a/node_modules/@onekeyfe/hd-core/src/events/logBlockEvent.ts
++++ b/node_modules/@onekeyfe/hd-core/src/events/logBlockEvent.ts
+@@ -11,6 +11,8 @@ export const LogBlockEvent: Set<string> = new Set([
+ // These resource/file APIs did not exist in 1.1.32. Skip the payload so
+ // the log layer does not copy huge Base64 or binary data.
+ const LogPayloadBlockMethod: Set<string> = new Set([
++  // OneKey patch: BTC message signatures can be secret Cloud-key material.
++  'btcSignMessage',
+   'btcDeriveContextHash',
+   'deviceUploadNft',
+   'deviceUploadWallpaper',

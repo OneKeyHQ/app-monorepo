@@ -54,6 +54,7 @@ import {
   ensurePromiseObject,
   ensureSerializable,
 } from '@onekeyhq/shared/src/utils/assertUtils';
+import { assertNoHardwareCloudSyncSigningRequest } from '@onekeyhq/shared/src/utils/hardwareCloudSyncGuards';
 import { EAlignPrimaryAccountMode } from '@onekeyhq/shared/types/dappConnection';
 import { EPasswordVerifyStatus } from '@onekeyhq/shared/types/password';
 
@@ -1016,6 +1017,7 @@ class BackgroundApiBase implements IBackgroundApiBridge {
       operation: async () => {
         const { scope, origin } = payload;
         const payloadData = payload?.data as IJsonRpcRequest;
+        assertNoHardwareCloudSyncSigningRequest(payloadData?.params);
         const provider: ProviderApiBase = await this.getProviderApi(
           scope as IInjectedProviderNames,
         );
