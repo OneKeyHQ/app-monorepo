@@ -107,11 +107,12 @@ function TabCountButton({ testID, onPressed }: ITabCountButtonProps) {
               lineHeight={14}
               fontWeight="600"
               color={color}
-              // Tabular digits all share one advance width with the glyph
-              // centered in it, so every count (a narrow "1" included) sits
-              // centered without per-digit nudges. No letter spacing: iOS
-              // adds it after the last digit too, which offsets the text.
-              fontVariant={TABULAR_NUMS}
+              // A single digit uses a tabular glyph, centered in its fixed
+              // advance, so a narrow "1" sits centered too. Two or more keep
+              // proportional digits: tabular ones space a "11" too far apart.
+              // No letter spacing: iOS also adds it after the last digit,
+              // which offsets the text.
+              fontVariant={tabCount < 10 ? TABULAR_NUMS : undefined}
             >
               {tabCount}
             </SizableText>
