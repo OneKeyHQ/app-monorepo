@@ -46,26 +46,46 @@ const styles = StyleSheet.create({
 const DOMAIN_FONT_SIZE = 16;
 const DOMAIN_MIN_FONT_SIZE = 14;
 
-function fitDomainText(fullTextWidth: number, availableWidth: number) {
-  if (!availableWidth || !fullTextWidth || fullTextWidth <= availableWidth) {
+// Slack added to a shrunk or overflowing label's box: the text is laid out
+// in a box sized from measurements, and a box even a hair too narrow makes
+// Android ellipsize it (or iOS wrap it).
+const DOMAIN_WIDTH_SLACK = 2;
+
+// Picks the font size from the domain's measured widths at the full and the
+// minimum size (interpolated in half-point steps, not scaled from one
+// measurement: glyph widths don't scale exactly linearly, notably on Android).
+function fitDomainText(
+  fullWidth: number,
+  minWidth: number,
+  availableWidth: number,
+) {
+  if (!availableWidth || !fullWidth || fullWidth <= availableWidth) {
     return {
       fontSize: DOMAIN_FONT_SIZE,
-      textWidth: fullTextWidth,
+      textWidth: undefined,
       overflows: false,
     };
   }
-  // Half-point steps rounded down, with a point of slack, so glyph rounding
-  // never tips a shrunk domain back over the edge.
-  const fitted =
-    Math.floor(
-      ((DOMAIN_FONT_SIZE * (availableWidth - 1)) / fullTextWidth) * 2,
-    ) / 2;
-  const fontSize = Math.max(DOMAIN_MIN_FONT_SIZE, fitted);
-  const textWidth = Math.ceil((fullTextWidth * fontSize) / DOMAIN_FONT_SIZE);
+  const room = availableWidth - DOMAIN_WIDTH_SLACK;
+  if (!minWidth || minWidth > room) {
+    return {
+      fontSize: DOMAIN_MIN_FONT_SIZE,
+      textWidth: minWidth ? minWidth + DOMAIN_WIDTH_SLACK : undefined,
+      overflows: !!minWidth,
+    };
+  }
+  const widthAt = (size: number) =>
+    minWidth +
+    ((fullWidth - minWidth) * (size - DOMAIN_MIN_FONT_SIZE)) /
+      (DOMAIN_FONT_SIZE - DOMAIN_MIN_FONT_SIZE);
+  let fontSize = DOMAIN_FONT_SIZE - 0.5;
+  while (fontSize > DOMAIN_MIN_FONT_SIZE && widthAt(fontSize) > room) {
+    fontSize -= 0.5;
+  }
   return {
     fontSize,
-    textWidth,
-    overflows: fitted < DOMAIN_MIN_FONT_SIZE,
+    textWidth: Math.ceil(widthAt(fontSize)) + DOMAIN_WIDTH_SLACK,
+    overflows: false,
   };
 }
 
@@ -87,15 +107,20 @@ function DomainLabel({
   trailingBalance: number;
 }) {
   const [availableWidth, setAvailableWidth] = useState(0);
-  // Natural width at the full font size; width scales linearly with size.
+  // Natural single-line widths at the full and the minimum font size.
   const [fullTextWidth, setFullTextWidth] = useState(0);
+  const [minTextWidth, setMinTextWidth] = useState(0);
   const { fontSize, textWidth, overflows } = fitDomainText(
     fullTextWidth,
+    minTextWidth,
     availableWidth,
   );
   const balance = overflows
     ? 0
-    : Math.min(trailingBalance, Math.max(0, availableWidth - textWidth));
+    : Math.min(
+        trailingBalance,
+        Math.max(0, availableWidth - (textWidth ?? fullTextWidth)),
+      );
 
   const row = (
     <View
@@ -112,9 +137,9 @@ function DomainLabel({
         fontSize={fontSize}
         numberOfLines={1}
         flexShrink={0}
-        // A fixed width lets the line overflow to the left instead of
-        // wrapping or being clipped on the right.
-        width={overflows ? textWidth : undefined}
+        // A width from the measurements keeps the line whole: it overflows
+        // to the left (behind the fade) instead of being ellipsized.
+        width={textWidth}
         testID={testID}
       >
         {text}
@@ -135,6 +160,16 @@ function DomainLabel({
           numberOfLines={1}
           onLayout={(e) =>
             setFullTextWidth(Math.ceil(e.nativeEvent.layout.width))
+          }
+        >
+          {text}
+        </SizableText>
+        <SizableText
+          size="$bodyLgMedium"
+          fontSize={DOMAIN_MIN_FONT_SIZE}
+          numberOfLines={1}
+          onLayout={(e) =>
+            setMinTextWidth(Math.ceil(e.nativeEvent.layout.width))
           }
         >
           {text}
