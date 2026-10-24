@@ -175,7 +175,7 @@ export function SwapStockPositions({
           >
             {intl.formatMessage({
               id: mobile
-                ? ETranslations.title_my_positions
+                ? ETranslations.perp_position_title
                 : ETranslations.title_all_positions,
             })}
           </SizableText>
