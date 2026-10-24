@@ -331,9 +331,13 @@ export function resolveSwapStockAutoVariant({
     defaultTokenId,
     preferredIssuer,
   );
+  if (!target || target.tokenId === current.tokenId) return undefined;
+  // A token from the rule's issuer stays on its own network, unless it can no
+  // longer trade and the same issuer has a tradable token elsewhere.
   if (
-    !target ||
-    normalizeStockIssuer(target.issuer) === normalizeStockIssuer(current.issuer)
+    normalizeStockIssuer(target.issuer) ===
+      normalizeStockIssuer(current.issuer) &&
+    isStockTokenVariantTradable(current)
   ) {
     return undefined;
   }

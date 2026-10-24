@@ -1108,6 +1108,24 @@ describe('issuer preference in Swap stock defaults', () => {
     ).toBeUndefined();
   });
 
+  it('moves a paused token to a tradable token of the same issuer', () => {
+    const pausedOndoBsc = { ...ondoBsc, isPaused: true };
+    expect(
+      resolveSwapStockAutoVariant({
+        variants: [bStocks, ondo, pausedOndoBsc],
+        current: pausedOndoBsc,
+        preferredIssuer: 'ondo',
+      }),
+    ).toBe(ondo);
+    // With no tradable replacement the paused token stays.
+    expect(
+      resolveSwapStockAutoVariant({
+        variants: [pausedOndoBsc],
+        current: pausedOndoBsc,
+      }),
+    ).toBeUndefined();
+  });
+
   it('keeps the token when no tradable variant can replace it', () => {
     expect(
       resolveSwapStockAutoVariant({
