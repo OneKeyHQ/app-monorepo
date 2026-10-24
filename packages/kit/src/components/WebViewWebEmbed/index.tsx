@@ -66,11 +66,19 @@ function getDevSessionWebEmbedUrl() {
 // /onboarding/auto_typing
 export function WebViewWebEmbed({
   isSingleton,
+  mountId,
+  mountSequence,
+  requestId,
+  isCurrentMount,
   customReceiveHandler,
   hashRoutePath,
   hashRouteQueryParams,
 }: {
   isSingleton?: boolean;
+  mountId?: string;
+  mountSequence?: number;
+  requestId?: string;
+  isCurrentMount?: (mountId: string) => boolean;
   customReceiveHandler?: IJsBridgeReceiveHandler;
   hashRoutePath?: EWebEmbedRoutePath;
   hashRouteQueryParams?: Record<string, string>;
@@ -79,6 +87,59 @@ export function WebViewWebEmbed({
   const { instanceId } = settingsPersistAtom;
 
   const webviewRef = useRef<IWebViewWrapperRef | null>(null);
+  const activationPromiseRef = useRef<Promise<boolean> | undefined>(undefined);
+  const activateMount = useCallback(() => {
+    if (!isSingleton || !mountId || !mountSequence) {
+      return Promise.resolve(true);
+    }
+    activationPromiseRef.current ??=
+      backgroundApiProxy.serviceDApp.activateWebEmbedMount({
+        mountId,
+        mountSequence,
+        requestId,
+      });
+    return activationPromiseRef.current;
+  }, [isSingleton, mountId, mountSequence, requestId]);
+  useEffect(() => {
+    if (!isSingleton || !mountId) {
+      return;
+    }
+    return () => {
+      const activation = activationPromiseRef.current;
+      if (activation === undefined) {
+        return;
+      }
+      void activation
+        .then((active) => {
+          if (active) {
+            return backgroundApiProxy.serviceDApp.deactivateWebEmbedMount(
+              mountId,
+            );
+          }
+          return undefined;
+        })
+        .catch(() => undefined);
+    };
+  }, [activateMount, isSingleton, mountId]);
+  const handleSingletonReceive = useCallback<IJsBridgeReceiveHandler>(
+    async (payload, bridge) => {
+      if (
+        mountId &&
+        payload.scope === '$private' &&
+        (payload.data as { method?: string } | undefined)?.method ===
+          'webEmbedApiReady'
+      ) {
+        await activateMount();
+        payload.data = {
+          ...(payload.data as Record<string, unknown>),
+          params: [{ mountId }],
+        };
+      }
+      const result: unknown = await customReceiveHandler?.(payload, bridge);
+      return result;
+    },
+    [activateMount, customReceiveHandler, mountId],
+  );
   const onWebViewRef = useCallback(($ref: IWebViewWrapperRef | null) => {
     webviewRef.current = $ref;
   }, []);
@@ -317,7 +378,9 @@ export function WebViewWebEmbed({
         // *** use web-embed local html file
         nativeWebviewSource={nativeWebviewSource}
         onWebViewRef={onWebViewRef}
-        customReceiveHandler={customReceiveHandler}
+        customReceiveHandler={
+          isSingleton ? handleSingletonReceive : customReceiveHandler
+        }
         onMessage={handleMessage}
         onError={handleError}
         nativeInjectedJavaScriptBeforeContentLoaded={`
@@ -355,6 +418,8 @@ export function WebViewWebEmbed({
     nativeWebviewSource,
     onWebViewRef,
     customReceiveHandler,
+    handleSingletonReceive,
+    isSingleton,
     handleMessage,
     handleError,
   ]);
@@ -381,17 +446,41 @@ export function WebViewWebEmbed({
       return;
     }
     jsBridge.globalOnMessageEnabled = true;
+    if (isSingleton && mountId && mountSequence) {
+      let disposed = false;
+      void activateMount()
+        .then((active) => {
+          if (active && !disposed && isCurrentMount?.(mountId)) {
+            backgroundApiProxy.connectWebEmbedBridge(
+              jsBridge as unknown as JsBridgeBase,
+              mountId,
+              mountSequence,
+            );
+          }
+        })
+        .catch(() => undefined);
+      return () => {
+        disposed = true;
+        backgroundApiProxy.connectWebEmbedBridge(null, mountId, mountSequence);
+      };
+    }
     backgroundApiProxy.connectWebEmbedBridge(
       jsBridge as unknown as JsBridgeBase,
     );
     return () => {
-      // Reset BG's canonical `isWebEmbedApiReady` alongside disconnecting the
-      // bridge. Without this, the next mount could see a stale BG ready and
-      // dispatch calls before the new page replays its `webEmbedApiReady`.
+      // Legacy hosts may still reset readiness when no API mount owns it.
       void backgroundApiProxy.serviceDApp.markWebEmbedApiNotReady();
       backgroundApiProxy.connectWebEmbedBridge(null);
     };
-  }, [webviewRef, webview, webEmbedAppSettings]);
+  }, [
+    activateMount,
+    isCurrentMount,
+    isSingleton,
+    mountId,
+    mountSequence,
+    webview,
+    webEmbedAppSettings,
+  ]);
 
   const webviewUrlOrUri = useMemo(() => {
     if (remoteUrl) {
@@ -455,13 +544,27 @@ export function WebViewWebEmbed({
   );
 }
 
-function WebViewWebEmbedSingletonView() {
+function WebViewWebEmbedSingletonView({
+  mountId,
+  mountSequence,
+  requestId,
+  isCurrentMount,
+}: {
+  mountId?: string;
+  mountSequence?: number;
+  requestId?: string;
+  isCurrentMount?: (mountId: string) => boolean;
+}) {
   console.log('WebViewWebEmbedSingletonView render');
   defaultLogger.app.webembed.renderWebviewSingleton();
   return (
     <GlobalJotaiReady>
       <WebViewWebEmbed
         isSingleton
+        mountId={mountId}
+        mountSequence={mountSequence}
+        requestId={requestId}
+        isCurrentMount={isCurrentMount}
         hashRoutePath={EWebEmbedRoutePath.webEmbedApi}
       />
     </GlobalJotaiReady>
