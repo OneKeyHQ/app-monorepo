@@ -1,0 +1,2 @@
+"use strict";(self.rspackChunkweb=self.rspackChunkweb||[]).push([[41527],{536010(e,t,a){a.r(t);var r=a(313476),s=a(200852);let solana=async(e,t)=>{let a=t?.urlResult;if(a&&/solana/i.test(a.data.urlSchema)){let e=a.data.urlParamList;return e.splToken=e["spl-token"],e.recipient=a.data.urlPathList[0],{type:s.Wb.SOLANA,data:{...e,tokenAddress:e.splToken,network:await t?.backgroundApi?.serviceNetwork?.getNetwork?.({networkId:(0,r.V$)().sol}),address:e.recipient}}}return null};a.d(t,{},{default:solana})}}]);
+//# sourceMappingURL=41527.47f2ee42fa.chunk.js.map

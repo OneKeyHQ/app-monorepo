@@ -1,0 +1,2 @@
+"use strict";(self.rspackChunkweb=self.rspackChunkweb||[]).push([[85019],{818262(e,r,t){t.r(r);var a=t(42488),l=t(200852);let featuredChangelogPreview=async(e,r)=>{let t=r?.deeplinkResult;if(t?.data?.hostname===a.oO.preview_featured_changelog){let e=t.data.urlParamList?.version;return{type:l.Wb.FEATURED_CHANGELOG_PREVIEW,data:{version:"string"==typeof e?e.trim():void 0}}}return null};t.d(r,{},{default:featuredChangelogPreview})}}]);
+//# sourceMappingURL=85019.1621e69323.chunk.js.map

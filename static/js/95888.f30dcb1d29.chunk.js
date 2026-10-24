@@ -1,0 +1,2 @@
+"use strict";(self.rspackChunkweb=self.rspackChunkweb||[]).push([[95888],{65107(e,i,n){var s=n(606863);async function resumeUnifoldDepositTracking(e){let{items:i,watches:n=[],pendingDeliveries:t=[]}=await s.perpsUnifoldDepositTrackingAtom.get();(i.length||n.length||t.length)&&await e.serviceUnifoldDeposit.unifoldDepositTrackingLoop()}n.d(i,{resumeUnifoldDepositTracking:()=>resumeUnifoldDepositTracking})}}]);
+//# sourceMappingURL=95888.f30dcb1d29.chunk.js.map

@@ -1,0 +1,2 @@
+"use strict";(self.rspackChunkweb=self.rspackChunkweb||[]).push([[80313],{772416(e,t,u){function EmptyDevStub(){return null}u.r(t),u.d(t,{default:()=>EmptyDevStub},{developerRouters:[],galleryScreenList:[]})}}]);
+//# sourceMappingURL=80313.824d5d540c.chunk.js.map
