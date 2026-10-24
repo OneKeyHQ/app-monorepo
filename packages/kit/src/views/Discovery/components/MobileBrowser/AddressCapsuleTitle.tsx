@@ -145,6 +145,9 @@ function DomainLabel({
         // A width from the measurements keeps the line whole: it overflows
         // to the left (behind the fade) instead of being ellipsized.
         width={textWidth}
+        // Hidden until measured, so a long domain doesn't flash at 16pt
+        // (ellipsized on Android) before its size is picked.
+        opacity={fullTextWidth && availableWidth ? 1 : 0}
         testID={testID}
       >
         {text}

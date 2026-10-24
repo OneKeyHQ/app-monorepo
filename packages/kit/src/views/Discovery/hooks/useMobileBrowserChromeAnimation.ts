@@ -1,8 +1,7 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useRef } from 'react';
 
 import {
   Easing,
-  runOnUI,
   useAnimatedStyle,
   useSharedValue,
   withTiming,
@@ -19,9 +18,6 @@ import {
   DISPLAY_BOTTOM_BAR_DURATION,
   MIN_TOGGLE_BROWSER_VISIBLE_DISTANCE,
 } from '../config/Animation.constants';
-
-// Sentinel for "undefined" in SharedValue (SharedValue<number> can't hold undefined)
-const UNSET = -1;
 
 const EXPANDED = 1;
 const COLLAPSED = 0;
@@ -43,63 +39,25 @@ function useMobileBrowserChromeAnimation() {
   const fullBarHeight = getBarReservedHeight(bottomInset);
   // 1 = chrome fully expanded, 0 = collapsed.
   const chromeProgress = useSharedValue(EXPANDED);
-  const lastScrollY = useSharedValue(UNSET);
-  const lastTurnScrollY = useSharedValue(UNSET);
+  // Scroll direction tracking stays on the JS thread, where WebView scroll
+  // events arrive (one per frame): the UI thread is only touched when the
+  // chrome actually has to animate, about twice per gesture, instead of a
+  // runOnUI hop for every event.
+  const lastScrollYRef = useRef<number | undefined>(undefined);
+  const lastTurnScrollYRef = useRef<number | undefined>(undefined);
+  const targetRef = useRef(EXPANDED);
   // Room the collapsed pill needs when the bar is laid out in-flow (tablets).
   const collapsedBarHeight = getCollapsedReservedHeight(bottomInset);
 
-  // Direction detection + SharedValue writes run entirely on UI thread.
-  // WebView onScroll is JS-thread only, so we extract numeric values in JS
-  // and dispatch via runOnUI to avoid an extra JS→UI hop for withTiming.
-  const processScroll = useCallback(
-    (
-      contentOffsetY: number,
-      maxOffsetY: number,
-      canScroll: boolean,
-      isOutOfBounds: boolean,
-    ) => {
-      'worklet';
-
-      if (isOutOfBounds) {
-        lastScrollY.value = UNSET;
-        lastTurnScrollY.value = UNSET;
+  const animateTo = useCallback(
+    (target: number) => {
+      if (targetRef.current === target) {
         return;
       }
-
-      if (
-        !canScroll ||
-        contentOffsetY <= EDGE_EXPAND_DISTANCE ||
-        contentOffsetY >= maxOffsetY - EDGE_EXPAND_DISTANCE
-      ) {
-        if (chromeProgress.value !== EXPANDED) {
-          chromeProgress.value = withTiming(EXPANDED, timingConfig);
-        }
-        return;
-      }
-
-      if (
-        lastScrollY.value === UNSET ||
-        lastTurnScrollY.value === UNSET ||
-        (contentOffsetY - lastScrollY.value) *
-          (lastScrollY.value - lastTurnScrollY.value) <
-          0
-      ) {
-        lastTurnScrollY.value = lastScrollY.value;
-      }
-      lastScrollY.value = contentOffsetY;
-      if (lastTurnScrollY.value === UNSET) {
-        return;
-      }
-      const distanceOffsetY = contentOffsetY - lastTurnScrollY.value;
-      if (Math.abs(distanceOffsetY) <= MIN_TOGGLE_BROWSER_VISIBLE_DISTANCE) {
-        return;
-      }
-      const target = distanceOffsetY < 0 ? EXPANDED : COLLAPSED;
-      if (chromeProgress.value !== target) {
-        chromeProgress.value = withTiming(target, timingConfig);
-      }
+      targetRef.current = target;
+      chromeProgress.value = withTiming(target, timingConfig);
     },
-    [chromeProgress, lastScrollY, lastTurnScrollY],
+    [chromeProgress],
   );
 
   const handleScroll = useCallback(
@@ -107,8 +65,8 @@ function useMobileBrowserChromeAnimation() {
       const { contentOffset, contentSize, contentInset, layoutMeasurement } =
         nativeEvent;
       const contentOffsetY = contentOffset.y;
-      // contentInset extends the scroll range (the iOS bar inset adds room
-      // at the bottom), so the bounce zone starts past it.
+      // contentInset extends the scroll range, so the bounce zone starts
+      // past it.
       const maxOffsetY =
         contentSize.height + contentInset.bottom - layoutMeasurement.height;
       const isOutOfBounds =
@@ -119,27 +77,48 @@ function useMobileBrowserChromeAnimation() {
         Math.round(layoutMeasurement.height) +
           MIN_TOGGLE_BROWSER_VISIBLE_DISTANCE;
 
-      runOnUI(processScroll)(
-        contentOffsetY,
-        maxOffsetY,
-        canScroll,
-        isOutOfBounds,
-      );
+      if (isOutOfBounds) {
+        lastScrollYRef.current = undefined;
+        lastTurnScrollYRef.current = undefined;
+        return;
+      }
+      if (
+        !canScroll ||
+        contentOffsetY <= EDGE_EXPAND_DISTANCE ||
+        contentOffsetY >= maxOffsetY - EDGE_EXPAND_DISTANCE
+      ) {
+        animateTo(EXPANDED);
+        return;
+      }
+
+      const lastY = lastScrollYRef.current;
+      const turnY = lastTurnScrollYRef.current;
+      if (
+        lastY === undefined ||
+        turnY === undefined ||
+        (contentOffsetY - lastY) * (lastY - turnY) < 0
+      ) {
+        lastTurnScrollYRef.current = lastY;
+      }
+      lastScrollYRef.current = contentOffsetY;
+      const turn = lastTurnScrollYRef.current;
+      if (turn === undefined) {
+        return;
+      }
+      const distanceOffsetY = contentOffsetY - turn;
+      if (Math.abs(distanceOffsetY) <= MIN_TOGGLE_BROWSER_VISIBLE_DISTANCE) {
+        return;
+      }
+      animateTo(distanceOffsetY < 0 ? EXPANDED : COLLAPSED);
     },
-    [processScroll],
+    [animateTo],
   );
 
   const expandBrowserChrome = useCallback(() => {
-    runOnUI(() => {
-      'worklet';
-
-      lastScrollY.value = UNSET;
-      lastTurnScrollY.value = UNSET;
-      if (chromeProgress.value !== EXPANDED) {
-        chromeProgress.value = withTiming(EXPANDED, timingConfig);
-      }
-    })();
-  }, [chromeProgress, lastScrollY, lastTurnScrollY]);
+    lastScrollYRef.current = undefined;
+    lastTurnScrollYRef.current = undefined;
+    animateTo(EXPANDED);
+  }, [animateTo]);
 
   // In-flow bar container (tablet layout): shrinks with the chrome but keeps
   // room for the collapsed pill. The bar fades its own content.

@@ -7,6 +7,18 @@ import { useSyncExternalStore } from 'react';
 export const PAGE_THEME_MESSAGE_TYPE = '$onekeyPageThemeColor';
 
 const colors = new Map<string, string>();
+// Last color seen per origin (this session), so a revisited site tints the
+// chrome as soon as it starts loading instead of after its first report.
+const originColors = new Map<string, string>();
+const ORIGIN_CACHE_LIMIT = 100;
+
+function originOf(url: string | undefined) {
+  try {
+    return url ? new URL(url).origin : undefined;
+  } catch {
+    return undefined;
+  }
+}
 const listeners = new Set<() => void>();
 
 function emit() {
@@ -91,7 +103,36 @@ export function usePageTheme(tabId: string | null | undefined) {
   return { pageColor, pageThemeName };
 }
 
-export function tryDispatchPageThemeMessage(tabId: string, data: string) {
+// Applies the cached color of the page's origin, if any; otherwise the
+// current tint stays until the page reports its own.
+export function applyCachedPageThemeColor(tabId: string, url: string) {
+  const origin = originOf(url);
+  const cached = origin ? originColors.get(origin) : undefined;
+  if (cached) {
+    setPageThemeColor(tabId, cached);
+  }
+}
+
+function rememberOriginColor(url: string | undefined, color: string) {
+  const origin = originOf(url);
+  if (!origin) {
+    return;
+  }
+  originColors.delete(origin);
+  originColors.set(origin, color);
+  if (originColors.size > ORIGIN_CACHE_LIMIT) {
+    const oldest = originColors.keys().next().value;
+    if (oldest !== undefined) {
+      originColors.delete(oldest);
+    }
+  }
+}
+
+export function tryDispatchPageThemeMessage(
+  tabId: string,
+  data: string,
+  pageUrl?: string,
+) {
   if (!data || !data.includes(PAGE_THEME_MESSAGE_TYPE)) {
     return false;
   }
@@ -104,6 +145,10 @@ export function tryDispatchPageThemeMessage(tabId: string, data: string) {
       tabId,
       typeof message.color === 'string' ? message.color : undefined,
     );
+    const stored = colors.get(tabId);
+    if (stored) {
+      rememberOriginColor(pageUrl, stored);
+    }
     return true;
   } catch {
     return false;

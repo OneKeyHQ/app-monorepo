@@ -26,6 +26,7 @@ import {
 import { getWebviewWrapperRef, webviewRefs } from '../../utils/explorerUtils';
 import {
   PAGE_THEME_COLOR_SCRIPT,
+  applyCachedPageThemeColor,
   setPageThemeColor,
   tryDispatchPageThemeMessage,
 } from '../../utils/pageThemeColor';
@@ -96,6 +97,7 @@ function WebContent({
 
   const onLoadStart = ({ nativeEvent }: WebViewNavigationEvent) => {
     notifyTabNavigation(id);
+    applyCachedPageThemeColor(id, nativeEvent.url);
 
     if (
       nativeEvent.url !== url &&
@@ -196,7 +198,13 @@ function WebContent({
 
   const handleMessage = useCallback(
     (event: WebViewMessageEvent) => {
-      if (tryDispatchPageThemeMessage(id, event.nativeEvent.data)) {
+      if (
+        tryDispatchPageThemeMessage(
+          id,
+          event.nativeEvent.data,
+          event.nativeEvent.url,
+        )
+      ) {
         return;
       }
       tryDispatchTranslateMessage(id, event.nativeEvent.data);
@@ -270,6 +278,9 @@ function WebContent({
         allowpopups
         onMessage={handleMessage}
         onLoadStart={onLoadStart}
+        // Read the page color as soon as the document is parsed (document
+        // end), rather than waiting for onLoadEnd and every subresource.
+        injectedJavaScript={PAGE_THEME_COLOR_SCRIPT}
         onLoadEnd={onLoadEnd as any}
         onScroll={onScroll}
         displayProgressBar={false}
