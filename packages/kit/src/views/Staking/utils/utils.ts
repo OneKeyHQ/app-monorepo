@@ -1,13 +1,16 @@
 import BigNumber from 'bignumber.js';
 
+import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type {
   IEarnStakeType,
   IEarnTokenInfo,
+  IEarnTokenItem,
   IEarnWithdrawActionIcon,
   IProtocolInfo,
   IStakeEarnDetail,
 } from '@onekeyhq/shared/types/staking';
+import { ECheckAmountActionType } from '@onekeyhq/shared/types/staking';
 
 const NATIVE_EARN_WRAPPED_ETH_SYMBOL = 'WETH';
 const BORROW_CLAIM_SCOPE_VERSION = 'v1';
@@ -310,20 +313,25 @@ export function resolveStakeTokenAddress(params?: {
   return params.address || '';
 }
 
-export function resolveNativeEarnStakeType({
-  isNativeProvider,
+export function resolveEarnStakeType({
+  providerName,
   vaultSymbol,
+  tokenSymbol,
   tokenIsNative,
 }: {
-  isNativeProvider: boolean;
+  providerName: string;
   vaultSymbol?: string;
+  tokenSymbol?: string;
   tokenIsNative?: boolean;
 }): IEarnStakeType | undefined {
-  if (!isNativeProvider) {
+  const isEtherFi = earnUtils.isEtherFiProvider({ providerName });
+  if (!isEtherFi && !earnUtils.isNativeProvider({ providerName })) {
     return undefined;
   }
 
-  const normalizedVaultSymbol = vaultSymbol?.toUpperCase();
+  const normalizedVaultSymbol = (
+    isEtherFi ? tokenSymbol : vaultSymbol
+  )?.toUpperCase();
   if (normalizedVaultSymbol !== 'ETH' && normalizedVaultSymbol !== 'WETH') {
     return undefined;
   }
@@ -346,19 +354,24 @@ export function resolveNativeEarnProtocolSymbol({
     : protocolSymbol || '';
 }
 
-export function resolveNativeEarnStakeRequestSymbol({
-  isNativeProvider,
+export function resolveEarnStakeRequestSymbol({
+  providerName,
   protocolSymbol,
   tokenSymbol,
   tokenIsNative,
   wrappedTokenSymbol,
 }: {
-  isNativeProvider: boolean;
+  providerName: string;
   protocolSymbol?: string;
   tokenSymbol?: string;
   tokenIsNative?: boolean;
   wrappedTokenSymbol?: string;
 }) {
+  // EtherFi has a separate EarnProtocol for each deposit asset in a shared vault.
+  if (earnUtils.isEtherFiProvider({ providerName })) {
+    return tokenSymbol || protocolSymbol || '';
+  }
+  const isNativeProvider = earnUtils.isNativeProvider({ providerName });
   if (!isNativeProvider) {
     return protocolSymbol || tokenSymbol || '';
   }
@@ -378,6 +391,28 @@ export function resolveNativeEarnStakeRequestSymbol({
       protocolSymbol,
     })
   );
+}
+
+export function resolveSelectedStakeAsset({
+  assets,
+  selectedToken,
+  initialToken,
+}: {
+  assets: IEarnTokenItem[];
+  selectedToken?: { address?: string; symbol?: string; isNative?: boolean };
+  initialToken?: { address?: string; symbol?: string; isNative?: boolean };
+}) {
+  const findToken = (token?: typeof selectedToken) =>
+    token
+      ? assets.find(
+          ({ info }) =>
+            normalizeStakeTokenAddress(info) ===
+              normalizeStakeTokenAddress(token) &&
+            info.symbol.toLowerCase() === token.symbol?.toLowerCase(),
+        )
+      : undefined;
+  // Preserve the user's selection on balance refresh; otherwise prefer the entry asset.
+  return findToken(selectedToken) ?? findToken(initialToken) ?? assets[0];
 }
 
 export function buildStakeTokenUniqueKey(params?: {
@@ -444,4 +479,19 @@ export function shouldShowStakingSummaryCard({
   }
 
   return hasSummarySection || showPendleTransactionSection;
+}
+
+/** A standalone approval earns nothing; permits are consumed by the actual deposit. */
+export function getStakeTransactionConfirmationAction({
+  stakeType,
+  shouldApprove,
+  usePermitApprove,
+}: {
+  stakeType?: IEarnStakeType;
+  shouldApprove: boolean;
+  usePermitApprove: boolean;
+}): ECheckAmountActionType.STAKING | 'approve' {
+  return stakeType !== 'wrap' && shouldApprove && !usePermitApprove
+    ? 'approve'
+    : ECheckAmountActionType.STAKING;
 }

@@ -52,6 +52,7 @@ import {
 import type {
   ICheckAmountAlert,
   IEarnActionIcon,
+  IEarnAmountUnit,
   IEarnEstimateFeeResp,
   IEarnText,
   IEarnTokenInfo,
@@ -108,6 +109,10 @@ import {
   isLatestTransactionConfirmationRequest,
   selectCurrentTransactionConfirmation,
 } from './transactionConfirmationRequestUtils';
+import {
+  getWithdrawApproveAmount,
+  getWithdrawEstimateStep,
+} from './withdrawAmountUtils';
 
 import type { FontSizeTokens } from 'tamagui';
 
@@ -200,6 +205,8 @@ type IUniversalWithdrawProps = {
   pendleSlippage?: number;
   initialWithdrawType?: IEarnWithdrawType;
   receiptTokenRate?: string;
+  amountUnit?: IEarnAmountUnit;
+  withdrawAssetsReady?: boolean;
   protocolInfo?: IProtocolInfo;
   tokenInfo?: IEarnTokenInfo;
 };
@@ -362,6 +369,7 @@ function resolveEarnAlertType(type?: string): IAlertType {
     : 'warning';
 }
 
+/** 根据服务端的资产单位与可用路径报价、授权并赎回；缺失元数据或过期报价不能开启提交。 */
 export function UniversalWithdraw({
   accountAddress,
   balance,
@@ -394,11 +402,13 @@ export function UniversalWithdraw({
   refreshKey,
   onQuoteRefreshingChange,
   approveTarget,
-  currentAllowance = '0',
+  currentAllowance,
   approveType = EApproveType.Legacy,
   pendleSlippage,
   initialWithdrawType,
   receiptTokenRate,
+  amountUnit,
+  withdrawAssetsReady,
   protocolInfo,
   tokenInfo,
 }: PropsWithChildren<IUniversalWithdrawProps>) {
@@ -410,6 +420,14 @@ export function UniversalWithdraw({
   const withdrawAllRef = useRef(false);
   const [isWithdrawAll, setIsWithdrawAll] = useState(false);
   const isCancelWithdrawal = initialWithdrawType === 'cancel';
+  // 份额单位必须对应当前展示和实际扣款的凭证，不能把存入币数量改名后提交。
+  const areWithdrawAssetsReady =
+    isCancelWithdrawal ||
+    amountUnit !== 'shares' ||
+    (!!withdrawAssetsReady &&
+      !!transactionInputTokenAddress &&
+      transactionInputTokenAddress.toLowerCase() ===
+        protocolInfo?.withdrawApprove?.tokenAddress?.toLowerCase());
   const [amountValue, setAmountValue] = useState(
     isCancelWithdrawal ? '0' : (initialAmount ?? ''),
   );
@@ -455,10 +473,11 @@ export function UniversalWithdraw({
   );
   const requiresEarnWithdrawPath = useMemo(
     () =>
+      amountUnit === 'shares' ||
       earnUtils.requiresEarnWithdrawPath({
         providerName: providerName ?? '',
       }),
-    [providerName],
+    [amountUnit, providerName],
   );
   const shouldSendProtocolVault = useMemo(
     () =>
@@ -525,6 +544,8 @@ export function UniversalWithdraw({
         accountAddress,
         actionSymbol: requestSymbol || tokenSymbol || '',
         amount: amountValue,
+        amountUnit,
+        areWithdrawAssetsReady,
         identity,
         inputTokenAddress: transactionInputTokenAddress,
         isDisabled,
@@ -538,6 +559,8 @@ export function UniversalWithdraw({
     [
       accountAddress,
       amountValue,
+      amountUnit,
+      areWithdrawAssetsReady,
       identity,
       isDisabled,
       networkId,
@@ -659,44 +682,26 @@ export function UniversalWithdraw({
     [handleTipAction, handleShowTipPopup],
   );
 
-  const approveAmountValue = useMemo(() => {
-    if (!isQueuedWithdraw || !receiptTokenRate) {
-      return amountValue;
-    }
-
-    const amountBN = new BigNumber(amountValue);
-    const receiptTokenRateBN = new BigNumber(receiptTokenRate);
-    const approveTokenDecimals =
-      approveTarget?.token?.decimals ?? decimals ?? 0;
-    if (
-      amountBN.isNaN() ||
-      amountBN.lte(0) ||
-      receiptTokenRateBN.isNaN() ||
-      receiptTokenRateBN.lte(0)
-    ) {
-      return amountValue;
-    }
-
-    const roundingMode = isWithdrawAll
-      ? BigNumber.ROUND_CEIL
-      : BigNumber.ROUND_FLOOR;
-
-    // For max queued withdrawals the server spends the full receipt-token
-    // balance. The displayed underlying amount may be rounded down, so ceil the
-    // approval by at most one smallest receipt unit to avoid under-approving.
-    return amountBN
-      .multipliedBy(receiptTokenRateBN)
-      .integerValue(roundingMode)
-      .shiftedBy(-approveTokenDecimals)
-      .toFixed();
-  }, [
-    amountValue,
-    approveTarget?.token?.decimals,
-    decimals,
-    isQueuedWithdraw,
-    isWithdrawAll,
-    receiptTokenRate,
-  ]);
+  const approveAmountValue = useMemo(
+    () =>
+      getWithdrawApproveAmount({
+        amount: amountValue,
+        amountUnit,
+        withdrawType: selectedWithdrawType,
+        receiptTokenRate,
+        decimals: approveTarget?.token?.decimals ?? decimals ?? 0,
+        withdrawAll: isWithdrawAll,
+      }),
+    [
+      amountValue,
+      amountUnit,
+      selectedWithdrawType,
+      receiptTokenRate,
+      approveTarget?.token?.decimals,
+      decimals,
+      isWithdrawAll,
+    ],
+  );
 
   // --- Approve logic (Pendle sell and server-declared queued withdraw) ---
   const useApprove =
@@ -712,15 +717,18 @@ export function UniversalWithdraw({
 
   const {
     allowance,
+    allowanceAvailable,
     loading: loadingAllowance,
     trackAllowance,
     fetchAllowanceResponse,
   } = useTrackTokenAllowance({
+    providerName: providerName ?? '',
     accountId: approveTarget?.accountId ?? '',
     networkId: approveTarget?.networkId ?? '',
     tokenAddress: approveTarget?.token?.address ?? '',
     spenderAddress: approveTarget?.spenderAddress ?? '',
     initialValue: currentAllowance,
+    refreshOnMount: amountUnit === 'shares',
     approveType,
   });
 
@@ -898,59 +906,86 @@ export function UniversalWithdraw({
     ICheckAmountAlert[]
   >([]);
 
-  const { result: estimateFeeResp } = usePromiseResult(async () => {
-    if (
-      !accountId ||
-      !networkId ||
-      !providerName ||
-      !actionSymbol ||
-      (!isCancelWithdrawal && !BigNumber(amountValue).isGreaterThan(0))
-    ) {
-      return undefined;
-    }
+  const { result: estimateFeeResp } = usePromiseResult(
+    async () => {
+      if (
+        !accountId ||
+        !networkId ||
+        !providerName ||
+        !actionSymbol ||
+        (!isCancelWithdrawal && !BigNumber(amountValue).isGreaterThan(0))
+      ) {
+        return undefined;
+      }
 
-    if (earnUtils.isLidoProvider({ providerName })) {
-      return undefined;
-    }
+      if (earnUtils.isLidoProvider({ providerName })) {
+        return undefined;
+      }
 
-    const account = await backgroundApiProxy.serviceAccount.getAccount({
+      const estimateStep = getWithdrawEstimateStep({
+        amountUnit,
+        assetsReady: areWithdrawAssetsReady,
+        pathReady:
+          isTransactionConfirmationCurrent &&
+          !!selectedWithdrawType &&
+          !selectedWithdrawPath?.disabled,
+        withdrawType: selectedWithdrawType,
+        allowanceAvailable,
+        loadingAllowance,
+        allowance,
+        amount: approveAmountValue,
+      });
+      if (!estimateStep || isDisabled) return undefined;
+      const account = await backgroundApiProxy.serviceAccount.getAccount({
+        accountId,
+        networkId,
+      });
+
+      const resp = await backgroundApiProxy.serviceStaking.estimateFee({
+        networkId,
+        provider: providerName,
+        symbol: actionSymbol,
+        ...estimateStep,
+        amount: isCancelWithdrawal ? '0' : amountValue || balance || '1',
+        txId: earnUtils.isBabylonProvider({ providerName })
+          ? identity
+          : undefined,
+        protocolVault: shouldSendProtocolVault ? protocolVault : undefined,
+        identity,
+        accountAddress: account.address,
+        withdrawAll: withdrawAllRef.current,
+        inputTokenAddress: transactionInputTokenAddress,
+        outputTokenAddress: transactionOutputTokenAddress,
+        withdrawType: selectedWithdrawType,
+      });
+      return resp;
+    },
+    [
+      amountValue,
+      amountUnit,
+      areWithdrawAssetsReady,
+      isTransactionConfirmationCurrent,
+      selectedWithdrawPath?.disabled,
+      allowanceAvailable,
+      loadingAllowance,
+      allowance,
+      approveAmountValue,
+      isDisabled,
       accountId,
       networkId,
-    });
-
-    const resp = await backgroundApiProxy.serviceStaking.estimateFee({
-      networkId,
-      provider: providerName,
-      symbol: actionSymbol,
-      action: 'unstake',
-      amount: isCancelWithdrawal ? '0' : amountValue || balance || '1',
-      txId: earnUtils.isBabylonProvider({ providerName })
-        ? identity
-        : undefined,
-      protocolVault: shouldSendProtocolVault ? protocolVault : undefined,
+      providerName,
+      actionSymbol,
       identity,
-      accountAddress: account.address,
-      withdrawAll: withdrawAllRef.current,
-      inputTokenAddress: transactionInputTokenAddress,
-      outputTokenAddress: transactionOutputTokenAddress,
-      withdrawType: selectedWithdrawType,
-    });
-    return resp;
-  }, [
-    amountValue,
-    accountId,
-    networkId,
-    providerName,
-    actionSymbol,
-    identity,
-    protocolVault,
-    shouldSendProtocolVault,
-    balance,
-    transactionInputTokenAddress,
-    transactionOutputTokenAddress,
-    selectedWithdrawType,
-    isCancelWithdrawal,
-  ]);
+      protocolVault,
+      shouldSendProtocolVault,
+      balance,
+      transactionInputTokenAddress,
+      transactionOutputTokenAddress,
+      selectedWithdrawType,
+      isCancelWithdrawal,
+    ],
+    { undefinedResultIfReRun: true },
+  );
 
   const [
     {
@@ -999,8 +1034,9 @@ export function UniversalWithdraw({
 
   const onPress = useCallback(async () => {
     if (
-      requiresEarnWithdrawPath &&
-      (!isTransactionConfirmationCurrent || !selectedWithdrawType)
+      !areWithdrawAssetsReady ||
+      (requiresEarnWithdrawPath &&
+        (!isTransactionConfirmationCurrent || !selectedWithdrawType))
     ) {
       return;
     }
@@ -1110,6 +1146,7 @@ export function UniversalWithdraw({
     }
   }, [
     amountValue,
+    areWithdrawAssetsReady,
     onConfirm,
     onQuoteReset,
     resetAmount,
@@ -1140,13 +1177,11 @@ export function UniversalWithdraw({
   const [transactionConfirmationLoading, setTransactionConfirmationLoading] =
     useState(false);
 
-  const isWithdrawPathReady = earnUtils.isEarnWithdrawPathReady({
-    providerName: providerName ?? '',
-    isLoading:
-      transactionConfirmationLoading ||
-      (requiresEarnWithdrawPath && !isTransactionConfirmationCurrent),
-    withdrawType: selectedWithdrawType,
-  });
+  const isWithdrawPathReady =
+    !requiresEarnWithdrawPath ||
+    (!transactionConfirmationLoading &&
+      isTransactionConfirmationCurrent &&
+      !!selectedWithdrawType);
 
   const quoteLoading = checkAmountLoading || transactionConfirmationLoading;
 
@@ -1239,6 +1274,9 @@ export function UniversalWithdraw({
     const requestId = checkAmountRequestIdRef.current;
     const requestKey = checkAmountRequestKey;
     const isCheckableAmount =
+      areWithdrawAssetsReady &&
+      (amountUnit !== 'shares' || isWithdrawPathReady) &&
+      !isDisabled &&
       !isCancelWithdrawal &&
       !isInvalidAmount(amountValue) &&
       new BigNumber(amountValue).isGreaterThan(0);
@@ -1265,6 +1303,10 @@ export function UniversalWithdraw({
     };
   }, [
     amountValue,
+    amountUnit,
+    areWithdrawAssetsReady,
+    isWithdrawPathReady,
+    isDisabled,
     checkAmountRequestKey,
     checkAmountRequestParams,
     debouncedCheckAmount,
@@ -1273,7 +1315,7 @@ export function UniversalWithdraw({
 
   const fetchTransactionConfirmation = useCallback(
     async (amount: string, withdrawType = selectedWithdrawType) => {
-      if (isDisabled) {
+      if (isDisabled || !areWithdrawAssetsReady) {
         return undefined;
       }
       const resp =
@@ -1295,6 +1337,7 @@ export function UniversalWithdraw({
     },
     [
       isDisabled,
+      areWithdrawAssetsReady,
       accountAddress,
       protocolVault,
       shouldSendProtocolVault,
@@ -1379,7 +1422,7 @@ export function UniversalWithdraw({
       (!isInvalidAmount(amountValue) &&
         new BigNumber(amountValue).isGreaterThan(0));
 
-    if (!isQuotableAmount) {
+    if (!isQuotableAmount || !areWithdrawAssetsReady || isDisabled) {
       // Bumping the id above already invalidates anything in flight; the
       // previous run's cleanup cancelled any pending debounce.
       setTransactionConfirmationLoading(false);
@@ -1401,6 +1444,8 @@ export function UniversalWithdraw({
     };
   }, [
     amountValue,
+    areWithdrawAssetsReady,
+    isDisabled,
     debouncedFetchTransactionConfirmation,
     isCancelWithdrawal,
     selectedWithdrawType,
@@ -1509,6 +1554,10 @@ export function UniversalWithdraw({
   const isDisable = useMemo<boolean>(
     () =>
       isDisabled ||
+      !areWithdrawAssetsReady ||
+      (amountUnit === 'shares' &&
+        !isCancelWithdrawal &&
+        (!allowanceAvailable || loadingAllowance)) ||
       !!selectedWithdrawPath?.disabled ||
       (!isCancelWithdrawal &&
         (isInvalidAmount(amountValue) ||
@@ -1519,6 +1568,10 @@ export function UniversalWithdraw({
       !isWithdrawPathReady,
     [
       isDisabled,
+      amountUnit,
+      areWithdrawAssetsReady,
+      allowanceAvailable,
+      loadingAllowance,
       amountValue,
       isCheckAmountMessageError,
       checkAmountAlerts.length,
@@ -1614,10 +1667,11 @@ export function UniversalWithdraw({
   ]);
   const isAccordionTriggerDisabled = !amountValue;
 
-  const showWithdrawPathSelector =
+  const showWithdrawPathSummary =
     (!requiresEarnWithdrawPath || isTransactionConfirmationCurrent) &&
-    withdrawPathConfirmBoxes.length > 1 &&
+    withdrawPathConfirmBoxes.length > 0 &&
     !!selectedWithdrawPath;
+  const canSelectWithdrawPath = withdrawPathConfirmBoxes.length > 1;
   const shouldShowPendleWithdrawProgress =
     useApprove &&
     !!amountValue &&
@@ -1819,7 +1873,7 @@ export function UniversalWithdraw({
         ) : null}
       </Stack>
 
-      {showWithdrawPathSelector && selectedWithdrawPath ? (
+      {showWithdrawPathSummary && selectedWithdrawPath ? (
         <XStack
           borderWidth={StyleSheet.hairlineWidth}
           borderColor="$borderSubdued"
@@ -1828,9 +1882,9 @@ export function UniversalWithdraw({
           gap="$2.5"
           ai="center"
           userSelect="none"
-          cursor="pointer"
-          hoverStyle={{ bg: '$bgHover' }}
-          onPress={showWithdrawPathDialog}
+          cursor={canSelectWithdrawPath ? 'pointer' : undefined}
+          hoverStyle={canSelectWithdrawPath ? { bg: '$bgHover' } : undefined}
+          onPress={canSelectWithdrawPath ? showWithdrawPathDialog : undefined}
         >
           <YStack flex={1} gap="$1">
             <SizableText size="$bodyMdMedium" color="$text">
@@ -1863,11 +1917,13 @@ export function UniversalWithdraw({
               </XStack>
             ) : null}
           </YStack>
-          <Icon
-            name="ChevronRightSmallOutline"
-            size="$5"
-            color="$iconSubdued"
-          />
+          {canSelectWithdrawPath ? (
+            <Icon
+              name="ChevronRightSmallOutline"
+              size="$5"
+              color="$iconSubdued"
+            />
+          ) : null}
         </XStack>
       ) : null}
 

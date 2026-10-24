@@ -60,7 +60,9 @@ function useTxTrack({
   return txDetails;
 }
 
+/** 跟踪指定账户和授权目标的额度；查询失败仍保留未知状态，不能把回退的零当作链上额度。 */
 export function useTrackTokenAllowance({
+  providerName,
   networkId,
   accountId,
   initialValue,
@@ -69,6 +71,7 @@ export function useTrackTokenAllowance({
   spenderAddress,
   approveType,
 }: {
+  providerName: string;
   networkId: string;
   accountId: string;
   initialValue?: string;
@@ -85,6 +88,7 @@ export function useTrackTokenAllowance({
   const allowanceTargetKey = [
     accountId,
     networkId,
+    providerName,
     tokenAddress,
     spenderAddress,
     approveType ?? '',
@@ -94,14 +98,18 @@ export function useTrackTokenAllowance({
   const [allowanceState, setAllowanceState] = useState<{
     targetKey: string;
     value: string;
+    available: boolean;
   }>(() => ({
     targetKey: allowanceTargetKey,
     value: initialValue ?? '0',
+    available: initialValue !== undefined && !shouldFetchInitialAllowance,
   }));
   const allowance =
     allowanceState.targetKey === allowanceTargetKey
       ? allowanceState.value
       : '0';
+  const allowanceAvailable =
+    allowanceState.targetKey === allowanceTargetKey && allowanceState.available;
   const [trackTxId, setTrackTxId] = useState<string>('');
   const [loading, setLoading] = useState(shouldFetchInitialAllowance);
   const txDetails = useTxTrack({
@@ -115,6 +123,7 @@ export function useTrackTokenAllowance({
     setAllowanceState({
       targetKey: allowanceTargetKey,
       value: initialValue ?? '0',
+      available: initialValue !== undefined && !shouldFetchInitialAllowance,
     });
   }, [allowanceTargetKey, initialValue, shouldFetchInitialAllowance]);
   const fetchAllowanceResponse = useCallback(
@@ -124,12 +133,20 @@ export function useTrackTokenAllowance({
         accountId,
         tokenAddress,
         spenderAddress: earnUtils.resolveEarnAllowanceSpenderAddress({
+          providerName,
           networkId,
           approveType,
           approveSpenderAddress: spenderAddress,
         }),
       }),
-    [accountId, approveType, networkId, spenderAddress, tokenAddress],
+    [
+      accountId,
+      approveType,
+      networkId,
+      providerName,
+      spenderAddress,
+      tokenAddress,
+    ],
   );
   useEffect(() => {
     let cancelled = false;
@@ -142,6 +159,8 @@ export function useTrackTokenAllowance({
           return;
         }
         try {
+          // 回源失败时旧值仅用于展示，不能继续作为已核实的授权额度。
+          setAllowanceState((previous) => ({ ...previous, available: false }));
           const allowanceInfo = await fetchAllowanceResponse();
           if (
             !cancelled &&
@@ -151,6 +170,7 @@ export function useTrackTokenAllowance({
             setAllowanceState({
               targetKey: allowanceTargetKey,
               value: allowanceInfo.allowanceParsed,
+              available: true,
             });
           }
         } finally {
@@ -185,5 +205,11 @@ export function useTrackTokenAllowance({
     setTrackTxId(txid);
     setLoading(true);
   }, []);
-  return { allowance, trackAllowance, loading, fetchAllowanceResponse };
+  return {
+    allowance,
+    allowanceAvailable,
+    trackAllowance,
+    loading,
+    fetchAllowanceResponse,
+  };
 }

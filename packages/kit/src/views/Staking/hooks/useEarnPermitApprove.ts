@@ -3,13 +3,9 @@ import { useCallback } from 'react';
 import BigNumber from 'bignumber.js';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
-import {
-  MorphoBaseBundlerContract,
-  MorphoBundlerContract,
-  MorphoKatanaBundlerContract,
-} from '@onekeyhq/shared/src/consts/addresses';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
+import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
 import type { IEarnPermit2ApproveSignData } from '@onekeyhq/shared/types/staking';
 import type { IToken } from '@onekeyhq/shared/types/token';
@@ -60,20 +56,18 @@ export function useEarnPermitApprove() {
           amount: new BigNumber(amountValue).toFixed(),
         });
 
-      // check spender address
+      const expectedSpender = earnUtils.resolveEarnPermitSpenderAddress({
+        providerName,
+        networkId,
+      });
+      const spender = permit2Data.message?.spender;
       if (
-        (networkId === getNetworkIdsMap().eth &&
-          permit2Data.message.spender.toLowerCase() !==
-            MorphoBundlerContract.toLowerCase()) ||
-        (networkId === getNetworkIdsMap().base &&
-          permit2Data.message.spender.toLowerCase() !==
-            MorphoBaseBundlerContract.toLowerCase()) ||
-        (networkId === getNetworkIdsMap().katana &&
-          permit2Data.message.spender.toLowerCase() !==
-            MorphoKatanaBundlerContract.toLowerCase())
+        !expectedSpender ||
+        typeof spender !== 'string' ||
+        spender.toLowerCase() !== expectedSpender.toLowerCase()
       ) {
         const error = new Error(
-          `Invalid spender address. Expected: ${MorphoBundlerContract}, Got: ${permit2Data.message.spender}`,
+          `Invalid spender address. Expected: ${expectedSpender ?? 'unsupported provider/network'}, Got: ${spender}`,
         );
         defaultLogger.staking.page.permitSignError({
           error: error.message,
@@ -81,7 +75,7 @@ export function useEarnPermitApprove() {
         throw error;
       }
 
-      const unsignedMessage = JSON.stringify(permit2Data);
+      const unsignedMessage = stringUtils.stableStringify(permit2Data);
 
       const signHash = await navigationToMessageConfirmAsync({
         accountId,
