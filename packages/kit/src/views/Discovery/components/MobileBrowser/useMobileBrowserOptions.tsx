@@ -12,6 +12,7 @@ import {
   Divider,
   Icon,
   SizableText,
+  Stack,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -28,6 +29,8 @@ import { logBrowserChromeAction } from './browserChrome';
 import type { IntlShape } from 'react-intl';
 
 export const ACTION_LIST_CLOSE_ANIMATION_DELAY_MS = 350;
+
+const QUICK_ACTION_COLUMN_WIDTH = 72;
 
 interface IQuickAction {
   label: string;
@@ -46,21 +49,10 @@ function QuickActionTile({
   onClose: () => void;
 }) {
   return (
-    // A whole-card tile (icon and label inside): the row of cards spans the
-    // same width as the list below, so its edges line up with the list icons
-    // and dividers instead of floating icons centered in columns.
     <YStack
-      flex={1}
-      minHeight={84}
-      py="$3"
-      px="$1"
-      gap="$2"
+      w={QUICK_ACTION_COLUMN_WIDTH}
       alignItems="center"
-      justifyContent="center"
-      borderRadius="$4"
-      borderCurve="continuous"
-      bg="$bgStrong"
-      pressStyle={{ bg: '$bgActive' }}
+      gap="$2"
       onPress={async () => {
         onClose();
         if (action.afterClose) {
@@ -70,7 +62,17 @@ function QuickActionTile({
       }}
       testID={action.testID}
     >
-      <Icon name={action.icon} size="$6" color="$icon" />
+      <Stack
+        w="$14"
+        h="$14"
+        borderRadius="$4"
+        borderCurve="continuous"
+        bg="$bgStrong"
+        alignItems="center"
+        justifyContent="center"
+      >
+        <Icon name={action.icon} size="$6" color="$icon" />
+      </Stack>
       <SizableText size="$bodySmMedium" textAlign="center" numberOfLines={2}>
         {action.label}
       </SizableText>
@@ -90,7 +92,10 @@ function OptionsMenuContent({
 }) {
   return (
     <YStack>
-      <XStack px="$2" pb="$2" gap="$2">
+      {/* Spread edge to edge with no side padding: each 72pt column centers
+        its 56pt tile, so the outer tiles start 8pt in, on the same line as
+        the list icons and dividers (both inset $2) below. */}
+      <XStack pt="$1" pb="$3" justifyContent="space-between">
         {quickActions.map((action) => (
           <QuickActionTile
             key={action.testID}
