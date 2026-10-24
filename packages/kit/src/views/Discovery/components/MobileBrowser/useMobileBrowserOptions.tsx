@@ -81,6 +81,16 @@ function QuickActionTile({
   );
 }
 
+// List icons at 20pt rather than ActionList's 24pt on phones: at 24pt the
+// full-bleed glyphs (✕, pin, computer) read larger than the 16pt labels.
+// Centered in the same 24pt column, so the labels don't move.
+const LIST_ICON_PROPS = {
+  size: '$5',
+  $md: { size: '$5' },
+  ml: 2,
+  mr: 14,
+} as const;
+
 // Tiles for the frequent page actions, then the regular list sections.
 function OptionsMenuContent({
   quickActions,
@@ -109,7 +119,12 @@ function OptionsMenuContent({
         <YStack key={index}>
           <Divider mx="$2" my="$1" />
           {section.items.map((item) => (
-            <ActionList.Item key={item.label} {...item} onClose={onClose} />
+            <ActionList.Item
+              key={item.label}
+              {...item}
+              iconProps={LIST_ICON_PROPS}
+              onClose={onClose}
+            />
           ))}
         </YStack>
       ))}
