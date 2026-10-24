@@ -81,14 +81,12 @@ function QuickActionTile({
   );
 }
 
-// List icons at 20pt rather than ActionList's 24pt on phones: at 24pt the
-// full-bleed glyphs (✕, pin, computer) read larger than the 16pt labels.
-// Centered in the same 24pt column, so the labels don't move.
+// List icons at 20pt rather than ActionList's 24pt ($6) on phones: at 24pt
+// the full-bleed glyphs (✕, pin, computer) read larger than the 16pt labels.
+// $0.5 + 20 + $3.5 equals ActionList's $6 icon + $3 gap, so the icons stay
+// centered in the same column and the labels don't move.
 const LIST_ICON_PROPS = {
-  size: '$5',
-  $md: { size: '$5' },
-  ml: 2,
-  mr: 14,
+  $md: { size: '$5', ml: '$0.5', mr: '$3.5' },
 } as const;
 
 // Tiles for the frequent page actions, then the regular list sections.
@@ -122,7 +120,7 @@ function OptionsMenuContent({
             <ActionList.Item
               key={item.label}
               {...item}
-              iconProps={LIST_ICON_PROPS}
+              iconProps={{ ...LIST_ICON_PROPS, ...item.iconProps }}
               onClose={onClose}
             />
           ))}
