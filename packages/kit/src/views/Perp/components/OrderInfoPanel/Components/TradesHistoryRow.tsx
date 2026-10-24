@@ -285,13 +285,14 @@ const TradesHistoryRow = memo(
             width="100%"
           >
             <YStack gap="$1">
-              <XStack
-                gap="$2"
-                alignItems="center"
-                onPress={handleSwitchInstrument}
-                cursor="pointer"
-              >
-                <SizableText size="$bodyMdMedium">{assetSymbol}</SizableText>
+              <XStack gap="$2" alignItems="center">
+                <SizableText
+                  size="$bodyMdMedium"
+                  onPress={handleSwitchInstrument}
+                  cursor="pointer"
+                >
+                  {assetSymbol}
+                </SizableText>
                 <SizableText
                   size="$bodySm"
                   color={directionInfo.directionColor}
@@ -444,13 +445,14 @@ const TradesHistoryRow = memo(
               {...getColumnStyle(columnConfigs[1])}
               justifyContent={calcCellAlign(columnConfigs[1].align)}
               alignItems="center"
-              onPress={handleSwitchInstrument}
-              cursor="pointer"
             >
               <SizableText
                 numberOfLines={1}
                 ellipsizeMode="tail"
                 size="$bodySmMedium"
+                maxWidth="100%"
+                onPress={handleSwitchInstrument}
+                cursor="pointer"
               >
                 {assetSymbol}
               </SizableText>

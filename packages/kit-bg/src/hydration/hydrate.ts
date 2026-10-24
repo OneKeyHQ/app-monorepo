@@ -30,7 +30,7 @@
 //
 // Failure modes (all caught, all degrade to defaults):
 //   • Dev (NODE_ENV !== 'production') — skip the generic snapshot to avoid
-//     schema drift; prime only versioned, display-only Swap balance caches
+//     schema drift; prime only versioned, display-only Swap snapshots
 //   • Kill switch — localStorage.__cold_start_kill__ set
 //   • Private mode / quota=0 — opening the database rejects
 //   • Build hash mismatch — wipe, fall back to defaults
@@ -59,6 +59,10 @@ import {
   writeContextAtomSnapshotRaw,
 } from '@onekeyhq/shared/src/storage/uiSnapshotCaches';
 import { normalizeSwapColdStartCacheSnapshot } from '@onekeyhq/shared/src/utils/swapColdStartCacheSnapshotUtils';
+import {
+  SWAP_TOKEN_SELECTOR_SNAPSHOT_VERSION,
+  sanitizeSwapTokenListSnapshot,
+} from '@onekeyhq/shared/src/utils/swapTokenSelectorSnapshotUtils';
 
 import { globalColdStartHydrationReadyHandler } from '../states/jotai/coldStartReady';
 
@@ -165,22 +169,45 @@ function parseCtxSnapshot(): Record<string, unknown> {
 
 export function filterDevSafeL2CtxSnapshot(snapshot: Record<string, unknown>) {
   return Object.fromEntries(
-    Object.entries(snapshot).filter(([scopedKey, value]) => {
-      const separatorIndex = scopedKey.lastIndexOf('::');
-      if (separatorIndex < 0) {
-        return false;
-      }
-      const cacheKey = scopedKey.slice(separatorIndex + 2);
-      if (!DEV_SAFE_L2_BALANCE_CACHE_KEYS.has(cacheKey)) {
-        return false;
-      }
-      return Boolean(
-        value &&
-        typeof value === 'object' &&
-        typeof (value as { version?: unknown }).version === 'number' &&
-        Array.isArray((value as { entries?: unknown }).entries),
-      );
-    }),
+    Object.entries(snapshot).flatMap(
+      ([scopedKey, value]): [string, unknown][] => {
+        const separatorIndex = scopedKey.lastIndexOf('::');
+        if (separatorIndex < 0) {
+          return [];
+        }
+        const cacheKey = scopedKey.slice(separatorIndex + 2);
+        if (cacheKey === CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapTokenMapAtom) {
+          if (!value || typeof value !== 'object' || Array.isArray(value)) {
+            return [];
+          }
+          const tokenSnapshot = value as {
+            version?: unknown;
+            tokenCatch?: unknown;
+          };
+          if (
+            tokenSnapshot.version !== SWAP_TOKEN_SELECTOR_SNAPSHOT_VERSION ||
+            !tokenSnapshot.tokenCatch ||
+            typeof tokenSnapshot.tokenCatch !== 'object' ||
+            Array.isArray(tokenSnapshot.tokenCatch)
+          ) {
+            return [];
+          }
+          return [[scopedKey, sanitizeSwapTokenListSnapshot(value)]];
+        }
+        if (!DEV_SAFE_L2_BALANCE_CACHE_KEYS.has(cacheKey)) {
+          return [];
+        }
+        if (
+          value &&
+          typeof value === 'object' &&
+          typeof (value as { version?: unknown }).version === 'number' &&
+          Array.isArray((value as { entries?: unknown }).entries)
+        ) {
+          return [[scopedKey, value]];
+        }
+        return [];
+      },
+    ),
   );
 }
 
@@ -296,7 +323,7 @@ export function shouldProceedAfterReset(
 const promise: Promise<void> = (async () => {
   // In development, keep generic context-atom hydration disabled to avoid
   // schema drift between local code changes. Prime only the versioned,
-  // display-only Swap balance caches so localhost can verify the real
+  // display-only Swap snapshots so localhost can verify the real
   // first-frame experience without hydrating executable Swap state.
   if (process.env.NODE_ENV !== 'production') {
     defaultLogger.app.appUpdate.log(

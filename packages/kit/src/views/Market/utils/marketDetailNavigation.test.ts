@@ -905,11 +905,53 @@ describe('marketDetailNavigation', () => {
       stockPreviewSymbol: undefined,
       stockPreviewName: undefined,
       stockPreviewLogoUrl: undefined,
+      stockPreviewQuote: undefined,
       from: undefined,
       disableTrade: undefined,
       showFavoriteButton: undefined,
     });
   });
+
+  it.each([true, false])(
+    'replaces or clears a stock quote through the router merge (hasQuote=%s)',
+    (hasQuote) => {
+      const router = StackRouter({});
+      const config = {
+        routeNames: ['MarketStockDetail'],
+        routeParamList: {},
+        routeGetIdList: {},
+      };
+      const initial = router.getInitialState(config);
+      const oldQuote = { source: 'share', price: '100' };
+      const state = {
+        ...initial,
+        routes: [
+          {
+            ...initial.routes[0],
+            params: { stockId: 'AAPL', stockPreviewQuote: oldQuote },
+          },
+        ],
+      };
+      const nextQuote = hasQuote
+        ? { source: 'share', price: '200' }
+        : undefined;
+      const update = buildReplacedMarketDetailParams({
+        stockId: 'MSFT',
+        ...(nextQuote ? { stockPreviewQuote: nextQuote } : {}),
+      });
+      const result = router.getStateForAction(
+        state,
+        { type: 'SET_PARAMS', payload: { params: update } },
+        config,
+      );
+      expect(result?.routes[0].params).toEqual(
+        expect.objectContaining({
+          stockId: 'MSFT',
+          stockPreviewQuote: nextQuote,
+        }),
+      );
+    },
+  );
 
   it('clears a stale extension preview handle when the asset changes', () => {
     expect(

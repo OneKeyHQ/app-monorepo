@@ -25,6 +25,7 @@ import {
 } from '@onekeyhq/shared/src/engine/engineConsts';
 import {
   InvoiceExpiredError,
+  JsonRPCResponseError,
   OneKeyInternalError,
   OneKeyLocalError,
   PendingQueueTooLong,
@@ -1462,6 +1463,7 @@ class ServiceSend extends ServiceBase {
       }
 
       let hasAttemptedBroadcast = false;
+      let hasUncertainBroadcast = false;
       const broadcastOnce = async () => {
         ensureBroadcastDeadline();
         if (!hasAttemptedBroadcast && primeBroadcastDiagnosticContext) {
@@ -1503,6 +1505,25 @@ class ServiceSend extends ServiceBase {
           });
           return result;
         } catch (error) {
+          if (preserveBroadcastTxIdOnError) {
+            const serverError = error as
+              | {
+                  className?: string;
+                  code?: number;
+                }
+              | undefined;
+            // Provider-side fallback attempts are not exposed; use the reported rejection.
+            const isRejected =
+              (serverError?.className ===
+                EOneKeyErrorClassNames.OneKeyServerApiError &&
+                Object.values(SEND_TX_SERVER_ERROR_CODES).some(
+                  (code) => code === serverError.code,
+                )) ||
+              (error instanceof JsonRPCResponseError &&
+                this.isReplaceTxNonceAlreadyUsedRpcError(error));
+            // A later rejection cannot disprove an earlier attempt with a lost response.
+            hasUncertainBroadcast ||= !isRejected;
+          }
           logSolanaTxDiagnostic(diagnosticState.context, {
             stage: 'broadcast',
             status: 'failed',
@@ -1656,7 +1677,7 @@ class ServiceSend extends ServiceBase {
         }
         if (
           preserveBroadcastTxIdOnError &&
-          hasAttemptedBroadcast &&
+          hasUncertainBroadcast &&
           !isGasAccountSubmit &&
           networkUtils.isEvmNetwork({ networkId }) &&
           /^0x[\da-f]{64}$/i.test(signedTx.txid)

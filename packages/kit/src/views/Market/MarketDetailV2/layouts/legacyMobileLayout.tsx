@@ -542,6 +542,7 @@ export function MobileLayout({
     networkId,
     accountAddress,
     xpub,
+    isStock: Boolean(isStockToken || isStockRoute),
   });
   const tabNames = useMemo(
     () => [

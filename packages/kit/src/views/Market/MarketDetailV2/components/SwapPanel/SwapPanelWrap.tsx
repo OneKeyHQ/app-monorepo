@@ -28,7 +28,7 @@ import {
   createSwapReviewAnalytics,
 } from '@onekeyhq/kit/src/views/Swap/utils/swapReviewAnalytics';
 import type { ISwapReviewAdapter } from '@onekeyhq/kit/src/views/Swap/utils/swapReviewState';
-import { resolveStockTokenToAssetRatio } from '@onekeyhq/kit/src/views/Swap/utils/swapStockReviewUtils';
+import { resolveSwapStockReviewToken } from '@onekeyhq/kit/src/views/Swap/utils/swapStockReviewUtils';
 import {
   EJotaiContextStoreNames,
   useSettingsAtom,
@@ -311,20 +311,11 @@ function SwapPanelWrapContent({
   const selectedVariantTradable = selectedTokenVariant
     ? isStockTokenVariantTradable(selectedTokenVariant)
     : false;
-  const stockTokenToAssetRatio = resolveStockTokenToAssetRatio({
-    selectedVariantRatio: selectedTokenVariant?.tokenToAssetRatio,
-    tokenDetailRatio: tokenDetail?.stock?.tokenToAssetRatio,
-    hasSelectedVariant: Boolean(selectedTokenVariant),
-    selectedVariantMatchesTokenDetail,
-  });
   const currentStockInfo =
-    isStockRoute && tokenDetail?.stock
-      ? {
-          ...tokenDetail.stock,
-          tokenToAssetRatio: stockTokenToAssetRatio,
-        }
+    isStockRoute && (!selectedTokenVariant || selectedVariantMatchesTokenDetail)
+      ? tokenDetail?.stock
       : undefined;
-  const currentMarketToken: ISwapToken = selectedTokenVariant
+  const marketToken: ISwapToken = selectedTokenVariant
     ? {
         networkId: selectedTokenVariant.networkId,
         contractAddress: selectedTokenVariant.contractAddress,
@@ -365,6 +356,13 @@ function SwapPanelWrapContent({
         isStock: isStockRoute,
         stock: currentStockInfo,
       };
+  const currentMarketToken =
+    resolveSwapStockReviewToken({
+      stockToken: marketToken,
+      selectedTokenVariant,
+      tokenDetail,
+      underlyingSymbol: stockId,
+    }) ?? marketToken;
   const disableNativeToken =
     isOndoStockSource(tokenDetail?.stock?.source) &&
     tradeType === ESwapDirection.BUY;
@@ -944,8 +942,8 @@ function SwapPanelWrapContent({
       onCloseDialog={onCloseDialog}
       priceRate={executionReady ? priceRate : undefined}
       stockQuoteDisplay={executionReady ? stockQuoteDisplay : undefined}
-      stockTokenToAssetRatio={stockTokenToAssetRatio}
-      stockUnderlyingSymbol={stockId}
+      stockTokenToAssetRatio={currentMarketToken.stock?.tokenToAssetRatio}
+      stockUnderlyingSymbol={currentMarketToken.stock?.underlyingAssetTicker}
       swapMevNetConfig={swapMevNetConfig}
       swapNativeTokenReserveGas={swapNativeTokenReserveGas}
       swapPanel={swapPanelWithPreference}
