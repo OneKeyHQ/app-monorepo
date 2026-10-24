@@ -285,11 +285,12 @@ export function SwapStockTickerSelector() {
   // through the token and stock-detail transition instead of showing the old
   // stock or the issuer token's artwork.
   const stockLogoUri = listPreview?.logoUrl || stock?.logoUrl;
-  // Once asset detail has failed nothing more will arrive: fall back to the
-  // committed token's own stock metadata instead of skeletons forever. Never
-  // while a selection is pending, so a switch never shows the old stock.
+  // Once asset detail or the token's stock identity has failed nothing more
+  // will arrive: fall back to the committed token's own stock metadata
+  // instead of skeletons forever. Never while a selection is pending, so a
+  // switch never shows the old stock.
   const fallbackToken =
-    isStockDetailError &&
+    (isStockDetailError || selection?.identityResolutionError) &&
     !selection?.stockSelectionPending &&
     !stock &&
     currentStockToken &&

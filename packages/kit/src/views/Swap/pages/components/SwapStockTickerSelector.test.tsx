@@ -23,6 +23,7 @@ let mockPendingState: {
   stockSelectionPending?: boolean;
   pendingStock?: IMarketStockPublicItem;
   selectedStockPreview?: IMarketStockPublicItem;
+  identityResolutionError?: boolean;
 } = {};
 const mockLoadMore = jest.fn();
 const mockStock: IMarketStockPublicItem = {
@@ -228,6 +229,28 @@ describe('SwapStockTickerSelector', () => {
     mockPendingState = { stockSelectionPending: true };
     render(<SwapStockTickerSelector />);
     expect(screen.getAllByTestId('stock-identity-skeleton').length).toBe(3);
+  });
+
+  it('falls back to the token itself when its stock identity cannot be resolved', () => {
+    mockHeaderOnly = true;
+    mockStockDetailOverrides = {
+      stockId: undefined,
+      stockPreview: undefined,
+      stockDetail: undefined,
+      isStockDetailError: false,
+    };
+    mockPendingState = { identityResolutionError: true };
+    mockCurrentStockToken = {
+      networkId: 'evm--1',
+      contractAddress: '0xlegacy',
+      decimals: 18,
+      symbol: 'TSLAon',
+      name: 'Tesla Ondo',
+      stock: { subtitle: 'Tesla', sourceLogoUri: '' },
+    };
+    render(<SwapStockTickerSelector />);
+    expect(screen.getByText('TSLAon')).toBeTruthy();
+    expect(screen.queryByTestId('stock-identity-skeleton')).toBeNull();
   });
 
   it('renders available asset fields and only skeletons the missing asset logo', () => {
