@@ -128,7 +128,6 @@ function MarketDetail({
   isTradingViewNative,
   onChartSwitch,
   onChartFullscreenChange,
-  navigation,
   route,
 }: IPageScreenProps<
   ITabMarketParamList,
@@ -388,13 +387,6 @@ function MarketDetail({
                 onPress={retryAssetIdentity}
               >
                 {intl.formatMessage({ id: ETranslations.global_retry })}
-              </Button>
-              <Button
-                testID="market-asset-detail-back"
-                variant="tertiary"
-                onPress={() => navigation.goBack()}
-              >
-                {intl.formatMessage({ id: ETranslations.global_back })}
               </Button>
             </YStack>
           ) : (

@@ -26,8 +26,8 @@ export function MarketDetailResponsiveLayout({
   showFavoriteButton,
   disableTrade,
 }: IMarketDetailResponsiveLayoutProps) {
-  // Wait for the Asset identity before mounting either chart or trade layout.
-  if (isLayoutPending) {
+  // Wait before mounting desktop charts or an Asset without a network identity.
+  if (isLayoutPending && (isDesktopLayout || !networkId)) {
     return (
       <Stack
         testID="market-detail-layout-loading"

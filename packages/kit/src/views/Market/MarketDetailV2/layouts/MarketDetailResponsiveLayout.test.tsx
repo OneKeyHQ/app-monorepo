@@ -40,7 +40,13 @@ jest.mock('./DesktopLayout', () => {
   };
 });
 
-jest.mock('./MobileLayout', () => ({ MobileLayout: () => null }));
+jest.mock('./MobileLayout', () => {
+  const React = jest.requireActual<typeof import('react')>('react');
+  return {
+    MobileLayout: () =>
+      React.createElement('div', { 'data-testid': 'mobile-layout' }),
+  };
+});
 
 const props: IMarketDetailResponsiveLayoutProps = {
   isDesktopLayout: true,
@@ -97,5 +103,42 @@ describe('Market detail layout resolution', () => {
     );
     expect(screen.getByTestId('desktop-layout')).toBeTruthy();
     expect(mockLayoutMount).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps a narrow known-network entry on the mobile layout while pending', () => {
+    render(
+      <MarketDetailResponsiveLayout
+        {...props}
+        isDesktopLayout={false}
+        isLayoutPending
+      />,
+    );
+
+    expect(screen.queryByTestId('market-detail-layout-loading')).toBeNull();
+    expect(screen.getByTestId('mobile-layout')).toBeTruthy();
+  });
+
+  it('waits for an Asset-only identity before mounting the narrow layout', () => {
+    const { rerender } = render(
+      <MarketDetailResponsiveLayout
+        {...props}
+        isDesktopLayout={false}
+        networkId=""
+        tokenAddress=""
+        isLayoutPending
+      />,
+    );
+    expect(screen.getByTestId('market-detail-layout-loading')).toBeTruthy();
+    expect(screen.queryByTestId('mobile-layout')).toBeNull();
+
+    rerender(
+      <MarketDetailResponsiveLayout
+        {...props}
+        isDesktopLayout={false}
+        isLayoutPending={false}
+      />,
+    );
+    expect(screen.queryByTestId('market-detail-layout-loading')).toBeNull();
+    expect(screen.getByTestId('mobile-layout')).toBeTruthy();
   });
 });
