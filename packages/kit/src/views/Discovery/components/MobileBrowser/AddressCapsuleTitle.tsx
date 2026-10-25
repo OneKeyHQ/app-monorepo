@@ -1,4 +1,4 @@
-import { type ComponentProps, memo, useMemo, useState } from 'react';
+import { type ComponentProps, memo, useEffect, useMemo, useState } from 'react';
 
 import MaskedView from '@react-native-masked-view/masked-view';
 import { useIntl } from 'react-intl';
@@ -82,6 +82,7 @@ function fitDomainText(
   if (!availableWidth || !fullWidth || fullWidth <= availableWidth) {
     return {
       fontSize: DOMAIN_FONT_SIZE,
+      textWidth: undefined,
       overflows: false,
     };
   }
@@ -89,6 +90,7 @@ function fitDomainText(
   if (!minWidth || minWidth > room) {
     return {
       fontSize: DOMAIN_MIN_FONT_SIZE,
+      textWidth: minWidth ? minWidth + DOMAIN_WIDTH_SLACK : undefined,
       overflows: !!minWidth,
     };
   }
@@ -102,6 +104,7 @@ function fitDomainText(
   }
   return {
     fontSize,
+    textWidth: Math.ceil(widthAt(fontSize)) + DOMAIN_WIDTH_SLACK,
     overflows: false,
   };
 }
@@ -113,28 +116,39 @@ function fitDomainText(
 //
 // `centerShift` moves the text from the middle of its own area to the middle
 // of the whole capsule (the badge and back button on the left take more room
-// than the reload button on the right). The text always stays there: it fits
-// in the room that is symmetric around the capsule's center (shrinking for
-// that if needed), so it is never off-center and the bar's morph never has
-// to move it sideways.
+// than the reload button on the right). It gives way as the text grows, so
+// a fitting domain is never pushed into the fade.
 function DomainLabel({
   text,
   testID,
   centerShift,
+  onCenterOffset,
 }: {
   text: string;
   testID?: string;
   centerShift: number;
+  onCenterOffset?: (offset: number) => void;
 }) {
   const [availableWidth, setAvailableWidth] = useState(0);
   // Natural single-line widths at the full and the minimum font size.
   const [fullTextWidth, setFullTextWidth] = useState(0);
   const [minTextWidth, setMinTextWidth] = useState(0);
-  const { fontSize, overflows } = fitDomainText(
+  const { fontSize, textWidth, overflows } = fitDomainText(
     fullTextWidth,
     minTextWidth,
-    availableWidth && Math.max(0, availableWidth - 2 * Math.abs(centerShift)),
+    availableWidth,
   );
+  const maxShift = Math.max(
+    0,
+    (availableWidth - (textWidth ?? fullTextWidth)) / 2,
+  );
+  const shift = Math.max(-maxShift, Math.min(maxShift, centerShift));
+  // How far the text ends up right of the capsule's center when it can't
+  // center without crowding the badge (0 when it centers, or overflows).
+  const centerOffset = overflows ? 0 : shift - centerShift;
+  useEffect(() => {
+    onCenterOffset?.(centerOffset);
+  }, [centerOffset, onCenterOffset]);
 
   // The text sits in a row far wider than the capsule, so its own box is
   // never constrained: positioned so the text is centered in the capsule, or,
@@ -150,7 +164,7 @@ function DomainLabel({
               justifyContent: 'flex-end',
             }
           : {
-              left: availableWidth / 2 + centerShift - WIDE_ROW_WIDTH / 2,
+              left: availableWidth / 2 + shift - WIDE_ROW_WIDTH / 2,
               justifyContent: 'center',
             },
       ]}
@@ -239,9 +253,12 @@ function AddressCapsuleTitleComponent({
   badgeStyle,
   domainStyle,
   capsuleWidth,
+  onDomainCenterOffset,
 }: {
   url?: string;
   onPress: () => void;
+  // Reports how far the domain sits right of the capsule's center.
+  onDomainCenterOffset?: (offset: number) => void;
   // Width of the capsule hosting this title, for exact centering.
   capsuleWidth?: number;
   // The bar's morph fades the badge with the capsule, but swaps the domain
@@ -339,6 +356,7 @@ function AddressCapsuleTitleComponent({
               <DomainLabel
                 testID={DiscoveryTestIDs.searchBar}
                 centerShift={centerShift}
+                onCenterOffset={onDomainCenterOffset}
                 text={domainText}
               />
             </XStack>
