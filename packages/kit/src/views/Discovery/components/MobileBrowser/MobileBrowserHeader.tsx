@@ -2,7 +2,7 @@ import { memo, useEffect, useMemo } from 'react';
 import type { PropsWithChildren } from 'react';
 
 import { useIsFocused } from '@react-navigation/native';
-import { StatusBar, StyleSheet } from 'react-native';
+import { StatusBar, StyleSheet, View } from 'react-native';
 import Animated, { useAnimatedStyle } from 'react-native-reanimated';
 
 import {
@@ -49,12 +49,26 @@ const HEADER_BOTTOM_GAP = 6;
 // Over the web page layers in Browser.native (zIndex 3 and 4).
 const BROWSER_HEADER_Z_INDEX = 5;
 
+// The row's clip: its top edge sits a little into the status bar area and
+// its bottom below the row, so a pressed glass capsule's growth and the
+// glass shadow fit, while the row disappears as it slides up past it.
+const ROW_CLIP_ABOVE = 8;
+const ROW_CLIP_BELOW = 16;
+
 const styles = StyleSheet.create({
+  rowClip: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    height: ROW_CLIP_ABOVE + BROWSER_HEADER_HEIGHT + ROW_CLIP_BELOW,
+    overflow: 'hidden',
+  },
   // The header row, laid over the page right below the status bar and slid
-  // up under it to collapse. Not clipped, so a pressed glass capsule's
-  // growth shows in full.
+  // up behind the clip's top edge to collapse (so glass never has to switch
+  // off to hide it).
   overlay: {
     position: 'absolute',
+    top: ROW_CLIP_ABOVE,
     left: 0,
     right: 0,
     height: BROWSER_HEADER_HEIGHT,
@@ -157,6 +171,7 @@ function HeaderChip({
         px={px}
         fade={fade}
         borderRadius={chip ? ACCOUNT_CHIP_RADIUS : undefined}
+        keepGlass
       >
         {children}
       </BrowserChromeCapsule>
@@ -256,51 +271,56 @@ function MobileBrowserHeader({
         style={pageColorStyle}
       >
         <Animated.View style={spacerStyle} />
-        <Animated.View
-          pointerEvents={isCollapsed ? 'none' : 'box-none'}
-          style={[styles.overlay, { top }, rowSlideStyle, rowFadeStyle]}
+        <View
+          pointerEvents="box-none"
+          style={[styles.rowClip, { top: top - ROW_CLIP_ABOVE }]}
         >
-          <Stack
-            position="absolute"
-            top={0}
-            right={0}
-            bottom={0}
-            left={0}
-            bg="$bgApp"
-            style={pageColorStyle}
-          />
-          {/* Tighter than the bottom bar, like a navigation bar: the exit
+          <Animated.View
+            pointerEvents={isCollapsed ? 'none' : 'box-none'}
+            style={[styles.overlay, rowSlideStyle, rowFadeStyle]}
+          >
+            <Stack
+              position="absolute"
+              top={0}
+              right={0}
+              bottom={0}
+              left={0}
+              bg="$bgApp"
+              style={pageColorStyle}
+            />
+            {/* Tighter than the bottom bar, like a navigation bar: the exit
               glyph (or its glass circle) and the chip's right edge sit 16pt
               from the screen edges, in line with typical page content. */}
-          <XStack
-            flex={1}
-            pl={
-              isGlass
-                ? HEADER_EDGE_INSET
-                : HEADER_EDGE_INSET - MINIMIZE_BUTTON_PADDING
-            }
-            pr={HEADER_EDGE_INSET}
-            alignItems="center"
-            justifyContent="space-between"
-          >
-            {/* No padding: the 36pt button alone fills the 36pt capsule, so
+            <XStack
+              flex={1}
+              pl={
+                isGlass
+                  ? HEADER_EDGE_INSET
+                  : HEADER_EDGE_INSET - MINIMIZE_BUTTON_PADDING
+              }
+              pr={HEADER_EDGE_INSET}
+              alignItems="center"
+              justifyContent="space-between"
+            >
+              {/* No padding: the 36pt button alone fills the 36pt capsule, so
                 the glass is a circle. */}
-            <HeaderChip fade={isGlass ? fade : undefined} px="$0">
-              {closeButton}
-            </HeaderChip>
-            {/* One compact chip for every account state (connected,
+              <HeaderChip fade={isGlass ? fade : undefined} px="$0">
+                {closeButton}
+              </HeaderChip>
+              {/* One compact chip for every account state (connected,
                 not connected, no wallet), so the right side keeps the same
                 shape instead of switching between loose triggers. */}
-            <HeaderChip
-              fade={isGlass ? fade : undefined}
-              px="$1"
-              bg={accountChipBg}
-              chip
-            >
-              {accountToolbar}
-            </HeaderChip>
-          </XStack>
-        </Animated.View>
+              <HeaderChip
+                fade={isGlass ? fade : undefined}
+                px="$1"
+                bg={accountChipBg}
+                chip
+              >
+                {accountToolbar}
+              </HeaderChip>
+            </XStack>
+          </Animated.View>
+        </View>
       </Stack>
     </Theme>
   );

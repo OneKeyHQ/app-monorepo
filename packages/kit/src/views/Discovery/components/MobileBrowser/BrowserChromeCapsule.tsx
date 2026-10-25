@@ -69,6 +69,11 @@ type IBrowserChromeCapsuleProps = PropsWithChildren<{
   // Defaults to a full pill; a chip hosting a square-ish item (the account
   // avatar) uses a concentric radius instead.
   borderRadius?: number;
+  // Glass stays on through the fade (only the contents fade), for a caller
+  // that hides the capsule another way (the header clips it). Switching the
+  // glass back on replays iOS's materialize animation, whose shadow lands
+  // before the glass and reads darker for a moment.
+  keepGlass?: boolean;
 }>;
 
 // A pill (or circle, with a single child) hosting browser chrome buttons.
@@ -90,12 +95,13 @@ export function BrowserChromeCapsule({
   fade,
   background = true,
   borderRadius = PILL_RADIUS,
+  keepGlass,
 }: IBrowserChromeCapsuleProps) {
   const isGlass = isLiquidGlassAvailable();
   const fadeStyle = useCapsuleFadeStyle(fade);
   const glassHidden = useIsProgressPast(
     // Only glass needs the switch; without it no JS update at the midpoint.
-    isGlass ? fade?.progress : undefined,
+    isGlass && !keepGlass ? fade?.progress : undefined,
     fade ? getCapsuleFadeMidpoint(fade.range) : 0,
     fade?.reverse ? 'above' : 'below',
   );
