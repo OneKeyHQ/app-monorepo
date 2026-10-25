@@ -417,6 +417,14 @@ function WebModalNavigator({
       }
       return;
     }
+    // The start values land with the transitions off. This modal is already
+    // in the page: reading the underlying modal's size below lays it out at
+    // its end values, and with its transitions on, the start values would
+    // then run from those, so the fade and the grow would never show
+    const { transition } = el.style;
+    if (media.gtMd) {
+      el.style.transition = 'none';
+    }
     // A modal pushed on top of another modal with a different declared size
     // (e.g. Swap 640 -> token selector 880x700) starts at the underlying
     // modal's size and grows to its own, instead of popping in at full size.
@@ -441,6 +449,9 @@ function WebModalNavigator({
 
     // The initial root-navigation state can fire before this modal ref exists.
     void el.offsetHeight;
+    if (media.gtMd) {
+      el.style.transition = transition;
+    }
     const animationFrame = requestAnimationFrame(() => {
       if (media.gtMd) {
         el.style.opacity = '1';
