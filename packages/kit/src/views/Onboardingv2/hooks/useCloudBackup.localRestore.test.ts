@@ -261,6 +261,82 @@ describe.each(['iOS', 'Android'])('%s local restore UI flow', (platform) => {
     expect(result.current.checkLoading).toBe(false);
   });
 
+  it.each(['success', 'cancelled', 'denied', 'exception'])(
+    'settles backup loading after Drive authorization: %s',
+    async (outcome) => {
+      let complete: (value: boolean) => void = () => undefined;
+      let fail: (error: Error) => void = () => undefined;
+      service.isBackupPasswordSet.mockImplementationOnce(
+        () =>
+          new Promise<boolean>((resolve, reject) => {
+            complete = resolve;
+            fail = reject;
+          }),
+      );
+      const data = {
+        ...payload,
+        privateData: {
+          credentials: {},
+          wallets: {},
+          importedAccounts: {},
+          watchingAccounts: {},
+        },
+      };
+      const { result } = renderHook(() => useCloudBackup());
+      let pending: Promise<unknown> | undefined;
+      await act(async () => {
+        pending = result.current.doBackup({ data });
+      });
+      expect(result.current.checkLoading).toBe(true);
+      await act(async () => {
+        if (outcome === 'success') {
+          complete(true);
+          await pending;
+        } else {
+          const error = new Error(outcome);
+          fail(error);
+          await expect(pending).rejects.toBe(error);
+        }
+      });
+      expect(result.current.checkLoading).toBe(false);
+      expect(showCloudBackupPasswordDialog).toHaveBeenCalledTimes(
+        outcome === 'success' ? 1 : 0,
+      );
+      expect(service.backup).not.toHaveBeenCalled();
+    },
+  );
+
+  it('does not open a password dialog when Drive authorization finishes after unmount', async () => {
+    let complete: (value: boolean) => void = () => undefined;
+    service.isBackupPasswordSet.mockImplementationOnce(
+      () =>
+        new Promise<boolean>((resolve) => {
+          complete = resolve;
+        }),
+    );
+    const data = {
+      ...payload,
+      privateData: {
+        credentials: {},
+        wallets: {},
+        importedAccounts: {},
+        watchingAccounts: {},
+      },
+    };
+    const { result, unmount } = renderHook(() => useCloudBackup());
+    let pending: Promise<unknown> | undefined;
+    await act(async () => {
+      pending = result.current.doBackup({ data });
+    });
+    unmount();
+    await act(async () => {
+      complete(true);
+      await pending;
+    });
+    expect(showCloudBackupPasswordDialog).not.toHaveBeenCalled();
+    expect(service.backup).not.toHaveBeenCalled();
+  });
+
   it('still requires manual backup-password entry before creating a new backup', async () => {
     service.prepareLocalRestore.mockResolvedValue({
       restoreId: 'cached-handle',

@@ -3,6 +3,7 @@ import { useCallback, useState } from 'react';
 import {
   Button,
   Checkbox,
+  Dialog,
   Input,
   SizableText,
   Stack,
@@ -78,13 +79,47 @@ const DEFAULT_STORAGE_NAMESPACE = 'tradingview-v2-demo';
 function TradingViewChartSettingsGalleryExample() {
   const [value, setValue] = useState(createTradingViewChartSettingsValue);
 
-  return <TradingViewChartSettings value={value} onConfirm={setValue} />;
+  return (
+    <Button
+      testID="gallery-chart-settings-trigger"
+      onPress={() =>
+        Dialog.show({
+          dialogContainer: ({ ref }) => (
+            <TradingViewChartSettings
+              dialogRef={ref}
+              value={value}
+              onConfirm={setValue}
+            />
+          ),
+        })
+      }
+    >
+      Chart settings
+    </Button>
+  );
 }
 
 function TradingViewIndicatorSettingsGalleryExample() {
   const [value, setValue] = useState(createTradingViewIndicatorSettingsValue);
 
-  return <TradingViewIndicatorSettings value={value} onConfirm={setValue} />;
+  return (
+    <Button
+      testID="gallery-indicator-settings-trigger"
+      onPress={() =>
+        Dialog.show({
+          dialogContainer: ({ ref }) => (
+            <TradingViewIndicatorSettings
+              dialogRef={ref}
+              value={value}
+              onConfirm={setValue}
+            />
+          ),
+        })
+      }
+    >
+      Indicators
+    </Button>
+  );
 }
 
 const TradingViewV2Gallery = () => {
@@ -135,11 +170,11 @@ const TradingViewV2Gallery = () => {
             element: <TradingViewNativeTradeMarksPreview />,
           },
           {
-            title: 'OKX-style chart settings UI mock',
+            title: 'Chart settings dialog',
             element: <TradingViewChartSettingsGalleryExample />,
           },
           {
-            title: 'OKX-style indicator settings UI mock',
+            title: 'Indicator settings dialog',
             element: <TradingViewIndicatorSettingsGalleryExample />,
           },
           {

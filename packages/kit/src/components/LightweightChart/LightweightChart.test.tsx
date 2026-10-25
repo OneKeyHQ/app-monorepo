@@ -604,7 +604,7 @@ describe('LightweightChart', () => {
     expect(fillStyles).toEqual(['#00aa00', '#ee0000']);
   });
 
-  it('resizes the chart height without recreating the chart instance', async () => {
+  it('refits the full range after resizing without recreating the chart instance', async () => {
     const series = {
       setData: jest.fn(),
       priceToCoordinate: jest.fn(),
@@ -636,6 +636,7 @@ describe('LightweightChart', () => {
     rerender(<LightweightChart data={data} height={360} />);
     expect(resizeObserverCallback).toBeDefined();
     expect(resizeObserverTarget).toBeDefined();
+    timeScale.fitContent.mockClear();
 
     act(() => {
       resizeObserverCallback?.(
@@ -655,6 +656,21 @@ describe('LightweightChart', () => {
       height: 360,
       width: 600,
     });
+    expect(timeScale.fitContent).toHaveBeenCalledTimes(1);
+    act(() => {
+      resizeObserverCallback?.(
+        [
+          {
+            contentRect: { height: 360, width: 900 },
+            target: resizeObserverTarget,
+          } as ResizeObserverEntry,
+        ],
+        {} as ResizeObserver,
+      );
+    });
+    expect(timeScale.fitContent).toHaveBeenCalledTimes(2);
+    expect(createChart).toHaveBeenCalledTimes(1);
+    expect(chart.remove).not.toHaveBeenCalled();
   });
 
   it('keeps the pulse dot hidden until updated data finishes layout', async () => {

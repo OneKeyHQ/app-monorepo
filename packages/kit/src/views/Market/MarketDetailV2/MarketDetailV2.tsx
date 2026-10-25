@@ -23,6 +23,7 @@ import {
   useIsModalPage,
   useMedia,
   usePreventRemove,
+  useSplitSubView,
 } from '@onekeyhq/components';
 import { getRootRoutersLength } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import { useSetSplitViewDetailFullscreen } from '@onekeyhq/kit/src/provider/Container/TableSplitViewContainer';
@@ -32,6 +33,7 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { MARKET_TOP_COINS_CATEGORY_ID } from '@onekeyhq/shared/src/consts/marketConsts';
+import { EEnterWay } from '@onekeyhq/shared/src/logger/scopes/dex';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ERootRoutes } from '@onekeyhq/shared/src/routes';
 import type {
@@ -66,6 +68,7 @@ import {
   useStockDetail,
 } from './hooks';
 import { useSyncMarketCurrentTokenLiveData } from './hooks/useAutoRefreshTokenDetail';
+import { useSwapStockBackTrip } from './hooks/useMarketDetailBackNavigation';
 import { useMarketDetailTabBarVisibility } from './hooks/useMarketDetailTabBarVisibility';
 import { MarketDetailResponsiveLayout } from './layouts/MarketDetailResponsiveLayout';
 import { shouldReplayFullscreenNavigationAction } from './utils/marketDetailFullscreenNavigation';
@@ -142,6 +145,7 @@ function MarketDetail({
   onChartSwitch,
   onChartFullscreenChange,
   route,
+  navigation,
 }: IPageScreenProps<
   ITabMarketParamList,
   | ETabMarketRoutes.MarketDetailV2
@@ -244,6 +248,26 @@ function MarketDetail({
     params.showFavoriteButton,
     true,
   );
+  const initialSection =
+    'initialSection' in params ? params.initialSection : undefined;
+  // One-shot: once shown, going back or switching stocks keeps the user's
+  // own scroll position instead of jumping again.
+  const handleInitialSectionShown = useCallback(() => {
+    navigation.setParams({ initialSection: undefined });
+  }, [navigation]);
+  // Back from Swap's "view full data" returns to Swap (not in the tablet
+  // split view, which keeps its own back behavior).
+  const isTabletDetailView = useSplitSubView();
+  useSwapStockBackTrip({
+    navigation,
+    params,
+    routeKey: route.key,
+    isFromSwapStock:
+      !isTabletDetailView &&
+      'from' in params &&
+      params.from === EEnterWay.SwapStock,
+    isChartFullscreen,
+  });
   const routeTokenDetailPreview =
     'legacyTokenPreview' in params ? params.legacyTokenPreview : undefined;
   const tokenDetailPreview = useMemo(
@@ -352,9 +376,7 @@ function MarketDetail({
         active={shouldOwnSharedMarketDetailState}
         preview={resolvedTokenDetailPreview}
         stockTarget={isStockRoute ? tokenDetailTarget : undefined}
-        retainedTokenTarget={
-          usesRetainedMarketDetailRoutes ? tokenDetailTarget : undefined
-        }
+        retainedTokenTarget={tokenDetailTarget}
       />
       <Page>
         {isChartFullscreen && !platformEnv.isNative ? (
@@ -395,6 +417,8 @@ function MarketDetail({
             marketTokenCategory={marketTokenCategory}
             showFavoriteButton={showFavoriteButton}
             disableTrade={shouldDisableTrade}
+            initialSection={initialSection}
+            onInitialSectionShown={handleInitialSectionShown}
           />
         </Page.Body>
       </Page>
@@ -423,6 +447,10 @@ function MarketDetailV2(
     name:
       'stockPreviewName' in props.route.params
         ? props.route.params.stockPreviewName
+        : undefined,
+    quote:
+      'stockPreviewQuote' in props.route.params
+        ? props.route.params.stockPreviewQuote
         : undefined,
     logoUrl:
       'stockPreviewLogoUrl' in props.route.params

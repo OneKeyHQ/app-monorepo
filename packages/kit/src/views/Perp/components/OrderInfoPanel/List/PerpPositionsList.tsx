@@ -38,6 +38,7 @@ import {
   isPerpsMobileLayoutTraceRectChanged,
   tracePerpsMobileLayout,
 } from '../../../utils/mobileLayoutTrace';
+import { PERP_TEXT_ACTION_HOVER_STYLE } from '../../../utils/styleUtils';
 import { showCloseAllPositionsDialog } from '../CloseAllPositionsModal';
 import { MobilePositionsListHeader } from '../Components/MobilePositionsListHeader';
 import { PerpPositionsEmptyState } from '../Components/PerpPositionsEmptyState';
@@ -75,6 +76,7 @@ function PerpPositionsList({
     actionMeasurement.locale === intl.locale ? actionMeasurement.width : 160;
   const actionLabels = [
     ETranslations.add_position__action,
+    ETranslations.perp_reverse_position__action,
     ETranslations.perp_position_market,
     ETranslations.perp_position_limit,
   ].map((id) => intl.formatMessage({ id }));
@@ -238,6 +240,7 @@ function PerpPositionsList({
         fixed: positionsLength > 0,
         ...(positionsLength > 0 &&
           canMutateScopedPositions && {
+            headerHoverStyle: PERP_TEXT_ACTION_HOVER_STYLE,
             onPress: () =>
               showCloseAllPositionsDialog(undefined, accountScopedAddress),
           }),
@@ -490,15 +493,10 @@ function PerpPositionsList({
             }
           }}
         >
-          {/* Measure the widest hover weight so actions never outgrow the fixed column. */}
+          {/* Hover scaling does not change the action labels' layout widths. */}
           <XStack gap="$2">
             {actionLabels.map((label, index) => (
-              <SizableText
-                key={index}
-                size="$bodySmMedium"
-                fontWeight={600}
-                flexShrink={0}
-              >
+              <SizableText key={index} size="$bodySmMedium" flexShrink={0}>
                 {label}
               </SizableText>
             ))}

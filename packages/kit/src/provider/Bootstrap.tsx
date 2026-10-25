@@ -98,6 +98,7 @@ import { useRunAfterTokensDone } from '../hooks/useRunAfterTokensDone';
 import { useTrayDataProvider } from '../hooks/useTrayDataProvider';
 import { registerHomeTokenListOwnerCacheInvalidation } from '../states/jotai/contexts/tokenList/cells/ownerCacheInvalidation';
 import { registerSwrCacheMutationInvalidation } from '../utils/swrCacheMutationInvalidation';
+import { registerSwapTokenSelectorCacheInvalidation } from '../views/Swap/utils/swapTokenSelectorCacheInvalidation';
 
 import { preloadComponentsOnIdle } from './preloadComponents';
 
@@ -855,6 +856,7 @@ registerSwrCacheMutationInvalidation();
 // Same for the home token list's per-owner caches: a removal made before the
 // home token list first runs must still drop them.
 registerHomeTokenListOwnerCacheInvalidation();
+registerSwapTokenSelectorCacheInvalidation();
 
 export function Bootstrap() {
   const navigation = useAppNavigation();

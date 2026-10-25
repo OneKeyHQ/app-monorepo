@@ -1,8 +1,10 @@
 /** @jest-environment jsdom */
 
-import type { ReactNode } from 'react';
+import type { ComponentProps, ReactNode } from 'react';
 
 import { render } from '@testing-library/react';
+
+import type { DialogContainer } from '@onekeyhq/components';
 
 import { TradingViewIndicatorSettingsDialog } from './TradingViewIndicatorContent';
 import { createTradingViewIndicatorSettingsValue } from './TradingViewSettingsMockState';
@@ -32,11 +34,30 @@ const mockButton = jest.fn(
   ({ children }: IMockLayoutProps) => children ?? null,
 );
 const mockStack = jest.fn(({ children }: IMockLayoutProps) => children ?? null);
+const mockDialogContainer = jest.fn(
+  ({
+    renderContent,
+    leadingContent,
+  }: ComponentProps<typeof DialogContainer>) => (
+    <>
+      {renderContent}
+      {leadingContent}
+    </>
+  ),
+);
+const mockDialogFooter = jest.fn(
+  ({ leadingContent }: ComponentProps<typeof DialogContainer>) =>
+    leadingContent ?? null,
+);
 let mockWindowHeight = 390;
 
 jest.mock('@onekeyhq/components', () => ({
   Button: (props: IMockLayoutProps) => mockButton(props),
   Divider: () => null,
+  DialogContainer: (props: ComponentProps<typeof DialogContainer>) =>
+    mockDialogContainer(props),
+  Footer: (props: ComponentProps<typeof DialogContainer>) =>
+    mockDialogFooter(props),
   IconButton: () => null,
   ScrollView: (props: IMockLayoutProps) => mockScrollView(props),
   SizableText: ({ children }: IMockLayoutProps) => children ?? null,
@@ -44,6 +65,7 @@ jest.mock('@onekeyhq/components', () => ({
   XStack: (props: IMockLayoutProps) => mockXStack(props),
   YStack: (props: IMockLayoutProps) => mockYStack(props),
   useSafeAreaInsets: () => ({ bottom: 21, left: 0, right: 0, top: 0 }),
+  useMedia: () => ({ md: false }),
 }));
 
 jest.mock('react-native', () => ({
@@ -125,58 +147,58 @@ describe('TradingView indicator settings layout', () => {
     mockWindowHeight = 390;
   });
 
-  it('lets the focused body shrink and scroll within a short viewport', () => {
-    renderDialog('focused');
+  it('lets the body shrink and scroll within a short viewport', () => {
+    renderDialog('full');
 
     expect(
-      getLayoutProps(mockYStack, 'trading-view-indicator-settings-dialog'),
-    ).toEqual(
-      expect.objectContaining({
-        height: 353,
-        maxHeight: 353,
-        maxWidth: '100%',
-      }),
-    );
+      getLayoutProps(
+        mockYStack,
+        'trading-view-indicator-settings-content-container',
+      ),
+    ).toEqual(expect.objectContaining({ height: 283, minHeight: 0 }));
     expect(
       getLayoutProps(mockXStack, 'trading-view-indicator-settings-body'),
     ).toEqual(expect.objectContaining({ flex: 1, minHeight: 0 }));
     expect(
       getLayoutProps(mockScrollView, 'trading-view-indicator-settings-content'),
     ).toEqual(expect.objectContaining({ flex: 1, minHeight: 0 }));
-    expect(
-      getLayoutProps(mockXStack, 'trading-view-indicator-settings-header'),
-    ).toEqual(expect.objectContaining({ flexShrink: 0, minHeight: 64 }));
-    expect(
-      getLayoutProps(mockXStack, 'trading-view-indicator-settings-footer'),
-    ).toEqual(expect.objectContaining({ flexShrink: 0, minHeight: 72 }));
   });
 
-  it('sizes the full dialog like the chart settings dialog', () => {
+  it('uses the common dialog container at desktop size', () => {
     mockWindowHeight = 800;
     renderDialog('full');
 
     expect(
-      getLayoutProps(mockYStack, 'trading-view-indicator-settings-dialog'),
-    ).toEqual(
-      expect.objectContaining({
-        height: 600,
-        maxHeight: '100%',
-        maxWidth: 640,
-      }),
-    );
+      getLayoutProps(
+        mockYStack,
+        'trading-view-indicator-settings-content-container',
+      ),
+    ).toEqual(expect.objectContaining({ height: 477 }));
+    expect(mockDialogContainer.mock.calls[0][0].floatingPanelProps).toEqual({
+      width: '$160',
+      maxWidth: '$160',
+    });
   });
 
-  it('renders reset, cancel and confirm in the footer', () => {
+  it('keeps reset and confirm aligned to the right without cancel', () => {
     renderDialog('full');
 
-    const buttonTestIDs = mockButton.mock.calls.map(
-      ([props]) => (props as IMockLayoutProps).testID,
+    const props = mockDialogFooter.mock.calls[0][0];
+    expect(mockDialogContainer.mock.calls[0][0].showFooter).toBe(false);
+    expect(props.footerProps).toEqual(
+      expect.objectContaining({ justifyContent: 'flex-end' }),
     );
-    expect(buttonTestIDs).toEqual([
-      'trading-view-indicator-settings-mock-reset',
-      'trading-view-indicator-settings-mock-cancel',
-      'trading-view-indicator-settings-mock-confirm',
-    ]);
+    expect(props.showCancelButton).toBe(false);
+    expect(props.confirmButtonProps).toEqual(
+      expect.objectContaining({
+        testID: 'trading-view-indicator-settings-mock-confirm',
+        flexGrow: 0,
+        flexBasis: 'auto',
+      }),
+    );
+    expect(
+      mockButton.mock.calls.map(([buttonProps]) => buttonProps.testID),
+    ).toEqual(['trading-view-indicator-settings-mock-reset']);
   });
 
   it('renders the mobile body and footer for the settings page', () => {

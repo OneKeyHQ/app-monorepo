@@ -146,7 +146,9 @@ const SwapProInputContainer = ({
           onFocus={onInputFocus}
           onChangeText={handleInputChange}
           inputAccessoryViewID={
-            platformEnv.isNativeIOS ? SwapAmountInputAccessoryViewID : undefined
+            platformEnv.isNativeIOSPhone
+              ? SwapAmountInputAccessoryViewID
+              : undefined
           }
           placeholder={intl.formatMessage({
             id: ETranslations.dexmarket_details_history_amount,
@@ -160,7 +162,7 @@ const SwapProInputContainer = ({
         onSlideStart={onSlideStart}
         onSlideComplete={onSlideComplete}
       />
-      {platformEnv.isNativeIOS ? (
+      {platformEnv.isNativeIOSPhone ? (
         <InputAccessoryView nativeID={SwapAmountInputAccessoryViewID}>
           <PercentageStageOnKeyboard
             onSelectPercentageStage={onSelectPercentageStage}

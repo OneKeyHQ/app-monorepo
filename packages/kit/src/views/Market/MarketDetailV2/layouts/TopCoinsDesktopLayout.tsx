@@ -14,6 +14,7 @@ import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 import {
   MARKET_DESKTOP_CONTENT_FRAME_PROPS,
   MARKET_DETAIL_TRADE_COLUMN_PROPS,
+  MARKET_DETAIL_TRADE_COLUMN_TOP_OFFSET,
 } from '../../marketDesktopLayoutConstants';
 import { Portfolio } from '../components/InformationTabs/components/Portfolio';
 import { PerpetualTradingBanner } from '../components/PerpetualTradingBanner/PerpetualTradingBanner';
@@ -267,11 +268,14 @@ export function TopCoinsDesktopLayout({
           />
         </YStack>
 
-        <YStack {...MARKET_DETAIL_TRADE_COLUMN_PROPS}>
-          {/* Keeps the trade panel aligned while Hyperliquid availability changes,
-              and stays hidden once dismissed. Sits above the trade panel, where
-              the pre-redesign desktop layout carried it. */}
-          <PerpetualTradingBanner px="$5" py="$5" reserveSpace />
+        <YStack
+          {...MARKET_DETAIL_TRADE_COLUMN_PROPS}
+          mt={MARKET_DETAIL_TRADE_COLUMN_TOP_OFFSET}
+        >
+          {/* Shown only for tokens with a perps market, and hidden once
+              dismissed. Sits above the trade panel, where the pre-redesign
+              desktop layout carried it. */}
+          <PerpetualTradingBanner px="$5" py="$2" pb="$3" />
           {disableTrade ? (
             <TopCoinsUnavailableTradePanel symbol={swapToken.symbol} />
           ) : null}

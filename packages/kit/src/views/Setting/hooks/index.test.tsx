@@ -195,6 +195,9 @@ describe('useResetApp', () => {
     await expect(onConfirm?.(confirmArgs)).rejects.toBe(resetError);
     await expect(onConfirm?.(confirmArgs)).resolves.toBeUndefined();
     expect(getMocks().resetApp).toHaveBeenCalledTimes(2);
+    expect(getMocks().resetApp).toHaveBeenLastCalledWith({
+      preserveBackupRecovery: true,
+    });
   });
 
   it('returns failure for silent reset so password verification can finish and retry', async () => {
@@ -208,5 +211,8 @@ describe('useResetApp', () => {
       await expect(result.current()).resolves.toBe(true);
     });
     expect(getMocks().resetApp).toHaveBeenCalledTimes(2);
+    expect(getMocks().resetApp).toHaveBeenLastCalledWith({
+      preserveBackupRecovery: false,
+    });
   });
 });

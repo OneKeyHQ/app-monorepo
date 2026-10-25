@@ -1,4 +1,4 @@
-import type { IPackageRef } from './checkPackageAge';
+import type { IPackageRef } from './checkPackageAge.ts';
 
 /**
  * Parse a `git diff` of yarn.lock to extract newly added packages.

@@ -131,7 +131,7 @@ export function AccountSelectorMenuActionV2({
     return () => {
       closeRequested = true;
       closeActionList?.();
-      lifecycle.close();
+      void lifecycle.close();
     };
   }, [anchor, gtMd, listRef, onClose, ready]);
   return null;

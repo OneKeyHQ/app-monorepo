@@ -29,6 +29,7 @@ import { scheduleOnRN, scheduleOnUI } from 'react-native-worklets';
 
 import { Stack, useTheme, useThemeName } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { getDateFormatTemplate } from '@onekeyhq/shared/src/utils/dateUtils';
 
 import {
   TRADING_VIEW_NATIVE_SWITCHING_INTERVAL_OPACITY as SWITCHING_INTERVAL_OPACITY,
@@ -129,6 +130,7 @@ const EMPTY_SUB_INDICATOR_PANES: readonly ITradingViewNativeSubIndicatorRenderPa
 export const TradingViewNativeChart = memo(
   ({
     drawingStorageKey,
+    loadDrawingHistory,
     enableDrawings = false,
     prioritizePageScroll = false,
     candleIntervalSeconds,
@@ -166,6 +168,7 @@ export const TradingViewNativeChart = memo(
     viewportRequest,
     runtimeRef,
   }: ITradingViewNativeChartProps) => {
+    const dateFormatTemplate = getDateFormatTemplate(locale);
     const indicatorPanes = useIndicatorPanes(
       inputSubIndicatorPanes,
       drawingStorageKey,
@@ -248,6 +251,9 @@ export const TradingViewNativeChart = memo(
       indicatorSeries,
       subIndicatorPanes,
       storageKey: drawingStorageKey,
+      loadHistory: loadDrawingHistory,
+      candleIntervalSeconds,
+      priceDecimalPlaces,
       chartRuntime,
       decayOffset,
     });
@@ -522,6 +528,7 @@ export const TradingViewNativeChart = memo(
         priceAxisWidth.value,
       );
       return createTradingViewNativeSkiaPicture({
+        dateFormatTemplate,
         drawings: enableDrawings ? drawings.value : undefined,
         onScene: (scene) => {
           if (!enableDrawings) return;
@@ -566,6 +573,7 @@ export const TradingViewNativeChart = memo(
       });
     }, [
       candleLabels,
+      dateFormatTemplate,
       priceDecimalPlaces,
       enableDrawings,
       extendTimeAxisBorderToCanvasEdge,

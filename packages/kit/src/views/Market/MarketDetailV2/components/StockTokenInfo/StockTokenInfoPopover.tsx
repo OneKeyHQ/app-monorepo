@@ -13,6 +13,7 @@ import {
   Tooltip,
   XStack,
   YStack,
+  runAfterActionListClose,
   useClipboard,
   usePopoverContext,
 } from '@onekeyhq/components';
@@ -115,10 +116,11 @@ function StockTokenInfoContent({
   const website = variant.website?.trim();
   const handleOpenIssuerWebsite = useCallback(() => {
     if (!website) return;
-    void (async () => {
-      await closePopover?.();
-      openUrlExternal(website);
-    })();
+    void runAfterActionListClose(
+      () => closePopover?.(),
+      () => openUrlExternal(website),
+      { waitForAnimation: false },
+    );
   }, [closePopover, website]);
 
   const handleCopyContractAddress = useCallback(() => {

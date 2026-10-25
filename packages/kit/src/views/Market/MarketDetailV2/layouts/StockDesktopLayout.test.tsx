@@ -3,11 +3,13 @@
 
 import type { ReactNode } from 'react';
 
-import { fireEvent, render } from '@testing-library/react';
+import { act, fireEvent, render, renderHook } from '@testing-library/react';
 
-import { StockChart } from './StockDesktopLayout';
+import { StockChart, useStockDetailTab } from './StockDesktopLayout';
 
 const mockSetChartDisplayMode = jest.fn();
+const mockRecordTabChange = jest.fn();
+let mockPreferPosition = false;
 const mockStockSimpleChart = jest.fn(
   (_props: { priceMode: 'share' | 'token'; range: string }) => (
     <div data-testid="stock-simple-chart" />
@@ -126,6 +128,12 @@ jest.mock('../hooks/StockDetailContext', () => ({
 }));
 jest.mock('../hooks/useStockPortfolioData', () => ({
   useStockPortfolioData: jest.fn(),
+}));
+jest.mock('../hooks/useMarketDetailPositionTab', () => ({
+  useMarketDetailPositionTab: () => ({
+    preferPosition: mockPreferPosition,
+    recordTabChange: mockRecordTabChange,
+  }),
 }));
 jest.mock('../hooks/useTokenDetail', () => ({
   useTokenDetail: jest.fn(),
@@ -255,5 +263,42 @@ describe('StockChart', () => {
       range: '5Y',
       priceScaleFormat: 'full',
     });
+  });
+});
+
+describe('useStockDetailTab', () => {
+  beforeEach(() => {
+    mockRecordTabChange.mockClear();
+    mockPreferPosition = true;
+  });
+
+  it('opens on the remembered My position tab by default', () => {
+    const { result } = renderHook(() => useStockDetailTab());
+    expect(result.current.activeTab).toBe('position');
+  });
+
+  it('opens an explicit Overview entry on Overview and keeps the preference', () => {
+    const { result, rerender } = renderHook(
+      ({ section }: { section?: 'overview' }) => useStockDetailTab(section),
+      { initialProps: { section: 'overview' as 'overview' | undefined } },
+    );
+    expect(result.current.activeTab).toBe('overview');
+    // The request is cleared once shown; the tab stays put.
+    rerender({ section: undefined });
+    expect(result.current.activeTab).toBe('overview');
+    expect(mockRecordTabChange).not.toHaveBeenCalled();
+  });
+
+  it('switches an open page to Overview when the request arrives later', () => {
+    const { result, rerender } = renderHook(
+      ({ section }: { section?: 'overview' }) => useStockDetailTab(section),
+      { initialProps: { section: undefined as 'overview' | undefined } },
+    );
+    expect(result.current.activeTab).toBe('position');
+    rerender({ section: 'overview' });
+    expect(result.current.activeTab).toBe('overview');
+    act(() => result.current.selectTab('position'));
+    expect(result.current.activeTab).toBe('position');
+    expect(mockRecordTabChange).toHaveBeenCalledWith(true);
   });
 });

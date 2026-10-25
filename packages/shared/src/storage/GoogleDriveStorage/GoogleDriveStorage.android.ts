@@ -7,7 +7,7 @@ import RNCloudFs from 'react-native-cloud-fs';
 import googlePlayService from '@onekeyhq/shared/src/googlePlayService/googlePlayService';
 
 import { GoogleSignInConfigure } from '../../consts/googleSignConsts';
-import { OneKeyLocalError } from '../../errors';
+import { OAuthLoginCancelError, OneKeyLocalError } from '../../errors';
 import RNFS from '../../modules3rdParty/react-native-fs';
 import platformEnv from '../../platformEnv';
 import { createRuntimeWalletEffectTransport } from '../../travelMode/runtimeWalletEffectTransport';
@@ -100,16 +100,21 @@ export class GoogleDriveStorage {
   }): Promise<boolean> {
     GoogleSignin.configure(GoogleSignInConfigure);
     const hasPreviousSignedIn = GoogleSignin.hasPreviousSignIn();
-    if (!hasPreviousSignedIn) {
-      if (showSignInDialog) {
-        await GoogleSignin.signIn();
-      } else {
-        await GoogleSignin.signInSilently();
-      }
-    } else {
-      await GoogleSignin.signInSilently();
+    const response =
+      !hasPreviousSignedIn && showSignInDialog
+        ? await GoogleSignin.signIn()
+        : await GoogleSignin.signInSilently();
+    if (response.type === 'cancelled') {
+      throw new OAuthLoginCancelError();
     }
-    return RNCloudFs.loginIfNeeded();
+    if (response.type !== 'success') {
+      throw new OneKeyLocalError('Google sign-in did not complete');
+    }
+    const loggedIn = await RNCloudFs.loginIfNeeded();
+    if (!loggedIn) {
+      throw new OneKeyLocalError('Google Drive login did not complete');
+    }
+    return true;
   }
 
   async logout({

@@ -41,7 +41,9 @@ export function useResetApp(
       if (platformEnv.isExtensionUiPopup) {
         resetUtils.startResetting();
       }
-      await backgroundApiProxy.serviceApp.resetApp();
+      await backgroundApiProxy.serviceApp.resetApp({
+        preserveBackupRecovery: !silentReset,
+      });
     } catch (error) {
       console.error('failed to reset app with error', error);
       throw error;
@@ -51,7 +53,7 @@ export function useResetApp(
         resetUtils.endResetting();
       }
     }
-  }, []);
+  }, [silentReset]);
 
   return useCallback(async () => {
     await timerUtils.wait(50);

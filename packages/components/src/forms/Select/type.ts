@@ -1,4 +1,4 @@
-import type { PropsWithChildren, ReactElement } from 'react';
+import type { PropsWithChildren, ReactElement, ReactNode } from 'react';
 
 import type { ListItemProps } from '@onekeyhq/components/src/shared/tamagui';
 
@@ -10,6 +10,7 @@ import type { GestureResponderEvent } from 'react-native';
 export interface ISelectRenderTriggerProps {
   value?: string | number | boolean;
   label?: string;
+  labelComponent?: ReactNode;
   placeholder?: string;
   disabled?: boolean;
   onPress?: (event: GestureResponderEvent) => void;
@@ -21,6 +22,8 @@ export interface ISelectTriggerProps {
 
 export interface ISelectItem {
   label: string;
+  /** Visual label for the trigger and options; label remains accessible text. */
+  labelComponent?: ReactNode;
   value: string | number | boolean | undefined;
   leading?: ListItemProps['icon'];
   description?: string;

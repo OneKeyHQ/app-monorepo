@@ -31,6 +31,7 @@ import {
   YStack,
   glassBarItem,
   rootNavigationRef,
+  runAfterActionListClose,
   useIsDesktopModeUIInTabPages,
   useIsWebHorizontalLayout,
   useMedia,
@@ -445,7 +446,7 @@ function MoreActionAboutCard({
     },
   );
 
-  const handleAbout = useCallback(async () => {
+  const handleAbout = useCallback(() => {
     if (isTravelMode) {
       return;
     }
@@ -456,13 +457,18 @@ function MoreActionAboutCard({
       category: ESettingsTabNames.About,
       source: 'moreActions',
     });
-    await closePopover?.();
-    navigation.pushModal(EModalRoutes.SettingModal, {
-      screen: EModalSettingRoutes.SettingListSubModal,
-      params: {
-        name: ESettingsTabNames.About,
+    return runAfterActionListClose(
+      () => closePopover?.(),
+      () => {
+        navigation.pushModal(EModalRoutes.SettingModal, {
+          screen: EModalSettingRoutes.SettingListSubModal,
+          params: {
+            name: ESettingsTabNames.About,
+          },
+        });
       },
-    });
+      { waitForAnimation: false },
+    );
   }, [closePopover, isTravelMode, navigation]);
 
   return (
@@ -546,15 +552,16 @@ function MoreActionContentGridItem({
 }) {
   const { closePopover } = usePopoverContext();
 
-  const handlePress = useCallback(async () => {
+  const handlePress = useCallback(() => {
     if (ignorePress) {
       return;
     }
     defaultLogger.ui.button.click({
       trackId: trackID,
     });
-    await closePopover?.();
-    onPress();
+    return runAfterActionListClose(() => closePopover?.(), onPress, {
+      waitForAnimation: false,
+    });
   }, [closePopover, ignorePress, onPress, trackID]);
 
   const { user, isPrimeActive } = useOneKeyAuth();
@@ -756,14 +763,19 @@ function MoreActionOneKeyId() {
 
   const navigation = useAppNavigation();
 
-  const handleNavigateToOneKeyId = useCallback(async () => {
-    await closePopover?.();
-    navigation.pushModal(EModalRoutes.PrimeModal, {
-      screen: EPrimePages.OneKeyId,
-    });
+  const handleNavigateToOneKeyId = useCallback(() => {
+    return runAfterActionListClose(
+      () => closePopover?.(),
+      () => {
+        navigation.pushModal(EModalRoutes.PrimeModal, {
+          screen: EPrimePages.OneKeyId,
+        });
+      },
+      { waitForAnimation: false },
+    );
   }, [closePopover, navigation]);
 
-  const handlePress = useCallback(async () => {
+  const handlePress = useCallback(() => {
     if (isTravelMode && !isLoggedIn) {
       return;
     }
@@ -771,13 +783,16 @@ function MoreActionOneKeyId() {
       trackId: 'wallet-onekey-id',
     });
     if (isLoggedIn) {
-      await handleNavigateToOneKeyId();
-    } else {
-      await closePopover?.();
-      await loginOneKeyId({
-        toOneKeyIdPageOnLoginSuccess: false,
-      });
+      return handleNavigateToOneKeyId();
     }
+    return runAfterActionListClose(
+      () => closePopover?.(),
+      () =>
+        loginOneKeyId({
+          toOneKeyIdPageOnLoginSuccess: false,
+        }),
+      { waitForAnimation: false },
+    );
   }, [
     isTravelMode,
     isLoggedIn,
@@ -1495,18 +1510,28 @@ const MoreActionMoreGrid = () => {
     void toReferFriendsPage();
   }, [toReferFriendsPage]);
 
-  const handleRedeem = useCallback(async () => {
-    await closePopover?.();
-    const { showRedemptionCenterDialog } =
-      await import('../../views/Redemption/components/RedemptionCenterDialog');
-    showRedemptionCenterDialog({ source: 'more_action' });
+  const handleRedeem = useCallback(() => {
+    return runAfterActionListClose(
+      () => closePopover?.(),
+      async () => {
+        const { showRedemptionCenterDialog } =
+          await import('../../views/Redemption/components/RedemptionCenterDialog');
+        showRedemptionCenterDialog({ source: 'more_action' });
+      },
+      { waitForAnimation: false },
+    );
   }, [closePopover]);
 
-  const handleDevMode = useCallback(async () => {
-    await closePopover?.();
-    navigation.pushModal(EModalRoutes.DeveloperModal, {
-      screen: ETabDeveloperRoutes.TabDeveloper,
-    });
+  const handleDevMode = useCallback(() => {
+    return runAfterActionListClose(
+      () => closePopover?.(),
+      () => {
+        navigation.pushModal(EModalRoutes.DeveloperModal, {
+          screen: ETabDeveloperRoutes.TabDeveloper,
+        });
+      },
+      { waitForAnimation: false },
+    );
   }, [closePopover, navigation]);
 
   const items = useMemo(() => {

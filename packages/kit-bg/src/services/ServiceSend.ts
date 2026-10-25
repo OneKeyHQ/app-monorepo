@@ -25,6 +25,7 @@ import {
 } from '@onekeyhq/shared/src/engine/engineConsts';
 import {
   InvoiceExpiredError,
+  JsonRPCResponseError,
   OneKeyInternalError,
   OneKeyLocalError,
   PendingQueueTooLong,
@@ -59,6 +60,7 @@ import { getValidUnsignedMessage } from '@onekeyhq/shared/src/utils/messageUtils
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import {
+  isPrimeInfiniPaymentExplicitlyFailedSnapshot,
   isPrimeInfiniPaymentPreBroadcastSnapshotSendable,
   isSamePrimeInfiniNetworkAddress,
   isValidPrimeInfiniPaymentContract,
@@ -75,7 +77,10 @@ import type {
   ISendSelectedFeeInfo,
   ITronResourceRentalInfo,
 } from '@onekeyhq/shared/types/fee';
-import { EOnChainHistoryTxType } from '@onekeyhq/shared/types/history';
+import {
+  EOnChainHistoryTxType,
+  type IAccountHistoryTx,
+} from '@onekeyhq/shared/types/history';
 import type { IPrimeInfiniBeforeBroadcastAction } from '@onekeyhq/shared/types/prime/primeTypes';
 import type { ESendPreCheckTimingEnum } from '@onekeyhq/shared/types/send';
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
@@ -94,6 +99,7 @@ import type {
 } from '@onekeyhq/shared/types/tx';
 
 import { vaultFactory } from '../vaults/factory';
+import { ESignedTxBroadcastStatus } from '../vaults/types';
 
 import ServiceBase from './ServiceBase';
 import {
@@ -101,6 +107,7 @@ import {
   buildStageConfirmContentForSignTx,
 } from './ServiceHardwareUI/deviceStageConfirmUtils';
 
+import type { IBroadcastRecord } from '../dbs/simple/entity/SimpleDbEntityBroadcastRecords';
 import type {
   IBatchSignTransactionParamsBase,
   IBroadcastTransactionParams,
@@ -202,8 +209,10 @@ class ServiceSend extends ServiceBase {
     accountId,
     networkId,
     replaceTxInfo,
+    unsignedTxs,
   }: ISendTxBaseParams & {
     replaceTxInfo?: IReplaceTxInfo;
+    unsignedTxs: IUnsignedTxPro[];
   }) {
     if (
       replaceTxInfo?.replaceType !== EReplaceTxType.SpeedUp ||
@@ -211,14 +220,75 @@ class ServiceSend extends ServiceBase {
     ) {
       return undefined;
     }
+    const unavailable = () =>
+      new OneKeyLocalError({
+        key: ETranslations.prime_close_and_try_again__desc,
+        autoToast: true,
+      });
+    if (
+      await this.backgroundApi.simpleDb.prime.isInfiniReplacementBlocked({
+        accountId,
+        networkId,
+        historyId: replaceTxInfo.replaceHistoryId,
+      })
+    )
+      throw unavailable();
     const historyTx =
       await this.backgroundApi.serviceHistory.getLocalHistoryTxById({
         accountId,
         networkId,
         historyId: replaceTxInfo.replaceHistoryId,
       });
+    if (!historyTx) {
+      // Decode the actual candidate only to classify the missing binding, never
+      // as a substitute for the original nonce/payload verification.
+      const vault = await vaultFactory.getVault({ accountId, networkId });
+      const accountAddress =
+        await this.backgroundApi.serviceAccount.getAccountAddressForApi({
+          accountId,
+          networkId,
+        });
+      if (!unsignedTxs.length) throw unavailable();
+      for (const unsignedTx of unsignedTxs) {
+        const decodedTx = await vault.buildDecodedTx({ unsignedTx });
+        const action = decodedTx.actions[0];
+        const transfer = action?.assetTransfer?.sends[0];
+        if (
+          decodedTx.networkId !== networkId ||
+          decodedTx.accountId !== accountId ||
+          !isSamePrimeInfiniNetworkAddress({
+            networkId,
+            first: decodedTx.signer,
+            second: accountAddress,
+          }) ||
+          decodedTx.actions.length !== 1 ||
+          action.type !== EDecodedTxActionType.ASSET_TRANSFER ||
+          action.assetTransfer?.sends.length !== 1 ||
+          !transfer ||
+          typeof transfer.tokenIdOnNetwork !== 'string' ||
+          !transfer.to ||
+          !transfer.from ||
+          !new BigNumber(transfer.amount).isFinite()
+        )
+          throw unavailable();
+        const session =
+          await this.backgroundApi.simpleDb.prime.findInfiniPaymentForTransfer({
+            transferClaim: {
+              accountId,
+              networkId,
+              accountAddress,
+              fromAddress: transfer.from,
+              toAddress: transfer.to,
+              contractAddress: transfer.tokenIdOnNetwork,
+              amount: transfer.amount,
+            },
+          });
+        if (session) throw unavailable();
+      }
+      return undefined;
+    }
     // A speed-up of a cancel still sends zero to self, not the invoice.
-    if (!historyTx || historyTx.replacedType === EReplaceTxType.Cancel) {
+    if (historyTx.replacedType === EReplaceTxType.Cancel) {
       return undefined;
     }
     let action = historyTx.primeInfiniPayment;
@@ -271,7 +341,14 @@ class ServiceSend extends ServiceBase {
           ),
         )
       : (historyTx.decodedTx.encodedTx as IEncodedTxEvm);
-    return { action, originalTx, nonce: historyTx.decodedTx.nonce };
+    return {
+      action,
+      originalTx,
+      nonce: historyTx.decodedTx.nonce,
+      originalTxid: historyTx.decodedTx.txid,
+      originalHistoryId: historyTx.id,
+      originalHistoryTx: historyTx,
+    };
   }
 
   private assertPrimeInfiniReplacementTransaction({
@@ -312,6 +389,132 @@ class ServiceSend extends ServiceBase {
         autoToast: false,
       });
     }
+  }
+
+  // Signed txs that left this device, by unsignedTx uuid (OK-65147). The
+  // UI's `successfullySentTxs` array is serialized across the bridge on
+  // extension and native dual-runtime builds, so a push into it never
+  // reaches the caller; this persisted record is what a retry consults, and
+  // it also survives a background runtime restart.
+  private get broadcastRecords() {
+    return this.backgroundApi.simpleDb.broadcastRecords;
+  }
+
+  private async rememberBroadcastAttempt({
+    unsignedTx,
+    signedTx,
+    networkId,
+    accountId,
+  }: {
+    unsignedTx: IUnsignedTxPro;
+    signedTx: ISignedTxPro;
+    networkId: string;
+    accountId: string;
+  }) {
+    if (!unsignedTx.uuid) {
+      return;
+    }
+    await this.broadcastRecords.upsertRecord({
+      uuid: unsignedTx.uuid,
+      networkId,
+      accountId,
+      signedTx,
+      attemptedAt: Date.now(),
+      isBroadcast: false,
+      isSettled: false,
+    });
+  }
+
+  // `isSettled` is set at once for direct callers (swap, perps deposit,
+  // market quick send): their retry only replays the signed result, and the
+  // batch loop's bookkeeping never runs for them, so nothing is left to gate
+  // and the record can be evicted like any other settled one.
+  private async rememberBroadcastAccepted({
+    unsignedTx,
+    signedTx,
+    isSettled,
+  }: {
+    unsignedTx: IUnsignedTxPro;
+    signedTx: ISignedTxPro;
+    isSettled: boolean;
+  }) {
+    if (!unsignedTx.uuid) {
+      return;
+    }
+    await this.broadcastRecords.updateRecord(unsignedTx.uuid, {
+      signedTx,
+      isBroadcast: true,
+      ...(isSettled ? { isSettled: true } : {}),
+    });
+  }
+
+  private async forgetBroadcastAttempt({
+    unsignedTx,
+  }: {
+    unsignedTx: IUnsignedTxPro;
+  }) {
+    if (!unsignedTx.uuid) {
+      return;
+    }
+    await this.broadcastRecords.deleteRecord(unsignedTx.uuid);
+  }
+
+  private async markBroadcastRecordSettled({
+    unsignedTx,
+  }: {
+    unsignedTx: IUnsignedTxPro;
+  }) {
+    if (!unsignedTx.uuid) {
+      return;
+    }
+    await this.broadcastRecords.updateRecord(unsignedTx.uuid, {
+      isSettled: true,
+    });
+  }
+
+  // Returns the record to replay when this uuid already reached the network,
+  // or undefined when it is safe to sign. The vault decides from the chain;
+  // a lookup failure propagates on purpose, because signing blindly here is
+  // the double send.
+  private async resolveBroadcastRecord({
+    uuid,
+    vault,
+  }: {
+    uuid: string;
+    vault: {
+      checkSignedTxBroadcastStatus: (params: {
+        signedTx: ISignedTxPro;
+        attemptedAt: number;
+      }) => Promise<ESignedTxBroadcastStatus>;
+    };
+  }): Promise<IBroadcastRecord | undefined> {
+    const record = await this.broadcastRecords.getRecord(uuid);
+    if (!record) {
+      return undefined;
+    }
+    const status = await vault.checkSignedTxBroadcastStatus({
+      signedTx: record.signedTx,
+      attemptedAt: record.attemptedAt,
+    });
+    if (status === ESignedTxBroadcastStatus.NotBroadcast) {
+      await this.broadcastRecords.deleteRecord(uuid);
+      return undefined;
+    }
+    if (status === ESignedTxBroadcastStatus.Unknown) {
+      // Chains without a verdict keep their previous retry behavior: a tx
+      // the node accepted is replayed, one that never got a txid is signed
+      // again byte-for-byte and deduplicated by the network. That record
+      // can never be used, so drop it instead of letting it fill the store.
+      if (!record.isBroadcast) {
+        await this.broadcastRecords.deleteRecord(uuid);
+        return undefined;
+      }
+      return record;
+    }
+    if (!record.isBroadcast) {
+      await this.broadcastRecords.updateRecord(uuid, { isBroadcast: true });
+    }
+    return { ...record, isBroadcast: true };
   }
 
   @backgroundMethod()
@@ -751,6 +954,10 @@ class ServiceSend extends ServiceBase {
     transferPayload,
     ensureBroadcastDeadline,
     mode,
+    originalTxid,
+    originalHistoryId,
+    originalNonce,
+    originalHistoryTx,
   }: ISendTxBaseParams & {
     accountAddress: string;
     signedTx: ISignedTxPro;
@@ -759,6 +966,10 @@ class ServiceSend extends ServiceBase {
     transferPayload?: IBatchSignTransactionParamsBase['transferPayload'];
     ensureBroadcastDeadline: () => void;
     mode: 'initial' | 'speedUp';
+    originalTxid?: string;
+    originalHistoryId?: string;
+    originalNonce?: number;
+    originalHistoryTx?: IAccountHistoryTx;
   }) {
     // Both paths originate from wallet-built transfers. Replacement callers
     // additionally verify the signed EVM payload against the original history.
@@ -882,6 +1093,56 @@ class ServiceSend extends ServiceBase {
       payment: latestPayment,
     });
     if (
+      mode === 'speedUp' &&
+      originalTxid &&
+      originalHistoryId &&
+      originalHistoryTx &&
+      latestPayment.paymentId === paymentCacheKey.paymentId &&
+      new BigNumber(transferClaim.amount).eq(latestPayment.amountDue) &&
+      isSamePrimeInfiniNetworkAddress({
+        networkId,
+        first: transferClaim.toAddress,
+        second: latestPayment.address,
+      }) &&
+      (quoteFailure === 'quoteExpired' ||
+        (!quoteFailure &&
+          isPrimeInfiniPaymentExplicitlyFailedSnapshot(latestPayment)))
+    ) {
+      // Hide only the original local pending entry. Its transfer can still
+      // confirm on-chain, so retain the durable payment claim and server history.
+      // A storage failure must not replace the payment validation error.
+      try {
+        // Persist the fence before hiding history; if storage fails, keep the
+        // original binding available and still reject the payment below.
+        await this.backgroundApi.simpleDb.prime.blockInfiniReplacement({
+          accountId,
+          networkId,
+          historyId: originalHistoryId,
+          accountAddress,
+          nonce: originalNonce ?? NaN,
+          historyTx: originalHistoryTx,
+        });
+        await this.backgroundApi.serviceHistory.clearLocalHistoryPendingTxByTxId(
+          {
+            accountId,
+            networkId,
+            accountAddress,
+            txid: originalTxid,
+          },
+        );
+      } catch {
+        // Preserve the validation error rather than replacing it with cleanup failure.
+      }
+      // Terminal failures take precedence over warnings and cleanup failures.
+      // Replacement screens rely on the shared error toast for feedback.
+      if (!quoteFailure) {
+        throw new OneKeyLocalError({
+          key: ETranslations.prime_close_and_try_again__desc,
+          autoToast: true,
+        });
+      }
+    }
+    if (
       quoteFailure ||
       hasUnconfirmedPrimeInfiniPaymentWarnings({
         payment: latestPayment,
@@ -898,6 +1159,14 @@ class ServiceSend extends ServiceBase {
         failureReason: quoteFailure ?? 'transferSnapshotChanged',
         remainingMs: latestPayment.expiresAt - Date.now(),
       });
+      // Replacement confirmations have no Prime payment screen to display
+      // validation failures. Let the shared send error handler show expiry.
+      if (mode === 'speedUp' && quoteFailure === 'quoteExpired') {
+        throw new InvoiceExpiredError({
+          autoToast: true,
+          data: { paymentValidationFailure: quoteFailure },
+        });
+      }
       throw createPrimeInfiniPaymentValidationError(
         quoteFailure ?? 'transferSnapshotChanged',
       );
@@ -953,6 +1222,8 @@ class ServiceSend extends ServiceBase {
         isPrivateSend?: boolean;
         stageFeeInfo?: ISendSelectedFeeInfo;
         preserveBroadcastTxIdOnError?: boolean;
+        // Set by the batch loop, which has already consulted the record.
+        skipBroadcastRecordCheck?: boolean;
       },
   ): Promise<
     ISignedTxPro & { primeInfiniPayment?: IPrimeInfiniBeforeBroadcastAction }
@@ -1011,6 +1282,7 @@ class ServiceSend extends ServiceBase {
       useDefaultRpc,
       stageFeeInfo,
       preserveBroadcastTxIdOnError,
+      skipBroadcastRecordCheck,
     } = params;
 
     const diagnostic = diagnosticState.context;
@@ -1018,6 +1290,7 @@ class ServiceSend extends ServiceBase {
       accountId,
       networkId,
       replaceTxInfo,
+      unsignedTxs: [unsignedTx],
     });
     const beforeBroadcastAction = replaceTxInfo
       ? replacementContext?.action
@@ -1046,12 +1319,72 @@ class ServiceSend extends ServiceBase {
         networkId,
       });
 
+    const checkReservedNonce = async (
+      encodedTx: IEncodedTx | null,
+      fallbackNonce?: number,
+    ) => {
+      if (!networkUtils.isEvmNetwork({ networkId })) return;
+      const nonce = new BigNumber(
+        (encodedTx as IEncodedTxEvm | null)?.nonce ?? fallbackNonce ?? NaN,
+      ).toNumber();
+      if (!Number.isSafeInteger(nonce)) return;
+      const reserved =
+        await this.backgroundApi.simpleDb.prime.getInfiniReservedNonces({
+          networkId,
+          accountAddress,
+        });
+      if (reserved.includes(nonce)) {
+        const tx = encodedTx as IEncodedTxEvm | null;
+        // Recovery uses the explicit Cancel confirmation. Verify its actual
+        // payload both before and after signing rather than trusting the label.
+        if (
+          replaceTxInfo?.replaceType === EReplaceTxType.Cancel &&
+          tx &&
+          isSamePrimeInfiniNetworkAddress({
+            networkId,
+            first: tx.from ?? '',
+            second: accountAddress,
+          }) &&
+          isSamePrimeInfiniNetworkAddress({
+            networkId,
+            first: tx.to ?? '',
+            second: accountAddress,
+          }) &&
+          new BigNumber(tx.value).eq(0) &&
+          (tx.data ?? '0x').toLowerCase() === '0x'
+        )
+          return;
+        throw new OneKeyLocalError({
+          key: ETranslations.prime_close_and_try_again__desc,
+          autoToast: true,
+        });
+      }
+    };
+    await checkReservedNonce(unsignedTx.encodedTx, unsignedTx.nonce);
+
     const isExternalAccount = accountUtils.isExternalAccount({ accountId });
     let staticBroadcastSkipReason: string | undefined;
     if (signOnly) {
       staticBroadcastSkipReason = 'requestedSignOnly';
     } else if (isExternalAccount) {
       staticBroadcastSkipReason = 'externalAccount';
+    }
+
+    // Direct callers (swap, perps deposit, market quick send) retry through
+    // here rather than the batch loop; a tx that already reached the network
+    // is handed back instead of being signed again (OK-65147).
+    if (
+      !staticBroadcastSkipReason &&
+      !skipBroadcastRecordCheck &&
+      unsignedTx.uuid
+    ) {
+      const broadcastRecord = await this.resolveBroadcastRecord({
+        uuid: unsignedTx.uuid,
+        vault: await vaultFactory.getVault({ networkId, accountId }),
+      });
+      if (broadcastRecord) {
+        return broadcastRecord.signedTx;
+      }
     }
     const primeBroadcastDiagnosticBase =
       beforeBroadcastAction?.type === 'primeInfiniPayment'
@@ -1107,6 +1440,7 @@ class ServiceSend extends ServiceBase {
     });
 
     diagnosticState.context = signedTx.solanaTxDiagnostic ?? diagnostic;
+    await checkReservedNonce(signedTx.encodedTx, unsignedTx.nonce);
     if (replacementContext) {
       this.assertPrimeInfiniReplacementTransaction({
         ...replacementContext,
@@ -1211,6 +1545,10 @@ class ServiceSend extends ServiceBase {
             transferPayload,
             ensureBroadcastDeadline,
             mode: replacementContext ? 'speedUp' : 'initial',
+            originalTxid: replacementContext?.originalTxid,
+            originalHistoryId: replacementContext?.originalHistoryId,
+            originalNonce: replacementContext?.nonce,
+            originalHistoryTx: replacementContext?.originalHistoryTx,
           });
         infiniPaymentExpiresAt = markedSession.payment.expiresAt;
         effectiveBroadcastDeadline = Math.min(
@@ -1273,6 +1611,11 @@ class ServiceSend extends ServiceBase {
       }
 
       let hasAttemptedBroadcast = false;
+      let hasUncertainBroadcast = false;
+      // Set when an attempt failed without the node positively rejecting
+      // the payload (timeout, reset): it may have been accepted, so a later
+      // rejection of the same payload must not erase the record.
+      let hadAmbiguousBroadcastAttempt = false;
       const broadcastOnce = async () => {
         ensureBroadcastDeadline();
         if (!hasAttemptedBroadcast && primeBroadcastDiagnosticContext) {
@@ -1314,6 +1657,25 @@ class ServiceSend extends ServiceBase {
           });
           return result;
         } catch (error) {
+          if (preserveBroadcastTxIdOnError) {
+            const serverError = error as
+              | {
+                  className?: string;
+                  code?: number;
+                }
+              | undefined;
+            // Provider-side fallback attempts are not exposed; use the reported rejection.
+            const isRejected =
+              (serverError?.className ===
+                EOneKeyErrorClassNames.OneKeyServerApiError &&
+                Object.values(SEND_TX_SERVER_ERROR_CODES).some(
+                  (code) => code === serverError.code,
+                )) ||
+              (error instanceof JsonRPCResponseError &&
+                this.isReplaceTxNonceAlreadyUsedRpcError(error));
+            // A later rejection cannot disprove an earlier attempt with a lost response.
+            hasUncertainBroadcast ||= !isRejected;
+          }
           logSolanaTxDiagnostic(diagnosticState.context, {
             stage: 'broadcast',
             status: 'failed',
@@ -1321,6 +1683,12 @@ class ServiceSend extends ServiceBase {
             durationMs: Date.now() - broadcastStartedAt,
             ...getSolanaDiagnosticError(error),
           });
+          if (
+            unsignedTx.uuid &&
+            !(await vault.isSignedTxRejectedByBroadcast(error))
+          ) {
+            hadAmbiguousBroadcastAttempt = true;
+          }
           throw error;
         }
       };
@@ -1446,7 +1814,28 @@ class ServiceSend extends ServiceBase {
         });
       };
 
-      const { txid } = await runBroadcast().catch((error) => {
+      // Persist the signed payload before the broadcast leaves: if the
+      // request fails ambiguously the node may still have it, and a retry
+      // must ask the chain for this signature instead of signing a fresh tx.
+      await this.rememberBroadcastAttempt({
+        unsignedTx,
+        signedTx,
+        networkId,
+        accountId,
+      });
+      const { txid } = await runBroadcast().catch(async (error) => {
+        // A node that evaluated and refused the payload never held it, so
+        // the retry may sign at once instead of waiting for a chain verdict.
+        // Only when every attempt was refused: an earlier ambiguous attempt
+        // may have been accepted even if the last one hit an expired
+        // blockhash.
+        if (
+          unsignedTx.uuid &&
+          !hadAmbiguousBroadcastAttempt &&
+          (await vault.isSignedTxRejectedByBroadcast(error))
+        ) {
+          await this.forgetBroadcastAttempt({ unsignedTx });
+        }
         if (primeBroadcastDiagnosticContext) {
           defaultLogger.prime.subscription.primeCryptoPaymentFlow({
             ...primeBroadcastDiagnosticContext,
@@ -1467,7 +1856,7 @@ class ServiceSend extends ServiceBase {
         }
         if (
           preserveBroadcastTxIdOnError &&
-          hasAttemptedBroadcast &&
+          hasUncertainBroadcast &&
           !isGasAccountSubmit &&
           networkUtils.isEvmNetwork({ networkId }) &&
           /^0x[\da-f]{64}$/i.test(signedTx.txid)
@@ -1499,15 +1888,32 @@ class ServiceSend extends ServiceBase {
           ),
         });
       }
+      // The batch loop settles its records itself once its bookkeeping ran.
+      const isSettledOnAccept = !skipBroadcastRecordCheck;
       if (!txid) {
         if (vaultSettings.withoutBroadcastTxId) {
+          await this.rememberBroadcastAccepted({
+            unsignedTx,
+            signedTx,
+            isSettled: isSettledOnAccept,
+          });
           diagnosticState.status = 'succeeded';
           return { ...signedTx, primeInfiniPayment: beforeBroadcastAction };
         }
         throw new OneKeyLocalError('Broadcast transaction failed.');
       }
+      const broadcastedTx = {
+        ...signedTx,
+        txid,
+        primeInfiniPayment: beforeBroadcastAction,
+      };
+      await this.rememberBroadcastAccepted({
+        unsignedTx,
+        signedTx: broadcastedTx,
+        isSettled: isSettledOnAccept,
+      });
       diagnosticState.status = 'succeeded';
-      return { ...signedTx, txid, primeInfiniPayment: beforeBroadcastAction };
+      return broadcastedTx;
     }
 
     diagnosticState.status = 'skipped';
@@ -1610,6 +2016,7 @@ class ServiceSend extends ServiceBase {
           accountId,
           networkId,
           replaceTxInfo,
+          unsignedTxs,
         })))
     ) {
       throw new OneKeyLocalError({
@@ -1684,6 +2091,13 @@ class ServiceSend extends ServiceBase {
       } else {
         let unsignedTx = unsignedTxs[i];
         let feeInfo = sendSelectedFeeInfos?.[i];
+        const broadcastRecord =
+          !signOnly && unsignedTx.uuid
+            ? await this.resolveBroadcastRecord({
+                uuid: unsignedTx.uuid,
+                vault,
+              })
+            : undefined;
         let signedTx: IBatchSignedTx;
         if (broadcastedTx?.status === 'broadcasted') {
           // An earlier attempt broadcast this tx and then failed; finish the
@@ -1696,7 +2110,7 @@ class ServiceSend extends ServiceBase {
               current: i + 1,
             });
           }
-          if (i > 0 || hasEarlierBroadcast) {
+          if (!broadcastRecord && (i > 0 || hasEarlierBroadcast)) {
             unsignedTx =
               await vault.refreshUnsignedTxBeforeBatchSign(unsignedTx);
           }
@@ -1721,13 +2135,14 @@ class ServiceSend extends ServiceBase {
                   broadcastDeadline,
                   beforeBroadcastAction,
                   wcPayPreBroadcastRecord,
+                  skipBroadcastRecordCheck: true,
                   replaceTxInfo,
                   transferPayload,
                   isPrivateSend,
                   useDefaultRpc,
                 });
           try {
-            signedTx = await buildSignedTx();
+            signedTx = broadcastRecord?.signedTx ?? (await buildSignedTx());
           } catch (error) {
             // Safety net for the residual race between the pre-broadcast nonce
             // check and the actual broadcast: the backend rejected the replace
@@ -1760,11 +2175,24 @@ class ServiceSend extends ServiceBase {
           // consumed before any later step (decode, history) can throw. A
           // retry that only finishes an earlier broadcast was marked then.
           // Never awaits the network and never alters the send result.
-          if (broadcastUsage) {
+          if (broadcastUsage && !broadcastRecord) {
             await this.backgroundApi.servicePrimeFreeTrial.markBroadcastSuccess(
               broadcastUsage,
             );
           }
+        }
+        if (!signOnly && unsignedTx.uuid) {
+          // The chunk is on chain from here on. Announce it before the local
+          // bookkeeping below, which can still throw: the caller's sent list
+          // never crosses the bridge and the result is withheld when the
+          // batch rejects, so this event is what the confirm page marks the
+          // chunk as sent from.
+          appEventBus.emit(EAppEventBusNames.BatchSendTxBroadcasted, {
+            uuid: unsignedTx.uuid,
+            txid: signedTx.txid,
+            networkId,
+            accountId,
+          });
         }
         const decodedTx = await this.buildDecodedTx({
           networkId,
@@ -1834,21 +2262,26 @@ class ServiceSend extends ServiceBase {
           result.push(data);
         }
 
-        await this.backgroundApi.serviceSignature.addItemFromSendProcess(
-          data,
-          sourceInfo,
-        );
-        if (signedTx && !signOnly) {
-          await this.backgroundApi.serviceHistory.saveSendConfirmHistoryTxs({
-            networkId,
-            accountId,
-            data: {
-              signedTx,
-              decodedTx,
-            },
-            replaceTxInfo,
-            primeInfiniPayment: signedTx.primeInfiniPayment,
-          });
+        // A replayed tx whose first attempt already ran this bookkeeping
+        // must not add a second signature record or history entry.
+        if (!broadcastRecord?.isSettled) {
+          await this.backgroundApi.serviceSignature.addItemFromSendProcess(
+            data,
+            sourceInfo,
+          );
+          if (signedTx && !signOnly) {
+            await this.backgroundApi.serviceHistory.saveSendConfirmHistoryTxs({
+              networkId,
+              accountId,
+              data: {
+                signedTx,
+                decodedTx,
+              },
+              replaceTxInfo,
+              primeInfiniPayment: signedTx.primeInfiniPayment,
+            });
+            await this.markBroadcastRecordSettled({ unsignedTx });
+          }
         }
 
         if (!signOnly && txUuid && broadcastedTxs) {
@@ -1861,6 +2294,76 @@ class ServiceSend extends ServiceBase {
     }
 
     return result;
+  }
+
+  private async restoreInfiniPendingTransaction({
+    historyTx,
+    accountAddress,
+    nonce,
+  }: {
+    historyTx: IAccountHistoryTx;
+    accountAddress: string;
+    nonce: number;
+  }): Promise<boolean> {
+    const { accountId, networkId } = historyTx.decodedTx;
+    const currentAddress = await this.backgroundApi.serviceAccount
+      .getAccountAddressForApi({ accountId, networkId })
+      .catch(() => undefined);
+    if (
+      !currentAddress ||
+      !networkUtils.isEvmNetwork({ networkId }) ||
+      !isSamePrimeInfiniNetworkAddress({
+        networkId,
+        first: currentAddress,
+        second: accountAddress,
+      })
+    )
+      return false;
+    const confirmedNonce = await this.fetchReplaceTxOnChainNextNonce({
+      accountId,
+      networkId,
+      // Permanent cleanup must use the default confirmed source even when a
+      // custom node is enabled; its nonce view may be forked or bypassed.
+      useDefaultRpc: true,
+    }).catch(() => undefined);
+    if (
+      confirmedNonce !== undefined &&
+      Number.isSafeInteger(confirmedNonce) &&
+      confirmedNonce > nonce
+    ) {
+      await this.backgroundApi.simpleDb.prime.pruneInfiniConsumedNonces({
+        networkId,
+        accountAddress,
+        confirmedNonce,
+      });
+      return false;
+    }
+    const current =
+      await this.backgroundApi.serviceHistory.getLocalHistoryTxById({
+        accountId,
+        networkId,
+        historyId: historyTx.id,
+      });
+    if (current) return false;
+    // Restoring history is not evidence that a payment was dropped. Keep the
+    // reservation, replacement fence and payment claim until confirmed nonce
+    // consumption; the user can now open the existing Cancel confirmation.
+    return this.backgroundApi.simpleDb.localHistory.restoreLocalHistoryPendingTx(
+      { networkId, accountAddress, historyTx },
+    );
+  }
+
+  @backgroundMethod()
+  public async restoreInfiniPendingTransactions(): Promise<number> {
+    const recoveries =
+      await this.backgroundApi.simpleDb.prime.getInfiniPendingTransactionRecoveries();
+    let restored = 0;
+    for (const recovery of recoveries) {
+      if (await this.restoreInfiniPendingTransaction(recovery)) restored += 1;
+    }
+    if (restored)
+      appEventBus.emit(EAppEventBusNames.HistoryTxStatusChanged, undefined);
+    return restored;
   }
 
   @backgroundMethod()
@@ -1909,16 +2412,56 @@ class ServiceSend extends ServiceBase {
         accountAddress,
         networkId,
       });
+    let reservedNonces = networkUtils.isEvmNetwork({ networkId })
+      ? await this.backgroundApi.simpleDb.prime.getInfiniReservedNonces({
+          networkId,
+          accountAddress,
+        })
+      : [];
+    if (reservedNonces.length) {
+      // The allocation nonce can include pending transactions or come from the
+      // UI's prefetch. Only the default confirmed source can permanently retire
+      // protection, independently of this send's custom RPC selection.
+      const confirmedNonce = await this.fetchReplaceTxOnChainNextNonce({
+        accountId,
+        networkId,
+        useDefaultRpc: true,
+      }).catch(() => undefined);
+      if (
+        confirmedNonce !== undefined &&
+        Number.isSafeInteger(confirmedNonce) &&
+        reservedNonces.some((nonce) => nonce < confirmedNonce)
+      ) {
+        await this.backgroundApi.simpleDb.prime.pruneInfiniConsumedNonces({
+          networkId,
+          accountAddress,
+          confirmedNonce,
+        });
+        reservedNonces =
+          await this.backgroundApi.simpleDb.prime.getInfiniReservedNonces({
+            networkId,
+            accountAddress,
+          });
+      }
+    }
+    // Chain nonce is the lower bound: consumed reservations cannot create holes
+    // below it, while hidden pending transactions still occupy their nonce.
+    const occupiedNonces = new Set([...pendingNonceList, ...reservedNonces]);
     let nextNonce = Math.max(
       isNil(maxPendingNonce) ? 0 : maxPendingNonce + 1,
       onChainNextNonce,
+      reservedNonces.reduce(
+        (highestReservedNextNonce, nonce) =>
+          Math.max(highestReservedNextNonce, nonce + 1),
+        0,
+      ),
     );
     if (Number.isNaN(nextNonce)) {
       nextNonce = onChainNextNonce;
     }
     if (nextNonce > onChainNextNonce) {
       for (let i = onChainNextNonce; i < nextNonce; i += 1) {
-        if (!pendingNonceList.includes(i)) {
+        if (!occupiedNonces.has(i)) {
           nextNonce = i;
           break;
         }
@@ -2259,7 +2802,10 @@ class ServiceSend extends ServiceBase {
       }
     }
 
-    if (withUuid) {
+    // Every tx that reaches a confirm page carries a uuid so that a retry of
+    // the same tx can be matched against the background's broadcast record
+    // (OK-65147). Callers that ask for a fresh uuid still get one.
+    if (withUuid || !newUnsignedTx.uuid) {
       newUnsignedTx.uuid = generateUUID();
     }
 
