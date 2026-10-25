@@ -1,4 +1,10 @@
-import { memo, useCallback, useMemo, useState } from 'react';
+import {
+  type ComponentProps,
+  memo,
+  useCallback,
+  useMemo,
+  useState,
+} from 'react';
 
 import { useIntl } from 'react-intl';
 import { StyleSheet, View } from 'react-native';
@@ -61,7 +67,6 @@ import { useMobileBrowserOptions } from './useMobileBrowserOptions';
 
 import type { ICapsuleFade } from './BrowserChromeCapsule';
 import type { IMobileBrowserBottomBarProps } from './useMobileBrowserBottomBarData';
-import type { StyleProp, ViewStyle } from 'react-native';
 import type { SharedValue } from 'react-native-reanimated';
 
 const styles = StyleSheet.create({
@@ -247,7 +252,7 @@ function CollapsedAddressPill({
 }: {
   url?: string;
   onPress?: () => void;
-  domainStyle: StyleProp<ViewStyle>;
+  domainStyle: ComponentProps<typeof Animated.View>['style'];
   onWidth: (width: number) => void;
 }) {
   const hostname = useMemo(() => getDisplayHostname(url), [url]);
@@ -485,8 +490,14 @@ function MobileBrowserBottomBar({ id, chrome }: IMobileBrowserBottomBarProps) {
           capsuleBottom={capsuleBottom}
           pillBottom={pillBottom}
         />
+        {/* The hidden layer only fades its contents, so its buttons stay in
+          the accessibility tree unless removed here. */}
         <Animated.View
           pointerEvents={isChromeCollapsed ? 'none' : 'box-none'}
+          accessibilityElementsHidden={isChromeCollapsed}
+          importantForAccessibility={
+            isChromeCollapsed ? 'no-hide-descendants' : 'auto'
+          }
           style={[styles.bar, { bottom: capsuleBottom }]}
         >
           <XStack
@@ -594,6 +605,10 @@ function MobileBrowserBottomBar({ id, chrome }: IMobileBrowserBottomBarProps) {
         </Animated.View>
         <Animated.View
           pointerEvents={isChromeCollapsed ? 'box-none' : 'none'}
+          accessibilityElementsHidden={!isChromeCollapsed}
+          importantForAccessibility={
+            isChromeCollapsed ? 'auto' : 'no-hide-descendants'
+          }
           style={[styles.pillRow, { bottom: pillBottom }, pillStyle]}
         >
           <CollapsedAddressPill
