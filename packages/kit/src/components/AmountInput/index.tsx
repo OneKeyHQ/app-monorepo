@@ -259,8 +259,16 @@ export function AmountInput({
         : undefined;
 
     if (loading) {
+      // Keyed so the loaded trigger mounts fresh: reusing this row's plain
+      // Stack for the animated chevron adds hooks to it and React throws
       return (
-        <XStack p="$3.5" pb="$2" alignItems="center" {...triggerStackProps}>
+        <XStack
+          key="token-trigger-loading"
+          p="$3.5"
+          pb="$2"
+          alignItems="center"
+          {...triggerStackProps}
+        >
           <Skeleton w="$7" h="$7" radius="round" />
           <Stack pl="$2" py="$1.5">
             <Skeleton h="$4" w="$10" />
