@@ -1,7 +1,6 @@
 import { useMemo } from 'react';
 import type { PropsWithChildren } from 'react';
 
-import { StyleSheet } from 'react-native';
 import Animated, {
   interpolate,
   useAnimatedStyle,
@@ -13,8 +12,6 @@ import {
   Stack,
   XStack,
   isLiquidGlassAvailable,
-  useTheme,
-  useThemeName,
 } from '@onekeyhq/components';
 import type { IXStackProps } from '@onekeyhq/components';
 
@@ -25,10 +22,6 @@ import { useIsProgressPast } from './browserChrome';
 import type { SharedValue } from 'react-native-reanimated';
 
 export const PILL_RADIUS = 9999;
-
-const styles = StyleSheet.create({
-  solidBackground: StyleSheet.absoluteFillObject,
-});
 
 // How a capsule fades in over `range` of `progress` (or out, with `reverse`).
 export interface ICapsuleFade {
@@ -84,12 +77,11 @@ type IBrowserChromeCapsuleProps = PropsWithChildren<{
 // GlassHeaderProvider makes inner IconButtons drop their own background and
 // tertiary negative margin, so icons center inside the pill in both cases.
 //
-// The capsule itself is never faded with opacity: glass under an ancestor
-// whose opacity animates to 0 stops rendering and can leave later glass
-// broken (expo/expo#50097, #41024, #51575). Its glass fades natively instead
-// (an animated glassEffectStyle switch at the middle of the fade, Expo's
-// recommended way), the solid pill fades only its background, and the
-// contents fade on their own.
+// A glass capsule is never faded with opacity: glass under an ancestor whose
+// opacity animates to 0 stops rendering and can leave later glass broken
+// (expo/expo#50097, #41024, #51575). Its glass fades natively instead (an
+// animated glassEffectStyle switch at the middle of the fade, Expo's
+// recommended way) and its contents fade on their own.
 export function BrowserChromeCapsule({
   children,
   flex,
@@ -100,10 +92,6 @@ export function BrowserChromeCapsule({
   borderRadius = PILL_RADIUS,
 }: IBrowserChromeCapsuleProps) {
   const isGlass = isLiquidGlassAvailable();
-  const theme = useTheme();
-  // Re-render on a light/dark switch (the page's theme): `theme.*.val` reads
-  // alone don't subscribe on native.
-  useThemeName();
   const fadeStyle = useCapsuleFadeStyle(fade);
   const glassHidden = useIsProgressPast(
     // Only glass needs the switch; without it no JS update at the midpoint.
@@ -131,14 +119,12 @@ export function BrowserChromeCapsule({
       {children}
     </XStack>
   );
-  const content = (
-    <GlassHeaderProvider>
-      {fade ? <Animated.View style={fadeStyle}>{row}</Animated.View> : row}
-    </GlassHeaderProvider>
-  );
-
   if (!background) {
-    return <Stack flex={flex}>{content}</Stack>;
+    return (
+      <Stack flex={flex}>
+        <GlassHeaderProvider>{row}</GlassHeaderProvider>
+      </Stack>
+    );
   }
   if (isGlass) {
     return (
@@ -147,28 +133,26 @@ export function BrowserChromeCapsule({
         glassEffectStyle={glassEffectStyle}
         style={{ borderRadius, flex }}
       >
-        {content}
+        <GlassHeaderProvider>
+          {fade ? <Animated.View style={fadeStyle}>{row}</Animated.View> : row}
+        </GlassHeaderProvider>
       </GlassView>
     );
   }
-  // A column container like GlassView, so the inner row stretches to the
-  // capsule's width (as a row child it would shrink to its content, leaving
-  // the flexible address area no room).
-  // The fill sits on the fading layer itself (non-collapsible): a bare
-  // animated wrapper around a filled child can be flattened away on Android,
-  // taking the fill with it.
+  // No glass here, so the solid pill simply fades as a whole. A column
+  // container like GlassView, so the inner row stretches to the capsule's
+  // width (as a row child it would shrink to its content, leaving the
+  // flexible address area no room).
   return (
-    <Stack flex={flex} borderRadius={borderRadius} borderCurve="continuous">
-      <Animated.View
-        collapsable={false}
-        pointerEvents="none"
-        style={[
-          styles.solidBackground,
-          { borderRadius, backgroundColor: theme.bgStrong.val },
-          fadeStyle,
-        ]}
-      />
-      {content}
-    </Stack>
+    <Animated.View style={[{ flex }, fadeStyle]}>
+      <Stack
+        flex={flex}
+        bg="$bgStrong"
+        borderRadius={borderRadius}
+        borderCurve="continuous"
+      >
+        <GlassHeaderProvider>{row}</GlassHeaderProvider>
+      </Stack>
+    </Animated.View>
   );
 }
