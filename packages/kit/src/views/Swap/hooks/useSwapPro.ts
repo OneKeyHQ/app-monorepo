@@ -7,6 +7,7 @@ import { useIntl } from 'react-intl';
 import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
 import { useLocaleVariant } from '@onekeyhq/kit/src/hooks/useLocaleVariant';
 import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
+import { useAppIsLockedAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/passwordLock';
 import {
   ESwapProJumpTokenDirection,
   useSwapProJumpTokenAtom,
@@ -45,6 +46,7 @@ import type {
 import {
   ESwapDirectionType,
   ESwapProTradeType,
+  ESwapQuoteKind,
   ESwapSlippageSegmentKey,
   ESwapTabSwitchType,
 } from '@onekeyhq/shared/types/swap/types';
@@ -1991,7 +1993,9 @@ export function useSwapBuildTxInfo() {
 }
 
 export function useSwapProActionsQuote() {
-  const { quoteSpeedAction, resetQuoteAction } = useSwapActions().current;
+  const { quoteSpeedAction, resumeQuoteAction, resetQuoteAction } =
+    useSwapActions().current;
+  const [appIsLocked] = useAppIsLockedAtom();
   const [swapTabSwitchType] = useSwapTypeSwitchAtom();
   const [swapTradeType] = useSwapProTradeTypeAtom();
   const [swapProInputAmount, setSwapProInputAmount] =
@@ -2045,7 +2049,14 @@ export function useSwapProActionsQuote() {
     [swapTabSwitchType, swapTradeType],
   );
 
+  const previousStockIsOpenRef = useRef(selectedStockIsOpen);
   useEffect(() => {
+    if (appIsLocked) {
+      return;
+    }
+    const stockReopened =
+      previousStockIsOpenRef.current === false && selectedStockIsOpen === true;
+    previousStockIsOpenRef.current = selectedStockIsOpen;
     // Read only as a re-run trigger: an open-state flip re-requests the
     // quote so stale closed-market state refreshes (OK-58986).
     void selectedStockIsOpen;
@@ -2056,16 +2067,29 @@ export function useSwapProActionsQuote() {
       !debounceInputAmountBN.isNaN() &&
       debounceInputAmountBN.gt(0)
     ) {
-      void quoteSpeedAction(
-        slippageItemRef.current,
-        swapProAccount.result?.addressDetail.address,
-        swapProAccount.result?.id,
-        swapProAccount.result?.addressDetail.address,
-      );
+      if (platformEnv.isNative && !stockReopened) {
+        void resumeQuoteAction({
+          slippageItem: slippageItemRef.current,
+          address: swapProAccount.result.addressDetail.address,
+          accountId: swapProAccount.result.id,
+          receivingAddress: swapProAccount.result.addressDetail.address,
+          kind: ESwapQuoteKind.SELL,
+          incognito: false,
+        });
+      } else {
+        void quoteSpeedAction(
+          slippageItemRef.current,
+          swapProAccount.result.addressDetail.address,
+          swapProAccount.result.id,
+          swapProAccount.result.addressDetail.address,
+        );
+      }
     }
   }, [
+    appIsLocked,
     debounceInputAmount,
     quoteSpeedAction,
+    resumeQuoteAction,
     swapProSelectToken?.contractAddress,
     swapProSelectToken?.networkId,
     swapProDirection,
