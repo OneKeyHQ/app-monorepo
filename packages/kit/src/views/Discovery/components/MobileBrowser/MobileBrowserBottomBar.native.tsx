@@ -11,7 +11,6 @@ import { StyleSheet, View } from 'react-native';
 import Animated, {
   interpolate,
   useAnimatedStyle,
-  useSharedValue,
 } from 'react-native-reanimated';
 
 import {
@@ -171,11 +170,7 @@ function useSideMorphStyle(
 // whole bar draws into its center. The address capsule and the pill share
 // one background (MorphingAddressBackground); these are transforms only, as
 // a parent opacity would break Liquid Glass.
-function useBarMorphStyles(
-  progress: SharedValue<number>,
-  travelY: number,
-  domainCenterOffset: SharedValue<number>,
-) {
+function useBarMorphStyles(progress: SharedValue<number>, travelY: number) {
   const leftStyle = useSideMorphStyle(progress, travelY, 1);
   const rightStyle = useSideMorphStyle(progress, travelY, -1);
   const capsuleStyle = useAnimatedStyle(() => ({
@@ -212,27 +207,11 @@ function useBarMorphStyles(
   // and spot on every frame (see CAPSULE_COLLAPSED_SCALE), so instead of
   // fading two copies into each other, the text swaps layers at the middle
   // of the morph and reads as one, like Safari's.
-  // A domain that can't center in the capsule (it would crowd the badge)
-  // rests a little right of center, while the pill's is centered. The drift
-  // between the two runs over the whole morph, on both layers, so the text
-  // still matches at the swap and moves in one go with the size change
-  // rather than growing first and sliding right after. The pill layer is
-  // scaled 1/CAPSULE_COLLAPSED_SCALE relative to the capsule on every frame,
-  // hence its shorter local offset.
   const capsuleDomainStyle = useAnimatedStyle(() => ({
     opacity: progress.value >= DOMAIN_SWAP_POINT ? 1 : 0,
-    transform: [
-      { translateX: -domainCenterOffset.value * (1 - progress.value) },
-    ],
   }));
   const pillDomainStyle = useAnimatedStyle(() => ({
     opacity: progress.value < DOMAIN_SWAP_POINT ? 1 : 0,
-    transform: [
-      {
-        translateX:
-          domainCenterOffset.value * progress.value * CAPSULE_COLLAPSED_SCALE,
-      },
-    ],
   }));
   return {
     leftStyle,
@@ -413,13 +392,6 @@ function MobileBrowserBottomBar({ id, chrome }: IMobileBrowserBottomBarProps) {
   // (the capsule's also centers its domain).
   const [capsuleWidth, setCapsuleWidth] = useState(0);
   const [pillWidth, setPillWidth] = useState(0);
-  const domainCenterOffset = useSharedValue(0);
-  const handleDomainCenterOffset = useCallback(
-    (offset: number) => {
-      domainCenterOffset.value = offset;
-    },
-    [domainCenterOffset],
-  );
   const pillBottom = getCollapsedPillBottom(bottom);
   const capsuleBottom = getBarCapsuleBottom(bottom);
   // Distance between the bar capsule's center and the pill's center.
@@ -434,7 +406,7 @@ function MobileBrowserBottomBar({ id, chrome }: IMobileBrowserBottomBarProps) {
     pillStyle,
     capsuleDomainStyle,
     pillDomainStyle,
-  } = useBarMorphStyles(progress, morphTravelY, domainCenterOffset);
+  } = useBarMorphStyles(progress, morphTravelY);
 
   const [translateOpen, setTranslateOpen] = useState(false);
   const showOptions = useMobileBrowserOptions({
@@ -570,7 +542,6 @@ function MobileBrowserBottomBar({ id, chrome }: IMobileBrowserBottomBarProps) {
                   badgeStyle={capsuleContentStyle}
                   domainStyle={capsuleDomainStyle}
                   capsuleWidth={capsuleWidth}
-                  onDomainCenterOffset={handleDomainCenterOffset}
                 />
                 <Animated.View style={capsuleContentStyle}>
                   <RefreshButton
