@@ -65,6 +65,12 @@ const styles = StyleSheet.create({
 });
 
 export const DOMAIN_FONT_SIZE = 16;
+// The domain's line height ($bodyLgMedium). iOS puts a line's extra leading
+// above the glyphs, and domains are lowercase, so the text's visual middle
+// (its x-height) sits ~1.7pt below the capsule's center; it is lifted by
+// this much, measured on device.
+export const DOMAIN_LINE_HEIGHT = 24;
+export const DOMAIN_OPTICAL_LIFT = 1.75;
 const DOMAIN_MIN_FONT_SIZE = 14;
 
 // Margin kept when deciding whether a shrunk domain fits, so one that only
@@ -172,6 +178,8 @@ function DomainLabel({
       <SizableText
         size="$bodyLgMedium"
         fontSize={fontSize}
+        lineHeight={DOMAIN_LINE_HEIGHT}
+        y={-DOMAIN_OPTICAL_LIFT}
         numberOfLines={1}
         // Hidden until measured, so a long domain doesn't flash at 16pt
         // (cut with an ellipsis on Android) before its size is picked.

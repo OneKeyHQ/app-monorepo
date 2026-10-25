@@ -30,7 +30,12 @@ import { TranslatePopoverTrigger } from '../../hooks/usePageTranslation';
 import { DiscoveryTestIDs } from '../../testIDs';
 import { usePageTheme, withAlpha } from '../../utils/pageThemeColor';
 
-import { AddressCapsuleTitle, DOMAIN_FONT_SIZE } from './AddressCapsuleTitle';
+import {
+  AddressCapsuleTitle,
+  DOMAIN_FONT_SIZE,
+  DOMAIN_LINE_HEIGHT,
+  DOMAIN_OPTICAL_LIFT,
+} from './AddressCapsuleTitle';
 import {
   CAPSULE_BACK_BUTTON_PULL,
   CAPSULE_BUTTON_HIT_SLOP,
@@ -263,10 +268,13 @@ function CollapsedAddressPill({
             testID={DiscoveryTestIDs.browserCollapsedHeader}
           >
             <Animated.View style={domainStyle}>
-              {/* Same face as the capsule's domain, at PILL_DOMAIN_FONT_SIZE. */}
+              {/* The capsule's domain scaled to PILL_DOMAIN_FONT_SIZE: same
+                face, line height and lift, so the two match on every frame. */}
               <SizableText
                 size="$bodyLgMedium"
                 fontSize={PILL_DOMAIN_FONT_SIZE}
+                lineHeight={DOMAIN_LINE_HEIGHT * CAPSULE_COLLAPSED_SCALE}
+                y={-DOMAIN_OPTICAL_LIFT * CAPSULE_COLLAPSED_SCALE}
                 numberOfLines={1}
                 maxWidth={220}
               >
