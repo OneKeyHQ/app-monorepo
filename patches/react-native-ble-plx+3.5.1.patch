@@ -290,7 +290,7 @@ index 8e0da36..b046c6d 100644
      [_manager invalidate];
      _manager = nil;
  }
-@@ -340,6 +398,239 @@ - (void)invalidate {
+@@ -340,6 +398,245 @@ - (void)invalidate {
                             reject:reject];
  }
  
@@ -327,6 +327,8 @@ index 8e0da36..b046c6d 100644
 +        return;
 +    }
 +
++    // Keep packetSize within the link's maximumWriteValueLength(.withoutResponse); the SDK passes
++    // min(244, mtu - 3). CoreBluetooth does not report an oversized response-less write.
 +    double requestedPacketSize = packetSize.doubleValue;
 +    if (!(requestedPacketSize >= 1) ||
 +        requestedPacketSize > BlePlxFrameMaxPacketSize ||
@@ -387,6 +389,10 @@ index 8e0da36..b046c6d 100644
 +    frameWrite.nextOffset = offset + length;
 +    frameWrite.currentPacketTransactionId = packetTransactionId;
 +
++    // The adapter (RxBluetoothKit Peripheral.writeValue) waits for canSendWriteWithoutResponse before
++    // handing each response-less packet to CoreBluetooth and resolves right after, so packets are paced
++    // by CoreBluetooth exactly as on the per-packet JS path. The frame resolves once its last packet is
++    // queued; the device response to the frame confirms delivery.
 +    __weak BlePlx* weakSelf = self;
 +    [frameWrite.manager writeCharacteristic:frameWrite.characteristicIdentifier
 +                                valueBase64:packetBase64
@@ -530,7 +536,7 @@ index 8e0da36..b046c6d 100644
  RCT_EXPORT_METHOD(monitorCharacteristicForDevice:(NSString*)deviceIdentifier
                                       serviceUUID:(NSString*)serviceUUID
                                characteristicUUID:(NSString*)characteristicUUID
-@@ -494,6 +785,11 @@ - (void)invalidate {
+@@ -494,6 +791,11 @@ - (void)invalidate {
  // Mark: Other operations ----------------------------------------------------------------------------------------------
  
  RCT_EXPORT_METHOD(cancelTransaction:(NSString*)transactionId) {
