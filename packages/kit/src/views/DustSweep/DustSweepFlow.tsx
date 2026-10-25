@@ -30,6 +30,7 @@ import type {
   StackScreenProps,
 } from '@onekeyhq/components/src/layouts/Navigation/StackNavigator';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { DustSweepScreenProvider, useDustSweep } from './DustSweepProvider';
 
@@ -49,6 +50,7 @@ const FlowContext = createContext<
   | {
       component: ComponentType;
       exit: (action?: NavigationAction) => void;
+      executionInPlace: boolean;
     }
   | undefined
 >(undefined);
@@ -58,6 +60,7 @@ export function useDustSweepFlow() {
   if (!context) throw new OneKeyLocalError('DustSweepFlow is required');
   const navigation = useNavigation<StackNavigationProp<IDustSweepFlowParams>>();
   const route = useRoute<StackScreenProps<IDustSweepFlowParams>['route']>();
+  const { selecting } = useDustSweep();
   const continueRemoval = useCallback(
     (action: NavigationAction) => {
       const stack = navigation.getState();
@@ -71,7 +74,12 @@ export function useDustSweepFlow() {
     },
     [context, navigation],
   );
-  return { ...context, continueRemoval, execution: route.name === 'Execution' };
+  return {
+    ...context,
+    continueRemoval,
+    execution:
+      route.name === 'Execution' || (context.executionInPlace && !selecting),
+  };
 }
 
 function DustSweepFlowScreen({
@@ -80,14 +88,16 @@ function DustSweepFlowScreen({
 }: StackScreenProps<IDustSweepFlowParams>) {
   const model = useDustSweep();
   const focused = useIsFocused();
-  const { component: Component } = useDustSweepFlow();
+  const { component: Component, executionInPlace } = useDustSweepFlow();
   const isFocused = focused && model.isFocused;
   const start = useCallback(() => {
     if (!isFocused || route.name !== 'Selection') return undefined;
     const sessionId = model.start();
-    if (sessionId) navigation.push('Execution');
+    // Desktop/web already show selection and execution in the same layout;
+    // retain that page instance so its network bar and layout state survive.
+    if (sessionId && !executionInPlace) navigation.push('Execution');
     return sessionId;
-  }, [isFocused, model, navigation, route.name]);
+  }, [executionInPlace, isFocused, model, navigation, route.name]);
   useEffect(() => {
     // Again (or a restored route with no in-memory session) only returns to
     // selection. Mounting a route never starts or resumes transaction work.
@@ -126,7 +136,11 @@ export function DustSweepFlow({ component }: { component: ComponentType }) {
     () => <NavBackButton onPress={goBack} />,
     [goBack],
   );
-  const value = useMemo(() => ({ component, exit }), [component, exit]);
+  const executionInPlace = !platformEnv.isNative;
+  const value = useMemo(
+    () => ({ component, exit, executionInPlace }),
+    [component, exit, executionInPlace],
+  );
   const screenOptions = useCallback(
     (optionsInfo: StackScreenProps<IDustSweepFlowParams>) => ({
       ...(overlay
