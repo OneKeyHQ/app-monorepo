@@ -185,9 +185,14 @@ function DomainLabel({
     </View>
   );
 
+  // Touch-transparent: the wide row reaches far past this box, over the site
+  // badge. Android's gesture hit test can step into a clipped view's
+  // overflowing children, so the row would take the badge's taps (iOS clips
+  // hit testing too). The domain's press is its ChromePressable's.
   return (
     <View
       style={styles.fill}
+      pointerEvents="none"
       onLayout={(e) =>
         setAvailableWidth(Math.round(e.nativeEvent.layout.width))
       }
