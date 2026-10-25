@@ -271,6 +271,7 @@ function MobileBrowser() {
     handleScroll,
     expandBrowserChrome,
     chromeProgress,
+    layoutExpanded,
     toolbarAnimatedStyle,
     toolbarOverlayStyle,
     webPageAnimatedStyle,
@@ -505,10 +506,11 @@ function MobileBrowser() {
   const browserChrome = useMemo(
     () => ({
       progress: chromeProgress,
+      layoutExpanded,
       onExpand: expandBrowserChrome,
       onSearchBarPress: handleSearchBarPress,
     }),
-    [chromeProgress, expandBrowserChrome, handleSearchBarPress],
+    [chromeProgress, layoutExpanded, expandBrowserChrome, handleSearchBarPress],
   );
 
   const { top } = useSafeAreaInsets();

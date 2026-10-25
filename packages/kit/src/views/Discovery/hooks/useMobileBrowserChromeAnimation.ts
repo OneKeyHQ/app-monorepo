@@ -14,6 +14,7 @@ import {
   getCollapsedReservedHeight,
 } from '../components/MobileBrowser/browserChrome';
 import {
+  BROWSER_HEADER_HEIGHT,
   DISPLAY_BOTTOM_BAR_DURATION,
   MIN_TOGGLE_BROWSER_VISIBLE_DISTANCE,
 } from '../config/Animation.constants';
@@ -34,6 +35,22 @@ const springConfig = {
   overshootClamping: true,
 };
 
+// Distance from the bottom of the WebView's parent (the screen bottom) to the
+// WebView's bottom edge; the bar's page-colored strip fills exactly this.
+export function getWebPageBottom(
+  progress: number,
+  layoutExpanded: number,
+  fullBarHeight: number,
+  collapsedBarHeight: number,
+) {
+  'worklet';
+
+  return (
+    (layoutExpanded ? fullBarHeight : collapsedBarHeight) +
+    BROWSER_HEADER_HEIGHT * (layoutExpanded - progress)
+  );
+}
+
 // Drives the mobile browser chrome (header + bottom bar) from WebView scroll:
 // scrolling down collapses both; scrolling up, reaching an edge of the page,
 // or a non-scrollable page brings them back.
@@ -42,6 +59,12 @@ function useMobileBrowserChromeAnimation() {
   const fullBarHeight = getBarReservedHeight(bottomInset);
   // 1 = chrome fully expanded, 0 = collapsed.
   const chromeProgress = useSharedValue(EXPANDED);
+  // The size the WebView is laid out for: 1 (room for the expanded chrome)
+  // from the start of an expand until the end of a collapse, else 0. The
+  // WebView keeps that size through the animation and only moves; resizing
+  // it every frame made WebKit re-lay-out the page each frame (dropped
+  // frames on heavy dApps). It resizes once, when the chrome settles.
+  const layoutExpanded = useSharedValue(EXPANDED);
   // Scroll direction tracking stays on the JS thread, where WebView scroll
   // events arrive (one per frame): the UI thread is only touched when the
   // chrome actually has to animate, about twice per gesture, instead of a
@@ -58,9 +81,18 @@ function useMobileBrowserChromeAnimation() {
         return;
       }
       targetRef.current = target;
-      chromeProgress.value = withSpring(target, springConfig);
+      if (target === EXPANDED) {
+        layoutExpanded.value = EXPANDED;
+      }
+      chromeProgress.value = withSpring(target, springConfig, (finished) => {
+        'worklet';
+
+        if (finished && target === COLLAPSED) {
+          layoutExpanded.value = COLLAPSED;
+        }
+      });
     },
-    [chromeProgress],
+    [chromeProgress, layoutExpanded],
   );
 
   const handleScroll = useCallback(
@@ -140,17 +172,24 @@ function useMobileBrowserChromeAnimation() {
     [fullBarHeight],
   );
   // The WebView ends above the bar, and above the collapsed pill's strip
-  // once collapsed, so the chrome never covers page content.
+  // once collapsed, so the chrome never covers page content. Its parent
+  // shrinks as the header grows (by BROWSER_HEADER_HEIGHT * progress), so
+  // the offset adds back the header's not-yet-settled part: the WebView's
+  // height stays what its layout size says while it moves with the header.
   const webPageAnimatedStyle = useAnimatedStyle(() => ({
-    bottom:
-      collapsedBarHeight +
-      (fullBarHeight - collapsedBarHeight) * chromeProgress.value,
+    bottom: getWebPageBottom(
+      chromeProgress.value,
+      layoutExpanded.value,
+      fullBarHeight,
+      collapsedBarHeight,
+    ),
   }));
 
   return {
     handleScroll,
     expandBrowserChrome,
     chromeProgress,
+    layoutExpanded,
     toolbarAnimatedStyle,
     toolbarOverlayStyle,
     webPageAnimatedStyle,

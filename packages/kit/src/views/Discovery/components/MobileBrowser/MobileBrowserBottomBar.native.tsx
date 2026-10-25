@@ -26,6 +26,7 @@ import {
   BROWSER_CHROME_SIDE_PADDING,
   BROWSER_COLLAPSED_PILL_HEIGHT,
 } from '../../config/Animation.constants';
+import { getWebPageBottom } from '../../hooks/useMobileBrowserChromeAnimation';
 import { TranslatePopoverTrigger } from '../../hooks/usePageTranslation';
 import { DiscoveryTestIDs } from '../../testIDs';
 import { usePageTheme, withAlpha } from '../../utils/pageThemeColor';
@@ -193,8 +194,8 @@ function useBarMorphStyles(progress: SharedValue<number>, travelY: number) {
   }));
   // The capsule's and the pill's domain are the same text at the same size
   // and spot on every frame (see CAPSULE_COLLAPSED_SCALE), so instead of
-  // crossfading two copies the text swaps layers at the middle of the morph
-  // and reads as one, like Safari's.
+  // fading two copies into each other, the text swaps layers at the middle
+  // of the morph and reads as one, like Safari's.
   const capsuleDomainStyle = useAnimatedStyle(() => ({
     opacity: progress.value >= DOMAIN_SWAP_POINT ? 1 : 0,
   }));
@@ -266,7 +267,7 @@ function CollapsedAddressPill({
 
 // The one background shared by the address capsule and the collapsed pill:
 // its width, height and spot follow the morph, so it reads as one shape
-// changing (like Safari) rather than two backgrounds crossfading. Liquid Glass
+// changing (like Safari) rather than two backgrounds fading into each other. Liquid Glass
 // on iOS 26 (never faded, so nothing can break it), a solid pill elsewhere.
 function MorphingAddressBackground({
   progress,
@@ -339,7 +340,7 @@ function MobileBrowserBottomBar({ id, chrome }: IMobileBrowserBottomBarProps) {
     handleTranslateTestAIError,
   } = useMobileBrowserBottomBarData({ id });
 
-  const { progress, onExpand, onSearchBarPress } = chrome;
+  const { progress, layoutExpanded, onExpand, onSearchBarPress } = chrome;
   // Match the page's light/dark look (glass, icons, text), like Safari.
   const { pageColor, pageThemeName } = usePageTheme(id);
   const appThemeName = useThemeName();
@@ -348,9 +349,12 @@ function MobileBrowserBottomBar({ id, chrome }: IMobileBrowserBottomBarProps) {
   const stripFullHeight = getBarReservedHeight(bottom);
   const stripCollapsedHeight = getCollapsedReservedHeight(bottom);
   const stripStyle = useAnimatedStyle(() => ({
-    height:
-      stripCollapsedHeight +
-      (stripFullHeight - stripCollapsedHeight) * progress.value,
+    height: getWebPageBottom(
+      progress.value,
+      layoutExpanded.value,
+      stripFullHeight,
+      stripCollapsedHeight,
+    ),
   }));
   const pageColorStyle = useMemo(
     () => (pageColor ? { backgroundColor: pageColor } : undefined),
