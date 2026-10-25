@@ -163,6 +163,14 @@ function useSideMorphStyle(
   }));
 }
 
+// The capsule layer's scale along the morph. The pill layer is always this
+// over CAPSULE_COLLAPSED_SCALE, so the two domains match on every frame.
+function getCapsuleMorphScale(progress: number) {
+  'worklet';
+
+  return interpolate(progress, [0, 1], [CAPSULE_COLLAPSED_SCALE, 1], 'clamp');
+}
+
 // Morphs the address capsule into the collapsed pill (and back), like
 // Safari: the capsule shrinks and slides down to the pill's spot while the
 // pill grows out of it; the side buttons shrink towards the pill, so the
@@ -181,14 +189,7 @@ function useBarMorphStyles(
       {
         translateY: interpolate(progress.value, [0, 1], [travelY, 0], 'clamp'),
       },
-      {
-        scale: interpolate(
-          progress.value,
-          [0, 1],
-          [CAPSULE_COLLAPSED_SCALE, 1],
-          'clamp',
-        ),
-      },
+      { scale: getCapsuleMorphScale(progress.value) },
     ],
   }));
   const pillStyle = useAnimatedStyle(() => ({
@@ -196,14 +197,7 @@ function useBarMorphStyles(
       {
         translateY: interpolate(progress.value, [0, 1], [0, -travelY], 'clamp'),
       },
-      {
-        scale: interpolate(
-          progress.value,
-          [0, 1],
-          [1, 1 / CAPSULE_COLLAPSED_SCALE],
-          'clamp',
-        ),
-      },
+      { scale: getCapsuleMorphScale(progress.value) / CAPSULE_COLLAPSED_SCALE },
     ],
   }));
   // The capsule's and the pill's domain are the same text at the same size
@@ -211,12 +205,10 @@ function useBarMorphStyles(
   // fading two copies into each other, the text swaps layers at the middle
   // of the morph and reads as one, like Safari's.
   // A domain that can't center in the capsule (it would crowd the badge)
-  // rests a little right of center, while the pill's is centered. The drift
-  // between the two runs over the whole morph, on both layers, so the text
-  // still matches at the swap and moves in one go with the size change
-  // rather than growing first and sliding right after. The pill layer is
-  // scaled 1/CAPSULE_COLLAPSED_SCALE relative to the capsule on every frame,
-  // hence its shorter local offset.
+  // rests a little right of center, while the pill's is centered: the drift
+  // runs over the whole morph on both layers, in one go with the size
+  // change. The pill layer is drawn 1/CAPSULE_COLLAPSED_SCALE times the
+  // capsule's, hence its shorter local offset.
   const capsuleDomainStyle = useAnimatedStyle(() => ({
     opacity: progress.value >= DOMAIN_SWAP_POINT ? 1 : 0,
     transform: [
@@ -471,8 +463,8 @@ function MobileBrowserBottomBar({ id, chrome }: IMobileBrowserBottomBarProps) {
           style={[styles.strip, { height: stripFullHeight }, stripStyle]}
         >
           {/* The WebView ends above the bar: the strip behind the bar takes
-            the page color. No fade above it: a plain alpha fade (no blur)
-            over page content of another color reads as a muddy band. */}
+            the page color. No fade above it: a plain alpha fade (no blur) over
+            page content of another color looks muddy. */}
           <Stack flex={1} bg="$bgApp" style={pageColorStyle} />
         </Animated.View>
         <MorphingAddressBackground

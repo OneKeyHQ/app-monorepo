@@ -197,7 +197,7 @@ function DomainLabel({
         setAvailableWidth(Math.round(e.nativeEvent.layout.width))
       }
     >
-      <View style={styles.measure} pointerEvents="none">
+      <View style={styles.measure}>
         {/* SizableText does not accept onLayout; the wrapper is the measured box. */}
         <View
           onLayout={(e: LayoutChangeEvent) =>
