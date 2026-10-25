@@ -60,6 +60,7 @@ describe('HardwareAllNetworkGetAddressResponse', () => {
           code: ThirdPartyHwErrorCode.DevicePathForbidden,
           errorCode: ThirdPartyHwErrorCode.DevicePathForbidden,
           error: 'Keystone BTC is limited to mainnet account 0',
+          params: { reason: 'btc-account-limit' },
           connectId: '',
           deviceId: '',
         },
