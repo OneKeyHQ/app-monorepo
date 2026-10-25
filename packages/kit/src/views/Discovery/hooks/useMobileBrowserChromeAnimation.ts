@@ -36,8 +36,9 @@ const springConfig = {
 };
 
 // Distance from the bottom of the WebView's parent (the screen bottom) to the
-// WebView's bottom edge; the bar's page-colored strip fills exactly this.
-export function getWebPageBottom(
+// WebView's bottom edge. While the chrome moves it is at or below the bar's
+// page-colored strip, which hides the part passing behind the bar.
+function getWebPageBottom(
   progress: number,
   layoutExpanded: number,
   fullBarHeight: number,
@@ -191,7 +192,6 @@ function useMobileBrowserChromeAnimation() {
     handleScroll,
     expandBrowserChrome,
     chromeProgress,
-    layoutExpanded,
     toolbarAnimatedStyle,
     toolbarOverlayStyle,
     webPageAnimatedStyle,

@@ -26,7 +26,6 @@ import {
   BROWSER_CHROME_SIDE_PADDING,
   BROWSER_COLLAPSED_PILL_HEIGHT,
 } from '../../config/Animation.constants';
-import { getWebPageBottom } from '../../hooks/useMobileBrowserChromeAnimation';
 import { TranslatePopoverTrigger } from '../../hooks/usePageTranslation';
 import { DiscoveryTestIDs } from '../../testIDs';
 import { usePageTheme, withAlpha } from '../../utils/pageThemeColor';
@@ -340,21 +339,22 @@ function MobileBrowserBottomBar({ id, chrome }: IMobileBrowserBottomBarProps) {
     handleTranslateTestAIError,
   } = useMobileBrowserBottomBarData({ id });
 
-  const { progress, layoutExpanded, onExpand, onSearchBarPress } = chrome;
+  const { progress, onExpand, onSearchBarPress } = chrome;
   // Match the page's light/dark look (glass, icons, text), like Safari.
   const { pageColor, pageThemeName } = usePageTheme(id);
   const appThemeName = useThemeName();
   const isChromeCollapsed = useIsChromeCollapsed(progress);
-  // Matches the WebView's bottom edge (see useMobileBrowserChromeAnimation).
+  // The WebView's bottom edge once the chrome settles.
   const stripFullHeight = getBarReservedHeight(bottom);
   const stripCollapsedHeight = getCollapsedReservedHeight(bottom);
+  // Follows the bar, not the WebView's edge: during a morph the WebView
+  // reaches further down (it resizes once, when the chrome settles), and
+  // the opaque strip keeps that part hidden, so the glass always sits on the
+  // page color rather than on page content passing behind it.
   const stripStyle = useAnimatedStyle(() => ({
-    height: getWebPageBottom(
-      progress.value,
-      layoutExpanded.value,
-      stripFullHeight,
-      stripCollapsedHeight,
-    ),
+    height:
+      stripCollapsedHeight +
+      (stripFullHeight - stripCollapsedHeight) * progress.value,
   }));
   const pageColorStyle = useMemo(
     () => (pageColor ? { backgroundColor: pageColor } : undefined),
