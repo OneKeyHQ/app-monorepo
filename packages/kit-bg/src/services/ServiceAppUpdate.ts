@@ -450,13 +450,17 @@ class ServiceAppUpdate extends ServiceBase {
   }) {
     await this.cleanupUpdateControlState();
     const snapshot = await appUpdatePersistAtom.get();
+    const fileType = getUpdateFileType(snapshot);
+    const isJsBundle = fileType === EUpdateFileType.jsBundle;
+    // Bundle directories are only required once verification has completed.
+    const canReconcile = isJsBundle
+      ? snapshot.status === EAppUpdateStatus.ready ||
+        snapshot.status === EAppUpdateStatus.manualInstall
+      : APP_SHELL_PACKAGE_RECONCILE_STATUSES.has(snapshot.status);
     if (
-      (!options?.forceMissing &&
-        !APP_SHELL_PACKAGE_RECONCILE_STATUSES.has(snapshot.status)) ||
+      (!options?.forceMissing && !canReconcile) ||
       isFirstLaunchAfterUpdated(snapshot) ||
-      (!options?.forceMissing && snapshot.storeUrl) ||
-      (!options?.allowJsBundle &&
-        getUpdateFileType(snapshot) !== EUpdateFileType.appShell)
+      (!options?.forceMissing && !isJsBundle && snapshot.storeUrl)
     ) {
       return snapshot;
     }
@@ -466,6 +470,33 @@ class ServiceAppUpdate extends ServiceBase {
       availability = {
         status: EAppUpdatePackageAvailabilityStatus.missing,
       };
+    } else if (isJsBundle) {
+      if (
+        !snapshot.latestVersion ||
+        !snapshot.jsBundleVersion ||
+        !snapshot.downloadedEvent
+      ) {
+        availability = {
+          status: EAppUpdatePackageAvailabilityStatus.missing,
+        };
+      } else {
+        try {
+          const exists = await BundleUpdate.isBundleExists(
+            snapshot.latestVersion,
+            snapshot.jsBundleVersion,
+          );
+          availability = {
+            status: exists
+              ? EAppUpdatePackageAvailabilityStatus.available
+              : EAppUpdatePackageAvailabilityStatus.missing,
+          };
+        } catch {
+          defaultLogger.app.appUpdate.log(
+            'reconcileAppShellPackage: bundle existence check failed',
+          );
+          return snapshot;
+        }
+      }
     } else {
       try {
         availability = await AppUpdate.checkPackageAvailability(snapshot);
@@ -548,15 +579,16 @@ class ServiceAppUpdate extends ServiceBase {
       if (
         latest.status === nextStatus &&
         latest.latestVersion === snapshot.latestVersion &&
+        latest.jsBundleVersion === snapshot.jsBundleVersion &&
         !latest.downloadedEvent
       ) {
         const pendingTask = await getPendingInstallTask();
         if (
-          pendingTask &&
-          (pendingTask.type === EPendingInstallTaskType.appInstall ||
-            (options?.allowJsBundle &&
-              pendingTask.type === EPendingInstallTaskType.jsBundleSwitch)) &&
-          pendingTask.targetAppVersion === snapshot.latestVersion
+          (pendingTask?.type === EPendingInstallTaskType.appInstall &&
+            pendingTask.targetAppVersion === snapshot.latestVersion) ||
+          (pendingTask?.type === EPendingInstallTaskType.jsBundleSwitch &&
+            pendingTask.targetAppVersion === snapshot.latestVersion &&
+            pendingTask.targetBundleVersion === snapshot.jsBundleVersion)
         ) {
           await clearPendingInstallTask();
         }
@@ -571,11 +603,15 @@ class ServiceAppUpdate extends ServiceBase {
             if (
               current.status === nextStatus &&
               current.latestVersion === snapshot.latestVersion &&
-              isAutoUpdateStrategy(current.updateStrategy) &&
+              current.jsBundleVersion === snapshot.jsBundleVersion &&
+              (nextStatus === EAppUpdateStatus.downloadPackage ||
+                isAutoUpdateStrategy(current.updateStrategy)) &&
               !current.downloadedEvent
             ) {
               appEventBus.emit(EAppEventBusNames.StartAutoDownloadUpdate, {
-                decision: 'appShellPackageRecovery',
+                decision: isJsBundle
+                  ? 'jsBundlePackageRecovery'
+                  : 'appShellPackageRecovery',
               });
             }
           })();

@@ -47,6 +47,9 @@ export const ReferFriendsTestIDs = {
   benefitsPlaceholder: 'refer-friends-benefits-placeholder',
 
   rewardSummaryRefreshBtn: 'refer-friends-reward-summary-refresh-btn',
+  inviteRewardSettingsBtn: 'refer-friends-invite-reward-settings-btn',
+  referralListBtn: 'refer-friends-referral-list-btn',
+  inviteProfilePublicSwitch: 'refer-friends-invite-profile-public-switch',
 
   // --- Filter & Export ---
   dateRangeChip: 'refer-friends-date-range-chip',
