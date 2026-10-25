@@ -164,7 +164,7 @@ function useMobileBrowserChromeAnimation() {
   }, [animateTo]);
 
   // In-flow bar container (tablet layout): shrinks with the chrome but keeps
-  // room for the collapsed pill. The bar fades its own content.
+  // room for the collapsed pill. The bar animates its own content.
   const toolbarAnimatedStyle = useAnimatedStyle(() => ({
     height: Math.max(collapsedBarHeight, fullBarHeight * chromeProgress.value),
   }));

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { memo, useEffect, useMemo, useState } from 'react';
 
 import MaskedView from '@react-native-masked-view/masked-view';
 import { useIntl } from 'react-intl';
@@ -253,7 +253,7 @@ function DomainLabel({
 // The address inside the bottom bar capsule: site risk badge (opens site info)
 // and, like Safari, only the domain (opens search). The domain is centered in
 // the capsule while it fits.
-export function AddressCapsuleTitle({
+function AddressCapsuleTitleComponent({
   url,
   onPress,
   badgeStyle,
@@ -284,9 +284,11 @@ export function AddressCapsuleTitle({
   // what sits left of it but not right of it (badge, its gap, the back
   // button's pull).
   const [titleX, setTitleX] = useState(0);
-  const [domainAreaX, setDomainAreaX] = useState(0);
-  const [domainAreaWidth, setDomainAreaWidth] = useState(0);
-  let centerShift = -(RISK_ICON_WIDTH + 8 - CAPSULE_BACK_BUTTON_PULL) / 2;
+  const [domainArea, setDomainArea] = useState({ x: 0, width: 0 });
+  const { x: domainAreaX, width: domainAreaWidth } = domainArea;
+  let centerShift =
+    -(RISK_ICON_WIDTH + DOMAIN_AREA_PADDING_LEFT - CAPSULE_BACK_BUTTON_PULL) /
+    2;
   if (capsuleWidth && domainAreaWidth) {
     const left = titleX + domainAreaX + DOMAIN_AREA_PADDING_LEFT;
     const right = capsuleWidth - (titleX + domainAreaX + domainAreaWidth);
@@ -303,7 +305,7 @@ export function AddressCapsuleTitle({
       flex={1}
       alignSelf="stretch"
       alignItems="center"
-      onLayout={(e) => setTitleX(e.nativeEvent.layout.x)}
+      onLayout={(e) => setTitleX(Math.round(e.nativeEvent.layout.x))}
     >
       <Popover
         title={intl.formatMessage({ id: ETranslations.global_info })}
@@ -341,7 +343,13 @@ export function AddressCapsuleTitle({
       />
       <View
         style={styles.domainArea}
-        onLayout={(e) => setDomainAreaX(e.nativeEvent.layout.x)}
+        onLayout={(e) => {
+          const x = Math.round(e.nativeEvent.layout.x);
+          const width = Math.round(e.nativeEvent.layout.width);
+          setDomainArea((prev) =>
+            prev.x === x && prev.width === width ? prev : { x, width },
+          );
+        }}
       >
         <ChromePressable fill onPress={onPress} accessibilityLabel={domainText}>
           <Animated.View style={[styles.fill, domainStyle]}>
@@ -350,7 +358,6 @@ export function AddressCapsuleTitle({
               pl={DOMAIN_AREA_PADDING_LEFT}
               alignItems="center"
               justifyContent="center"
-              onLayout={(e) => setDomainAreaWidth(e.nativeEvent.layout.width)}
             >
               <DomainLabel
                 testID={DiscoveryTestIDs.searchBar}
@@ -365,3 +372,7 @@ export function AddressCapsuleTitle({
     </XStack>
   );
 }
+
+// Memoized: the bar re-renders when the chrome crosses its collapse point,
+// and this subtree's props stay the same then.
+export const AddressCapsuleTitle = memo(AddressCapsuleTitleComponent);

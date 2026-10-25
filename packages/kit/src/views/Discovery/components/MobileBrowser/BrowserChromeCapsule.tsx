@@ -22,7 +22,7 @@ import { useIsProgressPast } from './browserChrome';
 
 import type { SharedValue } from 'react-native-reanimated';
 
-const PILL_RADIUS = 9999;
+export const PILL_RADIUS = 9999;
 
 const styles = StyleSheet.create({
   solidBackground: StyleSheet.absoluteFillObject,
@@ -35,9 +35,8 @@ export interface ICapsuleFade {
   reverse?: boolean;
 }
 
-// Where a capsule's fade is half done: its glass switches there, and the bar
-// swaps its domain text there too.
-export function getCapsuleFadeMidpoint([start, end]: [number, number]) {
+// Where a capsule's fade is half done: its glass switches there.
+function getCapsuleFadeMidpoint([start, end]: [number, number]) {
   return (start + end) / 2;
 }
 
@@ -69,8 +68,6 @@ type IBrowserChromeCapsuleProps = PropsWithChildren<{
   height?: number;
   px?: IXStackProps['px'];
   fade?: ICapsuleFade;
-  // Off when the caller fades the children itself (useCapsuleFadeStyle).
-  fadeContent?: boolean;
   // Off for contents laid over a background drawn elsewhere (the bar's
   // morphing address background).
   background?: boolean;
@@ -97,7 +94,6 @@ export function BrowserChromeCapsule({
   height = BROWSER_CHROME_CAPSULE_HEIGHT,
   px = '$1',
   fade,
-  fadeContent = true,
   background = true,
   borderRadius = PILL_RADIUS,
 }: IBrowserChromeCapsuleProps) {
@@ -131,11 +127,7 @@ export function BrowserChromeCapsule({
   );
   const content = (
     <GlassHeaderProvider>
-      {fadeContent ? (
-        <Animated.View style={fadeStyle}>{row}</Animated.View>
-      ) : (
-        row
-      )}
+      {fade ? <Animated.View style={fadeStyle}>{row}</Animated.View> : row}
     </GlassHeaderProvider>
   );
 

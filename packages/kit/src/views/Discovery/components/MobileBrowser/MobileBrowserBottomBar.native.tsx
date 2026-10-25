@@ -23,6 +23,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import {
   BROWSER_CHROME_CAPSULE_HEIGHT,
+  BROWSER_CHROME_CROSSFADE_POINT,
   BROWSER_CHROME_SIDE_PADDING,
   BROWSER_COLLAPSED_PILL_HEIGHT,
 } from '../../config/Animation.constants';
@@ -49,6 +50,7 @@ import {
 } from './browserChrome';
 import {
   BrowserChromeCapsule,
+  PILL_RADIUS,
   useCapsuleFadeStyle,
 } from './BrowserChromeCapsule';
 import { ChromePressable } from './ChromePressable';
@@ -93,7 +95,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   morphBackground: { height: '100%' },
-  glassFill: { flex: 1, borderRadius: 9999 },
+  glassFill: { flex: 1, borderRadius: PILL_RADIUS },
 });
 
 const STRIP_FADE_HEIGHT = 16;
@@ -110,7 +112,8 @@ const SIDE_FADE_START = 0.4;
 // is wide enough to hold them.
 const CAPSULE_CONTENT_FADE_START = 0.7;
 // The capsule's and the pill's domain swap here (see useBarMorphStyles).
-const DOMAIN_SWAP_POINT = 0.5;
+// Same point where touches move from the bar to the pill.
+const DOMAIN_SWAP_POINT = BROWSER_CHROME_CROSSFADE_POINT;
 
 // The side buttons move this far towards the center while collapsing, and
 // shrink to this scale.
@@ -125,12 +128,6 @@ const PILL_DOMAIN_FONT_SIZE = 14;
 // them is invisible; the shared background sizes itself separately.
 const CAPSULE_COLLAPSED_SCALE = PILL_DOMAIN_FONT_SIZE / DOMAIN_FONT_SIZE;
 
-// Morphs the address capsule into the collapsed pill (and back), like
-// Safari: the capsule shrinks and slides down to the pill's spot while the
-// pill grows out of it; the side buttons shrink towards the pill, so the
-// whole bar draws into its center. The address capsule and the pill share
-// one background (MorphingAddressBackground); these are transforms only, as
-// a parent opacity would break Liquid Glass.
 // A side button's move: down with the bar, in toward the center (`towards`
 // is +1 for the left one, -1 for the right), and smaller.
 function useSideMorphStyle(
@@ -163,6 +160,12 @@ function useSideMorphStyle(
   }));
 }
 
+// Morphs the address capsule into the collapsed pill (and back), like
+// Safari: the capsule shrinks and slides down to the pill's spot while the
+// pill grows out of it; the side buttons shrink towards the pill, so the
+// whole bar draws into its center. The address capsule and the pill share
+// one background (MorphingAddressBackground); these are transforms only, as
+// a parent opacity would break Liquid Glass.
 function useBarMorphStyles(
   progress: SharedValue<number>,
   travelY: number,
@@ -249,7 +252,7 @@ function CollapsedAddressPill({
 }) {
   const hostname = useMemo(() => getDisplayHostname(url), [url]);
   return (
-    <View onLayout={(e) => onWidth(e.nativeEvent.layout.width)}>
+    <View onLayout={(e) => onWidth(Math.round(e.nativeEvent.layout.width))}>
       <BrowserChromeCapsule
         height={BROWSER_COLLAPSED_PILL_HEIGHT}
         px="$4"
@@ -290,8 +293,9 @@ function CollapsedAddressPill({
 
 // The one background shared by the address capsule and the collapsed pill:
 // its width, height and spot follow the morph, so it reads as one shape
-// changing (like Safari) rather than two backgrounds fading into each other. Liquid Glass
-// on iOS 26 (never faded, so nothing can break it), a solid pill elsewhere.
+// changing (like Safari) rather than two backgrounds fading into each other.
+// Liquid Glass on iOS 26 (never faded, so nothing can break it), a solid pill
+// elsewhere.
 function MorphingAddressBackground({
   progress,
   capsuleWidth,
@@ -300,8 +304,8 @@ function MorphingAddressBackground({
   pillBottom,
 }: {
   progress: SharedValue<number>;
-  capsuleWidth: SharedValue<number>;
-  pillWidth: SharedValue<number>;
+  capsuleWidth: number;
+  pillWidth: number;
   capsuleBottom: number;
   pillBottom: number;
 }) {
@@ -314,11 +318,7 @@ function MorphingAddressBackground({
     ),
   }));
   const widthStyle = useAnimatedStyle(() => ({
-    width: interpolate(
-      progress.value,
-      [0, 1],
-      [pillWidth.value, capsuleWidth.value],
-    ),
+    width: interpolate(progress.value, [0, 1], [pillWidth, capsuleWidth]),
   }));
   return (
     <Animated.View pointerEvents="none" style={[styles.morphRow, rowStyle]}>
@@ -326,7 +326,7 @@ function MorphingAddressBackground({
         {isLiquidGlassAvailable() ? (
           <GlassView style={styles.glassFill} />
         ) : (
-          <Stack flex={1} bg="$bgStrong" borderRadius="$full" />
+          <Stack flex={1} bg="$bgStrong" borderRadius={PILL_RADIUS} />
         )}
       </Animated.View>
     </Animated.View>
@@ -375,10 +375,15 @@ function MobileBrowserBottomBar({ id, chrome }: IMobileBrowserBottomBarProps) {
   // reaches further down (it resizes once, when the chrome settles), and
   // the opaque strip keeps that part hidden, so the glass always sits on the
   // page color rather than on page content passing behind it.
+  // Laid out at its full height and slid down as the bar collapses (a
+  // transform, not a per-frame height change).
   const stripStyle = useAnimatedStyle(() => ({
-    height:
-      stripCollapsedHeight +
-      (stripFullHeight - stripCollapsedHeight) * progress.value,
+    transform: [
+      {
+        translateY:
+          (stripFullHeight - stripCollapsedHeight) * (1 - progress.value),
+      },
+    ],
   }));
   const pageColorStyle = useMemo(
     () => (pageColor ? { backgroundColor: pageColor } : undefined),
@@ -395,10 +400,10 @@ function MobileBrowserBottomBar({ id, chrome }: IMobileBrowserBottomBarProps) {
   // The address capsule's buttons and site badge fade; its domain swaps with
   // the pill's instead.
   const capsuleContentStyle = useCapsuleFadeStyle(capsuleContentFade);
-  // Natural widths of the capsule and the pill, for the shared background.
-  const capsuleWidth = useSharedValue(0);
-  const pillWidth = useSharedValue(0);
-  const [capsuleLayoutWidth, setCapsuleLayoutWidth] = useState(0);
+  // Natural widths of the capsule and the pill, for the shared background
+  // (the capsule's also centers its domain).
+  const [capsuleWidth, setCapsuleWidth] = useState(0);
+  const [pillWidth, setPillWidth] = useState(0);
   const domainCenterOffset = useSharedValue(0);
   const handleDomainCenterOffset = useCallback(
     (offset: number) => {
@@ -454,7 +459,10 @@ function MobileBrowserBottomBar({ id, chrome }: IMobileBrowserBottomBarProps) {
     // in-flow height on tablets.
     <Theme name={pageThemeName ?? appThemeName}>
       <Stack h="100%" zIndex={1} pointerEvents="box-none">
-        <Animated.View pointerEvents="none" style={[styles.strip, stripStyle]}>
+        <Animated.View
+          pointerEvents="none"
+          style={[styles.strip, { height: stripFullHeight }, stripStyle]}
+        >
           {/* The WebView ends above the bar: the strip behind the bar takes
             the page color, with a short fade above it so the page runs
             into the bar instead of stopping at a hard edge. */}
@@ -500,10 +508,9 @@ function MobileBrowserBottomBar({ id, chrome }: IMobileBrowserBottomBarProps) {
             </Animated.View>
             <Animated.View
               style={[styles.capsule, capsuleStyle]}
-              onLayout={(e) => {
-                capsuleWidth.value = e.nativeEvent.layout.width;
-                setCapsuleLayoutWidth(e.nativeEvent.layout.width);
-              }}
+              onLayout={(e) =>
+                setCapsuleWidth(Math.round(e.nativeEvent.layout.width))
+              }
             >
               <BrowserChromeCapsule flex={1} px="$2" background={false}>
                 {/* Kept in place (dimmed) when there is no history, so the
@@ -547,7 +554,7 @@ function MobileBrowserBottomBar({ id, chrome }: IMobileBrowserBottomBarProps) {
                   onPress={handleAddressPress}
                   badgeStyle={capsuleContentStyle}
                   domainStyle={capsuleDomainStyle}
-                  capsuleWidth={capsuleLayoutWidth}
+                  capsuleWidth={capsuleWidth}
                   onDomainCenterOffset={handleDomainCenterOffset}
                 />
                 <Animated.View style={capsuleContentStyle}>
@@ -591,9 +598,7 @@ function MobileBrowserBottomBar({ id, chrome }: IMobileBrowserBottomBarProps) {
         >
           <CollapsedAddressPill
             domainStyle={pillDomainStyle}
-            onWidth={(width) => {
-              pillWidth.value = width;
-            }}
+            onWidth={setPillWidth}
             url={currentUrl}
             onPress={() => {
               logBrowserChromeAction('expand', 'toolbar');
