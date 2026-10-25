@@ -213,22 +213,26 @@ function useBarMorphStyles(
   // fading two copies into each other, the text swaps layers at the middle
   // of the morph and reads as one, like Safari's.
   // A domain that can't center in the capsule (it would crowd the badge)
-  // rests a little right of center; it starts centered at the swap, where it
-  // must match the pill's, and eases to that spot by the end of the expand.
-  const capsuleDomainStyle = useAnimatedStyle(() => {
-    const settle = interpolate(
-      progress.value,
-      [DOMAIN_SWAP_POINT, 1],
-      [0, 1],
-      'clamp',
-    );
-    return {
-      opacity: progress.value >= DOMAIN_SWAP_POINT ? 1 : 0,
-      transform: [{ translateX: -domainCenterOffset.value * (1 - settle) }],
-    };
-  });
+  // rests a little right of center, while the pill's is centered. The drift
+  // between the two runs over the whole morph, on both layers, so the text
+  // still matches at the swap and moves in one go with the size change
+  // rather than growing first and sliding right after. The pill layer is
+  // scaled 1/CAPSULE_COLLAPSED_SCALE relative to the capsule on every frame,
+  // hence its shorter local offset.
+  const capsuleDomainStyle = useAnimatedStyle(() => ({
+    opacity: progress.value >= DOMAIN_SWAP_POINT ? 1 : 0,
+    transform: [
+      { translateX: -domainCenterOffset.value * (1 - progress.value) },
+    ],
+  }));
   const pillDomainStyle = useAnimatedStyle(() => ({
     opacity: progress.value < DOMAIN_SWAP_POINT ? 1 : 0,
+    transform: [
+      {
+        translateX:
+          domainCenterOffset.value * progress.value * CAPSULE_COLLAPSED_SCALE,
+      },
+    ],
   }));
   return {
     leftStyle,
