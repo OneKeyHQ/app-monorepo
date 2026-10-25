@@ -277,7 +277,9 @@ function MobileBrowserHeader({
               alignItems="center"
               justifyContent="space-between"
             >
-              <HeaderChip fade={isGlass ? fade : undefined}>
+              {/* No padding: the 36pt button alone fills the 36pt capsule, so
+                the glass is a circle. */}
+              <HeaderChip fade={isGlass ? fade : undefined} px="$0">
                 {closeButton}
               </HeaderChip>
               {/* One compact chip for every account state (connected,
