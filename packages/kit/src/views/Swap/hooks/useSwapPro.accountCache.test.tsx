@@ -18,6 +18,7 @@ type ISwapProTestState = {
   resumeQuoteAction: jest.Mock;
   quoteSpeedAction: jest.Mock;
   locked: boolean;
+  focused: boolean;
   tokenDetail?: {
     networkId: string;
     address: string;
@@ -152,6 +153,7 @@ jest.mock('../../../states/jotai/contexts/swap', () => {
     resumeQuoteAction: jest.fn(),
     quoteSpeedAction: jest.fn(),
     locked: false,
+    focused: true,
     setInputAmount: jest.fn((value: string) => {
       state.inputAmount = value;
     }),
@@ -221,7 +223,9 @@ jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms/swap', () => {
 });
 
 jest.mock('@onekeyhq/kit/src/hooks/useRouteIsFocused', () => ({
-  useRouteIsFocused: () => true,
+  useRouteIsFocused: () =>
+    (globalThis as unknown as { __swapProAtomState: ISwapProTestState })
+      .__swapProAtomState.focused,
 }));
 
 jest.mock('../../Market/hooks', () => ({
@@ -352,6 +356,7 @@ beforeEach(() => {
   swapProAtomState.resumeQuoteAction.mockClear();
   swapProAtomState.quoteSpeedAction.mockClear();
   swapProAtomState.locked = false;
+  swapProAtomState.focused = true;
   swapProAtomState.tokenDetail = undefined;
 });
 
@@ -636,14 +641,27 @@ describe('native Pro quote lock lifecycle', () => {
     swapProAtomState.resumeQuoteAction.mockClear();
     swapProAtomState.locked = true;
     rerender({});
-    swapProAtomState.inputAmount = '0.2';
-    rerender({});
     expect(swapProAtomState.resumeQuoteAction).not.toHaveBeenCalled();
     expect(swapProAtomState.quoteSpeedAction).not.toHaveBeenCalled();
     swapProAtomState.locked = false;
     rerender({});
     expect(swapProAtomState.resumeQuoteAction).toHaveBeenCalledTimes(1);
     expect(swapProAtomState.quoteSpeedAction).not.toHaveBeenCalled();
+    unmount();
+  });
+
+  it('starts a new quote round for an amount changed while paused', () => {
+    const { rerender, unmount } = renderHook(() => useSwapProActionsQuote());
+    swapProAtomState.resumeQuoteAction.mockClear();
+    swapProAtomState.locked = true;
+    rerender({});
+    swapProAtomState.inputAmount = '0.2';
+    rerender({});
+    expect(swapProAtomState.quoteSpeedAction).not.toHaveBeenCalled();
+    swapProAtomState.locked = false;
+    rerender({});
+    expect(swapProAtomState.quoteSpeedAction).toHaveBeenCalledTimes(1);
+    expect(swapProAtomState.resumeQuoteAction).not.toHaveBeenCalled();
     unmount();
   });
 
@@ -671,4 +689,57 @@ describe('native Pro quote lock lifecycle', () => {
     expect(swapProAtomState.quoteSpeedAction).toHaveBeenCalledTimes(1);
     unmount();
   });
+
+  it('starts a new quote round after clearing and re-entering the same amount', () => {
+    const { rerender, unmount } = renderHook(() => useSwapProActionsQuote());
+    swapProAtomState.resumeQuoteAction.mockClear();
+    swapProAtomState.resetQuoteAction.mockClear();
+    swapProAtomState.inputAmount = '';
+    rerender({});
+    expect(swapProAtomState.resetQuoteAction).toHaveBeenCalledTimes(1);
+    swapProAtomState.inputAmount = '0.1';
+    rerender({});
+    expect(swapProAtomState.quoteSpeedAction).toHaveBeenCalledTimes(1);
+    expect(swapProAtomState.resumeQuoteAction).not.toHaveBeenCalled();
+    unmount();
+  });
+
+  it('does not resume a hidden page on unlock and resumes on return', () => {
+    const { rerender, unmount } = renderHook(() => useSwapProActionsQuote());
+    swapProAtomState.resumeQuoteAction.mockClear();
+    swapProAtomState.focused = false;
+    rerender({});
+    swapProAtomState.locked = true;
+    rerender({});
+    swapProAtomState.locked = false;
+    rerender({});
+    expect(swapProAtomState.resumeQuoteAction).not.toHaveBeenCalled();
+    expect(swapProAtomState.quoteSpeedAction).not.toHaveBeenCalled();
+    swapProAtomState.focused = true;
+    rerender({});
+    expect(swapProAtomState.resumeQuoteAction).toHaveBeenCalledTimes(1);
+    expect(swapProAtomState.quoteSpeedAction).not.toHaveBeenCalled();
+    unmount();
+  });
+
+  it.each([false, true])(
+    're-quotes a selected stock open-state change to %s',
+    (isOpen) => {
+      swapProAtomState.tokenDetail = {
+        networkId: 'btc--0',
+        address: 'btc',
+        stock: { isOpen: !isOpen },
+      };
+      const { rerender, unmount } = renderHook(() => useSwapProActionsQuote());
+      swapProAtomState.resumeQuoteAction.mockClear();
+      swapProAtomState.tokenDetail = {
+        ...swapProAtomState.tokenDetail,
+        stock: { isOpen },
+      };
+      rerender({});
+      expect(swapProAtomState.quoteSpeedAction).toHaveBeenCalledTimes(1);
+      expect(swapProAtomState.resumeQuoteAction).not.toHaveBeenCalled();
+      unmount();
+    },
+  );
 });

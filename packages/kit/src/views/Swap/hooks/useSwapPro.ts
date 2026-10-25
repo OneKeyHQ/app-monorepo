@@ -1996,6 +1996,7 @@ export function useSwapProActionsQuote() {
   const { quoteSpeedAction, resumeQuoteAction, resetQuoteAction } =
     useSwapActions().current;
   const [appIsLocked] = useAppIsLockedAtom();
+  const isFocused = useIsFocused();
   const [swapTabSwitchType] = useSwapTypeSwitchAtom();
   const [swapTradeType] = useSwapProTradeTypeAtom();
   const [swapProInputAmount, setSwapProInputAmount] =
@@ -2049,17 +2050,21 @@ export function useSwapProActionsQuote() {
     [swapTabSwitchType, swapTradeType],
   );
 
-  const previousStockIsOpenRef = useRef(selectedStockIsOpen);
+  const previousQuoteInputRef = useRef({
+    amount: debounceInputAmount,
+    stockIsOpen: selectedStockIsOpen,
+  });
   useEffect(() => {
-    if (appIsLocked) {
+    if (appIsLocked || !isFocused) {
       return;
     }
-    const stockReopened =
-      previousStockIsOpenRef.current === false && selectedStockIsOpen === true;
-    previousStockIsOpenRef.current = selectedStockIsOpen;
-    // Read only as a re-run trigger: an open-state flip re-requests the
-    // quote so stale closed-market state refreshes (OK-58986).
-    void selectedStockIsOpen;
+    const quoteInputChanged =
+      previousQuoteInputRef.current.amount !== debounceInputAmount ||
+      previousQuoteInputRef.current.stockIsOpen !== selectedStockIsOpen;
+    previousQuoteInputRef.current = {
+      amount: debounceInputAmount,
+      stockIsOpen: selectedStockIsOpen,
+    };
     const debounceInputAmountBN = new BigNumber(debounceInputAmount ?? '0');
     if (
       enableSwapProMarketQuote &&
@@ -2067,7 +2072,9 @@ export function useSwapProActionsQuote() {
       !debounceInputAmountBN.isNaN() &&
       debounceInputAmountBN.gt(0)
     ) {
-      if (platformEnv.isNative && !stockReopened) {
+      // Only lifecycle recovery preserves the old refresh budget. Input edits
+      // and either market-state transition must start a fresh quote round.
+      if (platformEnv.isNative && !quoteInputChanged) {
         void resumeQuoteAction({
           slippageItem: slippageItemRef.current,
           address: swapProAccount.result.addressDetail.address,
@@ -2087,6 +2094,7 @@ export function useSwapProActionsQuote() {
     }
   }, [
     appIsLocked,
+    isFocused,
     debounceInputAmount,
     quoteSpeedAction,
     resumeQuoteAction,
