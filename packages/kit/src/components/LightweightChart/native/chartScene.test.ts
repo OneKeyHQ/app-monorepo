@@ -236,6 +236,31 @@ it('localizes axis dates in the configured timezone including year boundaries', 
   );
 });
 
+it('uses a distinct month label only at the month boundary', () => {
+  const chart = scene({
+    data: [
+      Date.UTC(2026, 9, 31),
+      Date.UTC(2026, 10, 1),
+      Date.UTC(2026, 10, 2),
+    ].map((time, index) => ({
+      time: (time / 1000) as ILightweightChartTime,
+      value: index + 1,
+    })),
+    locale: 'en',
+    timeZone: 'UTC',
+  });
+  const labels = chart.commands.flatMap((command) =>
+    command.kind === 'text' &&
+    command.font === 'axis' &&
+    command.y > chart.plot.y + chart.plot.height
+      ? [{ text: command.text, x: command.x }]
+      : [],
+  );
+  expect(
+    labels.toSorted((a, b) => a.x - b.x).map((label) => label.text),
+  ).toEqual(['31', 'Nov', '02']);
+});
+
 it('separates nearby last-price and previous-close badges and clamps time labels without overlap', () => {
   const chart = scene(
     {

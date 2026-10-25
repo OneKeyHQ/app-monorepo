@@ -381,6 +381,33 @@ describe('TradingViewNative chart layout', () => {
     ).toBe('2025-01-15');
   });
 
+  it.each([
+    ['dd/MM/yyyy', '15/01/2025'],
+    ['MM/dd/yyyy', '01/15/2025'],
+    ['yyyy/MM/dd', '2025/01/15'],
+    ['dd.MM.yyyy', '15.01.2025'],
+    ['yyyy. MM. dd.', '2025. 01. 15.'],
+  ])(
+    'applies the App date template %s to chart crosshairs',
+    (template, expected) => {
+      const timestamp = getLocalTimestamp(2025, 0, 15, 19, 5);
+      expect(
+        formatTradingViewNativeCrosshairTime(
+          timestamp,
+          SECONDS_PER_HOUR,
+          template,
+        ),
+      ).toBe(`${expected} 19:05`);
+      expect(
+        formatTradingViewNativeCrosshairTime(
+          timestamp,
+          SECONDS_PER_DAY,
+          template,
+        ),
+      ).toBe(expected);
+    },
+  );
+
   it('places extrema labels toward the center of the chart', () => {
     expect(
       getTradingViewNativePriceExtremumHorizontalLayout({
