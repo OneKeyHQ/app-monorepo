@@ -36,6 +36,10 @@ const BorrowManagePosition = LazyLoad(
 const EarnGuide = LazyLoad(
   () => import('@onekeyhq/kit/src/views/Earn/pages/EarnGuide'),
 );
+
+const EarnPayWithTokenSelect = LazyLoad(
+  () => import('@onekeyhq/kit/src/views/Earn/pages/EarnPayWithTokenSelect'),
+);
 // Loaded while the desktop Earn home shows the guide's card, through the lazy
 // route itself: its first open then renders at once instead of suspending,
 // which holds the modal back a few hundred ms more
@@ -155,6 +159,11 @@ export const StakingModalRouter: IModalFlowNavigatorConfig<
     // show and hide at once under it
     disableEnterScaleAnimation: true,
     disableEnterExitAnimation: true,
+  },
+  {
+    // Its size follows the window from its own header, as Swap's picker does
+    name: EModalStakingRoutes.EarnPayWithTokenSelect,
+    component: EarnPayWithTokenSelect,
   },
   {
     name: EModalStakingRoutes.BorrowEModeSwitch,

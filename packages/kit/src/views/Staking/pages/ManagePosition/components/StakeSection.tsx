@@ -1,12 +1,5 @@
 import type { ReactElement, ReactNode } from 'react';
-import {
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -35,21 +28,19 @@ import { EARN_DESKTOP_DEMO_COPY } from '@onekeyhq/kit/src/views/Earn/components/
 import { buildKeyboardPressProps } from '@onekeyhq/kit/src/views/Earn/components/desktopHome/earnDesktopPressable';
 import {
   findOffer,
+  findPayToken,
   resolvePayMode,
+  toPickedPayToken,
 } from '@onekeyhq/kit/src/views/Earn/pages/EarnRouter/earnRouter.utils';
-import type { IEarnRouterPayToken } from '@onekeyhq/kit/src/views/Earn/pages/EarnRouter/earnRouter.utils';
 import { useEarnRouterOffers } from '@onekeyhq/kit/src/views/Earn/pages/EarnRouter/EarnRouterOffer';
 import {
-  EarnFormChoiceContext,
-  EarnPayWithList,
-  PAY_WITH_BOX_TEST_ID,
   PAY_WITH_TRIGGER_TEST_ID,
+  refreshPickedPayToken,
+  rememberPickedPayToken,
   usePayTokens,
 } from '@onekeyhq/kit/src/views/Earn/pages/EarnRouter/EarnRouterPayWith';
-import type { IEarnFormChoice } from '@onekeyhq/kit/src/views/Earn/pages/EarnRouter/EarnRouterPayWith';
 import { EarnRouterSwapDepositForm } from '@onekeyhq/kit/src/views/Earn/pages/EarnRouter/EarnRouterSwapDepositForm';
 import type { IEarnRouterSummaryRequest } from '@onekeyhq/kit/src/views/Earn/pages/EarnRouter/EarnRouterSwapDepositForm';
-import { LIST_PICK_APPLY_MS } from '@onekeyhq/kit/src/views/Earn/utils/earnListMotion';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EModalRoutes, EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
@@ -69,6 +60,7 @@ import type {
   IEarnTokenItem,
   IProtocolInfo,
 } from '@onekeyhq/shared/types/staking';
+import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
 import { useEarnRiskWarningGate } from '../../../components/EarnRiskWarningDialog';
@@ -315,22 +307,21 @@ export const StakeSection = ({
     if (!canPayWith) {
       return undefined;
     }
-    const picked = pay.tokens.find((item) => item.key === payKey);
+    const picked = findPayToken(pay.tokens, payKey);
     if (picked) {
       return picked;
     }
     return payWith?.preferDepositToken
-      ? pay.tokens.find((item) => item.isDepositToken)
+      ? pay.heldTokens.find((item) => item.isDepositToken)
       : pay.defaultToken;
   }, [
     canPayWith,
     pay.defaultToken,
+    pay.heldTokens,
     pay.tokens,
     payKey,
     payWith?.preferDepositToken,
   ]);
-  // Nothing held on the network leaves nothing to pick
-  const hasPayTokens = canPayWith && pay.tokens.length > 0;
   // After a swap paid for the deposit: the deposit form takes over on the
   // tokens it brought in, filled with them and pressed once by itself, as
   // the swap's press asked. Only for the provider the swap was for; picking
@@ -353,99 +344,72 @@ export const StakeSection = ({
     setHandoff((prev) => (prev ? { ...prev, autoSubmitKey: undefined } : prev));
   }, []);
   // Pay with moves to the deposit token once the wallet lists it
-  const heldDepositKey = pay.tokens.find((item) => item.isDepositToken)?.key;
+  const heldDepositKey = pay.heldTokens.find(
+    (item) => item.isDepositToken,
+  )?.key;
   useEffect(() => {
     if (handoff && heldDepositKey && payKey !== heldDepositKey) {
       setPayKey(heldDepositKey);
     }
   }, [handoff, heldDepositKey, payKey, setPayKey]);
-  // Pay with's tokens unfold inside the amount box. In the deposit modal
-  // the protocol list shares one open state with them, so one is open at a
-  // time; elsewhere (the details page) the list keeps its own
-  const choice = useContext(EarnFormChoiceContext);
-  const [ownChoice, setOwnChoice] = useState<IEarnFormChoice>();
-  const openChoice = choice ? choice.open : ownChoice;
-  const setOpenChoice = choice ? choice.setOpen : setOwnChoice;
-  const isPayListOpen = openChoice === 'payWith';
-  // The other tokens, the deposit token first: the one in use is the chip
-  const payListTokens = useMemo(
-    () => pay.tokens.filter((item) => item.key !== payToken?.key),
-    [pay.tokens, payToken?.key],
-  );
-  const hasOtherPayTokens = hasPayTokens && payListTokens.length > 0;
-  const focusFirstPayRowRef = useRef(false);
-  const handleOpenPayWith = useCallback(() => {
-    setOpenChoice((prev) => (prev === 'payWith' ? undefined : 'payWith'));
-  }, [setOpenChoice]);
-  const handleKeyboardOpenPayWith = useCallback(() => {
-    focusFirstPayRowRef.current = !isPayListOpen;
-    handleOpenPayWith();
-  }, [handleOpenPayWith, isPayListOpen]);
-  const handleClosePayWith = useCallback(() => {
-    setOpenChoice((prev) => (prev === 'payWith' ? undefined : prev));
-  }, [setOpenChoice]);
-  // A pick shows in the chip at once and the list folds under it; the form
-  // takes the token once the list is shut, as the protocol list does. An
-  // amount of the last token means nothing in this one, so it starts empty
-  const [shownPayKey, setShownPayKey] = useState<string>();
-  const payApplyTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(
-    undefined,
-  );
-  useEffect(() => () => clearTimeout(payApplyTimerRef.current), []);
+  // Pay with's picker: Swap's, kept to this network, in a modal over the
+  // form. Picking another token starts the amount over, as an amount of the
+  // last token means nothing in this one
   const handlePickPayToken = useCallback(
-    (item: IEarnRouterPayToken) => {
-      setShownPayKey(item.key);
-      handleClosePayWith();
-      clearTimeout(payApplyTimerRef.current);
-      payApplyTimerRef.current = setTimeout(() => {
-        setShownPayKey(undefined);
-        setStartAmount(undefined);
-        typedAmountRef.current = undefined;
-        onAmountChange?.('');
-        setHandoff(undefined);
-        setPayKey(item.key);
-      }, LIST_PICK_APPLY_MS);
+    (token: ISwapToken) => {
+      const depositToken =
+        tokenInfo?.token &&
+        tokenInfo.token.symbol.toLowerCase() === depositSymbol.toLowerCase()
+          ? tokenInfo.token
+          : undefined;
+      const item = toPickedPayToken({
+        token,
+        tokens: pay.heldTokens,
+        depositToken,
+        depositSymbol,
+      });
+      if (!pay.heldTokens.some((held) => held.key === item.key)) {
+        rememberPickedPayToken(networkId, item);
+        void refreshPickedPayToken({ accountId, networkId, item });
+      }
+      if (item.key === payToken?.key) {
+        return;
+      }
+      setStartAmount(undefined);
+      typedAmountRef.current = undefined;
+      onAmountChange?.('');
+      setHandoff(undefined);
+      setPayKey(item.key);
     },
-    [handleClosePayWith, onAmountChange, setPayKey],
+    [
+      accountId,
+      depositSymbol,
+      networkId,
+      onAmountChange,
+      pay.heldTokens,
+      payToken?.key,
+      setPayKey,
+      tokenInfo?.token,
+    ],
   );
-  const shownPayToken = shownPayKey
-    ? pay.tokens.find((item) => item.key === shownPayKey)
-    : undefined;
-  // The chip as the list has it, laid over each form's own; with no other
-  // token to pick it is the token alone
+  const handleOpenPayWith = useCallback(() => {
+    navigation.pushModal(EModalRoutes.StakingModal, {
+      screen: EModalStakingRoutes.EarnPayWithTokenSelect,
+      params: {
+        accountId,
+        networkId,
+        onSelect: handlePickPayToken,
+      },
+    });
+  }, [accountId, handlePickPayToken, navigation, networkId]);
+  // Laid over each form's own token chip: a picked token fades in
   const payWithTrigger = useMemo(
-    () =>
-      hasOtherPayTokens
-        ? {
-            testID: PAY_WITH_TRIGGER_TEST_ID,
-            isExpanded: isPayListOpen,
-            fadesInPickedToken: true,
-            ...(shownPayToken
-              ? {
-                  selectedTokenSymbol: shownPayToken.token.symbol,
-                  selectedTokenImageUri: shownPayToken.token.logoURI,
-                }
-              : undefined),
-          }
-        : {
-            disabled: true,
-            onPress: undefined,
-            tabIndex: undefined,
-            onKeyDown: undefined,
-          },
-    [hasOtherPayTokens, isPayListOpen, shownPayToken],
+    () => ({
+      testID: PAY_WITH_TRIGGER_TEST_ID,
+      fadesInPickedToken: true,
+    }),
+    [],
   );
-  const payWithList = hasOtherPayTokens ? (
-    <EarnPayWithList
-      tokens={payListTokens}
-      networkId={networkId}
-      isOpen={isPayListOpen}
-      onPick={handlePickPayToken}
-      onClose={handleClosePayWith}
-      focusFirstRef={focusFirstPayRowRef}
-    />
-  ) : undefined;
-  const payWithBoxTestID = hasOtherPayTokens ? PAY_WITH_BOX_TEST_ID : undefined;
   const payMode = handoff
     ? 'direct'
     : resolvePayMode({
@@ -759,12 +723,12 @@ export const StakeSection = ({
   ]);
 
   const stakeTokenSelectorTriggerProps = useMemo(() => {
-    if (hasPayTokens) {
-      // Pay with opens from the keyboard too, its first token focused
+    if (canPayWith) {
+      // Pay with's picker opens from the keyboard too
       return {
         disabled: false,
         onPress: handleOpenPayWith,
-        ...buildKeyboardPressProps(handleKeyboardOpenPayWith),
+        ...buildKeyboardPressProps(handleOpenPayWith),
         ...payWithTrigger,
       };
     }
@@ -783,9 +747,8 @@ export const StakeSection = ({
           : undefined,
     };
   }, [
-    hasPayTokens,
+    canPayWith,
     handleOpenPayWith,
-    handleKeyboardOpenPayWith,
     payWithTrigger,
     isPendleProvider,
     isNativeProvider,
@@ -1353,10 +1316,7 @@ export const StakeSection = ({
           inputDecimals: protocolInfo?.protocolInputDecimals,
         }}
         onOpenPayWith={handleOpenPayWith}
-        onOpenPayWithFromKeyboard={handleKeyboardOpenPayWith}
         payWithTrigger={payWithTrigger}
-        amountBoxBottom={payWithList}
-        amountBoxTestID={payWithBoxTestID}
         onSwapped={handleSwapped}
         beforeSwap={handleBeforeSwap}
         footerActionOverride={footerActionOverride}
@@ -1399,17 +1359,15 @@ export const StakeSection = ({
           onAutoSubmit={handleAutoSubmit}
           offerSwitch={offerSwitch}
           onAmountChange={handleAmountChange}
-          onTokenSelectorPress={hasPayTokens ? handleOpenPayWith : undefined}
+          onTokenSelectorPress={canPayWith ? handleOpenPayWith : undefined}
           payWithTrigger={
-            hasPayTokens
+            canPayWith
               ? {
-                  ...buildKeyboardPressProps(handleKeyboardOpenPayWith),
+                  ...buildKeyboardPressProps(handleOpenPayWith),
                   ...payWithTrigger,
                 }
               : undefined
           }
-          amountBoxBottom={payWithList}
-          amountBoxTestID={payWithBoxTestID}
           inputTitle={payInputTitle}
           showSwapOrBridge={!canPayWith}
           tokenImageUri={tokenInfo?.token.logoURI || fallbackTokenImageUri}
@@ -1514,8 +1472,6 @@ export const StakeSection = ({
           hideTradeOrBuy={canPayWith}
           collapsesDepositLine={collapsesDepositLine}
           tokenSelectorTriggerProps={stakeTokenSelectorTriggerProps}
-          amountBoxBottom={payWithList}
-          amountBoxTestID={payWithBoxTestID}
           requestSymbol={stakeRequestSymbol}
           transactionInputTokenAddress={selectedStakeTokenAddress}
           transactionOutputTokenAddress={receiveInputConfig?.tokenAddress ?? ''}

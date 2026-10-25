@@ -40,12 +40,10 @@ import {
   getOfferTarget,
   useEarnRouterOffers,
 } from './EarnRouterOffer';
-import { EarnFormChoiceContext } from './EarnRouterPayWith';
 import { useEscapeFoldsList } from './useEscapeFoldsList';
 import { warmFormData } from './useWarmOffersDeposit';
 
 import type { IEarnDepositDoneInfo } from './EarnDepositDone';
-import type { IEarnFormChoice } from './EarnRouterPayWith';
 import type { IEarnOutcome } from '../../../Staking/components/UniversalStake/EarnFormSummary';
 import type { IHeaderRightViewProps } from '../../../Staking/pages/ManagePosition/components/HeaderRight';
 import type {
@@ -526,14 +524,7 @@ export function EarnOffersDeposit({
   // the form takes the pick once the list is shut. An offer that fills
   // another form swaps the one the switcher sits in, and an open list would
   // be built again mid-fold
-  // One choice open at a time: the protocol list, or Pay with's tokens in
-  // the amount box
-  const [openChoice, setOpenChoice] = useState<IEarnFormChoice>();
-  const choiceContext = useMemo(
-    () => ({ open: openChoice, setOpen: setOpenChoice }),
-    [openChoice],
-  );
-  const isListOpen = openChoice === 'protocol';
+  const [isListOpen, setIsListOpen] = useState(false);
   // The list opening reads each listed offer's form ahead, so a pick opens
   // on its own data at once
   const buildOfferParams = useOfferFormParams({ networkId, symbol, logoURI });
@@ -555,17 +546,17 @@ export function EarnOffersDeposit({
     (open: boolean) => {
       if (open) {
         setListedWithout(shown?.key);
-        setOpenChoice('protocol');
+        setIsListOpen(true);
         warmListedOffers();
         return;
       }
-      setOpenChoice((prev) => (prev === 'protocol' ? undefined : prev));
+      setIsListOpen(false);
     },
     [shown?.key, warmListedOffers],
   );
   const handleSelect = useCallback((offer: IEarnDesktopHoldOffer) => {
     setShownKey(offer.key);
-    setOpenChoice((prev) => (prev === 'protocol' ? undefined : prev));
+    setIsListOpen(false);
     clearTimeout(applyTimerRef.current);
     applyTimerRef.current = setTimeout(() => {
       easeModalHeightChanges();
@@ -612,25 +603,23 @@ export function EarnOffersDeposit({
     );
   }
   return (
-    <EarnFormChoiceContext.Provider value={choiceContext}>
-      <EarnFormSwitchingContext.Provider value={shown?.key !== selected.key}>
-        <EarnOutcomeCarryContext.Provider value={outcomeCarry}>
-          <OfferDepositForm
-            key={getOfferFormKind(selected, symbol)}
-            offer={selected}
-            symbol={symbol}
-            networkId={networkId}
-            logoURI={logoURI}
-            initialAmount={startAmount}
-            payWith={payWith}
-            offerSwitch={offerSwitch}
-            onAmountChange={handleAmountChange}
-            onHeaderRightChange={onHeaderRightChange}
-            onDeposited={handleDeposited}
-            footerActionOverride={footerActionOverride}
-          />
-        </EarnOutcomeCarryContext.Provider>
-      </EarnFormSwitchingContext.Provider>
-    </EarnFormChoiceContext.Provider>
+    <EarnFormSwitchingContext.Provider value={shown?.key !== selected.key}>
+      <EarnOutcomeCarryContext.Provider value={outcomeCarry}>
+        <OfferDepositForm
+          key={getOfferFormKind(selected, symbol)}
+          offer={selected}
+          symbol={symbol}
+          networkId={networkId}
+          logoURI={logoURI}
+          initialAmount={startAmount}
+          payWith={payWith}
+          offerSwitch={offerSwitch}
+          onAmountChange={handleAmountChange}
+          onHeaderRightChange={onHeaderRightChange}
+          onDeposited={handleDeposited}
+          footerActionOverride={footerActionOverride}
+        />
+      </EarnOutcomeCarryContext.Provider>
+    </EarnFormSwitchingContext.Provider>
   );
 }

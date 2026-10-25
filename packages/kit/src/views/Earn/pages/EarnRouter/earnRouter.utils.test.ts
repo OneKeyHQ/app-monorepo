@@ -2,21 +2,28 @@ import type {
   IBorrowMarketItem,
   IStakeProtocolListItem,
 } from '@onekeyhq/shared/types/staking';
-import type { IFetchQuoteResult } from '@onekeyhq/shared/types/swap/types';
+import type {
+  IFetchQuoteResult,
+  ISwapToken,
+} from '@onekeyhq/shared/types/swap/types';
 import type { IAccountToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 
 import {
   EARN_ROUTER_SWAP_IDLE,
   earnRouterSwapReducer,
   findOffer,
+  findPayToken,
   getEarnSwapDepositAmount,
   getEarnSwapPayMax,
   getEarnSwapSlippage,
   isUsableEarnSwapQuote,
   listPayTokens,
+  mergePickedPayTokens,
   pickBetterOffer,
   pickDefaultPayToken,
   resolvePayMode,
+  toPickedPayToken,
+  withPickedTokenDetails,
 } from './earnRouter.utils';
 
 import type {
@@ -292,6 +299,205 @@ describe('pickDefaultPayToken', () => {
 
   it('has nothing to start on without tokens', () => {
     expect(pickDefaultPayToken([])).toBeUndefined();
+  });
+});
+
+describe('picks in Pay with picker', () => {
+  const WBTC = '0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599';
+  const CRV = '0xD533a949740bb3306d119CC777fa900bA034cd52';
+  const held = listPayTokens({ group: ethereumWallet, depositSymbol: 'USDC' });
+  const heldUsdt = held.find((item) => item.token.symbol === 'USDT');
+  const swapToken = (
+    symbol: string,
+    contractAddress: string,
+    extra: Partial<ISwapToken> = {},
+  ): ISwapToken => ({
+    networkId: 'evm--1',
+    contractAddress,
+    symbol,
+    name: symbol,
+    decimals: 8,
+    ...extra,
+  });
+  const pick = (token: ISwapToken) =>
+    toPickedPayToken({ token, tokens: [], depositSymbol: 'USDC' });
+
+  describe('toPickedPayToken', () => {
+    it("uses the wallet's entry for a token Pay with lists, the address in any case", () => {
+      const picked = toPickedPayToken({
+        token: swapToken('USDT', USDT.toLowerCase(), { balanceParsed: '9' }),
+        tokens: held,
+        depositSymbol: 'USDC',
+      });
+      expect(picked).toBe(heldUsdt);
+    });
+
+    it('matches the network coin by its being native', () => {
+      const picked = toPickedPayToken({
+        token: swapToken('ETH', '', { isNative: true, decimals: 18 }),
+        tokens: held,
+        depositSymbol: 'USDC',
+      });
+      expect(picked.key).toBe('eth');
+    });
+
+    it('builds a token the list lacks from the picker, with its balance and USD value', () => {
+      const picked = toPickedPayToken({
+        token: swapToken('CRV', CRV, {
+          balanceParsed: '0.4851',
+          fiatValue: '0.17',
+          price: '0.35',
+          currency: 'usd',
+          decimals: 18,
+          logoURI: 'crv.png',
+        }),
+        tokens: held,
+        depositSymbol: 'USDC',
+      });
+      const key = `earn-pay-picked|evm--1|${CRV.toLowerCase()}`;
+      expect(picked).toEqual({
+        key,
+        token: {
+          $key: key,
+          address: CRV,
+          decimals: 18,
+          logoURI: 'crv.png',
+          name: 'CRV',
+          symbol: 'CRV',
+          networkId: 'evm--1',
+        },
+        amount: '0.4851',
+        fiatValueUsd: '0.17',
+        priceUsd: '0.35',
+        isDepositToken: false,
+      });
+    });
+
+    it('gives a token the wallet holds none of no balance, and no value or price in another currency', () => {
+      const picked = pick(
+        swapToken('WBTC', WBTC, {
+          price: '600000',
+          fiatValue: '0',
+          currency: 'cny',
+        }),
+      );
+      expect(picked.amount).toBe('0');
+      expect(picked.fiatValueUsd).toBe('0');
+      expect(picked.priceUsd).toBe('0');
+    });
+
+    it('knows the deposit token by its address, or by its symbol without one', () => {
+      const usdc = swapToken('USDC', USDC);
+      expect(
+        toPickedPayToken({
+          token: usdc,
+          tokens: [],
+          depositToken: { address: USDC.toLowerCase(), isNative: false },
+          depositSymbol: 'USDC',
+        }).isDepositToken,
+      ).toBe(true);
+      // Another token that only shares the symbol
+      expect(
+        toPickedPayToken({
+          token: swapToken('USDC', WBTC),
+          tokens: [],
+          depositToken: { address: USDC },
+          depositSymbol: 'USDC',
+        }).isDepositToken,
+      ).toBe(false);
+      expect(
+        toPickedPayToken({ token: usdc, tokens: [], depositSymbol: 'usdc' })
+          .isDepositToken,
+      ).toBe(true);
+    });
+  });
+
+  describe('mergePickedPayTokens', () => {
+    const wbtc = pick(swapToken('WBTC', WBTC));
+
+    it("adds the picks the list lacks after the wallet's tokens", () => {
+      expect(mergePickedPayTokens(held, [wbtc])).toEqual([...held, wbtc]);
+    });
+
+    it('drops a pick of a token the wallet has come to hold', () => {
+      expect(mergePickedPayTokens(held, [pick(swapToken('USDT', USDT))])).toBe(
+        held,
+      );
+    });
+
+    it('is the list itself without picks', () => {
+      expect(mergePickedPayTokens(held, [])).toBe(held);
+    });
+  });
+
+  describe('findPayToken', () => {
+    it('finds a token by its key', () => {
+      expect(findPayToken(held, heldUsdt?.key)).toBe(heldUsdt);
+    });
+
+    it("finds the wallet's entry for a pick the wallet has come to hold", () => {
+      expect(findPayToken(held, pick(swapToken('USDT', USDT)).key)).toBe(
+        heldUsdt,
+      );
+      expect(
+        findPayToken(held, pick(swapToken('ETH', '', { isNative: true })).key)
+          ?.key,
+      ).toBe('eth');
+    });
+
+    it('finds nothing without a key, for an unknown one, or for a pick no longer listed', () => {
+      expect(findPayToken(held, undefined)).toBeUndefined();
+      expect(findPayToken(held, 'unknown')).toBeUndefined();
+      expect(findPayToken(held, pick(swapToken('WBTC', WBTC)).key)).toBe(
+        undefined,
+      );
+    });
+  });
+
+  describe('withPickedTokenDetails', () => {
+    const wbtc = pick(swapToken('WBTC', WBTC));
+
+    it('takes the balance, value and price read in USD', () => {
+      expect(
+        withPickedTokenDetails(
+          wbtc,
+          swapToken('WBTC', WBTC, {
+            balanceParsed: '0.01',
+            fiatValue: '801.2',
+            price: '80120',
+            currency: 'usd',
+          }),
+        ),
+      ).toMatchObject({
+        key: wbtc.key,
+        amount: '0.01',
+        fiatValueUsd: '801.2',
+        priceUsd: '80120',
+      });
+    });
+
+    it('takes the balance but keeps the value and price from details in another currency', () => {
+      expect(
+        withPickedTokenDetails(
+          { ...wbtc, fiatValueUsd: '5', priceUsd: '500' },
+          swapToken('WBTC', WBTC, {
+            balanceParsed: '0.01',
+            fiatValue: '3600',
+            price: '360000',
+            currency: 'cny',
+          }),
+        ),
+      ).toMatchObject({ amount: '0.01', fiatValueUsd: '5', priceUsd: '500' });
+    });
+
+    it('keeps the balance when the details carry none', () => {
+      expect(
+        withPickedTokenDetails(
+          { ...wbtc, amount: '2' },
+          swapToken('WBTC', WBTC, { price: '80120', currency: 'usd' }),
+        ).amount,
+      ).toBe('2');
+    });
   });
 });
 

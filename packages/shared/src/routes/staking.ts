@@ -12,6 +12,7 @@ import type {
   IProtocolInfo,
   IStakeProtocolDetails,
 } from '../../types/staking';
+import type { ISwapToken } from '../../types/swap/types';
 
 export enum EModalStakingRoutes {
   InvestmentDetails = 'InvestmentDetails',
@@ -38,6 +39,8 @@ export enum EModalStakingRoutes {
   EarnAssetSearch = 'EarnAssetSearch',
   // Desktop Earn home guide for a wallet without positions (demo 10-22)
   EarnGuide = 'EarnGuide',
+  // Pay with's token picker: Swap's, kept to the deposit's network (demo 10-25)
+  EarnPayWithTokenSelect = 'EarnPayWithTokenSelect',
 }
 
 type IBaseRouteParams = {
@@ -131,6 +134,12 @@ export type IModalStakingParamList = {
   };
   [EModalStakingRoutes.BorrowManagePosition]: IBorrowManagePositionRouteParams;
   [EModalStakingRoutes.EarnGuide]: undefined;
+  [EModalStakingRoutes.EarnPayWithTokenSelect]: {
+    accountId: string;
+    networkId: string;
+    // Called with the pick after the picker closes
+    onSelect: (token: ISwapToken) => void;
+  };
   [EModalStakingRoutes.BorrowEModeSwitch]: IBaseRouteParams & {
     provider: string;
     marketAddress: string;

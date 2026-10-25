@@ -64,6 +64,8 @@ type ISwapTokenSelectorDesktopProps = {
   }) => ReactElement | null;
   currencySymbol: string;
   tokenListEmptyComponent?: ReactElement | null;
+  // Kept to one network (Earn's Pay with): the token column alone
+  hideNetworkColumn?: boolean;
 };
 
 function NetworkLogo({ network }: { network: ISwapNetwork }) {
@@ -252,6 +254,7 @@ export function SwapTokenSelectorDesktop({
   renderToken,
   currencySymbol,
   tokenListEmptyComponent,
+  hideNetworkColumn,
 }: ISwapTokenSelectorDesktopProps) {
   const intl = useIntl();
   const networkGroups = useMemo(
@@ -330,6 +333,7 @@ export function SwapTokenSelectorDesktop({
   return (
     <XStack testID="swap-token-selector-desktop" flex={1} minHeight={0}>
       <YStack
+        display={hideNetworkColumn ? 'none' : 'flex'}
         width={264}
         minHeight={0}
         borderRightWidth={1}

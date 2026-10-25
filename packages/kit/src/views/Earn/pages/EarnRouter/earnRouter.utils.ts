@@ -105,6 +105,131 @@ export function pickDefaultPayToken(
   return tokens.find((item) => item.isDepositToken) ?? tokens[0];
 }
 
+// Keys of tokens picked in Pay with's picker that the wallet's list lacks:
+// `${PICKED_PAY_TOKEN_KEY}|networkId|address`
+const PICKED_PAY_TOKEN_KEY = 'earn-pay-picked';
+
+const isPickedPayTokenKey = (key: string) =>
+  key.startsWith(`${PICKED_PAY_TOKEN_KEY}|`);
+
+const getPayTokenAddress = (item: IEarnRouterPayToken) =>
+  normalizeStakeTokenAddress({
+    address: item.token.address,
+    isNative: item.token.isNative,
+  });
+
+// A token picked in Pay with's picker (Swap's, so any token on the network).
+// The wallet's own entry when Pay with's list has it, its balance being the
+// one to trust; else the picker's token, with the balance the picker showed
+// and none for a token the wallet doesn't hold
+export function toPickedPayToken({
+  token,
+  tokens,
+  depositToken,
+  depositSymbol,
+}: {
+  token: ISwapToken;
+  tokens: IEarnRouterPayToken[];
+  // The offer's own token: a pick is the deposit token by its address
+  depositToken?: { address?: string; isNative?: boolean };
+  depositSymbol: string;
+}): IEarnRouterPayToken {
+  const address = normalizeStakeTokenAddress({
+    address: token.contractAddress,
+    isNative: token.isNative,
+  });
+  const listed = tokens.find((item) => getPayTokenAddress(item) === address);
+  if (listed) {
+    return listed;
+  }
+  const key = `${PICKED_PAY_TOKEN_KEY}|${token.networkId}|${address}`;
+  const isUsd = (token.currency ?? USD_CURRENCY_ID) === USD_CURRENCY_ID;
+  const amount = new BigNumber(token.balanceParsed ?? 0);
+  const value = new BigNumber(token.fiatValue ?? 0);
+  const price = new BigNumber(token.price ?? 0);
+  return {
+    key,
+    token: {
+      $key: key,
+      address: token.contractAddress,
+      decimals: token.decimals,
+      isNative: token.isNative,
+      logoURI: token.logoURI,
+      name: token.name ?? token.symbol,
+      symbol: token.symbol,
+      networkId: token.networkId,
+      balanceMultiplier: token.balanceMultiplier,
+    },
+    amount: amount.isFinite() && amount.gt(0) ? amount.toFixed() : '0',
+    fiatValueUsd: isUsd && value.isFinite() ? value.toFixed() : '0',
+    priceUsd: isUsd && price.isFinite() ? price.toFixed() : '0',
+    isDepositToken: depositToken
+      ? normalizeStakeTokenAddress(depositToken) === address
+      : token.symbol.toLowerCase() === depositSymbol.toLowerCase(),
+  };
+}
+
+// A pick's balance, value and price from Swap's details of the token, read
+// in USD as Pay with keeps them. What the details lack stays as picked
+export function withPickedTokenDetails(
+  item: IEarnRouterPayToken,
+  detail: ISwapToken,
+): IEarnRouterPayToken {
+  const isUsd = (detail.currency ?? USD_CURRENCY_ID) === USD_CURRENCY_ID;
+  const amount = new BigNumber(detail.balanceParsed ?? Number.NaN);
+  const value = new BigNumber(detail.fiatValue ?? Number.NaN);
+  const price = new BigNumber(detail.price ?? Number.NaN);
+  let nextAmount = item.amount;
+  if (amount.isFinite()) {
+    nextAmount = amount.gt(0) ? amount.toFixed() : '0';
+  }
+  return {
+    ...item,
+    amount: nextAmount,
+    fiatValueUsd:
+      isUsd && value.isFinite() ? value.toFixed() : item.fiatValueUsd,
+    priceUsd:
+      isUsd && price.isFinite() && price.gt(0)
+        ? price.toFixed()
+        : item.priceUsd,
+  };
+}
+
+// Pay with's tokens and the picks its list lacks, after the wallet's own. A
+// pick the wallet has come to hold gives way to the wallet's entry
+export function mergePickedPayTokens(
+  tokens: IEarnRouterPayToken[],
+  picked: IEarnRouterPayToken[],
+): IEarnRouterPayToken[] {
+  if (!picked.length) {
+    return tokens;
+  }
+  const listed = new Set(tokens.map(getPayTokenAddress));
+  const extra = picked.filter((item) => !listed.has(getPayTokenAddress(item)));
+  return extra.length ? [...tokens, ...extra] : tokens;
+}
+
+// The pay token a key names. A pick of a token the wallet has since come to
+// hold (a swap landed, a transfer arrived) finds the wallet's entry by its
+// address
+export function findPayToken(
+  tokens: IEarnRouterPayToken[],
+  key?: string,
+): IEarnRouterPayToken | undefined {
+  if (!key) {
+    return undefined;
+  }
+  const byKey = tokens.find((item) => item.key === key);
+  if (byKey || !isPickedPayTokenKey(key)) {
+    return byKey;
+  }
+  const address = key.slice(key.lastIndexOf('|') + 1);
+  return tokens.find(
+    (item) =>
+      !isPickedPayTokenKey(item.key) && getPayTokenAddress(item) === address,
+  );
+}
+
 export type IEarnRouterPayMode =
   // The offer takes the token as it is: the real form
   | 'direct'

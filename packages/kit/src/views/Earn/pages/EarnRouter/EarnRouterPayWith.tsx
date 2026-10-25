@@ -1,37 +1,91 @@
-import type { Dispatch, RefObject, SetStateAction } from 'react';
-import { createContext, useCallback, useEffect, useMemo, useRef } from 'react';
+import { useMemo, useSyncExternalStore } from 'react';
 
-import { useReducedMotion } from 'react-native-reanimated';
-
-import {
-  Accordion,
-  Divider,
-  ScrollView,
-  SizableText,
-  XStack,
-  YStack,
-} from '@onekeyhq/components';
-import type { IElement } from '@onekeyhq/components';
-import { ANIMATE_ONLY_OPACITY } from '@onekeyhq/components/src/utils/animationConstants';
-import { Currency } from '@onekeyhq/kit/src/components/Currency';
-import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeableTextWrapper';
-import { Token } from '@onekeyhq/kit/src/components/Token';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useEarnAtom } from '@onekeyhq/kit/src/states/jotai/contexts/earn';
 import { USD_CURRENCY_ID } from '@onekeyhq/shared/src/consts/currencyConsts';
 
-import { buildKeyboardPressProps } from '../../components/desktopHome/earnDesktopPressable';
 import { useEarnDesktopWalletHoldings } from '../../components/desktopHome/useEarnDesktopHomeData';
-import {
-  getListHeightTransition,
-  getListRowMotion,
-} from '../../utils/earnListMotion';
 
-import { listPayTokens, pickDefaultPayToken } from './earnRouter.utils';
-import { useEscapeFoldsList } from './useEscapeFoldsList';
+import {
+  listPayTokens,
+  mergePickedPayTokens,
+  pickDefaultPayToken,
+  withPickedTokenDetails,
+} from './earnRouter.utils';
 
 import type { IEarnRouterPayToken } from './earnRouter.utils';
 
-// The wallet's tokens on the deposit's network, for Pay with
+// Tokens picked in Pay with's picker that the wallet's list lacks (none
+// held, or one Pay with's own list leaves out), by network: a form drawn
+// again (another protocol, the details page's tabs) still finds the pick
+const pickedPayTokens = new Map<string, IEarnRouterPayToken[]>();
+const pickedPayTokenListeners = new Set<() => void>();
+const NO_PICKED_PAY_TOKENS: IEarnRouterPayToken[] = [];
+
+export function rememberPickedPayToken(
+  networkId: string,
+  item: IEarnRouterPayToken,
+) {
+  const others = (pickedPayTokens.get(networkId) ?? []).filter(
+    (picked) => picked.key !== item.key,
+  );
+  pickedPayTokens.set(networkId, [...others, item]);
+  pickedPayTokenListeners.forEach((listener) => listener());
+}
+
+// A pick carries what the picker had: a popular token chip has no price, and
+// the list may be in another currency. Its balance and price in USD are read
+// once picked, and the pick takes them when it is still there
+export async function refreshPickedPayToken({
+  accountId,
+  networkId,
+  item,
+}: {
+  accountId: string;
+  networkId: string;
+  item: IEarnRouterPayToken;
+}) {
+  try {
+    const accountAddress = accountId
+      ? await backgroundApiProxy.serviceAccount
+          .getAccountAddressForApi({ accountId, networkId })
+          .catch(() => undefined)
+      : undefined;
+    const details = await backgroundApiProxy.serviceSwap.fetchSwapTokenDetails({
+      networkId,
+      accountAddress,
+      accountId: accountAddress ? accountId : undefined,
+      contractAddress: item.token.address,
+      currency: USD_CURRENCY_ID,
+    });
+    const detail = details?.[0];
+    const latest = pickedPayTokens
+      .get(networkId)
+      ?.find((picked) => picked.key === item.key);
+    if (detail && latest) {
+      rememberPickedPayToken(networkId, withPickedTokenDetails(latest, detail));
+    }
+  } catch {
+    // The pick keeps what the picker showed
+  }
+}
+
+function subscribePickedPayTokens(listener: () => void) {
+  pickedPayTokenListeners.add(listener);
+  return () => {
+    pickedPayTokenListeners.delete(listener);
+  };
+}
+
+function usePickedPayTokens(networkId: string) {
+  return useSyncExternalStore(
+    subscribePickedPayTokens,
+    () => pickedPayTokens.get(networkId) ?? NO_PICKED_PAY_TOKENS,
+  );
+}
+
+// The wallet's tokens on the deposit's network, for Pay with, and the picks
+// they lack
 export function usePayTokens({
   networkId,
   depositSymbol,
@@ -60,7 +114,7 @@ export function usePayTokens({
     () => wallet.networkGroups.find((item) => item.networkId === networkId),
     [networkId, wallet.networkGroups],
   );
-  const tokens = useMemo(
+  const heldTokens = useMemo(
     () =>
       listPayTokens({
         group,
@@ -70,196 +124,24 @@ export function usePayTokens({
       }),
     [depositSymbol, group, payableSymbols],
   );
-  const defaultToken = useMemo(() => pickDefaultPayToken(tokens), [tokens]);
+  const picked = usePickedPayTokens(networkId);
+  const tokens = useMemo(
+    () => mergePickedPayTokens(heldTokens, picked),
+    [heldTokens, picked],
+  );
+  const defaultToken = useMemo(
+    () => pickDefaultPayToken(heldTokens),
+    [heldTokens],
+  );
   return {
+    // The wallet's, then the picks
     tokens,
+    heldTokens,
     defaultToken,
     isLoaded: wallet.isLoaded,
     refresh: wallet.refresh,
   };
 }
 
-// A token in the amount box's list: the same row look as the protocol list
-// under it, inset so its hover reads as one item of the box
-function PayTokenRow({
-  item,
-  networkId,
-  index,
-  onSelect,
-  focusRef,
-}: {
-  item: IEarnRouterPayToken;
-  // Every token in the list is on the deposit's network; its badge says which
-  networkId: string;
-  // Its place in the list: each row comes in a moment after the one above
-  index: number;
-  onSelect: (item: IEarnRouterPayToken) => void;
-  // Set for the first row when the list opens from the keyboard
-  focusRef?: RefObject<boolean>;
-}) {
-  const reduceMotion = useReducedMotion();
-  const handlePress = useCallback(() => onSelect(item), [item, onSelect]);
-  const rowRef = useRef<IElement>(null);
-  useEffect(() => {
-    if (focusRef?.current) {
-      focusRef.current = false;
-      rowRef.current?.focus();
-    }
-  }, [focusRef]);
-  return (
-    <XStack
-      ref={rowRef}
-      testID={`earn-router-pay-with-${item.token.symbol}`}
-      role="button"
-      ai="center"
-      gap="$3"
-      mx="$1.5"
-      px="$2"
-      py="$2"
-      borderRadius="$2"
-      borderCurve="continuous"
-      hoverStyle={{ bg: '$bgHover' }}
-      pressStyle={{ bg: '$bgActive' }}
-      cursor="pointer"
-      userSelect="none"
-      {...getListRowMotion(index, reduceMotion)}
-      onPress={handlePress}
-      {...buildKeyboardPressProps(handlePress)}
-    >
-      <Token
-        size="md"
-        tokenImageUri={item.token.logoURI}
-        showNetworkIcon
-        networkId={networkId}
-      />
-      <YStack flex={1} minWidth={0} gap="$0.5">
-        <SizableText size="$bodyLgMedium" numberOfLines={1}>
-          {item.token.symbol}
-        </SizableText>
-        {/* A name that only repeats the symbol (sUSD3, USDe) says nothing */}
-        {item.token.name &&
-        item.token.name.toLowerCase() !== item.token.symbol.toLowerCase() ? (
-          <SizableText size="$bodyMd" color="$textSubdued" numberOfLines={1}>
-            {item.token.name}
-          </SizableText>
-        ) : null}
-      </YStack>
-      <YStack ai="flex-end" gap="$0.5" flexShrink={0}>
-        <NumberSizeableTextWrapper
-          hideValue
-          size="$bodyLgMedium"
-          formatter="balance"
-        >
-          {item.amount}
-        </NumberSizeableTextWrapper>
-        <Currency
-          hideValue
-          size="$bodySm"
-          color="$textSubdued"
-          formatter="value"
-          sourceCurrency={USD_CURRENCY_ID}
-        >
-          {item.fiatValueUsd}
-        </Currency>
-      </YStack>
-    </XStack>
-  );
-}
-
-// The deposit form's choices, Pay with's token list and the protocol list:
-// one open at a time, so opening one folds the other
-export type IEarnFormChoice = 'protocol' | 'payWith';
-export const EarnFormChoiceContext = createContext<{
-  open?: IEarnFormChoice;
-  setOpen: Dispatch<SetStateAction<IEarnFormChoice | undefined>>;
-} | null>(null);
-
-// Shared with the token chip, so Escape in the list gives the focus back to it
+// Pay with's token chip, which opens the picker
 export const PAY_WITH_TRIGGER_TEST_ID = 'earn-pay-with-trigger';
-export const PAY_WITH_BOX_TEST_ID = 'earn-pay-with-box';
-
-const PAY_LIST_VALUE = 'pay-with';
-const PAY_LIST_HIDDEN_STYLE = { opacity: 0 } as const;
-// About four and a half rows; a longer wallet scrolls inside the box
-const PAY_LIST_MAX_HEIGHT = 280;
-
-/**
- * Pay with's choices, unfolding inside the amount box under its balance
- * line: the other tokens the wallet holds on the network, the deposit token
- * first. A pick folds the list; the caller applies it once folded
- */
-export function EarnPayWithList({
-  tokens,
-  networkId,
-  isOpen,
-  onPick,
-  onClose,
-  focusFirstRef,
-}: {
-  tokens: IEarnRouterPayToken[];
-  networkId: string;
-  isOpen: boolean;
-  onPick: (item: IEarnRouterPayToken) => void;
-  onClose: () => void;
-  focusFirstRef?: RefObject<boolean>;
-}) {
-  const reduceMotion = useReducedMotion();
-  // Escape folds the list; from inside it, the focus goes back to the token
-  // chip. From the amount box the cursor stays where it is
-  const listRef = useRef<IElement>(null);
-  const handleEscape = useCallback(
-    (wasFocusInList: boolean) => {
-      onClose();
-      const list = listRef.current as unknown;
-      if (
-        wasFocusInList &&
-        typeof HTMLElement !== 'undefined' &&
-        list instanceof HTMLElement
-      ) {
-        list
-          .closest(`[data-testid="${PAY_WITH_BOX_TEST_ID}"]`)
-          ?.querySelector<HTMLElement>(
-            `[data-testid="${PAY_WITH_TRIGGER_TEST_ID}"]`,
-          )
-          ?.focus();
-      }
-    },
-    [onClose],
-  );
-  useEscapeFoldsList(isOpen, handleEscape, listRef);
-  return (
-    <Accordion type="single" collapsible value={isOpen ? PAY_LIST_VALUE : ''}>
-      <Accordion.Item value={PAY_LIST_VALUE}>
-        <Accordion.HeightAnimator
-          transition={getListHeightTransition(isOpen, reduceMotion)}
-        >
-          {/* The rows come in themselves; the list fades out as it folds */}
-          <Accordion.Content
-            unstyled
-            transition="quick"
-            animateOnly={ANIMATE_ONLY_OPACITY}
-            exitStyle={PAY_LIST_HIDDEN_STYLE}
-          >
-            <YStack ref={listRef}>
-              <Divider mx="$3.5" />
-              <ScrollView maxHeight={PAY_LIST_MAX_HEIGHT}>
-                <YStack py="$1.5" gap="$0.5">
-                  {tokens.map((item, index) => (
-                    <PayTokenRow
-                      key={item.key}
-                      item={item}
-                      networkId={networkId}
-                      index={index}
-                      onSelect={onPick}
-                      focusRef={index === 0 ? focusFirstRef : undefined}
-                    />
-                  ))}
-                </YStack>
-              </ScrollView>
-            </YStack>
-          </Accordion.Content>
-        </Accordion.HeightAnimator>
-      </Accordion.Item>
-    </Accordion>
-  );
-}
