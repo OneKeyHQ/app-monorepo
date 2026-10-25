@@ -138,20 +138,29 @@ function usePageStatusBarStyle(
 }
 
 // A 36pt header control: a Liquid Glass capsule when given a fade (iOS 26),
-// else a plain box with an optional translucent fill.
+// else a plain box with an optional translucent fill. `chip` gives the
+// account chip its concentric corners (avatar radius plus its inset) instead
+// of a pill, which wouldn't match the square-ish avatar inside.
 function HeaderChip({
   fade,
   px,
   bg,
+  chip,
   children,
 }: PropsWithChildren<{
   fade?: ICapsuleFade;
   px?: IXStackProps['px'];
   bg?: string;
+  chip?: boolean;
 }>) {
   if (fade) {
     return (
-      <BrowserChromeCapsule height={ACCOUNT_CHIP_HEIGHT} px={px} fade={fade}>
+      <BrowserChromeCapsule
+        height={ACCOUNT_CHIP_HEIGHT}
+        px={px}
+        fade={fade}
+        borderRadius={chip ? ACCOUNT_CHIP_RADIUS : undefined}
+      >
         {children}
       </BrowserChromeCapsule>
     );
@@ -278,6 +287,7 @@ function MobileBrowserHeader({
                 fade={isGlass ? fade : undefined}
                 px="$1"
                 bg={accountChipBg}
+                chip
               >
                 {accountToolbar}
               </HeaderChip>

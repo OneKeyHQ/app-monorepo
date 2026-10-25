@@ -1,19 +1,22 @@
 import { memo, useCallback, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
-import { StyleSheet } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import Animated, {
   interpolate,
   useAnimatedStyle,
+  useSharedValue,
 } from 'react-native-reanimated';
 
 import {
+  GlassView,
   IconButton,
   LinearGradient,
   SizableText,
   Stack,
   Theme,
   XStack,
+  isLiquidGlassAvailable,
   useThemeName,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -41,7 +44,6 @@ import {
 } from './browserChrome';
 import {
   BrowserChromeCapsule,
-  getCapsuleFadeMidpoint,
   useCapsuleFadeStyle,
 } from './BrowserChromeCapsule';
 import { ChromePressable } from './ChromePressable';
@@ -79,6 +81,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'center',
   },
+  morphRow: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+  },
+  morphBackground: { height: '100%' },
+  glassFill: { flex: 1, borderRadius: 9999 },
 });
 
 const STRIP_FADE_HEIGHT = 16;
@@ -91,13 +101,12 @@ const PILL_HIT_SLOP = {
 
 // Fade ranges of the bar/pill morph (progress: 1 = expanded, 0 = collapsed).
 const SIDE_FADE_START = 0.4;
-const CAPSULE_FADE_START = 0.25;
-const PILL_FADE_END = 0.75;
-// The domain swaps where the address capsule's (and pill's) glass switches.
-const DOMAIN_SWAP_POINT = getCapsuleFadeMidpoint([
-  CAPSULE_FADE_START,
-  PILL_FADE_END,
-]);
+// The address capsule's buttons and badge: only while the shared background
+// is wide enough to hold them.
+const CAPSULE_CONTENT_FADE_START = 0.7;
+// The capsule's and the pill's domain swap here (see useBarMorphStyles).
+const DOMAIN_SWAP_POINT = 0.5;
+
 // The side buttons move this far towards the center while collapsing, and
 // shrink to this scale.
 const SIDE_COLLAPSE_TRAVEL_X = 40;
@@ -105,19 +114,18 @@ const SIDE_COLLAPSED_SCALE = 0.5;
 
 // The pill's domain text size.
 const PILL_DOMAIN_FONT_SIZE = 14;
-// How far the capsule shrinks toward the pill (and the pill grows toward the
-// capsule) while they crossfade. Matched to the domain texts rather than the
-// heights, so the two domains are the same size on every frame and the swap
-// between them is invisible; the backgrounds, which differ in width anyway,
-// only crossfade.
+// How far the capsule's contents shrink toward the pill's (and the pill's
+// grow toward the capsule's) during the morph. Matched to the domain texts,
+// so the two domains are the same size on every frame and the swap between
+// them is invisible; the shared background sizes itself separately.
 const CAPSULE_COLLAPSED_SCALE = PILL_DOMAIN_FONT_SIZE / DOMAIN_FONT_SIZE;
 
 // Morphs the address capsule into the collapsed pill (and back), like
 // Safari: the capsule shrinks and slides down to the pill's spot while the
 // pill grows out of it; the side buttons shrink towards the pill, so the
-// whole bar draws into its center. These are transforms only: each capsule
-// fades its own glass/background and contents (BrowserChromeCapsule), never
-// a parent opacity, which would break Liquid Glass.
+// whole bar draws into its center. The address capsule and the pill share
+// one background (MorphingAddressBackground); these are transforms only, as
+// a parent opacity would break Liquid Glass.
 // A side button's move: down with the bar, in toward the center (`towards`
 // is +1 for the left one, -1 for the right), and smaller.
 function useSideMorphStyle(
@@ -210,48 +218,94 @@ const translatePopoverAnchor = <Stack position="absolute" w={1} h={1} />;
 function CollapsedAddressPill({
   url,
   onPress,
-  fade,
   domainStyle,
+  onWidth,
 }: {
   url?: string;
   onPress?: () => void;
-  fade: ICapsuleFade;
   domainStyle: StyleProp<ViewStyle>;
+  onWidth: (width: number) => void;
 }) {
   const hostname = useMemo(() => getDisplayHostname(url), [url]);
   return (
-    <BrowserChromeCapsule
-      height={BROWSER_COLLAPSED_PILL_HEIGHT}
-      px="$4"
-      fade={fade}
-      fadeContent={false}
-    >
-      {/* The pill is 30pt tall; extend its tap area to ~46pt and over its
-        side padding. */}
-      <ChromePressable
-        onPress={onPress}
-        hitSlop={PILL_HIT_SLOP}
-        accessibilityLabel={hostname}
+    <View onLayout={(e) => onWidth(e.nativeEvent.layout.width)}>
+      <BrowserChromeCapsule
+        height={BROWSER_COLLAPSED_PILL_HEIGHT}
+        px="$4"
+        background={false}
       >
-        <XStack
-          h={BROWSER_COLLAPSED_PILL_HEIGHT}
-          alignItems="center"
-          testID={DiscoveryTestIDs.browserCollapsedHeader}
+        {/* The pill is 30pt tall; extend its tap area to ~46pt and over its
+        side padding. */}
+        <ChromePressable
+          onPress={onPress}
+          hitSlop={PILL_HIT_SLOP}
+          accessibilityLabel={hostname}
         >
-          <Animated.View style={domainStyle}>
-            {/* Same face as the capsule's domain, at PILL_DOMAIN_FONT_SIZE. */}
-            <SizableText
-              size="$bodyLgMedium"
-              fontSize={PILL_DOMAIN_FONT_SIZE}
-              numberOfLines={1}
-              maxWidth={220}
-            >
-              {hostname}
-            </SizableText>
-          </Animated.View>
-        </XStack>
-      </ChromePressable>
-    </BrowserChromeCapsule>
+          <XStack
+            h={BROWSER_COLLAPSED_PILL_HEIGHT}
+            alignItems="center"
+            testID={DiscoveryTestIDs.browserCollapsedHeader}
+          >
+            <Animated.View style={domainStyle}>
+              {/* Same face as the capsule's domain, at PILL_DOMAIN_FONT_SIZE. */}
+              <SizableText
+                size="$bodyLgMedium"
+                fontSize={PILL_DOMAIN_FONT_SIZE}
+                numberOfLines={1}
+                maxWidth={220}
+              >
+                {hostname}
+              </SizableText>
+            </Animated.View>
+          </XStack>
+        </ChromePressable>
+      </BrowserChromeCapsule>
+    </View>
+  );
+}
+
+// The one background shared by the address capsule and the collapsed pill:
+// its width, height and spot follow the morph, so it reads as one shape
+// changing (like Safari) rather than two backgrounds crossfading. Liquid Glass
+// on iOS 26 (never faded, so nothing can break it), a solid pill elsewhere.
+function MorphingAddressBackground({
+  progress,
+  capsuleWidth,
+  pillWidth,
+  capsuleBottom,
+  pillBottom,
+}: {
+  progress: SharedValue<number>;
+  capsuleWidth: SharedValue<number>;
+  pillWidth: SharedValue<number>;
+  capsuleBottom: number;
+  pillBottom: number;
+}) {
+  const rowStyle = useAnimatedStyle(() => ({
+    bottom: interpolate(progress.value, [0, 1], [pillBottom, capsuleBottom]),
+    height: interpolate(
+      progress.value,
+      [0, 1],
+      [BROWSER_COLLAPSED_PILL_HEIGHT, BROWSER_CHROME_CAPSULE_HEIGHT],
+    ),
+  }));
+  const widthStyle = useAnimatedStyle(() => ({
+    width: interpolate(
+      progress.value,
+      [0, 1],
+      [pillWidth.value, capsuleWidth.value],
+    ),
+  }));
+  return (
+    <Animated.View pointerEvents="none" style={[styles.morphRow, rowStyle]}>
+      <Animated.View style={[styles.morphBackground, widthStyle]}>
+        {isLiquidGlassAvailable() ? (
+          <GlassView style={styles.glassFill} />
+        ) : (
+          <Stack flex={1} bg="$bgStrong" borderRadius="$full" />
+        )}
+      </Animated.View>
+    </Animated.View>
   );
 }
 
@@ -306,21 +360,16 @@ function MobileBrowserBottomBar({ id, chrome }: IMobileBrowserBottomBarProps) {
     () => ({ progress, range: [SIDE_FADE_START, 1] }),
     [progress],
   );
-  const capsuleFade = useMemo<ICapsuleFade>(
-    () => ({ progress, range: [CAPSULE_FADE_START, PILL_FADE_END] }),
+  const capsuleContentFade = useMemo<ICapsuleFade>(
+    () => ({ progress, range: [CAPSULE_CONTENT_FADE_START, 1] }),
     [progress],
   );
-  const pillFade = useMemo<ICapsuleFade>(
-    () => ({
-      progress,
-      range: [CAPSULE_FADE_START, PILL_FADE_END],
-      reverse: true,
-    }),
-    [progress],
-  );
-  // The address capsule's buttons and site badge fade with it; its domain
-  // swaps with the pill's instead.
-  const capsuleContentStyle = useCapsuleFadeStyle(capsuleFade);
+  // The address capsule's buttons and site badge fade; its domain swaps with
+  // the pill's instead.
+  const capsuleContentStyle = useCapsuleFadeStyle(capsuleContentFade);
+  // Natural widths of the capsule and the pill, for the shared background.
+  const capsuleWidth = useSharedValue(0);
+  const pillWidth = useSharedValue(0);
   const pillBottom = getCollapsedPillBottom(bottom);
   const capsuleBottom = getBarCapsuleBottom(bottom);
   // Distance between the bar capsule's center and the pill's center.
@@ -385,6 +434,13 @@ function MobileBrowserBottomBar({ id, chrome }: IMobileBrowserBottomBarProps) {
           ) : null}
           <Stack flex={1} bg="$bgApp" style={pageColorStyle} />
         </Animated.View>
+        <MorphingAddressBackground
+          progress={progress}
+          capsuleWidth={capsuleWidth}
+          pillWidth={pillWidth}
+          capsuleBottom={capsuleBottom}
+          pillBottom={pillBottom}
+        />
         <Animated.View
           pointerEvents={isChromeCollapsed ? 'none' : 'box-none'}
           style={[styles.bar, { bottom: capsuleBottom }]}
@@ -406,13 +462,13 @@ function MobileBrowserBottomBar({ id, chrome }: IMobileBrowserBottomBarProps) {
                 />
               </BrowserChromeCapsule>
             </Animated.View>
-            <Animated.View style={[styles.capsule, capsuleStyle]}>
-              <BrowserChromeCapsule
-                flex={1}
-                px="$2"
-                fade={capsuleFade}
-                fadeContent={false}
-              >
+            <Animated.View
+              style={[styles.capsule, capsuleStyle]}
+              onLayout={(e) => {
+                capsuleWidth.value = e.nativeEvent.layout.width;
+              }}
+            >
+              <BrowserChromeCapsule flex={1} px="$2" background={false}>
                 {/* Kept in place (dimmed) when there is no history, so the
                   domain doesn't shift. */}
                 <Animated.View style={capsuleContentStyle}>
@@ -495,8 +551,10 @@ function MobileBrowserBottomBar({ id, chrome }: IMobileBrowserBottomBarProps) {
           style={[styles.pillRow, { bottom: pillBottom }, pillStyle]}
         >
           <CollapsedAddressPill
-            fade={pillFade}
             domainStyle={pillDomainStyle}
+            onWidth={(width) => {
+              pillWidth.value = width;
+            }}
             url={currentUrl}
             onPress={() => {
               logBrowserChromeAction('expand', 'toolbar');

@@ -22,9 +22,10 @@ import { useIsProgressPast } from './browserChrome';
 
 import type { SharedValue } from 'react-native-reanimated';
 
+const PILL_RADIUS = 9999;
+
 const styles = StyleSheet.create({
-  glass: { borderRadius: 9999 },
-  solidBackground: { ...StyleSheet.absoluteFillObject, borderRadius: 9999 },
+  solidBackground: StyleSheet.absoluteFillObject,
 });
 
 // How a capsule fades in over `range` of `progress` (or out, with `reverse`).
@@ -70,6 +71,12 @@ type IBrowserChromeCapsuleProps = PropsWithChildren<{
   fade?: ICapsuleFade;
   // Off when the caller fades the children itself (useCapsuleFadeStyle).
   fadeContent?: boolean;
+  // Off for contents laid over a background drawn elsewhere (the bar's
+  // morphing address background).
+  background?: boolean;
+  // Defaults to a full pill; a chip hosting a square-ish item (the account
+  // avatar) uses a concentric radius instead.
+  borderRadius?: number;
 }>;
 
 // A pill (or circle, with a single child) hosting browser chrome buttons.
@@ -91,6 +98,8 @@ export function BrowserChromeCapsule({
   px = '$1',
   fade,
   fadeContent = true,
+  background = true,
+  borderRadius = PILL_RADIUS,
 }: IBrowserChromeCapsuleProps) {
   const isGlass = isLiquidGlassAvailable();
   const fadeStyle = useCapsuleFadeStyle(fade);
@@ -130,12 +139,15 @@ export function BrowserChromeCapsule({
     </GlassHeaderProvider>
   );
 
+  if (!background) {
+    return <Stack flex={flex}>{content}</Stack>;
+  }
   if (isGlass) {
     return (
       <GlassView
         isInteractive
         glassEffectStyle={glassEffectStyle}
-        style={flex ? [styles.glass, { flex }] : styles.glass}
+        style={{ borderRadius, flex }}
       >
         {content}
       </GlassView>
@@ -145,12 +157,12 @@ export function BrowserChromeCapsule({
   // capsule's width (as a row child it would shrink to its content, leaving
   // the flexible address area no room).
   return (
-    <Stack flex={flex} borderRadius="$full" borderCurve="continuous">
+    <Stack flex={flex} borderRadius={borderRadius} borderCurve="continuous">
       <Animated.View
         pointerEvents="none"
-        style={[styles.solidBackground, fadeStyle]}
+        style={[styles.solidBackground, { borderRadius }, fadeStyle]}
       >
-        <Stack flex={1} bg="$bgStrong" borderRadius="$full" />
+        <Stack flex={1} bg="$bgStrong" borderRadius={borderRadius} />
       </Animated.View>
       {content}
     </Stack>
