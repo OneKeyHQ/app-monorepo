@@ -24,6 +24,7 @@ import {
 import {
   clearAllSwrCacheNamespaces,
   readSwrCacheEntry,
+  readSwrCacheKeysByPrefix,
   removeSwrCacheByPrefix,
   removeSwrCacheEntries,
   swrKeyPrefix,
@@ -704,6 +705,17 @@ function reportInvalidSWRCacheKey(key: string) {
 function get<T>(key: string): T | undefined {
   if (!isValidSWRCacheKey(key)) return undefined;
   return lookupEntry<T>(key)?.d;
+}
+
+/** Discover candidates without loading payloads. Read through `get` to apply deletions. */
+function keysByPrefix(prefix: string): string[] {
+  if (!isValidSWRCacheKey(prefix)) return [];
+  return Array.from(
+    new Set([
+      ...Object.keys(_cache ?? {}).filter((key) => key.startsWith(prefix)),
+      ...readSwrCacheKeysByPrefix(prefix),
+    ]),
+  );
 }
 
 function getWithTimestamp<T>(
@@ -1708,6 +1720,7 @@ function getSizeStats() {
  */
 export const swrCacheUtils = {
   get,
+  keysByPrefix,
   getWithTimestamp,
   getFreshPerpsL2BookSnapshot,
   set,

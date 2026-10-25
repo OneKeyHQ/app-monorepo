@@ -369,8 +369,12 @@ const SwapTokenSelectPage = ({
   const [settingsPersistAtom] = useSettingsPersistAtom();
   const [tokenSelectorFilter, setTokenSelectorFilter] =
     useTokenSelectorFilterPersistAtom();
-  const { selectFromToken, selectToToken, syncNetworksSort } =
-    useSwapActions().current;
+  const {
+    selectFromToken,
+    selectToToken,
+    syncNetworksSort,
+    requestSelectedTokenBalanceRefresh,
+  } = useSwapActions().current;
   const [currentSelectNetwork, setCurrentSelectNetwork] =
     useSwapSelectTokenNetworkAtom();
   const showLpTokenFilterSwitch = useMemo(() => {
@@ -1227,7 +1231,7 @@ const SwapTokenSelectPage = ({
     );
   }, [intl, tokenListLoading]);
   return (
-    <Page safeAreaEnabled={false}>
+    <Page safeAreaEnabled={false} onClose={requestSelectedTokenBalanceRefresh}>
       <Page.Header
         title={intl.formatMessage({ id: ETranslations.token_selector_title })}
         modalContentMaxWidth={useDesktopTokenSelector ? 880 : undefined}
@@ -1280,7 +1284,11 @@ const SwapTokenSelectPage = ({
             allNetworksLabel={intl.formatMessage({
               id: ETranslations.global_all_networks,
             })}
-            sameChainLabel={sameChainBadgeText}
+            // Same copy as the selector's "Same network" group title above
+            // this row (OK-65493); the mobile network toggles keep theirs.
+            sameChainLabel={intl.formatMessage({
+              id: ETranslations.label_same_network,
+            })}
             onNetworkSearchChange={setNetworkSearchInputValue}
             onTokenSearchChange={(text) => {
               setSearchInputValue(text);

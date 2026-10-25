@@ -25,9 +25,13 @@ import {
   useMedia,
 } from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
+import { useSwapStockIssuerPreferencePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { isPreferredStockTokenVariant } from '@onekeyhq/shared/src/utils/stockTokenVariant';
+import {
+  isPreferredStockTokenVariant,
+  normalizeStockIssuer,
+} from '@onekeyhq/shared/src/utils/stockTokenVariant';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type {
   IMarketAccountPortfolioDisplayItem,
@@ -79,15 +83,11 @@ const StockTokenVariantResolvedContext = createContext<Set<string>>(
   new Set<string>(),
 );
 
+// Keyed by normalizeStockIssuer() so every alias shares one label.
 const ISSUER_LABELS: Record<string, string> = {
   // cspell:disable-next-line
   bstocks: 'bStocks',
-  // cspell:disable-next-line
-  bstock: 'bStocks',
-  coingecko: 'Ondo',
   ondo: 'Ondo',
-  // cspell:disable-next-line
-  xstock: 'xStocks',
   // cspell:disable-next-line
   xstocks: 'xStocks',
 };
@@ -95,7 +95,7 @@ const ISSUER_LABELS: Record<string, string> = {
 export function getIssuerLabel(issuer: string) {
   const normalizedIssuer = issuer.trim();
   if (!normalizedIssuer) return VALUE_FALLBACK;
-  return ISSUER_LABELS[normalizedIssuer.toLowerCase()] ?? normalizedIssuer;
+  return ISSUER_LABELS[normalizeStockIssuer(issuer)] ?? normalizedIssuer;
 }
 
 function isAlwaysOpenVariant(variant: IMarketStockTokenVariant) {
@@ -311,6 +311,7 @@ function StockTokenVariantSelectorContent({
     setSelectedTokenId,
     portfolioNetworkId,
   } = useStockDetail();
+  const [, setIssuerPreference] = useSwapStockIssuerPreferencePersistAtom();
   const portfolioScopeTokenId = useMemo(() => {
     if (!portfolioNetworkId || !selectedTokenVariant?.networkId) {
       return undefined;
@@ -421,9 +422,17 @@ function StockTokenVariantSelectorContent({
             portfolioData={portfolioData}
             onSelect={(item) => {
               if (onSelect) {
+                // The caller applies the pick and remembers its issuer once
+                // the switch commits (Swap: after any risk confirmation).
                 void onSelect(item);
               } else {
                 setSelectedTokenId(item.tokenId);
+                // A hand-picked issuer becomes the default for every stock.
+                const issuer = normalizeStockIssuer(item.issuer);
+                // Unchanged picks skip the persisted write and its broadcast.
+                setIssuerPreference((previous) =>
+                  previous.issuer === issuer ? previous : { issuer },
+                );
               }
               closePopover();
             }}
