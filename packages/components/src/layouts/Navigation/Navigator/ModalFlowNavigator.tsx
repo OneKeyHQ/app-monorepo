@@ -41,6 +41,11 @@ export interface IModalFlowNavigatorConfig<
    * content visibly jump outward. Ignored on native.
    */
   disableEnterScaleAnimation?: boolean;
+  /**
+   * Web-only, wide windows: the modal and its backdrop show and hide at
+   * once, for a screen that draws its own way in and out. Ignored on native.
+   */
+  disableEnterExitAnimation?: boolean;
 }
 
 interface IModalFlowNavigatorProps<
@@ -154,6 +159,7 @@ function ModalFlowNavigator<RouteName extends string, P extends ParamListBase>({
             modalContentMaxHeight,
             modalContentMaxWidth,
             disableEnterScaleAnimation,
+            disableEnterExitAnimation,
           }) => {
             const staticOptions: IModalNavigationOptions = {
               ...(typeof options === 'function' ? {} : options),
@@ -162,6 +168,7 @@ function ModalFlowNavigator<RouteName extends string, P extends ParamListBase>({
               modalContentMaxHeight,
               modalContentMaxWidth,
               disableEnterScaleAnimation,
+              disableEnterExitAnimation,
               title: translationId
                 ? intl.formatMessage({
                     id: translationId as ETranslations,

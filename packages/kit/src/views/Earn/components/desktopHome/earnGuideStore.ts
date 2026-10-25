@@ -33,6 +33,20 @@ export type IEarnGuideRect = {
   height: number;
 };
 
+/** Where the card is, and whether the pointer is over it (its green lit) */
+export type IEarnGuideCardPlace = IEarnGuideRect & { isHovered?: boolean };
+
+/** Takes the guide out: covers the modal, has `leave` remove it, and goes
+ * back into the card or fades. False when it draws no way out (narrow
+ * windows, where the modal slides away by itself). `leaveRendersPage`: the
+ * leave brings a page to render (the hero once the guide ends, the
+ * positions page), which would stall a way out already moving */
+export type IEarnGuideCloseDrawer = (
+  leave: () => void,
+  shownStep: IEarnGuideStep,
+  leaveRendersPage?: boolean,
+) => boolean;
+
 type IEarnGuideSnapshot = {
   saved: Record<string, IEarnGuideSaved>;
   live?: IEarnGuideLive;
@@ -49,9 +63,6 @@ type IEarnGuideSnapshot = {
   /** The modal closed on a finish (Done, Go to position), not
       back to the card */
   closesOnFinish?: boolean;
-  /** From the press until the guide is back in the card: the card's place
-      stands empty, as the card is the modal */
-  isGuideUp?: boolean;
 };
 
 const EMPTY_SAVED: IEarnGuideSaved = {};
@@ -72,7 +83,10 @@ let snapshot: IEarnGuideSnapshot = { saved: readSaved() };
 const listeners = new Set<() => void>();
 // Where the card is now, set by the card while it shows: the guide goes back
 // into it there, wherever a resize has moved it since the press
-let cardMeasurer: (() => IEarnGuideRect | undefined) | undefined;
+let cardMeasurer: (() => IEarnGuideCardPlace | undefined) | undefined;
+// Set by the home while it shows the guide: the modal's way out is drawn
+// there, around the card
+let closeDrawer: IEarnGuideCloseDrawer | undefined;
 
 function update(next: Partial<IEarnGuideSnapshot>) {
   snapshot = { ...snapshot, ...next };
@@ -112,10 +126,22 @@ export const earnGuideStore = {
   setPolledGas(polledGas: IEarnGuideSnapshot['polledGas']) {
     update({ polledGas });
   },
-  setCardMeasurer(measure: (() => IEarnGuideRect | undefined) | undefined) {
+  setCardMeasurer(
+    measure: (() => IEarnGuideCardPlace | undefined) | undefined,
+  ) {
     cardMeasurer = measure;
   },
   measureCard: () => cardMeasurer?.(),
+  setCloseDrawer(drawer: IEarnGuideCloseDrawer | undefined) {
+    closeDrawer = drawer;
+  },
+  /** Has the home draw the guide's way out, then `leave` remove the modal.
+   * False: nothing drawn, the modal goes as it does */
+  drawClose: (
+    leave: () => void,
+    shownStep: IEarnGuideStep,
+    leaveRendersPage?: boolean,
+  ) => closeDrawer?.(leave, shownStep, leaveRendersPage) ?? false,
   setModalOpen(isModalOpen: boolean) {
     if (Boolean(snapshot.isModalOpen) !== isModalOpen) {
       update({ isModalOpen });
@@ -129,11 +155,6 @@ export const earnGuideStore = {
   setClosesOnFinish(closesOnFinish: boolean) {
     if (Boolean(snapshot.closesOnFinish) !== closesOnFinish) {
       update({ closesOnFinish });
-    }
-  },
-  setGuideUp(isGuideUp: boolean) {
-    if (Boolean(snapshot.isGuideUp) !== isGuideUp) {
-      update({ isGuideUp });
     }
   },
   save(scope: string, patch: IEarnGuideSaved) {
@@ -174,7 +195,6 @@ export type IEarnGuide = {
   isPreview: boolean;
   /** What the preview's deposit took, for its step 4 */
   previewAmount?: string;
-  isUp: boolean;
   live?: IEarnGuideLive;
 };
 
@@ -198,7 +218,6 @@ export function useEarnGuide(): IEarnGuide {
       : Boolean(previewStep),
     isPreview: Boolean(previewStep),
     previewAmount: snap.previewAmount,
-    isUp: Boolean(snap.isGuideUp),
     live,
   };
 }

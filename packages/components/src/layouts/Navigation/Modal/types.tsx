@@ -42,6 +42,14 @@ export type IModalNavigationOptions = IStackNavigationOptions & {
    * animation instead of scale.
    */
   disableEnterScaleAnimation?: boolean;
+  /**
+   * Web-only, wide windows. The modal and its backdrop show and hide at
+   * once, with no fade or scale, for a screen that draws its own way in and
+   * out around them (the desktop Earn guide grows out of its card and goes
+   * back into it). Narrow windows keep the slide. Hoisted to the whole inner
+   * stack, like `disableEnterScaleAnimation`.
+   */
+  disableEnterExitAnimation?: boolean;
 };
 
 export type IModalNavigationEventMap = {

@@ -53,6 +53,10 @@ const MODAL_ANIMATED_VIEW_REF_LIST: TamaguiElement[] = [];
 // animation and uses only an opacity fade. Driven by the route option
 // `disableEnterScaleAnimation` (see IModalNavigationOptions).
 const MODAL_DISABLE_SCALE_LIST: boolean[] = [];
+// Parallel to MODAL_ANIMATED_VIEW_REF_LIST. When the slot value is true, the
+// modal and the backdrop show and hide at once on wide windows. Driven by
+// the route option `disableEnterExitAnimation`.
+const MODAL_INSTANT_LIST: boolean[] = [];
 let MODAL_ANIMATED_BACKDROP_VIEW_REF: TamaguiElement | null;
 let ROOT_NAVIGATION_INDEX_LISTENER: (() => void) | undefined;
 
@@ -124,6 +128,21 @@ const canMorphFrom = (
 ): element is TamaguiElement => {
   const el = element as unknown as HTMLElement | undefined;
   return !!el && el.isConnected && el.offsetWidth > 0 && el.offsetHeight > 0;
+};
+
+// Lands a style at once: the transition is off for the change, and the
+// reflow commits the value before the transition comes back
+const setStyleAtOnce = (
+  element: TamaguiElement,
+  property: 'opacity' | 'transform',
+  value: string,
+) => {
+  const el = element as unknown as HTMLElement;
+  const { transition } = el.style;
+  el.style.transition = 'none';
+  el.style[property] = value;
+  void el.offsetHeight;
+  el.style.transition = transition;
 };
 
 const modalStyleGtMd = {
@@ -277,10 +296,15 @@ function WebModalNavigator({
       () => {
         const newIndex = rootNavigation?.getState?.().index ?? 0;
         if (media.gtMd && MODAL_ANIMATED_BACKDROP_VIEW_REF) {
-          // @ts-expect-error
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-          MODAL_ANIMATED_BACKDROP_VIEW_REF.style.opacity =
-            newIndex >= 1 ? 1 : 0;
+          // A modal that draws its own way out takes the backdrop with it
+          if (newIndex === 0 && MODAL_INSTANT_LIST[1]) {
+            setStyleAtOnce(MODAL_ANIMATED_BACKDROP_VIEW_REF, 'opacity', '0');
+          } else {
+            // @ts-expect-error
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+            MODAL_ANIMATED_BACKDROP_VIEW_REF.style.opacity =
+              newIndex >= 1 ? 1 : 0;
+          }
         }
 
         const bounceIn = `opacity .25s cubic-bezier(0.175, 0.885, 0.32, 1.275), transform .25s cubic-bezier(0.175, 0.885, 0.32, 1.275), ${modalSizeTransition}`;
@@ -289,7 +313,11 @@ function WebModalNavigator({
         MODAL_ANIMATED_VIEW_REF_LIST.forEach((element, index) => {
           const isHidden = newIndex < index;
           const noScale = MODAL_DISABLE_SCALE_LIST[index];
-          if (media.gtMd) {
+          if (media.gtMd && isHidden && MODAL_INSTANT_LIST[index]) {
+            // Gone at once, the screen drawing its own way out over it
+            (element as unknown as HTMLElement).style.transform = '';
+            setStyleAtOnce(element, 'opacity', '0');
+          } else if (media.gtMd) {
             // @ts-expect-error
             // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
             element.style.transition = isHidden ? easeOut : bounceIn;
@@ -351,6 +379,10 @@ function WebModalNavigator({
   const disableEnterScaleAnimation = state.routes.some(
     (route) => !!descriptors[route.key]?.options?.disableEnterScaleAnimation,
   );
+  // Hoisted the same way: the whole stack shows and hides at once
+  const disableEnterExitAnimation = state.routes.some(
+    (route) => !!descriptors[route.key]?.options?.disableEnterExitAnimation,
+  );
   const hasCustomContentSize =
     !!descriptor.options.modalContentMaxHeight ||
     !!descriptor.options.modalContentMaxWidth;
@@ -376,6 +408,15 @@ function WebModalNavigator({
       return;
     }
     const el = element as HTMLElement;
+    if (media.gtMd && disableEnterExitAnimation) {
+      // Shown at once with the backdrop, the screen drawing its own way in
+      el.style.transform = '';
+      setStyleAtOnce(element, 'opacity', '1');
+      if (MODAL_ANIMATED_BACKDROP_VIEW_REF) {
+        setStyleAtOnce(MODAL_ANIMATED_BACKDROP_VIEW_REF, 'opacity', '1');
+      }
+      return;
+    }
     // A modal pushed on top of another modal with a different declared size
     // (e.g. Swap 640 -> token selector 880x700) starts at the underlying
     // modal's size and grows to its own, instead of popping in at full size.
@@ -509,9 +550,10 @@ function WebModalNavigator({
         MODAL_ANIMATED_VIEW_REF_LIST[currentRouteIndex] = ref;
         MODAL_DISABLE_SCALE_LIST[currentRouteIndex] =
           disableEnterScaleAnimation;
+        MODAL_INSTANT_LIST[currentRouteIndex] = disableEnterExitAnimation;
       }
     },
-    [currentRouteIndex, disableEnterScaleAnimation],
+    [currentRouteIndex, disableEnterScaleAnimation, disableEnterExitAnimation],
   );
 
   state.routes.forEach((route, routeIndex) => {

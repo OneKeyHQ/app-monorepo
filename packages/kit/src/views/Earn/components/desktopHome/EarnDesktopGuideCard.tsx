@@ -13,13 +13,13 @@ import { EARN_GUIDE_STEPS } from './earnGuide.utils';
 import { earnGuideStore, useEarnGuide } from './earnGuideStore';
 
 import type { IEarnGuideState, IEarnGuideStep } from './earnGuide.utils';
-import type { IEarnGuideRect } from './earnGuideStore';
+import type { IEarnGuideCardPlace } from './earnGuideStore';
 
 // OneKey green a few steps darker (the dark palette's brand7, opaque: the
 // theme's own brand7 is translucent and would turn pale on the light page).
 // White type reads on it, and it sits quietly beside the banner's artwork
 export const EARN_GUIDE_GREEN = '#2B6A25';
-const EARN_GUIDE_GREEN_HOVER = '#2F7329';
+export const EARN_GUIDE_GREEN_HOVER = '#2F7329';
 // The banner's Join pill beside the card: pure white, 30 tall
 const EARN_GUIDE_PILL_BG = '#FFFFFF';
 const EARN_GUIDE_PILL_HEIGHT = 30;
@@ -173,28 +173,31 @@ export function GuideCardSteps({ state }: { state: IEarnGuideState }) {
 export function EarnDesktopGuideCard({
   state,
   minHeight,
-  isHidden,
   onOpen,
   onHeightChange,
 }: {
   state: IEarnGuideState;
-  // While the guide is up: the card is the modal, its place stands empty
-  isHidden?: boolean;
   /** The banner card's shortest height, when the banner sits beside */
   minHeight?: number;
-  onOpen: (from: IEarnGuideRect | undefined) => void;
+  onOpen: (from: IEarnGuideCardPlace | undefined) => void;
   onHeightChange?: (height: number) => void;
 }) {
   const reducedMotion = useReducedMotion();
   const cardRef = useRef<unknown>(null);
   // This layout renders on web and desktop only, where the card is a DOM
-  // element: the guide grows out of where it sits and goes back there
-  const measure = useCallback((): IEarnGuideRect | undefined => {
-    const rect = (
-      cardRef.current as { getBoundingClientRect?: () => DOMRect } | null
-    )?.getBoundingClientRect?.();
+  // element: the guide grows out of where it sits and goes back there. The
+  // card stays in its place under the guide all the while
+  const measure = useCallback((): IEarnGuideCardPlace | undefined => {
+    const element = cardRef.current as HTMLElement | null;
+    const rect = element?.getBoundingClientRect?.();
     return rect && rect.width > 0
-      ? { x: rect.left, y: rect.top, width: rect.width, height: rect.height }
+      ? {
+          x: rect.left,
+          y: rect.top,
+          width: rect.width,
+          height: rect.height,
+          isHovered: Boolean(element?.matches?.(':hover')),
+        }
       : undefined;
   }, []);
   useEffect(() => {
@@ -225,8 +228,6 @@ export function EarnDesktopGuideCard({
         borderCurve="continuous"
         cursor="pointer"
         userSelect="none"
-        opacity={isHidden ? 0 : 1}
-        pointerEvents={isHidden ? 'none' : 'auto'}
         pressStyle={{ scale: 0.98 }}
         transition={reducedMotion ? undefined : 'fast'}
         animateOnly={ANIMATE_ONLY_TRANSFORM}

@@ -435,14 +435,27 @@ function EarnGuidePage() {
     fiatCryptoType: 'buy',
   });
 
-  // Up and down for the card and the preview key. Down as the modal starts
-  // to go, not once it has faded, so the card's ghost leaves with it
+  // Up and down for the card's ghost and the preview key. On wide windows
+  // the home draws the way out first (the content goes, the guide goes back
+  // into the card): the removal waits for it, then goes on as it was asked
   const reactNavigation = useNavigation();
+  const isLeavingRef = useRef(false);
+  const shownStepRef = useRef<IEarnGuideStep>(state.current);
   useEffect(() => {
     earnGuideStore.setModalOpen(true);
-    const unsubscribe = reactNavigation.addListener('beforeRemove', () =>
-      earnGuideStore.setModalOpen(false),
-    );
+    const unsubscribe = reactNavigation.addListener('beforeRemove', (event) => {
+      if (!isLeavingRef.current) {
+        const leave = () => {
+          isLeavingRef.current = true;
+          reactNavigation.dispatch(event.data.action);
+        };
+        if (earnGuideStore.drawClose(leave, shownStepRef.current)) {
+          event.preventDefault();
+          return;
+        }
+      }
+      earnGuideStore.setModalOpen(false);
+    });
     return () => {
       unsubscribe();
       earnGuideStore.setModalOpen(false);
@@ -508,6 +521,7 @@ function EarnGuidePage() {
     return () => clearTimeout(timer);
   }, [current]);
   const shownStep = pinned ?? picked ?? current;
+  shownStepRef.current = shownStep;
   const hasGas = state.done[0];
 
   const handleClose = useCallback(() => {
@@ -569,16 +583,24 @@ function EarnGuidePage() {
   const handleFinish = useCallback(
     (toPosition: boolean) => {
       earnGuideStore.setClosesOnFinish(true);
-      if (isPreview) {
-        earnGuideStore.setPreview(undefined);
-      } else {
-        earnGuideStore.save(scope, { completed: true });
-      }
-      navigation.pop();
-      // The positions page, as Net Worth opens it: the deposit is a position
-      // among the others there, with its Redeem
-      if (toPosition) {
-        EarnNavigation.pushToEarnPositions(navigation);
+      // Once the home has drawn the way out: the guide ends (the card gives
+      // way to the hero), and the positions page comes, as Net Worth opens
+      // it, where the deposit is a position with its Redeem. Ended before,
+      // the modal would show the guide's first steps as it goes
+      const leave = () => {
+        isLeavingRef.current = true;
+        navigation.pop();
+        if (isPreview) {
+          earnGuideStore.setPreview(undefined);
+        } else {
+          earnGuideStore.save(scope, { completed: true });
+        }
+        if (toPosition) {
+          EarnNavigation.pushToEarnPositions(navigation);
+        }
+      };
+      if (!earnGuideStore.drawClose(leave, shownStepRef.current, true)) {
+        leave();
       }
     },
     [isPreview, navigation, scope],

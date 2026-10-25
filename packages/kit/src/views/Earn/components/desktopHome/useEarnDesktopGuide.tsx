@@ -22,7 +22,13 @@ import { EARN_GUIDE_HEADER_HEIGHT, EarnGuideGhost } from './EarnGuideGhost';
 import { earnGuideStore, useEarnGuide } from './earnGuideStore';
 
 import type { IEarnDesktopWalletNetworkGroup } from './earnDesktopHome.utils';
-import type { IEarnGuideRect } from './earnGuideStore';
+import type { IEarnGuideGhostPlan } from './EarnGuideGhost';
+import type { IEarnGuideCardPlace, IEarnGuideRect } from './earnGuideStore';
+
+type IEarnGuideGhostRun = {
+  direction: IEarnGuideGhostPlan['direction'];
+  manager?: IPortalManager;
+};
 
 // Some of the card in the window: a card scrolled away gets no move back
 const isOnScreen = ({ x, y, width, height }: IEarnGuideRect) =>
@@ -136,51 +142,39 @@ export function useEarnDesktopGuide({
   }, [guideScope]);
 
   // The guide grows out of the card and goes back into it: a ghost of the
-  // card moves between the two places above everything, see EarnGuideGhost
+  // card moves between the two places above everything, see EarnGuideGhost.
+  // On wide windows the ghost draws every way in and out (the modal shows
+  // and hides at once under it), in place when there is no card to use
   const reducedMotion = useReducedMotion();
   const guideRef = useRef(guide);
   guideRef.current = guide;
   const isWideRef = useRef(isWide);
   isWideRef.current = isWide;
-  const ghostRef = useRef<IPortalManager | undefined>(undefined);
-  const showGhost = useCallback(
-    (
-      direction: 'open' | 'close',
-      card: IEarnGuideRect,
-      onLanded?: () => void,
-    ) => {
-      ghostRef.current?.destroy();
-      // Filled in below; the move ends well after
-      const ghost: { manager?: IPortalManager } = {};
-      const handleDone = () => {
-        ghost.manager?.destroy();
-        if (ghostRef.current === ghost.manager) {
-          ghostRef.current = undefined;
+  const ghostRef = useRef<IEarnGuideGhostRun | undefined>(undefined);
+  const runGhost = useCallback((plan: IEarnGuideGhostPlan) => {
+    ghostRef.current?.manager?.destroy();
+    // Filled in below; the run ends well after
+    const run: IEarnGuideGhostRun = { direction: plan.direction };
+    const handleDone = () => {
+      run.manager?.destroy();
+      if (ghostRef.current === run) {
+        ghostRef.current = undefined;
+      }
+    };
+    run.manager = Portal.Render(
+      Portal.Constant.FULL_WINDOW_OVERLAY_PORTAL,
+      <EarnGuideGhost
+        {...plan}
+        state={guideRef.current.state}
+        headerHeight={
+          earnGuideStore.getSnapshot().headerHeight ?? EARN_GUIDE_HEADER_HEIGHT
         }
-        // An open whose modal never came gives the card back
-        if (direction === 'open' && !earnGuideStore.getSnapshot().isModalOpen) {
-          earnGuideStore.setGuideUp(false);
-        }
-      };
-      ghost.manager = Portal.Render(
-        Portal.Constant.FULL_WINDOW_OVERLAY_PORTAL,
-        <EarnGuideGhost
-          direction={direction}
-          card={card}
-          state={guideRef.current.state}
-          headerHeight={
-            earnGuideStore.getSnapshot().headerHeight ??
-            EARN_GUIDE_HEADER_HEIGHT
-          }
-          onLanded={onLanded}
-          onDone={handleDone}
-        />,
-      );
-      ghostRef.current = ghost.manager;
-    },
-    [],
-  );
-  useEffect(() => () => ghostRef.current?.destroy(), []);
+        onDone={handleDone}
+      />,
+    );
+    ghostRef.current = run;
+  }, []);
+  useEffect(() => () => ghostRef.current?.manager?.destroy(), []);
 
   // The modal and the guide's page load while the card shows, so the modal is
   // up soon after the card lands, the first time too. A failure is left to
@@ -197,52 +191,57 @@ export function useEarnDesktopGuide({
     });
   }, [navigation]);
   const handleOpenGuide = useCallback(
-    (from?: IEarnGuideRect) => {
+    (from?: IEarnGuideCardPlace) => {
       // A press while the card is still moving
       if (ghostRef.current) {
         return;
       }
       earnGuideStore.setClosesOnFinish(false);
-      earnGuideStore.setGuideUp(true);
       // Narrow windows slide the modal up from the bottom instead: no card
       // to grow into
-      if (!from || reducedMotion || !isWide) {
+      if (!isWide) {
         pushGuide();
         return;
       }
-      showGhost('open', from, pushGuide);
+      runGhost({
+        direction: 'open',
+        // Reduced motion: the guide fades in where the modal sits
+        card: reducedMotion ? undefined : from,
+        shownStep: guideRef.current.state.current,
+        onArriving: pushGuide,
+      });
     },
-    [isWide, pushGuide, reducedMotion, showGhost],
+    [isWide, pushGuide, reducedMotion, runGhost],
   );
-  // Closed back to the page with the card still there: into the card, where
-  // it is now. A finish (Done, Hide guide, Go to position) just closes
+  // The modal's way out, drawn here: back into the card where it is now,
+  // or in place after a finish (Done, Go to position), with the card
+  // scrolled away, or with reduced motion
   useEffect(() => {
-    let wasOpen = Boolean(earnGuideStore.getSnapshot().isModalOpen);
-    return earnGuideStore.subscribe(() => {
-      const snapshot = earnGuideStore.getSnapshot();
-      const isOpen = Boolean(snapshot.isModalOpen);
-      const hasClosed = wasOpen && !isOpen;
-      // Before acting: what it sets tells this listener again
-      wasOpen = isOpen;
-      if (!hasClosed) {
-        return;
+    earnGuideStore.setCloseDrawer((leave, shownStep, leaveRendersPage) => {
+      if (!isWideRef.current) {
+        return false;
       }
-      const card = snapshot.closesOnFinish
-        ? undefined
-        : earnGuideStore.measureCard();
-      if (
-        card &&
-        isOnScreen(card) &&
-        !reducedMotion &&
-        isWideRef.current &&
-        guideRef.current.isShown
-      ) {
-        showGhost('close', card, () => earnGuideStore.setGuideUp(false));
-      } else {
-        earnGuideStore.setGuideUp(false);
+      // Pressed again (Escape twice): the way out already runs
+      if (ghostRef.current?.direction === 'close') {
+        return true;
       }
+      const card =
+        earnGuideStore.getSnapshot().closesOnFinish ||
+        reducedMotion ||
+        !guideRef.current.isShown
+          ? undefined
+          : earnGuideStore.measureCard();
+      runGhost({
+        direction: 'close',
+        card: card && isOnScreen(card) ? card : undefined,
+        shownStep,
+        onCovered: leave,
+        holdsForLeave: leaveRendersPage,
+      });
+      return true;
     });
-  }, [reducedMotion, showGhost]);
+    return () => earnGuideStore.setCloseDrawer(undefined);
+  }, [reducedMotion, runGhost]);
 
   return { guide, handleOpenGuide };
 }

@@ -150,9 +150,11 @@ export const StakingModalRouter: IModalFlowNavigatorConfig<
     // here: the navigator sets it over the options
     modalContentMaxWidth: EARN_GUIDE_MODAL_SIZE.width,
     modalContentMaxHeight: EARN_GUIDE_MODAL_SIZE.height,
-    // The guide grows out of its card on the home; the modal only fades in
-    // where the card lands, with no scale of its own
+    // The guide grows out of its card on the home and goes back into it:
+    // the card's ghost draws the way in and out, the modal and its backdrop
+    // show and hide at once under it
     disableEnterScaleAnimation: true,
+    disableEnterExitAnimation: true,
   },
   {
     name: EModalStakingRoutes.BorrowEModeSwitch,

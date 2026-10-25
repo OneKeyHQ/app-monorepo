@@ -448,7 +448,6 @@ export function EarnDesktopHome({
             {guide.isShown ? (
               <EarnDesktopGuideCard
                 state={guide.state}
-                isHidden={guide.isUp}
                 minHeight={hasBanner ? BANNER_MIN_HEIGHT : undefined}
                 onOpen={handleOpenGuide}
                 onHeightChange={setHeroHeight}
