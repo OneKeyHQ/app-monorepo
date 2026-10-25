@@ -1,10 +1,9 @@
 import { useCallback, useMemo, useRef } from 'react';
 
 import {
-  Easing,
   useAnimatedStyle,
   useSharedValue,
-  withTiming,
+  withSpring,
 } from 'react-native-reanimated';
 
 import { useSafeAreaInsets } from '@onekeyhq/components';
@@ -24,11 +23,15 @@ const COLLAPSED = 0;
 // Like Safari, the chrome comes back near the top and at the end of a page.
 const EDGE_EXPAND_DISTANCE = 24;
 
-// Emphasized ease-out: starts quickly and settles softly, so the bar/pill
-// morph reads as one fluid motion rather than a snap.
-const timingConfig = {
+// A critically damped spring, like UIKit's default system animations: eases
+// in and out evenly with no overshoot (progress stays within 0..1), instead of
+// a curve that does most of the move in its first frames. When the scroll
+// direction flips mid-morph it carries the current velocity into the reverse
+// move rather than restarting from rest.
+const springConfig = {
   duration: DISPLAY_BOTTOM_BAR_DURATION,
-  easing: Easing.bezier(0.2, 0, 0, 1),
+  dampingRatio: 1,
+  overshootClamping: true,
 };
 
 // Drives the mobile browser chrome (header + bottom bar) from WebView scroll:
@@ -55,7 +58,7 @@ function useMobileBrowserChromeAnimation() {
         return;
       }
       targetRef.current = target;
-      chromeProgress.value = withTiming(target, timingConfig);
+      chromeProgress.value = withSpring(target, springConfig);
     },
     [chromeProgress],
   );
