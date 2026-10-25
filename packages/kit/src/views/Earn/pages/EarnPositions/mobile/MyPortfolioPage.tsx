@@ -42,6 +42,7 @@ import {
 import { DeFiAssetsDesktopTab } from '../desktop/DeFiAssetsDesktopTab';
 
 import { DeFiAssetsTab } from './DeFiAssetsTab';
+import { EMPTY_POSITIONS_RESPONSE } from './earnPortfolioPositions.utils';
 import {
   buildEarnClaimableRewardGroups,
   buildEarnPendingRewardGroups,
@@ -139,10 +140,19 @@ export function MyPortfolioPage({
   );
 
   const {
-    response,
+    response: loadedResponse,
     isLoading: isPositionsLoading,
     refresh: refreshPositions,
   } = useEarnPortfolioPositions({ isActive: isFocused });
+  // Partial sums are wrong numbers: a first load, the only kind that starts
+  // from an empty page, keeps the page empty until every protocol has
+  // answered and then shows it whole, as the DeFi home's Net Worth does.
+  // Shown as each one landed, the totals counted up from $0.00 and the bar,
+  // tiles and cards reordered several times in a second. A refresh keeps
+  // the rows on screen as before
+  const response = isPositionsLoading
+    ? EMPTY_POSITIONS_RESPONSE
+    : loadedResponse;
   const {
     rewards,
     isLoading: isRewardsLoading,
@@ -504,6 +514,7 @@ export function MyPortfolioPage({
                 <PortfolioTotalsHeader
                   defiAssetsFiatValue={String(view.totalValue)}
                   rewardsFiatValue={rewardsHeaderFiat}
+                  isLoading={isPositionsLoading}
                 />
                 {tableLayout ? (
                   // One row for the tabs and the filter both tabs share

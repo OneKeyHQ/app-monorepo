@@ -2,7 +2,13 @@ import { useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { SizableText, Stack, XStack, YStack } from '@onekeyhq/components';
+import {
+  SizableText,
+  Skeleton,
+  Stack,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
 import { useCurrency } from '@onekeyhq/kit/src/components/Currency';
 import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeableTextWrapper';
 import { DottedUnderlineText } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/DottedUnderline';
@@ -23,12 +29,14 @@ function TotalCell({
   value,
   tooltip,
   fill,
+  isLoading,
 }: {
   label: string;
   value: string;
   tooltip?: IEarnTextTooltip;
   /** the phone splits the row in half; the wide layout keeps the pair together */
   fill: boolean;
+  isLoading: boolean;
 }) {
   const currencyInfo = useCurrency();
   return (
@@ -54,15 +62,23 @@ function TotalCell({
           {label}
         </SizableText>
       )}
-      <NumberSizeableTextWrapper
-        hideValue
-        size="$heading2xl"
-        formatter="value"
-        formatterOptions={{ currency: currencyInfo.symbol }}
-        numberOfLines={1}
-      >
-        {value}
-      </NumberSizeableTextWrapper>
+      {isLoading ? (
+        // In the figure's own box ($heading2xl's line), so nothing moves
+        // when the figure comes in
+        <YStack h={32} jc="center">
+          <Skeleton w={112} h={20} borderRadius="$2" />
+        </YStack>
+      ) : (
+        <NumberSizeableTextWrapper
+          hideValue
+          size="$heading2xl"
+          formatter="value"
+          formatterOptions={{ currency: currencyInfo.symbol }}
+          numberOfLines={1}
+        >
+          {value}
+        </NumberSizeableTextWrapper>
+      )}
     </YStack>
   );
 }
@@ -74,9 +90,12 @@ function TotalCell({
 export function PortfolioTotalsHeader({
   defiAssetsFiatValue,
   rewardsFiatValue,
+  isLoading = false,
 }: {
   defiAssetsFiatValue: string;
   rewardsFiatValue: string;
+  /** a first load: both figures wait for every protocol */
+  isLoading?: boolean;
 }) {
   const intl = useIntl();
   const isTableLayout = usePortfolioTableLayout();
@@ -104,12 +123,14 @@ export function PortfolioTotalsHeader({
           })}
           value={defiAssetsFiatValue}
           fill={!isTableLayout}
+          isLoading={isLoading}
         />
         <TotalCell
           label={intl.formatMessage({ id: ETranslations.earn_rewards })}
           value={rewardsFiatValue}
           tooltip={rewardsTooltip}
           fill={!isTableLayout}
+          isLoading={isLoading}
         />
       </XStack>
       <SizableText size="$bodySm" color="$textSubdued">
