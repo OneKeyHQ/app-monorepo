@@ -1,7 +1,6 @@
 import { Semaphore } from 'async-mutex';
 
 import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
-import { ECloudSyncMode } from '@onekeyhq/shared/types/keylessCloudSync';
 
 import { primeCloudSyncPersistAtom } from '../../states/jotai/atoms';
 
@@ -157,7 +156,7 @@ function buildService({
     allIndexedAccounts: [],
   };
   service.initLocalSyncItemsDB = jest.fn(async () => emptyLocalSyncItems);
-  service.startServerSyncFlow = jest.fn(async () => undefined);
+  service.startServerSyncFlow = jest.fn(async () => true);
   service.updateLastSyncTime = jest.fn(async () => undefined);
 
   return {
@@ -189,9 +188,18 @@ describe('ServicePrimeCloudSync.syncNowKeyless', () => {
       noDebounceUpload: true,
       forceSync: undefined,
     });
-    expect(service.updateLastSyncTime).toHaveBeenCalledWith({
-      syncMode: ECloudSyncMode.Keyless,
-    });
+    // The full flow owns completion timestamps; the caller cannot report
+    // completion while reconciliation is still waiting or blocked.
+    expect(service.updateLastSyncTime).not.toHaveBeenCalled();
+  });
+
+  test('unfinished reconciliation returns pending instead of success', async () => {
+    const { service } = buildService();
+    service.startServerSyncFlow = jest.fn(async () => false);
+    await expect(service.syncNowKeyless({ password: 'pwd' })).resolves.toBe(
+      false,
+    );
+    expect(service.updateLastSyncTime).not.toHaveBeenCalled();
   });
 
   test('manual keyless sync rethrows local secret envelope repair errors before sync starts', async () => {

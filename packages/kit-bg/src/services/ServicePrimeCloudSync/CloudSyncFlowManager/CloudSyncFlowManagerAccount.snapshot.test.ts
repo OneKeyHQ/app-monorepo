@@ -2,9 +2,11 @@ import { EPrimeCloudSyncDataType } from '@onekeyhq/shared/src/consts/primeConsts
 import type {
   ICloudSyncCredential,
   ICloudSyncRawDataJson,
+  ICloudSyncTargetAccount,
 } from '@onekeyhq/shared/types/prime/primeCloudSyncTypes';
 
 import cloudSyncItemBuilder from '../cloudSyncItemBuilder';
+import { withPublicAccountCreationContext } from '../publicAccountCreationContext';
 import {
   getPublicAccountSnapshotId,
   publicAccountSnapshotToAccount,
@@ -103,6 +105,17 @@ function harness() {
         items: Array.from(pool.values()),
       })),
       getCloudSyncDataTime: jest.fn(async () => 1_750_000_000_000),
+      publishPublicAccountSnapshotStatus: jest.fn(
+        async ({
+          counts,
+        }: {
+          counts: NonNullable<
+            IPrimeCloudSyncPersistAtomData['publicAccountSnapshotStatus']
+          >;
+        }) => {
+          mockConfig = { ...mockConfig, publicAccountSnapshotStatus: counts };
+        },
+      ),
     },
   };
   const manager = new CloudSyncFlowManagerAccount({
@@ -152,13 +165,15 @@ describe('public account snapshot Cloud scene integration', () => {
     mockConfig = { isCloudSyncEnabled: false, isCloudSyncEnabledKeyless: true };
     jest
       .mocked(importPublicAccountSnapshots)
-      .mockImplementation(async ({ snapshots }) => ({
+      .mockImplementation(async ({ snapshots, action }) => ({
         appliedSnapshotIds: snapshots.map((value) =>
           getPublicAccountSnapshotId(
             value as ReturnType<typeof publicAccountTestSnapshot>,
           ),
         ),
-        added: snapshots.length,
+        added: action === 'delete' ? 0 : snapshots.length,
+        deleted: action === 'delete' ? snapshots.length : 0,
+        issuesBySnapshotId: {},
         unchanged: 0,
         pending: 0,
         conflicts: 0,
@@ -239,18 +254,218 @@ describe('public account snapshot Cloud scene integration', () => {
     expect(h.pool.size).toBe(5);
   });
 
-  test('retains an acknowledged tombstone without importing or deleting any account', async () => {
+  test('applies a remote deletion before acknowledging its retained tombstone', async () => {
     const h = harness();
     const item = await encryptedItem(h.manager);
     item.isDeleted = true;
     h.pool.set(item.id, item);
     await h.manager.syncToScene({ syncCredential: credential, items: [item] });
-    expect(importPublicAccountSnapshots).not.toHaveBeenCalled();
+    expect(importPublicAccountSnapshots).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'delete',
+        snapshots: [publicAccountTestSnapshot()],
+      }),
+    );
     expect(h.pool.get(item.id)).toMatchObject({
       isDeleted: true,
       localSceneUpdated: true,
     });
     expect(h.manager.removeSyncItemIfServerDeleted).toBe(false);
+  });
+
+  test('does not acknowledge a remote deletion that lacks a local wallet or has conflicting data', async () => {
+    const h = harness();
+    const item = await encryptedItem(h.manager);
+    item.isDeleted = true;
+    h.pool.set(item.id, item);
+    jest.mocked(importPublicAccountSnapshots).mockResolvedValueOnce({
+      appliedSnapshotIds: [],
+      added: 0,
+      deleted: 0,
+      unchanged: 0,
+      pending: 0,
+      conflicts: 1,
+      rejected: 0,
+      cancelled: false,
+      issuesBySnapshotId: {
+        [getPublicAccountSnapshotId(publicAccountTestSnapshot())]: 'conflicts',
+      },
+    });
+    await h.manager.syncToScene({ syncCredential: credential, items: [item] });
+    expect(h.pool.get(item.id)?.localSceneUpdated).toBe(false);
+    expect(
+      h.bg.servicePrimeCloudSync.publishPublicAccountSnapshotStatus,
+    ).toHaveBeenCalledWith(
+      expect.objectContaining({
+        updates: [{ id: item.id, issue: 'conflicts' }],
+      }),
+    );
+  });
+
+  test('explicit trusted re-add restores the historical name with a newer existing timestamp', async () => {
+    const h = harness();
+    const snapshot = publicAccountTestSnapshot();
+    snapshot.account.name = 'Historical account name';
+    const tombstone = await encryptedItem(h.manager, snapshot);
+    tombstone.isDeleted = true;
+    h.pool.set(tombstone.id, tombstone);
+    h.bg.servicePrimeCloudSync.getCloudSyncDataTime.mockResolvedValue(
+      1_750_000_000_001,
+    );
+    const account = {
+      ...publicAccountSnapshotToAccount(snapshot, h.wallet.id),
+      name: 'New default name',
+    };
+    const target: ICloudSyncTargetAccount = {
+      targetId: account.id,
+      dataType: EPrimeCloudSyncDataType.Account,
+      account,
+    };
+    expect(
+      await h.manager.buildSyncItemForExplicitAccountCreation({
+        target,
+        syncCredential: credential,
+        creationContext: {},
+      }),
+    ).toBeUndefined();
+    await withPublicAccountCreationContext(async (creationContext) => {
+      const restored = await h.manager.buildSyncItemForExplicitAccountCreation({
+        target,
+        syncCredential: credential,
+        creationContext,
+      });
+      expect(restored).toMatchObject({
+        name: 'Historical account name',
+        item: { isDeleted: false, dataTime: 1_750_000_000_001 },
+      });
+      const decrypted =
+        restored &&
+        (await cloudSyncItemBuilder.decryptSyncItem({
+          item: { ...restored.item },
+          syncCredential: credential,
+        }));
+      expect(decrypted?.rawDataJson?.payload).toMatchObject({
+        name: 'Historical account name',
+      });
+    });
+    expect(h.pool.get(tombstone.id)?.isDeleted).toBe(true);
+    await expect(
+      h.manager.buildInitSyncDBItems({
+        dbRecords: [account],
+        allDevices: [
+          { id: 'local-device', vendor: 'onekey' },
+        ] as unknown as Parameters<
+          CloudSyncFlowManagerAccount['buildInitSyncDBItems']
+        >[0]['allDevices'],
+        initDataTime: undefined,
+        syncCredential: credential,
+      }),
+    ).resolves.toEqual([]);
+  });
+
+  test('explicit re-add rejects an unknown tombstone, a changed identity or a timestamp that does not advance', async () => {
+    const h = harness();
+    const snapshot = publicAccountTestSnapshot();
+    const account = publicAccountSnapshotToAccount(snapshot, h.wallet.id);
+    const target: ICloudSyncTargetAccount = {
+      targetId: account.id,
+      dataType: EPrimeCloudSyncDataType.Account,
+      account,
+    };
+    const future = await encryptedItem(h.manager, { ...snapshot, version: 2 });
+    future.isDeleted = true;
+    h.pool.set(future.id, future);
+    await withPublicAccountCreationContext(async (creationContext) => {
+      await expect(
+        h.manager.buildSyncItemForExplicitAccountCreation({
+          target,
+          syncCredential: credential,
+          creationContext,
+        }),
+      ).rejects.toThrow('compatible App version');
+      const known = await encryptedItem(h.manager, snapshot);
+      known.isDeleted = true;
+      h.pool.set(known.id, known);
+      await expect(
+        h.manager.buildSyncItemForExplicitAccountCreation({
+          target: {
+            ...target,
+            account: {
+              ...account,
+              address: '0x2222222222222222222222222222222222222222',
+            },
+          },
+          syncCredential: credential,
+          creationContext,
+        }),
+      ).rejects.toThrow('different public data');
+      await expect(
+        h.manager.buildSyncItemForExplicitAccountCreation({
+          target,
+          syncCredential: credential,
+          creationContext,
+        }),
+      ).rejects.toThrow('newer Cloud timestamp');
+    });
+  });
+
+  test('explicit re-add recovers the legacy indexed display name when the account tombstone retained a default name', async () => {
+    const h = harness();
+    const snapshot = publicAccountTestSnapshot();
+    const tombstone = await encryptedItem(h.manager, snapshot);
+    tombstone.isDeleted = true;
+    h.pool.set(tombstone.id, tombstone);
+    h.bg.servicePrimeCloudSync.getCloudSyncDataTime.mockResolvedValue(
+      1_750_000_000_001,
+    );
+    const indexedItem = await cloudSyncItemBuilder.buildSyncItemFromRawDataJson(
+      {
+        key: 'legacy-indexed-fixture',
+        syncCredential: credential,
+        dataTime: 1_749_000_000_000,
+        rawDataJson: {
+          dataType: EPrimeCloudSyncDataType.IndexedAccount,
+          rawKey: 'indexed-fixture',
+          payload: {
+            walletXfp: PUBLIC_ACCOUNT_TEST_XFP,
+            index: 0,
+            name: 'Original indexed display name',
+          },
+        },
+      },
+    );
+    Object.assign(h.bg.servicePrimeCloudSync, {
+      syncManagers: {
+        indexedAccount: { getSyncItem: async () => indexedItem },
+      },
+    });
+    const account = publicAccountSnapshotToAccount(snapshot, h.wallet.id);
+    await withPublicAccountCreationContext(async (creationContext) => {
+      const restored = await h.manager.buildSyncItemForExplicitAccountCreation({
+        target: {
+          targetId: account.id,
+          dataType: EPrimeCloudSyncDataType.Account,
+          account,
+        },
+        syncCredential: credential,
+        creationContext,
+      });
+      expect(restored?.name).toBe('Original indexed display name');
+    });
+  });
+
+  test('an aborted runner operation cannot reach apply or acknowledge a tombstone', async () => {
+    const h = harness();
+    const item = await encryptedItem(h.manager);
+    item.isDeleted = true;
+    h.pool.set(item.id, item);
+    await h.manager.syncToScene({
+      syncCredential: credential,
+      items: [item],
+      isCurrent: () => false,
+    });
+    expect(importPublicAccountSnapshots).not.toHaveBeenCalled();
+    expect(h.updateSyncItem).not.toHaveBeenCalled();
   });
 
   test('cancellation during decryption does not copy data or acknowledge records', async () => {

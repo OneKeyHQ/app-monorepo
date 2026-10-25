@@ -14,15 +14,19 @@ import type {
   ICloudPublicAccountSnapshotResult,
 } from '@onekeyhq/shared/types/prime/publicAccountSnapshot';
 
-import { primeCloudSyncPersistAtom } from '../../../states/jotai/atoms';
 import cloudSyncItemBuilder from '../cloudSyncItemBuilder';
+import { isPublicAccountCreationContext } from '../publicAccountCreationContext';
 import {
   PUBLIC_ACCOUNT_IMPORT_BATCH_SIZE,
   PUBLIC_ACCOUNT_SNAPSHOT_PREFIX,
   PublicAccountSnapshotUnsupportedError,
   buildPublicAccountSnapshot,
   getPublicAccountSnapshotId,
+  normalizePublicAccountSnapshot,
   normalizePublicAccountSnapshotRecord,
+  normalizePublicAccountWalletXfp,
+  publicAccountIdentityEqual,
+  publicAccountSnapshotToAccount,
 } from '../publicAccountSnapshot';
 import { rememberPublicAccountSnapshotWrite } from '../publicAccountSnapshotWriteGuard';
 
@@ -33,6 +37,7 @@ import type {
   IDBCloudSyncItem,
   IDBDevice,
 } from '../../../dbs/local/types';
+import type { IPublicAccountCreationContext } from '../publicAccountCreationContext';
 
 export class CloudSyncFlowManagerAccount extends CloudSyncFlowManagerBase<
   EPrimeCloudSyncDataType.Account,
@@ -40,8 +45,8 @@ export class CloudSyncFlowManagerAccount extends CloudSyncFlowManagerBase<
 > {
   override dataType = EPrimeCloudSyncDataType.Account as any;
 
-  // Account deletion is non-destructive on other devices. Retain its tombstone
-  // so replay, legacy clients, or a later initialization cannot resurrect it.
+  // Retain tombstones after applying account deletion, so replay, legacy
+  // clients, or a later initialization cannot resurrect the account.
   override removeSyncItemIfServerDeleted = false;
 
   private async snapshotForTarget(target: ICloudSyncTargetAccount) {
@@ -174,6 +179,121 @@ export class CloudSyncFlowManagerAccount extends CloudSyncFlowManagerBase<
     return built;
   }
 
+  async buildSyncItemForExplicitAccountCreation({
+    target,
+    syncCredential,
+    creationContext,
+  }: {
+    target: ICloudSyncTargetAccount;
+    syncCredential: ICloudSyncCredential | undefined;
+    creationContext: IPublicAccountCreationContext | undefined;
+  }): Promise<{ item: IDBCloudSyncItem; name: string } | undefined> {
+    if (!isPublicAccountCreationContext(creationContext)) return undefined;
+    const snapshot = await this.snapshotForTarget(target);
+    if (!snapshot) return undefined;
+    const key = this.rawKeyToHashKey(
+      `${this.dataType} >> ${getPublicAccountSnapshotId(snapshot)}`,
+    );
+    const existing = await this.backgroundApi.localDb.getSyncItemSafe({
+      id: key,
+    });
+    if (!existing?.isDeleted) return undefined;
+    if (!syncCredential)
+      throw new OneKeyLocalError(
+        'Unlock Cloud before restoring this synced account.',
+      );
+    const decrypted = await cloudSyncItemBuilder.decryptSyncItem({
+      item: { ...existing },
+      syncCredential,
+    });
+    const parsed = normalizePublicAccountSnapshotRecord(decrypted.rawDataJson);
+    const walletId = accountUtils.getWalletIdFromAccountId({
+      accountId: target.account.id,
+    });
+    if (
+      this.rawKeyToHashKey(parsed.rawKey) !== key ||
+      !publicAccountIdentityEqual(
+        publicAccountSnapshotToAccount(parsed.snapshot, walletId),
+        target.account,
+      )
+    )
+      throw new OneKeyLocalError(
+        'The deleted account has different public data. Existing data has been preserved.',
+      );
+    let name = parsed.snapshot.account.name;
+    const indexedManager =
+      this.backgroundApi.servicePrimeCloudSync.syncManagers?.indexedAccount;
+    if (indexedManager) {
+      try {
+        const wallet = await this.backgroundApi.localDb.getWalletSafe({
+          walletId,
+        });
+        if (wallet) {
+          const indexedAccount = {
+            id: accountUtils.buildIndexedAccountId({
+              walletId,
+              index: parsed.snapshot.account.pathIndex,
+            }),
+            walletId,
+            index: parsed.snapshot.account.pathIndex,
+            name,
+            idHash: '',
+          };
+          const indexedItem = await indexedManager.getSyncItem({
+            syncCredential,
+            target: {
+              dataType: EPrimeCloudSyncDataType.IndexedAccount,
+              targetId: indexedAccount.id,
+              wallet: { ...wallet, avatarInfo: wallet.avatarInfo },
+              indexedAccount,
+            },
+          });
+          if (indexedItem && !indexedItem.isDeleted) {
+            const raw = (
+              await cloudSyncItemBuilder.decryptSyncItem({
+                item: { ...indexedItem },
+                syncCredential,
+              })
+            ).rawDataJson;
+            if (
+              raw?.dataType === EPrimeCloudSyncDataType.IndexedAccount &&
+              raw.payload.index === indexedAccount.index &&
+              normalizePublicAccountWalletXfp(raw.payload.walletXfp) ===
+                parsed.snapshot.wallet.xfp
+            ) {
+              name = normalizePublicAccountSnapshot({
+                ...parsed.snapshot,
+                account: { ...parsed.snapshot.account, name: raw.payload.name },
+              }).account.name;
+            }
+          }
+        }
+      } catch (_error) {
+        // The account tombstone remains the fallback when optional legacy
+        // naming metadata is missing or cannot be read with this Cloud key.
+      }
+    }
+    const item = await super.buildSyncItem({
+      target: { ...target, account: { ...target.account, name } },
+      syncCredential,
+      isDeleted: false,
+      dataTime: undefined,
+      existingDataTime: existing.dataTime,
+    });
+    if (
+      !item?.data ||
+      !item.dataTime ||
+      item.dataTime <= (existing.dataTime ?? 0)
+    ) {
+      throw new OneKeyLocalError(
+        'A newer Cloud timestamp is required to restore this account.',
+      );
+    }
+    item.rawData = '';
+    rememberPublicAccountSnapshotWrite(item, existing);
+    return { item, name };
+  }
+
   override async buildInitSyncDBItems({
     dbRecords,
     allDevices,
@@ -251,10 +371,12 @@ export class CloudSyncFlowManagerAccount extends CloudSyncFlowManagerBase<
     syncCredential,
     items,
     forceSync,
+    isCurrent: isOperationCurrent,
   }: {
     syncCredential: ICloudSyncCredential | undefined;
     items: IDBCloudSyncItem[];
     forceSync?: boolean;
+    isCurrent?: () => boolean;
   }) {
     if (!syncCredential || !items.length) return;
     const keyless = this.backgroundApi.serviceKeylessCloudSync;
@@ -262,6 +384,7 @@ export class CloudSyncFlowManagerAccount extends CloudSyncFlowManagerBase<
     const importGeneration =
       this.backgroundApi.servicePrimeCloudSync.getPublicAccountSnapshotImportGeneration();
     const isCurrent = () =>
+      (isOperationCurrent?.() ?? true) &&
       keyless.getCloudAccountImportGeneration() === generation &&
       this.backgroundApi.servicePrimeCloudSync.getPublicAccountSnapshotImportGeneration() ===
         importGeneration;
@@ -274,12 +397,17 @@ export class CloudSyncFlowManagerAccount extends CloudSyncFlowManagerBase<
     const tombstones: typeof candidates = [];
     let needsUpdate = 0;
     let rejected = 0;
+    const issues = new Map<
+      string,
+      'needsUpdate' | 'pending' | 'conflicts' | 'rejected' | undefined
+    >();
     const scanEach = async (item: IDBCloudSyncItem) => {
       if (
         (item.data?.length ?? 0) > 64 * 1024 ||
         (item.rawData?.length ?? 0) > 64 * 1024
       ) {
         rejected += 1;
+        issues.set(item.id, 'rejected');
         return;
       }
       if (
@@ -303,6 +431,7 @@ export class CloudSyncFlowManagerAccount extends CloudSyncFlowManagerBase<
           !('accountId' in payload)
         ) {
           rejected += 1;
+          issues.set(item.id, 'rejected');
           return;
         }
         if (!payload.accountId.startsWith(PUBLIC_ACCOUNT_SNAPSHOT_PREFIX)) {
@@ -314,6 +443,7 @@ export class CloudSyncFlowManagerAccount extends CloudSyncFlowManagerBase<
         );
         if (item.id !== this.rawKeyToHashKey(rawKey)) {
           rejected += 1;
+          issues.set(item.id, 'rejected');
           return;
         }
         (item.isDeleted ? tombstones : candidates).push({
@@ -322,9 +452,13 @@ export class CloudSyncFlowManagerAccount extends CloudSyncFlowManagerBase<
           rawKey,
         });
       } catch (error) {
-        if (error instanceof PublicAccountSnapshotUnsupportedError)
+        if (error instanceof PublicAccountSnapshotUnsupportedError) {
           needsUpdate += 1;
-        else rejected += 1;
+          issues.set(item.id, 'needsUpdate');
+        } else {
+          rejected += 1;
+          issues.set(item.id, 'rejected');
+        }
       }
     };
     for (let index = 0; index < items.length; index += 1) {
@@ -352,23 +486,61 @@ export class CloudSyncFlowManagerAccount extends CloudSyncFlowManagerBase<
         rejected: 0,
         cancelled: false,
       };
-      if (candidates.length) {
+      let deleted = 0;
+      const applyCandidates = async (
+        entries: typeof candidates,
+        action: 'copy' | 'delete',
+      ) => {
+        if (!entries.length || !isCurrent()) return;
         const { importPublicAccountSnapshots } =
           await import('../publicAccountSnapshotImport');
-        result = await importPublicAccountSnapshots({
+        const applied = await importPublicAccountSnapshots({
           backgroundApi: this.backgroundApi,
-          snapshots: candidates.map((candidate) => candidate.snapshot),
+          snapshots: entries.map((candidate) => candidate.snapshot),
+          sourceItemsBySnapshotId: new Map(
+            entries.map((candidate) => [
+              getPublicAccountSnapshotId(candidate.snapshot),
+              { ...candidate.item },
+            ]),
+          ),
+          action,
           isCurrent,
         });
+        result = {
+          appliedSnapshotIds: [
+            ...result.appliedSnapshotIds,
+            ...applied.appliedSnapshotIds,
+          ],
+          added: result.added + applied.added,
+          unchanged: result.unchanged + applied.unchanged,
+          pending: result.pending + applied.pending,
+          conflicts: result.conflicts + applied.conflicts,
+          rejected: result.rejected + applied.rejected,
+          cancelled: result.cancelled || applied.cancelled,
+        };
+        deleted += applied.deleted;
+        const appliedIds = new Set(applied.appliedSnapshotIds);
+        for (const candidate of entries) {
+          const id = getPublicAccountSnapshotId(candidate.snapshot);
+          issues.set(
+            candidate.item.id,
+            appliedIds.has(id)
+              ? undefined
+              : (applied.issuesBySnapshotId[id] ?? 'pending'),
+          );
+        }
+      };
+      if (candidates.length) {
+        await applyCandidates(candidates, 'copy');
       }
+      await applyCandidates(tombstones, 'delete');
       const applied = new Set(result.appliedSnapshotIds);
       const byKey = new Map(
-        [
-          ...tombstones,
-          ...candidates.filter((candidate) =>
+        [...tombstones, ...candidates]
+          .filter((candidate) =>
             applied.has(getPublicAccountSnapshotId(candidate.snapshot)),
-          ),
-        ].map((candidate) => [candidate.item.id, candidate]),
+          )
+          .map((candidate) => [candidate.item.id, candidate]),
       );
       const keys = Array.from(byKey.keys());
       for (
@@ -396,17 +568,22 @@ export class CloudSyncFlowManagerAccount extends CloudSyncFlowManagerBase<
           },
         });
       }
-      await primeCloudSyncPersistAtom.set((value) => ({
-        ...value,
-        publicAccountSnapshotStatus: {
-          needsUpdate,
-          rejected: rejected + result.rejected,
-          pending: result.pending,
-          conflicts: result.conflicts,
-          added: result.added,
-          unchanged: result.unchanged,
+      if (!isCurrent()) return;
+      await this.backgroundApi.servicePrimeCloudSync.publishPublicAccountSnapshotStatus(
+        {
+          syncCredential,
+          updates: Array.from(issues, ([id, issue]) => ({ id, issue })),
+          counts: {
+            needsUpdate,
+            rejected: rejected + result.rejected,
+            pending: result.pending,
+            conflicts: result.conflicts,
+            added: result.added,
+            unchanged: result.unchanged,
+            deleted,
+          },
         },
-      }));
+      );
     });
   }
 

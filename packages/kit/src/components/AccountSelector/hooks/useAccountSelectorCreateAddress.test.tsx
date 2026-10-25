@@ -33,7 +33,7 @@ jest.mock('../../../background/instance/backgroundApiProxy', () => ({
       getIndexedAccountsOfWallet: jest.fn(async () => ({ accounts: [] })),
     },
     serviceBatchCreateAccount: {
-      addDefaultNetworkAccounts: (params: unknown) =>
+      addDefaultNetworkAccountsForUserCreation: (params: unknown) =>
         mockAddDefaultNetworkAccounts(params),
     },
     serviceHardwareUI: {

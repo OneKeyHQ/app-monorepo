@@ -49,7 +49,6 @@ import { EPrimeFeatures, EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import { formatDistanceToNow } from '@onekeyhq/shared/src/utils/dateUtils';
 import { isNeverLockDuration } from '@onekeyhq/shared/src/utils/passwordUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
-import { ECloudSyncMode } from '@onekeyhq/shared/types/keylessCloudSync';
 
 import { AppAutoLockSettingsView } from '../../../Setting/pages/AppAutoLock';
 
@@ -592,23 +591,24 @@ function AppDataSection() {
           id: ETranslations.global_syncing,
         }),
       });
+      let completed = false;
       try {
-        await backgroundApiProxy.servicePrimeCloudSync.startServerSyncFlow({
-          callerName: 'Manual Cloud Sync OneKey ID',
-          noDebounceUpload: true,
-          forceSync: true,
-        });
-        await backgroundApiProxy.servicePrimeCloudSync.updateLastSyncTime({
-          syncMode: ECloudSyncMode.OnekeyId,
-        });
+        completed =
+          (await backgroundApiProxy.servicePrimeCloudSync.startServerSyncFlow({
+            callerName: 'Manual Cloud Sync OneKey ID',
+            noDebounceUpload: true,
+            forceSync: true,
+          })) === true;
       } finally {
         await timerUtils.wait(1000);
         await backgroundApiProxy.serviceApp.hideDialogLoading();
       }
       void backgroundApiProxy.serviceApp.showToast({
-        method: 'success',
+        method: completed ? 'success' : 'warning',
         title: intl.formatMessage({
-          id: ETranslations.global_sync_successfully,
+          id: completed
+            ? ETranslations.global_sync_successfully
+            : ETranslations.global_pending,
         }),
       });
     } finally {
@@ -654,9 +654,9 @@ function AppDataSection() {
       }
       if (!syncSuccess) {
         void backgroundApiProxy.serviceApp.showToast({
-          method: 'error',
+          method: 'warning',
           title: intl.formatMessage({
-            id: ETranslations.global_sync_error,
+            id: ETranslations.global_pending,
           }),
         });
         return;
@@ -1013,6 +1013,13 @@ export default function PagePrimeCloudSync() {
     [navigation],
   );
 
+  let reconciliationSubtitle: string | undefined;
+  if (config.cloudSyncReconciliation?.status === 'partial') {
+    reconciliationSubtitle = `${intl.formatMessage({ id: ETranslations.global_accounts })} · ${intl.formatMessage({ id: ETranslations.global_pending })}`;
+  } else if (config.cloudSyncReconciliation?.nextRetryAt) {
+    reconciliationSubtitle = `${intl.formatMessage({ id: ETranslations.global_retry })} · ${formatSyncLastUpdateTime(config.cloudSyncReconciliation.nextRetryAt)}`;
+  }
+
   return (
     <Page>
       <Page.Header
@@ -1023,6 +1030,37 @@ export default function PagePrimeCloudSync() {
       />
       <Page.Body>
         <LocalSystemTimeErrorAlert />
+        {config.cloudSyncReconciliation ? (
+          <ListItem
+            icon="CloudOutline"
+            title={intl.formatMessage({
+              id: {
+                running: ETranslations.global_syncing,
+                waiting: ETranslations.global_pending,
+                complete: ETranslations.global_synced,
+                partial: ETranslations.global_pending,
+                blocked: ETranslations.syncing_paused__title,
+              }[config.cloudSyncReconciliation.status],
+            })}
+            subtitle={reconciliationSubtitle}
+          >
+            {config.cloudSyncReconciliation.unfinished ||
+            config.cloudSyncReconciliation.status === 'partial' ? (
+              <Button
+                testID="cloud-sync-reconciliation-retry"
+                size="small"
+                disabled={config.cloudSyncReconciliation.status === 'running'}
+                onPress={async () =>
+                  backgroundApiProxy.servicePrimeCloudSync.resumeCloudSyncReconciliation(
+                    { reason: 'manual' },
+                  )
+                }
+              >
+                {intl.formatMessage({ id: ETranslations.global_retry })}
+              </Button>
+            ) : null}
+          </ListItem>
+        ) : null}
         {config.publicAccountSnapshotStatus?.needsUpdate ? (
           <Alert
             mx="$5"

@@ -160,6 +160,7 @@ import type {
 } from '@onekeyhq/shared/types/signatureRecord';
 
 import keylessSyncCredentialStorage from '../../services/ServiceKeylessWallet/utils/keylessSyncCredentialStorage';
+import { isPublicAccountCreationContext } from '../../services/ServicePrimeCloudSync/publicAccountCreationContext';
 import {
   normalizePublicAccountWalletXfp,
   publicAccountIdentityEqual,
@@ -169,6 +170,7 @@ import {
   isRejectedPublicAccountSnapshotWrite,
   matchesPublicAccountSnapshotWrite,
   rejectPublicAccountSnapshotWrite,
+  rememberPublicAccountSnapshotWrite,
 } from '../../services/ServicePrimeCloudSync/publicAccountSnapshotWriteGuard';
 import { markCredentialLocalSecretEnvelopeUnavailableError } from '../../utils/localSecretEnvelopeErrorUtils';
 
@@ -249,6 +251,7 @@ import type {
 } from './types';
 import type { IVerifiedDeviceIdentity } from './verifiedDeviceIdentity';
 import type { IBackgroundApi } from '../../apis/IBackgroundApi';
+import type { IPublicAccountCreationContext } from '../../services/ServicePrimeCloudSync/publicAccountCreationContext';
 import type { IDeviceType } from '@onekeyfe/hd-core';
 
 function assertHardwareRuntimeIdsNotPersisted({
@@ -434,6 +437,32 @@ type ITxAddAndUpdateSyncItemsParams = {
 };
 
 type ITxAddAndUpdateFreshSyncItemsParams = ITxAddAndUpdateSyncItemsParams;
+
+type IPublicCloudAccountApplyParams = {
+  walletId: string;
+  expectedWallet: {
+    kind: 'hardware' | 'hd';
+    xfp: string;
+    hidden: boolean;
+    associatedDevice?: string;
+    passphraseState?: string;
+  };
+  expectedCredential?: string;
+  accounts: IDBAccount[];
+  sourceItemsByAccountId?: ReadonlyMap<string, IDBCloudSyncItem>;
+  isCurrent: () => boolean;
+};
+
+type IPublicCloudAccountApplyResult = {
+  added: number;
+  deleted: number;
+  unchanged: number;
+  pending: number;
+  conflicts: number;
+  cancelled: boolean;
+  appliedAccountIds: string[];
+  issueByAccountId: Record<string, 'pending' | 'conflicts'>;
+};
 
 function getLocalPasswordKdfParams(): ILocalPasswordKdfParams {
   return getPbkdf2KdfParamsForNonDbTx();
@@ -8511,44 +8540,57 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     return val ?? defaultValue;
   }
 
-  async importPublicCloudAccounts({
+  async importPublicCloudAccounts(params: IPublicCloudAccountApplyParams) {
+    return this.applyPublicCloudAccounts({ ...params, action: 'copy' });
+  }
+
+  async deletePublicCloudAccounts(
+    params: IPublicCloudAccountApplyParams & {
+      sourceItemsByAccountId: ReadonlyMap<string, IDBCloudSyncItem>;
+    },
+  ) {
+    return this.applyPublicCloudAccounts({ ...params, action: 'delete' });
+  }
+
+  private async applyPublicCloudAccounts({
     walletId,
     expectedWallet,
     expectedCredential,
     accounts,
+    sourceItemsByAccountId,
     isCurrent,
-  }: {
-    walletId: string;
-    expectedWallet: {
-      kind: 'hardware' | 'hd';
-      xfp: string;
-      hidden: boolean;
-      associatedDevice?: string;
-      passphraseState?: string;
-    };
-    expectedCredential?: string;
-    accounts: IDBAccount[];
-    isCurrent: () => boolean;
-  }): Promise<{
-    added: number;
-    unchanged: number;
-    pending: number;
-    conflicts: number;
-    cancelled: boolean;
-    appliedAccountIds: string[];
-  }> {
+    action,
+  }: IPublicCloudAccountApplyParams & {
+    action: 'copy' | 'delete';
+  }): Promise<IPublicCloudAccountApplyResult> {
     if (accounts.length > 50) {
       throw new OneKeyLocalError('Cloud account import batch is too large');
     }
     const unchangedResult = {
       added: 0,
+      deleted: 0,
       unchanged: 0,
       pending: accounts.length,
       conflicts: 0,
       cancelled: false,
       appliedAccountIds: [] as string[],
+      issueByAccountId: Object.fromEntries(
+        accounts.map((account) => [account.id, 'pending' as const]),
+      ),
     };
     const cancelled = new OneKeyLocalError('Cloud account import cancelled');
+    const expectedSources =
+      sourceItemsByAccountId &&
+      new Map(
+        Array.from(
+          sourceItemsByAccountId,
+          ([id, source]) =>
+            [
+              id,
+              rememberPublicAccountSnapshotWrite({ ...source }, source),
+            ] as const,
+        ),
+      );
     const checkCurrent = () => {
       if (!isCurrent()) throw cancelled;
     };
@@ -8625,8 +8667,10 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
             ...unchangedResult,
             pending: 0,
             appliedAccountIds: [] as string[],
+            issueByAccountId: {} as Record<string, 'pending' | 'conflicts'>,
           };
           const toAdd: IDBAccount[] = [];
+          const toDelete = new Map<string, IDBAccount>();
           const conflictingIds = new Set<string>();
           for (const account of accounts) {
             if (
@@ -8645,6 +8689,18 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
             ids: accounts.map((account) => account.id),
           });
           checkCurrent();
+          const { records: currentSources } = expectedSources
+            ? await this.txGetRecordsByIds({
+                tx,
+                name: ELocalDBStoreNames.CloudSyncItem,
+                ids: Array.from(
+                  new Set(
+                    Array.from(expectedSources.values(), (source) => source.id),
+                  ),
+                ),
+              })
+            : { records: [] as IDBCloudSyncItem[] };
+          checkCurrent();
           const { records: existingIndexes } = await this.txGetRecordsByIds({
             tx,
             name: ELocalDBStoreNames.IndexedAccount,
@@ -8655,8 +8711,34 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           checkCurrent();
           const prepareAccount = async (account: IDBAccount) => {
             checkCurrent();
+            if (expectedSources) {
+              const source = expectedSources.get(account.id);
+              const currentSource =
+                source && currentSources.find((item) => item?.id === source.id);
+              if (
+                !source ||
+                source.dataType !== EPrimeCloudSyncDataType.Account ||
+                typeof source.dataTime !== 'number' ||
+                !Number.isFinite(source.dataTime) ||
+                source.dataTime <= 0 ||
+                source.isDeleted !== (action === 'delete') ||
+                !matchesPublicAccountSnapshotWrite(
+                  source,
+                  currentSource ?? undefined,
+                )
+              ) {
+                result.pending += 1;
+                result.issueByAccountId[account.id] = 'pending';
+                return;
+              }
+            } else if (action === 'delete') {
+              result.pending += 1;
+              result.issueByAccountId[account.id] = 'pending';
+              return;
+            }
             if (conflictingIds.has(account.id)) {
               result.conflicts += 1;
+              result.issueByAccountId[account.id] = 'conflicts';
               return;
             }
             const index = account.pathIndex;
@@ -8678,18 +8760,37 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
                 accountUtils.buildIndexedAccountId({ walletId, index })
             ) {
               result.conflicts += 1;
+              result.issueByAccountId[account.id] = 'conflicts';
               return;
             }
             const existing = existingAccounts.find(
               (item) => item?.id === account.id,
             );
+            if (action === 'delete') {
+              if (!existing) {
+                result.unchanged += 1;
+                result.appliedAccountIds.push(account.id);
+              } else if (publicAccountIdentityEqual(existing, account)) {
+                if (!toDelete.has(existing.id))
+                  toDelete.set(existing.id, existing);
+                else result.unchanged += 1;
+                result.appliedAccountIds.push(account.id);
+              } else {
+                result.conflicts += 1;
+                result.issueByAccountId[account.id] = 'conflicts';
+              }
+              return;
+            }
             const duplicate =
               existing || toAdd.find((item) => item.id === account.id);
             if (duplicate) {
               if (publicAccountIdentityEqual(duplicate, account)) {
                 result.unchanged += 1;
                 result.appliedAccountIds.push(account.id);
-              } else result.conflicts += 1;
+              } else {
+                result.conflicts += 1;
+                result.issueByAccountId[account.id] = 'conflicts';
+              }
               return;
             }
             const indexedId = accountUtils.buildIndexedAccountId({
@@ -8705,6 +8806,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
                 existingIndex.index !== index)
             ) {
               result.conflicts += 1;
+              result.issueByAccountId[account.id] = 'conflicts';
               return;
             }
             if (!existingIndex && !indexedToAdd.has(indexedId)) {
@@ -8730,6 +8832,44 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           };
           for (const account of accounts) {
             await prepareAccount(account);
+          }
+          if (toDelete.size) {
+            // No account-reference index exists in both DB backends. One read
+            // per bounded batch proves an index is unused inside this same tx.
+            const { records: allAccounts } = await this.txGetAllRecords({
+              tx,
+              name: ELocalDBStoreNames.Account,
+            });
+            checkCurrent();
+            const remainingIndexes = new Set(
+              allAccounts
+                .filter((item) => !toDelete.has(item.id))
+                .map((item) => item.indexedAccountId),
+            );
+            const removableIndexIds = Array.from(
+              new Set(
+                Array.from(toDelete.values(), (item) => item.indexedAccountId),
+              ),
+            ).filter(
+              (id): id is string => Boolean(id) && !remainingIndexes.has(id),
+            );
+            await this.txRemoveRecords({
+              tx,
+              name: ELocalDBStoreNames.Account,
+              ids: Array.from(toDelete.keys()),
+              ignoreNotFound: true,
+            });
+            checkCurrent();
+            if (removableIndexIds.length) {
+              await this.txRemoveRecords({
+                tx,
+                name: ELocalDBStoreNames.IndexedAccount,
+                ids: removableIndexIds,
+                ignoreNotFound: true,
+              });
+              checkCurrent();
+            }
+            result.deleted = toDelete.size;
           }
           // Write both record types in one transaction, without Cloud hooks or
           // per-account events. Existing records are never removed or updated.
@@ -8771,6 +8911,8 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     accountNameBuilder,
     skipEventEmit,
     applyRestoreSyncPolicy,
+    publicAccountCreationContext,
+    publicAccountIndexedNames,
   }: {
     allAccountsBelongToNetworkId?: string; // pass this only if all accounts belong to the same network
     walletId: string;
@@ -8780,7 +8922,17 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     accountNameBuilder?: (data: { nextAccountId: number }) => string;
     skipEventEmit?: boolean;
     applyRestoreSyncPolicy?: boolean;
+    publicAccountCreationContext?: IPublicAccountCreationContext;
+    publicAccountIndexedNames?: Record<number, string>;
   }): Promise<{ isOverrideAccounts: boolean; existsAccounts: IDBAccount[] }> {
+    if (
+      publicAccountCreationContext &&
+      !isPublicAccountCreationContext(publicAccountCreationContext)
+    ) {
+      throw new OneKeyLocalError(
+        'The user account creation operation has expired.',
+      );
+    }
     // eslint-disable-next-line no-param-reassign
     accounts = accounts.map((account) => {
       const a = {
@@ -8901,6 +9053,101 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         });
       })();
 
+    const explicitRestores = new Map<
+      string,
+      { item: IDBCloudSyncItem; name: string }
+    >();
+    const trustedIndexNames = new Map<string, string>();
+    if (isPublicAccountCreationContext(publicAccountCreationContext)) {
+      const syncCredential = await syncManager.getSyncCredential();
+      for (const account of accounts) {
+        if (!existsAccounts.some((existing) => existing.id === account.id)) {
+          const restored =
+            await syncManager.buildSyncItemForExplicitAccountCreation({
+              target: {
+                targetId: account.id,
+                dataType: EPrimeCloudSyncDataType.Account,
+                account,
+              },
+              syncCredential,
+              creationContext: publicAccountCreationContext,
+            });
+          if (restored) {
+            account.name = restored.name;
+            explicitRestores.set(account.id, restored);
+          }
+        }
+      }
+      const restoredKeys = new Set(
+        Array.from(explicitRestores.values(), (restored) => restored.item.id),
+      );
+      const info = existingSyncItemsInfoResult000025394378263443374653;
+      info.existingSyncItems = info.existingSyncItems.filter(
+        (item) => !restoredKeys.has(item.id),
+      );
+      info.newSyncItems = [
+        ...info.newSyncItems.filter((item) => !restoredKeys.has(item.id)),
+        ...Array.from(explicitRestores.values(), (restored) => restored.item),
+      ];
+      // Preserve the existing index-name sync flow, prepared outside this tx.
+      const indexedManager =
+        this.backgroundApi.servicePrimeCloudSync.syncManagers.indexedAccount;
+      if (indexedManager) {
+        const indexedTargets = Array.from(
+          new Map(
+            accounts
+              .filter(
+                (account) =>
+                  account.indexedAccountId && !isNil(account.pathIndex),
+              )
+              .map((account) => {
+                const index = account.pathIndex ?? 0;
+                const indexedAccount = {
+                  id: account.indexedAccountId ?? '',
+                  walletId,
+                  index,
+                  idHash: '',
+                  name:
+                    explicitRestores.get(account.id)?.name ||
+                    publicAccountIndexedNames?.[index] ||
+                    account.name ||
+                    accountUtils.buildIndexedAccountName({ pathIndex: index }),
+                };
+                return [
+                  indexedAccount.id,
+                  {
+                    targetId: indexedAccount.id,
+                    dataType: EPrimeCloudSyncDataType.IndexedAccount as const,
+                    indexedAccount,
+                    wallet: { ...wallet, avatarInfo: wallet.avatarInfo },
+                  },
+                ] as const;
+              }),
+          ).values(),
+        );
+        indexedTargets.forEach((target) =>
+          trustedIndexNames.set(
+            target.indexedAccount.id,
+            target.indexedAccount.name,
+          ),
+        );
+        const indexedInfo = await indexedManager.buildExistingSyncItemsInfo({
+          tx: undefined,
+          targets: indexedTargets,
+          onExistingSyncItemsInfo: async (existing) => {
+            indexedTargets.forEach((target) => {
+              const previousName = existing[target.targetId]?.syncPayload?.name;
+              if (previousName)
+                trustedIndexNames.set(target.targetId, previousName);
+            });
+          },
+          useCreateGenesisTime: async () => true,
+        });
+        info.newSyncItems.push(...indexedInfo.newSyncItems);
+        info.existingSyncItems.push(...indexedInfo.existingSyncItems);
+      }
+    }
+
     // db transaction: add accounts to wallet
 
     let addResults: {
@@ -8919,6 +9166,109 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
               newSyncItems:
                 existingSyncItemsInfoResult000025394378263443374653.newSyncItems,
               runDbTxFn: async () => {
+                if (publicAccountCreationContext) {
+                  if (
+                    !isPublicAccountCreationContext(
+                      publicAccountCreationContext,
+                    ) ||
+                    Array.from(explicitRestores.values()).some((restored) =>
+                      isRejectedPublicAccountSnapshotWrite(restored.item),
+                    )
+                  ) {
+                    throw new OneKeyLocalError(
+                      'Cloud account data changed. Try creating the account again.',
+                    );
+                  }
+                  const { records: currentAccounts } = explicitRestores.size
+                    ? await this.txGetAllRecords({
+                        tx,
+                        name: ELocalDBStoreNames.Account,
+                      })
+                    : { records: [] as IDBAccount[] };
+                  const { records: currentIndexes } =
+                    await this.txGetRecordsByIds({
+                      tx,
+                      name: ELocalDBStoreNames.IndexedAccount,
+                      ids: accounts
+                        .map((account) => account.indexedAccountId)
+                        .filter((id): id is string => !!id),
+                    });
+                  const indexesToCreate = new Map<string, IDBIndexedAccount>();
+                  for (const account of accounts) {
+                    const restored = explicitRestores.get(account.id);
+                    if (
+                      account.indexedAccountId &&
+                      !currentIndexes.some(
+                        (index) => index?.id === account.indexedAccountId,
+                      ) &&
+                      !indexesToCreate.has(account.indexedAccountId)
+                    ) {
+                      const index = account.pathIndex;
+                      if (
+                        isNil(index) ||
+                        !Number.isSafeInteger(index) ||
+                        index < 0 ||
+                        account.indexedAccountId !==
+                          accountUtils.buildIndexedAccountId({
+                            walletId,
+                            index,
+                          })
+                      )
+                        throw new OneKeyLocalError(
+                          'Invalid indexed account identity',
+                        );
+                      indexesToCreate.set(account.indexedAccountId, {
+                        id: account.indexedAccountId,
+                        walletId,
+                        index,
+                        name:
+                          restored?.name ||
+                          trustedIndexNames.get(account.indexedAccountId) ||
+                          publicAccountIndexedNames?.[index] ||
+                          account.name ||
+                          accountUtils.buildIndexedAccountName({
+                            pathIndex: index,
+                          }),
+                        idHash: await this.buildIndexedAccountIdHash({
+                          firstEvmAddress: wallet.firstEvmAddress,
+                          index,
+                          indexedAccountId: account.indexedAccountId,
+                          useSynchronousHash: true,
+                        }),
+                      });
+                    }
+                    if (
+                      restored &&
+                      account.indexedAccountId &&
+                      currentIndexes.some(
+                        (index) => index?.id === account.indexedAccountId,
+                      ) &&
+                      !currentAccounts.some(
+                        (existing) =>
+                          existing.indexedAccountId ===
+                            account.indexedAccountId &&
+                          existing.id !== account.id,
+                      )
+                    ) {
+                      await this.txUpdateRecords({
+                        tx,
+                        name: ELocalDBStoreNames.IndexedAccount,
+                        ids: [account.indexedAccountId],
+                        updater: (indexed) => {
+                          indexed.name = restored.name;
+                          return indexed;
+                        },
+                      });
+                    }
+                  }
+                  if (indexesToCreate.size)
+                    await this.txAddRecords({
+                      tx,
+                      name: ELocalDBStoreNames.IndexedAccount,
+                      records: Array.from(indexesToCreate.values()),
+                      skipIfExists: true,
+                    });
+                }
                 const firstAccount: IDBAccount | undefined = accounts?.[0];
 
                 const shouldBuildIdHash =
@@ -9668,15 +10018,30 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     const syncService = this.backgroundApi.servicePrimeCloudSync;
     const syncCredential = await syncService.getSyncCredentialSafe();
     const items: IDBCloudSyncItem[] = [];
+    const indexedNames = new Map<string, string | undefined>();
     for (const account of supportedAccounts) {
       const walletId = accountUtils.getWalletIdFromAccountId({
         accountId: account.id,
       });
       // Orphan rows from a missing wallet are not a deletion instruction.
       if (await this.getWalletSafe({ walletId })) {
+        if (
+          account.indexedAccountId &&
+          !indexedNames.has(account.indexedAccountId)
+        ) {
+          indexedNames.set(
+            account.indexedAccountId,
+            (await this.getIndexedAccountSafe({ id: account.indexedAccountId }))
+              ?.name,
+          );
+        }
+        const name =
+          (account.indexedAccountId &&
+            indexedNames.get(account.indexedAccountId)) ||
+          account.name;
         const item =
           await syncService.syncManagers.account.buildSyncItemByDBQuery({
-            dbRecord: account,
+            dbRecord: { ...account, name },
             isDeleted: true,
             dataTime: undefined,
             syncCredential,

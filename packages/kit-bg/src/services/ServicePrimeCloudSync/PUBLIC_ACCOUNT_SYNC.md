@@ -112,8 +112,11 @@ receiver's selected address is never silently replaced.
 - Shared initialization work runs with at most 50 lookups in flight. Existing
   rows encrypted for the current Keyless or OneKey ID key are not re-encrypted
   during every scan. Live changes remain incremental dirty pool records.
-- Ordinary DB triggers coalesce by ID for one second: one status request for the
-  union, followed by uploads of at most 50 records and 256 KiB of actual serialized
+- Ordinary DB triggers coalesce by ID for one second with a five-second maximum
+  wait and a 500-record immediate-drain threshold. One in-flight drain owns the
+  source lock; new records wait in the ID map for a follow-up, without rescanning
+  the whole account DB. One status request carries the union, followed by uploads
+  of at most 50 records and 256 KiB of actual serialized
   UTF-8 body bytes, whichever binds first. Uploads are sequential. Oversized single
   items fail before any upload. Flush/reset keep their old whole-request meaning.
 - Queue failures retain/recover pending work; a newer queued value wins. Durable
@@ -121,26 +124,113 @@ receiver's selected address is never silently replaced.
   also stops ordinary uploads between batches; a request already sent may finish,
   and its records can be retried with the remaining dirty work.
 
-These are **client budgets**, not verified server limits. The existing status API
-still takes a metadata union (`key/type/timestamp`) and returns its existing diff;
-no unsupported status pagination or backend fields were invented. Backend request
-and response limits, total account capacity, and retry semantics need confirmation
-before claiming arbitrary large Cloud spaces. The isolated tests cover 100 and
-1,000 account copies and 1,000 source triggers; they do not establish production
-latency or an unlimited capacity guarantee.
+Sync-pool writes also use at most 50 records per transaction and yield between
+batches. Account/index insertion or deletion stays atomic in its own transaction.
+This is separate from the sync-pool checkpoint transaction; retry is idempotent.
+Each deletion batch currently reads the Account table once to preserve any index
+still referenced by another account. There is no new DB index/schema migration.
+
+## Full reconciliation and backend contract
+
+Full/manual/startup recovery checks regenerate **all current-space pool metadata**
+after each saved response. Ordinary events still send only their changed union,
+and never serve as the next full-round summary. The existing
+`onlyCheckLocalDataType` mapping is preserved: full checks use the historical
+wallet/account subset; ordinary checks use the historical wider type list. This
+is a request field, not proof of backend return filtering.
+
+The optional request capability is
+`reconciliation: { version: 1, maxItems: 500, maxBytes: 1048576 }`.
+A supported backend must compute differences against the complete supplied
+summary **before** limiting the result, include deletion work, and limit the sum
+of `diff + updated + deleted + obsoleted` to 500 and the UTF-8 serialized response
+to 1 MiB. It must return:
+
+```ts
+reconciliation: {
+  version: 1,
+  maxItems: 500,
+  maxBytes: 1048576,
+  diffBeforeLimit: true,
+  includesDeleted: true,
+  hasMore: boolean,
+}
+```
+
+`hasMore: false` means all relevant work was considered under that contract;
+empty `diff`, a small batch, or successful local import alone is not completion.
+All four work types are applied/uploaded before honoring that result. Uploads
+retain existing timestamps and authentication/nonce behavior. The server must
+compare versions on writes and must advance deletion acknowledgement so a saved
+`deleted` ID is not returned forever with the same metadata. This repo contains
+no backend implementation: these are **interface and launch requirements**, not
+verified production behavior. Pair bounded responses with capable clients;
+do not silently truncate responses for already released legacy clients.
+
+Unknown/missing response capability preserves the existing single-response
+behavior and records `backend-unverified`; it does not auto-loop or claim full
+completion. A first 400/422 capability rejection retries once without that field;
+authentication failures never use this compatibility fallback. The unsupported
+capability is remembered for this service lifetime. No server cursor, challenge,
+new encryption container or new conflict-version system is introduced.
+
+Each runner round allows at most eight checks and 20 seconds, with a 10-second
+HTTP timeout, two finite retries and 250ms–2s backoff. The initial legacy
+capability fallback can add one HTTP request. A progressing round that reaches
+its budget yields and resumes after at least one second. Repeated responses,
+no progress, malformed data, response/summary limits or exhausted retries stop
+fast requests, persist a blocked state and retry with 30-second exponential
+backoff capped at 30 minutes. Triggers cannot bypass that cooldown. Each full
+summary is limited to 8 MiB and 100,000 records, before transport. These are
+client bounds, not a claim of arbitrary server capacity.
+
+Unfinished state and counters are persisted, and startup/unlock/network/foreground
+wakeups recheck lock, selected key and Cloud availability. A source generation
+and abort signal invalidate old work. Cancellation waits for an active write's
+commit guard before releasing the source lock. Local replay of previously
+acknowledged records (including the v2 deletion upgrade) is separate from the
+network round and is not claimed to fit the network's 20-second budget.
+Downloaded records awaiting a matching wallet, supported format or conflict
+resolution are tracked separately and replayed locally without refetching them.
+
+The Cloud settings page shows one aggregate running/waiting/complete/partial/
+blocked row and existing pending counts. Issue IDs stay in background SimpleDB;
+UI receives counts only. Resolving one record clears only its own issue, so a
+later successful batch cannot erase earlier errors. Background batches add no
+per-account toast or loading dialog. Existing manual sync verification/loading
+remains; incomplete manual sync reports pending rather than success.
+
+On iOS/Android/extension, main and background are isolated JS runtimes. Main
+sends wake signals and receives small atom counters; background owns the issue
+map, credentials, HTTP and DB mutations through existing storage/DB facades.
+No new native handle or storage backend is allocated. A large issue map is not
+sent to/deserialized in main. Desktop/web use the existing single JS runtime.
+Native readiness and background timer suspension still require platform tests;
+main wake signals do not override background lock/key/availability checks.
 
 ## Deletion and failure behavior
 
 Explicit account/index deletion atomically writes a public snapshot tombstone,
-then schedules one debounced sync. A tombstone suppresses future automatic copy
-and is retained; it does not delete an existing account on another device. Re-add
-does not silently override it. Releasing a suppression needs a separate explicit
-product action, not a scan or rename.
+then schedules one debounced sync. The winning supported tombstone also deletes
+the matching public account on the receiving device, while retaining its wallet,
+seed/credential and hardware association. Only unreferenced indexes are removed.
+Before committing, copy/delete rechecks the current winning pool record, source
+generation and wallet binding. Older offline records keep their old timestamp;
+ordinary initialization/scan never revives the newer tombstone.
+
+Only the explicit user account-creation entry receives an in-memory, nonserializable
+capability to re-add an absent account. It restores the retained indexed-account
+name when available, otherwise the snapshot name, and atomically creates the
+account/index plus a live version strictly newer than the tombstone. The normal
+user creation flow may derive a newly requested address; remote copy never does.
+Automatic creation, scans, renames, JSON RPC input or an expired capability do
+not release a tombstone. This reuses existing timestamp conflict resolution,
+not a new server CAS or causal-version protocol.
 
 Wallet removal/unbinding and automatic duplicate-wallet merge remain local. They
 do not delete Cloud account backups or generate account tombstones. If that
 wallet is later added again, live backed-up accounts may be restored; explicitly
-deleted/tombstoned accounts remain suppressed.
+deleted/tombstoned accounts remain suppressed until an explicit user re-add.
 
 A new plaintext tombstone can wait in the existing pool until Cloud credentials
 are available; filling encrypts its validated canonical data without looking up
@@ -163,6 +253,11 @@ yarn jest --runInBand \
   packages/kit-bg/src/dbs/local/LocalDbBase.publicCloudAccountDeletion.test.ts \
   packages/kit-bg/src/dbs/local/LocalDbBase.publicSnapshotWriteGuard.test.ts \
   packages/kit-bg/src/services/ServiceAccount/ServiceAccount.keylessRemovalPhase.test.ts \
+  packages/kit-bg/src/services/ServiceAccount/ServiceAccount.operationLease.test.ts \
+  packages/kit-bg/src/services/ServiceBatchCreateAccount/ServiceBatchCreateAccount.concurrentFlows.test.ts \
+  packages/kit-bg/src/dbs/simple/entity/SimpleDbEntityCloudSyncAccountIssues.test.ts \
+  packages/kit/src/views/Prime/hooks/CloudSyncReconciliationEffect.test.tsx \
+  packages/kit/src/components/AccountSelector/hooks/useAccountSelectorCreateAddress.test.tsx \
   packages/kit-bg/src/services/ServiceKeylessWallet/utils/keylessSyncCredentialStorage.test.ts \
   packages/shared/src/utils/hardwareCloudSyncGuards.test.ts \
   packages/kit-bg/src/apis/BackgroundApiBase.hardwareCloudSync.test.ts \
@@ -174,12 +269,13 @@ yarn workspace @onekeyhq/desktop build:renderer:startup-budget
 DESKTOP_RENDERER_STARTUP_BUILD_DIR="$PWD/apps/desktop/web-build" yarn workspace @onekeyhq/desktop check:renderer-startup-budget
 ```
 
-The 2026-10-24 cloud run passed 31 Jest suites / 365 tests and 3 SDK redaction
+The earlier 2026-10-24 baseline cloud run passed 31 Jest suites / 365 tests and 3 SDK redaction
 Node tests. The desktop renderer production build completed with 13 dependency
 warnings. All default startup budgets passed: 5,325 modules / 6,800, initial raw
 scripts 12.84 MiB / 15 MiB, all raw scripts 99.65 MiB / 105 MiB. Isolated call-count
-checks show 1,000 imports use 20 account transactions, and 1,000 ordinary source
-hooks coalesce into one status request and 20 upload requests. These are mock
+checks show 1,000 imports use 20 account transactions, and the baseline 1,000 ordinary source
+hooks coalesced into one status request and 20 upload requests. The new queue
+threshold can intentionally start a drain earlier. These are mock
 control-flow measurements, not production throughput benchmarks.
 
 For local acceptance use isolated disposable wallets and a test Cloud space:
@@ -198,10 +294,67 @@ For local acceptance use isolated disposable wallets and a test Cloud space:
 4. Use a prepared test dataset of 100/1,000 accounts and inspect aggregate request
    counts and batch sizes, never log secrets. Verify multiple source events do
    not generate one status/upload per account.
-5. Test account deletion, local wallet unbinding, same-path conflicts, a newer
-   format, and a supported older reader against the same test space. Unknown
+5. Test account deletion on A and actual deletion on B, offline older B records,
+   explicit same-account re-add/name restoration, local wallet unbinding,
+   same-path conflicts, a newer format and a supported older reader. Unknown
    records must remain intact and produce an update hint on this reader.
 
 Native runtime/UI behavior, real server limits/large-space behavior, all historical
 client combinations, and actual transaction signing need local/end-to-end
 acceptance. The cloud tests establish copy/control logic, not these release gates.
+
+For a contract-capable test backend, prepare more than 500 records including
+tombstones; verify fresh full summaries each response, `hasMore` exhaustion,
+eight-check yielding/resumption and persisted recovery after restart. Repeat
+with a duplicate batch, no progress, 400/422 legacy negotiation, prolonged
+offline errors, lock/cancel and a key switch during a held transaction. Verify
+blocked retries remain bounded and downloaded-but-pending records do not cause
+network drain loops. Real backend version comparison/deletion acknowledgement,
+native/extension wake lifecycle, hardware confirmation and phase-1 deterministic
+signing remain separate release gates. No production endpoint was tested here.
+
+The 2026-10-25 synthetic metadata benchmark used 10,000 rows: 1,900,001 UTF-8
+bytes, 43 ms, and about 16.0 MB additional Node heap in one cloud regression run.
+The assertion budgets remain 5 seconds and 64 MiB. This measures metadata
+validation/sorting/serialization/hashing, not DB ciphertext loading, device
+heap, network throughput or total account-space memory. Full-summary generation
+still reads the existing current sync pool through its existing DB API.
+
+## Local independent review
+
+Review scope: changes after `34a6fee0aa9f1524cc60b139c0858abe451e4a75`,
+without a PR, production backend or device access. Independent reviewers checked
+public copy/delete/re-add and reconciliation/cancellation separately.
+
+Confirmed findings fixed before delivery:
+
+- A timed-out runner could release the source lock while apply was still active.
+  It now waits for active apply/upload settlement, and transactions check the
+  originating abort signal and generation before commit.
+- Incremental checks and raw snapshot filling could capture a generation too
+  late. They now propagate the initial source generation through HTTP, pool
+  writes and scene application; late results are rejected.
+- Old-space completion/cooldown and issue counts could suppress or contaminate a
+  newly selected space. Wakeup selects current-space state first; a fresh space
+  resets aggregate issues and forces local compatibility replay.
+- Threshold events could queue redundant drains. A single in-flight drain and
+  coalesced follow-up now preserve dirty records without a retry busy loop.
+
+| Dimension | Score | Assessment |
+| --- | --- | --- |
+| Security | 8/10 | Public allowlist, source/transaction guards, no new secret protocol |
+| Code quality | 8/10 | Bounded runner, cancellation and persistence regressions |
+| Architecture | 8/10 | Existing crypto/pool/DB and separate main/bg ownership |
+| Completeness | 7/10 | Backend/native/device acceptance remains external |
+| Weighted total | 7.9/10 | Client review complete; release requires the listed acceptance gates |
+
+No unresolved client correctness blocker was confirmed in the final independent
+review. This score does not certify server version checks, native lifecycle or
+hardware behavior. No PR was created and no review comment was published.
+
+The current client regression run passed 40 Jest suites / 453 tests, plus 3 SDK
+redaction Node tests. The production renderer build completed with 13 dependency
+warnings. All unchanged default desktop startup budgets passed: 5,326 / 6,800
+modules, 12.86 / 15 MiB initial raw scripts, and 99.69 / 105 MiB all raw scripts.
+These checks do not cover native/extension UI, real hardware or the backend
+contract. The final pre-commit gate result and commit are recorded in the handoff.

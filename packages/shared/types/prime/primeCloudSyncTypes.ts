@@ -9,6 +9,10 @@ import type {
   IDBWalletType,
 } from '@onekeyhq/kit-bg/src/dbs/local/types';
 
+import type {
+  ICloudSyncReconciliationContract,
+  ICloudSyncReconciliationRequest,
+} from './cloudSyncReconciliation';
 import type { ICloudPublicAccountSnapshot } from './publicAccountSnapshot';
 import type { IServerNetwork } from '..';
 import type { EPrimeCloudSyncDataType } from '../../src/consts/primeConsts';
@@ -94,6 +98,7 @@ export type ICloudSyncCheckServerStatusPostData = {
   onlyCheckLocalDataType: EPrimeCloudSyncDataType[];
   nonce: number;
   pwdHash: string | undefined;
+  reconciliation?: ICloudSyncReconciliationRequest;
 };
 
 export type ICloudSyncCheckServerStatusResult = {
@@ -103,6 +108,7 @@ export type ICloudSyncCheckServerStatusResult = {
   obsoleted: string[];
   pwdHash: string;
   serverTime: number;
+  reconciliation?: ICloudSyncReconciliationContract;
 };
 
 export type ICloudSyncDownloadPostData = {

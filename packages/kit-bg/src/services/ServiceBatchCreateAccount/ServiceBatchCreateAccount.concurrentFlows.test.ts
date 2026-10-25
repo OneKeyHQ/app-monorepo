@@ -2,10 +2,41 @@ import {
   HardwareProcessingManager,
   type IOneKeyHardwareOperationLease,
 } from '../ServiceHardwareUI/HardwareProcessingManager';
+import { isPublicAccountCreationContext } from '../ServicePrimeCloudSync/publicAccountCreationContext';
 
 import ServiceBatchCreateAccount from './ServiceBatchCreateAccount';
 
 import type { IBatchCreateAccountProgressInfo } from './ServiceBatchCreateAccount';
+
+describe('explicit batch account creation entry', () => {
+  test('mints the capability inside the background and revokes it before returning', async () => {
+    const service = Object.create(
+      ServiceBatchCreateAccount.prototype,
+    ) as ServiceBatchCreateAccount;
+    let captured: object | undefined;
+    let active = false;
+    const inner = jest
+      .spyOn(service, 'startBatchCreateAccountsFlow')
+      .mockImplementation(async (payload) => {
+        captured = payload.params.publicAccountCreationContext;
+        active = isPublicAccountCreationContext(captured);
+        return { accountsForCreate: [] };
+      });
+    await service.startBatchCreateAccountsFlowForUserCreation({
+      mode: 'normal',
+      params: {
+        walletId: 'hd-1',
+        networkId: 'evm--1',
+        deriveType: 'default',
+        indexes: [0],
+        saveToDb: true,
+      },
+    });
+    expect(active).toBe(true);
+    expect(isPublicAccountCreationContext(captured)).toBe(false);
+    inner.mockRestore();
+  });
+});
 
 jest.mock('@onekeyhq/shared/src/background/backgroundDecorators', () => ({
   backgroundClass: () => (target: unknown) => target,

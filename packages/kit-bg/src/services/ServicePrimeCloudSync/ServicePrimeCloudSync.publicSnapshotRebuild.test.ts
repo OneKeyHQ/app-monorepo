@@ -44,7 +44,7 @@ jest.mock('../ServiceBase', () => ({
 
 jest.mock('../../states/jotai/atoms', () => ({
   primeCloudSyncPersistAtom: {
-    get: jest.fn(),
+    get: jest.fn(async () => ({})),
     set: jest.fn(),
   },
   addressBookPersistAtom: {},
@@ -100,7 +100,20 @@ jest.mock('../../dbs/local/localDb', () => ({
 
 jest.mock('../../dbs/simple/simpleDb', () => ({
   __esModule: true,
-  default: {},
+  default: {
+    cloudSyncAccountIssues: {
+      updateIssues: jest.fn(
+        async ({ updates }: { updates: { issue?: string }[] }) => ({
+          needsUpdate: updates.filter(
+            (update) => update.issue === 'needsUpdate',
+          ).length,
+          pending: 0,
+          conflicts: 0,
+          rejected: 0,
+        }),
+      ),
+    },
+  },
 }));
 
 jest.mock('./botWalletCloudSyncUtils', () => ({
@@ -175,7 +188,12 @@ function harness(
   const getWallet = jest.spyOn(localDb, 'getWalletSafe');
   const createAccounts = jest.spyOn(localDb, 'addAccountsToWallet');
   const importAccounts = jest.spyOn(localDb, 'importPublicCloudAccounts');
-  const service = new ServicePrimeCloudSync({ backgroundApi: { localDb } });
+  const service = new ServicePrimeCloudSync({
+    backgroundApi: {
+      localDb,
+      serviceKeylessCloudSync: { getCloudAccountImportGeneration: () => 0 },
+    },
+  });
   service.syncManagers.account.rawKeyToHashKey = (data) =>
     sha512ProSync({ data });
   const buildTarget = jest.fn(async () => undefined);
@@ -373,6 +391,91 @@ describe('ServicePrimeCloudSync reserved public snapshot rebuilding', () => {
     expect(getItems).not.toHaveBeenCalled();
     expect(writePool).not.toHaveBeenCalled();
     expect(buildTarget).not.toHaveBeenCalled();
+    expect(upload).not.toHaveBeenCalled();
+  });
+
+  test('reports malformed reserved records as rejected while preserving their original bytes', async () => {
+    const original = rawItem();
+    original.rawData = 'malformed-public-json';
+    const previous = cloneDeep(original);
+    const { service, writePool, upload } = harness([original]);
+    const publish = jest
+      .spyOn(service, 'publishPublicAccountSnapshotStatus')
+      .mockResolvedValue(undefined);
+    const encrypt = jest.spyOn(cloudSyncItemBuilder, 'encryptSyncItem');
+    await service.fillingSyncItemsMissingDataFromRawData({
+      skipUploadToServer: true,
+    });
+    expect(publish).toHaveBeenCalledWith(
+      expect.objectContaining({
+        updates: [{ id: original.id, issue: 'rejected' }],
+      }),
+    );
+    expect(original).toEqual(previous);
+    expect(encrypt).not.toHaveBeenCalled();
+    expect(writePool).not.toHaveBeenCalled();
+    expect(upload).not.toHaveBeenCalled();
+  });
+
+  test('cancelling during the initial pool scan prevents encryption and all late writes', async () => {
+    const original = rawItem();
+    const { service, getItems, writePool, upload } = harness([original]);
+    let resumeScan: (() => void) | undefined;
+    let startedScan: (() => void) | undefined;
+    const scanned = new Promise<void>((resolve) => {
+      startedScan = resolve;
+    });
+    const pendingScan = new Promise<void>((resolve) => {
+      resumeScan = resolve;
+    });
+    getItems.mockImplementationOnce(async () => {
+      startedScan?.();
+      await pendingScan;
+      return { items: [original] };
+    });
+    const encrypt = jest.spyOn(cloudSyncItemBuilder, 'encryptSyncItem');
+    const fill = service.fillingSyncItemsMissingDataFromRawData({
+      skipUploadToServer: true,
+    });
+    await scanned;
+    await service.cancelPublicAccountSnapshotImport();
+    resumeScan?.();
+    await expect(fill).rejects.toThrow('cancelled');
+    expect(encrypt).not.toHaveBeenCalled();
+    expect(writePool).not.toHaveBeenCalled();
+    expect(upload).not.toHaveBeenCalled();
+  });
+
+  test('cancelling during encryption cannot let the final writer capture a fresh generation', async () => {
+    const original = rawItem();
+    const { service, writePool, upload } = harness([original]);
+    let resumeBuild: (() => void) | undefined;
+    let startedBuild: (() => void) | undefined;
+    const started = new Promise<void>((resolve) => {
+      startedBuild = resolve;
+    });
+    const pendingBuild = new Promise<void>((resolve) => {
+      resumeBuild = resolve;
+    });
+    const build =
+      cloudSyncItemBuilder.buildSyncItemFromRawDataJson.bind(
+        cloudSyncItemBuilder,
+      );
+    jest
+      .spyOn(cloudSyncItemBuilder, 'buildSyncItemFromRawDataJson')
+      .mockImplementationOnce(async (params) => {
+        startedBuild?.();
+        await pendingBuild;
+        return build(params);
+      });
+    const fill = service.fillingSyncItemsMissingDataFromRawData({
+      skipUploadToServer: true,
+    });
+    await started;
+    await service.cancelPublicAccountSnapshotImport();
+    resumeBuild?.();
+    await expect(fill).rejects.toThrow('cancelled');
+    expect(writePool).not.toHaveBeenCalled();
     expect(upload).not.toHaveBeenCalled();
   });
 });

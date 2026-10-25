@@ -67,6 +67,7 @@ import { getVaultSettings } from '../../vaults/settings';
 import { buildDefaultAddAccountNetworks } from '../ServiceAccount/defaultNetworkAccountsConfig';
 import ServiceBase from '../ServiceBase';
 import { HardwareAllNetworkGetAddressResponse } from '../ServiceHardware/HardwareAllNetworkGetAddressResponse';
+import { withPublicAccountCreationContext } from '../ServicePrimeCloudSync/publicAccountCreationContext';
 
 import { shouldAbortAccountCreation } from './accountCreationErrors';
 import { normalizeAllNetworkInstallCancelErrors } from './thirdPartyAllNetworkErrors';
@@ -89,6 +90,7 @@ import type {
 import type { IThirdPartyHardwareAdapter } from '../ServiceHardware/adapters/types';
 import type { IOneKeyHardwareOperationLease } from '../ServiceHardwareUI/HardwareProcessingManager';
 import type { IWithHardwareProcessingControlParams } from '../ServiceHardwareUI/ServiceHardwareUI';
+import type { IPublicAccountCreationContext } from '../ServicePrimeCloudSync/publicAccountCreationContext';
 import type { AllNetworkAddressParams } from '@onekeyfe/hd-core';
 import type {
   ChainForFingerprint,
@@ -194,6 +196,7 @@ export function getLedgerAllNetworkDeviceIdentity(
 }
 
 export type IBatchBuildAccountsBaseParams = {
+  publicAccountCreationContext?: IPublicAccountCreationContext;
   walletId: string;
   networkId: string;
   deriveType: IAccountDeriveTypes;
@@ -239,6 +242,7 @@ export type IBatchBuildAccountsNormalFlowParams =
   };
 
 type IAdvancedModeFlowParamsBase = {
+  publicAccountCreationContext?: IPublicAccountCreationContext;
   fromIndex: number;
   toIndex: number;
   excludedIndexes: {
@@ -388,6 +392,26 @@ class ServiceBatchCreateAccount extends ServiceBase {
   @backgroundMethod()
   async prepareBatchCreate() {
     await this.clearNetworkAccountCache();
+  }
+
+  @backgroundMethod()
+  @toastIfError()
+  async startBatchCreateAccountsFlowForUserCreation(
+    payload: Parameters<
+      ServiceBatchCreateAccount['startBatchCreateAccountsFlow']
+    >[0],
+  ) {
+    return withPublicAccountCreationContext((publicAccountCreationContext) => {
+      if (payload.mode === 'advanced')
+        return this.startBatchCreateAccountsFlow({
+          ...payload,
+          params: { ...payload.params, publicAccountCreationContext },
+        });
+      return this.startBatchCreateAccountsFlow({
+        ...payload,
+        params: { ...payload.params, publicAccountCreationContext },
+      });
+    });
   }
 
   @backgroundMethod()
@@ -774,6 +798,21 @@ class ServiceBatchCreateAccount extends ServiceBase {
 
   @backgroundMethod()
   @toastIfError()
+  async addDefaultNetworkAccountsForUserCreation(
+    params: Parameters<
+      ServiceBatchCreateAccount['addDefaultNetworkAccounts']
+    >[0],
+  ) {
+    return withPublicAccountCreationContext((publicAccountCreationContext) =>
+      this.addDefaultNetworkAccounts({
+        ...params,
+        publicAccountCreationContext,
+      }),
+    );
+  }
+
+  @backgroundMethod()
+  @toastIfError()
   async addDefaultNetworkAccounts({
     walletId,
     indexedAccountId,
@@ -786,7 +825,9 @@ class ServiceBatchCreateAccount extends ServiceBase {
     isAutoCreateMultiNetwork,
     autoHandleExitError = true,
     hardwareOperationContext,
+    publicAccountCreationContext,
   }: {
+    publicAccountCreationContext?: IPublicAccountCreationContext;
     autoHandleExitError?: boolean;
     walletId: string | undefined;
     indexedAccountId: string | undefined;
@@ -842,6 +883,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
       }
 
       return this.startBatchCreateAccountsFlowForAllNetwork({
+        publicAccountCreationContext,
         walletId,
         fromIndex,
         toIndex,
@@ -1836,6 +1878,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
     isAutoCreateMultiNetwork,
     hardwareOperationContext,
     oneKeyOperationLease,
+    publicAccountCreationContext,
   }: IBatchBuildAccountsParams): Promise<{
     accountsForCreate: IBatchCreateAccount[];
   }> {
@@ -1929,6 +1972,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
           this.checkIfCancelled({ saveToDb, showUIProgress, errorMessage });
           const shouldEmitEvent = await this.shouldEmitAccountUpdateEvent();
           await this.backgroundApi.serviceAccount.addBatchCreatedHdOrHwAccount({
+            publicAccountCreationContext,
             walletId,
             networkId,
             account: accountForCreate,

@@ -1,4 +1,5 @@
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
+import { EPrimeCloudSyncDataType } from '@onekeyhq/shared/src/consts/primeConsts';
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 import type { ICloudPublicAccountSnapshot } from '@onekeyhq/shared/types/prime/publicAccountSnapshot';
 
@@ -128,6 +129,41 @@ function harness(wallets = [wallet()]) {
     },
   );
   const prepareAccounts = jest.fn();
+  const remove = jest.fn(
+    async ({
+      accounts,
+    }: Parameters<LocalDbBase['deletePublicCloudAccounts']>[0]) => {
+      let deleted = 0;
+      let unchanged = 0;
+      let conflicts = 0;
+      const appliedAccountIds: string[] = [];
+      const issueByAccountId: Record<string, 'conflicts'> = {};
+      for (const account of accounts) {
+        const existing = stored.get(account.id);
+        if (!existing) {
+          unchanged += 1;
+          appliedAccountIds.push(account.id);
+        } else if (publicAccountIdentityEqual(existing, account)) {
+          stored.delete(account.id);
+          deleted += 1;
+          appliedAccountIds.push(account.id);
+        } else {
+          conflicts += 1;
+          issueByAccountId[account.id] = 'conflicts';
+        }
+      }
+      return {
+        deleted,
+        added: 0,
+        unchanged,
+        pending: 0,
+        conflicts,
+        cancelled: false,
+        appliedAccountIds,
+        issueByAccountId,
+      };
+    },
+  );
   const getAddressesFromHd = jest.fn();
   const getHardwareSDK = jest.fn();
   const getCachedPassword = jest.fn();
@@ -163,6 +199,7 @@ function harness(wallets = [wallet()]) {
       getCredentialSafe,
       getDeviceSafe,
       importPublicCloudAccounts: write,
+      deletePublicCloudAccounts: remove,
     },
     serviceHardware: { getSDKInstance: getHardwareSDK },
     servicePassword: { getCachedPassword },
@@ -171,6 +208,7 @@ function harness(wallets = [wallet()]) {
     api,
     stored,
     write,
+    remove,
     getAllWallets,
     getCredentialSafe,
     getDeviceSafe,
@@ -187,6 +225,91 @@ function harness(wallets = [wallet()]) {
 describe('importPublicAccountSnapshots', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+  });
+
+  it.each([100, 1000])(
+    'deletes %i remote snapshots in bounded batches without discovering accounts or producing a copy',
+    async (count) => {
+      const h = harness();
+      const snapshots = Array.from({ length: count }, (_, index) =>
+        snapshot(index),
+      );
+      await importPublicAccountSnapshots({
+        backgroundApi: h.api,
+        snapshots,
+        isCurrent: () => true,
+      });
+      h.write.mockClear();
+      const sources = new Map(
+        snapshots.map((value) => {
+          const id = getPublicAccountSnapshotId(value);
+          return [
+            id,
+            {
+              id,
+              dataType: EPrimeCloudSyncDataType.Account,
+              data: 'public-test-ciphertext',
+              dataTime: 2,
+              pwdHash: 'public-test-cloud',
+              rawKey: '',
+              rawData: '',
+              isDeleted: true,
+              localSceneUpdated: false,
+              serverUploaded: true,
+            },
+          ] as const;
+        }),
+      );
+      const params = {
+        backgroundApi: h.api,
+        snapshots,
+        sourceItemsBySnapshotId: sources,
+        action: 'delete' as const,
+        isCurrent: () => true,
+      };
+      const result = await importPublicAccountSnapshots(params);
+      expect(result).toMatchObject({ deleted: count, added: 0, pending: 0 });
+      expect(h.remove).toHaveBeenCalledTimes(count / 50);
+      expect(
+        h.remove.mock.calls.every(
+          ([value]) =>
+            value.accounts.length <= 50 &&
+            value.sourceItemsByAccountId.size <= 50,
+        ),
+      ).toBe(true);
+      expect(h.write).not.toHaveBeenCalled();
+      expect(h.stored.size).toBe(0);
+      expect(h.prepareAccounts).not.toHaveBeenCalled();
+      expect(h.getHardwareSDK).not.toHaveBeenCalled();
+      expect((await importPublicAccountSnapshots(params)).unchanged).toBe(
+        count,
+      );
+    },
+  );
+
+  it('does not delete without an authenticated pool source and never discovers a missing wallet', async () => {
+    const h = harness();
+    const value = snapshot();
+    expect(
+      await importPublicAccountSnapshots({
+        backgroundApi: h.api,
+        snapshots: [value],
+        action: 'delete',
+        isCurrent: () => true,
+      }),
+    ).toMatchObject({ deleted: 0, pending: 1 });
+    expect(h.remove).not.toHaveBeenCalled();
+    const missing = harness([]);
+    expect(
+      await importPublicAccountSnapshots({
+        backgroundApi: missing.api,
+        snapshots: [value],
+        action: 'delete',
+        isCurrent: () => true,
+      }),
+    ).toMatchObject({ deleted: 0, pending: 1 });
+    expect(missing.getVault).not.toHaveBeenCalled();
+    expect(missing.getHardwareSDK).not.toHaveBeenCalled();
   });
 
   it.each([100, 1000])(

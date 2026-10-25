@@ -23,15 +23,27 @@ import {
 } from './publicAccountSnapshot';
 
 import type { IBackgroundApi } from '../../apis/IBackgroundApi';
-import type { IDBAccount, IDBWallet } from '../../dbs/local/types';
+import type {
+  IDBAccount,
+  IDBCloudSyncItem,
+  IDBWallet,
+} from '../../dbs/local/types';
 import type { VaultBase } from '../../vaults/base/VaultBase';
 import type { IAccountDeriveInfo } from '../../vaults/types';
 
 const BATCH_SIZE = 50;
 
-function emptyResult(): ICloudPublicAccountSnapshotResult {
+export type IPublicAccountSnapshotApplyResult =
+  ICloudPublicAccountSnapshotResult & {
+    deleted: number;
+    issuesBySnapshotId: Record<string, 'pending' | 'conflicts' | 'rejected'>;
+  };
+
+function emptyResult(): IPublicAccountSnapshotApplyResult {
   return {
     added: 0,
+    deleted: 0,
+    issuesBySnapshotId: {},
     unchanged: 0,
     pending: 0,
     conflicts: 0,
@@ -146,12 +158,22 @@ export async function importPublicAccountSnapshots({
   backgroundApi,
   snapshots,
   isCurrent,
+  sourceItemsBySnapshotId,
+  action = 'copy',
 }: {
   backgroundApi: IBackgroundApi;
   snapshots: readonly unknown[];
   isCurrent: () => boolean;
-}): Promise<ICloudPublicAccountSnapshotResult> {
+  sourceItemsBySnapshotId?: ReadonlyMap<string, IDBCloudSyncItem>;
+  action?: 'copy' | 'delete';
+}): Promise<IPublicAccountSnapshotApplyResult> {
   const result = emptyResult();
+  const recordIssue = (
+    snapshot: ICloudPublicAccountSnapshot,
+    issue: 'pending' | 'conflicts' | 'rejected',
+  ) => {
+    result.issuesBySnapshotId[getPublicAccountSnapshotId(snapshot)] = issue;
+  };
   if (!isCurrent()) return { ...result, cancelled: true };
   const { localDb } = backgroundApi;
   const { wallets } = await localDb.getAllWallets();
@@ -226,6 +248,7 @@ export async function importPublicAccountSnapshots({
           ) || [];
         if (matches.length !== 1) {
           result.pending += 1;
+          recordIssue(snapshot, 'pending');
           return;
         }
         const wallet = matches[0];
@@ -241,13 +264,14 @@ export async function importPublicAccountSnapshots({
       }: {
         wallet: IDBWallet;
         snapshots: ICloudPublicAccountSnapshot[];
-      }): Promise<ICloudPublicAccountSnapshotResult | undefined> => {
+      }): Promise<IPublicAccountSnapshotApplyResult | undefined> => {
         if (!isCurrent()) return { ...result, cancelled: true };
         const first = group[0];
         const context = await getContext(wallet, first.wallet.kind);
         if (!isCurrent()) return { ...result, cancelled: true };
         if (!context.ready) {
           result.pending += group.length;
+          group.forEach((snapshot) => recordIssue(snapshot, 'pending'));
           return undefined;
         }
         const { credential } = context;
@@ -272,10 +296,12 @@ export async function importPublicAccountSnapshots({
           }
         } catch (_error) {
           result.pending += group.length;
+          group.forEach((snapshot) => recordIssue(snapshot, 'pending'));
           return undefined;
         }
         if (!deriveInfo) {
           result.pending += group.length;
+          group.forEach((snapshot) => recordIssue(snapshot, 'pending'));
           return undefined;
         }
 
@@ -299,6 +325,7 @@ export async function importPublicAccountSnapshots({
               const previous = valid.find((item) => item.id === account.id);
               if (conflictingIds.has(account.id)) {
                 result.conflicts += 1;
+                recordIssue(snapshot, 'conflicts');
               } else if (
                 previous &&
                 !publicAccountIdentityEqual(previous, account)
@@ -306,15 +333,25 @@ export async function importPublicAccountSnapshots({
                 conflictingIds.add(account.id);
                 result.conflicts +=
                   valid.filter((item) => item.id === account.id).length + 1;
+                recordIssue(snapshot, 'conflicts');
+                validSnapshots
+                  .filter(
+                    (value) =>
+                      publicAccountSnapshotToAccount(value, wallet.id).id ===
+                      account.id,
+                  )
+                  .forEach((value) => recordIssue(value, 'conflicts'));
               } else {
                 valid.push(account);
                 validSnapshots.push(snapshot);
               }
             } else if (isCurrent()) {
               result.rejected += 1;
+              recordIssue(snapshot, 'rejected');
             }
           } catch (_error) {
             result.pending += 1;
+            recordIssue(snapshot, 'pending');
           }
           if (!isCurrent()) return { ...result, cancelled: true };
         }
@@ -324,7 +361,22 @@ export async function importPublicAccountSnapshots({
           (account) => !conflictingIds.has(account.id),
         );
         if (candidates.length) {
-          const imported = await localDb.importPublicCloudAccounts({
+          const sourceItemsByAccountId =
+            sourceItemsBySnapshotId &&
+            new Map(
+              validSnapshots
+                .map((snapshot) => [
+                  publicAccountSnapshotToAccount(snapshot, wallet.id).id,
+                  sourceItemsBySnapshotId.get(
+                    getPublicAccountSnapshotId(snapshot),
+                  ),
+                ])
+                .filter(
+                  (entry): entry is [string, IDBCloudSyncItem] =>
+                    typeof entry[0] === 'string' && !!entry[1],
+                ),
+            );
+          const params = {
             walletId: wallet.id,
             expectedWallet: {
               ...first.wallet,
@@ -333,9 +385,25 @@ export async function importPublicAccountSnapshots({
             },
             expectedCredential: credential,
             accounts: candidates,
+            sourceItemsByAccountId,
             isCurrent,
-          });
+          };
+          if (action === 'delete' && !sourceItemsByAccountId) {
+            result.pending += candidates.length;
+            validSnapshots.forEach((snapshot) =>
+              recordIssue(snapshot, 'pending'),
+            );
+            return undefined;
+          }
+          const imported =
+            action === 'delete'
+              ? await localDb.deletePublicCloudAccounts({
+                  ...params,
+                  sourceItemsByAccountId: sourceItemsByAccountId ?? new Map(),
+                })
+              : await localDb.importPublicCloudAccounts(params);
           result.added += imported.added;
+          result.deleted += imported.deleted ?? 0;
           result.unchanged += imported.unchanged;
           result.pending += imported.pending;
           result.conflicts += imported.conflicts;
@@ -347,6 +415,14 @@ export async function importPublicAccountSnapshots({
             ) {
               result.appliedSnapshotIds.push(
                 getPublicAccountSnapshotId(snapshot),
+              );
+              delete result.issuesBySnapshotId[
+                getPublicAccountSnapshotId(snapshot)
+              ];
+            } else if (!conflictingIds.has(account.id)) {
+              recordIssue(
+                snapshot,
+                imported.issueByAccountId?.[account.id] ?? 'pending',
               );
             }
           }

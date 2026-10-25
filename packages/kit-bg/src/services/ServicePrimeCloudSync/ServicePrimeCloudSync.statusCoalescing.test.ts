@@ -40,7 +40,7 @@ jest.mock('../ServiceBase', () => ({
 
 jest.mock('../../states/jotai/atoms', () => ({
   primeCloudSyncPersistAtom: {
-    get: jest.fn(),
+    get: jest.fn(async () => ({})),
     set: jest.fn(),
   },
   addressBookPersistAtom: {},
@@ -155,7 +155,12 @@ function harness() {
     masterPasswordUUID: 'owner-A',
   };
   const service = new ServicePrimeCloudSync({
-    backgroundApi: { serviceKeylessCloudSync: { runWithCloudSyncKeyLock } },
+    backgroundApi: {
+      serviceKeylessCloudSync: {
+        runWithCloudSyncKeyLock,
+        getCloudAccountImportGeneration: () => 0,
+      },
+    },
   });
   const available = jest
     .spyOn(service, 'isCloudSyncIsAvailable')
@@ -172,7 +177,7 @@ function harness() {
   jest.spyOn(service, 'getCloudSyncDataTime').mockResolvedValue(10);
   jest.spyOn(service, 'updateLastSyncTime').mockResolvedValue(undefined);
   const status = jest
-    .spyOn(service, 'apiCheckServerStatus')
+    .spyOn(service, 'checkServerStatusWithRequestOptions')
     .mockImplementation(async ({ localItems = [] } = {}) => ({
       obsoleted: localItems.map((record) => record.id),
       diff: [],
@@ -233,7 +238,7 @@ describe('ServicePrimeCloudSync per-record status coalescing', () => {
     ).toEqual(['allowed']);
   });
 
-  test('1000 record hooks make one status union and twenty existing bounded uploads', async () => {
+  test('1000 concurrent hooks hit the threshold with one drain and twenty bounded uploads', async () => {
     const { service, status, upload, sourceMutex, runWithCloudSyncKeyLock } =
       harness();
     const entry = jest.spyOn(service, 'startServerSyncFlowForItems');
@@ -249,9 +254,9 @@ describe('ServicePrimeCloudSync per-record status coalescing', () => {
         }),
       ),
     );
-    await jest.advanceTimersByTimeAsync(999);
-    expect(status).not.toHaveBeenCalled();
-    await jest.advanceTimersByTimeAsync(1);
+    await jest.advanceTimersByTimeAsync(0);
+    expect(status).toHaveBeenCalledTimes(1);
+    await jest.advanceTimersByTimeAsync(1000);
     expect(status).toHaveBeenCalledTimes(1);
     expect(status.mock.calls[0][0]?.localItems).toHaveLength(1000);
     expect(upload).toHaveBeenCalledTimes(20);
@@ -261,6 +266,39 @@ describe('ServicePrimeCloudSync per-record status coalescing', () => {
     expect(runWithCloudSyncKeyLock).toHaveBeenCalledTimes(1);
     expect(entry).toHaveBeenCalledTimes(1000);
     expect(sourceMutex.isLocked()).toBe(false);
+  });
+
+  test('continuous writes cannot starve the five-second max wait', async () => {
+    const { service, status } = harness();
+    for (let index = 0; index < 6; index += 1) {
+      await service.startServerSyncFlowForItems({
+        localItems: [item(`continuous-${index}`)],
+      });
+      await jest.advanceTimersByTimeAsync(900);
+    }
+    expect(status).toHaveBeenCalledTimes(1);
+    expect(status.mock.calls[0][0]?.localItems).toHaveLength(6);
+    await service.startServerSyncFlowForItems({ localItems: [item('after')] });
+    await jest.advanceTimersByTimeAsync(1000);
+    expect(status).toHaveBeenCalledTimes(2);
+  });
+
+  test('threshold triggers share one queued source lock while another task holds it', async () => {
+    const { service, sourceMutex, status, runWithCloudSyncKeyLock } = harness();
+    const [, release] = await sourceMutex.acquire();
+    await Promise.all(
+      Array.from({ length: 1000 }, (_, index) =>
+        service.startServerSyncFlowForItems({
+          localItems: [item(`held-${index}`)],
+        }),
+      ),
+    );
+    expect(runWithCloudSyncKeyLock).toHaveBeenCalledTimes(1);
+    expect(status).not.toHaveBeenCalled();
+    release();
+    await jest.advanceTimersByTimeAsync(0);
+    expect(status).toHaveBeenCalledTimes(1);
+    expect(status.mock.calls[0][0]?.localItems).toHaveLength(1000);
   });
 
   test('latest same-ID write wins before status and upload', async () => {
@@ -327,6 +365,100 @@ describe('ServicePrimeCloudSync per-record status coalescing', () => {
     await service._drainServerSyncFlowForItems();
     expect(status).toHaveBeenCalledTimes(1);
     expect(status.mock.calls[0][0]?.localItems).toEqual([record]);
+  });
+
+  test('cancels an in-flight status request and rejects a transport that returns late', async () => {
+    const { service, status, upload } = harness();
+    const network = deferred<ICloudSyncCheckServerStatusResult>();
+    const started = deferred<void>();
+    status.mockImplementationOnce(async () => {
+      started.resolve();
+      return network.promise;
+    });
+    const save = jest.spyOn(service, 'saveServerSyncItemsToLocal');
+    const remove = jest.spyOn(service, 'saveServerDeletedItemsToLocal');
+    const record = item('late-status');
+    await service.startServerSyncFlowForItems({ localItems: [record] });
+    service._startServerSyncFlowForItemsDebounced.cancel();
+    const drain = service._drainServerSyncFlowForItems();
+    await started.promise;
+    const signal = status.mock.calls[0][1]?.signal;
+    expect(signal?.aborted).toBe(false);
+    await service.cancelPublicAccountSnapshotImport();
+    expect(signal?.aborted).toBe(true);
+    network.resolve({
+      obsoleted: [record.id],
+      diff: [],
+      updated: [],
+      deleted: [record.id],
+      pwdHash: 'owner-A',
+      serverTime: 10,
+    });
+    await expect(drain).rejects.toThrow('cancelled');
+    expect(upload).not.toHaveBeenCalled();
+    expect(save).not.toHaveBeenCalled();
+    expect(remove).not.toHaveBeenCalled();
+    await jest.advanceTimersByTimeAsync(5000);
+    expect(status).toHaveBeenCalledTimes(1);
+    await service._drainServerSyncFlowForItems();
+    expect(status).toHaveBeenCalledTimes(2);
+    expect(upload).toHaveBeenCalledTimes(1);
+    expect(record.serverUploaded).toBe(false);
+  });
+
+  test('cancels an in-flight upload before any late server updates are applied', async () => {
+    const { service, status, upload } = harness();
+    const network = deferred<{
+      nonce: number;
+      created: number;
+      updated: number;
+    }>();
+    const started = deferred<void>();
+    upload.mockImplementationOnce(async () => {
+      started.resolve();
+      return network.promise;
+    });
+    const remove = jest.spyOn(service, 'saveServerDeletedItemsToLocal');
+    status.mockResolvedValueOnce({
+      obsoleted: ['late-upload'],
+      diff: [],
+      updated: [],
+      deleted: ['late-upload'],
+      pwdHash: 'owner-A',
+      serverTime: 10,
+    });
+    await service.startServerSyncFlowForItems({
+      localItems: [item('late-upload')],
+    });
+    service._startServerSyncFlowForItemsDebounced.cancel();
+    const drain = service._drainServerSyncFlowForItems();
+    await started.promise;
+    const signal = upload.mock.calls[0][0].requestOptions?.signal;
+    expect(signal?.aborted).toBe(false);
+    await service.cancelPublicAccountSnapshotImport();
+    expect(signal?.aborted).toBe(true);
+    network.resolve({ nonce: 1, created: 1, updated: 0 });
+    await expect(drain).rejects.toThrow('cancelled');
+    expect(remove).not.toHaveBeenCalled();
+    await jest.advanceTimersByTimeAsync(5000);
+    expect(status).toHaveBeenCalledTimes(1);
+  });
+
+  test('a cancelled queued drain cannot start later under a new generation', async () => {
+    const { service, status, upload, sourceMutex } = harness();
+    const [, release] = await sourceMutex.acquire();
+    await service.startServerSyncFlowForItems({
+      localItems: [item('queued-cancel')],
+    });
+    service._startServerSyncFlowForItemsDebounced.cancel();
+    const drain = service._drainServerSyncFlowForItems();
+    await service.cancelPublicAccountSnapshotImport();
+    release();
+    await drain;
+    expect(status).not.toHaveBeenCalled();
+    expect(upload).not.toHaveBeenCalled();
+    await service._drainServerSyncFlowForItems();
+    expect(status).toHaveBeenCalledTimes(1);
   });
 
   test('failed status restores its records for retry without repeating the public enqueue path', async () => {

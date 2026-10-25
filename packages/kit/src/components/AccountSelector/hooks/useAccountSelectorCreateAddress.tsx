@@ -152,13 +152,15 @@ export function useAccountSelectorCreateAddress() {
         // If indexedAccountId is empty, create the first account (index 0) for all networks
         const indexes = account?.indexedAccountId ? undefined : [0];
         const result =
-          await serviceBatchCreateAccount.addDefaultNetworkAccounts({
-            walletId: account?.walletId,
-            indexedAccountId: account?.indexedAccountId,
-            indexes,
-            customNetworks,
-            ...hwUiControlParams,
-          });
+          await serviceBatchCreateAccount.addDefaultNetworkAccountsForUserCreation(
+            {
+              walletId: account?.walletId,
+              indexedAccountId: account?.indexedAccountId,
+              indexes,
+              customNetworks,
+              ...hwUiControlParams,
+            },
+          );
         if (
           result &&
           result?.failedAccounts?.length &&
@@ -267,7 +269,7 @@ export function useAccountSelectorCreateAddress() {
           }
           // If indexedAccountId is empty, create the first account (index 0)
           const indexes = account?.indexedAccountId ? undefined : [0];
-          const result = await serviceAccount.addHDOrHWAccounts({
+          const result = await serviceAccount.addHDOrHWAccountsForUserCreation({
             walletId: account?.walletId,
             indexedAccountId: account?.indexedAccountId,
             networkId: account?.networkId,

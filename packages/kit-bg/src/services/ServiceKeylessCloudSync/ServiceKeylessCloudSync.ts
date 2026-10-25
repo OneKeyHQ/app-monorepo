@@ -400,8 +400,10 @@ class ServiceKeylessCloudSync extends ServiceBase {
 
   async apiCheckServerStatusKeyless({
     postData,
+    requestOptions,
   }: {
     postData: ICloudSyncCheckServerStatusPostData;
+    requestOptions?: { signal?: AbortSignal; timeout?: number };
   }) {
     const auth = await this.getKeylessSyncAuth({
       postData,
@@ -416,6 +418,7 @@ class ServiceKeylessCloudSync extends ServiceBase {
       client,
       signatureHeader: auth.signatureHeader,
       postData: auth.fullPostData,
+      requestOptions,
     });
     return {
       response,
@@ -451,9 +454,11 @@ class ServiceKeylessCloudSync extends ServiceBase {
   async apiUploadItemsKeyless({
     postData,
     urlPath,
+    requestOptions,
   }: {
     postData: ICloudSyncUploadPostData;
     urlPath: string;
+    requestOptions?: { signal?: AbortSignal; timeout?: number };
   }) {
     const auth = await this.getKeylessSyncAuth({
       postData,
@@ -469,6 +474,7 @@ class ServiceKeylessCloudSync extends ServiceBase {
       signatureHeader: auth.signatureHeader,
       postData: auth.fullPostData,
       urlPath,
+      requestOptions,
     });
     return response.data.data;
   }
