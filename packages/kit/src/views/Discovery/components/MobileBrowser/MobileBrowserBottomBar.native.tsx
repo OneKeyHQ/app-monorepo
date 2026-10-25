@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo, useState } from 'react';
+import { type ComponentProps, memo, useCallback, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 import { StyleSheet, View } from 'react-native';
@@ -61,7 +61,6 @@ import { useMobileBrowserOptions } from './useMobileBrowserOptions';
 
 import type { ICapsuleFade } from './BrowserChromeCapsule';
 import type { IMobileBrowserBottomBarProps } from './useMobileBrowserBottomBarData';
-import type { StyleProp, ViewStyle } from 'react-native';
 import type { SharedValue } from 'react-native-reanimated';
 
 const styles = StyleSheet.create({
@@ -247,7 +246,7 @@ function CollapsedAddressPill({
 }: {
   url?: string;
   onPress?: () => void;
-  domainStyle: StyleProp<ViewStyle>;
+  domainStyle: ComponentProps<typeof Animated.View>['style'];
   onWidth: (width: number) => void;
 }) {
   const hostname = useMemo(() => getDisplayHostname(url), [url]);

@@ -1,14 +1,8 @@
-import { memo, useEffect, useMemo, useState } from 'react';
+import { type ComponentProps, memo, useEffect, useMemo, useState } from 'react';
 
 import MaskedView from '@react-native-masked-view/masked-view';
 import { useIntl } from 'react-intl';
-import {
-  type LayoutChangeEvent,
-  type StyleProp,
-  StyleSheet,
-  View,
-  type ViewStyle,
-} from 'react-native';
+import { type LayoutChangeEvent, StyleSheet, View } from 'react-native';
 import Animated from 'react-native-reanimated';
 
 import {
@@ -269,8 +263,8 @@ function AddressCapsuleTitleComponent({
   capsuleWidth?: number;
   // The bar's morph fades the badge with the capsule, but swaps the domain
   // with the collapsed pill's (see MobileBrowserBottomBar).
-  badgeStyle?: StyleProp<ViewStyle>;
-  domainStyle?: StyleProp<ViewStyle>;
+  badgeStyle?: ComponentProps<typeof Animated.View>['style'];
+  domainStyle?: ComponentProps<typeof Animated.View>['style'];
 }) {
   const intl = useIntl();
   const hostname = useMemo(() => getDisplayHostname(url), [url]);
