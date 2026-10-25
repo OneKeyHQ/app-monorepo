@@ -1,10 +1,11 @@
 import type { PropsWithChildren } from 'react';
 
 import { StyleSheet } from 'react-native';
+import { useAnimatedProps } from 'react-native-reanimated';
 
 import {
+  AnimatedGlassView,
   GlassHeaderProvider,
-  GlassView,
   Stack,
   XStack,
   isLiquidGlassAvailable,
@@ -12,8 +13,6 @@ import {
 import type { IXStackProps } from '@onekeyhq/components';
 
 import { BROWSER_CHROME_CAPSULE_HEIGHT } from '../../config/Animation.constants';
-
-import { useIsProgressPast } from './browserChrome';
 
 import type { SharedValue } from 'react-native-reanimated';
 
@@ -30,10 +29,12 @@ type IBrowserChromeCapsuleProps = PropsWithChildren<{
 }>;
 
 // Where a caller's opacity fade on the capsule reaches 0: below `edge` or
-// above it, on `progress`. Glass under an ancestor at opacity 0 stops
-// rendering and doesn't come back, so the glass is switched off just before
-// the fade hits 0 (the approach Expo documents for fading glass). Kept inside
-// the capsule so crossing the edge re-renders only this capsule.
+// above it, on `progress`. Glass that fades to opacity 0 under its parent
+// stops rendering, and can leave later glass under that parent broken too
+// (expo/expo#50097, #41024), so the glass is switched off just before the
+// fade hits 0 (Expo's documented workaround). The switch runs on the UI
+// thread with the fade itself: a JS state round trip can land after a fast
+// reversal has already taken the opacity to 0.
 export interface IGlassFade {
   progress: SharedValue<number>;
   edge: number;
@@ -54,13 +55,20 @@ export function BrowserChromeCapsule({
   px = '$1',
   glassFade,
 }: IBrowserChromeCapsuleProps) {
-  const glassHidden = useIsProgressPast(
-    glassFade?.progress,
-    glassFade?.direction === 'above'
-      ? (glassFade?.edge ?? 0) - GLASS_OFF_MARGIN
-      : (glassFade?.edge ?? 0) + GLASS_OFF_MARGIN,
-    glassFade?.direction,
-  );
+  const fadeProgress = glassFade?.progress;
+  const fadeEdge = glassFade?.edge ?? 0;
+  const fadeAbove = glassFade?.direction === 'above';
+  const glassAnimatedProps = useAnimatedProps(() => {
+    let hidden = false;
+    if (fadeProgress) {
+      hidden = fadeAbove
+        ? fadeProgress.value > fadeEdge - GLASS_OFF_MARGIN
+        : fadeProgress.value < fadeEdge + GLASS_OFF_MARGIN;
+    }
+    return {
+      glassEffectStyle: hidden ? ('none' as const) : ('regular' as const),
+    };
+  }, [fadeProgress, fadeEdge, fadeAbove]);
   const content = (
     <GlassHeaderProvider>
       <XStack
@@ -78,13 +86,13 @@ export function BrowserChromeCapsule({
 
   if (isLiquidGlassAvailable()) {
     return (
-      <GlassView
+      <AnimatedGlassView
         isInteractive
-        glassEffectStyle={glassHidden ? 'none' : 'regular'}
+        animatedProps={glassAnimatedProps}
         style={flex ? [styles.glass, { flex }] : styles.glass}
       >
         {content}
-      </GlassView>
+      </AnimatedGlassView>
     );
   }
   // A column container like GlassView, so the inner row stretches to the
