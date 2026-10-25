@@ -31,8 +31,8 @@ export const showTabBar = () => {
 export const useNotifyTabBarDisplay = isNative
   ? (isActive: boolean) => {
       const isFocused = useIsFocused({ disableLockScreenCheck: true });
-      // A modal on top (search, tab list, account selector...) unfocuses the
-      // browser screen. Keep the tab bar hidden then: otherwise it pops up
+      // A modal on top (search, tab list, account selector...) takes focus from
+      // the browser screen. Keep the tab bar hidden then: otherwise it pops up
       // behind the modal for a moment (e.g. when tapping the address bar).
       const [isCoveredByModal, setIsCoveredByModal] = useState(false);
       useListenTabFocusState(

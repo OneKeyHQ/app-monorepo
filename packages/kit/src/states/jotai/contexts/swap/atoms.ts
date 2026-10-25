@@ -561,6 +561,14 @@ export const {
   to: false,
 });
 
+export const {
+  atom: swapSelectedTokenBalanceRefreshRequestedAtom,
+  use: useSwapSelectedTokenBalanceRefreshRequestedAtom,
+} = contextAtom<Record<ESwapDirectionType, boolean>>({
+  from: false,
+  to: false,
+});
+
 // Bookkeeping for the stored From/To balance: which token + account it was
 // fetched for (see buildSwapBalanceOwner in swapBalanceOwnerUtils), and whether
 // the stored figure is only a fallback (the fetch failed, or the response
