@@ -17,7 +17,6 @@ import Animated, {
 import {
   GlassView,
   IconButton,
-  LinearGradient,
   SizableText,
   Stack,
   Theme,
@@ -35,7 +34,7 @@ import {
 } from '../../config/Animation.constants';
 import { TranslatePopoverTrigger } from '../../hooks/usePageTranslation';
 import { DiscoveryTestIDs } from '../../testIDs';
-import { usePageTheme, withAlpha } from '../../utils/pageThemeColor';
+import { usePageTheme } from '../../utils/pageThemeColor';
 
 import {
   AddressCapsuleTitle,
@@ -103,7 +102,6 @@ const styles = StyleSheet.create({
   glassFill: { flex: 1, borderRadius: PILL_RADIUS },
 });
 
-const STRIP_FADE_HEIGHT = 16;
 // Grows the 30pt pill's tap area to the bar capsule's height, and over its
 // side padding.
 const PILL_HIT_SLOP = {
@@ -473,18 +471,8 @@ function MobileBrowserBottomBar({ id, chrome }: IMobileBrowserBottomBarProps) {
           style={[styles.strip, { height: stripFullHeight }, stripStyle]}
         >
           {/* The WebView ends above the bar: the strip behind the bar takes
-            the page color, with a short fade above it so the page runs
-            into the bar instead of stopping at a hard edge. */}
-          {pageColor ? (
-            <LinearGradient
-              position="absolute"
-              left={0}
-              right={0}
-              top={-STRIP_FADE_HEIGHT}
-              height={STRIP_FADE_HEIGHT}
-              colors={[withAlpha(pageColor, 0), pageColor]}
-            />
-          ) : null}
+            the page color. No fade above it: a plain alpha fade (no blur)
+            over page content of another color reads as a muddy band. */}
           <Stack flex={1} bg="$bgApp" style={pageColorStyle} />
         </Animated.View>
         <MorphingAddressBackground
