@@ -166,24 +166,16 @@ function useMobileBrowserChromeAnimation() {
     transform: [
       {
         translateY:
-          BROWSER_HEADER_HEIGHT *
-          (chromeProgress.value - layoutExpanded.value),
+          BROWSER_HEADER_HEIGHT * (chromeProgress.value - layoutExpanded.value),
       },
     ],
   }));
-  // Phone layout: the WebView ends above the bar (above the collapsed
-  // pill's strip once collapsed), so the chrome never covers page content.
-  // During a morph the part passing behind the bar is hidden by the bar's
-  // page-colored strip.
-  const webPageAnimatedStyle = useAnimatedStyle(() => ({
+  // Phone layout (used with webPageShiftStyle): the WebView ends above the
+  // bar (above the collapsed pill's strip once collapsed), so the chrome
+  // never covers page content. During a morph the part passing behind the
+  // bar is hidden by the bar's page-colored strip.
+  const webPageBottomStyle = useAnimatedStyle(() => ({
     bottom: layoutExpanded.value ? fullBarHeight : collapsedBarHeight,
-    transform: [
-      {
-        translateY:
-          BROWSER_HEADER_HEIGHT *
-          (chromeProgress.value - layoutExpanded.value),
-      },
-    ],
   }));
 
   return {
@@ -193,7 +185,7 @@ function useMobileBrowserChromeAnimation() {
     layoutExpanded,
     toolbarAnimatedStyle,
     toolbarOverlayStyle,
-    webPageAnimatedStyle,
+    webPageBottomStyle,
     webPageShiftStyle,
   };
 }

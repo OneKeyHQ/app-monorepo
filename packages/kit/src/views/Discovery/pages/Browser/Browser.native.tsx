@@ -274,7 +274,7 @@ function MobileBrowser() {
     layoutExpanded,
     toolbarAnimatedStyle,
     toolbarOverlayStyle,
-    webPageAnimatedStyle,
+    webPageBottomStyle,
     webPageShiftStyle,
   } = useMobileBrowserChromeAnimation();
   useDAppNotifyChanges({ tabId: activeTabId });
@@ -683,7 +683,11 @@ function MobileBrowser() {
                             ? 'auto'
                             : 'no-hide-descendants'
                         }
-                        style={[styles.webPageLayer, webPageAnimatedStyle]}
+                        style={[
+                          styles.webPageLayer,
+                          webPageBottomStyle,
+                          webPageShiftStyle,
+                        ]}
                       >
                         <Freeze freeze={showDiscoveryPage}>{content}</Freeze>
                       </Animated.View>
@@ -704,7 +708,8 @@ function MobileBrowser() {
                 }
                 style={[
                   styles.webPageRootLayer,
-                  webPageAnimatedStyle,
+                  webPageBottomStyle,
+                  webPageShiftStyle,
                   shouldShowRootWebPageLayer
                     ? styles.iosWebPageRootLayerVisible
                     : styles.iosWebPageRootLayerHidden,

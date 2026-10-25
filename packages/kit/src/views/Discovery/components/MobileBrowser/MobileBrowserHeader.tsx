@@ -175,13 +175,10 @@ function HeaderChip({
 
 // The address lives in the bottom bar, so the header only keeps exit (back to
 // the wallet, tabs kept) and the account. It collapses fully on scroll down.
-// Once settled the page starts below it rather than under it: dApps
-// commonly pin a fixed header with their Connect button at the top, which a
-// floating header would cover. While it moves, though, the row is an overlay
-// that only slides, and its room in the layout follows layoutExpanded (it
-// changes once per collapse or expand); the page follows the row with a
-// transform (see useMobileBrowserChromeAnimation), so nothing is laid out
-// again on every frame.
+// Once settled the page starts below it, not under it: dApps commonly pin a
+// fixed header with their Connect button at the top. While it moves, the row
+// is an overlay that only slides; its room in the layout follows
+// layoutExpanded (see useMobileBrowserChromeAnimation).
 function MobileBrowserHeader({
   chrome,
   onGoBackHome,
@@ -190,10 +187,10 @@ function MobileBrowserHeader({
   const { progress, layoutExpanded } = chrome;
   const isCollapsed = useIsChromeCollapsed(progress);
   // The row fades out in the first half of a collapse while it slides up
-  // under the status bar. iOS 26: the exit
-  // button and the account chip are Liquid Glass capsules, like the bottom
-  // bar; glass must not sit under a fading parent, so there the row only
-  // slides and each capsule fades its own glass and contents (same range).
+  // under the status bar. iOS 26: the exit button and the account chip are
+  // Liquid Glass capsules, like the bottom bar; glass must not sit under a
+  // fading parent, so there the row only slides and each capsule fades its
+  // own glass and contents (same range).
   const isGlass = isLiquidGlassAvailable();
   const fade = useMemo<ICapsuleFade>(
     () => ({ progress, range: [BROWSER_CHROME_CROSSFADE_POINT, 1] }),
@@ -219,6 +216,7 @@ function MobileBrowserHeader({
   // hue instead of a fixed gray that clashes with colored pages. Light
   // backgrounds need a stronger fill than dark ones to read as clearly.
   const chromeThemeName = pageThemeName ?? appThemeName;
+  const pageColorStyle = pageColor ? { backgroundColor: pageColor } : undefined;
   const accountChipBg =
     chromeThemeName === 'dark' ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.06)';
 
@@ -248,22 +246,14 @@ function MobileBrowserHeader({
         bg="$bgApp"
         // Above the page, so a pressed glass capsule's growth isn't covered.
         zIndex={1}
-        style={pageColor ? { backgroundColor: pageColor } : undefined}
+        style={pageColorStyle}
       >
         <Animated.View style={spacerStyle} />
         <Animated.View
           pointerEvents={isCollapsed ? 'none' : 'box-none'}
           style={[styles.overlay, { top }, rowSlideStyle, rowFadeStyle]}
         >
-          <Stack
-            position="absolute"
-            top={0}
-            right={0}
-            bottom={0}
-            left={0}
-            bg="$bgApp"
-            style={pageColor ? { backgroundColor: pageColor } : undefined}
-          />
+          <Stack fullscreen bg="$bgApp" style={pageColorStyle} />
           {/* Tighter than the bottom bar, like a navigation bar: the exit
               glyph (or its glass circle) and the chip's right edge sit 16pt
               from the screen edges, in line with typical page content. */}

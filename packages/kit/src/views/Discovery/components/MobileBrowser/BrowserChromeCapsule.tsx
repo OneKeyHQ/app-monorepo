@@ -64,7 +64,7 @@ type IBrowserChromeCapsuleProps = PropsWithChildren<{
   px?: IXStackProps['px'];
   fade?: ICapsuleFade;
   // Off for contents laid over a background drawn elsewhere (the bar's
-  // morphing address background).
+  // morphing address background); `fade` is ignored then.
   background?: boolean;
   // Defaults to a full pill; a chip hosting a square-ish item (the account
   // avatar) uses a concentric radius instead.
