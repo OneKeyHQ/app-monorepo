@@ -141,6 +141,12 @@ type IBannerArtworkState = {
   status: 'displayed' | 'failed' | 'slow';
 };
 
+// Artwork already shown in this runtime shows at once when a card mounts
+// again: the carousel remounts its pages when its height changes (the hero
+// beside it growing or shrinking) and clones its edge pages to loop, and a
+// fresh card would hide its copy until the cached image reported in
+const displayedArtwork = new Set<string>();
+
 // iOS has no balanced line breaking, so wrapped copy can end on a lone word
 // ("…APR with / Bitway"). A no-break space between the last two words moves
 // the break one word earlier. CJK copy and ops-forced newlines keep their own
@@ -242,9 +248,14 @@ function EarnHomeBannerItem({
   // Keyed by URL so a refreshed list that swaps the artwork starts loading
   // again instead of inheriting the old image's state.
   const [artwork, setArtwork] = useState<IBannerArtworkState>();
-  const artworkStatus =
-    artwork?.uri === item.backgroundImage ? artwork.status : 'loading';
+  let artworkStatus: IBannerArtworkState['status'] | 'loading' = 'loading';
+  if (artwork?.uri === item.backgroundImage) {
+    artworkStatus = artwork.status;
+  } else if (displayedArtwork.has(item.backgroundImage)) {
+    artworkStatus = 'displayed';
+  }
   const handleArtworkDisplay = useCallback(() => {
+    displayedArtwork.add(item.backgroundImage);
     setArtwork((current) =>
       current?.uri === item.backgroundImage && current.status === 'displayed'
         ? current
