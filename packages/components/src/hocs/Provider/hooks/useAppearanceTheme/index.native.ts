@@ -15,8 +15,11 @@ import type {
   IUseAppearanceTheme,
 } from './type';
 
-const appGround = (variant: 'light' | 'dark') =>
-  getTokenValue(variant === 'dark' ? '$bgAppDark' : '$bgAppLight', 'color');
+const appGround = (variant: 'light' | 'dark'): string =>
+  getTokenValue(
+    variant === 'dark' ? '$bgAppDark' : '$bgAppLight',
+    'color',
+  ) as string;
 
 const setDarkContent = (color?: string, isAnimated = true) => {
   StatusBar.setBarStyle('light-content', isAnimated);
@@ -82,7 +85,7 @@ function applySystemBars() {
   // also carries the iOS user-interface-style side effect).
   if (override) {
     updateRootViewBackgroundColor(
-      (override.color ?? appGround(override.variant)) as string,
+      override.color ?? appGround(override.variant),
       override.variant,
       appRootViewBackground?.themeSetting,
     );
