@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { Alert, Button, SizableText, Stack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -10,7 +10,10 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 export function HardwareCloudSyncKeySection() {
   const [config] = usePrimeCloudSyncPersistAtom();
   const [pending, setPending] = useState(false);
+  const [requiresHardware, setRequiresHardware] = useState(false);
   const source = config.hardwareCloudSyncKeySource;
+  const sourceIdRef = useRef(source?.credentialId);
+  sourceIdRef.current = source?.credentialId;
   const { result: wallets = [] } = usePromiseResult(
     () =>
       backgroundApiProxy.serviceKeylessCloudSync.getHardwareCloudSyncCandidates(),
@@ -22,6 +25,10 @@ export function HardwareCloudSyncKeySection() {
     },
     [],
   );
+
+  useEffect(() => {
+    setRequiresHardware(false);
+  }, [source?.credentialId]);
 
   if (!platformEnv.isDev && !source) return null;
   return (
@@ -35,6 +42,42 @@ export function HardwareCloudSyncKeySection() {
       {source ? (
         <>
           <SizableText>Standard hardware wallet selected</SizableText>
+          {platformEnv.isDev && !config.isCloudSyncEnabledKeyless ? (
+            <Button
+              testID="cloud-hardware-key-resume"
+              disabled={pending}
+              loading={pending}
+              onPress={async () => {
+                setPending(true);
+                setRequiresHardware(false);
+                try {
+                  const result =
+                    await backgroundApiProxy.serviceKeylessCloudSync.toggleCloudSyncKeyless(
+                      {
+                        enabled: true,
+                        expectedHardwareCloudKeySourceId: source.credentialId,
+                      },
+                    );
+                  if (sourceIdRef.current === source.credentialId) {
+                    setRequiresHardware(
+                      !!result && result.requiresHardware === true,
+                    );
+                  }
+                } finally {
+                  setPending(false);
+                }
+              }}
+            >
+              Resume sync
+            </Button>
+          ) : null}
+          {requiresHardware ? (
+            <Alert
+              type="warning"
+              title="Cloud key unavailable"
+              description="Connect your standard hardware wallet and select it below to restore the Cloud key."
+            />
+          ) : null}
           <Button
             testID="cloud-hardware-key-sync-now"
             disabled={pending || !config.isCloudSyncEnabledKeyless}

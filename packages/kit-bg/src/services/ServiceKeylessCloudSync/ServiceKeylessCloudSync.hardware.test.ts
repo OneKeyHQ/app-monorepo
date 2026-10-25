@@ -1,3 +1,4 @@
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IKeylessCloudSyncCredential } from '@onekeyhq/shared/types/keylessCloudSync';
 
 import { primeCloudSyncPersistAtom } from '../../states/jotai/atoms';
@@ -90,8 +91,10 @@ function setup(items: Array<{ pwdHash?: string }> = []) {
     serviceAccount: {
       getKeylessWallet: jest.fn(async () => ({ id: 'hd-keyless-test' })),
     },
+    serviceApp: { isAppLocked: jest.fn(async () => false) },
     servicePrimeCloudSync: {
       cancelPublicAccountSnapshotImport: jest.fn(async () => undefined),
+      startServerSyncFlow: jest.fn(async () => undefined),
       getAllLocalSyncItems: jest.fn(async () => ({ items })),
       clearCachedSyncCredential,
       initLocalSyncItemsDB,
@@ -205,6 +208,179 @@ describe('hardware Cloud key source lifecycle', () => {
       keylessSyncCredentialStorage.removeAllCredentials,
     ).not.toHaveBeenCalled();
     expect(await service.getKeylessCloudSyncCredential()).toEqual(credential);
+    expect(generateHardwareCloudSyncCredentialWithSdk).not.toHaveBeenCalled();
+  });
+
+  test('resumes a disabled saved key without SDK, seed repair or a connected device', async () => {
+    const { service, backgroundApi } = setup();
+    mockConfig.hardwareCloudSyncKeySource = source;
+    mockConfig.currentCloudSyncKeylessWalletId = source.credentialId;
+    mockConfig.isCloudSyncEnabledKeyless = true;
+    mockStored = credential;
+    await service.setCloudSyncEnabledKeyless(false);
+    const repair = jest.spyOn(service, 'repairKeylessSyncCredentialIfNeeded');
+    await expect(
+      service.toggleCloudSyncKeyless({
+        enabled: true,
+        expectedHardwareCloudKeySourceId: source.credentialId,
+      }),
+    ).resolves.toEqual({ requiresHardware: false });
+    expect(mockConfig.isCloudSyncEnabledKeyless).toBe(true);
+    expect(mockStored).toBe(credential);
+    expect(repair).not.toHaveBeenCalled();
+    expect(generateHardwareCloudSyncCredentialWithSdk).not.toHaveBeenCalled();
+    expect(
+      backgroundApi.servicePrimeCloudSync.startServerSyncFlow,
+    ).toHaveBeenCalledTimes(1);
+    repair.mockRestore();
+  });
+
+  test('missing saved credentials request explicit hardware recovery without enabling', async () => {
+    const { service, backgroundApi } = setup();
+    mockConfig.hardwareCloudSyncKeySource = source;
+    mockConfig.currentCloudSyncKeylessWalletId = source.credentialId;
+    await expect(
+      service.toggleCloudSyncKeyless({
+        enabled: true,
+        expectedHardwareCloudKeySourceId: source.credentialId,
+      }),
+    ).resolves.toEqual({ requiresHardware: true });
+    expect(mockConfig.isCloudSyncEnabledKeyless).toBe(false);
+    expect(mockConfig.hardwareCloudSyncKeySource).toEqual(source);
+    expect(generateHardwareCloudSyncCredentialWithSdk).not.toHaveBeenCalled();
+    expect(
+      backgroundApi.servicePrimeCloudSync.startServerSyncFlow,
+    ).not.toHaveBeenCalled();
+  });
+
+  test('stale UI source cannot enable or disable the newly selected source', async () => {
+    const { service } = setup();
+    mockConfig.hardwareCloudSyncKeySource = {
+      ...source,
+      credentialId: 'other-selected',
+    };
+    mockConfig.isCloudSyncEnabledKeyless = true;
+    await expect(
+      service.toggleCloudSyncKeyless({
+        enabled: true,
+        expectedHardwareCloudKeySourceId: source.credentialId,
+      }),
+    ).rejects.toThrow('selected Cloud key changed');
+    expect(mockConfig.hardwareCloudSyncKeySource.credentialId).toBe(
+      'other-selected',
+    );
+    expect(mockConfig.isCloudSyncEnabledKeyless).toBe(true);
+  });
+
+  test('cancellation during initialization preserves the disabled saved key', async () => {
+    const { service, initLocalSyncItemsDB, backgroundApi } = setup();
+    mockConfig.hardwareCloudSyncKeySource = source;
+    mockConfig.currentCloudSyncKeylessWalletId = source.credentialId;
+    mockStored = credential;
+    initLocalSyncItemsDB.mockImplementationOnce(async () => {
+      await service.cancelHardwareCloudKeyOperation();
+    });
+    await expect(
+      service.toggleCloudSyncKeyless({
+        enabled: true,
+        expectedHardwareCloudKeySourceId: source.credentialId,
+      }),
+    ).rejects.toThrow('cancelled');
+    expect(mockConfig.isCloudSyncEnabledKeyless).toBe(false);
+    expect(mockStored).toBe(credential);
+    expect(
+      backgroundApi.servicePrimeCloudSync.startServerSyncFlow,
+    ).not.toHaveBeenCalled();
+  });
+
+  test('locking inside the enable setter still cancels saved-key resume', async () => {
+    const { service, backgroundApi } = setup();
+    mockConfig.hardwareCloudSyncKeySource = source;
+    mockConfig.currentCloudSyncKeylessWalletId = source.credentialId;
+    mockStored = credential;
+    backgroundApi.localDb.getWallet.mockImplementationOnce(async () => {
+      backgroundApi.serviceApp.isAppLocked.mockResolvedValue(true);
+      expect(await service.cancelHardwareCloudKeyOperation()).toBe(true);
+      return { id: source.walletId, xfp: walletXfp };
+    });
+    await expect(
+      service.toggleCloudSyncKeyless({
+        enabled: true,
+        expectedHardwareCloudKeySourceId: source.credentialId,
+      }),
+    ).rejects.toThrow('cancelled');
+    expect(mockConfig.isCloudSyncEnabledKeyless).toBe(false);
+    expect(
+      service.getKeylessCloudSyncCredentialCacheSync(source.credentialId),
+    ).toBeUndefined();
+    expect(mockStored).toBe(credential);
+    expect(
+      backgroundApi.servicePrimeCloudSync.startServerSyncFlow,
+    ).not.toHaveBeenCalled();
+  });
+
+  test('a hydration failure rolls back a fresh resume without deleting its saved key', async () => {
+    const { service } = setup();
+    mockConfig.hardwareCloudSyncKeySource = source;
+    mockConfig.currentCloudSyncKeylessWalletId = source.credentialId;
+    mockStored = credential;
+    jest
+      .mocked(keylessSyncCredentialStorage.getCredential)
+      .mockResolvedValueOnce(credential)
+      .mockRejectedValueOnce(new Error('Synthetic storage read failed'));
+    await expect(
+      service.toggleCloudSyncKeyless({
+        enabled: true,
+        expectedHardwareCloudKeySourceId: source.credentialId,
+      }),
+    ).rejects.toThrow('Synthetic storage read failed');
+    expect(mockConfig.isCloudSyncEnabledKeyless).toBe(false);
+    expect(mockStored).toBe(credential);
+  });
+
+  test('a cancelled duplicate resume does not turn off an already enabled source', async () => {
+    const { service, backgroundApi } = setup();
+    mockConfig.hardwareCloudSyncKeySource = source;
+    mockConfig.currentCloudSyncKeylessWalletId = source.credentialId;
+    mockConfig.isCloudSyncEnabledKeyless = true;
+    mockStored = credential;
+    backgroundApi.localDb.getWallet.mockImplementationOnce(async () => {
+      await service.cancelHardwareCloudKeyOperation();
+      return { id: source.walletId, xfp: walletXfp };
+    });
+    await expect(
+      service.toggleCloudSyncKeyless({
+        enabled: true,
+        expectedHardwareCloudKeySourceId: source.credentialId,
+      }),
+    ).rejects.toThrow('cancelled');
+    expect(mockConfig.isCloudSyncEnabledKeyless).toBe(true);
+    expect(
+      service.getKeylessCloudSyncCredentialCacheSync(source.credentialId),
+    ).toBeUndefined();
+  });
+
+  test('resume retains the production gate and rejects a locked app', async () => {
+    const { service, backgroundApi } = setup();
+    mockConfig.hardwareCloudSyncKeySource = source;
+    mockConfig.currentCloudSyncKeylessWalletId = source.credentialId;
+    mockStored = credential;
+    const production = jest.replaceProperty(platformEnv, 'isDev', false);
+    await expect(
+      service.toggleCloudSyncKeyless({
+        enabled: true,
+        expectedHardwareCloudKeySourceId: source.credentialId,
+      }),
+    ).rejects.toThrow('compatibility validation');
+    production.restore();
+    backgroundApi.serviceApp.isAppLocked.mockResolvedValueOnce(true);
+    await expect(
+      service.toggleCloudSyncKeyless({
+        enabled: true,
+        expectedHardwareCloudKeySourceId: source.credentialId,
+      }),
+    ).rejects.toThrow('Unlock the App');
+    expect(mockConfig.isCloudSyncEnabledKeyless).toBe(false);
     expect(generateHardwareCloudSyncCredentialWithSdk).not.toHaveBeenCalled();
   });
 
