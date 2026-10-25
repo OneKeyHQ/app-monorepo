@@ -158,7 +158,11 @@ function useSideMorphStyle(
   }));
 }
 
-function useBarMorphStyles(progress: SharedValue<number>, travelY: number) {
+function useBarMorphStyles(
+  progress: SharedValue<number>,
+  travelY: number,
+  domainCenterOffset: SharedValue<number>,
+) {
   const leftStyle = useSideMorphStyle(progress, travelY, 1);
   const rightStyle = useSideMorphStyle(progress, travelY, -1);
   const capsuleStyle = useAnimatedStyle(() => ({
@@ -195,9 +199,21 @@ function useBarMorphStyles(progress: SharedValue<number>, travelY: number) {
   // and spot on every frame (see CAPSULE_COLLAPSED_SCALE), so instead of
   // fading two copies into each other, the text swaps layers at the middle
   // of the morph and reads as one, like Safari's.
-  const capsuleDomainStyle = useAnimatedStyle(() => ({
-    opacity: progress.value >= DOMAIN_SWAP_POINT ? 1 : 0,
-  }));
+  // A domain that can't center in the capsule (it would crowd the badge)
+  // rests a little right of center; it starts centered at the swap, where it
+  // must match the pill's, and eases to that spot by the end of the expand.
+  const capsuleDomainStyle = useAnimatedStyle(() => {
+    const settle = interpolate(
+      progress.value,
+      [DOMAIN_SWAP_POINT, 1],
+      [0, 1],
+      'clamp',
+    );
+    return {
+      opacity: progress.value >= DOMAIN_SWAP_POINT ? 1 : 0,
+      transform: [{ translateX: -domainCenterOffset.value * (1 - settle) }],
+    };
+  });
   const pillDomainStyle = useAnimatedStyle(() => ({
     opacity: progress.value < DOMAIN_SWAP_POINT ? 1 : 0,
   }));
@@ -375,6 +391,13 @@ function MobileBrowserBottomBar({ id, chrome }: IMobileBrowserBottomBarProps) {
   const capsuleWidth = useSharedValue(0);
   const pillWidth = useSharedValue(0);
   const [capsuleLayoutWidth, setCapsuleLayoutWidth] = useState(0);
+  const domainCenterOffset = useSharedValue(0);
+  const handleDomainCenterOffset = useCallback(
+    (offset: number) => {
+      domainCenterOffset.value = offset;
+    },
+    [domainCenterOffset],
+  );
   const pillBottom = getCollapsedPillBottom(bottom);
   const capsuleBottom = getBarCapsuleBottom(bottom);
   // Distance between the bar capsule's center and the pill's center.
@@ -389,7 +412,7 @@ function MobileBrowserBottomBar({ id, chrome }: IMobileBrowserBottomBarProps) {
     pillStyle,
     capsuleDomainStyle,
     pillDomainStyle,
-  } = useBarMorphStyles(progress, morphTravelY);
+  } = useBarMorphStyles(progress, morphTravelY, domainCenterOffset);
 
   const [translateOpen, setTranslateOpen] = useState(false);
   const showOptions = useMobileBrowserOptions({
@@ -517,6 +540,7 @@ function MobileBrowserBottomBar({ id, chrome }: IMobileBrowserBottomBarProps) {
                   badgeStyle={capsuleContentStyle}
                   domainStyle={capsuleDomainStyle}
                   capsuleWidth={capsuleLayoutWidth}
+                  onDomainCenterOffset={handleDomainCenterOffset}
                 />
                 <Animated.View style={capsuleContentStyle}>
                   <RefreshButton

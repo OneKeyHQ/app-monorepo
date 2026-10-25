@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import MaskedView from '@react-native-masked-view/masked-view';
 import { useIntl } from 'react-intl';
@@ -122,10 +122,12 @@ function DomainLabel({
   text,
   testID,
   centerShift,
+  onCenterOffset,
 }: {
   text: string;
   testID?: string;
   centerShift: number;
+  onCenterOffset?: (offset: number) => void;
 }) {
   const [availableWidth, setAvailableWidth] = useState(0);
   // Natural single-line widths at the full and the minimum font size.
@@ -141,6 +143,12 @@ function DomainLabel({
     (availableWidth - (textWidth ?? fullTextWidth)) / 2,
   );
   const shift = Math.max(-maxShift, Math.min(maxShift, centerShift));
+  // How far the text ends up right of the capsule's center when it can't
+  // center without crowding the badge (0 when it centers, or overflows).
+  const centerOffset = overflows ? 0 : shift - centerShift;
+  useEffect(() => {
+    onCenterOffset?.(centerOffset);
+  }, [centerOffset, onCenterOffset]);
 
   // The text sits in a row far wider than the capsule, so its own box is
   // never constrained: positioned so the text is centered in the capsule, or,
@@ -243,9 +251,12 @@ export function AddressCapsuleTitle({
   badgeStyle,
   domainStyle,
   capsuleWidth,
+  onDomainCenterOffset,
 }: {
   url?: string;
   onPress: () => void;
+  // Reports how far the domain sits right of the capsule's center.
+  onDomainCenterOffset?: (offset: number) => void;
   // Width of the capsule hosting this title, for exact centering.
   capsuleWidth?: number;
   // The bar's morph fades the badge with the capsule, but swaps the domain
@@ -336,6 +347,7 @@ export function AddressCapsuleTitle({
               <DomainLabel
                 testID={DiscoveryTestIDs.searchBar}
                 centerShift={centerShift}
+                onCenterOffset={onDomainCenterOffset}
                 text={domainText}
               />
             </XStack>
