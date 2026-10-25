@@ -46,6 +46,8 @@ const CLOSE_ICON_PROPS = { color: '$icon' } as const;
 // square chip instead of a pill, so the chip and avatar read as one shape.
 const ACCOUNT_CHIP_RADIUS = 10;
 const HEADER_BOTTOM_GAP = 6;
+// Over the web page layers in Browser.native (zIndex 3 and 4).
+const BROWSER_HEADER_Z_INDEX = 5;
 
 const styles = StyleSheet.create({
   // The header row, laid over the page right below the status bar and slid
@@ -244,8 +246,11 @@ function MobileBrowserHeader({
       <Stack
         pt={top}
         bg="$bgApp"
-        // Above the page, so a pressed glass capsule's growth isn't covered.
-        zIndex={1}
+        // Above the page layers (Page.Body is flattened, so the web layer's
+        // zIndex 3 competes with this one directly): the glass capsules'
+        // shadow and press growth spill below the header and must not be
+        // cut off by the page.
+        zIndex={BROWSER_HEADER_Z_INDEX}
         style={pageColorStyle}
       >
         <Animated.View style={spacerStyle} />
