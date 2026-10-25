@@ -23,6 +23,7 @@ import {
   buildEarnTokenInfo,
 } from '@onekeyhq/kit/src/views/Staking/utils/utils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes, EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
 import defiUtils from '@onekeyhq/shared/src/utils/defiUtils';
 import type { IEarnPositionManageTarget } from '@onekeyhq/shared/types/earn/portfolioPositions';
@@ -112,6 +113,17 @@ export function MyPortfolioPage({
     });
 
   const [primaryTab, setPrimaryTab] = useState<IPrimaryTab>('assets');
+  // On web a tab once shown stays mounted and hides while the other shows,
+  // so coming back to DeFi Assets costs a display change instead of building
+  // its cards again. The apps keep mounting the selected tab only
+  const [shownTabs, setShownTabs] = useState<IPrimaryTab[]>([primaryTab]);
+  if (!shownTabs.includes(primaryTab)) {
+    setShownTabs([...shownTabs, primaryTab]);
+  }
+  const isTabMounted = (tab: IPrimaryTab) =>
+    tab === primaryTab || (!platformEnv.isNative && shownTabs.includes(tab));
+  const tabDisplay = (tab: IPrimaryTab) =>
+    tab === primaryTab ? 'flex' : 'none';
   const [stage, setStage] = useState<IEarnRewardsPortfolioStage>('claimable');
   // The network filter belongs to the account it was picked on (OK-64596):
   // another account opens on All networks, in the same render, instead of
@@ -533,40 +545,45 @@ export function MyPortfolioPage({
                 ) : (
                   tabs
                 )}
-                {primaryTab === 'assets' && tableLayout ? (
-                  <DeFiAssetsDesktopTab
-                    protocols={visibleProtocols}
-                    deFiProtocols={visibleDeFiProtocols}
-                    protocolMap={view.protocolMap}
-                    isLoading={isPositionsLoading}
-                    pendingCountByProvider={pendingCountByProvider}
-                    onManage={handleManage}
-                    onRedeem={handleRedeem}
-                  />
+                {isTabMounted('assets') ? (
+                  <YStack display={tabDisplay('assets')}>
+                    {tableLayout ? (
+                      <DeFiAssetsDesktopTab
+                        protocols={visibleProtocols}
+                        deFiProtocols={visibleDeFiProtocols}
+                        protocolMap={view.protocolMap}
+                        isLoading={isPositionsLoading}
+                        pendingCountByProvider={pendingCountByProvider}
+                        onManage={handleManage}
+                        onRedeem={handleRedeem}
+                      />
+                    ) : (
+                      <DeFiAssetsTab
+                        protocols={visibleProtocols}
+                        isLoading={isPositionsLoading}
+                        pendingCountByProvider={pendingCountByProvider}
+                        networkFilter={networkFilter}
+                        onManage={handleManage}
+                        onRedeem={handleRedeem}
+                      />
+                    )}
+                  </YStack>
                 ) : null}
-                {primaryTab === 'assets' && !tableLayout ? (
-                  <DeFiAssetsTab
-                    protocols={visibleProtocols}
-                    isLoading={isPositionsLoading}
-                    pendingCountByProvider={pendingCountByProvider}
-                    networkFilter={networkFilter}
-                    onManage={handleManage}
-                    onRedeem={handleRedeem}
-                  />
-                ) : null}
-                {primaryTab === 'rewards' ? (
-                  <RewardsTab
-                    stage={stage}
-                    onStageChange={setStage}
-                    rewards={rewards}
-                    isLoading={isRewardsLoading}
-                    isLoadingMore={isRewardsLoadingMore}
-                    claimableGroups={claimableGroups}
-                    pendingGroups={pendingGroups}
-                    positions={positions}
-                    networkFilter={tableLayout ? null : networkFilter}
-                    onManage={handleManage}
-                  />
+                {isTabMounted('rewards') ? (
+                  <YStack display={tabDisplay('rewards')}>
+                    <RewardsTab
+                      stage={stage}
+                      onStageChange={setStage}
+                      rewards={rewards}
+                      isLoading={isRewardsLoading}
+                      isLoadingMore={isRewardsLoadingMore}
+                      claimableGroups={claimableGroups}
+                      pendingGroups={pendingGroups}
+                      positions={positions}
+                      networkFilter={tableLayout ? null : networkFilter}
+                      onManage={handleManage}
+                    />
+                  </YStack>
                 ) : null}
               </YStack>
             </PortfolioTableLayoutContext.Provider>

@@ -1,4 +1,4 @@
-import { useCallback, useRef } from 'react';
+import { memo, useCallback, useRef } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -32,7 +32,7 @@ const CARD_SCROLL_MARGIN_TOP = 16;
  * network, its holdings as tables. A tile opens its card and scrolls the
  * page to it. The phone tab's empty and loading states.
  */
-export function DeFiAssetsDesktopTab({
+function BasicDeFiAssetsDesktopTab({
   protocols,
   deFiProtocols,
   protocolMap,
@@ -162,3 +162,6 @@ export function DeFiAssetsDesktopTab({
     </YStack>
   );
 }
+
+// Kept mounted while hidden on web; re-renders only when its own data changes
+export const DeFiAssetsDesktopTab = memo(BasicDeFiAssetsDesktopTab);

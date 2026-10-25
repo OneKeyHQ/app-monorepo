@@ -1,3 +1,5 @@
+import { memo } from 'react';
+
 import { useIntl } from 'react-intl';
 
 import {
@@ -76,7 +78,7 @@ function StagePills({
   );
 }
 
-export function RewardsTab({
+function BasicRewardsTab({
   stage,
   onStageChange,
   rewards,
@@ -175,3 +177,6 @@ export function RewardsTab({
     </YStack>
   );
 }
+
+// Kept mounted while hidden on web; re-renders only when its own data changes
+export const RewardsTab = memo(BasicRewardsTab);
