@@ -146,11 +146,18 @@ jest.mock('@onekeyhq/components', () => {
     children,
     onPress,
     role,
-  }: PropsWithChildren<{ onPress?: () => void; role?: string }>) =>
+    onKeyDownCapture,
+  }: PropsWithChildren<{
+    onPress?: () => void;
+    role?: string;
+    onKeyDownCapture?: React.KeyboardEventHandler<HTMLDivElement>;
+  }>) =>
     onPress ? (
       <button onClick={onPress}>{children}</button>
     ) : (
-      <div role={role}>{children}</div>
+      <div role={role} onKeyDownCapture={onKeyDownCapture}>
+        {children}
+      </div>
     );
   return {
     Badge: Box,
@@ -493,6 +500,44 @@ describe('Perps selector keyboard navigation', () => {
     });
   });
 
+  it('switches primary tabs with horizontal arrows and clears the old highlight', async () => {
+    const input = await openSelector();
+    const setRoute = mockActions.current.setTradeRouteViewState;
+    fireEvent.keyDown(input, { key: 'ArrowDown' });
+    fireEvent.keyDown(input, { key: 'ArrowRight' });
+    expect(setRoute).toHaveBeenLastCalledWith({ tokenSelectorTab: 'spot' });
+    fireEvent.keyDown(input, { key: 'Enter' });
+    expect(mockSwitchInstrument).not.toHaveBeenCalled();
+    setRoute.mockClear();
+    fireEvent.keyDown(input, { key: 'ArrowRight' });
+    expect(setRoute).not.toHaveBeenCalled();
+    fireEvent.keyDown(input, { key: 'ArrowLeft' });
+    expect(setRoute).toHaveBeenLastCalledWith({ tokenSelectorTab: 'perps' });
+    expect(screen.getByTestId('row-BTC').dataset.selected).toBe('false');
+    fireEvent.keyDown(input, { key: 'ArrowLeft' });
+    expect(setRoute).toHaveBeenLastCalledWith({
+      tokenSelectorTab: 'favorites',
+    });
+    setRoute.mockClear();
+    fireEvent.keyDown(input, { key: 'ArrowLeft' });
+    expect(setRoute).not.toHaveBeenCalled();
+  });
+
+  it('preserves horizontal editing keys and IME composition', async () => {
+    const input = await openSelector();
+    const setRoute = mockActions.current.setTradeRouteViewState;
+    setRoute.mockClear();
+    for (const modifier of ['metaKey', 'ctrlKey', 'altKey', 'shiftKey']) {
+      expect(
+        fireEvent.keyDown(input, { key: 'ArrowRight', [modifier]: true }),
+      ).toBe(true);
+    }
+    fireEvent.keyDown(input, { key: 'ArrowRight', isComposing: true });
+    fireEvent.change(input, { target: { value: 'ETH' } });
+    expect(fireEvent.keyDown(input, { key: 'ArrowLeft' })).toBe(true);
+    expect(setRoute).not.toHaveBeenCalled();
+  });
+
   it('clears the highlight on tab changes and does nothing for empty results', async () => {
     const input = await openSelector();
     fireEvent.keyDown(input, { key: 'ArrowDown' });
@@ -571,6 +616,35 @@ describe('Perps selector keyboard navigation', () => {
       expect(screen.getByRole('dialog')).toBeDefined();
     },
   );
+
+  it('captures favorite shortcuts from list focus only while inside the selector', async () => {
+    const input = await openSelector();
+    fireEvent.keyDown(input, { key: 'ArrowDown' });
+    const outsideHandler = jest.fn();
+    document.body.addEventListener('keydown', outsideHandler);
+    try {
+      const row = screen.getByTestId('row-BTC');
+      row.tabIndex = 0;
+      row.focus();
+      expect(document.activeElement).toBe(row);
+      expect(fireEvent.keyDown(row, { key: 's', metaKey: true })).toBe(false);
+      expect(mockToggleFavorite).toHaveBeenCalledTimes(1);
+      expect(mockToggleFavorite).toHaveBeenCalledWith('BTC');
+      expect(outsideHandler).not.toHaveBeenCalled();
+      expect(
+        fireEvent.keyDown(document.body, { key: 's', metaKey: true }),
+      ).toBe(true);
+      expect(outsideHandler).toHaveBeenCalledTimes(1);
+      act(() => mockClosePopover());
+      expect(
+        fireEvent.keyDown(document.body, { key: 's', metaKey: true }),
+      ).toBe(true);
+      expect(mockToggleFavorite).toHaveBeenCalledTimes(1);
+      expect(outsideHandler).toHaveBeenCalledTimes(2);
+    } finally {
+      document.body.removeEventListener('keydown', outsideHandler);
+    }
+  });
 
   it('ignores favorite shortcuts without a current highlight, while composing, repeating or filtering', async () => {
     const input = await openSelector();
@@ -796,6 +870,8 @@ describe('Perps selector keyboard navigation', () => {
     await openSelector();
     expect(screen.getByText('Enter')).toBeDefined();
     expect(screen.getByText('Esc')).toBeDefined();
+    expect(screen.getByText('↑↓')).toBeDefined();
+    expect(screen.getByText('←→')).toBeDefined();
     expect(screen.getByText('global.favorites')).toBeDefined();
   });
 });

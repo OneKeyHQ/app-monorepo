@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-call */
 import {
+  type KeyboardEvent as ReactKeyboardEvent,
   memo,
   startTransition,
   useCallback,
@@ -1236,20 +1237,23 @@ function BasePerpTokenSelectorContent({ maxHeight }: { maxHeight?: number }) {
     },
     [setSearchQuery],
   );
-  const handleKeyboardNavigation = useCallback<
-    NonNullable<IInputProps['onKeyPress']>
-  >(
-    (event) => {
-      if (isImeComposingKeyboardEvent(event)) return;
-      const key = getKeyboardEventKey(event);
-      const keyboardEvent = event.nativeEvent as Partial<KeyboardEvent>;
+  const handleFavoriteShortcut = useCallback(
+    (event: ReactKeyboardEvent<HTMLDivElement>) => {
       if (
-        key.toLowerCase() === 's' &&
-        (keyboardEvent.metaKey || keyboardEvent.ctrlKey) &&
-        !keyboardEvent.altKey &&
-        !keyboardEvent.shiftKey
+        isImeComposingKeyboardEvent(event) ||
+        !event.currentTarget.contains(event.target as Node)
+      ) {
+        return;
+      }
+      const keyboardEvent = event.nativeEvent;
+      if (
+        event.key.toLowerCase() === 's' &&
+        (event.metaKey || event.ctrlKey) &&
+        !event.altKey &&
+        !event.shiftKey
       ) {
         event.preventDefault();
+        event.stopPropagation();
         const inputTarget = keyboardEvent.target;
         const currentQuery =
           typeof HTMLInputElement !== 'undefined' &&
@@ -1280,6 +1284,37 @@ function BasePerpTokenSelectorContent({ maxHeight }: { maxHeight?: number }) {
               keyboardFavoritesPending.current.delete(coin);
             });
         }
+      }
+    },
+    [activeTabData, keyboardResultsReady, keyboardSelectedIndex, searchQuery],
+  );
+  const handleKeyboardNavigation = useCallback<
+    NonNullable<IInputProps['onKeyPress']>
+  >(
+    (event) => {
+      if (isImeComposingKeyboardEvent(event)) return;
+      const key = getKeyboardEventKey(event);
+      const keyboardEvent = event.nativeEvent as Partial<KeyboardEvent>;
+      if (key === 'ArrowLeft' || key === 'ArrowRight') {
+        const inputTarget = keyboardEvent.target;
+        if (
+          keyboardEvent.metaKey ||
+          keyboardEvent.ctrlKey ||
+          keyboardEvent.altKey ||
+          keyboardEvent.shiftKey ||
+          inputQueryRef.current ||
+          (typeof HTMLInputElement !== 'undefined' &&
+            inputTarget instanceof HTMLInputElement &&
+            inputTarget.value.length > 0)
+        ) {
+          return;
+        }
+        event.preventDefault();
+        const index = primaryTabs.findIndex(
+          (tab) => tab.tabId === displayPrimaryTab,
+        );
+        const nextTab = primaryTabs[index + (key === 'ArrowRight' ? 1 : -1)];
+        if (nextTab) setPrimaryTab(nextTab.tabId);
         return;
       }
       if (key !== 'ArrowDown' && key !== 'ArrowUp') return;
@@ -1327,10 +1362,13 @@ function BasePerpTokenSelectorContent({ maxHeight }: { maxHeight?: number }) {
     [
       activeTabData,
       displayActiveTab,
+      displayPrimaryTab,
       keyExtractor,
       keyboardResultsReady,
       keyboardSelectedIndex,
+      primaryTabs,
       searchQuery,
+      setPrimaryTab,
     ],
   );
   const handleKeyboardSubmit = useCallback<
@@ -1463,7 +1501,14 @@ function BasePerpTokenSelectorContent({ maxHeight }: { maxHeight?: number }) {
   ]);
 
   const content = (
-    <YStack minHeight={0} maxHeight={maxHeight} flexShrink={1}>
+    <YStack
+      minHeight={0}
+      maxHeight={maxHeight}
+      flexShrink={1}
+      {...(platformEnv.isNative
+        ? undefined
+        : { onKeyDownCapture: handleFavoriteShortcut })}
+    >
       <YStack gap="$1" minHeight={0} flexShrink={1}>
         <XStack px="$2" pt="$2">
           <SearchBar
@@ -1598,13 +1643,19 @@ function BasePerpTokenSelectorContent({ maxHeight }: { maxHeight?: number }) {
           py="$2"
           gap="$4"
           alignItems="center"
+          flexWrap="wrap"
           flexShrink={0}
           borderTopWidth="$px"
           borderTopColor="$borderSubdued"
         >
           <XStack gap="$1">
-            <Badge badgeSize="sm">↑</Badge>
-            <Badge badgeSize="sm">↓</Badge>
+            <Badge badgeSize="sm">↑↓</Badge>
+          </XStack>
+          <XStack gap="$1.5" alignItems="center">
+            <Badge badgeSize="sm">←→</Badge>
+            <SizableText size="$bodySm" color="$textSubdued">
+              {intl.formatMessage({ id: ETranslations.global_switch })}
+            </SizableText>
           </XStack>
           <XStack
             gap="$1.5"
@@ -1621,15 +1672,12 @@ function BasePerpTokenSelectorContent({ maxHeight }: { maxHeight?: number }) {
             alignItems="center"
             opacity={keyboardSelectedIndex < 0 ? 0.5 : 1}
           >
-            <XStack gap="$1">
-              <Badge badgeSize="sm">{shortcutsKeys.CmdOrCtrl}</Badge>
-              <Badge badgeSize="sm">S</Badge>
-            </XStack>
+            <Badge badgeSize="sm">{`${shortcutsKeys.CmdOrCtrl}S`}</Badge>
             <SizableText size="$bodySm" color="$textSubdued">
               {intl.formatMessage({ id: ETranslations.global_favorites })}
             </SizableText>
           </XStack>
-          <XStack gap="$1.5" alignItems="center" ml="auto">
+          <XStack gap="$1.5" alignItems="center">
             <Badge badgeSize="sm">Esc</Badge>
             <SizableText size="$bodySm" color="$textSubdued">
               {intl.formatMessage({ id: ETranslations.global_close })}
