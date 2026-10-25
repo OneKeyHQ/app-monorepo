@@ -55,6 +55,12 @@ const styles = StyleSheet.create({
     width: '100%',
     overflow: 'hidden',
   },
+  // Interactive glass grows a little on press; clipping would cut it off.
+  // The glass capsules fade out before the shrinking header could show them
+  // over the status bar, so they need no clip.
+  glassContainer: {
+    width: '100%',
+  },
   // Anchored to the bottom so the row slides up under the status bar while the
   // container shrinks, instead of being squashed.
   content: {
@@ -256,9 +262,16 @@ function MobileBrowserHeader({
       <Stack
         pt={top}
         bg="$bgApp"
+        // Above the page, so a pressed glass capsule's growth isn't covered.
+        zIndex={1}
         style={pageColor ? { backgroundColor: pageColor } : undefined}
       >
-        <Animated.View style={[styles.container, containerAnimatedStyle]}>
+        <Animated.View
+          style={[
+            isGlass ? styles.glassContainer : styles.container,
+            containerAnimatedStyle,
+          ]}
+        >
           <Animated.View
             pointerEvents={isCollapsed ? 'none' : 'box-none'}
             style={[styles.content, rowSlideStyle, rowFadeStyle]}
