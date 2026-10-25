@@ -27,7 +27,7 @@ import { TranslatePopoverTrigger } from '../../hooks/usePageTranslation';
 import { DiscoveryTestIDs } from '../../testIDs';
 import { usePageTheme, withAlpha } from '../../utils/pageThemeColor';
 
-import { AddressCapsuleTitle } from './AddressCapsuleTitle';
+import { AddressCapsuleTitle, DOMAIN_FONT_SIZE } from './AddressCapsuleTitle';
 import {
   CAPSULE_BACK_BUTTON_PULL,
   CAPSULE_BUTTON_HIT_SLOP,
@@ -93,9 +93,14 @@ const PILL_FADE_END = 0.75;
 const SIDE_COLLAPSE_TRAVEL_X = 40;
 const SIDE_COLLAPSED_SCALE = 0.5;
 
-// Collapsed size of the address capsule, about the pill's size.
-const CAPSULE_COLLAPSED_SCALE =
-  BROWSER_COLLAPSED_PILL_HEIGHT / BROWSER_CHROME_CAPSULE_HEIGHT;
+// The pill's domain text size (its $bodyMdMedium).
+const PILL_DOMAIN_FONT_SIZE = 14;
+// How far the capsule shrinks toward the pill (and the pill grows toward the
+// capsule) while they crossfade. Matched to the domain texts rather than the
+// heights: both domains are visible mid-morph, so with this ratio they are the
+// same size on every frame instead of showing as two offset copies; the
+// backgrounds, which differ in width anyway, only crossfade.
+const CAPSULE_COLLAPSED_SCALE = PILL_DOMAIN_FONT_SIZE / DOMAIN_FONT_SIZE;
 
 // Morphs the address capsule into the collapsed pill (and back), like
 // Safari: the capsule shrinks and slides down to the pill's spot while the

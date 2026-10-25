@@ -54,7 +54,7 @@ const styles = StyleSheet.create({
   },
 });
 
-const DOMAIN_FONT_SIZE = 16;
+export const DOMAIN_FONT_SIZE = 16;
 const DOMAIN_MIN_FONT_SIZE = 14;
 
 // Margin kept when deciding whether a shrunk domain fits, so one that only
