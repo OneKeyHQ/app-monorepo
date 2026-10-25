@@ -50,11 +50,9 @@ const HEADER_BOTTOM_GAP = 6;
 const BROWSER_HEADER_Z_INDEX = 5;
 
 // The row's clip: its top edge sits a little into the status bar area and
-// its bottom below the row, so a pressed glass capsule's growth (the chips
-// sit 2pt below the row top, so 5pt of room) and the glass shadow fit, while
-// the row disappears as it slides up past it; collapsed, the chips end 5pt
-// past the edge, their shadow clipped too.
-const ROW_CLIP_ABOVE = 3;
+// its bottom below the row, so a pressed glass capsule's growth and the
+// glass shadow fit, while the row disappears as it slides up past it.
+const ROW_CLIP_ABOVE = 8;
 const ROW_CLIP_BELOW = 16;
 
 const styles = StyleSheet.create({
