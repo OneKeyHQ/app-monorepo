@@ -12,6 +12,7 @@ import {
   YStack,
   getTokenValue,
 } from '@onekeyhq/components';
+import useFormatDate from '@onekeyhq/kit/src/hooks/useFormatDate';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IStockFinancialPeriod } from '@onekeyhq/shared/types/marketStockFinancials';
 
@@ -43,6 +44,7 @@ function FinancialCard({
   isLoading: boolean;
 }) {
   const intl = useIntl();
+  const { formatDate } = useFormatDate();
   const [selectedPeriod, setSelectedPeriod] =
     useState<IStockFinancialPeriod>('annual');
   const [width, setWidth] = useState(640);
@@ -101,7 +103,7 @@ function FinancialCard({
               color="$textDisabled"
               numberOfLines={1}
               flexShrink={0}
-            >{`${labels.next}: ${intl.formatDate(nextTimestamp, { year: 'numeric', month: 'short', day: 'numeric', timeZone: 'UTC' })}`}</SizableText>
+            >{`${labels.next}: ${formatDate(new Date(nextTimestamp), { hideTimeForever: true, timeZone: 'UTC' })}`}</SizableText>
           ) : null}
         </XStack>
         <XStack
