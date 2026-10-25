@@ -3451,12 +3451,14 @@ function SendAmountInputContainer() {
             const addPrivateSendHistoryItem = async (
               data: ISendTxOnSuccessData[],
             ) => {
+              const sentTx = data?.[0];
               const txId = data?.[0]?.signedTx?.txid;
               const created = Date.now();
               const swapHistoryItem: ISwapTxHistory = {
                 protocol: EProtocolOfExchange.PRIVATE_SEND,
                 status: ESwapTxHistoryStatus.PENDING,
                 currency: settings.currencyInfo.symbol,
+                currencyId: settings.currencyInfo.id,
                 accountInfo: {
                   sender: {
                     accountId: currentAccountId,
@@ -3485,6 +3487,8 @@ function SendAmountInputContainer() {
                   orderId: privateSendOrderId,
                   sender: account.address,
                   receiver: submitRecipientAddress,
+                  gasFeeInNative: sentTx?.decodedTx.totalFeeInNative,
+                  gasFeeFiatValue: sentTx?.decodedTx.totalFeeFiatValue,
                 },
                 date: {
                   created,
@@ -3685,6 +3689,7 @@ function SendAmountInputContainer() {
       recipientMemo,
       recipientNote,
       recipientPaymentId,
+      settings.currencyInfo.id,
       settings.currencyInfo.symbol,
       settings.isCustomTxMessageEnabled,
       sendMode,
