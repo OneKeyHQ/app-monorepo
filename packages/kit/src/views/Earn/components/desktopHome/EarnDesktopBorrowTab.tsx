@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { memo, useCallback, useMemo, useState } from 'react';
 import type { CSSProperties } from 'react';
 
 import { useIntl } from 'react-intl';
@@ -44,6 +44,7 @@ import {
 import { EARN_DESKTOP_DEMO_COPY } from './earnDesktopHomeCopy';
 import { buildKeyboardPressProps } from './earnDesktopPressable';
 import { EarnDesktopSortLabel } from './EarnDesktopSortLabel';
+import { useStableItems } from './useContentStable';
 
 import type {
   IEarnDesktopLoanAssetType,
@@ -303,17 +304,18 @@ function PairIcons({ pair }: { pair: IEarnDesktopLoanPair }) {
   );
 }
 
-function PairRow({
+function BasicPairRow({
   pair,
   isWide,
-  onPress,
+  onOpenMarket,
 }: {
   pair: IEarnDesktopLoanPair;
   isWide: boolean;
-  onPress: () => void;
+  onOpenMarket: (market: IBorrowMarketItem) => void;
 }) {
   const [isHovered, setIsHovered] = useState(false);
   const { collateral, borrow, market } = pair;
+  const onPress = () => onOpenMarket(market);
   const moreCount = pair.moreCollateral.length;
   return (
     <ListItem
@@ -427,6 +429,11 @@ function PairRow({
   );
 }
 
+// The tab re-renders when the page loses or regains focus (a modal opening
+// or closing); the rows keep their render unless their pair changed
+const PairRow = memo(BasicPairRow);
+const getPairKey = (pair: IEarnDesktopLoanPair) => pair.key;
+
 function MoreRows({ count, onPress }: { count: number; onPress: () => void }) {
   // Subdued until hovered, as the holdings card's "N more"
   const [isHovered, setIsHovered] = useState(false);
@@ -467,7 +474,7 @@ function MoreRows({ count, onPress }: { count: number; onPress: () => void }) {
  * together. The filters ask what to put up and what to borrow, a Borrow
  * Router's first questions. A row opens its market.
  */
-export function EarnDesktopBorrowTab({
+function BasicEarnDesktopBorrowTab({
   markets,
   isLoaded,
   walletNetworkGroups,
@@ -495,10 +502,13 @@ export function EarnDesktopBorrowTab({
       new Set((stableAssets ?? []).map((asset) => asset.symbol.toUpperCase())),
     [stableAssets],
   );
-  const pairs = useMemo(
+  const builtPairs = useMemo(
     () => buildLoanPairs({ markets, stableSymbols }),
     [markets, stableSymbols],
   );
+  // A market poll rebuilds every pair; the unchanged ones keep their object
+  // and their memoized row
+  const pairs = useStableItems(builtPairs, getPairKey);
   const walletTokenKeys = useMemo(
     () => collectWalletTokenKeys(walletNetworkGroups),
     [walletNetworkGroups],
@@ -642,7 +652,7 @@ export function EarnDesktopBorrowTab({
         key={pair.key}
         pair={pair}
         isWide={isWide}
-        onPress={() => onOpenMarket(pair.market)}
+        onOpenMarket={onOpenMarket}
       />
     ));
   }
@@ -794,3 +804,5 @@ export function EarnDesktopBorrowTab({
     </YStack>
   );
 }
+
+export const EarnDesktopBorrowTab = memo(BasicEarnDesktopBorrowTab);

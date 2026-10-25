@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -204,23 +204,25 @@ function RowBalance({ row }: { row: IEarnDesktopHoldRow }) {
   );
 }
 
-function HoldRow({
+function BasicHoldRow({
   row,
   networkName,
   isWide,
   narrowRateWidth,
-  onPress,
-  onWarm,
+  onOpenRow,
+  onWarmRow,
 }: {
   row: IEarnDesktopHoldRow;
   networkName?: string;
   isWide: boolean;
   narrowRateWidth: number;
-  onPress: () => void;
+  onOpenRow: (row: IEarnDesktopHoldRow) => void;
   // Gets the deposit modal's form ready, so it opens complete
-  onWarm: () => void;
+  onWarmRow: (row: IEarnDesktopHoldRow) => void;
 }) {
   const intl = useIntl();
+  const onPress = () => onOpenRow(row);
+  const onWarm = useCallback(() => onWarmRow(row), [onWarmRow, row]);
   // The cards' steps: at rest a tile is the card color, never the hover or
   // open-row color the Earn table below uses
   const { surface, handlers: surfaceHandlers } = usePressableSurface(true);
@@ -382,6 +384,10 @@ function HoldRow({
   );
 }
 
+// The card re-renders when the page loses or regains focus (the deposit
+// modal opening or closing); the rows keep their render
+const HoldRow = memo(BasicHoldRow);
+
 function HeaderLabel({
   children,
   align = 'left',
@@ -489,7 +495,7 @@ const toWarmTarget = (row: IEarnDesktopHoldRow) => ({
  * in layers instead of as one flat card. A row opens the deposit modal for that
  * token on that network.
  */
-export function EarnDesktopHoldCard({
+function BasicEarnDesktopHoldCard({
   rows,
   networkNames,
   onOpenRow,
@@ -505,6 +511,10 @@ export function EarnDesktopHoldCard({
   const [isExpanded, setIsExpanded] = useState(false);
   const shown = isExpanded ? rows : rows.slice(0, ROW_LIMIT);
   const warm = useWarmOffersDeposit();
+  const handleWarmRow = useCallback(
+    (row: IEarnDesktopHoldRow) => warm(toWarmTarget(row)),
+    [warm],
+  );
   // The deposit modal's code and every row's offers as the holdings show,
   // with no request; a row's form data once the pointer rests on it
   useEffect(() => {
@@ -543,8 +553,8 @@ export function EarnDesktopHoldCard({
       networkName={networkNames.get(row.networkId)}
       isWide={isWide}
       narrowRateWidth={narrowRateWidth}
-      onPress={() => onOpenRow(row)}
-      onWarm={() => warm(toWarmTarget(row))}
+      onOpenRow={onOpenRow}
+      onWarmRow={handleWarmRow}
     />
   );
   return (
@@ -716,3 +726,5 @@ export function EarnDesktopHoldCardSkeleton() {
     </YStack>
   );
 }
+
+export const EarnDesktopHoldCard = memo(BasicEarnDesktopHoldCard);

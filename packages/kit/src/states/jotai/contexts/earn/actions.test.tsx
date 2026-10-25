@@ -5,6 +5,8 @@ import type { ReactNode } from 'react';
 import { act, renderHook } from '@testing-library/react';
 import { createStore } from 'jotai';
 
+import { EAvailableAssetsTypeEnum } from '@onekeyhq/shared/types/earn';
+
 import { useEarnActions } from './actions';
 import {
   ProviderJotaiContextEarn,
@@ -88,5 +90,60 @@ describe('useEarnActions', () => {
         refreshTrigger: 1,
       }),
     );
+  });
+
+  it('keeps the stored asset list when a refetch answers with an equal one', async () => {
+    const { result } = renderHook(
+      () => {
+        const actions = useEarnActions().current;
+        const [earnState] = useEarnAtom();
+
+        return {
+          actions,
+          earnState,
+        };
+      },
+      {
+        wrapper: createWrapper(),
+      },
+    );
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    const assets = [{ symbol: 'USDC', protocols: [] }] as unknown as Parameters<
+      typeof result.current.actions.updateAvailableAssetsByType
+    >[1];
+    act(() => {
+      result.current.actions.updateAvailableAssetsByType(
+        EAvailableAssetsTypeEnum.SimpleEarn,
+        assets,
+      );
+    });
+    const stored = result.current.earnState.availableAssetsByType;
+    expect(mockSetRawData).toHaveBeenCalledTimes(1);
+
+    act(() => {
+      result.current.actions.updateAvailableAssetsByType(
+        EAvailableAssetsTypeEnum.SimpleEarn,
+        structuredClone(assets),
+      );
+    });
+    expect(result.current.earnState.availableAssetsByType).toBe(stored);
+    expect(mockSetRawData).toHaveBeenCalledTimes(1);
+
+    act(() => {
+      result.current.actions.updateAvailableAssetsByType(
+        EAvailableAssetsTypeEnum.SimpleEarn,
+        [...assets, ...assets],
+      );
+    });
+    expect(
+      result.current.earnState.availableAssetsByType?.[
+        EAvailableAssetsTypeEnum.SimpleEarn
+      ],
+    ).toHaveLength(2);
+    expect(mockSetRawData).toHaveBeenCalledTimes(2);
   });
 });

@@ -45,6 +45,7 @@ import {
 import { buildKeyboardPressProps } from './earnDesktopPressable';
 import { EarnDesktopRewardPills } from './EarnDesktopRewardPills';
 import { EarnDesktopTiles } from './EarnDesktopTiles';
+import { useContentStable } from './useContentStable';
 import { useEarnDesktopGuide } from './useEarnDesktopGuide';
 import { useEarnDesktopHoldRows } from './useEarnDesktopHoldRows';
 import {
@@ -72,6 +73,9 @@ const BANNER_ART_RATIO = 7 / 4;
 // Where the banner's dots, when there are several, end under its card
 const BANNER_DOTS_HEIGHT = 14;
 const EMPTY_ASSETS: IEarnAvailableAsset[] = [];
+const EMPTY_ASSETS_BY_TYPE: Partial<
+  Record<EAvailableAssetsTypeEnum, IEarnAvailableAsset[]>
+> = {};
 // The selected tab's line slides to the next one, as the app's tab bars do
 // on a press
 const TAB_LINE_TRANSITION = ['smooth', { duration: 220 }] as [
@@ -89,6 +93,7 @@ function HomeTab({
   hasLine,
   onPress,
   onPlace,
+  onPreload,
 }: {
   value: IHomeTab;
   label: string;
@@ -97,6 +102,8 @@ function HomeTab({
   hasLine: boolean;
   onPress: () => void;
   onPlace: (value: IHomeTab, place: ITabPlace) => void;
+  /** Pointed at: the tab's contents can be built before the press */
+  onPreload: (value: IHomeTab) => void;
 }) {
   // The shared TabBar's colors: subdued until hovered or selected
   const [isHovered, setIsHovered] = useState(false);
@@ -111,7 +118,10 @@ function HomeTab({
       borderBottomColor={isActive && !hasLine ? '$text' : '$transparent'}
       cursor="pointer"
       userSelect="none"
-      onHoverIn={() => setIsHovered(true)}
+      onHoverIn={() => {
+        setIsHovered(true);
+        onPreload(value);
+      }}
       onHoverOut={() => setIsHovered(false)}
       onPress={onPress}
       onLayout={(event) =>
@@ -135,9 +145,11 @@ function HomeTab({
 function HomeTabs({
   value,
   onChange,
+  onPreload,
 }: {
   value: IHomeTab;
   onChange: (value: IHomeTab) => void;
+  onPreload: (value: IHomeTab) => void;
 }) {
   const intl = useIntl();
   const reduceMotion = useReducedMotion();
@@ -177,6 +189,7 @@ function HomeTabs({
           hasLine={!!line}
           onPress={() => onChange(tab.value)}
           onPlace={handlePlace}
+          onPreload={onPreload}
         />
       ))}
       {line ? (
@@ -235,9 +248,15 @@ export function EarnDesktopHome({
   const intl = useIntl();
   const media = useMedia();
   const navigation = useAppNavigation();
-  const [{ availableAssetsByType = {} }] = useEarnAtom();
+  const [{ availableAssetsByType: atomAssetsByType }] = useEarnAtom();
+  // A refetch writes equal lists as new objects; kept as they were, nothing
+  // derived from them is rebuilt and no memoized section re-renders
+  const availableAssetsByType = useContentStable(
+    atomAssetsByType ?? EMPTY_ASSETS_BY_TYPE,
+  );
   const [loadingStates] = useEarnLoadingStatesAtom();
-  const { investments, isSettled: isPortfolioSettled, refresh } = portfolioData;
+  const { isSettled: isPortfolioSettled, refresh } = portfolioData;
+  const investments = useContentStable(portfolioData.investments);
   const { activeAccount } = useActiveAccount({ num: 0 });
   // With no wallet there is nothing held or deposited to wait for: the hero
   // and the offer cards show as they are, not under a wallet's skeletons
@@ -430,6 +449,18 @@ export function EarnDesktopHome({
     (!hasNoWallet && !hold.isLoaded) || hold.rows.length > 0;
 
   const [tab, setTab] = useState<IHomeTab>('earn');
+  // Earn mounts with the page, Loans the first time it's pointed at or
+  // chosen. A mounted tab stays and hides while the other shows, so switching
+  // back costs a display change instead of building fifty rows again
+  const [isLoansMounted, setIsLoansMounted] = useState(false);
+  if (tab === 'loans' && !isLoansMounted) {
+    setIsLoansMounted(true);
+  }
+  const handlePreloadTab = useCallback((value: IHomeTab) => {
+    if (value === 'loans') {
+      setIsLoansMounted(true);
+    }
+  }, []);
   const [heroHeight, setHeroHeight] = useState<number>();
   const [stackedBannerWidth, setStackedBannerWidth] = useState<number>();
 
@@ -487,6 +518,16 @@ export function EarnDesktopHome({
       )
     : BANNER_MIN_HEIGHT;
   const pendingTxsValue = useMemo(() => ({ onRefresh: refresh }), [refresh]);
+  // One element across renders, so the memoized hero keeps it
+  const rewardPills = useMemo(
+    () => (
+      <EarnDesktopRewardPills
+        rows={claimableRewards}
+        onOpenMore={onOpenPortfolio}
+      />
+    ),
+    [claimableRewards, onOpenPortfolio],
+  );
 
   return (
     <PortfolioPendingTxsProvider value={pendingTxsValue}>
@@ -519,12 +560,7 @@ export function EarnDesktopHome({
                 minHeight={hasBanner ? BANNER_MIN_HEIGHT : undefined}
                 onOpenPortfolio={onOpenPortfolio}
                 onRefresh={onRefresh}
-                rewards={
-                  <EarnDesktopRewardPills
-                    rows={claimableRewards}
-                    onOpenMore={onOpenPortfolio}
-                  />
-                }
+                rewards={rewardPills}
                 onHeightChange={setHeroHeight}
               />
             )}
@@ -598,8 +634,12 @@ export function EarnDesktopHome({
         {/* 28 px, plus the room under the "N more" line and over the tab
             labels in their boxes, makes the same 48 px */}
         <YStack id={BROWSE_ANCHOR_ID} gap="$5" mt="$7">
-          <HomeTabs value={tab} onChange={setTab} />
-          {tab === 'earn' ? (
+          <HomeTabs
+            value={tab}
+            onChange={setTab}
+            onPreload={handlePreloadTab}
+          />
+          <YStack display={tab === 'earn' ? 'flex' : 'none'}>
             <EarnDesktopEarnTab
               trendingAssets={trendingAssets}
               fixedRateAssets={fixedRateAssets}
@@ -608,19 +648,22 @@ export function EarnDesktopHome({
               lendingOffers={lendingOffers}
               walletHoldings={wallet.holdings}
             />
-          ) : (
-            <EarnDesktopBorrowTab
-              markets={markets}
-              isLoaded={isMarketsLoaded}
-              walletNetworkGroups={wallet.networkGroups}
-              onOpenMarket={handleOpenBorrow}
-            />
-          )}
+          </YStack>
+          {isLoansMounted ? (
+            <YStack display={tab === 'loans' ? 'flex' : 'none'}>
+              <EarnDesktopBorrowTab
+                markets={markets}
+                isLoaded={isMarketsLoaded}
+                walletNetworkGroups={wallet.networkGroups}
+                onOpenMarket={handleOpenBorrow}
+              />
+            </YStack>
+          ) : null}
         </YStack>
         {/* The questions are about Earn; Borrow's are per reserve and live on
             its pages */}
-        {tab === 'earn' && (faqList.length || isFaqLoading) ? (
-          <YStack gap="$3" mt="$10">
+        {faqList.length || isFaqLoading ? (
+          <YStack gap="$3" mt="$10" display={tab === 'earn' ? 'flex' : 'none'}>
             <SizableText size="$headingXl">
               {intl.formatMessage({ id: ETranslations.global_faqs })}
             </SizableText>

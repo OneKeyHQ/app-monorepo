@@ -7,6 +7,7 @@ import type { IEarnAvailableAsset } from '@onekeyhq/shared/types/earn';
 import type { IStakeProtocolListItem } from '@onekeyhq/shared/types/staking';
 
 import { buildHoldRows } from './earnDesktopHome.utils';
+import { useContentStable } from './useContentStable';
 
 import type {
   IEarnDesktopHoldRow,
@@ -20,6 +21,7 @@ type IProtocolLists = {
 };
 
 const EMPTY_ROWS: IEarnDesktopHoldRow[] = [];
+const EMPTY_NETWORK_NAMES = new Map<string, string>();
 
 /**
  * What the wallet holds, a row per token per network, with what Earn offers
@@ -93,7 +95,7 @@ export function useEarnDesktopHoldRows({
     return next;
   }, [accountId, accountNetworkId, isActive, listsKey, symbols]);
 
-  const rows = useMemo(
+  const builtRows = useMemo(
     () =>
       lists
         ? buildHoldRows({
@@ -105,11 +107,13 @@ export function useEarnDesktopHoldRows({
         : EMPTY_ROWS,
     [assets, lendingOffers, lists, networkGroups],
   );
+  // The protocol lists are asked again when the page comes back into focus
+  const rows = useContentStable(builtRows);
 
   const networkIdsKey = Array.from(new Set(rows.map((row) => row.networkId)))
     .toSorted()
     .join(',');
-  const { result: networkNames } = usePromiseResult(
+  const { result: fetchedNetworkNames } = usePromiseResult(
     async () => {
       const { networks } =
         await backgroundApiProxy.serviceNetwork.getNetworksByIds({
@@ -118,8 +122,9 @@ export function useEarnDesktopHoldRows({
       return new Map(networks.map((network) => [network.id, network.name]));
     },
     [networkIdsKey],
-    { initResult: new Map<string, string>() },
+    { initResult: EMPTY_NETWORK_NAMES },
   );
+  const networkNames = useContentStable(fetchedNetworkNames);
 
   return {
     rows,

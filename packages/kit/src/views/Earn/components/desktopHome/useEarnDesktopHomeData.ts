@@ -27,6 +27,7 @@ import {
 } from '../../pages/EarnRouter/earnFirstFrameCache';
 
 import { sumWalletHoldings } from './earnDesktopHome.utils';
+import { useContentStable } from './useContentStable';
 
 import type {
   IEarnDesktopMarketReserves,
@@ -94,12 +95,14 @@ export function useEarnDesktopMarkets({ isActive }: { isActive: boolean }) {
     },
   );
 
+  // Every poll answers with new objects; equal reserves keep the old ones
+  const reserves = useContentStable(result.entries);
   // The list has loaded, or failed and is known to be empty
   const isListReady = marketList.length > 0 || !isListLoading;
   return {
     marketList,
     isListReady,
-    markets: result.entries,
+    markets: reserves,
     isLoaded:
       isListReady &&
       (result.marketsKey === marketsKey || result.entries.length > 0),
@@ -230,7 +233,10 @@ export function useEarnDesktopAccountMarkets({
   );
 
   const isCurrentAccount = result.scope === scope;
-  const entries = isCurrentAccount ? result.entries : EMPTY_ACCOUNT_MARKETS;
+  // Every poll answers with new objects; equal positions keep the old ones
+  const entries = useContentStable(
+    isCurrentAccount ? result.entries : EMPTY_ACCOUNT_MARKETS,
+  );
   const loans = useMemo(
     () =>
       entries.filter((entry) =>
@@ -476,7 +482,7 @@ export function useEarnDesktopWalletHoldings({
     { initResult: keptFresh },
   );
 
-  const { holdings, networkGroups } = useMemo(() => {
+  const derived = useMemo(() => {
     if (cache.scope !== scope) {
       return {
         holdings: EMPTY_HOLDINGS,
@@ -503,6 +509,9 @@ export function useEarnDesktopWalletHoldings({
       ),
     };
   }, [cache, fresh, scope]);
+  // A refetch on focus answers with the same balances as new objects
+  const holdings = useContentStable(derived.holdings);
+  const networkGroups = useContentStable(derived.networkGroups);
 
   // A settled transaction moves wallet balances too
   const refresh = useCallback(() => {

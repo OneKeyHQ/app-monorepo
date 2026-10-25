@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { useMemo, useState } from 'react';
+import { memo, useMemo, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -407,7 +407,7 @@ const OFFER_KINDS: IEarnDesktopOfferKind[] = [
  * What the wallet holds and can earn on comes first. A wallet with nothing
  * Earn takes gets the offers a new account sees instead.
  */
-export function EarnDesktopTiles({
+function BasicEarnDesktopTiles({
   holdRows,
   networkNames,
   isLoading,
@@ -552,3 +552,5 @@ export function EarnDesktopTiles({
     </YStack>
   );
 }
+
+export const EarnDesktopTiles = memo(BasicEarnDesktopTiles);

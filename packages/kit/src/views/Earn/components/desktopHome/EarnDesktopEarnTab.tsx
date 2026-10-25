@@ -1,5 +1,12 @@
 import type { ReactNode } from 'react';
-import { useCallback, useMemo, useState } from 'react';
+import {
+  createContext,
+  memo,
+  useCallback,
+  useContext,
+  useMemo,
+  useState,
+} from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -75,6 +82,7 @@ import {
   usePressableSurface,
 } from './earnDesktopPressable';
 import { EarnDesktopSortLabel } from './EarnDesktopSortLabel';
+import { useStableItems } from './useContentStable';
 import { useEarnDesktopSurfaces } from './useEarnDesktopSurfaces';
 
 import type {
@@ -699,26 +707,50 @@ function TokenOffers({
   );
 }
 
-function TokenRow({
-  row,
-  isOpen,
-  onToggle,
-  lendingOffers,
-  deposits,
-  isFixedIncomeOnly,
-}: {
+// The Fixed Income filter is on, so every row is fixed rate. A context, so
+// switching the filter re-renders the "Fixed Rate" lines and not their rows
+const FixedIncomeOnlyContext = createContext(false);
+
+function FixedRateLine() {
+  const intl = useIntl();
+  const isFixedIncomeOnly = useContext(FixedIncomeOnlyContext);
+  if (isFixedIncomeOnly) {
+    return null;
+  }
+  return (
+    <SizableText size="$bodySm" color="$textSubdued">
+      {intl.formatMessage({ id: ETranslations.defi_fixed_rate })}
+    </SizableText>
+  );
+}
+
+type ITokenRowCardProps = {
   row: IEarnTableRow;
   isOpen: boolean;
   onToggle: (key: string) => void;
   lendingOffers?: IEarnDesktopLendingOffer[];
   deposits: IEarnDesktopPortfolioDeposits;
-  /** The Fixed Income filter is on, so every row is fixed rate */
-  isFixedIncomeOnly: boolean;
-}) {
-  const intl = useIntl();
+};
+
+function BasicTokenRowCard({
+  row,
+  isOpen,
+  onToggle,
+  lendingOffers,
+  deposits,
+}: ITokenRowCardProps) {
   const surfaces = useEarnDesktopSurfaces();
   const reduceMotion = useReducedMotion();
   const [isHovered, setIsHovered] = useState(false);
+  // The offers' fold (an Accordion, a fifth of a closed row) mounts once the
+  // row is pointed at, pressed or focused, still closed, so the first open
+  // unfolds as every later one does and the rows never opened stay light
+  const [hasFold, setHasFold] = useState(isOpen);
+  const mountFold = () => {
+    if (!hasFold) {
+      setHasFold(true);
+    }
+  };
   const { asset } = row;
   const handleToggle = () => onToggle(row.key);
   return (
@@ -741,7 +773,12 @@ function TokenRow({
         gap={ROW_GAP}
         userSelect="none"
         onPress={handleToggle}
-        onHoverIn={() => setIsHovered(true)}
+        onPressIn={mountFold}
+        onFocus={mountFold}
+        onHoverIn={() => {
+          setIsHovered(true);
+          mountFold();
+        }}
         onHoverOut={() => setIsHovered(false)}
         // Opening a token pins the row's hover color as the card's header
         // strip; closing it lets the color go
@@ -782,11 +819,7 @@ function TokenRow({
                 Fixed-rate rows never show a deposit, so the line is free.
                 Under the Fixed Income filter it would say the same on every
                 row, so it goes */}
-            {row.isFixedRate && !isFixedIncomeOnly ? (
-              <SizableText size="$bodySm" color="$textSubdued">
-                {intl.formatMessage({ id: ETranslations.defi_fixed_rate })}
-              </SizableText>
-            ) : null}
+            {row.isFixedRate ? <FixedRateLine /> : null}
             {row.depositedFiatValue > 0 && !row.isFixedRate ? (
               <DepositedLine value={row.depositedFiatValue} />
             ) : null}
@@ -844,33 +877,58 @@ function TokenRow({
       </ListItem>
       {/* The offers unfold under the token as the deposit modal's protocol
           list does, and fade as they fold */}
-      <Accordion type="single" collapsible value={isOpen ? row.key : ''}>
-        <Accordion.Item value={row.key}>
-          <Accordion.HeightAnimator
-            transition={getListHeightTransition(isOpen, reduceMotion)}
-          >
-            <Accordion.Content
-              unstyled
-              transition="quick"
-              animateOnly={ANIMATE_ONLY_OPACITY}
-              exitStyle={LIST_HIDDEN_STYLE}
+      {hasFold || isOpen ? (
+        <Accordion type="single" collapsible value={isOpen ? row.key : ''}>
+          <Accordion.Item value={row.key}>
+            <Accordion.HeightAnimator
+              transition={getListHeightTransition(isOpen, reduceMotion)}
             >
-              <YStack px="$3" pb="$2">
-                <TokenOffers
-                  row={row}
-                  lendingOffers={lendingOffers}
-                  deposits={deposits}
-                />
-              </YStack>
-            </Accordion.Content>
-          </Accordion.HeightAnimator>
-        </Accordion.Item>
-      </Accordion>
+              <Accordion.Content
+                unstyled
+                transition="quick"
+                animateOnly={ANIMATE_ONLY_OPACITY}
+                exitStyle={LIST_HIDDEN_STYLE}
+              >
+                <YStack px="$3" pb="$2">
+                  <TokenOffers
+                    row={row}
+                    lendingOffers={lendingOffers}
+                    deposits={deposits}
+                  />
+                </YStack>
+              </Accordion.Content>
+            </Accordion.HeightAnimator>
+          </Accordion.Item>
+        </Accordion>
+      ) : null}
     </YStack>
   );
 }
 
-export function EarnDesktopEarnTab({
+const getRowKey = (row: IEarnTableRow) => row.key;
+
+// A row re-renders only when its own token changes, opens or closes: opening
+// one, sorting or filtering no longer re-renders the other fifty
+const TokenRowCard = memo(BasicTokenRowCard);
+
+function BasicTokenRow({
+  isHidden,
+  ...cardProps
+}: ITokenRowCardProps & {
+  /** Left out by the filters or the search */
+  isHidden: boolean;
+}) {
+  // Showing and hiding re-renders this wrapper, not the row inside it
+  return (
+    <YStack display={isHidden ? 'none' : 'flex'}>
+      <TokenRowCard {...cardProps} />
+    </YStack>
+  );
+}
+
+const TokenRow = memo(BasicTokenRow);
+
+function BasicEarnDesktopEarnTab({
   trendingAssets,
   fixedRateAssets,
   isAssetsLoading,
@@ -934,7 +992,7 @@ export function EarnDesktopEarnTab({
     return map;
   }, [deposits, lendingOffers]);
 
-  const allRows = useMemo<IEarnTableRow[]>(() => {
+  const builtRows = useMemo<IEarnTableRow[]>(() => {
     const build = (asset: IEarnAvailableAsset, isFixedRate: boolean) => {
       const symbolKey = asset.symbol.toLowerCase();
       const lendingNetworks = isFixedRate
@@ -984,6 +1042,9 @@ export function EarnDesktopEarnTab({
     trendingAssets,
     walletHoldings,
   ]);
+  // A row rebuilt with the same content keeps its object, so the memoized
+  // row skips the render when a refetch or poll changed other tokens only
+  const allRows = useStableItems(builtRows, getRowKey);
 
   // Fixed-rate tokens have a category of their own, so Stable and Non-Stable
   // keep to the flexible ones, as on the Tokens page
@@ -1038,18 +1099,25 @@ export function EarnDesktopEarnTab({
     });
   }, [categoryRows, searchText, selectedNetworkIds]);
 
+  // Every row stays mounted and the filters hide the others, so a category,
+  // a network or the search shows and hides rows instead of building them
+  // again
+  const visibleKeys = useMemo(
+    () => new Set(rows.map((row) => row.key)),
+    [rows],
+  );
   // Highest first, then lowest first, then the list's own order again
   const sortedRows = useMemo(() => {
     if (!tokenSort) {
-      return rows;
+      return allRows;
     }
     const sign = tokenSort.direction === 'desc' ? -1 : 1;
-    return rows.toSorted(
+    return allRows.toSorted(
       (a, b) =>
         sign * (getAssetSortApr(a.asset) - getAssetSortApr(b.asset)) ||
         b.tvl - a.tvl,
     );
-  }, [rows, tokenSort]);
+  }, [allRows, tokenSort]);
   const handleTokenSort = useCallback((key: ITokenSort) => {
     setTokenSort((current) => {
       if (current?.key !== key) {
@@ -1096,68 +1164,72 @@ export function EarnDesktopEarnTab({
       {isEmpty ? (
         <EarnListEmptyState isFiltered={isFiltered} />
       ) : (
-        <YStack mx="$-5">
-          <ListItem gap={ROW_GAP} minHeight="$8">
-            <Stack {...COLUMNS.asset}>
-              <HeaderLabel>
-                {intl.formatMessage({ id: ETranslations.global_asset })}
-              </HeaderLabel>
-            </Stack>
-            <Stack {...COLUMNS.network} {...WIDE_ONLY}>
-              <HeaderLabel>
-                {intl.formatMessage({ id: ETranslations.global_network })}
-              </HeaderLabel>
-            </Stack>
-            <Stack {...COLUMNS.balance} {...WIDE_ONLY}>
-              <HeaderLabel align="right">
-                {intl.formatMessage({
-                  id: ETranslations.global_wallet_balance,
-                })}
-              </HeaderLabel>
-            </Stack>
-            <Stack {...COLUMNS.apr}>
-              <EarnDesktopSortLabel
-                sort="apr"
-                current={tokenSort}
-                onPress={handleTokenSort}
-                testID="earn-desktop-earn-sort-apr"
-              >
-                {intl.formatMessage({ id: ETranslations.defi_apr_apy })}
-              </EarnDesktopSortLabel>
-            </Stack>
-            <Stack w="$5" />
-          </ListItem>
-          {isAssetsLoading && !rows.length
-            ? Array.from({ length: 6 }).map((_, index) => (
-                <ListItem key={index} minHeight={ROW_HEIGHT} gap={ROW_GAP}>
-                  <XStack {...COLUMNS.asset} ai="center" gap="$3">
-                    <Skeleton w="$8" h="$8" radius="round" />
-                    <Skeleton w={96} h={18} borderRadius="$2" />
-                  </XStack>
-                  <Stack {...COLUMNS.network} {...WIDE_ONLY}>
-                    <Skeleton w={64} h={18} borderRadius="$2" />
-                  </Stack>
-                  <Stack {...column(2.8, 'flex-end')}>
-                    <Skeleton w={96} h={18} borderRadius="$2" />
-                  </Stack>
-                  <Stack w="$5" />
-                </ListItem>
-              ))
-            : sortedRows.map((row) => (
-                <TokenRow
-                  key={row.key}
-                  row={row}
-                  isOpen={row.key === openKey}
-                  onToggle={handleToggle}
-                  lendingOffers={lendingOffers.get(
-                    row.asset.symbol.toLowerCase(),
-                  )}
-                  deposits={deposits}
-                  isFixedIncomeOnly={category === 'fixedIncome'}
-                />
-              ))}
-        </YStack>
+        <FixedIncomeOnlyContext.Provider value={category === 'fixedIncome'}>
+          <YStack mx="$-5">
+            <ListItem gap={ROW_GAP} minHeight="$8">
+              <Stack {...COLUMNS.asset}>
+                <HeaderLabel>
+                  {intl.formatMessage({ id: ETranslations.global_asset })}
+                </HeaderLabel>
+              </Stack>
+              <Stack {...COLUMNS.network} {...WIDE_ONLY}>
+                <HeaderLabel>
+                  {intl.formatMessage({ id: ETranslations.global_network })}
+                </HeaderLabel>
+              </Stack>
+              <Stack {...COLUMNS.balance} {...WIDE_ONLY}>
+                <HeaderLabel align="right">
+                  {intl.formatMessage({
+                    id: ETranslations.global_wallet_balance,
+                  })}
+                </HeaderLabel>
+              </Stack>
+              <Stack {...COLUMNS.apr}>
+                <EarnDesktopSortLabel
+                  sort="apr"
+                  current={tokenSort}
+                  onPress={handleTokenSort}
+                  testID="earn-desktop-earn-sort-apr"
+                >
+                  {intl.formatMessage({ id: ETranslations.defi_apr_apy })}
+                </EarnDesktopSortLabel>
+              </Stack>
+              <Stack w="$5" />
+            </ListItem>
+            {isAssetsLoading && !rows.length
+              ? Array.from({ length: 6 }).map((_, index) => (
+                  <ListItem key={index} minHeight={ROW_HEIGHT} gap={ROW_GAP}>
+                    <XStack {...COLUMNS.asset} ai="center" gap="$3">
+                      <Skeleton w="$8" h="$8" radius="round" />
+                      <Skeleton w={96} h={18} borderRadius="$2" />
+                    </XStack>
+                    <Stack {...COLUMNS.network} {...WIDE_ONLY}>
+                      <Skeleton w={64} h={18} borderRadius="$2" />
+                    </Stack>
+                    <Stack {...column(2.8, 'flex-end')}>
+                      <Skeleton w={96} h={18} borderRadius="$2" />
+                    </Stack>
+                    <Stack w="$5" />
+                  </ListItem>
+                ))
+              : sortedRows.map((row) => (
+                  <TokenRow
+                    key={row.key}
+                    row={row}
+                    isHidden={!visibleKeys.has(row.key)}
+                    isOpen={row.key === openKey}
+                    onToggle={handleToggle}
+                    lendingOffers={lendingOffers.get(
+                      row.asset.symbol.toLowerCase(),
+                    )}
+                    deposits={deposits}
+                  />
+                ))}
+          </YStack>
+        </FixedIncomeOnlyContext.Provider>
       )}
     </YStack>
   );
 }
+
+export const EarnDesktopEarnTab = memo(BasicEarnDesktopEarnTab);

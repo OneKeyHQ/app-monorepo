@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { useCallback, useEffect, useState } from 'react';
+import { memo, useCallback, useEffect, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -151,7 +151,7 @@ function TotalValue({
   );
 }
 
-export function EarnDesktopHero({
+function BasicEarnDesktopHero({
   totalFiatValue,
   earnings24h,
   borrowInterest24h,
@@ -513,3 +513,5 @@ export function EarnDesktopHero({
     </YStack>
   );
 }
+
+export const EarnDesktopHero = memo(BasicEarnDesktopHero);
