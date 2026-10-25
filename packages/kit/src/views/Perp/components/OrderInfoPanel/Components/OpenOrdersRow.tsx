@@ -11,7 +11,7 @@ import {
   useSpotPairDisplayNameMapAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { formatTime } from '@onekeyhq/shared/src/utils/dateUtils';
+import { formatDate, formatTime } from '@onekeyhq/shared/src/utils/dateUtils';
 import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
 import {
   formatLocalizedNumberString,
@@ -178,9 +178,7 @@ const OpenOrdersRow = memo(
     }, [actions, assetInfo.isSpot, assetInfo.rawCoin]);
     const dateInfo = useMemo(() => {
       const timeDate = new Date(order.timestamp);
-      const date = formatTime(timeDate, {
-        formatTemplate: 'yyyy-LL-dd',
-      });
+      const date = formatDate(timeDate, { hideTimeForever: true });
       const time = formatTime(timeDate, {
         formatTemplate: 'HH:mm:ss',
       });

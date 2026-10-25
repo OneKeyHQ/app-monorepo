@@ -19,7 +19,7 @@ import { PERP_USER_FUNDING_HISTORY_LIMIT } from '@onekeyhq/shared/src/consts/per
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import csvExporterUtils from '@onekeyhq/shared/src/utils/csvExporterUtils';
-import { formatTime } from '@onekeyhq/shared/src/utils/dateUtils';
+import { formatDate, formatTime } from '@onekeyhq/shared/src/utils/dateUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import { parseDexCoin } from '@onekeyhq/shared/src/utils/perpsUtils';
 import type { IUserFunding } from '@onekeyhq/shared/types/hyperliquid';
@@ -288,7 +288,7 @@ function FundingHistoryRow({
   const { delta } = record;
   const date = new Date(record.time);
   const dateInfo = {
-    date: formatTime(date, { formatTemplate: 'yyyy-LL-dd' }),
+    date: formatDate(date, { hideTimeForever: true }),
     time: formatTime(date, { formatTemplate: 'HH:mm:ss' }),
   };
   const market = parseDexCoin(delta.coin).displayName;

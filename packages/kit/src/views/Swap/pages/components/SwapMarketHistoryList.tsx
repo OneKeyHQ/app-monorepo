@@ -145,7 +145,7 @@ const SwapMarketHistoryList = ({
       (acc, item) => {
         const date = new Date(item.date.created);
         const monthDay = formatDate(date, {
-          formatTemplate: 'yyyy-LL-dd',
+          hideTimeForever: true,
         });
 
         if (!acc[monthDay]) {

@@ -14,7 +14,7 @@ import {
   useSpotPairDisplayNameMapAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { formatTime } from '@onekeyhq/shared/src/utils/dateUtils';
+import { formatDate, formatTime } from '@onekeyhq/shared/src/utils/dateUtils';
 import {
   formatTwapPriceForDisplay,
   getTwapElapsedMs,
@@ -131,9 +131,7 @@ const MobileTwapOpenOrdersRow = memo(
     );
     const dateInfo = useMemo(() => {
       const timeDate = new Date(state.timestamp);
-      const date = formatTime(timeDate, {
-        formatTemplate: 'yyyy-LL-dd',
-      });
+      const date = formatDate(timeDate, { hideTimeForever: true });
       const time = formatTime(timeDate, {
         formatTemplate: 'HH:mm:ss',
       });
