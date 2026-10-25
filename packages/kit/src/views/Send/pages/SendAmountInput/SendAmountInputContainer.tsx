@@ -3832,6 +3832,12 @@ function SendAmountInputContainer() {
       const nextMode =
         value === ESendMode.PRIVATE ? ESendMode.PRIVATE : ESendMode.PUBLIC;
       if (nextMode !== sendMode) {
+        // The shared Android input survives mode changes, so dismiss its
+        // keyboard explicitly instead of relying on the previous remount.
+        if (platformEnv.isNativeAndroid) {
+          amountInputRef.current?.blur();
+          Keyboard.dismiss();
+        }
         setIsMaxSend((currentIsMaxSend) =>
           getMaxSendStateAfterModeChange({
             isMaxSend: currentIsMaxSend,
@@ -5299,7 +5305,7 @@ function SendAmountInputContainer() {
   );
 
   let renderPageBody: ReactNode;
-  if (isMobilePrivateSendLayout) {
+  if (isMobilePrivateSendLayout && !platformEnv.isNativeAndroid) {
     renderPageBody = (
       <Page.Body minHeight={0} overflow="hidden">
         <ScrollView
@@ -5323,12 +5329,15 @@ function SendAmountInputContainer() {
         </ScrollView>
       </Page.Body>
     );
-  } else if (shouldUseScrollableAmountBody) {
+  } else if (shouldUseScrollableAmountBody || isMobileAmountLayout) {
     renderPageBody = (
       <Page.Body minHeight={0} overflow="hidden">
+        {/* Keep the Android input's ancestors mounted across send modes so
+            the native amount view does not flash while measuring again. */}
         <Keyboard.AwareScrollView
+          enabled={!isMobilePrivateSendLayout}
           keyboardShouldPersistTaps="handled"
-          keyboardDismissMode="on-drag"
+          keyboardDismissMode={isMobilePrivateSendLayout ? 'none' : 'on-drag'}
           showsVerticalScrollIndicator={false}
           style={{ flex: 1 }}
           contentContainerStyle={{ flexGrow: 1 }}
@@ -5336,7 +5345,12 @@ function SendAmountInputContainer() {
         >
           <YStack
             px="$5"
-            py={MOBILE_AMOUNT_BODY_PADDING_Y_TOKEN}
+            pt={
+              isMobilePrivateSendLayout
+                ? mobilePrivateSendAmountColumnPaddingTop
+                : MOBILE_AMOUNT_BODY_PADDING_Y_TOKEN
+            }
+            pb={MOBILE_AMOUNT_BODY_PADDING_Y_TOKEN}
             gap={MOBILE_AMOUNT_BODY_GAP_TOKEN}
             flexGrow={1}
           >
@@ -5346,12 +5360,19 @@ function SendAmountInputContainer() {
                 when tapping the input itself and immediately blurs it (the
                 keyboard flashes up then closes). Keyboard dismissal is handled
                 by `keyboardDismissMode="on-drag"` on the scroll view instead. */}
-            <YStack flex={1} justifyContent="center">
+            <YStack
+              flex={1}
+              justifyContent="center"
+              gap={isMobilePrivateSendLayout ? '$3' : undefined}
+            >
               {renderAmountFormContent}
+              {isMobilePrivateSendLayout ? renderAutoSwitchAlert : null}
             </YStack>
-            <YStack gap={MOBILE_AMOUNT_BOTTOM_INFO_GAP_TOKEN}>
-              {renderBottomInfoContent}
-            </YStack>
+            {isMobilePrivateSendLayout ? null : (
+              <YStack gap={MOBILE_AMOUNT_BOTTOM_INFO_GAP_TOKEN}>
+                {renderBottomInfoContent}
+              </YStack>
+            )}
           </YStack>
         </Keyboard.AwareScrollView>
       </Page.Body>
