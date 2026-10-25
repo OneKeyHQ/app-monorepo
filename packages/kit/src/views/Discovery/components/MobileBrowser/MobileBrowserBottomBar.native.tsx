@@ -41,6 +41,7 @@ import {
 } from './browserChrome';
 import {
   BrowserChromeCapsule,
+  getCapsuleFadeMidpoint,
   useCapsuleFadeStyle,
 } from './BrowserChromeCapsule';
 import { ChromePressable } from './ChromePressable';
@@ -51,10 +52,8 @@ import { useMobileBrowserOptions } from './useMobileBrowserOptions';
 
 import type { ICapsuleFade } from './BrowserChromeCapsule';
 import type { IMobileBrowserBottomBarProps } from './useMobileBrowserBottomBarData';
-import type { ViewStyle } from 'react-native';
-import type { AnimatedStyle, SharedValue } from 'react-native-reanimated';
-
-type IAnimatedStyle = AnimatedStyle<ViewStyle>;
+import type { StyleProp, ViewStyle } from 'react-native';
+import type { SharedValue } from 'react-native-reanimated';
 
 const styles = StyleSheet.create({
   // Bottom-anchored so the in-flow (tablet) container can shrink to the pill
@@ -94,7 +93,11 @@ const PILL_HIT_SLOP = {
 const SIDE_FADE_START = 0.4;
 const CAPSULE_FADE_START = 0.25;
 const PILL_FADE_END = 0.75;
-const DOMAIN_SWAP_POINT = (CAPSULE_FADE_START + PILL_FADE_END) / 2;
+// The domain swaps where the address capsule's (and pill's) glass switches.
+const DOMAIN_SWAP_POINT = getCapsuleFadeMidpoint([
+  CAPSULE_FADE_START,
+  PILL_FADE_END,
+]);
 // The side buttons move this far towards the center while collapsing, and
 // shrink to this scale.
 const SIDE_COLLAPSE_TRAVEL_X = 40;
@@ -115,53 +118,41 @@ const CAPSULE_COLLAPSED_SCALE = PILL_DOMAIN_FONT_SIZE / DOMAIN_FONT_SIZE;
 // whole bar draws into its center. These are transforms only: each capsule
 // fades its own glass/background and contents (BrowserChromeCapsule), never
 // a parent opacity, which would break Liquid Glass.
+// A side button's move: down with the bar, in toward the center (`towards`
+// is +1 for the left one, -1 for the right), and smaller.
+function useSideMorphStyle(
+  progress: SharedValue<number>,
+  travelY: number,
+  towards: 1 | -1,
+) {
+  return useAnimatedStyle(() => ({
+    transform: [
+      {
+        translateX: interpolate(
+          progress.value,
+          [0, 1],
+          [towards * SIDE_COLLAPSE_TRAVEL_X, 0],
+          'clamp',
+        ),
+      },
+      {
+        translateY: interpolate(progress.value, [0, 1], [travelY, 0], 'clamp'),
+      },
+      {
+        scale: interpolate(
+          progress.value,
+          [0, 1],
+          [SIDE_COLLAPSED_SCALE, 1],
+          'clamp',
+        ),
+      },
+    ],
+  }));
+}
+
 function useBarMorphStyles(progress: SharedValue<number>, travelY: number) {
-  const leftStyle = useAnimatedStyle(() => ({
-    transform: [
-      {
-        translateX: interpolate(
-          progress.value,
-          [0, 1],
-          [SIDE_COLLAPSE_TRAVEL_X, 0],
-          'clamp',
-        ),
-      },
-      {
-        translateY: interpolate(progress.value, [0, 1], [travelY, 0], 'clamp'),
-      },
-      {
-        scale: interpolate(
-          progress.value,
-          [0, 1],
-          [SIDE_COLLAPSED_SCALE, 1],
-          'clamp',
-        ),
-      },
-    ],
-  }));
-  const rightStyle = useAnimatedStyle(() => ({
-    transform: [
-      {
-        translateX: interpolate(
-          progress.value,
-          [0, 1],
-          [-SIDE_COLLAPSE_TRAVEL_X, 0],
-          'clamp',
-        ),
-      },
-      {
-        translateY: interpolate(progress.value, [0, 1], [travelY, 0], 'clamp'),
-      },
-      {
-        scale: interpolate(
-          progress.value,
-          [0, 1],
-          [SIDE_COLLAPSED_SCALE, 1],
-          'clamp',
-        ),
-      },
-    ],
-  }));
+  const leftStyle = useSideMorphStyle(progress, travelY, 1);
+  const rightStyle = useSideMorphStyle(progress, travelY, -1);
   const capsuleStyle = useAnimatedStyle(() => ({
     transform: [
       {
@@ -225,7 +216,7 @@ function CollapsedAddressPill({
   url?: string;
   onPress?: () => void;
   fade: ICapsuleFade;
-  domainStyle: IAnimatedStyle;
+  domainStyle: StyleProp<ViewStyle>;
 }) {
   const hostname = useMemo(() => getDisplayHostname(url), [url]);
   return (

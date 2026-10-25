@@ -34,6 +34,12 @@ export interface ICapsuleFade {
   reverse?: boolean;
 }
 
+// Where a capsule's fade is half done: its glass switches there, and the bar
+// swaps its domain text there too.
+export function getCapsuleFadeMidpoint([start, end]: [number, number]) {
+  return (start + end) / 2;
+}
+
 // Opacity of a capsule's contents along its fade. Callers that fade some
 // children differently (the address capsule's domain) apply it per child.
 export function useCapsuleFadeStyle(fade: ICapsuleFade | undefined) {
@@ -86,11 +92,12 @@ export function BrowserChromeCapsule({
   fade,
   fadeContent = true,
 }: IBrowserChromeCapsuleProps) {
+  const isGlass = isLiquidGlassAvailable();
   const fadeStyle = useCapsuleFadeStyle(fade);
-  const [start, end] = fade?.range ?? [0, 0];
   const glassHidden = useIsProgressPast(
-    fade?.progress,
-    (start + end) / 2,
+    // Only glass needs the switch; without it no JS update at the midpoint.
+    isGlass ? fade?.progress : undefined,
+    fade ? getCapsuleFadeMidpoint(fade.range) : 0,
     fade?.reverse ? 'above' : 'below',
   );
   const glassEffectStyle = useMemo(
@@ -115,7 +122,7 @@ export function BrowserChromeCapsule({
   );
   const content = (
     <GlassHeaderProvider>
-      {fade && fadeContent ? (
+      {fadeContent ? (
         <Animated.View style={fadeStyle}>{row}</Animated.View>
       ) : (
         row
@@ -123,7 +130,7 @@ export function BrowserChromeCapsule({
     </GlassHeaderProvider>
   );
 
-  if (isLiquidGlassAvailable()) {
+  if (isGlass) {
     return (
       <GlassView
         isInteractive
@@ -141,7 +148,7 @@ export function BrowserChromeCapsule({
     <Stack flex={flex} borderRadius="$full" borderCurve="continuous">
       <Animated.View
         pointerEvents="none"
-        style={[styles.solidBackground, fade ? fadeStyle : undefined]}
+        style={[styles.solidBackground, fadeStyle]}
       >
         <Stack flex={1} bg="$bgStrong" borderRadius="$full" />
       </Animated.View>

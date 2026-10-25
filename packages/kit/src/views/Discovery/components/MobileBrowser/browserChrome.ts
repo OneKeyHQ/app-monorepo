@@ -25,12 +25,6 @@ export interface IMobileBrowserChrome {
   onSearchBarPress: (url: string) => void;
 }
 
-// iOS's bottom inset (~34pt) holds the home indicator (~13pt from the screen
-// bottom at its top). Like Safari 26, the expanded capsules sit on the inset
-// and the collapsed pill dips into it, each keeping clear of the indicator.
-// Android's gesture-bar inset is much
-// shorter (~16-24dp, or 0 when the app isn't drawn edge-to-edge), with the
-// handle near its top, so the chrome sits fully above it.
 const isAndroid = platformEnv.isNativeAndroid;
 
 // How far the capsule's back button is pulled toward the site badge: its
@@ -38,7 +32,14 @@ const isAndroid = platformEnv.isNativeAndroid;
 // per platform (solid Android capsule vs iOS glass) so both gaps match.
 export const CAPSULE_BACK_BUTTON_PULL = isAndroid ? 6 : 4;
 
-// Sits just above the home indicator / gesture handle.
+// Bottom positions of the chrome. iOS's bottom inset (~34pt) holds the home
+// indicator (its top ~13pt from the screen bottom): like Safari 26, the
+// expanded capsules sit on the inset and the collapsed pill dips into it,
+// both clear of the indicator. Android's gesture-bar inset is much shorter
+// (~16-24dp, or 0 when the app isn't drawn edge-to-edge), so the chrome sits
+// fully above it.
+
+// The collapsed pill: just above the home indicator / gesture handle.
 export function getCollapsedPillBottom(bottomInset: number) {
   return isAndroid ? bottomInset + 4 : Math.max(bottomInset - 10, 8);
 }

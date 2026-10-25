@@ -1,4 +1,5 @@
 import { memo, useEffect, useMemo } from 'react';
+import type { PropsWithChildren } from 'react';
 
 import { useIsFocused } from '@react-navigation/native';
 import { StatusBar, StyleSheet } from 'react-native';
@@ -17,6 +18,7 @@ import {
   useSafeAreaInsets,
   useThemeName,
 } from '@onekeyhq/components';
+import type { IXStackProps } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import {
@@ -29,7 +31,10 @@ import { usePageTheme } from '../../utils/pageThemeColor';
 import HeaderRightToolBar from '../HeaderRightToolBar';
 
 import { logBrowserChromeAction, useIsChromeCollapsed } from './browserChrome';
-import { BrowserChromeCapsule } from './BrowserChromeCapsule';
+import {
+  BrowserChromeCapsule,
+  useCapsuleFadeStyle,
+} from './BrowserChromeCapsule';
 
 import type { IMobileBrowserChrome } from './browserChrome';
 import type { ICapsuleFade } from './BrowserChromeCapsule';
@@ -132,6 +137,40 @@ function usePageStatusBarStyle(
   }, [isFocused, pageThemeName]);
 }
 
+// A 36pt header control: a Liquid Glass capsule when given a fade (iOS 26),
+// else a plain box with an optional translucent fill.
+function HeaderChip({
+  fade,
+  px,
+  bg,
+  children,
+}: PropsWithChildren<{
+  fade?: ICapsuleFade;
+  px?: IXStackProps['px'];
+  bg?: string;
+}>) {
+  if (fade) {
+    return (
+      <BrowserChromeCapsule height={ACCOUNT_CHIP_HEIGHT} px={px} fade={fade}>
+        {children}
+      </BrowserChromeCapsule>
+    );
+  }
+  return (
+    <XStack
+      h={ACCOUNT_CHIP_HEIGHT}
+      px={px}
+      bg={bg}
+      borderRadius={ACCOUNT_CHIP_RADIUS}
+      borderCurve="continuous"
+      alignItems="center"
+      justifyContent="center"
+    >
+      {children}
+    </XStack>
+  );
+}
+
 // The address lives in the bottom bar, so the header only keeps exit (back to
 // the wallet, tabs kept) and the account. It collapses fully on scroll down.
 // It stays in the layout (the page starts below it) rather than floating:
@@ -144,29 +183,22 @@ function MobileBrowserHeader({
   const { top } = useSafeAreaInsets();
   const { progress } = chrome;
   const isCollapsed = useIsChromeCollapsed(progress);
-  // Fades out (with a small upward slide) in the first half of a collapse,
-  // so the row is gone before its height reaches zero.
-  // iOS 26: the exit button and the account chip are Liquid Glass capsules,
-  // like the bottom bar. Glass must not sit under a fading parent, so then
-  // the row only slides and each capsule fades its own glass and contents.
+  // The row fades out (with a small upward slide) in the first half of a
+  // collapse, so it is gone before its height reaches zero. iOS 26: the exit
+  // button and the account chip are Liquid Glass capsules, like the bottom
+  // bar; glass must not sit under a fading parent, so there the row only
+  // slides and each capsule fades its own glass and contents (same range).
   const isGlass = isLiquidGlassAvailable();
-  const expandedStyle = useAnimatedStyle(() => ({
-    opacity: isGlass
-      ? 1
-      : interpolate(
-          progress.value,
-          [BROWSER_CHROME_CROSSFADE_POINT, 1],
-          [0, 1],
-          'clamp',
-        ),
+  const fade = useMemo<ICapsuleFade>(
+    () => ({ progress, range: [BROWSER_CHROME_CROSSFADE_POINT, 1] }),
+    [progress],
+  );
+  const rowFadeStyle = useCapsuleFadeStyle(isGlass ? undefined : fade);
+  const rowSlideStyle = useAnimatedStyle(() => ({
     transform: [
       { translateY: interpolate(progress.value, [0, 1], [-8, 0], 'clamp') },
     ],
   }));
-  const capsuleFade = useMemo<ICapsuleFade>(
-    () => ({ progress, range: [BROWSER_CHROME_CROSSFADE_POINT, 1] }),
-    [progress],
-  );
   // Tint like Safari: take the page's color, and switch icons/text/status bar
   // to the matching light or dark theme.
   const { activeTabId } = useActiveTabId();
@@ -220,7 +252,7 @@ function MobileBrowserHeader({
         <Animated.View style={[styles.container, containerAnimatedStyle]}>
           <Animated.View
             pointerEvents={isCollapsed ? 'none' : 'box-none'}
-            style={[styles.content, expandedStyle]}
+            style={[styles.content, rowSlideStyle, rowFadeStyle]}
           >
             {/* Tighter than the bottom bar, like a navigation bar: the exit
               glyph (or its glass circle) and the chip's right edge sit 16pt
@@ -236,45 +268,19 @@ function MobileBrowserHeader({
               alignItems="center"
               justifyContent="space-between"
             >
-              {isGlass ? (
-                <BrowserChromeCapsule
-                  height={ACCOUNT_CHIP_HEIGHT}
-                  fade={capsuleFade}
-                >
-                  {closeButton}
-                </BrowserChromeCapsule>
-              ) : (
-                <Stack
-                  h={ACCOUNT_CHIP_HEIGHT}
-                  alignItems="center"
-                  justifyContent="center"
-                >
-                  {closeButton}
-                </Stack>
-              )}
+              <HeaderChip fade={isGlass ? fade : undefined}>
+                {closeButton}
+              </HeaderChip>
               {/* One compact chip for every account state (connected,
                 not connected, no wallet), so the right side keeps the same
                 shape instead of switching between loose triggers. */}
-              {isGlass ? (
-                <BrowserChromeCapsule
-                  height={ACCOUNT_CHIP_HEIGHT}
-                  px="$1"
-                  fade={capsuleFade}
-                >
-                  {accountToolbar}
-                </BrowserChromeCapsule>
-              ) : (
-                <XStack
-                  h={ACCOUNT_CHIP_HEIGHT}
-                  px="$1"
-                  bg={accountChipBg}
-                  borderRadius={ACCOUNT_CHIP_RADIUS}
-                  borderCurve="continuous"
-                  alignItems="center"
-                >
-                  {accountToolbar}
-                </XStack>
-              )}
+              <HeaderChip
+                fade={isGlass ? fade : undefined}
+                px="$1"
+                bg={accountChipBg}
+              >
+                {accountToolbar}
+              </HeaderChip>
             </XStack>
           </Animated.View>
         </Animated.View>
