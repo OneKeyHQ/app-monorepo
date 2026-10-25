@@ -30,31 +30,24 @@ export const useTakeScreenshot = (id?: string | null) => {
         format: 'jpg',
         quality: 0.2,
       });
-      // The page is captured: callers waiting to hide it (closing the
-      // browser, opening the tab list) can go on, while the thumbnail is
-      // cropped and stored in the background.
-      void (async () => {
-        try {
-          const manipulateValue = await manipulateAsync(imageUri, [
-            {
-              crop: {
-                originX: 0,
-                originY: 0,
-                width: THUMB_CROP_SIZE,
-                height: THUMB_CROP_SIZE,
-              },
-            },
-          ]);
-          const path = getScreenshotPath(`${id}-${Date.now()}.jpg`);
-          actionsRef.current?.setWebTabData({
-            id,
-            thumbnail: path,
-          });
-          void saveScreenshot(manipulateValue.uri, path);
-        } catch (e) {
-          console.log('thumbnail error e: ', e);
-        }
-      })();
+      // Awaited: the tab list opens right after this resolves and shows the
+      // tab's thumbnail, so it must already point at this capture.
+      const manipulateValue = await manipulateAsync(imageUri, [
+        {
+          crop: {
+            originX: 0,
+            originY: 0,
+            width: THUMB_CROP_SIZE,
+            height: THUMB_CROP_SIZE,
+          },
+        },
+      ]);
+      const path = getScreenshotPath(`${id}-${Date.now()}.jpg`);
+      actionsRef.current?.setWebTabData({
+        id,
+        thumbnail: path,
+      });
+      void saveScreenshot(manipulateValue.uri, path);
       return true;
     } catch (e) {
       console.log('capture error e: ', e);

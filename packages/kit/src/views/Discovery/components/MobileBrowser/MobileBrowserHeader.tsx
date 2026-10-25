@@ -81,6 +81,7 @@ const BROWSER_SYSTEM_BARS_OWNER = 'discovery-browser';
 function usePageStatusBarStyle(
   pageThemeName: 'light' | 'dark' | undefined,
   pageColor: string | undefined,
+  appThemeName: string,
 ) {
   const isFocused = useIsFocused();
   // Android: the system bars (status bar surface and icons up to Android 14,
@@ -119,7 +120,8 @@ function usePageStatusBarStyle(
     // module) bypass the stack and leave its cached value stale, so a later
     // push of the same style is skipped as "unchanged" and the wrong style
     // stays on screen. Re-assert once things settle (after a closing modal
-    // or a late page-color update) so the bar always ends on the page style.
+    // or a late page-color update, or an app theme change, which repaints
+    // the bar for the app theme) so the bar always ends on the page style.
     const timer = setTimeout(() => {
       StatusBar.setBarStyle(barStyle, true);
     }, STATUS_BAR_REASSERT_DELAY_MS);
@@ -127,7 +129,7 @@ function usePageStatusBarStyle(
       clearTimeout(timer);
       StatusBar.popStackEntry(entry);
     };
-  }, [isFocused, pageThemeName]);
+  }, [isFocused, pageThemeName, appThemeName]);
 }
 
 // A 36pt header control: a Liquid Glass capsule when given a fade (iOS 26),
@@ -210,7 +212,7 @@ function MobileBrowserHeader({
   // Keep the Theme wrapper mounted (falling back to the app theme) so the
   // header subtree isn't remounted when the page color arrives.
   const appThemeName = useThemeName();
-  usePageStatusBarStyle(pageThemeName, pageColor);
+  usePageStatusBarStyle(pageThemeName, pageColor, appThemeName);
   // A translucent fill over the header color (the page's, or the app
   // background when the page reports none), so the chip takes on the page's
   // hue instead of a fixed gray that clashes with colored pages. Light
@@ -253,7 +255,15 @@ function MobileBrowserHeader({
           pointerEvents={isCollapsed ? 'none' : 'box-none'}
           style={[styles.overlay, { top }, rowSlideStyle, rowFadeStyle]}
         >
-          <Stack fullscreen bg="$bgApp" style={pageColorStyle} />
+          <Stack
+            position="absolute"
+            top={0}
+            right={0}
+            bottom={0}
+            left={0}
+            bg="$bgApp"
+            style={pageColorStyle}
+          />
           {/* Tighter than the bottom bar, like a navigation bar: the exit
               glyph (or its glass circle) and the chip's right edge sit 16pt
               from the screen edges, in line with typical page content. */}
