@@ -1,4 +1,4 @@
-import { memo, useEffect } from 'react';
+import { memo, useEffect, useMemo } from 'react';
 
 import { useIsFocused } from '@react-navigation/native';
 import { StatusBar, StyleSheet } from 'react-native';
@@ -12,6 +12,7 @@ import {
   Stack,
   Theme,
   XStack,
+  isLiquidGlassAvailable,
   setSystemBarsOverride,
   useSafeAreaInsets,
   useThemeName,
@@ -28,13 +29,17 @@ import { usePageTheme } from '../../utils/pageThemeColor';
 import HeaderRightToolBar from '../HeaderRightToolBar';
 
 import { logBrowserChromeAction, useIsChromeCollapsed } from './browserChrome';
+import { BrowserChromeCapsule } from './BrowserChromeCapsule';
 
 import type { IMobileBrowserChrome } from './browserChrome';
+import type { ICapsuleFade } from './BrowserChromeCapsule';
 
 const HEADER_EDGE_INSET = 16;
 // IconButton's medium padding ($1.5), so the glyph itself sits at the inset.
 const MINIMIZE_BUTTON_PADDING = 6;
 const ACCOUNT_CHIP_HEIGHT = 36;
+const CLOSE_BUTTON_HIT_SLOP = { top: 5, bottom: 5, left: 8, right: 8 };
+const CLOSE_ICON_PROPS = { color: '$icon' } as const;
 // Concentric with the 24pt account avatar (4pt corners) inset 6pt: a rounded
 // square chip instead of a pill, so the chip and avatar read as one shape.
 const ACCOUNT_CHIP_RADIUS = 10;
@@ -141,17 +146,27 @@ function MobileBrowserHeader({
   const isCollapsed = useIsChromeCollapsed(progress);
   // Fades out (with a small upward slide) in the first half of a collapse,
   // so the row is gone before its height reaches zero.
+  // iOS 26: the exit button and the account chip are Liquid Glass capsules,
+  // like the bottom bar. Glass must not sit under a fading parent, so then
+  // the row only slides and each capsule fades its own glass and contents.
+  const isGlass = isLiquidGlassAvailable();
   const expandedStyle = useAnimatedStyle(() => ({
-    opacity: interpolate(
-      progress.value,
-      [BROWSER_CHROME_CROSSFADE_POINT, 1],
-      [0, 1],
-      'clamp',
-    ),
+    opacity: isGlass
+      ? 1
+      : interpolate(
+          progress.value,
+          [BROWSER_CHROME_CROSSFADE_POINT, 1],
+          [0, 1],
+          'clamp',
+        ),
     transform: [
       { translateY: interpolate(progress.value, [0, 1], [-8, 0], 'clamp') },
     ],
   }));
+  const capsuleFade = useMemo<ICapsuleFade>(
+    () => ({ progress, range: [BROWSER_CHROME_CROSSFADE_POINT, 1] }),
+    [progress],
+  );
   // Tint like Safari: take the page's color, and switch icons/text/status bar
   // to the matching light or dark theme.
   const { activeTabId } = useActiveTabId();
@@ -176,6 +191,25 @@ function MobileBrowserHeader({
     ),
   }));
 
+  const closeButton = (
+    <IconButton
+      variant="tertiary"
+      m={0}
+      // Leaves the browser for the wallet; tabs stay open.
+      icon="CrossedLargeOutline"
+      // 36pt button: extend to the 46pt header row and a bit sideways for an
+      // easier target.
+      hitSlop={CLOSE_BUTTON_HIT_SLOP}
+      iconProps={CLOSE_ICON_PROPS}
+      onPress={() => {
+        // 'minimize' kept for analytics continuity.
+        logBrowserChromeAction('minimize', 'header');
+        onGoBackHome();
+      }}
+      testID={DiscoveryTestIDs.browserMinimizeButton}
+    />
+  );
+
   return (
     <Theme name={chromeThemeName}>
       <Stack
@@ -188,54 +222,59 @@ function MobileBrowserHeader({
             pointerEvents={isCollapsed ? 'none' : 'box-none'}
             style={[styles.content, expandedStyle]}
           >
-            {/* A plain toolbar, not glass: the header sits on the app
-              background above the page, where glass would only show its
-              shadow halo. Glass is kept for the bar that floats over content.
-              Tighter than the bottom bar, like a navigation bar: the
-              exit glyph and the chip's right edge sit 16pt from the
-              screen edges, in line with typical page content. */}
+            {/* Tighter than the bottom bar, like a navigation bar: the exit
+              glyph (or its glass circle) and the chip's right edge sit 16pt
+              from the screen edges, in line with typical page content. */}
             <XStack
               flex={1}
-              pl={HEADER_EDGE_INSET - MINIMIZE_BUTTON_PADDING}
+              pl={
+                isGlass
+                  ? HEADER_EDGE_INSET
+                  : HEADER_EDGE_INSET - MINIMIZE_BUTTON_PADDING
+              }
               pr={HEADER_EDGE_INSET}
               alignItems="center"
               justifyContent="space-between"
             >
-              <Stack
-                h={ACCOUNT_CHIP_HEIGHT}
-                alignItems="center"
-                justifyContent="center"
-              >
-                <IconButton
-                  variant="tertiary"
-                  m={0}
-                  // Leaves the browser for the wallet; tabs stay open.
-                  icon="CrossedLargeOutline"
-                  // 36pt button: extend to the 46pt header row and a bit
-                  // sideways for an easier target.
-                  hitSlop={{ top: 5, bottom: 5, left: 8, right: 8 }}
-                  iconProps={{ color: '$icon' }}
-                  onPress={() => {
-                    // 'minimize' kept for analytics continuity.
-                    logBrowserChromeAction('minimize', 'header');
-                    onGoBackHome();
-                  }}
-                  testID={DiscoveryTestIDs.browserMinimizeButton}
-                />
-              </Stack>
+              {isGlass ? (
+                <BrowserChromeCapsule
+                  height={ACCOUNT_CHIP_HEIGHT}
+                  fade={capsuleFade}
+                >
+                  {closeButton}
+                </BrowserChromeCapsule>
+              ) : (
+                <Stack
+                  h={ACCOUNT_CHIP_HEIGHT}
+                  alignItems="center"
+                  justifyContent="center"
+                >
+                  {closeButton}
+                </Stack>
+              )}
               {/* One compact chip for every account state (connected,
                 not connected, no wallet), so the right side keeps the same
                 shape instead of switching between loose triggers. */}
-              <XStack
-                h={ACCOUNT_CHIP_HEIGHT}
-                px="$1"
-                bg={accountChipBg}
-                borderRadius={ACCOUNT_CHIP_RADIUS}
-                borderCurve="continuous"
-                alignItems="center"
-              >
-                {accountToolbar}
-              </XStack>
+              {isGlass ? (
+                <BrowserChromeCapsule
+                  height={ACCOUNT_CHIP_HEIGHT}
+                  px="$1"
+                  fade={capsuleFade}
+                >
+                  {accountToolbar}
+                </BrowserChromeCapsule>
+              ) : (
+                <XStack
+                  h={ACCOUNT_CHIP_HEIGHT}
+                  px="$1"
+                  bg={accountChipBg}
+                  borderRadius={ACCOUNT_CHIP_RADIUS}
+                  borderCurve="continuous"
+                  alignItems="center"
+                >
+                  {accountToolbar}
+                </XStack>
+              )}
             </XStack>
           </Animated.View>
         </Animated.View>

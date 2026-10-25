@@ -1,11 +1,15 @@
+import { useMemo } from 'react';
 import type { PropsWithChildren } from 'react';
 
 import { StyleSheet } from 'react-native';
-import { useAnimatedProps } from 'react-native-reanimated';
+import Animated, {
+  interpolate,
+  useAnimatedStyle,
+} from 'react-native-reanimated';
 
 import {
-  AnimatedGlassView,
   GlassHeaderProvider,
+  GlassView,
   Stack,
   XStack,
   isLiquidGlassAvailable,
@@ -14,97 +18,133 @@ import type { IXStackProps } from '@onekeyhq/components';
 
 import { BROWSER_CHROME_CAPSULE_HEIGHT } from '../../config/Animation.constants';
 
+import { useIsProgressPast } from './browserChrome';
+
 import type { SharedValue } from 'react-native-reanimated';
 
 const styles = StyleSheet.create({
   glass: { borderRadius: 9999 },
+  solidBackground: { ...StyleSheet.absoluteFillObject, borderRadius: 9999 },
 });
+
+// How a capsule fades in over `range` of `progress` (or out, with `reverse`).
+export interface ICapsuleFade {
+  progress: SharedValue<number>;
+  range: [number, number];
+  reverse?: boolean;
+}
+
+// Opacity of a capsule's contents along its fade. Callers that fade some
+// children differently (the address capsule's domain) apply it per child.
+export function useCapsuleFadeStyle(fade: ICapsuleFade | undefined) {
+  const progress = fade?.progress;
+  const [start, end] = fade?.range ?? [0, 0];
+  const reverse = !!fade?.reverse;
+  return useAnimatedStyle(() => {
+    if (!progress) {
+      return { opacity: 1 };
+    }
+    return {
+      opacity: interpolate(
+        progress.value,
+        [start, end],
+        reverse ? [1, 0] : [0, 1],
+        'clamp',
+      ),
+    };
+  }, [progress, start, end, reverse]);
+}
+
+const GLASS_FADE_SECONDS = 0.2;
 
 type IBrowserChromeCapsuleProps = PropsWithChildren<{
   flex?: number;
   height?: number;
   px?: IXStackProps['px'];
-  // Liquid Glass only: the fade the caller applies to this capsule.
-  glassFade?: IGlassFade;
+  fade?: ICapsuleFade;
+  // Off when the caller fades the children itself (useCapsuleFadeStyle).
+  fadeContent?: boolean;
 }>;
-
-// Where a caller's opacity fade on the capsule reaches 0: below `edge` or
-// above it, on `progress`. Glass that fades to opacity 0 under its parent
-// stops rendering, and can leave later glass under that parent broken too
-// (expo/expo#50097, #41024), so the glass is switched off just before the
-// fade hits 0 (Expo's documented workaround). The switch runs on the UI
-// thread with the fade itself: a JS state round trip can land after a fast
-// reversal has already taken the opacity to 0.
-export interface IGlassFade {
-  progress: SharedValue<number>;
-  edge: number;
-  direction: 'below' | 'above';
-}
-
-const GLASS_OFF_MARGIN = 0.02;
 
 // A pill (or circle, with a single child) hosting browser chrome buttons.
 // iOS 26: Liquid Glass. Elsewhere: a solid filled pill (the bar sits on the
 // page-colored strip below the WebView, so there's nothing to blur).
 // GlassHeaderProvider makes inner IconButtons drop their own background and
 // tertiary negative margin, so icons center inside the pill in both cases.
+//
+// The capsule itself is never faded with opacity: glass under an ancestor
+// whose opacity animates to 0 stops rendering and can leave later glass
+// broken (expo/expo#50097, #41024, #51575). Its glass fades natively instead
+// (an animated glassEffectStyle switch at the middle of the fade, Expo's
+// recommended way), the solid pill fades only its background, and the
+// contents fade on their own.
 export function BrowserChromeCapsule({
   children,
   flex,
   height = BROWSER_CHROME_CAPSULE_HEIGHT,
   px = '$1',
-  glassFade,
+  fade,
+  fadeContent = true,
 }: IBrowserChromeCapsuleProps) {
-  const fadeProgress = glassFade?.progress;
-  const fadeEdge = glassFade?.edge ?? 0;
-  const fadeAbove = glassFade?.direction === 'above';
-  const glassAnimatedProps = useAnimatedProps(() => {
-    let hidden = false;
-    if (fadeProgress) {
-      hidden = fadeAbove
-        ? fadeProgress.value > fadeEdge - GLASS_OFF_MARGIN
-        : fadeProgress.value < fadeEdge + GLASS_OFF_MARGIN;
-    }
-    return {
-      glassEffectStyle: hidden ? ('none' as const) : ('regular' as const),
-    };
-  }, [fadeProgress, fadeEdge, fadeAbove]);
+  const fadeStyle = useCapsuleFadeStyle(fade);
+  const [start, end] = fade?.range ?? [0, 0];
+  const glassHidden = useIsProgressPast(
+    fade?.progress,
+    (start + end) / 2,
+    fade?.reverse ? 'above' : 'below',
+  );
+  const glassEffectStyle = useMemo(
+    () => ({
+      style: glassHidden ? ('none' as const) : ('regular' as const),
+      animate: true,
+      animationDuration: GLASS_FADE_SECONDS,
+    }),
+    [glassHidden],
+  );
+  const row = (
+    <XStack
+      h={height}
+      minWidth={height}
+      px={px}
+      gap="$1"
+      alignItems="center"
+      justifyContent="center"
+    >
+      {children}
+    </XStack>
+  );
   const content = (
     <GlassHeaderProvider>
-      <XStack
-        h={height}
-        minWidth={height}
-        px={px}
-        gap="$1"
-        alignItems="center"
-        justifyContent="center"
-      >
-        {children}
-      </XStack>
+      {fade && fadeContent ? (
+        <Animated.View style={fadeStyle}>{row}</Animated.View>
+      ) : (
+        row
+      )}
     </GlassHeaderProvider>
   );
 
   if (isLiquidGlassAvailable()) {
     return (
-      <AnimatedGlassView
+      <GlassView
         isInteractive
-        animatedProps={glassAnimatedProps}
+        glassEffectStyle={glassEffectStyle}
         style={flex ? [styles.glass, { flex }] : styles.glass}
       >
         {content}
-      </AnimatedGlassView>
+      </GlassView>
     );
   }
   // A column container like GlassView, so the inner row stretches to the
   // capsule's width (as a row child it would shrink to its content, leaving
   // the flexible address area no room).
   return (
-    <Stack
-      flex={flex}
-      bg="$bgStrong"
-      borderRadius="$full"
-      borderCurve="continuous"
-    >
+    <Stack flex={flex} borderRadius="$full" borderCurve="continuous">
+      <Animated.View
+        pointerEvents="none"
+        style={[styles.solidBackground, fade ? fadeStyle : undefined]}
+      >
+        <Stack flex={1} bg="$bgStrong" borderRadius="$full" />
+      </Animated.View>
       {content}
     </Stack>
   );

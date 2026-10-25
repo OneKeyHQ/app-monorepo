@@ -2,7 +2,14 @@ import { useMemo, useState } from 'react';
 
 import MaskedView from '@react-native-masked-view/masked-view';
 import { useIntl } from 'react-intl';
-import { type LayoutChangeEvent, StyleSheet, View } from 'react-native';
+import {
+  type LayoutChangeEvent,
+  type StyleProp,
+  StyleSheet,
+  View,
+  type ViewStyle,
+} from 'react-native';
+import Animated from 'react-native-reanimated';
 
 import {
   Icon,
@@ -230,9 +237,15 @@ function DomainLabel({
 export function AddressCapsuleTitle({
   url,
   onPress,
+  badgeStyle,
+  domainStyle,
 }: {
   url?: string;
   onPress: () => void;
+  // The bar's morph fades the badge with the capsule, but swaps the domain
+  // with the collapsed pill's (see MobileBrowserBottomBar).
+  badgeStyle?: StyleProp<ViewStyle>;
+  domainStyle?: StyleProp<ViewStyle>;
 }) {
   const intl = useIntl();
   const hostname = useMemo(() => getDisplayHostname(url), [url]);
@@ -266,11 +279,13 @@ export function AddressCapsuleTitle({
               setSiteInfoOpen(true);
             }}
           >
-            <Icon
-              name={url ? iconConfig.iconName : 'SearchOutline'}
-              color={url ? iconConfig.iconColor : '$iconSubdued'}
-              size={RISK_ICON_SIZE}
-            />
+            <Animated.View style={badgeStyle}>
+              <Icon
+                name={url ? iconConfig.iconName : 'SearchOutline'}
+                color={url ? iconConfig.iconColor : '$iconSubdued'}
+                size={RISK_ICON_SIZE}
+              />
+            </Animated.View>
           </ChromePressable>
         }
         renderContent={({ closePopover }) => (
@@ -282,16 +297,18 @@ export function AddressCapsuleTitle({
         )}
       />
       <ChromePressable fill onPress={onPress} accessibilityLabel={domainText}>
-        <XStack flex={1} pl="$2" alignItems="center" justifyContent="center">
-          <DomainLabel
-            testID={DiscoveryTestIDs.searchBar}
-            // Mirrors what sits left of the domain but not right of it (the
-            // badge and its gap, less the back button's pull) so the domain
-            // centers in the whole capsule.
-            trailingBalance={RISK_ICON_WIDTH + 8 - CAPSULE_BACK_BUTTON_PULL}
-            text={domainText}
-          />
-        </XStack>
+        <Animated.View style={[styles.fill, domainStyle]}>
+          <XStack flex={1} pl="$2" alignItems="center" justifyContent="center">
+            <DomainLabel
+              testID={DiscoveryTestIDs.searchBar}
+              // Mirrors what sits left of the domain but not right of it (the
+              // badge and its gap, less the back button's pull) so the domain
+              // centers in the whole capsule.
+              trailingBalance={RISK_ICON_WIDTH + 8 - CAPSULE_BACK_BUTTON_PULL}
+              text={domainText}
+            />
+          </XStack>
+        </Animated.View>
       </ChromePressable>
     </XStack>
   );

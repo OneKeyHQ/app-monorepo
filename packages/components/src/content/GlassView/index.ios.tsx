@@ -4,7 +4,6 @@
 // bundle. Callers must gate rendering on isLiquidGlassAvailable() (true only on
 // iOS 26+ with the Liquid Glass material).
 import { GlassView as ExpoGlassView } from 'expo-glass-effect';
-import Animated from 'react-native-reanimated';
 
 import { useThemeName } from '../../hooks/useStyle';
 
@@ -26,10 +25,3 @@ export function GlassView({ colorScheme, ...props }: GlassViewProps) {
     />
   );
 }
-
-// For glass whose style must follow a UI-thread animation (fading capsules):
-// pass `glassEffectStyle` through useAnimatedProps so it switches to 'none' in
-// the same frame the fade gets near 0, with no JS round trip (Expo's
-// documented opacity workaround). React 19 forwards the ref through the props
-// spread above to the native view.
-export const AnimatedGlassView = Animated.createAnimatedComponent(GlassView);

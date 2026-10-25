@@ -1,13 +1,20 @@
 import type { PropsWithChildren } from 'react';
 
 import { View } from 'react-native';
-import Animated from 'react-native-reanimated';
 
 import type { StyleProp, ViewStyle } from 'react-native';
 
 export type IGlassViewProps = PropsWithChildren<{
   style?: StyleProp<ViewStyle>;
-  glassEffectStyle?: 'clear' | 'regular' | 'none';
+  glassEffectStyle?:
+    | 'clear'
+    | 'regular'
+    | 'none'
+    | {
+        style: 'clear' | 'regular' | 'none';
+        animate?: boolean;
+        animationDuration?: number;
+      };
   tintColor?: string;
   isInteractive?: boolean;
 }>;
@@ -20,9 +27,6 @@ export type IGlassViewProps = PropsWithChildren<{
 export function GlassView({ children, style }: IGlassViewProps) {
   return <View style={style}>{children}</View>;
 }
-
-// Placeholder too (see index.ios.tsx); never rendered off iOS.
-export const AnimatedGlassView = Animated.createAnimatedComponent(GlassView);
 
 export function isLiquidGlassAvailable(): boolean {
   return false;
