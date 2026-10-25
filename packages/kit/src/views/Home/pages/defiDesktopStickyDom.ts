@@ -19,6 +19,27 @@ export function findScrollableAncestorFromLocalNode(
   return null;
 }
 
+// Nearest ancestor that owns vertical scrolling, whether or not its content
+// overflows yet. `findScrollableAncestorFromLocalNode` needs an element that
+// already scrolls (it positions anchors inside one); a sidebar that caps
+// itself to the scroller's height has to find the container on a short
+// first frame too, before async lists grow the page past the viewport.
+export function findOverflowAncestorFromLocalNode(
+  node: HTMLElement,
+): HTMLElement | null {
+  let current: HTMLElement | null = node.parentElement;
+
+  while (current) {
+    const { overflowY } = globalThis.getComputedStyle(current);
+    if (overflowY === 'auto' || overflowY === 'scroll') {
+      return current;
+    }
+    current = current.parentElement;
+  }
+
+  return null;
+}
+
 export type IStickyProtocolCandidate = {
   key: string;
   top: number;
@@ -116,16 +137,4 @@ export function isChipFullyVisible({
     chipLeft >= scrollLeft - tolerancePx &&
     chipLeft + chipWidth <= scrollLeft + viewportWidth + tolerancePx
   );
-}
-
-export function getStickySidebarMaxHeight({
-  viewportHeight,
-  stickyLine,
-  bottomGap,
-}: {
-  viewportHeight: number;
-  stickyLine: number;
-  bottomGap: number;
-}): number {
-  return Math.max(0, viewportHeight - stickyLine - bottomGap);
 }

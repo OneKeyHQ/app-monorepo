@@ -634,9 +634,7 @@ function SyncItemTable({ activeTab }: { activeTab: ITabType }) {
             }}
           >
             <SizableText style={{ fontWeight: 'bold' }} color="$textSuccess">
-              {dateUtils.formatDate(new Date(text), {
-                formatTemplate: 'yyyy/LL/dd, HH:mm:ss',
-              })}
+              {dateUtils.formatDate(new Date(text))}
             </SizableText>
             <SizableText color="$textSubdued">{record.rawKey}</SizableText>
             <SizableText color="$textSubdued">

@@ -16,6 +16,7 @@ import {
   useClipboard,
 } from '@onekeyhq/components';
 import { createTrezorConnector } from '@onekeyhq/shared/src/hardware/connector-loader/trezor';
+import { formatTime } from '@onekeyhq/shared/src/utils/dateUtils';
 
 import { Layout } from './utils/Layout';
 
@@ -180,7 +181,7 @@ const TrezorMultiTransportTester = () => {
     console.log('[TrezorMTTest]', text);
     setLogs([
       ...logsRef.current,
-      { at: new Date().toLocaleTimeString(), text },
+      { at: formatTime(new Date(), { hideMilliseconds: true }), text },
     ]);
   }, []);
 
@@ -286,7 +287,7 @@ const TrezorMultiTransportTester = () => {
         setAttempts((prev) => [
           ...prev,
           {
-            at: new Date().toLocaleTimeString(),
+            at: formatTime(new Date(), { hideMilliseconds: true }),
             source: device.connectionType,
             connectId: device.connectId,
             paired,
@@ -298,7 +299,7 @@ const TrezorMultiTransportTester = () => {
         setAttempts((prev) => [
           ...prev,
           {
-            at: new Date().toLocaleTimeString(),
+            at: formatTime(new Date(), { hideMilliseconds: true }),
             source: device.connectionType,
             connectId: device.connectId,
             error: msg,
@@ -478,7 +479,10 @@ const TrezorMultiTransportTester = () => {
     (line: string) => {
       append(`[pp] ${line}`);
       setPpOut((prev) =>
-        [...prev, `${new Date().toLocaleTimeString()}  ${line}`].slice(-40),
+        [
+          ...prev,
+          `${formatTime(new Date(), { hideMilliseconds: true })}  ${line}`,
+        ].slice(-40),
       );
     },
     [append],

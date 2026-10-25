@@ -150,6 +150,7 @@ import {
   useSwapQuoteLoading,
   useSwapSlippagePercentageModeInfo,
 } from '../../hooks/useSwapState';
+import { useSwapTokenSelectorPreload } from '../../hooks/useSwapTokenSelectorPreload';
 import { SwapTestIDs } from '../../testIDs';
 import {
   buildSwapReviewState,
@@ -1408,6 +1409,15 @@ const SwapMainLoad = ({
     supportNetworksReady: swapProSupportNetworksReady,
   } = useSwapProInit();
   const [swapNetworks] = useSwapNetworksAtom();
+
+  useSwapTokenSelectorPreload({
+    enabled: isFocused && !isAppLocked && !fetchLoading && !embeddedStockTrade,
+    fromAddressInfo: swapFromAddressInfo,
+    toAddressInfo,
+    networks: swapNetworks,
+    swapType: swapTypeSwitch,
+    currency: settingsPersistAtom.currencyInfo.id,
+  });
 
   const positionSupportNetworkListsRef = useRef<{
     stock: typeof swapNetworks;

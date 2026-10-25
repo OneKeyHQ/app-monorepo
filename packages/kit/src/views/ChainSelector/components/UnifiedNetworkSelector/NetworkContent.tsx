@@ -9,10 +9,10 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-import { swrKeys } from '@onekeyhq/shared/src/utils/swrCacheUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 
 import { EditableChainSelectorContent } from '../EditableChainSelector/ChainSelectorContent';
+import { buildNetworkContentSwrKey } from '../networkContentCache';
 
 const defaultChainSelectorNetworks: {
   mainnetItems: IServerNetwork[];
@@ -60,7 +60,7 @@ export function NetworkContent({
 
   const swrKey = useMemo(
     () =>
-      swrKeys.networkContentData({
+      buildNetworkContentSwrKey({
         walletId,
         accountId,
         indexedAccountId,
