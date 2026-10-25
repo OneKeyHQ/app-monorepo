@@ -42,10 +42,7 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { ensureSerializable } from '@onekeyhq/shared/src/utils/assertUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import extUtils from '@onekeyhq/shared/src/utils/extUtils';
-import {
-  assertNoHardwareCloudSyncSigningRequest,
-  isHardwareCloudSyncPath,
-} from '@onekeyhq/shared/src/utils/hardwareCloudSyncGuards';
+import { assertNoHardwareCloudSyncSigningRequest } from '@onekeyhq/shared/src/utils/hardwareCloudSyncGuards';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { buildModalRouteParams } from '@onekeyhq/shared/src/utils/routeUtils';
@@ -521,7 +518,6 @@ class ServiceDApp extends ServiceBase {
     appName: string;
     context: string;
   }): Promise<string> {
-    assertNoHardwareCloudSyncSigningRequest(payload);
     const now = Date.now();
     this.sweepExpiredDeriveContextHashEntries(now);
     const nonce = generateUUID();
@@ -600,11 +596,6 @@ class ServiceDApp extends ServiceBase {
 
     const vault = await vaultFactory.getVault({ networkId, accountId });
     const account = await vault.getAccount();
-    assertNoHardwareCloudSyncSigningRequest({
-      appName,
-      context,
-      path: account.path,
-    });
     const connectedPubkey = account.pub;
     if (!connectedPubkey) {
       throw new OneKeyLocalError(
@@ -671,7 +662,8 @@ class ServiceDApp extends ServiceBase {
     if (!accountId || !networkId) {
       throw new OneKeyLocalError('accountId and networkId required');
     }
-    assertNoHardwareCloudSyncSigningRequest({ unsignedMessage, accountId });
+    if (networkUtils.isBTCNetwork(networkId) && 'message' in unsignedMessage)
+      assertNoHardwareCloudSyncSigningRequest(unsignedMessage.message);
     return this.openModal({
       request,
       screens: [
@@ -853,7 +845,6 @@ class ServiceDApp extends ServiceBase {
     if (storageType === 'walletConnect' && !walletConnectTopic) {
       throw new OneKeyLocalError('walletConnectTopic is required');
     }
-    assertNoHardwareCloudSyncSigningRequest(accountsInfo);
     const { simpleDb, serviceDiscovery } = this.backgroundApi;
     await this.deleteExistSessionBeforeConnect({ origin, storageType });
     await simpleDb.dappConnection.upsertConnection({
@@ -1377,14 +1368,11 @@ class ServiceDApp extends ServiceBase {
         }
       }
     }
-    const allowedAccountsInfo = allAccountsInfo.filter(
-      (accountInfo) => !isHardwareCloudSyncPath(accountInfo.accountId),
-    );
-    if (!allowedAccountsInfo.length) {
+    if (!allAccountsInfo.length) {
       return null;
     }
 
-    return allowedAccountsInfo;
+    return allAccountsInfo;
   }
 
   @backgroundMethod()
@@ -1399,9 +1387,6 @@ class ServiceDApp extends ServiceBase {
             accountId,
             networkId: networkId || '',
           });
-          if (isHardwareCloudSyncPath(account.path)) {
-            return null;
-          }
           return {
             account,
             accountInfo,

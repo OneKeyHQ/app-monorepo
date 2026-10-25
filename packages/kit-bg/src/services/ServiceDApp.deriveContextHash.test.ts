@@ -314,35 +314,33 @@ describe('BTC deriveContextHash hardware integration', () => {
     ).not.toHaveBeenCalled();
   });
 
-  it('rejects a reserved Cloud request before staging an approval', async () => {
+  it('does not confuse a domain-separated context derivation with BTC message signing', async () => {
     const h = createHarness();
-    await expect(
-      h.service.stageDeriveContextHashRequest({
-        accountId: h.accountId,
-        networkId: 'btc--0',
-        walletId: 'hw-test',
-        address: 'test-address',
-        appName: 'onekey-cloud-key-v1',
-        context: Buffer.from(
-          buildHardwareCloudSyncMessage('0123456789abcdef'),
-        ).toString('hex'),
-      }),
-    ).rejects.toThrow('OneKey Cloud key operations');
+    const nonce = await h.service.stageDeriveContextHashRequest({
+      accountId: h.accountId,
+      networkId: 'btc--0',
+      walletId: 'hw-test',
+      address: 'test-address',
+      appName: 'onekey-cloud-key-v1',
+      context: Buffer.from(
+        buildHardwareCloudSyncMessage('0123456789abcdef'),
+      ).toString('hex'),
+    });
+    expect(await h.service.peekDeriveContextHashRequest(nonce)).toMatchObject({
+      appName: 'onekey-cloud-key-v1',
+    });
     expect(h.openModal).not.toHaveBeenCalled();
     expect(h.btcDeriveContextHash).not.toHaveBeenCalled();
   });
 
-  it('rejects a reserved account at execution before prompting or deriving', async () => {
+  it('retains ordinary context derivation for a BTC Legacy account at index 100', async () => {
     const h = createHarness();
     await h.provider.deriveContextHash(REQUEST, PARAMS);
     const { nonce } = h.openModal.mock.calls[0][0];
     h.account.path = HARDWARE_CLOUD_SYNC_PATH;
-    await expect(h.service.executeDeriveContextHash({ nonce })).rejects.toThrow(
-      'OneKey Cloud key operations',
+    await expect(h.service.executeDeriveContextHash({ nonce })).resolves.toBe(
+      SECRET,
     );
-    expect(
-      h.backgroundApi.servicePassword.promptPasswordVerifyByAccount,
-    ).not.toHaveBeenCalled();
-    expect(h.btcDeriveContextHash).not.toHaveBeenCalled();
+    expect(h.btcDeriveContextHash).toHaveBeenCalledTimes(1);
   });
 });

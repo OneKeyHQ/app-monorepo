@@ -27,6 +27,7 @@ import { convertThirdPartyDeviceError } from '@onekeyhq/shared/src/errors/utils/
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
+import { assertNoHardwareCloudSyncSigningRequest } from '@onekeyhq/shared/src/utils/hardwareCloudSyncGuards';
 import { EConfirmOnDeviceType } from '@onekeyhq/shared/types/device';
 
 import { thirdPartyPassphraseParamsFromDeviceParams } from '../../base/thirdPartyHardwareCommonParams';
@@ -203,12 +204,14 @@ export function buildTrezorBtcSignMessageParams({
   if (message.type === 'bip322-simple') {
     throw new ThirdPartyMethodNotSupported();
   }
+  const messageHex = Buffer.from(message.message).toString('hex');
+  assertNoHardwareCloudSyncSigningRequest(messageHex, 'hex');
   const noScriptType =
     message.sigOptions?.noScriptType ||
     (message.type === 'ecdsa' && message.payload?.isFromDApp);
   return {
     path,
-    message: Buffer.from(message.message).toString('hex'),
+    message: messageHex,
     coin,
     hex: true,
     ...(noScriptType ? { noScriptType: true } : {}),
@@ -443,6 +446,10 @@ export class KeyringHardwareTrezor extends KeyringHardwareBtcBase {
   override async signMessage(
     params: ISignMessageParams,
   ): Promise<ISignedMessagePro> {
+    for (const message of params.messages) {
+      if ('message' in message)
+        assertNoHardwareCloudSyncSigningRequest(message.message);
+    }
     const { dbDevice } = checkIsDefined(params.deviceParams);
     const dbAccount = await this.vault.getAccount();
     const adapter = await getTrezorAdapterFromBackgroundApi(this.backgroundApi);

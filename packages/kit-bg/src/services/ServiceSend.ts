@@ -2606,14 +2606,16 @@ class ServiceSend extends ServiceBase {
     useNonBlockingKdf?: boolean;
   }) {
     assertAccountCanSign(accountId);
-    assertNoHardwareCloudSyncSigningRequest({ unsignedMessage, accountId });
+    if (
+      networkUtils.isBTCNetwork(networkId) &&
+      unsignedMessage &&
+      'message' in unsignedMessage
+    )
+      assertNoHardwareCloudSyncSigningRequest(unsignedMessage.message);
     const vault = await vaultFactory.getVault({
       networkId,
       accountId,
     });
-    const account = await vault.getAccount();
-    assertNoHardwareCloudSyncSigningRequest({ path: account.path });
-
     let validUnsignedMessage = unsignedMessage;
     if (unsignedMessage) {
       // TODO fix message format and params in vault
@@ -2623,7 +2625,11 @@ class ServiceSend extends ServiceBase {
     if (!validUnsignedMessage) {
       throw new OneKeyLocalError('Invalid unsigned message');
     }
-    assertNoHardwareCloudSyncSigningRequest(validUnsignedMessage);
+    if (
+      networkUtils.isBTCNetwork(networkId) &&
+      'message' in validUnsignedMessage
+    )
+      assertNoHardwareCloudSyncSigningRequest(validUnsignedMessage.message);
 
     const kdfParams = useNonBlockingKdf
       ? getPbkdf2KdfParamsForNonDbTxNoCache()

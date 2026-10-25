@@ -57,11 +57,6 @@ export abstract class KeyringHardwareBtcBase extends KeyringHardwareBase {
     params: IDeriveContextHashKeyringParams,
   ): Promise<string> {
     const account = await this.vault.getAccount();
-    assertNoHardwareCloudSyncSigningRequest({
-      path: account.path,
-      appName: params.appName,
-      context: params.context,
-    });
     const { dbDevice, deviceCommonParams } = checkIsDefined(
       params.deviceParams,
     );
@@ -472,16 +467,13 @@ export abstract class KeyringHardwareBtcBase extends KeyringHardwareBase {
   }
 
   async signMessage(params: ISignMessageParams): Promise<ISignedMessagePro> {
-    assertNoHardwareCloudSyncSigningRequest(params.messages);
+    for (const { message } of params.messages as IUnsignedMessageBtc[])
+      assertNoHardwareCloudSyncSigningRequest(message);
     const network = await this.getNetwork();
     const coinName = await checkIsDefined(this.coreApi).getCoinName({
       network,
     });
     const dbAccount = await this.vault.getAccount();
-    assertNoHardwareCloudSyncSigningRequest({
-      path: dbAccount.path,
-      receiveAddressPath: params.chainExtraParams?.receiveAddressPath,
-    });
     const deviceParams = checkIsDefined(params.deviceParams);
     const { connectId, deviceId } = deviceParams.dbDevice;
     const { receiveAddressPath } = params.chainExtraParams || {};
@@ -509,13 +501,15 @@ export abstract class KeyringHardwareBtcBase extends KeyringHardwareBase {
             }
           }
 
+          const messageHex = Buffer.from(message).toString('hex');
+          assertNoHardwareCloudSyncSigningRequest(messageHex, 'hex');
           const response = await sdk.btcSignMessage(connectId, deviceId, {
             ...params.deviceParams?.deviceCommonParams,
             path:
               receiveAddressPath ??
               `${dbAccount.path}/${dbAccount.relPath ?? '0/0'}`,
             coin: coinName,
-            messageHex: Buffer.from(message).toString('hex'),
+            messageHex,
             dAppSignType:
               !isFromDapp && dAppSignType === 'ecdsa'
                 ? undefined

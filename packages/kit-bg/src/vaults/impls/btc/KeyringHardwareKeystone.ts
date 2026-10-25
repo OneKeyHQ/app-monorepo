@@ -35,6 +35,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
+import { assertNoHardwareCloudSyncSigningRequest } from '@onekeyhq/shared/src/utils/hardwareCloudSyncGuards';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
@@ -619,6 +620,10 @@ export class KeyringHardwareKeystone extends KeyringHardwareBtcBase {
   override async signMessage(
     params: ISignMessageParams,
   ): Promise<ISignedMessagePro> {
+    for (const message of params.messages) {
+      if ('message' in message)
+        assertNoHardwareCloudSyncSigningRequest(message.message);
+    }
     const { messages, deviceParams } = params;
     const checkedDeviceParams = checkIsDefined(deviceParams);
     const { dbDevice } = checkedDeviceParams;
@@ -654,6 +659,7 @@ export class KeyringHardwareKeystone extends KeyringHardwareBtcBase {
       if (payload.type === 'bip322-simple') {
         throw new ThirdPartyMethodNotSupported();
       }
+      assertNoHardwareCloudSyncSigningRequest(Buffer.from(payload.message));
       const result =
         // eslint-disable-next-line no-await-in-loop
         await adapter.hw.btcSignMessage(

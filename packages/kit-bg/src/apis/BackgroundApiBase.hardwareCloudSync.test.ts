@@ -1,6 +1,10 @@
+import { SignTypedDataVersion, TypedDataUtils } from '@metamask/eth-sig-util';
 import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
 
-import { buildHardwareCloudSyncMessage } from '@onekeyhq/shared/src/consts/hardwareCloudSyncConsts';
+import {
+  HARDWARE_CLOUD_SYNC_PATH,
+  buildHardwareCloudSyncMessage,
+} from '@onekeyhq/shared/src/consts/hardwareCloudSyncConsts';
 
 import BackgroundApiBase from './BackgroundApiBase';
 
@@ -10,60 +14,78 @@ jest.mock('./TravelModeDappRequestIngress', () => ({
   },
 }));
 
-describe('Cloud key provider ingress protection', () => {
-  test.each([
-    { scope: IInjectedProviderNames.ethereum, isWalletConnectRequest: false },
-    { scope: IInjectedProviderNames.btc, isWalletConnectRequest: false },
-    { scope: IInjectedProviderNames.solana, isWalletConnectRequest: false },
-    { scope: IInjectedProviderNames.btc, isWalletConnectRequest: true },
-  ])(
-    'rejects $scope, WalletConnect=$isWalletConnectRequest before loading a provider',
-    async ({ scope, isWalletConnectRequest }) => {
-      const backgroundApi = Object.create(
-        BackgroundApiBase.prototype,
-      ) as BackgroundApiBase;
-      const getProviderApi = jest.fn();
-      Object.defineProperty(backgroundApi, 'getProviderApi', {
-        value: getProviderApi,
-      });
+function createHarness() {
+  const backgroundApi = Object.create(
+    BackgroundApiBase.prototype,
+  ) as BackgroundApiBase;
+  const handleMethods = jest.fn(async () => 'dispatched');
+  const getProviderApi = jest.fn(async () => ({ handleMethods }));
+  Object.defineProperty(backgroundApi, 'getProviderApi', {
+    value: getProviderApi,
+  });
+  return { backgroundApi, handleMethods, getProviderApi };
+}
 
+const typedData = {
+  types: {
+    EIP712Domain: [{ name: 'name', type: 'string' }],
+    PublicMemo: [{ name: 'body', type: 'string' }],
+  },
+  primaryType: 'PublicMemo' as const,
+  domain: { name: 'Example Memo' },
+  message: { body: 'a'.repeat(17 * 1024) },
+};
+
+describe('provider ingress delegates protocol-specific message validation', () => {
+  test.each([typedData, JSON.stringify(typedData)])(
+    'dispatches a valid EIP-712 message above 16 KiB in either representation',
+    async (message) => {
+      const h = createHarness();
+      const data =
+        typeof message === 'string'
+          ? (JSON.parse(message) as typeof typedData)
+          : message;
+      expect(
+        TypedDataUtils.eip712Hash(data, SignTypedDataVersion.V4),
+      ).toHaveLength(32);
+      expect(Buffer.byteLength(JSON.stringify(typedData))).toBeGreaterThan(
+        16_384,
+      );
       await expect(
-        backgroundApi.handleProviderMethods({
+        h.backgroundApi.handleProviderMethods({
           data: {
             id: 1,
             jsonrpc: '2.0',
-            method: 'signMessage',
-            params: [
-              {
-                message: buildHardwareCloudSyncMessage('0123456789abcdef'),
-                walletInternalSign: true,
-              },
-            ],
+            method: 'eth_signTypedData_v4',
+            params: [`0x${'11'.repeat(20)}`, message],
           },
-          origin: 'https://app.onekey.so',
-          scope,
-          isWalletConnectRequest,
+          origin: 'https://example.com',
+          scope: IInjectedProviderNames.ethereum,
         }),
-      ).rejects.toThrow('OneKey Cloud key operations');
-      expect(getProviderApi).not.toHaveBeenCalled();
+      ).resolves.toMatchObject({ result: 'dispatched' });
+      expect(h.handleMethods).toHaveBeenCalledTimes(1);
     },
   );
 
-  test('continues ordinary provider dispatch', async () => {
-    const backgroundApi = Object.create(
-      BackgroundApiBase.prototype,
-    ) as BackgroundApiBase;
-    const handleMethods = jest.fn(async () => ['0x1234']);
-    Object.defineProperty(backgroundApi, 'getProviderApi', {
-      value: jest.fn(async () => ({ handleMethods })),
-    });
+  test('does not interpret ordinary RPC metadata as a BTC signing message', async () => {
+    const h = createHarness();
     await expect(
-      backgroundApi.handleProviderMethods({
-        data: { id: 2, jsonrpc: '2.0', method: 'eth_accounts', params: [] },
+      h.backgroundApi.handleProviderMethods({
+        data: {
+          id: 2,
+          jsonrpc: '2.0',
+          method: 'wallet_addEthereumChain',
+          params: [
+            {
+              chainName: buildHardwareCloudSyncMessage('0123456789abcdef'),
+              metadata: { path: HARDWARE_CLOUD_SYNC_PATH },
+            },
+          ],
+        },
         origin: 'https://example.com',
         scope: IInjectedProviderNames.ethereum,
       }),
-    ).resolves.toMatchObject({ id: 2, result: ['0x1234'] });
-    expect(handleMethods).toHaveBeenCalledTimes(1);
+    ).resolves.toMatchObject({ result: 'dispatched' });
+    expect(h.getProviderApi).toHaveBeenCalledTimes(1);
   });
 });

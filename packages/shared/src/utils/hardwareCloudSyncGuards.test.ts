@@ -12,17 +12,15 @@ import {
 } from './hardwareCloudSyncGuards';
 
 const message = buildHardwareCloudSyncMessage('0123456789abcdef');
+const bytes = Buffer.from(message, 'ascii');
 
 describe('hardware Cloud root message contract', () => {
-  test('keeps the complete warning and stable identity within 150 ASCII bytes', () => {
+  test('keeps the warning and stable identity within 150 ASCII bytes', () => {
     expect(message).toBe(
       `${HARDWARE_CLOUD_SYNC_MESSAGE_PREFIX}0123456789abcdef`,
     );
-    expect(Buffer.byteLength(message, 'ascii')).toBeLessThanOrEqual(150);
+    expect(bytes.length).toBe(113);
     expect(/^[\x20-\x7e\n]+$/.test(message)).toBe(true);
-    expect(message.startsWith('WARNING:')).toBe(true);
-    expect(message).toContain('Unlock ALL OneKey Cloud data');
-    expect(message).toContain('Never sign in dApps');
   });
 
   test.each(['', '01234567', '0123456789ABCDEF', '../0123456789ab'])(
@@ -35,199 +33,185 @@ describe('hardware Cloud root message contract', () => {
   );
 });
 
-describe('reserved BTC Cloud account paths', () => {
+describe('exact protocol message comparison', () => {
+  test.each(
+    [
+      message,
+      buildHardwareCloudSyncMessage('0000000000000000'),
+      buildHardwareCloudSyncMessage('ffffffffffffffff'),
+      bytes,
+      [...bytes],
+      new Uint8Array(bytes),
+      new DataView(new Uint8Array(bytes).buffer),
+      new Uint8Array(bytes).buffer,
+    ].map((value) => ({ value })),
+  )(
+    'rejects exact Cloud bytes, including identities of other wallets',
+    ({ value }) => {
+      expect(() => assertNoHardwareCloudSyncSigningRequest(value)).toThrow(
+        'OneKey Cloud key operations',
+      );
+    },
+  );
+
+  test.each([
+    [bytes.toString('hex'), 'hex'],
+    [bytes.toString('hex').toUpperCase(), 'hex'],
+    [`0x${bytes.toString('hex')}`, 'hex'],
+  ] as const)(
+    'uses the explicitly selected protocol encoding %s',
+    (value, encoding) => {
+      expect(() =>
+        assertNoHardwareCloudSyncSigningRequest(value, encoding),
+      ).toThrow('OneKey Cloud key operations');
+    },
+  );
+
+  test.each([
+    bytes.toString('base64'),
+    bytes.toString('base64url'),
+    `${' '.repeat(32_768)}${bytes.toString('base64')}`,
+  ])(
+    'checks bytes after base64 transport decoding rather than guessing an encoding',
+    (value) => {
+      const actualMessage = Buffer.from(value, 'base64');
+      expect(() =>
+        assertNoHardwareCloudSyncSigningRequest(actualMessage),
+      ).toThrow('OneKey Cloud key operations');
+    },
+  );
+
+  test('examines only the selected byte view', () => {
+    const backing = new Uint8Array(1024);
+    backing.set(bytes, 7);
+    expect(() =>
+      assertNoHardwareCloudSyncSigningRequest(
+        new DataView(backing.buffer, 7, bytes.length),
+      ),
+    ).toThrow('OneKey Cloud key operations');
+    expect(() =>
+      assertNoHardwareCloudSyncSigningRequest(
+        new DataView(backing.buffer, 0, bytes.length),
+      ),
+    ).not.toThrow();
+  });
+
+  test.each([
+    'OneKey Cloud Key v1',
+    HARDWARE_CLOUD_SYNC_MESSAGE_PREFIX,
+    `${message} extra bytes`,
+    `extra bytes ${message}`,
+    `${message}\n`,
+    message.toUpperCase(),
+    message.replace(/\n/g, '\r\n'),
+    message.replace('0123456789abcdef', '0123456789ABCDEF'),
+    bytes.toString('hex'),
+    bytes.toString('base64'),
+    JSON.stringify({ message }),
+    JSON.stringify(message),
+  ])('allows different literal signed bytes %s', (value) => {
+    expect(() => assertNoHardwareCloudSyncSigningRequest(value)).not.toThrow();
+  });
+
+  test('does not recursively reinterpret protocol metadata or message literals', () => {
+    expect(() =>
+      assertNoHardwareCloudSyncSigningRequest({
+        payload: { message },
+        path: HARDWARE_CLOUD_SYNC_PATH,
+        walletInternalSign: true,
+      }),
+    ).not.toThrow();
+    // JSON-RPC parsing recovers the actual message field before the BTC guard.
+    const rpc = JSON.parse(
+      JSON.stringify({ params: { message } }).replace(
+        'WARNING',
+        '\\u0057ARNING',
+      ),
+    ) as { params: { message: string } };
+    expect(() =>
+      assertNoHardwareCloudSyncSigningRequest(rpc.params.message),
+    ).toThrow('OneKey Cloud key operations');
+  });
+
+  test('normal protocol decoding still rejects equivalent hex/base64 transport values', () => {
+    const wrapped = JSON.parse(
+      JSON.stringify({
+        padding: 'a'.repeat(32_768),
+        params: { payload: { message: bytes.toString('base64') } },
+      }),
+    ) as { params: { payload: { message: string } } };
+    const actualMessageHex = Buffer.from(
+      wrapped.params.payload.message,
+      'base64',
+    ).toString('hex');
+    expect(() =>
+      assertNoHardwareCloudSyncSigningRequest(actualMessageHex, 'hex'),
+    ).toThrow('OneKey Cloud key operations');
+  });
+
+  test('does not reject unrelated large strings, structured values or byte views', () => {
+    const large = 'a'.repeat(128 * 1024);
+    for (const value of [
+      large,
+      JSON.stringify({ message: large }),
+      { message: large },
+      new Uint8Array(128 * 1024),
+      new DataView(new ArrayBuffer(128 * 1024)),
+      new ArrayBuffer(128 * 1024),
+    ]) {
+      expect(() =>
+        assertNoHardwareCloudSyncSigningRequest(value),
+      ).not.toThrow();
+    }
+  });
+
+  test('bounds work before reading numeric arrays or unrelated object properties', () => {
+    const read = jest.fn(() => 65);
+    const numeric: number[] = new Array<number>(100_000);
+    Object.defineProperty(numeric, 3, { get: read });
+    const metadata = Object.defineProperty({}, 'message', { get: read });
+    expect(() =>
+      assertNoHardwareCloudSyncSigningRequest(numeric),
+    ).not.toThrow();
+    expect(() =>
+      assertNoHardwareCloudSyncSigningRequest(metadata),
+    ).not.toThrow();
+    expect(read).not.toHaveBeenCalled();
+  });
+
+  test('never copies or decodes large encoded values', () => {
+    const from = jest.spyOn(Buffer, 'from');
+    try {
+      assertNoHardwareCloudSyncSigningRequest('a'.repeat(32_768), 'hex');
+      expect(from).not.toHaveBeenCalled();
+    } finally {
+      from.mockRestore();
+    }
+  });
+
+  test('does not expose contents in errors', () => {
+    expect(() => assertNoHardwareCloudSyncSigningRequest(message)).toThrow(
+      /^OneKey Cloud key operations are unavailable to external signing requests$/,
+    );
+  });
+});
+
+describe('derivation path identification does not prohibit ordinary signing', () => {
   test.each(
     [
       HARDWARE_CLOUD_SYNC_PATH,
       "m/44'/0'/100'",
       'm/44h/0h/100H/1/999',
-      "m/0044'/00'/0100'/0/0",
-      "hw-device--m/44'/0'/100'/0/0",
+      "hd-1--m/44'/0'/100'/0/0",
       [2_147_483_692, 2_147_483_648, 2_147_483_748, 0, 0],
     ].map((path) => ({ path })),
-  )('recognizes $path', ({ path }) => {
+  )('identifies $path without rejecting a message or metadata', ({ path }) => {
     expect(isHardwareCloudSyncPath(path)).toBe(true);
-    expect(() =>
-      assertNoHardwareCloudSyncSigningRequest({ address_n: path }),
-    ).toThrow('OneKey Cloud key operations');
+    expect(() => assertNoHardwareCloudSyncSigningRequest(path)).not.toThrow();
   });
 
-  test.each(
-    [
-      "m/44'/0'/0'/0/0",
-      "m/44'/60'/100'/0/0",
-      "m/44'/0'/1000'/0/0",
-      "m/84'/0'/100'/0/0",
-      [2_147_483_692, 2_147_483_708, 2_147_483_748, 0, 0],
-      undefined,
-    ].map((path) => ({ path })),
-  )('does not reserve unrelated path $path', ({ path }) => {
-    expect(isHardwareCloudSyncPath(path)).toBe(false);
-    expect(() =>
-      assertNoHardwareCloudSyncSigningRequest({ path }),
-    ).not.toThrow();
-  });
-});
-
-describe('external Cloud signing request guard', () => {
-  const encoded = Buffer.from(message, 'ascii');
-  test.each([
-    { method: 'personal_sign', params: [message, '0x1234'] },
-    { method: 'eth_sign', params: ['0x1234', `0x${encoded.toString('hex')}`] },
-    { method: 'signMessage', params: { message: encoded.toString('base64') } },
-    { method: 'signMessage', params: { message: encoded } },
-    { method: 'signMessage', params: { message: [...encoded] } },
-    {
-      method: 'signMessage',
-      params: { message: { type: 'Buffer', data: [...encoded] } },
-    },
-    {
-      method: 'sol_signOffchainMessage',
-      params: { message: new Uint8Array(encoded) },
-    },
-    {
-      method: 'signTypedData',
-      params: { domain: { name: 'OneKey Cloud Key v1' } },
-    },
-    {
-      method: 'deriveContextHash',
-      params: { appName: 'onekey-cloud-key-v1', context: '1234' },
-    },
-    { method: 'signMessage', params: { message, walletInternalSign: true } },
-    {
-      method: 'request',
-      params: { request: { method: 'btc_signMessage', params: [message] } },
-    },
-    {
-      method: 'signMessage',
-      params: {
-        message: Buffer.from(encoded.toString('hex')).toString('base64'),
-      },
-    },
-    {
-      method: 'signMessage',
-      params: { message: '{"message":"\\u004fneKey Cloud Key v1"}' },
-    },
-  ])('rejects root material request %p', (request) => {
-    expect(() => assertNoHardwareCloudSyncSigningRequest(request)).toThrow(
-      'OneKey Cloud key operations',
-    );
-  });
-
-  test('handles a byte view without examining bytes outside that view', () => {
-    const data = new Uint8Array(encoded.length + 4);
-    data.set(encoded, 2);
-    expect(() =>
-      assertNoHardwareCloudSyncSigningRequest(
-        new DataView(data.buffer, 2, encoded.length),
-      ),
-    ).toThrow('OneKey Cloud key operations');
-  });
-
-  test('rejects paths hidden in encoded structured parameters', () => {
-    const payload = Buffer.from(
-      JSON.stringify({ path: HARDWARE_CLOUD_SYNC_PATH }),
-    ).toString('base64');
-    expect(() => assertNoHardwareCloudSyncSigningRequest({ payload })).toThrow(
-      'OneKey Cloud key operations',
-    );
-  });
-
-  test.each([
-    { method: 'personal_sign', params: ['Sign in to example.com', '0x1234'] },
-    {
-      method: 'eth_signTypedData_v4',
-      params: ['0x1234', '{"domain":{"name":"Example"}}'],
-    },
-    {
-      method: 'signMessage',
-      params: { message: Buffer.from('normal BTC message').toString('base64') },
-    },
-    { method: 'connect', params: [] },
-  ])('allows ordinary request %p', (request) => {
-    expect(() =>
-      assertNoHardwareCloudSyncSigningRequest(request),
-    ).not.toThrow();
-  });
-
-  test('does not expose request contents in errors', () => {
-    const privateMarker = 'sensitive-untrusted-payload';
-    let errorMessage: string | undefined;
-    try {
-      assertNoHardwareCloudSyncSigningRequest(`${message} ${privateMarker}`);
-    } catch (error) {
-      errorMessage = (error as Error).message;
-    }
-    expect(errorMessage).toBe(
-      'OneKey Cloud key operations are unavailable to external signing requests',
-    );
-    expect(errorMessage).not.toContain(privateMarker);
-    expect(errorMessage).not.toContain('0123456789abcdef');
-  });
-
-  test.each([
-    { kind: 'ArrayBuffer', value: new ArrayBuffer(16_385) },
-    { kind: 'typed array', value: new Uint8Array(16_385) },
-    { kind: 'DataView', value: new DataView(new ArrayBuffer(16_385)) },
-  ])('bounds byte decoding before copying $kind', ({ value }) => {
-    expect(() => assertNoHardwareCloudSyncSigningRequest({ value })).toThrow(
-      'Signing request exceeds Cloud key validation limits',
-    );
-  });
-
-  test('checks the view size rather than its larger backing buffer', () => {
-    const backing = new Uint8Array(32_768);
-    backing.set(Buffer.from('ordinary message'), 100);
-    expect(() =>
-      assertNoHardwareCloudSyncSigningRequest(
-        new DataView(backing.buffer, 100, 16),
-      ),
-    ).not.toThrow();
-  });
-
-  test('rejects oversized numeric arrays before inspecting their elements', () => {
-    const values: number[] = new Array<number>(16_385);
-    const readElement = jest.fn(() => 65);
-    Object.defineProperty(values, 3, { get: readElement });
-    expect(() => assertNoHardwareCloudSyncSigningRequest(values)).toThrow(
-      'Signing request exceeds Cloud key validation limits',
-    );
-    expect(readElement).not.toHaveBeenCalled();
-  });
-
-  test('fails closed on oversized nested arrays without walking their children', () => {
-    const children: unknown[] = new Array<unknown>(50_001);
-    const readTarget = jest.fn(() => ({ message }));
-    Object.defineProperty(children, 50_000, { get: readTarget });
-    expect(() =>
-      assertNoHardwareCloudSyncSigningRequest({ metadata: { children } }),
-    ).toThrow('Signing request exceeds Cloud key validation limits');
-    expect(readTarget).not.toHaveBeenCalled();
-  });
-
-  test('bounds structured strings rather than skipping a possible nested target', () => {
-    const encodedObject = `{"message":"${'a'.repeat(16_384)}"}`;
-    expect(() =>
-      assertNoHardwareCloudSyncSigningRequest({ payload: encodedObject }),
-    ).toThrow('Signing request exceeds Cloud key validation limits');
-  });
-
-  test('stops a wide object before reading a value past the queue budget', () => {
-    const wide: Record<string, unknown> = {};
-    for (let index = 0; index < 49_999; index += 1) {
-      wide[index] = null;
-    }
-    const readTarget = jest.fn(() => ({ message }));
-    Object.defineProperty(wide, 'tail', { enumerable: true, get: readTarget });
-    expect(() => assertNoHardwareCloudSyncSigningRequest(wide)).toThrow(
-      'Signing request exceeds Cloud key validation limits',
-    );
-    expect(readTarget).not.toHaveBeenCalled();
-  });
-
-  test('terminates on cyclic values', () => {
-    const cyclic: { self?: unknown } = {};
-    cyclic.self = cyclic;
-    expect(() => assertNoHardwareCloudSyncSigningRequest(cyclic)).not.toThrow();
-  });
+  test.each(["m/44'/60'/100'/0/0", "m/44'/0'/1000'/0/0", "m/84'/0'/100'"])(
+    'does not identify unrelated path %s',
+    (path) => expect(isHardwareCloudSyncPath(path)).toBe(false),
+  );
 });

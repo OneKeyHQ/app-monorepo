@@ -888,6 +888,7 @@ class ServiceKeylessCloudSync extends ServiceBase {
 
   private async setCloudSyncEnabledKeylessWithKeyLock(
     enabled: boolean,
+    isCurrent?: () => boolean,
   ): Promise<boolean> {
     const shouldEnableKeyless = enabled;
 
@@ -930,21 +931,33 @@ class ServiceKeylessCloudSync extends ServiceBase {
       }
     }
 
-    await primeCloudSyncPersistAtom.set((v) => ({
-      ...v,
-      isCloudSyncEnabled: shouldEnableKeyless ? false : v.isCloudSyncEnabled,
-      isCloudSyncEnabledKeyless: shouldEnableKeyless,
-      hasEverEnabledKeylessSync:
-        shouldEnableKeyless ||
-        !!v.hasEverEnabledKeylessSync ||
-        !!v.isCloudSyncEnabledKeyless ||
-        !!v.lastSyncTimeKeyless,
-    }));
+    if (isCurrent && !isCurrent())
+      throw new OneKeyError('Hardware Cloud key operation was cancelled.');
+    await primeCloudSyncPersistAtom.set((v) => {
+      if (isCurrent && !isCurrent())
+        throw new OneKeyError('Hardware Cloud key operation was cancelled.');
+      return {
+        ...v,
+        isCloudSyncEnabled: shouldEnableKeyless ? false : v.isCloudSyncEnabled,
+        isCloudSyncEnabledKeyless: shouldEnableKeyless,
+        hasEverEnabledKeylessSync:
+          shouldEnableKeyless ||
+          !!v.hasEverEnabledKeylessSync ||
+          !!v.isCloudSyncEnabledKeyless ||
+          !!v.lastSyncTimeKeyless,
+      };
+    });
     await this.backgroundApi.servicePrimeCloudSync.clearCachedSyncCredential();
 
     if (shouldEnableKeyless) {
       // Re-hydrate credential cache after clearing stale entries
+      if (isCurrent && !isCurrent())
+        throw new OneKeyError('Hardware Cloud key operation was cancelled.');
       await this.hydrateKeylessSyncCredentialFromStorageIfNeeded();
+      if (isCurrent && !isCurrent()) {
+        this.clearKeylessCloudSyncCredentialCache();
+        throw new OneKeyError('Hardware Cloud key operation was cancelled.');
+      }
     }
 
     // Remove persisted credential when disabling keyless sync
@@ -960,6 +973,82 @@ class ServiceKeylessCloudSync extends ServiceBase {
     return shouldEnableKeyless;
   }
 
+  private async resumeSavedHardwareCloudSync(credentialId: string) {
+    if (!platformEnv.isDev) {
+      throw new OneKeyError(
+        'Hardware Cloud keys require device compatibility validation.',
+      );
+    }
+    const generation = this.hardwareCloudKeyGeneration;
+    const isCurrent = () => generation === this.hardwareCloudKeyGeneration;
+    const result = await this.runWithCloudSyncKeyLock(async () => {
+      this.hardwareCloudKeyPending = true;
+      let enableAttempted = false;
+      let wasEnabled = false;
+      try {
+        const selected = await primeCloudSyncPersistAtom.get();
+        const source = selected.hardwareCloudSyncKeySource;
+        wasEnabled = !!selected.isCloudSyncEnabledKeyless;
+        if (!isCurrent() || source?.credentialId !== credentialId) {
+          throw new OneKeyError('The selected Cloud key changed. Try again.');
+        }
+        if (await this.backgroundApi.serviceApp.isAppLocked()) {
+          throw new OneKeyError('Unlock the App to resume Cloud sync.');
+        }
+        const credential = await this.getKeylessCloudSyncCredential();
+        if (!isCurrent())
+          throw new OneKeyError('Hardware Cloud key operation was cancelled.');
+        if (!credential) return { requiresHardware: true };
+        await this.backgroundApi.servicePrimeCloudSync.initLocalSyncItemsDB({
+          syncCredential:
+            this.buildSyncCredentialWithKeylessCredential(credential),
+        });
+        if (
+          !isCurrent() ||
+          (await this.backgroundApi.serviceApp.isAppLocked())
+        ) {
+          throw new OneKeyError('Hardware Cloud key operation was cancelled.');
+        }
+        enableAttempted = true;
+        await this.setCloudSyncEnabledKeylessWithKeyLock(true, isCurrent);
+        if (
+          !isCurrent() ||
+          (await this.backgroundApi.serviceApp.isAppLocked())
+        ) {
+          throw new OneKeyError('Hardware Cloud key operation was cancelled.');
+        }
+        return { requiresHardware: false };
+      } catch (error) {
+        if (!isCurrent()) this.clearKeylessCloudSyncCredentialCache();
+        // Resume writes no credential. A late cancellation can safely leave
+        // the same source disabled instead of completing an old activation.
+        const current = await primeCloudSyncPersistAtom.get();
+        if (
+          !wasEnabled &&
+          (enableAttempted || !isCurrent()) &&
+          current.hardwareCloudSyncKeySource?.credentialId === credentialId
+        ) {
+          await this.setCloudSyncEnabledKeylessWithKeyLock(false);
+        }
+        throw error;
+      } finally {
+        this.hardwareCloudKeyPending = false;
+      }
+    });
+    if (
+      !result.requiresHardware &&
+      isCurrent() &&
+      !(await this.backgroundApi.serviceApp.isAppLocked()) &&
+      isCurrent()
+    ) {
+      await this.backgroundApi.servicePrimeCloudSync.startServerSyncFlow({
+        callerName: 'Resume hardware Cloud sync',
+        forceSync: true,
+      });
+    }
+    return result;
+  }
+
   @backgroundMethod()
   @toastIfError()
   async toggleCloudSyncKeyless({
@@ -967,12 +1056,19 @@ class ServiceKeylessCloudSync extends ServiceBase {
     silentEnable = false,
     forceEnable = false,
     handleLocalSecretEnvelopeUnavailable = !silentEnable,
+    expectedHardwareCloudKeySourceId,
   }: {
     enabled: boolean;
     silentEnable?: boolean;
     forceEnable?: boolean;
     handleLocalSecretEnvelopeUnavailable?: boolean;
+    expectedHardwareCloudKeySourceId?: string;
   }) {
+    if (enabled && expectedHardwareCloudKeySourceId) {
+      return this.resumeSavedHardwareCloudSync(
+        expectedHardwareCloudKeySourceId,
+      );
+    }
     try {
       if (enabled) {
         const { success } = await this.prepareCloudSyncKeyless({

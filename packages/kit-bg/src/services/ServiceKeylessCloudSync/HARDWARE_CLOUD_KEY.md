@@ -52,7 +52,12 @@ Use a separate acceptance profile without existing encrypted Cloud records. Turn
 off the existing sync mode, then choose **Use <wallet name>**. Two identical
 message confirmations are expected. Activation uses the existing credential
 store; after successful activation ordinary sync and restart hydration do not
-require the hardware to remain connected. App password locking clears the
+require the hardware to remain connected. After **Turn off sync**, **Resume sync**
+restores that same saved key without deriving a new signature or contacting the
+device. Missing credentials leave sync off and show an explicit hardware recovery
+hint. The request is bound to the selected source and cancel generation; an old
+page cannot activate or disable a different source. Resume remains development
+only and does not introduce a new storage or App-password scheme. App password locking clears the
 existing memory cache and cancels an unfinished hardware derivation. Existing
 platform persistence and fallback behavior are unchanged.
 
@@ -93,6 +98,11 @@ yarn jest --runInBand --runTestsByPath \
   packages/kit-bg/src/services/ServiceKeylessWallet/utils/keylessSyncCredentialStorage.test.ts \
   packages/shared/src/utils/hardwareCloudSyncGuards.test.ts \
   packages/kit-bg/src/apis/BackgroundApiBase.hardwareCloudSync.test.ts \
+  packages/kit-bg/src/providers/ProviderApiBtc.hardwareCloudSync.test.ts \
+  packages/kit-bg/src/vaults/impls/btc/KeyringHardwareBtcBase.hardwareCloudSync.test.ts \
+  packages/kit-bg/src/vaults/impls/btc/KeyringHardwareTrezor.test.ts \
+  packages/kit-bg/src/vaults/impls/btc/KeyringHardwareKeystone.test.ts \
+  packages/kit/src/views/Prime/pages/PrimeCloudSync/HardwareCloudSyncKeySection.test.tsx \
   packages/kit-bg/src/services/ServiceSend.hardwareCloudSync.test.ts \
   packages/kit-bg/src/services/ServiceDApp.deriveContextHash.test.ts
 node --test development/scripts/hardware-cloud-sdk-redaction.node-test.js
@@ -129,13 +139,64 @@ root signature, generated credentials, seed, or mnemonic in test evidence.
    in the development section. Existing encrypted-space source changes must be
    rejected without modifying old records. Do not interpret phase 1 metadata
    sync as full hardware-account restoration without interaction.
-6. Attempt the reserved message and path through dApp/WalletConnect signing,
-   including hex/Base64/nested forms. Verify rejection before device prompting;
-   no signature may appear in the dApp result, ordinary history, SDK logs, or
-   analytics. A different malicious wallet App remains outside this App's
-   caller-binding protection: the on-device warning is still required.
+6. Attempt the exact 113-byte reserved message through dApp/WalletConnect,
+   including real RPC escaping and supported byte encodings. Every valid identity
+   tag must be rejected before ordinary SDK signing/logging. Check the final
+   canonical BTC `messageHex`, not an arbitrary metadata substring. Other text,
+   literal JSON/hex/Base64 with different final bytes, large EIP712 data and normal
+   Legacy account index 100 must remain usable. No root signature may appear in
+   dApp results, history, SDK logs or analytics. A different malicious wallet App
+   remains outside this App's protection: the device warning is still required.
 
 Native device builds, physical display behavior, secure-element determinism,
 cross-device recovery, BTC-only compatibility, and end-to-end production-server
 behavior cannot be established by the cloud mock. They remain explicit release
 blockers until the intended compatibility matrix is completed.
+
+## Signature protection and inherited persistence boundary
+
+The external guard now compares the complete final Bitcoin message bytes with
+the frozen prefix plus any valid 16-character lowercase hex identity tag. It
+does not guess-decode unrelated JSON, recursively scan provider metadata, reject
+large inputs, or reserve the entire BIP44 account. Actual provider encoding is
+resolved before the final SDK boundary. Internal Cloud generation uses its own
+non-RPC adapter after standard-session/identity checks; no external boolean or
+global derivation window can bypass the ordinary message guard. EVM typed data
+uses another protocol domain and is not a legacy Bitcoin root-message request.
+No externally reachable arbitrary raw-hash legacy Bitcoin signer was found in
+this targeted review; this is not proof about every future SDK/API.
+
+The derivation path remains `m/44'/0'/100'/0/0`; index 100 is also the ordinary
+101st Legacy account. That compatibility is restored by permitting other message
+bytes on this path and removing path-only dApp filtering. No derivation contract,
+existing account, seed or user data was migrated. Root generation still uses the
+fixed path and a verified standard wallet.
+
+Credential persistence intentionally inherits Keyless's secure-storage preference
+and ordinary-storage fallback, fixed local encryption wrapper and warm-cache
+access without requiring another hardware signature. This work neither upgrades
+that boundary to device-presence protection nor adds a new leak/storage backend.
+Requiring OS secure storage everywhere or reauthorization on every unlock would
+be a separate product/platform compatibility choice; it is not silently enabled.
+
+The new isolated regressions cover saved-key resume while disconnected, missing
+credentials, source changes, lock/cancel, the production gate, real large EIP712
+payloads and exact final BTC bytes at provider/vendor/SDK boundaries. UI tests
+exercise React handlers with mocks; native rendering and real hardware remain
+part of the acceptance checklist above.
+
+The follow-up phase-1 run passed 17 Jest suites / 223 tests and all 3 SDK
+redaction Node tests. The unified pre-commit gate passed lint, format, storage,
+background RPC contract, test-integrity and full TypeScript checks. Independent
+review found an early saved-resume commit/cancellation window; the final code
+keeps resume cancellable, guards cache hydration, and rolls back only a newly
+enabled matching source. A stale duplicate resume cannot disable a source that
+was already enabled. These are client mock/control-flow results.
+
+| Follow-up review dimension | Score | Scope |
+| --- | --- | --- |
+| Security | 8/10 | Exact final bytes, internal adapter boundary, no secret UI export |
+| Code quality | 8/10 | Cancel/source/hydration regression and explicit resume UI |
+| Architecture | 8/10 | Existing persistence and source locks retained |
+| Completeness | 7/10 | Native rendering/device/server certification remains external |
+| Weighted total | 7.9/10 | Client fixes reviewed; no production hardware certification implied |
