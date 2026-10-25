@@ -45,6 +45,8 @@ import {
   getStickySidebarMaxHeight,
 } from './defiDesktopStickyDom';
 
+import type { LayoutChangeEvent } from 'react-native';
+
 const SIDEBAR_STICKY_UNPIN_GAP = 8;
 
 // Visual max-width for the wallet page main content. Has to match the
@@ -53,11 +55,20 @@ const SIDEBAR_STICKY_UNPIN_GAP = 8;
 // HomePageView's `homePageContentMaxWidthSx` and the comment there).
 const PORTFOLIO_CONTENT_MAX_WIDTH = 1140;
 
-function PortfolioContainer() {
+function PortfolioContainer({ bottomPadding }: { bottomPadding: number }) {
   const media = useMedia();
 
-  const tableLayout = media.gtMd;
-  const showRecentHistory = media.gtXl;
+  const [nativeContentWidth, setNativeContentWidth] = useState(0);
+  const handleNativeLayout = useCallback((event: LayoutChangeEvent) => {
+    setNativeContentWidth(event.nativeEvent.layout.width);
+  }, []);
+  // Tablet media queries describe the navigation pane, not this list's viewport.
+  const tableLayout = platformEnv.isNative
+    ? nativeContentWidth >= 768
+    : media.gtMd;
+  const showRecentHistory = platformEnv.isNative
+    ? nativeContentWidth >= 1280
+    : media.gtXl;
   const stickyHeaderCtx = useContext(HomeStickyHeaderContext);
   const isTabFocused =
     stickyHeaderCtx?.activeTabId === EHomeWalletTab.Portfolio;
@@ -210,6 +221,81 @@ function PortfolioContainer() {
   );
   const isEarnListActive = isTabFocused && isHomeRouteVisible;
 
+  const otherBlocks = (
+    <>
+      <DeFiListBlock refreshCacheOnly />
+      <PopularTrading tableLayout={tableLayout || undefined} />
+      <EarnListView isActive={isEarnListActive} />
+      <Upgrade />
+      <SupportHub />
+    </>
+  );
+  const recentHistorySidebar =
+    tableLayout && showRecentHistory ? (
+      <YStack
+        ref={registerSidebarRef as any}
+        width={PORTFOLIO_CONTAINER_RIGHT_SIDE_FIXED_WIDTH}
+        flexShrink={0}
+        pt={platformEnv.isNative ? '$3' : undefined}
+        height={isSidebarPinned ? sidebarShellHeight : undefined}
+      >
+        <YStack
+          ref={registerSidebarContentRef as any}
+          width={PORTFOLIO_CONTAINER_RIGHT_SIDE_FIXED_WIDTH}
+          {...(isSidebarPinned
+            ? {
+                position: 'fixed' as any,
+                top: sidebarStickyTop,
+                left: sidebarFixedLeft,
+                maxHeight: stickySidebarMaxHeight,
+                overflow: 'scroll' as any,
+                zIndex: 1,
+              }
+            : null)}
+        >
+          <RecentHistory />
+        </YStack>
+      </YStack>
+    ) : null;
+
+  if (platformEnv.isNative) {
+    return (
+      <Stack flex={1} onLayout={handleNativeLayout}>
+        <TokenListBlock
+          showRecentHistory={tableLayout ? showRecentHistory : undefined}
+          tableLayout={tableLayout || undefined}
+          nativeListSidecar={recentHistorySidebar}
+          nativeListSidecarLayout={
+            recentHistorySidebar
+              ? {
+                  width: PORTFOLIO_CONTAINER_RIGHT_SIDE_FIXED_WIDTH,
+                  gap: 24,
+                  maxContentWidth: PORTFOLIO_CONTENT_MAX_WIDTH,
+                }
+              : undefined
+          }
+          nativeListFooter={
+            <Stack gap="$6" width="100%" paddingBottom={bottomPadding}>
+              <YStack
+                flex={1}
+                gap={tableLayout ? '$10' : '$6'}
+                pb={tableLayout ? '$8' : '$4'}
+              >
+                {otherBlocks}
+                {tableLayout && addPaddingOnListFooter ? (
+                  <Stack h="$16" />
+                ) : null}
+              </YStack>
+              {!tableLayout && addPaddingOnListFooter ? (
+                <Stack h="$16" />
+              ) : null}
+            </Stack>
+          }
+        />
+      </Stack>
+    );
+  }
+
   // Use a stable tree structure (Stack > YStack > children) regardless of
   // layout mode so that TokenListBlock is never unmounted/remounted when the
   // viewport crosses the mobile/desktop breakpoint.  Remounting resets the
@@ -233,37 +319,9 @@ function PortfolioContainer() {
             showRecentHistory={tableLayout ? showRecentHistory : undefined}
             tableLayout={tableLayout || undefined}
           />
-          <DeFiListBlock refreshCacheOnly />
-          <PopularTrading tableLayout={tableLayout || undefined} />
-          <EarnListView isActive={isEarnListActive} />
-          <Upgrade />
-          <SupportHub />
+          {otherBlocks}
         </YStack>
-        {tableLayout && showRecentHistory ? (
-          <YStack
-            ref={registerSidebarRef as any}
-            width={PORTFOLIO_CONTAINER_RIGHT_SIDE_FIXED_WIDTH}
-            flexShrink={0}
-            height={isSidebarPinned ? sidebarShellHeight : undefined}
-          >
-            <YStack
-              ref={registerSidebarContentRef as any}
-              width={PORTFOLIO_CONTAINER_RIGHT_SIDE_FIXED_WIDTH}
-              {...(isSidebarPinned
-                ? {
-                    position: 'fixed' as any,
-                    top: sidebarStickyTop,
-                    left: sidebarFixedLeft,
-                    maxHeight: stickySidebarMaxHeight,
-                    overflow: 'scroll' as any,
-                    zIndex: 1,
-                  }
-                : null)}
-            >
-              <RecentHistory />
-            </YStack>
-          </YStack>
-        ) : null}
+        {recentHistorySidebar}
         {addPaddingOnListFooter ? <Stack h="$16" /> : null}
       </Stack>
     </>
@@ -280,18 +338,22 @@ function PortfolioContainerWithProvider() {
       <ProviderJotaiContextHistoryList>
         <EarnProviderMirror storeName={EJotaiContextStoreNames.earn}>
           <ProviderJotaiContextDeFiList>
-            <HomeScrollView
-              showsVerticalScrollIndicator={false}
-              contentContainerStyle={{ paddingBottom: tabBarHeight }}
-              nestedScrollEnabled={platformEnv.isNativeAndroid}
-              refreshControl={
-                !platformEnv.isNativeAndroid ? (
-                  <PullToRefresh onRefresh={onHomePageRefresh} />
-                ) : undefined
-              }
-            >
-              <PortfolioContainer />
-            </HomeScrollView>
+            {platformEnv.isNative ? (
+              <PortfolioContainer bottomPadding={tabBarHeight ?? 0} />
+            ) : (
+              <HomeScrollView
+                showsVerticalScrollIndicator={false}
+                contentContainerStyle={{ paddingBottom: tabBarHeight }}
+                nestedScrollEnabled={platformEnv.isNativeAndroid}
+                refreshControl={
+                  !platformEnv.isNativeAndroid ? (
+                    <PullToRefresh onRefresh={onHomePageRefresh} />
+                  ) : undefined
+                }
+              >
+                <PortfolioContainer bottomPadding={tabBarHeight ?? 0} />
+              </HomeScrollView>
+            )}
           </ProviderJotaiContextDeFiList>
         </EarnProviderMirror>
       </ProviderJotaiContextHistoryList>

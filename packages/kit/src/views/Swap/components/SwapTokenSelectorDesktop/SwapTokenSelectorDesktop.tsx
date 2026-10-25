@@ -1,6 +1,7 @@
 import type { MutableRefObject, ReactElement } from 'react';
 import { useMemo, useState } from 'react';
 
+import { NativeList } from '@onekeyfe/react-native-native-list';
 import { useIntl } from 'react-intl';
 
 import {
@@ -30,6 +31,12 @@ import SwapPopularTokenGroup from '../SwapPopularTokenGroup';
 import { buildSwapTokenSelectorNetworkGroups } from './SwapTokenSelectorDesktop.utils';
 
 import type { ISwapNetworkAsset } from './SwapTokenSelectorDesktop.utils';
+import type {
+  ActionAnchorInvalidatedEvent,
+  NativeListRef,
+  NativeListSnapshot,
+  RowActionEvent,
+} from '@onekeyfe/react-native-native-list';
 import type { FlatList } from 'react-native';
 
 type ISwapTokenItem = ISwapToken | IFuseResult<ISwapToken>;
@@ -52,6 +59,11 @@ type ISwapTokenSelectorDesktopProps = {
   onDisableNetworksClick: () => void;
   onSelectToken: (token: ISwapToken) => void;
   listViewRef?: MutableRefObject<FlatList<ISwapTokenItem> | null>;
+  nativeListRef?: MutableRefObject<NativeListRef | null>;
+  nativeListSnapshot: NativeListSnapshot;
+  onNativeRowAction: (event: RowActionEvent) => void;
+  onNativeAnchorInvalidated: (event: ActionAnchorInvalidatedEvent) => void;
+  useNativeTokenRows: boolean;
   popularTokens: ISwapToken[];
   showPopularTokens: boolean;
   showLpTokenFilterSwitch: boolean;
@@ -250,6 +262,11 @@ export function SwapTokenSelectorDesktop({
   onLpTokenFilterChange,
   tokens,
   renderToken,
+  nativeListRef,
+  nativeListSnapshot,
+  onNativeRowAction,
+  onNativeAnchorInvalidated,
+  useNativeTokenRows,
   currencySymbol,
   tokenListEmptyComponent,
 }: ISwapTokenSelectorDesktopProps) {
@@ -570,24 +587,46 @@ export function SwapTokenSelectorDesktop({
           </XStack>
         ) : null}
         <YStack flex={1} minHeight={0}>
-          <ListView
-            ref={listViewRef}
-            data={tokens}
-            renderItem={renderToken}
-            estimatedItemSize={60}
-            ListEmptyComponent={
-              tokenListEmptyComponent ?? (
-                <TokenSearchEmpty
-                  title={intl.formatMessage({
-                    id: ETranslations.empty_no_tokens_found,
-                  })}
-                  description={intl.formatMessage({
-                    id: ETranslations.description_check_spelling_or_paste_contract_address,
-                  })}
-                />
-              )
-            }
-          />
+          {useNativeTokenRows ? (
+            <NativeList
+              ref={nativeListRef}
+              style={{ flex: 1 }}
+              snapshot={nativeListSnapshot}
+              onRowAction={onNativeRowAction}
+              onActionAnchorInvalidated={onNativeAnchorInvalidated}
+              listEmpty={
+                tokenListEmptyComponent ?? (
+                  <TokenSearchEmpty
+                    title={intl.formatMessage({
+                      id: ETranslations.empty_no_tokens_found,
+                    })}
+                    description={intl.formatMessage({
+                      id: ETranslations.description_check_spelling_or_paste_contract_address,
+                    })}
+                  />
+                )
+              }
+            />
+          ) : (
+            <ListView
+              ref={listViewRef}
+              data={tokens}
+              renderItem={renderToken}
+              estimatedItemSize={60}
+              ListEmptyComponent={
+                tokenListEmptyComponent ?? (
+                  <TokenSearchEmpty
+                    title={intl.formatMessage({
+                      id: ETranslations.empty_no_tokens_found,
+                    })}
+                    description={intl.formatMessage({
+                      id: ETranslations.description_check_spelling_or_paste_contract_address,
+                    })}
+                  />
+                )
+              }
+            />
+          )}
         </YStack>
       </YStack>
     </XStack>

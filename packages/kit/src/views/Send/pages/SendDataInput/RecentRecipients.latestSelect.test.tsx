@@ -12,6 +12,7 @@
 import type { ReactNode } from 'react';
 
 type IBoxProps = { children?: ReactNode };
+const mockNativeSnapshots: { rows: unknown[] }[] = [];
 
 const mockRecentData = {
   recentRecipients: [
@@ -22,6 +23,7 @@ const mockRecentData = {
       walletAccountName: 'Hidden #1 / Account #1',
       recipientMemo: '123456789',
       lastTransferTime: 1,
+      lastTransferNetworkName: 'Ethereum',
     },
   ],
   isLoadingRecent: false,
@@ -35,6 +37,18 @@ jest.mock('react-intl', () => ({
     locale: 'en',
   }),
 }));
+jest.mock('@onekeyfe/react-native-native-list', () => ({
+  NativeList: ({ snapshot }: { snapshot: { rows: unknown[] } }) => {
+    mockNativeSnapshots.push(snapshot);
+    return null;
+  },
+}));
+jest.mock(
+  '@onekeyhq/kit/src/views/AccountManagerStacks/pages/AccountSelectorStack/accountSelectorNativeListV2',
+  () => ({
+    useAccountSelectorNativeListThemeV2: () => ({}),
+  }),
+);
 jest.mock('@onekeyhq/components', () => {
   const Box = ({ children }: IBoxProps) => <>{children}</>;
   const Text = ({ children }: IBoxProps) => <span>{children}</span>;
@@ -147,5 +161,24 @@ describe('RecentRecipients row press', () => {
       }),
     );
     expect(firstOnSelect).not.toHaveBeenCalled();
+  });
+
+  it('passes Recent network and time as separate plain title suffixes', () => {
+    mockNativeSnapshots.length = 0;
+    const previousName = mockRecentData.recentRecipients[0].walletAccountName;
+    mockRecentData.recentRecipients[0].walletAccountName = '';
+    render(
+      <RecentRecipients nativeList accountId="acc-1" networkId="evm--1" />,
+    );
+
+    const rows = mockNativeSnapshots.at(-1)?.rows as
+      | { titleSuffixes?: unknown[]; badges?: unknown[] }[]
+      | undefined;
+    expect(rows?.[0]?.titleSuffixes).toEqual([
+      { text: 'Ethereum', tone: 'disabled', maxWidth: 96 },
+      { text: expect.any(String), tone: 'disabled' },
+    ]);
+    expect(rows?.[0]?.badges).toBeUndefined();
+    mockRecentData.recentRecipients[0].walletAccountName = previousName;
   });
 });

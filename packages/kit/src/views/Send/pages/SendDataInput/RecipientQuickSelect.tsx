@@ -9,7 +9,10 @@ import {
   useState,
 } from 'react';
 
+import { NativeList } from '@onekeyfe/react-native-native-list';
 import { useIntl } from 'react-intl';
+import { Dimensions, Keyboard as ReactNativeKeyboard } from 'react-native';
+import { CollapsiblePagerView } from 'react-native-pager-view';
 
 import {
   ActionList,
@@ -18,6 +21,7 @@ import {
   DashText,
   Empty,
   Icon,
+  Keyboard,
   MatchSizeableText,
   Popover,
   SegmentControl,
@@ -27,6 +31,7 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import { KEYBOARD_AWARE_SCROLL_BOTTOM_OFFSET } from '@onekeyhq/components/src/content/Keyboard';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountAvatar } from '@onekeyhq/kit/src/components/AccountAvatar';
 import { addressTypeTooltipMap } from '@onekeyhq/kit/src/components/AddressTypeSelector/AddressTypeSelectorItem';
@@ -34,6 +39,11 @@ import { WalletAvatar } from '@onekeyhq/kit/src/components/WalletAvatar';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import {
+  accountSelectorAccountVisualV2,
+  accountSelectorWalletVisualV2,
+  useAccountSelectorNativeListThemeV2,
+} from '@onekeyhq/kit/src/views/AccountManagerStacks/pages/AccountSelectorStack/accountSelectorNativeListV2';
 import type { IAddressNetworkItem } from '@onekeyhq/kit/src/views/AddressBook/type';
 import { SendTestIDs } from '@onekeyhq/kit/src/views/Send/testIDs';
 import type {
@@ -63,6 +73,7 @@ import {
   QuickSelectListSkeleton,
 } from './QuickSelectListShared';
 import RecentRecipients from './RecentRecipients';
+import { recipientIdentityRow, recipientSnapshot } from './recipientNativeList';
 import {
   type IRecipientQuickSelectTab,
   type IRecipientTabMatchStatus,
@@ -73,6 +84,12 @@ import {
   prioritizeNameThenAddressMatches,
 } from './searchMatchUtils';
 import { useStableItemPress } from './useStableItemPress';
+
+import type { IdentityRow } from '@onekeyfe/react-native-native-list';
+import type { LayoutChangeEvent, View } from 'react-native';
+
+type IFocusMeasurable = Pick<View, 'measureInWindow'>;
+type IFocusVisibilityRequest = (field: IFocusMeasurable | null) => void;
 
 function DeriveTypeLabelWithTooltip({
   label,
@@ -120,6 +137,10 @@ function DeriveTypeLabelWithTooltip({
 }
 
 type IRecipientQuickSelectProps = {
+  pagerHeader?:
+    | ReactNode
+    | ((requestFocusVisibility: IFocusVisibilityRequest) => ReactNode);
+  accountNetwork?: IRecipientAccountNetwork;
   accountId?: string;
   networkId: string;
   senderDeriveType?: string;
@@ -143,6 +164,8 @@ type IRecipientQuickSelectProps = {
 };
 
 type IAccountRecipientsProps = {
+  nativeList?: boolean;
+  accountNetwork?: IRecipientAccountNetwork;
   networkId: string;
   senderDeriveType?: string;
   lastUsedDeriveType?: string;
@@ -153,6 +176,13 @@ type IAccountRecipientsProps = {
   onInputTypeChange?: (type: EInputAddressChangeType) => void;
   onSelect?: (params: { address: string }) => void;
   onMatchStatusChange?: (hasMatches: boolean, matchCount: number) => void;
+};
+
+type IRecipientAccountNetwork = {
+  logoURI?: string;
+  isCustomNetwork?: boolean;
+  isAllNetworks?: boolean;
+  name?: string;
 };
 
 type IQuickItem = {
@@ -309,6 +339,8 @@ function findMatchedAccountAddress(
 }
 
 function AccountRecipients({
+  nativeList = false,
+  accountNetwork,
   networkId,
   senderDeriveType,
   lastUsedDeriveType: lastUsedDeriveTypeProp,
@@ -321,6 +353,7 @@ function AccountRecipients({
   onMatchStatusChange,
 }: IAccountRecipientsProps) {
   const intl = useIntl();
+  const nativeListTheme = useAccountSelectorNativeListThemeV2();
 
   // Single IPC call — all wallet/account aggregation happens in background.
   // useDeferredValue lets React yield to events (close button) mid-render.
@@ -656,6 +689,138 @@ function AccountRecipients({
     }));
   }, []);
 
+  const nativeRowItems = useMemo(() => {
+    const rows: IdentityRow[] = [];
+    const itemsByKey = new Map<string, IFlatItem>();
+    if (!nativeList)
+      return { snapshot: recipientSnapshot(rows, nativeListTheme), itemsByKey };
+    for (const item of flattenedItems) {
+      if (item.type === 'header') {
+        const key = `header-${item.walletId}`;
+        itemsByKey.set(key, item);
+        const activeLabel = item.deriveTypeOptions.find(
+          (option) => option.deriveType === item.activeDeriveType,
+        )?.label;
+        rows.push({
+          type: 'identity',
+          key,
+          testID: SendTestIDs.recipientQuickSelectWalletToggle,
+          height: 52,
+          leading: item.wallet
+            ? accountSelectorWalletVisualV2({
+                wallet: item.wallet,
+                badgeBackground: nativeListTheme.rowBackground,
+                connectionColor: nativeListTheme.accent,
+                theme: nativeListTheme,
+              })
+            : { kind: 'icon', name: 'WalletOutline' },
+          title: item.title,
+          titleIcon: {
+            name: collapsedWallets[item.walletId]
+              ? 'ChevronRightSmallOutline'
+              : 'ChevronDownSmallOutline',
+          },
+          trailing:
+            item.hasMultipleDeriveTypes && activeLabel
+              ? [{ kind: 'button', label: activeLabel, actionKey: 'derive' }]
+              : undefined,
+          style: {
+            horizontalPadding: 8,
+            verticalPadding: 8,
+            leadingGap: 8,
+            image: { width: 20, height: 20 },
+            title: { fontSize: 14, lineHeight: 20, fontWeight: 'medium' },
+          },
+        });
+      } else if (!collapsedWallets[item.walletId]) {
+        const account = item.account;
+        const currentAddress =
+          account.addressDetail?.displayAddress ??
+          account.address ??
+          account.addressDetail?.address ??
+          '';
+        const address = item.matchedAddress ?? currentAddress;
+        const key = `${account.id ?? 'no-id'}-${address}`;
+        itemsByKey.set(key, item);
+        rows.push(
+          recipientIdentityRow({
+            key,
+            testID: SendTestIDs.recipientItem(address),
+            address: address || account.id || '',
+            name: account.name ?? '',
+            secondary: address,
+            leading: accountSelectorAccountVisualV2({
+              account,
+              indexedAccount: item.indexedAccount,
+              network: accountNetwork,
+              theme: nativeListTheme,
+            }),
+          }),
+        );
+      }
+    }
+    return { snapshot: recipientSnapshot(rows, nativeListTheme), itemsByKey };
+  }, [
+    nativeList,
+    flattenedItems,
+    collapsedWallets,
+    nativeListTheme,
+    accountNetwork,
+  ]);
+
+  const handleNativeAccountAction = useCallback(
+    (actionKey: string, rowKey?: string) => {
+      const item = rowKey ? nativeRowItems.itemsByKey.get(rowKey) : undefined;
+      if (!item) return;
+      if (item.type === 'header') {
+        if (actionKey === 'press') toggleCollapse(item.walletId);
+        if (actionKey === 'derive') {
+          ActionList.show({
+            title: intl.formatMessage({
+              id: ETranslations.address_type_selector_title,
+            }),
+            sections: [
+              {
+                items: item.deriveTypeOptions.map((option) => ({
+                  label: option.label,
+                  renderLabel: option.description
+                    ? () => (
+                        <DeriveTypeLabelWithTooltip
+                          label={option.label}
+                          description={option.description ?? ''}
+                        />
+                      )
+                    : undefined,
+                  onPress: () =>
+                    setWalletDeriveType((prev) => ({
+                      ...prev,
+                      [item.walletId]: option.deriveType,
+                    })),
+                })),
+              },
+            ],
+          });
+        }
+        return;
+      }
+      if (actionKey !== 'press') return;
+      const account = item.account;
+      const currentAddress =
+        account.addressDetail?.displayAddress ??
+        account.address ??
+        account.addressDetail?.address ??
+        '';
+      const address = item.matchedAddress ?? currentAddress;
+      handleSelectAccount({
+        id: account.id ?? '',
+        name: account.name ?? '',
+        address: address || account.id || '',
+        displayAddress: address,
+      });
+    },
+    [nativeRowItems.itemsByKey, toggleCollapse, intl, handleSelectAccount],
+  );
+
   // Show skeleton while loading OR while useDeferredValue is still stale
   // (isLoadingAccounts settles before the deferred walletGroups updates,
   // which would briefly show an empty list without this guard).
@@ -664,6 +829,33 @@ function AccountRecipients({
   const isInitialLoading =
     (isLoadingAccounts !== false || isDeferredStale) &&
     walletGroups.length === 0;
+  if (nativeList) {
+    return (
+      <NativeList
+        style={{ flex: 1 }}
+        snapshot={nativeRowItems.snapshot}
+        keyboardShouldPersistTaps="handled"
+        listEmpty={
+          isInitialLoading ? (
+            <QuickSelectListSkeleton />
+          ) : (
+            <Empty
+              mt="$3"
+              icon={isSearchActive ? 'SearchOutline' : 'WalletCryptoOutline'}
+              title={intl.formatMessage({
+                id: isSearchActive
+                  ? ETranslations.no_search_results__title
+                  : ETranslations.no_account,
+              })}
+            />
+          )
+        }
+        onRowAction={(event) =>
+          handleNativeAccountAction(event.actionKey, event.rowKey)
+        }
+      />
+    );
+  }
   if (isInitialLoading) {
     return <QuickSelectListSkeleton />;
   }
@@ -845,6 +1037,7 @@ function AccountRecipients({
 }
 
 type IAddressBookRecipientsProps = {
+  nativeList?: boolean;
   networkId: string;
   searchKey?: string;
   debouncedSearchKey?: string;
@@ -859,6 +1052,7 @@ type IAddressBookRecipientsProps = {
 };
 
 function AddressBookRecipients({
+  nativeList = false,
   networkId,
   searchKey,
   debouncedSearchKey: debouncedSearchKeyProp,
@@ -868,6 +1062,7 @@ function AddressBookRecipients({
   onMatchStatusChange,
 }: IAddressBookRecipientsProps) {
   const intl = useIntl();
+  const nativeListTheme = useAccountSelectorNativeListThemeV2();
   const navigation = useAppNavigation();
   const debouncedSearchKey = debouncedSearchKeyProp ?? '';
   const trimmedSearchKey = normalizeSearchKey(debouncedSearchKey);
@@ -933,6 +1128,91 @@ function AddressBookRecipients({
 
   const isInitialLoading = isLoading && !result;
 
+  const nativeAddressBookItems = useMemo(() => {
+    const itemsByKey = new Map<string, IQuickItem>();
+    if (!nativeList)
+      return { snapshot: recipientSnapshot([], nativeListTheme), itemsByKey };
+    const rows = filteredItems.map((item) => {
+      const key = item.id ?? `${item.address}-${item.networkId}`;
+      const quickItem: IQuickItem = {
+        id: item.id,
+        name: item.name,
+        address: item.address,
+        memo: item.memo,
+        note: item.note,
+      };
+      itemsByKey.set(key, quickItem);
+      const note = item.memo || item.note;
+      return recipientIdentityRow({
+        key,
+        testID: SendTestIDs.recipientItem(item.address),
+        address: item.address,
+        name: item.name,
+        secondary: note
+          ? `${item.address} · ${accountUtils.shortenAddress({
+              address: note,
+              leadingLength: 6,
+              trailingLength: 4,
+            })}`
+          : item.address,
+      });
+    });
+    return { snapshot: recipientSnapshot(rows, nativeListTheme), itemsByKey };
+  }, [nativeList, filteredItems, nativeListTheme]);
+
+  let nativeAddressBookEmpty = (
+    <Empty
+      mt="$3"
+      icon="BookOpenOutline"
+      title={intl.formatMessage({ id: ETranslations.address_book_title })}
+      description={intl.formatMessage({ id: ETranslations.address_book__desc })}
+      buttonProps={{
+        variant: 'secondary',
+        size: 'medium',
+        children: intl.formatMessage({
+          id: ETranslations.address_book_add_address_title,
+        }),
+        onPress: () =>
+          navigation.pushModal(EModalRoutes.AddressBookModal, {
+            screen: EModalAddressBookRoutes.EditItemModal,
+            params: { networkId },
+          }),
+      }}
+    />
+  );
+  if (isSearchActive) {
+    nativeAddressBookEmpty = (
+      <Empty
+        mt="$3"
+        icon="SearchOutline"
+        title={intl.formatMessage({
+          id: ETranslations.no_search_results__title,
+        })}
+      />
+    );
+  }
+  if (isInitialLoading) {
+    nativeAddressBookEmpty = <QuickSelectListSkeleton count={4} />;
+  }
+
+  if (nativeList) {
+    return (
+      <NativeList
+        style={{ flex: 1 }}
+        snapshot={nativeAddressBookItems.snapshot}
+        keyboardShouldPersistTaps="handled"
+        listEmpty={nativeAddressBookEmpty}
+        onRowAction={(event) => {
+          if (event.actionKey !== 'press') return;
+          const item = event.rowKey
+            ? nativeAddressBookItems.itemsByKey.get(event.rowKey)
+            : undefined;
+          if (item) handleSelectAddressBookItem(item);
+        }}
+      />
+    );
+  }
+
   if (isInitialLoading) {
     // Keep layout occupied during first load to avoid blank flash
     return <QuickSelectListSkeleton count={4} />;
@@ -995,6 +1275,8 @@ function AddressBookRecipients({
 }
 
 function RecipientQuickSelect({
+  pagerHeader,
+  accountNetwork,
   accountId,
   networkId,
   searchKey,
@@ -1009,12 +1291,148 @@ function RecipientQuickSelect({
   senderDeriveType,
 }: IRecipientQuickSelectProps) {
   const intl = useIntl();
+  const pagerMode = pagerHeader !== undefined;
+  const pagerRef = useRef<CollapsiblePagerView>(null);
+  const pagerViewportRef = useRef<View>(null);
+  const focusedFieldRef = useRef<IFocusMeasurable | null>(null);
+  const keyboardTopRef = useRef<number | null>(null);
+  const focusGenerationRef = useRef(0);
+  // Native pager slots are exactly sized; zero height prevents the first header layout.
+  const [pagerHeaderHeight, setPagerHeaderHeight] = useState(
+    platformEnv.isNative ? 180 : 0,
+  );
+  const [stickyHeaderHeight, setStickyHeaderHeight] = useState(48);
+  const invalidateFocusMeasurement = useCallback((clearField = false) => {
+    focusGenerationRef.current += 1;
+    if (clearField) focusedFieldRef.current = null;
+  }, []);
+  const ensureFocusedFieldVisible = useCallback(() => {
+    const field = focusedFieldRef.current;
+    const keyboardTop = keyboardTopRef.current;
+    if (!pagerMode || !field || keyboardTop === null) return;
+    focusGenerationRef.current += 1;
+    const generation = focusGenerationRef.current;
+    requestAnimationFrame(() => {
+      if (generation !== focusGenerationRef.current) return;
+      field.measureInWindow((_fieldX, fieldY, _fieldWidth, fieldHeight) => {
+        if (generation !== focusGenerationRef.current) return;
+        pagerViewportRef.current?.measureInWindow(
+          (_pagerX, pagerY, _pagerWidth, pagerHeight) => {
+            if (generation !== focusGenerationRef.current) return;
+            const visibleTop = pagerY + 12;
+            const visibleBottom =
+              Math.min(pagerY + pagerHeight, keyboardTop) - 12;
+            if (
+              ![fieldY, fieldHeight, visibleTop, visibleBottom].every(
+                Number.isFinite,
+              ) ||
+              visibleBottom <= visibleTop
+            ) {
+              return;
+            }
+            if (platformEnv.isNative) {
+              const target = Math.max(0, fieldY + fieldHeight - visibleBottom);
+              pagerRef.current?.scrollHeaderToOffset(target);
+              return;
+            }
+            let delta = 0;
+            if (
+              fieldHeight <= visibleBottom - visibleTop &&
+              fieldY < visibleTop
+            ) {
+              delta = fieldY - visibleTop;
+            } else if (fieldY + fieldHeight > visibleBottom) {
+              delta = fieldY + fieldHeight - visibleBottom;
+            }
+            if (delta !== 0) pagerRef.current?.scrollHeaderBy(delta);
+          },
+        );
+      });
+    });
+  }, [pagerMode]);
+  const requestFocusVisibility = useCallback<IFocusVisibilityRequest>(
+    (field) => {
+      focusedFieldRef.current = field;
+      ensureFocusedFieldVisible();
+    },
+    [ensureFocusedFieldVisible],
+  );
+  useEffect(() => {
+    if (!pagerMode) return undefined;
+    if (platformEnv.isNative) {
+      const updateKeyboardFrame = (event: {
+        endCoordinates: { screenY: number; height: number };
+      }) => {
+        const { screenY, height } = event.endCoordinates;
+        const screenHeight = Dimensions.get('screen').height;
+        keyboardTopRef.current =
+          height > 0 && Number.isFinite(screenY) && screenY < screenHeight - 1
+            ? screenY
+            : null;
+        if (keyboardTopRef.current === null) invalidateFocusMeasurement();
+        else ensureFocusedFieldVisible();
+      };
+      const show = ReactNativeKeyboard.addListener(
+        'keyboardDidShow',
+        updateKeyboardFrame,
+      );
+      const changeFrame = platformEnv.isNativeIOS
+        ? ReactNativeKeyboard.addListener(
+            'keyboardDidChangeFrame',
+            updateKeyboardFrame,
+          )
+        : null;
+      const hide = ReactNativeKeyboard.addListener('keyboardWillHide', () => {
+        keyboardTopRef.current = null;
+        invalidateFocusMeasurement();
+      });
+      const didHide = ReactNativeKeyboard.addListener('keyboardDidHide', () => {
+        keyboardTopRef.current = null;
+        invalidateFocusMeasurement();
+      });
+      return () => {
+        show.remove();
+        changeFrame?.remove();
+        hide.remove();
+        didHide.remove();
+        invalidateFocusMeasurement(true);
+      };
+    }
+    const viewport = window.visualViewport;
+    let unobstructedHeight = window.innerHeight;
+    const updateViewport = () => {
+      const bottom = viewport
+        ? viewport.offsetTop + viewport.height
+        : window.innerHeight;
+      keyboardTopRef.current = bottom < unobstructedHeight - 60 ? bottom : null;
+      if (keyboardTopRef.current === null) {
+        unobstructedHeight = window.innerHeight;
+        invalidateFocusMeasurement();
+      } else {
+        ensureFocusedFieldVisible();
+      }
+    };
+    viewport?.addEventListener('resize', updateViewport);
+    viewport?.addEventListener('scroll', updateViewport);
+    return () => {
+      viewport?.removeEventListener('resize', updateViewport);
+      viewport?.removeEventListener('scroll', updateViewport);
+      invalidateFocusMeasurement(true);
+    };
+  }, [ensureFocusedFieldVisible, invalidateFocusMeasurement, pagerMode]);
+  const pagerHeaderContent =
+    typeof pagerHeader === 'function'
+      ? pagerHeader(requestFocusVisibility)
+      : pagerHeader;
   const isRecentHidden = hideTabs?.includes('recent') ?? false;
   // Use controlled state from parent if provided, otherwise use local state
   const [localActiveTab, setLocalActiveTab] =
     useState<IRecipientQuickSelectTab>(isRecentHidden ? 'account' : 'recent');
   const activeTab = activeTabProp ?? localActiveTab;
   const setActiveTab = onActiveTabChange ?? setLocalActiveTab;
+  useEffect(() => {
+    invalidateFocusMeasurement(true);
+  }, [activeTab, invalidateFocusMeasurement]);
 
   // Last-used derive type from transfer-recipient API (for BTC/LTC).
   // Bubbled up from RecentRecipients → useRecentRecipientsData.
@@ -1277,30 +1695,194 @@ function RecipientQuickSelect({
     [isSearchMode, trimmedSearchKey, tabMatchCounts, visibleTabKeys],
   );
 
+  const handleManualTabChange = useCallback(
+    (toTab: IRecipientQuickSelectTab) => {
+      if (toTab === activeTab) return;
+      lastManualSwitchSearchKeyRef.current = trimmedSearchKey;
+      defaultLogger.transaction.send.quickSelectTabSwitch({
+        network: networkId,
+        fromTab: activeTab,
+        toTab,
+        isAutoSwitch: false,
+      });
+      setActiveTab(toTab);
+    },
+    [activeTab, networkId, setActiveTab, trimmedSearchKey],
+  );
+
+  useEffect(() => {
+    if (!pagerMode) return;
+    const index = visibleTabKeys.indexOf(activeTab);
+    if (index >= 0) pagerRef.current?.setPageWithoutAnimation(index);
+  }, [activeTab, pagerMode, visibleTabKeys]);
+
+  const handlePagerHeaderLayout = useCallback(
+    (event: LayoutChangeEvent) => {
+      const height = Math.ceil(event.nativeEvent.layout.height);
+      setPagerHeaderHeight((previous) =>
+        previous === height ? previous : height,
+      );
+      ensureFocusedFieldVisible();
+    },
+    [ensureFocusedFieldVisible],
+  );
+  useEffect(() => {
+    ensureFocusedFieldVisible();
+  }, [ensureFocusedFieldVisible, pagerHeaderHeight]);
+  const handleStickyHeaderLayout = useCallback((event: LayoutChangeEvent) => {
+    const height = Math.ceil(event.nativeEvent.layout.height);
+    setStickyHeaderHeight((previous) =>
+      previous === height ? previous : height,
+    );
+  }, []);
+
   // Nothing to render when all tabs are hidden (e.g. web dapp mode)
   if (visibleTabKeys.length === 0) {
-    return null;
+    return pagerMode ? (
+      <Keyboard.AwareScrollView
+        style={{ flex: 1 }}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
+        bottomOffset={KEYBOARD_AWARE_SCROLL_BOTTOM_OFFSET}
+        contentContainerStyle={{ paddingHorizontal: 20 }}
+      >
+        {pagerHeaderContent}
+      </Keyboard.AwareScrollView>
+    ) : null;
+  }
+
+  const tabs = (
+    <SegmentControl
+      fullWidth
+      value={activeTab}
+      options={tabOptions}
+      onChange={(value) =>
+        handleManualTabChange(value as IRecipientQuickSelectTab)
+      }
+    />
+  );
+
+  if (pagerMode) {
+    return (
+      <Stack
+        ref={pagerViewportRef}
+        flex={1}
+        minHeight={0}
+        onTouchStart={() => invalidateFocusMeasurement()}
+        onWheel={() => invalidateFocusMeasurement()}
+      >
+        <CollapsiblePagerView
+          ref={pagerRef}
+          style={{ flex: 1 }}
+          initialPage={Math.max(0, visibleTabKeys.indexOf(activeTab))}
+          headerHeight={pagerHeaderHeight}
+          stickyHeaderHeight={stickyHeaderHeight}
+          header={
+            <Stack px="$5" onLayout={handlePagerHeaderLayout}>
+              {pagerHeaderContent}
+            </Stack>
+          }
+          stickyHeader={
+            <Stack
+              px="$5"
+              pt="$3"
+              pb="$3"
+              bg="$bgApp"
+              onLayout={handleStickyHeaderLayout}
+            >
+              {tabs}
+            </Stack>
+          }
+          nestedScrollEnabled
+          {...(platformEnv.isNative
+            ? { nativeSmoothHeaderScrollEnabled: true }
+            : {})}
+          pageRetentionDistance={visibleTabKeys.length}
+          onPageSelected={({ nativeEvent }) => {
+            invalidateFocusMeasurement(true);
+            const tab = visibleTabKeys[nativeEvent.position];
+            if (tab) handleManualTabChange(tab);
+          }}
+          onPageScrollStateChanged={({ nativeEvent }) => {
+            if (nativeEvent.pageScrollState === 'dragging')
+              invalidateFocusMeasurement(true);
+          }}
+        >
+          {visibleTabKeys.map((tab) => (
+            <Stack key={tab} flex={1} minHeight={0}>
+              {tab === 'recent' && (activeTab === tab || visitedTabs.recent) ? (
+                <RecentRecipients
+                  nativeList
+                  compact
+                  accountId={accountId}
+                  networkId={networkId}
+                  searchKey={searchKey}
+                  isSearchMode={isSearchMode}
+                  onSelect={(params) => {
+                    onInputTypeChange?.(EInputAddressChangeType.Manual);
+                    onSelect?.({
+                      ...params,
+                      quickSelectTab: 'recent',
+                      ...getSearchContext(),
+                    });
+                  }}
+                  onMatchStatusChange={handleRecentMatchStatus}
+                  onLastUsedDeriveTypeChange={setLastUsedDeriveType}
+                />
+              ) : null}
+              {tab === 'account' &&
+              (activeTab === tab || visitedTabs.account) ? (
+                <AccountRecipients
+                  nativeList
+                  networkId={networkId}
+                  accountNetwork={accountNetwork}
+                  senderDeriveType={senderDeriveType}
+                  lastUsedDeriveType={lastUsedDeriveType}
+                  searchKey={searchKey}
+                  debouncedSearchKey={effectiveDebouncedSearchKey}
+                  isSearchMode={isSearchMode}
+                  keylessWalletsOnly={keylessWalletsOnly}
+                  onInputTypeChange={onInputTypeChange}
+                  onSelect={({ address }) => {
+                    setImmediateSearchKey(address);
+                    onSelect?.({
+                      address,
+                      quickSelectTab: 'account',
+                      ...getSearchContext(),
+                    });
+                  }}
+                  onMatchStatusChange={handleAccountMatchStatus}
+                />
+              ) : null}
+              {tab === 'addressBook' &&
+              (activeTab === tab || visitedTabs.addressBook) ? (
+                <AddressBookRecipients
+                  nativeList
+                  networkId={networkId}
+                  searchKey={searchKey}
+                  debouncedSearchKey={debouncedSearchKey}
+                  isSearchMode={isSearchMode}
+                  onInputTypeChange={onInputTypeChange}
+                  onSelect={(params) =>
+                    onSelect?.({
+                      ...params,
+                      quickSelectTab: 'addressBook',
+                      ...getSearchContext(),
+                    })
+                  }
+                  onMatchStatusChange={handleAddressBookMatchStatus}
+                />
+              ) : null}
+            </Stack>
+          ))}
+        </CollapsiblePagerView>
+      </Stack>
+    );
   }
 
   return (
     <YStack mt="$3" gap="$3">
-      <SegmentControl
-        fullWidth
-        value={activeTab}
-        options={tabOptions}
-        onChange={(value) => {
-          // Record the current search key to prevent auto-switch until user types again
-          lastManualSwitchSearchKeyRef.current = trimmedSearchKey;
-          const toTab = value as IRecipientQuickSelectTab;
-          defaultLogger.transaction.send.quickSelectTabSwitch({
-            network: networkId,
-            fromTab: activeTab,
-            toTab,
-            isAutoSwitch: false,
-          });
-          setActiveTab(toTab);
-        }}
-      />
+      {tabs}
       <Stack mx={-20} pb="$3">
         {/* Render active tab, or visited tabs (hidden with display:none to avoid unmount crashes) */}
         {!isRecentHidden && (activeTab === 'recent' || visitedTabs.recent) ? (
