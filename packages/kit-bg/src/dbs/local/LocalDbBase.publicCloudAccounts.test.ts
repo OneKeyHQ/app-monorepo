@@ -1,5 +1,7 @@
 import { createHash } from 'crypto';
 
+import { cloneDeep } from 'lodash';
+
 import { EPrimeCloudSyncDataType } from '@onekeyhq/shared/src/consts/primeConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
@@ -24,6 +26,8 @@ import type {
   ILocalDBTxAddRecordsResult,
   ILocalDBTxGetAllRecordsParams,
   ILocalDBTxGetAllRecordsResult,
+  ILocalDBTxGetRecordByIdParams,
+  ILocalDBTxGetRecordByIdResult,
   ILocalDBTxGetRecordsByIdsParams,
   ILocalDBTxGetRecordsByIdsResult,
   ILocalDBTxRemoveRecordsParams,
@@ -72,7 +76,7 @@ class PublicAccountTestDb extends LocalDbBase {
 
   constructor() {
     super();
-    this.put(ELocalDBStoreNames.Wallet, { ...WALLET });
+    this.put(ELocalDBStoreNames.Wallet, cloneDeep(WALLET));
     this.put(ELocalDBStoreNames.Credential, {
       id: WALLET.id,
       credential: 'encrypted-local-test-credential',
@@ -109,9 +113,7 @@ class PublicAccountTestDb extends LocalDbBase {
     fn: (tx: ILocalDBTransaction) => Promise<T>,
   ): Promise<T> {
     this.beforeTransaction?.();
-    const original = new Map(
-      Array.from(this.stores, ([name, records]) => [name, new Map(records)]),
-    );
+    const original = cloneDeep(this.stores);
     try {
       return await fn({} as ILocalDBTransaction);
     } catch (error) {
@@ -135,6 +137,25 @@ class PublicAccountTestDb extends LocalDbBase {
         record ? [record, null] : undefined,
       ),
     };
+  }
+
+  override async txGetRecordById<T extends ELocalDBStoreNames>({
+    tx,
+    name,
+    id,
+  }: ILocalDBTxGetRecordByIdParams<T>): Promise<
+    ILocalDBTxGetRecordByIdResult<T>
+  > {
+    const result = await this.txGetRecordsByIds({ tx, name, ids: [id] });
+    const pair = result.recordPairs[0];
+    if (!pair) throw new OneKeyLocalError('Missing test record');
+    return pair;
+  }
+
+  readWallet() {
+    return this.stores
+      .get(ELocalDBStoreNames.Wallet)
+      ?.get(WALLET.id) as IDBWallet;
   }
 
   override async txAddRecords<T extends ELocalDBStoreNames>({
@@ -182,12 +203,14 @@ class PublicAccountTestDb extends LocalDbBase {
     ids = [],
     updater,
   }: ILocalDBTxUpdateRecordsParams<T>) {
+    this.writes.push(name);
     for (const id of ids) {
       const current = this.stores.get(name)?.get(id) as
         | ILocalDBRecord<T>
         | undefined;
       if (current) this.put(name, await updater({ ...current }));
     }
+    this.afterWrite?.();
   }
 
   override async buildIndexedAccountIdHash() {
@@ -275,6 +298,7 @@ describe('LocalDbBase.importPublicCloudAccounts', () => {
     expect(db.writes).toEqual([
       ELocalDBStoreNames.IndexedAccount,
       ELocalDBStoreNames.Account,
+      ELocalDBStoreNames.Wallet,
     ]);
     expect(
       db.stores.get(ELocalDBStoreNames.IndexedAccount)?.get('hd-1--0'),
@@ -288,7 +312,9 @@ describe('LocalDbBase.importPublicCloudAccounts', () => {
       name: 'Keep local name',
     });
     expect(await db.run([account()])).toMatchObject({ added: 0, unchanged: 1 });
-    expect(db.writes).toEqual([]);
+    expect(db.writes).toEqual([ELocalDBStoreNames.Wallet]);
+    expect(await db.run([account()])).toMatchObject({ added: 0, unchanged: 1 });
+    expect(db.writes).toEqual([ELocalDBStoreNames.Wallet]);
     expect(
       db.stores.get(ELocalDBStoreNames.Account)?.get(account().id),
     ).toMatchObject({ name: 'Keep local name' });
@@ -306,6 +332,238 @@ describe('LocalDbBase.importPublicCloudAccounts', () => {
       existing,
     );
     expect(db.writes).toEqual([]);
+  });
+
+  it('advances one wallet counter per batch, preserves other counters, and never decreases it', async () => {
+    const db = new PublicAccountTestDb();
+    db.put(ELocalDBStoreNames.Wallet, {
+      ...WALLET,
+      nextIds: { accountGlobalNum: 12 },
+    });
+    await db.run(
+      Array.from({ length: 50 }, (_, index) => account(1500 + index)),
+    );
+    expect(db.readWallet().nextIds).toEqual({
+      accountGlobalNum: 12,
+      accountHdIndex: 1550,
+    });
+    expect(
+      db.writes.filter((name) => name === ELocalDBStoreNames.Wallet),
+    ).toHaveLength(1);
+    db.put(ELocalDBStoreNames.Wallet, {
+      ...db.readWallet(),
+      nextIds: { accountGlobalNum: 12, accountHdIndex: 9000 },
+    });
+    await db.run([account(2)]);
+    expect(db.readWallet().nextIds).toEqual({
+      accountGlobalNum: 12,
+      accountHdIndex: 9000,
+    });
+    expect(
+      db.writes.filter((name) => name === ELocalDBStoreNames.Wallet),
+    ).toHaveLength(1);
+  });
+
+  it('does not advance for conflicting or pending high indexes', async () => {
+    const db = new PublicAccountTestDb();
+    const conflict = account(5000);
+    db.put(ELocalDBStoreNames.Account, {
+      ...conflict,
+      address: '0x2222222222222222222222222222222222222222',
+    });
+    expect(await db.run([account(4), conflict])).toMatchObject({
+      added: 1,
+      conflicts: 1,
+    });
+    expect(db.readWallet().nextIds.accountHdIndex).toBe(5);
+    const stale = db.prepareSources([account(9000)], false, 1);
+    db.prepareSources([account(9000)], true, 2);
+    expect(
+      await db.importPublicCloudAccounts({
+        walletId: WALLET.id,
+        expectedWallet: { kind: 'hd', xfp: XFP, hidden: false },
+        expectedCredential: 'encrypted-local-test-credential',
+        accounts: [account(9000)],
+        sourceItemsByAccountId: stale,
+        isCurrent: () => true,
+      }),
+    ).toMatchObject({ pending: 1 });
+    expect(db.readWallet().nextIds.accountHdIndex).toBe(5);
+  });
+
+  it('rolls back the counter, accounts and indexes together when cancelled during the wallet write', async () => {
+    const db = new PublicAccountTestDb();
+    let current = true;
+    db.afterWrite = () => {
+      if (db.writes.at(-1) === ELocalDBStoreNames.Wallet) current = false;
+    };
+    expect(await db.run([account(1001)], () => current)).toMatchObject({
+      cancelled: true,
+      appliedAccountIds: [],
+    });
+    expect(db.readWallet().nextIds).toEqual({});
+    expect(db.stores.get(ELocalDBStoreNames.Account)?.size ?? 0).toBe(0);
+    expect(db.stores.get(ELocalDBStoreNames.IndexedAccount)?.size ?? 0).toBe(0);
+  });
+
+  it('preserves a shared index name and advances the counter once for multiple chains', async () => {
+    const db = new PublicAccountTestDb();
+    const evm = account(1500);
+    db.put(ELocalDBStoreNames.IndexedAccount, {
+      id: evm.indexedAccountId ?? '',
+      walletId: WALLET.id,
+      index: 1500,
+      name: 'Existing shared name',
+    });
+    const sol: IDBAccount = {
+      ...evm,
+      id: "hd-1--m/44'/501'/1500'/0'",
+      impl: 'sol',
+      coinType: '501',
+      path: "m/44'/501'/1500'/0'",
+      template: "m/44'/501'/$$INDEX$$'/0'",
+      address: '11111111111111111111111111111111',
+    };
+    expect(await db.run([evm, sol])).toMatchObject({ added: 2 });
+    expect(db.readWallet().nextIds.accountHdIndex).toBe(1501);
+    expect(
+      db.stores
+        .get(ELocalDBStoreNames.IndexedAccount)
+        ?.get(evm.indexedAccountId ?? ''),
+    ).toMatchObject({ name: 'Existing shared name' });
+    expect(
+      db.writes.filter((name) => name === ELocalDBStoreNames.Wallet),
+    ).toHaveLength(1);
+  });
+
+  it('imports 1000 public accounts and the real next-index wrapper allocates the following free index', async () => {
+    const db = new PublicAccountTestDb();
+    for (let offset = 0; offset < 1000; offset += 50)
+      await db.run(
+        Array.from({ length: 50 }, (_, index) => account(offset + index)),
+      );
+    expect(db.readWallet().nextIds.accountHdIndex).toBe(1000);
+    expect(
+      db.writes.filter((name) => name === ELocalDBStoreNames.Wallet),
+    ).toHaveLength(20);
+    db.setBackgroundApi({
+      servicePrimeCloudSync: {
+        syncManagers: {
+          indexedAccount: {
+            buildExistingSyncItemsInfo: async () => ({
+              existingSyncItemsInfo: {},
+              existingSyncItems: [],
+              newSyncItems: [],
+            }),
+            buildSyncKeyInfo: async ({
+              target,
+            }: {
+              target: { targetId: string };
+            }) => ({ key: target.targetId }),
+            txWithSyncFlowOfDBRecordCreating: async ({
+              runDbTxFn,
+            }: {
+              runDbTxFn: () => Promise<void>;
+            }) => runDbTxFn(),
+          },
+        },
+      },
+    } as unknown as IBackgroundApi);
+    expect(await db.addHDNextIndexedAccount({ walletId: WALLET.id })).toEqual({
+      indexedAccountId: 'hd-1--1000',
+    });
+    expect(db.readWallet().nextIds.accountHdIndex).toBe(1001);
+    expect(db.stores.get(ELocalDBStoreNames.IndexedAccount)?.size).toBe(1001);
+  });
+
+  it('repairs a stale counter when acknowledged accounts are replayed unchanged before normal creation', async () => {
+    const db = new PublicAccountTestDb();
+    const records = [account(0), account(800), account(1500)];
+    db.put(ELocalDBStoreNames.Wallet, {
+      ...WALLET,
+      nextIds: { accountHdIndex: 0, accountGlobalNum: 7 },
+    });
+    for (const record of records) {
+      db.put(ELocalDBStoreNames.Account, {
+        ...record,
+        name: 'Existing local name',
+      });
+      db.put(ELocalDBStoreNames.IndexedAccount, {
+        id: record.indexedAccountId ?? '',
+        walletId: WALLET.id,
+        index: record.pathIndex,
+        idHash: 'existing-public-index-hash',
+        name: 'Existing index name',
+      });
+    }
+    const sources = db.prepareSources(records, false);
+    for (const source of sources.values()) {
+      source.localSceneUpdated = true;
+      db.put(ELocalDBStoreNames.CloudSyncItem, { ...source });
+    }
+    expect(
+      await db.importPublicCloudAccounts({
+        walletId: WALLET.id,
+        expectedWallet: { kind: 'hd', xfp: XFP, hidden: false },
+        expectedCredential: 'encrypted-local-test-credential',
+        accounts: records,
+        sourceItemsByAccountId: sources,
+        isCurrent: () => true,
+      }),
+    ).toMatchObject({
+      added: 0,
+      unchanged: records.length,
+      pending: 0,
+      conflicts: 0,
+    });
+    expect(db.readWallet().nextIds).toEqual({
+      accountHdIndex: 1501,
+      accountGlobalNum: 7,
+    });
+    expect(db.writes).toEqual([ELocalDBStoreNames.Wallet]);
+    for (const record of records) {
+      expect(
+        db.stores.get(ELocalDBStoreNames.Account)?.get(record.id),
+      ).toMatchObject({ name: 'Existing local name' });
+      expect(
+        db.stores
+          .get(ELocalDBStoreNames.IndexedAccount)
+          ?.get(record.indexedAccountId ?? ''),
+      ).toMatchObject({ name: 'Existing index name' });
+    }
+    db.setBackgroundApi({
+      servicePrimeCloudSync: {
+        syncManagers: {
+          indexedAccount: {
+            buildExistingSyncItemsInfo: async () => ({
+              existingSyncItemsInfo: {},
+              existingSyncItems: [],
+              newSyncItems: [],
+            }),
+            buildSyncKeyInfo: async ({
+              target,
+            }: {
+              target: { targetId: string };
+            }) => ({ key: target.targetId }),
+            txWithSyncFlowOfDBRecordCreating: async ({
+              runDbTxFn,
+            }: {
+              runDbTxFn: () => Promise<void>;
+            }) => runDbTxFn(),
+          },
+        },
+      },
+    } as unknown as IBackgroundApi);
+    expect(await db.addHDNextIndexedAccount({ walletId: WALLET.id })).toEqual({
+      indexedAccountId: 'hd-1--1501',
+    });
+    expect(db.readWallet().nextIds).toEqual({
+      accountHdIndex: 1502,
+      accountGlobalNum: 7,
+    });
+    expect(db.stores.get(ELocalDBStoreNames.IndexedAccount)?.size).toBe(
+      records.length + 1,
+    );
   });
 
   it.each(['wallet', 'credential', 'hidden'])(

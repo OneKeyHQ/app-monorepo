@@ -402,7 +402,15 @@ describe('bounded Cloud reconciliation with full summaries', () => {
         reconciliation: contract({ hasMore: true }),
       });
     });
-    h.apply.mockResolvedValue({ applied: 1 });
+    h.apply.mockImplementation(async ({ response: batch }) => {
+      for (const row of batch.diff)
+        h.local.set(row.key, {
+          key: row.key,
+          dataType: row.dataType,
+          dataTimestamp: row.dataTimestamp,
+        });
+      return { applied: 1 };
+    });
     const result = await runCloudSyncReconciliation({ adapter: h.adapter });
     expect(result).toMatchObject({
       status: 'blocked',
@@ -411,6 +419,93 @@ describe('bounded Cloud reconciliation with full summaries', () => {
       rounds: 1,
     });
     expect(h.apply).toHaveBeenCalledTimes(1);
+  });
+
+  test('ciphertext churn with stable versions cannot manufacture progress within or across runs', async () => {
+    const h = harness();
+    const row = record(0);
+    h.local.set(row.key, {
+      key: row.key,
+      dataType: row.dataType,
+      dataTimestamp: row.dataTimestamp,
+    });
+    let sequence = 0;
+    h.check.mockImplementation(async () => {
+      sequence += 1;
+      return response({
+        diff: [{ ...row, data: `different-cipher-${sequence}` }],
+        reconciliation: contract({ hasMore: true }),
+      });
+    });
+    h.apply.mockResolvedValue({ applied: 0 });
+    for (let run = 0; run < 3; run += 1) {
+      const result = await runCloudSyncReconciliation({
+        adapter: h.adapter,
+        limits: { maxRequests: 1 },
+      });
+      expect(result).toMatchObject({
+        status: 'blocked',
+        reason: 'no-progress',
+        requests: 1,
+        progress: false,
+      });
+      expect(result.nextRetryAt).toBeGreaterThan(h.adapter.now());
+    }
+    expect(h.check).toHaveBeenCalledTimes(3);
+  });
+
+  test('semantic duplicates ignore ciphertext even if an adapter overreports accepted versions', async () => {
+    const h = harness(1);
+    let sequence = 0;
+    h.check.mockImplementation(async () => {
+      sequence += 1;
+      return response({
+        diff: [{ ...record(0), data: `changed-cipher-${sequence}` }],
+        reconciliation: contract({ hasMore: true }),
+      });
+    });
+    h.apply.mockImplementation(async ({ response: batch }) => {
+      for (const row of batch.diff)
+        h.local.set(row.key, {
+          key: row.key,
+          dataType: row.dataType,
+          dataTimestamp: row.dataTimestamp,
+        });
+      return { applied: 1 };
+    });
+    expect(
+      await runCloudSyncReconciliation({ adapter: h.adapter }),
+    ).toMatchObject({
+      status: 'blocked',
+      reason: 'repeated-response',
+      requests: 2,
+    });
+  });
+
+  test('a rejected version does not count as progress just because its pool summary changed', async () => {
+    const h = harness(1);
+    h.check.mockResolvedValue(
+      response({
+        diff: [record(0, 'rejected-cipher')],
+        reconciliation: contract({ hasMore: true }),
+      }),
+    );
+    h.apply.mockImplementation(async ({ response: batch }) => {
+      for (const row of batch.diff)
+        h.local.set(row.key, {
+          key: row.key,
+          dataType: row.dataType,
+          dataTimestamp: row.dataTimestamp,
+        });
+      return { applied: 0 };
+    });
+    expect(
+      await runCloudSyncReconciliation({ adapter: h.adapter }),
+    ).toMatchObject({
+      status: 'blocked',
+      reason: 'no-progress',
+      progress: false,
+    });
   });
 
   test('finite failures back off and refresh the full summary before retrying', async () => {

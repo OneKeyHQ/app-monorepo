@@ -5103,24 +5103,28 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     let maxLoop = 0;
     // eslint-disable-next-line no-constant-condition
     while (true) {
+      if (
+        !Number.isSafeInteger(nextIndex) ||
+        nextIndex < 0 ||
+        nextIndex >= 2 ** 31
+      ) {
+        throw new OneKeyLocalError('No valid account index is available');
+      }
       const indexedAccountId = accountUtils.buildIndexedAccountId({
         walletId,
         index: nextIndex,
       });
-      try {
-        const { records } = await this.getRecordsByIds({
-          name: ELocalDBStoreNames.IndexedAccount,
-          ids: [indexedAccountId],
-        });
-        if (!records.filter(Boolean).length) {
-          break;
-        }
-      } catch (error) {
-        errorUtils.autoPrintErrorIgnore(error);
+      const { records } = await this.getRecordsByIds({
+        name: ELocalDBStoreNames.IndexedAccount,
+        ids: [indexedAccountId],
+      });
+      if (!records.some(Boolean)) {
         break;
       }
       if (maxLoop >= 1000) {
-        break;
+        throw new OneKeyLocalError(
+          'No free account index was found within the search limit',
+        );
       }
       nextIndex += 1;
       maxLoop += 1;
@@ -5208,31 +5212,35 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     });
 
     let maxLoop = 0;
-    // eslint-disable-next-line no-constant-condition
-    while (true) {
-      const indexedAccountId = accountUtils.buildIndexedAccountId({
-        walletId,
-        index: nextIndex,
-      });
-      try {
-        const result = await this.txGetRecordById({
+    if (!onlyAddFirst) {
+      while (maxLoop <= 1000) {
+        if (
+          !Number.isSafeInteger(nextIndex) ||
+          nextIndex < 0 ||
+          nextIndex >= 2 ** 31
+        ) {
+          throw new OneKeyLocalError('No valid account index is available');
+        }
+        const indexedAccountId = accountUtils.buildIndexedAccountId({
+          walletId,
+          index: nextIndex,
+        });
+        const { records } = await this.txGetRecordsByIds({
           tx,
           name: ELocalDBStoreNames.IndexedAccount,
-          id: indexedAccountId,
+          ids: [indexedAccountId],
         });
-        const indexedAccount = result?.[0];
-        if (!indexedAccount || !result) {
+        if (!records.some(Boolean)) {
           break;
         }
-      } catch (error) {
-        errorUtils.autoPrintErrorIgnore(error);
-        break;
+        if (maxLoop >= 1000) {
+          throw new OneKeyLocalError(
+            'No free account index was found within the search limit',
+          );
+        }
+        nextIndex += 1;
+        maxLoop += 1;
       }
-      if (maxLoop >= 1000) {
-        break;
-      }
-      nextIndex += 1;
-      maxLoop += 1;
     }
 
     if (onlyAddFirst) {
@@ -5265,7 +5273,14 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         if (!w.nextIds) {
           w.nextIds = {};
         }
-        w.nextIds.accountHdIndex = nextIndex + 1;
+        w.nextIds.accountHdIndex = Math.max(
+          nextIndex + 1,
+          this.getNextIdsValue({
+            nextIds: w.nextIds,
+            key: 'accountHdIndex',
+            defaultValue: 0,
+          }),
+        );
         return w;
       },
     });
@@ -8891,6 +8906,41 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
             result.added = added.added;
             result.appliedAccountIds.push(...added.addedIds);
           }
+          if (action === 'copy' && result.appliedAccountIds.length) {
+            const acceptedIds = new Set(result.appliedAccountIds);
+            const nextIndex = Math.max(
+              ...accounts
+                .filter((account) => acceptedIds.has(account.id))
+                .map((account) => (account.pathIndex ?? 0) + 1),
+            );
+            if (
+              nextIndex >
+              this.getNextIdsValue({
+                nextIds: wallet.nextIds,
+                key: 'accountHdIndex',
+                defaultValue: 0,
+              })
+            ) {
+              await this.txUpdateWallet({
+                tx,
+                walletId,
+                updater: (currentWallet) => {
+                  // Preserve Realm's dictionary and all unrelated counters.
+                  if (!currentWallet.nextIds) currentWallet.nextIds = {};
+                  currentWallet.nextIds.accountHdIndex = Math.max(
+                    nextIndex,
+                    this.getNextIdsValue({
+                      nextIds: currentWallet.nextIds,
+                      key: 'accountHdIndex',
+                      defaultValue: 0,
+                    }),
+                  );
+                  return currentWallet;
+                },
+              });
+              checkCurrent();
+            }
+          }
           return {
             ...result,
             appliedAccountIds: Array.from(new Set(result.appliedAccountIds)),
@@ -10058,6 +10108,40 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       .catch((error) => errorUtils.autoPrintErrorIgnore(error));
   }, 1000);
 
+  private async txWritePublicAccountDeletionSyncItems({
+    tx,
+    items,
+  }: {
+    tx: ILocalDBTransaction;
+    items: IDBCloudSyncItem[];
+  }) {
+    if (!items.length) return;
+    await this.txAddAndUpdateSyncItems({ tx, items, skipUploadToServer: true });
+    const { records } = await this.txGetRecordsByIds({
+      tx,
+      name: ELocalDBStoreNames.CloudSyncItem,
+      ids: items.map((item) => item.id),
+    });
+    const currentById = new Map<string, IDBCloudSyncItem>();
+    for (const record of records) {
+      if (record) currentById.set(record.id, record);
+    }
+    if (
+      items.some(
+        (item) =>
+          isRejectedPublicAccountSnapshotWrite(item) ||
+          !matchesPublicAccountSnapshotWrite(
+            rememberPublicAccountSnapshotWrite({ ...item }, item),
+            currentById.get(item.id),
+          ),
+      )
+    ) {
+      throw new OneKeyLocalError(
+        'Synced account data changed before deletion. Try removing the account again.',
+      );
+    }
+  }
+
   async removeIndexedAccounts({
     indexedAccounts,
   }: {
@@ -10072,18 +10156,15 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     await this.withSpaceFreeingTransaction(
       EIndexedDBBucketNames.account,
       async (tx) => {
+        await this.txWritePublicAccountDeletionSyncItems({
+          tx,
+          items: publicAccountDeletionItems,
+        });
         await this.txRemoveRecords({
           tx,
           name: ELocalDBStoreNames.IndexedAccount,
           ids: indexedAccounts.map((item) => item.id),
         });
-        if (publicAccountDeletionItems.length) {
-          await this.txAddAndUpdateSyncItems({
-            tx,
-            items: publicAccountDeletionItems,
-            skipUploadToServer: true,
-          });
-        }
       },
     );
     if (publicAccountDeletionItems.length) {
@@ -10132,6 +10213,10 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     await this.withSpaceFreeingTransaction(
       EIndexedDBBucketNames.account,
       async (tx) => {
+        await this.txWritePublicAccountDeletionSyncItems({
+          tx,
+          items: publicAccountDeletionItems,
+        });
         await this.txRemoveRecords({
           tx,
           name: ELocalDBStoreNames.IndexedAccount,
@@ -10145,13 +10230,6 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         //     keys: [syncItemKey],
         //   });
         // }
-        if (publicAccountDeletionItems.length) {
-          await this.txAddAndUpdateSyncItems({
-            tx,
-            items: publicAccountDeletionItems,
-            skipUploadToServer: true,
-          });
-        }
       },
     );
     if (publicAccountDeletionItems.length) {
@@ -10187,6 +10265,10 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     await this.withSpaceFreeingTransaction(
       EIndexedDBBucketNames.account,
       async (tx) => {
+        await this.txWritePublicAccountDeletionSyncItems({
+          tx,
+          items: publicAccountDeletionItems,
+        });
         await this.txRemoveRecords({
           tx,
           name: ELocalDBStoreNames.Account,
@@ -10208,13 +10290,6 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
               );
               return wallet;
             },
-          });
-        }
-        if (publicAccountDeletionItems.length) {
-          await this.txAddAndUpdateSyncItems({
-            tx,
-            items: publicAccountDeletionItems,
-            skipUploadToServer: true,
           });
         }
       },
@@ -10263,6 +10338,10 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     await this.withSpaceFreeingTransaction(
       EIndexedDBBucketNames.account,
       async (tx) => {
+        await this.txWritePublicAccountDeletionSyncItems({
+          tx,
+          items: publicAccountDeletionItems,
+        });
         await this.txRemoveRecords({
           tx,
           name: ELocalDBStoreNames.Account,
@@ -10287,13 +10366,6 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
             tx,
             name: ELocalDBStoreNames.Credential,
             ids: [accountId],
-          });
-        }
-        if (publicAccountDeletionItems.length) {
-          await this.txAddAndUpdateSyncItems({
-            tx,
-            items: publicAccountDeletionItems,
-            skipUploadToServer: true,
           });
         }
       },

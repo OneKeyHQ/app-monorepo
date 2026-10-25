@@ -82,7 +82,8 @@ export type ICloudSyncReconciliationAdapter = {
     timeoutMs: number;
   }): Promise<ICloudSyncCheckServerStatusResult>;
   // Transactions must check signal/isCurrent before committing. Returning a
-  // receipt means actual accepted work, not the size of an attempted batch.
+  // receipt counts accepted record-version/deletion changes, excluding mere
+  // ciphertext changes and rejected business records. It is not a batch size.
   apply(options: {
     response: ICloudSyncCheckServerStatusResult;
     signal: AbortSignal;

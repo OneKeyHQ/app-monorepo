@@ -1,5 +1,18 @@
+import { createHash } from 'crypto';
+import { readFileSync } from 'fs';
+import { runInNewContext } from 'vm';
+
+import coreTestsFixtures from '@onekeyhq/core/@tests/fixtures/coreTestsFixtures';
+import CoreChainHd from '@onekeyhq/core/src/chains/btc/CoreChainHd';
+import {
+  convertBtcForkXpub,
+  getBip32FromBase58,
+  getBtcForkNetwork,
+} from '@onekeyhq/core/src/chains/btc/sdkBtc';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
+import { EAddressEncodings } from '@onekeyhq/core/src/types';
 import { EPrimeCloudSyncDataType } from '@onekeyhq/shared/src/consts/primeConsts';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 import type { ICloudPublicAccountSnapshot } from '@onekeyhq/shared/types/prime/publicAccountSnapshot';
 
@@ -7,8 +20,11 @@ import { EDBAccountType } from '../../dbs/local/consts';
 import { vaultFactory } from '../../vaults/factory';
 
 import {
+  buildPublicAccountSnapshot,
   getPublicAccountSnapshotId,
+  normalizePublicAccountSnapshot,
   publicAccountIdentityEqual,
+  publicAccountSnapshotToAccount,
 } from './publicAccountSnapshot';
 import { importPublicAccountSnapshots } from './publicAccountSnapshotImport';
 
@@ -175,7 +191,12 @@ function harness(wallets = [wallet()]) {
     impl: 'evm',
     accountType: EDBAccountType.SIMPLE,
     accountDeriveInfo: {
-      default: { template: EVM_TEMPLATE, coinType: '60', namePrefix: 'EVM' },
+      default: {
+        template: EVM_TEMPLATE,
+        coinType: '60',
+        namePrefix: 'EVM',
+        addressEncoding: undefined as EAddressEncodings | undefined,
+      },
     },
   };
   const getVaultSettings = jest.fn(async () => settings);
@@ -515,6 +536,219 @@ describe('importPublicAccountSnapshots', () => {
     expect(h.write).not.toHaveBeenCalled();
   });
 
+  it.each([
+    {
+      purpose: 49,
+      encoding: EAddressEncodings.P2SH_P2WPKH,
+      prefix: 'ypub',
+      script: 'SPENDP2SHWITNESS',
+    },
+    {
+      purpose: 84,
+      encoding: EAddressEncodings.P2WPKH,
+      prefix: 'zpub',
+      script: 'SPENDWITNESS',
+    },
+  ])(
+    'copies real software and locked-SDK batch BIP$purpose public formats without receiving-side creation',
+    async ({ purpose, encoding, prefix, script }) => {
+      const networkInfo = {
+        networkChainCode: 'btc',
+        chainId: '0',
+        networkId: 'btc--0',
+        networkImpl: 'btc',
+        isTestnet: false,
+      };
+      const template = `m/${purpose}'/0'/$$INDEX$$'/0/0`;
+      const { hdCredential } = coreTestsFixtures.prepareCoreChainTestsFixtures({
+        networkInfo,
+        hdAccountTemplate: template,
+        hdAccounts: [],
+        txSamples: [],
+        msgSamples: [],
+      });
+      const core = new CoreChainHd();
+      const {
+        addresses: [generated],
+      } = await core.getAddressesFromHd({
+        networkInfo,
+        template,
+        indexes: [0],
+        addressEncoding: encoding,
+        hdCredential: hdCredential.hdCredentialHex,
+        password: hdCredential.password,
+      });
+      const xpub = generated.xpub;
+      const path = generated.path;
+      if (!xpub || !path)
+        throw new OneKeyLocalError(
+          'Missing synthetic public account key or path',
+        );
+      expect(xpub.startsWith(prefix)).toBe(true);
+      // Execute the exact installed SDK public-node formatter in isolation, as
+      // the existing SDK redaction tests do. No SDK/device instance is created.
+      const bundle = readFileSync(require.resolve('@onekeyfe/hd-core'), 'utf8');
+      const start = bundle.indexOf('const VERSION_BYTES =');
+      const end = bundle.indexOf('class BTCGetPublicKey ', start);
+      expect(start).toBeGreaterThanOrEqual(0);
+      expect(end).toBeGreaterThan(start);
+      const createExtendedPublicKey = runInNewContext(
+        `${bundle.slice(start, end)}\ncreateExtendedPublicKey;`,
+        {
+          Buffer,
+          sha256: {
+            sha256: (bytes: Uint8Array) =>
+              createHash('sha256').update(bytes).digest(),
+          },
+        },
+      ) as (
+        node: {
+          depth: number;
+          fingerprint: number;
+          child_num: number;
+          chain_code: string;
+          public_key: string;
+        },
+        coin: string,
+        scriptType: string,
+      ) => string;
+      const node = getBip32FromBase58({
+        network: getBtcForkNetwork('btc'),
+        key: xpub,
+      });
+      const batchXpub = createExtendedPublicKey(
+        {
+          depth: node.depth,
+          fingerprint: node.parentFingerprint,
+          child_num: node.index,
+          chain_code: node.chainCode.toString('hex'),
+          public_key: node.publicKey.toString('hex'),
+        },
+        'Bitcoin',
+        script,
+      );
+      expect(batchXpub).toBe(xpub);
+      for (const kind of ['hd', 'hardware'] as const) {
+        const h = harness([wallet(kind)]);
+        const btc = snapshot(0, kind);
+        const publicKey = kind === 'hd' ? xpub : batchXpub;
+        btc.account = {
+          impl: 'btc',
+          type: 'utxo',
+          networkId: 'btc--0',
+          coinType: '0',
+          path,
+          pathIndex: 0,
+          template,
+          name: 'Public BTC fixture',
+          address: generated.address,
+          pub: generated.publicKey,
+          xpub: publicKey,
+          xpubSegwit: publicKey,
+          relPath: '0/0',
+          addresses: { '0/0': generated.address },
+        };
+        const sourceAccount = publicAccountSnapshotToAccount(
+          btc,
+          wallet(kind).id,
+        );
+        const built = buildPublicAccountSnapshot({
+          wallet: wallet(kind),
+          account: sourceAccount,
+        });
+        expect(built?.account.xpub).toBe(publicKey);
+        h.settings.impl = 'btc';
+        h.settings.accountDeriveInfo.default = {
+          template,
+          coinType: '0',
+          namePrefix: 'BTC',
+          addressEncoding: encoding,
+        };
+        jest
+          .spyOn(coreChainApi.btc.hd, 'getAddressFromXpub')
+          .mockImplementation((params) => core.getAddressFromXpub(params));
+        expect(
+          await importPublicAccountSnapshots({
+            backgroundApi: h.api,
+            snapshots: [built],
+            isCurrent: () => true,
+          }),
+        ).toMatchObject({ added: 1, rejected: 0 });
+        expect(h.prepareAccounts).not.toHaveBeenCalled();
+        expect(h.getAddressesFromHd).not.toHaveBeenCalled();
+        expect(h.getHardwareSDK).not.toHaveBeenCalled();
+        const withAccount = (
+          patch: Partial<ICloudPublicAccountSnapshot['account']>,
+        ) => ({ ...btc, account: { ...btc.account, ...patch } });
+        expect(() =>
+          normalizePublicAccountSnapshot(
+            withAccount({ pathIndex: 1, path: `m/${purpose}'/0'/1'` }),
+          ),
+        ).toThrow();
+        expect(() =>
+          normalizePublicAccountSnapshot(
+            withAccount({
+              xpub: `${publicKey.slice(0, -1)}${publicKey.endsWith('1') ? '2' : '1'}`,
+            }),
+          ),
+        ).toThrow();
+        const wrongPurpose = purpose === 49 ? 84 : 49;
+        expect(() =>
+          normalizePublicAccountSnapshot(
+            withAccount({
+              path: `m/${wrongPurpose}'/0'/0'`,
+              template: `m/${wrongPurpose}'/0'/$$INDEX$$'/0/0`,
+            }),
+          ),
+        ).toThrow();
+        expect(() =>
+          normalizePublicAccountSnapshot(
+            withAccount({
+              xpub: node.derive(0).toBase58(),
+              xpubSegwit: node.derive(0).toBase58(),
+            }),
+          ),
+        ).toThrow();
+        expect(() =>
+          normalizePublicAccountSnapshot(
+            withAccount({ xpub: `xprv${publicKey.slice(4)}` }),
+          ),
+        ).toThrow();
+        const testnet = convertBtcForkXpub({
+          btcForkNetwork: getBtcForkNetwork('tbtc'),
+          xpub: publicKey,
+          addressEncoding: EAddressEncodings.P2PKH,
+        });
+        expect(() =>
+          normalizePublicAccountSnapshot(
+            withAccount({ xpub: testnet, xpubSegwit: testnet }),
+          ),
+        ).toThrow();
+        const canonical = convertBtcForkXpub({
+          btcForkNetwork: getBtcForkNetwork('btc'),
+          xpub: publicKey,
+          addressEncoding: EAddressEncodings.P2PKH,
+        });
+        expect(
+          normalizePublicAccountSnapshot(
+            withAccount({ xpub: canonical, xpubSegwit: canonical }),
+          ).account.xpub,
+        ).toBe(canonical);
+        const wrongAddress = withAccount({
+          address: 'bc1qwrong',
+          addresses: { '0/0': 'bc1qwrong' },
+        });
+        expect(
+          await importPublicAccountSnapshots({
+            backgroundApi: h.api,
+            snapshots: [wrongAddress],
+            isCurrent: () => true,
+          }),
+        ).toMatchObject({ rejected: 1 });
+      }
+    },
+  );
+
   it.each([84, 86])(
     'checks BTC BIP%i xpub/address and descriptor consistency using only public data',
     async (purpose) => {
@@ -543,6 +777,7 @@ describe('importPublicAccountSnapshots', () => {
         template: btc.account.template,
         coinType: '0',
         namePrefix: 'BTC',
+        addressEncoding: undefined,
       };
       const getPublic = jest.fn(async () => ({
         addresses: { '0/0': btc.account.address },

@@ -2014,6 +2014,12 @@ class ServicePrimeCloudSync extends ServiceBase {
               const before = new Map(
                 latestItems.map((item) => [item.id, item]),
               );
+              const acknowledgedDeletes = new Set([
+                ...response.deleted,
+                ...[...response.diff, ...response.updated]
+                  .filter((item) => item.isDeleted)
+                  .map((item) => item.key),
+              ]);
               for (const serverItems of [response.diff, response.updated]) {
                 if (!isCurrent() || signal.aborted)
                   throw new OneKeyLocalError('Cloud sync was cancelled');
@@ -2036,6 +2042,12 @@ class ServicePrimeCloudSync extends ServiceBase {
                   serverPwdHash: response.pwdHash,
                   isCurrent: operationIsCurrent,
                 });
+              const accountIssues =
+                await simpleDb.cloudSyncAccountIssues.getRawData();
+              const issues =
+                accountIssues?.spaceId === spaceId
+                  ? accountIssues.issues
+                  : undefined;
               let applied = 0;
               for (let offset = 0; offset < ids.length; offset += 50) {
                 if (!isCurrent() || signal.aborted)
@@ -2044,14 +2056,33 @@ class ServicePrimeCloudSync extends ServiceBase {
                   name: ELocalDBStoreNames.CloudSyncItem,
                   ids: ids.slice(offset, offset + 50),
                 });
-                for (const item of records) {
-                  const old = item ? before.get(item.id) : undefined;
+                const after = new Map(
+                  records
+                    .filter((item): item is IDBCloudSyncItem => !!item)
+                    .map((item) => [item.id, item]),
+                );
+                for (const id of ids.slice(offset, offset + 50)) {
+                  const item = after.get(id);
+                  const old = before.get(id);
+                  if (
+                    !item &&
+                    old &&
+                    acknowledgedDeletes.has(id) &&
+                    this.getSyncManager(old.dataType)
+                      .removeSyncItemIfServerDeleted
+                  ) {
+                    applied += 1;
+                    continue;
+                  }
                   if (
                     item &&
+                    item.pwdHash === spaceId &&
+                    issues?.[item.id] !== 'rejected' &&
+                    issues?.[item.id] !== 'conflicts' &&
                     (!old ||
                       item.dataTime !== old.dataTime ||
-                      item.data !== old.data ||
-                      item.isDeleted !== old.isDeleted ||
+                      item.dataType !== old.dataType ||
+                      (item.isDeleted && !old.isDeleted) ||
                       item.pwdHash !== old.pwdHash)
                   )
                     applied += 1;

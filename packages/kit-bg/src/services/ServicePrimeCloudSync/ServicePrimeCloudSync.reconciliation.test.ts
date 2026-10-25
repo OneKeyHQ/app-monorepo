@@ -11,6 +11,7 @@ import type {
 } from '@onekeyhq/shared/types/prime/primeCloudSyncTypes';
 
 import localDb from '../../dbs/local/localDb';
+import simpleDb from '../../dbs/simple/simpleDb';
 import { primeCloudSyncPersistAtom } from '../../states/jotai/atoms';
 
 import ServicePrimeCloudSync from './ServicePrimeCloudSync';
@@ -100,7 +101,9 @@ jest.mock('../../dbs/local/localDb', () => ({
 
 jest.mock('../../dbs/simple/simpleDb', () => ({
   __esModule: true,
-  default: {},
+  default: {
+    cloudSyncAccountIssues: { getRawData: jest.fn(async () => null) },
+  },
 }));
 
 jest.mock('./botWalletCloudSyncUtils', () => ({
@@ -366,6 +369,9 @@ describe('root Cloud reconciliation integration with the actual runner', () => {
     jest.setSystemTime(1_750_000_000_000);
     jest.spyOn(timerUtils, 'wait').mockResolvedValue(undefined);
     jest.spyOn(console, 'log').mockImplementation(() => undefined);
+    jest
+      .mocked(simpleDb.cloudSyncAccountIssues.getRawData)
+      .mockResolvedValue(null);
   });
   afterEach(async () => {
     for (const service of services.splice(0))
@@ -684,6 +690,149 @@ describe('root Cloud reconciliation integration with the actual runner', () => {
       unfinished: false,
       requests: 2,
     });
+  });
+
+  test('existing metadata deletion ACKs advance a delete-only multi-batch drain after pool cleanup', async () => {
+    const records: IDBCloudSyncItem[] = [0, 1].map((index) => ({
+      id: `wallet-delete-${index}`,
+      dataType: EPrimeCloudSyncDataType.Wallet,
+      data: 'public-encrypted-fixture',
+      dataTime: 1_750_000_000_000,
+      pwdHash: 'public-root-space',
+      rawKey: '',
+      rawData: '',
+      isDeleted: false,
+      localSceneUpdated: true,
+      serverUploaded: true,
+    }));
+    const h = harness(0, {
+      initialPool: new Map(records.map((row) => [row.id, row])),
+    });
+    h.service.syncManagers.wallet.removeSyncItemIfServerDeleted = true;
+    jest
+      .spyOn(localDb, 'removeCloudSyncPoolItems')
+      .mockImplementation(async ({ keys }) => {
+        for (const id of keys) h.pool.delete(id);
+      });
+    h.check.mockImplementation(async ({ localItems = [] }) =>
+      reply({
+        deleted: localItems.slice(0, 1).map((row) => row.id),
+        reconciliation: {
+          version: 1,
+          maxItems: 500,
+          maxBytes: 1024 * 1024,
+          diffBeforeLimit: true,
+          includesDeleted: true,
+          hasMore: localItems.length > 1,
+        },
+      }),
+    );
+    await h.run();
+    expect(h.pool.size).toBe(0);
+    expect(h.check).toHaveBeenCalledTimes(2);
+    expect(h.config().cloudSyncReconciliation).toMatchObject({
+      status: 'complete',
+      applied: 2,
+      requests: 2,
+    });
+  });
+
+  test('equal-version ciphertext churn enters increasing cooldown instead of budget continuations', async () => {
+    const remote = serverItem(0);
+    const initial: IDBCloudSyncItem = {
+      id: remote.key,
+      data: remote.data,
+      dataType: remote.dataType,
+      dataTime: remote.dataTimestamp,
+      pwdHash: remote.pwdHash,
+      rawKey: '',
+      rawData: '',
+      isDeleted: false,
+      localSceneUpdated: true,
+      serverUploaded: true,
+    };
+    const h = harness(0, { initialPool: new Map([[initial.id, initial]]) });
+    let sequence = 0;
+    h.check.mockImplementation(async () => {
+      sequence += 1;
+      return reply({ diff: [{ ...remote, data: `new-cipher-${sequence}` }] });
+    });
+    await h.run();
+    expect(h.config().cloudSyncReconciliation).toMatchObject({
+      status: 'blocked',
+      reason: 'no-progress',
+      failures: 1,
+      applied: 0,
+      requests: 1,
+    });
+    await jest.advanceTimersByTimeAsync(1000);
+    expect(h.check).toHaveBeenCalledTimes(1);
+    await jest.advanceTimersByTimeAsync(29_000);
+    expect(h.check).toHaveBeenCalledTimes(2);
+    expect(h.config().cloudSyncReconciliation).toMatchObject({
+      status: 'blocked',
+      reason: 'no-progress',
+      failures: 2,
+      applied: 0,
+      requests: 2,
+    });
+    const nextRetryAt = h.config().cloudSyncReconciliation?.nextRetryAt ?? 0;
+    expect(nextRetryAt - Date.now()).toBe(60_000);
+  });
+
+  test.each(['rejected', 'conflicts'] as const)(
+    'a %s account version is saved but not reported as effective progress',
+    async (issue) => {
+      const h = harness(1);
+      const remote = h.remote[0];
+      jest
+        .mocked(simpleDb.cloudSyncAccountIssues.getRawData)
+        .mockResolvedValue({
+          spaceId: 'public-root-space',
+          issues: { [remote.key]: issue },
+        });
+      h.check.mockResolvedValue(reply({ diff: [remote] }));
+      await h.run();
+      expect(h.pool.has(remote.key)).toBe(true);
+      expect(h.config().cloudSyncReconciliation).toMatchObject({
+        status: 'blocked',
+        reason: 'no-progress',
+        applied: 0,
+        requests: 1,
+      });
+      expect(h.replay).not.toHaveBeenCalled();
+    },
+  );
+
+  test('a downloaded future format remains local pending work without repeated network draining', async () => {
+    const h = harness(1);
+    const remote = h.remote[0];
+    jest.mocked(simpleDb.cloudSyncAccountIssues.getRawData).mockResolvedValue({
+      spaceId: 'public-root-space',
+      issues: { [remote.key]: 'needsUpdate' },
+    });
+    h.scene.mockImplementation(async () => {
+      h.patchConfig({
+        publicAccountSnapshotStatus: {
+          needsUpdate: 1,
+          pending: 0,
+          rejected: 0,
+          conflicts: 0,
+          added: 0,
+          unchanged: 0,
+        },
+      });
+    });
+    await h.run();
+    expect(h.config().cloudSyncReconciliation).toMatchObject({
+      status: 'partial',
+      unfinished: false,
+      applied: 1,
+    });
+    const requests = h.check.mock.calls.length;
+    await h.service.resumeCloudSyncReconciliation({ reason: 'foreground' });
+    expect(h.check).toHaveBeenCalledTimes(requests);
+    expect(h.replay).toHaveBeenCalled();
   });
 
   test('duplicate server work stops after one applied batch and persists a recoverable block', async () => {

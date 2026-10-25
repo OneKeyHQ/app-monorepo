@@ -3,6 +3,14 @@ import { cloneDeep } from 'lodash';
 import { EPrimeCloudSyncDataType } from '@onekeyhq/shared/src/consts/primeConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
+import type { ICloudSyncCredential } from '@onekeyhq/shared/types/prime/primeCloudSyncTypes';
+
+import { CloudSyncFlowManagerAccount } from '../../services/ServicePrimeCloudSync/CloudSyncFlowManager/CloudSyncFlowManagerAccount';
+import cloudSyncItemBuilder from '../../services/ServicePrimeCloudSync/cloudSyncItemBuilder';
+import keylessCloudSyncUtils from '../../services/ServicePrimeCloudSync/keylessCloudSyncUtils';
+import { PUBLIC_ACCOUNT_TEST_XFP } from '../../services/ServicePrimeCloudSync/publicAccountSnapshot.test-utils';
+import { hasPublicAccountSnapshotWriteGuard } from '../../services/ServicePrimeCloudSync/publicAccountSnapshotWriteGuard';
 
 import { EDBAccountType } from './consts';
 import { LocalDbBase } from './LocalDbBase';
@@ -70,6 +78,10 @@ class DeletionTestDb extends LocalDbBase {
   stores = new Map<ELocalDBStoreNames, Map<string, IDBBaseObject>>();
 
   failTombstoneWrite = false;
+
+  beforeTransaction?: () => void;
+
+  syncPoolWriteAttempts: string[] = [];
 
   buildTombstone = jest.fn(
     async ({ dbRecord }: { dbRecord: IDBAccount }) =>
@@ -142,6 +154,7 @@ class DeletionTestDb extends LocalDbBase {
     fn: (tx: ILocalDBTransaction) => Promise<T>,
     _options?: ILocalDBWithTransactionOptions,
   ): Promise<T> {
+    if (!_options?.readOnly) this.beforeTransaction?.();
     const original = cloneDeep(this.stores);
     try {
       return await fn({} as ILocalDBTransaction);
@@ -180,6 +193,12 @@ class DeletionTestDb extends LocalDbBase {
   override async getAccountSafe({ accountId }: { accountId: string }) {
     return cloneDeep(
       this.read<IDBAccount>(ELocalDBStoreNames.Account, accountId),
+    );
+  }
+
+  override async getSyncItemSafe({ id }: { id: string }) {
+    return cloneDeep(
+      this.read<IDBCloudSyncItem>(ELocalDBStoreNames.CloudSyncItem, id),
     );
   }
 
@@ -227,6 +246,8 @@ class DeletionTestDb extends LocalDbBase {
     name,
     records,
   }: ILocalDBTxAddRecordsParams<T>): Promise<ILocalDBTxAddRecordsResult> {
+    if (name === ELocalDBStoreNames.CloudSyncItem)
+      this.syncPoolWriteAttempts.push(...records.map((record) => record.id));
     if (name === ELocalDBStoreNames.CloudSyncItem && this.failTombstoneWrite)
       throw new OneKeyLocalError('Test storage full');
     const addedIds: string[] = [];
@@ -275,6 +296,36 @@ class DeletionTestDb extends LocalDbBase {
       name: record.name,
     });
   }
+}
+
+// Public synthetic credentials, never used by a real wallet or backend.
+const realManagerFixtureCredential: ICloudSyncCredential = {
+  primeAccountSalt: '',
+  securityPasswordR1: '',
+  masterPasswordUUID: '',
+  keylessCredential: {
+    keylessWalletId: 'public-deletion-test',
+    signingPrivateKey: '11'.repeat(32),
+    signingPublicKey: '02'.repeat(33),
+    encryptionKey: '22'.repeat(32),
+    pwdHash: 'keyless-public-deletion-test',
+  },
+};
+
+function attachRealSnapshotManager(db: DeletionTestDb) {
+  const prime = db.backgroundApi.servicePrimeCloudSync;
+  prime.getSyncCredentialSafe = async () => realManagerFixtureCredential;
+  prime.getCloudSyncDataTime = async () => 1_750_000_000_000;
+  const backgroundApi = { ...db.backgroundApi, localDb: db };
+  const manager = new CloudSyncFlowManagerAccount({
+    backgroundApi: backgroundApi as IBackgroundApi,
+  });
+  backgroundApi.servicePrimeCloudSync.syncManagers = {
+    ...backgroundApi.servicePrimeCloudSync.syncManagers,
+    account: manager,
+  };
+  db.setBackgroundApi(backgroundApi as IBackgroundApi);
+  return manager;
 }
 
 describe('public account deletion tombstones', () => {
@@ -349,6 +400,217 @@ describe('public account deletion tombstones', () => {
     ).toBeUndefined();
     await jest.advanceTimersByTimeAsync(1000);
     expect(db.syncFlow).not.toHaveBeenCalled();
+  });
+
+  test.each([
+    'single account',
+    'bulk accounts',
+    'single index',
+    'bulk indexes',
+  ] as const)(
+    'a concurrent newer pool row rolls back %s deletion, including other tombstones in the batch',
+    async (mode) => {
+      const db = new DeletionTestDb();
+      const records = mode.startsWith('bulk')
+        ? [account('hd-1', 0), account('hd-1', 1)]
+        : [account('hd-1', 0)];
+      db.put(
+        ELocalDBStoreNames.Wallet,
+        wallet('hd-1', {
+          xfp: PUBLIC_ACCOUNT_TEST_XFP,
+          accounts: records.map((record) => record.id),
+        }),
+      );
+      records.forEach((record) => db.addAccount(record));
+      const manager = attachRealSnapshotManager(db);
+      const originals: IDBCloudSyncItem[] = [];
+      for (const record of records) {
+        const original = await manager.buildSyncItemByDBQuery({
+          dbRecord: record,
+          isDeleted: false,
+          dataTime: undefined,
+          syncCredential: realManagerFixtureCredential,
+        });
+        if (!original)
+          throw new OneKeyLocalError('Missing real manager fixture');
+        expect(hasPublicAccountSnapshotWriteGuard(original)).toBe(true);
+        originals.push(original);
+        db.put(ELocalDBStoreNames.CloudSyncItem, original);
+      }
+      const last = originals[originals.length - 1];
+      const newer = {
+        ...last,
+        dataTime: (last.dataTime ?? 0) + 1000,
+        localSceneUpdated: false,
+      };
+      db.beforeTransaction = () => {
+        db.beforeTransaction = undefined;
+        db.put(ELocalDBStoreNames.CloudSyncItem, newer);
+      };
+      let remove: Promise<void>;
+      if (mode === 'single account')
+        remove = db.removeAccount({
+          accountId: records[0].id,
+          walletId: 'hd-1',
+        });
+      else if (mode === 'bulk accounts')
+        remove = db.removeAccountsByIds({
+          ids: records.map((record) => record.id),
+        });
+      else if (mode === 'single index')
+        remove = db.removeIndexedAccount({
+          indexedAccountId: records[0].indexedAccountId ?? '',
+          walletId: 'hd-1',
+        });
+      else
+        remove = db.removeIndexedAccounts({
+          indexedAccounts: records.map((record) => {
+            const indexed = db.read<IDBIndexedAccount>(
+              ELocalDBStoreNames.IndexedAccount,
+              record.indexedAccountId ?? '',
+            );
+            if (!indexed) throw new OneKeyLocalError('Missing test index');
+            return indexed;
+          }),
+        });
+      await expect(remove).rejects.toThrow('Synced account data changed');
+      expect(
+        db.read<IDBWallet>(ELocalDBStoreNames.Wallet, 'hd-1')?.accounts,
+      ).toEqual(records.map((record) => record.id));
+      for (const record of records) {
+        expect(db.read(ELocalDBStoreNames.Account, record.id)).toEqual(record);
+        expect(
+          db.read(
+            ELocalDBStoreNames.IndexedAccount,
+            record.indexedAccountId ?? '',
+          ),
+        ).toBeDefined();
+      }
+      for (const original of originals)
+        expect(db.read(ELocalDBStoreNames.CloudSyncItem, original.id)).toEqual(
+          original.id === last.id ? newer : original,
+        );
+      if (mode.startsWith('bulk'))
+        expect(db.syncPoolWriteAttempts).toContain(originals[0].id);
+      await jest.advanceTimersByTimeAsync(1000);
+      expect(db.syncFlow).not.toHaveBeenCalled();
+    },
+  );
+
+  test('a tombstone declined by timestamp ordering rolls back a partially written deletion batch', async () => {
+    const db = new DeletionTestDb();
+    const records = [account('hd-1', 0), account('hd-1', 1)];
+    db.put(
+      ELocalDBStoreNames.Wallet,
+      wallet('hd-1', {
+        xfp: PUBLIC_ACCOUNT_TEST_XFP,
+        accounts: records.map((record) => record.id),
+      }),
+    );
+    records.forEach((record) => db.addAccount(record));
+    const manager = attachRealSnapshotManager(db);
+    const originals: IDBCloudSyncItem[] = [];
+    for (const record of records) {
+      const original = await manager.buildSyncItemByDBQuery({
+        dbRecord: record,
+        isDeleted: false,
+        dataTime: undefined,
+        syncCredential: realManagerFixtureCredential,
+      });
+      if (!original) throw new OneKeyLocalError('Missing real manager fixture');
+      originals.push(original);
+      db.put(ELocalDBStoreNames.CloudSyncItem, original);
+    }
+    const last = originals[1];
+    const newer = { ...last, dataTime: (last.dataTime ?? 0) + 1000 };
+    db.put(ELocalDBStoreNames.CloudSyncItem, newer);
+    await expect(
+      db.removeAccountsByIds({ ids: records.map((record) => record.id) }),
+    ).rejects.toThrow('Synced account data changed');
+    expect(db.syncPoolWriteAttempts).toEqual(
+      originals.map((record) => record.id),
+    );
+    expect(db.read(ELocalDBStoreNames.CloudSyncItem, originals[0].id)).toEqual(
+      originals[0],
+    );
+    expect(db.read(ELocalDBStoreNames.CloudSyncItem, last.id)).toEqual(newer);
+    for (const record of records) {
+      expect(db.read(ELocalDBStoreNames.Account, record.id)).toEqual(record);
+      expect(
+        db.read(
+          ELocalDBStoreNames.IndexedAccount,
+          record.indexedAccountId ?? '',
+        ),
+      ).toBeDefined();
+    }
+    expect(
+      db.read<IDBWallet>(ELocalDBStoreNames.Wallet, 'hd-1')?.accounts,
+    ).toEqual(records.map((record) => record.id));
+    await jest.advanceTimersByTimeAsync(1000);
+    expect(db.syncFlow).not.toHaveBeenCalled();
+  });
+
+  test('the real manager refuses an encrypted future-format tombstone target before deleting local data', async () => {
+    const db = new DeletionTestDb();
+    const record = account('hd-1', 0);
+    db.put(
+      ELocalDBStoreNames.Wallet,
+      wallet('hd-1', { xfp: PUBLIC_ACCOUNT_TEST_XFP, accounts: [record.id] }),
+    );
+    db.addAccount(record);
+    const manager = attachRealSnapshotManager(db);
+    const original = await manager.buildSyncItemByDBQuery({
+      dbRecord: record,
+      isDeleted: false,
+      dataTime: undefined,
+      syncCredential: realManagerFixtureCredential,
+    });
+    if (!original) throw new OneKeyLocalError('Missing real manager fixture');
+    const { rawDataJson } = await cloudSyncItemBuilder.decryptSyncItem({
+      item: { ...original },
+      syncCredential: realManagerFixtureCredential,
+    });
+    if (
+      rawDataJson?.dataType !== EPrimeCloudSyncDataType.Account ||
+      !rawDataJson.payload.publicAccountSnapshot
+    )
+      throw new OneKeyLocalError('Missing public snapshot fixture');
+    const encryptionKey =
+      realManagerFixtureCredential.keylessCredential?.encryptionKey;
+    if (!encryptionKey)
+      throw new OneKeyLocalError('Missing fixture encryption key');
+    const future: IDBCloudSyncItem = {
+      ...original,
+      data: await keylessCloudSyncUtils.encryptWithKeylessKey({
+        rawData: stringUtils.stableStringify({
+          ...rawDataJson,
+          payload: {
+            ...rawDataJson.payload,
+            publicAccountSnapshot: {
+              ...rawDataJson.payload.publicAccountSnapshot,
+              version: 2,
+            },
+          },
+        }),
+        encryptionKey,
+        itemId: original.id,
+        dataType: original.dataType,
+      }),
+      dataTime: (original.dataTime ?? 0) + 1000,
+      rawData: '',
+    };
+    db.put(ELocalDBStoreNames.CloudSyncItem, future);
+    await expect(
+      db.removeAccount({ accountId: record.id, walletId: 'hd-1' }),
+    ).rejects.toThrow('compatible App version');
+    expect(db.read(ELocalDBStoreNames.CloudSyncItem, future.id)).toEqual(
+      future,
+    );
+    expect(db.read(ELocalDBStoreNames.Account, record.id)).toEqual(record);
+    expect(
+      db.read(ELocalDBStoreNames.IndexedAccount, record.indexedAccountId ?? ''),
+    ).toBeDefined();
+    expect(db.syncPoolWriteAttempts).toEqual([]);
   });
 
   test.each([false, true])(

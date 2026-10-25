@@ -1,3 +1,7 @@
+import {
+  getBip32FromBase58,
+  getBtcForkNetwork,
+} from '@onekeyhq/core/src/chains/btc/sdkBtc';
 import appCrypto from '@onekeyhq/shared/src/appCrypto';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
@@ -209,8 +213,27 @@ export function normalizePublicAccountSnapshot(
   };
   if (impl === 'btc') {
     account.xpub = text(a.xpub, 120);
-    if (!/^xpub[1-9A-HJ-NP-Za-km-z]{100,116}$/.test(account.xpub))
+    if (!/^(xpub|ypub|zpub)[1-9A-HJ-NP-Za-km-z]{100,116}$/.test(account.xpub))
       return invalid();
+    if (
+      (account.xpub.startsWith('ypub') && !template.startsWith("m/49'/")) ||
+      (account.xpub.startsWith('zpub') && !template.startsWith("m/84'/"))
+    )
+      return invalid();
+    try {
+      const node = getBip32FromBase58({
+        network: getBtcForkNetwork('btc'),
+        key: account.xpub,
+      });
+      if (
+        !node.isNeutered() ||
+        node.depth !== 3 ||
+        node.index !== 0x80_00_00_00 + pathIndex
+      )
+        return invalid();
+    } catch (_error) {
+      return invalid();
+    }
     account.xpubSegwit =
       a.xpubSegwit === undefined ? undefined : text(a.xpubSegwit, 256);
     const isTaproot = template.startsWith("m/86'/");

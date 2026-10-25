@@ -140,7 +140,6 @@ function responseInfo(
     dataTimestamp: item.dataTimestamp,
     isDeleted: item.isDeleted,
     pwdHash: item.pwdHash,
-    dataHash: digest(item.data),
   }));
   records.sort(compareKeys);
   return {
@@ -369,6 +368,7 @@ export async function runCloudSyncReconciliation({
           );
         let uploaded = 0;
         let applied = 0;
+        let hasApplyReceipt = false;
         if (response.obsoleted.length) {
           const receipt = await controlled(() =>
             adapter.uploadObsoleted({
@@ -396,6 +396,7 @@ export async function runCloudSyncReconciliation({
           const receipt = await controlled(() =>
             adapter.apply({ response, signal: controller.signal }),
           );
+          hasApplyReceipt = receipt !== undefined;
           applied = receipt?.applied ?? 0;
           if (
             !Number.isSafeInteger(applied) ||
@@ -407,6 +408,8 @@ export async function runCloudSyncReconciliation({
           )
             throw new ReconciliationStop('invalid-response');
           state.applied += applied;
+          // Receipts report accepted semantic versions, never ciphertext churn.
+          // Preserve that progress if the time budget expires before rereading.
           state.progress ||= applied > 0;
           ensureCurrent();
         }
@@ -418,10 +421,20 @@ export async function runCloudSyncReconciliation({
           summary,
           limits.maxSummaryBytes,
         );
+        const summaryAdvanced =
+          nextSummaryInfo.fingerprint !== summaryInfo.fingerprint;
+        const hasDeletionWork =
+          response.deleted.length > 0 ||
+          [...response.diff, ...response.updated].some(
+            (item) => item.isDeleted,
+          );
+        // Ciphertext changes are not a record version. A production receipt
+        // excludes rejected business records; a deletion ACK may advance its
+        // state without changing the historical metadata-only summary.
         const progress =
-          nextSummaryInfo.fingerprint !== summaryInfo.fingerprint ||
           uploaded > 0 ||
-          applied > 0;
+          (applied > 0 && (summaryAdvanced || hasDeletionWork)) ||
+          (!hasApplyReceipt && summaryAdvanced);
         state.progress ||= progress;
         state.lastSummaryBytes = nextSummaryInfo.bytes;
         summaryInfo = nextSummaryInfo;
