@@ -1,5 +1,5 @@
 import type { ReactNode, RefObject } from 'react';
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { InputAccessoryView } from 'react-native';
@@ -16,6 +16,7 @@ import type { IAmountInputFormItemProps } from '@onekeyhq/kit/src/components/Amo
 import { AmountInput } from '@onekeyhq/kit/src/components/AmountInput';
 import { buildKeyboardPressProps } from '@onekeyhq/kit/src/views/Earn/components/desktopHome/earnDesktopPressable';
 import SwapPercentageStageBadge from '@onekeyhq/kit/src/views/Swap/components/SwapPercentageStageBadge';
+import { getSwapBalanceActionProps } from '@onekeyhq/kit/src/views/Swap/utils/swapBalanceActionUtils';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import type { BlurEvent, StyleProp, TextStyle } from 'react-native';
@@ -102,6 +103,7 @@ export function StakingAmountInput({
   onBlur,
   bottomContent,
   boxTestID,
+  onRefreshBalance,
   ...props
 }: IAmountInputFormItemProps & {
   title: string;
@@ -110,6 +112,9 @@ export function StakingAmountInput({
   // Inside the box under the balance line: Pay with's token list
   bottomContent?: ReactNode;
   boxTestID?: string;
+  // With it, a balance read as zero gets Swap's refresh in place of Max, as
+  // on the Swap page: Pay with can pick a token the wallet doesn't hold yet
+  onRefreshBalance?: () => Promise<unknown> | void;
 }) {
   const boxRef = useRef<IElement>(null);
   useHoldAutoFocus(boxRef, Boolean(inputProps?.autoFocus) && !disabled);
@@ -153,23 +158,57 @@ export function StakingAmountInput({
     },
     [keepTypingFocus, onSelectPercentageStage],
   );
+  const [isRefreshingBalance, setIsRefreshingBalance] = useState(false);
+  const refreshBalance = useCallback(async () => {
+    setIsRefreshingBalance(true);
+    try {
+      await onRefreshBalance?.();
+    } finally {
+      setIsRefreshingBalance(false);
+    }
+  }, [onRefreshBalance]);
+  const balanceValue = props.balanceProps?.value;
+  const isBalanceLoadedZero =
+    Boolean(onRefreshBalance) &&
+    !props.balanceProps?.loading &&
+    Boolean(balanceValue) &&
+    new BigNumber(balanceValue ?? '').isZero();
   const balanceOnPress = props.balanceProps?.onPress;
-  const balanceProps = useMemo(
-    () =>
-      props.balanceProps
-        ? {
-            ...props.balanceProps,
-            onPress: balanceOnPress
-              ? () => {
-                  balanceOnPress();
-                  keepTypingFocus();
-                }
-              : undefined,
-            isKeyboardPressable: true,
+  const balanceProps = useMemo(() => {
+    if (!props.balanceProps) {
+      return undefined;
+    }
+    if (isBalanceLoadedZero) {
+      return {
+        ...props.balanceProps,
+        ...getSwapBalanceActionProps({
+          isLoadedZero: true,
+          refreshing: isRefreshingBalance,
+          onRefresh: () => {
+            void refreshBalance();
+          },
+        }),
+        isKeyboardPressable: true,
+      };
+    }
+    return {
+      ...props.balanceProps,
+      onPress: balanceOnPress
+        ? () => {
+            balanceOnPress();
+            keepTypingFocus();
           }
         : undefined,
-    [balanceOnPress, keepTypingFocus, props.balanceProps],
-  );
+      isKeyboardPressable: true,
+    };
+  }, [
+    balanceOnPress,
+    isBalanceLoadedZero,
+    isRefreshingBalance,
+    keepTypingFocus,
+    props.balanceProps,
+    refreshBalance,
+  ]);
 
   const onFromInputBlur = useCallback(
     (e: BlurEvent) => {

@@ -1,3 +1,4 @@
+import type { EModalSwapRoutes, IModalSwapParamList } from './swap';
 import type {
   EAvailableAssetsTypeEnum,
   IEarnAvailableAsset,
@@ -41,6 +42,8 @@ export enum EModalStakingRoutes {
   EarnGuide = 'EarnGuide',
   // Pay with's token picker: Swap's, kept to the deposit's network (demo 10-25)
   EarnPayWithTokenSelect = 'EarnPayWithTokenSelect',
+  // Swap's risk reminder, pushed in the picker's own modal as Swap does
+  EarnPayWithTokenRisk = 'EarnPayWithTokenRisk',
 }
 
 type IBaseRouteParams = {
@@ -140,6 +143,7 @@ export type IModalStakingParamList = {
     // Called with the pick after the picker closes
     onSelect: (token: ISwapToken) => void;
   };
+  [EModalStakingRoutes.EarnPayWithTokenRisk]: IModalSwapParamList[EModalSwapRoutes.TokenRiskReminder];
   [EModalStakingRoutes.BorrowEModeSwitch]: IBaseRouteParams & {
     provider: string;
     marketAddress: string;

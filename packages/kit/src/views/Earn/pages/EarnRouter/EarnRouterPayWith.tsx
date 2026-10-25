@@ -1,4 +1,4 @@
-import { useMemo, useSyncExternalStore } from 'react';
+import { useCallback, useMemo, useSyncExternalStore } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useEarnAtom } from '@onekeyhq/kit/src/states/jotai/contexts/earn';
@@ -87,10 +87,12 @@ function usePickedPayTokens(networkId: string) {
 // The wallet's tokens on the deposit's network, for Pay with, and the picks
 // they lack
 export function usePayTokens({
+  accountId,
   networkId,
   depositSymbol,
   enabled = true,
 }: {
+  accountId: string;
   networkId: string;
   depositSymbol: string;
   enabled?: boolean;
@@ -133,13 +135,24 @@ export function usePayTokens({
     () => pickDefaultPayToken(heldTokens),
     [heldTokens],
   );
+  // After a transaction: the wallet's balances, and the picks' own, which
+  // the wallet's list doesn't carry
+  const { refresh: refreshWallet } = wallet;
+  const refresh = useCallback(async () => {
+    await Promise.all([
+      refreshWallet(),
+      ...(pickedPayTokens.get(networkId) ?? []).map((item) =>
+        refreshPickedPayToken({ accountId, networkId, item }),
+      ),
+    ]);
+  }, [accountId, networkId, refreshWallet]);
   return {
     // The wallet's, then the picks
     tokens,
     heldTokens,
     defaultToken,
     isLoaded: wallet.isLoaded,
-    refresh: wallet.refresh,
+    refresh,
   };
 }
 

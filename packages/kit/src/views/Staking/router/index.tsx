@@ -37,13 +37,22 @@ const EarnGuide = LazyLoad(
   () => import('@onekeyhq/kit/src/views/Earn/pages/EarnGuide'),
 );
 
-const EarnPayWithTokenSelect = LazyLoad(
-  () => import('@onekeyhq/kit/src/views/Earn/pages/EarnPayWithTokenSelect'),
-);
 // Loaded while the desktop Earn home shows the guide's card, through the lazy
 // route itself: its first open then renders at once instead of suspending,
 // which holds the modal back a few hundred ms more
 export const preloadEarnGuide = () => EarnGuide.preload();
+
+const EarnPayWithTokenSelect = LazyLoad(
+  () => import('@onekeyhq/kit/src/views/Earn/pages/EarnPayWithTokenSelect'),
+);
+// Loaded while a deposit form with Pay with shows, the same way
+export const preloadEarnPayWithTokenSelect = () =>
+  EarnPayWithTokenSelect.preload();
+
+const EarnPayWithTokenRisk = LazyLoad(
+  () =>
+    import('@onekeyhq/kit/src/views/Swap/pages/modal/TokenRiskReminderModal'),
+);
 
 const BorrowEModeSwitch = LazyLoad(
   () => import('@onekeyhq/kit/src/views/Borrow/pages/BorrowEModeSwitch'),
@@ -161,9 +170,18 @@ export const StakingModalRouter: IModalFlowNavigatorConfig<
     disableEnterExitAnimation: true,
   },
   {
-    // Its size follows the window from its own header, as Swap's picker does
     name: EModalStakingRoutes.EarnPayWithTokenSelect,
     component: EarnPayWithTokenSelect,
+    // Declared on the route, as Swap's picker does: the navigator grows a
+    // modal out of the one under it only when it knows the size as it
+    // opens. The size goes here, as the navigator sets it over the options.
+    // Narrow windows keep it full screen
+    modalContentMaxWidth: 640,
+    modalContentMaxHeight: 700,
+  },
+  {
+    name: EModalStakingRoutes.EarnPayWithTokenRisk,
+    component: EarnPayWithTokenRisk,
   },
   {
     name: EModalStakingRoutes.BorrowEModeSwitch,

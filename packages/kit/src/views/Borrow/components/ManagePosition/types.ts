@@ -87,6 +87,8 @@ export interface IManagePositionProps {
   payWithTrigger?: Partial<ITokenSelectorTriggerProps>;
   amountBoxBottom?: ReactNode;
   amountBoxTestID?: string;
+  // A balance read as zero gets Swap's refresh in place of Max (Pay with)
+  onRefreshBalance?: () => Promise<unknown> | void;
   // The amount box's label, in place of the action's name
   inputTitle?: string;
   // Off where the caller pays with another token itself (Pay with): no
@@ -197,6 +199,7 @@ export interface IManagePositionState {
   isEarnForm: boolean;
   amountBoxBottom?: ReactNode;
   amountBoxTestID?: string;
+  onRefreshBalance?: () => Promise<unknown> | void;
 }
 
 // ============================================================================

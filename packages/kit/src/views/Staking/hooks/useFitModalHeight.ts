@@ -1,6 +1,10 @@
 import { useCallback, useEffect, useState } from 'react';
 
-import { useIsFocused } from '@react-navigation/core';
+import {
+  useIsFocused,
+  useNavigationState,
+  useRoute,
+} from '@react-navigation/core';
 import { Easing, useReducedMotion } from 'react-native-reanimated';
 
 import { useMedia } from '@onekeyhq/components';
@@ -165,11 +169,17 @@ function releaseModal(
  * its top edge, so what was just pressed stays where it was. The navigator
  * only sets the modal's max size and resets it on every stack change, so
  * this sets its height. Another page pushed in the same modal (History) gets
- * the usual size back
+ * the usual size back; a modal opened over it (Pay with's picker) leaves it
+ * as it is, to grow out of it and shrink back into it
  */
 export function useFitModalHeight(enabled = true) {
   const { gtMd } = useMedia();
   const isFocused = useIsFocused();
+  // Still the top page of its own modal, with another modal over it
+  const routeKey = useRoute().key;
+  const isTopOfModal = useNavigationState(
+    (state) => state?.routes?.[state.index]?.key === routeKey,
+  );
   const reduceMotion = useReducedMotion();
   const [content, setContent] = useState<HTMLElement | null>(null);
   const contentRef = useCallback((node: unknown) => {
@@ -179,7 +189,11 @@ export function useFitModalHeight(enabled = true) {
         : null,
     );
   }, []);
-  const isActive = enabled && gtMd && isFocused && platformEnv.isRuntimeBrowser;
+  const isActive =
+    enabled &&
+    gtMd &&
+    (isFocused || isTopOfModal) &&
+    platformEnv.isRuntimeBrowser;
 
   useEffect(() => {
     if (!isActive || !content) {

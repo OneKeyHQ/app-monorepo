@@ -657,6 +657,8 @@ type IUniversalStakeProps = {
   // Inside the amount box under its balance line: Pay with's token list
   amountBoxBottom?: ReactNode;
   amountBoxTestID?: string;
+  // A balance read as zero gets Swap's refresh in place of Max (Pay with)
+  onRefreshBalance?: () => Promise<unknown> | void;
   isQuoteExpired?: boolean;
   onQuoteReset?: () => void;
   refreshKey?: number;
@@ -708,6 +710,7 @@ export function UniversalStake({
   tokenSelectorTriggerProps,
   amountBoxBottom,
   amountBoxTestID,
+  onRefreshBalance,
   isQuoteExpired,
   onQuoteReset,
   refreshKey,
@@ -2769,6 +2772,7 @@ export function UniversalStake({
             onSelectPercentageStage={onSelectPercentageStage}
             bottomContent={amountBoxBottom}
             boxTestID={amountBoxTestID}
+            onRefreshBalance={onRefreshBalance}
           />
           {amountInputDisabled ? (
             <Stack position="absolute" w="100%" h="100%" zIndex={1} />

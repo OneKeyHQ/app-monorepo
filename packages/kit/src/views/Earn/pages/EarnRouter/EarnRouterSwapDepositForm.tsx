@@ -330,6 +330,7 @@ export function EarnRouterSwapDepositForm({
   payWithTrigger,
   amountBoxBottom,
   amountBoxTestID,
+  onRefreshBalance,
   revealsDepositLine,
 }: {
   accountId: string;
@@ -385,6 +386,8 @@ export function EarnRouterSwapDepositForm({
   // Inside the amount box under its balance line: Pay with's token list
   amountBoxBottom?: ReactNode;
   amountBoxTestID?: string;
+  // The paying token's balance read again: Swap's refresh at a zero balance
+  onRefreshBalance?: () => Promise<unknown> | void;
 }) {
   const intl = useIntl();
   const [{ currencyInfo }] = useSettingsPersistAtom();
@@ -1011,6 +1014,7 @@ export function EarnRouterSwapDepositForm({
           onSelectPercentageStage={handleSelectPercentage}
           bottomContent={amountBoxBottom}
           boxTestID={amountBoxTestID}
+          onRefreshBalance={onRefreshBalance}
         />
         {/* What goes into the vault, under what pays for it; more than the
             balance says so in its place, in red. Brought in by a pick in

@@ -50,6 +50,7 @@ export function AmountInputSection({
     isEarnForm,
     amountBoxBottom,
     amountBoxTestID,
+    onRefreshBalance,
   } = state;
 
   const { checkAmountMessage, checkAmountAlerts, isCheckAmountMessageError } =
@@ -159,6 +160,7 @@ export function AmountInputSection({
         onSelectPercentageStage={onSelectPercentageStage}
         bottomContent={amountBoxBottom}
         boxTestID={amountBoxTestID}
+        onRefreshBalance={onRefreshBalance}
       />
       {showOverlayMask ? (
         <Stack position="absolute" w="100%" h="100%" zIndex={1} />

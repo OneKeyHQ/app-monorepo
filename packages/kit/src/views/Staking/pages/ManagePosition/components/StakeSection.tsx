@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
-import { Toast } from '@onekeyhq/components';
+import { Toast, useMedia } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
@@ -27,6 +27,11 @@ import {
 import { EARN_DESKTOP_DEMO_COPY } from '@onekeyhq/kit/src/views/Earn/components/desktopHome/earnDesktopHomeCopy';
 import { buildKeyboardPressProps } from '@onekeyhq/kit/src/views/Earn/components/desktopHome/earnDesktopPressable';
 import {
+  readPayWithPickerAccountAddress,
+  readPayWithPickerNetwork,
+  warmPayWithPickerTokens,
+} from '@onekeyhq/kit/src/views/Earn/pages/EarnRouter/earnPayWithPickerData';
+import {
   findOffer,
   findPayToken,
   resolvePayMode,
@@ -41,8 +46,13 @@ import {
 } from '@onekeyhq/kit/src/views/Earn/pages/EarnRouter/EarnRouterPayWith';
 import { EarnRouterSwapDepositForm } from '@onekeyhq/kit/src/views/Earn/pages/EarnRouter/EarnRouterSwapDepositForm';
 import type { IEarnRouterSummaryRequest } from '@onekeyhq/kit/src/views/Earn/pages/EarnRouter/EarnRouterSwapDepositForm';
+import {
+  useSettingsPersistAtom,
+  useTokenSelectorFilterPersistAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes, EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
@@ -69,8 +79,10 @@ import {
   UniversalStake,
 } from '../../../components/UniversalStake';
 import { useBorrowApiParams } from '../../../hooks/useBorrowApiParams';
+import { easeModalHeightChanges } from '../../../hooks/useFitModalHeight';
 import { useIsPendleProvider } from '../../../hooks/useIsPendleProvider';
 import { useUniversalStake } from '../../../hooks/useUniversalHooks';
+import { preloadEarnPayWithTokenSelect } from '../../../router';
 import {
   buildBorrowTag,
   buildStakeTokenUniqueKey,
@@ -273,6 +285,32 @@ export const StakeSection = ({
     !(
       borrowApiCtx.isBorrow && borrowApiCtx.borrowApiParams.action === 'borrow'
     );
+  // Pay with's picker read ahead while the form shows (its code, the
+  // network, the wallet's address there and the network's tokens), so its
+  // first open is complete. The currency and the DeFi tokens switch as the
+  // form opens: the switch changing in the picker is the picker's to read
+  const [{ currencyInfo }] = useSettingsPersistAtom();
+  const [{ swapShowLpTokensOnly }] = useTokenSelectorFilterPersistAtom();
+  const { gtMd } = useMedia();
+  const pickerPrefsRef = useRef({
+    currencyId: currencyInfo.id,
+    showLpTokensOnly: swapShowLpTokensOnly,
+    // The picker's own test for its two-column layout
+    isWide: Boolean((platformEnv.isDesktop || platformEnv.isWeb) && gtMd),
+  });
+  useEffect(() => {
+    if (!canPayWith) {
+      return;
+    }
+    void preloadEarnPayWithTokenSelect();
+    void readPayWithPickerNetwork(networkId);
+    void readPayWithPickerAccountAddress({ accountId, networkId });
+    void warmPayWithPickerTokens({
+      accountId,
+      networkId,
+      ...pickerPrefsRef.current,
+    });
+  }, [accountId, canPayWith, networkId]);
   // The page's token: Pendle's form token is the one its buy side starts on
   // (USDC for PT-sUSD3), which isn't the token the page is for
   const depositSymbol = protocolInfo?.symbol || tokenInfo?.token.symbol || '';
@@ -282,6 +320,7 @@ export const StakeSection = ({
     ? EARN_DESKTOP_DEMO_COPY.payWith
     : intl.formatMessage({ id: ETranslations.content__amount });
   const pay = usePayTokens({
+    accountId,
     networkId,
     depositSymbol,
     enabled: canPayWith && Boolean(depositSymbol),
@@ -375,6 +414,9 @@ export const StakeSection = ({
       if (item.key === payToken?.key) {
         return;
       }
+      // The form is built again for the new token (another path, its own
+      // rows): the modal's height eases through it, as for another protocol
+      easeModalHeightChanges();
       setStartAmount(undefined);
       typedAmountRef.current = undefined;
       onAmountChange?.('');
@@ -402,12 +444,9 @@ export const StakeSection = ({
       },
     });
   }, [accountId, handlePickPayToken, navigation, networkId]);
-  // Laid over each form's own token chip: a picked token fades in
+  // Laid over each form's own token chip
   const payWithTrigger = useMemo(
-    () => ({
-      testID: PAY_WITH_TRIGGER_TEST_ID,
-      fadesInPickedToken: true,
-    }),
+    () => ({ testID: PAY_WITH_TRIGGER_TEST_ID }),
     [],
   );
   const payMode = handoff
@@ -435,6 +474,12 @@ export const StakeSection = ({
     lastPayModeRef.current = payMode;
   }, [payMode]);
   const { refresh: refreshPayTokens } = pay;
+  // Swap's refresh beside a zero balance: the page's balance and Pay with's
+  // list, for a token that just came in
+  const handleRefreshPayBalance = useCallback(() => {
+    onRefreshTokenInfo?.();
+    return refreshPayTokens();
+  }, [onRefreshTokenInfo, refreshPayTokens]);
   const handleSwapped = useCallback(
     ({ amount, balance }: { amount: string; balance?: string }) => {
       setStartAmount(amount);
@@ -1318,6 +1363,7 @@ export const StakeSection = ({
         onOpenPayWith={handleOpenPayWith}
         payWithTrigger={payWithTrigger}
         onSwapped={handleSwapped}
+        onRefreshBalance={handleRefreshPayBalance}
         beforeSwap={handleBeforeSwap}
         footerActionOverride={footerActionOverride}
         isInModalContext={isInModalContext}
@@ -1360,6 +1406,7 @@ export const StakeSection = ({
           offerSwitch={offerSwitch}
           onAmountChange={handleAmountChange}
           onTokenSelectorPress={canPayWith ? handleOpenPayWith : undefined}
+          onRefreshBalance={canPayWith ? handleRefreshPayBalance : undefined}
           payWithTrigger={
             canPayWith
               ? {
@@ -1472,6 +1519,7 @@ export const StakeSection = ({
           hideTradeOrBuy={canPayWith}
           collapsesDepositLine={collapsesDepositLine}
           tokenSelectorTriggerProps={stakeTokenSelectorTriggerProps}
+          onRefreshBalance={canPayWith ? handleRefreshPayBalance : undefined}
           requestSymbol={stakeRequestSymbol}
           transactionInputTokenAddress={selectedStakeTokenAddress}
           transactionOutputTokenAddress={receiveInputConfig?.tokenAddress ?? ''}

@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -6,6 +6,7 @@ import { useIntl } from 'react-intl';
 import {
   ActionList,
   Alert,
+  Divider,
   Empty,
   ListView,
   Page,
@@ -30,36 +31,39 @@ import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import SwapPopularTokenGroup from '@onekeyhq/kit/src/views/Swap/components/SwapPopularTokenGroup';
 import { SwapTokenSelectorDesktop } from '@onekeyhq/kit/src/views/Swap/components/SwapTokenSelectorDesktop';
-import { buildSwapTokenFetchParams } from '@onekeyhq/kit/src/views/Swap/hooks/swapTokenFetchParamsUtils';
 import { useSwapTokenRiskCheck } from '@onekeyhq/kit/src/views/Swap/hooks/useSwapTokenRiskCheck';
+import { buildServerAuthoritativeSearchResults } from '@onekeyhq/kit/src/views/Swap/hooks/useSwapTokens.utils';
 import {
   EJotaiContextStoreNames,
   useSettingsPersistAtom,
   useTokenSelectorFilterPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { useFuse } from '@onekeyhq/shared/src/modules3rdParty/fuse';
 import type { IFuseResult } from '@onekeyhq/shared/src/modules3rdParty/fuse';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { EModalRoutes } from '@onekeyhq/shared/src/routes';
-import type {
-  EModalStakingRoutes,
-  IModalStakingParamList,
-} from '@onekeyhq/shared/src/routes';
-import { EModalSwapRoutes } from '@onekeyhq/shared/src/routes/swap';
+import { EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
+import type { IModalStakingParamList } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import tokenRebaseUtils from '@onekeyhq/shared/src/utils/tokenRebaseUtils';
-import {
-  SWAP_LP_TOKEN_FILTER_SERVER_SUPPORTED,
-  isTokenSelectorDappTokenFilterSupportedNetwork,
-} from '@onekeyhq/shared/src/utils/tokenSelectorFilterUtils';
 import { swapPopularTokens } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
-import {
-  ESwapTabSwitchType,
-  type ISwapNetwork,
-  type ISwapToken,
+import type {
+  ISwapNetwork,
+  ISwapToken,
 } from '@onekeyhq/shared/types/swap/types';
+
+import {
+  buildPayWithPickerRequestKey,
+  getPayWithPickerAccountAddress,
+  getPayWithPickerNetwork,
+  isPayWithPickerLpFilterShown,
+  payWithPickerTokenLists,
+  readPayWithPickerAccountAddress,
+  readPayWithPickerNetwork,
+  readPayWithPickerTokens,
+} from '../EarnRouter/earnPayWithPickerData';
 
 import type { FlatList } from 'react-native';
 
@@ -73,9 +77,9 @@ const getRawToken = (item: ITokenItem) =>
 const LOADING_ROW_COUNT = 5;
 const SEARCH_DEBOUNCE_MS = 300;
 const RETRY_AFTER_CANCEL_MS = 300;
-// The last full list per network, account, filter and currency
-const lastTokenLists = new Map<string, ISwapToken[]>();
+const MODAL_SCREEN_SELECTOR = '[data-testid="APP-Modal-Screen"]';
 const NO_NETWORKS: ISwapNetwork[] = [];
+const NO_TOKENS: ISwapToken[] = [];
 const NO_NETWORK_IDS: string[] = [];
 const NO_ASSET_NETWORKS: [] = [];
 const noop = () => {};
@@ -100,30 +104,13 @@ function ListSkeleton() {
   );
 }
 
-// The deposit's network as Swap knows it (whether it filters DeFi tokens),
-// its name and logo from the app's own list when Swap doesn't list it
+// The deposit's network, at once when the form read it ahead
 function useLockedNetwork(networkId: string) {
-  const { result } = usePromiseResult(async () => {
-    const [network, swapNetworks] = await Promise.all([
-      backgroundApiProxy.serviceNetwork.getNetworkSafe({ networkId }),
-      backgroundApiProxy.serviceSwap
-        .fetchSwapNetworks({ autoHandleError: false })
-        .catch(() => [] as ISwapNetwork[]),
-    ]);
-    const swapNetwork = swapNetworks.find(
-      (item) => item.networkId === networkId,
-    );
-    if (swapNetwork) {
-      return swapNetwork;
-    }
-    return {
-      networkId,
-      name: network?.name ?? '',
-      symbol: network?.symbol ?? '',
-      logoURI: network?.logoURI,
-    } satisfies ISwapNetwork;
-  }, [networkId]);
-  return result;
+  const { result } = usePromiseResult(
+    () => readPayWithPickerNetwork(networkId),
+    [networkId],
+  );
+  return result ?? getPayWithPickerNetwork(networkId);
 }
 
 /**
@@ -150,17 +137,10 @@ function EarnPayWithTokenSelectPage() {
     (platformEnv.isDesktop || platformEnv.isWeb) && gtMd;
 
   const network = useLockedNetwork(networkId);
-  const showLpTokenFilterSwitch =
-    SWAP_LP_TOKEN_FILTER_SERVER_SUPPORTED &&
-    Boolean(network) &&
-    isTokenSelectorDappTokenFilterSupportedNetwork({
-      network: {
-        id: networkId,
-        isAllNetworks: false,
-        backendIndex: network?.backendIndex,
-      },
-      isDeFiEnabled: network?.isDeFiEnabled,
-    });
+  const showLpTokenFilterSwitch = isPayWithPickerLpFilterShown({
+    networkId,
+    network,
+  });
   const showLpTokensOnly = showLpTokenFilterSwitch
     ? tokenSelectorFilter.swapShowLpTokensOnly
     : false;
@@ -177,8 +157,11 @@ function EarnPayWithTokenSelectPage() {
   );
 
   const [searchInput, setSearchInput] = useState('');
-  const keyword = useDebounce(searchInput.trim(), SEARCH_DEBOUNCE_MS);
-  const isSearchSettling = searchInput.trim() !== keyword;
+  const typedKeyword = searchInput.trim();
+  const debouncedKeyword = useDebounce(typedKeyword, SEARCH_DEBOUNCE_MS);
+  // A cleared field shows the full list again at once, as in Swap
+  const keyword = typedKeyword ? debouncedKeyword : '';
+  const isSearchSettling = typedKeyword !== keyword;
   const handlePaste = useCallback(async () => {
     const text = await getClipboard();
     if (text) {
@@ -187,43 +170,48 @@ function EarnPayWithTokenSelectPage() {
   }, [getClipboard]);
 
   // The wallet's address on the network, so the list carries its balances
-  const { result: accountAddress } = usePromiseResult(
-    async () =>
-      backgroundApiProxy.serviceAccount
-        .getAccountAddressForApi({ accountId, networkId })
-        .catch(() => ''),
+  const { result: readAccountAddress } = usePromiseResult(
+    () => readPayWithPickerAccountAddress({ accountId, networkId }),
     [accountId, networkId],
   );
-  // The request the list on screen has to answer
-  const requestKey =
-    accountAddress === undefined
-      ? undefined
-      : [
-          networkId,
-          accountAddress,
-          String(requestLpToken),
-          settingsPersist.currencyInfo.id,
-          keyword,
-        ].join('|');
+  const accountAddress =
+    readAccountAddress ??
+    getPayWithPickerAccountAddress({ accountId, networkId });
+  // The request the list on screen has to answer, once the network says
+  // whether the DeFi tokens filter goes with it
+  const currencyId = settingsPersist.currencyInfo.id;
+  const request = useMemo(
+    () =>
+      accountAddress === undefined || !network
+        ? undefined
+        : {
+            accountId,
+            networkId,
+            accountAddress,
+            lpToken: requestLpToken,
+            currencyId,
+            keyword,
+          },
+    [
+      accountAddress,
+      accountId,
+      currencyId,
+      keyword,
+      network,
+      networkId,
+      requestLpToken,
+    ],
+  );
+  const requestKey = request
+    ? buildPayWithPickerRequestKey(request)
+    : undefined;
   const lastRequestKeyRef = useRef(requestKey);
   lastRequestKeyRef.current = requestKey;
   const { result } = usePromiseResult(async () => {
-    if (accountAddress === undefined || requestKey === undefined) {
+    if (!request || requestKey === undefined) {
       return undefined;
     }
-    const params = buildSwapTokenFetchParams({
-      currentNetworkId: networkId,
-      keywords: keyword || undefined,
-      swapType: ESwapTabSwitchType.SWAP,
-      lpToken: requestLpToken,
-      requestCurrency: settingsPersist.currencyInfo.id,
-      shouldUseCurrentAccountAddress: Boolean(accountAddress),
-      currentAccountAddress: accountAddress || undefined,
-      currentAccountNetworkId: networkId,
-      currentAccountId: accountId,
-    });
-    const fetchTokens = () =>
-      backgroundApiProxy.serviceSwap.fetchSwapTokens(params);
+    const fetchTokens = () => readPayWithPickerTokens(request);
     let tokens: ISwapToken[];
     try {
       tokens = await fetchTokens();
@@ -243,33 +231,47 @@ function EarnPayWithTokenSelectPage() {
       } catch {
         return {
           requestKey,
-          tokens: (!keyword && lastTokenLists.get(requestKey)) || [],
+          tokens: (!keyword && payWithPickerTokenLists.get(requestKey)) || [],
         };
       }
     }
-    if (!keyword) {
-      lastTokenLists.set(requestKey, tokens);
-    }
     return { requestKey, tokens };
-  }, [
-    accountAddress,
-    accountId,
-    keyword,
-    networkId,
-    requestKey,
-    requestLpToken,
-    settingsPersist.currencyInfo.id,
-  ]);
+  }, [keyword, request, requestKey]);
   // The answer to this request; before it, the last full list of the network
   // shows at once, as Swap shows its last complete list
   const answered = result?.requestKey === requestKey;
   const cachedTokens =
-    requestKey && !keyword ? lastTokenLists.get(requestKey) : undefined;
+    requestKey && !keyword
+      ? payWithPickerTokenLists.get(requestKey)
+      : undefined;
   const shownTokens = answered ? result?.tokens : cachedTokens;
-  const displayTokens = useMemo<ITokenItem[]>(
-    () => shownTokens ?? [],
-    [shownTokens],
+  // Each row's network badge, which Swap takes from the network it shows:
+  // the list itself doesn't carry it
+  const networkLogoURI = network?.logoURI;
+  const badgedTokens = useMemo<ISwapToken[]>(
+    () =>
+      (shownTokens ?? []).map((token) =>
+        token.networkLogoURI || !networkLogoURI
+          ? token
+          : { ...token, networkLogoURI },
+      ),
+    [networkLogoURI, shownTokens],
   );
+  // Search results in the server's order, with the letters that match marked
+  // as Swap marks them
+  const fuseTokens = useFuse(keyword ? badgedTokens : NO_TOKENS, {
+    shouldSort: false,
+    keys: ['symbol', 'name', 'contractAddress', 'subtitles'],
+  });
+  const displayTokens = useMemo<ITokenItem[]>(() => {
+    if (!keyword) {
+      return badgedTokens;
+    }
+    const matchesByToken = new Map(
+      fuseTokens.search(keyword).map((found) => [found.item, found.matches]),
+    );
+    return buildServerAuthoritativeSearchResults(badgedTokens, matchesByToken);
+  }, [badgedTokens, fuseTokens, keyword]);
   const listLoading = !answered || isSearchSettling;
 
   const popularTokens = useMemo(
@@ -294,6 +296,84 @@ function EarnPayWithTokenSelectPage() {
         )
       : undefined;
 
+  // Keys stay in the picker on the web, as in a dialog: the search takes the
+  // cursor on wide windows, what is under it (the page, the form's modal)
+  // takes no focus while it is up (Tab would walk the hidden form and its
+  // button), and focus goes back to what opened it when it closes
+  const openerRef = useRef(
+    platformEnv.isRuntimeBrowser ? document.activeElement : null,
+  );
+  const focusesSearchRef = useRef(useDesktopTokenSelector);
+  useEffect(() => {
+    if (!platformEnv.isRuntimeBrowser) {
+      return undefined;
+    }
+    // This picker is the newest modal
+    const screens = Array.from(
+      document.querySelectorAll<HTMLElement>(MODAL_SCREEN_SELECTOR),
+    );
+    const ownScreen = screens[screens.length - 1];
+    const opener = openerRef.current;
+    // Under it: beside its own branch, under the element it shares with the
+    // chip that opened it (the page, and the modal the form is in). Opened
+    // some other way, the modals before it
+    let under: HTMLElement[] = screens.slice(0, -1);
+    if (
+      ownScreen &&
+      opener instanceof HTMLElement &&
+      !ownScreen.contains(opener)
+    ) {
+      let shared = opener.parentElement;
+      while (shared && !shared.contains(ownScreen)) {
+        shared = shared.parentElement;
+      }
+      if (shared) {
+        under = Array.from(shared.children).filter(
+          (child): child is HTMLElement =>
+            child instanceof HTMLElement && !child.contains(ownScreen),
+        );
+      }
+    }
+    const covered = under.filter((element) => !element.inert);
+    // The chip lets go of the focus now: left to the browser, the blur comes
+    // a frame later and can take the search's focus with it
+    const focused = document.activeElement;
+    if (
+      focused instanceof HTMLElement &&
+      covered.some((element) => element.contains(focused))
+    ) {
+      focused.blur();
+    }
+    covered.forEach((element) => {
+      element.inert = true;
+    });
+    // Once the modal shows: a field in one still coming in can't take it
+    let frame = requestAnimationFrame(() => {
+      frame = requestAnimationFrame(() => {
+        const active = document.activeElement;
+        if (focusesSearchRef.current && !ownScreen?.contains(active)) {
+          // The token search: the hidden network column's comes first
+          Array.from(ownScreen?.querySelectorAll('input') ?? [])
+            .find((input) => input.offsetParent !== null)
+            ?.focus({ preventScroll: true });
+        }
+      });
+    });
+    return () => {
+      cancelAnimationFrame(frame);
+      covered.forEach((element) => {
+        element.inert = false;
+      });
+      if (
+        opener instanceof HTMLElement &&
+        opener.isConnected &&
+        (!document.activeElement || document.activeElement === document.body)
+      ) {
+        opener.focus({ preventScroll: true });
+      }
+    };
+  }, []);
+
   const checkRiskToken = useSwapTokenRiskCheck();
   const handleSelectToken = useCallback(
     async (token: ISwapToken) => {
@@ -311,17 +391,13 @@ function EarnPayWithTokenSelectPage() {
         navigation.popStack();
         onSelect(token);
       };
+      // Swap's risk reminder, in this modal as in Swap's: its OK closes the
+      // two together, its Cancel goes back to the list
       if (await checkRiskToken(token)) {
-        navigation.pushModal(EModalRoutes.SwapModal, {
-          screen: EModalSwapRoutes.TokenRiskReminder,
-          params: {
-            storeName: EJotaiContextStoreNames.swap,
-            token,
-            onConfirm: (close: () => void) => {
-              close();
-              commit();
-            },
-          },
+        navigation.push(EModalStakingRoutes.EarnPayWithTokenRisk, {
+          storeName: EJotaiContextStoreNames.swap,
+          token,
+          onConfirm: commit,
         });
         return;
       }
@@ -563,6 +639,8 @@ function EarnPayWithTokenSelectPage() {
                 />
               ) : null}
             </XStack>
+            {/* Where Swap ends its header, under its network chips */}
+            {showPopularTokens ? <Divider /> : null}
             <YStack flex={1}>
               <ListView
                 useFlashList={platformEnv.isNative}

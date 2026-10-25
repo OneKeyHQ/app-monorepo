@@ -179,6 +179,7 @@ export function ManagePosition(props: IManagePositionProps) {
     payWithTrigger,
     amountBoxBottom,
     amountBoxTestID,
+    onRefreshBalance,
   } = props;
   const effectiveTokenSelectorTriggerProps = useMemo(() => {
     if (approval.isFormInteractionLocked) {
@@ -218,6 +219,7 @@ export function ManagePosition(props: IManagePositionProps) {
       tokenSelectorTriggerProps: effectiveTokenSelectorTriggerProps,
       amountBoxBottom,
       amountBoxTestID,
+      onRefreshBalance,
     }),
     [
       baseState,
@@ -227,6 +229,7 @@ export function ManagePosition(props: IManagePositionProps) {
       effectiveTokenSelectorTriggerProps,
       amountBoxBottom,
       amountBoxTestID,
+      onRefreshBalance,
     ],
   );
 
