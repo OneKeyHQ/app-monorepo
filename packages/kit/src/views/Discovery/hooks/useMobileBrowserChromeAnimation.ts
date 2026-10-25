@@ -60,10 +60,12 @@ function useMobileBrowserChromeAnimation() {
   // 1 = chrome fully expanded, 0 = collapsed.
   const chromeProgress = useSharedValue(EXPANDED);
   // The size the WebView is laid out for: 1 (room for the expanded chrome)
-  // from the start of an expand until the end of a collapse, else 0. The
-  // WebView keeps that size through the animation and only moves; resizing
-  // it every frame made WebKit re-lay-out the page each frame (dropped
-  // frames on heavy dApps). It resizes once, when the chrome settles.
+  // only once the chrome is fully expanded, else 0 (the larger, collapsed
+  // size). The WebView keeps that size through the animation and only moves;
+  // resizing it every frame made WebKit re-lay-out the page each frame
+  // (dropped frames on heavy dApps). Like Chrome's toolbar it grows when a
+  // collapse starts and shrinks when an expand ends, so the edge that changes
+  // is always under the bar and never shows as a gap or a jump.
   const layoutExpanded = useSharedValue(EXPANDED);
   // Scroll direction tracking stays on the JS thread, where WebView scroll
   // events arrive (one per frame): the UI thread is only touched when the
@@ -81,14 +83,14 @@ function useMobileBrowserChromeAnimation() {
         return;
       }
       targetRef.current = target;
-      if (target === EXPANDED) {
-        layoutExpanded.value = EXPANDED;
+      if (target === COLLAPSED) {
+        layoutExpanded.value = COLLAPSED;
       }
       chromeProgress.value = withSpring(target, springConfig, (finished) => {
         'worklet';
 
-        if (finished && target === COLLAPSED) {
-          layoutExpanded.value = COLLAPSED;
+        if (finished && target === EXPANDED) {
+          layoutExpanded.value = EXPANDED;
         }
       });
     },

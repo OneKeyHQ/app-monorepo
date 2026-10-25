@@ -374,6 +374,7 @@ function MobileBrowserBottomBar({ id, chrome }: IMobileBrowserBottomBarProps) {
   // Natural widths of the capsule and the pill, for the shared background.
   const capsuleWidth = useSharedValue(0);
   const pillWidth = useSharedValue(0);
+  const [capsuleLayoutWidth, setCapsuleLayoutWidth] = useState(0);
   const pillBottom = getCollapsedPillBottom(bottom);
   const capsuleBottom = getBarCapsuleBottom(bottom);
   // Distance between the bar capsule's center and the pill's center.
@@ -470,6 +471,7 @@ function MobileBrowserBottomBar({ id, chrome }: IMobileBrowserBottomBarProps) {
               style={[styles.capsule, capsuleStyle]}
               onLayout={(e) => {
                 capsuleWidth.value = e.nativeEvent.layout.width;
+                setCapsuleLayoutWidth(e.nativeEvent.layout.width);
               }}
             >
               <BrowserChromeCapsule flex={1} px="$2" background={false}>
@@ -514,6 +516,7 @@ function MobileBrowserBottomBar({ id, chrome }: IMobileBrowserBottomBarProps) {
                   onPress={handleAddressPress}
                   badgeStyle={capsuleContentStyle}
                   domainStyle={capsuleDomainStyle}
+                  capsuleWidth={capsuleLayoutWidth}
                 />
                 <Animated.View style={capsuleContentStyle}>
                   <RefreshButton

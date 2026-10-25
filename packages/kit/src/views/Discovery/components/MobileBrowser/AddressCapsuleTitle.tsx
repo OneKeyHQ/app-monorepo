@@ -36,12 +36,15 @@ import { ChromePressable } from './ChromePressable';
 // tokens: a raw number is looked up as a token key, not as pt.
 const RISK_ICON_SIZE = '$5';
 const RISK_ICON_WIDTH = 20;
+// Gap between the site badge and the domain's area.
+const DOMAIN_AREA_PADDING_LEFT = 8;
 const RISK_ICON_HIT_SLOP = { vertical: 13, horizontal: 6 };
 
 const WIDE_ROW_WIDTH = 10_000;
 
 const styles = StyleSheet.create({
   fill: { flex: 1, alignSelf: 'stretch', overflow: 'hidden' },
+  domainArea: { flex: 1, alignSelf: 'stretch' },
   // Wide enough that the domain is laid out on a single line at its natural
   // width; a box sized to the capsule would make Android ellipsize (or clip)
   // and iOS wrap a domain that is even slightly too long for it.
@@ -111,17 +114,18 @@ function fitDomainText(
 // does the end of the domain (the part that identifies the site) stay visible
 // while the start fades out.
 //
-// `trailingBalance` is room reserved after the text so it centers in the
-// whole capsule rather than beside the leading badge; it gives way first as
-// the text grows, so the badge never pushes a fitting domain into the fade.
+// `centerShift` moves the text from the middle of its own area to the middle
+// of the whole capsule (the badge and back button on the left take more room
+// than the reload button on the right). It gives way as the text grows, so
+// a fitting domain is never pushed into the fade.
 function DomainLabel({
   text,
   testID,
-  trailingBalance,
+  centerShift,
 }: {
   text: string;
   testID?: string;
-  trailingBalance: number;
+  centerShift: number;
 }) {
   const [availableWidth, setAvailableWidth] = useState(0);
   // Natural single-line widths at the full and the minimum font size.
@@ -132,17 +136,16 @@ function DomainLabel({
     minTextWidth,
     availableWidth,
   );
-  const balance = overflows
-    ? 0
-    : Math.min(
-        trailingBalance,
-        Math.max(0, availableWidth - (textWidth ?? fullTextWidth)),
-      );
+  const maxShift = Math.max(
+    0,
+    (availableWidth - (textWidth ?? fullTextWidth)) / 2,
+  );
+  const shift = Math.max(-maxShift, Math.min(maxShift, centerShift));
 
   // The text sits in a row far wider than the capsule, so its own box is
-  // never constrained: positioned so the text is centered in the space left
-  // of the balance, or, when it overflows, ends at the right edge (its start
-  // fades). The capsule clips whatever falls outside.
+  // never constrained: positioned so the text is centered in the capsule, or,
+  // when it overflows, ends at the right edge (its start fades). The capsule
+  // clips whatever falls outside.
   const row = (
     <View
       style={[
@@ -153,7 +156,7 @@ function DomainLabel({
               justifyContent: 'flex-end',
             }
           : {
-              left: (availableWidth - balance - WIDE_ROW_WIDTH) / 2,
+              left: availableWidth / 2 + shift - WIDE_ROW_WIDTH / 2,
               justifyContent: 'center',
             },
       ]}
@@ -239,9 +242,12 @@ export function AddressCapsuleTitle({
   onPress,
   badgeStyle,
   domainStyle,
+  capsuleWidth,
 }: {
   url?: string;
   onPress: () => void;
+  // Width of the capsule hosting this title, for exact centering.
+  capsuleWidth?: number;
   // The bar's morph fades the badge with the capsule, but swaps the domain
   // with the collapsed pill's (see MobileBrowserBottomBar).
   badgeStyle?: StyleProp<ViewStyle>;
@@ -254,6 +260,19 @@ export function AddressCapsuleTitle({
   // The Popover trigger opens on its own press too, so the open state itself
   // is gated: no site info for an empty tab or an unchecked host.
   const canShowSiteInfo = !!url && !!hostSecurity;
+  // Measured insets of the domain's area within the capsule, so the domain
+  // centers in the whole capsule exactly. Until measured, an estimate of
+  // what sits left of it but not right of it (badge, its gap, the back
+  // button's pull).
+  const [titleX, setTitleX] = useState(0);
+  const [domainAreaX, setDomainAreaX] = useState(0);
+  const [domainAreaWidth, setDomainAreaWidth] = useState(0);
+  let centerShift = -(RISK_ICON_WIDTH + 8 - CAPSULE_BACK_BUTTON_PULL) / 2;
+  if (capsuleWidth && domainAreaWidth) {
+    const left = titleX + domainAreaX + DOMAIN_AREA_PADDING_LEFT;
+    const right = capsuleWidth - (titleX + domainAreaX + domainAreaWidth);
+    centerShift = (right - left) / 2;
+  }
   const domainText = url
     ? hostname
     : intl.formatMessage({
@@ -261,7 +280,12 @@ export function AddressCapsuleTitle({
       });
 
   return (
-    <XStack flex={1} alignSelf="stretch" alignItems="center">
+    <XStack
+      flex={1}
+      alignSelf="stretch"
+      alignItems="center"
+      onLayout={(e) => setTitleX(e.nativeEvent.layout.x)}
+    >
       <Popover
         title={intl.formatMessage({ id: ETranslations.global_info })}
         open={siteInfoOpen && canShowSiteInfo}
@@ -296,20 +320,28 @@ export function AddressCapsuleTitle({
           />
         )}
       />
-      <ChromePressable fill onPress={onPress} accessibilityLabel={domainText}>
-        <Animated.View style={[styles.fill, domainStyle]}>
-          <XStack flex={1} pl="$2" alignItems="center" justifyContent="center">
-            <DomainLabel
-              testID={DiscoveryTestIDs.searchBar}
-              // Mirrors what sits left of the domain but not right of it (the
-              // badge and its gap, less the back button's pull) so the domain
-              // centers in the whole capsule.
-              trailingBalance={RISK_ICON_WIDTH + 8 - CAPSULE_BACK_BUTTON_PULL}
-              text={domainText}
-            />
-          </XStack>
-        </Animated.View>
-      </ChromePressable>
+      <View
+        style={styles.domainArea}
+        onLayout={(e) => setDomainAreaX(e.nativeEvent.layout.x)}
+      >
+        <ChromePressable fill onPress={onPress} accessibilityLabel={domainText}>
+          <Animated.View style={[styles.fill, domainStyle]}>
+            <XStack
+              flex={1}
+              pl={DOMAIN_AREA_PADDING_LEFT}
+              alignItems="center"
+              justifyContent="center"
+              onLayout={(e) => setDomainAreaWidth(e.nativeEvent.layout.width)}
+            >
+              <DomainLabel
+                testID={DiscoveryTestIDs.searchBar}
+                centerShift={centerShift}
+                text={domainText}
+              />
+            </XStack>
+          </Animated.View>
+        </ChromePressable>
+      </View>
     </XStack>
   );
 }
