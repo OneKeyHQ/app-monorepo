@@ -57,6 +57,8 @@ export function useCapsuleFadeStyle(fade: ICapsuleFade | undefined) {
 }
 
 const GLASS_FADE_SECONDS = 0.2;
+// keepGlass: the chrome progress below which the capsule is out of sight.
+const KEEP_GLASS_SWITCH_PROGRESS = 0.02;
 
 type IBrowserChromeCapsuleProps = PropsWithChildren<{
   flex?: number;
@@ -69,10 +71,12 @@ type IBrowserChromeCapsuleProps = PropsWithChildren<{
   // Defaults to a full pill; a chip hosting a square-ish item (the account
   // avatar) uses a concentric radius instead.
   borderRadius?: number;
-  // Glass stays on through the fade (only the contents fade), for a caller
-  // that hides the capsule another way (the header clips it). Switching the
-  // glass back on replays iOS's materialize animation, whose shadow lands
-  // before the glass and reads darker for a moment.
+  // For a caller that hides the capsule another way, fully hidden once the
+  // chrome is collapsed (the header clips it): the glass stays on through the
+  // fade (only the contents fade) and switches, instantly, only near
+  // progress 0, where the capsule is out of sight. Animating the glass back on in view replays iOS's
+  // materialize animation, whose shadow lands first and reads darker for a
+  // moment; leaving it on when hidden would let its shadow show.
   keepGlass?: boolean;
 }>;
 
@@ -99,19 +103,25 @@ export function BrowserChromeCapsule({
 }: IBrowserChromeCapsuleProps) {
   const isGlass = isLiquidGlassAvailable();
   const fadeStyle = useCapsuleFadeStyle(fade);
+  let glassSwitchPoint = 0;
+  if (fade) {
+    glassSwitchPoint = keepGlass
+      ? KEEP_GLASS_SWITCH_PROGRESS
+      : getCapsuleFadeMidpoint(fade.range);
+  }
   const glassHidden = useIsProgressPast(
     // Only glass needs the switch; without it no JS update at the midpoint.
-    isGlass && !keepGlass ? fade?.progress : undefined,
-    fade ? getCapsuleFadeMidpoint(fade.range) : 0,
-    fade?.reverse ? 'above' : 'below',
+    isGlass ? fade?.progress : undefined,
+    glassSwitchPoint,
+    fade?.reverse && !keepGlass ? 'above' : 'below',
   );
   const glassEffectStyle = useMemo(
     () => ({
       style: glassHidden ? ('none' as const) : ('regular' as const),
-      animate: true,
+      animate: !keepGlass,
       animationDuration: GLASS_FADE_SECONDS,
     }),
-    [glassHidden],
+    [glassHidden, keepGlass],
   );
   const row = (
     <XStack
