@@ -60,6 +60,7 @@ import type ServiceKeylessCloudSync from '../services/ServiceKeylessCloudSync';
 import type ServiceKeylessWallet from '../services/ServiceKeylessWallet/ServiceKeylessWallet';
 import type ServiceLightning from '../services/ServiceLightning';
 import type ServiceLiteCardMnemonic from '../services/ServiceLiteCardMnemonic';
+import type ServiceLiveActivity from '../services/ServiceLiveActivity';
 import type ServiceLogger from '../services/ServiceLogger';
 import type ServiceMarket from '../services/ServiceMarket';
 import type ServiceMarketV2 from '../services/ServiceMarketV2';
@@ -193,6 +194,7 @@ export interface IBackgroundApi extends IBackgroundApiBridge {
   serviceApp: ServiceApp;
   serviceSend: ServiceSend;
   serviceSwap: ServiceSwap;
+  serviceLiveActivity: ILazyServiceProxy<ServiceLiveActivity>;
   serviceUnifoldDeposit: ILazyServiceProxy<ServiceUnifoldDeposit>;
   serviceBootstrap: ServiceBootstrap;
   serviceNetwork: ServiceNetwork;

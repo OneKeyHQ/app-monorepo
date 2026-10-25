@@ -130,6 +130,11 @@ export async function generateSwapHistoryItemForContext(
         updated: Date.now(),
       },
       swapInfo: {
+        estimatedTimeSeconds:
+          Number(swapTxInfo.swapBuildResData.result?.estTime) > 0
+            ? Number(swapTxInfo.swapBuildResData.result.estTime) * 60
+            : Number(swapTxInfo.swapBuildResData.result?.estimatedTime) ||
+              undefined,
         instantRate: swapTxInfo.swapBuildResData.result?.instantRate ?? '',
         provider: swapTxInfo.swapBuildResData.result?.info,
         socketBridgeScanUrl: swapTxInfo.swapBuildResData.socketBridgeScanUrl,
