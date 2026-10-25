@@ -3,10 +3,7 @@ import type { PropsWithChildren } from 'react';
 
 import { useIsFocused } from '@react-navigation/native';
 import { StatusBar, StyleSheet } from 'react-native';
-import Animated, {
-  interpolate,
-  useAnimatedStyle,
-} from 'react-native-reanimated';
+import Animated, { useAnimatedStyle } from 'react-native-reanimated';
 
 import {
   IconButton,
@@ -51,23 +48,13 @@ const ACCOUNT_CHIP_RADIUS = 10;
 const HEADER_BOTTOM_GAP = 6;
 
 const styles = StyleSheet.create({
-  container: {
-    width: '100%',
-    overflow: 'hidden',
-  },
-  // Interactive glass grows a little on press; clipping would cut it off.
-  // The glass capsules fade out before the shrinking header could show them
-  // over the status bar, so they need no clip.
-  glassContainer: {
-    width: '100%',
-  },
-  // Anchored to the bottom so the row slides up under the status bar while the
-  // container shrinks, instead of being squashed.
-  content: {
+  // The header row, laid over the page right below the status bar and slid
+  // up under it to collapse. Not clipped, so a pressed glass capsule's
+  // growth shows in full.
+  overlay: {
     position: 'absolute',
     left: 0,
     right: 0,
-    bottom: 0,
     height: BROWSER_HEADER_HEIGHT,
     // The status bar area above already leaves room, so the row sits high
     // and keeps a clear gap between the account chip and the page below.
@@ -188,18 +175,22 @@ function HeaderChip({
 
 // The address lives in the bottom bar, so the header only keeps exit (back to
 // the wallet, tabs kept) and the account. It collapses fully on scroll down.
-// It stays in the layout (the page starts below it) rather than floating:
-// dApps commonly pin a fixed header with their Connect button at the top,
-// which a floating header would cover.
+// Once settled the page starts below it rather than under it: dApps
+// commonly pin a fixed header with their Connect button at the top, which a
+// floating header would cover. While it moves, though, the row is an overlay
+// that only slides, and its room in the layout follows layoutExpanded (it
+// changes once per collapse or expand); the page follows the row with a
+// transform (see useMobileBrowserChromeAnimation), so nothing is laid out
+// again on every frame.
 function MobileBrowserHeader({
   chrome,
   onGoBackHome,
 }: IMobileBrowserHeaderProps) {
   const { top } = useSafeAreaInsets();
-  const { progress } = chrome;
+  const { progress, layoutExpanded } = chrome;
   const isCollapsed = useIsChromeCollapsed(progress);
-  // The row fades out (with a small upward slide) in the first half of a
-  // collapse, so it is gone before its height reaches zero. iOS 26: the exit
+  // The row fades out in the first half of a collapse while it slides up
+  // under the status bar. iOS 26: the exit
   // button and the account chip are Liquid Glass capsules, like the bottom
   // bar; glass must not sit under a fading parent, so there the row only
   // slides and each capsule fades its own glass and contents (same range).
@@ -210,9 +201,10 @@ function MobileBrowserHeader({
   );
   const rowFadeStyle = useCapsuleFadeStyle(isGlass ? undefined : fade);
   const rowSlideStyle = useAnimatedStyle(() => ({
-    transform: [
-      { translateY: interpolate(progress.value, [0, 1], [-8, 0], 'clamp') },
-    ],
+    transform: [{ translateY: -BROWSER_HEADER_HEIGHT * (1 - progress.value) }],
+  }));
+  const spacerStyle = useAnimatedStyle(() => ({
+    height: BROWSER_HEADER_HEIGHT * layoutExpanded.value,
   }));
   // Tint like Safari: take the page's color, and switch icons/text/status bar
   // to the matching light or dark theme.
@@ -229,14 +221,6 @@ function MobileBrowserHeader({
   const chromeThemeName = pageThemeName ?? appThemeName;
   const accountChipBg =
     chromeThemeName === 'dark' ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.06)';
-  const containerAnimatedStyle = useAnimatedStyle(() => ({
-    height: interpolate(
-      progress.value,
-      [0, 1],
-      [0, BROWSER_HEADER_HEIGHT],
-      'clamp',
-    ),
-  }));
 
   const closeButton = (
     <IconButton
@@ -266,48 +250,51 @@ function MobileBrowserHeader({
         zIndex={1}
         style={pageColor ? { backgroundColor: pageColor } : undefined}
       >
+        <Animated.View style={spacerStyle} />
         <Animated.View
-          style={[
-            isGlass ? styles.glassContainer : styles.container,
-            containerAnimatedStyle,
-          ]}
+          pointerEvents={isCollapsed ? 'none' : 'box-none'}
+          style={[styles.overlay, { top }, rowSlideStyle, rowFadeStyle]}
         >
-          <Animated.View
-            pointerEvents={isCollapsed ? 'none' : 'box-none'}
-            style={[styles.content, rowSlideStyle, rowFadeStyle]}
-          >
-            {/* Tighter than the bottom bar, like a navigation bar: the exit
+          <Stack
+            position="absolute"
+            top={0}
+            right={0}
+            bottom={0}
+            left={0}
+            bg="$bgApp"
+            style={pageColor ? { backgroundColor: pageColor } : undefined}
+          />
+          {/* Tighter than the bottom bar, like a navigation bar: the exit
               glyph (or its glass circle) and the chip's right edge sit 16pt
               from the screen edges, in line with typical page content. */}
-            <XStack
-              flex={1}
-              pl={
-                isGlass
-                  ? HEADER_EDGE_INSET
-                  : HEADER_EDGE_INSET - MINIMIZE_BUTTON_PADDING
-              }
-              pr={HEADER_EDGE_INSET}
-              alignItems="center"
-              justifyContent="space-between"
-            >
-              {/* No padding: the 36pt button alone fills the 36pt capsule, so
+          <XStack
+            flex={1}
+            pl={
+              isGlass
+                ? HEADER_EDGE_INSET
+                : HEADER_EDGE_INSET - MINIMIZE_BUTTON_PADDING
+            }
+            pr={HEADER_EDGE_INSET}
+            alignItems="center"
+            justifyContent="space-between"
+          >
+            {/* No padding: the 36pt button alone fills the 36pt capsule, so
                 the glass is a circle. */}
-              <HeaderChip fade={isGlass ? fade : undefined} px="$0">
-                {closeButton}
-              </HeaderChip>
-              {/* One compact chip for every account state (connected,
+            <HeaderChip fade={isGlass ? fade : undefined} px="$0">
+              {closeButton}
+            </HeaderChip>
+            {/* One compact chip for every account state (connected,
                 not connected, no wallet), so the right side keeps the same
                 shape instead of switching between loose triggers. */}
-              <HeaderChip
-                fade={isGlass ? fade : undefined}
-                px="$1"
-                bg={accountChipBg}
-                chip
-              >
-                {accountToolbar}
-              </HeaderChip>
-            </XStack>
-          </Animated.View>
+            <HeaderChip
+              fade={isGlass ? fade : undefined}
+              px="$1"
+              bg={accountChipBg}
+              chip
+            >
+              {accountToolbar}
+            </HeaderChip>
+          </XStack>
         </Animated.View>
       </Stack>
     </Theme>

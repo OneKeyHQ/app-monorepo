@@ -35,23 +35,6 @@ const springConfig = {
   overshootClamping: true,
 };
 
-// Distance from the bottom of the WebView's parent (the screen bottom) to the
-// WebView's bottom edge. While the chrome moves it is at or below the bar's
-// page-colored strip, which hides the part passing behind the bar.
-function getWebPageBottom(
-  progress: number,
-  layoutExpanded: number,
-  fullBarHeight: number,
-  collapsedBarHeight: number,
-) {
-  'worklet';
-
-  return (
-    (layoutExpanded ? fullBarHeight : collapsedBarHeight) +
-    BROWSER_HEADER_HEIGHT * (layoutExpanded - progress)
-  );
-}
-
 // Drives the mobile browser chrome (header + bottom bar) from WebView scroll:
 // scrolling down collapses both; scrolling up, reaching an edge of the page,
 // or a non-scrollable page brings them back.
@@ -174,27 +157,44 @@ function useMobileBrowserChromeAnimation() {
     () => ({ height: fullBarHeight }),
     [fullBarHeight],
   );
-  // The WebView ends above the bar, and above the collapsed pill's strip
-  // once collapsed, so the chrome never covers page content. Its parent
-  // shrinks as the header grows (by BROWSER_HEADER_HEIGHT * progress), so
-  // the offset adds back the header's not-yet-settled part: the WebView's
-  // height stays what its layout size says while it moves with the header.
+  // The header (an overlay) slides with progress, while the space it takes
+  // in the layout only follows layoutExpanded. The WebView follows the
+  // header with a transform over that difference, so during a morph nothing
+  // is laid out again: the layout changes once, with layoutExpanded, in the
+  // same commit as this offset, so the page doesn't jump.
+  const webPageShiftStyle = useAnimatedStyle(() => ({
+    transform: [
+      {
+        translateY:
+          BROWSER_HEADER_HEIGHT *
+          (chromeProgress.value - layoutExpanded.value),
+      },
+    ],
+  }));
+  // Phone layout: the WebView ends above the bar (above the collapsed
+  // pill's strip once collapsed), so the chrome never covers page content.
+  // During a morph the part passing behind the bar is hidden by the bar's
+  // page-colored strip.
   const webPageAnimatedStyle = useAnimatedStyle(() => ({
-    bottom: getWebPageBottom(
-      chromeProgress.value,
-      layoutExpanded.value,
-      fullBarHeight,
-      collapsedBarHeight,
-    ),
+    bottom: layoutExpanded.value ? fullBarHeight : collapsedBarHeight,
+    transform: [
+      {
+        translateY:
+          BROWSER_HEADER_HEIGHT *
+          (chromeProgress.value - layoutExpanded.value),
+      },
+    ],
   }));
 
   return {
     handleScroll,
     expandBrowserChrome,
     chromeProgress,
+    layoutExpanded,
     toolbarAnimatedStyle,
     toolbarOverlayStyle,
     webPageAnimatedStyle,
+    webPageShiftStyle,
   };
 }
 

@@ -271,9 +271,11 @@ function MobileBrowser() {
     handleScroll,
     expandBrowserChrome,
     chromeProgress,
+    layoutExpanded,
     toolbarAnimatedStyle,
     toolbarOverlayStyle,
     webPageAnimatedStyle,
+    webPageShiftStyle,
   } = useMobileBrowserChromeAnimation();
   useDAppNotifyChanges({ tabId: activeTabId });
 
@@ -505,10 +507,11 @@ function MobileBrowser() {
   const browserChrome = useMemo(
     () => ({
       progress: chromeProgress,
+      layoutExpanded,
       onExpand: expandBrowserChrome,
       onSearchBarPress: handleSearchBarPress,
     }),
-    [chromeProgress, expandBrowserChrome, handleSearchBarPress],
+    [chromeProgress, layoutExpanded, expandBrowserChrome, handleSearchBarPress],
   );
 
   const { top } = useSafeAreaInsets();
@@ -776,7 +779,7 @@ function MobileBrowser() {
                   />
                 </View>
                 {!isTabletMainView ? (
-                  <View
+                  <Animated.View
                     collapsable={false}
                     pointerEvents={isBrowserWebPageVisible ? 'auto' : 'none'}
                     accessibilityElementsHidden={!isBrowserWebPageVisible}
@@ -792,10 +795,13 @@ function MobileBrowser() {
                       !platformEnv.isNativeIOSPad && {
                         display: showDiscoveryPage ? 'none' : 'flex',
                       },
+                      // Follows the header overlay (see
+                      // useMobileBrowserChromeAnimation).
+                      webPageShiftStyle,
                     ]}
                   >
                     {content}
-                  </View>
+                  </Animated.View>
                 ) : null}
               </Stack>
               <Freeze freeze={!displayBottomBar}>

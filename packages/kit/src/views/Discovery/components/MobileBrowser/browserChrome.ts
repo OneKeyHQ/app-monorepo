@@ -21,6 +21,8 @@ const BAR_TOP_GAP = 8;
 // `progress`: 1 = expanded, 0 = collapsed.
 export interface IMobileBrowserChrome {
   progress: SharedValue<number>;
+  // The size the page is laid out for (see useMobileBrowserChromeAnimation).
+  layoutExpanded: SharedValue<number>;
   onExpand: () => void;
   onSearchBarPress: (url: string) => void;
 }
