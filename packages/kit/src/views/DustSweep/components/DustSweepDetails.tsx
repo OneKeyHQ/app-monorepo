@@ -100,7 +100,7 @@ export function DustSweepDetails({
         <YStack>
           {state.items.map((item) => {
             let reason: string | undefined;
-            if (item.status === 'unknown')
+            if (item.status === 'unknown' && !item.localError)
               reason = intl.formatMessage({
                 id: ETranslations.swap_review_tx_pending,
               });
@@ -112,6 +112,7 @@ export function DustSweepDetails({
                 item.reason,
                 state.snapshot?.nativeToken.symbol,
                 item.providerErrorMessage,
+                item.localError,
               );
             return (
               <YStack

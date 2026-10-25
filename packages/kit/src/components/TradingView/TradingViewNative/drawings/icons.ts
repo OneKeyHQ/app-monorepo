@@ -1,7 +1,19 @@
+import { ADDITIONAL_DRAWING_ICON_PATHS } from './additionalTools';
+
+import type { IAdditionalDrawingTool } from './additionalTools';
+
 // Original OneKey chart icons: 24 px grid, 2 px strokes, square ends and corners.
 // currentColor supports both web CSS masks and native SvgXml rendering.
 // The compact chevron uses a 12 x 16 grid to fit the tool group affordance.
 export const TRADING_VIEW_DRAWING_ICONS = {
+  ...(Object.fromEntries(
+    Object.entries(ADDITIONAL_DRAWING_ICON_PATHS).map(([tool, path]) => [
+      tool,
+      `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="${path}"/></svg>`,
+    ]),
+  ) as Record<IAdditionalDrawingTool, string>),
+  measure:
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="m3 16 13-13 5 5L8 21zM13 6l2 2M10 9l3 3M7 12l2 2M4 15l3 3"/></svg>',
   trend:
     '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="butt" stroke-linejoin="miter"><path d="m7 17 10-10"/><path d="M3 17h4v4H3zM17 3h4v4h-4z"/></svg>',
   ray: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="butt" stroke-linejoin="miter"><path d="M3 17h4v4H3zM7 17 20 4"/><path d="M14 4h6v6"/></svg>',

@@ -1,11 +1,14 @@
-import { memo, useEffect, useMemo, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import { Button, SizableText, XStack, YStack } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
-import type { IPerpsActiveTwapOrder } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
+import {
+  type IPerpsActiveTwapOrder,
+  useHyperliquidActions,
+} from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
   useSpotPairDisplayMapAtom,
   useSpotPairDisplayNameMapAtom,
@@ -21,7 +24,10 @@ import {
   formatLocalizedNumberString,
   numberFormat,
 } from '@onekeyhq/shared/src/utils/numberUtils';
-import { getValidPriceDecimals } from '@onekeyhq/shared/src/utils/perpsUtils';
+import {
+  getValidPriceDecimals,
+  isSpotInstrument,
+} from '@onekeyhq/shared/src/utils/perpsUtils';
 import type { ITwapHistoryRecord } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
 import { PerpTestIDs } from '../../../testIDs';
@@ -95,6 +101,13 @@ const MobileTwapOpenOrdersRow = memo(
   }: IMobileTwapOpenOrdersRowProps) => {
     const intl = useIntl();
     const { twapId, state } = order;
+    const actions = useHyperliquidActions();
+    const handleSwitchInstrument = useCallback(() => {
+      void actions.current.switchTradeInstrument({
+        mode: isSpotInstrument(state.coin) ? 'spot' : 'perp',
+        coin: state.coin,
+      });
+    }, [actions, state.coin]);
     const [now, setNow] = useState(Date.now());
     const [spotDisplayMap] = useSpotPairDisplayMapAtom();
     const [spotPairDisplayNameMap] = useSpotPairDisplayNameMapAtom();
@@ -221,7 +234,14 @@ const MobileTwapOpenOrdersRow = memo(
       >
         <XStack justifyContent="space-between" width="100%" alignItems="center">
           <YStack flex={1}>
-            <SizableText size="$bodyMdMedium" numberOfLines={1}>
+            <SizableText
+              size="$bodyMdMedium"
+              numberOfLines={1}
+              alignSelf="flex-start"
+              maxWidth="100%"
+              onPress={handleSwitchInstrument}
+              cursor="pointer"
+            >
               {assetSymbol}
             </SizableText>
             <XStack gap="$2" alignItems="center">

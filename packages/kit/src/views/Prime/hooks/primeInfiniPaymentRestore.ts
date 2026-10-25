@@ -1,7 +1,11 @@
 /* cspell:ignore Infini */
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   isPrimeInfiniPaymentCacheKeyForContext,
+  isPrimeInfiniPaymentClosedUnpaidSnapshot,
+  isPrimeInfiniPaymentExplicitlyExpiredSnapshot,
+  isPrimeInfiniPaymentExplicitlyFailedSnapshot,
   isPrimeInfiniPurchaseCompletedSnapshot,
   isSamePrimeInfiniPaymentAssetIdentity,
   isSamePrimeInfiniPaymentTransferSnapshot,
@@ -57,10 +61,13 @@ export async function resolvePrimeInfiniPaymentRestore({
   fetchLatestPayment,
   fetchPurchaseStatusSnapshot,
   discardPaymentSession,
+  discardTerminalPaymentSession,
+  sessionChangedMessage,
   clearCompletedPaymentSession,
   persistRestoredSession,
 }: {
   session: IPrimeInfiniPendingPaymentSession;
+  sessionChangedMessage: string;
   supportedAssets: IPrimeInfiniPaymentAsset[];
   paymentOptionsLoaded: boolean;
   createNewPayment: boolean;
@@ -71,6 +78,9 @@ export async function resolvePrimeInfiniPaymentRestore({
   fetchPurchaseStatusSnapshot: () => Promise<IPrimeInfiniPurchaseStatusSnapshot>;
   discardPaymentSession: (
     paymentCacheKey: IPrimeInfiniPaymentCacheKey,
+  ) => Promise<boolean>;
+  discardTerminalPaymentSession: (
+    latestPayment: IPrimeInfiniPayment,
   ) => Promise<boolean>;
   clearCompletedPaymentSession: (
     paymentCacheKey: IPrimeInfiniPaymentCacheKey,
@@ -128,6 +138,24 @@ export async function resolvePrimeInfiniPaymentRestore({
     previous: session.payment,
     latest: latestPayment,
   });
+  // Only recover a fresh, explicitly failed unpaid invoice. Expiry alone
+  // cannot prove that an already broadcast transfer will not arrive later.
+  if (
+    transferSnapshotUnchanged &&
+    paymentMatchesAsset &&
+    isPrimeInfiniPaymentExplicitlyFailedSnapshot(latestPayment) &&
+    !isPrimeInfiniPaymentExplicitlyExpiredSnapshot(latestPayment) &&
+    isPrimeInfiniPaymentClosedUnpaidSnapshot(latestPayment) &&
+    isPrimeInfiniPaymentClosedUnpaidSnapshot(paymentWithDurableProgress)
+  ) {
+    if (!(await discardTerminalPaymentSession(latestPayment))) {
+      throw new OneKeyLocalError({
+        key: ETranslations.prime_close_and_try_again__desc,
+        message: sessionChangedMessage,
+      });
+    }
+    return { type: 'discarded' };
+  }
   const supportedAsset = supportedAssets.find((asset) =>
     isSamePaymentAssetMetadata(asset, session.asset),
   );

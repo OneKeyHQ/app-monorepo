@@ -3,10 +3,16 @@ import type { PropsWithChildren } from 'react';
 
 import { act, render, screen, waitFor } from '@testing-library/react';
 
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IMarketTokenChart } from '@onekeyhq/shared/types/market';
 
-import { StockSimpleChartContent } from './StockSimpleChart';
+import { StockSimpleChart, StockSimpleChartContent } from './StockSimpleChart';
 import { fetchStockSimpleChartPoints } from './stockSimpleChartData';
+
+jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
+  __esModule: true,
+  default: { isNative: false },
+}));
 
 jest.mock('react-intl', () => ({
   useIntl: () => ({ formatMessage: ({ id }: { id: string }) => id }),
@@ -48,7 +54,7 @@ jest.mock('../../hooks/useTokenDetail', () => ({
   useTokenDetail: () => ({}),
 }));
 jest.mock('../../hooks/StockDetailContext', () => ({
-  useStockDetail: () => ({}),
+  useStockDetail: () => ({ stockId: 'NATIVE-ADAPTER' }),
 }));
 jest.mock('./stockSimpleChartData', () => ({
   ...jest.requireActual<typeof import('./stockSimpleChartData')>(
@@ -86,10 +92,32 @@ function deferred<T>() {
 
 beforeEach(() => {
   mockFetchPoints.mockReset();
+  jest.replaceProperty(platformEnv, 'isNative', false);
 });
 
 afterEach(() => {
   jest.restoreAllMocks();
+});
+
+it('starts a ready native chart request before mount timers run', () => {
+  jest.useFakeTimers();
+  try {
+    jest.replaceProperty(platformEnv, 'isNative', true);
+    mockFetchPoints.mockReturnValueOnce(deferred<IMarketTokenChart>().promise);
+    const view = render(
+      <StockSimpleChartContent {...base} stockId="IMMEDIATE-MOUNT" />,
+    );
+    expect(mockFetchPoints).toHaveBeenCalledTimes(1);
+    expect(mockFetchPoints).toHaveBeenCalledWith(
+      expect.objectContaining({
+        stockId: 'IMMEDIATE-MOUNT',
+        priceMode: 'share',
+      }),
+    );
+    view.unmount();
+  } finally {
+    jest.useRealTimers();
+  }
 });
 
 it('replays a loaded series on remount while a slow refresh is pending', async () => {
@@ -263,4 +291,60 @@ it('expires replay data even when a pending request renewed the cache entry', as
   render(<StockSimpleChartContent {...base} stockId="EXPIRED-PENDING" />);
   expect(screen.queryByTestId('drawn-series')).toBeNull();
   expect(screen.getByTestId('stock-simple-chart-loading')).toBeTruthy();
+});
+
+it('keeps the native canvas mounted while first data loads and replaces the skeleton with its curve', async () => {
+  jest.replaceProperty(platformEnv, 'isNative', true);
+  const request = deferred<IMarketTokenChart>();
+  mockFetchPoints.mockReturnValueOnce(request.promise);
+  render(<StockSimpleChartContent {...base} stockId="EARLY-CANVAS" />);
+  const canvas = screen.getByTestId('drawn-series');
+  expect(canvas.textContent).toBe('[]');
+  expect(screen.getByTestId('stock-simple-chart-loading')).toBeTruthy();
+  await waitFor(() => expect(mockFetchPoints).toHaveBeenCalledTimes(1));
+  await act(async () => request.resolve(points));
+  expect(screen.queryByTestId('stock-simple-chart-loading')).toBeNull();
+  expect(screen.getByTestId('drawn-series')).toBe(canvas);
+  expect(canvas.textContent).toBe(JSON.stringify(points));
+});
+
+it('reuses the native Market adapter curve on re-entry without waiting for another request', async () => {
+  jest.replaceProperty(platformEnv, 'isNative', true);
+  mockFetchPoints.mockResolvedValueOnce(points);
+  const first = render(<StockSimpleChart range="1D" priceMode="share" />);
+  await waitFor(() =>
+    expect(screen.queryByTestId('stock-simple-chart-loading')).toBeNull(),
+  );
+  first.unmount();
+  render(<StockSimpleChart range="1D" priceMode="share" />);
+  expect(screen.queryByTestId('stock-simple-chart-loading')).toBeNull();
+  expect(screen.getByTestId('drawn-series').textContent).toBe(
+    JSON.stringify(points),
+  );
+  expect(mockFetchPoints).toHaveBeenCalledTimes(1);
+});
+
+it('replays the matching price-mode cache as soon as the mode resolves on a mounted chart', async () => {
+  mockFetchPoints.mockResolvedValueOnce(points);
+  const first = render(
+    <StockSimpleChartContent {...base} stockId="MODE-RESOLVED" />,
+  );
+  await waitFor(() => expect(screen.getByTestId('drawn-series')).toBeTruthy());
+  first.unmount();
+  mockFetchPoints.mockReturnValueOnce(deferred<IMarketTokenChart>().promise);
+  const { rerender } = render(
+    <StockSimpleChartContent
+      {...base}
+      stockId="MODE-RESOLVED"
+      priceMode="token"
+      networkId="evm--1"
+      tokenAddress="0xstock"
+    />,
+  );
+  expect(screen.getByTestId('stock-simple-chart-loading')).toBeTruthy();
+  rerender(<StockSimpleChartContent {...base} stockId="MODE-RESOLVED" />);
+  expect(screen.queryByTestId('stock-simple-chart-loading')).toBeNull();
+  expect(screen.getByTestId('drawn-series').textContent).toBe(
+    JSON.stringify(points),
+  );
 });

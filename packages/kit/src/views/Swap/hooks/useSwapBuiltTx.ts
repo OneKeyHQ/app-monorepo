@@ -52,11 +52,7 @@ import { createLazySdkLoader } from '@onekeyhq/shared/src/utils/lazySdkLoader';
 import { applyCustomPriorityFeeToGasInfo } from '@onekeyhq/shared/src/utils/marketPresetFeeUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
-import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
-import {
-  numberFormat,
-  toBigIntHex,
-} from '@onekeyhq/shared/src/utils/numberUtils';
+import { toBigIntHex } from '@onekeyhq/shared/src/utils/numberUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import type {
   IEstimateFeeParams,
@@ -154,6 +150,7 @@ import {
   getSwapRequiredNativeBalanceAmount,
   validateSwapBtcOutputs,
 } from '../utils/swapBalanceUtils';
+import { getSwapBalanceInsufficientMessage } from '../utils/swapErrorUtils';
 import {
   applyEvmThorSwapGasLimit,
   canReuseSwapReviewGasInfo,
@@ -201,10 +198,6 @@ import {
 import { useSwapTxHistoryActions } from './useSwapTxHistory';
 
 const getEthers = createLazySdkLoader(() => import('ethers'));
-
-const formatter: INumberFormatProps = {
-  formatter: 'balance',
-};
 
 type ISwapGasFeeInfo = {
   encodeTx: IEncodedTx;
@@ -754,31 +747,12 @@ export function useSwapBuildTx({
       tokenSymbol: string;
       reserveAmount?: string;
     }) => {
-      const isBtcNetwork = networkUtils.isBTCNetwork(networkId);
-      return {
-        title: isBtcNetwork
-          ? intl.formatMessage({
-              id: ETranslations.send_toast_btc_fork_insufficient_fund,
-            })
-          : intl.formatMessage(
-              {
-                id: ETranslations.swap_page_toast_insufficient_balance_title,
-              },
-              { token: tokenSymbol },
-            ),
-        message:
-          !isBtcNetwork && reserveAmount
-            ? intl.formatMessage(
-                {
-                  id: ETranslations.swap_page_toast_insufficient_balance_content,
-                },
-                {
-                  token: tokenSymbol,
-                  number: numberFormat(reserveAmount, formatter),
-                },
-              )
-            : undefined,
-      };
+      return getSwapBalanceInsufficientMessage({
+        intl,
+        networkId,
+        tokenSymbol,
+        reserveAmount,
+      });
     },
     [intl],
   );

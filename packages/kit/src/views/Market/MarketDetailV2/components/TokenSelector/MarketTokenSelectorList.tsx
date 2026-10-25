@@ -203,15 +203,17 @@ const WatchlistTokenSelectorList = memo(
       dataCacheRef,
     });
 
-    const groups = useWatchlistFilteredGroups(data, { hidePerps: true });
+    const groups = useWatchlistFilteredGroups(data);
     const filteredData = groups[watchlistFilter];
 
+    // The recommendations are spot tokens, so only the crypto views fall back
+    // to them; Stocks and Perps read as an empty list.
     if (
       isMounted &&
       !isLoading &&
       !isError &&
       groups.all.length === 0 &&
-      watchlistFilter !== 'stocks'
+      (watchlistFilter === 'all' || watchlistFilter === 'spot')
     ) {
       return <SelectorWatchlistRecommendations />;
     }

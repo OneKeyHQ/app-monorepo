@@ -1,5 +1,14 @@
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
+import { getDefaultDrawingLevels } from '../../drawings/fibonacci';
+import {
+  getDrawingLabelBackground,
+  getDrawingLabelLayout,
+} from '../../drawings/labelLayout';
+import {
+  formatDrawingDuration,
+  getDrawingMeasurement,
+} from '../../drawings/measurement';
 import { getTradingViewNativeChartLayout } from '../../utils/chartLayout';
 import { createTradingViewNativeChartRuntimeState } from '../../utils/chartRuntime';
 
@@ -92,9 +101,14 @@ describe('web chart drawings', () => {
       };
       const { labels } = getDrawingGeometry(item, chart);
       expect(labels[0].fontSize).toBe(40);
+      const layout = getDrawingLabelLayout(labels[0], chart);
+      expect(layout.lineHeight).toBe(44);
       if (tool !== 'priceLabel')
-        expect(labels[1].y - labels[0].y).toBeCloseTo(44);
-      const point = { x: labels[0].x + 60, y: labels[0].y - 30 };
+        expect(layout.lines).toEqual(['ASTER', 'support']);
+      const point = {
+        x: labels[0].x + 60,
+        y: labels[0].y + (tool === 'priceLabel' ? -38 : 30),
+      };
       expect(hitTestDrawings([item], point, chart, null)?.drawing.id).toBe(
         item.id,
       );
@@ -110,8 +124,16 @@ describe('web chart drawings', () => {
       const item = drawing(tool, chart);
       if (DRAWING_TOOLS[tool].points === 1)
         item.points = item.points.slice(0, 1);
-      if (DRAWING_TOOLS[tool].points === 3)
-        item.points.push(screenToDrawingPoint({ x: 360, y: 280 }, chart));
+      while (item.points.length < DRAWING_TOOLS[tool].points)
+        item.points.push(
+          screenToDrawingPoint(
+            {
+              x: 300 + item.points.length * 30,
+              y: item.points.length % 2 ? 100 : 280,
+            },
+            chart,
+          ),
+        );
       const geometry = getDrawingGeometry(item, chart);
       expect(geometry.paths.length + geometry.labels.length).toBeGreaterThan(0);
       expect(
@@ -136,6 +158,176 @@ describe('web chart drawings', () => {
     expect(
       parseDrawings(JSON.stringify([{ ...hidden, hidden: 'true' }])),
     ).toEqual([]);
+  });
+  it('renders a falling ruler with directional arrows and three lines of statistics', () => {
+    const chart = { ...projection(), priceDecimalPlaces: 2 };
+    const ruler: IDrawing = {
+      ...drawing('measure', chart),
+      points: [
+        { time: points[5].t, price: 110 },
+        { time: points[15].t, price: 100 },
+      ],
+    };
+    const stats = getDrawingMeasurement(ruler, chart);
+    expect(stats).toMatchObject({
+      delta: -10,
+      bars: 10,
+      volume: 110,
+      priceText: '−10.00 (−9.09%) −1,000',
+      timeText: '10 bars, 10m',
+      volumeText: 'Vol 110',
+    });
+    const geometry = getDrawingGeometry(ruler, chart);
+    expect(geometry.handles).toEqual([]);
+    expect(geometry.paths[0]).toMatchObject({
+      color: '#F7525F',
+      fill: true,
+      stroke: false,
+    });
+    expect(
+      geometry.paths.filter((path) => path.points.length === 3),
+    ).toHaveLength(2);
+    expect(geometry.labels[0]).toMatchObject({
+      text: `${stats.priceText}\n${stats.timeText}\n${stats.volumeText}`,
+      background: '#F7525F',
+      color: '#FFFFFF',
+      verticalAlign: 'top',
+      radius: 4,
+    });
+    const upward = getDrawingGeometry(
+      { ...ruler, points: [...ruler.points].toReversed() },
+      chart,
+    );
+    expect(upward.labels[0]).toMatchObject({
+      background: '#2962FF',
+      verticalAlign: 'bottom',
+    });
+  });
+  it('counts actual bars across missing candles and excludes unavailable volume in future space', () => {
+    const chart = projection();
+    chart.points = [
+      points[0],
+      { ...points[1], v: Number.NaN },
+      { ...points[2], t: points[0].t + 3600, v: 30 },
+    ];
+    const range = {
+      ...drawing('dateRange'),
+      points: [
+        { time: chart.points[0].t, price: 100 },
+        { time: chart.points[2].t, price: 110 },
+      ],
+    };
+    expect(getDrawingMeasurement(range, chart)).toMatchObject({
+      bars: 2,
+      volume: 40,
+      timeText: '2 bars, 1h',
+    });
+    range.points[1].time += 120;
+    expect(getDrawingMeasurement(range, chart)).toMatchObject({
+      bars: 4,
+      volume: 40,
+      timeText: '4 bars, 1h 2m',
+    });
+    expect(formatDrawingDuration(102_600)).toBe('1d 4h 30m');
+    expect(formatDrawingDuration(-3660)).toBe('−1h 1m');
+  });
+  it('renders Fibonacci bands and configurable ratios, prices and extensions', () => {
+    const chart = projection();
+    const fib = drawing('fib', chart);
+    const geometry = getDrawingGeometry(fib, chart);
+    expect(geometry.paths.filter((path) => path.fill)).toHaveLength(10);
+    expect(geometry.labels.map((label) => label.text.split(' ')[0])).toEqual([
+      '0',
+      '0.236',
+      '0.382',
+      '0.5',
+      '0.618',
+      '0.786',
+      '1',
+      '1.618',
+      '2.618',
+      '3.618',
+      '4.236',
+    ]);
+    const configured = getDrawingGeometry(
+      {
+        ...fib,
+        levels: [
+          { value: 0.5, color: '#112233', visible: true },
+          { value: 1, color: '#445566', visible: false },
+        ],
+        showPrices: false,
+        showBackground: false,
+        extendLeft: true,
+        extendRight: true,
+      },
+      chart,
+    );
+    expect(configured.labels).toHaveLength(1);
+    expect(configured.labels[0]).toMatchObject({
+      text: '0.5',
+      color: '#112233',
+    });
+    expect(configured.paths[0].points).toEqual([
+      { x: 0, y: expect.any(Number) },
+      { x: chart.layout.priceAxisX, y: expect.any(Number) },
+    ]);
+    expect(configured.paths.some((path) => path.fill)).toBe(false);
+    const reversed = getDrawingGeometry({ ...fib, reverse: true }, chart);
+    expect(reversed.labels[0].y).toBeCloseTo(geometry.labels[6].y);
+  });
+  it('keeps custom Fibonacci styles on reload and rejects malformed settings', () => {
+    const fib = {
+      ...drawing('fib'),
+      fillOpacity: 0.3,
+      showPrices: false,
+      extendRight: true,
+      levels: getDefaultDrawingLevels('fib'),
+    };
+    expect(parseDrawings(JSON.stringify([fib]))).toEqual([fib]);
+    for (const patch of [
+      { fillOpacity: 2 },
+      { showPrices: 'false' },
+      { levels: [{ value: '1', color: '#112233', visible: true }] },
+      { levels: [{ value: 1, color: 'invalid', visible: true }] },
+    ])
+      expect(parseDrawings(JSON.stringify([{ ...fib, ...patch }]))).toEqual([]);
+  });
+  it('connects callout and price-label bubbles to their anchors with a filled pointer', () => {
+    const chart = projection();
+    for (const tool of ['callout', 'priceLabel'] as const) {
+      const item = drawing(tool, chart);
+      const geometry = getDrawingGeometry(item, chart);
+      expect(geometry.paths).toEqual([]);
+      const label = geometry.labels[0];
+      expect(label).toMatchObject({
+        color: '#FFFFFF',
+        background: item.color,
+        pointer: drawingPointToScreen(item.points[0], chart),
+      });
+      expect(
+        getDrawingLabelBackground(label, getDrawingLabelLayout(label, chart)),
+      ).toContainEqual(label.pointer);
+    }
+  });
+  it.each([
+    'rectangle',
+    'ellipse',
+    'priceRange',
+    'dateRange',
+    'datePriceRange',
+  ] as const)('resizes all four %s corners', (tool) => {
+    const chart = projection();
+    const item = drawing(tool, chart);
+    for (let handle = 0; handle < 4; handle += 1) {
+      const before = getDrawingGeometry(item, chart).handles;
+      const moved = getDrawingGeometry(
+        moveDrawing(item, { x: 20, y: 10 }, chart, handle, false),
+        chart,
+      ).handles;
+      expect(moved[handle].x - before[handle].x).toBeCloseTo(20);
+      expect(moved[handle].y - before[handle].y).toBeCloseTo(10);
+    }
   });
   it('resizes a freehand stroke from four bounding handles without exposing its sampled points', () => {
     const chart = projection();

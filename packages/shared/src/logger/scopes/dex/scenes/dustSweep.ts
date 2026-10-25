@@ -18,7 +18,7 @@ export class DustSweepScene extends BaseScene {
   }
 
   @LogToServer()
-  dustSweepAddHidden(params: { hiddenCount: number }) {
+  dustSweepAddHidden(params: { hiddenCount: number; hiddenTotalUsd: number }) {
     return params;
   }
 
@@ -26,6 +26,7 @@ export class DustSweepScene extends BaseScene {
   dustSweepStart(params: {
     network: string;
     tokenCount: number;
+    totalUsd: number;
     slippage: number;
   }) {
     return params;
@@ -35,6 +36,7 @@ export class DustSweepScene extends BaseScene {
   dustSweepItemResult(params: {
     network: string;
     tokenSymbol: string;
+    tokenValueUsd: number;
     status: 'success' | 'skipped' | 'failed';
     reason: IDustSweepReason | '';
   }) {
@@ -49,6 +51,8 @@ export class DustSweepScene extends BaseScene {
     skippedCount: number;
     failedCount: number;
     receiptAvailable: boolean;
+    receivedAmount: number | null;
+    receivedUsd: number | null;
     durationSec: number;
     endReason: 'completed' | 'stopped' | 'left';
   }) {

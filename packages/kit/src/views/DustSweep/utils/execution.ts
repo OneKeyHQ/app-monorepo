@@ -6,7 +6,6 @@ import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { buildMarketExecutionPayload } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/hooks/marketBuildExecutionUtils';
 import {
-  MarketDirectFeeOverflowError,
   estimateMarketApproveGasInfos,
   estimateMarketDirectGasInfos,
   prepareMarketDirectUnsignedTx,
@@ -16,8 +15,10 @@ import type { IMarketGasInfoEntry } from '@onekeyhq/kit/src/views/Market/MarketD
 import { completeBroadcastedSwapSuccess } from '@onekeyhq/kit/src/views/Swap/hooks/swapBroadcastSuccess';
 import {
   checkSwapLatestBalanceSufficient,
+  getSwapQuoteBalanceRequirements,
   getSwapRequiredNativeBalanceAmount,
 } from '@onekeyhq/kit/src/views/Swap/utils/swapBalanceUtils';
+import { getSwapBalanceInsufficientError } from '@onekeyhq/kit/src/views/Swap/utils/swapErrorUtils';
 import type {
   IApproveInfo,
   IWrappedInfo,
@@ -44,17 +45,19 @@ import {
 import type {
   IFetchBuildTxResponse,
   IFetchQuoteResult,
-  IFetchSwapTxHistoryStatusResponse,
+  ISwapErrorMessage,
   ISwapToken,
   ISwapTxInfo,
 } from '@onekeyhq/shared/types/swap/types';
 
+import { DustSweepError } from './DustSweepError';
 import { DustSweepPaused } from './DustSweepPaused';
 import { DustSweepRetryableError } from './DustSweepRetryableError';
 import { DustSweepUserCanceled } from './DustSweepUserCanceled';
 import {
   DustSweepSkip,
   fetchDustSweepQuote,
+  getDustSweepQuoteError,
   getDustSweepQuoteRisk,
 } from './quote';
 
@@ -70,7 +73,11 @@ type IExecutionOptions = {
   onPrepared: () => void;
   onApprovalBroadcast?: (txIds: string[]) => void;
   onBroadcast: (txId: string) => void;
-  onSubmissionError?: (message: string) => void;
+  onSubmissionError?: (
+    message?: string,
+    localError?: ISwapErrorMessage,
+    context?: { txId?: string; approvalTxIds?: string[] },
+  ) => void;
   pendingApprovalTxIds?: string[];
   shouldContinue?: () => boolean;
   generateSwapHistoryItem: Parameters<
@@ -79,20 +86,12 @@ type IExecutionOptions = {
 };
 
 export class DustSweepUnknownSubmission extends OneKeyLocalError {
-  constructor(readonly submissionErrorMessage?: string) {
+  constructor(
+    readonly submissionErrorMessage?: string,
+    readonly localError?: ISwapErrorMessage,
+  ) {
     super();
   }
-}
-
-function getSubmissionErrorMessage(error: unknown) {
-  if (!error || typeof error !== 'object') return undefined;
-  const candidate = error as { className?: unknown; message?: unknown };
-  // API messages are already translated for display. Internal signing and
-  // transport diagnostics must not be exposed as user-facing copy.
-  return candidate.className === EOneKeyErrorClassNames.OneKeyServerApiError &&
-    typeof candidate.message === 'string'
-    ? candidate.message.trim() || undefined
-    : undefined;
 }
 
 function isUserCancellationError(error: unknown) {
@@ -118,28 +117,6 @@ function isUserCancellationError(error: unknown) {
     ThirdPartyHardwareErrorCode.UserRejected,
     ThirdPartyHardwareErrorCode.UserAborted,
   ].some((code) => code === candidate.code);
-}
-
-function getSubmissionError(error: unknown, signing: boolean) {
-  if (error instanceof DustSweepUnknownSubmission) return error;
-  if (isUserCancellationError(error)) {
-    return new DustSweepUserCanceled();
-  }
-  return signing
-    ? new DustSweepUnknownSubmission(getSubmissionErrorMessage(error))
-    : error;
-}
-
-function isSolanaSlippageRejection(error: unknown, networkId: string) {
-  if (!networkUtils.isSolanaNetworkByNetworkId(networkId)) return false;
-  if (!error || typeof error !== 'object') return false;
-  const candidate = error as { className?: unknown; code?: unknown };
-  // Solana preflight rejects slippage violations with this API code. A
-  // transport error or an EVM nonce rejection does not establish this outcome.
-  return (
-    candidate.className === EOneKeyErrorClassNames.OneKeyServerApiError &&
-    candidate.code === 40_036
-  );
 }
 
 function assertActive(signal: AbortSignal) {
@@ -170,7 +147,15 @@ async function checkBalance(
   token: ISwapToken,
   amount: string,
   options: IExecutionOptions,
-  insufficientGas = false,
+  {
+    insufficientGas = false,
+    reserveAmount,
+    sourceAmount,
+  }: {
+    insufficientGas?: boolean;
+    reserveAmount?: string;
+    sourceAmount?: string;
+  } = {},
 ) {
   assertActive(options.signal);
   const balance = await checkSwapLatestBalanceSufficient({
@@ -178,18 +163,31 @@ async function checkBalance(
     amount,
     accountId: options.snapshot.accountId,
     accountAddress: options.snapshot.address,
+    throwOnError: true,
   });
   assertActive(options.signal);
-  if (balance.balance === undefined) throw new DustSweepSkip('unknown');
-  if (!balance.isSufficient)
-    throw new DustSweepSkip(insufficientGas ? 'insufficientGas' : 'unknown');
+  if (!balance.isSufficient) {
+    const sourceAmountIsInsufficient =
+      sourceAmount !== undefined &&
+      new BigNumber(balance.balance).lt(sourceAmount);
+    const localError = getSwapBalanceInsufficientError({
+      networkId: token.networkId,
+      tokenSymbol: balance.tokenSymbol ?? token.symbol,
+      reserveAmount: sourceAmountIsInsufficient ? undefined : reserveAmount,
+    });
+    throw new DustSweepSkip(
+      insufficientGas ? 'insufficientGas' : 'insufficientBalance',
+      {
+        localError,
+      },
+    );
+  }
 }
 
 async function checkInputAndOtherFeeBalances(
   quote: IFetchQuoteResult,
   options: IExecutionOptions,
 ) {
-  let requiredInputAmount = options.token.amount;
   for (const fee of quote.fee?.otherFeeInfos ?? []) {
     const amount = new BigNumber(fee.amount ?? '');
     if (!amount.isFinite() || amount.isNegative())
@@ -203,11 +201,18 @@ async function checkInputAndOtherFeeBalances(
         })
       )
         throw new DustSweepSkip('unknown');
-      requiredInputAmount = amount.plus(requiredInputAmount).toFixed();
     }
   }
-  await checkBalance(options.token, requiredInputAmount, options);
-  return requiredInputAmount;
+  const requirement = getSwapQuoteBalanceRequirements({
+    fromToken: options.token,
+    fromAmount: options.token.amount,
+    otherFeeInfos: quote.fee?.otherFeeInfos,
+  })[0];
+  await checkBalance(options.token, requirement.amount, options, {
+    reserveAmount: requirement.reserveAmount,
+    sourceAmount: options.token.amount,
+  });
+  return requirement.amount;
 }
 
 async function checkNativeGasBalance(
@@ -228,7 +233,12 @@ async function checkNativeGasBalance(
       .toFixed(),
   });
   if (requirement) {
-    await checkBalance(requirement.token, requirement.amount, options, true);
+    await checkBalance(requirement.token, requirement.amount, options, {
+      insufficientGas: true,
+      reserveAmount: requirement.includesFromAmount
+        ? undefined
+        : requirement.reserveAmount,
+    });
   }
 }
 
@@ -306,53 +316,6 @@ async function waitForDustSweepRead<T>(
   }
 }
 
-async function confirmRecoveredBroadcast({
-  fetchState,
-  signal,
-  message,
-}: {
-  fetchState: () => Promise<IFetchSwapTxHistoryStatusResponse>;
-  signal: AbortSignal;
-  message?: string;
-}) {
-  if (signal.aborted) throw new DustSweepUnknownSubmission(message);
-  const observation = new AbortController();
-  const abort = () => observation.abort();
-  signal.addEventListener('abort', abort, { once: true });
-  // A local signature is not a broadcast acknowledgement. Bound this read-only
-  // observation, including hung requests, then block rather than permit a resend.
-  const timeout = setTimeout(abort, 60_000);
-  try {
-    while (!observation.signal.aborted) {
-      try {
-        const result = await waitForDustSweepRead(
-          fetchState,
-          observation.signal,
-        );
-        assertActive(observation.signal);
-        const block = result.blockNumber;
-        // A bare FAILED can also mean "not found" or invalid provider context.
-        // Failed receipts need a block to establish that this exact hash exists.
-        if (
-          result.state === ESwapTxHistoryStatus.SUCCESS ||
-          (result.state === ESwapTxHistoryStatus.FAILED &&
-            typeof block === 'number' &&
-            Number.isSafeInteger(block) &&
-            block > 0)
-        )
-          return result;
-      } catch {
-        // Read errors do not establish whether the signed transaction was accepted.
-      }
-      await waitDustSweepPoll(observation.signal);
-    }
-    throw new DustSweepUnknownSubmission(message);
-  } finally {
-    clearTimeout(timeout);
-    signal.removeEventListener('abort', abort);
-  }
-}
-
 async function waitForBroadcastedApprovals({
   approvalTxIds,
   snapshot,
@@ -364,30 +327,26 @@ async function waitForBroadcastedApprovals({
 }) {
   for (const txId of approvalTxIds) {
     while (!signal.aborted) {
-      try {
-        const result = await waitForDustSweepRead(
-          () =>
-            backgroundApiProxy.serviceSwap.fetchTxState({
-              txId,
-              networkId: snapshot.networkId,
-            }),
-          signal,
-        );
-        if (result.state === ESwapTxHistoryStatus.SUCCESS) break;
-        if (
-          [
-            ESwapTxHistoryStatus.FAILED,
-            ESwapTxHistoryStatus.CANCELED,
-            ESwapTxHistoryStatus.EXPIRED,
-            ESwapTxHistoryStatus.REFUNDED,
-          ].includes(result.state)
-        )
-          throw new DustSweepSkip('txFailed');
-      } catch (error) {
-        if (error instanceof DustSweepSkip) throw error;
-        // Keep polling after a temporary status/transport failure. The tx was
-        // already broadcast, so a failed read must never authorize a resend.
-      }
+      const result = await waitForDustSweepRead(
+        () =>
+          backgroundApiProxy.serviceSwap.fetchTxState({
+            txId,
+            networkId: snapshot.networkId,
+          }),
+        signal,
+      );
+      if (result.state === ESwapTxHistoryStatus.SUCCESS) break;
+      if (
+        [
+          ESwapTxHistoryStatus.FAILED,
+          ESwapTxHistoryStatus.CANCELED,
+          ESwapTxHistoryStatus.EXPIRED,
+          ESwapTxHistoryStatus.REFUNDED,
+        ].includes(result.state)
+      )
+        throw new DustSweepSkip('txFailed', {
+          providerErrorMessage: result.stateDetail,
+        });
       await waitDustSweepPoll(signal);
     }
     assertActive(signal);
@@ -425,7 +384,7 @@ async function prepareDustSweepItem(
   assertCanSubmit(options);
   if (quote.isWrapped) {
     const risk = getDustSweepQuoteRisk(quote, token, snapshot);
-    if (risk) throw new DustSweepSkip(risk);
+    if (risk) throw getDustSweepQuoteError(risk, quote, token, snapshot);
     await checkInputAndOtherFeeBalances(quote, options);
     assertCanSubmit(options);
     const buildRes: IFetchBuildTxResponse = {
@@ -492,10 +451,14 @@ async function prepareDustSweepItem(
   if (!buildRes) throw new DustSweepSkip('noQuote');
   const risk = getDustSweepQuoteRisk(buildRes.result, token, snapshot);
   if (risk || buildRes.result.info.provider !== quote.info.provider)
-    throw new DustSweepSkip(
-      risk ?? 'unknown',
-      buildRes.result.quoteShowTip?.detail,
-    );
+    throw buildRes.result.info.provider === quote.info.provider
+      ? getDustSweepQuoteError(
+          risk ?? 'unknown',
+          buildRes.result,
+          token,
+          snapshot,
+        )
+      : new DustSweepSkip(risk ?? 'unknown');
   const requiredInputAmount = await checkInputAndOtherFeeBalances(
     buildRes.result,
     options,
@@ -685,10 +648,13 @@ async function estimateApprovalBudget(
   return gasInfos;
 }
 
-export async function executeDustSweepItem(
-  options: IExecutionOptions,
-): Promise<
-  | { status: 'success'; receivedAmount?: string; receiptUnavailable: boolean }
+export async function executeDustSweepItem(options: IExecutionOptions): Promise<
+  | {
+      status: 'success';
+      receivedAmount?: string;
+      receivedAmountEstimated?: boolean;
+      receiptUnavailable: boolean;
+    }
   | { status: 'failed'; message?: string }
 > {
   const {
@@ -720,7 +686,6 @@ export async function executeDustSweepItem(
       .catch(() => undefined);
     onBroadcast(id);
   };
-  let confirmedRecovery: IFetchSwapTxHistoryStatusResponse | undefined;
   const fetchSwapState = (id: string) =>
     backgroundApiProxy.serviceSwap.fetchTxState({
       txId: id,
@@ -781,26 +746,17 @@ export async function executeDustSweepItem(
         onBroadcast: (signed) => retainApproval(signed.txid),
       });
     } catch (error) {
-      // An approval hash must never be interpreted as the swap hash. A failed
-      // response can follow a successful broadcast; track that exact signature.
       const context = getBroadcastTxContext(error, snapshot.networkId);
-      if (approvalTxId || !context) throw error;
-      const message = getSubmissionErrorMessage(error);
-      if (message) options.onSubmissionError?.(message);
-      const result = await confirmRecoveredBroadcast({
-        fetchState: () =>
-          backgroundApiProxy.serviceSwap.fetchTxState({
-            txId: context.txId,
-            networkId: snapshot.networkId,
-          }),
-        signal,
-        message,
-      });
-      retainApproval(context.txId);
-      if (result.state !== ESwapTxHistoryStatus.SUCCESS)
-        throw new DustSweepSkip('txFailed');
-      assertCanSubmit(options);
-      return;
+      if (!approvalTxId && context) {
+        const failure = DustSweepError.from(error);
+        // Retain the signed identity for inspection without acknowledging a broadcast.
+        options.onSubmissionError?.(
+          failure.providerErrorMessage,
+          failure.localError,
+          { approvalTxIds: [...broadcastedApprovalTxIds, context.txId] },
+        );
+      }
+      throw error;
     }
     if (!approvalTxId) throw new DustSweepUnknownSubmission();
     await waitForBroadcastedApprovals({
@@ -866,78 +822,84 @@ export async function executeDustSweepItem(
       });
     } catch (error) {
       const context = getBroadcastTxContext(error, snapshot.networkId);
-      if (txId || !context) throw error;
-      const message = getSubmissionErrorMessage(error);
-      if (message) options.onSubmissionError?.(message);
-      confirmedRecovery = await confirmRecoveredBroadcast({
-        fetchState: () => fetchSwapState(context.txId),
-        signal,
-        message,
-      });
-      retainSwapBroadcast(context.txId);
+      if (!txId && context) {
+        const failure = DustSweepError.from(error);
+        options.onSubmissionError?.(
+          failure.providerErrorMessage,
+          failure.localError,
+          { txId: context.txId },
+        );
+      }
+      const historyTxId = txId ?? context?.txId;
+      if (historyTxId)
+        await completeBroadcastedSwapSuccess({
+          txId: historyTxId,
+          swapInfo: execution.swapInfo,
+          generateSwapHistoryItem,
+        });
+      throw error;
     }
   } catch (error) {
-    if (!txId) {
-      if (signing && isSolanaSlippageRejection(error, snapshot.networkId))
-        return { status: 'failed', message: getSubmissionErrorMessage(error) };
-      if (error instanceof MarketDirectFeeOverflowError)
-        throw new DustSweepSkip('unknown');
-      if (error instanceof DustSweepPaused && !signing) throw error;
-      const submissionError = getSubmissionError(error, signing);
-      if (submissionError instanceof DustSweepUserCanceled)
-        options.onPrepared();
-      if (
-        !signing &&
-        broadcastedApprovalTxIds.length &&
-        !(submissionError instanceof DustSweepUserCanceled) &&
-        !(submissionError instanceof DustSweepSkip)
-      )
-        throw new DustSweepRetryableError(
-          error instanceof Error ? error.message : undefined,
-        );
-      throw submissionError;
+    if (!txId && error instanceof DustSweepPaused) {
+      if (signing) options.onPrepared();
+      throw error;
     }
+    if (
+      !txId &&
+      (error instanceof DustSweepUserCanceled || isUserCancellationError(error))
+    ) {
+      options.onPrepared();
+      throw error instanceof DustSweepUserCanceled
+        ? error
+        : new DustSweepUserCanceled();
+    }
+    // Request failures belong to this token's existing session error collector.
+    throw error;
   }
   if (!txId) throw new DustSweepUnknownSubmission();
-  const { execution } = prepared;
+  const { execution, buildRes } = prepared;
   await completeBroadcastedSwapSuccess({
     txId,
     swapInfo: execution.swapInfo,
     generateSwapHistoryItem,
   });
   const broadcastTxId = txId;
-  // Pending and transport errors remain pending; no timeout ever authorizes a resend.
+  // Only a pending response keeps polling; request failures end this token's attempt.
   while (!signal.aborted) {
-    try {
-      const result =
-        confirmedRecovery ??
-        (await waitForDustSweepRead(
-          () => fetchSwapState(broadcastTxId),
-          signal,
-        ));
-      confirmedRecovery = undefined;
-      if (result.state === ESwapTxHistoryStatus.SUCCESS) {
-        const received = new BigNumber(result.dealReceiveAmount ?? '');
-        const receiptUnavailable =
-          !received.isFinite() || received.isNegative();
-        return {
-          status: 'success',
-          receivedAmount: receiptUnavailable ? undefined : received.toFixed(),
-          receiptUnavailable,
-        };
-      }
-      if (
-        [
-          ESwapTxHistoryStatus.FAILED,
-          ESwapTxHistoryStatus.REFUNDED,
-          ESwapTxHistoryStatus.CANCELED,
-          ESwapTxHistoryStatus.EXPIRED,
-        ].includes(result.state)
-      )
-        return { status: 'failed', message: result.stateDetail };
-    } catch {
-      /* Retain the broadcast identity while status is unavailable. */
+    const result = await waitForDustSweepRead(
+      () => fetchSwapState(broadcastTxId),
+      signal,
+    );
+    if (result.state === ESwapTxHistoryStatus.SUCCESS) {
+      const actual = new BigNumber(result.dealReceiveAmount ?? '');
+      const hasActual = actual.isFinite() && !actual.isNegative();
+      // Discount the final post-approval build estimate by 5%.
+      // Unwrap only has a synthetic quote, so it still requires a receipt.
+      const estimate = new BigNumber(
+        execution.wrappedInfo ? '' : (buildRes.result.toAmount ?? ''),
+      );
+      let received: BigNumber | undefined;
+      if (hasActual) received = actual;
+      else if (estimate.isFinite() && !estimate.isNegative())
+        received = estimate
+          .times('0.95')
+          .decimalPlaces(snapshot.nativeToken.decimals, BigNumber.ROUND_DOWN);
+      return {
+        status: 'success',
+        receivedAmount: received?.toFixed(),
+        receiptUnavailable: !received,
+        ...(!hasActual && received ? { receivedAmountEstimated: true } : {}),
+      };
     }
+    if (
+      [
+        ESwapTxHistoryStatus.FAILED,
+        ESwapTxHistoryStatus.REFUNDED,
+        ESwapTxHistoryStatus.CANCELED,
+        ESwapTxHistoryStatus.EXPIRED,
+      ].includes(result.state)
+    )
+      return { status: 'failed', message: result.stateDetail };
     await waitDustSweepPoll(signal);
   }
   throw new OneKeyLocalError('Dust Sweep cancelled');

@@ -26,6 +26,53 @@ function createAllNetworkAccountInfo(
 }
 
 describe('buildSwapTokenFetchParams', () => {
+  it('preserves the selected chain lookup when contract search expands to all networks', () => {
+    expect(
+      buildSwapTokenFetchParams({
+        currentSelectNetworkId: 'evm--56',
+        searchNetworkId: 'onekeyall--0',
+        keywords: '0x55d398326f99059ff775485246999027b3197955',
+        swapType: ESwapTabSwitchType.SWAP,
+        shouldUseCurrentAccountAddress: false,
+      }),
+    ).toMatchObject({
+      networkId: 'onekeyall--0',
+      contractSearchNetworkId: 'evm--56',
+      onlySwapTokens: true,
+    });
+  });
+
+  it.each([
+    {
+      selectedNetworkId: 'onekeyall--0',
+      keywords: '0x55d398326f99059ff775485246999027b3197955',
+      swapType: ESwapTabSwitchType.SWAP,
+    },
+    {
+      selectedNetworkId: 'evm--56',
+      keywords: 'USDT',
+      swapType: ESwapTabSwitchType.SWAP,
+    },
+    {
+      selectedNetworkId: 'evm--56',
+      keywords: '0x55d398326f99059ff775485246999027b3197955',
+      swapType: ESwapTabSwitchType.STOCK,
+    },
+  ])(
+    'does not add a chain lookup for $selectedNetworkId / $keywords / $swapType',
+    ({ selectedNetworkId, keywords, swapType }) => {
+      expect(
+        buildSwapTokenFetchParams({
+          currentSelectNetworkId: selectedNetworkId,
+          searchNetworkId: 'onekeyall--0',
+          keywords,
+          swapType,
+          shouldUseCurrentAccountAddress: false,
+        }),
+      ).not.toHaveProperty('contractSearchNetworkId');
+    },
+  );
+
   it('keeps matched account params for Stock token lists', () => {
     expect(
       buildSwapTokenFetchParams({

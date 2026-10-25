@@ -273,7 +273,8 @@ export function useSwapTokenList(
     });
     return buildSwapTokenFetchParams({
       currentNetworkId,
-      currentSelectNetworkId: searchNetworkId,
+      currentSelectNetworkId: currentSelectNetwork?.networkId,
+      searchNetworkId,
       keywords,
       swapType: from,
       lpToken,
@@ -286,6 +287,7 @@ export function useSwapTokenList(
     });
   }, [
     currentNetworkId,
+    currentSelectNetwork?.networkId,
     from,
     swapAddressInfo.networkId,
     swapAddressInfo?.address,

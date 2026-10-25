@@ -6833,11 +6833,25 @@ describe('useSwapActions', () => {
     });
   });
 
-  it('removes non-stock tokens from the Stock owner on forced refresh', async () => {
+  it('keeps tiny Stock holdings and removes non-stock tokens on forced refresh', async () => {
     const swapOwnerKey = 'indexed-account__evm--1,evm--56__usd';
     const stockOwnerKey = 'indexed-account__evm--56__usd__stock';
-    const stockPositionToken = { ...stockTokenA, fiatValue: '10' };
-    const stablePositionToken = { ...usdcToken, fiatValue: '5' };
+    const stockPositionToken = {
+      ...stockTokenA,
+      balanceParsed: '0.00000001',
+      fiatValue: '0',
+    };
+    const stablePositionToken = {
+      ...usdcToken,
+      balanceParsed: '5',
+      fiatValue: '5',
+    };
+    const zeroPositionToken = {
+      ...stockTokenA,
+      contractAddress: '0xzero',
+      balanceParsed: '0',
+      fiatValue: '10',
+    };
     mockGetSupportSwapAllAccounts.mockResolvedValue({
       supportAccountsFetchFailed: false,
       swapSupportAccounts: [
@@ -6857,7 +6871,7 @@ describe('useSwapActions', () => {
       const { networkId } = params as { networkId: string };
       return networkId === 'evm--1'
         ? [ethToken]
-        : [stockPositionToken, stablePositionToken];
+        : [stockPositionToken, stablePositionToken, zeroPositionToken];
     });
     const stock = {} as NonNullable<ISwapToken['stock']>;
     mockFetchMarketTokenListBatch.mockResolvedValue({
@@ -6897,6 +6911,16 @@ describe('useSwapActions', () => {
 
     expect(mockFetchSwapTokens).toHaveBeenCalledTimes(2);
     expect(mockFetchMarketTokenListBatch).toHaveBeenCalledTimes(1);
+    expect(mockFetchMarketTokenListBatch).toHaveBeenCalledWith({
+      requestLocale: 'en-US',
+      tokenAddressList: [stockPositionToken, stablePositionToken].map(
+        (token) => ({
+          contractAddress: token.contractAddress,
+          chainId: token.networkId,
+          isNative: false,
+        }),
+      ),
+    });
     expect(
       store.get(swapProPositionsRuntimeDataAtom())[swapOwnerKey],
     ).toMatchObject({

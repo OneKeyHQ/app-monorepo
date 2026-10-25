@@ -1,4 +1,5 @@
 /** @jest-environment jsdom */
+import { getPathFromState } from '@react-navigation/core';
 import { StackRouter } from '@react-navigation/routers';
 import { act, renderHook } from '@testing-library/react';
 
@@ -286,6 +287,55 @@ describe('useToMarketStockDetailPage', () => {
     await expect(result.current('AAPL')).resolves.toBe(true);
     expect(mockPush).toHaveBeenCalled();
   });
+
+  it.each([
+    ['native', '123.45'],
+    ['native', 'NaN'],
+    ['native', 'Infinity'],
+    ['native', '-1'],
+    ['web', '123.45'],
+    ['desktop', '123.45'],
+  ] as const)(
+    'passes only valid share snapshots to the native route (%s, %s)',
+    async (platform, price) => {
+      mockedPlatformEnv.isNative = platform === 'native';
+      mockedPlatformEnv.isDesktop = platform === 'desktop';
+      mockedPlatformEnv.isWeb = platform === 'web';
+      const { result } = renderHook(() => useToMarketStockDetailPage());
+      await act(async () => {
+        await result.current({
+          stockId: 'AAPL',
+          symbol: 'AAPL',
+          name: 'Apple',
+          logoUrl: '',
+          price,
+          priceChange24hPercent: '1.5',
+        });
+      });
+      const navigationArgs = mockNavigate.mock.calls[0] as [
+        unknown,
+        { params: { params: IMarketStockDetailRouteParams } },
+      ];
+      const params = navigationArgs[1].params.params;
+      if (platform === 'native' && price === '123.45')
+        expect(params.stockPreviewQuote).toEqual({
+          source: 'share',
+          price: '123.45',
+          priceChange24hPercent: '1.5',
+        });
+      else {
+        expect(params.stockPreviewQuote).toBeUndefined();
+      }
+      if (platform !== 'native') {
+        const path = getPathFromState(
+          { routes: [{ name: 'MarketStockDetail', params }] },
+          { screens: { MarketStockDetail: 'market/stock/:stockId' } },
+        );
+        expect(path).not.toContain('stockPreviewQuote');
+        expect(decodeURIComponent(path)).not.toContain('[object Object]');
+      }
+    },
+  );
 
   it('resets the tab stack before opening the selected stock', async () => {
     const { result } = renderHook(() =>
