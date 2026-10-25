@@ -13,6 +13,8 @@ import {
   Stack,
   XStack,
   isLiquidGlassAvailable,
+  useTheme,
+  useThemeName,
 } from '@onekeyhq/components';
 import type { IXStackProps } from '@onekeyhq/components';
 
@@ -98,6 +100,10 @@ export function BrowserChromeCapsule({
   borderRadius = PILL_RADIUS,
 }: IBrowserChromeCapsuleProps) {
   const isGlass = isLiquidGlassAvailable();
+  const theme = useTheme();
+  // Re-render on a light/dark switch (the page's theme): `theme.*.val` reads
+  // alone don't subscribe on native.
+  useThemeName();
   const fadeStyle = useCapsuleFadeStyle(fade);
   const glassHidden = useIsProgressPast(
     // Only glass needs the switch; without it no JS update at the midpoint.
@@ -148,14 +154,20 @@ export function BrowserChromeCapsule({
   // A column container like GlassView, so the inner row stretches to the
   // capsule's width (as a row child it would shrink to its content, leaving
   // the flexible address area no room).
+  // The fill sits on the fading layer itself (non-collapsible): a bare
+  // animated wrapper around a filled child can be flattened away on Android,
+  // taking the fill with it.
   return (
     <Stack flex={flex} borderRadius={borderRadius} borderCurve="continuous">
       <Animated.View
+        collapsable={false}
         pointerEvents="none"
-        style={[styles.solidBackground, { borderRadius }, fadeStyle]}
-      >
-        <Stack flex={1} bg="$bgStrong" borderRadius={borderRadius} />
-      </Animated.View>
+        style={[
+          styles.solidBackground,
+          { borderRadius, backgroundColor: theme.bgStrong.val },
+          fadeStyle,
+        ]}
+      />
       {content}
     </Stack>
   );
