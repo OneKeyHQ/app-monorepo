@@ -2,8 +2,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
+import { useReducedMotion } from 'react-native-reanimated';
 
 import {
+  Accordion,
   Badge,
   Button,
   Icon,
@@ -15,6 +17,7 @@ import {
   getFontSize,
   useMedia,
 } from '@onekeyhq/components';
+import { ANIMATE_ONLY_OPACITY } from '@onekeyhq/components/src/utils/animationConstants';
 import { Currency } from '@onekeyhq/kit/src/components/Currency';
 import { NetworkAvatar } from '@onekeyhq/kit/src/components/NetworkAvatar/NetworkAvatar';
 import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeableTextWrapper';
@@ -28,6 +31,11 @@ import { USD_CURRENCY_ID } from '@onekeyhq/shared/src/consts/currencyConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { useWarmOffersDeposit } from '../../pages/EarnRouter/useWarmOffersDeposit';
+import {
+  LIST_HIDDEN_STYLE,
+  getListHeightTransition,
+  getListRowMotion,
+} from '../../utils/earnListMotion';
 import { AprText } from '../AprText';
 
 import { EARN_DESKTOP_DEMO_COPY } from './earnDesktopHomeCopy';
@@ -46,6 +54,7 @@ import type {
 
 // Five rows, then the rest open in place
 const ROW_LIMIT = 5;
+const MORE_ROWS_VALUE = 'more';
 // The pointer resting this long on a row gets its deposit form's data ready;
 // passing over the list doesn't
 const WARM_INTENT_MS = 100;
@@ -491,6 +500,7 @@ export function EarnDesktopHoldCard({
 }) {
   const intl = useIntl();
   const media = useMedia();
+  const reduceMotion = useReducedMotion();
   const isWide = media.gtMd;
   const [isExpanded, setIsExpanded] = useState(false);
   const shown = isExpanded ? rows : rows.slice(0, ROW_LIMIT);
@@ -526,6 +536,17 @@ export function EarnDesktopHoldCard({
   const narrowRateWidth = rows.some((row) => getOfferBadge(row.offers[0]))
     ? NARROW_BADGED_RATE_WIDTH
     : NARROW_RATE_WIDTH;
+  const renderRow = (row: IEarnDesktopHoldRow) => (
+    <HoldRow
+      key={row.key}
+      row={row}
+      networkName={networkNames.get(row.networkId)}
+      isWide={isWide}
+      narrowRateWidth={narrowRateWidth}
+      onPress={() => onOpenRow(row)}
+      onWarm={() => warm(toWarmTarget(row))}
+    />
+  );
   return (
     // The wider gap above sets the title apart from the hero
     <YStack mt="$4">
@@ -534,18 +555,41 @@ export function EarnDesktopHoldCard({
       </SizableText>
       {isWide ? <HoldLabels /> : null}
       <YStack gap="$2" mt={isWide ? '$1' : '$3'}>
-        {shown.map((row) => (
-          <HoldRow
-            key={row.key}
-            row={row}
-            networkName={networkNames.get(row.networkId)}
-            isWide={isWide}
-            narrowRateWidth={narrowRateWidth}
-            onPress={() => onOpenRow(row)}
-            onWarm={() => warm(toWarmTarget(row))}
-          />
-        ))}
+        {rows.slice(0, ROW_LIMIT).map(renderRow)}
       </YStack>
+      {/* The rest unfold under the first rows as the deposit modal's lists
+          do, and fade as they fold */}
+      {moreCount > 0 ? (
+        <Accordion
+          type="single"
+          collapsible
+          value={isExpanded ? MORE_ROWS_VALUE : ''}
+        >
+          <Accordion.Item value={MORE_ROWS_VALUE}>
+            <Accordion.HeightAnimator
+              transition={getListHeightTransition(isExpanded, reduceMotion)}
+            >
+              <Accordion.Content
+                unstyled
+                transition="quick"
+                animateOnly={ANIMATE_ONLY_OPACITY}
+                exitStyle={LIST_HIDDEN_STYLE}
+              >
+                <YStack gap="$2" pt="$2">
+                  {rows.slice(ROW_LIMIT).map((row, index) => (
+                    <YStack
+                      key={row.key}
+                      {...getListRowMotion(index, reduceMotion)}
+                    >
+                      {renderRow(row)}
+                    </YStack>
+                  ))}
+                </YStack>
+              </Accordion.Content>
+            </Accordion.HeightAnimator>
+          </Accordion.Item>
+        </Accordion>
+      ) : null}
       {moreCount > 0 ? (
         // On the tiles' content edge, under the token icons
         <XStack pl="$4">

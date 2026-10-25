@@ -42,7 +42,6 @@ import { useEarnRouterOffers } from '@onekeyhq/kit/src/views/Earn/pages/EarnRout
 import {
   EarnFormChoiceContext,
   EarnPayWithList,
-  LIST_PICK_APPLY_MS,
   PAY_WITH_BOX_TEST_ID,
   PAY_WITH_TRIGGER_TEST_ID,
   usePayTokens,
@@ -50,6 +49,7 @@ import {
 import type { IEarnFormChoice } from '@onekeyhq/kit/src/views/Earn/pages/EarnRouter/EarnRouterPayWith';
 import { EarnRouterSwapDepositForm } from '@onekeyhq/kit/src/views/Earn/pages/EarnRouter/EarnRouterSwapDepositForm';
 import type { IEarnRouterSummaryRequest } from '@onekeyhq/kit/src/views/Earn/pages/EarnRouter/EarnRouterSwapDepositForm';
+import { LIST_PICK_APPLY_MS } from '@onekeyhq/kit/src/views/Earn/utils/earnListMotion';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EModalRoutes, EModalStakingRoutes } from '@onekeyhq/shared/src/routes';

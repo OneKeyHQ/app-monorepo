@@ -29,18 +29,18 @@ import {
 } from '../../../Staking/pages/ManagePosition/components/ManagePositionContent';
 import { EManagePositionType } from '../../../Staking/pages/ManagePosition/hooks/useManagePage';
 import { buildKeyboardPressProps } from '../../components/desktopHome/earnDesktopPressable';
+import {
+  LIST_PICK_APPLY_MS,
+  getListHeightTransition,
+  getListRowMotion,
+} from '../../utils/earnListMotion';
 
 import {
   buildOfferRowProps,
   getOfferTarget,
   useEarnRouterOffers,
 } from './EarnRouterOffer';
-import {
-  EarnFormChoiceContext,
-  LIST_PICK_APPLY_MS,
-  getListHeightTransition,
-  getListRowMotion,
-} from './EarnRouterPayWith';
+import { EarnFormChoiceContext } from './EarnRouterPayWith';
 import { useEscapeFoldsList } from './useEscapeFoldsList';
 import { warmFormData } from './useWarmOffersDeposit';
 

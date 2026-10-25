@@ -3,8 +3,10 @@ import { useCallback, useMemo, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
+import { useReducedMotion } from 'react-native-reanimated';
 
 import {
+  Accordion,
   Badge,
   Icon,
   ScrollView,
@@ -17,6 +19,10 @@ import {
   YStack,
   useMedia,
 } from '@onekeyhq/components';
+import {
+  ANIMATE_ONLY_BACKGROUND_COLOR,
+  ANIMATE_ONLY_OPACITY,
+} from '@onekeyhq/components/src/utils/animationConstants';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { Currency } from '@onekeyhq/kit/src/components/Currency';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
@@ -48,6 +54,11 @@ import {
   parseAprPercentValue,
   parseFormattedLiquidityValue,
 } from '../../utils/availableAssetsUtils';
+import {
+  LIST_HIDDEN_STYLE,
+  getListHeightTransition,
+  getListRowMotion,
+} from '../../utils/earnListMotion';
 import { AprText } from '../AprText';
 import { EarnListEmptyState } from '../EarnListEmptyState';
 import { NetworkFilterControl } from '../NetworkFilterControl';
@@ -239,36 +250,43 @@ function OfferRowFrame({
   children,
   onPress,
   testID,
+  index,
 }: {
   children: ReactNode;
   onPress: () => void;
   testID?: string;
+  /** Its place under the offers' header, for the rows coming in one after
+   * another as they unfold */
+  index: number;
 }) {
+  const reduceMotion = useReducedMotion();
   // Opaque card steps rather than a translucent wash, so the network badges'
   // rings take the row's color as it changes
   const { surface, isActive, handlers } = usePressableSurface(true);
   return (
-    <EarnDesktopSurfaceProvider value={surface}>
-      <XStack
-        testID={testID}
-        role="button"
-        ai="center"
-        gap={ROW_GAP}
-        minHeight={ROW_HEIGHT}
-        px="$3"
-        mx="$-3"
-        borderRadius="$3"
-        borderCurve="continuous"
-        bg={isActive ? surface : undefined}
-        cursor="pointer"
-        userSelect="none"
-        onPress={onPress}
-        {...handlers}
-        {...buildKeyboardPressProps(onPress)}
-      >
-        {children}
-      </XStack>
-    </EarnDesktopSurfaceProvider>
+    <YStack {...getListRowMotion(index, reduceMotion)}>
+      <EarnDesktopSurfaceProvider value={surface}>
+        <XStack
+          testID={testID}
+          role="button"
+          ai="center"
+          gap={ROW_GAP}
+          minHeight={ROW_HEIGHT}
+          px="$3"
+          mx="$-3"
+          borderRadius="$3"
+          borderCurve="continuous"
+          bg={isActive ? surface : undefined}
+          cursor="pointer"
+          userSelect="none"
+          onPress={onPress}
+          {...handlers}
+          {...buildKeyboardPressProps(onPress)}
+        >
+          {children}
+        </XStack>
+      </EarnDesktopSurfaceProvider>
+    </YStack>
   );
 }
 
@@ -319,6 +337,7 @@ function TokenOffers({
 }) {
   const intl = useIntl();
   const media = useMedia();
+  const reduceMotion = useReducedMotion();
   // The Network and balance columns show from md up; below, a deposit sits
   // under its rate
   const isWide = media.gtMd;
@@ -490,7 +509,12 @@ function TokenOffers({
 
   return (
     <YStack>
-      <XStack h="$8" ai="center" gap={ROW_GAP}>
+      <XStack
+        h="$8"
+        ai="center"
+        gap={ROW_GAP}
+        {...getListRowMotion(0, reduceMotion)}
+      >
         <Stack {...COLUMNS.asset}>
           <HeaderLabel>
             {intl.formatMessage({ id: ETranslations.global_protocol })}
@@ -527,13 +551,14 @@ function TokenOffers({
         </Stack>
         <Stack w="$5" />
       </XStack>
-      {sortedOffers.map((offer) => {
+      {sortedOffers.map((offer, index) => {
         const deposited = depositByKey.get(offer.key) ?? 0;
         if (offer.kind === 'lending') {
           const { offer: lending } = offer;
           return (
             <OfferRowFrame
               key={offer.key}
+              index={index + 1}
               testID={`earn-desktop-offer-${lending.key}`}
               onPress={() => handleLendingPress(lending)}
             >
@@ -591,6 +616,7 @@ function TokenOffers({
         return (
           <OfferRowFrame
             key={offer.key}
+            index={index + 1}
             testID={`earn-desktop-offer-${offer.key}`}
             onPress={() => handleProtocolPress(item)}
           >
@@ -691,16 +717,20 @@ function TokenRow({
 }) {
   const intl = useIntl();
   const surfaces = useEarnDesktopSurfaces();
+  const reduceMotion = useReducedMotion();
   const [isHovered, setIsHovered] = useState(false);
   const { asset } = row;
   const handleToggle = () => onToggle(row.key);
   return (
-    // An open token and its offers read as one card
+    // An open token and its offers read as one card, whose color comes and
+    // goes with the offers unfolding
     <YStack
       mx="$2"
       borderRadius="$4"
       borderCurve="continuous"
-      bg={isOpen ? surfaces.rest : undefined}
+      bg={isOpen ? surfaces.rest : '$transparent'}
+      transition={getListHeightTransition(isOpen, reduceMotion)}
+      animateOnly={ANIMATE_ONLY_BACKGROUND_COLOR}
     >
       <ListItem
         testID={`earn-desktop-row-${row.key}`}
@@ -812,15 +842,30 @@ function TokenRow({
           />
         </View>
       </ListItem>
-      {isOpen ? (
-        <YStack px="$3" pb="$2">
-          <TokenOffers
-            row={row}
-            lendingOffers={lendingOffers}
-            deposits={deposits}
-          />
-        </YStack>
-      ) : null}
+      {/* The offers unfold under the token as the deposit modal's protocol
+          list does, and fade as they fold */}
+      <Accordion type="single" collapsible value={isOpen ? row.key : ''}>
+        <Accordion.Item value={row.key}>
+          <Accordion.HeightAnimator
+            transition={getListHeightTransition(isOpen, reduceMotion)}
+          >
+            <Accordion.Content
+              unstyled
+              transition="quick"
+              animateOnly={ANIMATE_ONLY_OPACITY}
+              exitStyle={LIST_HIDDEN_STYLE}
+            >
+              <YStack px="$3" pb="$2">
+                <TokenOffers
+                  row={row}
+                  lendingOffers={lendingOffers}
+                  deposits={deposits}
+                />
+              </YStack>
+            </Accordion.Content>
+          </Accordion.HeightAnimator>
+        </Accordion.Item>
+      </Accordion>
     </YStack>
   );
 }

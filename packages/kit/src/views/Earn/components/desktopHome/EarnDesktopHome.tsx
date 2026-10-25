@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
+import { useReducedMotion } from 'react-native-reanimated';
 
 import { SizableText, XStack, YStack, useMedia } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -71,17 +72,31 @@ const BANNER_ART_RATIO = 7 / 4;
 // Where the banner's dots, when there are several, end under its card
 const BANNER_DOTS_HEIGHT = 14;
 const EMPTY_ASSETS: IEarnAvailableAsset[] = [];
+// The selected tab's line slides to the next one, as the app's tab bars do
+// on a press
+const TAB_LINE_TRANSITION = ['smooth', { duration: 220 }] as [
+  'smooth',
+  { duration: number },
+];
+const TAB_LINE_ANIMATE_ONLY = ['transform', 'width'];
+
+type ITabPlace = { x: number; width: number };
 
 function HomeTab({
   value,
   label,
   isActive,
+  hasLine,
   onPress,
+  onPlace,
 }: {
   value: IHomeTab;
   label: string;
   isActive: boolean;
+  /** The tabs' one sliding line draws the selection instead of the border */
+  hasLine: boolean;
   onPress: () => void;
+  onPlace: (value: IHomeTab, place: ITabPlace) => void;
 }) {
   // The shared TabBar's colors: subdued until hovered or selected
   const [isHovered, setIsHovered] = useState(false);
@@ -93,12 +108,18 @@ function HomeTab({
       h={44}
       jc="center"
       borderBottomWidth={2}
-      borderBottomColor={isActive ? '$text' : '$transparent'}
+      borderBottomColor={isActive && !hasLine ? '$text' : '$transparent'}
       cursor="pointer"
       userSelect="none"
       onHoverIn={() => setIsHovered(true)}
       onHoverOut={() => setIsHovered(false)}
       onPress={onPress}
+      onLayout={(event) =>
+        onPlace(value, {
+          x: event.nativeEvent.layout.x,
+          width: event.nativeEvent.layout.width,
+        })
+      }
       {...buildKeyboardPressProps(onPress, 2)}
     >
       <SizableText
@@ -119,6 +140,7 @@ function HomeTabs({
   onChange: (value: IHomeTab) => void;
 }) {
   const intl = useIntl();
+  const reduceMotion = useReducedMotion();
   const tabs: { value: IHomeTab; label: string }[] = [
     {
       value: 'earn',
@@ -130,17 +152,48 @@ function HomeTabs({
       label: intl.formatMessage({ id: ETranslations.earn_loans__action }),
     },
   ];
+  const [places, setPlaces] = useState<Partial<Record<IHomeTab, ITabPlace>>>(
+    {},
+  );
+  const handlePlace = useCallback((tab: IHomeTab, place: ITabPlace) => {
+    setPlaces((prev) =>
+      prev[tab]?.x === place.x && prev[tab]?.width === place.width
+        ? prev
+        : { ...prev, [tab]: place },
+    );
+  }, []);
+  // Once every tab is measured; until then each draws its own border
+  const line = tabs.every((tab) => places[tab.value])
+    ? places[value]
+    : undefined;
   return (
-    <XStack gap="$8" role="tablist">
+    <XStack gap="$8" role="tablist" position="relative">
       {tabs.map((tab) => (
         <HomeTab
           key={tab.value}
           value={tab.value}
           label={tab.label}
           isActive={tab.value === value}
+          hasLine={!!line}
           onPress={() => onChange(tab.value)}
+          onPlace={handlePlace}
         />
       ))}
+      {line ? (
+        <YStack
+          position="absolute"
+          left={0}
+          bottom={0}
+          h={2}
+          borderRadius={1}
+          bg="$text"
+          width={line.width}
+          x={line.x}
+          pointerEvents="none"
+          transition={reduceMotion ? undefined : TAB_LINE_TRANSITION}
+          animateOnly={TAB_LINE_ANIMATE_ONLY}
+        />
+      ) : null}
     </XStack>
   );
 }
