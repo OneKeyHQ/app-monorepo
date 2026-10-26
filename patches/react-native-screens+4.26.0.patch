@@ -1686,10 +1686,98 @@ index 1c84484..976b44f 100644
  
  #if !TARGET_OS_TV
 diff --git a/node_modules/react-native-screens/ios/RNSScreenWindowTraits.mm b/node_modules/react-native-screens/ios/RNSScreenWindowTraits.mm
-index fd6f70d..da4c6d4 100644
+index fd6f70d..38e71da 100644
 --- a/node_modules/react-native-screens/ios/RNSScreenWindowTraits.mm
 +++ b/node_modules/react-native-screens/ios/RNSScreenWindowTraits.mm
-@@ -148,9 +148,6 @@ + (void)enforceDesiredDeviceOrientation
+@@ -2,6 +2,87 @@
+ #import "RNSScreenContainer.h"
+ #import "RNSScreenStack.h"
+ 
++#if !TARGET_OS_TV && !TARGET_OS_VISION
++// OneKey patch: the system applies scene rotations asynchronously with its own
++// animation, outside the caller's performWithoutAnimation block. Keep UIView
++// animations disabled until the scene reaches the requested orientation, with a
++// timeout so a rejected request can never leave animations disabled.
++API_AVAILABLE(ios(16.0))
++@interface RNSSceneRotationAnimationSuppressor : NSObject
+++ (void)suppressForScene:(UIWindowScene *)scene orientationMask:(UIInterfaceOrientationMask)mask;
++@end
++
++API_AVAILABLE(ios(16.0))
++static RNSSceneRotationAnimationSuppressor *RNSActiveSceneRotationSuppressor = nil;
++static void *RNSSceneRotationGeometryContext = &RNSSceneRotationGeometryContext;
++static const NSTimeInterval RNSSceneRotationSuppressionTimeout = 1.0;
++
++@implementation RNSSceneRotationAnimationSuppressor {
++  UIWindowScene *_scene;
++  UIInterfaceOrientationMask _mask;
++  BOOL _previousAnimationsEnabled;
++  BOOL _finished;
++}
++
+++ (void)suppressForScene:(UIWindowScene *)scene orientationMask:(UIInterfaceOrientationMask)mask
++{
++  if (RNSActiveSceneRotationSuppressor != nil) {
++    // Restore the state captured by the first request, not our own NO.
++    [RNSActiveSceneRotationSuppressor finish];
++  }
++  RNSSceneRotationAnimationSuppressor *suppressor = [RNSSceneRotationAnimationSuppressor new];
++  suppressor->_scene = scene;
++  suppressor->_mask = mask;
++  suppressor->_previousAnimationsEnabled = [UIView areAnimationsEnabled];
++  RNSActiveSceneRotationSuppressor = suppressor;
++  [UIView setAnimationsEnabled:NO];
++  [scene addObserver:suppressor
++          forKeyPath:@"effectiveGeometry"
++             options:NSKeyValueObservingOptionNew
++             context:RNSSceneRotationGeometryContext];
++  __weak RNSSceneRotationAnimationSuppressor *weakSuppressor = suppressor;
++  dispatch_after(
++      dispatch_time(DISPATCH_TIME_NOW, (int64_t)(RNSSceneRotationSuppressionTimeout * NSEC_PER_SEC)),
++      dispatch_get_main_queue(),
++      ^{
++        [weakSuppressor finish];
++      });
++}
++
++- (void)observeValueForKeyPath:(NSString *)keyPath
++                      ofObject:(id)object
++                        change:(NSDictionary<NSKeyValueChangeKey, id> *)change
++                       context:(void *)context
++{
++  if (context != RNSSceneRotationGeometryContext) {
++    [super observeValueForKeyPath:keyPath ofObject:object change:change context:context];
++    return;
++  }
++  UIInterfaceOrientation orientation = _scene.effectiveGeometry.interfaceOrientation;
++  if ((1 << orientation) & _mask) {
++    // Let the windows finish applying the new geometry before animations return.
++    dispatch_async(dispatch_get_main_queue(), ^{
++      [self finish];
++    });
++  }
++}
++
++- (void)finish
++{
++  if (_finished) {
++    return;
++  }
++  _finished = YES;
++  [_scene removeObserver:self forKeyPath:@"effectiveGeometry" context:RNSSceneRotationGeometryContext];
++  [UIView setAnimationsEnabled:_previousAnimationsEnabled];
++  if (RNSActiveSceneRotationSuppressor == self) {
++    RNSActiveSceneRotationSuppressor = nil;
++  }
++}
++
++@end
++#endif
++
+ @implementation RNSScreenWindowTraits
+ 
+ #if !TARGET_OS_TV && !TARGET_OS_VISION
+@@ -148,9 +229,6 @@ + (void)enforceDesiredDeviceOrientation
  
          UIWindowSceneGeometryPreferencesIOS *geometryPreferences =
              [[UIWindowSceneGeometryPreferencesIOS alloc] initWithInterfaceOrientations:orientationMask];
@@ -1699,7 +1787,7 @@ index fd6f70d..da4c6d4 100644
  
          // `attemptRotationToDeviceOrientation` is deprecated for modern OS versions
          // so we need to use `setNeedsUpdateOfSupportedInterfaceOrientations`
-@@ -159,7 +156,46 @@ + (void)enforceDesiredDeviceOrientation
+@@ -159,7 +237,47 @@ + (void)enforceDesiredDeviceOrientation
            topController = topController.presentedViewController;
          }
  
@@ -1739,6 +1827,7 @@ index fd6f70d..da4c6d4 100644
 +        if (animated) {
 +          updateOrientation();
 +        } else {
++          [RNSSceneRotationAnimationSuppressor suppressForScene:scene orientationMask:orientationMask];
 +          [UIView performWithoutAnimation:^{
 +            // Invalidate inside the block before a geometry request can start rotation.
 +            updateOrientation();
