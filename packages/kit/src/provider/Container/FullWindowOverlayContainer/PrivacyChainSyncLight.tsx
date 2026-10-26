@@ -77,7 +77,6 @@ function PrivacyChainSyncNetwork({
   onAllowCellular: () => void;
 }) {
   const intl = useIntl();
-  const { syncErrorByNetworkId } = state;
   // Names remain available even when optional region hints cannot be read.
   const { result: metadata } = usePromiseResult(
     async () => {
@@ -111,6 +110,7 @@ function PrivacyChainSyncNetwork({
     isRunning,
     isPaused,
     isHeldByData,
+    syncError,
   } = getPrivacyChainNetworkSyncDisplay({ state, networkId });
   const stateLabel = intl.formatMessage({ id: labelId });
   let syncErrorText: string | undefined;
@@ -118,11 +118,8 @@ function PrivacyChainSyncNetwork({
     syncErrorText = intl.formatMessage({
       id: ETranslations.privacy_error_webview_outdated__msg,
     });
-  } else if (!isPaused) {
-    syncErrorText = formatPrivacyChainSyncError(
-      syncErrorByNetworkId[networkId],
-      intl,
-    );
+  } else {
+    syncErrorText = formatPrivacyChainSyncError(syncError, intl);
   }
   const regionLabelId = getPrivacyChainScanRegionLabelId(
     scanRegionHints,

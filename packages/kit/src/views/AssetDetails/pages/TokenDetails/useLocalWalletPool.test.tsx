@@ -103,6 +103,7 @@ jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => {
   const privacyChainAtomValue = atom({
     storageUnsupportedNetworkIds: [] as string[],
     pausedNetworkIds: [] as string[],
+    dataBlockedNetworkIds: [] as string[],
     syncErrorByNetworkId: {} as Record<string, string>,
   });
   return { privacyChainAtom: { atom: () => privacyChainAtomValue } };
@@ -499,6 +500,7 @@ const setPublishedScanState = (state: Partial<IPrivacyChainScanState>) =>
   getDefaultStore().set(privacyChainAtom.atom(), {
     storageUnsupportedNetworkIds: [],
     pausedNetworkIds: [],
+    dataBlockedNetworkIds: [],
     syncErrorByNetworkId: {},
     ...state,
   } as IPrivacyChainScanState);
@@ -561,6 +563,18 @@ describe('useLocalWalletPool after a failed background sync', () => {
     const { result } = renderHook(useLocalWalletPool, { initialProps: props });
     await flushReads();
     expect(result.current.syncStatusText).toBe('syncing_paused__title');
+  });
+
+  it('stays quiet about it while the scan waits for Wi-Fi', async () => {
+    setPublishedScanState({
+      dataBlockedNetworkIds: [props.networkId],
+      syncErrorByNetworkId: { [props.networkId]: 'nodeUnreachable' },
+    });
+    const { result } = renderHook(useLocalWalletPool, { initialProps: props });
+    await flushReads();
+    expect(result.current.syncStatusText).not.toBe(
+      'sync-error:nodeUnreachable',
+    );
   });
 });
 

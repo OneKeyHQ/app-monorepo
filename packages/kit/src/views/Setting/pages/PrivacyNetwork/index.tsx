@@ -368,7 +368,7 @@ function PrivacyChainSettingsProgress({
       (entry.enabled || entry.paused),
   );
   if (!accounts.length) return null;
-  const { entry, labelId, isPaused, isStorageUnsupported } =
+  const { entry, labelId, isStorageUnsupported, syncError } =
     getPrivacyChainNetworkSyncDisplay({
       state,
       networkId,
@@ -378,10 +378,7 @@ function PrivacyChainSettingsProgress({
     ? intl.formatMessage({
         id: ETranslations.privacy_error_webview_outdated__msg,
       })
-    : formatPrivacyChainSyncError(
-        isPaused ? undefined : state.syncErrorByNetworkId[networkId],
-        intl,
-      );
+    : formatPrivacyChainSyncError(syncError, intl);
   const label = intl.formatMessage({ id: labelId });
   const figures =
     !error && entry
