@@ -63,34 +63,37 @@ describe('Zcash viewing metadata derivation lifecycle', () => {
     const { account, backgroundApi, zcash, derived } = createContext();
     const now = 1_790_000_000_000;
     const clock = jest.spyOn(Date, 'now').mockReturnValue(now);
-    const birthdayTimestamp = now - 10 * 24 * 60 * 60 * 1000;
-    Object.assign(backgroundApi.simpleDb, {
-      privacyChainCache: { getChainTip: async () => 3_400_000 },
-    });
-    await zcash.beginZcashPrivacyModeEnable({
-      networkId,
-      accountId: account.id,
-      birthdayTimestamp,
-    });
-
-    await resolveAndSaveZcashAccountMeta({
-      account,
-      backgroundApi,
-      networkId,
-      derive: async () => ({ ...derived, chainTip: null }),
-    });
-
-    expect(
-      (await zcash.getZcashAccountMeta({ accountId: account.id }))
-        ?.birthdayHeight,
-    ).toBe(
-      estimateZcashBirthdayHeight({
+    try {
+      const birthdayTimestamp = now - 10 * 24 * 60 * 60 * 1000;
+      Object.assign(backgroundApi.simpleDb, {
+        privacyChainCache: { getChainTip: async () => 3_400_000 },
+      });
+      await zcash.beginZcashPrivacyModeEnable({
+        networkId,
+        accountId: account.id,
         birthdayTimestamp,
-        chainTip: 3_400_000,
-        now,
-      }),
-    );
-    clock.mockRestore();
+      });
+
+      await resolveAndSaveZcashAccountMeta({
+        account,
+        backgroundApi,
+        networkId,
+        derive: async () => ({ ...derived, chainTip: null }),
+      });
+
+      expect(
+        (await zcash.getZcashAccountMeta({ accountId: account.id }))
+          ?.birthdayHeight,
+      ).toBe(
+        estimateZcashBirthdayHeight({
+          birthdayTimestamp,
+          chainTip: 3_400_000,
+          now,
+        }),
+      );
+    } finally {
+      clock.mockRestore();
+    }
   });
 
   it('does not recreate state deleted while viewing-key derivation is pending', async () => {
