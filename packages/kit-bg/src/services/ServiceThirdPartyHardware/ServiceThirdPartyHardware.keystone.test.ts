@@ -184,6 +184,7 @@ describe('Keystone default account creation', () => {
               device: {
                 connectId: 'keystone-connection',
                 deviceId: fixture.walletIdentity,
+                usbConnectId: 'keystone-usb-serial',
                 name: 'Keystone',
                 deviceType: EDeviceType.Unknown,
                 uuid: '',
@@ -199,6 +200,17 @@ describe('Keystone default account creation', () => {
       expect(fixture.createHWWallet).toHaveBeenCalledWith(
         expect.objectContaining({ defaultIsTemp: true }),
       );
+      if (usb) {
+        expect(fixture.createHWWallet).toHaveBeenCalledWith(
+          expect.objectContaining({
+            device: expect.objectContaining({
+              connectId: null,
+              deviceId: fixture.walletIdentity,
+              usbConnectId: 'keystone-usb-serial',
+            }),
+          }),
+        );
+      }
       expect(destroy).toHaveBeenCalled();
     },
   );

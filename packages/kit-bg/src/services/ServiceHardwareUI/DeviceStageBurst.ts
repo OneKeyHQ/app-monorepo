@@ -1561,6 +1561,7 @@ export class DeviceStageBurstScope {
       await this.setStep(step, {
         vendor: ui.vendor,
         thirdPartyAction: ui.action,
+        thirdPartyRequestId: ui.payload?.requestId,
         btcHighIndexPath: ui.payload?.path,
         btcHighIndexAccountIndex: ui.payload?.accountIndex,
       });
@@ -2093,6 +2094,7 @@ export class DeviceStageBurstScope {
       vendorModel?: string;
       vendorModelName?: string;
       thirdPartyAction?: IDeviceStageState['thirdPartyAction'];
+      thirdPartyRequestId?: string;
       appName?: string;
       installProgress?: number;
       installQueue?: string[];
@@ -2191,6 +2193,7 @@ export class DeviceStageBurstScope {
           base?.vendorModelName,
         ),
         thirdPartyAction: mergedExtras.thirdPartyAction,
+        thirdPartyRequestId: mergedExtras.thirdPartyRequestId,
         appName: mergedExtras.appName,
         installProgress: mergedExtras.installProgress,
         installQueue: mergedExtras.installQueue,

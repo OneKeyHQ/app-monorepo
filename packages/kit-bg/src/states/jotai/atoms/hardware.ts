@@ -221,6 +221,8 @@ export type IDeviceStageState = {
   /** The original third-party action — the container builds UI responses
    * from it without reverse-mapping steps. */
   thirdPartyAction?: EThirdPartyHardwareUiAction;
+  /** SDK request identifier for the current third-party prompt. */
+  thirdPartyRequestId?: string;
   /** Install steps: coin app name, real SDK progress (0–100), batch queue. */
   appName?: string;
   installProgress?: number;

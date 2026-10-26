@@ -166,7 +166,7 @@ function DeviceStageContainerCmp() {
       const response = buildThirdPartyHardwareUiResponse(
         current.thirdPartyAction,
         confirmed,
-        extras,
+        { ...extras, requestId: current.thirdPartyRequestId },
       );
       if (response) {
         void serviceThirdPartyHardware

@@ -111,6 +111,10 @@ type IThirdPartyConnectDeviceParams = {
   deviceId?: string;
 };
 
+type IKeystoneOnboardingDevice = Omit<SearchDevice, 'commType'> & {
+  usbConnectId?: string;
+};
+
 type IThirdPartyAllNetworkGetAddressHw = {
   allNetworkGetAddress: (
     connectId: string,
@@ -1003,7 +1007,7 @@ class ServiceThirdPartyHardware extends ServiceBase {
   async createKeystoneWalletWithDefaultAccounts(params: {
     usb?: {
       operationId: string;
-      device: Omit<SearchDevice, 'commType'>;
+      device: IKeystoneOnboardingDevice;
     };
   }): Promise<{
     wallet: IDBWallet;
@@ -1132,9 +1136,12 @@ class ServiceThirdPartyHardware extends ServiceBase {
       });
     }
 
-    let device: Omit<SearchDevice, 'commType'>;
+    let device: IKeystoneOnboardingDevice;
     if (usbDeviceInfo) {
-      device = mapThirdPartyDeviceToSearchDevice({ device: usbDeviceInfo });
+      device = {
+        ...mapThirdPartyDeviceToSearchDevice({ device: usbDeviceInfo }),
+        usbConnectId: usb?.device.usbConnectId,
+      };
     } else {
       const infoResult = await adapter.hw.getDeviceInfo(walletId, '');
       const info = infoResult.success ? infoResult.payload : undefined;
