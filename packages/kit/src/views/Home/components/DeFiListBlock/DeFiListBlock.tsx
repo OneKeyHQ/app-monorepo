@@ -29,8 +29,10 @@ import { useAllNetworkRequests } from '@onekeyhq/kit/src/hooks/useAllNetwork';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { runAfterTokensDone } from '@onekeyhq/kit/src/hooks/useRunAfterTokensDone';
 import {
+  buildOverviewOwnerKey,
   useAccountDeFiOverviewAtom,
   useAccountOverviewActions,
+  useOverviewDeFiDataStateAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/accountOverview';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import {
@@ -76,6 +78,7 @@ import {
   resolveDeFiCacheProbeAction,
   resolveDeFiFanOutFinishedState,
   shouldApplyDeFiAllNetworksResult,
+  shouldResetDeFiReadinessOnRunStart,
   shouldShowDeFiEmptyState,
 } from './deFiListLoadingReducer';
 import { DeFiListSkeleton } from './DeFiListSkeleton';
@@ -128,7 +131,6 @@ function MobileProtocolDivider() {
 
 export type IDeFiListBlockProps = {
   refreshCacheOnly?: boolean;
-  refreshOverviewOnly?: boolean;
   tableLayout?: boolean;
   /**
    * Desktop: when `true`, the internal "DeFi · $total" header row is not
@@ -247,7 +249,6 @@ function sortDeFiProtocolsByNetWorth({
 
 function DeFiListBlock({
   refreshCacheOnly = false,
-  refreshOverviewOnly = false,
   tableLayout,
   hideInternalTitle = false,
   isDeFiEnabled: isDeFiEnabledProp,
@@ -280,6 +281,9 @@ function DeFiListBlock({
   const [overview] = useAccountDeFiOverviewAtom();
   const overviewRef = useRef(overview);
   overviewRef.current = overview;
+  const [overviewDeFiDataState] = useOverviewDeFiDataStateAtom();
+  const overviewDeFiDataStateRef = useRef(overviewDeFiDataState);
+  overviewDeFiDataStateRef.current = overviewDeFiDataState;
   const [{ isRefreshing, initialized, loadedOwnerKey }] =
     useDeFiListStateAtom();
   const [{ protocols }] = useDeFiListProtocolsAtom();
@@ -434,7 +438,7 @@ function DeFiListBlock({
 
   usePromiseResult(
     async () => {
-      if (refreshCacheOnly || refreshOverviewOnly || !isDeFiEnabled) {
+      if (refreshCacheOnly || !isDeFiEnabled) {
         updateDeFiListSupportedActions({ supportedActions: [] });
         return;
       }
@@ -448,12 +452,7 @@ function DeFiListBlock({
         updateDeFiListSupportedActions({ supportedActions: [] });
       }
     },
-    [
-      refreshCacheOnly,
-      refreshOverviewOnly,
-      isDeFiEnabled,
-      updateDeFiListSupportedActions,
-    ],
+    [refreshCacheOnly, isDeFiEnabled, updateDeFiListSupportedActions],
     {
       overrideIsFocused: (isPageFocused) => isPageFocused && isFocused,
     },
@@ -558,11 +557,6 @@ function DeFiListBlock({
         loadedOwnerKey: undefined,
       });
 
-      updateOverviewDeFiDataState({
-        accountId: account.id,
-        networkId: network.id,
-        isReady: undefined,
-      });
       appEventBus.emit(EAppEventBusNames.TabListStateUpdate, {
         isRefreshing: true,
         type: EHomeTab.DEFI,
@@ -650,7 +644,6 @@ function DeFiListBlock({
       account,
       network,
       refreshCacheOnly,
-      updateOverviewDeFiDataState,
       settings.currencyInfo.id,
       updateAccountDeFiOverview,
       updateDeFiListProtocols,
@@ -686,7 +679,6 @@ function DeFiListBlock({
   // loaded there, with the list still empty, paints the empty state for a
   // few frames before the result effect fills the list in.
   const fanOutPositionsOwnerKeyRef = useRef<string | undefined>(undefined);
-  const expectedOverviewResultsRef = useRef<number | undefined>(undefined);
 
   // Sum of every response this run has merged so far; see
   // `accumulateDeFiRunOverview` for why it replaces the atom whole.
@@ -774,10 +766,6 @@ function DeFiListBlock({
       allNetworkDataInit?: boolean;
       isRunCurrent?: () => boolean;
     }) => {
-      // The Home overview publishes only the completed fan-out, never a partial sum.
-      if (refreshOverviewOnly) {
-        return;
-      }
       // Not for a superseded run either: the run that replaced it would then
       // finish believing positions are on the way and never settle its empty
       // state.
@@ -835,12 +823,7 @@ function DeFiListBlock({
         updateAllNetworkData();
       }
     },
-    [
-      currentOwnerKey,
-      refreshOverviewOnly,
-      updateAllNetworkData,
-      updateDeFiListProtocolMap,
-    ],
+    [currentOwnerKey, updateAllNetworkData, updateDeFiListProtocolMap],
   );
 
   const handleAllNetworkRequests = useCallback(
@@ -1009,7 +992,6 @@ function DeFiListBlock({
       // A new run starts its own sum; before any await, so it cannot race the
       // run it follows.
       resetRunOverview();
-      expectedOverviewResultsRef.current = undefined;
       if (!refreshCacheOnly && accountId && networkId) {
         await backgroundApiProxy.serviceDeFi.updateCurrentAccount({
           accountId,
@@ -1045,11 +1027,18 @@ function DeFiListBlock({
         isRefreshing: true,
         loadedOwnerKey: undefined,
       });
-      updateOverviewDeFiDataState({
-        accountId: account?.id,
-        networkId: network?.id,
-        isReady: undefined,
-      });
+      if (
+        shouldResetDeFiReadinessOnRunStart({
+          readiness: overviewDeFiDataStateRef.current,
+          ownerKey: buildOverviewOwnerKey(account?.id, network?.id),
+        })
+      ) {
+        updateOverviewDeFiDataState({
+          accountId: account?.id,
+          networkId: network?.id,
+          isReady: undefined,
+        });
+      }
     },
     [
       account?.id,
@@ -1127,9 +1116,6 @@ function DeFiListBlock({
         };
       }[];
     }) => {
-      if (refreshOverviewOnly) {
-        return;
-      }
       const tempOverview: {
         totalValue: number;
         totalDebt: number;
@@ -1159,7 +1145,6 @@ function DeFiListBlock({
       account?.id,
       network?.id,
       settings.currencyInfo.id,
-      refreshOverviewOnly,
       updateAccountDeFiOverview,
     ],
   );
@@ -1187,13 +1172,6 @@ function DeFiListBlock({
       });
 
       updateAllNetworkData.flush();
-      // Only the complete result published after this callback can mark the
-      // overview ready; failed networks must not release a partial valuation.
-      updateOverviewDeFiDataState({
-        accountId,
-        networkId,
-        isReady: expectedOverviewResultsRef.current === 0 ? true : undefined,
-      });
 
       // `useAllNetworkRequests` fires `onFinished` even when `resp` is
       // null (no positions), where the downstream `allNetworksResult`
@@ -1215,7 +1193,6 @@ function DeFiListBlock({
       setIsHeaderRefreshing,
       updateAllNetworkData,
       updateDeFiListState,
-      updateOverviewDeFiDataState,
     ],
   );
 
@@ -1261,9 +1238,6 @@ function DeFiListBlock({
       networkId?: string;
       hasCache: boolean;
     }) => {
-      if (refreshOverviewOnly) {
-        return;
-      }
       const action = resolveDeFiCacheProbeAction({
         hasCache,
         overviewPredatesEnabledSet: overviewPredatesEnabledSetRef.current,
@@ -1327,18 +1301,11 @@ function DeFiListBlock({
     },
     [
       settings.currencyInfo.id,
-      refreshOverviewOnly,
       updateAccountDeFiOverview,
       updateOverviewDeFiDataState,
     ],
   );
 
-  const handleOverviewAccounts = useCallback(
-    ({ accounts }: { accounts: IAllNetworkAccountInfo[] }) => {
-      expectedOverviewResultsRef.current = accounts.length;
-    },
-    [],
-  );
   const {
     run: runAllNetworkRequests,
     result: allNetworksResult,
@@ -1357,7 +1324,6 @@ function DeFiListBlock({
     onStarted: handleAllNetworkRequestsStarted,
     onFinished: handleAllNetworkRequestsFinished,
     onCacheChecked: handleAllNetworkCacheChecked,
-    allNetworkAccountsData: handleOverviewAccounts,
     allNetworkCacheRequestsBatch: handleAllNetworkCacheRequestsBatch,
     allNetworkCacheData: handleAllNetworkCacheData,
     allNetworkRequests: handleAllNetworkRequests,
@@ -1471,7 +1437,7 @@ function DeFiListBlock({
         accountId,
       });
 
-      if (refreshOverviewOnly || !initPlan.shouldHydrateSingleNetworkCache) {
+      if (!initPlan.shouldHydrateSingleNetworkCache) {
         return;
       }
 
@@ -1550,7 +1516,6 @@ function DeFiListBlock({
     account?.id,
     network?.id,
     account?.address,
-    refreshOverviewOnly,
     updateAccountDeFiOverview,
     updateOverviewDeFiDataState,
     settings.currencyInfo.id,
@@ -1753,6 +1718,9 @@ function DeFiListBlock({
   >(undefined);
   useEffect(() => {
     if (allNetworksResult) {
+      if (refreshCacheOnly) {
+        return;
+      }
       if (
         !shouldApplyDeFiAllNetworksResult({
           applied: appliedAllNetworksResultRef.current,
@@ -1766,14 +1734,6 @@ function DeFiListBlock({
         result: allNetworksResult,
         ownerKey: currentOwnerKey,
       };
-
-      if (
-        refreshCacheOnly ||
-        allNetworksResult.length !== expectedOverviewResultsRef.current ||
-        allNetworksResult.some((result) => !result)
-      ) {
-        return;
-      }
 
       const tempOverview = {
         totalValue: 0,
@@ -2053,7 +2013,7 @@ function DeFiListBlock({
     loadedOwnerKey,
   });
 
-  if (refreshCacheOnly || refreshOverviewOnly) {
+  if (refreshCacheOnly) {
     return null;
   }
 

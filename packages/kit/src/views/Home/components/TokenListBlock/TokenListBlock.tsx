@@ -3443,7 +3443,6 @@ function TokenListBlock({
       homePortfolioDisplay.ownerKey !==
         buildOverviewOwnerKey(account?.id, network?.id) ||
       homePortfolioDisplay.totalFiatUsd === undefined ||
-      homePortfolioDisplay.tokenFiatUsd === undefined ||
       !totalFiatCurrency ||
       !network ||
       !wallet ||
@@ -3511,12 +3510,15 @@ function TokenListBlock({
         defiFiat: homePortfolioDisplay.defiFiatUsd,
         perpsFiat: homePortfolioDisplay.perpsFiatUsd,
       },
-      totalFiat: convertFiat({
-        value: homePortfolioDisplay.tokenFiatUsd,
-        sourceCurrency: USD_CURRENCY_ID,
-        targetCurrency: totalFiatCurrency,
-        currencyMap,
-      }),
+      totalFiat:
+        homePortfolioDisplay.tokenFiatUsd === undefined
+          ? accountTokensValue
+          : convertFiat({
+              value: homePortfolioDisplay.tokenFiatUsd,
+              sourceCurrency: USD_CURRENCY_ID,
+              targetCurrency: totalFiatCurrency,
+              currencyMap,
+            }),
       totalFiatCurrency,
       totalTokenCount: portfolioTokens.length,
       tokenMap,
@@ -3528,6 +3530,7 @@ function TokenListBlock({
     account?.address,
     account?.id,
     accountName,
+    accountTokensValue,
     accountTokensWorth.currency,
     currencyInfo?.id,
     currencyMap,

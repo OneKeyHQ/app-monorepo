@@ -108,7 +108,7 @@ export interface IHomePortfolioSnapshot {
   isLive: boolean;
 }
 
-// Keep total and categories together while a refresh is pending or failed.
+// Publish the rendered total immediately; retain held categories only for that same total.
 export function resolveHomePortfolioSnapshot({
   previous,
   candidate,
@@ -118,18 +118,21 @@ export function resolveHomePortfolioSnapshot({
   candidate: IHomePortfolioSnapshot;
   isReady: boolean;
 }): IHomePortfolioSnapshot {
-  if (
-    isReady &&
-    candidate.ownerKey &&
-    candidate.totalFiatUsd !== undefined &&
-    candidate.tokenFiatUsd !== undefined &&
-    candidate.defiFiatUsd !== undefined &&
-    candidate.perpsFiatUsd !== undefined
-  ) {
+  if (!candidate.ownerKey || candidate.totalFiatUsd === undefined) {
+    return { ownerKey: candidate.ownerKey, isLive: false };
+  }
+  if (isReady) {
     return { ...candidate, isLive: true };
   }
-  if (candidate.ownerKey && previous.ownerKey === candidate.ownerKey) {
+  if (
+    previous.ownerKey === candidate.ownerKey &&
+    previous.totalFiatUsd === candidate.totalFiatUsd
+  ) {
     return { ...previous, isLive: false };
   }
-  return { ownerKey: candidate.ownerKey, isLive: false };
+  return {
+    ownerKey: candidate.ownerKey,
+    totalFiatUsd: candidate.totalFiatUsd,
+    isLive: false,
+  };
 }

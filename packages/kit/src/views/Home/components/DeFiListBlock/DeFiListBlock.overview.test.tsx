@@ -3,7 +3,10 @@ import { act, render } from '@testing-library/react';
 
 import type backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type { useAllNetworkRequests } from '@onekeyhq/kit/src/hooks/useAllNetwork';
-import type { IAllNetworkAccountInfo } from '@onekeyhq/kit-bg/src/services/ServiceAllNetwork/ServiceAllNetwork';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 
 const mockNoop = jest.fn();
 const mockAsyncNoop = jest.fn(async () => undefined);
@@ -50,6 +53,19 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   default: {
     serviceDeFi: {
       updateCurrentAccount: mockAsyncNoop,
+      getAccountsLocalDeFiOverview: async () => [
+        {
+          overview: {
+            'evm--1': {
+              totalValue: 40,
+              totalDebt: 0,
+              totalReward: 0,
+              netWorth: 40,
+              currency: 'usd',
+            },
+          },
+        },
+      ],
       abortFetchAccountDeFiPositions: mockAsyncNoop,
       getDeFiEnabledNetworksMap: async () => ({ 'evm--1': true }),
       fetchAccountDeFiPositions: (...args: unknown[]) => mockFetch(...args),
@@ -120,131 +136,61 @@ jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
 
 const { DeFiListBlock } =
   jest.requireActual<typeof import('./DeFiListBlock')>('./DeFiListBlock');
-const response = (netWorth: number) => ({
-  overview: {
-    totalValue: netWorth,
-    totalDebt: 0,
-    totalReward: 0,
-    netWorth,
-    chains: [],
-    protocolCount: 0,
-    positionCount: 0,
-  },
-  protocols: [],
-  protocolMap: {},
-  isSameAllNetworksAccountData: true,
-});
-
-describe('Home DeFi overview refresh without opening the DeFi tab', () => {
+describe('Home DeFi overview uses cache without starting live requests', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockRunners.length = 0;
     mockNetwork = { id: 'evm--1', isAllNetworks: false };
     mockResult = undefined;
-    mockFetch.mockResolvedValue(response(50));
   });
 
-  it('fetches the single-network overview while rendering no DeFi list', async () => {
-    const { container } = render(<DeFiListBlock refreshOverviewOnly />);
-    expect(container.innerHTML).toBe('');
+  it('hydrates the single-network overview from cache without fetching positions', async () => {
+    const { container } = render(<DeFiListBlock refreshCacheOnly />);
     await act(async () => {
       await mockRunners[1]();
     });
-    expect(mockFetch).toHaveBeenCalledWith(
-      expect.objectContaining({ networkId: 'evm--1', saveToLocal: true }),
-    );
+    expect(container.innerHTML).toBe('');
     expect(mockUpdateOverview).toHaveBeenCalledWith(
       expect.objectContaining({
-        overview: expect.objectContaining({ netWorth: 50 }),
+        overview: expect.objectContaining({ netWorth: 40 }),
         isReady: true,
       }),
     );
+    expect(mockFetch).not.toHaveBeenCalled();
+    expect(mockFetchBatch).not.toHaveBeenCalled();
   });
 
-  it('keeps the previous overview when the single-network request fails', async () => {
-    render(<DeFiListBlock refreshOverviewOnly />);
-    mockUpdateOverview.mockClear();
-    mockUpdateReadiness.mockClear();
-    mockFetch.mockRejectedValue(new Error('offline'));
-    const consoleError = jest
-      .spyOn(console, 'error')
-      .mockImplementation(() => undefined);
-    try {
-      await act(async () => {
-        await mockRunners[1]();
+  it('does not turn Home refresh events into additional live DeFi requests', async () => {
+    render(<DeFiListBlock refreshCacheOnly />);
+    await act(async () => {
+      appEventBus.emit(EAppEventBusNames.AccountDataUpdate, {
+        isManualRefresh: true,
+        refreshSource: 'home-header',
       });
-      expect(mockUpdateOverview).not.toHaveBeenCalled();
-      expect(mockUpdateReadiness).toHaveBeenLastCalledWith(
-        expect.objectContaining({ isReady: undefined }),
-      );
-    } finally {
-      consoleError.mockRestore();
-    }
+      await mockRunners[1]();
+    });
+    expect(mockFetch).not.toHaveBeenCalled();
+    expect(mockFetchBatch).not.toHaveBeenCalled();
   });
 
-  it('distinguishes an empty account from a failed account lookup', async () => {
+  it('keeps all-network request callbacks cache-only as well', async () => {
     mockNetwork = { id: 'onekeyall--0', isAllNetworks: true };
-    render(<DeFiListBlock refreshOverviewOnly />);
-    await act(async () => {
-      await mockAllNetworksOptions.onStarted?.({
-        accountId: mockAccount.id,
-        networkId: mockNetwork.id,
-      });
-      await mockAllNetworksOptions.onFinished?.({
-        accountId: mockAccount.id,
-        networkId: mockNetwork.id,
-      });
-    });
-    expect(mockUpdateReadiness).toHaveBeenLastCalledWith(
-      expect.objectContaining({ isReady: undefined }),
-    );
-    mockAllNetworksOptions.allNetworkAccountsData?.({
-      accounts: [],
-      allAccounts: [],
-    });
-    await act(async () => {
-      await mockAllNetworksOptions.onFinished?.({
-        accountId: mockAccount.id,
-        networkId: mockNetwork.id,
-      });
-    });
-    expect(mockUpdateReadiness).toHaveBeenLastCalledWith(
-      expect.objectContaining({ isReady: true }),
-    );
-  });
-
-  it('publishes only a complete all-network overview, keeping partial results out of the header', async () => {
-    mockNetwork = { id: 'onekeyall--0', isAllNetworks: true };
-    const { rerender } = render(<DeFiListBlock refreshOverviewOnly />);
-    await act(async () => {
-      await mockAllNetworksOptions.onStarted?.({
-        accountId: mockAccount.id,
-        networkId: mockNetwork.id,
-      });
-    });
-    mockAllNetworksOptions.allNetworkAccountsData?.({
-      accounts: [{}, {}] as IAllNetworkAccountInfo[],
-      allAccounts: [],
-    });
-    mockUpdateOverview.mockClear();
+    render(<DeFiListBlock refreshCacheOnly />);
     await act(async () => {
       await mockAllNetworksOptions.allNetworkRequests({
         accountId: mockAccount.id,
         networkId: 'evm--1',
-        allNetworkDataInit: true,
+      });
+      await mockAllNetworksOptions.allNetworkRequestsBatch?.({
+        batch: {
+          accountId: mockAccount.id,
+          apiAddress: mockAccount.address,
+          accountXpub: undefined,
+          items: [],
+        },
       });
     });
-    expect(mockUpdateOverview).not.toHaveBeenCalled();
-    mockResult = [response(50)];
-    rerender(<DeFiListBlock refreshOverviewOnly />);
-    expect(mockUpdateOverview).not.toHaveBeenCalled();
-    mockResult = [response(50), response(20)];
-    rerender(<DeFiListBlock refreshOverviewOnly />);
-    expect(mockUpdateOverview).toHaveBeenCalledWith(
-      expect.objectContaining({
-        overview: expect.objectContaining({ netWorth: 70 }),
-        isReady: true,
-      }),
-    );
+    expect(mockFetch).not.toHaveBeenCalled();
+    expect(mockFetchBatch).not.toHaveBeenCalled();
   });
 });

@@ -156,17 +156,21 @@ describe('Home portfolio snapshot shared with hardware sync', () => {
     perpsFiatUsd: '30',
   };
 
-  it('keeps all previous amounts together during refresh and after failure', () => {
+  it('keeps held categories with the unchanged rendered total during refresh or failure', () => {
     const pending = resolveHomePortfolioSnapshot({
       previous,
-      candidate,
+      candidate: { ...candidate, totalFiatUsd: '160' },
       isReady: false,
     });
     expect(pending).toEqual({ ...previous, isLive: false });
     expect(
       resolveHomePortfolioSnapshot({
         previous: pending,
-        candidate: { ...candidate, defiFiatUsd: undefined },
+        candidate: {
+          ownerKey: previous.ownerKey,
+          totalFiatUsd: '160',
+          isLive: false,
+        },
         isReady: false,
       }),
     ).toEqual(pending);
@@ -178,8 +182,36 @@ describe('Home portfolio snapshot shared with hardware sync', () => {
     ).toEqual(candidate);
   });
 
+  it('makes a cached displayed total available immediately without waiting for categories', () => {
+    expect(
+      resolveHomePortfolioSnapshot({
+        previous: { ownerKey: '', isLive: false },
+        candidate: {
+          ownerKey: previous.ownerKey,
+          totalFiatUsd: '160',
+          isLive: false,
+        },
+        isReady: false,
+      }),
+    ).toEqual({
+      ownerKey: previous.ownerKey,
+      totalFiatUsd: '160',
+      isLive: false,
+    });
+  });
+
+  it('never carries old categories over to a different displayed total', () => {
+    expect(
+      resolveHomePortfolioSnapshot({ previous, candidate, isReady: false }),
+    ).toEqual({
+      ownerKey: previous.ownerKey,
+      totalFiatUsd: '190',
+      isLive: false,
+    });
+  });
+
   it.each(['tokenFiatUsd', 'defiFiatUsd', 'perpsFiatUsd'] as const)(
-    'does not turn an unknown %s into zero',
+    'does not replace an unavailable %s with a stale value or zero',
     (field) => {
       expect(
         resolveHomePortfolioSnapshot({
@@ -187,18 +219,32 @@ describe('Home portfolio snapshot shared with hardware sync', () => {
           candidate: { ...candidate, [field]: undefined },
           isReady: true,
         }),
-      ).toEqual({ ...previous, isLive: false });
+      ).toEqual({ ...candidate, [field]: undefined });
     },
   );
 
-  it('does not carry another account amounts into the next owner', () => {
+  it('does not carry another account categories into the next owner', () => {
     expect(
       resolveHomePortfolioSnapshot({
         previous,
         candidate: { ...candidate, ownerKey: 'account-2__all' },
         isReady: false,
       }),
-    ).toEqual({ ownerKey: 'account-2__all', isLive: false });
+    ).toEqual({
+      ownerKey: 'account-2__all',
+      totalFiatUsd: '190',
+      isLive: false,
+    });
+  });
+
+  it('does not reuse any total when the current owner has no rendered balance', () => {
+    expect(
+      resolveHomePortfolioSnapshot({
+        previous,
+        candidate: { ownerKey: previous.ownerKey, isLive: false },
+        isReady: false,
+      }),
+    ).toEqual({ ownerKey: previous.ownerKey, isLive: false });
   });
 
   it('accepts a completed zero balance', () => {

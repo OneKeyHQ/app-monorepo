@@ -10,6 +10,8 @@ import type {
   IFetchAccountTokensResp,
 } from '@onekeyhq/shared/types/token';
 
+import type { IHomePortfolioSnapshot } from '../../pages/homeOverviewBalanceHold';
+
 const mockNotifySettled = jest.fn<Promise<void>, unknown[]>(
   async () => undefined,
 );
@@ -69,7 +71,7 @@ const mockStructure = {
   aggMembership: {},
   ownedAggregateTokenListMap: {},
 };
-let mockHomeDisplay = {
+let mockHomeDisplay: IHomePortfolioSnapshot = {
   ownerKey: 'hw-account-1__evm--1',
   totalFiatUsd: '125',
   tokenFiatUsd: '125',
@@ -438,6 +440,31 @@ describe('Home automatic Portfolio sync', () => {
           totalFiat: '100',
           homeTotalFiatUsd: '160',
           homeCategoryFiatUsd: { defiFiat: '40', perpsFiat: '20' },
+        }),
+      }),
+    );
+  });
+
+  it('syncs the displayed cached total without fetching or waiting for asset categories', async () => {
+    mockHomeDisplay = {
+      ownerKey: 'hw-account-1__evm--1',
+      totalFiatUsd: '160',
+      isLive: false,
+    };
+    render(<TokenListBlock />);
+    const { request, disabled } = mockUpdateSyncUi.mock.calls.at(-1)?.[0] as {
+      request: () => void;
+      disabled: boolean;
+    };
+    expect(disabled).toBe(false);
+    await act(async () => request());
+    await waitFor(() => expect(mockSyncPortfolio).toHaveBeenCalledTimes(1));
+    expect(mockFetchTokens).not.toHaveBeenCalled();
+    expect(mockSyncPortfolio).toHaveBeenCalledWith(
+      expect.objectContaining({
+        eventPayload: expect.objectContaining({
+          homeTotalFiatUsd: '160',
+          homeCategoryFiatUsd: { defiFiat: undefined, perpsFiat: undefined },
         }),
       }),
     );

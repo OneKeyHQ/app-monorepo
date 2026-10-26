@@ -66,6 +66,7 @@ import { buildOverviewOwnerKey } from '../../../states/jotai/contexts/accountOve
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import { convertFiat } from '../../../utils/fiatConvert';
 import { showBalanceDetailsDialog } from '../components/BalanceDetailsDialog';
+import { roundPortfolioTotal } from '../components/DeFiListBlock/formatPortfolioTotal';
 import { useHomeWalletTabSupport } from '../hooks/useHomeWalletTabSupport';
 import { HomeTestIDs } from '../testIDs';
 
@@ -131,8 +132,7 @@ function HomeOverviewContainer() {
   const [allNetworksState] = useAllNetworksStateStateAtom();
   const [lastConfirmedOverviewBalance, setLastConfirmedOverviewBalance] =
     useLastConfirmedOverviewBalanceAtom();
-  const [homePortfolioDisplay, setHomePortfolioDisplay] =
-    useHomePortfolioDisplayAtom();
+  const [, setHomePortfolioDisplay] = useHomePortfolioDisplayAtom();
   const [overviewTokenCacheState] = useOverviewTokenCacheStateAtom();
   const [overviewDeFiDataState] = useOverviewDeFiDataStateAtom();
   const [{ currencyMap }] = useCurrencyPersistAtom();
@@ -156,11 +156,9 @@ function HomeOverviewContainer() {
     network,
   });
 
-  const {
-    result: perpsSnapshot,
-    isLoading: isRefreshingPerps,
-    run: refreshPerpsWorth,
-  } = usePromiseResult<{ ownerKey: string; netWorthUsd: string } | undefined>(
+  const { result: perpsSnapshot } = usePromiseResult<
+    { ownerKey: string; netWorthUsd: string } | undefined
+  >(
     async () => {
       if (!isPerpsEnabled) return undefined;
       const accountId = account?.id;
@@ -207,21 +205,8 @@ function HomeOverviewContainer() {
           ? `home-overview-perps-worth:${network?.id}:${account?.indexedAccountId ?? account?.id}`
           : undefined,
       pollingInterval: PERPS_HL_PORTFOLIO_ACTIVE_MAX_AGE_MS,
-      watchLoading: true,
-      undefinedResultIfError: true,
     },
   );
-
-  useEffect(() => {
-    if (!isPerpsEnabled) return undefined;
-    const refresh = () => {
-      void refreshPerpsWorth();
-    };
-    appEventBus.on(EAppEventBusNames.AccountDataUpdate, refresh);
-    return () => {
-      appEventBus.off(EAppEventBusNames.AccountDataUpdate, refresh);
-    };
-  }, [isPerpsEnabled, refreshPerpsWorth]);
 
   const perpsNetWorthUsd =
     perpsSnapshot?.ownerKey === buildOverviewOwnerKey(account?.id, network?.id)
@@ -788,6 +773,9 @@ function HomeOverviewContainer() {
     vaultSettings?.mergeDeriveAssetsEnabled,
   ]);
 
+  const isCurrentAllNetworksBalanceFullyReady =
+    !network?.isAllNetworks ||
+    (isCurrentAccountWorthReady && isCurrentAccountDeFiReady);
   const isCurrentAccountWorthOwner =
     !!accountWorth.accountId &&
     (accountWorth.accountId === (account?.id ?? '') ||
@@ -811,6 +799,28 @@ function HomeOverviewContainer() {
       clearTimeout(timer);
     };
   }, [currentOverviewOwnerKey]);
+
+  useEffect(() => {
+    if (
+      resolvedBalanceString !== undefined &&
+      currentOverviewOwnerKey &&
+      isCurrentAllNetworksBalanceFullyReady
+    ) {
+      setLastConfirmedOverviewBalance((prev) => ({
+        latest: resolvedBalanceString,
+        byOwner: {
+          ...prev.byOwner,
+          [currentOverviewOwnerKey]: resolvedBalanceString,
+        },
+        currency: USD_CURRENCY_ID,
+      }));
+    }
+  }, [
+    currentOverviewOwnerKey,
+    isCurrentAllNetworksBalanceFullyReady,
+    resolvedBalanceString,
+    setLastConfirmedOverviewBalance,
+  ]);
 
   const effectiveOwnerKey = currentOverviewOwnerKey || bootstrapOwnerKey;
   // Pre-migration hydrate has no currency tag; values were written in the
@@ -952,83 +962,12 @@ function HomeOverviewContainer() {
     settings.currencyInfo.id,
     vaultSettings?.mergeDeriveAssetsEnabled,
   ]);
-  const currentTokenWorthUsd = useMemo(() => {
-    if (!isCurrentAccountWorthReady) {
-      return undefined;
-    }
-    const tokenWorth = calculateAccountTokensValue({
-      accountId: account?.id ?? '',
-      networkId: network?.id ?? '',
-      tokensWorth: accountWorth,
-      mergeDeriveAssetsEnabled: !!vaultSettings?.mergeDeriveAssetsEnabled,
-    });
-    return convertFiat({
-      value: tokenWorth,
-      sourceCurrency: accountWorth.currency ?? settings.currencyInfo.id,
-      targetCurrency: USD_CURRENCY_ID,
-      currencyMap,
-    });
-  }, [
-    account?.id,
-    accountWorth,
-    currencyMap,
-    isCurrentAccountWorthReady,
-    network?.id,
-    settings.currencyInfo.id,
-    vaultSettings?.mergeDeriveAssetsEnabled,
-  ]);
-
-  const portfolioSnapshot = resolveHomePortfolioSnapshot({
-    previous: homePortfolioDisplay,
-    candidate: {
-      ownerKey: currentOverviewOwnerKey,
-      totalFiatUsd: resolvedBalanceString,
-      tokenFiatUsd: currentTokenWorthUsd,
-      defiFiatUsd: isDeFiOverviewOwnerMatched
-        ? convertFiat({
-            value: accountDeFiOverview.netWorth ?? 0,
-            sourceCurrency:
-              accountDeFiOverview.currency || settings.currencyInfo.id,
-            targetCurrency: USD_CURRENCY_ID,
-            currencyMap,
-          })
-        : undefined,
-      perpsFiatUsd: isPerpsEnabled ? perpsNetWorthUsd : '0',
-      isLive: true,
-    },
-    isReady:
-      !isRefreshingTokenList &&
-      !isRefreshingDeFiList &&
-      !isRefreshingPerps &&
-      !overviewState.isRefreshing &&
-      !shouldHoldCurrentConfirmedBalance &&
-      isCurrentAccountWorthReady &&
-      (!network?.isAllNetworks || isCurrentTokenSnapshotCommitted) &&
-      overviewDeFiDataState.ownerKey === currentOverviewOwnerKey &&
-      overviewDeFiDataState.isReady === true,
-  });
-  useEffect(() => {
-    const { ownerKey, totalFiatUsd, isLive } = portfolioSnapshot;
-    if (!isLive || totalFiatUsd === undefined) return;
-    setLastConfirmedOverviewBalance((prev) => ({
-      latest: totalFiatUsd,
-      byOwner: { ...prev.byOwner, [ownerKey]: totalFiatUsd },
-      currency: USD_CURRENCY_ID,
-    }));
-  }, [
-    portfolioSnapshot.isLive,
-    portfolioSnapshot.ownerKey,
-    portfolioSnapshot.totalFiatUsd,
-    setLastConfirmedOverviewBalance,
-  ]);
-  const displayBalanceString =
-    portfolioSnapshot.totalFiatUsd ??
-    (shouldHoldCurrentConfirmedBalance
-      ? currentConfirmedBalance
-      : (resolvedBalanceString ??
-        currentConfirmedBalance ??
-        provisionalTokenOnlyBalanceUsd ??
-        lastConfirmedLatestUsd));
+  const displayBalanceString = shouldHoldCurrentConfirmedBalance
+    ? currentConfirmedBalance
+    : (resolvedBalanceString ??
+      currentConfirmedBalance ??
+      provisionalTokenOnlyBalanceUsd ??
+      lastConfirmedLatestUsd);
 
   const balancePayload = useMemo(
     () => ({
@@ -1119,31 +1058,126 @@ function HomeOverviewContainer() {
     });
   }, [renderedBalanceString, settings.currencyInfo.id, currencyMap]);
 
+  const currentTokenWorthUsd = useMemo(() => {
+    if (!isCurrentAccountWorthReady) {
+      return undefined;
+    }
+    const tokenWorth = calculateAccountTokensValue({
+      accountId: account?.id ?? '',
+      networkId: network?.id ?? '',
+      tokensWorth: accountWorth,
+      mergeDeriveAssetsEnabled: !!vaultSettings?.mergeDeriveAssetsEnabled,
+    });
+    return convertFiat({
+      value: tokenWorth,
+      sourceCurrency: accountWorth.currency ?? settings.currencyInfo.id,
+      targetCurrency: USD_CURRENCY_ID,
+      currencyMap,
+    });
+  }, [
+    account?.id,
+    accountWorth,
+    currencyMap,
+    isCurrentAccountWorthReady,
+    network?.id,
+    settings.currencyInfo.id,
+    vaultSettings?.mergeDeriveAssetsEnabled,
+  ]);
+
   // Track when balance is first displayed
   const balanceReady =
     !showSkeleton &&
     renderedBalanceString !== null &&
     renderedBalanceString !== undefined;
   useLayoutEffect(() => {
-    setHomePortfolioDisplay((prev) =>
-      Object.keys(portfolioSnapshot).every(
+    const isCurrentOwnerBalance =
+      !!currentOverviewOwnerKey &&
+      !(canReuseLatestDisplayedBalance && !currentConfirmedBalance);
+    const isLive =
+      isCurrentOwnerBalance &&
+      !shouldHoldCurrentConfirmedBalance &&
+      resolvedBalanceString !== undefined &&
+      renderedBalanceString === resolvedBalanceString;
+    const hasKnownDeFi =
+      isLive &&
+      isDeFiOverviewOwnerMatched &&
+      shouldIncludeKnownDeFiWorth({
+        isAllNetworks: !!network?.isAllNetworks,
+        isDeFiReady: isCurrentAccountDeFiReady,
+        deFiGraceExpired,
+        isDeFiOverviewOwnerMatched,
+      });
+    const deFiFiatUsd = hasKnownDeFi
+      ? convertFiat({
+          value: roundPortfolioTotal(
+            accountDeFiOverview.netWorth ?? 0,
+          ).toFixed(),
+          sourceCurrency:
+            accountDeFiOverview.currency || settings.currencyInfo.id,
+          targetCurrency: USD_CURRENCY_ID,
+          currencyMap,
+        })
+      : undefined;
+    let perpsFiatUsd: string | undefined;
+    if (isLive) {
+      perpsFiatUsd = isPerpsEnabled ? perpsNetWorthUsd : '0';
+    }
+    const next = {
+      ownerKey: isCurrentOwnerBalance ? currentOverviewOwnerKey : '',
+      totalFiatUsd:
+        isCurrentOwnerBalance && !showSkeleton
+          ? renderedBalanceString
+          : undefined,
+      tokenFiatUsd: isLive ? currentTokenWorthUsd : undefined,
+      defiFiatUsd: deFiFiatUsd,
+      perpsFiatUsd,
+      isLive,
+    };
+    setHomePortfolioDisplay((prev) => {
+      const snapshot = resolveHomePortfolioSnapshot({
+        previous: prev,
+        candidate: next,
+        isReady: isLive,
+      });
+      return Object.keys(snapshot).every(
         (key) =>
-          prev[key as keyof typeof portfolioSnapshot] ===
-          portfolioSnapshot[key as keyof typeof portfolioSnapshot],
-      ) && Object.keys(prev).length === Object.keys(portfolioSnapshot).length
+          prev[key as keyof typeof snapshot] ===
+          snapshot[key as keyof typeof snapshot],
+      ) && Object.keys(prev).length === Object.keys(snapshot).length
         ? prev
-        : portfolioSnapshot,
-    );
-  }, [portfolioSnapshot, setHomePortfolioDisplay]);
+        : snapshot;
+    });
+  }, [
+    accountDeFiOverview.currency,
+    accountDeFiOverview.netWorth,
+    canReuseLatestDisplayedBalance,
+    currencyMap,
+    currentConfirmedBalance,
+    currentOverviewOwnerKey,
+    currentTokenWorthUsd,
+    deFiGraceExpired,
+    isCurrentAccountDeFiReady,
+    isDeFiOverviewOwnerMatched,
+    isPerpsEnabled,
+    network?.isAllNetworks,
+    perpsNetWorthUsd,
+    renderedBalanceString,
+    resolvedBalanceString,
+    settings.currencyInfo.id,
+    setHomePortfolioDisplay,
+    shouldHoldCurrentConfirmedBalance,
+    showSkeleton,
+  ]);
   useEffect(() => {
     if (balanceReady && !(globalThis as any).__onekeyBalanceDisplayed) {
       (globalThis as any).__onekeyBalanceDisplayed = true;
       appEventBus.emit(EAppEventBusNames.HomePageReady, undefined);
       // Best-effort: persist the on-screen balance to lastConfirmedOverviewBalance
       // so the NEXT cold start's fast-path (Lever 1 in HomeOverviewContainer) can
-      // reuse it while the complete portfolio snapshot is still loading.
-      // The snapshot-gated effect above persists completed updates; this one
-      // guarantees we capture the first-displayed value.
+      // reuse it without waiting for isCurrentAllNetworksBalanceFullyReady — which
+      // often never turns true before the user kills the app in AllNetworks mode.
+      // The existing fully-ready-gated useEffect above still runs for progressive
+      // updates; this one just guarantees we capture the first-displayed value.
       try {
         const balanceToPersist = renderedBalanceString;
         if (
