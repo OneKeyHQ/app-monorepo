@@ -3,10 +3,9 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 const LEAD_LENGTH = 8;
 const LEAD_AFTER_PREFIX = 6;
 const TAIL_LENGTH = 6;
-const ELLIPSIS = '...';
-// Same bar as the poisoning check: this many matching characters at the
-// start and end together make two addresses look alike.
-const LOOKALIKE_MATCHING_CHARS = 8;
+// accountUtils.isSimilarAddress needs 8 matching characters at the two ends
+// together, so two lookalikes always share 4 at one end.
+const BUCKET_CHARS = 4;
 const BECH32_DATA = /^[qpzry9x8gf2tvdw0s3jn54khce6mua7l]+$/;
 
 // Lightning addresses (alice@getalby.com) and named accounts (alice.near)
@@ -45,16 +44,17 @@ export function shortenRecipientAddress(address: string): string {
   if (!address || isNameLikeAddress(address)) {
     return address;
   }
-  const leadLength = Math.max(
+  const leadingLength = Math.max(
     LEAD_LENGTH,
     getAddressPrefix(address).length + LEAD_AFTER_PREFIX,
   );
-  if (address.length <= leadLength + TAIL_LENGTH + ELLIPSIS.length) {
-    return address;
-  }
-  return `${address.slice(0, leadLength)}${ELLIPSIS}${address.slice(
-    -TAIL_LENGTH,
-  )}`;
+  return accountUtils.shortenAddress({
+    address,
+    leadingLength,
+    trailingLength: TAIL_LENGTH,
+    // Cut only when it saves characters: the "..." takes three.
+    minLength: leadingLength + TAIL_LENGTH + 3,
+  });
 }
 
 // What two addresses are compared by: the part after the prefix, ignoring
@@ -65,45 +65,49 @@ function getComparableAddress(address: string): string {
   return prefix.toLowerCase() === '0x' ? rest.toLowerCase() : rest;
 }
 
-function looksAlike(a: string, b: string): boolean {
-  if (a === b || a.length !== b.length) {
-    return false;
-  }
-  let head = 0;
-  while (head < a.length && a[head] === b[head]) {
-    head += 1;
-  }
-  let tail = 0;
-  while (
-    tail < a.length - head &&
-    a[a.length - 1 - tail] === b[b.length - 1 - tail]
-  ) {
-    tail += 1;
-  }
-  return head + tail >= LOOKALIKE_MATCHING_CHARS;
-}
+// Shared by every list without lookalikes, so it keeps one identity.
+export const NO_LOOKALIKES: ReadonlySet<string> = new Set<string>();
 
 // Addresses among `addresses` that look like another one, as comparable
-// keys; check rows with isLookalikeAddress. The lists are short (recents
-// are capped at 20), so every pair is compared.
-export function findLookalikeAddresses(addresses: string[]): Set<string> {
-  const keys = Array.from(
-    new Set(
-      addresses
-        .filter((address) => address && !isNameLikeAddress(address))
-        .map(getComparableAddress),
-    ),
-  );
-  const lookalikes = new Set<string>();
-  for (let i = 0; i < keys.length; i += 1) {
-    for (let j = i + 1; j < keys.length; j += 1) {
-      if (looksAlike(keys[i], keys[j])) {
-        lookalikes.add(keys[i]);
-        lookalikes.add(keys[j]);
+// keys; check rows with isLookalikeAddress. The lists can hold every
+// account and contact, so only addresses of one length that share their
+// first or last characters are compared.
+export function findLookalikeAddresses(
+  addresses: string[],
+): ReadonlySet<string> {
+  const buckets = new Map<string, string[]>();
+  new Set(
+    addresses
+      .filter((address) => address && !isNameLikeAddress(address))
+      .map(getComparableAddress),
+  ).forEach((key) => {
+    [
+      `${key.length}^${key.slice(0, BUCKET_CHARS)}`,
+      `${key.length}$${key.slice(-BUCKET_CHARS)}`,
+    ].forEach((bucketKey) => {
+      const bucket = buckets.get(bucketKey);
+      if (bucket) {
+        bucket.push(key);
+      } else {
+        buckets.set(bucketKey, [key]);
+      }
+    });
+  });
+  let lookalikes: Set<string> | undefined;
+  buckets.forEach((bucket) => {
+    for (let i = 0; i < bucket.length; i += 1) {
+      for (let j = i + 1; j < bucket.length; j += 1) {
+        if (accountUtils.isSimilarAddress(bucket[i], bucket[j])) {
+          if (!lookalikes) {
+            lookalikes = new Set();
+          }
+          lookalikes.add(bucket[i]);
+          lookalikes.add(bucket[j]);
+        }
       }
     }
-  }
-  return lookalikes;
+  });
+  return lookalikes ?? NO_LOOKALIKES;
 }
 
 export function isLookalikeAddress(

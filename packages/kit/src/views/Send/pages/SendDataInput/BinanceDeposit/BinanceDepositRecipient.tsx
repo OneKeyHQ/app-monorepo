@@ -18,6 +18,10 @@ import {
   MOTION_EASE_OUT,
   MOTION_ENTER_MS,
 } from '@onekeyhq/kit/src/views/FiatCrypto/components/Headless/motionTokens';
+import {
+  EExchangeId,
+  EXCHANGE_CONFIGS,
+} from '@onekeyhq/shared/src/consts/exchangeConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EBinanceDepositSessionStatus } from '@onekeyhq/shared/types/exchange';
 import type { IBinanceDepositSnapshot } from '@onekeyhq/shared/types/exchange';
@@ -145,17 +149,19 @@ export function BinanceDepositRecipientCard({
     case 'confirming':
       body = <CardProgress text={copy.gettingAddress} />;
       break;
-    case 'awaiting':
+    case 'awaiting': {
       // Confirmed in Binance, but the return never reached this phone: the
       // link can't be opened again, so only leaving is offered.
-      body =
-        snapshot?.status === EBinanceDepositSessionStatus.AUTHORIZED_UNBOUND ? (
-          <>
-            <CardMessage
-              title={copy.confirmedTitle}
-              description={copy.confirmedDesc}
-            />
-            <XStack>
+      const isUnbound =
+        snapshot?.status === EBinanceDepositSessionStatus.AUTHORIZED_UNBOUND;
+      body = (
+        <>
+          <CardMessage
+            title={isUnbound ? copy.confirmedTitle : copy.confirmTitle}
+            description={isUnbound ? copy.confirmedDesc : copy.confirmDesc}
+          />
+          <XStack>
+            {isUnbound ? (
               <Button
                 testID="send-binance-deposit-enter-address"
                 size="small"
@@ -163,15 +169,7 @@ export function BinanceDepositRecipientCard({
               >
                 {copy.enterAddress}
               </Button>
-            </XStack>
-          </>
-        ) : (
-          <>
-            <CardMessage
-              title={copy.confirmTitle}
-              description={copy.confirmDesc}
-            />
-            <XStack>
+            ) : (
               <Button
                 testID="send-binance-deposit-open"
                 size="small"
@@ -181,13 +179,15 @@ export function BinanceDepositRecipientCard({
               >
                 {intl.formatMessage(
                   { id: ETranslations.receive_open_exchange },
-                  { exchange: 'Binance' },
+                  { exchange: EXCHANGE_CONFIGS[EExchangeId.Binance].name },
                 )}
               </Button>
-            </XStack>
-          </>
-        );
+            )}
+          </XStack>
+        </>
+      );
       break;
+    }
     case 'authorized':
       body = snapshot?.destination ? (
         <YStack gap="$2">

@@ -100,7 +100,7 @@ import {
   BinanceDepositRecipientCard,
 } from './BinanceDeposit/BinanceDepositRecipient';
 import { useBinanceDepositRecipient } from './BinanceDeposit/useBinanceDepositRecipient';
-import { isLookalikeAddress } from './recipientListAddressUtils';
+import { NO_LOOKALIKES, isLookalikeAddress } from './recipientListAddressUtils';
 import RecipientQuickSelect from './RecipientQuickSelect';
 import {
   getSendAddressRiskCheckButtonState,
@@ -150,6 +150,8 @@ const addressRiskCheckInteractionProps = {
 function SendDataInputContainer() {
   const intl = useIntl();
   const media = useMedia();
+  // Every text field on the page takes the large size on phones.
+  const fieldSize = media.gtMd ? 'medium' : 'large';
   const { bottom: safeAreaBottom } = useSafeAreaInsets();
   const [inscriptionProtectionState] = useInscriptionProtectionStateAtom();
 
@@ -238,7 +240,7 @@ function SendDataInputContainer() {
     useState<IRecipientQuickSelectTab>('recent');
   const [hasQuickSelectMatches, setHasQuickSelectMatches] = useState(false);
   const [quickSelectLookalikes, setQuickSelectLookalikes] =
-    useState<ReadonlySet<string>>();
+    useState<ReadonlySet<string>>(NO_LOOKALIKES);
   const isQuickSelectLookalike = useCallback(
     (candidate: string) => isLookalikeAddress(quickSelectLookalikes, candidate),
     [quickSelectLookalikes],
@@ -1002,7 +1004,7 @@ function SendDataInputContainer() {
           <TextArea
             testID={SendTestIDs.memoTextarea}
             numberOfLines={memoInputLines}
-            size={media.gtMd ? 'medium' : 'large'}
+            size={fieldSize}
             placeholder={intl.formatMessage({
               id: ETranslations.send_tag_placeholder,
             })}
@@ -1017,7 +1019,7 @@ function SendDataInputContainer() {
     displayMemoForm,
     form,
     intl,
-    media.gtMd,
+    fieldSize,
     memoMaxLength,
     memoValue,
     numericOnlyMemo,
@@ -1067,13 +1069,13 @@ function SendDataInputContainer() {
           <TextArea
             testID={SendTestIDs.paymentIdTextarea}
             numberOfLines={2}
-            size={media.gtMd ? 'medium' : 'large'}
+            size={fieldSize}
             placeholder="Payment ID"
           />
         </Form.Field>
       </>
     );
-  }, [displayPaymentIdForm, form, intl, media.gtMd, paymentIdValue]);
+  }, [displayPaymentIdForm, fieldSize, form, intl, paymentIdValue]);
 
   const renderNoteForm = useCallback(() => {
     if (!displayNoteForm) return null;
@@ -1117,14 +1119,14 @@ function SendDataInputContainer() {
         <TextArea
           testID={SendTestIDs.noteTextarea}
           numberOfLines={2}
-          size={media.gtMd ? 'medium' : 'large'}
+          size={fieldSize}
           placeholder={intl.formatMessage({
             id: ETranslations.global_Note,
           })}
         />
       </Form.Field>
     );
-  }, [displayNoteForm, form, intl, media.gtMd, noteMaxLength, noteValue]);
+  }, [displayNoteForm, fieldSize, form, intl, noteMaxLength, noteValue]);
 
   const renderDataInput = useCallback(() => {
     return (
@@ -1648,8 +1650,7 @@ function SendDataInputContainer() {
                     name="to"
                     labelAddon={addressRiskCheckLabelAddon}
                     testID={SendTestIDs.recipientInput}
-                    // Same size rule as the Tag field below.
-                    size={media.gtMd ? 'medium' : 'large'}
+                    size={fieldSize}
                     numberOfLines={
                       networkUtils.isLightningNetworkByNetworkId(
                         currentAccount.networkId,

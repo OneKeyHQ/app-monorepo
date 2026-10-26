@@ -9,6 +9,7 @@ import {
   useState,
 } from 'react';
 
+import { isEqual } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import {
@@ -61,11 +62,11 @@ import { EInputAddressChangeType } from '@onekeyhq/shared/types/address';
 import {
   QuickSelectListItemFrame,
   QuickSelectListSkeleton,
+  RecipientDetailLine,
 } from './QuickSelectListShared';
 import RecentRecipients from './RecentRecipients';
 import {
   findLookalikeAddresses,
-  formatRecipientExtra,
   isLookalikeAddress,
   shortenRecipientAddress,
 } from './recipientListAddressUtils';
@@ -190,37 +191,10 @@ const QuickSelectListItem = memo(
     showFullAddress: boolean;
     onPress?: (item: IQuickItem) => void;
   }) => {
-    const intl = useIntl();
     const handlePress = useCallback(() => onPress?.(item), [item, onPress]);
     // The first line says who it is: the name, or the short address.
     const displayName = item.name || shortenRecipientAddress(item.address);
     const showAddr = item.displayAddress ?? item.address;
-    const extraText = formatRecipientExtra({
-      memo: item.memo,
-      note: item.note,
-      tagLabel: intl.formatMessage({ id: ETranslations.send_tag }),
-      noteLabel: intl.formatMessage({ id: ETranslations.global_Note }),
-    });
-    let secondary: ReactNode;
-    if (showFullAddress && showAddr) {
-      secondary = (
-        <MatchSizeableText size="$bodyMd" color="$textSubdued">
-          {extraText ? `${showAddr} · ${extraText}` : showAddr}
-        </MatchSizeableText>
-      );
-    } else {
-      const detailText = [
-        item.name ? shortenRecipientAddress(showAddr) : undefined,
-        extraText,
-      ]
-        .filter(Boolean)
-        .join(' · ');
-      secondary = detailText ? (
-        <SizableText size="$bodyMd" color="$textSubdued" numberOfLines={1}>
-          {detailText}
-        </SizableText>
-      ) : undefined;
-    }
 
     return (
       <QuickSelectListItemFrame
@@ -248,7 +222,15 @@ const QuickSelectListItem = memo(
             ) : null}
           </XStack>
         }
-        secondary={secondary}
+        secondary={
+          <RecipientDetailLine
+            address={showAddr}
+            memo={item.memo}
+            note={item.note}
+            showFullAddress={showFullAddress}
+            before={[item.name ? shortenRecipientAddress(showAddr) : undefined]}
+          />
+        }
       />
     );
   },
@@ -322,6 +304,16 @@ function collectAccountSearchAddresses(
     }
   }
   return unique;
+}
+
+// The address an account row shows, also what the lookalike check compares.
+function getAccountAddress(account: INetworkAccount | undefined): string {
+  return (
+    account?.addressDetail?.displayAddress ??
+    account?.address ??
+    account?.addressDetail?.address ??
+    ''
+  );
 }
 
 // Find the actual address on `account` that matches `searchValue`
@@ -430,13 +422,7 @@ function AccountRecipients({
     onAddressesChange?.(
       walletGroups
         .flatMap((group) => group.accounts ?? [])
-        .map(
-          ({ account }) =>
-            account?.addressDetail?.displayAddress ??
-            account?.address ??
-            account?.addressDetail?.address ??
-            '',
-        )
+        .map(({ account }) => getAccountAddress(account))
         .filter(Boolean),
     );
   }, [walletGroups, onAddressesChange]);
@@ -866,12 +852,7 @@ function AccountRecipients({
           walletId,
           wallet,
         } = item;
-        const currentAddress =
-          account.addressDetail?.displayAddress ??
-          account.address ??
-          account.addressDetail?.address ??
-          '';
-        const itemAddress = matchedAddress ?? currentAddress;
+        const itemAddress = matchedAddress ?? getAccountAddress(account);
         const itemKey = `${account.id ?? 'no-id'}-${itemAddress}`;
         const displayName = account.name ?? '';
 
@@ -1132,37 +1113,19 @@ function RecipientQuickSelect({
   const [tabAddresses, setTabAddresses] = useState<
     Record<IRecipientQuickSelectTab, string[]>
   >({ recent: [], account: [], addressBook: [] });
-  const reportTabAddresses = useCallback(
-    (tab: IRecipientQuickSelectTab, addresses: string[]) => {
-      setTabAddresses((prev) => {
-        const current = prev[tab];
-        const unchanged =
-          current.length === addresses.length &&
-          current.every((address, index) => address === addresses[index]);
-        return unchanged ? prev : { ...prev, [tab]: addresses };
-      });
-    },
-    [],
-  );
-  const handleRecentAddresses = useCallback(
-    (addresses: string[]) => reportTabAddresses('recent', addresses),
-    [reportTabAddresses],
-  );
-  const handleAccountAddresses = useCallback(
-    (addresses: string[]) => reportTabAddresses('account', addresses),
-    [reportTabAddresses],
-  );
-  const handleAddressBookAddresses = useCallback(
-    (addresses: string[]) => reportTabAddresses('addressBook', addresses),
-    [reportTabAddresses],
-  );
+  const reportAddresses = useMemo(() => {
+    const forTab = (tab: IRecipientQuickSelectTab) => (addresses: string[]) =>
+      setTabAddresses((prev) =>
+        isEqual(prev[tab], addresses) ? prev : { ...prev, [tab]: addresses },
+      );
+    return {
+      recent: forTab('recent'),
+      account: forTab('account'),
+      addressBook: forTab('addressBook'),
+    };
+  }, []);
   const lookalikeAddresses = useMemo(
-    () =>
-      findLookalikeAddresses([
-        ...tabAddresses.recent,
-        ...tabAddresses.account,
-        ...tabAddresses.addressBook,
-      ]),
+    () => findLookalikeAddresses(Object.values(tabAddresses).flat()),
     [tabAddresses],
   );
   useEffect(() => {
@@ -1453,7 +1416,7 @@ function RecipientQuickSelect({
               onMatchStatusChange={handleRecentMatchStatus}
               onLastUsedDeriveTypeChange={setLastUsedDeriveType}
               lookalikeAddresses={lookalikeAddresses}
-              onAddressesChange={handleRecentAddresses}
+              onAddressesChange={reportAddresses.recent}
             />
           </Stack>
         ) : null}
@@ -1469,7 +1432,7 @@ function RecipientQuickSelect({
               isSearchMode={isSearchMode}
               keylessWalletsOnly={keylessWalletsOnly}
               lookalikeAddresses={lookalikeAddresses}
-              onAddressesChange={handleAccountAddresses}
+              onAddressesChange={reportAddresses.account}
               onInputTypeChange={onInputTypeChange}
               onSelect={({ address }) => {
                 setImmediateSearchKey(address);
@@ -1491,7 +1454,7 @@ function RecipientQuickSelect({
               debouncedSearchKey={debouncedSearchKey}
               isSearchMode={isSearchMode}
               lookalikeAddresses={lookalikeAddresses}
-              onAddressesChange={handleAddressBookAddresses}
+              onAddressesChange={reportAddresses.addressBook}
               onInputTypeChange={onInputTypeChange}
               onSelect={(params) =>
                 onSelect?.({

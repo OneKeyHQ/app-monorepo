@@ -1,12 +1,22 @@
 import { memo, useCallback } from 'react';
 import type { ReactNode } from 'react';
 
-import { Skeleton, Stack } from '@onekeyhq/components';
+import { useIntl } from 'react-intl';
+
+import {
+  MatchSizeableText,
+  SizableText,
+  Skeleton,
+  Stack,
+} from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountAvatar } from '@onekeyhq/kit/src/components/AccountAvatar';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+
+import { formatRecipientExtra } from './recipientListAddressUtils';
 
 function AccountAvatarWithWallet({
   address,
@@ -139,5 +149,56 @@ function QuickSelectListSkeleton({ count = 3 }: { count?: number }) {
   );
 }
 
+// Second line of a recipient row. While searching, or when the address
+// looks like another one, it is the full address. Otherwise it is the
+// details on one line: `before`, the tag or note, then `after`, so what
+// comes last is what gets cut.
+function RecipientDetailLine({
+  address,
+  memo: memoValue,
+  note,
+  showFullAddress,
+  before = [],
+  after = [],
+}: {
+  address: string;
+  memo?: string;
+  note?: string;
+  showFullAddress: boolean;
+  before?: (string | undefined)[];
+  after?: (string | undefined)[];
+}) {
+  const intl = useIntl();
+  const extraText =
+    memoValue || note
+      ? formatRecipientExtra({
+          memo: memoValue,
+          note,
+          tagLabel: intl.formatMessage({ id: ETranslations.send_tag }),
+          noteLabel: intl.formatMessage({ id: ETranslations.global_Note }),
+        })
+      : undefined;
+  if (showFullAddress && address) {
+    return (
+      <MatchSizeableText
+        size="$bodyMd"
+        color="$textSubdued"
+        wordWrap="break-word"
+      >
+        {extraText ? `${address} · ${extraText}` : address}
+      </MatchSizeableText>
+    );
+  }
+  const detailText = [...before, extraText, ...after]
+    .filter(Boolean)
+    .join(' · ');
+  return detailText ? (
+    <SizableText size="$bodyMd" color="$textSubdued" numberOfLines={1}>
+      {detailText}
+    </SizableText>
+  ) : null;
+}
+
 export { MemoizedQuickSelectListItemFrame as QuickSelectListItemFrame };
 export { QuickSelectListSkeleton };
+export { RecipientDetailLine };

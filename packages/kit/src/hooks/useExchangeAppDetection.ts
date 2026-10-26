@@ -17,6 +17,11 @@ const initialInstalledStatus: IInstalledStatus = ALL_EXCHANGE_IDS.reduce(
   {} as IInstalledStatus,
 );
 
+// Exchange apps are only detected on phones.
+export function canOpenExchangeApp(_exchangeId: EExchangeId): Promise<boolean> {
+  return Promise.resolve(false);
+}
+
 export function useExchangeAppDetection() {
   const sortedExchanges = useMemo(
     (): IExchangeConfig[] => ALL_EXCHANGE_IDS.map((id) => EXCHANGE_CONFIGS[id]),

@@ -3,11 +3,9 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Toast } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useIsEnableTransferAllowList } from '@onekeyhq/kit/src/components/AddressInput/hooks';
+import { canOpenExchangeApp } from '@onekeyhq/kit/src/hooks/useExchangeAppDetection';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import {
-  EExchangeId,
-  EXCHANGE_CONFIGS,
-} from '@onekeyhq/shared/src/consts/exchangeConsts';
+import { EExchangeId } from '@onekeyhq/shared/src/consts/exchangeConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import openUrlUtils from '@onekeyhq/shared/src/utils/openUrlUtils';
@@ -21,7 +19,7 @@ import { BINANCE_DEPOSIT_COPY } from './binanceDepositCopy';
 const SNAPSHOT_POLL_INTERVAL_MS = 1500;
 
 function isSameSnapshot(
-  a: IBinanceDepositSnapshot | undefined,
+  a: IBinanceDepositSnapshot | null | undefined,
   b: IBinanceDepositSnapshot | undefined,
 ): boolean {
   return (
@@ -49,10 +47,10 @@ export function useBinanceDepositRecipient({
   token?: IToken | null;
   isNFT: boolean;
 }) {
-  const [snapshot, setSnapshot] = useState<IBinanceDepositSnapshot>();
-  // True from the tap until the first server answer, so the card shows at
-  // once instead of waiting on the create request.
-  const [isStarting, setIsStarting] = useState(false);
+  // null from the tap until the first server answer, so the card shows at
+  // once instead of waiting on the create request; undefined when the user
+  // isn't sending to Binance.
+  const [snapshot, setSnapshot] = useState<IBinanceDepositSnapshot | null>();
   const [isBusy, setIsBusy] = useState(false);
   const isBusyRef = useRef(false);
   // Bumped by every start, every exit and on unmount: an answer that arrives
@@ -98,18 +96,13 @@ export function useBinanceDepositRecipient({
         : undefined,
     },
   );
+  // Asked again only when the asset comes or goes, not each time a fresh
+  // copy of it arrives.
+  const hasAsset = !!asset;
   const { result: isBinanceInstalled } = usePromiseResult(
-    async () => {
-      if (!asset) {
-        return undefined;
-      }
-      const { appOpenUrl, detectionUrl } =
-        EXCHANGE_CONFIGS[EExchangeId.Binance];
-      return openUrlUtils
-        .linkingCanOpenURL(detectionUrl ?? appOpenUrl)
-        .catch(() => false);
-    },
-    [asset],
+    async () =>
+      hasAsset ? canOpenExchangeApp(EExchangeId.Binance) : undefined,
+    [hasAsset],
     { swrKey: 'binance-deposit-app-installed' },
   );
 
@@ -150,7 +143,6 @@ export function useBinanceDepositRecipient({
         return;
       }
       setSnapshot(next);
-      setIsStarting(false);
       if (next.phase === 'awaiting') {
         await openBinance(next.localId, attempt);
       }
@@ -177,7 +169,6 @@ export function useBinanceDepositRecipient({
         return;
       }
       setSnapshot(next);
-      setIsStarting(false);
     },
     [refreshAsset],
   );
@@ -191,8 +182,7 @@ export function useBinanceDepositRecipient({
     }
     attemptRef.current += 1;
     const attempt = attemptRef.current;
-    setSnapshot(undefined);
-    setIsStarting(true);
+    setSnapshot(null);
     try {
       await applyCreateResult(
         attempt,
@@ -243,7 +233,6 @@ export function useBinanceDepositRecipient({
     attemptRef.current += 1;
     const current = snapshot;
     setSnapshot(undefined);
-    setIsStarting(false);
     if (current?.phase === 'failed') {
       await backgroundApiProxy.serviceBinanceDeposit.discardSession(
         current.localId,
@@ -283,8 +272,8 @@ export function useBinanceDepositRecipient({
   return {
     isEntryAvailable: !!asset && isBinanceInstalled === true,
     // The card takes over from the tap, before the server has answered.
-    isActive: !!snapshot || isStarting,
-    snapshot,
+    isActive: snapshot !== undefined,
+    snapshot: snapshot ?? undefined,
     isBusy,
     start,
     retryCreate,
