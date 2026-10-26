@@ -531,6 +531,27 @@ describe('Perps selector keyboard navigation', () => {
     expect(setRoute).not.toHaveBeenCalled();
   });
 
+  it.each(['ArrowUp', 'ArrowDown'])(
+    'preserves modified %s for native input editing without moving the highlight',
+    async (key) => {
+      const input = await openSelector();
+      fireEvent.change(input, { target: { value: 'TOKEN' } });
+      act(() => {
+        jest.advanceTimersByTime(300);
+      });
+      fireEvent.keyDown(input, { key: 'ArrowDown' });
+      fireEvent.keyDown(input, { key: 'ArrowDown' });
+      expect(screen.getByTestId('row-TOKEN3').dataset.selected).toBe('true');
+      mockScrollIntoView.mockClear();
+      for (const modifier of ['metaKey', 'ctrlKey', 'altKey', 'shiftKey']) {
+        expect(fireEvent.keyDown(input, { key, [modifier]: true })).toBe(true);
+        expect(screen.getByTestId('row-TOKEN3').dataset.selected).toBe('true');
+      }
+      expect(mockScrollIntoView).not.toHaveBeenCalled();
+      expect(mockSwitchInstrument).not.toHaveBeenCalled();
+    },
+  );
+
   it('clears the highlight on tab changes and does nothing for empty results', async () => {
     const input = await openSelector();
     fireEvent.keyDown(input, { key: 'ArrowDown' });

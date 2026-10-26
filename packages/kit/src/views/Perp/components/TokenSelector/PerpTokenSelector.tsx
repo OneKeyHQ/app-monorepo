@@ -1250,6 +1250,14 @@ function BasePerpTokenSelectorContent({ maxHeight }: { maxHeight?: number }) {
         return;
       }
       if (key !== 'ArrowDown' && key !== 'ArrowUp') return;
+      if (
+        keyboardEvent.metaKey ||
+        keyboardEvent.ctrlKey ||
+        keyboardEvent.altKey ||
+        keyboardEvent.shiftKey
+      ) {
+        return;
+      }
       event.preventDefault();
       if (
         inputQueryRef.current !== searchQuery ||
