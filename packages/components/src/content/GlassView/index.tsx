@@ -2,11 +2,14 @@ import type { PropsWithChildren } from 'react';
 
 import { View } from 'react-native';
 
+import type { GlassViewProps } from 'expo-glass-effect';
 import type { StyleProp, ViewStyle } from 'react-native';
 
 export type IGlassViewProps = PropsWithChildren<{
   style?: StyleProp<ViewStyle>;
-  glassEffectStyle?: 'clear' | 'regular';
+  // Type-only import: erased at build time, so the native module still
+  // never enters a non-iOS bundle.
+  glassEffectStyle?: GlassViewProps['glassEffectStyle'];
   tintColor?: string;
   isInteractive?: boolean;
 }>;
