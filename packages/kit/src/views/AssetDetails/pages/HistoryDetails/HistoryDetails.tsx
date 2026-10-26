@@ -421,6 +421,7 @@ function HistoryDetails() {
     isAllNetworks,
     checkIsFocused = true,
   } = route.params;
+
   const historyInit = useRef(false);
   const historyConfirmed = useRef(false);
   const privateSendSwapDetailOpened = useRef(false);
@@ -1619,7 +1620,6 @@ function HistoryDetails() {
     txDetails,
     historyTx,
   });
-  const hasHistoryDetailData = !!historyTx || !!txDetails;
 
   const renderFeeInfo = useCallback(() => {
     if (isLocalWalletHistory && !txInfo?.gasFee) {
@@ -1702,14 +1702,6 @@ function HistoryDetails() {
         <Stack pt={240} justifyContent="center" alignItems="center">
           <Spinner size="large" />
         </Stack>
-      );
-    }
-
-    if (!hasHistoryDetailData && historyInit.current && isLoading === false) {
-      return (
-        <SizableText px="$5">
-          {intl.formatMessage({ id: ETranslations.global_not_available })}
-        </SizableText>
       );
     }
 
@@ -1886,7 +1878,13 @@ function HistoryDetails() {
                     variant="secondary"
                     iconAfter="ChevronRightSmallOutline"
                   >
-                    {`${intl.formatMessage({ id: ETranslations.global_inputs })} & ${intl.formatMessage({ id: ETranslations.global_outputs })}`}
+                    {intl.formatMessage({
+                      id: ETranslations.global_inputs,
+                    })}{' '}
+                    &{' '}
+                    {intl.formatMessage({
+                      id: ETranslations.global_outputs,
+                    })}
                   </Button>
                 }
               />
@@ -1897,7 +1895,6 @@ function HistoryDetails() {
     );
   }, [
     isLoading,
-    hasHistoryDetailData,
     historyTxParam,
     intl,
     renderTxStatus,
