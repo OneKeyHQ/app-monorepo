@@ -563,15 +563,20 @@ function StockActionGate({
   const [quoteEventCompleted] = useSwapQuoteEventCompletedAtom();
   const accountInfo = swapFromAddressInfo.accountInfo;
   const isDesktopModalPage = isModalPage && !md;
-  const isWebDappModeWithNoWallet = Boolean(
+  // Connection identity survives network-account resolution, while an empty
+  // external wallet container can remain after its last account disconnects.
+  const connectionAccountInfo =
+    swapFromAddressInfo.activeAccount ?? accountInfo;
+  const isWebDappModeWithNoAccount = Boolean(
     platformEnv.isWebDappMode &&
-    accountInfo &&
-    !accountInfo.wallet &&
-    !accountInfo.accountName,
+    connectionAccountInfo &&
+    !connectionAccountInfo.account &&
+    !connectionAccountInfo.dbAccount &&
+    !connectionAccountInfo.indexedAccount,
   );
   const shouldShowConnectWalletAction =
     alerts.states.some((item) => item.noConnectWallet) ||
-    isWebDappModeWithNoWallet ||
+    isWebDappModeWithNoAccount ||
     Boolean(accountInfo?.ready && !accountInfo.wallet);
   const handleConnectWalletPress = useCallback(() => {
     if (platformEnv.isWebDappMode) {

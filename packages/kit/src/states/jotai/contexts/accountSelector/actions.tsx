@@ -7041,11 +7041,16 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
             });
 
             if (
-              isSelectedWalletRemoved &&
+              (isSelectedWalletRemoved ||
+                triggerBy ===
+                  EAccountSelectorAutoSelectTriggerBy.removeAccount ||
+                triggerBy ===
+                  EAccountSelectorAutoSelectTriggerBy.removeLastOthersAccount) &&
               isSelectedAccountIdentityIncomplete(selectedAccountNew)
             ) {
-              // A network-only selection is the final empty state after removing
-              // the last wallet, so it must replace the stale active account.
+              // Removing the last singleton account leaves its wallet container
+              // in the DB. Its empty selection must still clear the old active
+              // account instead of keeping it as an incomplete cold-start value.
               await this.reloadActiveAccountInfo.call(set, {
                 forceIncompleteSelectionReload: true,
                 num,
