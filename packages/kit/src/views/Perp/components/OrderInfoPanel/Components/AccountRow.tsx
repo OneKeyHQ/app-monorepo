@@ -7,7 +7,7 @@ import { Icon, SizableText, XStack, YStack } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { usePerpsActiveAccountAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
-import { formatTime } from '@onekeyhq/shared/src/utils/dateUtils';
+import { formatDate, formatTime } from '@onekeyhq/shared/src/utils/dateUtils';
 import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import type { IUserNonFundingLedgerUpdate } from '@onekeyhq/shared/types/hyperliquid/sdk';
@@ -359,7 +359,7 @@ const AccountRow = memo(
     const dateInfo = useMemo(() => {
       const timeDate = new Date(time);
       return {
-        date: formatTime(timeDate, { formatTemplate: 'yyyy-LL-dd' }),
+        date: formatDate(timeDate, { hideTimeForever: true }),
         time: formatTime(timeDate, { formatTemplate: 'HH:mm:ss' }),
       };
     }, [time]);

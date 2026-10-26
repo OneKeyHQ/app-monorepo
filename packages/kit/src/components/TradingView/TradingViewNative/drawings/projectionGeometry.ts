@@ -1,6 +1,7 @@
 import type { IMarketTokenKLineDataPoint } from '@onekeyhq/shared/types/marketV2';
 
 // cspell:ignore intrabar
+import { formatDrawingText, getDrawingCanvasText } from './drawingText';
 import { getGhostFeedCandles } from './ghostFeed';
 import {
   formatDrawingNumber,
@@ -275,14 +276,21 @@ export function appendProjectionGeometry(
     line({ x: a.x, y: stopY }, { x: right, y: stopY }, false, '#F23645');
     if (drawing.showLabels !== false) {
       const precision = getDrawingPricePrecision(projection);
-      for (const [name, price, value, y, color] of [
-        ['Target', stats.target, stats.reward, targetY, '#089981'],
-        ['Stop', stats.stop, stats.risk, stopY, '#F23645'],
+      const text = getDrawingCanvasText(projection.text);
+      for (const [template, price, value, y, color] of [
+        [text.target, stats.target, stats.reward, targetY, '#089981'],
+        [text.stop, stats.stop, stats.risk, stopY, '#F23645'],
       ] as const)
         labels.push({
           x: (a.x + right) / 2,
           y: y + (y < a.y ? -8 : 8),
-          text: `${name}: ${formatDrawingNumber(price, precision)}\n${formatDrawingNumber(value, precision)} (${stats.entry ? ((value / Math.abs(stats.entry)) * 100).toFixed(2) : '0.00'}%)`,
+          text: formatDrawingText(template, {
+            price: formatDrawingNumber(price, precision),
+            amount: formatDrawingNumber(value, precision),
+            percent: stats.entry
+              ? ((value / Math.abs(stats.entry)) * 100).toFixed(2)
+              : '0.00',
+          }),
           fontSize: drawing.fontSize,
           color: '#FFFFFF',
           background: color,
@@ -295,7 +303,11 @@ export function appendProjectionGeometry(
       labels.push({
         x: (a.x + right) / 2,
         y: a.y,
-        text: `${stats.closed ? 'Closed' : 'Open'} P&L: ${formatDrawingNumber(stats.pnl, 2)}\nQty: ${formatDrawingNumber(stats.quantity, 4)}\nRisk/Reward Ratio: ${stats.ratio.toFixed(2)}`,
+        text: formatDrawingText(stats.closed ? text.closedPnl : text.openPnl, {
+          pnl: formatDrawingNumber(stats.pnl, 2),
+          quantity: formatDrawingNumber(stats.quantity, 4),
+          ratio: stats.ratio.toFixed(2),
+        }),
         color: '#FFFFFF',
         background: stats.pnl >= 0 ? '#089981' : '#F23645',
         fontSize: drawing.fontSize,

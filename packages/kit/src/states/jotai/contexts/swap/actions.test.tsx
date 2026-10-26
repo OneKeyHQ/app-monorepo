@@ -62,6 +62,7 @@ import {
   EProtocolOfExchange,
   ESwapAlertLevel,
   ESwapDirectionType,
+  ESwapProTradeType,
   ESwapQuoteKind,
   ESwapQuoteSource,
   ESwapSlippageSegmentKey,
@@ -89,7 +90,9 @@ import {
   swapProPositionsCacheAtom,
   swapProPositionsRuntimeDataAtom,
   swapProSelectTokenAtom,
+  swapProSellToTokenAtom,
   swapProTokenBalanceLoadingAtom,
+  swapProTradeTypeAtom,
   swapProUseSelectBuyTokenAtom,
   swapProUserSelectedTokenAtom,
   swapQuoteActionLockAtom,
@@ -109,6 +112,7 @@ import {
   swapSelectedFromTokenBalanceAtom,
   swapSelectedToTokenBalanceAtom,
   swapSelectedTokenBalanceMetaAtom,
+  swapSelectedTokenBalanceRefreshRequestedAtom,
   swapSelectedTokensColdStartContextAtom,
   swapShouldRefreshQuoteAtom,
   swapStockExecutionTokenSyncIdAtom,
@@ -584,6 +588,241 @@ describe('useSwapActions', () => {
 
   afterEach(() => {
     platformEnv.isNative = false;
+  });
+
+  describe('quote resume after app lock', () => {
+    const slippageItem = { key: ESwapSlippageSegmentKey.AUTO, value: 0.5 };
+    const resumeParams = {
+      slippageItem,
+      address: '0xabc',
+      accountId: evmAccount.id,
+      kind: ESwapQuoteKind.SELL,
+      incognito: false,
+      pausedQuoteRequestId: 'paused-request',
+    };
+    const setupResume = (count: number, manual = false) => {
+      const entry = createWrapperWithStore((store) => {
+        store.set(swapTypeSwitchAtom(), ESwapTabSwitchType.SWAP);
+        store.set(swapSelectFromTokenAtom(), ethToken);
+        store.set(swapSelectToTokenAtom(), bnbToken);
+        store.set(swapFromTokenAmountAtom(), { value: '1', isInput: true });
+        store.set(swapQuoteIntervalCountAtom(), count);
+        store.set(swapShouldRefreshQuoteAtom(), manual);
+        store.set(swapQuoteActionLockAtom(), {
+          type: ESwapTabSwitchType.SWAP,
+          source: ESwapQuoteSource.MARKET,
+          actionLock: false,
+          fromToken: ethToken,
+          toToken: bnbToken,
+          fromTokenAmount: '1',
+          kind: ESwapQuoteKind.SELL,
+          accountId: evmAccount.id,
+          address: '0xabc',
+          quoteRequestId: 'paused-request',
+          slippageItem,
+          incognito: false,
+        });
+      });
+      const hook = renderHook(() => useSwapActions().current, {
+        wrapper: entry.Wrapper,
+      });
+      return { ...entry, ...hook };
+    };
+
+    it.each([0, 4])(
+      'consumes one remaining automatic refresh and ignores duplicate resume (count=%s)',
+      async (count) => {
+        const { store, result } = setupResume(count);
+        await act(async () => {
+          await result.current.resumeQuoteAction(resumeParams);
+          await result.current.resumeQuoteAction(resumeParams);
+        });
+        expect(store.get(swapQuoteIntervalCountAtom())).toBe(count + 1);
+        expect(mockFetchQuotesEvents).toHaveBeenCalledTimes(1);
+        expect(mockFetchQuotesEvents).toHaveBeenCalledWith(
+          expect.objectContaining({ source: ESwapQuoteSource.MARKET }),
+        );
+        expect(store.get(swapShouldRefreshQuoteAtom())).toBe(false);
+      },
+    );
+
+    it.each([
+      [5, false],
+      [5, true],
+      [0, true],
+    ])(
+      'retains manual refresh without a request (count=%s, manual=%s)',
+      async (count, manual) => {
+        const { store, result } = setupResume(
+          count as number,
+          manual as boolean,
+        );
+        await act(async () => {
+          await result.current.resumeQuoteAction(resumeParams);
+        });
+        expect(mockFetchQuotesEvents).not.toHaveBeenCalled();
+        expect(store.get(swapQuoteIntervalCountAtom())).toBe(count);
+        expect(store.get(swapShouldRefreshQuoteAtom())).toBe(true);
+        expect(store.get(swapQuoteActionLockAtom()).actionLock).toBe(false);
+      },
+    );
+
+    it.each(['amount', 'recipient', 'custom slippage', 'privacy'])(
+      'starts a new budget when the current %s intent changed',
+      async (changed) => {
+        const { store, result } = setupResume(5, true);
+        if (changed === 'amount')
+          store.set(swapFromTokenAmountAtom(), { value: '2', isInput: true });
+        const params = {
+          ...resumeParams,
+          receivingAddress: changed === 'recipient' ? '0xrecipient' : undefined,
+          slippageItem:
+            changed === 'custom slippage'
+              ? { key: ESwapSlippageSegmentKey.CUSTOM, value: 1 }
+              : slippageItem,
+          incognito: changed === 'privacy',
+        };
+        await act(async () => {
+          await result.current.resumeQuoteAction(params);
+        });
+        expect(mockFetchQuotesEvents).toHaveBeenCalledTimes(1);
+        expect(store.get(swapQuoteIntervalCountAtom())).toBe(0);
+        expect(store.get(swapShouldRefreshQuoteAtom())).toBe(false);
+      },
+    );
+
+    it('preserves manual stop for a Pro LIMIT pair different from the generic pair', async () => {
+      const { store, result } = setupResume(0, true);
+      platformEnv.isNative = true;
+      store.set(swapTypeSwitchAtom(), ESwapTabSwitchType.LIMIT);
+      store.set(swapProTradeTypeAtom(), ESwapProTradeType.LIMIT);
+      store.set(swapProDirectionAtom(), ESwapDirection.BUY);
+      store.set(swapProUseSelectBuyTokenAtom(), bnbProToken);
+      store.set(swapProSelectTokenAtom(), usdcToken);
+      store.set(swapQuoteActionLockAtom(), {
+        ...store.get(swapQuoteActionLockAtom()),
+        type: ESwapTabSwitchType.LIMIT,
+        fromToken: bnbProToken,
+        toToken: usdcToken,
+      });
+      await act(async () => {
+        await result.current.resumeQuoteAction(resumeParams);
+      });
+      expect(mockFetchQuotesEvents).not.toHaveBeenCalled();
+      expect(store.get(swapShouldRefreshQuoteAtom())).toBe(true);
+    });
+
+    it.each([4, 5])(
+      'resumes native Pro MARKET using its own input and remaining budget (count=%s)',
+      async (count) => {
+        const { store, result } = setupResume(count);
+        platformEnv.isNative = true;
+        store.set(swapTypeSwitchAtom(), ESwapTabSwitchType.LIMIT);
+        store.set(swapProTradeTypeAtom(), ESwapProTradeType.MARKET);
+        store.set(swapProDirectionAtom(), ESwapDirection.BUY);
+        store.set(swapProUseSelectBuyTokenAtom(), bnbProToken);
+        store.set(swapProSelectTokenAtom(), usdcToken);
+        store.set(swapProInputAmountAtom(), '1');
+        store.set(swapFromTokenAmountAtom(), { value: '', isInput: false });
+        store.set(swapQuoteActionLockAtom(), {
+          ...store.get(swapQuoteActionLockAtom()),
+          fromToken: bnbProToken,
+          toToken: usdcToken,
+          receivingAddress: '0xabc',
+        });
+        await act(async () => {
+          await result.current.resumeQuoteAction({
+            ...resumeParams,
+            receivingAddress: '0xabc',
+          });
+        });
+        expect(mockFetchQuotesEvents).toHaveBeenCalledTimes(
+          count === 4 ? 1 : 0,
+        );
+        expect(store.get(swapQuoteIntervalCountAtom())).toBe(5);
+        expect(store.get(swapShouldRefreshQuoteAtom())).toBe(count === 5);
+        if (count === 4)
+          expect(store.get(swapQuoteActionLockAtom())).toMatchObject({
+            type: ESwapTabSwitchType.SWAP,
+            fromToken: bnbProToken,
+            toToken: usdcToken,
+            fromTokenAmount: '1',
+          });
+      },
+    );
+
+    it.each([ESwapDirection.BUY, ESwapDirection.SELL])(
+      'retains the same-network Pro MARKET invariant (%s)',
+      async (direction) => {
+        const { store, result } = setupResume(0);
+        platformEnv.isNative = true;
+        store.set(swapTypeSwitchAtom(), ESwapTabSwitchType.LIMIT);
+        store.set(swapProTradeTypeAtom(), ESwapProTradeType.MARKET);
+        store.set(swapProDirectionAtom(), direction);
+        store.set(swapProSelectTokenAtom(), ethToken);
+        store.set(swapProUseSelectBuyTokenAtom(), bnbProToken);
+        store.set(swapProSellToTokenAtom(), bnbProToken);
+        store.set(swapProInputAmountAtom(), '1');
+        await act(async () => {
+          await result.current.resumeQuoteAction(resumeParams);
+        });
+        expect(mockFetchQuotesEvents).not.toHaveBeenCalled();
+        expect(store.get(swapQuoteActionLockAtom()).actionLock).toBe(false);
+        expect(store.get(swapQuoteIntervalCountAtom())).toBe(0);
+      },
+    );
+
+    it('ignores changes to the automatic slippage suggestion', async () => {
+      const { store, result } = setupResume(5);
+      await act(async () => {
+        await result.current.resumeQuoteAction({
+          ...resumeParams,
+          slippageItem: { ...slippageItem, value: 2 },
+        });
+      });
+      expect(mockFetchQuotesEvents).not.toHaveBeenCalled();
+      expect(store.get(swapShouldRefreshQuoteAtom())).toBe(true);
+    });
+
+    it.each([1, 5])(
+      'preserves a stock market-closed stop even when surfaced in Swap (count=%s)',
+      async (count) => {
+        const { store, result } = setupResume(count);
+        store.set(swapQuoteEventErrorAtom(), {
+          message: 'Market closed',
+          isStock: true,
+          isMarketOpen: false,
+          fromToken: ethToken,
+          toToken: bnbToken,
+          fromTokenAmount: '1',
+        });
+        await act(async () => {
+          await result.current.resumeQuoteAction(resumeParams);
+        });
+        expect(mockFetchQuotesEvents).not.toHaveBeenCalled();
+        expect(store.get(swapQuoteIntervalCountAtom())).toBe(count);
+        expect(store.get(swapShouldRefreshQuoteAtom())).toBe(false);
+      },
+    );
+
+    it.each([ESwapTabSwitchType.PRIVATE_SEND, ESwapTabSwitchType.LIMIT])(
+      'preserves the manual stop for %s without adding an automatic timer',
+      async (type) => {
+        const { store, result } = setupResume(0, true);
+        store.set(swapTypeSwitchAtom(), type);
+        store.set(swapQuoteActionLockAtom(), {
+          ...store.get(swapQuoteActionLockAtom()),
+          type,
+        });
+        await act(async () => {
+          await result.current.resumeQuoteAction(resumeParams);
+        });
+        expect(mockFetchQuotesEvents).not.toHaveBeenCalled();
+        expect(store.get(swapShouldRefreshQuoteAtom())).toBe(true);
+        expect(store.get(swapQuoteIntervalCountAtom())).toBe(0);
+        expect(store.get(swapQuoteAutoRefreshTimerAtom())).toBeUndefined();
+      },
+    );
   });
 
   describe('quote token price refresh', () => {
@@ -3695,6 +3934,58 @@ describe('useSwapActions', () => {
     ).toEqual({});
   });
 
+  it('requests balances only for the currently selected sides without loading token lists', () => {
+    const { store, Wrapper } = createWrapperWithStore((currentStore) => {
+      currentStore.set(swapTypeSwitchAtom(), ESwapTabSwitchType.SWAP);
+      currentStore.set(swapSelectToTokenAtom(), undefined);
+    });
+    const { result } = renderHook(() => useSwapActions().current, {
+      wrapper: Wrapper,
+    });
+    act(() => {
+      result.current.requestSelectedTokenBalanceRefresh();
+    });
+    expect(store.get(swapSelectedTokenBalanceRefreshRequestedAtom())).toEqual({
+      from: true,
+      to: false,
+    });
+    act(() => {
+      store.set(swapSelectToTokenAtom(), {
+        ...ethToken,
+        networkId: 'sol--101',
+      });
+      result.current.requestSelectedTokenBalanceRefresh();
+    });
+    expect(store.get(swapSelectedTokenBalanceRefreshRequestedAtom())).toEqual({
+      from: true,
+      to: true,
+    });
+    expect(mockFetchSwapTokenDetails).not.toHaveBeenCalled();
+    expect(mockFetchSwapTokens).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    { type: ESwapTabSwitchType.STOCK, native: false },
+    { type: ESwapTabSwitchType.LIMIT, native: true },
+  ])(
+    'does not request shared balances for $type on native=$native',
+    ({ type, native }) => {
+      platformEnv.isNative = native;
+      const { store, Wrapper } = createWrapperWithStore((currentStore) => {
+        currentStore.set(swapTypeSwitchAtom(), type);
+      });
+      const { result } = renderHook(() => useSwapActions().current, {
+        wrapper: Wrapper,
+      });
+      act(() => {
+        result.current.requestSelectedTokenBalanceRefresh();
+      });
+      expect(store.get(swapSelectedTokenBalanceRefreshRequestedAtom())).toEqual(
+        { from: false, to: false },
+      );
+    },
+  );
+
   it('pins selected token detail price fetches to USD for rate-difference math', async () => {
     mockFetchSwapTokenDetails.mockResolvedValue([
       {
@@ -6724,6 +7015,54 @@ describe('useSwapActions', () => {
     } finally {
       jest.clearAllTimers();
       jest.useRealTimers();
+    }
+  });
+
+  it('does not clear a newer quote timer when older settings resolve late', async () => {
+    const settings = await settingsAtom.get();
+    let resolveOlderSettings: ((value: typeof settings) => void) | undefined;
+    jest.mocked(settingsAtom.get).mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveOlderSettings = resolve;
+        }),
+    );
+    const { store, Wrapper } = createWrapperWithStore((currentStore) => {
+      currentStore.set(swapTypeSwitchAtom(), ESwapTabSwitchType.SWAP);
+      currentStore.set(swapSelectToTokenAtom(), bnbToken);
+      currentStore.set(swapFromTokenAmountAtom(), {
+        value: '1',
+        isInput: true,
+      });
+    });
+    const { result } = renderHook(() => useSwapActions().current, {
+      wrapper: Wrapper,
+    });
+    const startQuote = () =>
+      result.current.quoteAction(
+        { key: ESwapSlippageSegmentKey.AUTO, value: 0.5 },
+        '0xabc',
+        evmAccount.id,
+        undefined,
+        undefined,
+        ESwapQuoteKind.SELL,
+      );
+    await act(async () => {
+      await startQuote();
+    });
+    await act(async () => {
+      await startQuote();
+    });
+    const timer = setTimeout(() => {}, swapRefreshInterval);
+    try {
+      store.set(swapQuoteAutoRefreshTimerAtom(), timer);
+      await act(async () => {
+        resolveOlderSettings?.(settings);
+        await Promise.resolve();
+      });
+      expect(store.get(swapQuoteAutoRefreshTimerAtom())).toBe(timer);
+    } finally {
+      clearTimeout(timer);
     }
   });
 

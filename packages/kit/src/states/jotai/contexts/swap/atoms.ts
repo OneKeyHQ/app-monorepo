@@ -437,6 +437,8 @@ export const {
   receivingAddress?: string;
   quoteRequestId?: string;
   manualRefresh?: boolean;
+  slippageItem?: { key: ESwapSlippageSegmentKey; value: number };
+  incognito?: boolean;
 }>({ actionLock: false });
 
 export const {
@@ -556,6 +558,14 @@ export const { atom: swapQuoteFetchingAtom, use: useSwapQuoteFetchingAtom } =
 export const {
   atom: swapSelectTokenDetailFetchingAtom,
   use: useSwapSelectTokenDetailFetchingAtom,
+} = contextAtom<Record<ESwapDirectionType, boolean>>({
+  from: false,
+  to: false,
+});
+
+export const {
+  atom: swapSelectedTokenBalanceRefreshRequestedAtom,
+  use: useSwapSelectedTokenBalanceRefreshRequestedAtom,
 } = contextAtom<Record<ESwapDirectionType, boolean>>({
   from: false,
   to: false,

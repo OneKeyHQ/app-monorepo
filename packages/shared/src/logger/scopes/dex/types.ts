@@ -10,6 +10,8 @@ export enum EEnterWay {
   ExtensionSidePanel = 'ExtensionSidePanel',
   SwapPro = 'SwapPro',
   BannerList = 'BannerList',
+  // Swap's stock trade page, "view full data in Markets".
+  SwapStock = 'SwapStock',
 }
 
 export enum EDexListName {

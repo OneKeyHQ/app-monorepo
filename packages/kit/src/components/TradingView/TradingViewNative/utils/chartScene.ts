@@ -254,6 +254,7 @@ export type ITradingViewNativeChartSceneCommand =
     };
 
 export interface IBuildTradingViewNativeChartSceneOptions {
+  dateFormatTemplate?: string;
   autoScalePointRange?: ITradingViewNativeVisiblePointRange;
   candleIntervalSeconds: number;
   candleTimeMode?: ITradingViewNativeCandleTimeMode;
@@ -676,6 +677,7 @@ function appendLegendCommands({
 }
 
 export function buildTradingViewNativeChartScene({
+  dateFormatTemplate,
   autoScalePointRange,
   candleIntervalSeconds,
   candleTimeMode,
@@ -825,10 +827,8 @@ export function buildTradingViewNativeChartScene({
       const colorKey = direction === 'up' ? 'upColor' : 'downColor';
       customPaintStyles[LATEST_PRICE_LINE_PAINT_IDS[direction]] = {
         color: chartSettings.latestPriceLine[colorKey],
-        dash:
-          chartSettings.latestPriceLine.style === 'dashed'
-            ? [CURRENT_PRICE_LINE_DASH_LENGTH, CURRENT_PRICE_LINE_DASH_GAP]
-            : undefined,
+        // The latest price line is always dashed; any stored style is ignored.
+        dash: [CURRENT_PRICE_LINE_DASH_LENGTH, CURRENT_PRICE_LINE_DASH_GAP],
         opacity: 1,
       };
       customPaintStyles[LATEST_PRICE_LABEL_PAINT_IDS[direction]] = {
@@ -895,6 +895,7 @@ export function buildTradingViewNativeChartScene({
 
   const scalePointRange = autoScalePointRange ?? visiblePointRange;
   const layout = getTradingViewNativeChartLayout({
+    dateFormatTemplate,
     autoScalePointRange: scalePointRange,
     additionalPriceRange: getTradingViewNativeIndicatorPriceRange({
       ...scalePointRange,
@@ -1530,6 +1531,7 @@ export function buildTradingViewNativeChartScene({
     const timeLabel = formatTradingViewNativeCrosshairTime(
       crosshairTimestamp,
       candleIntervalSeconds,
+      dateFormatTemplate,
     );
     const timeTextWidth = measureTextWidth(timeLabel, 'axis');
     const timeLabelWidth = Math.min(
