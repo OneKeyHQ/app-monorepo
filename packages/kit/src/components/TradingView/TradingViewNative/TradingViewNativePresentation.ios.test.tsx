@@ -10,6 +10,7 @@ import { EModalRoutes, ERootRoutes } from '@onekeyhq/shared/src/routes';
 
 import { TradingViewNativeChartActiveContext } from './TradingViewNativeChartActiveContext';
 import { TradingViewNativeChartReadyContext } from './TradingViewNativeChartReadyContext';
+import { useIsTradingViewNativeFullscreenActive } from './tradingViewNativeFullscreenState';
 import {
   TradingViewNativeFullscreenPage,
   TradingViewNativePresentation,
@@ -133,6 +134,51 @@ function layout(width: number, height: number) {
     } as LayoutChangeEvent);
   });
 }
+
+function FullscreenActiveProbe() {
+  return <i>{String(useIsTradingViewNativeFullscreenActive())}</i>;
+}
+
+it('reports fullscreen from the open request until the native page is gone', () => {
+  const probe = render(<FullscreenActiveProbe />);
+  const chart = (isFullscreen: boolean) => (
+    <TradingViewNativePresentation isFullscreen={isFullscreen}>
+      <Chart label="Chart" />
+    </TradingViewNativePresentation>
+  );
+  const owner = render(chart(false));
+  expect(probe.container.textContent).toBe('false');
+  owner.rerender(chart(true));
+  // Set with the push itself, before the native page lays out or rotates.
+  expect(probe.container.textContent).toBe('true');
+  const page = render(<TradingViewNativeFullscreenPage />);
+  layout(874, 402);
+  owner.rerender(chart(false));
+  layout(402, 874);
+  expect(probe.container.textContent).toBe('true');
+  page.unmount();
+  expect(probe.container.textContent).toBe('false');
+});
+
+it('keeps reporting fullscreen while the page outlives its owner', () => {
+  const probe = render(<FullscreenActiveProbe />);
+  const owner = render(
+    <TradingViewNativePresentation isFullscreen>
+      <Chart label="Chart" />
+    </TradingViewNativePresentation>,
+  );
+  const page = render(<TradingViewNativeFullscreenPage />);
+  owner.unmount();
+  expect(mockDispatch).toHaveBeenLastCalledWith({
+    type: 'GO_BACK',
+    source: 'fullscreen',
+    target: 'root',
+  });
+  // The native page is still dismissing over the detail.
+  expect(probe.container.textContent).toBe('true');
+  page.unmount();
+  expect(probe.container.textContent).toBe('false');
+});
 
 it.each([
   { isPad: false, topPadding: '0px' },

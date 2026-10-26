@@ -3,7 +3,13 @@ import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 import pRetry from 'p-retry';
 import { View } from 'react-native';
 
-import { Page, RefreshControl, ScrollView, Stack } from '@onekeyhq/components';
+import {
+  Page,
+  RefreshControl,
+  ScrollView,
+  Stack,
+  useScrollContentTabBarOffset,
+} from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ReviewControl } from '@onekeyhq/kit/src/components/ReviewControl';
 import useListenTabFocusState from '@onekeyhq/kit/src/hooks/useListenTabFocusState';
@@ -36,6 +42,7 @@ function DashboardContent({
   tabId?: string;
 }) {
   const isFocused = useIsFocused();
+  const tabBarOffset = useScrollContentTabBarOffset() ?? 0;
   const isContentActive = isFocused && isActive;
 
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -193,6 +200,8 @@ function DashboardContent({
         height="100%"
         onScroll={isContentActive ? (onScroll as any) : undefined}
         scrollEventThrottle={16}
+        // Keep the last row clear of the tab bar floating over the content.
+        contentContainerStyle={{ paddingBottom: tabBarOffset + 16 }}
         refreshControl={
           <RefreshControl refreshing={isRefreshing} onRefresh={refresh} />
         }

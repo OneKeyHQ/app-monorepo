@@ -1,5 +1,7 @@
 import { useState } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import {
   Button,
   Checkbox,
@@ -9,6 +11,7 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { TRADING_VIEW_SETTINGS_COLOR_PALETTE } from '../../TradingViewChartControls/chartSettings/TradingViewSettingsShared';
 
@@ -23,7 +26,30 @@ import {
 
 import type { IDrawingLevel, IDrawingStyle, IDrawingTool } from './model';
 
+const STAMP_LABEL_IDS: Record<
+  NonNullable<IDrawingStyle['stamp']>,
+  ETranslations
+> = {
+  smile: ETranslations.market_drawing_smile__title,
+  heart: ETranslations.market_drawing_heart__title,
+  star: ETranslations.market_drawing_star__title,
+  check: ETranslations.market_drawing_check__title,
+  cross: ETranslations.market_drawing_cross__title,
+  arrowUp: ETranslations.market_drawing_arrow_up__title,
+  arrowDown: ETranslations.market_drawing_arrow_down__title,
+};
+
+const LABEL_POSITION_LABEL_IDS: Record<
+  NonNullable<IDrawingStyle['labelPosition']>,
+  ETranslations
+> = {
+  left: ETranslations.market_drawing_left__title,
+  center: ETranslations.market_drawing_center__title,
+  right: ETranslations.market_drawing_right__title,
+};
+
 function NumberField({
+  name,
   label,
   value,
   min,
@@ -31,6 +57,7 @@ function NumberField({
   disabled,
   onChange,
 }: {
+  name: string;
   label: string;
   value: number;
   min: number;
@@ -52,7 +79,7 @@ function NumberField({
   };
   return (
     <Input
-      testID={`drawing-style-${label}`}
+      testID={`drawing-style-${name}`}
       accessibilityLabel={label}
       value={text}
       disabled={disabled}
@@ -102,6 +129,7 @@ export function DrawingStyleOptions({
   disabled: boolean;
   onChange: (patch: Partial<IDrawingStyle>) => void;
 }) {
+  const intl = useIntl();
   if (tool === 'cursor' || tool === 'measure') return null;
   const group = DRAWING_TOOLS[tool].group;
   const fibonacci =
@@ -182,7 +210,9 @@ export function DrawingStyleOptions({
   if (hasFill)
     toggles.push({
       key: 'showBackground',
-      label: 'Background',
+      label: intl.formatMessage({
+        id: ETranslations.market_chart_settings__background,
+      }),
       fallback: tool !== 'text',
     });
   if (
@@ -201,24 +231,48 @@ export function DrawingStyleOptions({
   )
     toggles.push({
       key: 'showBorder',
-      label: 'Border',
+      label: intl.formatMessage({
+        id: ETranslations.market_chart_settings__border,
+      }),
       fallback: !range && tool !== 'text',
     });
   if (tool === 'gannSquare' || tool === 'gannSquareFixed')
     toggles.push(
-      { key: 'showFans', label: 'Fans', fallback: true },
-      { key: 'showArcs', label: 'Arcs', fallback: true },
+      {
+        key: 'showFans',
+        label: intl.formatMessage({
+          id: ETranslations.market_drawing_fans__title,
+        }),
+        fallback: true,
+      },
+      {
+        key: 'showArcs',
+        label: intl.formatMessage({
+          id: ETranslations.market_drawing_arcs__title,
+        }),
+        fallback: true,
+      },
     );
   if (hasExtension)
     toggles.push(
       {
         key: 'extendLeft',
-        label: tool === 'dateRange' ? 'Extend top' : 'Extend left',
+        label: intl.formatMessage({
+          id:
+            tool === 'dateRange'
+              ? ETranslations.market_drawing_extend_top__title
+              : ETranslations.market_drawing_extend_left__title,
+        }),
         fallback: false,
       },
       {
         key: 'extendRight',
-        label: tool === 'dateRange' ? 'Extend bottom' : 'Extend right',
+        label: intl.formatMessage({
+          id:
+            tool === 'dateRange'
+              ? ETranslations.market_drawing_extend_bottom__title
+              : ETranslations.market_drawing_extend_right__title,
+        }),
         fallback: group === 'Pitchforks',
       },
     );
@@ -229,21 +283,47 @@ export function DrawingStyleOptions({
   )
     toggles.push({
       key: 'showMiddleLine',
-      label: 'Middle line',
+      label: intl.formatMessage({
+        id: ETranslations.market_drawing_middle_line__title,
+      }),
       fallback: true,
     });
   if (hasLabels && !text && tool !== 'angle')
-    toggles.push({ key: 'showLabels', label: 'Labels', fallback: true });
+    toggles.push({
+      key: 'showLabels',
+      label: intl.formatMessage({
+        id: ETranslations.market_drawing_labels__title,
+      }),
+      fallback: true,
+    });
   if (tool === 'fib' || tool === 'fibExtension')
-    toggles.push({ key: 'showPrices', label: 'Prices', fallback: true });
+    toggles.push({
+      key: 'showPrices',
+      label: intl.formatMessage({
+        id: ETranslations.market_drawing_prices__title,
+      }),
+      fallback: true,
+    });
   if (
     (isFibonacciTool(tool) && !['fibCircles', 'fibWedge'].includes(tool)) ||
     group === 'Gann' ||
     tool === 'barsPattern'
   )
-    toggles.push({ key: 'reverse', label: 'Reverse', fallback: false });
+    toggles.push({
+      key: 'reverse',
+      label: intl.formatMessage({
+        id: ETranslations.market_drawing_reverse__title,
+      }),
+      fallback: false,
+    });
   if (tool === 'dateRange' || tool === 'datePriceRange')
-    toggles.push({ key: 'showVolume', label: 'Volume', fallback: true });
+    toggles.push({
+      key: 'showVolume',
+      label: intl.formatMessage({
+        id: ETranslations.market_chart_indicator_vol__title,
+      }),
+      fallback: true,
+    });
   let defaultFillOpacity = 0.2;
   if (bubble) defaultFillOpacity = 1;
   else if (range || group === 'Patterns') defaultFillOpacity = 0.15;
@@ -282,14 +362,20 @@ export function DrawingStyleOptions({
             ? [
                 {
                   key: 'accountSize' as const,
-                  label: 'Account size',
+                  name: 'Account size',
+                  label: intl.formatMessage({
+                    id: ETranslations.market_drawing_account_size__title,
+                  }),
                   value: style.accountSize ?? 1000,
                   min: 1,
                   max: 1e12,
                 },
                 {
                   key: 'riskPercent' as const,
-                  label: 'Risk (%)',
+                  name: 'Risk (%)',
+                  label: intl.formatMessage({
+                    id: ETranslations.market_drawing_risk_percent__title,
+                  }),
                   value: style.riskPercent ?? 25,
                   min: 0.01,
                   max: 100,
@@ -305,6 +391,7 @@ export function DrawingStyleOptions({
               <SizableText size="$bodySm">{field.label}</SizableText>
               <NumberField
                 key={field.value}
+                name={field.name}
                 label={field.label}
                 value={field.value}
                 min={field.min}
@@ -316,10 +403,17 @@ export function DrawingStyleOptions({
           ))}
           {tool === 'regression' ? (
             <XStack justifyContent="space-between" alignItems="center">
-              <SizableText size="$bodySm">Standard deviations</SizableText>
+              <SizableText size="$bodySm">
+                {intl.formatMessage({
+                  id: ETranslations.market_drawing_standard_deviations__title,
+                })}
+              </SizableText>
               <NumberField
                 key={style.deviation}
-                label="Deviation"
+                name="Deviation"
+                label={intl.formatMessage({
+                  id: ETranslations.market_drawing_deviation__title,
+                })}
                 value={style.deviation ?? 2}
                 min={0.1}
                 max={100}
@@ -329,36 +423,48 @@ export function DrawingStyleOptions({
             </XStack>
           ) : null}
           {tool === 'ghostFeed'
-            ? (['candleRange', 'candleVariance'] as const).map((key) => (
-                <XStack
-                  key={key}
-                  justifyContent="space-between"
-                  alignItems="center"
-                >
-                  <SizableText size="$bodySm">
-                    {key === 'candleRange'
-                      ? 'Avg HL (ticks)'
-                      : 'Variance (ticks)'}
-                  </SizableText>
-                  <NumberField
-                    key={style[key]}
-                    label={key}
-                    value={style[key] ?? 50}
-                    min={0}
-                    max={1e9}
-                    disabled={disabled}
-                    onChange={(value) => onChange({ [key]: value })}
-                  />
-                </XStack>
-              ))
+            ? (['candleRange', 'candleVariance'] as const).map((key) => {
+                const label = intl.formatMessage({
+                  id:
+                    key === 'candleRange'
+                      ? ETranslations.market_drawing_avg_hl_ticks__title
+                      : ETranslations.market_drawing_variance_ticks__title,
+                });
+                return (
+                  <XStack
+                    key={key}
+                    justifyContent="space-between"
+                    alignItems="center"
+                  >
+                    <SizableText size="$bodySm">{label}</SizableText>
+                    <NumberField
+                      key={style[key]}
+                      name={key}
+                      label={label}
+                      value={style[key] ?? 50}
+                      min={0}
+                      max={1e9}
+                      disabled={disabled}
+                      onChange={(value) => onChange({ [key]: value })}
+                    />
+                  </XStack>
+                );
+              })
             : null}
           {tool === 'volumeProfile' ? (
             <>
               <XStack justifyContent="space-between" alignItems="center">
-                <SizableText size="$bodySm">Rows</SizableText>
+                <SizableText size="$bodySm">
+                  {intl.formatMessage({
+                    id: ETranslations.market_drawing_rows__title,
+                  })}
+                </SizableText>
                 <NumberField
                   key={style.profileRows}
-                  label="Profile rows"
+                  name="Profile rows"
+                  label={intl.formatMessage({
+                    id: ETranslations.market_drawing_profile_rows__title,
+                  })}
                   value={style.profileRows ?? 24}
                   min={1}
                   max={100}
@@ -369,10 +475,17 @@ export function DrawingStyleOptions({
                 />
               </XStack>
               <XStack justifyContent="space-between" alignItems="center">
-                <SizableText size="$bodySm">Value area (%)</SizableText>
+                <SizableText size="$bodySm">
+                  {intl.formatMessage({
+                    id: ETranslations.market_drawing_value_area_percent__title,
+                  })}
+                </SizableText>
                 <NumberField
                   key={style.valueAreaPercent}
-                  label="Value area"
+                  name="Value area"
+                  label={intl.formatMessage({
+                    id: ETranslations.market_drawing_value_area__title,
+                  })}
                   value={style.valueAreaPercent ?? 70}
                   min={1}
                   max={100}
@@ -383,8 +496,9 @@ export function DrawingStyleOptions({
                 />
               </XStack>
               <SizableText size="$bodySm" color="$textSubdued">
-                Volume distribution uses available lower timeframe candles, with
-                chart candles as a fallback.
+                {intl.formatMessage({
+                  id: ETranslations.market_drawing_volume_profile_data_source__desc,
+                })}
               </SizableText>
             </>
           ) : null}
@@ -410,17 +524,24 @@ export function DrawingStyleOptions({
               disabled={disabled}
               onPress={() => onChange({ stamp })}
             >
-              {stamp}
+              {intl.formatMessage({ id: STAMP_LABEL_IDS[stamp] })}
             </Button>
           ))}
         </XStack>
       ) : null}
       {hasFill ? (
         <XStack alignItems="center" justifyContent="space-between" gap="$2">
-          <SizableText size="$bodySm">Background opacity (%)</SizableText>
+          <SizableText size="$bodySm">
+            {intl.formatMessage({
+              id: ETranslations.market_drawing_background_opacity_percent__title,
+            })}
+          </SizableText>
           <NumberField
             key={style.fillOpacity ?? 'default'}
-            label="Background opacity"
+            name="Background opacity"
+            label={intl.formatMessage({
+              id: ETranslations.market_drawing_background_opacity__title,
+            })}
             value={Math.round((style.fillOpacity ?? defaultFillOpacity) * 100)}
             min={0}
             max={100}
@@ -439,10 +560,17 @@ export function DrawingStyleOptions({
       ) : null}
       {tool === 'brush' || tool === 'highlighter' ? (
         <XStack alignItems="center" justifyContent="space-between" gap="$2">
-          <SizableText size="$bodySm">Opacity (%)</SizableText>
+          <SizableText size="$bodySm">
+            {intl.formatMessage({
+              id: ETranslations.market_drawing_opacity_percent__title,
+            })}
+          </SizableText>
           <NumberField
             key={style.opacity ?? 'default'}
-            label="Opacity"
+            name="Opacity"
+            label={intl.formatMessage({
+              id: ETranslations.market_drawing_opacity__title,
+            })}
             value={Math.round(
               (style.opacity ?? (tool === 'highlighter' ? 0.5 : 1)) * 100,
             )}
@@ -456,7 +584,11 @@ export function DrawingStyleOptions({
       {(hasLabels && !text) || group === 'Icons' ? (
         <>
           <XStack alignItems="center" justifyContent="space-between">
-            <SizableText size="$bodySm">Text color</SizableText>
+            <SizableText size="$bodySm">
+              {intl.formatMessage({
+                id: ETranslations.market_drawing_text_color__title,
+              })}
+            </SizableText>
             <StyleColor
               label="Text color"
               value={
@@ -467,7 +599,11 @@ export function DrawingStyleOptions({
               onChange={(textColor) => onChange({ textColor })}
             />
           </XStack>
-          <SizableText size="$bodySm">Font size</SizableText>
+          <SizableText size="$bodySm">
+            {intl.formatMessage({
+              id: ETranslations.market_drawing_font_size__title,
+            })}
+          </SizableText>
           <XStack gap="$1" flexWrap="wrap">
             {DRAWING_FONT_SIZES.map((fontSize) => (
               <Button
@@ -488,7 +624,11 @@ export function DrawingStyleOptions({
       ) : null}
       {['fib', 'fibExtension', 'fibChannel'].includes(tool) ? (
         <>
-          <SizableText size="$bodySm">Label position</SizableText>
+          <SizableText size="$bodySm">
+            {intl.formatMessage({
+              id: ETranslations.market_drawing_label_position__title,
+            })}
+          </SizableText>
           <XStack gap="$1">
             {(['left', 'center', 'right'] as const).map((labelPosition) => (
               <Button
@@ -503,7 +643,9 @@ export function DrawingStyleOptions({
                 }
                 onPress={() => onChange({ labelPosition })}
               >
-                {labelPosition}
+                {intl.formatMessage({
+                  id: LABEL_POSITION_LABEL_IDS[labelPosition],
+                })}
               </Button>
             ))}
           </XStack>
@@ -511,40 +653,51 @@ export function DrawingStyleOptions({
       ) : null}
       {fibonacci && tool !== 'fibSpiral' ? (
         <>
-          <SizableText size="$bodySmMedium">Levels</SizableText>
-          {levels.map((level, index) => (
-            <XStack
-              key={index}
-              gap="$2"
-              alignItems="center"
-              justifyContent="space-between"
-            >
-              <Checkbox
-                testID={`drawing-level-visible-${index}`}
-                accessibilityLabel={`Level ${index + 1}`}
-                value={level.visible}
-                disabled={disabled}
-                onChange={(visible) =>
-                  changeLevel(index, { visible: Boolean(visible) })
-                }
-              />
-              <NumberField
-                key={level.value}
-                label={`Level ${index + 1}`}
-                value={level.value}
-                min={-1000}
-                max={1000}
-                disabled={disabled}
-                onChange={(value) => changeLevel(index, { value })}
-              />
-              <StyleColor
-                label={`Level ${index + 1} color`}
-                value={level.color}
-                disabled={disabled}
-                onChange={(color) => changeLevel(index, { color })}
-              />
-            </XStack>
-          ))}
+          <SizableText size="$bodySmMedium">
+            {intl.formatMessage({
+              id: ETranslations.market_drawing_levels__title,
+            })}
+          </SizableText>
+          {levels.map((level, index) => {
+            const levelLabel = intl.formatMessage(
+              { id: ETranslations.market_drawing_level_index__title },
+              { index: index + 1 },
+            );
+            return (
+              <XStack
+                key={index}
+                gap="$2"
+                alignItems="center"
+                justifyContent="space-between"
+              >
+                <Checkbox
+                  testID={`drawing-level-visible-${index}`}
+                  accessibilityLabel={levelLabel}
+                  value={level.visible}
+                  disabled={disabled}
+                  onChange={(visible) =>
+                    changeLevel(index, { visible: Boolean(visible) })
+                  }
+                />
+                <NumberField
+                  key={level.value}
+                  name={`Level ${index + 1}`}
+                  label={levelLabel}
+                  value={level.value}
+                  min={-1000}
+                  max={1000}
+                  disabled={disabled}
+                  onChange={(value) => changeLevel(index, { value })}
+                />
+                <StyleColor
+                  label={`Level ${index + 1} color`}
+                  value={level.color}
+                  disabled={disabled}
+                  onChange={(color) => changeLevel(index, { color })}
+                />
+              </XStack>
+            );
+          })}
           <Button
             testID="drawing-style-add-level"
             size="small"
@@ -558,7 +711,9 @@ export function DrawingStyleOptions({
               })
             }
           >
-            Add level
+            {intl.formatMessage({
+              id: ETranslations.market_drawing_add_level__action,
+            })}
           </Button>
         </>
       ) : null}
@@ -575,16 +730,26 @@ export function DrawingAnchorFields({
   disabled: boolean;
   onChange: (patch: { x?: number; y?: number }) => void;
 }) {
+  const intl = useIntl();
   return (
     <YStack gap="$2">
       {(['x', 'y'] as const).map((axis) => (
         <XStack key={axis} alignItems="center" justifyContent="space-between">
           <SizableText size="$bodySm">
-            {axis === 'x' ? 'Horizontal position (%)' : 'Vertical position (%)'}
+            {intl.formatMessage({
+              id:
+                axis === 'x'
+                  ? ETranslations.market_drawing_horizontal_position_percent__title
+                  : ETranslations.market_drawing_vertical_position_percent__title,
+            })}
           </SizableText>
           <NumberField
             key={anchor[axis]}
-            label={`Anchor ${axis}`}
+            name={`Anchor ${axis}`}
+            label={intl.formatMessage(
+              { id: ETranslations.market_drawing_anchor_axis__title },
+              { axis },
+            )}
             value={Math.round(anchor[axis] * 10_000) / 100}
             min={0}
             max={100}
