@@ -734,7 +734,8 @@ export class SimpleDbEntityLocalHistory extends SimpleDbEntityBase<ILocalHistory
                     (removed) => removed.id === tx.id,
                   ),
               ),
-              pending: pendingTxsToUpdate ?? rawData?.pendingTxs?.[key] ?? [],
+              pending:
+                pendingTxsToUpdateMap[key] ?? rawData?.pendingTxs?.[key] ?? [],
               confirmed:
                 confirmedTxsToUpdate ?? rawData?.confirmedTxs?.[key] ?? [],
             });
