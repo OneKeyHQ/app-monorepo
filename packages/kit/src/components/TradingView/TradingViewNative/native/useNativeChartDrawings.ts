@@ -175,6 +175,7 @@ export function useNativeChartDrawings({
             points: runtime.points,
             interval: runtime.candleIntervalSeconds,
             priceDecimalPlaces,
+            text: drawingText,
           };
           if (!isInDrawingPane(point, drawingProjection)) {
             manager.fail();
@@ -264,6 +265,7 @@ export function useNativeChartDrawings({
       cancel,
       chartRuntime,
       decayOffset,
+      drawingText,
       drawings,
       enabled,
       handlePointer,
