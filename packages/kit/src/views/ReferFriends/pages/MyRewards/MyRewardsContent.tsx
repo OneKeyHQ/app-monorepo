@@ -144,10 +144,11 @@ const DESKTOP_ROW_BLEED_PROPS = {
   borderRadius: '$3',
 } as const;
 
-// A paid or unpaid figure: a token amount, or the server-formatted Earn text.
+// A paid or unpaid figure: a dollar amount, or token text. Token text keeps
+// the dollar part it holds (its stable coins) for the summary totals.
 type IRewardValue =
   | { kind: 'amount'; amount: string }
-  | { kind: 'text'; text: IEarnText; extraCount: number };
+  | { kind: 'text'; text: IEarnText; extraCount: number; usdPart: string };
 
 interface IModuleRow {
   module: IRewardModule;
@@ -212,9 +213,17 @@ function getPerksHomeStatus(
   return 'has_rewards';
 }
 
-// Earn list titles arrive as token amounts, like "0.3976 USDC".
+// Earn list titles arrive as token amounts, like "0.3976 USDC". Tiny ones
+// come in subscript form: "0.0<subscripts>5</subscripts>3 USDT" is 0.000003,
+// the subscript counting the zeros after the decimal point.
 function readUsdAmount(text: string | undefined) {
-  const match = text?.trim().match(/^[+-]?\d[\d,]*(?:\.\d+)?/);
+  const plain = text
+    ?.trim()
+    .replace(
+      /^0\.0<subscripts>(\d+)<\/subscripts>/,
+      (_, zeros: string) => `0.${'0'.repeat(Number(zeros))}`,
+    );
+  const match = plain?.match(/^[+-]?\d[\d,]*(?:\.\d+)?/);
   if (!match) {
     return undefined;
   }
@@ -222,12 +231,54 @@ function readUsdAmount(text: string | undefined) {
   return amount.isFinite() ? amount : undefined;
 }
 
-function isUsdcSymbol(symbol: string | undefined) {
-  return symbol?.toUpperCase() === 'USDC';
+// Dollar stable coins that rewards are paid in. Each counts 1:1 as USD, so
+// mixed payouts (USDC plus DAI, say) still add up to one total.
+const USD_STABLECOIN_SYMBOLS = new Set([
+  'USDC',
+  'USDC.E',
+  'USDBC',
+  'USDT',
+  'USDT0',
+  'DAI',
+  'USDS',
+  'USDE',
+  'PYUSD',
+  'FDUSD',
+  'USD1',
+  'RLUSD',
+]);
+
+function isUsdStablecoinSymbol(symbol: string | undefined) {
+  return Boolean(symbol && USD_STABLECOIN_SYMBOLS.has(symbol.toUpperCase()));
 }
 
-// USDC quantities are shown as wallet-currency dollars. Any other token stays
-// in its own units, so it cannot be added into the dollar total.
+function readServerUsd(value: string | null | undefined) {
+  if (value === undefined || value === null || value.trim() === '') {
+    return undefined;
+  }
+  const amount = new BigNumber(value);
+  return amount.isFinite() ? amount : undefined;
+}
+
+type IEarnRewardItem =
+  | IEarnSummaryV2['distributed'][number]
+  | IEarnSummaryV2['undistributed'][number];
+
+// Server USD wins. A stable coin without one counts its amount, then its
+// title, at 1:1. Any other token without a server price is left out.
+function readEarnItemUsd(item: IEarnRewardItem): BigNumber | undefined {
+  const serverUsd = readServerUsd(item.usdValue);
+  if (serverUsd !== undefined) {
+    return serverUsd;
+  }
+  if (!isUsdStablecoinSymbol(item.token?.symbol)) {
+    return undefined;
+  }
+  return readServerUsd(item.amount) ?? readUsdAmount(item.title.text);
+}
+
+// Stablecoin quantities are shown as wallet-currency dollars. Any other token
+// stays in its own units, so it cannot be added into the dollar total.
 function getTokenAmountValue(
   raw: string,
   symbol: string | undefined,
@@ -236,13 +287,14 @@ function getTokenAmountValue(
   if (!amount.isFinite() || !amount.gt(0)) {
     return undefined;
   }
-  if (isUsdcSymbol(symbol)) {
+  if (isUsdStablecoinSymbol(symbol)) {
     return { kind: 'amount', amount: amount.toFixed() };
   }
   return {
     kind: 'text',
     text: { text: symbol ? `${amount.toFixed()} ${symbol}` : amount.toFixed() },
     extraCount: 0,
+    usdPart: '0',
   };
 }
 
@@ -252,23 +304,24 @@ function getEarnValue(
   if (!items.length) {
     return undefined;
   }
-  // Only USDC titles are USD. "0.5 ETH" must stay in token units, and mixed
-  // tokens must not be added together.
-  const amounts = items.map((item) =>
-    isUsdcSymbol(item.token?.symbol)
-      ? readUsdAmount(item.title.text)
-      : undefined,
+  // One dollar figure only when every item has one. Otherwise the first
+  // title stays visible, and usdPart is the dollars already known.
+  const values = items.map((item) => readEarnItemUsd(item));
+  const usdPart = values.reduce<BigNumber>(
+    (sum, value) => (value === undefined ? sum : sum.plus(value)),
+    new BigNumber(0),
   );
-  if (amounts.every((amount): amount is BigNumber => amount !== undefined)) {
-    const total = amounts.reduce(
-      (sum, amount) => sum.plus(amount),
-      new BigNumber(0),
-    );
-    return total.gt(0)
-      ? { kind: 'amount', amount: total.toFixed() }
+  if (values.every((value) => value !== undefined)) {
+    return usdPart.gt(0)
+      ? { kind: 'amount', amount: usdPart.toFixed() }
       : undefined;
   }
-  return { kind: 'text', text: items[0].title, extraCount: items.length - 1 };
+  return {
+    kind: 'text',
+    text: items[0].title,
+    extraCount: items.length - 1,
+    usdPart: usdPart.toFixed(),
+  };
 }
 
 function getModuleRow(
@@ -321,12 +374,17 @@ type IRewardTotals =
   | { status: 'unavailable' }
   | { status: 'ready'; total: string; paid: string; unpaid: string };
 
-function sumAmount(value: IRewardValue | undefined) {
-  return value?.kind === 'amount' ? new BigNumber(value.amount) : undefined;
+function usdOf(value: IRewardValue | undefined) {
+  if (!value) {
+    return new BigNumber(0);
+  }
+  return new BigNumber(value.kind === 'amount' ? value.amount : value.usdPart);
 }
 
-// The summary only adds up dollar amounts. A failed product, or a figure that
-// is still in token units, leaves the total unknown rather than understated.
+// The summary adds up dollar amounts only: stable coins count 1:1, and other
+// tokens are left out until the server prices them (they are converted to
+// USDC at market value when paid, and are usually dust). A failed product
+// leaves the total unknown rather than understated.
 function getRewardTotals(rows: IModuleRow[]): IRewardTotals {
   if (rows.some((row) => row.status === 'loading')) {
     return { status: 'loading' };
@@ -337,13 +395,8 @@ function getRewardTotals(rows: IModuleRow[]): IRewardTotals {
     if (row.status !== 'ready') {
       return { status: 'unavailable' };
     }
-    const rowPaid = row.paid ? sumAmount(row.paid) : new BigNumber(0);
-    const rowUnpaid = row.unpaid ? sumAmount(row.unpaid) : new BigNumber(0);
-    if (!rowPaid || !rowUnpaid) {
-      return { status: 'unavailable' };
-    }
-    paid = paid.plus(rowPaid);
-    unpaid = unpaid.plus(rowUnpaid);
+    paid = paid.plus(usdOf(row.paid));
+    unpaid = unpaid.plus(usdOf(row.unpaid));
   }
   return {
     status: 'ready',
@@ -401,8 +454,9 @@ function getPayoutToken(
   };
 }
 
-// The token and network rewards are paid in, and the payout rules, behind an
-// info icon beside the address.
+// The token and network rewards are paid in, and the per-address rule, behind
+// an info icon beside the address. When unpaid rewards arrive is told at the
+// Unpaid figure instead.
 function PayoutInfo({
   payout,
   iconSize = '$4',
@@ -442,22 +496,44 @@ function PayoutInfo({
           <SizableText size="$bodyMd" color="$textSubdued">
             {copy.addressRule}
           </SizableText>
-          <SizableText size="$bodyMd" color="$textSubdued">
-            {copy.payoutSchedule}
-          </SizableText>
         </YStack>
       }
     />
   );
 }
 
-// Pointer layouts: where the rewards land, on the right of the account row.
+// When unpaid rewards are paid, behind an info icon after the Unpaid label.
+function UnpaidInfo({ label }: { label: string }) {
+  const copy = useMyRewardsCopy();
+  return (
+    <Popover
+      title={label}
+      hoverable
+      placement="bottom-start"
+      floatingPanelProps={INVITE_POPOVER_PANEL_PROPS}
+      renderTrigger={
+        <Stack testID="my-rewards-unpaid-info" hitSlop={NATIVE_HIT_SLOP}>
+          <Icon name="InfoCircleOutline" size="$4" color="$iconSubdued" />
+        </Stack>
+      }
+      renderContent={
+        <SizableText p="$4" size="$bodyMd" color="$textSubdued">
+          {copy.payoutSchedule}
+        </SizableText>
+      }
+    />
+  );
+}
+
+// Pointer layouts: where the rewards land, right after the account switch.
 // Kept to the address alone; the token and network sit behind the info icon
 // next to it, so the row stays short.
 function PayoutDestination({ address }: { address?: string }) {
   const copy = useMyRewardsCopy();
   return (
-    <XStack testID="my-rewards-payout-destination" ai="center" gap="$2">
+    // 12px gaps: the address's hover surface bleeds 8px past its text, so it
+    // must not run into the label.
+    <XStack testID="my-rewards-payout-destination" ai="center" gap="$3">
       <SizableText size="$bodyMd" color="$textSubdued">
         {copy.paidTo}
       </SizableText>
@@ -582,8 +658,9 @@ function RewardsAccountRow({
     <XStack
       testID="my-rewards-address-card"
       ai="center"
-      jc="space-between"
-      gap="$2"
+      // The trailing part stays next to the account, so the account and
+      // where its rewards go read as one line.
+      gap="$4"
       minWidth={0}
     >
       {/* A long account name truncates first, so the trailing part stays. */}
@@ -679,6 +756,7 @@ function CompactPerksSummaryCard({
         <CompactFieldRow
           leading={<PartDot color="$iconCaution" />}
           label={labels.unpaid}
+          labelAccessory={<UnpaidInfo label={labels.unpaid} />}
         >
           <TotalFigure totals={totals} pick="unpaid" size="$bodyMdMedium" />
         </CompactFieldRow>
@@ -726,7 +804,8 @@ function PerksSummaryCard({
       <RewardsAccountRow
         unsupported={unsupported}
         trailing={
-          <XStack ai="center" gap="$1" flexShrink={0}>
+          // Clear of the address's 8px hover bleed, like the label.
+          <XStack ai="center" gap="$3" flexShrink={0}>
             <PayoutDestination address={address} />
             <PayoutInfo payout={payout} />
           </XStack>
@@ -749,6 +828,7 @@ function PerksSummaryCard({
           share={1}
           leading={<PartDot color="$iconCaution" />}
           label={labels.unpaid}
+          labelAccessory={<UnpaidInfo label={labels.unpaid} />}
         >
           <TotalFigure totals={totals} pick="unpaid" />
         </InviteStatCell>
@@ -1354,7 +1434,21 @@ function MyRewardsContentBody({
       </XStack>
       {/* A group gap: the summary scopes the table but is not part of it. */}
       <YStack px="$pagePadding" pt="$8" gap="$3">
-        <SizableText size="$headingLg">{sectionTitle}</SizableText>
+        {/* Whose rewards these are, beside the rewards they describe rather
+            than alone across from the tabs. */}
+        <XStack ai="center" gap="$3" minWidth={0}>
+          <SizableText size="$headingLg" flexShrink={0}>
+            {sectionTitle}
+          </SizableText>
+          <SizableText
+            size="$bodyMd"
+            color="$textSubdued"
+            numberOfLines={1}
+            flexShrink={1}
+          >
+            {tabCopy.perksIntro}
+          </SizableText>
+        </XStack>
         {renderBreakdown()}
       </YStack>
       {crossLink}
