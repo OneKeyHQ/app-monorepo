@@ -237,6 +237,8 @@ export function useFirmwareUpdateErrors({
           ONEKEY_WEBUSB_DEVICE_ACCESS_ERROR_CODE,
           HardwareErrorCode.BlePoweredOff,
           HardwareErrorCode.BleUnsupported,
+          ECustomOneKeyHardwareError.FirmwareUpdateRequiresUsbTransport,
+          HardwareErrorCode.DeviceCheckDeviceIdError,
         ],
       })
     ) {

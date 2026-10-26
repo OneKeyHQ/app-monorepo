@@ -3516,14 +3516,12 @@ class ServiceHardware extends ServiceBase {
   }) {
     if (platformEnv.isDesktop) {
       return this.backgroundApi.serviceHardwareUI.runExclusiveOneKeyOperation(
-        async () => {
-          const transport = await this.resolveHardwareTransport({
+        () =>
+          this.resolveHardwareTransport({
             connectId: params.connectId,
             features: params.features,
             hardwareCallContext: EHardwareCallContext.UPDATE_FIRMWARE,
-          });
-          return transport.connectId;
-        },
+          }),
         { deviceKey: params.connectId },
       );
     }
@@ -3533,7 +3531,10 @@ class ServiceHardware extends ServiceBase {
     if (!dbDevice) {
       // 首次连接或 Bootloader 模式下，本地数据库可能还没有设备记录。
       // 此时跳过预检，把新发现的连接 ID 原样交给升级流程。
-      return params.connectId;
+      return {
+        connectId: params.connectId,
+        transportType: await this.getCurrentTransportType(),
+      };
     }
     const resolvedTransport = await this.resolveHardwareTransport({
       connectId: params.connectId,
@@ -3562,7 +3563,7 @@ class ServiceHardware extends ServiceBase {
         },
       },
     );
-    return compatibleConnectId;
+    return resolvedTransport;
   }
 
   @backgroundMethod()
