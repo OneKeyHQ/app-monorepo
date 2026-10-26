@@ -19,6 +19,7 @@ import {
   DebugRenderTracker,
   type IInputProps,
   type IListViewRef,
+  type IStackProps,
   Icon,
   ListView,
   NATIVE_HIT_SLOP,
@@ -50,11 +51,13 @@ import type { IPerpDynamicTab } from '@onekeyhq/kit-bg/src/services/ServiceWebvi
 import {
   type ISpotAssetCtxsMap,
   spotAssetCtxsMapAtom,
+  usePerpTokenFavoritesPersistAtom,
   usePerpTokenSelectorConfigPersistAtom,
   usePerpTokenSelectorTabsAtom,
   usePerpsActiveAccountAtom,
   usePerpsFavoritesOrderPersistAtom,
   useSpotExternalMarketCapsAtom,
+  useSpotTokenFavoritesPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { useSpotActiveAssetCtxAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/spot';
 import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
@@ -70,6 +73,10 @@ import {
   isImeComposingKeyboardEvent,
 } from '@onekeyhq/shared/src/utils/imeUtils';
 import { toCtxIndex } from '@onekeyhq/shared/src/utils/perpsDexUtils';
+import {
+  reconcileTokenSelectorFavoritesOrder,
+  updateTokenSelectorFavoriteCoins,
+} from '@onekeyhq/shared/src/utils/perpsTokenSelectorFavorites';
 import {
   SPOT_SELECTOR_MIN_VOLUME,
   compareSpotMarketCapValues,
@@ -382,6 +389,12 @@ function BasePerpTokenSelectorContent() {
   const actions = useHyperliquidActions();
   const inputQueryRef = useRef(searchQuery);
   const searchInputRef = useRef<HTMLInputElement | null>(null);
+  const refocusSearchOnClick = useRef(false);
+  const handlePointerDown = useCallback<
+    NonNullable<IStackProps['onPointerDownCapture']>
+  >((event) => {
+    refocusSearchOnClick.current = event.nativeEvent.pointerType === 'mouse';
+  }, []);
   const handleSearchFocus = useCallback<NonNullable<IInputProps['onFocus']>>(
     (event) => {
       if (event.target instanceof HTMLInputElement) {
@@ -392,9 +405,13 @@ function BasePerpTokenSelectorContent() {
   );
   const focusSearchInput = useCallback(
     (event: ReactMouseEvent<HTMLDivElement>) => {
-      if (event.target !== searchInputRef.current) {
+      if (
+        refocusSearchOnClick.current &&
+        event.target !== searchInputRef.current
+      ) {
         searchInputRef.current?.focus({ preventScroll: true });
       }
+      refocusSearchOnClick.current = false;
     },
     [],
   );
@@ -613,7 +630,10 @@ function BasePerpTokenSelectorContent() {
     [perpFavoriteItems, spotFavoriteItems],
   );
   const isFavoritesReady = isPerpFavoritesReady && isSpotFavoritesReady;
-  const [favoritesOrder] = usePerpsFavoritesOrderPersistAtom();
+  const [favoritesOrder, setFavoritesOrder] =
+    usePerpsFavoritesOrderPersistAtom();
+  const [perpFavorites, setPerpFavorites] = usePerpTokenFavoritesPersistAtom();
+  const [spotFavorites, setSpotFavorites] = useSpotTokenFavoritesPersistAtom();
 
   // Freeze sort order while popover is open; refreshed on sort change or first data arrival.
   const ctxSnapshotRef = useRef(assetCtxsByDex);
@@ -1219,11 +1239,41 @@ function BasePerpTokenSelectorContent() {
         const coin = item?.spotUniverse?.name ?? item?.tokenName;
         if (coin && !keyboardFavoritesPending.current.has(coin)) {
           keyboardFavoritesPending.current.add(coin);
+          const isSpot = !!item.spotUniverse;
+          const currentFavorites = isSpot ? spotFavorites : perpFavorites;
+          const action = currentFavorites.favorites.includes(coin)
+            ? 'remove'
+            : 'add';
+          const updateFavorites = (favorites: string[]) =>
+            updateTokenSelectorFavoriteCoins({ favorites, coin, action })
+              .favorites;
+          if (isSpot) {
+            setSpotFavorites((prev) => ({
+              ...prev,
+              favorites: updateFavorites(prev.favorites),
+            }));
+          } else {
+            setPerpFavorites((prev) => ({
+              ...prev,
+              favorites: updateFavorites(prev.favorites),
+            }));
+          }
+          setFavoritesOrder((prev) => ({
+            sequence: reconcileTokenSelectorFavoritesOrder({
+              sequence: prev.sequence,
+              perpFavorites: isSpot
+                ? perpFavorites.favorites
+                : updateFavorites(perpFavorites.favorites),
+              spotFavorites: isSpot
+                ? updateFavorites(spotFavorites.favorites)
+                : spotFavorites.favorites,
+            }),
+          }));
           void backgroundApiProxy.serviceHyperliquid
             .updateTokenSelectorFavorite({
-              mode: item.spotUniverse ? 'spot' : 'perp',
+              mode: isSpot ? 'spot' : 'perp',
               coin,
-              action: 'toggle',
+              action,
             })
             .catch((error) => {
               console.error('Failed to update token favorite:', error);
@@ -1234,7 +1284,17 @@ function BasePerpTokenSelectorContent() {
         }
       }
     },
-    [activeTabData, keyboardResultsReady, keyboardSelectedIndex, searchQuery],
+    [
+      activeTabData,
+      keyboardResultsReady,
+      keyboardSelectedIndex,
+      searchQuery,
+      perpFavorites,
+      spotFavorites,
+      setPerpFavorites,
+      setSpotFavorites,
+      setFavoritesOrder,
+    ],
   );
   const handleKeyboardNavigation = useCallback<
     NonNullable<IInputProps['onKeyPress']>
@@ -1461,6 +1521,7 @@ function BasePerpTokenSelectorContent() {
       {...(platformEnv.isNative
         ? undefined
         : {
+            onPointerDownCapture: handlePointerDown,
             onClickCapture: focusSearchInput,
             onKeyDownCapture: handleFavoriteShortcut,
             onWheelCapture: cancelPendingKeyboardScroll,
