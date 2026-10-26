@@ -222,12 +222,24 @@ describe('removed-account gc', () => {
         wallets: [{ id: 'hd-1' }, ...wallets],
       })),
     };
+    const signatureOwners = new Set<string>();
+    const removeSignatures = jest.fn(
+      async ({ accountId }: { accountId: string }) => {
+        signatureOwners.delete(accountId);
+      },
+    );
     const service = createService({
       ...lifecycleFields(),
       gcRunning: false,
       gcRequested: false,
       backgroundApi: {
         serviceAccount,
+        serviceSignature: {
+          listZcashSignedTransactionAccountIds: async () => [
+            ...signatureOwners,
+          ],
+          removeSignedTransactionsForAccount: removeSignatures,
+        },
         simpleDb: {
           privacyChainKeys,
           privacyChainCache: {
@@ -254,6 +266,8 @@ describe('removed-account gc', () => {
       privacyChainXmrSent,
       privacyChainState,
       removeLastBalances,
+      signatureOwners,
+      removeSignatures,
     };
   }
 
@@ -288,6 +302,31 @@ describe('removed-account gc', () => {
       'hd-gone',
     );
     expect(service.gcRunning).toBe(false);
+  });
+
+  it('retries archive-only ownership after cleanup fails and preserves live owners', async () => {
+    const { service, signatureOwners, removeSignatures } = createGcHarness(
+      async () => ({ accounts: [accountRow(liveAccountId)] }),
+    );
+    const archiveOnly = 'hd-archive-only--0';
+    signatureOwners.add(archiveOnly);
+    signatureOwners.add(liveAccountId);
+    let failOnce = true;
+    removeSignatures.mockImplementation(async ({ accountId }) => {
+      if (accountId === archiveOnly && failOnce) {
+        failOnce = false;
+        throw new OneKeyLocalError('archive temporarily unavailable');
+      }
+      signatureOwners.delete(accountId);
+    });
+    await service.gcRemovedAccounts();
+    expect(signatureOwners.has(archiveOnly)).toBe(true);
+    await service.gcRemovedAccounts();
+    expect(signatureOwners.has(archiveOnly)).toBe(false);
+    expect(signatureOwners.has(liveAccountId)).toBe(true);
+    expect(
+      removeSignatures.mock.calls.filter(([p]) => p.accountId === archiveOnly),
+    ).toHaveLength(2);
   });
 
   it('purges an account that is definitely gone', async () => {
@@ -474,6 +513,10 @@ describe('removed-account gc', () => {
       gcRequested: false,
       backgroundApi: {
         serviceAccount,
+        serviceSignature: {
+          listZcashSignedTransactionAccountIds: async () => [],
+          removeSignedTransactionsForAccount: jest.fn(async () => undefined),
+        },
         simpleDb: {
           privacyChainKeys: createKeysDb([]),
           privacyChainCache: {
@@ -751,9 +794,13 @@ describe.each(['zec--0', 'xmr--0'])(
       const privacyChainKeys = createKeysDb([liveAccountId, hiddenAccountId]);
       const privacyChainState = createPrivacyChainDb();
       const forgetCachedLocalWalletBalance = jest.fn(async () => undefined);
+      const removeSignatures = jest.fn(async () => undefined);
       const service = createService({
         ...lifecycleFields(),
         backgroundApi: {
+          serviceSignature: {
+            removeSignedTransactionsForAccount: removeSignatures,
+          },
           simpleDb: {
             privacyChainKeys,
             privacyChainState,
@@ -776,9 +823,30 @@ describe.each(['zec--0', 'xmr--0'])(
         privacyChainKeys,
         privacyChainState,
         forgetCachedLocalWalletBalance,
+        removeSignatures,
       };
     }
     const params = { networkId: chainNetworkId, accountId: liveAccountId };
+
+    if (chainNetworkId === 'zec--0') {
+      it('keeps durable deletion pending until archive cleanup succeeds', async () => {
+        const { service, privacyChainState, removeSignatures } =
+          createDeleteHarness();
+        removeSignatures.mockRejectedValueOnce(
+          new Error('archive unavailable'),
+        );
+        await service.deleteLocalWalletAccountData(params);
+        await service.resumePendingAccountDeletions();
+        expect(
+          await privacyChainState.listPendingAccountDeletions(),
+        ).toHaveLength(1);
+        await service.resumePendingAccountDeletions();
+        expect(await privacyChainState.listPendingAccountDeletions()).toEqual(
+          [],
+        );
+        expect(removeSignatures).toHaveBeenCalledTimes(2);
+      });
+    }
 
     it('accepts the saved request while cleanup is still waiting for a database step', async () => {
       const { service, capability, privacyChainState, privacyChainKeys } =

@@ -13,6 +13,7 @@ import {
 } from '@onekeyhq/shared/src/utils/privacyChainHistoryAddressGate';
 import {
   EOnChainHistoryTransferType,
+  EOnChainHistoryTxStatus,
   type IAccountHistoryTx,
   type IOnChainHistoryTx,
   type IOnChainHistoryTxTransfer,
@@ -319,6 +320,44 @@ it('continues to show an exact known payment and its fiat value', () => {
   );
   expect(assets.getByText('-1')).toBeTruthy();
   expect(assets.getByText('10')).toBeTruthy();
+});
+
+it.each([
+  ['zec--0', ETranslations.global_confirming],
+  ['xmr--0', ETranslations.global_unknown],
+  ['btc--0', ETranslations.global_unknown],
+] as const)(
+  'uses the expected legacy Pending status for %s when details are unavailable',
+  (networkId, label) => {
+    mockHistory = history(networkId, '1', false);
+    mockHistory.decodedTx.status = EDecodedTxStatus.Pending;
+    mockHistory.decodedTx.broadcastOutcomeUnknown = true;
+    mockTxDetails = undefined;
+    const result = render(<HistoryDetails />);
+    const status = within(
+      result.getByText(ETranslations.global_status).parentElement!,
+    );
+    expect(status.getByText(label)).toBeTruthy();
+    if (networkId === 'zec--0')
+      expect(status.queryByText(ETranslations.global_unknown)).toBeNull();
+  },
+);
+
+it('shows Zcash Pending as confirming even when a cached detail carries the legacy flag', () => {
+  mockHistory = history('zec--0', '1', false);
+  mockHistory.decodedTx.status = EDecodedTxStatus.Pending;
+  mockHistory.decodedTx.broadcastOutcomeUnknown = true;
+  mockTxDetails = {
+    tx: 'synthetic-tx',
+    status: EOnChainHistoryTxStatus.Pending,
+    broadcastOutcomeUnknown: true,
+  };
+  const result = render(<HistoryDetails />);
+  const status = within(
+    result.getByText(ETranslations.global_status).parentElement!,
+  );
+  expect(status.getByText(ETranslations.global_confirming)).toBeTruthy();
+  expect(status.queryByText(ETranslations.global_unknown)).toBeNull();
 });
 
 it('keeps unrelated token amounts visible when only the native payment is unknown', () => {

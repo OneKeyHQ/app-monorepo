@@ -89,7 +89,7 @@ it.each([false, true])(
       getLocalWalletChainTip: async () => 3_000_000,
       zcashPrepareAccounts: async () => {
         registered = true;
-        return [{ ufvk: 'birthday-fixture' }];
+        return [{ accountId, account: { ufvk: 'birthday-fixture' } }];
       },
       // The runtime refuses to requeue an account it has not registered.
       queueLocalWalletRescanFrom: async ({

@@ -14,7 +14,6 @@ import {
   Button,
   IconButton,
   PROPORTIONAL_NUMS,
-  SizableText,
   Skeleton,
   XStack,
   YStack,
@@ -1288,13 +1287,6 @@ function HomeOverviewContainer() {
                   ? '--'
                   : (renderedBalanceStringDisplay ?? '0')}
               </NumberSizeableTextWrapper>
-              {currentBalanceStatus === 'partial' ? (
-                <SizableText size="$bodySm" color="$textSubdued">
-                  {intl.formatMessage({
-                    id: ETranslations.global_syncing,
-                  })}
-                </SizableText>
-              ) : null}
             </XStack>
             {refreshButton}
           </XStack>

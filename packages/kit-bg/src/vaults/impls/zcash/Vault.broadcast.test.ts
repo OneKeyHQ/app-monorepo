@@ -4,6 +4,8 @@ jest.mock('../../../dbs/local/localDbInstance', () => ({
   default: {},
 }));
 
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+
 import { SimpleDbEntityPrivacyChainJournal } from '../../../dbs/simple/entity/SimpleDbEntityPrivacyChainJournal';
 import VaultBtc from '../btc/Vault';
 
@@ -90,7 +92,10 @@ describe('Zcash transparent broadcast authorization', () => {
         return signedTx;
       });
 
-    await expect(vault.broadcastTransaction(params)).resolves.toEqual(signedTx);
+    await expect(vault.broadcastTransaction(params)).resolves.toEqual({
+      ...signedTx,
+      broadcastOutcomeUnknown: false,
+    });
     const [pending] = await journalDb.listTransparentPendingTxs({ accountId });
     expect(pending).toMatchObject({
       broadcastAuthorized: true,
@@ -99,24 +104,60 @@ describe('Zcash transparent broadcast authorization', () => {
     });
   });
 
-  it('keeps a timed-out broadcast pending with an unknown outcome and never resubmits it', async () => {
-    const { vault, journalDb } = await createVault(false);
-    const transport = jest
-      .spyOn(VaultBtc.prototype, 'broadcastTransaction')
-      .mockRejectedValueOnce(new Error('transport timeout'))
-      .mockResolvedValue(signedTx);
+  it.each(['transport timeout', 'node rejected'])(
+    'propagates %s through the BTC error flow while retaining input holds',
+    async (message) => {
+      const { vault, journalDb } = await createVault(false);
+      const error = Object.assign(new OneKeyLocalError(message), {
+        code: 40_001,
+        httpStatusCode: 400,
+      });
+      const transport = jest
+        .spyOn(VaultBtc.prototype, 'broadcastTransaction')
+        .mockRejectedValueOnce(error)
+        .mockResolvedValue(signedTx);
 
-    // Reported as submitted: the journal keeps it pending until the backend reports it or it expires.
+      await expect(vault.broadcastTransaction(params)).rejects.toBe(error);
+      const [pending] = await journalDb.listTransparentPendingTxs({
+        accountId,
+      });
+      expect(pending).toMatchObject({
+        broadcastAuthorized: true,
+        broadcastState: 'unknown',
+      });
+      expect(transport).toHaveBeenCalledTimes(1);
+      expect(
+        await journalDb.listTransparentOutpointsInUse({ accountId }),
+      ).toEqual(new Set([`${'22'.repeat(32)}:0`]));
+    },
+  );
+
+  it('does not broadcast when authorization cannot be saved', async () => {
+    const { vault, journalDb } = await createVault(false);
+    const error = new OneKeyLocalError('storage unavailable');
+    jest
+      .spyOn(journalDb, 'authorizeTransparentPendingTx')
+      .mockRejectedValueOnce(error);
+    const transport = jest.spyOn(VaultBtc.prototype, 'broadcastTransaction');
+    await expect(vault.broadcastTransaction(params)).rejects.toBe(error);
+    expect(transport).not.toHaveBeenCalled();
+  });
+
+  it('keeps accepted broadcasts successful when the recoverable acceptance marker write fails', async () => {
+    const { vault, journalDb } = await createVault(false);
+    jest
+      .spyOn(journalDb, 'markTransparentPendingTxAccepted')
+      .mockRejectedValueOnce(new OneKeyLocalError('storage unavailable'));
+    jest
+      .spyOn(VaultBtc.prototype, 'broadcastTransaction')
+      .mockResolvedValue(signedTx);
     await expect(vault.broadcastTransaction(params)).resolves.toMatchObject({
-      txid: signedTx.txid,
-      broadcastOutcomeUnknown: true,
+      txid,
+      broadcastOutcomeUnknown: false,
     });
-    const [pending] = await journalDb.listTransparentPendingTxs({ accountId });
-    expect(pending).toMatchObject({
-      broadcastAuthorized: true,
-      broadcastState: 'unknown',
-    });
-    expect(transport).toHaveBeenCalledTimes(1);
+    expect(
+      await journalDb.listTransparentPendingTxs({ accountId }),
+    ).toHaveLength(1);
   });
 
   // ServiceSend routes broadcasts to the custom-RPC branch unless told

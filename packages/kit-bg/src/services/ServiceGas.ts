@@ -116,7 +116,8 @@ class ServiceGas extends ServiceBase {
     // fee estimation across the app (Send / Swap / Perps / Earn / dApp ...)
     // to opt out of sponsored gas. Backend then returns no quote and
     // downstream code naturally falls back to user-paid.
-    const { useGasAccountByDefault } = await settingsPersistAtom.get();
+    const { useGasAccountByDefault, currencyInfo } =
+      await settingsPersistAtom.get();
     if (useGasAccountByDefault === false) {
       rest.gasAccountEnabled = false;
     }
@@ -135,15 +136,36 @@ class ServiceGas extends ServiceBase {
       nativeTokenPrice === undefined &&
       (await isLocalWalletNetwork({ networkId: params.networkId }))
     ) {
-      // Market metadata needs only the asset identity, never the account or transaction.
-      const quote = await this.backgroundApi.serviceMarketV2
-        .fetchMarketTokenDetailByTokenAddress('', params.networkId, {
-          autoHandleError: false,
-        })
-        .catch(() => undefined);
-      const price = new BigNumber(
-        quote?.data?.token?.priceConverted ?? quote?.data?.token?.price ?? '',
-      );
+      // Price metadata needs only the asset identity, never the account or transaction.
+      const network = await vault.getNetwork();
+      const quotePrice = network.backendIndex
+        ? await (async () => {
+            const chainVault = await vaultFactory.getChainOnlyVault({
+              networkId: params.networkId,
+            });
+            const tokenAddress =
+              await this.backgroundApi.serviceToken.getNativeTokenAddress({
+                networkId: params.networkId,
+              });
+            const quote = await chainVault.fetchTokenDetails({
+              networkId: params.networkId,
+              contractList: [tokenAddress],
+              requestCurrency: currencyInfo?.id ?? 'usd',
+            });
+            return quote.data.data.find(
+              (token) => token.info.address === tokenAddress,
+            )?.price;
+          })().catch(() => undefined)
+        : await this.backgroundApi.serviceMarketV2
+            .fetchMarketTokenDetailByTokenAddress('', params.networkId, {
+              autoHandleError: false,
+            })
+            .then(
+              (quote) =>
+                quote?.data?.token?.priceConverted ?? quote?.data?.token?.price,
+            )
+            .catch(() => undefined);
+      const price = new BigNumber(quotePrice ?? '');
       if (price.isFinite() && price.gt(0)) {
         nativeTokenPrice = price.toNumber();
       }

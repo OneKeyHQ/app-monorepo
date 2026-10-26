@@ -57,7 +57,8 @@ function validateOrchardReceiver(receiver: Uint8Array) {
   x[31] &= 0x7f;
   if (x.every((byte) => byte === 0) && parity === 0) invalidAddress();
   const point = pallas.Point.fromHex(
-    Uint8Array.from([2 + parity, ...x.toReversed()]),
+    // oxlint-disable-next-line unicorn/no-array-reverse -- Hermes lacks TypedArray.toReversed.
+    Uint8Array.from([2 + parity, ...Buffer.from(x).reverse()]),
   );
   point.assertValidity();
 }

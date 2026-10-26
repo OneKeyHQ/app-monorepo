@@ -227,6 +227,7 @@ export type IDecodedTxTransferInfo = {
   isNative?: boolean;
   isNFT?: boolean;
   isOwn?: boolean; // for UTXO
+  isChange?: boolean;
   // A shielded input/output from history I/O; see shieldedFrom/shieldedTo.
   isShielded?: boolean;
   label?: string;

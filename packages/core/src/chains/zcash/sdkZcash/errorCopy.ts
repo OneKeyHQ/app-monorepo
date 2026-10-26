@@ -1,6 +1,5 @@
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
-import { ETranslationsMock } from '@onekeyhq/shared/src/locale/enum/translationsMock';
 
 import { getPrivacyChainRuntimeFailure } from '../../../utils/privacyChainWorkerClient';
 
@@ -10,7 +9,9 @@ import { readZcashRuntimeError } from './runtimeError';
 export function zcashUserMessage(e: unknown): string | null {
   // The Worker never answered or died: no runtime code to map.
   if (getPrivacyChainRuntimeFailure(e)) {
-    return ETranslationsMock.privacy_error_runtime_unavailable__msg;
+    return appLocale.intl.formatMessage({
+      id: ETranslations.privacy_error_runtime_unavailable__msg,
+    });
   }
   const err = readZcashRuntimeError(e);
   if (!err) return null;

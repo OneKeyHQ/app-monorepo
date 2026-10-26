@@ -47,6 +47,7 @@ import {
   findZcashLocalHistoryItem,
 } from './localHistory';
 import {
+  canReadZcashPrivateData,
   isTerminalTransparentHistoryStatus,
   zcashDescribeError,
   zcashLastPrivateHistory,
@@ -98,7 +99,7 @@ export async function zcashFetchBackendHistoryDetail(
       localTx: publicTx,
       withUTXOs: params.withUTXOs,
     });
-    response.data.data.data = restored;
+    response.data.data.data = { ...restored, broadcastOutcomeUnknown: false };
   }
   return response;
 }
@@ -117,7 +118,7 @@ export async function fetchAccountHistoryDetail(
         accountId,
       },
     );
-  if (privacyModeState.intent !== 'on') {
+  if (!canReadZcashPrivateData(privacyModeState)) {
     return vault.zcashFetchBackendHistoryDetail(params);
   }
   // Split by pool, never merged: public belongs to the backend, private to the runtime; the open tab decides who answers.
@@ -275,6 +276,7 @@ export async function fetchAccountHistoryDetail(
         data: {
           tx: item.txid,
           status,
+          broadcastOutcomeUnknown: false,
           block: publicStatusDetail?.block ?? item.minedHeight ?? undefined,
           confirmations:
             publicStatusDetail?.confirmations ??
@@ -378,7 +380,8 @@ export async function fetchAccountHistoryFromLocal(
         accountId,
       },
     );
-  if (privacyModeState.intent === 'on') {
+  // A paused account keeps its runtime rows; deletion clears its resume position.
+  if (canReadZcashPrivateData(privacyModeState)) {
     const epoch = await readLocalWalletCacheEpoch({
       backgroundApi: vault.backgroundApi,
       accountId,
@@ -487,11 +490,13 @@ export async function fetchAccountHistoryFromLocal(
       .map((tx) => tx.decodedTx.txid.toLowerCase()),
   );
   const restorePendingJournal = (tx: IAccountHistoryTx): IAccountHistoryTx => {
-    if (
-      tx.decodedTx.status !== EDecodedTxStatus.Pending ||
-      (tx.decodedTx.block ?? 0) > 0
-    )
-      return tx;
+    if (tx.decodedTx.status !== EDecodedTxStatus.Pending) return tx;
+    // Match BTC history presentation; journal state only controls input safety.
+    const confirmingTx = {
+      ...tx,
+      decodedTx: { ...tx.decodedTx, broadcastOutcomeUnknown: false },
+    };
+    if ((tx.decodedTx.block ?? 0) > 0) return confirmingTx;
     const journal = transparentPending.find(
       (entry) => entry.txid.toLowerCase() === tx.decodedTx.txid.toLowerCase(),
     );
@@ -501,8 +506,8 @@ export async function fetchAccountHistoryFromLocal(
     const historyEncoded = encodedTx?.zcashMode
       ? encodedTx
       : (cachedEncoded ?? encodedTx);
-    // Missing local journal data says nothing about someone else's broadcast.
-    if (!journal && historyEncoded?.zcashMode !== 'transparent') return tx;
+    if (!journal && historyEncoded?.zcashMode !== 'transparent')
+      return confirmingTx;
     const expiry =
       journal?.expiryHeight ??
       cachedEncoded?.zcashTransparentBuild?.expiryHeight ??
@@ -514,8 +519,7 @@ export async function fetchAccountHistoryFromLocal(
       ...tx,
       decodedTx: {
         ...tx.decodedTx,
-        broadcastOutcomeUnknown:
-          !journal || journal.broadcastState === 'unknown',
+        broadcastOutcomeUnknown: false,
         createdAt: submittedAt,
         updatedAt: submittedAt,
         ...(expiry === undefined || !historyEncoded
@@ -525,7 +529,7 @@ export async function fetchAccountHistoryFromLocal(
     };
   };
   publicTxs = publicTxs.map(restorePendingJournal);
-  // A send this device marked Dropped stays Dropped while the backend still lists it as Pending.
+  // Keep a local Dropped row over an unmined backend placeholder.
   const cachedDropped = cachedRows.filter(
     (tx) => tx.decodedTx.status === EDecodedTxStatus.Dropped,
   );
@@ -535,6 +539,7 @@ export async function fetchAccountHistoryFromLocal(
   publicTxs = publicTxs.filter(
     (tx) =>
       tx.decodedTx.status !== EDecodedTxStatus.Pending ||
+      (tx.decodedTx.block ?? 0) > 0 ||
       !cachedDroppedTxids.has(tx.decodedTx.txid.toLowerCase()),
   );
   if (!publicSideFailed) {
@@ -595,6 +600,8 @@ export async function fetchAccountHistoryFromLocal(
             (tx) =>
               tx.decodedTx.status === EDecodedTxStatus.Pending &&
               (journalTxids.has(tx.decodedTx.txid.toLowerCase()) ||
+                (minedTxids.has(tx.decodedTx.txid.toLowerCase()) &&
+                  cachedDroppedTxids.has(tx.decodedTx.txid.toLowerCase())) ||
                 !!(tx.decodedTx.encodedTx as IEncodedTxZcash | undefined)
                   ?.zcashMode),
           ),
@@ -616,12 +623,8 @@ export async function fetchAccountHistoryFromLocal(
         error: e instanceof Error ? e.message : String(e),
       });
     }
-    // No backend tip or an incomplete snapshot is no evidence; keep the send pending.
-    if (
-      cacheSaved &&
-      publicSnapshotIsComplete &&
-      publicTipHeight !== undefined
-    ) {
+    // With no recent account block, the RPC path can still prove expiry.
+    if (cacheSaved && publicSnapshotIsComplete) {
       try {
         await vault.zcashDropExpiredTransparentSends({
           accountId,
@@ -653,6 +656,7 @@ export async function fetchAccountHistoryFromLocal(
   publicTxs = publicTxs.filter(
     (tx) =>
       tx.decodedTx.status !== EDecodedTxStatus.Pending ||
+      (tx.decodedTx.block ?? 0) > 0 ||
       !locallyDropped.has(tx.decodedTx.txid.toLowerCase()),
   );
   // Local-only rows lead: the display sorts by time, and the history cache keeps only the first 50 rows it is handed.

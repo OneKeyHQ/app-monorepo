@@ -188,7 +188,8 @@ it.each([true, false])(
           accountIds,
         }: {
           accountIds: string[];
-        }) => accountIds.map((ufvk) => ({ ufvk })),
+        }) =>
+          accountIds.map((id) => ({ accountId: id, account: { ufvk: id } })),
         zcashGetWalletAccount: async () => ({ ufvk: 'b' }),
         getLocalWalletSyncProgress: async () => ({
           isBackfillComplete: hasProgress,
@@ -288,7 +289,7 @@ it.each([false, true])(
     const readState = jest.spyOn(entity, 'getZcashPrivacyModeState');
     const queueRescan = jest.fn(async () => ({ queued: true }));
     const prepareAccounts = jest.fn(async () => [
-      { ufvk: 'shared-viewing-identity' },
+      { accountId: 'visible', account: { ufvk: 'shared-viewing-identity' } },
     ]);
     const syncWallet = jest.fn(async () => ({ stateChanged: true }));
     const vault = Object.create(Vault.prototype) as Vault;

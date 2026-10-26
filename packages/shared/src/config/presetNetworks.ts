@@ -1408,7 +1408,7 @@ const zec: IServerNetwork = {
   'id': 'zec--0',
   'impl': 'zec',
   'isTestnet': false,
-  'logoURI': 'https://uni.onekey-asset.com/static/chain/zcash.png',
+  'logoURI': 'https://uni.onekey-asset.com/static/chain/zec.png',
   'name': 'Zcash',
   'shortcode': 'zec',
   'shortname': 'ZEC',
@@ -1417,7 +1417,7 @@ const zec: IServerNetwork = {
     'decimals': 8,
     'symbol': 'ZEC',
   },
-  'defaultEnabled': false,
+  'defaultEnabled': true,
   'backendIndex': true,
   'status': ENetworkStatus.LISTED,
 };

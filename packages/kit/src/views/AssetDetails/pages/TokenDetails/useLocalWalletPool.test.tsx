@@ -24,6 +24,7 @@ type IPrivacyChangePayload = { networkId: string; accountIds: string[] };
 
 let mockFocused = true;
 let mockEnabled = true;
+let mockPaused = false;
 let mockDisplay: IPrivacyChainPoolDisplayData | undefined;
 const mockSetDisplay: Dispatch<
   SetStateAction<IPrivacyChainPoolDisplayData | undefined>
@@ -46,11 +47,17 @@ const mockGetBalance = jest.fn<
   Promise<ILocalWalletAccountBalance>,
   [IAccountParams]
 >();
+const mockGetLastSyncedAt = jest.fn<
+  Promise<number | undefined>,
+  [IAccountParams]
+>();
+const mockRefreshAccount = jest.fn<Promise<void>, [IAccountParams]>();
 const mockEnableAccount = jest.fn<Promise<void>, [IAccountParams]>();
 const mockGetSyncProgress = jest.fn<
   Promise<ILocalWalletSyncProgress | undefined>,
   [IAccountParams]
 >();
+const mockTimerWait = jest.fn<Promise<void>, [number]>();
 
 jest.mock('@onekeyhq/shared/src/eventBus/appEventBus', () => ({
   appEventBus: {
@@ -76,6 +83,10 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
         mockGetAddresses(params),
       getLocalWalletAccountBalance: (params: IAccountParams) =>
         mockGetBalance(params),
+      getLocalWalletLastSyncedAt: (params: IAccountParams) =>
+        mockGetLastSyncedAt(params),
+      refreshLocalWalletAccount: (params: IAccountParams) =>
+        mockRefreshAccount(params),
       getLocalWalletSyncProgress: (params: IAccountParams) =>
         mockGetSyncProgress(params),
       enableLocalWalletAccount: (params: IAccountParams) =>
@@ -153,7 +164,7 @@ jest.mock('@onekeyhq/shared/src/utils/swrCacheUtils', () => ({
 }));
 jest.mock('@onekeyhq/shared/src/utils/timerUtils', () => ({
   __esModule: true,
-  default: { wait: () => new Promise<void>(() => {}) },
+  default: { wait: (delay: number) => mockTimerWait(delay) },
 }));
 jest.mock('react-intl', () => ({
   useIntl: () => ({ formatMessage: ({ id }: { id: string }) => id }),
@@ -161,10 +172,16 @@ jest.mock('react-intl', () => ({
 jest.mock('@onekeyhq/kit/src/utils/privacyChainSyncDisplay', () => ({
   formatPrivacyChainSyncError: (kind?: string) =>
     kind ? `sync-error:${kind}` : undefined,
+  formatPrivacyChainRemainingBlocks: () => '',
+  formatPrivacyChainSyncProgress: () => 'scan-progress',
+  getPrivacyChainScanRegionLabelId: () => undefined,
+  getPrivacyChainSyncLabel: () => 'syncing',
 }));
 jest.mock('@onekeyhq/shared/src/utils/dateUtils', () => ({}));
 jest.mock('@onekeyhq/shared/src/utils/privacyChainSyncPolicy', () => ({
-  PRIVACY_CHAIN_SYNC_POLL_MS: 5000,
+  PRIVACY_CHAIN_SYNC_POLL_MS: 8000,
+  PRIVACY_CHAIN_TIP_POLL_MS: 300_000,
+  isTipLagWorthMentioning: () => false,
 }));
 
 import {
@@ -189,6 +206,15 @@ async function flushReads() {
   });
 }
 
+async function flushMicrotasks() {
+  for (let index = 0; index < 5; index += 1) {
+    // oxlint-disable-next-line no-await-in-loop
+    await act(async () => {
+      await Promise.resolve();
+    });
+  }
+}
+
 function emitPrivacyChange(
   payload = { networkId: props.networkId, accountIds: [props.accountId] },
   event = EAppEventBusNames.LocalWalletAccountsChanged,
@@ -201,13 +227,17 @@ beforeEach(() => {
   jest.useFakeTimers();
   mockFocused = true;
   mockEnabled = true;
+  mockPaused = false;
   mockWalletSupport = 'supported';
   mockDisplay = undefined;
   mockListeners.clear();
   mockGetSyncProgress.mockReset().mockResolvedValue(undefined);
+  mockTimerWait.mockReset().mockImplementation(() => new Promise(() => {}));
+  mockGetLastSyncedAt.mockReset().mockResolvedValue(undefined);
+  mockRefreshAccount.mockReset().mockResolvedValue(undefined);
   mockGetState.mockReset().mockImplementation(async () => ({
     enabled: mockEnabled,
-    paused: !mockEnabled,
+    paused: mockPaused,
   }));
   mockGetAddresses.mockReset().mockImplementation(async ({ accountId }) => ({
     publicAddress: `t-${accountId}`,
@@ -250,21 +280,165 @@ describe('useLocalWalletPool address shows quickly', () => {
 });
 
 describe('useLocalWalletPool first balance read', () => {
-  async function flushMicrotasks() {
-    for (let index = 0; index < 5; index += 1) {
-      // oxlint-disable-next-line no-await-in-loop
-      await act(async () => {
-        await Promise.resolve();
-      });
-    }
-  }
-
   it('reads the balance as soon as the state allows it, without a timer', async () => {
     const { result } = renderHook(useLocalWalletPool, { initialProps: props });
     await flushMicrotasks();
     expect(result.current.enabled).toBe(true);
     expect(mockGetBalance).toHaveBeenCalledTimes(1);
     expect(result.current.balance?.pools[0]?.totalParsed).toBe('1');
+  });
+});
+
+describe('useLocalWalletPool balance refresh cadence', () => {
+  const progress: ILocalWalletSyncProgress = {
+    birthdayHeight: 1,
+    backfillScannedHeight: 100,
+    backfillTargetHeight: 100,
+    backfillProgress: 1,
+    backfillRemainingBlocks: 0,
+    isBackfillComplete: true,
+    tipScannedHeight: 100,
+    chainTip: 100,
+    tipLag: 0,
+    isTipCaughtUp: true,
+    isSyncing: false,
+  };
+
+  async function advanceTime(ms: number) {
+    await act(async () => {
+      await jest.advanceTimersByTimeAsync(ms);
+    });
+    await flushMicrotasks();
+  }
+
+  beforeEach(() => {
+    mockTimerWait.mockImplementation(
+      (delay) => new Promise((resolve) => setTimeout(resolve, delay)),
+    );
+    mockGetSyncProgress.mockImplementation(async () => ({ ...progress }));
+  });
+
+  it('polls progress without recalculating unchanged balances until five minutes', async () => {
+    renderHook(useLocalWalletPool, { initialProps: props });
+    await flushMicrotasks();
+    const balanceReads = mockGetBalance.mock.calls.length;
+    const progressReads = mockGetSyncProgress.mock.calls.length;
+    await advanceTime(24_000);
+    expect(mockGetSyncProgress.mock.calls.length).toBeGreaterThan(
+      progressReads,
+    );
+    expect(mockGetBalance).toHaveBeenCalledTimes(balanceReads);
+
+    await advanceTime(276_000);
+    expect(mockGetBalance).toHaveBeenCalledTimes(balanceReads + 1);
+  });
+
+  it('keeps saved balances visible while account pause stops polling', async () => {
+    mockEnabled = false;
+    mockPaused = true;
+    const { result } = renderHook(useLocalWalletPool, { initialProps: props });
+    await flushMicrotasks();
+    expect(result.current.enabled).toBe(true);
+    expect(result.current.isSyncPaused).toBe(true);
+    expect(result.current.isPreparing).toBe(false);
+    expect(mockDisplay?.balanceParsed).toBe('1');
+    expect(result.current.balance?.pools[0]?.totalParsed).toBe('1');
+    const balanceReads = mockGetBalance.mock.calls.length;
+    await advanceTime(300_000);
+    expect(mockGetBalance).toHaveBeenCalledTimes(balanceReads);
+    expect(mockGetSyncProgress).not.toHaveBeenCalled();
+  });
+
+  it('refreshes an initially cached balance when the first known progress arrives', async () => {
+    let resolveProgress: (value: ILocalWalletSyncProgress) => void = () => {};
+    mockGetSyncProgress.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveProgress = resolve;
+        }),
+    );
+    const { result } = renderHook(useLocalWalletPool, { initialProps: props });
+    await flushMicrotasks();
+    expect(result.current.balance?.pools[0]?.totalParsed).toBe('1');
+    mockGetBalance.mockResolvedValue({
+      pools: [{ key: 'ironwood', totalParsed: '2', hints: [] }],
+    });
+    await act(async () => resolveProgress(progress));
+    await flushMicrotasks();
+    expect(result.current.balance?.pools[0]?.totalParsed).toBe('2');
+    expect(mockGetBalance).toHaveBeenCalledTimes(2);
+  });
+
+  it.each([101, 99])(
+    'refreshes when scanned height changes to %s',
+    async (height) => {
+      renderHook(useLocalWalletPool, { initialProps: props });
+      await flushMicrotasks();
+      const balanceReads = mockGetBalance.mock.calls.length;
+      mockGetSyncProgress.mockResolvedValue({
+        ...progress,
+        tipScannedHeight: height,
+      });
+      await advanceTime(8000);
+      expect(mockGetBalance).toHaveBeenCalledTimes(balanceReads + 1);
+    },
+  );
+
+  it('refreshes when a gap is scanned without advancing the highest scanned block', async () => {
+    mockGetSyncProgress.mockResolvedValue({
+      ...progress,
+      backfillRemainingBlocks: 20,
+      isBackfillComplete: false,
+    });
+    renderHook(useLocalWalletPool, { initialProps: props });
+    await flushMicrotasks();
+    const balanceReads = mockGetBalance.mock.calls.length;
+    mockGetSyncProgress.mockResolvedValue({
+      ...progress,
+      backfillRemainingBlocks: 10,
+      isBackfillComplete: false,
+    });
+    await advanceTime(8000);
+    expect(mockGetBalance).toHaveBeenCalledTimes(balanceReads + 1);
+  });
+
+  it('keeps first progress refresh scoped to the selected account', async () => {
+    const { rerender } = renderHook(useLocalWalletPool, {
+      initialProps: props,
+    });
+    await flushMicrotasks();
+    rerender({ ...props, accountId: 'account-b' });
+    await flushMicrotasks();
+    const accountReads = mockGetBalance.mock.calls.filter(
+      ([params]) => params.accountId === 'account-b',
+    );
+    expect(accountReads).toHaveLength(2);
+    // Settle the hook's queued interval transition before measuring steady polling.
+    await advanceTime(0);
+    const balanceReads = mockGetBalance.mock.calls.length;
+    await advanceTime(24_000);
+    expect(mockGetBalance).toHaveBeenCalledTimes(balanceReads);
+    expect(mockGetBalance).toHaveBeenLastCalledWith({
+      networkId: props.networkId,
+      accountId: 'account-b',
+    });
+  });
+
+  it('refreshes on focus return and action completion without waiting for the timer', async () => {
+    const { rerender } = renderHook(useLocalWalletPool, {
+      initialProps: props,
+    });
+    await flushMicrotasks();
+    const balanceReads = mockGetBalance.mock.calls.length;
+    mockFocused = false;
+    rerender(props);
+    mockFocused = true;
+    rerender(props);
+    await flushMicrotasks();
+    expect(mockGetBalance).toHaveBeenCalledTimes(balanceReads + 1);
+    act(() => mockDisplay?.action?.onDone?.());
+    await flushMicrotasks();
+    expect(mockGetBalance).toHaveBeenCalledTimes(balanceReads + 2);
   });
 });
 
@@ -885,3 +1059,27 @@ it.each([true, false])(
     expect(mockDisplay?.balanceParsed).toBe('0');
   },
 );
+
+it('schedules a manual refresh without turning its request time into a success time', async () => {
+  mockGetLastSyncedAt.mockResolvedValue(1_700_000_000_000);
+  const { result } = renderHook(useLocalWalletPool, { initialProps: props });
+  await flushReads();
+  expect(result.current.lastSyncedAt).toBe(1_700_000_000_000);
+  await act(async () => {
+    await result.current.refreshBalanceNow();
+  });
+  expect(mockRefreshAccount).toHaveBeenCalledWith({
+    networkId: props.networkId,
+    accountId: props.accountId,
+  });
+  expect(result.current.busy).toBe(false);
+  expect(result.current.lastSyncedAt).toBe(1_700_000_000_000);
+});
+
+it('keeps the balance available if optional refresh metadata cannot be read', async () => {
+  mockGetLastSyncedAt.mockRejectedValue(new Error('metadata unavailable'));
+  const { result } = renderHook(useLocalWalletPool, { initialProps: props });
+  await flushReads();
+  expect(result.current.balance?.pools[0]?.totalParsed).toBe('1');
+  expect(result.current.lastSyncedAt).toBeUndefined();
+});

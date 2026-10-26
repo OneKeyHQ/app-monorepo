@@ -1,13 +1,15 @@
 import { createIntl } from 'react-intl';
 
+import type { IPrivacyChainScanState } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { ILocalWalletSyncProgress } from '@onekeyhq/kit-bg/src/vaults/localWallet/types';
-import { ETranslations, ETranslationsMock } from '@onekeyhq/shared/src/locale';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import {
   formatPrivacyChainRemainingBlocks,
   formatPrivacyChainSyncError,
   formatPrivacyChainSyncProgress,
   getPrivacyChainBackfillProgress,
+  getPrivacyChainNetworkSyncDisplay,
   getPrivacyChainSyncLabel,
   pickSlowestPrivacyChainNetwork,
 } from './privacyChainSyncDisplay';
@@ -108,6 +110,95 @@ it('selects unknown progress before known progress and filters other networks', 
   ).toBeUndefined();
 });
 
+describe('chain status shared by settings and the floating control', () => {
+  const scanning: ILocalWalletSyncProgress = {
+    birthdayHeight: 1,
+    backfillScannedHeight: 191,
+    backfillTargetHeight: 1000,
+    backfillProgress: 0.191,
+    isBackfillComplete: false,
+    tipScannedHeight: 191,
+    chainTip: 1000,
+    tipLag: 809,
+    isTipCaughtUp: false,
+    isSyncing: true,
+  };
+  const queued = {
+    ...scanning,
+    backfillScannedHeight: null,
+    backfillProgress: 0,
+  };
+  let state: IPrivacyChainScanState;
+  beforeEach(() => {
+    state = {
+      boostingNetworkIds: ['xmr--0'],
+      pausedNetworkIds: [],
+      dataBlockedNetworkIds: [],
+      storageUnsupportedNetworkIds: [],
+      syncErrorByNetworkId: {},
+      progress: {},
+    };
+  });
+
+  it('shows advancing work while another account is still waiting for its cursor', () => {
+    state.progress = { 'xmr--0:active': scanning, 'xmr--0:queued': queued };
+    const result = getPrivacyChainNetworkSyncDisplay({
+      state,
+      networkId: 'xmr--0',
+    });
+    expect(result.labelId).toBe(ETranslations.global_syncing);
+    expect(result.entry).toBe(scanning);
+  });
+
+  it('prepares only while no account on this chain has a scanned cursor', () => {
+    state.progress = { 'xmr--0:queued': queued, 'zec--0:other': scanning };
+    expect(
+      getPrivacyChainNetworkSyncDisplay({ state, networkId: 'xmr--0' }),
+    ).toMatchObject({
+      labelId: ETranslations.global_preparing,
+      entry: undefined,
+    });
+  });
+
+  it('does not claim 100% while the scheduler still has foreground work', () => {
+    const complete = {
+      ...scanning,
+      backfillScannedHeight: 1000,
+      backfillProgress: 1,
+      isBackfillComplete: true,
+    };
+    state.progress = { 'xmr--0:done': complete };
+    expect(
+      getPrivacyChainNetworkSyncDisplay({ state, networkId: 'xmr--0' }),
+    ).toMatchObject({
+      labelId: ETranslations.global_syncing,
+      entry: undefined,
+    });
+    state.boostingNetworkIds = [];
+    expect(
+      getPrivacyChainNetworkSyncDisplay({ state, networkId: 'xmr--0' }),
+    ).toMatchObject({ labelId: ETranslations.global_synced, entry: complete });
+  });
+
+  it('uses the same error, pause and data-wait priorities', () => {
+    state.boostingNetworkIds = [];
+    state.pausedNetworkIds = ['xmr--0'];
+    state.dataBlockedNetworkIds = ['xmr--0'];
+    state.syncErrorByNetworkId['xmr--0'] = 'failed';
+    expect(
+      getPrivacyChainNetworkSyncDisplay({ state, networkId: 'xmr--0' }).labelId,
+    ).toBe(ETranslations.syncing_paused__title);
+    state.pausedNetworkIds = [];
+    expect(
+      getPrivacyChainNetworkSyncDisplay({ state, networkId: 'xmr--0' }).labelId,
+    ).toBe(ETranslations.global_sync_error);
+    state.syncErrorByNetworkId = {};
+    expect(
+      getPrivacyChainNetworkSyncDisplay({ state, networkId: 'xmr--0' }).labelId,
+    ).toBe(ETranslations.privacy_sync_waiting_wifi__msg);
+  });
+});
+
 describe('pickSlowestPrivacyChainNetwork', () => {
   const entry = (backfillProgress: number | null) =>
     ({
@@ -194,10 +285,10 @@ describe('formatPrivacyChainSyncError', () => {
 
   it('asks for a restart when the runtime is gone', () => {
     expect(formatPrivacyChainSyncError('runtimeUnavailable', intl)).toBe(
-      ETranslationsMock.privacy_error_runtime_unavailable__msg,
+      ETranslations.privacy_error_runtime_unavailable__msg,
     );
     expect(formatPrivacyChainSyncError('failed', intl)).toBe(
-      ETranslationsMock.privacy_sync_failed_retrying__msg,
+      ETranslations.privacy_sync_failed_retrying__msg,
     );
   });
 });

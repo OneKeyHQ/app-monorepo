@@ -78,8 +78,7 @@ describe('Zcash private send submission', () => {
     );
   });
 
-  // Recorded for reconciliation; an unknown response is not acceptance.
-  it('retains an unknown outcome explicitly for reconciliation', async () => {
+  it('reports an uncertain runtime broadcast as an error instead of a successful send', async () => {
     const { vault, params } = createVault({
       txid: 'tx1',
       broadcastState: 'unknown',
@@ -88,7 +87,17 @@ describe('Zcash private send submission', () => {
 
     await expect(
       vault.broadcastTransaction(params as never),
-    ).resolves.toMatchObject({ txid: 'tx1', broadcastOutcomeUnknown: true });
+    ).rejects.toMatchObject({ code: 'NETWORK_ERROR' });
+  });
+
+  it('uses the existing network error when an uncertain result has no error detail', async () => {
+    const { vault, params } = createVault({
+      txid: 'tx1',
+      broadcastState: 'unknown',
+    });
+    await expect(
+      vault.broadcastTransaction(params as never),
+    ).rejects.toMatchObject({ code: 'NETWORK_ERROR' });
   });
 
   it('reports a runtime failure before the node is contacted', async () => {
@@ -105,13 +114,13 @@ describe('Zcash private send submission', () => {
   });
 
   // The carrier died mid-call: the runtime may have broadcast and recorded it.
-  it('keeps the notes held when the outcome did not come back', async () => {
-    const { vault, params } = createVault(
-      new Error('WebEmbed bridge call timeout (360s)'),
-    );
+  it('propagates a carrier timeout without manufacturing a successful result', async () => {
+    const error = new Error('WebEmbed bridge call timeout (360s)');
+    const { vault, submitPczt, params } = createVault(error);
 
-    await expect(
-      vault.broadcastTransaction(params as never),
-    ).rejects.toMatchObject({ code: 'FINALIZE_OUTCOME_UNKNOWN' });
+    await expect(vault.broadcastTransaction(params as never)).rejects.toBe(
+      error,
+    );
+    expect(submitPczt).toHaveBeenCalledTimes(1);
   });
 });

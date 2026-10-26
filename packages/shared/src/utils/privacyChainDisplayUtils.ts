@@ -12,7 +12,27 @@ export type IPrivacyChainDisplayPool = {
   kind: 'public' | 'private';
   label: string;
   receivesFunds?: boolean;
+  isDefaultPrivate?: boolean;
 };
+
+// Protocol pool IDs remain stable in history; the main UI follows the
+// current receiving pool instead of adding a tab for each protocol upgrade.
+export function getPrivacyChainMainPools<T extends IPrivacyChainDisplayPool>(
+  pools: T[],
+): T[] {
+  const publicPool = pools.find((pool) => pool.kind === 'public');
+  const privatePool =
+    pools.find(
+      (pool) =>
+        pool.kind === 'private' &&
+        pool.isDefaultPrivate &&
+        pool.receivesFunds !== false,
+    ) ??
+    pools.find(
+      (pool) => pool.kind === 'private' && pool.receivesFunds !== false,
+    );
+  return [publicPool, privatePool].filter((pool): pool is T => !!pool);
+}
 
 // A shielded endpoint to label in the UI; no poolId means "some shielded pool".
 export type IPrivacyChainShieldedEndpointLabel = {
@@ -99,7 +119,10 @@ export function getPrivacyChainPublicDisplayFlow({
 }): { from: string[]; to: string[] } {
   // Use transfer endpoints only. The decoded signer/owner can identify the
   // account by its public address without spending any public funds.
-  const entries = [...(transfer?.sends ?? []), ...(transfer?.receives ?? [])];
+  const entries = [
+    ...(transfer?.sends ?? []),
+    ...(transfer?.receives ?? []),
+  ].filter((entry) => !entry.isChange);
   const publicAddress = (address?: string) =>
     getPrivacyChainPublicDisplayAddress({ publicAddressPattern, address });
   const addresses = (direction: 'from' | 'to'): string[] => {
@@ -116,7 +139,19 @@ export function getPrivacyChainPublicDisplayFlow({
       ]),
     ]
       .map(publicAddress)
-      .filter(Boolean);
+      .filter(
+        (address) =>
+          !!address &&
+          !(
+            direction === 'to' &&
+            transfer?.receives.some(
+              (entry) => entry.to === address && entry.isChange,
+            ) &&
+            !transfer.receives.some(
+              (entry) => entry.to === address && !entry.isChange,
+            )
+          ),
+      );
   };
   return { from: addresses('from'), to: addresses('to') };
 }
@@ -366,15 +401,15 @@ export function getPrivacyChainEndpointFlow({
           }),
         ),
       // Our side named by pool where the background removed its address.
-      ...[...(transfer?.sends ?? []), ...(transfer?.receives ?? [])].flatMap(
-        (entry): IPrivacyChainEndpointItem[] => {
+      ...[...(transfer?.sends ?? []), ...(transfer?.receives ?? [])]
+        .filter((entry) => !entry.isChange)
+        .flatMap((entry): IPrivacyChainEndpointItem[] => {
           const marker =
             direction === 'from' ? entry.shieldedFrom : entry.shieldedTo;
           return !entry[direction] && marker?.isOwn
             ? [{ kind: 'own', poolId: marker.poolId }]
             : [];
-        },
-      ),
+        }),
     ];
     // An own address the row names gets its pool from the wallet I/O.
     const poolIdByOwnAddress = new Map(

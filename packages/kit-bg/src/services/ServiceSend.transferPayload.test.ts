@@ -254,8 +254,17 @@ function privacySendFixture(networkId: string) {
     }),
     broadcastTransaction: jest.fn(async () => ({ txid: signedTx.txid })),
     checkShouldRetryBroadcastTx: jest.fn(async () => false),
+    isSignedTxRejectedByBroadcast: jest.fn(async () => false),
   };
   const backgroundApi = {
+    simpleDb: {
+      broadcastRecords: {
+        getRecord: jest.fn(async () => undefined),
+        upsertRecord: jest.fn(async () => undefined),
+        updateRecord: jest.fn(async () => undefined),
+        deleteRecord: jest.fn(async () => undefined),
+      },
+    },
     servicePrivacyChain,
     serviceAccount: {
       getAccountAddressForApi: jest.fn(async () => 'synthetic-sender'),
@@ -277,6 +286,7 @@ function privacySendFixture(networkId: string) {
       getVaultSettings: jest.fn(async () => ({ maxRetryBroadcastTxCount: 0 })),
     },
     serviceSignature: {
+      getZcashSignatureRecordContext: jest.fn(async () => ({ generation: 0 })),
       addItemFromSendProcess: jest.fn(async () => undefined),
     },
     serviceHistory: {
@@ -437,6 +447,38 @@ describe('privacy send approval lifecycle', () => {
       expect(vault.broadcastTransaction).not.toHaveBeenCalled();
     },
   );
+
+  it('does not record a successful Zcash send or signature when broadcasting throws', async () => {
+    const { service, vault, backgroundApi, accountId } =
+      privacySendFixture('zec--0');
+    const error = new OneKeyLocalError('transport timeout');
+    vault.broadcastTransaction.mockRejectedValueOnce(error);
+    const unsignedTx = await service.buildUnsignedTx({
+      accountId,
+      networkId: 'zec--0',
+    });
+    const sentTxsTrackingId = 'failed-zcash-broadcast';
+    await expect(
+      service.batchSignAndSendTransaction({
+        accountId,
+        networkId: 'zec--0',
+        unsignedTxs: [unsignedTx],
+        signOnly: false,
+        transferPayload: undefined,
+        sentTxsTrackingId,
+      }),
+    ).rejects.toBe(error);
+    expect(
+      backgroundApi.serviceHistory.saveSendConfirmHistoryTxs,
+    ).not.toHaveBeenCalled();
+    expect(
+      backgroundApi.serviceSignature.addItemFromSendProcess,
+    ).not.toHaveBeenCalled();
+    expect(
+      await service.getBatchBroadcastedTxUuids({ sentTxsTrackingId }),
+    ).toEqual([]);
+    expect(vault.broadcastTransaction).toHaveBeenCalledTimes(1);
+  });
 
   it.each(['xmr--0', 'zec--0'])(
     '%s preserves broadcast success when local history storage fails',

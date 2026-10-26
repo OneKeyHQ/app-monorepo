@@ -54,6 +54,7 @@ import {
   applyZcashBalanceToBackendTokenList,
 } from './backendToken';
 import {
+  canReadZcashPrivateData,
   isZcashSetupIncompleteError,
   isZcashTransparentPayable,
   zcashDescribeError,
@@ -465,13 +466,19 @@ export async function getLocalWalletAccountBalance(
   // The halves are read side by side: neither waits on the other.
   const [balance, transparent] = await Promise.all([
     // Gate covers the private half only; gating transparent too would hide funds the account can still spend.
-    (async () =>
-      (await vault.zcashPrivacyModeIsActive(accountId))
+    (async () => {
+      const state =
+        await vault.backgroundApi.simpleDb.privacyChainState.getZcashPrivacyModeState(
+          { accountId },
+        );
+      // Pausing stops scheduling and spending, but retains the scanned balance.
+      return state.operation === undefined && canReadZcashPrivateData(state)
         ? vault.getLocalWalletBalance({
             accountId,
             liveWaitMs: LOCAL_WALLET_DISPLAY_WAIT_MS,
           })
-        : null)(),
+        : null;
+    })(),
     (async () => {
       try {
         const account = (await vault.backgroundApi.serviceAccount.getDBAccount({
@@ -663,7 +670,7 @@ export async function zcashGetBalanceSafe(
         accountId: vault.accountId,
       },
     );
-  if (privacyModeState.intent !== 'on') {
+  if (!canReadZcashPrivateData(privacyModeState)) {
     return null;
   }
   try {
@@ -678,6 +685,7 @@ export async function zcashGetBalanceSafe(
     if (code === 'NOT_SYNCED' || code === 'ACCOUNT_NOT_FOUND') return null;
     // Only an unfinished setup is repairable here; retrying on any other failure would re-derive keys every poll.
     const repaired =
+      privacyModeState.intent === 'on' &&
       isZcashSetupIncompleteError(e) &&
       (await vault.zcashTryAutoRepairLocalWalletSetupIfUnlocked());
     if (repaired) {
@@ -717,7 +725,7 @@ export async function fetchAccountDetails(
         accountId: params.accountId || vault.accountId,
       },
     );
-  if (privacyModeState.intent !== 'on') {
+  if (!canReadZcashPrivateData(privacyModeState)) {
     return vault.baseFetchAccountDetails(params);
   }
   let serverResponse: IFetchServerAccountDetailsResponse | undefined;
@@ -759,7 +767,7 @@ export async function fetchTokenList(
         accountId: params.accountId || vault.accountId,
       },
     );
-  if (privacyModeState.intent !== 'on') {
+  if (!canReadZcashPrivateData(privacyModeState)) {
     return vault.baseFetchTokenList(params);
   }
   const network = await vault.getNetwork();
@@ -960,7 +968,7 @@ export async function fetchTokenDetails(
         accountId: params.accountId || vault.accountId,
       },
     );
-  if (privacyModeState.intent !== 'on') {
+  if (!canReadZcashPrivateData(privacyModeState)) {
     return vault.zcashFetchTransparentTokenDetails(params);
   }
   const network = await vault.getNetwork();

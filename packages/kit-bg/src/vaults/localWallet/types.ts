@@ -291,6 +291,9 @@ export type ILocalWalletCapability = {
     stateChanged?: boolean;
     chainTip?: number | null;
     backfillRemaining?: boolean;
+    // Only accounts this turn actually brought up to its observed chain tip.
+    // Display progress may be stale and must never establish completion.
+    caughtUpAccountIds?: string[];
   }>;
   // Drops the account's scanned data (shared with its aliases) and scans
   // again from its birthday.

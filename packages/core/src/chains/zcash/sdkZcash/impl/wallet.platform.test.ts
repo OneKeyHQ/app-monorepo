@@ -37,10 +37,16 @@ describe('scan limits in carrier builds', () => {
           const { syncWallet } = await import('./wallet');
           const rt = {
             listAccounts: () => JSON.stringify(['uuid']),
-            accountBalance: () =>
-              JSON.stringify({ chainTip: 10, fullyScannedHeight: 9 }),
+            accountBalance: jest.fn(),
             accountSyncStatus: () => JSON.stringify({ isComplete: false }),
-            syncPeek: () => JSON.stringify({ totalBlocks: 1, ranges: [] }),
+            syncPeek: jest.fn(() =>
+              JSON.stringify({
+                totalBlocks: 1,
+                ranges: [],
+                chainTip: 10,
+                fullyScannedHeight: 9,
+              }),
+            ),
             syncPrepare: jest.fn().mockResolvedValue(undefined),
             syncStep: jest
               .fn()
@@ -73,6 +79,28 @@ describe('scan limits in carrier builds', () => {
               JSON.stringify([account.ufvk]),
             );
           }
+          expect(rt.accountBalance).not.toHaveBeenCalled();
+
+          rt.syncPeek.mockReturnValue(
+            JSON.stringify({
+              totalBlocks: 0,
+              ranges: [],
+              chainTip: 10,
+              fullyScannedHeight: 10,
+            }),
+          );
+          rt.syncStep.mockClear();
+          await expect(
+            syncWallet(account, {
+              activeUfvks: [account.ufvk],
+              chainTip: 10,
+            }),
+          ).resolves.toMatchObject({
+            stateChanged: false,
+            backfillRemaining: false,
+          });
+          expect(rt.syncStep).not.toHaveBeenCalled();
+          expect(rt.accountBalance).not.toHaveBeenCalled();
         });
       } finally {
         if (previousPlatform === undefined) {

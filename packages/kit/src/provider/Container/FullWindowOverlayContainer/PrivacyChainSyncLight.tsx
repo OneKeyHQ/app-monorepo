@@ -1,4 +1,5 @@
-import { memo, useCallback, useEffect, useMemo } from 'react';
+import type { ReactNode } from 'react';
+import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 
 import { OverlayView } from '@onekeyfe/react-native-native-overlay';
 import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
@@ -21,14 +22,15 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { useIsCellularNetwork } from '@onekeyhq/kit/src/hooks/useIsCellularNetwork';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
+  formatPrivacyChainPercent,
   formatPrivacyChainSyncError,
   formatPrivacyChainSyncProgress,
-  getPrivacyChainBackfillProgress,
+  getPrivacyChainNetworkSyncDisplay,
   getPrivacyChainScanRegionLabelId,
-  getPrivacyChainSyncLabel,
   pickSlowestPrivacyChainNetwork,
 } from '@onekeyhq/kit/src/utils/privacyChainSyncDisplay';
 import { usePrivacyChainAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import type { IPrivacyChainScanState } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { FLOAT_NAV_BAR_Z_INDEX } from '@onekeyhq/shared/src/consts/zIndexConsts';
 import {
   EAppEventBusNames,
@@ -57,25 +59,183 @@ function KeepScreenAwake() {
   return null;
 }
 
-// Always-on control for the foreground scan pace: lives app-wide, not on a page, since the pace outlives it.
-function BasicPrivacyChainSyncLight() {
-  const [
-    {
-      boostingNetworkIds,
-      dataBlockedNetworkIds,
-      pausedNetworkIds,
-      progress,
-      syncErrorByNetworkId,
+function PrivacyChainSyncNetwork({
+  networkId,
+  state,
+  isCellular,
+  expanded,
+  primary = false,
+  controls,
+  onAllowCellular,
+}: {
+  networkId: string;
+  state: IPrivacyChainScanState;
+  isCellular: boolean;
+  expanded: boolean;
+  primary?: boolean;
+  controls?: ReactNode;
+  onAllowCellular: () => void;
+}) {
+  const intl = useIntl();
+  const { syncErrorByNetworkId } = state;
+  // Names remain available even when optional region hints cannot be read.
+  const { result: metadata } = usePromiseResult(
+    async () => {
+      const network = await backgroundApiProxy.serviceNetwork.getNetworkSafe({
+        networkId,
+      });
+      return { networkId, name: network?.name };
     },
-  ] = usePrivacyChainAtom();
-  // Anchored opposite the toasts (Toast/Toaster.tsx), so a transient toast never lands on top of this persistent control.
+    [networkId],
+    { checkIsFocused: false },
+  );
+  const networkName =
+    metadata?.networkId === networkId ? metadata.name : undefined;
+  const { result: regionHints } = usePromiseResult(
+    async () => {
+      if (!expanded) return undefined;
+      const settings = await backgroundApiProxy.serviceNetwork.getVaultSettings(
+        { networkId },
+      );
+      return { networkId, hints: settings.localWallet?.scanRegionHints };
+    },
+    [networkId, expanded],
+    { checkIsFocused: false },
+  );
+  const scanRegionHints =
+    regionHints?.networkId === networkId ? regionHints.hints : undefined;
+  const {
+    entry,
+    labelId,
+    isStorageUnsupported,
+    isRunning,
+    isPaused,
+    isHeldByData,
+  } = getPrivacyChainNetworkSyncDisplay({ state, networkId });
+  const stateLabel = intl.formatMessage({ id: labelId });
+  let syncErrorText: string | undefined;
+  if (isStorageUnsupported) {
+    syncErrorText = intl.formatMessage({
+      id: ETranslations.privacy_error_webview_outdated__msg,
+    });
+  } else if (!isPaused) {
+    syncErrorText = formatPrivacyChainSyncError(
+      syncErrorByNetworkId[networkId],
+      intl,
+    );
+  }
+  const regionLabelId = getPrivacyChainScanRegionLabelId(
+    scanRegionHints,
+    entry?.backfillScannedHeight,
+  );
+  const connection =
+    platformEnv.isNative && isCellular
+      ? intl.formatMessage({
+          id: ETranslations.privacy_sync_on_mobile_data__msg,
+        })
+      : '';
+  const detailLine =
+    syncErrorText ??
+    (entry
+      ? [
+          formatPrivacyChainSyncProgress({
+            scanned: entry.backfillScannedHeight,
+            target: entry.backfillTargetHeight,
+            progress: entry.backfillProgress,
+          }),
+          regionLabelId ? intl.formatMessage({ id: regionLabelId }) : '',
+          connection,
+        ]
+          .filter(Boolean)
+          .join(' · ')
+      : connection);
+  const summaryLabel =
+    entry &&
+    isRunning &&
+    !syncErrorText &&
+    typeof entry.backfillProgress === 'number' &&
+    Number.isFinite(entry.backfillProgress)
+      ? `${stateLabel} ${formatPrivacyChainPercent(entry.backfillProgress)}`
+      : stateLabel;
+  let lightIcon: IKeyOfIcons = 'RefreshCcwOutline';
+  let lightIconColor: IIconProps['color'] = isRunning
+    ? '$iconInfo'
+    : '$iconSubdued';
+  if (syncErrorText) {
+    lightIcon = 'ErrorOutline';
+    lightIconColor = '$iconCaution';
+  } else if (isPaused || isHeldByData) {
+    lightIcon = 'PauseOutline';
+  }
+  return (
+    <YStack testID={`privacy-chain-sync-network-${networkId}`} gap="$1">
+      <XStack gap="$1.5" alignItems="center">
+        <Icon name={lightIcon} size="$4" color={lightIconColor} />
+        <SizableText
+          size="$bodyXsMedium"
+          numberOfLines={1}
+          flex={1}
+          minWidth={0}
+        >
+          {[networkName, summaryLabel].filter(Boolean).join(' · ')}
+        </SizableText>
+        {controls}
+      </XStack>
+      {(expanded || syncErrorText) && detailLine ? (
+        <SizableText
+          testID={
+            primary
+              ? 'privacy-chain-sync-light-detail'
+              : `privacy-chain-sync-light-detail-${networkId}`
+          }
+          size="$bodyXs"
+          color={syncErrorText ? '$textCaution' : '$textSubdued'}
+        >
+          {detailLine}
+        </SizableText>
+      ) : null}
+      {isHeldByData ? (
+        <>
+          <SizableText size="$bodySm" color="$textSubdued">
+            {intl.formatMessage({
+              id: ETranslations.privacy_sync_mobile_data__desc,
+            })}
+          </SizableText>
+          <Button
+            testID={
+              primary
+                ? 'privacy-chain-sync-light-allow-data-btn'
+                : `privacy-chain-sync-light-allow-data-btn-${networkId}`
+            }
+            size="small"
+            variant="primary"
+            onPress={onAllowCellular}
+          >
+            {intl.formatMessage({
+              id: ETranslations.privacy_sync_always_allow__action,
+            })}
+          </Button>
+        </>
+      ) : null}
+    </YStack>
+  );
+}
+
+// The collapsed bar shows one chain; expanded rows use the same per-chain data.
+function BasicPrivacyChainSyncLight() {
+  const [state] = usePrivacyChainAtom();
+  const {
+    boostingNetworkIds,
+    dataBlockedNetworkIds,
+    pausedNetworkIds,
+    progress,
+    storageUnsupportedNetworkIds,
+  } = state;
   const intl = useIntl();
   const media = useMedia();
   const { bottom: safeAreaBottom } = useSafeAreaInsets();
   const isCellular = useIsCellularNetwork();
-  const isNarrow = media.md;
-
-  // Every chain that wants to run, in one light: the slowest speaks for all; pause/resume act on all of them.
+  const [expanded, setExpanded] = useState(false);
   const activeNetworkIds = useMemo(
     () => uniq([...boostingNetworkIds, ...dataBlockedNetworkIds]),
     [boostingNetworkIds, dataBlockedNetworkIds],
@@ -83,8 +243,35 @@ function BasicPrivacyChainSyncLight() {
   const networkId =
     pickSlowestPrivacyChainNetwork(activeNetworkIds, progress) ??
     pickSlowestPrivacyChainNetwork(pausedNetworkIds, progress);
+  const otherNetworkIds = useMemo(
+    () =>
+      uniq([...activeNetworkIds, ...pausedNetworkIds]).filter(
+        (id) => id !== networkId,
+      ),
+    [activeNetworkIds, pausedNetworkIds, networkId],
+  );
+  const controllableActiveNetworkIds = useMemo(
+    () =>
+      activeNetworkIds.filter(
+        (id) => !storageUnsupportedNetworkIds.includes(id),
+      ),
+    [activeNetworkIds, storageUnsupportedNetworkIds],
+  );
+  const controllablePausedNetworkIds = useMemo(
+    () =>
+      pausedNetworkIds.filter(
+        (id) => !storageUnsupportedNetworkIds.includes(id),
+      ),
+    [pausedNetworkIds, storageUnsupportedNetworkIds],
+  );
+  const hasRunningScans = boostingNetworkIds.some(
+    (id) => !storageUnsupportedNetworkIds.includes(id),
+  );
 
-  // Only the UI can see connection type; this app-wide surface keeps the scheduler's view from going stale.
+  useEffect(() => {
+    if (!networkId) setExpanded(false);
+  }, [networkId]);
+  // Only the UI sees connection type; preserve the scheduler's existing input.
   useEffect(() => {
     const reportDeviceNetworkState = () => {
       void backgroundApiProxy.servicePrivacyChain.setDeviceNetworkState({
@@ -103,238 +290,127 @@ function BasicPrivacyChainSyncLight() {
       );
     };
   }, [isCellular]);
-
-  // The overlay is never the focused screen, and the shown chain switches as
-  // progress changes; key each lookup by its network so a stale one is ignored.
-  const { result: scanRegionHintsResult } = usePromiseResult(
-    async () => {
-      if (!networkId) return undefined;
-      const settings = await backgroundApiProxy.serviceNetwork.getVaultSettings(
-        { networkId },
-      );
-      return { networkId, hints: settings.localWallet?.scanRegionHints };
-    },
-    [networkId],
-    { checkIsFocused: false },
-  );
-  const scanRegionHints =
-    scanRegionHintsResult?.networkId === networkId
-      ? scanRegionHintsResult?.hints
-      : undefined;
-
   const onPause = useCallback(() => {
-    for (const id of activeNetworkIds) {
+    for (const id of controllableActiveNetworkIds) {
       void backgroundApiProxy.servicePrivacyChain.pauseLocalWalletScan({
         networkId: id,
       });
     }
-  }, [activeNetworkIds]);
-
-  // 'manual-sync' is what clears the pause.
+  }, [controllableActiveNetworkIds]);
   const onResume = useCallback(() => {
-    for (const id of pausedNetworkIds) {
+    for (const id of controllablePausedNetworkIds) {
       void backgroundApiProxy.servicePrivacyChain.startForegroundBoost({
         networkId: id,
         trigger: 'manual-sync',
       });
     }
-  }, [pausedNetworkIds]);
-
-  const { result: networkNameResult } = usePromiseResult(
-    async () => {
-      if (!networkId) return undefined;
-      const network = await backgroundApiProxy.serviceNetwork.getNetworkSafe({
-        networkId,
-      });
-      return { networkId, name: network?.name };
-    },
-    [networkId],
-    { checkIsFocused: false },
-  );
-  const networkName =
-    networkNameResult?.networkId === networkId
-      ? networkNameResult?.name
-      : undefined;
-
+  }, [controllablePausedNetworkIds]);
   const onAllowCellular = useCallback(() => {
     void backgroundApiProxy.servicePrivacyChain.setAllowCellularSync({
       allow: true,
     });
   }, []);
+  if (!networkId) return null;
 
-  if (!networkId) {
-    return null;
-  }
-  const entry = getPrivacyChainBackfillProgress(progress, networkId);
-  const isRunning = boostingNetworkIds.includes(networkId);
-  const isPaused = !isRunning && pausedNetworkIds.includes(networkId);
-  // Reads the service's own decision: "not boosting and not paused" alone also matches the unblocked background pace.
-  const isHeldByData =
-    !isRunning && !isPaused && dataBlockedNetworkIds.includes(networkId);
-  // A manual pause must stay visible until resumed, backfill done or not.
-  if (!isRunning && !isPaused && !isHeldByData && !entry) {
-    return null;
-  }
-  // No progress yet means the first step hasn't reported; progress with no backfill left means it's following the tip.
-  const hasProgress = Object.keys(progress).some((key) =>
-    key.startsWith(`${networkId}:`),
+  const controls = (
+    <>
+      {!expanded && otherNetworkIds.length > 0 ? (
+        <SizableText size="$bodyXs" color="$textSubdued">
+          +{otherNetworkIds.length}
+        </SizableText>
+      ) : null}
+      <IconButton
+        testID="privacy-chain-sync-light-details-btn"
+        size="small"
+        variant="tertiary"
+        icon={expanded ? 'ChevronTopSmallOutline' : 'ChevronDownSmallOutline'}
+        title={intl.formatMessage({
+          id: expanded
+            ? ETranslations.global_collapse
+            : ETranslations.global_details,
+        })}
+        onPress={() => setExpanded((value) => !value)}
+      />
+      {hasRunningScans ? (
+        <IconButton
+          testID="privacy-chain-sync-light-pause-btn"
+          size="small"
+          variant="tertiary"
+          icon="PauseOutline"
+          title={intl.formatMessage({ id: ETranslations.global_pause })}
+          onPress={onPause}
+        />
+      ) : null}
+      {controllablePausedNetworkIds.length > 0 ? (
+        <IconButton
+          testID="privacy-chain-sync-light-resume-btn"
+          size="small"
+          variant="tertiary"
+          icon="PlayOutline"
+          title={intl.formatMessage({ id: ETranslations.global_resume })}
+          onPress={onResume}
+        />
+      ) : null}
+    </>
   );
-  // Only native can tell metered from not; only metered is worth saying.
-  const connection =
-    platformEnv.isNative && isCellular
-      ? intl.formatMessage({
-          id: ETranslations.privacy_sync_on_mobile_data__msg,
-        })
-      : '';
-  const stateLabel = intl.formatMessage({
-    id: getPrivacyChainSyncLabel({
-      paused: isPaused,
-      held: isHeldByData,
-      preparing: !hasProgress,
-      backfilling: entry !== undefined,
-    }),
-  });
-  const regionLabelId = getPrivacyChainScanRegionLabelId(
-    scanRegionHints,
-    entry?.backfillScannedHeight,
-  );
-  // A failing sync must not read as "Preparing" forever.
-  const syncErrorText = isPaused
-    ? undefined
-    : formatPrivacyChainSyncError(syncErrorByNetworkId[networkId], intl);
-  let detailLine: string;
-  if (syncErrorText) {
-    detailLine = [networkName, syncErrorText].filter(Boolean).join(' · ');
-  } else if (entry) {
-    detailLine = [
-      networkName,
-      formatPrivacyChainSyncProgress({
-        scanned: entry.backfillScannedHeight,
-        target: entry.backfillTargetHeight,
-        progress: entry.backfillProgress,
-      }),
-      regionLabelId ? intl.formatMessage({ id: regionLabelId }) : '',
-      connection,
-    ]
-      .filter(Boolean)
-      .join(' · ');
-  } else if (hasProgress) {
-    detailLine = [networkName, connection].filter(Boolean).join(' · ');
-  } else {
-    detailLine = intl.formatMessage({ id: ETranslations.global_preparing });
-  }
-
-  let lightIcon: IKeyOfIcons = 'RefreshCcwOutline';
-  let lightIconColor: IIconProps['color'] = isRunning
-    ? '$iconInfo'
-    : '$iconSubdued';
-  if (syncErrorText) {
-    lightIcon = 'ErrorOutline';
-    lightIconColor = '$iconCaution';
-  } else if (isPaused || isHeldByData) {
-    // Two bars mean stopped by the user or the data gate; the background pace is still scanning, just slowly.
-    lightIcon = 'PauseOutline';
-  }
-
   return (
     <Stack
       position="absolute"
-      // Narrow: bottom-centre above the tab bar/home indicator. Wide: top-right, clear of the sidebar.
-      {...(isNarrow
+      {...(media.md
         ? {
             bottom: safeAreaBottom + EDGE_CLEARANCE,
             left: 0,
             right: 0,
             alignItems: 'center' as const,
-            // Side padding gives the card a real width; shrink-to-fit otherwise wraps the label mid-word.
             paddingHorizontal: '$4' as const,
           }
         : { top: EDGE_CLEARANCE, right: '$5' as const })}
       zIndex={FLOAT_NAV_BAR_Z_INDEX}
-      // box-none, not none: this overlay spans the window, so swallowing all clicks would make the app unusable.
       pointerEvents="box-none"
     >
+      {hasRunningScans ? <KeepScreenAwake /> : null}
       <YStack
+        testID="privacy-chain-sync-light"
         gap="$2"
-        paddingHorizontal="$4"
-        paddingVertical="$3"
+        px="$2.5"
+        py="$1.5"
         borderRadius="$3"
         backgroundColor="$bgSubdued"
         borderWidth={1}
         borderColor="$borderSubdued"
-        // Narrow takes the padded overlay width; wide stays content-sized. Both keep the 360 cap.
-        {...(isNarrow ? { width: '100%' as const } : null)}
-        maxWidth={360}
+        width={expanded ? 300 : 256}
+        maxWidth="100%"
         elevation={2}
-        pointerEvents="box-none"
+        pointerEvents="auto"
       >
-        <XStack gap="$2.5" alignItems="center" pointerEvents="box-none">
-          <Icon name={lightIcon} size="$5" color={lightIconColor} />
-          <YStack flex={1} gap="$0.5">
-            <SizableText size="$bodyMdMedium">{stateLabel}</SizableText>
-            {detailLine ? (
-              <SizableText size="$bodySm" color="$textSubdued">
-                {detailLine}
-              </SizableText>
-            ) : null}
-          </YStack>
-          {isRunning ? (
-            <>
-              <KeepScreenAwake />
-              <IconButton
-                testID="privacy-chain-sync-light-pause-btn"
-                size="medium"
-                variant="tertiary"
-                icon="PauseOutline"
-                title={intl.formatMessage({
-                  id: ETranslations.global_pause,
-                })}
-                onPress={onPause}
-                pointerEvents="auto"
-              />
-            </>
-          ) : null}
-          {isPaused ? (
-            <Button
-              testID="privacy-chain-sync-light-resume-btn"
-              size="medium"
-              variant="primary"
-              onPress={onResume}
-              pointerEvents="auto"
-            >
-              {intl.formatMessage({
-                id: ETranslations.global_resume,
-              })}
-            </Button>
-          ) : null}
-        </XStack>
-        {isHeldByData ? (
-          <>
-            <SizableText size="$bodySm" color="$textSubdued">
-              {intl.formatMessage({
-                id: ETranslations.privacy_sync_mobile_data__desc,
-              })}
-            </SizableText>
-            <Button
-              testID="privacy-chain-sync-light-allow-data-btn"
-              size="medium"
-              variant="primary"
-              onPress={onAllowCellular}
-              pointerEvents="auto"
-            >
-              {intl.formatMessage({
-                id: ETranslations.privacy_sync_always_allow__action,
-              })}
-            </Button>
-          </>
-        ) : null}
-        {isRunning ? (
-          <SizableText size="$bodySm" color="$textCaution">
-            {intl.formatMessage({
-              id: ETranslations.privacy_sync_keep_open__msg,
-            })}
-          </SizableText>
-        ) : null}
+        <PrivacyChainSyncNetwork
+          key={networkId}
+          networkId={networkId}
+          state={state}
+          isCellular={isCellular}
+          expanded={expanded}
+          primary
+          controls={controls}
+          onAllowCellular={onAllowCellular}
+        />
+        {expanded
+          ? otherNetworkIds.map((id) => (
+              <Stack
+                key={id}
+                borderTopWidth={1}
+                borderColor="$borderSubdued"
+                pt="$2"
+              >
+                <PrivacyChainSyncNetwork
+                  networkId={id}
+                  state={state}
+                  isCellular={isCellular}
+                  expanded
+                  onAllowCellular={onAllowCellular}
+                />
+              </Stack>
+            ))
+          : null}
       </YStack>
     </Stack>
   );

@@ -100,6 +100,10 @@ function createService({
     return { password: promptedPassword };
   });
   const backgroundApi = {
+    serviceSignature: {
+      listZcashSignedTransactionAccountIds: async () => [],
+      removeSignedTransactionsForAccount: jest.fn(async () => undefined),
+    },
     simpleDb: {
       privacyChainKeys,
       privacyChainState,

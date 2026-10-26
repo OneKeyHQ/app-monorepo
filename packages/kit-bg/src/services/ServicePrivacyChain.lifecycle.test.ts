@@ -24,8 +24,16 @@ jest.mock('@onekeyhq/shared/src/eventBus/appEventBus', () => ({
     },
   },
 }));
-jest.mock('../vaults/factory', () => ({ vaultFactory: {} }));
-jest.mock('../vaults/settings', () => ({ getVaultSettings: jest.fn() }));
+jest.mock('../vaults/factory', () => ({
+  vaultFactory: {
+    getChainOnlyVault: jest.fn(async () => ({
+      getLocalWalletCapability: () => ({}),
+    })),
+  },
+}));
+jest.mock('../vaults/settings', () => ({
+  getVaultSettings: jest.fn(async () => ({ localWallet: {} })),
+}));
 const mockSetProgress = jest.fn<Promise<unknown>, [unknown]>();
 jest.mock('../states/jotai/atoms', () => ({
   privacyChainAtom: { set: (value: unknown) => mockSetProgress(value) },
@@ -58,6 +66,7 @@ describe('privacy lifecycle invalidation', () => {
           backfillActiveByAccount: {},
           syncFailureBackoff: new Map(),
           orphanCleanupGeneration: new Map(),
+          refreshAutoBoost: jest.fn(),
           init,
         },
       );
@@ -101,6 +110,9 @@ describe('removed-account gc', () => {
         getLocalWalletNetworkIds,
         forEachLocalWalletCapability: jest.fn(async () => undefined),
         backgroundApi: {
+          serviceSignature: {
+            listZcashSignedTransactionAccountIds: async () => [],
+          },
           serviceAccount: {
             getAllAccounts: async () => ({ accounts: [] }),
             getAllIndexedAccounts: async () => ({ indexedAccounts: [] }),

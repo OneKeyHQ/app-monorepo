@@ -8,6 +8,7 @@ import { SimpleDbEntityPrivacyChainCache } from '../../dbs/simple/entity/SimpleD
 import { SimpleDbEntityPrivacyChainState } from '../../dbs/simple/entity/SimpleDbEntityPrivacyChainState';
 
 import {
+  clearLocalWalletBalances,
   readLastLocalWalletPublicBalance,
   readLocalWalletBalanceStaleFirst,
   readLocalWalletCacheEpoch,
@@ -179,6 +180,315 @@ describe('saved privacy chain balance', () => {
     await expect(
       backgroundApi.simpleDb.privacyChainCache.listLastBalanceAccountIds(),
     ).resolves.toEqual(['hd-1--1']);
+  });
+});
+
+describe('late display balance handoff', () => {
+  function pendingRead() {
+    let finish: (value: string | null) => void = () => {};
+    let fail: (error: unknown) => void = () => {};
+    const promise = new Promise<string | null>((resolve, reject) => {
+      finish = resolve;
+      fail = reject;
+    });
+    return { promise, finish, fail };
+  }
+
+  function display(
+    backgroundApi: IBackgroundApi,
+    read: () => Promise<string | null>,
+  ) {
+    return readLocalWalletBalanceStaleFirst({
+      backgroundApi,
+      ...owner,
+      liveWaitMs: 100,
+      read,
+    });
+  }
+
+  async function tick(ms = 0) {
+    await jest.advanceTimersByTimeAsync(ms);
+  }
+
+  beforeEach(() => {
+    jest.useFakeTimers();
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+    jest.restoreAllMocks();
+  });
+
+  it('coalesces a delayed read and hands an unchanged live value to all readers without a notification loop', async () => {
+    const backgroundApi = createBackgroundApi();
+    await seed(backgroundApi, 'same');
+    const emit = jest.spyOn(appEventBus, 'emit');
+    const first = pendingRead();
+    const read = jest.fn(() => first.promise);
+    const reads = [display(backgroundApi, read), display(backgroundApi, read)];
+    await tick(100);
+    await expect(Promise.all(reads)).resolves.toEqual([
+      { value: 'same', stale: true },
+      { value: 'same', stale: true },
+    ]);
+    expect(read).toHaveBeenCalledTimes(1);
+    first.finish('same');
+    await tick();
+    expect(emit).toHaveBeenCalledTimes(1);
+    expect(emit).toHaveBeenCalledWith(
+      EAppEventBusNames.LocalWalletBalanceLanded,
+      owner,
+    );
+    const recheck = pendingRead();
+    read.mockImplementation(() => recheck.promise);
+    await expect(
+      Promise.all([display(backgroundApi, read), display(backgroundApi, read)]),
+    ).resolves.toEqual([
+      { value: 'same', stale: false },
+      { value: 'same', stale: false },
+    ]);
+    expect(read).toHaveBeenCalledTimes(2);
+    recheck.finish('same');
+    await tick();
+    expect(emit).toHaveBeenCalledTimes(1);
+  });
+
+  it('rechecks a handoff so a new scan result is announced even while the handoff is reusable', async () => {
+    const backgroundApi = createBackgroundApi();
+    await seed(backgroundApi, 'same');
+    const first = pendingRead();
+    const reading = display(backgroundApi, () => first.promise);
+    await tick(100);
+    await reading;
+    first.finish('same');
+    await tick();
+    const emit = jest.spyOn(appEventBus, 'emit');
+    const recheck = pendingRead();
+    await expect(
+      display(backgroundApi, () => recheck.promise),
+    ).resolves.toEqual({
+      value: 'same',
+      stale: false,
+    });
+    recheck.finish('new');
+    await tick();
+    expect(emit).toHaveBeenCalledWith(
+      EAppEventBusNames.LocalWalletBalanceLanded,
+      owner,
+    );
+    expect(emit).toHaveBeenCalledWith(
+      EAppEventBusNames.RefreshTokenList,
+      undefined,
+    );
+    await expect(display(backgroundApi, async () => 'new')).resolves.toEqual({
+      value: 'new',
+      stale: false,
+    });
+  });
+
+  it('hands off authoritative null rather than a saved balance', async () => {
+    const backgroundApi = createBackgroundApi();
+    await seed(backgroundApi, 'old');
+    const emit = jest.spyOn(appEventBus, 'emit');
+    const first = pendingRead();
+    const reading = display(backgroundApi, () => first.promise);
+    await tick(100);
+    await reading;
+    first.finish(null);
+    await tick();
+    expect(emit).toHaveBeenCalledWith(
+      EAppEventBusNames.LocalWalletBalanceLanded,
+      owner,
+    );
+    await expect(display(backgroundApi, async () => null)).resolves.toBeNull();
+  });
+
+  it('keeps a failed late read stale and permits a later retry', async () => {
+    const backgroundApi = createBackgroundApi();
+    await seed(backgroundApi, 'saved');
+    const emit = jest.spyOn(appEventBus, 'emit');
+    const first = pendingRead();
+    const reading = display(backgroundApi, () => first.promise);
+    await tick(100);
+    await expect(reading).resolves.toEqual({ value: 'saved', stale: true });
+    first.fail(new OneKeyLocalError('unavailable'));
+    await tick();
+    expect(emit).not.toHaveBeenCalled();
+    await expect(display(backgroundApi, async () => 'retry')).resolves.toEqual({
+      value: 'retry',
+      stale: false,
+    });
+  });
+
+  it('does not renew the handoff lifetime when readers reuse it', async () => {
+    const backgroundApi = createBackgroundApi();
+    await seed(backgroundApi, 'same');
+    const first = pendingRead();
+    const reading = display(backgroundApi, () => first.promise);
+    await tick(100);
+    await reading;
+    first.finish('same');
+    await tick();
+    const recheck = pendingRead();
+    await tick(3000);
+    await expect(
+      display(backgroundApi, () => recheck.promise),
+    ).resolves.toEqual({
+      value: 'same',
+      stale: false,
+    });
+    await tick(2001);
+    const expired = display(backgroundApi, () => recheck.promise);
+    await tick(100);
+    await expect(expired).resolves.toEqual({ value: 'same', stale: true });
+    recheck.finish('same');
+    await tick();
+  });
+
+  it('never shares a display flight with an unrestricted live read or skipLive', async () => {
+    const backgroundApi = createBackgroundApi();
+    await seed(backgroundApi, 'saved');
+    const first = pendingRead();
+    const reading = display(backgroundApi, () => first.promise);
+    await tick(100);
+    await reading;
+    const live = jest.fn(async () => 'live');
+    await expect(
+      readLocalWalletBalanceStaleFirst({ backgroundApi, ...owner, read: live }),
+    ).resolves.toEqual({ value: 'live', stale: false });
+    const unused = jest.fn(async () => 'unused');
+    await expect(
+      readLocalWalletBalanceStaleFirst({
+        backgroundApi,
+        ...owner,
+        read: unused,
+        liveWaitMs: 100,
+        skipLive: true,
+      }),
+    ).resolves.toEqual({ value: 'live', stale: true });
+    expect(live).toHaveBeenCalledTimes(1);
+    expect(unused).not.toHaveBeenCalled();
+    first.finish('saved');
+    await tick();
+  });
+
+  it.each(['account', 'network', 'backgroundApi'] as const)(
+    'does not share flights across %s',
+    async (scope) => {
+      const backgroundApi = createBackgroundApi();
+      const first = pendingRead();
+      const second = pendingRead();
+      const a = display(backgroundApi, () => first.promise);
+      const b = readLocalWalletBalanceStaleFirst({
+        backgroundApi:
+          scope === 'backgroundApi' ? createBackgroundApi() : backgroundApi,
+        networkId: scope === 'network' ? 'zec--0' : owner.networkId,
+        accountId: scope === 'account' ? 'other-account' : owner.accountId,
+        liveWaitMs: 100,
+        read: () => second.promise,
+      });
+      await tick();
+      first.finish('a');
+      second.finish('b');
+      await expect(a).resolves.toEqual({ value: 'a', stale: false });
+      await expect(b).resolves.toEqual({ value: 'b', stale: false });
+    },
+  );
+
+  it.each(['account', 'network', 'all'] as const)(
+    'does not resurrect a delayed display read after %s cache clearing without an epoch',
+    async (scope) => {
+      const backgroundApi = createBackgroundApi();
+      await seed(backgroundApi, 'saved');
+      const emit = jest.spyOn(appEventBus, 'emit');
+      const first = pendingRead();
+      const reading = display(backgroundApi, () => first.promise);
+      await tick(100);
+      await reading;
+      let clearing: Promise<void>;
+      if (scope === 'account') {
+        clearing = removeLastLocalWalletBalances({
+          backgroundApi,
+          accountIds: [owner.accountId],
+        });
+      } else if (scope === 'network') {
+        clearing = removeNetworkLastLocalWalletBalances({
+          backgroundApi,
+          networkId: owner.networkId,
+        });
+      } else {
+        clearing = clearLocalWalletBalances({ backgroundApi });
+      }
+      first.finish('destroyed');
+      await clearing;
+      await tick();
+      expect(emit).not.toHaveBeenCalled();
+      await expect(
+        backgroundApi.simpleDb.privacyChainCache.getLastBalance({
+          accountId: owner.accountId,
+        }),
+      ).resolves.toBeUndefined();
+      await expect(display(backgroundApi, async () => 'new')).resolves.toEqual({
+        value: 'new',
+        stale: false,
+      });
+    },
+  );
+
+  it('does not write back a display result cleared while its save is awaiting the store', async () => {
+    const backgroundApi = createBackgroundApi();
+    await seed(backgroundApi, 'saved');
+    const emit = jest.spyOn(appEventBus, 'emit');
+    const first = pendingRead();
+    const reading = display(backgroundApi, () => first.promise);
+    await tick(100);
+    await reading;
+    let releaseSave = () => {};
+    const saving = new Promise<void>((resolve) => {
+      releaseSave = resolve;
+    });
+    const cache = backgroundApi.simpleDb.privacyChainCache;
+    const getLastBalance = cache.getLastBalance.bind(cache);
+    jest
+      .spyOn(cache, 'getLastBalance')
+      .mockImplementationOnce(async (params) => {
+        const value = await getLastBalance(params);
+        await saving;
+        return value;
+      });
+    first.finish('destroyed');
+    await tick();
+    await clearLocalWalletBalances({ backgroundApi });
+    releaseSave();
+    await tick();
+    await expect(
+      cache.getLastBalance({ accountId: owner.accountId }),
+    ).resolves.toBeUndefined();
+    expect(emit).not.toHaveBeenCalled();
+  });
+
+  it('does not publish a delayed result after the account epoch changes', async () => {
+    const backgroundApi = createBackgroundApi();
+    await backgroundApi.simpleDb.privacyChainState.beginXmrEnable({
+      ...owner,
+      birthdayHeight: 1,
+    });
+    await seed(backgroundApi, 'saved');
+    const emit = jest.spyOn(appEventBus, 'emit');
+    const first = pendingRead();
+    const reading = display(backgroundApi, () => first.promise);
+    await tick(100);
+    await reading;
+    await backgroundApi.simpleDb.privacyChainState.rotateAccountEpochs({
+      accountIds: [owner.accountId],
+    });
+    first.finish('destroyed');
+    await tick();
+    expect(emit).not.toHaveBeenCalled();
+    await expect(display(backgroundApi, async () => 'new')).resolves.toEqual({
+      value: 'new',
+      stale: false,
+    });
   });
 });
 

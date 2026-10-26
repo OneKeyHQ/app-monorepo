@@ -13,6 +13,11 @@ export interface IPrivacyChainCacheDB {
   lastPublicBalances?: Record<string, IPrivacyChainLastPublicBalanceRecord>;
   // networkId -> the last chain tip fetched from the node, for display only.
   chainTips?: Record<string, number>;
+  // Successful catch-up, independent of whether the balance amount changed.
+  lastSyncs?: Record<
+    string,
+    { networkId: string; epoch: string; syncedAt: number }
+  >;
 }
 
 export type IPrivacyChainLastBalanceRecord = {
@@ -40,6 +45,25 @@ export class SimpleDbEntityPrivacyChainCache extends SimpleDbEntityBase<IPrivacy
   entityName = 'privacyChainCache';
 
   override enableCache = false;
+
+  async getLastSync({ accountId }: { accountId: string }) {
+    return (await this.getRawData())?.lastSyncs?.[accountId];
+  }
+
+  async setLastSync({
+    accountId,
+    record,
+    isCurrent,
+  }: {
+    accountId: string;
+    record: NonNullable<IPrivacyChainCacheDB['lastSyncs']>[string];
+    isCurrent: () => Promise<boolean>;
+  }): Promise<void> {
+    await this.setRawData(async (raw) => {
+      if (!(await isCurrent())) return raw ?? {};
+      return { ...raw, lastSyncs: { ...raw?.lastSyncs, [accountId]: record } };
+    });
+  }
 
   async getLastBalance({
     accountId,
@@ -133,18 +157,22 @@ export class SimpleDbEntityPrivacyChainCache extends SimpleDbEntityBase<IPrivacy
       if (
         !accountIds.some(
           (id) =>
-            rawData?.lastBalances?.[id] || rawData?.lastPublicBalances?.[id],
+            rawData?.lastBalances?.[id] ||
+            rawData?.lastPublicBalances?.[id] ||
+            rawData?.lastSyncs?.[id],
         )
       ) {
         return rawData ?? {};
       }
       const lastBalances = { ...rawData?.lastBalances };
       const lastPublicBalances = { ...rawData?.lastPublicBalances };
+      const lastSyncs = { ...rawData?.lastSyncs };
       accountIds.forEach((id) => {
         delete lastBalances[id];
         delete lastPublicBalances[id];
+        delete lastSyncs[id];
       });
-      return { ...rawData, lastBalances, lastPublicBalances };
+      return { ...rawData, lastBalances, lastPublicBalances, lastSyncs };
     });
   }
 
@@ -156,8 +184,9 @@ export class SimpleDbEntityPrivacyChainCache extends SimpleDbEntityBase<IPrivacy
     await this.setRawData((rawData) => {
       const entries = Object.entries(rawData?.lastBalances ?? {});
       const publicEntries = Object.entries(rawData?.lastPublicBalances ?? {});
+      const syncEntries = Object.entries(rawData?.lastSyncs ?? {});
       if (
-        ![...entries, ...publicEntries].some(
+        ![...entries, ...publicEntries, ...syncEntries].some(
           ([, record]) => record.networkId === networkId,
         )
       ) {
@@ -170,6 +199,9 @@ export class SimpleDbEntityPrivacyChainCache extends SimpleDbEntityBase<IPrivacy
         ),
         lastPublicBalances: Object.fromEntries(
           publicEntries.filter(([, record]) => record.networkId !== networkId),
+        ),
+        lastSyncs: Object.fromEntries(
+          syncEntries.filter(([, record]) => record.networkId !== networkId),
         ),
       };
     });
@@ -221,6 +253,7 @@ export class SimpleDbEntityPrivacyChainCache extends SimpleDbEntityBase<IPrivacy
       ...new Set([
         ...Object.keys(rawData?.lastBalances ?? {}),
         ...Object.keys(rawData?.lastPublicBalances ?? {}),
+        ...Object.keys(rawData?.lastSyncs ?? {}),
       ]),
     ];
   }

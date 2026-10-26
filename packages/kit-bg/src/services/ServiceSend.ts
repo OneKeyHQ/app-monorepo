@@ -19,6 +19,7 @@ import {
   backgroundMethod,
   toastIfError,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import {
   HISTORY_CONSTS,
   SEND_TX_SERVER_ERROR_CODES,
@@ -99,9 +100,9 @@ import type {
 } from '@onekeyhq/shared/types/tx';
 
 import { vaultFactory } from '../vaults/factory';
-import { ESignedTxBroadcastStatus } from '../vaults/types';
 import { isLocalWalletNetwork } from '../vaults/localWallet/isLocalWalletNetwork';
 import { getVaultSettings } from '../vaults/settings';
+import { ESignedTxBroadcastStatus } from '../vaults/types';
 
 import ServiceBase from './ServiceBase';
 import {
@@ -2120,6 +2121,12 @@ class ServiceSend extends ServiceBase {
       freeTrialUsage,
       progressEventId,
     } = params;
+    const zcashSignatureContext =
+      networkId === getNetworkIdsMap().zec
+        ? await this.backgroundApi.serviceSignature.getZcashSignatureRecordContext(
+            accountId,
+          )
+        : undefined;
     // Decided before any broadcast: nothing may throw after one. Developer
     // mode "always sign only" signs without broadcasting, so it uses nothing.
     const broadcastUsage =
@@ -2399,10 +2406,18 @@ class ServiceSend extends ServiceBase {
         // A replayed tx whose first attempt already ran this bookkeeping
         // must not add a second signature record or history entry.
         if (!broadcastRecord?.isSettled) {
-          await this.backgroundApi.serviceSignature.addItemFromSendProcess(
-            data,
-            sourceInfo,
-          );
+          if (zcashSignatureContext !== undefined) {
+            await this.backgroundApi.serviceSignature.addItemFromSendProcess(
+              data,
+              sourceInfo,
+              zcashSignatureContext,
+            );
+          } else {
+            await this.backgroundApi.serviceSignature.addItemFromSendProcess(
+              data,
+              sourceInfo,
+            );
+          }
           if (signedTx && !signOnly) {
             try {
               await this.backgroundApi.serviceHistory.saveSendConfirmHistoryTxs(

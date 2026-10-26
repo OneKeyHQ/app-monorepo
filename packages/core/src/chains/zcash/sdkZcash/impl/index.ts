@@ -250,7 +250,7 @@ const api: IZcashSdkApi = {
     readOnlyOrLeased(
       'getSyncProgress',
       account,
-      ({ rt, accountUuid }) => readSyncProgress(rt, accountUuid, account),
+      ({ rt, accountUuid }) => readSyncProgress(rt, accountUuid),
       leasedGetSyncProgress,
     ),
   diagnoseWalletDatabase: leased(diagnoseWalletDatabase),

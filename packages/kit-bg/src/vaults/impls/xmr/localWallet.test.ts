@@ -290,7 +290,20 @@ describe('xmr syncGroup turns', () => {
       synced: true,
       stateChanged: true,
       backfillRemaining: false,
+      caughtUpAccountIds: ['acc'],
     });
+  });
+
+  it('marks current aliases of the completed identity without scanning it twice', async () => {
+    runtime.syncStep.mockImplementationOnce(async () =>
+      JSON.stringify({ blocksScanned: 4, done: true, outputsFound: 0 }),
+    );
+    const result = await capability().syncGroup({
+      accountIds: ['acc', 'alias'],
+      chainTip: 3_767_827,
+    });
+    expect(runtime.syncStep).toHaveBeenCalledTimes(1);
+    expect(result.caughtUpAccountIds).toEqual(['acc', 'alias']);
   });
 
   // A page turned away by a busy runtime asks the scan for a balance; the
@@ -399,6 +412,7 @@ describe('xmr syncGroup turns', () => {
     });
     expect(runtime.syncStep).toHaveBeenCalledTimes(2);
     expect(result.backfillRemaining).toBe(true);
+    expect(result.caughtUpAccountIds).toEqual([]);
   });
 });
 
@@ -713,7 +727,11 @@ describe('xmr sync skips an account without its view key', () => {
       chainTip: 3_767_827,
     });
     expect(runtime.syncStep).toHaveBeenCalledTimes(1);
-    expect(result).toMatchObject({ synced: true, backfillRemaining: false });
+    expect(result).toMatchObject({
+      synced: true,
+      backfillRemaining: false,
+      caughtUpAccountIds: ['acc'],
+    });
   });
 
   it('reports no turn when every account is waiting for its key', async () => {

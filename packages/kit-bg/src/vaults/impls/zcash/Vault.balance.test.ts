@@ -61,6 +61,55 @@ function memoryCache() {
 describe('Zcash independent transparent balance availability', () => {
   afterEach(() => jest.restoreAllMocks());
 
+  it.each([true, false])(
+    'keeps private display data only when an off account is paused=%s, without enabling private sends',
+    async (paused) => {
+      const getState = jest.fn().mockResolvedValue({
+        intent: 'off',
+        ...(paused ? { resumeFromHeight: 100 } : {}),
+      });
+      const readPrivate = jest.fn().mockResolvedValue(balance);
+      const vault = Object.assign(Object.create(Vault.prototype) as Vault, {
+        accountId: 'paused-account',
+        networkId: 'zec--0',
+        backgroundApi: {
+          simpleDb: {
+            privacyChainState: {
+              getZcashPrivacyModeState: getState,
+              getAccountEpoch: async () => undefined,
+            },
+          },
+          serviceAccount: {
+            getDBAccount: async () => ({ id: 'paused-account' }),
+          },
+        },
+        getLocalWalletBalance: readPrivate,
+        zcashGetWalletAccount: async () => ({}),
+        zcashGetApi: async () => ({ getBalance: readPrivate }),
+        zcashGetIndexerTransparentBalance: async () => ({
+          total: new BigNumber(80),
+          spendable: new BigNumber(50),
+        }),
+      });
+      const display = await vault.getLocalWalletAccountBalance({
+        accountId: 'paused-account',
+      });
+      expect(display?.pools.find((item) => item.key === 'orchard')?.total).toBe(
+        paused ? '100' : undefined,
+      );
+      expect(readPrivate).toHaveBeenCalledTimes(paused ? 1 : 0);
+      const sendPools = await vault.listLocalWalletSendPools({
+        accountId: 'paused-account',
+      });
+      expect(sendPools?.map((item) => item.key)).toEqual(['transparent']);
+      expect(readPrivate).toHaveBeenCalledTimes(paused ? 1 : 0);
+      await expect(vault.zcashGetBalanceSafe()).resolves.toEqual(
+        paused ? balance : null,
+      );
+      expect(readPrivate).toHaveBeenCalledTimes(paused ? 2 : 0);
+    },
+  );
+
   it.each([
     { utxoFails: true, totalFails: false, spendable: undefined, total: '80' },
     { utxoFails: false, totalFails: true, spendable: '50', total: undefined },

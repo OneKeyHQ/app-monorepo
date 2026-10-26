@@ -6,6 +6,7 @@ import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import {
+  ActionList,
   Alert,
   DebugRenderTracker,
   Divider,
@@ -498,7 +499,7 @@ function TokenDetailsHeaderContent({
   } else if (isPrivatePool) {
     fiatValue = undefined;
   }
-  // A backfilling balance still shows what was scanned, marked below; only
+  // A backfilling balance still shows what was scanned; only
   // an unreadable or never-enabled one has no figure.
   const detailsBalanceStatus = hasSelectedPool
     ? undefined
@@ -744,17 +745,25 @@ function TokenDetailsHeaderContent({
       return;
     }
     if (shouldUsePoolBalance) {
-      if (poolDisplay?.address) {
+      if (!poolDisplay?.address) return;
+      if (
+        !accountUtils.isHwAccount({ accountId }) &&
+        !accountUtils.isQrAccount({ accountId })
+      ) {
         copyText(poolDisplay.address);
+        return;
       }
+    } else if (isPrivatePool) {
       return;
     }
-    if (isPrivatePool) return;
     void copyAccountAddress({
       accountId,
       networkId,
       token: tokenInfo,
       deriveInfo,
+      ...(shouldUsePoolBalance
+        ? { localWalletAddressForm: isPrivatePool ? 'private' : 'public' }
+        : {}),
     });
   }, [
     copyAccountAddress,
@@ -786,6 +795,7 @@ function TokenDetailsHeaderContent({
         }
         disabled={
           isWatchOnly ||
+          localWalletPool.state?.paused ||
           poolAction.disabled ||
           !poolAction.toAddress ||
           !poolAction.amount
@@ -834,36 +844,25 @@ function TokenDetailsHeaderContent({
               fiatValue={fiatValue}
               balanceParsed={balanceParsed}
             />
-            {(shouldShowPoolBalance
-              ? poolDisplay?.balanceStatus
-              : detailsBalanceStatus) === 'partial' ? (
-              <SizableText size="$bodySm" color="$textSubdued">
-                {intl.formatMessage({
-                  id: ETranslations.global_syncing,
-                })}
-              </SizableText>
-            ) : null}
-            {detailsBalanceStatus === 'notEnabled' ? (
-              <SizableText size="$bodySm" color="$textSubdued">
-                {intl.formatMessage({
-                  id: ETranslations.privacy_balance_privacy_off__title,
-                })}
-              </SizableText>
-            ) : null}
             {/* A legacy pool can only withdraw; account-level actions would
               look like they operate on its balance. */}
             {isLegacyPoolTab ? (
               legacyPoolActionRow
             ) : (
-              <RawActions>
+              <RawActions testID="token-details-primary-actions">
                 <RawActions.Send
                   testID={AssetDetailsTestIDs.sendBtn}
+                  disabled={isPrivatePool && localWalletPool.state?.paused}
                   onPress={handleSendPress}
                   trackID="wallet-token-details-send"
                 />
                 <RawActions.Receive
                   testID={AssetDetailsTestIDs.receiveBtn}
-                  disabled={isWatchOnly || isBotWalletReceiveBlocked}
+                  disabled={
+                    isWatchOnly ||
+                    isBotWalletReceiveBlocked ||
+                    (isPrivatePool && localWalletPool.state?.paused)
+                  }
                   allowPressWhenDisabled={isBotWalletReceiveBlocked}
                   onPress={async () => {
                     if (isBotWalletReceiveBlocked) {
@@ -895,30 +894,67 @@ function TokenDetailsHeaderContent({
                   trackID="wallet-token-details-receive"
                 />
                 {poolActionItem}
-                <RawActions.Swap
-                  testID={AssetDetailsTestIDs.swapBtn}
-                  onPress={handleOnSwap}
-                  disabled={disableSwapAction}
-                  trackID="wallet-token-details-swap"
-                />
-                <ReviewControl>
-                  <ActionBuy
-                    disabled={showLoadingState}
-                    isTabView={isTabView}
-                    walletId={wallet?.id ?? ''}
-                    networkId={networkId}
-                    accountId={accountId}
-                    walletType={wallet?.type}
-                    tokenAddress={tokenInfo.address}
-                    tokenSymbol={tokenInfo.symbol}
-                    source="tokenDetails"
-                    trackID="wallet-token-details-buy"
+                {isPublicPool ? (
+                  <RawActions.More
+                    testID="token-details-more-btn"
+                    renderItems={({ handleActionListClose }) => (
+                      <>
+                        <ActionList.Item
+                          testID="token-details-more-swap"
+                          icon="SwitchHorOutline"
+                          label={intl.formatMessage({
+                            id: ETranslations.global_swap,
+                          })}
+                          disabled={disableSwapAction}
+                          onClose={handleActionListClose}
+                          onPress={handleOnSwap}
+                          trackID="wallet-token-details-swap"
+                        />
+                        <ReviewControl>
+                          <ActionBuy
+                            inList
+                            onClose={handleActionListClose}
+                            disabled={showLoadingState}
+                            isTabView={isTabView}
+                            walletId={wallet?.id ?? ''}
+                            networkId={networkId}
+                            accountId={accountId}
+                            walletType={wallet?.type}
+                            tokenAddress={tokenInfo.address}
+                            tokenSymbol={tokenInfo.symbol}
+                            source="tokenDetails"
+                            trackID="wallet-token-details-buy"
+                          />
+                        </ReviewControl>
+                      </>
+                    )}
                   />
-                </ReviewControl>
+                ) : (
+                  <>
+                    <RawActions.Swap
+                      testID={AssetDetailsTestIDs.swapBtn}
+                      onPress={handleOnSwap}
+                      disabled={disableSwapAction}
+                      trackID="wallet-token-details-swap"
+                    />
+                    <ReviewControl>
+                      <ActionBuy
+                        disabled={showLoadingState}
+                        isTabView={isTabView}
+                        walletId={wallet?.id ?? ''}
+                        networkId={networkId}
+                        accountId={accountId}
+                        walletType={wallet?.type}
+                        tokenAddress={tokenInfo.address}
+                        tokenSymbol={tokenInfo.symbol}
+                        source="tokenDetails"
+                        trackID="wallet-token-details-buy"
+                      />
+                    </ReviewControl>
+                  </>
+                )}
               </RawActions>
             )}
-            {/* Sync state and pool hints describe the balance above, so they
-                sit right under it rather than below the address. */}
             <LocalWalletPoolStatus
               networkId={networkId}
               accountId={accountId}

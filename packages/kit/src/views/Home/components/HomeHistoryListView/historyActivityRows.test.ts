@@ -1,7 +1,7 @@
 import { createIntl, createIntlCache } from 'react-intl';
 
 import { getTxActionTransferInfo } from '@onekeyhq/kit/src/components/TxAction/TxActionTransfer';
-import { ETranslations, ETranslationsMock } from '@onekeyhq/shared/src/locale';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   buildLocalWalletHistoryAddressGate,
   gateLocalWalletHistoryTx,
@@ -36,8 +36,17 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   default: {},
 }));
 
+const historyMessages: Record<string, string> = {
+  [ETranslations.private_send_private_option]: 'Private',
+  [ETranslations.privacy_history_pool__title]: '{pool} pool',
+  [ETranslations.privacy_history_shielded__title]: 'Shielded',
+};
 const intl = createIntl(
-  { locale: 'en-US', onError: () => {} },
+  {
+    locale: 'en-US',
+    messages: historyMessages,
+    onError: () => {},
+  },
   createIntlCache(),
 );
 const transfer = (amount: string): IDecodedTxTransferInfo => ({
@@ -403,12 +412,14 @@ describe('Home history shielded endpoints', () => {
   };
   const T1 = `t1${'A'.repeat(33)}`;
   const U1 = `u1${'q'.repeat(90)}`;
-  const localWallet = {
+  const localWallet: NonNullable<
+    Parameters<typeof buildHistoryActivityRow>[0]['localWallet']
+  > = {
     pools: [
       { id: 0, kind: 'public' as const, label: 'Transparent' },
       { id: 4, kind: 'private' as const, label: 'Ironwood' },
     ],
-    hiddenEndpointLabelId: ETranslationsMock.privacy_history_shielded__label,
+    hiddenEndpointLabelId: ETranslations.privacy_history_shielded__title,
     publicAddressPattern: '^t[13][1-9A-HJ-NP-Za-km-z]{33}$',
     privateAddressPattern: '^u1[02-9ac-hj-np-z]+$',
   };
@@ -463,8 +474,7 @@ describe('Home history shielded endpoints', () => {
         marker: {},
         settings: {
           ...localWallet,
-          hiddenEndpointLabelId:
-            ETranslationsMock.privacy_history_private__label,
+          hiddenEndpointLabelId: ETranslations.private_send_private_option,
         },
       }).row.description,
     ).toBe('Private');
@@ -613,7 +623,7 @@ describe('Home history shielded endpoints', () => {
     const primary = `4${'A'.repeat(94)}`;
     const monero = {
       pools: [{ id: 1, kind: 'private' as const, label: 'Monero' }],
-      hiddenEndpointLabelId: ETranslationsMock.privacy_history_private__label,
+      hiddenEndpointLabelId: ETranslations.private_send_private_option,
       publicAddressPattern: '^$',
       privateAddressPattern: '^[1-9A-HJ-NP-Za-km-z]{95}$',
       addressForms: {

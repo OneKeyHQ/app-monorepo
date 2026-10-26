@@ -268,7 +268,28 @@ describe('normalizeZcashBackendHistoryTx', () => {
     expect(tx.receives).toHaveLength(1);
   });
 
-  it('names the shielded destination of a transparent send with no external output', () => {
+  it('does not infer a shielded sender when a sparse receive names a public sender', () => {
+    const row = {
+      ...base,
+      type: EOnChainHistoryTxType.Receive,
+      sends: [],
+      receives: [
+        {
+          type: EOnChainHistoryTransferType.Transfer,
+          from: 't1sender',
+          to: 't1own',
+          amount: '1',
+          token: '',
+          key: 'zec--0_',
+          label: '',
+          isOwn: true,
+        },
+      ],
+    };
+    expect(normalizeZcashBackendHistoryTx(row)).toBe(row);
+  });
+
+  it('keeps an omitted destination unknown without private output evidence', () => {
     const tx = normalizeZcashBackendHistoryTx({
       ...base,
       type: EOnChainHistoryTxType.Send,
@@ -289,10 +310,8 @@ describe('normalizeZcashBackendHistoryTx', () => {
       receives: [],
     });
     expect(tx.to).toBe('');
-    expect(tx.shieldedCounterparty).toBe('to');
-    expect(tx.receives.map((r) => r.type)).toEqual([
-      EOnChainHistoryTransferType.Shielded,
-    ]);
+    expect(tx.shieldedCounterparty).toBeUndefined();
+    expect(tx.receives).toEqual([]);
   });
 
   it('keeps the shielded source the indexer lists itself', () => {
@@ -438,25 +457,22 @@ describe('normalizeZcashBackendHistoryTx', () => {
     expect(normalizeZcashBackendHistoryTx(input)).toBe(input);
   });
 
-  // Change returns to the sending t1, so the indexer row reads t1 -> t1.
-  it.each([
-    ['a shielded payment with change', '0.50015'],
-    ['a true transfer to the same t1', '0.00015'],
-  ])(
-    'names the shielded counterparty of %s with the backend value',
-    (_, value) => {
+  it.each(['t1recipient', 't1own', ''])(
+    'does not invent a shielded recipient when %s has no receive details',
+    (to) => {
       const input = {
         ...base,
         type: EOnChainHistoryTxType.Send,
         from: 't1own',
-        to: 't1own',
-        value,
+        to,
+        value: '0.00000162',
+        gasFee: '0.00000226',
         sends: [
           {
             type: EOnChainHistoryTransferType.Transfer,
             from: 't1own',
-            to: '',
-            amount: value,
+            to,
+            amount: '0.00000162',
             token: '',
             key: 'zec--0_',
             label: '',
@@ -465,23 +481,35 @@ describe('normalizeZcashBackendHistoryTx', () => {
         ],
         receives: [],
       };
-      const tx = normalizeZcashBackendHistoryTx(input);
-      expect(tx).toMatchObject({
+      expect(normalizeZcashBackendHistoryTx(input)).toBe(input);
+    },
+  );
+
+  it.each(['t1recipient', 't1own', ''])(
+    'does not treat owned transparent outputs as proof of a shielded payment to %s',
+    (to) => {
+      const input = {
+        ...base,
+        type: EOnChainHistoryTxType.Send,
         from: 't1own',
-        to: '',
-        value,
-        shieldedCounterparty: 'to',
-      });
-      expect(tx.receives).toEqual([
-        expect.objectContaining({
-          type: EOnChainHistoryTransferType.Shielded,
-          to: '',
-          amount: value,
-          isOwn: false,
-        }),
-      ]);
-      // Applied again on the same row, nothing more is added.
-      expect(normalizeZcashBackendHistoryTx(tx)).toBe(tx);
+        to,
+        value: '0.00000162',
+        gasFee: '0.00000226',
+        sends: [],
+        receives: [
+          {
+            type: EOnChainHistoryTransferType.Transfer,
+            from: 't1own',
+            to: 't1own',
+            amount: '0.4',
+            token: '',
+            key: 'zec--0_',
+            label: '',
+            isOwn: true,
+          },
+        ],
+      };
+      expect(normalizeZcashBackendHistoryTx(input)).toBe(input);
     },
   );
 
@@ -494,32 +522,138 @@ describe('normalizeZcashBackendHistoryTx', () => {
     key: 'zec--0_',
     label: '',
     isOwn: true,
+    isChange: true,
   };
 
-  // An xpub row from another device lists our change back to t1 as ours.
-  it('names the shielded counterparty when the row lists our change', () => {
-    const tx = normalizeZcashBackendHistoryTx({
+  const privateOutput = {
+    ...ownChange,
+    type: EOnChainHistoryTransferType.Shielded,
+    from: '',
+    to: '',
+    amount: '0.5',
+    isOwn: false,
+    isChange: false,
+  };
+
+  it('uses an explicit private output to distinguish a payment from public change', () => {
+    const input = {
       ...base,
       type: EOnChainHistoryTxType.Send,
       from: 't1own',
       to: 't1own',
       value: '0.50015',
+      gasFee: '0.00015',
       sends: [],
-      receives: [ownChange],
-    });
-    expect(tx).toMatchObject({
+      receives: [ownChange, privateOutput],
+    };
+    const tx = normalizeZcashBackendHistoryTx(input);
+    expect(tx).toEqual({ ...input, to: '', shieldedCounterparty: 'to' });
+    expect(tx.receives).toBe(input.receives);
+    expect(normalizeZcashBackendHistoryTx(tx)).toBe(tx);
+  });
+
+  it.each(['t1recipient', ''])(
+    'keeps both destinations of a mixed public/private payment with top-level to=%s',
+    (to) => {
+      const input = {
+        ...base,
+        type: EOnChainHistoryTxType.Send,
+        from: 't1own',
+        to,
+        value: '0.60015',
+        gasFee: '0.00015',
+        sends: [],
+        receives: [
+          {
+            ...ownChange,
+            to: 't1recipient',
+            amount: '0.1',
+            isOwn: false,
+            isChange: false,
+          },
+          privateOutput,
+        ],
+      };
+      expect(normalizeZcashBackendHistoryTx(input)).toBe(input);
+    },
+  );
+
+  it.each([false, undefined])(
+    'keeps an owned public output with isChange=%s alongside a private payment',
+    (isChange) => {
+      const input = {
+        ...base,
+        type: EOnChainHistoryTxType.Send,
+        from: 't1own',
+        to: 't1own',
+        sends: [],
+        receives: [
+          ownChange,
+          { ...ownChange, to: 't1secondaryown', isChange },
+          privateOutput,
+        ],
+      };
+      const normalized = normalizeZcashBackendHistoryTx(input);
+      expect(normalized).toEqual({ ...input, to: '' });
+      expect(normalized.receives).toBe(input.receives);
+    },
+  );
+
+  it('does not erase a known public endpoint when only private output details are available', () => {
+    const input = {
+      ...base,
+      type: EOnChainHistoryTxType.Send,
+      from: 't1own',
+      to: 't1own',
+      sends: [],
+      receives: [privateOutput],
+    };
+    expect(normalizeZcashBackendHistoryTx(input)).toBe(input);
+  });
+
+  it.each([undefined, true])(
+    'does not use an owned private output with isChange=%s to infer a recipient',
+    (isChange) => {
+      const input = {
+        ...base,
+        type: EOnChainHistoryTxType.Send,
+        from: 't1own',
+        to: 't1own',
+        sends: [],
+        receives: [ownChange, { ...privateOutput, isOwn: true, isChange }],
+      };
+      const normalized = normalizeZcashBackendHistoryTx(input);
+      expect(normalized).toEqual({ ...input, to: '' });
+      expect(normalized.receives).toBe(input.receives);
+    },
+  );
+
+  it('preserves an explicit payment to the same address as public change', () => {
+    const input = {
+      ...base,
+      type: EOnChainHistoryTxType.Send,
+      from: 't1own',
+      to: 't1own',
+      sends: [],
+      receives: [ownChange, { ...ownChange, isChange: false }, privateOutput],
+    };
+    expect(normalizeZcashBackendHistoryTx(input)).toBe(input);
+  });
+
+  it('recognizes an explicitly identified non-change private payment to this wallet', () => {
+    const input = {
+      ...base,
+      type: EOnChainHistoryTxType.Send,
+      from: 't1own',
+      to: 't1own',
+      sends: [],
+      receives: [ownChange, { ...privateOutput, isOwn: true, isChange: false }],
+    };
+    expect(normalizeZcashBackendHistoryTx(input)).toEqual({
+      ...input,
       to: '',
-      value: '0.50015',
       shieldedCounterparty: 'to',
     });
-    expect(tx.receives).toEqual([
-      ownChange,
-      expect.objectContaining({
-        type: EOnChainHistoryTransferType.Shielded,
-        amount: '0.50015',
-        isOwn: false,
-      }),
-    ]);
   });
 
   it('keeps a payment to itself that this device signed', () => {

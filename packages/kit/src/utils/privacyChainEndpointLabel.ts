@@ -1,5 +1,5 @@
-import { ETranslationsMock } from '@onekeyhq/shared/src/locale';
-import type { ETranslations } from '@onekeyhq/shared/src/locale';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import type { ETranslationsMock } from '@onekeyhq/shared/src/locale';
 import {
   getPrivacyChainDisplayPools,
   getPrivacyChainTargetItem,
@@ -58,17 +58,15 @@ export function formatPrivacyChainEndpointLabel({
   if (pool) {
     return intl.formatMessage(
       {
-        id: ETranslationsMock.privacy_history_pool__label,
-        defaultMessage: ETranslationsMock.privacy_history_pool__label,
+        id: ETranslations.privacy_history_pool__title,
       },
       { pool: pool.label },
     );
   }
   const id =
     localWallet?.hiddenEndpointLabelId ??
-    ETranslationsMock.privacy_history_shielded__label;
-  // Mock ids are their own English text until translated.
-  return intl.formatMessage({ id, defaultMessage: id });
+    ETranslations.privacy_history_shielded__title;
+  return intl.formatMessage({ id });
 }
 
 // How one history endpoint renders: a copyable address, or a pool name that

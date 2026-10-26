@@ -47,7 +47,6 @@ import {
 import { parseZcashTransaction } from './transactionReview';
 import {
   ZCASH_DISPLAY_FEE_ZAT,
-  describeZcashBroadcastFailure,
   zcashDescribeError,
   zcashSpendSourceFromKey,
   zcashTrackUserOperation,
@@ -645,25 +644,9 @@ export async function broadcastTransaction(
         rawTx: signedTx.rawTx,
       },
     );
-    let broadcast: ISignedTxPro;
-    try {
-      broadcast = await vault.zcashBroadcastTransparentViaBackend(params);
-    } catch (e) {
-      // A 4xx here doesn't prove rejection -- it can follow a successful upstream
-      // submission. Keep outpoints locked until history is terminal or expired.
-      const detail = describeZcashBroadcastFailure(e);
-      console.error('[zcash] transparent broadcast outcome unknown', {
-        txid: expectedTxid,
-        ...detail,
-      });
-      // Reported as submitted: the journal keeps it pending until the backend reports it or it expires.
-      // An error here would invite a resend from other inputs -- a double pay.
-      return {
-        ...signedTx,
-        txid: expectedTxid,
-        broadcastOutcomeUnknown: true,
-      };
-    }
+    // Propagate transport errors through the normal BTC send error flow.
+    // The durable journal retains input locks for later reconciliation.
+    const broadcast = await vault.zcashBroadcastTransparentViaBackend(params);
     if (broadcast.txid.toLowerCase() !== expectedTxid.toLowerCase()) {
       throw zcashTransparentError(
         'TXID_MISMATCH',
@@ -677,7 +660,7 @@ export async function broadcastTransaction(
         txid: expectedTxid,
       })
       .catch(() => undefined);
-    return { ...broadcast, txid: expectedTxid };
+    return { ...broadcast, txid: expectedTxid, broadcastOutcomeUnknown: false };
   }
   const signedPcztHex = encodedTx?.signedPcztHex ?? signedTx.rawTx;
   if (!signedPcztHex) {
@@ -711,52 +694,27 @@ export async function broadcastTransaction(
         api.submitPczt(account, { pcztHex: signedPcztHex }),
       );
     } catch (e) {
-      // A runtime error before storing means nothing was sent.
-      const runtimeError = readZcashRuntimeError(e);
-      if (runtimeError && runtimeError.code !== 'FINALIZE_OUTCOME_UNKNOWN') {
-        throw toUserFacingZcashError(e);
-      }
-      // Carrier may fail after the runtime stored the spend but before the
-      // txid returned; the stored tx stays pending until mined or expired.
-      const uncertain = new OneKeyLocalError(
-        localWalletText(ETranslations.privacy_error_broadcast_unknown__msg),
-      );
-      Object.assign(uncertain, {
-        code: 'FINALIZE_OUTCOME_UNKNOWN',
-        params: {},
-      });
-      throw uncertain;
+      throw toUserFacingZcashError(e);
     }
   });
   const { txid, broadcastState, broadcastError } = sendResult;
-  if (broadcastState === 'rejected') {
+  if (broadcastState !== 'accepted') {
     const rejected = broadcastError ?? {
-      code: 'BROADCAST_REJECTED',
+      code:
+        broadcastState === 'rejected' ? 'BROADCAST_REJECTED' : 'NETWORK_ERROR',
       params: {},
     };
     throw toUserFacingZcashError(
-      Object.assign(new Error(rejected.code), {
+      Object.assign(new OneKeyLocalError(rejected.code), {
         ...rejected,
         payload: rejected,
       }),
     );
-  } else if (broadcastState === 'unknown') {
-    console.warn('[zcash] broadcast outcome unknown; keeping tx pending', {
-      txid,
-      ...zcashDescribeError(
-        broadcastError
-          ? Object.assign(new Error(broadcastError.code), {
-              ...broadcastError,
-              payload: broadcastError,
-            })
-          : undefined,
-      ),
-    });
   }
   return {
     ...signedTx,
     txid,
     encodedTx: signedTx.encodedTx,
-    broadcastOutcomeUnknown: broadcastState === 'unknown',
+    broadcastOutcomeUnknown: false,
   };
 }

@@ -850,6 +850,12 @@ export function buildXmrLocalWalletCapability(
       let synced = false;
       // Aliases share one identity; it is stepped once per turn.
       const steppedRuntimeIds = new Set<string>();
+      const caughtUpRuntimeIds = new Set<string>();
+      const admittedAccounts: {
+        accountId: string;
+        runtimeId: string;
+        owner: IXmrAccountScanState;
+      }[] = [];
       let skipped = 0;
 
       for (const accountId of accountIds) {
@@ -879,7 +885,9 @@ export function buildXmrLocalWalletCapability(
         // Every Worker mutation shares the delete boundary and checks its owner.
         // eslint-disable-next-line no-await-in-loop, no-continue
         if (!(await isCurrentRequest(accountId, owner))) continue;
+        admittedAccounts.push({ accountId, runtimeId, owner });
         if (rewound) {
+          caughtUpRuntimeIds.delete(runtimeId);
           stateChanged = true;
           // This alias may rewind an identity already stepped this turn.
           backfillRemaining = true;
@@ -976,6 +984,7 @@ export function buildXmrLocalWalletCapability(
         // eslint-disable-next-line no-await-in-loop, no-continue
         if (!(await isCurrentRequest(accountId, owner))) continue;
         synced = true;
+        if (result.done) caughtUpRuntimeIds.add(runtimeId);
         if (result.stateChanged) stateChanged = true;
         if (!result.done) backfillRemaining = true;
       }
@@ -988,7 +997,23 @@ export function buildXmrLocalWalletCapability(
       if (!synced) {
         return { synced: false };
       }
-      return { synced: true, stateChanged, chainTip: tip, backfillRemaining };
+      const caughtUpAccountIds: string[] = [];
+      for (const admitted of admittedAccounts) {
+        if (
+          caughtUpRuntimeIds.has(admitted.runtimeId) &&
+          // eslint-disable-next-line no-await-in-loop
+          (await isCurrentRequest(admitted.accountId, admitted.owner))
+        ) {
+          caughtUpAccountIds.push(admitted.accountId);
+        }
+      }
+      return {
+        synced: true,
+        stateChanged,
+        chainTip: tip,
+        backfillRemaining,
+        caughtUpAccountIds,
+      };
     },
 
     async rewindAccount({ accountId }) {

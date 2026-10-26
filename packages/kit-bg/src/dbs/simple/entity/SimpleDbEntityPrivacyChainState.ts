@@ -2,6 +2,8 @@ import { isEqual, isPlainObject, uniq } from 'lodash';
 import { z } from 'zod';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 import { SimpleDbEntityBase } from '../base/SimpleDbEntityBase';
@@ -138,6 +140,11 @@ const accountRecordSchema = z.object({
   // Random 64-bit hex, renewed when scan data or its requested target changes,
   // so older work and cached results cannot overwrite the current request.
   epoch: z.string().regex(/^[0-9a-f]{16}$/),
+  // Only privacy deletion rotates the archive fence; rescans keep signed activity.
+  signatureEpoch: z
+    .string()
+    .regex(/^[0-9a-f]{16}$/)
+    .optional(),
   scan: z.object({
     intent: z.enum(['on', 'off']),
     deletion: z
@@ -276,7 +283,14 @@ function parseAccountRecord(
   raw: unknown,
 ): IPrivacyChainAccountRecord | undefined {
   const result = accountRecordSchema.safeParse(raw);
-  return result.success ? compact(result.data) : undefined;
+  if (!result.success) return undefined;
+  // Old pending deletions predate the independent archive fence. Normalize
+  // before every writer reads them so completion persists the fence too.
+  return compact({
+    ...result.data,
+    signatureEpoch:
+      result.data.signatureEpoch ?? result.data.scan.deletion?.requestId,
+  });
 }
 
 function parseWalletRecord(
@@ -899,6 +913,7 @@ export class SimpleDbEntityPrivacyChainState extends SimpleDbEntityBase<IPrivacy
       writeAccount(state, accountId, {
         ...record,
         epoch: createEpoch(),
+        signatureEpoch: requestId,
         scan: {
           ...record.scan,
           intent: 'off',
@@ -1042,6 +1057,41 @@ export class SimpleDbEntityPrivacyChainState extends SimpleDbEntityBase<IPrivacy
       : epoch;
   }
 
+  async getAccountSignatureEpoch({
+    accountId,
+  }: {
+    accountId: string;
+  }): Promise<string | undefined> {
+    return (await this.readAccountRecord(accountId))?.record.signatureEpoch;
+  }
+
+  async isAccountSyncCurrent({
+    accountId,
+    epoch,
+    allowPaused = false,
+  }: {
+    accountId: string;
+    epoch: string;
+    // Display-only reads may retain a paused account's last successful sync.
+    allowPaused?: boolean;
+  }): Promise<boolean> {
+    const raw = await this.getRawData();
+    const record = parseAccountRecord(raw?.accounts?.[accountId]);
+    return (
+      !!record &&
+      record.epoch === epoch &&
+      (!this.epochMirror.has(accountId) ||
+        this.epochMirror.get(accountId) === epoch) &&
+      (isScanning(record) ||
+        (allowPaused &&
+          record.scan.intent === 'off' &&
+          record.scan.resumeFromHeight !== undefined &&
+          record.scan.operation === undefined &&
+          record.scan.deletion === undefined)) &&
+      record.scan.rescan === undefined
+    );
+  }
+
   // Travel Mode and App Reset: what is on disk is no longer this runtime's.
   async forgetAccountEpochs(): Promise<void> {
     this.epochMirror.clear();
@@ -1096,6 +1146,7 @@ export class SimpleDbEntityPrivacyChainState extends SimpleDbEntityBase<IPrivacy
         networkId: record.networkId,
         walletId: record.walletId,
         epoch: createEpoch(),
+        signatureEpoch: record.signatureEpoch,
         scan: {
           intent: 'off',
           birthday: record.scan.birthday,
@@ -1273,7 +1324,9 @@ export class SimpleDbEntityPrivacyChainState extends SimpleDbEntityBase<IPrivacy
           enabledKeys.size >= maxEnabledAccounts
         ) {
           throw new OneKeyLocalError({
-            message: `Privacy Mode is limited to ${maxEnabledAccounts} accounts at a time. Turn one off before enabling another.`,
+            message: appLocale.intl.formatMessage({
+              id: ETranslations.privacy_slots_delete__desc,
+            }),
             autoToast: true,
           });
         }

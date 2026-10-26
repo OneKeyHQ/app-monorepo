@@ -963,15 +963,6 @@ function SendDataInputContainer() {
     if (isNumericMemo) {
       memoInputLines = memoValue?.length ? 2 : 1;
     }
-    let memoDescription: string | undefined;
-    // Transparent recipients already show this via the validation error; avoid showing it twice.
-    if (isZcashMemo && !(toResolved && !zcashMemoSupported)) {
-      const byteLength =
-        memoEncoding === 'hex'
-          ? Math.ceil((memoValue || '').replace(/^0x/i, '').length / 2)
-          : Buffer.byteLength(memoValue || '', 'utf8');
-      memoDescription = `${memoEncoding === 'hex' ? 'HEX · ' : ''}${byteLength} / 512 B`;
-    }
     return (
       <>
         <Form.Field
@@ -1011,7 +1002,6 @@ function SendDataInputContainer() {
                 },
             validate: validateRecipientMemo,
           }}
-          description={memoDescription}
         >
           <TextArea
             testID={SendTestIDs.memoTextarea}
@@ -1078,8 +1068,6 @@ function SendDataInputContainer() {
     isZcashMemo,
     memoEncoding,
     showZcashMemoAdvanced,
-    toResolved,
-    zcashMemoSupported,
   ]);
 
   const renderPaymentIdForm = useCallback(() => {

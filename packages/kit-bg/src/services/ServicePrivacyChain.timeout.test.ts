@@ -87,6 +87,9 @@ describe('Privacy sync timeout recovery', () => {
       },
       {
         backgroundApi: {
+          simpleDb: {
+            privacyChainState: { getAccountEpoch: async () => undefined },
+          },
           serviceAccount: {
             getDBAccountSafe: async () => ({ id: 'account' }),
             getWalletSafe: async () => ({ isTemp: false }),
@@ -99,6 +102,7 @@ describe('Privacy sync timeout recovery', () => {
         storageUnsupportedNetworkIds: new Set<string>(),
         syncFailureBackoff: new Map(),
         runtimeSyncState: new Map(),
+        orphanCleanupGeneration: new Map<string, number>(),
         backfillActiveByAccount: {},
         foregroundBoostRequestedByNetwork: {},
         boostPausedByNetwork: {},
@@ -224,6 +228,9 @@ describe('Privacy sync failure backoff', () => {
       },
       {
         backgroundApi: {
+          simpleDb: {
+            privacyChainState: { getAccountEpoch: async () => undefined },
+          },
           serviceAccount: {
             getDBAccountSafe: async () => ({ id: 'account' }),
             getWalletSafe: async () => ({ isTemp: false }),
@@ -247,6 +254,7 @@ describe('Privacy sync failure backoff', () => {
             { accountSignature: 'xmr--0-account', lastChainTip: 200 },
           ],
         ]),
+        orphanCleanupGeneration: new Map<string, number>(),
         backfillActiveByAccount: { 'xmr--0-account': true },
         foregroundBoostRequestedByNetwork: {},
         boostPausedByNetwork: {},

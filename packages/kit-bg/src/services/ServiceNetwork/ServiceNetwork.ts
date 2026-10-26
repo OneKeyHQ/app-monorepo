@@ -153,7 +153,7 @@ class ServiceNetwork extends ServiceBase {
       perf.markEnd('getServerNetworks-and-getAllCustomNetworks');
 
       // Create a Map to store unique networks by id
-      // Priority: serverNetworks > presetNetworks > customNetworks
+      // Priority: presetNetworks > serverNetworks > customNetworks
       const networkMap = new Map<string, IServerNetwork>();
 
       // Helper function to add networks to the map
@@ -1683,6 +1683,15 @@ class ServiceNetwork extends ServiceBase {
     const deriveTypeRawData =
       await this.backgroundApi.simpleDb.accountSelector.getRawData();
 
+    const selectorNetworkIds = new Set(
+      [
+        ...chainSelectorNetworks.mainnetItems,
+        ...chainSelectorNetworks.testnetItems,
+        ...chainSelectorNetworks.frequentlyUsedItems,
+        ...chainSelectorNetworks.unavailableItems,
+      ].map((network) => network.id),
+    );
+
     for (const [key, value] of Object.entries(accountNetworkValues)) {
       const keyArray = key.split('_');
       const networkId = keyArray.pop() as string;
@@ -1692,8 +1701,12 @@ class ServiceNetwork extends ServiceBase {
         string,
         string,
       ];
+      // Persisted balances can outlive a removed network or a selector's scope.
       const shouldUseAccountNetworkValue = Boolean(
-        networkId && accountId && walletId === _walletId,
+        selectorNetworkIds.has(networkId) &&
+        networkId &&
+        accountId &&
+        walletId === _walletId,
       );
       if (shouldUseAccountNetworkValue) {
         if (!networkInfoMap[networkId]) {

@@ -24,13 +24,20 @@ import { EAddressEncodings } from '@onekeyhq/core/src/types';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import { LRUCache } from '@onekeyhq/shared/src/utils/cacheUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
-import { gateLocalWalletHistoryTx } from '@onekeyhq/shared/src/utils/privacyChainHistoryAddressGate';
 import type { ILocalWalletHistoryAddressGate } from '@onekeyhq/shared/src/utils/privacyChainHistoryAddressGate';
+import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
 import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
 
+import { isSameZcashTransparentPendingTx } from '../../../dbs/simple/entity/SimpleDbEntityPrivacyChainJournal';
 import { loadCachedLocalWalletHistory } from '../../localWallet/cachedHistory';
+import { readLocalWalletCacheEpoch } from '../../localWallet/privacyChainCacheStore';
 
+import {
+  ZCASH_TRANSPARENT_DROP_MARGIN_BLOCKS,
+  findExpiredTransparentSends,
+  isZcashTransparentExpiryHeight,
+} from './transparentExpiry';
 import {
   ZCASH_TRANSPARENT_P2PKH_SCRIPT_RE,
   ZCASH_TRANSPARENT_PATH_RE,
@@ -44,12 +51,10 @@ import type Vault from './Vault';
 import type { IDBUtxoAccount } from '../../../dbs/local/types';
 import type { IBuildEncodedTxParams } from '../../types';
 
-// Backend blocks past expiry before an unmined send is dropped; covers indexer lag and shallow reorgs.
-export const ZCASH_TRANSPARENT_DROP_MARGIN_BLOCKS = 10;
+export { ZCASH_TRANSPARENT_DROP_MARGIN_BLOCKS } from './transparentExpiry';
 
-// Only OneKey backend data decides: its tip must pass the signed expiry by the
-// margin and its complete snapshot must not show the tx mined. Only then is the
-// send marked Dropped and its signed inputs released.
+// A complete backend snapshot or a consistent RPC unspent-input proof must
+// establish expiry before the terminal row is persisted and its inputs released.
 export async function zcashDropExpiredTransparentSends(
   vault: Vault,
   {
@@ -64,7 +69,7 @@ export async function zcashDropExpiredTransparentSends(
     accountId: string;
     historyParams: { networkId: string; accountAddress: string; xpub?: string };
     cachedHistory: IAccountHistoryTx[];
-    backendTipHeight: number;
+    backendTipHeight?: number;
     // Statuses from this pass's complete backend snapshot, by lowercase txid.
     backendStatuses: Map<string, EDecodedTxStatus>;
     // Rows the backend reports in a block, whatever their status says.
@@ -72,12 +77,9 @@ export async function zcashDropExpiredTransparentSends(
     addressGate: ILocalWalletHistoryAddressGate;
   },
 ): Promise<void> {
-  const pending =
-    await vault.backgroundApi.simpleDb.privacyChainJournal.listTransparentPendingTxs(
-      {
-        accountId,
-      },
-    );
+  const { backgroundApi } = vault;
+  const journal = backgroundApi.simpleDb.privacyChainJournal;
+  const pending = await journal.listTransparentPendingTxs({ accountId });
   const expiryByTxid = new Map(
     pending.map((tx) => [tx.txid.toLowerCase(), tx.expiryHeight]),
   );
@@ -88,7 +90,8 @@ export async function zcashDropExpiredTransparentSends(
     if (
       tx.decodedTx.status === EDecodedTxStatus.Pending &&
       encoded?.zcashMode === 'transparent' &&
-      expiry !== undefined
+      expiry !== undefined &&
+      !expiryByTxid.has(tx.decodedTx.txid.toLowerCase())
     ) {
       expiryByTxid.set(tx.decodedTx.txid.toLowerCase(), expiry);
     }
@@ -98,6 +101,9 @@ export async function zcashDropExpiredTransparentSends(
       .filter(([txid, expiry]) => {
         const status = backendStatuses.get(txid);
         return (
+          isZcashTransparentExpiryHeight(expiry) &&
+          backendTipHeight !== undefined &&
+          Number.isSafeInteger(backendTipHeight) &&
           backendTipHeight > expiry + ZCASH_TRANSPARENT_DROP_MARGIN_BLOCKS &&
           !backendMinedTxids.has(txid) &&
           (status === undefined || status === EDecodedTxStatus.Pending)
@@ -105,44 +111,125 @@ export async function zcashDropExpiredTransparentSends(
       })
       .map(([txid]) => txid),
   );
-  if (!expired.size) return;
-  const rows = cachedHistory
-    .filter(
-      (tx) =>
-        tx.decodedTx.status === EDecodedTxStatus.Pending &&
-        expired.has(tx.decodedTx.txid.toLowerCase()),
-    )
-    .map((tx) =>
-      gateLocalWalletHistoryTx(addressGate, {
-        ...tx,
-        decodedTx: {
-          ...tx.decodedTx,
-          status: EDecodedTxStatus.Dropped,
-          broadcastOutcomeUnknown: false,
-        },
-      }),
+  const journalIds = new Set(pending.map((tx) => tx.txid.toLowerCase()));
+  const rows = cachedHistory.filter((tx) => {
+    const id = tx.decodedTx.txid.toLowerCase();
+    const status = backendStatuses.get(id);
+    return (
+      !backendMinedTxids.has(id) &&
+      (status === undefined || status === EDecodedTxStatus.Pending) &&
+      ((tx.decodedTx.status === EDecodedTxStatus.Pending &&
+        expiryByTxid.has(id)) ||
+        (tx.decodedTx.status === EDecodedTxStatus.Dropped &&
+          journalIds.has(id)))
     );
-  if (rows.length) {
-    await vault.backgroundApi.simpleDb.localHistory.batchUpdateLocalHistoryTxs([
-      {
-        ...historyParams,
-        confirmedTxs: rows,
-        confirmedTxsToSave: rows,
-      },
-    ]);
-  }
-  // Persist the terminal row before releasing its journal, so storage
-  // failures are retryable.
-  await Promise.all(
-    [...expired].map((txid) =>
-      vault.backgroundApi.simpleDb.privacyChainJournal.settleTransparentPendingTx(
-        {
-          accountId,
-          txid,
-        },
-      ),
-    ),
+  });
+  const cachedIds = new Set(
+    cachedHistory.map((tx) => tx.decodedTx.txid.toLowerCase()),
   );
+  const unrecorded = pending.filter(
+    (tx) =>
+      tx.broadcastAuthorized === true &&
+      !cachedIds.has(tx.txid.toLowerCase()) &&
+      !backendMinedTxids.has(tx.txid.toLowerCase()) &&
+      (backendStatuses.get(tx.txid.toLowerCase()) === undefined ||
+        backendStatuses.get(tx.txid.toLowerCase()) ===
+          EDecodedTxStatus.Pending),
+  );
+  if (!rows.length && !unrecorded.length) return;
+  const epoch = await readLocalWalletCacheEpoch({ backgroundApi, accountId });
+  const rowIds = new Set(rows.map((tx) => tx.decodedTx.txid.toLowerCase()));
+  const unrecordedIds = new Set(unrecorded.map((tx) => tx.txid.toLowerCase()));
+  const deadline = Date.now() + 10_000;
+  const proven = await findExpiredTransparentSends({
+    pending: pending.filter(
+      (tx) =>
+        unrecordedIds.has(tx.txid.toLowerCase()) ||
+        (rowIds.has(tx.txid.toLowerCase()) &&
+          !expired.has(tx.txid.toLowerCase())),
+    ),
+    request: async (body) => {
+      const client = await backgroundApi.serviceHistory.getClient(
+        EServiceEndpointEnum.Wallet,
+      );
+      const timeout = deadline - Date.now();
+      if (timeout <= 0) return undefined;
+      const requestConfig: Parameters<typeof client.post>[2] & {
+        autoHandleError: boolean;
+      } = { autoHandleError: false, timeout };
+      const response = await client.post<unknown>(
+        '/wallet/v1/proxy/wallet',
+        {
+          networkId: historyParams.networkId,
+          body,
+        },
+        requestConfig,
+      );
+      return response.data;
+    },
+  });
+  // Revalidate the current journal even when retrying a durable Dropped row.
+  const isCurrent = async (id: string) => {
+    const expected = pending.find((item) => item.txid.toLowerCase() === id);
+    const [account, currentEpoch, currentPending] = await Promise.all([
+      backgroundApi.serviceAccount.getDBAccountSafe({ accountId }),
+      readLocalWalletCacheEpoch({ backgroundApi, accountId }),
+      journal.listTransparentPendingTxs({ accountId }),
+    ]);
+    const current = currentPending.find(
+      (item) => item.txid.toLowerCase() === id,
+    );
+    return (
+      account?.id === accountId &&
+      currentEpoch === epoch &&
+      (expected ? isSameZcashTransparentPendingTx(current, expected) : !current)
+    );
+  };
+  for (const tx of rows.filter((row) => {
+    const id = row.decodedTx.txid.toLowerCase();
+    return expired.has(id) || proven.has(id);
+  })) {
+    const id = tx.decodedTx.txid.toLowerCase();
+    const expected = pending.find((item) => item.txid.toLowerCase() === id);
+    // The entity verifies the fresh row and reports an actual durable commit,
+    // including when persistence is blocked. A missing row never unlocks inputs.
+    // eslint-disable-next-line no-await-in-loop
+    const committed =
+      await backgroundApi.simpleDb.localHistory.dropPendingLocalHistoryTx({
+        ...historyParams,
+        txid: id,
+        addressGate,
+        isCurrent: () => isCurrent(id),
+      });
+    if (committed && expected) {
+      // eslint-disable-next-line no-await-in-loop
+      await journal.settleTransparentPendingTx({
+        accountId,
+        txid: expected.txid,
+        expectedTx: expected,
+      });
+    }
+  }
+  // No successful send result means ServiceSend creates no history row, as on
+  // BTC. Only a fresh RPC proof may retire this journal-only input hold.
+  for (const expected of unrecorded.filter((tx) =>
+    proven.has(tx.txid.toLowerCase()),
+  )) {
+    // eslint-disable-next-line no-await-in-loop
+    await backgroundApi.simpleDb.localHistory.runIfHistoryTxAbsent({
+      ...historyParams,
+      txid: expected.txid,
+      operation: async () => {
+        if (await isCurrent(expected.txid.toLowerCase())) {
+          await journal.settleTransparentPendingTx({
+            accountId,
+            txid: expected.txid,
+            expectedTx: expected,
+          });
+        }
+      },
+    });
+  }
 }
 
 export function zcashTransparentAccountIndex(

@@ -1,5 +1,5 @@
 import { ZCASH_ADDRESS_SCHEME_VERSION } from '@onekeyhq/core/src/chains/zcash/sdkZcash/constants';
-import { ETranslationsMock } from '@onekeyhq/shared/src/locale';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { SimpleDbEntityPrivacyChainKeys } from '../../../dbs/simple/entity/SimpleDbEntityPrivacyChainKeys';
 import { SimpleDbEntityPrivacyChainState } from '../../../dbs/simple/entity/SimpleDbEntityPrivacyChainState';
@@ -200,7 +200,7 @@ describe('Zcash viewing metadata derivation lifecycle', () => {
     // A distinct error naming the way out, and a latch that stops background
     // repair from deriving again on every poll.
     expect((error as Error).message).toBe(
-      ETranslationsMock.privacy_error_identity_mismatch__msg,
+      ETranslations.privacy_error_identity_mismatch__msg,
     );
     expect(zcashIdentityMismatchAccountIds.has(account.id)).toBe(true);
     await expect(

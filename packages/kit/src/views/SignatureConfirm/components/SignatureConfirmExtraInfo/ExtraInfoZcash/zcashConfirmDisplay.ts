@@ -19,13 +19,19 @@ export function isZcashShieldedSpend(encodedTx: unknown): boolean {
   return getZcashEncodedTx(encodedTx)?.zcashMode === 'privacy';
 }
 
-export function getZcashConfirmFrom(tx: IEncodedTxZcash): IZcashConfirmFrom {
+export function getZcashConfirmFrom(
+  tx: IEncodedTxZcash,
+  displayedAccountAddress?: string,
+): IZcashConfirmFrom | undefined {
   if (tx.zcashMode === 'transparent') {
     const addresses = [
       ...new Set(
         (tx.inputs ?? []).map((input) => input.address).filter(Boolean),
       ),
     ];
+    if (addresses.length === 1 && addresses[0] === displayedAccountAddress) {
+      return undefined;
+    }
     return addresses.length
       ? { kind: 'addresses', addresses }
       : { kind: 'pool', label: 'Transparent' };

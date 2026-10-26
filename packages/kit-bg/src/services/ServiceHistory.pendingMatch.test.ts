@@ -121,6 +121,38 @@ describe('ServiceHistory local pending reconciliation', () => {
     expect(result.allFinalPendingTxs).toHaveLength(0);
   });
 
+  it.each(['zec--0', 'btc--0'])(
+    'matches differently cased hashes only for Zcash, network=%s',
+    async (networkId) => {
+      const { service, batchUpdateLocalHistoryTxs } = createService(true);
+      const pending = localTx();
+      pending.id = 'local-lowercase';
+      pending.decodedTx.networkId = networkId;
+      pending.decodedTx.txid = 'ab'.repeat(32);
+      const confirmed = tx(EDecodedTxStatus.Confirmed);
+      confirmed.id = 'backend-uppercase';
+      confirmed.decodedTx.networkId = networkId;
+      confirmed.decodedTx.txid = pending.decodedTx.txid.toUpperCase();
+      const result = await service.batchUpdateLocalHistoryTxs([
+        {
+          accountAddress: 'addr',
+          networkId,
+          onChainHistoryTxs: [confirmed],
+          confirmedTxs: [],
+          pendingTxs: [pending],
+          pendingTxsToModify: [],
+        },
+      ]);
+      expect(result.allFinalPendingTxs).toEqual(
+        networkId === 'zec--0' ? [] : [pending],
+      );
+      if (networkId === 'zec--0')
+        expect(batchUpdateLocalHistoryTxs).toHaveBeenCalledWith([
+          expect.objectContaining({ confirmedTxs: [pending] }),
+        ]);
+    },
+  );
+
   it('uses and persists authoritative Pending refinements instead of the earlier cache read', async () => {
     const { service, batchUpdateLocalHistoryTxs } = createService(true);
     const refined = tx(EDecodedTxStatus.Pending);
