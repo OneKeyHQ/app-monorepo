@@ -810,10 +810,16 @@ function WalletBanner({ hidden = false }: { hidden?: boolean } = {}) {
         const isBound = await backgroundApiProxy.serviceHyperliquidReferral
           .refreshReferralBinding({ userAddress: resolvedAddress })
           .catch(() => false);
-        if (isBound && isCurrentAccount()) {
+        if (!isCurrentAccount()) {
+          return;
+        }
+        if (isBound) {
           handleAlreadyBound();
           return;
         }
+      }
+      if (!isCurrentAccount()) {
+        return;
       }
       errorToastUtils.showToastOfError(e);
       if (!errorToastUtils.wasAutoToastShown(e)) {

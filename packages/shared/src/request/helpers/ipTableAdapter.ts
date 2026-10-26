@@ -18,6 +18,7 @@ import {
   IP_TABLE_SNI_BYPASS_THRESHOLD,
   IP_TABLE_SNI_BYPASS_TTL_MS,
 } from '../constants/ipTableDefaults';
+import { withCustomUAHeaders } from '../customUA';
 import { getRequestHeaders } from '../Interceptor';
 import requestHelper from '../requestHelper';
 
@@ -192,11 +193,39 @@ const SNI_PRE_WRITE_ERROR_CODES = new Set([
   'SNI_INVALID_URL',
 ]);
 
+function isAndroidPreWriteConnectError(error: unknown): boolean {
+  if (getErrorCode(error) !== 'SNI_REQUEST_FAILED') {
+    return false;
+  }
+  const cause =
+    error && typeof error === 'object' && 'cause' in error
+      ? (error as { cause?: unknown }).cause
+      : undefined;
+  const causeName =
+    cause && typeof cause === 'object' && 'name' in cause
+      ? (cause as { name?: unknown }).name
+      : undefined;
+  if (
+    causeName === 'java.net.ConnectException' ||
+    causeName === 'java.net.NoRouteToHostException'
+  ) {
+    return true;
+  }
+  const message = getErrorMessage(error);
+  return /^(?:Request failed:\s*)?(?:Failed to connect to \/|Host unreachable\b)/i.test(
+    message,
+  );
+}
+
 function canFallbackAfterSniStarted(method: string, error?: unknown): boolean {
   if (IDEMPOTENT_HTTP_METHODS.has(method.toUpperCase())) {
     return true;
   }
-  if (error && SNI_PRE_WRITE_ERROR_CODES.has(getErrorCode(error))) {
+  if (
+    error &&
+    (SNI_PRE_WRITE_ERROR_CODES.has(getErrorCode(error)) ||
+      isAndroidPreWriteConnectError(error))
+  ) {
     return true;
   }
   return false;
@@ -1588,12 +1617,22 @@ export function createIpTableAdapter(
       requestHeaders['Content-Type'] = 'application/json';
     }
 
+    // The SNI transports (Electron main-process https, the native iOS and
+    // Android HTTP clients) run outside the browser networking stack, so
+    // nothing adds a User-Agent for them: desktop sent none and native sent
+    // the library default. Inject the OneKey UA the other non-axios call sites
+    // use; a caller-set UA wins.
+    const sniRequestHeaders = await withCustomUAHeaders(
+      `https://${hostname}${fullPath}`,
+      requestHeaders,
+    );
+
     debugLog(
       `[IpTableAdapter] Request details - URL: ${url}, BaseURL: ${
         config.baseURL || 'N/A'
       }, FullPath: ${fullPath}, Method: ${config.method || 'GET'}`,
     );
-    debugLog('[IpTableAdapter] Request headers:', requestHeaders);
+    debugLog('[IpTableAdapter] Request headers:', sniRequestHeaders);
     debugLog(
       '[IpTableAdapter] Request body:',
       requestBody ? requestBody.substring(0, 200) : 'null',
@@ -1632,7 +1671,7 @@ export function createIpTableAdapter(
           ip: selectedIp,
           hostname,
           path: fullPath,
-          headers: requestHeaders,
+          headers: sniRequestHeaders,
           method: (config.method || 'GET').toUpperCase(),
           body: requestBody,
           timeout: config.timeout || 60_000,

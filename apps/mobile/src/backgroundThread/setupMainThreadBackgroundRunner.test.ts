@@ -1,6 +1,9 @@
 import type { IGlobalStatesSyncBroadcastParams } from '@onekeyhq/shared/src/background/backgroundUtils';
 
 const mockSharedRPCWrite = jest.fn();
+const mockGetWebEmbedApiReadyState = jest
+  .fn<Promise<{ ready: boolean; mountId?: string }>, []>()
+  .mockResolvedValue({ ready: false });
 const mockSharedRPCRegisterReadinessKey = jest.fn();
 const mockSharedStoreSet = jest.fn();
 const mockNativeLoggerWrite = jest.fn();
@@ -14,6 +17,7 @@ const mockJotaiUpdateFromUiByBgBroadcast = jest.fn<
 let mockInboundMessageHandler:
   | ((key: string, value: string | number | boolean) => void)
   | undefined;
+const mockAppEventHandlers: Record<string, (payload: any) => void> = {};
 
 const mockReadyPayload = JSON.stringify({
   runtime: 'background',
@@ -86,18 +90,27 @@ jest.mock(
 
 jest.mock('@onekeyhq/shared/src/appGlobals', () => ({
   __esModule: true,
-  default: {},
+  default: {
+    $backgroundApiProxy: {
+      serviceDApp: {
+        getWebEmbedApiReadyState: () => mockGetWebEmbedApiReadyState(),
+      },
+    },
+  },
 }));
 
 jest.mock('@onekeyhq/shared/src/eventBus/appEventBus', () => ({
   EAppEventBusNames: {
     LoadWebEmbedWebView: 'LoadWebEmbedWebView',
     LoadWebEmbedWebViewComplete: 'LoadWebEmbedWebViewComplete',
+    WebEmbedWebViewMountRequested: 'WebEmbedWebViewMountRequested',
   },
   appEventBus: {
     dispatchInboundFromBackground: jest.fn(),
     emit: jest.fn(),
-    on: jest.fn(),
+    on: jest.fn((name: string, handler: (payload: any) => void) => {
+      mockAppEventHandlers[name] = handler;
+    }),
   },
 }));
 
@@ -132,6 +145,7 @@ jest.mock('./runtimeState', () => ({
 describe('main thread background runner', () => {
   beforeEach(() => {
     mockRejectErrorKeyAssignment = false;
+    mockGetWebEmbedApiReadyState.mockResolvedValue({ ready: false });
   });
 
   afterAll(() => {
@@ -140,6 +154,137 @@ describe('main thread background runner', () => {
         __onekeyNativeBackgroundThreadTransport?: unknown;
       }
     ).__onekeyNativeBackgroundThreadTransport;
+  });
+
+  it('waits for the current page before dispatching a background WebEmbed request', async () => {
+    await import('./setupMainThreadBackgroundRunner');
+    const transport = (
+      globalThis as typeof globalThis & {
+        __onekeyNativeBackgroundThreadTransport?: {
+          syncBridgeConnection: (
+            params: {
+              channel: 'webEmbed';
+              bridge: {
+                request: jest.Mock;
+                globalOnMessageEnabled: boolean;
+              } | null;
+              mountId?: string;
+              mountSequence?: number;
+            },
+            fallback: () => Promise<unknown>,
+          ) => Promise<unknown>;
+        };
+      }
+    ).__onekeyNativeBackgroundThreadTransport;
+    const oldRequest = jest.fn().mockResolvedValue('old');
+    const newRequest = jest.fn().mockResolvedValue('new');
+    const oldBridge = { request: oldRequest, globalOnMessageEnabled: true };
+    const newBridge = { request: newRequest, globalOnMessageEnabled: true };
+
+    mockAppEventHandlers.WebEmbedWebViewMountRequested({
+      mountId: 'old-page',
+      mountSequence: 100,
+    });
+    void transport?.syncBridgeConnection(
+      {
+        channel: 'webEmbed',
+        bridge: oldBridge,
+        mountId: 'old-page',
+        mountSequence: 100,
+      },
+      async () => undefined,
+    );
+    mockAppEventHandlers.LoadWebEmbedWebViewComplete({ mountId: 'old-page' });
+    mockAppEventHandlers.WebEmbedWebViewMountRequested({
+      mountId: 'new-page',
+      mountSequence: 101,
+    });
+    await expect(
+      transport?.syncBridgeConnection(
+        { channel: 'webEmbed', bridge: oldBridge },
+        async () => undefined,
+      ),
+    ).resolves.toBe(false);
+    await expect(
+      transport?.syncBridgeConnection(
+        { channel: 'webEmbed', bridge: null },
+        async () => undefined,
+      ),
+    ).resolves.toBe(false);
+    mockInboundMessageHandler?.('onekey:webembed:req:owner-test', '{}');
+    for (let i = 0; i < 5; i += 1) {
+      await Promise.resolve();
+    }
+    expect(oldRequest).not.toHaveBeenCalled();
+
+    void transport?.syncBridgeConnection(
+      {
+        channel: 'webEmbed',
+        bridge: newBridge,
+        mountId: 'new-page',
+        mountSequence: 101,
+      },
+      async () => undefined,
+    );
+    mockAppEventHandlers.LoadWebEmbedWebViewComplete({ mountId: 'old-page' });
+    for (let i = 0; i < 5; i += 1) {
+      await Promise.resolve();
+    }
+    expect(newRequest).not.toHaveBeenCalled();
+
+    mockAppEventHandlers.LoadWebEmbedWebViewComplete({ mountId: 'new-page' });
+    for (let i = 0; i < 5; i += 1) {
+      await Promise.resolve();
+    }
+    expect(newRequest).toHaveBeenCalledTimes(1);
+    expect(oldRequest).not.toHaveBeenCalled();
+    await expect(
+      transport?.syncBridgeConnection(
+        { channel: 'webEmbed', bridge: null },
+        async () => undefined,
+      ),
+    ).resolves.toBe(false);
+    mockGetWebEmbedApiReadyState.mockResolvedValue({
+      ready: true,
+      mountId: 'new-page',
+    });
+    void transport?.syncBridgeConnection(
+      {
+        channel: 'webEmbed',
+        bridge: null,
+        mountId: 'new-page',
+        mountSequence: 101,
+      },
+      async () => undefined,
+    );
+    void transport?.syncBridgeConnection(
+      {
+        channel: 'webEmbed',
+        bridge: newBridge,
+        mountId: 'new-page',
+        mountSequence: 101,
+      },
+      async () => undefined,
+    );
+    for (let i = 0; i < 5; i += 1) {
+      await Promise.resolve();
+    }
+    mockInboundMessageHandler?.('onekey:webembed:req:reconnect-test', '{}');
+    for (let i = 0; i < 5; i += 1) {
+      await Promise.resolve();
+    }
+    expect(newRequest).toHaveBeenCalledTimes(2);
+    mockSharedRPCWrite.mock.calls
+      .filter(
+        ([key]) => typeof key === 'string' && key.startsWith('onekey:bg:req:'),
+      )
+      .forEach(([key]) => {
+        mockInboundMessageHandler?.(
+          `onekey:bg:res:${(key as string).slice('onekey:bg:req:'.length)}`,
+          JSON.stringify({ ok: true }),
+        );
+      });
+    mockSharedRPCWrite.mockClear();
   });
 
   it('rejects a remote call when a legacy error contains constructorName', async () => {

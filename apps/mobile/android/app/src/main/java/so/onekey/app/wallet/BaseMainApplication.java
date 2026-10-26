@@ -464,6 +464,7 @@ public class BaseMainApplication extends Application implements ReactApplication
       RNSentrySDK.init(this, options -> {
         options.setDsn(dsn);
         options.setEnabled(true);
+        options.setEnvironment(BuildConfig.DEBUG ? "development" : "production");
         options.setMaxBreadcrumbs(100);
         options.setMaxCacheItems(60);
         options.setAnrEnabled(true);

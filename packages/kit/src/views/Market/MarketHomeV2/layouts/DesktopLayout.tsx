@@ -403,7 +403,9 @@ export function DesktopLayout({
                       tabIntegrated
                       tabName={watchlistTabName}
                       listContainerProps={listContainerProps}
-                      enableWebSocket={activeTabName === watchlistTabName}
+                      enableWebSocket={
+                        isRouteFocused && activeTabName === watchlistTabName
+                      }
                       centerDesktopPortalContent
                     />
                   </Suspense>
@@ -460,7 +462,7 @@ export function DesktopLayout({
                 item.categoryId,
               )}
               onStockDataChange={handleStockDataChange}
-              enableWebSocket={activeTabName === item.tabName}
+              enableWebSocket={isRouteFocused && activeTabName === item.tabName}
               centerDesktopPortalContent
               desktopColumnVariant={usesTrendingStyle ? 'trending' : 'default'}
               useApiDefaultSort={usesTrendingStyle}

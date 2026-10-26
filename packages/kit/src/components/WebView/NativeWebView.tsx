@@ -30,7 +30,10 @@ import { WEBVIEW_LOAD_TIMEOUT_MS, createMessageInjectedScript } from './utils';
 import type { IInpageProviderWebViewProps, IWebViewRef } from './types';
 import type { IWebViewWrapperRef } from '@onekeyfe/onekey-cross-webview';
 import type { WebViewMessageEvent, WebViewProps } from 'react-native-webview';
-import type { WebViewRenderProcessGoneEvent } from 'react-native-webview/lib/WebViewTypes';
+import type {
+  WebViewRenderProcessGoneEvent,
+  WebViewTerminatedEvent,
+} from 'react-native-webview/lib/WebViewTypes';
 
 export type INativeWebViewProps = WebViewProps & IInpageProviderWebViewProps;
 
@@ -60,6 +63,8 @@ const NativeWebView = forwardRef(
       useGeckoView,
       allowsBackForwardNavigationGestures = true,
       disableBridge,
+      onRenderProcessGone,
+      onContentProcessDidTerminate,
       ...props
     }: INativeWebViewProps,
     ref,
@@ -286,6 +291,7 @@ const NativeWebView = forwardRef(
 
     const handleRenderProcessGone = useCallback(
       (event: WebViewRenderProcessGoneEvent) => {
+        onRenderProcessGone?.(event);
         if (isUnmountingRef.current) return;
         const { didCrash } = event.nativeEvent;
         console.warn(
@@ -294,7 +300,18 @@ const NativeWebView = forwardRef(
         // Bump key to force React to unmount the dead WebView and mount a fresh one
         setWebViewKey((prev) => prev + 1);
       },
-      [],
+      [onRenderProcessGone],
+    );
+
+    const handleContentProcessDidTerminate = useCallback(
+      (event: WebViewTerminatedEvent) => {
+        onContentProcessDidTerminate?.(event);
+        if (isUnmountingRef.current) return;
+        console.warn('WebView content process terminated, recreating WebView');
+        // Bump key to force React to unmount the terminated WKWebView and mount a fresh one
+        setWebViewKey((prev) => prev + 1);
+      },
+      [onContentProcessDidTerminate],
     );
 
     const debuggingEnabled = useMemo(() => {
@@ -367,11 +384,13 @@ const NativeWebView = forwardRef(
           scrollEventThrottle={16}
           webviewDebuggingEnabled={debuggingEnabled}
           onRenderProcessGone={handleRenderProcessGone}
+          onContentProcessDidTerminate={handleContentProcessDidTerminate}
           {...props}
         />
       );
     }, [
       debuggingEnabled,
+      handleContentProcessDidTerminate,
       handleRenderProcessGone,
       injectedJavaScriptBeforeContentLoaded,
       safeOnLoad,

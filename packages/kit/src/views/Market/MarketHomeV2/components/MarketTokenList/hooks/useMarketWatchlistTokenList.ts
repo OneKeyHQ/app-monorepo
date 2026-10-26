@@ -386,6 +386,8 @@ export function useMarketWatchlistTokenList({
       pollingInterval: timerUtils.getTimeDurationMs({ seconds: 30 }),
       watchLoading: true,
       revalidateOnReconnect: platformEnv.isNative,
+      overrideIsFocused: (isFocused) => isFocused && pageIndex === 0,
+      checkIsFocused: true,
     },
   );
 

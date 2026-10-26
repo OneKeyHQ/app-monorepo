@@ -985,7 +985,47 @@ class BackgroundApiBase implements IBackgroundApiBridge {
     }
   }
 
-  connectWebEmbedBridge(bridge: JsBridgeBase | null) {
+  private webEmbedBridgeMountId: string | undefined;
+
+  private webEmbedBridgeMountSequence = 0;
+
+  isWebEmbedBridgeOwnedBy(mountId: string | undefined): boolean {
+    return Boolean(
+      mountId && this.webEmbedBridgeMountId === mountId && this.webEmbedBridge,
+    );
+  }
+
+  connectWebEmbedBridge(
+    bridge: JsBridgeBase | null,
+    mountId?: string,
+    mountSequence?: number,
+  ) {
+    if (!mountId && this.webEmbedBridgeMountId) {
+      return;
+    }
+    if (mountId) {
+      if (bridge) {
+        if (
+          mountSequence === undefined ||
+          mountSequence < this.webEmbedBridgeMountSequence
+        ) {
+          return;
+        }
+        this.webEmbedBridgeMountSequence = mountSequence;
+        this.webEmbedBridgeMountId = mountId;
+      } else {
+        if (mountId !== this.webEmbedBridgeMountId) {
+          return;
+        }
+        if (
+          mountSequence !== undefined &&
+          mountSequence > this.webEmbedBridgeMountSequence
+        ) {
+          this.webEmbedBridgeMountSequence = mountSequence;
+        }
+        this.webEmbedBridgeMountId = undefined;
+      }
+    }
     defaultLogger.app.webembed.webEmbedBgConnectWebEmbedBridge({
       hasBridge: !!bridge,
     });

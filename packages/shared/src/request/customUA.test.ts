@@ -27,6 +27,9 @@ jest.mock('../platformEnv', () => ({
       | 'web-embed'
       | undefined,
     version: '6.3.0',
+    isDesktopMac: false,
+    isDesktopWin: false,
+    isDesktopLinux: false,
   },
 }));
 
@@ -64,6 +67,9 @@ beforeEach(() => {
   (platformEnv as any).isWeb = false;
   (platformEnv as any).appPlatform = undefined;
   (platformEnv as any).version = '6.3.0';
+  (platformEnv as any).isDesktopMac = false;
+  (platformEnv as any).isDesktopWin = false;
+  (platformEnv as any).isDesktopLinux = false;
   checkIsOneKeyDomainMock.mockReset();
   getDevSettingsPersistAtomMock.mockReset();
   getDevSettingsPersistAtomMock.mockResolvedValue({
@@ -73,28 +79,63 @@ beforeEach(() => {
 });
 
 describe('buildCustomUA', () => {
-  it('returns desktop-electron UA when platformEnv.isDesktop is true', async () => {
+  it('returns desktop-electron UA with the macOS label', async () => {
     (platformEnv as any).isDesktop = true;
     (platformEnv as any).appPlatform = 'desktop';
-    expect(await buildCustomUA()).toBe('OneKeyWallet/6.3.0');
+    (platformEnv as any).isDesktopMac = true;
+    expect(await buildCustomUA()).toBe('OneKey macOS 6.3.0');
+  });
+
+  it('returns desktop-electron UA with the Windows label', async () => {
+    (platformEnv as any).isDesktop = true;
+    (platformEnv as any).appPlatform = 'desktop';
+    (platformEnv as any).isDesktopWin = true;
+    expect(await buildCustomUA()).toBe('OneKey Windows 6.3.0');
+  });
+
+  it('returns desktop-electron UA with the Linux label', async () => {
+    (platformEnv as any).isDesktop = true;
+    (platformEnv as any).appPlatform = 'desktop';
+    (platformEnv as any).isDesktopLinux = true;
+    expect(await buildCustomUA()).toBe('OneKey Linux 6.3.0');
+  });
+
+  it('derives the desktop label from process.platform when platformEnv flags are unset (Electron main)', async () => {
+    (platformEnv as any).isDesktop = true;
+    (platformEnv as any).appPlatform = 'desktop';
+    const originalPlatform = Object.getOwnPropertyDescriptor(
+      process,
+      'platform',
+    );
+    Object.defineProperty(process, 'platform', {
+      value: 'win32',
+      configurable: true,
+    });
+    try {
+      expect(await buildCustomUA()).toBe('OneKey Windows 6.3.0');
+    } finally {
+      if (originalPlatform) {
+        Object.defineProperty(process, 'platform', originalPlatform);
+      }
+    }
   });
 
   it('returns ios-native UA when iOS native', async () => {
     (platformEnv as any).isNative = true;
     (platformEnv as any).appPlatform = 'ios';
-    expect(await buildCustomUA()).toBe('OneKeyWallet/6.3.0');
+    expect(await buildCustomUA()).toBe('OneKey iOS 6.3.0');
   });
 
   it('returns android-native UA when Android native', async () => {
     (platformEnv as any).isNative = true;
     (platformEnv as any).appPlatform = 'android';
-    expect(await buildCustomUA()).toBe('OneKeyWallet/6.3.0');
+    expect(await buildCustomUA()).toBe('OneKey Android 6.3.0');
   });
 
   it('returns CLI UA with constant version 1 (platformEnv.version unsubstituted in CLI bundle)', async () => {
     __setCustomUARuntimeForTest('cli-node');
     (platformEnv as any).version = undefined;
-    expect(await buildCustomUA()).toBe('OneKeyWallet/1');
+    expect(await buildCustomUA()).toBe('OneKey CLI 1');
   });
 
   it('returns null on Web (browser default UA suffices)', async () => {
@@ -112,8 +153,9 @@ describe('buildCustomUA', () => {
   it('falls back to "1" when version is missing', async () => {
     (platformEnv as any).isDesktop = true;
     (platformEnv as any).appPlatform = 'desktop';
+    (platformEnv as any).isDesktopMac = true;
     (platformEnv as any).version = undefined;
-    expect(await buildCustomUA()).toBe('OneKeyWallet/1');
+    expect(await buildCustomUA()).toBe('OneKey macOS 1');
   });
 
   it('returns null when dev toggle disableCustomUA is on', async () => {
@@ -129,8 +171,9 @@ describe('buildCustomUA', () => {
   it('treats dev toggle as off when getDevSettingsPersistAtom throws (CLI fallback)', async () => {
     (platformEnv as any).isDesktop = true;
     (platformEnv as any).appPlatform = 'desktop';
+    (platformEnv as any).isDesktopMac = true;
     getDevSettingsPersistAtomMock.mockRejectedValue(new Error('not wired'));
-    expect(await buildCustomUA()).toBe('OneKeyWallet/6.3.0');
+    expect(await buildCustomUA()).toBe('OneKey macOS 6.3.0');
   });
 });
 
@@ -195,6 +238,7 @@ describe('withCustomUAHeaders', () => {
   beforeEach(() => {
     (platformEnv as any).isDesktop = true;
     (platformEnv as any).appPlatform = 'desktop';
+    (platformEnv as any).isDesktopMac = true;
     (platformEnv as any).version = '6.3.0';
   });
 
@@ -205,7 +249,7 @@ describe('withCustomUAHeaders', () => {
     });
     expect(out).toEqual({
       'X-Onekey-Request-ID': 'abc',
-      'User-Agent': 'OneKeyWallet/6.3.0',
+      'User-Agent': 'OneKey macOS 6.3.0',
     });
   });
 
@@ -245,6 +289,6 @@ describe('withCustomUAHeaders', () => {
       'https://swap.onekeycn.com/swap/v1/quote/events',
       { 'X-Onekey-Request-Platform': 'cli' },
     );
-    expect(out['User-Agent']).toBe('OneKeyWallet/1');
+    expect(out['User-Agent']).toBe('OneKey CLI 1');
   });
 });
