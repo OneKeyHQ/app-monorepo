@@ -232,6 +232,11 @@ type IPrivateSendOrderDetail = {
 
 type IPrivateSendStatusSource = 'stateTx' | 'orderDetail';
 
+type ISwapHistoryFeeUpdate = Pick<
+  ISwapTxHistory['txInfo'],
+  'gasFeeInNative' | 'gasFeeFiatValue'
+>;
+
 type IFetchSwapHistoryStatusResult = {
   orderDetail?: IPrivateSendOrderDetail;
   txStatusRes?: IFetchSwapTxHistoryStatusResponse;
@@ -2758,11 +2763,19 @@ export default class ServiceSwap extends ServiceBase {
   private async persistSwapHistoryUpdate(
     item: ISwapTxHistory,
     oldTxId?: string,
+    feeUpdate?: ISwapHistoryFeeUpdate,
   ) {
-    await this.backgroundApi.simpleDb.swapHistory.updateSwapHistoryItem(
-      item,
-      oldTxId,
-    );
+    const persistedItem = feeUpdate
+      ? await this.backgroundApi.simpleDb.swapHistory.updateSwapHistoryItem(
+          item,
+          oldTxId,
+          feeUpdate,
+        )
+      : await this.backgroundApi.simpleDb.swapHistory.updateSwapHistoryItem(
+          item,
+          oldTxId,
+        );
+    const updatedItem = persistedItem ?? item;
     // The durable write for a queued item never landed, so this update had
     // nothing to change. Re-queue under the current identity instead, or the
     // retry would eventually persist a status the swap has already left.
@@ -2771,8 +2784,9 @@ export default class ServiceSwap extends ServiceBase {
       oldTxId && this.swapHistoryDurableRetryQueue.has(oldTxId) ? oldTxId : key;
     if (this.swapHistoryDurableRetryQueue.has(queuedKey)) {
       this.swapHistoryDurableRetryQueue.delete(queuedKey);
-      this.enqueueSwapHistoryDurableRetry(item);
+      this.enqueueSwapHistoryDurableRetry(updatedItem);
     }
+    return updatedItem;
   }
 
   @backgroundMethod()
@@ -2827,7 +2841,10 @@ export default class ServiceSwap extends ServiceBase {
   @backgroundMethod()
   async updateSwapHistoryItem(
     item: ISwapTxHistory,
-    options?: { shouldShowToast?: boolean },
+    options?: {
+      shouldShowToast?: boolean;
+      privateSendFeeUpdate?: ISwapHistoryFeeUpdate;
+    },
   ) {
     const { swapHistoryPendingList } = await inAppNotificationAtom.get();
     const shouldShowToast = options?.shouldShowToast ?? true;
@@ -2844,7 +2861,7 @@ export default class ServiceSwap extends ServiceBase {
       // preserve the original in-place cancellation reconciliation contract.
       item.status = ESwapTxHistoryStatus.CANCELED;
     }
-    const enrichedItem = await this.enrichSwapHistoryItemNetworkInfo(item);
+    let enrichedItem = await this.enrichSwapHistoryItemNetworkInfo(item);
     if (oldItem) {
       if (
         enrichedItem.txInfo.receiverTransactionId &&
@@ -2904,7 +2921,11 @@ export default class ServiceSwap extends ServiceBase {
       }
     }
     await this.swapHistoryMutationMutex.runExclusive(async () => {
-      await this.persistSwapHistoryUpdate(enrichedItem);
+      enrichedItem = await this.persistSwapHistoryUpdate(
+        enrichedItem,
+        undefined,
+        options?.privateSendFeeUpdate,
+      );
       if (oldItem) {
         await inAppNotificationAtom.set((pre) => {
           const newPendingList = filterSwapHistoryPendingList(
@@ -2920,6 +2941,7 @@ export default class ServiceSwap extends ServiceBase {
     if (isPrivateSendSwapHistoryItem(enrichedItem)) {
       appEventBus.emit(EAppEventBusNames.HistoryTxStatusChanged, undefined);
     }
+    return enrichedItem;
   }
 
   @backgroundMethod()
@@ -3254,13 +3276,24 @@ export default class ServiceSwap extends ServiceBase {
               : currentSwapTxHistory.baseInfo.toAmount,
           },
         };
-        await this.updateSwapHistoryItem(currentSwapTxHistory, {
-          shouldShowToast: shouldShowSwapHistoryStatusToast({
-            previousSwapTxHistory,
-            swapTxHistory: currentSwapTxHistory,
-            shouldShowToast,
-          }),
-        });
+        currentSwapTxHistory = await this.updateSwapHistoryItem(
+          currentSwapTxHistory,
+          {
+            ...(isPrivateSendHistory
+              ? {
+                  privateSendFeeUpdate: {
+                    gasFeeInNative: txStatusRes.gasFee,
+                    gasFeeFiatValue: txStatusRes.gasFeeFiatValue,
+                  },
+                }
+              : undefined),
+            shouldShowToast: shouldShowSwapHistoryStatusToast({
+              previousSwapTxHistory,
+              swapTxHistory: currentSwapTxHistory,
+              shouldShowToast,
+            }),
+          },
+        );
         const finalStatus = currentSwapTxHistory.status;
         trackPrivateSendOrderFinalStatusIfNeeded({
           isPrivateSendHistory,

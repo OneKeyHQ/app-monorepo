@@ -1263,7 +1263,10 @@ const SwapHeaderRightActionContainer = ({
     // iOS 26: the header actions share one Liquid Glass capsule (like the Wallet
     // header's notification/menu capsule). Passthrough off iOS 26 / non-native.
     <GlassButtonCapsule>
-      <HeaderButtonGroup gap={compact ? '$2' : '$4'} flexShrink={0}>
+      <HeaderButtonGroup
+        gap={compact && platformEnv.isNativeIOS ? '$2' : '$4'}
+        flexShrink={0}
+      >
         {kLineButton}
         {showActivityHubInSettings ? (
           <SwapSettingsHeaderButtonWithActivityHub
