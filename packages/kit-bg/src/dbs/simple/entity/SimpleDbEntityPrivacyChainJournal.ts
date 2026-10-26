@@ -25,29 +25,6 @@ export type IZcashTransparentPendingTx = {
   broadcastAuthorized?: boolean;
 };
 
-export function isSameZcashTransparentPendingTx(
-  current: IZcashTransparentPendingTx | undefined,
-  expected: IZcashTransparentPendingTx,
-): boolean {
-  return (
-    !!current &&
-    current.txid.toLowerCase() === expected.txid.toLowerCase() &&
-    current.ownerId === expected.ownerId &&
-    current.rawTx === expected.rawTx &&
-    current.expiryHeight === expected.expiryHeight &&
-    current.createdAt === expected.createdAt &&
-    current.broadcastState === expected.broadcastState &&
-    current.broadcastAuthorized === expected.broadcastAuthorized &&
-    current.spentOutpoints.length === expected.spentOutpoints.length &&
-    current.spentOutpoints.every(
-      (input, index) =>
-        input.txid.toLowerCase() ===
-          expected.spentOutpoints[index].txid.toLowerCase() &&
-        input.vout === expected.spentOutpoints[index].vout,
-    )
-  );
-}
-
 // Records are stored untyped and validated one at a time on read: a malformed
 // record is skipped (quarantined) and kept as is, never deleted.
 export interface IPrivacyChainJournalDB {
@@ -477,21 +454,11 @@ export class SimpleDbEntityPrivacyChainJournal extends SimpleDbEntityBase<IPriva
   async settleTransparentPendingTx({
     accountId,
     txid,
-    expectedTx,
   }: {
     accountId: string;
     txid: string;
-    expectedTx?: IZcashTransparentPendingTx;
   }): Promise<void> {
     await this.updateZcashBucket(accountId, (bucket) => {
-      if (
-        expectedTx &&
-        !isSameZcashTransparentPendingTx(
-          bucket.pendingTxs.valid[txid],
-          expectedTx,
-        )
-      )
-        return;
       const ownerId = bucket.pendingTxs.valid[txid]?.ownerId;
       delete bucket.pendingTxs.valid[txid];
       if (ownerId) {

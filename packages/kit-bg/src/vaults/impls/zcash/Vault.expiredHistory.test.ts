@@ -1,5 +1,5 @@
 /* eslint-disable import/first */
-// cspell:ignore lightd bestblock bestblockhash
+// cspell:ignore lightd
 jest.mock('../../../dbs/local/localDbInstance', () => ({
   __esModule: true,
   default: {},
@@ -28,7 +28,6 @@ import type {
   IAccountHistoryTx,
   IOnChainHistoryTx,
 } from '@onekeyhq/shared/types/history';
-import type { IProxyRequestItem } from '@onekeyhq/shared/types/proxy';
 import {
   EDecodedTxActionType,
   EDecodedTxStatus,
@@ -140,33 +139,6 @@ describe('expired transparent send reconciliation', () => {
       snapshotComplete: boolean;
       tipHeight?: number;
     } = { txs: [], snapshotComplete: true };
-    const post = jest.fn(
-      async (
-        _url: string,
-        _request: { networkId: string; body: IProxyRequestItem[] },
-      ): Promise<{ data: unknown }> => {
-        throw new OneKeyLocalError('RPC unavailable');
-      },
-    );
-    const useRpcProof = () =>
-      post.mockImplementation(async (_url, { body }) => ({
-        data: {
-          code: 0,
-          data: {
-            data: body.map((item) => ({
-              success: true,
-              data:
-                item.params.method === 'getblockchaininfo'
-                  ? {
-                      chain: 'main',
-                      blocks: 111,
-                      bestblockhash: 'dd'.repeat(32),
-                    }
-                  : { bestblock: 'dd'.repeat(32), confirmations: 10 },
-            })),
-          },
-        },
-      }));
     const vault = Object.assign(Object.create(Vault.prototype) as Vault, {
       networkId: historyParams.networkId,
       accountId,
@@ -177,11 +149,7 @@ describe('expired transparent send reconciliation', () => {
           localHistory,
         },
         serviceToken: { getToken: async () => undefined },
-        serviceAccount: {
-          getDBAccount: async () => ({ id: accountId, address: 't1-own' }),
-          getDBAccountSafe: async () => ({ id: accountId, address: 't1-own' }),
-        },
-        serviceHistory: { getClient: async () => ({ post }) },
+        serviceAccount: { getDBAccount: async () => ({ address: 't1-own' }) },
       },
       getAccount: async () => ({ address: 't1-own' }),
       zcashFetchTransparentHistory: async () => ({
@@ -202,16 +170,7 @@ describe('expired transparent send reconciliation', () => {
     };
     const inUse = async () =>
       journalDb.listTransparentOutpointsInUse({ accountId });
-    return {
-      vault,
-      journalDb,
-      localHistory,
-      backend,
-      read,
-      inUse,
-      post,
-      useRpcProof,
-    };
+    return { vault, journalDb, localHistory, backend, read, inUse };
   }
 
   beforeEach(() => {
@@ -220,7 +179,7 @@ describe('expired transparent send reconciliation', () => {
     });
     globalThis.fetch = networkFetch as unknown as typeof fetch;
   });
-  // Only the existing backend/proxy is allowed; the user's lightwalletd is never asked.
+  // Expiry is decided from backend data only; the user's lightwalletd is never asked.
   function expectNoNodeQuery() {
     expect(networkFetch).not.toHaveBeenCalled();
     expect(fetchZcashChainTipDirect).not.toHaveBeenCalled();
@@ -378,11 +337,7 @@ describe('expired transparent send reconciliation', () => {
     Reflect.deleteProperty(vault, 'zcashFetchTransparentHistory');
     Object.assign(vault.backgroundApi, {
       serviceAccount: {
-        getDBAccountSafe: async () => ({
-          id: accountId,
-          address: 't1-own',
-          xpub: 'xpub',
-        }),
+        getDBAccountSafe: async () => ({ address: 't1-own', xpub: 'xpub' }),
       },
       serviceAccountProfile: { _getWalletTypeHeader: async () => ({}) },
       serviceHistory: {
@@ -445,7 +400,7 @@ describe('expired transparent send reconciliation', () => {
     const { journalDb, localHistory, backend, read } = await fixture();
     backend.tipHeight = expiryHeight + 11;
     jest
-      .spyOn(localHistory, 'dropPendingLocalHistoryTx')
+      .spyOn(localHistory, 'batchUpdateLocalHistoryTxs')
       .mockRejectedValueOnce(new Error('storage unavailable'));
     await read();
     expect(
@@ -455,223 +410,6 @@ describe('expired transparent send reconciliation', () => {
     expect(await journalDb.listTransparentPendingTxs({ accountId })).toEqual(
       [],
     );
-  });
-
-  it('expires an unknown broadcast without a newer account transaction', async () => {
-    const { journalDb, backend, read, inUse, useRpcProof, post } =
-      await fixture();
-    const [signed] = await journalDb.listTransparentPendingTxs({ accountId });
-    await journalDb.saveTransparentPendingTx({
-      accountId,
-      tx: { ...signed, broadcastState: 'unknown' },
-    });
-    useRpcProof();
-    expect(backend.tipHeight).toBeUndefined();
-    expect((await read())[0].decodedTx).toMatchObject({
-      status: EDecodedTxStatus.Dropped,
-      broadcastOutcomeUnknown: false,
-    });
-    expect(await inUse()).toEqual(new Set());
-    expect(
-      post.mock.calls.every(
-        ([url, request]) =>
-          url === '/wallet/v1/proxy/wallet' && request.networkId === 'zec--0',
-      ),
-    ).toBe(true);
-  });
-
-  it.each([0, 1000])(
-    'does not replace journal expiry %s with an older cached expiry',
-    async (journalExpiry) => {
-      const { journalDb, backend, read, inUse, useRpcProof } = await fixture();
-      const [signed] = await journalDb.listTransparentPendingTxs({
-        accountId,
-      });
-      await journalDb.saveTransparentPendingTx({
-        accountId,
-        tx: { ...signed, expiryHeight: journalExpiry },
-      });
-      backend.tipHeight = 111;
-      useRpcProof();
-      expect((await read())[0].decodedTx.status).toBe(EDecodedTxStatus.Pending);
-      expect((await inUse()).size).toBe(1);
-    },
-  );
-
-  it('does not unlock journal inputs when the cached row has been cleared', async () => {
-    const { vault, journalDb, localHistory, inUse } = await fixture();
-    await localHistory.clearAccountLocalHistory(historyParams);
-    await vault.zcashDropExpiredTransparentSends({
-      accountId,
-      historyParams,
-      cachedHistory: [localSend()],
-      backendTipHeight: 111,
-      backendStatuses: new Map(),
-      backendMinedTxids: new Set(),
-      addressGate: {},
-    });
-    expect(
-      await journalDb.listTransparentPendingTxs({ accountId }),
-    ).toHaveLength(1);
-    expect((await inUse()).size).toBe(1);
-    expect(
-      await localHistory.getAccountLocalHistoryConfirmedTxs(historyParams),
-    ).toEqual([]);
-  });
-
-  it('retires an authorized failed broadcast with no local history only after a fresh RPC proof', async () => {
-    const { journalDb, localHistory, read, inUse, useRpcProof } =
-      await fixture();
-    await localHistory.clearAccountLocalHistory(historyParams);
-    useRpcProof();
-    expect(await read()).toEqual([]);
-    expect(await journalDb.listTransparentPendingTxs({ accountId })).toEqual(
-      [],
-    );
-    expect(await inUse()).toEqual(new Set());
-    expect(
-      await localHistory.getAccountLocalHistoryConfirmedTxs(historyParams),
-    ).toEqual([]);
-  });
-
-  it('never uses backend height alone to release a journal without a history row', async () => {
-    const { localHistory, backend, read, inUse } = await fixture();
-    await localHistory.clearAccountLocalHistory(historyParams);
-    backend.tipHeight = 111;
-    await read();
-    expect((await inUse()).size).toBe(1);
-  });
-
-  it('retains an unrecorded transaction when a history row appears during the RPC proof', async () => {
-    const { localHistory, read, inUse, useRpcProof, post } = await fixture();
-    await localHistory.clearAccountLocalHistory(historyParams);
-    useRpcProof();
-    const implementation = post.getMockImplementation()!;
-    post.mockImplementation(async (url, request) => {
-      if (request.body.some((item) => item.params.method === 'gettxout')) {
-        await localHistory.saveLocalHistoryTxs({
-          ...historyParams,
-          pendingTxs: [localSend()],
-        });
-      }
-      return implementation(url, request);
-    });
-    await read();
-    expect((await inUse()).size).toBe(1);
-    expect(
-      (await localHistory.getAccountLocalHistoryPendingTxs(historyParams))[0]
-        .decodedTx.status,
-    ).toBe(EDecodedTxStatus.Pending);
-  });
-
-  it('does not clean an unauthorized journal-only transaction on a history read', async () => {
-    const { journalDb, localHistory, read, inUse, useRpcProof, post } =
-      await fixture();
-    const [signed] = await journalDb.listTransparentPendingTxs({ accountId });
-    await journalDb.saveTransparentPendingTx({
-      accountId,
-      tx: { ...signed, broadcastAuthorized: false },
-    });
-    await localHistory.clearAccountLocalHistory(historyParams);
-    useRpcProof();
-    await read();
-    expect((await inUse()).size).toBe(1);
-    expect(post).not.toHaveBeenCalled();
-  });
-
-  it.each(
-    [false, true].flatMap((unrecorded) =>
-      ['account', 'epoch', 'journal'].map((change) => ({ unrecorded, change })),
-    ),
-  )(
-    'does not unlock after $change changes during the RPC proof (unrecorded=$unrecorded)',
-    async ({ change, unrecorded }) => {
-      const { vault, journalDb, localHistory, read, inUse, useRpcProof, post } =
-        await fixture();
-      if (unrecorded)
-        await localHistory.clearAccountLocalHistory(historyParams);
-      const [signed] = await journalDb.listTransparentPendingTxs({ accountId });
-      const epoch = jest
-        .spyOn(
-          vault.backgroundApi.simpleDb.privacyChainState,
-          'getAccountEpoch',
-        )
-        .mockResolvedValue(undefined);
-      useRpcProof();
-      const implementation = post.getMockImplementation();
-      post.mockImplementation(async (url, request) => {
-        if (request.body.some((item) => item.params.method === 'gettxout')) {
-          if (change === 'account')
-            Object.assign(vault.backgroundApi.serviceAccount, {
-              getDBAccountSafe: async () => undefined,
-            });
-          if (change === 'epoch') epoch.mockResolvedValue('changed');
-          if (change === 'journal')
-            await journalDb.saveTransparentPendingTx({
-              accountId,
-              tx: { ...signed, ownerId: 'replacement' },
-            });
-        }
-        return implementation!(url, request);
-      });
-      const rows = await read();
-      if (!unrecorded)
-        expect(rows[0].decodedTx.status).toBe(EDecodedTxStatus.Pending);
-      expect((await inUse()).size).toBe(1);
-    },
-  );
-
-  it('corrects a locally dropped row when the backend later reports a mined pending row', async () => {
-    const { backend, read, localHistory } = await fixture();
-    backend.tipHeight = 111;
-    await read();
-    backend.txs = [row(txid, EDecodedTxStatus.Pending, { block: 90 })];
-    expect((await read())[0].decodedTx).toMatchObject({
-      status: EDecodedTxStatus.Pending,
-      block: 90,
-    });
-    expect(
-      (
-        await localHistory.getAccountLocalHistoryConfirmedTxs(historyParams)
-      ).filter((tx) => tx.decodedTx.txid === txid),
-    ).toEqual([]);
-  });
-
-  it('revalidates the journal when retrying settlement after a durable dropped row', async () => {
-    const { journalDb, read, inUse, useRpcProof, post } = await fixture();
-    useRpcProof();
-    jest
-      .spyOn(journalDb, 'settleTransparentPendingTx')
-      .mockRejectedValueOnce(new Error('journal storage unavailable'));
-    expect((await read())[0].decodedTx.status).toBe(EDecodedTxStatus.Dropped);
-    expect((await inUse()).size).toBe(1);
-    post.mockRejectedValue(new Error('RPC offline'));
-    expect((await read())[0].decodedTx.status).toBe(EDecodedTxStatus.Dropped);
-    expect((await inUse()).size).toBe(1);
-    useRpcProof();
-    await read();
-    expect(await inUse()).toEqual(new Set());
-  });
-
-  it('never lets a replacement journal inherit a previous dropped row proof', async () => {
-    const { journalDb, read, inUse, useRpcProof } = await fixture();
-    useRpcProof();
-    const [original] = await journalDb.listTransparentPendingTxs({ accountId });
-    jest
-      .spyOn(journalDb, 'settleTransparentPendingTx')
-      .mockRejectedValueOnce(new Error('journal storage unavailable'));
-    await read();
-    const replacement = {
-      ...original,
-      ownerId: 'replacement',
-      expiryHeight: 0,
-    };
-    await journalDb.saveTransparentPendingTx({ accountId, tx: replacement });
-    await read();
-    expect(await journalDb.listTransparentPendingTxs({ accountId })).toEqual([
-      replacement,
-    ]);
-    expect((await inUse()).size).toBe(1);
   });
 
   it('lists a pending send once when the backend reports its txid in another case', async () => {
@@ -738,15 +476,6 @@ describe('expired transparent send reconciliation', () => {
 
     it('stores a dropped row with undisplayed own addresses hidden', async () => {
       const { vault, localHistory } = await fixture();
-      await localHistory.saveLocalHistoryTxs({
-        ...historyParams,
-        pendingTxs: [
-          {
-            ...localSend(),
-            decodedTx: { ...localSend().decodedTx, ...spendsLegacyChange },
-          },
-        ],
-      });
       await vault.zcashDropExpiredTransparentSends({
         accountId,
         historyParams,
