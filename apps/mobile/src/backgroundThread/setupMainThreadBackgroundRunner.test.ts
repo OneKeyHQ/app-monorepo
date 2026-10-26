@@ -55,6 +55,13 @@ jest.mock('@onekeyhq/shared/src/errors', () => ({
   OneKeyLocalError: class OneKeyLocalError extends Error {
     key = 'onekey_error';
 
+    // Mirrors OneKeyError#constructorName: a getter-only accessor. Assigning
+    // to it in strict mode throws, which is the trap that used to skip
+    // pendingCall.reject and hang the caller (OK-61451, OK-61417).
+    get constructorName() {
+      return this.constructor.name;
+    }
+
     constructor(message: string) {
       super(message);
       if (mockRejectErrorKeyAssignment) {
@@ -195,6 +202,93 @@ describe('main thread background runner', () => {
       className: 'OneKeyServerApiError',
       code: 404,
     });
+  });
+
+  it('rejects a hardware error response without touching getter-only constructorName (OK-61417)', async () => {
+    await import('./setupMainThreadBackgroundRunner');
+
+    const transport = (
+      globalThis as typeof globalThis & {
+        __onekeyNativeBackgroundThreadTransport?: {
+          callServiceRequest: (
+            request: {
+              type: 'service-call';
+              method: string;
+              params: unknown[];
+              sync: boolean;
+            },
+            localFallback: () => Promise<unknown>,
+          ) => Promise<unknown>;
+        };
+      }
+    ).__onekeyNativeBackgroundThreadTransport;
+
+    const requestPromise = transport!.callServiceRequest(
+      {
+        type: 'service-call',
+        method: 'serviceAccount.addHDOrHWAccounts',
+        params: [{ walletId: 'hw-1', networkId: 'btc--0' }],
+        sync: false,
+      },
+      () => Promise.resolve(undefined),
+    );
+    const requestCalls = mockSharedRPCWrite.mock.calls.filter(
+      ([key]) => typeof key === 'string' && key.startsWith('onekey:bg:req:'),
+    );
+    const requestCall = requestCalls[requestCalls.length - 1];
+    const callId = (requestCall?.[0] as string).slice('onekey:bg:req:'.length);
+    const hardwarePayload = {
+      code: 105,
+      error: 'Device not found',
+      connectId: 'ble-connect-id',
+      deviceId: 'device-id',
+    };
+
+    // Shape of a hardware failure crossing the bridge after the BLE retries
+    // give up on a powered-off device. Legacy background bundles still put
+    // the constructorName getter value on the wire.
+    expect(() =>
+      mockInboundMessageHandler?.(
+        `onekey:bg:res:${callId}`,
+        JSON.stringify({
+          ok: false,
+          error: {
+            name: 'DeviceNotFound',
+            message: 'Device not found',
+            className: 'DeviceNotFound',
+            $isHardwareError: true,
+            code: 105,
+            key: 'hardware.device_not_find_error',
+            autoToast: true,
+            reconnect: true,
+            payload: hardwarePayload,
+            constructorName: 'DeviceNotFound',
+          },
+        }),
+      ),
+    ).not.toThrow();
+
+    // A resolved call yields `undefined` here and fails the shape check below.
+    const error = (await requestPromise.catch(
+      (rejection: unknown) => rejection,
+    )) as Error & Record<string, unknown>;
+    expect(error).toMatchObject({
+      name: 'DeviceNotFound',
+      message: 'Device not found',
+      className: 'DeviceNotFound',
+      $isHardwareError: true,
+      code: 105,
+      key: 'hardware.device_not_find_error',
+      autoToast: true,
+      reconnect: true,
+      payload: hardwarePayload,
+    });
+    // The getter stays on the prototype; the wire value must never be
+    // written onto the instance.
+    expect(
+      Object.getOwnPropertyDescriptor(error, 'constructorName'),
+    ).toBeUndefined();
+    expect(error.constructorName).toBe('OneKeyLocalError');
   });
 
   it('continues rehydrating after an error metadata field fails', async () => {

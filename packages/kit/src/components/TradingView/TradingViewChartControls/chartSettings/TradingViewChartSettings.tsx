@@ -3,19 +3,12 @@ import { useCallback, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 
 import { useIntl } from 'react-intl';
-import { useWindowDimensions } from 'react-native';
 
 import {
   Button,
-  Checkbox,
-  ColorPicker,
-  Divider,
-  Icon,
-  IconButton,
+  Dialog,
   Page,
-  Popover,
   ScrollView,
-  SizableText,
   XStack,
   YStack,
   useMedia,
@@ -24,18 +17,23 @@ import { DesktopTabItem } from '@onekeyhq/components/src/layouts/Navigation/Tab/
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { TRADING_VIEW_NATIVE_THEME_COLORS } from '@onekeyhq/shared/types/tradingViewNative';
 
-import { TRADING_VIEW_PREVIOUS_CLOSE_LABEL } from '../../constants';
-
+import { TradingViewSettingsDialog } from './TradingViewSettingsDialog';
 import {
   createTradingViewChartSettingsValue,
   toggleTradingViewSettingsMockAppearanceItem,
   updateTradingViewSettingsMockAppearanceItemColor,
 } from './TradingViewSettingsMockState';
 import {
-  TRADING_VIEW_SETTINGS_COLOR_PALETTE,
-  useSettingsDraftValue,
-} from './TradingViewSettingsShared';
+  SettingsCheckboxRow,
+  SettingsColorField,
+  SettingsColorPicker,
+  SettingsGroup,
+  SettingsRow,
+  SettingsSelect,
+} from './TradingViewSettingsPrimitives';
+import { useSettingsDraftValue } from './TradingViewSettingsShared';
 
+import type { ITradingViewSettingsDialogRef } from './TradingViewSettingsDialog';
 import type {
   ITradingViewChartSettingsOptions,
   ITradingViewChartSettingsPriceColorMode,
@@ -70,28 +68,19 @@ const OPTION_TRANSLATION_IDS: Record<
   crossLine: ETranslations.market_chart_settings__crosshair,
 };
 
-const SELECT_OPTION_TRANSLATION_IDS: Record<string, ETranslations> = {
-  auto: ETranslations.global_auto,
-  candlestick: ETranslations.market_candle,
-  heikinAshi: ETranslations.market_heikin_ashi,
-  bars: ETranslations.market_bars,
-  line: ETranslations.market_line,
-  area: ETranslations.market_area,
-  solid: ETranslations.market_chart_settings__solid_line,
-  dashed: ETranslations.market_chart_settings__dotted_line,
-  gradient: ETranslations.market_chart_settings__gradient,
-  both: ETranslations.market_chart_settings__vertical_and_horizontal,
-  horizontal: ETranslations.market_chart_settings__horizontal,
-  vertical: ETranslations.market_chart_settings__vertical,
-  none: ETranslations.market_chart_settings__none,
-  greenUpRedDown: ETranslations.market_chart_settings__green_up_red_down,
-  redUpGreenDown: ETranslations.market_chart_settings__red_up_green_down,
-};
-
 const APPEARANCE_ITEM_TRANSLATION_IDS: Record<string, ETranslations> = {
   body: ETranslations.market_chart_settings__body,
   border: ETranslations.market_chart_settings__border,
   wick: ETranslations.market_chart_settings__wick,
+};
+
+const PRICE_COLOR_MODE_OPTIONS = ['greenUpRedDown', 'redUpGreenDown'] as const;
+const LINE_STYLE_OPTIONS = ['solid', 'dashed'] as const;
+const BACKGROUND_STYLE_OPTIONS = ['solid', 'gradient'] as const;
+const GRID_STYLE_OPTIONS = ['both', 'horizontal', 'vertical', 'none'] as const;
+const BACKGROUND_STYLE_TRANSLATION_IDS = {
+  solid: ETranslations.market_chart_settings__solid_color,
+  gradient: ETranslations.market_chart_settings__gradient,
 };
 
 const TREND_COLOR_PRESETS = {
@@ -143,203 +132,6 @@ function applyChartTrendColors(
   };
 }
 
-function formatOptionLabel(
-  intl: ReturnType<typeof useIntl>,
-  value: string,
-  optionTranslationIds?: Partial<Record<string, ETranslations>>,
-) {
-  const translationId =
-    optionTranslationIds?.[value] ?? SELECT_OPTION_TRANSLATION_IDS[value];
-  if (translationId) {
-    return intl.formatMessage({ id: translationId });
-  }
-
-  return value;
-}
-
-function formatTestID(value: string) {
-  return value
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-');
-}
-
-function SettingsGroup({
-  title,
-  children,
-  showDivider = true,
-}: {
-  title?: string;
-  children: ReactNode;
-  showDivider?: boolean;
-}) {
-  const { md } = useMedia();
-
-  return (
-    <YStack width="100%">
-      <YStack py="$5">
-        {title ? (
-          <XStack px="$5" pb="$3" width="100%">
-            <SizableText flex={1} size="$bodyMd" color="$textSubdued">
-              {title}
-            </SizableText>
-          </XStack>
-        ) : null}
-        <YStack gap={md ? '$1' : '$0'}>{children}</YStack>
-      </YStack>
-      {md && showDivider ? <Divider mx="$5" /> : null}
-    </YStack>
-  );
-}
-
-function SettingsRow({
-  label,
-  children,
-  onPress,
-  testID,
-}: {
-  label: string;
-  children: ReactNode;
-  onPress?: () => void;
-  testID?: string;
-}) {
-  const interactive = Boolean(onPress);
-
-  return (
-    <XStack
-      testID={testID}
-      minHeight={38}
-      mx="$2.5"
-      px="$2.5"
-      py="$1.5"
-      gap="$3"
-      alignItems="center"
-      justifyContent="space-between"
-      borderRadius="$3"
-      role={interactive ? 'button' : undefined}
-      cursor={interactive ? 'pointer' : undefined}
-      hoverStyle={interactive ? { bg: '$bgHover' } : undefined}
-      pressStyle={interactive ? { bg: '$bgActive' } : undefined}
-      onPress={onPress}
-    >
-      <SizableText size="$bodyMdMedium" flex={1}>
-        {label}
-      </SizableText>
-      {children}
-    </XStack>
-  );
-}
-
-function SettingsCheckboxRow({
-  label,
-  testID,
-  value,
-  disabled,
-  children,
-  onChange,
-}: {
-  label: string;
-  testID?: string;
-  value: boolean;
-  disabled: boolean;
-  children?: ReactNode;
-  onChange: (value: boolean) => void;
-}) {
-  return (
-    <XStack
-      minHeight={38}
-      mx="$2.5"
-      px="$2.5"
-      py="$1.5"
-      gap="$3"
-      alignItems="center"
-      justifyContent="space-between"
-    >
-      <Checkbox
-        testID={`trading-view-settings-checkbox-${
-          testID ?? formatTestID(label)
-        }`}
-        label={label}
-        value={value}
-        disabled={disabled}
-        labelProps={{ variant: '$bodyMdMedium' }}
-        containerProps={{ alignItems: 'center' }}
-        labelContainerProps={{ py: '$0', my: '$0', justifyContent: 'center' }}
-        onChange={(checked) => onChange(Boolean(checked))}
-      />
-      {children}
-    </XStack>
-  );
-}
-
-function SettingsColorPicker({
-  testID,
-  value,
-  disabled,
-  onChange,
-}: {
-  testID?: string;
-  value: string;
-  disabled: boolean;
-  onChange: (value: string) => void;
-}) {
-  return (
-    <ColorPicker
-      value={value}
-      colors={TRADING_VIEW_SETTINGS_COLOR_PALETTE}
-      columns={5}
-      triggerSize={32}
-      disabled={disabled}
-      testID={testID}
-      onChange={onChange}
-    />
-  );
-}
-
-function SettingsColorField({
-  label,
-  testID,
-  value,
-  disabled,
-  onChange,
-}: {
-  label?: string;
-  testID?: string;
-  value: string;
-  disabled: boolean;
-  onChange: (value: string) => void;
-}) {
-  return (
-    <XStack gap={label ? '$2' : '$0'} alignItems="center">
-      {label ? (
-        <SizableText size="$bodyMd" color="$textSubdued">
-          {label}
-        </SizableText>
-      ) : null}
-      <SettingsColorPicker
-        testID={testID}
-        value={value}
-        disabled={disabled}
-        onChange={onChange}
-      />
-    </XStack>
-  );
-}
-
-function SettingsLineStylePreview({ style }: { style: 'solid' | 'dashed' }) {
-  if (style === 'solid') {
-    return <XStack width="$8" height={2} bg="$iconSubdued" />;
-  }
-
-  return (
-    <XStack width="$8" gap="$0.5" alignItems="center">
-      {Array.from({ length: 5 }).map((_, index) => (
-        <XStack key={index} width="$1" height={2} bg="$iconSubdued" />
-      ))}
-    </XStack>
-  );
-}
-
 function SettingsColorPair({
   item,
   disabled,
@@ -374,6 +166,8 @@ function SettingsColorPair({
       <XStack
         gap="$4"
         alignItems="center"
+        flexWrap="wrap"
+        flexShrink={1}
         opacity={item.enabled ? 1 : 0.5}
         pointerEvents={item.enabled && !disabled ? 'auto' : 'none'}
       >
@@ -395,126 +189,6 @@ function SettingsColorPair({
         />
       </XStack>
     </SettingsCheckboxRow>
-  );
-}
-
-function SettingsSelect<TValue extends string>({
-  testID,
-  title,
-  value,
-  options,
-  disabled,
-  onChange,
-  showLinePreview = false,
-  renderOption,
-  renderTriggerContent,
-  optionTranslationIds,
-}: {
-  testID: string;
-  title: string;
-  value: TValue;
-  options: readonly TValue[];
-  disabled: boolean;
-  onChange: (value: TValue) => void;
-  showLinePreview?: boolean;
-  renderOption?: (value: TValue) => ReactNode;
-  renderTriggerContent?: (value: TValue) => ReactNode;
-  optionTranslationIds?: Partial<Record<TValue, ETranslations>>;
-}) {
-  const intl = useIntl();
-  const [isOpen, setIsOpen] = useState(false);
-  const { md } = useMedia();
-
-  return (
-    <Popover
-      title={title}
-      showHeader={md}
-      open={disabled ? false : isOpen}
-      onOpenChange={(nextOpen) => {
-        if (!disabled) {
-          setIsOpen(nextOpen);
-        }
-      }}
-      placement="bottom-end"
-      floatingPanelProps={{ width: 240 }}
-      renderTrigger={
-        <XStack
-          testID={`trading-view-settings-select-${testID}`}
-          gap="$1.5"
-          alignItems="center"
-          cursor={disabled ? 'default' : 'pointer'}
-          opacity={disabled ? 0.5 : 1}
-        >
-          {renderTriggerContent
-            ? renderTriggerContent(value)
-            : (renderOption?.(value) ?? (
-                <>
-                  {showLinePreview ? (
-                    <SettingsLineStylePreview
-                      style={value as 'solid' | 'dashed'}
-                    />
-                  ) : null}
-                  <SizableText size="$bodyMd" color="$textSubdued">
-                    {formatOptionLabel(intl, value, optionTranslationIds)}
-                  </SizableText>
-                </>
-              ))}
-          <Icon
-            name={isOpen ? 'ChevronTopSmallOutline' : 'ChevronDownSmallOutline'}
-            size="$4.5"
-            color="$iconSubdued"
-          />
-        </XStack>
-      }
-      renderContent={({ closePopover }) => (
-        <YStack p={md ? '$3' : '$1'} gap={md ? '$1' : '$0.5'}>
-          {options.map((option) => {
-            const selected = value === option;
-            return (
-              <XStack
-                key={option}
-                testID={`trading-view-settings-select-${testID}-${option}`}
-                minHeight={md ? 48 : 36}
-                px={md ? '$2.5' : '$2'}
-                py={md ? '$2.5' : '$1.5'}
-                alignItems="center"
-                justifyContent="space-between"
-                borderRadius="$2"
-                cursor="pointer"
-                hoverStyle={{ bg: '$bgHover' }}
-                pressStyle={{ bg: '$bgActive' }}
-                onPress={() => {
-                  onChange(option);
-                  closePopover();
-                }}
-              >
-                {renderOption ? (
-                  renderOption(option)
-                ) : (
-                  <XStack gap="$2" alignItems="center">
-                    {showLinePreview ? (
-                      <SettingsLineStylePreview
-                        style={option as 'solid' | 'dashed'}
-                      />
-                    ) : null}
-                    <SizableText size="$bodyMd">
-                      {formatOptionLabel(intl, option, optionTranslationIds)}
-                    </SizableText>
-                  </XStack>
-                )}
-                {selected ? (
-                  <Icon
-                    name="CheckLargeOutline"
-                    size="$4"
-                    color="$iconActive"
-                  />
-                ) : null}
-              </XStack>
-            );
-          })}
-        </YStack>
-      )}
-    />
   );
 }
 
@@ -636,72 +310,23 @@ function PriceMovementColorSelector({
   onChange: (priceColorMode: ITradingViewChartSettingsPriceColorMode) => void;
 }) {
   const intl = useIntl();
-  const renderOption = (
-    priceColorMode: ITradingViewChartSettingsPriceColorMode,
-  ) => {
-    const greenUp = priceColorMode === 'greenUpRedDown';
-    return (
-      <XStack gap="$2" alignItems="center">
-        <XStack gap="$0.5" alignItems="center">
-          <Icon
-            name="ArrowTopOutline"
-            size="$4.5"
-            color={greenUp ? '$iconSuccess' : '$iconCritical'}
-          />
-          <Icon
-            name="ArrowBottomOutline"
-            size="$4.5"
-            color={greenUp ? '$iconCritical' : '$iconSuccess'}
-          />
-        </XStack>
-        <SizableText size="$bodyMd">
-          {intl.formatMessage({
-            id: greenUp
-              ? ETranslations.market_chart_settings__green_up_red_down
-              : ETranslations.market_chart_settings__red_up_green_down,
-          })}
-        </SizableText>
-      </XStack>
-    );
-  };
-
-  const renderTriggerContent = (
-    priceColorMode: ITradingViewChartSettingsPriceColorMode,
-  ) => {
-    const greenUp = priceColorMode === 'greenUpRedDown';
-    return (
-      <XStack mr="$2" gap="$0.5" alignItems="center">
-        <Icon
-          name="ArrowTopOutline"
-          size="$4.5"
-          color={greenUp ? '$iconSuccess' : '$iconCritical'}
-        />
-        <Icon
-          name="ArrowBottomOutline"
-          size="$4.5"
-          color={greenUp ? '$iconCritical' : '$iconSuccess'}
-        />
-      </XStack>
-    );
-  };
-
   return (
     <SettingsSelect
       testID="price-change-colors"
+      width={176}
       title={intl.formatMessage({
         id: ETranslations.market_chart_settings__price_change_colors,
       })}
       value={value.priceColorMode}
-      options={['greenUpRedDown', 'redUpGreenDown']}
+      options={PRICE_COLOR_MODE_OPTIONS}
       disabled={disabled}
-      renderOption={renderOption}
-      renderTriggerContent={renderTriggerContent}
       onChange={onChange}
     />
   );
 }
 
 export type ITradingViewChartSettingsProps = {
+  dialogRef?: ITradingViewSettingsDialogRef;
   /** Use value for controlled committed state, or defaultValue for local state. */
   value?: ITradingViewChartSettingsValue;
   defaultValue?: ITradingViewChartSettingsValue;
@@ -729,6 +354,7 @@ export type ITradingViewChartSettingsProps = {
 };
 
 export function TradingViewChartSettings({
+  dialogRef,
   value,
   defaultValue,
   isSubmitting = false,
@@ -746,8 +372,6 @@ export function TradingViewChartSettings({
 }: ITradingViewChartSettingsProps) {
   const intl = useIntl();
   const { md } = useMedia();
-  const { height: windowHeight } = useWindowDimensions();
-  const dialogHeight = Math.min(600, Math.max(windowHeight - 32, 420));
   const [
     settingsValue,
     updateSettingsValue,
@@ -998,8 +622,8 @@ export function TradingViewChartSettings({
               <XStack
                 gap="$3"
                 alignItems="center"
-                justifyContent="flex-end"
                 flexWrap="wrap"
+                flexShrink={1}
                 opacity={settingsValue.options.latestPrice ? 1 : 0.5}
               >
                 <SettingsSelect
@@ -1008,7 +632,7 @@ export function TradingViewChartSettings({
                     id: ETranslations.market_chart_settings__line_style,
                   })}
                   value={settingsValue.latestPriceLine.style}
-                  options={['solid', 'dashed']}
+                  options={LINE_STYLE_OPTIONS}
                   disabled={
                     submitInProgress || !settingsValue.options.latestPrice
                   }
@@ -1054,7 +678,9 @@ export function TradingViewChartSettings({
           ) : null}
           {isOptionVisible('previousClose') ? (
             <SettingsCheckboxRow
-              label={TRADING_VIEW_PREVIOUS_CLOSE_LABEL}
+              label={intl.formatMessage({
+                id: ETranslations.market_prev_close,
+              })}
               testID="previous-close"
               value={settingsValue.options.previousClose}
               disabled={submitInProgress}
@@ -1133,12 +759,9 @@ export function TradingViewChartSettings({
                 id: ETranslations.market_chart_settings__background_style,
               })}
               value={settingsValue.background.style}
-              options={['solid', 'gradient']}
+              options={BACKGROUND_STYLE_OPTIONS}
               disabled={submitInProgress}
-              optionTranslationIds={{
-                solid: ETranslations.market_chart_settings__solid_color,
-                gradient: ETranslations.market_chart_settings__gradient,
-              }}
+              optionTranslationIds={BACKGROUND_STYLE_TRANSLATION_IDS}
               onChange={(style) => {
                 updateSettingsValue((currentValue) => ({
                   ...currentValue,
@@ -1190,11 +813,12 @@ export function TradingViewChartSettings({
           <XStack gap="$3" alignItems="center">
             <SettingsSelect
               testID="grid-lines"
+              width={176}
               title={intl.formatMessage({
                 id: ETranslations.market_chart_settings__grid_lines,
               })}
               value={settingsValue.grid.style}
-              options={['both', 'horizontal', 'vertical', 'none']}
+              options={GRID_STYLE_OPTIONS}
               disabled={submitInProgress}
               onChange={(style) => {
                 updateSettingsValue((currentValue) => ({
@@ -1254,6 +878,8 @@ export function TradingViewChartSettings({
             <XStack
               gap="$3"
               alignItems="center"
+              flexWrap="wrap"
+              flexShrink={1}
               opacity={settingsValue.options.crossLine ? 1 : 0.5}
             >
               <SettingsSelect
@@ -1262,7 +888,7 @@ export function TradingViewChartSettings({
                   id: ETranslations.market_chart_settings__crosshair_line_style,
                 })}
                 value={settingsValue.crossLine.style}
-                options={['solid', 'dashed']}
+                options={LINE_STYLE_OPTIONS}
                 disabled={submitInProgress || !settingsValue.options.crossLine}
                 showLinePreview
                 onChange={(style) => {
@@ -1318,8 +944,7 @@ export function TradingViewChartSettings({
     <Button
       testID="trading-view-settings-mock-reset"
       size="medium"
-      icon="RotateCounterclockwiseOutline"
-      variant="tertiary"
+      variant="secondary"
       disabled={submitInProgress}
       onPress={handleReset}
     >
@@ -1327,7 +952,7 @@ export function TradingViewChartSettings({
     </Button>
   );
 
-  const settingsBody = (
+  const renderSettingsBody = (footer?: ReactNode) => (
     <XStack flex={1} minHeight={0} flexDirection={md ? 'column' : 'row'}>
       {md ? (
         <ChartSettingsNavigation
@@ -1339,7 +964,9 @@ export function TradingViewChartSettings({
         />
       ) : (
         <YStack
+          testID="trading-view-chart-settings-sidebar"
           width={192}
+          height="100%"
           flexShrink={0}
           px="$3"
           py="$4"
@@ -1357,15 +984,18 @@ export function TradingViewChartSettings({
         </YStack>
       )}
 
-      <ScrollView
-        flex={1}
-        minHeight={0}
-        contentContainerStyle={{
-          pb: '$5',
-        }}
-      >
-        {renderSettingsContent()}
-      </ScrollView>
+      <YStack flex={1} minWidth={0} minHeight={0}>
+        <ScrollView
+          flex={1}
+          minHeight={0}
+          contentContainerStyle={{
+            pb: '$5',
+          }}
+        >
+          {renderSettingsContent()}
+        </ScrollView>
+        {footer}
+      </YStack>
     </XStack>
   );
 
@@ -1396,10 +1026,7 @@ export function TradingViewChartSettings({
       <>
         <Page.Footer>
           <Page.FooterActions
-            onCancel={(close) => {
-              handleCancel();
-              close({ flag: 'cancel' });
-            }}
+            cancelButton={resetButton}
             onConfirm={(close) => {
               void handleConfirm().then((confirmed) => {
                 if (confirmed) {
@@ -1407,15 +1034,10 @@ export function TradingViewChartSettings({
                 }
               });
             }}
-            cancelButtonProps={{
-              disabled: submitInProgress,
-            }}
             confirmButtonProps={{
               disabled: submitInProgress,
             }}
-          >
-            {resetButton}
-          </Page.FooterActions>
+          />
         </Page.Footer>
         <XStack
           testID="trading-view-chart-settings-dialog"
@@ -1423,84 +1045,43 @@ export function TradingViewChartSettings({
           flex={1}
           minHeight={0}
         >
-          {settingsBody}
+          {renderSettingsBody()}
         </XStack>
       </>
     );
   }
 
   return (
-    <YStack
+    <TradingViewSettingsDialog
+      dialogRef={dialogRef}
       testID="trading-view-chart-settings-dialog"
-      width="100%"
-      maxWidth={640}
-      height={dialogHeight}
-      maxHeight="100%"
-      overflow="hidden"
-      borderWidth={md ? 0 : '$px'}
-      borderColor="$borderSubdued"
-      borderRadius={md ? 0 : '$5'}
-      borderCurve="continuous"
-      bg="$bgApp"
+      testIDPrefix="trading-view-settings"
+      title={intl.formatMessage({ id: ETranslations.market_chart_settings })}
+      isSubmitting={submitInProgress}
+      onReset={handleReset}
+      onCancel={handleCancel}
+      onClose={handleClose}
+      onConfirm={handleConfirm}
     >
-      <XStack
-        minHeight={64}
-        px="$6"
-        alignItems="center"
-        justifyContent="space-between"
-      >
-        <SizableText size="$headingLg">
-          {intl.formatMessage({
-            id: ETranslations.market_chart_settings,
-          })}
-        </SizableText>
-        <IconButton
-          testID="trading-view-settings-close"
-          title={intl.formatMessage({ id: ETranslations.global_cancel })}
-          icon="CrossedSmallOutline"
-          variant="tertiary"
-          disabled={submitInProgress}
-          onPress={handleClose}
-        />
-      </XStack>
-
-      {settingsBody}
-      <XStack
-        minHeight={72}
-        px="$6"
-        py="$3"
-        gap="$3"
-        alignItems="center"
-        justifyContent="space-between"
-        bg="$bgApp"
-      >
-        {resetButton}
-        <XStack gap="$3">
-          <Button
-            testID="trading-view-settings-mock-cancel"
-            size="medium"
-            variant="secondary"
-            disabled={submitInProgress}
-            onPress={handleCancel}
-          >
-            {intl.formatMessage({ id: ETranslations.global_cancel })}
-          </Button>
-          <Button
-            testID="trading-view-settings-mock-confirm"
-            size="medium"
-            variant="primary"
-            loading={submitInProgress}
-            disabled={submitInProgress}
-            onPress={() => void handleConfirm()}
-          >
-            {intl.formatMessage({ id: ETranslations.global_confirm })}
-          </Button>
-        </XStack>
-      </XStack>
-    </YStack>
+      {renderSettingsBody}
+    </TradingViewSettingsDialog>
   );
 }
 
 export function TradingViewChartSettingsMockGallery() {
-  return <TradingViewChartSettings />;
+  const intl = useIntl();
+  return (
+    <Button
+      testID="trading-view-chart-settings-gallery-trigger"
+      onPress={() =>
+        Dialog.show({
+          dialogContainer: ({ ref }) => (
+            <TradingViewChartSettings dialogRef={ref} />
+          ),
+        })
+      }
+    >
+      {intl.formatMessage({ id: ETranslations.market_chart_settings })}
+    </Button>
+  );
 }

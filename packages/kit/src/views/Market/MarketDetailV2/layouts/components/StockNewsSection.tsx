@@ -148,18 +148,26 @@ export function StockNewsSection() {
 
   const handleShowMore = useCallback(() => {
     Dialog.show({
-      title: 'News',
+      title: intl.formatMessage({ id: ETranslations.market_stock_news }),
       renderContent: <StockNewsListDialogContent items={allNews} />,
       showFooter: false,
       disableDrag: true,
       floatingPanelProps: NEWS_DIALOG_FLOATING_PANEL_PROPS,
     });
-  }, [allNews]);
+  }, [allNews, intl]);
+
+  // A stock with no headlines hides the section; a failed request keeps it so
+  // the reader can retry.
+  if (!isLoading && result.status === 'success' && allNews.length === 0) {
+    return null;
+  }
 
   return (
     <YStack testID="stock-detail-news" px={STOCK_DETAIL_HORIZONTAL_GUTTER}>
       <YStack py="$8" gap="$4">
-        <SizableText size="$headingXl">News</SizableText>
+        <SizableText size="$headingXl">
+          {intl.formatMessage({ id: ETranslations.market_stock_news })}
+        </SizableText>
         {isLoading && news.length === 0
           ? Array.from({ length: 3 }).map((_, index) => (
               <Skeleton key={index} width="100%" height={96} />
@@ -187,13 +195,6 @@ export function StockNewsSection() {
             </Button>
           </YStack>
         ) : null}
-        {!isLoading && result.status === 'success' && news.length === 0 ? (
-          <YStack height={336} alignItems="center" justifyContent="center">
-            <SizableText color="$textSubdued">
-              {intl.formatMessage({ id: ETranslations.global_no_data })}
-            </SizableText>
-          </YStack>
-        ) : null}
         {news.map((item) => (
           <StockNewsRow key={item.id} item={item} />
         ))}
@@ -205,7 +206,7 @@ export function StockNewsSection() {
             alignSelf="flex-start"
             onPress={handleShowMore}
           >
-            Show more
+            {intl.formatMessage({ id: ETranslations.global_show_more })}
           </Button>
         ) : null}
       </YStack>

@@ -2,10 +2,12 @@ import { Fragment, memo, useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Empty, Tabs, YStack, useMedia } from '@onekeyhq/components';
+import { Empty, YStack, useMedia } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IMarketAccountPortfolioDisplayItem } from '@onekeyhq/shared/types/marketV2';
+
+import { MarketDetailList } from '../../layout/MarketDetailScroll';
 
 import { PortfolioSkeleton } from './components/PortfolioSkeleton';
 import { PortfolioHeaderNormal } from './layout/PortfolioHeaderNormal';
@@ -25,9 +27,13 @@ interface IPortfolioProps {
   hasAccount?: boolean;
   portfolioData: IMarketAccountPortfolioDisplayItem[];
   isRefreshing?: boolean;
+  // True until the page knows whether the asset has a position (account still
+  // loading, or the first request for it not back yet).
+  isPending?: boolean;
   tokenLogoUrl?: string;
   scrollEnabled?: boolean;
   standalone?: boolean;
+  onItemPress?: (item: IMarketAccountPortfolioDisplayItem) => void;
 }
 
 function PortfolioBase({
@@ -35,13 +41,14 @@ function PortfolioBase({
   hasAccount,
   portfolioData,
   isRefreshing,
+  isPending = false,
   tokenLogoUrl,
   scrollEnabled = true,
   standalone = false,
+  onItemPress,
 }: IPortfolioProps) {
   const intl = useIntl();
-  const { gtLg, gtXl } = useMedia();
-  const columnWidth = gtXl ? 240 : 130;
+  const { gtLg } = useMedia();
   const canShowPortfolio = hasAccount ?? Boolean(accountAddress);
 
   const renderPortfolioItem = useCallback(
@@ -50,13 +57,13 @@ function PortfolioBase({
         <PortfolioItemNormal
           item={item}
           tokenLogoUrl={tokenLogoUrl}
-          columnWidth={columnWidth}
+          onPress={onItemPress}
         />
       ) : (
-        <PortfolioItemSmall item={item} />
+        <PortfolioItemSmall item={item} onPress={onItemPress} />
       );
     },
-    [columnWidth, gtLg, tokenLogoUrl],
+    [gtLg, onItemPress, tokenLogoUrl],
   );
 
   const renderItem: FlatListProps<IMarketAccountPortfolioDisplayItem>['renderItem'] =
@@ -71,7 +78,7 @@ function PortfolioBase({
   );
 
   const emptyContent =
-    canShowPortfolio && isRefreshing ? (
+    isPending || (canShowPortfolio && isRefreshing) ? (
       <PortfolioSkeleton />
     ) : (
       <Empty
@@ -100,7 +107,8 @@ function PortfolioBase({
   }
 
   return (
-    <Tabs.FlatList<IMarketAccountPortfolioDisplayItem>
+    <MarketDetailList<IMarketAccountPortfolioDisplayItem>
+      testID="market-detail-portfolio-list"
       showsVerticalScrollIndicator={false}
       scrollEnabled={scrollEnabled}
       data={data}

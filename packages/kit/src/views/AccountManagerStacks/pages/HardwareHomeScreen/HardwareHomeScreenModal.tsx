@@ -811,7 +811,14 @@ export default function HardwareHomeScreenModal({
           loading: isUploadLoading,
           testID: 'hardware-wallpaper-apply-button',
         }}
-        onConfirm={async (_close) => {
+        onConfirm={async (close) => {
+          const applyStartedAt = Date.now();
+          const isProtocolV2Wallpaper = isProtocolV2ProductType(
+            device?.deviceType,
+          );
+          let isCustomScreen = false;
+          let hardwareCallStartedAt: number | undefined;
+          let hardwareCallMs: number | undefined;
           try {
             if (!device?.id || !selectedItem) {
               return;
@@ -827,7 +834,7 @@ export default function HardwareHomeScreenModal({
               isUserUpload,
             } = selectedItem;
 
-            const isCustomScreen = resType === 'custom' || isUserUpload;
+            isCustomScreen = resType === 'custom' || !!isUserUpload;
 
             let buildCustomHexError: string | undefined = '';
 
@@ -885,6 +892,7 @@ export default function HardwareHomeScreenModal({
               throw new OneKeyLocalError(buildCustomHexError);
             }
 
+            hardwareCallStartedAt = Date.now();
             const response =
               await backgroundApiProxy.serviceHardware.setDeviceHomeScreen({
                 dbDeviceId: device?.id,
@@ -896,7 +904,10 @@ export default function HardwareHomeScreenModal({
                   blurScreenHex: finallyBlurScreenHex,
                 },
               });
-            // setSelectedItem(undefined);
+            hardwareCallMs = Date.now() - hardwareCallStartedAt;
+            if (device.deviceType !== EDeviceType.Pro) {
+              close();
+            }
             Toast.success({
               title: intl.formatMessage({
                 id: ETranslations.hardware_wallpaper_add_success,
@@ -907,9 +918,47 @@ export default function HardwareHomeScreenModal({
                     id: ETranslations.hardware_wallpaper_add_success_information,
                   }),
             });
-            // Do not close the current page, let the user switch wallpapers and preview them on the device
-            // close();
+            if (isProtocolV2Wallpaper) {
+              defaultLogger.hardware.homescreen.wallpaperApply({
+                deviceType: device.deviceType,
+                isCustomScreen,
+                status: 'success',
+                totalDurationMs: Date.now() - applyStartedAt,
+                hardwareCallMs,
+                uploadSizeBytes:
+                  'size' in response && typeof response.size === 'number'
+                    ? response.size
+                    : undefined,
+              });
+            }
           } catch (error) {
+            if (isProtocolV2Wallpaper && device?.id && selectedItem) {
+              if (
+                hardwareCallStartedAt !== undefined &&
+                hardwareCallMs === undefined
+              ) {
+                hardwareCallMs = Date.now() - hardwareCallStartedAt;
+              }
+              const errorValue = error as {
+                code?: unknown;
+                errorCode?: unknown;
+              };
+              const code = errorValue?.code ?? errorValue?.errorCode;
+              const errorCode =
+                typeof code === 'string' || typeof code === 'number'
+                  ? String(code)
+                  : undefined;
+              const errorName = error instanceof Error ? error.name : undefined;
+              defaultLogger.hardware.homescreen.wallpaperApply({
+                deviceType: device.deviceType,
+                isCustomScreen,
+                status: 'failed',
+                totalDurationMs: Date.now() - applyStartedAt,
+                hardwareCallMs,
+                errorCode,
+                errorName,
+              });
+            }
             errorToastUtils.toastIfError(error);
             throw error;
           } finally {

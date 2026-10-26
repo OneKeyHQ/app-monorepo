@@ -1,4 +1,4 @@
-import { DefaultTheme } from '@react-navigation/native';
+import { DarkTheme, DefaultTheme } from '@react-navigation/native';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -15,5 +15,16 @@ export const TransparentModalTheme = {
       ? DefaultTheme.colors.background
       : 'transparent',
     card: hasNativeHeaderView ? DefaultTheme.colors.card : 'transparent',
+  },
+};
+
+export const TransparentDarkModalTheme = {
+  ...DarkTheme,
+  colors: {
+    ...DarkTheme.colors,
+    background: hasNativeHeaderView
+      ? DarkTheme.colors.background
+      : 'transparent',
+    card: hasNativeHeaderView ? DarkTheme.colors.card : 'transparent',
   },
 };

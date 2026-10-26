@@ -1,4 +1,5 @@
 /** @jest-environment jsdom */
+// cspell:ignore robinhood
 
 import { renderHook } from '@testing-library/react';
 
@@ -29,7 +30,7 @@ jest.mock('@onekeyhq/kit/src/hooks/usePromiseResult', () => ({
     mockUsePromiseResult(...args),
 }));
 
-const { useSpeedSwapInit } =
+const { ESpeedSwapConfigScope, useSpeedSwapInit } =
   jest.requireActual<typeof import('./useSpeedSwapInit')>('./useSpeedSwapInit');
 
 const cachedConfig: ISpeedSwapConfig = {
@@ -78,12 +79,36 @@ const missingSupportConfig: ISpeedSwapConfig = {
   supportSpeedSwap: undefined,
 };
 
+const robinhoodEthLogoURI =
+  'https://uni.onekey-asset.com/server-service-indexer/evm--4663/tokens/address--1785395959075.png';
+const robinhoodWrongLogoURI =
+  'https://uni-test.onekey-asset.com/dashboard/logo/upload_1782996301845.0.5226359915426765.0.png';
+const robinhoodEthToken = {
+  networkId: 'evm--4663',
+  contractAddress: '',
+  symbol: 'ETH',
+  decimals: 18,
+  isNative: true,
+  logoURI: robinhoodWrongLogoURI,
+};
+const robinhoodConfig: ISpeedSwapConfig = {
+  ...cachedConfig,
+  speedConfig: {
+    ...cachedConfig.speedConfig,
+    defaultTokens: [robinhoodEthToken],
+  },
+  speedDefaultSelectToken: robinhoodEthToken,
+};
+
 describe('useSpeedSwapInit cold display config', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     swrCacheUtils.remove(swrKeys.swapStockSpeedConfig({ networkId: 'evm--1' }));
     swrCacheUtils.remove(
       swrKeys.swapStockSpeedConfig({ networkId: 'evm--56' }),
+    );
+    swrCacheUtils.remove(
+      swrKeys.swapStockSpeedConfig({ networkId: 'evm--4663' }),
     );
     mockUsePromiseResult.mockReturnValue({
       result: {
@@ -105,6 +130,80 @@ describe('useSpeedSwapInit cold display config', () => {
       expect.objectContaining({
         swrKey: 'swapStockSpeedConfig:v1:evm--1',
       }),
+    );
+  });
+
+  it('preserves native candidates and their order for shared consumers', () => {
+    const nativeToken = {
+      networkId: 'evm--1',
+      contractAddress: '',
+      symbol: 'ETH',
+      decimals: 18,
+      isNative: true,
+    };
+    const stableToken = cachedConfig.speedConfig.defaultTokens[0];
+    const config = {
+      ...cachedConfig,
+      speedConfig: {
+        ...cachedConfig.speedConfig,
+        defaultTokens: [nativeToken, stableToken],
+      },
+    };
+    mockUsePromiseResult.mockReturnValue({
+      result: { config, scope: 'evm--1' },
+      isLoading: false,
+    });
+    const { result } = renderHook(() => useSpeedSwapInit('evm--1', true));
+    expect(result.current.defaultTokens).toEqual([nativeToken, stableToken]);
+    expect(result.current.speedConfig.defaultTokens).toBe(
+      config.speedConfig.defaultTokens,
+    );
+  });
+
+  it('preserves the local native fallback before configuration arrives', () => {
+    mockUsePromiseResult.mockReturnValue({
+      result: undefined,
+      isLoading: true,
+    });
+    const { result } = renderHook(() => useSpeedSwapInit('evm--1', true));
+    expect(result.current.defaultTokens.map((token) => token.symbol)).toEqual([
+      'ETH',
+      'USDC',
+    ]);
+  });
+
+  it('normalizes cached Robinhood ETH metadata before the first render', () => {
+    mockUsePromiseResult.mockReturnValue({
+      result: {
+        config: robinhoodConfig,
+        scope: 'evm--4663',
+        fromCache: true,
+      },
+      isLoading: true,
+    });
+
+    const { result } = renderHook(() => useSpeedSwapInit('evm--4663'));
+
+    expect(result.current.defaultTokens[0]?.logoURI).toBe(robinhoodEthLogoURI);
+    expect(result.current.speedDefaultSelectToken?.logoURI).toBe(
+      robinhoodEthLogoURI,
+    );
+  });
+
+  it('normalizes fresh Robinhood ETH metadata before persisting it', async () => {
+    mockFetchSpeedSwapConfig.mockResolvedValueOnce(robinhoodConfig);
+    renderHook(() => useSpeedSwapInit('evm--4663'));
+
+    const request = mockUsePromiseResult.mock.calls[0]?.[0] as () => Promise<{
+      config: ISpeedSwapConfig;
+    }>;
+    const freshResult = await request();
+
+    expect(freshResult.config.speedConfig.defaultTokens[0]?.logoURI).toBe(
+      robinhoodEthLogoURI,
+    );
+    expect(freshResult.config.speedDefaultSelectToken?.logoURI).toBe(
+      robinhoodEthLogoURI,
     );
   });
 
@@ -242,5 +341,51 @@ describe('useSpeedSwapInit cold display config', () => {
     );
     expect(disabledResult.scope).toBe('evm--1');
     expect(options.swrShouldPersist(disabledResult)).toBe(true);
+  });
+
+  it('filters only Market candidates without modifying the shared config', () => {
+    const native = { ...robinhoodEthToken, networkId: 'evm--1' };
+    const configured = cachedConfig.speedConfig.defaultTokens[0];
+    const config = {
+      ...cachedConfig,
+      speedConfig: {
+        ...cachedConfig.speedConfig,
+        defaultTokens: [native, configured],
+        defaultLimitTokens: [native],
+      },
+    };
+    mockUsePromiseResult.mockReturnValue({
+      result: { config, scope: 'evm--1' },
+      isLoading: false,
+    });
+    const { result, rerender } = renderHook(
+      (scopes) => useSpeedSwapInit('evm--1', true, scopes),
+      { initialProps: ESpeedSwapConfigScope.MARKET },
+    );
+    expect(result.current.defaultTokens).toEqual([configured]);
+    expect(result.current.defaultTokens).toBe(
+      result.current.speedConfig.defaultTokens,
+    );
+    expect(result.current.defaultTokens).toBe(
+      result.current.speedSwapConfig.speedConfig.defaultTokens,
+    );
+    expect(result.current.defaultLimitTokens).toBe(
+      config.speedConfig.defaultLimitTokens,
+    );
+    expect(config.speedConfig.defaultTokens).toEqual([native, configured]);
+    rerender(ESpeedSwapConfigScope.DEFAULT);
+    expect(result.current.defaultTokens).toBe(config.speedConfig.defaultTokens);
+  });
+
+  it('keeps a native-only Market pool empty after normalization', () => {
+    mockUsePromiseResult.mockReturnValue({
+      result: { config: robinhoodConfig, scope: 'evm--4663' },
+      isLoading: false,
+    });
+    const { result } = renderHook(() =>
+      useSpeedSwapInit('evm--4663', true, ESpeedSwapConfigScope.MARKET),
+    );
+    expect(result.current.defaultTokens).toEqual([]);
+    expect(result.current.speedDefaultSelectToken?.isNative).toBe(true);
   });
 });

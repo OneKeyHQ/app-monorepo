@@ -7,7 +7,9 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import { usePerpsAllAssetCtxsAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
 import {
+  usePerpsActiveAssetCtxAtom,
   usePerpsFooterTickerModePersistAtom,
+  useSpotActiveAssetCtxAtom,
   useSpotAssetCtxsMapAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { toCtxIndex } from '@onekeyhq/shared/src/utils/perpsDexUtils';
@@ -20,12 +22,41 @@ import { usePopularTickers } from '../../hooks/usePopularTickers';
 
 import { FooterTickerMarquee } from './FooterTickerMarquee.web';
 import { FooterTickerSettings } from './FooterTickerSettings';
+import { applyActiveCtxToFooterTickerItems } from './footerTickerUtils';
 
 import type { IFooterTickerItemData } from './footerTickerUtils';
 
+// Overlay the active coin with the same per-asset ctx the ticker bar renders.
+function useFooterTickerItemsWithActiveCtx(items: IFooterTickerItemData[]) {
+  const [perpActiveCtx] = usePerpsActiveAssetCtxAtom();
+  const [spotActiveCtx] = useSpotActiveAssetCtxAtom();
+  return useMemo(
+    () =>
+      applyActiveCtxToFooterTickerItems(items, [
+        perpActiveCtx
+          ? {
+              coin: perpActiveCtx.coin,
+              mode: 'perp',
+              markPrice: perpActiveCtx.ctx?.markPrice,
+              change24hPercent: perpActiveCtx.ctx?.change24hPercent,
+            }
+          : undefined,
+        spotActiveCtx
+          ? {
+              coin: spotActiveCtx.coin,
+              mode: 'spot',
+              markPrice: spotActiveCtx.ctx?.markPrice,
+              change24hPercent: spotActiveCtx.ctx?.change24hPercent,
+            }
+          : undefined,
+      ]),
+    [items, perpActiveCtx, spotActiveCtx],
+  );
+}
+
 // Ticker list for Popular mode
 const PopularTickerList = memo(() => {
-  const popularTickers = usePopularTickers();
+  const popularTickers = useFooterTickerItemsWithActiveCtx(usePopularTickers());
   const actions = useHyperliquidActions();
   const handleItemPress = useCallback(
     (item: IFooterTickerItemData) => {
@@ -55,7 +86,7 @@ const FavoritesTickerList = memo(() => {
   const [allAssetCtxs] = usePerpsAllAssetCtxsAtom();
   const [spotPriceMap] = useSpotAssetCtxsMapAtom();
   const actions = useHyperliquidActions();
-  const tickerItems = useMemo<IFooterTickerItemData[]>(
+  const snapshotItems = useMemo<IFooterTickerItemData[]>(
     () =>
       favoriteItems.map((item) => {
         const displayCtx =
@@ -74,6 +105,7 @@ const FavoritesTickerList = memo(() => {
       }),
     [allAssetCtxs.assetCtxsByDex, favoriteItems, spotPriceMap],
   );
+  const tickerItems = useFooterTickerItemsWithActiveCtx(snapshotItems);
   const handleItemPress = useCallback(
     (item: IFooterTickerItemData) => {
       void actions.current.switchTradeInstrument({

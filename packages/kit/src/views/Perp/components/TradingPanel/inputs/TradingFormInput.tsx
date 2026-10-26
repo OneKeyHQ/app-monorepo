@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo } from 'react';
+import { memo, useCallback, useMemo, useState } from 'react';
 import type { ReactNode, Ref } from 'react';
 
 import { useIntl } from 'react-intl';
@@ -6,6 +6,7 @@ import { InputAccessoryView, Keyboard } from 'react-native';
 
 import {
   Button,
+  DashText,
   Icon,
   Input,
   SizableText,
@@ -14,6 +15,7 @@ import {
   useIsKeyboardShown,
 } from '@onekeyhq/components';
 import type { IInputRef } from '@onekeyhq/components';
+import { BRAND_FONT_NATIVE_FAMILY } from '@onekeyhq/components/src/hocs/Provider/fonts/brandFont';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
@@ -77,6 +79,8 @@ interface ITradingFormInputProps {
   onChange: (value: string) => void;
   label: string;
   placeholder?: string;
+  labelTooltip?: string;
+  labelSuffix?: string;
   disabled?: boolean;
   onFocus?: () => void;
   error?: string;
@@ -100,6 +104,8 @@ export const TradingFormInput = memo(
     value,
     onChange,
     label,
+    labelTooltip,
+    labelSuffix,
     placeholder,
     disabled = false,
     onFocus,
@@ -116,6 +122,12 @@ export const TradingFormInput = memo(
     inputAccessoryAction,
     inputRef,
   }: ITradingFormInputProps) => {
+    const [isFocused, setIsFocused] = useState(false);
+    const handleFocus = useCallback(() => {
+      if (ifOnDialog) setIsFocused(true);
+      onFocus?.();
+    }, [ifOnDialog, onFocus]);
+    const handleBlur = useCallback(() => setIsFocused(false), []);
     const accessoryId = useMemo(() => `trading-input-${generateUUID()}`, []);
 
     const shouldShowAccessory = useMemo(
@@ -187,14 +199,41 @@ export const TradingFormInput = memo(
 
       return addOns.length > 0 ? addOns : undefined;
     };
+    const tooltipLabel = labelTooltip ? (
+      <XStack alignItems="center" gap="$1">
+        <DashText
+          size={isMobile ? '$bodySm' : '$bodyMd'}
+          color="$textSubdued"
+          dashColor="$textDisabled"
+          dashOverlay
+          tooltip={labelTooltip}
+          tooltipTitle={label}
+          tooltipDisplayMode={isMobile ? 'popover' : 'tooltip'}
+          tooltipPlacement="bottom-start"
+        >
+          {label}
+        </DashText>
+        {labelSuffix ? (
+          <SizableText
+            size={isMobile ? '$bodySm' : '$bodyMd'}
+            color="$textSubdued"
+          >
+            {labelSuffix}
+          </SizableText>
+        ) : null}
+      </XStack>
+    ) : null;
+
     if (isMobile) {
-      return (
+      const input = (
         <YStack
           gap="$3"
-          bg={ifOnDialog ? '$bgApp' : '$bgSubdued'}
-          borderRadius="$2"
+          bg={ifOnDialog ? '$bgStrong' : '$bgSubdued'}
+          borderRadius={ifOnDialog ? '$3' : '$2'}
           borderWidth="$px"
-          borderColor={ifOnDialog ? '$borderSubdued' : '$transparent'}
+          borderColor={
+            ifOnDialog && isFocused && !disabled ? '$border' : '$transparent'
+          }
           px="$3"
           focusStyle={
             ifOnDialog || disabled
@@ -212,7 +251,8 @@ export const TradingFormInput = memo(
             size="small"
             value={value}
             onChangeText={handleInputChange}
-            onFocus={onFocus}
+            onFocus={handleFocus}
+            onBlur={handleBlur}
             placeholder={placeholder}
             keyboardType={keyboardType}
             disabled={disabled}
@@ -230,7 +270,7 @@ export const TradingFormInput = memo(
               ...(!ifOnDialog
                 ? {
                     fontFamily: platformEnv.isNative
-                      ? 'Roobert-Regular'
+                      ? BRAND_FONT_NATIVE_FAMILY.regular
                       : undefined,
                     fontSize: 14,
                     fontWeight: '500' as const,
@@ -268,11 +308,19 @@ export const TradingFormInput = memo(
           ) : null}
         </YStack>
       );
+      return tooltipLabel ? (
+        <YStack gap="$1.5">
+          {tooltipLabel}
+          {input}
+        </YStack>
+      ) : (
+        input
+      );
     }
     return (
       <YStack
-        bg={ifOnDialog ? '$bgApp' : '$bgStrong'}
-        borderRadius="$2"
+        bg="$bgStrong"
+        borderRadius={ifOnDialog ? '$3' : '$2'}
         py="$1"
         pl="$1"
         pr="$2.5"
@@ -284,7 +332,9 @@ export const TradingFormInput = memo(
               }
         }
         borderWidth="$px"
-        borderColor={ifOnDialog ? '$border' : '$transparent'}
+        borderColor={
+          ifOnDialog && isFocused && !disabled ? '$border' : '$transparent'
+        }
       >
         <YStack>
           <Input
@@ -295,22 +345,26 @@ export const TradingFormInput = memo(
             textAlign="right"
             leftAddOnProps={{
               renderContent: (
-                <XStack alignItems="center" justifyContent="center">
-                  <SizableText size="$bodyMd" color="$textSubdued" mr="$2">
-                    {label}
-                  </SizableText>
+                <XStack alignItems="center" justifyContent="center" mr="$2">
+                  {tooltipLabel ?? (
+                    <SizableText size="$bodyMd" color="$textSubdued">
+                      {label}
+                      {labelSuffix ? ` ${labelSuffix}` : null}
+                    </SizableText>
+                  )}
                 </XStack>
               ),
             }}
             value={value}
             onChangeText={handleInputChange}
-            onFocus={onFocus}
+            onFocus={handleFocus}
+            onBlur={handleBlur}
             disabled={disabled}
             keyboardType={keyboardType}
             size="small"
             containerProps={{
               bg: 'transparent',
-              borderRadius: '$2',
+              borderRadius: ifOnDialog ? '$3' : '$2',
               borderWidth: '$0',
             }}
             addOns={renderAddOns()}

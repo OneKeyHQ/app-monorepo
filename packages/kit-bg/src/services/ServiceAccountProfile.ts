@@ -14,6 +14,7 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { mergeCexSupportedInfo } from '@onekeyhq/shared/src/utils/cexDepositSupportUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { promiseAllSettledEnhanced } from '@onekeyhq/shared/src/utils/promiseUtils';
+import { parseTronAccountResources } from '@onekeyhq/shared/src/utils/tronResourceUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import { ERequestWalletTypeEnum } from '@onekeyhq/shared/types/account';
 import type {
@@ -37,6 +38,10 @@ import type {
   IProxyResponse,
   IRpcProxyResponse,
 } from '@onekeyhq/shared/types/proxy';
+import type {
+  ITronAccountResources,
+  ITronAccountResourcesRaw,
+} from '@onekeyhq/shared/types/tron';
 import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
 
 import simpleDb from '../dbs/simple/simpleDb';
@@ -49,7 +54,7 @@ import { mergeClaimedUtxos } from '../vaults/impls/btc/sdkBtc/findAddressUtils';
 
 import ServiceBase from './ServiceBase';
 
-import type { IDBUtxoAccount } from '../dbs/local/types';
+import type { IDBAccount, IDBUtxoAccount } from '../dbs/local/types';
 import type BTCVault from '../vaults/impls/btc/Vault';
 
 type IAccountBadgeResult = {
@@ -433,6 +438,7 @@ class ServiceAccountProfile extends ServiceBase {
     checkAddressContract,
     tokenAddress,
     result,
+    pendingBadges,
   }: {
     accountId?: string;
     fromAddress?: string;
@@ -442,14 +448,18 @@ class ServiceAccountProfile extends ServiceBase {
     toAddress: string;
     tokenAddress?: string;
     result: IAddressQueryResult;
+    // A /badges request already in flight for this address; when given,
+    // it is awaited instead of issuing a new one.
+    pendingBadges?: Promise<IAccountBadgeResult>;
   }): Promise<void> {
-    const merged = await this.fetchBadgesDeduped({
-      networkId,
-      accountId,
-      toAddress,
-      checkInteractionStatus,
-      tokenAddress,
-    });
+    const merged = await (pendingBadges ??
+      this.fetchBadgesDeduped({
+        networkId,
+        accountId,
+        toAddress,
+        checkInteractionStatus,
+        tokenAddress,
+      }));
 
     const {
       isContract,
@@ -531,6 +541,7 @@ class ServiceAccountProfile extends ServiceBase {
       input: rawAddress,
     };
 
+    let isLocalValid = false;
     try {
       const { displayAddress, isValid } =
         await this.backgroundApi.serviceValidator.localValidateAddress({
@@ -540,6 +551,7 @@ class ServiceAccountProfile extends ServiceBase {
       if (isValid) {
         address = displayAddress;
         result.validAddress = address;
+        isLocalValid = true;
       }
     } catch (_e) {
       // noop
@@ -547,6 +559,34 @@ class ServiceAccountProfile extends ServiceBase {
 
     if (!networkId) {
       return result;
+    }
+
+    const shouldCheckBadges = Boolean(
+      enableAddressContract || (enableAddressInteractionStatus && accountId),
+    );
+    const checkInteractionStatus = Boolean(
+      enableAddressInteractionStatus && accountId,
+    );
+
+    // Server validation and /badges are independent round trips (~0.5 s each).
+    // Once the local validator accepts the input, start /badges right away so
+    // it overlaps with /validate-address instead of running after it. The
+    // promise is only consumed if the address survives validation and name
+    // resolution; otherwise it is dropped (the catch below keeps an unused
+    // rejection from surfacing as unhandled).
+    let speculativeBadges:
+      | { toAddress: string; promise: Promise<IAccountBadgeResult> }
+      | undefined;
+    if (isLocalValid && shouldCheckBadges) {
+      const promise = this.fetchBadgesDeduped({
+        networkId,
+        accountId,
+        toAddress: address,
+        checkInteractionStatus,
+        tokenAddress,
+      });
+      promise.catch(() => undefined);
+      speculativeBadges = { toAddress: address, promise };
     }
 
     if (!skipValidateAddress) {
@@ -704,10 +744,7 @@ class ServiceAccountProfile extends ServiceBase {
         }
       }
     }
-    if (
-      resolveAddress &&
-      (enableAddressContract || (enableAddressInteractionStatus && accountId))
-    ) {
+    if (resolveAddress && shouldCheckBadges) {
       let senderAddress: string | undefined;
       if (accountId) {
         try {
@@ -726,11 +763,15 @@ class ServiceAccountProfile extends ServiceBase {
         toAddress: resolveAddress,
         fromAddress: senderAddress,
         checkAddressContract: enableAddressContract,
-        checkInteractionStatus: Boolean(
-          enableAddressInteractionStatus && accountId,
-        ),
+        checkInteractionStatus,
         tokenAddress,
         result,
+        // Reuse the early request only when it targeted the same address
+        // (name resolution may have swapped the input for a resolved one).
+        pendingBadges:
+          speculativeBadges?.toAddress === resolveAddress
+            ? speculativeBadges.promise
+            : undefined,
       });
 
       // For EVM networks, override interaction status with transfer-recipient data
@@ -966,6 +1007,38 @@ class ServiceAccountProfile extends ServiceBase {
     }
 
     return resp.data.data as T;
+  }
+
+  // Energy / bandwidth of one Tron account for the home resource card and
+  // its detail dialog. Resolving the API address here keeps the read to one
+  // bridge round-trip from the UI instead of two (OK-64027).
+  @backgroundMethod()
+  @toastIfError()
+  async fetchTronAccountResources({
+    accountId,
+    networkId,
+  }: {
+    accountId: string;
+    networkId: string;
+  }): Promise<ITronAccountResources> {
+    const accountAddress =
+      await this.backgroundApi.serviceAccount.getAccountAddressForApi({
+        accountId,
+        networkId,
+      });
+    const [resources] = await this.sendProxyRequest<ITronAccountResourcesRaw>({
+      networkId,
+      body: [
+        {
+          route: 'tronweb',
+          params: {
+            method: 'trx.getAccountResources',
+            params: [accountAddress],
+          },
+        },
+      ],
+    });
+    return parseTronAccountResources(resources);
   }
 
   // Resolve a (accountId, networkId) to its on-chain identifiers used as
@@ -1329,62 +1402,73 @@ class ServiceAccountProfile extends ServiceBase {
       xpub?: string;
     };
     const resolved: IResolved[] = [];
-
-    await Promise.all(
-      accounts.map(async (a) => {
-        if (!a.accountId) return;
-        try {
-          if (accountUtils.isOthersAccount({ accountId: a.accountId })) {
-            // Others: reuse pre-resolved address/xpub if upstream supplied
-            // it, otherwise fetch the dbAccount once.
-            if (a.accountAddress || a.xpub) {
-              resolved.push({
-                ownerAccountId: a.accountId,
-                compoundKeyAccountId: a.accountId,
-                accountAddress: a.accountAddress,
-                xpub: a.xpub,
-              });
-              return;
-            }
-            const acc =
-              await this.backgroundApi.serviceAccount.getDBAccountSafe({
-                accountId: a.accountId,
-              });
-            const xpub = accountUtils.pickXpubFromDBAccount(acc);
-            if (acc && (acc.address || xpub)) {
-              resolved.push({
-                ownerAccountId: a.accountId,
-                compoundKeyAccountId: a.accountId,
-                accountAddress: acc.address,
-                xpub,
-              });
-            }
-            return;
-          }
-
-          // HD/HW indexed account: expand to all derives so ChainSelector
-          // can use per-derive compound keys.
-          const { accounts: dbAccountsList } =
-            await this.backgroundApi.serviceAccount.getAccountsInSameIndexedAccountId(
-              { indexedAccountId: a.accountId },
-            );
-          for (const dbAcc of dbAccountsList ?? []) {
-            const xpub = accountUtils.pickXpubFromDBAccount(dbAcc);
-            if (dbAcc.address || xpub) {
-              resolved.push({
-                ownerAccountId: a.accountId,
-                compoundKeyAccountId: dbAcc.id,
-                accountAddress: dbAcc.address,
-                xpub,
-              });
-            }
-          }
-        } catch {
-          // Skip this account; its slot in the result will fall back to
-          // the empty shape below.
-        }
-      }),
+    let allDbAccounts: IDBAccount[] = [];
+    const needsAccountSnapshot = accounts.some(
+      (account) =>
+        !accountUtils.isOthersAccount({ accountId: account.accountId }) ||
+        (!account.accountAddress && !account.xpub),
     );
+    if (needsAccountSnapshot) {
+      try {
+        ({ accounts: allDbAccounts } =
+          await this.backgroundApi.serviceAccount.getAllAccounts());
+      } catch {
+        return accounts.map((account) => ({
+          accountId: account.accountId,
+          value: undefined,
+          currency: undefined,
+        }));
+      }
+    }
+    const dbAccountById = new Map<string, IDBAccount>();
+    const dbAccountsByIndexedAccountId = new Map<string, IDBAccount[]>();
+    for (const dbAccount of allDbAccounts) {
+      dbAccountById.set(dbAccount.id, dbAccount);
+      if (dbAccount.indexedAccountId) {
+        const groupedAccounts =
+          dbAccountsByIndexedAccountId.get(dbAccount.indexedAccountId) ?? [];
+        groupedAccounts.push(dbAccount);
+        dbAccountsByIndexedAccountId.set(
+          dbAccount.indexedAccountId,
+          groupedAccounts,
+        );
+      }
+    }
+
+    for (const account of accounts) {
+      if (account.accountId) {
+        if (accountUtils.isOthersAccount({ accountId: account.accountId })) {
+          const dbAccount = dbAccountById.get(account.accountId);
+          const accountAddress = account.accountAddress || dbAccount?.address;
+          const xpub =
+            account.xpub || accountUtils.pickXpubFromDBAccount(dbAccount);
+          if (accountAddress || xpub) {
+            resolved.push({
+              ownerAccountId: account.accountId,
+              compoundKeyAccountId: account.accountId,
+              accountAddress,
+              xpub,
+            });
+          }
+        } else {
+          // Expand HD/HW indexed accounts from the single batch snapshot so
+          // the full account table is not cloned and filtered once per row.
+          const dbAccounts =
+            dbAccountsByIndexedAccountId.get(account.accountId) ?? [];
+          for (const dbAccount of dbAccounts) {
+            const xpub = accountUtils.pickXpubFromDBAccount(dbAccount);
+            if (dbAccount.address || xpub) {
+              resolved.push({
+                ownerAccountId: account.accountId,
+                compoundKeyAccountId: dbAccount.id,
+                accountAddress: dbAccount.address,
+                xpub,
+              });
+            }
+          }
+        }
+      }
+    }
 
     if (resolved.length === 0) {
       return accounts.map((a) => ({

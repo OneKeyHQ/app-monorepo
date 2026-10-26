@@ -65,8 +65,10 @@ export interface IAppStorage extends AsyncStorageStatic {
   secureStorage: ISecureStorage;
 }
 
+export type ITravelModeAwareAsyncStorage = AsyncStorageStatic;
+
 export type IAppStorageHub = {
-  appStorage: AsyncStorageStatic;
+  appStorage: IAppStorage;
   _mockStorage: MockStorage;
   // web storage
   _webStorageLegacy: IAppStorage | undefined;

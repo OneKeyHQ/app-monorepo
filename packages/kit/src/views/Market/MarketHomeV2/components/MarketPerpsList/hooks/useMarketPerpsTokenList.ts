@@ -1,7 +1,9 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
+import type { RefObject } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import { MARKET_PERPS_DEFAULT_CATEGORY_ID } from '../constants';
@@ -13,65 +15,112 @@ import type { IMarketPerpsToken } from './marketPerpsTokenUtils';
 export { mapServerToken };
 export type { IMarketPerpsToken };
 
+export interface IMarketPerpsDataCache {
+  categoryId: string;
+  tokens: IMarketPerpsToken[];
+}
+
 interface IUseMarketPerpsTokenListParams {
   selectedCategoryId: string;
+  dataCacheRef?: RefObject<IMarketPerpsDataCache | undefined>;
 }
 
 export function useMarketPerpsTokenList({
   selectedCategoryId,
+  dataCacheRef: pageDataCacheRef,
 }: IUseMarketPerpsTokenListParams) {
   const requestCategoryId =
     selectedCategoryId || MARKET_PERPS_DEFAULT_CATEGORY_ID;
 
   // Fetch token list from backend (pre-sorted, pre-computed, pre-filtered by category)
-  const { result: apiData, isLoading } = usePromiseResult(
+  const {
+    result,
+    isLoading,
+    run: refresh,
+  } = usePromiseResult(
     async () => {
-      const [tokenListData, tokenSearchAliases] = await Promise.all([
-        backgroundApiProxy.serviceMarketV2.fetchMarketPerpsTokenList({
-          category: requestCategoryId,
-        }),
-        backgroundApiProxy.serviceHyperliquid.getTokenSearchAliases(),
-      ]);
-      return {
-        categoryId: requestCategoryId,
-        tokenListData,
-        tokenSearchAliases,
-      };
+      try {
+        const [tokenListData, tokenSearchAliases] = await Promise.all([
+          backgroundApiProxy.serviceMarketV2.fetchMarketPerpsTokenList({
+            category: requestCategoryId,
+          }),
+          backgroundApiProxy.serviceHyperliquid.getTokenSearchAliases(),
+        ]);
+        return {
+          categoryId: requestCategoryId,
+          tokenListData,
+          tokenSearchAliases,
+          failed: false,
+        };
+      } catch (error) {
+        if (!platformEnv.isNative) throw error;
+        return {
+          categoryId: requestCategoryId,
+          tokenListData: undefined,
+          tokenSearchAliases: undefined,
+          failed: true,
+        };
+      }
     },
     [requestCategoryId],
     {
       pollingInterval: timerUtils.getTimeDurationMs({ seconds: 30 }),
       watchLoading: true,
+      revalidateOnReconnect: platformEnv.isNative,
     },
   );
 
-  const hasCurrentCategoryData = apiData?.categoryId === requestCategoryId;
+  const localDataCacheRef = useRef<IMarketPerpsDataCache | undefined>(
+    undefined,
+  );
+  const dataCacheRef = pageDataCacheRef ?? localDataCacheRef;
+  const hasCurrentResult = Boolean(
+    result && !result.failed && result.categoryId === requestCategoryId,
+  );
+  const canUseCachedData = Boolean(result?.failed || pageDataCacheRef);
+  const hasCurrentCategoryData =
+    hasCurrentResult ||
+    (canUseCachedData &&
+      dataCacheRef.current?.categoryId === requestCategoryId);
 
-  // Map server tokens to display tokens (add subtitle from local aliases)
   const tokens = useMemo(() => {
-    if (!hasCurrentCategoryData) {
-      return [];
+    if (!hasCurrentResult) {
+      return canUseCachedData &&
+        dataCacheRef.current?.categoryId === requestCategoryId
+        ? dataCacheRef.current.tokens
+        : [];
     }
-
-    const serverTokens = apiData?.tokenListData?.tokens;
-    if (!serverTokens || serverTokens.length === 0) return [];
-
-    return serverTokens.map((serverToken) =>
-      mapServerToken(serverToken, apiData?.tokenSearchAliases),
+    return (result?.tokenListData?.tokens ?? []).map((serverToken) =>
+      mapServerToken(serverToken, result?.tokenSearchAliases),
     );
-    // Already sorted by volume descending and filtered by category from backend
-  }, [apiData, hasCurrentCategoryData]);
+  }, [
+    canUseCachedData,
+    dataCacheRef,
+    hasCurrentResult,
+    requestCategoryId,
+    result,
+  ]);
+  useEffect(() => {
+    if (hasCurrentResult) {
+      dataCacheRef.current = { categoryId: requestCategoryId, tokens };
+    }
+  }, [dataCacheRef, hasCurrentResult, requestCategoryId, tokens]);
 
   const isCategoryPending = !requestCategoryId;
   const isInitialLoading = Boolean(
     requestCategoryId && isLoading && !hasCurrentCategoryData,
   );
-  const hasRealTimeData =
-    hasCurrentCategoryData && (apiData?.tokenListData?.tokens?.length ?? 0) > 0;
+  const hasRealTimeData = hasCurrentCategoryData && tokens.length > 0;
 
   return {
     tokens,
-    isLoading: Boolean(isLoading) || isCategoryPending || isInitialLoading,
+    isLoading:
+      Boolean(isLoading) ||
+      isCategoryPending ||
+      isInitialLoading ||
+      (platformEnv.isNative && isLoading === undefined),
+    isError: Boolean(result?.failed && result.categoryId === requestCategoryId),
     hasRealTimeData,
+    refresh,
   };
 }

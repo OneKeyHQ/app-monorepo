@@ -10,6 +10,7 @@ import {
   EAmountEnterType,
   ESlippageSetting,
 } from '@onekeyhq/shared/src/logger/scopes/dex/types';
+import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { IMarketWatchListDataV2 } from '@onekeyhq/shared/types/market';
 import type {
   IMarketPerpsInfo,
@@ -23,9 +24,15 @@ import type { IMarketSelectedDeriveType } from './marketDeriveType';
 const {
   Provider: ProviderJotaiContextMarketV2,
   contextAtom,
+  contextAtomComputed,
   contextAtomMethod,
+  useContextData: useMarketV2ContextData,
 } = createJotaiContext();
-export { ProviderJotaiContextMarketV2, contextAtomMethod };
+export {
+  ProviderJotaiContextMarketV2,
+  contextAtomMethod,
+  useMarketV2ContextData,
+};
 
 export const { atom: basicMarketWatchListV2Atom, useContextAtom } =
   contextAtom<IMarketWatchListDataV2>({ data: [] });
@@ -35,16 +42,31 @@ export const {
   use: useMarketV2StorageReadyAtom,
 } = contextAtom<boolean>(false);
 
+export const { atom: marketWatchListV2RefreshRequestIdAtom } =
+  contextAtom<number>(0);
+
 // Token Detail Atoms
 export const { atom: tokenDetailAtom, use: useTokenDetailAtom } = contextAtom<
   IMarketTokenDetail | undefined
 >(undefined);
+
+export const { atom: tokenDetailSymbolAtom, use: useTokenDetailSymbolAtom } =
+  contextAtomComputed((get) => get(tokenDetailAtom())?.symbol);
 
 export const { atom: tokenDetailPreviewAtom, use: useTokenDetailPreviewAtom } =
   contextAtom<IMarketTokenDetailPreview | undefined>(undefined);
 
 export const { atom: tokenDetailLoadingAtom, use: useTokenDetailLoadingAtom } =
   contextAtom<boolean>(false);
+
+export const { atom: tokenDetailRequestIdAtom } = contextAtom<number>(0);
+
+// Which SWR scope the detail in `tokenDetailAtom` belongs to. The scope
+// carries the currency and locale, so the same token in another language is a
+// different scope and its cached copy still has to be seeded.
+export const { atom: tokenDetailSwrScopeAtom } = contextAtom<
+  string | undefined
+>(undefined);
 
 export const {
   atom: tokenDetailWebsocketAtom,
@@ -55,11 +77,59 @@ export const { atom: perpsInfoAtom, use: usePerpsInfoAtom } = contextAtom<
   IMarketPerpsInfo | undefined
 >(undefined);
 
+export const { atom: marketPerpsResolutionAtom } = contextAtom<
+  | {
+      networkId: string;
+      tokenAddress: string;
+      requestId: number;
+      lookupRequestId?: number;
+      status: 'pending' | 'resolved' | 'error';
+    }
+  | undefined
+>(undefined);
+
 export const { atom: tokenAddressAtom, use: useTokenAddressAtom } =
   contextAtom<string>('');
 
 export const { atom: networkIdAtom, use: useNetworkIdAtom } =
   contextAtom<string>('');
+
+export const {
+  atom: marketPerpsInfoStatusAtom,
+  use: useMarketPerpsInfoStatusAtom,
+} = contextAtomComputed((get) => {
+  const resolution = get(marketPerpsResolutionAtom());
+  const detail = get(tokenDetailAtom());
+  const hasRetainedDetail =
+    resolution &&
+    resolution.status !== 'pending' &&
+    Boolean(detail) &&
+    equalTokenNoCaseSensitive({
+      token1: {
+        networkId: detail?.networkId,
+        contractAddress: detail?.address,
+      },
+      token2: {
+        networkId: resolution.networkId,
+        contractAddress: resolution.tokenAddress,
+      },
+    });
+  return resolution &&
+    equalTokenNoCaseSensitive({
+      token1: {
+        networkId: resolution.networkId,
+        contractAddress: resolution.tokenAddress,
+      },
+      token2: {
+        networkId: get(networkIdAtom()),
+        contractAddress: get(tokenAddressAtom()),
+      },
+    }) &&
+    (resolution?.requestId === get(tokenDetailRequestIdAtom()) ||
+      hasRetainedDetail)
+    ? resolution.status
+    : 'pending';
+});
 
 export const { atom: isNativeAtom, use: useIsNativeAtom } =
   contextAtom<boolean>(false);

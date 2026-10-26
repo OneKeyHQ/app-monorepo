@@ -15,6 +15,7 @@ import {
   Heading,
   Image,
   Keyboard,
+  NATIVE_HIT_SLOP,
   Stack,
   ThemeableStack,
   updateHeightWhenKeyboardHide,
@@ -32,7 +33,6 @@ import LazyLoad from '@onekeyhq/shared/src/lazyLoad';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { APP_STATE_LOCK_Z_INDEX } from '@onekeyhq/shared/src/utils/overlayUtils';
 import { verifiedWebAuth } from '@onekeyhq/shared/src/webAuth';
 
 import { AppStateContainer } from './AppStateContainer';
@@ -186,8 +186,6 @@ const AppStateLock = ({
         ref={lockContainerRef}
         position="absolute"
         fullscreen
-        // keep the lock screen interface at the top by the z-index on Web & Android
-        zIndex={APP_STATE_LOCK_Z_INDEX}
         flex={1}
         bg="$bgApp"
         pointerEvents={platformEnv.isNative ? undefined : 'auto'}
@@ -242,6 +240,14 @@ const AppStateLock = ({
               <Button
                 size="small"
                 variant="tertiary"
+                // A `tertiary` Button is only its label plus 4pt of padding and
+                // its negative margins pull the frame above the glyphs, so on a
+                // phone the real touch target is a ~26pt band sitting slightly
+                // higher than the text the user aims at — well under the 44pt
+                // Apple asks for. Taps on the visible label missed it, which is
+                // what "Forgot passcode? does nothing" was on iOS. IconButton
+                // already pads small buttons the same way. (OK-62416)
+                hitSlop={NATIVE_HIT_SLOP}
                 onPress={resetApp}
                 testID="app-state-lock.tsx-btn"
               >

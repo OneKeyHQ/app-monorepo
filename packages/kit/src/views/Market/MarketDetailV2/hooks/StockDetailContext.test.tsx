@@ -4,9 +4,14 @@ import type { PropsWithChildren } from 'react';
 import { act, renderHook, waitFor } from '@testing-library/react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import {
+  swrCacheUtils,
+  swrKeys,
+} from '@onekeyhq/shared/src/utils/swrCacheUtils';
 import type {
   IMarketStockPublicDetail,
   IMarketStockTokenVariant,
+  IMarketStockTokenVariantsResponse,
 } from '@onekeyhq/shared/types/marketV2';
 
 import { StockDetailProvider, useStockDetail } from './StockDetailContext';
@@ -34,6 +39,11 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
       fetchMarketStockTokenVariants: jest.fn(),
     },
   },
+}));
+
+let mockLocale = 'en-US';
+jest.mock('@onekeyhq/kit/src/hooks/useLocaleVariant', () => ({
+  useLocaleVariant: () => mockLocale,
 }));
 
 jest.mock('@onekeyhq/kit/src/hooks/useRouteIsFocused', () => {
@@ -65,7 +75,17 @@ jest.mock('@onekeyhq/kit/src/hooks/useRouteIsFocused', () => {
     return value;
   };
 
-  return { useRouteIsFocused, __setFocus, __resetFocus };
+  const useRouteIsFocusedWhenEnabled = ({ enabled }: { enabled: boolean }) => {
+    const value = useRouteIsFocused();
+    return !enabled || value;
+  };
+
+  return {
+    useRouteIsFocused,
+    useRouteIsFocusedWhenEnabled,
+    __setFocus,
+    __resetFocus,
+  };
 });
 
 const focusControl = jest.requireMock(
@@ -77,6 +97,8 @@ const focusControl = jest.requireMock(
 
 // Mirrors STOCK_DETAIL_POLLING_INTERVAL in StockDetailContext.tsx.
 const STOCK_DETAIL_POLLING_MS = 15 * 1000;
+// Mirrors STOCK_TOKEN_VARIANTS_POLLING_INTERVAL in StockDetailContext.tsx.
+const STOCK_TOKEN_VARIANTS_POLLING_MS = 6000;
 
 function createDeferred<T>() {
   let resolve: (value: T) => void = () => undefined;
@@ -103,7 +125,49 @@ describe('StockDetailProvider', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    mockLocale = 'en-US';
     focusControl.__resetFocus();
+    // Stock resources are cached per stock; keep each case on a cold start.
+    swrCacheUtils.clearAll();
+  });
+
+  it('exposes a matching route preview before the stock detail request settles', () => {
+    const stockPreview = {
+      stockId: 'AAPL',
+      symbol: 'AAPL',
+      name: 'Apple Inc.',
+      logoUrl: 'https://example.com/aapl.png',
+    };
+    const wrapper = ({ children }: PropsWithChildren) => (
+      <StockDetailProvider stockId="aapl" initialStockPreview={stockPreview}>
+        {children}
+      </StockDetailProvider>
+    );
+
+    const { result } = renderHook(() => useStockDetail(), { wrapper });
+
+    expect(result.current.stockDetail).toBeUndefined();
+    expect(result.current.stockPreview).toEqual(stockPreview);
+  });
+
+  it('ignores a route preview that belongs to another stock', () => {
+    const wrapper = ({ children }: PropsWithChildren) => (
+      <StockDetailProvider
+        stockId="MSFT"
+        initialStockPreview={{
+          stockId: 'AAPL',
+          symbol: 'AAPL',
+          name: 'Apple Inc.',
+          logoUrl: 'https://example.com/aapl.png',
+        }}
+      >
+        {children}
+      </StockDetailProvider>
+    );
+
+    const { result } = renderHook(() => useStockDetail(), { wrapper });
+
+    expect(result.current.stockPreview).toBeUndefined();
   });
 
   it('loads stock resources by stockId and selects the backend default token', async () => {
@@ -150,6 +214,7 @@ describe('StockDetailProvider', () => {
 
     await waitFor(() => {
       expect(result.current.stockDetail?.stockId).toBe('AAPL');
+      expect(result.current.isStockDetailReady).toBe(true);
       expect(result.current.selectedTokenVariant?.tokenId).toBe('aapl-ondo');
       expect(result.current.portfolioNetworkId).toBe('evm--1');
     });
@@ -167,6 +232,437 @@ describe('StockDetailProvider', () => {
     expect(serviceMarketV2.fetchMarketStockTokenVariants.mock.calls).toEqual([
       [{ stockId: 'AAPL' }],
     ]);
+  });
+
+  it('settles a missing preserved token without falling back or waiting forever', async () => {
+    const request = createDeferred<IMarketStockTokenVariantsResponse>();
+    serviceMarketV2.fetchMarketStockTokenVariants.mockReturnValue(
+      request.promise,
+    );
+    const wrapper = ({ children }: PropsWithChildren) => (
+      <StockDetailProvider
+        stockId="AAPL"
+        preserveInitialToken
+        initialNetworkId="evm--1"
+        initialTokenAddress="0xselected"
+      >
+        {children}
+      </StockDetailProvider>
+    );
+    const { result } = renderHook(() => useStockDetail(), { wrapper });
+    expect(result.current.isTokenVariantPending).toBe(true);
+    await act(async () =>
+      request.resolve({
+        stockId: 'AAPL',
+        defaultTokenId: 'another-token',
+        items: [
+          {
+            tokenId: 'another-token',
+            issuer: 'ondo',
+            networkId: 'evm--1',
+            contractAddress: '0xother',
+            currency: 'USD',
+            status: 'active',
+            tradingEnabled: true,
+          },
+        ],
+      }),
+    );
+    await waitFor(() =>
+      expect(result.current.isTokenVariantPending).toBe(false),
+    );
+    expect(result.current.tokenVariants).toHaveLength(1);
+    expect(result.current.selectedTokenVariant).toBeUndefined();
+    expect(result.current.selectedTokenId).toBeUndefined();
+  });
+
+  it('selects a cached variant on the first render of a revisit', () => {
+    serviceMarketV2.fetchMarketStockTokenVariants.mockReturnValue(
+      new Promise(() => undefined),
+    );
+    serviceMarketV2.fetchMarketStockDetail.mockReturnValue(
+      new Promise(() => undefined),
+    );
+    swrCacheUtils.set(
+      swrKeys.marketStockTokenVariants({ stockId: 'AAPL', locale: 'en-us' }),
+      {
+        stockId: 'AAPL',
+        defaultTokenId: 'aapl-ondo',
+        items: [
+          {
+            tokenId: 'aapl-ondo',
+            issuer: 'ondo',
+            networkId: 'evm--56',
+            contractAddress: '0xondo',
+            currency: 'USD',
+            status: 'active',
+            tradingEnabled: true,
+          },
+        ],
+      },
+    );
+    const wrapper = ({ children }: PropsWithChildren) => (
+      <StockDetailProvider stockId="AAPL">{children}</StockDetailProvider>
+    );
+    const { result } = renderHook(() => useStockDetail(), { wrapper });
+
+    // The token identity is known before any request settles.
+    expect(result.current.isTokenVariantPending).toBe(false);
+    expect(result.current.selectedTokenVariant?.tokenId).toBe('aapl-ondo');
+  });
+
+  it('keeps a stale cached list pending until the preserved route variant resolves', async () => {
+    const request = createDeferred<IMarketStockTokenVariantsResponse>();
+    const routeVariant: IMarketStockTokenVariant = {
+      tokenId: 'aapl-backed',
+      issuer: 'backed',
+      networkId: 'evm--1',
+      contractAddress: '0xbacked',
+      currency: 'USD',
+      status: 'active',
+      tradingEnabled: true,
+    };
+    serviceMarketV2.fetchMarketStockTokenVariants.mockReturnValue(
+      request.promise,
+    );
+    swrCacheUtils.set(
+      swrKeys.marketStockTokenVariants({ stockId: 'AAPL', locale: 'en-us' }),
+      {
+        stockId: 'AAPL',
+        defaultTokenId: 'aapl-ondo',
+        items: [
+          {
+            tokenId: 'aapl-ondo',
+            issuer: 'ondo',
+            networkId: 'evm--56',
+            contractAddress: '0xondo',
+            currency: 'USD',
+            status: 'active',
+            tradingEnabled: true,
+          },
+        ],
+      },
+    );
+    const wrapper = ({ children }: PropsWithChildren) => (
+      <StockDetailProvider
+        stockId="AAPL"
+        preserveInitialToken
+        initialNetworkId={routeVariant.networkId}
+        initialTokenAddress={routeVariant.contractAddress}
+      >
+        {children}
+      </StockDetailProvider>
+    );
+    const { result } = renderHook(() => useStockDetail(), { wrapper });
+
+    expect(result.current.isTokenVariantPending).toBe(true);
+    expect(result.current.selectedTokenVariant).toBeUndefined();
+
+    await act(async () =>
+      request.resolve({
+        stockId: 'AAPL',
+        defaultTokenId: routeVariant.tokenId,
+        items: [routeVariant],
+      }),
+    );
+    await waitFor(() =>
+      expect(result.current.selectedTokenVariant?.tokenId).toBe(
+        routeVariant.tokenId,
+      ),
+    );
+    expect(result.current.isTokenVariantPending).toBe(false);
+  });
+
+  it('does not re-enter pending while polling a settled stale variant list', async () => {
+    jest.useFakeTimers();
+    const staleVariant: IMarketStockTokenVariant = {
+      tokenId: 'aapl-ondo',
+      issuer: 'ondo',
+      networkId: 'evm--56',
+      contractAddress: '0xondo',
+      currency: 'USD',
+      status: 'active',
+      tradingEnabled: true,
+    };
+    const staleResponse: IMarketStockTokenVariantsResponse = {
+      stockId: 'AAPL',
+      defaultTokenId: staleVariant.tokenId,
+      items: [staleVariant],
+    };
+    const pollingRequest = createDeferred<IMarketStockTokenVariantsResponse>();
+    serviceMarketV2.fetchMarketStockTokenVariants
+      .mockResolvedValueOnce(staleResponse)
+      .mockReturnValueOnce(pollingRequest.promise);
+
+    try {
+      swrCacheUtils.set(
+        swrKeys.marketStockTokenVariants({
+          stockId: 'AAPL',
+          locale: 'en-us',
+        }),
+        staleResponse,
+      );
+      const wrapper = ({ children }: PropsWithChildren) => (
+        <StockDetailProvider
+          stockId="AAPL"
+          preserveInitialToken
+          initialNetworkId="evm--1"
+          initialTokenAddress="0xselected"
+        >
+          {children}
+        </StockDetailProvider>
+      );
+      const { result, unmount } = renderHook(() => useStockDetail(), {
+        wrapper,
+      });
+
+      await act(async () => {
+        await jest.advanceTimersByTimeAsync(0);
+      });
+      expect(result.current.selectedTokenVariant).toBeUndefined();
+      expect(result.current.isTokenVariantPending).toBe(false);
+
+      await act(async () => {
+        await jest.advanceTimersByTimeAsync(STOCK_TOKEN_VARIANTS_POLLING_MS);
+      });
+      expect(
+        serviceMarketV2.fetchMarketStockTokenVariants.mock.calls,
+      ).toHaveLength(2);
+      expect(result.current.isTokenVariantPending).toBe(false);
+
+      unmount();
+      pollingRequest.resolve(staleResponse);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  // PR 13609 review: a cached list can predate the route's variant. Resolving
+  // against it must not retire the route, or the fetched list that finally
+  // carries that variant is skipped and the page trades the wrong token.
+  it('applies the route variant from the fetched list when the cache lacked it', async () => {
+    const routeVariant: IMarketStockTokenVariant = {
+      tokenId: 'aapl-backed',
+      issuer: 'backed',
+      networkId: 'evm--1',
+      contractAddress: '0xbacked',
+      currency: 'USD',
+      status: 'active',
+      tradingEnabled: true,
+    };
+    const defaultVariant: IMarketStockTokenVariant = {
+      tokenId: 'aapl-ondo',
+      issuer: 'ondo',
+      networkId: 'evm--56',
+      contractAddress: '0xondo',
+      currency: 'USD',
+      status: 'active',
+      tradingEnabled: true,
+    };
+    // The snapshot only knows the default issuer.
+    swrCacheUtils.set(
+      swrKeys.marketStockTokenVariants({ stockId: 'AAPL', locale: 'en-us' }),
+      {
+        stockId: 'AAPL',
+        defaultTokenId: 'aapl-ondo',
+        items: [defaultVariant],
+      },
+    );
+    serviceMarketV2.fetchMarketStockDetail.mockReturnValue(
+      new Promise(() => undefined),
+    );
+    serviceMarketV2.fetchMarketStockTokenVariants.mockResolvedValue({
+      stockId: 'AAPL',
+      defaultTokenId: 'aapl-ondo',
+      items: [defaultVariant, routeVariant],
+    });
+
+    const wrapper = ({ children }: PropsWithChildren) => (
+      <StockDetailProvider
+        stockId="AAPL"
+        initialNetworkId="evm--1"
+        initialTokenAddress="0xbacked"
+      >
+        {children}
+      </StockDetailProvider>
+    );
+    const { result } = renderHook(() => useStockDetail(), { wrapper });
+
+    // First frame renders the only token the cache knew about.
+    expect(result.current.selectedTokenVariant?.tokenId).toBe('aapl-ondo');
+
+    await waitFor(() =>
+      expect(result.current.selectedTokenVariant?.tokenId).toBe('aapl-backed'),
+    );
+  });
+
+  // PR 13609 review: on a revisit usePromiseResult replays the cached payload,
+  // but the per-stock fallbacks used to start empty, so the first failed
+  // request replaced what the page was already showing with an error.
+  it('keeps the hydrated detail and variants when the first request fails', async () => {
+    const variant: IMarketStockTokenVariant = {
+      tokenId: 'aapl-ondo',
+      issuer: 'ondo',
+      networkId: 'evm--56',
+      contractAddress: '0xondo',
+      currency: 'USD',
+      status: 'active',
+      tradingEnabled: true,
+    };
+    swrCacheUtils.set(
+      swrKeys.marketStockTokenVariants({ stockId: 'AAPL', locale: 'en-us' }),
+      { stockId: 'AAPL', defaultTokenId: 'aapl-ondo', items: [variant] },
+    );
+    swrCacheUtils.set(
+      swrKeys.marketStockDetail({ stockId: 'AAPL', locale: 'en-us' }),
+      { stockId: 'AAPL', data: { stockId: 'AAPL', name: 'Apple Inc.' } },
+    );
+    serviceMarketV2.fetchMarketStockDetail.mockRejectedValue(
+      new Error('offline'),
+    );
+    serviceMarketV2.fetchMarketStockTokenVariants.mockRejectedValue(
+      new Error('offline'),
+    );
+
+    const wrapper = ({ children }: PropsWithChildren) => (
+      <StockDetailProvider stockId="AAPL">{children}</StockDetailProvider>
+    );
+    const { result } = renderHook(() => useStockDetail(), { wrapper });
+
+    // Wait for the rejections to be processed, not merely dispatched: the
+    // replayed cache is on screen from the first frame, so asserting before
+    // the failure lands would pass either way.
+    await waitFor(() =>
+      expect(
+        serviceMarketV2.fetchMarketStockDetail.mock.calls.length,
+      ).toBeGreaterThan(0),
+    );
+    await waitFor(() =>
+      expect(
+        serviceMarketV2.fetchMarketStockTokenVariants.mock.calls.length,
+      ).toBeGreaterThan(0),
+    );
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(result.current.isStockDetailError).toBe(false);
+    expect(result.current.stockDetail?.name).toBe('Apple Inc.');
+    expect(result.current.tokenVariants).toHaveLength(1);
+    expect(result.current.selectedTokenVariant?.tokenId).toBe('aapl-ondo');
+  });
+
+  it('retains the next stock cache when its first refresh fails in the same provider', async () => {
+    let stockId = 'AAPL';
+    serviceMarketV2.fetchMarketStockDetail.mockResolvedValue({
+      stockId: 'AAPL',
+      name: 'Apple',
+    } as IMarketStockPublicDetail);
+    serviceMarketV2.fetchMarketStockTokenVariants.mockResolvedValue({
+      stockId: 'AAPL',
+      items: [],
+    });
+    const wrapper = ({ children }: PropsWithChildren) => (
+      <StockDetailProvider stockId={stockId}>{children}</StockDetailProvider>
+    );
+    const { result, rerender } = renderHook(() => useStockDetail(), {
+      wrapper,
+    });
+    await waitFor(() => expect(result.current.stockDetail?.name).toBe('Apple'));
+    const variant: IMarketStockTokenVariant = {
+      tokenId: 'nvda-ondo',
+      issuer: 'ondo',
+      networkId: 'evm--1',
+      contractAddress: '0xnvda',
+      currency: 'USD',
+      status: 'active',
+      tradingEnabled: true,
+    };
+    const fetchedAt = Date.now() - 120_000;
+    swrCacheUtils.set(
+      swrKeys.marketStockDetail({ stockId: 'NVDA', locale: 'en-us' }),
+      {
+        stockId: 'NVDA',
+        data: { stockId: 'NVDA', name: 'Nvidia' },
+        fetchedAt,
+        fetchedInSession: 'old-session',
+      },
+    );
+    swrCacheUtils.set(
+      swrKeys.marketStockTokenVariants({ stockId: 'NVDA', locale: 'en-us' }),
+      {
+        stockId: 'NVDA',
+        items: [variant],
+        defaultTokenId: variant.tokenId,
+      },
+    );
+    serviceMarketV2.fetchMarketStockDetail.mockRejectedValue(
+      new Error('offline'),
+    );
+    serviceMarketV2.fetchMarketStockTokenVariants.mockRejectedValue(
+      new Error('offline'),
+    );
+    stockId = 'NVDA';
+    rerender();
+    await flushTaskQueues();
+    await waitFor(() =>
+      expect(result.current.isStockDetailLoading).toBe(false),
+    );
+    expect(result.current.stockDetail?.name).toBe('Nvidia');
+    expect(result.current.tokenVariants).toEqual([variant]);
+    expect(result.current.isStockDetailReady).toBe(false);
+    expect(
+      swrCacheUtils.get<{ fetchedAt: number }>(
+        swrKeys.marketStockDetail({ stockId: 'NVDA', locale: 'en-us' }),
+      )?.fetchedAt,
+    ).toBe(fetchedAt);
+  });
+
+  it('releases initial layout loading when every token variant is paused', async () => {
+    serviceMarketV2.fetchMarketStockTokenVariants.mockResolvedValue({
+      stockId: 'AAPL',
+      items: [
+        {
+          tokenId: 'aapl-paused',
+          issuer: 'ondo',
+          networkId: 'evm--1',
+          contractAddress: '0xpaused',
+          currency: 'USD',
+          status: 'paused',
+          tradingEnabled: false,
+        },
+      ],
+    });
+    const wrapper = ({ children }: PropsWithChildren) => (
+      <StockDetailProvider stockId="AAPL">{children}</StockDetailProvider>
+    );
+    const { result } = renderHook(() => useStockDetail(), { wrapper });
+    expect(result.current.isTokenVariantPending).toBe(true);
+    await waitFor(() =>
+      expect(result.current.isTokenVariantPending).toBe(false),
+    );
+    expect(result.current.selectedTokenVariant).toBeUndefined();
+  });
+
+  it('settles variant loading after a failed request with no cached variants', async () => {
+    serviceMarketV2.fetchMarketStockTokenVariants.mockRejectedValue(
+      new Error('utility unavailable'),
+    );
+
+    const wrapper = ({ children }: PropsWithChildren) => (
+      <StockDetailProvider stockId="AAPL">{children}</StockDetailProvider>
+    );
+    const { result } = renderHook(() => useStockDetail(), { wrapper });
+
+    await waitFor(() => {
+      expect(result.current.isTokenVariantsError).toBe(true);
+    });
+
+    // A failed, settled request is a terminal state. The trade ticket can
+    // show its cached price instead of waiting for a variant forever.
+    expect(result.current.isTokenVariantPending).toBe(false);
+    expect(result.current.selectedTokenVariant).toBeUndefined();
   });
 
   it('falls back to the first tradable token when the backend default is disabled', async () => {
@@ -266,6 +762,152 @@ describe('StockDetailProvider', () => {
       expect(result.current.selectedTokenId).toBe('aapl-xstock');
     });
   });
+
+  it('applies a new route variant once and preserves subsequent manual selection', async () => {
+    serviceMarketV2.fetchMarketStockDetail.mockResolvedValue({
+      stockId: 'AAPL',
+      symbol: 'AAPL',
+      name: 'Apple Inc.',
+      logoUrl: '',
+      assetType: 'stock',
+      currency: 'USD',
+      categories: [],
+      aliases: [],
+    });
+    serviceMarketV2.fetchMarketStockTokenVariants.mockResolvedValue({
+      stockId: 'AAPL',
+      defaultTokenId: 'aapl-ondo',
+      items: [
+        {
+          tokenId: 'aapl-xstock',
+          issuer: 'xstock',
+          networkId: 'sol--101',
+          contractAddress: 'AAPLx',
+          currency: 'USD',
+          status: 'active',
+          tradingEnabled: true,
+        },
+        {
+          tokenId: 'aapl-ondo',
+          issuer: 'ondo',
+          networkId: 'evm--1',
+          contractAddress: '0xaapl',
+          currency: 'USD',
+          status: 'active',
+          tradingEnabled: true,
+        },
+      ],
+    });
+
+    let routeNetwork = 'evm--1';
+    let routeAddress = '0xaapl';
+    const wrapper = ({ children }: PropsWithChildren) => (
+      <StockDetailProvider
+        stockId="AAPL"
+        initialNetworkId={routeNetwork}
+        initialTokenAddress={routeAddress}
+      >
+        {children}
+      </StockDetailProvider>
+    );
+    const { result, rerender } = renderHook(() => useStockDetail(), {
+      wrapper,
+    });
+
+    await waitFor(() =>
+      expect(result.current.selectedTokenId).toBe('aapl-ondo'),
+    );
+    routeNetwork = 'sol--101';
+    routeAddress = 'AAPLx';
+    rerender();
+    await waitFor(() =>
+      expect(result.current.selectedTokenId).toBe('aapl-xstock'),
+    );
+    act(() => result.current.setSelectedTokenId('aapl-ondo'));
+    await act(async () => {
+      await result.current.retryTokenVariants();
+    });
+    expect(result.current.selectedTokenId).toBe('aapl-ondo');
+  });
+
+  it.each([
+    {
+      networkId: 'evm--1',
+      address: '0xaabb',
+      updatedAddress: '0xAaBb',
+      expected: 'manual',
+    },
+    {
+      networkId: 'sol--101',
+      address: 'AAPLx',
+      updatedAddress: 'AAPLX',
+      expected: 'updated',
+    },
+  ])(
+    'compares route addresses using $networkId identity rules',
+    async ({ networkId, address, updatedAddress, expected }) => {
+      serviceMarketV2.fetchMarketStockDetail.mockResolvedValue(null);
+      serviceMarketV2.fetchMarketStockTokenVariants.mockResolvedValue({
+        stockId: 'AAPL',
+        defaultTokenId: 'initial',
+        items: [
+          {
+            tokenId: 'initial',
+            issuer: 'xstock',
+            networkId,
+            contractAddress: address,
+            currency: 'USD',
+            status: 'active',
+            tradingEnabled: true,
+          },
+          {
+            tokenId: 'manual',
+            issuer: 'ondo',
+            networkId,
+            contractAddress: 'manual-address',
+            currency: 'USD',
+            status: 'active',
+            tradingEnabled: true,
+          },
+          ...(networkId === 'sol--101'
+            ? [
+                {
+                  tokenId: 'updated',
+                  issuer: 'xstock',
+                  networkId,
+                  contractAddress: updatedAddress,
+                  currency: 'USD' as const,
+                  status: 'active',
+                  tradingEnabled: true,
+                },
+              ]
+            : []),
+        ],
+      });
+      let routeAddress = address;
+      const wrapper = ({ children }: PropsWithChildren) => (
+        <StockDetailProvider
+          stockId="AAPL"
+          initialNetworkId={networkId}
+          initialTokenAddress={routeAddress}
+        >
+          {children}
+        </StockDetailProvider>
+      );
+      const { result, rerender } = renderHook(() => useStockDetail(), {
+        wrapper,
+      });
+      await waitFor(() =>
+        expect(result.current.selectedTokenId).toBe('initial'),
+      );
+      act(() => result.current.setSelectedTokenId('manual'));
+      routeAddress = updatedAddress;
+      rerender();
+      await waitFor(() =>
+        expect(result.current.selectedTokenId).toBe(expected),
+      );
+    },
+  );
 
   it('matches EVM route addresses without checksum casing', async () => {
     serviceMarketV2.fetchMarketStockDetail.mockResolvedValue({
@@ -484,6 +1126,7 @@ describe('StockDetailProvider', () => {
 
     await waitFor(() => {
       expect(result.current.stockDetail?.stockId).toBe('AAPL');
+      expect(result.current.isStockDetailReady).toBe(true);
     });
 
     // A failing refresh (the polling tick takes the same path) must leave the
@@ -498,6 +1141,7 @@ describe('StockDetailProvider', () => {
     expect(serviceMarketV2.fetchMarketStockDetail.mock.calls).toHaveLength(2);
     expect(result.current.stockDetail?.stockId).toBe('AAPL');
     expect(result.current.isStockDetailError).toBe(false);
+    expect(result.current.isStockDetailReady).toBe(true);
   });
 
   it('does not let a superseded response replace the current stock fallback', async () => {
@@ -697,5 +1341,190 @@ describe('StockDetailProvider', () => {
     await waitFor(() => {
       expect(result.current.portfolioNetworkId).toBe('evm--1');
     });
+  });
+});
+
+describe('Stock detail status freshness', () => {
+  const service = jest.mocked(backgroundApiProxy.serviceMarketV2);
+  const stockKey = swrKeys.marketStockDetail({
+    stockId: 'AAPL',
+    locale: 'en-us',
+  });
+  const detail: IMarketStockPublicDetail = {
+    stockId: 'AAPL',
+    symbol: 'AAPL',
+    name: 'Apple',
+    logoUrl: '',
+    assetType: 'stock',
+    currency: 'USD',
+    categories: [],
+    aliases: [],
+    marketStatus: { isOpen: false },
+  };
+  type ICacheResult = {
+    stockId: string;
+    data: IMarketStockPublicDetail;
+    fetchedAt?: number;
+    fetchedInSession?: string;
+    requestFailed?: boolean;
+  };
+  const wrapper = ({ children }: PropsWithChildren) => (
+    <StockDetailProvider stockId="AAPL">{children}</StockDetailProvider>
+  );
+
+  beforeEach(() => {
+    mockLocale = 'en-US';
+    service.fetchMarketStockDetail.mockReset();
+    service.fetchMarketStockTokenVariants.mockReset();
+    service.fetchMarketStockTokenVariants.mockResolvedValue({
+      stockId: 'AAPL',
+      items: [],
+    });
+    focusControl.__resetFocus();
+    swrCacheUtils.clearAll();
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+    jest.restoreAllMocks();
+    swrCacheUtils.clearAll();
+    swrCacheUtils.flushNow();
+  });
+
+  it('reuses a fresh same-session success after deserializing the cache', async () => {
+    service.fetchMarketStockDetail.mockResolvedValueOnce(detail);
+    const first = renderHook(() => useStockDetail(), { wrapper });
+    await waitFor(() =>
+      expect(first.result.current.isStockDetailReady).toBe(true),
+    );
+    first.unmount();
+    swrCacheUtils.flushNow();
+    swrCacheUtils.reloadFromStorage();
+    service.fetchMarketStockDetail.mockReturnValueOnce(
+      createDeferred<IMarketStockPublicDetail>().promise,
+    );
+    const second = renderHook(() => useStockDetail(), { wrapper });
+
+    expect(second.result.current.isStockDetailReady).toBe(true);
+    await flushTaskQueues();
+    expect(service.fetchMarketStockDetail.mock.calls).toHaveLength(2);
+    expect(second.result.current.isStockDetailReady).toBe(true);
+  });
+
+  it.each([undefined, 'previous-ui-session'])(
+    'does not trust a cold cache with session %s or renew it on failure',
+    async (fetchedInSession) => {
+      let now = 1_800_000_000_000;
+      jest.spyOn(Date, 'now').mockImplementation(() => now);
+      swrCacheUtils.set(stockKey, {
+        stockId: 'AAPL',
+        data: detail,
+        fetchedAt: now,
+        fetchedInSession,
+      });
+      const cachedAt = swrCacheUtils.getWithTimestamp(stockKey)?.updatedAt;
+      now += 1000;
+      service.fetchMarketStockDetail.mockRejectedValue(new Error('offline'));
+      const { result } = renderHook(() => useStockDetail(), { wrapper });
+
+      expect(result.current.stockDetail).toEqual(detail);
+      expect(result.current.isStockDetailReady).toBe(false);
+      await waitFor(() =>
+        expect(result.current.isStockDetailStatusError).toBe(true),
+      );
+      expect(result.current.stockDetail).toEqual(detail);
+      expect(result.current.isStockDetailError).toBe(false);
+      expect(result.current.isStockDetailReady).toBe(false);
+      expect(swrCacheUtils.getWithTimestamp(stockKey)?.updatedAt).toBe(
+        cachedAt,
+      );
+    },
+  );
+
+  it('does not extend successful freshness across failed refreshes and remounts', async () => {
+    let now = 1_800_000_000_000;
+    jest.spyOn(Date, 'now').mockImplementation(() => now);
+    service.fetchMarketStockDetail.mockResolvedValueOnce(detail);
+    const first = renderHook(() => useStockDetail(), { wrapper });
+    await waitFor(() =>
+      expect(first.result.current.isStockDetailReady).toBe(true),
+    );
+    const original = swrCacheUtils.getWithTimestamp<ICacheResult>(stockKey);
+    service.fetchMarketStockDetail.mockRejectedValue(new Error('offline'));
+    now += 30_000;
+    await act(async () => first.result.current.retryStockDetail());
+    expect(first.result.current.isStockDetailReady).toBe(true);
+    expect(first.result.current.isStockDetailStatusError).toBe(false);
+
+    now += 31_000;
+    await act(async () => first.result.current.retryStockDetail());
+    expect(first.result.current.stockDetail).toEqual(detail);
+    expect(first.result.current.isStockDetailReady).toBe(false);
+    expect(first.result.current.isStockDetailStatusError).toBe(true);
+    const cached = swrCacheUtils.getWithTimestamp<ICacheResult>(stockKey);
+    expect(cached?.updatedAt).toBe(original?.updatedAt);
+    expect(cached?.data.fetchedAt).toBe(original?.data.fetchedAt);
+    expect(cached?.data.requestFailed).toBeUndefined();
+    first.unmount();
+    service.fetchMarketStockDetail.mockReturnValueOnce(
+      createDeferred<IMarketStockPublicDetail>().promise,
+    );
+    const second = renderHook(() => useStockDetail(), { wrapper });
+    expect(second.result.current.isStockDetailReady).toBe(false);
+  });
+
+  it('does not reuse another locale after its request fails', async () => {
+    service.fetchMarketStockDetail.mockResolvedValueOnce(detail);
+    const { result, rerender } = renderHook(() => useStockDetail(), {
+      wrapper,
+    });
+    await waitFor(() => expect(result.current.isStockDetailReady).toBe(true));
+    mockLocale = 'es-ES';
+    service.fetchMarketStockDetail.mockRejectedValue(new Error('offline'));
+    rerender();
+    expect(result.current.stockDetail).toBeUndefined();
+    expect(result.current.isStockDetailReady).toBe(false);
+    await waitFor(() =>
+      expect(result.current.isStockDetailStatusError).toBe(true),
+    );
+    expect(result.current.stockDetail).toBeUndefined();
+  });
+
+  it('exposes retry after status expires during a hanging refresh and recovers', async () => {
+    jest.useFakeTimers({ now: 1_800_000_000_000 });
+    const pendingRefresh = createDeferred<IMarketStockPublicDetail>();
+    const refreshedDetail = { ...detail, marketStatus: { isOpen: true } };
+    service.fetchMarketStockDetail
+      .mockResolvedValueOnce(detail)
+      .mockReturnValueOnce(pendingRefresh.promise)
+      .mockResolvedValue(refreshedDetail);
+    const { result, unmount } = renderHook(() => useStockDetail(), { wrapper });
+    await act(async () => jest.advanceTimersByTimeAsync(0));
+    expect(result.current.isStockDetailReady).toBe(true);
+    await act(async () => jest.advanceTimersByTimeAsync(15_000));
+    expect(service.fetchMarketStockDetail.mock.calls).toHaveLength(2);
+    expect(result.current.isStockDetailLoading).toBe(true);
+    await act(async () => jest.advanceTimersByTimeAsync(45_000));
+    expect(result.current.isStockDetailReady).toBe(false);
+    expect(result.current.isStockDetailStatusError).toBe(true);
+    expect(result.current.stockDetail).toEqual(detail);
+    expect(result.current.isStockDetailLoading).toBe(true);
+
+    await act(async () => result.current.retryStockDetail());
+    expect(service.fetchMarketStockDetail.mock.calls).toHaveLength(3);
+    expect(result.current.isStockDetailReady).toBe(true);
+    expect(result.current.isStockDetailStatusError).toBe(false);
+    expect(result.current.stockDetail).toEqual(refreshedDetail);
+
+    await act(async () => pendingRefresh.resolve(detail));
+    expect(result.current.stockDetail).toEqual(refreshedDetail);
+    expect(result.current.isStockDetailReady).toBe(true);
+
+    service.fetchMarketStockDetail.mockRejectedValueOnce(new Error('offline'));
+    await act(async () => result.current.retryStockDetail());
+    expect(result.current.stockDetail).toEqual(refreshedDetail);
+    expect(result.current.isStockDetailReady).toBe(true);
+    expect(result.current.isStockDetailStatusError).toBe(false);
+    unmount();
   });
 });

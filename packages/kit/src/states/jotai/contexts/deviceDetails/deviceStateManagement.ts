@@ -1,10 +1,10 @@
-import { EDeviceType } from '@onekeyfe/hd-shared';
-
 import {
+  getDeviceStateSettingsRecoveryKeys,
   hasAuthoritativeDeviceInfoVersionChange,
   hasDeviceStateIdentityMismatch,
   mergeDeviceStateEvent,
 } from '@onekeyhq/shared/src/hardware/deviceStateUtils';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import { isProtocolV2ProductType } from '@onekeyhq/shared/src/utils/hardwareDeviceTypes';
 import type { IHwQrWalletWithDevice } from '@onekeyhq/shared/types/account';
@@ -12,6 +12,7 @@ import type { IOneKeyDeviceState } from '@onekeyhq/shared/types/device';
 
 import type { IDeviceMetaState, IDeviceMetaStatic } from './atoms';
 import type { DeviceStateEvent } from '@onekeyfe/hd-core';
+import type { EDeviceType } from '@onekeyfe/hd-shared';
 
 export type IDeviceStateSnapshot = {
   state: IOneKeyDeviceState;
@@ -41,6 +42,11 @@ export function getDeviceStateSnapshotFromEvent({
     // SDK cache without advancing its metadata.
     const acceptsEqualMetadata =
       event.source === 'settings-read' ||
+      getDeviceStateSettingsRecoveryKeys({
+        currentState,
+        incomingState: event.state,
+        source: event.source,
+      }).length > 0 ||
       hasAuthoritativeDeviceInfoVersionChange({
         currentState,
         incomingState: event.state,
@@ -161,22 +167,57 @@ export function pickNewerDeviceStateSnapshot({
 export function isDeviceManagementWalletUsable(
   walletWithDevice?: IHwQrWalletWithDevice,
 ) {
-  const wallet = walletWithDevice?.wallet;
-  if (!wallet) {
-    return false;
-  }
-  // Hidden-only devices retain an active mocked standard wallet as their
-  // device-management proxy, while deprecated wallets stay hidden.
-  return !wallet.deprecated;
+  return Boolean(walletWithDevice?.wallet && walletWithDevice.device);
 }
 
 export function resolveUsableWalletWithDevice(
   walletWithDevice?: IHwQrWalletWithDevice,
+  allWallets: IHwQrWalletWithDevice[] = [],
 ) {
   if (!isDeviceManagementWalletUsable(walletWithDevice)) {
     return undefined;
   }
-  return walletWithDevice;
+  const isQrWallet = accountUtils.isQrWallet({
+    walletId: walletWithDevice?.wallet.id,
+  });
+  return (
+    allWallets.find(
+      (item) =>
+        !item.wallet.deprecated &&
+        !accountUtils.isHwHiddenWallet({ wallet: item.wallet }) &&
+        accountUtils.isQrWallet({ walletId: item.wallet.id }) === isQrWallet &&
+        deviceUtils.isSamePhysicalDevice(item.device, walletWithDevice?.device),
+    ) ?? walletWithDevice
+  );
+}
+
+export function getDeviceManagementWallets(
+  wallets: IHwQrWalletWithDevice[],
+): IHwQrWalletWithDevice[] {
+  const devices: IHwQrWalletWithDevice[] = [];
+  for (const item of wallets) {
+    if (
+      isDeviceManagementWalletUsable(item) &&
+      !accountUtils.isHwHiddenWallet({ wallet: item.wallet })
+    ) {
+      const representative = resolveUsableWalletWithDevice(item, wallets);
+      if (
+        representative &&
+        !devices.some(
+          (entry) =>
+            accountUtils.isQrWallet({ walletId: entry.wallet.id }) ===
+              accountUtils.isQrWallet({ walletId: representative.wallet.id }) &&
+            deviceUtils.isSamePhysicalDevice(
+              entry.device,
+              representative.device,
+            ),
+        )
+      ) {
+        devices.push(representative);
+      }
+    }
+  }
+  return devices;
 }
 
 export function resolveDeviceWithCurrentType<
@@ -237,9 +278,7 @@ export function getDeviceSecondaryIdentifier(
     'bleName' | 'deviceType' | 'serialNo'
   >,
 ) {
-  return deviceMetaStatic.deviceType === EDeviceType.Pro2
-    ? deviceMetaStatic.bleName || deviceMetaStatic.serialNo
-    : deviceMetaStatic.serialNo;
+  return deviceMetaStatic.bleName;
 }
 
 export function buildDeviceMetaStateFromState({

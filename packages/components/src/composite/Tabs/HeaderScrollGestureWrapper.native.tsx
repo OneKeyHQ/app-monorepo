@@ -1,6 +1,7 @@
 import type { PropsWithChildren } from 'react';
 import { useCallback, useContext, useMemo, useState } from 'react';
 
+import { I18nManager } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
   cancelAnimation,
@@ -14,6 +15,7 @@ import Animated, {
 import { Haptics, ImpactFeedbackStyle } from '../../primitives/Haptics';
 
 import { CollapsibleTabContext } from './CollapsibleTabContext';
+import { HeaderScrollGestureContext } from './HeaderScrollGestureContext';
 
 import type { IHeaderScrollGestureWrapperProps } from './HeaderScrollGestureWrapper';
 import type { LayoutChangeEvent } from 'react-native';
@@ -39,6 +41,7 @@ export function HeaderScrollGestureWrapper({
   onGestureActiveChange,
   excludeBottomEdgeHeight = 0,
 }: PropsWithChildren<IHeaderScrollGestureWrapperProps>) {
+  const { excludeStartEdgeWidth } = useContext(HeaderScrollGestureContext);
   const tabsContext = useContext(CollapsibleTabContext);
   const refMap = tabsContext?.refMap;
   const focusedTab = tabsContext?.focusedTab;
@@ -84,7 +87,7 @@ export function HeaderScrollGestureWrapper({
     },
   );
 
-  const panGesture = useMemo(() => {
+  const { panGesture, scrollGestures } = useMemo(() => {
     const safeExcludeRightEdgeRatio = Math.max(
       0,
       Math.min(1, excludeRightEdgeRatio),
@@ -94,11 +97,22 @@ export function HeaderScrollGestureWrapper({
         ? measuredWidth * safeExcludeRightEdgeRatio
         : 0;
     const safeExcludeBottomEdgeHeight = Math.max(0, excludeBottomEdgeHeight);
+    const navigationEdge = I18nManager.isRTL ? 'right' : 'left';
     const gestureHitSlop =
-      excludedRightEdgeWidth > 0 || safeExcludeBottomEdgeHeight > 0
+      excludeStartEdgeWidth > 0 ||
+      excludedRightEdgeWidth > 0 ||
+      safeExcludeBottomEdgeHeight > 0
         ? {
+            ...(excludeStartEdgeWidth > 0
+              ? { [navigationEdge]: -excludeStartEdgeWidth }
+              : {}),
             ...(excludedRightEdgeWidth > 0
-              ? { right: -excludedRightEdgeWidth }
+              ? {
+                  right: -Math.max(
+                    excludedRightEdgeWidth,
+                    I18nManager.isRTL ? excludeStartEdgeWidth : 0,
+                  ),
+                }
               : {}),
             ...(safeExcludeBottomEdgeHeight > 0
               ? { bottom: -safeExcludeBottomEdgeHeight }
@@ -222,10 +236,12 @@ export function HeaderScrollGestureWrapper({
       });
 
     if (!onHorizontalSwipe) {
-      if (!simultaneousWithNativeGesture) {
-        return verticalPanGesture;
-      }
-      return Gesture.Simultaneous(Gesture.Native(), verticalPanGesture);
+      return {
+        panGesture: simultaneousWithNativeGesture
+          ? Gesture.Simultaneous(Gesture.Native(), verticalPanGesture)
+          : verticalPanGesture,
+        scrollGestures: [verticalPanGesture],
+      };
     }
 
     let horizontalPanGesture = Gesture.Pan()
@@ -271,10 +287,12 @@ export function HeaderScrollGestureWrapper({
 
     const raceGesture = Gesture.Race(horizontalPanGesture, verticalPanGesture);
 
-    if (!simultaneousWithNativeGesture) {
-      return raceGesture;
-    }
-    return Gesture.Simultaneous(Gesture.Native(), raceGesture);
+    return {
+      panGesture: simultaneousWithNativeGesture
+        ? Gesture.Simultaneous(Gesture.Native(), raceGesture)
+        : raceGesture,
+      scrollGestures: [verticalPanGesture, horizontalPanGesture],
+    };
   }, [
     startScrollY,
     scrollYCurrent,
@@ -286,6 +304,7 @@ export function HeaderScrollGestureWrapper({
     panFailOffsetX,
     verticalPanMaxPointers,
     excludeRightEdgeRatio,
+    excludeStartEdgeWidth,
     excludeBottomEdgeHeight,
     scrollScale,
     onHorizontalSwipe,
@@ -306,9 +325,16 @@ export function HeaderScrollGestureWrapper({
     triggerRefreshHaptic,
   ]);
 
+  const scrollGestureContext = useMemo(
+    () => ({ gestures: scrollGestures, excludeStartEdgeWidth }),
+    [scrollGestures, excludeStartEdgeWidth],
+  );
+
   return (
-    <GestureDetector gesture={panGesture}>
-      <Animated.View onLayout={handleLayout}>{children}</Animated.View>
-    </GestureDetector>
+    <HeaderScrollGestureContext.Provider value={scrollGestureContext}>
+      <GestureDetector gesture={panGesture}>
+        <Animated.View onLayout={handleLayout}>{children}</Animated.View>
+      </GestureDetector>
+    </HeaderScrollGestureContext.Provider>
   );
 }

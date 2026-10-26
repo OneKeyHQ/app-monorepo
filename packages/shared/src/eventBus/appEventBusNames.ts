@@ -23,6 +23,7 @@ export enum EAppEventBusNames {
   FinalizeWalletSetupError = 'FinalizeWalletSetupError',
   WalletConnectOpenModal = 'WalletConnectOpenModal',
   WalletConnectCloseModal = 'WalletConnectCloseModal',
+  WalletConnectCloseConnectionProgress = 'WalletConnectCloseConnectionProgress',
   WalletConnectModalState = 'WalletConnectModalState',
   WalletConnectConnectSuccess = 'WalletConnectConnectSuccess',
   WalletConnectConnectError = 'WalletConnectConnectError',
@@ -49,6 +50,10 @@ export enum EAppEventBusNames {
   LoadWebEmbedWebView = 'LoadWebEmbedWebView',
   LoadWebEmbedWebViewComplete = 'LoadWebEmbedWebViewComplete',
   HardwareVerifyAfterDeviceConfirm = 'HardwareVerifyAfterDeviceConfirm',
+  DeviceStageAuthAction = 'DeviceStageAuthAction',
+  DeviceStagePassphraseIntroContinue = 'DeviceStagePassphraseIntroContinue',
+  DeviceStageWalletTypeSelected = 'DeviceStageWalletTypeSelected',
+  DeviceStageOff = 'DeviceStageOff',
   SwitchMarketHomeTab = 'SwitchMarketHomeTab',
   SwitchWalletHomeTab = 'SwitchWalletHomeTab',
   RefreshMarketWatchList = 'RefreshMarketWatchList',
@@ -61,9 +66,11 @@ export enum EAppEventBusNames {
   HistoryTxStatusChanged = 'HistoryTxStatusChanged',
   LocalPendingTxConfirmed = 'LocalPendingTxConfirmed',
   DeFiPositionRefreshed = 'DeFiPositionRefreshed',
+  DeFiEnabledNetworksChanged = 'DeFiEnabledNetworksChanged',
   EstimateTxFeeRetry = 'estimateTxFeeRetry',
   GasAccountSubmitRetryScheduled = 'gasAccountSubmitRetryScheduled',
   GasAccountSubmitRetryCleared = 'gasAccountSubmitRetryCleared',
+  BatchSignTxProgress = 'batchSignTxProgress',
   // TokenList cells Phase-2 BG frame transport (D2=A hybrid push + PULL). The two
   // events are kept separate so the structure (low-frequency, generation-guard)
   // and valuation (per-tick, version-gap) channels can be guarded independently.
@@ -95,12 +102,17 @@ export enum EAppEventBusNames {
   // refresh key cannot detect (e.g. clearing finished orders), so list views
   // re-fetch instead of showing stale rows.
   RefreshSwapHistoryList = 'RefreshSwapHistoryList',
+  // Native buy (Onramper Headless) order store changed: recorded, submitted,
+  // discarded, or a status refresh landed. Payload-free; readers re-fetch.
+  HeadlessBuyOrdersChanged = 'HeadlessBuyOrdersChanged',
   SwapApprovingSuccess = 'SwapApprovingSuccess',
   SwapSpeedApprovingReset = 'SwapSpeedApprovingReset',
   SwapSpeedBalanceUpdate = 'SwapSpeedBalanceUpdate',
   SwapSpeedBuildTxSuccess = 'SwapSpeedBuildTxSuccess',
   SwapStockTokenSelected = 'SwapStockTokenSelected',
   AddedCustomNetwork = 'AddedCustomNetwork',
+  RecentNetworkRecorded = 'RecentNetworkRecorded',
+  RecentNetworksCleared = 'RecentNetworksCleared',
   ShowFindInWebPage = 'ShowFindInWebPage',
   ChangeTokenDetailTabVerticalScrollEnabled = 'ChangeTokenDetailTabVerticalScrollEnabled',
   RefreshNetInfo = 'RefreshNetInfo',
@@ -119,6 +131,8 @@ export enum EAppEventBusNames {
   PrimeAuthSessionSourceCommitted = 'PrimeAuthSessionSourceCommitted',
   IdentityLifecycleCommitted = 'IdentityLifecycleCommitted',
   PrimeSubscriptionPurchaseSuccess = 'PrimeSubscriptionPurchaseSuccess',
+  PrimeWebCheckoutReturned = 'PrimeWebCheckoutReturned',
+  PrimeGiftRedeemed = 'PrimeGiftRedeemed',
   PrimeExceedDeviceLimit = 'PrimeExceedDeviceLimit',
   PrimeDeviceLogout = 'PrimeDeviceLogout',
   PrimeMasterPasswordInvalid = 'PrimeMasterPasswordInvalid',
@@ -127,6 +141,7 @@ export enum EAppEventBusNames {
   PrimeTransferCancel = 'PrimeTransferCancel',
   CreateAddressByDialog = 'CreateAddressByDialog',
   CheckAddressBeforeSending = 'CheckAddressBeforeSending',
+  BatchSendTxBroadcasted = 'BatchSendTxBroadcasted',
   HideTabBar = 'HideTabBar',
   RequestHardwareUIDialog = 'RequestHardwareUIDialog',
   ShowThirdPartyHardwarePermissionDialog = 'ShowThirdPartyHardwarePermissionDialog',
@@ -166,6 +181,7 @@ export enum EAppEventBusNames {
   // hook, whose serviceAppUpdate.downloadPackage() flips `notify` →
   // `downloadPackage`. This event bridges the two runtimes.
   StartAutoDownloadUpdate = 'StartAutoDownloadUpdate',
+  BundleUpdateRestartFailed = 'BundleUpdateRestartFailed',
   ShowAppUpdateIncompleteDialog = 'ShowAppUpdateIncompleteDialog',
   PendingInstallTaskProcessFinished = 'PendingInstallTaskProcessFinished',
   HomePageReady = 'HomePageReady',
@@ -177,6 +193,7 @@ export enum EAppEventBusNames {
   UpdateNotificationBadge = 'UpdateNotificationBadge',
   HyperliquidDataUpdate = 'HyperliquidDataUpdate',
   HyperliquidConnectionChange = 'HyperliquidConnectionChange',
+  PerpsReferralBound = 'PerpsReferralBound',
   PerpsWebSocketRecovered = 'PerpsWebSocketRecovered',
   PerpsTvPriceScaleRefreshed = 'PerpsTvPriceScaleRefreshed',
   PerpsUnifoldDepositTerminalDelivery = 'PerpsUnifoldDepositTerminalDelivery',
@@ -187,11 +204,9 @@ export enum EAppEventBusNames {
   BtcFreshAddressUpdated = 'BtcFreshAddressUpdated',
   BtcFreshAddressConnectDappRejected = 'BtcFreshAddressConnectDappRejected',
   BtcFindAddressUpdated = 'BtcFindAddressUpdated',
+  DevLargeWalletDataCreationProgress = 'DevLargeWalletDataCreationProgress',
   ClientLogUploadProgress = 'ClientLogUploadProgress',
   SwitchDiscoveryTabInNative = 'SwitchDiscoveryTabInNative',
-  // OK-59246: earn home banner drag state, used to pause the outer
-  // Discovery pager so nested horizontal swipes don't switch top tabs
-  EarnHomeBannerDragStateChanged = 'EarnHomeBannerDragStateChanged',
   SwitchEarnMode = 'SwitchEarnMode',
   SwitchEarnTab = 'SwitchEarnTab',
   SwitchTabBar = 'SwitchTabBar',
@@ -210,4 +225,5 @@ export enum EAppEventBusNames {
   NavigateModalFromBackgroundThread = 'NavigateModalFromBackgroundThread',
   TrayActionWillNavigate = 'TrayActionWillNavigate',
   MemoryPressureWarning = 'MemoryPressureWarning',
+  ReferralPostConfigUpdated = 'ReferralPostConfigUpdated',
 }

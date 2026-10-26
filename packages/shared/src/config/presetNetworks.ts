@@ -2633,7 +2633,14 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
 
 // Robinhood Chain is delivered via the server network list instead of
 // presetNetworks, so feature switches below reference it by network id.
-const ROBINHOOD_NETWORK_ID = 'evm--4663';
+export const ROBINHOOD_NETWORK_ID = 'evm--4663';
+
+// Network ids enabled by default under All Networks. Extends the preset list
+// with server-delivered chains that cannot live in presetNetworks.
+export const getDefaultEnabledNetworkIdsInAllNetworks = memoFn((): string[] => [
+  ...getDefaultEnabledNetworksInAllNetworks().map((network) => network.id),
+  ROBINHOOD_NETWORK_ID,
+]);
 
 export const getNetworkIdsSupportFilterScamHistory = memoFn((): string[] => [
   eth.id,

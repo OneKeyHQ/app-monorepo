@@ -1,15 +1,40 @@
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { getMarketWatchlistKey } from '@onekeyhq/shared/src/utils/marketWatchlistIdentity';
 import type { IMarketAssetListItem } from '@onekeyhq/shared/types/market';
-import type { IMarketTokenListItem } from '@onekeyhq/shared/types/marketV2';
+import type {
+  IMarketPerpsTokenFromServer,
+  IMarketStockPublicItem,
+  IMarketTokenListItem,
+} from '@onekeyhq/shared/types/marketV2';
 
 import {
   buildHomeMarketCategories,
+  buildHomeRecommendAddSortIndexes,
   getMarketTokenDisplayPrice,
   getMarketTokenDisplayPriceChange24h,
   getMarketTokenDisplayVolume24h,
   getTokenKey,
   mapMarketAssetToDisplay,
+  mapMarketPerpsTokenToDisplay,
+  mapMarketStockToDisplay,
   mapMarketTokenToDisplay,
+  shouldShowHomeRecommendCards,
 } from './utils';
+
+function buildServerPerpsToken(name: string): IMarketPerpsTokenFromServer {
+  return {
+    name,
+    displayName: 'UNITREE',
+    maxLeverage: 10,
+    tokenImageUrl: 'unitree.png',
+    markPrice: '90.38',
+    prevDayPrice: '72.58',
+    change24hPercent: 24.52,
+    volume24h: '10940000',
+    openInterest: '6660000',
+    fundingRate: '0.000008',
+  };
+}
 
 describe('PopularTrading market token display utils', () => {
   test('normalizes placeholder market values instead of returning NaN', () => {
@@ -37,38 +62,114 @@ describe('PopularTrading market token display utils', () => {
     expect(Number.isNaN(displayToken?.priceChange24h)).toBe(false);
     expect(displayToken?.logoUrls).toEqual(item.logoUrls);
     expect(displayToken?.communityRecognized).toBe(true);
+    expect(displayToken?.stockId).toBeUndefined();
   });
 
-  test('maps Top Coins assets without inventing a token identity', () => {
-    const item: IMarketAssetListItem = {
-      assetId: 'bitcoin',
-      symbol: 'btc',
-      logoUrl: 'btc.png',
-      price: '100000',
-      priceChange24hPercent: '1.25',
-      priceChange7dPercent: '-',
-      marketCap: '2000000000000',
-      volume24h: '50000000000',
-      sparkline24h: [],
+  test.each<Partial<IMarketTokenListItem>>([
+    { stockId: ' aapl ' },
+    { stock: { stockId: 'AAPL', subtitle: 'Apple', sourceLogoUri: '' } },
+  ])(
+    'preserves the stock favorite identity in Home display data: %j',
+    (identity) => {
+      const item: IMarketTokenListItem = {
+        networkId: 'evm--1',
+        address: '0x1234567890123456789012345678901234567890',
+        isNative: false,
+        name: 'Apple',
+        symbol: 'AAPL',
+        decimals: 18,
+        ...identity,
+      };
+      const displayToken = mapMarketTokenToDisplay(item);
+      expect(displayToken).toMatchObject({
+        stockId: 'AAPL',
+        chainId: 'evm--1',
+        contractAddress: item.address,
+      });
+      expect(displayToken?.stock).toEqual(item.stock);
+      if (!displayToken)
+        throw new OneKeyLocalError('Expected a Home stock row');
+      expect(getMarketWatchlistKey(displayToken)).toBe(
+        getMarketWatchlistKey({
+          stockId: 'AAPL',
+          chainId: '',
+          contractAddress: '',
+        }),
+      );
+      expect(getTokenKey(displayToken)).toBe('stock:AAPL');
+    },
+  );
+
+  test.each<[string | undefined, string]>([
+    [' Bitcoin ', 'Bitcoin'],
+    [undefined, 'btc'],
+    ['', 'btc'],
+    ['   ', 'btc'],
+  ])(
+    'maps Top Coins name %p without inventing a token identity',
+    (name, expectedName) => {
+      const item: IMarketAssetListItem = {
+        assetId: 'bitcoin',
+        symbol: 'btc',
+        name,
+        logoUrl: 'btc.png',
+        price: '100000',
+        priceChange24hPercent: '1.25',
+        priceChange7dPercent: '-',
+        marketCap: '2000000000000',
+        volume24h: '50000000000',
+        sparkline24h: [],
+      };
+
+      const displayToken = mapMarketAssetToDisplay(item);
+
+      expect(displayToken).toMatchObject({
+        chainId: '',
+        contractAddress: '',
+        isNative: false,
+        symbol: 'BTC',
+        name: expectedName,
+        price: 100_000,
+        priceChange24h: 1.25,
+        marketCap: 2_000_000_000_000,
+        volume24h: 50_000_000_000,
+        marketAsset: item,
+      });
+      expect(getTokenKey(displayToken)).toBe('asset:bitcoin');
+    },
+  );
+
+  test('maps public stocks without inventing a token identity', () => {
+    const item: IMarketStockPublicItem = {
+      stockId: 'AAPL',
+      symbol: 'AAPL',
+      name: 'Apple',
+      logoUrl: 'https://example.com/aapl.png',
+      assetType: 'stock',
+      price: '77.25',
+      priceChange24hPercent: '0.32',
+      marketCap: '4560000000000',
+      volume24h: '10670000000',
+      currency: 'USD',
     };
 
-    const displayToken = mapMarketAssetToDisplay(item);
+    const displayToken = mapMarketStockToDisplay(item);
 
     expect(displayToken).toMatchObject({
+      stockId: 'AAPL',
       chainId: '',
       contractAddress: '',
-      isNative: false,
-      symbol: 'BTC',
-      price: 100_000,
-      priceChange24h: 1.25,
-      marketCap: 2_000_000_000_000,
-      volume24h: 50_000_000_000,
-      marketAsset: item,
+      symbol: 'AAPL',
+      stockListingName: 'Apple',
+      price: 77.25,
+      priceChange24h: 0.32,
+      marketCap: 4_560_000_000_000,
+      volume24h: 10_670_000_000,
     });
-    expect(getTokenKey(displayToken)).toBe('market:bitcoin');
+    expect(getTokenKey(displayToken)).toBe('stock:AAPL');
   });
 
-  test('inserts Top Coins before stocks in the wallet home tabs', () => {
+  test('inserts Top Coins after stocks in the wallet home tabs', () => {
     const categories = buildHomeMarketCategories({
       apiHomeTabs: [
         { type: 'watchlist', name: '自选' },
@@ -97,8 +198,8 @@ describe('PopularTrading market token display utils', () => {
         iconOnly: true,
       },
       { id: 'trending', name: '热门', icon: undefined },
-      { id: 'top_coins', name: 'Top Coins' },
       { id: 'stocks', name: '股票', icon: undefined },
+      { id: 'top_coins', name: 'Top Coins' },
       { id: 'home-perps-hot', name: '合约' },
     ]);
   });
@@ -118,5 +219,65 @@ describe('PopularTrading market token display utils', () => {
     expect(categories.filter((item) => item.id === 'top_coins')).toEqual([
       { id: 'top_coins', name: 'Mainstream Coins', icon: undefined },
     ]);
+  });
+  test.each([
+    ['xyz:UNITREE', 'xyz'],
+    ['para:UNITREE', 'para'],
+  ])('preserves the %s perps DEX source label', (name, dexLabel) => {
+    expect(
+      mapMarketPerpsTokenToDisplay({
+        token: buildServerPerpsToken(name),
+        subtitle: 'Unitree Robotics',
+      }),
+    ).toMatchObject({
+      symbol: 'UNITREE',
+      perpsCoin: name,
+      perpsSubtitle: 'Unitree Robotics',
+      perpsDexLabel: dexLabel,
+    });
+  });
+
+  test('places home recommend adds above stored favorites in card order', () => {
+    expect(
+      buildHomeRecommendAddSortIndexes({
+        existingWatchlist: [],
+        count: 4,
+      }),
+    ).toEqual([996, 997, 998, 999]);
+    expect(
+      buildHomeRecommendAddSortIndexes({
+        existingWatchlist: [{ sortIndex: 0 }, { sortIndex: 1 }],
+        count: 4,
+      }),
+    ).toEqual([-4, -3, -2, -1]);
+  });
+
+  test('shows recommend cards when stored favorites have no visible rows', () => {
+    expect(
+      shouldShowHomeRecommendCards({
+        hasStoredFavorites: false,
+        visibleFavoriteCount: 0,
+      }),
+    ).toBe(true);
+    expect(
+      shouldShowHomeRecommendCards({
+        hasStoredFavorites: true,
+        visibleFavoriteCount: 0,
+      }),
+    ).toBe(true);
+    expect(
+      shouldShowHomeRecommendCards({
+        hasStoredFavorites: true,
+        visibleFavoriteCount: 2,
+      }),
+    ).toBe(false);
+  });
+
+  test('does not add a DEX source label to main DEX perps', () => {
+    expect(
+      mapMarketPerpsTokenToDisplay({
+        token: buildServerPerpsToken('BTC'),
+      }).perpsDexLabel,
+    ).toBeUndefined();
   });
 });

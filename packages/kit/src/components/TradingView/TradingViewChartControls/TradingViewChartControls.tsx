@@ -1,4 +1,10 @@
-import { type ComponentProps, type ReactNode, memo, useMemo } from 'react';
+import {
+  type ComponentProps,
+  type ReactNode,
+  memo,
+  useContext,
+  useMemo,
+} from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -19,6 +25,7 @@ import { ChartTypeSelect } from './chartType/ChartTypeSelect';
 import { IndicatorPopover } from './indicatorSelector/NativeIndicatorSelector';
 import { TradingViewNativeIntervalSelector } from './intervalSelector/NativeIntervalSelector';
 import { PriceMarketCapSelect } from './priceMarketCap/PriceMarketCapSelect';
+import { TradingViewDesktopToolbarContext } from './TradingViewDesktopToolbarContext';
 import { HEADER_ICON_BUTTON_STYLE_PROPS } from './utils/NativeChartControlsShared';
 
 import type {
@@ -53,7 +60,7 @@ export function TradingViewChartModeSelect({
   const intl = useIntl();
   const chartModeItems = [
     {
-      label: 'Original',
+      label: intl.formatMessage({ id: ETranslations.market_chart_original }),
       value: 'native' as const,
     },
     {
@@ -250,6 +257,7 @@ export const TradingViewChartControls = memo(
     onFullscreenToggle,
     onRightControlPress,
   }: ITradingViewChartControlsProps) => {
+    const desktopToolbar = useContext(TradingViewDesktopToolbarContext);
     const intl = useIntl();
     const isDesktopLayout = layoutMode === 'desktop';
     const hasCalendarControl = Boolean(
@@ -259,6 +267,8 @@ export const TradingViewChartControls = memo(
     const hasHistoryControls = Boolean(isDesktopLayout && onUndo && onRedo);
     const desktopFullscreenHeader =
       isDesktopLayout && isFullscreen ? fullscreenHeader : null;
+    const mobileFullscreenHeader =
+      !isDesktopLayout && isFullscreen ? fullscreenHeader : null;
     let desktopControlsPaddingX = '$4';
     if (desktopFullscreenHeader) {
       desktopControlsPaddingX = '$2';
@@ -458,7 +468,8 @@ export const TradingViewChartControls = memo(
       !hasHistoryControls &&
       !rightControl &&
       !chartSwitchControl &&
-      !desktopFullscreenHeader
+      !desktopFullscreenHeader &&
+      !mobileFullscreenHeader
     ) {
       return null;
     }
@@ -498,8 +509,11 @@ export const TradingViewChartControls = memo(
     ) : null;
 
     if (isDesktopLayout) {
+      const ToolbarContainer = desktopToolbar ? ScrollView : Stack;
+      const IntervalContainer = desktopToolbar ? Stack : ScrollView;
       return (
         <Stack
+          testID="trading-view-chart-controls"
           bg={backgroundColor}
           px={desktopControlsPaddingX}
           py="$1"
@@ -511,74 +525,148 @@ export const TradingViewChartControls = memo(
           justifyContent="center"
           zIndex={3}
         >
-          <XStack alignItems="center" width="100%" gap="$2">
-            {desktopFullscreenHeader}
-
+          <ToolbarContainer
+            testID="trading-view-desktop-toolbar"
+            width={desktopToolbar ? '100%' : undefined}
+            minWidth={desktopToolbar ? 0 : undefined}
+            {...(desktopToolbar
+              ? {
+                  horizontal: true,
+                  showsHorizontalScrollIndicator: false,
+                  contentContainerStyle: { flexGrow: 1 },
+                }
+              : {})}
+          >
             <XStack
-              testID="trading-view-chart-ready-controls"
-              flex={1}
-              minWidth={0}
-              gap="$2"
               alignItems="center"
-              opacity={isControlsReady ? 1 : 0}
-              pointerEvents={isControlsReady ? 'auto' : 'none'}
+              width={desktopToolbar ? undefined : '100%'}
+              minWidth={desktopToolbar ? '100%' : undefined}
+              flexGrow={1}
+              flexShrink={0}
+              gap="$2"
             >
-              <ScrollView
-                horizontal
-                flex={1}
+              {desktopFullscreenHeader}
+
+              <XStack
+                testID="trading-view-chart-ready-controls"
+                flexGrow={1}
+                flexShrink={desktopToolbar ? 0 : 1}
+                flexBasis={desktopToolbar ? 'auto' : 0}
                 minWidth={0}
-                showsHorizontalScrollIndicator={false}
+                gap="$2"
+                alignItems="center"
+                opacity={isControlsReady ? 1 : 0}
+                pointerEvents={isControlsReady ? 'auto' : 'none'}
               >
-                <XStack alignItems="center" gap="$2" flexShrink={0}>
-                  {intervalSelector}
+                <IntervalContainer
+                  {...(desktopToolbar
+                    ? {}
+                    : {
+                        horizontal: true,
+                        showsHorizontalScrollIndicator: false,
+                      })}
+                  flexGrow={1}
+                  flexShrink={desktopToolbar ? 0 : 1}
+                  flexBasis={desktopToolbar ? 'auto' : 0}
+                  minWidth={0}
+                >
+                  <XStack alignItems="center" gap="$2" flexShrink={0}>
+                    {intervalSelector}
 
-                  {intervalSelector && hasLeftChartTools ? (
-                    <ToolbarSeparator />
-                  ) : null}
+                    {intervalSelector && hasLeftChartTools ? (
+                      <ToolbarSeparator />
+                    ) : null}
 
-                  {hasLeftChartTools ? (
-                    <XStack gap="$0.5" alignItems="center" flexShrink={0}>
-                      {chartTypeControl}
-                      {indicatorControl}
-                      {calendarControl}
-                      {settingsControl}
-                    </XStack>
-                  ) : null}
+                    {hasLeftChartTools ? (
+                      <XStack gap="$0.5" alignItems="center" flexShrink={0}>
+                        {chartTypeControl}
+                        {indicatorControl}
+                        {calendarControl}
+                        {settingsControl}
+                      </XStack>
+                    ) : null}
 
-                  {(intervalSelector || hasLeftChartTools) &&
-                  undoRedoControls ? (
-                    <ToolbarSeparator />
-                  ) : null}
+                    {(intervalSelector || hasLeftChartTools) &&
+                    undoRedoControls ? (
+                      <ToolbarSeparator />
+                    ) : null}
 
-                  {undoRedoControls}
-                </XStack>
-              </ScrollView>
+                    {undoRedoControls}
+                  </XStack>
+                </IntervalContainer>
 
-              {priceMarketCapControl}
+                {priceMarketCapControl}
 
-              {priceMarketCapControl &&
-              (chartSwitchControl || fullscreenControl) ? (
-                <ToolbarSeparator />
-              ) : null}
+                {priceMarketCapControl &&
+                (chartSwitchControl || fullscreenControl) ? (
+                  <ToolbarSeparator />
+                ) : null}
+              </XStack>
+
+              <XStack gap="$2" alignItems="center" flexShrink={0}>
+                {chartSwitchControl}
+
+                {chartSwitchControl && fullscreenControl ? (
+                  <ToolbarSeparator />
+                ) : null}
+
+                {fullscreenControl}
+                {rightControl}
+                {desktopToolbar}
+              </XStack>
             </XStack>
-
-            <XStack gap="$2" alignItems="center" flexShrink={0}>
-              {chartSwitchControl}
-
-              {chartSwitchControl && fullscreenControl ? (
-                <ToolbarSeparator />
-              ) : null}
-
-              {fullscreenControl}
-              {rightControl}
-            </XStack>
-          </XStack>
+          </ToolbarContainer>
         </Stack>
       );
     }
 
+    const mobileControlsFlex =
+      shouldStretchReadyControls && !mobileFullscreenHeader ? 1 : undefined;
+    let mobileControlsFlexShrink =
+      compactMobileLayout && onRightControlPress ? 1 : undefined;
+    if (mobileFullscreenHeader) {
+      mobileControlsFlexShrink = 0;
+    }
+    const mobileReadyControls = (
+      <XStack
+        testID="trading-view-chart-ready-controls"
+        flex={mobileControlsFlex}
+        flexGrow={mobileFullscreenHeader ? 1 : undefined}
+        flexShrink={mobileControlsFlexShrink}
+        minWidth={0}
+        gap={shouldFillIntervalSelector ? '$0' : '$2'}
+        alignItems="center"
+        opacity={isControlsReady ? 1 : 0}
+        pointerEvents={isControlsReady ? 'auto' : 'none'}
+      >
+        <XStack
+          flex={mobileControlsFlex}
+          flexGrow={mobileFullscreenHeader ? 1 : undefined}
+          flexShrink={mobileControlsFlexShrink}
+          minWidth={0}
+          alignItems="center"
+        >
+          {intervalSelector}
+        </XStack>
+
+        <XStack
+          gap="$2"
+          alignItems="center"
+          justifyContent="flex-end"
+          flexShrink={mobileFullscreenHeader ? 0 : undefined}
+        >
+          {chartTypeControl}
+          {priceMarketCapControl}
+          {indicatorControl}
+          {calendarControl}
+          {settingsControl}
+        </XStack>
+      </XStack>
+    );
+
     return (
       <Stack
+        testID="trading-view-chart-controls"
         bg={backgroundColor}
         px="$2"
         py={compactMobileLayout ? undefined : '$2'}
@@ -608,37 +696,22 @@ export const TradingViewChartControls = memo(
             hasCompactChartCloseControl ? [{ translateY: 2 }] : undefined
           }
         >
-          <XStack
-            testID="trading-view-chart-ready-controls"
-            flex={shouldStretchReadyControls ? 1 : undefined}
-            flexShrink={
-              compactMobileLayout && onRightControlPress ? 1 : undefined
-            }
-            minWidth={0}
-            gap={shouldFillIntervalSelector ? '$0' : '$2'}
-            alignItems="center"
-            opacity={isControlsReady ? 1 : 0}
-            pointerEvents={isControlsReady ? 'auto' : 'none'}
-          >
-            <XStack
-              flex={shouldStretchReadyControls ? 1 : undefined}
-              flexShrink={
-                compactMobileLayout && onRightControlPress ? 1 : undefined
-              }
-              minWidth={0}
-              alignItems="center"
-            >
-              {intervalSelector}
-            </XStack>
+          {mobileFullscreenHeader}
 
-            <XStack gap="$2" alignItems="center" justifyContent="flex-end">
-              {chartTypeControl}
-              {priceMarketCapControl}
-              {indicatorControl}
-              {calendarControl}
-              {settingsControl}
-            </XStack>
-          </XStack>
+          {mobileFullscreenHeader ? (
+            <ScrollView
+              testID="trading-view-mobile-fullscreen-toolbar"
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              flex={1}
+              minWidth={0}
+              contentContainerStyle={{ flexGrow: 1 }}
+            >
+              {mobileReadyControls}
+            </ScrollView>
+          ) : (
+            mobileReadyControls
+          )}
 
           {chartSwitchControl ? (
             <XStack gap="$2" alignItems="center" justifyContent="flex-end">
@@ -668,6 +741,7 @@ export const TradingViewChartControls = memo(
             gap="$2"
             alignItems="center"
             justifyContent="flex-end"
+            flexShrink={mobileFullscreenHeader ? 0 : undefined}
             pl={compactMobileLayout && onRightControlPress ? '$2' : undefined}
             pr={compactMobileLayout && onRightControlPress ? '$2' : undefined}
             accessibilityRole={onRightControlPress ? 'button' : undefined}

@@ -3,14 +3,33 @@ export const ReceiveTestIDs = {
   ReceiveTokenPage: 'receive-token-page',
   QRCode: 'receive-qr-code',
   AddressText: 'receive-address-text',
+  DerivationPath: 'receive-derivation-path',
   CopyAddressButton: 'receive-copy-address-button',
   VerifyOnDeviceButton: 'receive-verify-on-device-button',
   SkipVerifyButton: 'receive-skip-verify-button',
   AddressTypeSelector: 'receive-address-type-selector',
+  AddressTypeMenuButton: 'receive-address-type-menu-button',
   Banner: 'receive-banner',
   PageHeading: 'receive-page-heading',
   CardHeaderNetworkEta: 'receive-card-network-eta',
+  CardHeaderNetworkTrigger: 'receive-card-network-trigger',
+  SwitchPlaceholder: 'receive-switch-placeholder',
   ShareButton: 'receive-share-button',
+  DoneButton: 'receive-done-button',
+
+  // Receive token / network selection (ReceiveSelectToken with secondaryTab)
+  SelectSegment: 'receive-select-segment',
+  SelectSegmentToken: 'receive-select-segment-token',
+  SelectSegmentNetwork: 'receive-select-segment-network',
+  SelectSearchBar: 'receive-select-search-bar',
+  NetworkList: 'receive-network-list',
+  NetworkListItem: (networkId: string) =>
+    `receive-network-list-item-${networkId}`,
+
+  // ReceiveSelectNetwork page (switch target of a network entry)
+  SelectNetworkPage: 'receive-select-network-page',
+  SelectNetworkSearchBar: 'receive-select-network-search-bar',
+  SelectNetworkList: 'receive-select-network-list',
 
   // ReceiveShare dialog
   ShareDialogPreview: 'receive-share-preview',

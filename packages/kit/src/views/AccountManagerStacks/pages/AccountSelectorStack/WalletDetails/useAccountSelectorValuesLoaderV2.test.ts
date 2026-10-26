@@ -1,0 +1,362 @@
+/** @jest-environment jsdom */
+import type { IAccountSelectorValuesMap } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+
+import {
+  loadAccountSelectorValuesV2,
+  yieldAccountSelectorValuesV2,
+} from './useAccountSelectorValuesLoaderV2';
+
+jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
+  __esModule: true,
+  default: { serviceAccountSelector: {} },
+}));
+jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({}));
+
+type IBuildValues = NonNullable<
+  Parameters<typeof loadAccountSelectorValuesV2>[1]['buildValues']
+>;
+const accounts = (count: number, prefix = 'account') =>
+  Array.from({ length: count }, (_, index) => ({
+    accountId: `${prefix}-${index}`,
+    networkId: 'evm--1',
+  }));
+const result: IBuildValues = async ({ accounts: batch }) => ({
+  accountsValue: batch.map(({ accountId }) => ({
+    accountId,
+    currency: 'usd',
+    value: { [`${accountId}_evm--1`]: '1' },
+  })),
+  accountsDeFiOverview: batch.map(() => ({
+    overview: {},
+    perpsNetWorthUsd: '3',
+  })),
+});
+function atom<T>(initial: T) {
+  let value = initial;
+  const publications: T[] = [];
+  return {
+    read: () => value,
+    publications,
+    set: jest.fn(async (update: (previous: T) => T) => {
+      const next = update(value);
+      if (next !== value) publications.push(next);
+      value = next;
+    }),
+  };
+}
+function dependencies() {
+  return {
+    valuesAtom: atom<IAccountSelectorValuesMap>({}),
+    buildValues: jest.fn(result),
+    yieldToUI: jest.fn(async () => undefined),
+    now: () => 0,
+    networkByNum: new Map<number, string | undefined>(),
+    isCancelled: () => false,
+  };
+}
+
+describe('account V2 balance scheduling', () => {
+  it('keeps 20 service batches but publishes 2 maps for 1000 immediately resolved accounts', async () => {
+    const deps = dependencies();
+    await loadAccountSelectorValuesV2(
+      { num: 0, accountsForValuesQuery: accounts(1000) },
+      deps,
+    );
+    expect(deps.buildValues).toHaveBeenCalledTimes(20);
+    expect(
+      deps.buildValues.mock.calls.every(
+        ([params]) => params.accounts.length === 50,
+      ),
+    ).toBe(true);
+    expect(
+      deps.valuesAtom.publications.map(
+        (value) => Object.keys(value[0] ?? {}).length,
+      ),
+    ).toEqual([50, 1000]);
+    expect(deps.yieldToUI).toHaveBeenCalledTimes(1);
+    deps.valuesAtom.publications.length = 0;
+    await loadAccountSelectorValuesV2(
+      { num: 0, accountsForValuesQuery: accounts(1000) },
+      deps,
+    );
+    expect(deps.valuesAtom.publications).toHaveLength(0);
+  });
+
+  it('publishes and yields when the work budget expires, including failed batches', async () => {
+    const deps = dependencies();
+    let time = 0;
+    deps.now = () => time;
+    deps.buildValues.mockImplementation(async (params) => {
+      time += 9;
+      if (params.accounts[0].accountId === 'account-50')
+        throw new OneKeyLocalError('batch failed');
+      return result(params);
+    });
+    await loadAccountSelectorValuesV2(
+      { num: 0, accountsForValuesQuery: accounts(150) },
+      deps,
+    );
+    expect(deps.buildValues).toHaveBeenCalledTimes(3);
+    expect(deps.yieldToUI).toHaveBeenCalledTimes(2);
+    expect(deps.valuesAtom.read()[0]?.['account-100'].value).toEqual({
+      'account-100_evm--1': '1',
+    });
+    expect(deps.valuesAtom.read()[0]?.['account-50']).toBeUndefined();
+  });
+
+  it('preserves refresh balances, prunes other wallets and clears another network', async () => {
+    const deps = dependencies();
+    const input = {
+      num: 0,
+      accountsForValuesQuery: accounts(2),
+      linkedNetworkId: 'onekeyall--0',
+    };
+    await loadAccountSelectorValuesV2(input, deps);
+    deps.valuesAtom.publications.length = 0;
+    deps.buildValues.mockImplementation(async () => {
+      throw new OneKeyLocalError('offline');
+    });
+    await loadAccountSelectorValuesV2(input, deps);
+    expect(deps.valuesAtom.publications).toHaveLength(0);
+    expect(deps.valuesAtom.read()[0]?.['account-0'].value).toEqual({
+      'account-0_evm--1': '1',
+    });
+    // Perps worth loaded under another network must not stay on the rows.
+    await loadAccountSelectorValuesV2(
+      { ...input, linkedNetworkId: 'btc--0' },
+      deps,
+    );
+    expect(deps.valuesAtom.read()[0]).toEqual({});
+    deps.buildValues.mockImplementation(result);
+    await loadAccountSelectorValuesV2(
+      { ...input, linkedNetworkId: 'btc--0' },
+      deps,
+    );
+    await loadAccountSelectorValuesV2(
+      {
+        ...input,
+        accountsForValuesQuery: accounts(2, 'other-wallet'),
+        linkedNetworkId: 'btc--0',
+      },
+      deps,
+    );
+    expect(Object.keys(deps.valuesAtom.read()[0] ?? {})).toEqual([
+      'other-wallet-0',
+      'other-wallet-1',
+    ]);
+  });
+
+  it('publishes each value together with its DeFi and query network in one update', async () => {
+    const deps = dependencies();
+    await loadAccountSelectorValuesV2(
+      { num: 0, accountsForValuesQuery: accounts(2) },
+      deps,
+    );
+    expect(deps.valuesAtom.publications).toHaveLength(1);
+    expect(deps.valuesAtom.read()[0]?.['account-1']).toEqual({
+      accountId: 'account-1',
+      currency: 'usd',
+      value: { 'account-1_evm--1': '1' },
+      deFi: { overview: {}, perpsNetWorthUsd: '3' },
+      networkId: 'evm--1',
+    });
+
+    // A changed overview alone is still one update that replaces the item.
+    deps.buildValues.mockImplementation(async (params) => ({
+      ...(await result(params)),
+      accountsDeFiOverview: params.accounts.map(() => ({
+        overview: {},
+        perpsNetWorthUsd: '4',
+      })),
+    }));
+    await loadAccountSelectorValuesV2(
+      { num: 0, accountsForValuesQuery: accounts(2) },
+      deps,
+    );
+    expect(deps.valuesAtom.publications).toHaveLength(2);
+    expect(deps.valuesAtom.read()[0]?.['account-0'].deFi).toEqual({
+      overview: {},
+      perpsNetWorthUsd: '4',
+    });
+  });
+
+  it('reports whether every batch of the account set was published', async () => {
+    const deps = dependencies();
+    await expect(
+      loadAccountSelectorValuesV2(
+        { num: 0, accountsForValuesQuery: accounts(60) },
+        deps,
+      ),
+    ).resolves.toBe(true);
+
+    let cancelled = false;
+    deps.buildValues.mockImplementation(async (params) => {
+      cancelled = true;
+      return result(params);
+    });
+    await expect(
+      loadAccountSelectorValuesV2(
+        { num: 0, accountsForValuesQuery: accounts(60, 'next') },
+        { ...deps, isCancelled: () => cancelled },
+      ),
+    ).resolves.toBe(false);
+  });
+
+  it('retries a failed last publication once before reporting the load', async () => {
+    // Atom writes in order: the prune, the only publication, its retry.
+    const withFailedWrites = (failedWrites: number[]) => {
+      const deps = dependencies();
+      const { set } = deps.valuesAtom;
+      let write = 0;
+      return {
+        ...deps,
+        valuesAtom: {
+          ...deps.valuesAtom,
+          set: jest.fn(async (update: Parameters<typeof set>[0]) => {
+            write += 1;
+            if (failedWrites.includes(write)) {
+              throw new OneKeyLocalError('bridge closed');
+            }
+            await set(update);
+          }),
+        },
+      };
+    };
+
+    const recovered = withFailedWrites([2]);
+    await expect(
+      loadAccountSelectorValuesV2(
+        { num: 0, accountsForValuesQuery: accounts(10) },
+        recovered,
+      ),
+    ).resolves.toBe(true);
+    expect(recovered.valuesAtom.set).toHaveBeenCalledTimes(3);
+    expect(Object.keys(recovered.valuesAtom.read()[0] ?? {})).toHaveLength(10);
+
+    const failed = withFailedWrites([2, 3]);
+    await expect(
+      loadAccountSelectorValuesV2(
+        { num: 0, accountsForValuesQuery: accounts(10) },
+        failed,
+      ),
+    ).resolves.toBe(false);
+    expect(failed.valuesAtom.set).toHaveBeenCalledTimes(3);
+  });
+
+  it('drops cancelled responses and keeps concurrent selector nums isolated', async () => {
+    const deps = dependencies();
+    let cancelled = false;
+    let release: (() => void) | undefined;
+    const oldRequest = loadAccountSelectorValuesV2(
+      { num: 0, accountsForValuesQuery: accounts(50, 'old') },
+      {
+        ...deps,
+        isCancelled: () => cancelled,
+        buildValues: async (params) => {
+          await new Promise<void>((resolve) => {
+            release = resolve;
+          });
+          return result(params);
+        },
+      },
+    );
+    // Let initialization reach the deferred service call.
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
+    cancelled = true;
+    await Promise.all([
+      loadAccountSelectorValuesV2(
+        { num: 0, accountsForValuesQuery: accounts(2, 'new') },
+        deps,
+      ),
+      loadAccountSelectorValuesV2(
+        { num: 1, accountsForValuesQuery: accounts(2, 'second') },
+        deps,
+      ),
+    ]);
+    release?.();
+    await oldRequest;
+    expect(Object.keys(deps.valuesAtom.read()[0] ?? {})).toEqual([
+      'new-0',
+      'new-1',
+    ]);
+    expect(Object.keys(deps.valuesAtom.read()[1] ?? {})).toEqual([
+      'second-0',
+      'second-1',
+    ]);
+  });
+
+  it('guards a deferred empty-account cleanup after a new load starts', async () => {
+    const deps = dependencies();
+    await loadAccountSelectorValuesV2(
+      { num: 0, accountsForValuesQuery: accounts(1) },
+      deps,
+    );
+    let cancelled = false;
+    let runCleanup: (() => Promise<void>) | undefined;
+    const cleanup = loadAccountSelectorValuesV2(
+      { num: 0, accountsForValuesQuery: [] },
+      {
+        ...deps,
+        isCancelled: () => cancelled,
+        valuesAtom: {
+          set: (update) =>
+            new Promise<void>((resolve) => {
+              runCleanup = async () => {
+                await deps.valuesAtom.set(update);
+                resolve();
+              };
+            }),
+        },
+      },
+    );
+    cancelled = true;
+    await runCleanup?.();
+    await cleanup;
+    expect(deps.valuesAtom.read()[0]?.['account-0'].value).toEqual({
+      'account-0_evm--1': '1',
+    });
+  });
+
+  it('yields beyond a frame callback and remains bounded when rAF is suspended', async () => {
+    jest.useFakeTimers();
+    let frameCallback: FrameRequestCallback | undefined;
+    const scheduler: {
+      requestAnimationFrame: (callback: FrameRequestCallback) => number;
+      cancelAnimationFrame: (frame: number) => void;
+    } = globalThis;
+    const raf = jest
+      .spyOn(scheduler, 'requestAnimationFrame')
+      .mockImplementation((callback) => {
+        frameCallback = callback;
+        return 1;
+      });
+    const cancel = jest
+      .spyOn(scheduler, 'cancelAnimationFrame')
+      .mockImplementation(() => undefined);
+    try {
+      let finished = false;
+      const task = yieldAccountSelectorValuesV2().then(() => {
+        finished = true;
+      });
+      await Promise.resolve();
+      expect(finished).toBe(false);
+      frameCallback?.(0);
+      await Promise.resolve();
+      expect(finished).toBe(false);
+      jest.advanceTimersByTime(0);
+      await task;
+      expect(finished).toBe(true);
+      const suspended = yieldAccountSelectorValuesV2();
+      jest.advanceTimersByTime(100);
+      await suspended;
+      expect(jest.getTimerCount()).toBe(0);
+    } finally {
+      raf.mockRestore();
+      cancel.mockRestore();
+      jest.useRealTimers();
+    }
+  });
+});

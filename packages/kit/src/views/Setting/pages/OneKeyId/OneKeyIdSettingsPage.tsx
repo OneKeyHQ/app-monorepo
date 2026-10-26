@@ -1,6 +1,5 @@
 import { memo, useCallback, useMemo } from 'react';
 
-import { launchImageLibraryAsync } from 'expo-image-picker';
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
@@ -20,7 +19,7 @@ import { getDisplayEmailOrUnknown } from '@onekeyhq/kit/src/components/OneKeyAut
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import PhotoLibrary from '@onekeyhq/shared/src/modules3rdParty/photo-library';
 import { EModalSettingRoutes } from '@onekeyhq/shared/src/routes';
 
 import { SettingTestIDs } from '../../testIDs';
@@ -42,17 +41,13 @@ function OneKeyIdUserProfile() {
   }, [loginOneKeyId]);
 
   const handlePickAvatar = useCallback(async () => {
-    const result = await launchImageLibraryAsync({
-      base64: !platformEnv.isNative,
-      allowsMultipleSelection: false,
-      mediaTypes: ['images'],
-    });
+    const result = await PhotoLibrary.pickImage();
 
     if (!result.canceled) {
-      const uri = result?.assets?.[0]?.uri;
+      const uri = result.uri;
       if (uri) {
         // TODO: Upload the image and update user avatar
-        console.log('Selected avatar:', uri);
+        await PhotoLibrary.releasePickedImage(uri).catch(() => {});
       }
     }
   }, []);

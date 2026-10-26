@@ -16,7 +16,6 @@ import {
   SizableText,
   Skeleton,
   Stack,
-  Tabs,
   YStack,
   useMedia,
   useScrollContentTabBarOffset,
@@ -27,10 +26,12 @@ import {
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import defiUtils from '@onekeyhq/shared/src/utils/defiUtils';
 import type { IDeFiProtocol } from '@onekeyhq/shared/types/defi';
 import { EHomeWalletTab } from '@onekeyhq/shared/types/wallet';
 
+import useListenTabFocusState from '../../../hooks/useListenTabFocusState';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import {
   ProviderJotaiContextDeFiList,
@@ -56,6 +57,7 @@ import {
 } from '../components/DeFiListBlock';
 import { buildPortfolioStats } from '../components/DeFiListBlock/DeFiPortfolioStats';
 import { formatPortfolioTotal } from '../components/DeFiListBlock/formatPortfolioTotal';
+import { HomeScrollView } from '../components/HomeScrollView';
 import { HomeStickyHeaderContext } from '../components/HomeStickyHeaderContext';
 import { HomeTokenListProviderMirrorWrapper } from '../components/HomeTokenListProvider';
 import { PullToRefresh, onHomePageRefresh } from '../components/PullToRefresh';
@@ -118,7 +120,11 @@ function scrollToAnchor(
       anchorRect.top - scrollerRect.top + scroller.scrollTop - offset,
     ),
   );
-  scroller.scrollTo({ top: targetY, behavior });
+  const scrollTo =
+    scroller.ownerDocument.defaultView?.Element.prototype.scrollTo.bind(
+      scroller,
+    ) ?? scroller.scrollTo.bind(scroller);
+  scrollTo({ top: targetY, behavior });
 }
 
 function DeFiContainer() {
@@ -182,6 +188,20 @@ function DeFiContainer() {
   }, [account?.id, network?.id]);
 
   const triggerPinCheckRef = useRef<() => void>(() => {});
+  // The inactive Home tab is hidden with `content-visibility: hidden`, which
+  // keeps its last layout but stops updating it, so a pin-tracker pass while
+  // the route is blurred (window resize, effect re-run) would read stale
+  // rects and nothing would correct the result until the next user scroll
+  // (same failure class as OK-63164 / OK-65383). Skip the pass while blurred
+  // and re-run it once the route is focused again.
+  const isHomeRouteFocusedRef = useRef(true);
+  useListenTabFocusState(ETabRoutes.Home, (isFocus) => {
+    const wasFocused = isHomeRouteFocusedRef.current;
+    isHomeRouteFocusedRef.current = isFocus;
+    if (isFocus && !wasFocused) {
+      triggerPinCheckRef.current();
+    }
+  });
   const scrollContainerRef = useRef<HTMLElement | null>(null);
   const protocolRefs = useRef<Map<string, IProtocolHandle>>(new Map());
   // Read by pin tracker each scroll frame; ref avoids effect teardown on remeasure.
@@ -541,6 +561,9 @@ function DeFiContainer() {
     };
 
     check = () => {
+      if (!isHomeRouteFocusedRef.current) {
+        return;
+      }
       syncScrollerSubscription();
 
       const stickyHostRect =
@@ -810,7 +833,7 @@ function DeFiContainerScrollable() {
 
   return (
     <Stack flex={1}>
-      <Tabs.ScrollView
+      <HomeScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: tabBarOffset }}
         nestedScrollEnabled={platformEnv.isNativeAndroid}
@@ -821,7 +844,7 @@ function DeFiContainerScrollable() {
         }
       >
         <DeFiContainer />
-      </Tabs.ScrollView>
+      </HomeScrollView>
     </Stack>
   );
 }

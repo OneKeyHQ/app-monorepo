@@ -26,6 +26,7 @@ import {
   useSwapSelectFromTokenAtom,
   useSwapTypeSwitchAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
+import type { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { useSwapProJumpTokenAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/swap';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -122,8 +123,10 @@ function CustomTabItem({
 }
 
 interface ISwapHeaderContainerProps {
+  storeName?: EJotaiContextStoreNames;
   pageType?: EPageType;
   defaultSwapType?: ESwapTabSwitchType;
+  onSwapTypeSwitch?: (nextType: ESwapTabSwitchType) => void;
   showSwapPro?: boolean;
   /** Hide right action buttons (settings/history) - used when they're shown elsewhere in desktop layout */
   hideRightActions?: boolean;
@@ -136,8 +139,10 @@ const DESKTOP_TRADE_TAB_ITEM_WIDTH = 144;
 const DESKTOP_TRADE_TAB_GROUP_WIDTH = DESKTOP_TRADE_TAB_ITEM_WIDTH * 3;
 
 const SwapHeaderContainer = ({
+  storeName,
   pageType,
   defaultSwapType,
+  onSwapTypeSwitch,
   showSwapPro,
   hideRightActions,
   singleSwapBridgeTab,
@@ -223,7 +228,8 @@ const SwapHeaderContainer = ({
       !defaultSwapType ||
       (pageType === 'modal' &&
         (enterFrom === ESwapSource.WALLET_HOME_TOKEN_LIST ||
-          (singleSwapBridgeTab && enterFrom === ESwapSource.MARKET)))
+          enterFrom === ESwapSource.TOKEN_DETAIL ||
+          enterFrom === ESwapSource.MARKET))
     ) {
       return;
     }
@@ -244,6 +250,7 @@ const SwapHeaderContainer = ({
       await updateSelectedAccountNetwork({
         num: 0,
         networkId: targetNetworkId,
+        reason: 'swapTypeNetworkSync',
       });
     },
     [updateSelectedAccountNetwork],
@@ -267,6 +274,8 @@ const SwapHeaderContainer = ({
           ? ESwapTabSwitchType.SWAP
           : (value as ESwapTabSwitchType);
       if (swapTypeSwitch === newType) return;
+
+      onSwapTypeSwitch?.(newType);
 
       defaultLogger.swap.tradeCategorySwitch.tradeCategorySwitch({
         fromCategory: getSwapAnalyticsCategoryFromSwapType(
@@ -321,6 +330,7 @@ const SwapHeaderContainer = ({
     [
       swapTypeSwitch,
       swapTypeSwitchAction,
+      onSwapTypeSwitch,
       syncRouteTabParam,
       networkId,
       fromToken?.networkId,
@@ -417,6 +427,12 @@ const SwapHeaderContainer = ({
     gtLg &&
     !platformEnv.isNative &&
     !platformEnv.isExtensionUiSidePanel;
+  const hideWalletHomeTokenListStockKLine = Boolean(
+    platformEnv.isDesktop &&
+    pageType === 'modal' &&
+    enterFrom === ESwapSource.WALLET_HOME_TOKEN_LIST &&
+    swapTypeSwitch === ESwapTabSwitchType.STOCK,
+  );
   const tabs = (
     <>
       <CustomTabItem
@@ -457,17 +473,33 @@ const SwapHeaderContainer = ({
   );
 
   if (singleSwapBridgeTab) {
+    // This branch is only reached from the Market detail pages' embedded swap.
+    // The panel carries no "Swap & Bridge" title (OK-62956): only the right
+    // actions remain, pinned to the trailing edge. All 8px of padding sits on
+    // top: the buttons' -7px margin would otherwise lift their 34px hover
+    // background past the panel's `overflow: hidden` top edge.
     return (
-      <XStack alignItems="center" gap="$2" px="$5" py="$1">
-        <SizableText size="$headingMd" flex={1}>
-          {swapBridgeLabel}
-        </SizableText>
+      <XStack
+        alignItems="center"
+        justifyContent="flex-end"
+        gap="$2"
+        px="$5"
+        pt="$2"
+        pb="$0"
+      >
         {!hideRightActions ? (
+          // The actions match the stock trade panel sitting in the same slot:
+          // the roomier icon size and spacing rather than `compact`.
+          // `iconSize` has to be a size token — `Icon` resolves its `size`
+          // variant through the token table, and a raw number silently falls
+          // back to the 24px default.
           <SwapHeaderRightActionContainer
+            storeName={storeName}
             pageType={pageType}
             marketPresetSettings={marketPresetSettings}
             routeSwapType={defaultSwapType}
-            compact
+            iconSize="$5"
+            iconColor="$iconStrong"
             hideKLine
           />
         ) : null}
@@ -500,10 +532,12 @@ const SwapHeaderContainer = ({
       </Stack>
       {!hideRightActions ? (
         <SwapHeaderRightActionContainer
+          storeName={storeName}
           pageType={pageType}
           marketPresetSettings={marketPresetSettings}
           routeSwapType={defaultSwapType}
           compact={Boolean(isCompactLayout && !useDesktopModalHeaderActions)}
+          hideKLine={hideWalletHomeTokenListStockKLine}
         />
       ) : null}
     </XStack>

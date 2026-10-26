@@ -9,6 +9,7 @@ import {
   useIsDesktopModeUIInTabPages,
 } from '@onekeyhq/components';
 import { HeaderNotificationButton } from '@onekeyhq/components/src/layouts/Navigation/Header';
+import { shouldRedirectOnboardingToTravelMode } from '@onekeyhq/kit/src/utils/onboardingEntryGate';
 import { useNotificationsAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -31,6 +32,7 @@ export function HeaderNotificationIconButton({
 }: IHeaderNotificationIconButtonProps) {
   const intl = useIntl();
   const navigation = useAppNavigation();
+  const isTravelMode = shouldRedirectOnboardingToTravelMode();
   const [{ firstTimeGuideOpened, badge }] = useNotificationsAtom();
 
   const notificationBadge = useMemo(() => {
@@ -49,14 +51,17 @@ export function HeaderNotificationIconButton({
   }, [firstTimeGuideOpened, badge]);
 
   const handleNotificationPress = useCallback(() => {
+    if (isTravelMode) {
+      return;
+    }
     navigation.pushModal(EModalRoutes.NotificationsModal, {
       screen: EModalNotificationsRoutes.NotificationList,
     });
-  }, [navigation]);
+  }, [isTravelMode, navigation]);
 
   const isDesktopModeUI = useIsDesktopModeUIInTabPages();
 
-  return isDesktopModeUI ? (
+  return isDesktopModeUI && !isTravelMode ? (
     <Popover
       title=""
       showHeader={false}
@@ -102,6 +107,7 @@ export function HeaderNotificationIconButton({
       showBadge={notificationBadge.show}
       badgeCount={notificationBadge.count}
       onPress={handleNotificationPress}
+      disabled={isTravelMode}
       testID={testID ?? 'dex-notification-button'}
     />
   );

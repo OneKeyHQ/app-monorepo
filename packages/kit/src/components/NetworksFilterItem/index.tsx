@@ -10,12 +10,18 @@ import {
   Tooltip,
   XStack,
 } from '@onekeyhq/components';
-import type { IXStackProps } from '@onekeyhq/components';
+import type {
+  IKeyOfIcons,
+  IXStackProps,
+  SizeTokens,
+} from '@onekeyhq/components';
 import type { ISizableTextProps } from '@onekeyhq/components/src/primitives';
 
 export type INetworksFilterItemProps = {
   networkImageUri?: string;
+  networkImageSize?: SizeTokens;
   networkName?: string;
+  iconAfter?: IKeyOfIcons;
   isSelected?: boolean;
   tooltipContent?: string;
   disabled?: boolean;
@@ -27,7 +33,9 @@ export type INetworksFilterItemProps = {
 
 export function NetworksFilterItem({
   networkImageUri,
+  networkImageSize = '$6',
   networkName,
+  iconAfter,
   isSelected,
   tooltipContent,
   disabled,
@@ -39,11 +47,17 @@ export function NetworksFilterItem({
 }: INetworksFilterItemProps) {
   const renderNetworkImage = useCallback(() => {
     if (isAllNetworks) {
-      return <Icon name="AllNetworksSolid" color="$iconActive" size="$6" />;
+      return (
+        <Icon
+          name="AllNetworksSolid"
+          color="$iconActive"
+          size={networkImageSize}
+        />
+      );
     }
     return networkImageUri ? (
       <Image
-        size="$6"
+        size={networkImageSize}
         borderRadius="$full"
         {...(!keepNetworkImageSize && {
           $gtMd: {
@@ -55,7 +69,7 @@ export function NetworksFilterItem({
         }}
       />
     ) : null;
-  }, [isAllNetworks, keepNetworkImageSize, networkImageUri]);
+  }, [isAllNetworks, keepNetworkImageSize, networkImageUri, networkImageSize]);
 
   const BaseComponent = (
     <XStack
@@ -101,6 +115,9 @@ export function NetworksFilterItem({
         >
           {networkName}
         </SizableText>
+      ) : null}
+      {iconAfter ? (
+        <Icon name={iconAfter} size="$4" color="$iconSubdued" flexShrink={0} />
       ) : null}
     </XStack>
   );

@@ -752,6 +752,7 @@ export { default as SpeedLow } from './SpeedLow';
 export { default as SpeedMiddle } from './SpeedMiddle';
 export { default as Speed } from './Speed';
 export { default as Split } from './Split';
+export { default as StarList } from './StarList';
 export { default as Star } from './Star';
 export { default as Stocks } from './Stocks';
 export { default as StopCircle } from './StopCircle';

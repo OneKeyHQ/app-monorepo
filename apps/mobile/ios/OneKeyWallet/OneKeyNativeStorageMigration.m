@@ -1,12 +1,64 @@
 #import <Foundation/Foundation.h>
 #import <MMKV/MMKV.h>
 #import <React/RCTBridgeModule.h>
+#import <UIKit/UIKit.h>
 
 static NSString *const OneKeyMigrationLedgerPrefix = @"onekey_native_storage_migration_";
 static NSString *const OneKeyMigrationLedgerComplete = @"complete-v1";
 static NSString *const OneKeyMigrationLedgerMigrating = @"migrating-v1";
 static NSString *const OneKeyMigrationLedgerResetting = @"resetting-v1";
 static NSString *const OneKeyRecoveryActionKey = @"onekey_recovery_action";
+static NSString *const OneKeyTravelModeControlKey = @"onekey_travel_mode_control_v1";
+static BOOL OneKeyTravelModePushSuppressionInitialized = NO;
+static BOOL OneKeyTravelModePushSuppressed = NO;
+
+static BOOL OneKeyReadTravelModeMaskingData(void)
+{
+  MMKV *mmkv = [MMKV mmkvWithID:@"onekey-app-setting"];
+  if (mmkv == nil) {
+    return YES;
+  }
+  NSString *rawValue = [mmkv getStringForKey:OneKeyTravelModeControlKey];
+  if (rawValue.length == 0) {
+    return NO;
+  }
+  NSData *data = [rawValue dataUsingEncoding:NSUTF8StringEncoding];
+  NSDictionary *record = data == nil
+      ? nil
+      : [NSJSONSerialization JSONObjectWithData:data options:0 error:nil];
+  if (![record isKindOfClass:NSDictionary.class]) {
+    return YES;
+  }
+  NSNumber *enabled = record[@"enabled"];
+  NSString *verifyString = record[@"verifyString"];
+  BOOL hasValidVerifyStringPrefix =
+      [verifyString isKindOfClass:NSString.class] &&
+      [verifyString hasPrefix:@"|VS|"] &&
+      verifyString.length > @"|VS|".length;
+  if (![enabled isKindOfClass:NSNumber.class] ||
+      CFGetTypeID((__bridge CFTypeRef)enabled) != CFBooleanGetTypeID() ||
+      ![verifyString isKindOfClass:NSString.class] ||
+      !hasValidVerifyStringPrefix ||
+      ![record[@"version"] isEqual:@1]) {
+    return YES;
+  }
+  return enabled.boolValue;
+}
+
+BOOL OneKeyIsTravelModeMaskingData(void)
+{
+  if (!OneKeyTravelModePushSuppressionInitialized) {
+    OneKeyTravelModePushSuppressed = OneKeyReadTravelModeMaskingData();
+    OneKeyTravelModePushSuppressionInitialized = YES;
+  }
+  return OneKeyTravelModePushSuppressed;
+}
+
+static void OneKeySetTravelModePushSuppressed(BOOL suppressed)
+{
+  OneKeyTravelModePushSuppressed = suppressed;
+  OneKeyTravelModePushSuppressionInitialized = YES;
+}
 
 @interface OneKeyNativeStorageMigration : NSObject <RCTBridgeModule>
 @property(nonatomic, strong) dispatch_queue_t storageQueue;
@@ -45,7 +97,6 @@ RCT_EXPORT_MODULE(OneKeyNativeStorageMigration)
 {
   return [mmapID isEqualToString:@"onekey-app-storage-v1"] ||
          [mmapID isEqualToString:@"onekey-app-setting"] ||
-         [mmapID isEqualToString:@"onekey-cold-start-cache"] ||
          [mmapID isEqualToString:@"onekey-app-dev-setting"] ||
          [mmapID isEqualToString:@"onekey-jotai-states"];
 }
@@ -158,13 +209,32 @@ RCT_REMAP_METHOD(syncMMKV,
     reject(@"MMKV_SYNC_FAILED", @"Unsupported MMKV instance", nil);
     return;
   }
-  MMKV *mmkv = [MMKV mmkvWithID:mmapID];
-  if (mmkv == nil) {
-    reject(@"MMKV_SYNC_FAILED", @"MMKV instance is unavailable", nil);
+  // Core pins the existing instance and holds its write locks through both
+  // checked flushes. This call never creates a store.
+  int failure = [MMKV syncExisting:mmapID];
+  if (failure != 0) {
+    reject(@"MMKV_SYNC_FAILED",
+           [NSString stringWithFormat:@"MMKV durability check failed; errno=%d", failure],
+           nil);
     return;
   }
-  [mmkv sync];
   resolve(nil);
+}
+
+RCT_REMAP_METHOD(setTravelModePushSuppressed,
+                 setTravelModePushSuppressed:(BOOL)suppressed
+                 resolver:(RCTPromiseResolveBlock)resolve
+                 rejecter:(RCTPromiseRejectBlock)reject)
+{
+  dispatch_async(dispatch_get_main_queue(), ^{
+    OneKeySetTravelModePushSuppressed(suppressed);
+    if (suppressed) {
+      [UIApplication.sharedApplication unregisterForRemoteNotifications];
+    } else {
+      [UIApplication.sharedApplication registerForRemoteNotifications];
+    }
+    resolve(nil);
+  });
 }
 
 RCT_REMAP_METHOD(getMigrationStorageCapacity,

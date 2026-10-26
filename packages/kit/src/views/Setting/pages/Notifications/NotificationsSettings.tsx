@@ -9,7 +9,7 @@ import {
   Divider,
   Page,
   SizableText,
-  Spinner,
+  Skeleton,
   Stack,
   Switch,
   XStack,
@@ -24,6 +24,7 @@ import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
   useDevSettingsPersistAtom,
   useNotificationsAtom,
+  usePrimePersistAtom,
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -42,6 +43,53 @@ import {
   useNotificationHelperCta,
 } from '../../components/NotificationsTestButton';
 import { SETTINGS_PAGE_BODY_INSET_X } from '../Tab/settingsSurface';
+
+type INotificationSettingsCache = {
+  identityKey: string;
+  settings: INotificationPushSettings;
+};
+
+type INotificationSettingsState = {
+  identityKey: string | undefined;
+  settings: INotificationPushSettings | undefined;
+};
+
+let cachedNotificationSettings: INotificationSettingsCache | undefined;
+
+const EMPTY_NOTIFICATION_SETTINGS_DEFAULTS = {
+  pushEnabled: false,
+  accountActivityPushEnabled: true,
+  priceAlertsEnabled: true,
+  perpsEnabled: true,
+  announcementEnabled: true,
+  dailyUpdateEnabled: true,
+} satisfies INotificationPushSettings;
+
+function getCachedNotificationSettings(identityKey: string | undefined) {
+  return identityKey && cachedNotificationSettings?.identityKey === identityKey
+    ? cachedNotificationSettings.settings
+    : undefined;
+}
+
+function hasNotificationSettings(
+  settings: INotificationPushSettings | undefined,
+) {
+  return Boolean(settings && Object.keys(settings).length > 0);
+}
+
+function updateCachedNotificationSettings({
+  identityKey,
+  settings,
+}: {
+  identityKey: string;
+  settings: INotificationPushSettings;
+}) {
+  cachedNotificationSettings = { identityKey, settings };
+}
+
+function NotificationSettingsSwitchSkeleton() {
+  return <Skeleton w={38} h="$6" radius="round" flexShrink={0} />;
+}
 
 function NotificationsSettingsHelper() {
   const intl = useIntl();
@@ -78,19 +126,49 @@ function NotificationsSettingsHelper() {
 
 export default function NotificationsSettings() {
   const intl = useIntl();
-  const [settings, setSettings] = useState<
-    INotificationPushSettings | undefined
-  >();
+  const [primePersistAtom] = usePrimePersistAtom();
+  let notificationSettingsIdentityKey: string | undefined;
+  if (primePersistAtom.onekeyUserId) {
+    notificationSettingsIdentityKey = `onekey-id:${primePersistAtom.onekeyUserId}`;
+  } else if (
+    !primePersistAtom.isLoggedIn &&
+    !primePersistAtom.isLoggedInOnServer
+  ) {
+    notificationSettingsIdentityKey = 'anonymous';
+  }
+  const [settingsState, setSettingsState] =
+    useState<INotificationSettingsState>(() => ({
+      identityKey: notificationSettingsIdentityKey,
+      settings: getCachedNotificationSettings(notificationSettingsIdentityKey),
+    }));
+  const settings =
+    settingsState.identityKey === notificationSettingsIdentityKey
+      ? settingsState.settings
+      : undefined;
   const [devAppSettings] = useDevSettingsPersistAtom();
   const [appSettings] = useSettingsPersistAtom();
   const [, setNotificationsData] = useNotificationsAtom();
   const navigation = useAppNavigation();
 
-  const prevSettings = useRef<INotificationPushSettings>(undefined);
+  const prevSettings = useRef<INotificationPushSettings | undefined>(
+    settingsState.settings,
+  );
   const [shouldShowDevPanel, setShouldShowDevPanel] = useState(false);
   const pendingSettings = useRef<INotificationPushSettings | undefined>(
     undefined,
   );
+  const settingsMutationVersionRef = useRef(0);
+  const notificationSettingsIdentityKeyRef = useRef(
+    notificationSettingsIdentityKey,
+  );
+  const previousNotificationSettingsIdentityKeyRef = useRef(
+    notificationSettingsIdentityKey,
+  );
+
+  useEffect(() => {
+    notificationSettingsIdentityKeyRef.current =
+      notificationSettingsIdentityKey;
+  }, [notificationSettingsIdentityKey]);
 
   const { result: pushClient } = usePromiseResult(() => {
     noop(devAppSettings.enabled);
@@ -99,19 +177,61 @@ export default function NotificationsSettings() {
 
   const reloadSettings = useCallback(
     async (updated?: INotificationPushSettings) => {
+      if (!notificationSettingsIdentityKey) {
+        return;
+      }
+      const requestMutationVersion = settingsMutationVersionRef.current;
       const result =
         updated ||
         (await backgroundApiProxy.serviceNotification.fetchServerNotificationSettings());
-      setSettings(result);
-      prevSettings.current = result;
+      if (
+        !updated &&
+        requestMutationVersion !== settingsMutationVersionRef.current
+      ) {
+        return;
+      }
+      if (
+        notificationSettingsIdentityKeyRef.current !==
+        notificationSettingsIdentityKey
+      ) {
+        return;
+      }
+      // An explicit empty object is a loaded empty config, not a missing payload.
+      if (
+        (result === undefined || result === null) &&
+        hasNotificationSettings(
+          getCachedNotificationSettings(notificationSettingsIdentityKey),
+        )
+      ) {
+        return;
+      }
+      const nextSettings = result ?? {};
+      updateCachedNotificationSettings({
+        identityKey: notificationSettingsIdentityKey,
+        settings: nextSettings,
+      });
+      setSettingsState({
+        identityKey: notificationSettingsIdentityKey,
+        settings: nextSettings,
+      });
+      prevSettings.current = nextSettings;
     },
-    [],
+    [notificationSettingsIdentityKey],
   );
 
   const isUpdating = useRef(false);
+  const doUpdateSettingsToServerRef = useRef<(() => Promise<void>) | undefined>(
+    undefined,
+  );
 
   const doUpdateSettingsToServer = useCallback(async () => {
-    if (isUpdating.current || !pendingSettings.current) {
+    if (
+      !notificationSettingsIdentityKey ||
+      notificationSettingsIdentityKeyRef.current !==
+        notificationSettingsIdentityKey ||
+      isUpdating.current ||
+      !pendingSettings.current
+    ) {
       return;
     }
     isUpdating.current = true;
@@ -127,19 +247,37 @@ export default function NotificationsSettings() {
       if (pendingSettings.current) {
         // If there are new pending settings, continue updating
         isUpdating.current = false;
-        void doUpdateSettingsToServer();
+        void doUpdateSettingsToServerRef.current?.();
       } else {
         await reloadSettings(updated);
         isUpdating.current = false;
       }
     } catch (e) {
       isUpdating.current = false;
-      if (prevSettings.current) {
-        setSettings(prevSettings.current);
+      if (
+        notificationSettingsIdentityKeyRef.current ===
+          notificationSettingsIdentityKey &&
+        prevSettings.current
+      ) {
+        updateCachedNotificationSettings({
+          identityKey: notificationSettingsIdentityKey,
+          settings: prevSettings.current,
+        });
+        setSettingsState({
+          identityKey: notificationSettingsIdentityKey,
+          settings: prevSettings.current,
+        });
+      }
+      if (pendingSettings.current) {
+        void doUpdateSettingsToServerRef.current?.();
       }
       throw e;
     }
-  }, [reloadSettings]);
+  }, [notificationSettingsIdentityKey, reloadSettings]);
+
+  useEffect(() => {
+    doUpdateSettingsToServerRef.current = doUpdateSettingsToServer;
+  }, [doUpdateSettingsToServer]);
 
   const updateSettingsToServer = useDebouncedCallback(
     () => {
@@ -151,34 +289,100 @@ export default function NotificationsSettings() {
       trailing: true,
     },
   );
+  const updateSettingsToServerRef = useRef(updateSettingsToServer);
+
+  useEffect(() => {
+    updateSettingsToServerRef.current = updateSettingsToServer;
+  }, [updateSettingsToServer]);
 
   const updateSettings = useCallback(
     (partSettings: INotificationPushSettings) => {
-      setSettings((v) => {
+      if (!notificationSettingsIdentityKey) {
+        return;
+      }
+      settingsMutationVersionRef.current += 1;
+      setSettingsState((v) => {
+        if (v.identityKey !== notificationSettingsIdentityKey || !v.settings) {
+          return v;
+        }
+        const currentSettings = hasNotificationSettings(v.settings)
+          ? v.settings
+          : EMPTY_NOTIFICATION_SETTINGS_DEFAULTS;
         const newValue = {
-          ...v,
+          ...currentSettings,
           ...partSettings,
         };
+        updateCachedNotificationSettings({
+          identityKey: notificationSettingsIdentityKey,
+          settings: newValue,
+        });
         pendingSettings.current = newValue;
         updateSettingsToServer();
-        return newValue;
+        return {
+          identityKey: notificationSettingsIdentityKey,
+          settings: newValue,
+        };
       });
     },
-    [updateSettingsToServer],
+    [notificationSettingsIdentityKey, updateSettingsToServer],
   );
 
   useEffect(() => {
-    void reloadSettings();
-  }, [reloadSettings]);
+    const previousIdentityKey =
+      previousNotificationSettingsIdentityKeyRef.current;
+    const identityChanged =
+      previousIdentityKey !== notificationSettingsIdentityKey;
+    previousNotificationSettingsIdentityKeyRef.current =
+      notificationSettingsIdentityKey;
+    const hasOutstandingUpdate = Boolean(
+      pendingSettings.current || isUpdating.current,
+    );
+    if (!identityChanged && hasOutstandingUpdate) {
+      return;
+    }
+    settingsMutationVersionRef.current += 1;
+    if (identityChanged) {
+      if (
+        previousIdentityKey &&
+        hasOutstandingUpdate &&
+        prevSettings.current !== undefined
+      ) {
+        updateCachedNotificationSettings({
+          identityKey: previousIdentityKey,
+          settings: prevSettings.current,
+        });
+      }
+      updateSettingsToServer.cancel();
+      pendingSettings.current = undefined;
+      const cachedSettings = getCachedNotificationSettings(
+        notificationSettingsIdentityKey,
+      );
+      setSettingsState({
+        identityKey: notificationSettingsIdentityKey,
+        settings: cachedSettings,
+      });
+      prevSettings.current = cachedSettings;
+    }
+    if (notificationSettingsIdentityKey) {
+      void reloadSettings();
+    }
+  }, [
+    notificationSettingsIdentityKey,
+    primePersistAtom.isLoggedIn,
+    primePersistAtom.isLoggedInOnServer,
+    primePersistAtom.primeSubscription?.isActive,
+    reloadSettings,
+    updateSettingsToServer,
+  ]);
 
-  // Flush pending settings when component unmount
+  // Flush pending settings only when the component actually unmounts.
   useEffect(
     () => () => {
       if (pendingSettings.current) {
-        updateSettingsToServer.flush();
+        updateSettingsToServerRef.current.flush();
       }
     },
-    [updateSettingsToServer],
+    [],
   );
 
   return (
@@ -187,219 +391,237 @@ export default function NotificationsSettings() {
         title={intl.formatMessage({ id: ETranslations.global_notifications })}
       />
       <Page.Body px={SETTINGS_PAGE_BODY_INSET_X}>
-        {!settings ? (
-          <Stack pt={240} justifyContent="center" alignItems="center">
-            <Spinner size="large" />
-          </Stack>
-        ) : (
+        {/* Allow notifications - Master switch */}
+        <ListItem>
+          <ListItem.Text
+            flex={1}
+            primary={intl.formatMessage({
+              id: ETranslations.notifications_notifications_switch_label,
+            })}
+            secondary={intl.formatMessage({
+              id: ETranslations.global_master_switch_all_notification,
+            })}
+            secondaryTextProps={{
+              maxWidth: '$96',
+            }}
+          />
+          {settings === undefined ? (
+            <NotificationSettingsSwitchSkeleton />
+          ) : (
+            <Switch
+              testID="setting-switch"
+              size="small"
+              value={!!settings?.pushEnabled}
+              onChange={async (checked) => {
+                void updateSettings({
+                  pushEnabled: checked,
+                });
+                if (checked) {
+                  const permission =
+                    await backgroundApiProxy.serviceNotification.getPermission();
+                  await timerUtils.wait(300);
+                  if (
+                    permission.isSupported &&
+                    permission.permission !== ENotificationPermission.granted
+                  ) {
+                    navigation.pushModal(EModalRoutes.NotificationsModal, {
+                      screen:
+                        EModalNotificationsRoutes.NotificationIntroduction,
+                    });
+                  }
+                }
+              }}
+            />
+          )}
+        </ListItem>
+
+        {settings?.pushEnabled ? (
+          <NotificationPermissionRecoveryAlert
+            scene="settings"
+            pushEnabled={settings.pushEnabled}
+            showAlert={false}
+          />
+        ) : null}
+
+        {settings === undefined || settings.pushEnabled ? (
           <>
-            {/* Allow notifications - Master switch */}
+            <Divider m="$5" />
+
+            {/* Account activity */}
             <ListItem>
               <ListItem.Text
                 flex={1}
                 primary={intl.formatMessage({
-                  id: ETranslations.notifications_notifications_switch_label,
+                  id: ETranslations.notifications_notifications_account_activity_label,
                 })}
                 secondary={intl.formatMessage({
-                  id: ETranslations.global_master_switch_all_notification,
+                  id: ETranslations.notifications_notifications_account_activity_desc,
                 })}
                 secondaryTextProps={{
                   maxWidth: '$96',
                 }}
               />
-              <Switch
-                testID="setting-switch"
-                size="small"
-                value={!!settings?.pushEnabled}
-                onChange={async (checked) => {
-                  void updateSettings({
-                    pushEnabled: checked,
-                  });
-                  if (checked) {
-                    const permission =
-                      await backgroundApiProxy.serviceNotification.getPermission();
-                    await timerUtils.wait(300);
-                    if (
-                      permission.isSupported &&
-                      permission.permission !== ENotificationPermission.granted
-                    ) {
-                      navigation.pushModal(EModalRoutes.NotificationsModal, {
-                        screen:
-                          EModalNotificationsRoutes.NotificationIntroduction,
-                      });
-                    }
-                  }
-                }}
-              />
-            </ListItem>
-
-            {settings?.pushEnabled ? (
-              <NotificationPermissionRecoveryAlert
-                scene="settings"
-                pushEnabled={settings.pushEnabled}
-              />
-            ) : null}
-
-            {settings?.pushEnabled ? (
-              <>
-                <Divider m="$5" />
-
-                {/* Account activity */}
-                <ListItem>
-                  <ListItem.Text
-                    flex={1}
-                    primary={intl.formatMessage({
-                      id: ETranslations.notifications_notifications_account_activity_label,
-                    })}
-                    secondary={intl.formatMessage({
-                      id: ETranslations.notifications_notifications_account_activity_desc,
-                    })}
-                    secondaryTextProps={{
-                      maxWidth: '$96',
-                    }}
-                  />
-                  <Switch
-                    testID="setting-switch"
-                    size="small"
-                    value={!!settings?.accountActivityPushEnabled}
-                    onChange={(checked) => {
-                      void updateSettings({
-                        accountActivityPushEnabled: checked,
-                      });
-                    }}
-                  />
-                </ListItem>
-
-                {/* Price alerts */}
-                {platformEnv.isExtension ? null : (
-                  <ListItem>
-                    <ListItem.Text
-                      flex={1}
-                      primary={intl.formatMessage({
-                        id: ETranslations.global_price_alerts,
-                      })}
-                      secondary={intl.formatMessage({
-                        id: ETranslations.global_get_alert_token_move,
-                      })}
-                      secondaryTextProps={{
-                        maxWidth: '$96',
-                      }}
-                    />
-                    <Switch
-                      testID="setting-switch"
-                      size="small"
-                      value={!!settings?.priceAlertsEnabled}
-                      onChange={(checked) => {
-                        void updateSettings({
-                          priceAlertsEnabled: checked,
-                        });
-                      }}
-                    />
-                  </ListItem>
-                )}
-
-                {/* Perps trading */}
-                <ListItem>
-                  <ListItem.Text
-                    flex={1}
-                    primary={intl.formatMessage({
-                      id: ETranslations.global_perps_trading,
-                    })}
-                    secondary={intl.formatMessage({
-                      id: ETranslations.global_update_perp_contract,
-                    })}
-                    secondaryTextProps={{
-                      maxWidth: '$96',
-                    }}
-                  />
-                  <Switch
-                    testID="setting-switch"
-                    size="small"
-                    value={!!settings?.perpsEnabled}
-                    onChange={(checked) => {
-                      void updateSettings({
-                        perpsEnabled: checked,
-                      });
-                    }}
-                  />
-                </ListItem>
-
-                {/* Important announcements */}
-                <ListItem>
-                  <ListItem.Text
-                    flex={1}
-                    primary={intl.formatMessage({
-                      id: ETranslations.global_important_announcement,
-                    })}
-                    secondary={intl.formatMessage({
-                      id: ETranslations.global_version_update_security_alert,
-                    })}
-                    secondaryTextProps={{
-                      maxWidth: '$96',
-                    }}
-                  />
-                  <Switch
-                    testID="setting-switch"
-                    size="small"
-                    value={!!settings?.announcementEnabled}
-                    onChange={(checked) => {
-                      void updateSettings({
-                        announcementEnabled: checked,
-                      });
-                    }}
-                  />
-                </ListItem>
-
-                {/* Daily updates */}
-                <ListItem>
-                  <ListItem.Text
-                    flex={1}
-                    primary={intl.formatMessage({
-                      id: ETranslations.global_daily_update,
-                    })}
-                    secondary={intl.formatMessage({
-                      id: ETranslations.global_market_insights_tips,
-                    })}
-                    secondaryTextProps={{
-                      maxWidth: '$96',
-                    }}
-                  />
-                  <Switch
-                    testID="setting-switch"
-                    size="small"
-                    value={!!settings?.dailyUpdateEnabled}
-                    onChange={(checked) => {
-                      void updateSettings({
-                        dailyUpdateEnabled: checked,
-                      });
-                    }}
-                  />
-                </ListItem>
-
-                <Divider m="$5" />
-
-                {/* Manage - Account selection */}
-                <ListItem
-                  title={intl.formatMessage({
-                    id: ETranslations.notifications_notifications_account_manage_label,
-                  })}
-                  subtitle={intl.formatMessage({
-                    id: ETranslations.notifications_notifications_account_manage_desc,
-                  })}
-                  drillIn
-                  onPress={() => {
-                    navigation.push(
-                      EModalSettingRoutes.SettingManageAccountActivity,
-                    );
+              {settings === undefined ? (
+                <NotificationSettingsSwitchSkeleton />
+              ) : (
+                <Switch
+                  testID="setting-switch"
+                  size="small"
+                  value={!!settings?.accountActivityPushEnabled}
+                  onChange={(checked) => {
+                    void updateSettings({
+                      accountActivityPushEnabled: checked,
+                    });
                   }}
                 />
+              )}
+            </ListItem>
 
-                {/* Push notifications helper */}
-                <NotificationsSettingsHelper />
-              </>
-            ) : null}
+            {/* Price alerts */}
+            {platformEnv.isExtension ? null : (
+              <ListItem>
+                <ListItem.Text
+                  flex={1}
+                  primary={intl.formatMessage({
+                    id: ETranslations.global_price_alerts,
+                  })}
+                  secondary={intl.formatMessage({
+                    id: ETranslations.global_get_alert_token_move,
+                  })}
+                  secondaryTextProps={{
+                    maxWidth: '$96',
+                  }}
+                />
+                {settings === undefined ? (
+                  <NotificationSettingsSwitchSkeleton />
+                ) : (
+                  <Switch
+                    testID="setting-switch"
+                    size="small"
+                    value={!!settings?.priceAlertsEnabled}
+                    onChange={(checked) => {
+                      void updateSettings({
+                        priceAlertsEnabled: checked,
+                      });
+                    }}
+                  />
+                )}
+              </ListItem>
+            )}
+
+            {/* Perps trading */}
+            <ListItem>
+              <ListItem.Text
+                flex={1}
+                primary={intl.formatMessage({
+                  id: ETranslations.global_perps_trading,
+                })}
+                secondary={intl.formatMessage({
+                  id: ETranslations.global_update_perp_contract,
+                })}
+                secondaryTextProps={{
+                  maxWidth: '$96',
+                }}
+              />
+              {settings === undefined ? (
+                <NotificationSettingsSwitchSkeleton />
+              ) : (
+                <Switch
+                  testID="setting-switch"
+                  size="small"
+                  value={!!settings?.perpsEnabled}
+                  onChange={(checked) => {
+                    void updateSettings({
+                      perpsEnabled: checked,
+                    });
+                  }}
+                />
+              )}
+            </ListItem>
+
+            {/* Important announcements */}
+            <ListItem>
+              <ListItem.Text
+                flex={1}
+                primary={intl.formatMessage({
+                  id: ETranslations.global_important_announcement,
+                })}
+                secondary={intl.formatMessage({
+                  id: ETranslations.global_version_update_security_alert,
+                })}
+                secondaryTextProps={{
+                  maxWidth: '$96',
+                }}
+              />
+              {settings === undefined ? (
+                <NotificationSettingsSwitchSkeleton />
+              ) : (
+                <Switch
+                  testID="setting-switch"
+                  size="small"
+                  value={!!settings?.announcementEnabled}
+                  onChange={(checked) => {
+                    void updateSettings({
+                      announcementEnabled: checked,
+                    });
+                  }}
+                />
+              )}
+            </ListItem>
+
+            {/* Daily updates */}
+            <ListItem>
+              <ListItem.Text
+                flex={1}
+                primary={intl.formatMessage({
+                  id: ETranslations.global_daily_update,
+                })}
+                secondary={intl.formatMessage({
+                  id: ETranslations.global_market_insights_tips,
+                })}
+                secondaryTextProps={{
+                  maxWidth: '$96',
+                }}
+              />
+              {settings === undefined ? (
+                <NotificationSettingsSwitchSkeleton />
+              ) : (
+                <Switch
+                  testID="setting-switch"
+                  size="small"
+                  value={!!settings?.dailyUpdateEnabled}
+                  onChange={(checked) => {
+                    void updateSettings({
+                      dailyUpdateEnabled: checked,
+                    });
+                  }}
+                />
+              )}
+            </ListItem>
+
+            <Divider m="$5" />
+
+            {/* Manage - Account selection */}
+            <ListItem
+              testID="notifications-manage-accounts"
+              title={intl.formatMessage({
+                id: ETranslations.notifications_notifications_account_manage_label,
+              })}
+              subtitle={intl.formatMessage({
+                id: ETranslations.notifications_notifications_account_manage_desc,
+              })}
+              drillIn
+              onPress={() => {
+                navigation.push(
+                  EModalSettingRoutes.SettingManageAccountActivity,
+                );
+              }}
+            />
+
+            {/* Push notifications helper */}
+            <NotificationsSettingsHelper />
           </>
-        )}
+        ) : null}
 
         <MultipleClickStack
           h="$12"

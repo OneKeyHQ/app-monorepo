@@ -395,6 +395,48 @@ describe('hydrateCellsFromColdStart — currency gate (merge gate, spec §11.4)'
     expect(projection.cells.size).toBe(0);
   });
 
+  it('paints when the bundle is stamped for the requested owner', () => {
+    const { store, ctx, projection, deps } = setup();
+    globalRef.__ONEKEY_CTX_ATOM_SNAPSHOT__ = {
+      [SLIM_SCOPED_KEY]: buildSlimFixture('usd'),
+    };
+
+    const painted = hydrateCellsFromColdStart({
+      store: ctx,
+      projection,
+      deps,
+      currentCurrency: 'usd',
+      ownerKey: OWNER_KEY,
+    });
+
+    expect(painted).toBe(true);
+    expect(store.get(listStructureAtom()).orderedIds).toEqual([
+      'a',
+      'b',
+      'aggregate_agg1',
+    ]);
+  });
+
+  it('MISSES (no paint) when the bundle belongs to a different owner', () => {
+    const { store, ctx, projection, deps } = setup();
+    globalRef.__ONEKEY_CTX_ATOM_SNAPSHOT__ = {
+      [SLIM_SCOPED_KEY]: buildSlimFixture('usd'),
+    };
+
+    const painted = hydrateCellsFromColdStart({
+      store: ctx,
+      projection,
+      deps,
+      currentCurrency: 'usd',
+      ownerKey: 'another__net1',
+    });
+
+    expect(painted).toBe(false);
+    expect(store.get(listStructureAtom()).orderedIds).toEqual([]);
+    expect(projection.cells.size).toBe(0);
+    expect(projection.curOwnerKey ?? '').toBe('');
+  });
+
   it('MISSES when no slim bundle is present', () => {
     const { ctx, projection, deps } = setup();
     const painted = hydrateCellsFromColdStart({

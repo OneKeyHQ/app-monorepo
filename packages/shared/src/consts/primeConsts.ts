@@ -1,6 +1,10 @@
+/* cspell:ignore INFINI */
 import { EOneKeyDeepLinkPath, ONEKEY_APP_DEEP_LINK } from './deeplinkConsts';
 
 export const PRIME_INFINI_MIN_PAYMENT_VALIDITY_MS = 30_000;
+
+export const APPLE_SUBSCRIPTION_MANAGEMENT_URL =
+  'https://apps.apple.com/account/subscriptions';
 
 // Don't report bugs, these are public keys that are allowed to be exposed in frontend code and will not cause security issues
 // Privy
@@ -16,6 +20,36 @@ export const REVENUECAT_API_KEY_GOOGLE = 'goog_gxczxfDKTJRlkAHpZhVgPtIwSsg';
 export const REVENUECAT_API_KEY_WEB = 'rcb_OQDYrGcbnrzaKUaIDRhXQxEqBNTB';
 export const REVENUECAT_API_KEY_WEB_SANDBOX =
   'rcb_sb_gxqFGxelBplIYJuYPhcnRhjfA';
+
+export const REVENUECAT_SANDBOX_OFFERING_ID = 'Sandbox_testing';
+
+// RevenueCat Web Purchase Links: one hosted checkout link per offering. The
+// RevenueCat App User ID (OneKey ID) is appended as the last path segment, and
+// the post-payment redirect is configured per link in the RevenueCat dashboard
+// (production -> app.onekey.so, sandbox -> app.onekeytest.com).
+// A published link cannot be deleted or recreated; when the `current` offering
+// changes, update `offeringId` here as well.
+export type IPrimeWebPurchaseLinkConfig = {
+  baseUrl: string;
+  // Offering the link was created for. Checkout refuses to open when the
+  // packages shown in the app come from another offering. Undefined skips the
+  // check.
+  offeringId: string | undefined;
+};
+
+export const PRIME_WEB_PURCHASE_LINK_PRODUCTION: IPrimeWebPurchaseLinkConfig = {
+  baseUrl: 'https://pay.rev.cat/idlgwwbqaqvdevzv/',
+  offeringId: 'Default_offering',
+};
+
+export const PRIME_WEB_PURCHASE_LINK_SANDBOX: IPrimeWebPurchaseLinkConfig = {
+  baseUrl: 'https://pay.rev.cat/sandbox/nunguwvbejcetsua/',
+  offeringId: REVENUECAT_SANDBOX_OFFERING_ID,
+};
+
+// Pending hosted checkouts expire after this; the waiting dialog gives up
+// much earlier (see PRIME_WEB_CHECKOUT_WAITING_TIMEOUT_MS in kit).
+export const PRIME_WEB_CHECKOUT_PENDING_SESSION_TTL_MS = 24 * 60 * 60 * 1000;
 
 export enum EPrimeCloudSyncDataType {
   Lock = 'Lock', // cloud only for password verification

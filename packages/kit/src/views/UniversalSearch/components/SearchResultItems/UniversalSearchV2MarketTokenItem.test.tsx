@@ -1,0 +1,582 @@
+/** @jest-environment jsdom */
+
+import { act, fireEvent, render, waitFor } from '@testing-library/react';
+
+import type { IMarketWatchListItemV2 } from '@onekeyhq/shared/types/market';
+import {
+  EUniversalSearchSource,
+  EUniversalSearchType,
+  type IUniversalSearchV2MarketToken,
+} from '@onekeyhq/shared/types/search';
+
+import { UniversalSearchV2MarketTokenItem } from './UniversalSearchV2MarketTokenItem';
+
+import type { IMarketStarV2Props } from '../../../Market/components/MarketStarV2.types';
+
+const mockToMarketDetailPage = jest.fn();
+const mockGoBack = jest.fn();
+const mockPush = jest.fn();
+const mockAddIntoRecentSearchList = jest.fn();
+jest.mock('react-intl', () => ({
+  useIntl: () => ({ formatMessage: ({ id }: { id: string }) => id }),
+}));
+
+let mockUseRealStar = false;
+let mockWatchlist: IMarketWatchListItemV2[] = [];
+const mockRemoveFavorite = jest.fn(async () => true);
+const mockAddFavorite = jest.fn(async () => true);
+
+jest.mock('@onekeyhq/components', () => {
+  const ReactModule = jest.requireActual<typeof import('react')>('react');
+  const Container = ({ children }: { children?: React.ReactNode }) =>
+    ReactModule.createElement('div', null, children);
+
+  return {
+    IconButton: ({ icon, onPress }: { icon: string; onPress: () => void }) => (
+      <button
+        type="button"
+        aria-label="Toggle favorite"
+        data-testid="real-star"
+        data-icon={icon}
+        onClick={(event) => {
+          event.stopPropagation();
+          onPress();
+        }}
+      />
+    ),
+    NumberSizeableText: Container,
+    SizableText: Container,
+    Stack: ({
+      children,
+      onPress,
+    }: {
+      children?: React.ReactNode;
+      onPress?: () => void;
+    }) =>
+      ReactModule.createElement(
+        'button',
+        { 'data-testid': 'market-search-result', onClick: onPress },
+        children,
+      ),
+    XStack: Container,
+    YStack: Container,
+    rootNavigationRef: {
+      current: {
+        goBack: (...args: unknown[]) => {
+          mockGoBack(...args);
+        },
+      },
+    },
+    useClipboard: () => ({ copyText: jest.fn() }),
+    useMedia: () => ({ gtMd: false }),
+  };
+});
+
+jest.mock('@onekeyhq/kit/src/hooks/useAppNavigation', () => ({
+  __esModule: true,
+  default: () => ({ push: mockPush }),
+}));
+
+jest.mock('@onekeyhq/kit/src/states/jotai/contexts/marketV2/atoms', () => ({
+  useMarketWatchListV2Atom: () => [{ isMounted: true }],
+}));
+
+jest.mock('@onekeyhq/kit/src/states/jotai/contexts/universalSearch', () => ({
+  useUniversalSearchActions: () => ({
+    current: { addIntoRecentSearchList: mockAddIntoRecentSearchList },
+  }),
+}));
+
+jest.mock(
+  '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketTokenList/hooks/useToMarketDetailPage',
+  () => ({
+    useToDetailPage: () => mockToMarketDetailPage,
+  }),
+);
+
+jest.mock(
+  '@onekeyhq/kit/src/views/Market/components/CommunityRecognizedBadge',
+  () => ({
+    CommunityRecognizedBadge: () => null,
+  }),
+);
+
+jest.mock('@onekeyhq/kit/src/views/Market/components/PerpsBadges', () => {
+  const ReactModule = jest.requireActual<typeof import('react')>('react');
+  return {
+    StockSourceLogo: () =>
+      ReactModule.createElement('span', { 'data-testid': 'stock-source-logo' }),
+    SubtitleBadge: ({ subtitle }: { subtitle: string }) =>
+      ReactModule.createElement(
+        'span',
+        { 'data-testid': 'subtitle-badge' },
+        subtitle,
+      ),
+  };
+});
+
+jest.mock('@onekeyhq/kit/src/views/Market/components/TokenTagsPopover', () => ({
+  TokenTagsPopover: () => null,
+}));
+
+jest.mock('../../../Market/components/MarketStarV2Deferred', () => {
+  const ReactModule = jest.requireActual<typeof import('react')>('react');
+  return {
+    MarketStarV2Deferred: (props: IMarketStarV2Props) =>
+      mockUseRealStar
+        ? ReactModule.createElement(
+            jest.requireActual<
+              typeof import('../../../Market/components/MarketStarV2')
+            >('../../../Market/components/MarketStarV2').MarketStarV2,
+            props,
+          )
+        : ReactModule.createElement('div', {
+            'data-testid': 'market-search-star',
+            'data-stock-id': props.stockId ?? '',
+            'data-asset-id': props.assetId ?? '',
+            'data-chain-id': props.chainId,
+          }),
+  };
+});
+jest.mock('@onekeyhq/kit/src/states/jotai/contexts/marketV2', () => ({
+  useMarketWatchListV2Atom: () => [{ data: mockWatchlist, isMounted: true }],
+}));
+jest.mock('../../../Market/components/watchListHooksV2', () => ({
+  useWatchListV2Action: () => ({
+    removeFromWatchListV2: mockRemoveFavorite,
+    addIntoWatchListV2: mockAddFavorite,
+  }),
+}));
+jest.mock('@onekeyhq/shared/src/travelMode', () => ({
+  travelModeManager: {
+    getRuntimeEnvironmentSync: () => ({ profile: { kind: 'normal' } }),
+  },
+}));
+
+jest.mock('../../../Market/components/MarketTokenIcon', () => ({
+  MarketTokenIcon: () => null,
+}));
+
+jest.mock('../../../Market/components/MarketTokenPrice', () => ({
+  BaseMarketTokenPrice: () => null,
+}));
+
+jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
+  defaultLogger: {
+    dex: {
+      watchlist: {
+        dexRemoveFromWatchlist: jest.fn(),
+        dexAddToWatchlist: jest.fn(),
+      },
+    },
+    universalSearch: {
+      search: { universalSearchClick: jest.fn() },
+    },
+    market: {
+      token: { searchToken: jest.fn() },
+    },
+  },
+}));
+
+const mockUniversalSearchClick = (
+  jest.requireMock('@onekeyhq/shared/src/logger/logger') as {
+    defaultLogger: {
+      universalSearch: {
+        search: { universalSearchClick: jest.Mock };
+      };
+    };
+  }
+).defaultLogger.universalSearch.search.universalSearchClick;
+
+jest.mock('@onekeyhq/shared/src/utils/tokenUtils', () => ({
+  formatTokenSymbolForDisplay: (symbol: string) => symbol,
+  normalizeTokenContractAddress: ({
+    contractAddress,
+  }: {
+    contractAddress?: string;
+  }) => contractAddress?.toLowerCase(),
+  getTokenPriceChangeStyle: () => ({
+    changeColor: '$text',
+    showPlusMinusSigns: false,
+  }),
+}));
+
+describe('UniversalSearchV2MarketTokenItem', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockUseRealStar = false;
+    mockWatchlist = [];
+    jest.useFakeTimers();
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  it('uses the same asset identity for the search star and detail navigation', () => {
+    const item: IUniversalSearchV2MarketToken = {
+      type: EUniversalSearchType.V2MarketToken,
+      payload: {
+        assetId: 'bitcoin',
+        name: 'Bitcoin',
+        symbol: 'BTC',
+        address: 'native',
+        network: 'btc--0',
+        price: '100000',
+        logoUrl: '',
+        isNative: true,
+        decimals: 8,
+        liquidity: '0',
+        volume_24h: '0',
+      },
+    };
+    const { getByTestId } = render(
+      <UniversalSearchV2MarketTokenItem
+        item={item}
+        source={EUniversalSearchSource.Market}
+      />,
+    );
+    expect(
+      getByTestId('market-search-star').getAttribute('data-asset-id'),
+    ).toBe('bitcoin');
+    fireEvent.click(getByTestId('market-search-result'));
+    act(() => {
+      jest.advanceTimersByTime(80);
+    });
+    expect(mockToMarketDetailPage).toHaveBeenCalledWith(
+      expect.objectContaining({ assetId: 'bitcoin', networkId: 'btc--0' }),
+    );
+  });
+
+  it('opens chain search results as tokens even when stock metadata is present', () => {
+    const item: IUniversalSearchV2MarketToken = {
+      type: EUniversalSearchType.V2MarketToken,
+      payload: {
+        name: 'Airbnb (Ondo Tokenized)',
+        price: '183.37',
+        symbol: 'ABNBon',
+        address: '0xabnb',
+        network: 'evm--56',
+        logoUrl: '',
+        isNative: false,
+        decimals: 18,
+        liquidity: '0',
+        volume_24h: '625182693.52',
+        stock: {
+          stockId: 'ABNB',
+          subtitle: 'Airbnb',
+          sourceLogoUri: '',
+        },
+      },
+    };
+
+    const { getByTestId } = render(
+      <UniversalSearchV2MarketTokenItem
+        item={item}
+        getSearchInput={() => 'abnb'}
+        source={EUniversalSearchSource.Market}
+      />,
+    );
+
+    expect(
+      getByTestId('market-search-star').getAttribute('data-stock-id'),
+    ).toBe('');
+    expect(getByTestId('subtitle-badge').textContent).toBe('Airbnb');
+    expect(
+      getByTestId('market-search-star').getAttribute('data-chain-id'),
+    ).toBe('evm--56');
+
+    fireEvent.click(getByTestId('market-search-result'));
+    act(() => {
+      jest.advanceTimersByTime(80);
+    });
+
+    expect(mockGoBack).toHaveBeenCalledTimes(1);
+    expect(mockUniversalSearchClick).toHaveBeenCalledWith(
+      expect.objectContaining({
+        itemId: '0xabnb',
+        itemTitle: 'ABNBon',
+      }),
+    );
+    expect(mockToMarketDetailPage).toHaveBeenCalledWith({
+      tokenAddress: '0xabnb',
+      networkId: 'evm--56',
+      name: 'Airbnb (Ondo Tokenized)',
+      symbol: 'ABNBon',
+      isNative: false,
+      stockId: undefined,
+      stock: undefined,
+      tokenDetailPreview: expect.objectContaining({
+        address: '0xabnb',
+        networkId: 'evm--56',
+        name: 'Airbnb (Ondo Tokenized)',
+        symbol: 'ABNBon',
+        isNative: false,
+        decimals: 18,
+        price: 183.37,
+        turnover: 625_182_693.52,
+        stock: item.payload.stock,
+        selectedAt: expect.any(Number),
+      }),
+    });
+  });
+
+  it('opens asset-only results through their asset id', () => {
+    const item: IUniversalSearchV2MarketToken = {
+      type: EUniversalSearchType.V2MarketToken,
+      payload: {
+        assetId: 'bitcoin',
+        name: 'Bitcoin',
+        price: '65000',
+        symbol: 'BTC',
+        address: '',
+        network: '',
+        logoUrl: '',
+        isNative: false,
+        decimals: 8,
+        liquidity: '0',
+        volume_24h: '0',
+      },
+    };
+
+    const { getByTestId } = render(
+      <UniversalSearchV2MarketTokenItem
+        item={item}
+        getSearchInput={() => 'btc'}
+        source={EUniversalSearchSource.Market}
+      />,
+    );
+
+    fireEvent.click(getByTestId('market-search-result'));
+    act(() => {
+      jest.advanceTimersByTime(100);
+    });
+
+    expect(mockPush).not.toHaveBeenCalled();
+    expect(mockGoBack).toHaveBeenCalledTimes(1);
+    expect(mockToMarketDetailPage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        assetId: 'bitcoin',
+        tokenAddress: '',
+        networkId: '',
+      }),
+    );
+    expect(mockAddIntoRecentSearchList).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'asset:bitcoin', text: 'BTC' }),
+    );
+  });
+
+  it('keeps a chain token on its own chain even when it has an asset id', () => {
+    const item: IUniversalSearchV2MarketToken = {
+      type: EUniversalSearchType.V2MarketToken,
+      payload: {
+        assetId: 'ethereum',
+        name: 'Wrapped Ether',
+        price: '3000',
+        symbol: 'WETH',
+        address: '0xweth',
+        network: 'evm--1',
+        logoUrl: '',
+        isNative: false,
+        decimals: 18,
+        liquidity: '0',
+        volume_24h: '0',
+      },
+    };
+
+    const { getByTestId } = render(
+      <UniversalSearchV2MarketTokenItem
+        item={item}
+        getSearchInput={() => 'weth'}
+        source={EUniversalSearchSource.Market}
+      />,
+    );
+
+    fireEvent.click(getByTestId('market-search-result'));
+    act(() => {
+      jest.advanceTimersByTime(80);
+    });
+
+    expect(mockToMarketDetailPage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        assetId: undefined,
+        tokenAddress: '0xweth',
+        networkId: 'evm--1',
+      }),
+    );
+  });
+
+  it('opens stock listings from the stock search endpoint', () => {
+    const item = {
+      type: EUniversalSearchType.MarketStock,
+      payload: {
+        stockId: 'AAPL',
+        name: 'Apple Inc.',
+        price: '190.12',
+        symbol: 'AAPL',
+        address: '',
+        network: '',
+        logoUrl: '',
+        isNative: false,
+        decimals: 0,
+        liquidity: '0',
+        marketCap: '4200000000000',
+        volume_24h: '0',
+        stock: {
+          stockId: 'AAPL',
+          subtitle: 'Apple Inc.',
+          sourceLogoUri: '',
+        },
+      },
+    } as const;
+
+    const { getByTestId, queryByTestId } = render(
+      <UniversalSearchV2MarketTokenItem
+        item={item}
+        getSearchInput={() => 'aapl'}
+        source={EUniversalSearchSource.Market}
+      />,
+    );
+
+    expect(
+      getByTestId('market-search-star').getAttribute('data-stock-id'),
+    ).toBe('AAPL');
+    expect(queryByTestId('subtitle-badge')).toBeNull();
+    expect(queryByTestId('stock-source-logo')).toBeNull();
+
+    fireEvent.click(getByTestId('market-search-result'));
+    act(() => {
+      jest.advanceTimersByTime(80);
+    });
+
+    expect(mockUniversalSearchClick).toHaveBeenCalledWith(
+      expect.objectContaining({
+        itemId: 'AAPL',
+        itemTitle: 'AAPL',
+      }),
+    );
+    expect(mockToMarketDetailPage).toHaveBeenCalledWith({
+      tokenAddress: '',
+      networkId: '',
+      name: 'Apple Inc.',
+      symbol: 'AAPL',
+      isNative: false,
+      stockId: 'AAPL',
+      stock: item.payload.stock,
+      tokenDetailPreview: expect.objectContaining({
+        address: '',
+        networkId: '',
+        name: 'Apple Inc.',
+        symbol: 'AAPL',
+        stock: item.payload.stock,
+      }),
+    });
+  });
+
+  it('preserves xStocks metadata when stock identity is omitted', () => {
+    const item: IUniversalSearchV2MarketToken = {
+      type: EUniversalSearchType.V2MarketToken,
+      payload: {
+        name: 'Airbnb xStock',
+        price: '182.30',
+        symbol: 'ABNBx',
+        address: '0xc156',
+        network: 'evm--196',
+        logoUrl: '',
+        isNative: false,
+        decimals: 18,
+        liquidity: '0',
+        volume_24h: '0',
+      },
+    };
+
+    const { getByTestId } = render(
+      <UniversalSearchV2MarketTokenItem
+        item={item}
+        getSearchInput={() => 'abnb'}
+        source={EUniversalSearchSource.Market}
+      />,
+    );
+
+    fireEvent.click(getByTestId('market-search-result'));
+    act(() => {
+      jest.advanceTimersByTime(80);
+    });
+
+    expect(mockToMarketDetailPage).toHaveBeenCalledWith({
+      tokenAddress: '0xc156',
+      networkId: 'evm--196',
+      name: 'Airbnb xStock',
+      symbol: 'ABNBx',
+      isNative: false,
+      stockId: undefined,
+      stock: undefined,
+      tokenDetailPreview: expect.objectContaining({
+        address: '0xc156',
+        networkId: 'evm--196',
+        name: 'Airbnb xStock',
+        symbol: 'ABNBx',
+        isNative: false,
+        decimals: 18,
+        price: 182.3,
+        turnover: 0,
+        stock: undefined,
+        selectedAt: expect.any(Number),
+      }),
+    });
+  });
+});
+
+describe('Watchlist result star ownership', () => {
+  it.each([
+    { assetId: 'ethereum', chainId: '', contractAddress: '' },
+    { chainId: 'evm--1', contractAddress: '' },
+  ])(
+    'removes the original matched favorite %j without adding a new one',
+    async (identity) => {
+      jest.useRealTimers();
+      jest.clearAllMocks();
+      mockUseRealStar = true;
+      mockWatchlist = [identity];
+      const item: IUniversalSearchV2MarketToken = {
+        type: EUniversalSearchType.V2MarketToken,
+        payload: {
+          name: 'Ethereum',
+          symbol: 'ETH',
+          network: 'evm--1',
+          address: '',
+          logoUrl: '',
+          price: '1',
+          priceChange24hPercent: '0',
+          liquidity: '0',
+          volume_24h: '0',
+          isNative: true,
+          decimals: 18,
+          assetId: 'ethereum',
+        },
+      };
+      const view = render(
+        <UniversalSearchV2MarketTokenItem
+          item={item}
+          source={EUniversalSearchSource.Market}
+          watchlistIdentity={identity}
+        />,
+      );
+      expect(view.getByTestId('real-star').getAttribute('data-icon')).toBe(
+        'StarSolid',
+      );
+      fireEvent.click(view.getByTestId('real-star'));
+      await waitFor(() =>
+        expect(mockRemoveFavorite).toHaveBeenCalledWith(
+          identity.chainId,
+          identity.contractAddress,
+          {
+            assetId: 'assetId' in identity ? identity.assetId : undefined,
+            stockId: undefined,
+          },
+        ),
+      );
+      expect(mockAddFavorite).not.toHaveBeenCalled();
+    },
+  );
+});

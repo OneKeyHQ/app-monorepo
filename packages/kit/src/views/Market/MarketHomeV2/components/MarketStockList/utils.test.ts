@@ -2,7 +2,9 @@ import type { IMarketStockPublicItem } from '@onekeyhq/shared/types/marketV2';
 
 import {
   appendUniqueMarketStocks,
-  buildStockSparklinePoints,
+  buildMarketStockListQueryKey,
+  downsampleStockSparkline,
+  getMarketStockSortByColumn,
   parseMarketStockNumber,
 } from './utils';
 
@@ -21,6 +23,46 @@ const createStock = (
 });
 
 describe('market stock list utils', () => {
+  it('builds the same query key Home stocks persist under', () => {
+    expect(
+      buildMarketStockListQueryKey({
+        locale: 'en-US',
+      }),
+    ).toBe(
+      JSON.stringify({
+        sortBy: 'marketCap',
+        sortType: 'desc',
+        locale: 'en-US',
+      }),
+    );
+    expect(
+      buildMarketStockListQueryKey({
+        category: 'tech',
+        locale: 'zh-CN',
+        sortBy: 'volume24h',
+        sortType: 'asc',
+      }),
+    ).toBe(
+      JSON.stringify({
+        category: 'tech',
+        sortBy: 'volume24h',
+        sortType: 'asc',
+        locale: 'zh-CN',
+      }),
+    );
+  });
+
+  it('maps the four sortable stock columns to server fields', () => {
+    expect(getMarketStockSortByColumn('price')).toBe('price');
+    expect(getMarketStockSortByColumn('priceChange24hPercent')).toBe(
+      'priceChange24hPercent',
+    );
+    expect(getMarketStockSortByColumn('marketCap')).toBe('marketCap');
+    expect(getMarketStockSortByColumn('volume24h')).toBe('volume24h');
+    expect(getMarketStockSortByColumn('company')).toBeUndefined();
+    expect(getMarketStockSortByColumn('sparkline')).toBeUndefined();
+  });
+
   it('parses only finite stock values', () => {
     expect(parseMarketStockNumber('12.5')).toBe(12.5);
     expect(parseMarketStockNumber('')).toBeUndefined();
@@ -42,15 +84,19 @@ describe('market stock list utils', () => {
     expect(result[1]?.price).toBe('420');
   });
 
-  it('builds safe sparkline points for normal and flat series', () => {
-    expect(
-      buildStockSparklinePoints({ data: [1, 2, 3], width: 100, height: 40 }),
-    ).toBe('0.00,38.00 50.00,20.00 100.00,2.00');
-    expect(
-      buildStockSparklinePoints({ data: [5, 5], width: 100, height: 40 }),
-    ).toBe('0.00,20.00 100.00,20.00');
-    expect(
-      buildStockSparklinePoints({ data: [1], width: 100, height: 40 }),
-    ).toBeUndefined();
+  it('downsamples a full trading session to evenly spaced points', () => {
+    const session = Array.from({ length: 390 }, (_, index) => index);
+    const sampled = downsampleStockSparkline(session);
+
+    expect(sampled).toHaveLength(40);
+    expect(sampled[0]).toBe(0);
+    expect(sampled[1]).toBe(10);
+    expect(sampled.at(-1)).toBe(389);
+  });
+
+  it('keeps short series and drops non-finite sparkline values', () => {
+    expect(downsampleStockSparkline([1, 2, 3])).toEqual([1, 2, 3]);
+    expect(downsampleStockSparkline([1, Number.NaN, 3])).toEqual([1, 3]);
+    expect(downsampleStockSparkline([1, 2, 3, 4, 5], 3)).toEqual([1, 3, 5]);
   });
 });

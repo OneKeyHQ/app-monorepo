@@ -1,6 +1,7 @@
 /* cspell:words autolinking codegen */
 
 const { spawnSync } = require('child_process');
+const crypto = require('crypto');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
@@ -41,12 +42,14 @@ const {
   computeModulesDigest,
   computeNativeContractKey,
   computeShellInputKey,
+  computeShellCompatibilityKey,
   computeRegistryInputsDigest,
   computeReleaseCompatibilityKey,
   composeDevVendorBundle,
   getDevVendorStubModuleId,
   getNativeContractInputPaths,
   getNativeContractDescriptor,
+  getNativePackageAbiInputPaths,
   getPlatformOutputDirectory,
   getShellInputPaths,
   hashRepoFiles,
@@ -233,18 +236,40 @@ function createTemporaryRuntimeFixture() {
     ...devVendorConfig.nativeContractDependencies.android,
     ...devVendorConfig.nativeContractDependencies.ios,
   ]);
-  for (const name of nativeDependencies) {
-    const source = require.resolve(`${name}/package.json`, {
-      paths: [path.join(repoRoot, 'apps/mobile')],
-    });
-    const destination = path.join(
-      temporaryRepoRoot,
-      'node_modules',
-      ...name.split('/'),
-      'package.json',
-    );
+  const nativeAbiInputs = new Set();
+  for (const platform of ['android', 'ios']) {
+    for (const name of nativeDependencies) {
+      for (const relativePath of getNativePackageAbiInputPaths(
+        name,
+        platform,
+        repoRoot,
+      )) {
+        nativeAbiInputs.add(relativePath);
+      }
+    }
+  }
+  for (const relativePath of nativeAbiInputs) {
+    const destination = path.join(temporaryRepoRoot, relativePath);
     fs.mkdirSync(path.dirname(destination), { recursive: true });
-    fs.copyFileSync(source, destination);
+    fs.copyFileSync(path.join(repoRoot, relativePath), destination);
+  }
+  // ABI inputs from workspace packages need the same installed links as Yarn.
+  for (const name of nativeDependencies) {
+    const packageRoot = path.dirname(
+      require.resolve(`${name}/package.json`, {
+        paths: [path.join(repoRoot, 'apps/mobile'), repoRoot],
+      }),
+    );
+    const relativePackageRoot = path.relative(repoRoot, packageRoot);
+    if (relativePackageRoot.startsWith(`packages${path.sep}`)) {
+      const installedPath = path.join(temporaryRepoRoot, 'node_modules', name);
+      fs.mkdirSync(path.dirname(installedPath), { recursive: true });
+      fs.symlinkSync(
+        path.join(temporaryRepoRoot, relativePackageRoot),
+        installedPath,
+        'junction',
+      );
+    }
   }
   const modulePath = 'apps/mobile/index.ts';
   const moduleSourcePath = path.join(temporaryRepoRoot, modulePath);
@@ -366,43 +391,6 @@ describe('devVendor', () => {
     expect(isDevVendorEnabled({ ONEKEY_DEV_VENDOR: 'true' })).toBe(true);
     expect(isDevVendorEnabled({ ONEKEY_DEV_VENDOR: 'false' })).toBe(false);
     expect(isDevVendorEnabled({})).toBe(false);
-  });
-
-  it('keeps native manifest checks bound to the embedded shell contract', () => {
-    const iosSource = fs.readFileSync(
-      path.join(repoRoot, 'apps/mobile/ios/AppDelegate.swift'),
-      'utf8',
-    );
-    const androidSource = fs.readFileSync(
-      path.join(
-        repoRoot,
-        'apps/mobile/android/app/src/debug/java/so/onekey/app/wallet/MainApplication.java',
-      ),
-      'utf8',
-    );
-
-    expect(iosSource).toContain(
-      'manifest["nativeContractKey"] as? String == nativeContractKey',
-    );
-    expect(iosSource).toContain(
-      'forInfoDictionaryKey: "ONEKEY_DEV_VENDOR_SCHEMA_VERSION"',
-    );
-    expect(iosSource).toContain(
-      'forInfoDictionaryKey: "ONEKEY_DEV_VENDOR_STRATEGY_VERSION"',
-    );
-    expect(iosSource).toContain(
-      'contractVendorSchema.intValue == vendorSchemaVersion',
-    );
-    expect(iosSource).toContain(
-      'contractVendorStrategy.intValue == vendorStrategyVersion',
-    );
-    expect(androidSource).toContain(
-      'contract.optInt("vendorSchemaVersion", -2)',
-    );
-    expect(androidSource).toContain(
-      'contract.optInt("vendorStrategyVersion", -2)',
-    );
-    expect(androidSource).toContain('manifest.optString("nativeContractKey")');
   });
 
   it('maps generated stubs back to their stable module ID', () => {
@@ -611,7 +599,42 @@ describe('devVendor', () => {
     }
   });
 
-  it('keeps binary byte changes in the Android shell input key', () => {
+  it('invalidates both exact shells when the checked MMKV source inputs change', () => {
+    const fixture = createTemporaryRuntimeFixture();
+    try {
+      for (const relativePath of [
+        'apps/mobile/native/mmkv/checked-sync.patch',
+        'apps/mobile/native/mmkv/source.lock.json',
+        'development/scripts/prepare-mmkv-source.js',
+      ]) {
+        const file = path.join(fixture.repoRoot, relativePath);
+        const original = fs.readFileSync(file);
+        const baselines = Object.fromEntries(
+          ['android', 'ios'].map((platform) => [
+            platform,
+            hashShellInputFiles(
+              getShellInputPaths(platform, fixture.repoRoot),
+              fixture.repoRoot,
+            ),
+          ]),
+        );
+        fs.appendFileSync(file, '\nchanged MMKV source input\n');
+        for (const platform of ['android', 'ios']) {
+          expect(
+            hashShellInputFiles(
+              getShellInputPaths(platform, fixture.repoRoot),
+              fixture.repoRoot,
+            ),
+          ).not.toBe(baselines[platform]);
+        }
+        fs.writeFileSync(file, original);
+      }
+    } finally {
+      fs.rmSync(fixture.repoRoot, { force: true, recursive: true });
+    }
+  });
+
+  it('keeps shell input keys stable for non-ABI shell and web changes', () => {
     const fixture = createTemporaryRuntimeFixture();
     try {
       const nativeContractKey = computeNativeContractKey(
@@ -637,15 +660,39 @@ describe('devVendor', () => {
         keystorePath,
         Buffer.concat([original, Buffer.from([0x0a])]),
       );
-      expect(computeShellInputKey(keyOptions, fixture.repoRoot)).not.toBe(
-        crlfKey,
-      );
+      expect(computeShellInputKey(keyOptions, fixture.repoRoot)).toBe(crlfKey);
+      expect(
+        computeShellInputKey(
+          { ...keyOptions, webEmbedInputKey: '2'.repeat(64) },
+          fixture.repoRoot,
+        ),
+      ).toBe(crlfKey);
     } finally {
       fs.rmSync(fixture.repoRoot, { force: true, recursive: true });
     }
   });
 
-  it('limits the native contract to ABI and compiled app-native inputs', () => {
+  it('refreshes the exact simulator artifact for embedded signing without invalidating Android shells', () => {
+    for (const platform of ['ios', 'android']) {
+      const inputs = { platform, nativeContractKey: 'a'.repeat(64) };
+      const compatibility = computeShellCompatibilityKey(inputs);
+      const previousInputKey = crypto
+        .createHash('sha256')
+        .update(
+          [
+            'onekey-mobile-dev-shell-input-v3',
+            `compatibility=${compatibility}`,
+            '',
+          ].join('\0'),
+        )
+        .digest('hex');
+      if (platform === 'ios')
+        expect(computeShellInputKey(inputs)).not.toBe(previousInputKey);
+      else expect(computeShellInputKey(inputs)).toBe(previousInputKey);
+    }
+  });
+
+  it('derives native shell keys from installed ABI contracts only', () => {
     const fixture = createTemporaryRuntimeFixture();
     try {
       const iosInputs = getNativeContractInputPaths('ios', fixture.repoRoot);
@@ -656,42 +703,25 @@ describe('devVendor', () => {
       expect(iosInputs).toEqual(
         expect.arrayContaining([
           'apps/mobile/ios/AppDelegate.swift',
-          'apps/mobile/ios/OneKeyWallet/BootRecoveryKeys.swift',
+          'apps/mobile/ios/OneKeyWallet/OneKeyNativeStorageMigration.m',
           'apps/mobile/ios/Podfile.lock',
           'apps/mobile/ios/Podfile.properties.json',
-          'apps/mobile/ios/ServiceExtension/NotificationService.m',
-          'apps/mobile/package.json',
-          'patches/react-native+0.86.2+001+initial.patch',
-          'patches/react-native+0.86.2+002+fix-hermes-podspec.patch',
-          'yarn.lock',
         ]),
       );
       expect(androidInputs).toEqual(
         expect.arrayContaining([
           'apps/mobile/android/app-update-noop/src/main/java/com/margelo/nitro/reactnativeappupdate/ReactNativeAppUpdatePackage.kt',
-          'apps/mobile/android/app/src/debug/java/so/onekey/app/wallet/MainApplication.java',
-          'apps/mobile/android/app/src/main/java/so/onekey/app/wallet/BaseMainApplication.java',
+          'apps/mobile/android/app/src/main/java/so/onekey/app/wallet/storage/OneKeyNativeStorageMigrationModule.java',
           'apps/mobile/android/gradle.properties',
-          'apps/mobile/package.json',
-          'patches/react-native+0.86.2+001+initial.patch',
-          'yarn.lock',
         ]),
-      );
-      expect(iosInputs).not.toContain(
-        'apps/mobile/android/app/src/debug/java/so/onekey/app/wallet/MainApplication.java',
       );
       expect(androidInputs).not.toContain('apps/mobile/ios/AppDelegate.swift');
       for (const inputs of [iosInputs, androidInputs]) {
+        expect(inputs).not.toContain('apps/mobile/package.json');
+        expect(inputs).not.toContain('yarn.lock');
         expect(inputs).not.toContain('apps/mobile/scripts/native-dev-shell.js');
         expect(inputs).not.toContain('apps/mobile/metro.config.js');
-        expect(inputs).not.toContain('patches/electron-updater+6.8.9.patch');
       }
-      expect(androidInputs).not.toContain(
-        'apps/mobile/android/app/src/main/res/values/strings.xml',
-      );
-      expect(iosInputs).not.toContain(
-        'apps/mobile/ios/en.lproj/InfoPlist.strings',
-      );
 
       const iosBaseline = computeNativeContractKey('ios', fixture.repoRoot);
       const androidBaseline = computeNativeContractKey(
@@ -715,53 +745,17 @@ describe('devVendor', () => {
       }
 
       const patchDirectory = path.join(fixture.repoRoot, 'patches');
-      const androidNativePatch = path.join(
-        patchDirectory,
-        'contract-test-android.patch',
-      );
+      const androidNativePatch = path.join(patchDirectory, 'native.patch');
       fs.writeFileSync(
         androidNativePatch,
         'diff --git a/node_modules/example/android/Test.java b/node_modules/example/android/Test.java\n',
       );
-      expect(computeNativeContractKey('android', fixture.repoRoot)).not.toBe(
+      expect(computeNativeContractKey('android', fixture.repoRoot)).toBe(
         androidBaseline,
       );
       expect(computeNativeContractKey('ios', fixture.repoRoot)).toBe(
         iosBaseline,
       );
-      fs.rmSync(androidNativePatch);
-
-      const iosNativePatch = path.join(
-        patchDirectory,
-        'contract-test-ios.patch',
-      );
-      fs.writeFileSync(
-        iosNativePatch,
-        'diff --git a/node_modules/example/ios/Test.swift b/node_modules/example/ios/Test.swift\n',
-      );
-      expect(computeNativeContractKey('ios', fixture.repoRoot)).not.toBe(
-        iosBaseline,
-      );
-      expect(computeNativeContractKey('android', fixture.repoRoot)).toBe(
-        androidBaseline,
-      );
-      fs.rmSync(iosNativePatch);
-
-      const jsOnlyPatch = path.join(
-        patchDirectory,
-        'contract-test-js-only.patch',
-      );
-      fs.writeFileSync(
-        jsOnlyPatch,
-        'diff --git a/node_modules/example/index.js b/node_modules/example/index.js\n',
-      );
-      expect(computeNativeContractKey('ios', fixture.repoRoot)).toBe(
-        iosBaseline,
-      );
-      expect(computeNativeContractKey('android', fixture.repoRoot)).toBe(
-        androidBaseline,
-      );
-      fs.rmSync(jsOnlyPatch);
 
       const podLockPath = path.join(
         fixture.repoRoot,
@@ -779,219 +773,15 @@ describe('devVendor', () => {
       );
 
       const changedPodResolution = podLock.replace(
-        /^(  SPAlert: )[0-9a-f]{40}$/mu,
+        /^(  AppAuth: )[0-9a-f]{40}$/mu,
         `$1${'f'.repeat(40)}`,
       );
       expect(changedPodResolution).not.toBe(podLock);
       fs.writeFileSync(podLockPath, changedPodResolution);
-      expect(computeNativeContractKey('ios', fixture.repoRoot)).not.toBe(
+      expect(computeNativeContractKey('ios', fixture.repoRoot)).toBe(
         iosBaseline,
-      );
-      expect(computeNativeContractKey('android', fixture.repoRoot)).toBe(
-        androidBaseline,
       );
       fs.writeFileSync(podLockPath, podLock);
-
-      const changedPodCheckout = podLock.replace(
-        /^(CHECKOUT OPTIONS:\n  TOCropViewController:\n    :commit: )[0-9a-f]{40}$/mu,
-        `$1${'f'.repeat(40)}`,
-      );
-      expect(changedPodCheckout).not.toBe(podLock);
-      fs.writeFileSync(podLockPath, changedPodCheckout);
-      expect(computeNativeContractKey('ios', fixture.repoRoot)).not.toBe(
-        iosBaseline,
-      );
-      expect(computeNativeContractKey('android', fixture.repoRoot)).toBe(
-        androidBaseline,
-      );
-      fs.writeFileSync(podLockPath, podLock);
-
-      const webEmbedInputKey = '1'.repeat(64);
-      const iosShellInputBaseline = computeShellInputKey(
-        {
-          nativeContractKey: iosBaseline,
-          platform: 'ios',
-          webEmbedInputKey,
-        },
-        fixture.repoRoot,
-      );
-      const androidShellInputBaseline = computeShellInputKey(
-        {
-          nativeContractKey: androidBaseline,
-          platform: 'android',
-          webEmbedInputKey,
-        },
-        fixture.repoRoot,
-      );
-      const untrackedBuildOutput = path.join(
-        fixture.repoRoot,
-        'apps/mobile/android/build-logic/privacy-security-plugins/build/libs/generated.jar',
-      );
-      fs.mkdirSync(path.dirname(untrackedBuildOutput), { recursive: true });
-      fs.writeFileSync(untrackedBuildOutput, Buffer.from([0x0d, 0x0a]));
-      expect(
-        computeShellInputKey(
-          {
-            nativeContractKey: androidBaseline,
-            platform: 'android',
-            webEmbedInputKey,
-          },
-          fixture.repoRoot,
-        ),
-      ).toBe(androidShellInputBaseline);
-
-      const untrackedIosOutput = path.join(
-        fixture.repoRoot,
-        'apps/mobile/ios/OneKeyWallet/build/asset.bin',
-      );
-      fs.mkdirSync(path.dirname(untrackedIosOutput), { recursive: true });
-      fs.writeFileSync(untrackedIosOutput, Buffer.from([0x0d, 0x0a]));
-      expect(
-        computeShellInputKey(
-          {
-            nativeContractKey: iosBaseline,
-            platform: 'ios',
-            webEmbedInputKey,
-          },
-          fixture.repoRoot,
-        ),
-      ).toBe(iosShellInputBaseline);
-
-      const untrackedNativeSource = path.join(
-        fixture.repoRoot,
-        'apps/mobile/android/app/src/main/java/so/onekey/app/wallet/NewModule.java',
-      );
-      fs.writeFileSync(
-        untrackedNativeSource,
-        'package so.onekey.app.wallet;\nclass NewModule {}\n',
-      );
-      expect(computeNativeContractKey('android', fixture.repoRoot)).not.toBe(
-        androidBaseline,
-      );
-      expect(computeNativeContractKey('ios', fixture.repoRoot)).toBe(
-        iosBaseline,
-      );
-      expect(
-        computeShellInputKey(
-          {
-            nativeContractKey: androidBaseline,
-            platform: 'android',
-            webEmbedInputKey,
-          },
-          fixture.repoRoot,
-        ),
-      ).not.toBe(androidShellInputBaseline);
-      fs.rmSync(untrackedNativeSource);
-      expect(computeNativeContractKey('android', fixture.repoRoot)).toBe(
-        androidBaseline,
-      );
-      expect(
-        computeShellInputKey(
-          {
-            nativeContractKey: androidBaseline,
-            platform: 'android',
-            webEmbedInputKey,
-          },
-          fixture.repoRoot,
-        ),
-      ).toBe(androidShellInputBaseline);
-
-      const trackedBuildSource = path.join(
-        fixture.repoRoot,
-        'apps/mobile/android/build-logic/privacy-security-plugins/src/main/java/onekey/privacy/security/SecurityPlugin.java',
-      );
-      const trackedBuildSourceContent = fs.readFileSync(trackedBuildSource);
-      fs.appendFileSync(
-        trackedBuildSource,
-        '\n// changed tracked build source\n',
-      );
-      expect(computeNativeContractKey('ios', fixture.repoRoot)).toBe(
-        iosBaseline,
-      );
-      expect(computeNativeContractKey('android', fixture.repoRoot)).toBe(
-        androidBaseline,
-      );
-      expect(
-        computeShellInputKey(
-          {
-            nativeContractKey: androidBaseline,
-            platform: 'android',
-            webEmbedInputKey,
-          },
-          fixture.repoRoot,
-        ),
-      ).not.toBe(androidShellInputBaseline);
-      fs.writeFileSync(trackedBuildSource, trackedBuildSourceContent);
-      expect(
-        computeShellInputKey(
-          {
-            nativeContractKey: androidBaseline,
-            platform: 'android',
-            webEmbedInputKey,
-          },
-          fixture.repoRoot,
-        ),
-      ).toBe(androidShellInputBaseline);
-
-      fs.appendFileSync(
-        path.join(fixture.repoRoot, 'apps/mobile/scripts/native-dev-shell.js'),
-        '\n// changed host orchestration\n',
-      );
-      expect(computeNativeContractKey('ios', fixture.repoRoot)).toBe(
-        iosBaseline,
-      );
-      expect(computeNativeContractKey('android', fixture.repoRoot)).toBe(
-        androidBaseline,
-      );
-
-      fs.appendFileSync(
-        path.join(
-          fixture.repoRoot,
-          '.github/workflows/mobile-dev-shell-ios-simulator.yml',
-        ),
-        '\n# changed iOS toolchain\n',
-      );
-      expect(
-        computeShellInputKey(
-          {
-            nativeContractKey: iosBaseline,
-            platform: 'ios',
-            webEmbedInputKey,
-          },
-          fixture.repoRoot,
-        ),
-      ).not.toBe(iosShellInputBaseline);
-      expect(
-        computeShellInputKey(
-          {
-            nativeContractKey: androidBaseline,
-            platform: 'android',
-            webEmbedInputKey,
-          },
-          fixture.repoRoot,
-        ),
-      ).toBe(androidShellInputBaseline);
-
-      fs.appendFileSync(
-        path.join(
-          fixture.repoRoot,
-          'apps/mobile/scripts/build-mobile-dev-shell.js',
-        ),
-        '\n// changed native build orchestration\n',
-      );
-      expect(computeNativeContractKey('ios', fixture.repoRoot)).toBe(
-        iosBaseline,
-      );
-      expect(
-        computeShellInputKey(
-          {
-            nativeContractKey: androidBaseline,
-            platform: 'android',
-            webEmbedInputKey,
-          },
-          fixture.repoRoot,
-        ),
-      ).not.toBe(androidShellInputBaseline);
 
       const appDelegatePath = path.join(
         fixture.repoRoot,
@@ -999,26 +789,10 @@ describe('devVendor', () => {
       );
       const appDelegate = fs.readFileSync(appDelegatePath);
       fs.appendFileSync(appDelegatePath, '\n// changed native runtime\n');
-      expect(computeNativeContractKey('ios', fixture.repoRoot)).not.toBe(
-        iosBaseline,
-      );
-      expect(computeNativeContractKey('android', fixture.repoRoot)).toBe(
-        androidBaseline,
-      );
-      expect(
-        computeShellInputKey(
-          {
-            nativeContractKey: iosBaseline,
-            platform: 'ios',
-            webEmbedInputKey,
-          },
-          fixture.repoRoot,
-        ),
-      ).not.toBe(iosShellInputBaseline);
-      fs.writeFileSync(appDelegatePath, appDelegate);
       expect(computeNativeContractKey('ios', fixture.repoRoot)).toBe(
         iosBaseline,
       );
+      fs.writeFileSync(appDelegatePath, appDelegate);
 
       const mobilePackagePath = path.join(
         fixture.repoRoot,
@@ -1047,10 +821,191 @@ describe('devVendor', () => {
       );
       expect(changedYarnLock).not.toBe(yarnLock);
       fs.writeFileSync(yarnLockPath, changedYarnLock);
+      expect(computeNativeContractKey('ios', fixture.repoRoot)).toBe(
+        iosBaseline,
+      );
+
+      const installedPackagePath = path.join(
+        fixture.repoRoot,
+        'node_modules/@react-native-community/netinfo/package.json',
+      );
+      const installedPackage = JSON.parse(
+        fs.readFileSync(installedPackagePath, 'utf8'),
+      );
+      installedPackage.version = '999.0.0';
+      fs.writeFileSync(installedPackagePath, JSON.stringify(installedPackage));
+      expect(computeNativeContractKey('android', fixture.repoRoot)).toBe(
+        androidBaseline,
+      );
+
+      const codegenSpecPath = path.join(
+        fixture.repoRoot,
+        'node_modules/@react-native-community/netinfo/src/internal/NativeRNCNetInfo.ts',
+      );
+      const codegenSpec = fs.readFileSync(codegenSpecPath, 'utf8');
+      fs.writeFileSync(
+        codegenSpecPath,
+        codegenSpec.replace('getCurrentState', 'getCurrentStateChanged'),
+      );
+      expect(computeNativeContractKey('android', fixture.repoRoot)).not.toBe(
+        androidBaseline,
+      );
       expect(computeNativeContractKey('ios', fixture.repoRoot)).not.toBe(
         iosBaseline,
       );
+      fs.writeFileSync(codegenSpecPath, codegenSpec);
+
+      const appBridgePath = path.join(
+        fixture.repoRoot,
+        'apps/mobile/android/app/src/main/java/so/onekey/app/wallet/storage/OneKeyNativeStorageMigrationModule.java',
+      );
+      const appBridge = fs.readFileSync(appBridgePath, 'utf8');
+      fs.writeFileSync(
+        appBridgePath,
+        appBridge.replace(
+          'readLegacyAsyncStorageValue(String key, Promise promise)',
+          'readLegacyAsyncStorageValue(ReadableMap key, Promise promise)',
+        ),
+      );
+      expect(computeNativeContractKey('android', fixture.repoRoot)).not.toBe(
+        androidBaseline,
+      );
+      expect(computeNativeContractKey('ios', fixture.repoRoot)).toBe(
+        iosBaseline,
+      );
+      fs.writeFileSync(appBridgePath, appBridge);
+      fs.writeFileSync(
+        appBridgePath,
+        appBridge.replace(
+          'readLegacyAsyncStorageValue(String key, Promise promise)',
+          'readLegacyAsyncStorageValue(String key, Callback promise)',
+        ),
+      );
+      expect(computeNativeContractKey('android', fixture.repoRoot)).not.toBe(
+        androidBaseline,
+      );
+      fs.writeFileSync(appBridgePath, appBridge);
+
+      const iosAppBridgePath = path.join(
+        fixture.repoRoot,
+        'apps/mobile/ios/OneKeyWallet/OneKeyNativeStorageMigration.m',
+      );
+      const iosAppBridge = fs.readFileSync(iosAppBridgePath, 'utf8');
+      fs.writeFileSync(
+        iosAppBridgePath,
+        iosAppBridge.replace(
+          'readLegacyAsyncStorageValue:(NSString *)key',
+          'readLegacyAsyncStorageValue:(NSNumber *)key',
+        ),
+      );
+      expect(computeNativeContractKey('ios', fixture.repoRoot)).not.toBe(
+        iosBaseline,
+      );
+      expect(computeNativeContractKey('android', fixture.repoRoot)).toBe(
+        androidBaseline,
+      );
+      fs.writeFileSync(iosAppBridgePath, iosAppBridge);
+      fs.writeFileSync(
+        iosAppBridgePath,
+        iosAppBridge.replace(
+          'resolver:(RCTPromiseResolveBlock)resolve',
+          'resolver:(RCTResponseSenderBlock)resolve',
+        ),
+      );
+      expect(computeNativeContractKey('ios', fixture.repoRoot)).not.toBe(
+        iosBaseline,
+      );
+      fs.writeFileSync(iosAppBridgePath, iosAppBridge);
+
+      fs.writeFileSync(
+        appBridgePath,
+        appBridge.replace(
+          'readLegacyAsyncStorageValue',
+          'readLegacyAsyncStorageValueChanged',
+        ),
+      );
+      expect(computeNativeContractKey('android', fixture.repoRoot)).not.toBe(
+        androidBaseline,
+      );
+      expect(computeNativeContractKey('ios', fixture.repoRoot)).toBe(
+        iosBaseline,
+      );
     } finally {
+      fs.rmSync(fixture.repoRoot, { force: true, recursive: true });
+    }
+  });
+
+  it('excludes Catalyst-disabled modules while retaining required ABI checks', () => {
+    const fixture = createTemporaryRuntimeFixture();
+    const previousMode = process.env.ONEKEY_MAC_CATALYST;
+    const lockPath = path.join(
+      fixture.repoRoot,
+      'apps/mobile/ios/Podfile.lock',
+    );
+    const excluded = [
+      '@onekeyfe/react-native-cloud-kit-module',
+      '@onekeyfe/react-native-lite-card',
+      '@phantom/react-native-juicebox-sdk',
+      '@shopify/react-native-skia',
+      '@walletconnect/react-native-compat',
+      'expo-camera',
+      'jcore-react-native',
+      'jpush-react-native',
+      'react-native-network-info',
+    ];
+    const androidBaseline = computeNativeContractKey(
+      'android',
+      fixture.repoRoot,
+    );
+    const catalystLock = fs
+      .readFileSync(lockPath, 'utf8')
+      .split('\n')
+      .filter(
+        (line) =>
+          !excluded.some((name) => line.includes(`node_modules/${name}`)),
+      )
+      .join('\n');
+    fs.writeFileSync(lockPath, catalystLock);
+    try {
+      process.env.ONEKEY_MAC_CATALYST = '1';
+      jest.isolateModules(() => {
+        const catalystVendor = require('../devVendor');
+        const descriptor = catalystVendor.getNativeContractDescriptor(
+          'ios',
+          fixture.repoRoot,
+        );
+        const names = descriptor.dependencies.map(({ name }) => name);
+        expect(names).toContain('@onekeyfe/react-native-bundle-crypto');
+        for (const name of excluded) {
+          expect(names).not.toContain(name);
+        }
+        expect(
+          catalystVendor.computeNativeContractKey('android', fixture.repoRoot),
+        ).toBe(androidBaseline);
+        fs.writeFileSync(
+          lockPath,
+          catalystLock
+            .split('\n')
+            .filter(
+              (line) =>
+                !line.includes(
+                  'node_modules/@onekeyfe/react-native-bundle-crypto',
+                ),
+            )
+            .join('\n'),
+        );
+        expect(() =>
+          catalystVendor.getNativeContractDescriptor('ios', fixture.repoRoot),
+        ).toThrow(
+          'Native ABI dependency is missing from Podfile.lock: @onekeyfe/react-native-bundle-crypto',
+        );
+      });
+    } finally {
+      if (previousMode === undefined) {
+        delete process.env.ONEKEY_MAC_CATALYST;
+      } else {
+        process.env.ONEKEY_MAC_CATALYST = previousMode;
+      }
       fs.rmSync(fixture.repoRoot, { force: true, recursive: true });
     }
   });
@@ -1075,59 +1030,54 @@ describe('devVendor', () => {
         ({ name }) => name === '@react-native-async-storage/async-storage',
       ),
     ).toMatchObject({
-      resolution: '@onekeyfe/react-native-async-storage@npm:3.0.104',
-      version: '3.0.104',
+      codegen: [
+        expect.objectContaining({
+          name: 'AsyncStorageSpec',
+          schemaDigest: expect.stringMatching(/^[0-9a-f]{64}$/u),
+        }),
+      ],
+      name: '@react-native-async-storage/async-storage',
     });
     expect(
       androidDescriptor.dependencies.find(
         ({ name }) => name === 'expo-constants',
       ),
     ).toMatchObject({
-      resolution: 'expo-constants@npm:57.0.12',
-      version: '57.0.12',
+      expo: {
+        android: {
+          modules: ['expo.modules.constants.ConstantsModule'],
+          services: ['expo.modules.constants.ConstantsService'],
+        },
+      },
+      name: 'expo-constants',
     });
-    expect(
-      androidDescriptor.dependencies.find(
-        ({ name }) => name === 'react-native-ble-plx',
-      ),
-    ).toMatchObject({
-      resolution: 'react-native-ble-plx@npm:3.5.1',
-      version: '3.5.1',
-    });
+    for (const dependency of androidDescriptor.dependencies) {
+      expect(dependency).not.toHaveProperty('resolution');
+      expect(dependency).not.toHaveProperty('version');
+    }
+    expect(androidDescriptor.hermesBytecodeVersion).toBeGreaterThan(0);
   });
 
-  it('computes the release tag without installed JavaScript dependencies', () => {
-    const result = spawnSync(
-      process.execPath,
-      [
-        '-e',
-        `
-          const Module = require('module');
-          const path = require('path');
-          const builtins = new Set(
-            Module.builtinModules.map((name) => name.replace(/^node:/u, '')),
-          );
-          const load = Module._load;
-          Module._load = function guardedLoad(request) {
-            const normalized = request.replace(/^node:/u, '');
-            if (
-              !request.startsWith('.') &&
-              !path.isAbsolute(request) &&
-              !builtins.has(normalized)
-            ) {
-              throw new Error('External dependency required: ' + request);
-            }
-            return load.apply(this, arguments);
-          };
-          const { getReleaseTag } = require('./apps/mobile/plugins/devVendor');
-          process.stdout.write(getReleaseTag());
-        `,
-      ],
-      { cwd: repoRoot, encoding: 'utf8' },
-    );
-    expect(result.stderr).toBe('');
-    expect(result.status).toBe(0);
-    expect(result.stdout).toMatch(/^metro-dev-prebundle-v\d+-[0-9a-f]{64}$/u);
+  it('installs ABI inputs before resolving native shell OCI tags', () => {
+    for (const workflowName of [
+      'mobile-dev-shell-android.yml',
+      'mobile-dev-shell-ios-simulator.yml',
+    ]) {
+      const workflow = fs.readFileSync(
+        path.join(repoRoot, '.github/workflows', workflowName),
+        'utf8',
+      );
+      const installIndex = workflow.indexOf(
+        'yarn install --immutable --mode=skip-build',
+      );
+      const resolveIndex = workflow.indexOf('Resolve exact OCI shell');
+      expect(installIndex).toBeGreaterThan(-1);
+      expect(resolveIndex).toBeGreaterThan(installIndex);
+      expect(workflow).not.toContain("jq -er '.exists'");
+      expect(workflow).toContain(
+        'if (.exists | type) == "boolean" then .exists',
+      );
+    }
   });
 
   it('isolates release compatibility from workspace-only registry growth', () => {
@@ -1427,6 +1377,62 @@ describe('devVendor', () => {
         platform: 'ios',
       }),
     ).toThrow('no valid ONEKEY_DEV_SESSION_ID');
+  });
+
+  it('serves embedded native requests only from a session-less Metro server', () => {
+    const manifest = { fingerprint: 'fingerprint-ios' };
+    const sessionId = 'wk-111111111111-dev-222222222222-3333333333333333';
+    const embeddedRequest = {
+      devVendor: 'true',
+      devVendorNative: 'true',
+      devVendorEmbedded: 'true',
+      devVendorFingerprint: 'fingerprint-ios',
+      runtimeTarget: 'background',
+    };
+
+    expect(() =>
+      assertNativeDevVendorResolverContract({
+        customResolverOptions: embeddedRequest,
+        env: {},
+        manifest,
+        platform: 'ios',
+      }),
+    ).not.toThrow();
+    expect(() =>
+      assertNativeDevVendorResolverContract({
+        customResolverOptions: {
+          ...embeddedRequest,
+          devVendorFingerprint: 'stale',
+        },
+        env: {},
+        manifest,
+        platform: 'ios',
+      }),
+    ).toThrow('cache fingerprint mismatch');
+    expect(() =>
+      assertNativeDevVendorResolverContract({
+        customResolverOptions: { ...embeddedRequest, runtimeTarget: 'worker' },
+        env: {},
+        manifest,
+        platform: 'ios',
+      }),
+    ).toThrow('invalid runtime target');
+    expect(() =>
+      assertNativeDevVendorResolverContract({
+        customResolverOptions: { ...embeddedRequest, devSessionId: sessionId },
+        env: {},
+        manifest,
+        platform: 'ios',
+      }),
+    ).toThrow('must not carry a dev session ID');
+    expect(() =>
+      assertNativeDevVendorResolverContract({
+        customResolverOptions: embeddedRequest,
+        env: { ONEKEY_DEV_SESSION_ID: sessionId },
+        manifest,
+        platform: 'ios',
+      }),
+    ).toThrow('reached a DevSession Metro server');
   });
 
   it('keeps non-native dev-vendor requests backward compatible', () => {

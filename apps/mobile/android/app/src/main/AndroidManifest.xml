@@ -17,8 +17,13 @@
         android:maxSdkVersion="30"
         tools:node="replace" />
 
+  <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" tools:node="remove" />
+  <uses-permission android:name="android.permission.READ_MEDIA_VISUAL_USER_SELECTED" tools:node="remove" />
   <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" tools:node="remove" />
   <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" tools:node="remove" />
+  <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" tools:node="remove" />
+  <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" tools:node="remove" />
+  <uses-permission android:name="android.permission.ACCESS_MEDIA_LOCATION" tools:node="remove" />
   <!--
     RECORD_AUDIO was previously injected by expo-camera defaults; explicitly
     removed here and disabled via recordAudioAndroid:false in app.json
@@ -34,10 +39,11 @@
   <uses-permission android:name="android.permission.USE_BIOMETRIC"/>
   <uses-permission android:name="android.permission.USE_FINGERPRINT"/>
   <uses-permission android:name="android.permission.VIBRATE"/>
+  <!-- Replace the declaration so Expo cannot merge uncapped dependency permissions. -->
   <uses-permission
     android:name="android.permission.WRITE_EXTERNAL_STORAGE"
-    android:maxSdkVersion="32"
-    tools:replace="android:maxSdkVersion" />
+    android:maxSdkVersion="28"
+    tools:node="replace" />
   <uses-permission android:name="android.permission.NFC"/>
   <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
   <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
@@ -91,10 +97,6 @@
     <meta-data android:name="expo.modules.notifications.default_notification_color" android:resource="@color/notification_icon_color"/>
     <activity android:name=".MainLauncherActivity" android:label="@string/app_name" android:launchMode="singleTask" android:theme="@style/Theme.App.SplashScreen" android:exported="true" android:screenOrientation="portrait">
       <intent-filter>
-        <action android:name="android.intent.action.MAIN"/>
-        <category android:name="android.intent.category.LAUNCHER"/>
-      </intent-filter>
-      <intent-filter>
         <action android:name="android.intent.action.VIEW" />
         <category android:name="android.intent.category.DEFAULT" />
         <category android:name="android.intent.category.BROWSABLE" />
@@ -139,7 +141,35 @@
         <data android:scheme="https" android:host="swap.onekey.so" android:pathPrefix="/" />
       </intent-filter>
     </activity>
-    <activity android:name=".MainActivity" android:label="@string/app_name" android:configChanges="keyboard|keyboardHidden|orientation|screenSize|uiMode" android:launchMode="singleTask" android:windowSoftInputMode="stateAlwaysHidden|adjustPan" android:theme="@style/Theme.App.SplashScreen" android:exported="false" android:screenOrientation="portrait" android:supportsPictureInPicture="true" />
+    <activity android:name=".MainActivity" android:label="@string/app_name" android:configChanges="keyboard|keyboardHidden|orientation|screenLayout|screenSize|smallestScreenSize|uiMode" android:launchMode="singleTask" android:windowSoftInputMode="stateAlwaysHidden|adjustPan" android:theme="@style/Theme.App.SplashScreen" android:exported="false" android:screenOrientation="portrait" android:supportsPictureInPicture="true" />
+    <activity
+        android:name=".LauncherAliasActivity"
+        android:theme="@style/Theme.App.SplashScreen"
+        android:exported="false"
+        android:screenOrientation="portrait"
+        android:relinquishTaskIdentity="true" />
+    <activity-alias
+        android:name=".StandardLauncher"
+        android:targetActivity=".LauncherAliasActivity"
+        android:enabled="true"
+        android:exported="true"
+        android:icon="@mipmap/ic_launcher">
+      <intent-filter>
+        <action android:name="android.intent.action.MAIN"/>
+        <category android:name="android.intent.category.LAUNCHER"/>
+      </intent-filter>
+    </activity-alias>
+    <activity-alias
+        android:name=".TravelModeLauncher"
+        android:targetActivity=".LauncherAliasActivity"
+        android:enabled="false"
+        android:exported="true"
+        android:icon="@mipmap/ic_launcher_travel">
+      <intent-filter>
+        <action android:name="android.intent.action.MAIN"/>
+        <category android:name="android.intent.category.LAUNCHER"/>
+      </intent-filter>
+    </activity-alias>
     <activity
         android:name=".RecoveryActivity"
         android:theme="@style/Theme.Recovery"
@@ -179,36 +209,6 @@
               android:name="android.support.FILE_PROVIDER_PATHS"
               tools:replace="android:resource"
               android:resource="@xml/file_system_provider_paths" />
-      </provider>
-
-      <!-- expo-image-picker -->
-      <provider
-          android:name="expo.modules.imagepicker.fileprovider.ImagePickerFileProvider"
-          android:authorities="so.onekey.app.wallet.ImagePickerFileProvider"
-          android:exported="false"
-          android:grantUriPermissions="true"
-          tools:ignore="MissingClass"
-          tools:node="replace"
-          tools:replace="android:authorities,android:exported,android:grantUriPermissions">
-          <meta-data
-              android:name="android.support.FILE_PROVIDER_PATHS"
-              tools:replace="android:resource"
-              android:resource="@xml/image_picker_provider_paths" />
-      </provider>
-
-      <!-- react-mobile-cropper -->
-      <provider
-          android:name="com.canhub.cropper.CropFileProvider"
-          android:authorities="so.onekey.app.wallet.cropper.fileprovider"
-          android:exported="false"
-          android:grantUriPermissions="true"
-          tools:ignore="MissingClass"
-          tools:node="replace"
-          tools:replace="android:authorities,android:exported,android:grantUriPermissions">
-          <meta-data
-              android:name="android.support.FILE_PROVIDER_PATHS"
-              tools:replace="android:resource"
-              android:resource="@xml/library_file_paths" />
       </provider>
 
       <!-- expo-sharing -->

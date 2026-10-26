@@ -9,8 +9,10 @@ import {
   type SkFont,
   type SkFontMgr,
   type SkPaint,
+  type SkPath,
   type SkPicture,
   type SkSVG,
+  type SkTypeface,
   Skia,
   StrokeCap,
   StrokeJoin,
@@ -18,8 +20,10 @@ import {
   createPicture,
 } from '@shopify/react-native-skia';
 
+import { TRADING_VIEW_NATIVE_ORDER_LINE_LABEL_FONT_SIZE } from '../chartConstants';
 import {
   type IBuildTradingViewNativeChartSceneOptions,
+  type ITradingViewNativeChartScene,
   type ITradingViewNativeChartSceneColors,
   type ITradingViewNativeChartSceneCommand,
   type ITradingViewNativeChartSceneFont,
@@ -29,11 +33,30 @@ import {
   getTradingViewNativeChartScenePaintStyles,
 } from '../utils/chartScene';
 
+import { drawNativeChartDrawings } from './chartDrawingRenderer';
+import { getTradingViewNativeSkiaTextFont } from './chartSkiaText';
+import {
+  TRADE_MARK_LABEL_PATHS,
+  TRADE_MARK_LABEL_PATH_FONT_SIZE,
+} from './tradeMarkLabelPaths';
+
+import type { IDrawingRenderState } from '../drawings/useChartDrawings';
+
+export type ITradingViewNativeSkiaCommand =
+  | ITradingViewNativeChartSceneCommand
+  | { kind: 'clipPolygon'; points: { x: number; y: number }[] }
+  | (Omit<
+      Extract<ITradingViewNativeChartSceneCommand, { kind: 'rect' }>,
+      'kind'
+    > & { kind: 'roundRect'; radius: number });
+
 export interface ITradingViewNativeSkiaResources {
   customPaintSignatures: Record<string, string>;
   customPaints: Record<string, SkPaint>;
   fonts: Record<ITradingViewNativeChartSceneFont, SkFont>;
+  legendSubscriptFont: SkFont | null;
   paints: Record<ITradingViewNativeChartScenePaint, SkPaint>;
+  tradeMarkLabelPaths: Record<'B' | 'S', SkPath | null>;
   watermarkPaint: SkPaint;
   watermarkSvg: SkSVG | null;
 }
@@ -43,6 +66,39 @@ const REGULAR_FONT_STYLE = {
   weight: FontWeight.Normal,
   width: FontWidth.Normal,
 } as const;
+
+export function getTradingViewNativeSkiaLegendText({
+  candleLabels,
+  chartComponents = [],
+}: Pick<
+  IBuildTradingViewNativeChartSceneOptions,
+  'candleLabels' | 'chartComponents'
+>): string {
+  const text = [
+    candleLabels.open,
+    candleLabels.high,
+    candleLabels.low,
+    candleLabels.close,
+    ...chartComponents.flatMap((component) => {
+      if (component.type === 'tradeMarks') {
+        return component.props.marks.map(
+          (mark) => `${mark.label}${mark.text}…`,
+        );
+      }
+      if (component.props.label) {
+        return [
+          component.props.title,
+          component.props.label.quantity?.text ?? '',
+        ];
+      }
+      return [];
+    }),
+  ].join('');
+  // Keep font selection stable when trades reorder or repeat the same glyphs.
+  return Array.from(new Set(text.replaceAll(/\s/g, '')))
+    .toSorted()
+    .join('');
+}
 
 function doesTradingViewNativeSkiaFontSupportText(
   font: SkFont,
@@ -55,14 +111,19 @@ function createTradingViewNativeSkiaFont({
   fontFamily,
   fontManager,
   fontSize,
+  fontWeight,
 }: {
   fontFamily: string;
   fontManager: SkFontMgr;
   fontSize: number;
+  fontWeight?: FontWeight;
 }): SkFont {
   'worklet';
 
-  const typeface = fontManager.matchFamilyStyle(fontFamily, REGULAR_FONT_STYLE);
+  const typeface = fontManager.matchFamilyStyle(fontFamily, {
+    ...REGULAR_FONT_STYLE,
+    weight: fontWeight ?? REGULAR_FONT_STYLE.weight,
+  });
   return Skia.Font(typeface, fontSize);
 }
 
@@ -70,12 +131,14 @@ function createTradingViewNativeSkiaFontFromSystemFamilies({
   fontFamily,
   fontManager,
   fontSize,
+  fontWeight,
   primaryFont,
   requiredText,
 }: {
   fontFamily: string;
   fontManager: SkFontMgr;
   fontSize: number;
+  fontWeight: FontWeight;
   primaryFont: SkFont;
   requiredText: string;
 }): SkFont {
@@ -87,6 +150,7 @@ function createTradingViewNativeSkiaFontFromSystemFamilies({
         fontFamily: fallbackFontFamily,
         fontManager,
         fontSize,
+        fontWeight,
       });
       if (
         doesTradingViewNativeSkiaFontSupportText(fallbackFont, requiredText)
@@ -104,11 +168,13 @@ function createTradingViewNativeSkiaFontFromSystemFamilies({
 export function createTradingViewNativeSkiaFontForText({
   fontFamily,
   fontSize,
+  fontWeight = FontWeight.Normal,
   locale,
   requiredText,
 }: {
   fontFamily: string;
   fontSize: number;
+  fontWeight?: FontWeight;
   locale: string;
   requiredText: string;
 }): SkFont {
@@ -117,6 +183,7 @@ export function createTradingViewNativeSkiaFontForText({
     fontFamily,
     fontManager,
     fontSize,
+    fontWeight,
   });
   const requiredCharacters = Array.from(requiredText);
   const primaryGlyphIds = primaryFont.getGlyphIDs(requiredText);
@@ -133,6 +200,7 @@ export function createTradingViewNativeSkiaFontForText({
       fontFamily,
       fontManager,
       fontSize,
+      fontWeight,
       primaryFont,
       requiredText,
     });
@@ -146,7 +214,7 @@ export function createTradingViewNativeSkiaFontForText({
       checkedCodePoints.add(codePoint);
       const fallbackTypeface = fontManager.matchFamilyStyleCharacter(
         fontFamily,
-        REGULAR_FONT_STYLE,
+        { ...REGULAR_FONT_STYLE, weight: fontWeight },
         bcp47,
         codePoint,
       );
@@ -215,23 +283,45 @@ function createTradingViewNativeSkiaPaint(
   return paint;
 }
 
+function createTradingViewNativeTradeMarkLabelPath(
+  label: 'B' | 'S',
+  fontSize: number,
+) {
+  'worklet';
+
+  const path = Skia.Path.MakeFromSVGString(TRADE_MARK_LABEL_PATHS[label]);
+  if (path) {
+    const bounds = path.computeTightBounds();
+    path.offset(-bounds.x - bounds.width / 2, -bounds.y - bounds.height / 2);
+    const scale = fontSize / TRADE_MARK_LABEL_PATH_FONT_SIZE;
+    if (scale !== 1) {
+      path.transform(Skia.Matrix().scale(scale, scale));
+    }
+  }
+  return path;
+}
+
 export function createTradingViewNativeSkiaResources({
   colors,
   fontFamily,
   legendFont,
-  priceAxisFont,
+  priceAxisTypeface,
   priceAxisFontSize,
   timeAxisFontSize,
+  timeAxisFont,
   timeAxisBorderWidth,
+  tradingLineLabelFont,
   watermarkSvg,
 }: {
   colors: ITradingViewNativeChartSceneColors;
   fontFamily: string;
   legendFont: SkFont;
-  priceAxisFont: SkFont | null;
+  priceAxisTypeface: SkTypeface | null;
   priceAxisFontSize: number;
   timeAxisFontSize: number;
+  timeAxisFont?: SkFont;
   timeAxisBorderWidth?: number;
+  tradingLineLabelFont: SkFont;
   watermarkSvg: SkSVG | null;
 }): ITradingViewNativeSkiaResources {
   'worklet';
@@ -241,17 +331,23 @@ export function createTradingViewNativeSkiaResources({
   });
   const paints = {} as Record<ITradingViewNativeChartScenePaint, SkPaint>;
   const fontManager = Skia.FontMgr.System();
-  const axisFont = createTradingViewNativeSkiaFont({
-    fontFamily,
-    fontManager,
-    fontSize: timeAxisFontSize,
-  });
-  const priceAxisFallbackFont = createTradingViewNativeSkiaFont({
-    fontFamily,
-    fontManager,
-    fontSize: priceAxisFontSize,
-  });
-
+  const axisFont =
+    timeAxisFont ??
+    createTradingViewNativeSkiaFont({
+      fontFamily,
+      fontManager,
+      fontSize: timeAxisFontSize,
+    });
+  const priceAxisFont = priceAxisTypeface
+    ? Skia.Font(priceAxisTypeface, priceAxisFontSize)
+    : createTradingViewNativeSkiaFont({
+        fontFamily,
+        fontManager,
+        fontSize: priceAxisFontSize,
+      });
+  const legendSubscriptFont = priceAxisTypeface
+    ? Skia.Font(priceAxisTypeface, legendFont.getSize())
+    : null;
   for (const paintName of Object.keys(
     paintStyles,
   ) as ITradingViewNativeChartScenePaint[]) {
@@ -265,9 +361,23 @@ export function createTradingViewNativeSkiaResources({
     fonts: {
       axis: axisFont,
       legend: legendFont,
-      priceAxis: priceAxisFont ?? priceAxisFallbackFont,
+      priceAxis: priceAxisFont,
+      referenceLineLabel: Skia.Font(
+        legendFont.getTypeface() ?? undefined,
+        priceAxisFontSize,
+      ),
+      tradingLineLabel: tradingLineLabelFont,
+      orderLineLabel: Skia.Font(
+        legendFont.getTypeface() ?? undefined,
+        TRADING_VIEW_NATIVE_ORDER_LINE_LABEL_FONT_SIZE,
+      ),
     },
+    legendSubscriptFont,
     paints,
+    tradeMarkLabelPaths: {
+      B: createTradingViewNativeTradeMarkLabelPath('B', legendFont.getSize()),
+      S: createTradingViewNativeTradeMarkLabelPath('S', legendFont.getSize()),
+    },
     watermarkPaint: Skia.Paint(),
     watermarkSvg,
   };
@@ -331,7 +441,7 @@ function drawTradingViewNativeSkiaCommands({
   resources,
 }: {
   canvas: SkCanvas;
-  commands: ITradingViewNativeChartSceneCommand[];
+  commands: ITradingViewNativeSkiaCommand[];
   customPaintStyles: Record<string, ITradingViewNativeChartScenePaintStyle>;
   resources: ITradingViewNativeSkiaResources;
 }) {
@@ -356,6 +466,18 @@ function drawTradingViewNativeSkiaCommands({
           }),
         );
         break;
+      case 'clipPolygon': {
+        const path = Skia.Path.Make();
+        command.points.forEach((point, index) => {
+          if (index === 0) path.moveTo(point.x, point.y);
+          else path.lineTo(point.x, point.y);
+        });
+        path.close();
+        canvas.save();
+        canvas.clipPath(path, ClipOp.Intersect, true);
+        path.dispose();
+        break;
+      }
       case 'clip':
         canvas.save();
         canvas.clipRect(
@@ -435,15 +557,26 @@ function drawTradingViewNativeSkiaCommands({
         break;
       }
       case 'rect':
-        canvas.drawRect(
-          Skia.XYWHRect(command.x, command.y, command.width, command.height),
-          getTradingViewNativeSkiaCommandPaint({
-            customPaintId: command.customPaintId,
-            fallbackPaint: command.paint,
-            resources,
-          }),
+      case 'roundRect': {
+        const rect = Skia.XYWHRect(
+          command.x,
+          command.y,
+          command.width,
+          command.height,
         );
+        const paint = getTradingViewNativeSkiaCommandPaint({
+          customPaintId: command.customPaintId,
+          fallbackPaint: command.paint,
+          resources,
+        });
+        if (command.kind === 'roundRect')
+          canvas.drawRRect(
+            Skia.RRectXY(rect, command.radius, command.radius),
+            paint,
+          );
+        else canvas.drawRect(rect, paint);
         break;
+      }
       case 'restore':
         canvas.restore();
         break;
@@ -457,9 +590,30 @@ function drawTradingViewNativeSkiaCommands({
             fallbackPaint: command.paint,
             resources,
           }),
-          resources.fonts[command.font],
+          getTradingViewNativeSkiaTextFont(
+            command.text,
+            resources.fonts[command.font],
+            command.font === 'legend' ? resources.legendSubscriptFont : null,
+          ),
         );
         break;
+      case 'tradeMarkLabel': {
+        const path = resources.tradeMarkLabelPaths[command.label];
+        if (path) {
+          canvas.save();
+          canvas.translate(command.cx, command.cy);
+          canvas.drawPath(
+            path,
+            getTradingViewNativeSkiaCommandPaint({
+              customPaintId: command.customPaintId,
+              fallbackPaint: command.paint,
+              resources,
+            }),
+          );
+          canvas.restore();
+        }
+        break;
+      }
       case 'watermark':
         if (resources.watermarkSvg) {
           canvas.save();
@@ -481,19 +635,58 @@ function drawTradingViewNativeSkiaCommands({
   }
 }
 
+export function createTradingViewNativeSkiaCommandPicture({
+  commands,
+  customPaintStyles,
+  resources,
+  width,
+  height,
+}: {
+  commands: ITradingViewNativeSkiaCommand[];
+  customPaintStyles: Record<string, ITradingViewNativeChartScenePaintStyle>;
+  resources: ITradingViewNativeSkiaResources;
+  width: number;
+  height: number;
+}): SkPicture {
+  'worklet';
+  return createPicture(
+    (canvas) => {
+      'worklet';
+      drawTradingViewNativeSkiaCommands({
+        canvas,
+        commands,
+        customPaintStyles,
+        resources,
+      });
+    },
+    { width, height },
+  );
+}
+
 export function createTradingViewNativeSkiaPicture({
   resources,
+  drawings,
+  onScene,
   ...sceneOptions
 }: Omit<IBuildTradingViewNativeChartSceneOptions, 'measureTextWidth'> & {
   resources: ITradingViewNativeSkiaResources;
+  drawings?: IDrawingRenderState;
+  onScene?: (scene: ITradingViewNativeChartScene) => void;
 }): SkPicture {
   'worklet';
 
   const scene = buildTradingViewNativeChartScene({
     ...sceneOptions,
+    chartDrawings: drawings?.drawings,
     measureTextWidth: (text, font) =>
-      resources.fonts[font].measureText(text).width,
+      getTradingViewNativeSkiaTextFont(
+        text,
+        resources.fonts[font],
+        font === 'legend' ? resources.legendSubscriptFont : null,
+      ).measureText(text).width,
   });
+
+  onScene?.(scene);
 
   const pictureSize =
     sceneOptions.height > 0 && sceneOptions.width > 0
@@ -512,5 +705,21 @@ export function createTradingViewNativeSkiaPicture({
       customPaintStyles: scene.customPaintStyles,
       resources,
     });
+    if (drawings && scene.layout && sceneOptions.points.length)
+      drawNativeChartDrawings(
+        canvas,
+        drawings,
+        {
+          layout: scene.layout,
+          viewport: scene.viewport,
+          points: sceneOptions.points,
+          interval: sceneOptions.candleIntervalSeconds,
+          priceDecimalPlaces: sceneOptions.priceDecimalPlaces,
+          size: { width: sceneOptions.width, height: sceneOptions.height },
+          showPriceAxis: sceneOptions.chartSettings?.options.yAxis,
+        },
+        resources.fonts.legend,
+        sceneOptions.chartSettings?.background.colors[0] ?? '#ffffff',
+      );
   }, pictureSize);
 }

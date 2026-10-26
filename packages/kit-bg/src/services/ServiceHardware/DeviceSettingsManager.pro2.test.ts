@@ -47,6 +47,7 @@ jest.mock('../../dbs/local/localDb', () => ({
     getDeviceByQuery: jest.fn(),
     getDevice: jest.fn(),
     updateDevice: jest.fn(),
+    clearTrezorDeviceThpState: jest.fn(),
   },
 }));
 
@@ -167,15 +168,15 @@ describe('DeviceSettingsManager device adapters', () => {
 
     await manager.setDeviceLabel({
       walletId: 'wallet-1',
-      label: 'Renamed Pro 2',
+      label: ' OneKey-Pro_2 ',
     });
 
     expect(deviceSettings).toHaveBeenCalledWith('PRO2_CONNECT_ID', {
-      label: 'Renamed Pro 2',
+      label: 'OneKey-Pro_2',
     });
   });
 
-  test.each(['OneKey-Pro2', 'OneKey_Pro2', 'OneKey　Pro2', '一键Pro2'])(
+  test.each(['OneKey　Pro2', '一键Pro2', 'A'.repeat(15)])(
     'rejects unsupported label %s before calling the SDK',
     async (label) => {
       const deviceSettings = jest.fn();
@@ -185,7 +186,7 @@ describe('DeviceSettingsManager device adapters', () => {
 
       await expect(
         manager.setDeviceLabel({ walletId: 'wallet-1', label }),
-      ).rejects.toThrow('only support ASCII letters, numbers, and spaces');
+      ).rejects.toThrow(ETranslations.global_hardware_label_input_error);
       expect(deviceSettings).not.toHaveBeenCalled();
     },
   );
@@ -718,7 +719,6 @@ describe('DeviceSettingsManager device adapters', () => {
           },
           serviceThirdPartyHardware: {
             getAdapterForVendor: jest.fn(async () => ({ deviceSettings })),
-            requestTrezorBleConnectIdForDevice: jest.fn(),
           },
         } as unknown as IBackgroundApi,
       });
@@ -731,7 +731,21 @@ describe('DeviceSettingsManager device adapters', () => {
         ...params,
       });
 
-      expect(deviceSettings).toHaveBeenCalledWith(device.connectId, settings);
+      expect(deviceSettings).toHaveBeenCalledWith(
+        'TREZOR_CONNECT_ID',
+        settings,
+        {
+          knownConnections: [
+            { transport: 'usb', connectId: 'TREZOR_CONNECT_ID' },
+          ],
+          extra: { dbDeviceId: device.id },
+          expectedDeviceIdentity: {
+            vendor: 'trezor',
+            type: 'deviceId',
+            value: device.deviceId,
+          },
+        },
+      );
       // oxlint-disable-next-line typescript/unbound-method -- Jest mock does not depend on a bound this
       expect(localDb.updateDevice).toHaveBeenCalledWith({
         features: device.featuresInfo,
@@ -739,4 +753,70 @@ describe('DeviceSettingsManager device adapters', () => {
       });
     },
   );
+
+  test('pins Trezor device-manager mutations and forwards brightness', async () => {
+    const device = buildTrezorDevice();
+    const successResponse = {
+      success: true as const,
+      payload: {},
+    };
+    const setBrightness = jest.fn(async () => successResponse);
+    const changePin = jest.fn(async () => successResponse);
+    const wipeDevice = jest.fn(async () => successResponse);
+    // oxlint-disable-next-line typescript/unbound-method -- Jest mock does not depend on a bound this
+    jest.mocked(localDb.getDeviceByQuery).mockResolvedValue(device);
+    const manager = new DeviceSettingsManager({
+      backgroundApi: {
+        serviceHardware: {
+          getCompatibleConnectId: jest.fn(async () => device.connectId),
+        },
+        serviceHardwareUI: {
+          withHardwareProcessing: jest.fn(
+            async (action: () => Promise<unknown>) => action(),
+          ),
+        },
+        serviceThirdPartyHardware: {
+          getAdapterForVendor: jest.fn(async () => ({
+            setBrightness,
+            changePin,
+            wipeDevice,
+          })),
+        },
+      } as unknown as IBackgroundApi,
+    });
+    const operationContext = {
+      knownConnections: [{ transport: 'usb', connectId: 'TREZOR_CONNECT_ID' }],
+      extra: { dbDeviceId: device.id },
+      expectedDeviceIdentity: {
+        vendor: 'trezor',
+        type: 'deviceId',
+        value: device.deviceId,
+      },
+    };
+
+    await manager.setBrightness({
+      connectId: device.connectId,
+      brightness: 80,
+    });
+    await manager.changePin({
+      connectId: device.connectId,
+      remove: false,
+    });
+    await manager.wipeDevice({ connectId: device.connectId });
+
+    expect(setBrightness).toHaveBeenCalledWith(
+      'TREZOR_CONNECT_ID',
+      { value: 80 },
+      operationContext,
+    );
+    expect(changePin).toHaveBeenCalledWith(
+      'TREZOR_CONNECT_ID',
+      { remove: false },
+      operationContext,
+    );
+    expect(wipeDevice).toHaveBeenCalledWith(
+      'TREZOR_CONNECT_ID',
+      operationContext,
+    );
+  });
 });

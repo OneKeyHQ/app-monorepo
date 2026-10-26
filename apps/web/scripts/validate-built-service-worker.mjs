@@ -21,6 +21,8 @@ const forbiddenPatterns = [
   '__TRADINGVIEW_EMBED_BUILD_MANIFEST_INTEGRITY__',
   'TRADINGVIEW_EMBED_BUILD_MANIFEST_URL',
   'TRADINGVIEW_EMBED_BUILD_MANIFEST_INTEGRITY',
+  // Remote chart hosts may only supply the release pinned in the app build.
+  '/embed/latest.json',
 ];
 
 for (const pattern of forbiddenPatterns) {
@@ -36,11 +38,11 @@ const manifestFileNames = (await readdir(buildDirectory)).filter((fileName) =>
 );
 
 if (manifestFileNames.length > 0) {
-  fail('Web build must not contain a pinned TradingView embed manifest');
+  fail('Web build must not bundle a TradingView embed manifest file');
 }
 
 console.log(
-  '[service-worker] TradingView manifest will be resolved from the runtime URL.',
+  '[service-worker] Remote TradingView manifests must match a pinned release.',
 );
 
 console.log('[service-worker] compiled bundle validation passed.');

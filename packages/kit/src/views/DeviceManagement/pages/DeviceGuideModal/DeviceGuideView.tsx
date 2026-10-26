@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback } from 'react';
 
 import { useIsFocused } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -6,253 +6,107 @@ import { useIntl } from 'react-intl';
 import {
   Anchor,
   Button,
-  EVideoResizeMode,
-  type IVideoProgressData,
-  type IVideoSource,
   Image,
-  LinearGradient,
-  Page,
   SizableText,
   Stack,
-  Video,
   XStack,
   YStack,
-  useMedia,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
 import { useIsFirstFocused } from '@onekeyhq/kit/src/hooks/useIsFirstFocused';
-import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import { useNavigateToPickYourDevicePage } from '@onekeyhq/kit/src/views/Onboarding/hooks/useToOnBoardingPage';
 import { ONEKEY_BUY_HARDWARE_URL } from '@onekeyhq/shared/src/config/appConfig';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { DeviceManagementTestIDs } from '../../testIDs';
 
 import type { ImageSourcePropType } from 'react-native';
 
-const LightPosterImage =
-  require('./assets/mydevice_hero_poster_light.jpg') as ImageSourcePropType;
-const DarkPosterImage =
-  require('./assets/mydevice_hero_poster_dark.jpg') as ImageSourcePropType;
+const HeroImage =
+  require('./assets/device_guide_hero.png') as ImageSourcePropType;
 
-const LightVideoSource: IVideoSource = {
-  uri: 'https://asset.onekey-asset.com/app-monorepo/bb7a4e71aba56b405faf9278776d57d73b829708/static/media/mydevice_hero_light.mp4',
-};
-const DarkVideoSource: IVideoSource = {
-  uri: 'https://asset.onekey-asset.com/app-monorepo/bb7a4e71aba56b405faf9278776d57d73b829708/static/media/mydevice_hero_dark.mp4',
-};
+/** The hero PNG is cropped to its subject: 577 × 1256 px, 3× of the phone
+ * size, transparent so it sits on either theme's page color. */
+const HERO_ASPECT_RATIO = 577 / 1256;
+/** Subject height in points. The design places the render in a square of
+ * 449 pt on phones, 337 pt in the extension popup and 257 pt on wide layouts;
+ * these are those squares minus the render's transparent margins. */
+const HERO_HEIGHT_PHONE = 419;
+const HERO_HEIGHT_EXTENSION = 314;
+const HERO_HEIGHT_WIDE = 240;
+/** Wide layouts center one narrow column in the page. */
+const WIDE_COLUMN_MAX_WIDTH = 384;
+/** Extra bottom room on wide layouts so the column reads as centered: the
+ * render carries the visual weight, and it sits in the upper half. */
+const WIDE_BOTTOM_GAP = 80;
+/** Bottom breathing room where no home-indicator inset exists (extension,
+ * Android). Phones with an inset end the actions right above it. */
+const MIN_BOTTOM_GAP = 20;
 
-function VideoContainer() {
-  const themeVariant = useThemeVariant();
-  const { gtMd } = useMedia();
-  const { top: safeAreaTop } = useSafeAreaInsets();
-  const [isVideoLoaded, setIsVideoLoaded] = useState(false);
+/** The narrow-layout size is fixed per target; the wide size is a media
+ * style so it switches together with the rest of the column when a window
+ * crosses the breakpoint. */
+const HERO_HEIGHT_NARROW = platformEnv.isExtension
+  ? HERO_HEIGHT_EXTENSION
+  : HERO_HEIGHT_PHONE;
 
-  const videoSource = useMemo(() => {
-    return themeVariant === 'dark' ? DarkVideoSource : LightVideoSource;
-  }, [themeVariant]);
+function heroWidth(height: number) {
+  return Math.round(height * HERO_ASPECT_RATIO);
+}
 
-  const posterSource = useMemo(() => {
-    return themeVariant === 'dark' ? DarkPosterImage : LightPosterImage;
-  }, [themeVariant]);
-
-  const maskStyle = useMemo(() => {
-    const gradient = gtMd
-      ? 'linear-gradient(90deg, transparent 0%, black 80%)'
-      : 'linear-gradient(180deg, transparent 15%, black 70%)';
-
-    return {
-      maskImage: gradient,
-      WebkitMaskImage: gradient,
-    };
-  }, [gtMd]);
-
-  const isVideoLoadedRef = useRef(isVideoLoaded);
-  isVideoLoadedRef.current = isVideoLoaded;
-  const handleVideoLoad = useCallback((e: IVideoProgressData) => {
-    if (isVideoLoadedRef.current) {
-      return;
-    }
-    if (e.currentTime > 0) {
-      setIsVideoLoaded(true);
-    }
-  }, []);
-
+function Hero() {
   return (
     <Stack
-      testID="blank-page-video"
       flex={1}
       w="100%"
-      h="100%"
-      bg="$bgApp"
-      overflow="hidden"
-      position="absolute"
-      zIndex={0}
-      top={-safeAreaTop}
-      left={0}
-      right={0}
-      bottom="20%"
+      alignItems="center"
+      justifyContent="center"
+      testID="blank-page-hero"
       $gtMd={{
-        bottom: 0,
-        left: '25%',
-        top: 0,
-        right: 0,
+        flex: 0,
       }}
     >
-      {/* Container with gradient mask */}
+      {/* Short screens shrink the render instead of pushing the words off.
+          minHeight 0 lets the web flex item go below its content height. */}
       <Stack
-        position="absolute"
-        width="100%"
-        height="100%"
-        $platform-web={{
-          ...maskStyle,
+        width={heroWidth(HERO_HEIGHT_NARROW)}
+        height={HERO_HEIGHT_NARROW}
+        maxHeight="100%"
+        minHeight={0}
+        flexShrink={1}
+        $gtMd={{
+          width: heroWidth(HERO_HEIGHT_WIDE),
+          height: HERO_HEIGHT_WIDE,
         }}
       >
-        <Video
-          muted
-          autoPlay
-          repeat
-          rate={0.8}
-          position="absolute"
+        <Image
+          source={HeroImage}
           width="100%"
           height="100%"
-          controls={false}
-          playInBackground={false}
-          resizeMode={EVideoResizeMode.COVER}
-          source={videoSource}
-          onProgress={handleVideoLoad}
-        />
-        {!isVideoLoaded ? (
-          <Image
-            position="absolute"
-            width="100%"
-            height="100%"
-            resizeMode="cover"
-            resizeWidth={480}
-            source={posterSource}
-          />
-        ) : null}
-        <LinearGradient
-          colors={[
-            'transparent',
-            themeVariant === 'dark'
-              ? 'rgba(15, 15, 15, 1)'
-              : 'rgba(255, 255, 255, 1)',
-          ]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 0, y: 1 }}
-          position="absolute"
-          bottom={0}
-          left={0}
-          right={0}
-          height="70%"
-          $platform-web={{
-            display: 'none',
-          }}
+          resizeMode="contain"
         />
       </Stack>
     </Stack>
   );
 }
 
-function DescriptionInfo() {
-  const intl = useIntl();
-  return (
-    <YStack
-      gap="$2"
-      mb="$16"
-      $gtMd={{
-        mb: '$0',
-      }}
-    >
-      <SizableText
-        size="$heading4xl"
-        textAlign="center"
-        $gtMd={{
-          size: '$heading5xl',
-          textAlign: 'left',
-        }}
-        color="$text"
-      >
-        {intl.formatMessage({
-          id: ETranslations.global_no_device_connected,
-        })}
-      </SizableText>
-      <SizableText
-        size="$bodyLg"
-        textAlign="center"
-        $gtMd={{
-          size: '$bodyLg',
-          textAlign: 'left',
-        }}
-        color="$textSubdued"
-      >
-        {intl.formatMessage({
-          id: ETranslations.global_no_device_connected_desc,
-        })}
-      </SizableText>
-    </YStack>
-  );
-}
-
-function ButtonContainer() {
+function Actions() {
   const intl = useIntl();
   const toOnBoardingPage = useNavigateToPickYourDevicePage();
-  const { gtMd } = useMedia();
 
-  const handleBuyButtonPress = useCallback(() => {
-    openUrlExternal(ONEKEY_BUY_HARDWARE_URL);
-  }, []);
-
-  const onAddDevice = useCallback(async () => {
+  const onAddDevice = useCallback(() => {
     void toOnBoardingPage();
   }, [toOnBoardingPage]);
 
-  if (gtMd) {
-    return (
-      <XStack gap="$3" flexDirection="row" justifyContent="flex-start">
-        <Button
-          size="medium"
-          borderRadius="$full"
-          variant="primary"
-          onPress={onAddDevice}
-          px="$4"
-          testID={DeviceManagementTestIDs.connectHardwareBtn}
-        >
-          {intl.formatMessage({
-            id: ETranslations.global_connect_hardware_wallet,
-          })}
-        </Button>
-        <Button
-          size="medium"
-          borderRadius="$full"
-          variant="secondary"
-          borderWidth="$px"
-          borderColor="$borderSubdued"
-          bg="$neutral2"
-          iconAfter="ArrowTopRightOutline"
-          onPress={handleBuyButtonPress}
-          px="$4"
-          testID={DeviceManagementTestIDs.buyOneKeyBtn}
-          $platform-web={{
-            style: {
-              backdropFilter: 'blur(16px)',
-              WebkitBackdropFilter: 'blur(16px)',
-            },
-          }}
-        >
-          {intl.formatMessage({ id: ETranslations.global_buy })} OneKey
-        </Button>
-      </XStack>
-    );
-  }
-
   return (
-    <YStack width="100%" gap="$4" py="$5" testID="blank-page-mobile-buttons">
+    <YStack w="100%" gap="$4" alignItems="center" testID="blank-page-actions">
       <Button
+        w="100%"
         size="large"
         variant="primary"
+        borderRadius="$full"
+        icon="EnergyCircleSolid"
         onPress={onAddDevice}
         testID={DeviceManagementTestIDs.connectHardwareBtn}
       >
@@ -260,22 +114,26 @@ function ButtonContainer() {
           id: ETranslations.global_connect_hardware_wallet,
         })}
       </Button>
-      <XStack h="$9" justifyContent="center" alignItems="center">
+      <XStack
+        gap="$1"
+        alignItems="center"
+        justifyContent="center"
+        flexWrap="wrap"
+      >
         <SizableText size="$bodyMd" color="$textSubdued">
           {intl.formatMessage({
             id: ETranslations.global_onekey_prompt_dont_have_yet,
           })}
         </SizableText>
         <Anchor
-          display="flex"
+          size="$bodyMd"
           color="$textInteractive"
           hoverStyle={{
             color: '$textInteractiveHover',
           }}
           href={ONEKEY_BUY_HARDWARE_URL}
           target="_blank"
-          size="$bodyMdMedium"
-          p="$2"
+          testID={DeviceManagementTestIDs.buyOneKeyBtn}
         >
           {intl.formatMessage({ id: ETranslations.global_buy_one })}
         </Anchor>
@@ -285,48 +143,41 @@ function ButtonContainer() {
 }
 
 function DeviceGuideViewContent() {
+  const intl = useIntl();
   const { bottom } = useSafeAreaInsets();
   return (
     <YStack
-      w="100%"
       flex={1}
-      gap="$8"
+      w="100%"
       bg="$bgApp"
+      alignItems="center"
       testID="blank-page"
-      pb={bottom}
-      zIndex={0}
     >
-      <VideoContainer />
-
-      <Page.Container flex={1} position="relative" zIndex={1}>
-        <XStack
-          h="100%"
-          w="100%"
-          justifyContent="space-between"
-          alignItems={undefined}
-          flexDirection="column-reverse"
-          px="0px"
-          $gtMd={{
-            alignItems: 'center',
-            flexDirection: 'row',
-          }}
-        >
-          <YStack
-            gap="$0"
-            maxWidth={undefined}
-            alignItems={undefined}
-            $gtMd={{
-              gap: '$10',
-              maxWidth: 480,
-              alignItems: 'flex-start',
-              marginTop: -48,
-            }}
-          >
-            <DescriptionInfo />
-            <ButtonContainer />
-          </YStack>
-        </XStack>
-      </Page.Container>
+      <YStack
+        flex={1}
+        w="100%"
+        px="$5"
+        pb={Math.max(bottom, MIN_BOTTOM_GAP)}
+        gap="$8"
+        alignItems="center"
+        $gtMd={{
+          maxWidth: WIDE_COLUMN_MAX_WIDTH,
+          justifyContent: 'center',
+          pb: WIDE_BOTTOM_GAP,
+        }}
+      >
+        <Hero />
+        <YStack w="100%" gap="$8">
+          {/* One centered paragraph; the page header already names the
+              place, so there is no title to repeat it. */}
+          <SizableText size="$bodyLg" color="$text" textAlign="center" px="$4">
+            {intl.formatMessage({
+              id: ETranslations.device_management_no_device__desc,
+            })}
+          </SizableText>
+          <Actions />
+        </YStack>
+      </YStack>
     </YStack>
   );
 }

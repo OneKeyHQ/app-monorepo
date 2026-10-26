@@ -50,7 +50,7 @@ function NewPinCreatedPage() {
         testID={OnboardingTestIDs.newPinCreatedCloseBtn}
         size="large"
         onPress={handleClose}
-        maxWidth={320}
+        $gtMd={{ maxWidth: 320 }}
       >
         {intl.formatMessage({ id: ETranslations.global_close })}
       </Button>

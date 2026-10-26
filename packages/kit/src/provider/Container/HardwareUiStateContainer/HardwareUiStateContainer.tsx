@@ -14,12 +14,7 @@ import { throttle } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import type { IDialogInstance, IDialogShowProps } from '@onekeyhq/components';
-import {
-  Dialog,
-  DialogContainer,
-  Portal,
-  SizableText,
-} from '@onekeyhq/components';
+import { Dialog, DialogContainer, SizableText } from '@onekeyhq/components';
 import type { IShowToasterInstance } from '@onekeyhq/components/src/actions/Toast/ShowCustom';
 import { ShowCustom } from '@onekeyhq/components/src/actions/Toast/ShowCustom';
 import { useBackHandler } from '@onekeyhq/components/src/hooks';
@@ -35,6 +30,7 @@ import {
 import type { IHardwareUiState } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   EHardwareUiStateAction,
+  useDeviceStageAtom,
   useHardwareUiStateAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
@@ -42,9 +38,16 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import type { IHardwareErrorDialogPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import {
+  isDeviceStageCarryingFailures,
+  isDeviceStageOwnedHardwareUiAction,
+  isLegacyHardwareUiActive,
+  shouldLegacyContainerRaiseHardwareErrorDialog,
+} from '@onekeyhq/shared/src/hardware/deviceStageOwnership';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
+import { isProtocolV2ProductType } from '@onekeyhq/shared/src/utils/hardwareDeviceTypes';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import {
   EFirmwareUpdateTipMessages,
@@ -76,7 +79,10 @@ import {
   SHOW_CLOSE_ACTION_MIN_DURATION,
   SHOW_CLOSE_LOADING_ACTION_MIN_DURATION,
 } from './constants';
-import { isTrezorHardwareErrorDialogPayload } from './hardwareErrorDialogUtils';
+import {
+  createHardwareErrorDialogEventHandler,
+  isTrezorHardwareErrorDialogPayload,
+} from './hardwareErrorDialogUtils';
 import { shouldSkipHardwareDeviceCancel } from './hardwareUiCancelPolicy';
 import { hardwareUiStateDialogLifecycle } from './hardwareUiStateDialogLifecycle';
 
@@ -306,6 +312,8 @@ function HardwareSingletonDialogCmp(
         state?.payload?.passphraseState ||
         state?.payload?.expectedPassphraseState
       );
+      const isPro2NeoPassphraseCreation =
+        !isSingleInput && isProtocolV2ProductType(state?.payload?.deviceType);
       const saveCachedHiddenWalletOptions = async ({
         hideImmediately,
       }: {
@@ -326,8 +334,10 @@ function HardwareSingletonDialogCmp(
           isVerifyMode={isSingleInput}
           allowUseAttachPin={!!state?.payload?.existsAttachPinUser}
           deviceOnly={state?.payload?.deviceOnly === true}
+          asciiCreationFeedback={isPro2NeoPassphraseCreation}
           allowProtocolV2Utf8={
-            state?.payload?.source === 'wallet-session-coordinator'
+            state?.payload?.source === 'wallet-session-coordinator' &&
+            !isPro2NeoPassphraseCreation
           }
           onConfirm={async ({ passphrase, hideImmediately }) => {
             await saveCachedHiddenWalletOptions({
@@ -433,6 +443,7 @@ function HardwareSingletonDialogCmp(
   return open ? (
     <DialogContainer
       ref={ref}
+      overlayLevel="hardware"
       // title change will not re-render, so we need to use key to force update, but the closing animation will be lost
       key={dialogKey}
       title={result.title}
@@ -469,6 +480,27 @@ function HardwareUiStateContainerCmpControlled() {
   const [state] = useHardwareUiStateAtom();
   const stateRef = useRef(state);
   stateRef.current = state;
+
+  // OK-59934: the DeviceStage plays the interactions it owns, so this
+  // container renders only what is left to it — bluetooth pairing, the
+  // firmware update's own narration (the tips that are not the install
+  // confirm; the device's asks during an update play on the stage since
+  // OK-62087), and the permission popups below (whose listeners always
+  // stay live). One shared table decides, so an action is never shown
+  // twice or by nobody.
+  // Whether the stage is mid-flow right now — the failure it is mid-flow
+  // on is the failure it will land (isDeviceStageCarryingFailures).
+  const [deviceStage] = useDeviceStageAtom();
+  const stageIsShowing = isDeviceStageCarryingFailures(deviceStage?.step);
+  const stageIsShowingRef = useRef(stageIsShowing);
+  stageIsShowingRef.current = stageIsShowing;
+  const stageOwnsAction =
+    !isLegacyHardwareUiActive() &&
+    isDeviceStageOwnedHardwareUiAction({
+      action: state?.action,
+      eventType: state?.payload?.eventType,
+      firmwareTipMessage: state?.payload?.firmwareTipData?.message,
+    });
 
   const { serviceHardwareUI } = backgroundApiProxy;
 
@@ -658,8 +690,9 @@ function HardwareUiStateContainerCmpControlled() {
   shouldSkipCancelRef.current = shouldSkipCancel;
 
   const actionStatus = useMemo(() => {
-    const isToastAction = hasToastAction(state);
-    const isDialogAction = hasDialogAction(state);
+    // Stage-owned actions render on the stage, not here.
+    const isToastAction = !stageOwnsAction && hasToastAction(state);
+    const isDialogAction = !stageOwnsAction && hasDialogAction(state);
     const isToastCloseAction = hasToastCloseAction(state);
     const isOperationAction = hasOperationAction(state);
     const currentShouldDeviceResetToHome = hasDeviceResetToHome(state);
@@ -679,6 +712,7 @@ function HardwareUiStateContainerCmpControlled() {
     hasOperationAction,
     hasToastAction,
     hasToastCloseAction,
+    stageOwnsAction,
     state,
   ]);
 
@@ -730,6 +764,7 @@ function HardwareUiStateContainerCmpControlled() {
           );
           await serviceHardwareUI.closeHardwareUiStateDialog({
             connectId: state?.connectId,
+            deviceStageBurstId: deviceStage?.burstId,
             skipDeviceCancel: shouldSkipCancelRef.current,
             immediateDeviceCancel: true,
             deviceResetToHome: actionStatus.currentShouldDeviceResetToHome,
@@ -771,6 +806,7 @@ function HardwareUiStateContainerCmpControlled() {
           );
           await serviceHardwareUI.closeHardwareUiStateDialog({
             connectId: state?.connectId,
+            deviceStageBurstId: deviceStage?.burstId,
             reason: 'HardwareUiStateContainer onClose',
             skipDeviceCancel: shouldSkipCancelRef.current,
             immediateDeviceCancel: true,
@@ -787,14 +823,21 @@ function HardwareUiStateContainerCmpControlled() {
 
   // Handle hardware error dialog
   useEffect(() => {
-    const callback = throttle(
+    const callback = createHardwareErrorDialogEventHandler(
       (errorDialogPayload: IHardwareErrorDialogPayload) => {
         const { errorType } = errorDialogPayload;
-        // Only handle DeviceNotFound errors for now, can be extended for other error types
-        if (errorType !== 'DeviceNotFound') {
+        // OK-59934: one failure, one surface — the stage lands the failure
+        // itself while it is on, and this dialog speaks for everything the
+        // stage is not carrying (device search, the firmware update
+        // workflow, any call that never opened a burst).
+        if (
+          !shouldLegacyContainerRaiseHardwareErrorDialog({
+            errorType,
+            stageIsShowing: stageIsShowingRef.current,
+          })
+        ) {
           return;
         }
-        // Prevent duplicate dialog instances
         if (hardwareErrorDialogInstanceRef.current?.isExist()) {
           return;
         }
@@ -805,6 +848,7 @@ function HardwareUiStateContainerCmpControlled() {
           isTrezorHardwareErrorDialogPayload(errorDialogPayload);
 
         hardwareErrorDialogInstanceRef.current = Dialog.show({
+          overlayLevel: 'hardware',
           title: intl.formatMessage({
             id: isTrezorError
               ? ETranslations.hardware_third_party_device_not_found_title
@@ -823,12 +867,13 @@ function HardwareUiStateContainerCmpControlled() {
           ),
         });
       },
-      2500, // Same throttle duration as other hardware dialog instances
+      2500,
     );
 
     appEventBus.on(EAppEventBusNames.ShowHardwareErrorDialog, callback);
     return () => {
       appEventBus.off(EAppEventBusNames.ShowHardwareErrorDialog, callback);
+      callback.cancel();
       hardwareErrorDialogInstanceRef.current = null;
     };
   }, [intl, serviceHardwareUI]);
@@ -890,7 +935,10 @@ function HardwareUiStateContainerCmpControlled() {
         }
         if (dialogProps) {
           setTimeout(() => {
-            instanceRef.current = Dialog.show(dialogProps);
+            instanceRef.current = Dialog.show({
+              ...dialogProps,
+              overlayLevel: 'hardware',
+            });
           }, 200);
         }
       },
@@ -905,12 +953,8 @@ function HardwareUiStateContainerCmpControlled() {
 
   return (
     <>
-      <Portal.Body container={Portal.Constant.FULL_WINDOW_OVERLAY_PORTAL}>
-        {dialogElement}
-      </Portal.Body>
-      <Portal.Body container={Portal.Constant.TOASTER_OVERLAY_PORTAL}>
-        {toastElement}
-      </Portal.Body>
+      <>{dialogElement}</>
+      <>{toastElement}</>
     </>
   );
 }

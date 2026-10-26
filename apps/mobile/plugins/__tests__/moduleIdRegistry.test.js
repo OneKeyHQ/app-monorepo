@@ -189,6 +189,21 @@ describe('moduleIdRegistry', () => {
     );
   });
 
+  it.each([
+    'packages/components/src/hooks/useDeferredGuideBlocker.ts',
+    'packages/kit/src/components/Spotlight/useSpotlightAnchorVisibility.ts',
+    'packages/kit/src/components/Spotlight/useSpotlightScrollPause.native.ts',
+    'packages/kit/src/views/Home/components/WalletActions/WalletPortfolioArtwork.tsx',
+    'packages/kit/src/views/Home/components/WalletActions/WalletPortfolioIllustration.tsx',
+    'packages/kit/src/views/Home/components/WalletActions/WalletPortfolioSpotlight.tsx',
+  ])('resolves the Portfolio native module in strict mode: %s', (moduleKey) => {
+    const registry = loadRegistry();
+    const fileMap = createFileToIdMap({ registry, strict: true });
+
+    expect(fileMap.get(moduleKey)).toBe(registry.modules[moduleKey]);
+    expect(isModuleIdInDomain(fileMap.get(moduleKey), 'workspace')).toBe(true);
+  });
+
   it('ignores unresolved dependency edges in strict mode', () => {
     const fileMap = createFileToIdMap({
       registry: createRegistry(),

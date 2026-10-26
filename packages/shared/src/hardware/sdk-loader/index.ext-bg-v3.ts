@@ -1,5 +1,13 @@
 import type { EHardwareTransportType } from '../../../types';
-import type { CoreApi, LowLevelCoreApi } from '@onekeyfe/hd-core';
+import type {
+  CoreApi,
+  LowLevelCoreApi,
+  UsbDeviceIdentity,
+} from '@onekeyfe/hd-core';
+
+export const probeUsbDeviceIdentities = (_params: {
+  commType: UsbDeviceIdentity['commType'];
+}): Promise<UsbDeviceIdentity[]> => Promise.resolve([]);
 
 export const importHardwareSDK = async ({
   hardwareTransportType: _hardwareTransportType,

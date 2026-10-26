@@ -1,0 +1,89 @@
+name: Install dependencies
+description: Restore an x dependency snapshot and run immutable Yarn validation without publishing caches.
+
+outputs:
+  snapshot-hit:
+    description: Whether the installation successfully reused a snapshot.
+    value: ${{ steps.install.outputs.snapshot-hit }}
+  snapshot-kind:
+    description: Exact, incremental, or no snapshot reuse.
+    value: ${{ steps.install.outputs.snapshot-kind }}
+  cache-key:
+    description: Fingerprint to publish from Cache Refresh after verification.
+    value: ${{ steps.fingerprint.outputs.key }}
+  cache-path:
+    description: Local snapshot directory.
+    value: ${{ steps.fingerprint.outputs.path }}
+
+runs:
+  using: composite
+  steps:
+    - name: Compute dependency fingerprint
+      id: fingerprint
+      shell: bash
+      run: python3 .github/scripts/ci-dependencies.py prepare
+
+    - name: Restore dependency image from x
+      id: snapshot
+      uses: actions/cache/restore@v4
+      continue-on-error: true
+      with:
+        path: ${{ steps.fingerprint.outputs.path }}
+        key: ${{ steps.fingerprint.outputs.key }}
+        restore-keys: ${{ steps.fingerprint.outputs.prefix }}
+      env:
+        SEGMENT_DOWNLOAD_TIMEOUT_MINS: '2'
+
+    - name: Resolve legacy x snapshot
+      if: steps.snapshot.outputs.cache-matched-key == ''
+      id: legacy-key
+      shell: bash
+      run: python3 .github/scripts/ci-dependencies.py x_fallback
+
+    - name: Restore legacy dependency image from x
+      if: steps.legacy-key.outputs.key != ''
+      id: legacy
+      uses: actions/cache/restore@v4
+      continue-on-error: true
+      with:
+        path: ${{ steps.fingerprint.outputs.path }}
+        key: ${{ steps.legacy-key.outputs.key }}
+      env:
+        SEGMENT_DOWNLOAD_TIMEOUT_MINS: '2'
+
+    - name: Locate Yarn cache
+      if: steps.snapshot.outputs.cache-matched-key == '' && steps.legacy.outputs.cache-matched-key == ''
+      id: yarn-cache
+      shell: bash
+      run: |
+        node <<'NODE'
+        // Match the repository's Yarn 4 cache path without executing checkout plugins.
+        const fs = require('node:fs');
+        const os = require('node:os');
+        const path = require('node:path');
+        const base = process.platform === 'win32'
+          ? path.join(process.env.LOCALAPPDATA || path.join(os.homedir(), 'AppData', 'Local'), 'Yarn', 'Berry')
+          : process.env.XDG_DATA_HOME
+            ? path.join(process.env.XDG_DATA_HOME, 'yarn', 'berry')
+            : path.join(os.homedir(), '.yarn', 'berry');
+        const cache = process.env.YARN_ENABLE_GLOBAL_CACHE === 'true'
+          ? path.join(base, 'cache') : path.join(process.env.GITHUB_WORKSPACE, '.yarn', 'cache');
+        fs.appendFileSync(process.env.GITHUB_OUTPUT, `path=${cache}\narch=${process.arch}\n`);
+        NODE
+
+    - name: Restore Yarn cache from x on snapshot miss
+      if: steps.snapshot.outputs.cache-matched-key == '' && steps.legacy.outputs.cache-matched-key == ''
+      uses: actions/cache/restore@v4
+      continue-on-error: true
+      with:
+        path: ${{ steps.yarn-cache.outputs.path }}
+        key: node-cache-${{ runner.os }}-${{ steps.yarn-cache.outputs.arch }}-yarn-${{ hashFiles('yarn.lock') }}
+        restore-keys: |
+          node-cache-${{ runner.os }}-${{ steps.yarn-cache.outputs.arch }}-yarn-
+
+    - name: Mount and validate dependencies
+      id: install
+      shell: bash
+      env:
+        DEPENDENCY_SNAPSHOT_KEY: ${{ steps.snapshot.outputs.cache-matched-key || steps.legacy.outputs.cache-matched-key }}
+      run: python3 .github/scripts/ci-dependencies.py install

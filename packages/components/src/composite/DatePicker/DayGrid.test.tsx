@@ -18,16 +18,20 @@ let mockDayCellRenderCount = 0;
 let mockCapturedCells: Array<{
   date: string;
   inCurrentMonth: boolean;
+  range?: IDayCellProps['day']['range'];
   onPress: (date: string) => void;
+  onHoverIn?: (date: string) => void;
 }> = [];
 
 jest.mock('./DayCell', () => ({
-  DayCell: ({ day, onPress }: IDayCellProps) => {
+  DayCell: ({ day, onPress, onHoverIn }: IDayCellProps) => {
     mockDayCellRenderCount += 1;
     mockCapturedCells.push({
       date: day.date,
       inCurrentMonth: day.inCurrentMonth,
+      range: day.range,
       onPress,
+      onHoverIn,
     });
     return null;
   },
@@ -116,5 +120,56 @@ describe('DayGrid cell memoization', () => {
     expect(
       changedDates.some((date) => date.toString() === targetCell.date),
     ).toBe(true);
+  });
+});
+
+// Range anchor picked, second date pending: hovering back onto the anchor
+// must not draw a half band (rehookify labels only the anchor, as a start).
+const RANGE_ANCHOR = new Date(2026, 6, 15);
+const rangeAnchorConfig: ComponentProps<typeof DatePickerProvider>['config'] = {
+  selectedDates: [RANGE_ANCHOR],
+  onDatesChange: () => {},
+  dates: { mode: 'range' },
+};
+
+function buildRangeElement() {
+  return (
+    <DatePickerProvider config={rangeAnchorConfig}>
+      <DayGrid calendarIndex={0} hideOutOfMonth={false} />
+    </DatePickerProvider>
+  );
+}
+
+function latestCell(date: Date) {
+  const cell = mockCapturedCells.findLast(
+    (item) => item.date === date.toString(),
+  );
+  if (!cell) {
+    throw new OneKeyLocalError(`expected a cell for ${date.toDateString()}`);
+  }
+  return cell;
+}
+
+describe('DayGrid range hover preview', () => {
+  beforeEach(() => {
+    mockCapturedCells = [];
+  });
+
+  it('renders a hovered anchor as a one-day range', () => {
+    render(buildRangeElement());
+    act(() => {
+      latestCell(RANGE_ANCHOR).onHoverIn?.(RANGE_ANCHOR.toString());
+    });
+    expect(latestCell(RANGE_ANCHOR).range).toBe('range-start range-end');
+  });
+
+  it('keeps the anchor as the preview start when a later day is hovered', () => {
+    render(buildRangeElement());
+    const hovered = new Date(2026, 6, 20);
+    act(() => {
+      latestCell(hovered).onHoverIn?.(hovered.toString());
+    });
+    expect(latestCell(RANGE_ANCHOR).range).toBe('will-be-range-start');
+    expect(latestCell(hovered).range).toBe('will-be-range-end');
   });
 });

@@ -24,6 +24,7 @@ import { showPrimeRedemptionDialog } from './PrimeRedemptionDialog';
 
 type IDialogConfig = {
   renderContent?: ReactNode;
+  dialogContainer?: (options: { ref: { current: null } }) => ReactElement;
 };
 
 type IDialogMockInstance = {
@@ -223,12 +224,14 @@ jest.mock('@onekeyhq/components', () => {
       React.createElement('span', { 'data-icon-name': name }),
     Input: ({
       accessibilityLabel,
+      editable,
       onChangeText,
       placeholder,
       testID,
       value,
     }: {
       accessibilityLabel?: string;
+      editable?: boolean;
       onChangeText?: (value: string) => void;
       placeholder?: string;
       testID?: string;
@@ -240,12 +243,14 @@ jest.mock('@onekeyhq/components', () => {
         onChange: (event: import('react').ChangeEvent<HTMLInputElement>) =>
           onChangeText?.(event.target.value),
         placeholder,
+        readOnly: editable === false,
         value,
       }),
     LottieView: () =>
       React.createElement('span', { 'data-testid': 'success-lottie' }),
     SizableText: Container,
     Stack: Container,
+    Theme: ({ children }: { children?: ReactNode }) => children,
     useThemeName: () => 'light',
     useForm: jest.requireActual('react-hook-form').useForm,
     UnOrderedList,
@@ -282,7 +287,8 @@ jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
 }));
 
 jest.mock('../../hooks/primeInfiniExternalCheckoutGuard', () => ({
-  getPrimeInfiniPaymentEntryGuard: () => mockGetPrimeInfiniPaymentEntryGuard(),
+  readPrimeInfiniPaymentEntryGuard: () =>
+    mockGetPrimeInfiniPaymentEntryGuard().catch(() => undefined),
 }));
 
 function createDeferred<T>() {
@@ -295,12 +301,12 @@ function createDeferred<T>() {
 
 function renderDialog({
   isPrimeActiveBeforeRedeem = false,
-}: {
-  isPrimeActiveBeforeRedeem?: boolean;
-} = {}) {
+  ...params
+}: Partial<Parameters<typeof showPrimeRedemptionDialog>[0]> = {}) {
   showPrimeRedemptionDialog({
     expectedOneKeyUserId: 'user-a',
     isPrimeActiveBeforeRedeem,
+    ...params,
   });
   const config = mockDialogShow.mock.calls.at(-1)?.[0] as IDialogConfig;
   return render(config.renderContent as ReactElement);
@@ -325,6 +331,8 @@ describe('PrimeRedemptionDialog', () => {
 
   it('keeps submission disabled for an empty code', () => {
     renderDialog();
+    const config = mockDialogShow.mock.calls.at(-1)?.[0] as IDialogConfig;
+    expect(config.dialogContainer).toBeUndefined();
 
     expect(
       screen.getByRole('textbox', {
@@ -340,6 +348,7 @@ describe('PrimeRedemptionDialog', () => {
     });
     expect((confirmButton as HTMLButtonElement).disabled).toBe(true);
     expect(mockRedeemPrimeCode).not.toHaveBeenCalled();
+    expect(screen.queryByTestId(PrimeTestIDs.redemptionAccountChip)).toBeNull();
     expect(
       screen.getByText(ETranslations.prime_redemption_codes_cumulative__desc),
     ).toBeTruthy();
@@ -350,115 +359,148 @@ describe('PrimeRedemptionDialog', () => {
     ).toBeTruthy();
   });
 
-  it('keeps the code and skips the API when pending confirmation is cancelled', async () => {
-    mockGetPrimeInfiniPaymentEntryGuard.mockResolvedValue({
-      isLoggedIn: true,
-      hasPendingPayment: true,
-      onekeyUserId: 'user-a',
+  it('prefills an initial code and checks payment eligibility before submitting', async () => {
+    const redemption = { addedDays: 180, finalExpiresAt: 1_800_000_000_000 };
+    const onRedeemed = jest.fn();
+    mockRedeemPrimeCode.mockResolvedValue(redemption);
+    renderDialog({
+      initialCode: 'TEST_DEVICE_CODE',
+      onRedeemed,
     });
-    renderDialog();
-    fireEvent.change(screen.getByTestId(PrimeTestIDs.redemptionCodeInput), {
-      target: { value: 'OKP-PJ37L-DYXWR' },
-    });
+
+    const input = screen.getByTestId(
+      PrimeTestIDs.redemptionCodeInput,
+    ) as HTMLInputElement;
+    expect(input.value).toBe('TEST_DEVICE_CODE');
+    expect(input.readOnly).toBe(false);
+    expect(mockRedeemPrimeCode).not.toHaveBeenCalled();
+    expect(onRedeemed).not.toHaveBeenCalled();
+
     fireEvent.click(
       screen.getByRole('button', {
         name: ETranslations.redemption_redeem_button,
       }),
     );
-
-    const dialogHeader = screen.getByTestId('dialog-header');
-    expect(
-      await within(dialogHeader).findByRole('heading', {
-        name: ETranslations.prime_redeem_pending_payment__title,
-      }),
-    ).toBeTruthy();
-    expect(
-      within(dialogHeader).getByText(
-        ETranslations.prime_redeem_pending_payment__desc,
-      ),
-    ).toBeTruthy();
-    expect(mockRedeemPrimeCode).not.toHaveBeenCalled();
-    fireEvent.click(
-      screen.getByRole('button', { name: ETranslations.global_back }),
-    );
-
-    expect(
-      (screen.getByTestId(PrimeTestIDs.redemptionCodeInput) as HTMLInputElement)
-        .value,
-    ).toBe('OKP-PJ37L-DYXWR');
-    expect(mockDialogFooterClose).not.toHaveBeenCalled();
-    expect(mockRedeemPrimeCode).not.toHaveBeenCalled();
-    expect(
-      screen.queryByText(ETranslations.prime_redeem_pending_payment__title),
-    ).toBeNull();
-  });
-
-  it('redeems exactly once after pending confirmation continues', async () => {
-    mockGetPrimeInfiniPaymentEntryGuard.mockResolvedValue({
-      isLoggedIn: true,
-      hasPendingPayment: true,
-      onekeyUserId: 'user-a',
-    });
-    mockRedeemPrimeCode.mockResolvedValue({
-      addedDays: 30,
-      finalExpiresAt: 1_800_000_000_000,
-    });
-    renderDialog();
-    fireEvent.change(screen.getByTestId(PrimeTestIDs.redemptionCodeInput), {
-      target: { value: 'OKP-PJ37L-DYXWR' },
-    });
-    fireEvent.click(
-      screen.getByRole('button', {
-        name: ETranslations.redemption_redeem_button,
-      }),
-    );
-    const continueButton = await screen.findByRole('button', {
-      name: ETranslations.prime_redeem_anyway__action,
-    });
-
-    fireEvent.click(continueButton);
-    fireEvent.click(continueButton);
 
     await waitFor(() => {
       expect(screen.getByTestId(PrimeTestIDs.redemptionSuccess)).toBeTruthy();
     });
+    expect(mockRedeemPrimeCode).toHaveBeenCalledWith({
+      code: 'TEST_DEVICE_CODE',
+      expectedOneKeyUserId: 'user-a',
+    });
     expect(mockGetPrimeInfiniPaymentEntryGuard).toHaveBeenCalledTimes(1);
-    expect(mockRedeemPrimeCode).toHaveBeenCalledTimes(1);
+    expect(onRedeemed).toHaveBeenCalledTimes(1);
+    expect(onRedeemed).toHaveBeenCalledWith(redemption);
   });
 
-  it.each([
-    {
-      name: 'the guard request fails',
-      arrange: () =>
-        mockGetPrimeInfiniPaymentEntryGuard.mockRejectedValue(
-          new Error('guard failed'),
-        ),
-    },
-    {
-      name: 'the OneKey ID session changes',
-      arrange: () =>
-        mockGetPrimeInfiniPaymentEntryGuard.mockResolvedValue({
-          isLoggedIn: true,
-          hasPendingPayment: false,
-          onekeyUserId: 'user-b',
+  describe('payment guard', () => {
+    it('keeps the code and skips the API when pending confirmation is cancelled', async () => {
+      mockGetPrimeInfiniPaymentEntryGuard.mockResolvedValue({
+        isLoggedIn: true,
+        hasPendingPayment: true,
+        onekeyUserId: 'user-a',
+      });
+      renderDialog({ initialCode: 'OKP-PJ37L-DYXWR' });
+      fireEvent.click(
+        screen.getByRole('button', {
+          name: ETranslations.redemption_redeem_button,
         }),
-    },
-  ])('blocks redemption when $name', async ({ arrange }) => {
-    arrange();
-    renderDialog();
-    fireEvent.change(screen.getByTestId(PrimeTestIDs.redemptionCodeInput), {
-      target: { value: 'OKP-PJ37L-DYXWR' },
-    });
-    fireEvent.click(
-      screen.getByRole('button', {
-        name: ETranslations.redemption_redeem_button,
-      }),
-    );
+      );
 
-    expect(
-      await screen.findByText(ETranslations.global_unknown_error_retry_message),
-    ).toBeTruthy();
-    expect(mockRedeemPrimeCode).not.toHaveBeenCalled();
+      const dialogHeader = screen.getByTestId('dialog-header');
+      expect(
+        await within(dialogHeader).findByRole('heading', {
+          name: ETranslations.prime_redeem_pending_payment__title,
+        }),
+      ).toBeTruthy();
+      expect(
+        within(dialogHeader).getByText(
+          ETranslations.prime_redeem_pending_payment__desc,
+        ),
+      ).toBeTruthy();
+      expect(mockRedeemPrimeCode).not.toHaveBeenCalled();
+      fireEvent.click(
+        screen.getByRole('button', { name: ETranslations.global_back }),
+      );
+
+      expect(
+        (
+          screen.getByTestId(
+            PrimeTestIDs.redemptionCodeInput,
+          ) as HTMLInputElement
+        ).value,
+      ).toBe('OKP-PJ37L-DYXWR');
+      expect(mockDialogFooterClose).not.toHaveBeenCalled();
+      expect(mockRedeemPrimeCode).not.toHaveBeenCalled();
+      expect(
+        screen.queryByText(ETranslations.prime_redeem_pending_payment__title),
+      ).toBeNull();
+    });
+
+    it('redeems exactly once after pending confirmation continues', async () => {
+      mockGetPrimeInfiniPaymentEntryGuard.mockResolvedValue({
+        isLoggedIn: true,
+        hasPendingPayment: true,
+        onekeyUserId: 'user-a',
+      });
+      mockRedeemPrimeCode.mockResolvedValue({
+        addedDays: 30,
+        finalExpiresAt: 1_800_000_000_000,
+      });
+      renderDialog({ initialCode: 'OKP-PJ37L-DYXWR' });
+      fireEvent.click(
+        screen.getByRole('button', {
+          name: ETranslations.redemption_redeem_button,
+        }),
+      );
+      const continueButton = await screen.findByRole('button', {
+        name: ETranslations.prime_redeem_anyway__action,
+      });
+
+      fireEvent.click(continueButton);
+      fireEvent.click(continueButton);
+
+      await waitFor(() => {
+        expect(screen.getByTestId(PrimeTestIDs.redemptionSuccess)).toBeTruthy();
+      });
+      expect(mockGetPrimeInfiniPaymentEntryGuard).toHaveBeenCalledTimes(1);
+      expect(mockRedeemPrimeCode).toHaveBeenCalledTimes(1);
+    });
+
+    it.each([
+      {
+        name: 'the guard request fails',
+        arrange: () =>
+          mockGetPrimeInfiniPaymentEntryGuard.mockRejectedValue(
+            new Error('guard failed'),
+          ),
+      },
+      {
+        name: 'the OneKey ID session changes',
+        arrange: () =>
+          mockGetPrimeInfiniPaymentEntryGuard.mockResolvedValue({
+            isLoggedIn: true,
+            hasPendingPayment: false,
+            onekeyUserId: 'user-b',
+          }),
+      },
+    ])('blocks redemption when $name', async ({ arrange }) => {
+      arrange();
+      renderDialog({ initialCode: 'OKP-PJ37L-DYXWR' });
+      fireEvent.click(
+        screen.getByRole('button', {
+          name: ETranslations.redemption_redeem_button,
+        }),
+      );
+
+      expect(
+        await screen.findByText(
+          ETranslations.global_unknown_error_retry_message,
+        ),
+      ).toBeTruthy();
+      expect(mockRedeemPrimeCode).not.toHaveBeenCalled();
+    });
   });
 
   it('blocks duplicate submissions while a redemption is in flight', async () => {

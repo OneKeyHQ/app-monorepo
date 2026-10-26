@@ -19,6 +19,8 @@ import {
   openUrlExternal,
 } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
+import { createScannedFrameGate } from '../../../provider/Container/DeviceStageContainer/airGapScanFrame';
+
 import { ScanCamera } from './ScanCamera';
 
 type IExpoCameraModule = typeof import('expo-camera');
@@ -29,16 +31,25 @@ const Camera: IExpoCameraModule['Camera'] | undefined =
     : (require('expo-camera') as IExpoCameraModule).Camera;
 
 export type IScanQrCodeProps = {
-  handleBarCodeScanned: (value: string) => Promise<{ progress?: number }>;
+  /** `retry` asks the host to forget the frame it just handled, so the next
+   * delivery of the same bytes reaches the handler again (a submit that
+   * rejected; see createScannedFrameGate). */
+  handleBarCodeScanned: (
+    value: string,
+  ) => Promise<{ progress?: number; retry?: boolean }>;
   qrWalletScene?: boolean;
+  /** Host is outside any screen (the DeviceStage viewfinder): skip the
+   * native screen-removal guard, whose hooks throw without a route. */
+  disableNavigationGuard?: boolean;
 };
 
 export function ScanQrCode({
   handleBarCodeScanned,
   qrWalletScene,
+  disableNavigationGuard,
 }: IScanQrCodeProps) {
   const intl = useIntl();
-  const scanned = useRef<string | undefined>(undefined);
+  const frameGate = useRef(createScannedFrameGate());
   const [currentPermission, setCurrentPermission] = useState<PermissionStatus>(
     PermissionStatus.UNDETERMINED,
   );
@@ -49,22 +60,22 @@ export function ScanQrCode({
     If other hooks cause scanned to be refreshed to false, please add useEffect back.
   */
   if (isFocused) {
-    scanned.current = undefined;
+    frameGate.current.reset();
   }
 
   const reloadHandleBarCodeScanned = useCallback(
     async (data?: string | null) => {
-      if (!data) {
+      if (!frameGate.current.admit(data)) {
         return;
       }
-      if (scanned.current === data) {
+      if (!handleBarCodeScanned || !data) {
         return;
       }
-      scanned.current = data;
-      if (!handleBarCodeScanned) {
-        return;
+      const { progress: progressValue, retry } =
+        await handleBarCodeScanned(data);
+      if (retry) {
+        frameGate.current.release(data);
       }
-      const { progress: progressValue } = await handleBarCodeScanned(data);
       if (progressValue) {
         setProgress(progressValue);
       }
@@ -74,7 +85,7 @@ export function ScanQrCode({
 
   useEffect(
     () => () => {
-      if (!scanned.current) {
+      if (!frameGate.current.hasAdmittedAny()) {
         void handleBarCodeScanned?.('');
       }
     },
@@ -174,6 +185,7 @@ export function ScanQrCode({
         flex: 1,
       }}
       handleScanResult={reloadHandleBarCodeScanned}
+      disableNavigationGuard={disableNavigationGuard}
     >
       {qrWalletScene ? (
         <>

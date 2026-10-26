@@ -827,9 +827,7 @@ function FeeEditor(props: IProps) {
             label: (
               <YStack>
                 <SizableText
-                  color={
-                    currentFeeIndex === index ? '$textInverse' : '$textSubdued'
-                  }
+                  color={currentFeeIndex === index ? '$text' : '$textSubdued'}
                   size="$bodyMdMedium"
                   textAlign="center"
                 >

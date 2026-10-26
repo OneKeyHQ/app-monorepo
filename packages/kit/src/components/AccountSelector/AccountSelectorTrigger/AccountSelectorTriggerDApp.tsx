@@ -30,6 +30,7 @@ import {
   useAccountSelectorTrigger,
   useMockAccountSelectorLoading,
 } from '../hooks/useAccountSelectorTrigger';
+import { AccountSelectorTestIDs } from '../testIDs';
 
 const InterAccountAvatar = ({
   isLoading,
@@ -83,7 +84,12 @@ const InterWalletAndAccountName = ({
         /
       </SizableText>
       <XStack maxWidth="$40">
-        <SizableText size="$bodyMd" color="$textSubdued" numberOfLines={1}>
+        <SizableText
+          size="$bodyMd"
+          color="$textSubdued"
+          numberOfLines={1}
+          testID={AccountSelectorTestIDs.dappAccountName}
+        >
           {accountName}
         </SizableText>
       </XStack>
@@ -109,7 +115,13 @@ const InterAddressText = ({
     );
   }
   return (
-    <SizableText flex={1} size="$bodyMdMedium" numberOfLines={1} color="$text">
+    <SizableText
+      flex={1}
+      size="$bodyMdMedium"
+      numberOfLines={1}
+      color="$text"
+      testID={AccountSelectorTestIDs.dappAccountAddress}
+    >
       {addressText}
     </SizableText>
   );
@@ -216,6 +228,8 @@ interface IAccountSelectorTriggerDappConnectionProps extends IXStackProps {
   num: number;
   beforeShowTrigger?: () => Promise<void>;
   loadingDuration?: number;
+  // Hide HD wallets that are not backed up yet in the account picker.
+  hideNonBackedUpWallet?: boolean;
 }
 
 export const AccountSelectorTriggerDappConnection: ComponentType<IAccountSelectorTriggerDappConnectionProps> =
@@ -226,6 +240,7 @@ export const AccountSelectorTriggerDappConnection: ComponentType<IAccountSelecto
         disabled,
         beforeShowTrigger,
         loadingDuration,
+        hideNonBackedUpWallet,
         ...rest
       }: IAccountSelectorTriggerDappConnectionProps,
       _: any,
@@ -238,7 +253,11 @@ export const AccountSelectorTriggerDappConnection: ComponentType<IAccountSelecto
       const {
         activeAccount: { account, wallet, indexedAccount },
         showAccountSelector,
-      } = useAccountSelectorTrigger({ num, linkNetwork: true });
+      } = useAccountSelectorTrigger({
+        num,
+        linkNetwork: true,
+        hideNonBackedUpWallet,
+      });
 
       const triggerDisabled = isLoading || disabled;
 
@@ -246,10 +265,6 @@ export const AccountSelectorTriggerDappConnection: ComponentType<IAccountSelecto
         await beforeShowTrigger?.();
         showAccountSelector();
       }, [beforeShowTrigger, showAccountSelector]);
-
-      useEffect(() => {
-        console.log('AccountSelectorTriggerDappConnection', ':renderer=====>');
-      }, []);
 
       return (
         <AccountSelectorTriggerDappConnectionCmp
@@ -269,7 +284,13 @@ export function AccountSelectorTriggerBrowserSingle({ num }: { num: number }) {
   const {
     activeAccount: { account, indexedAccount, wallet },
     showAccountSelector,
-  } = useAccountSelectorTrigger({ num, linkNetwork: true });
+  } = useAccountSelectorTrigger({
+    num,
+    linkNetwork: true,
+    // This trigger re-points a live dApp session; un-backed-up HD wallets must
+    // not be selectable here either (OK-63750).
+    hideNonBackedUpWallet: true,
+  });
 
   const media = useMedia();
   const intl = useIntl();

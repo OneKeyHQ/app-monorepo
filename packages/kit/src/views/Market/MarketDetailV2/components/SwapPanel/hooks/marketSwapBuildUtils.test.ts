@@ -58,6 +58,38 @@ function createBuildRes(
 }
 
 describe('marketSwapBuildUtils', () => {
+  it('keeps token risk in review when the build response omits quote-only flags', () => {
+    const buildRes = createBuildRes();
+    const quoteResult = createQuoteResult({
+      honeypot: true,
+      lowLiquidity: true,
+    });
+    expect(
+      mergeMarketBuildResultWithQuote({ buildRes, quoteResult }).result,
+    ).toEqual(expect.objectContaining({ honeypot: true, lowLiquidity: true }));
+    expect(buildRes.result.honeypot).toBeUndefined();
+    const differentPair = createQuoteResult({
+      honeypot: true,
+      toTokenInfo: { ...quoteResult.toTokenInfo, contractAddress: '0xother' },
+    });
+    expect(
+      mergeMarketBuildResultWithQuote({ buildRes, quoteResult: differentPair })
+        .result.honeypot,
+    ).toBeUndefined();
+    const authoritativeBuild = createBuildRes({
+      result: {
+        ...buildRes.result,
+        honeypot: false,
+        lowLiquidity: false,
+      },
+    });
+    expect(
+      mergeMarketBuildResultWithQuote({
+        buildRes: authoritativeBuild,
+        quoteResult,
+      }).result.honeypot,
+    ).toBe(false);
+  });
   it('only allows review for a settled quote matching the current input', () => {
     expect(
       resolveMarketQuoteActionState({

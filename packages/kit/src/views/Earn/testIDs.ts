@@ -73,6 +73,10 @@ export const EarnTestIDs = {
   riskNoticeDialog: 'earn-risk-notice-dialog',
   riskNoticeConfirmButton: 'earn-risk-notice-confirm',
 
+  // Vault detail — Portfolio tab (phone layout)
+  portfolioRedeemButton: 'earn-portfolio-redeem-button',
+  portfolioRewardManageButton: 'earn-portfolio-reward-manage-button',
+
   // Protocol intro section
   protocolIntroLinkButton: (title: string) =>
     `earn-protocol-intro-link-${title}`,

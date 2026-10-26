@@ -64,6 +64,7 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import cacheUtils from '@onekeyhq/shared/src/utils/cacheUtils';
 import { getSanitizedErrorLogText } from '@onekeyhq/shared/src/utils/sensitiveErrorMessageUtils';
+import type { IOneKeyIdAuthFailureTrigger } from '@onekeyhq/shared/src/utils/sensitiveErrorMessageUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import { isRetryableSupabaseAuthError } from '@onekeyhq/shared/src/utils/supabaseAuthErrorUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -101,9 +102,16 @@ function loadKeylessOAuthAccessTokenUtils() {
   return import('./utils/keylessOAuthAccessToken');
 }
 
-function logMaskedKeylessError(stage: string, error: unknown) {
+function logMaskedKeylessError(
+  stage: string,
+  error: unknown,
+  // Unset for stages shared by user flows and passive migrations.
+  trigger?: IOneKeyIdAuthFailureTrigger,
+) {
   defaultLogger.prime.subscription.onekeyIdLoginFailedReason({
     reason: `${stage}: ${getSanitizedErrorLogText(error)}`,
+    trigger,
+    error,
   });
 }
 
@@ -2104,6 +2112,7 @@ class ServiceKeylessWallet extends ServiceBase {
       logMaskedKeylessError(
         'ServiceKeylessWallet passive backend-share migration failed and was downgraded to a result status',
         error,
+        'passive',
       );
       if (this.isKeylessPassiveMigrationNetworkLikeError(error)) {
         // Roll back the throttle write so the next natural trigger (app
@@ -2933,6 +2942,7 @@ class ServiceKeylessWallet extends ServiceBase {
       logMaskedKeylessError(
         'ServiceKeylessWallet current OneKey ID session refresh failed during Keyless creation preparation',
         error,
+        'interactive',
       );
       return {
         status: (await this.isDefinitiveSupabaseRefreshTokenRejectionError(
@@ -3785,6 +3795,7 @@ class ServiceKeylessWallet extends ServiceBase {
       logMaskedKeylessError(
         'ServiceKeylessWallet OAuth access token refresh preparation failed and was downgraded to a recovery status',
         error,
+        'interactive',
       );
       return {
         status: (await this.isDefinitiveSupabaseRefreshTokenRejectionError(
@@ -3989,6 +4000,7 @@ class ServiceKeylessWallet extends ServiceBase {
       logMaskedKeylessError(
         'ServiceKeylessWallet PIN confirmation status update failed after successful verification',
         error,
+        'interactive',
       );
       return false;
     }
@@ -4045,7 +4057,8 @@ class ServiceKeylessWallet extends ServiceBase {
 
       if (!response.ok) {
         defaultLogger.prime.subscription.onekeyIdLoginFailedReason({
-          reason: `ServiceKeylessWallet auth server health check returned HTTP ${response.status}`,
+          reason: `ServiceKeylessWallet auth server health check returned an HTTP error: ${response.status}`,
+          trigger: 'interactive',
         });
         return false;
       }
@@ -4054,9 +4067,10 @@ class ServiceKeylessWallet extends ServiceBase {
       const isHealthy = result?.status === 'ok';
       if (!isHealthy) {
         defaultLogger.prime.subscription.onekeyIdLoginFailedReason({
-          reason: `ServiceKeylessWallet auth server health check returned status=${String(
+          reason: `ServiceKeylessWallet auth server health check returned an unhealthy status: ${String(
             result?.status || 'missing',
           )}`,
+          trigger: 'interactive',
         });
       }
       return isHealthy;
@@ -4065,6 +4079,7 @@ class ServiceKeylessWallet extends ServiceBase {
       logMaskedKeylessError(
         'ServiceKeylessWallet auth server health check failed and was downgraded to unhealthy',
         error,
+        'interactive',
       );
       return false;
     }

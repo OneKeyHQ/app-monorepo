@@ -28,6 +28,8 @@ import {
 import { formatDirectPercentValue } from '../../utils/stockPublicDataUtils';
 import { STOCK_DETAIL_HORIZONTAL_GUTTER } from '../stockDesktopLayoutConstants';
 
+import type { IntlShape } from 'react-intl';
+
 const STOCK_EVENT_ROW_HEIGHT = 72;
 const STOCK_EVENT_CALENDAR_SIZE = 56;
 // The detail column is padded by 3px so its collapsed height (3 + 24 + 6 + 20 +
@@ -42,23 +44,25 @@ type IStockEventDetailLine = {
 };
 
 /**
- * Labels are sentence case to match the design ("EPS estimate", not "Eps
- * Estimated"). Keys the backend sends but the design never spelled out fall
- * back to a camelCase split so they still render as one `Label: value` line.
+ * Keys the backend sends but the design never spelled out have no translation,
+ * so they fall back to a camelCase split and still render as one
+ * `Label: value` line.
  */
-const STOCK_EVENT_METADATA_LABELS: Record<string, string> = {
-  epsEstimated: 'EPS estimate',
-  epsActual: 'EPS actual',
-  revenueEstimated: 'Revenue estimate',
-  revenueActual: 'Revenue actual',
-  dividendPerShare: 'Dividend per share',
-  adjustedDividendPerShare: 'Adjusted dividend per share',
-  dividendYield: 'Dividend yield',
-  declarationDate: 'Declaration date',
-  recordDate: 'Record date',
-  paymentDate: 'Payment date',
-  frequency: 'Frequency',
-  lastUpdated: 'Last updated',
+const STOCK_EVENT_METADATA_LABEL_IDS: Record<string, ETranslations> = {
+  epsEstimated: ETranslations.market_stock_event_eps_estimate,
+  epsActual: ETranslations.market_stock_event_eps_actual,
+  revenueEstimated: ETranslations.market_stock_event_revenue_estimate,
+  revenueActual: ETranslations.market_stock_event_revenue_actual,
+  dividendPerShare: ETranslations.market_stock_event_dividend_per_share,
+  adjustedDividendPerShare:
+    ETranslations.market_stock_event_adj_dividend_per_share,
+  dividendYield: ETranslations.dexmarket_stock_dividend_yield,
+  exDate: ETranslations.market_stock_event_ex_dividend_date,
+  declarationDate: ETranslations.market_stock_event_declaration_date,
+  recordDate: ETranslations.market_stock_event_record_date,
+  paymentDate: ETranslations.market_stock_event_payment_date,
+  frequency: ETranslations.market_stock_event_frequency,
+  lastUpdated: ETranslations.market_last_updated,
 };
 
 const STOCK_EVENT_CURRENCY_METADATA_KEYS = new Set([
@@ -73,27 +77,43 @@ const STOCK_EVENT_CURRENCY_METADATA_KEYS = new Set([
 const STOCK_EVENT_PERCENT_METADATA_KEYS = new Set(['dividendYield']);
 
 const STOCK_EVENT_DATE_METADATA_KEYS = new Set([
+  'exDate',
   'declarationDate',
   'recordDate',
   'paymentDate',
   'lastUpdated',
 ]);
 
-function getStockEventMetadataLabel(key: string) {
-  return (
-    STOCK_EVENT_METADATA_LABELS[key] ??
-    key
-      .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
-      .toLowerCase()
-      .replace(/^./, (character) => character.toUpperCase())
-  );
+/**
+ * `frequency` arrives as an English word. Values without a translation are
+ * shown as sent.
+ */
+const STOCK_EVENT_FREQUENCY_VALUE_IDS: Record<string, ETranslations> = {
+  monthly: ETranslations.earn_monthly,
+  quarterly: ETranslations.market_stock_event_frequency_quarterly,
+};
+
+function getStockEventMetadataLabel(key: string, intl: IntlShape) {
+  const labelId = STOCK_EVENT_METADATA_LABEL_IDS[key];
+  if (labelId) {
+    return intl.formatMessage({ id: labelId });
+  }
+  return key
+    .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+    .toLowerCase()
+    .replace(/^./, (character) => character.toUpperCase());
 }
 
 function formatStockEventMetadataValue(
   key: string,
   value: string | number,
   formatDate: IFormatDate,
+  intl: IntlShape,
 ) {
+  if (key === 'frequency' && typeof value === 'string') {
+    const frequencyId = STOCK_EVENT_FREQUENCY_VALUE_IDS[value.toLowerCase()];
+    return frequencyId ? intl.formatMessage({ id: frequencyId }) : value;
+  }
   if (STOCK_EVENT_CURRENCY_METADATA_KEYS.has(key)) {
     return formatCurrencyStatValue(value);
   }
@@ -113,35 +133,75 @@ function formatStockEventMetadataValue(
 function getStockEventDetailLines(
   event: IMarketStockEvent,
   formatDate: IFormatDate,
+  intl: IntlShape,
 ): IStockEventDetailLine[] {
   if (!event.metadata) return [];
   return Object.entries(event.metadata).flatMap(([key, value]) => {
     if (value === null || value === undefined || value === '') return [];
-    const label = getStockEventMetadataLabel(key);
+    const label = getStockEventMetadataLabel(key, intl);
     const formattedValue = formatStockEventMetadataValue(
       key,
       value,
       formatDate,
+      intl,
     );
     return [{ key, text: `${label}: ${formattedValue}` }];
   });
 }
 
-function getStockEventTitle(event: IMarketStockEvent) {
-  if (event.type === 'earnings') return 'Earnings';
-  if (event.type === 'cash_dividend') return 'Cash Dividends';
-  if (event.type === 'stock_split') return 'Stock Split';
+function getStockEventTitle(event: IMarketStockEvent, intl: IntlShape) {
+  if (event.type === 'earnings') {
+    return intl.formatMessage({
+      id: ETranslations.market_stock_event_earnings,
+    });
+  }
+  if (event.type === 'cash_dividend') {
+    return intl.formatMessage({
+      id: ETranslations.market_stock_event_cash_dividends,
+    });
+  }
+  if (event.type === 'stock_split') {
+    return intl.formatMessage({
+      id: ETranslations.market_stock_event_stock_split,
+    });
+  }
   return event.title;
 }
 
-function getStockEventDescription(event: IMarketStockEvent) {
+function getStockEventDescription(
+  event: IMarketStockEvent,
+  formatDate: IFormatDate,
+  intl: IntlShape,
+) {
   const epsEstimate = event.metadata?.epsEstimated;
   if (
     event.type === 'earnings' &&
     epsEstimate !== null &&
     epsEstimate !== undefined
   ) {
-    return `EPS estimate: $${epsEstimate}`;
+    const label = intl.formatMessage({
+      id: ETranslations.market_stock_event_eps_estimate,
+    });
+    const value = formatStockEventMetadataValue(
+      'epsEstimated',
+      epsEstimate,
+      formatDate,
+      intl,
+    );
+    return `${label}: ${value}`;
+  }
+  // The backend's English "Eligibility cutoff: <date>" always carries the
+  // ex-dividend date, so it is rebuilt from that field in the reader's locale.
+  const exDate = event.metadata?.exDate;
+  if (event.type === 'cash_dividend' && exDate) {
+    const label = getStockEventMetadataLabel('exDate', intl);
+    const value = formatStockEventMetadataValue(
+      'exDate',
+      exDate,
+      formatDate,
+      intl,
+    );
+    return `${label}: ${value}`;
   }
   return event.description ?? STAT_FALLBACK_VALUE;
 }
@@ -156,7 +216,7 @@ function StockEventRow({
   const intl = useIntl();
   const { format, formatDate } = useFormatDate();
   const [isExpanded, setIsExpanded] = useState(false);
-  const detailLines = getStockEventDetailLines(event, formatDate);
+  const detailLines = getStockEventDetailLines(event, formatDate, intl);
 
   return (
     <YStack opacity={isPast ? 0.62 : 1}>
@@ -193,7 +253,7 @@ function StockEventRow({
         >
           <XStack alignItems="center" gap="$2">
             <SizableText size="$headingLg">
-              {getStockEventTitle(event)}
+              {getStockEventTitle(event, intl)}
             </SizableText>
             {event.status === 'scheduled' ? (
               <Stack
@@ -212,6 +272,18 @@ function StockEventRow({
                 </SizableText>
               </Stack>
             ) : null}
+            {/* Per Figma, the chevron follows the title inline rather than
+            sitting at the row's far right. */}
+            <Icon
+              name={
+                isExpanded
+                  ? 'ChevronTopSmallOutline'
+                  : 'ChevronDownSmallOutline'
+              }
+              size="$5"
+              color="$iconSubdued"
+              flexShrink={0}
+            />
           </XStack>
           {isExpanded && detailLines.length > 0 ? (
             detailLines.map((line) => (
@@ -221,21 +293,10 @@ function StockEventRow({
             ))
           ) : (
             <SizableText size="$bodyMd" color="$textSubdued" numberOfLines={1}>
-              {getStockEventDescription(event)}
+              {getStockEventDescription(event, formatDate, intl)}
             </SizableText>
           )}
         </YStack>
-        {/* The chevron keeps its own 16px vertical padding so it stays near the
-        title row instead of centering against the expanded detail lines. */}
-        <XStack alignItems="center" py="$4" flexShrink={0}>
-          <Icon
-            name={
-              isExpanded ? 'ChevronTopSmallOutline' : 'ChevronDownSmallOutline'
-            }
-            size="$5"
-            color="$iconSubdued"
-          />
-        </XStack>
       </XStack>
     </YStack>
   );
@@ -283,6 +344,12 @@ export function StockEventsSection() {
   const upcomingEvents = events.filter((event) => event.status === 'scheduled');
   const pastEvents = events.filter((event) => event.status !== 'scheduled');
 
+  // A stock with no scheduled or past events hides the section; a failed
+  // request keeps it so the reader can retry.
+  if (!isLoading && result.status === 'success' && events.length === 0) {
+    return null;
+  }
+
   return (
     <YStack
       testID="stock-detail-events"
@@ -321,13 +388,6 @@ export function StockEventsSection() {
           >
             {intl.formatMessage({ id: ETranslations.global_retry })}
           </Button>
-        </YStack>
-      ) : null}
-      {!isLoading && result.status === 'success' && events.length === 0 ? (
-        <YStack height={96} alignItems="center" justifyContent="center">
-          <SizableText color="$textSubdued">
-            {intl.formatMessage({ id: ETranslations.global_no_data })}
-          </SizableText>
         </YStack>
       ) : null}
       {events.length > 0 ? (

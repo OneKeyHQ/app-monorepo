@@ -50,20 +50,23 @@ export function getSendAddressRiskCheckButtonState({
   currentNetworkId,
   supportNetworkId,
   isSupported,
-  isPrimeUser,
+  canRunCheck,
   resolvedAddress,
   isPending,
 }: {
   currentNetworkId: string;
   supportNetworkId: string;
   isSupported: boolean;
-  isPrimeUser: boolean;
+  // Prime, a logged-in free user with the feature open (uses left or not), or
+  // a logged-out user who logs in on the press: the press checks the address.
+  // Otherwise the press opens the dashboard and the button stays enabled.
+  canRunCheck: boolean;
   resolvedAddress?: string;
   isPending?: boolean;
 }) {
   if (supportNetworkId !== currentNetworkId) return 'loading';
   if (!isSupported) return 'hidden';
-  if (!isPrimeUser) return 'enabled';
+  if (!canRunCheck) return 'enabled';
   if (!resolvedAddress?.trim() || isPending) return 'disabled';
   return 'enabled';
 }

@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useRef } from 'react';
 
 import { fn } from 'storybook/test';
 
@@ -8,7 +8,7 @@ import { Button } from '@onekeyhq/components/src/primitives/Button';
 import { XStack } from '@onekeyhq/components/src/primitives/Stack';
 
 import type { Meta, StoryObj } from '@storybook/react-native-web-vite';
-import type { GestureResponderEvent } from 'react-native';
+import type { GestureResponderEvent, View } from 'react-native';
 
 const ACCOUNT_ITEMS: IActionListProps['items'] = [
   { label: 'Rename', icon: 'PencilOutline', onPress: fn() },
@@ -79,6 +79,24 @@ function ContextMenuTrigger({ label, ...listProps }: IContextMenuTriggerProps) {
   );
 }
 
+function TriggerRectMenu({ label, ...listProps }: IContextMenuTriggerProps) {
+  const triggerRef = useRef<View>(null);
+  const handlePress = useCallback(() => {
+    triggerRef.current?.measureInWindow((x, y, width, height) => {
+      ActionList.show({
+        ...listProps,
+        triggerRect: { x, y, width, height },
+      });
+    });
+  }, [listProps]);
+
+  return (
+    <XStack ref={triggerRef} alignSelf="flex-start">
+      <Button onPress={handlePress}>{label}</Button>
+    </XStack>
+  );
+}
+
 const meta = {
   title: 'Actions/ActionList',
   component: ActionList,
@@ -111,10 +129,21 @@ type Story = StoryObj<typeof meta>;
 
 export const Playground: Story = {};
 
+// Never settles, so the skeleton rows stay under the real items for comparison.
+export const Loading: Story = {
+  args: { renderItemsAsync: () => new Promise(() => {}) },
+};
+
 export const WithSections: Story = {
   args: { items: undefined, sections: MANAGE_SECTIONS },
 };
 
 export const ImperativeShow: Story = {
   render: (args) => <ContextMenuTrigger {...args} label="ActionList.show()" />,
+};
+
+export const ImperativeShowFromRect: Story = {
+  render: (args) => (
+    <TriggerRectMenu {...args} label="ActionList.show(triggerRect)" />
+  ),
 };

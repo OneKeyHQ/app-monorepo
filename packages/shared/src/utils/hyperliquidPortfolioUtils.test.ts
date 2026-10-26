@@ -10,6 +10,7 @@ import {
   buildSpotPriceMap,
   getActivePerpAssetPositions,
   getActivePerpPositionsUnrealizedPnl,
+  getIsolatedPerpPositionsMarginUsed,
   isHyperliquidPortfolioSnapshotFresh,
   isUnifiedPortfolioMode,
   spotBalancesNeedPriceRefresh,
@@ -21,6 +22,7 @@ import type {
   IHyperliquidPerpPositionSnapshot,
   IHyperliquidSpotBalanceSnapshot,
 } from '../../types/hyperliquid/portfolio';
+import type { ISpotClearinghouseStateResponse } from '../../types/hyperliquid/sdk';
 
 const meta = {
   universe: [
@@ -224,6 +226,11 @@ describe('spotHasPositiveBalance', () => {
         ],
       } as any),
     ).toBe(false);
+    expect(
+      spotHasPositiveBalance({
+        balances: [{ coin: '+1', total: '1', hold: '0', entryNtl: '1' }],
+      }),
+    ).toBe(true);
     expect(spotHasPositiveBalance({ balances: [] } as any)).toBe(false);
   });
 });
@@ -664,6 +671,24 @@ describe('assembleHyperliquidSnapshot', () => {
       snap.spotBalances.find((b) => b.coin === 'HYPE')?.spotUniverseName,
     ).toBe('HYPE/USDC');
   });
+  it('omits outcome balances that have no spot token id', () => {
+    const snap = assembleHyperliquidSnapshot({
+      address: '0x1',
+      clearinghouse: clearing as any,
+      spot: {
+        balances: [
+          { coin: 'USDC', token: 0, total: '10', hold: '0', entryNtl: '10' },
+          { coin: '+1', total: '5', hold: '0', entryNtl: '5' },
+        ],
+      } satisfies ISpotClearinghouseStateResponse,
+      priceMap: {},
+      now: 1,
+    });
+
+    expect(snap.spotBalances.map((balance) => balance.coin)).toEqual(['USDC']);
+    expect(snap.spotTotalUsd).toBe('10');
+    expect(snap.isDegraded).toBe(true);
+  });
   it('uses spot-side account value and withdrawable for unified accounts', () => {
     const snap = assembleHyperliquidSnapshot({
       address: '0x1',
@@ -756,5 +781,28 @@ describe('active perp position helpers', () => {
 
     expect(getActivePerpAssetPositions(positions)).toHaveLength(2);
     expect(getActivePerpPositionsUnrealizedPnl(positions)).toBe('5');
+  });
+
+  it('sums margin held by isolated positions only', () => {
+    const isolated = (szi: string, marginUsed: string) => {
+      const item = buildPosition(szi, '0');
+      return {
+        ...item,
+        position: {
+          ...item.position,
+          marginUsed,
+          leverage: { type: 'isolated', value: 5, rawUsd: '0' },
+        },
+      };
+    };
+    const positions = [
+      buildPosition('0.2', '7'),
+      isolated('0.3', '40'),
+      isolated('-1', '2.5'),
+      isolated('0', '99'),
+    ] as any;
+
+    expect(getIsolatedPerpPositionsMarginUsed(positions)).toBe('42.5');
+    expect(getIsolatedPerpPositionsMarginUsed(undefined)).toBe('0');
   });
 });

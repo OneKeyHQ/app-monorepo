@@ -2,6 +2,8 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useMarketBasicConfig } from '@onekeyhq/kit/src/views/Market/hooks/useMarketBasicConfig';
 import { useMarketSelectedTabAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import type { IMarketCategoryToSelectResult } from '@onekeyhq/shared/src/logger/scopes/market/scenes/navigation';
 
 import { MARKET_PERPS_DEFAULT_CATEGORY_ID } from '../constants';
 
@@ -47,15 +49,24 @@ function useSyncedMarketPerpsCategory() {
       return;
     }
 
+    const logResult = (result: IMarketCategoryToSelectResult) => {
+      defaultLogger.market.navigation.marketHomeApplyPerpsCategory({
+        categoryId: perpsCategoryToSelect,
+        result,
+        categoryCount: perpsCategories.length,
+      });
+    };
     const hasTargetCategory = perpsCategories.some(
       (category) => category.tabId === perpsCategoryToSelect,
     );
 
     if (!hasTargetCategory) {
       if (isMarketBasicConfigLoading !== false) {
+        logResult('waitingForConfig');
         return;
       }
 
+      logResult('unknownCategory');
       setMarketSelectedTab((prev) => ({
         ...prev,
         selectedPerpsCategory:
@@ -67,6 +78,7 @@ function useSyncedMarketPerpsCategory() {
       return;
     }
 
+    logResult('applied');
     if (selectedCategoryId !== perpsCategoryToSelect) {
       setSelectedCategoryId(perpsCategoryToSelect);
     }

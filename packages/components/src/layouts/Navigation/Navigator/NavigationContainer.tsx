@@ -12,6 +12,7 @@ import {
   DarkTheme,
   DefaultTheme,
   NavigationContainer as RNNavigationContainer,
+  StackActions,
 } from '@react-navigation/native';
 
 import { useSplitMainView } from '@onekeyhq/components/src/hooks/useSplitView';
@@ -19,9 +20,11 @@ import { useTheme } from '@onekeyhq/components/src/shared/tamagui';
 import type { GetProps } from '@onekeyhq/components/src/shared/tamagui';
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import { updateRootViewBackgroundColor } from '@onekeyhq/shared/src/modules3rdParty/rootview-background';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import type { ETabRoutes } from '@onekeyhq/shared/src/routes';
+import type {
+  ETabRoutes,
+  ITabStackParamList,
+} from '@onekeyhq/shared/src/routes';
 import {
   EFullScreenPushRoutes,
   EModalRoutes,
@@ -29,9 +32,14 @@ import {
 } from '@onekeyhq/shared/src/routes';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
+import { updateAppRootViewBackground } from '../../../hocs/Provider/hooks/useAppearanceTheme';
 import { useSettingConfig } from '../../../hocs/Provider/hooks/useProviderValue';
 
-import type { NavigationContainerRef } from '@react-navigation/native';
+import type {
+  NavigationContainerRef,
+  NavigatorScreenParams,
+  ParamListBase,
+} from '@react-navigation/native';
 
 type IBasicNavigationContainerProps = GetProps<typeof RNNavigationContainer>;
 export type INavigationContainerProps = Partial<IBasicNavigationContainerProps>;
@@ -76,7 +84,11 @@ const useUpdateRootViewBackgroundColor = (
   themeSetting?: 'light' | 'dark' | 'system',
 ) => {
   useEffect(() => {
-    updateRootViewBackgroundColor(color, themeVariant, themeSetting);
+    // Routed through the appearance module (not the raw primitive): a
+    // dark-locked foreground surface may be pinning the window paint,
+    // and the single painter keeps this app-theme write from clobbering
+    // the pin (see useAppearanceTheme).
+    updateAppRootViewBackground(color, themeVariant, themeSetting);
   }, [color, themeVariant, themeSetting]);
 };
 
@@ -160,7 +172,12 @@ export const willTabFocusTransition = (
  * modal dismiss + tab switch + Main re-attach into one UIKit tick and can
  * create orphan RNSScreenStack instances on iOS (causing UI freeze).
  */
-export const switchTab = (route: ETabRoutes) => {
+export const switchTab = <T extends ETabRoutes>(
+  route: T,
+  params?: ITabStackParamList[T] extends ParamListBase
+    ? NavigatorScreenParams<ITabStackParamList[T]>
+    : undefined,
+) => {
   const rootActiveTab = getActiveTabFromRef(rootNavigationRef);
   const rootHasOverlay = hasOverlayAboveMain(rootNavigationRef);
 
@@ -171,12 +188,13 @@ export const switchTab = (route: ETabRoutes) => {
     const tabletHasOverlay = hasOverlayAboveMain(tabletMainViewNavigationRef);
     if (
       tabletActiveTab !== undefined &&
-      (tabletHasOverlay || tabletActiveTab !== route)
+      (tabletHasOverlay || tabletActiveTab !== route || params !== undefined)
     ) {
       tabletMainViewNavigationRef.current?.navigate(
         ERootRoutes.Main,
         {
           screen: route,
+          ...(params !== undefined ? { params } : {}),
         },
         {
           pop: true,
@@ -184,11 +202,12 @@ export const switchTab = (route: ETabRoutes) => {
       );
     }
   });
-  if (rootHasOverlay || rootActiveTab !== route) {
+  if (rootHasOverlay || rootActiveTab !== route || params !== undefined) {
     rootNavigationRef.current?.navigate(
       ERootRoutes.Main,
       {
         screen: route,
+        ...(params !== undefined ? { params } : {}),
       },
       {
         pop: true,
@@ -243,25 +262,43 @@ export function resetAboveMainRoute() {
  *
  * Use this in flows that open a modal, then dismiss + switch tab
  * (e.g. UniversalSearch → pick DApp → Discovery tab).
+ *
+ * `shouldContinue` is re-checked after the overlay-dismiss wait so a caller
+ * that was superseded during that window can abandon the tab switch itself,
+ * not only whatever it planned to do afterwards.
  */
-export const switchTabAsync = async (route: ETabRoutes): Promise<void> => {
+export const switchTabAsync = async <T extends ETabRoutes>(
+  route: T,
+  options?: {
+    shouldContinue?: () => boolean;
+    params?: ITabStackParamList[T] extends ParamListBase
+      ? NavigatorScreenParams<ITabStackParamList[T]>
+      : undefined;
+  },
+): Promise<void> => {
   const rootActiveTab = getActiveTabFromRef(rootNavigationRef);
   const rootHasOverlay = hasOverlayAboveMain(rootNavigationRef);
 
   defaultLogger.app.router.switchTab(route);
 
+  if (options?.shouldContinue && !options.shouldContinue()) return;
+
   // Tablet/split-view: mirror the tab switch on the tablet navigator
   setTimeout(() => {
+    if (options?.shouldContinue && !options.shouldContinue()) return;
     const tabletActiveTab = getActiveTabFromRef(tabletMainViewNavigationRef);
     const tabletHasOverlay = hasOverlayAboveMain(tabletMainViewNavigationRef);
     if (
       tabletActiveTab !== undefined &&
-      (tabletHasOverlay || tabletActiveTab !== route)
+      (tabletHasOverlay ||
+        tabletActiveTab !== route ||
+        options?.params !== undefined)
     ) {
       tabletMainViewNavigationRef.current?.navigate(
         ERootRoutes.Main,
         {
           screen: route,
+          ...(options?.params !== undefined ? { params: options.params } : {}),
         },
         {
           pop: true,
@@ -273,11 +310,15 @@ export const switchTabAsync = async (route: ETabRoutes): Promise<void> => {
   if (rootHasOverlay) {
     resetAboveMainRoute();
     await timerUtils.wait(100);
+    if (options?.shouldContinue && !options.shouldContinue()) {
+      return;
+    }
   }
 
-  if (rootActiveTab !== route) {
+  if (rootActiveTab !== route || options?.params !== undefined) {
     rootNavigationRef.current?.navigate(ERootRoutes.Main, {
       screen: route,
+      ...(options?.params !== undefined ? { params: options.params } : {}),
     });
   }
 
@@ -567,17 +608,34 @@ export const navigateFromOverlayToTab = async (options: {
   await switchTabAsync(options.targetTab);
 };
 
+/**
+ * Pop the focused tab's stack back to its root screen in a single transition.
+ *
+ * Dispatches one POP_TO_TOP targeted at the nested tab stack instead of
+ * calling goBack() once per screen, so a multi-page flow (e.g. bulk send
+ * addresses → amounts → process) returns straight to the tab home rather than
+ * replaying every intermediate page on the way back (OK-63708). Any overlay
+ * above Main is dismissed first, matching the previous behavior.
+ */
 export const popToTabRootScreen = async () => {
+  if (hasOverlayAboveMain(rootNavigationRef)) {
+    resetAboveMainRoute();
+    await timerUtils.wait(100);
+  }
   const rootState = rootNavigationRef.current?.getRootState();
-  const tabRoute = rootState?.routes?.[rootState.index];
-  if (!tabRoute?.state) {
+  const mainRoute = rootState?.routes?.find(
+    (route) => route.name === ERootRoutes.Main,
+  );
+  const tabState = mainRoute?.state;
+  if (!tabState || tabState.index === undefined) {
     return;
   }
-  if (tabRoute?.state?.index !== undefined) {
-    if (rootNavigationRef.current?.canGoBack()) {
-      rootNavigationRef.current?.goBack();
-      await timerUtils.wait(150);
-      await popToTabRootScreen();
-    }
+  const tabStackState = tabState.routes?.[tabState.index]?.state;
+  if (!tabStackState?.key || !tabStackState.index) {
+    return;
   }
+  rootNavigationRef.current?.dispatch({
+    ...StackActions.popToTop(),
+    target: tabStackState.key,
+  });
 };

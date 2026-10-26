@@ -25,6 +25,7 @@ import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorT
 import {
   classifyThirdPartyHwCreateFailures,
   filterThirdPartyHwCreateFailureToasts,
+  isThirdPartyPassphraseAlwaysOnDeviceErrorCode,
 } from '@onekeyhq/shared/src/errors/utils/thirdPartyDeviceErrorUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
@@ -35,12 +36,17 @@ import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useAccountSelectorLazyAction } from '../../../states/jotai/contexts/accountSelector/actionsLazy';
 import { TutorialsList } from '../../TutorialsList';
+import { AccountSelectorTestIDs } from '../testIDs';
 
 import { useCreateQrWallet } from './useCreateQrWallet';
 
 export function useAccountSelectorCreateAddress() {
-  const { serviceAccount, serviceBatchCreateAccount, serviceHardwareUI } =
-    backgroundApiProxy;
+  const {
+    serviceAccount,
+    serviceBatchCreateAccount,
+    serviceHardwareUI,
+    serviceNetwork,
+  } = backgroundApiProxy;
   const intl = useIntl();
   const callAccountSelectorAction = useAccountSelectorLazyAction();
   const { createQrWalletAccount } = useCreateQrWallet();
@@ -110,7 +116,6 @@ export function useAccountSelectorCreateAddress() {
             }
           | undefined,
       ) => {
-        console.log(result);
         // await refreshCurrentAccount();
         await callAccountSelectorAction('refresh', { num });
 
@@ -192,9 +197,46 @@ export function useAccountSelectorCreateAddress() {
             ? filterThirdPartyHwCreateFailureToasts(failedList)
             : failedList;
           for (const failedAccount of failedListForToast) {
-            Toast.error({
-              title: failedAccount.error.message || 'Unknown error',
-            });
+            if (
+              isThirdPartyPassphraseAlwaysOnDeviceErrorCode(
+                failedAccount.error.code,
+              )
+            ) {
+              Toast.error({
+                title:
+                  ETranslations.hardware_third_party_passphrase_always_on_device,
+              });
+            } else if (isThirdPartyHw) {
+              // Label lookup failures must not block refreshing accounts already created.
+              const network = await serviceNetwork
+                .getNetwork({
+                  networkId: failedAccount.networkId,
+                })
+                .catch(() => undefined);
+              const deriveTypeInfo = await serviceNetwork
+                .getDeriveInfoOfNetwork({
+                  networkId: failedAccount.networkId,
+                  deriveType: failedAccount.deriveType,
+                })
+                .catch(() => undefined);
+              Toast.error({
+                title: intl.formatMessage(
+                  {
+                    id: ETranslations.feedback_hw_create_unsupported_address_title,
+                  },
+                  {
+                    network: network?.name || failedAccount.networkId,
+                    addressType:
+                      deriveTypeInfo?.label || failedAccount.deriveType,
+                  },
+                ),
+                message: failedAccount.error.message || 'Unknown error',
+              });
+            } else {
+              Toast.error({
+                title: failedAccount.error.message || 'Unknown error',
+              });
+            }
           }
         }
 
@@ -306,7 +348,9 @@ export function useAccountSelectorCreateAddress() {
                           children: (
                             <Stack>
                               <Button
-                                testID="account-selector-is-btc-only-wallet-btn"
+                                testID={
+                                  AccountSelectorTestIDs.btcOnlyWalletButton
+                                }
                                 size="small"
                                 mt="$2"
                                 iconAfter="OpenOutline"
@@ -334,7 +378,7 @@ export function useAccountSelectorCreateAddress() {
                       <Button
                         variant="tertiary"
                         onPress={() => showIntercom()}
-                        testID="account-selector-btn"
+                        testID={AccountSelectorTestIDs.genericButton}
                       >
                         {intl.formatMessage({
                           id: ETranslations.global_contact_us,
@@ -360,6 +404,7 @@ export function useAccountSelectorCreateAddress() {
       serviceAccount,
       serviceBatchCreateAccount,
       serviceHardwareUI,
+      serviceNetwork,
     ],
   );
 

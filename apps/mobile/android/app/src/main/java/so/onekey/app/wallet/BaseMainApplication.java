@@ -24,7 +24,10 @@ import com.facebook.react.ReactPackage;
 import com.facebook.react.bridge.ReactApplicationContext;
 import com.facebook.react.bridge.ReactContext;
 import com.facebook.react.defaults.DefaultNewArchitectureEntryPoint;
+import com.facebook.react.internal.featureflags.ReactNativeFeatureFlags;
+import com.facebook.react.internal.featureflags.ReactNativeNewArchitectureFeatureFlagsDefaults;
 import com.facebook.react.modules.systeminfo.AndroidInfoHelpers;
+import com.facebook.react.views.view.WindowUtilKt;
 import com.facebook.react.soloader.OpenSourceMergedSoMapping;
 import com.facebook.soloader.SoLoader;
 import com.tencent.mmkv.MMKV;
@@ -35,6 +38,8 @@ import com.margelo.nitro.reactnativebundleupdate.BundleUpdateStoreAndroid;
 import com.margelo.nitro.reactnativedeviceutils.ReactNativeDeviceUtils;
 import expo.modules.ApplicationLifecycleDispatcher;
 import expo.modules.ExpoReactHostFactory;
+import io.sentry.Sentry;
+import io.sentry.react.RNSentrySDK;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -42,9 +47,54 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.util.List;
 
+import org.json.JSONObject;
+
 import so.onekey.app.wallet.storage.OneKeyNativeStorageMigrationPackage;
+import so.onekey.app.wallet.sentry.OneKeyNativeCrashDiagnostics;
+import so.onekey.app.wallet.travelmode.OneKeyTravelModeLaunchEpochPackage;
 
 public class BaseMainApplication extends Application implements ReactApplication {
+  public boolean isTravelModeMaskingData() {
+    MMKV mmkv = MMKV.mmkvWithID("onekey-app-setting");
+    if (mmkv == null) {
+      return true;
+    }
+    String rawValue = mmkv.decodeString("onekey_travel_mode_control_v1");
+    if (rawValue == null || rawValue.isEmpty()) {
+      return false;
+    }
+    try {
+      JSONObject record = new JSONObject(rawValue);
+      Object enabled = record.opt("enabled");
+      Object verifyString = record.opt("verifyString");
+      Object version = record.opt("version");
+      if (!(enabled instanceof Boolean) ||
+          !(verifyString instanceof String) ||
+          !((String) verifyString).startsWith("|VS|") ||
+          ((String) verifyString).equals("|VS|") ||
+          !(version instanceof Number) ||
+          ((Number) version).intValue() != 1) {
+        return true;
+      }
+      return (Boolean) enabled;
+    } catch (Exception ignored) {
+      return true;
+    }
+  }
+
+  private void setJPushSuppressed(boolean suppressed) {
+    try {
+      Class<?> jPushInterface = Class.forName("cn.jpush.android.api.JPushInterface");
+      String methodName = suppressed ? "stopPush" : "resumePush";
+      jPushInterface
+        .getMethod(methodName, android.content.Context.class)
+        .invoke(null, this);
+    } catch (ClassNotFoundException ignored) {
+      // Some build variants do not bundle JPush.
+    } catch (Exception exception) {
+      Log.e("TravelMode", "Failed to update JPush suppression", exception);
+    }
+  }
 
   public static boolean shouldShowRecovery = false;
 
@@ -64,6 +114,7 @@ public class BaseMainApplication extends Application implements ReactApplication
         @SuppressWarnings("UnnecessaryLocalVariable")
 
         List<ReactPackage> packages = new PackageList(this).getPackages();
+        packages.add(new OneKeyTravelModeLaunchEpochPackage());
         return packages;
       }
 
@@ -136,10 +187,12 @@ public class BaseMainApplication extends Application implements ReactApplication
         }
         if (mReactHost == null) {
           BuildVariantBundleInfo bundleInfo = getBuildVariantBundleInfo();
+          List<ReactPackage> mainPackages = new PackageList(this).getPackages();
+          mainPackages.add(new OneKeyTravelModeLaunchEpochPackage());
           mReactHost =
             ExpoReactHostFactory.getDefaultReactHost(
               this.getApplicationContext(),
-              new PackageList(this).getPackages(),
+              mainPackages,
               ".expo/.virtual-metro-entry",
               "index.android.bundle",
               mReactNativeHost.getJSBundleFile(),
@@ -269,6 +322,10 @@ public class BaseMainApplication extends Application implements ReactApplication
         return;
       }
 
+      // Select the main bundle only after MainLauncherActivity's OTA rollback check.
+      if (mReactHost == null) {
+        setupBackgroundThreadBootstrap();
+      }
       BackgroundThreadManager manager = BackgroundThreadManager.getInstance();
       String entryUrl = getBackgroundRunnerEntryUrl();
       BuildVariantBundleInfo bundleInfo = getBuildVariantBundleInfo();
@@ -295,7 +352,7 @@ public class BaseMainApplication extends Application implements ReactApplication
     /**
      * Feeds the host Activity's resume/pause/destroy signals to
      * {@link BackgroundThreadManager} so an allowlisted subset of bg-host
-     * TurboModules (currently only react-native-google-signin) can observe
+     * TurboModules (Google Sign-In and CloudFs) can observe
      * getCurrentActivity() on the bg ReactContext. The manager does NOT
      * fan out these events through ReactHost / ReactContext lifecycle
      * APIs — see the comment block in BackgroundThreadManager.kt for the
@@ -313,6 +370,11 @@ public class BaseMainApplication extends Application implements ReactApplication
       // BackgroundThreadManager.kt before adding new prefixes.
       BackgroundThreadManager.getInstance()
           .addBgActivityBridgeListenerClassPrefix("com.reactnativegooglesignin.");
+      // CloudFs owns the pending Drive consent operation in the bg runtime.
+      // Its request codes (1, 11) do not overlap Google Sign-In (9001, 53294, 53295);
+      // its lifecycle callbacks are no-ops, so bridging does not duplicate resources.
+      BackgroundThreadManager.getInstance()
+          .addBgActivityBridgeListenerClassPrefix("com.rncloudfs.RNCloudFsModule");
 
       registerActivityLifecycleCallbacks(new ActivityLifecycleCallbacks() {
         @Override public void onActivityCreated(@NonNull Activity activity, @Nullable Bundle savedInstanceState) {}
@@ -346,6 +408,7 @@ public class BaseMainApplication extends Application implements ReactApplication
       BackgroundThreadManager manager = BackgroundThreadManager.getInstance();
       List<ReactPackage> backgroundPackages = new PackageList(this).getPackages();
       backgroundPackages.add(new OneKeyNativeStorageMigrationPackage());
+      backgroundPackages.add(new OneKeyTravelModeLaunchEpochPackage());
       manager.setReactPackages(backgroundPackages);
 
       ReactHost reactHost = getReactHost();
@@ -391,6 +454,31 @@ public class BaseMainApplication extends Application implements ReactApplication
     return 2;
   }
 
+  private void initializeNativeSentry() {
+    String dsn = BuildConfig.SENTRY_DSN_REACT_NATIVE;
+    if (dsn.isEmpty() || Sentry.isEnabled()) {
+      return;
+    }
+
+    try {
+      RNSentrySDK.init(this, options -> {
+        options.setDsn(dsn);
+        options.setEnabled(true);
+        options.setMaxBreadcrumbs(100);
+        options.setMaxCacheItems(60);
+        options.setAnrEnabled(true);
+        options.setAnrTimeoutIntervalMillis(5000L);
+        options.setEnableNdk(true);
+        options.setAttachScreenshot(false);
+        options.setAttachViewHierarchy(false);
+        options.setSendDefaultPii(false);
+        OneKeyNativeCrashDiagnostics.configure(this, options);
+      });
+    } catch (RuntimeException exception) {
+      Log.e("Sentry", "Failed to initialize native Sentry", exception);
+    }
+  }
+
   @Override
   public void onCreate() {
     appLaunchMs = System.currentTimeMillis();
@@ -403,6 +491,8 @@ public class BaseMainApplication extends Application implements ReactApplication
     if (!isDefaultMainProcess) {
       return;
     }
+
+    initializeNativeSentry();
 
     OneKeyLog.info("StartupTiming", "android.app.on_create.start: +0ms from launch (anchor)");
     OneKeyLog.info(
@@ -421,6 +511,8 @@ public class BaseMainApplication extends Application implements ReactApplication
         "android.zygote_to_app_on_create: " + (nowUptime - processStartUptime) + "ms"
       );
     } catch (Throwable ignored) {}
+
+    ProcessExitInfoLogger.logAsync(this);
 
     // Recovery check
     SharedPreferences prefs = getSharedPreferences(BootRecoveryKeys.PREFS_NAME, MODE_PRIVATE);
@@ -455,7 +547,10 @@ public class BaseMainApplication extends Application implements ReactApplication
     // triggers recovery. MainLauncherActivity records the user launch and
     // routes to RecoveryActivity without constructing a ReactActivity.
     int windowedFailures = BootRecoveryStore.readWindowedCount(prefs);
+    String activeOtaVersion = BundleUpdateStoreAndroid.INSTANCE.getCurrentBundleVersion(this);
+    // An active OTA is rolled back only by the next recorded user launch.
     shouldShowRecovery = !isHarnessMode
+        && (activeOtaVersion == null || activeOtaVersion.isEmpty())
         && windowedFailures >= BootRecoveryKeys.RECOVERY_THRESHOLD;
 
     OneKeyLog.info(
@@ -483,6 +578,22 @@ public class BaseMainApplication extends Application implements ReactApplication
     );
     if (BuildConfig.IS_NEW_ARCHITECTURE_ENABLED) {
       DefaultNewArchitectureEntryPoint.load();
+      ReactNativeFeatureFlags.dangerouslyForceOverride(
+          new ReactNativeNewArchitectureFeatureFlagsDefaults() {
+            @Override
+            public boolean fixFindShadowNodeByTagRaceCondition() {
+              return true;
+            }
+
+            @Override
+            public boolean enableSchedulerDelegateInvalidation() {
+              return true;
+            }
+          });
+    }
+    // Mirrors ReactNativeApplicationEntryPoint, which this app does not use.
+    if (BuildConfig.IS_EDGE_TO_EDGE_ENABLED) {
+      WindowUtilKt.setEdgeToEdgeFeatureFlagOn();
     }
     long tAfterNewArch = System.currentTimeMillis();
     OneKeyLog.info(
@@ -518,7 +629,6 @@ public class BaseMainApplication extends Application implements ReactApplication
     // }
     long tBeforeBg = System.currentTimeMillis();
     registerBackgroundThreadActivityBridge();
-    setupBackgroundThreadBootstrap();
     long tAfterBg = System.currentTimeMillis();
     OneKeyLog.info(
       "StartupTiming",
@@ -532,7 +642,11 @@ public class BaseMainApplication extends Application implements ReactApplication
       "android.app.expo_lifecycle: " + (tAfterExpo - tAfterBg) + "ms"
     );
 
-    JPushModule.registerActivityLifecycle(this);
+    boolean isTravelModeActive = isTravelModeMaskingData();
+    setJPushSuppressed(isTravelModeActive);
+    if (!isTravelModeActive) {
+      JPushModule.registerActivityLifecycle(this);
+    }
     long tDone = System.currentTimeMillis();
     OneKeyLog.info(
       "StartupTiming",

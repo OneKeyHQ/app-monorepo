@@ -49,6 +49,7 @@ import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import { EBatchTxSignItemStatus } from '@onekeyhq/shared/types/batchTxSign';
+import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 import {
   BtcDappUniSetChainTypes,
   EBtcDappUniSetChainTypeEnum,
@@ -585,8 +586,17 @@ class ProviderApiBtc extends ProviderApiBase {
       });
     }
 
-    // Only HD wallets have a recoverable master seed; everything else fails fast.
-    if (!accountUtils.isHdWallet({ walletId })) {
+    if (accountUtils.isHwWallet({ walletId })) {
+      const device = await this.backgroundApi.serviceAccount.getWalletDevice({
+        walletId,
+      });
+      if (
+        (device.vendor ?? device.settings?.vendor ?? EHardwareVendor.onekey) !==
+        EHardwareVendor.onekey
+      ) {
+        throw web3Errors.rpc.methodNotSupported();
+      }
+    } else if (!accountUtils.isHdWallet({ walletId })) {
       throw web3Errors.rpc.methodNotSupported();
     }
 

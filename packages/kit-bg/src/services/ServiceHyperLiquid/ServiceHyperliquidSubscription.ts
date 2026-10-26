@@ -27,7 +27,7 @@ import {
 } from '@onekeyhq/shared/src/utils/timerRegistry';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import {
-  HYPERLIQUID_NETWORK_INACTIVE_TIMEOUT_MS,
+  HYPERLIQUID_NETWORK_OFFLINE_GRACE_MS,
   HYPERLIQUID_REFRESH_DATA_FLOW_THRESHOLD_MS,
 } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
 import type {
@@ -79,6 +79,10 @@ import ServiceBase from '../ServiceBase';
 
 import hyperLiquidCache from './hyperLiquidCache';
 import {
+  invalidatePerpsLiquidationRiskInputs,
+  setPerpsAbstractionModeWithRiskInvalidation,
+} from './liquidationRiskInputs';
+import {
   FastL2Book,
   type IFastL2Frame,
   isFastL2RecoveryCurrent,
@@ -92,6 +96,7 @@ import {
 import {
   SUBSCRIPTION_TYPE_INFO,
   calculateRequiredSubscriptionsMap,
+  generateSubscriptionKey,
   getOrderBookSubscriptionCoin,
   getSubscriptionResumeAction,
   isOrderBookOptionsTargetReady,
@@ -123,6 +128,11 @@ interface IActiveSubscription {
   spec: ISubscriptionSpec<ESubscriptionType>;
 }
 
+const SPOT_ASSET_CTXS_SUBSCRIPTION_KEY = generateSubscriptionKey(
+  ESubscriptionType.SPOT_ASSET_CTXS,
+  {},
+);
+
 interface IPublicTradesSubscription {
   refCount: number;
   subscriptionPromise: Promise<IPerpsSubscription>;
@@ -141,9 +151,7 @@ type IHyperliquidWsClient = {
   transport: WebSocketTransport;
   dispose: () => Promise<void>;
   hlEventTarget: IHyperliquidEventTarget;
-  wsRequester: {
-    request: (method: string, payload: any) => Promise<void>;
-  };
+  ping: (signal: AbortSignal) => Promise<void>;
   subscribe: <T extends ESubscriptionType>(
     type: T,
     params: IPerpsSubscriptionParams[T],
@@ -219,7 +227,11 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
 
   private _networkTimeoutTimer: ReturnType<typeof setTimeout> | null = null;
 
+  private _offlineGraceTimer: ReturnType<typeof setTimeout> | null = null;
+
   private _pingIntervalTimer: ReturnType<typeof setInterval> | null = null;
+
+  private _pingMeasurement: AbortController | null = null;
 
   private _lastMessageAt: number | null = null;
 
@@ -239,9 +251,15 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
 
   private static readonly SUBSCRIPTION_UPDATE_OPEN_WAIT_MS = 3000;
 
+  // A network-status timer firing later than this was frozen (app backgrounded,
+  // system sleep), so the window it measured was not actually observed.
+  private static readonly NETWORK_TIMER_DRIFT_TOLERANCE_MS = 2000;
+
   private _criticalSubscriptionHealthCheckTimer: ReturnType<
     typeof setTimeout
   > | null = null;
+
+  private _reconcileInFlight = false;
 
   private _resumeRecoveryPromise: Promise<void> | null = null;
 
@@ -892,11 +910,25 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
 
     this._currentState = newState;
     this._emitConnectionStatus();
-    await this._executeSubscriptionChanges();
+    // Armed before the await: a hung subscribe ack keeps
+    // _executeSubscriptionChanges pending, so a check scheduled after it never
+    // gets armed at all. Must stay below the stale-critical branch above, which
+    // bumps _subscriptionLifecycleVersion and would self-invalidate a timer
+    // that captured the version before the bump.
+    this._scheduleCriticalSubscriptionHealthCheck('update_subscriptions');
+    this._reconcileInFlight = true;
+    try {
+      await this._executeSubscriptionChanges();
+    } finally {
+      this._reconcileInFlight = false;
+      // _executeSubscriptionChanges can reach _forceReconnectTransport, which
+      // clears the timer armed above; re-arm so the reconcile still ends with a
+      // watchdog carrying the current lifecycle version.
+      this._scheduleCriticalSubscriptionHealthCheck('update_subscriptions');
+    }
     if (this._activeSubscriptions.size > 0) {
       this._startPostOpenDataCheck();
     }
-    this._scheduleCriticalSubscriptionHealthCheck('update_subscriptions');
   }
 
   private async _enqueueSubscriptionReconcile(): Promise<void> {
@@ -1149,6 +1181,17 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
         return;
       }
 
+      // The timer is armed before the reconcile awaits, so it can fire while
+      // that same reconcile is still pending. Rebuilding here would queue every
+      // destroy behind the stalled mutation on the same per-key queue and tear
+      // down the healthy subscriptions in the meantime, so wait it out instead.
+      if (this._reconcileInFlight) {
+        this._scheduleCriticalSubscriptionHealthCheck(
+          `${reason}__reconcile_in_flight`,
+        );
+        return;
+      }
+
       const client = this._client;
       if (client?.transport?.socket?.readyState !== WebSocket.OPEN) {
         return;
@@ -1160,6 +1203,19 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
         lifecycleVersion !== this._subscriptionLifecycleVersion ||
         !requiredSubInfo
       ) {
+        return;
+      }
+
+      // A reconcile can also start while buildRequiredSubscriptionsMap awaits.
+      // A plain reconcile does not bump _subscriptionLifecycleVersion, so the
+      // guard above cannot catch it, and its subscribes have not landed yet,
+      // which biases the checks below toward reporting them missing. The
+      // remaining steps are synchronous, so this is the last point a concurrent
+      // reconcile can slip in before the rebuild.
+      if (this._reconcileInFlight) {
+        this._scheduleCriticalSubscriptionHealthCheck(
+          `${reason}__reconcile_in_flight`,
+        );
         return;
       }
 
@@ -1235,13 +1291,19 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     await this._resumeRecoveryPromise;
   }
 
-  private _isSocketClosedOrClosing(): boolean {
-    const readyState = this._client?.transport?.socket?.readyState;
-    return readyState === WebSocket.CLOSED || readyState === WebSocket.CLOSING;
+  private _isSocketDisconnected(client = this._client): boolean {
+    const socket = client?.transport?.socket;
+    const readyState = socket?.readyState;
+    // rews v4 reports CONNECTING during retry backoff as well as connection setup.
+    return (
+      readyState === WebSocket.CLOSED ||
+      readyState === WebSocket.CLOSING ||
+      (readyState === WebSocket.CONNECTING && (socket?.retryCount ?? 0) > 0)
+    );
   }
 
-  private async _reconnectClosedOrClosingSocket(): Promise<boolean> {
-    if (!this._isSocketClosedOrClosing()) {
+  private async _reconnectDisconnectedSocket(): Promise<boolean> {
+    if (!this._isSocketDisconnected()) {
       return false;
     }
     console.log('updateSubscriptions__force_reconnect_closed_socket');
@@ -1343,8 +1405,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     const readyState = client?.transport?.socket?.readyState;
     const action = getSubscriptionResumeAction({
       isOpen: readyState === WebSocket.OPEN,
-      isClosedOrClosing:
-        readyState === WebSocket.CLOSED || readyState === WebSocket.CLOSING,
+      isClosedOrClosing: this._isSocketDisconnected(client),
       isStreamStale: this._isResumeStreamStale(),
     });
     if (action === 'reconnect') {
@@ -1497,7 +1558,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
   @backgroundMethod()
   async connect(): Promise<void> {
     const client = await this.getWebSocketClient();
-    if (await this._reconnectClosedOrClosingSocket()) {
+    if (await this._reconnectDisconnectedSocket()) {
       return;
     }
     const readyState = client.transport?.socket?.readyState;
@@ -1514,6 +1575,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
 
   @backgroundMethod()
   async disconnect(): Promise<void> {
+    await invalidatePerpsLiquidationRiskInputs();
     this.backgroundApi.serviceHyperliquidCache.flushPendingL2BookSnapshotCache();
     this._subscriptionLifecycleVersion += 1;
     this._resetFastL2Book();
@@ -1526,6 +1588,9 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     this._clearCriticalSubscriptionHealthCheck();
     this._stopPingLoop();
     await this._closeClient();
+    // Deliberate teardown leaves no transport to judge. Closing a CONNECTING
+    // socket dispatches a synchronous close, so clear after the client is gone.
+    this._clearOfflineGrace();
     this._currentState.isConnected = false;
     // Reset so the first post-reconnect updateSubscriptions() skips debounce
     // for fast recovery (critical for iOS foreground resume).
@@ -1557,6 +1622,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
   // Skip per-subscription unsubscribe to avoid async race where stale
   // _destroySubscription completion deletes newly created tracking entries
   private async _forceReconnectTransport(): Promise<void> {
+    await invalidatePerpsLiquidationRiskInputs();
     this.backgroundApi.serviceHyperliquidCache.flushPendingL2BookSnapshotCache();
     this._subscriptionLifecycleVersion += 1;
     this._resetFastL2Book();
@@ -1566,13 +1632,16 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     this._clearCriticalSubscriptionHealthCheck();
     this._clearNetworkTimeout();
     this._stopPingLoop();
-    this._activeSubscriptions.clear();
+    this._forgetTransportSubscriptions();
     await this._closeClient();
     this._client = null;
     this._clientInitPromise = null;
     this._currentState.isConnected = false;
     this._hasInitialSubscription = false;
     this._markNetworkStatusPending();
+    // The inactivity judge was just cleared, so bound the rebuild instead: the
+    // new transport has one grace window to open before the UI hears offline.
+    this._armOfflineGrace();
     this._emitConnectionStatus();
     await this.getWebSocketClient();
   }
@@ -1587,8 +1656,10 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     }
 
     this._subscriptionUpdateRecoveryPromise = (async () => {
-      const readyState = params.client.transport?.socket?.readyState;
-      if (readyState === WebSocket.CLOSED || readyState === WebSocket.CLOSING) {
+      if (params.client !== this._client) {
+        return;
+      }
+      if (this._isSocketDisconnected(params.client)) {
         await this._forceReconnectTransport();
         return;
       }
@@ -1603,12 +1674,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
         await this._reconcileOpenSocketSubscriptionsOnResume({
           reason: params.reason,
         });
-        await perpsNetworkStatusAtom.set(
-          (prev): IPerpsNetworkStatus => ({
-            ...prev,
-            connected: true,
-          }),
-        );
+        await this._markNetworkStatusSocketOpen();
         this._currentState.isConnected = true;
         this._startPingLoop();
         return;
@@ -1616,7 +1682,9 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
 
       if (
         params.client === this._client &&
-        (platformEnv.isNative || platformEnv.isNativeBackgroundThread)
+        (this._isSocketDisconnected(params.client) ||
+          platformEnv.isNative ||
+          platformEnv.isNativeBackgroundThread)
       ) {
         // Native main/BG restart can leave the first sync request racing a
         // stuck CONNECTING transport; recreating it lets socketOpenHandler own
@@ -1646,7 +1714,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
       if (readyState === WebSocket.OPEN) {
         return true;
       }
-      if (readyState === WebSocket.CLOSED || readyState === WebSocket.CLOSING) {
+      if (this._isSocketDisconnected(params.client)) {
         return false;
       }
       await timerUtils.wait(100);
@@ -1767,7 +1835,8 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     this._lastReadyState = readyState;
     void perpsWebSocketReadyStateAtom.set({ readyState });
     // WS close event — readyState tracked via perpsWebSocketReadyStateAtom
-    this._activeSubscriptions.clear();
+    void invalidatePerpsLiquidationRiskInputs();
+    this._forgetTransportSubscriptions();
     this._invalidateFastL2RecoveryTask();
     this._resetFastL2Book();
     this._clearPostOpenDataCheck();
@@ -1776,7 +1845,10 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     // watcher will be installed by socketOpenHandler on the next successful
     // open to catch late-arriving atom writes.
     this._unwatchSubscriptionAtoms();
-    this._markNetworkStatusPending();
+    // Leave the published status alone: a drop that reconnects within the grace
+    // window must not reach the UI at all. The transport re-dispatches close for
+    // every failed retry, and only the first one may start the countdown.
+    this._armOfflineGrace();
   };
 
   socketOpenHandler: (event: WebSocketEventMap['open']) => void = async (
@@ -1793,12 +1865,18 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     // write or update fails.
     try {
       markPerpsColdStartPerfOnce('service_ws_open_first');
+      // Before the first await: the socket is back, so the pending offline
+      // verdict must not land while the resubscribe below is still running.
+      this._clearOfflineGrace();
       const socket = event.target as WebSocket | undefined;
       const readyState = socket?.readyState;
       this._lastReadyState = readyState;
       // Grace for the stale-stream resume check: a just-opened socket has no
       // messages yet but must not be judged dead.
       this._socketOpenedAt = Date.now();
+      // An open socket is proof of life, and it owes its first frame within the
+      // same window; the timer also covers sockets that open but stay silent.
+      this._armNetworkTimeout(this._socketOpenedAt);
       // OK-53208: SDK transport wrapper reports readyState=undefined in the
       // open event, which keeps perpsWebSocketConnectedAtom false forever.
       await perpsWebSocketReadyStateAtom.set({
@@ -1812,6 +1890,17 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
       const openClient = this._client;
 
       const currentClient = this._client;
+      if (
+        this.subscriptionsHandlerDisabled &&
+        currentClient?.transport?.socket?.readyState === WebSocket.OPEN
+      ) {
+        // Muted (blur/lock/pause) skips the resubscribe below, but an open socket
+        // still disproves an offline verdict left over from before the mute.
+        await perpsNetworkStatusAtom.set(
+          (prev): IPerpsNetworkStatus =>
+            prev.connected === false ? { ...prev, connected: undefined } : prev,
+        );
+      }
       if (
         !currentClient ||
         currentClient !== openClient ||
@@ -1830,12 +1919,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
       await this.updateSubscriptions();
 
       // Mark connected after handling potential resubscribe.
-      await perpsNetworkStatusAtom.set(
-        (prev): IPerpsNetworkStatus => ({
-          ...prev,
-          connected: true,
-        }),
-      );
+      await this._markNetworkStatusSocketOpen();
       this._currentState.isConnected = true;
       this._startPingLoop();
 
@@ -1884,7 +1968,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     return this._publicTradesClient;
   }
 
-  private async _closePublicTradesClient(): Promise<void> {
+  private _closePublicTradesClient(): void {
     this._clearAllPublicTradesBatches();
     const transport = this._publicTradesTransport;
     this._publicTradesClient = null;
@@ -1893,7 +1977,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
       return;
     }
     try {
-      await transport.close();
+      transport.close();
     } catch (error) {
       console.error(
         '[ServiceHyperliquidSubscription] Failed to close public trades transport:',
@@ -1986,7 +2070,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
             this._clearPublicTradesBatch(normalizedCoin);
           }
           if (this._publicTradesSubscriptions.size === 0) {
-            await this._closePublicTradesClient();
+            this._closePublicTradesClient();
           }
           throw error;
         }
@@ -2027,7 +2111,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
         }
 
         if (this._publicTradesSubscriptions.size === 0) {
-          await this._closePublicTradesClient();
+          this._closePublicTradesClient();
         }
       },
     );
@@ -2054,6 +2138,11 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
       });
       const transportOptions: IWebSocketTransportOptions = {
         url: 'wss://api.hyperliquid.xyz/ws',
+        // A dropped subscribe ack stalls the whole reconcile for the SDK's 10s
+        // default, leaving the order book empty. Keep this at or above
+        // reconnect.connectionTimeout so frames rews buffers while the socket
+        // is reconnecting still get a chance to flush before aborting.
+        timeout: 5000,
         /* spell-checker:disable */
         reconnect: {
           maxRetries: 999,
@@ -2089,9 +2178,18 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
       transport.socket.addEventListener('open', this.socketOpenHandler);
       // transport.socket.addEventListener('message', this.socketMessageHandler);
       const innerClient = new SubscriptionClient({ transport });
-      const innerTransport = transport;
-      // @ts-ignore
-      const hlEventTarget = innerTransport._hlEvents;
+      // OneKey reconciles subscriptions itself, so it needs the SDK's parsed
+      // events and raw dispatcher without delegating ownership to the client.
+      const { _hlEvents: hlEventTarget, _dispatcher: subscriptionDispatcher } =
+        transport as unknown as {
+          _hlEvents: IHyperliquidEventTarget;
+          _dispatcher: {
+            request: (
+              method: 'subscribe' | 'unsubscribe',
+              payload: unknown,
+            ) => Promise<void>;
+          };
+        };
 
       const registerSubscriptionHandler = (type: ESubscriptionType) => {
         if (!this.subscriptionHandlerByType[type]) {
@@ -2161,15 +2259,11 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
         registerSubscriptionHandler(type);
       });
 
-      // @ts-ignore
-      const wsRequester = innerTransport._postRequest as {
-        request: (method: string, payload: any) => Promise<void>;
-      };
       const subscribe = async <T extends ESubscriptionType>(
         type: T,
         params: IPerpsSubscriptionParams[T],
       ) => {
-        return wsRequester.request('subscribe', {
+        return subscriptionDispatcher.request('subscribe', {
           type,
           ...params,
         });
@@ -2178,35 +2272,62 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
         type: T,
         params: IPerpsSubscriptionParams[T],
       ) => {
-        return wsRequester.request('unsubscribe', {
+        return subscriptionDispatcher.request('unsubscribe', {
           type,
           ...params,
         });
       };
+      const ping = (signal: AbortSignal) =>
+        new Promise<void>((resolve, reject) => {
+          if (signal.aborted) {
+            reject(new Error('Hyperliquid WebSocket ping cancelled'));
+            return;
+          }
+          const listenerController = new AbortController();
+          const timeout = setTimeout(() => {
+            cleanup();
+            reject(new Error('Hyperliquid WebSocket ping timed out'));
+          }, transport.timeout ?? 10_000);
+          function cleanup() {
+            clearTimeout(timeout);
+            listenerController.abort();
+            signal.removeEventListener('abort', onAbort);
+          }
+          function onAbort() {
+            cleanup();
+            reject(new Error('Hyperliquid WebSocket ping cancelled'));
+          }
+          signal.addEventListener('abort', onAbort, { once: true });
+          hlEventTarget.addEventListener(
+            'pong',
+            () => {
+              cleanup();
+              resolve();
+            },
+            { once: true, signal: listenerController.signal },
+          );
+          try {
+            transport.socket.send('{"method":"ping"}');
+          } catch (error) {
+            cleanup();
+            reject(error);
+          }
+        });
       this._client = {
         clientId,
         transport,
         hlEventTarget,
-        wsRequester,
+        ping,
         subscribe,
         unsubscribe,
         dispose: async () => {
-          // OneKey: dispose order matters for orphan-timer cleanup. We must
-          // close the underlying socket BEFORE removing OUR listeners — the
-          // close() triggers rews's internal `cleanup` listener (registered
-          // with { once: true } on close/error/open) which calls clearTimeout
-          // on its connection-timeout timer. If we removed listeners first,
-          // any in-flight close event might be dropped before rews can clean
-          // up its 5s setTimeout, leaving an orphan timer that could fire
-          // after dispose and re-trigger the dispatchEvent path (now caught
-          // defensively by the rews patch, but harmless cleanup is preferred).
+          // Closing first lets the socket release reconnect timers before our
+          // listeners are detached.
           defaultLogger.perp.hyperliquid.subscriptionTransportDispose({
             clientId,
           });
           try {
-            // Close socket first so rews's internal close listener fires and
-            // clears its connection-timeout setTimeout.
-            transport.socket.close();
+            transport.close();
           } catch (error) {
             console.error('dispose__transport.socket.close__error', error);
           }
@@ -2252,6 +2373,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
   }
 
   private async _closeClient(): Promise<void> {
+    await invalidatePerpsLiquidationRiskInputs();
     this._invalidateFastL2RecoveryTask();
     this._unwatchSubscriptionAtoms();
     this._clearActiveL2BookSpec();
@@ -2478,6 +2600,19 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
         };
         try {
           this._destroyingSubscriptionKeys.add(spec.key);
+          if (
+            !targetClient &&
+            !this.allSubSpecsMap[spec.key] &&
+            !this._activeSubscriptions.has(spec.key)
+          ) {
+            // Never subscribed on the current transport. Asking anyway only waits
+            // out the request timeout: the server does reply "Already
+            // unsubscribed", but the SDK cannot match that reply for l2/l2Book,
+            // and the failed order book destroy would then rebuild the transport.
+            clearActiveL2BookSpec();
+            removeSubCache();
+            return true;
+          }
           const client = targetClient ?? (await this.getWebSocketClient());
           if (!client) {
             clearActiveL2BookSpec();
@@ -2515,6 +2650,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
   }
 
   private async _cleanupAllSubscriptions(): Promise<void> {
+    await invalidatePerpsLiquidationRiskInputs();
     const allSpecsByKey = new Map<
       string,
       ISubscriptionSpec<ESubscriptionType>
@@ -2543,6 +2679,8 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
       );
       await this._closeClient();
     }
+    // Frames can arrive while unsubscribe is pending; none survive the rebuild.
+    await invalidatePerpsLiquidationRiskInputs();
     this.allSubSpecsMap = {};
     this.pendingSubSpecsMap = {};
     this._activeSubscriptions.clear();
@@ -2623,8 +2761,11 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
         hyperLiquidCache.allMids = data as IWsAllMids;
         const allMidsData = data as { mids?: Record<string, string> };
         if (allMidsData?.mids) {
+          // Pending specs are the wanted set, so this covers REST hydration
+          // before the subscribe ACK and turns off as soon as it is unwanted.
           void this.backgroundApi.serviceHyperliquid.extractSpotPricesFromAllMids(
             allMidsData.mids,
+            Boolean(this.pendingSubSpecsMap[SPOT_ASSET_CTXS_SUBSCRIPTION_KEY]),
           );
         }
         // Re-trigger spot calculation if it was deferred (SPOT_STATE arrived before ALL_MIDS)
@@ -2700,7 +2841,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
                 userAddress.toLowerCase() ||
               currentAbstraction?.source !== 'live'
             ) {
-              await perpsAbstractionModeAtom.set({
+              await setPerpsAbstractionModeWithRiskInvalidation({
                 accountAddress: userAddress.toLowerCase() as IHex,
                 mode: wsAbstraction as EHyperLiquidAbstractionMode,
                 source: 'live',
@@ -2908,6 +3049,8 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
 
   private _updateNetworkLiveness() {
     const now = Date.now();
+    // A processed frame proves the stream is alive.
+    this._clearOfflineGrace();
     if (!this._pingIntervalTimer) {
       this._startPingLoop();
     }
@@ -2929,14 +3072,24 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
   private _scheduleNetworkTimeout(messageTimestamp: number): void {
     this._lastMessageAt = messageTimestamp;
     this._postOpenDataCheckRetries = 0;
+    this._armNetworkTimeout(messageTimestamp);
+  }
 
+  // Silence watchdog: fires once the stream has gone a full grace window
+  // without proof of life. Catches sockets that stay OPEN while no traffic gets
+  // through (upstream loss, captive portal, DevTools offline), which never
+  // produce a close event.
+  private _armNetworkTimeout(lastProofAt: number): void {
     if (this._networkTimeoutTimer) {
       return;
     }
-
-    this._networkTimeoutTimer = setTimeout(() => {
-      void this._handleNetworkTimeout();
-    }, HYPERLIQUID_NETWORK_INACTIVE_TIMEOUT_MS);
+    const dueAt = lastProofAt + HYPERLIQUID_NETWORK_OFFLINE_GRACE_MS;
+    this._networkTimeoutTimer = setTimeout(
+      () => {
+        this._handleNetworkTimeout(dueAt);
+      },
+      Math.max(0, dueAt - Date.now()),
+    );
   }
 
   private _clearNetworkTimeout(): void {
@@ -2948,12 +3101,66 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
 
   private _markNetworkStatusPending(): void {
     void perpsNetworkStatusAtom.set(
+      (prev): IPerpsNetworkStatus =>
+        // Offline is only cleared by proof of a live connection (socket open or
+        // a data frame), never by another teardown, rebuild or refresh.
+        prev.connected === false
+          ? prev
+          : { ...prev, connected: undefined, pingMs: null },
+    );
+  }
+
+  // An open socket settles a pending status. A published offline is left for
+  // the first data frame to clear, since subscriptions can still fail here.
+  private async _markNetworkStatusSocketOpen(): Promise<void> {
+    await perpsNetworkStatusAtom.set(
+      (prev): IPerpsNetworkStatus =>
+        prev.connected === false ? prev : { ...prev, connected: true },
+    );
+  }
+
+  private _markNetworkStatusOffline(): void {
+    void invalidatePerpsLiquidationRiskInputs();
+    void perpsNetworkStatusAtom.set(
       (prev): IPerpsNetworkStatus => ({
         ...prev,
-        connected: undefined,
+        connected: false,
         pingMs: null,
       }),
     );
+  }
+
+  private _isNetworkTimerFrozen(dueAt: number): boolean {
+    return (
+      Date.now() - dueAt >
+      ServiceHyperliquidSubscription.NETWORK_TIMER_DRIFT_TOLERANCE_MS
+    );
+  }
+
+  // Countdown for transport failures (close, rebuild). First evidence wins:
+  // closes from later failed retries neither restart nor cancel it.
+  private _armOfflineGrace(): void {
+    if (this._offlineGraceTimer) {
+      return;
+    }
+    const dueAt = Date.now() + HYPERLIQUID_NETWORK_OFFLINE_GRACE_MS;
+    this._offlineGraceTimer = setTimeout(() => {
+      this._offlineGraceTimer = null;
+      if (this._isNetworkTimerFrozen(dueAt)) {
+        // The outage window was not observed; let the resumed transport prove
+        // itself within a fresh one.
+        this._armOfflineGrace();
+        return;
+      }
+      this._markNetworkStatusOffline();
+    }, HYPERLIQUID_NETWORK_OFFLINE_GRACE_MS);
+  }
+
+  private _clearOfflineGrace(): void {
+    if (this._offlineGraceTimer) {
+      clearTimeout(this._offlineGraceTimer);
+      this._offlineGraceTimer = null;
+    }
   }
 
   private _emitHyperliquidDataUpdate(
@@ -2967,53 +3174,67 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     });
   }
 
-  private async _handleNetworkTimeout(): Promise<void> {
+  private _handleNetworkTimeout(dueAt: number): void {
     this._networkTimeoutTimer = null;
 
-    const lastMessageAt = this._lastMessageAt;
-    const elapsed = lastMessageAt ? Date.now() - lastMessageAt : Infinity;
-
-    if (elapsed < HYPERLIQUID_NETWORK_INACTIVE_TIMEOUT_MS) {
-      void perpsNetworkStatusAtom.set(
-        (prev): IPerpsNetworkStatus => ({
-          ...prev,
-          connected: true,
-          lastMessageAt,
-        }),
-      );
-      if (lastMessageAt) {
-        this._scheduleNetworkTimeout(lastMessageAt);
-      }
+    // Muted frames (blur/lock/pause) never reach the liveness path, so silence
+    // measured here says nothing about the network.
+    if (this.subscriptionsHandlerDisabled) {
       return;
     }
 
-    await perpsNetworkStatusAtom.set(
-      (prev): IPerpsNetworkStatus => ({
-        ...prev,
-        connected: false,
-      }),
+    const now = Date.now();
+    if (this._isNetworkTimerFrozen(dueAt)) {
+      this._armNetworkTimeout(now);
+      return;
+    }
+
+    const lastProofAt = Math.max(
+      this._lastMessageAt ?? 0,
+      this._socketOpenedAt ?? 0,
     );
+    if (now - lastProofAt < HYPERLIQUID_NETWORK_OFFLINE_GRACE_MS) {
+      this._armNetworkTimeout(lastProofAt);
+      return;
+    }
+
+    // The silence itself already spans the grace window.
+    this._markNetworkStatusOffline();
+  }
+
+  // A replaced or reconnected socket starts with no server-side subscriptions,
+  // so specs that are no longer wanted have nothing left to unsubscribe.
+  private _forgetTransportSubscriptions(): void {
+    this._activeSubscriptions.clear();
+    this.allSubSpecsMap = {};
   }
 
   private async _measurePing(): Promise<void> {
     const client = this._client;
-    if (!client) {
+    if (!client || this._pingMeasurement) {
       return;
     }
+    const measurement = new AbortController();
+    this._pingMeasurement = measurement;
     try {
       const start = Date.now();
-      await client.wsRequester.request('ping', undefined);
+      await client.ping(measurement.signal);
       // Guard: client may have been replaced/closed during await
-      if (this._client !== client) return;
+      if (this._client !== client || measurement.signal.aborted) return;
       const pingMs = Date.now() - start;
       void perpsNetworkStatusAtom.set(
         (prev): IPerpsNetworkStatus => ({ ...prev, pingMs }),
       );
     } catch {
+      if (this._client !== client || measurement.signal.aborted) return;
       // Ping failed — clear displayed value without marking disconnected
       void perpsNetworkStatusAtom.set(
         (prev): IPerpsNetworkStatus => ({ ...prev, pingMs: null }),
       );
+    } finally {
+      if (this._pingMeasurement === measurement) {
+        this._pingMeasurement = null;
+      }
     }
   }
 
@@ -3037,6 +3258,8 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
   }
 
   private _stopPingLoop(): void {
+    this._pingMeasurement?.abort();
+    this._pingMeasurement = null;
     if (this._pingIntervalTimer) {
       clearTrackedInterval(this._pingIntervalTimer);
       this._pingIntervalTimer = null;

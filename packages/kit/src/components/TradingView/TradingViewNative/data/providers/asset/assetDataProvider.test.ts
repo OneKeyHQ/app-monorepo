@@ -20,7 +20,7 @@ describe('createTradingViewNativeAssetDataProvider', () => {
       interval: {
         hyperliquidValue: '1h',
         label: '1H',
-        marketWsValue: '1h',
+        marketWsValue: '1H',
         seconds: 60 * 60,
         value: '60',
       },
@@ -31,6 +31,7 @@ describe('createTradingViewNativeAssetDataProvider', () => {
 
     expect(provider.key).toBe('asset:doge');
     expect(provider.supportsRealtime).toBe(false);
+    expect(provider.historyRefreshInterval).toBe(30_000);
     expect(fetchMarketAssetKLineData).toHaveBeenCalledWith({
       assetId: 'doge',
       interval: '1H',

@@ -3,6 +3,7 @@ import { memo } from 'react';
 import { PROPORTIONAL_NUMS, Skeleton, YStack } from '@onekeyhq/components';
 import { Currency } from '@onekeyhq/kit/src/components/Currency';
 import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeableTextWrapper';
+import { HERO_BALANCE_FIT_PROPS } from '@onekeyhq/kit/src/components/NumberSizeableTextWrapper/heroBalanceFit';
 import {
   displayFiatValueOrUnavailable,
   displayOrUnavailable,
@@ -44,6 +45,7 @@ function TokenDetailsBalanceHero({
             // home total-balance hero); tabular is reserved for tables /
             // ticking data.
             fontVariant={PROPORTIONAL_NUMS}
+            {...HERO_BALANCE_FIT_PROPS}
           >
             {displayFiatValueOrUnavailable(fiatValue, balanceParsed)}
           </Currency>

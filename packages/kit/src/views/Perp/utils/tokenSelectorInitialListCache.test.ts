@@ -98,7 +98,7 @@ describe('tokenSelectorInitialListCache', () => {
       ],
     });
 
-    expect(ctxsByDex).toHaveLength(3);
+    expect(ctxsByDex).toHaveLength(4);
     expect(ctxsByDex[2]?.[0]?.dayNtlVlm).toBe('3');
     expect(ctxsByDex.some((ctxs) => ctxs?.[0]?.dayNtlVlm === '9')).toBe(false);
   });

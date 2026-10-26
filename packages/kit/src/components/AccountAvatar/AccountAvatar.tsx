@@ -5,7 +5,6 @@ import {
   useLayoutEffect,
   useMemo,
   useRef,
-  useState,
 } from 'react';
 
 import { EFirmwareType } from '@onekeyfe/hd-shared';
@@ -30,7 +29,6 @@ import {
   Stack,
   withStaticProperties,
 } from '@onekeyhq/components';
-import { startViewTransition } from '@onekeyhq/components/src/composite/Tabs/utils';
 import type {
   IDBAccount,
   IDBExternalAccount,
@@ -324,11 +322,6 @@ function BasicAccountAvatar({
     [getSourceKey, uriSource],
   );
 
-  // Track displayed source for view transition animation
-  const [displayedSource, setDisplayedSource] = useState(uriSource);
-  const [displayedKey, setDisplayedKey] = useState(sourceKey);
-  const prevSourceKeyRef = useRef(sourceKey);
-
   // Stable cache key based on address (not URI which may vary)
   const stableAddressKey =
     address ||
@@ -362,25 +355,14 @@ function BasicAccountAvatar({
     }
   }
 
-  // Use startViewTransition when source changes
-  useLayoutEffect(() => {
-    if (sourceKey !== prevSourceKeyRef.current) {
-      prevSourceKeyRef.current = sourceKey;
-      startViewTransition(() => {
-        setDisplayedSource(uriSource);
-        setDisplayedKey(sourceKey);
-      });
-    }
-  }, [sourceKey, uriSource]);
-
   // Animation controlled by shared value for precise timing
   const opacity = useSharedValue(shouldAnimateRef.current === true ? 0 : 1);
   const hasTriggeredAnimationRef = useRef(false);
 
-  // Trigger fade-in animation when displayedKey becomes non-empty for the first time
+  // Trigger fade-in animation when sourceKey becomes non-empty for the first time
   useLayoutEffect(() => {
     if (
-      displayedKey &&
+      sourceKey &&
       shouldAnimateRef.current === true &&
       !hasTriggeredAnimationRef.current
     ) {
@@ -388,7 +370,7 @@ function BasicAccountAvatar({
       shouldAnimateRef.current = false;
       opacity.value = withTiming(1, { duration: 200 });
     }
-  }, [displayedKey, opacity]);
+  }, [sourceKey, opacity]);
 
   const animatedStyle = useAnimatedStyle(() => ({
     opacity: opacity.value,
@@ -401,15 +383,15 @@ function BasicAccountAvatar({
       justifyContent="center"
       alignItems="center"
     >
-      {isValidElement(displayedSource) ? (
-        displayedSource
+      {isValidElement(uriSource) ? (
+        uriSource
       ) : (
         <Animated.View
           style={[{ width: '100%', height: '100%' }, animatedStyle]}
         >
           <Image
             size={containerSize}
-            source={displayedSource as IImageProps['source']}
+            source={uriSource as IImageProps['source']}
             style={
               {
                 borderCurve: 'continuous',

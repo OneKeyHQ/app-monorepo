@@ -26,15 +26,24 @@ import {
 import biologyAuth from '@onekeyhq/shared/src/biologyAuth';
 import { biologyAuthNativeError } from '@onekeyhq/shared/src/biologyAuth/error';
 import * as OneKeyErrors from '@onekeyhq/shared/src/errors';
-import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
+import {
+  EOneKeyErrorClassNames,
+  type IOneKeyError,
+} from '@onekeyhq/shared/src/errors/types/errorTypes';
 import * as deviceErrorUtils from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
+import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { checkBiometricAuthChanged } from '@onekeyhq/shared/src/modules3rdParty/check-biometric-auth-changed';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import appStorage from '@onekeyhq/shared/src/storage/appStorage';
+import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
+import { rejectTravelModeUnknownError } from '@onekeyhq/shared/src/travelMode/runtimeEnvironment';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { isEncodedSensitiveText } from '@onekeyhq/shared/src/utils/sensitiveTextUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import {
   EHardwareCallContext,
@@ -45,11 +54,15 @@ import type {
   IPasswordSecuritySession,
 } from '@onekeyhq/shared/types/password';
 import {
+  BIOLOGY_AUTH_ABORTED_ERROR,
   BIOLOGY_AUTH_CANCEL_ERROR,
   EPasswordMode,
   EPasswordPromptType,
   EPasswordVerifyStatus,
   PASSCODE_LENGTH,
+  PASSCODE_PROTECTION_ATTEMPTS,
+  PASSCODE_PROTECTION_ATTEMPTS_MESSAGE_SHOW_MAX,
+  PASSCODE_PROTECTION_ATTEMPTS_PER_MINUTE_MAP,
   PASSCODE_REGEX,
   PASSWORD_MAX_LENGTH,
   PASSWORD_MIN_LENGTH,
@@ -58,6 +71,7 @@ import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
 import { shouldUseHyperLiquidAgentPasswordEncryption } from '../../dbs/local/hyperLiquidAgentSecret';
 import localDb from '../../dbs/local/localDb';
+import { runtimePersistenceAdapter } from '../../runtime/RuntimeEnvironmentAdapter';
 import {
   firmwareUpdateWorkflowRunningAtom,
   settingsLastActivityAtom,
@@ -83,8 +97,30 @@ type IPasswordKdfParams = IPbkdf2KdfParams & {
   debugCryptoProbeId?: string;
 };
 
+type IVerifyPasswordParams = IPasswordKdfParams & {
+  enforcePasswordErrorProtection?: boolean;
+  isBiologyAuth?: boolean;
+  password: string;
+  passwordMode: EPasswordMode;
+  skipPostVerifyBackgroundTasks?: boolean;
+};
+
 // Keep LocalDB password existence and its persisted Jotai mirror in sync.
 const passwordExistenceMutex = new Semaphore(1);
+const passwordErrorProtectionMutex = new Semaphore(1);
+const biometricCheckMutex = new Semaphore(1);
+const BIOMETRIC_AUTH_CHECK_PENDING_KEY = 'biometricAuthCheckPending';
+let biometricCheckPromise: Promise<boolean> | undefined;
+
+export function shouldUseV4MigrationPasswordForPrompt({
+  isProcessing,
+  manualPasswordOnly,
+}: {
+  isProcessing: boolean;
+  manualPasswordOnly: boolean;
+}): boolean {
+  return isProcessing && !manualPasswordOnly;
+}
 
 function unrefTimeout(
   timeout: ReturnType<typeof setTimeout> | null | undefined,
@@ -131,15 +167,31 @@ export default class ServicePassword extends ServiceBase {
     success: boolean;
   }) {
     if (!authRes.success) {
-      if (authRes.warning || authRes.error === BIOLOGY_AUTH_CANCEL_ERROR) {
+      const isAborted =
+        platformEnv.isDesktopWin &&
+        authRes.error === BIOLOGY_AUTH_ABORTED_ERROR;
+      if (
+        authRes.warning ||
+        authRes.error === BIOLOGY_AUTH_CANCEL_ERROR ||
+        isAborted
+      ) {
         const nativeError = new Error(
-          authRes.error === BIOLOGY_AUTH_CANCEL_ERROR ? '' : authRes.warning,
+          authRes.error === BIOLOGY_AUTH_CANCEL_ERROR || isAborted
+            ? ''
+            : authRes.warning,
         );
         nativeError.name = authRes.error;
         nativeError.cause = biologyAuthNativeError;
         throw nativeError;
       } else {
-        throw new OneKeyErrors.BiologyAuthFailed();
+        const error = new OneKeyErrors.BiologyAuthFailed();
+        if (
+          platformEnv.isDesktopWin &&
+          authRes.error === 'biologyAuthenticate failed'
+        ) {
+          error.cause = biologyAuthNativeError;
+        }
+        throw error;
       }
     }
   }
@@ -295,7 +347,13 @@ export default class ServicePassword extends ServiceBase {
     this.skipPrfCacheFlag = skip;
   }
 
-  async setCachedPassword({ password }: { password: string }): Promise<string> {
+  async setCachedPassword({
+    password,
+    skipBackgroundTasks,
+  }: {
+    password: string;
+    skipBackgroundTasks?: boolean;
+  }): Promise<string> {
     const prevPassword = this.cachedPassword;
     ensureSensitiveTextEncoded(password);
     this.cachedPassword = password;
@@ -314,36 +372,38 @@ export default class ServicePassword extends ServiceBase {
     }, this.cachedPasswordTTL);
     unrefTimeout(this.cachedPasswordTimeOutObject);
 
-    if (password) {
+    if (password && !skipBackgroundTasks) {
       void this.backgroundApi.serviceKeylessWallet
         .tryMigrateLocalExistingKeylessBackendShareToV2()
         .catch(() => undefined);
     }
 
-    void (async () => {
-      const prevPasswordRaw = prevPassword
-        ? await this.decodeSensitiveText({
-            encodedText: prevPassword,
-          })
-        : '';
-      const newPasswordRaw = password
-        ? await this.decodeSensitiveText({
-            encodedText: password,
-          })
-        : '';
-      if (password && prevPasswordRaw !== newPasswordRaw) {
-        await this.backgroundApi.servicePrimeCloudSync.clearCachedSyncCredential();
-        // forceSync re-applies items already marked localSceneUpdated, so bot
-        // wallet sync items that were skipped earlier (parent KW or password
-        // not yet ready) get reprocessed once the password is cached.
-        await this.backgroundApi.servicePrimeCloudSync.startServerSyncFlowSilently(
-          {
-            callerName: 'setCachedPassword',
-            forceSync: true,
-          },
-        );
-      }
-    })();
+    if (!skipBackgroundTasks) {
+      void (async () => {
+        const prevPasswordRaw = prevPassword
+          ? await this.decodeSensitiveText({
+              encodedText: prevPassword,
+            })
+          : '';
+        const newPasswordRaw = password
+          ? await this.decodeSensitiveText({
+              encodedText: password,
+            })
+          : '';
+        if (password && prevPasswordRaw !== newPasswordRaw) {
+          await this.backgroundApi.servicePrimeCloudSync.clearCachedSyncCredential();
+          // forceSync re-applies items already marked localSceneUpdated, so bot
+          // wallet sync items that were skipped earlier (parent KW or password
+          // not yet ready) get reprocessed once the password is cached.
+          await this.backgroundApi.servicePrimeCloudSync.startServerSyncFlowSilently(
+            {
+              callerName: 'setCachedPassword',
+              forceSync: true,
+            },
+          );
+        }
+      })();
+    }
     return password;
   }
 
@@ -411,9 +471,25 @@ export default class ServicePassword extends ServiceBase {
   }
 
   async getBiologyAuthPassword(): Promise<string> {
-    const isSupport = await passwordBiologyAuthInfoAtom.get();
+    if (platformEnv.isNativeIOS || platformEnv.isDesktopMac) {
+      return biometricCheckMutex.runExclusive(async () => {
+        if (await appStorage.getItem(BIOMETRIC_AUTH_CHECK_PENDING_KEY)) {
+          throw new OneKeyErrors.BiologyAuthFailed();
+        }
+        const { isBiologyAuthSwitchOn } = await settingsPersistAtom.get();
+        if (!isBiologyAuthSwitchOn) {
+          throw new OneKeyErrors.BiologyAuthFailed();
+        }
+        return this.getBiologyAuthPasswordInner();
+      });
+    }
+    return this.getBiologyAuthPasswordInner();
+  }
+
+  private async getBiologyAuthPasswordInner(): Promise<string> {
+    const { isSupport } = await passwordBiologyAuthInfoAtom.get();
     if (!isSupport) {
-      await this.setBiologyAuthEnable(false);
+      await this.setBiologyAuthEnableInner(false);
       throw new OneKeyErrors.OneKeyLocalError('biologyAuth not support');
     }
     const authRes = await biologyAuthUtils.biologyAuthenticate();
@@ -425,9 +501,59 @@ export default class ServicePassword extends ServiceBase {
       ensureSensitiveTextEncoded(pwd);
       return pwd;
     } catch (_e) {
-      await this.setBiologyAuthEnable(false);
+      await this.setBiologyAuthEnableInner(false);
       throw new OneKeyErrors.BiologyAuthFailed();
     }
+  }
+
+  @backgroundMethod()
+  async checkBiometricAuthChanged(): Promise<boolean> {
+    if (!platformEnv.isNativeIOS && !platformEnv.isDesktopMac) return false;
+    if (runtimePersistenceAdapter.isUnavailable()) {
+      await rejectTravelModeUnknownError();
+    }
+    if (biometricCheckPromise) return biometricCheckPromise;
+    const checking = biometricCheckMutex.runExclusive(async () => {
+      const pending = await appStorage.getItem(
+        BIOMETRIC_AUTH_CHECK_PENDING_KEY,
+      );
+      if (pending === 'changed') {
+        await this.backgroundApi.serviceSetting.setBiologyAuthSwitchOn(false);
+        await appStorage.removeItem(BIOMETRIC_AUTH_CHECK_PENDING_KEY);
+        return true;
+      }
+      if (pending) {
+        throw new OneKeyErrors.OneKeyLocalError(
+          'Biometric check requires password verification',
+        );
+      }
+      if (!(await biologyAuth.isSupportBiologyAuth())) {
+        throw new OneKeyErrors.BiologyAuthFailed();
+      }
+      // The SDK advances its baseline. Persist before calling it so a crash or
+      // failed settings write cannot turn the next check into a false success.
+      await appStorage.setItem(BIOMETRIC_AUTH_CHECK_PENDING_KEY, 'checking');
+      if (
+        runtimePersistenceAdapter.isUnavailable() ||
+        (await appStorage.getItem(BIOMETRIC_AUTH_CHECK_PENDING_KEY)) !==
+          'checking'
+      ) {
+        throw new OneKeyErrors.BiologyAuthFailed();
+      }
+      const changed = await checkBiometricAuthChanged();
+      if (typeof changed !== 'boolean')
+        throw new OneKeyErrors.BiologyAuthFailed();
+      if (changed) {
+        await appStorage.setItem(BIOMETRIC_AUTH_CHECK_PENDING_KEY, 'changed');
+        await this.backgroundApi.serviceSetting.setBiologyAuthSwitchOn(false);
+      }
+      await appStorage.removeItem(BIOMETRIC_AUTH_CHECK_PENDING_KEY);
+      return changed;
+    });
+    biometricCheckPromise = checking.finally(() => {
+      biometricCheckPromise = undefined;
+    });
+    return biometricCheckPromise;
   }
 
   @backgroundMethod()
@@ -435,12 +561,31 @@ export default class ServicePassword extends ServiceBase {
     enable: boolean,
     skipAuth?: boolean,
   ): Promise<void> {
+    return biometricCheckMutex.runExclusive(() =>
+      this.setBiologyAuthEnableInner(enable, skipAuth),
+    );
+  }
+
+  private async setBiologyAuthEnableInner(
+    enable: boolean,
+    skipAuth?: boolean,
+  ): Promise<void> {
+    if (runtimePersistenceAdapter.isUnavailable()) {
+      await rejectTravelModeUnknownError();
+    }
     // TODO(biologyAuth-debug): temporary log to diagnose biometric disappearing
     defaultLogger.setting.page.biologyAuthDebug('setBiologyAuthEnable', {
       enable,
       skipAuth: !!skipAuth,
       stack: new Error('trace').stack?.split('\n').slice(1, 6).join(' | '),
     });
+    if (
+      enable &&
+      (platformEnv.isNativeIOS || platformEnv.isDesktopMac) &&
+      (await appStorage.getItem(BIOMETRIC_AUTH_CHECK_PENDING_KEY))
+    ) {
+      throw new OneKeyErrors.BiologyAuthFailed();
+    }
     if (enable && !skipAuth) {
       const authRes = await biologyAuth.biologyAuthenticate();
       if (!authRes.success) {
@@ -455,7 +600,46 @@ export default class ServicePassword extends ServiceBase {
         );
       }
     }
+    if (enable && (platformEnv.isNativeIOS || platformEnv.isDesktopMac)) {
+      const { isBiologyAuthSwitchOn: wasSwitchOn } =
+        await settingsPersistAtom.get();
+      let checkpointWritten = false;
+      try {
+        await appStorage.setItem(BIOMETRIC_AUTH_CHECK_PENDING_KEY, 'checking');
+        checkpointWritten = true;
+        if (
+          runtimePersistenceAdapter.isUnavailable() ||
+          (await appStorage.getItem(BIOMETRIC_AUTH_CHECK_PENDING_KEY)) !==
+            'checking'
+        ) {
+          throw new OneKeyErrors.BiologyAuthFailed();
+        }
+        const changed = await checkBiometricAuthChanged();
+        if (typeof changed !== 'boolean') {
+          throw new OneKeyErrors.BiologyAuthFailed();
+        }
+      } catch (error) {
+        if (checkpointWritten && !wasSwitchOn) {
+          try {
+            const { isBiologyAuthSwitchOn } = await settingsPersistAtom.get();
+            if (
+              !isBiologyAuthSwitchOn &&
+              (await appStorage.getItem(BIOMETRIC_AUTH_CHECK_PENDING_KEY)) ===
+                'checking'
+            ) {
+              await appStorage.removeItem(BIOMETRIC_AUTH_CHECK_PENDING_KEY);
+            }
+          } catch {
+            // Keep the checkpoint when storage cannot confirm a safe retry.
+          }
+        }
+        throw error;
+      }
+    }
     await this.backgroundApi.serviceSetting.setBiologyAuthSwitchOn(enable);
+    if (enable && (platformEnv.isNativeIOS || platformEnv.isDesktopMac)) {
+      await appStorage.removeItem(BIOMETRIC_AUTH_CHECK_PENDING_KEY);
+    }
     if (platformEnv.isExtension && !enable) {
       await this.clearWebAuthCredentialId();
     }
@@ -549,11 +733,13 @@ export default class ServicePassword extends ServiceBase {
     kdfBackend,
     enablePbkdf2Cache,
     debugCryptoProbeId,
+    skipLazyUpgrade,
   }: {
     password: string;
     passwordMode: EPasswordMode;
     newPassword?: string;
     skipDBVerify?: boolean;
+    skipLazyUpgrade?: boolean;
   } & IPasswordKdfParams): Promise<void> {
     ensureSensitiveTextEncoded(password);
     if (newPassword) {
@@ -584,8 +770,12 @@ export default class ServicePassword extends ServiceBase {
       });
     }
     if (!skipDBVerify) {
-      await localDb.verifyPassword({ password });
-      if (!newPassword && validateResult?.shouldFixPasscodeMode) {
+      await localDb.verifyPassword({ password, skipLazyUpgrade });
+      if (
+        !newPassword &&
+        validateResult?.shouldFixPasscodeMode &&
+        !runtimePersistenceAdapter.isUnavailable()
+      ) {
         const { isPasscodeModeFixed } = await passwordPersistAtom.get();
         if (!isPasscodeModeFixed) {
           // Fix passwordMode to PASSCODE when detected password is actually a passcode
@@ -614,6 +804,9 @@ export default class ServicePassword extends ServiceBase {
   @backgroundMethod()
   async checkPasswordSet(): Promise<boolean> {
     return passwordExistenceMutex.runExclusive(async () => {
+      if (runtimePersistenceAdapter.isUnavailable()) {
+        return (await passwordPersistAtom.get()).isPasswordSet;
+      }
       const checkPasswordSet = await localDb.isPasswordSet();
       await this.setPasswordSetStatus(checkPasswordSet);
       return checkPasswordSet;
@@ -738,6 +931,9 @@ export default class ServicePassword extends ServiceBase {
     password: string,
     passwordMode: EPasswordMode,
   ): Promise<string> {
+    if (runtimePersistenceAdapter.isUnavailable()) {
+      await rejectTravelModeUnknownError();
+    }
     ensureSensitiveTextEncoded(password);
     await this.validatePassword({ password, passwordMode, skipDBVerify: true });
     return passwordExistenceMutex.runExclusive(async () => {
@@ -769,6 +965,9 @@ export default class ServicePassword extends ServiceBase {
     newPassword: string,
     passwordMode: EPasswordMode,
   ): Promise<string> {
+    if (runtimePersistenceAdapter.isUnavailable()) {
+      await rejectTravelModeUnknownError();
+    }
     ensureSensitiveTextEncoded(oldPassword);
     ensureSensitiveTextEncoded(newPassword);
 
@@ -853,20 +1052,16 @@ export default class ServicePassword extends ServiceBase {
     }
   }
 
-  @backgroundMethod()
-  async verifyPassword({
+  private async verifyPasswordInner({
     password,
     passwordMode,
     isBiologyAuth,
     skipPostVerifyBackgroundTasks,
     kdfBackend,
     enablePbkdf2Cache,
-  }: {
-    password: string;
-    passwordMode: EPasswordMode;
-    isBiologyAuth?: boolean;
-    skipPostVerifyBackgroundTasks?: boolean;
-  } & IPbkdf2KdfParams): Promise<string> {
+  }: IVerifyPasswordParams): Promise<string> {
+    const isTravelModePersistenceUnavailable =
+      runtimePersistenceAdapter.isUnavailable();
     let verifyingPassword = password;
     if (isBiologyAuth) {
       verifyingPassword = await this.getBiologyAuthPassword();
@@ -877,7 +1072,15 @@ export default class ServicePassword extends ServiceBase {
       passwordMode,
       kdfBackend,
       enablePbkdf2Cache,
+      skipLazyUpgrade: isTravelModePersistenceUnavailable,
     });
+    if (isTravelModePersistenceUnavailable) {
+      await this.setCachedPassword({
+        password: verifyingPassword,
+        skipBackgroundTasks: true,
+      });
+      return verifyingPassword;
+    }
     await this.prepareHyperLiquidAgentSecretSession({
       password: verifyingPassword,
     });
@@ -894,6 +1097,126 @@ export default class ServicePassword extends ServiceBase {
       });
     }
     return verifyingPassword;
+  }
+
+  private async verifyPasswordWithErrorProtection(
+    params: IVerifyPasswordParams,
+  ): Promise<string> {
+    const passwordState = await passwordPersistAtom.get();
+    if (
+      passwordState.passwordErrorAttempts >=
+        PASSCODE_PROTECTION_ATTEMPTS_MESSAGE_SHOW_MAX &&
+      passwordState.passwordErrorProtectionTime > Date.now()
+    ) {
+      await rejectTravelModeUnknownError();
+    }
+
+    try {
+      const result = await this.verifyPasswordInner(params);
+      await passwordPersistAtom.set((previous) => ({
+        ...previous,
+        passwordErrorAttempts: 0,
+        passwordErrorProtectionTime: 0,
+      }));
+      return result;
+    } catch (error) {
+      const isWrongPassword =
+        errorUtils.isErrorByClassName({
+          error,
+          className: EOneKeyErrorClassNames.WrongPassword,
+        }) ||
+        errorUtils.isErrorByClassName({
+          error,
+          className: EOneKeyErrorClassNames.IncorrectPassword,
+        });
+      if (isWrongPassword) {
+        await passwordPersistAtom.set((previous) => {
+          const nextAttempts = Math.min(
+            previous.passwordErrorAttempts + 1,
+            PASSCODE_PROTECTION_ATTEMPTS,
+          );
+          const cooldownKey = String(
+            nextAttempts >= PASSCODE_PROTECTION_ATTEMPTS
+              ? PASSCODE_PROTECTION_ATTEMPTS - 1
+              : nextAttempts,
+          );
+          const cooldownMinutes =
+            nextAttempts >= PASSCODE_PROTECTION_ATTEMPTS_MESSAGE_SHOW_MAX
+              ? PASSCODE_PROTECTION_ATTEMPTS_PER_MINUTE_MAP[cooldownKey]
+              : undefined;
+          return {
+            ...previous,
+            passwordErrorAttempts: nextAttempts,
+            ...(cooldownMinutes
+              ? {
+                  passwordErrorProtectionTime:
+                    Date.now() + cooldownMinutes * 60 * 1000,
+                }
+              : undefined),
+          };
+        });
+      }
+      throw error;
+    }
+  }
+
+  @backgroundMethod()
+  async verifyPassword(params: IVerifyPasswordParams): Promise<string> {
+    const shouldEnforcePasswordErrorProtection =
+      Boolean(params.enforcePasswordErrorProtection) ||
+      runtimePersistenceAdapter.isUnavailable();
+    return shouldEnforcePasswordErrorProtection
+      ? passwordErrorProtectionMutex.runExclusive(() =>
+          this.verifyPasswordWithErrorProtection(params),
+        )
+      : this.verifyPasswordInner(params);
+  }
+
+  @backgroundMethod()
+  async verifyPasswordFromInput({
+    password,
+    ...params
+  }: Omit<IVerifyPasswordParams, 'isBiologyAuth'>): Promise<string> {
+    if (isEncodedSensitiveText(password)) {
+      throw new OneKeyErrors.OneKeyLocalError(
+        'Expected unencoded password input',
+      );
+    }
+    const encoded = await this.encodeSensitiveText({
+      text: password,
+      kdfBackend: params.kdfBackend,
+      enablePbkdf2Cache: params.enablePbkdf2Cache,
+    });
+    const verified = await this.verifyPassword({
+      ...params,
+      password: encoded,
+      isBiologyAuth: false,
+    });
+    if (
+      (platformEnv.isNativeIOS || platformEnv.isDesktopMac) &&
+      !runtimePersistenceAdapter.isUnavailable()
+    ) {
+      try {
+        await biometricCheckMutex.runExclusive(async () => {
+          const pending = await appStorage.getItem(
+            BIOMETRIC_AUTH_CHECK_PENDING_KEY,
+          );
+          if (pending) {
+            await this.backgroundApi.serviceSetting.setBiologyAuthSwitchOn(
+              false,
+            );
+            await appStorage.removeItem(BIOMETRIC_AUTH_CHECK_PENDING_KEY);
+          }
+        });
+      } catch {
+        // Password access must remain available even if biometric recovery cannot persist.
+        defaultLogger.setting.page.biologyAuthDebug(
+          'biometricCheck:recoveryUnavailable',
+          { platform: platformEnv.symbol },
+        );
+      }
+    }
+    return verified;
   }
 
   private async prepareHyperLiquidAgentSecretSession({
@@ -992,6 +1315,8 @@ export default class ServicePassword extends ServiceBase {
   async promptPasswordVerify(options?: {
     reason?: EReasonForNeedPassword;
     dialogProps?: IDialogShowProps;
+    enforcePasswordErrorProtection?: boolean;
+    manualPasswordOnly?: boolean;
     skipPostVerifyBackgroundTasks?: boolean;
     kdfParams?: IPbkdf2KdfParams;
   }): Promise<IPasswordRes> {
@@ -999,7 +1324,12 @@ export default class ServicePassword extends ServiceBase {
     return this.promptPasswordVerifyMutex.runExclusive(async () => {
       // TODO mutex
       const v4migrationData = await v4migrationAtom.get();
-      if (v4migrationData?.isProcessing) {
+      if (
+        shouldUseV4MigrationPasswordForPrompt({
+          isProcessing: Boolean(v4migrationData?.isProcessing),
+          manualPasswordOnly: Boolean(options?.manualPasswordOnly),
+        })
+      ) {
         const v4migrationPassword =
           await this.backgroundApi.serviceV4Migration.getMigrationPasswordV5();
         if (v4migrationPassword) {
@@ -1048,6 +1378,9 @@ export default class ServicePassword extends ServiceBase {
               ? EPasswordPromptType.PASSWORD_VERIFY
               : EPasswordPromptType.PASSWORD_SETUP,
             dialogProps: options?.dialogProps,
+            enforcePasswordErrorProtection:
+              options?.enforcePasswordErrorProtection,
+            manualPasswordOnly: options?.manualPasswordOnly,
             skipPostVerifyBackgroundTasks:
               options?.skipPostVerifyBackgroundTasks,
             kdfParams: options?.kdfParams,
@@ -1145,6 +1478,8 @@ export default class ServicePassword extends ServiceBase {
     idNumber: number;
     type: EPasswordPromptType;
     dialogProps?: IDialogShowProps;
+    enforcePasswordErrorProtection?: boolean;
+    manualPasswordOnly?: boolean;
     skipPostVerifyBackgroundTasks?: boolean;
     kdfParams?: IPbkdf2KdfParams;
   }) {
@@ -1259,6 +1594,13 @@ export default class ServicePassword extends ServiceBase {
 
   @backgroundMethod()
   async lockApp(options?: { manual: boolean }) {
+    if (
+      travelModeManager.getRuntimeEnvironmentSync().profile.kind ===
+      'travel-mode'
+    ) {
+      await this.clearCachedPassword();
+      return;
+    }
     const { manual = false } = options || {};
     const isFirmwareUpdateRunning =
       await firmwareUpdateWorkflowRunningAtom.get();
@@ -1296,6 +1638,12 @@ export default class ServicePassword extends ServiceBase {
 
   @backgroundMethod()
   public async setAppLockDuration(value: number) {
+    if (
+      travelModeManager.getRuntimeEnvironmentSync().profile.kind ===
+      'travel-mode'
+    ) {
+      return;
+    }
     await passwordAtom.set((v) => ({ ...v, unLock: true }));
     await passwordPersistAtom.set((prev) => ({
       ...prev,
@@ -1305,6 +1653,12 @@ export default class ServicePassword extends ServiceBase {
 
   @backgroundMethod()
   public async setEnableSystemIdleLock(value: boolean) {
+    if (
+      travelModeManager.getRuntimeEnvironmentSync().profile.kind ===
+      'travel-mode'
+    ) {
+      return;
+    }
     await passwordPersistAtom.set((prev) => ({
       ...prev,
       enableSystemIdleLock: value,
@@ -1313,6 +1667,12 @@ export default class ServicePassword extends ServiceBase {
 
   @backgroundMethod()
   async checkLockStatus() {
+    if (
+      travelModeManager.getRuntimeEnvironmentSync().profile.kind ===
+      'travel-mode'
+    ) {
+      return;
+    }
     const { isPasswordSet, appLockDuration } = await passwordPersistAtom.get();
     if (!isPasswordSet) {
       return;

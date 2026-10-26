@@ -1190,7 +1190,9 @@ function SwapKLineContentBody({
         key={tradingViewNativeSourceKey}
         testID={`${SwapTestIDs.kLineChart}-native`}
         source={tradingViewNativeSource}
-        nativeControlsLayoutMode={gtMd ? 'desktop' : 'mobile'}
+        storageNamespace="swap"
+        nativeChartDisplayMode="compact"
+        nativeControlsLayoutMode="mobile"
         onDataStateChange={state.handleChartDataStateChange}
         onIntervalChange={state.handleChartIntervalChange}
         onPriceUpdate={state.handleChartPriceUpdate}
@@ -1307,7 +1309,7 @@ function SwapKLineModalContent() {
     : undefined;
 
   return (
-    <Page lazyLoad testID={SwapTestIDs.kLineModal}>
+    <Page testID={SwapTestIDs.kLineModal}>
       <Page.Header
         title={intl.formatMessage({ id: ETranslations.market_chart })}
       />

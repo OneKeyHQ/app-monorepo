@@ -1,6 +1,7 @@
 import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
+import { StyleSheet } from 'react-native';
 
 import { Icon, SizableText, Skeleton, XStack } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -21,12 +22,14 @@ export function BorrowEModeMetric({
   eModeStatus,
   isError = false,
   isLoading = false,
+  isDisabled = false,
   widthMode,
   variant = 'metric',
 }: {
   eModeStatus?: IBorrowEModeStatus | null;
   isError?: boolean;
   isLoading?: boolean;
+  isDisabled?: boolean;
   widthMode?: IOverviewMetricProps['widthMode'];
   variant?: 'metric' | 'bar';
 }) {
@@ -44,12 +47,19 @@ export function BorrowEModeMetric({
     (c) => c.eModeId === eModeStatus.eModeId,
   );
   const hasEMode = (eModeStatus?.categories?.length ?? 0) > 0;
-  const showError = isError && !eModeStatus;
+  const showError = isError;
   const showInitialLoading = isLoading && !eModeStatus && !showError;
   const showPlaceholder = showInitialLoading || showError;
+  const canOpenEModeSwitch = !showPlaceholder && !isDisabled;
 
   const openEModeSwitch = useCallback(() => {
-    if (!networkId || !provider || !marketAddress || !earnAccountId) {
+    if (
+      showError ||
+      !networkId ||
+      !provider ||
+      !marketAddress ||
+      !earnAccountId
+    ) {
       return;
     }
     BorrowNavigation.pushToBorrowEModeSwitch(navigation, {
@@ -66,6 +76,7 @@ export function BorrowEModeMetric({
     navigation,
     networkId,
     provider,
+    showError,
   ]);
 
   if (!hasEMode && !showPlaceholder) {
@@ -115,11 +126,16 @@ export function BorrowEModeMetric({
         gap="$2"
         width="100%"
         bg="$bgSubdued"
+        // Same edge as the position cards this bar closes the page under: at
+        // 1.05:1 the fill alone barely separates a block from the page, so the
+        // hairline is what actually draws it.
+        borderWidth={StyleSheet.hairlineWidth}
+        borderColor="$borderSubdued"
         borderRadius="$3"
         borderCurve="continuous"
         px="$4"
         py="$3"
-        {...(!showPlaceholder && {
+        {...(canOpenEModeSwitch && {
           onPress: openEModeSwitch,
           cursor: 'pointer',
           hoverStyle: { bg: '$bgHover' },
@@ -141,9 +157,9 @@ export function BorrowEModeMetric({
       title={{ text: title }}
       text={{ text: valueText }}
       isLoading={showInitialLoading}
-      onPress={showPlaceholder ? undefined : openEModeSwitch}
+      onPress={canOpenEModeSwitch ? openEModeSwitch : undefined}
       widthMode={widthMode}
-      action={showPlaceholder ? undefined : chevron}
+      action={canOpenEModeSwitch ? chevron : undefined}
     />
   );
 }

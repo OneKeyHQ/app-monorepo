@@ -4,7 +4,7 @@
  * Route params drive what the user sees: the header, the title, and the
  * address bar. For in-app callers those params come from trusted code, but
  * for `deeplink` and `notification` entries the params originate from an
- * external string (`onekey-wallet://webview?...` or a push payload) that an
+ * external string (an App Clip handoff or a push payload) that an
  * attacker can craft. Without sanitization, an external entry can:
  *   - Set `hideHeader=1` to suppress the close button and the title row.
  *   - Pass `title=OneKey Wallet` so the header reads as a trusted brand

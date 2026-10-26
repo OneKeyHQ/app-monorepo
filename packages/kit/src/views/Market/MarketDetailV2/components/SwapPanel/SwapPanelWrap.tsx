@@ -23,7 +23,12 @@ import {
   logGasAccountReviewExit,
   markGasAccountReviewSubmitted,
 } from '@onekeyhq/kit/src/views/Swap/utils/gasAccountAnalytics';
+import {
+  type ISwapReviewAnalytics,
+  createSwapReviewAnalytics,
+} from '@onekeyhq/kit/src/views/Swap/utils/swapReviewAnalytics';
 import type { ISwapReviewAdapter } from '@onekeyhq/kit/src/views/Swap/utils/swapReviewState';
+import { resolveSwapStockReviewToken } from '@onekeyhq/kit/src/views/Swap/utils/swapStockReviewUtils';
 import {
   EJotaiContextStoreNames,
   useSettingsAtom,
@@ -46,6 +51,7 @@ import {
   useStockDetail,
 } from '../../hooks/StockDetailContext';
 import { useTokenDetail } from '../../hooks/useTokenDetail';
+import { isMarketTokenDecimalsReady } from '../../utils/marketTokenIdentity';
 
 import {
   EMarketPresetKey,
@@ -57,11 +63,15 @@ import {
 } from './hooks/marketPresetSettings';
 import { useMarketPresetSettings } from './hooks/useMarketPresetSettings';
 import { useSpeedSwapActions } from './hooks/useSpeedSwapActions';
-import { useSpeedSwapInit } from './hooks/useSpeedSwapInit';
+import {
+  ESpeedSwapConfigScope,
+  useSpeedSwapInit,
+} from './hooks/useSpeedSwapInit';
 import { useSwapPanel } from './hooks/useSwapPanel';
 import { ESwapDirection } from './hooks/useTradeType';
 import { MarketSwapReviewDialog } from './MarketSwapReviewDialog';
 import { SwapPanelContent } from './SwapPanelContent';
+import { resolveMarketPaymentTokenDisplay } from './utils/marketPaymentTokenDisplayUtils';
 
 import type {
   IEstimateMarketPresetPriorityFeeFiatValues,
@@ -72,13 +82,17 @@ import type { IToken } from './types';
 interface ISwapPanelWrapProps {
   onCloseDialog?: () => void;
   stockDetailDesktopLayout?: boolean;
+  isStock?: boolean;
   portfolioData?: IMarketAccountPortfolioItem[];
+  resolvedVariantKeys?: string[];
 }
 
 function SwapPanelWrapContent({
   onCloseDialog,
   stockDetailDesktopLayout,
+  isStock,
   portfolioData,
+  resolvedVariantKeys,
 }: ISwapPanelWrapProps) {
   const {
     networkId,
@@ -98,11 +112,22 @@ function SwapPanelWrapContent({
     networkId: networkId || 'evm--1',
   });
   const [hasInitialReady, setHasInitialReady] = useState(false);
-  const [readyStockTokenKey, setReadyStockTokenKey] = useState<string>();
   const [isReviewDialogOpen, setIsReviewDialogOpen] = useState(false);
   const [isReviewOpening, setIsReviewOpening] = useState(false);
   const reviewDialogRef = useRef<IDialogInstance | null>(null);
   const reviewDialogRequestIdRef = useRef(0);
+  const reviewAnalyticsRef = useRef<ISwapReviewAnalytics | undefined>(
+    undefined,
+  );
+  useEffect(
+    () => () => {
+      reviewAnalyticsRef.current?.close('reviewChanged');
+    },
+    [],
+  );
+  const closeReviewDialog = useCallback(async () => {
+    await reviewDialogRef.current?.close();
+  }, []);
 
   const {
     setPaymentToken,
@@ -125,7 +150,13 @@ function SwapPanelWrapContent({
     onlySupportCrossChain,
     defaultTokens,
     swapMevNetConfig,
-  } = useSpeedSwapInit(networkId || '', true);
+  } = useSpeedSwapInit(
+    networkId || '',
+    true,
+    (isStock ?? isStockRoute)
+      ? ESpeedSwapConfigScope.DEFAULT
+      : ESpeedSwapConfigScope.MARKET,
+  );
   const marketPresetSettings = useMarketPresetSettings({
     networkId: networkId || '',
     defaultSlippage: speedConfig?.slippage,
@@ -280,17 +311,11 @@ function SwapPanelWrapContent({
   const selectedVariantTradable = selectedTokenVariant
     ? isStockTokenVariantTradable(selectedTokenVariant)
     : false;
-  const stockTokenToAssetRatio =
-    selectedTokenVariant?.tokenToAssetRatio ??
-    tokenDetail?.stock?.tokenToAssetRatio;
   const currentStockInfo =
-    isStockRoute && tokenDetail?.stock
-      ? {
-          ...tokenDetail.stock,
-          tokenToAssetRatio: stockTokenToAssetRatio,
-        }
+    isStockRoute && (!selectedTokenVariant || selectedVariantMatchesTokenDetail)
+      ? tokenDetail?.stock
       : undefined;
-  const currentMarketToken: ISwapToken = selectedTokenVariant
+  const marketToken: ISwapToken = selectedTokenVariant
     ? {
         networkId: selectedTokenVariant.networkId,
         contractAddress: selectedTokenVariant.contractAddress,
@@ -331,92 +356,13 @@ function SwapPanelWrapContent({
         isStock: isStockRoute,
         stock: currentStockInfo,
       };
-  const currentFromTokenAmount =
-    tradeType === ESwapDirection.BUY
-      ? paymentAmount.toFixed()
-      : sellAmount.toFixed();
-  const currentMarketTokenKey = currentMarketToken.networkId
-    ? `${currentMarketToken.networkId}:${
-        currentMarketToken.isNative
-          ? 'native'
-          : currentMarketToken.contractAddress
-      }`
-    : undefined;
-  const isCurrentStockTokenReady =
-    Boolean(currentMarketTokenKey) &&
-    readyStockTokenKey === currentMarketTokenKey;
-  const useSpeedSwapActionsParams = {
-    slippageItem: {
-      key: effectiveSlippageMode,
-      value: effectiveSlippage,
-    },
-    // Market status never gates quoting. A live open-state flip only refreshes
-    // the current provider quote so a server-reported closed error can recover.
-    stockIsOpen: tokenDetail?.stock?.isOpen,
-    marketToken: currentMarketToken,
-    tradeToken: {
-      networkId: paymentToken?.networkId || '',
-      contractAddress: paymentToken?.contractAddress || '',
-      symbol: paymentToken?.symbol || '',
-      decimals: paymentToken?.decimals || 0,
-      logoURI: paymentToken?.logoURI || '',
-      price: paymentToken?.price || '',
-      currency: paymentToken?.currency,
-      isNative: paymentToken?.isNative || false,
-    },
-    tradeType: tradeType || ESwapDirection.BUY,
-    swapType: isStockRoute ? ESwapTabSwitchType.STOCK : ESwapTabSwitchType.SWAP,
-    fromTokenAmount: currentFromTokenAmount,
-    antiMEV: Array.isArray(swapMevNetConfig)
-      ? swapMevNetConfig.includes(swapPanel.networkId ?? '')
-      : false,
-    isCustomRpcUnavailable,
-    isReviewDialogOpen,
-    onCloseDialog,
-  };
-
-  const speedSwapActions = useSpeedSwapActions(useSpeedSwapActionsParams);
-
-  const {
-    speedSwapBuildTxLoading,
-    swapApprovingMatchLoading,
-    checkTokenAllowanceLoading,
-    balance,
-    balanceToken,
-    fetchBalanceLoading,
-    priceRate,
-    stockQuoteDisplay,
-    quoteResult,
-    quoteList,
-    quoteActionLoading,
-    quoteError,
-    quoteReadyForReview,
-    quoteNeedsRefresh,
-    quoteRefreshActionActive,
-    refreshMarketQuote,
-    forceRefreshMarketQuote,
-    paymentTokenPrice,
-    swapNativeTokenReserveGas,
-    isWrapped,
-    estimateMarketPresetNetworkFees,
-    prepareMarketSwapReview,
-    rebuildMarketSwapReview,
-    logMarketReviewGasAccountDecision,
-    sendMarketApproveTx,
-    sendMarketSwapTx,
-    sendMarketWrappedTx,
-    sendMarketSignMessage,
-    buildMarketApproveInfos,
-  } = speedSwapActions;
-
-  const { result: mergeDeriveAssetsEnabled } = usePromiseResult(async () => {
-    if (!balanceToken?.networkId) return undefined;
-    const result = await backgroundApiProxy.serviceNetwork.getVaultSettings({
-      networkId: balanceToken.networkId,
-    });
-    return result?.mergeDeriveAssetsEnabled;
-  }, [balanceToken?.networkId]);
-
+  const currentMarketToken =
+    resolveSwapStockReviewToken({
+      stockToken: marketToken,
+      selectedTokenVariant,
+      tokenDetail,
+      underlyingSymbol: stockId,
+    }) ?? marketToken;
   const disableNativeToken =
     isOndoStockSource(tokenDetail?.stock?.source) &&
     tradeType === ESwapDirection.BUY;
@@ -472,7 +418,7 @@ function SwapPanelWrapContent({
   );
 
   const filterDefaultTokens = useMemo(() => {
-    if (compatibleDefaultTokens.length === 1) {
+    if (isStockRoute && compatibleDefaultTokens.length === 1) {
       return [...compatibleDefaultTokens];
     }
 
@@ -487,34 +433,154 @@ function SwapPanelWrapContent({
           token2: currentMarketTokenForFilter,
         }),
     );
-  }, [compatibleDefaultTokens, currentMarketTokenForFilter]);
+  }, [compatibleDefaultTokens, currentMarketTokenForFilter, isStockRoute]);
 
   // --- Token preference persistence (simpledb) ---
-  const { result: savedPreference, isLoading: savedPreferenceLoading } =
+  const { result: savedPreferenceState, isLoading: savedPreferenceLoading } =
     usePromiseResult(
       async () => {
         const effectiveNetworkId = networkId || '';
         if (!effectiveNetworkId) return undefined;
-        return backgroundApiProxy.simpleDb.marketTokenPreference.getPreference({
-          networkId: effectiveNetworkId,
-        });
+        const preference =
+          await backgroundApiProxy.simpleDb.marketTokenPreference
+            .getPreference({ networkId: effectiveNetworkId })
+            // A missing preference must still allow the default payment token.
+            .catch(() => undefined);
+        return { networkId: effectiveNetworkId, preference };
       },
       [networkId],
       { revalidateOnFocus: true, watchLoading: true },
     );
 
-  const findPreferredToken = useCallback(
-    (tokens: IToken[]): IToken | undefined => {
-      if (!savedPreference || tokens.length === 0) return undefined;
-      return tokens.find((token) =>
-        equalTokenNoCaseSensitive({
-          token1: token,
-          token2: savedPreference,
-        }),
-      );
-    },
-    [savedPreference],
+  const savedPreference = savedPreferenceState?.preference;
+  const paymentTokenCandidates = useMemo(
+    () =>
+      disableNativeToken
+        ? filterDefaultTokens.filter((token) => !token.isNative)
+        : filterDefaultTokens,
+    [disableNativeToken, filterDefaultTokens],
   );
+  const paymentTokenPreferenceReady =
+    savedPreferenceLoading === false &&
+    savedPreferenceState?.networkId === networkId;
+  const paymentTokenDisplay = useMemo(
+    () =>
+      resolveMarketPaymentTokenDisplay({
+        candidates: paymentTokenCandidates,
+        paymentToken,
+        preference: savedPreference,
+        preferenceReady: paymentTokenPreferenceReady,
+      }),
+    [
+      paymentToken,
+      paymentTokenCandidates,
+      paymentTokenPreferenceReady,
+      savedPreference,
+    ],
+  );
+  // Keep the form visible while identity is ready, but never quote or review
+  // with unresolved precision. Stock also waits for the selected variant and
+  // the saved payment token before executing.
+  const decimalsReady = isMarketTokenDecimalsReady(tokenDetail);
+  const executionReady = stockDetailDesktopLayout
+    ? Boolean(
+        isReady &&
+        selectedVariantMatchesTokenDetail &&
+        decimalsReady &&
+        speedConfigReady &&
+        paymentTokenPreferenceReady &&
+        paymentToken &&
+        paymentTokenCandidates.some((token) =>
+          equalTokenNoCaseSensitive({ token1: token, token2: paymentToken }),
+        ),
+      )
+    : Boolean(
+        decimalsReady &&
+        (isStockRoute || speedConfigReady) &&
+        paymentToken &&
+        paymentTokenCandidates.some((candidate) =>
+          equalTokenNoCaseSensitive({
+            token1: candidate,
+            token2: paymentToken,
+          }),
+        ),
+      );
+  const currentFromTokenAmount =
+    tradeType === ESwapDirection.BUY
+      ? paymentAmount.toFixed()
+      : sellAmount.toFixed();
+  const useSpeedSwapActionsParams = {
+    executionReady,
+    slippageItem: {
+      key: effectiveSlippageMode,
+      value: effectiveSlippage,
+    },
+    // Market status never gates quoting. A live open-state flip only refreshes
+    // the current provider quote so a server-reported closed error can recover.
+    stockIsOpen: tokenDetail?.stock?.isOpen,
+    marketToken: currentMarketToken,
+    tradeToken: {
+      networkId: paymentToken?.networkId || '',
+      contractAddress: paymentToken?.contractAddress || '',
+      symbol: paymentToken?.symbol || '',
+      decimals: paymentToken?.decimals || 0,
+      logoURI: paymentToken?.logoURI || '',
+      price: paymentToken?.price || '',
+      currency: paymentToken?.currency,
+      isNative: paymentToken?.isNative || false,
+    },
+    tradeType: tradeType || ESwapDirection.BUY,
+    swapType: isStockRoute ? ESwapTabSwitchType.STOCK : ESwapTabSwitchType.SWAP,
+    fromTokenAmount: currentFromTokenAmount,
+    antiMEV: Array.isArray(swapMevNetConfig)
+      ? swapMevNetConfig.includes(swapPanel.networkId ?? '')
+      : false,
+    isCustomRpcUnavailable,
+    isReviewDialogOpen,
+    onCloseReviewDialog: closeReviewDialog,
+  };
+
+  const speedSwapActions = useSpeedSwapActions(useSpeedSwapActionsParams);
+
+  const {
+    speedSwapBuildTxLoading,
+    swapApprovingMatchLoading,
+    checkTokenAllowanceLoading,
+    balance,
+    balanceToken,
+    fetchBalanceLoading,
+    priceRate,
+    stockQuoteDisplay,
+    quoteResult,
+    quoteList,
+    quoteActionLoading,
+    quoteError,
+    quoteReadyForReview,
+    quoteNeedsRefresh,
+    quoteRefreshActionActive,
+    refreshMarketQuote,
+    forceRefreshMarketQuote,
+    paymentTokenPrice,
+    swapNativeTokenReserveGas,
+    isWrapped,
+    estimateMarketPresetNetworkFees,
+    prepareMarketSwapReview,
+    rebuildMarketSwapReview,
+    logMarketReviewGasAccountDecision,
+    sendMarketApproveTx,
+    sendMarketSwapTx,
+    sendMarketWrappedTx,
+    sendMarketSignMessage,
+    buildMarketApproveInfos,
+  } = speedSwapActions;
+
+  const { result: mergeDeriveAssetsEnabled } = usePromiseResult(async () => {
+    if (!balanceToken?.networkId) return undefined;
+    const result = await backgroundApiProxy.serviceNetwork.getVaultSettings({
+      networkId: balanceToken.networkId,
+    });
+    return result?.mergeDeriveAssetsEnabled;
+  }, [balanceToken?.networkId]);
 
   const saveTokenPreference = useCallback(
     (token: IToken) => {
@@ -546,44 +612,31 @@ function SwapPanelWrapContent({
   // Initialize paymentToken: prefer saved preference, fallback to first default
   // Exclude native tokens when the current BUY flow requires it
   useEffect(() => {
-    const candidates = disableNativeToken
-      ? filterDefaultTokens.filter((t) => !t.isNative)
-      : filterDefaultTokens;
-
-    if (savedPreferenceLoading !== false) {
+    if (!paymentTokenPreferenceReady) {
       return;
     }
-
-    if (candidates.length > 0 && !paymentToken?.networkId) {
-      const preferred = findPreferredToken(candidates);
-      setPaymentToken(preferred || candidates[0]);
-      return;
-    }
-    // Stock BUY mode: auto-switch away from native token
-    if (disableNativeToken && paymentToken?.isNative && candidates.length > 0) {
-      setPaymentToken(candidates[0]);
+    if (!paymentTokenDisplay) {
+      if (!isStockRoute && speedConfigReady && paymentToken) {
+        setPaymentToken(undefined);
+      }
       return;
     }
     if (
-      candidates.length > 0 &&
-      candidates.every(
-        (token) =>
-          token.networkId !== paymentToken?.networkId ||
-          token.contractAddress !== paymentToken?.contractAddress,
-      )
+      !paymentToken ||
+      !equalTokenNoCaseSensitive({
+        token1: paymentToken,
+        token2: paymentTokenDisplay,
+      })
     ) {
-      const preferred = findPreferredToken(candidates);
-      setPaymentToken(preferred || candidates[0]);
+      setPaymentToken(paymentTokenDisplay);
     }
   }, [
-    disableNativeToken,
-    paymentToken?.networkId,
-    paymentToken?.contractAddress,
-    paymentToken?.isNative,
+    isStockRoute,
+    speedConfigReady,
+    paymentToken,
+    paymentTokenDisplay,
+    paymentTokenPreferenceReady,
     setPaymentToken,
-    filterDefaultTokens,
-    findPreferredToken,
-    savedPreferenceLoading,
   ]);
 
   useEffect(() => {
@@ -693,7 +746,12 @@ function SwapPanelWrapContent({
 
   const openReviewDialog = useCallback(
     async (isWrap?: boolean) => {
-      if (isActionLoading || isReviewOpening || marketPresetLoading) {
+      if (
+        !executionReady ||
+        isActionLoading ||
+        isReviewOpening ||
+        marketPresetLoading
+      ) {
         return;
       }
       if (!isWrap && !quoteReadyForReview) {
@@ -703,6 +761,7 @@ function SwapPanelWrapContent({
         return;
       }
 
+      const reviewAnalytics = createSwapReviewAnalytics();
       const requestId = reviewDialogRequestIdRef.current + 1;
       reviewDialogRequestIdRef.current = requestId;
       setIsReviewOpening(true);
@@ -714,6 +773,7 @@ function SwapPanelWrapContent({
 
       try {
         const nextReviewState = await prepareMarketSwapReview({
+          reviewAnalytics,
           isWrap,
           networkFeeLevel: effectiveNetworkFeeLevel,
           customPriorityFee: effectiveCustomPriorityFee,
@@ -723,9 +783,11 @@ function SwapPanelWrapContent({
         }
         const previousDialog = reviewDialogRef.current;
         if (previousDialog) {
+          reviewAnalyticsRef.current?.close('reviewChanged');
           reviewDialogRef.current = null;
           void previousDialog.close();
         }
+        reviewAnalyticsRef.current = reviewAnalytics;
         setIsReviewDialogOpen(true);
         const gasAccountReviewSession = createGasAccountReviewSession();
         let dialog: IDialogInstance | null = null;
@@ -737,6 +799,7 @@ function SwapPanelWrapContent({
           showCancelButton: false,
           showConfirmButton: false,
           onClose: () => {
+            reviewAnalytics.close('user');
             if (reviewDialogRef.current !== dialog) {
               return;
             }
@@ -746,6 +809,7 @@ function SwapPanelWrapContent({
           },
           renderContent: (
             <MarketSwapReviewDialog
+              reviewAnalytics={reviewAnalytics}
               adapter={reviewAdapter}
               disableSaveSlippageForFutureOrders={
                 marketPresetEnabled &&
@@ -789,6 +853,7 @@ function SwapPanelWrapContent({
       }
     },
     [
+      executionReady,
       inPageDialog,
       intl,
       isActionLoading,
@@ -860,34 +925,6 @@ function SwapPanelWrapContent({
     speedSwapInitLoading,
   ]);
 
-  useEffect(() => {
-    if (
-      stockDetailDesktopLayout &&
-      !isActionLoading &&
-      isReady &&
-      speedConfigReady &&
-      !speedSwapInitLoading &&
-      originalSupportSpeedSwap !== undefined &&
-      savedPreferenceLoading === false &&
-      currentMarketTokenKey &&
-      selectedTokenVariant &&
-      paymentToken?.networkId
-    ) {
-      setReadyStockTokenKey(currentMarketTokenKey);
-    }
-  }, [
-    currentMarketTokenKey,
-    isActionLoading,
-    isReady,
-    originalSupportSpeedSwap,
-    paymentToken?.networkId,
-    savedPreferenceLoading,
-    selectedTokenVariant,
-    speedConfigReady,
-    speedSwapInitLoading,
-    stockDetailDesktopLayout,
-  ]);
-
   // Override setPaymentToken so user-initiated changes are persisted
   const swapPanelWithPreference = useMemo(
     () => ({
@@ -903,20 +940,41 @@ function SwapPanelWrapContent({
       enableAddressTypeSelector={!!mergeDeriveAssetsEnabled}
       currentMarketToken={currentMarketToken}
       onCloseDialog={onCloseDialog}
-      priceRate={priceRate}
-      stockQuoteDisplay={stockQuoteDisplay}
-      stockTokenToAssetRatio={stockTokenToAssetRatio}
-      stockUnderlyingSymbol={stockId}
+      priceRate={executionReady ? priceRate : undefined}
+      stockQuoteDisplay={executionReady ? stockQuoteDisplay : undefined}
+      stockTokenToAssetRatio={currentMarketToken.stock?.tokenToAssetRatio}
+      stockUnderlyingSymbol={currentMarketToken.stock?.underlyingAssetTicker}
       swapMevNetConfig={swapMevNetConfig}
       swapNativeTokenReserveGas={swapNativeTokenReserveGas}
       swapPanel={swapPanelWithPreference}
-      balance={balance}
+      balance={
+        (stockDetailDesktopLayout || isStockRoute) && !executionReady
+          ? undefined
+          : balance
+      }
       balanceToken={balanceToken as IToken}
-      balanceLoading={fetchBalanceLoading}
-      paymentTokenPrice={paymentTokenPrice}
+      balanceLoading={
+        (stockDetailDesktopLayout || isStockRoute
+          ? !executionReady
+          : !decimalsReady) || fetchBalanceLoading
+      }
+      paymentTokenPrice={executionReady ? paymentTokenPrice : undefined}
+      paymentTokenDisplay={paymentTokenDisplay}
+      paymentTokenDisplayLoading={
+        (Boolean(stockDetailDesktopLayout) && !paymentTokenDisplay) ||
+        (!isStockRoute &&
+          !paymentTokenDisplay &&
+          !paymentToken &&
+          (!speedConfigReady || !paymentTokenPreferenceReady))
+      }
       isLoading={isActionLoading || isReviewOpening}
-      quoteLoading={quoteActionLoading}
+      quoteLoading={
+        (stockDetailDesktopLayout || isStockRoute
+          ? !executionReady
+          : !decimalsReady || !speedConfigReady) || quoteActionLoading
+      }
       isActionDisabled={
+        !executionReady ||
         (isStockRoute && !selectedVariantTradable) ||
         (selectedTokenVariant && !selectedVariantMatchesTokenDetail) ||
         marketPresetLoading ||
@@ -926,7 +984,7 @@ function SwapPanelWrapContent({
       onRefreshQuote={refreshMarketQuote}
       onForceRefreshQuote={forceRefreshMarketQuote}
       hasInitialReady={
-        stockDetailDesktopLayout ? isCurrentStockTokenReady : hasInitialReady
+        stockDetailDesktopLayout ? executionReady : hasInitialReady
       }
       onSwap={handleSwap}
       onOpenRecipientAddress={handleOpenRecipientAddress}
@@ -938,10 +996,10 @@ function SwapPanelWrapContent({
       defaultTokens={filterDefaultTokens}
       onWrappedSwap={handleWrappedSwap}
       isWrapped={isWrapped}
-      quoteResult={quoteResult}
+      quoteResult={executionReady ? quoteResult : undefined}
       quoteListLength={quoteList.length}
       onOpenProviderList={handleOpenProviderList}
-      quoteError={quoteError}
+      quoteError={executionReady ? quoteError : undefined}
       disableNativeToken={disableNativeToken}
       marketPresetSettings={
         stockDetailDesktopLayout ? undefined : marketPresetSettings
@@ -949,6 +1007,7 @@ function SwapPanelWrapContent({
       estimatePriorityFeeFiatValues={estimatePriorityFeeFiatValues}
       stockDetailDesktopLayout={stockDetailDesktopLayout}
       portfolioData={portfolioData}
+      resolvedVariantKeys={resolvedVariantKeys}
     />
   );
 }

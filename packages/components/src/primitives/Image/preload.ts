@@ -4,6 +4,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { buildTosImageResizeUrl } from '@onekeyhq/shared/src/utils/tosImageResizeUtils';
 
 import { hasCustomSourceIdentity } from './optimization';
+import { markPreloadedImageUri } from './preloadedImageUris';
 
 import type {
   IPreloadImageFunc,
@@ -58,7 +59,13 @@ export const preloadImages: IPreloadImagesFunc = async (sources, options) => {
   const results = await Promise.all(
     uris.map((uri) =>
       Image.prefetch(uri).then(
-        (result) => result !== false,
+        (result) => {
+          if (result === false) {
+            return false;
+          }
+          markPreloadedImageUri(uri);
+          return true;
+        },
         () => false,
       ),
     ),

@@ -1,8 +1,17 @@
-import type { IModalFlowNavigatorConfig } from '@onekeyhq/components';
+import {
+  type IModalFlowNavigatorConfig,
+  getTokenValue,
+} from '@onekeyhq/components';
 import { LazyLoadPage } from '@onekeyhq/kit/src/components/LazyLoadPage';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import type { IOnboardingParamListV2 } from '@onekeyhq/shared/src/routes';
-import { EOnboardingPagesV2 } from '@onekeyhq/shared/src/routes';
+import {
+  EOnboardingPagesV2,
+  type IOnboardingParamListV2,
+} from '@onekeyhq/shared/src/routes';
+import {
+  EPrimeGiftPages,
+  type IPrimeGiftParamList,
+} from '@onekeyhq/shared/src/routes/prime';
 
 import { OnboardingPageFallback } from '../components/Layout';
 import { OnboardingLayoutFallback } from '../components/OnboardingLayout';
@@ -86,6 +95,12 @@ const ConnectYourDevice = LazyLoadPage(
 );
 const ConnectQRCode = LazyLoadPage(
   () => import('../pages/ConnectQRCode'),
+  undefined,
+  false,
+  pageFallback,
+);
+const ConnectKeystoneDevice = LazyLoadPage(
+  () => import('../pages/ConnectKeystoneDevice'),
   undefined,
   false,
   pageFallback,
@@ -190,6 +205,12 @@ const NewPinCreated = LazyLoadPage(
   false,
   pageFallback,
 );
+const PrimeGift = LazyLoadPage(
+  () => import('../../Prime/pages/PrimeGift'),
+  undefined,
+  false,
+  pageFallback,
+);
 
 const hiddenHeaderOptions = {
   headerShown: false,
@@ -200,7 +221,7 @@ const hiddenHeaderOptions = {
 const nativeHeaderOptions = {
   headerShown: platformEnv.isNativeIOS26Plus,
 };
-export const OnboardingRouterV2: IModalFlowNavigatorConfig<
+const onboardingScreensV2: IModalFlowNavigatorConfig<
   EOnboardingPagesV2,
   IOnboardingParamListV2
 >[] = [
@@ -240,6 +261,11 @@ export const OnboardingRouterV2: IModalFlowNavigatorConfig<
   {
     name: EOnboardingPagesV2.ConnectQRCode,
     component: ConnectQRCode,
+    options: hiddenHeaderOptions,
+  },
+  {
+    name: EOnboardingPagesV2.ConnectKeystoneDevice,
+    component: ConnectKeystoneDevice,
     options: hiddenHeaderOptions,
   },
   {
@@ -362,3 +388,29 @@ export const OnboardingRouterV2: IModalFlowNavigatorConfig<
       ? hiddenHeaderOptions
       : nativeHeaderOptions,
 }));
+
+// Android Claim Prime stays on this dark onboarding stack so the first
+// native frame and the close/pop keep the existing dark contentStyle and
+// focused system-bar pin. iOS/web and device-details keep PrimeGiftModal.
+const androidOnboardingPrimeGiftScreen: IModalFlowNavigatorConfig<
+  EPrimeGiftPages,
+  IPrimeGiftParamList
+>[] = platformEnv.isNativeAndroid
+  ? [
+      {
+        name: EPrimeGiftPages.PrimeGift,
+        component: PrimeGift,
+        options: {
+          headerShown: false,
+          contentStyle: {
+            backgroundColor: getTokenValue('$bgAppDark', 'color') as string,
+          },
+        },
+      },
+    ]
+  : [];
+
+export const OnboardingRouterV2: IModalFlowNavigatorConfig<
+  EOnboardingPagesV2 | EPrimeGiftPages,
+  IOnboardingParamListV2 & IPrimeGiftParamList
+>[] = [...onboardingScreensV2, ...androidOnboardingPrimeGiftScreen];

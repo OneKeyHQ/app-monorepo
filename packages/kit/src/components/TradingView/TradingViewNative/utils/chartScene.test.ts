@@ -2,6 +2,7 @@ import type { IMarketTokenKLineDataPoint } from '@onekeyhq/shared/types/marketV2
 import { createTradingViewNativeChartSettings } from '@onekeyhq/shared/types/tradingViewNative';
 
 import {
+  TRADING_VIEW_NATIVE_CANDLE_BODY_WIDTH,
   TRADING_VIEW_NATIVE_CHART_DOWN_COLOR,
   TRADING_VIEW_NATIVE_CHART_UP_COLOR,
   TRADING_VIEW_NATIVE_MAX_ZOOM_SCALE,
@@ -10,10 +11,22 @@ import {
 
 import { buildTradingViewNativeIndicatorSeries } from './chartIndicators';
 import {
+  formatTradingViewNativeCrosshairTime,
+  getTradingViewNativeChartWidth,
+  getTradingViewNativePriceY,
+} from './chartLayout';
+import {
   buildTradingViewNativeChartScene,
   getTradingViewNativeChartScenePaintStyles,
 } from './chartScene';
-import { createTradingViewNativeSubIndicatorRenderSnapshots } from './subIndicatorRender';
+import {
+  getTradingViewNativeCandleX,
+  getTradingViewNativeVisiblePointRange,
+} from './chartViewport';
+import {
+  createTradingViewNativeSubIndicatorRenderSnapshot,
+  createTradingViewNativeSubIndicatorRenderSnapshots,
+} from './subIndicatorRender';
 
 const POINTS: IMarketTokenKLineDataPoint[] = [
   { c: 101, h: 103, l: 98, o: 100, t: 1_700_000_000, v: 10 },
@@ -40,6 +53,133 @@ function buildLinearPoints(count: number): IMarketTokenKLineDataPoint[] {
 }
 
 describe('TradingViewNative shared chart scene', () => {
+  it.each([
+    { offset: 0, zoomScale: 1, width: 840 },
+    { offset: 57, zoomScale: 1.25, width: 840 },
+    { offset: 0, zoomScale: 1, width: 840.5 },
+    { offset: 57, zoomScale: 1.25, width: 840.5 },
+  ])(
+    'extends the left edge without moving existing candles (%p)',
+    ({ width, ...viewport }) => {
+      const toolbarWidth = 48;
+      const priceAxisWidth = 60;
+      const referenceWidth = getTradingViewNativeChartWidth(
+        width,
+        priceAxisWidth,
+      );
+      const points = buildLinearPoints(200);
+      const state = {
+        ...viewport,
+        initialRightOffset: {
+          type: 'chartWidthPercentage' as const,
+          value: 5,
+          referenceWidth,
+        },
+      };
+      const autoScalePointRange = getTradingViewNativeVisiblePointRange({
+        ...state,
+        chartWidth: referenceWidth,
+        pointCount: points.length,
+      });
+      // An extreme in the newly revealed area must not move existing candles.
+      points[autoScalePointRange.startIndex] = {
+        ...points[autoScalePointRange.startIndex],
+        h: 1000,
+        v: 10_000,
+      };
+      const buildScene = (canvasWidth: number) =>
+        buildTradingViewNativeChartScene({
+          autoScalePointRange,
+          candleIntervalSeconds: 3600,
+          candleLabels: CANDLE_LABELS,
+          chartSettings: createTradingViewNativeChartSettings(),
+          chartType: 'candlestick',
+          crosshair: { visible: false, x: 0, y: 0 },
+          hasVolume: true,
+          height: 400,
+          measureTextWidth: (text) => text.length * 6,
+          points,
+          priceAxisWidth,
+          viewport: state,
+          watermarkOpacity: 0.16,
+          width: canvasWidth,
+        });
+      const narrow = buildScene(width - toolbarWidth);
+      const wide = buildScene(width);
+      expect(wide.visiblePointRange.startIndex).toBeLessThan(
+        narrow.visiblePointRange.startIndex,
+      );
+      expect(wide.visiblePointRange.endIndex).toBe(
+        narrow.visiblePointRange.endIndex,
+      );
+      expect(narrow.autoPriceRange).toEqual(wide.autoPriceRange);
+      expect(narrow.autoPriceRange?.maxPrice).toBe(1000);
+      expect(narrow.layout?.maxVolume).toBe(wide.layout?.maxVolume);
+      expect(narrow.viewport).toEqual(wide.viewport);
+      const candleBodies = (scene: ReturnType<typeof buildScene>) =>
+        scene.commands.flatMap((command) =>
+          command.kind === 'rect' &&
+          command.customPaintId?.startsWith('chart.candle.body.')
+            ? [command]
+            : [],
+        );
+      const existingWideBodies = candleBodies(wide).slice(
+        narrow.visiblePointRange.startIndex - wide.visiblePointRange.startIndex,
+      );
+      const narrowBodies = candleBodies(narrow);
+      expect(narrowBodies.length).toBeGreaterThan(0);
+      expect(existingWideBodies).toHaveLength(narrowBodies.length);
+      narrowBodies.forEach((body, index) => {
+        expect(body.x + toolbarWidth).toBeCloseTo(existingWideBodies[index].x);
+        expect(body.y).toBe(existingWideBodies[index].y);
+        expect(body.width).toBe(existingWideBodies[index].width);
+        expect(body.height).toBe(existingWideBodies[index].height);
+      });
+    },
+  );
+
+  it.each(['linear', 'logarithmic'] as const)(
+    'keeps a pinned crosshair at its price when the %s range changes',
+    (priceScaleMode) => {
+      const lines = [
+        { minPrice: 90, maxPrice: 110 },
+        { minPrice: 90, maxPrice: 130 },
+        { minPrice: 110, maxPrice: 140 },
+      ].map((pinnedPriceRange) => {
+        const scene = buildTradingViewNativeChartScene({
+          candleIntervalSeconds: 3600,
+          chartType: 'candlestick',
+          crosshair: { visible: true, x: 120, y: 17, price: 101 },
+          hasVolume: false,
+          height: 240,
+          measureTextWidth: (text) => text.length * 6,
+          candleLabels: CANDLE_LABELS,
+          points: POINTS,
+          pinnedPriceRange,
+          priceScaleMode,
+          viewport: { offset: 0, zoomScale: 1 },
+          watermarkOpacity: 0.16,
+          width: 320,
+        });
+        const horizontalLine = scene.commands.find(
+          (command) =>
+            command.kind === 'line' &&
+            command.paint === 'crosshairLine' &&
+            command.y1 === command.y2,
+        );
+        if (pinnedPriceRange.minPrice > 101) {
+          expect(horizontalLine).toBeUndefined();
+        } else {
+          expect(horizontalLine).toMatchObject({
+            y1: getTradingViewNativePriceY(101, scene.layout!),
+          });
+        }
+        return horizontalLine;
+      });
+      expect(lines[0]).not.toEqual(lines[1]);
+    },
+  );
+
   it('describes the complete chart without a Canvas or Skia dependency', () => {
     const scene = buildTradingViewNativeChartScene({
       candleIntervalSeconds: 3600,
@@ -109,6 +249,7 @@ describe('TradingViewNative shared chart scene', () => {
     const priceAxisTextX = scene.commands.flatMap((command) =>
       command.kind === 'text' &&
       command.font === 'priceAxis' &&
+      command.paint === 'axisText' &&
       command.x >= priceAxisX
         ? [command.x]
         : [],
@@ -146,7 +287,7 @@ describe('TradingViewNative shared chart scene', () => {
     ]);
   });
 
-  it('positions the watermark at the bottom-left of the main chart', () => {
+  it('centers the watermark within the main chart excluding the price axis and sub-panes', () => {
     const height = 360;
     const timeAxisHeight = 20;
     const width = 320;
@@ -156,9 +297,11 @@ describe('TradingViewNative shared chart scene', () => {
       crosshair: { visible: false, x: 0, y: 0 },
       hasVolume: false,
       height,
+      isMobileLayout: true,
       measureTextWidth: (text) => text.length * 6,
       candleLabels: CANDLE_LABELS,
       points: POINTS,
+      priceAxisWidth: 64,
       subIndicatorPanes: createTradingViewNativeSubIndicatorRenderSnapshots({
         configs: [{ id: 'RSI', indicator: 'RSI' }],
         points: POINTS,
@@ -181,10 +324,11 @@ describe('TradingViewNative shared chart scene', () => {
     expect(paneTopBorder).toBeDefined();
     expect(watermark).toMatchObject({
       kind: 'watermark',
-      rect: { width: 48, x: 8 },
+      rect: { width: 61.952, x: 97.024 },
     });
     if (watermark?.kind === 'watermark') {
-      expect(watermark.rect.y + watermark.rect.height).toBeCloseTo(276);
+      expect(watermark.rect.x + watermark.rect.width / 2).toBeCloseTo(128);
+      expect(watermark.rect.y + watermark.rect.height / 2).toBeCloseTo(142);
     }
   });
 
@@ -412,6 +556,66 @@ describe('TradingViewNative shared chart scene', () => {
         'indicatorSarPoint',
       ]),
     );
+    const mainIndicatorLegendLabels = scene.commands.flatMap((command) =>
+      command.kind === 'text' &&
+      command.font === 'legend' &&
+      /^(?:MA|EMA)\d+$/.test(command.text)
+        ? [command]
+        : [],
+    );
+    expect(mainIndicatorLegendLabels.map(({ text }) => text)).toEqual([
+      'MA5',
+      'MA10',
+      'MA20',
+      'EMA5',
+      'EMA10',
+      'EMA20',
+    ]);
+    expect(
+      mainIndicatorLegendLabels.every((command) =>
+        command.customPaintId?.endsWith(':legend'),
+      ),
+    ).toBe(true);
+    const maLegendYValues = [
+      ...new Set(
+        mainIndicatorLegendLabels
+          .filter(({ text }) => text.startsWith('MA'))
+          .map(({ y }) => y),
+      ),
+    ];
+    const emaLegendYValues = [
+      ...new Set(
+        mainIndicatorLegendLabels
+          .filter(({ text }) => text.startsWith('EMA'))
+          .map(({ y }) => y),
+      ),
+    ];
+    expect(maLegendYValues).toHaveLength(1);
+    expect(emaLegendYValues).toHaveLength(1);
+    const [maLegendY] = maLegendYValues;
+    const [emaLegendY] = emaLegendYValues;
+    if (maLegendY !== undefined && emaLegendY !== undefined) {
+      const priceLegendYValues = scene.commands.flatMap((command) =>
+        command.kind === 'text' &&
+        command.font === 'legend' &&
+        ['O', 'H', 'L', 'C'].includes(command.text)
+          ? [command.y]
+          : [],
+      );
+      expect(priceLegendYValues.length).toBeGreaterThan(0);
+      expect(maLegendY).toBeGreaterThan(Math.max(...priceLegendYValues));
+      expect(emaLegendY).toBeGreaterThan(maLegendY);
+    }
+    const bollFillIndex = scene.commands.findIndex(
+      (command) =>
+        command.kind === 'polygon' &&
+        command.customPaintId === 'chart.mainIndicator.BOLL.boll-upper:fill',
+    );
+    const firstCandleIndex = scene.commands.findIndex(
+      (command) => command.kind === 'rect' && command.paint === 'up',
+    );
+    expect(bollFillIndex).toBeGreaterThan(-1);
+    expect(bollFillIndex).toBeLessThan(firstCandleIndex);
     expect(priceAxisText).toContain('-50.00');
     expect(Math.max(...priceAxisText.map(Number))).toBeGreaterThan(101);
   });
@@ -465,6 +669,78 @@ describe('TradingViewNative shared chart scene', () => {
           'customPaintId' in command && command.customPaintId === customPaintId,
       ),
     ).toBe(true);
+  });
+
+  it('renders the BOLL fill without hidden boundary strokes', () => {
+    const points = buildLinearPoints(25);
+    const indicatorSeries = buildTradingViewNativeIndicatorSeries({
+      activeIndicatorValues: new Set(['BOLL']),
+      indicatorSettings: {
+        BOLL: {
+          active: true,
+          id: 'BOLL',
+          lines: {
+            background: {
+              color: '#FFAA00',
+              enabled: true,
+              period: 0,
+              style: 'solid',
+            },
+            lower: {
+              color: '#FFAA00',
+              enabled: false,
+              period: 0,
+              style: 'solid',
+            },
+            middle: {
+              color: '#FFAA00',
+              enabled: false,
+              period: 0,
+              style: 'solid',
+            },
+            upper: {
+              color: '#FFAA00',
+              enabled: false,
+              period: 0,
+              style: 'solid',
+            },
+          },
+          parameters: { deviation: 2, period: 20 },
+          transparency: 0,
+        },
+      },
+      points,
+    });
+    const scene = buildTradingViewNativeChartScene({
+      candleIntervalSeconds: 3600,
+      chartType: 'candlestick',
+      crosshair: { visible: false, x: 0, y: 0 },
+      hasVolume: false,
+      height: 240,
+      indicatorSeries,
+      measureTextWidth: (text) => text.length * 6,
+      candleLabels: CANDLE_LABELS,
+      points,
+      viewport: { offset: 0, zoomScale: 1 },
+      watermarkOpacity: 0.16,
+      width: 320,
+    });
+
+    expect(
+      scene.commands.some(
+        (command) =>
+          command.kind === 'polygon' &&
+          command.customPaintId === 'chart.mainIndicator.BOLL.boll-upper:fill',
+      ),
+    ).toBe(true);
+    expect(
+      scene.commands.some(
+        (command) =>
+          command.kind === 'polyline' &&
+          (command.customPaintId === 'chart.mainIndicator.BOLL.boll-upper' ||
+            command.customPaintId === 'chart.mainIndicator.BOLL.boll-lower'),
+      ),
+    ).toBe(false);
   });
 
   it('uses the previous close for the selected bar change', () => {
@@ -893,6 +1169,123 @@ describe('TradingViewNative shared chart scene', () => {
     );
   });
 
+  it.each([80, 120])(
+    'fits floating price labels to text within a %s-wide axis',
+    (priceAxisWidth) => {
+      const width = 320;
+      const scene = buildTradingViewNativeChartScene({
+        candleIntervalSeconds: 3600,
+        candleLabels: CANDLE_LABELS,
+        chartType: 'candlestick',
+        crosshair: { visible: true, x: width - priceAxisWidth - 10, y: 80 },
+        hasVolume: false,
+        height: 360,
+        measureTextWidth: (text) => text.length * 6,
+        points: POINTS,
+        priceAxisWidth,
+        viewport: { offset: 0, zoomScale: 1 },
+        watermarkOpacity: 0,
+        width,
+      });
+      expect(scene.priceAxisWidth).toBe(priceAxisWidth);
+
+      for (const paint of ['currentPriceLabelText', 'crosshairLabelText']) {
+        const labelIndex = scene.commands.findIndex(
+          (command) =>
+            command.kind === 'text' &&
+            command.font === 'priceAxis' &&
+            command.paint === paint,
+        );
+        const label = scene.commands[labelIndex];
+        const background = scene.commands[labelIndex - 1];
+        expect(label?.kind).toBe('text');
+        expect(background?.kind).toBe('rect');
+        if (label?.kind !== 'text' || background?.kind !== 'rect') {
+          return;
+        }
+        const leftPadding = label.x - background.x;
+        const rightPadding =
+          background.x + background.width - (label.x + label.text.length * 6);
+        expect(background.x).toBe(width - priceAxisWidth);
+        expect(background.width).toBeLessThan(priceAxisWidth);
+        expect(leftPadding).toBe(8);
+        expect(rightPadding).toBe(8);
+      }
+    },
+  );
+
+  it.each(['volume', 'inherit'] as const)(
+    'fits long %s crosshair values without widening the indicator axis',
+    (type) => {
+      const { pane } = createTradingViewNativeSubIndicatorRenderSnapshot({
+        config: { id: 'obv', indicator: 'OBV' },
+        points: POINTS,
+      });
+      pane.format = { type };
+      pane.scale = { kind: 'fixed', maxValue: 1e-9, minValue: -1e-9 };
+      const options = {
+        candleIntervalSeconds: 3600,
+        candleLabels: CANDLE_LABELS,
+        chartType: 'candlestick' as const,
+        hasVolume: false,
+        height: 360,
+        measureTextWidth: (text: string) => text.length * 6,
+        points: POINTS,
+        subIndicatorPanes: [pane],
+        viewport: { offset: 0, zoomScale: 1 },
+        watermarkOpacity: 0,
+        width: 320,
+      };
+      const baseline = buildTradingViewNativeChartScene({
+        ...options,
+        crosshair: { visible: false, x: 260, y: 310 },
+      });
+
+      for (const y of [308, 310]) {
+        const scene = buildTradingViewNativeChartScene({
+          ...options,
+          crosshair: {
+            visible: true,
+            x: options.width - baseline.priceAxisWidth - 10,
+            y,
+          },
+        });
+        const label = scene.commands.find(
+          (command) =>
+            command.kind === 'text' &&
+            command.font === 'priceAxis' &&
+            command.paint === 'crosshairLabelText',
+        );
+        const background = scene.commands.find(
+          (command) =>
+            command.kind === 'rect' &&
+            command.paint === 'crosshairLabelBackground',
+        );
+        expect(label).toBeDefined();
+        expect(background).toBeDefined();
+        if (label?.kind !== 'text' || background?.kind !== 'rect') {
+          return;
+        }
+        expect(scene.priceAxisWidth).toBe(baseline.priceAxisWidth);
+        expect(label.x).toBeGreaterThan(background.x);
+        expect(label.x + options.measureTextWidth(label.text)).toBeLessThan(
+          background.x + background.width,
+        );
+        expect(background.x + background.width).toBeLessThanOrEqual(
+          options.width,
+        );
+        const axisLeft = options.width - scene.priceAxisWidth;
+        if (y === 310) {
+          expect(background.x).toBeLessThan(axisLeft);
+          expect(background.x + background.width).toBe(options.width);
+        } else {
+          expect(background.x).toBe(axisLeft);
+          expect(background.width).toBeLessThan(scene.priceAxisWidth);
+        }
+      }
+    },
+  );
+
   it('renders selected volume in its own pane without main-chart volume', () => {
     const points = buildLinearPoints(80).map((point, index) => ({
       ...point,
@@ -1099,4 +1492,140 @@ describe('TradingViewNative shared chart scene', () => {
     }
     expect(scene.commands[lowMarkerIndex + 1]).toEqual({ kind: 'restore' });
   });
+});
+
+describe('crosshair in empty chart space', () => {
+  it.each([
+    ['fixed', Date.UTC(2027, 2, 3)],
+    ['calendar', Date.UTC(2027, 2, 1)],
+  ] as const)(
+    'uses the %s feed boundary for empty monthly slots and trade marks',
+    (candleTimeMode, expectedTimestamp) => {
+      const options: Parameters<typeof buildTradingViewNativeChartScene>[0] = {
+        candleIntervalSeconds: 30 * 24 * 60 * 60,
+        candleTimeMode,
+        chartType: 'candlestick',
+        chartComponents: [
+          {
+            id: 'trades',
+            type: 'tradeMarks',
+            props: {
+              marks: [
+                {
+                  id: 'buy',
+                  label: 'B',
+                  text: 'Buy',
+                  time: Date.UTC(2027, 2, 2) / 1000,
+                },
+              ],
+            },
+          },
+        ],
+        crosshair: { visible: false, x: 0, y: 80 },
+        hasVolume: false,
+        height: 240,
+        measureTextWidth: (text) => text.length * 6,
+        candleLabels: CANDLE_LABELS,
+        points: [{ ...POINTS[0], t: Date.UTC(2027, 1, 1) / 1000 }],
+        viewport: { offset: -60, zoomScale: 1 },
+        watermarkOpacity: 0.16,
+        width: 320,
+      };
+      const initialScene = buildTradingViewNativeChartScene(options);
+      const anchorX = getTradingViewNativeCandleX({
+        ...options.viewport,
+        index: 0,
+        pointCount: 1,
+        priceAxisX: initialScene.layout!.priceAxisX,
+      });
+      const scene = buildTradingViewNativeChartScene({
+        ...options,
+        crosshair: { visible: true, x: anchorX + 6, y: 80 },
+      });
+      expect(scene.crosshairPointIndex).toBeNull();
+      expect(scene.commands).toContainEqual(
+        expect.objectContaining({
+          kind: 'text',
+          paint: 'crosshairLabelText',
+          text: formatTradingViewNativeCrosshairTime(
+            expectedTimestamp / 1000,
+            options.candleIntervalSeconds,
+          ),
+        }),
+      );
+      expect(
+        scene.commands.filter((command) => command.kind === 'tradeMarkLabel'),
+      ).toHaveLength(candleTimeMode === 'fixed' ? 1 : 0);
+    },
+  );
+
+  it.each([
+    [-600, 0],
+    [-600, 80],
+    [600, 80],
+    [600, 212],
+  ])(
+    'renders time and price in empty space after clamping offset %s and y %s',
+    (offset, y) => {
+      const scene = buildTradingViewNativeChartScene({
+        candleIntervalSeconds: 3600,
+        chartType: 'candlestick',
+        crosshair: { visible: true, x: 120, y },
+        hasVolume: false,
+        height: 240,
+        measureTextWidth: (text) => text.length * 6,
+        candleLabels: CANDLE_LABELS,
+        points: POINTS,
+        viewport: { offset, zoomScale: 1 },
+        watermarkOpacity: 0.16,
+        width: 320,
+      });
+      expect(scene.layout).not.toBeNull();
+      expect(scene.viewport.offset).not.toBe(offset);
+      expect(
+        scene.visiblePointRange.endIndex - scene.visiblePointRange.startIndex,
+      ).toBe(1);
+      const candleBodies = scene.commands.filter(
+        (command) =>
+          command.kind === 'rect' &&
+          (command.paint === 'up' || command.paint === 'down') &&
+          command.width ===
+            TRADING_VIEW_NATIVE_CANDLE_BODY_WIDTH * scene.viewport.zoomScale,
+      );
+      expect(candleBodies).toHaveLength(1);
+      for (const command of candleBodies) {
+        if (command.kind === 'rect') {
+          expect(command.x).toBeGreaterThanOrEqual(0);
+          expect(command.x + command.width).toBeLessThanOrEqual(
+            scene.layout!.priceAxisX,
+          );
+        }
+      }
+      expect(scene.crosshairPointIndex).toBeNull();
+      const anchorIndex = offset > 0 ? 0 : POINTS.length - 1;
+      const anchorX = getTradingViewNativeCandleX({
+        index: anchorIndex,
+        offset: scene.viewport.offset,
+        pointCount: POINTS.length,
+        priceAxisX: scene.layout!.priceAxisX,
+        zoomScale: 1,
+      });
+      expect(anchorX).toBeGreaterThan(0);
+      expect(anchorX).toBeLessThan(scene.layout!.priceAxisX);
+      const timestamp =
+        POINTS[anchorIndex].t + Math.round((120 - anchorX) / 6) * 3600;
+      const labels = scene.commands.filter(
+        (command) =>
+          command.kind === 'text' && command.paint === 'crosshairLabelText',
+      );
+      expect(labels).toHaveLength(2);
+      expect(labels).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            text: formatTradingViewNativeCrosshairTime(timestamp, 3600),
+          }),
+        ]),
+      );
+    },
+  );
 });

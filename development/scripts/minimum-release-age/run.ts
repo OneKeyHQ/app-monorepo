@@ -3,6 +3,7 @@ import * as fs from 'node:fs';
 import http from 'node:http';
 import https from 'node:https';
 import * as path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 import {
   type ICheckResult,
@@ -11,8 +12,13 @@ import {
   type IPackageRef,
   checkPackageAge,
   parseConfig,
-} from './checkPackageAge';
-import { parseFullLockfile, parseLockfileDiff } from './parseLockfileDiff';
+} from './checkPackageAge.ts';
+import { parseFullLockfile, parseLockfileDiff } from './parseLockfileDiff.ts';
+
+const currentDir =
+  typeof __dirname === 'string'
+    ? __dirname
+    : path.dirname(fileURLToPath(import.meta.url));
 
 // --- Constants ---
 
@@ -148,7 +154,7 @@ async function main() {
   const baseBranch = process.argv[3] || DEFAULT_BASE_BRANCH;
 
   // Read config from root package.json
-  const rootDir = path.resolve(__dirname, '..', '..', '..');
+  const rootDir = path.resolve(currentDir, '..', '..', '..');
   const pkgJsonPath = path.join(rootDir, 'package.json');
   const pkgJson = JSON.parse(fs.readFileSync(pkgJsonPath, 'utf-8')) as Record<
     string,

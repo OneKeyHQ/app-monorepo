@@ -33,8 +33,10 @@ jest.mock('electron-log/main', () => ({
 
 jest.mock('./libs/store', () => ({
   clearUpdateBundleData: jest.fn(),
+  getDevSettingsEnabled: jest.fn(() => false),
   getNativeVersion: jest.fn(() => '1.0.0'),
   getNativeBuildNumber: jest.fn(() => ''),
+  getSkipGPGVerification: jest.fn(() => false),
   getUpdateBundleData: jest.fn(() => null),
   setUpdateBundleData: jest.fn(),
   setNativeVersion: jest.fn(),
@@ -43,13 +45,27 @@ jest.mock('./libs/store', () => ({
   setFallbackUpdateBundleData: jest.fn(),
 }));
 
+import * as openpgp from 'openpgp';
+
 import {
+  TEST_SIGNATURE,
   calculateSHA256,
+  checkFileHash,
   checkFileSha512,
+  getBundleIndexHtmlPath,
+  getMetadata,
   lastSHA256FailureReason,
+  readMetadataFileSha256,
   testExtractedSha256FromVerifyAscFile,
+  verifyMetadataFileSha256,
   verifySha256,
 } from './bundle';
+import {
+  clearUpdateBundleData,
+  getDevSettingsEnabled,
+  getSkipGPGVerification,
+  setNativeVersion,
+} from './libs/store';
 
 // --- Helpers ---
 
@@ -204,6 +220,10 @@ describe('checkFileSha512', () => {
       cleanupTempFile(filePath);
     }
   });
+
+  test('returns false without throwing when file does not exist', () => {
+    expect(checkFileSha512('/non/existent/file.js', 'some_hash')).toBe(false);
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -214,4 +234,259 @@ describe('testExtractedSha256FromVerifyAscFile', () => {
     const result = await testExtractedSha256FromVerifyAscFile();
     expect(result).toBe(true);
   });
+
+  test('accepts matching appVersion and bundleVersion in signed PGP payload', async () => {
+    await expect(
+      readMetadataFileSha256(TEST_SIGNATURE, {
+        appVersion: '6.1.0',
+        bundleVersion: '7701116',
+      }),
+    ).resolves.toBe(
+      'bf3734ac6e59388fe23c40ce2960b6fd197c596af05dd08b3ccc8b201b78c52b',
+    );
+  });
+
+  test('rejects replayed signature with mismatched appVersion', async () => {
+    await expect(
+      readMetadataFileSha256(TEST_SIGNATURE, {
+        appVersion: '6.2.0',
+        bundleVersion: '7701116',
+      }),
+    ).rejects.toThrow('Signed metadata appVersion mismatch');
+  });
+
+  test('rejects replayed signature with mismatched bundleVersion', async () => {
+    await expect(
+      readMetadataFileSha256(TEST_SIGNATURE, {
+        appVersion: '6.1.0',
+        bundleVersion: '9999999',
+      }),
+    ).rejects.toThrow('Signed metadata bundleVersion mismatch');
+  });
+
+  test('verifyMetadataFileSha256 rejects replayed signature for different appVersion or bundleVersion', async () => {
+    await expect(
+      verifyMetadataFileSha256({
+        appVersion: '6.2.0',
+        bundleVersion: '7701116',
+        signature: TEST_SIGNATURE,
+      }),
+    ).rejects.toThrow('Signed metadata appVersion mismatch');
+
+    await expect(
+      verifyMetadataFileSha256({
+        appVersion: '6.1.0',
+        bundleVersion: '9999999',
+        signature: TEST_SIGNATURE,
+      }),
+    ).rejects.toThrow('Signed metadata bundleVersion mismatch');
+  });
+
+  test('rejects invalid or missing signed fileName, appType, appVersion, or bundleVersion when expected is provided', async () => {
+    const readSpy = jest.spyOn(openpgp, 'readCleartextMessage');
+    try {
+      readSpy.mockResolvedValueOnce({
+        verify: async () => [{ verified: Promise.resolve(true) }],
+        getText: () =>
+          JSON.stringify({
+            fileName: 'evil.json',
+            sha256:
+              'bf3734ac6e59388fe23c40ce2960b6fd197c596af05dd08b3ccc8b201b78c52b',
+            appVersion: '6.1.0',
+            bundleVersion: '7701116',
+            appType: 'electron',
+          }),
+      } as unknown as openpgp.CleartextMessage);
+      await expect(readMetadataFileSha256('signed-msg')).rejects.toThrow(
+        'Invalid signed metadata fileName',
+      );
+
+      readSpy.mockResolvedValueOnce({
+        verify: async () => [{ verified: Promise.resolve(true) }],
+        getText: () =>
+          JSON.stringify({
+            fileName: 'metadata.json',
+            sha256:
+              'bf3734ac6e59388fe23c40ce2960b6fd197c596af05dd08b3ccc8b201b78c52b',
+            appVersion: '6.1.0',
+            bundleVersion: '7701116',
+            appType: 'android',
+          }),
+      } as unknown as openpgp.CleartextMessage);
+      await expect(readMetadataFileSha256('signed-msg')).rejects.toThrow(
+        'Invalid signed metadata appType',
+      );
+
+      // Missing appVersion when expected.appVersion is provided
+      readSpy.mockResolvedValueOnce({
+        verify: async () => [{ verified: Promise.resolve(true) }],
+        getText: () =>
+          JSON.stringify({
+            fileName: 'metadata.json',
+            sha256:
+              'bf3734ac6e59388fe23c40ce2960b6fd197c596af05dd08b3ccc8b201b78c52b',
+            bundleVersion: '7701116',
+            appType: 'electron',
+          }),
+      } as unknown as openpgp.CleartextMessage);
+      await expect(
+        readMetadataFileSha256('signed-msg', {
+          appVersion: '6.1.0',
+          bundleVersion: '7701116',
+        }),
+      ).rejects.toThrow('Signed metadata appVersion mismatch');
+
+      // Missing bundleVersion when expected.bundleVersion is provided
+      readSpy.mockResolvedValueOnce({
+        verify: async () => [{ verified: Promise.resolve(true) }],
+        getText: () =>
+          JSON.stringify({
+            fileName: 'metadata.json',
+            sha256:
+              'bf3734ac6e59388fe23c40ce2960b6fd197c596af05dd08b3ccc8b201b78c52b',
+            appVersion: '6.1.0',
+            appType: 'electron',
+          }),
+      } as unknown as openpgp.CleartextMessage);
+      await expect(
+        readMetadataFileSha256('signed-msg', {
+          appVersion: '6.1.0',
+          bundleVersion: '7701116',
+        }),
+      ).rejects.toThrow('Signed metadata bundleVersion mismatch');
+    } finally {
+      readSpy.mockRestore();
+    }
+  });
 });
+
+test('checkFileHash clears update bundle data when tampered or missing file is detected', () => {
+  jest.mocked(clearUpdateBundleData).mockClear();
+  expect(() =>
+    checkFileHash({
+      bundleDirPath: '/non/existent/bundle/build',
+      metadata: { 'index.html': 'expected_sha512' },
+      driveLetter: '',
+      url: 'index.html',
+    }),
+  ).toThrow('File index.html sha512 mismatch');
+  expect(clearUpdateBundleData).toHaveBeenCalled();
+});
+
+test.each(['constructor', 'toString', 'valueOf', '__proto__'])(
+  'checkFileHash treats Object.prototype key %s as missing and falls back to index.html without wiping bundle',
+  (protoKey) => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'bundle-proto-'));
+    try {
+      const htmlContent = '<html>index</html>';
+      fs.writeFileSync(path.join(tmpDir, 'index.html'), htmlContent, 'utf8');
+      const metadata = { 'index.html': computeSha512(htmlContent) };
+      jest.mocked(clearUpdateBundleData).mockClear();
+      const resolved = checkFileHash({
+        bundleDirPath: tmpDir,
+        metadata,
+        driveLetter: '',
+        url: protoKey,
+      });
+      expect(resolved).toBe(path.resolve(tmpDir, 'index.html'));
+      expect(clearUpdateBundleData).not.toHaveBeenCalled();
+    } finally {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+  },
+);
+
+test('checkFileHash normalizes Windows drive letters and backslashes', () => {
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'bundle-win-'));
+  try {
+    const subDir = path.join(tmpDir, 'static', 'js');
+    fs.mkdirSync(subDir, { recursive: true });
+    const jsContent = 'console.log(1);';
+    fs.writeFileSync(path.join(subDir, 'main.js'), jsContent, 'utf8');
+    const metadata = { 'static/js/main.js': computeSha512(jsContent) };
+    const resolved = checkFileHash({
+      bundleDirPath: tmpDir,
+      metadata,
+      driveLetter: 'C:\\',
+      url: 'D:\\static\\js\\main.js',
+    });
+    expect(resolved).toBe(path.resolve(tmpDir, 'static/js/main.js'));
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test('getBundleIndexHtmlPath clears bundle data when appVersion mismatches currentAppVersion', () => {
+  jest.mocked(clearUpdateBundleData).mockClear();
+  jest.mocked(setNativeVersion).mockClear();
+  expect(
+    getBundleIndexHtmlPath({ appVersion: '2.0.0', bundleVersion: '10' }),
+  ).toBeUndefined();
+  expect(clearUpdateBundleData).toHaveBeenCalledTimes(1);
+  expect(setNativeVersion).toHaveBeenCalledWith('1.0.0');
+});
+
+test('getMetadata enforces GPG verification unless both build env and devSetting skipGPG are enabled', async () => {
+  const prevEnv = process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION;
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'bundle-meta-'));
+  try {
+    const buildDir = path.join(tmpDir, 'build');
+    fs.mkdirSync(buildDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(tmpDir, 'metadata.json'),
+      JSON.stringify({ 'index.html': 'hash' }),
+      'utf8',
+    );
+    process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION = 'true';
+    jest.mocked(getDevSettingsEnabled).mockReturnValue(false);
+    jest.mocked(getSkipGPGVerification).mockReturnValue(false);
+
+    // Even with ONEKEY_ALLOW_SKIP_GPG_VERIFICATION=true, missing devSettings must NOT skip GPG
+    await expect(
+      getMetadata({
+        bundleDir: buildDir,
+        appVersion: '6.1.0',
+        bundleVersion: '7701116',
+        signature: TEST_SIGNATURE,
+      }),
+    ).rejects.toThrow('Signed metadata appVersion mismatch');
+
+    // When both devSettingsEnabled and skipGPGVerification are true, GPG check is skipped
+    jest.mocked(getDevSettingsEnabled).mockReturnValue(true);
+    jest.mocked(getSkipGPGVerification).mockReturnValue(true);
+    await expect(
+      getMetadata({
+        bundleDir: buildDir,
+        appVersion: '1.0.0',
+        bundleVersion: '7701116',
+        signature: '',
+      }),
+    ).resolves.toEqual({ 'index.html': 'hash' });
+  } finally {
+    if (prevEnv === undefined) {
+      delete process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION;
+    } else {
+      process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION = prevEnv;
+    }
+    jest.mocked(getDevSettingsEnabled).mockReturnValue(false);
+    jest.mocked(getSkipGPGVerification).mockReturnValue(false);
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test.each(['../outside', 'bad/version', 'a..b'])(
+  'falls back to the built-in bundle for an invalid persisted pointer %s',
+  (bundleVersion) => {
+    jest.mocked(clearUpdateBundleData).mockClear();
+    const exists = jest.spyOn(fs, 'existsSync');
+    try {
+      expect(
+        getBundleIndexHtmlPath({ appVersion: '1.0.0', bundleVersion }),
+      ).toBeUndefined();
+      expect(clearUpdateBundleData).toHaveBeenCalledTimes(1);
+      expect(exists).not.toHaveBeenCalled();
+    } finally {
+      exists.mockRestore();
+    }
+  },
+);

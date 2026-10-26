@@ -1,11 +1,16 @@
 import { getStockMarketClosedDescription } from '@onekeyhq/kit/src/views/Market/components/StockMarketStatusAlert/getStockMarketClosedDescription';
-import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
+import type {
+  ISwapAlertState,
+  ISwapToken,
+} from '@onekeyhq/shared/types/swap/types';
 import {
   EStockTradeAlertType,
   ESwapAlertLevel,
+  ESwapDirectionType,
 } from '@onekeyhq/shared/types/swap/types';
 
 import {
+  filterStockAccountNetworkAlerts,
   getStockErrorAlertLevel,
   getStockTradeAlertType,
   isCurrentStockMarketClosedQuoteEventError,
@@ -207,5 +212,73 @@ describe('SwapStockTradeAlert utils', () => {
         notAvailableInRegionMessage: 'Not available in region',
       }),
     ).toBe(EStockTradeAlertType.OTHER);
+  });
+});
+
+describe('filterStockAccountNetworkAlerts', () => {
+  const accountNetworkContexts = {
+    [ESwapDirectionType.FROM]: {
+      accountId: 'sender',
+      walletId: 'wallet',
+      networkId: 'evm--1',
+    },
+    [ESwapDirectionType.TO]: {
+      accountId: 'receiver',
+      walletId: 'wallet',
+      networkId: 'sol--101',
+    },
+  };
+  const buildAlert = (directionType: ESwapDirectionType): ISwapAlertState => ({
+    message: 'Network unsupported',
+    alertLevel: ESwapAlertLevel.ERROR,
+    isAccountNetworkUnsupported: true,
+    accountNetworkUnsupportedContext: {
+      ...accountNetworkContexts[directionType],
+      directionType,
+    },
+  });
+
+  it.each([ESwapDirectionType.FROM, ESwapDirectionType.TO])(
+    'keeps the current %s error that blocks trading',
+    (directionType) => {
+      const alert = buildAlert(directionType);
+      expect(
+        filterStockAccountNetworkAlerts({
+          alerts: [alert],
+          accountNetworkContexts,
+        }),
+      ).toEqual([alert]);
+    },
+  );
+
+  it('removes stale receive-account warnings while preserving unrelated alerts', () => {
+    const stale = buildAlert(ESwapDirectionType.TO);
+    const ordinary: ISwapAlertState = {
+      message: 'Other warning',
+      alertLevel: ESwapAlertLevel.WARNING,
+    };
+    expect(
+      filterStockAccountNetworkAlerts({
+        alerts: [stale, ordinary],
+        accountNetworkContexts: {
+          ...accountNetworkContexts,
+          [ESwapDirectionType.TO]: {
+            ...accountNetworkContexts[ESwapDirectionType.TO],
+            accountId: 'new-receiver',
+          },
+        },
+      }),
+    ).toEqual([ordinary]);
+  });
+
+  it('preserves legacy unsupported-network alerts without a context', () => {
+    const alert = buildAlert(ESwapDirectionType.FROM);
+    delete alert.accountNetworkUnsupportedContext;
+    expect(
+      filterStockAccountNetworkAlerts({
+        alerts: [alert],
+        accountNetworkContexts,
+      }),
+    ).toEqual([alert]);
   });
 });

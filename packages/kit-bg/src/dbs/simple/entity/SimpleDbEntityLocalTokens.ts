@@ -1,4 +1,4 @@
-import { keyBy, merge } from 'lodash';
+import { keyBy, merge, omit } from 'lodash';
 
 import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
@@ -9,10 +9,12 @@ import perfUtils, {
 } from '@onekeyhq/shared/src/utils/debug/perfUtils';
 import type {
   IAccountToken,
+  IHomeTokenRequest,
   IToken,
   ITokenFiat,
 } from '@onekeyhq/shared/types/token';
 
+import { homeTokenRequestRegistry } from '../../../utils/homeTokenRequestRegistry';
 import { SimpleDbEntityBase } from '../base/SimpleDbEntityBase';
 
 // Cap for the global token-metadata map (`data`, keyed by networkId_tokenAddress).
@@ -32,12 +34,77 @@ export interface ISimpleDBLocalTokens {
   // pre-migration entries in the user's then-active display currency;
   // ServiceToken supplies the lazy fallback.
   tokenListCurrency?: Record<string, string>;
+  // Per-key: whether the complete response held any amount. The saved lists
+  // are capped, so a holding beyond the cap is missing from them. Missing keys
+  // predate this field: unknown.
+  tokenListHasAssets?: Record<string, boolean>;
+}
+
+// Pending per-key snapshots flushed in one write. `tokenListWriteOrder` holds
+// the reserved write order of each ordered entry; keys without one commit
+// unconditionally.
+export interface IAccountTokenListCache {
+  tokenList: Record<string, IAccountToken[]>;
+  smallBalanceTokenList: Record<string, IAccountToken[]>;
+  riskyTokenList: Record<string, IAccountToken[]>;
+  tokenListValue: Record<string, string>;
+  tokenListMap: Record<string, Record<string, ITokenFiat>>;
+  tokenListCurrency: Record<string, string>;
+  tokenListHasAssets: Record<string, boolean>;
+  tokenListWriteOrder?: Record<string, number>;
 }
 
 export class SimpleDbEntityLocalTokens extends SimpleDbEntityBase<ISimpleDBLocalTokens> {
   entityName = 'localTokens';
 
   override enableCache = false;
+
+  // Responses for the same account/network can resolve out of request order
+  // (e.g. A -> B -> A where the first A request is slow). Writes carry the
+  // order in which their request started; one older than the newest committed
+  // write for its key is skipped, so a late response cannot overwrite fresher
+  // balances. Owner retirement alone does not drop a completed snapshot.
+  private accountTokenListWriteOrder = 0;
+
+  private committedAccountTokenListWriteOrder = new Map<string, number>();
+
+  // The order is taken synchronously when called, before the caller awaits.
+  async reserveAccountTokenListWriteOrder(): Promise<number> {
+    this.accountTokenListWriteOrder += 1;
+    return this.accountTokenListWriteOrder;
+  }
+
+  // Both helpers run under the entity mutex. The order is recorded only after
+  // storage accepted the write, so a failed write cannot block an older
+  // response that would otherwise restore a completed snapshot.
+  private isStaleAccountTokenListWrite(key: string, writeOrder: number) {
+    return (
+      writeOrder < (this.committedAccountTokenListWriteOrder.get(key) ?? 0)
+    );
+  }
+
+  private recordAccountTokenListWriteOrder(key: string, writeOrder: number) {
+    if (!this.isStaleAccountTokenListWrite(key, writeOrder)) {
+      this.committedAccountTokenListWriteOrder.set(key, writeOrder);
+    }
+  }
+
+  // For readers of pending caches: an entry older than the write storage has
+  // already committed for its key is dropped on flush, so it is not current.
+  // Only reads the committed orders, so it needs no mutex.
+  async isStaleAccountTokenListCacheEntry({
+    cache,
+    key,
+  }: {
+    cache: IAccountTokenListCache;
+    key: string;
+  }): Promise<boolean> {
+    const writeOrder = cache.tokenListWriteOrder?.[key];
+    return (
+      writeOrder !== undefined &&
+      this.isStaleAccountTokenListWrite(key, writeOrder)
+    );
+  }
 
   // Bound the global token-metadata map. Applied on every write (here, on read it
   // re-fetches on miss) so growth is capped regardless of whether the periodic
@@ -82,6 +149,7 @@ export class SimpleDbEntityLocalTokens extends SimpleDbEntityBase<ISimpleDBLocal
       tokenListMap: rawData?.tokenListMap ?? {},
       tokenListValue: rawData?.tokenListValue ?? {},
       tokenListCurrency: rawData?.tokenListCurrency ?? {},
+      tokenListHasAssets: rawData?.tokenListHasAssets ?? {},
     }));
   }
 
@@ -158,7 +226,12 @@ export class SimpleDbEntityLocalTokens extends SimpleDbEntityBase<ISimpleDBLocal
     tokenListMap,
     tokenListValue,
     currency,
+    hasAssets,
+    homeRequest,
+    writeOrder,
   }: {
+    homeRequest?: IHomeTokenRequest;
+    writeOrder?: number;
     networkId: string;
     accountAddress?: string;
     xpub?: string;
@@ -168,6 +241,7 @@ export class SimpleDbEntityLocalTokens extends SimpleDbEntityBase<ISimpleDBLocal
     tokenListMap: Record<string, ITokenFiat>;
     tokenListValue: string;
     currency: string;
+    hasAssets: boolean;
   }) {
     if (!accountAddress && !xpub) {
       throw new OneKeyInternalError('accountAddress or xpub is required');
@@ -190,74 +264,147 @@ export class SimpleDbEntityLocalTokens extends SimpleDbEntityBase<ISimpleDBLocal
     });
     perf.markEnd('buildAccountLocalAssetsKey');
 
+    const staleWriteError = new Error('Stale account token list write');
+    const assertCanCommit =
+      homeRequest || writeOrder !== undefined
+        ? () => {
+            if (homeRequest) {
+              homeTokenRequestRegistry.assertCurrent(homeRequest);
+            }
+            if (writeOrder === undefined) {
+              return;
+            }
+            if (this.isStaleAccountTokenListWrite(key, writeOrder)) {
+              throw staleWriteError;
+            }
+          }
+        : undefined;
+
     perf.markStart('setRawData');
-    await this.setRawData((rawData) => ({
-      data: rawData?.data ?? {},
-      tokenList: {
-        ...rawData?.tokenList,
-        [key]: tokenList,
-      },
-      smallBalanceTokenList: {
-        ...rawData?.smallBalanceTokenList,
-        [key]: smallBalanceTokenList,
-      },
-      riskyTokenList: {
-        ...rawData?.riskyTokenList,
-        [key]: riskyTokenList,
-      },
-      tokenListMap: {
-        ...rawData?.tokenListMap,
-        [key]: tokenListMap,
-      },
-      tokenListValue: {
-        ...rawData?.tokenListValue,
-        [key]: tokenListValue,
-      },
-      tokenListCurrency: {
-        ...rawData?.tokenListCurrency,
-        [key]: currency,
-      },
-    }));
+    try {
+      await this.setRawDataWithCommitGuard(
+        (rawData) => ({
+          data: rawData?.data ?? {},
+          tokenList: {
+            ...rawData?.tokenList,
+            [key]: tokenList,
+          },
+          smallBalanceTokenList: {
+            ...rawData?.smallBalanceTokenList,
+            [key]: smallBalanceTokenList,
+          },
+          riskyTokenList: {
+            ...rawData?.riskyTokenList,
+            [key]: riskyTokenList,
+          },
+          tokenListMap: {
+            ...rawData?.tokenListMap,
+            [key]: tokenListMap,
+          },
+          tokenListValue: {
+            ...rawData?.tokenListValue,
+            [key]: tokenListValue,
+          },
+          tokenListCurrency: {
+            ...rawData?.tokenListCurrency,
+            [key]: currency,
+          },
+          tokenListHasAssets: {
+            ...rawData?.tokenListHasAssets,
+            [key]: hasAssets,
+          },
+        }),
+        assertCanCommit,
+        writeOrder === undefined
+          ? undefined
+          : () => this.recordAccountTokenListWriteOrder(key, writeOrder),
+      );
+    } catch (error) {
+      if (error !== staleWriteError) {
+        throw error;
+      }
+    }
     perf.markEnd('setRawData');
     perf.done();
   }
 
   @backgroundMethod()
-  async updateAccountTokenListByCache(tokenListCache: {
-    tokenList: Record<string, IAccountToken[]>;
-    smallBalanceTokenList: Record<string, IAccountToken[]>;
-    riskyTokenList: Record<string, IAccountToken[]>;
-    tokenListValue: Record<string, string>;
-    tokenListMap: Record<string, Record<string, ITokenFiat>>;
-    tokenListCurrency: Record<string, string>;
-  }) {
-    await this.setRawData((rawData) => ({
-      data: rawData?.data ?? {},
-      tokenList: {
-        ...rawData?.tokenList,
-        ...tokenListCache.tokenList,
+  async updateAccountTokenListByCache(
+    cache: IAccountTokenListCache,
+    homeRequest?: IHomeTokenRequest,
+  ) {
+    let tokenListCache = cache;
+    await this.setRawDataWithCommitGuard(
+      (rawData) => {
+        // Filtered under the entity mutex, like the single-key write guard.
+        tokenListCache = this.dropStaleAccountTokenListCacheEntries(cache);
+        return {
+          data: rawData?.data ?? {},
+          tokenList: {
+            ...rawData?.tokenList,
+            ...tokenListCache.tokenList,
+          },
+          smallBalanceTokenList: {
+            ...rawData?.smallBalanceTokenList,
+            ...tokenListCache.smallBalanceTokenList,
+          },
+          riskyTokenList: {
+            ...rawData?.riskyTokenList,
+            ...tokenListCache.riskyTokenList,
+          },
+          tokenListMap: {
+            ...rawData?.tokenListMap,
+            ...tokenListCache.tokenListMap,
+          },
+          tokenListValue: {
+            ...rawData?.tokenListValue,
+            ...tokenListCache.tokenListValue,
+          },
+          tokenListCurrency: {
+            ...rawData?.tokenListCurrency,
+            ...tokenListCache.tokenListCurrency,
+          },
+          tokenListHasAssets: {
+            ...rawData?.tokenListHasAssets,
+            ...tokenListCache.tokenListHasAssets,
+          },
+        };
       },
-      smallBalanceTokenList: {
-        ...rawData?.smallBalanceTokenList,
-        ...tokenListCache.smallBalanceTokenList,
+      homeRequest
+        ? () => homeTokenRequestRegistry.assertCurrent(homeRequest)
+        : undefined,
+      () => {
+        Object.entries(tokenListCache.tokenListWriteOrder ?? {}).forEach(
+          ([key, writeOrder]) =>
+            this.recordAccountTokenListWriteOrder(key, writeOrder),
+        );
       },
-      riskyTokenList: {
-        ...rawData?.riskyTokenList,
-        ...tokenListCache.riskyTokenList,
-      },
-      tokenListMap: {
-        ...rawData?.tokenListMap,
-        ...tokenListCache.tokenListMap,
-      },
-      tokenListValue: {
-        ...rawData?.tokenListValue,
-        ...tokenListCache.tokenListValue,
-      },
-      tokenListCurrency: {
-        ...rawData?.tokenListCurrency,
-        ...tokenListCache.tokenListCurrency,
-      },
-    }));
+    );
+  }
+
+  private dropStaleAccountTokenListCacheEntries(
+    cache: IAccountTokenListCache,
+  ): IAccountTokenListCache {
+    const writeOrders = cache.tokenListWriteOrder;
+    if (!writeOrders) {
+      return cache;
+    }
+    const staleKeys = Object.keys(writeOrders).filter((key) =>
+      this.isStaleAccountTokenListWrite(key, writeOrders[key]),
+    );
+    if (!staleKeys.length) {
+      return cache;
+    }
+    return {
+      tokenList: omit(cache.tokenList, staleKeys),
+      smallBalanceTokenList: omit(cache.smallBalanceTokenList, staleKeys),
+      riskyTokenList: omit(cache.riskyTokenList, staleKeys),
+      tokenListValue: omit(cache.tokenListValue, staleKeys),
+      tokenListMap: omit(cache.tokenListMap, staleKeys),
+      tokenListCurrency: omit(cache.tokenListCurrency, staleKeys),
+      tokenListHasAssets: omit(cache.tokenListHasAssets, staleKeys),
+      tokenListWriteOrder: omit(writeOrders, staleKeys),
+    };
   }
 
   @backgroundMethod()
@@ -328,6 +475,7 @@ export class SimpleDbEntityLocalTokens extends SimpleDbEntityBase<ISimpleDBLocal
       tokenListMap: {},
       tokenListValue: {},
       tokenListCurrency: {},
+      tokenListHasAssets: {},
     });
   }
 
@@ -373,6 +521,7 @@ export class SimpleDbEntityLocalTokens extends SimpleDbEntityBase<ISimpleDBLocal
         tokenListMap: filterByOwner(base?.tokenListMap),
         tokenListValue: filterByOwner(base?.tokenListValue),
         tokenListCurrency: filterByOwner(base?.tokenListCurrency),
+        tokenListHasAssets: filterByOwner(base?.tokenListHasAssets),
       };
     });
   }

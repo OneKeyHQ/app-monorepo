@@ -22,10 +22,15 @@ import platformEnv from '../platformEnv';
 
 import { DeviceScannerUtils } from './DeviceScannerUtils';
 import {
+  getHardwareDeviceColor,
+  getHardwareDeviceColorFromCode,
+} from './hardwareDeviceColors';
+import {
   NEO_DEVICE_TYPE,
   isProtocolV2ProductType,
 } from './hardwareDeviceTypes';
 
+import type { IHardwareDeviceColor } from './hardwareDeviceColors';
 import type {
   IAllDeviceVerifyVersions,
   IDeviceVerifyRawVersions,
@@ -138,7 +143,86 @@ function getDeviceSerialNoFromFeatures(
     compatibleFeatures.onekey_serial,
     compatibleFeatures.serial_no,
   ].find(
-    (value): value is string => typeof value === 'string' && value.length > 0,
+    (value): value is string =>
+      typeof value === 'string' &&
+      value.trim().length > 0 &&
+      !/^0+$/.test(value.trim()),
+  );
+}
+
+function getDeviceSerialNoFromDbDevice(device: IDBDevice | undefined) {
+  return device?.deviceStateInfo?.identity.serialNo || device?.uuid;
+}
+
+function isSamePhysicalDevice(
+  device: Partial<IDBDevice> | undefined,
+  other: Partial<IDBDevice> | undefined,
+): boolean {
+  if (!device || !other) {
+    return false;
+  }
+  if (device.id && device.id === other.id) {
+    return true;
+  }
+  const serialNo =
+    device.uuid ||
+    device.deviceStateInfo?.identity.serialNo ||
+    getDeviceSerialNoFromFeatures(device.featuresInfo);
+  const otherSerialNo =
+    other.uuid ||
+    other.deviceStateInfo?.identity.serialNo ||
+    getDeviceSerialNoFromFeatures(other.featuresInfo);
+  // A reset changes the wallet identity and may also clear transport aliases.
+  if (serialNo && otherSerialNo) {
+    return serialNo === otherSerialNo;
+  }
+  if (device.deviceId && device.deviceId === other.deviceId) {
+    return true;
+  }
+  const connectIds = new Set(
+    [device.connectId, device.usbConnectId, device.bleConnectId]
+      .filter(Boolean)
+      .map((value) => value?.toLowerCase()),
+  );
+  return [other.connectId, other.usbConnectId, other.bleConnectId].some(
+    (value) => Boolean(value && connectIds.has(value.toLowerCase())),
+  );
+}
+
+/** The finish the serial number names. */
+function getDeviceColorFromFeatures({
+  deviceType,
+  features,
+}: {
+  deviceType: IDeviceType | undefined;
+  features: IOneKeyDeviceFeatures | undefined;
+}): IHardwareDeviceColor | undefined {
+  return getHardwareDeviceColor({
+    deviceType,
+    serialNo: getDeviceSerialNoFromFeatures(features),
+  });
+}
+
+/**
+ * The finish a scanned device names before it connects: its serial number
+ * where the transport reports one (USB), else the color letter it
+ * advertised over Bluetooth.
+ */
+function getDeviceColorFromSearchDevice(
+  device: SearchDevice | KnownDevice | undefined,
+): IHardwareDeviceColor | undefined {
+  if (!device) {
+    return undefined;
+  }
+  return (
+    getHardwareDeviceColor({
+      deviceType: device.deviceType,
+      serialNo: device.serialNo ?? undefined,
+    }) ??
+    getHardwareDeviceColorFromCode({
+      deviceType: device.deviceType,
+      colorCode: 'bleColorCode' in device ? device.bleColorCode : undefined,
+    })
   );
 }
 
@@ -432,10 +516,8 @@ async function buildDeviceLabel({
   features: IOneKeyDeviceFeatures;
   buildModelName?: boolean;
 }): Promise<string | ''> {
-  const { getDeviceLabel } = await CoreSDKLoader();
-  const label = getDeviceLabel(features);
-  if (label && !buildModelName) {
-    return label;
+  if (features.label && !buildModelName) {
+    return features.label;
   }
   const deviceType = await getDeviceTypeFromFeatures({
     features,
@@ -475,6 +557,25 @@ function buildDeviceBleName({
     return undefined;
   }
   return getDeviceBleNameFromFeatures(features);
+}
+
+/**
+ * The name the DeviceStage wears on its badge and capsule second line: the
+ * device's Bluetooth name in the same canonical form every other surface
+ * shows it (the onboarding scan list, the device list, About) — where
+ * `IDBDevice.name` is a display name the user-settable label wins (see
+ * getDeviceDisplayName). Devices that advertise no Bluetooth name —
+ * third-party vendors above all — keep the display name they already
+ * showed.
+ */
+function buildDeviceStageName({
+  features,
+  fallbackName,
+}: {
+  features: IOneKeyDeviceFeatures | undefined;
+  fallbackName?: string;
+}): string | undefined {
+  return buildDeviceBleName({ features }) || fallbackName || undefined;
 }
 
 async function getFirmwareType({
@@ -1033,11 +1134,15 @@ function supportSettings({
 }
 
 export default {
+  isSamePhysicalDevice,
   getDeviceDisplayName,
   getDeviceVersionsFromState,
   dbDeviceToSearchDevice,
   getDeviceVersion,
   getDeviceSerialNoFromFeatures,
+  getDeviceSerialNoFromDbDevice,
+  getDeviceColorFromFeatures,
+  getDeviceColorFromSearchDevice,
   getDeviceVersionStr,
   getDeviceTypeFromFeatures,
   getDeviceModeFromFeatures,
@@ -1053,6 +1158,7 @@ export default {
   buildDeviceLabel,
   buildDeviceName,
   buildDeviceBleName,
+  buildDeviceStageName,
   getDefaultDeviceLabel,
   getDeviceVerifyVersionsFromFeatures,
   getDeviceVerifyVersionsFromRawOnekeyFeatures,

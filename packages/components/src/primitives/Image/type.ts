@@ -51,6 +51,7 @@ export type IUseImageComponent = (
 export type IImageCachePolicy = 'memory-disk' | 'memory' | 'disk' | 'none';
 export type IImageContentFit = 'cover' | 'contain' | 'fill' | 'center';
 export type IImageCacheType = 'none' | 'disk' | 'memory';
+export type IImageLoadingStrategy = 'static' | 'skeleton' | 'none';
 
 export type IImageLoadEventData = {
   cacheType: IImageCacheType;
@@ -136,6 +137,8 @@ export type IImageV2Props = Omit<
     src?: string;
     /** Display width hint in layout units. DPR is applied internally. */
     resizeWidth?: number;
+    /** Clips the native image to an oval using its current bounds. */
+    round?: boolean;
     onError?: (event: IImageErrorEventData) => void;
     onLoad?: (event: IImageLoadEventData) => void;
     onLoadEnd?: () => void;
@@ -144,6 +147,10 @@ export type IImageV2Props = Omit<
     resizeMode?: ImageProps['resizeMode'];
     contentFit?: IImageContentFit;
     cachePolicy?: IImageCachePolicy;
+    /** Loading visual. Static and skeleton placeholders must be explicitly requested.
+     * @default 'none'
+     */
+    loadingStrategy?: IImageLoadingStrategy;
     recyclingKey?: string;
     /** @deprecated ImageV2 does not support blur effects. */
     blurRadius?: never;

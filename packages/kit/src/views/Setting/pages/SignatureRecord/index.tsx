@@ -82,6 +82,7 @@ const PageView = () => {
   const onPress = useCallback(() => {
     onShowChainSelector({
       defaultNetworkId: networkId,
+      excludeAllNetworkItem: false,
       onSelect(network) {
         setNetworkId?.(network.id);
       },

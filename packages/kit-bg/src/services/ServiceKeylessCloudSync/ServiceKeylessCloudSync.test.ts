@@ -4,6 +4,7 @@ import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorT
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import systemTimeUtils, {
   ECloudSyncDataTimeSource,
+  ELocalSystemTimeStatus,
 } from '@onekeyhq/shared/src/utils/systemTimeUtils';
 
 import localDb from '../../dbs/local/localDb';
@@ -66,6 +67,44 @@ describe('ServiceKeylessCloudSync', () => {
   afterEach(() => {
     jest.clearAllMocks();
     jest.restoreAllMocks();
+  });
+
+  test('does not report a transient unconfirmed time check as a clock error', async () => {
+    const showToast = jest.fn();
+    const service = new ServiceKeylessCloudSync({
+      backgroundApi: {
+        serviceApp: { showToast },
+      },
+    });
+    const now = Date.now();
+
+    systemTimeUtils.updateServerTime({
+      serverTime: now,
+      localTime: now,
+    });
+    systemTimeUtils.updateServerTime({
+      serverTime: now,
+      localTime: now + 20 * 60 * 1000,
+    });
+
+    expect(systemTimeUtils.systemTimeStatus).toBe(
+      ELocalSystemTimeStatus.INVALID,
+    );
+    expect(systemTimeUtils.isTimeErrorConfirmed).toBe(false);
+
+    jest.spyOn(service, 'getKeylessWallet').mockResolvedValue(null);
+
+    try {
+      await expect(
+        service.prepareCloudSyncKeyless({ silentEnable: true }),
+      ).resolves.toEqual({ success: false });
+      expect(showToast).toHaveBeenCalled();
+    } finally {
+      systemTimeUtils.updateServerTime({
+        serverTime: Date.now(),
+        localTime: Date.now(),
+      });
+    }
   });
 
   test('toggle keyless sync surfaces local secret envelope recovery dialog', async () => {

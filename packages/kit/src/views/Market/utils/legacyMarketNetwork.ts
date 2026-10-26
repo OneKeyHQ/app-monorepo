@@ -3,13 +3,24 @@ import type { IMarketTokenDetailRouteParams } from '@onekeyhq/shared/src/routes'
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type {
   IMarketDetailPlatformNetwork,
+  IMarketPreferredToken,
   IMarketTokenDetail,
 } from '@onekeyhq/shared/types/market';
 import { getNetworkIdBySymbol } from '@onekeyhq/shared/types/market/marketProvider.constants';
 
+import { resolveMarketTradeNetwork } from '../components/tradeHook.utils';
+
 export function getLegacyMarketPrimaryNetwork(
   token: IMarketTokenDetail | null | undefined,
+  preferredToken?: IMarketPreferredToken,
 ): IMarketDetailPlatformNetwork | undefined {
+  if (preferredToken) {
+    return resolveMarketTradeNetwork({
+      detailPlatforms: token?.detailPlatforms,
+      platforms: token?.platforms,
+      preferredToken,
+    });
+  }
   const { detailPlatforms, platforms = {} } = token ?? {};
   if (!detailPlatforms) {
     return undefined;
@@ -28,7 +39,10 @@ export function getLegacyMarketPrimaryNetwork(
   );
 }
 
-export function getLegacyMarketNavigationTarget(token: IMarketTokenDetail):
+export function getLegacyMarketNavigationTarget(
+  token: IMarketTokenDetail,
+  preferredToken?: IMarketPreferredToken,
+):
   | {
       decimals?: number;
       isNative: boolean;
@@ -37,7 +51,7 @@ export function getLegacyMarketNavigationTarget(token: IMarketTokenDetail):
       tokenAddress: string;
     }
   | undefined {
-  const network = getLegacyMarketPrimaryNetwork(token);
+  const network = getLegacyMarketPrimaryNetwork(token, preferredToken);
   let networkId =
     network?.onekeyNetworkId ?? getNetworkIdBySymbol(token.symbol);
   const primaryPlatform = Object.keys(token.platforms ?? {})[0];
@@ -71,11 +85,13 @@ function toFiniteNumber(value: unknown) {
 export function getLegacyMarketDetailV2RouteParams({
   marketTokenId,
   token,
+  preferredToken,
 }: {
   marketTokenId: string;
   token: IMarketTokenDetail;
+  preferredToken?: IMarketPreferredToken;
 }): IMarketTokenDetailRouteParams {
-  const target = getLegacyMarketNavigationTarget(token);
+  const target = getLegacyMarketNavigationTarget(token, preferredToken);
   const usesSyntheticIdentity = !target;
   const network = target?.networkId ?? 'coingecko';
   const tokenAddress = target?.tokenAddress ?? marketTokenId;
@@ -93,7 +109,7 @@ export function getLegacyMarketDetailV2RouteParams({
       networkId: network,
       isNative,
       name: token.name,
-      symbol: token.symbol.toUpperCase(),
+      symbol: preferredToken ? token.symbol : token.symbol.toUpperCase(),
       decimals,
       price: toFiniteNumber(token.stats.currentPrice),
       change24h: toFiniteNumber(

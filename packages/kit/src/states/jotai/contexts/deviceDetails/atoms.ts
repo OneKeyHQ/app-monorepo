@@ -38,6 +38,9 @@ export const {
 export const { atom: refreshSettledAtom, use: useRefreshSettledAtom } =
   contextAtom<boolean>(false);
 
+// Refreshes can overlap on the same route; each provider owns its sequence.
+export const { atom: refreshRequestIdAtom } = contextAtom<number>(0);
+
 export const { atom: walletWithDeviceAtom, use: useWalletWithDeviceAtom } =
   contextAtomComputed((get) => {
     return get(walletWithDeviceStateAtom());

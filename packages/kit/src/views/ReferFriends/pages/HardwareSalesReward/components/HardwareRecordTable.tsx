@@ -214,7 +214,7 @@ export function HardwareRecordTable({ records }: IHardwareRecordTableProps) {
             textTransform="uppercase"
           >
             {intl.formatMessage({
-              id: ETranslations.earn_rewards,
+              id: ETranslations.referral_order_reward,
             })}
           </SizableText>
         </XStack>

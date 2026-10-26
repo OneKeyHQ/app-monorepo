@@ -41,7 +41,6 @@ import { useHyperliquidActions } from '../../../states/jotai/contexts/hyperliqui
 import {
   usePerpsActiveOpenOrdersAtom,
   usePerpsActivePositionAtom,
-  usePerpsActiveTwapOrdersAtom,
   useTradeRouteViewStateAtom,
 } from '../../../states/jotai/contexts/hyperliquid/atoms';
 import { PerpOpenOrdersList } from '../components/OrderInfoPanel/List/PerpOpenOrdersList';
@@ -60,6 +59,7 @@ import {
 import { PerpOrderBook } from '../components/PerpOrderBook';
 import { PerpTips } from '../components/PerpTips';
 import { PerpTradingPanel } from '../components/TradingPanel/PerpTradingPanel';
+import { usePerpsAccountScopedActiveTwapOrders } from '../hooks/usePerpsAccountScopedActiveTwapOrders';
 import { usePerpsAccountScopedCacheAddress } from '../hooks/usePerpsAccountScopedCacheAddress';
 import { useVisibleSpotHoldingsCount } from '../hooks/useVisibleSpotHoldingsCount';
 import { isHyperLiquidUnifiedAccountMode } from '../utils';
@@ -259,12 +259,13 @@ export function PerpMobileLayout() {
   const [perpOpenOrdersState] = usePerpsActiveOpenOrdersAtom();
   const [spotOpenOrdersState] = useSpotActiveOpenOrdersAtom();
   const [positionsState] = usePerpsActivePositionAtom();
-  const [twapOrdersState] = usePerpsActiveTwapOrdersAtom();
   const [{ balances, isLoaded: isSpotBalancesLoaded }] = useSpotBalancesAtom();
   const [cachedSpotBalances] = usePerpsSpotBalancesAtom();
   const [accountSummary] = usePerpsActiveAccountSummaryAtom();
   const [currentUser] = usePerpsActiveAccountAtom();
   const accountScopedAddress = usePerpsAccountScopedCacheAddress();
+  const { twapOrders } =
+    usePerpsAccountScopedActiveTwapOrders(accountScopedAddress);
   const [abstractionMode] = usePerpsAbstractionModeAtom();
   const isUnifiedAccountMode = isHyperLiquidUnifiedAccountMode(
     abstractionMode,
@@ -289,11 +290,7 @@ export function PerpMobileLayout() {
       dataAccountAddress: spotOpenOrdersState.accountAddress,
       data: spotOpenOrdersState.openOrders,
     }).length +
-    getPerpsAccountScopedListData({
-      activeAccountAddress: currentUserAddress,
-      dataAccountAddress: twapOrdersState.accountAddress,
-      data: twapOrdersState.twapOrders,
-    }).length;
+    twapOrders.length;
   const shouldUseCachedSpotBalances =
     !isSpotBalancesLoaded &&
     Boolean(currentUserAddress) &&

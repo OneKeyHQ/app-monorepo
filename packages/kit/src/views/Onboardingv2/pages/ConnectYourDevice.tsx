@@ -20,7 +20,6 @@ import {
   Popover,
   SegmentControl,
   SizableText,
-  Toast,
   Video,
   XStack,
   YStack,
@@ -34,7 +33,8 @@ import { HARDWARE_TROUBLESHOOTING_URL } from '@onekeyhq/shared/src/config/appCon
 import { isOneKeyHardwareError } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import bleManagerInstance from '@onekeyhq/shared/src/hardware/bleManager';
 import { checkBLEPermissions } from '@onekeyhq/shared/src/hardware/blePermissions';
-import { BLE_ONBOARDING_ENSURE_CONNECTED_TIMEOUT_MS } from '@onekeyhq/shared/src/hardware/connectionTimeouts';
+import { BLE_ONBOARDING_ENSURE_CONNECTED_TIMEOUT_MS } from '@onekeyhq/shared/src/hardware/config/connectionTimeouts';
+import { isLegacyHardwareUiActive } from '@onekeyhq/shared/src/hardware/deviceStageOwnership';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
@@ -43,13 +43,10 @@ import type { IOnboardingParamListV2 } from '@onekeyhq/shared/src/routes/onboard
 import { EOnboardingPagesV2 } from '@onekeyhq/shared/src/routes/onboardingv2';
 import {
   HwWalletAvatarImages,
-  getDeviceAvatarImage,
+  getSearchDeviceAvatarImage,
 } from '@onekeyhq/shared/src/utils/avatarUtils';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
-import {
-  isProtocolV2ProductType,
-  supportsHardwareQrWallet,
-} from '@onekeyhq/shared/src/utils/hardwareDeviceTypes';
+import { supportsHardwareQrWallet } from '@onekeyhq/shared/src/utils/hardwareDeviceTypes';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import {
@@ -67,6 +64,7 @@ import {
   RequireBlePermissionDialog,
 } from '../../../components/Hardware/HardwareDialog';
 import useAppNavigation from '../../../hooks/useAppNavigation';
+import { useDeviceStageBurst } from '../../../hooks/useDeviceStageBurst';
 import { hardwareUiStateDialogLifecycle } from '../../../provider/Container/HardwareUiStateContainer/hardwareUiStateDialogLifecycle';
 import { FoundDevicesFooter } from '../components/FoundDevicesFooter';
 import { OnboardingPage } from '../components/Layout';
@@ -76,7 +74,11 @@ import {
   useDesktopBluetoothStatusPolling,
 } from '../hooks/useDeviceConnect';
 import { OnboardingTestIDs } from '../testIDs';
-import { getForceTransportType, sortDevicesData } from '../utils';
+import {
+  getForceTransportType,
+  getThirdPartySearchTarget,
+  sortDevicesData,
+} from '../utils';
 
 import { ConnectionIndicator } from './ConnectionIndicator';
 
@@ -257,12 +259,19 @@ function useDeviceConnection({
 
   const devicesData = useMemo<IConnectYourDeviceItem[]>(
     () =>
-      searchedDevices.map((item: SearchDevice) => ({
-        title: item.name,
-        src: HwWalletAvatarImages[getDeviceAvatarImage(item.deviceType)],
-        device: item,
-        ...(vendor ? { vendor } : {}),
-      })),
+      searchedDevices.map((item: SearchDevice) => {
+        const searchTarget = vendor
+          ? getThirdPartySearchTarget(item)
+          : undefined;
+        const avatarImg = getSearchDeviceAvatarImage(item);
+        return {
+          title: item.name,
+          src: HwWalletAvatarImages[avatarImg],
+          device: item,
+          ...(vendor ? { vendor } : { avatarImg }),
+          ...(searchTarget ? { searchTarget } : {}),
+        };
+      }),
     [searchedDevices, vendor],
   );
 
@@ -461,8 +470,8 @@ function BluetoothCard({
 }
 
 function DeviceVideo({ deviceTypeItems }: { deviceTypeItems: EDeviceType[] }) {
-  const isProtocolV2Product = useMemo(
-    () => deviceTypeItems.some(isProtocolV2ProductType),
+  const isPro2 = useMemo(
+    () => deviceTypeItems.includes(EDeviceType.Pro2),
     [deviceTypeItems],
   );
 
@@ -490,8 +499,8 @@ function DeviceVideo({ deviceTypeItems }: { deviceTypeItems: EDeviceType[] }) {
   // The onboarding flow is force-dark, so every device uses its dark (-D) asset
   // and no theme branching is needed.
   const videoSource = useMemo<IVideoSource>(() => {
-    if (isProtocolV2Product) {
-      return require('@onekeyhq/kit/assets/onboarding/ProW-D.mp4') as IVideoSource;
+    if (isPro2) {
+      return require('@onekeyhq/kit/assets/onboarding/Pro2-D.mp4') as IVideoSource;
     }
     if (isMini) {
       return require('@onekeyhq/kit/assets/onboarding/Mini-D.mp4') as IVideoSource;
@@ -503,7 +512,7 @@ function DeviceVideo({ deviceTypeItems }: { deviceTypeItems: EDeviceType[] }) {
       return require('@onekeyhq/kit/assets/onboarding/Touch-D.mp4') as IVideoSource;
     }
     return require('@onekeyhq/kit/assets/onboarding/ProW-D.mp4') as IVideoSource;
-  }, [isClassic, isMini, isProtocolV2Product, isTouch]);
+  }, [isClassic, isMini, isPro2, isTouch]);
 
   return (
     <Video
@@ -1025,6 +1034,9 @@ function ConnectYourDevicePage({
     return unsubscribe;
   }, [reactNavigation]);
 
+  const { beginBurst: beginStageBurst, endBurst: endStageBurst } =
+    useDeviceStageBurst();
+
   const connectDevice = useCallback(
     async (
       item: IConnectYourDeviceItem,
@@ -1041,6 +1053,7 @@ function ConnectYourDevicePage({
       let detectedConnectProtocol: HardwareConnectProtocol | undefined;
       let connectedDevice = item.device;
       let checkingDialogOpened = false;
+      let stageOutcomeError: unknown;
       let checkingDialogClosed = false;
       const closeCheckingDeviceDialog = () =>
         backgroundApiProxy.serviceHardwareUI.closeHardwareUiStateDialog({
@@ -1050,6 +1063,16 @@ function ConnectYourDevicePage({
           deviceResetToHome: false,
         });
       try {
+        // One hold for the whole preflight, every transport: without it
+        // the stage's exit is a race between the SDK's trailing progress
+        // ticks and its close event (the capsule could outlive this
+        // page), and a hardware failure would have no surface to land on.
+        await beginStageBurst({
+          connectId,
+          deviceType: item.device?.deviceType ?? undefined,
+          deviceName: item.device?.name ?? undefined,
+          deviceColor: deviceUtils.getDeviceColorFromSearchDevice(item.device),
+        });
         // For third-party devices, skip CheckAndUpdate and go directly to FinalizeWalletSetup
         if (
           item.vendor === EHardwareVendor.ledger ||
@@ -1074,9 +1097,17 @@ function ConnectYourDevicePage({
           const showCheckingDeviceDialog = () =>
             backgroundApiProxy.serviceHardwareUI.showCheckingDeviceDialog({
               connectId,
+              deviceType: item.device?.deviceType ?? undefined,
+              deviceName: item.device?.name ?? undefined,
+              deviceColor: deviceUtils.getDeviceColorFromSearchDevice(
+                item.device,
+              ),
             });
           checkingDialogOpened = true;
-          if (platformEnv.isNativeIOS) {
+          // The iOS wait is for the legacy Sheet's mount acknowledgement.
+          // With the stage owning the surface no Sheet ever mounts, so the
+          // wait can only time out and kill the preflight (OK-59934).
+          if (platformEnv.isNativeIOS && isLegacyHardwareUiActive()) {
             await hardwareUiStateDialogLifecycle.openAndWait(
               showCheckingDeviceDialog,
             );
@@ -1121,7 +1152,7 @@ function ConnectYourDevicePage({
         });
       } catch (error) {
         if (isOneKeyHardwareError(error)) {
-          const { code, message } = error;
+          const { code } = error;
           if (
             code === HardwareErrorCode.CallMethodNeedUpgradeFirmware ||
             code === HardwareErrorCode.BlePermissionError ||
@@ -1129,13 +1160,18 @@ function ConnectYourDevicePage({
           ) {
             return;
           }
-          Toast.error({
-            title: message || 'DeviceConnectError',
-          });
-        } else {
-          console.error('connectDevice error:', get(error, 'message', ''));
+          // The stage lands hardware failures as its own outcome (失败不
+          // 外溢); the toast stays only for what the stage is not
+          // carrying.
+          stageOutcomeError = error;
+          return;
         }
+        console.error('connectDevice error:', get(error, 'message', ''));
       } finally {
+        // The preflight is over either way — the stage leaves with it,
+        // and a hardware failure (a wrong unlock PIN above all) leaves AS
+        // its outcome notice rather than a toast.
+        void endStageBurst({ error: stageOutcomeError });
         if (!checkingDialogClosed) {
           if (platformEnv.isNativeIOS && checkingDialogOpened) {
             try {
@@ -1154,7 +1190,7 @@ function ConnectYourDevicePage({
         }
       }
     },
-    [navigation],
+    [beginStageBurst, endStageBurst, navigation],
   );
 
   let content = (

@@ -4,12 +4,9 @@ import BigNumber from 'bignumber.js';
 import { type IntlShape, useIntl } from 'react-intl';
 
 import {
-  Button,
   DashText,
   Divider,
   type IDebugRenderTrackerProps,
-  Icon,
-  Illustration,
   Popover,
   SizableText,
   Toast,
@@ -23,8 +20,6 @@ import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import {
   type IPerpsActiveTwapOrder,
   useHyperliquidActions,
-  usePerpsActiveTwapOrdersAtom,
-  usePerpsTwapHistoryAtom,
   usePerpsTwapSliceFillsAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
@@ -33,7 +28,12 @@ import {
   useSpotPairDisplayNameMapAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { formatTime } from '@onekeyhq/shared/src/utils/dateUtils';
+import { formatDate, formatTime } from '@onekeyhq/shared/src/utils/dateUtils';
+import {
+  formatTwapPriceForDisplay,
+  getActiveTwapRuntimeStatus,
+  getTwapElapsedMs,
+} from '@onekeyhq/shared/src/utils/hyperliquidTwapUtils';
 import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
 import {
   formatLocalizedNumberString,
@@ -49,15 +49,18 @@ import {
 import type {
   IFill,
   ITwapHistoryRecord,
+  ITwapHistoryStatusValue,
   ITwapSliceFill,
   ITwapState,
 } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
 import { useEnsureTradingEnabled } from '../../../hooks/useEnableTradingWithDepositFallback';
 import { usePerpTwapHistoryViewAllUrl } from '../../../hooks/usePerpOrderInfoPanel';
-import { PerpTestIDs } from '../../../testIDs';
-import { buildHelpUrl, openGuideUrl } from '../../Guide/perpGuideData';
+import { usePerpsAccountScopedActiveTwapOrders } from '../../../hooks/usePerpsAccountScopedActiveTwapOrders';
+import { PERP_TEXT_ACTION_HOVER_STYLE } from '../../../utils/styleUtils';
 import { OrderInfoSubTabs } from '../Components/OrderInfoSubTabs';
+import { PerpDesktopEmptyState } from '../Components/PerpDesktopEmptyState';
+import { PerpMobileEmptyState } from '../Components/PerpMobileEmptyState';
 import {
   calcCellAlign,
   getColumnStyle,
@@ -68,6 +71,7 @@ import {
   normalizeEpochMs,
 } from '../utils';
 import {
+  PERP_DESKTOP_ORDER_INFO_SUB_TABS_HEIGHT,
   PERP_DESKTOP_TABLE_ROW_PADDING_LEFT,
   PERP_DESKTOP_TABLE_ROW_PADDING_RIGHT,
 } from '../utils/tableLayout';
@@ -107,24 +111,22 @@ const TWAP_ORDERS_SUB_TABS: Array<{
   { key: 'fills', labelId: ETranslations.perp_twap_fill_history__title },
 ];
 
-const TWAP_EMPTY_STATE_MAP: Record<
-  ITwapPanelTab,
-  { titleId: ETranslations; description?: string }
-> = {
-  active: {
-    titleId: ETranslations.perp_no_active_twap__title,
-  },
-  history: {
-    titleId: ETranslations.perp_no_twap_history__title,
-  },
-  fills: {
-    titleId: ETranslations.perp_no_twap_fill_history__title,
-  },
-};
+const TWAP_EMPTY_STATE_MAP: Record<ITwapPanelTab, { titleId: ETranslations }> =
+  {
+    active: {
+      titleId: ETranslations.perp_no_active_twap__title,
+    },
+    history: {
+      titleId: ETranslations.perp_no_twap_history__title,
+    },
+    fills: {
+      titleId: ETranslations.perp_no_twap_fill_history__title,
+    },
+  };
 
 function formatTwapDateTime(timestamp: number) {
   const timeDate = new Date(timestamp);
-  const date = formatTime(timeDate, { formatTemplate: 'yyyy-LL-dd' });
+  const date = formatDate(timeDate, { hideTimeForever: true });
   const time = formatTime(timeDate, { formatTemplate: 'HH:mm:ss' });
   return {
     date,
@@ -165,20 +167,38 @@ function formatTotalDuration(minutes: number, intl: IntlShape) {
   return `${hourText} ${remainingMinutes} ${minuteUnit}`;
 }
 
+const TWAP_HISTORY_STATUS_TEXT_MAP: Record<
+  ITwapHistoryStatusValue,
+  ETranslations
+> = {
+  activated: ETranslations.perp_twap_status_activated__title,
+  error: ETranslations.perp_twap_status_error__title,
+  finished: ETranslations.perp_twap_status_finished__title,
+  terminated: ETranslations.perp_twap_status_terminated__title,
+  stopped: ETranslations.perp_twap_status_stopped__title,
+  waitingForTrigger: ETranslations.perp_twap_status_waiting_for_trigger__title,
+};
+
+function humanizeTwapHistoryStatus(status: string | undefined) {
+  // Also covers a status object that carries no `status` value at all, which
+  // the SDK type says cannot happen.
+  if (!status) {
+    return '--';
+  }
+  const words = status.replace(/([a-z0-9])([A-Z])/g, '$1 $2').toLowerCase();
+  return words.charAt(0).toUpperCase() + words.slice(1);
+}
+
 function getTwapHistoryStatusText(
-  status: ITwapHistoryRecord['status']['status'],
+  status: ITwapHistoryStatusValue,
   intl: IntlShape,
 ) {
-  const statusTextMap: Record<
-    ITwapHistoryRecord['status']['status'],
-    ETranslations
-  > = {
-    activated: ETranslations.perp_twap_status_activated__title,
-    error: ETranslations.perp_twap_status_error__title,
-    finished: ETranslations.perp_twap_status_finished__title,
-    terminated: ETranslations.perp_twap_status_terminated__title,
-  };
-  return intl.formatMessage({ id: statusTextMap[status] });
+  const translationId = TWAP_HISTORY_STATUS_TEXT_MAP[status];
+  // An unmapped status must degrade to raw text; `formatMessage` throws on an
+  // undefined id and takes the whole history tab down with it.
+  return translationId
+    ? intl.formatMessage({ id: translationId })
+    : humanizeTwapHistoryStatus(status);
 }
 
 function getTableRowBgColor({
@@ -215,6 +235,8 @@ function getTwapBaseInfo({
   state,
   now,
   endTime,
+  activatedAt,
+  status,
   spotDisplayMap,
   spotPairDisplayNameMap,
   intl,
@@ -222,6 +244,8 @@ function getTwapBaseInfo({
   state: ITwapState;
   now: number;
   endTime?: number;
+  activatedAt?: number;
+  status?: ITwapHistoryRecord['status']['status'];
   spotDisplayMap: Record<string, string>;
   spotPairDisplayNameMap: Record<string, string>;
   intl: IntlShape;
@@ -251,11 +275,15 @@ function getTwapBaseInfo({
     executedSize.toFixed(),
     balanceFormatter,
   );
-  const totalMs = state.minutes * 60_000;
-  const elapsedMs = Math.min(
-    Math.max((endTime ?? now) - state.timestamp, 0),
-    totalMs,
-  );
+  const elapsedMs = getTwapElapsedMs({
+    status,
+    timestamp: state.timestamp,
+    activatedAt,
+    triggerPrice: state.trigger?.px,
+    now,
+    endTime,
+    minutes: state.minutes,
+  });
 
   return {
     assetSymbol,
@@ -266,10 +294,15 @@ function getTwapBaseInfo({
     avgPriceFormatted: avgPriceValue
       ? formatLocalizedNumberString(avgPriceValue)
       : '--',
-    runningTimeText: `${formatElapsedDuration(elapsedMs)} / ${formatTotalDuration(
-      state.minutes,
-      intl,
-    )}`,
+    triggerPriceFormatted: formatTwapPriceForDisplay(state.trigger?.px),
+    stopPriceFormatted: formatTwapPriceForDisplay(state.stopPx),
+    runningTimeText:
+      status === 'waitingForTrigger' || elapsedMs === undefined
+        ? '--'
+        : `${formatElapsedDuration(elapsedMs)} / ${formatTotalDuration(
+            state.minutes,
+            intl,
+          )}`,
     reduceOnlyText: state.reduceOnly
       ? intl.formatMessage({ id: ETranslations.perp_yes__title })
       : intl.formatMessage({ id: ETranslations.perp_no__title }),
@@ -329,125 +362,22 @@ function getFillDirectionInfo(fill: IFill, intl: IntlShape) {
   return getFillDirectionDisplayInfo({ fill, intl });
 }
 
-function TwapEmptyState({
-  titleId,
-  description,
-}: {
-  titleId: ETranslations;
-  description?: string;
-}) {
+function TwapEmptyState({ titleId }: { titleId: ETranslations }) {
   const intl = useIntl();
   const { gtMd } = useMedia();
-  const isMobile = !gtMd;
-  const handleGuidePress = useCallback(() => {
-    openGuideUrl(buildHelpUrl('articles/15442238'));
-  }, []);
+  const title = intl.formatMessage({ id: titleId });
 
-  if (isMobile) {
-    return (
-      <YStack flex={1} alignItems="center" p="$6">
-        <SizableText size="$bodyMd" color="$textSubdued" textAlign="center">
-          {intl.formatMessage({ id: titleId })}
-        </SizableText>
-        {description ? (
-          <SizableText
-            size="$bodySm"
-            color="$textSubdued"
-            textAlign="center"
-            mt="$2"
-          >
-            {description}
-          </SizableText>
-        ) : null}
-        <SizableText
-          testID={PerpTestIDs.TwapEmptyGuideButton}
-          size="$bodySm"
-          color="$textSubdued"
-          textAlign="center"
-          textDecorationLine="underline"
-          mt="$2"
-          onPress={handleGuidePress}
-        >
-          {intl.formatMessage({
-            id: ETranslations.perp_twap_trading_guide__action,
-          })}
-        </SizableText>
-      </YStack>
-    );
-  }
-
-  const guideButton = (
-    <Button
-      testID={PerpTestIDs.TwapEmptyGuideButton}
-      width={180}
-      borderRadius="$full"
-      size="small"
-      h={28}
-      px="$3"
-      variant="secondary"
-      onPress={handleGuidePress}
-      childrenAsText={false}
-    >
-      <XStack gap="$1.5" alignItems="center">
-        <Icon name="BookOpenOutline" size="$4" />
-        <SizableText size="$bodySmMedium">
-          {intl.formatMessage({
-            id: ETranslations.perp_twap_trading_guide__action,
-          })}
-        </SizableText>
-      </XStack>
-    </Button>
-  );
-
-  return (
-    <YStack
-      flex={1}
-      alignItems="center"
-      justifyContent="center"
-      minHeight={240}
-      px="$5"
-      py="$6"
-    >
-      <YStack
-        width="100%"
-        maxWidth={isMobile ? 320 : 420}
-        gap="$2"
-        alignItems="center"
-      >
-        <YStack
-          h={isMobile ? 72 : 88}
-          alignItems="center"
-          overflow="visible"
-          mb={isMobile ? -4 : -8}
-        >
-          <Illustration name="Orders" size={isMobile ? 100 : 124} />
-        </YStack>
-        <SizableText
-          size={isMobile ? '$bodyXs' : '$bodySm'}
-          color="$textSubdued"
-          textAlign="center"
-          maxWidth={isMobile ? 280 : 360}
-        >
-          {intl.formatMessage({ id: titleId })}
-        </SizableText>
-        {description ? (
-          <SizableText
-            size={isMobile ? '$bodyXs' : '$bodySm'}
-            color="$textSubdued"
-            textAlign="center"
-            maxWidth={isMobile ? 280 : 360}
-          >
-            {description}
-          </SizableText>
-        ) : null}
-        {guideButton}
-      </YStack>
-    </YStack>
+  return gtMd ? (
+    <PerpDesktopEmptyState title={title} alignToTop />
+  ) : (
+    <PerpMobileEmptyState contentOffsetY={-96} title={title} />
   );
 }
 
 function TwapActiveRow({
   order,
+  status,
+  activatedAt,
   now,
   cellMinWidth,
   columnConfigs,
@@ -460,6 +390,8 @@ function TwapActiveRow({
   spotPairDisplayNameMap,
 }: {
   order: IPerpsActiveTwapOrder;
+  status: ITwapHistoryRecord['status']['status'];
+  activatedAt?: number;
   now: number;
   cellMinWidth: number;
   columnConfigs: IColumnConfig[];
@@ -473,17 +405,34 @@ function TwapActiveRow({
 }) {
   const intl = useIntl();
   const { state } = order;
+  const actions = useHyperliquidActions();
+  const handleSwitchInstrument = useCallback(() => {
+    void actions.current.switchTradeInstrument({
+      mode: isSpotInstrument(state.coin) ? 'spot' : 'perp',
+      coin: state.coin,
+    });
+  }, [actions, state.coin]);
   const sideInfo = useMemo(() => getTwapSideInfo(state, intl), [intl, state]);
   const baseInfo = useMemo(
     () =>
       getTwapBaseInfo({
         state,
+        status,
+        activatedAt,
         now,
         spotDisplayMap,
         spotPairDisplayNameMap,
         intl,
       }),
-    [intl, now, spotDisplayMap, spotPairDisplayNameMap, state],
+    [
+      activatedAt,
+      intl,
+      now,
+      spotDisplayMap,
+      spotPairDisplayNameMap,
+      state,
+      status,
+    ],
   );
   const creationTime = useMemo(
     () => formatTwapDateTime(state.timestamp),
@@ -513,7 +462,14 @@ function TwapActiveRow({
             justifyContent="center"
             alignItems={calcCellAlign(columnConfigs[0].align)}
           >
-            <SizableText size="$bodySmMedium" color={sideInfo.color}>
+            <SizableText
+              size="$bodySmMedium"
+              fontWeight={600}
+              color={sideInfo.color}
+              maxWidth="100%"
+              onPress={handleSwitchInstrument}
+              cursor="pointer"
+            >
               {baseInfo.assetSymbol}
             </SizableText>
           </YStack>
@@ -546,29 +502,56 @@ function TwapActiveRow({
           </XStack>
           <YStack
             {...getColumnStyle(columnConfigs[4])}
-            justifyContent="center"
+            justifyContent={calcCellAlign(columnConfigs[4].align)}
             alignItems={calcCellAlign(columnConfigs[4].align)}
+          >
+            <SizableText size="$bodySm">
+              {baseInfo.triggerPriceFormatted}
+            </SizableText>
+          </YStack>
+          <YStack
+            {...getColumnStyle(columnConfigs[5])}
+            justifyContent={calcCellAlign(columnConfigs[5].align)}
+            alignItems={calcCellAlign(columnConfigs[5].align)}
+          >
+            <SizableText size="$bodySm">
+              {baseInfo.stopPriceFormatted}
+            </SizableText>
+          </YStack>
+          <YStack
+            {...getColumnStyle(columnConfigs[6])}
+            justifyContent="center"
+            alignItems={calcCellAlign(columnConfigs[6].align)}
           >
             <SizableText size="$bodySm">{baseInfo.runningTimeText}</SizableText>
           </YStack>
           <XStack
-            {...getColumnStyle(columnConfigs[5])}
-            justifyContent={calcCellAlign(columnConfigs[5].align)}
+            {...getColumnStyle(columnConfigs[7])}
+            justifyContent={calcCellAlign(columnConfigs[7].align)}
+            alignItems="center"
+          >
+            <SizableText size="$bodySm">
+              {getTwapHistoryStatusText(status, intl)}
+            </SizableText>
+          </XStack>
+          <XStack
+            {...getColumnStyle(columnConfigs[8])}
+            justifyContent={calcCellAlign(columnConfigs[8].align)}
             alignItems="center"
           >
             <SizableText size="$bodySm">{baseInfo.reduceOnlyText}</SizableText>
           </XStack>
           <XStack
-            {...getColumnStyle(columnConfigs[6])}
-            justifyContent={calcCellAlign(columnConfigs[6].align)}
+            {...getColumnStyle(columnConfigs[9])}
+            justifyContent={calcCellAlign(columnConfigs[9].align)}
             alignItems="center"
           >
             <SizableText size="$bodySm">{baseInfo.randomizeText}</SizableText>
           </XStack>
           <YStack
-            {...getColumnStyle(columnConfigs[7])}
+            {...getColumnStyle(columnConfigs[10])}
             justifyContent="center"
-            alignItems={calcCellAlign(columnConfigs[7].align)}
+            alignItems={calcCellAlign(columnConfigs[10].align)}
           >
             <SizableText size="$bodySm">{creationTime.inline}</SizableText>
           </YStack>
@@ -576,14 +559,14 @@ function TwapActiveRow({
       ) : null}
       {shouldRenderRight ? (
         <XStack
-          {...getColumnStyle(columnConfigs[8])}
-          justifyContent={calcCellAlign(columnConfigs[8].align)}
+          {...getColumnStyle(columnConfigs[11])}
+          justifyContent={calcCellAlign(columnConfigs[11].align)}
           alignItems="center"
           cursor="pointer"
         >
           <SizableText
             color="$bgCriticalStrong"
-            hoverStyle={{ size: '$bodySmMedium', fontWeight: 600 }}
+            hoverStyle={PERP_TEXT_ACTION_HOVER_STYLE}
             size="$bodySm"
             fontWeight={400}
             onPress={onTerminate}
@@ -600,6 +583,7 @@ function TwapActiveRow({
 
 function TwapHistoryRow({
   record,
+  activatedAt,
   now,
   cellMinWidth,
   columnConfigs,
@@ -610,8 +594,10 @@ function TwapHistoryRow({
   spotDisplayMap,
   spotPairDisplayNameMap,
   isMobile,
+  onSwitchInstrument,
 }: {
   record: ITwapHistoryRecord;
+  activatedAt?: number;
   now: number;
   cellMinWidth: number;
   columnConfigs: IColumnConfig[];
@@ -622,23 +608,51 @@ function TwapHistoryRow({
   spotDisplayMap: Record<string, string>;
   spotPairDisplayNameMap: Record<string, string>;
   isMobile?: boolean;
+  onSwitchInstrument?: (coin: string) => void;
 }) {
   const intl = useIntl();
   const { state } = record;
+  const actions = useHyperliquidActions();
+  const handleSwitchInstrument = useCallback(() => {
+    if (onSwitchInstrument) {
+      onSwitchInstrument(state.coin);
+      return;
+    }
+    void actions.current.switchTradeInstrument({
+      mode: isSpotInstrument(state.coin) ? 'spot' : 'perp',
+      coin: state.coin,
+    });
+  }, [actions, onSwitchInstrument, state.coin]);
+  const statusValue = record.status.status;
   const isActivated = record.status.status === 'activated';
-  const endTime = isActivated ? undefined : normalizeEpochMs(record.time);
+  const isWaitingForTrigger = record.status.status === 'waitingForTrigger';
+  const endTime =
+    isActivated || isWaitingForTrigger
+      ? undefined
+      : normalizeEpochMs(record.time);
   const sideInfo = useMemo(() => getTwapSideInfo(state, intl), [intl, state]);
   const baseInfo = useMemo(
     () =>
       getTwapBaseInfo({
         state,
+        status: record.status.status,
+        activatedAt,
         now,
         endTime,
         spotDisplayMap,
         spotPairDisplayNameMap,
         intl,
       }),
-    [endTime, intl, now, spotDisplayMap, spotPairDisplayNameMap, state],
+    [
+      activatedAt,
+      endTime,
+      intl,
+      now,
+      record.status.status,
+      spotDisplayMap,
+      spotPairDisplayNameMap,
+      state,
+    ],
   );
   const historyTime = useMemo(
     () => formatTwapDateTime(getTwapHistoryEventTimeMs(record)),
@@ -646,39 +660,43 @@ function TwapHistoryRow({
   );
   const historyDisplayInfo = useMemo(
     () => ({
-      executedSize: isActivated ? '--' : baseInfo.executedSizeWithSymbol,
-      averagePrice: isActivated ? '--' : baseInfo.avgPriceFormatted,
-      totalRuntime: formatTotalDuration(state.minutes, intl),
+      executedSize:
+        isActivated || isWaitingForTrigger
+          ? '--'
+          : baseInfo.executedSizeWithSymbol,
+      averagePrice:
+        isActivated || isWaitingForTrigger ? '--' : baseInfo.avgPriceFormatted,
+      totalRuntime: isWaitingForTrigger
+        ? '--'
+        : formatTotalDuration(state.minutes, intl),
     }),
     [
       baseInfo.avgPriceFormatted,
       baseInfo.executedSizeWithSymbol,
       intl,
       isActivated,
+      isWaitingForTrigger,
       state.minutes,
     ],
   );
   const statusText = useMemo(() => {
     const statusDescription =
       record.status.status === 'error' ? record.status.description : undefined;
-    const translatedStatus = getTwapHistoryStatusText(
-      record.status.status,
-      intl,
-    );
+    const translatedStatus = getTwapHistoryStatusText(statusValue, intl);
     if (statusDescription) {
       return `${translatedStatus}: ${statusDescription}`;
     }
     return translatedStatus;
-  }, [intl, record.status]);
+  }, [intl, record.status, statusValue]);
   const bgColor = getTableRowBgColor({ isHovered, index });
   const shouldRenderLeft = renderMode === 'full' || renderMode === 'left';
   const shouldRenderRight = renderMode === 'full' || renderMode === 'right';
 
   if (isMobile) {
     let statusColor = '$textSubdued';
-    if (record.status.status === 'error') {
+    if (statusValue === 'error') {
       statusColor = '$red11';
-    } else if (record.status.status === 'finished') {
+    } else if (statusValue === 'finished') {
       statusColor = '$green11';
     }
 
@@ -703,7 +721,13 @@ function TwapHistoryRow({
         >
           <YStack flex={1} gap="$1">
             <XStack gap="$2" alignItems="center" flexWrap="wrap">
-              <SizableText size="$bodyMdMedium" numberOfLines={1}>
+              <SizableText
+                size="$bodyMdMedium"
+                numberOfLines={1}
+                maxWidth="100%"
+                onPress={handleSwitchInstrument}
+                cursor="pointer"
+              >
                 {baseInfo.assetSymbol}
               </SizableText>
               <SizableText
@@ -751,7 +775,7 @@ function TwapHistoryRow({
         >
           <MobileTwapHistoryInfoRow
             label={intl.formatMessage({
-              id: ETranslations.defi_total_size,
+              id: ETranslations.perp_order_quantity__title,
             })}
             value={baseInfo.sizeWithSymbol}
           />
@@ -766,6 +790,21 @@ function TwapHistoryRow({
               id: ETranslations.perp_average_price__title,
             })}
             value={historyDisplayInfo.averagePrice}
+          />
+          <MobileTwapHistoryInfoRow
+            label={intl.formatMessage({
+              id: ETranslations.dexmarket_pro_trigger_price,
+            })}
+            value={baseInfo.triggerPriceFormatted}
+          />
+          <MobileTwapHistoryInfoRow
+            label={intl.formatMessage({
+              id:
+                state.side === 'B'
+                  ? ETranslations.perp_scale_upper_price_label__title
+                  : ETranslations.perp_scale_lower_price_label__title,
+            })}
+            value={baseInfo.stopPriceFormatted}
           />
           <MobileTwapHistoryInfoRow
             label={intl.formatMessage({
@@ -818,7 +857,13 @@ function TwapHistoryRow({
             justifyContent="center"
             alignItems={calcCellAlign(columnConfigs[1].align)}
           >
-            <SizableText size="$bodySmMedium" color={sideInfo.color}>
+            <SizableText
+              size="$bodySmMedium"
+              color={sideInfo.color}
+              maxWidth="100%"
+              onPress={handleSwitchInstrument}
+              cursor="pointer"
+            >
               {baseInfo.assetSymbol}
             </SizableText>
           </YStack>
@@ -858,19 +903,37 @@ function TwapHistoryRow({
             alignItems={calcCellAlign(columnConfigs[5].align)}
           >
             <SizableText size="$bodySm">
+              {baseInfo.triggerPriceFormatted}
+            </SizableText>
+          </YStack>
+          <YStack
+            {...getColumnStyle(columnConfigs[6])}
+            justifyContent="center"
+            alignItems={calcCellAlign(columnConfigs[6].align)}
+          >
+            <SizableText size="$bodySm">
+              {baseInfo.stopPriceFormatted}
+            </SizableText>
+          </YStack>
+          <YStack
+            {...getColumnStyle(columnConfigs[7])}
+            justifyContent="center"
+            alignItems={calcCellAlign(columnConfigs[7].align)}
+          >
+            <SizableText size="$bodySm">
               {historyDisplayInfo.totalRuntime}
             </SizableText>
           </YStack>
           <XStack
-            {...getColumnStyle(columnConfigs[6])}
-            justifyContent={calcCellAlign(columnConfigs[6].align)}
+            {...getColumnStyle(columnConfigs[8])}
+            justifyContent={calcCellAlign(columnConfigs[8].align)}
             alignItems="center"
           >
             <SizableText size="$bodySm">{baseInfo.reduceOnlyText}</SizableText>
           </XStack>
           <XStack
-            {...getColumnStyle(columnConfigs[7])}
-            justifyContent={calcCellAlign(columnConfigs[7].align)}
+            {...getColumnStyle(columnConfigs[9])}
+            justifyContent={calcCellAlign(columnConfigs[9].align)}
             alignItems="center"
           >
             <SizableText size="$bodySm">{baseInfo.randomizeText}</SizableText>
@@ -879,15 +942,15 @@ function TwapHistoryRow({
       ) : null}
       {shouldRenderRight ? (
         <XStack
-          {...getColumnStyle(columnConfigs[8])}
-          justifyContent={calcCellAlign(columnConfigs[8].align)}
+          {...getColumnStyle(columnConfigs[10])}
+          justifyContent={calcCellAlign(columnConfigs[10].align)}
           alignItems="center"
         >
           <SizableText
             numberOfLines={1}
             ellipsizeMode="tail"
             size="$bodySm"
-            color={record.status.status === 'error' ? '$red11' : '$text'}
+            color={statusValue === 'error' ? '$red11' : '$text'}
           >
             {statusText}
           </SizableText>
@@ -909,6 +972,7 @@ function TwapFillRow({
   spotPairDisplayNameMap,
   builderFeeRate,
   isMobile,
+  onSwitchInstrument,
 }: {
   record: ITwapSliceFill;
   cellMinWidth: number;
@@ -921,9 +985,21 @@ function TwapFillRow({
   spotPairDisplayNameMap: Record<string, string>;
   builderFeeRate?: number;
   isMobile?: boolean;
+  onSwitchInstrument?: (coin: string) => void;
 }) {
   const intl = useIntl();
   const { fill } = record;
+  const actions = useHyperliquidActions();
+  const handleSwitchInstrument = useCallback(() => {
+    if (onSwitchInstrument) {
+      onSwitchInstrument(fill.coin);
+      return;
+    }
+    void actions.current.switchTradeInstrument({
+      mode: isSpotInstrument(fill.coin) ? 'spot' : 'perp',
+      coin: fill.coin,
+    });
+  }, [actions, fill.coin, onSwitchInstrument]);
   const dateInfo = useMemo(() => formatTwapDateTime(fill.time), [fill.time]);
   const assetSymbol = useMemo(
     () =>
@@ -1026,7 +1102,13 @@ function TwapFillRow({
         >
           <YStack gap="$1">
             <XStack gap="$2" alignItems="center">
-              <SizableText size="$bodyMdMedium">{assetSymbol}</SizableText>
+              <SizableText
+                size="$bodyMdMedium"
+                onPress={handleSwitchInstrument}
+                cursor="pointer"
+              >
+                {assetSymbol}
+              </SizableText>
               <SizableText size="$bodySm" color={directionInfo.color}>
                 {directionInfo.text}
               </SizableText>
@@ -1082,12 +1164,12 @@ function TwapFillRow({
           <YStack gap="$1" flex={1} alignItems="flex-end">
             <SizableText size="$bodySm" color="$textSubdued">
               {intl.formatMessage({
-                id: ETranslations.perp_trades_history_fee,
+                id: ETranslations.perp_fee__title,
               })}
             </SizableText>
             <Popover
               title={intl.formatMessage({
-                id: ETranslations.perp_trades_history_fee,
+                id: ETranslations.perp_fee__title,
               })}
               placement="top"
               renderTrigger={
@@ -1141,7 +1223,14 @@ function TwapFillRow({
             justifyContent={calcCellAlign(columnConfigs[1].align)}
             alignItems="center"
           >
-            <SizableText size="$bodySmMedium">{assetSymbol}</SizableText>
+            <SizableText
+              size="$bodySmMedium"
+              maxWidth="100%"
+              onPress={handleSwitchInstrument}
+              cursor="pointer"
+            >
+              {assetSymbol}
+            </SizableText>
           </XStack>
           <XStack
             {...getColumnStyle(columnConfigs[2])}
@@ -1216,6 +1305,7 @@ function TwapFillRow({
 
 interface IPerpTwapListProps {
   isMobile?: boolean;
+  onSwitchInstrument?: (coin: string) => void;
   useTabsList?: boolean;
   disableListScroll?: boolean;
   initialTab?: ITwapPanelTab;
@@ -1224,6 +1314,7 @@ interface IPerpTwapListProps {
 
 function PerpTwapList({
   isMobile,
+  onSwitchInstrument,
   useTabsList,
   disableListScroll,
   initialTab = 'active',
@@ -1232,11 +1323,6 @@ function PerpTwapList({
   const actions = useHyperliquidActions();
   const ensureTradingEnabled = useEnsureTradingEnabled();
   const intl = useIntl();
-  const [
-    { accountAddress: activeTwapAccountAddress, twapOrders: rawTwapOrders },
-  ] = usePerpsActiveTwapOrdersAtom();
-  const [{ accountAddress: historyAccountAddress, history: rawHistory }] =
-    usePerpsTwapHistoryAtom();
   const [{ accountAddress: fillsAccountAddress, fills: rawSliceFills }] =
     usePerpsTwapSliceFillsAtom();
   const [currentUser] = usePerpsActiveAccountAtom();
@@ -1281,15 +1367,8 @@ function PerpTwapList({
 
   const currentAccountAddress = currentUser?.accountAddress?.toLowerCase();
 
-  const twapOrders = useMemo(() => {
-    if (
-      !currentAccountAddress ||
-      activeTwapAccountAddress?.toLowerCase() !== currentAccountAddress
-    ) {
-      return [];
-    }
-    return rawTwapOrders;
-  }, [activeTwapAccountAddress, currentAccountAddress, rawTwapOrders]);
+  const { twapOrders, historyRows, activeRuntimeInfoById } =
+    usePerpsAccountScopedActiveTwapOrders(currentAccountAddress);
 
   useEffect(() => {
     if (activeTab !== 'active' || twapOrders.length === 0) {
@@ -1298,16 +1377,6 @@ function PerpTwapList({
     const timer = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(timer);
   }, [activeTab, twapOrders.length]);
-
-  const historyRows = useMemo(() => {
-    if (
-      !currentAccountAddress ||
-      historyAccountAddress?.toLowerCase() !== currentAccountAddress
-    ) {
-      return [];
-    }
-    return rawHistory;
-  }, [currentAccountAddress, historyAccountAddress, rawHistory]);
 
   const sliceFills = useMemo(() => {
     if (
@@ -1360,11 +1429,38 @@ function PerpTwapList({
         align: 'left',
       },
       {
+        key: 'triggerPrice',
+        title: intl.formatMessage({
+          id: ETranslations.dexmarket_pro_trigger_price,
+        }),
+        minWidth: 130,
+        flex: 1,
+        align: 'left',
+      },
+      {
+        key: 'stopPrice',
+        title: `${intl.formatMessage({
+          id: ETranslations.perp_scale_upper_price__title,
+        })} / ${intl.formatMessage({
+          id: ETranslations.perp_scale_lower_price__title,
+        })}`,
+        minWidth: 130,
+        flex: 1,
+        align: 'left',
+      },
+      {
         key: 'runningTime',
         title: intl.formatMessage({
           id: ETranslations.perp_twap_running_time_total__title,
         }),
         minWidth: 170,
+        flex: 1,
+        align: 'left',
+      },
+      {
+        key: 'status',
+        title: intl.formatMessage({ id: ETranslations.global_status }),
+        minWidth: 130,
         flex: 1,
         align: 'left',
       },
@@ -1447,7 +1543,7 @@ function PerpTwapList({
       {
         key: 'sz',
         title: intl.formatMessage({
-          id: ETranslations.defi_total_size,
+          id: ETranslations.perp_order_quantity__title,
         }),
         minWidth: 110,
         flex: 1,
@@ -1468,6 +1564,26 @@ function PerpTwapList({
           id: ETranslations.perp_average_price__title,
         }),
         minWidth: 140,
+        flex: 1,
+        align: 'left',
+      },
+      {
+        key: 'triggerPrice',
+        title: intl.formatMessage({
+          id: ETranslations.dexmarket_pro_trigger_price,
+        }),
+        minWidth: 130,
+        flex: 1,
+        align: 'left',
+      },
+      {
+        key: 'stopPrice',
+        title: `${intl.formatMessage({
+          id: ETranslations.perp_scale_upper_price__title,
+        })} / ${intl.formatMessage({
+          id: ETranslations.perp_scale_lower_price__title,
+        })}`,
+        minWidth: 130,
         flex: 1,
         align: 'left',
       },
@@ -1565,7 +1681,7 @@ function PerpTwapList({
       {
         key: 'fee',
         title: intl.formatMessage({
-          id: ETranslations.perp_trades_history_fee,
+          id: ETranslations.perp_fee__title,
         }),
         minWidth: 110,
         flex: 1,
@@ -1663,23 +1779,36 @@ function PerpTwapList({
       renderMode?: IRenderMode,
       isHovered?: boolean,
       onHoverChange?: (index: number | null) => void,
-    ) => (
-      <TwapActiveRow
-        order={item}
-        now={now}
-        cellMinWidth={activeMinWidth}
-        columnConfigs={activeColumns}
-        onTerminate={() => void handleTerminate(item)}
-        index={index}
-        renderMode={renderMode}
-        isHovered={isHovered}
-        onHoverChange={onHoverChange}
-        spotDisplayMap={spotDisplayMap}
-        spotPairDisplayNameMap={spotPairDisplayNameMap}
-      />
-    ),
+    ) => {
+      const runtimeInfo = activeRuntimeInfoById.get(item.twapId);
+      const status = getActiveTwapRuntimeStatus({
+        reportedStatus: runtimeInfo?.reportedStatus,
+        triggerPrice: item.state.trigger?.px,
+        executedSize: item.state.executedSz,
+      });
+      return (
+        <TwapActiveRow
+          order={item}
+          status={status}
+          activatedAt={
+            status === 'activated' ? runtimeInfo?.activatedAt : undefined
+          }
+          now={now}
+          cellMinWidth={activeMinWidth}
+          columnConfigs={activeColumns}
+          onTerminate={() => void handleTerminate(item)}
+          index={index}
+          renderMode={renderMode}
+          isHovered={isHovered}
+          onHoverChange={onHoverChange}
+          spotDisplayMap={spotDisplayMap}
+          spotPairDisplayNameMap={spotPairDisplayNameMap}
+        />
+      );
+    },
     [
       activeColumns,
+      activeRuntimeInfoById,
       activeMinWidth,
       handleTerminate,
       now,
@@ -1695,25 +1824,39 @@ function PerpTwapList({
       renderMode?: IRenderMode,
       isHovered?: boolean,
       onHoverChange?: (index: number | null) => void,
-    ) => (
-      <TwapHistoryRow
-        record={item}
-        now={now}
-        cellMinWidth={historyMinWidth}
-        columnConfigs={historyColumns}
-        index={index}
-        renderMode={renderMode}
-        isHovered={isHovered}
-        onHoverChange={onHoverChange}
-        spotDisplayMap={spotDisplayMap}
-        spotPairDisplayNameMap={spotPairDisplayNameMap}
-        isMobile={isMobile}
-      />
-    ),
+    ) => {
+      const runtimeInfo =
+        item.twapId === undefined
+          ? undefined
+          : activeRuntimeInfoById.get(item.twapId);
+      return (
+        <TwapHistoryRow
+          record={item}
+          activatedAt={
+            item.status.status === 'activated'
+              ? normalizeEpochMs(item.time)
+              : runtimeInfo?.activatedAt
+          }
+          now={now}
+          cellMinWidth={historyMinWidth}
+          columnConfigs={historyColumns}
+          index={index}
+          renderMode={renderMode}
+          isHovered={isHovered}
+          onHoverChange={onHoverChange}
+          spotDisplayMap={spotDisplayMap}
+          spotPairDisplayNameMap={spotPairDisplayNameMap}
+          isMobile={isMobile}
+          onSwitchInstrument={onSwitchInstrument}
+        />
+      );
+    },
     [
+      activeRuntimeInfoById,
       historyColumns,
       historyMinWidth,
       isMobile,
+      onSwitchInstrument,
       now,
       spotDisplayMap,
       spotPairDisplayNameMap,
@@ -1740,6 +1883,7 @@ function PerpTwapList({
         spotPairDisplayNameMap={spotPairDisplayNameMap}
         builderFeeRate={builderFeeRate}
         isMobile={isMobile}
+        onSwitchInstrument={onSwitchInstrument}
       />
     ),
     [
@@ -1747,6 +1891,7 @@ function PerpTwapList({
       fillColumns,
       fillMinWidth,
       isMobile,
+      onSwitchInstrument,
       spotDisplayMap,
       spotPairDisplayNameMap,
     ],
@@ -1768,13 +1913,8 @@ function PerpTwapList({
     sliceFills.length > TWAP_PAGE_SIZE ? onViewAllUrl : undefined;
 
   const listEmptyComponent = useMemo(
-    () => (
-      <TwapEmptyState
-        titleId={emptyState.titleId}
-        description={emptyState.description}
-      />
-    ),
-    [emptyState.description, emptyState.titleId],
+    () => <TwapEmptyState titleId={emptyState.titleId} />,
+    [emptyState.titleId],
   );
 
   return (
@@ -1802,6 +1942,11 @@ function PerpTwapList({
           paginationToBottom={isMobile}
           renderRow={renderActiveRow}
           ListEmptyComponent={listEmptyComponent}
+          desktopEmptyStateTopInset={
+            twapOrderSubTabs.length > 1
+              ? PERP_DESKTOP_ORDER_INFO_SUB_TABS_HEIGHT
+              : 0
+          }
           emptyMessage={intl.formatMessage({
             id: ETranslations.perp_no_active_twap__title,
           })}
@@ -1824,8 +1969,13 @@ function PerpTwapList({
           isMobile={isMobile}
           paginationToBottom={isMobile}
           renderRow={renderHistoryRow}
-          onViewAll={historyViewAll}
+          onViewAll={isMobile ? undefined : historyViewAll}
           ListEmptyComponent={listEmptyComponent}
+          desktopEmptyStateTopInset={
+            twapOrderSubTabs.length > 1
+              ? PERP_DESKTOP_ORDER_INFO_SUB_TABS_HEIGHT
+              : 0
+          }
           emptyMessage={intl.formatMessage({
             id: ETranslations.perp_no_twap_history__title,
           })}
@@ -1848,8 +1998,13 @@ function PerpTwapList({
           isMobile={isMobile}
           paginationToBottom={isMobile}
           renderRow={renderFillRow}
-          onViewAll={fillsViewAll}
+          onViewAll={isMobile ? undefined : fillsViewAll}
           ListEmptyComponent={listEmptyComponent}
+          desktopEmptyStateTopInset={
+            twapOrderSubTabs.length > 1
+              ? PERP_DESKTOP_ORDER_INFO_SUB_TABS_HEIGHT
+              : 0
+          }
           emptyMessage={intl.formatMessage({
             id: ETranslations.perp_no_twap_fill_history__title,
           })}

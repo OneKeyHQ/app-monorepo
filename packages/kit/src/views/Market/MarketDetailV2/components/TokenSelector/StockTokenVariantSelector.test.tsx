@@ -2,14 +2,33 @@
 
 import type { ReactNode } from 'react';
 
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, within } from '@testing-library/react';
 
 import type { IMarketStockTokenVariant } from '@onekeyhq/shared/types/marketV2';
+
+import { getStockPortfolioVariantKey } from '../../utils/stockTokenVariant';
 
 import { StockTokenVariantSelector } from './StockTokenVariantSelector';
 
 const setSelectedTokenIdMock = jest.fn();
 const closePopoverMock = jest.fn();
+const setIssuerPreferenceMock = jest.fn();
+// The selector writes through an updater; apply the latest one to `previous`.
+function lastIssuerWrite(previous: { issuer?: string } = {}) {
+  const update = setIssuerPreferenceMock.mock.calls.at(-1)?.[0] as
+    | ((value: { issuer?: string }) => { issuer?: string })
+    | undefined;
+  return update?.(previous);
+}
+
+jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
+  useSwapStockIssuerPreferencePersistAtom: () => [{}, setIssuerPreferenceMock],
+}));
+
+jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
+  __esModule: true,
+  default: { isNative: true },
+}));
 
 const mockVariants: IMarketStockTokenVariant[] = [
   {
@@ -152,7 +171,11 @@ jest.mock('@onekeyhq/components', () => {
   }
 
   return {
+    useMedia: () => ({ md: false }),
     Button: StackComponent,
+    DashText: ({ children }: { children?: ReactNode }) => (
+      <span>{children}</span>
+    ),
     Icon: () => <span data-testid="icon" />,
     NumberSizeableText: ({ children }: { children?: ReactNode }) => (
       <span>{children}</span>
@@ -160,17 +183,35 @@ jest.mock('@onekeyhq/components', () => {
     Popover: ({
       renderTrigger,
       renderContent,
+      onOpenChange,
+      sheetProps,
     }: {
       renderTrigger: ReactNode;
       renderContent:
         | ReactNode
         | ((props: { closePopover: () => void }) => ReactNode);
+      onOpenChange?: (open: boolean) => void;
+      sheetProps?: {
+        onAnimationComplete?: (info: { open: boolean }) => void;
+      };
     }) => (
       <>
         {renderTrigger}
         {typeof renderContent === 'function'
-          ? renderContent({ closePopover: closePopoverMock })
+          ? renderContent({
+              closePopover: () => {
+                closePopoverMock();
+                onOpenChange?.(false);
+              },
+            })
           : renderContent}
+        <button
+          type="button"
+          data-testid="finish-sheet-close"
+          onClick={() => sheetProps?.onAnimationComplete?.({ open: false })}
+        >
+          Finish closing
+        </button>
       </>
     ),
     ScrollView: StackComponent,
@@ -209,10 +250,28 @@ describe('StockTokenVariantSelector', () => {
   beforeEach(() => {
     setSelectedTokenIdMock.mockReset();
     closePopoverMock.mockReset();
+    setIssuerPreferenceMock.mockReset();
     mockStockDetailState.tokenVariants = mockVariants;
     mockStockDetailState.selectedTokenId = mockVariants[0].tokenId;
     mockStockDetailState.portfolioNetworkId = mockVariants[0].networkId;
   });
+
+  it.each([false, true])(
+    'pins bStocks before other issuers, compact=%s',
+    (compact) => {
+      mockStockDetailState.tokenVariants = [mockVariants[1], mockVariants[0]];
+      render(<StockTokenVariantSelector compact={compact} />);
+      expect(
+        within(screen.getByTestId('stock-token-variant-row-0')).getByText(
+          'AAPLb',
+        ),
+      ).toBeTruthy();
+      fireEvent.click(screen.getByTestId('stock-token-variant-row-1'));
+      expect(setSelectedTokenIdMock).toHaveBeenCalledWith(
+        mockVariants[1].tokenId,
+      );
+    },
+  );
 
   it('renders backend variants and selects a token by tokenId', () => {
     render(
@@ -233,7 +292,16 @@ describe('StockTokenVariantSelector', () => {
     expect(screen.getByText('Token/Balance')).toBeTruthy();
     expect(screen.getByText('Issuer')).toBeTruthy();
     expect(screen.getByText('Quote price')).toBeTruthy();
-    expect(screen.getByText('24/7')).toBeTruthy();
+    // The selected bStocks token is always open: tagged in its row and in
+    // the trigger that shows it after picking.
+    expect(
+      within(screen.getByTestId('stock-token-variant-row-0')).getByText('24/7'),
+    ).toBeTruthy();
+    expect(
+      within(
+        screen.getByTestId('stock-token-variant-selector-trigger-0'),
+      ).getByText('24/7'),
+    ).toBeTruthy();
     expect(screen.getByText('0.001')).toBeTruthy();
     expect(screen.getByText('bStocks')).toBeTruthy();
     expect(screen.getAllByText('Ondo')).toHaveLength(2);
@@ -245,6 +313,9 @@ describe('StockTokenVariantSelector', () => {
     fireEvent.click(secondRow);
 
     expect(setSelectedTokenIdMock).toHaveBeenCalledWith('aapl-bsc');
+    expect(lastIssuerWrite()).toEqual({ issuer: 'ondo' });
+    const unchanged = { issuer: 'ondo' };
+    expect(lastIssuerWrite(unchanged)).toBe(unchanged);
     expect(closePopoverMock).toHaveBeenCalledTimes(1);
   });
 
@@ -254,7 +325,66 @@ describe('StockTokenVariantSelector', () => {
     fireEvent.click(screen.getByTestId('stock-token-variant-row-2'));
 
     expect(setSelectedTokenIdMock).not.toHaveBeenCalled();
+    expect(setIssuerPreferenceMock).not.toHaveBeenCalled();
     expect(closePopoverMock).not.toHaveBeenCalled();
+  });
+
+  it('leaves remembering the issuer to an onSelect caller', async () => {
+    // Swap remembers it only once the switch commits, so a cancelled risk
+    // prompt does not change the default issuer.
+    const onSelect = jest.fn(() => Promise.resolve(true));
+    render(<StockTokenVariantSelector onSelect={onSelect} />);
+    fireEvent.click(screen.getByTestId('stock-token-variant-row-1'));
+    await act(async () => undefined);
+    expect(onSelect).toHaveBeenCalledWith(mockVariants[1]);
+    expect(setIssuerPreferenceMock).not.toHaveBeenCalled();
+  });
+
+  it('closes before an asynchronous variant selection finishes', () => {
+    const onSelect = jest.fn(() => new Promise<boolean>(() => undefined));
+    render(<StockTokenVariantSelector onSelect={onSelect} />);
+
+    fireEvent.click(screen.getByTestId('stock-token-variant-row-1'));
+
+    expect(onSelect).toHaveBeenCalledWith(mockVariants[1]);
+    expect(closePopoverMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('shows a compact loading row while a new variant is being selected', () => {
+    render(<StockTokenVariantSelector compact forceLoading />);
+
+    expect(
+      screen.getByTestId('stock-token-variant-selector-loading'),
+    ).toBeTruthy();
+    expect(
+      screen.queryByTestId('stock-token-variant-selector-trigger-0'),
+    ).toBeNull();
+  });
+
+  it('keeps the native sheet mounted until its closing animation completes', () => {
+    const onSelect = jest.fn(() => new Promise<boolean>(() => undefined));
+    const view = render(
+      <StockTokenVariantSelector compact onSelect={onSelect} />,
+    );
+
+    fireEvent.click(screen.getByTestId('stock-token-variant-row-1'));
+    mockStockDetailState.selectedTokenId = 'pending-variant';
+    view.rerender(
+      <StockTokenVariantSelector compact forceLoading onSelect={onSelect} />,
+    );
+
+    expect(
+      screen.getByTestId('stock-token-variant-selector-trigger--1'),
+    ).toBeTruthy();
+    expect(
+      screen.queryByTestId('stock-token-variant-selector-loading'),
+    ).toBeNull();
+
+    fireEvent.click(screen.getByTestId('finish-sheet-close'));
+
+    expect(
+      screen.getByTestId('stock-token-variant-selector-loading'),
+    ).toBeTruthy();
   });
 
   describe('balance attribution', () => {
@@ -269,6 +399,110 @@ describe('StockTokenVariantSelector', () => {
       },
     ];
 
+    it('reads a variant the account does not hold as zero', () => {
+      mockStockDetailState.tokenVariants = sameAddressVariants;
+      mockStockDetailState.selectedTokenId = 'aapl-ethereum';
+      mockStockDetailState.portfolioNetworkId = 'evm--1';
+
+      // The portfolio queries every variant and drops zero amounts, so an
+      // empty payload means the account holds none of any of them.
+      render(
+        <StockTokenVariantSelector
+          portfolioData={[]}
+          resolvedVariantKeys={sameAddressVariants.map(
+            getStockPortfolioVariantKey,
+          )}
+        />,
+      );
+
+      expect(
+        within(screen.getByTestId('stock-token-variant-row-0')).getAllByText(
+          '0',
+        ),
+      ).toHaveLength(1);
+      expect(
+        within(screen.getByTestId('stock-token-variant-row-1')).getAllByText(
+          '0',
+        ),
+      ).toHaveLength(1);
+    });
+
+    it('falls back when the portfolio has not been read yet', () => {
+      mockStockDetailState.tokenVariants = sameAddressVariants;
+      mockStockDetailState.selectedTokenId = 'aapl-ethereum';
+      mockStockDetailState.portfolioNetworkId = 'evm--1';
+
+      // No account, a first fetch still in flight, or a failed request all
+      // arrive as an empty payload. Reading that as a zero holding would claim
+      // a balance nobody looked up.
+      render(<StockTokenVariantSelector portfolioData={[]} />);
+
+      expect(
+        within(screen.getByTestId('stock-token-variant-row-0')).queryByText(
+          '0',
+        ),
+      ).toBeNull();
+      expect(
+        within(screen.getByTestId('stock-token-variant-row-0')).getAllByText(
+          '--',
+        ).length,
+      ).toBeGreaterThan(0);
+    });
+
+    it('keeps a variant whose own lookup failed out of the zero reading', () => {
+      mockStockDetailState.tokenVariants = sameAddressVariants;
+      mockStockDetailState.selectedTokenId = 'aapl-ethereum';
+      mockStockDetailState.portfolioNetworkId = 'evm--1';
+
+      // Ethereum resolved and holds none; Base never resolved at all.
+      render(
+        <StockTokenVariantSelector
+          portfolioData={[]}
+          resolvedVariantKeys={[
+            getStockPortfolioVariantKey(sameAddressVariants[0]),
+          ]}
+        />,
+      );
+
+      expect(
+        within(screen.getByTestId('stock-token-variant-row-0')).getAllByText(
+          '0',
+        ),
+      ).toHaveLength(1);
+      expect(
+        within(screen.getByTestId('stock-token-variant-row-1')).queryByText(
+          '0',
+        ),
+      ).toBeNull();
+    });
+
+    it('does not lend the previous stock resolution to the new one', () => {
+      mockStockDetailState.tokenVariants = sameAddressVariants;
+      mockStockDetailState.selectedTokenId = 'aapl-ethereum';
+      mockStockDetailState.portfolioNetworkId = 'evm--1';
+
+      // Switching stocks on a mounted page leaves the previous stock's result
+      // standing until the new request lands. It resolved its own variants,
+      // never these, so these stay unknown instead of reading as zero.
+      render(
+        <StockTokenVariantSelector
+          portfolioData={[]}
+          resolvedVariantKeys={['evm--1:0xPREVIOUSSTOCK']}
+        />,
+      );
+
+      expect(
+        within(screen.getByTestId('stock-token-variant-row-0')).queryByText(
+          '0',
+        ),
+      ).toBeNull();
+      expect(
+        within(screen.getByTestId('stock-token-variant-row-1')).queryByText(
+          '0',
+        ),
+      ).toBeNull();
+    });
+
     it('never lends the fetched balance to a same-address variant on another chain', () => {
       mockStockDetailState.tokenVariants = sameAddressVariants;
       mockStockDetailState.selectedTokenId = 'aapl-ethereum';
@@ -277,6 +511,9 @@ describe('StockTokenVariantSelector', () => {
       render(
         <StockTokenVariantSelector
           portfolioData={position('0xSAME', '12.5')}
+          resolvedVariantKeys={sameAddressVariants.map(
+            getStockPortfolioVariantKey,
+          )}
         />,
       );
 
@@ -285,11 +522,13 @@ describe('StockTokenVariantSelector', () => {
       expect(within(scopedRow).getByText('12.5')).toBeTruthy();
 
       // The Base row shares the contract address but not the chain, and the
-      // payload carries no networkId to tell them apart — so it must fall back
-      // to `--` rather than borrow the Ethereum balance.
+      // payload carries no networkId to tell them apart — so it must not
+      // borrow the Ethereum balance. It reads as zero: the portfolio queries
+      // every variant and drops zero amounts, so an absent position is a
+      // holding of none.
       const otherChainRow = screen.getByTestId('stock-token-variant-row-1');
       expect(within(otherChainRow).queryByText('12.5')).toBeNull();
-      expect(within(otherChainRow).getAllByText('--')).toHaveLength(1);
+      expect(within(otherChainRow).getAllByText('0')).toHaveLength(1);
     });
 
     it('shows balance only after the portfolio scope follows the selected variant', () => {
@@ -298,12 +537,17 @@ describe('StockTokenVariantSelector', () => {
       mockStockDetailState.portfolioNetworkId = 'evm--8453';
 
       render(
-        <StockTokenVariantSelector portfolioData={position('0xSAME', '8.5')} />,
+        <StockTokenVariantSelector
+          portfolioData={position('0xSAME', '8.5')}
+          resolvedVariantKeys={sameAddressVariants.map(
+            getStockPortfolioVariantKey,
+          )}
+        />,
       );
 
       const ethereumRow = screen.getByTestId('stock-token-variant-row-0');
       expect(within(ethereumRow).queryByText('8.5')).toBeNull();
-      expect(within(ethereumRow).getAllByText('--')).toHaveLength(1);
+      expect(within(ethereumRow).getAllByText('0')).toHaveLength(1);
 
       const baseRow = screen.getByTestId('stock-token-variant-row-1');
       expect(within(baseRow).getByText('8.5')).toBeTruthy();
@@ -316,7 +560,10 @@ describe('StockTokenVariantSelector', () => {
       mockStockDetailState.portfolioNetworkId = 'evm--56';
 
       render(
-        <StockTokenVariantSelector portfolioData={position('0x01', '0.001')} />,
+        <StockTokenVariantSelector
+          portfolioData={position('0x01', '0.001')}
+          resolvedVariantKeys={mockVariants.map(getStockPortfolioVariantKey)}
+        />,
       );
 
       expect(screen.queryByText('0.001')).toBeNull();

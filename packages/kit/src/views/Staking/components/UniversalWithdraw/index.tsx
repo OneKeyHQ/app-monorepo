@@ -11,6 +11,7 @@ import {
   Alert,
   Dialog,
   Divider,
+  HeightTransition,
   Icon,
   IconButton,
   Image,
@@ -99,6 +100,10 @@ import {
 } from '../StakingAmountInput';
 import StakingFormWrapper from '../StakingFormWrapper';
 
+import {
+  getCheckAmountRequestKey,
+  isLatestCheckAmountRequest,
+} from './checkAmountRequestUtils';
 import {
   isLatestTransactionConfirmationRequest,
   selectCurrentTransactionConfirmation,
@@ -428,6 +433,8 @@ export function UniversalWithdraw({
     useState<IStakeTransactionConfirmation | undefined>();
   const [resolvedTransactionConfirmationRequestKey, setResolvedRequestKey] =
     useState<string>();
+  const checkAmountRequestIdRef = useRef(0);
+  const checkAmountRequestKeyRef = useRef('');
   const transactionConfirmationRequestIdRef = useRef(0);
   const transactionConfirmationRequestKeyRef = useRef('');
 
@@ -1143,48 +1150,126 @@ export function UniversalWithdraw({
 
   const quoteLoading = checkAmountLoading || transactionConfirmationLoading;
 
-  const checkAmount = useDebouncedCallback(async (amount: string) => {
-    if (isInvalidAmount(amount)) {
-      return;
-    }
-    // Treat a non-positive amount (0 / "0.00" / mid-typing) as "not entered
-    // yet": clear any previous error and skip the backend check. Otherwise
-    // providers whose backend rejects 0 (e.g. Bitway) would flash an error
-    // before the user finishes typing (OK-58205).
-    if (new BigNumber(amount).isLessThanOrEqualTo(0)) {
+  const checkAmountRequestParams = useMemo(
+    () => ({
+      accountId,
+      action: ECheckAmountActionType.UNSTAKING,
+      amount: amountValue,
+      identity,
+      inputTokenAddress: transactionInputTokenAddress,
+      networkId,
+      outputTokenAddress: transactionOutputTokenAddress,
+      protocolVault,
+      provider: providerName,
+      slippage: pendleSlippage,
+      symbol: actionSymbol,
+      withdrawAll: isWithdrawAll,
+      withdrawType: selectedWithdrawType,
+    }),
+    [
+      accountId,
+      actionSymbol,
+      amountValue,
+      identity,
+      isWithdrawAll,
+      networkId,
+      pendleSlippage,
+      protocolVault,
+      providerName,
+      selectedWithdrawType,
+      transactionInputTokenAddress,
+      transactionOutputTokenAddress,
+    ],
+  );
+  const checkAmountRequestKey = useMemo(
+    () => getCheckAmountRequestKey(checkAmountRequestParams),
+    [checkAmountRequestParams],
+  );
+  checkAmountRequestKeyRef.current = checkAmountRequestKey;
+
+  const debouncedCheckAmount = useDebouncedCallback(
+    async ({
+      requestId,
+      requestKey,
+      params,
+    }: {
+      requestId: number;
+      requestKey: string;
+      params: typeof checkAmountRequestParams;
+    }) => {
+      try {
+        const response =
+          await backgroundApiProxy.serviceStaking.checkAmount(params);
+        if (
+          !isLatestCheckAmountRequest({
+            latestRequestId: checkAmountRequestIdRef.current,
+            latestRequestKey: checkAmountRequestKeyRef.current,
+            requestId,
+            requestKey,
+          })
+        ) {
+          return;
+        }
+
+        if (Number(response.code) === 0) {
+          setCheckoutAmountMessage('');
+          setCheckAmountAlerts(response.data?.alerts || []);
+        } else {
+          setCheckoutAmountMessage(response.message);
+          setCheckAmountAlerts([]);
+        }
+      } finally {
+        if (
+          isLatestCheckAmountRequest({
+            latestRequestId: checkAmountRequestIdRef.current,
+            latestRequestKey: checkAmountRequestKeyRef.current,
+            requestId,
+            requestKey,
+          })
+        ) {
+          setCheckAmountLoading(false);
+        }
+      }
+    },
+    300,
+  );
+
+  useEffect(() => {
+    checkAmountRequestIdRef.current += 1;
+    const requestId = checkAmountRequestIdRef.current;
+    const requestKey = checkAmountRequestKey;
+    const isCheckableAmount =
+      !isCancelWithdrawal &&
+      !isInvalidAmount(amountValue) &&
+      new BigNumber(amountValue).isGreaterThan(0);
+
+    if (!isCheckableAmount) {
+      setCheckAmountLoading(false);
       setCheckoutAmountMessage('');
       setCheckAmountAlerts([]);
-      return;
+      return undefined;
     }
-    setCheckAmountLoading(true);
-    try {
-      const response = await backgroundApiProxy.serviceStaking.checkAmount({
-        accountId,
-        networkId,
-        symbol: actionSymbol,
-        provider: providerName,
-        action: ECheckAmountActionType.UNSTAKING,
-        amount,
-        protocolVault,
-        withdrawAll: withdrawAllRef.current,
-        identity,
-        inputTokenAddress: transactionInputTokenAddress,
-        outputTokenAddress: transactionOutputTokenAddress,
-        slippage: pendleSlippage,
-        withdrawType: selectedWithdrawType,
-      });
 
-      if (Number(response.code) === 0) {
-        setCheckoutAmountMessage('');
-        setCheckAmountAlerts(response.data?.alerts || []);
-      } else {
-        setCheckoutAmountMessage(response.message);
-        setCheckAmountAlerts([]);
+    setCheckAmountLoading(true);
+    void debouncedCheckAmount({
+      params: checkAmountRequestParams,
+      requestId,
+      requestKey,
+    });
+
+    return () => {
+      if (checkAmountRequestIdRef.current === requestId) {
+        checkAmountRequestIdRef.current += 1;
       }
-    } finally {
-      setCheckAmountLoading(false);
-    }
-  }, 300);
+      debouncedCheckAmount.cancel();
+    };
+  }, [
+    amountValue,
+    checkAmountRequestKey,
+    checkAmountRequestParams,
+    debouncedCheckAmount,
+    isCancelWithdrawal,
+  ]);
 
   const fetchTransactionConfirmation = useCallback(
     async (amount: string, withdrawType = selectedWithdrawType) => {
@@ -1372,23 +1457,9 @@ export function UniversalWithdraw({
       }
       withdrawAllRef.current = !!isMax;
       setIsWithdrawAll(!!isMax);
-      void checkAmount(value);
     },
-    [checkAmount, decimals, isCancelWithdrawal],
+    [decimals, isCancelWithdrawal],
   );
-
-  // Re-trigger checkAmount when output token changes
-  useEffect(() => {
-    if (!isCancelWithdrawal && amountValue && !isInvalidAmount(amountValue)) {
-      void checkAmount(amountValue);
-    }
-  }, [
-    transactionOutputTokenAddress,
-    checkAmount,
-    amountValue,
-    isCancelWithdrawal,
-    selectedWithdrawType,
-  ]);
 
   const currentValue = useMemo<string | undefined>(() => {
     if (Number(amountValue) > 0 && Number(price) > 0) {
@@ -1880,130 +1951,133 @@ export function UniversalWithdraw({
           borderWidth={StyleSheet.hairlineWidth}
           borderColor="$borderSubdued"
         >
-          {showApyHeader && apyDetail ? (
-            <XStack gap="$1" ai="center" mb="$3.5">
-              <EarnText
-                text={apyDetail.description}
-                size="$headingLg"
-                color="$textSuccess"
-              />
-              <EarnActionIcon
-                title={apyDetail.title.text}
-                actionIcon={apyDetail.button}
-              />
-            </XStack>
-          ) : null}
-          {hasSummarySection && usePendleSummaryLayout ? (
-            <PendleSummarySection
-              rewardRows={pendleRewardRows}
-              tipText={pendleTipText}
-              loading={quoteLoading}
-            />
-          ) : null}
-          {hasSummarySection && !usePendleSummaryLayout ? (
-            <YStack gap="$1.5">
-              <XStack ai="center" gap="$1">
+          <HeightTransition>
+            {showApyHeader && apyDetail ? (
+              <XStack gap="$1" ai="center" mb="$3.5">
                 <EarnText
-                  text={transactionConfirmation?.title}
-                  color="$textSubdued"
-                  size="$bodyMd"
+                  text={apyDetail.description}
+                  size="$headingLg"
+                  color="$textSuccess"
                 />
-                {transactionConfirmation?.tooltip ? (
-                  <EarnTooltip
-                    title={transactionConfirmation?.title?.text}
-                    tooltip={transactionConfirmation?.tooltip}
-                  />
-                ) : null}
+                <EarnActionIcon
+                  title={apyDetail.title.text}
+                  actionIcon={apyDetail.button}
+                />
               </XStack>
-              {transactionConfirmation?.rewards?.map((reward) => {
-                const hasTooltip = reward.tooltip?.type === 'text';
-                let descriptionTextSize = (
-                  hasTooltip ? '$bodyMd' : '$bodyLgMedium'
-                ) as FontSizeTokens;
-                if (reward.description.size) {
-                  descriptionTextSize = reward.description.size;
-                }
-                return (
-                  <XStack
-                    key={reward.title.text}
-                    gap="$1"
-                    ai="flex-start"
-                    flexWrap="wrap"
-                  >
-                    <XStack gap="$1" flex={1} flexWrap="wrap" ai="center">
-                      <EarnText
-                        text={reward.title}
-                        color={reward.title.color}
-                        size={reward.title.size}
-                      />
+            ) : null}
+            {hasSummarySection && usePendleSummaryLayout ? (
+              <PendleSummarySection
+                rewardRows={pendleRewardRows}
+                tipText={pendleTipText}
+                loading={quoteLoading}
+              />
+            ) : null}
+            {hasSummarySection && !usePendleSummaryLayout ? (
+              <YStack gap="$1.5">
+                <XStack ai="center" gap="$1">
+                  <EarnText
+                    text={transactionConfirmation?.title}
+                    color="$textSubdued"
+                    size="$bodyMd"
+                  />
+                  {transactionConfirmation?.tooltip ? (
+                    <EarnTooltip
+                      title={transactionConfirmation?.title?.text}
+                      tooltip={transactionConfirmation?.tooltip}
+                    />
+                  ) : null}
+                </XStack>
+                {transactionConfirmation?.rewards?.map((reward) => {
+                  const hasTooltip = reward.tooltip?.type === 'text';
+                  let descriptionTextSize = (
+                    hasTooltip ? '$bodyMd' : '$bodyLgMedium'
+                  ) as FontSizeTokens;
+                  if (reward.description.size) {
+                    descriptionTextSize = reward.description.size;
+                  }
+                  return (
+                    <XStack
+                      key={reward.title.text}
+                      gap="$1"
+                      ai="flex-start"
+                      flexWrap="wrap"
+                    >
                       <XStack gap="$1" flex={1} flexWrap="wrap" ai="center">
                         <EarnText
-                          text={reward.description}
-                          size={descriptionTextSize}
-                          color={reward.description.color ?? '$textSubdued'}
-                          flexShrink={1}
+                          text={reward.title}
+                          color={reward.title.color}
+                          size={reward.title.size}
                         />
-                        {hasTooltip ? (
-                          <EarnTooltip
-                            title={reward.title.text}
-                            tooltip={reward.tooltip}
+                        <XStack gap="$1" flex={1} flexWrap="wrap" ai="center">
+                          <EarnText
+                            text={reward.description}
+                            size={descriptionTextSize}
+                            color={reward.description.color ?? '$textSubdued'}
+                            flexShrink={1}
                           />
-                        ) : null}
+                          {hasTooltip ? (
+                            <EarnTooltip
+                              title={reward.title.text}
+                              tooltip={reward.tooltip}
+                            />
+                          ) : null}
+                        </XStack>
                       </XStack>
                     </XStack>
-                  </XStack>
-                );
-              })}
-              {transactionConfirmation?.availableLiquidity ? (
-                // Server-driven "Available liquidity" row (e.g. Bitway:
-                // instant withdrawal is capped by the flash pool balance, so
-                // amounts above it must go through the queued path). Kept in
-                // the always-visible summary so users can see why instant
-                // withdrawal is unavailable. (OK-58353)
-                <XStack ai="center" jc="space-between" flexWrap="wrap">
-                  <XStack ai="center" gap="$1">
-                    <EarnText
-                      text={transactionConfirmation.availableLiquidity.title}
-                      color={
-                        transactionConfirmation.availableLiquidity.title
-                          .color ?? '$textSubdued'
-                      }
-                      size={
-                        transactionConfirmation.availableLiquidity.title.size ??
-                        '$bodyMd'
-                      }
-                    />
-                    {transactionConfirmation.availableLiquidity.tooltip ? (
-                      <EarnTooltip
-                        title={
-                          transactionConfirmation.availableLiquidity.title.text
+                  );
+                })}
+                {transactionConfirmation?.availableLiquidity ? (
+                  // Server-driven "Available liquidity" row (e.g. Bitway:
+                  // instant withdrawal is capped by the flash pool balance, so
+                  // amounts above it must go through the queued path). Kept in
+                  // the always-visible summary so users can see why instant
+                  // withdrawal is unavailable. (OK-58353)
+                  <XStack ai="center" jc="space-between" flexWrap="wrap">
+                    <XStack ai="center" gap="$1">
+                      <EarnText
+                        text={transactionConfirmation.availableLiquidity.title}
+                        color={
+                          transactionConfirmation.availableLiquidity.title
+                            .color ?? '$textSubdued'
                         }
-                        tooltip={
-                          transactionConfirmation.availableLiquidity.tooltip
+                        size={
+                          transactionConfirmation.availableLiquidity.title
+                            .size ?? '$bodyMd'
                         }
                       />
-                    ) : null}
+                      {transactionConfirmation.availableLiquidity.tooltip ? (
+                        <EarnTooltip
+                          title={
+                            transactionConfirmation.availableLiquidity.title
+                              .text
+                          }
+                          tooltip={
+                            transactionConfirmation.availableLiquidity.tooltip
+                          }
+                        />
+                      ) : null}
+                    </XStack>
+                    <EarnText
+                      text={
+                        transactionConfirmation.availableLiquidity.description
+                      }
+                      size={
+                        transactionConfirmation.availableLiquidity.description
+                          .size ?? '$bodyMdMedium'
+                      }
+                      color={
+                        transactionConfirmation.availableLiquidity.description
+                          .color
+                      }
+                    />
                   </XStack>
-                  <EarnText
-                    text={
-                      transactionConfirmation.availableLiquidity.description
-                    }
-                    size={
-                      transactionConfirmation.availableLiquidity.description
-                        .size ?? '$bodyMdMedium'
-                    }
-                    color={
-                      transactionConfirmation.availableLiquidity.description
-                        .color
-                    }
-                  />
-                </XStack>
-              ) : null}
-            </YStack>
-          ) : null}
-          {hasSummarySection && showPendleTransactionSection ? (
-            <Divider my="$5" />
-          ) : null}
+                ) : null}
+              </YStack>
+            ) : null}
+            {hasSummarySection && showPendleTransactionSection ? (
+              <Divider my="$5" />
+            ) : null}
+          </HeightTransition>
           {showPendleTransactionSection ? (
             <Accordion
               overflow="hidden"

@@ -333,7 +333,7 @@ export abstract class CloudSyncFlowManagerBase<
         });
         return dbItem;
       }
-      return syncItem;
+      return syncItem ?? undefined;
     } catch (error) {
       errorUtils.autoPrintErrorIgnore(error);
       return undefined;

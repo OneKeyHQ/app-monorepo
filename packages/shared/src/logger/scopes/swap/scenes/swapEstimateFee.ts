@@ -1,3 +1,5 @@
+import { getSwapErrorMessage } from '@onekeyhq/shared/src/utils/sensitiveErrorMessageUtils';
+
 import { BaseScene } from '../../../base/baseScene';
 import { LogToLocal, LogToServer } from '../../../base/decorators';
 
@@ -11,6 +13,8 @@ export class SwapEstimateFeeScene extends BaseScene {
   @LogToServer({ level: 'info' })
   @LogToLocal({ level: 'info' })
   public swapEstimateFee({
+    reviewSessionId,
+    quoteId,
     swapType,
     slippage,
     router,
@@ -30,6 +34,8 @@ export class SwapEstimateFeeScene extends BaseScene {
     encodedTx,
     isBatch,
   }: {
+    reviewSessionId?: string;
+    quoteId?: string;
     orderId: string;
     status: ESwapEventAPIStatus;
     message?: string;
@@ -52,9 +58,11 @@ export class SwapEstimateFeeScene extends BaseScene {
     void accountId;
     void encodedTx;
     return {
+      reviewSessionId,
+      quoteId,
       status,
       orderId,
-      message,
+      message: message === undefined ? undefined : getSwapErrorMessage(message),
       swapType,
       slippage,
       router,

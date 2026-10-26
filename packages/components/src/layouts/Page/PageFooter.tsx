@@ -31,11 +31,11 @@ const Placeholder = () => {
 
 const PageFooterContainer = ({
   children,
-  disableKeyboardAnimation,
+  keyboardAnimationDisabled,
   hasDefaultFooterActions,
   safeAreaBottomMode,
 }: PropsWithChildren & {
-  disableKeyboardAnimation: boolean;
+  keyboardAnimationDisabled: boolean;
   hasDefaultFooterActions: boolean;
   safeAreaBottomMode: IPageFooterSafeAreaBottomMode;
 }) => {
@@ -43,11 +43,9 @@ const PageFooterContainer = ({
   const tabBarHeight = usePageFooterTabBarHeight();
   const { height: keyboardHeight, progress: keyboardProgress } =
     useReanimatedKeyboardAnimation();
-  const { gtMd } = useMedia();
   const containerOwnsSafeBottom = safeAreaBottomMode === 'container';
 
   const animatedStyle = useAnimatedStyle(() => {
-    const keyboardAnimationDisabled = disableKeyboardAnimation || gtMd;
     const keyboardOffset = keyboardAnimationDisabled
       ? 0
       : Math.max(Math.abs(keyboardHeight.value) - tabBarHeight, 0);
@@ -104,8 +102,15 @@ function PageFooterContext(props: IPageFooterProps) {
   return null;
 }
 
-export function BasicPageFooter() {
+export function BasicPageFooter({
+  onKeyboardLiftChange,
+}: {
+  // Reports whether the footer lifts itself above the keyboard, which also
+  // shrinks the page ScrollView above it.
+  onKeyboardLiftChange?: (isLifted: boolean) => void;
+} = {}) {
   const { footerRef } = useContext(PageContext);
+  const { gtMd } = useMedia();
   const [, setCount] = useState(0);
   const { props: footerProps } = footerRef.current;
   useEffect(() => {
@@ -118,13 +123,20 @@ export function BasicPageFooter() {
     };
   }, [footerRef]);
 
+  const keyboardAnimationDisabled =
+    !!footerProps?.disableKeyboardAnimation || gtMd;
+  const isLiftedByKeyboard = !!footerProps && !keyboardAnimationDisabled;
+  useEffect(() => {
+    onKeyboardLiftChange?.(isLiftedByKeyboard);
+  }, [isLiftedByKeyboard, onKeyboardLiftChange]);
+
   if (!footerProps) {
     return <Placeholder />;
   }
 
   const {
     children,
-    disableKeyboardAnimation = false,
+    disableKeyboardAnimation: _disableKeyboardAnimation,
     safeAreaBottomMode = 'container',
     ...footerActionsProps
   } = footerProps;
@@ -132,7 +144,7 @@ export function BasicPageFooter() {
 
   return (
     <PageFooterContainer
-      disableKeyboardAnimation={disableKeyboardAnimation}
+      keyboardAnimationDisabled={keyboardAnimationDisabled}
       hasDefaultFooterActions={hasDefaultFooterActions}
       safeAreaBottomMode={safeAreaBottomMode}
     >

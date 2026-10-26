@@ -1,5 +1,7 @@
 // oxlint-disable unicorn/prefer-global-this
 /* eslint-disable unicorn/prefer-global-this, max-classes-per-file */
+import { AVAILABILITY_COUNTED_FETCH_OPTION } from '../../request/requestConst';
+
 const sErrored = Symbol('errored');
 const sTimeout = Symbol('timeout');
 const sTimedOut = Symbol('timedOut');
@@ -155,13 +157,18 @@ const XMLHttpRequestShim = class XMLHttpRequest extends Dispatch {
     this.dispatch('loadstart');
     this.dispatch('readystatechange');
 
-    fetch(this.url, {
+    const init: RequestInit & {
+      [AVAILABILITY_COUNTED_FETCH_OPTION]?: boolean;
+    } = {
       method: this.method || 'GET',
       signal: this.abortController.signal,
       headers: this.headers, // TODO custom request headers working?
       credentials: this.withCredentials ? 'include' : 'same-origin',
       body,
-    })
+      // axios is this shim's caller and already counts the request.
+      [AVAILABILITY_COUNTED_FETCH_OPTION]: true,
+    };
+    fetch(this.url, init)
       .then(
         async (resp: Response) => {
           this.readyState = XMLHttpRequest.HEADERS_RECEIVED;

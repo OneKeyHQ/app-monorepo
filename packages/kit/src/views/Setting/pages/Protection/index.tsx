@@ -18,7 +18,6 @@ import {
   Toast,
   XStack,
   YStack,
-  startViewTransition,
   useInModalDialog,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -44,7 +43,7 @@ import { promptKytNotificationPermissionIfNeeded } from './showKytNotificationPe
 const SUPPORTED_ASSETS_DIALOG_MAX_HEIGHT = 560;
 const SUPPORTED_ASSETS_DIALOG_MIN_HEIGHT = 360;
 
-const SettingProtectionModal = () => {
+const SettingProtectionModalContent = () => {
   const intl = useIntl();
   const [
     {
@@ -84,11 +83,9 @@ const SettingProtectionModal = () => {
     }, 60 * 1000);
   }, [clearLockTimer]);
 
-  // https://github.com/facebook/react/issues/31819
-  // Page flicker caused by Suspense throttling behavior.
   const handleTransition = useCallback(
     (fn: () => Promise<void>) => {
-      startViewTransition(fn);
+      void fn();
       updateLockTimer();
     },
     [updateLockTimer],
@@ -465,15 +462,21 @@ const SettingProtectionModal = () => {
   ]);
 
   return (
-    <Page>
+    <>
       <Page.Header
         title={intl.formatMessage({ id: ETranslations.settings_protection })}
       />
       <Page.Body px={SETTINGS_PAGE_BODY_INSET_X}>
         {renderEnableProtection()}
       </Page.Body>
-    </Page>
+    </>
   );
 };
+
+const SettingProtectionModal = () => (
+  <Page>
+    <SettingProtectionModalContent />
+  </Page>
+);
 
 export default SettingProtectionModal;

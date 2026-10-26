@@ -14,24 +14,37 @@ import {
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { CommunityRecognizedBadge } from '@onekeyhq/kit/src/views/Market/components/CommunityRecognizedBadge';
 import { MarketStarV2 } from '@onekeyhq/kit/src/views/Market/components/MarketStarV2';
+import {
+  MARKET_LIST_NAME_COLUMN_WIDTH,
+  MARKET_LIST_STAR_COLUMN_WIDTH,
+  MARKET_LIST_STAR_SLOT_WIDTH,
+} from '@onekeyhq/kit/src/views/Market/marketDesktopLayoutConstants';
+import {
+  EMPTY_MARKET_VALUE,
+  MARKET_CELL_LINE_GAP,
+  MarketCellPrimary,
+  MarketIdentityCell,
+} from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketListCell';
+import { MarketSplitSortHeader } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketSplitSortHeader';
+import type {
+  IMarketSortOrder,
+  IMarketSortState,
+} from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketSplitSortHeader';
+import { MarketTokenAgeAddressLine } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketTokenAgeAddressLine';
 import type { IMarketTimeRangeValue } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { EWatchlistFrom } from '@onekeyhq/shared/src/logger/scopes/dex';
+import {
+  ECopyFrom,
+  EWatchlistFrom,
+} from '@onekeyhq/shared/src/logger/scopes/dex';
 import { getTokenPriceChangeStyle } from '@onekeyhq/shared/src/utils/tokenUtils';
 
 import { Txns } from '../../components/Txns';
-import { getTokenAgeInfo } from '../../utils/tokenListHelpers';
+
+import { getTokenAgeLabel } from './tokenAgeLabel';
+import { WatchlistTokenIdentity } from './useWatchlistColumnsDesktop';
 
 import type { IMarketToken } from '../../MarketTokenData';
-
-const EMPTY_MARKET_VALUE = '--';
-
-const TOKEN_AGE_TRANSLATION_MAP = {
-  hour: ETranslations.dexmarket_token_age_h,
-  day: ETranslations.dexmarket_token_age_d,
-  month: ETranslations.dexmarket_token_age_m,
-  year: ETranslations.dexmarket_token_age_y,
-} as const;
 
 function MarketValue({
   value,
@@ -70,9 +83,22 @@ function MarketValue({
 export function useTrendingColumnsDesktop({
   networkId,
   timeRange = '1h',
+  sort,
+  onSort,
+  hideTokenAge = false,
+  watchlistFrom = EWatchlistFrom.Homepage,
+  copyFrom = ECopyFrom.Homepage,
 }: {
   networkId?: string;
   timeRange?: IMarketTimeRangeValue;
+  sort: IMarketSortState;
+  onSort: (field: string, order: IMarketSortOrder) => void;
+  /** Lists whose rows carry no `firstTradeTime` (banner detail) title the
+   *  column "Name" and render the watchlist's spot-token cell: the token
+   *  name at rest, the contract address on hover. */
+  hideTokenAge?: boolean;
+  watchlistFrom?: EWatchlistFrom;
+  copyFrom?: ECopyFrom;
 }): ITableColumn<IMarketToken>[] {
   const intl = useIntl();
 
@@ -80,18 +106,35 @@ export function useTrendingColumnsDesktop({
     () => [
       {
         title: (
-          <SizableText pl="$2" size="$bodySmMedium" color="$textSubdued">
+          <SizableText
+            width={MARKET_LIST_STAR_SLOT_WIDTH}
+            textAlign="center"
+            size="$bodySmMedium"
+            color="$textSubdued"
+          >
             #
           </SizableText>
         ),
         dataIndex: 'star',
-        columnWidth: 40,
+        // No right padding: the column's trailing space IS the design's 6px
+        // gap to the name group, so the next column starts its logo flush.
+        columnProps: { flexShrink: 0, pl: '$2', pr: 0 },
+        columnWidth: MARKET_LIST_STAR_COLUMN_WIDTH,
         render: (_: unknown, record: IMarketToken) => (
-          <Stack pl="$2">
+          // The same centred slot the plain-icon lists use. `MarketStarV2` is an
+          // `IconButton` whose box is wider than its glyph, but centring the box
+          // centres the glyph, so it lands on the shared 12px offset.
+          <Stack
+            width={MARKET_LIST_STAR_SLOT_WIDTH}
+            alignItems="center"
+            justifyContent="center"
+          >
             <MarketStarV2
+              assetId={record.assetId}
+              stockId={record.stockId}
               chainId={record.chainId || networkId || ''}
               contractAddress={record.address}
-              from={EWatchlistFrom.Homepage}
+              from={watchlistFrom}
               tokenSymbol={record.symbol}
               size="small"
               customIconSize="$4"
@@ -104,50 +147,52 @@ export function useTrendingColumnsDesktop({
         ),
       },
       {
-        title: `${intl.formatMessage({
-          id: ETranslations.global_name,
-        })}/${intl.formatMessage({
-          id: ETranslations.dexmarket_token_age,
-        })}`,
+        title: hideTokenAge
+          ? intl.formatMessage({ id: ETranslations.global_name })
+          : `${intl.formatMessage({
+              id: ETranslations.global_name,
+            })}/${intl.formatMessage({
+              id: ETranslations.dexmarket_token_age,
+            })}`,
         dataIndex: 'nameTokenAge',
-        columnWidth: 260,
+        columnWidth: MARKET_LIST_NAME_COLUMN_WIDTH,
         render: (_: unknown, record: IMarketToken) => {
-          const ageInfo = getTokenAgeInfo(record.firstTradeTime);
-          const ageLabel = ageInfo
-            ? intl.formatMessage(
-                { id: TOKEN_AGE_TRANSLATION_MAP[ageInfo.unit] },
-                { amount: ageInfo.amount },
-              )
-            : EMPTY_MARKET_VALUE;
+          if (hideTokenAge) {
+            return (
+              <WatchlistTokenIdentity record={record} copyFrom={copyFrom} />
+            );
+          }
+          const ageLabel = getTokenAgeLabel(intl, record.firstTradeTime);
 
           return (
-            <XStack alignItems="center" gap="$3" minWidth={0}>
-              <Token
-                size="lg"
-                borderRadius="$full"
-                tokenImageUri={record.tokenImageUri}
-                tokenImageUris={record.tokenImageUris}
-                networkImageUri={record.networkLogoUri}
-                fallbackIcon="CryptoCoinOutline"
-              />
-              <YStack minWidth={0} flex={1} gap="$0.5">
+            <MarketIdentityCell
+              logo={
+                <Token
+                  size="lg"
+                  borderRadius="$full"
+                  tokenImageUri={record.tokenImageUri}
+                  tokenImageUris={record.tokenImageUris}
+                  networkImageUri={record.networkLogoUri}
+                  fallbackIcon="CryptoCoinOutline"
+                />
+              }
+              primary={
                 <XStack alignItems="center" gap="$1" minWidth={0}>
-                  <SizableText
-                    size="$bodyLgMedium"
-                    numberOfLines={1}
-                    ellipsizeMode="tail"
-                  >
+                  <MarketCellPrimary flexShrink={1}>
                     {record.symbol}
-                  </SizableText>
+                  </MarketCellPrimary>
                   {record.communityRecognized ? (
                     <CommunityRecognizedBadge />
                   ) : null}
                 </XStack>
-                <SizableText size="$bodySm" color="$textSubdued">
-                  {ageLabel}
-                </SizableText>
-              </YStack>
-            </XStack>
+              }
+              secondary={
+                <MarketTokenAgeAddressLine
+                  address={record.address}
+                  ageLabel={ageLabel}
+                />
+              }
+            />
           );
         },
         renderSkeleton: () => (
@@ -161,13 +206,33 @@ export function useTrendingColumnsDesktop({
         ),
       },
       {
-        title: `MCap/${intl.formatMessage({
-          id: ETranslations.global_price,
-        })}`,
+        // Two sort controls in one column, per the design. The table sorts by
+        // a single `dataIndex`, so this column opts out of its sorting (see
+        // `TRENDING_CLIENT_SORT_FIELDS`) and drives the list state itself.
+        title: (
+          <MarketSplitSortHeader
+            segments={[
+              {
+                field: 'marketCap',
+                label: intl.formatMessage({ id: ETranslations.market_mcap }),
+              },
+              {
+                field: 'price',
+                // The slash is the separator between the two sort controls, so
+                // it needs air on the label side rather than sitting flush.
+                label: `/ ${intl.formatMessage({
+                  id: ETranslations.global_price,
+                })}`,
+              },
+            ]}
+            sort={sort}
+            onSort={onSort}
+          />
+        ),
         dataIndex: 'marketCapPrice',
         columnProps: { flex: 1.25 },
         render: (_: unknown, record: IMarketToken) => (
-          <YStack gap="$0.5">
+          <YStack gap={MARKET_CELL_LINE_GAP}>
             <MarketValue value={record.marketCap} currency />
             <NumberSizeableText
               size="$bodySm"
@@ -175,7 +240,7 @@ export function useTrendingColumnsDesktop({
               formatter={record.price > 1_000_000 ? 'marketCap' : 'price'}
               formatterOptions={{ currency: '$', capAtMaxT: true }}
             >
-              {record.price}
+              {Number.isFinite(record.price) ? record.price : '--'}
             </NumberSizeableText>
           </YStack>
         ),
@@ -187,7 +252,10 @@ export function useTrendingColumnsDesktop({
         ),
       },
       {
-        title: `${timeRange} Change`,
+        title: intl.formatMessage(
+          { id: ETranslations.market_change_in_range },
+          { range: timeRange },
+        ),
         dataIndex: 'change24h',
         columnProps: { flex: 1 },
         render: (value: number, record: IMarketToken) => {
@@ -201,7 +269,7 @@ export function useTrendingColumnsDesktop({
             <NumberSizeableText
               size="$bodyLgMedium"
               color={changeColor}
-              formatter="priceChange"
+              formatter="priceChangeCapped"
               formatterOptions={{ showPlusMinusSigns }}
             >
               {value}
@@ -218,9 +286,10 @@ export function useTrendingColumnsDesktop({
         renderSkeleton: () => <Skeleton width={80} height={16} />,
       },
       {
-        title: `${timeRange} ${intl.formatMessage({
-          id: ETranslations.dexmarket_txns,
-        })}`,
+        title: intl.formatMessage(
+          { id: ETranslations.market_txns_in_range },
+          { range: timeRange },
+        ),
         dataIndex: 'transactions',
         columnProps: { flex: 1 },
         render: (value: number, record: IMarketToken) => (
@@ -234,13 +303,25 @@ export function useTrendingColumnsDesktop({
         ),
       },
       {
-        title: `${timeRange} Volume`,
+        title: intl.formatMessage(
+          { id: ETranslations.market_volume_in_range },
+          { range: timeRange },
+        ),
         dataIndex: 'turnover',
         columnProps: { flex: 1 },
         render: (value: number) => <MarketValue value={value} currency />,
         renderSkeleton: () => <Skeleton width={90} height={16} />,
       },
     ],
-    [intl, networkId, timeRange],
+    [
+      copyFrom,
+      hideTokenAge,
+      intl,
+      networkId,
+      onSort,
+      sort,
+      timeRange,
+      watchlistFrom,
+    ],
   );
 }

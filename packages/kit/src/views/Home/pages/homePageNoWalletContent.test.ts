@@ -4,6 +4,18 @@ import {
 } from './homePageNoWalletContent';
 
 describe('shouldShowNoWalletContent', () => {
+  it('shows the no-wallet home immediately for a masked runtime', () => {
+    expect(
+      shouldShowNoWalletContent({
+        forceNoWalletContent: true,
+        hasNoUsableWallet: true,
+        accountSelectorStorageInitDone: false,
+        accountSelectorActiveAccountInitDone: false,
+        walletListResolvedNoWallet: false,
+      }),
+    ).toBe(true);
+  });
+
   it('blocks the no-wallet empty state before account selector storage init completes', () => {
     expect(
       shouldShowNoWalletContent({

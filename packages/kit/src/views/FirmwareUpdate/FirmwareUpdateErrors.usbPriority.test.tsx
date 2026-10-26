@@ -3,18 +3,29 @@
 import type { ReactElement, ReactNode } from 'react';
 
 import { HardwareErrorCode } from '@onekeyfe/hd-shared';
-import { renderHook } from '@testing-library/react';
-import { IntlProvider } from 'react-intl';
+import { fireEvent, render, renderHook, screen } from '@testing-library/react';
+import { IntlProvider, createIntl } from 'react-intl';
 
+import {
+  HARDWARE_TROUBLESHOOTING_URL,
+  LINUX_UDEV_HELP_URL,
+} from '@onekeyhq/shared/src/config/appConfig';
 import { BluetoothUnavailableWhileUsbConnectedError } from '@onekeyhq/shared/src/errors';
+import { FirmwareUpdateTransferInterruptedError } from '@onekeyhq/shared/src/errors/errors/hardwareErrors';
 import {
   EOneKeyErrorClassNames,
   type IOneKeyError,
+  ONEKEY_WEBUSB_DEVICE_ACCESS_ERROR_CODE,
 } from '@onekeyhq/shared/src/errors/types/errorTypes';
+import { convertDeviceError } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { useFirmwareUpdateErrors as useLegacyFirmwareUpdateErrors } from './components/FirmwareUpdateErrors';
-import { useFirmwareUpdateErrors as useFirmwareUpdateErrorsV2 } from './componentsV2/FirmwareUpdateErrorV2';
+import {
+  FirmwareUpdateErrors,
+  useFirmwareUpdateErrors as useLegacyFirmwareUpdateErrors,
+} from './components/FirmwareUpdateErrors';
+import { resolveFirmwareUpdateErrorPresentation } from './componentsV2/firmwareUpdateErrorPresentation';
 
 jest.mock('@onekeyhq/shared/src/utils/openUrlUtils', () => ({
   openUrlExternal: jest.fn(),
@@ -23,8 +34,30 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
   default: {},
 }));
+jest.mock('@onekeyhq/components', () => ({
+  RichSizeableText: ({
+    children,
+    linkList,
+  }: {
+    children: ReactNode;
+    linkList: { url: { url: string } };
+  }) => <a href={linkList.url.url}>{children}</a>,
+}));
+jest.mock('./components/FirmwareUpdateBaseMessageView', () => ({
+  FirmwareUpdateBaseMessageView: () => null,
+}));
 jest.mock('./components/FirmwareUpdatePageLayout', () => ({
-  FirmwareUpdatePageFooter: () => null,
+  FirmwareUpdatePageFooter: ({
+    onConfirm,
+    onConfirmText,
+  }: {
+    onConfirm?: () => void;
+    onConfirmText: string;
+  }) => (
+    <button type="button" onClick={onConfirm}>
+      {onConfirmText}
+    </button>
+  ),
 }));
 jest.mock('@onekeyhq/kit/src/components/HyperlinkText', () => ({
   HyperlinkText: () => null,
@@ -34,15 +67,28 @@ const usbPriorityMessage = 'Disconnect USB to continue using Bluetooth.';
 const deviceDisconnectedMessage =
   'The device has been disconnected. Please reconnect the device and try again.';
 const deviceDisconnectedTitle = 'Device disconnected';
+const operationTimedOutMessage = 'Operation timed out';
+const deviceMismatchMessage =
+  'The connected device does not match this wallet. Reconnect the correct device, or add it again after a reset or recovery.';
+const genericErrorTitle = 'An error occurred';
 
 const intlMessages: Record<string, string> = {
   [ETranslations.troubleshooting_desktop_bluetooth_usb_priority]:
     usbPriorityMessage,
+  [ETranslations.firmware_update_device_mismatch__desc]: deviceMismatchMessage,
+  [ETranslations.global_an_error_occurred]: genericErrorTitle,
   [ETranslations.hardware_third_party_device_disconnected]:
     deviceDisconnectedTitle,
   [ETranslations.update_device_disconnected_desc]: deviceDisconnectedMessage,
+  [ETranslations.hardware_third_party_operation_timeout]:
+    operationTimedOutMessage,
+  [ETranslations.global_update_failed]: 'Update failed',
+  [ETranslations.firmware_update_error_transfer_interrupted]:
+    'Transfer interrupted. Please keep your device connected and try again.',
   [ETranslations.global_retry]: 'Retry',
 };
+
+const intl = createIntl({ locale: 'en', messages: intlMessages });
 
 function IntlWrapper({ children }: { children: ReactNode }) {
   return (
@@ -53,20 +99,128 @@ function IntlWrapper({ children }: { children: ReactNode }) {
 }
 
 describe('firmware update USB-priority errors', () => {
-  const error = new BluetoothUnavailableWhileUsbConnectedError();
+  it.each([
+    [
+      ONEKEY_WEBUSB_DEVICE_ACCESS_ERROR_CODE,
+      ETranslations.global_connection_failed_usb_help_text,
+    ],
+    [
+      HardwareErrorCode.BridgeNeedsPermission,
+      ETranslations.device_grant_usb_access,
+    ],
+    [
+      HardwareErrorCode.BlePoweredOff,
+      ETranslations.hardware_bluetooth_need_turned_on_error,
+    ],
+    [
+      HardwareErrorCode.BleUnsupported,
+      ETranslations.hardware_third_party_transport_not_available,
+    ],
+  ])(
+    'shows transport guidance for error %s in both firmware views',
+    (code, key) => {
+      const transportError = convertDeviceError({
+        code,
+        error: 'Native transport failure',
+      });
+      const presentation = resolveFirmwareUpdateErrorPresentation({
+        error: transportError,
+        result: undefined,
+        lastFirmwareTipMessage: undefined,
+        intl,
+      });
+      expect(presentation.title).toBe(key);
+      const { result } = renderHook(
+        () =>
+          useLegacyFirmwareUpdateErrors({
+            error: transportError,
+            lastFirmwareTipMessage: undefined,
+            onRetry: undefined,
+            result: undefined,
+          }),
+        { wrapper: IntlWrapper },
+      );
+      expect(
+        (result.current.content as ReactElement<{ title: string }>).props.title,
+      ).toBe(key);
+    },
+  );
 
-  it('uses the localized USB-priority message in the Protocol V2 error view', () => {
+  it('keeps the USB troubleshooting link and retry in the legacy error view', () => {
+    const onRetry = jest.fn();
     const { result } = renderHook(
       () =>
-        useFirmwareUpdateErrorsV2({
-          error,
+        useLegacyFirmwareUpdateErrors({
+          error: convertDeviceError({
+            code: ONEKEY_WEBUSB_DEVICE_ACCESS_ERROR_CODE,
+          }),
           lastFirmwareTipMessage: undefined,
+          onRetry,
+          result: undefined,
         }),
       { wrapper: IntlWrapper },
     );
+    const detail = result.current.detail as ReactElement<{
+      linkList: { url: { url: string } };
+    }>;
+
+    expect(detail.props.linkList.url.url).toBe(HARDWARE_TROUBLESHOOTING_URL);
+    expect(result.current.onRetryHandler).toBe(onRetry);
+  });
+
+  it('renders the USB troubleshooting link and retry on changelog errors', () => {
+    const onRetry = jest.fn();
+    render(
+      <FirmwareUpdateErrors.WorkflowErrors
+        error={convertDeviceError({
+          code: ONEKEY_WEBUSB_DEVICE_ACCESS_ERROR_CODE,
+        })}
+        onRetry={onRetry}
+        result={undefined}
+      />,
+      { wrapper: IntlWrapper },
+    );
+
+    expect(screen.getByRole('link').getAttribute('href')).toBe(
+      HARDWARE_TROUBLESHOOTING_URL,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
+    expect(onRetry).toHaveBeenCalledTimes(1);
+  });
+
+  it('links Linux permission failures to the existing udev help article', () => {
+    const previous = platformEnv.isDesktopLinux;
+    Object.assign(platformEnv, { isDesktopLinux: true });
+    try {
+      const presentation = resolveFirmwareUpdateErrorPresentation({
+        error: convertDeviceError({
+          code: HardwareErrorCode.BridgeNeedsPermission,
+        }),
+        result: undefined,
+        lastFirmwareTipMessage: undefined,
+        intl,
+      });
+      expect(presentation.action).toMatchObject({
+        kind: 'link',
+        url: LINUX_UDEV_HELP_URL,
+      });
+    } finally {
+      Object.assign(platformEnv, { isDesktopLinux: previous });
+    }
+  });
+  const error = new BluetoothUnavailableWhileUsbConnectedError();
+
+  it('uses the localized USB-priority message on the install page', () => {
+    const presentation = resolveFirmwareUpdateErrorPresentation({
+      error,
+      result: undefined,
+      lastFirmwareTipMessage: undefined,
+      intl,
+    });
 
     expect(error.code).toBe(HardwareErrorCode.BleUnavailableWhileUsbConnected);
-    expect(result.current.errorMessage).toBe(usbPriorityMessage);
+    expect(presentation.sentence).toBe(usbPriorityMessage);
+    expect(presentation.action).toEqual({ kind: 'retry' });
   });
 
   it('uses the localized USB-priority message in the legacy error view', () => {
@@ -94,17 +248,16 @@ describe('firmware update cancellation errors', () => {
     message: 'updateTasksClear: exitUpdateWorkflow',
   };
 
-  it('does not expose exitUpdateWorkflow in the Protocol V2 error view', () => {
-    const { result } = renderHook(
-      () =>
-        useFirmwareUpdateErrorsV2({
-          error,
-          lastFirmwareTipMessage: undefined,
-        }),
-      { wrapper: IntlWrapper },
-    );
+  it('does not expose exitUpdateWorkflow on the install page', () => {
+    const presentation = resolveFirmwareUpdateErrorPresentation({
+      error,
+      result: undefined,
+      lastFirmwareTipMessage: undefined,
+      intl,
+    });
 
-    expect(result.current.errorMessage).toBe(deviceDisconnectedMessage);
+    expect(presentation.title).toBe(deviceDisconnectedTitle);
+    expect(presentation.sentence).toBe(deviceDisconnectedMessage);
   });
 
   it('does not expose exitUpdateWorkflow in the legacy error view', () => {
@@ -125,5 +278,61 @@ describe('firmware update cancellation errors', () => {
 
     expect(content.props.title).toBe(deviceDisconnectedTitle);
     expect(content.props.message).toBe(deviceDisconnectedMessage);
+  });
+});
+
+describe('firmware update timeout errors', () => {
+  it('localizes the Protocol V2 install timeout instead of exposing SDK text', () => {
+    const error: IOneKeyError = {
+      message: 'Protocol V2 firmware install timed out',
+    };
+    const presentation = resolveFirmwareUpdateErrorPresentation({
+      error,
+      result: undefined,
+      lastFirmwareTipMessage: undefined,
+      intl,
+    });
+
+    expect(presentation.sentence).toBe(operationTimedOutMessage);
+  });
+});
+
+describe('firmware update device mismatch errors', () => {
+  const error: IOneKeyError = {
+    className: EOneKeyErrorClassNames.OneKeyHardwareError,
+    $isHardwareError: true,
+    code: HardwareErrorCode.DeviceCheckDeviceIdError,
+    message: 'Device id mismatch',
+  };
+
+  it('uses the localized mismatch message instead of the SDK sentence', () => {
+    const presentation = resolveFirmwareUpdateErrorPresentation({
+      error,
+      result: undefined,
+      lastFirmwareTipMessage: undefined,
+      intl,
+    });
+
+    expect(presentation.title).toBe(genericErrorTitle);
+    expect(presentation.sentence).toBe(deviceMismatchMessage);
+    expect(presentation.action).toEqual({ kind: 'retry' });
+  });
+});
+
+describe('firmware update transfer interrupted errors', () => {
+  it('localizes a stalled firmware transfer instead of hanging silently', () => {
+    const error = new FirmwareUpdateTransferInterruptedError();
+    const presentation = resolveFirmwareUpdateErrorPresentation({
+      error,
+      result: undefined,
+      lastFirmwareTipMessage: undefined,
+      intl,
+    });
+
+    expect(error.code).toBe(HardwareErrorCode.EmmcFileWriteFirmwareError);
+    expect(presentation.sentence).toBe(
+      'Transfer interrupted. Please keep your device connected and try again.',
+    );
+    expect(presentation.action).toEqual({ kind: 'retry' });
   });
 });

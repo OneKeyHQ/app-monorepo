@@ -1,10 +1,16 @@
-import type { EMarketBannerType } from '@onekeyhq/shared/types/marketV2';
+import type { ITradingViewNativeStorageNamespace } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative/types';
+import type {
+  EMarketBannerType,
+  IMarketStockDetailPreview,
+} from '@onekeyhq/shared/types/marketV2';
+import type { ITradingViewNativeAnyIndicatorId } from '@onekeyhq/shared/types/tradingViewNative';
 
 export enum EModalMarketRoutes {
   MarketDetailV2 = 'MarketDetailV2',
   MarketBannerDetail = 'MarketBannerDetail',
   MobileTokenSelector = 'MobileTokenSelector',
   MarketChartSettings = 'MarketChartSettings',
+  MarketIndicatorSettings = 'MarketIndicatorSettings',
 }
 
 export type IModalMarketParamList = {
@@ -12,6 +18,10 @@ export type IModalMarketParamList = {
     tokenAddress?: string;
     network?: string;
     stockId?: string;
+    stockPreviewSymbol?: string;
+    stockPreviewName?: string;
+    stockPreviewLogoUrl?: string;
+    stockPreviewQuote?: IMarketStockDetailPreview['quote'];
     isNative?: boolean;
     showFavoriteButton?: boolean;
   };
@@ -23,7 +33,18 @@ export type IModalMarketParamList = {
   [EModalMarketRoutes.MobileTokenSelector]:
     | {
         showFavoriteButton?: boolean;
+        defaultCategory?: 'trending' | 'top_coins' | 'stocks';
       }
     | undefined;
-  [EModalMarketRoutes.MarketChartSettings]: undefined;
+  [EModalMarketRoutes.MarketChartSettings]:
+    | {
+        // Only stock detail charts can offer Prev close.
+        showPreviousClose?: boolean;
+        storageNamespace?: ITradingViewNativeStorageNamespace;
+      }
+    | undefined;
+  [EModalMarketRoutes.MarketIndicatorSettings]: {
+    storageNamespace: ITradingViewNativeStorageNamespace;
+    indicatorId?: ITradingViewNativeAnyIndicatorId;
+  };
 };

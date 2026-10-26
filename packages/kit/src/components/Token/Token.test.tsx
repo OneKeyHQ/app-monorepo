@@ -2,15 +2,19 @@ import type { ReactNode } from 'react';
 
 import { render } from '@testing-library/react-native';
 
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
 import { Token } from './Token';
 
 type IMockImageProps = {
+  round?: boolean;
   source?: { uri?: string };
 };
 
 // Records mount / unmount of the underlying image so the tests can prove the
 // image element survives prop changes instead of being torn down and rebuilt.
 const mockImageLifecycle: string[] = [];
+const mockImageProps: IMockImageProps[] = [];
 const mockNetworkAvatarBase = jest.fn<null, [{ logoURI?: string }]>(() => null);
 
 jest.mock('react-intl', () => ({
@@ -27,6 +31,7 @@ jest.mock('@onekeyhq/components', () => {
   }
 
   function Image(props: IMockImageProps) {
+    mockImageProps.push(props);
     const uri = props.source?.uri;
     React.useEffect(() => {
       mockImageLifecycle.push(`mount:${uri ?? ''}`);
@@ -79,7 +84,9 @@ describe('Token', () => {
 
   beforeEach(() => {
     mockImageLifecycle.length = 0;
+    mockImageProps.length = 0;
     mockNetworkAvatarBase.mockClear();
+    platformEnv.isNativeAndroid = false;
   });
 
   it('keeps the token image mounted when the network logo arrives later', () => {
@@ -113,5 +120,19 @@ describe('Token', () => {
     rerender(<Token tokenImageUri={tokenImageUri} />);
 
     expect(mockImageLifecycle).toEqual([`mount:${tokenImageUri}`]);
+  });
+
+  it('rounds Android fungible tokens in the native image without rounding NFTs', () => {
+    platformEnv.isNativeAndroid = true;
+    const { rerender } = render(<Token tokenImageUri={tokenImageUri} />);
+    expect(mockImageProps.at(-1)?.round).toBe(true);
+
+    rerender(<Token tokenImageUri={tokenImageUri} isNFT />);
+    expect(mockImageProps.at(-1)?.round).toBeUndefined();
+  });
+
+  it('keeps the previous image path outside Android', () => {
+    render(<Token tokenImageUri={tokenImageUri} />);
+    expect(mockImageProps.at(-1)?.round).toBeUndefined();
   });
 });

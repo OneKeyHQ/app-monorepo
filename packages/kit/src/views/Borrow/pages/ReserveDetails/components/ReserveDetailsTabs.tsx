@@ -186,7 +186,7 @@ const ReserveDetailsTabsComponent = ({
               networkId={networkId}
               provider={provider}
               marketAddress={marketAddress}
-              reserveAddress={reserveAddress}
+              reserveAddress={details?.borrow.reserveAddress || reserveAddress}
               utilizationRatio={details?.utilizationRatio}
             />
             <DailyCapsSection details={details} />

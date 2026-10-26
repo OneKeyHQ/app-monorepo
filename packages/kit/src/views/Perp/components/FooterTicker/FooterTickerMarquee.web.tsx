@@ -20,7 +20,7 @@ import {
 
 import type { IFooterTickerItemData } from './footerTickerUtils';
 
-const SCROLL_SPEED_PX_PER_SEC = 20;
+const SCROLL_SPEED_PX_PER_SEC = 14;
 
 interface IFooterTickerMarqueeProps {
   items: IFooterTickerItemData[];

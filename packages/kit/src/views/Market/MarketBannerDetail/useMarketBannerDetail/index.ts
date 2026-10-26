@@ -4,6 +4,10 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useMarketBasicConfig } from '@onekeyhq/kit/src/views/Market/hooks';
 import { useMarketBannerListSortAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import type {
+  IMarketStockPublicItem,
+  IMarketTokenListItem,
+} from '@onekeyhq/shared/types/marketV2';
 
 import {
   buildMarketNetworkLogoUriMap,
@@ -25,11 +29,79 @@ function isBannerDetailSortBy(
 type IUseMarketBannerDetailParams = {
   tokenListId: string;
   isPerps: boolean;
+  isStock?: boolean;
+  isIndex?: boolean;
 };
+
+type IBannerStockToken = IMarketTokenListItem & {
+  bannerStockItem: IMarketStockPublicItem;
+};
+
+function mapStockBannerItemToToken(
+  item: IMarketStockPublicItem,
+): IBannerStockToken {
+  return {
+    address: '',
+    name: item.name,
+    symbol: item.symbol,
+    decimals: 0,
+    logoUrl: item.logoUrl,
+    price: item.price,
+    priceChange24hPercent: item.priceChange24hPercent,
+    marketCap: item.marketCap,
+    stockId: item.stockId,
+    stock: {
+      stockId: item.stockId,
+      subtitle: item.name,
+      source: item.assetType,
+      sourceLogoUri: item.logoUrl,
+      marketCap: item.marketCap,
+      assetAnalysis: { volume24h: item.volume24h },
+      tradingActivity: { peRatio: item.peRatio },
+    },
+    // The desktop stock table renders the server row as-is.
+    bannerStockItem: item,
+  };
+}
+
+function isBannerStockToken(
+  item: IMarketTokenListItem,
+): item is IBannerStockToken {
+  return 'bannerStockItem' in item;
+}
+
+// The banner endpoint only lists the stocks; the batch endpoint answers with
+// the Stocks tab's rows (variants included) for the same ids. Keep the banner
+// order, and keep the banner rows when the batch call fails so the page still
+// renders.
+async function enrichBannerStockRows(
+  bannerRows: IMarketStockPublicItem[],
+): Promise<IMarketStockPublicItem[]> {
+  if (bannerRows.length === 0) {
+    return bannerRows;
+  }
+  try {
+    const batchRows =
+      await backgroundApiProxy.serviceMarketV2.fetchMarketStockBatch({
+        stockIds: bannerRows.map((row) => row.stockId),
+      });
+    const batchRowsByStockId = new Map(
+      batchRows.map((row) => [row.stockId, row] as const),
+    );
+    return bannerRows.map((row) => {
+      const batchRow = batchRowsByStockId.get(row.stockId);
+      return batchRow ? { ...row, ...batchRow } : row;
+    });
+  } catch {
+    return bannerRows;
+  }
+}
 
 export function useMarketBannerDetail({
   tokenListId,
   isPerps,
+  isStock = false,
+  isIndex = false,
 }: IUseMarketBannerDetailParams) {
   const { networkList } = useMarketBasicConfig();
   const networkLogoUriMap = useMemo(
@@ -43,13 +115,21 @@ export function useMarketBannerDetail({
   const { result: tickerResult, isLoading: tickerIsLoading } = usePromiseResult(
     async () => {
       if (isPerps) return null;
-      const data =
-        await backgroundApiProxy.serviceMarketV2.fetchMarketBannerTokenList({
-          tokenListId,
-        });
-      return data;
+      // Index quotes are display-only; restored legacy routes have no tradable rows.
+      if (isIndex) return [];
+      if (isStock) {
+        const bannerRows =
+          await backgroundApiProxy.serviceMarketV2.fetchMarketBannerStockTokenList(
+            { id: tokenListId },
+          );
+        const rows = await enrichBannerStockRows(bannerRows);
+        return rows.map(mapStockBannerItemToToken);
+      }
+      return backgroundApiProxy.serviceMarketV2.fetchMarketBannerTokenList({
+        tokenListId,
+      });
     },
-    [tokenListId, isPerps],
+    [tokenListId, isPerps, isStock, isIndex],
     {
       watchLoading: true,
     },
@@ -70,6 +150,13 @@ export function useMarketBannerDetail({
     });
   }, [networkLogoUriMap, tickerResult]);
 
+  const stockItems = useMemo<IMarketStockPublicItem[]>(() => {
+    // The request resolves to one of two row types; widen to the shared base
+    // so the filter is callable on the union.
+    const items: IMarketTokenListItem[] = tickerResult ?? [];
+    return items.filter(isBannerStockToken).map((item) => item.bannerStockItem);
+  }, [tickerResult]);
+
   const currentSortBy = isBannerDetailSortBy(bannerSort.sortBy)
     ? bannerSort.sortBy
     : undefined;
@@ -78,7 +165,6 @@ export function useMarketBannerDetail({
     currentSortBy === BANNER_DETAIL_CHANGE_SORT_BY
       ? currentSortType
       : undefined;
-
   const setSortBy = useCallback(
     (val: string | undefined) => {
       const next = { ...sortRef.current, sortBy: val };
@@ -147,6 +233,7 @@ export function useMarketBannerDetail({
     handleChangeSortPress,
     listResult,
     mobileData: transformedData,
+    stockItems,
     tickerIsLoading,
   };
 }

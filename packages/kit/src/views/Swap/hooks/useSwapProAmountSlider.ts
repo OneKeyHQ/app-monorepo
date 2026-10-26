@@ -11,6 +11,7 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
+import { shouldReserveSwapGas } from '@onekeyhq/shared/src/utils/swapEntryUtils';
 
 import {
   SWAP_PRO_SLIDER_MAX_PERCENT,
@@ -43,14 +44,15 @@ export function useSwapProAmountSlider({
   const hasDragChangeRef = useRef(false);
   const isDraggingRef = useRef(false);
 
+  const shouldReserveInputGas = shouldReserveSwapGas(inputToken);
   const reserveGas = useMemo(() => {
-    if (!inputToken?.isNative) {
+    if (!inputToken?.networkId || !shouldReserveInputGas) {
       return undefined;
     }
     return swapNativeTokenReserveGas.find(
       (item) => item.networkId === inputToken.networkId,
     )?.reserveGas;
-  }, [inputToken?.isNative, inputToken?.networkId, swapNativeTokenReserveGas]);
+  }, [shouldReserveInputGas, inputToken?.networkId, swapNativeTokenReserveGas]);
 
   // Use the reserve-deducted balance as the slider base so the mapping stays
   // monotonic: dragging to 100% can never exceed what a max press would allow.
@@ -58,10 +60,10 @@ export function useSwapProAmountSlider({
     () =>
       calcSwapProSliderAvailableBalance({
         balanceParsed: inputToken?.balanceParsed,
-        isNative: inputToken?.isNative,
+        isNative: shouldReserveInputGas,
         reserveGas,
       }),
-    [inputToken?.balanceParsed, inputToken?.isNative, reserveGas],
+    [inputToken?.balanceParsed, shouldReserveInputGas, reserveGas],
   );
 
   const isInputBalanceReady = useMemo(() => {
@@ -202,7 +204,7 @@ export function useSwapProAmountSlider({
     // (tap on the current mark, long-press) can't re-trigger the toast.
     lastDragPercentRef.current = 0;
     hasDragChangeRef.current = false;
-    if (!releasedAtMax || !inputToken?.isNative) {
+    if (!releasedAtMax || !shouldReserveInputGas) {
       return;
     }
     const reserveGasBN = new BigNumber(reserveGas ?? '');
@@ -233,7 +235,7 @@ export function useSwapProAmountSlider({
     sliderDisabled,
     availableBalance,
     reserveGas,
-    inputToken?.isNative,
+    shouldReserveInputGas,
     inputToken?.symbol,
     intl,
   ]);

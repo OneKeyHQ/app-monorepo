@@ -31,9 +31,7 @@ const FIRMWARE_ARTIFACT_DOWNLOAD_ERROR_CODES = new Set([
 const FIRMWARE_DISCONNECT_ERROR_CODES = [
   HardwareErrorCode.DeviceNotFound,
   HardwareErrorCode.BridgeDeviceDisconnected,
-  HardwareErrorCode.BleDeviceBondError,
   HardwareErrorCode.BleDeviceDisconnected,
-  HardwareErrorCode.BlePeerRemovedPairingInformation,
 ];
 
 function getErrorText(error: IOneKeyError | undefined): string {
@@ -176,7 +174,9 @@ export function classifyFirmwareUpdateFailure(
       HardwareErrorCode.IframeTimeout,
       HardwareErrorCode.PollingTimeout,
     ]) ||
-    getErrorText(error).toLowerCase().includes('timeout')
+    ['timeout', 'timed out'].some((text) =>
+      getErrorText(error).toLowerCase().includes(text),
+    )
   ) {
     return 'timeout';
   }

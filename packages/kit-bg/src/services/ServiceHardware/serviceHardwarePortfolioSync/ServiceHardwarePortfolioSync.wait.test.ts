@@ -2,13 +2,20 @@
 import { EDeviceType, HardwareErrorCode } from '@onekeyfe/hd-shared';
 import { DeviceSessionPinType } from '@onekeyfe/hd-transport';
 
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
+import { PERPS_NETWORK_ID } from '@onekeyhq/shared/src/consts/perp';
 import {
   BluetoothUnavailableWhileUsbConnectedError,
   DeviceNotSame,
 } from '@onekeyhq/shared/src/errors';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import type { IPortfolioCategoryFiat } from '@onekeyhq/shared/src/utils/portfolioPayload';
 import { EHardwareTransportType } from '@onekeyhq/shared/types';
 import {
   EHardwareCallContext,
@@ -17,6 +24,11 @@ import {
 } from '@onekeyhq/shared/types/device';
 
 import localDb from '../../../dbs/local/localDb';
+import { perpsCommonConfigPersistAtom } from '../../../states/jotai/atoms';
+import {
+  HardwareProcessingManager,
+  type IOneKeyHardwareOperationLease,
+} from '../../ServiceHardwareUI/HardwareProcessingManager';
 
 import ServiceHardwarePortfolioSync, {
   validatePortfolioPackageBase64,
@@ -38,8 +50,11 @@ jest.mock('@onekeyhq/shared/src/background/backgroundDecorators', () => ({
 jest.mock('@onekeyhq/shared/src/eventBus/appEventBus', () => ({
   EAppEventBusNames: {
     AllNetworksTokenListSettled: 'AllNetworksTokenListSettled',
+    CloseHardwareUiStateDialogManually: 'CloseHardwareUiStateDialogManually',
   },
-  appEventBus: { on: jest.fn(), off: jest.fn() },
+  appEventBus: new (jest.requireActual<typeof import('events')>(
+    'events',
+  ).EventEmitter)(),
 }));
 
 jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
@@ -88,8 +103,702 @@ jest.mock('../../../dbs/local/localDb', () => ({
 
 jest.mock('../../../states/jotai/atoms', () => ({
   currencyPersistAtom: { get: jest.fn() },
+  perpsCommonConfigPersistAtom: { get: jest.fn() },
   settingsPersistAtom: { get: jest.fn() },
 }));
+
+describe('Portfolio v2 category retrieval', () => {
+  const eventPayload: IPortfolioSyncSettledPayload = {
+    accountId: 'account-1',
+    indexedAccountId: 'indexed-account-1',
+    networkId: getNetworkIdsMap().onekeyall,
+    aggregateTokenMap: {},
+    totalFiat: '100',
+    totalFiatCurrency: 'usd',
+    totalTokenCount: 0,
+    tokenMap: {},
+    tokens: [],
+  };
+
+  function prepare() {
+    jest.mocked(perpsCommonConfigPersistAtom.get).mockResolvedValue({
+      perpConfigLoaded: true,
+      perpConfigCommon: { disablePerp: false },
+    } as Awaited<ReturnType<typeof perpsCommonConfigPersistAtom.get>>);
+    const post = jest.fn().mockResolvedValue({
+      data: {
+        data: {
+          success: true,
+          data: { totals: { netWorth: 20 } },
+          meta: {
+            degraded: false,
+            networkIds: ['evm--1'],
+            requestedNetworkIds: ['evm--1'],
+          },
+        },
+      },
+    });
+    const getAllNetworksState = jest.fn().mockResolvedValue({
+      enabledNetworks: { 'evm--1': true },
+      disabledNetworks: {},
+    });
+    const getAllNetworkAccounts = jest.fn().mockResolvedValue({
+      accountsInfo: [
+        {
+          accountId: 'eth-account-1',
+          networkId: 'evm--1',
+          apiAddress: '0x1111',
+        },
+      ],
+    });
+    const getDeFiEnabledNetworksMapState = jest.fn().mockResolvedValue({
+      isReady: true,
+      enabledNetworksMap: { 'evm--1': true },
+    });
+    const getAccountTotalDeFiNetWorth = jest.fn().mockResolvedValue({
+      hasCache: false,
+      netWorth: '0',
+      networkIds: [],
+    });
+    const getAllNetworks = jest.fn().mockResolvedValue({
+      networks: [{ id: 'evm--1', isTestnet: false }],
+    });
+    const getNetworkAccount = jest.fn().mockResolvedValue({
+      address: '0x2222',
+      addressDetail: { normalizedAddress: '0x3333' },
+    });
+    const getHyperliquidPortfolioSnapshot = jest.fn().mockResolvedValue({
+      netWorthUsd: '30',
+      isDegraded: false,
+    });
+    const service = new ServiceHardwarePortfolioSync({
+      backgroundApi: {
+        serviceDeFi: {
+          getDeFiEnabledNetworksMapState,
+          getAccountTotalDeFiNetWorth,
+        },
+        serviceNetwork: {
+          getAllNetworks,
+          getGlobalDeriveTypeOfNetwork: jest.fn().mockResolvedValue('default'),
+        },
+        serviceAllNetwork: { getAllNetworksState, getAllNetworkAccounts },
+        serviceAccount: { getNetworkAccount },
+        serviceAccountProfile: {
+          _getWalletTypeHeader: jest.fn().mockResolvedValue({}),
+        },
+        serviceHyperliquid: { getHyperliquidPortfolioSnapshot },
+      } as unknown as IBackgroundApi,
+    });
+    const internals = service as unknown as {
+      getClient: jest.Mock;
+      getPortfolioCategoryFiat: (
+        payload: IPortfolioSyncSettledPayload,
+        signal?: AbortSignal,
+        cacheKey?: string,
+      ) => Promise<IPortfolioCategoryFiat>;
+    };
+    internals.getClient = jest.fn().mockResolvedValue({ post });
+    return {
+      internals,
+      post,
+      getAllNetworks,
+      getAllNetworksState,
+      getAllNetworkAccounts,
+      getDeFiEnabledNetworksMapState,
+      getAccountTotalDeFiNetWorth,
+      getNetworkAccount,
+      getHyperliquidPortfolioSnapshot,
+    };
+  }
+
+  test('fetches USD category net worth using the Home Perps snapshot policy', async () => {
+    const mocks = prepare();
+    await expect(
+      mocks.internals.getPortfolioCategoryFiat(eventPayload),
+    ).resolves.toEqual({
+      defiFiat: '20',
+      deFiSource: 'live',
+      perpsFiat: '30',
+    });
+    expect(mocks.getAllNetworkAccounts).toHaveBeenCalledWith(
+      expect.objectContaining({
+        accountId: 'account-1',
+        indexedAccountId: 'indexed-account-1',
+        networkId: getNetworkIdsMap().onekeyall,
+        networksEnabledOnly: true,
+        DeFiEnabledOnly: true,
+      }),
+    );
+    expect(mocks.post).toHaveBeenCalledWith(
+      '/wallet/v1/portfolio/positions',
+      {
+        networkId: 'evm--1',
+        accountAddress: '0x1111',
+      },
+      expect.objectContaining({
+        headers: { 'x-onekey-request-currency': 'usd' },
+      }),
+    );
+    expect(mocks.getNetworkAccount).toHaveBeenCalledWith({
+      accountId: undefined,
+      indexedAccountId: 'indexed-account-1',
+      networkId: PERPS_NETWORK_ID,
+      deriveType: 'default',
+    });
+    expect(mocks.getHyperliquidPortfolioSnapshot).toHaveBeenCalledWith({
+      address: '0x3333',
+    });
+  });
+
+  test('passes deriveType for a single-network DeFi lookup', async () => {
+    const mocks = prepare();
+    await expect(
+      mocks.internals.getPortfolioCategoryFiat({
+        ...eventPayload,
+        networkId: 'evm--1',
+      }),
+    ).resolves.toEqual({
+      defiFiat: '20',
+      deFiSource: 'live',
+      perpsFiat: '30',
+    });
+    expect(mocks.getAllNetworkAccounts).toHaveBeenCalledWith(
+      expect.objectContaining({
+        networkId: 'evm--1',
+        deriveType: 'default',
+      }),
+    );
+  });
+
+  test('treats an empty DeFi account set as zero instead of unknown', async () => {
+    const mocks = prepare();
+    mocks.getAllNetworkAccounts.mockResolvedValue({ accountsInfo: [] });
+    await expect(
+      mocks.internals.getPortfolioCategoryFiat(eventPayload),
+    ).resolves.toEqual({
+      defiFiat: '0',
+      deFiSource: 'empty',
+      perpsFiat: '30',
+    });
+    expect(mocks.post).not.toHaveBeenCalled();
+  });
+
+  test('treats a confirmed zero DeFi response as zero', async () => {
+    const mocks = prepare();
+    mocks.post.mockResolvedValue({
+      data: {
+        data: {
+          success: true,
+          data: { totals: { netWorth: 0 } },
+          meta: {
+            degraded: false,
+            networkIds: [],
+            requestedNetworkIds: ['evm--1'],
+          },
+        },
+      },
+    });
+
+    await expect(
+      mocks.internals.getPortfolioCategoryFiat(eventPayload),
+    ).resolves.toEqual({
+      defiFiat: '0',
+      deFiSource: 'live',
+      perpsFiat: '30',
+    });
+  });
+
+  test('keeps DeFi unknown when the requested network is not confirmed', async () => {
+    const mocks = prepare();
+    mocks.post.mockResolvedValue({
+      data: {
+        data: {
+          success: true,
+          data: { totals: { netWorth: 0 } },
+          meta: {
+            degraded: false,
+            networkIds: ['evm--1'],
+            requestedNetworkIds: [],
+          },
+        },
+      },
+    });
+
+    await expect(
+      mocks.internals.getPortfolioCategoryFiat(eventPayload),
+    ).resolves.toEqual({
+      defiFiat: undefined,
+      deFiSource: 'unknown',
+      perpsFiat: '30',
+    });
+  });
+
+  test('rejects nonzero DeFi totals without actual network coverage', async () => {
+    const mocks = prepare();
+    mocks.post.mockResolvedValue({
+      data: {
+        data: {
+          success: true,
+          data: { totals: { netWorth: 20 } },
+          meta: {
+            degraded: false,
+            networkIds: [],
+            requestedNetworkIds: ['evm--1'],
+          },
+        },
+      },
+    });
+
+    await expect(
+      mocks.internals.getPortfolioCategoryFiat(eventPayload),
+    ).resolves.toEqual({
+      defiFiat: undefined,
+      deFiSource: 'unknown',
+      perpsFiat: '30',
+    });
+  });
+
+  test('treats a missing perps account row as zero instead of unknown', async () => {
+    const mocks = prepare();
+    mocks.getNetworkAccount.mockRejectedValue(
+      new Error('indexedAccounts not found: indexed-account-1'),
+    );
+    await expect(
+      mocks.internals.getPortfolioCategoryFiat(eventPayload),
+    ).resolves.toEqual({
+      defiFiat: '20',
+      deFiSource: 'live',
+      perpsFiat: '0',
+    });
+    expect(mocks.getHyperliquidPortfolioSnapshot).not.toHaveBeenCalled();
+  });
+
+  test('keeps a perps infrastructure failure unknown instead of zero', async () => {
+    const mocks = prepare();
+    mocks.getNetworkAccount.mockRejectedValue(new Error('storage failed'));
+    await expect(
+      mocks.internals.getPortfolioCategoryFiat(eventPayload),
+    ).resolves.toEqual({
+      defiFiat: '20',
+      deFiSource: 'live',
+      perpsFiat: undefined,
+    });
+  });
+
+  test('does not treat a generic Account not found read as zero perps equity', async () => {
+    const mocks = prepare();
+    mocks.getNetworkAccount.mockRejectedValue(new Error('Account not found'));
+    await expect(
+      mocks.internals.getPortfolioCategoryFiat(eventPayload),
+    ).resolves.toEqual({
+      defiFiat: '20',
+      deFiSource: 'live',
+      perpsFiat: undefined,
+    });
+  });
+
+  test('reuses category fiat within the hardware cooldown window', async () => {
+    const mocks = prepare();
+    await expect(
+      mocks.internals.getPortfolioCategoryFiat(eventPayload, undefined, 'k1'),
+    ).resolves.toEqual({
+      defiFiat: '20',
+      deFiSource: 'live',
+      perpsFiat: '30',
+    });
+    await expect(
+      mocks.internals.getPortfolioCategoryFiat(eventPayload, undefined, 'k1'),
+    ).resolves.toEqual({
+      defiFiat: '20',
+      deFiSource: 'live',
+      perpsFiat: '30',
+    });
+    expect(mocks.post).toHaveBeenCalledTimes(1);
+    expect(mocks.getHyperliquidPortfolioSnapshot).toHaveBeenCalledTimes(1);
+  });
+
+  test('does not reuse category fiat after enabled networks change', async () => {
+    const mocks = prepare();
+    await expect(
+      mocks.internals.getPortfolioCategoryFiat(eventPayload, undefined, 'k1'),
+    ).resolves.toEqual({
+      defiFiat: '20',
+      deFiSource: 'live',
+      perpsFiat: '30',
+    });
+    mocks.getAllNetworksState.mockResolvedValue({
+      enabledNetworks: { 'evm--1': true, 'btc--0': true },
+      disabledNetworks: {},
+    });
+    await expect(
+      mocks.internals.getPortfolioCategoryFiat(eventPayload, undefined, 'k1'),
+    ).resolves.toEqual({
+      defiFiat: '20',
+      deFiSource: 'live',
+      perpsFiat: '30',
+    });
+    expect(mocks.post).toHaveBeenCalledTimes(2);
+  });
+
+  test('does not reuse category fiat after the DeFi-enabled map changes', async () => {
+    const mocks = prepare();
+    await expect(
+      mocks.internals.getPortfolioCategoryFiat(eventPayload, undefined, 'k1'),
+    ).resolves.toEqual({
+      defiFiat: '20',
+      deFiSource: 'live',
+      perpsFiat: '30',
+    });
+    mocks.getDeFiEnabledNetworksMapState.mockResolvedValue({
+      isReady: true,
+      enabledNetworksMap: { 'evm--1': true, 'btc--0': true },
+    });
+    await expect(
+      mocks.internals.getPortfolioCategoryFiat(eventPayload, undefined, 'k1'),
+    ).resolves.toEqual({
+      defiFiat: '20',
+      deFiSource: 'live',
+      perpsFiat: '30',
+    });
+    expect(mocks.post).toHaveBeenCalledTimes(2);
+  });
+
+  test('does not memoize an unknown category leg', async () => {
+    const mocks = prepare();
+    mocks.post.mockRejectedValue(new Error('unavailable'));
+    await expect(
+      mocks.internals.getPortfolioCategoryFiat(eventPayload, undefined, 'k1'),
+    ).resolves.toEqual({
+      defiFiat: undefined,
+      deFiSource: 'unknown',
+      perpsFiat: '30',
+    });
+    mocks.post.mockResolvedValue({
+      data: {
+        data: {
+          success: true,
+          data: { totals: { netWorth: 20 } },
+          meta: {
+            degraded: false,
+            networkIds: ['evm--1'],
+            requestedNetworkIds: ['evm--1'],
+          },
+        },
+      },
+    });
+    await expect(
+      mocks.internals.getPortfolioCategoryFiat(eventPayload, undefined, 'k1'),
+    ).resolves.toEqual({
+      defiFiat: '20',
+      deFiSource: 'live',
+      perpsFiat: '30',
+    });
+    expect(mocks.post).toHaveBeenCalledTimes(2);
+  });
+
+  test('keeps a failed category unknown while retaining the successful one', async () => {
+    const mocks = prepare();
+    mocks.post.mockRejectedValue(new Error('unavailable'));
+    await expect(
+      mocks.internals.getPortfolioCategoryFiat(eventPayload),
+    ).resolves.toEqual({
+      defiFiat: undefined,
+      deFiSource: 'unknown',
+      perpsFiat: '30',
+    });
+  });
+
+  test('does not send a partial DeFi live total when some networks fail', async () => {
+    const mocks = prepare();
+    mocks.getAllNetworkAccounts.mockResolvedValue({
+      accountsInfo: [
+        {
+          accountId: 'eth-account-1',
+          networkId: 'evm--1',
+          apiAddress: '0x1111',
+        },
+        {
+          accountId: 'btc-account-1',
+          networkId: 'btc--0',
+          apiAddress: 'bc1q',
+        },
+      ],
+    });
+    mocks.post
+      .mockResolvedValueOnce({
+        data: {
+          data: {
+            success: true,
+            data: { totals: { netWorth: 20 } },
+            meta: {
+              degraded: false,
+              networkIds: ['evm--1'],
+              requestedNetworkIds: ['evm--1'],
+            },
+          },
+        },
+      })
+      .mockRejectedValueOnce(new Error('unavailable'));
+    await expect(
+      mocks.internals.getPortfolioCategoryFiat(eventPayload),
+    ).resolves.toEqual({
+      defiFiat: undefined,
+      deFiSource: 'unknown',
+      perpsFiat: '30',
+    });
+  });
+
+  test('uses the Home DeFi cache when live coverage is incomplete', async () => {
+    const mocks = prepare();
+    mocks.getAllNetworks.mockResolvedValue({
+      networks: [
+        { id: 'evm--1', isTestnet: false },
+        { id: 'btc--0', isTestnet: false },
+      ],
+    });
+    mocks.getAllNetworksState.mockResolvedValue({
+      enabledNetworks: { 'btc--0': true, 'evm--1': true },
+      disabledNetworks: {},
+    });
+    mocks.getDeFiEnabledNetworksMapState.mockResolvedValue({
+      isReady: true,
+      enabledNetworksMap: { 'btc--0': true, 'evm--1': true },
+    });
+    mocks.getAllNetworkAccounts.mockResolvedValue({
+      accountsInfo: [
+        {
+          accountId: 'eth-account-1',
+          networkId: 'evm--1',
+          apiAddress: '0x1111',
+        },
+        {
+          accountId: 'btc-account-1',
+          networkId: 'btc--0',
+          apiAddress: 'bc1q',
+        },
+      ],
+    });
+    mocks.post
+      .mockResolvedValueOnce({
+        data: {
+          data: {
+            success: true,
+            data: { totals: { netWorth: 20 } },
+            meta: {
+              degraded: false,
+              networkIds: ['evm--1'],
+              requestedNetworkIds: ['evm--1'],
+            },
+          },
+        },
+      })
+      .mockRejectedValueOnce(new Error('unavailable'));
+    mocks.getAccountTotalDeFiNetWorth.mockResolvedValue({
+      hasCache: true,
+      netWorth: '20',
+      networkIds: ['btc--0', 'evm--1'],
+    });
+    await expect(
+      mocks.internals.getPortfolioCategoryFiat(eventPayload),
+    ).resolves.toEqual({
+      defiFiat: '20',
+      deFiSource: 'cache',
+      perpsFiat: '30',
+    });
+    expect(mocks.getAccountTotalDeFiNetWorth).toHaveBeenCalledWith(
+      expect.objectContaining({
+        enabledNetworkIds: ['evm--1', 'btc--0'],
+        targetCurrency: 'usd',
+      }),
+    );
+  });
+
+  test('does not sum extra catalog DeFi networks from the Home cache', async () => {
+    const mocks = prepare();
+    mocks.getAllNetworks.mockResolvedValue({
+      networks: [
+        { id: 'evm--1', isTestnet: false },
+        { id: 'evm--56', isTestnet: false },
+      ],
+    });
+    mocks.getAllNetworksState.mockResolvedValue({
+      enabledNetworks: { 'evm--1': true, 'evm--56': true },
+      disabledNetworks: {},
+    });
+    mocks.getDeFiEnabledNetworksMapState.mockResolvedValue({
+      isReady: true,
+      enabledNetworksMap: { 'evm--1': true, 'evm--56': true },
+    });
+    mocks.post.mockRejectedValue(new Error('unavailable'));
+    mocks.getAccountTotalDeFiNetWorth.mockResolvedValue({
+      hasCache: true,
+      netWorth: '20',
+      networkIds: ['evm--1'],
+    });
+    await expect(
+      mocks.internals.getPortfolioCategoryFiat(eventPayload),
+    ).resolves.toEqual({
+      defiFiat: '20',
+      deFiSource: 'cache',
+      perpsFiat: '30',
+    });
+    expect(mocks.getAccountTotalDeFiNetWorth).toHaveBeenCalledWith(
+      expect.objectContaining({
+        enabledNetworkIds: ['evm--1'],
+        targetCurrency: 'usd',
+      }),
+    );
+  });
+
+  test('does not use a partial Home DeFi cache as a complete total', async () => {
+    const mocks = prepare();
+    mocks.getAllNetworkAccounts.mockResolvedValue({
+      accountsInfo: [
+        {
+          accountId: 'eth-account-1',
+          networkId: 'evm--1',
+          apiAddress: '0x1111',
+        },
+        {
+          accountId: 'btc-account-1',
+          networkId: 'btc--0',
+          apiAddress: 'bc1q',
+        },
+      ],
+    });
+    mocks.post
+      .mockResolvedValueOnce({
+        data: {
+          data: {
+            success: true,
+            data: { totals: { netWorth: 20 } },
+            meta: {
+              degraded: false,
+              networkIds: ['evm--1'],
+              requestedNetworkIds: ['evm--1'],
+            },
+          },
+        },
+      })
+      .mockRejectedValueOnce(new Error('unavailable'));
+    mocks.getAccountTotalDeFiNetWorth.mockResolvedValue({
+      hasCache: true,
+      netWorth: '20',
+      networkIds: ['evm--1'],
+    });
+    await expect(
+      mocks.internals.getPortfolioCategoryFiat(eventPayload),
+    ).resolves.toEqual({
+      defiFiat: undefined,
+      deFiSource: 'unknown',
+      perpsFiat: '30',
+    });
+  });
+
+  test('does not use cache when multiple DeFi addresses share a network', async () => {
+    const mocks = prepare();
+    mocks.getAllNetworkAccounts.mockResolvedValue({
+      accountsInfo: [
+        {
+          accountId: 'btc-native',
+          networkId: 'btc--0',
+          apiAddress: 'bc1qnative',
+        },
+        {
+          accountId: 'btc-taproot',
+          networkId: 'btc--0',
+          apiAddress: 'bc1ptaproot',
+        },
+      ],
+    });
+    mocks.post
+      .mockResolvedValueOnce({
+        data: {
+          data: {
+            success: true,
+            data: { totals: { netWorth: 20 } },
+            meta: {
+              degraded: false,
+              networkIds: ['btc--0'],
+              requestedNetworkIds: ['btc--0'],
+            },
+          },
+        },
+      })
+      .mockRejectedValueOnce(new Error('unavailable'));
+    mocks.getAccountTotalDeFiNetWorth.mockResolvedValue({
+      hasCache: true,
+      netWorth: '20',
+      networkIds: ['btc--0'],
+    });
+    await expect(
+      mocks.internals.getPortfolioCategoryFiat(eventPayload),
+    ).resolves.toEqual({
+      defiFiat: undefined,
+      deFiSource: 'unknown',
+      perpsFiat: '30',
+    });
+    expect(mocks.getAccountTotalDeFiNetWorth).not.toHaveBeenCalled();
+  });
+
+  test('rejects degraded results instead of reporting partial totals', async () => {
+    const mocks = prepare();
+    mocks.post.mockResolvedValue({
+      data: {
+        data: {
+          success: true,
+          data: { totals: { netWorth: 20 } },
+          meta: {
+            degraded: true,
+            networkIds: ['evm--1'],
+            requestedNetworkIds: ['evm--1'],
+          },
+        },
+      },
+    });
+    mocks.getHyperliquidPortfolioSnapshot.mockResolvedValue({
+      netWorthUsd: '30',
+      isDegraded: true,
+    });
+    await expect(
+      mocks.internals.getPortfolioCategoryFiat(eventPayload),
+    ).resolves.toEqual({
+      defiFiat: undefined,
+      deFiSource: 'unknown',
+      perpsFiat: undefined,
+    });
+  });
+
+  test('does not infer no assets while network support is still loading', async () => {
+    const mocks = prepare();
+    mocks.getDeFiEnabledNetworksMapState.mockResolvedValue({
+      isReady: false,
+      enabledNetworksMap: {},
+    });
+    await expect(
+      mocks.internals.getPortfolioCategoryFiat(eventPayload),
+    ).resolves.toEqual({});
+    expect(mocks.post).not.toHaveBeenCalled();
+    expect(mocks.getHyperliquidPortfolioSnapshot).not.toHaveBeenCalled();
+  });
+
+  test('excludes disabled networks using the same scope as Home', async () => {
+    const mocks = prepare();
+    mocks.getAllNetworksState.mockResolvedValue({
+      enabledNetworks: {},
+      disabledNetworks: { 'evm--1': true },
+    });
+    await expect(
+      mocks.internals.getPortfolioCategoryFiat(eventPayload),
+    ).resolves.toEqual({
+      defiFiat: '0',
+      deFiSource: 'empty',
+      perpsFiat: '0',
+    });
+    expect(mocks.post).not.toHaveBeenCalled();
+    expect(mocks.getHyperliquidPortfolioSnapshot).not.toHaveBeenCalled();
+  });
+});
 
 describe('validatePortfolioPackageBase64', () => {
   test('preserves valid Base64 and reports the decoded size', () => {
@@ -500,6 +1209,7 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
         return { portfolioUpdated: true };
       },
     );
+    const getTargetState = jest.fn().mockResolvedValue(targetState);
     const updateTargetState = jest.fn().mockResolvedValue(undefined);
     const isHardwareChannelBusy = jest.fn();
     for (const busy of busyResults) {
@@ -542,7 +1252,10 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
       },
     );
     const withHardwareProcessing = jest.fn(
-      async (operation: (lease: object) => Promise<unknown>) =>
+      async (
+        operation: (lease: object) => Promise<unknown>,
+        _options: { onCancel?: () => void },
+      ) =>
         operation({ deviceKey: 'db-device-1', owner: Symbol('interactive') }),
     );
     const service = new ServiceHardwarePortfolioSync({
@@ -569,7 +1282,7 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
             }),
           },
           hardwarePortfolioSync: {
-            getTargetState: jest.fn().mockResolvedValue(targetState),
+            getTargetState,
             updateTargetState,
           },
         },
@@ -607,6 +1320,7 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
       getDeviceState,
       getDeviceStateWithUnlock,
       getCurrentTransportType,
+      getTargetState,
       isHardwareDeviceConnected,
       isHardwareChannelBusy,
       prepareHardwareTransport,
@@ -634,6 +1348,199 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
       transportType: EHardwareTransportType.DesktopWebBle,
     });
   }
+
+  test('syncs the Home amount without fetching categories on Pro2 v2', async () => {
+    const now = 1_784_592_000_000;
+    jest.spyOn(Date, 'now').mockReturnValue(now);
+    jest.spyOn(Date.prototype, 'getTimezoneOffset').mockReturnValue(-540);
+    const portfolioSyncResultSpy = jest
+      .spyOn(defaultLogger.hardware.connection, 'portfolioSyncResult')
+      .mockImplementation((params) => params);
+    const { service, serviceInternals, uploadPortfolioPackage } =
+      prepareHardwareSync({ busyResults: [false, false] });
+    jest.mocked(localDb.getDeviceSafe).mockResolvedValue({
+      id: 'db-device-1',
+      connectId: 'PRO2_CONNECT_ID',
+      deviceId: 'PRO2_DEVICE_ID',
+      deviceType: EDeviceType.Pro2,
+      deviceStateInfo: {
+        identity: { deviceId: 'PRO2_DEVICE_ID' },
+        versions: { firmware: '1.0.2' },
+      },
+    } as Awaited<ReturnType<typeof localDb.getDeviceSafe>>);
+    const getCategory = jest
+      .fn()
+      .mockResolvedValue({ defiFiat: '20', perpsFiat: '30' });
+    (
+      service as unknown as { getPortfolioCategoryFiat: typeof getCategory }
+    ).getPortfolioCategoryFiat = getCategory;
+    await serviceInternals.syncSettledPortfolio({
+      ...buildHardwarePayload(),
+      totalFiat: '100',
+      homeTotalFiatUsd: '80',
+      homeCategoryFiatUsd: { defiFiat: '20', perpsFiat: '30' },
+    });
+    expect(serviceInternals.submitPortfolioJsonToServer).toHaveBeenCalledWith(
+      expect.objectContaining({
+        artifacts: expect.objectContaining({
+          portfolio: expect.objectContaining({
+            v: 2,
+            account: expect.objectContaining({ label: '1' }),
+            tokensFiat: '$100.00',
+            defiFiat: '$20.00',
+            perpsFiat: '$30.00',
+            totalFiat: '$80.00',
+            ts: expect.any(Number),
+          }),
+        }),
+      }),
+    );
+    const submittedTimestamp = (
+      serviceInternals.submitPortfolioJsonToServer.mock.calls[0][0] as {
+        artifacts: { portfolio: { ts: number } };
+      }
+    ).artifacts.portfolio.ts;
+    expect(submittedTimestamp).toBe(now + 9 * 60 * 60 * 1000);
+    expect(portfolioSyncResultSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        deviceType: EDeviceType.Pro2,
+        firmwareVersion: '1.0.2',
+        schemaVersion: 2,
+        status: 'success',
+      }),
+    );
+    expect(uploadPortfolioPackage).toHaveBeenCalledTimes(1);
+    expect(getCategory).not.toHaveBeenCalled();
+    portfolioSyncResultSpy.mockRestore();
+  });
+
+  test('syncs the Home amount without fetching categories on Neo v2', async () => {
+    const portfolioSyncResultSpy = jest
+      .spyOn(defaultLogger.hardware.connection, 'portfolioSyncResult')
+      .mockImplementation((params) => params);
+    const { service, serviceInternals, uploadPortfolioPackage } =
+      prepareHardwareSync({ busyResults: [false, false] });
+    jest.mocked(localDb.getDeviceSafe).mockResolvedValue({
+      id: 'db-device-1',
+      connectId: 'PRO2_CONNECT_ID',
+      deviceId: 'PRO2_DEVICE_ID',
+      deviceType: EDeviceType.Neo,
+      deviceStateInfo: {
+        identity: { deviceId: 'PRO2_DEVICE_ID' },
+        versions: { firmware: '1.0.2' },
+      },
+    } as Awaited<ReturnType<typeof localDb.getDeviceSafe>>);
+    const getCategory = jest
+      .fn()
+      .mockResolvedValue({ defiFiat: '20', perpsFiat: '30' });
+    (
+      service as unknown as { getPortfolioCategoryFiat: typeof getCategory }
+    ).getPortfolioCategoryFiat = getCategory;
+
+    await serviceInternals.syncSettledPortfolio({
+      ...buildHardwarePayload(),
+      totalFiat: '100',
+    });
+
+    expect(getCategory).not.toHaveBeenCalled();
+    expect(serviceInternals.submitPortfolioJsonToServer).toHaveBeenCalledWith(
+      expect.objectContaining({
+        artifacts: expect.objectContaining({
+          portfolio: expect.objectContaining({
+            v: 2,
+            account: expect.objectContaining({ label: '1' }),
+            tokensFiat: '$100.00',
+            defiFiat: '—',
+            perpsFiat: '—',
+            totalFiat: '$100.00',
+          }),
+        }),
+      }),
+    );
+    expect(portfolioSyncResultSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        deviceType: EDeviceType.Neo,
+        firmwareVersion: '1.0.2',
+        schemaVersion: 2,
+        status: 'success',
+      }),
+    );
+    expect(uploadPortfolioPackage).toHaveBeenCalledTimes(1);
+    portfolioSyncResultSpy.mockRestore();
+  });
+
+  test('keeps Pro2 firmware 1.0.1 on the v1 payload', async () => {
+    const { service, serviceInternals, uploadPortfolioPackage } =
+      prepareHardwareSync({ busyResults: [false, false] });
+    jest.mocked(localDb.getDeviceSafe).mockResolvedValue({
+      id: 'db-device-1',
+      connectId: 'PRO2_CONNECT_ID',
+      deviceId: 'PRO2_DEVICE_ID',
+      deviceType: EDeviceType.Pro2,
+      deviceStateInfo: {
+        identity: { deviceId: 'PRO2_DEVICE_ID' },
+        versions: { firmware: '1.0.1' },
+      },
+    } as Awaited<ReturnType<typeof localDb.getDeviceSafe>>);
+    const getCategory = jest
+      .fn()
+      .mockResolvedValue({ defiFiat: '20', perpsFiat: '30' });
+    (
+      service as unknown as { getPortfolioCategoryFiat: typeof getCategory }
+    ).getPortfolioCategoryFiat = getCategory;
+
+    await serviceInternals.syncSettledPortfolio({
+      ...buildHardwarePayload(),
+      totalFiat: '100',
+    });
+
+    expect(getCategory).not.toHaveBeenCalled();
+    expect(serviceInternals.submitPortfolioJsonToServer).toHaveBeenCalledWith(
+      expect.objectContaining({
+        artifacts: expect.objectContaining({
+          portfolio: expect.objectContaining({
+            v: 1,
+            account: expect.objectContaining({ label: 'Account #1' }),
+            totalFiat: '$100.00',
+          }),
+        }),
+      }),
+    );
+    const submitted = (
+      serviceInternals.submitPortfolioJsonToServer.mock.calls[0][0] as {
+        artifacts: { portfolio: Record<string, unknown> };
+      }
+    ).artifacts.portfolio;
+    expect(submitted).not.toHaveProperty('defiFiat');
+    expect(submitted).not.toHaveProperty('perpsFiat');
+    expect(submitted).not.toHaveProperty('tokensFiat');
+    expect(uploadPortfolioPackage).toHaveBeenCalledTimes(1);
+  });
+
+  test('records lastAttemptAt when a silent snapshot is skipped as a duplicate', async () => {
+    jest.spyOn(Date, 'now').mockReturnValue(1_785_723_200_000);
+    const payload = buildHardwarePayload();
+    const first = prepareHardwareSync({ busyResults: [false, false] });
+    await first.serviceInternals.syncSettledPortfolio(payload);
+    const firstState = first.updateTargetState.mock.calls.find((call) =>
+      Boolean((call[1] as { lastContentHash?: string }).lastContentHash),
+    )?.[1] as { lastContentHash: string; lastWalletId: string };
+    const duplicate = prepareHardwareSync({
+      busyResults: [false, false],
+      targetState: {
+        lastContentHash: firstState.lastContentHash,
+        lastWalletId: firstState.lastWalletId,
+      },
+    });
+
+    await duplicate.serviceInternals.syncSettledPortfolio(payload);
+
+    expect(duplicate.uploadPortfolioPackage).not.toHaveBeenCalled();
+    expect(duplicate.updateTargetState).toHaveBeenCalledWith(
+      'db-device-1',
+      expect.objectContaining({ lastAttemptAt: 1_785_723_200_000 }),
+    );
+  });
 
   test('uploads a signed empty standard-wallet snapshot to overwrite stale device data', async () => {
     const { serviceInternals, updateTargetState, uploadPortfolioPackage } =
@@ -1274,10 +2181,24 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
       busyResults: [false],
       hardwareTransportType: EHardwareTransportType.BLE,
     });
+    jest.mocked(localDb.getDeviceSafe).mockResolvedValue({
+      id: 'db-device-1',
+      connectId: 'PRO2_CONNECT_ID',
+      deviceId: 'PRO2_DEVICE_ID',
+      deviceType: EDeviceType.Pro2,
+      deviceStateInfo: {
+        identity: { deviceId: 'PRO2_DEVICE_ID' },
+        versions: { firmware: '1.0.2' },
+      },
+    } as Awaited<ReturnType<typeof localDb.getDeviceSafe>>);
+    const getCategory = jest.fn();
+    (
+      service as unknown as { getPortfolioCategoryFiat: typeof getCategory }
+    ).getPortfolioCategoryFiat = getCategory;
 
     await expect(
       service.syncPortfolio({
-        eventPayload: buildHardwarePayload(),
+        eventPayload: { ...buildHardwarePayload(), totalFiat: '600' },
         syncMode: 'interactive',
       }),
     ).resolves.toBe(true);
@@ -1286,6 +2207,7 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
       expect.any(Function),
       expect.objectContaining({
         debugMethodName: 'portfolio.syncPortfolio',
+        skipDeviceCancel: true,
         deviceParams: {
           dbDevice: expect.objectContaining({ id: 'db-device-1' }),
         },
@@ -1303,6 +2225,20 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
     expect(serviceInternals.submitPortfolioJsonToServer).toHaveBeenCalledTimes(
       1,
     );
+    expect(serviceInternals.submitPortfolioJsonToServer).toHaveBeenCalledWith(
+      expect.objectContaining({
+        artifacts: expect.objectContaining({
+          portfolio: expect.objectContaining({
+            v: 2,
+            tokensFiat: '$600.00',
+            defiFiat: '—',
+            perpsFiat: '—',
+            totalFiat: '$600.00',
+          }),
+        }),
+      }),
+    );
+    expect(getCategory).not.toHaveBeenCalled();
     expect(uploadPortfolioPackage).toHaveBeenCalledWith({
       connectId: 'PRO2_CONNECT_ID',
       hardwareTransportType: EHardwareTransportType.BLE,
@@ -1311,6 +2247,312 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
     });
     expect(getDeviceStateWithUnlock.mock.invocationCallOrder[0]).toBeLessThan(
       uploadPortfolioPackage.mock.invocationCallOrder[0],
+    );
+  });
+
+  test('does not enqueue another interactive sync while the first is unlocking', async () => {
+    const { getDeviceStateWithUnlock, service, uploadPortfolioPackage } =
+      prepareHardwareSync({ busyResults: [false] });
+    let resolveUnlock!: () => void;
+    let notifyStarted!: () => void;
+    const started = new Promise<void>((resolve) => {
+      notifyStarted = resolve;
+    });
+    getDeviceStateWithUnlock.mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          resolveUnlock = resolve;
+          notifyStarted();
+        }),
+    );
+    const first = service.syncPortfolio({
+      eventPayload: buildHardwarePayload(),
+      syncMode: 'interactive',
+    });
+    await started;
+    const second = service.syncPortfolio({
+      eventPayload: buildHardwarePayload(),
+      syncMode: 'interactive',
+    });
+    resolveUnlock();
+    await expect(first).resolves.toBe(true);
+    await expect(second).resolves.toBe(false);
+    expect(getDeviceStateWithUnlock).toHaveBeenCalledTimes(1);
+    expect(uploadPortfolioPackage).toHaveBeenCalledTimes(1);
+  });
+
+  test('records local lifecycle metadata without raw device or portfolio data', async () => {
+    const log = jest
+      .spyOn(defaultLogger.hardware.sdkLog, 'log')
+      .mockImplementation(() => '');
+    const environment = jest.replaceProperty(
+      process.env,
+      'NODE_ENV',
+      'production',
+    );
+    try {
+      const { service } = prepareHardwareSync({
+        busyResults: [false],
+        hardwareTransportType: EHardwareTransportType.BLE,
+      });
+      await service.syncPortfolio({
+        eventPayload: buildHardwarePayload(),
+        syncMode: 'interactive',
+      });
+      const events = log.mock.calls.filter(([label]) =>
+        label.startsWith('[PRO2-PORTFOLIO-SYNC] '),
+      );
+      expect(events.map(([label]) => label)).toEqual(
+        expect.arrayContaining([
+          '[PRO2-PORTFOLIO-SYNC] queued',
+          '[PRO2-PORTFOLIO-SYNC] unlock-started',
+          '[PRO2-PORTFOLIO-SYNC] unlock-completed',
+          '[PRO2-PORTFOLIO-SYNC] pack-started',
+          '[PRO2-PORTFOLIO-SYNC] upload-started',
+          '[PRO2-PORTFOLIO-SYNC] result',
+        ]),
+      );
+      const records = events.map(
+        ([, value]) => JSON.parse(String(value)) as Record<string, unknown>,
+      );
+      expect(new Set(records.map((record) => record.syncId)).size).toBe(1);
+      expect(records[0]).toMatchObject({
+        deviceType: EDeviceType.Pro2,
+        connectIdSuffix: '***T_ID',
+        transportType: EHardwareTransportType.BLE,
+        syncId: expect.any(String),
+      });
+      expect(records[records.length - 1]).toMatchObject({
+        deviceType: EDeviceType.Pro2,
+        status: 'success',
+        queueDurationMs: expect.any(Number),
+        unlockDurationMs: expect.any(Number),
+        hardwareDurationMs: expect.any(Number),
+        packageBytes: 3,
+      });
+      const text = JSON.stringify(records);
+      for (const sensitiveValue of [
+        'PRO2_DEVICE_ID',
+        'PRO2_CONNECT_ID',
+        'NNECT_ID',
+        '0x1234567890abcdef',
+        '0.00007276',
+        'AQID',
+      ]) {
+        expect(text).not.toContain(sensitiveValue);
+      }
+    } finally {
+      environment.restore();
+      log.mockRestore();
+    }
+  });
+
+  test('cancels an owned interactive sync before starting device unlock', async () => {
+    const {
+      service,
+      withHardwareProcessing,
+      getDeviceStateWithUnlock,
+      uploadPortfolioPackage,
+    } = prepareHardwareSync({ busyResults: [false] });
+    let releaseQueue!: () => void;
+    let notifyQueued!: () => void;
+    const queued = new Promise<void>((resolve) => {
+      notifyQueued = resolve;
+    });
+    const queue = new Promise<void>((resolve) => {
+      releaseQueue = resolve;
+    });
+    withHardwareProcessing.mockImplementationOnce(async (operation) => {
+      notifyQueued();
+      await queue;
+      return operation({ deviceKey: 'db-device-1', owner: Symbol('queued') });
+    });
+    const result = service
+      .syncPortfolio({
+        eventPayload: buildHardwarePayload(),
+        syncMode: 'interactive',
+      })
+      .catch((error: unknown) => error);
+    await queued;
+    withHardwareProcessing.mock.calls[0][1].onCancel?.();
+    releaseQueue();
+    await expect(result).resolves.toMatchObject({
+      code: HardwareErrorCode.DeviceInterruptedFromOutside,
+    });
+    expect(getDeviceStateWithUnlock).not.toHaveBeenCalled();
+    expect(uploadPortfolioPackage).not.toHaveBeenCalled();
+  });
+
+  test.each(['unlock', 'pack', 'upload'] as const)(
+    'does not resume after user close during %s',
+    async (stage) => {
+      const {
+        getDeviceStateWithUnlock,
+        withHardwareProcessing,
+        service,
+        serviceInternals,
+        uploadPortfolioPackage,
+      } = prepareHardwareSync({ busyResults: [false] });
+      let release!: () => void;
+      let notifyStarted!: () => void;
+      const started = new Promise<void>((resolve) => {
+        notifyStarted = resolve;
+      });
+      const pending = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      let operation = getDeviceStateWithUnlock;
+      if (stage === 'pack') {
+        operation = serviceInternals.submitPortfolioJsonToServer;
+      } else if (stage === 'upload') {
+        operation = uploadPortfolioPackage;
+      }
+      const original = operation.getMockImplementation();
+      operation.mockImplementationOnce(async () => {
+        notifyStarted();
+        await pending;
+        const value: unknown = await original?.();
+        return value;
+      });
+      const first = service.syncPortfolio({
+        eventPayload: buildHardwarePayload(),
+        syncMode: 'interactive',
+      });
+      // Attach a rejection handler before delivering the close event.
+      const result = first.catch((error: unknown) => error);
+      await started;
+      withHardwareProcessing.mock.calls[0][1].onCancel?.();
+      await service.notifyAllNetworksTokenListSettled(buildHardwarePayload());
+      release();
+      await expect(result).resolves.toMatchObject({
+        code: HardwareErrorCode.DeviceInterruptedFromOutside,
+      });
+      expect(uploadPortfolioPackage).toHaveBeenCalledTimes(
+        stage === 'upload' ? 1 : 0,
+      );
+      expect(
+        (
+          service as unknown as {
+            pendingInteractivePayloadByTargetKey: Map<string, unknown>;
+          }
+        ).pendingInteractivePayloadByTargetKey.size,
+      ).toBe(0);
+      expect(
+        appEventBus.listenerCount(
+          EAppEventBusNames.CloseHardwareUiStateDialogManually,
+        ),
+      ).toBe(0);
+      await expect(
+        service.syncPortfolio({
+          eventPayload: buildHardwarePayload(),
+          syncMode: 'interactive',
+        }),
+      ).resolves.toBe(true);
+      expect(uploadPortfolioPackage).toHaveBeenCalledTimes(
+        stage === 'upload' ? 2 : 1,
+      );
+    },
+  );
+
+  test('accepts a new tap while the cancelled operation is still draining', async () => {
+    const {
+      service,
+      getDeviceStateWithUnlock,
+      uploadPortfolioPackage,
+      withHardwareProcessing,
+    } = prepareHardwareSync({ busyResults: [false] });
+    const manager = new HardwareProcessingManager();
+    withHardwareProcessing.mockImplementation(async (operation, options) =>
+      manager.runExclusiveOneKeyOperation({
+        operation: async (lease) => {
+          const onCancel = options.onCancel!;
+          lease.signal?.addEventListener('abort', onCancel);
+          try {
+            return await operation(lease);
+          } finally {
+            lease.signal?.removeEventListener('abort', onCancel);
+          }
+        },
+      }),
+    );
+    let release!: () => void;
+    let started!: () => void;
+    const ready = new Promise<void>((resolve) => {
+      started = resolve;
+    });
+    getDeviceStateWithUnlock.mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          release = resolve;
+          started();
+        }),
+    );
+    const first = service
+      .syncPortfolio({
+        eventPayload: buildHardwarePayload(),
+        syncMode: 'interactive',
+      })
+      .catch((error: unknown) => error);
+    await ready;
+    const oldLease = manager.getActiveOneKeyOperationLease()!;
+    manager.cancelOneKeyOperation(oldLease);
+    const second = service.syncPortfolio({
+      eventPayload: buildHardwarePayload(),
+      syncMode: 'interactive',
+    });
+    await new Promise<void>((resolve) => {
+      setImmediate(resolve);
+    });
+    expect(getDeviceStateWithUnlock).toHaveBeenCalledTimes(1);
+    // A repeated close from A must not cancel the queued B.
+    manager.cancelOneKeyOperation(oldLease);
+    appEventBus.emit(
+      EAppEventBusNames.CloseHardwareUiStateDialogManually,
+      undefined,
+    );
+    release();
+    await expect(first).resolves.toMatchObject({
+      code: HardwareErrorCode.DeviceInterruptedFromOutside,
+    });
+    await expect(second).resolves.toBe(true);
+    expect(getDeviceStateWithUnlock).toHaveBeenCalledTimes(2);
+    expect(uploadPortfolioPackage).toHaveBeenCalledTimes(1);
+  });
+
+  test('persists an acknowledged upload when closed during local bookkeeping', async () => {
+    const { service, updateTargetState, withHardwareProcessing } =
+      prepareHardwareSync({ busyResults: [false] });
+    let release!: () => void;
+    let started!: () => void;
+    const ready = new Promise<void>((resolve) => {
+      started = resolve;
+    });
+    updateTargetState.mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          release = resolve;
+          started();
+        }),
+    );
+    const result = service
+      .syncPortfolio({
+        eventPayload: buildHardwarePayload(),
+        syncMode: 'interactive',
+      })
+      .catch((error: unknown) => error);
+    await ready;
+    // The device ACK settles in this turn while attempt persistence is held.
+    await new Promise<void>((resolve) => {
+      setImmediate(resolve);
+    });
+    withHardwareProcessing.mock.calls[0][1].onCancel?.();
+    release();
+    await expect(result).resolves.toMatchObject({
+      code: HardwareErrorCode.DeviceInterruptedFromOutside,
+    });
+    expect(updateTargetState).toHaveBeenLastCalledWith(
+      'db-device-1',
+      expect.objectContaining({ lastContentHash: expect.any(String) }),
     );
   });
 
@@ -1540,6 +2782,238 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
         }
       ).inFlightReservationByTargetKey.size,
     ).toBe(0);
+  });
+
+  test('releases the hardware lock before persisting upload metadata', async () => {
+    let markPersistenceStarted: (() => void) | undefined;
+    let resolvePersistence: (() => void) | undefined;
+    const persistenceStarted = new Promise<void>((resolve) => {
+      markPersistenceStarted = resolve;
+    });
+    const persistencePending = new Promise<void>((resolve) => {
+      resolvePersistence = resolve;
+    });
+    const {
+      runExclusiveOneKeyOperation,
+      service,
+      updateTargetState,
+      uploadPortfolioPackage,
+      withHardwareProcessing,
+    } = prepareHardwareSync({
+      busyResults: [false],
+      hardwareTransportType: EHardwareTransportType.BLE,
+    });
+    const manager = new HardwareProcessingManager();
+    (runExclusiveOneKeyOperation as jest.Mock).mockImplementation(
+      (
+        operation: (lease: IOneKeyHardwareOperationLease) => Promise<unknown>,
+        options?: {
+          deviceKey?: string;
+          lease?: IOneKeyHardwareOperationLease;
+        },
+      ) =>
+        manager.runExclusiveOneKeyOperation({
+          deviceKey: options?.deviceKey,
+          lease: options?.lease,
+          operation,
+        }),
+    );
+    withHardwareProcessing.mockImplementation((operation) =>
+      manager.runExclusiveOneKeyOperation({ operation }),
+    );
+    uploadPortfolioPackage.mockResolvedValue({ portfolioUpdated: true });
+    updateTargetState
+      .mockResolvedValueOnce(undefined)
+      .mockImplementationOnce(() => {
+        markPersistenceStarted?.();
+        return persistencePending;
+      });
+
+    const syncPromise = service.syncPortfolio({
+      eventPayload: buildHardwarePayload(),
+      syncMode: 'interactive',
+    });
+    await persistenceStarted;
+
+    expect(uploadPortfolioPackage).toHaveBeenCalledTimes(1);
+    const competingOperation = jest.fn();
+    const competingPromise = manager.runExclusiveOneKeyOperation({
+      operation: async () => {
+        competingOperation();
+      },
+    });
+    await new Promise<void>((resolve) => {
+      setImmediate(resolve);
+    });
+    expect(competingOperation).toHaveBeenCalledTimes(1);
+
+    resolvePersistence?.();
+    await expect(Promise.all([syncPromise, competingPromise])).resolves.toEqual(
+      [true, undefined],
+    );
+  });
+
+  test('keeps an upload active until its metadata persistence settles', async () => {
+    type ITargetState = {
+      lastAttemptAt?: number;
+      lastContentHash?: string;
+      lastTransferAt?: number;
+      lastWalletId?: string;
+    };
+    let targetState: ITargetState | undefined;
+    let updateCount = 0;
+    let markPersistenceStarted: (() => void) | undefined;
+    let resolvePersistence: (() => void) | undefined;
+    const persistenceStarted = new Promise<void>((resolve) => {
+      markPersistenceStarted = resolve;
+    });
+    const persistencePending = new Promise<void>((resolve) => {
+      resolvePersistence = resolve;
+    });
+    const {
+      getTargetState,
+      serviceInternals,
+      updateTargetState,
+      uploadPortfolioPackage,
+    } = prepareHardwareSync({ busyResults: [false, false] });
+    getTargetState.mockImplementation(async () => targetState);
+    updateTargetState.mockImplementation(
+      async (_targetKey: string, patch: ITargetState) => {
+        updateCount += 1;
+        if (updateCount === 2) {
+          markPersistenceStarted?.();
+          await persistencePending;
+        }
+        targetState = { ...targetState, ...patch };
+      },
+    );
+
+    const payload = buildHardwarePayload();
+    const firstSync = serviceInternals.syncSettledPortfolio(payload);
+    await persistenceStarted;
+    const secondSync = serviceInternals.syncSettledPortfolio(payload);
+    await new Promise<void>((resolve) => {
+      setImmediate(resolve);
+    });
+
+    expect(uploadPortfolioPackage).toHaveBeenCalledTimes(1);
+
+    resolvePersistence?.();
+    await Promise.all([firstSync, secondSync]);
+    expect(uploadPortfolioPackage).toHaveBeenCalledTimes(1);
+  });
+
+  test('subtracts queued upload time from the remaining cooldown', async () => {
+    const now = 1_784_592_000_000;
+    const nowSpy = jest.spyOn(Date, 'now').mockReturnValue(now);
+    const {
+      service,
+      serviceInternals,
+      prepareHardwareTransport,
+      uploadPortfolioPackage,
+    } = prepareHardwareSync({
+      busyResults: [false],
+      targetState: { lastAttemptAt: now, lastTransferAt: now },
+    });
+    const cooldownInternals = service as unknown as {
+      activeUploadByTargetKey: Map<string, Promise<unknown>>;
+      getHardwareCooldownRemainingMs: (params: {
+        cooldownMs?: number;
+        targetKey: string;
+        now: number;
+      }) => Promise<number>;
+      scheduleSyncAfterCooldown: (params: { remainingMs: number }) => void;
+    };
+    cooldownInternals.getHardwareCooldownRemainingMs = (
+      ServiceHardwarePortfolioSync.prototype as unknown as typeof cooldownInternals
+    ).getHardwareCooldownRemainingMs.bind(service);
+    const scheduleSync = jest
+      .spyOn(cooldownInternals, 'scheduleSyncAfterCooldown')
+      .mockImplementation(() => undefined);
+    let resolveUpload: (() => void) | undefined;
+    const activeUpload = new Promise<void>((resolve) => {
+      resolveUpload = resolve;
+    });
+    cooldownInternals.activeUploadByTargetKey.set('db-device-1', activeUpload);
+
+    const sync = serviceInternals.syncSettledPortfolio(buildHardwarePayload());
+    await new Promise<void>((resolve) => {
+      setImmediate(resolve);
+    });
+    expect(prepareHardwareTransport).not.toHaveBeenCalled();
+
+    nowSpy.mockReturnValue(now + 10_000);
+    resolveUpload?.();
+
+    await expect(sync).resolves.toEqual(
+      expect.objectContaining({
+        cooldownRemainingMs: 50_000,
+        status: 'cooldown',
+      }),
+    );
+    expect(scheduleSync).toHaveBeenCalledWith(
+      expect.objectContaining({ remainingMs: 50_000 }),
+    );
+    expect(uploadPortfolioPackage).not.toHaveBeenCalled();
+  });
+
+  test('does not upload an identical snapshot again when it arrives during upload', async () => {
+    type ITargetState = {
+      lastAttemptAt?: number;
+      lastContentHash?: string;
+      lastTransferAt?: number;
+      lastWalletId?: string;
+    };
+    let targetState: ITargetState | undefined;
+    let markUploadStarted: (() => void) | undefined;
+    let resolveUpload:
+      | ((result: { portfolioUpdated: boolean }) => void)
+      | undefined;
+    const uploadStarted = new Promise<void>((resolve) => {
+      markUploadStarted = resolve;
+    });
+    const uploadPending = new Promise<{ portfolioUpdated: boolean }>(
+      (resolve) => {
+        resolveUpload = resolve;
+      },
+    );
+    const {
+      getTargetState,
+      serviceInternals,
+      updateTargetState,
+      uploadPortfolioPackage,
+    } = prepareHardwareSync({ busyResults: [false, false] });
+    getTargetState.mockImplementation(async () => targetState);
+    updateTargetState.mockImplementation(
+      async (_targetKey: string, patch: ITargetState) => {
+        targetState = { ...targetState, ...patch };
+      },
+    );
+    uploadPortfolioPackage.mockImplementationOnce(() => {
+      markUploadStarted?.();
+      return uploadPending;
+    });
+
+    const payload = buildHardwarePayload();
+    const firstSync = serviceInternals.syncSettledPortfolio(payload);
+    await uploadStarted;
+    const secondSync = serviceInternals.syncSettledPortfolio(payload);
+    await new Promise<void>((resolve) => {
+      setImmediate(resolve);
+    });
+
+    expect(uploadPortfolioPackage).toHaveBeenCalledTimes(1);
+    resolveUpload?.({ portfolioUpdated: true });
+    await Promise.all([firstSync, secondSync]);
+
+    expect(uploadPortfolioPackage).toHaveBeenCalledTimes(1);
+    expect(targetState).toEqual(
+      expect.objectContaining({
+        lastContentHash: expect.any(String),
+        lastTransferAt: expect.any(Number),
+        lastWalletId: payload.walletId,
+      }),
+    );
   });
 
   test('uploads an unchanged snapshot again for an explicit sync', async () => {
@@ -2529,6 +4003,7 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
         packageBytes: 3,
         packDurationMs: 0,
         portfolioJsonBytes: expect.any(Number),
+        schemaVersion: 1,
         status: 'success',
         syncDurationMs: 1000,
         syncMode: 'silent',
@@ -2567,6 +4042,7 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
         failureStage: 'pack',
         packDurationMs: expect.any(Number),
         portfolioJsonBytes: expect.any(Number),
+        schemaVersion: 1,
         status: 'failed',
         syncDurationMs: expect.any(Number),
         syncMode: 'silent',
@@ -2764,10 +4240,18 @@ describe('ServiceHardwarePortfolioSync.syncSettledPortfolio', () => {
     releaseAttemptWrite();
     await syncTask;
 
-    expect(updateTargetState).toHaveBeenCalledTimes(1);
+    expect(updateTargetState).toHaveBeenCalledTimes(2);
     expect(updateTargetState).toHaveBeenCalledWith('db-device-1', {
       lastAttemptAt: expect.any(Number),
     });
+    expect(updateTargetState).toHaveBeenCalledWith(
+      'db-device-1',
+      expect.objectContaining({
+        lastContentHash: expect.any(String),
+        lastTransferAt: expect.any(Number),
+        lastWalletId: 'hw-1',
+      }),
+    );
   });
 
   test('keeps the operation lock until upload settles when attempt persistence fails', async () => {

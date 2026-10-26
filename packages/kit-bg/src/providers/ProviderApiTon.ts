@@ -161,12 +161,15 @@ class ProviderApiTon extends ProviderApiBase {
       );
     }
 
-    const [_, connectRequest] = request?.data?.params as [
-      string,
-      IConnectRequest,
-    ];
+    const connectRequest: unknown = request.data.params[1];
 
-    if (!connectRequest.manifestUrl || isEmpty(connectRequest.manifestUrl)) {
+    if (
+      !connectRequest ||
+      typeof connectRequest !== 'object' ||
+      !('manifestUrl' in connectRequest) ||
+      typeof connectRequest.manifestUrl !== 'string' ||
+      !connectRequest.manifestUrl.trim()
+    ) {
       throw new Web3RpcError(
         TonResponseError.InvalidManifestUrl,
         'App manifest not found',
@@ -220,6 +223,23 @@ class ProviderApiTon extends ProviderApiBase {
     return this._getAccountResponse(
       accounts[0].account,
       accounts[0].accountInfo?.networkId ?? '',
+    );
+  }
+
+  @providerApiMethod()
+  public async restoreConnection(request: IJsBridgeMessagePayload) {
+    const accounts =
+      await this.backgroundApi.serviceDApp.dAppGetConnectedAccountsInfo({
+        ...request,
+        scope: this.providerName,
+      });
+    const connected = accounts?.[0];
+    if (!connected) {
+      return null;
+    }
+    return this._getAccountResponse(
+      connected.account,
+      connected.accountInfo?.networkId ?? '',
     );
   }
 

@@ -3,11 +3,39 @@ import { useIntl } from 'react-intl';
 import { SizableText, XStack, useMedia } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
+import {
+  type IMarketSearchMetric,
+  type IMarketSearchPriceChangeTitle,
+  formatMarketSearchPriceChangeHeader,
+} from './marketSearchMetric';
+
 export const MARKET_DATA_COLUMN_WIDTH = 120;
 
-export function MarketTableHeader() {
+const METRIC_TRANSLATION_IDS: Record<IMarketSearchMetric, ETranslations> = {
+  liquidity: ETranslations.global_liquidity,
+  marketCap: ETranslations.global_market_cap,
+};
+
+export function MarketTableHeader({
+  metric = 'liquidity',
+  changeTitle = '24h',
+}: {
+  metric?: IMarketSearchMetric;
+  changeTitle?: IMarketSearchPriceChangeTitle;
+}) {
   const intl = useIntl();
   const { gtMd } = useMedia();
+  const priceChangeHeader = formatMarketSearchPriceChangeHeader({
+    priceLabel: intl
+      .formatMessage({ id: ETranslations.global_price })
+      .toUpperCase(),
+    changeLabel:
+      changeTitle === 'change'
+        ? intl
+            .formatMessage({ id: ETranslations.market_stock_change__title })
+            .toUpperCase()
+        : undefined,
+  });
   return (
     <XStack alignSelf="stretch" mx="$2" px="$3" py="$1.5" gap="$3" ai="center">
       <XStack flex={1} minWidth={0} gap="$1" ai="center">
@@ -23,17 +51,14 @@ export function MarketTableHeader() {
       <XStack flexShrink={0} ai="center">
         <XStack w={gtMd ? MARKET_DATA_COLUMN_WIDTH : undefined} jc="flex-end">
           <SizableText size="$bodySm" color="$textSubdued" textAlign="right">
-            {intl
-              .formatMessage({ id: ETranslations.global_price })
-              .toUpperCase()}{' '}
-            / 24H
+            {priceChangeHeader}
           </SizableText>
         </XStack>
         {gtMd ? (
           <XStack w={MARKET_DATA_COLUMN_WIDTH} jc="flex-end">
             <SizableText size="$bodySm" color="$textSubdued" textAlign="right">
               {intl
-                .formatMessage({ id: ETranslations.global_liquidity })
+                .formatMessage({ id: METRIC_TRANSLATION_IDS[metric] })
                 .toUpperCase()}
             </SizableText>
           </XStack>

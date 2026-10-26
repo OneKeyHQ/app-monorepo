@@ -1,5 +1,5 @@
 import type { PropsWithChildren } from 'react';
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { AnimatePresence, Spinner, YStack } from '@onekeyhq/components';
 import { ANIMATE_ONLY_OPACITY } from '@onekeyhq/components/src/utils/animationConstants';
@@ -15,6 +15,8 @@ import {
 
 import AppStateLock from './components/AppStateLock';
 import { AppStateUpdater } from './components/AppStateUpdater';
+
+import type { View } from 'react-native';
 
 const passwordVerifyFallback = (
   <YStack h={46} justifyContent="center" alignItems="center">
@@ -139,6 +141,15 @@ export function AppStateLockContainer({
   }, []);
 
   const lockContainerRef = useWebLockCheck(isLocked);
+  const [lockElement, setLockElement] = useState<HTMLElement | null>(null);
+  const handleLockContainerRef = useCallback(
+    (node: View | null) => {
+      const element = node as unknown as HTMLElement | null;
+      lockContainerRef.current = element;
+      if (!platformEnv.isNative) setLockElement(element);
+    },
+    [lockContainerRef],
+  );
 
   // When locked, keep all document.body children that don't contain the lock
   // screen inert. This also covers portals mounted after the lock screen, so
@@ -146,14 +157,16 @@ export function AppStateLockContainer({
   useEffect(() => {
     if (platformEnv.isNative || !isLocked) return;
 
-    const lockEl = lockContainerRef.current;
+    const lockEl = lockElement;
     if (!lockEl) return;
 
-    const inertElements = new Set<HTMLElement>();
+    const inertElements = new Map<HTMLElement, boolean>();
     const makeElementInert = (element: HTMLElement) => {
       if (!element.contains(lockEl)) {
+        if (!inertElements.has(element)) {
+          inertElements.set(element, element.inert);
+        }
         element.inert = true;
-        inertElements.add(element);
       }
     };
     const observer = new MutationObserver((mutations) => {
@@ -175,11 +188,11 @@ export function AppStateLockContainer({
 
     return () => {
       observer.disconnect();
-      for (const el of inertElements) {
-        el.inert = false;
+      for (const [el, wasInert] of inertElements) {
+        el.inert = wasInert;
       }
     };
-  }, [isLocked, lockContainerRef]);
+  }, [isLocked, lockElement]);
 
   return (
     <>
@@ -188,7 +201,7 @@ export function AppStateLockContainer({
       <AnimatePresence>
         {isLocked ? (
           <AppStateLock
-            lockContainerRef={lockContainerRef as any}
+            lockContainerRef={handleLockContainerRef}
             key="unlock-screen"
             transition="quick"
             animateOnly={ANIMATE_ONLY_OPACITY}

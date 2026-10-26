@@ -26,7 +26,7 @@ uname -s
 | **Gradle** | 8.13 | `./gradlew --version` | All |
 | **Go** | 1.24.0 | `go version` | All |
 | **Ruby** | 2.7+ (recommended 3.x) | `ruby -v` | macOS only |
-| **CocoaPods** | 1.16.2 | `pod --version` | macOS only |
+| **CocoaPods** | Match the checkout's iOS CI and lockfile | `pod --version` | macOS only |
 | **Xcode** | 26.2 | `xcodebuild -version` | macOS only |
 | **Android Studio** | Ladybug (2024.2.1)+ | Android Studio > About | All |
 
@@ -221,21 +221,21 @@ ruby -v
 
 ### CocoaPods (macOS only)
 
-**Required**: 1.16.2
+**Required**: Match the current checkout's committed lockfile and iOS CI workflow.
 
 **Platform**: macOS only - required for iOS development
 
-**Location**: `apps/mobile/ios/Podfile.lock` (last line)
+**Locations**: `apps/mobile/ios/Podfile.lock` (`COCOAPODS` field),
+`.github/workflows/mobile-dev-shell-ios-simulator.yml`.
 
 **How to check configuration**:
 ```bash
-tail -1 apps/mobile/ios/Podfile.lock
+pod --version
+rg '^COCOAPODS:' apps/mobile/ios/Podfile.lock
 ```
 
-**How to install**:
-```bash
-gem install cocoapods -v 1.16.2
-```
+For upgrades and Pods installation, see
+[Mobile dependency setup](../../1k-dev-commands/references/mobile-dependencies.md).
 
 ### Go
 

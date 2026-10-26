@@ -1,5 +1,6 @@
-import { useCallback, useMemo } from 'react';
+import { useMemo } from 'react';
 
+import { noop } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import {
@@ -14,58 +15,57 @@ import {
   ANIMATE_ONLY_OPACITY,
   ANIMATE_ONLY_OPACITY_TRANSFORM,
 } from '@onekeyhq/components/src/utils/animationConstants';
-import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import type { IAccountSelectorActiveAccountInfo } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 import { SwapPercentageInputStage } from '@onekeyhq/shared/types/swap/types';
 
 import SwapPercentageStageBadge from '../../components/SwapPercentageStageBadge';
-import { pushSwapReceiveSelector } from '../../utils/swapDepositEntryUtils';
+import { useSwapDepositEntryPress } from '../../hooks/useSwapDepositEntry';
 
 const SwapInputActions = ({
   showPercentageInput,
   showActionBuy,
+  actionBuyHighlighted = true,
+  onDepositClose = noop,
   onSelectStage,
   fromToken,
   accountInfo,
+  activeAccount,
 }: {
   showPercentageInput: boolean;
   showActionBuy: boolean;
+  // Green when the chip is the recovery action (partial balance); subdued
+  // when the main button already reads "Deposit to Trade" (zero balance).
+  actionBuyHighlighted?: boolean;
+  // Runs when the deposit modal closes so the surface can reload its own
+  // balance; surfaces that never show the chip may leave it out.
+  onDepositClose?: () => void;
   onSelectStage?: (stage: number) => void;
   fromToken?: ISwapToken;
+  // The account resolved for the token network; withheld by callers while the
+  // lookup is pending, in which case the chip resolves it from activeAccount.
   accountInfo?: IAccountSelectorActiveAccountInfo;
+  activeAccount?: IAccountSelectorActiveAccountInfo;
 }) => {
   const intl = useIntl();
   const { gtSm } = useMedia();
-  const navigation = useAppNavigation();
 
   const needSwapPercentageInputStage = useMemo(
     () => (gtSm ? SwapPercentageInputStage : SwapPercentageInputStage.slice(1)),
     [gtSm],
   );
 
-  const handleBuyPress = useCallback(() => {
-    if (!fromToken || !accountInfo) return;
-
-    const pushed = pushSwapReceiveSelector({
-      navigation,
-      token: fromToken,
-      accountInfo,
-    });
-    // Only count the funnel event when the selector actually opened.
-    if (pushed) {
-      defaultLogger.wallet.walletActions.buyOnLowBalance({
-        source: 'swap',
-        networkId: fromToken.networkId ?? '',
-        tokenSymbol: fromToken.symbol ?? '',
-        tokenAddress: fromToken.contractAddress ?? '',
-        walletType: accountInfo.wallet?.type ?? '',
-      });
-    }
-  }, [navigation, fromToken, accountInfo]);
+  const handleBuyPress = useSwapDepositEntryPress({
+    token: fromToken,
+    accountInfo,
+    activeAccount,
+    onClose: onDepositClose,
+  });
+  const actionBuyColor = actionBuyHighlighted
+    ? '$textInteractive'
+    : '$textSubdued';
 
   return (
     <XStack gap="$0.5">
@@ -95,9 +95,10 @@ const SwapInputActions = ({
                 <Icon
                   name="CreditCardCvvOutline"
                   size="$4"
+                  color={actionBuyColor}
                   mt={platformEnv.isNative ? 2 : undefined}
                 />
-                <SizableText size="$bodySmMedium" color="$textSubdued">
+                <SizableText size="$bodySmMedium" color={actionBuyColor}>
                   {intl.formatMessage({ id: ETranslations.global_top_up })}
                 </SizableText>
               </XStack>

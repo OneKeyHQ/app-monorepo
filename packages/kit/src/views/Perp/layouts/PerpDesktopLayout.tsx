@@ -25,6 +25,7 @@ import { PerpTickerBar } from '../components/TickerBar/PerpTickerBar';
 import {
   PerpAccountDebugInfo,
   PerpAccountPanel,
+  PerpAccountPanelTitle,
 } from '../components/TradingPanel/panels/PerpAccountPanel';
 import { PerpTradingPanel } from '../components/TradingPanel/PerpTradingPanel';
 
@@ -89,11 +90,7 @@ function PerpDesktopLayout() {
             borderBottomWidth="$0.5"
             borderBottomColor="$borderActive"
           >
-            <SizableText size="$bodyMdMedium">
-              {intl.formatMessage({
-                id: ETranslations.perp_trade_account_overview,
-              })}
-            </SizableText>
+            <PerpAccountPanelTitle />
           </XStack>
         </XStack>
         <ScrollView flex={1} contentContainerStyle={{ pb: '$4' }}>
@@ -102,12 +99,7 @@ function PerpDesktopLayout() {
         </ScrollView>
       </YStack>
     );
-  }, [
-    intl,
-    layout.bottomPanelHeaderHeight,
-    layout.bottomPanelHeight,
-    tradingWidth,
-  ]);
+  }, [layout.bottomPanelHeaderHeight, layout.bottomPanelHeight, tradingWidth]);
   return (
     <ScrollView
       flex={1}

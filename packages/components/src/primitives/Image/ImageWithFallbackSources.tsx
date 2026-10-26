@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 
 import { ImageV2 } from './ImageV2';
 
@@ -22,11 +22,15 @@ export function ImageWithFallbackSources({
   const sourcesLengthRef = useRef(sources.length);
   sourcesLengthRef.current = sources.length;
 
-  // Reset index when sources change
+  // Restart at the primary source during render, not in an effect: an effect
+  // would first commit a frame with the previous (now out-of-range) index,
+  // which renders the fallback instead of the new image.
   const firstSource = sources[0];
-  useEffect(() => {
+  const [trackedFirstSource, setTrackedFirstSource] = useState(firstSource);
+  if (trackedFirstSource !== firstSource) {
+    setTrackedFirstSource(firstSource);
     setIndex(0);
-  }, [firstSource]);
+  }
 
   const handleError = useCallback(
     (event: Parameters<NonNullable<IImageV2Props['onError']>>[0]) => {
@@ -45,10 +49,12 @@ export function ImageWithFallbackSources({
     return fallback ?? null;
   }
 
+  // No `key={currentSrc}`: remounting on every URL change throws away the
+  // already-loaded image state below and forces a blank frame before the new
+  // source can paint (visible as an icon flash when switching tokens).
   return (
     <ImageV2
       {...rest}
-      key={currentSrc}
       src={currentSrc}
       fallback={fallback}
       onError={handleError}

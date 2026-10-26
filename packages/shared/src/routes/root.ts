@@ -7,6 +7,8 @@ export enum ERootRoutes {
 
   FullScreenPush = 'fullScreenPush',
 
+  TradingViewNativeFullscreen = 'TradingViewNativeFullscreen',
+
   Onboarding = 'onboarding',
 
   WebView = 'RootWebView',

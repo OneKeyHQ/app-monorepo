@@ -31,6 +31,7 @@ import {
   meta,
 } from '../../states/jotai/contexts/tokenList/cells/projection';
 
+import { resolveMapTokenFiat } from './resolveMapTokenFiat';
 import { useTokenListViewContext } from './TokenListViewContext';
 
 /** Shallow equality for the small fixed-key field slices selected below. */
@@ -67,11 +68,15 @@ function useTokenFiatField<T>(
   $key: string,
   select: (fiat: ITokenFiat | undefined) => T,
   isEqual: (a: T, b: T) => boolean = Object.is,
+  // Row network, consulted only by the zero-fill gate on the non-cell path.
+  networkId?: string,
 ): T {
   const {
     tokenListMap: contextTokenListMap,
     aggregateTokenFiatMap: contextAggregateTokenFiatMap,
     useCellSeam,
+    zeroFillMissingFiat = false,
+    zeroFillNetworkIds,
   } = useTokenListViewContext();
   // useTokenListContextData throws when no store is mounted, so `store` is
   // always defined here.
@@ -92,8 +97,14 @@ function useTokenFiatField<T>(
 
   // Non-cell paths keep reading the whole context map; the field is projected
   // off it so callers get the same shape on both paths.
-  const mapToken =
-    contextTokenListMap?.[$key] ?? contextAggregateTokenFiatMap?.[$key];
+  const mapToken = resolveMapTokenFiat({
+    $key,
+    networkId,
+    tokenListMap: contextTokenListMap,
+    aggregateTokenFiatMap: contextAggregateTokenFiatMap,
+    zeroFillMissingFiat,
+    zeroFillNetworkIds,
+  });
 
   return useCellSeam ? cellField : select(mapToken);
 }
@@ -153,8 +164,11 @@ const selectValueSlice = (f: ITokenFiat | undefined): ITokenValueSlice => ({
  * Returns the DISPLAY basis (balanceParsed × balanceMultiplier; a no-op for
  * every non-rebase token).
  */
-export function useTokenBalanceParsed($key: string): string | undefined {
-  return useTokenFiatField($key, selectBalanceParsed);
+export function useTokenBalanceParsed(
+  $key: string,
+  networkId?: string,
+): string | undefined {
+  return useTokenFiatField($key, selectBalanceParsed, Object.is, networkId);
 }
 
 /**
@@ -176,6 +190,14 @@ export function useTokenPriceSlice($key: string): ITokenPriceSlice {
 }
 
 /** `{ has, fiatValue, balanceParsed, currency }` for the holding-value leaf. */
-export function useTokenValueSlice($key: string): ITokenValueSlice {
-  return useTokenFiatField($key, selectValueSlice, shallowEqualSlice);
+export function useTokenValueSlice(
+  $key: string,
+  networkId?: string,
+): ITokenValueSlice {
+  return useTokenFiatField(
+    $key,
+    selectValueSlice,
+    shallowEqualSlice,
+    networkId,
+  );
 }

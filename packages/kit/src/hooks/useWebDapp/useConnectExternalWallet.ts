@@ -59,6 +59,7 @@ export function useConnectExternalWallet() {
   setLoadingRef.current = setLoading;
   const loadingRef = useRef(loading);
   loadingRef.current = loading;
+  const connectGenerationRef = useRef(0);
 
   const hideLoadingTimer = useRef<ReturnType<typeof setTimeout> | undefined>(
     undefined,
@@ -115,6 +116,8 @@ export function useConnectExternalWallet() {
       connectionInfo: IExternalConnectionInfo,
       options?: IConnectToWalletOptions,
     ) => {
+      connectGenerationRef.current += 1;
+      const generation = connectGenerationRef.current;
       try {
         const beforeConnectInfo = getExternalWalletConnectionDetails({
           externalConnectionInfo: connectionInfo,
@@ -137,6 +140,7 @@ export function useConnectExternalWallet() {
             connectionInfo,
             connectToWalletOptions: options,
           });
+        if (generation !== connectGenerationRef.current) return false;
 
         // if (
         //   !loadingRef.current &&
@@ -171,6 +175,7 @@ export function useConnectExternalWallet() {
         const r = await backgroundApiProxy.serviceAccount.addExternalAccount({
           connectResult,
         });
+        if (generation !== connectGenerationRef.current) return false;
         const account = r?.accounts?.[0];
         if (!account) {
           throw new OneKeyLocalError('Failed to create external account');
@@ -186,8 +191,10 @@ export function useConnectExternalWallet() {
             networkId: usedNetworkId,
             walletId: WALLET_TYPE_EXTERNAL,
             othersWalletAccountId: account.id,
+            shouldCommit: () => generation === connectGenerationRef.current,
           },
         );
+        if (generation !== connectGenerationRef.current) return false;
         // Atomically drop OnboardingModal (the wallet-add sub-page sits
         // inside it) in one reset dispatch. Avoids the popStack() animated
         // dismiss that causes the iOS RNSScreenStack window=NIL retry storm,
@@ -195,6 +202,7 @@ export function useConnectExternalWallet() {
         // Swap, Perp, etc.) the user may have come from.
         resetOnboardingModal();
         await timerUtils.wait(150);
+        if (generation !== connectGenerationRef.current) return false;
         await dialogRef.current?.close();
 
         let finalConnectionInfo: IExternalConnectionInfo;
@@ -224,7 +232,10 @@ export function useConnectExternalWallet() {
         });
         return true;
       } finally {
-        hideLoading();
+        // A superseded request must not clear the newer retry's loading state.
+        if (generation === connectGenerationRef.current) {
+          hideLoading();
+        }
       }
     },
     [

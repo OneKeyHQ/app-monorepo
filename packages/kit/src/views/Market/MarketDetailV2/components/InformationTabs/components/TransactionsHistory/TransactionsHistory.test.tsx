@@ -32,6 +32,7 @@ let mockFlatListProps: Record<
 const mockMarketTransactionsResult = {
   transactions: [] as IMarketTokenTransaction[],
   isRefreshing: false,
+  isInitialPending: false,
   isLoadingMore: false,
   hasMore: false,
   loadMore: mockLoadMore,
@@ -79,13 +80,8 @@ jest.mock('@onekeyhq/kit/src/states/jotai/contexts/marketV2', () => ({
     hasBufferOverflow: false,
   },
   useMarketTransactionsRealtimePauseAtom: () => [{}, mockSetRealtimePauseState],
-}));
-
-jest.mock('@onekeyhq/kit/src/views/Market/MarketDetailV2/hooks', () => ({
-  useTokenDetail: () => ({
-    websocketConfig: { txs: true },
-    isNative: false,
-  }),
+  useTokenDetailWebsocketAtom: () => [{ txs: true }],
+  useIsNativeAtom: () => [false],
 }));
 
 jest.mock('react-intl', () => ({
@@ -174,10 +170,20 @@ describe('TransactionsHistory', () => {
     mockHandleRealtimePauseTouchEnd.mockReset();
     mockTransactionsRelativeTimeProvider.mockReset();
     mockMarketTransactionsResult.transactions = [];
+    mockMarketTransactionsResult.isInitialPending = false;
     mockMarketTransactionsResult.isRealtimePaused = false;
     mockMedia.gtXl = true;
     platformEnv.isNative = false;
     platformEnv.isNativeAndroid = false;
+  });
+
+  it('shows a skeleton while the first request is waiting for focus', () => {
+    mockMarketTransactionsResult.isInitialPending = true;
+    render(<TransactionsHistory tokenAddress="0xabc" networkId="evm--1" />);
+    const { getByText } = render(
+      <>{mockFlatListProps.ListEmptyComponent as ReactNode}</>,
+    );
+    expect(getByText('skeleton')).toBeTruthy();
   });
 
   it('keeps realtime pause state outside websocket self-heal callbacks', () => {
@@ -245,6 +251,31 @@ describe('TransactionsHistory', () => {
       expect.objectContaining({
         isTickingEnabled: false,
       }),
+    );
+  });
+
+  it('stops the realtime subscription on inactive tabs and restores it on return', () => {
+    const { rerender } = render(
+      <TransactionsHistory tokenAddress="0xabc" networkId="evm--1" />,
+    );
+    expect(mockUseTransactionsWebSocket).toHaveBeenLastCalledWith(
+      expect.objectContaining({ enabled: true }),
+    );
+
+    rerender(
+      <TransactionsHistory
+        tokenAddress="0xabc"
+        networkId="evm--1"
+        isTabFocused={false}
+      />,
+    );
+    expect(mockUseTransactionsWebSocket).toHaveBeenLastCalledWith(
+      expect.objectContaining({ enabled: false }),
+    );
+
+    rerender(<TransactionsHistory tokenAddress="0xabc" networkId="evm--1" />);
+    expect(mockUseTransactionsWebSocket).toHaveBeenLastCalledWith(
+      expect.objectContaining({ enabled: true }),
     );
   });
 

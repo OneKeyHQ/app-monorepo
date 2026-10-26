@@ -14,6 +14,8 @@ on:
       - 'apps/mobile/plugins/devVendor.js'
       - 'apps/mobile/react-native.config.js'
       - 'apps/mobile/scripts/build-mobile-dev-shell.js'
+      - 'apps/mobile/scripts/local-dev-shell-cache.js'
+      - 'apps/mobile/scripts/mobile-dev-shell-resource.js'
       - 'apps/web-embed/**'
       - 'development/**'
       - 'package.json'
@@ -42,8 +44,83 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  resolve:
+    name: Resolve public iOS Simulator dev shell
+    permissions:
+      contents: read
+    runs-on: ubuntu-24.04
+    outputs:
+      exists: ${{ steps.shell.outputs.exists }}
+
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          lfs: true
+
+      - name: Setup Node
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+        with:
+          node-version: 24.x
+          package-manager-cache: false
+          registry-url: https://npm.pkg.github.com
+          scope: '@onekeyhq'
+
+      - name: Locate Yarn cache
+        id: yarn-cache
+        shell: bash
+        run: |
+          node <<'NODE'
+          // Match the repository's Yarn 4 cache path without executing checkout plugins.
+          const fs = require('node:fs');
+          const os = require('node:os');
+          const path = require('node:path');
+          const base = process.platform === 'win32'
+            ? path.join(process.env.LOCALAPPDATA || path.join(os.homedir(), 'AppData', 'Local'), 'Yarn', 'Berry')
+            : process.env.XDG_DATA_HOME
+              ? path.join(process.env.XDG_DATA_HOME, 'yarn', 'berry')
+              : path.join(os.homedir(), '.yarn', 'berry');
+          const cache = process.env.YARN_ENABLE_GLOBAL_CACHE === 'true'
+            ? path.join(base, 'cache') : path.join(process.env.GITHUB_WORKSPACE, '.yarn', 'cache');
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, `path=${cache}\narch=${process.arch}\n`);
+          NODE
+
+      - name: Restore Yarn cache from x
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ steps.yarn-cache.outputs.path }}
+          key: node-cache-${{ runner.os }}-${{ steps.yarn-cache.outputs.arch }}-yarn-${{ hashFiles('yarn.lock') }}
+          restore-keys: |
+            node-cache-${{ runner.os }}-${{ steps.yarn-cache.outputs.arch }}-yarn-
+
+      - name: Install native ABI inputs
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: yarn install --immutable --mode=skip-build
+
+      - name: Resolve exact OCI shell
+        id: shell
+        run: |
+          set -euo pipefail
+          status_file="$RUNNER_TEMP/mobile-dev-shell-ios-simulator.json"
+          node apps/mobile/scripts/native-dev-shell.js resolve \
+            --platform ios \
+            --output "$status_file"
+          exists="$(jq -r 'if (.exists | type) == "boolean" then .exists else error("invalid exists value") end' "$status_file")"
+          tag="$(jq -er '.tag' "$status_file")"
+          oci_digest="$(jq -r '.ociDigest // ""' "$status_file")"
+          reference="ghcr.io/onekeyhq/mobile-dev-shell:$tag"
+          echo "exists=$exists" >> "$GITHUB_OUTPUT"
+          {
+            echo "### iOS Simulator dev shell"
+            echo "- Exact OCI reference: \`$reference${oci_digest:+@$oci_digest}\`"
+            echo "- Already existed: \`$exists\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
   build-ios-simulator-dev-shell:
     name: Build iOS Simulator arm64 dev shell
+    needs: resolve
+    if: needs.resolve.outputs.exists != 'true'
     permissions:
       attestations: write
       contents: read
@@ -98,9 +175,36 @@ jobs:
         uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
         with:
           node-version: ${{ matrix.node-version }}
-          cache: 'yarn'
+          package-manager-cache: false
           registry-url: 'https://npm.pkg.github.com'
           scope: '@onekeyhq'
+
+      - name: Locate Yarn cache
+        id: yarn-cache
+        shell: bash
+        run: |
+          node <<'NODE'
+          // Match the repository's Yarn 4 cache path without executing checkout plugins.
+          const fs = require('node:fs');
+          const os = require('node:os');
+          const path = require('node:path');
+          const base = process.platform === 'win32'
+            ? path.join(process.env.LOCALAPPDATA || path.join(os.homedir(), 'AppData', 'Local'), 'Yarn', 'Berry')
+            : process.env.XDG_DATA_HOME
+              ? path.join(process.env.XDG_DATA_HOME, 'yarn', 'berry')
+              : path.join(os.homedir(), '.yarn', 'berry');
+          const cache = process.env.YARN_ENABLE_GLOBAL_CACHE === 'true'
+            ? path.join(base, 'cache') : path.join(process.env.GITHUB_WORKSPACE, '.yarn', 'cache');
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, `path=${cache}\narch=${process.arch}\n`);
+          NODE
+
+      - name: Restore Yarn cache from x
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ steps.yarn-cache.outputs.path }}
+          key: node-cache-${{ runner.os }}-${{ steps.yarn-cache.outputs.arch }}-yarn-${{ hashFiles('yarn.lock') }}
+          restore-keys: |
+            node-cache-${{ runner.os }}-${{ steps.yarn-cache.outputs.arch }}-yarn-
 
       - name: Get yarn cache directory path
         id: yarn-cache-dir-path
@@ -133,7 +237,7 @@ jobs:
       - name: Restore web-embed prebundle
         uses: ./.github/actions/restore-web-embed
 
-      - name: Build arm64 Simulator app
+      - name: Build and verify signed arm64 Simulator app
         env:
           NODE_OPTIONS: '--max_old_space_size=8192'
         run: |

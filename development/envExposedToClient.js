@@ -11,7 +11,6 @@ function buildEnvExposedToClientDangerously({ platform }) {
     'BUILD_TIME',
     'ONEKEY_PLATFORM',
     'PUBLIC_URL',
-    'TRADINGVIEW_EMBED_MANIFEST_URL',
     'EXT_INJECT_RELOAD_BUTTON',
     'EXT_INJECT_MODE',
     'EXT_CHANNEL',
@@ -50,6 +49,11 @@ function buildEnvExposedToClientDangerously({ platform }) {
   if (platform === developmentConsts.platforms.app) {
     transformInlineEnvironmentVariables.push('JPUSH_KEY');
     transformInlineEnvironmentVariables.push('JPUSH_CHANNEL');
+    // Onramper Headless SDK production pair (publishable key + client id,
+    // NOT the backend partner secret) — consumed by
+    // shared/src/modules3rdParty/onramper/realClient.native.ts.
+    transformInlineEnvironmentVariables.push('ONRAMPER_CLIENT_ID');
+    transformInlineEnvironmentVariables.push('ONRAMPER_API_KEY');
   }
 
   return transformInlineEnvironmentVariables;

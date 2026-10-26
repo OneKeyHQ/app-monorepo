@@ -1,5 +1,6 @@
 import type { EModalBulkSendRoutes, IModalBulkSendParamList } from './bulkSend';
 import type { EBulkSendMode } from '../../types/bulkSend';
+import type { IDustSweepRouteParams } from '../../types/swap/dustSweep';
 import type { IToken, ITokenFiat } from '../../types/token';
 
 export enum ETabHomeRoutes {
@@ -10,11 +11,20 @@ export enum ETabHomeRoutes {
   TabHomeReferralLandingWithoutPage = 'TabHomeReferralLandingWithoutPage',
   TabHomeReferralLandingCodeOnly = 'TabHomeReferralLandingCodeOnly',
   TabHomeRedeemBitcoinVoucher = 'TabHomeRedeemBitcoinVoucher',
+  TabHomePrimeSubscription = 'TabHomePrimeSubscription',
+  TabHomePrimePurchaseComplete = 'TabHomePrimePurchaseComplete',
+  TabHomePrimeRedeem = 'TabHomePrimeRedeem',
   TabHomeBulkSendAddressesInput = 'TabHomeBulkSendAddressesInput',
   TabHomeBulkSendAmountsInput = 'TabHomeBulkSendAmountsInput',
   TabHomeBulkSendProcess = 'TabHomeBulkSendProcess',
   TabHomeApprovalList = 'TabHomeApprovalList',
+  TabHomeDustSweep = 'TabHomeDustSweep',
 }
+
+export const PRIME_REDEEM_LANDING_PATH = '/prime/redeem';
+export const PRIME_SUBSCRIPTION_LANDING_PATH = '/prime/subscription';
+// Redirect target of the RevenueCat hosted card checkout (Web Purchase Link).
+export const PRIME_PURCHASE_COMPLETE_PATH = '/prime/purchase-complete';
 
 export type ITabHomeUrlAccountParamList = {
   [ETabHomeRoutes.TabHomeUrlAccountPage]: {
@@ -25,6 +35,7 @@ export type ITabHomeUrlAccountParamList = {
 
 export type ITabHomeParamList = {
   [ETabHomeRoutes.TabHome]: undefined;
+  [ETabHomeRoutes.TabHomeDustSweep]: IDustSweepRouteParams | undefined;
   [ETabHomeRoutes.TabHomeUrlAccountLanding]: {
     networkId: string;
     address: string;
@@ -43,6 +54,18 @@ export type ITabHomeParamList = {
     code: string;
   };
   [ETabHomeRoutes.TabHomeRedeemBitcoinVoucher]:
+    | {
+        code?: string;
+      }
+    | undefined;
+  [ETabHomeRoutes.TabHomePrimeSubscription]: undefined;
+  // RevenueCat appends app_user_id; it is cleared on mount and never trusted.
+  [ETabHomeRoutes.TabHomePrimePurchaseComplete]:
+    | {
+        app_user_id?: string;
+      }
+    | undefined;
+  [ETabHomeRoutes.TabHomePrimeRedeem]:
     | {
         code?: string;
       }

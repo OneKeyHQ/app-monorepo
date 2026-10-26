@@ -1,55 +1,92 @@
-import { Passport, VerificationResult } from 'passport-desktop';
+import {
+  Availability,
+  VerificationResult,
+  checkAvailability,
+  requestVerification,
+} from '@onekeyfe/electron-windows-hello';
+
+import { BIOLOGY_AUTH_ABORTED_ERROR } from '@onekeyhq/shared/types/password';
 
 import { EWindowHelloEventType } from './enum';
 
-function checkWindowsHelloAvailability(callback: (result: boolean) => void) {
+async function checkWindowsHelloAvailability(
+  callback: (result: boolean, diagnostic?: string) => void,
+) {
   try {
-    const isAvailable = Passport.available();
-    callback(isAvailable);
-  } catch (_error) {
-    callback(false);
+    const availability = await checkAvailability();
+    callback(
+      availability === Availability.Available,
+      availability === Availability.Available ? undefined : availability,
+    );
+  } catch (error) {
+    callback(false, error instanceof Error ? error.message : String(error));
   }
 }
 
-function requestVerificationAsync(
-  message: string,
-  callback: (params: { success: boolean; error?: string }) => void,
+async function requestVerificationAsync(
+  params: { message: string; windowHandle: number[] },
+  callback: (
+    params: { success: boolean; error?: string },
+    diagnostic?: string,
+  ) => void,
 ) {
-  void Passport.requestVerification(message).then((verification) => {
+  try {
+    const verification = await requestVerification({
+      windowHandle: Buffer.from(params.windowHandle),
+      message: params.message,
+    });
     if (verification === VerificationResult.Verified) {
-      callback({
-        success: true,
-      });
+      callback({ success: true });
     } else {
-      callback({
-        error:
-          verification === VerificationResult.Canceled ? 'user_cancel' : '',
-        success: false,
-      });
+      callback(
+        {
+          success: false,
+          error:
+            verification === VerificationResult.Canceled ? 'user_cancel' : '',
+        },
+        verification === VerificationResult.Canceled ? undefined : verification,
+      );
     }
-  });
+  } catch (error) {
+    callback(
+      { success: false, error: BIOLOGY_AUTH_ABORTED_ERROR },
+      error instanceof Error ? error.message : String(error),
+    );
+  }
 }
 
 // Child process
 process.parentPort.on(
   'message',
-  (e: { data: { type: EWindowHelloEventType; params: unknown } }) => {
+  (e: {
+    data: {
+      type: EWindowHelloEventType;
+      params: unknown;
+      requestId: string;
+    };
+  }) => {
     switch (e.data.type) {
       case EWindowHelloEventType.CheckAvailabilityAsync:
-        checkWindowsHelloAvailability((result) => {
+        void checkWindowsHelloAvailability((result, diagnostic) => {
           process.parentPort.postMessage({
             type: EWindowHelloEventType.CheckAvailabilityAsync,
             result,
+            diagnostic,
           });
         });
         break;
       case EWindowHelloEventType.RequestVerificationAsync:
-        requestVerificationAsync(e.data.params as string, (result) => {
-          process.parentPort.postMessage({
-            type: EWindowHelloEventType.RequestVerificationAsync,
-            result,
-          });
-        });
+        void requestVerificationAsync(
+          e.data.params as { message: string; windowHandle: number[] },
+          (result, diagnostic) => {
+            process.parentPort.postMessage({
+              type: EWindowHelloEventType.RequestVerificationAsync,
+              requestId: e.data.requestId,
+              result,
+              diagnostic,
+            });
+          },
+        );
         break;
       default:
         break;

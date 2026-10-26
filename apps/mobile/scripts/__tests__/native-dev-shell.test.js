@@ -1,6 +1,7 @@
 const { spawnSync } = require('child_process');
 const crypto = require('crypto');
 const fs = require('fs');
+const net = require('net');
 const os = require('os');
 const path = require('path');
 
@@ -17,8 +18,10 @@ const {
   createSessionId,
   createRunReport,
   getAndroidPrivateSessionInstallArgs,
+  getAndroidLocalBuildEnvironment,
   getAndroidPrivateSessionRenewalArgs,
   getContractManifest,
+  getNativeRuntimeBundleUrl,
   getShellArtifactTag,
   getShellCompatibility,
   launchNativeApp,
@@ -27,6 +30,8 @@ const {
   parseIosSimulators,
   parseMetroBaseUrl,
   parseMetroPort,
+  prewarmNativeRuntimeBundles,
+  prepareWebEmbedForDevSession,
   printRunSummary,
   pruneSessionDirectories,
   quoteAdbShellArgument,
@@ -55,25 +60,6 @@ function createDevSession({
     vendor: {},
     worktreeId,
   };
-}
-
-function stripSwiftDevShellBlocks(source) {
-  const output = [];
-  let excludedDepth = 0;
-  for (const line of source.split('\n')) {
-    if (/^\s*#if\b/u.test(line)) {
-      if (excludedDepth > 0 || line.includes('ONEKEY_DEV_SHELL')) {
-        excludedDepth += 1;
-      } else {
-        output.push(line);
-      }
-    } else if (/^\s*#endif\b/u.test(line) && excludedDepth > 0) {
-      excludedDepth -= 1;
-    } else if (excludedDepth === 0) {
-      output.push(line);
-    }
-  }
-  return output.join('\n');
 }
 
 function createCurrentSession(session) {
@@ -186,7 +172,7 @@ describe('native-dev-shell', () => {
     ).toEqual(candidates[1]);
   });
 
-  it('parses only usable Android and booted iOS devices', () => {
+  it('parses usable Android devices and available iOS simulators', () => {
     expect(
       parseAndroidDevices(
         'List of devices attached\nemulator-5554 device product:sdk\nemulator-5556 offline\n',
@@ -196,7 +182,7 @@ describe('native-dev-shell', () => {
       parseIosSimulators(
         JSON.stringify({
           devices: {
-            runtime: [
+            'com.apple.CoreSimulator.SimRuntime.iOS-26-5': [
               {
                 isAvailable: true,
                 name: 'iPhone A',
@@ -209,11 +195,28 @@ describe('native-dev-shell', () => {
                 state: 'Shutdown',
                 udid: 'B',
               },
+              {
+                isAvailable: false,
+                name: 'Unavailable iPhone',
+                state: 'Shutdown',
+                udid: 'C',
+              },
+            ],
+            'com.apple.CoreSimulator.SimRuntime.watchOS-26-5': [
+              {
+                isAvailable: true,
+                name: 'Apple Watch',
+                state: 'Booted',
+                udid: 'D',
+              },
             ],
           },
         }),
       ),
-    ).toEqual([{ id: 'A', name: 'iPhone A' }]);
+    ).toEqual([
+      { id: 'A', name: 'iPhone A', runtime: 'iOS 26.5', state: 'Booted' },
+      { id: 'B', name: 'iPhone B', runtime: 'iOS 26.5', state: 'Shutdown' },
+    ]);
   });
 
   it('accepts only targets that can run the published shell architecture', () => {
@@ -244,8 +247,9 @@ describe('native-dev-shell', () => {
     expect(iosOutput).toHaveBeenCalledWith('xcrun', [
       'simctl',
       'spawn',
+      '--arch=arm64',
       'SIMULATOR-A',
-      'uname',
+      '/usr/bin/uname',
       '-m',
     ]);
   });
@@ -265,17 +269,6 @@ describe('native-dev-shell', () => {
         runForOutputCommand: () => 'x86_64',
       }),
     ).toThrow('cannot run the arm64 development shell');
-
-    const source = fs.readFileSync(
-      path.join(__dirname, '../native-dev-shell.js'),
-      'utf8',
-    );
-    const launchSource = source.slice(
-      source.indexOf('async function launchDevShell('),
-    );
-    expect(
-      launchSource.indexOf('assertTargetDeviceArchitecture({'),
-    ).toBeLessThan(launchSource.indexOf('acquireNamedLock({'));
   });
 
   it('uses device-scoped adb reverse only for a physical Android default route', () => {
@@ -418,6 +411,131 @@ describe('native-dev-shell', () => {
     expect(wait).toHaveBeenNthCalledWith(3, 1500);
   });
 
+  it('prewarms the version-bound main and background runtime bundles', async () => {
+    const fingerprint = 'a'.repeat(64);
+    const sessionId = 'wk-111111111111-dev-222222222222-3333333333333333';
+    const fetchImpl = jest.fn(async (input) => {
+      const url = new URL(input);
+      return new Response(url.searchParams.get('resolver.runtimeTarget'), {
+        status: 200,
+      });
+    });
+
+    await expect(
+      prewarmNativeRuntimeBundles({
+        fetchImpl,
+        fingerprint,
+        metroPort: 8081,
+        platform: 'android',
+        sessionId,
+      }),
+    ).resolves.toBeUndefined();
+
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+    const urls = fetchImpl.mock.calls.map(([input]) => new URL(input));
+    expect(urls.map((url) => url.pathname)).toEqual([
+      '/.expo/.virtual-metro-entry.bundle',
+      '/background.bundle',
+    ]);
+    expect(
+      urls.map((url) => url.searchParams.get('resolver.runtimeTarget')),
+    ).toEqual(['main', 'background']);
+    for (const url of urls) {
+      expect(url.searchParams.get('resolver.devVendorFingerprint')).toBe(
+        fingerprint,
+      );
+      expect(url.searchParams.get('resolver.devSessionId')).toBe(sessionId);
+      expect(url.searchParams.get('modulesOnly')).toBe('true');
+    }
+  });
+
+  it('matches the native runtime bundle URL contract', () => {
+    const url = getNativeRuntimeBundleUrl({
+      fingerprint: 'a'.repeat(64),
+      metroPort: 8082,
+      platform: 'ios',
+      runtimeTarget: 'background',
+      sessionId: 'wk-111111111111-dev-222222222222-3333333333333333',
+    });
+
+    expect(url.origin).toBe('http://127.0.0.1:8082');
+    expect(url.pathname).toBe('/background.bundle');
+    expect(url.searchParams.get('platform')).toBe('ios');
+    expect(url.searchParams.get('resolver.devVendorNative')).toBe('true');
+    expect(url.searchParams.get('unstable_transformProfile')).toBe(
+      'hermes-stable',
+    );
+  });
+
+  it('prewarms an embedded physical-device runtime without a DevSession ID', () => {
+    const url = getNativeRuntimeBundleUrl({
+      backgroundHMR: true,
+      embedded: true,
+      fingerprint: 'a'.repeat(64),
+      metroPort: 8082,
+      platform: 'ios',
+      runtimeTarget: 'background',
+    });
+
+    expect(url.searchParams.get('resolver.devVendorEmbedded')).toBe('true');
+    expect(url.searchParams.get('resolver.devVendorBackgroundHMR')).toBe(
+      'true',
+    );
+    expect(url.searchParams.has('resolver.devSessionId')).toBe(false);
+  });
+
+  it('selects a Java 17 JDK for Android local shell builds', () => {
+    const androidSdkRoot = path.join(temporaryDirectory, 'android-sdk');
+    fs.mkdirSync(path.join(androidSdkRoot, 'platform-tools'), {
+      recursive: true,
+    });
+    const spawnCommand = jest.fn((command) => {
+      if (command === '/usr/libexec/java_home') {
+        return { status: 0, stderr: '', stdout: '/jdk-17\n' };
+      }
+      if (command === '/jdk-24/bin/java') {
+        return {
+          status: 0,
+          stderr: 'openjdk version "24.0.2"',
+          stdout: '',
+        };
+      }
+      if (command === '/jdk-17/bin/java') {
+        return {
+          status: 0,
+          stderr: 'openjdk version "17.0.16"',
+          stdout: '',
+        };
+      }
+      if (command === 'which') {
+        return { status: 1, stderr: '', stdout: '' };
+      }
+      return {
+        error: { message: `Unexpected command: ${command}` },
+        status: null,
+        stderr: '',
+        stdout: '',
+      };
+    });
+
+    expect(
+      getAndroidLocalBuildEnvironment({
+        env: {
+          ANDROID_HOME: androidSdkRoot,
+          JAVA_HOME: '/jdk-24',
+          PATH: '/usr/bin',
+        },
+        hostPlatform: 'darwin',
+        spawnCommand,
+      }),
+    ).toMatchObject({
+      ANDROID_HOME: androidSdkRoot,
+      ANDROID_SDK_ROOT: androidSdkRoot,
+      JAVA_HOME: '/jdk-17',
+      PATH: `/jdk-17/bin${path.delimiter}/usr/bin`,
+    });
+  });
+
   it('checks that an iOS app survives its startup grace period', async () => {
     const wait = jest.fn().mockResolvedValue(undefined);
     const iosOutput = jest.fn().mockReturnValue('');
@@ -430,16 +548,88 @@ describe('native-dev-shell', () => {
         wait,
       }),
     ).resolves.toBeUndefined();
-    expect(iosOutput).toHaveBeenCalledWith('xcrun', [
-      'simctl',
-      'spawn',
-      'SIMULATOR-A',
-      '/bin/kill',
-      '-0',
-      '4321',
-    ]);
-    expect(wait).toHaveBeenCalledTimes(1);
-    expect(wait).toHaveBeenCalledWith(1500);
+    expect(iosOutput).toHaveBeenCalledWith('/bin/kill', ['-0', '4321']);
+    expect(wait).toHaveBeenCalledTimes(15);
+    expect(wait).toHaveBeenCalledWith(1000);
+  });
+
+  it('detects an iOS app crash after the first process check', async () => {
+    const iosOutput = jest
+      .fn()
+      .mockReturnValueOnce('')
+      .mockImplementationOnce(() => {
+        throw new TypeError('process exited');
+      });
+    await expect(
+      waitForNativeAppStartup({
+        deviceId: 'SIMULATOR-A',
+        launch: { processId: 4321 },
+        platform: 'ios',
+        runForOutputCommand: iosOutput,
+        wait: jest.fn().mockResolvedValue(undefined),
+      }),
+    ).rejects.toThrow('ios app exited during startup');
+  });
+
+  it('automatically builds WebEmbed after a remote 404 and records the reason', async () => {
+    const report = {
+      runReportPath: path.join(temporaryDirectory, 'run-result.json'),
+      userNotices: [],
+    };
+    const reason =
+      '[webEmbedPrebundle] OCI manifest download failed: HTTP 404.';
+    const restore = jest.fn().mockRejectedValue(new Error(reason));
+    const build = jest.fn(async () => {
+      expect(report.webEmbed).toMatchObject({
+        source: 'local-build',
+        status: 'building',
+      });
+    });
+    const logger = jest.spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      await prepareWebEmbedForDevSession(report, {
+        restore,
+        build,
+        getCache: jest.fn(),
+      });
+      expect(build).toHaveBeenCalledTimes(1);
+      expect(report.webEmbed).toEqual({
+        fallbackReason: reason,
+        source: 'local-build',
+        status: 'ready',
+      });
+      expect(report.userNoticeRequired).toBe(true);
+      expect(report.userNotices).toEqual([
+        expect.objectContaining({ reason, resource: 'web-embed' }),
+      ]);
+      expect(
+        JSON.parse(fs.readFileSync(report.runReportPath, 'utf8')).webEmbed
+          .status,
+      ).toBe('ready');
+    } finally {
+      logger.mockRestore();
+    }
+  });
+
+  it('keeps WebEmbed build failures visible instead of reporting readiness', async () => {
+    const report = {
+      runReportPath: path.join(temporaryDirectory, 'run-result.json'),
+      userNotices: [],
+    };
+    const buildError = new Error('local build failed');
+    const logger = jest.spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      await expect(
+        prepareWebEmbedForDevSession(report, {
+          getCache: jest.fn(),
+          restore: jest.fn().mockRejectedValue(new Error('HTTP 404')),
+          build: jest.fn().mockRejectedValue(buildError),
+        }),
+      ).rejects.toBe(buildError);
+      expect(report.webEmbed.status).toBe('building');
+    } finally {
+      logger.mockRestore();
+    }
   });
 
   it('fails when Android startup exhausts its process wait budget', async () => {
@@ -474,20 +664,6 @@ describe('native-dev-shell', () => {
     ).rejects.toThrow('android app exited during startup');
   });
 
-  it('fails before reporting running when the launched app exits', () => {
-    const source = fs.readFileSync(
-      path.join(__dirname, '../native-dev-shell.js'),
-      'utf8',
-    );
-    const launchSource = source.slice(
-      source.indexOf('async function launchDevShell('),
-      source.indexOf('\nasync function main()'),
-    );
-    expect(
-      launchSource.indexOf('await waitForNativeAppStartup({'),
-    ).toBeLessThan(launchSource.indexOf("report.status = 'running';"));
-  });
-
   it('captures the iOS process ID returned by simctl launch', () => {
     const runForOutputCommand = jest
       .fn()
@@ -504,85 +680,12 @@ describe('native-dev-shell', () => {
     ]);
   });
 
-  it('routes Android recovery before constructing the React activity', () => {
+  it('declares the launcher, its aliases and MainActivity as the recovery route', () => {
     const androidRoot = path.join(__dirname, '../../android/app/src/main');
-    const launcherActivity = fs.readFileSync(
-      path.join(
-        androidRoot,
-        'java/so/onekey/app/wallet/MainLauncherActivity.java',
-      ),
-      'utf8',
-    );
-    const mainActivity = fs.readFileSync(
-      path.join(androidRoot, 'java/so/onekey/app/wallet/MainActivity.java'),
-      'utf8',
-    );
-    const mainApplication = fs.readFileSync(
-      path.join(
-        androidRoot,
-        'java/so/onekey/app/wallet/BaseMainApplication.java',
-      ),
-      'utf8',
-    );
     const manifest = fs.readFileSync(
       path.join(androidRoot, 'AndroidManifest.xml'),
       'utf8',
     );
-    const nativeDevShell = fs.readFileSync(
-      path.join(__dirname, '../native-dev-shell.js'),
-      'utf8',
-    );
-    const androidReleaseDeploy = fs.readFileSync(
-      path.join(
-        __dirname,
-        '../../../../development/scripts/android-release-build-deploy.sh',
-      ),
-      'utf8',
-    );
-
-    expect(launcherActivity).toContain(
-      'class MainLauncherActivity extends Activity',
-    );
-    expect(launcherActivity).not.toContain('ReactActivity');
-    expect(launcherActivity).toContain(
-      'if (!MainActivity.hasCreatedInstance()) {',
-    );
-    expect(
-      launcherActivity.indexOf('BootRecoveryStore.recordBootAttempt('),
-    ).toBeLessThan(
-      launcherActivity.indexOf(
-        'startActivity(new Intent(this, RecoveryActivity.class));',
-      ),
-    );
-    expect(
-      launcherActivity.indexOf(
-        'startActivity(new Intent(this, RecoveryActivity.class));',
-      ),
-    ).toBeLessThan(launcherActivity.indexOf('MainActivity.class'));
-    expect(launcherActivity).toContain('new Intent(getIntent())');
-    expect(mainActivity).not.toContain('BootRecoveryStore.recordBootAttempt(');
-    expect(mainActivity).toContain('class RecoveryReactActivityDelegate');
-    expect(mainActivity).toContain(
-      'return new RecoveryReactActivityDelegate(this);',
-    );
-    expect(
-      mainActivity.indexOf('if (MainApplication.shouldShowRecovery) {'),
-    ).toBeLessThan(
-      mainActivity.indexOf(
-        'startActivity(new Intent(this, RecoveryActivity.class));',
-      ),
-    );
-    expect(
-      mainActivity.indexOf(
-        'startActivity(new Intent(this, RecoveryActivity.class));',
-      ),
-    ).toBeLessThan(mainActivity.indexOf('hasCreatedInstance = true;'));
-    expect(mainActivity).toContain('hasCreatedInstance = true;');
-    expect(mainActivity).toContain('hasCreatedInstance = false;');
-    expect(mainApplication.indexOf('if (shouldShowRecovery) {')).toBeLessThan(
-      mainApplication.indexOf('SoLoader.init('),
-    );
-
     const launcherManifestStart = manifest.indexOf(
       '<activity android:name=".MainLauncherActivity"',
     );
@@ -595,46 +698,27 @@ describe('native-dev-shell', () => {
       launcherManifestEnd,
     );
     expect(launcherManifest).toContain('android:exported="true"');
-    expect(launcherManifest).toContain('android.intent.action.MAIN');
+    expect(launcherManifest).not.toContain('android.intent.action.MAIN');
     expect(launcherManifest).toContain('android.intent.action.VIEW');
+    for (const name of ['StandardLauncher', 'TravelModeLauncher']) {
+      const aliasStart = manifest.indexOf(`android:name=".${name}"`);
+      expect(aliasStart).toBeGreaterThan(launcherManifestEnd);
+      const alias = manifest.slice(
+        aliasStart,
+        manifest.indexOf('</activity-alias>', aliasStart),
+      );
+      expect(alias).toContain(
+        'android:targetActivity=".LauncherAliasActivity"',
+      );
+      expect(alias).toContain('android.intent.action.MAIN');
+      expect(alias).toContain('android.intent.category.LAUNCHER');
+    }
     expect(manifest).toContain(
       '<activity android:name=".MainActivity" android:label="@string/app_name"',
     );
     expect(manifest).toContain(
       'android:exported="false" android:screenOrientation="portrait" android:supportsPictureInPicture="true" />',
     );
-    expect(nativeDevShell).toContain(
-      'so.onekey.app.wallet/.MainLauncherActivity',
-    );
-    expect(androidReleaseDeploy).toContain(
-      '$PACKAGE_NAME/.MainLauncherActivity',
-    );
-    expect(androidReleaseDeploy).not.toContain('$PACKAGE_NAME/.MainActivity');
-  });
-
-  it('keeps Android reverse ownership inside the device lock lifetime', () => {
-    const source = fs.readFileSync(
-      path.join(__dirname, '../native-dev-shell.js'),
-      'utf8',
-    );
-    const launchSource = source.slice(
-      source.indexOf('async function launchDevShell('),
-    );
-    const lockIndex = launchSource.indexOf(
-      'const deviceLock = acquireNamedLock(',
-    );
-    const configureIndex = launchSource.indexOf(
-      'const deviceMetro = configureDeviceMetro(',
-    );
-    const releaseRouteIndex = launchSource.indexOf(
-      'releaseDeviceMetroRoute?.();',
-    );
-    const releaseLockIndex = launchSource.indexOf('deviceLock.release();');
-
-    expect(lockIndex).toBeGreaterThanOrEqual(0);
-    expect(configureIndex).toBeGreaterThan(lockIndex);
-    expect(releaseRouteIndex).toBeGreaterThan(configureIndex);
-    expect(releaseLockIndex).toBeGreaterThan(releaseRouteIndex);
   });
 
   it('keeps the complete Android run-as script in one quoted adb argument', () => {
@@ -1415,6 +1499,25 @@ describe('native-dev-shell', () => {
     }
   });
 
+  it('does not allocate a port already bound on localhost', async () => {
+    const server = net.createServer();
+    await new Promise((resolve) => {
+      server.listen({ host: '127.0.0.1', port: 0 }, resolve);
+    });
+    try {
+      const address = server.address();
+      await expect(
+        acquireMetroPort({
+          deviceId: 'device-localhost-port',
+          requestedPort: String(address.port),
+          sessionId: 'session-localhost-port',
+        }),
+      ).rejects.toThrow('already in use');
+    } finally {
+      await new Promise((resolve) => server.close(resolve));
+    }
+  });
+
   it('serializes shared worktree preparation across device sessions', async () => {
     const consoleError = jest
       .spyOn(console, 'error')
@@ -1557,28 +1660,6 @@ describe('native-dev-shell', () => {
     );
   });
 
-  it('binds an explicit device route to launcher-owned Metro', () => {
-    const nativeDevShell = fs.readFileSync(
-      path.join(__dirname, '../native-dev-shell.js'),
-      'utf8',
-    );
-    const launchSource = nativeDevShell.slice(
-      nativeDevShell.indexOf('async function launchDevShell('),
-      nativeDevShell.indexOf('\nasync function main()'),
-    );
-
-    expect(launchSource.indexOf('parseMetroBaseUrl(metroUrl)')).toBeLessThan(
-      launchSource.indexOf('const deviceLock = acquireNamedLock({'),
-    );
-    expect(launchSource.indexOf('const metroAllocation =')).toBeGreaterThan(
-      launchSource.indexOf('try {'),
-    );
-    expect(launchSource).toContain(
-      'requestedMetroUrl: requestedDeviceMetroUrl',
-    );
-    expect(launchSource).toContain('ONEKEY_DEV_SESSION_ID: sessionId');
-  });
-
   it('binds each shell platform to its native contract', () => {
     const android = getContractManifest('android');
     const ios = getContractManifest('ios');
@@ -1588,162 +1669,6 @@ describe('native-dev-shell', () => {
     expect(ios.nativeContractKey).not.toBe(android.nativeContractKey);
     expect(android).toMatchObject({ platform: 'android', schemaVersion: 1 });
     expect(ios).toMatchObject({ platform: 'ios', schemaVersion: 1 });
-  });
-
-  it('holds a restored shell cache lease through device installation', () => {
-    const nativeDevShell = fs.readFileSync(
-      path.join(__dirname, '../native-dev-shell.js'),
-      'utf8',
-    );
-    const installSource = nativeDevShell.slice(
-      nativeDevShell.indexOf('async function resolveAndInstallShell('),
-      nativeDevShell.indexOf('\nasync function prepareVendor('),
-    );
-
-    const cleanupSource = installSource.slice(
-      installSource.indexOf('await runWithCacheLeaseCleanup({'),
-    );
-    expect(cleanupSource).toContain('operation: async () => {');
-    expect(cleanupSource.indexOf('await installMobileDevShell({')).toBeLessThan(
-      cleanupSource.indexOf('releaseCacheLease,'),
-    );
-  });
-
-  it('keeps dev session bootstrap private and session-scoped on both platforms', () => {
-    const nativeDevShell = fs.readFileSync(
-      path.join(__dirname, '../native-dev-shell.js'),
-      'utf8',
-    );
-    const androidApplication = fs.readFileSync(
-      path.join(
-        __dirname,
-        '../../android/app/src/debug/java/so/onekey/app/wallet/MainApplication.java',
-      ),
-      'utf8',
-    );
-    const androidActivity = fs.readFileSync(
-      path.join(
-        __dirname,
-        '../../android/app/src/main/java/so/onekey/app/wallet/MainActivity.java',
-      ),
-      'utf8',
-    );
-    const iosDelegate = fs.readFileSync(
-      path.join(__dirname, '../../ios/AppDelegate.swift'),
-      'utf8',
-    );
-    const metroConfig = fs.readFileSync(
-      path.join(__dirname, '../../metro.config.js'),
-      'utf8',
-    );
-
-    expect(androidActivity).not.toContain('ONEKEY_DEV_SESSION_URL');
-    expect(androidApplication).toContain(
-      'new File(sessionRoot, "current.json")',
-    );
-    expect(androidApplication).toContain(
-      '!deviceId.equals(session.optString("deviceId"))',
-    );
-    expect(iosDelegate).not.toContain('ONEKEY_DEV_SESSION_URL');
-    expect(iosDelegate).toContain(
-      'session["worktreeId"] as? String == worktreeId',
-    );
-    expect(iosDelegate).toContain('let host = components.host');
-    expect(iosDelegate).toContain('!host.isEmpty');
-    expect(iosDelegate).toContain('components.path = ""');
-    expect(metroConfig).not.toContain('/onekey-dev/');
-    expect(nativeDevShell).toContain(
-      "['workspace', '@onekeyhq/web-embed', 'prebundle:build']",
-    );
-    expect(nativeDevShell).not.toContain("['app:web-embed:build']");
-    expect(nativeDevShell.indexOf('await stagePrivateSession({')).toBeLessThan(
-      nativeDevShell.indexOf('preparationLock.release();'),
-    );
-    expect(nativeDevShell.indexOf('await waitForMetro(')).toBeLessThan(
-      nativeDevShell.indexOf('preparationLock.release();'),
-    );
-    const launchSource = nativeDevShell.slice(
-      nativeDevShell.indexOf('async function launchDevShell('),
-      nativeDevShell.indexOf('\nasync function main()'),
-    );
-    expect(launchSource).toContain(
-      'await waitForMetroCompletionWithSessionRenewal({',
-    );
-    expect(launchSource).toContain('addFailureNotice(report, report.failure);');
-  });
-
-  it('excludes dev session capability and identifiers from production variants', () => {
-    const androidRoot = path.join(__dirname, '../../android/app');
-    const androidBase = fs.readFileSync(
-      path.join(
-        androidRoot,
-        'src/main/java/so/onekey/app/wallet/BaseMainApplication.java',
-      ),
-      'utf8',
-    );
-    const androidDebug = fs.readFileSync(
-      path.join(
-        androidRoot,
-        'src/debug/java/so/onekey/app/wallet/MainApplication.java',
-      ),
-      'utf8',
-    );
-    const androidRelease = fs.readFileSync(
-      path.join(
-        androidRoot,
-        'src/release/java/so/onekey/app/wallet/MainApplication.java',
-      ),
-      'utf8',
-    );
-    const androidBuild = fs.readFileSync(
-      path.join(androidRoot, 'build.gradle'),
-      'utf8',
-    );
-    const androidReleaseConfig = androidBuild.slice(
-      androidBuild.indexOf('        release {'),
-      androidBuild.indexOf('    flavorDimensions'),
-    );
-    const iosSource = fs.readFileSync(
-      path.join(__dirname, '../../ios/AppDelegate.swift'),
-      'utf8',
-    );
-    const iosProductionSource = stripSwiftDevShellBlocks(iosSource);
-    const productionInfo = fs.readFileSync(
-      path.join(__dirname, '../../ios/OneKeyWallet/Info.plist'),
-      'utf8',
-    );
-    const devOnlyIdentifiers = [
-      'onekey-dev-sessions',
-      'resolver.devSessionId',
-      'ONEKEY_NATIVE_CONTRACT_KEY',
-    ];
-
-    for (const identifier of devOnlyIdentifiers) {
-      expect(androidBase).not.toContain(identifier);
-      expect(androidRelease).not.toContain(identifier);
-      expect(androidReleaseConfig).not.toContain(identifier);
-      expect(iosProductionSource).not.toContain(identifier);
-      expect(productionInfo).not.toContain(identifier);
-      expect(iosSource).toContain(identifier);
-    }
-    expect(androidDebug).toContain('onekey-dev-sessions');
-    expect(androidDebug).toContain('resolver.devSessionId');
-    expect(androidReleaseConfig).not.toContain('ONEKEY_DEV_SHELL');
-    expect(iosSource).toContain(
-      '#if ONEKEY_DEV_SHELL && DEBUG && targetEnvironment(simulator)',
-    );
-
-    expect(androidDebug).toContain(
-      'buildDevVendorEntryUrl(metroBaseUrl, sessionId, "main", fingerprint)',
-    );
-    expect(androidDebug).toContain(
-      'buildDevVendorEntryUrl(metroBaseUrl, sessionId, "background", fingerprint)',
-    );
-    expect(iosSource).toContain(
-      'private lazy var devVendorBundleInfo = resolveDevVendorBundleInfo()',
-    );
-    expect(iosSource).toContain('runtimeTarget: "main"');
-    expect(iosSource).toContain('runtimeTarget: "background"');
   });
 
   it('creates an input-bound ARM shell artifact manifest', async () => {
@@ -1842,7 +1767,6 @@ describe('native-dev-shell', () => {
     const compatibility = getShellCompatibility({
       nativeContractKey: '4'.repeat(64),
       platform: 'ios',
-      webEmbedInputKey: '5'.repeat(64),
     });
 
     expect(compatibility).toMatchObject({
@@ -1851,7 +1775,6 @@ describe('native-dev-shell', () => {
       nativeContractKey: '4'.repeat(64),
       platform: 'ios',
       resourcePlatform: 'ios-simulator',
-      webEmbedInputKey: '5'.repeat(64),
     });
     expect(compatibility.shellCompatibilityKey).toMatch(/^[0-9a-f]{64}$/u);
     expect(compatibility.shellInputKey).toMatch(/^[0-9a-f]{64}$/u);

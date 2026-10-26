@@ -1,8 +1,10 @@
 import type { ISetTpslParams } from '@onekeyhq/kit/src/views/Perp/components/OrderInfoPanel/SetTpslModal';
 
+import type { IFill } from '../../types/hyperliquid/sdk';
 import type { TPerpDepositEntrySource } from '../logger/scopes/perp/type';
 
 export enum EModalPerpRoutes {
+  PerpTradeHistoryDetails = 'PerpTradeHistoryDetails',
   PerpTradersHistoryList = 'PerpTradersHistoryList',
   MobilePerpMarket = 'MobilePerpMarket',
   MobileTokenSelector = 'MobileTokenSelector',
@@ -32,7 +34,7 @@ export type IPerpsDepositTokenRouteItem = {
   logoURI?: string;
 };
 
-export type IPerpHistoryTab = 'Trades' | 'Twap' | 'Account';
+export type IPerpHistoryTab = 'Trades' | 'Twap' | 'Funding' | 'Account';
 
 export type IMobilePerpMarketTab = 'orderbook' | 'info' | 'funding';
 
@@ -51,6 +53,11 @@ export type IUnifoldSourceSelectorResult =
     };
 
 export type IModalPerpParamList = {
+  [EModalPerpRoutes.PerpTradeHistoryDetails]: {
+    fill: IFill;
+    builderFeeRate?: number;
+    pairName?: string;
+  };
   [EModalPerpRoutes.PerpTradersHistoryList]:
     | { initialTab?: IPerpHistoryTab }
     | undefined;
@@ -81,6 +88,10 @@ export type IModalPerpParamList = {
     openedFromTransfer?: boolean;
   };
   [EModalPerpRoutes.PerpsInviteeRewardModal]: undefined;
-  [EModalPerpRoutes.MobilePortfolioPage]: undefined;
+  [EModalPerpRoutes.MobilePortfolioPage]:
+    | {
+        initialChartType?: 'accountValue' | 'pnl' | 'funding';
+      }
+    | undefined;
   [EModalPerpRoutes.PerpGuidePage]: undefined;
 };

@@ -5,7 +5,6 @@
 const { execFile } = require('child_process');
 const { randomUUID } = require('crypto');
 const fs = require('fs');
-const os = require('os');
 const path = require('path');
 const { Transform } = require('stream');
 const { pipeline } = require('stream/promises');
@@ -24,6 +23,12 @@ const {
 } = require('../plugins/devVendor');
 const { REPO_ROOT, loadRegistry } = require('../plugins/moduleIdRegistry');
 
+const { getSharedCacheRoot } = require('./dev-cache-paths');
+const {
+  downloadOciBlobConcurrent,
+  isRetryableOciError,
+} = require('./oci-concurrent-download');
+
 const MOBILE_DIR = path.resolve(__dirname, '..');
 const execFileAsync = promisify(execFile);
 const RELEASE_MANIFEST_NAME = 'metro-dev-prebundle-release.json';
@@ -35,7 +40,6 @@ const RELEASE_SIGNER_WORKFLOW =
   'OneKeyHQ/app-monorepo/.github/workflows/metro-dev-prebundle.yml';
 const RELEASE_SOURCE_REF = 'refs/heads/x';
 const SHARED_CACHE_SCHEMA_VERSION = 2;
-const SHARED_CACHE_ENV = 'ONEKEY_METRO_PREBUNDLE_CACHE_DIR';
 const MAX_CACHED_RELEASES = 5;
 const CACHE_LOCK_OWNER_NAME = 'owner.json';
 const CACHE_LOCK_RECLAIM_DIRECTORY_NAME = '.reclaim';
@@ -92,32 +96,6 @@ async function readJsonFile(filePath, maxBytes = MAX_RELEASE_MANIFEST_BYTES) {
     );
   }
   return JSON.parse(await fs.promises.readFile(filePath, 'utf8'));
-}
-
-function getSharedCacheRoot(
-  env = process.env,
-  platform = process.platform,
-  homeDirectory = os.homedir(),
-) {
-  if (env[SHARED_CACHE_ENV]) {
-    return path.resolve(env[SHARED_CACHE_ENV]);
-  }
-  if (platform === 'darwin') {
-    return path.join(
-      homeDirectory,
-      'Library/Caches/OneKey/metro-dev-prebundle',
-    );
-  }
-  if (platform === 'win32') {
-    return path.join(
-      env.LOCALAPPDATA || path.join(homeDirectory, 'AppData/Local'),
-      'OneKey/metro-dev-prebundle',
-    );
-  }
-  return path.join(
-    env.XDG_CACHE_HOME || path.join(homeDirectory, '.cache'),
-    'onekey/metro-dev-prebundle',
-  );
 }
 
 function getCacheVersionRoot(cacheRoot) {
@@ -821,16 +799,22 @@ function createOciClient({
   const repositoryScope = `repository:${devVendorConfig.OCI_REPOSITORY}:pull`;
   let authorization;
 
-  async function fetchRegistry(url, { accept, timeoutMs }) {
+  async function fetchRegistry(
+    url,
+    { accept, headers = {}, signal, timeoutMs },
+  ) {
     const request = () =>
       fetchImpl(url, {
         headers: {
           Accept: accept,
           ...(authorization ? { Authorization: authorization } : {}),
           'User-Agent': 'OneKey-Metro-Dev-Prebundle',
+          ...headers,
         },
         redirect: 'follow',
-        signal: AbortSignal.timeout(timeoutMs),
+        signal: signal
+          ? AbortSignal.any([AbortSignal.timeout(timeoutMs), signal])
+          : AbortSignal.timeout(timeoutMs),
       });
     let response = await request();
     if (response.status !== 401) return response;
@@ -898,12 +882,17 @@ function createOciClient({
 
   const repositoryUrl = `${baseUrl}/v2/${devVendorConfig.OCI_REPOSITORY}`;
   return {
-    fetchBlob(digest, timeoutMs = 120_000) {
+    fetchBlob(digest, timeoutMs = 120_000, { range, ifRange, signal } = {}) {
       if (!/^sha256:[0-9a-f]{64}$/.test(digest || '')) {
         throw new Error('[metroDevPrebundle] Invalid OCI blob digest.');
       }
       return fetchRegistry(`${repositoryUrl}/blobs/${digest}`, {
         accept: 'application/octet-stream',
+        headers: {
+          ...(range ? { Range: range, 'Accept-Encoding': 'identity' } : {}),
+          ...(ifRange ? { 'If-Range': ifRange } : {}),
+        },
+        signal,
         timeoutMs,
       });
     },
@@ -1043,29 +1032,47 @@ async function downloadOciAsset({
       `[metroDevPrebundle] Downloaded asset is too large: ${safeFileName}.`,
     );
   }
-  const response = await ociArtifact.client.fetchBlob(
-    descriptor.digest,
+  const concurrent = await downloadOciBlobConcurrent({
+    client: ociArtifact.client,
+    descriptor,
     timeoutMs,
-  );
-  if (!response.ok) {
-    throw new Error(
-      `[metroDevPrebundle] OCI blob download failed for ${safeFileName}: HTTP ${response.status}.`,
-    );
-  }
-  const content = await readResponseBody({
-    fileName: safeFileName,
-    maxBytes,
-    response,
   });
-  if (
-    content.length !== descriptor.size ||
-    `sha256:${sha256(content)}` !== descriptor.digest
-  ) {
-    throw new Error(
-      `[metroDevPrebundle] OCI blob integrity mismatch: ${safeFileName}.`,
-    );
+  if (concurrent) return concurrent.content;
+  for (let attempt = 1; attempt <= 3; attempt += 1) {
+    try {
+      const response = await ociArtifact.client.fetchBlob(
+        descriptor.digest,
+        timeoutMs,
+      );
+      if (!response.ok) {
+        const error = new Error(
+          `[metroDevPrebundle] OCI blob download failed for ${safeFileName}: HTTP ${response.status}.`,
+        );
+        error.retryable =
+          [408, 425, 429].includes(response.status) || response.status >= 500;
+        throw error;
+      }
+      const content = await readResponseBody({
+        fileName: safeFileName,
+        maxBytes,
+        response,
+      });
+      if (
+        content.length !== descriptor.size ||
+        `sha256:${sha256(content)}` !== descriptor.digest
+      ) {
+        const error = new Error(
+          `[metroDevPrebundle] OCI blob integrity mismatch: ${safeFileName}.`,
+        );
+        error.retryable = content.length !== descriptor.size;
+        throw error;
+      }
+      return content;
+    } catch (error) {
+      if (attempt === 3 || !isRetryableOciError(error)) throw error;
+      await new Promise((resolve) => setTimeout(resolve, 250 * attempt));
+    }
   }
-  return content;
 }
 
 function assertDownloadedAsset(content, metadata) {

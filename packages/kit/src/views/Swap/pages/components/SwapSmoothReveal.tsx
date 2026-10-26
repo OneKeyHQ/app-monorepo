@@ -30,11 +30,14 @@ const MEASURED_CONTENT_LAYOUT_PROPS = platformEnv.isNative
  */
 export function SwapSmoothReveal({
   visible,
+  keepMounted = false,
   parentGap = 0,
   gapSide = 'top',
   children,
 }: {
   visible: boolean;
+  /** Keep the measured node mounted so frequent visibility changes animate in place. */
+  keepMounted?: boolean;
   /**
    * px value of the parent Stack gap to offset ("$3" = 12, "$4" = 16).
    * Leave 0 when the children carry their own spacing (e.g. padding), which
@@ -62,9 +65,10 @@ export function SwapSmoothReveal({
   );
 
   const isGapTop = gapSide === 'top';
+  const hidden = keepMounted && !visible;
   return (
     <AnimatePresence>
-      {visible ? (
+      {visible || keepMounted ? (
         <Stack
           key="swapSmoothReveal"
           transition="smooth"
@@ -72,7 +76,13 @@ export function SwapSmoothReveal({
           overflow="hidden"
           mt={isGapTop && parentGap ? -parentGap : undefined}
           mb={!isGapTop && parentGap ? -parentGap : undefined}
-          height={measuredHeight}
+          height={hidden ? 0 : measuredHeight}
+          opacity={hidden ? 0 : 1}
+          pointerEvents={hidden ? 'none' : undefined}
+          aria-hidden={hidden}
+          accessibilityElementsHidden={hidden}
+          importantForAccessibility={hidden ? 'no-hide-descendants' : undefined}
+          {...(platformEnv.isNative ? {} : { inert: hidden })}
           enterStyle={{ height: 0, opacity: 0 }}
           exitStyle={{ height: 0, opacity: 0 }}
         >

@@ -29,6 +29,7 @@ export { buildBorrowMarketKey } from './borrowMarketKey';
 export type IAsyncData<T> = {
   data: T;
   loading: boolean;
+  isError?: boolean;
   refresh: () => Promise<void>;
   ownerMarketKey?: string;
 };
@@ -85,12 +86,36 @@ type IBorrowContextValue = {
   setRefreshAllBorrowData: (fn: () => Promise<void>) => void;
 };
 
+type IBorrowMarketRequestContextValue = {
+  requestedMarket: IBorrowMarketItem | null;
+  setRequestedMarket: React.Dispatch<
+    React.SetStateAction<IBorrowMarketItem | null>
+  >;
+};
+
 const defaultSwapConfig: ISwapConfig = {
   isSupportSwap: false,
   isSupportCrossChain: false,
 };
 
 const BorrowContext = createContext<IBorrowContextValue | null>(null);
+const BorrowMarketRequestContext =
+  createContext<IBorrowMarketRequestContextValue | null>(null);
+
+const BorrowMarketRequestProvider = ({ children }: PropsWithChildren) => {
+  const [requestedMarket, setRequestedMarket] =
+    useState<IBorrowMarketItem | null>(null);
+  const value = useMemo(
+    () => ({ requestedMarket, setRequestedMarket }),
+    [requestedMarket],
+  );
+
+  return (
+    <BorrowMarketRequestContext.Provider value={value}>
+      {children}
+    </BorrowMarketRequestContext.Provider>
+  );
+};
 
 export const BorrowProvider = ({
   children,
@@ -130,7 +155,11 @@ export const BorrowProvider = ({
 
   // Stable setter that won't cause unnecessary re-renders
   const setPendingTxs = useCallback((txs: IStakePendingTx[]) => {
-    setPendingTxsState(txs);
+    setPendingTxsState((current) =>
+      current === txs || (current.length === 0 && txs.length === 0)
+        ? current
+        : txs,
+    );
   }, []);
 
   const { rememberMarket, rememberedMarketKey } = useBorrowMarketMemory({
@@ -149,6 +178,7 @@ export const BorrowProvider = ({
         ...earnAccount,
         data: null,
         loading: true,
+        isError: false,
       };
     }
     if (
@@ -162,6 +192,7 @@ export const BorrowProvider = ({
       ...earnAccount,
       data: null,
       loading: true,
+      isError: false,
     };
   }, [currentMarketKey, earnAccount, market?.networkId]);
   const scopedReserves = useMemo(() => {
@@ -228,7 +259,7 @@ export const BorrowProvider = ({
 
   return (
     <BorrowContext.Provider value={contextValue}>
-      {children}
+      <BorrowMarketRequestProvider>{children}</BorrowMarketRequestProvider>
     </BorrowContext.Provider>
   );
 };
@@ -238,6 +269,16 @@ export const useBorrowContext = () => {
   if (!context) {
     throw new OneKeyLocalError(
       'useBorrowContext must be used within a BorrowProvider',
+    );
+  }
+  return context;
+};
+
+export const useBorrowMarketRequestContext = () => {
+  const context = useContext(BorrowMarketRequestContext);
+  if (!context) {
+    throw new OneKeyLocalError(
+      'useBorrowMarketRequestContext must be used within a BorrowProvider',
     );
   }
   return context;

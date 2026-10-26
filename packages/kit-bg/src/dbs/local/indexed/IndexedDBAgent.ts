@@ -645,7 +645,7 @@ export class IndexedDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
           tx,
           updater,
           // TODO only update first record?
-          oldRecord: pair[0],
+          oldRecord: pair[0]!,
         }),
       ),
     );

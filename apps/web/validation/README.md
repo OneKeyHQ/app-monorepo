@@ -23,7 +23,7 @@ truth.
 
 So the rules in `deeplink.ios.json` intentionally cover only the
 `app.onekey.*` paths (`/account/*`, `/wc/*`, `/swap?tab=stock`, `/perps`,
-`/market`, and trailing-slash variants). Adding rules for other hosts here
+`/market`, `/clip/*`, `/r/*`, and trailing-slash variants). Adding rules for other hosts here
 would have no effect.
 
 ## Verifying what platforms actually see

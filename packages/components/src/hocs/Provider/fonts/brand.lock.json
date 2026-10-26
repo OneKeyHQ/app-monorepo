@@ -1,0 +1,22 @@
+{
+  "repo": "OneKeyHQ/app-private-fonts",
+  "commit": "cf82d6ad69afd76cefaa7fcf49ee0d3a1234bf47",
+  "files": {
+    "regular": {
+      "path": "fonts/Roobert-Regular.ttf",
+      "sha256": "39712b4ce0090dd876e98beeca61087f189022f39e4bd14bae40326cb105faf3"
+    },
+    "medium": {
+      "path": "fonts/Roobert-Medium.ttf",
+      "sha256": "737fb15930e29cda85b8aee7c979f588508fa4b61f8eb1610a2fd9e29c78dec8"
+    },
+    "semibold": {
+      "path": "fonts/Roobert-SemiBold.ttf",
+      "sha256": "cbfc6b203ab1044452bd3f7848a8e9fd9007ea9bbfb4ed791544a7a66f1d08d0"
+    },
+    "bold": {
+      "path": "fonts/Roobert-Bold.ttf",
+      "sha256": "4c1bee71057a9e85f1b5987a9090c59957748107c23f7f3b6ed4018a225ca7f1"
+    }
+  }
+}

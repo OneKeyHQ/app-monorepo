@@ -1,8 +1,23 @@
 import { jest } from '@jest/globals';
 
+import { TRADING_VIEW_EMBED_PINNED_RELEASES } from '@onekeyhq/shared/src/utils/tradingViewEmbedPinnedReleases';
+import { computeTradingViewEmbedIntegrity } from '@onekeyhq/shared/src/utils/tradingViewEmbedRelease';
 import { TRADING_VIEW_EMBED_SERVICE_WORKER_PATH } from '@onekeyhq/shared/src/utils/tradingViewEmbedServiceWorker';
 
 import { preloadTradingViewEmbedBootstrapAssets } from './tradingViewEmbedLoader.web';
+
+async function pinRelease(
+  origin: string,
+  version: string,
+  manifestText: string,
+): Promise<void> {
+  jest.replaceProperty(TRADING_VIEW_EMBED_PINNED_RELEASES, origin, {
+    manifestIntegrity: await computeTradingViewEmbedIntegrity(
+      new TextEncoder().encode(manifestText),
+    ),
+    version,
+  });
+}
 
 const buildAsset = (file: string) => ({
   file,
@@ -145,11 +160,15 @@ test('updates an outdated service worker before starting prefetch', async () => 
     configurable: true,
     value: { serviceWorker },
   });
+  const manifestText = JSON.stringify(manifest);
+  await pinRelease(
+    'https://tradingview.onekeytest.com',
+    manifest.version,
+    manifestText,
+  );
   jest
     .spyOn(globalThis, 'fetch')
-    .mockResolvedValueOnce(
-      new Response(JSON.stringify(manifest), { status: 200 }),
-    );
+    .mockResolvedValueOnce(new Response(manifestText, { status: 200 }));
   try {
     const preloadPromise = preloadTradingViewEmbedBootstrapAssets(
       'https://tradingview.onekeytest.com/?locale=en',
@@ -253,11 +272,15 @@ test('reuses a compatible controller without matching its script URL', async () 
       },
     },
   });
+  const manifestText = JSON.stringify(manifest);
+  await pinRelease(
+    'https://tradingview.onekey.so',
+    manifest.version,
+    manifestText,
+  );
   jest
     .spyOn(globalThis, 'fetch')
-    .mockResolvedValueOnce(
-      new Response(JSON.stringify(manifest), { status: 200 }),
-    );
+    .mockResolvedValueOnce(new Response(manifestText, { status: 200 }));
   try {
     await preloadTradingViewEmbedBootstrapAssets(
       'https://tradingview.onekey.so/?locale=en',
@@ -287,6 +310,7 @@ test('reuses a compatible controller without matching its script URL', async () 
 });
 
 test('rejects instead of waiting forever when no compatible controller takes over', async () => {
+  await pinRelease('https://tradingview.onekeytest.com', 'no-controller', '{}');
   jest.useFakeTimers();
   const originalNavigatorDescriptor = Object.getOwnPropertyDescriptor(
     globalThis,

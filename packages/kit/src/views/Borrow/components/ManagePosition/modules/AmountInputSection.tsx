@@ -58,7 +58,7 @@ export function AmountInputSection({ title }: IAmountInputSectionProps) {
     [title, actionLabelProp, action, intl],
   );
 
-  const amountInputDisabled = isDisabled || approval.approving;
+  const amountInputDisabled = isDisabled || approval.isFormInteractionLocked;
 
   // Borrow action doesn't check isInsufficientBalance for hasError
   // because borrow is borrowing from the protocol, not spending wallet balance

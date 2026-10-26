@@ -39,7 +39,11 @@ import { ListItem } from '../../../components/ListItem';
 import { WalletAvatar } from '../../../components/WalletAvatar';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useThemeVariant } from '../../../hooks/useThemeVariant';
-import { getForceTransportType, sortDevicesData } from '../utils';
+import {
+  getForceTransportType,
+  getThirdPartySearchTarget,
+  sortDevicesData,
+} from '../utils';
 
 import {
   TREZOR_SCAN_MAX_TRY_COUNT,
@@ -198,11 +202,6 @@ export default function TrezorConnectionFlow() {
     const forceTransportType = await getForceTransportType(
       EConnectDeviceChannel.usbOrBle,
     );
-    if (forceTransportType) {
-      await backgroundApiProxy.serviceHardware.setForceTransportType({
-        forceTransportType,
-      });
-    }
 
     let pollsCompleted = 0;
     const transportType = getTrezorSearchTransportType(forceTransportType);
@@ -263,7 +262,12 @@ export default function TrezorConnectionFlow() {
       TREZOR_SCAN_MAX_TRY_COUNT,
       vendor,
       // waitForAllTransports: don't drop BLE when a USB device is also present.
-      { resetSession: true, transportType, waitForAllTransports: true },
+      {
+        resetSession: true,
+        transportType,
+        waitForAllTransports: true,
+        discoveryMethod: 'searchDeviceTargets',
+      },
     );
   }, [deviceScanner, vendor, intl]);
 
@@ -293,6 +297,7 @@ export default function TrezorConnectionFlow() {
           title: item.name,
           src: ThirdPartyWalletAvatarImages.trezor,
           device: item,
+          searchTarget: getThirdPartySearchTarget(item),
           avatarImg: getThirdPartyDeviceAvatarImage({
             vendor: EHardwareVendor.trezor,
             vendorModel: vendorFields.vendorModel,
@@ -325,26 +330,6 @@ export default function TrezorConnectionFlow() {
       if (!data.device) return;
       await ensureStopScan();
 
-      // The fused scan set forceTransportType to the usbOrBle default (WEBUSB on
-      // desktop) so it could scan BOTH transports at once. Now that the user has
-      // picked a specific device, correct forceTransportType to the transport
-      // that device actually uses — otherwise a BLE device stays under a stale
-      // WEBUSB, which later resolves its connectId to the deviceId instead of the
-      // bleConnectId and fails to reconnect. getForceTransportType handles the
-      // platform (desktop BLE => DesktopWebBle, native => BLE).
-      const transportLabel = getTrezorDeviceTransportLabel(data.device);
-      const selectedChannel =
-        transportLabel === 'BLE'
-          ? EConnectDeviceChannel.bluetooth
-          : EConnectDeviceChannel.usbOrBle;
-      const correctedTransportType =
-        await getForceTransportType(selectedChannel);
-      if (correctedTransportType) {
-        await backgroundApiProxy.serviceHardware.setForceTransportType({
-          forceTransportType: correctedTransportType,
-        });
-      }
-
       navigation.push(EOnboardingPagesV2.FinalizeWalletSetup, {
         deviceData: {
           ...data,
@@ -366,7 +351,7 @@ export default function TrezorConnectionFlow() {
   }, [scanDevice]);
 
   // --- Start connection ---
-  // WebUSB only lists previously authorized devices, so desktop/extension need
+  // WebUSB only lists previously authorized devices, so web/extension need
   // a click-bound picker before scan. Desktop keeps scanning after a picker
   // cancel so BLE-only users are not blocked by USB permission.
   const onStartConnection = useCallback(async () => {
@@ -374,6 +359,7 @@ export default function TrezorConnectionFlow() {
       shouldRequestTrezorWebUsbPermissionBeforeListing({
         isDesktop: !!platformEnv.isDesktop,
         isExtension: !!platformEnv.isExtension,
+        isWeb: !!platformEnv.isWeb,
       })
     ) {
       setIsChecking(true);
@@ -525,7 +511,10 @@ export default function TrezorConnectionFlow() {
                   {visibleDevicesData.map((data) => (
                     <ListItem
                       key={
-                        data.device?.deviceId ?? data.device?.connectId ?? ''
+                        data.searchTarget?.searchTargetId ||
+                        data.device?.deviceId ||
+                        data.device?.connectId ||
+                        'trezor-device'
                       }
                       drillIn
                       onPress={async () => {

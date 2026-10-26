@@ -6,6 +6,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { useDeviceDetailsActions } from '@onekeyhq/kit/src/states/jotai/contexts/deviceDetails';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
 import { DeviceManagementTestIDs } from '../../testIDs';
 import { ListItemGroup } from '../ListItemGroup';
@@ -17,7 +18,11 @@ function DeviceSectionSecurity() {
   const onPressChangePin = useCallback(async () => {
     const device = await actions.getWalletWithDevice();
     if (!device?.wallet) return;
-    if (!device.device?.connectId) return;
+    if (
+      !device.device?.connectId &&
+      device.device?.vendor !== EHardwareVendor.trezor
+    )
+      return;
     await backgroundApiProxy.serviceHardware.changePin({
       walletId: device.wallet.id,
       connectId: device.device?.connectId,

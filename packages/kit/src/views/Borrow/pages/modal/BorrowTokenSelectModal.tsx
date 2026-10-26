@@ -1,8 +1,16 @@
-import { useCallback, useMemo, useState } from 'react';
+// cspell:ignore cbbtc Cbbtc CBBTC
+
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Page, Stack, useMedia, useSafeAreaInsets } from '@onekeyhq/components';
+import {
+  Empty,
+  Page,
+  Stack,
+  useMedia,
+  useSafeAreaInsets,
+} from '@onekeyhq/components';
 import type { IPageNavigationProp } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -18,17 +26,22 @@ import type {
   IBorrowAsset,
   IBorrowAssetsList,
   IBorrowBalance,
+  IBorrowReserveItem,
   IEarnText,
 } from '@onekeyhq/shared/types/staking';
 
+import { splitCbbtcAssets } from '../../components/borrowCbbtc.utils';
 import { filterUnsupportedAaveNativeReserveAssets } from '../../components/borrowRepayPosition.utils';
 import {
   AmountField,
   AssetField,
   AssetWithAmountField,
   BorrowAPYField,
+  BorrowMoreToggle,
   BorrowTableList,
 } from '../../components/BorrowTableList';
+
+import { filterUnavailableSupplyAssets } from './borrowTokenSelect.utils';
 
 type IBorrowSelectAsset = IBorrowAsset;
 
@@ -99,37 +112,63 @@ export default function BorrowTokenSelectModal() {
     () => borrowAssetsListCache.get(cacheKey) ?? EMPTY_ASSETS_LIST,
   );
 
-  const { result: assetsList, isLoading } = usePromiseResult<IBorrowAssetsList>(
+  const {
+    result: assetsList,
+    isLoading,
+    run: refreshAssets,
+  } = usePromiseResult<IBorrowAssetsList | undefined>(
     async () => {
       if (!accountId || !networkId || !provider || !marketAddress) {
         return EMPTY_ASSETS_LIST;
       }
-      const result =
-        await backgroundApiProxy.serviceStaking.getBorrowAssetsList({
+      const [result, reserves] = await Promise.all([
+        backgroundApiProxy.serviceStaking.getBorrowAssetsList({
           accountId,
           networkId,
           provider,
           marketAddress,
           action: action as EBorrowActionsEnum,
-        });
-      borrowAssetsListCache.set(cacheKey, result);
-      return result;
+        }),
+        action === 'supply'
+          ? backgroundApiProxy.serviceStaking.getBorrowReserves({
+              accountId,
+              networkId,
+              provider,
+              marketAddress,
+            })
+          : Promise.resolve<IBorrowReserveItem | undefined>(undefined),
+      ]);
+      const nextResult =
+        action === 'supply'
+          ? {
+              ...result,
+              assets: filterUnavailableSupplyAssets({
+                assets: result.assets,
+                supplyAssets: reserves?.supply.assets,
+                networkId,
+              }),
+            }
+          : result;
+      borrowAssetsListCache.set(cacheKey, nextResult);
+      return nextResult;
     },
     [accountId, networkId, provider, marketAddress, action, cacheKey],
     {
       initResult: initialAssetsList,
       watchLoading: true,
+      undefinedResultIfError: true,
+      revalidateOnReconnect: true,
     },
   );
 
   const assets = useMemo(
     () =>
       filterUnsupportedAaveNativeReserveAssets({
-        assets: assetsList.assets,
+        assets: assetsList?.assets ?? EMPTY_ASSETS_LIST.assets,
         networkId,
         providerName: provider,
       }),
-    [assetsList.assets, networkId, provider],
+    [assetsList?.assets, networkId, provider],
   );
 
   const filteredAssets = useMemo(() => {
@@ -146,6 +185,69 @@ export default function BorrowTokenSelectModal() {
       );
     });
   }, [assets, searchKeyword]);
+
+  const shouldFoldCbbtc = action === 'supply' && !searchKeyword.trim();
+  const { visibleAssets, foldedAssets } = useMemo(
+    () =>
+      shouldFoldCbbtc
+        ? splitCbbtcAssets({
+            assets: filteredAssets,
+            networkId,
+            providerName: provider,
+            marketAddress,
+            getBalance: (item) => item.walletBalance ?? item.balance,
+          })
+        : {
+            visibleAssets: filteredAssets,
+            foldedAssets: [] as IBorrowSelectAsset[],
+          },
+    [filteredAssets, marketAddress, networkId, provider, shouldFoldCbbtc],
+  );
+  const [showFoldedCbbtc, setShowFoldedCbbtc] = useState(false);
+  const cbbtcAssetListKey = useMemo(
+    () =>
+      [
+        accountId,
+        networkId,
+        provider,
+        marketAddress,
+        action,
+        ...visibleAssets.map((asset) => asset.reserveAddress),
+        ...foldedAssets.map((asset) => asset.reserveAddress),
+      ].join('|'),
+    [
+      accountId,
+      action,
+      foldedAssets,
+      marketAddress,
+      networkId,
+      provider,
+      visibleAssets,
+    ],
+  );
+  useEffect(() => {
+    setShowFoldedCbbtc(false);
+  }, [cbbtcAssetListKey]);
+
+  const assetsToRender = showFoldedCbbtc
+    ? [...visibleAssets, ...foldedAssets]
+    : visibleAssets;
+
+  const listFooter = useMemo(
+    () => (
+      <>
+        {foldedAssets.length > 0 ? (
+          <BorrowMoreToggle
+            testID="borrow-select-cbbtc-more-toggle"
+            expanded={showFoldedCbbtc}
+            onPress={() => setShowFoldedCbbtc((expanded) => !expanded)}
+          />
+        ) : null}
+        <Stack h={bottom || '$2'} />
+      </>
+    ),
+    [bottom, foldedAssets.length, showFoldedCbbtc],
+  );
 
   const isBorrowAction = action === 'borrow';
 
@@ -332,23 +434,45 @@ export default function BorrowTokenSelectModal() {
         }}
       />
       <Page.Body>
-        <BorrowTableList<IBorrowSelectAsset>
-          data={filteredAssets}
-          isLoading={Boolean(isLoading)}
-          columns={columns}
-          skeletonCount={6}
-          onPressRow={handleSelect}
-          listProps={{
-            listItemProps: (item) =>
-              item.reserveAddress === currentReserveAddress
-                ? { bg: '$bgHover' }
-                : undefined,
-            ListFooterComponent: <Stack h={bottom || '$2'} />,
-          }}
-          emptyContent={intl.formatMessage({
-            id: ETranslations.global_no_results,
-          })}
-        />
+        {!assetsList && !isLoading ? (
+          <Empty
+            testID="borrow-assets-error"
+            py="$16"
+            icon="ErrorOutline"
+            title={intl.formatMessage({
+              id: ETranslations.global_an_error_occurred,
+            })}
+            description={intl.formatMessage({
+              id: ETranslations.global_an_error_occurred_desc,
+            })}
+            buttonProps={{
+              testID: 'borrow-assets-retry',
+              onPress: () => refreshAssets(),
+              children: intl.formatMessage({
+                id: ETranslations.global_retry,
+              }),
+            }}
+          />
+        ) : (
+          <BorrowTableList<IBorrowSelectAsset>
+            data={assetsToRender}
+            isLoading={Boolean(isLoading)}
+            columns={columns}
+            hideEmptyState={foldedAssets.length > 0}
+            skeletonCount={6}
+            onPressRow={handleSelect}
+            listProps={{
+              listItemProps: (item) =>
+                item.reserveAddress === currentReserveAddress
+                  ? { bg: '$bgHover' }
+                  : undefined,
+              ListFooterComponent: listFooter,
+            }}
+            emptyContent={intl.formatMessage({
+              id: ETranslations.global_no_results,
+            })}
+          />
+        )}
       </Page.Body>
     </Page>
   );

@@ -10,6 +10,9 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 
 import { TradingViewMobileChartSettingsDialogContent } from './TradingViewMobileChartSettingsDialogContent';
+import { pushTradingViewNativeFullscreenModal } from './TradingViewNativePresentation';
+
+import type { ITradingViewNativeStorageNamespace } from './types';
 
 const SETTINGS_BUTTON_SIZE = 24;
 const PRICE_AXIS_FALLBACK_WIDTH = 52;
@@ -25,21 +28,38 @@ export function getTradingViewNativeChartSettingsButtonRight(
 }
 
 export function TradingViewNativeChartSettingsButton({
+  storageNamespace,
   priceAxisWidth,
+  enablePreviousClose = false,
   isChartSwitchDisabled = false,
   onChartSwitch,
+  onBeforeOpenSettings,
+  placement = 'chart',
 }: {
+  storageNamespace?: ITradingViewNativeStorageNamespace;
   priceAxisWidth: number;
+  enablePreviousClose?: boolean;
   isChartSwitchDisabled?: boolean;
   onChartSwitch?: () => void;
+  onBeforeOpenSettings?: () => void;
+  placement?: 'chart' | 'toolbar';
 }) {
+  const isToolbar = placement === 'toolbar';
   const intl = useIntl();
   const navigation = useAppNavigation();
   const openChartSettingsModal = useCallback(() => {
-    navigation.pushModal(EModalRoutes.MarketModal, {
+    const params = {
       screen: EModalMarketRoutes.MarketChartSettings,
-    });
-  }, [navigation]);
+      params: {
+        showPreviousClose: enablePreviousClose,
+        ...(storageNamespace ? { storageNamespace } : {}),
+      },
+    };
+    if (pushTradingViewNativeFullscreenModal(EModalRoutes.MarketModal, params))
+      return;
+    onBeforeOpenSettings?.();
+    navigation.pushModal(EModalRoutes.MarketModal, params);
+  }, [enablePreviousClose, navigation, onBeforeOpenSettings, storageNamespace]);
   const handlePress = useCallback(() => {
     Dialog.show({
       title: intl.formatMessage({ id: ETranslations.global_settings }),
@@ -47,35 +67,48 @@ export function TradingViewNativeChartSettingsButton({
       testID: 'trading-view-native-chart-settings-quick-dialog',
       renderContent: (
         <TradingViewMobileChartSettingsDialogContent
+          storageNamespace={storageNamespace}
           chartMode="native"
           isChartSwitchDisabled={isChartSwitchDisabled}
+          showPreviousClose={enablePreviousClose}
           onChartSwitch={onChartSwitch}
           onOpenSettings={openChartSettingsModal}
         />
       ),
     });
-  }, [intl, isChartSwitchDisabled, onChartSwitch, openChartSettingsModal]);
+  }, [
+    enablePreviousClose,
+    intl,
+    isChartSwitchDisabled,
+    onChartSwitch,
+    storageNamespace,
+    openChartSettingsModal,
+  ]);
 
   return (
     <IconButton
       testID="trading-view-native-chart-settings-trigger"
-      position="absolute"
-      right={getTradingViewNativeChartSettingsButtonRight(priceAxisWidth)}
-      bottom={0}
+      position={isToolbar ? undefined : 'absolute'}
+      right={
+        isToolbar
+          ? undefined
+          : getTradingViewNativeChartSettingsButtonRight(priceAxisWidth)
+      }
+      bottom={isToolbar ? undefined : 0}
       zIndex={3}
-      width={SETTINGS_BUTTON_SIZE}
-      height={SETTINGS_BUTTON_SIZE}
+      width={isToolbar ? 32 : SETTINGS_BUTTON_SIZE}
+      height={isToolbar ? 32 : SETTINGS_BUTTON_SIZE}
       p="$1"
       size="small"
       variant="tertiary"
-      icon="SettingsOutline"
-      iconSize="$4"
+      icon={isToolbar ? 'SliderHorOutline' : 'SettingsOutline'}
+      iconSize={isToolbar ? '$5' : '$4'}
       accessibilityLabel={intl.formatMessage({
         id: ETranslations.market_chart_settings,
       })}
       onPress={handlePress}
       {...HEADER_ICON_BUTTON_STYLE_PROPS}
-      bg="$bgApp"
+      bg={isToolbar ? '$transparent' : '$bgApp'}
       borderWidth={0}
     />
   );

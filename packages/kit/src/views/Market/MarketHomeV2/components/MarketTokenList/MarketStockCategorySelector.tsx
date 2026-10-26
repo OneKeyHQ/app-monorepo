@@ -13,6 +13,7 @@ import { useNetworkFilterScroll } from '../../hooks/useNetworkFilterScroll';
 import {
   CategoryFilterItem,
   CategoryFilterItemWithLayout,
+  MARKET_MOBILE_CATEGORY_CHIP_PROPS,
 } from '../CategoryFilterItem';
 
 import type { IMarketCategoryItem } from '../../types';
@@ -103,6 +104,7 @@ function MarketStockCategorySelectorImpl({
           name={category.name}
           isSelected={category.id === selectedCategoryId}
           onPress={() => onSelectCategory(category.id)}
+          {...MARKET_MOBILE_CATEGORY_CHIP_PROPS}
         />
       ))}
     </ScrollableFilterBar>

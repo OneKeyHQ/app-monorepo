@@ -79,6 +79,26 @@ describe('cancelFirmwareUpdateWorkflow', () => {
 
     expect(mockExitUpdateWorkflow).toHaveBeenCalledTimes(1);
   });
+
+  it('allows App exit and clears the workflow while the hardware cancellation is pending', async () => {
+    let finishCancel!: () => void;
+    mockCancel.mockReturnValueOnce(
+      new Promise<void>((resolve) => {
+        finishCancel = resolve;
+      }),
+    );
+    FirmwareUpdateExitPrevent({});
+    const [{ onConfirm, shouldRemoveOnConfirm }] =
+      mockUseModalExitPrevent.mock.calls[0];
+
+    expect(shouldRemoveOnConfirm).toBe(true);
+    onConfirm?.();
+
+    expect(mockExitUpdateWorkflow).toHaveBeenCalledTimes(1);
+    expect(mockCancel).toHaveBeenCalledWith({ immediate: true });
+    finishCancel();
+    await Promise.resolve();
+  });
 });
 
 describe('cancelFirmwareUpdateAttempt', () => {

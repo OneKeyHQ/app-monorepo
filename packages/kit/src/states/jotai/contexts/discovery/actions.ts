@@ -1251,14 +1251,21 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
       { dApp, webSite, isNewWindow, tabId }: IMatchDAppItemType,
     ) => {
       if (webSite) {
+        let favicon: string | undefined;
+        try {
+          favicon =
+            await backgroundApiProxy.serviceDiscovery.buildWebsiteIconUrl(
+              webSite.url,
+            );
+        } catch {
+          // A favicon is optional; opening the website must remain available
+          // when the icon service is unavailable in any runtime mode.
+        }
         return this.gotoSite.call(set, {
           id: tabId,
           url: webSite.url,
           title: webSite.title,
-          favicon:
-            await backgroundApiProxy.serviceDiscovery.buildWebsiteIconUrl(
-              webSite.url,
-            ),
+          favicon,
           isNewWindow,
         });
       }

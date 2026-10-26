@@ -4,7 +4,7 @@ export type IPrimeSubscriptionInfo = {
   expiresAt: number;
   subscriptions?: {
     id?: string;
-    managementUrl?: string;
+    managementUrl?: string | null;
     // Payment channel owning this subscription as declared by the server,
     // e.g. 'infini' for the crypto channel; used to route the in-app
     // manage-subscription entry without an extra lookup
@@ -22,6 +22,7 @@ export type IPrimeUserInfo = {
   displayEmail: string | undefined; // update by server api
   nickname: string | undefined; // update by server api
   avatar: string | undefined; // update by server api
+  inviteProfilePublic: boolean | undefined;
   onekeyUserId: string | undefined;
   onekeyAccount: IOneKeyIdAccount | undefined;
   subscriptionManageUrl: string | undefined; // update by local revenuecat sdk: Purchases.getCustomerInfo()
@@ -32,6 +33,12 @@ export enum EPrimeAuthSessionSource {
   LegacyEmailSupabase = 'legacy_email_supabase',
   KeylessOAuth = 'keyless_oauth',
 }
+
+export type IPrimeInfiniCheckoutAuthContext = {
+  onekeyUserId: string;
+  authSessionSource: EPrimeAuthSessionSource;
+  authStateGeneration: number;
+};
 
 export enum EOneKeyIdOAuthFlowStatus {
   Success = 'success',
@@ -115,6 +122,9 @@ export type IOneKeyIdOAuthLoginPrimeUserInfo = {
   inviteCode?: string;
   customInviteCode?: string;
   kytEnabled?: boolean;
+  // Only a real true is consent. Omitted means the login payload did not
+  // include a decision.
+  inviteProfilePublic?: boolean;
 };
 
 export type IOneKeyIdOAuthLoginResponse = IOneKeyIdOAuthLoginPrimeUserInfo & {
@@ -203,6 +213,7 @@ export type IPrimeInfiniPaymentCreateParams = {
 export type IPrimeRedemptionParams = {
   code: string;
   expectedOneKeyUserId: string;
+  primeGiftSerialNo?: string;
 };
 
 export type IPrimeRedemptionResult = {
@@ -291,6 +302,58 @@ export type IPrimeInfiniPendingPaymentSessionInput = Omit<
   'schemaVersion' | 'updatedAt'
 >;
 
+export type IPrimeWebCheckoutPlatform =
+  | 'extension'
+  | 'desktop'
+  | 'web'
+  | 'android';
+
+export type IPrimeWebCheckoutExtensionContext = {
+  // 'tab' covers the expand tab and the standalone window; both can be
+  // re-focused by tab id. The side panel has no tab of its own.
+  initiatorKind: 'tab' | 'sidePanel';
+  initiatorTabId?: number;
+  // Side panels are per window.
+  initiatorWindowId?: number;
+  // Tab ids must be persisted: the extension has no `tabs` permission to look
+  // the checkout tab up by URL, and the service worker can restart meanwhile.
+  checkoutTabId?: number;
+  // Tab and window ids are only unique within one browser session; ids from
+  // another session must not be used.
+  browserSessionId?: string;
+};
+
+/**
+ * A RevenueCat hosted card checkout (Web Purchase Link) opened outside the
+ * app. Success is decided only by polling RevenueCat; this record lets any
+ * runtime resume that check after the checkout page returns.
+ */
+export type IPrimeWebCheckoutPendingSession = {
+  checkoutId: string;
+  onekeyUserId: string;
+  subscriptionPeriod: 'P1Y' | 'P1M';
+  packageId: string;
+  offeringId: string;
+  // Analytics only; the hosted page decides the final price.
+  amount: number;
+  currency: string;
+  featureName?: string;
+  isSandbox: boolean;
+  platform: IPrimeWebCheckoutPlatform;
+  // Reopening the checkout reuses the same URL. It contains the OneKey ID and
+  // email, so it must never be logged.
+  checkoutUrl: string;
+  startedAt: number;
+  extension?: IPrimeWebCheckoutExtensionContext;
+};
+
+export type IPrimeWebCheckoutOpenOptions = {
+  // Prefills the hosted form; never stored with the session.
+  email?: string;
+  // The pending checkout this one replaces.
+  replacedSession?: IPrimeWebCheckoutPendingSession;
+};
+
 // Infini crypto subscription detail returned by
 // GET /prime/v1/infini/subscription.
 // NOTE: backend schema pending confirmation — fields below are proposed from
@@ -355,7 +418,7 @@ export type IPrimeServerUserInfo = {
   emails: string[];
   subscriptions?: {
     id?: string;
-    managementUrl?: string;
+    managementUrl?: string | null;
     // Payment channel owning this subscription (e.g. 'infini'), see
     // IPrimeSubscriptionInfo.subscriptions
     channel?: string;
@@ -368,6 +431,8 @@ export type IPrimeServerUserInfo = {
   // Whether the user has enabled KYT (receive risk monitoring) on the server.
   // Used as the source of truth for the KYT switch and the intro dialog gate.
   kytEnabled?: boolean;
+
+  inviteProfilePublic?: boolean;
 };
 
 export enum ESecurityPasswordType {

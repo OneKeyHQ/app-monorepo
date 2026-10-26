@@ -62,16 +62,10 @@ export function normalizeNativePrice(
 }
 
 // Single decision table for whether ANY signing exit (Sign all, per-row
-// drill-down, Complete-stage Done) may proceed. Mirrors TxConfirm's
-// `showTakeRiskAlert && !continueOperate` gate and adds the "risk query
-// still pending" state TxConfirm gets for free from its fee/decode init
-// gating: useRiskDetection's urlSecurityInfo is undefined until
-// checkUrlSecurity settles, and in that window riskLevel falls back to
-// Unknown — which auto-ticks continueOperate and would leave every exit
-// enabled before the verdict arrives. checkUrlSecurity ALWAYS settles
-// (ServiceDiscovery falls back to an Unknown-level result on any
-// error/timeout), so treating pending as blocked can never lock the page
-// permanently.
+// drill-down, Complete-stage Done) may proceed. Keep pending explicit because
+// its checkbox is hidden until a risk verdict exists. checkUrlSecurity always
+// settles to a level, including Unknown on error/timeout, so this cannot lock
+// the page permanently.
 export function computeSignExitGate({
   origin,
   urlSecurityInfo,

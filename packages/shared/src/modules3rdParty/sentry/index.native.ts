@@ -10,7 +10,11 @@ import {
 
 import appGlobals from '../../appGlobals';
 
-import { buildBasicOptions, sanitizeSentryEvent } from './basicOptions';
+import {
+  buildBasicOptions,
+  sanitizeNavigationBreadcrumbsForLocalLog,
+  sanitizeSentryEvent,
+} from './basicOptions';
 
 import type { ISentrySanitizationErrorHandler } from './basicOptions';
 import type { FallbackRender } from '@sentry/react';
@@ -49,36 +53,48 @@ export const initSentry = () => {
   type INativeSentryOptions = Parameters<typeof init>[0];
   const nativeBeforeSend: NonNullable<INativeSentryOptions['beforeSend']> = (
     event,
-  ) => sanitizeSentryEvent(event, onError);
+  ) => {
+    const navigationBreadcrumbs = sanitizeNavigationBreadcrumbsForLocalLog(
+      event.breadcrumbs,
+    );
+    if (navigationBreadcrumbs.length > 0) {
+      const breadcrumbText = navigationBreadcrumbs
+        .map(({ message, from, to }) =>
+          [message, from ? `from=${from}` : '', to ? `to=${to}` : '']
+            .filter(Boolean)
+            .join(' '),
+        )
+        .filter(Boolean)
+        .join(' | ');
+      if (breadcrumbText) {
+        appGlobals.$defaultLogger?.app.error.log(
+          `[SentryNavigationBreadcrumbs] ${breadcrumbText}`,
+        );
+      }
+    }
+    const sanitizedEvent = sanitizeSentryEvent(event, onError);
+    if (sanitizedEvent) {
+      sanitizedEvent.breadcrumbs = [];
+    }
+    return sanitizedEvent;
+  };
   const nativeBasicOptions = {
     enabled: basicOptions.enabled,
     maxBreadcrumbs: basicOptions.maxBreadcrumbs,
     beforeSend: nativeBeforeSend,
   };
-
   init({
     dsn: process.env.SENTRY_DSN_REACT_NATIVE || '',
     ...nativeBasicOptions,
-    maxCacheItems: 60,
-    enableAppHangTracking: true,
-    appHangTimeoutInterval: 5,
+    attachScreenshot: false,
+    attachViewHierarchy: false,
+    sendDefaultPii: false,
+    autoInitializeNativeSdk: false,
     // Performance tracing fully disabled on native — tracesSampleRate is
     // stripped above so the SDK installs none of its default tracing
     // integrations; error reporting + breadcrumbs are unaffected.
     integrations: [],
     enableAutoPerformanceTracing: false,
-    // Disable Hermes profiling on React Native. With multiple Hermes runtimes
-    // in the iOS release smoke test, native stopProfiling can throw on a
-    // background queue and crash during TurboModule error conversion.
-    // Disable options that may include sensitive memory context or visual data.
-    // enableNativeCrashHandling and enableNdk are kept enabled because they only
-    // collect stack traces and thread stack memory (not Hermes JS
-    // heap), which is safe for privacy and essential for diagnosing native crashes.
-    enableNativeCrashHandling: true,
-    enableNdk: true,
-    enableWatchdogTerminationTracking: false,
-    attachScreenshot: false,
-    attachViewHierarchy: false,
   });
 };
 

@@ -127,6 +127,7 @@ function PerpMobileChartContent({
               key={chartCoin}
               testID={PerpTestIDs.MobileChart}
               source={chartSource}
+              storageNamespace="perps"
               nativeChartDisplayMode="compact"
               nativeControlsLayoutMode="mobile"
               onNativeChartClose={onClose}

@@ -2,20 +2,78 @@
 // eslint-disable-next-line @typescript-eslint/consistent-type-imports
 import type { ISubscriptionPeriod } from '@onekeyhq/kit/src/views/Prime/hooks/usePrimePaymentTypes';
 import type { EPrimeFeatures } from '@onekeyhq/shared/src/routes/prime';
+import type {
+  IPrimeFreeTrialAttemptParams,
+  IPrimeFreeTrialResultParams,
+} from '@onekeyhq/shared/src/utils/primeFreeTrialAnalytics';
 import { getPrimeInfiniPaymentSafeLogParams } from '@onekeyhq/shared/src/utils/primeInfiniPaymentDiagnostics';
 import {
   getOneKeyIdAuthFailureServerParams,
+  getOneKeyIdAuthFailureSite,
   scrubSensitiveErrorMessageText,
 } from '@onekeyhq/shared/src/utils/sensitiveErrorMessageUtils';
-import type { IOneKeyIdAuthFailureLogSource } from '@onekeyhq/shared/src/utils/sensitiveErrorMessageUtils';
+import type {
+  IOneKeyIdAuthFailureLogSource,
+  IOneKeyIdAuthFailureStep,
+  IOneKeyIdAuthFailureTrigger,
+} from '@onekeyhq/shared/src/utils/sensitiveErrorMessageUtils';
 import type { IPrimeInfiniPaymentSource } from '@onekeyhq/shared/types/prime/primeTypes';
 
 import { BaseScene } from '../../../base/baseScene';
 import { LogToLocal, LogToServer } from '../../../base/decorators';
+import { NO_LOG_OUTPUT } from '../../../types';
+import {
+  getOneKeyIdAuthFailureSignature,
+  oneKeyIdAuthFailureLogLimiter,
+} from '../oneKeyIdAuthFailureLogLimiter';
+
+import type {
+  IOneKeyIdAuthFailureDueSummaries,
+  IOneKeyIdAuthFailureLogPayload,
+  IOneKeyIdAuthFailureLogTrigger,
+  IOneKeyIdAuthFailureOverflowSummary,
+  IOneKeyIdAuthFailureRepeatSummary,
+} from '../oneKeyIdAuthFailureLogLimiter';
+import type {
+  IPrimeEntitlementSource,
+  IPrimeFreeTrialExhaustedTrigger,
+  IPrimeFreeTrialLoginResult,
+} from '../types';
 
 // Payment channel dimension: 'iap' = native in-app purchase (RevenueCat),
 // 'stripe' = RevenueCat web billing (Stripe), 'crypto' = Infini crypto checkout
 export type IPrimePaymentMethod = 'iap' | 'stripe' | 'crypto';
+
+// Card checkout flow for paymentMethod 'stripe': 'embedded' = purchases-js
+// Stripe form inside the app, 'hostedLink' = RevenueCat Web Purchase Link.
+export type IPrimeCardCheckoutFlow = 'embedded' | 'hostedLink';
+
+export type IPrimeWebCheckoutFlowParams = {
+  stage:
+    | 'extensionHandoff'
+    | 'fallback'
+    | 'baseline'
+    | 'open'
+    | 'reopen'
+    | 'return'
+    | 'polling'
+    | 'settle'
+    | 'recovery';
+  status:
+    | 'started'
+    | 'succeeded'
+    | 'failed'
+    | 'blocked'
+    | 'pending'
+    | 'timedOut'
+    | 'cancelled';
+  reason?: string;
+  platform?: string;
+  isSandbox?: boolean;
+  subscriptionPeriod?: ISubscriptionPeriod;
+  featureName?: EPrimeFeatures | string;
+  periodType?: string;
+};
 
 // Interactive login method dimension for the OneKey ID login funnel.
 export type IOneKeyIdLoginMethod = 'email' | 'google' | 'apple' | 'oauth';
@@ -160,6 +218,32 @@ export type IOneKeyIdAuthStateRepairParams = {
     | 'incompleteLogoutProjection';
 };
 
+export type IPrimeGiftAnalyticsSource = 'onboarding' | 'deviceDetails';
+
+export type IPrimeGiftStageParams =
+  | {
+      stage: 'login';
+      status: 'start' | 'success' | 'cancel' | 'failed';
+    }
+  | {
+      stage: 'verify';
+      status:
+        | 'start'
+        | 'success'
+        | 'noCode'
+        | 'alreadyClaimed'
+        | 'cancel'
+        | 'failed';
+    }
+  | {
+      stage: 'claim';
+      status: 'submit';
+    }
+  | {
+      stage: 'code';
+      status: 'view' | 'copy';
+    };
+
 export class PrimeSubscriptionScene extends BaseScene {
   /**
    * Prime feature entry click
@@ -181,7 +265,9 @@ export class PrimeSubscriptionScene extends BaseScene {
       | 'accountSelectorAddMenu'
       | 'browserTranslate'
       | 'historySettings'
-      | 'sendAddressInput';
+      | 'sendAddressInput'
+      | 'signatureConfirm'
+      | 'approvalBulkRevoke';
     isPrimeActive: boolean;
   }) {
     return {
@@ -220,14 +306,96 @@ export class PrimeSubscriptionScene extends BaseScene {
   public primeDashboardShow({
     featureName,
     isPrimeActive,
+    entitlementSource,
+    freeTrialReason,
   }: {
     featureName?: EPrimeFeatures;
     isPrimeActive: boolean;
+    // Set when the dashboard is opened by the free-trial flow
+    entitlementSource?: IPrimeEntitlementSource;
+    freeTrialReason?: 'exhausted' | 'notOpen';
   }) {
     return {
       featureName,
       isPrimeActive,
+      entitlementSource,
+      freeTrialReason,
     };
+  }
+
+  /**
+   * Free-trial login result
+   * Triggered when a logged-out user is asked to log in to try a feature.
+   */
+  @LogToServer()
+  public primeFreeTrialLoginResult(params: {
+    featureName: EPrimeFeatures;
+    featureId: EPrimeFeatures;
+    result: IPrimeFreeTrialLoginResult;
+  }) {
+    return params;
+  }
+
+  /**
+   * Free-trial usage consumed
+   * Triggered once per usage id (or translate session) at the background
+   * success settle point, i.e. when the usage is charged.
+   */
+  @LogToServer()
+  public primeFreeTrialUsageSuccess(params: {
+    featureName: EPrimeFeatures;
+    featureId: EPrimeFeatures;
+    entitlementSource: IPrimeEntitlementSource;
+  }) {
+    return params;
+  }
+
+  /**
+   * Free-trial quota exhausted feedback shown
+   */
+  @LogToServer()
+  public primeFreeTrialQuotaExhausted(params: {
+    featureName: EPrimeFeatures;
+    featureId: EPrimeFeatures;
+    trigger: IPrimeFreeTrialExhaustedTrigger;
+  }) {
+    return params;
+  }
+
+  /**
+   * "Get Prime" button pressed on a free-trial exhausted toast
+   */
+  @LogToServer()
+  public primeFreeTrialUpgradeClick(params: {
+    featureName: EPrimeFeatures;
+    featureId: EPrimeFeatures;
+  }) {
+    return params;
+  }
+
+  /** Client attempts, including requests blocked before any server call. */
+  @LogToServer()
+  public primeFreeTrialAttempt(
+    params: IPrimeFreeTrialAttemptParams & { source: 'client' },
+  ) {
+    return params;
+  }
+
+  /** Access grants are distinct from completed business execution. */
+  @LogToServer()
+  public primeFreeTrialResult(
+    params: IPrimeFreeTrialResultParams & { source: 'client' },
+  ) {
+    return params;
+  }
+
+  @LogToLocal({ level: 'info' })
+  public primeFreeTrialTrace(params: {
+    featureId?: EPrimeFeatures;
+    stage: string;
+    reason?: string;
+  }) {
+    return params;
   }
 
   /** Track when a logged-in user opens the Prime redemption dialog. */
@@ -247,18 +415,78 @@ export class PrimeSubscriptionScene extends BaseScene {
     isPrimeActiveBeforeRedeem,
     addedDays,
     errorCode,
+    source,
+    entry,
   }: {
-    result: 'success' | 'failed';
+    result: 'success' | 'failed' | 'unknown';
     isPrimeActiveBeforeRedeem: boolean;
     addedDays?: number;
     errorCode?: number;
+    source?: IPrimeGiftAnalyticsSource;
+    entry?: 'primeGift';
   }) {
     return {
       result,
       isPrimeActiveBeforeRedeem,
       addedDays,
       errorCode,
+      ...(source && entry ? { source, entry } : {}),
     };
+  }
+
+  /** Banner became actually visible for an eligible unclaimed gift. */
+  @LogToServer()
+  public primeGiftOfferShown({
+    source,
+  }: {
+    source: IPrimeGiftAnalyticsSource;
+  }) {
+    return { source };
+  }
+
+  /** User tapped a visible Prime gift banner. */
+  @LogToServer()
+  public primeGiftOfferClick({
+    source,
+  }: {
+    source: IPrimeGiftAnalyticsSource;
+  }) {
+    return { source };
+  }
+
+  /** Campaign banner on the Prime gift claim-success page became visible. */
+  @LogToServer()
+  public primeGiftClaimSuccessBannerShown({
+    slot,
+    linkId,
+  }: {
+    slot: string;
+    linkId: string;
+  }) {
+    return { slot, linkId };
+  }
+
+  /** User tapped the Prime gift claim-success campaign banner. */
+  @LogToServer()
+  public primeGiftClaimSuccessBannerClick({
+    slot,
+    linkId,
+  }: {
+    slot: string;
+    linkId: string;
+  }) {
+    return { slot, linkId };
+  }
+
+  /**
+   * Controlled gift funnel stages. Never includes serial, email, address,
+   * redemption code, or raw error text.
+   */
+  @LogToServer()
+  public primeGiftStage(
+    params: IPrimeGiftStageParams & { source: IPrimeGiftAnalyticsSource },
+  ) {
+    return params;
   }
 
   /**
@@ -297,18 +525,34 @@ export class PrimeSubscriptionScene extends BaseScene {
     featureName,
     currency,
     paymentMethod,
+    cardCheckoutFlow,
   }: {
     subscriptionPeriod: ISubscriptionPeriod;
     featureName?: EPrimeFeatures;
     currency?: string;
     paymentMethod?: IPrimePaymentMethod;
+    cardCheckoutFlow?: IPrimeCardCheckoutFlow;
   }) {
     return {
       subscriptionPeriod,
       featureName,
       currency,
       paymentMethod,
+      cardCheckoutFlow,
     };
+  }
+
+  /**
+   * RevenueCat hosted card checkout (Web Purchase Link) lifecycle: opening,
+   * returning from the hosted page, polling and settling the result.
+   * Never carries the checkout URL, which contains the OneKey ID and email.
+   */
+  @LogToLocal({ level: 'info' })
+  @LogToServer()
+  public primeWebCheckoutFlow(
+    params: IPrimeWebCheckoutFlowParams,
+  ): IPrimeWebCheckoutFlowParams {
+    return params;
   }
 
   @LogToLocal({ level: 'info' })
@@ -379,12 +623,18 @@ export class PrimeSubscriptionScene extends BaseScene {
     currency,
     featureName,
     paymentMethod,
+    cardCheckoutFlow,
+    periodType,
   }: {
     planType: 'monthly' | 'yearly';
     amount: number;
     currency: string;
     featureName?: EPrimeFeatures;
     paymentMethod?: IPrimePaymentMethod;
+    cardCheckoutFlow?: IPrimeCardCheckoutFlow;
+    // RevenueCat entitlement period type ('trial' / 'intro' / 'normal'),
+    // known only when success is confirmed by polling RevenueCat.
+    periodType?: string;
   }) {
     return {
       planType,
@@ -392,6 +642,8 @@ export class PrimeSubscriptionScene extends BaseScene {
       currency,
       featureName,
       paymentMethod,
+      cardCheckoutFlow,
+      periodType,
     };
   }
 
@@ -410,6 +662,7 @@ export class PrimeSubscriptionScene extends BaseScene {
     reason,
     errorCode,
     errorMessage,
+    cardCheckoutFlow,
   }: {
     paymentMethod: IPrimePaymentMethod;
     subscriptionPeriod?: ISubscriptionPeriod;
@@ -417,6 +670,7 @@ export class PrimeSubscriptionScene extends BaseScene {
     reason: IPrimeSubscribeFailedReason;
     errorCode?: string;
     errorMessage?: string;
+    cardCheckoutFlow?: IPrimeCardCheckoutFlow;
   }) {
     this.primeSubscribeFailedLocal({
       paymentMethod,
@@ -430,6 +684,7 @@ export class PrimeSubscriptionScene extends BaseScene {
       featureName,
       reason,
       errorCode,
+      cardCheckoutFlow,
     };
   }
 
@@ -619,30 +874,142 @@ export class PrimeSubscriptionScene extends BaseScene {
     return getOneKeyIdAuthFailureServerParams({ source, reason });
   }
 
-  // A OneKey ID auth failure reason recorded at the throw site. The scrubbed
-  // cause stays in local logs while a strict structured subset reaches the
-  // server. Fires regardless of which toast (auto, fallback, or none)
-  // surfaces the failure — unlike onekeyIdLoginFailedToast above, which
-  // strictly means "the fallback toast was shown".
+  // A OneKey ID auth failure reason recorded at the throw site. Fires
+  // regardless of which toast (auto, fallback, or none) surfaces the
+  // failure — unlike onekeyIdLoginFailedToast above, which strictly means
+  // "the fallback toast was shown". It also fires from passive session
+  // checks, so `trigger` separates real login attempts from those.
+  // The scrubbed reason stays in local logs; the server gets structured
+  // fields plus the code-authored failure location, never error text.
+  // Every call, from logOneKeyIdLoginFailureReason or direct, goes through
+  // oneKeyIdAuthFailureLogLimiter: repeats of one failure inside its window
+  // are counted instead of written locally or sent, and reported later by
+  // onekeyIdLoginFailedReasonRepeated.
   @LogToServer()
-  public onekeyIdLoginFailedReason({ reason }: { reason: string }) {
+  public onekeyIdLoginFailedReason({
+    reason,
+    step,
+    trigger,
+    error,
+  }: {
+    reason: string;
+    step?: IOneKeyIdAuthFailureStep;
+    trigger?: IOneKeyIdAuthFailureTrigger;
+    // The caught error, if any. Only its Desktop API IPC call context
+    // (module/method) is read; the error itself is never logged.
+    error?: unknown;
+  }) {
     const source = 'throwSite';
-    this.onekeyIdAuthFailureLocal({ source, reason });
-    return getOneKeyIdAuthFailureServerParams({ source, reason });
+    const payload: IOneKeyIdAuthFailureLogPayload = {
+      ...getOneKeyIdAuthFailureServerParams({ source, reason, step, error }),
+      trigger: trigger ?? 'unknown',
+      failureSite: getOneKeyIdAuthFailureSite(reason),
+    };
+    const { shouldReport, ...due } = oneKeyIdAuthFailureLogLimiter.consume({
+      signature: getOneKeyIdAuthFailureSignature(payload),
+      payload,
+    });
+    this.reportOneKeyIdAuthFailureSummaries(due);
+    this.scheduleOneKeyIdAuthFailureSummaryFlush();
+    if (!shouldReport) {
+      return NO_LOG_OUTPUT;
+    }
+    this.onekeyIdAuthFailureLocal({
+      source,
+      reason,
+      trigger: payload.trigger,
+      ipcModule: payload.ipcModule,
+      ipcMethod: payload.ipcMethod,
+    });
+    return payload;
+  }
+
+  // Occurrences of one onekeyIdLoginFailedReason failure that were held back
+  // during its window: how many, and the first/last time (epoch ms). Sent
+  // when the window ends, as its own event so it never inflates the failure
+  // count.
+  @LogToLocal({ level: 'warn' })
+  @LogToServer()
+  public onekeyIdLoginFailedReasonRepeated(
+    summary: IOneKeyIdAuthFailureRepeatSummary,
+  ) {
+    return summary;
+  }
+
+  // onekeyIdLoginFailedReason occurrences dropped untracked because every
+  // limiter slot was in use during the window.
+  @LogToLocal({ level: 'warn' })
+  @LogToServer()
+  public onekeyIdLoginFailedReasonOverflow(
+    summary: IOneKeyIdAuthFailureOverflowSummary,
+  ) {
+    return summary;
+  }
+
+  private reportOneKeyIdAuthFailureSummaries({
+    summaries,
+    overflow,
+  }: IOneKeyIdAuthFailureDueSummaries) {
+    summaries.forEach((summary) =>
+      this.onekeyIdLoginFailedReasonRepeated(summary),
+    );
+    if (overflow) {
+      this.onekeyIdLoginFailedReasonOverflow(overflow);
+    }
+  }
+
+  private oneKeyIdAuthFailureSummaryFlush:
+    | { dueAt: number; timer: ReturnType<typeof setTimeout> }
+    | undefined;
+
+  // Reports held-back repeats when their window ends, even if the failure
+  // never recurs. A runtime restart drops the timer; the persisted counts
+  // are then reported on the next OneKey ID auth failure of any kind.
+  private scheduleOneKeyIdAuthFailureSummaryFlush() {
+    const dueAt = oneKeyIdAuthFailureLogLimiter.getNextSummaryDueAt();
+    const scheduled = this.oneKeyIdAuthFailureSummaryFlush;
+    if (dueAt === undefined || (scheduled && scheduled.dueAt <= dueAt)) {
+      return;
+    }
+    if (scheduled) {
+      clearTimeout(scheduled.timer);
+    }
+    const timer = setTimeout(
+      () => {
+        this.oneKeyIdAuthFailureSummaryFlush = undefined;
+        this.reportOneKeyIdAuthFailureSummaries(
+          oneKeyIdAuthFailureLogLimiter.takeDueSummaries(),
+        );
+        this.scheduleOneKeyIdAuthFailureSummaryFlush();
+      },
+      Math.max(0, dueAt - Date.now()),
+    );
+    // Node-based runtimes (tests, tooling) must not stay alive for it.
+    (timer as { unref?: () => void }).unref?.();
+    this.oneKeyIdAuthFailureSummaryFlush = { dueAt, timer };
   }
 
   // Keeps the scrubbed diagnostic text on the device. The corresponding
-  // server events above receive only strict structured fields.
+  // server events above receive only structured fields.
   @LogToLocal({ level: 'error' })
   public onekeyIdAuthFailureLocal({
     source,
     reason,
+    trigger,
+    ipcModule,
+    ipcMethod,
   }: {
     source: IOneKeyIdAuthFailureLogSource;
     reason: string;
+    trigger?: IOneKeyIdAuthFailureLogTrigger;
+    ipcModule?: string;
+    ipcMethod?: string;
   }) {
     return {
       source,
+      trigger,
+      ipcModule,
+      ipcMethod,
       reason: scrubSensitiveErrorMessageText(reason),
     };
   }

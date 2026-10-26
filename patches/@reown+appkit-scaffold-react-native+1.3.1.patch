@@ -1,3 +1,68 @@
+diff --git a/node_modules/@reown/appkit-scaffold-react-native/lib/commonjs/modal/w3m-modal/index.js b/node_modules/@reown/appkit-scaffold-react-native/lib/commonjs/modal/w3m-modal/index.js
+index 2afcde5..8b86a80 100644
+--- a/node_modules/@reown/appkit-scaffold-react-native/lib/commonjs/modal/w3m-modal/index.js
++++ b/node_modules/@reown/appkit-scaffold-react-native/lib/commonjs/modal/w3m-modal/index.js
+@@ -8,6 +8,7 @@ var _valtio = require("valtio");
+ var _react = require("react");
+ var _reactNative = require("react-native");
+ var _reactNativeModal = _interopRequireDefault(require("react-native-modal"));
++var _reactNativeSafeAreaContext = require("react-native-safe-area-context");
+ var _appkitUiReactNative = require("@reown/appkit-ui-react-native");
+ var _appkitCoreReactNative = require("@reown/appkit-core-react-native");
+ var _appkitSiweReactNative = require("@reown/appkit-siwe-react-native");
+@@ -17,6 +18,20 @@ var _w3mSnackbar = require("../../partials/w3m-snackbar");
+ var _useCustomDimensions = require("../../hooks/useCustomDimensions");
+ var _styles = _interopRequireDefault(require("./styles"));
+ function _interopRequireDefault(e) { return e && e.__esModule ? e : { default: e }; }
++function ModalSafeAreaFill({ height }) {
++  const Theme = (0, _appkitUiReactNative.useTheme)();
++  return /*#__PURE__*/React.createElement(_reactNative.View, {
++    pointerEvents: "none",
++    style: {
++      position: 'absolute',
++      bottom: 0,
++      left: 0,
++      right: 0,
++      height,
++      backgroundColor: Theme['bg-100']
++    }
++  });
++}
+ function AppKit() {
+   const {
+     open,
+@@ -37,6 +52,9 @@ function AppKit() {
+   const {
+     height
+   } = (0, _reactNative.useWindowDimensions)();
++  const {
++    bottom: safeAreaBottom
++  } = (0, _reactNativeSafeAreaContext.useSafeAreaInsets)();
+   const {
+     isLandscape
+   } = (0, _useCustomDimensions.useCustomDimensions)();
+@@ -119,7 +137,9 @@ function AppKit() {
+     themeMode: themeMode,
+     themeVariables: themeVariables
+   }, /*#__PURE__*/React.createElement(_reactNativeModal.default, {
+-    style: _styles.default.modal,
++    style: [_styles.default.modal, {
++      paddingBottom: safeAreaBottom
++    }],
+     coverScreen: false,
+     isVisible: open,
+     useNativeDriver: true,
+@@ -131,7 +151,9 @@ function AppKit() {
+     onBackdropPress: _appkitCoreReactNative.ModalController.close,
+     onBackButtonPress: onBackButtonPress,
+     testID: "w3m-modal"
+-  }, /*#__PURE__*/React.createElement(_appkitUiReactNative.Card, {
++  }, /*#__PURE__*/React.createElement(ModalSafeAreaFill, {
++    height: safeAreaBottom
++  }), /*#__PURE__*/React.createElement(_appkitUiReactNative.Card, {
+     style: [_styles.default.card, {
+       maxHeight: isLandscape ? landScapeHeight : portraitHeight
+     }]
 diff --git a/node_modules/@reown/appkit-scaffold-react-native/lib/commonjs/modal/w3m-modal/styles.js b/node_modules/@reown/appkit-scaffold-react-native/lib/commonjs/modal/w3m-modal/styles.js
 index 4408fba..a43b38c 100644
 --- a/node_modules/@reown/appkit-scaffold-react-native/lib/commonjs/modal/w3m-modal/styles.js
@@ -13,6 +78,72 @@ index 4408fba..a43b38c 100644
    },
    card: {
      borderBottomLeftRadius: 0,
+diff --git a/node_modules/@reown/appkit-scaffold-react-native/lib/module/modal/w3m-modal/index.js b/node_modules/@reown/appkit-scaffold-react-native/lib/module/modal/w3m-modal/index.js
+index f93d8c6..671408b 100644
+--- a/node_modules/@reown/appkit-scaffold-react-native/lib/module/modal/w3m-modal/index.js
++++ b/node_modules/@reown/appkit-scaffold-react-native/lib/module/modal/w3m-modal/index.js
+@@ -1,8 +1,9 @@
+ import { useSnapshot } from 'valtio';
+ import { useCallback, useEffect } from 'react';
+-import { useWindowDimensions, StatusBar } from 'react-native';
++import { useWindowDimensions, StatusBar, View } from 'react-native';
+ import Modal from 'react-native-modal';
+-import { Card, ThemeProvider } from '@reown/appkit-ui-react-native';
++import { useSafeAreaInsets } from 'react-native-safe-area-context';
++import { Card, ThemeProvider, useTheme } from '@reown/appkit-ui-react-native';
+ import { AccountController, ApiController, ConnectionController, ConnectorController, CoreHelperUtil, EventsController, ModalController, OptionsController, RouterController, TransactionsController, ThemeController } from '@reown/appkit-core-react-native';
+ import { SIWEController } from '@reown/appkit-siwe-react-native';
+ import { AppKitRouter } from '../w3m-router';
+@@ -10,6 +11,17 @@ import { Header } from '../../partials/w3m-header';
+ import { Snackbar } from '../../partials/w3m-snackbar';
+ import { useCustomDimensions } from '../../hooks/useCustomDimensions';
+ import styles from './styles';
++function ModalSafeAreaFill({ height }) {
++  const Theme = useTheme();
++  return <View pointerEvents="none" style={{
++    position: 'absolute',
++    bottom: 0,
++    left: 0,
++    right: 0,
++    height,
++    backgroundColor: Theme['bg-100']
++  }} />;
++}
+ export function AppKit() {
+   const {
+     open,
+@@ -30,6 +42,9 @@ export function AppKit() {
+   const {
+     height
+   } = useWindowDimensions();
++  const {
++    bottom: safeAreaBottom
++  } = useSafeAreaInsets();
+   const {
+     isLandscape
+   } = useCustomDimensions();
+@@ -112,7 +127,9 @@ export function AppKit() {
+     themeMode: themeMode,
+     themeVariables: themeVariables
+   }, /*#__PURE__*/React.createElement(Modal, {
+-    style: styles.modal,
++    style: [styles.modal, {
++      paddingBottom: safeAreaBottom
++    }],
+     coverScreen: false,
+     isVisible: open,
+     useNativeDriver: true,
+@@ -124,7 +141,9 @@ export function AppKit() {
+     onBackdropPress: ModalController.close,
+     onBackButtonPress: onBackButtonPress,
+     testID: "w3m-modal"
+-  }, /*#__PURE__*/React.createElement(Card, {
++  }, /*#__PURE__*/React.createElement(ModalSafeAreaFill, {
++    height: safeAreaBottom
++  }), /*#__PURE__*/React.createElement(Card, {
+     style: [styles.card, {
+       maxHeight: isLandscape ? landScapeHeight : portraitHeight
+     }]
 diff --git a/node_modules/@reown/appkit-scaffold-react-native/lib/module/modal/w3m-modal/styles.js b/node_modules/@reown/appkit-scaffold-react-native/lib/module/modal/w3m-modal/styles.js
 index 08ead2c..68e8e85 100644
 --- a/node_modules/@reown/appkit-scaffold-react-native/lib/module/modal/w3m-modal/styles.js
@@ -28,3 +159,73 @@ index 08ead2c..68e8e85 100644
    },
    card: {
      borderBottomLeftRadius: 0,
+diff --git a/node_modules/@reown/appkit-scaffold-react-native/src/modal/w3m-modal/index.tsx b/node_modules/@reown/appkit-scaffold-react-native/src/modal/w3m-modal/index.tsx
+index 6823724..257de24 100644
+--- a/node_modules/@reown/appkit-scaffold-react-native/src/modal/w3m-modal/index.tsx
++++ b/node_modules/@reown/appkit-scaffold-react-native/src/modal/w3m-modal/index.tsx
+@@ -1,8 +1,9 @@
+ import { useSnapshot } from 'valtio';
+ import { useCallback, useEffect } from 'react';
+-import { useWindowDimensions, StatusBar } from 'react-native';
++import { useWindowDimensions, StatusBar, View } from 'react-native';
+ import Modal from 'react-native-modal';
+-import { Card, ThemeProvider } from '@reown/appkit-ui-react-native';
++import { useSafeAreaInsets } from 'react-native-safe-area-context';
++import { Card, ThemeProvider, useTheme } from '@reown/appkit-ui-react-native';
+ import {
+   AccountController,
+   ApiController,
+@@ -25,13 +26,29 @@ import { Header } from '../../partials/w3m-header';
+ import { Snackbar } from '../../partials/w3m-snackbar';
+ import { useCustomDimensions } from '../../hooks/useCustomDimensions';
+ import styles from './styles';
+-
++function ModalSafeAreaFill({ height }: { height: number }) {
++  const Theme = useTheme();
++  return (
++    <View
++      pointerEvents="none"
++      style={{
++        position: 'absolute',
++        bottom: 0,
++        left: 0,
++        right: 0,
++        height,
++        backgroundColor: Theme['bg-100']
++      }}
++    />
++  );
++}
+ export function AppKit() {
+   const { open, loading } = useSnapshot(ModalController.state);
+   const { connectors, connectedConnector } = useSnapshot(ConnectorController.state);
+   const { caipAddress, isConnected } = useSnapshot(AccountController.state);
+   const { themeMode, themeVariables } = useSnapshot(ThemeController.state);
+   const { height } = useWindowDimensions();
++  const { bottom: safeAreaBottom } = useSafeAreaInsets();
+   const { isLandscape } = useCustomDimensions();
+   const portraitHeight = height - 80;
+   const landScapeHeight = height * 0.95 - (StatusBar.currentHeight ?? 0);
+@@ -126,7 +143,7 @@ export function AppKit() {
+     <>
+       <ThemeProvider themeMode={themeMode} themeVariables={themeVariables}>
+         <Modal
+-          style={styles.modal}
++          style={[styles.modal, { paddingBottom: safeAreaBottom }]}
+           coverScreen={false}
+           isVisible={open}
+           useNativeDriver
+@@ -139,8 +156,12 @@ export function AppKit() {
+           onBackButtonPress={onBackButtonPress}
+           testID="w3m-modal"
+         >
++          <ModalSafeAreaFill height={safeAreaBottom} />
+           <Card
+-            style={[styles.card, { maxHeight: isLandscape ? landScapeHeight : portraitHeight }]}
++            style={[
++              styles.card,
++              { maxHeight: isLandscape ? landScapeHeight : portraitHeight },
++            ]}
+           >
+             <Header />
+             <AppKitRouter />

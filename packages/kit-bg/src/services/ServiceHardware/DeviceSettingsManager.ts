@@ -24,7 +24,10 @@ import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import deviceHomeScreenUtils from '@onekeyhq/shared/src/utils/deviceHomeScreenUtils';
 import { devOnlyData } from '@onekeyhq/shared/src/utils/devModeUtils';
 import { isProtocolV2ProductType } from '@onekeyhq/shared/src/utils/hardwareDeviceTypes';
-import { isAsciiAlphanumericWithSpaces } from '@onekeyhq/shared/src/utils/stringUtils';
+import {
+  PROTOCOL_V2_DEVICE_LABEL_MAX_LENGTH,
+  isPrintableASCIIString,
+} from '@onekeyhq/shared/src/utils/stringUtils';
 import thirdPartyDeviceUtils from '@onekeyhq/shared/src/utils/thirdPartyDeviceUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import {
@@ -35,9 +38,9 @@ import {
 } from '@onekeyhq/shared/types/device';
 
 import localDb from '../../dbs/local/localDb';
+import { thirdPartyConnectionContextFromDevice } from '../../vaults/base/thirdPartyHardwareCommonParams';
 import {
-  buildTrezorBleFallbackOptions,
-  callTrezorWithBleFallback,
+  callTrezorWithDevice,
   getTrezorAdapterFromBackgroundApi,
 } from '../../vaults/base/trezorTransportUtils';
 
@@ -45,7 +48,10 @@ import { getWallpaperResourceType } from './getWallpaperResourceType';
 import { ServiceHardwareManagerBase } from './ServiceHardwareManagerBase';
 import serviceHardwareUtils from './serviceHardwareUtils';
 
-import type { TrezorDeviceSettingsParams } from './adapters/types';
+import type {
+  IDeviceManagerOperationContext,
+  TrezorDeviceSettingsParams,
+} from './adapters/types';
 import type {
   IDBDevice,
   IDBDeviceSettings as IDBDeviceDbSettings,
@@ -111,6 +117,7 @@ export type IChangePinParams = IBaseDeviceProcessingParams & {
   remove: boolean;
 };
 export type ISetDeviceLabelParams = { walletId: string; label: string };
+export type ISetDeviceLabelResult = DeviceSuccess & { label: string };
 
 export type IHardwareHomeScreenData = {
   id: string;
@@ -164,6 +171,7 @@ type IWithDeviceProcessingParams = {
 type ITrezorDeviceSettingsAction = (params: {
   connectId: string;
   device: IDBDevice;
+  operationContext: IDeviceManagerOperationContext;
 }) => Promise<ThirdPartyResponse<Record<string, unknown>>>;
 
 export class DeviceSettingsManager extends ServiceHardwareManagerBase {
@@ -367,14 +375,30 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
       featuresDeviceId,
       dbDevice,
     });
+    if (!device.deviceId) {
+      throw new OneKeyLocalError(
+        'Trezor device identity is required for device settings',
+      );
+    }
+    const operationContext: IDeviceManagerOperationContext = {
+      ...thirdPartyConnectionContextFromDevice(device),
+      expectedDeviceIdentity: {
+        vendor: 'trezor',
+        type: 'deviceId',
+        value: device.deviceId,
+      },
+    };
 
     return this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
       async () => {
-        const response = await callTrezorWithBleFallback(
+        const response = await callTrezorWithDevice(
           device,
           async (targetConnectId) =>
-            action({ connectId: targetConnectId, device }),
-          buildTrezorBleFallbackOptions(this.backgroundApi),
+            action({
+              connectId: targetConnectId,
+              device,
+              operationContext,
+            }),
         );
         if (!response.success) {
           throw convertThirdPartyDeviceError(response.payload, {
@@ -426,14 +450,18 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
       dbDevice,
       debugMethodName,
       preciseUpdateFields,
-      action: async ({ connectId: targetConnectId }) => {
+      action: async ({ connectId: targetConnectId, operationContext }) => {
         const adapter = await getTrezorAdapterFromBackgroundApi(
           this.backgroundApi,
         );
         if (!adapter.deviceSettings) {
           throw new OneKeyLocalError('Trezor device settings not available');
         }
-        return adapter.deviceSettings(targetConnectId, settings);
+        return adapter.deviceSettings(
+          targetConnectId,
+          settings,
+          operationContext,
+        );
       },
     });
   }
@@ -533,14 +561,18 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
         featuresDeviceId,
         dbDevice: device,
         debugMethodName: 'deviceSettings.changePin.trezor',
-        action: async ({ connectId: targetConnectId }) => {
+        action: async ({ connectId: targetConnectId, operationContext }) => {
           const adapter = await getTrezorAdapterFromBackgroundApi(
             this.backgroundApi,
           );
           if (!adapter.changePin) {
             throw new OneKeyLocalError('Trezor change PIN not available');
           }
-          return adapter.changePin(targetConnectId, { remove });
+          return adapter.changePin(
+            targetConnectId,
+            { remove },
+            operationContext,
+          );
         },
       });
     }
@@ -679,39 +711,51 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
         deviceParams: {
           dbDevice: device,
         },
-        debugMethodName: 'deviceSettings.applySettingsToDevice',
+        debugMethodName: 'deviceSettings.getDeviceLabel',
       },
     );
   }
 
   @backgroundMethod()
-  async setDeviceLabel({ walletId, label }: ISetDeviceLabelParams) {
+  async setDeviceLabel({
+    walletId,
+    label,
+  }: ISetDeviceLabelParams): Promise<ISetDeviceLabelResult> {
     const device = await localDb.getWalletDevice({ walletId });
+    const normalizedLabel = this._isProtocolV2Product(device)
+      ? label.trim()
+      : label;
     if (
       this._isProtocolV2Product(device) &&
-      !isAsciiAlphanumericWithSpaces(label)
+      (!isPrintableASCIIString(normalizedLabel) ||
+        Buffer.byteLength(normalizedLabel, 'utf8') >
+          PROTOCOL_V2_DEVICE_LABEL_MAX_LENGTH)
     ) {
       throw new OneKeyLocalError(
-        'OneKey Pro 2 device labels only support ASCII letters, numbers, and spaces',
+        appLocale.intl.formatMessage({
+          id: ETranslations.global_hardware_label_input_error,
+        }),
       );
     }
     if (this._isTrezorDevice(device)) {
-      return this._applyTrezorSettings({
+      const result = await this._applyTrezorSettings({
         walletId,
         dbDevice: device,
         debugMethodName: 'deviceSettings.setDeviceLabel.trezor',
-        settings: { label },
-        preciseUpdateFields: { label },
+        settings: { label: normalizedLabel },
+        preciseUpdateFields: { label: normalizedLabel },
       });
+      return { ...result, label: normalizedLabel };
     }
-    return this._withDeviceProcessing({
+    const result = await this._withDeviceProcessing({
       walletId,
       dbDevice: device,
       debugMethodName: 'deviceSettings.setDeviceLabel',
-      preciseUpdateFields: { label },
+      preciseUpdateFields: { label: normalizedLabel },
       action: async (sdk, compatibleConnectId) =>
-        sdk.deviceSettings(compatibleConnectId, { label }),
+        sdk.deviceSettings(compatibleConnectId, { label: normalizedLabel }),
     });
+    return { ...result, label: normalizedLabel };
   }
 
   @backgroundMethod()
@@ -1025,7 +1069,7 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
         featuresDeviceId,
         dbDevice: device,
         debugMethodName: 'deviceSettings.setBrightness.trezor',
-        action: async ({ connectId: targetConnectId }) => {
+        action: async ({ connectId: targetConnectId, operationContext }) => {
           const adapter = await getTrezorAdapterFromBackgroundApi(
             this.backgroundApi,
           );
@@ -1034,7 +1078,11 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
               'Trezor brightness settings not available',
             );
           }
-          return adapter.setBrightness(targetConnectId);
+          return adapter.setBrightness(
+            targetConnectId,
+            typeof brightness === 'number' ? { value: brightness } : {},
+            operationContext,
+          );
         },
       });
     }
@@ -1113,14 +1161,14 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
         featuresDeviceId,
         dbDevice: device,
         debugMethodName: 'deviceSettings.wipeDevice.trezor',
-        action: async ({ connectId: targetConnectId }) => {
+        action: async ({ connectId: targetConnectId, operationContext }) => {
           const adapter = await getTrezorAdapterFromBackgroundApi(
             this.backgroundApi,
           );
           if (!adapter.wipeDevice) {
             throw new OneKeyLocalError('Trezor wipe not available');
           }
-          return adapter.wipeDevice(targetConnectId);
+          return adapter.wipeDevice(targetConnectId, operationContext);
         },
       });
       await localDb.clearTrezorDeviceThpState({ dbDeviceId: device.id });
@@ -1218,5 +1266,42 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
       // error.payload?.code
       throw error;
     }
+  }
+
+  /** The stage's in-place PIN-entry switch (OK-61489) writes through
+   * here — the hardware UI event carries a connectId, not a walletId.
+   * No firmware support probe: a PIN request is in flight, so the device
+   * cannot take another call; the REQUEST_PIN gate re-checks support
+   * from features on the next request anyway. Turning app entry ON still
+   * stamps `inputPinOnSoftwareSupport`, the marker that distinguishes a
+   * person's choice from the creation-time default: the switch is only
+   * offered once the background has already established the device is a
+   * supported button model, and without the marker the startup migration
+   * (migrateClassicPinInputDefault) would flip this choice back to
+   * device entry if it ran after the switch. */
+  @backgroundMethod()
+  async setInputPinOnSoftwareByConnectId({
+    connectId,
+    inputPinOnSoftware,
+  }: {
+    connectId: string;
+    inputPinOnSoftware: boolean;
+  }) {
+    const device = await localDb.getDeviceByQuery({ connectId });
+    if (!device) {
+      throw new OneKeyLocalError(
+        'Device not found for the PIN input setting switch',
+      );
+    }
+    await localDb.updateDeviceDbSettings({
+      dbDeviceId: device.id,
+      settings: {
+        ...device.settings,
+        inputPinOnSoftware,
+        inputPinOnSoftwareSupport: inputPinOnSoftware
+          ? true
+          : device.settings?.inputPinOnSoftwareSupport,
+      },
+    });
   }
 }

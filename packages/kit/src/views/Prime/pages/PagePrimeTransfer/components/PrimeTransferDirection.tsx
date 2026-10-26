@@ -15,6 +15,7 @@ import {
   Stack,
   Toast,
   XStack,
+  YStack,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { EmailOTPDialog } from '@onekeyhq/kit/src/components/OneKeyAuth/EmailOTPDialog';
@@ -38,9 +39,11 @@ import type { IPrimeParamList } from '@onekeyhq/shared/src/routes/prime';
 import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import { buildPrimeTransferVerificationCode } from '@onekeyhq/shared/src/utils/primeTransferVerificationCode';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import type { IPrimeTransferTransportMode } from '@onekeyhq/shared/types/prime/primeTransferNetworkTypes';
 import type { IE2EESocketUserInfo } from '@onekeyhq/shared/types/prime/primeTransferTypes';
 
 import { usePrimeTransferExit } from './hooks/usePrimeTransferExit';
+import { showPrimeTransferProcessingDialog } from './PrimeTransferProcessingDialog';
 
 interface IDeviceItemProps {
   userInfo: IE2EESocketUserInfo | undefined;
@@ -161,6 +164,11 @@ export function PrimeTransferDirection({
   const { exitTransferFlow } = usePrimeTransferExit();
   const [waitingAlertVisible, setWaitingAlertVisible] = useState(false);
   const [isSendingData, setIsSendingData] = useState(false);
+  const sendingDataInFlightRef = useRef(false);
+  const showTransportMode = platformEnv.isDev;
+  const [transportMode, setTransportMode] =
+    useState<IPrimeTransferTransportMode>('auto');
+  const effectiveTransportMode = showTransportMode ? transportMode : 'auto';
 
   // Self transfer type lifecycle is owned by the parent PagePrimeTransfer
   // (set on mount, reset on page unmount). Intentionally NOT reset here: this
@@ -368,6 +376,45 @@ export function PrimeTransferDirection({
 
   const isClosedBySendData = useRef(false);
 
+  const processingDialogRef = useRef<
+    ReturnType<typeof showPrimeTransferProcessingDialog> | undefined
+  >(undefined);
+  const closeProcessingDialog = useCallback(async (taskId?: string) => {
+    const dialog = processingDialogRef.current;
+    if (taskId && dialog?.taskId !== taskId) return;
+    processingDialogRef.current = undefined;
+    await dialog?.close();
+  }, []);
+  const processingTaskId =
+    primeTransferAtom.networkProgress?.transferId ??
+    primeTransferAtom.preparationProgress?.taskId;
+  useEffect(() => {
+    if (processingDialogRef.current?.taskId === processingTaskId) return;
+    void closeProcessingDialog();
+    if (processingTaskId) {
+      processingDialogRef.current = showPrimeTransferProcessingDialog(
+        intl,
+        processingTaskId,
+      );
+    }
+  }, [closeProcessingDialog, intl, processingTaskId]);
+  useEffect(
+    () => () => {
+      void closeProcessingDialog();
+    },
+    [closeProcessingDialog],
+  );
+
+  const networkProgress = primeTransferAtom.networkProgress;
+  useEffect(() => {
+    if (networkProgress?.direction === 'receiving') {
+      // Verification is finished once the peer starts delivering ciphertext.
+      // Release the code dialog so the receiver can see the transfer progress.
+      isClosedBySendData.current = true;
+      void dialogRef.current?.close();
+    }
+  }, [networkProgress?.transferId, networkProgress?.direction]);
+
   const dialogOnClose = useCallback(async () => {
     if (isClosedBySendData.current) {
       return;
@@ -387,16 +434,11 @@ export function PrimeTransferDirection({
       inputCode: string;
       verifyCode: string;
     }) => {
+      // State updates do not synchronously block duplicate OTP callbacks.
+      if (sendingDataInFlightRef.current) return;
+      sendingDataInFlightRef.current = true;
+      let preparationTaskId: string | undefined;
       try {
-        // const { password } =
-        //   await backgroundApiProxy.servicePassword.promptPasswordVerify({
-        //     reason: EReasonForNeedPassword.Security,
-        //   });
-
-        // if (!password) {
-        //   throw new OneKeyLocalError('Password is required');
-        // }
-
         setIsSendingData(true);
         if (!verifyCode) {
           throw new OneKeyLocalError('Verification code does not exist');
@@ -407,11 +449,14 @@ export function PrimeTransferDirection({
 
         await timerUtils.wait(120);
         // await onConfirm({ code, uuid });
+        preparationTaskId =
+          await backgroundApiProxy.servicePrimeTransfer.beginTransferPreparation();
         isClosedBySendData.current = true;
-        void dialogRef.current?.close();
+        await dialogRef.current?.close();
 
         const transferData =
           await backgroundApiProxy.servicePrimeTransfer.buildTransferData({
+            preparationTaskId,
             walletIds: botWalletId ? [botWalletId] : undefined,
           });
         // Some credentials could not be read because the local secure storage
@@ -446,7 +491,6 @@ export function PrimeTransferDirection({
             });
           });
           if (!confirmedToSkip) {
-            await backgroundApiProxy.servicePrimeTransfer.cancelTransfer();
             throw new OneKeyLocalError('Transfer cancelled by user');
           }
         }
@@ -461,7 +505,10 @@ export function PrimeTransferDirection({
         await backgroundApiProxy.servicePrimeTransfer.sendTransferData({
           transferData,
           allowCliImportableCredentials,
+          transportMode: effectiveTransportMode,
+          preparationTaskId,
         });
+        if (preparationTaskId) await closeProcessingDialog(preparationTaskId);
 
         setWaitingAlertVisible(true);
         // resolve();
@@ -489,10 +536,19 @@ export function PrimeTransferDirection({
         });
       } catch (error) {
         console.error(error);
-        void backgroundApiProxy.servicePrimeTransfer.cancelTransfer();
+        if (preparationTaskId) {
+          await backgroundApiProxy.servicePrimeTransfer.cancelTransfer({
+            taskId: preparationTaskId,
+          });
+        }
         throw error;
       } finally {
-        setIsSendingData(false);
+        try {
+          if (preparationTaskId) await closeProcessingDialog(preparationTaskId);
+        } finally {
+          sendingDataInFlightRef.current = false;
+          setIsSendingData(false);
+        }
       }
     },
     [
@@ -501,6 +557,8 @@ export function PrimeTransferDirection({
       exitTransferFlow,
       botWalletId,
       allowCliImportableCredentials,
+      effectiveTransportMode,
+      closeProcessingDialog,
     ],
   );
 
@@ -608,6 +666,7 @@ export function PrimeTransferDirection({
       isClosedBySendData.current = true;
       void dialogRef.current?.close();
 
+      void closeProcessingDialog();
       const param: IPrimeParamList[EPrimePages.PrimeTransferPreview] = {
         directionUserInfo,
         transferData: data.data,
@@ -618,7 +677,7 @@ export function PrimeTransferDirection({
     return () => {
       appEventBus.off(EAppEventBusNames.PrimeTransferDataReceived, fn);
     };
-  }, [directionUserInfo, navigation]);
+  }, [directionUserInfo, navigation, closeProcessingDialog]);
 
   const debugButtons = useMemo(() => {
     if (process.env.NODE_ENV !== 'production') {
@@ -697,7 +756,10 @@ export function PrimeTransferDirection({
             px="$5"
             color="$iconSubdued"
             variant="tertiary"
-            disabled={isBotWalletExport}
+            disabled={
+              isBotWalletExport ||
+              primeTransferAtom.status === EPrimeTransferStatus.transferring
+            }
             onPress={changeDirection}
           />
         </XStack>
@@ -712,13 +774,62 @@ export function PrimeTransferDirection({
           <DeviceItem userInfo={directionUserInfo?.toUser} />
         </Stack>
 
+        {showTransportMode && isTransferFromMe ? (
+          <YStack gap="$2" testID="prime-transfer-transport-mode">
+            <SizableText size="$bodyMdMedium">
+              Transfer mode (debug)
+            </SizableText>
+            <XStack gap="$2">
+              <Button
+                flex={1}
+                testID="prime-transfer-mode-regular"
+                variant={transportMode === 'legacy' ? 'primary' : 'secondary'}
+                disabled={
+                  primeTransferAtom.status !== EPrimeTransferStatus.paired
+                }
+                onPress={() => setTransportMode('legacy')}
+              >
+                Regular
+              </Button>
+              <Button
+                flex={1}
+                testID="prime-transfer-mode-chunked"
+                variant={transportMode === 'auto' ? 'primary' : 'secondary'}
+                disabled={
+                  primeTransferAtom.status !== EPrimeTransferStatus.paired
+                }
+                onPress={() => setTransportMode('auto')}
+              >
+                Chunked
+              </Button>
+            </XStack>
+            <SizableText size="$bodySm" color="$textSubdued">
+              {transportMode === 'legacy'
+                ? 'Send in one message, without transfer progress. Preparation and encryption are unchanged.'
+                : 'Use chunks when both devices and the server support them; otherwise fall back to one message.'}
+            </SizableText>
+          </YStack>
+        ) : null}
+        {primeTransferAtom.status === EPrimeTransferStatus.transferring ? (
+          <SizableText
+            size="$bodyMd"
+            color="$textSubdued"
+            testID="prime-transfer-network-keep-unlocked"
+          >
+            {intl.formatMessage({
+              id: ETranslations.transfer_keep_foreground__desc,
+            })}
+          </SizableText>
+        ) : null}
         {waitingAlertVisible ? <WaitingTransferCompleteAlert /> : null}
 
         {debugButtons}
       </Stack>
       <Page.Footer
         confirmButtonProps={{
-          disabled: primeTransferAtom.status !== EPrimeTransferStatus.paired,
+          disabled:
+            isSendingData ||
+            primeTransferAtom.status !== EPrimeTransferStatus.paired,
           loading:
             isSendingData ||
             primeTransferAtom.status === EPrimeTransferStatus.transferring,

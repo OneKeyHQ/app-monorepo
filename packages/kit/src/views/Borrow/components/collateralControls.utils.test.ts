@@ -2,6 +2,7 @@ import {
   COLLATERAL_SETTLEMENT_FAST_REFRESH_ATTEMPTS,
   COLLATERAL_SETTLEMENT_MAX_REFRESH_ATTEMPTS,
   collateralBadgeVariant,
+  getCollateralCellState,
   getCollateralSettlementRefreshDecision,
   getCollateralSwitchState,
   hasPendingSetCollateral,
@@ -103,7 +104,7 @@ describe('getCollateralSwitchState', () => {
     ).toBe(true);
   });
 
-  it('a provider-level pending setCollateral tx disables the row', () => {
+  it('a matching pending setCollateral tx disables the row', () => {
     expect(
       getCollateralSwitchState({
         usageAsCollateral: true,
@@ -117,21 +118,89 @@ describe('getCollateralSwitchState', () => {
 
 describe('hasPendingSetCollateral', () => {
   const tx = (tags?: string[]) => ({ stakingInfo: { tags } });
+  const scope = {
+    networkId: 'evm--1',
+    marketAddress: '0xmarket',
+    reserveAddress: '0xusde',
+  };
 
-  it('matches a pending setCollateral tx for the provider', () => {
+  it('matches a reserve-scoped pending setCollateral tx', () => {
     expect(
       hasPendingSetCollateral({
-        pendingTxs: [tx(['Borrow', 'borrow:aave:setCollateral'])],
+        pendingTxs: [
+          tx([
+            'Borrow',
+            'borrow:aave:setCollateral',
+            'borrow:aave:setCollateral:v1:evm--1:0xmarket:0xusde',
+          ]),
+        ],
         provider: 'aave',
+        ...scope,
       }),
     ).toBe(true);
   });
 
-  it('matches case-insensitively on provider (tag builder lowercases)', () => {
+  it('does not match another reserve from the same provider', () => {
+    expect(
+      hasPendingSetCollateral({
+        pendingTxs: [
+          tx([
+            'borrow:aave:setCollateral',
+            'borrow:aave:setCollateral:v1:evm--1:0xmarket:0xusde',
+          ]),
+        ],
+        provider: 'Aave',
+        ...scope,
+        reserveAddress: '0xusdt',
+      }),
+    ).toBe(false);
+  });
+
+  it('isolates a native reserve with an empty address from sibling rows', () => {
+    const nativeTag = 'borrow:aave:setCollateral:v1:evm--1:0xmarket:';
+
+    expect(
+      hasPendingSetCollateral({
+        pendingTxs: [tx(['borrow:aave:setCollateral', nativeTag])],
+        provider: 'aave',
+        ...scope,
+        reserveAddress: '',
+      }),
+    ).toBe(true);
+    expect(
+      hasPendingSetCollateral({
+        pendingTxs: [tx(['borrow:aave:setCollateral', nativeTag])],
+        provider: 'aave',
+        ...scope,
+        reserveAddress: '0xusdt',
+      }),
+    ).toBe(false);
+  });
+
+  it('normalizes EVM market and reserve address casing', () => {
+    expect(
+      hasPendingSetCollateral({
+        pendingTxs: [
+          tx([
+            'borrow:aave:setCollateral',
+            'borrow:aave:setCollateral:v1:evm--1:0xmarket:0xusde',
+          ]),
+        ],
+        provider: 'Aave',
+        ...scope,
+        marketAddress: '0xMaRkEt',
+        reserveAddress: '0xUsDe',
+      }),
+    ).toBe(true);
+  });
+
+  it('keeps the provider-wide lock for a legacy pending tx', () => {
     expect(
       hasPendingSetCollateral({
         pendingTxs: [tx(['borrow:aave:setCollateral'])],
-        provider: 'Aave',
+        provider: 'aave',
+        ...scope,
+        reserveAddress: '0xusdt',
       }),
     ).toBe(true);
   });
@@ -145,14 +214,19 @@ describe('hasPendingSetCollateral', () => {
           tx(undefined),
         ],
         provider: 'aave',
+        ...scope,
       }),
     ).toBe(false);
   });
 
   it('is false with no pending txs', () => {
-    expect(hasPendingSetCollateral({ pendingTxs: [], provider: 'aave' })).toBe(
-      false,
-    );
+    expect(
+      hasPendingSetCollateral({
+        pendingTxs: [],
+        provider: 'aave',
+        ...scope,
+      }),
+    ).toBe(false);
   });
 });
 
@@ -240,5 +314,53 @@ describe('getCollateralSettlementRefreshDecision', () => {
         completedRefreshAttempts: COLLATERAL_SETTLEMENT_MAX_REFRESH_ATTEMPTS,
       }),
     ).toBe('exhausted');
+  });
+});
+
+describe('getCollateralCellState', () => {
+  it('hides the cell when the provider has no collateral control', () => {
+    expect(getCollateralCellState({ canBeCollateral: true })).toBe('hidden');
+  });
+
+  it('keeps the switch for an active collateral position', () => {
+    expect(
+      getCollateralCellState({
+        usageAsCollateral: true,
+        canBeCollateral: true,
+      }),
+    ).toBe('switch');
+  });
+
+  // An active position can always be turned off, whatever the server says
+  // about turning it back on.
+  it('keeps the switch for an active position the server calls ineligible', () => {
+    expect(
+      getCollateralCellState({
+        usageAsCollateral: true,
+        canBeCollateral: false,
+      }),
+    ).toBe('switch');
+  });
+
+  it('keeps the switch for an inactive but eligible position', () => {
+    expect(
+      getCollateralCellState({
+        usageAsCollateral: false,
+        canBeCollateral: true,
+      }),
+    ).toBe('switch');
+  });
+
+  it('reports unavailable for an inactive position the market never accepts', () => {
+    expect(
+      getCollateralCellState({
+        usageAsCollateral: false,
+        canBeCollateral: false,
+      }),
+    ).toBe('unavailable');
+  });
+
+  it('keeps the switch when eligibility is unknown (missing flag is not a verdict)', () => {
+    expect(getCollateralCellState({ usageAsCollateral: false })).toBe('switch');
   });
 });

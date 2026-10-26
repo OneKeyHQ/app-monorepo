@@ -1,6 +1,9 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 
+import type { IAirGapUrJson } from '@onekeyhq/qr-wallet-sdk';
 import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
+import type { IHardwareDeviceColor } from '@onekeyhq/shared/src/utils/hardwareDeviceColors';
+import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import type {
   EFirmwareUpdateTipMessages,
   EHardwareVendor,
@@ -10,13 +13,25 @@ import type {
   IDeviceFirmwareType,
   IFirmwareUpdateInfo,
   IFirmwareUpdatesDetectStatus,
+  IThirdPartyHardwareSearchTarget,
 } from '@onekeyhq/shared/types/device';
+import type {
+  IDeviceStageAuthChecklistItem,
+  IDeviceStageAuthFailureReasonValue,
+  IDeviceStageConfirmContent,
+  IDeviceStageConfirmDetail,
+  IDeviceStageErrorI18n,
+  IDeviceStageErrorReasonValue,
+  IDeviceStageStepValue,
+} from '@onekeyhq/shared/types/deviceStage';
 import type { EHardwareUiStateAction } from '@onekeyhq/shared/types/hardwareUi';
+import type { ISolanaTxDiagnosticContext } from '@onekeyhq/shared/types/solanaTxDiagnostics';
 
 import { EAtomNames } from '../atomNames';
 import { globalAtom } from '../utils';
 
 import type { IDeviceType } from '@onekeyfe/hd-core';
+import type { DeviceSelectionRequest } from '@onekeyfe/hwk-adapter-core';
 
 export { EHardwareUiStateAction } from '@onekeyhq/shared/types/hardwareUi';
 export type IHardwareUiResponseCorrelation = {
@@ -70,6 +85,11 @@ export type IHardwareUiPayload = {
   rawPayload: any;
   // request pin type
   requestPinType?: 'PinEntry' | 'AttachPin';
+  // The stage's enterPin card may offer "Prefer to enter PIN in app?"
+  // (OK-61489). Set only on the button-device on-device-entry route when
+  // the opt-in would actually take: a stored device record to write, app
+  // entry supported by firmware, and a plain (non attach-PIN) request.
+  pinSwitchToAppAvailable?: boolean;
   // service promise for waiting user interaction
   promiseId?: string;
 };
@@ -171,12 +191,101 @@ export const {
   name: EAtomNames.hardwareUiStateCompletedAtom,
 });
 
+// device stage (OK-59934) ----------------------------------------
+
+/**
+ * The DeviceStage driver's single source of truth. One burst = one stage
+ * entrance/exit: the burst scope in ServiceHardwareUI owns every write, and
+ * the DeviceStageContainer renders purely from it. `step: 'off'` is the only
+ * state that plays the exit animation.
+ */
+
+export type IDeviceStageState = {
+  /** Monotonic id; a new burst resets the container's close-grant policy. */
+  burstId: number;
+  /** Bumped on every beat, hardware call and SDK event: the container's
+   * idle clock reads it to tell a stalled wait from a busy one. */
+  activitySeq?: number;
+  step: IDeviceStageStepValue;
+  connectId?: string;
+  deviceType?: IDeviceType;
+  /** The finish the serial number names (Pro 2 only) — which of the
+   * model's shells the replica wears. */
+  deviceColor?: IHardwareDeviceColor;
+  deviceName?: string;
+  /** Third-party track: dresses the stage for Trezor / Ledger. */
+  vendor?: EHardwareVendor;
+  /** SDK model code (T3W1 / nanoX …) → the capsule's real product shot. */
+  vendorModel?: string;
+  vendorModelName?: string;
+  /** The original third-party action — the container builds UI responses
+   * from it without reverse-mapping steps. */
+  thirdPartyAction?: EThirdPartyHardwareUiAction;
+  /** Install steps: coin app name, real SDK progress (0–100), batch queue. */
+  appName?: string;
+  installProgress?: number;
+  installQueue?: string[];
+  installActiveIndex?: number;
+  btcHighIndexPath?: string;
+  btcHighIndexAccountIndex?: number;
+  /** Authenticity flow: the per-component checklist and what ended it. */
+  authChecklist?: IDeviceStageAuthChecklistItem[];
+  authFailureReason?: IDeviceStageAuthFailureReasonValue;
+  /** Fallback failure detail (v6.5.0 dialog parity): the real error
+   * message stands in for the generic unknown title and the code rides
+   * as a suffix. Display-ready strings — the runner resolves ids. */
+  authFailureMessage?: string;
+  authFailureCode?: string;
+  errorReason?: IDeviceStageErrorReasonValue;
+  /**
+   * The failure's own words, for the outcomes no reason claims. The
+   * legacy toast spoke them and the stage suppresses that toast, so
+   * without this the specific message is lost and the card falls back
+   * to "Something went wrong". Used as a fallback when no translation
+   * is available in the UI runtime.
+   */
+  errorMessage?: string;
+  errorI18n?: IDeviceStageErrorI18n;
+  /** Optional operation-specific copy for the successful `done` beat. */
+  doneI18n?: IDeviceStageErrorI18n;
+  /** Inline retry line for the active input panel (wrong PIN etc.). */
+  inputError?: string;
+  passphraseMode?: 'create' | 'verify';
+  /** Air-gap track (doc §4.6): the request UR the showQr card presents,
+   * animated by the panel itself. Carried across showQr ⇄ scanQr — the
+   * way back re-presents the same code — and cleared everywhere else. */
+  qrValueUr?: IAirGapUrJson;
+  /** The air-gap session's tag: the viewfinder echoes it back with the
+   * completed scan, and a submit whose tag no longer matches the live
+   * session is dropped — a stale frame must never answer a newer
+   * request. The servicePromise id itself never leaves bg. */
+  qrSessionId?: number;
+  qrDiagnostic?: ISolanaTxDiagnosticContext;
+  confirmDetails?: IDeviceStageConfirmDetail[];
+  confirmMessage?: string;
+  confirmDescription?: string;
+  confirmDescriptionDanger?: boolean;
+  confirmCount?: IDeviceStageConfirmContent['count'];
+  /** The originating hardware UI payload — carries uiResponseCorrelation
+   * the container needs when answering PIN/passphrase requests. */
+  payload?: IHardwareUiPayload;
+};
+
+export const { target: deviceStageAtom, use: useDeviceStageAtom } = globalAtom<
+  IDeviceStageState | undefined
+>({
+  initialValue: undefined,
+  name: EAtomNames.deviceStageAtom,
+});
+
 // third-party hardware ui state -----------------------------------
 
 export enum EThirdPartyHardwareUiAction {
   // Blocking requests — UI waits for user response.
   // SDK found no device; ask the user to make it available and retry.
   requestDeviceNotFound = 'request-ledger-device-not-found',
+  // Operation-first flow found multiple candidates; the SDK waits for one.
+  requestDeviceSelection = 'request-third-party-device-selection',
   // Ledger BTC requires explicit user approval before using index >= 100.
   requestBtcHighIndexConfirm = 'request-ledger-btc-high-index-confirm',
   // Trezor THP: device showed a pairing code, host needs to input it.
@@ -192,7 +301,12 @@ export enum EThirdPartyHardwareUiAction {
   // Trezor transport fallback: USB is unavailable and this DB device has not
   // yet learned its BLE connectId. UI scans BLE candidates, binds the matching
   // device_id, then resolves the waiting hardware call.
-  requestTrezorBleBinding = 'request-trezor-ble-binding',
+  // Keystone QR: the adapter needs the app to show an animated UR QR code for
+  // the device to scan (import / signing round trip).
+  requestKeystoneQrDisplay = 'request-keystone-qr-display',
+  // Keystone QR: the device is already showing its own export/response QR,
+  // so there's no display step, the app just scans.
+  requestKeystoneQrScan = 'request-keystone-qr-scan',
   // Non-blocking notifications — UI shows status.
   openApp = 'ui-event-ledger-open-app',
   confirmOnDevice = 'ui-event-ledger-confirm-on-device',
@@ -229,6 +343,8 @@ export function isThirdPartyConfirmOnDevice(
 }
 
 export type IThirdPartyHardwareUiState = {
+  /** Runtime-only publication id; stable across serialization and independent of SDK request ids. */
+  uiRequestId?: string;
   action: EThirdPartyHardwareUiAction;
   vendor: EHardwareVendor;
   payload?: {
@@ -250,14 +366,15 @@ export type IThirdPartyHardwareUiState = {
     nfcData?: string;
     /** Trezor passphrase: expected hidden wallet identity in verify mode. */
     passphraseState?: string;
-    /** Trezor BLE binding: USB-side connect id of the DB device. */
-    usbConnectId?: string;
-    /** Trezor BLE binding: stable device_id read from Trezor features. */
-    featuresDeviceId?: string;
-    /** Trezor BLE binding: servicePromise id resolved with the fallback connectId. */
-    promiseId?: number;
-    /** Trezor BLE binding mode. */
-    trezorBleBindingMode?: 'manual-binding' | 'auto-fallback';
+    /** SDK operation-first selection candidates from the current discovery. */
+    deviceSearchTargets?: IThirdPartyHardwareSearchTarget[];
+    deviceSelection?: Omit<DeviceSelectionRequest, 'devices'>;
+    /** Keystone QR: BC-UR type of the payload to display (requestKeystoneQrDisplay only). */
+    urType?: string;
+    /** Keystone QR: hex-encoded CBOR of the payload to display (requestKeystoneQrDisplay only). */
+    urData?: string;
+    /** Keystone QR: hints the display payload needs multi-frame animated rendering. */
+    animated?: boolean;
   };
 };
 
@@ -268,6 +385,34 @@ export const {
   initialValue: undefined,
   name: EAtomNames.thirdPartyHardwareUiStateAtom,
 });
+
+export type IThirdPartyBleBindingState = {
+  vendor: EHardwareVendor;
+  bindingSessionId: string;
+  requestId: string;
+  status: 'scanning' | 'verifying' | 'saved' | 'failed' | 'cancelled';
+  targets: IThirdPartyHardwareSearchTarget[];
+  rejectedConnectId?: string;
+  reason?: 'missing-binding' | 'known-connection-unavailable' | 'manual-rebind';
+};
+
+export const {
+  target: thirdPartyBleBindingAtom,
+  use: useThirdPartyBleBindingAtom,
+} = globalAtom<IThirdPartyBleBindingState | undefined>({
+  initialValue: undefined,
+  name: EAtomNames.thirdPartyBleBindingAtom,
+});
+
+export async function publishThirdPartyHardwareUiState(
+  state: Omit<IThirdPartyHardwareUiState, 'uiRequestId'>,
+  uiRequestId = generateUUID(),
+): Promise<void> {
+  await thirdPartyHardwareUiStateAtom.set({
+    ...state,
+    uiRequestId,
+  });
+}
 
 export type IThirdPartyAppInstallState = {
   vendor: EHardwareVendor;

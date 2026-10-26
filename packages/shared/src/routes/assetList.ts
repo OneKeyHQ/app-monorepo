@@ -64,6 +64,7 @@ export type IModalAssetListParamList = {
     accountId: string;
     networkId: string;
     walletId: string;
+    indexedAccountId?: string;
     tokenList: {
       tokens: IAccountToken[];
       keys: string;

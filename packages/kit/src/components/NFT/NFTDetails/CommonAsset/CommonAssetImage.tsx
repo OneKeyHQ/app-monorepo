@@ -1,8 +1,9 @@
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 
 import BigNumber from 'bignumber.js';
 
 import { Icon, Image, SizableText, Stack, Video } from '@onekeyhq/components';
+import { useNFTMediaFallback } from '@onekeyhq/kit/src/components/NFT/hooks/useNFTMediaFallback';
 import { SHOW_NFT_AMOUNT_MAX } from '@onekeyhq/shared/src/consts/walletConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ENFTType, type IAccountNFT } from '@onekeyhq/shared/types/nft';
@@ -18,7 +19,8 @@ const unSupportedImage = ['data:image/svg+xml;'];
 function CommonAssetImage(props: IProps) {
   const { nft } = props;
   const image = nft.metadata?.image;
-  const [isVideo, setIsVideo] = useState<boolean>(!!image);
+  const { kind: mediaKind, onError: handleMediaError } =
+    useNFTMediaFallback(image);
 
   const isUnSupportedImageInNative = useMemo(
     () =>
@@ -30,42 +32,52 @@ function CommonAssetImage(props: IProps) {
     return <UnSupportedImageContainer src={nft.metadata?.image} />;
   }
 
+  const mediaFallback = (
+    <Image.Fallback
+      w="100%"
+      h="100%"
+      bg="$bgStrong"
+      justifyContent="center"
+      alignItems="center"
+    >
+      <Icon name="ImageSquareWavesOutline" color="$iconDisabled" />
+    </Image.Fallback>
+  );
+
+  let mediaContent = mediaFallback;
+  if (mediaKind === 'video' && image) {
+    mediaContent = (
+      <Video
+        source={{ uri: image }}
+        controls
+        onError={handleMediaError}
+        style={{
+          width: '100%',
+          height: '100%',
+          position: 'absolute',
+          zIndex: 1,
+        }}
+      />
+    );
+  } else if (mediaKind === 'image' && image) {
+    mediaContent = (
+      <Stack width="100%" height="100%">
+        <Image
+          src={image}
+          w="100%"
+          h="100%"
+          resizeWidth={480}
+          onError={handleMediaError}
+          fallback={mediaFallback}
+        />
+      </Stack>
+    );
+  }
+
   return (
     <>
       <Stack width="100%" height="100%" borderRadius={12}>
-        {isVideo && image ? (
-          <Video
-            source={{ uri: image }}
-            controls
-            onError={() => setIsVideo(false)}
-            style={{
-              width: '100%',
-              height: '100%',
-              position: 'absolute',
-              zIndex: 1,
-            }}
-          />
-        ) : (
-          <Stack width="100%" height="100%">
-            <Image
-              src={nft.metadata?.image}
-              w="100%"
-              h="100%"
-              resizeWidth={480}
-              fallback={
-                <Image.Fallback
-                  w="100%"
-                  h="100%"
-                  bg="$bgStrong"
-                  justifyContent="center"
-                  alignItems="center"
-                >
-                  <Icon name="ImageSquareWavesOutline" color="$iconDisabled" />
-                </Image.Fallback>
-              }
-            />
-          </Stack>
-        )}
+        {mediaContent}
       </Stack>
 
       {nft.collectionType === ENFTType.ERC1155 &&

@@ -4,10 +4,7 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 import resetUtils from '../../utils/resetUtils';
 
-import type {
-  INativeSWRCachePatchIntent,
-  INativeSyncStorageLocalMutation,
-} from '../nativeStorageTypes';
+import type { INativeSyncStorageLocalMutation } from '../nativeStorageTypes';
 import type { EAppSyncStorageKeys } from '../syncStorageKeys';
 
 // ---- MMKV instance interface (subset used by wrapper) ---- cspell:ignore IMMKV
@@ -20,25 +17,37 @@ export type IMMKVInstance = {
   remove(key: string): unknown;
   clearAll(): unknown;
   getAllKeys(): string[];
-  applySWRCachePatch?: (patch: INativeSWRCachePatchIntent) => unknown;
 };
+
+const normalizedAcknowledgements = new WeakMap<
+  PromiseLike<unknown>,
+  Promise<void>
+>();
 
 function normalizeMutationAcknowledgement(
   value: unknown,
-): Promise<void> | undefined {
+): void | Promise<void> {
   if (
     value &&
     (typeof value === 'object' || typeof value === 'function') &&
     typeof (value as { then?: unknown }).then === 'function'
   ) {
-    return Promise.resolve(value as PromiseLike<unknown>).then(() => undefined);
+    const thenable = value as PromiseLike<unknown>;
+    let acknowledgement = normalizedAcknowledgements.get(thenable);
+    if (!acknowledgement) {
+      // The native mirror shares confirmation for superseded writes. Keep
+      // that sharing here instead of retaining a new reaction per overwrite.
+      acknowledgement = Promise.resolve(thenable).then(() => undefined);
+      normalizedAcknowledgements.set(thenable, acknowledgement);
+    }
+    return acknowledgement;
   }
   return undefined;
 }
 
 // ---- Factory: create ISyncStorage wrapper from any MMKV instance ----
 
-export function createMMKVSyncStorage(
+export function createMMKVSyncStorage<TKey extends string = string>(
   mmkv: IMMKVInstance,
   options?: {
     checkResetting?: boolean;
@@ -67,19 +76,16 @@ export function createMMKVSyncStorage(
   }
 
   const storage = {
-    set(key: EAppSyncStorageKeys, value: boolean | string | number) {
+    set(key: TKey, value: boolean | string | number) {
       return safeSet(key, value);
     },
-    setObject<T extends Record<string, any>>(
-      key: EAppSyncStorageKeys,
-      value: T,
-    ) {
+    setObject<T extends Record<string, any>>(key: TKey, value: T) {
       if (!isPlainObject(value)) {
         throw new OneKeyLocalError('value must be a plain object');
       }
       return safeSet(key, JSON.stringify(value));
     },
-    getObject<T>(key: EAppSyncStorageKeys): T | undefined {
+    getObject<T>(key: TKey): T | undefined {
       try {
         const raw = mmkv.getString(key);
         if (!raw) return undefined;
@@ -88,16 +94,16 @@ export function createMMKVSyncStorage(
         return undefined;
       }
     },
-    getString(key: EAppSyncStorageKeys) {
+    getString(key: TKey) {
       return mmkv.getString(key);
     },
-    getNumber(key: EAppSyncStorageKeys) {
+    getNumber(key: TKey) {
       return mmkv.getNumber(key);
     },
-    getBoolean(key: EAppSyncStorageKeys) {
+    getBoolean(key: TKey) {
       return mmkv.getBoolean(key);
     },
-    delete(key: EAppSyncStorageKeys) {
+    delete(key: TKey) {
       const acknowledgement = normalizeMutationAcknowledgement(
         mmkv.remove(key),
       );
@@ -113,16 +119,8 @@ export function createMMKVSyncStorage(
       return mmkv.getAllKeys();
     },
   };
-  return {
-    ...storage,
-    ...(mmkv.applySWRCachePatch
-      ? { applySWRCachePatch: mmkv.applySWRCachePatch }
-      : {}),
-  } as typeof storage & {
-    applySWRCachePatch?: (
-      patch: INativeSWRCachePatchIntent,
-    ) => void | Promise<void>;
-  };
+  return storage;
 }
 
-export type ISyncStorage = ReturnType<typeof createMMKVSyncStorage>;
+export type ISyncStorage<TKey extends string = EAppSyncStorageKeys> =
+  ReturnType<typeof createMMKVSyncStorage<TKey>>;

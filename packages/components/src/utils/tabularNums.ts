@@ -15,8 +15,8 @@ import type { TextStyle } from 'react-native';
  *
  * Every digit shares one advance width, so number columns stay aligned and a
  * value doesn't reflow as it ticks. Unlike a monospace family (`$monoRegular`),
- * only digits are equalized — letters keep Roobert's natural proportional
- * widths. Roobert ships the `tnum` OpenType feature, so this works on iOS,
+ * only digits are equalized — letters keep the brand font's natural proportional
+ * widths. The brand sans font ships the `tnum` OpenType feature, so this works on iOS,
  * Android and web.
  *
  * Monospace is still the right choice for addresses / hashes / mnemonics /

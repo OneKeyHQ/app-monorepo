@@ -26,10 +26,12 @@ import type {
   ILNURLWithdrawServiceResponse,
 } from '../../types/lightning';
 import type { IAccountNFT } from '../../types/nft';
+import type { IPrimeFreeTrialBroadcastUsage } from '../../types/prime/primeFreeTrialTypes';
 import type { IPrimeInfiniBeforeBroadcastAction } from '../../types/prime/primeTypes';
 import type { ISwapTxInfo } from '../../types/swap/types';
 import type { IToken, ITokenFiat } from '../../types/token';
 import type { EReplaceTxType, ISendTxOnSuccessData } from '../../types/tx';
+import type { IWcPayPreBroadcastRecord } from '../walletConnect/payTypes';
 
 export enum EModalSignatureConfirmRoutes {
   TxDataInput = 'TxDataInput',
@@ -108,6 +110,9 @@ export type IModalSignatureConfirmParamList = {
     onBeforeSend?: () => void | Promise<void>;
     broadcastDeadline?: number;
     beforeBroadcastAction?: IPrimeInfiniBeforeBroadcastAction;
+    // WalletConnect Pay only: durable pre-broadcast txid record identity
+    // (see ServiceSend.signAndSendTransaction)
+    wcPayPreBroadcastRecord?: IWcPayPreBroadcastRecord;
     transferPayload?: ITransferPayload;
     popStack?: boolean;
     // Review-only page: no confirm action is rendered, the footer offers
@@ -120,6 +125,9 @@ export type IModalSignatureConfirmParamList = {
     isQueueMode?: boolean;
     unsignedTxQueue?: LinkedDeck<IUnsignedTxPro & IHasId>;
     gasAccountScenario?: IGasAccountScenario;
+    // Free-trial usage of a bulk tool confirmed tx by tx (Tron bulk send);
+    // ServiceSend marks it consumed at the broadcast point.
+    freeTrialUsage?: IPrimeFreeTrialBroadcastUsage;
   };
   [EModalSignatureConfirmRoutes.BatchTxConfirm]: {
     batchId: string;

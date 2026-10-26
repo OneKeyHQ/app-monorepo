@@ -6,6 +6,7 @@ import {
   type IDebugRenderTrackerProps,
   SizableText,
   Toast,
+  XStack,
   YStack,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -27,6 +28,7 @@ import {
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { getActiveTwapRuntimeStatus } from '@onekeyhq/shared/src/utils/hyperliquidTwapUtils';
 import {
   normalizePerpsAccountAddress,
   resolveBboOrderPrice,
@@ -34,20 +36,21 @@ import {
 import type { IPerpsFrontendOrder } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
 import { useEnsureTradingEnabled } from '../../../hooks/useEnableTradingWithDepositFallback';
+import { usePerpsAccountScopedActiveTwapOrders } from '../../../hooks/usePerpsAccountScopedActiveTwapOrders';
 import { usePerpsAccountScopedCacheAddress } from '../../../hooks/usePerpsAccountScopedCacheAddress';
-import { PerpTestIDs } from '../../../testIDs';
 import {
   getPerpsAccountScopedListData,
   isPerpsAccountAddressMatched,
   isPerpsAccountScopedDataReady,
 } from '../../../utils/accountScopedData';
-import { buildHelpUrl, openGuideUrl } from '../../Guide/perpGuideData';
+import { PERP_TEXT_ACTION_HOVER_STYLE } from '../../../utils/styleUtils';
 import { showCancelAllOrdersDialog } from '../CancelAllOrdersModal';
 import { showChaseOrderConfirmDialog } from '../ChaseOrderConfirmModal';
 import { MobileOpenOrdersListHeader } from '../Components/MobileOpenOrdersListHeader';
 import { MobileTwapOpenOrdersRow } from '../Components/MobileTwapOpenOrdersRow';
 import { OpenOrdersRow } from '../Components/OpenOrdersRow';
 import { OrderInfoSubTabs } from '../Components/OrderInfoSubTabs';
+import { PerpMobileEmptyState } from '../Components/PerpMobileEmptyState';
 import { useChasingOrderTask } from '../hooks/useChasingOrderTask';
 import { canChasePerpsOrder } from '../utils';
 
@@ -72,39 +75,13 @@ type IOpenOrdersDisplayRow =
       order: IPerpsActiveTwapOrder;
     };
 
-function MobileTwapEmptyState() {
-  const intl = useIntl();
-  const handleGuidePress = useCallback(() => {
-    openGuideUrl(buildHelpUrl('articles/15442238'));
-  }, []);
-
-  return (
-    <YStack flex={1} alignItems="center" p="$6">
-      <SizableText size="$bodyMd" color="$textSubdued" textAlign="center">
-        {intl.formatMessage({ id: ETranslations.perp_no_active_twap__title })}
-      </SizableText>
-      <SizableText
-        testID={PerpTestIDs.TwapEmptyGuideButton}
-        size="$bodySm"
-        color="$textSubdued"
-        textAlign="center"
-        textDecorationLine="underline"
-        mt="$2"
-        onPress={handleGuidePress}
-      >
-        {intl.formatMessage({
-          id: ETranslations.perp_twap_trading_guide__action,
-        })}
-      </SizableText>
-    </YStack>
-  );
-}
-
 function useOpenOrdersColumnsConfig({
+  actionColumnWidth,
   openOrdersLength,
   enableCancelAll,
   scopedAccountAddress,
 }: {
+  actionColumnWidth: number;
   openOrdersLength: number;
   enableCancelAll: boolean;
   scopedAccountAddress?: string | null;
@@ -198,18 +175,25 @@ function useOpenOrdersColumnsConfig({
         title: intl.formatMessage({
           id: ETranslations.perp_open_orders_cancel_all,
         }),
-        minWidth: 80,
+        width: actionColumnWidth,
         align: 'right',
         flex: 1,
         fixed: true,
         ...(enableCancelAll &&
           openOrdersLength > 0 && {
+            headerHoverStyle: PERP_TEXT_ACTION_HOVER_STYLE,
             onPress: () =>
               showCancelAllOrdersDialog(undefined, scopedAccountAddress),
           }),
       },
     ],
-    [enableCancelAll, intl, openOrdersLength, scopedAccountAddress],
+    [
+      actionColumnWidth,
+      enableCancelAll,
+      intl,
+      openOrdersLength,
+      scopedAccountAddress,
+    ],
   );
 }
 
@@ -269,19 +253,10 @@ function PerpOpenOrdersList({
       spotOpenOrdersState.openOrders,
     ],
   );
-  const scopedTwapOrders = useMemo(
-    () =>
-      getPerpsAccountScopedListData({
-        activeAccountAddress: accountScopedAddress,
-        dataAccountAddress: twapOrdersState.accountAddress,
-        data: twapOrdersState.twapOrders,
-      }),
-    [
-      accountScopedAddress,
-      twapOrdersState.accountAddress,
-      twapOrdersState.twapOrders,
-    ],
-  );
+  const {
+    twapOrders: scopedTwapOrders,
+    activeRuntimeInfoById: activeTwapRuntimeInfoByKey,
+  } = usePerpsAccountScopedActiveTwapOrders(accountScopedAddress);
   const openOrders = useMemo(
     () =>
       [...scopedPerpOpenOrders, ...scopedSpotOpenOrders].toSorted(
@@ -375,7 +350,7 @@ function PerpOpenOrdersList({
       {
         key: 'twap',
         label: `${intl.formatMessage({
-          id: ETranslations.perp_twap_order__title,
+          id: ETranslations.perp_twap_orders__title,
         })}${twapCount}`,
       },
     ];
@@ -406,7 +381,30 @@ function PerpOpenOrdersList({
     ];
   }, [activeOpenOrdersSubTab, filteredOrders, filteredTwapOrders, isMobile]);
 
+  const pageSize = isMobile ? 20 : 40;
+  const totalPages = Math.max(1, Math.ceil(displayRows.length / pageSize));
+  useEffect(() => {
+    setCurrentListPage((page) => Math.min(page, totalPages));
+  }, [totalPages]);
+
+  const hasChaseAction = displayRows.some(
+    (row) =>
+      row.type === 'single' &&
+      canMutateScopedOrders &&
+      canChasePerpsOrder(row.order),
+  );
+  const actionMeasurementKey = `${intl.locale}:${hasChaseAction}`;
+  const [actionMeasurement, setActionMeasurement] = useState({
+    key: '',
+    width: 80,
+  });
+  const actionColumnWidth =
+    actionMeasurement.key === actionMeasurementKey
+      ? actionMeasurement.width
+      : 80;
+
   const columnsConfig = useOpenOrdersColumnsConfig({
+    actionColumnWidth,
     openOrdersLength: openOrders.length,
     enableCancelAll: canMutateScopedOrders,
     scopedAccountAddress: accountScopedAddress,
@@ -584,6 +582,7 @@ function PerpOpenOrdersList({
               coin: order.coin,
               oid: order.oid,
               newPrice: targetPrice,
+              expectedAccountAddress: requestAccountAddress,
             })
             .catch(() => undefined);
         } catch (error) {
@@ -706,9 +705,19 @@ function PerpOpenOrdersList({
     onHoverChange?: (index: number | null) => void,
   ) => {
     if (item.type === 'twap') {
+      const runtimeInfo = activeTwapRuntimeInfoByKey.get(item.order.twapId);
+      const status = getActiveTwapRuntimeStatus({
+        reportedStatus: runtimeInfo?.reportedStatus,
+        triggerPrice: item.order.state.trigger?.px,
+        executedSize: item.order.state.executedSz,
+      });
       return (
         <MobileTwapOpenOrdersRow
           order={item.order}
+          status={status}
+          activatedAt={
+            status === 'activated' ? runtimeInfo?.activatedAt : undefined
+          }
           onCancelOrder={() => void handleCancelTwapOrder(item.order)}
         />
       );
@@ -755,8 +764,11 @@ function PerpOpenOrdersList({
       />
     </YStack>
   ) : null;
-  const listEmptyComponent =
-    activeOpenOrdersSubTab === 'twap' ? <MobileTwapEmptyState /> : undefined;
+  const listEmptyComponent = isMobile ? (
+    <PerpMobileEmptyState
+      title={intl.formatMessage({ id: ETranslations.perp_open_order_empty })}
+    />
+  ) : undefined;
   const listViewDebugRenderTrackerProps = useMemo(
     (): IDebugRenderTrackerProps => ({
       name: 'PerpOpenOrdersList',
@@ -776,36 +788,79 @@ function PerpOpenOrdersList({
   }
 
   return (
-    <CommonTableListView
-      onPullToRefresh={async () => {
-        await actions.current.refreshAllPerpsData();
-        if (isMobile) {
-          await actions.current.loadTwapData();
-        }
-      }}
-      listViewDebugRenderTrackerProps={listViewDebugRenderTrackerProps}
-      useTabsList={useTabsList}
-      disableListScroll={disableListScroll}
-      enablePagination
-      pageSize={isMobile ? 20 : 40}
-      paginationToBottom={isMobile}
-      currentListPage={currentListPage}
-      setCurrentListPage={setCurrentListPage}
-      columns={columnsConfig}
-      minTableWidth={totalMinWidth}
-      data={displayRows}
-      isMobile={isMobile}
-      renderRow={renderOrderRow}
-      listLoading={listLoading}
-      emptyMessage={intl.formatMessage({
-        id: ETranslations.perp_open_order_empty,
-      })}
-      emptySubMessage={intl.formatMessage({
-        id: ETranslations.perp_open_order_empty_desc,
-      })}
-      ListEmptyComponent={listEmptyComponent}
-      ListHeaderComponent={mobileListHeader}
-    />
+    <YStack flex={1}>
+      {!isMobile && platformEnv.isRuntimeBrowser ? (
+        <YStack
+          key={actionMeasurementKey}
+          position="absolute"
+          opacity={0}
+          pointerEvents="none"
+          aria-hidden
+          alignItems="flex-start"
+          $platform-web={{ width: 'max-content' }}
+          onLayout={(event) => {
+            const width = Math.ceil(event.nativeEvent.layout.width);
+            if (width > 0) {
+              setActionMeasurement((previous) =>
+                previous.key === actionMeasurementKey &&
+                previous.width === width
+                  ? previous
+                  : { key: actionMeasurementKey, width },
+              );
+            }
+          }}
+        >
+          {/* Measure the actions independently of transient request state. */}
+          <XStack gap="$3" alignItems="center">
+            {hasChaseAction ? (
+              <SizableText size="$bodySmMedium">
+                {intl.formatMessage({ id: ETranslations.chase__action })}
+              </SizableText>
+            ) : null}
+            <SizableText size="$bodySmMedium">
+              {intl.formatMessage({
+                id: ETranslations.perp_open_orders_cancel,
+              })}
+            </SizableText>
+          </XStack>
+          <SizableText size="$bodySmMedium" fontWeight={600}>
+            {intl.formatMessage({
+              id: ETranslations.perp_open_orders_cancel_all,
+            })}
+          </SizableText>
+        </YStack>
+      ) : null}
+      <CommonTableListView
+        onPullToRefresh={async () => {
+          await actions.current.refreshAllPerpsData();
+          if (isMobile) {
+            await actions.current.loadTwapData();
+          }
+        }}
+        listViewDebugRenderTrackerProps={listViewDebugRenderTrackerProps}
+        useTabsList={useTabsList}
+        disableListScroll={disableListScroll}
+        enablePagination
+        pageSize={pageSize}
+        paginationToBottom={isMobile}
+        currentListPage={currentListPage}
+        setCurrentListPage={setCurrentListPage}
+        columns={columnsConfig}
+        minTableWidth={totalMinWidth}
+        data={displayRows}
+        isMobile={isMobile}
+        renderRow={renderOrderRow}
+        listLoading={listLoading}
+        emptyMessage={intl.formatMessage({
+          id: ETranslations.perp_open_order_empty,
+        })}
+        emptySubMessage={intl.formatMessage({
+          id: ETranslations.perp_open_order_empty_desc,
+        })}
+        ListEmptyComponent={listEmptyComponent}
+        ListHeaderComponent={mobileListHeader}
+      />
+    </YStack>
   );
 }
 

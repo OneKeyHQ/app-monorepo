@@ -64,6 +64,8 @@ export const collectLogDigest = async (
   };
 };
 
+export const disposeLogDigest = async (_digest: ILogDigest) => {};
+
 export const exportLogs = async (fileBaseName?: string) => {
   const baseName = fileBaseName ?? buildDefaultFileBaseName();
   defaultLogger.setting.device.logDeviceInfo();
@@ -152,7 +154,6 @@ export const uploadLogBundle = async ({
     const response = await globalThis.desktopApiProxy.dev.uploadLoggerBundle({
       uploadUrl,
       filePath: digest.bundle.filePath,
-      sizeBytes: digest.sizeBytes,
       headers,
     });
 

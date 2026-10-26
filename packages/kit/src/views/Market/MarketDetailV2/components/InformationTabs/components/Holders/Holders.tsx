@@ -6,13 +6,17 @@ import {
   ListEndIndicator,
   SizableText,
   Stack,
-  Tabs,
   useMedia,
 } from '@onekeyhq/components';
 import { useMarketHolders } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/hooks/useMarketHolders';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IMarketTokenHolder } from '@onekeyhq/shared/types/marketV2';
+
+import {
+  MarketDetailList,
+  useMarketDetailIsFocusedTab,
+} from '../../layout/MarketDetailScroll';
 
 import { HoldersSkeleton } from './components/HoldersSkeleton';
 import { HolderItemNormal } from './layout/HolderItemNormal/HolderItemNormal';
@@ -33,9 +37,11 @@ function HoldersBase({
 }: IHoldersProps) {
   const intl = useIntl();
   const { gtLg } = useMedia();
-  const { holders, isRefreshing } = useMarketHolders({
+  const isTabFocused = useMarketDetailIsFocusedTab();
+  const { holders, isRefreshing, isInitialPending } = useMarketHolders({
     tokenAddress,
     networkId,
+    isTabFocused,
   });
 
   const renderItem: FlatListProps<IMarketTokenHolder>['renderItem'] =
@@ -58,7 +64,7 @@ function HoldersBase({
   }, [isRefreshing, holders.length]);
 
   return (
-    <Tabs.FlatList<IMarketTokenHolder>
+    <MarketDetailList<IMarketTokenHolder>
       showsVerticalScrollIndicator={false}
       scrollEnabled={scrollEnabled}
       data={holders}
@@ -72,7 +78,7 @@ function HoldersBase({
       windowSize={platformEnv.isNativeAndroid ? 3 : undefined}
       ListFooterComponent={ListFooterComponent}
       ListEmptyComponent={
-        isRefreshing ? (
+        isRefreshing || isInitialPending ? (
           <HoldersSkeleton />
         ) : (
           <Stack flex={1} alignItems="center" justifyContent="center" p="$8">

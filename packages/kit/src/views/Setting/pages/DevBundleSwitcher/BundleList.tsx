@@ -84,7 +84,10 @@ export function BundleItem({
   skipGpgVerificationAllowed: boolean;
 }) {
   const { copyText } = useClipboard();
-  const downloadPercent = useDownloadProgress();
+  const downloadPercent = useDownloadProgress({
+    latestVersion: version,
+    bundleVersion: bundle.ciBundleVersion,
+  });
   const [status, setStatus] = useState<
     'idle' | 'downloading' | 'downloaded' | 'installing' | 'error'
   >(alreadyDownloaded ? 'downloaded' : 'idle');

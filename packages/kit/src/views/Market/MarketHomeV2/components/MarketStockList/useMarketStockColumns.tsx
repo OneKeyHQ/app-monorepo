@@ -3,53 +3,75 @@ import { useMemo } from 'react';
 import { useIntl } from 'react-intl';
 
 import {
-  DashText,
+  Badge,
   Icon,
   NumberSizeableText,
   SizableText,
   Skeleton,
   Stack,
-  Tooltip,
   XStack,
   YStack,
 } from '@onekeyhq/components';
-import type { ISizableTextProps, ITableColumn } from '@onekeyhq/components';
+import type {
+  ISizableTextProps,
+  IStackProps,
+  ITableColumn,
+} from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { EWatchlistFrom } from '@onekeyhq/shared/src/logger/scopes/dex';
 import { getTokenPriceChangeStyle } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { IMarketStockPublicItem } from '@onekeyhq/shared/types/marketV2';
 
+import {
+  MARKET_LIST_FIRST_COLUMN_WIDTH,
+  MARKET_LIST_STAR_SLOT_TO_LOGO_GAP,
+  MARKET_LIST_STAR_SLOT_WIDTH,
+} from '../../../marketDesktopLayoutConstants';
+import { MarketHoverRevealLine } from '../MarketHoverRevealLine';
+import {
+  MARKET_CELL_SUBTITLE_LINE_HEIGHT,
+  MARKET_CELL_SUBTITLE_SIZE,
+} from '../MarketListCell';
+import { MarketVariantLogoGroup } from '../MarketVariantLogoGroup';
+
+import { MarketStockStar } from './MarketStockStar';
 import { StockSparkline } from './StockSparkline';
 import { parseMarketStockNumber } from './utils';
 
 const EMPTY_VALUE = '--';
-// Column widths follow the 760px design grid: a 150px company column plus 122px
-// metric columns. Widths are derived from those units so that hiding a metric
-// column redistributes the freed space instead of leaving a gap in the row.
-const COMPANY_COLUMN_UNITS = 150;
-const METRIC_COLUMN_UNITS = 122;
-const COMPACT_COMPANY_COLUMN_PERCENTAGE = 32;
+
+// The selector dropdown's company column, matching the selector's token tabs
+// (`TOKEN_SELECTOR_NAME_COLUMN_WIDTH`) so every tab lines up. The metric
+// columns share the rest evenly, like the full table.
+const COMPACT_COMPANY_COLUMN_WIDTH = 256;
+// `$bodySm`'s line box, the compact subtitle line.
+const COMPACT_SUBTITLE_LINE_HEIGHT = 16;
+
+const FLEX_METRIC_COLUMN_PROPS: IStackProps = {
+  flexGrow: 1,
+  flexShrink: 1,
+  flexBasis: 0,
+  px: '$2',
+};
 
 function getStockColumnWidths(
   metricColumnCount: number,
   compact: boolean,
 ): {
-  companyColumnWidth: `${number}%`;
+  companyColumnWidth: number;
   metricColumnWidth: `${number}%`;
+  metricColumnProps: IStackProps;
 } {
-  if (compact) {
-    return {
-      companyColumnWidth: `${COMPACT_COMPANY_COLUMN_PERCENTAGE}%`,
-      metricColumnWidth: `${
-        (100 - COMPACT_COMPANY_COLUMN_PERCENTAGE) / metricColumnCount
-      }%`,
-    };
-  }
-  const totalUnits =
-    COMPANY_COLUMN_UNITS + METRIC_COLUMN_UNITS * metricColumnCount;
+  // The design splits the row into a fixed `Left Fixed` company column and a
+  // `Right Flex` region the metric columns share evenly. `flexBasis: 0` makes
+  // that split independent of each column's own content width.
   return {
-    companyColumnWidth: `${(COMPANY_COLUMN_UNITS / totalUnits) * 100}%`,
-    metricColumnWidth: `${(METRIC_COLUMN_UNITS / totalUnits) * 100}%`,
+    companyColumnWidth: compact
+      ? COMPACT_COMPANY_COLUMN_WIDTH
+      : MARKET_LIST_FIRST_COLUMN_WIDTH,
+    metricColumnWidth: `${100 / metricColumnCount}%`,
+    metricColumnProps: FLEX_METRIC_COLUMN_PROPS,
   };
 }
 
@@ -65,34 +87,95 @@ function MissingValue({
   );
 }
 
-const metricColumnProps = {
-  flexShrink: 0,
-  px: '$2',
-} as const;
+// The company name line, led by the listing market badges when requested.
+// Badges share the line so they slide away with the name on hover.
+function renderCompanySubtitle({
+  record,
+  compact,
+  showMarketTags,
+}: {
+  record: IMarketStockPublicItem;
+  compact: boolean;
+  showMarketTags: boolean;
+}) {
+  const marketTags = showMarketTags ? (record.tags?.filter(Boolean) ?? []) : [];
+  const hasMarketTags = marketTags.length > 0;
+  const lineHeight = compact
+    ? COMPACT_SUBTITLE_LINE_HEIGHT
+    : MARKET_CELL_SUBTITLE_LINE_HEIGHT;
+  const companyName = (
+    <SizableText
+      // Beside the badges the row centers the name instead: a fixed height
+      // would pin the compact 16px line to the top of the 20px row and leave
+      // the name sitting above the badge.
+      height={hasMarketTags ? undefined : lineHeight}
+      size={compact ? '$bodySm' : MARKET_CELL_SUBTITLE_SIZE}
+      color="$textSubdued"
+      numberOfLines={1}
+      ellipsizeMode="tail"
+      flexShrink={hasMarketTags ? 1 : undefined}
+    >
+      {record.name}
+    </SizableText>
+  );
+  if (!hasMarketTags) {
+    return companyName;
+  }
+  return (
+    <XStack
+      height={lineHeight}
+      alignItems="center"
+      gap={compact ? '$1.5' : '$1'}
+      minWidth={0}
+    >
+      {marketTags.map((tag) => (
+        <Badge
+          key={tag}
+          badgeType="default"
+          badgeSize="sm"
+          px="$1"
+          py="$0.5"
+          flexShrink={0}
+        >
+          {/* The design sets 11/12, tighter than the token's 14 line height. */}
+          <Badge.Text size="$bodyXs" lineHeight={12}>
+            {tag}
+          </Badge.Text>
+        </Badge>
+      ))}
+      {companyName}
+    </XStack>
+  );
+}
 
 export function useMarketStockColumns({
   compact = false,
   showSparkline = true,
+  showWatchlist = false,
+  showMarketTags = false,
+  watchlistFrom = EWatchlistFrom.Homepage,
 }: {
   /** Use the selector layout with a wider company column and denser rows. */
   compact?: boolean;
   /** Compact surfaces such as the token selector dropdown hide the sparkline. */
   showSparkline?: boolean;
+  showWatchlist?: boolean;
+  /** Show the listing market badges (US / HK) before the company name. */
+  showMarketTags?: boolean;
+  watchlistFrom?: EWatchlistFrom;
 } = {}): ITableColumn<IMarketStockPublicItem>[] {
   const intl = useIntl();
 
   return useMemo(() => {
-    const { companyColumnWidth, metricColumnWidth } = getStockColumnWidths(
-      showSparkline ? 5 : 4,
-      compact,
-    );
+    const { companyColumnWidth, metricColumnWidth, metricColumnProps } =
+      getStockColumnWidths(showSparkline ? 5 : 4, compact);
     const metricTextSize = compact ? '$bodyMdMedium' : '$bodyLgMedium';
     const columns: ITableColumn<IMarketStockPublicItem>[] = [
       {
         title: (
-          <XStack alignItems="center" gap="$1.5">
+          <XStack alignItems="center" gap={MARKET_LIST_STAR_SLOT_TO_LOGO_GAP}>
             <SizableText
-              width={24}
+              width={MARKET_LIST_STAR_SLOT_WIDTH}
               textAlign="center"
               color="$textSubdued"
               size="$bodySmMedium"
@@ -100,7 +183,7 @@ export function useMarketStockColumns({
               #
             </SizableText>
             <SizableText color="$textSubdued" size="$bodySmMedium">
-              Company
+              {intl.formatMessage({ id: ETranslations.market_stock_company })}
             </SizableText>
           </XStack>
         ),
@@ -113,39 +196,78 @@ export function useMarketStockColumns({
             minWidth={0}
             overflow="hidden"
             alignItems="center"
-            gap="$1.5"
+            gap={MARKET_LIST_STAR_SLOT_TO_LOGO_GAP}
           >
-            <Stack width={24} alignItems="center" justifyContent="center">
-              <Icon name="StarOutline" size="$4" color="$iconSubdued" />
+            <Stack
+              width={MARKET_LIST_STAR_SLOT_WIDTH}
+              alignItems="center"
+              justifyContent="center"
+            >
+              {showWatchlist ? (
+                <MarketStockStar stock={record} from={watchlistFrom} />
+              ) : (
+                <Icon name="StarOutline" size="$4" color="$iconSubdued" />
+              )}
             </Stack>
             <XStack
               flex={1}
               minWidth={0}
               alignItems="center"
-              gap={compact ? '$1.5' : 14}
+              gap={compact ? '$3' : 14}
             >
               <Token
-                size={compact ? 'xs' : 'lg'}
+                size={compact ? 'md' : 'lg'}
                 borderRadius="$full"
                 tokenImageUri={record.logoUrl}
                 fallbackIcon="CryptoCoinOutline"
               />
-              <YStack flex={1} minWidth={0} justifyContent="center">
+              <YStack
+                flex={1}
+                minWidth={0}
+                gap={compact ? '$1' : undefined}
+                justifyContent="center"
+              >
                 <SizableText
-                  size={compact ? '$bodySmMedium' : '$bodyLgMedium'}
+                  size={compact ? '$headingSm' : '$bodyLgMedium'}
                   numberOfLines={1}
                   ellipsizeMode="tail"
                 >
                   {record.symbol}
                 </SizableText>
-                <SizableText
-                  size={compact ? '$bodySm' : '$bodyMd'}
-                  color="$textSubdued"
-                  numberOfLines={1}
-                  ellipsizeMode="tail"
-                >
-                  {record.name}
-                </SizableText>
+                <MarketHoverRevealLine
+                  lineHeight={
+                    compact
+                      ? COMPACT_SUBTITLE_LINE_HEIGHT
+                      : MARKET_CELL_SUBTITLE_LINE_HEIGHT
+                  }
+                  resting={renderCompanySubtitle({
+                    record,
+                    compact,
+                    showMarketTags,
+                  })}
+                  revealed={
+                    record.variants?.length && !compact ? (
+                      <XStack
+                        height={MARKET_CELL_SUBTITLE_LINE_HEIGHT}
+                        alignItems="center"
+                        gap="$1"
+                        minWidth={0}
+                      >
+                        <SizableText
+                          size={MARKET_CELL_SUBTITLE_SIZE}
+                          color="$textSubdued"
+                          numberOfLines={1}
+                        >
+                          {intl.formatMessage(
+                            { id: ETranslations.market_number_tokens },
+                            { number: record.variants.length },
+                          )}
+                        </SizableText>
+                        <MarketVariantLogoGroup variants={record.variants} />
+                      </XStack>
+                    ) : undefined
+                  }
+                />
               </YStack>
             </XStack>
           </XStack>
@@ -166,33 +288,16 @@ export function useMarketStockColumns({
         ),
       },
       {
-        title: compact ? (
-          <Tooltip
-            renderTrigger={
-              <DashText
-                size="$bodySm"
-                dashThickness={0.5}
-                dashSpacing={0}
-                color="$textSubdued"
-                cursor="help"
-              >
-                {intl.formatMessage({ id: ETranslations.global_price })}
-              </DashText>
-            }
-            renderContent={
-              <SizableText size="$bodySm">
-                The displayed price is the underlying stock price.
-              </SizableText>
-            }
-            placement="top"
-          />
-        ) : (
-          intl.formatMessage({ id: ETranslations.global_price })
-        ),
+        title: intl.formatMessage({ id: ETranslations.global_price }),
+        // The header sorts on press, so the tooltip is built by HeaderColumn
+        // rather than nested in the title: a trigger in there would swallow
+        // the click.
+        titleTooltip: intl.formatMessage({
+          id: ETranslations.market_stock_price_underlying_tooltip,
+        }),
         dataIndex: 'price',
         columnWidth: metricColumnWidth,
         columnProps: metricColumnProps,
-        titleProps: compact ? undefined : { textDecorationLine: 'underline' },
         render: (_: unknown, record: IMarketStockPublicItem) => {
           const value = parseMarketStockNumber(record.price);
           return value === undefined ? (
@@ -211,7 +316,7 @@ export function useMarketStockColumns({
       },
       {
         title: intl.formatMessage({
-          id: ETranslations.dexmarket_banner_token_24hchange,
+          id: ETranslations.market_stock_change__title,
         }),
         dataIndex: 'priceChange24hPercent',
         columnWidth: metricColumnWidth,
@@ -227,7 +332,7 @@ export function useMarketStockColumns({
           return (
             <NumberSizeableText
               size={metricTextSize}
-              formatter="priceChange"
+              formatter="priceChangeCapped"
               color={changeColor}
               formatterOptions={{ showPlusMinusSigns }}
             >
@@ -260,7 +365,7 @@ export function useMarketStockColumns({
       },
       {
         title: intl.formatMessage({
-          id: ETranslations.dexmarket_stock_24h_volume,
+          id: ETranslations.market_stock_volume__title,
         }),
         dataIndex: 'volume24h',
         columnWidth: metricColumnWidth,
@@ -285,7 +390,7 @@ export function useMarketStockColumns({
     if (showSparkline) {
       columns.push({
         title: intl.formatMessage({
-          id: ETranslations.market_24h_price_range,
+          id: ETranslations.market_stock_day_range__title,
         }),
         dataIndex: 'sparkline',
         columnWidth: metricColumnWidth,
@@ -302,6 +407,20 @@ export function useMarketStockColumns({
         renderSkeleton: () => <Skeleton width={132} height={40} />,
       });
     }
+    // The selector's compact table right-aligns its figures; the company
+    // column stays left.
+    if (compact) {
+      return columns.map((column, index) =>
+        index === 0 ? column : { ...column, align: 'right' as const },
+      );
+    }
     return columns;
-  }, [compact, intl, showSparkline]);
+  }, [
+    compact,
+    intl,
+    showMarketTags,
+    showSparkline,
+    showWatchlist,
+    watchlistFrom,
+  ]);
 }

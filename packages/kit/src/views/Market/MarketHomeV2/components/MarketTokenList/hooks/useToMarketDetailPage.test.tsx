@@ -1,21 +1,58 @@
 /** @jest-environment jsdom */
-import { act, renderHook } from '@testing-library/react';
+import { act, renderHook, waitFor } from '@testing-library/react';
 
+import { Toast, rootNavigationRef } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { preloadMarketDetailV2Page } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/marketDetailPagePreload';
+import { resolveMarketAssetRouteIdentity } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/resolveMarketAssetRouteIdentity';
+import { finishMarketDetailTabBarTransition } from '@onekeyhq/kit/src/views/Market/utils/marketDetailNavigation';
 import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { EEnterWay } from '@onekeyhq/shared/src/logger/scopes/dex';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
 import { useToDetailPage } from './useToMarketDetailPage';
 
+jest.mock('react-intl', () => ({
+  useIntl: () => ({ formatMessage: ({ id }: { id: string }) => id }),
+}));
+
 const mockNavigationPush = jest.fn();
 const mockNavigationReplace = jest.fn();
+const mockNavigationSetParams = jest.fn();
+const mockClearTokenDetail = jest.fn();
+const mockPrepareStockTokenDetail = jest.fn();
+const mockPrepareTokenDetailPreview = jest.fn();
+const mockGetCurrentRoute = jest.fn<{ name: string; key: string }, []>();
 let mockCurrentRouteName = 'MarketDetailV2';
 let mockSplitViewType = 'UNKNOWN';
+let mockTravelMode = false;
+
+jest.mock('@onekeyhq/shared/src/travelMode', () => ({
+  travelModeManager: {
+    getRuntimeEnvironmentSync: () => ({
+      profile: { kind: mockTravelMode ? 'travel-mode' : 'standard' },
+    }),
+  },
+}));
 
 jest.mock('@react-navigation/native', () => ({
-  useRoute: jest.fn(() => ({ name: mockCurrentRouteName })),
+  useRoute: jest.fn(() => ({
+    name: mockCurrentRouteName,
+    key: 'market-detail',
+  })),
+  CommonActions: {
+    setParams: (params: unknown) => ({
+      type: 'SET_PARAMS',
+      payload: { params },
+    }),
+  },
+  StackActions: {
+    replace: (name: string, params: unknown) => ({
+      type: 'REPLACE',
+      payload: { name, params },
+    }),
+  },
 }));
 
 jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
@@ -38,12 +75,18 @@ jest.mock('@onekeyhq/shared/src/logger/scopes/dex', () => ({
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
   default: {
+    serviceMarket: { fetchMarketAssetDetail: jest.fn() },
     serviceApp: {
       openExtensionMarketTokenDetail: jest.fn(),
       openExtensionMarketStockDetail: jest.fn(),
     },
   },
 }));
+
+jest.mock(
+  '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/resolveMarketAssetRouteIdentity',
+  () => ({ resolveMarketAssetRouteIdentity: jest.fn() }),
+);
 
 jest.mock(
   '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/marketDetailPagePreload',
@@ -53,6 +96,7 @@ jest.mock(
 );
 
 jest.mock('@onekeyhq/components', () => ({
+  Toast: { error: jest.fn() },
   ESplitViewType: {
     UNKNOWN: 'UNKNOWN',
   },
@@ -60,6 +104,7 @@ jest.mock('@onekeyhq/components', () => ({
   rootNavigationRef: {
     current: {
       navigate: jest.fn(),
+      getCurrentRoute: () => mockGetCurrentRoute(),
     },
   },
   useMedia: jest.fn(() => ({ gtLg: false })),
@@ -71,6 +116,7 @@ jest.mock('@onekeyhq/kit/src/hooks/useAppNavigation', () => ({
   default: jest.fn(() => ({
     push: mockNavigationPush,
     replace: mockNavigationReplace,
+    setParams: mockNavigationSetParams,
     switchTab: jest.fn(),
   })),
 }));
@@ -78,12 +124,17 @@ jest.mock('@onekeyhq/kit/src/hooks/useAppNavigation', () => ({
 jest.mock('@onekeyhq/kit/src/states/jotai/contexts/marketV2', () => ({
   useTokenDetailActions: jest.fn(() => ({
     current: {
-      clearTokenDetail: jest.fn(),
+      clearTokenDetail: mockClearTokenDetail,
+      prepareStockTokenDetail: mockPrepareStockTokenDetail,
+      prepareTokenDetailPreview: mockPrepareTokenDetailPreview,
     },
   })),
 }));
 
 jest.mock('@onekeyhq/shared/src/eventBus/appEventBus', () => ({
+  EAppEventBusNames: {
+    HideTabBar: 'HideTabBar',
+  },
   appEventBus: {
     emit: jest.fn(),
   },
@@ -109,9 +160,19 @@ describe('useToDetailPage', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    jest.mocked(resolveMarketAssetRouteIdentity).mockReset();
+    jest
+      .spyOn(backgroundApiProxy.serviceMarket, 'fetchMarketAssetDetail')
+      .mockReset();
+    Object.assign(platformEnv, { isNative: false });
     jest.useFakeTimers();
     mockCurrentRouteName = 'MarketDetailV2';
+    mockGetCurrentRoute.mockReturnValue({
+      name: mockCurrentRouteName,
+      key: 'market-detail',
+    });
     mockSplitViewType = 'UNKNOWN';
+    mockTravelMode = false;
     (
       platformEnv as typeof platformEnv & {
         isExtensionUiPopup: boolean;
@@ -134,6 +195,7 @@ describe('useToDetailPage', () => {
   });
 
   afterEach(() => {
+    finishMarketDetailTabBarTransition();
     jest.useRealTimers();
     Object.defineProperty(globalThis, 'close', {
       configurable: true,
@@ -141,24 +203,484 @@ describe('useToDetailPage', () => {
     });
   });
 
+  it('consumes failed asset navigation requests and displays an error', async () => {
+    jest
+      .spyOn(backgroundApiProxy.serviceMarket, 'fetchMarketAssetDetail')
+      .mockRejectedValueOnce(new Error('offline'));
+    const { result } = renderHook(() => useToDetailPage());
+    await act(async () => {
+      await expect(
+        result.current({
+          assetId: 'bitcoin',
+          networkId: '',
+          tokenAddress: '',
+          symbol: 'BTC',
+        }),
+      ).resolves.toBeUndefined();
+    });
+    expect(Toast.error).toHaveBeenCalledTimes(1);
+    expect(mockNavigationPush).not.toHaveBeenCalled();
+    expect(openExtensionMarketTokenDetailMock).not.toHaveBeenCalled();
+  });
+
+  it('reports a failed extension handoff without closing the popup', async () => {
+    openExtensionMarketTokenDetailMock.mockRejectedValueOnce(
+      new Error('storage unavailable'),
+    );
+    const { result } = renderHook(() => useToDetailPage());
+    await act(async () => {
+      await expect(
+        result.current({
+          networkId: 'evm--1',
+          tokenAddress: '0xabc',
+          symbol: 'ABC',
+        }),
+      ).resolves.toBeUndefined();
+    });
+    expect(Toast.error).toHaveBeenCalledTimes(1);
+    expect(globalThis.close).not.toHaveBeenCalled();
+  });
+
+  it.each([true, false])(
+    'falls back to the searched native token when asset detail fails (extension=%s)',
+    async (extension) => {
+      platformEnv.isExtensionUiPopup = extension;
+      jest
+        .spyOn(backgroundApiProxy.serviceMarket, 'fetchMarketAssetDetail')
+        .mockRejectedValueOnce(new Error('offline'));
+      const { result } = renderHook(() =>
+        useToDetailPage({ resolveMarketAsset: true }),
+      );
+      await act(async () => {
+        await result.current({
+          assetId: 'ethereum',
+          networkId: 'evm--8453',
+          tokenAddress: '',
+          symbol: 'ETH',
+          isNative: true,
+        });
+      });
+      const expectedParams = {
+        network: 'eth',
+        tokenAddress: '',
+        isNative: true,
+        resolveMarketAsset: true,
+        marketTokenSymbol: 'ETH',
+      };
+      if (extension) {
+        expect(openExtensionMarketTokenDetailMock).toHaveBeenCalledWith({
+          ...expectedParams,
+          from: EEnterWay.ExtensionPopup,
+          tokenDetailPreview: undefined,
+        });
+      } else {
+        expect(mockNavigationPush).toHaveBeenCalledWith('MarketDetailV2', {
+          ...expectedParams,
+          from: undefined,
+        });
+      }
+      expect(Toast.error).not.toHaveBeenCalled();
+      expect(networkUtils.getNetworkShortCode).toHaveBeenCalledWith({
+        networkId: 'evm--8453',
+      });
+    },
+  );
+
+  it('ignores asset detail presses before resolving a variant in Travel Mode', async () => {
+    mockTravelMode = true;
+    const fetchMarketAssetDetail = jest.spyOn(
+      backgroundApiProxy.serviceMarket,
+      'fetchMarketAssetDetail',
+    );
+    const { result } = renderHook(() => useToDetailPage());
+    const preloadCalls = jest.mocked(preloadMarketDetailV2Page).mock.calls
+      .length;
+
+    await act(async () => {
+      await result.current({
+        assetId: 'bitcoin',
+        networkId: '',
+        tokenAddress: '',
+        symbol: 'BTC',
+      });
+    });
+
+    expect(fetchMarketAssetDetail).not.toHaveBeenCalled();
+    expect(preloadMarketDetailV2Page).toHaveBeenCalledTimes(preloadCalls);
+    expect(mockNavigationPush).not.toHaveBeenCalled();
+    expect(mockNavigationReplace).not.toHaveBeenCalled();
+    expect(openExtensionMarketTokenDetailMock).not.toHaveBeenCalled();
+  });
+
+  const assetItem = {
+    assetId: 'bitcoin',
+    networkId: '',
+    tokenAddress: '',
+    symbol: 'BTC',
+  };
+  const stockItem = {
+    stockId: 'AAPL',
+    networkId: '',
+    tokenAddress: '',
+    symbol: 'AAPL',
+  };
+  const tokenItem = {
+    networkId: 'evm--1',
+    tokenAddress: '0xtoken',
+    symbol: 'TOKEN',
+  };
+  const assetDetail = {
+    about: '',
+    asset: { assetId: 'bitcoin', name: 'Bitcoin', symbol: 'BTC', logoUrl: '' },
+    variants: [],
+    selectedVariant: {
+      variantId: 'bitcoin-native',
+      networkId: 'btc--0',
+      tokenAddress: '',
+      networkName: 'Bitcoin',
+      networkSymbol: 'BTC',
+      networkLogoUrl: '',
+      isNative: true,
+      isDefault: true,
+    },
+    market: {
+      price: '',
+      priceChange24h: '',
+      priceChange24hPercent: '',
+      marketCap: '',
+      marketCapRank: null,
+      volume24h: '',
+      circulatingSupply: '',
+      fdv: '',
+      totalSupply: '',
+      maxSupply: '',
+    },
+    performance: {
+      priceChange7dPercent: '',
+      price7dAgo: '',
+      priceChange30dPercent: '',
+      price30dAgo: '',
+      priceChange3mPercent: '',
+      price3mAgo: '',
+      priceChange1yPercent: '',
+      price1yAgo: '',
+      allTimeHighChangePercent: '',
+      allTimeHighPrice: '',
+    },
+  };
+
+  function deferred<T>() {
+    let resolve!: (value: T) => void;
+    let reject!: (reason: Error) => void;
+    const promise = new Promise<T>((resolvePromise, rejectPromise) => {
+      resolve = resolvePromise;
+      reject = rejectPromise;
+    });
+    return { promise, resolve, reject };
+  }
+
+  it.each([true, false])(
+    'preserves the searched native variant in extension=%s navigation',
+    async (extension) => {
+      platformEnv.isExtensionUiPopup = extension;
+      const mainnet = {
+        ...assetDetail.selectedVariant,
+        variantId: 'ethereum-mainnet',
+        networkId: 'evm--1',
+      };
+      const base = {
+        ...mainnet,
+        variantId: 'ethereum-base',
+        networkId: 'evm--8453',
+      };
+      jest
+        .spyOn(backgroundApiProxy.serviceMarket, 'fetchMarketAssetDetail')
+        .mockResolvedValueOnce({
+          ...assetDetail,
+          selectedVariant: mainnet,
+          variants: [mainnet, base],
+        });
+      const { result } = renderHook(() => useToDetailPage());
+      await act(async () => {
+        await result.current({
+          assetId: 'ethereum',
+          networkId: base.networkId,
+          tokenAddress: '',
+          symbol: 'ETH',
+          isNative: true,
+        });
+      });
+      const expected = expect.objectContaining({
+        marketTokenId: 'ethereum',
+        marketVariantId: base.variantId,
+      });
+      if (extension)
+        expect(openExtensionMarketTokenDetailMock).toHaveBeenCalledWith(
+          expected,
+        );
+      else
+        expect(mockNavigationPush).toHaveBeenCalledWith(
+          'MarketDetailV2',
+          expected,
+        );
+    },
+  );
+
+  it('does not substitute the default network when the searched variant is unavailable', async () => {
+    jest
+      .spyOn(backgroundApiProxy.serviceMarket, 'fetchMarketAssetDetail')
+      .mockResolvedValueOnce(assetDetail);
+    const { result } = renderHook(() => useToDetailPage());
+    await act(async () => {
+      await result.current({
+        assetId: 'bitcoin',
+        networkId: 'btc--unavailable',
+        tokenAddress: '',
+        symbol: 'BTC',
+        isNative: true,
+      });
+    });
+    expect(openExtensionMarketTokenDetailMock).not.toHaveBeenCalled();
+    expect(mockNavigationPush).not.toHaveBeenCalled();
+    expect(Toast.error).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([
+    ['asset', { ...assetItem, assetId: 'ethereum', symbol: 'ETH' }],
+    ['stock', stockItem],
+    ['token', tokenItem],
+  ])(
+    'ignores a late asset response after selecting another %s',
+    async (_type, nextItem) => {
+      Object.assign(platformEnv, { isExtensionUiPopup: false });
+      const first = deferred<typeof assetDetail>();
+      const fetchAssetDetail = jest
+        .spyOn(backgroundApiProxy.serviceMarket, 'fetchMarketAssetDetail')
+        .mockImplementationOnce(() => first.promise)
+        .mockResolvedValueOnce(assetDetail);
+      const { result, rerender } = renderHook(() => useToDetailPage());
+      const firstNavigation = result.current(assetItem);
+      await waitFor(() => {
+        expect(fetchAssetDetail).toHaveBeenCalledTimes(1);
+      });
+      rerender();
+      await act(async () => {
+        await result.current(nextItem);
+      });
+      expect(mockNavigationPush).toHaveBeenCalledTimes(1);
+      const lastNavigation = mockNavigationPush.mock.calls[0];
+      await act(async () => {
+        first.resolve(assetDetail);
+        await firstNavigation;
+      });
+      expect(mockNavigationPush).toHaveBeenCalledTimes(1);
+      expect(mockNavigationPush.mock.calls[0]).toEqual(lastNavigation);
+      expect(Toast.error).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each(['', 'btc--0'])(
+    'suppresses superseded asset failures (network=%s)',
+    async (networkId) => {
+      const first = deferred<typeof assetDetail>();
+      const fetchAssetDetail = jest
+        .spyOn(backgroundApiProxy.serviceMarket, 'fetchMarketAssetDetail')
+        .mockImplementationOnce(() => first.promise);
+      const { result } = renderHook(() => useToDetailPage());
+      const firstNavigation = result.current({ ...assetItem, networkId });
+      await waitFor(() => {
+        expect(fetchAssetDetail).toHaveBeenCalledTimes(1);
+      });
+      await act(async () => {
+        await result.current(stockItem);
+        first.reject(new Error('offline'));
+        await firstNavigation;
+      });
+      expect(Toast.error).not.toHaveBeenCalled();
+      expect(openExtensionMarketStockDetailMock).toHaveBeenCalledTimes(1);
+      expect(openExtensionMarketTokenDetailMock).not.toHaveBeenCalled();
+    },
+  );
+
+  it('ignores superseded native preload completion', async () => {
+    Object.assign(platformEnv, { isExtensionUiPopup: false, isNative: true });
+    const { result } = renderHook(() => useToDetailPage());
+    const first = deferred<void>();
+    jest
+      .mocked(preloadMarketDetailV2Page)
+      .mockImplementationOnce(() => first.promise);
+    const firstNavigation = result.current(tokenItem);
+    await act(async () => {
+      await result.current(stockItem);
+      first.resolve();
+      await firstNavigation;
+    });
+    expect(mockNavigationPush).toHaveBeenCalledTimes(1);
+    expect(mockNavigationPush).toHaveBeenCalledWith(
+      'MarketStockDetail',
+      expect.objectContaining({ stockId: 'AAPL' }),
+    );
+  });
+
+  it('only runs the latest selection across separate search row hooks', async () => {
+    Object.assign(platformEnv, { isExtensionUiPopup: false });
+    const first = renderHook(() =>
+      useToDetailPage({ switchToMarketTabFirst: true }),
+    );
+    const second = renderHook(() =>
+      useToDetailPage({ switchToMarketTabFirst: true }),
+    );
+    const pending = deferred<void>();
+    jest
+      .mocked(preloadMarketDetailV2Page)
+      .mockImplementationOnce(() => pending.promise);
+    const navigate = jest.spyOn(rootNavigationRef.current!, 'navigate');
+    const firstNavigation = first.result.current(tokenItem);
+    await act(async () => {
+      await second.result.current(stockItem);
+    });
+    expect(navigate).toHaveBeenCalledTimes(1);
+    await act(async () => {
+      pending.resolve();
+      await firstNavigation;
+    });
+    expect(navigate).toHaveBeenCalledTimes(1);
+    expect(navigate).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        params: expect.objectContaining({ screen: 'MarketStockDetail' }),
+      }),
+    );
+  });
+
+  it('only runs the latest desktop navigation while preloading', async () => {
+    Object.assign(platformEnv, { isExtensionUiPopup: false });
+    const navigateSpy = jest.spyOn(rootNavigationRef.current!, 'navigate');
+    const { result } = renderHook(() =>
+      useToDetailPage({ switchToMarketTabFirst: true }),
+    );
+    await act(async () => {
+      await Promise.all([result.current(tokenItem), result.current(stockItem)]);
+    });
+    act(() => {
+      jest.advanceTimersByTime(500);
+    });
+    expect(navigateSpy).toHaveBeenCalledTimes(1);
+    expect(navigateSpy).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        params: expect.objectContaining({
+          screen: 'MarketStockDetail',
+          params: expect.objectContaining({ stockId: 'AAPL' }),
+        }),
+      }),
+    );
+  });
+
+  it('carries desktop search preview into the destination without changing the visible detail', async () => {
+    Object.assign(platformEnv, { isExtensionUiPopup: false, isNative: false });
+    const preview = {
+      address: '0xabc',
+      networkId: 'evm--1',
+      symbol: 'ABC',
+      name: 'ABC',
+      decimals: 18,
+      selectedAt: 1,
+    };
+    const { result } = renderHook(() =>
+      useToDetailPage({
+        switchToMarketTabFirst: true,
+        resolveMarketAsset: true,
+      }),
+    );
+    const ready = deferred<void>();
+    jest
+      .mocked(preloadMarketDetailV2Page)
+      .mockImplementationOnce(() => ready.promise);
+    const navigate = jest.spyOn(rootNavigationRef.current!, 'navigate');
+    let navigation: Promise<void> | undefined;
+    act(() => {
+      navigation = result.current({
+        ...tokenItem,
+        tokenDetailPreview: preview,
+      });
+    });
+    expect(mockPrepareTokenDetailPreview).not.toHaveBeenCalled();
+    expect(mockClearTokenDetail).not.toHaveBeenCalled();
+    expect(navigate).not.toHaveBeenCalled();
+    await act(async () => {
+      ready.resolve();
+      await navigation;
+    });
+    expect(navigate).toHaveBeenCalledTimes(1);
+    expect(navigate).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        params: expect.objectContaining({
+          screen: 'MarketDetailV2',
+          params: expect.objectContaining({
+            legacyTokenPreview: preview,
+            resolveMarketAsset: true,
+          }),
+        }),
+      }),
+    );
+    expect(mockPrepareTokenDetailPreview).not.toHaveBeenCalled();
+    expect(mockClearTokenDetail).not.toHaveBeenCalled();
+  });
+
+  it.each([false, true])(
+    'initializes a generated list preview at the platform owner (native=%s)',
+    async (isNative) => {
+      Object.assign(platformEnv, { isExtensionUiPopup: false, isNative });
+      const { result } = renderHook(() => useToDetailPage());
+      await act(async () => {
+        await result.current({ ...tokenItem, name: 'ABC Token', decimals: 18 });
+      });
+      const preview = expect.objectContaining({
+        name: 'ABC Token',
+        decimals: 18,
+        networkId: tokenItem.networkId,
+        address: tokenItem.tokenAddress,
+      });
+      if (isNative) {
+        expect(mockPrepareTokenDetailPreview).toHaveBeenCalledTimes(1);
+        expect(mockPrepareTokenDetailPreview).toHaveBeenCalledWith(preview);
+        expect(mockNavigationPush.mock.calls[0][1]).not.toHaveProperty(
+          'legacyTokenPreview',
+        );
+      } else {
+        expect(mockNavigationPush).toHaveBeenCalledWith(
+          'MarketDetailV2',
+          expect.objectContaining({ legacyTokenPreview: preview }),
+        );
+        expect(mockPrepareTokenDetailPreview).not.toHaveBeenCalled();
+      }
+      expect(mockClearTokenDetail).not.toHaveBeenCalled();
+    },
+  );
+
   it('navigates stock items with stockId instead of chain identity', async () => {
     const mockedPlatformEnv = platformEnv as typeof platformEnv & {
       isExtensionUiPopup: boolean;
     };
     mockedPlatformEnv.isExtensionUiPopup = false;
-    const { result } = renderHook(() => useToDetailPage());
+    const { result } = renderHook(() =>
+      useToDetailPage({ resolveMarketAsset: true }),
+    );
 
     await act(async () => {
       await result.current({
         tokenAddress: '0xaapl',
         networkId: 'evm--1',
         symbol: 'AAPLon',
+        stockId: 'AAPL',
         disableTrade: true,
         showFavoriteButton: false,
         stock: {
           subtitle: 'Apple Inc.',
           sourceLogoUri: '',
-          underlyingAssetTicker: 'AAPL',
+          stockId: 'AAPL',
         },
       });
     });
@@ -181,6 +703,61 @@ describe('useToDetailPage', () => {
     mockedPlatformEnv.isExtensionUiPopup = true;
   });
 
+  it('navigates items whose stock id is only nested on stock', async () => {
+    const mockedPlatformEnv = platformEnv as typeof platformEnv & {
+      isExtensionUiPopup: boolean;
+    };
+    mockedPlatformEnv.isExtensionUiPopup = false;
+    const { result } = renderHook(() => useToDetailPage());
+
+    await act(async () => {
+      await result.current({
+        tokenAddress: '0xaapl',
+        networkId: 'evm--1',
+        symbol: 'AAPLon',
+        stock: {
+          subtitle: 'Apple Inc.',
+          sourceLogoUri: '',
+          stockId: 'aapl',
+        },
+      });
+    });
+
+    expect(mockNavigationPush).toHaveBeenCalledWith('MarketStockDetail', {
+      stockId: 'AAPL',
+      tokenAddress: '0xaapl',
+      network: 'eth',
+      isNative: undefined,
+      from: undefined,
+    });
+    mockedPlatformEnv.isExtensionUiPopup = true;
+  });
+
+  it('navigates xStocks search items without a stock id to token detail', async () => {
+    const mockedPlatformEnv = platformEnv as typeof platformEnv & {
+      isExtensionUiPopup: boolean;
+    };
+    mockedPlatformEnv.isExtensionUiPopup = false;
+    const { result } = renderHook(() => useToDetailPage());
+
+    await act(async () => {
+      await result.current({
+        tokenAddress: '0xc156',
+        networkId: 'evm--196',
+        name: 'Airbnb xStock',
+        symbol: 'ABNBx',
+      });
+    });
+
+    expect(mockNavigationPush).toHaveBeenCalledWith('MarketDetailV2', {
+      tokenAddress: '0xc156',
+      network: 'eth',
+      isNative: undefined,
+      from: undefined,
+    });
+    mockedPlatformEnv.isExtensionUiPopup = true;
+  });
+
   it('replaces the current detail route for a stock selected from detail', async () => {
     const mockedPlatformEnv = platformEnv as typeof platformEnv & {
       isExtensionUiPopup: boolean;
@@ -195,6 +772,7 @@ describe('useToDetailPage', () => {
         tokenAddress: '0xaapl',
         networkId: 'evm--1',
         symbol: 'AAPLon',
+        stockId: 'AAPL',
         stock: {
           subtitle: 'Apple Inc.',
           sourceLogoUri: '',
@@ -236,14 +814,16 @@ describe('useToDetailPage', () => {
       });
     });
 
-    expect(mockNavigationPush).toHaveBeenCalledWith('MarketDetailV2', {
-      tokenAddress: '',
-      network: 'eth',
-      isNative: true,
-      from: undefined,
-      marketTokenId: 'ethereum',
-      marketTokenCategory: 'top_coins',
-    });
+    expect(mockNavigationSetParams).toHaveBeenCalledWith(
+      expect.objectContaining({
+        tokenAddress: '',
+        network: 'eth',
+        isNative: true,
+        marketTokenId: 'ethereum',
+        marketTokenCategory: 'top_coins',
+      }),
+    );
+    expect(mockNavigationPush).not.toHaveBeenCalled();
     expect(mockNavigationReplace).not.toHaveBeenCalled();
   });
 
@@ -383,6 +963,319 @@ describe('useToDetailPage', () => {
     mockedPlatformEnv.isExtensionUiPopup = true;
   });
 
+  it.each([true, false])(
+    'waits for desktop preflight and preserves route resolution when inconclusive (asset=%s)',
+    async (matchesAsset) => {
+      Object.assign(platformEnv, {
+        isExtensionUiPopup: false,
+        isNative: false,
+      });
+      const identity = {
+        marketTokenId: 'bitcoin',
+        marketVariantId: 'bitcoin-evm--1-0xbtc',
+        networkId: 'evm--1',
+        tokenAddress: '0xbtc',
+        isNative: false,
+      };
+      const pending = deferred<typeof identity | undefined>();
+      jest
+        .mocked(resolveMarketAssetRouteIdentity)
+        .mockReturnValueOnce(pending.promise);
+      const { result } = renderHook(() =>
+        useToDetailPage({
+          replaceCurrentDetail: true,
+          resolveMarketAsset: true,
+        }),
+      );
+      let navigation: Promise<void> | undefined;
+      act(() => {
+        navigation = result.current({
+          tokenAddress: '0xbtc',
+          networkId: 'evm--1',
+          symbol: 'BTC',
+          isNative: false,
+          name: 'Bitcoin',
+          decimals: 8,
+        });
+      });
+      expect(mockNavigationSetParams).not.toHaveBeenCalled();
+      expect(mockClearTokenDetail).not.toHaveBeenCalled();
+      expect(mockPrepareTokenDetailPreview).not.toHaveBeenCalled();
+
+      await act(async () => {
+        pending.resolve(matchesAsset ? identity : undefined);
+        await navigation;
+      });
+      expect(mockNavigationSetParams).toHaveBeenCalledTimes(1);
+      expect(mockNavigationSetParams).toHaveBeenCalledWith(
+        expect.objectContaining({
+          tokenAddress: '0xbtc',
+          resolveMarketAsset: matchesAsset ? undefined : true,
+          marketTokenSymbol: matchesAsset ? undefined : 'BTC',
+          marketTokenId: matchesAsset ? 'bitcoin' : undefined,
+          marketTokenCategory: matchesAsset ? 'top_coins' : undefined,
+          legacyTokenPreview: expect.objectContaining({ symbol: 'BTC' }),
+        }),
+      );
+    },
+  );
+
+  it.each([false, true])(
+    'ignores desktop preflight after the source route leaves focus (unmount=%s)',
+    async (unmountBeforeResolution) => {
+      Object.assign(platformEnv, {
+        isExtensionUiPopup: false,
+        isNative: false,
+      });
+      const identity = {
+        marketTokenId: 'bitcoin',
+        marketVariantId: 'bitcoin-eth',
+        networkId: 'evm--1',
+        tokenAddress: '0xbtc',
+        isNative: false,
+      };
+      const pending = deferred<typeof identity>();
+      jest
+        .mocked(resolveMarketAssetRouteIdentity)
+        .mockReturnValueOnce(pending.promise);
+      const { result, unmount } = renderHook(() =>
+        useToDetailPage({
+          replaceCurrentDetail: true,
+          resolveMarketAsset: true,
+        }),
+      );
+      let navigation: Promise<void> | undefined;
+      act(() => {
+        navigation = result.current({ ...tokenItem, symbol: 'BTC' });
+      });
+      mockGetCurrentRoute.mockReturnValue({
+        name: 'MarketDetailV2',
+        key: 'another-detail',
+      });
+      if (unmountBeforeResolution) unmount();
+      await act(async () => {
+        pending.resolve(identity);
+        await navigation;
+      });
+      expect(mockNavigationSetParams).not.toHaveBeenCalled();
+      expect(mockNavigationPush).not.toHaveBeenCalled();
+      expect(mockNavigationReplace).not.toHaveBeenCalled();
+      expect(mockPrepareTokenDetailPreview).not.toHaveBeenCalled();
+      expect(mockClearTokenDetail).not.toHaveBeenCalled();
+    },
+  );
+
+  it('ignores an older sidebar selection when its identity resolves last', async () => {
+    Object.assign(platformEnv, { isExtensionUiPopup: false, isNative: false });
+    const pending = deferred<undefined>();
+    jest
+      .mocked(resolveMarketAssetRouteIdentity)
+      .mockReturnValueOnce(pending.promise)
+      .mockResolvedValueOnce(undefined);
+    const { result } = renderHook(() =>
+      useToDetailPage({ replaceCurrentDetail: true, resolveMarketAsset: true }),
+    );
+    let first: Promise<void> | undefined;
+    act(() => {
+      first = result.current({ ...tokenItem, symbol: 'FIRST' });
+    });
+    await act(async () => {
+      await result.current({
+        ...tokenItem,
+        tokenAddress: '0xsecond',
+        symbol: 'SECOND',
+      });
+      pending.resolve(undefined);
+      await first;
+    });
+    expect(mockNavigationSetParams).toHaveBeenCalledTimes(1);
+    expect(mockNavigationSetParams).toHaveBeenCalledWith(
+      expect.objectContaining({ tokenAddress: '0xsecond' }),
+    );
+  });
+
+  it('navigates immediately and defers Asset identity resolution to detail', async () => {
+    const mockedPlatformEnv = platformEnv as typeof platformEnv & {
+      isExtensionUiPopup: boolean;
+    };
+    mockedPlatformEnv.isExtensionUiPopup = false;
+    const tokenDetailPreview = {
+      address: '0xbtc',
+      networkId: 'evm--1',
+      isNative: false,
+      name: 'Bitcoin',
+      symbol: 'BTC',
+      decimals: 8,
+      selectedAt: 1,
+    };
+    const { result } = renderHook(() =>
+      useToDetailPage({ resolveMarketAsset: true }),
+    );
+
+    await act(async () => {
+      await result.current({
+        tokenAddress: '0xbtc',
+        networkId: 'evm--1',
+        symbol: 'BTC',
+        isNative: false,
+        tokenDetailPreview,
+      });
+    });
+
+    expect(mockNavigationPush).toHaveBeenCalledWith('MarketDetailV2', {
+      tokenAddress: '0xbtc',
+      network: 'eth',
+      isNative: false,
+      from: undefined,
+      resolveMarketAsset: true,
+      marketTokenSymbol: 'BTC',
+      legacyTokenPreview: tokenDetailPreview,
+    });
+    mockedPlatformEnv.isExtensionUiPopup = true;
+  });
+
+  it('passes native search identity to detail without waiting for lookup', async () => {
+    const mockedPlatformEnv = platformEnv as typeof platformEnv & {
+      isExtensionUiPopup: boolean;
+    };
+    mockedPlatformEnv.isExtensionUiPopup = false;
+    const tokenDetailPreview = {
+      address: 'native',
+      networkId: 'btc--0',
+      isNative: true,
+      name: 'Bitcoin',
+      symbol: 'BTC',
+      decimals: 8,
+      selectedAt: 1,
+    };
+    const { result } = renderHook(() =>
+      useToDetailPage({ resolveMarketAsset: true }),
+    );
+
+    await act(async () => {
+      await result.current({
+        tokenAddress: 'native',
+        networkId: 'btc--0',
+        symbol: 'BTC',
+        isNative: true,
+        tokenDetailPreview,
+      });
+    });
+
+    expect(mockNavigationPush).toHaveBeenCalledWith('MarketDetailV2', {
+      tokenAddress: 'native',
+      network: 'eth',
+      isNative: true,
+      from: undefined,
+      resolveMarketAsset: true,
+      marketTokenSymbol: 'BTC',
+      legacyTokenPreview: tokenDetailPreview,
+    });
+    expect(mockPrepareTokenDetailPreview).not.toHaveBeenCalled();
+    mockedPlatformEnv.isExtensionUiPopup = true;
+  });
+
+  it('does not block a later navigation on Asset resolution', async () => {
+    const mockedPlatformEnv = platformEnv as typeof platformEnv & {
+      isExtensionUiPopup: boolean;
+    };
+    mockedPlatformEnv.isExtensionUiPopup = false;
+    const { result } = renderHook(() =>
+      useToDetailPage({ resolveMarketAsset: true }),
+    );
+
+    await act(async () => {
+      await result.current({
+        tokenAddress: '0xfirst',
+        networkId: 'evm--1',
+        symbol: 'FIRST',
+        isNative: false,
+      });
+      await result.current({
+        tokenAddress: '0xsecond',
+        networkId: 'evm--1',
+        symbol: 'SECOND',
+        isNative: false,
+      });
+    });
+
+    expect(mockNavigationPush).toHaveBeenCalledTimes(2);
+    expect(mockNavigationPush).toHaveBeenLastCalledWith(
+      'MarketDetailV2',
+      expect.objectContaining({
+        tokenAddress: '0xsecond',
+        resolveMarketAsset: true,
+        marketTokenSymbol: 'SECOND',
+      }),
+    );
+    mockedPlatformEnv.isExtensionUiPopup = true;
+  });
+
+  it('seeds unresolved Asset identity for the detail lifecycle', async () => {
+    const mockedPlatformEnv = platformEnv as typeof platformEnv & {
+      isExtensionUiPopup: boolean;
+    };
+    mockedPlatformEnv.isExtensionUiPopup = false;
+    const { result } = renderHook(() =>
+      useToDetailPage({ resolveMarketAsset: true }),
+    );
+
+    await act(async () => {
+      await result.current({
+        tokenAddress: 'DifferentBitcoinToken',
+        networkId: 'sol--101',
+        symbol: 'BTC',
+        isNative: false,
+      });
+    });
+
+    expect(mockNavigationPush).toHaveBeenCalledWith('MarketDetailV2', {
+      tokenAddress: 'DifferentBitcoinToken',
+      network: 'eth',
+      isNative: false,
+      from: undefined,
+      resolveMarketAsset: true,
+      marketTokenSymbol: 'BTC',
+    });
+    mockedPlatformEnv.isExtensionUiPopup = true;
+  });
+
+  it('uses a complete search preview while Asset identity is resolving', async () => {
+    const mockedPlatformEnv = platformEnv as typeof platformEnv & {
+      isExtensionUiPopup: boolean;
+    };
+    mockedPlatformEnv.isExtensionUiPopup = false;
+    const tokenDetailPreview = {
+      address: '0xabc',
+      networkId: 'evm--1',
+      isNative: false,
+      name: 'ABC Token',
+      symbol: 'ABC',
+      decimals: 18,
+      price: 1,
+      selectedAt: 1,
+    };
+    const { result } = renderHook(() => useToDetailPage());
+
+    await act(async () => {
+      await result.current({
+        tokenAddress: '0xabc',
+        networkId: 'evm--1',
+        symbol: 'ABC',
+        isNative: false,
+        tokenDetailPreview,
+      });
+    });
+
+    expect(mockPrepareTokenDetailPreview).not.toHaveBeenCalled();
+    expect(mockClearTokenDetail).not.toHaveBeenCalled();
+    expect(mockNavigationPush).toHaveBeenCalledWith(
+      'MarketDetailV2',
+      expect.objectContaining({ legacyTokenPreview: tokenDetailPreview }),
+    );
+    mockedPlatformEnv.isExtensionUiPopup = true;
+  });
+
   it('opens stock detail by stockId from an extension surface', async () => {
     const { result } = renderHook(() =>
       useToDetailPage({ showFavoriteButton: false }),
@@ -394,6 +1287,7 @@ describe('useToDetailPage', () => {
         networkId: 'evm--1',
         symbol: 'AAPLon',
         disableTrade: true,
+        stockId: 'AAPL',
         stock: {
           subtitle: 'Apple Inc.',
           sourceLogoUri: '',
@@ -423,12 +1317,23 @@ describe('useToDetailPage', () => {
       }),
     );
 
+    const tokenDetailPreview = {
+      address: '0xabc',
+      networkId: 'evm--1',
+      isNative: false,
+      name: 'ABC Token',
+      symbol: 'ABC',
+      decimals: 18,
+      selectedAt: 1,
+    };
+
     await act(async () => {
       await result.current({
         tokenAddress: '0xabc',
         networkId: 'evm--1',
         symbol: 'ABC',
         isNative: false,
+        tokenDetailPreview,
       });
     });
 
@@ -438,6 +1343,7 @@ describe('useToDetailPage', () => {
       isNative: false,
       from: EEnterWay.Search,
       showFavoriteButton: false,
+      tokenDetailPreview,
     });
     expect(globalThis.close).not.toHaveBeenCalled();
 

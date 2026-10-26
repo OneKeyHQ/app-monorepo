@@ -65,6 +65,7 @@ interface ITradingViewV2ChartControlsContainerProps {
   intervalControlMode?: ITradingViewNativeIntervalControlMode;
   priceMarketCapControlMode?: ITradingViewNativePriceMarketCapControlMode;
   layoutMode?: ITradingViewNativeControlsLayoutMode;
+  mobileToolbarExtra?: ReactNode;
   chartTimezone: string;
   isFullscreen?: boolean;
   fullscreenHeader?: ReactNode;
@@ -96,6 +97,7 @@ export const TradingViewV2ChartControlsContainer = memo(
     intervalControlMode = 'dialog',
     priceMarketCapControlMode = 'settings',
     layoutMode = 'mobile',
+    mobileToolbarExtra,
     chartTimezone,
     isFullscreen = false,
     fullscreenHeader,
@@ -262,7 +264,9 @@ export const TradingViewV2ChartControlsContainer = memo(
           <TradingViewMobileChartSettingsDialogContent
             chartMode="tradingView"
             onChartSwitch={onChartSwitch}
-            onOpenSettings={showTradingViewChartSettingsDialog}
+            onOpenSettings={
+              onOpenChartSettings ?? showTradingViewChartSettingsDialog
+            }
           />
         ),
       });
@@ -271,6 +275,7 @@ export const TradingViewV2ChartControlsContainer = memo(
       enableNativeChartSettings,
       onChartSwitch,
       onControlInteraction,
+      onOpenChartSettings,
     ]);
 
     const handleChartTypeToggle = useCallback(() => {
@@ -296,17 +301,23 @@ export const TradingViewV2ChartControlsContainer = memo(
     }, [onControlInteraction, onRedo]);
 
     const handleSettingsPress = useCallback(() => {
-      if (enableNativeChartSettings) {
-        if (layoutMode === 'mobile' && onChartSwitch) {
-          showMobileChartSettingsDialog();
-        } else {
-          showNewChartSettingsDialog();
-        }
+      if (
+        enableNativeChartSettings &&
+        layoutMode === 'mobile' &&
+        onChartSwitch
+      ) {
+        showMobileChartSettingsDialog();
         return;
       }
 
       if (onOpenChartSettings) {
+        onControlInteraction?.();
         onOpenChartSettings();
+        return;
+      }
+
+      if (enableNativeChartSettings) {
+        showNewChartSettingsDialog();
         return;
       }
 
@@ -315,6 +326,7 @@ export const TradingViewV2ChartControlsContainer = memo(
       enableNativeChartSettings,
       layoutMode,
       onChartSwitch,
+      onControlInteraction,
       onOpenChartSettings,
       showChartSettingsDialog,
       showMobileChartSettingsDialog,
@@ -345,6 +357,7 @@ export const TradingViewV2ChartControlsContainer = memo(
         isControlsReady={isControlsReady}
         intervalControlMode={intervalControlMode}
         layoutMode={layoutMode}
+        rightControl={layoutMode === 'mobile' ? mobileToolbarExtra : undefined}
         chartTimezone={chartTimezone}
         isFullscreen={isFullscreen}
         fullscreenHeader={fullscreenHeader}

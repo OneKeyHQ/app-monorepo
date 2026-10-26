@@ -33,15 +33,18 @@ const fetchNetworkLogo = memoizee(
 /**
  * Hook to get network logo URI with async fallback.
  * If logoUri is provided, returns it directly.
- * If logoUri is empty but networkId exists, fetches the network info asynchronously.
+ * If logoUri is empty but networkId exists, fetches asynchronously unless skipFetch is set.
  * Fetched logos are cached to avoid repeated API calls.
  */
 export function useNetworkLogoUri({
   logoUri,
   networkId,
+  skipFetch = false,
 }: {
   logoUri?: string;
   networkId?: string;
+  // Hosts that own metadata resolution can retain local logos without extra RPC.
+  skipFetch?: boolean;
 }): string {
   const localLogoUri = useMemo(
     () =>
@@ -51,7 +54,7 @@ export function useNetworkLogoUri({
         : undefined),
     [logoUri, networkId],
   );
-  const shouldFetch = !localLogoUri && !!networkId;
+  const shouldFetch = !skipFetch && !localLogoUri && !!networkId;
 
   const { result: fetchedLogo } = usePromiseResult(
     async (): Promise<IFetchedNetworkLogo> => {

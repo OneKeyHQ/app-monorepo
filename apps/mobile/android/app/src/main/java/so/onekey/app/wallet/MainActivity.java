@@ -5,12 +5,15 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.res.Configuration;
+import android.graphics.Color;
 import android.os.Build;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.KeyEvent;
+import android.view.Window;
 
 import androidx.annotation.NonNull;
+import androidx.core.view.WindowCompat;
 
 import com.backgroundthread.BackgroundThreadManager;
 import com.margelo.nitro.nativelogger.OneKeyLog;
@@ -20,6 +23,7 @@ import com.facebook.react.ReactActivityDelegate;
 import com.facebook.react.defaults.DefaultNewArchitectureEntryPoint;
 import com.facebook.react.defaults.DefaultReactActivityDelegate;
 import com.facebook.react.modules.i18nmanager.I18nUtil;
+import com.facebook.react.views.view.WindowUtilKt;
 
 import org.greenrobot.eventbus.EventBus;
 import org.greenrobot.eventbus.Subscribe;
@@ -29,6 +33,9 @@ import java.util.List;
 
 import expo.modules.ReactActivityDelegateWrapper;
 import expo.modules.splashscreen.SplashScreenManager;
+
+import so.onekey.app.wallet.travelmode.OneKeyTravelModeAppIcon;
+import so.onekey.app.wallet.travelmode.OneKeyTravelModeSplashScreen;
 
 public class MainActivity extends ReactActivity {
   private static boolean hasCreatedInstance;
@@ -110,6 +117,7 @@ public class MainActivity extends ReactActivity {
       return;
     }
 
+    boolean isTravelModeActive = OneKeyTravelModeSplashScreen.configureLaunch(this);
     hasCreatedInstance = true;
     long tActivityStart = System.currentTimeMillis();
     OneKeyLog.info(
@@ -125,6 +133,16 @@ public class MainActivity extends ReactActivity {
         // Add custom exit animation listener to catch and handle SurfaceControl crashes
         // This prevents NullPointerException during splash screen transition on OPPO/MIUI devices
         splashScreen.setOnExitAnimationListener(splashScreenView -> {
+          // The AndroidX splash restores the pre-launch decor fitting and theme bar
+          // colors on exit, which turns edge-to-edge back off on Android 12-14.
+          // Undo only those two, like React Native's edge-to-edge setup; bar icon
+          // styles stay owned by JS (androidx EdgeToEdge would override them).
+          if (WindowUtilKt.isEdgeToEdgeFeatureFlagOn()) {
+            Window window = getWindow();
+            WindowCompat.setDecorFitsSystemWindows(window, false);
+            window.setStatusBarColor(Color.TRANSPARENT);
+            window.setNavigationBarColor(Color.TRANSPARENT);
+          }
           try {
             // Immediately remove the splash screen without animation to avoid SurfaceControl issues
             if (splashScreenView != null && splashScreenView.getView() != null) {
@@ -158,7 +176,10 @@ public class MainActivity extends ReactActivity {
       "android.activity.super_on_create: " + (tAfterSuper - tBeforeSuper) + "ms (ReactActivity init)"
     );
 
-    setTheme(R.style.AppTheme);
+    // Configure the task icon before the final theme restores Android's task
+    // colors and window flags. The task keeps its stable launcher identity.
+    OneKeyTravelModeAppIcon.configureTaskDescription(this);
+    setTheme(isTravelModeActive ? R.style.AppTheme_TravelMode : R.style.AppTheme);
     if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
         SplashScreenBridge.show(this);
     }
@@ -191,8 +212,8 @@ public class MainActivity extends ReactActivity {
     }
     // Manager re-dispatches only to an allowlisted subset of listeners on
     // the bg ReactContext (see BackgroundThreadManager.bgActivityListenerClassAllowlist).
-    // This lets google-signin's bg instance resolve its pending signIn
-    // promise without leaking the event to every other bg module.
+    // This lets Google Sign-In and CloudFs resolve authorization promises
+    // in the runtime that initiated them without notifying unrelated bg modules.
     BackgroundThreadManager.getInstance()
         .dispatchActivityResult(this, requestCode, resultCode, data);
   }

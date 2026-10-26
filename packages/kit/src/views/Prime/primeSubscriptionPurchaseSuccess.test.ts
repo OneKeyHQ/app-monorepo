@@ -15,7 +15,10 @@ import {
   preparePrimeSubscriptionPurchaseSuccess,
 } from './primeSubscriptionPurchaseSuccess';
 
-const mockFetchPrimeUserInfo = jest.fn<Promise<void>, []>();
+const mockFetchPrimeUserInfo = jest.fn<
+  Promise<void>,
+  [{ forceRefresh?: boolean }?]
+>();
 const mockTryClaimKytIntro = jest.fn<
   Promise<IKytIntroClaimResult>,
   [unknown]
@@ -27,7 +30,8 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
   default: {
     servicePrime: {
-      apiFetchPrimeUserInfo: () => mockFetchPrimeUserInfo(),
+      apiFetchPrimeUserInfo: (params?: { forceRefresh?: boolean }) =>
+        mockFetchPrimeUserInfo(params),
     },
     serviceSetting: {
       tryClaimKytIntro: (params: unknown) => mockTryClaimKytIntro(params),
@@ -83,12 +87,18 @@ describe('Prime subscription purchase success', () => {
     expect(mockFetchPrimeUserInfo.mock.invocationCallOrder[0]).toBeLessThan(
       mockPurchaseSuccessListener.mock.invocationCallOrder[0],
     );
+    expect(mockFetchPrimeUserInfo).toHaveBeenCalledWith({
+      forceRefresh: true,
+    });
   });
 
   it('refreshes without emitting when checkout did not confirm a purchase', async () => {
     await finishPrimeSubscriptionPurchaseSuccess(undefined);
 
     expect(mockFetchPrimeUserInfo).toHaveBeenCalledTimes(1);
+    expect(mockFetchPrimeUserInfo).toHaveBeenCalledWith({
+      forceRefresh: true,
+    });
     expect(mockPurchaseSuccessListener).not.toHaveBeenCalled();
   });
 
@@ -115,6 +125,9 @@ describe('Prime subscription purchase success', () => {
         onekeyUserId: 'user-a',
       }),
     );
+    expect(mockFetchPrimeUserInfo).toHaveBeenCalledWith({
+      forceRefresh: true,
+    });
   });
 
   it('only closes an Android callback for a mismatched user', async () => {

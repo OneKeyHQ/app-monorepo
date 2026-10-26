@@ -42,6 +42,32 @@ function buildMessage({
 }
 
 describe('useTradingViewMessageHandler', () => {
+  it('preserves the persistence flag for automatic interval changes', async () => {
+    const onIntervalConfigChange = jest.fn();
+    const { result } = renderHook(() =>
+      useTradingViewMessageHandler({
+        webRef: { current: null },
+        onIntervalConfigChange,
+      }),
+    );
+    const data = {
+      intervals: [{ label: '1D', value: '1D' }],
+      activeInterval: '1D',
+      persist: false,
+    };
+    await act(async () => {
+      await result.current.customReceiveHandler({
+        data: {
+          scope: '$private',
+          method: 'tradingview_intervalConfig',
+          origin: 'test',
+          data,
+        },
+      });
+    });
+    expect(onIntervalConfigChange).toHaveBeenCalledWith(data);
+  });
+
   it('notifies when TradingView reports that the chart is ready', async () => {
     const onChartReady = jest.fn();
     const webRef = { current: null } as React.RefObject<IWebViewRef | null>;

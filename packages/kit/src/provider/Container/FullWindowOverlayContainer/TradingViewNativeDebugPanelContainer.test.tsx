@@ -6,6 +6,22 @@ import { fireEvent, render, screen } from '@testing-library/react';
 
 import { TradingViewNativeDebugPanelContainer } from './TradingViewNativeDebugPanelContainer';
 
+// The container hosts the panel in the web OverlayView.
+jest.mock('react-native', () =>
+  jest.requireActual<typeof import('react-native')>('react-native-web'),
+);
+
+// jsdom has no Web Animations; the overlay still runs its (empty) transition.
+beforeAll(() => {
+  Element.prototype.animate = function animate() {
+    return {
+      finished: Promise.resolve(),
+      cancel: () => undefined,
+    } as unknown as Animation;
+  };
+  Element.prototype.getAnimations = () => [];
+});
+
 const mockDevSettings: {
   enabled: boolean;
   settings: { showTradingViewNativeDebugPanel?: boolean };

@@ -113,23 +113,6 @@ describe('deriveContextHash', () => {
       const b = deriveContextHash(ikmB, APP_NAME, NETWORK, SPEC_PUBKEY, ctx);
       expect(a).not.toBe(b);
     });
-
-    it('zero-length context is a valid input (variable-length info tail)', () => {
-      const empty = parseHexContext('');
-      expect(empty.length).toBe(0);
-      const out = deriveContextHash(key, APP_NAME, NETWORK, SPEC_PUBKEY, empty);
-      expect(out).toMatch(/^[0-9a-f]{64}$/);
-      // And must differ from a non-empty context derivation, confirming the
-      // empty bytes are actually carried through the HKDF info.
-      const nonEmpty = deriveContextHash(
-        key,
-        APP_NAME,
-        NETWORK,
-        SPEC_PUBKEY,
-        parseHexContext('00'),
-      );
-      expect(out).not.toBe(nonEmpty);
-    });
   });
 
   describe('input validation', () => {
@@ -233,8 +216,8 @@ describe('parseHexContext', () => {
     expect(() => parseHexContext('DeAdBeEf')).toThrow('lowercase');
   });
 
-  it('accepts empty (zero-length context is valid in the HKDF info)', () => {
-    expect(parseHexContext('')).toEqual(new Uint8Array(0));
+  it('rejects empty context before derivation', () => {
+    expect(() => parseHexContext('')).toThrow('non-empty');
   });
 
   it('rejects odd-length', () => {

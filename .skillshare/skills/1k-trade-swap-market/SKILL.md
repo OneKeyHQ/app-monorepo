@@ -1,49 +1,48 @@
 ---
 name: 1k-trade-swap-market
-description: Navigate OneKey App Swap, Bridge, Limit, and Stock/Market flows. Use for token selection, quotes, review/build/send, providers, cold start, and history/status; use the Perps skill for Hyperliquid.
+description: Implement and debug OneKey Swap, Bridge, Limit, and Stock/Market trades, including quotes, review, execution, fees, and history. Excludes Perps and chart communication.
 ---
 
 # Trade / Swap / Market
 
-Use this skill as a map to the owning code and contract. Let current code,
-payloads, and runtime behavior decide implementation details.
+Use this skill for decisions that distinguish a trade from a generic async UI:
+which quote is actionable, what the user confirmed, whether execution can be
+retried, and how an order becomes durable history.
 
-## Quick Start
+## Start From The Real Entry
 
-1. Reproduce the real entry and affected platform.
-2. Trace `entry -> selection -> quote -> review -> execution -> history/status`.
-3. Identify the first owner whose state or contract is wrong; inspect adjacent
-   consumers before editing.
-4. Preserve the trade identity across async boundaries, make the smallest
-   owner-correct change, and verify the same user path.
+Trace the affected path:
 
-## Find The Owner
+`selection -> quote -> review -> build/sign/send -> history/settlement`
 
-| Task | Start here | Read next |
-| --- | --- | --- |
-| Swap selection, quote, review, or send | Swap state/actions, view hooks, background service | [Architecture](references/app-architecture.md), [Code map](references/code-map.md) |
-| Wallet, Send, Earn, Buy, or Market handoff | Source params, then settled Swap state | [Architecture](references/app-architecture.md) |
-| Bridge, Limit, Stock, privacy, or provider work | Capability, payload, and lifecycle adapter | [Provider contracts](references/provider-contracts.md) |
-| Cold start, default asset, tab, or first-frame issue | Route seed, persisted display state, readiness | [Architecture](references/app-architecture.md) |
-| Pending, history, status, restart, or repair | Persistent owner and status source | [Provider contracts](references/provider-contracts.md) |
-| Receive-only filtering | Receive and AssetSelector before any Swap handoff | [Code map](references/code-map.md) |
+Confirm the platform and layout, then follow the mounted entry to its current
+state and execution owners. Search by the request, action, or status field
+involved rather than assuming every trade-looking screen uses the same path.
+Market layouts can enter different flows; do not turn a scoped fix into an
+unrequested migration.
 
-## Load Detail As Needed
+Find the first incorrect transition and the inputs that define its identity.
+Compare the actual payload and state before adding a new effect, fallback,
+cache, or loading flag. For a layout-only change, validate the affected host
+without expanding the task into a provider integration audit.
 
-- [Architecture](references/app-architecture.md) explains the execution spine,
-  handoff ownership, runtime boundaries, and cold-start model.
-- [Code map](references/code-map.md) gives stable directories and useful search
-  anchors.
-- [Provider contracts](references/provider-contracts.md) covers channels whose
-  quote, settlement, or persistence semantics differ from an ordinary swap.
-- [Validation](references/validation.md) helps choose focused tests and runtime
-  evidence for the changed layer.
+## Read Only What The Task Needs
 
-## Finish
+| Question | Reference |
+| --- | --- |
+| Who owns this entry, initialization, cache, or account transition? | [Architecture](references/app-architecture.md) |
+| What must survive quote, confirmation, execution, and settlement? | [Provider contracts](references/provider-contracts.md) |
+| Which failure transitions and proof are relevant? | [Validation](references/validation.md) |
 
-State the entry, first wrong owner, and identities that matter. Run nearby tests
-and the repository-required checks, then prove the affected route and payload on
-the owning platform. Report any runtime or provider evidence you could not get.
+Follow repository `AGENTS.md` for package boundaries, runtime topology, and
+delivery checks. Receive-only filtering stays with its selector until a real
+trade starts. DeFi owns a funding request and its return action; this skill
+owns the trade. A bulk flow that reuses Swap services still needs its own
+session and cancellation contract checked.
 
-Related skills: `$1k-perps-module`, `$1k-tradingview-communication`,
-`$1k-state-management`, `$1k-cross-platform`, `$1k-defi-module-integration`.
+## Handoff
+
+Name the changed state/contract, the current owner, and the evidence that the
+reported transition now works. Separate tests, real platform interaction, and
+provider/signing proof. A visible quote or pending row alone does not prove a
+valid build, a durable history write, or completed settlement.

@@ -1,7 +1,5 @@
 import { useMemo } from 'react';
 
-import BigNumber from 'bignumber.js';
-
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
@@ -9,12 +7,12 @@ import {
   usePerpsActiveAccountSummaryAtom,
   usePerpsTradesHistoryDataAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import type { IUserNonFundingLedgerUpdatesResponse } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
 import {
   buildPerpPortfolioFillsStats,
   buildPortfolioChartData,
   getStartTimeForPeriod,
+  sumPerpsNetDeposits,
 } from './portfolioStats';
 
 import type { IPortfolioPnlType, IPortfolioTimePeriod } from './portfolioStats';
@@ -116,28 +114,10 @@ export function usePerpPortfolioData(
     };
   }, [chartData]);
 
-  const netDeposits = useMemo(() => {
-    if (!netDepositsData) return null;
-    return netDepositsData
-      .reduce((sum, update: IUserNonFundingLedgerUpdatesResponse[number]) => {
-        const { delta } = update;
-        if (delta.type === 'deposit' && delta.usdc) {
-          return sum.plus(delta.usdc);
-        }
-        if (delta.type === 'withdraw' && delta.usdc) {
-          return sum.minus(delta.usdc);
-        }
-        if (
-          delta.type === 'accountClassTransfer' &&
-          delta.usdc &&
-          delta.toPerp !== undefined
-        ) {
-          return delta.toPerp ? sum.plus(delta.usdc) : sum.minus(delta.usdc);
-        }
-        return sum;
-      }, new BigNumber(0))
-      .toNumber();
-  }, [netDepositsData]);
+  const netDeposits = useMemo(
+    () => sumPerpsNetDeposits(netDepositsData),
+    [netDepositsData],
+  );
 
   return {
     chartData,

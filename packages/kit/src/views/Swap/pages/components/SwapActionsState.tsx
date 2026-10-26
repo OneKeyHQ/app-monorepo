@@ -18,12 +18,15 @@ import {
   Tooltip,
   XStack,
   resetToRoute,
+  runAfterActionListClose,
   useIsOverlayPage,
   useMedia,
+  usePopoverContext,
 } from '@onekeyhq/components';
 import { FormatHyperlinkText } from '@onekeyhq/kit/src/components/HyperlinkText';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useHelpLink } from '@onekeyhq/kit/src/hooks/useHelpLink';
+import { useRouteIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import {
   useSwapActions,
@@ -45,6 +48,7 @@ import {
   isSwapQuoteProvenForCurrentRequest,
   isSwapQuoteRequestForCurrentInput,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap/quoteProgress';
+import { shouldRedirectOnboardingToTravelMode } from '@onekeyhq/kit/src/utils/onboardingEntryGate';
 import {
   useSettingsAtom,
   useSettingsPersistAtom,
@@ -72,7 +76,11 @@ import {
   useSwapAddressInfo,
   useSwapRecipientAddressInfo,
 } from '../../hooks/useSwapAccount';
-import { shouldShowSwapRecipientEntry } from '../../hooks/useSwapAccount.utils';
+import {
+  getSwapRecipientValidationAccountId,
+  shouldShowSwapRecipientEntry,
+} from '../../hooks/useSwapAccount.utils';
+import { useSwapDepositEntryPress } from '../../hooks/useSwapDepositEntry';
 import {
   shouldBlockSwapActionForIncognitoRecipientInput,
   shouldEnableSwapIncognitoRecipientValidation,
@@ -103,6 +111,51 @@ interface ISwapActionsStateProps {
 
 // cspell:ignore ellipsize
 
+function IncognitoTooltipText({
+  description,
+  onAction,
+}: {
+  description: string;
+  onAction?: (url: string) => void;
+}) {
+  return (
+    <FormatHyperlinkText
+      autoExecuteParsedAction={false}
+      onAction={onAction}
+      size="$bodyMd"
+      color="$textSubdued"
+      urlTextProps={{
+        color: '$textInfo',
+      }}
+      underlineTextProps={{
+        color: '$textInfo',
+      }}
+    >
+      {description}
+    </FormatHyperlinkText>
+  );
+}
+
+function IncognitoPopoverContent({ description }: { description: string }) {
+  const { closePopover } = usePopoverContext();
+  const handleAction = useCallback(
+    (url: string) => {
+      void runAfterActionListClose(
+        () => closePopover?.(),
+        () => openUrlExternal(url),
+        { waitForAnimation: false },
+      );
+    },
+    [closePopover],
+  );
+
+  return (
+    <Stack px="$5" pt="$1" pb="$5">
+      <IncognitoTooltipText description={description} onAction={handleAction} />
+    </Stack>
+  );
+}
+
 const SwapActionsState = ({
   disabled,
   forceNoConnectWallet,
@@ -114,6 +167,7 @@ const SwapActionsState = ({
 }: ISwapActionsStateProps) => {
   const intl = useIntl();
   const navigation = useAppNavigation();
+  const isFocused = useRouteIsFocused();
   const [fromToken] = useSwapSelectFromTokenAtom();
   const [toToken] = useSwapSelectToTokenAtom();
   const [currentQuoteRes] = useSwapQuoteCurrentSelectAtom();
@@ -130,8 +184,20 @@ const SwapActionsState = ({
   const [swapTypeSwitch] = useSwapTypeSwitchAtom();
   const swapFromAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
   const swapToAddressInfo = useSwapAddressInfo(ESwapDirectionType.TO);
-  const { cleanQuoteInterval, closeQuoteEvent, quoteAction } =
-    useSwapActions().current;
+  // Publishing a recipient must not change its own validation account or readiness.
+  const recipientValidationAddressInfo = useSwapAddressInfo(
+    ESwapDirectionType.TO,
+    {
+      useCustomRecipientAddress: false,
+    },
+  );
+  const {
+    cleanQuoteInterval,
+    closeQuoteEvent,
+    loadSwapSelectTokenDetail,
+    requestSelectedTokenBalanceRefresh,
+    quoteAction,
+  } = useSwapActions().current;
   const swapActionState = useSwapActionState();
   const noConnectWallet = Boolean(
     forceNoConnectWallet || swapActionState.noConnectWallet,
@@ -180,30 +246,16 @@ const SwapActionsState = ({
   );
   const incognitoTooltipContent = useMemo(
     () => (
-      <FormatHyperlinkText
-        autoExecuteParsedAction={false}
+      <IncognitoTooltipText
+        description={incognitoTooltipDescription}
         onAction={openUrlExternal}
-        size="$bodyMd"
-        color="$textSubdued"
-        urlTextProps={{
-          color: '$textInfo',
-        }}
-        underlineTextProps={{
-          color: '$textInfo',
-        }}
-      >
-        {incognitoTooltipDescription}
-      </FormatHyperlinkText>
+      />
     ),
     [incognitoTooltipDescription],
   );
   const incognitoPopoverContent = useMemo(
-    () => (
-      <Stack px="$5" pt="$1" pb="$5">
-        {incognitoTooltipContent}
-      </Stack>
-    ),
-    [incognitoTooltipContent],
+    () => <IncognitoPopoverContent description={incognitoTooltipDescription} />,
+    [incognitoTooltipDescription],
   );
 
   // OK-58977: `swapProviderSupportReceiveAddressAtom` is computed from the
@@ -239,8 +291,21 @@ const SwapActionsState = ({
     !quoteActionLock.actionLock &&
     quoteEventCompleted &&
     quoteRequestMatchesCurrentInput;
+  const quoteProvenForCurrentInput = isSwapQuoteProvenForCurrentRequest({
+    quote: currentQuoteRes,
+    quoteEventTotalCount,
+    quoteLoading,
+    quoteEventFetching,
+    quoteActionLocked: Boolean(quoteActionLock.actionLock),
+    requestMatchesCurrentInput: quoteRequestMatchesCurrentInput,
+  });
+  const quoteSettledWithResult =
+    quoteProvenForCurrentInput &&
+    quoteEventCompleted &&
+    !quoteLoading &&
+    !quoteEventFetching;
   const settledProviderSupportRef = useRef(swapProviderSupportReceiveAddress);
-  if (currentQuoteRes || isQuoteSettledWithoutResult) {
+  if (quoteSettledWithResult || isQuoteSettledWithoutResult) {
     settledProviderSupportRef.current = swapProviderSupportReceiveAddress;
   }
   const providerSupportReceiveAddressSettled =
@@ -264,21 +329,14 @@ const SwapActionsState = ({
     // Active-request proof: see isSwapQuoteProvenForCurrentRequest for why
     // event membership, the lock match, and the request-starting interval all
     // have to be checked together.
-    quoteProvenForCurrentInput: isSwapQuoteProvenForCurrentRequest({
-      quote: currentQuoteRes,
-      quoteEventTotalCount,
-      quoteLoading,
-      quoteEventFetching,
-      quoteActionLocked: Boolean(quoteActionLock.actionLock),
-      requestMatchesCurrentInput: quoteRequestMatchesCurrentInput,
-    }),
+    quoteProvenForCurrentInput,
     quoteSettledWithoutResult: isQuoteSettledWithoutResult,
     isAddressInfoReady: swapToAddressInfo.isAddressInfoReady,
     hasTargetAddress: Boolean(swapToAddressInfo.address),
     noConnectWallet,
   });
 
-  const shouldShowRecipient = useMemo(
+  const shouldShowRecipientForCurrentState = useMemo(
     () =>
       shouldShowSwapRecipientEntry({
         swapType: swapTypeSwitch,
@@ -302,6 +360,36 @@ const SwapActionsState = ({
     ],
   );
 
+  // Stock token switches intentionally clear the pay token while the new
+  // network-scoped token is resolved. Keep an already visible recipient row
+  // mounted through that transition; otherwise the temporary missing token
+  // makes the row collapse and re-expand even though the setting is enabled.
+  const recipientVisibilityScopeRef = useRef({
+    swapType: swapTypeSwitch,
+    visible: false,
+  });
+  if (recipientVisibilityScopeRef.current.swapType !== swapTypeSwitch) {
+    recipientVisibilityScopeRef.current = {
+      swapType: swapTypeSwitch,
+      visible: false,
+    };
+  }
+  if (shouldShowRecipientForCurrentState) {
+    recipientVisibilityScopeRef.current.visible = true;
+  }
+  if (!swapEnableRecipientAddress) {
+    recipientVisibilityScopeRef.current.visible = false;
+  }
+  const shouldKeepRecipientVisibleDuringStockTokenTransition = Boolean(
+    swapTypeSwitch === ESwapTabSwitchType.STOCK &&
+    recipientVisibilityScopeRef.current.visible &&
+    swapEnableRecipientAddress &&
+    (!fromToken || !toToken),
+  );
+  const shouldShowRecipient =
+    shouldShowRecipientForCurrentState ||
+    shouldKeepRecipientVisibleDuringStockTokenTransition;
+
   const shouldShowIncognitoRecipientInput = useMemo(
     () =>
       shouldShowSwapIncognitoRecipientInput({
@@ -313,13 +401,14 @@ const SwapActionsState = ({
   );
 
   const incognitoRecipientNetworkId =
-    toToken?.networkId ?? swapToAddressInfo.networkId;
+    toToken?.networkId ?? recipientValidationAddressInfo.networkId;
   const shouldValidateIncognitoRecipientInput = useMemo(
     () =>
       shouldEnableSwapIncognitoRecipientValidation({
         hasFromToken: Boolean(fromToken),
         hasToToken: Boolean(toToken),
-        isAddressInfoReady: swapToAddressInfo.isAddressInfoReady,
+        isAddressInfoReady:
+          recipientValidationAddressInfo.isRecipientValidationReady,
         networkId: incognitoRecipientNetworkId,
         providerSupportsRecipient: providerSupportReceiveAddressSettled,
         visible: shouldShowIncognitoRecipientInput,
@@ -329,7 +418,7 @@ const SwapActionsState = ({
       incognitoRecipientNetworkId,
       shouldShowIncognitoRecipientInput,
       providerSupportReceiveAddressSettled,
-      swapToAddressInfo.isAddressInfoReady,
+      recipientValidationAddressInfo.isRecipientValidationReady,
       toToken,
     ],
   );
@@ -340,15 +429,22 @@ const SwapActionsState = ({
   );
 
   const incognitoRecipientInput = useSwapIncognitoRecipientInput({
+    isActive: isFocused,
     visible: shouldShowIncognitoRecipientInput,
     validationEnabled: shouldValidateIncognitoRecipientInput,
     clearRecipientAddressOnHide,
     networkId: incognitoRecipientNetworkId,
-    accountId:
-      swapToAddressInfo.accountInfo?.account?.id ??
-      swapToAddressInfo.activeAccount?.account?.id,
+    validationScopeKey: recipientValidationAddressInfo.validationScopeKey,
+    accountId: getSwapRecipientValidationAccountId({
+      accountId: recipientValidationAddressInfo.accountInfo?.account?.id,
+      accountAddress:
+        recipientValidationAddressInfo.accountInfo?.account?.addressDetail
+          ?.address,
+      recipientAddress: recipientValidationAddressInfo.address,
+    }),
     accountInfo:
-      swapToAddressInfo.accountInfo ?? swapToAddressInfo.activeAccount,
+      recipientValidationAddressInfo.accountInfo ??
+      recipientValidationAddressInfo.activeAccount,
     address: swapToAnotherAccountAddress.address,
     swapToAnotherAccountSwitchOn,
   });
@@ -391,6 +487,7 @@ const SwapActionsState = ({
   const shouldBlockIncognitoRecipientAction =
     shouldBlockSwapActionForIncognitoRecipientInput({
       inputText: incognitoRecipientInput.inputText,
+      isDepositAction: swapActionState.shouldDepositToTrade,
       isConnectWalletAction: noConnectWallet,
       loading: incognitoRecipientInput.loading,
       queryResult: incognitoRecipientInput.queryResult,
@@ -398,12 +495,32 @@ const SwapActionsState = ({
       visible: shouldShowIncognitoRecipientInput,
     });
 
+  const refreshFromTokenBalance = useCallback(() => {
+    void loadSwapSelectTokenDetail(
+      ESwapDirectionType.FROM,
+      swapFromAddressInfo,
+      true,
+    );
+  }, [loadSwapSelectTokenDetail, swapFromAddressInfo]);
+  // Withhold accountInfo while the cross-network account lookup is pending or
+  // has no target result, so a tap resolves the right account from
+  // activeAccount instead of opening Receive for the wrong network.
+  const onDepositToTrade = useSwapDepositEntryPress({
+    token: fromToken,
+    accountInfo: swapFromAddressInfo.isAddressInfoReady
+      ? swapFromAddressInfo.accountInfo
+      : undefined,
+    activeAccount: swapFromAddressInfo.activeAccount,
+    onClose: refreshFromTokenBalance,
+  });
+
   const shouldShowQuoteActionLoading =
     !noConnectWallet &&
     !swapActionState.isRefreshQuote &&
+    !swapActionState.shouldDepositToTrade &&
     (swapActionState.isQuoteActionLoading || Boolean(forceQuoteActionLoading));
   const isActionDisabled = noConnectWallet
-    ? false
+    ? shouldRedirectOnboardingToTravelMode()
     : Boolean(disabled) ||
       swapActionState.disabled ||
       swapActionState.isLoading ||
@@ -426,10 +543,15 @@ const SwapActionsState = ({
       }
       return;
     }
+    if (swapActionState.shouldDepositToTrade) {
+      onDepositToTrade();
+      return;
+    }
     if (shouldBlockIncognitoRecipientAction) {
       return;
     }
     if (swapActionState.isRefreshQuote) {
+      requestSelectedTokenBalanceRefresh();
       if (onRefreshQuote) {
         onRefreshQuote();
         return;
@@ -454,14 +576,17 @@ const SwapActionsState = ({
     onPreSwap();
   }, [
     currentQuoteRes?.kind,
+    onDepositToTrade,
     navigation,
     onOpenRecipientAddress,
     onPreSwap,
     onRefreshQuote,
     quoteAction,
     quoteActionLock.kind,
+    requestSelectedTokenBalanceRefresh,
     shouldBlockIncognitoRecipientAction,
     swapActionState.isRefreshQuote,
+    swapActionState.shouldDepositToTrade,
     noConnectWallet,
     swapActionState.shouldEnterRecipient,
     swapIncognitoMode,
@@ -968,17 +1093,6 @@ const SwapActionsState = ({
     [],
   );
 
-  const desktopActionWidthProps = useMemo(
-    () =>
-      desktopActionWidth
-        ? {
-            width: desktopActionWidth,
-            minWidth: desktopActionWidth,
-          }
-        : undefined,
-    [desktopActionWidth],
-  );
-
   const actionButtonChildren = useMemo(
     () =>
       shouldShowQuoteActionLoading ? (
@@ -1135,11 +1249,7 @@ const SwapActionsState = ({
             gapSide="bottom"
           >
             <XStack width="100%" justifyContent="flex-end">
-              <Stack
-                flexShrink={0}
-                alignItems="stretch"
-                {...desktopActionWidthProps}
-              >
+              <Stack flexShrink={0} alignItems="stretch">
                 <Stack alignItems="center" onLayout={onDesktopActionTagLayout}>
                   {costSavingsComponent}
                 </Stack>
@@ -1160,7 +1270,7 @@ const SwapActionsState = ({
               flexShrink={0}
               alignItems="stretch"
               gap="$2"
-              {...desktopActionWidthProps}
+              minWidth={desktopActionWidth}
             >
               <Button
                 testID={SwapTestIDs.actionPrimaryButton}
@@ -1169,7 +1279,7 @@ const SwapActionsState = ({
                 variant="primary"
                 disabled={isActionDisabled}
                 borderRadius="$full"
-                {...(desktopActionWidth ? { width: '100%' } : {})}
+                childrenAsText={false}
               >
                 {actionButtonChildren}
               </Button>
@@ -1187,7 +1297,6 @@ const SwapActionsState = ({
       actionButtonChildren,
       costSavingsComponent,
       desktopActionWidth,
-      desktopActionWidthProps,
       isActionDisabled,
       onActionHandlerBefore,
       onDesktopActionTagLayout,

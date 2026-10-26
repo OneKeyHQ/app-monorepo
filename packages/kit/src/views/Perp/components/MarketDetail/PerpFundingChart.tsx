@@ -17,6 +17,7 @@ import {
 import { InfoIcon } from '@onekeyhq/kit/src/components/InfoIcon';
 import { LightweightChart } from '@onekeyhq/kit/src/components/LightweightChart';
 import { useDeviceTimeZone } from '@onekeyhq/kit/src/hooks/useDeviceTimeZone';
+import useFormatDate from '@onekeyhq/kit/src/hooks/useFormatDate';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IFundingHistoryRecord } from '@onekeyhq/shared/types/hyperliquid/sdk';
 import type { IMarketTokenChart } from '@onekeyhq/shared/types/market';
@@ -243,6 +244,7 @@ function FundingChartPanel({
   legendNegativeLabel: string;
 }) {
   const intl = useIntl();
+  const { formatDate } = useFormatDate();
   const isMobile = variant === 'mobile';
   const [chartSize, setChartSize] = useState({ width: 0, height: 180 });
   const [hoveredData, setHoveredData] = useState<
@@ -255,18 +257,6 @@ function FundingChartPanel({
   const priceScaleMinimumWidth = isMobile
     ? MOBILE_PRICE_SCALE_MINIMUM_WIDTH
     : DESKTOP_PRICE_SCALE_MINIMUM_WIDTH;
-  const dateTimeFormatter = useMemo(
-    () =>
-      new Intl.DateTimeFormat(intl.locale, {
-        month: 'short',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-        hourCycle: 'h23',
-        timeZone,
-      }),
-    [intl.locale, timeZone],
-  );
   const handleChartHover = useCallback(
     ({
       time,
@@ -450,7 +440,11 @@ function FundingChartPanel({
               numberOfLines={1}
               ellipsizeMode="tail"
             >
-              {dateTimeFormatter.format(new Date(hoveredData.time * 1000))}
+              {formatDate(new Date(hoveredData.time * 1000), {
+                hideYear: true,
+                hideSeconds: true,
+                timeZone,
+              })}
             </SizableText>
             {hoveredData.periodFundingRate !== undefined ? (
               <FundingTooltipRow
@@ -642,7 +636,8 @@ export function PerpFundingChart({
       flex={1}
       minHeight={0}
       nestedScrollEnabled
-      showsVerticalScrollIndicator
+      showsVerticalScrollIndicator={false}
+      showsHorizontalScrollIndicator={false}
       contentContainerStyle={{ flexGrow: 1 }}
     >
       {content}

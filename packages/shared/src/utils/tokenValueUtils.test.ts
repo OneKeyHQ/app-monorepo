@@ -171,6 +171,38 @@ describe('sumFiatValuesFromTokens', () => {
   });
 });
 
+describe('sharedBalanceExcludedFromTotal flag', () => {
+  // Arc shared-balance rows (sharedBalanceUtils) are displayed but must not
+  // be counted by any total helper.
+  const map = {
+    native: { fiatValue: '1.45' },
+    erc20: { fiatValue: '1.45', sharedBalanceExcludedFromTotal: true },
+    other: { fiatValue: '2', sharedBalanceExcludedFromTotal: false },
+  };
+
+  test('sumFiatValuesIgnoringUnavailable skips flagged entries', () => {
+    expect(sumFiatValuesIgnoringUnavailable(map)).toBe('3.45');
+  });
+
+  test('sumFiatValuesFromTokens skips flagged entries', () => {
+    expect(
+      sumFiatValuesFromTokens(
+        [{ $key: 'native' }, { $key: 'erc20' }, { $key: 'other' }],
+        map,
+      ).toFixed(),
+    ).toBe('3.45');
+  });
+
+  test('sumTokenGroupsFiatValueIgnoringUnavailable skips flagged entries in either bucket', () => {
+    expect(
+      sumTokenGroupsFiatValueIgnoringUnavailable({
+        tokens: { map: { native: map.native } },
+        smallBalanceTokens: { map: { erc20: map.erc20, other: map.other } },
+      }),
+    ).toBe('3.45');
+  });
+});
+
 describe('sumTokenGroupsFiatValueIgnoringUnavailable', () => {
   test('sums tokens.map and smallBalanceTokens.map together', () => {
     expect(

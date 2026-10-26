@@ -24,6 +24,7 @@ export type {
   IImageProps,
   IImageSkeletonProps,
   IImageLoadingProps,
+  IImageLoadingStrategy,
   IPreloadImageSource,
   IPreloadImageOptions,
 } from './type';

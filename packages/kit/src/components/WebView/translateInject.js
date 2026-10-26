@@ -91,6 +91,7 @@
           resolve(result);
         },
         timer: timer,
+        sessionId: sessionId,
       };
 
       sendToNative({
@@ -127,9 +128,14 @@
     }
 
     if (data.type === '$$ONEKEY_TRANSLATE_RESPONSE') {
-      // Ignore stale responses from previous translation sessions
-      if (data.sessionId && data.sessionId !== sessionId) return;
       const entry = pendingResolvers[data.id];
+      // Matched against the session that sent the request, not the current
+      // one: after the page follows a new session on this document, the
+      // requests already sent are still answered (and billed). Requests of a
+      // stopped session have no entry anymore.
+      if (entry && data.sessionId && data.sessionId !== entry.sessionId) {
+        return;
+      }
       if (entry) {
         entry.resolve(data.translations);
         delete pendingResolvers[data.id];
@@ -716,7 +722,14 @@
   // ============================================================
 
   function startTranslation(lang, mode, session) {
-    if (isTranslating) return;
+    if (isTranslating) {
+      // The app started a new session on this same document (e.g. it took a
+      // load event for a navigation). Follow it, or the app would drop every
+      // result of the session this page keeps sending (free-trial stop, AI
+      // unavailable).
+      if (session) sessionId = session;
+      return;
+    }
     targetLang = lang || 'zh';
     displayMode = mode || 'replace';
     sessionId = session || '';

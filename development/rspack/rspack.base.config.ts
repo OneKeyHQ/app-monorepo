@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';
 import { exit } from 'process';
@@ -7,6 +8,7 @@ import HtmlWebpackPlugin from 'html-webpack-plugin';
 import notifier from 'node-notifier';
 
 import { isDev, nodeEnv, onekeyProxy, publicUrl } from './constant';
+import { RELEASE_ENV_KEYS, getReleaseEnvSource } from './releaseEnv';
 import { createResolveExtensions } from './utils';
 
 import type {
@@ -93,8 +95,51 @@ const IS_EAS_BUILD = !!process.env.EAS_BUILD;
 
 const COMMIT_SHA = resolveCommitSha();
 
+function createReleaseEnvAssetPlugin(platform: string): RspackPluginInstance {
+  return {
+    apply(compiler: Compiler): void {
+      compiler.hooks.thisCompilation.tap(
+        'ReleaseEnvAssetPlugin',
+        (compilation) => {
+          const source = getReleaseEnvSource();
+          if (platform === 'web') {
+            const version = crypto
+              .createHash('sha256')
+              .update(source)
+              .digest('hex')
+              .slice(0, 16);
+            const baseUrl = (publicUrl || '/').replace(/\/?$/, '/');
+            HtmlWebpackPlugin.getHooks(
+              compilation as unknown as Parameters<
+                typeof HtmlWebpackPlugin.getHooks
+              >[0],
+            ).beforeAssetTagGeneration.tap('ReleaseEnvAssetPlugin', (data) => {
+              data.assets.js.unshift(`${baseUrl}release-meta.js?v=${version}`);
+              return data;
+            });
+          }
+          compilation.hooks.processAssets.tap(
+            {
+              name: 'ReleaseEnvAssetPlugin',
+              stage: rspack.Compilation.PROCESS_ASSETS_STAGE_ADDITIONAL,
+            },
+            () => {
+              compilation.emitAsset(
+                'release-meta.js',
+                new rspack.sources.RawSource(source),
+              );
+            },
+          );
+        },
+      );
+    },
+  };
+}
+
 const CANVASKIT_WASM_TEST =
   /canvaskit-wasm[\\/]bin[\\/](full[\\/])?canvaskit\.wasm$/;
+const ZXING_READER_WASM_TEST =
+  /zxing-wasm[\\/]dist[\\/]reader[\\/]zxing_reader\.wasm$/;
 const ICON_MODULE_TEST =
   /[\\/]packages[\\/]components[\\/]src[\\/]primitives[\\/]Icon[\\/]react[\\/]/;
 
@@ -143,90 +188,26 @@ interface IBaseResolveOptions {
   enableSentryMinimalCompat: boolean;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const { createBaseResolveOptions } = require('./rspack.resolve.config.js') as {
+  createBaseResolveOptions: (options: {
+    basePath: string;
+    enableSentryMinimalCompat: boolean;
+    extensions: string[];
+  }) => RspackOptions['resolve'];
+};
+
 const baseResolve = ({
   platform,
   configName,
   basePath,
   enableSentryMinimalCompat,
-}: IBaseResolveOptions): RspackOptions['resolve'] => ({
-  mainFields: ['browser', 'module', 'main'],
-  aliasFields: ['browser', 'module', 'main'],
-  extensions: createResolveExtensions({ platform, configName }),
-  symlinks: true,
-  alias: {
-    'react-native$': 'react-native-web',
-    'react-native-fast-image': path.join(
-      __dirname,
-      '../module-resolver/react-native-fast-image-mock',
-    ),
-    'react-native-keyboard-controller': path.join(
-      __dirname,
-      '../module-resolver/react-native-keyboard-controller-mock',
-    ),
-    'react-native-aes-crypto': false,
-    'react-native-cloud-fs': false,
-    'react-native/Libraries/Components/View/ViewStylePropTypes$':
-      'react-native-web/dist/exports/View/ViewStylePropTypes',
-    'react-native/Libraries/EventEmitter/RCTDeviceEventEmitter$':
-      'react-native-web/dist/vendor/react-native/NativeEventEmitter/RCTDeviceEventEmitter',
-    'react-native/Libraries/vendor/emitter/EventEmitter$':
-      'react-native-web/dist/vendor/react-native/emitter/EventEmitter',
-    'react-native/Libraries/vendor/emitter/EventSubscriptionVendor$':
-      'react-native-web/dist/vendor/react-native/emitter/EventSubscriptionVendor',
-    'react-native/Libraries/EventEmitter/NativeEventEmitter$':
-      'react-native-web/dist/vendor/react-native/NativeEventEmitter',
-    '@react-aria/focus': path.join(
-      basePath,
-      '../../node_modules/@react-aria/focus/src/index.ts',
-    ),
-    '@react-aria/interactions': path.join(
-      basePath,
-      '../../node_modules/@react-aria/interactions/src/index.ts',
-    ),
-    '@react-aria/ssr': path.join(
-      basePath,
-      '../../node_modules/@react-aria/ssr/src/index.ts',
-    ),
-    '@react-aria/utils': path.join(
-      basePath,
-      '../../node_modules/@react-aria/utils/src/index.ts',
-    ),
-    ...(enableSentryMinimalCompat
-      ? {
-          '@sentry/minimal$': path.join(
-            __dirname,
-            '../module-resolver/sentry-minimal-compat',
-          ),
-        }
-      : {}),
-    'bn.js$': require.resolve('bn.js'),
-    // algosdk's browser field value ('.': 'dist/browser/algosdk.min.js') lacks
-    // the './' prefix; rspack's strict resolver fails on it, so bare 'algosdk'
-    // cannot resolve. Pin the entry to the ESM build (same file kit-bg imports
-    // directly), keeping a single algosdk module graph in the bundle.
-    'algosdk$': require.resolve('algosdk/dist/esm/index.js'),
-  },
-  fallback: {
-    crypto:
-      require.resolve('@onekeyhq/shared/src/modules3rdParty/cross-crypto/index.js'),
-    stream: require.resolve('stream-browserify'),
-    path: false,
-    https: false,
-    http: false,
-    net: false,
-    dgram: false,
-    zlib: false,
-    tls: false,
-    child_process: false,
-    process: false,
-    fs: false,
-    util: false,
-    os: false,
-    wbg: false,
-    buffer: require.resolve('buffer/'),
-  },
-  fullySpecified: false,
-});
+}: IBaseResolveOptions): RspackOptions['resolve'] =>
+  createBaseResolveOptions({
+    basePath,
+    enableSentryMinimalCompat,
+    extensions: createResolveExtensions({ platform, configName }),
+  });
 
 // Builds the full DefinePlugin map = webpack `transform-inline-environment-variables`
 // (env vars) + `transform-define` (platformEnv.* booleans) + the original
@@ -237,13 +218,21 @@ const baseResolve = ({
 function buildDefineMap(
   platform: string,
 ): ConstructorParameters<typeof rspack.DefinePlugin>[0] {
+  const releaseEnvKeys =
+    !isDev && ['web', 'desktop', 'ext', 'web-embed'].includes(platform)
+      ? new Set<string>(RELEASE_ENV_KEYS)
+      : null;
+  const defineEnv = (key: string, value: string | undefined) =>
+    releaseEnvKeys?.has(key)
+      ? `globalThis.__ONEKEY_RELEASE_ENV__.${key}`
+      : JSON.stringify(value);
   // (1) env vars — single source of truth = envExposedToClient.js
   const envKeys = envExposedToClient.buildEnvExposedToClientDangerously({
     platform,
   });
   const envDefines: Record<string, string> = {};
   for (const key of envKeys) {
-    envDefines[`process.env.${key}`] = JSON.stringify(process.env[key]);
+    envDefines[`process.env.${key}`] = defineEnv(key, process.env[key]);
   }
   // (2) platformEnv.* booleans are folded by babel-plugin-transform-define
   //     (see buildPlatformEnvDefineMap + the first-party babel-loader rule),
@@ -271,10 +260,16 @@ function buildDefineMap(
     'process.env.PERF_FUNCTION_WARN_MS': JSON.stringify(
       process.env.PERF_FUNCTION_WARN_MS || '',
     ),
-    'process.env.VERSION': JSON.stringify(process.env.VERSION),
-    'process.env.BUNDLE_VERSION': JSON.stringify(process.env.BUNDLE_VERSION),
-    'process.env.BUILD_NUMBER': JSON.stringify(process.env.BUILD_NUMBER),
-    'process.env.GITHUB_SHA': JSON.stringify(COMMIT_SHA),
+    'process.env.VERSION': defineEnv('VERSION', process.env.VERSION),
+    'process.env.BUNDLE_VERSION': defineEnv(
+      'BUNDLE_VERSION',
+      process.env.BUNDLE_VERSION,
+    ),
+    'process.env.BUILD_NUMBER': defineEnv(
+      'BUILD_NUMBER',
+      process.env.BUILD_NUMBER,
+    ),
+    'process.env.GITHUB_SHA': defineEnv('GITHUB_SHA', COMMIT_SHA),
     'process.env.EXPO_OS': JSON.stringify('web'),
   };
   return { ...envDefines, ...explicitDefines };
@@ -288,14 +283,17 @@ const buildBasePlugins: (
   basePath,
 ) => [
   new rspack.DefinePlugin(buildDefineMap(platform)),
+  !isDev &&
+    ['web', 'desktop', 'ext', 'web-embed'].includes(platform) &&
+    createReleaseEnvAssetPlugin(platform),
   new rspack.ProvidePlugin({
     Buffer: ['buffer', 'Buffer'],
     process: require.resolve('process/browser'),
   }),
   !isDev &&
-    platform === 'web' &&
+    ['web', 'desktop', 'ext', 'web-embed'].includes(platform) &&
     new rspack.NormalModuleReplacementPlugin(
-      /views[\\/]Developer[\\/]router$/,
+      /views[\\/]Developer[\\/](?:router$|pages[\\/]Gallery[\\/])/,
       path.join(
         basePath,
         '../../packages/kit/src/views/Developer/router.empty.ts',
@@ -483,6 +481,7 @@ export function createBaseConfig({
             platform,
           }),
           WEB_PUBLIC_URL: publicUrl || '/',
+          releaseMetaUrl: `${(publicUrl || (platform === 'web-embed' ? './' : '/')).replace(/\/?$/, '/')}release-meta.js`,
           WEB_TITLE: platform,
           NO_SCRIPT:
             '<form action="" style="background-color:#fff;position:fixed;top:0;left:0;right:0;bottom:0;z-index:9999;"><div style="font-size:18px;font-family:Helvetica,sans-serif;line-height:24px;margin:10%;width:80%;"> <p>Oh no! It looks like JavaScript is not enabled in your browser.</p> <p style="margin:20px 0;"> <button type="submit" style="background-color: #4630EB; border-radius: 100px; border: none; box-shadow: none; color: #fff; cursor: pointer; font-weight: bold; line-height: 20px; padding: 6px 16px;">Reload</button> </p> </div> </form>',
@@ -506,7 +505,7 @@ export function createBaseConfig({
         // file contents), matching babel-plugin-inline-import in the webpack
         // chain. MUST be first so no later asset rule can claim `.text-js`.
         { test: /\.text-js$/, type: 'asset/source' },
-        // cspell:ignore emscripten Skia skia's
+        // cspell:ignore emscripten Skia skia's zxing ZXING
         // Canvaskit ships a prebuilt wasm loaded at runtime by emscripten;
         // emit it as a URL asset so react-native-skia's LoadSkiaWeb can fetch
         // it via locateFile (see OrbShader.tsx). Must come before the generic
@@ -517,9 +516,17 @@ export function createBaseConfig({
           type: 'asset/resource',
           generator: { filename: 'static/canvaskit/[name][ext]' },
         },
+        // The barcode-detector polyfill used by expo-camera's web scanner
+        // instantiates this wasm itself. Ship it with the app so ScanCamera can
+        // hand it over instead of the polyfill downloading it from jsDelivr.
+        {
+          test: ZXING_READER_WASM_TEST,
+          type: 'asset/resource',
+          generator: { filename: 'static/zxing/[name].[contenthash:8][ext]' },
+        },
         {
           test: /\.wasm$/,
-          exclude: CANVASKIT_WASM_TEST,
+          exclude: [CANVASKIT_WASM_TEST, ZXING_READER_WASM_TEST],
           type: 'webassembly/async',
         },
         {

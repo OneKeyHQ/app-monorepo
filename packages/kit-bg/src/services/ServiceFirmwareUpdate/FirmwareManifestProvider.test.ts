@@ -1,4 +1,6 @@
+import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import { fetchFirmwareConfig } from '@onekeyhq/shared/src/hardware/firmwareConfigProvider';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
 import {
@@ -11,6 +13,12 @@ import type { RemoteConfigResponse } from '@onekeyfe/hd-core';
 
 jest.mock('@onekeyhq/shared/src/hardware/firmwareConfigProvider', () => ({
   fetchFirmwareConfig: jest.fn(),
+}));
+
+jest.mock('@onekeyhq/shared/src/locale/appLocale', () => ({
+  appLocale: {
+    intl: { formatMessage: ({ id }: { id: string }) => `localized:${id}` },
+  },
 }));
 
 jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
@@ -27,6 +35,11 @@ const mockedFetchFirmwareConfig = fetchFirmwareConfig as jest.Mock;
 const remoteConfig = {
   bridge: { version: 'remote' },
 } as unknown as RemoteConfigResponse;
+const manifestUnavailableError = {
+  key: ETranslations.firmware_info_unavailable__msg,
+  message: `localized:${ETranslations.firmware_info_unavailable__msg}`,
+  className: EOneKeyErrorClassNames.OneKeyLocalError,
+};
 describe('FirmwareManifestProvider', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -48,6 +61,7 @@ describe('FirmwareManifestProvider', () => {
   it.each([null, new Error('transport failed')])(
     'fails closed without a remote or cached snapshot for %s',
     async (remoteResult) => {
+      const logInfoSpy = jest.spyOn(defaultLogger.ipTable.request, 'info');
       if (remoteResult instanceof Error) {
         mockedFetchFirmwareConfig.mockRejectedValue(remoteResult);
       } else {
@@ -56,7 +70,10 @@ describe('FirmwareManifestProvider', () => {
 
       await expect(
         getFirmwareManifestSnapshot({ preRelease: true, forceRefresh: true }),
-      ).rejects.toThrow('Firmware manifest is unavailable');
+      ).rejects.toMatchObject(manifestUnavailableError);
+      expect(logInfoSpy).toHaveBeenCalledWith({
+        info: '[FirmwareManifest] config_fetch route=none outcome=unavailable',
+      });
     },
   );
 
@@ -148,7 +165,7 @@ describe('FirmwareManifestProvider', () => {
       nowSpy.mockReturnValue(1000 + FIRMWARE_MANIFEST_CACHE_TTL_MS);
       await expect(
         getFirmwareManifestSnapshot({ preRelease: false, forceRefresh: true }),
-      ).rejects.toThrow('Firmware manifest is unavailable');
+      ).rejects.toMatchObject(manifestUnavailableError);
     },
   );
 
@@ -165,7 +182,7 @@ describe('FirmwareManifestProvider', () => {
         preRelease: true,
         forceRefresh: true,
       }),
-    ).rejects.toThrow('Firmware manifest is unavailable');
+    ).rejects.toMatchObject(manifestUnavailableError);
   });
 
   it('does not use a snapshot that expires while the forced refresh is pending', async () => {
@@ -181,7 +198,7 @@ describe('FirmwareManifestProvider', () => {
     nowSpy.mockReturnValue(1000 + FIRMWARE_MANIFEST_CACHE_TTL_MS - 1);
     await expect(
       getFirmwareManifestSnapshot({ preRelease: false, forceRefresh: true }),
-    ).rejects.toThrow('Firmware manifest is unavailable');
+    ).rejects.toMatchObject(manifestUnavailableError);
   });
 
   it.each([false, true])(
@@ -194,7 +211,7 @@ describe('FirmwareManifestProvider', () => {
       await getFirmwareManifestSnapshot({ preRelease: !preRelease });
       await expect(
         getFirmwareManifestSnapshot({ preRelease, forceRefresh: true }),
-      ).rejects.toThrow('Firmware manifest is unavailable');
+      ).rejects.toMatchObject(manifestUnavailableError);
     },
   );
 

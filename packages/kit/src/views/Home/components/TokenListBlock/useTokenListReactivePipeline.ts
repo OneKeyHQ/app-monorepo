@@ -15,9 +15,8 @@
  *     `commitAuthoritativeIngest(snapshot)` does the ingest + epoch bump.
  *   - P0-a: the cache path keeps `updateTokenListState` in the component AFTER
  *     `await seedAndFlushCache(...)` and inside its `hasAnyCache` guard.
- *   - P0-h: every returned callback is memoised with the SAME dep footprint the
- *     originals had (`account?.id` / `network?.id`), so it is stable within an
- *     owner and changes only on owner switch (matching the original re-fire).
+ *   - P0-h: returned callbacks are memoised by owner and request validity; the
+ *     captured request is checked again after asynchronous work.
  *   - P1-e: the `flushProgressiveViewRef` indirection is preserved verbatim.
  *   - P1-f: the flush captures the owner once and re-checks a live owner
  *     generation + ownerKey after awaits before writing to the BG VM.
@@ -33,20 +32,22 @@ import type { MutableRefObject } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms/jotaiContextStoreMap';
+import { isRequestCanceledError } from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import {
+  type IAllNetworkSnapshotRound,
+  type IMergedAllNetworkSnapshot,
+  buildMergedAllNetworkSnapshot,
+} from '@onekeyhq/shared/src/utils/buildMergedAllNetworkSnapshot';
+import { isHomeTokenRequestCurrent } from '@onekeyhq/shared/src/utils/homeTokenRequest';
 import { LwwMaterializedView } from '@onekeyhq/shared/src/utils/lwwMaterializedView';
 import type {
   IAccountToken,
   ICustomTokenItem,
   IHomeDefaultToken,
+  IHomeTokenRequest,
   ITokenFiat,
 } from '@onekeyhq/shared/types/token';
-
-import {
-  type IAllNetworkSnapshotRound,
-  type IMergedAllNetworkSnapshot,
-  buildMergedAllNetworkSnapshot,
-} from './buildMergedAllNetworkSnapshot';
 
 // L2: coalesce progressive all-network ingests into at most one paint per this
 // window, so a 20+ network fan-out yields a few frames (not one per network).
@@ -60,6 +61,7 @@ export const PROGRESSIVE_PAINT_THROTTLE_MS = 350;
  * raw result, whose derive-merge flag is resolved before building a snapshot).
  */
 export type IProgressiveRound = IAllNetworkSnapshotRound & {
+  homeRequest?: IHomeTokenRequest;
   ownerAccountId?: string;
   ownerNetworkId?: string;
   origin: 'cache' | 'live';
@@ -77,6 +79,8 @@ export interface ICellsIngestInputs {
 
 /** One per-network LOCAL-cache slice fed to the cache-seed (L1 SWR floor). */
 export interface ICacheSeedItem {
+  homeRequest?: IHomeTokenRequest;
+  homeTokenRoundRef?: string;
   tokenList: IAccountToken[];
   smallBalanceTokenList: IAccountToken[];
   riskyTokenList: IAccountToken[];
@@ -97,6 +101,7 @@ export interface ICacheSeedItem {
 
 /** A settled LIVE round (structurally a superset of `IAllNetworkSnapshotRound`). */
 export type ILiveRound = IAllNetworkSnapshotRound & {
+  homeRequest?: IHomeTokenRequest;
   accountId?: string;
   networkId?: string;
   ownerAccountId?: string;
@@ -109,6 +114,8 @@ export interface ITokenListReactivePipelineParams {
   ownerCreateAtNetwork: string | undefined;
   /** owner key + hideZero inputs ref (written in render by the component). */
   cellsIngestInputsRef: MutableRefObject<ICellsIngestInputs>;
+  homeRequestRef: MutableRefObject<IHomeTokenRequest | undefined>;
+  isHomeRequestCurrent: () => boolean;
   /** = ENABLE_BG_TOKEN_VIEW_MODEL — the single unified kill-switch. */
   enabled: boolean;
 }
@@ -134,7 +141,10 @@ export interface ITokenListReactivePipeline {
     IMergedAllNetworkSnapshot | undefined
   >;
   /** Ingest the authoritative snapshot + clear timer + bump epoch. */
-  commitAuthoritativeIngest: (snapshot: IMergedAllNetworkSnapshot) => void;
+  commitAuthoritativeIngest: (
+    snapshot: IMergedAllNetworkSnapshot,
+    homeRequest?: IHomeTokenRequest,
+  ) => void;
 }
 
 type IIngestOwnerToken = {
@@ -159,6 +169,8 @@ export function useTokenListReactivePipeline(
     ownerNetworkId,
     ownerCreateAtNetwork,
     cellsIngestInputsRef,
+    homeRequestRef,
+    isHomeRequestCurrent,
     enabled,
   } = params;
 
@@ -170,13 +182,21 @@ export function useTokenListReactivePipeline(
   const progressiveFlushTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
     null,
   );
+  const progressiveFlushRequestRef = useRef<IHomeTokenRequest | undefined>(
+    undefined,
+  );
   // P1-e: indirection so `seedAndFlushCache` can drive the shared flush
   // (declared after it) without a hook-ordering / stale-dep cycle.
   const flushProgressiveViewRef = useRef<
-    ((source: string) => Promise<void>) | undefined
+    | ((source: string, homeRequest?: IHomeTokenRequest) => Promise<void>)
+    | undefined
   >(undefined);
   // H1 epoch guard (P1-g): bumped only by the authoritative commit.
   const progressivePaintEpochRef = useRef(0);
+  const publicationRef = useRef(0);
+  const snapshotRoundRefs = useRef(
+    new WeakMap<IMergedAllNetworkSnapshot, string[]>(),
+  );
   const ownerIdentityRef = useRef<{
     ownerAccountId: string | undefined;
     ownerNetworkId: string | undefined;
@@ -197,6 +217,16 @@ export function useTokenListReactivePipeline(
     }
     progressiveViewRef.current.clear();
   }, []);
+
+  const isRequestCurrent = useCallback(
+    (homeRequest: IHomeTokenRequest | undefined) =>
+      homeRequestRef.current === homeRequest &&
+      (!homeRequest ||
+        homeRequest.ownerKey === cellsIngestInputsRef.current.ownerKey) &&
+      isHomeRequestCurrent() &&
+      isHomeTokenRequestCurrent(homeRequest),
+    [cellsIngestInputsRef, homeRequestRef, isHomeRequestCurrent],
+  );
 
   const resolveRoundsWithMergeFlag = useCallback(
     async (rounds: IProgressiveRound[]): Promise<IProgressiveRound[]> => {
@@ -243,36 +273,89 @@ export function useTokenListReactivePipeline(
 
   const ingestMergedSnapshot = useCallback(
     (
-      snapshot: IMergedAllNetworkSnapshot,
+      snapshot: IMergedAllNetworkSnapshot | (() => IMergedAllNetworkSnapshot),
       source: string,
+      homeRequest: IHomeTokenRequest | undefined,
       ownerToken?: IIngestOwnerToken,
+      roundRefs?: string[],
     ) => {
-      void backgroundApiProxy.serviceTokenViewModel.ingestRound({
-        ownerKey: ownerToken?.ownerKey ?? cellsIngestInputsRef.current.ownerKey,
-        orderedTokens: snapshot.orderedTokens,
-        smallBalanceTokens: snapshot.smallBalanceTokens,
-        tokenListMap: snapshot.mergeTokenListMap,
-        aggregateTokensMap: snapshot.aggregateTokenMap,
-        ownedAggregateTokenListMap: snapshot.aggregateTokenListMap,
-        smallBalanceFiatValue: snapshot.smallBalanceFiatValue,
+      const ownerKey =
+        ownerToken?.ownerKey ?? cellsIngestInputsRef.current.ownerKey;
+      if (
+        !isRequestCurrent(homeRequest) ||
+        (homeRequest && homeRequest.ownerKey !== ownerKey)
+      ) {
+        return;
+      }
+      publicationRef.current += 1;
+      const homePublication = publicationRef.current;
+      const inputs = {
+        homeRequest,
+        homePublication,
+        ownerKey,
         storeData: { storeName: EJotaiContextStoreNames.homeTokenList },
         keepDefault: cellsIngestInputsRef.current.nonZeroInputs.keepDefault,
         homeDefaultTokenMap:
           cellsIngestInputsRef.current.nonZeroInputs.homeDefaultTokenMap,
         customTokens: cellsIngestInputsRef.current.nonZeroInputs.customTokens,
-        riskyTokens: snapshot.riskyTokens,
-        riskyMap: snapshot.riskyTokenListMap,
         accountId: ownerToken?.ownerAccountId ?? ownerAccountId,
         networkId: ownerToken?.ownerNetworkId ?? ownerNetworkId,
-        rawKeys: `${snapshot.tokenKeys}_${snapshot.smallBalanceKeys}_${snapshot.riskyKeys}`,
         source,
-      });
+      };
+      const reportError = (error: unknown) => {
+        if (!isRequestCanceledError(error)) console.error(error);
+      };
+      const ingestFullSnapshot = () => {
+        if (
+          !isRequestCurrent(homeRequest) ||
+          publicationRef.current !== homePublication
+        )
+          return;
+        const resolvedSnapshot =
+          typeof snapshot === 'function' ? snapshot() : snapshot;
+        void backgroundApiProxy.serviceTokenViewModel
+          .ingestRound({
+            ...inputs,
+            orderedTokens: resolvedSnapshot.orderedTokens,
+            smallBalanceTokens: resolvedSnapshot.smallBalanceTokens,
+            tokenListMap: resolvedSnapshot.mergeTokenListMap,
+            aggregateTokensMap: resolvedSnapshot.aggregateTokenMap,
+            ownedAggregateTokenListMap: resolvedSnapshot.aggregateTokenListMap,
+            smallBalanceFiatValue: resolvedSnapshot.smallBalanceFiatValue,
+            riskyTokens: resolvedSnapshot.riskyTokens,
+            riskyMap: resolvedSnapshot.riskyTokenListMap,
+            rawKeys: `${resolvedSnapshot.tokenKeys}_${resolvedSnapshot.smallBalanceKeys}_${resolvedSnapshot.riskyKeys}`,
+          })
+          .catch(reportError);
+      };
+      if (homeRequest && roundRefs?.length) {
+        void backgroundApiProxy.serviceTokenViewModel
+          .ingestHomeTokenRounds({
+            ...inputs,
+            homeRequest,
+            roundRefs,
+            createAtNetwork: ownerCreateAtNetwork,
+          })
+          .then((applied) => {
+            if (!applied) ingestFullSnapshot();
+          })
+          .catch(reportError);
+      } else {
+        ingestFullSnapshot();
+      }
     },
-    [cellsIngestInputsRef, ownerAccountId, ownerNetworkId],
+    [
+      cellsIngestInputsRef,
+      isRequestCurrent,
+      ownerAccountId,
+      ownerCreateAtNetwork,
+      ownerNetworkId,
+    ],
   );
 
   const flushProgressiveView = useCallback(
-    async (source: string) => {
+    async (source: string, homeRequest?: IHomeTokenRequest) => {
+      if (!isRequestCurrent(homeRequest)) return;
       if (progressiveFlushTimerRef.current !== null) {
         clearTimeout(progressiveFlushTimerRef.current);
         progressiveFlushTimerRef.current = null;
@@ -297,6 +380,7 @@ export function useTokenListReactivePipeline(
         return;
       }
       const roundsWithFlag = await resolveRoundsWithMergeFlag(rounds);
+      if (!isRequestCurrent(homeRequest)) return;
       if (
         rounds[0].ownerAccountId !== ownerAccountId ||
         rounds[0].ownerNetworkId !== ownerNetworkId
@@ -313,13 +397,21 @@ export function useTokenListReactivePipeline(
       if (progressivePaintEpochRef.current !== epochAtFlushStart) {
         return;
       }
-      const snapshot = buildMergedAllNetworkSnapshot({
-        rounds: roundsWithFlag,
-        mergeDeriveAssetsByNetworkId: {},
-        accountId: ownerAccountId,
-        createAtNetwork: ownerCreateAtNetwork,
-      });
-      ingestMergedSnapshot(snapshot, source, ownerTokenAtFlushStart);
+      ingestMergedSnapshot(
+        () =>
+          buildMergedAllNetworkSnapshot({
+            rounds: roundsWithFlag,
+            mergeDeriveAssetsByNetworkId: {},
+            accountId: ownerAccountId,
+            createAtNetwork: ownerCreateAtNetwork,
+          }),
+        source,
+        homeRequest,
+        ownerTokenAtFlushStart,
+        roundsWithFlag.every((round) => !!round.homeTokenRoundRef)
+          ? roundsWithFlag.map((round) => round.homeTokenRoundRef as string)
+          : undefined,
+      );
     },
     [
       ownerAccountId,
@@ -328,6 +420,7 @@ export function useTokenListReactivePipeline(
       cellsIngestInputsRef,
       enabled,
       ingestMergedSnapshot,
+      isRequestCurrent,
       resolveRoundsWithMergeFlag,
     ],
   );
@@ -354,44 +447,54 @@ export function useTokenListReactivePipeline(
       ) {
         return;
       }
+      const homeRequest = homeRequestRef.current;
+      if (!isRequestCurrent(homeRequest)) return;
+      let accepted = false;
       for (const item of data) {
-        progressiveViewRef.current.seedFloor(
-          accountUtils.buildAccountValueKey({
-            accountId: item.accountId,
-            networkId: item.networkId,
-          }),
-          {
-            networkId: item.networkId,
-            accountId: item.accountId,
-            tokens: {
-              data: item.tokenList,
-              keys: item.tokenList.map((t) => t.$key).join(','),
-              map: item.tokenListMap,
+        if (item.homeRequest === homeRequest) {
+          accepted = true;
+          progressiveViewRef.current.seedFloor(
+            accountUtils.buildAccountValueKey({
+              accountId: item.accountId,
+              networkId: item.networkId,
+            }),
+            {
+              homeRequest: item.homeRequest,
+              homeTokenRoundRef: item.homeTokenRoundRef,
+              networkId: item.networkId,
+              accountId: item.accountId,
+              tokens: {
+                data: item.tokenList,
+                keys: item.tokenList.map((t) => t.$key).join(','),
+                map: item.tokenListMap,
+              },
+              smallBalanceTokens: {
+                data: item.smallBalanceTokenList,
+                keys: item.smallBalanceTokenList.map((t) => t.$key).join(','),
+                map: item.tokenListMap,
+              },
+              riskTokens: {
+                data: item.riskyTokenList,
+                keys: item.riskyTokenList.map((t) => t.$key).join(','),
+                map: item.tokenListMap,
+              },
+              accountWorth: item.tokenListValue,
+              aggregateTokenListMap: item.aggregateTokenListMap,
+              aggregateTokenMap: item.aggregateTokenMap,
+              ownerAccountId,
+              ownerNetworkId,
+              origin: 'cache',
+              mergeDeriveAssets: getCacheSeedMergeDeriveAssets(item),
             },
-            smallBalanceTokens: {
-              data: item.smallBalanceTokenList,
-              keys: item.smallBalanceTokenList.map((t) => t.$key).join(','),
-              map: item.tokenListMap,
-            },
-            riskTokens: {
-              data: item.riskyTokenList,
-              keys: item.riskyTokenList.map((t) => t.$key).join(','),
-              map: item.tokenListMap,
-            },
-            accountWorth: item.tokenListValue,
-            aggregateTokenListMap: item.aggregateTokenListMap,
-            aggregateTokenMap: item.aggregateTokenMap,
-            ownerAccountId,
-            ownerNetworkId,
-            origin: 'cache',
-            mergeDeriveAssets: getCacheSeedMergeDeriveAssets(item),
-          },
-          generation,
-        );
+            generation,
+          );
+        }
       }
-      await flushProgressiveViewRef.current?.('cacheSeed');
+      if (accepted) {
+        await flushProgressiveViewRef.current?.('cacheSeed', homeRequest);
+      }
     },
-    [enabled, ownerAccountId, ownerNetworkId],
+    [enabled, homeRequestRef, isRequestCurrent, ownerAccountId, ownerNetworkId],
   );
 
   const setEnabledKeys = useCallback(
@@ -413,6 +516,7 @@ export function useTokenListReactivePipeline(
       if (!result) {
         return;
       }
+      if (!isRequestCurrent(result.homeRequest)) return;
       if (
         result.ownerAccountId !== ownerAccountId ||
         result.ownerNetworkId !== ownerNetworkId
@@ -427,6 +531,14 @@ export function useTokenListReactivePipeline(
         { ...result, origin: 'live' },
         generation,
       );
+      if (
+        progressiveFlushTimerRef.current !== null &&
+        progressiveFlushRequestRef.current !== result.homeRequest
+      ) {
+        // A previous request's timer must not consume the new round's flush.
+        clearTimeout(progressiveFlushTimerRef.current);
+        progressiveFlushTimerRef.current = null;
+      }
       if (progressiveFlushTimerRef.current === null) {
         // P1-e indirection (NOT the captured `flushProgressiveView`): on a rapid
         // owner switch the timer must fire the LATEST flush so its owner guard
@@ -434,39 +546,78 @@ export function useTokenListReactivePipeline(
         // stale ingest — even when the consumer's `reset()` is delayed past the
         // throttle window. Capturing the closure would re-run the old owner's
         // flush (old owner == old rounds → guard passes → wasted BG ingest).
+        const homeRequest = result.homeRequest;
+        progressiveFlushRequestRef.current = homeRequest;
         progressiveFlushTimerRef.current = setTimeout(() => {
-          void flushProgressiveViewRef.current?.('progPaint');
+          progressiveFlushTimerRef.current = null;
+          void flushProgressiveViewRef.current?.('progPaint', homeRequest);
         }, PROGRESSIVE_PAINT_THROTTLE_MS);
       }
     },
-    [ownerAccountId, ownerNetworkId],
+    [isRequestCurrent, ownerAccountId, ownerNetworkId],
   );
 
   const buildAuthoritativeSnapshot = useCallback(async (): Promise<
     IMergedAllNetworkSnapshot | undefined
   > => {
+    const homeRequest = homeRequestRef.current;
+    if (!isRequestCurrent(homeRequest)) return undefined;
+    const ownerGeneration = ownerGenerationRef.current;
+    const ownerKey = cellsIngestInputsRef.current.ownerKey;
+    const paintEpoch = progressivePaintEpochRef.current;
     const viewRounds = progressiveViewRef.current.materialize(
       enabledKeysRef.current,
     );
-    // An empty materialized view means the pipeline was reset and has not
-    // received cache or live rounds for the current run yet. It is not an
-    // authoritative empty wallet snapshot.
-    if (!viewRounds.length) {
+    // A new request can retain old rounds as its floor, but must first accept
+    // one of its own cache/live rounds before publishing an authoritative view.
+    if (
+      !viewRounds.length ||
+      !viewRounds.some((round) => round.homeRequest === homeRequest)
+    ) {
       return undefined;
     }
     const roundsWithFlag = await resolveRoundsWithMergeFlag(viewRounds);
-    return buildMergedAllNetworkSnapshot({
+    if (
+      !isRequestCurrent(homeRequest) ||
+      ownerGenerationRef.current !== ownerGeneration ||
+      cellsIngestInputsRef.current.ownerKey !== ownerKey ||
+      progressivePaintEpochRef.current !== paintEpoch
+    ) {
+      return undefined;
+    }
+    const snapshot = buildMergedAllNetworkSnapshot({
       rounds: roundsWithFlag,
       mergeDeriveAssetsByNetworkId: {},
       accountId: ownerAccountId,
       createAtNetwork: ownerCreateAtNetwork,
     });
-  }, [ownerAccountId, ownerCreateAtNetwork, resolveRoundsWithMergeFlag]);
+    if (viewRounds.every((round) => !!round.homeTokenRoundRef)) {
+      snapshotRoundRefs.current.set(
+        snapshot,
+        viewRounds.map((round) => round.homeTokenRoundRef as string),
+      );
+    }
+    return snapshot;
+  }, [
+    cellsIngestInputsRef,
+    homeRequestRef,
+    isRequestCurrent,
+    ownerAccountId,
+    ownerCreateAtNetwork,
+    resolveRoundsWithMergeFlag,
+  ]);
 
   const commitAuthoritativeIngest = useCallback(
-    (snapshot: IMergedAllNetworkSnapshot) => {
+    (snapshot: IMergedAllNetworkSnapshot, homeRequest?: IHomeTokenRequest) => {
+      if (!isRequestCurrent(homeRequest)) return;
       if (enabled) {
-        ingestMergedSnapshot(snapshot, 'authoritative');
+        ingestMergedSnapshot(
+          snapshot,
+          'authoritative',
+          homeRequest,
+          undefined,
+          snapshotRoundRefs.current.get(snapshot),
+        );
       }
       if (progressiveFlushTimerRef.current !== null) {
         clearTimeout(progressiveFlushTimerRef.current);
@@ -474,7 +625,7 @@ export function useTokenListReactivePipeline(
       }
       progressivePaintEpochRef.current += 1;
     },
-    [enabled, ingestMergedSnapshot],
+    [enabled, ingestMergedSnapshot, isRequestCurrent],
   );
 
   return {

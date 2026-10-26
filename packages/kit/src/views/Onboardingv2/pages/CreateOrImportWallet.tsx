@@ -3,14 +3,7 @@ import { useCallback, useMemo, useState } from 'react';
 import { useIntl } from 'react-intl';
 
 import type { IKeyOfIcons } from '@onekeyhq/components';
-import {
-  Button,
-  Icon,
-  SizableText,
-  Spinner,
-  YStack,
-  useMedia,
-} from '@onekeyhq/components';
+import { SizableText, YStack, useMedia } from '@onekeyhq/components';
 import { EOAuthSocialLoginProvider } from '@onekeyhq/shared/src/consts/authConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -32,6 +25,7 @@ import { useUserWalletProfile } from '../../../hooks/useUserWalletProfile';
 import useLiteCard from '../../LiteCard/hooks/useLiteCard';
 import {
   OnboardingHeading,
+  OnboardingIconButton,
   OnboardingOrDivider,
   OnboardingPage,
   OnboardingSidebar,
@@ -285,37 +279,19 @@ function CreateOrImportWallet() {
     disabled,
   }: IImportOption) => {
     const isPrimary = HIGHEST_PRIORITY_KEYS.has(key);
-    const iconColor = isPrimary ? '$iconInverse' : '$icon';
-    const textColor = isPrimary ? '$textInverse' : '$text';
     return (
-      <Button
+      <OnboardingIconButton
         key={key}
         testID={OnboardingTestIDs.createOrImportWalletOptionBtn(key)}
         variant={isPrimary ? 'primary' : 'secondary'}
-        size="large"
-        alignSelf="stretch"
-        childrenAsText={false}
+        icon={icon}
+        iconSize={gtMd ? '$5' : '$6'}
+        isLoading={isLoading}
         disabled={disabled}
         onPress={onPress}
       >
-        <YStack position="absolute" left="$5">
-          {isLoading ? (
-            <Spinner size="small" color={iconColor} />
-          ) : (
-            <Icon
-              name={icon}
-              size="$6"
-              color={iconColor}
-              $gtMd={{
-                size: '$5',
-              }}
-            />
-          )}
-        </YStack>
-        <SizableText size="$bodyLgMedium" color={textColor}>
-          {title}
-        </SizableText>
-      </Button>
+        {title}
+      </OnboardingIconButton>
     );
   };
 
@@ -329,6 +305,11 @@ function CreateOrImportWallet() {
   }: IImportOption) => (
     <ListItem
       key={key}
+      testID={
+        key === 'external' || key === 'watch'
+          ? OnboardingTestIDs.createOrImportWalletOptionBtn(key)
+          : undefined
+      }
       icon={icon}
       title={title}
       drillIn

@@ -481,6 +481,23 @@ export class PrimeLoginDialogCancelError extends OneKeyAppError {
   override name = EOneKeyErrorClassNames.PrimeLoginDialogCancelError;
 }
 
+// The extension popup handed the login off to the expand tab. Subclass of the
+// cancel error so existing callers keep treating it as a cancel, while
+// free-trial callers can tell it apart from a real user cancel and keep the
+// action they saved for the expand tab.
+export class PrimeLoginHandedOffToExtExpandTabError extends PrimeLoginDialogCancelError {
+  constructor(props?: IOneKeyError | string) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'PrimeLoginHandedOffToExtExpandTabError',
+        defaultKey: ETranslations.global_cancel,
+      }),
+    );
+  }
+
+  readonly isHandedOffToExtExpandTab = true;
+}
+
 export class PrimeSendEmailOTPCancelError extends OneKeyAppError {
   constructor(props?: IOneKeyError | string) {
     super(

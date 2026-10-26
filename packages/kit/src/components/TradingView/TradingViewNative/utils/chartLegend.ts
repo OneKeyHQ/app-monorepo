@@ -19,6 +19,7 @@ import type {
 } from '../types';
 
 export interface ITradingViewNativeLegendItem {
+  customPaintId?: string;
   label: string;
   value: string;
   valueColorRole?: 'trend';
@@ -61,11 +62,11 @@ const VOLUME_UNITS = [
 ] as const;
 const WIDEST_COMMON_VOLUME_AXIS_LABEL = '888.888';
 
-function formatPrice(value: number) {
+function formatPrice(value: number, priceDecimalPlaces?: number) {
   'worklet';
 
   return Number.isFinite(value)
-    ? formatTradingViewNativePriceTick(value)
+    ? formatTradingViewNativePriceTick(value, 4, priceDecimalPlaces)
     : '--';
 }
 
@@ -228,6 +229,7 @@ export function getTradingViewNativeChartLegend(
   candleLabels: ITradingViewNativeCandleLabels,
   chartType: ITradingViewNativeChartType = 'candlestick',
   previousClose?: number,
+  priceDecimalPlaces?: number,
 ): ITradingViewNativeChartLegend {
   'worklet';
 
@@ -247,12 +249,27 @@ export function getTradingViewNativeChartLegend(
     isUp: point.c >= changeReference,
     priceItems:
       primarySeries.priceSource === 'close'
-        ? [{ label: 'Price', value: formatPrice(point.c) }, priceChangeItem]
+        ? [
+            { label: 'Price', value: formatPrice(point.c, priceDecimalPlaces) },
+            priceChangeItem,
+          ]
         : [
-            { label: candleLabels.open, value: formatPrice(point.o) },
-            { label: candleLabels.high, value: formatPrice(point.h) },
-            { label: candleLabels.low, value: formatPrice(point.l) },
-            { label: candleLabels.close, value: formatPrice(point.c) },
+            {
+              label: candleLabels.open,
+              value: formatPrice(point.o, priceDecimalPlaces),
+            },
+            {
+              label: candleLabels.high,
+              value: formatPrice(point.h, priceDecimalPlaces),
+            },
+            {
+              label: candleLabels.low,
+              value: formatPrice(point.l, priceDecimalPlaces),
+            },
+            {
+              label: candleLabels.close,
+              value: formatPrice(point.c, priceDecimalPlaces),
+            },
             priceChangeItem,
           ],
     volumeItem: {

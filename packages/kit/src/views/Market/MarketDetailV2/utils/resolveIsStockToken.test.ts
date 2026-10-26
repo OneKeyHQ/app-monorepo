@@ -1,6 +1,7 @@
 import type { IMarketStockInfo } from '@onekeyhq/shared/types/marketV2';
 
 import {
+  buildMarketStockTokenMetadata,
   resolveIsStockToken,
   resolveMarketStockId,
 } from './resolveIsStockToken';
@@ -12,6 +13,7 @@ const previewStock: IMarketStockInfo = {
 
 const detailStock: IMarketStockInfo = {
   ...previewStock,
+  stockId: 'AAPL',
   underlyingAssetTicker: 'AAPL',
 };
 
@@ -29,21 +31,87 @@ describe('resolveIsStockToken', () => {
   });
 });
 
+describe('buildMarketStockTokenMetadata', () => {
+  it('keeps the resolved listing identity when token detail only contains issuer metadata', () => {
+    expect(buildMarketStockTokenMetadata(previewStock, ' AAPL ')).toEqual({
+      ...previewStock,
+      stockId: 'AAPL',
+    });
+  });
+
+  it('preserves a known stock identity before issuer metadata loads', () => {
+    expect(buildMarketStockTokenMetadata(undefined, 'AAPL')).toEqual({
+      stockId: 'AAPL',
+      subtitle: '',
+      sourceLogoUri: '',
+    });
+  });
+
+  it('keeps unchanged metadata and does not invent an identity for ordinary tokens', () => {
+    expect(buildMarketStockTokenMetadata(detailStock, 'AAPL')).toBe(
+      detailStock,
+    );
+    expect(buildMarketStockTokenMetadata(previewStock, undefined)).toBe(
+      previewStock,
+    );
+    expect(buildMarketStockTokenMetadata(undefined, undefined)).toBeUndefined();
+  });
+});
+
 describe('resolveMarketStockId', () => {
-  it('prefers the explicit underlying ticker', () => {
+  it('uses the stock id returned by the market search payload', () => {
     expect(
       resolveMarketStockId({
-        stock: { underlyingAssetTicker: 'aapl' },
+        stock: {
+          stockId: ' abnb ',
+        },
       }),
-    ).toBe('AAPL');
+    ).toBe('ABNB');
+  });
+
+  it('does not treat an underlying ticker as a stock id', () => {
+    expect(
+      resolveMarketStockId({
+        stock: { stockId: undefined },
+      }),
+    ).toBeUndefined();
   });
 
   it('uses an explicit stock id supplied by an adapter', () => {
     expect(resolveMarketStockId({ stockId: ' tsla ' })).toBe('TSLA');
   });
 
-  it('does not infer stock identity from a token symbol', () => {
-    expect(resolveMarketStockId({ stock: {} })).toBeUndefined();
+  it.each(['', ' ', '\t\n'])('skips blank stock ids (%j)', (stockId) => {
+    expect(
+      resolveMarketStockId({
+        stockId,
+        stock: { stockId: ' abnb ' },
+      }),
+    ).toBe('ABNB');
+    expect(
+      resolveMarketStockId({
+        stockId,
+        stock: { stockId },
+      }),
+    ).toBeUndefined();
+  });
+
+  it('prefers a nonblank adapter stock id over nested identifiers', () => {
+    expect(
+      resolveMarketStockId({
+        stockId: ' tsla ',
+        stock: { stockId: 'ABNB' },
+      }),
+    ).toBe('TSLA');
+  });
+
+  it('does not infer a stock id from xStock naming', () => {
+    expect(
+      resolveMarketStockId({
+        stockId: '',
+        stock: { stockId: ' ' },
+      }),
+    ).toBeUndefined();
   });
 
   it('does not classify ordinary tokens as stocks', () => {

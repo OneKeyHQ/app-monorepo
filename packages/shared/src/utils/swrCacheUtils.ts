@@ -1,19 +1,38 @@
 /* cspell:ignore ISWR IMMKV */
+import { isEqual } from 'lodash';
+
 import { defaultLogger } from '../logger/logger';
-import { EAppSyncStorageKeys } from '../storage/syncStorageKeys';
+import platformEnv from '../platformEnv';
 
 import {
+  SWR_ACCOUNT_SELECTOR_MAX_ENTRIES,
+  SWR_ACCOUNT_SELECTOR_MAX_SERIALIZED_CHARS,
   SWR_CACHE_MAX_ENTRIES,
   SWR_CACHE_MAX_ENTRY_SERIALIZED_CHARS,
   SWR_CACHE_MAX_KEY_CHARS,
   SWR_CACHE_MAX_KEY_UTF8_BYTES,
   SWR_CACHE_MAX_SERIALIZED_CHARS,
+  SWR_CACHE_SLOW_OP_LOG_THRESHOLD_MS,
   isValidSWRCacheKey,
 } from './swrCacheLimits';
+// Namespaces live in their own module; the storage layer names its own from
+// the same list and must not import this one.
+import {
+  BG_OWNED_SWR_NAMESPACES,
+  swrCacheNamespaces as NS,
+} from './swrCacheNamespaceNames';
+import {
+  clearAllSwrCacheNamespaces,
+  readSwrCacheEntry,
+  readSwrCacheKeysByPrefix,
+  removeSwrCacheByPrefix,
+  removeSwrCacheEntries,
+  swrKeyPrefix,
+  writeSwrCacheEntries,
+} from './swrCacheNamespaceStorage';
 
+import type { ISwrCacheStoredEntry } from './swrCacheNamespaceStorage';
 import type * as HL from '../../types/hyperliquid/sdk';
-import type { ISyncStorage } from '../storage/instance/syncStorageInstance';
-import type { INativeSWRCachePatchIntent } from '../storage/nativeStorageTypes';
 import type { EAppSWRCacheScopes } from '../storage/syncStorageKeys';
 
 export {
@@ -79,14 +98,22 @@ type ISerializedSWRCacheEntry<T extends IPrunableSWREntry> = {
   entrySerializedChars: number;
   index: number;
   key: string;
-  pair: string;
+  // Only store a full pair when pruning needs to join the serialized store.
+  pair?: string;
   serializedChars: number;
   updatedAt: number;
+};
+
+type ISWRCacheBudgets = {
+  maxEntries: number;
+  maxEntrySerializedChars: number;
+  maxSerializedChars: number;
 };
 
 function serializeSWRCacheEntry<T extends IPrunableSWREntry>(
   key: string,
   entry: T,
+  includePair = false,
 ): ISerializedSWRCacheEntry<T> | undefined {
   if (!entry || typeof entry !== 'object' || Array.isArray(entry)) {
     return undefined;
@@ -96,14 +123,14 @@ function serializeSWRCacheEntry<T extends IPrunableSWREntry>(
     if (typeof serializedEntry !== 'string') {
       return undefined;
     }
-    const pair = `${JSON.stringify(key)}:${serializedEntry}`;
+    const serializedKey = JSON.stringify(key);
     return {
       entry,
       entrySerializedChars: serializedEntry.length,
       index: 0,
       key,
-      pair,
-      serializedChars: pair.length,
+      pair: includePair ? `${serializedKey}:${serializedEntry}` : undefined,
+      serializedChars: serializedKey.length + 1 + serializedEntry.length,
       updatedAt: typeof entry.t === 'number' ? entry.t : 0,
     };
   } catch {
@@ -111,47 +138,27 @@ function serializeSWRCacheEntry<T extends IPrunableSWREntry>(
   }
 }
 
-export function pruneSWRCacheStore<T extends IPrunableSWREntry>(
-  store: Record<string, T>,
+function resolveSWRCacheBudgets(
   options?: IPruneSWRCacheStoreOptions,
-): {
-  removedKeys: string[];
-  serialized: string;
-  store: Record<string, T>;
-} {
-  const maxEntries = options?.maxEntries ?? SWR_CACHE_MAX_ENTRIES;
-  const maxEntrySerializedChars =
-    options?.maxEntrySerializedChars ?? SWR_CACHE_MAX_ENTRY_SERIALIZED_CHARS;
-  const maxSerializedChars =
-    options?.maxSerializedChars ?? SWR_CACHE_MAX_SERIALIZED_CHARS;
-  const removedKeys: string[] = [];
-  const capacityDrops: ISWRCacheCapacityDrop[] = [];
-  const candidates: ISerializedSWRCacheEntry<T>[] = [];
+): ISWRCacheBudgets {
+  return {
+    maxEntries: options?.maxEntries ?? SWR_CACHE_MAX_ENTRIES,
+    maxEntrySerializedChars:
+      options?.maxEntrySerializedChars ?? SWR_CACHE_MAX_ENTRY_SERIALIZED_CHARS,
+    maxSerializedChars:
+      options?.maxSerializedChars ?? SWR_CACHE_MAX_SERIALIZED_CHARS,
+  };
+}
 
-  Object.entries(store).forEach(([key, entry], index) => {
-    if (!isValidSWRCacheKey(key)) {
-      removedKeys.push(key);
-      capacityDrops.push({ key, reason: 'keyLimit' });
-      return;
-    }
-    const serializedEntry = serializeSWRCacheEntry(key, entry);
-    if (!serializedEntry) {
-      removedKeys.push(key);
-      return;
-    }
-    if (serializedEntry.entrySerializedChars > maxEntrySerializedChars) {
-      removedKeys.push(key);
-      capacityDrops.push({
-        entrySerializedChars: serializedEntry.entrySerializedChars,
-        key,
-        reason: 'entryLimit',
-      });
-      return;
-    }
-    serializedEntry.index = index;
-    candidates.push(serializedEntry);
-  });
-
+// Newest first within the count and size budgets, account scopes on their
+// own budget, then back in the original order. Reports every drop.
+function retainSWRCacheCandidates<T extends IPrunableSWREntry>(
+  candidates: ISerializedSWRCacheEntry<T>[],
+  budgets: ISWRCacheBudgets,
+  removedKeys: string[],
+  capacityDrops: ISWRCacheCapacityDrop[],
+): ISerializedSWRCacheEntry<T>[] {
+  const { maxEntries, maxEntrySerializedChars, maxSerializedChars } = budgets;
   candidates.sort(
     (left, right) =>
       right.updatedAt - left.updatedAt || right.index - left.index,
@@ -159,8 +166,32 @@ export function pruneSWRCacheStore<T extends IPrunableSWREntry>(
 
   const retained: ISerializedSWRCacheEntry<T>[] = [];
   let totalSerializedChars = 2;
-  for (const candidate of candidates) {
+  let accountSelectorEntries = 0;
+  let accountSelectorSerializedChars = 2;
+  const accountSelectorDrops: ISWRCacheCapacityDrop[] = [];
+  candidates.forEach((candidate) => {
     const separatorChars = retained.length > 0 ? 1 : 0;
+    const isAccountSelector = isAccountSelectorCacheKey(candidate.key);
+    const accountSeparatorChars = accountSelectorEntries > 0 ? 1 : 0;
+    if (
+      isAccountSelector &&
+      (accountSelectorEntries >= SWR_ACCOUNT_SELECTOR_MAX_ENTRIES ||
+        accountSelectorSerializedChars +
+          accountSeparatorChars +
+          candidate.serializedChars >
+          SWR_ACCOUNT_SELECTOR_MAX_SERIALIZED_CHARS)
+    ) {
+      removedKeys.push(candidate.key);
+      accountSelectorDrops.push({
+        entrySerializedChars: candidate.entrySerializedChars,
+        key: candidate.key,
+        reason:
+          accountSelectorEntries >= SWR_ACCOUNT_SELECTOR_MAX_ENTRIES
+            ? 'entryCountLimit'
+            : 'totalSizeLimit',
+      });
+      return;
+    }
     let reason: ISWRCacheCapacityLimitReason | undefined;
     if (retained.length >= maxEntries) {
       reason = 'entryCountLimit';
@@ -180,9 +211,77 @@ export function pruneSWRCacheStore<T extends IPrunableSWREntry>(
     } else {
       retained.push(candidate);
       totalSerializedChars += separatorChars + candidate.serializedChars;
+      if (isAccountSelector) {
+        accountSelectorEntries += 1;
+        accountSelectorSerializedChars +=
+          accountSeparatorChars + candidate.serializedChars;
+      }
     }
-  }
+  });
   retained.sort((left, right) => left.index - right.index);
+
+  reportSWRCacheCapacityDrops(capacityDrops, {
+    maxEntries,
+    maxEntrySerializedChars,
+    maxSerializedChars,
+    retainedEntryCount: retained.length,
+    retainedSerializedChars: totalSerializedChars,
+  });
+  reportSWRCacheCapacityDrops(accountSelectorDrops, {
+    maxEntries: SWR_ACCOUNT_SELECTOR_MAX_ENTRIES,
+    maxEntrySerializedChars,
+    maxSerializedChars: SWR_ACCOUNT_SELECTOR_MAX_SERIALIZED_CHARS,
+    retainedEntryCount: accountSelectorEntries,
+    retainedSerializedChars: accountSelectorSerializedChars,
+  });
+  return retained;
+}
+
+export function pruneSWRCacheStore<T extends IPrunableSWREntry>(
+  store: Record<string, T>,
+  options?: IPruneSWRCacheStoreOptions,
+): {
+  removedKeys: string[];
+  serialized: string;
+  store: Record<string, T>;
+} {
+  const budgets = resolveSWRCacheBudgets(options);
+  const removedKeys: string[] = [];
+  const capacityDrops: ISWRCacheCapacityDrop[] = [];
+  const candidates: ISerializedSWRCacheEntry<T>[] = [];
+
+  Object.entries(store).forEach(([key, entry], index) => {
+    if (!isValidSWRCacheKey(key)) {
+      removedKeys.push(key);
+      capacityDrops.push({ key, reason: 'keyLimit' });
+      return;
+    }
+    const serializedEntry = serializeSWRCacheEntry(key, entry, true);
+    if (!serializedEntry) {
+      removedKeys.push(key);
+      return;
+    }
+    if (
+      serializedEntry.entrySerializedChars > budgets.maxEntrySerializedChars
+    ) {
+      removedKeys.push(key);
+      capacityDrops.push({
+        entrySerializedChars: serializedEntry.entrySerializedChars,
+        key,
+        reason: 'entryLimit',
+      });
+      return;
+    }
+    serializedEntry.index = index;
+    candidates.push(serializedEntry);
+  });
+
+  const retained = retainSWRCacheCandidates(
+    candidates,
+    budgets,
+    removedKeys,
+    capacityDrops,
+  );
 
   const retainedStore = {} as Record<string, T>;
   retained.forEach(({ entry, key }) => {
@@ -194,22 +293,18 @@ export function pruneSWRCacheStore<T extends IPrunableSWREntry>(
     });
   });
 
-  reportSWRCacheCapacityDrops(capacityDrops, {
-    maxEntries,
-    maxEntrySerializedChars,
-    maxSerializedChars,
-    retainedEntryCount: retained.length,
-    retainedSerializedChars: totalSerializedChars,
-  });
-
   return {
     removedKeys,
-    serialized: `{${retained.map(({ pair }) => pair).join(',')}}`,
+    serialized: `{${retained
+      .map(
+        ({ entry, key, pair }) =>
+          pair ?? `${JSON.stringify(key)}:${JSON.stringify(entry)}`,
+      )
+      .join(',')}}`,
     store: retainedStore,
   };
 }
 
-let _syncStorage: ISyncStorage | undefined;
 let _cache: ISWRStore | undefined;
 let _cacheEntrySerializedChars = new Map<string, number>();
 let _cacheSerializedChars = 2;
@@ -242,81 +337,144 @@ function isDeletedLocally(key: string, diskTimestamp: number): boolean {
 
 const FLUSH_DEBOUNCE_MS = 2000;
 
-function getSyncStorage(): ISyncStorage {
-  if (!_syncStorage) {
-    // Lazy require to avoid circular dependency at module load time.
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const { coldStartCacheStorage } =
-      require('../storage/instance/syncStorageInstance') as typeof import('../storage/instance/syncStorageInstance');
-    _syncStorage = coldStartCacheStorage;
-  }
-  return _syncStorage;
-}
-
+/**
+ * The store this runtime has looked at, not the store on disk.
+ *
+ * Each namespace keeps its own records and a read names its key, so nothing
+ * is loaded up front: a miss reads through to the namespace, and what comes
+ * back is kept here for the next read. That is also how the perps snapshots
+ * bg writes become visible — `reloadFromStorage` drops what is not pending
+ * and the next read goes back to the file.
+ */
 function loadStore(): ISWRStore {
-  if (_cache !== undefined) return _cache;
-  try {
-    const loaded =
-      getSyncStorage().getObject<ISWRStore>(
-        EAppSyncStorageKeys.onekey_swr_cache,
-      ) ?? {};
-    _cache = adoptPrunedStore(loaded);
-    if (_dirty) {
-      scheduleFlush();
-    }
-  } catch {
+  if (_cache === undefined) {
     _cache = {};
     resetCacheSerializedChars(_cache);
   }
   return _cache;
 }
 
-// getObject() reports an unparseable store and an absent one identically, and
-// treating corruption as absent would let flush() drop everything else.
-function readStoreFromDisk(): {
-  store: ISWRStore | undefined;
-  unreadable: boolean;
-} {
-  let raw: string | undefined;
-  try {
-    raw = getSyncStorage().getString(EAppSyncStorageKeys.onekey_swr_cache);
-  } catch {
-    return { store: undefined, unreadable: true };
+/** Read a key this runtime has not seen yet, honouring its own pending
+ *  deletions so a read cannot put back what `remove` just dropped. */
+function readThroughToStore<T>(key: string): ISWREntry<T> | undefined {
+  const stored = readSwrCacheEntry(key);
+  if (!stored || typeof stored.t !== 'number') {
+    return undefined;
   }
-  if (!raw) {
-    return { store: undefined, unreadable: false };
+  if (isDeletedLocally(key, stored.t)) {
+    return undefined;
   }
-  try {
-    return { store: JSON.parse(raw) as ISWRStore, unreadable: false };
-  } catch {
-    return { store: undefined, unreadable: true };
+  const entry = { d: stored.d, t: stored.t } as ISWREntry<T>;
+  const serialized = serializeSWRCacheEntry(key, entry);
+  if (!serialized) {
+    return undefined;
   }
+  setCachedEntry(loadStore(), serialized);
+  // Adopting a value that is already on disk is not a change to persist.
+  _updatedKeys.delete(key);
+  return entry;
 }
 
+function lookupEntry<T>(key: string): ISWREntry<T> | undefined {
+  const store = loadStore();
+  const entry = store[key] as ISWREntry<T> | undefined;
+  if (entry) {
+    return entry;
+  }
+  return readThroughToStore<T>(key);
+}
+function perfNow(): number {
+  return globalThis.performance?.now?.() ?? Date.now();
+}
+
+type IHermesHeapStats = {
+  gcCount: number;
+  gcTimeSeconds: number;
+  heapBytes: number;
+  totalAllocatedBytes: number;
+};
+
+// Hermes only; every counter is cumulative since the VM was created.
+function readHermesHeapStats(): IHermesHeapStats | undefined {
+  const hermes = (
+    globalThis as {
+      HermesInternal?: {
+        getInstrumentedStats?: () => Record<string, unknown>;
+      };
+    }
+  ).HermesInternal;
+  let stats: Record<string, unknown> | undefined;
+  try {
+    stats = hermes?.getInstrumentedStats?.();
+  } catch {
+    return undefined;
+  }
+  if (!stats) {
+    return undefined;
+  }
+  const gcCount = stats.js_numGCs;
+  const gcTimeSeconds = stats.js_gcTime;
+  const heapBytes = stats.js_heapSize;
+  const totalAllocatedBytes = stats.js_totalAllocatedBytes;
+  if (
+    typeof gcCount !== 'number' ||
+    typeof gcTimeSeconds !== 'number' ||
+    typeof heapBytes !== 'number' ||
+    typeof totalAllocatedBytes !== 'number'
+  ) {
+    return undefined;
+  }
+  return { gcCount, gcTimeSeconds, heapBytes, totalAllocatedBytes };
+}
+
+// What the timed operation allocated and how much GC it paid for; empty on
+// runtimes without the stats so the log line stays unchanged there.
+function diffHermesHeapStats(before: IHermesHeapStats | undefined) {
+  const after = before ? readHermesHeapStats() : undefined;
+  if (!before || !after) {
+    return {};
+  }
+  return {
+    heapBytes: after.heapBytes,
+    allocatedBytes: after.totalAllocatedBytes - before.totalAllocatedBytes,
+    gcCount: after.gcCount - before.gcCount,
+    // Hermes reports cumulative GC wall time in seconds.
+    gcMs: Math.round((after.gcTimeSeconds - before.gcTimeSeconds) * 1000),
+  };
+}
+
+/**
+ * Forget what this runtime has read, so the next read goes back to disk.
+ *
+ * Both runtimes write these namespaces. Nothing notifies this one when the
+ * other commits, so the way its writes become visible is to drop the copy
+ * held here — pending writes first, so nothing still pending is lost.
+ */
 function reloadFromStorage(): void {
   flush();
-  const { store, unreadable } = readStoreFromDisk();
-  if (unreadable && _cache && Object.keys(_cache).length > 0) {
-    // Repairing from an empty copy instead would leave a parseable empty
-    // store, costing the runtime holding a full copy its only chance.
-    //
-    // Every key is marked pending, not just the dirty ones: if the other
-    // runtime makes the file parseable again before this flush lands, the
-    // merge would otherwise carry nothing forward and the adoption would drop
-    // this copy from memory as well.
-    for (const key of Object.keys(_cache)) {
-      _updatedKeys.add(key);
+  const startedAt = perfNow();
+  const heapBefore = readHermesHeapStats();
+  const store = loadStore();
+  const retained: ISWRStore = {};
+  // A key still waiting to be flushed is this runtime's newest value; every
+  // other key is a copy of the file and can be read again on demand.
+  _updatedKeys.forEach((key) => {
+    const entry = store[key];
+    if (entry) {
+      retained[key] = entry;
     }
-    _dirty = true;
-    scheduleFlush();
-  } else if (store) {
-    // Only when a store was actually read: on a backend that persists nothing
-    // this copy is the only one, and the perps first-frame path reloads every
-    // 30s, so clearing here would drop every namespace for the session.
-    _cache = adoptPrunedStore(store);
-    if (_dirty) {
-      scheduleFlush();
-    }
+  });
+  _cache = retained;
+  resetCacheSerializedChars(retained);
+  const durationMs = Math.round(perfNow() - startedAt);
+  if (durationMs >= SWR_CACHE_SLOW_OP_LOG_THRESHOLD_MS) {
+    defaultLogger.app.perf.swrCacheSlowOp({
+      op: 'reload',
+      durationMs,
+      storeChars: _cacheSerializedChars,
+      entryCount: _cacheEntrySerializedChars.size,
+      ...diffHermesHeapStats(heapBefore),
+    });
   }
 }
 
@@ -423,90 +581,105 @@ function evictOldestOverBudget(store: ISWRStore, removedAt: number) {
   });
 }
 
-function adoptPrunedStore(store: ISWRStore): ISWRStore {
-  const result = pruneSWRCacheStore(store);
-  resetCacheSerializedChars(result.store);
-  if (result.removedKeys.length > 0) {
-    const removedAt = Date.now();
-    result.removedKeys.forEach((key) => {
-      _updatedKeys.delete(key);
-      if (isValidSWRCacheKey(key)) {
-        _removedKeysAt.set(key, removedAt);
-      }
+function evictOldestAccountSelectorEntries(
+  store: ISWRStore,
+  removedAt: number,
+) {
+  const keys = Object.keys(store)
+    .filter(isAccountSelectorCacheKey)
+    .toSorted((a, b) => (store[a].t ?? 0) - (store[b].t ?? 0));
+  let count = keys.length;
+  let serializedChars =
+    2 +
+    Math.max(0, count - 1) +
+    keys.reduce(
+      (sum, key) => sum + (_cacheEntrySerializedChars.get(key) ?? 0),
+      0,
+    );
+  const drops: ISWRCacheCapacityDrop[] = [];
+  for (const key of keys) {
+    if (
+      count <= SWR_ACCOUNT_SELECTOR_MAX_ENTRIES &&
+      serializedChars <= SWR_ACCOUNT_SELECTOR_MAX_SERIALIZED_CHARS
+    ) {
+      break;
+    }
+    drops.push({
+      key,
+      reason:
+        count > SWR_ACCOUNT_SELECTOR_MAX_ENTRIES
+          ? 'entryCountLimit'
+          : 'totalSizeLimit',
     });
-    _dirty = true;
+    serializedChars -=
+      (_cacheEntrySerializedChars.get(key) ?? 0) + (count > 1 ? 1 : 0);
+    count -= 1;
+    removeCachedEntry(store, key);
+    _updatedKeys.delete(key);
+    _removedKeysAt.set(key, removedAt);
   }
-  return result.store;
+  reportSWRCacheCapacityDrops(drops, {
+    maxEntries: SWR_ACCOUNT_SELECTOR_MAX_ENTRIES,
+    maxEntrySerializedChars: SWR_CACHE_MAX_ENTRY_SERIALIZED_CHARS,
+    maxSerializedChars: SWR_ACCOUNT_SELECTOR_MAX_SERIALIZED_CHARS,
+    retainedEntryCount: count,
+    retainedSerializedChars: serializedChars,
+  });
+}
+
+function clearPendingIntents() {
+  _updatedKeys.clear();
+  _removedKeysAt.clear();
+  _removedPrefixesAt = [];
+  _clearedAllAt = 0;
+  _dirty = false;
 }
 
 function flush() {
   if (!_dirty || !_cache) return;
   try {
-    // Each runtime keeps its own JS cache. Native persistence is bg-owned, so
-    // native callers send only changed entries and deletion intents; other
-    // platforms retain the full-store adapter below.
-    const { store: disk, unreadable } = readStoreFromDisk();
-    const merged: ISWRStore = {};
-    if (unreadable) {
-      // Nothing on disk survives, so rebuild from this copy — a pending-keys
-      // only write would drop every entry it still holds.
-      Object.assign(merged, _cache);
-    } else if (disk) {
-      for (const [key, entry] of Object.entries(disk)) {
-        if (entry && !isDeletedLocally(key, entry.t ?? 0)) {
-          merged[key] = entry;
-        }
-      }
+    const startedAt = perfNow();
+    const heapBefore = readHermesHeapStats();
+    const updatedKeyCount = _updatedKeys.size;
+    // Order matters: the wipes are what this runtime decided is gone, and
+    // they must not take the writes that followed them with them.
+    if (_clearedAllAt > 0) {
+      clearAllSwrCacheNamespaces();
     }
-    for (const key of _updatedKeys) {
-      const entry = _cache[key];
+    _removedPrefixesAt.forEach(({ prefix }) => removeSwrCacheByPrefix(prefix));
+    removeSwrCacheEntries([..._removedKeysAt.keys()]);
+    const updates: Array<readonly [string, ISwrCacheStoredEntry]> = [];
+    _updatedKeys.forEach((key) => {
+      const entry = _cache?.[key];
       if (entry) {
-        const diskEntry = merged[key];
-        if (!diskEntry || (entry.t ?? 0) >= (diskEntry.t ?? 0)) {
-          merged[key] = entry;
-        }
+        updates.push([key, { d: entry.d, t: entry.t }]);
       }
+    });
+    if (updates.length > 0) {
+      writeSwrCacheEntries(updates);
     }
-    const limitedMerged = pruneSWRCacheStore(merged).store;
-    const storage = getSyncStorage();
-    if (storage.applySWRCachePatch) {
-      const patch: INativeSWRCachePatchIntent = {
-        ...(Number.isSafeInteger(_clearedAllAt) && _clearedAllAt > 0
-          ? { clearBefore: _clearedAllAt }
-          : {}),
-        removePrefixes: [..._removedPrefixesAt],
-        removals: [..._removedKeysAt],
-        updates: [..._updatedKeys].flatMap((key) => {
-          const entry = _cache?.[key];
-          if (!entry) {
-            return [];
-          }
-          return [[key, JSON.stringify(entry)] as const];
-        }),
-      };
-      void storage.applySWRCachePatch(patch);
-    } else {
-      void storage.setObject(
-        EAppSyncStorageKeys.onekey_swr_cache,
-        limitedMerged,
-      );
+    clearPendingIntents();
+    const durationMs = Math.round(perfNow() - startedAt);
+    if (durationMs >= SWR_CACHE_SLOW_OP_LOG_THRESHOLD_MS) {
+      defaultLogger.app.perf.swrCacheSlowOp({
+        op: 'flush',
+        durationMs,
+        storeChars: _cacheSerializedChars,
+        entryCount: _cacheEntrySerializedChars.size,
+        readMs: 0,
+        pruneMs: 0,
+        patchMs: durationMs,
+        adoptMs: 0,
+        updatedKeyCount,
+        patchChars: updates.reduce(
+          (sum, [key]) => sum + (_cacheEntrySerializedChars.get(key) ?? 0),
+          0,
+        ),
+        ...diffHermesHeapStats(heapBefore),
+      });
     }
-    // Adopting the merged store also refreshes this runtime's copy, which
-    // otherwise only ages — reads pick up what the other runtime persisted.
-    // Skipped without a store to merge against: `merged` is then only the
-    // pending keys, and on a backend that persists nothing (both extension
-    // runtimes get the no-op stub) this copy is the only one.
-    if (disk) {
-      _cache = limitedMerged;
-      resetCacheSerializedChars(limitedMerged);
-    }
-    _updatedKeys.clear();
-    _removedKeysAt.clear();
-    _removedPrefixesAt = [];
-    _clearedAllAt = 0;
-    _dirty = false;
   } catch {
-    // MMKV write failure is non-fatal; cache is best-effort.
+    // Persisting is best effort; the copy in memory still serves the screen.
   }
 }
 
@@ -531,15 +704,25 @@ function reportInvalidSWRCacheKey(key: string) {
 
 function get<T>(key: string): T | undefined {
   if (!isValidSWRCacheKey(key)) return undefined;
-  const entry = loadStore()[key] as ISWREntry<T> | undefined;
-  return entry?.d;
+  return lookupEntry<T>(key)?.d;
+}
+
+/** Discover candidates without loading payloads. Read through `get` to apply deletions. */
+function keysByPrefix(prefix: string): string[] {
+  if (!isValidSWRCacheKey(prefix)) return [];
+  return Array.from(
+    new Set([
+      ...Object.keys(_cache ?? {}).filter((key) => key.startsWith(prefix)),
+      ...readSwrCacheKeysByPrefix(prefix),
+    ]),
+  );
 }
 
 function getWithTimestamp<T>(
   key: string,
 ): { data: T; updatedAt: number } | undefined {
   if (!isValidSWRCacheKey(key)) return undefined;
-  const entry = loadStore()[key] as ISWREntry<T> | undefined;
+  const entry = lookupEntry<T>(key);
   if (!entry) return undefined;
   return { data: entry.d, updatedAt: entry.t };
 }
@@ -551,6 +734,16 @@ function set<T>(key: string, data: T): void {
   }
   const store = loadStore();
   const now = Date.now();
+  const existing = lookupEntry(key);
+  // An unchanged result only refreshes the timestamp: the key stays pending
+  // so the fresher timestamp rides along with the next flush, but it never
+  // starts one.
+  if (existing && isEqual(existing.d, data)) {
+    existing.t = now;
+    _updatedKeys.add(key);
+    _dirty = true;
+    return;
+  }
   const entry = { d: data, t: now };
   const serializedEntry = serializeSWRCacheEntry(key, entry);
   if (
@@ -585,6 +778,9 @@ function set<T>(key: string, data: T): void {
   setCachedEntry(store, serializedEntry);
   _updatedKeys.add(key);
   _dirty = true;
+  if (isAccountSelectorCacheKey(key)) {
+    evictOldestAccountSelectorEntries(store, now);
+  }
   evictOldestOverBudget(store, now);
   scheduleFlush();
 }
@@ -646,57 +842,110 @@ function clearAll(): void {
   scheduleFlush();
 }
 
-/** Call on app background to persist immediately. */
+/**
+ * Drop every namespace this runtime owns, for a reset that wipes the wallet
+ * and account database.
+ *
+ * Narrower than `clearAll` on purpose, in two ways. It leaves the namespaces
+ * bg writes alone, so a wipe here cannot collide with them. And it records a
+ * removal per namespace rather than one `clearedAll` mark, so the read-through
+ * suppression that mark implies cannot also swallow bg's later perps writes
+ * for the rest of the session.
+ *
+ * Wider than dropping the wallet-shaped namespaces: a reset re-uses wallet ids
+ * (`hd-1`), so any namespace keyed by one — the network selector's, the token
+ * selectors', Earn, Borrow — would otherwise carry the previous run's snapshot
+ * into a supposedly empty profile.
+ */
+function clearUiOwnedNamespaces(): void {
+  const bgOwned = new Set<string>(BG_OWNED_SWR_NAMESPACES);
+  const isBgOwned = (key: string) => bgOwned.has(swrKeyPrefix(key));
+  // By namespace, not by key prefix: `swrKeys.swapHistoryPreviewList()` is the
+  // bare namespace with no colon after it, so a `<namespace>:` prefix match
+  // would clear its file and leave the entry in this runtime's memory.
+  const store = loadStore();
+  const now = Date.now();
+  Object.keys(store).forEach((key) => {
+    if (isBgOwned(key)) {
+      return;
+    }
+    removeCachedEntry(store, key);
+    _updatedKeys.delete(key);
+    _removedKeysAt.set(key, now);
+  });
+  _dirty = true;
+  // The store holds records this runtime never read, and records under the
+  // fallback namespace that no `swrKeys` entry names, so the wipe is asked of
+  // the storage layer by namespace rather than assembled from the registry.
+  try {
+    clearAllSwrCacheNamespaces({
+      exceptSwrPrefixes: BG_OWNED_SWR_NAMESPACES,
+    });
+  } catch {
+    // Best effort; the removals recorded above still persist below.
+  }
+  flushNow();
+}
+
+/**
+ * Persist what is pending, without waiting for the debounce.
+ *
+ * On native that is the whole story: the snapshot store writes MMKV
+ * synchronously. Everywhere else it queues an IndexedDB transaction behind a
+ * debounce of its own, so this kicks that too — an extension popup closed
+ * right after a wallet deletion takes its timers with it, and the generic
+ * app-background flush does not cover extension surfaces.
+ */
 function flushNow(): void {
   if (_flushTimer !== undefined) {
     clearTimeout(_flushTimer);
     _flushTimer = undefined;
   }
   flush();
+  void flushSnapshotStore();
+}
+
+/**
+ * Flush and wait for the snapshot store, for a caller that can wait.
+ *
+ * Resolves `true` when what was pending is on disk. The store re-queues a
+ * batch it could not write and retries it on a timer, so a `false` here means
+ * the removal is still only in memory — and the surface that asked for it may
+ * close before that timer fires. The caller decides what that is worth; there
+ * is nothing to be done about a database that will not open, so this reports
+ * rather than throws.
+ */
+async function flushNowAndPersist(): Promise<boolean> {
+  if (_flushTimer !== undefined) {
+    clearTimeout(_flushTimer);
+    _flushTimer = undefined;
+  }
+  flush();
+  return flushSnapshotStore();
+}
+
+function flushSnapshotStore(): Promise<boolean> {
+  if (platformEnv.isNative) {
+    // MMKV is written synchronously inside `flush()` above.
+    return Promise.resolve(true);
+  }
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { flushUiSnapshotStoreNow } =
+      require('../storage/DisplaySnapshotStorage/webUiSnapshotStore') as typeof import('../storage/DisplaySnapshotStorage/webUiSnapshotStore');
+    return flushUiSnapshotStoreNow();
+  } catch {
+    // The store may not be loaded on every surface, and this cannot tell that
+    // apart from a store that failed to load — so it does not claim a commit.
+    return Promise.resolve(false);
+  }
 }
 
 // --- Centralized SWR key namespaces ---
-// Leading segment of every key produced by the matching swrKeys.X(...).
-// Pair with `swrCacheUtils.removeByPrefix(prefixOf(namespace))` to
-// invalidate a whole namespace at once.
-const NS = {
-  allNetworksCompatible: 'allNetCompat',
-  unifiedNetworkSelectorMeta: 'unsMeta',
-  unifiedNetworkSelectorValues: 'unsValues',
-  networkContentData: 'netContent',
-  recentNetworks: 'recentNets',
-  walletListSideBar: 'walletList',
-  accountSelectorList: 'accSelList',
-  discoveryHomePageData: 'disHomePage',
-  discoveryHomeBookmarks: 'disHomeBookmarks',
-  perpsOrderBookTickOptions: 'perpsOrderBookTicks',
-  perpsL2BookSnapshot: 'perpsL2Book',
-  historyTxDetail: 'historyTxDetail',
-  marketHomeTokenList: 'marketHomeTokenList',
-  tokenSelectorView: 'tokenSelectorView',
-  specifiedTokenSelectorView: 'specifiedTokenSelectorView',
-  swapHistoryPreviewList: 'swapHistoryPreviewList',
-  swapStockChart: 'swapStockChart',
-  swapStockTokenDetail: 'swapStockTokenDetail',
-  swapStockSpeedConfig: 'swapStockSpeedConfig',
-  swapStockPayTokenDetails: 'swapStockPayTokenDetails',
-  borrowMarkets: 'borrowMarkets',
-  borrowReserves: 'borrowReserves',
-  borrowHealthFactor: 'borrowHealthFactor',
-  borrowRewards: 'borrowRewards',
-  borrowEModeStatus: 'borrowEModeStatus',
-  earnAccount: 'earnAccount',
-  earnProtocolDetail: 'earnProtocolDetail',
-  fiatCryptoTokenList: 'fiatCryptoTokenList',
-  bulkSendAddressesInputSeed: 'bulkSendSeed',
-  bulkCopyAddressesWallets: 'bulkCopyWallets',
-  bulkCopyAddressesNetworkIds: 'bulkCopyNetIds',
-  bulkCopyAddressesAccounts: 'bulkCopyAccounts',
-  chainSelectorInputNetworks: 'chainSelNets',
-} as const;
-export type ISwrCacheNamespace = (typeof NS)[keyof typeof NS];
-export const swrCacheNamespaces = NS;
-export const prefixOf = (namespace: ISwrCacheNamespace) => `${namespace}:`;
+
+function isAccountSelectorCacheKey(key: string) {
+  return key.startsWith(`${NS.accountSelectorList}:`);
+}
 
 const SWR_CACHE_SAFE_LOG_NAMESPACES = Object.values(NS);
 
@@ -839,6 +1088,19 @@ export const swrKeys = {
       withNetworksInfo ? '1' : '0',
       enabledNetworkIdsKey ?? '',
     ].join(':'),
+  // Home All Networks chip's missing-address dot: the enabled compatible
+  // networks the indexed account has no address on. Shares the namespace so
+  // an enabled-network change drops it with the compat entries.
+  allNetworksWithoutAccount: ({
+    walletId,
+    indexedAccountId,
+  }: {
+    walletId: string;
+    indexedAccountId: string;
+  }) =>
+    [NS.allNetworksCompatible, 'noAddr', 'v1', walletId, indexedAccountId].join(
+      ':',
+    ),
   // UnifiedNetworkSelector modal's list/meta bundle:
   // allNetworks + allNetworksState + compatibleNetworks grouped together so
   // the modal can render its skeleton synchronously on mount. Balances/DeFi
@@ -877,8 +1139,11 @@ export const swrKeys = {
   // sorted chainSelectorNetworks + account balances + DeFi overview into one
   // result object. Balances/DeFi are included despite being volatile because
   // the sorted list itself depends on them — caching them together lets the
-  // first render match the final UI. walletId + accountId in the key
-  // guarantees each account sees its own snapshot.
+  // first render match the final UI. Callers build the key through
+  // `buildNetworkContentSwrKey` (kit ChainSelector), which keeps accountId
+  // only for others wallets: for HD/HW the data follows wallet + indexed
+  // account, and a per-account slot was cold after every cross-coin-type
+  // switch (OK-65230). v4 orphans those per-account v3 entries.
   networkContentData: ({
     walletId,
     accountId,
@@ -899,7 +1164,7 @@ export const swrKeys = {
     // stable across sessions. Old v2 (empty-freq) entries are orphaned.
     [
       NS.networkContentData,
-      'v3',
+      'v4',
       walletId ?? '',
       accountId ?? '',
       indexedAccountId ?? '',
@@ -914,10 +1179,12 @@ export const swrKeys = {
   // — its transient values are safe to ignore for cache identity.
   //
   // walletId/accountId ARE in the key: the fetcher passes availableNetworks
-  // (derived from the account) to bg for filtering, so the cached result is
-  // account-specific. Without wallet/account in the key, switching accounts
-  // would leak one account's recent chips into another's first paint. v2
-  // bumps the version to orphan the old (account-agnostic) v1 entries.
+  // to bg for filtering, so the cached result follows that filter. Callers go
+  // through `buildRecentNetworksSwrKey` (kit ChainSelector), which passes the
+  // account only for others wallets: for HD/HW wallets the filter depends on
+  // the wallet alone, and the account id changes with the network's coin
+  // type, so per-account slots were stale or empty right after every network
+  // switch (OK-65230). v3 orphans those per-account v2 entries.
   recentNetworks: ({
     scope,
     showAllNetwork,
@@ -931,13 +1198,28 @@ export const swrKeys = {
   }) =>
     [
       NS.recentNetworks,
-      'v2',
+      'v3',
       scope,
       showAllNetwork ? '1' : '0',
       walletId ?? '',
       accountId ?? '',
     ].join(':'),
   defiEnabled: (networkId: string) => `defiEnabled:${networkId}`,
+  // Home wallet tab support (Perps / DeFi tab visibility). Seeds the first
+  // frame so the tab row does not reflow once the background gating resolves
+  // (OK-61505). scopeKey = buildHomeWalletTabSupportScopeKey().
+  homeWalletTabSupport: ({ scopeKey }: { scopeKey: string }) =>
+    [NS.homeWalletTabSupport, 'v1', scopeKey].join(':'),
+  // Home Tron energy / bandwidth card, one entry per account (OK-64027). An
+  // account switch paints that account's last figures at once — never the
+  // previous account's, never a 0/0 placeholder — while the fresh read lands.
+  tronAccountResources: ({
+    accountId,
+    networkId,
+  }: {
+    accountId: string;
+    networkId: string;
+  }) => [NS.tronAccountResources, 'v1', networkId, accountId].join(':'),
   discoveryHomePageData: () => [NS.discoveryHomePageData, 'v1'].join(':'),
   discoveryHomeBookmarks: () => [NS.discoveryHomeBookmarks, 'v1'].join(':'),
   // Account selector left sidebar wallet list. One slot per
@@ -980,6 +1262,12 @@ export const swrKeys = {
       selectedNetworkId ?? '',
       keepAllOtherAccounts ? '1' : '0',
     ].join(':'),
+  // Balance texts the account selector rows last displayed, one entry per
+  // wallet (see accountSelectorValueDisplayCacheV2). Only UI text is kept, so
+  // a wallet revisit or a cold start paints the previous balances on the first
+  // frame; live values still load and replace them.
+  accountSelectorValues: ({ walletId }: { walletId: string }) =>
+    [NS.accountSelectorValues, 'v1', walletId].join(':'),
   perpsOrderBookTickOptions: () =>
     [NS.perpsOrderBookTickOptions, 'v1'].join(':'),
   perpsL2BookSnapshot: ({
@@ -1011,6 +1299,57 @@ export const swrKeys = {
     txid: string;
   }) =>
     [NS.historyTxDetail, 'v1', networkId, accountAddress ?? '', txid].join(':'),
+  marketHomeBanners: (locale: string, mock: boolean) =>
+    [NS.marketHomeBanners, 'v1', locale, mock ? 'mock' : 'live'].join(':'),
+  marketHomeConfig: (locale: string) =>
+    [NS.marketHomeConfig, 'v1', locale].join(':'),
+  marketHomeStocks: (queryKey: string) =>
+    [NS.marketHomeStocks, 'v1', queryKey].join(':'),
+  marketStockDetail: ({
+    stockId,
+    locale,
+  }: {
+    stockId: string;
+    locale: string;
+  }) => [NS.marketStockDetail, 'v1', stockId, locale].join(':'),
+  marketStockTokenVariants: ({
+    stockId,
+    locale,
+  }: {
+    stockId: string;
+    locale: string;
+  }) => [NS.marketStockTokenVariants, 'v1', stockId, locale].join(':'),
+  marketTokenDetail: ({
+    networkId,
+    tokenAddress,
+    currencyId,
+    locale,
+  }: {
+    networkId: string;
+    tokenAddress: string;
+    currencyId: string;
+    locale: string;
+  }) =>
+    [
+      NS.marketTokenDetail,
+      'v1',
+      networkId,
+      tokenAddress,
+      currencyId,
+      locale,
+    ].join(':'),
+  // Each item carries a localized `content` that the UI shows as-is, so a
+  // report cached in one language must not be replayed in another.
+  marketTokenSecurity: ({
+    networkId,
+    tokenAddress,
+    locale,
+  }: {
+    networkId: string;
+    tokenAddress: string;
+    locale: string;
+  }) =>
+    [NS.marketTokenSecurity, 'v1', networkId, tokenAddress, locale].join(':'),
   marketHomeTokenList: ({
     networkId,
     locale,
@@ -1104,6 +1443,11 @@ export const swrKeys = {
     ].join(':'),
   swapStockTokenDetail: ({ tokenScope }: { tokenScope: string }) =>
     [NS.swapStockTokenDetail, 'v1', tokenScope].join(':'),
+  // The stock identity behind a swap stock token (contract -> stockId). Only
+  // tokens persisted before `stockId` existed need the lookup, and persisting
+  // what it resolves keeps that round trip off the next mount's critical path.
+  swapStockTokenIdentity: ({ tokenScope }: { tokenScope: string }) =>
+    [NS.swapStockTokenIdentity, 'v1', tokenScope].join(':'),
   // Keep the existing unversioned key stable so users retain the history
   // snapshot that already powers the ordinary Swap first frame.
   swapHistoryPreviewList: () => NS.swapHistoryPreviewList,
@@ -1132,7 +1476,7 @@ export const swrKeys = {
   swapStockSpeedConfig: ({ networkId }: { networkId: string }) =>
     [NS.swapStockSpeedConfig, 'v1', networkId].join(':'),
   swapStockPayTokenDetails: ({ scope }: { scope: string }) =>
-    [NS.swapStockPayTokenDetails, 'v1', scope].join(':'),
+    [NS.swapStockPayTokenDetails, 'v2', scope].join(':'),
   borrowMarkets: () => [NS.borrowMarkets, 'v1'].join(':'),
   borrowReserves: (params: IBorrowScopedSWRKeyParams) =>
     buildBorrowScopedSWRKey(NS.borrowReserves, params),
@@ -1171,6 +1515,7 @@ export const swrKeys = {
     vault,
     locale,
     currencyId,
+    accountScopeKey,
   }: {
     networkId: string;
     symbol: string;
@@ -1178,6 +1523,11 @@ export const swrKeys = {
     vault?: string;
     locale: string;
     currencyId: string;
+    // Set only when the request carries an account address. The response then
+    // contains that account's balances and rewards, so it must never share a
+    // cache entry with the account-less protocol response or with another
+    // account.
+    accountScopeKey?: string;
   }) =>
     [
       NS.earnProtocolDetail,
@@ -1188,6 +1538,11 @@ export const swrKeys = {
       vault ?? '',
       locale.toLowerCase(),
       currencyId.toLowerCase(),
+      // Appended only when present. An unconditional '' would add a trailing
+      // colon to the account-less key, changing a shape that is already
+      // persisted on desktop/web — every existing entry would miss after an
+      // upgrade, for no gain in behavior.
+      ...(accountScopeKey ? [accountScopeKey] : []),
     ].join(':'),
   // Buy Crypto token list (tokens + networksMap + merge-derive flags). Cached
   // so re-opening the modal paints the previous list synchronously instead of
@@ -1204,6 +1559,17 @@ export const swrKeys = {
     accountId?: string;
   }) =>
     [NS.fiatCryptoTokenList, 'v1', networkId, type, accountId ?? ''].join(':'),
+  // "Does this network have any buy/sell fiat token" flag behind the home
+  // Buy/Sell entry. The entry is fail-closed on it, so without a snapshot
+  // every cold start paints it disabled until fiat-pay/list returns
+  // (OK-61505). Network + type only: the bg check takes no account input.
+  fiatCryptoNetworkSupport: ({
+    networkId,
+    type,
+  }: {
+    networkId: string;
+    type: string;
+  }) => [NS.fiatCryptoNetworkSupport, 'v1', networkId, type].join(':'),
   bulkSendAddressesInputSeed: ({
     networkId,
     accountId,
@@ -1333,8 +1699,33 @@ function getFreshPerpsL2BookSnapshot({
   return entry;
 }
 
+// What this runtime holds in memory right now; never triggers a load.
+function getSizeStats() {
+  return {
+    entryCount: _cache ? Object.keys(_cache).length : 0,
+    serializedChars: _cache ? _cacheSerializedChars : 0,
+  };
+}
+
+/**
+ * Writing contract.
+ *
+ * Entries are written by the SWR layer alone: `usePromiseResult` persists what
+ * its fetcher returned, in the runtime that owns the hook. Feature code does
+ * not maintain them by hand — after a mutation, refresh the hook and let it
+ * write the truth, rather than `set`/`remove`-ing a key to keep it in step.
+ * Two callers patching one key is how a namespace ends up with two writers
+ * over one file and no lock between the runtimes.
+ *
+ * bg is not a writer, and a removal is a write. It does not invalidate these
+ * namespaces either: the UI runtime receives the same mutation events and
+ * drops its own entries (`kit/src/utils/swrCacheMutationInvalidation.ts`),
+ * so nothing has to cross the runtime boundary for the cache's sake. The
+ * exception is the perps snapshots, which bg both owns and writes.
+ */
 export const swrCacheUtils = {
   get,
+  keysByPrefix,
   getWithTimestamp,
   getFreshPerpsL2BookSnapshot,
   set,
@@ -1342,6 +1733,12 @@ export const swrCacheUtils = {
   remove,
   isFresh,
   clearAll,
+  clearUiOwnedNamespaces,
   flushNow,
+  flushNowAndPersist,
   reloadFromStorage,
+  getSizeStats,
 };
+
+export { prefixOf, swrCacheNamespaces } from './swrCacheNamespaceNames';
+export type { ISwrCacheNamespace } from './swrCacheNamespaceNames';

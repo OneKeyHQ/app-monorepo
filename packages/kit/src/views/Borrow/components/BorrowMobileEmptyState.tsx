@@ -2,13 +2,14 @@ import { useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { SizableText, YStack } from '@onekeyhq/components';
+import { SizableText, XStack, YStack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IBorrowReserveItem } from '@onekeyhq/shared/types/staking';
 
 import { BorrowTestIDs } from '../testIDs';
 
-import { pickTopSupplyAssetsByApy } from './borrowEmptyState.utils';
+import { pickTopSupplyAssetsByBalance } from './borrowEmptyState.utils';
+import { BorrowRefreshButton } from './BorrowRefreshButton';
 import {
   AssetWithAmountField,
   BorrowAPYField,
@@ -21,15 +22,24 @@ type IBorrowMobileEmptyStateProps = {
   assets?: ISupplyAsset[];
   isLoading?: boolean;
   onPressAsset?: (asset: ISupplyAsset) => void;
+  /** The headline metrics that normally carry refresh are not on screen here,
+   * so this heading is what holds it instead. */
+  onRefresh?: () => void;
+  isRefreshing?: boolean;
 };
 
 export function BorrowMobileEmptyState({
   assets,
   isLoading,
   onPressAsset,
+  onRefresh,
+  isRefreshing,
 }: IBorrowMobileEmptyStateProps) {
   const intl = useIntl();
-  const topAssets = useMemo(() => pickTopSupplyAssetsByApy(assets), [assets]);
+  const topAssets = useMemo(
+    () => pickTopSupplyAssetsByBalance(assets),
+    [assets],
+  );
 
   const columns = useMemo(
     () => [
@@ -67,11 +77,19 @@ export function BorrowMobileEmptyState({
   return (
     <YStack testID={BorrowTestIDs.mobileEmptyState}>
       <YStack gap="$2">
-        <SizableText size="$headingMd" px="$1">
-          {intl.formatMessage({
-            id: ETranslations.earns_on_your_holding__title,
-          })}
-        </SizableText>
+        <XStack ai="center" jc="space-between" gap="$3" minHeight="$9">
+          {/* Deliberately allowed to wrap: "Earns on your holding" runs to 29
+              characters in Russian, which does not fit beside the button on a
+              320pt screen. Centering keeps the button aligned either way. */}
+          <SizableText size="$headingMd" px="$1" flexShrink={1}>
+            {intl.formatMessage({
+              id: ETranslations.earns_on_your_holding__title,
+            })}
+          </SizableText>
+          {onRefresh ? (
+            <BorrowRefreshButton loading={isRefreshing} onPress={onRefresh} />
+          ) : null}
+        </XStack>
         <BorrowTableList<ISupplyAsset>
           data={topAssets}
           isLoading={isLoading}

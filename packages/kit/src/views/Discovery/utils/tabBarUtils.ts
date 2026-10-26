@@ -1,13 +1,13 @@
 import { useEffect } from 'react';
 
 import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
-import {
-  EAppEventBusNames,
-  appEventBus,
-} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { setHideTabBarRequest } from '@onekeyhq/shared/src/tabBar/hideTabBarRequests';
 
 const isNative = platformEnv.isNative;
+
+// The browser is a single tab root, so one owner id covers every call site here.
+const BROWSER_HIDE_TAB_BAR_OWNER_ID = 'discovery-browser';
 
 let showTabBarTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -22,7 +22,7 @@ export const showTabBar = () => {
   cancelPendingShowTabBar();
   showTabBarTimer = setTimeout(() => {
     showTabBarTimer = null;
-    appEventBus.emit(EAppEventBusNames.HideTabBar, false);
+    setHideTabBarRequest(BROWSER_HIDE_TAB_BAR_OWNER_ID, false);
   }, 100);
 };
 
@@ -36,7 +36,10 @@ export const useNotifyTabBarDisplay = isNative
         if (hideTabBar) {
           cancelPendingShowTabBar();
         }
-        appEventBus.emit(EAppEventBusNames.HideTabBar, hideTabBar);
+        setHideTabBarRequest(BROWSER_HIDE_TAB_BAR_OWNER_ID, hideTabBar);
+        return () => {
+          setHideTabBarRequest(BROWSER_HIDE_TAB_BAR_OWNER_ID, false);
+        };
       }, [hideTabBar]);
     }
   : () => {};

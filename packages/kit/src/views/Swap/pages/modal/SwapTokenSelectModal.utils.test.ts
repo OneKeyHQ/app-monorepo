@@ -10,6 +10,7 @@ import {
   buildSwapTokenSelectorDisableNetworks,
   buildSwapTokenSelectorNetworkView,
   getSwapStockTokenDisplayName,
+  groupSwapSearchTokensBySelectedNetwork,
   isSwapStockMetadataPending,
   isSwapStockTokenSearchMatch,
   isSwapTokenSelectorFromNetworkBridgeOnly,
@@ -315,5 +316,54 @@ describe('SwapTokenSelectModal.utils', () => {
         token,
       }),
     ).toBe(false);
+  });
+});
+
+describe('groupSwapSearchTokensBySelectedNetwork', () => {
+  const getNetworkId = (token: { networkId: string }) => token.networkId;
+  const arb = { networkId: 'evm--42161', symbol: 'DAI' };
+  const op = { networkId: 'evm--10', symbol: 'DAI' };
+  const base = { networkId: 'evm--8453', symbol: 'DAI' };
+
+  it('moves selected-network matches first and marks the other section', () => {
+    const result = groupSwapSearchTokensBySelectedNetwork({
+      tokens: [op, arb, base],
+      selectedNetworkId: 'evm--42161',
+      getNetworkId,
+    });
+    expect(result.tokens).toEqual([arb, op, base]);
+    expect(result.otherNetworkStartIndex).toBe(1);
+  });
+
+  it('starts the other section at the top when nothing matches the network', () => {
+    const result = groupSwapSearchTokensBySelectedNetwork({
+      tokens: [op, base],
+      selectedNetworkId: 'evm--42161',
+      getNetworkId,
+    });
+    expect(result.tokens).toEqual([op, base]);
+    expect(result.otherNetworkStartIndex).toBe(0);
+  });
+
+  it('keeps the original list when every match is on the selected network', () => {
+    const tokens = [arb];
+    const result = groupSwapSearchTokensBySelectedNetwork({
+      tokens,
+      selectedNetworkId: 'evm--42161',
+      getNetworkId,
+    });
+    expect(result.tokens).toBe(tokens);
+    expect(result.otherNetworkStartIndex).toBe(-1);
+  });
+
+  it('keeps the original list without a selected network', () => {
+    const tokens = [op, arb];
+    const result = groupSwapSearchTokensBySelectedNetwork({
+      tokens,
+      selectedNetworkId: undefined,
+      getNetworkId,
+    });
+    expect(result.tokens).toBe(tokens);
+    expect(result.otherNetworkStartIndex).toBe(-1);
   });
 });

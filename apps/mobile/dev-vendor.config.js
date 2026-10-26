@@ -54,6 +54,10 @@ const fingerprintFiles = [
   'development/envExposedToClient.js',
   'development/platformEnvDefine.js',
   'package.json',
+  // Native font family names are baked into the vendor bundle; the generated
+  // manifest keeps private-font vendor bundles apart from fallback ones.
+  'packages/components/src/hocs/Provider/fonts/brand/manifest.ts',
+  'packages/components/src/hocs/Provider/fonts/brandFont.ts',
   'packages/components/src/utils/scale.ts',
   'packages/components/src/utils/webFontFamily.ts',
   'packages/components/tamagui.animations.ts',
@@ -63,9 +67,13 @@ const fingerprintFiles = [
 ];
 
 const nativeContractDependencies = {
-  android: ['expo-image-loader', 'expo-navigation-bar'],
+  android: [
+    '@onekeyfe/react-native-text',
+    'expo-image-loader',
+    'expo-navigation-bar',
+  ],
   ios: [
-    'burnt',
+    '@onramper/onramper-react-native',
     'expo-apple-authentication',
     'expo-glass-effect',
     'expo-modules-jsi',
@@ -78,6 +86,7 @@ const nativeContractDependencies = {
     '@onekeyfe/react-native-auto-size-input',
     '@onekeyfe/react-native-background-thread',
     '@onekeyfe/react-native-ble-utils',
+    '@onekeyfe/react-native-bottom-tabs',
     '@onekeyfe/react-native-bundle-crypto',
     '@onekeyfe/react-native-bundle-update',
     '@onekeyfe/react-native-chart-webview',
@@ -85,9 +94,14 @@ const nativeContractDependencies = {
     '@onekeyfe/react-native-cloud-kit-module',
     '@onekeyfe/react-native-device-utils',
     '@onekeyfe/react-native-image',
+    '@onekeyfe/react-native-capture-protection',
+    '@onekeyfe/react-native-image-crop-picker',
+    '@onekeyfe/react-native-photo-library',
     '@onekeyfe/react-native-keychain-module',
     '@onekeyfe/react-native-lite-card',
+    '@onekeyfe/react-native-native-list',
     '@onekeyfe/react-native-native-logger',
+    '@onekeyfe/react-native-native-overlay',
     '@onekeyfe/react-native-network-throttle',
     '@onekeyfe/react-native-perf-memory',
     '@onekeyfe/react-native-perf-stats',
@@ -99,7 +113,6 @@ const nativeContractDependencies = {
     '@onekeyfe/react-native-sni-connect',
     '@onekeyfe/react-native-splash-screen',
     '@onekeyfe/react-native-split-bundle-loader',
-    '@onekeyfe/react-native-tab-view',
     '@onekeyfe/react-native-text-input',
     '@phantom/react-native-juicebox-sdk',
     '@react-native-async-storage/async-storage',
@@ -108,6 +121,7 @@ const nativeContractDependencies = {
     '@react-native-community/slider',
     '@react-native-documents/picker',
     '@react-native-google-signin/google-signin',
+    '@react-native-masked-view/masked-view',
     '@sentry/react-native',
     '@shopify/react-native-skia',
     '@walletconnect/react-native-compat',
@@ -124,16 +138,13 @@ const nativeContractDependencies = {
     'expo-font',
     'expo-haptics',
     'expo-image-manipulator',
-    'expo-image-picker',
     'expo-keep-awake',
     'expo-linear-gradient',
     'expo-linking',
     'expo-local-authentication',
     'expo-localization',
-    'expo-media-library',
     'expo-modules-core',
     'expo-notifications',
-    'expo-screen-capture',
     'expo-screen-orientation',
     'expo-secure-store',
     'expo-sharing',
@@ -147,7 +158,6 @@ const nativeContractDependencies = {
     'react-native-aes-crypto',
     'react-native-ble-plx',
     'react-native-camera-kit',
-    'react-native-capture-protection',
     'react-native-cloud-fs',
     'react-native-dns-lookup',
     'react-native-fast-pbkdf2',
@@ -155,7 +165,6 @@ const nativeContractDependencies = {
     'react-native-gesture-handler',
     'react-native-get-random-values',
     'react-native-image-colors',
-    'react-native-image-crop-picker',
     'react-native-keyboard-controller',
     'react-native-mmkv',
     'react-native-network-info',
@@ -189,17 +198,15 @@ const nativeContractFiles = {
     'apps/mobile/ios/Podfile.lock',
     'apps/mobile/ios/Podfile.properties.json',
   ],
-  shared: ['apps/mobile/package.json', 'yarn.lock'],
+  shared: [],
 };
 
 const nativeContractDirectories = {
   android: [
-    'apps/mobile/android/app-update-noop/src/main',
-    'apps/mobile/android/app/src/debug',
     'apps/mobile/android/app/src/main',
-    'apps/mobile/android/app/src/prod',
+    'apps/mobile/android/app-update-noop/src/main',
   ],
-  ios: ['apps/mobile/ios/OneKeyWallet', 'apps/mobile/ios/ServiceExtension'],
+  ios: ['apps/mobile/ios/OneKeyWallet'],
   shared: [],
 };
 
@@ -208,6 +215,7 @@ const shellInputDirectories = {
     'apps/mobile/android/app/src',
     'apps/mobile/android/app-update-noop/src',
     'apps/mobile/android/build-logic',
+    'apps/mobile/android/mmkv',
   ],
   ios: [
     'apps/mobile/ios/OneKeyLogo.icon',
@@ -269,11 +277,15 @@ const shellInputFiles = {
     'apps/mobile/ios/Podfile.properties.json',
     'apps/mobile/ios/PrivacyInfo.xcprivacy',
     'apps/mobile/ios/sentry.properties',
+    'apps/mobile/scripts/mobile-dev-shell-resource.js',
   ],
   shared: [
+    'apps/mobile/native/mmkv/checked-sync.patch',
+    'apps/mobile/native/mmkv/source.lock.json',
     'apps/mobile/package.json',
     'apps/mobile/react-native.config.js',
     'apps/mobile/scripts/build-mobile-dev-shell.js',
+    'development/scripts/prepare-mmkv-source.js',
     'yarn.lock',
   ],
 };

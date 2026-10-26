@@ -5,6 +5,7 @@ on:
   pull_request:
     branches:
       - x
+      - release/*
 
 # Cancel previous runs for the same PR
 concurrency:
@@ -22,31 +23,30 @@ jobs:
   # Runs unionBuild to produce allocation reports, then validates
   # forbidden packages, module budgets, and architectural rules.
   native-startup-graph-budget:
-    name: Native startup graph budget
+    name: Native
     runs-on: ubuntu-24.04
-
-    strategy:
-      matrix:
-        node-version: [24.x]
+    timeout-minutes: 14
 
     steps:
       - uses: actions/checkout@v4
         with:
           lfs: true
 
-      - name: Use Node.js ${{ matrix.node-version }}
+      - name: Use Node.js 24.x
         uses: actions/setup-node@v6
         with:
-          node-version: ${{ matrix.node-version }}
-          cache: 'yarn'
+          node-version: 24.x
+          package-manager-cache: false
+          check-latest: true
           registry-url: 'https://npm.pkg.github.com'
           scope: '@onekeyhq'
 
       - name: Install Dependencies
+        id: dependencies
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NODE_OPTIONS: '--max_old_space_size=8192'
-        run: yarn install --immutable
+        uses: ./.github/actions/install-dependencies
 
       - name: Union Build (three-bundle split)
         env:
@@ -57,6 +57,7 @@ jobs:
           cd apps/mobile
           node scripts/unionBuild.js \
             --platform ios \
+            --report-only \
             --common-bundle-output /tmp/common.jsbundle \
             --common-sourcemap-output /tmp/common.jsbundle.map \
             --main-bundle-output /tmp/main.jsbundle \
@@ -70,11 +71,12 @@ jobs:
           NODE_OPTIONS: '--max_old_space_size=8192'
           ENABLE_NATIVE_BACKGROUND_THREAD: 'true'
           ENTRY: main
-          # main entry currently: ~2605 modules / ~13.23 MB
+          # main entry currently: ~2702 modules / ~13.87 MB
           # (AsyncStorage->MMKV migration adds the main-runtime bootstrap gate
-          # and runtime-owned MMKV instance/guard modules to the eager graph)
+          # and runtime-owned MMKV instance/guard modules to the eager graph;
+          # the release/v6.6.0 bundle sync added ~0.1 MB on top of that)
           STARTUP_MODULE_BUDGET: '3000'
-          STARTUP_SIZE_BUDGET_MB: '13.3'
+          STARTUP_SIZE_BUDGET_MB: '14.0'
         run: node apps/mobile/scripts/check-startup-graph-budget.js
 
       - name: Budget Check (background entry)
@@ -103,32 +105,35 @@ jobs:
             apps/mobile/out-dir-analysis/budget-check-ai-hints-*.md
           retention-days: 30
 
-  web-startup-graph-budget:
-    name: Web startup graph budget
-    runs-on: ubuntu-24.04
+      - name: Unmount dependency image
+        if: always() && steps.dependencies.outcome != 'skipped'
+        run: python3 .github/scripts/ci-dependencies.py cleanup
 
-    strategy:
-      matrix:
-        node-version: [24.x]
+  web-startup-graph-budget:
+    name: Web
+    runs-on: ubuntu-24.04
+    timeout-minutes: 14
 
     steps:
       - uses: actions/checkout@v4
         with:
           lfs: true
 
-      - name: Use Node.js ${{ matrix.node-version }}
+      - name: Use Node.js 24.x
         uses: actions/setup-node@v6
         with:
-          node-version: ${{ matrix.node-version }}
-          cache: 'yarn'
+          node-version: 24.x
+          package-manager-cache: false
+          check-latest: true
           registry-url: 'https://npm.pkg.github.com'
           scope: '@onekeyhq'
 
       - name: Install Dependencies
+        id: dependencies
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NODE_OPTIONS: '--max_old_space_size=8192'
-        run: yarn install --immutable
+        uses: ./.github/actions/install-dependencies
 
       # Current GitHub Actions cold-entry median baseline, measured on
       # ubuntu-24.04 with 3 fresh-browser runs in PR #12286 run 28733529052.
@@ -145,6 +150,9 @@ jobs:
       # swap: 15.81 MiB JS, 159 scripts, 192 resources, 971 ms long tasks
       # defi: 15.95 MiB JS, 160 scripts, 190 resources, 1092 ms long tasks
       # referFriends: 15.85 MiB JS, 157 scripts, 175 resources, 692 ms long tasks
+      # API calls are answered from development/perf-ci/fixtures/web-cold-api.json
+      # and other outbound requests are stubbed or blocked, so this job does not
+      # depend on live services (see development/perf-ci/README.md).
       - name: Check web startup/cold entry budgets
         env:
           NODE_OPTIONS: '--max_old_space_size=8192'
@@ -198,34 +206,101 @@ jobs:
             apps/web/out-dir-analysis/web-cold-budget-report-ai-hints.md
           retention-days: 30
 
-  ext-build-budget:
-    name: Extension build budget
-    runs-on: ubuntu-24.04
+      - name: Unmount dependency image
+        if: always() && steps.dependencies.outcome != 'skipped'
+        run: python3 .github/scripts/ci-dependencies.py cleanup
 
-    strategy:
-      matrix:
-        node-version: [24.x]
+  desktop-startup-budget:
+    name: Desktop
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
 
     steps:
       - uses: actions/checkout@v4
         with:
           lfs: true
 
-      - name: Use Node.js ${{ matrix.node-version }}
+      - name: Use Node.js 24.x
         uses: actions/setup-node@v6
         with:
-          node-version: ${{ matrix.node-version }}
-          cache: 'yarn'
+          node-version: 24.x
+          package-manager-cache: false
+          check-latest: true
           registry-url: 'https://npm.pkg.github.com'
           scope: '@onekeyhq'
 
       - name: Install Dependencies
+        id: dependencies
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NODE_OPTIONS: '--max_old_space_size=8192'
-        run: yarn install --immutable
+        uses: ./.github/actions/install-dependencies
+
+      - name: Build desktop renderer budget artifact with release Rspack config
+        env:
+          NODE_OPTIONS: '--max_old_space_size=8192'
+        run: yarn workspace @onekeyhq/desktop build:renderer:startup-budget
+
+      - name: Check desktop renderer startup graph budget
+        env:
+          NODE_OPTIONS: '--max_old_space_size=8192'
+        run: yarn workspace @onekeyhq/desktop check:renderer-startup-budget web-build
+
+      - name: Build desktop main with esbuild metafile
+        env:
+          ESBUILD_METAFILE: '1'
+          NODE_ENV: production
+        run: yarn workspace @onekeyhq/desktop build:main
+
+      - name: Check desktop main/preload bundle budget
+        run: yarn workspace @onekeyhq/desktop check:main-bundle-budget
+
+      - name: Upload desktop startup budget reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: desktop-startup-budget-reports
+          path: |
+            apps/desktop/out-dir-analysis/desktop-renderer-startup-graph-budget-report.json
+            apps/desktop/out-dir-analysis/desktop-main-bundle-budget-report.json
+            apps/desktop/app/dist/meta.json
+          retention-days: 30
+
+      - name: Unmount dependency image
+        if: always() && steps.dependencies.outcome != 'skipped'
+        run: python3 .github/scripts/ci-dependencies.py cleanup
+
+  ext-build-budget:
+    name: Extension
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - name: Use Node.js 24.x
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24.x
+          package-manager-cache: false
+          check-latest: true
+          registry-url: 'https://npm.pkg.github.com'
+          scope: '@onekeyhq'
+
+      - name: Install Dependencies
+        id: dependencies
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NODE_OPTIONS: '--max_old_space_size=8192'
+        uses: ./.github/actions/install-dependencies
 
       - name: Check extension production build budgets
         env:
           NODE_OPTIONS: '--max_old_space_size=8192'
         run: yarn app:ext:build
+
+      - name: Unmount dependency image
+        if: always() && steps.dependencies.outcome != 'skipped'
+        run: python3 .github/scripts/ci-dependencies.py cleanup

@@ -1,5 +1,5 @@
-import type { ComponentProps } from 'react';
 import { useCallback, useMemo, useState } from 'react';
+import type { ComponentProps } from 'react';
 
 import {
   GradientMask,
@@ -12,6 +12,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
 import { useMarketDetailHeaderDisplayData } from '../../hooks/useMarketDetailDisplayData';
+import { useMarketDetailWatchlistIdentity } from '../../hooks/useMarketDetailWatchlistIdentity';
 
 import { ShareButton } from './ShareButton';
 import { TokenDetailHeaderLeft } from './TokenDetailHeaderLeft';
@@ -43,6 +44,7 @@ export function TokenDetailHeader({
   containerProps?: ComponentProps<typeof XStack>;
 }) {
   const { lg, md } = useMedia();
+  const listingIdentity = useMarketDetailWatchlistIdentity();
   const {
     tokenDetail,
     networkId,
@@ -93,6 +95,7 @@ export function TokenDetailHeader({
       {...containerProps}
     >
       <TokenDetailHeaderLeft
+        {...listingIdentity}
         tokenDetail={tokenDetail}
         networkId={networkId}
         networkLogoUri={networkData?.logoURI}
@@ -139,7 +142,12 @@ export function TokenDetailHeader({
       borderBottomWidth={showDivider ? '$px' : 0}
       borderBottomColor={showDivider ? '$borderSubdued' : undefined}
     >
-      {!platformEnv.isNative && !md ? (
+      {/* The redesigned desktop headers lay their content out as one full-width
+          row with a flexible middle section, so they can never overflow. Keeping
+          them out of the horizontal ScrollView, which shrink-wraps its content,
+          is what pushes the favorite and share buttons to the right edge the way
+          the stock detail header does. The legacy desktop header still scrolls. */}
+      {!platformEnv.isNative && !md && !desktopRedesign ? (
         <>
           <ScrollView
             horizontal

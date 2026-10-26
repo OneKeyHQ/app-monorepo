@@ -285,6 +285,39 @@ describe('ServiceReferralCode Swap rebate API', () => {
     expect(error.autoToast).toBe(false);
   });
 
+  test('aggregates invitee rewards per module and isolates failures', async () => {
+    const { service, backgroundApi } = createService();
+    const perpsData = { totalBonus: '2', undistributed: '1', history: [] };
+    const earnData = { distributed: [], undistributed: [] };
+    jest
+      .spyOn(service, 'getPerpsInviteeRewards')
+      .mockResolvedValue(perpsData as any);
+    jest
+      .spyOn(service, 'getSwapInviteeRewards')
+      .mockRejectedValue(new Error('swap unavailable'));
+    backgroundApi.serviceStaking = {
+      getEarnSummaryV2: jest.fn().mockResolvedValue(earnData),
+    };
+
+    await expect(
+      service.getInviteeRewardsOverview({ walletAddress: '0xAbC' }),
+    ).resolves.toEqual({
+      perps: { status: 'success', data: perpsData },
+      swap: { status: 'error' },
+      earn: { status: 'success', data: earnData },
+    });
+
+    expect(service.getPerpsInviteeRewards).toHaveBeenCalledWith({
+      walletAddress: '0xAbC',
+    });
+    expect(service.getSwapInviteeRewards).toHaveBeenCalledWith({
+      walletAddress: '0xAbC',
+    });
+    expect(backgroundApi.serviceStaking.getEarnSummaryV2).toHaveBeenCalledWith(
+      expect.objectContaining({ accountAddress: '0xAbC' }),
+    );
+  });
+
   test('resolves the current logical account EVM address from its indexed account', async () => {
     const { service, backgroundApi } = createService();
     backgroundApi.serviceNetwork.getGlobalDeriveTypeOfNetwork.mockResolvedValue(
@@ -356,6 +389,44 @@ describe('ServiceReferralCode Swap rebate API', () => {
         indexedAccountId: 'hd-1--9',
       }),
     ).resolves.toBeUndefined();
+  });
+
+  test('returns the stored address for an Others EVM account', async () => {
+    const { service, backgroundApi } = createService();
+    backgroundApi.serviceAccount.getDBAccountSafe.mockResolvedValue({
+      id: 'watching--evm--0xWatch',
+      impl: 'evm',
+      address: '0xWatch',
+    });
+
+    await expect(
+      service.getCurrentEvmAccountAddress({
+        accountId: 'watching--evm--0xWatch',
+      }),
+    ).resolves.toBe('0xWatch');
+
+    expect(
+      backgroundApi.serviceAccount.getNetworkAccount,
+    ).not.toHaveBeenCalled();
+  });
+
+  test('returns undefined for a non-EVM Others account', async () => {
+    const { service, backgroundApi } = createService();
+    backgroundApi.serviceAccount.getDBAccountSafe.mockResolvedValue({
+      id: 'watching--btc--bc1qwatch',
+      impl: 'btc',
+      address: 'bc1qwatch',
+    });
+
+    await expect(
+      service.getCurrentEvmAccountAddress({
+        accountId: 'watching--btc--bc1qwatch',
+      }),
+    ).resolves.toBeUndefined();
+
+    expect(
+      backgroundApi.serviceAccount.getNetworkAccount,
+    ).not.toHaveBeenCalled();
   });
 
   test('exports Swap without transforming CSV or dropping an epoch range', async () => {

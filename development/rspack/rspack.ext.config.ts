@@ -6,6 +6,7 @@ import HtmlWebpackPlugin from 'html-webpack-plugin';
 import { merge } from 'webpack-merge';
 
 import {
+  applyExtChannelToEnv,
   isDev,
   isManifestV3,
   nodeEnv,
@@ -38,6 +39,32 @@ const entries = {
   offscreen: 'offscreen',
   contentScript: 'content-script',
 } as const;
+
+function createExtensionBootAssetsPlugin(): RspackPluginInstance {
+  return {
+    apply(compiler: Compiler): void {
+      compiler.hooks.thisCompilation.tap(
+        'ExtensionBootAssetsPlugin',
+        (compilation) => {
+          compilation.hooks.processAssets.tap(
+            {
+              name: 'ExtensionBootAssetsPlugin',
+              stage: rspack.Compilation.PROCESS_ASSETS_STAGE_ADDITIONAL,
+            },
+            () => {
+              compilation.emitAsset(
+                'background.bootstrap.js',
+                new rspack.sources.RawSource(
+                  "importScripts('release-meta.js','background-runtime.bundle.js','background-vendor.bundle.js','background.bundle.js');",
+                ),
+              );
+            },
+          );
+        },
+      );
+    },
+  };
+}
 
 interface IReplacementConfig {
   contentMarker?: string;
@@ -266,7 +293,13 @@ function createCompilerConfig({
 
   const environmentConfig =
     nodeEnv === 'production'
-      ? createProductionConfig({ platform, basePath })
+      ? createProductionConfig({
+          platform,
+          basePath,
+          // The unsplit background bundle benefits from one extra compression pass.
+          compressPasses:
+            compilerName === compilerNames.background ? 3 : undefined,
+        })
       : createDevelopmentConfig({ basePath });
 
   const config = merge(
@@ -333,6 +366,33 @@ function disableCodeSplitting(config: RspackOptions): void {
   config.output.chunkLoading = false;
 }
 
+function enableEntryVendorSplit(
+  config: RspackOptions,
+  compilerName: 'background' | 'content-script',
+): void {
+  config.optimization = config.optimization || {};
+  config.optimization.chunkIds = 'deterministic';
+  config.optimization.moduleIds = 'deterministic';
+  config.optimization.runtimeChunk = { name: `${compilerName}-runtime` };
+  config.optimization.splitChunks = {
+    chunks: 'initial',
+    cacheGroups: {
+      default: false,
+      defaultVendors: false,
+      vendor: {
+        test: /[\\/]node_modules[\\/]/,
+        name: `${compilerName}-vendor`,
+        chunks: 'initial',
+        enforce: true,
+      },
+    },
+  };
+  config.output = config.output || {};
+  config.output.asyncChunks = false;
+  config.output.chunkLoading =
+    compilerName === compilerNames.background ? 'import-scripts' : 'jsonp';
+}
+
 function createPagesConfig(basePath: string): RspackOptions {
   const uiHtmlPlugins = [
     'ui-popup',
@@ -358,6 +418,7 @@ function createPagesConfig(basePath: string): RspackOptions {
       createHtmlPlugin({ name: entries.uiPasskey, basePath }),
       createHtmlPlugin({ name: entries.offscreen, basePath }),
       createCopyPlugin(basePath),
+      ...(!isDev ? [createExtensionBootAssetsPlugin()] : []),
     ],
   });
 
@@ -400,15 +461,19 @@ function createBackgroundConfig(basePath: string): RspackOptions {
       [entries.background]: {
         import: path.join(basePath, 'src/entry/background.ts'),
         filename: 'background.bundle.js',
-        runtime: false,
-        chunkLoading: false,
+        ...(isDev ? { runtime: false } : {}),
+        ...(isDev ? { chunkLoading: false } : {}),
         asyncChunks: false,
       },
     },
     plugins: [createHtmlPlugin({ name: entries.background, basePath })],
   });
 
-  disableCodeSplitting(config);
+  if (isDev) {
+    disableCodeSplitting(config);
+  } else {
+    enableEntryVendorSplit(config, compilerNames.background);
+  }
   if (process.env.PERF_MONITOR_ENABLED === '1') {
     config.optimization = config.optimization || {};
     config.optimization.minimize = false;
@@ -427,14 +492,18 @@ function createContentScriptConfig(basePath: string): RspackOptions {
       [entries.contentScript]: {
         import: path.join(basePath, 'src/entry/content-script.ts'),
         filename: 'content-script.bundle.js',
-        runtime: false,
-        chunkLoading: false,
+        ...(isDev ? { runtime: false } : {}),
+        ...(isDev ? { chunkLoading: false } : {}),
         asyncChunks: false,
       },
     },
   });
 
-  disableCodeSplitting(config);
+  if (isDev) {
+    disableCodeSplitting(config);
+  } else {
+    enableEntryVendorSplit(config, compilerNames.contentScript);
+  }
   delete config.devServer;
   return config;
 }
@@ -446,6 +515,16 @@ interface IExtConfigOptions {
 export function createExtConfig({
   basePath,
 }: IExtConfigOptions): RspackOptions[] {
+  // Resolve the channel (chrome unless EXT_CHANNEL says otherwise) and publish
+  // it to process.env. Inside the factory rather than at module scope:
+  // development/rspack/index.ts re-exports this module with `export *`, so a
+  // module-scope call would fire for anyone importing anything from that
+  // barrel and set EXT_CHANNEL process-wide on web/desktop builds too. Keeping
+  // it here makes the ext-only guarantee structural. Still earlier than every
+  // consumer -- buildDefineMap, loadBuildTimeEnv and the manifest require all
+  // run inside the three config builders below.
+  applyExtChannelToEnv();
+
   if (!isManifestV3) {
     // Build configuration errors are not application-domain errors.
     // eslint-disable-next-line no-restricted-syntax, onekey/no-raw-error

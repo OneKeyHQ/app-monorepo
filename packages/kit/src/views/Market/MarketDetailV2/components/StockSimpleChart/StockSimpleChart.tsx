@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -10,54 +10,142 @@ import {
   Stack,
   YStack,
 } from '@onekeyhq/components';
-import {
-  type IStockPriceLineChartHoverPoint,
-  StockPriceLineChart,
-} from '@onekeyhq/kit/src/components/StockPriceLineChart';
+import { StockPriceLineChart } from '@onekeyhq/kit/src/components/StockPriceLineChart';
+import { useIsMounted } from '@onekeyhq/kit/src/hooks/useIsMounted';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import type { IMarketPriceSource } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { LRUCache } from '@onekeyhq/shared/src/utils/cacheUtils';
 import type { IMarketTokenChart } from '@onekeyhq/shared/types/market';
+import type {
+  IMarketStockPublicDetail,
+  IMarketTokenDetail,
+} from '@onekeyhq/shared/types/marketV2';
 
 import { useStockDetail } from '../../hooks/StockDetailContext';
+import { useMarketKlineLivePrice } from '../../hooks/useMarketKlineLivePrice';
 import { useTokenDetail } from '../../hooks/useTokenDetail';
+import { resolveMarketKlineLivePriceEnabled } from '../../utils/marketKlineLivePrice';
 
 import {
   type IStockSimpleChartRange,
+  STOCK_SIMPLE_CHART_POLLING_MS,
+  buildStockSimpleChartAssetKey,
+  buildStockSimpleChartScopeKey,
   fetchStockSimpleChartPoints,
+  resolveStockSimpleChartBucketSeconds,
+  resolveStockSimpleChartDisplayPoints,
+  resolveStockSimpleChartLivePrice,
+  resolveStockSimpleChartMinRefreshMs,
+  resolveStockSimpleChartPreviousClose,
+  resolveStockSimpleChartPulseLastPoint,
   resolveStockSimpleChartRequestScope,
+  shouldStoreStockSimpleChartSeries,
 } from './stockSimpleChartData';
 
 export type { IStockSimpleChartRange } from './stockSimpleChartData';
 
-const STOCK_SIMPLE_CHART_INITIAL_HEIGHT = 304;
+// Pre-measure fallback: the 456px default chart block minus its 40px toolbar
+// row and 16px gap; onLayout below tracks the real (resizable) height.
+const STOCK_SIMPLE_CHART_INITIAL_HEIGHT = 400;
 
 type IStockSimpleChartState = {
   data: IMarketTokenChart;
   status: 'pending' | 'success' | 'error';
+  scopeKey: string;
+  assetKey: string;
+  range: IStockSimpleChartRange;
 };
 
-export function StockSimpleChart({
-  coinGeckoId,
-  marketAssetId,
-  range,
-  priceMode,
-  onHoverChange,
-}: {
+type IStockSimpleChartSeries = {
+  key: string;
+  data: IMarketTokenChart;
+  loadedAt: number;
+  seq: number;
+};
+
+// Reuse public series on native Market entries and keyed Swap tab remounts in
+// the UI runtime; no storage writes or background-runtime ownership are needed.
+const STOCK_SIMPLE_CHART_CACHE_TTL_MS = 5 * 60 * 1000;
+const stockSimpleChartSeriesCache = new LRUCache<
+  string,
+  { requestedSeq: number; series?: IStockSimpleChartSeries }
+>({ max: 20, ttl: STOCK_SIMPLE_CHART_CACHE_TTL_MS });
+let stockSimpleChartRequestSeq = 0;
+const EMPTY_CHART_POINTS: IMarketTokenChart = [];
+
+function getFreshStockSimpleChartSeries(series?: IStockSimpleChartSeries) {
+  if (!series) return undefined;
+  const age = Date.now() - series.loadedAt;
+  return age >= 0 && age < STOCK_SIMPLE_CHART_CACHE_TTL_MS ? series : undefined;
+}
+
+type IStockSimpleChartProps = {
+  active?: boolean;
+  initialHeight?: number;
   coinGeckoId?: string;
   marketAssetId?: string;
   range: IStockSimpleChartRange;
   priceMode: IMarketPriceSource;
-  // Forwarded to the line chart so the price header above can follow the
-  // crosshair; called with undefined once the pointer leaves the plot.
-  onHoverChange?: (point: IStockPriceLineChartHoverPoint | undefined) => void;
-}) {
-  const intl = useIntl();
-  const [chartHeight, setChartHeight] = useState(
-    STOCK_SIMPLE_CHART_INITIAL_HEIGHT,
-  );
+  priceScaleFormat?: 'stock' | 'full';
+  onRequestRetry?: () => void;
+  requestError?: boolean;
+};
+
+export function StockSimpleChart(props: IStockSimpleChartProps) {
   const { isNative, networkId, tokenAddress, tokenDetail } = useTokenDetail();
   const { stockDetail, stockId } = useStockDetail();
+  return (
+    <StockSimpleChartContent
+      {...props}
+      updateMarketDetail
+      isNative={isNative}
+      networkId={networkId}
+      tokenAddress={tokenAddress}
+      tokenDetail={tokenDetail}
+      stockDetail={stockDetail}
+      stockId={stockId}
+      retainPreviousRange
+      retainOnRemount={platformEnv.isNative}
+    />
+  );
+}
+
+// Entry adapters own the asset identity; the chart never reads another page's atoms.
+export function StockSimpleChartContent({
+  active = true,
+  initialHeight = STOCK_SIMPLE_CHART_INITIAL_HEIGHT,
+  coinGeckoId,
+  marketAssetId,
+  range,
+  priceMode,
+  priceScaleFormat,
+  requestError = false,
+  onRequestRetry,
+  retainPreviousRange = false,
+  retainOnRemount = false,
+  isNative,
+  networkId,
+  tokenAddress,
+  tokenDetail,
+  stockDetail,
+  stockId,
+  updateMarketDetail = false,
+}: IStockSimpleChartProps & {
+  updateMarketDetail?: boolean;
+  retainPreviousRange?: boolean;
+  retainOnRemount?: boolean;
+  isNative: boolean;
+  networkId: string;
+  tokenAddress: string;
+  tokenDetail?: IMarketTokenDetail;
+  stockDetail?: IMarketStockPublicDetail | null;
+  stockId?: string;
+}) {
+  const intl = useIntl();
+  const isMountedRef = useIsMounted();
+  const [chartHeight, setChartHeight] = useState(initialHeight);
   const {
     coinGeckoId: requestCoinGeckoId,
     isNative: requestIsNative,
@@ -78,12 +166,134 @@ export function StockSimpleChart({
     tokenAddress,
   });
 
+  const requestReady =
+    requestPriceMode === 'share'
+      ? Boolean(requestStockId)
+      : Boolean(
+          requestMarketAssetId ||
+          requestCoinGeckoId ||
+          (requestNetworkId && (requestTokenAddress || requestIsNative)),
+        );
+  const pulseLastPoint = resolveStockSimpleChartPulseLastPoint({
+    stockDetail,
+    stockId,
+    tokenStock: tokenDetail?.stock,
+  });
+  const snapshotPrice = resolveStockSimpleChartLivePrice({
+    priceMode: requestPriceMode,
+    stockDetail,
+    tokenDetail,
+  });
+  // This chart pins its last point to the quote above, so a quote that stops
+  // moving freezes the chart with it. Simple mode mounts no TradingView, which
+  // is what keeps that quote on the traded price everywhere else.
+  const polledPrice = useMarketKlineLivePrice({
+    enabled:
+      active &&
+      requestReady &&
+      resolveMarketKlineLivePriceEnabled({
+        isNative: requestIsNative,
+        networkId: requestNetworkId,
+        priceMode: requestPriceMode,
+        tokenAddress: requestTokenAddress,
+      }),
+    marketAssetId: requestMarketAssetId,
+    networkId: requestNetworkId,
+    tokenAddress: requestTokenAddress,
+    updateMarketDetail,
+  });
+  const livePrice = polledPrice ?? snapshotPrice;
+  const scopeKey = buildStockSimpleChartScopeKey({
+    coinGeckoId: requestCoinGeckoId,
+    marketAssetId: requestMarketAssetId,
+    networkId: requestNetworkId,
+    priceMode: requestPriceMode,
+    range: requestRange,
+    stockId: requestStockId,
+    tokenAddress: requestTokenAddress,
+  });
+  const assetKey = buildStockSimpleChartAssetKey({
+    coinGeckoId: requestCoinGeckoId,
+    marketAssetId: requestMarketAssetId,
+    networkId: requestNetworkId,
+    priceMode: requestPriceMode,
+    stockId: requestStockId,
+    tokenAddress: requestTokenAddress,
+  });
+  const remountCacheKey = JSON.stringify([scopeKey, requestIsNative]);
+  const [initialSeries] = useState(() =>
+    retainOnRemount
+      ? getFreshStockSimpleChartSeries(
+          stockSimpleChartSeriesCache.get(remountCacheKey)?.series,
+        )
+      : undefined,
+  );
+  // Keyed by scope so a failed refresh can fall back to the line already on
+  // screen, while a range or token switch never redraws the previous asset.
+  const lastLoadedRef = useRef<IStockSimpleChartSeries | undefined>(
+    initialSeries,
+  );
+  // A late response from a scope the user already left must not overwrite the
+  // fallback that belongs to the current one.
+  const scopeKeyRef = useRef(scopeKey);
+  scopeKeyRef.current = scopeKey;
+  // Two refreshes of the same scope can overlap, and the later one can answer
+  // first. Ordering the writes keeps an older series from being restored by the
+  // paced polls that read this fallback.
+  const minRefreshMs = resolveStockSimpleChartMinRefreshMs({
+    range: requestRange,
+  });
+
   const {
     result: chartState,
     isLoading,
     run: retry,
   } = usePromiseResult<IStockSimpleChartState>(
     async () => {
+      const stateScope = { scopeKey, assetKey, range: requestRange };
+      let retained = lastLoadedRef.current;
+      if (retained?.key !== scopeKey) {
+        retained = retainOnRemount
+          ? getFreshStockSimpleChartSeries(
+              stockSimpleChartSeriesCache.get(remountCacheKey)?.series,
+            )
+          : undefined;
+      }
+      if (retained) lastLoadedRef.current = retained;
+      const cached =
+        retained?.key === scopeKey && retained.data.length > 0
+          ? retained
+          : undefined;
+      // A retained Desktop/Web route keeps this chart mounted after another
+      // route takes over the shared detail state, and focus checks are off here,
+      // so ownership is what stops the requests. The interval identity stays
+      // untouched, which lets the route refetch as soon as it is active again.
+      if (!active) {
+        return cached
+          ? { data: cached.data, ...stateScope, status: 'success' }
+          : { data: [], ...stateScope, status: 'pending' };
+      }
+
+      if (!requestReady) {
+        return { data: [], ...stateScope, status: 'pending' };
+      }
+
+      stockSimpleChartRequestSeq += 1;
+      const seq = stockSimpleChartRequestSeq;
+      // One polling interval serves every range, so the per-range pace is
+      // enforced here. A scope change skips this and reloads immediately.
+      if (cached && Date.now() - cached.loadedAt < minRefreshMs) {
+        return { data: cached.data, ...stateScope, status: 'success' };
+      }
+
+      if (retainOnRemount) {
+        const previous = stockSimpleChartSeriesCache.get(remountCacheKey);
+        stockSimpleChartSeriesCache.set(remountCacheKey, {
+          requestedSeq: seq,
+          series: getFreshStockSimpleChartSeries(previous?.series),
+        });
+      }
+
       try {
         const data = await fetchStockSimpleChartPoints({
           coinGeckoId: requestCoinGeckoId,
@@ -96,15 +306,50 @@ export function StockSimpleChart({
           tokenAddress: requestTokenAddress,
         });
 
+        if (
+          shouldStoreStockSimpleChartSeries({
+            currentScopeKey: scopeKeyRef.current,
+            requestScopeKey: scopeKey,
+            requestSeq: seq,
+            storedSeq: lastLoadedRef.current?.seq,
+          })
+        ) {
+          lastLoadedRef.current = {
+            key: scopeKey,
+            data,
+            loadedAt: Date.now(),
+            seq,
+          };
+          if (
+            retainOnRemount &&
+            isMountedRef.current &&
+            stockSimpleChartSeriesCache.get(remountCacheKey)?.requestedSeq ===
+              seq
+          ) {
+            stockSimpleChartSeriesCache.set(remountCacheKey, {
+              requestedSeq: seq,
+              series: data.length > 0 ? lastLoadedRef.current : undefined,
+            });
+          }
+        }
         return {
           data,
+          ...stateScope,
           status: 'success',
         };
       } catch (_error) {
-        return { data: [], status: 'error' };
+        // Refreshes run unattended, so a single failed one must not replace a
+        // drawn line with the error state.
+        const lastLoaded = lastLoadedRef.current;
+        if (lastLoaded?.key === scopeKey && lastLoaded.data.length) {
+          return { data: lastLoaded.data, ...stateScope, status: 'success' };
+        }
+        return { data: [], ...stateScope, status: 'error' };
       }
     },
     [
+      active,
+      requestReady,
       requestCoinGeckoId,
       requestIsNative,
       requestMarketAssetId,
@@ -113,49 +358,131 @@ export function StockSimpleChart({
       requestRange,
       requestStockId,
       requestTokenAddress,
+      minRefreshMs,
+      retainOnRemount,
+      isMountedRef,
+      remountCacheKey,
+      scopeKey,
+      assetKey,
     ],
     {
-      initResult: { data: [], status: 'pending' },
+      initResult: {
+        data: initialSeries?.data ?? [],
+        scopeKey: initialSeries ? scopeKey : '',
+        assetKey: initialSeries ? assetKey : '',
+        range: requestRange,
+        status: initialSeries ? 'success' : 'pending',
+      },
       watchLoading: true,
       checkIsFocused: false,
+      // Without this the series stops at mount time and only its pinned tail
+      // moves, drawing the time since as one straight segment.
+      pollingInterval: STOCK_SIMPLE_CHART_POLLING_MS,
+      runImmediatelyOnMount: platformEnv.isNative,
+      revalidateOnReconnect: true,
     },
   );
 
-  let chartContent;
-  if (isLoading || chartState.status === 'pending') {
-    chartContent = (
+  const retainedSeries = retainOnRemount
+    ? getFreshStockSimpleChartSeries(
+        stockSimpleChartSeriesCache.get(remountCacheKey)?.series,
+      )
+    : undefined;
+  const displayedChartState =
+    retainedSeries &&
+    (chartState.scopeKey !== scopeKey || chartState.status === 'pending')
+      ? {
+          data: retainedSeries.data,
+          scopeKey,
+          assetKey,
+          range: requestRange,
+          status: 'success' as const,
+        }
+      : chartState;
+  const isCurrentScopeLoaded = displayedChartState.scopeKey === scopeKey;
+  const isRetainingRange =
+    retainPreviousRange &&
+    !isCurrentScopeLoaded &&
+    displayedChartState.assetKey === assetKey &&
+    displayedChartState.status === 'success' &&
+    displayedChartState.data.length > 0;
+  // Keep the old series' clipping and reference line until the new range lands.
+  const displayedRange = isRetainingRange
+    ? displayedChartState.range
+    : requestRange;
+  const intervalSeconds = resolveStockSimpleChartBucketSeconds({
+    coinGeckoId: requestCoinGeckoId,
+    marketAssetId: requestMarketAssetId,
+    priceMode: requestPriceMode,
+    range: displayedRange,
+  });
+  const previousClose = resolveStockSimpleChartPreviousClose({
+    priceMode: requestPriceMode,
+    range: displayedRange,
+    stockDetail,
+  });
+  const chartData = useMemo(
+    () =>
+      resolveStockSimpleChartDisplayPoints({
+        intervalSeconds,
+        livePrice,
+        nowSeconds: Math.floor(Date.now() / 1000),
+        points: displayedChartState.data,
+      }),
+    [displayedChartState.data, intervalSeconds, livePrice],
+  );
+
+  const renderChartError = () => (
+    <YStack
+      testID="stock-simple-chart-error"
+      width="100%"
+      height="100%"
+      alignItems="center"
+      justifyContent="center"
+      gap="$2"
+    >
+      <Icon name="InfoCircleOutline" size="$6" color="$iconSubdued" />
+      <SizableText size="$bodySm" color="$textSubdued">
+        {intl.formatMessage({
+          id: ETranslations.global_unknown_error_retry_message,
+        })}
+      </SizableText>
+      <Button
+        testID="stock-simple-chart-retry"
+        size="small"
+        variant="tertiary"
+        onPress={() => {
+          if (requestError) {
+            onRequestRetry?.();
+          } else {
+            void retry();
+          }
+        }}
+      >
+        {intl.formatMessage({ id: ETranslations.global_retry })}
+      </Button>
+    </YStack>
+  );
+
+  let chartPlaceholder;
+  // Retain only another range of this asset; never expose a previous asset.
+  if (requestError) {
+    chartPlaceholder = renderChartError();
+  } else if (
+    !requestReady ||
+    displayedChartState.status === 'pending' ||
+    (!isCurrentScopeLoaded && !isRetainingRange) ||
+    (isLoading && !displayedChartState.data.length)
+  ) {
+    chartPlaceholder = (
       <Stack testID="stock-simple-chart-loading" width="100%" height="100%">
         <Skeleton width="100%" height="100%" />
       </Stack>
     );
-  } else if (chartState.status === 'error') {
-    chartContent = (
-      <YStack
-        testID="stock-simple-chart-error"
-        width="100%"
-        height="100%"
-        alignItems="center"
-        justifyContent="center"
-        gap="$2"
-      >
-        <Icon name="InfoCircleOutline" size="$6" color="$iconSubdued" />
-        <SizableText size="$bodySm" color="$textSubdued">
-          {intl.formatMessage({
-            id: ETranslations.global_unknown_error_retry_message,
-          })}
-        </SizableText>
-        <Button
-          testID="stock-simple-chart-retry"
-          size="small"
-          variant="tertiary"
-          onPress={() => void retry()}
-        >
-          {intl.formatMessage({ id: ETranslations.global_retry })}
-        </Button>
-      </YStack>
-    );
-  } else if (!chartState.data.length) {
-    chartContent = (
+  } else if (displayedChartState.status === 'error') {
+    chartPlaceholder = renderChartError();
+  } else if (!displayedChartState.data.length) {
+    chartPlaceholder = (
       <YStack
         testID="stock-simple-chart-empty"
         width="100%"
@@ -172,21 +499,21 @@ export function StockSimpleChart({
         </SizableText>
       </YStack>
     );
-  } else {
-    chartContent = (
-      <StockPriceLineChart
-        testID="stock-simple-chart-content"
-        data={chartState.data}
-        height={chartHeight}
-        pulseLastPoint={
-          stockDetail?.marketStatus?.isOpen === true ||
-          tokenDetail?.stock?.isOpen === true
-        }
-        // The stock detail page redirects its own price header to the hovered
-        // point, so a price inside the crosshair label would repeat it.
-        hoverLabelShowsPrice={false}
-        onHoverChange={onHoverChange}
-      />
+  }
+
+  let placeholder = chartPlaceholder;
+  if (platformEnv.isNative && placeholder) {
+    placeholder = (
+      <Stack
+        position="absolute"
+        top={0}
+        right={0}
+        bottom={0}
+        left={0}
+        bg="$bgApp"
+      >
+        {placeholder}
+      </Stack>
     );
   }
 
@@ -202,7 +529,19 @@ export function StockSimpleChart({
         }
       }}
     >
-      {chartContent}
+      {platformEnv.isNative || !chartPlaceholder ? (
+        <StockPriceLineChart
+          testID="stock-simple-chart-content"
+          data={chartPlaceholder ? EMPTY_CHART_POINTS : chartData}
+          height={chartHeight}
+          pulseLastPoint={pulseLastPoint}
+          previousClose={chartPlaceholder ? undefined : previousClose}
+          showCurrentPriceLabel
+          priceScaleFormat={priceScaleFormat}
+          hoverLabelLargePrice
+        />
+      ) : null}
+      {placeholder}
     </Stack>
   );
 }

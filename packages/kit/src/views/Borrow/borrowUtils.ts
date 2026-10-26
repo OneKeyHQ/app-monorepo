@@ -13,7 +13,7 @@ import {
 import type { IModalStakingParamList } from '@onekeyhq/shared/src/routes';
 import { EEarnLabels } from '@onekeyhq/shared/types/staking';
 
-import { safePushToEarnRoute } from '../Earn/earnUtils';
+import { EarnNavigation, safePushToEarnRoute } from '../Earn/earnUtils';
 
 import type { IAppNavigation } from '../../hooks/useAppNavigation';
 import type { EManagePositionType } from '../Staking/pages/ManagePosition/hooks/useManagePage';
@@ -31,6 +31,15 @@ export const BorrowNavigation = {
       screen: ETabEarnRoutes.EarnHome,
       params: { mode: 'borrow' },
     });
+  },
+
+  popToBorrowHome(navigation: IAppNavigation) {
+    if (platformEnv.isNative) {
+      void safePushToEarnRoute(navigation, ETabEarnRoutes.BorrowHome);
+      return;
+    }
+
+    void EarnNavigation.popToEarnHome(navigation, { mode: 'borrow' });
   },
 
   // Navigate from deep link (when user clicks a borrow share link)

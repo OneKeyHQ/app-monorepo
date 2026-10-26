@@ -1,4 +1,4 @@
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 
 import { resetChainSelectorModal } from '@onekeyhq/components';
 import type { IPageScreenProps } from '@onekeyhq/components';
@@ -17,12 +17,17 @@ import {
   EChainSelectorPages,
   type IChainSelectorParamList,
 } from '@onekeyhq/shared/src/routes';
+import { EAppSWRCacheScopes } from '@onekeyhq/shared/src/storage/syncStorageKeys';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { EditableChainSelector } from '../components/EditableChainSelector';
 import { PureChainSelector } from '../components/PureChainSelector';
+import {
+  buildRecentNetworksSwrKey,
+  prependRecentNetworkToSwrCache,
+} from '../components/recentNetworksCache';
 
 const defaultChainSelectorNetworks: {
   mainnetItems: IServerNetwork[];
@@ -239,8 +244,20 @@ function AccountChainSelector({
   const navigation = useAppNavigation();
   const actions = useAccountSelectorActions();
   const {
-    activeAccount: { network: activeNetwork },
+    activeAccount: { network: activeNetwork, wallet, account },
   } = useActiveAccount({ num });
+  // The slot the editable selector's RecentNetworks chips paint from
+  // (EditableAccountChainSelector shows the All Networks chip).
+  const recentNetworksSwrKey = useMemo(
+    () =>
+      buildRecentNetworksSwrKey({
+        scope: EAppSWRCacheScopes.editableChainSelector,
+        showAllNetwork: true,
+        walletId: wallet?.id,
+        accountId: account?.id,
+      }),
+    [account?.id, wallet?.id],
+  );
   const handleListItemPress = useCallback(
     (item: IServerNetwork) => {
       if (
@@ -259,11 +276,19 @@ function AccountChainSelector({
         void backgroundApiProxy.serviceNetwork.updateRecentNetwork({
           networkId: activeNetwork.id,
         });
+        // EditableChainSelector's chips list All Networks (`allNetworkItem`
+        // is in their availableNetworks), so it belongs in this slot.
+        prependRecentNetworkToSwrCache({
+          swrKey: recentNetworksSwrKey,
+          network: activeNetwork,
+          includeAllNetwork: true,
+        });
       }
 
       void actions.current.updateSelectedAccountNetwork({
         num,
         networkId: item.id,
+        reason: 'userSelectNetwork',
       });
 
       // Surgically drop only the ChainSelectorModal route. popStack() triggers
@@ -273,7 +298,14 @@ function AccountChainSelector({
       // so filter by route name instead. See ios-overlay-navigation-freeze.md.
       resetChainSelectorModal();
     },
-    [actions, num, recordNetworkHistoryEnabled, activeNetwork, sceneName],
+    [
+      actions,
+      num,
+      recordNetworkHistoryEnabled,
+      activeNetwork,
+      recentNetworksSwrKey,
+      sceneName,
+    ],
   );
   const onAddCustomNetwork = useCallback(() => {
     navigation.push(EChainSelectorPages.ChainListSearch, {

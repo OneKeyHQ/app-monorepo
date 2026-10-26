@@ -14,10 +14,8 @@ import type {
   ITradingViewNativeIndicatorSelection,
 } from '@onekeyhq/kit/src/components/TradingView/TradingViewChartControls';
 import { getTradingViewTimezone } from '@onekeyhq/kit/src/components/TradingView/utils/tradingViewTimezone';
-import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { EModalMarketRoutes } from '@onekeyhq/kit/src/views/Market/router/types';
+import { showMarketChartSettingsDialog } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/MarketChartSettingsModal';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 
 import {
   type ITradingViewNativeAnyIndicator,
@@ -30,14 +28,20 @@ import {
   getTradingViewNativeChartTypeValue,
 } from './utils/chartType';
 
-import type { ITradingViewNativeChartType } from './types';
+import type {
+  ITradingViewNativeChartType,
+  ITradingViewNativeStorageNamespace,
+} from './types';
 
 interface ITradingViewNativeChartControlsContainerProps {
+  storageNamespace?: ITradingViewNativeStorageNamespace;
   activeChartType: ITradingViewNativeChartType;
   activeIndicatorValues: Set<string>;
   calendarAvailableTimeRange?: ITradingViewChartControlsProps['calendarAvailableTimeRange'];
   compactMobileLayout?: boolean;
+  mobileSettingsControl?: ReactNode;
   enableNativeChartSettings?: boolean;
+  enablePreviousClose?: boolean;
   intervalConfig: ITradingViewChartControlsProps['intervalConfig'];
   maxSelectableSubIndicatorCount?: number;
   layoutMode?: ITradingViewChartControlsProps['layoutMode'];
@@ -57,7 +61,7 @@ interface ITradingViewNativeChartControlsContainerProps {
   onIndicatorSettingsPress: () => void;
   onIndicatorSelectionConfirm: (
     selection: ITradingViewNativeIndicatorSelection,
-  ) => void;
+  ) => void | Promise<void>;
   onCalendarPanelOpen?: ITradingViewChartControlsProps['onCalendarPanelOpen'];
   onCalendarPanelSubmit?: ITradingViewChartControlsProps['onCalendarPanelSubmit'];
   onFullscreenChange?: (isFullscreen: boolean) => void;
@@ -65,11 +69,14 @@ interface ITradingViewNativeChartControlsContainerProps {
 
 export const TradingViewNativeChartControlsContainer = memo(
   ({
+    storageNamespace,
     activeChartType,
     activeIndicatorValues,
     calendarAvailableTimeRange,
     compactMobileLayout = false,
+    mobileSettingsControl,
     enableNativeChartSettings = false,
+    enablePreviousClose = false,
     intervalConfig,
     maxSelectableSubIndicatorCount,
     layoutMode = 'mobile',
@@ -90,7 +97,6 @@ export const TradingViewNativeChartControlsContainer = memo(
     onFullscreenChange,
   }: ITradingViewNativeChartControlsContainerProps) => {
     const intl = useIntl();
-    const navigation = useAppNavigation();
     const chartStyleTitle = intl.formatMessage({
       id: ETranslations.market_chart_style,
     });
@@ -98,6 +104,14 @@ export const TradingViewNativeChartControlsContainer = memo(
       getTradingViewNativeChartTypeValue(activeChartType);
     const settingsEnabled =
       enableNativeChartSettings && layoutMode === 'desktop';
+    const mobileSettingsButton =
+      layoutMode === 'mobile' && !onChartClose ? mobileSettingsControl : null;
+    const handleSettingsPress = useCallback(() => {
+      showMarketChartSettingsDialog({
+        showPreviousClose: enablePreviousClose,
+        ...(storageNamespace ? { storageNamespace } : {}),
+      });
+    }, [enablePreviousClose, storageNamespace]);
     const indicators = useMemo<ITradingViewIndicatorOption[]>(
       () =>
         TRADING_VIEW_NATIVE_INDICATOR_CATALOG.map(({ id, label }) => ({
@@ -110,11 +124,6 @@ export const TradingViewNativeChartControlsContainer = memo(
     const indicatorsTitle = intl.formatMessage({
       id: ETranslations.market_indicators,
     });
-    const openChartSettingsModal = useCallback(() => {
-      navigation.pushModal(EModalRoutes.MarketModal, {
-        screen: EModalMarketRoutes.MarketChartSettings,
-      });
-    }, [navigation]);
     const handleFullscreenToggle = useCallback(() => {
       onFullscreenChange?.(!isFullscreen);
     }, [isFullscreen, onFullscreenChange]);
@@ -165,6 +174,7 @@ export const TradingViewNativeChartControlsContainer = memo(
             onSelect={handleIndicatorSelect}
             onSelectionConfirm={onIndicatorSelectionConfirm}
             onResetLayout={noop}
+            onSettingsPress={onIndicatorSettingsPress}
           />
         ),
       });
@@ -203,7 +213,9 @@ export const TradingViewNativeChartControlsContainer = memo(
         chartTypeToggleIcon="TradingViewCandlesOutline"
         chartTypes={TRADING_VIEW_NATIVE_CHART_TYPE_OPTIONS}
         hasVisibleControls
-        hasVisibleIndicators={!onChartClose}
+        hasVisibleIndicators={
+          !compactMobileLayout && !onChartClose && !mobileSettingsButton
+        }
         hasVisibleIntervalSelector
         indicators={indicators}
         indicatorsTitle={indicatorsTitle}
@@ -211,7 +223,7 @@ export const TradingViewNativeChartControlsContainer = memo(
         nextChartTypeLabel={chartStyleTitle}
         priceMarketCap={undefined}
         settingsEnabled={settingsEnabled}
-        showChartTypeSelect={!compactMobileLayout}
+        showChartTypeSelect={!compactMobileLayout && !mobileSettingsButton}
         showChartTypeToggle={false}
         showIndicatorPopover={false}
         showPriceMarketCapSelect={false}
@@ -225,7 +237,7 @@ export const TradingViewNativeChartControlsContainer = memo(
         chartMode={layoutMode === 'desktop' ? 'native' : undefined}
         isChartSwitchDisabled={isChartSwitchDisabled}
         onChartSwitch={layoutMode === 'desktop' ? onChartSwitch : undefined}
-        rightControl={closeControl}
+        rightControl={closeControl ?? mobileSettingsButton}
         rightControlLabel={shouldShowChartCloseControl ? closeLabel : undefined}
         onIntervalChange={onIntervalChange}
         onIndicatorPress={handleIndicatorPress}
@@ -235,7 +247,7 @@ export const TradingViewNativeChartControlsContainer = memo(
         onPriceMarketCapModeChange={noop}
         onCalendarPanelOpen={onCalendarPanelOpen}
         onCalendarPanelSubmit={onCalendarPanelSubmit}
-        onSettingsPress={openChartSettingsModal}
+        onSettingsPress={handleSettingsPress}
         onFullscreenToggle={
           onFullscreenChange ? handleFullscreenToggle : undefined
         }

@@ -86,10 +86,21 @@ index 226781f..82a9790 100644
  
  + (void)supportLegacyViewManagersWithPrefix:(NSString *)prefix
 diff --git a/node_modules/react-native/React/Fabric/Mounting/ComponentViews/View/RCTViewComponentView.mm b/node_modules/react-native/React/Fabric/Mounting/ComponentViews/View/RCTViewComponentView.mm
-index b033b7c..4095ea1 100644
+index b033b7c..eb0dfed 100644
 --- a/node_modules/react-native/React/Fabric/Mounting/ComponentViews/View/RCTViewComponentView.mm
 +++ b/node_modules/react-native/React/Fabric/Mounting/ComponentViews/View/RCTViewComponentView.mm
-@@ -987,6 +987,19 @@ - (UIView *)currentContainerView
+@@ -688,6 +688,10 @@ - (void)prepareForRecycle
+ {
+   [super prepareForRecycle];
+ 
++  // OneKey patch: Native tab hosts may leave a flexible mask on recycled views.
++  // Reset it before UIKit attaches this view to an unrelated parent.
++  self.autoresizingMask = UIViewAutoresizingNone;
++
+   // If view was managed by animated, its props need to align with UIView's properties.
+   const auto &props = static_cast<const ViewProps &>(*_props);
+   if ([_propKeysManagedByAnimated_DO_NOT_USE_THIS_IS_BROKEN containsObject:@"transform"]) {
+@@ -987,6 +991,19 @@ - (UIView *)currentContainerView
  }
  
  - (void)invalidateLayer

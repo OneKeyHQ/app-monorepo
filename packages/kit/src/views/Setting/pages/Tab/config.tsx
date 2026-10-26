@@ -1,3 +1,4 @@
+/* cspell:ignore Infini */
 import type { ComponentType } from 'react';
 import { useMemo } from 'react';
 
@@ -44,10 +45,12 @@ import {
   EModalRoutes,
   EModalSettingRoutes,
   ESettingsTabNames,
+  ETabDeveloperRoutes,
 } from '@onekeyhq/shared/src/routes';
 import { EManualBackupRoutes } from '@onekeyhq/shared/src/routes/manualBackup';
 import { EPrimeFeatures, EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import { EModalShortcutsRoutes } from '@onekeyhq/shared/src/routes/shortcuts';
+import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
 import { getOneKeyExtensionStoreUrl } from '@onekeyhq/shared/src/utils/extensionStoreUtils';
 import {
   openUrlExternal,
@@ -76,10 +79,12 @@ import {
   ResetPinListItem,
   SplitViewListItem,
   ThemeListItem,
+  TravelModeListItem,
   UseGasAccountByDefaultListItem,
 } from './CustomElement';
-import { showExportLogsDialog } from './exportLogs/showExportLogsDialog';
+import { ExportDiagnosticLogsListItem } from './exportLogs/ExportDiagnosticLogsListItem';
 import { OFFICIAL_CHANNELS_SEARCH_KEYWORDS } from './officialChannels';
+import { RestoreInfiniPendingTransactionsListItem } from './RestoreInfiniPendingTransactionsListItem';
 import { getSettingsDisplayTitle } from './settingsDisplay';
 import { SETTINGS_SIDEBAR_ORDER } from './settingsRootLayout';
 // import { OneKeyIdSubSettings } from './OneKeyIdSubSettings';
@@ -127,6 +132,8 @@ interface ISubSettingConfigBase {
   mobileTitle?: string;
   subtitle?: string;
   keywords?: string[];
+  searchable?: boolean;
+  ignorePress?: boolean;
   /**
    * Phone layouts promote this item to the settings home cards; its own
    * category page hides it there.
@@ -173,6 +180,7 @@ export type ISettingsConfig = (
       name: ESettingsTabNames;
       testID?: string;
       isHidden?: boolean;
+      ignorePress?: boolean;
       /**
        * Synthetic category derived from an item's `desktopTab` annotation.
        * Rendered only by the tab navigator; list layouts must skip it.
@@ -230,6 +238,9 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
   const isKeylessWalletExistsLocal = useKeylessWalletExistsLocal();
 
   return useMemo(() => {
+    const isTravelMode =
+      travelModeManager.getRuntimeEnvironmentSync().profile.kind ===
+      'travel-mode';
     const clearPendingTransactionsItem: ISubSettingConfig = {
       id: 'clear-pending-transactions',
       icon: 'ClockTimeHistoryOutline',
@@ -237,6 +248,12 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
         id: ETranslations.settings_clear_pending_transactions,
       }),
       renderElement: <ClearPendingTransactionsListItem />,
+    };
+    const restoreInfiniPendingTransactionsItem: ISubSettingConfig = {
+      id: 'restore-infini-pending-transactions',
+      icon: 'ClockTimeHistoryOutline',
+      title: `Infini: ${intl.formatMessage({ id: ETranslations.global_restore })} ${intl.formatMessage({ id: ETranslations.tray_pending_transactions_title })}`,
+      renderElement: <RestoreInfiniPendingTransactionsListItem />,
     };
     const config: ISettingsConfig = [
       // OneKey ID tab with custom rendering
@@ -515,6 +532,9 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
             platformEnv.isWebDappMode
               ? clearPendingTransactionsItem
               : undefined,
+            platformEnv.isWebDappMode
+              ? restoreInfiniPendingTransactionsItem
+              : undefined,
           ],
           [
             {
@@ -610,6 +630,18 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                   title: intl.formatMessage({
                     id: ETranslations.settings_account_derivation_path,
                   }),
+                  // The only place to change the Bitcoin address type once
+                  // an account shows a single one, so it must be findable by
+                  // the words users know it by.
+                  keywords: [
+                    intl.formatMessage({ id: ETranslations.address_type }),
+                    'Taproot',
+                    'SegWit',
+                    'Legacy',
+                    'Nested',
+                    'bc1q',
+                    'bc1p',
+                  ],
                   settingRoute:
                     EModalSettingRoutes.SettingAccountDerivationModal,
                   onPress: (navigation) => {
@@ -630,7 +662,10 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                   renderElement: <BTCFreshAddressListItem />,
                 },
               ],
-              [clearPendingTransactionsItem],
+              [
+                clearPendingTransactionsItem,
+                restoreInfiniPendingTransactionsItem,
+              ],
             ],
           },
       platformEnv.isWebDappMode
@@ -713,7 +748,11 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                         'allowlist',
                       ],
                       settingRoute: EModalSettingRoutes.SettingProtectModal,
+                      ignorePress: isTravelMode,
                       onPress: (navigation) => {
+                        if (isTravelMode) {
+                          return;
+                        }
                         navigation?.push(
                           EModalSettingRoutes.SettingProtectModal,
                         );
@@ -782,6 +821,20 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                           EModalSettingRoutes.SettingFloatingIconModal,
                         );
                       },
+                    }
+                  : undefined,
+              ],
+              [
+                platformEnv.isNative
+                  ? {
+                      id: 'travel-mode',
+                      icon: 'LuggagePackageOutline',
+                      title: intl.formatMessage({
+                        id: ETranslations.travel_mode__title,
+                      }),
+                      searchable: false,
+                      testID: SettingTestIDs.travelModeItem,
+                      renderElement: <TravelModeListItem />,
                     }
                   : undefined,
               ],
@@ -999,18 +1052,20 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
               title: intl.formatMessage({
                 id: ETranslations.settings_export_state_logs,
               }),
-              onPress: () => {
-                showExportLogsDialog({
-                  title: intl.formatMessage({
-                    id: ETranslations.settings_upload_state_logs,
-                  }),
-                });
-              },
+              keywords: [
+                'diagnostic logs',
+                'state logs',
+                '导出诊断日志',
+                '导出状态日志',
+              ],
+              testID: SettingTestIDs.exportDiagnosticLogsItem,
+              renderElement: <ExportDiagnosticLogsListItem />,
             },
           ],
         ],
       },
-      devSettings.enabled
+      devSettings.enabled ||
+      (platformEnv.isDev && (platformEnv.isDesktop || platformEnv.isExtension))
         ? {
             icon: 'CodeSolid',
             mobileIcon: 'CodeOutline',
@@ -1030,14 +1085,32 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
             },
             configs: [
               [
-                {
-                  id: 'dev-mode',
-                  icon: 'CodeOutline',
-                  title: intl.formatMessage({
-                    id: ETranslations.global_dev_mode,
-                  }),
-                  renderElement: <DevSettingsSection />,
-                },
+                platformEnv.isDev &&
+                (platformEnv.isDesktop || platformEnv.isExtension)
+                  ? {
+                      id: 'developer-pages',
+                      icon: 'CodeBracketsOutline',
+                      title: intl.formatMessage({
+                        id: ETranslations.global_dev_mode,
+                      }),
+                      testID: 'setting-developer-pages',
+                      onPress: (navigation) => {
+                        navigation?.pushModal(EModalRoutes.DeveloperModal, {
+                          screen: ETabDeveloperRoutes.TabDeveloper,
+                        });
+                      },
+                    }
+                  : undefined,
+                devSettings.enabled
+                  ? {
+                      id: 'dev-mode',
+                      icon: 'CodeOutline',
+                      title: intl.formatMessage({
+                        id: ETranslations.global_dev_mode,
+                      }),
+                      renderElement: <DevSettingsSection />,
+                    }
+                  : undefined,
               ],
             ],
           }
@@ -1053,9 +1126,48 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
         Component: SubSearchSettings,
       },
     ];
+    const hiddenTravelModeItemIds = new Set([
+      'notifications',
+      'onekey-transfer',
+      'manual-backup',
+      'address-book',
+      'account-derivation',
+      'passcode',
+      'add-network',
+      'custom-rpc',
+    ]);
+    const filteredConfig = isTravelMode
+      ? config.map((category) =>
+          category
+            ? {
+                ...category,
+                isHidden:
+                  category.isHidden ||
+                  category.name === ESettingsTabNames.About,
+                ignorePress:
+                  category.ignorePress ||
+                  [
+                    ESettingsTabNames.Backup,
+                    ESettingsTabNames.Network,
+                    ESettingsTabNames.AppData,
+                  ].includes(category.name),
+                configs: category.configs
+                  .map((group) =>
+                    group.filter(
+                      (item) =>
+                        !item ||
+                        !item.id ||
+                        !hiddenTravelModeItemIds.has(item.id),
+                    ),
+                  )
+                  .filter((group) => group.length > 0),
+              }
+            : category,
+        )
+      : config;
     // Desktop link tabs are derived from the annotated items so their
     // platform gating and copy never fork from the source item.
-    const linkTabCategories: ISettingsConfig = config.flatMap(
+    const linkTabCategories: ISettingsConfig = filteredConfig.flatMap(
       (category) =>
         category?.configs
           .flat()
@@ -1079,7 +1191,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
             configs: [],
           })) ?? [],
     );
-    return [...config, ...linkTabCategories].toSorted((a, b) => {
+    return [...filteredConfig, ...linkTabCategories].toSorted((a, b) => {
       const aOrder = a
         ? (SETTINGS_CONFIG_ORDER.get(a.name) ?? SETTINGS_CONFIG_ORDER.size)
         : SETTINGS_CONFIG_ORDER.size + 1;

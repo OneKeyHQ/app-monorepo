@@ -48,6 +48,7 @@ export const useCopyAccountAddress = () => {
             walletId,
             token,
             onDeriveTypeChange,
+            source: 'copyAddress',
           },
         });
       } else {

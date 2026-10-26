@@ -1,5 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import {
+  OverlayPageHostScope,
+  OverlayPageOwnerScope,
+} from '@onekeyfe/react-native-native-overlay';
 import { BigNumber } from 'bignumber.js';
 import { type IntlShape, useIntl } from 'react-intl';
 
@@ -28,6 +32,7 @@ import {
   useBboForOrderPrice,
   useHyperliquidActions,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
+import { shouldRedirectOnboardingToTravelMode } from '@onekeyhq/kit/src/utils/onboardingEntryGate';
 import {
   perpsActiveAccountStatusAtom,
   usePerpsAccountDisplayReadyAtom,
@@ -36,7 +41,6 @@ import {
   usePerpsActiveAccountEnableTradingModeAtom,
   usePerpsActiveAccountIsAgentReadyAtom,
   usePerpsActiveAccountStatusAtom,
-  usePerpsActiveAccountSummaryAtom,
   usePerpsActiveAssetAtom,
   usePerpsActiveAssetCtxAtom,
   usePerpsActiveAssetCtxReadyAtom,
@@ -51,6 +55,7 @@ import {
   useSpotBalancesAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms/spot';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors/errors/localError';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -63,7 +68,7 @@ import {
 } from '@onekeyhq/shared/src/routes';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import {
-  calculateLiquidationPrice,
+  estimateLiquidationPrice,
   formatPriceToSignificantDigits,
   formatSpotPriceToValid,
   getSpotTokenDisplayName,
@@ -81,6 +86,7 @@ import {
 } from '../../../hooks/useEnableTradingWithDepositFallback';
 import { calculateOrderPrice } from '../../../hooks/useOrderPrice';
 import { usePerpsAccountScopedActivePositions } from '../../../hooks/usePerpsAccountScopedActivePositions';
+import { usePerpsCrossAvailableAfterMaintenance } from '../../../hooks/usePerpsCrossAvailableAfterMaintenance';
 import { usePerpsMarketDataFreshness } from '../../../hooks/usePerpsMarketDataFreshness';
 import {
   usePreloadPerpsUnifoldDepositModals,
@@ -95,7 +101,7 @@ import {
   getEnableTradingDialogConfirmDecision,
   shouldShowPerpsFirstDepositPrompt,
 } from '../../../utils/enableTradingDialogConfirm';
-import { shouldApplyMinimumOrderGuard } from '../../../utils/minimumOrderGuard';
+import { isBelowMinimumOrderValue } from '../../../utils/minimumOrderGuard';
 import { shouldBlockPerpsTradingForMarketData } from '../../../utils/perpsMarketDataFreshness';
 import { shouldDisablePerpsOrderPanelTradingButtonForAccountLoading } from '../../../utils/perpsOrderPanelEnableTrading';
 import { resolveTpSlTriggerPx } from '../../../utils/resolveTpSlTriggerPx';
@@ -125,9 +131,11 @@ import {
   OrderTypeInfoButton,
 } from './PerpTradingForm';
 
+import type { IOverlayPageScope } from '@onekeyfe/react-native-native-overlay';
 import type { ColorTokens } from 'tamagui';
 
 interface ILimitOrderFormProps {
+  sourcePage: IOverlayPageScope;
   symbol: string;
   seededPrice: string;
   displayCoin?: string;
@@ -165,6 +173,7 @@ function getPerpsAccountActionType({
 }
 
 export function LimitOrderForm({
+  sourcePage,
   symbol,
   seededPrice,
   displayCoin,
@@ -176,7 +185,6 @@ export function LimitOrderForm({
 
   const [perpsAccount] = usePerpsActiveAccountAtom();
   const [activeAsset] = usePerpsActiveAssetAtom();
-  const [accountSummary] = usePerpsActiveAccountSummaryAtom();
   const [activeAssetCtx] = usePerpsActiveAssetCtxAtom();
   const [activeAssetData] = usePerpsActiveAssetDataAtom();
   const [isAssetCtxReady] = usePerpsActiveAssetCtxReadyAtom();
@@ -473,6 +481,16 @@ export function LimitOrderForm({
       formatter: 'balance',
     })} ${baseName}`;
   }, [isSpot, spotHoldingBaseBN, spotUniverse?.baseName]);
+  const crossAvailableAfterMaintenance = usePerpsCrossAvailableAfterMaintenance(
+    activeAsset?.coin,
+  );
+  const leverageType = activeAssetData?.leverage?.type;
+  // Asset data can lag an account or coin switch; never mix it with another's.
+  const isLiquidationAssetDataReady =
+    Boolean(perpsAccount?.accountAddress) &&
+    activeAssetData?.accountAddress?.toLowerCase() ===
+      perpsAccount?.accountAddress?.toLowerCase() &&
+    activeAssetData?.coin === activeAsset?.coin;
   const sideStats = useMemo(() => {
     const buildStats = (targetSide: ITradeSide) => {
       const sidePriceBN = resolvePriceForSide(targetSide).price;
@@ -499,38 +517,32 @@ export function LimitOrderForm({
         : sideOrderValueBN.dividedBy(leverage || 1);
 
       const sideLiquidationPriceBN =
-        !activeAssetData?.leverage?.type ||
+        !isLiquidationAssetDataReady ||
         !sideSizeBN.isFinite() ||
         sideSizeBN.lte(0) ||
         !sidePriceBN.isFinite() ||
-        sidePriceBN.lte(0)
+        sidePriceBN.lte(0) ||
+        (leverageType !== 'cross' && leverageType !== 'isolated')
           ? null
-          : calculateLiquidationPrice({
-              totalValue: sideSizeBN.multipliedBy(sidePriceBN),
-              referencePrice: sidePriceBN,
-              clampToCurrentMark: true,
-              markPrice: activeAssetCtx?.ctx?.markPrice
-                ? new BigNumber(activeAssetCtx.ctx.markPrice)
-                : undefined,
-              positionSize: sideSizeBN,
+          : estimateLiquidationPrice({
               side: targetSide,
+              orderSize: sideSizeBN,
+              priceMode: 'limit',
+              orderPrice: sidePriceBN,
+              markPrice: new BigNumber(activeAssetCtx?.ctx?.markPrice ?? 0),
+              reduceOnly,
+              marginMode: leverageType,
               leverage,
-              mode: activeAssetData.leverage.type,
               marginTiers: activeAsset?.margin?.marginTiers,
               maxLeverage: activeAsset?.universe?.maxLeverage || 1,
-              crossMarginUsed: new BigNumber(
-                accountSummary?.crossAccountValue || '0',
+              existingPositionSize: new BigNumber(
+                currentCoinPosition?.szi ?? 0,
               ),
-              crossMaintenanceMarginUsed: new BigNumber(
-                accountSummary?.crossMaintenanceMarginUsed || '0',
-              ),
-              existingPositionSize: currentCoinPosition
-                ? new BigNumber(currentCoinPosition.szi)
-                : undefined,
-              existingEntryPrice: currentCoinPosition
-                ? new BigNumber(currentCoinPosition.entryPx)
-                : undefined,
-              newOrderSide: targetSide,
+              isolatedRawUsd:
+                currentCoinPosition?.leverage?.type === 'isolated'
+                  ? new BigNumber(currentCoinPosition.leverage.rawUsd)
+                  : undefined,
+              crossAvailableAfterMaintenance,
             });
 
       return {
@@ -548,16 +560,17 @@ export function LimitOrderForm({
       short: buildStats('short'),
     };
   }, [
-    accountSummary?.crossAccountValue,
-    accountSummary?.crossMaintenanceMarginUsed,
     activeAsset?.margin?.marginTiers,
     activeAsset?.universe?.maxLeverage,
     activeAssetCtx?.ctx?.markPrice,
-    activeAssetData?.leverage?.type,
     computeSizeBN,
+    crossAvailableAfterMaintenance,
     currentCoinPosition,
+    isLiquidationAssetDataReady,
     isSpot,
     leverage,
+    leverageType,
+    reduceOnly,
     resolvePriceForSide,
   ]);
 
@@ -623,6 +636,7 @@ export function LimitOrderForm({
     ],
   );
   const shouldDisableAccountActionButtons = isTradingActionLoading;
+  const isConnectWalletDisabled = shouldRedirectOnboardingToTravelMode();
   const shouldShowFirstDepositAction = shouldShowPerpsFirstDepositPrompt({
     status: perpsAccountStatus,
     isLiveStatusPending: !perpsAccountDisplayReady.statusReady,
@@ -726,7 +740,10 @@ export function LimitOrderForm({
               status: undefined,
             };
           }
-          return requestEnableTradingWithLoadingToast(closeDialog);
+          return requestEnableTradingWithLoadingToast(() => {
+            closeDialog();
+            closeLimitDialog();
+          });
         },
       });
 
@@ -933,16 +950,7 @@ export function LimitOrderForm({
       }
 
       const orderValueBN = computedSizeBN.multipliedBy(resolvedPriceBN);
-      if (
-        shouldApplyMinimumOrderGuard({
-          isSpot,
-          orderMode: 'standard',
-          orderType: 'limit',
-          hasBboPriceMode: Boolean(bboPriceMode),
-        }) &&
-        orderValueBN.gt(0) &&
-        orderValueBN.lt(10)
-      ) {
+      if (isBelowMinimumOrderValue(orderValueBN)) {
         showMinimumOrderToast();
         return;
       }
@@ -1035,6 +1043,8 @@ export function LimitOrderForm({
         })
       ) {
         showOrderConfirmDialog({
+          sourcePage,
+          beforeDeposit: onClose,
           overrideSide: pressedSide,
           formData: builtFormData,
           price: resolvedPrice,
@@ -1099,6 +1109,7 @@ export function LimitOrderForm({
       slValue,
       spotAvailableBaseBN,
       spotAvailableQuoteBN,
+      sourcePage,
       symbol,
       szDecimals,
       tpType,
@@ -1205,7 +1216,9 @@ export function LimitOrderForm({
           testID="chart-limit-connect-wallet"
           variant="primary"
           onPress={() => void handleConnectWallet()}
-          disabled={shouldDisableAccountActionButtons}
+          disabled={
+            shouldDisableAccountActionButtons || isConnectWalletDisabled
+          }
           loading={isTradingActionLoading}
         >
           {intl.formatMessage({ id: ETranslations.global_connect_wallet })}
@@ -1221,6 +1234,7 @@ export function LimitOrderForm({
     handleConnectWallet,
     intl,
     isTradingActionLoading,
+    isConnectWalletDisabled,
     shouldDisableAccountActionButtons,
   ]);
   const reduceOnlyLabel = intl.formatMessage({
@@ -1330,6 +1344,7 @@ export function LimitOrderForm({
         sliderPercent={sizePercent}
         onRequestManualMode={switchToManual}
         allowMarginInput={!isSpot}
+        ifOnDialog
         leverage={leverage}
         inputRef={sizeInputRef}
         minimumOrderActionRef={minimumOrderActionRef}
@@ -1338,7 +1353,7 @@ export function LimitOrderForm({
         min={0}
         max={100}
         value={sliderValue}
-        showBubble={false}
+        showBubble
         onChange={handleSliderPercentChange}
         disabled={!sliderEnabled}
         segments={4}
@@ -1364,7 +1379,7 @@ export function LimitOrderForm({
                 height={LIMIT_ORDER_CHECKBOX_SIZE}
               />
               <DashText
-                size="$bodyMdMedium"
+                size="$bodyMd"
                 color="$text"
                 dashColor="$textDisabled"
                 dashThickness={0.5}
@@ -1487,7 +1502,7 @@ export function LimitOrderForm({
               numberOfLines={1}
             >
               {intl.formatMessage({
-                id: ETranslations.global_top_up,
+                id: ETranslations.perp_trade_deposit,
               })}
             </SizableText>
           </Button>
@@ -1663,18 +1678,24 @@ function LimitOrderDialogTitle({ title }: { title: string }) {
 }
 
 export function showLimitOrderDialog({
+  sourcePage,
   symbol,
   price,
   displayPair,
   displayCoin,
   intl,
 }: {
+  sourcePage?: IOverlayPageScope;
   symbol: string;
   price: string;
   displayPair?: string;
   displayCoin?: string;
   intl: IntlShape;
 }) {
+  const { hostKey, ownerKey } = sourcePage ?? {};
+  if (!hostKey || !ownerKey) {
+    throw new OneKeyLocalError('Limit order requires a source page');
+  }
   const displayName = displayPair ?? parseDexCoin(symbol).displayName;
   const titleText = `${intl.formatMessage({
     id: ETranslations.perp_trade_limit,
@@ -1683,23 +1704,26 @@ export function showLimitOrderDialog({
     // No `title` here: the custom Dialog.Header below supplies the single header
     // (title + info button); the default BasicDialogHeader renders it + close.
     renderContent: (
-      <>
-        <Dialog.Header>
-          <LimitOrderDialogTitle title={titleText} />
-        </Dialog.Header>
-        <PerpsAccountSelectorProviderMirror>
-          <PerpsProviderMirror>
-            <LimitOrderForm
-              symbol={symbol}
-              seededPrice={price}
-              displayCoin={displayCoin}
-              onClose={() => {
-                void dialogInstance.close();
-              }}
-            />
-          </PerpsProviderMirror>
-        </PerpsAccountSelectorProviderMirror>
-      </>
+      <OverlayPageHostScope hostKey={hostKey}>
+        <OverlayPageOwnerScope ownerKey={ownerKey}>
+          <Dialog.Header>
+            <LimitOrderDialogTitle title={titleText} />
+          </Dialog.Header>
+          <PerpsAccountSelectorProviderMirror>
+            <PerpsProviderMirror>
+              <LimitOrderForm
+                sourcePage={{ hostKey, ownerKey }}
+                symbol={symbol}
+                seededPrice={price}
+                displayCoin={displayCoin}
+                onClose={() => {
+                  void dialogInstance.close();
+                }}
+              />
+            </PerpsProviderMirror>
+          </PerpsAccountSelectorProviderMirror>
+        </OverlayPageOwnerScope>
+      </OverlayPageHostScope>
     ),
     contentContainerProps: PERP_MOBILE_DIALOG_CONTENT_CONTAINER_PROPS,
     showFooter: false,

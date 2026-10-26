@@ -1,17 +1,316 @@
 // otsuThreshold/toGrayScale/shouldInvertForMajorityWhite are pure functions,
 // but the module's top-level imports pull in native-only packages this
 // environment doesn't support.
+import { fetch as expoFetch } from 'expo/fetch';
 import {
+  deleteAsync as ExpoFSDeleteAsync,
+  downloadAsync as ExpoFSDownloadAsync,
+} from 'expo-file-system/legacy';
+
+import platformEnv from '../platformEnv';
+
+import imageUtils, {
   atkinsonDither,
+  detectMimeTypeFromMagicBytes,
+  getImageMimeTypeFromBase64Uri,
   otsuFromHistogram,
   pickThresholdAxis,
+  probeImageMimeType,
   shouldInvertForMajorityWhite,
   toGrayScale,
 } from './imageUtils';
 
-jest.mock('expo-file-system/legacy', () => ({}));
+jest.mock('expo/fetch', () => ({ fetch: jest.fn() }));
+jest.mock('expo-file-system/legacy', () => ({
+  cacheDirectory: 'file:///cache/',
+  deleteAsync: jest.fn(async () => undefined),
+  downloadAsync: jest.fn(async (_uri: string, savedPath: string) => ({
+    headers: { 'content-type': 'application/octet-stream' },
+    uri: savedPath,
+  })),
+  getInfoAsync: jest.fn(async (uri: string) => ({ exists: true, uri })),
+  makeDirectoryAsync: jest.fn(async () => undefined),
+  readAsStringAsync: jest.fn(async () =>
+    Buffer.from([0xff, 0xd8, 0xff, 0xe0]).toString('base64'),
+  ),
+  writeAsStringAsync: jest.fn(async () => undefined),
+}));
 jest.mock('expo-image-manipulator', () => ({}));
 jest.mock('stackblur-canvas', () => ({ canvasRGBA: () => {} }));
+jest.mock('../platformEnv', () => ({
+  __esModule: true,
+  default: {
+    isNative: true,
+    isNativeAndroid: false,
+  },
+}));
+
+// Test-only structural fixture: the MIME parser reads chunk boundaries/types,
+// while image decoding and CRC validation remain outside this unit's scope.
+function createPngChunkFixtureBase64(chunkTypes: string[]) {
+  const signature = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]);
+  const chunks = chunkTypes.map((type) => {
+    let data = Buffer.alloc(0);
+    if (type === 'IHDR') {
+      data = Buffer.alloc(13);
+      data.writeUInt32BE(1, 0);
+      data.writeUInt32BE(1, 4);
+      data[8] = 8;
+      data[9] = 6;
+    } else if (type === 'acTL') {
+      data = Buffer.alloc(8);
+      data.writeUInt32BE(1, 0);
+    }
+    const length = Buffer.alloc(4);
+    length.writeUInt32BE(data.length);
+    return Buffer.concat([
+      length,
+      Buffer.from(type, 'ascii'),
+      data,
+      Buffer.alloc(4),
+    ]);
+  });
+  return Buffer.concat([signature, ...chunks]).toString('base64');
+}
+
+describe('detectMimeTypeFromMagicBytes', () => {
+  it('distinguishes APNG from a static PNG by the acTL chunk', () => {
+    expect(
+      detectMimeTypeFromMagicBytes(
+        createPngChunkFixtureBase64(['IHDR', 'acTL', 'IDAT', 'IEND']),
+      ),
+    ).toBe('image/apng');
+    expect(
+      detectMimeTypeFromMagicBytes(
+        createPngChunkFixtureBase64(['IHDR', 'IDAT', 'IEND']),
+      ),
+    ).toBe('image/png');
+  });
+
+  it('does not accept an acTL chunk placed after image data', () => {
+    expect(
+      detectMimeTypeFromMagicBytes(
+        createPngChunkFixtureBase64(['IHDR', 'IDAT', 'acTL', 'IEND']),
+      ),
+    ).toBe('image/png');
+  });
+
+  it('prefers JPEG file content independently of the response MIME type', () => {
+    expect(
+      detectMimeTypeFromMagicBytes(
+        Buffer.from([0xff, 0xd8, 0xff, 0xe0]).toString('base64'),
+      ),
+    ).toBe('image/jpeg');
+  });
+
+  it('overrides a generic data URL MIME type with detected JPEG content', () => {
+    const jpegBase64 = Buffer.from([0xff, 0xd8, 0xff, 0xe0]).toString('base64');
+    expect(
+      getImageMimeTypeFromBase64Uri(
+        `data:application/octet-stream;base64,${jpegBase64}`,
+      ),
+    ).toBe('image/jpeg');
+  });
+});
+
+describe('probeImageMimeType', () => {
+  const uri = 'https://example.com/nft-media';
+  const originalFetch = globalThis.fetch;
+  const fetchMock = jest.fn();
+  const expoFetchMock = jest.mocked(expoFetch);
+
+  beforeEach(() => {
+    Object.assign(platformEnv, { isNative: false });
+    globalThis.fetch = fetchMock as never;
+    expoFetchMock.mockReset();
+  });
+
+  afterEach(() => {
+    fetchMock.mockReset();
+    globalThis.fetch = originalFetch;
+    Object.assign(platformEnv, { isNative: true });
+  });
+
+  function mockStreamingResponse(bytes: Uint8Array, contentType: string) {
+    const read = jest
+      .fn()
+      .mockResolvedValueOnce({ done: false, value: bytes })
+      .mockResolvedValueOnce({ done: true, value: undefined });
+    const cancel = jest.fn(async () => undefined);
+    fetchMock.mockResolvedValueOnce({
+      body: { getReader: () => ({ read, cancel }) },
+      headers: new Headers({ 'content-type': contentType }),
+      ok: true,
+      status: 206,
+    } as unknown as Response);
+    return { read, cancel };
+  }
+
+  function mockNativeStreamingResponse(
+    bytes: Uint8Array,
+    status = 206,
+    contentType = 'application/octet-stream',
+  ) {
+    const read = jest
+      .fn()
+      .mockResolvedValueOnce({ done: false, value: bytes })
+      .mockResolvedValueOnce({ done: true, value: undefined });
+    const cancel = jest.fn(async () => undefined);
+    expoFetchMock.mockResolvedValueOnce({
+      body: { getReader: () => ({ read, cancel }) },
+      headers: new Headers({ 'content-type': contentType }),
+      ok: status >= 200 && status < 300,
+      status,
+    } as never);
+    return { read, cancel };
+  }
+
+  it('uses a bounded range request and content bytes instead of preloading media', async () => {
+    const { cancel } = mockStreamingResponse(
+      new Uint8Array([0xff, 0xd8, 0xff, 0xe0]),
+      'application/octet-stream',
+    );
+
+    await expect(probeImageMimeType(uri)).resolves.toBe('image/jpeg');
+    expect(fetchMock).toHaveBeenCalledWith(
+      uri,
+      expect.objectContaining({
+        headers: { Range: 'bytes=0-65535' },
+      }),
+    );
+    expect(cancel).toHaveBeenCalledTimes(1);
+  });
+
+  it('detects APNG from the bounded PNG chunk prefix', async () => {
+    mockStreamingResponse(
+      Buffer.from(
+        createPngChunkFixtureBase64(['IHDR', 'acTL', 'IDAT']),
+        'base64',
+      ),
+      'image/png',
+    );
+
+    await expect(probeImageMimeType(uri)).resolves.toBe('image/apng');
+  });
+
+  it('does not assume a truncated PNG prefix is static', async () => {
+    mockStreamingResponse(
+      Buffer.from(createPngChunkFixtureBase64(['IHDR']), 'base64'),
+      'image/png',
+    );
+
+    await expect(probeImageMimeType(uri)).resolves.toBeUndefined();
+  });
+
+  it('does not buffer an unbounded response when streaming is unavailable', async () => {
+    const arrayBuffer = jest.fn();
+    fetchMock.mockResolvedValueOnce({
+      arrayBuffer,
+      body: undefined,
+      headers: new Headers({
+        'content-type': 'video/mp4',
+      }),
+      ok: true,
+      status: 200,
+    } as unknown as Response);
+
+    await expect(probeImageMimeType(uri)).resolves.toBeUndefined();
+    expect(arrayBuffer).not.toHaveBeenCalled();
+  });
+
+  it('uses a cancellable range stream on native', async () => {
+    Object.assign(platformEnv, { isNative: true });
+    const downloadAsyncMock = jest.mocked(ExpoFSDownloadAsync);
+    downloadAsyncMock.mockClear();
+    const { cancel } = mockNativeStreamingResponse(
+      new Uint8Array([0xff, 0xd8, 0xff, 0xe0]),
+    );
+    await expect(probeImageMimeType(uri)).resolves.toBe('image/jpeg');
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(expoFetchMock).toHaveBeenCalledWith(
+      uri,
+      expect.objectContaining({
+        headers: { Range: 'bytes=0-65535' },
+        signal: expect.anything(),
+      }),
+    );
+    expect(cancel).toHaveBeenCalledTimes(1);
+    expect(expoFetchMock.mock.calls[0]?.[1]?.signal?.aborted).toBe(true);
+    expect(downloadAsyncMock).not.toHaveBeenCalled();
+  });
+
+  it('stops at the bounded prefix when the server ignores Range', async () => {
+    Object.assign(platformEnv, { isNative: true });
+    const bytes = new Uint8Array(64 * 1024 + 1);
+    bytes.set([0xff, 0xd8, 0xff, 0xe0]);
+    const { cancel, read } = mockNativeStreamingResponse(bytes, 200);
+    await expect(probeImageMimeType(uri)).resolves.toBe('image/jpeg');
+    expect(read).toHaveBeenCalledTimes(1);
+    expect(cancel).toHaveBeenCalledTimes(1);
+    expect(expoFetchMock.mock.calls[0]?.[1]?.signal?.aborted).toBe(true);
+  });
+
+  it('detects native image content even when the CDN declares a different MIME type', async () => {
+    Object.assign(platformEnv, { isNative: true });
+    mockNativeStreamingResponse(
+      new Uint8Array([0xff, 0xd8, 0xff, 0xe0]),
+      206,
+      'binary/octet-stream',
+    );
+
+    await expect(probeImageMimeType(uri)).resolves.toBe('image/jpeg');
+    expect(expoFetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not accept a failed native HTTP response as an image', async () => {
+    Object.assign(platformEnv, { isNative: true });
+    const { read } = mockNativeStreamingResponse(
+      new Uint8Array([0xff, 0xd8, 0xff, 0xe0]),
+      503,
+    );
+
+    await expect(probeImageMimeType(uri)).resolves.toBeUndefined();
+    expect(read).not.toHaveBeenCalled();
+    expect(expoFetchMock.mock.calls[0]?.[1]?.signal?.aborted).toBe(true);
+  });
+});
+
+describe('prepareImageForCropWithInfo cleanup', () => {
+  const deleteAsyncMock = jest.mocked(ExpoFSDeleteAsync);
+  const downloadAsyncMock = jest.mocked(ExpoFSDownloadAsync);
+
+  beforeEach(() => {
+    deleteAsyncMock.mockClear();
+    downloadAsyncMock.mockClear();
+  });
+
+  it('keeps a downloaded crop file until its owner releases it', async () => {
+    const preparedImage = await imageUtils.prepareImageForCropWithInfo(
+      'https://example.com/nft',
+    );
+
+    expect(preparedImage.mimeType).toBe('image/jpeg');
+    expect(deleteAsyncMock).not.toHaveBeenCalled();
+
+    await preparedImage.cleanup?.();
+    await preparedImage.cleanup?.();
+
+    expect(deleteAsyncMock).toHaveBeenCalledTimes(1);
+    expect(deleteAsyncMock).toHaveBeenCalledWith(
+      expect.stringContaining('temp-image-crop-'),
+      { idempotent: true },
+    );
+  });
+
+  it('removes a partial crop file when its download fails', async () => {
+    downloadAsyncMock.mockRejectedValueOnce(new Error('download failed'));
+
+    await expect(
+      imageUtils.prepareImageForCropWithInfo('https://example.com/nft'),
+    ).rejects.toThrow('Failed to process image source');
+    expect(deleteAsyncMock).toHaveBeenCalledTimes(1);
+  });
+});
 
 describe('toGrayScale', () => {
   it('weights green highest and blue lowest, matching ITU-R BT.601 luma', () => {

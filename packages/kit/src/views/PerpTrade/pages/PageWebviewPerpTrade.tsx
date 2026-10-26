@@ -15,10 +15,7 @@ import {
 import { DelayedRender } from '@onekeyhq/components/src/hocs/DelayedRender';
 import { TabletHomeContainer } from '@onekeyhq/kit/src/components/TabletHomeContainer';
 import { usePerpsActiveAccountAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import {
-  HYPER_LIQUID_ORIGIN,
-  HYPER_LIQUID_WEBVIEW_TRADE_URL,
-} from '@onekeyhq/shared/src/consts/perp';
+import { HYPER_LIQUID_ORIGIN } from '@onekeyhq/shared/src/consts/perp';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -36,12 +33,12 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
 import { MultipleClickStack } from '../../../components/MultipleClickStack';
 import { TabPageHeader } from '../../../components/TabPageHeader';
-import { WebViewWithFeatures } from '../../../components/WebView/WebViewWithFeatures';
 import { useShortcutsRouteStatus } from '../../../hooks/useListenTabFocusState';
 import { usePerpFeatureGuard } from '../../../hooks/usePerpFeatureGuard';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { SingleAccountAndNetworkSelectorTrigger } from '../../Discovery/components/HeaderRightToolBar';
 import { ExtPerp, shouldOpenExpandExtPerp } from '../../Perp/pages/ExtPerp';
+import { WebviewPerpTradeWebView } from '../components/WebviewPerpTradeWebView';
 import { PerpTradeTestIDs } from '../testIDs';
 
 import type {
@@ -51,7 +48,6 @@ import type {
 import type { WebView as ReactNativeWebView } from 'react-native-webview';
 
 const origin = HYPER_LIQUID_ORIGIN;
-const url = HYPER_LIQUID_WEBVIEW_TRADE_URL;
 
 function usePerpPageShortcuts({
   webviewRef,
@@ -125,17 +121,12 @@ function WebviewPerpTradeView() {
 
   const webview = useMemo(
     () => (
-      <WebViewWithFeatures
-        // important: if set to false, the webview will not notify the dapp about the account changes first time
-        features={{ notifyChangedEventsToDappOnFocus: true }}
-        id="perp-trade"
-        src={url}
+      <WebviewPerpTradeWebView
         onWebViewRef={(ref) => {
           // Simple ref handling for the perp trade
           console.log('PerpTrade WebView ref ready:', ref);
           webviewRef.current = ref;
         }}
-        allowpopups
         onDidStartLoading={onDidStartLoading}
         onDidStartNavigation={onDidStartNavigation}
         onDidFinishLoad={onDidFinishLoad}

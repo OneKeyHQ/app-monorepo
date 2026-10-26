@@ -7,6 +7,7 @@ import {
   HARDWARE_ERROR_DIALOG_TYPES,
   appEventBus,
 } from '../../eventBus/appEventBus';
+import { shouldEmitDeviceNotFoundDialogEvent } from '../../hardware/deviceStageOwnership';
 import { ETranslations } from '../../locale';
 import platformEnv from '../../platformEnv';
 import {
@@ -232,6 +233,34 @@ export class FirmwareUpdateBatteryTooLow extends OneKeyHardwareError {
   override code = ECustomOneKeyHardwareError.FirmwareUpdateBatteryTooLow;
 }
 
+// Thrown by the update workflow when desktop resolved a Bluetooth transport
+// for a device that must be updated over USB.
+export class FirmwareUpdateRequiresUsbTransport extends OneKeyHardwareError {
+  constructor(props?: IOneKeyErrorHardwareProps) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'FirmwareUpdateRequiresUsbTransport',
+      }),
+    );
+  }
+
+  override code = ECustomOneKeyHardwareError.FirmwareUpdateRequiresUsbTransport;
+}
+
+// Thrown by the update workflow when the device type has no supported
+// update strategy in this app.
+export class FirmwareUpdateUnsupportedDevice extends OneKeyHardwareError {
+  constructor(props?: IOneKeyErrorHardwareProps) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'FirmwareUpdateUnsupportedDevice',
+      }),
+    );
+  }
+
+  override code = ECustomOneKeyHardwareError.FirmwareUpdateUnsupportedDevice;
+}
+
 export class BridgeNetworkError extends OneKeyHardwareError {
   constructor(props?: IOneKeyErrorHardwareProps) {
     super(
@@ -339,20 +368,6 @@ export class BleDeviceBondedCanceled extends OneKeyHardwareError {
   }
 
   override code = HardwareErrorCode.BleDeviceNotBonded;
-}
-
-// 设备配对失败
-export class DeviceBondError extends OneKeyHardwareError {
-  constructor(props?: IOneKeyErrorHardwareProps) {
-    super(
-      normalizeErrorProps(props, {
-        defaultMessage: 'DeviceBondError',
-        defaultKey: ETranslations.feedback_try_repairing_device_in_settings,
-      }),
-    );
-  }
-
-  override code = HardwareErrorCode.BleDeviceBondError;
 }
 
 // 设备没有打开蓝牙
@@ -564,6 +579,7 @@ export class FirmwareVersionTooLow extends OneKeyHardwareError {
     super(
       normalizeErrorProps(
         {
+          payload: props?.payload,
           info: { 'version': get(props, 'payload.params.require', '') },
         },
         {
@@ -775,8 +791,14 @@ export class DeviceNotFound extends OneKeyHardwareError {
       }),
     );
 
-    // Only trigger UI event if not in silent mode
-    if (!props?.silentMode) {
+    // Silent mode aside, the emit also stands down while a DeviceStage
+    // burst is active: the stage lands this failure itself (its
+    // deviceNotFound outcome), and an at-initiation failure fires here
+    // before the stage has painted — the UI-side gate alone would let the
+    // legacy dialog and the stage card double up (OK-59934).
+    if (
+      shouldEmitDeviceNotFoundDialogEvent({ silentMode: props?.silentMode })
+    ) {
       // Trigger global event to show hardware error dialog
       // This is a generic event that can be reused by other hardware errors
       appEventBus.emit(EAppEventBusNames.ShowHardwareErrorDialog, {

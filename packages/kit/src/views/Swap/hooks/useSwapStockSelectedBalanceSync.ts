@@ -5,10 +5,12 @@ import { useSwapStockSelectedFromTokenBalanceAtom } from '@onekeyhq/kit/src/stat
 
 export function useSwapStockSelectedBalanceSync({
   balance,
+  balanceVerified = true,
   enabled,
   ownerScope,
 }: {
   balance?: string;
+  balanceVerified?: boolean;
   enabled: boolean;
   ownerScope: string;
 }) {
@@ -19,9 +21,16 @@ export function useSwapStockSelectedBalanceSync({
     if (!isFocused) {
       return;
     }
-    const nextBalance = enabled ? (balance ?? '') : '';
+    const nextBalance = enabled && balanceVerified ? (balance ?? '') : '';
     setStoredBalance((storedBalance) =>
       storedBalance === nextBalance ? storedBalance : nextBalance,
     );
-  }, [balance, enabled, isFocused, ownerScope, setStoredBalance]);
+  }, [
+    balance,
+    balanceVerified,
+    enabled,
+    isFocused,
+    ownerScope,
+    setStoredBalance,
+  ]);
 }

@@ -9,6 +9,20 @@ import {
 } from '../../types/defi';
 
 import { normalizeDeFiPositionMetadata } from './defiPositionMetadataUtils';
+import { parseUrl } from './uriUtils';
+
+// Protocol site links come from upstream aggregator data and end up behind a
+// clickable icon that opens them in the discovery browser or a new tab, so
+// only HTTP(S) URLs are kept; any other scheme is dropped before it reaches a
+// summary.
+function sanitizeProtocolUrl(url: string | undefined): string {
+  const trimmedUrl = url?.trim() ?? '';
+  if (!trimmedUrl) {
+    return '';
+  }
+  const urlSchema = parseUrl(trimmedUrl)?.urlSchema;
+  return urlSchema === 'http' || urlSchema === 'https' ? trimmedUrl : '';
+}
 
 function extractParenthesizedContent(input: string) {
   const startIndex = input.indexOf('(');
@@ -242,7 +256,10 @@ function transformDeFiData({
         protocol: summary.protocol,
         networkId: summary.networkIds[0],
       })
-    ] = summary;
+    ] = {
+      ...summary,
+      protocolUrl: sanitizeProtocolUrl(summary.protocolUrl),
+    };
   });
 
   Object.values(positions).forEach((networkPositions) => {
@@ -391,8 +408,8 @@ function transformDeFiData({
       networkIds: [value.networkId],
       positionCount: groupedPositions.length,
       positionIndices: [],
-      protocolLogo: '',
-      protocolUrl: '',
+      protocolLogo: firstSourcePosition?.protocolLogo ?? '',
+      protocolUrl: sanitizeProtocolUrl(firstSourcePosition?.protocolUrl),
     };
   });
 
@@ -434,6 +451,113 @@ function transformDeFiData({
   };
 }
 
+type IDeFiOverviewTotals = {
+  totalValue: number;
+  totalDebt: number;
+  totalReward: number;
+  netWorth: number;
+  chains: string[];
+  protocolCount: number;
+  positionCount: number;
+};
+
+function buildDeFiOverviewFromProtocolMap({
+  protocols,
+  protocolMap,
+  chains,
+}: {
+  protocols: IDeFiProtocol[];
+  protocolMap: Record<string, IProtocolSummary>;
+  chains: string[];
+}): IDeFiOverviewTotals {
+  const totals = protocols.reduce(
+    (result, protocol) => {
+      const summary =
+        protocolMap[
+          buildProtocolMapKey({
+            protocol: protocol.protocol,
+            networkId: protocol.networkId,
+          })
+        ];
+      if (!summary) {
+        return result;
+      }
+      return {
+        totalValue: result.totalValue.plus(summary.totalValue ?? 0),
+        totalDebt: result.totalDebt.plus(summary.totalDebt ?? 0),
+        totalReward: result.totalReward.plus(summary.totalReward ?? 0),
+        netWorth: result.netWorth.plus(summary.netWorth ?? 0),
+        positionCount: result.positionCount + (summary.positionCount ?? 0),
+      };
+    },
+    {
+      totalValue: new BigNumber(0),
+      totalDebt: new BigNumber(0),
+      totalReward: new BigNumber(0),
+      netWorth: new BigNumber(0),
+      positionCount: 0,
+    },
+  );
+  return {
+    totalValue: totals.totalValue.toNumber(),
+    totalDebt: totals.totalDebt.toNumber(),
+    totalReward: totals.totalReward.toNumber(),
+    netWorth: totals.netWorth.toNumber(),
+    chains: protocols.length ? chains : [],
+    protocolCount: protocols.length,
+    positionCount: totals.positionCount,
+  };
+}
+
+/**
+ * Split a (possibly multi-chain) positions response into one entry per
+ * requested network. Server `protocolSummaries` are aggregated across the
+ * requested chains, so each network's summaries are derived from its own
+ * positions instead (`transformDeFiData` fallback); the sums match the server
+ * per-chain totals exactly. A network absent from `positions` yields empty data.
+ */
+function splitDeFiPositionsByNetwork({
+  accountId,
+  indexedAccountId,
+  networkIds,
+  positions,
+}: {
+  accountId?: string;
+  indexedAccountId?: string;
+  networkIds: string[];
+  positions: Record<string, IDeFiPosition[]> | undefined;
+}): Array<{
+  networkId: string;
+  protocols: IDeFiProtocol[];
+  protocolMap: Record<string, IProtocolSummary>;
+  overview: IDeFiOverviewTotals;
+}> {
+  return networkIds.map((networkId) => {
+    const networkPositions = positions?.[networkId] ?? [];
+    const { protocols, protocolMap } = transformDeFiData({
+      accountId,
+      indexedAccountId,
+      positions: { [networkId]: networkPositions },
+      protocolSummaries: [],
+    });
+    const chains = Array.from(
+      new Set(
+        networkPositions.map((position) => position.chain).filter(Boolean),
+      ),
+    );
+    return {
+      networkId,
+      protocols,
+      protocolMap,
+      overview: buildDeFiOverviewFromProtocolMap({
+        protocols,
+        protocolMap,
+        chains,
+      }),
+    };
+  });
+}
+
 function getEmptyDeFiData() {
   return {
     overview: {
@@ -466,4 +590,5 @@ export default {
   getEmptyDeFiData,
   transformDeFiData,
   buildProtocolMapKey,
+  splitDeFiPositionsByNetwork,
 };

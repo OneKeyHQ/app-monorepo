@@ -1,3 +1,5 @@
+import { cloneDeep, isNumber } from 'lodash';
+
 import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { WalletConnectAccountSelectorNumStartAt } from '@onekeyhq/shared/src/walletConnect/constant';
@@ -68,6 +70,149 @@ export class SimpleDbEntityDappConnection extends SimpleDbEntityBase<IDappConnec
 
   override enableCache = true;
 
+  async commitConnectionApproval({
+    accountInfo,
+    accountSelectorNum,
+    afterPublish,
+    beforePublish,
+    imageURL,
+    mode,
+    origin,
+    shouldCommit,
+    storageType,
+  }: {
+    accountInfo: IConnectionAccountInfo;
+    accountSelectorNum?: number;
+    afterPublish: () => boolean;
+    beforePublish: (
+      accountsInfo: IConnectionAccountInfo[],
+    ) => Promise<boolean> | boolean;
+    imageURL?: string;
+    mode: 'save' | 'update';
+    origin: string;
+    shouldCommit: () => boolean;
+    storageType: 'injectedProvider';
+  }): Promise<{
+    committed: boolean;
+    replacedWalletConnectTopic?: string;
+  }> {
+    let replacedWalletConnectTopic: string | undefined;
+    const transaction = await this.setRawDataTransaction({
+      afterPublish,
+      beforePublish: (nextData) =>
+        beforePublish(
+          Object.values(
+            nextData.data.injectedProvider[origin]?.connectionMap ?? {},
+          ),
+        ),
+      build: (rawData) => {
+        const nextData = cloneDeep(rawData) || {
+          data: {
+            injectedProvider: {},
+            walletConnect: {},
+          },
+        };
+        nextData.data.injectedProvider ||= {};
+        nextData.data.walletConnect ||= {};
+
+        const storage = nextData.data[storageType];
+        if (mode === 'update') {
+          if (!isNumber(accountSelectorNum)) {
+            return undefined;
+          }
+          const connectionItem = storage[origin];
+          if (!connectionItem) {
+            return undefined;
+          }
+          const connectionMap = {
+            ...connectionItem.connectionMap,
+            [accountSelectorNum]: accountInfo,
+          };
+          const { networkImplMap, addressMap } = generateMaps(connectionMap);
+          storage[origin] = {
+            ...connectionItem,
+            addressMap,
+            connectionMap,
+            networkImplMap,
+            updatedAt: Date.now(),
+          };
+        } else {
+          replacedWalletConnectTopic =
+            nextData.data.walletConnect[origin]?.walletConnectTopic;
+          // Keep the replaced session until its remote disconnect succeeds.
+          // A topic-checked cleanup removes it afterwards without deleting a
+          // newer WalletConnect session that raced with the disconnect.
+
+          let connectionItem = storage[origin];
+          if (!connectionItem) {
+            connectionItem = {
+              origin,
+              imageURL: imageURL || '',
+              connectionMap: {},
+              networkImplMap: {},
+              addressMap: {},
+              updatedAt: Date.now(),
+            };
+          } else {
+            connectionItem = {
+              ...connectionItem,
+              imageURL: imageURL || connectionItem.imageURL,
+              connectionMap: { ...connectionItem.connectionMap },
+              updatedAt: Date.now(),
+            };
+          }
+          // saveConnectionSession uses replaceExistAccount=true. Preserve that
+          // behavior if another connection appeared after the modal's initial
+          // lookup by allocating the next free selector slot.
+          const connectionNum = generateAccountSelectorNumber(
+            connectionItem.connectionMap,
+            storageType,
+          );
+          connectionItem.connectionMap[connectionNum] = accountInfo;
+          const { networkImplMap, addressMap } = generateMaps(
+            connectionItem.connectionMap,
+          );
+          connectionItem.addressMap = addressMap;
+          connectionItem.networkImplMap = networkImplMap;
+          storage[origin] = connectionItem;
+        }
+
+        return { data: nextData };
+      },
+      shouldCommit,
+    });
+    return {
+      committed: transaction.committed,
+      replacedWalletConnectTopic: transaction.committed
+        ? replacedWalletConnectTopic
+        : undefined,
+    };
+  }
+
+  async deleteWalletConnectConnectionIfTopic({
+    origin,
+    walletConnectTopic,
+  }: {
+    origin: string;
+    walletConnectTopic: string;
+  }) {
+    const transaction = await this.setRawDataTransaction({
+      build: (rawData) => {
+        if (
+          rawData?.data.walletConnect[origin]?.walletConnectTopic !==
+          walletConnectTopic
+        ) {
+          return undefined;
+        }
+        const nextData = cloneDeep(rawData);
+        delete nextData.data.walletConnect[origin];
+        return { data: nextData };
+      },
+      shouldCommit: () => true,
+    });
+    return transaction.committed;
+  }
+
   @backgroundMethod()
   async upsertConnection({
     origin,
@@ -100,7 +245,11 @@ export class SimpleDbEntityDappConnection extends SimpleDbEntityBase<IDappConnec
       const storage = data[storageType];
       // Find or create the `IConnectionItem` corresponding to `origin`.
       let connectionItem = storage[origin];
-      if (!connectionItem) {
+      const isReplacingWalletConnectSession =
+        storageType === 'walletConnect' &&
+        walletConnectTopic !== undefined &&
+        walletConnectTopic !== connectionItem?.walletConnectTopic;
+      if (!connectionItem || isReplacingWalletConnectSession) {
         connectionItem = {
           origin,
           imageURL: imageURL || '',

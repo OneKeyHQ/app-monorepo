@@ -112,6 +112,7 @@ import {
   getPerpTokenSelectorSortAssetCtxsByDex,
   isPerpTokenSelectorDynamicTabUserSort,
   isPerpTokenSelectorFavoritesTab,
+  isPerpTokenSelectorFavoritesTabUserSort,
   isPerpTokenSelectorPerpsTab,
   isPerpTokenSelectorSpotTab,
 } from '../../utils/tokenSelectorTabs';
@@ -127,12 +128,9 @@ import { SortableHeaderCell } from './SortableHeaderCell';
 
 export const SPOT_DEX_INDEX = -1;
 const DESKTOP_TOKEN_SELECTOR_PANEL_WIDTH = 800;
-const TOKEN_SELECTOR_TABLE_HORIZONTAL_PADDING = 32;
 const TOKEN_SELECTOR_DESKTOP_ROW_HEIGHT = 48;
 const TOKEN_SELECTOR_DESKTOP_RENDER_BATCH_SIZE = 20;
 const TOKEN_SELECTOR_OPEN_PREWARM_TIMEOUT_MS = 600;
-const PERP_TOKEN_SELECTOR_DESKTOP_TABLE_MIN_WIDTH =
-  180 + 110 + 150 + 110 + 110 + 120 + TOKEN_SELECTOR_TABLE_HORIZONTAL_PADDING;
 
 export type ITokenSelectorListItem = {
   dexIndex: number;
@@ -145,26 +143,6 @@ export type ITokenSelectorListItem = {
   // Spot-specific: carries display name for rendering since spot uses @N identifiers
   spotUniverse?: ISpotUniverse;
 };
-
-const DESKTOP_TOKEN_SELECTOR_TABLE_MIN_WIDTH = {
-  perp: PERP_TOKEN_SELECTOR_DESKTOP_TABLE_MIN_WIDTH,
-  spot:
-    SPOT_TOKEN_SELECTOR_DESKTOP_COLUMN_LAYOUT.asset.minWidth +
-    SPOT_TOKEN_SELECTOR_DESKTOP_COLUMN_LAYOUT.price.minWidth +
-    SPOT_TOKEN_SELECTOR_DESKTOP_COLUMN_LAYOUT.change24h.minWidth +
-    SPOT_TOKEN_SELECTOR_DESKTOP_COLUMN_LAYOUT.volume.minWidth +
-    SPOT_TOKEN_SELECTOR_DESKTOP_COLUMN_LAYOUT.marketCap.minWidth +
-    TOKEN_SELECTOR_TABLE_HORIZONTAL_PADDING,
-  mixed:
-    MIXED_TOKEN_SELECTOR_DESKTOP_COLUMN_LAYOUT.asset.minWidth +
-    MIXED_TOKEN_SELECTOR_DESKTOP_COLUMN_LAYOUT.price.minWidth +
-    MIXED_TOKEN_SELECTOR_DESKTOP_COLUMN_LAYOUT.change24h.minWidth +
-    MIXED_TOKEN_SELECTOR_DESKTOP_COLUMN_LAYOUT.fundingRate.minWidth +
-    MIXED_TOKEN_SELECTOR_DESKTOP_COLUMN_LAYOUT.volume.minWidth +
-    MIXED_TOKEN_SELECTOR_DESKTOP_COLUMN_LAYOUT.openInterest.minWidth +
-    MIXED_TOKEN_SELECTOR_DESKTOP_COLUMN_LAYOUT.marketCap.minWidth +
-    TOKEN_SELECTOR_TABLE_HORIZONTAL_PADDING,
-} as const;
 
 function getCurrentSortSnapshot(selectorConfig?: {
   field?: IPerpTokenSortField;
@@ -278,7 +256,7 @@ function TokenListHeader({
         })}
         width={useFlexibleLayout ? undefined : 180}
         flex={useFlexibleLayout ? columnLayout.asset.flex : undefined}
-        minWidth={useFlexibleLayout ? columnLayout.asset.minWidth : 180}
+        minWidth={0}
       />
       <SortableHeaderCell
         field="markPrice"
@@ -287,7 +265,7 @@ function TokenListHeader({
         })}
         width={useFlexibleLayout ? undefined : 110}
         flex={useFlexibleLayout ? columnLayout.price.flex : undefined}
-        minWidth={useFlexibleLayout ? columnLayout.price.minWidth : 110}
+        minWidth={0}
       />
       <SortableHeaderCell
         field="change24hPercent"
@@ -296,7 +274,7 @@ function TokenListHeader({
         })}
         width={useFlexibleLayout ? undefined : 150}
         flex={useFlexibleLayout ? columnLayout.change24h.flex : undefined}
-        minWidth={useFlexibleLayout ? columnLayout.change24h.minWidth : 150}
+        minWidth={0}
       />
       {isMixedLayout ? (
         <>
@@ -306,7 +284,7 @@ function TokenListHeader({
               id: ETranslations.perp_position_funding,
             })}
             flex={mixedColumnLayout.fundingRate.flex}
-            minWidth={mixedColumnLayout.fundingRate.minWidth}
+            minWidth={0}
           />
           <SortableHeaderCell
             field="volume24h"
@@ -314,7 +292,7 @@ function TokenListHeader({
               id: ETranslations.perp_token_selector_volume,
             })}
             flex={columnLayout.volume.flex}
-            minWidth={columnLayout.volume.minWidth}
+            minWidth={0}
           />
           <SortableHeaderCell
             field="openInterest"
@@ -322,7 +300,7 @@ function TokenListHeader({
               id: ETranslations.perp_token_bar_open_Interest,
             })}
             flex={mixedColumnLayout.openInterest.flex}
-            minWidth={mixedColumnLayout.openInterest.minWidth}
+            minWidth={0}
           />
           <SortableHeaderCell
             field="marketCap"
@@ -330,7 +308,7 @@ function TokenListHeader({
               id: ETranslations.global_market_cap,
             })}
             flex={columnLayout.marketCap.flex}
-            minWidth={columnLayout.marketCap.minWidth}
+            minWidth={0}
           />
         </>
       ) : null}
@@ -367,7 +345,7 @@ function TokenListHeader({
               id: ETranslations.perp_token_selector_volume,
             })}
             flex={columnLayout.volume.flex}
-            minWidth={columnLayout.volume.minWidth}
+            minWidth={0}
           />
           <SortableHeaderCell
             field="marketCap"
@@ -375,7 +353,7 @@ function TokenListHeader({
               id: ETranslations.global_market_cap,
             })}
             flex={columnLayout.marketCap.flex}
-            minWidth={columnLayout.marketCap.minWidth}
+            minWidth={0}
           />
         </>
       ) : null}
@@ -959,6 +937,11 @@ function BasePerpTokenSelectorContent() {
   const dynamicSortAssetCtxsByDex = activeDynamicTabUserSort
     ? assetCtxsByDex
     : undefined;
+  const activeFavoritesTabUserSort = isPerpTokenSelectorFavoritesTabUserSort({
+    activeTab: displayActiveTab,
+    sortSource: selectorConfig?.sortSource,
+    sortSourceTab: selectorConfig?.sortSourceTab,
+  });
 
   // Layer 2: filter — cheap O(n); only dynamic user sort sorts the filtered
   // dynamic-token subset against live values.
@@ -992,7 +975,7 @@ function BasePerpTokenSelectorContent() {
           tokenSearchAliases,
         }),
       });
-      if (sortField) {
+      if (activeFavoritesTabUserSort && sortField) {
         result = sortTokenSelectorFavoriteItems({
           items: result,
           sortField,
@@ -1078,6 +1061,7 @@ function BasePerpTokenSelectorContent() {
     displayActiveTab,
     displayPrimaryTab,
     activeDynamicTabUserSort,
+    activeFavoritesTabUserSort,
     assetsByDex,
     categoryTabs,
     computeSortValues,
@@ -1130,8 +1114,6 @@ function BasePerpTokenSelectorContent() {
     }
     return 'perp';
   }, [activeTabData, displayPrimaryTab]);
-  const desktopTableMinWidth =
-    DESKTOP_TOKEN_SELECTOR_TABLE_MIN_WIDTH[desktopListLayout];
   const getRowDesktopLayout = useCallback(
     (item: ITokenSelectorListItem): 'perp' | 'spot' | 'mixed' => {
       if (desktopListLayout === 'mixed') {
@@ -1209,6 +1191,7 @@ function BasePerpTokenSelectorContent() {
       <YStack gap="$1">
         <XStack px="$2" pt="$2">
           <SearchBar
+            testID={PerpTestIDs.TokenSelectorSearch}
             containerProps={{
               borderRadius: '$2',
               mx: '$2',
@@ -1277,41 +1260,26 @@ function BasePerpTokenSelectorContent() {
               <FavoritesEmptyState />
             </YStack>
           ) : (
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator
-              bounces={false}
-              nestedScrollEnabled
-              width="100%"
-              contentContainerStyle={{
-                minWidth: desktopTableMinWidth,
-                flexGrow: 1,
-              }}
-            >
-              <YStack flex={1} minWidth={desktopTableMinWidth}>
-                <TokenListHeader layoutMode={desktopListLayout} />
-                <YStack height={350} minWidth={desktopTableMinWidth}>
-                  <ListView
-                    ref={listRef}
-                    keyExtractor={keyExtractor}
-                    estimatedItemSize={TOKEN_SELECTOR_DESKTOP_ROW_HEIGHT}
-                    windowSize={5}
-                    initialNumToRender={
-                      TOKEN_SELECTOR_DESKTOP_RENDER_BATCH_SIZE
-                    }
-                    maxToRenderPerBatch={
-                      TOKEN_SELECTOR_DESKTOP_RENDER_BATCH_SIZE
-                    }
-                    data={activeTabData}
-                    renderItem={renderItem}
-                    ListEmptyComponent={listEmptyComponent}
-                    contentContainerStyle={{
-                      paddingBottom: 10,
-                    }}
-                  />
-                </YStack>
+            <YStack width="100%" minWidth={0} overflow="hidden">
+              <TokenListHeader layoutMode={desktopListLayout} />
+              <YStack height={350} minWidth={0}>
+                <ListView
+                  ref={listRef}
+                  showsVerticalScrollIndicator={false}
+                  keyExtractor={keyExtractor}
+                  estimatedItemSize={TOKEN_SELECTOR_DESKTOP_ROW_HEIGHT}
+                  windowSize={5}
+                  initialNumToRender={TOKEN_SELECTOR_DESKTOP_RENDER_BATCH_SIZE}
+                  maxToRenderPerBatch={TOKEN_SELECTOR_DESKTOP_RENDER_BATCH_SIZE}
+                  data={activeTabData}
+                  renderItem={renderItem}
+                  ListEmptyComponent={listEmptyComponent}
+                  contentContainerStyle={{
+                    paddingBottom: 10,
+                  }}
+                />
               </YStack>
-            </ScrollView>
+            </YStack>
           )}
         </YStack>
       </YStack>
@@ -1324,8 +1292,8 @@ function BasePerpTokenSelectorContent() {
   );
 }
 
-function PerpTokenSelectorContent({ isOpen }: { isOpen: boolean }) {
-  return isOpen ? <BasePerpTokenSelectorContent /> : null;
+function PerpTokenSelectorContent() {
+  return <BasePerpTokenSelectorContent />;
 }
 
 const PerpTokenSelectorContentMemo = memo(PerpTokenSelectorContent);
@@ -1335,6 +1303,7 @@ function BasePerpTokenSelector() {
   const [activePerpsAccount] = usePerpsActiveAccountAtom();
   const actions = useHyperliquidActions();
   const [isOpen, setIsOpen] = useState(false);
+  const [contentGeneration, setContentGeneration] = useState(0);
   const isOpeningRef = useRef(false);
   const {
     displayName,
@@ -1402,11 +1371,13 @@ function BasePerpTokenSelector() {
             tradeMode: mode === 'spot' ? 'spot' : 'perp',
             walletType: activePerpsAccount.walletType ?? 'unknown',
           });
+          setContentGeneration((generation) => generation + 1);
           setIsOpen(true);
         }}
         placement="bottom-start"
         renderTrigger={
           <Badge
+            testID={PerpTestIDs.TokenSelector}
             gap="$3"
             bg="$bgApp"
             px="$2"
@@ -1469,13 +1440,12 @@ function BasePerpTokenSelector() {
             <Icon name="ChevronBottomOutline" size="$4" />
           </Badge>
         }
-        renderContent={({ isOpen: isOpenProp }) => (
-          <PerpTokenSelectorContentMemo isOpen={isOpenProp ?? false} />
-        )}
+        renderContent={<PerpTokenSelectorContentMemo key={contentGeneration} />}
       />
     ),
     [
       activePerpsAccount.walletType,
+      contentGeneration,
       isOpen,
       triggerLabel,
       activeCoin,

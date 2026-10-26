@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { memo, useMemo } from 'react';
 import type { ComponentProps, ComponentType, ReactNode } from 'react';
 
 import BigNumber from 'bignumber.js';
@@ -20,24 +20,27 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IMarketAccountPortfolioItem } from '@onekeyhq/shared/types/marketV2';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 
-import { MARKET_DESKTOP_CONTENT_FRAME_PROPS } from '../../marketDesktopLayoutConstants';
+import {
+  MARKET_DESKTOP_CONTENT_FRAME_PROPS,
+  MARKET_DETAIL_TRADE_COLUMN_PROPS,
+  MARKET_DETAIL_TRADE_COLUMN_TOP_OFFSET,
+} from '../../marketDesktopLayoutConstants';
+import { PerpetualTradingBanner } from '../components/PerpetualTradingBanner/PerpetualTradingBanner';
 import { TokenActivityOverview } from '../components/TokenActivityOverview/TokenActivityOverview';
 import { TokenDetailHeader } from '../components/TokenDetailHeader/TokenDetailHeader';
 import { TokenSupplementaryInfo } from '../components/TokenSupplementaryInfo/TokenSupplementaryInfo';
 import { useMarketDetailDisplayData } from '../hooks/useMarketDetailDisplayData';
 import { formatPriceChangeDisplay } from '../utils/statValue';
 
-import { MarketDesktopChartContainer } from './components/MarketDesktopChartContainer';
 import { TokenDetailChart } from './components/TokenDetailChart';
 import { MarketEmbeddedSwap } from './MarketEmbeddedSwap';
 
 import type { DesktopInformationTabs } from '../components/InformationTabs/layout/DesktopInformationTabs';
 
 const TOKEN_DETAIL_MAIN_COLUMN_WIDTH = 832;
-const TOKEN_DETAIL_TRADE_COLUMN_WIDTH = 384;
-const TOKEN_DETAIL_COLUMN_GAP = 24;
+const TOKEN_DETAIL_COLUMN_GAP = 12;
 const TOKEN_DETAIL_HORIZONTAL_GUTTER = 20;
-const TOKEN_DETAIL_CHART_SECTION_MIN_HEIGHT = 752;
+const TOKEN_DETAIL_CHART_SECTION_MIN_HEIGHT = 848;
 const TOKEN_DETAIL_TABS_MIN_HEIGHT = 480;
 
 const MARKET_CHART_FULLSCREEN_STYLE = {
@@ -133,11 +136,14 @@ export function TokenPriceHeader() {
   );
 }
 
-export function TokenDesktopLayout({
+function TokenDesktopLayoutBase({
+  active,
   marketTradingView,
   swapToken,
+  swapInputDraftKey,
   portfolioData,
   isRefreshing,
+  isPortfolioPending,
   isBTCNetwork,
   isBTCMainnet,
   tokenLogoUrl,
@@ -151,10 +157,13 @@ export function TokenDesktopLayout({
   onEnterChartFullscreen,
   InformationTabsComponent,
 }: {
+  active?: boolean;
   marketTradingView: ReactNode;
   swapToken: ISwapToken;
+  swapInputDraftKey: string;
   portfolioData: IMarketAccountPortfolioItem[];
   isRefreshing?: boolean;
+  isPortfolioPending?: boolean;
   isBTCNetwork: boolean;
   isBTCMainnet: boolean;
   tokenLogoUrl?: string;
@@ -207,37 +216,39 @@ export function TokenDesktopLayout({
             px={TOKEN_DETAIL_HORIZONTAL_GUTTER}
             pt="$5"
             pb="$8"
-            gap="$6"
+            gap="$4"
           >
             <TokenPriceHeader />
-            <MarketDesktopChartContainer
-              testID="market-token-detail-standard-chart"
-              isFullscreen={isChartFullscreen}
+            <TokenDetailChart
+              active={active}
+              chartContainerTestID="market-token-detail-standard-chart"
               fullscreenZIndex={chartFullscreenZIndex}
               fullscreenStyle={MARKET_CHART_FULLSCREEN_STYLE}
-            >
-              {isChartFullscreen && platformEnv.isDesktop ? (
-                <Stack height={48} bg="$bgApp" flexShrink={0} />
-              ) : null}
-              <TokenDetailChart
-                marketTradingView={marketTradingView}
-                isChartFullscreen={isChartFullscreen}
-                chartMode={chartMode}
-                isChartSwitchDisabled={isChartSwitchDisabled}
-                onChartSwitch={onChartSwitch}
-                onEnterChartFullscreen={onEnterChartFullscreen}
-              />
-            </MarketDesktopChartContainer>
+              marketTradingView={marketTradingView}
+              isChartFullscreen={isChartFullscreen}
+              chartMode={chartMode}
+              isChartSwitchDisabled={isChartSwitchDisabled}
+              onChartSwitch={onChartSwitch}
+              onEnterChartFullscreen={onEnterChartFullscreen}
+            />
 
-            {isBTCMainnet ? null : <TokenActivityOverview px="$0" />}
+            {isBTCMainnet ? null : (
+              // The stack's gap tightened to 16px for the price header above
+              // the chart; this block keeps the 24px it had.
+              <YStack gap="$0" mt="$2">
+                <TokenActivityOverview px="$0" desktopRedesign />
+                <TokenSupplementaryInfo variant="overview" px="$0" />
+              </YStack>
+            )}
           </YStack>
 
-          <TokenSupplementaryInfo variant="overview" />
+          {isBTCMainnet ? <TokenSupplementaryInfo variant="overview" /> : null}
 
           <Stack minHeight={TOKEN_DETAIL_TABS_MIN_HEIGHT}>
             <InformationTabsComponent
               portfolioData={portfolioData}
               isRefreshing={isRefreshing}
+              isPortfolioPending={isPortfolioPending}
               isBTCNetwork={isBTCNetwork}
               tokenLogoUrl={tokenLogoUrl}
             />
@@ -246,12 +257,19 @@ export function TokenDesktopLayout({
 
         <YStack
           testID="market-token-detail-standard-trade"
-          width={TOKEN_DETAIL_TRADE_COLUMN_WIDTH}
-          flexShrink={0}
+          {...MARKET_DETAIL_TRADE_COLUMN_PROPS}
+          mt={MARKET_DETAIL_TRADE_COLUMN_TOP_OFFSET}
         >
-          {disableTrade ? null : <MarketEmbeddedSwap swapToken={swapToken} />}
+          <PerpetualTradingBanner px="$5" py="$2" pb="$3" />
+          <MarketEmbeddedSwap
+            swapToken={swapToken}
+            inputDraftKey={swapInputDraftKey}
+            disabled={disableTrade}
+          />
         </YStack>
       </XStack>
     </YStack>
   );
 }
+
+export const TokenDesktopLayout = memo(TokenDesktopLayoutBase);

@@ -48,8 +48,12 @@ export const OnboardingTestIDs = {
   iCloudBackupViewOlderBackupsBtn:
     'onboarding-icloud-backup-view-older-backups-btn',
   iCloudBackupKeylessWalletHint: 'onboarding-icloud-backup-keyless-wallet-hint',
+  iCloudBackupKeylessWalletDialogTitle:
+    'onboarding-icloud-backup-keyless-wallet-dialog-title',
   iCloudBackupKeylessWalletDialog:
     'onboarding-icloud-backup-keyless-wallet-dialog',
+  iCloudBackupDevDownloadDataBtn:
+    'onboarding-icloud-backup-dev-download-data-btn',
   iCloudBackupDevMockEmptyBtn: 'onboarding-icloud-backup-dev-mock-empty-btn',
   iCloudBackupDevClearPasswordBtn:
     'onboarding-icloud-backup-dev-clear-password-btn',
@@ -85,6 +89,7 @@ export const OnboardingTestIDs = {
 
   // iCloud backup details
   iCloudBackupDetailsPage: 'onboarding-icloud-backup-details-page',
+  iCloudBackupDetailsRetryBtn: 'onboarding-icloud-backup-details-retry-btn',
   iCloudBackupDetailsBackupNowBtn:
     'onboarding-icloud-backup-details-backup-now-btn',
   iCloudBackupDetailsSettingsBtn:
@@ -120,6 +125,22 @@ export const OnboardingTestIDs = {
   connectQRCodePage: 'onboarding-connect-qr-code-page',
   connectQRCodeScanBtn: 'onboarding-connect-qr-code-scan-btn',
 
+  // Connect external wallet flow
+  connectExternalWalletNetworkEvm:
+    'onboarding-connect-external-wallet-network-evm',
+  connectExternalWalletWalletConnect:
+    'onboarding-connect-external-wallet-walletconnect',
+  connectExternalWalletLoadingDialog:
+    'onboarding-connect-external-wallet-loading-dialog',
+  connectExternalWalletLoadingSpinner:
+    'onboarding-connect-external-wallet-loading-spinner',
+  connectExternalWalletLoadingMessage:
+    'onboarding-connect-external-wallet-loading-message',
+
+  // Pick your device
+  pickYourDeviceLegacyOptionBtn: (key: string) =>
+    `onboarding-pick-your-device-legacy-${key}-btn`,
+
   // Connect your device
   connectYourDeviceTroubleshootingBtn:
     'onboarding-connect-your-device-troubleshooting-btn',
@@ -134,9 +155,19 @@ export const OnboardingTestIDs = {
   connectYourDeviceAdvancedMenuBtn:
     'onboarding-connect-your-device-advanced-menu-btn',
   connectYourDeviceConnectBtn: 'onboarding-connect-your-device-connect-btn',
+  connectYourDeviceItem: (key: string) =>
+    `onboarding-connect-your-device-item-${key}`,
 
   // Connection flow (Ledger / third party)
   connectionFlowLedgerStartBtn: 'onboarding-connection-flow-ledger-start-btn',
+  connectionFlowLedgerUsbTab: 'onboarding-connection-flow-ledger-usb-tab',
+  connectionFlowLedgerBleTab: 'onboarding-connection-flow-ledger-ble-tab',
+  connectionFlowLedgerDeviceOption: (index: number) =>
+    `onboarding-connection-flow-ledger-device-${index}`,
+  connectionFlowKeystoneUsbBtn: 'onboarding-connection-flow-keystone-usb-btn',
+  connectionFlowKeystoneQrBtn: 'onboarding-connection-flow-keystone-qr-btn',
+  connectionFlowKeystoneDeviceOption: (index: number) =>
+    `onboarding-connection-flow-keystone-device-${index}`,
 
   // Import phrase / private key
   importPhraseConfirmBtn: 'onboarding-import-phrase-confirm-btn',

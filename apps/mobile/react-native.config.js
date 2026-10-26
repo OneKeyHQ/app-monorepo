@@ -5,6 +5,8 @@ const macCatalystExcludedDependencies = [
   '@onekeyfe/react-native-lite-card',
   '@phantom/react-native-juicebox-sdk',
   '@shopify/react-native-skia',
+  '@walletconnect/react-native-compat',
+  'expo-camera',
   'jcore-react-native',
   'jpush-react-native',
   'react-native-network-info',

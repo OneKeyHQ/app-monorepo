@@ -2,15 +2,19 @@ import { useMemo } from 'react';
 
 import { ThemeProvider } from '@react-navigation/native';
 
+import { Theme } from '../../../content/Theme';
+import { EPageType } from '../../../hocs';
 import { useTheme } from '../../../hooks';
 import { makeRootModalStackOptions } from '../GlobalScreenOptions';
 import { createStackNavigator } from '../StackNavigator';
 
-import { TransparentModalTheme } from './CommonConfig';
+import {
+  TransparentDarkModalTheme,
+  TransparentModalTheme,
+} from './CommonConfig';
 import ModalFlowNavigator from './ModalFlowNavigator';
 
 import type { IModalFlowNavigatorConfig } from './ModalFlowNavigator';
-import type { EPageType } from '../../../hocs';
 
 export interface IModalRootNavigatorConfig<RouteName extends string> {
   name: RouteName;
@@ -19,6 +23,7 @@ export interface IModalRootNavigatorConfig<RouteName extends string> {
   onUnmounted?: () => void;
   rewrite?: string;
   exact?: boolean;
+  theme?: 'light' | 'dark';
 }
 
 interface IModalNavigatorProps<RouteName extends string> {
@@ -33,6 +38,10 @@ export function RootModalNavigator<RouteName extends string>({
 }: IModalNavigatorProps<RouteName> & { pageType?: EPageType }) {
   const theme = useTheme();
   const bgColor = theme.bgApp.val;
+  const navigationTheme =
+    pageType === EPageType.onboarding
+      ? TransparentDarkModalTheme
+      : TransparentModalTheme;
 
   const screenOptions = useMemo(
     () => makeRootModalStackOptions({ bgColor }),
@@ -41,24 +50,32 @@ export function RootModalNavigator<RouteName extends string>({
 
   const modalComponents = useMemo(
     () =>
-      config.map(({ name, children, onMounted, onUnmounted }) => ({
-        name,
-        // eslint-disable-next-line react/no-unstable-nested-components
-        children: () => (
-          <ModalFlowNavigator
-            config={children}
-            pageType={pageType}
-            name={name}
-            onMounted={onMounted}
-            onUnmounted={onUnmounted}
-          />
-        ),
-      })),
+      config.map(
+        ({ name, children, onMounted, onUnmounted, theme: flowTheme }) => ({
+          name,
+          // eslint-disable-next-line react/no-unstable-nested-components
+          children: () => {
+            const navigator = (
+              <ModalFlowNavigator
+                config={children}
+                pageType={pageType}
+                name={name}
+                onMounted={onMounted}
+                onUnmounted={onUnmounted}
+              />
+            );
+            if (!flowTheme) {
+              return navigator;
+            }
+            return <Theme name={flowTheme}>{navigator}</Theme>;
+          },
+        }),
+      ),
     [config, pageType],
   );
 
   return (
-    <ThemeProvider value={TransparentModalTheme}>
+    <ThemeProvider value={navigationTheme}>
       <ModalStack.Navigator screenOptions={screenOptions}>
         {modalComponents.map(({ name, children }) => (
           <ModalStack.Screen key={`ROOT-Modal-${name}`} name={name}>

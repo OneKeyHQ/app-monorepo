@@ -8,13 +8,17 @@ import { fileURLToPath, format as formatUrl } from 'url';
 import v8 from 'v8';
 
 import { EOneKeyBleMessageKeys } from '@onekeyfe/hd-shared';
-import { initNobleBleSupport } from '@onekeyfe/hd-transport-electron';
-import { TREZOR_BLE_CHANNELS } from '@onekeyfe/hwk-trezor-connector-electron-ble/constants';
-import { initTrezorBleSupport } from '@onekeyfe/hwk-trezor-connector-electron-ble/main';
+import {
+  disposeNobleBleSupport,
+  initNobleBleSupport,
+} from '@onekeyfe/hd-transport-electron';
+import { initThirdPartyBleSupport } from '@onekeyfe/hwk-desktop-noble-ble';
+import { THIRD_PARTY_BLE_CHANNELS } from '@onekeyfe/hwk-desktop-noble-ble/constants';
 import {
   BrowserWindow,
   Menu,
   app,
+  webContents as electronWebContents,
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   inAppPurchase,
   ipcMain,
@@ -36,12 +40,18 @@ import {
 } from '@onekeyhq/kit-bg/src/desktopApis/DesktopApiWebview';
 import desktopApi from '@onekeyhq/kit-bg/src/desktopApis/instance/desktopApi';
 import {
+  TRADING_VIEW_LOCALHOST_ORIGIN,
+  TRADING_VIEW_URL,
+  TRADING_VIEW_URL_TEST,
+} from '@onekeyhq/shared/src/config/appConfig';
+import {
   ONEKEY_APP_DEEP_LINK_NAME,
   WALLET_CONNECT_DEEP_LINK_NAME,
 } from '@onekeyhq/shared/src/consts/deeplinkConsts';
 import { DESKTOP_WEBVIEW_OVERLAY_PARTITION } from '@onekeyhq/shared/src/consts/desktopWebviewPartitions';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { sanitizeTrezorThpModuleLogData } from '@onekeyhq/shared/src/hardware/trezorThpLogRedact';
+import { UPDATE_ERROR_WIRE_PREFIX } from '@onekeyhq/shared/src/modules3rdParty/auto-update/error';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 import { isAllowedWebViewUrl } from '@onekeyhq/shared/src/utils/webViewUrlSafety';
 import type { IDesktopAppState } from '@onekeyhq/shared/types/desktop';
@@ -61,18 +71,26 @@ import { findAllowedDeepLinkArg, isAllowedDeepLinkUrl } from './libs/deepLink';
 import {
   DESKTOP_API_ALLOWED_MODULES,
   isDesktopApiMethodAllowed,
+  isTrustedMainWindowUrl,
 } from './libs/desktopApiModuleAllowlist';
 import {
   applyDesktopNetworkThrottleToKnownSessions,
   applyDesktopNetworkThrottleToWebContents,
 } from './libs/networkThrottle';
+import { openExternalUrl } from './libs/openExternalUrl';
+import { createPrimeStripeRequestMonitor } from './libs/primeStripeRequestMonitor';
 // Side-effect import: registers synchronous IPC handler for renderer MMKV access
 // eslint-disable-next-line import-js/order
 import './libs/react-native-mmkv-desktop-main';
 import { registerInfoHandlers } from './libs/registerInfoHandlers';
+import { shouldReloadAppShellAfterFailedLoad } from './libs/rendererLoadRecovery';
 import { registerShortcuts, unregisterShortcuts } from './libs/shortcuts';
 import * as store from './libs/store';
 import { getBackgroundColor } from './libs/utils';
+import {
+  isWcPayEmbedUrl,
+  stripFrameBlockingHeaders,
+} from './libs/wcPayFrameEmbedding';
 import { shouldGrantMainWindowDevicePermission } from './libs/webUsbDeviceSelection';
 // Logger initialization (file rotation, sanitization, rate limiting)
 import './logger';
@@ -93,7 +111,7 @@ import { setMainWindowForOAuthServer } from './service/oauthLocalServer/oauthLoc
 import { destroyTrayManager, initTrayManager } from './tray/TrayManager';
 import { destroyTrayWindow, getTrayWindow } from './tray/trayWindow';
 
-import type { IpcMainLike } from '@onekeyfe/hwk-trezor-connector-electron-ble/main';
+import type { IpcMainLike } from '@onekeyfe/hwk-desktop-noble-ble';
 
 // cspell:ignore pkexec
 // Main-process (sender) side of the DESKTOP_API_CALL IPC boundary: normalize
@@ -104,8 +122,11 @@ import type { IpcMainLike } from '@onekeyfe/hwk-trezor-connector-electron-ble/ma
 // can still recover any `{ message, code, data }` payload encoded in it.
 function makeIpcSafeError(error: unknown, fallbackMessage: string): Error {
   if (error instanceof Error) {
-    const safeError = new Error(error.message || fallbackMessage);
-    safeError.name = error.name || 'Error';
+    const message = error.message || fallbackMessage;
+    const safeError = new Error(message);
+    if (!message.startsWith(UPDATE_ERROR_WIRE_PREFIX)) {
+      safeError.name = error.name || 'Error';
+    }
     safeError.stack = error.stack;
     return safeError;
   }
@@ -236,6 +257,39 @@ const sdkConnectSrc = isLocalUnpacked
   : path.join('/static', 'js-sdk/');
 
 const isMac = process.platform === 'darwin';
+
+const TRADING_VIEW_ORIGINS = new Set([
+  TRADING_VIEW_URL,
+  TRADING_VIEW_URL_TEST,
+  TRADING_VIEW_LOCALHOST_ORIGIN,
+]);
+
+function isTradingViewWebContents(contents: Electron.WebContents): boolean {
+  try {
+    return TRADING_VIEW_ORIGINS.has(new URL(contents.getURL()).origin);
+  } catch {
+    return false;
+  }
+}
+
+// Electron zoom roles target getFocusedWebContents(), which prefers any <webview> guest in the
+// focused window. For TradingView that zooms only the chart page, so zoom its host window instead.
+function getZoomTargetWebContents(): Electron.WebContents | null {
+  const focused = electronWebContents.getFocusedWebContents();
+  if (focused?.getType() === 'webview' && isTradingViewWebContents(focused)) {
+    return focused.hostWebContents ?? focused;
+  }
+  return focused;
+}
+
+function adjustZoomLevel(delta: number | 'reset'): void {
+  const target = getZoomTargetWebContents();
+  if (!target) {
+    return;
+  }
+  target.zoomLevel = delta === 'reset' ? 0 : target.zoomLevel + delta;
+}
+
 const isWin = process.platform === 'win32';
 const isLinux = process.platform === 'linux';
 
@@ -352,6 +406,30 @@ async function softRestartRenderer() {
   }
 }
 
+// The built-in `toggleDevTools` role targets the focused webContents, which
+// can be an embedded <webview> (even one in a hidden tab), so the main window
+// shortcut must target the main window explicitly.
+const toggleMainWindowDevTools = () => {
+  getSafelyMainWindow()?.webContents.toggleDevTools();
+};
+
+const toggleFocusedWebViewDevTools = () => {
+  const focused = electronWebContents.getFocusedWebContents();
+  if (!focused || focused.isDestroyed()) {
+    return;
+  }
+  // Webview DevTools always open detached and take focus, so resolve the
+  // inspected webview from its DevTools frontend to allow closing it again.
+  const inspected = electronWebContents
+    .getAllWebContents()
+    .find((contents) => contents.devToolsWebContents === focused);
+  const target = inspected ?? focused;
+  if (target.isDestroyed() || target.getType() !== 'webview') {
+    return;
+  }
+  target.toggleDevTools();
+};
+
 const initMenu = () => {
   const template = [
     {
@@ -454,35 +532,35 @@ const initMenu = () => {
           ? [
               { role: 'reload' },
               { role: 'forceReload' },
-              { role: 'toggleDevTools' },
-              isDevServer
-                ? {
-                    role: 'toggleDevTools',
-                    label: `Toggle DevTools: ${store.getDevTools().toString()}`,
-                  }
-                : null,
+              {
+                label: isDevServer
+                  ? `Toggle Developer Tools: ${store.getDevTools().toString()}`
+                  : 'Toggle Developer Tools',
+                accelerator: isMac ? 'Alt+Command+I' : 'Ctrl+Shift+I',
+                click: toggleMainWindowDevTools,
+              },
+              {
+                label: 'Toggle WebView Developer Tools',
+                accelerator: isMac ? 'Alt+Shift+Command+I' : 'Ctrl+Alt+Shift+I',
+                click: toggleFocusedWebViewDevTools,
+              },
               { type: 'separator' },
             ].filter(Boolean)
           : []),
         {
-          role: 'resetZoom',
           label: i18nText(ElectronTranslations.menu_actual_size),
           accelerator: 'CmdOrCtrl+0',
+          click: () => adjustZoomLevel('reset'),
         },
-        isMac
-          ? {
-              role: 'zoomIn',
-              label: i18nText(ElectronTranslations.menu_zoom_in),
-            }
-          : {
-              role: 'zoomIn',
-              label: i18nText(ElectronTranslations.menu_zoom_in),
-              accelerator: 'CmdOrCtrl+Shift+]',
-            },
         {
-          role: 'zoomOut',
+          label: i18nText(ElectronTranslations.menu_zoom_in),
+          accelerator: isMac ? 'CmdOrCtrl+Plus' : 'CmdOrCtrl+Shift+]',
+          click: () => adjustZoomLevel(0.5),
+        },
+        {
           label: i18nText(ElectronTranslations.menu_zoom_out),
           accelerator: isMac ? 'CmdOrCtrl+-' : 'CmdOrCtrl+Shift+[',
+          click: () => adjustZoomLevel(-0.5),
         },
         { type: 'separator' },
         {
@@ -680,7 +758,26 @@ const ratio = 16 / 9;
 const defaultSize = 1200;
 const minWidth = 1024;
 const minHeight = 800;
+let bleQuitStarted = false;
+let bleQuitReady = false;
+let appQuitStarted = false;
+let mainRendererBootFailed = false;
+let nobleBleInitialization = Promise.resolve();
+let trezorBleWindowCleanup = Promise.resolve();
+// Retain retired handlers so recovery-created native instances survive until app quit.
+const trezorBleSupports = new Set<
+  ReturnType<typeof initThirdPartyBleSupport>
+>();
+// When the main renderer dies, the window keeps its last frame but ignores all
+// input. Reload it, capped so a renderer that crashes while booting cannot
+// reload forever.
+const MAIN_RENDERER_RELOAD_WINDOW_MS = 5 * 60 * 1000;
+const MAIN_RENDERER_MAX_RELOADS_IN_WINDOW = 3;
+let mainRendererReloadTimestamps: number[] = [];
+
 async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
+  await trezorBleWindowCleanup;
+  if (bleQuitStarted) return null;
   const isSoftRestart = opts?.isSoftRestart ?? false;
   // === Boot Recovery Check (must be first) ===
   // Runs for BOTH cold boots AND MAS soft restarts: a soft restart is a real
@@ -706,8 +803,27 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
     );
   }
   store.setBootFailAppVersion(currentAppVersion);
-  const bootFailCount = store.incrementConsecutiveBootFailCount();
+  let bootFailCount = store.incrementConsecutiveBootFailCount();
   logger.info('Boot fail count:', bootFailCount, { isSoftRestart });
+  const activeOtaBundleVersion = store.getUpdateBundleData()?.bundleVersion;
+  if (bootFailCount >= 3 && activeOtaBundleVersion) {
+    logger.warn(
+      'Consecutive boot failures detected with active OTA bundle, rolling back to built-in bundle',
+      {
+        bootFailCount,
+        bundleVersion: activeOtaBundleVersion,
+        appVersion: currentAppVersion,
+      },
+    );
+    store.recordFailedOtaBundle(currentAppVersion, activeOtaBundleVersion);
+    store.revokePendingSwitchForFailedBundle(
+      currentAppVersion,
+      activeOtaBundleVersion,
+    );
+    store.clearUpdateBundleData();
+    store.resetConsecutiveBootFailCount();
+    bootFailCount = store.incrementConsecutiveBootFailCount();
+  }
   if (bootFailCount >= 3) {
     logger.error('Recovery page triggered', {
       crashCount: bootFailCount,
@@ -765,7 +881,9 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
     webPreferences: {
       spellcheck: false,
       webviewTag: true,
-      webSecurity: isPerfCiMode ? true : !isDev,
+      // Disabling origin checks breaks Turnstile child-frame commits in
+      // Chromium and terminates the renderer, even during development.
+      webSecurity: true,
       // @ts-expect-error
       nativeWindowOpen: true,
       allowRunningInsecureContent: false,
@@ -792,7 +910,7 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
   store.processPreLaunchPendingTask();
   const bundleData = store.getUpdateBundleData();
   logger.info('bundleData >>>> ', bundleData);
-  const bundleIndexHtmlPath = getBundleIndexHtmlPath(bundleData);
+  let bundleIndexHtmlPath = getBundleIndexHtmlPath(bundleData);
   logger.info('bundleIndexHtmlPath >>>> ', bundleIndexHtmlPath);
 
   globalThis.$desktopMainAppFunctions = {
@@ -806,6 +924,8 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
     getBundleIndexHtmlPath: () => bundleIndexHtmlPath,
     useJsBundle: () => !!bundleIndexHtmlPath,
     softRestartRenderer,
+    getRevenueCat: async () =>
+      (await import('./service/revenueCat/revenueCat')).default,
   };
 
   if (isMac) {
@@ -894,11 +1014,87 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
         });
   /* eslint-enable no-nested-ternary */
 
+  let selectedShellDocumentCommitted = false;
+  let trustedSameDocumentRouteUrl: string | undefined;
+  globalThis.$desktopMainAppFunctions.isTrustedMainWindowSender = (
+    senderId,
+    senderFrame,
+    mainFrame,
+  ) => {
+    const currentMainWindow = getSafelyMainWindow() ?? getSafelyBrowserWindow();
+    return Boolean(
+      currentMainWindow?.webContents.id === senderId &&
+      senderFrame &&
+      senderFrame === mainFrame &&
+      selectedShellDocumentCommitted &&
+      isTrustedMainWindowUrl(
+        src,
+        senderFrame.url,
+        trustedSameDocumentRouteUrl,
+        isDevServer,
+      ),
+    );
+  };
+
+  browserWindow.webContents.on('did-navigate', (_event, url) => {
+    selectedShellDocumentCommitted = isTrustedMainWindowUrl(
+      src,
+      url,
+      isDevServer ? trustedSameDocumentRouteUrl : undefined,
+      isDevServer,
+    );
+    trustedSameDocumentRouteUrl =
+      isDevServer && selectedShellDocumentCommitted ? url : undefined;
+    if (!selectedShellDocumentCommitted) {
+      try {
+        if (
+          new URL(src).protocol === 'file:' &&
+          new URL(url).protocol === 'file:'
+        ) {
+          void getSafelyBrowserWindow()
+            ?.loadURL(src)
+            .catch((error) =>
+              logger.error('Failed to reload app shell:', error),
+            );
+        }
+      } catch {
+        // Invalid URLs cannot be recovered as local app-shell routes.
+      }
+    }
+  });
+  browserWindow.webContents.on(
+    'did-navigate-in-page',
+    (_event, url, isMainFrame) => {
+      if (isMainFrame && selectedShellDocumentCommitted) {
+        trustedSameDocumentRouteUrl = url;
+      }
+    },
+  );
+
+  const guardMainWindowNavigation = (event: Electron.Event, url: string) => {
+    if (
+      !isTrustedMainWindowUrl(
+        src,
+        url,
+        isDevServer ? trustedSameDocumentRouteUrl : undefined,
+        isDevServer,
+      )
+    ) {
+      event.preventDefault();
+      logger.warn(
+        '[MainWindow] rejected navigation outside selected app shell',
+      );
+    }
+  };
+  browserWindow.webContents.on('will-navigate', guardMainWindowNavigation);
+  browserWindow.webContents.on('will-redirect', guardMainWindowNavigation);
+  browserWindow.webContents.on('will-frame-navigate', (event) => {
+    if (event.isMainFrame) guardMainWindowNavigation(event, event.url);
+  });
+
   if (isDevServer && !isDesktopE2EMode) {
     browserWindow.webContents.openDevTools();
   }
-
-  void browserWindow.loadURL(src);
 
   // Set main window reference for OAuth server
   setMainWindowForOAuthServer(browserWindow);
@@ -926,6 +1122,53 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
     logger.info('[CPU Watchdog] renderer webContents responsive again');
   });
 
+  browserWindow.webContents.on('render-process-gone', (_event, details) => {
+    if (
+      details.reason === 'clean-exit' ||
+      appQuitStarted ||
+      bleQuitStarted ||
+      softRestarting
+    ) {
+      return;
+    }
+    mainRendererBootFailed = true;
+    const now = Date.now();
+    mainRendererReloadTimestamps = mainRendererReloadTimestamps.filter(
+      (timestamp) => now - timestamp < MAIN_RENDERER_RELOAD_WINDOW_MS,
+    );
+    const logData = {
+      reason: details.reason,
+      exitCode: details.exitCode,
+      recentReloads: mainRendererReloadTimestamps.length,
+    };
+    if (
+      mainRendererReloadTimestamps.length >= MAIN_RENDERER_MAX_RELOADS_IN_WINDOW
+    ) {
+      logger.error(
+        '[RendererRecovery] main renderer keeps crashing, not reloading',
+        logData,
+      );
+      return;
+    }
+    mainRendererReloadTimestamps.push(now);
+    logger.warn('[RendererRecovery] main renderer gone, reloading', logData);
+    // Start the reload after Electron finishes dispatching this event.
+    setImmediate(() => {
+      const safelyBrowserWindow = getSafelyBrowserWindow();
+      if (
+        !safelyBrowserWindow ||
+        appQuitStarted ||
+        bleQuitStarted ||
+        softRestarting
+      ) {
+        return;
+      }
+      // Deep links received while the page reboots wait for dom-ready.
+      isAppReady = false;
+      void safelyBrowserWindow.loadURL(src);
+    });
+  });
+
   browserWindow.webContents.on('did-finish-load', () => {
     logger.info('browserWindow >>>> did-finish-load');
     // fix white flicker on Windows & Linux
@@ -951,6 +1194,7 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
     }
   });
   browserWindow.on('closed', () => {
+    unregisterShortcuts();
     mainWindow = null;
     isAppReady = false;
     logger.info('set isAppReady on browserWindow closed', isAppReady);
@@ -974,24 +1218,8 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
     isAppReady = true;
   });
 
-  // Gate shell.openExternal behind a protocol whitelist so a tainted main
-  // renderer (XSS) cannot weaponize window.open() into phishing redirects
-  // via javascript:/file:/data: URIs. Only https:// (and mailto:) are
-  // forwarded to the OS browser. See SlowMist audit Desktop-14.
   browserWindow.webContents.setWindowOpenHandler(({ url }) => {
-    try {
-      const parsed = new URL(url);
-      if (parsed.protocol !== 'https:' && parsed.protocol !== 'mailto:') {
-        logger.warn(
-          '[setWindowOpenHandler] blocked non-https url:',
-          parsed.protocol,
-        );
-        return { action: 'deny' };
-      }
-      void shell.openExternal(url);
-    } catch {
-      logger.warn('[setWindowOpenHandler] blocked malformed url');
-    }
+    void openExternalUrl(url);
     return { action: 'deny' };
   });
 
@@ -1115,6 +1343,7 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
   ipcMain.removeAllListeners(ipcMessageKeys.MARK_BOOT_SUCCESS);
   ipcMain.on(ipcMessageKeys.MARK_BOOT_SUCCESS, () => {
     store.resetConsecutiveBootFailCount();
+    mainRendererBootFailed = false;
     logger.info('Boot success confirmed, crash counter reset');
   });
 
@@ -1143,9 +1372,13 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
       // window dynamically (not the closure-captured `browserWindow`) so a MAS
       // soft restart — which destroys and recreates the window — keeps the gate
       // pointed at the current renderer instead of the destroyed one.
-      const currentMainWebContentsId =
-        getSafelyMainWindow()?.webContents.id ?? browserWindow.webContents.id;
-      if (event.sender.id !== currentMainWebContentsId) {
+      if (
+        !globalThis.$desktopMainAppFunctions.isTrustedMainWindowSender?.(
+          event.sender.id,
+          event.senderFrame,
+          event.sender.mainFrame,
+        )
+      ) {
         logger.warn(
           '[DESKTOP_API_CALL] Rejected call from non-main renderer',
           event.sender.id,
@@ -1188,6 +1421,13 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
   browserWindow.on('enter-full-screen', () => {
     const safelyBrowserWindow = getSafelyBrowserWindow();
     safelyBrowserWindow?.webContents.send(ipcMessageKeys.APP_STATE, undefined);
+    if (
+      bleQuitStarted ||
+      !safelyBrowserWindow?.isFocused() ||
+      !safelyBrowserWindow.isVisible()
+    ) {
+      return;
+    }
     registerShortcuts((event) => {
       const w = getSafelyBrowserWindow();
       w?.webContents.send(ipcMessageKeys.APP_SHORTCUT, event);
@@ -1204,6 +1444,13 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
     const safelyBrowserWindow = getSafelyBrowserWindow();
     const state: IDesktopAppState = 'active';
     safelyBrowserWindow?.webContents.send(ipcMessageKeys.APP_STATE, state);
+    if (
+      bleQuitStarted ||
+      !safelyBrowserWindow?.isFocused() ||
+      !safelyBrowserWindow.isVisible()
+    ) {
+      return;
+    }
     registerShortcuts((event) => {
       const w = getSafelyBrowserWindow();
       w?.webContents.send(ipcMessageKeys.APP_SHORTCUT, event);
@@ -1211,13 +1458,14 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
   });
 
   browserWindow.on('blur', () => {
+    unregisterShortcuts();
     const safelyBrowserWindow = getSafelyBrowserWindow();
     const state: IDesktopAppState = 'blur';
     safelyBrowserWindow?.webContents.send(ipcMessageKeys.APP_STATE, state);
-    unregisterShortcuts();
   });
 
   browserWindow.on('hide', () => {
+    unregisterShortcuts();
     const safelyBrowserWindow = getSafelyBrowserWindow();
     const state: IDesktopAppState = 'background';
     safelyBrowserWindow?.webContents.send(ipcMessageKeys.APP_STATE, state);
@@ -1437,11 +1685,53 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
     },
   );
 
+  const primeStripeRequestMonitor = createPrimeStripeRequestMonitor(
+    () => getSafelyMainWindow()?.webContents,
+  );
+  session.defaultSession.webRequest.onBeforeRequest(
+    { urls: ['https://js.stripe.com/*'] },
+    (details, callback) => {
+      primeStripeRequestMonitor.recordRequest(details);
+      callback({});
+    },
+  );
+  session.defaultSession.webRequest.onErrorOccurred(
+    { urls: ['https://js.stripe.com/*'] },
+    (details) => primeStripeRequestMonitor.forgetRequest(details.id),
+  );
+
   // Inject security response headers for the app's own pages only.
   // Scoped to file:// and localhost to avoid interfering with external API responses.
+  //
+  // The WalletConnect Pay hosts are the one exception: their compliance form
+  // is embedded in an iframe (official web integration path), but its CSP
+  // `frame-ancestors https:` rejects the desktop renderer origin (file:// in
+  // prod, http://localhost in dev). Strip only the frame-blocking headers for
+  // those hosts; the rest of their CSP stays enforced. Electron replaces the
+  // previous onHeadersReceived listener on re-registration, so both concerns
+  // must share this single registration.
   session.defaultSession.webRequest.onHeadersReceived(
-    { urls: ['file://*', 'http://localhost:*/*'] },
+    {
+      urls: [
+        'file://*',
+        'http://localhost:*/*',
+        'https://pay.walletconnect.com/*',
+        'https://*.pay.walletconnect.com/*',
+        'https://js.stripe.com/*',
+      ],
+    },
     (details, callback) => {
+      if (details.url.startsWith('https://js.stripe.com/')) {
+        primeStripeRequestMonitor.receiveResponse(details);
+        callback({});
+        return;
+      }
+      if (isWcPayEmbedUrl(details.url)) {
+        callback({
+          responseHeaders: stripFrameBlockingHeaders(details.responseHeaders),
+        });
+        return;
+      }
       callback({
         responseHeaders: {
           ...details.responseHeaders,
@@ -1462,7 +1752,6 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
     let useJsBundle = globalThis.$desktopMainAppFunctions?.useJsBundle?.();
     const bundleDirPath = getBundleDirPath();
     let metadata: Record<string, string> = {};
-    let metadataFailed = false;
     if (bundleDirPath) {
       try {
         metadata = await getMetadata({
@@ -1472,121 +1761,170 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
           signature: bundleData.signature,
         });
       } catch (e) {
-        // GPG verification failed or metadata unreadable — disable JS bundle
-        // so the interceptor falls back to the builtin bundle in the asar.
+        // GPG verification failed or metadata unreadable — clear broken OTA
+        // bundle pointer and disable JS bundle so the interceptor falls back
+        // to the builtin bundle in the asar.
         logger.error('getMetadata failed, falling back to builtin bundle:', e);
+        store.clearUpdateBundleData();
+        bundleIndexHtmlPath = undefined;
         useJsBundle = false;
-        metadataFailed = true;
+        /* eslint-disable no-nested-ternary */
+        src = isPerfCiMode
+          ? formatUrl({
+              pathname: perfIndexHtmlPath,
+              protocol: PROTOCOL,
+              slashes: true,
+            })
+          : isDev
+            ? process.env.DESKTOP_E2E_RENDERER_URL || 'http://localhost:3001/'
+            : formatUrl({
+                pathname: 'index.html',
+                protocol: PROTOCOL,
+                slashes: true,
+              });
+        /* eslint-enable no-nested-ternary */
+        selectedShellDocumentCommitted = false;
+        trustedSameDocumentRouteUrl = undefined;
       }
     }
     uninterceptFileProtocolIfNeeded();
     session.defaultSession.protocol.interceptFileProtocol(
       PROTOCOL,
       (request, callback) => {
-        const isJsSdkFile = request.url.indexOf('/static/js-sdk') > -1;
-        const isIFrameHtml =
-          request.url.indexOf('/static/js-sdk/iframe.html') > -1;
+        try {
+          const cleanUrl = request.url.split(/[?#]/, 1)[0];
+          const isJsSdkFile = cleanUrl.indexOf('/static/js-sdk') > -1;
+          const isIFrameHtml = cleanUrl.endsWith('/static/js-sdk/iframe.html');
 
-        // resolve iframe path
-        if (isJsSdkFile && isIFrameHtml) {
+          // resolve iframe path
+          if (isJsSdkFile && isIFrameHtml) {
+            if (useJsBundle && indexHtmlPath && bundleDirPath) {
+              let key = path.join('static', 'js-sdk', 'iframe.html');
+              const filePath = path.join(bundleDirPath, key);
+              if (isWin) {
+                key = key.replace(/\\/g, '/');
+              }
+              const sha512 =
+                Object.prototype.hasOwnProperty.call(metadata, key) &&
+                typeof metadata[key] === 'string'
+                  ? metadata[key]
+                  : undefined;
+              if (!sha512 || !checkFileSha512(filePath, sha512)) {
+                logger.info(
+                  'checkFileHash error in js-sdk:',
+                  `${key}:  ${filePath} not matched ${sha512 ?? ''}`,
+                );
+                store.clearUpdateBundleData();
+                throw new OneKeyLocalError(`File ${key} sha512 mismatch`);
+              }
+              callback(filePath);
+              return;
+            }
+            callback({
+              path: path.join(
+                __dirname,
+                '..',
+                'build',
+                'static',
+                'js-sdk',
+                'iframe.html',
+              ),
+            });
+            return;
+          }
+
+          const url = cleanUrl.substring(PROTOCOL.length + 1);
           if (useJsBundle && indexHtmlPath && bundleDirPath) {
-            let key = path.join('static', 'js-sdk', 'iframe.html');
-            const filePath = path.join(bundleDirPath, key);
-            if (isWin) {
-              key = key.replace(/\\/g, '/');
+            let decodedUrl: string;
+            try {
+              decodedUrl = decodeURIComponent(url);
+            } catch {
+              callback({ error: -6 } as any);
+              return;
             }
-            const sha512 = metadata[key];
-            if (!checkFileSha512(filePath, sha512)) {
-              logger.info(
-                'checkFileHash error in js-sdk:',
-                `${key}:  ${filePath} not matched ${sha512}`,
-              );
-              throw new OneKeyLocalError(`File ${key} sha512 mismatch`);
+            const normalizedDecodedUrl = decodedUrl.replace(/\\/g, '/');
+            const normalizedBundleDirPath = bundleDirPath.replace(/\\/g, '/');
+            if (normalizedDecodedUrl.includes(normalizedBundleDirPath)) {
+              const filePath = checkFileHash({
+                bundleDirPath,
+                metadata,
+                driveLetter,
+                url: normalizedDecodedUrl.replace(normalizedBundleDirPath, ''),
+              });
+              callback(filePath);
+            } else {
+              const filePath = checkFileHash({
+                bundleDirPath,
+                metadata,
+                driveLetter,
+                url: decodedUrl,
+              });
+              callback(filePath);
             }
-            callback(filePath);
-            return;
-          }
-          callback({
-            path: path.join(
-              __dirname,
-              '..',
-              'build',
-              'static',
-              'js-sdk',
-              'iframe.html',
-            ),
-          });
-          return;
-        }
-
-        // Strip the query string before path resolution — without this the
-        // tray window's `?render=tray` gets concatenated into the resolved
-        // filename and fs misses. Guarded by indexOf so the common
-        // no-query case (main window resources) stays allocation-free.
-        const queryIdx = request.url.indexOf('?');
-        const rawUrl =
-          queryIdx === -1 ? request.url : request.url.substring(0, queryIdx);
-        const url = rawUrl.substring(PROTOCOL.length + 1);
-        if (useJsBundle && indexHtmlPath && bundleDirPath) {
-          const decodedUrl = decodeURIComponent(url);
-          if (decodedUrl.includes(bundleDirPath)) {
-            const filePath = checkFileHash({
-              bundleDirPath,
-              metadata,
-              driveLetter,
-              url: decodedUrl.replace(bundleDirPath, ''),
-            });
-            callback(filePath);
           } else {
-            const filePath = checkFileHash({
-              bundleDirPath,
-              metadata,
-              driveLetter,
-              url: decodedUrl,
-            });
-            callback(filePath);
+            const buildDir = path.resolve(__dirname, '..', 'build');
+            let decodedUrl: string;
+            try {
+              decodedUrl = decodeURIComponent(url);
+            } catch {
+              callback({ error: -6 } as any);
+              return;
+            }
+            // Strip leading protocol slashes (e.g. "//index.html" → "index.html")
+            // and Windows drive prefix so path.resolve treats the segment as relative.
+            const relativeUrl = decodedUrl
+              .replace(/^[:/\\]+/, '')
+              .replace(/^[A-Za-z]:[\\/]/, '')
+              .replace(/^[:/\\]+/, '');
+            const resolved = path.resolve(buildDir, relativeUrl);
+            if (
+              !resolved.startsWith(buildDir + path.sep) &&
+              resolved !== buildDir
+            ) {
+              logger.warn('Blocked file access outside build dir:', resolved);
+              callback({ error: -6 } as any); // net::ERR_FILE_NOT_FOUND
+              return;
+            }
+            callback(resolved);
           }
-        } else {
-          const buildDir = path.resolve(__dirname, '..', 'build');
-          // Strip leading protocol slashes (e.g. "//index.html" → "index.html")
-          // so path.resolve treats the segment as relative, not absolute.
-          const relativeUrl = url.replace(/^[:/]+/, '');
-          const resolved = path.resolve(buildDir, relativeUrl);
-          if (
-            !resolved.startsWith(buildDir + path.sep) &&
-            resolved !== buildDir
-          ) {
-            logger.warn('Blocked file access outside build dir:', resolved);
-            callback({ error: -6 } as any); // net::ERR_FILE_NOT_FOUND
-            return;
-          }
-          callback(resolved);
+        } catch (error) {
+          logger.error('interceptFileProtocol error:', error);
+          callback({ error: -6 } as any);
         }
       },
     );
-    // When getMetadata failed, src still points to the bundle path which the
-    // interceptor cannot resolve with useJsBundle=false. Recompute and reload
-    // now that the interceptor is registered and will serve builtin files.
-    if (metadataFailed) {
-      src = formatUrl({
-        pathname: 'index.html',
-        protocol: PROTOCOL,
-        slashes: true,
-      });
-      void browserWindow.loadURL(src);
-    }
     const safelyBrowserWindow = getSafelyBrowserWindow();
     safelyBrowserWindow?.webContents.on(
       'did-fail-load',
-      (_, __, ___, validatedURL) => {
-        const redirectPath = validatedURL.replace(`${PROTOCOL}://`, '');
-        if (validatedURL.startsWith(PROTOCOL) && !redirectPath.includes('.')) {
-          const w = getSafelyBrowserWindow();
-          void w?.loadURL(src);
+      (_, errorCode, __, validatedURL, isMainFrame) => {
+        if (
+          !appQuitStarted &&
+          isMainFrame &&
+          errorCode !== -3 &&
+          isTrustedMainWindowUrl(src, validatedURL)
+        ) {
+          mainRendererBootFailed = true;
         }
+        if (
+          !shouldReloadAppShellAfterFailedLoad({
+            validatedURL,
+            isMainFrame,
+            errorCode,
+            appShellUrl: src,
+          })
+        ) {
+          return;
+        }
+        logger.info('browserWindow >>>> reload app shell after failed load', {
+          errorCode,
+        });
+        const w = getSafelyBrowserWindow();
+        void w?.loadURL(src);
       },
     );
   }
+
+  void getSafelyBrowserWindow()?.loadURL(src);
 
   // @ts-expect-error
   browserWindow.on('close', (event: Event) => {
@@ -1625,34 +1963,33 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
     EOneKeyBleMessageKeys.NOBLE_BLE_CANCEL_PAIRING,
     EOneKeyBleMessageKeys.BLE_AVAILABILITY_CHECK,
   ];
+  if (bleQuitStarted) return browserWindow;
   nobleBleChannels.forEach((channel) => ipcMain.removeHandler(channel));
-  void initNobleBleSupport(browserWindow.webContents);
+  nobleBleInitialization = initNobleBleSupport(browserWindow.webContents).catch(
+    (error) => logger.error('[NobleBLE] IPC initialization failed', error),
+  );
 
   // Third-party BLE wiring — exposed to the renderer as the vendor-neutral
-  // `window.desktopApi.thirdPartyBle`. Today it's backed by the SDK's
-  // `initTrezorBleSupport`, whose IPC channels live in their own
-  // namespace ($onekey-trezor-ble-*) so they coexist with OneKey's
-  // own `nobleBle` without colliding. When we add other 3rd-party BLE
-  // vendors, they should plug into the same `thirdPartyBle` surface
-  // rather than each adding a parallel object.
-  Object.values(TREZOR_BLE_CHANNELS).forEach((channel) =>
+  // `window.desktopApi.thirdPartyBle` serves every third-party vendor through
+  // one handler, namespaced ($onekey-3p-ble-*) to coexist with OneKey's `nobleBle`. A new vendor plugs in here, not a parallel object.
+  Object.values(THIRD_PARTY_BLE_CHANNELS).forEach((channel) =>
     ipcMain.removeHandler(channel),
   );
   // The SDK registers its BLE IPC handlers ignoring `event.sender`. DApp
   // webviews share the same preload (`desktopApi.thirdPartyBle`) and could
   // otherwise drive BLE scan/connect/write. Gate every channel to the main
   // window renderer, matching the DESKTOP_API_CALL sender check.
-  const trezorBleSenderGatedIpcMain: IpcMainLike = {
+  const thirdPartyBleSenderGatedIpcMain: IpcMainLike = {
     handle: (channel, listener) => {
       ipcMain.handle(channel, (event, ...args) => {
         if (event.sender.id !== browserWindow.webContents.id) {
           logger.warn(
-            '[TrezorBLE] Rejected IPC from non-main renderer',
+            '[ThirdPartyBLE] Rejected IPC from non-main renderer',
             channel,
             event.sender.id,
           );
           throw new OneKeyLocalError(
-            'Trezor BLE IPC is only allowed from the main window',
+            'Third-party BLE IPC is only allowed from the main window',
           );
         }
         return listener(event, ...args);
@@ -1661,12 +1998,12 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
     removeHandler: (channel) => ipcMain.removeHandler(channel),
   };
   logTrezorBleFlags();
-  initTrezorBleSupport(browserWindow.webContents, {
+  const trezorBleSupport = initThirdPartyBleSupport(browserWindow.webContents, {
     // Insert Windows OS-pairing at the connect seam (SDK stays untouched):
     // caches scan address, runs the WinRT pairing helper before noble connects.
     // No-op on non-Windows / builds without the bundled helper.
     ipcMain: createTrezorBlePairingIpcMain(
-      trezorBleSenderGatedIpcMain,
+      thirdPartyBleSenderGatedIpcMain,
       browserWindow,
     ),
     logger: (entry) => {
@@ -1684,6 +2021,14 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
       }
       logger.info(message, data);
     },
+  });
+
+  trezorBleSupports.add(trezorBleSupport);
+  browserWindow.webContents.once('destroyed', () => {
+    if (bleQuitStarted) return;
+    trezorBleWindowCleanup = trezorBleSupport.dispose().catch((error) => {
+      logger.error('[TrezorBLE] Window cleanup failed', error);
+    });
   });
 
   return browserWindow;
@@ -1802,6 +2147,7 @@ if (!singleInstance && !process.mas) {
 //  So we need to handle both cases to be safe.
 app.on('activate', async () => {
   await app.whenReady();
+  if (bleQuitStarted) return;
   // During a soft restart `mainWindow` is transiently null while
   // createMainWindow() runs. Skip creating a window here in that window of time,
   // otherwise a dock-icon click would spawn a SECOND main window (without
@@ -1813,16 +2159,71 @@ app.on('activate', async () => {
   showMainWindow();
 });
 
-app.on('before-quit', () => {
+app.on('before-quit', (event) => {
+  appQuitStarted = true;
+  unregisterShortcuts();
+  if (isMac && !bleQuitReady) {
+    event.preventDefault();
+    if (bleQuitStarted) return;
+    bleQuitStarted = true;
+    logger.info('[BLE] Process dispose started');
+    const instances = new Set<{ stop?(): void }>();
+    const stopped = new Set<{ stop?(): void }>();
+    let draining = false;
+    const stopNative = (instance: { stop?(): void }) => {
+      if (stopped.has(instance)) return;
+      stopped.add(instance);
+      try {
+        instance.stop?.();
+        logger.info('[BLE] Noble native manager stopped before app quit');
+      } catch (error) {
+        logger.error('[BLE] Noble native stop failed', error);
+      }
+    };
+    const releaseNoble = (instance: { stop?(): void }) => {
+      instances.add(instance);
+      if (draining) stopNative(instance);
+    };
+    let timeout: ReturnType<typeof setTimeout>;
+    void Promise.race([
+      Promise.allSettled([
+        nobleBleInitialization,
+        disposeNobleBleSupport(releaseNoble),
+        ...Array.from(trezorBleSupports, (support) =>
+          support.disposeForAppQuit(releaseNoble),
+        ),
+      ]).then((results) => {
+        for (const result of results) {
+          if (result.status === 'rejected') {
+            logger.error('[BLE] Process dispose failed', result.reason);
+          }
+        }
+      }),
+      new Promise<void>((resolve) => {
+        timeout = setTimeout(() => {
+          logger.warn('[BLE] Process dispose timed out');
+          resolve();
+        }, 5000);
+      }),
+    ]).finally(() => {
+      clearTimeout(timeout);
+      draining = true;
+      instances.forEach(stopNative);
+      trezorBleSupports.clear();
+      logger.info('[BLE] Process dispose completed; resuming app quit');
+      bleQuitReady = true;
+      // Let the native before-quit callback return before retrying. An immediately
+      // resolved cleanup can otherwise re-enter app.quit() and lose its quit state.
+      setImmediate(() => app.quit());
+    });
+    return;
+  }
+
   if (isMac) {
     destroyTrayManager();
   }
 
-  // Reset crash counter on graceful shutdown so normal close
-  // is not mistaken for a crash on next boot.
-  // Skip reset when in recovery mode (count >= 3) so recovery is still
-  // offered if the user closes the recovery window without resolving.
-  if (store.getConsecutiveBootFailCount() < 3) {
+  if (!mainRendererBootFailed && store.getConsecutiveBootFailCount() < 3) {
     store.resetConsecutiveBootFailCount();
   }
 
@@ -1929,6 +2330,8 @@ app.on('render-process-gone', (event, webContents, details) => {
   logger.error('Render process gone:', {
     reason: details.reason,
     exitCode: details.exitCode,
+    webContentsType: webContents.getType(),
+    isMainWindow: webContents === getSafelyMainWindow()?.webContents,
   });
 
   if (details.reason === 'crashed' || details.reason === 'oom') {

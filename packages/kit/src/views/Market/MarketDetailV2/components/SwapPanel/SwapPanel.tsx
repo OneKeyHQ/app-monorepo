@@ -1,4 +1,5 @@
 import { useCallback, useMemo } from 'react';
+import type { ComponentProps } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -7,53 +8,55 @@ import {
   Button,
   Divider,
   SizableText,
+  Skeleton,
   Spinner,
   Stack,
   View,
   XStack,
   YStack,
-  useMedia,
-  useSafeAreaInsets,
+  usePageFooterSafeAreaBottom,
+  usePageFooterTabBarHeight,
 } from '@onekeyhq/components';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { useAccountSelectorTrigger } from '@onekeyhq/kit/src/components/AccountSelector/hooks/useAccountSelectorTrigger';
 import { Currency } from '@onekeyhq/kit/src/components/Currency';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { prepareSwapProEntry } from '@onekeyhq/kit/src/states/jotai/contexts/swap/prepareSwapProEntry';
-import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
-  ESwapProJumpTokenDirection,
-  useSwapProJumpTokenAtom,
-} from '@onekeyhq/kit-bg/src/states/jotai/atoms/swap';
+  prepareMarketSwapEntry,
+  prepareStockSwapEntry,
+} from '@onekeyhq/kit/src/states/jotai/contexts/swap/prepareSwapProEntry';
+import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { USD_CURRENCY_ID } from '@onekeyhq/shared/src/consts/currencyConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { ETabRoutes } from '@onekeyhq/shared/src/routes';
+import { EModalRoutes, EModalSwapRoutes } from '@onekeyhq/shared/src/routes';
 import { equalsIgnoreCase } from '@onekeyhq/shared/src/utils/stringUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IMarketAccountPortfolioDisplayItem } from '@onekeyhq/shared/types/marketV2';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
+import { ESwapSource } from '@onekeyhq/shared/types/swap/types';
 
-import { MarketWatchListProviderMirrorV2 } from '../../../MarketWatchListProviderMirrorV2';
+import { MarketTestIDs } from '../../../testIDs';
+import {
+  type IMarketDetailFooterMode,
+  type IMarketMobileDetailKind,
+  resolveMarketMobileTradeDestination,
+} from '../../utils/marketMobileDetailKind';
 
-import { ESwapDirection } from './hooks/useTradeType';
+import {
+  ESpeedSwapConfigScope,
+  useSpeedSwapInit,
+} from './hooks/useSpeedSwapInit';
 import SwapPanelFooterButtons from './SwapPanelFooterButtons';
-import { SwapPanelWrap } from './SwapPanelWrap';
 
-const SWAP_PRO_ENTRY_DIRECTION_MAP: Record<
-  ESwapProJumpTokenDirection,
-  ESwapDirection
-> = {
-  [ESwapProJumpTokenDirection.BUY]: ESwapDirection.BUY,
-  [ESwapProJumpTokenDirection.SELL]: ESwapDirection.SELL,
-};
-
-function LgTradeButton({
+function TradeButton({
   swapToken,
   onShowSwapDialog,
+  disabled,
 }: {
   swapToken: ISwapToken;
   onShowSwapDialog?: (swapToken?: ISwapToken) => void;
+  disabled?: boolean;
 }) {
   const intl = useIntl();
   const { activeAccount, showAccountSelector } = useAccountSelectorTrigger({
@@ -69,6 +72,10 @@ function LgTradeButton({
         <Button
           size="large"
           variant="primary"
+          // Same readiness gate as the Trade button it stands in for: this
+          // branch otherwise let the account selector open before the token
+          // was known, which is the one path the guard used to miss.
+          disabled={disabled}
           onPress={showAccountSelector}
           testID="market-no-account-btn"
         >
@@ -84,6 +91,7 @@ function LgTradeButton({
         testID="market-no-account-btn"
         size="large"
         variant="primary"
+        disabled={disabled}
         onPress={() => onShowSwapDialog?.(swapToken)}
       >
         {intl.formatMessage({ id: ETranslations.dexmarket_details_trade })}
@@ -92,22 +100,62 @@ function LgTradeButton({
   );
 }
 
+function MobileWebTradeActions({
+  executionReady,
+  ...props
+}: ComponentProps<typeof SwapPanelFooterButtons> & {
+  executionReady: boolean;
+}) {
+  const { activeAccount, showAccountSelector } = useAccountSelectorTrigger({
+    num: 0,
+    showConnectWalletModalInDappMode: true,
+  });
+  const noAccount =
+    !activeAccount?.indexedAccount?.id && !activeAccount?.account?.id;
+
+  return (
+    <SwapPanelFooterButtons
+      {...props}
+      tradeDisabled={noAccount ? !executionReady : props.tradeDisabled}
+      onConnect={noAccount ? showAccountSelector : undefined}
+    />
+  );
+}
+
 export function SwapPanel({
   swapToken,
   disableTrade,
   portfolioData,
+  isPortfolioPending = false,
   onShowSwapDialog,
-  stockDetailDesktopLayout,
+  executionReady = true,
+  footerMode = 'buy-sell',
+  detailKind,
+  onPerps,
+  perpsDisabled,
+  mobileLayout = platformEnv.isNative,
 }: {
   swapToken: ISwapToken;
   disableTrade?: boolean;
   portfolioData?: IMarketAccountPortfolioDisplayItem[];
+  isPortfolioPending?: boolean;
   onShowSwapDialog?: (swapToken?: ISwapToken) => void;
-  stockDetailDesktopLayout?: boolean;
+  // False until the token detail confirms the token can be traded. The footer
+  // keeps its place and shows the buttons disabled instead of appearing late.
+  executionReady?: boolean;
+  footerMode?: IMarketDetailFooterMode;
+  detailKind?: IMarketMobileDetailKind;
+  onPerps?: () => void;
+  perpsDisabled?: boolean;
+  mobileLayout?: boolean;
 }) {
   const intl = useIntl();
-  const media = useMedia();
-  const { bottom } = useSafeAreaInsets();
+  // This footer is a plain flex sibling, not a Page.Footer, so it must claim the
+  // same bottom inset itself. A visible tab bar draws over the buttons, which is
+  // the safety net for any missed HideTabBar request.
+  const footerSafeAreaBottom = usePageFooterSafeAreaBottom();
+  const tabBarHeight = usePageFooterTabBarHeight();
+  const bottomInset = footerSafeAreaBottom + tabBarHeight;
   const navigation = useAppNavigation();
   const myPositionInfo = useMemo(() => {
     const positionInfo = portfolioData?.find(
@@ -140,30 +188,60 @@ export function SwapPanel({
     };
   }, [portfolioData, swapToken.contractAddress, swapToken.networkId]);
 
-  const [, setSwapProJumpTokenAtom] = useSwapProJumpTokenAtom();
+  const { defaultTokens, speedConfigReady } = useSpeedSwapInit(
+    swapToken.isStock ? '' : swapToken.networkId,
+    true,
+    swapToken.isStock
+      ? ESpeedSwapConfigScope.DEFAULT
+      : ESpeedSwapConfigScope.MARKET,
+  );
 
-  const handleTrade = useCallback(() => {
-    const direction = ESwapProJumpTokenDirection.BUY;
-    setSwapProJumpTokenAtom({
-      token: swapToken,
-      direction,
-      marketPresetToken: {
-        networkId: swapToken.networkId,
-        contractAddress: swapToken.contractAddress,
-        isNative: swapToken.isNative,
-      },
-    });
-    prepareSwapProEntry({
-      direction: SWAP_PRO_ENTRY_DIRECTION_MAP[direction],
-      token: swapToken,
-    });
-    navigation.pop();
-    navigation.switchTab(ETabRoutes.Swap);
-  }, [setSwapProJumpTokenAtom, swapToken, navigation]);
+  const handleTrade = useCallback(
+    (direction: 'from' | 'to') => {
+      // Swap needs the token's decimals; the buttons are disabled until then,
+      // but Android's gesture layer can still deliver a tap.
+      if (!executionReady || (!swapToken.isStock && !speedConfigReady)) {
+        return;
+      }
+      const tradeDestination = swapToken.isStock
+        ? 'stock'
+        : resolveMarketMobileTradeDestination(detailKind ?? 'trending');
+      const entryParams = {
+        token: swapToken,
+        direction,
+        storeName: EJotaiContextStoreNames.swapModal as const,
+      };
+      const swapEntry =
+        tradeDestination === 'stock'
+          ? prepareStockSwapEntry(entryParams)
+          : prepareMarketSwapEntry({
+              ...entryParams,
+              defaultTokens,
+            });
+      navigation.pushModal(EModalRoutes.SwapModal, {
+        screen: EModalSwapRoutes.SwapMainLand,
+        params: {
+          importFromToken: swapEntry.fromToken,
+          importToToken: swapEntry.toToken,
+          swapTabSwitchType: swapEntry.swapType,
+          swapSource: ESwapSource.MARKET,
+          marketSwapDirection:
+            tradeDestination === 'stock' ? undefined : direction,
+        },
+      });
+    },
+    [
+      detailKind,
+      executionReady,
+      speedConfigReady,
+      defaultTokens,
+      swapToken,
+      navigation,
+    ],
+  );
 
-  const handleInstant = useCallback(() => {
-    onShowSwapDialog?.(swapToken);
-  }, [onShowSwapDialog, swapToken]);
+  const handleBuy = useCallback(() => handleTrade('to'), [handleTrade]);
+  const handleSell = useCallback(() => handleTrade('from'), [handleTrade]);
 
   if (!swapToken) {
     return (
@@ -182,7 +260,7 @@ export function SwapPanel({
     return null;
   }
 
-  if (platformEnv.isNative) {
+  if (mobileLayout) {
     const pnl = myPositionInfo.pnl;
     const unrealizedBN = new BigNumber(pnl?.unrealizedPnlUsd ?? 0);
     const hasPnl = pnl?.isPnlSupported && !unrealizedBN.isNaN();
@@ -196,6 +274,16 @@ export function SwapPanel({
     let pnlPrefix = '';
     if (pnlIsPositive) pnlPrefix = '+';
     if (pnlIsNegative) pnlPrefix = '-';
+
+    const footerButtonProps = {
+      mode: footerMode,
+      onBuy: handleBuy,
+      onSell: handleSell,
+      onPerps,
+      tradeDisabled:
+        !executionReady || (!swapToken.isStock && !speedConfigReady),
+      perpsDisabled,
+    };
 
     return (
       <YStack>
@@ -212,14 +300,8 @@ export function SwapPanel({
                 id: ETranslations.dexmarket_details_myposition,
               })}
             </SizableText>
-            {myPositionInfo.isZero ? (
-              <Currency
-                size="$bodySmMedium"
-                formatter="value"
-                sourceCurrency={USD_CURRENCY_ID}
-              >
-                0.00
-              </Currency>
+            {isPortfolioPending ? (
+              <Skeleton width="$12" height="$4" />
             ) : (
               <Currency
                 size="$bodySmMedium"
@@ -253,40 +335,43 @@ export function SwapPanel({
             </XStack>
           ) : null}
         </XStack>
-        <Stack px="$5" pb={bottom || '$4'} pt="$2.5">
-          <SwapPanelFooterButtons
-            onTrade={handleTrade}
-            onInstant={handleInstant}
-          />
+        <Stack px="$5" pb={bottomInset || '$4'} pt="$2.5">
+          {platformEnv.isWeb ? (
+            <AccountSelectorProviderMirror
+              config={{
+                sceneName: EAccountSelectorSceneName.home,
+                sceneUrl: '',
+              }}
+              enabledNum={[0]}
+            >
+              <MobileWebTradeActions
+                {...footerButtonProps}
+                executionReady={executionReady}
+              />
+            </AccountSelectorProviderMirror>
+          ) : (
+            <SwapPanelFooterButtons {...footerButtonProps} />
+          )}
         </Stack>
       </YStack>
     );
   }
 
   return (
-    <View>
+    <View testID={MarketTestIDs.swapPanel}>
       <AccountSelectorProviderMirror
         config={{
           sceneName: EAccountSelectorSceneName.home,
           sceneUrl: '',
         }}
+        e2eContextProbeName="market-swap-panel"
         enabledNum={[0]}
       >
-        {media.lg && !stockDetailDesktopLayout ? (
-          <LgTradeButton
-            swapToken={swapToken}
-            onShowSwapDialog={onShowSwapDialog}
-          />
-        ) : (
-          <MarketWatchListProviderMirrorV2
-            storeName={EJotaiContextStoreNames.marketWatchListV2}
-          >
-            <SwapPanelWrap
-              stockDetailDesktopLayout={stockDetailDesktopLayout}
-              portfolioData={portfolioData}
-            />
-          </MarketWatchListProviderMirrorV2>
-        )}
+        <TradeButton
+          swapToken={swapToken}
+          onShowSwapDialog={onShowSwapDialog}
+          disabled={!executionReady}
+        />
       </AccountSelectorProviderMirror>
     </View>
   );

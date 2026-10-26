@@ -60,6 +60,7 @@ import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
+import bulkSendUtils from '@onekeyhq/shared/src/utils/bulkSendUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -97,6 +98,7 @@ import { settingsPersistAtom } from '../../../states/jotai/atoms';
 import { VaultBase } from '../../base/VaultBase';
 
 import { KeyringHardware } from './KeyringHardware';
+import { KeyringHardwareKeystone } from './KeyringHardwareKeystone';
 import { KeyringHardwareLedger } from './KeyringHardwareLedger';
 import { KeyringHardwareTrezor } from './KeyringHardwareTrezor';
 import { KeyringHd } from './KeyringHd';
@@ -576,18 +578,16 @@ export default class VaultBtc extends VaultBase {
       throw new OneKeyLocalError('transfersInfo is required');
     }
 
-    const MAX_OUTPUTS_PER_TX = 200;
+    const { bulkSendMaxTransfersPerTx } = await this.getVaultSettings();
+    const transfersInfoChunks = bulkSendUtils.chunkBulkSendTransfers(
+      transfersInfo,
+      bulkSendMaxTransfersPerTx,
+    );
     const encodedTxs: IEncodedTxBtc[] = [];
-    const transfersInfoChunks: ITransferInfo[][] = [];
-
-    for (let i = 0; i < transfersInfo.length; i += MAX_OUTPUTS_PER_TX) {
-      const chunk = transfersInfo.slice(i, i + MAX_OUTPUTS_PER_TX);
-      transfersInfoChunks.push(chunk);
-
-      const encodedTx = await this._buildEncodedTxFromBatchTransfer({
-        transfersInfo: chunk,
-      });
-      encodedTxs.push(encodedTx);
+    for (const chunk of transfersInfoChunks) {
+      encodedTxs.push(
+        await this._buildEncodedTxFromBatchTransfer({ transfersInfo: chunk }),
+      );
     }
 
     return { encodedTxs, transfersInfoChunks };
@@ -815,6 +815,7 @@ export default class VaultBtc extends VaultBase {
     hw: KeyringHardware,
     hwLedger: KeyringHardwareLedger,
     hwTrezor: KeyringHardwareTrezor,
+    hwKeystone: KeyringHardwareKeystone,
     imported: KeyringImported,
     watching: KeyringWatching,
     external: KeyringWatching,

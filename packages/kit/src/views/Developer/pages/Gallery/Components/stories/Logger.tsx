@@ -10,6 +10,7 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
   collectLogDigest,
+  disposeLogDigest,
   exportLogs,
   uploadLogBundle,
 } from '@onekeyhq/kit/src/views/Setting/pages/Tab/exportLogs';
@@ -46,18 +47,22 @@ const LoggerDemo = () => {
 
   const uploadLog = useCallback(async () => {
     const digest = await collectLogDigest('onekey_logs');
-    console.log('Log Digest:', digest);
-    const token = await backgroundApiProxy.serviceLogger.requestUploadToken({
-      sizeBytes: digest.sizeBytes,
-      sha256: digest.sha256,
-    });
-    console.log('Upload token:', token);
+    try {
+      console.log('Log Digest:', digest);
+      const token = await backgroundApiProxy.serviceLogger.requestUploadToken({
+        sizeBytes: digest.sizeBytes,
+        sha256: digest.sha256,
+      });
+      console.log('Upload token:', token);
 
-    const res = await uploadLogBundle({
-      uploadToken: token.uploadToken,
-      digest,
-    });
-    console.log('Upload result:', res);
+      const res = await uploadLogBundle({
+        uploadToken: token.uploadToken,
+        digest,
+      });
+      console.log('Upload result:', res);
+    } finally {
+      await disposeLogDigest(digest);
+    }
   }, []);
 
   const defaultAccordionValues: string[] = [

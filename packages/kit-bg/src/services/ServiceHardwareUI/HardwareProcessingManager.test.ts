@@ -1,3 +1,5 @@
+import { EHardwareTransportType } from '@onekeyhq/shared/types';
+
 import { HardwareProcessingManager } from './HardwareProcessingManager';
 
 function createDeferred() {
@@ -9,6 +11,87 @@ function createDeferred() {
 }
 
 describe('HardwareProcessingManager OneKey operation lease', () => {
+  it('rejects delayed transport writes without the current operation lease', async () => {
+    const manager = new HardwareProcessingManager();
+    let previousLease: ReturnType<typeof manager.getActiveOneKeyOperationLease>;
+    await manager.runExclusiveOneKeyOperation({
+      operation: async (lease) => {
+        previousLease = lease;
+        manager.rememberOneKeyOperationTransport(
+          EHardwareTransportType.DesktopWebBle,
+          lease,
+        );
+      },
+    });
+    expect(manager.getOneKeyOperationTransport()).toBeUndefined();
+
+    const prewarm = createDeferred();
+    const unownedWrite = prewarm.promise.then(() =>
+      manager.rememberOneKeyOperationTransport(
+        EHardwareTransportType.DesktopWebBle,
+        undefined,
+      ),
+    );
+    await manager.runExclusiveOneKeyOperation({
+      operation: async (lease) => {
+        manager.rememberOneKeyOperationTransport(
+          EHardwareTransportType.WEBUSB,
+          lease,
+        );
+        prewarm.resolve();
+        await unownedWrite;
+        manager.rememberOneKeyOperationTransport(
+          EHardwareTransportType.DesktopWebBle,
+          previousLease,
+        );
+        expect(manager.getOneKeyOperationTransport()).toBe(
+          EHardwareTransportType.WEBUSB,
+        );
+        manager.cancelOneKeyOperation(lease);
+        manager.rememberOneKeyOperationTransport(
+          EHardwareTransportType.DesktopWebBle,
+          lease,
+        );
+        expect(manager.getOneKeyOperationTransport()).toBe(
+          EHardwareTransportType.WEBUSB,
+        );
+      },
+    });
+    expect(manager.getOneKeyOperationTransport()).toBeUndefined();
+  });
+
+  it('joins repeated cancellation cleanup before handing the lease to the next operation', async () => {
+    const manager = new HardwareProcessingManager();
+    const gate = createDeferred();
+    const cleanup = jest.fn(async () => gate.promise);
+    let oldLease: ReturnType<typeof manager.getActiveOneKeyOperationLease>;
+    const order: string[] = [];
+    const active = manager.runExclusiveOneKeyOperation({
+      operation: async (lease) => {
+        oldLease = lease;
+        manager.cancelOneKeyOperation(lease);
+        expect(lease.signal?.aborted).toBe(true);
+        const first = manager.runOneKeyOperationCleanup(lease, cleanup);
+        expect(manager.runOneKeyOperationCleanup(lease, cleanup)).toBe(first);
+      },
+    });
+    const next = manager.runExclusiveOneKeyOperation({
+      operation: async (lease) => {
+        manager.cancelOneKeyOperation(oldLease!);
+        await manager.runOneKeyOperationCleanup(oldLease!, cleanup);
+        expect(lease.signal?.aborted).toBe(false);
+        order.push('next');
+      },
+    });
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(order).toEqual([]);
+    gate.resolve();
+    await Promise.all([active, next]);
+    expect(cleanup).toHaveBeenCalledTimes(1);
+    expect(order).toEqual(['next']);
+  });
+
   it('allows only one OneKey operation to own SDK UI responses at a time', async () => {
     const manager = new HardwareProcessingManager();
     const firstOperation = createDeferred();

@@ -107,6 +107,29 @@ jest.mock('@onekeyhq/components', () => {
       </>
     ),
     ScrollView: View,
+    Select: ({
+      items,
+      onChange,
+      testID,
+      value,
+    }: {
+      items: { label: string; value: string }[];
+      onChange: (value: string) => void;
+      testID: string;
+      value: string;
+    }) => (
+      <select
+        data-testid={testID}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+      >
+        {items.map((item) => (
+          <option key={item.value} value={item.value}>
+            {item.label}
+          </option>
+        ))}
+      </select>
+    ),
     SizableText: View,
     XStack: View,
     YStack: View,
@@ -174,7 +197,7 @@ describe('TradingViewChartSettings', () => {
     const previousCloseCheckbox = screen.getByTestId(
       'trading-view-settings-checkbox-previous-close',
     );
-    expect(previousCloseCheckbox.textContent).toBe('Prev close');
+    expect(previousCloseCheckbox.textContent).toBe('market.prev_close');
     expect(previousCloseCheckbox.getAttribute('data-value')).toBe('false');
 
     fireEvent.click(previousCloseCheckbox);
@@ -200,8 +223,9 @@ describe('TradingViewChartSettings', () => {
       screen.getByTestId('trading-view-settings-select-chart-type').textContent,
     ).toContain('global.auto');
 
-    fireEvent.click(
-      screen.getByTestId('trading-view-settings-select-chart-type-line'),
+    fireEvent.change(
+      screen.getByTestId('trading-view-settings-select-chart-type'),
+      { target: { value: 'line' } },
     );
 
     const nextValue = onChange.mock.calls.at(-1)?.[0];
