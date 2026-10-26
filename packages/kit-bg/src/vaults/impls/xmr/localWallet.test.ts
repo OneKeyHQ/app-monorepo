@@ -3,6 +3,7 @@ import {
   XMR_SYNC_STEP_BLOCKS,
 } from '@onekeyhq/shared/src/config/xmr';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { getPrivacyChainBlocksLeft } from '@onekeyhq/shared/src/utils/privacyChainSyncPolicy';
 
 import { SimpleDbEntityPrivacyChainCache } from '../../../dbs/simple/entity/SimpleDbEntityPrivacyChainCache';
 import { SimpleDbEntityPrivacyChainState } from '../../../dbs/simple/entity/SimpleDbEntityPrivacyChainState';
@@ -247,6 +248,19 @@ describe('xmr sync progress before the first block', () => {
     });
     expect(progress?.birthdayHeight).toBe(3_000_000);
     expect(progress?.backfillProgress).toBeGreaterThan(0.5);
+  });
+
+  // One queue: the gap to the tip is the backfill, so it counts once.
+  it('counts the blocks left once while a range is queued', async () => {
+    peek = {
+      scannedToHeight: 3_767_777,
+      ranges: [{ start: 3_767_778, end: 3_767_828 }],
+    };
+    const progress = await capability('on', 3_000_000).getSyncProgress({
+      accountId: 'acc',
+    });
+    expect(getPrivacyChainBlocksLeft(progress)).toBe(50);
+    expect(progress?.isTipCaughtUp).toBe(false);
   });
 });
 

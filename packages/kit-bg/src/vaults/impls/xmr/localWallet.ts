@@ -428,8 +428,10 @@ export function buildXmrLocalWalletCapability(
     // Falls back to the first queued range so progress shows 0%, not blank,
     // before any scanning happens.
     const backfillFrom = scanned ?? peek.ranges[0]?.start ?? null;
-    const tipLag =
+    const gap =
       chainTip !== null && scanned !== null ? chainTip - scanned : null;
+    // One queue: while it holds ranges, the backfill already runs to the tip.
+    const tipLag = remaining > 0 && gap !== null ? 0 : gap;
 
     return {
       birthdayHeight: birthday,
@@ -450,8 +452,8 @@ export function buildXmrLocalWalletCapability(
       chainTip,
       tipLag,
       isTipCaughtUp:
-        tipLag !== null &&
-        tipLag * XMR_TARGET_BLOCK_SECONDS <= XMR_TARGET_BLOCK_SECONDS * 2,
+        gap !== null &&
+        gap * XMR_TARGET_BLOCK_SECONDS <= XMR_TARGET_BLOCK_SECONDS * 2,
       isSyncing: remaining > 0,
     };
   };
