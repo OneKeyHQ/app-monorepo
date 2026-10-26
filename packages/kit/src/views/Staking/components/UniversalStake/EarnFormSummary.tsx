@@ -53,9 +53,11 @@ const VISIBLE_ROW_LIMIT = 4;
 export const SHOWN_ROWS_WHEN_FOLDED = VISIBLE_ROW_LIMIT - 1;
 // When a row comes or goes, the rows below move in this long
 const ROWS_HEIGHT_MS = 200;
-// The room beside a result's label that its figure and "(in …)" are sure
-// to fit in on one line (up to four digits before the point)
-const STACKED_SUFFIX_BELOW_PX = 200;
+// The room beside a result's label that its figure and the value after it
+// ("(in …)", or its dollar value) are sure to fit in on one line: up to
+// four digits before the point and four after, as "1,299.5121 USDC
+// $1,299.51" (about 210 px)
+const STACKED_SUFFIX_BELOW_PX = 225;
 // A figure being worked out again stays at this opacity until the new one
 const STALE_OPACITY = 0.4;
 const DETAILS_KEY = 'earn-form-details';
@@ -448,7 +450,8 @@ function OutcomeValues({
   // Off for figures already on screen as the form mounts (the last
   // protocol's, carried): only figures that come later fade in
   fadesIn?: boolean;
-  // "(in sUSDe)" on a line of its own, whatever the figure's length
+  // The value after each figure ("(in sUSDe)", its dollar value) on a line
+  // of its own, whatever the figure's length
   stacksSuffix?: boolean;
 }) {
   const hasValues = outcome.values.length > 0;
@@ -467,15 +470,14 @@ function OutcomeValues({
         {' '}
       </SizableText>
     ) : null;
-  // And the "(in …)" line's, where it has a line of its own
-  const suffixRoom =
-    stacksSuffix &&
-    outcome.hasNoteLine &&
-    !outcome.values.some((value) => value.suffix) ? (
-      <SizableText size="$bodyMd" opacity={0} aria-hidden>
-        {' '}
-      </SizableText>
-    ) : null;
+  // And the line of the value after a figure, where it has a line of its
+  // own: kept under each figure (or place for one) that has none (yet), so
+  // a result holds as many lines with its figures as without
+  const suffixRoom = stacksSuffix ? (
+    <SizableText size="$bodyMd" opacity={0} aria-hidden>
+      {' '}
+    </SizableText>
+  ) : null;
   // One tree in every state, so the placeholder (on the figure's first
   // line) fades out as the figures fade in. Figures that replace figures
   // change in place: the dimmed last ones brighten into the new ones, with
@@ -490,8 +492,11 @@ function OutcomeValues({
         gap="$1"
       >
         {Array.from({ length: lineCount }, (_, index) => (
-          <YStack key={index} h="$6" jc="center">
-            <Skeleton.BodyLg w={96} />
+          <YStack key={index} ai="flex-end">
+            <YStack h="$6" jc="center">
+              <Skeleton.BodyLg w={96} />
+            </YStack>
+            {suffixRoom}
           </YStack>
         ))}
       </EarnFadingPlaceholder>
@@ -537,7 +542,7 @@ function OutcomeValues({
                       {main}
                       {tooltip}
                     </XStack>
-                    {suffix}
+                    {suffix ?? suffixRoom}
                   </>
                 ) : (
                   <XStack
@@ -559,24 +564,29 @@ function OutcomeValues({
               </YStack>
             );
           })}
-          {suffixRoom}
           {noteRoom}
         </YStack>
       ) : (
         <YStack key="empty" ai="flex-end">
           <YStack ai="flex-end" gap="$1">
-            <YStack minHeight="$6" jc="center" ai="flex-end">
-              {isLoading ? null : (
-                <SizableText size="$bodyLgMedium" color="$textDisabled">
-                  –
-                </SizableText>
-              )}
-            </YStack>
-            {Array.from({ length: lineCount - 1 }, (_, index) => (
-              <YStack key={index} h="$6" aria-hidden />
+            {Array.from({ length: lineCount }, (_, index) => (
+              <YStack key={index} ai="flex-end">
+                <YStack
+                  h="$6"
+                  jc="center"
+                  ai="flex-end"
+                  aria-hidden={index > 0}
+                >
+                  {index === 0 && !isLoading ? (
+                    <SizableText size="$bodyLgMedium" color="$textDisabled">
+                      –
+                    </SizableText>
+                  ) : null}
+                </YStack>
+                {suffixRoom}
+              </YStack>
             ))}
           </YStack>
-          {suffixRoom}
           {noteRoom}
         </YStack>
       )}
@@ -639,16 +649,15 @@ export function EarnOutcomeRow({
   fadesIn?: boolean;
   testID?: string;
 }) {
-  // A result with a note line (Pendle's "1.2597 USDe (in sUSDe)" over
-  // "0.74% Gain") with too little room beside its label (a phone) puts its
-  // "(in …)" on a line of its own whatever the figure: a figure a digit
-  // longer then doesn't push the rows below down a line, nor a shorter one
-  // pull them back up. Measured before the first paint, and again as the
-  // width changes
+  // A result with too little room beside its label (a phone, the details
+  // page's form) puts the value after each figure (Pendle's "(in sUSDe)",
+  // a reward's dollar value) on a line of its own whatever the figure: a
+  // figure a digit longer then doesn't push the rows below down a line, nor
+  // a shorter one pull them back up. Measured before the first paint, and
+  // again as the width changes
   const rowRef = useRef<IElement>(null);
   const [stacksSuffix, setStacksSuffix] = useState(false);
-  const watchesRoom =
-    Boolean(outcome.hasNoteLine) && platformEnv.isRuntimeBrowser;
+  const watchesRoom = platformEnv.isRuntimeBrowser;
   useLayoutEffect(() => {
     const row = rowRef.current as unknown as HTMLElement | null;
     const label = row?.firstElementChild;
