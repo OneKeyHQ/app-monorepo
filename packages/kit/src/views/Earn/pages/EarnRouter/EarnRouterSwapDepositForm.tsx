@@ -1427,17 +1427,22 @@ export function EarnRouterSwapDepositForm({
   }
 
   // A route problem is not the amount's: it stays a notice under the
-  // protocol
-  const routeAlert =
-    !isInsufficient && (hasNoRoute || (hasAmount && !isSwappable)) ? (
-      <Alert
-        icon="InfoCircleOutline"
-        type="warning"
-        title={intl.formatMessage({
-          id: ETranslations.swap_page_alert_no_provider_supports_trade,
-        })}
-      />
-    ) : null;
+  // protocol. It opens and closes over the line's time, as everything under
+  // the box does, and fades with it
+  const showsRouteAlert =
+    !isInsufficient && (hasNoRoute || (hasAmount && !isSwappable));
+  // There as the form mounts, it shows at once (decided once: the height
+  // transition lays its content out by it)
+  const [routeAlertFromStart] = useState(showsRouteAlert);
+  const routeAlert = (
+    <Alert
+      icon="InfoCircleOutline"
+      type="warning"
+      title={intl.formatMessage({
+        id: ETranslations.swap_page_alert_no_provider_supports_trade,
+      })}
+    />
+  );
 
   return (
     <StakingFormWrapper>
@@ -1520,7 +1525,19 @@ export function EarnRouterSwapDepositForm({
       {/* The protocol stays under the amount; what typing brings up goes
           below it */}
       {protocolSwitch ?? offerSwitch}
-      {routeAlert}
+      {/* Always there, so the alert can open and close: its margin takes
+          back the form's gap while it is closed */}
+      <YStack mb="$-4">
+        <HeightTransition
+          duration={DEPOSIT_LINE_MS}
+          hide={!showsRouteAlert}
+          skipInitialAnimation={routeAlertFromStart}
+        >
+          <YStack pb="$4" aria-hidden={!showsRouteAlert}>
+            {routeAlert}
+          </YStack>
+        </HeightTransition>
+      </YStack>
       {summary}
       {isInModalContext ? (
         <Page.Footer>

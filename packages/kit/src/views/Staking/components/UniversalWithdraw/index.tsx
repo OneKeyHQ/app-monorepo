@@ -1927,10 +1927,14 @@ export function UniversalWithdraw({
   });
   // The last estimate stays with its amount, as the deposit form's does: an
   // emptied box clears the request, and the same amount typed again shows
-  // its fee at once with the other figures
+  // its fee at once with the other figures. Once the box has gone to dashes
+  // the next amount starts from placeholders, its fee too, even the same
+  // amount typed again
   const lastEstimateFeeRef = useRef(estimateFee);
   if (estimateFee) {
     lastEstimateFeeRef.current = estimateFee;
+  } else if (!isPositiveAmount && !isEmptiedHolding) {
+    lastEstimateFeeRef.current = undefined;
   }
   const keptEstimateFee = estimateFee ?? lastEstimateFeeRef.current;
   const feeFigure = useEarnFeeFigure({
