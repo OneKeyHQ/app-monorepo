@@ -60,6 +60,8 @@ test.each([
   { readyElapsedMs: 501 },
   { readyReceived: 'private-secret' },
   { sequence: 0.1 },
+  { sequence: 0 },
+  { sequence: 12 },
   { suppressedEvents: -1 },
   { terminal: new Error('private-secret') },
 ])('rejects invalid fields %j', (fields) => {

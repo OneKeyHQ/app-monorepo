@@ -5,10 +5,12 @@ import type { PropsWithChildren } from 'react';
 import { act, renderHook } from '@testing-library/react';
 import { IntlProvider } from 'react-intl';
 
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import enCatalog from '@onekeyhq/shared/src/locale/json/en_US.json';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { ICaptchaDiagnostic } from '@onekeyhq/shared/src/utils/captchaDiagnostics';
 
+import { createCaptchaDiagnostic } from './captchaDiagnostic';
 import { useEmailOtpCaptcha } from './useEmailOtpCaptcha';
 
 import type { ICaptchaFrameResult } from './captchaMessage';
@@ -28,6 +30,7 @@ const config = {
   pageUrl: 'https://login.onekeytest.com/captcha?secret=private-query',
 };
 const scene = defaultLogger.prime.subscription;
+const localRequestId = '6f0d4f7e-cc60-4ca7-aed2-20ed64c0a2dc';
 function spyOnEmit() {
   return jest.spyOn(scene, '_emitLog').mockImplementation(() => undefined);
 }
@@ -195,6 +198,216 @@ test('bounds callback floods, reserves ready and terminal, and summarizes suppre
     sequence: 11,
     suppressedEvents: 191,
     terminal: true,
+  });
+});
+
+test('enforces a hard per-challenge budget under repeated starts, unique codes and late callbacks', () => {
+  const record = createCaptchaDiagnostic(localRequestId);
+  const add = jest.spyOn(Set.prototype, 'add');
+  record('start', 'app_request');
+  for (let index = 0; index < 10_000; index += 1) {
+    record('start', 'app_request');
+    record('error', 'provider_message', String(300_000 + index));
+    record('ready', 'provider_message');
+  }
+  // Inspect the actual collection before Jest assertions add their own Sets.
+  const retainedSets = add.mock.contexts.map((value) => value as Set<unknown>);
+  add.mockRestore();
+  record('timeout', 'provider_message', '110620', true);
+  for (let index = 0; index < 1000; index += 1) {
+    record('success', 'provider_message', undefined, true);
+    record('start', 'app_request');
+    record('error', 'provider_message', '600010');
+  }
+  expect(retainedSets).toHaveLength(8);
+  expect(
+    retainedSets.every(
+      (value) => value === retainedSets[0] && value.size === 8,
+    ),
+  ).toBe(true);
+  expect(records()).toHaveLength(11);
+  expect(records().map((value) => value.sequence)).toEqual(
+    Array.from({ length: 11 }, (_, index) => index + 1),
+  );
+  expect(records().filter((value) => value.status === 'start')).toHaveLength(1);
+  expect(records().filter((value) => value.status === 'ready')).toHaveLength(1);
+  expect(records().at(-1)).toMatchObject({
+    status: 'timeout',
+    code: '110620',
+    terminal: true,
+    suppressedEvents: 29_991,
+  });
+});
+
+test('consumes the hard budget before a failing or reentrant logger call and gives new requests their own budget', () => {
+  const record = createCaptchaDiagnostic(localRequestId);
+  const sink = jest
+    .spyOn(scene, 'emailOtpCaptchaDiagnostic')
+    .mockImplementation(() => {
+      record('start', 'app_request');
+      record('error', 'provider_message', '600000');
+      throw new OneKeyLocalError('private-logger-secret');
+    });
+  const consoleError = jest
+    .spyOn(console, 'error')
+    .mockImplementation(() => {});
+  record('start', 'app_request');
+  for (let index = 0; index < 1000; index += 1)
+    record('error', 'provider_message', String(300_000 + index));
+  record('ready', 'provider_message');
+  record('cancel', 'app_cancel', undefined, true);
+  record('timeout', 'app_watchdog', undefined, true);
+  expect(sink).toHaveBeenCalledTimes(11);
+  expect(sink.mock.calls.at(-1)?.[0]).toMatchObject({
+    terminal: true,
+    sequence: 11,
+    status: 'cancel',
+  });
+  const next = createCaptchaDiagnostic('d12b204d-aaf4-4b35-82ec-adab23612345');
+  next('start', 'app_request');
+  next('ready', 'provider_message');
+  next('success', 'provider_message', undefined, true);
+  expect(sink).toHaveBeenCalledTimes(14);
+  expect(sink.mock.calls.slice(-3).map(([value]) => value.sequence)).toEqual([
+    1, 2, 3,
+  ]);
+  expect(consoleError).not.toHaveBeenCalled();
+  expect(JSON.stringify(sink.mock.calls)).not.toContain(
+    'private-logger-secret',
+  );
+});
+
+test.each(['success', 'cancel', 'unmount', 'watchdog'] as const)(
+  'logger exceptions do not change authentication settlement: %s',
+  async (action) => {
+    const sink = jest
+      .spyOn(scene, 'emailOtpCaptchaDiagnostic')
+      .mockImplementation(() => {
+        throw new OneKeyLocalError('private-logger-secret');
+      });
+    const consoleError = jest
+      .spyOn(console, 'error')
+      .mockImplementation(() => {});
+    const { send, completion, result, unmount } = start();
+    expect(result.current.isWaiting).toBe(true);
+    if (action === 'success')
+      send('success', { token: 'private-captcha-token' });
+    if (action === 'cancel') act(() => result.current.cancelCaptcha());
+    if (action === 'unmount') act(() => unmount());
+    if (action === 'watchdog') act(() => jest.advanceTimersByTime(120_000));
+    await act(async () => {
+      const settled = await completion;
+      if (action === 'success') expect(settled).toBe('private-captcha-token');
+      else
+        expect(settled).toMatchObject({
+          message:
+            action === 'watchdog'
+              ? 'CAPTCHA timed out. Please retry.'
+              : 'CAPTCHA cancelled.',
+        });
+    });
+    send('timeout');
+    expect(sink).toHaveBeenCalledTimes(2);
+    expect(consoleError).not.toHaveBeenCalled();
+    if (action !== 'unmount') {
+      let next!: Promise<unknown>;
+      act(() => {
+        next = result.current
+          .takeCaptchaToken()
+          .catch((error: unknown) => error);
+      });
+      const requestId = result.current.challenge?.requestId || '';
+      await act(async () => {
+        result.current.onResult({
+          type: 'onekey-test-captcha',
+          requestId,
+          status: 'success',
+          token: 'next-token',
+        });
+        expect(await next).toBe('next-token');
+      });
+      expect(sink).toHaveBeenCalledTimes(4);
+    }
+  },
+);
+
+test('normal successful requests still emit exactly start, ready and success', async () => {
+  const { send, completion } = start();
+  send('ready');
+  send('success', { token: 'private-captcha-token' });
+  await act(async () => {
+    await completion;
+  });
+  expect(records().map((value) => value.status)).toEqual([
+    'start',
+    'ready',
+    'success',
+  ]);
+});
+
+test('monotonic integer elapsed time ignores forward and backward wall-clock jumps', () => {
+  let now = 100.25;
+  jest.spyOn(performance, 'now').mockImplementation(() => now);
+  const record = createCaptchaDiagnostic(localRequestId);
+  record('start', 'app_request');
+  now = 112.9;
+  record('ready', 'provider_message');
+  jest.setSystemTime(Date.now() + 3_600_000);
+  now = 150.9;
+  record('error', 'provider_message', '300010');
+  jest.setSystemTime(Date.now() - 7_200_000);
+  now = 160.9;
+  record('success', 'provider_message', undefined, true);
+  expect(records().map((value) => value.elapsedMs)).toEqual([0, 12, 50, 60]);
+  expect(records().at(-1)?.readyElapsedMs).toBe(12);
+});
+
+test.each([NaN, Infinity, -Infinity, -1, 'throw'] as const)(
+  'a faulty monotonic clock retains timing and later recovers from the same origin: %s',
+  (fault) => {
+    let now: number | 'throw' = 100;
+    jest.spyOn(performance, 'now').mockImplementation(() => {
+      if (now === 'throw') throw new OneKeyLocalError('private-clock-secret');
+      return now;
+    });
+    const record = createCaptchaDiagnostic(localRequestId);
+    record('start', 'app_request');
+    now = 125;
+    record('ready', 'provider_message');
+    now = fault;
+    jest.setSystemTime(Date.now() + 3_600_000);
+    record('error', 'provider_message', '300010');
+    now = 150;
+    record('timeout', 'provider_message', '110620', true);
+    expect(records().map((value) => value.elapsedMs)).toEqual([0, 25, 25, 50]);
+    expect(records().at(-1)).toMatchObject({
+      terminal: true,
+      readyElapsedMs: 25,
+    });
+  },
+);
+
+test('a clock unavailable at creation uses a fixed wall-clock fallback and bounds its faults', () => {
+  const clock = jest.spyOn(performance, 'now').mockReturnValue(NaN);
+  const record = createCaptchaDiagnostic(localRequestId);
+  record('start', 'app_request');
+  act(() => jest.advanceTimersByTime(500));
+  record('ready', 'provider_message');
+  clock.mockReturnValue(9_000_000);
+  const wall = jest.spyOn(Date, 'now').mockReturnValue(NaN);
+  record('expired', 'provider_message');
+  wall.mockImplementation(() => {
+    throw new OneKeyLocalError('private-clock-secret');
+  });
+  record('error', 'provider_message', '300010');
+  wall.mockReturnValue(Number.MAX_SAFE_INTEGER);
+  record('timeout', 'app_watchdog', undefined, true);
+  expect(records().map((value) => value.elapsedMs)).toEqual([
+    0, 500, 500, 500, 2_147_483_647,
+  ]);
+  expect(records().at(-1)).toMatchObject({
+    terminal: true,
+    readyElapsedMs: 500,
   });
 });
 

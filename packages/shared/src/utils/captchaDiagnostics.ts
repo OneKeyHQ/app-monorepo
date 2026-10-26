@@ -1,3 +1,5 @@
+export const CAPTCHA_DIAGNOSTIC_MAX_EVENTS = 11;
+
 export type ICaptchaDiagnosticSource =
   | 'app_request'
   | 'app_watchdog'
@@ -77,6 +79,8 @@ export function sanitizeCaptchaDiagnostic(
         value.readyElapsedMs > value.elapsedMs)) ||
     typeof value.terminal !== 'boolean' ||
     !isCounter(value.sequence) ||
+    value.sequence < 1 ||
+    value.sequence > CAPTCHA_DIAGNOSTIC_MAX_EVENTS ||
     !isCounter(value.suppressedEvents)
   )
     return undefined;
