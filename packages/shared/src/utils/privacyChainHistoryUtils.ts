@@ -30,26 +30,6 @@ function getPrivacyChainHistoryKey<T extends IPrivacyChainMergeableTx>(tx: T) {
   return tx.decodedTx.txid?.toLowerCase() || tx.id;
 }
 
-// Current snapshot wins every collision; an old cache must never enrich a row with stale state.
-export function appendMissingPrivacyChainHistoryTxs<
-  T extends IPrivacyChainMergeableTx,
->({ currentTxs, cachedTxs }: { currentTxs: T[]; cachedTxs: T[] }): T[] {
-  const result = [...currentTxs];
-  const keys = new Set(
-    currentTxs.map(getPrivacyChainHistoryKey).filter((key) => !!key),
-  );
-  for (const cachedTx of cachedTxs) {
-    const key = getPrivacyChainHistoryKey(cachedTx);
-    if (!key || !keys.has(key)) {
-      result.push(cachedTx);
-      if (key) {
-        keys.add(key);
-      }
-    }
-  }
-  return result;
-}
-
 export function isPrivacyChainHistoryVisible({
   txPoolIds,
   txSide,
@@ -295,16 +275,4 @@ export function mergePrivacyChainHistoryTxs<
   }
 
   return merged;
-}
-
-// Gates whether the reconciler may delete cached rows absent from this snapshot. Claiming
-// complete while the public half is failing would delete rows that half supplied earlier.
-export function isPrivacyChainHistoryComplete({
-  privateSideComplete,
-  publicSideFailed,
-}: {
-  privateSideComplete: boolean;
-  publicSideFailed: boolean;
-}): boolean {
-  return privateSideComplete && !publicSideFailed;
 }

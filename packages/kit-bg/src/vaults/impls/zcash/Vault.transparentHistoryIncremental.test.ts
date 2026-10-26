@@ -311,9 +311,9 @@ describe('Zcash transparent history polling', () => {
     }
   });
 
-  it('removes rows and drops expired sends only on full passes', async () => {
+  it('removes rows and releases expired sends only on full passes', async () => {
     const { backend, post } = createBackend(minedRows(1, 1200));
-    const { journalDb, localHistory, readHistory } = createVault(post);
+    const { vault, journalDb, localHistory, readHistory } = createVault(post);
     await readHistory();
 
     const sendTxid = 'aa'.repeat(32);
@@ -374,7 +374,6 @@ describe('Zcash transparent history polling', () => {
     const incremental = statuses((await readHistory()) ?? []);
     expect(post).toHaveBeenCalledTimes(1);
     expect(incremental.get(removed)).toBe(EDecodedTxStatus.Confirmed);
-    expect(incremental.get(sendTxid)).toBe(EDecodedTxStatus.Pending);
     expect(
       await journalDb.listTransparentPendingTxs({ accountId }),
     ).toHaveLength(1);
@@ -383,9 +382,13 @@ describe('Zcash transparent history polling', () => {
     const full = statuses((await readHistory(true)) ?? []);
     expect(post).toHaveBeenCalledTimes(3);
     expect(full.has(removed)).toBe(false);
-    expect(full.get(sendTxid)).toBe(EDecodedTxStatus.Dropped);
     expect(await journalDb.listTransparentPendingTxs({ accountId })).toEqual(
       [],
     );
+    const [localPending] =
+      await localHistory.getAccountLocalHistoryPendingTxs(historyParams);
+    await expect(
+      vault.getDroppedPendingTxs({ pendingTxs: [localPending] }),
+    ).resolves.toEqual([localPending]);
   });
 });

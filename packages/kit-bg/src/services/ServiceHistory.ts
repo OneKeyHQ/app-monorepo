@@ -1790,10 +1790,8 @@ class ServiceHistory extends ServiceBase {
         )
       ).filter(Boolean);
 
-      const updateResult = await this.batchUpdateLocalHistoryTxs(
-        allNetworksParams,
-        { isAllNetworks },
-      );
+      const updateResult =
+        await this.batchUpdateLocalHistoryTxs(allNetworksParams);
       finalPendingTxs = updateResult.allFinalPendingTxs;
       confirmedTxsToSave = updateResult.allConfirmedTxsToSave;
       onChainHistoryTxs = updateResult.allMergedOnChainHistoryTxs;
@@ -2346,7 +2344,6 @@ class ServiceHistory extends ServiceBase {
       pendingTxs: IAccountHistoryTx[];
       pendingTxsToModify: IAccountHistoryTx[];
     }[],
-    { isAllNetworks = false }: { isAllNetworks?: boolean } = {},
   ) {
     const allConfirmedTxsToSave: IAccountHistoryTx[] = [];
     const allMergedOnChainHistoryTxs: IAccountHistoryTx[] = [];
@@ -2393,17 +2390,10 @@ class ServiceHistory extends ServiceBase {
       );
       allMergedOnChainHistoryTxs.push(...mergedOnChainHistoryTxs);
 
-      const vaultSettings =
-        await this.backgroundApi.serviceNetwork.getVaultSettings({ networkId });
-      const historySourceIsAuthoritative =
-        vaultSettings.localWallet?.historySource === 'vault-authoritative';
-      const canRemoveMissingConfirmedTxs =
-        historySourceIsAuthoritative && !isAllNetworks;
+      // Find transactions confirmed through history details query but not in on-chain history, these need to be saved
+      let confirmedTxsToSave: IAccountHistoryTx[] = [];
 
-      // Server-indexed chains preserve locally confirmed rows that fall
-      // outside the current page. Only a full per-chain vault snapshot can
-      // remove missing rows; All Networks does not read the private runtime.
-      const confirmedTxsToSave = confirmedTxs
+      confirmedTxsToSave = confirmedTxs
         .map((tx) => {
           const onChainHistoryTx = mergedOnChainHistoryTxs.find((item) =>
             this.isSameScopedHistoryTx(item, tx),
@@ -2411,12 +2401,9 @@ class ServiceHistory extends ServiceBase {
           if (onChainHistoryTx) {
             return onChainHistoryTx;
           }
-          return canRemoveMissingConfirmedTxs ? undefined : tx;
+          return tx;
         })
-        .filter(
-          (tx): tx is IAccountHistoryTx =>
-            !!tx && tx.decodedTx.status !== EDecodedTxStatus.Pending,
-        );
+        .filter((tx) => tx.decodedTx.status !== EDecodedTxStatus.Pending);
 
       const resp = unionBy(
         [...mergedOnChainHistoryTxs, ...confirmedTxsToSave],
@@ -2424,14 +2411,7 @@ class ServiceHistory extends ServiceBase {
       );
 
       const finalConfirmedTxs = [];
-      const confirmedTxsToRemove = canRemoveMissingConfirmedTxs
-        ? confirmedTxs.filter(
-            (tx) =>
-              !mergedOnChainHistoryTxs.some((item) =>
-                this.isSameScopedHistoryTx(item, tx),
-              ),
-          )
-        : [];
+      const confirmedTxsToRemove = [];
 
       for (let i = 0; i < resp.length; i += 1) {
         const tx = resp[i];
@@ -2446,6 +2426,9 @@ class ServiceHistory extends ServiceBase {
           finalConfirmedTxs.push(tx);
         }
       }
+
+      const vaultSettings =
+        await this.backgroundApi.serviceNetwork.getVaultSettings({ networkId });
 
       const nonceHasBeenUsedTxs: IAccountHistoryTx[] = [];
       let finalPendingTxs: IAccountHistoryTx[] = [];
@@ -2475,33 +2458,15 @@ class ServiceHistory extends ServiceBase {
       // detection fires and the pending record is cleaned from simpleDb.
       const onChainMatchedPendingTxs: IAccountHistoryTx[] = [];
       finalPendingTxs = finalPendingTxs.filter((tx) => {
-        const matched = onChainHistoryTxs.find((onChainTx) => {
-          // A vault-authoritative source keeps a row this device sent until
-          // it resolves; other pending rows belong to its snapshot.
-          const keepLocalPending =
-            historySourceIsAuthoritative &&
-            onChainTx.decodedTx.status === EDecodedTxStatus.Pending &&
-            (tx.isLocalCreated === true || !!tx.decodedTx.encodedTx);
-          return !keepLocalPending && this.isSameScopedHistoryTx(onChainTx, tx);
-        });
+        const matched = onChainHistoryTxs.find((onChainTx) =>
+          this.isSameScopedHistoryTx(onChainTx, tx),
+        );
         if (matched) {
           onChainMatchedPendingTxs.push(tx);
           return false;
         }
         return true;
       });
-      if (historySourceIsAuthoritative) {
-        // The vault can refine an unresolved broadcast without changing its
-        // Pending status. Do not let the earlier cache read hide that result.
-        finalPendingTxs = finalPendingTxs.map(
-          (tx) =>
-            mergedOnChainHistoryTxs.find(
-              (row) =>
-                row.decodedTx.status === EDecodedTxStatus.Pending &&
-                this.isSameScopedHistoryTx(row, tx),
-            ) ?? tx,
-        );
-      }
 
       allNonceHasBeenUsedTxs.push(...nonceHasBeenUsedTxs);
       allFinalPendingTxs.push(...finalPendingTxs);
@@ -2518,9 +2483,7 @@ class ServiceHistory extends ServiceBase {
         ],
         confirmedTxsToSave: finalConfirmedTxs,
         confirmedTxsToRemove,
-        pendingTxsToModify: historySourceIsAuthoritative
-          ? finalPendingTxs
-          : pendingTxsToModify,
+        pendingTxsToModify,
       });
     }
 

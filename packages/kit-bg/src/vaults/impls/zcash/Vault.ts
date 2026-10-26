@@ -334,14 +334,6 @@ export default class Vault extends VaultBtc {
     };
   }
 
-  async zcashDropExpiredTransparentSends(
-    params: Parameters<
-      typeof zcashTransparent.zcashDropExpiredTransparentSends
-    >[1],
-  ): Promise<void> {
-    return zcashTransparent.zcashDropExpiredTransparentSends(this, params);
-  }
-
   async zcashCreatePczt(params: {
     accountId: string;
     toAddress: string;
@@ -688,6 +680,15 @@ export default class Vault extends VaultBtc {
     });
     if (!txs?.length) return txs;
     return txs.map((tx) => gateLocalWalletHistoryTx(gate, tx));
+  }
+
+  // Like SOL: an expired transparent send leaves the pending bucket as Dropped.
+  override async getDroppedPendingTxs({
+    pendingTxs,
+  }: {
+    pendingTxs: IAccountHistoryTx[];
+  }): Promise<IAccountHistoryTx[]> {
+    return zcashHistory.zcashDroppedPendingTxs(pendingTxs);
   }
 
   // BTC's override asks F2pool about acceleration, which never applies to zec txids.

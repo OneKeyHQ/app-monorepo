@@ -35,11 +35,6 @@ describe('xmr vault settings', () => {
     expect(localWallet?.balanceShape).toBe('single');
   });
 
-  // No indexer covers Monero; the runtime is the only history source.
-  it('treats the runtime as the only source of history', () => {
-    expect(localWallet?.historySource).toBe('vault-authoritative');
-  });
-
   // Withholding the address from the backend only holds with no backend pool.
   it('reads no pool from the backend', () => {
     expect(localWallet?.withholdAddressFromBackend).toBe(true);
