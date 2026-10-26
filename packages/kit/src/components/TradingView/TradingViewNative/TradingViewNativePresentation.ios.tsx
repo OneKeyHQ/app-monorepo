@@ -24,6 +24,7 @@ import { ERootRoutes } from '@onekeyhq/shared/src/routes';
 
 import { TradingViewNativeChartActiveContext } from './TradingViewNativeChartActiveContext';
 import { TradingViewNativeChartReadyContext } from './TradingViewNativeChartReadyContext';
+import { publishTradingViewNativeFullscreenActive } from './tradingViewNativeFullscreenState';
 
 import type {
   IPushTradingViewNativeFullscreenModal,
@@ -72,6 +73,7 @@ export const pushTradingViewNativeFullscreenModal: IPushTradingViewNativeFullscr
 function publish(id: string, entry?: IFullscreenEntry) {
   if (entry) entries.set(id, entry);
   else entries.delete(id);
+  publishTradingViewNativeFullscreenActive(entries.size > 0);
   listeners.forEach((listener) => listener());
 }
 
