@@ -1,5 +1,6 @@
 import {
   resolveHomeOverviewBalanceHold,
+  resolveHomePortfolioSnapshot,
   shouldIncludeKnownDeFiWorth,
 } from './homeOverviewBalanceHold';
 
@@ -135,5 +136,85 @@ describe('shouldIncludeKnownDeFiWorth', () => {
         isDeFiOverviewOwnerMatched: false,
       }),
     ).toBe(false);
+  });
+});
+
+describe('Home portfolio snapshot shared with hardware sync', () => {
+  const previous = {
+    ownerKey: 'account-1__all',
+    totalFiatUsd: '160',
+    tokenFiatUsd: '100',
+    defiFiatUsd: '40',
+    perpsFiatUsd: '20',
+    isLive: true,
+  };
+  const candidate = {
+    ...previous,
+    totalFiatUsd: '190',
+    tokenFiatUsd: '110',
+    defiFiatUsd: '50',
+    perpsFiatUsd: '30',
+  };
+
+  it('keeps all previous amounts together during refresh and after failure', () => {
+    const pending = resolveHomePortfolioSnapshot({
+      previous,
+      candidate,
+      isReady: false,
+    });
+    expect(pending).toEqual({ ...previous, isLive: false });
+    expect(
+      resolveHomePortfolioSnapshot({
+        previous: pending,
+        candidate: { ...candidate, defiFiatUsd: undefined },
+        isReady: false,
+      }),
+    ).toEqual(pending);
+  });
+
+  it('publishes the completed total and all categories together', () => {
+    expect(
+      resolveHomePortfolioSnapshot({ previous, candidate, isReady: true }),
+    ).toEqual(candidate);
+  });
+
+  it.each(['tokenFiatUsd', 'defiFiatUsd', 'perpsFiatUsd'] as const)(
+    'does not turn an unknown %s into zero',
+    (field) => {
+      expect(
+        resolveHomePortfolioSnapshot({
+          previous,
+          candidate: { ...candidate, [field]: undefined },
+          isReady: true,
+        }),
+      ).toEqual({ ...previous, isLive: false });
+    },
+  );
+
+  it('does not carry another account amounts into the next owner', () => {
+    expect(
+      resolveHomePortfolioSnapshot({
+        previous,
+        candidate: { ...candidate, ownerKey: 'account-2__all' },
+        isReady: false,
+      }),
+    ).toEqual({ ownerKey: 'account-2__all', isLive: false });
+  });
+
+  it('accepts a completed zero balance', () => {
+    const zero = {
+      ...candidate,
+      totalFiatUsd: '0',
+      tokenFiatUsd: '0',
+      defiFiatUsd: '0',
+      perpsFiatUsd: '0',
+    };
+    expect(
+      resolveHomePortfolioSnapshot({
+        previous,
+        candidate: zero,
+        isReady: true,
+      }),
+    ).toEqual(zero);
   });
 });

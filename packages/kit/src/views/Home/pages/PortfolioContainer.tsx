@@ -134,7 +134,7 @@ function PortfolioContainer() {
             showRecentHistory={tableLayout ? showRecentHistory : undefined}
             tableLayout={tableLayout || undefined}
           />
-          <DeFiListBlock refreshCacheOnly />
+          <DeFiListBlock refreshOverviewOnly />
           <PopularTrading tableLayout={tableLayout || undefined} />
           <EarnListView isActive={isEarnListActive} />
           <Upgrade />

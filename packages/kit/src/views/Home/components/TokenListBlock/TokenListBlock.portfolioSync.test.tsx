@@ -13,6 +13,8 @@ import type {
 const mockNotifySettled = jest.fn<Promise<void>, unknown[]>(
   async () => undefined,
 );
+const mockSyncPortfolio = jest.fn(async (_payload: unknown) => true);
+const mockUpdateSyncUi = jest.fn();
 const mockFetchTokens = jest.fn<Promise<IFetchAccountTokensResp>, []>();
 const mockNoop = jest.fn();
 const mockAsyncNoop = jest.fn(async () => undefined);
@@ -94,7 +96,7 @@ const mockActions = {
 const mockTokenActions = {
   updateTokenListState: mockNoop,
   updateSearchKey: mockNoop,
-  updatePortfolioSyncUiState: mockNoop,
+  updatePortfolioSyncUiState: mockUpdateSyncUi,
 };
 const mockPipeline = {
   reset: mockNoop,
@@ -308,6 +310,7 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
   default: {
     serviceHardwarePortfolioSync: {
+      syncPortfolio: mockSyncPortfolio,
       notifyAllNetworksTokenListSettled: (...args: unknown[]) =>
         mockNotifySettled(...args),
     },
@@ -408,6 +411,34 @@ describe('Home automatic Portfolio sync', () => {
         tokens: [
           expect.objectContaining({ networkId: 'evm--1', symbol: 'ETH' }),
         ],
+      }),
+    );
+  });
+
+  it('manually syncs every category from the held Home snapshot while tokens refresh', async () => {
+    mockHomeDisplay = {
+      ...mockHomeDisplay,
+      totalFiatUsd: '160',
+      tokenFiatUsd: '100',
+      defiFiatUsd: '40',
+      perpsFiatUsd: '20',
+      isLive: false,
+    };
+    render(<TokenListBlock />);
+    const { request, disabled } = mockUpdateSyncUi.mock.calls.at(-1)?.[0] as {
+      request: () => void;
+      disabled: boolean;
+    };
+    expect(disabled).toBe(false);
+    await act(async () => request());
+    await waitFor(() => expect(mockSyncPortfolio).toHaveBeenCalledTimes(1));
+    expect(mockSyncPortfolio).toHaveBeenCalledWith(
+      expect.objectContaining({
+        eventPayload: expect.objectContaining({
+          totalFiat: '100',
+          homeTotalFiatUsd: '160',
+          homeCategoryFiatUsd: { defiFiat: '40', perpsFiat: '20' },
+        }),
       }),
     );
   });

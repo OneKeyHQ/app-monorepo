@@ -98,3 +98,38 @@ export function shouldIncludeKnownDeFiWorth({
   }
   return deFiGraceExpired && isDeFiOverviewOwnerMatched;
 }
+
+export interface IHomePortfolioSnapshot {
+  ownerKey: string;
+  totalFiatUsd?: string;
+  tokenFiatUsd?: string;
+  defiFiatUsd?: string;
+  perpsFiatUsd?: string;
+  isLive: boolean;
+}
+
+// Keep total and categories together while a refresh is pending or failed.
+export function resolveHomePortfolioSnapshot({
+  previous,
+  candidate,
+  isReady,
+}: {
+  previous: IHomePortfolioSnapshot;
+  candidate: IHomePortfolioSnapshot;
+  isReady: boolean;
+}): IHomePortfolioSnapshot {
+  if (
+    isReady &&
+    candidate.ownerKey &&
+    candidate.totalFiatUsd !== undefined &&
+    candidate.tokenFiatUsd !== undefined &&
+    candidate.defiFiatUsd !== undefined &&
+    candidate.perpsFiatUsd !== undefined
+  ) {
+    return { ...candidate, isLive: true };
+  }
+  if (candidate.ownerKey && previous.ownerKey === candidate.ownerKey) {
+    return { ...previous, isLive: false };
+  }
+  return { ownerKey: candidate.ownerKey, isLive: false };
+}
