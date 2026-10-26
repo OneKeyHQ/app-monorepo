@@ -1077,18 +1077,28 @@ export function EarnRouterSwapDepositForm({
   // Nothing to change while the swap runs, or while the provider is off
   const isLocked = isBusy || Boolean(isDisabled);
   // Pendle's line (the PT bought) comes with its own quote, after the swap's:
-  // the button waits for it (or for its failure), as a vault's waits for
-  // its line, so it never lights up beside a placeholder
+  // the button waits for it, as a vault's waits for its line, so it never
+  // lights up beside a placeholder. An answer without a figure (an amount
+  // too small for the market, or a failed quote) leaves the line a dash and
+  // the button off: the buy after the swap would have nothing to go on
   const isPendleLineComing =
     summaryRequest?.kind === 'pendle' &&
     Boolean(depositAmount) &&
     depositSummary.stakingAmount !== depositAmount;
+  const isPendleLineMissing =
+    summaryRequest?.kind === 'pendle' &&
+    !new BigNumber(
+      earnUtils.extractAmountFromText(
+        depositSummary.staking?.receive?.description,
+      ),
+    ).gt(0);
   const canStart =
     !isDisabled &&
     hasAmount &&
     !isInsufficient &&
     Boolean(depositAmount) &&
     !isPendleLineComing &&
+    !isPendleLineMissing &&
     Boolean(account);
 
   const handleSelectPercentage = useCallback(

@@ -564,6 +564,17 @@ function OutcomeValues({
               </YStack>
             );
           })}
+          {/* The lines a result holds for its figures (an offer's count)
+              stay where it has fewer this time */}
+          {Array.from(
+            { length: Math.max(0, lineCount - outcome.values.length) },
+            (_, index) => (
+              <YStack key={`room-${index}`} ai="flex-end" aria-hidden>
+                <YStack h="$6" />
+                {suffixRoom}
+              </YStack>
+            ),
+          )}
           {noteRoom}
         </YStack>
       ) : (
@@ -1006,7 +1017,18 @@ export function EarnFormSummary({
     carry.current.label === outcome?.label
       ? carry.current
       : undefined;
-  const shownOutcome = carried ?? outcome;
+  // Held in this form's own place: as many lines as its result takes (the
+  // offer's count this session, else one), so its figures replace the
+  // carried ones without the rows below moving (Spark's two rewards after
+  // Aave's one, or the other way round)
+  const ownLines = Math.max(1, outcome?.reservedLines ?? 1);
+  const shownOutcome = carried
+    ? {
+        ...carried,
+        values: carried.values.slice(0, ownLines),
+        reservedLines: ownLines,
+      }
+    : outcome;
   // The form's own figures taking over from the last protocol's can change
   // the result's lines and bring rows in the same moment: the modal's height
   // eases through it, as it did through the switch
