@@ -185,6 +185,8 @@ async function fetchGrpcWebEmptyRequestFrame({
     return null;
   } finally {
     clearTimeout(timer);
+    // An unread body holds a desktop host stream until it is cancelled.
+    controller.abort();
   }
 }
 
