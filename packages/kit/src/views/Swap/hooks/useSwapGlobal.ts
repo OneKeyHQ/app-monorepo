@@ -74,6 +74,7 @@ import {
   buildSwapSelectedTokensColdStartContext,
   getSelectedTokensColdStartChannelSupport,
   getSwapSelectedTokensColdStartContextNetworkId,
+  isSelectedAccountMatched,
   isSwapAccountSelectionSyncAccepted,
   isSwapColdStartAllNetworkContextNetworkId,
   isSwapSelectedTokensColdStartContextMatched,
@@ -93,7 +94,10 @@ import {
   isSwapHomeAccountSyncSelectionCurrent,
   shouldDeferSwapDefaultTokenSeedContextUpdate,
 } from '../utils/swapDefaultTokenSeedUtils';
-import { getLatestHomeSelectedAccountInfo } from '../utils/swapHomeSelectedAccountUtils';
+import {
+  getHomeSelectedAccountInfoFromContextStore,
+  getLatestHomeSelectedAccountInfo,
+} from '../utils/swapHomeSelectedAccountUtils';
 import { isSwapNetworkCacheCompatible } from '../utils/swapNetworkCacheUtils';
 import {
   getSwapNetworkSupportTabSwitchTypes,
@@ -190,9 +194,16 @@ export function useSwapInit(params?: ISwapInitParams) {
     key: swapInitParamsConsumptionKey,
     fromToken: params?.importFromToken,
     toToken: params?.importToToken,
+    isFocused,
   };
   const latestSwapInitParamsRef = useRef(swapInitParamsSnapshot);
   latestSwapInitParamsRef.current = swapInitParamsSnapshot;
+  useEffect(() => {
+    latestSwapInitParamsRef.current.isFocused = isFocused;
+    return () => {
+      latestSwapInitParamsRef.current.isFocused = false;
+    };
+  }, [isFocused]);
   const swapAddressInfoRef =
     useRef<ReturnType<typeof useSwapAddressInfo>>(undefined);
   const [, setInAppNotification] = useInAppNotificationAtom();
@@ -617,6 +628,7 @@ export function useSwapInit(params?: ISwapInitParams) {
       homeSelectedAccountUpdatedAt,
       importNetworkId,
       sourceRuntimeId,
+      shouldCommit,
     }: {
       homeSelectedAccount?: Parameters<
         typeof shouldSyncSwapSelectedAccountOnHomeAccountUpdate
@@ -637,6 +649,7 @@ export function useSwapInit(params?: ISwapInitParams) {
       homeSelectedAccountUpdatedAt: number | null | undefined;
       importNetworkId?: string;
       sourceRuntimeId?: string;
+      shouldCommit?: () => boolean;
     }) => {
       if (!homeSelectedAccount) {
         return { synced: false as const, cancelled: false as const };
@@ -687,6 +700,7 @@ export function useSwapInit(params?: ISwapInitParams) {
           swapSelectedAccount: swapSelectedAccountAtRequest,
         });
       const selectionResult = await updateSelectedAccount({
+        shouldCommit,
         eventUpdatedAt: homeSelectedAccountUpdatedAt,
         expectedPartialSelection:
           homeSelectedAccountUpdatedAt === undefined
@@ -824,22 +838,49 @@ export function useSwapInit(params?: ISwapInitParams) {
   );
 
   const syncSwapSelectedAccountFromLatestHome = useCallback(async () => {
+    const canBootstrapEmptyDefaults = () =>
+      latestSwapInitParamsRef.current.key === swapInitParamsConsumptionKey &&
+      swapTypeSwitchRef.current === ESwapTabSwitchType.SWAP &&
+      !initialSelectedTokensSyncedRef.current &&
+      !fromTokenRef.current &&
+      !toTokenRef.current &&
+      !selectedTokensColdStartContextRef.current &&
+      !params?.importFromToken &&
+      !params?.importToToken &&
+      (!params?.swapSource || params.swapSource === ESwapSource.WALLET_HOME);
+    const emptyDefaultsAtRead = canBootstrapEmptyDefaults();
+    const swapSelectionAtRead = swapSelectedAccountRef.current;
     const { selectedAccount, selectedAccountUpdatedAt, sourceRuntimeId } =
       await getLatestHomeSelectedAccountInfo();
+    const bootstrapEmptyDefaults =
+      emptyDefaultsAtRead && selectedAccountUpdatedAt !== undefined;
     return syncSwapSelectedAccountFromHome({
       homeSelectedAccount: selectedAccount,
-      // Home's committed revision when the home store is alive in this
-      // runtime; otherwise undefined, which commits unconditionally and
-      // mints a fresh local revision. Deliberately NOT null for a snapshot
-      // without a revision: storage init restores a committed revision
-      // into the swap slot from its cold-start cache in the common case, so
-      // the fill-only null semantics would skip this initial sync entirely
-      // and leave swap visibly out of step with home after a cold start
-      // into the swap tab. The unconditional apply matches the previous
-      // behavior of this path; the minted revision is a genuine local
-      // commit (monotonic, wall clock at commit time), not a receive time
-      // stamped onto somebody else's event.
-      homeSelectedAccountUpdatedAt: selectedAccountUpdatedAt,
+      // An empty entry reads Home as a new initialization intent, not a replay
+      // of its older revision. Keep ordinary event ordering and guard this
+      // local commit against both Home changes and user takeover during await.
+      homeSelectedAccountUpdatedAt: bootstrapEmptyDefaults
+        ? undefined
+        : selectedAccountUpdatedAt,
+      shouldCommit: bootstrapEmptyDefaults
+        ? () => {
+            const currentHome = getHomeSelectedAccountInfoFromContextStore();
+            return (
+              latestSwapInitParamsRef.current.isFocused &&
+              canBootstrapEmptyDefaults() &&
+              isSelectedAccountMatched(
+                swapSelectionAtRead,
+                getSelectedAccount({ num: 0 }),
+              ) &&
+              currentHome?.selectedAccountUpdatedAt ===
+                selectedAccountUpdatedAt &&
+              isSelectedAccountMatched(
+                currentHome?.selectedAccount,
+                selectedAccount,
+              )
+            );
+          }
+        : undefined,
       importNetworkId:
         params?.swapSource === ESwapSource.TOKEN_DETAIL &&
         (params.importFromToken || params.importToToken)
@@ -852,6 +893,8 @@ export function useSwapInit(params?: ISwapInitParams) {
     params?.importNetworkId,
     params?.importToToken,
     params?.swapSource,
+    swapInitParamsConsumptionKey,
+    getSelectedAccount,
     syncSwapSelectedAccountFromHome,
   ]);
 

@@ -6,6 +6,7 @@ import { act, renderHook, waitFor } from '@testing-library/react';
 // eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import { createStore } from 'jotai';
 
+import type { IAccountSelectorSelectedAccount } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { swapDefaultSetTokens } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import {
@@ -32,13 +33,32 @@ import {
   swapTypeSwitchAtom,
 } from '../../../states/jotai/contexts/swap/atoms';
 import { buildSwapDefaultSelectedTokensFromHomeAccount } from '../utils/swapColdStartTokenCacheUtils';
-import { getLatestHomeSelectedAccountInfo } from '../utils/swapHomeSelectedAccountUtils';
+import {
+  getHomeSelectedAccountInfoFromContextStore,
+  getLatestHomeSelectedAccountInfo,
+} from '../utils/swapHomeSelectedAccountUtils';
 
 import { useSwapInit } from './useSwapGlobal';
 
 type ISwapStore = ReturnType<typeof createStore>;
 const mockFetchNetworks = jest.fn<Promise<ISwapNetwork[]>, []>();
 const mockGetNetworkCache = jest.fn<Promise<{ data: ISwapNetwork[] }>, []>();
+type IHomeSyncUpdate = {
+  eventUpdatedAt?: number | null;
+  expectedPartialSelection?: Partial<IAccountSelectorSelectedAccount>;
+  shouldCommit?: () => boolean;
+  builder: (
+    selection: IAccountSelectorSelectedAccount,
+  ) => IAccountSelectorSelectedAccount;
+};
+const mockGetSelectedAccount = jest.fn<
+  IAccountSelectorSelectedAccount | undefined,
+  [{ num: number }]
+>();
+const mockUpdateSelectedAccount = jest.fn<
+  Promise<{ outcome: string }> | undefined,
+  [IHomeSyncUpdate]
+>();
 let mockStore: ISwapStore;
 let mockIsFocused = true;
 const mockUpdateSelectedAccountNetwork = jest.fn<void, [unknown]>();
@@ -81,10 +101,12 @@ jest.mock('../../../states/jotai/contexts/accountSelector', () => {
 jest.mock('../../../states/jotai/contexts/accountSelector/actions', () => {
   const actions = {
     current: {
-      getSelectedAccount: jest.fn(),
+      getSelectedAccount: (options: { num: number }) =>
+        mockGetSelectedAccount(options),
       updateSelectedAccountNetwork: (options: unknown) =>
         mockUpdateSelectedAccountNetwork(options),
-      updateSelectedAccount: jest.fn(),
+      updateSelectedAccount: (options: IHomeSyncUpdate) =>
+        mockUpdateSelectedAccount(options),
     },
   };
   return { useAccountSelectorActions: () => actions };
@@ -107,10 +129,17 @@ jest.mock('./useSwapPro', () => ({
 }));
 jest.mock('../utils/swapHomeSelectedAccountUtils', () => ({
   getLatestHomeSelectedAccountInfo: jest.fn().mockResolvedValue({}),
+  getHomeSelectedAccountInfoFromContextStore: jest.fn(),
 }));
 jest.mock('../../../background/instance/backgroundApiProxy', () => ({
   __esModule: true,
   default: {
+    serviceAccountSelector: {
+      fixOthersWalletAccountNetworkPair: jest.fn(
+        async (params: { selectedAccount: IAccountSelectorSelectedAccount }) =>
+          params.selectedAccount,
+      ),
+    },
     simpleDb: {
       swapNetworksSort: {
         getRawData: () => mockGetNetworkCache(),
@@ -1315,5 +1344,205 @@ describe('automatic default pair ownership', () => {
       },
     ]);
     await waitFor(expectEmptyPair);
+  });
+});
+
+describe('empty Swap bootstrap with a newer restored account revision', () => {
+  const homeSelectedAccount: IAccountSelectorSelectedAccount = {
+    walletId: 'bootstrap-wallet',
+    indexedAccountId: 'bootstrap-account',
+    othersWalletAccountId: undefined,
+    focusedWallet: undefined,
+    deriveType: 'default',
+    networkId: 'onekeyall--0',
+  };
+  const homeInfo = {
+    selectedAccount: homeSelectedAccount,
+    selectedAccountUpdatedAt: 100,
+    sourceRuntimeId: 'bootstrap-runtime',
+  };
+  const configuredTo: ISwapToken = { ...marketToken, symbol: 'CONFIGURED' };
+  const configuredNetwork: ISwapNetwork = {
+    ...freshNetwork,
+    defaultSelectTokenDetail: {
+      from: {
+        networkId: 'evm--1',
+        contractAddress: '',
+        symbol: 'ETH',
+        decimals: 18,
+        isNative: true,
+      },
+      to: configuredTo,
+    },
+  };
+  let selectedAccount: IAccountSelectorSelectedAccount;
+  let revision: number;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockStore = createStore();
+    mockIsFocused = true;
+    selectedAccount = { ...homeSelectedAccount, networkId: 'evm--1' };
+    revision = 200;
+    mockGetNetworkCache.mockResolvedValue({ data: [] });
+    mockFetchNetworks.mockReset();
+    jest.mocked(getLatestHomeSelectedAccountInfo).mockResolvedValue(homeInfo);
+    jest
+      .mocked(getHomeSelectedAccountInfoFromContextStore)
+      .mockReturnValue(homeInfo);
+    mockGetSelectedAccount.mockImplementation(() => selectedAccount);
+    mockUpdateSelectedAccount.mockImplementation(async (update) => {
+      if (update.shouldCommit && !update.shouldCommit())
+        return { outcome: 'stale' };
+      if (
+        update.eventUpdatedAt !== undefined &&
+        update.eventUpdatedAt !== null &&
+        update.eventUpdatedAt < revision
+      )
+        return { outcome: 'skip-older-event' };
+      if (
+        update.expectedPartialSelection &&
+        Object.entries(update.expectedPartialSelection).some(
+          ([key, value]) =>
+            selectedAccount[key as keyof IAccountSelectorSelectedAccount] !==
+            value,
+        )
+      )
+        return { outcome: 'stale' };
+      selectedAccount = update.builder(selectedAccount);
+      revision += 1;
+      return { outcome: 'commit' };
+    });
+    const accountMock = jest.requireMock<{
+      useActiveAccount: () => { activeAccount: object };
+      useSelectedAccount: () => {
+        selectedAccount: IAccountSelectorSelectedAccount;
+      };
+    }>('../../../states/jotai/contexts/accountSelector');
+    jest
+      .spyOn(accountMock, 'useSelectedAccount')
+      .mockImplementation(() => ({ selectedAccount }));
+    jest.spyOn(accountMock, 'useActiveAccount').mockImplementation(() => ({
+      activeAccount: {
+        ready: true,
+        wallet: { id: selectedAccount.walletId },
+        indexedAccount: { id: selectedAccount.indexedAccountId },
+        deriveType: selectedAccount.deriveType,
+        network: { id: selectedAccount.networkId },
+      },
+    }));
+    const addressMock = jest.requireMock<{
+      useSwapAddressInfo: () => {
+        networkId: string;
+        accountInfo: { ready: boolean };
+      };
+    }>('./useSwapAccount');
+    jest.spyOn(addressMock, 'useSwapAddressInfo').mockImplementation(() => ({
+      networkId: selectedAccount.networkId ?? '',
+      accountInfo: { ready: true },
+    }));
+  });
+  afterEach(() => jest.restoreAllMocks());
+
+  it.each([
+    { label: 'Tab', params: {} },
+    { label: 'Home More', params: { swapSource: ESwapSource.WALLET_HOME } },
+  ])(
+    'initializes $label from the current Home selection after API configuration settles',
+    async ({ params }) => {
+      const request = deferred<ISwapNetwork[]>();
+      mockFetchNetworks.mockReturnValue(request.promise);
+      renderMarket(params);
+      await waitFor(() => expect(mockFetchNetworks).toHaveBeenCalled());
+      expectEmptyPair();
+      await act(async () => request.resolve([configuredNetwork]));
+      await waitFor(() =>
+        expect(mockStore.get(swapSelectToTokenAtom())).toEqual(configuredTo),
+      );
+      expect(selectedAccount.networkId).toBe(homeSelectedAccount.networkId);
+      expect(mockStore.get(swapInitialSelectedTokensSyncedAtom())).toBe(true);
+      expect(
+        mockStore.get(swapSelectedTokensColdStartContextAtom())?.networkId,
+      ).toBe(homeSelectedAccount.networkId);
+    },
+  );
+
+  it.each(['tokens', 'account', 'home', 'blur', 'unmount'])(
+    'rejects the bootstrap when %s changes while reading Home',
+    async (change) => {
+      const homeRead = deferred<typeof homeInfo>();
+      jest
+        .mocked(getLatestHomeSelectedAccountInfo)
+        .mockReturnValue(homeRead.promise);
+      mockFetchNetworks.mockResolvedValue([configuredNetwork]);
+      const view = renderMarket({});
+      await waitFor(() =>
+        expect(getLatestHomeSelectedAccountInfo).toHaveBeenCalled(),
+      );
+      act(() => {
+        if (change === 'tokens')
+          mockStore.set(swapSelectFromTokenAtom(), marketToken);
+        if (change === 'account')
+          selectedAccount = {
+            ...selectedAccount,
+            indexedAccountId: 'manual-account',
+          };
+        if (change === 'home')
+          jest
+            .mocked(getHomeSelectedAccountInfoFromContextStore)
+            .mockReturnValue({ ...homeInfo, selectedAccountUpdatedAt: 101 });
+        if (change === 'blur') mockIsFocused = false;
+      });
+      if (change === 'unmount') view.unmount();
+      else view.rerender({});
+      await act(async () => homeRead.resolve(homeInfo));
+      expect(selectedAccount.networkId).toBe('evm--1');
+      if (change === 'tokens')
+        expect(mockStore.get(swapSelectFromTokenAtom())).toEqual(marketToken);
+    },
+  );
+
+  it('preserves an amount entered before the default pair is initialized', async () => {
+    const homeRead = deferred<typeof homeInfo>();
+    jest
+      .mocked(getLatestHomeSelectedAccountInfo)
+      .mockReturnValue(homeRead.promise);
+    mockFetchNetworks.mockResolvedValue([configuredNetwork]);
+    renderMarket({});
+    await waitFor(() =>
+      expect(getLatestHomeSelectedAccountInfo).toHaveBeenCalled(),
+    );
+    act(() =>
+      mockStore.set(swapFromTokenAmountAtom(), { value: '1', isInput: true }),
+    );
+    await act(async () => homeRead.resolve(homeInfo));
+    await waitFor(() =>
+      expect(mockStore.get(swapSelectToTokenAtom())).toEqual(configuredTo),
+    );
+    expect(mockStore.get(swapInitialSelectedTokensSyncedAtom())).toBe(true);
+    expect(mockStore.get(swapFromTokenAmountAtom())).toEqual({
+      value: '1',
+      isInput: true,
+    });
+  });
+
+  it('completes a Home read started before the empty Swap entry gains focus', async () => {
+    const homeRead = deferred<typeof homeInfo>();
+    jest
+      .mocked(getLatestHomeSelectedAccountInfo)
+      .mockReturnValue(homeRead.promise);
+    mockFetchNetworks.mockResolvedValue([configuredNetwork]);
+    mockIsFocused = false;
+    const view = renderMarket({});
+    await waitFor(() =>
+      expect(getLatestHomeSelectedAccountInfo).toHaveBeenCalled(),
+    );
+    mockIsFocused = true;
+    view.rerender({});
+    await act(async () => homeRead.resolve(homeInfo));
+    await waitFor(() =>
+      expect(mockStore.get(swapSelectToTokenAtom())).toEqual(configuredTo),
+    );
+    expect(mockStore.get(swapInitialSelectedTokensSyncedAtom())).toBe(true);
   });
 });

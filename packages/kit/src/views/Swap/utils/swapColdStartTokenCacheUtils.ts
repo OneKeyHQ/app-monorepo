@@ -826,7 +826,7 @@ export function isSwapTokenSupportedBySwapType({
   );
 }
 
-function isSelectedAccountMatched(
+export function isSelectedAccountMatched(
   accountA?: IAccountSelectorSelectedAccount,
   accountB?: IAccountSelectorSelectedAccount,
 ) {
