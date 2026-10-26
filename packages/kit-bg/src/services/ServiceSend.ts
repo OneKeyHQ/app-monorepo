@@ -944,11 +944,11 @@ class ServiceSend extends ServiceBase {
     }
   }
 
-  private async validatePrimeInfiniPaymentBeforeBroadcast({
+  private async validatePrimeInfiniPaymentTransaction({
     networkId,
     accountId,
     accountAddress,
-    signedTx,
+    encodedTx,
     unsignedTx,
     beforeBroadcastAction,
     transferPayload,
@@ -960,19 +960,19 @@ class ServiceSend extends ServiceBase {
     originalHistoryTx,
   }: ISendTxBaseParams & {
     accountAddress: string;
-    signedTx: ISignedTxPro;
+    encodedTx: IEncodedTx | null;
     unsignedTx: IUnsignedTxPro;
     beforeBroadcastAction: IPrimeInfiniBeforeBroadcastAction;
     transferPayload?: IBatchSignTransactionParamsBase['transferPayload'];
-    ensureBroadcastDeadline: () => void;
+    ensureBroadcastDeadline?: () => void;
     mode: 'initial' | 'speedUp';
     originalTxid?: string;
     originalHistoryId?: string;
     originalNonce?: number;
     originalHistoryTx?: IAccountHistoryTx;
   }) {
-    // Both paths originate from wallet-built transfers. Replacement callers
-    // additionally verify the signed EVM payload against the original history.
+    // Preflight decodes the unsigned replacement; the broadcast path must
+    // independently decode and verify the signed payload against fresh data.
     const vault = await vaultFactory.getVault({ networkId, accountId });
     const paymentCacheKey = beforeBroadcastAction.paymentCacheKey;
     const ensurePrimePaymentUserIsCurrent = async () => {
@@ -988,7 +988,7 @@ class ServiceSend extends ServiceBase {
         });
       }
     };
-    if (signedTx.encodedTx === null) {
+    if (encodedTx === null) {
       throw new OneKeyLocalError({
         message: 'Infini payment transaction cannot be verified',
         autoToast: false,
@@ -996,20 +996,20 @@ class ServiceSend extends ServiceBase {
     }
     const hasExpectedNativeTransactionShape =
       !networkUtils.isTronNetworkByNetworkId(networkId) ||
-      (signedTx.encodedTx as IEncodedTxTron).raw_data?.contract?.length === 1;
+      (encodedTx as IEncodedTxTron).raw_data?.contract?.length === 1;
     if (!hasExpectedNativeTransactionShape) {
       throw new OneKeyLocalError({
         message: 'Infini payment transaction cannot be verified',
         autoToast: false,
       });
     }
-    ensureBroadcastDeadline();
+    ensureBroadcastDeadline?.();
     await ensurePrimePaymentUserIsCurrent();
     const decodedTxPromise = vault
       .buildDecodedTx({
         unsignedTx: {
           ...unsignedTx,
-          encodedTx: signedTx.encodedTx,
+          encodedTx,
         },
         transferPayload,
       })
@@ -1171,7 +1171,7 @@ class ServiceSend extends ServiceBase {
         quoteFailure ?? 'transferSnapshotChanged',
       );
     }
-    ensureBroadcastDeadline();
+    ensureBroadcastDeadline?.();
     if (
       !isPrimeInfiniPaymentPreBroadcastSnapshotSendable({
         payment: latestPayment,
@@ -1193,6 +1193,28 @@ class ServiceSend extends ServiceBase {
         autoToast: false,
       });
     }
+    return {
+      transferClaim,
+      latestPayment,
+      purchaseStatusSnapshot,
+      ensurePrimePaymentUserIsCurrent,
+    };
+  }
+
+  private async validatePrimeInfiniPaymentBeforeBroadcast(
+    params: Parameters<
+      ServiceSend['validatePrimeInfiniPaymentTransaction']
+    >[0] & {
+      ensureBroadcastDeadline: () => void;
+    },
+  ) {
+    const {
+      transferClaim,
+      latestPayment,
+      purchaseStatusSnapshot,
+      ensurePrimePaymentUserIsCurrent,
+    } = await this.validatePrimeInfiniPaymentTransaction(params);
+    const paymentCacheKey = params.beforeBroadcastAction.paymentCacheKey;
     const markedSession =
       await this.backgroundApi.simpleDb.prime.markInfiniPendingPaymentSessionSendStarted(
         {
@@ -1201,7 +1223,7 @@ class ServiceSend extends ServiceBase {
           transferClaim,
           latestPayment,
           purchaseStatusSnapshot,
-          mode,
+          mode: params.mode,
         },
       );
     await ensurePrimePaymentUserIsCurrent();
@@ -1428,6 +1450,27 @@ class ServiceSend extends ServiceBase {
       });
     }
 
+    if (replacementContext && beforeBroadcastAction) {
+      const { ensurePrimePaymentUserIsCurrent } =
+        await this.validatePrimeInfiniPaymentTransaction({
+          networkId,
+          accountId,
+          accountAddress,
+          encodedTx: unsignedTx.encodedTx,
+          unsignedTx,
+          beforeBroadcastAction,
+          transferPayload,
+          mode: 'speedUp',
+          originalTxid: replacementContext.originalTxid,
+          originalHistoryId: replacementContext.originalHistoryId,
+          originalNonce: replacementContext.nonce,
+          originalHistoryTx: replacementContext.originalHistoryTx,
+        });
+      // Signing can be cancelled or take arbitrarily long. Leave session
+      // admission and revision changes at the post-sign broadcast boundary.
+      await ensurePrimePaymentUserIsCurrent();
+    }
+
     const signedTx = await this.signTransaction({
       networkId,
       accountId,
@@ -1539,7 +1582,7 @@ class ServiceSend extends ServiceBase {
             networkId,
             accountId,
             accountAddress,
-            signedTx,
+            encodedTx: signedTx.encodedTx,
             unsignedTx,
             beforeBroadcastAction,
             transferPayload,
