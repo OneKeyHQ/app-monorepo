@@ -16,28 +16,32 @@ import {
 import type { IXStackProps } from '@onekeyhq/components';
 
 import { BROWSER_CHROME_CAPSULE_HEIGHT } from '../../config/Animation.constants';
-import { usePageBaseColor } from '../../utils/pageThemeColor';
+import { usePageBottomColor } from '../../utils/pageThemeColor';
 
 import type { StyleProp, ViewStyle } from 'react-native';
 import type { SharedValue } from 'react-native-reanimated';
 
 export const PILL_RADIUS = 9999;
 
-// The page's base color (body/html), what the page ends on: it fills the area
-// under the bottom bar (the iPhone page backdrop, else the bar's strip).
-// Subscribes on its own, so color reports only re-render this fill.
-export function PageBaseColorFill({
+// The page's color at the bottom of the viewport, right above the bottom
+// bar: it fills the area under the bar (the iPhone page backdrop, else the
+// bar's strip), so the page seems to carry on behind it. Subscribes on its
+// own, so color reports only re-render this fill.
+export function PageBottomColorFill({
   tabId,
   style,
 }: {
   tabId: string | null | undefined;
   style: StyleProp<ViewStyle>;
 }) {
-  const baseColor = usePageBaseColor(tabId);
+  const bottomColor = usePageBottomColor(tabId);
   return (
     <Stack
       bg="$bgApp"
-      style={[style, baseColor ? { backgroundColor: baseColor } : undefined]}
+      style={[
+        style,
+        bottomColor ? { backgroundColor: bottomColor } : undefined,
+      ]}
     />
   );
 }

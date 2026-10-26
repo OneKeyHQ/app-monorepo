@@ -59,7 +59,7 @@ import {
   PAGE_DRAWS_UNDER_BROWSER_BAR,
   getBarReservedHeight,
 } from '../../components/MobileBrowser/browserChrome';
-import { PageBaseColorFill } from '../../components/MobileBrowser/BrowserChromeCapsule';
+import { PageBottomColorFill } from '../../components/MobileBrowser/BrowserChromeCapsule';
 import MobileBrowserBottomBar from '../../components/MobileBrowser/MobileBrowserBottomBar';
 import MobileBrowserHeader from '../../components/MobileBrowser/MobileBrowserHeader';
 import { OuterTabPagerView } from '../../components/OuterTabPagerView';
@@ -110,8 +110,8 @@ const styles = StyleSheet.create({
     zIndex: 3,
   },
   // Under the iPhone bottom bar, behind the WebView (whose scroll view draws
-  // past its frame there): the page's base color shows where the page has no
-  // more content to draw (its end, or a short page). Only the bar's area: the
+  // past its frame there): the page's bottom color shows where the page has
+  // no more content to draw (its end, or a short or app-like page). Only the bar's area: the
   // WebView covers the rest. Height set from the safe area.
   iosPageBackdrop: {
     position: 'absolute',
@@ -730,7 +730,7 @@ function MobileBrowser() {
                 ]}
               >
                 {PAGE_DRAWS_UNDER_BROWSER_BAR ? (
-                  <PageBaseColorFill
+                  <PageBottomColorFill
                     tabId={activeTabId}
                     style={[
                       styles.iosPageBackdrop,

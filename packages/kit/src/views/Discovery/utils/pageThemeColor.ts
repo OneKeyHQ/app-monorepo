@@ -10,10 +10,10 @@ import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 const PAGE_THEME_MESSAGE_TYPE = '$onekeyPageThemeColor';
 
 const colors = new Map<string, string>();
-// Per-tab base background (body/html), the color past the end of the page:
-// it fills the area under the mobile browser's bottom bar (the iPhone page
-// backdrop in Browser.native, else the bar's strip).
-const baseColors = new Map<string, string>();
+// Per-tab color at the bottom of the viewport, right above the bottom bar:
+// it fills the area under the bar (the iPhone page backdrop in
+// Browser.native, else the bar's strip), so the page seems to carry on.
+const bottomColors = new Map<string, string>();
 // Last color seen per origin (this session), so a revisited site tints the
 // chrome as soon as it starts loading instead of after its first report.
 const originColors = new LRUCache<string, string>({ max: 100 });
@@ -82,11 +82,11 @@ function storeColor(
 function setPageColors(
   tabId: string,
   color: string | undefined,
-  baseColor: string | undefined,
+  bottomColor: string | undefined,
 ) {
   const colorChanged = storeColor(colors, tabId, color);
-  const baseChanged = storeColor(baseColors, tabId, baseColor);
-  if (colorChanged || baseChanged) {
+  const bottomChanged = storeColor(bottomColors, tabId, bottomColor);
+  if (colorChanged || bottomChanged) {
     emit();
   }
 }
@@ -103,11 +103,11 @@ function usePageThemeColor(tabId: string | null | undefined) {
   );
 }
 
-// The page's base background, else its chrome color.
-export function usePageBaseColor(tabId: string | null | undefined) {
+// The page's color at the bottom of the viewport, else its chrome color.
+export function usePageBottomColor(tabId: string | null | undefined) {
   return useSyncExternalStore(
     subscribe,
-    () => (tabId ? (baseColors.get(tabId) ?? colors.get(tabId)) : undefined),
+    () => (tabId ? (bottomColors.get(tabId) ?? colors.get(tabId)) : undefined),
     () => undefined,
   );
 }
@@ -155,13 +155,13 @@ export function tryDispatchPageThemeMessage(
     const message = JSON.parse(data) as {
       type?: string;
       color?: unknown;
-      baseColor?: unknown;
+      bottomColor?: unknown;
     };
     if (message?.type !== PAGE_THEME_MESSAGE_TYPE) {
       return false;
     }
     const color = normalizeColor(message.color);
-    setPageColors(tabId, color, normalizeColor(message.baseColor));
+    setPageColors(tabId, color, normalizeColor(message.bottomColor));
     const origin = originOf(pageUrl);
     if (origin) {
       // A page that reports no color also drops its stale cache, so the next
@@ -181,8 +181,10 @@ export function tryDispatchPageThemeMessage(
 // Reports the page color the way Safari 26 tints its chrome: the background
 // behind the top of the viewport (a fixed header, else body/html). Safari 26
 // no longer uses <meta name="theme-color">; it is only a last fallback here.
-// Also reports the base background (body/html), which can differ from the
-// top (e.g. a colored banner over a gray page).
+// Also reports the background behind the bottom of the viewport, which can
+// differ from the top (a colored banner over a gray page) and from body/html
+// (app-like sites paint a dark container over a white body); it follows
+// scrolling, so a sheet at the bottom brings its own color.
 // Re-reads after a short delay (late SPA paint), when the system color scheme
 // changes, and when the page switches its own theme (class/style/data-*
 // changes on <html>/<body>, or a new theme-color), like Safari tracking a
@@ -238,10 +240,17 @@ export const PAGE_THEME_COLOR_SCRIPT = `(function () {
     var lastReport;
     var read = function () {
       // Walks up from <body> to <html>.
-      var baseColor = backgroundOf(document.body || document.documentElement);
+      var bodyColor = backgroundOf(document.body || document.documentElement);
       var color =
         backgroundOf(document.elementFromPoint(window.innerWidth / 2, 2)) ||
-        baseColor;
+        bodyColor;
+      var bottomColor =
+        backgroundOf(
+          document.elementFromPoint(
+            window.innerWidth / 2,
+            window.innerHeight - 2,
+          ),
+        ) || bodyColor;
       if (!color) {
         var metas = document.querySelectorAll('meta[name="theme-color"]');
         for (var i = 0; i < metas.length; i++) {
@@ -252,7 +261,7 @@ export const PAGE_THEME_COLOR_SCRIPT = `(function () {
           }
         }
       }
-      var report = color + '|' + baseColor;
+      var report = color + '|' + bottomColor;
       if (report === lastReport) return;
       lastReport = report;
       window.ReactNativeWebView &&
@@ -260,7 +269,7 @@ export const PAGE_THEME_COLOR_SCRIPT = `(function () {
           JSON.stringify({
             type: '${PAGE_THEME_MESSAGE_TYPE}',
             color: color,
-            baseColor: baseColor,
+            bottomColor: bottomColor,
           }),
         );
     };
@@ -292,6 +301,8 @@ export const PAGE_THEME_COLOR_SCRIPT = `(function () {
         read();
       }, 300);
     };
+    // What sits at the bottom of the viewport changes as the page scrolls.
+    window.addEventListener('scroll', schedule, { passive: true });
     var isThemeMeta = function (node) {
       return (
         node &&

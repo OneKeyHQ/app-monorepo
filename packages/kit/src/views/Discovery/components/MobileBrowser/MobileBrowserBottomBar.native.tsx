@@ -61,7 +61,7 @@ import {
   BrowserChromeCapsule,
   ChromeGlassView,
   PILL_RADIUS,
-  PageBaseColorFill,
+  PageBottomColorFill,
   useCapsuleFadeStyle,
 } from './BrowserChromeCapsule';
 import { ChromePressable } from './ChromePressable';
@@ -132,10 +132,13 @@ const SIDE_COLLAPSED_SCALE = 0.5;
 // The pill's domain text size.
 const PILL_DOMAIN_FONT_SIZE = 14;
 // How far the capsule's contents shrink toward the pill's (and the pill's
-// grow toward the capsule's) during the morph. Matched to the domain texts,
-// so the two domains are the same size on every frame and the swap between
-// them is invisible; the shared background sizes itself separately.
-const CAPSULE_COLLAPSED_SCALE = PILL_DOMAIN_FONT_SIZE / DOMAIN_FONT_SIZE;
+// grow toward the capsule's) during the morph: from the size the capsule's
+// domain is drawn at (16pt, or less when a long one shrinks to fit) to the
+// pill's, so the two domains are the same size on every frame and the swap
+// between them is invisible; the shared background sizes itself separately.
+function getCapsuleCollapsedScale(domainFontSize: number) {
+  return PILL_DOMAIN_FONT_SIZE / domainFontSize;
+}
 
 // A side button's move: down with the bar, in toward the center (`towards`
 // is +1 for the left one, -1 for the right), and smaller.
@@ -170,11 +173,11 @@ function useSideMorphStyle(
 }
 
 // The capsule layer's scale along the morph. The pill layer is always this
-// over CAPSULE_COLLAPSED_SCALE, so the two domains match on every frame.
-function getCapsuleMorphScale(progress: number) {
+// over the collapsed scale, so the two domains match on every frame.
+function getCapsuleMorphScale(progress: number, collapsedScale: number) {
   'worklet';
 
-  return interpolate(progress, [0, 1], [CAPSULE_COLLAPSED_SCALE, 1], 'clamp');
+  return interpolate(progress, [0, 1], [collapsedScale, 1], 'clamp');
 }
 
 // Morphs the address capsule into the collapsed pill (and back), like
@@ -187,6 +190,7 @@ function useBarMorphStyles(
   progress: SharedValue<number>,
   travelY: number,
   domainCenterOffset: SharedValue<number>,
+  collapsedScale: number,
 ) {
   const leftStyle = useSideMorphStyle(progress, travelY, 1);
   const rightStyle = useSideMorphStyle(progress, travelY, -1);
@@ -195,7 +199,7 @@ function useBarMorphStyles(
       {
         translateY: interpolate(progress.value, [0, 1], [travelY, 0], 'clamp'),
       },
-      { scale: getCapsuleMorphScale(progress.value) },
+      { scale: getCapsuleMorphScale(progress.value, collapsedScale) },
     ],
   }));
   const pillStyle = useAnimatedStyle(() => ({
@@ -203,17 +207,20 @@ function useBarMorphStyles(
       {
         translateY: interpolate(progress.value, [0, 1], [0, -travelY], 'clamp'),
       },
-      { scale: getCapsuleMorphScale(progress.value) / CAPSULE_COLLAPSED_SCALE },
+      {
+        scale:
+          getCapsuleMorphScale(progress.value, collapsedScale) / collapsedScale,
+      },
     ],
   }));
   // The capsule's and the pill's domain are the same text at the same size
-  // and spot on every frame (see CAPSULE_COLLAPSED_SCALE), so instead of
+  // and spot on every frame (see getCapsuleCollapsedScale), so instead of
   // fading two copies into each other, the text swaps layers at the middle
   // of the morph and reads as one, like Safari's.
   // A domain that can't center in the capsule (it would crowd the badge)
   // rests a little right of center, while the pill's is centered: the drift
   // runs over the whole morph on both layers, in one go with the size
-  // change. The pill layer is drawn 1/CAPSULE_COLLAPSED_SCALE times the
+  // change. The pill layer is drawn 1/collapsedScale times the
   // capsule's, hence its shorter local offset.
   const capsuleDomainStyle = useAnimatedStyle(() => ({
     opacity: progress.value >= DOMAIN_SWAP_POINT ? 1 : 0,
@@ -225,8 +232,7 @@ function useBarMorphStyles(
     opacity: progress.value < DOMAIN_SWAP_POINT ? 1 : 0,
     transform: [
       {
-        translateX:
-          domainCenterOffset.value * progress.value * CAPSULE_COLLAPSED_SCALE,
+        translateX: domainCenterOffset.value * progress.value * collapsedScale,
       },
     ],
   }));
@@ -249,11 +255,13 @@ function CollapsedAddressPill({
   onPress,
   domainStyle,
   onWidth,
+  collapsedScale,
 }: {
   url?: string;
   onPress?: () => void;
   domainStyle: ComponentProps<typeof Animated.View>['style'];
   onWidth: (width: number) => void;
+  collapsedScale: number;
 }) {
   const hostname = useMemo(() => getDisplayHostname(url), [url]);
   return (
@@ -281,8 +289,8 @@ function CollapsedAddressPill({
               <SizableText
                 size="$bodyLgMedium"
                 fontSize={PILL_DOMAIN_FONT_SIZE}
-                lineHeight={DOMAIN_LINE_HEIGHT * CAPSULE_COLLAPSED_SCALE}
-                y={-DOMAIN_OPTICAL_LIFT * CAPSULE_COLLAPSED_SCALE}
+                lineHeight={DOMAIN_LINE_HEIGHT * collapsedScale}
+                y={-DOMAIN_OPTICAL_LIFT * collapsedScale}
                 numberOfLines={1}
                 maxWidth={220}
               >
@@ -378,14 +386,27 @@ const edgeBlurMask = (
 
 // iPhone, where the page draws under the bar: a blur that fades in towards
 // the screen bottom, like Telegram's toolbar edge effect, so the glass sits
-// on a soft backdrop rather than on sharp page content. If the blur doesn't
-// render inside the mask on a device (masking a visual effect view's
-// parent view is not officially supported), render nothing here instead.
-const barEdgeBlur = (
-  <MaskedView style={StyleSheet.absoluteFill} maskElement={edgeBlurMask}>
-    <BlurView flex={1} intensity={EDGE_BLUR_INTENSITY} tint="default" />
-  </MaskedView>
-);
+// on a soft backdrop rather than on sharp page content. The thinnest
+// material in the page's light/dark look (Telegram's is untinted; the
+// default tint follows the system appearance and veils a dark page in
+// light mode). If the blur doesn't render inside the mask on a device
+// (masking a visual effect view's parent view is not officially supported),
+// render nothing here instead.
+function BarEdgeBlur({ isDark }: { isDark: boolean }) {
+  return (
+    <MaskedView style={StyleSheet.absoluteFill} maskElement={edgeBlurMask}>
+      <BlurView
+        flex={1}
+        intensity={EDGE_BLUR_INTENSITY}
+        tint={
+          isDark
+            ? 'systemUltraThinMaterialDark'
+            : 'systemUltraThinMaterialLight'
+        }
+      />
+    </MaskedView>
+  );
+}
 
 // Bar: [tabs] [back · address · reload] [menu]. Forward,
 // translate, bookmark etc. live in the menu. While scrolling down the bar
@@ -424,6 +445,7 @@ function MobileBrowserBottomBar({
   // Match the page's light/dark look (glass, icons, text), like Safari.
   const { pageThemeName } = usePageTheme(id);
   const appThemeName = useThemeName();
+  const chromeThemeName = pageThemeName ?? appThemeName;
   const isChromeCollapsed = useIsChromeCollapsed(progress);
   const sideFade = useMemo<ICapsuleFade>(
     () => ({ progress, range: [SIDE_FADE_START, 1] }),
@@ -441,6 +463,9 @@ function MobileBrowserBottomBar({
   const [capsuleWidth, setCapsuleWidth] = useState(0);
   const [pillWidth, setPillWidth] = useState(0);
   const domainCenterOffset = useSharedValue(0);
+  // The size the capsule's domain is drawn at, which sets the morph scale.
+  const [domainFontSize, setDomainFontSize] = useState(DOMAIN_FONT_SIZE);
+  const collapsedScale = getCapsuleCollapsedScale(domainFontSize);
   const handleDomainCenterOffset = useCallback(
     (offset: number) => {
       domainCenterOffset.value = offset;
@@ -461,7 +486,12 @@ function MobileBrowserBottomBar({
     pillStyle,
     capsuleDomainStyle,
     pillDomainStyle,
-  } = useBarMorphStyles(progress, morphTravelY, domainCenterOffset);
+  } = useBarMorphStyles(
+    progress,
+    morphTravelY,
+    domainCenterOffset,
+    collapsedScale,
+  );
 
   const [translateOpen, setTranslateOpen] = useState(false);
   const showOptions = useMobileBrowserOptions({
@@ -493,19 +523,19 @@ function MobileBrowserBottomBar({
   return (
     // Fills the container: a fixed full-height box on phones, an animated
     // in-flow height on tablets.
-    <Theme name={pageThemeName ?? appThemeName}>
+    <Theme name={chromeThemeName}>
       <Stack h="100%" zIndex={1} pointerEvents="box-none">
         <BarBackdrop progress={progress} bottom={bottom}>
           {PAGE_DRAWS_UNDER_BROWSER_BAR ? (
-            barEdgeBlur
+            <BarEdgeBlur isDark={chromeThemeName === 'dark'} />
           ) : (
             // The WebView ends above the bar: the strip behind it takes the
-            // page's base color (what the page ends on, rather than e.g. a
-            // colored top banner), so there is no seam above the bar, and
+            // page's color right above the bar (rather than e.g. a colored
+            // top banner), so there is no seam above the bar, and
             // hides the WebView's part that passes behind the bar mid-morph.
             // No fade above it: a plain alpha fade (no blur) over page
             // content of another color looks muddy.
-            <PageBaseColorFill tabId={id} style={StyleSheet.absoluteFill} />
+            <PageBottomColorFill tabId={id} style={StyleSheet.absoluteFill} />
           )}
         </BarBackdrop>
         <MorphingAddressBackground
@@ -592,6 +622,7 @@ function MobileBrowserBottomBar({
                   domainStyle={capsuleDomainStyle}
                   capsuleWidth={capsuleWidth}
                   onDomainCenterOffset={handleDomainCenterOffset}
+                  onDomainFontSize={setDomainFontSize}
                 />
                 <Animated.View style={capsuleContentStyle}>
                   <RefreshButton
@@ -637,6 +668,7 @@ function MobileBrowserBottomBar({
           style={[styles.pillRow, { bottom: pillBottom }, pillStyle]}
         >
           <CollapsedAddressPill
+            collapsedScale={collapsedScale}
             domainStyle={pillDomainStyle}
             onWidth={setPillWidth}
             url={currentUrl}

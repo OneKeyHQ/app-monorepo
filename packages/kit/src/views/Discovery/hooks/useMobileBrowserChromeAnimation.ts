@@ -43,8 +43,6 @@ const springConfig = {
 // Following the finger (CHROME_FOLLOWS_SCROLL) needs the WebView's
 // isInteracting (patched in on iOS); other scroll sources (the Explore
 // dashboard) keep the direction trigger below.
-// Scrolling this far collapses (or expands) the chrome while following.
-const FOLLOW_DISTANCE = BROWSER_HEADER_HEIGHT;
 // Telegram's settle curve.
 const settleTiming = {
   duration: BROWSER_CHROME_SETTLE_DURATION,
@@ -55,8 +53,13 @@ const settleTiming = {
 // scrolling down collapses both; scrolling up, reaching an edge of the page,
 // or a non-scrollable page brings them back.
 function useMobileBrowserChromeAnimation() {
-  const { bottom: bottomInset } = useSafeAreaInsets();
+  const { top: safeTop, bottom: bottomInset } = useSafeAreaInsets();
   const fullBarHeight = getBarReservedHeight(bottomInset);
+  // Scrolling this far collapses (or expands) the chrome while following:
+  // the header's full height with the status bar above it, as Telegram uses
+  // its navigation height (~100pt on notched iPhones), so the chrome doesn't
+  // race ahead of the page.
+  const followDistance = BROWSER_HEADER_HEIGHT + safeTop;
   // 1 = chrome fully expanded, 0 = collapsed.
   const chromeProgress = useSharedValue(EXPANDED);
   // The size the WebView is laid out for: 1 (room for the expanded chrome)
@@ -128,23 +131,23 @@ function useMobileBrowserChromeAnimation() {
     (
       scrollY: number,
       maxScrollY: number,
-      topInset: number,
+      contentTopInset: number,
       isInteracting: boolean,
     ) => {
       const lastY = lastScrollYRef.current;
       lastScrollYRef.current = scrollY;
       let next = targetRef.current;
       if (lastY !== undefined) {
-        next -= (scrollY - lastY) / FOLLOW_DISTANCE;
+        next -= (scrollY - lastY) / followDistance;
       }
       // Near an edge the chrome comes back in step with the distance left,
       // fully at the edge itself, like Telegram.
       const toBottom = Math.max(0, maxScrollY - scrollY);
-      const toTop = Math.max(0, scrollY + topInset);
+      const toTop = Math.max(0, scrollY + contentTopInset);
       if (toBottom < fullBarHeight) {
         next = Math.max(next, 1 - toBottom / fullBarHeight);
-      } else if (toTop < BROWSER_HEADER_HEIGHT) {
-        next = Math.max(next, 1 - toTop / BROWSER_HEADER_HEIGHT);
+      } else if (toTop < followDistance) {
+        next = Math.max(next, 1 - toTop / followDistance);
       }
       next = Math.min(EXPANDED, Math.max(COLLAPSED, next));
       if (!isInteracting) {
@@ -165,7 +168,13 @@ function useMobileBrowserChromeAnimation() {
       // Replaces any running animation.
       chromeProgress.value = next;
     },
-    [animateTo, chromeProgress, fullBarHeight, setLayoutCollapsed],
+    [
+      animateTo,
+      chromeProgress,
+      followDistance,
+      fullBarHeight,
+      setLayoutCollapsed,
+    ],
   );
 
   const handleScroll = useCallback(
