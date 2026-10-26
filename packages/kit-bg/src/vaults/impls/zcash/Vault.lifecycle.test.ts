@@ -155,19 +155,35 @@ describe('Zcash local lifecycle operations do not depend on pending history', ()
     expect(f.purgeWallet).not.toHaveBeenCalled();
   });
 
-  it('rotates the epochs of every alias before the non-destructive rescan', async () => {
+  it('moves the runtime before saving the birthday or rotating epochs', async () => {
     const f = fixture('pending');
     f.rescanWallet.mockImplementationOnce(async () => {
-      expect(f.rotateAccountEpochs).toHaveBeenCalledWith({
-        accountIds: [f.accountId],
-      });
+      expect(f.saveAccountMeta).not.toHaveBeenCalled();
+      expect(f.rotateAccountEpochs).not.toHaveBeenCalled();
     });
     await f.vault.applyPendingRescan({
       accountId: f.accountId,
       repair: f.repair,
     });
     expect(f.rescanWallet).toHaveBeenCalledTimes(1);
+    expect(f.rotateAccountEpochs).toHaveBeenCalledWith({
+      accountIds: [f.accountId],
+    });
     expect(f.purgeWallet).not.toHaveBeenCalled();
+  });
+
+  it('keeps the saved birthday, epochs and journal when the runtime refuses the rescan', async () => {
+    const f = fixture('pending');
+    f.rescanWallet.mockRejectedValueOnce(new Error('rescan refused'));
+    await expect(
+      f.vault.applyPendingRescan({
+        accountId: f.accountId,
+        repair: f.repair,
+      }),
+    ).rejects.toThrow('rescan refused');
+    expect(f.saveAccountMeta).not.toHaveBeenCalled();
+    expect(f.rotateAccountEpochs).not.toHaveBeenCalled();
+    expect(f.removePendingRescan).not.toHaveBeenCalled();
   });
 
   it('rotates every account of the network before rebuilding the database', async () => {

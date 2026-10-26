@@ -1396,7 +1396,14 @@ export async function applyPendingRescan(
     ) {
       return;
     }
-    // Keep the request journal until the non-destructive rescan is prepared.
+    // The runtime moves first; until it succeeds the saved birthday stays and
+    // the request journal is retried. Replaying a done rescan only requeues.
+    const account = await vault.zcashGetWalletAccount({ accountId });
+    const api = await vault.zcashGetApi();
+    await api.rescanWallet({
+      ...account,
+      birthdayHeight: repair.birthdayHeight,
+    });
     await vault.backgroundApi.simpleDb.privacyChainState.saveZcashAccountMeta({
       accountId,
       expectedMeta: currentMeta,
@@ -1407,13 +1414,10 @@ export async function applyPendingRescan(
         birthdayTimestamp: repair.birthdayTimestamp,
       },
     });
-    const account = await vault.zcashGetWalletAccount({ accountId });
-    // Aliases share the scan state that is about to be requeued.
+    // Aliases share the scan state that was just requeued.
     await vault.backgroundApi.simpleDb.privacyChainState.rotateAccountEpochs({
       accountIds: await vault.getLocalWalletAccountAliases({ accountId }),
     });
-    const api = await vault.zcashGetApi();
-    await api.rescanWallet(account);
     await vault.backgroundApi.simpleDb.privacyChainState.removeZcashPendingRescan(
       {
         accountId,

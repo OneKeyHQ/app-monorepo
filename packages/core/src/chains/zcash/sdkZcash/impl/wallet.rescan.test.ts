@@ -23,10 +23,6 @@ jest.mock('onekey-zcash-runtime', () => ({
   deleteWallet: jest.fn(),
 }));
 
-const extended = runtime as Omit<typeof runtime, 'rescanAccount'> & {
-  rescanAccount?: jest.Mock;
-};
-const safeRescan = extended.rescanAccount;
 const account: IZcashWalletAccount = {
   network: 'main',
   lightwalletdUrl: 'https://example.invalid',
@@ -39,38 +35,18 @@ const account: IZcashWalletAccount = {
 beforeEach(() => {
   forgetOpenWallet('main');
   jest.clearAllMocks();
-  extended.rescanAccount = safeRescan;
 });
 
-it('uses the non-destructive runtime operation to lower a birthday', async () => {
+it('rescans the account from its birthday without deleting the database', async () => {
   await (await sdk.getZcashApi()).rescanWallet(account);
-  expect(safeRescan).toHaveBeenCalledWith('retained-account', 50);
+  expect(runtime.rescanAccount).toHaveBeenCalledWith('retained-account', 50);
   expect(runtime.removeAccount).not.toHaveBeenCalled();
   expect(runtime.deleteWallet).not.toHaveBeenCalled();
 });
 
-it('keeps an older runtime database intact when it cannot lower a birthday', async () => {
-  extended.rescanAccount = undefined;
-  await expect(
-    (await sdk.getZcashApi()).rescanWallet(account),
-  ).rejects.toMatchObject({
-    code: 'DATABASE_TOO_NEW',
-    params: { feature: 'safeAccountRescan' },
-  });
-  expect(runtime.queueRescanFrom).not.toHaveBeenCalled();
-  expect(runtime.removeAccount).not.toHaveBeenCalled();
-  expect(runtime.deleteWallet).not.toHaveBeenCalled();
+it('falls back to the runtime birthday when the account has none', async () => {
+  await (
+    await sdk.getZcashApi()
+  ).rescanWallet({ ...account, birthdayHeight: undefined });
+  expect(runtime.rescanAccount).toHaveBeenCalledWith('retained-account', 100);
 });
-
-it.each([100, 200])(
-  'can safely requeue from %s on an older runtime',
-  async (birthdayHeight) => {
-    extended.rescanAccount = undefined;
-    await (
-      await sdk.getZcashApi()
-    ).rescanWallet({ ...account, birthdayHeight });
-    expect(runtime.queueRescanFrom).toHaveBeenCalledWith(birthdayHeight);
-    expect(runtime.removeAccount).not.toHaveBeenCalled();
-    expect(runtime.deleteWallet).not.toHaveBeenCalled();
-  },
-);

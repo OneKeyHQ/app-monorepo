@@ -453,32 +453,14 @@ export async function rescanWallet(
   const { rt, accountUuid } = await withWallet(account, {
     registerIfMissing: true,
   });
-  const status = JSON.parse(rt.accountSyncStatus(accountUuid)) as {
-    birthdayHeight: number;
-    chainTip: number | null;
-  };
-  const fromHeight = account.birthdayHeight ?? status.birthdayHeight;
-  const rescan = (
-    rt as typeof rt & {
-      rescanAccount?: (uuid: string, height: number) => Promise<string>;
-    }
-  ).rescanAccount;
-  if (rescan) {
-    await rescan(accountUuid, fromHeight);
-    return;
-  }
-  // Older runtimes can safely requeue, but cannot lower an existing birthday.
-  if (fromHeight < status.birthdayHeight) {
-    const error = new OneKeyLocalError(
-      'zcash: safe birthday rescan requires a newer runtime',
-    );
-    Object.assign(error, {
-      code: 'DATABASE_TOO_NEW',
-      params: { feature: 'safeAccountRescan' },
-    });
-    throw error;
-  }
-  if (status.chainTip !== null) rt.queueRescanFrom(fromHeight);
+  const fromHeight =
+    account.birthdayHeight ??
+    (
+      JSON.parse(rt.accountSyncStatus(accountUuid)) as {
+        birthdayHeight: number;
+      }
+    ).birthdayHeight;
+  await rt.rescanAccount(accountUuid, fromHeight);
 }
 
 // Pure synchronous read, split out so the lock-free fast path and the leased path share one body.

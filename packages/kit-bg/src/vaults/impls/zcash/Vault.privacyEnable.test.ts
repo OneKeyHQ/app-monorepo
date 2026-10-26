@@ -59,13 +59,14 @@ it.each([false, true])(
     });
     const requests: number[] = [];
     let registered = false;
-    const purge = jest.fn(async () => {
+    const purge = jest.fn(async (account: { birthdayHeight?: number }) => {
       const [meta, pending] = await Promise.all([
         entity.getZcashAccountMeta({ accountId }),
         entity.listZcashPendingRescans({ networkId }),
       ]);
-      expect(meta?.birthdayTimestamp).toBe(birthdayTimestamp);
-      expect(meta?.birthdayHeight).toBe(pending[0].repair.birthdayHeight);
+      // The runtime moves first; the saved birthday follows its success.
+      expect(account.birthdayHeight).toBe(pending[0].repair.birthdayHeight);
+      expect(meta?.birthdayHeight).toBe(2_000_000);
       if (interrupt && purge.mock.calls.length === 1)
         throw new OneKeyLocalError('synthetic process interruption');
     });
@@ -123,11 +124,11 @@ it.each([false, true])(
         1,
       );
       await entity.cancelZcashPendingEnables({ networkId, accountId });
-      const meta = await entity.getZcashAccountMeta({ accountId });
+      const [{ repair }] = await entity.listZcashPendingRescans({ networkId });
       await entity.beginZcashPrivacyModeEnable({
         networkId,
         accountId,
-        birthdayHeight: meta?.birthdayHeight,
+        birthdayHeight: repair.birthdayHeight,
       });
       purge.mockImplementationOnce(async () => {
         throw new OneKeyLocalError('synthetic wallet busy');
@@ -135,7 +136,7 @@ it.each([false, true])(
       await expect(
         vault.zcashPreparePrivacyModeAccount({
           accountId,
-          fromHeight: meta?.birthdayHeight ?? 0,
+          fromHeight: repair.birthdayHeight,
           onPrepared,
         }),
       ).rejects.toThrow('synthetic wallet busy');
@@ -148,7 +149,7 @@ it.each([false, true])(
       );
       await vault.zcashPreparePrivacyModeAccount({
         accountId,
-        fromHeight: meta?.birthdayHeight ?? 0,
+        fromHeight: repair.birthdayHeight,
         onPrepared,
       });
     } else {

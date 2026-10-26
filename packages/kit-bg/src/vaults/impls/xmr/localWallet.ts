@@ -146,23 +146,7 @@ export function buildXmrLocalWalletCapability(
         keys.viewPrivateKeyHex,
         String(birthdayHeight),
       );
-      const added = JSON.parse(await (forceRescan ? add(true) : add())) as {
-        birthdayHeight?: number;
-        scanResetSupported?: boolean;
-      };
-      if (
-        added.birthdayHeight !== birthdayHeight ||
-        (forceRescan && added.scanResetSupported !== true)
-      ) {
-        const error = new OneKeyLocalError(
-          'xmr: safe scan reset requires a newer runtime',
-        );
-        Object.assign(error, {
-          code: 'DATABASE_TOO_NEW',
-          params: { feature: 'safeScanReset' },
-        });
-        throw error;
-      }
+      await (forceRescan ? add(true) : add());
       return accountRuntimeId(accountId);
     });
   };
