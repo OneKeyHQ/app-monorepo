@@ -45,6 +45,9 @@ type IFullscreenEntry = {
 };
 const entries = new Map<string, IFullscreenEntry>();
 const listeners = new Set<() => void>();
+// A page outlives its entry when the owner unmounts first and only asks the
+// native stack to go back.
+let mountedPageCount = 0;
 
 export const pushTradingViewNativeFullscreenModal: IPushTradingViewNativeFullscreenModal =
   (route, params) => {
@@ -70,10 +73,16 @@ export const pushTradingViewNativeFullscreenModal: IPushTradingViewNativeFullscr
     return true;
   };
 
+function publishFullscreenActivity() {
+  publishTradingViewNativeFullscreenActive(
+    entries.size > 0 || mountedPageCount > 0,
+  );
+}
+
 function publish(id: string, entry?: IFullscreenEntry) {
   if (entry) entries.set(id, entry);
   else entries.delete(id);
-  publishTradingViewNativeFullscreenActive(entries.size > 0);
+  publishFullscreenActivity();
   listeners.forEach((listener) => listener());
 }
 
@@ -161,6 +170,14 @@ export function TradingViewNativeFullscreenPage() {
   useLayoutEffect(() => {
     onCloseRef.current = entry?.onClose;
   }, [entry?.onClose]);
+  useLayoutEffect(() => {
+    mountedPageCount += 1;
+    publishFullscreenActivity();
+    return () => {
+      mountedPageCount -= 1;
+      publishFullscreenActivity();
+    };
+  }, []);
   useLayoutEffect(
     () => () => {
       closingRef.current = true;

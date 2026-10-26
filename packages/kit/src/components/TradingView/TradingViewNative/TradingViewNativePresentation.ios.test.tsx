@@ -160,6 +160,26 @@ it('reports fullscreen from the open request until the native page is gone', () 
   expect(probe.container.textContent).toBe('false');
 });
 
+it('keeps reporting fullscreen while the page outlives its owner', () => {
+  const probe = render(<FullscreenActiveProbe />);
+  const owner = render(
+    <TradingViewNativePresentation isFullscreen>
+      <Chart label="Chart" />
+    </TradingViewNativePresentation>,
+  );
+  const page = render(<TradingViewNativeFullscreenPage />);
+  owner.unmount();
+  expect(mockDispatch).toHaveBeenLastCalledWith({
+    type: 'GO_BACK',
+    source: 'fullscreen',
+    target: 'root',
+  });
+  // The native page is still dismissing over the detail.
+  expect(probe.container.textContent).toBe('true');
+  page.unmount();
+  expect(probe.container.textContent).toBe('false');
+});
+
 it.each([
   { isPad: false, topPadding: '0px' },
   { isPad: true, topPadding: '62px' },
