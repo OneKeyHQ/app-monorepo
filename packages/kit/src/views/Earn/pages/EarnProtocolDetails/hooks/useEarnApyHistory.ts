@@ -1,0 +1,163 @@
+import { useMemo, useRef } from 'react';
+
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
+
+type IEarnApyHistoryParams = {
+  networkId: string;
+  symbol: string;
+  provider: string;
+  vault?: string;
+};
+
+async function fetchApyHistory({
+  networkId,
+  symbol,
+  provider,
+  vault,
+  isPendleProvider,
+}: IEarnApyHistoryParams & { isPendleProvider: boolean }) {
+  if (isPendleProvider) {
+    // underlying-history returns both impliedApy and underlyingApy, single request suffices
+    const underlyingApyHistoryData =
+      await backgroundApiProxy.serviceStaking.getUnderlyingApyHistory({
+        networkId,
+        symbol,
+        provider,
+        vault,
+      });
+
+    const impliedApyHistory = underlyingApyHistoryData.results.map((item) => ({
+      timestamp: item.timestamp,
+      apy: item.impliedApy,
+    }));
+
+    const underlyingApyHistory = underlyingApyHistoryData.results.map(
+      (item) => ({
+        timestamp: item.timestamp,
+        apy: item.underlyingApy,
+      }),
+    );
+
+    return {
+      impliedApyHistory,
+      underlyingApyHistory,
+      hasNonZeroUnderlyingApy: underlyingApyHistoryData.hasNonZeroUnderlyingApy,
+    };
+  }
+
+  const impliedApyHistory =
+    await backgroundApiProxy.serviceStaking.getApyHistory({
+      networkId,
+      symbol,
+      provider,
+      vault,
+    });
+
+  // Second line = campaign boost + protocol reward APYs, summed by the
+  // server. It keeps every base point and leaves the ones without an extra
+  // APY empty: a history that predates the campaign starts the line later
+  // instead of dropping to zero, and a campaign that stopped and resumed
+  // breaks the line instead of joining the two runs straight across the
+  // weeks in between (OK-64549).
+  const extraApyHistory = impliedApyHistory.some(
+    (item) => item.extraApy !== undefined,
+  )
+    ? impliedApyHistory.map((item) => ({
+        timestamp: item.timestamp,
+        apy: item.extraApy,
+      }))
+    : [];
+  // Campaign wins over reward, matching the rule the server applies per
+  // point ("a campaign present at all makes the line orange") and the
+  // headline's split. Taking the first point that happens to carry a kind
+  // would paint a window that starts with plain rewards and later gains a
+  // campaign entirely blue, and label it Rewards.
+  const extraApyKind = impliedApyHistory.some(
+    (item) => item.extraApyKind === 'campaign',
+  )
+    ? ('campaign' as const)
+    : impliedApyHistory.find((item) => item.extraApyKind)?.extraApyKind;
+
+  return {
+    impliedApyHistory,
+    extraApyHistory,
+    extraApyKind,
+  };
+}
+
+/**
+ * APY history for the detail page, loaded once: the APY chart draws it, and
+ * Pendle's rules chart turns the implied APY into the PT price.
+ */
+export function useEarnApyHistory({
+  networkId,
+  symbol,
+  provider,
+  vault,
+  enabled,
+}: IEarnApyHistoryParams & {
+  /** Requests wait for this. Once it has been true for a market, they don't. */
+  enabled: boolean;
+}) {
+  const isPendleProvider = useMemo(
+    () => earnUtils.isPendleProvider({ providerName: provider }),
+    [provider],
+  );
+
+  // The inputs can change without a remount, and the previous result stays
+  // until the next request lands. Each result carries the inputs it was
+  // fetched for, so a market never shows another market's history.
+  const requestKey = [networkId, symbol, provider, vault ?? ''].join('|');
+  const requestKeyRef = useRef(requestKey);
+  requestKeyRef.current = requestKey;
+  const settledRequestKeyRef = useRef<string | undefined>(undefined);
+  // Stays enabled for these inputs, so reloading the details keeps the
+  // history.
+  const enabledRequestKeyRef = useRef<string | undefined>(undefined);
+  if (enabled) {
+    enabledRequestKeyRef.current = requestKey;
+  }
+  const isEnabled = enabledRequestKeyRef.current === requestKey;
+
+  const { result } = usePromiseResult(
+    async () => {
+      if (!isEnabled) {
+        return undefined;
+      }
+      const startedRequestKey = requestKeyRef.current;
+      try {
+        return {
+          requestKey: startedRequestKey,
+          history: await fetchApyHistory({
+            networkId,
+            symbol,
+            provider,
+            vault,
+            isPendleProvider,
+          }),
+        };
+      } finally {
+        // A request for inputs the page has left settles nothing.
+        if (requestKeyRef.current === startedRequestKey) {
+          settledRequestKeyRef.current = startedRequestKey;
+        }
+      }
+    },
+    [networkId, symbol, provider, vault, isPendleProvider, isEnabled],
+    // Re-renders when the request fails too, so a chart waiting on the
+    // history can leave its skeleton.
+    { watchLoading: true },
+  );
+
+  const chartData =
+    result?.requestKey === requestKey ? result.history : undefined;
+  // Nothing for these inputs yet, and their request has not settled.
+  const isChartLoading =
+    chartData === undefined && settledRequestKeyRef.current !== requestKey;
+
+  return { chartData, isChartLoading };
+}
+
+export type IEarnApyHistory = ReturnType<typeof useEarnApyHistory>;
