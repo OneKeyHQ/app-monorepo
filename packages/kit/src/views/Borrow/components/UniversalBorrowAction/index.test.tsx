@@ -380,7 +380,7 @@ describe('useUniversalBorrowAction', () => {
     });
   });
 
-  it('takes "1." as 1 and keeps its check', async () => {
+  it('takes "1." and "1.0" as 1 and keeps its check', async () => {
     backgroundMock.serviceStaking.getBorrowCheckAmount.mockResolvedValue({
       code: 0,
       data: { result: true },
@@ -403,6 +403,17 @@ describe('useUniversalBorrowAction', () => {
       backgroundMock.serviceStaking.getBorrowCheckAmount.mock.calls.length;
 
     rerender({ amount: '1.' });
+    expect(result.current.checkAmountLoading).toBe(false);
+    expect(result.current.checkAmountResult).toBe(true);
+    await act(async () => {
+      jest.advanceTimersByTime(400);
+      await Promise.resolve();
+    });
+    expect(
+      backgroundMock.serviceStaking.getBorrowCheckAmount.mock.calls.length,
+    ).toBe(checks);
+
+    rerender({ amount: '1.0' });
     expect(result.current.checkAmountLoading).toBe(false);
     expect(result.current.checkAmountResult).toBe(true);
     await act(async () => {

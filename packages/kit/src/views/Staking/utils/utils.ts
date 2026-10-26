@@ -399,6 +399,14 @@ export function isInvalidAmount(num: string): boolean {
   return BigNumber(num).isNaN() || num.endsWith('.');
 }
 
+// The amount a typed value stands for, as the box shows it once it loses
+// focus: "1." and "1.0" on the way to "1.05" are 1, so an Earn form keeps
+// its figures and its button for them and asks nothing new
+export function getTypedAmountValue(typed: string): string {
+  const value = BigNumber(typed);
+  return value.isNaN() ? '' : value.toFixed();
+}
+
 export function countDecimalPlaces(input: string | number): number {
   // Convert the input to a string if it's a number
   const inputNum = typeof input === 'string' ? Number(input) : input;

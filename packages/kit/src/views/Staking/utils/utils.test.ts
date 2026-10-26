@@ -1,8 +1,37 @@
 import {
   buildBorrowTag,
   buildLocalTxStatusSyncId,
+  getTypedAmountValue,
   parseBorrowTag,
 } from './utils';
+
+describe('getTypedAmountValue', () => {
+  it('reads a trailing point or trailing zeros as the same amount', () => {
+    expect(getTypedAmountValue('1.')).toBe('1');
+    expect(getTypedAmountValue('1.0')).toBe('1');
+    expect(getTypedAmountValue('1.50')).toBe('1.5');
+    expect(getTypedAmountValue('100.00')).toBe('100');
+  });
+
+  it('keeps the digits of an amount as typed', () => {
+    expect(getTypedAmountValue('10')).toBe('10');
+    expect(getTypedAmountValue('0.0003')).toBe('0.0003');
+    expect(getTypedAmountValue('123456789.123456789123')).toBe(
+      '123456789.123456789123',
+    );
+  });
+
+  it('reads the zeros on the way to an amount under 1 as 0', () => {
+    expect(getTypedAmountValue('0')).toBe('0');
+    expect(getTypedAmountValue('0.')).toBe('0');
+    expect(getTypedAmountValue('0.000')).toBe('0');
+  });
+
+  it('reads an empty box or a lone point as no amount', () => {
+    expect(getTypedAmountValue('')).toBe('');
+    expect(getTypedAmountValue('.')).toBe('');
+  });
+});
 
 describe('buildLocalTxStatusSyncId', () => {
   it('keeps existing provider tags backward compatible', () => {

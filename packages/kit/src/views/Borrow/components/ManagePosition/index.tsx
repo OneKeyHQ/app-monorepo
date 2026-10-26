@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef } from 'react';
 
 import { buildKeyboardPressProps } from '@onekeyhq/kit/src/views/Earn/components/desktopHome/earnDesktopPressable';
 import StakingFormWrapper from '@onekeyhq/kit/src/views/Staking/components/StakingFormWrapper';
+import { getTypedAmountValue } from '@onekeyhq/kit/src/views/Staking/utils/utils';
 
 import { useUniversalBorrowAction } from '../UniversalBorrowAction';
 
@@ -143,10 +144,8 @@ export function ManagePosition(props: IManagePositionProps) {
     if (!onConfirm) return;
 
     const started = await onConfirm({
-      // "1." in the box is 1
-      amount: amountValue.endsWith('.')
-        ? amountValue.slice(0, -1)
-        : amountValue,
+      // "1." or "1.0" in the box is 1
+      amount: getTypedAmountValue(amountValue),
       withdrawAll: baseState.isWithdrawAll,
       repayAll: baseState.isRepayAll,
     });

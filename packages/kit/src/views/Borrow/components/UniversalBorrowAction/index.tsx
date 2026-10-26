@@ -17,6 +17,7 @@ import {
   keepFirstFrame,
   readFirstFrame,
 } from '../../../Earn/pages/EarnRouter/earnFirstFrameCache';
+import { getTypedAmountValue } from '../../../Staking/utils/utils';
 
 export type IBorrowActionType = 'supply' | 'withdraw' | 'borrow' | 'repay';
 
@@ -174,11 +175,10 @@ export function useUniversalBorrowAction({
   repayAll,
 }: IUniversalBorrowActionParams): IUniversalBorrowActionState {
   const intl = useIntl();
-  // "1." on the way to "1.5" is the amount 1, not an invalid one: the form
-  // keeps its figures and its button for it and asks nothing new
-  const amount = typedAmount.endsWith('.')
-    ? typedAmount.slice(0, -1)
-    : typedAmount;
+  // "1." and "1.0" on the way to "1.05" are the amount 1, not an invalid one
+  // or a new one: the form keeps its figures and its button for them and
+  // asks nothing new
+  const amount = getTypedAmountValue(typedAmount);
   const [estimateFeeResp, setEstimateFeeResp] = useState<
     IEarnEstimateFeeResp | undefined
   >();

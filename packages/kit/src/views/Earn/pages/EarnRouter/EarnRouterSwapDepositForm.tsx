@@ -76,6 +76,7 @@ import {
   buildRowKeys,
   splitPendleRewardRows,
 } from '../../../Staking/components/UniversalStake/EarnFormSummary';
+import { getTypedAmountValue } from '../../../Staking/utils/utils';
 import { completeBroadcastedSwapSuccess } from '../../../Swap/hooks/swapBroadcastSuccess';
 import { generateSwapHistoryItemForContext } from '../../../Swap/hooks/useSwapTxHistory';
 import { EARN_DESKTOP_DEMO_COPY } from '../../components/desktopHome/earnDesktopHomeCopy';
@@ -588,11 +589,9 @@ export function EarnRouterSwapDepositForm({
     [networkId, payToken.token.isNative],
   );
   const [typedAmount, setAmount] = useState(initialAmount ?? '');
-  // "1." on the way to "1.5" is the amount 1: quoted, checked and swapped
-  // as 1, while the box keeps what was typed
-  const amount = typedAmount.endsWith('.')
-    ? typedAmount.slice(0, -1)
-    : typedAmount;
+  // "1." and "1.0" on the way to "1.05" are the amount 1: quoted, checked
+  // and swapped as 1, while the box keeps what was typed
+  const amount = getTypedAmountValue(typedAmount);
   // Told when the amount changes, not when the caller's callback does (the
   // guide passes a new one each render, which would undo a reported amount)
   const onAmountChangeRef = useRef(onAmountChange);

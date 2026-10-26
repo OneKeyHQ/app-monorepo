@@ -98,7 +98,11 @@ import { useEarnSignMessageWithoutVerify } from '../../hooks/useEarnSignMessageW
 import { usePendleLayoutState } from '../../hooks/usePendleLayoutState';
 import { useQuoteRefresh } from '../../hooks/useQuoteRefresh';
 import { useTrackTokenAllowance } from '../../hooks/useUtilsHooks';
-import { countDecimalPlaces, isInvalidAmount } from '../../utils/utils';
+import {
+  countDecimalPlaces,
+  getTypedAmountValue,
+  isInvalidAmount,
+} from '../../utils/utils';
 import { BtcFeeRateInput } from '../BtcFeeRateInput';
 import { EarnFooterFade } from '../EarnFooterFade';
 import { showEarnRiskWarningDialog } from '../EarnRiskWarningDialog';
@@ -733,11 +737,10 @@ export function UniversalStake({
   const [typedAmountValue, setAmountValue] = useState(() =>
     getStartAmount(initialAmount, decimals),
   );
-  // "1." on the way to "1.5" is the amount 1: the quote, the checks, the
-  // figures and the button take it so, while the box keeps what was typed
-  const amountValue = typedAmountValue.endsWith('.')
-    ? typedAmountValue.slice(0, -1)
-    : typedAmountValue;
+  // "1." and "1.0" on the way to "1.05" are the amount 1: the quote, the
+  // checks, the figures and the button take them so, while the box keeps
+  // what was typed
+  const amountValue = getTypedAmountValue(typedAmountValue);
   // Asked as the form mounts, and kept: the room closes over its own time
   // whatever renders come after
   const [closesDepositLineRoom] = useState(Boolean(collapsesDepositLine));
@@ -1425,7 +1428,7 @@ export function UniversalStake({
         setAmountValue(value);
         // For the amount the form takes ("1." is 1), so the fee matches it,
         // and asked again only when that amount changes
-        const amount = value.endsWith('.') ? value.slice(0, -1) : value;
+        const amount = getTypedAmountValue(value);
         if (amount !== transactionConfirmationAmountRef.current) {
           void debouncedFetchEstimateFeeResp(amount);
         }

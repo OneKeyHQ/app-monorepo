@@ -71,7 +71,11 @@ import { usePendleLayoutState } from '../../hooks/usePendleLayoutState';
 import { useQuoteRefresh } from '../../hooks/useQuoteRefresh';
 import { useTrackTokenAllowance } from '../../hooks/useUtilsHooks';
 import { useHandleWithdraw } from '../../pages/ProtocolDetails/useHandleActions';
-import { countDecimalPlaces, isInvalidAmount } from '../../utils/utils';
+import {
+  countDecimalPlaces,
+  getTypedAmountValue,
+  isInvalidAmount,
+} from '../../utils/utils';
 import { EarnFooterFade } from '../EarnFooterFade';
 import {
   type IManagePageV2ReceiveInputConfig,
@@ -426,11 +430,10 @@ export function UniversalWithdraw({
   const [typedAmountValue, setAmountValue] = useState(
     isCancelWithdrawal ? '0' : (initialAmount ?? ''),
   );
-  // "1." on the way to "1.5" is the amount 1: the quote, the checks, the
-  // figures and the button take it so, while the box keeps what was typed
-  const amountValue = typedAmountValue.endsWith('.')
-    ? typedAmountValue.slice(0, -1)
-    : typedAmountValue;
+  // "1." and "1.0" on the way to "1.05" are the amount 1: the quote, the
+  // checks, the figures and the button take them so, while the box keeps
+  // what was typed
+  const amountValue = getTypedAmountValue(typedAmountValue);
   const [selectedWithdrawPathIndex, setSelectedWithdrawPathIndex] = useState(0);
   // Tracks the withdraw type the user explicitly picked in the path selector.
   // Default selection always prefers the first enabled option (instant); this
