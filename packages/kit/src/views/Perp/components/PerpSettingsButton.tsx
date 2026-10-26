@@ -15,6 +15,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
 
 import { useShowGuide } from '../hooks/useShowGuide';
+import { useShowPortfolio } from '../hooks/useShowPortfolio';
 import { PerpTestIDs } from '../testIDs';
 
 import { PerpFeatureDot } from './PerpFeatureDot';
@@ -48,6 +49,7 @@ export function PerpSettingsButton({
     tourVisited: markSettingsFeatureVisited,
   } = useSpotlight(ESpotlightTour.perpLayoutSettingsMenu);
   const { showGuide } = useShowGuide({ forceModal: isMobileLayout });
+  const { showPortfolio } = useShowPortfolio();
   const handleOpenDialog = useCallback(() => {
     if (isMobileLayout && isSettingsFeatureFirstVisit) {
       void markSettingsFeatureVisited();
@@ -57,6 +59,7 @@ export function PerpSettingsButton({
         id: ETranslations.address_book_menu_title,
       }),
       onOpenGuide: showGuide,
+      onOpenPortfolio: showPortfolio,
       showActivityCenterEntry,
       showChartPositionSetting: shouldShowChartPositionSetting,
       showGuideEntry,
@@ -70,6 +73,7 @@ export function PerpSettingsButton({
     shouldShowChartPositionSetting,
     showGuide,
     showGuideEntry,
+    showPortfolio,
   ]);
 
   if (isMobileLayout) {

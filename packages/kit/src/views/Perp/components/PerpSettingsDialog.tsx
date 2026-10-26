@@ -35,7 +35,6 @@ import { EModalPerpRoutes } from '@onekeyhq/shared/src/routes/perp';
 import { EHyperLiquidAbstractionMode } from '@onekeyhq/shared/types/hyperliquid';
 
 import { useShowGuide } from '../hooks/useShowGuide';
-import { useShowPortfolio } from '../hooks/useShowPortfolio';
 import { resetPerpDesktopLeftSplit } from '../layouts/perpLayoutUtils';
 import { PerpsProviderMirror } from '../PerpsProviderMirror';
 import { PerpTestIDs } from '../testIDs';
@@ -140,6 +139,7 @@ function DevAbstractionModeSelector() {
 
 interface IPerpSettingsPopoverContentProps {
   closePopover: () => void | Promise<void>;
+  onOpenPortfolio?: () => void;
   onOpenActivityCenter?: () => void;
   onOpenGuide?: () => void;
   showActivityCenterEntry?: boolean;
@@ -502,6 +502,7 @@ function PerpSettingsMenuContent({
   isPopover = false,
   closePopover,
   onOpenGuide,
+  onOpenPortfolio,
   showActivityCenterEntry,
   showChartPositionSetting,
   showGuideEntry,
@@ -509,7 +510,6 @@ function PerpSettingsMenuContent({
   const intl = useIntl();
   const navigation = useAppNavigation();
   const { showGuide } = useShowGuide({ forceModal: true });
-  const { showPortfolio } = useShowPortfolio();
   const closeThenOpen = (action: () => void) => {
     void runAfterActionListClose(closePopover, action, {
       waitForAnimation: false,
@@ -575,10 +575,8 @@ function PerpSettingsMenuContent({
           }
         />
       }
-      onOpenPortfolio={() =>
-        closeThenOpen(() => {
-          void showPortfolio();
-        })
+      onOpenPortfolio={
+        onOpenPortfolio ? () => closeThenOpen(onOpenPortfolio) : undefined
       }
       renderActivityCenter={
         showActivityCenterEntry
@@ -600,11 +598,13 @@ function PerpSettingsMenuContent({
 export function showPerpSettingsDialog({
   title,
   onOpenGuide,
+  onOpenPortfolio,
   showActivityCenterEntry = false,
   showChartPositionSetting = false,
   showGuideEntry = false,
 }: {
   title: string;
+  onOpenPortfolio: () => void;
   onOpenGuide?: () => void;
   showActivityCenterEntry?: boolean;
   showChartPositionSetting?: boolean;
@@ -635,6 +635,7 @@ export function showPerpSettingsDialog({
         <PerpSettingsMenuContent
           closePopover={closeDialog}
           onOpenGuide={onOpenGuide}
+          onOpenPortfolio={onOpenPortfolio}
           showActivityCenterEntry={showActivityCenterEntry}
           showChartPositionSetting={showChartPositionSetting}
           showGuideEntry={showGuideEntry}

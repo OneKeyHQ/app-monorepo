@@ -23,10 +23,21 @@ jest.mock('@onekeyhq/kit/src/hooks/useThemeVariant', () => ({
 const mockShowPerpSettingsDialog = jest.fn();
 const mockPerpSettingsPopover = jest.fn();
 const mockSettingsTourVisited = jest.fn();
+const mockShowPortfolio = jest.fn();
+let mockIsNative = false;
 const mockLayoutTourVisited = jest.fn();
 let mockLayoutIsFirstVisit = true;
 let mockMedia = { gtMd: false, gtXl: false };
 let mockSettingsIsFirstVisit = true;
+
+jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
+  __esModule: true,
+  default: {
+    get isNative() {
+      return mockIsNative;
+    },
+  },
+}));
 
 jest.mock('react-intl', () => ({
   useIntl: () => ({
@@ -128,6 +139,10 @@ jest.mock('../hooks/useShowGuide', () => ({
   useShowGuide: () => ({ showGuide: jest.fn() }),
 }));
 
+jest.mock('../hooks/useShowPortfolio', () => ({
+  useShowPortfolio: () => ({ showPortfolio: mockShowPortfolio }),
+}));
+
 jest.mock('./PerpSettingsDialog', () => ({
   PerpSettingsPopover: (props: { renderTrigger: ReactNode }) => {
     mockPerpSettingsPopover(props);
@@ -144,8 +159,31 @@ describe('PerpSettingsButton', () => {
     mockPerpSettingsPopover.mockReset();
     mockSettingsTourVisited.mockReset();
     mockSettingsIsFirstVisit = true;
+    mockIsNative = false;
+    mockShowPortfolio.mockReset();
     mockMedia = { gtMd: false, gtXl: false };
   });
+
+  it.each([
+    { isNative: true, gtMd: true },
+    { isNative: true, gtMd: false },
+    { isNative: false, gtMd: false },
+  ])(
+    'passes the page-owned portfolio action to the dialog for %o',
+    ({ isNative, gtMd }) => {
+      mockIsNative = isNative;
+      mockMedia = { gtMd, gtXl: false };
+      const view = render(<PerpSettingsButton />);
+
+      fireEvent.click(view.getByRole('button', { name: 'settings' }));
+
+      expect(mockShowPerpSettingsDialog).toHaveBeenCalledWith(
+        expect.objectContaining({ onOpenPortfolio: mockShowPortfolio }),
+      );
+      expect(mockShowPortfolio).not.toHaveBeenCalled();
+      expect(mockPerpSettingsPopover).not.toHaveBeenCalled();
+    },
+  );
 
   it('always shows layout settings in the mobile menu', () => {
     const view = render(<PerpSettingsButton />);
