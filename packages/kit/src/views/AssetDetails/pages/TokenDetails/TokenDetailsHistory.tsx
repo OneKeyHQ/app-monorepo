@@ -6,7 +6,6 @@ import type { SectionList } from '@onekeyhq/components';
 import { useTabIsRefreshingFocused } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { TxHistoryListView } from '@onekeyhq/kit/src/components/TxHistoryListView';
-import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useRouteIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
@@ -68,31 +67,6 @@ function TokenDetailsHistoryContent({
     inTabList,
     privacyHistoryPoolId,
   } = props;
-  const { vaultSettings } = useAccountData({ networkId });
-  const isLocalScanPool =
-    privacyHistoryPoolId !== undefined &&
-    vaultSettings?.localWallet?.pools.find(
-      (pool) => pool.id === privacyHistoryPoolId,
-    )?.source === 'localScan';
-
-  const { result: privacyModeState, run: refreshPrivacyModeState } =
-    usePromiseResult(
-      async () => {
-        if (!isLocalScanPool) return undefined;
-        return backgroundApiProxy.servicePrivacyChain.getLocalWalletAccountState(
-          { networkId, accountId },
-        );
-      },
-      [accountId, networkId, isLocalScanPool],
-      {
-        overrideIsFocused: (isPageFocused) =>
-          isPageFocused && (isTabView ? focusParam : true),
-      },
-    );
-  const isPrivateHistoryEnabled =
-    !isLocalScanPool ||
-    privacyModeState?.enabled === true ||
-    privacyModeState?.paused === true;
 
   const ListComponentRef = useRef<typeof SectionList>(null);
   const isRouteFocused = useRouteIsFocused();
@@ -116,7 +90,6 @@ function TokenDetailsHistoryContent({
         settings.isFilterScamHistoryEnabled ? '1' : '0',
         settings.isFilterLowValueHistoryEnabled ? '1' : '0',
         settings.currencyInfo.id,
-        isPrivateHistoryEnabled ? 'privacy-on' : 'privacy-off',
       ].join('_'),
     [
       accountId,
@@ -125,11 +98,12 @@ function TokenDetailsHistoryContent({
       settings.isFilterScamHistoryEnabled,
       settings.isFilterLowValueHistoryEnabled,
       settings.currencyInfo.id,
-      isPrivateHistoryEnabled,
     ],
   );
-  const [, setHistoryCacheEpoch] = useState(0);
-  const cachedHistory = tokenHistoryCache.get(historyCacheKey);
+  const cachedHistory = useMemo(
+    () => tokenHistoryCache.get(historyCacheKey),
+    [historyCacheKey],
+  );
 
   const [historyInit, setHistoryInit] = useState(cachedHistory !== undefined);
 
@@ -160,7 +134,7 @@ function TokenDetailsHistoryContent({
     reset: resetLoadMore,
     onFirstPageResponse,
   } = useHistoryListLoadMore({
-    enabled: isPrivateHistoryEnabled,
+    enabled: true,
     accountId,
     networkId,
     tokenIdOnNetwork: tokenInfo.address,
@@ -174,26 +148,12 @@ function TokenDetailsHistoryContent({
   // `run()` body so a slow stale response can't re-seed the load-more cursor
   // after `resetLoadMore()` ran.
   const fetchRequestIdRef = useRef(0);
-  const {
-    result: tokenHistory,
-    run,
-    setResult,
-  } = usePromiseResult(
+  const { result: tokenHistory, run } = usePromiseResult(
     async () => {
       fetchRequestIdRef.current += 1;
       const requestId = fetchRequestIdRef.current;
       const isCurrentRequest = () => fetchRequestIdRef.current === requestId;
       try {
-        if (!isPrivateHistoryEnabled) {
-          tokenHistoryCache.delete(historyCacheKey);
-          onFirstPageResponse({
-            txs: [],
-            next: undefined,
-            hasMore: false,
-            isIndexer: false,
-          });
-          return [];
-        }
         const r = await backgroundApiProxy.serviceHistory.fetchAccountHistory({
           accountId,
           networkId,
@@ -205,7 +165,7 @@ function TokenDetailsHistoryContent({
         });
         // Skip side effects if a newer fetch superseded this one.
         if (!isCurrentRequest()) {
-          return undefined;
+          return r.txs ?? [];
         }
         updateAddressesInfo({
           data: r.addressMap ?? {},
@@ -241,7 +201,6 @@ function TokenDetailsHistoryContent({
       recomputeLayout,
       historyCacheKey,
       onFirstPageResponse,
-      isPrivateHistoryEnabled,
     ],
     historyPromiseOptions,
   );
@@ -254,9 +213,6 @@ function TokenDetailsHistoryContent({
   }, [historyCacheKey, resetLoadMore]);
 
   const resolvedHistory = useMemo(() => {
-    if (!isPrivateHistoryEnabled) {
-      return [];
-    }
     const firstPageHistory = tokenHistory ?? cachedHistory ?? [];
     const mergedHistory = appendedTxs.length
       ? unionBy([...firstPageHistory, ...appendedTxs], (tx) => tx.id)
@@ -278,13 +234,7 @@ function TokenDetailsHistoryContent({
           selectedPoolId: privacyHistoryPoolId,
         }),
       );
-  }, [
-    tokenHistory,
-    cachedHistory,
-    appendedTxs,
-    isPrivateHistoryEnabled,
-    privacyHistoryPoolId,
-  ]);
+  }, [tokenHistory, cachedHistory, appendedTxs, privacyHistoryPoolId]);
 
   // OK-57070: same native top-insertion jitter fix as the wallet history tab.
   // Only engages inside the collapsible tab (where the scroll position is
@@ -299,12 +249,7 @@ function TokenDetailsHistoryContent({
     useFrozenTopHistoryData(resolvedHistory, frozenTopEnabled, historyCacheKey);
   // Derive initialized synchronously to avoid one-frame flash of empty history
   // when historyCacheKey changes and cachedHistory becomes undefined
-  const effectiveInit =
-    (isLocalScanPool && privacyModeState !== undefined
-      ? !isPrivateHistoryEnabled
-      : false) ||
-    historyInit ||
-    cachedHistory !== undefined;
+  const effectiveInit = historyInit || cachedHistory !== undefined;
 
   const handleHistoryItemPress = useCallback(
     async (tx: IAccountHistoryTx) => {
@@ -371,35 +316,6 @@ function TokenDetailsHistoryContent({
     };
   }, [run]);
 
-  const isLocalWalletToken = !!vaultSettings?.localWallet;
-  useEffect(() => {
-    if (!isLocalWalletToken) return;
-    // Local wallets rebuild history on enable/repair; drop what was shown.
-    const refreshCallback = () => {
-      fetchRequestIdRef.current += 1;
-      tokenHistoryCache.clear();
-      setHistoryCacheEpoch((value) => value + 1);
-      resetLoadMore();
-      setResult(undefined);
-      setHistoryInit(false);
-      if (isLocalScanPool) {
-        void refreshPrivacyModeState();
-      }
-      void run({ alwaysSetState: true });
-    };
-    appEventBus.on(EAppEventBusNames.RefreshHistoryList, refreshCallback);
-    return () => {
-      appEventBus.off(EAppEventBusNames.RefreshHistoryList, refreshCallback);
-    };
-  }, [
-    isLocalWalletToken,
-    isLocalScanPool,
-    refreshPrivacyModeState,
-    resetLoadMore,
-    run,
-    setResult,
-  ]);
-
   return (
     <>
       {inTabList ? (
@@ -425,13 +341,6 @@ function TokenDetailsHistoryContent({
         onEndReached={loadMore}
         isLoadingMore={isLoadingMore}
         hasMore={loadMoreHasMore}
-        emptyComponent={
-          isLocalScanPool &&
-          privacyModeState !== undefined &&
-          !isPrivateHistoryEnabled
-            ? null
-            : undefined
-        }
       />
     </>
   );
