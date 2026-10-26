@@ -1,4 +1,9 @@
 import { BRAND_FONT_WEB_FAMILY } from '@onekeyhq/components/src/hocs/Provider/fonts/brandFont';
+import {
+  formatDateTimeParts,
+  getDateFormatTemplate,
+  getDateTimePartsInTimeZone,
+} from '@onekeyhq/shared/src/utils/dateUtils';
 
 import type {
   ILightweightChartPriceScalePosition,
@@ -30,7 +35,7 @@ const CHART_TICK_MARK_TYPE = {
   TimeWithSeconds: 4,
 } as const;
 
-const timeScaleFormatterCache = new Map<string, Intl.DateTimeFormat>();
+const monthLabelFormatters = new Map<string, Intl.DateTimeFormat>();
 
 function padTimePart(value: number) {
   return value.toString().padStart(2, '0');
@@ -85,6 +90,7 @@ function getDatePartsFromChartTime(time: Parameters<TickMarkFormatter>[0]) {
 export const formatChartTickMarkWithoutUnit: TickMarkFormatter = (
   time,
   tickMarkType,
+  locale,
 ) => {
   const dateParts = getDatePartsFromChartTime(time);
   if (
@@ -111,35 +117,28 @@ export const formatChartTickMarkWithoutUnit: TickMarkFormatter = (
         dateParts.minutes,
       )}:${padTimePart(dateParts.seconds)}`;
     default:
-      return `${padTimePart(dateParts.month)}/${padTimePart(dateParts.day)}`;
+      return formatDateTimeParts(
+        { ...dateParts, milliseconds: 0 },
+        getDateFormatTemplate(locale, { hideYear: true }),
+      );
   }
 };
 
-function getTimeScaleFormatOptions(
+function getTimeScaleTemplate(
   tickMarkType: Parameters<TickMarkFormatter>[1],
-): Intl.DateTimeFormatOptions {
+  locale?: string,
+) {
   switch (tickMarkType) {
     case CHART_TICK_MARK_TYPE.Year:
-      return { year: 'numeric' };
-    case CHART_TICK_MARK_TYPE.Month:
-      return { month: 'short' };
+      return 'yyyy';
     case CHART_TICK_MARK_TYPE.DayOfMonth:
-      return { day: 'numeric' };
+      return 'dd';
     case CHART_TICK_MARK_TYPE.Time:
-      return {
-        hour: '2-digit',
-        minute: '2-digit',
-        hourCycle: 'h23',
-      };
+      return 'HH:mm';
     case CHART_TICK_MARK_TYPE.TimeWithSeconds:
-      return {
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit',
-        hourCycle: 'h23',
-      };
+      return 'HH:mm:ss';
     default:
-      return { month: 'short', day: 'numeric' };
+      return getDateFormatTemplate(locale, { hideYear: true });
   }
 }
 
@@ -182,16 +181,25 @@ export function formatChartTickMarkInTimeZone({
     return null;
   }
 
-  const formatterKey = `${locale ?? ''}|${formatterTimeZone}|${tickMarkType}`;
-  let formatter = timeScaleFormatterCache.get(formatterKey);
-  if (!formatter) {
-    formatter = new Intl.DateTimeFormat(locale, {
-      ...getTimeScaleFormatOptions(tickMarkType),
-      timeZone: formatterTimeZone,
-    });
-    timeScaleFormatterCache.set(formatterKey, formatter);
+  if (tickMarkType === CHART_TICK_MARK_TYPE.Month) {
+    const key = `${locale ?? 'en'}:${formatterTimeZone}`;
+    let formatter = monthLabelFormatters.get(key);
+    if (!formatter) {
+      formatter = new Intl.DateTimeFormat(locale ?? 'en', {
+        month: 'short',
+        calendar: 'gregory',
+        numberingSystem: 'latn',
+        timeZone: formatterTimeZone,
+      });
+      monthLabelFormatters.set(key, formatter);
+    }
+    return formatter.format(date);
   }
-  return formatter.format(date);
+
+  return formatDateTimeParts(
+    getDateTimePartsInTimeZone(date, formatterTimeZone),
+    getTimeScaleTemplate(tickMarkType, locale),
+  );
 }
 
 export function createChartOptions(
@@ -230,7 +238,8 @@ export function createChartOptions(
         locale,
       });
   } else if (useTimeScaleTickMarkWithoutUnit) {
-    tickMarkFormatter = formatChartTickMarkWithoutUnit;
+    tickMarkFormatter = (time, tickMarkType) =>
+      formatChartTickMarkWithoutUnit(time, tickMarkType, locale ?? 'en');
   }
 
   return {

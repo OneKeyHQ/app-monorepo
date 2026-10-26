@@ -1,7 +1,7 @@
 import {
   findActiveProtocolKey,
+  findOverflowAncestorFromLocalNode,
   findScrollableAncestorFromLocalNode,
-  getStickySidebarMaxHeight,
   isChipFullyVisible,
   shouldQueueProtocolNavigation,
   shouldReleasePinLock,
@@ -82,24 +82,31 @@ describe('defiDesktopStickyDom', () => {
     expect(findScrollableAncestorFromLocalNode(localNode)).toBeNull();
   });
 
-  it('computes sticky sidebar max height from viewport height, sticky line, and bottom gap', () => {
-    expect(
-      getStickySidebarMaxHeight({
-        viewportHeight: 900,
-        stickyLine: 140,
-        bottomGap: 24,
-      }),
-    ).toBe(736);
+  it('finds the overflow container before its content overflows', () => {
+    const scroller = createFakeElement({
+      overflowY: 'auto',
+      scrollHeight: 200,
+      clientHeight: 200,
+    });
+    const wrapper = createFakeElement({
+      parent: scroller,
+      overflowY: 'hidden',
+      scrollHeight: 500,
+      clientHeight: 200,
+    });
+    const localNode = createFakeElement({ parent: wrapper });
+
+    expect(findOverflowAncestorFromLocalNode(localNode)).toBe(scroller);
+    expect(findScrollableAncestorFromLocalNode(localNode)).toBeNull();
   });
 
-  it('clamps sticky sidebar max height at zero', () => {
-    expect(
-      getStickySidebarMaxHeight({
-        viewportHeight: 120,
-        stickyLine: 100,
-        bottomGap: 40,
-      }),
-    ).toBe(0);
+  it('returns null when no ancestor owns vertical scrolling', () => {
+    const root = createFakeElement({ overflowY: 'hidden' });
+    const localNode = createFakeElement({
+      parent: createFakeElement({ parent: root }),
+    });
+
+    expect(findOverflowAncestorFromLocalNode(localNode)).toBeNull();
   });
 
   describe('findActiveProtocolKey', () => {
