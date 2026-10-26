@@ -778,9 +778,9 @@ class ServiceSend extends ServiceBase {
         const { localWallet } = await getVaultSettings({
           networkId: params.networkId,
         });
-        // Check the exact fee locally; never upload a private proposal. A
-        // mismatched fee needs review; so does one at least as large as the
-        // payment, unless the protocol sets the fee.
+        // Checked locally until the backend's pre-send check supports privacy
+        // chains; switch to it then. A mismatched fee needs review; so does
+        // one at least as large as the payment, unless the protocol sets it.
         return (
           !fee.shiftedBy(-tx.decimals).eq(params.feeAmount) ||
           (!localWallet?.feeSetByProtocol && fee.gte(tx.amount))
