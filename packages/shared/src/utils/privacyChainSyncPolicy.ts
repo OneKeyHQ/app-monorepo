@@ -4,12 +4,11 @@ import networkUtils from './networkUtils';
 // rules (e.g. Zcash's spam region) live with that chain's config.
 
 // auto-backfill = scheduler-noticed arrears at pass end; manual-sync = button
-// press; the other two just nudge a boost to start sooner.
+// press; chain-selected just nudges a boost to start sooner.
 export type IPrivacyChainBoostTrigger =
   | 'manual-sync'
   | 'auto-backfill'
-  | 'chain-selected'
-  | 'compose-send';
+  | 'chain-selected';
 
 // Null when no pass has published a position yet.
 export function getPrivacyChainBlocksLeft(

@@ -44,11 +44,7 @@ describe('shouldStartBoost', () => {
 
   // Only a long wait is worth a floating window.
   it('starts automatically only for a long wait', () => {
-    for (const trigger of [
-      'auto-backfill',
-      'chain-selected',
-      'compose-send',
-    ] as const) {
+    for (const trigger of ['auto-backfill', 'chain-selected'] as const) {
       expect(
         shouldStartBoost({
           trigger,
@@ -145,16 +141,14 @@ describe('shouldStartBoost — user pause', () => {
   // Auto-trigger surfaces re-ask on every published progress; without the
   // pause flag a pause would undo itself within one scan pass.
   it('refuses automatic triggers while paused', () => {
-    for (const trigger of ['chain-selected', 'compose-send'] as const) {
-      expect(
-        shouldStartBoost({
-          trigger,
-          networkId: ZCASH,
-          remainingBlocks: PRIVACY_CHAIN_LIGHT_MIN_BLOCKS_LEFT,
-          pausedByUser: true,
-        }),
-      ).toBe(false);
-    }
+    expect(
+      shouldStartBoost({
+        trigger: 'chain-selected',
+        networkId: ZCASH,
+        remainingBlocks: PRIVACY_CHAIN_LIGHT_MIN_BLOCKS_LEFT,
+        pausedByUser: true,
+      }),
+    ).toBe(false);
   });
 
   // Sync is the only resume control, so it must outrank a pause.
