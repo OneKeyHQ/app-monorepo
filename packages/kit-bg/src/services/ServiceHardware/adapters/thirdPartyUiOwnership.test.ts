@@ -37,8 +37,12 @@ function createAdapter(
     dispose: jest.fn().mockResolvedValue(undefined),
   } as unknown as IHardwareWallet;
   const adapter = new Adapter(hw);
-  const emit = (type: EConnectorInteraction, sessionId: string) => {
-    listeners.get('ui-event')?.({ type, payload: { sessionId } });
+  const emit = (
+    type: EConnectorInteraction,
+    sessionId: string,
+    operationId?: string,
+  ) => {
+    listeners.get('ui-event')?.({ type, operationId, payload: { sessionId } });
   };
   return { adapter, emit, listeners };
 }
@@ -184,6 +188,78 @@ describe('third-party UI ownership', () => {
       expect(state).toBe(expected);
       emit(EConnectorInteraction.InteractionComplete, 'new');
       expect(state).toBeUndefined();
+    },
+  );
+
+  it.each([LedgerAdapter, TrezorAdapter, KeystoneAdapter])(
+    '%p ignores an older operation completion on the same session',
+    (Adapter) => {
+      const { emit } = createAdapter(Adapter);
+      emit(
+        EConnectorInteraction.ConfirmOnDevice,
+        'same-session',
+        'operation-new',
+      );
+      const expected = state;
+      emit(
+        EConnectorInteraction.InteractionComplete,
+        'same-session',
+        'operation-old',
+      );
+      expect(state).toBe(expected);
+      emit(
+        EConnectorInteraction.InteractionComplete,
+        'same-session',
+        'operation-new',
+      );
+      expect(state).toBeUndefined();
+    },
+  );
+
+  it.each([TrezorAdapter, KeystoneAdapter])(
+    '%p restores processing only for the current operation on the same session',
+    async (Adapter) => {
+      let finish: (value: unknown) => void = () => undefined;
+      const pending = new Promise<unknown>((resolve) => {
+        finish = resolve;
+      });
+      const { adapter, emit } = createAdapter(Adapter, {
+        evmGetAddress: jest.fn().mockReturnValue(pending),
+      });
+      const call = adapter.hw.evmGetAddress(
+        'synthetic-wallet',
+        'synthetic-device',
+        {
+          path: "m/44'/60'/0'/0/0",
+          operationId: 'operation-new',
+        },
+      );
+      try {
+        emit(
+          EConnectorInteraction.ConfirmOnDevice,
+          'same-session',
+          'operation-new',
+        );
+        const expected = state;
+        emit(
+          EConnectorInteraction.InteractionComplete,
+          'same-session',
+          'operation-old',
+        );
+        expect(state).toBe(expected);
+        emit(
+          EConnectorInteraction.InteractionComplete,
+          'same-session',
+          'operation-new',
+        );
+        expect(state).toMatchObject({
+          action: EThirdPartyHardwareUiAction.processing,
+          operationId: 'operation-new',
+        });
+      } finally {
+        finish({ success: true, payload: { address: 'synthetic-address' } });
+        await call;
+      }
     },
   );
 

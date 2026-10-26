@@ -253,7 +253,7 @@ export class TrezorAdapter
           );
           break;
         case EConnectorInteraction.InteractionComplete:
-          this._clearUiState(event.payload?.sessionId);
+          this._clearUiState(event.payload?.sessionId, event.operationId);
           break;
         default: {
           defaultLogger.hardware.sdkLog.log(

@@ -173,7 +173,10 @@ export class KeystoneAdapter
           );
           break;
         case EConnectorInteraction.InteractionComplete:
-          this.clearOrRestoreProcessing(typed.payload?.sessionId);
+          this.clearOrRestoreProcessing(
+            typed.payload?.sessionId,
+            typed.operationId,
+          );
           break;
         default:
           break;
@@ -246,15 +249,19 @@ export class KeystoneAdapter
     }
   }
 
-  private clearOrRestoreProcessing(sessionId?: string): void {
+  private clearOrRestoreProcessing(
+    sessionId?: string,
+    operationId?: string,
+  ): void {
     if (this.processingDepth > 0) {
       void this.restoreProcessingUiState(
         EThirdPartyHardwareUiAction.processing,
         sessionId,
+        operationId,
       );
       return;
     }
-    void this.clearUiState(sessionId);
+    void this.clearUiState(sessionId, operationId);
   }
 
   async searchDevices(

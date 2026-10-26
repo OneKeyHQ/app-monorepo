@@ -117,7 +117,7 @@ export class LedgerAdapter
           );
           break;
         case EConnectorInteraction.InteractionComplete:
-          void this.clearUiState(event.payload?.sessionId);
+          void this.clearUiState(event.payload?.sessionId, event.operationId);
           break;
         case EConnectorInteraction.AppInstallProgress: {
           // Ledger DMK install progress (0..1); throttled log avoids flooding.

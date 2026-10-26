@@ -118,7 +118,6 @@ import {
   registerOnboardingCompletion,
 } from '../utils/enterWalletAfterOnboarding';
 
-import { connectKeystoneUsbOrCreateQrWallet } from './connectKeystoneUsbOrCreateQrWallet';
 import {
   FinalizeWalletSetupAttempts,
   resolveOperationReleaseForAttempt,
@@ -681,7 +680,7 @@ function FinalizeWalletSetupPage({
                 raw?: { connectionType?: string };
               }
             ).raw?.connectionType;
-          let analyticsTransportType =
+          const analyticsTransportType =
             deviceData.vendor === EHardwareVendor.keystone &&
             thirdPartyConnectionType === 'qr'
               ? ('QRCode' as const)
@@ -726,95 +725,82 @@ function FinalizeWalletSetupPage({
                   message: 'Keystone device search target is required',
                 });
               }
-              // A device search target only describes how to reach Keystone.
-              // Account derivation stays in the wallet creation operation.
+              // Onboarding explicitly selected USB for this attempt. Keep connection failures
+              // on that channel and derive accounts in the same wallet creation operation.
               goNextStep(EFinalizeWalletSetupSteps.ConnectingDevice);
               setupAttemptsRef.current.startFirstContact(attempt);
-              const connected = await connectKeystoneUsbOrCreateQrWallet({
-                connectUsb: () =>
-                  backgroundApiProxy.serviceThirdPartyHardware.connectDevice({
-                    vendor: EHardwareVendor.keystone,
+              const connected =
+                await backgroundApiProxy.serviceThirdPartyHardware.connectDevice(
+                  {
+                    vendor: deviceData.vendor,
                     searchTargetId: keystoneSearchTarget.searchTargetId,
-                  }),
-                createQrWallet: () => {
-                  analyticsTransportType = 'QRCode';
-                  return actions.current.createKeystoneWalletWithDefaultAccounts(
-                    {},
-                  );
-                },
-                isCurrentAttempt,
-              });
+                  },
+                );
               setupAttemptsRef.current.finishFirstContact(attempt);
-              if (connected && !connected.success) {
+              if (!connected.success) {
                 throw convertThirdPartyDeviceError(
                   connected.payload as { error: string; code: number },
                   { vendor: 'Keystone' },
                 );
               }
-              if (!connected) {
-                if (!isCurrentAttempt()) return;
-                thirdPartyWalletCreated = true;
-              } else {
-                const connectedDevice: IThirdPartyConnectedDevicePayload =
-                  connected.payload;
-                ownThirdPartyOperation = {
-                  vendor: deviceData.vendor,
+              const connectedDevice: IThirdPartyConnectedDevicePayload =
+                connected.payload;
+              ownThirdPartyOperation = {
+                vendor: deviceData.vendor,
+                operationId: connectedDevice.operationId,
+              };
+              if (!isCurrentAttempt()) return;
+              activeThirdPartyOperationRef.current = {
+                ...ownThirdPartyOperation,
+                attempt,
+              };
+              const rawThirdPartyDevice = (
+                thirdPartyDevice as SearchDevice & {
+                  raw?: Record<string, unknown>;
+                }
+              ).raw;
+              const connectedDeviceName =
+                thirdPartyConnectionType === 'qr'
+                  ? connectedDevice.modelName ||
+                    connectedDevice.model ||
+                    thirdPartyDevice.name ||
+                    'Keystone'
+                  : thirdPartyDevice.name ||
+                    connectedDevice.modelName ||
+                    connectedDevice.model ||
+                    'Keystone';
+              thirdPartyDevice = {
+                ...thirdPartyDevice,
+                // Identity is deviceId (the mfp); only the USB serial is a
+                // transport locator worth keeping.
+                connectId: null,
+                deviceId: connectedDevice.deviceId,
+                usbConnectId: keystoneSearchTarget.serialNumber,
+                name: connectedDeviceName,
+                vendorModel: connectedDevice.model,
+                vendorModelName: connectedDevice.modelName,
+                raw: {
+                  ...rawThirdPartyDevice,
+                  connectionType:
+                    connectedDevice.connectionType ?? thirdPartyConnectionType,
+                  firmwareVersion: connectedDevice.firmwareVersion,
+                  capabilities: connectedDevice.capabilities,
+                  vendorRaw: connectedDevice.raw,
+                },
+              } as SearchDevice;
+              featuresForCreate = {
+                device_id: connectedDevice.deviceId,
+                vendor: deviceData.vendor,
+              } as unknown as IOneKeyDeviceFeatures;
+              // USB: same one-call flow over the interaction just opened.
+              await actions.current.createKeystoneWalletWithDefaultAccounts({
+                usb: {
                   operationId: connectedDevice.operationId,
-                };
-                if (!isCurrentAttempt()) return;
-                activeThirdPartyOperationRef.current = {
-                  ...ownThirdPartyOperation,
-                  attempt,
-                };
-                const rawThirdPartyDevice = (
-                  thirdPartyDevice as SearchDevice & {
-                    raw?: Record<string, unknown>;
-                  }
-                ).raw;
-                const connectedDeviceName =
-                  thirdPartyConnectionType === 'qr'
-                    ? connectedDevice.modelName ||
-                      connectedDevice.model ||
-                      thirdPartyDevice.name ||
-                      'Keystone'
-                    : thirdPartyDevice.name ||
-                      connectedDevice.modelName ||
-                      connectedDevice.model ||
-                      'Keystone';
-                thirdPartyDevice = {
-                  ...thirdPartyDevice,
-                  // Identity is deviceId (the mfp); only the USB serial is a
-                  // transport locator worth keeping.
-                  connectId: null,
-                  deviceId: connectedDevice.deviceId,
-                  usbConnectId: keystoneSearchTarget.serialNumber,
-                  name: connectedDeviceName,
-                  vendorModel: connectedDevice.model,
-                  vendorModelName: connectedDevice.modelName,
-                  raw: {
-                    ...rawThirdPartyDevice,
-                    connectionType:
-                      connectedDevice.connectionType ??
-                      thirdPartyConnectionType,
-                    firmwareVersion: connectedDevice.firmwareVersion,
-                    capabilities: connectedDevice.capabilities,
-                    vendorRaw: connectedDevice.raw,
-                  },
-                } as SearchDevice;
-                featuresForCreate = {
-                  device_id: connectedDevice.deviceId,
-                  vendor: deviceData.vendor,
-                } as unknown as IOneKeyDeviceFeatures;
-                // USB: same one-call flow over the interaction just opened.
-                await actions.current.createKeystoneWalletWithDefaultAccounts({
-                  usb: {
-                    operationId: connectedDevice.operationId,
-                    device: thirdPartyDevice,
-                  },
-                });
-                if (!isCurrentAttempt()) return;
-                thirdPartyWalletCreated = true;
-              }
+                  device: thirdPartyDevice,
+                },
+              });
+              if (!isCurrentAttempt()) return;
+              thirdPartyWalletCreated = true;
             }
             if (deviceData.vendor === EHardwareVendor.trezor) {
               const trezorSearchTarget = deviceData.searchTarget;
