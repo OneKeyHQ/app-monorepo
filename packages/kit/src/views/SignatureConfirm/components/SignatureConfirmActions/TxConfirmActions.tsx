@@ -765,25 +765,14 @@ function TxConfirmActions(props: IProps) {
           : undefined,
       });
 
-      const broadcastOutcomeUnknown = result.some(
-        (item) => item.signedTx?.broadcastOutcomeUnknown,
-      );
-      const showSubmittedToast = broadcastOutcomeUnknown
-        ? Toast.warning
-        : Toast.success;
-      let submittedTitle = isFeeSponsored
-        ? intl.formatMessage({
-            id: ETranslations.wallet_gas_sponsored_transaction_submitted__msg,
-          })
-        : intl.formatMessage({
-            id: ETranslations.feedback_transaction_submitted,
-          });
-      if (broadcastOutcomeUnknown)
-        submittedTitle = intl.formatMessage({
-          id: ETranslations.global_unknown,
-        });
-      showSubmittedToast({
-        title: submittedTitle,
+      Toast.success({
+        title: isFeeSponsored
+          ? intl.formatMessage({
+              id: ETranslations.wallet_gas_sponsored_transaction_submitted__msg,
+            })
+          : intl.formatMessage({
+              id: ETranslations.feedback_transaction_submitted,
+            }),
         icon: isFeeSponsored ? 'GiftSolid' : undefined,
       });
 

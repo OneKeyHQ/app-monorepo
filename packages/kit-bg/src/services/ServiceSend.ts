@@ -2333,9 +2333,6 @@ class ServiceSend extends ServiceBase {
           });
         }
         const decodedTx = reviewedDecodedTx ?? (await buildDecodedTx());
-        if (signedTx?.broadcastOutcomeUnknown) {
-          decodedTx.broadcastOutcomeUnknown = true;
-        }
         if (isPrivateSend) {
           decodedTx.payload = {
             value:

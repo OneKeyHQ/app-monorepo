@@ -100,7 +100,6 @@ export type IOnChainHistoryTx = {
   sends: IOnChainHistoryTxTransfer[];
   receives: IOnChainHistoryTxTransfer[];
   status: EOnChainHistoryTxStatus;
-  broadcastOutcomeUnknown?: boolean;
   from: string;
   to: string;
   timestamp: number;

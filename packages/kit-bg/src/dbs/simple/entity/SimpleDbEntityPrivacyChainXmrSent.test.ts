@@ -34,7 +34,6 @@ describe('privacy chain xmr sent records', () => {
       recipient: 'own-two',
       amountAtomic: '1000000000000',
       feeAtomic: '30000000',
-      outcomeUnknown: true,
     });
     // Only a recorded pair counts; a lone amount is not kept.
     await entity.recordXmrSent({
@@ -57,7 +56,6 @@ describe('privacy chain xmr sent records', () => {
           recipient: 'own-two',
           amountAtomic: '1000000000000',
           feeAtomic: '30000000',
-          outcomeUnknown: true,
         },
         half: { recipient: 'own-three' },
       },

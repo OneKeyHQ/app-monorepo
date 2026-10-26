@@ -92,10 +92,7 @@ describe('Zcash transparent broadcast authorization', () => {
         return signedTx;
       });
 
-    await expect(vault.broadcastTransaction(params)).resolves.toEqual({
-      ...signedTx,
-      broadcastOutcomeUnknown: false,
-    });
+    await expect(vault.broadcastTransaction(params)).resolves.toEqual(signedTx);
     const [pending] = await journalDb.listTransparentPendingTxs({ accountId });
     expect(pending).toMatchObject({
       broadcastAuthorized: true,
@@ -153,7 +150,6 @@ describe('Zcash transparent broadcast authorization', () => {
       .mockResolvedValue(signedTx);
     await expect(vault.broadcastTransaction(params)).resolves.toMatchObject({
       txid,
-      broadcastOutcomeUnknown: false,
     });
     expect(
       await journalDb.listTransparentPendingTxs({ accountId }),

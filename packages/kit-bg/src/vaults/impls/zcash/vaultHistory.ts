@@ -97,7 +97,7 @@ export async function zcashFetchBackendHistoryDetail(
       localTx: publicTx,
       withUTXOs: params.withUTXOs,
     });
-    response.data.data.data = { ...restored, broadcastOutcomeUnknown: false };
+    response.data.data.data = restored;
   }
   return response;
 }
@@ -274,7 +274,6 @@ export async function fetchAccountHistoryDetail(
         data: {
           tx: item.txid,
           status,
-          broadcastOutcomeUnknown: false,
           block: publicStatusDetail?.block ?? item.minedHeight ?? undefined,
           confirmations:
             publicStatusDetail?.confirmations ??

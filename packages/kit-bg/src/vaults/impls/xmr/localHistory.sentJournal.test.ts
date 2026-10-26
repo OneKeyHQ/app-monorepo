@@ -13,7 +13,6 @@ type IRecordCall = {
   recipient: string;
   amountAtomic?: string;
   feeAtomic?: string;
-  broadcastOutcomeUnknown?: boolean;
 };
 
 // Every recordSentRecipient call shape the broadcast path can make.
@@ -30,7 +29,6 @@ const RECORD_CALLS: IRecordCall[] = [
     recipient: '4-paid-unknown',
     amountAtomic: '2500000000000',
     feeAtomic: '40000000',
-    broadcastOutcomeUnknown: true,
   },
   { txid: 'half', recipient: '4-paid-half', amountAtomic: '7' },
   // A second, recipient-only write keeps the amounts already recorded.
@@ -54,9 +52,6 @@ function recordLegacy(calls: IRecordCall[]) {
       sentAmounts[call.txid] = {
         amountAtomic: call.amountAtomic,
         feeAtomic: call.feeAtomic,
-        ...(call.broadcastOutcomeUnknown
-          ? { broadcastOutcomeUnknown: true }
-          : {}),
       };
     }
   }
@@ -141,7 +136,6 @@ describe('xmr history rows from the merged sent journal', () => {
           recipient: call.recipient,
           amountAtomic: call.amountAtomic,
           feeAtomic: call.feeAtomic,
-          outcomeUnknown: call.broadcastOutcomeUnknown,
         });
       }
       const records = await journal.listXmrSent({ accountId: ACCOUNT_ID });
