@@ -301,23 +301,8 @@ describe('Keystone default account creation', () => {
     expect(fixture.pin).not.toHaveBeenCalled();
   });
 
-  it('uses live USB capabilities for both export and account creation', async () => {
+  it('creates the default multi-network account plan for a USB connection', async () => {
     const fixture = buildService({ realAccountPlan: true });
-    fixture.getDeviceInfo.mockResolvedValue({
-      success: true,
-      payload: {
-        vendor: 'keystone',
-        model: 'Keystone 3 Pro',
-        deviceId: fixture.walletIdentity,
-        connectId: 'keystone-connection',
-        connectionType: 'usb',
-        firmwareVersion: '3.1.4-C',
-        capabilities: {
-          persistentDeviceIdentity: true,
-          supportedChains: ['btc'],
-        },
-      },
-    });
     fixture.allNetworkGetAddress.mockImplementation(
       async (
         _operationId: string,
@@ -358,20 +343,25 @@ describe('Keystone default account creation', () => {
     const bundle = fixture.allNetworkGetAddress.mock.calls[0][2].bundle as {
       network: string;
     }[];
-    expect(bundle).toHaveLength(4);
-    expect(bundle.every((item) => item.network === 'btc')).toBe(true);
+    expect(bundle).toHaveLength(7);
+    expect(new Set(bundle.map((item) => item.network))).toEqual(
+      new Set(['btc', 'evm', 'tron', 'sol']),
+    );
     expect(fixture.buildBatchNetworks).toHaveBeenCalledWith(
       expect.objectContaining({
         includingDefaultNetworks: false,
-        customNetworks: [
+        customNetworks: expect.arrayContaining([
           { networkId: getNetworkIdsMap().btc, deriveType: 'default' },
           { networkId: getNetworkIdsMap().btc, deriveType: 'BIP86' },
           { networkId: getNetworkIdsMap().btc, deriveType: 'BIP84' },
           { networkId: getNetworkIdsMap().btc, deriveType: 'BIP44' },
-        ],
+          { networkId: getNetworkIdsMap().eth, deriveType: 'default' },
+          { networkId: getNetworkIdsMap().trx, deriveType: 'default' },
+          { networkId: getNetworkIdsMap().sol, deriveType: 'default' },
+        ]),
       }),
     );
-    expect(fixture.batchBuildAccounts).toHaveBeenCalledTimes(4);
+    expect(fixture.batchBuildAccounts).toHaveBeenCalledTimes(7);
   });
 
   it('stops before exporting when the USB operation has ended', async () => {

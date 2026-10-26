@@ -75,7 +75,6 @@ import type {
 import type { AllNetworkAddressParams, SearchDevice } from '@onekeyfe/hd-core';
 import type {
   BindBleDeviceParams,
-  ChainCapability,
   DeviceInfo,
   ICommonCallParams,
 } from '@onekeyfe/hwk-adapter-core';
@@ -952,19 +951,17 @@ class ServiceThirdPartyHardware extends ServiceBase {
    * exists. BTC uses the account-level path, other chains the index-0 leaf
    * path, matching the vendor keyrings.
    */
-  private async buildKeystoneDefaultAccountPlan(
-    supportedChains?: readonly ChainCapability[],
-  ): Promise<{
+  private async buildKeystoneDefaultAccountPlan(): Promise<{
     bundle: IThirdPartyAllNetworkAddressParams[];
     networks: { networkId: string; deriveType: IAccountDeriveTypes }[];
   }> {
     const networks = await buildAddAccountsNetworks({
       backgroundApi: this.backgroundApi,
       includingNetworkWithGlobalDeriveType: true,
-      btc: !supportedChains || supportedChains.includes('btc'),
-      evm: !supportedChains || supportedChains.includes('evm'),
-      tron: !supportedChains || supportedChains.includes('tron'),
-      sol: !supportedChains || supportedChains.includes('sol'),
+      btc: true,
+      evm: true,
+      tron: true,
+      sol: true,
     });
     const bundle: AllNetworkAddressParams[] = [];
     for (const { networkId, deriveType } of networks) {
@@ -1046,15 +1043,7 @@ class ServiceThirdPartyHardware extends ServiceBase {
         });
       }
     }
-    // Older SDKs do not advertise firmware chains; keep their default behavior until upgraded.
-    const capabilities:
-      | (NonNullable<DeviceInfo['capabilities']> & {
-          supportedChains?: readonly ChainCapability[];
-        })
-      | undefined = usbDeviceInfo?.capabilities;
-    const { bundle, networks } = await this.buildKeystoneDefaultAccountPlan(
-      capabilities?.supportedChains,
-    );
+    const { bundle, networks } = await this.buildKeystoneDefaultAccountPlan();
     if (!bundle.length) {
       throw new OneKeyLocalError('Keystone has no supported default accounts');
     }
