@@ -555,7 +555,7 @@ describe('MarketTokenSelector stock default category', () => {
     );
   });
 
-  it.each([false])(
+  it.each([false, true])(
     'keeps an explicit mobile search chain even when the result has assetId (native token: %s)',
     (isNative) => {
       const address = isNative ? '' : 'SolanaUsdc';
@@ -582,7 +582,7 @@ describe('MarketTokenSelector stock default category', () => {
       fireEvent.click(screen.getByTestId('mobile-search-result'));
       expect(mockNavigateToMarketTokenDetail).toHaveBeenCalledWith(
         expect.objectContaining({
-          assetId: undefined,
+          assetId: isNative ? 'solana' : undefined,
           networkId: 'sol--101',
           address,
           isNative,
@@ -759,18 +759,21 @@ describe('MarketTokenSelector stock default category', () => {
   });
 
   it.each([
-    ['BTC', 'btc--0'],
-    ['ETH', 'evm--1'],
+    { symbol: 'BTC', networkId: 'btc--0', isNative: true, assetId: undefined },
+    { symbol: 'ETH', networkId: 'evm--1', isNative: true, assetId: undefined },
+    { symbol: 'DEX', networkId: 'evm--1', isNative: false, assetId: undefined },
+    { symbol: 'BTC', networkId: '', isNative: false, assetId: 'btc' },
   ])(
-    'resolves %s from Favorites without a search query',
-    (symbol, networkId) => {
+    'opens $symbol from Favorites without resolving Asset identity (assetId=$assetId)',
+    ({ symbol, networkId, isNative, assetId }) => {
       mockWatchlistToken = {
         id: symbol,
+        assetId,
         symbol,
         name: symbol,
-        address: '',
+        address: isNative || assetId ? '' : '0xdex',
         networkId,
-        isNative: true,
+        isNative,
         decimals: 18,
         price: 1,
         change24h: 0,
@@ -792,9 +795,8 @@ describe('MarketTokenSelector stock default category', () => {
       );
 
       expect(mockNavigateToMarketTokenDetail).toHaveBeenCalledWith(
-        expect.objectContaining({ symbol, networkId, isNative: true }),
+        expect.objectContaining({ symbol, networkId, isNative, assetId }),
         expect.objectContaining({
-          resolveMarketAsset: true,
           marketTokenCategory: undefined,
           tokenDetailPreview: expect.objectContaining({ symbol, networkId }),
         }),
@@ -862,7 +864,6 @@ describe('MarketTokenSelector stock default category', () => {
       }),
       expect.objectContaining({
         marketTokenCategory: undefined,
-        resolveMarketAsset: true,
       }),
     );
   });
@@ -923,9 +924,7 @@ describe('MarketTokenSelector stock default category', () => {
         address: '0xdex',
         networkId: 'evm--1',
       }),
-      expect.objectContaining({
-        resolveMarketAsset: true,
-      }),
+      expect.anything(),
     );
     expect(mockToStock).not.toHaveBeenCalled();
   });

@@ -11,6 +11,8 @@ import {
   useStarV2Checked,
 } from '../../../components/MarketStarV2';
 
+import { getSelectorSearchAssetId } from './constants';
+
 import type { IMarketToken } from '../../../MarketHomeV2/components/MarketTokenList/MarketTokenData';
 
 /**
@@ -34,7 +36,12 @@ function BasicSelectorTokenStar({
     address: item.address,
   });
   const spotStar = useStarV2Checked({
-    assetId: item.assetId,
+    assetId: getSelectorSearchAssetId({
+      assetId: item.assetId,
+      network: chainId,
+      address: item.address,
+      isNative: item.isNative ?? false,
+    }),
     stockId: isStockListing ? item.stockId : undefined,
     chainId,
     contractAddress: item.address,

@@ -233,7 +233,14 @@ export function createTradingViewNativeSkiaFontForText({
     }
   }
 
-  return primaryFont;
+  return createTradingViewNativeSkiaFontFromSystemFamilies({
+    fontFamily,
+    fontManager,
+    fontSize,
+    fontWeight,
+    primaryFont,
+    requiredText,
+  });
 }
 
 export function getTradingViewNativeSkiaPaintStyleSignature(

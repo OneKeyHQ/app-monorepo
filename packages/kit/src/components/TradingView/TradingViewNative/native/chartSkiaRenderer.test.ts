@@ -449,6 +449,7 @@ describe('TradingViewNative Skia scene renderer', () => {
 
     expect(font).toEqual(expect.objectContaining({ fontFamily: 'System' }));
     expect(mockMatchFamilyStyleCharacter).toHaveBeenCalledTimes(4);
+    expect(mockCountFontFamilies).toHaveBeenCalledTimes(1);
     expect(mockFontDisposeByFamily.System).not.toHaveBeenCalled();
   });
 
@@ -593,6 +594,7 @@ describe('TradingViewNative Skia scene renderer', () => {
       expect(
         mockFallbackTypefaceDisposeByFamily[expectedFontFamily],
       ).toHaveBeenCalledTimes(1);
+      expect(mockCountFontFamilies).not.toHaveBeenCalled();
     },
   );
 
@@ -619,6 +621,49 @@ describe('TradingViewNative Skia scene renderer', () => {
     expect(mockFallbackTypefaceDisposeByFamily.Complete).toHaveBeenCalledTimes(
       1,
     );
+  });
+
+  it('scans system fonts when native character matches cannot cover mixed text', () => {
+    const requiredText = 'O开क';
+    mockFallbackFontFamilyByRequest['zh-CN:开'] = 'NativeCJK';
+    mockFallbackFontFamilyByRequest['zh-CN:क'] = 'NativeDevanagari';
+    mockFontGlyphsByFamily.NativeCJK = '开';
+    mockFontGlyphsByFamily.NativeDevanagari = 'क';
+    mockSystemFontFamilies = [
+      'System',
+      'PartialSystem',
+      'CompleteSystem',
+      'Later',
+    ];
+    mockFontGlyphsByFamily.PartialSystem = '开';
+    mockFontGlyphsByFamily.CompleteSystem = '开क';
+    mockFontGlyphsByFamily.Later = '开क';
+
+    const font = createTradingViewNativeSkiaFontForText({
+      fontFamily: 'System',
+      fontSize: 11,
+      locale: 'zh-CN',
+      requiredText,
+    });
+
+    expect(font).toEqual(
+      expect.objectContaining({ fontFamily: 'CompleteSystem' }),
+    );
+    expect(font.getGlyphIDs(requiredText)).not.toContain(0);
+    expect(mockCountFontFamilies).toHaveBeenCalledTimes(1);
+    expect(mockGetFontFamilyName).not.toHaveBeenCalledWith(3);
+    expect(mockFontDisposeByFamily.System).toHaveBeenCalledTimes(1);
+    expect(mockFontDisposeByFamily.NativeCJK).toHaveBeenCalledTimes(1);
+    expect(mockFontDisposeByFamily.NativeDevanagari).toHaveBeenCalledTimes(1);
+    expect(mockFontDisposeByFamily.PartialSystem).toHaveBeenCalledTimes(1);
+    expect(mockFontDisposeByFamily.CompleteSystem).not.toHaveBeenCalled();
+    expect(mockFontDisposeByFamily.Later).toBeUndefined();
+    expect(mockFallbackTypefaceDisposeByFamily.NativeCJK).toHaveBeenCalledTimes(
+      1,
+    );
+    expect(
+      mockFallbackTypefaceDisposeByFamily.NativeDevanagari,
+    ).toHaveBeenCalledTimes(1);
   });
 
   it('builds resources with the resolved legend font without another lookup', () => {
