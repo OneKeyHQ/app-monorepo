@@ -672,6 +672,22 @@ export function EarnRouterSwapDepositForm({
     new Map<string, { quote: IFetchQuoteResult; at: number }>(),
   );
   const canQuote = hasAmount && isSwappable;
+  // Asked for the tokens and the amount, not for the token objects: a
+  // refresh of the market's data (a new price) builds them again but asks
+  // nothing new, so the figures don't dim on their own (the press asks for
+  // a fresh quote anyway)
+  const quoteTokensRef = useRef({ fromToken, toToken });
+  quoteTokensRef.current = { fromToken, toToken };
+  const quoteTokensKey = [fromToken, toToken]
+    .map((token) =>
+      [
+        token.networkId,
+        token.contractAddress,
+        token.isNative ? 'native' : '',
+        token.decimals,
+      ].join(':'),
+    )
+    .join('>');
   useEffect(() => {
     // While the swap runs the estimate stays as it went to the wallet
     if (!isIdle) {
@@ -706,8 +722,7 @@ export function EarnRouterSwapDepositForm({
     }));
     const timer = setTimeout(() => {
       fetchEarnSwapQuote({
-        fromToken,
-        toToken,
+        ...quoteTokensRef.current,
         amount,
         account,
         signal: controller.signal,
@@ -728,7 +743,7 @@ export function EarnRouterSwapDepositForm({
       clearTimeout(timer);
       controller.abort();
     };
-  }, [account, amount, canQuote, fromToken, isIdle, toToken]);
+  }, [account, amount, canQuote, isIdle, quoteTokensKey]);
   // A quote moved off, taken back from the frame its amount is typed again
   const leftQuote = leftQuotesRef.current.get(amount);
   const takenBackQuote =
