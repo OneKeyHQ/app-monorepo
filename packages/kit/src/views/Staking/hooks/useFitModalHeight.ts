@@ -215,6 +215,7 @@ export function useFitModalHeight(enabled = true) {
     // The latest jump, until the next frame shows whether it was one
     let pendingJump: { at: number; delta: number } | undefined;
     let lastFollowedAt = Number.NEGATIVE_INFINITY;
+    let lastChangeAt = Number.NEGATIVE_INFINITY;
     const startedAt = performance.now();
     // Once pressed or typed in, the height its top edge is kept for
     let anchorHeight: number | undefined;
@@ -314,20 +315,37 @@ export function useFitModalHeight(enabled = true) {
         return;
       }
       const delta = next - target;
+      const remaining = remainingJump(now);
+      // Against a jump still easing the other way (a row gone as the line
+      // under the box grows in), a change eases with the jump: followed, it
+      // would add to what is left of the jump, and the modal would overshoot
+      // and come back
+      const isAgainstJump = remaining * delta < 0;
+      // A small change right after the last one is a frame of an animation
+      // inside (the line growing in as the form is built again): followed
+      // even then. Eased from its start on every frame, the modal would trail
+      // behind it and cover the bottom row with its edge. A frame or two may
+      // drop while the form is built
+      const isAnimationFrame =
+        Math.abs(delta) <= SMALL_CHANGE_PX &&
+        now - lastChangeAt < JUMP_WINDOW_MS &&
+        !isAgainstJump;
+      lastChangeAt = now;
       if (
         !reduceMotion &&
         now < easeChangesUntil &&
-        now - startedAt >= OPENING_MS
+        now - startedAt >= OPENING_MS &&
+        !isAnimationFrame
       ) {
         // The form being built again: from where it is shown to the latest
         // height, however many frames it takes to settle
-        jumpFrom = remainingJump(now) + delta;
+        jumpFrom = remaining + delta;
         jumpStart = now;
         pendingJump = undefined;
       } else if (pendingJump && now - pendingJump.at < JUMP_WINDOW_MS) {
         // It goes on moving: an animation inside after all, followed from
         // here. What is left of earlier jumps keeps easing
-        const rest = remainingJump(now) - pendingJump.delta;
+        const rest = remaining - pendingJump.delta;
         jumpFrom = Math.abs(rest) < 1 ? 0 : rest;
         jumpStart = now;
         pendingJump = undefined;
@@ -340,9 +358,14 @@ export function useFitModalHeight(enabled = true) {
         now - lastFollowedAt >= FOLLOWING_MS
       ) {
         // Starts from where it is shown now, even mid-way through a jump
-        jumpFrom = remainingJump(now) + delta;
+        jumpFrom = remaining + delta;
         jumpStart = now;
         pendingJump = { at: now, delta };
+      } else if (!reduceMotion && isAgainstJump) {
+        jumpFrom = remaining + delta;
+        jumpStart = now;
+        pendingJump = undefined;
+        lastFollowedAt = now;
       } else {
         pendingJump = undefined;
         lastFollowedAt = now;
