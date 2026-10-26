@@ -3057,6 +3057,7 @@
   "onekey_defi_third_party_loss_disclaimer__desc": "第三者製品に起因する損失について、OneKeyは一切の責任を負わず、補償も行いません。",
   "onekey_defi_third_party_operation__desc": "OneKey DeFiには、第三者が独立して運営する複数のDeFi製品が含まれています。OneKeyはアクセス手段のみを提供し、その運営には関与しません。",
   "onekey_id_auto_create__desc": "OneKey ID を初めて使用しますか？自動的に作成されます。",
+  "onekey_id_email_existing_only__desc": "既存のアカウントのみ対象で、アカウントを新規作成する場合は Apple または Google で続行してください",
   "onekey_id_oauth_reauth_account_mismatch__desc": "この {provider} アカウントは現在の OneKey ID に連携されていません。連携済みのアカウントを選択して、もう一度お試しください。",
   "onekey_id_sign_in_or_sign_up__desc": "初回利用時に OneKey ID が自動的に作成されます。",
   "onekey_id_sign_in_or_sign_up__title": "サインイン",

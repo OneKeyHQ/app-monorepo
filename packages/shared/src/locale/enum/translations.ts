@@ -3062,6 +3062,7 @@ export enum ETranslations {
   onekey_defi_third_party_loss_disclaimer__desc = 'onekey_defi_third_party_loss_disclaimer__desc',
   onekey_defi_third_party_operation__desc = 'onekey_defi_third_party_operation__desc',
   onekey_id_auto_create__desc = 'onekey_id_auto_create__desc',
+  onekey_id_email_existing_only__desc = 'onekey_id_email_existing_only__desc',
   onekey_id_oauth_reauth_account_mismatch__desc = 'onekey_id_oauth_reauth_account_mismatch__desc',
   onekey_id_sign_in_or_sign_up__desc = 'onekey_id_sign_in_or_sign_up__desc',
   onekey_id_sign_in_or_sign_up__title = 'onekey_id_sign_in_or_sign_up__title',

@@ -2682,6 +2682,125 @@ describe('ServiceHardware.cancel Pro2 operation', () => {
 });
 
 describe('Prime gift certificate verification', () => {
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it.each([
+    { deviceType: EDeviceType.Pro2, unlocked: false, cancelDuringDelay: false },
+    { deviceType: EDeviceType.Neo, unlocked: false, cancelDuringDelay: false },
+    { deviceType: EDeviceType.Pro2, unlocked: true, cancelDuringDelay: false },
+    { deviceType: EDeviceType.Pro2, unlocked: false, cancelDuringDelay: true },
+  ])(
+    'waits after unlocking before Prime verification: %j',
+    async ({ deviceType, unlocked, cancelDuringDelay }) => {
+      const connectId = 'DEVICE_USB';
+      const controller = new AbortController();
+      const oneKeyOperationLease: IOneKeyHardwareOperationLease = {
+        deviceKey: connectId,
+        owner: Symbol('prime-gift-verification'),
+        signal: controller.signal,
+      };
+      const backgroundApi = {
+        serviceHardwareUI: {
+          withHardwareProcessing: jest.fn(
+            async (
+              callback: (
+                lease: IOneKeyHardwareOperationLease,
+              ) => Promise<unknown>,
+            ) => callback(oneKeyOperationLease),
+          ),
+          closeHardwareUiStateDialog: jest.fn(async () => undefined),
+        },
+        serviceHardware: undefined as ServiceHardware | undefined,
+      };
+      const service = new ServiceHardware({
+        backgroundApi: backgroundApi as unknown as IBackgroundApi,
+      });
+      backgroundApi.serviceHardware = service;
+      const getDeviceState = jest
+        .spyOn(service, 'getDeviceState')
+        .mockResolvedValue({
+          status: { initialized: true, unlocked },
+        } as Awaited<ReturnType<ServiceHardware['getDeviceState']>>);
+      const unlock = jest
+        .spyOn(service, 'getDeviceStateWithUnlock')
+        .mockResolvedValue({
+          status: { initialized: true, unlocked: true },
+        } as Awaited<ReturnType<ServiceHardware['getDeviceStateWithUnlock']>>);
+      const deviceVerify = jest.fn().mockResolvedValue({
+        success: true,
+        payload: { cert: 'certificate', signature: 'device-signature' },
+      });
+      jest
+        .spyOn(service, 'getSDKInstance')
+        .mockResolvedValue({ deviceVerify } as unknown as Awaited<
+          ReturnType<ServiceHardware['getSDKInstance']>
+        >);
+      jest
+        .spyOn(service, 'getCompatibleConnectId')
+        .mockResolvedValue(connectId);
+      const post = jest.fn().mockResolvedValue({
+        data: { code: 0, data: { primeCode: 'TEST_CODE' } },
+      });
+      jest.spyOn(service, 'getClient').mockResolvedValue({
+        post,
+      } as unknown as Awaited<ReturnType<ServiceHardware['getClient']>>);
+      let finishDelay: (() => void) | undefined;
+      const wait = jest.spyOn(timerUtils, 'wait').mockImplementation(
+        () =>
+          new Promise<void>((resolve) => {
+            finishDelay = resolve;
+          }),
+      );
+
+      const operation =
+        service.hardwareVerifyManager.firmwareAuthenticateForPrimeGift({
+          device: {
+            connectId,
+            deviceType,
+            deviceId: 'DEVICE_ID',
+            uuid: 'DEVICE_SERIAL',
+            name: 'OneKey hardware wallet',
+          },
+          serialNo: 'DEVICE_SERIAL',
+        });
+      await new Promise<void>((resolve) => {
+        setImmediate(resolve);
+      });
+
+      expect(getDeviceState).toHaveBeenCalledTimes(1);
+      if (unlocked) {
+        expect(unlock).not.toHaveBeenCalled();
+        expect(wait).not.toHaveBeenCalled();
+      } else {
+        expect(unlock).toHaveBeenCalledWith({
+          connectId,
+          params: { scope: 'runtime' },
+          oneKeyOperationLease,
+          pinType: DeviceSessionPinType.Any,
+        });
+        expect(wait).toHaveBeenCalledWith(500);
+        expect(deviceVerify).not.toHaveBeenCalled();
+        expect(post).not.toHaveBeenCalled();
+        if (cancelDuringDelay) {
+          controller.abort();
+        }
+        finishDelay?.();
+      }
+
+      if (cancelDuringDelay) {
+        await expect(operation).rejects.toBeInstanceOf(UserCancelFromOutside);
+        expect(deviceVerify).not.toHaveBeenCalled();
+        expect(post).not.toHaveBeenCalled();
+      } else {
+        await expect(operation).resolves.toEqual({ code: 'TEST_CODE' });
+        expect(deviceVerify).toHaveBeenCalledTimes(1);
+        expect(post).toHaveBeenCalledTimes(1);
+      }
+    },
+  );
+
   it.each([
     [EDeviceType.Pro, { code: 0, data: { sno: 'DEVICE_SERIAL' } }, {}],
     ...[EDeviceType.Pro, EDeviceType.Pro2].flatMap((deviceType) =>
@@ -2781,6 +2900,9 @@ describe('Prime gift certificate verification', () => {
       jest
         .spyOn(service, 'getCompatibleConnectId')
         .mockResolvedValue('DEVICE_USB');
+      jest.spyOn(service, 'getDeviceState').mockResolvedValue({
+        status: { initialized: true, unlocked: true },
+      } as Awaited<ReturnType<ServiceHardware['getDeviceState']>>);
       const operation =
         service.hardwareVerifyManager.firmwareAuthenticateForPrimeGift({
           device: {

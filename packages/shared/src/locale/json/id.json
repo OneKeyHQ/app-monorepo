@@ -3057,6 +3057,7 @@
   "onekey_defi_third_party_loss_disclaimer__desc": "OneKey tidak bertanggung jawab atas kerugian apa pun yang disebabkan oleh produk pihak ketiga dan tidak memberikan kompensasi.",
   "onekey_defi_third_party_operation__desc": "OneKey DeFi mencakup berbagai produk DeFi yang dioperasikan secara independen oleh pihak ketiga. OneKey hanya menyediakan akses dan tidak terlibat dalam pengoperasiannya.",
   "onekey_id_auto_create__desc": "Baru menggunakan OneKey ID? Kami akan membuatkannya secara otomatis.",
+  "onekey_id_email_existing_only__desc": "Hanya untuk akun yang sudah ada. Untuk membuat akun, lanjutkan dengan Apple atau Google.",
   "onekey_id_oauth_reauth_account_mismatch__desc": "Akun {provider} ini tidak tertaut ke OneKey ID Anda saat ini. Pilih akun yang tertaut lalu coba lagi.",
   "onekey_id_sign_in_or_sign_up__desc": "OneKey ID akan dibuat otomatis saat pertama kali digunakan.",
   "onekey_id_sign_in_or_sign_up__title": "Masuk",

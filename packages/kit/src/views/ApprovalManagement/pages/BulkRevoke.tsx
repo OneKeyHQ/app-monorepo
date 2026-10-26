@@ -125,12 +125,15 @@ function BulkRevoke() {
   const isAborted = useRef(false);
   const progressStateRef = useRef(progressState);
 
+  // Parks a paused run until it is resumed or cancelled. Resolves to false
+  // once the run is aborted so the caller leaves the loop without touching
+  // the device or the network again: an abort that lands while the run is
+  // parked here is only observable after the wait returns.
   const waitUntilInProgress: () => Promise<boolean> = useCallback(async () => {
-    if (
-      progressStateRef.current === ERevokeProgressState.InProgress ||
-      isAborted.current
-    )
-      return Promise.resolve(true);
+    if (isAborted.current) return false;
+    if (progressStateRef.current === ERevokeProgressState.InProgress) {
+      return true;
+    }
     await timerUtils.wait(1000);
     return waitUntilInProgress();
   }, [isAborted]);
@@ -181,11 +184,9 @@ function BulkRevoke() {
         continue;
       }
 
-      if (isAborted.current) {
+      if (!(await waitUntilInProgress())) {
         break;
       }
-
-      await waitUntilInProgress();
       const uuid = tx.uuid ?? '';
 
       if (!uuid || !tx.networkId || !tx.accountId) {
@@ -224,11 +225,9 @@ function BulkRevoke() {
         console.error('=====>>>>>> fetchAccountNativeBalance error', error);
       }
 
-      if (isAborted.current) {
+      if (!(await waitUntilInProgress())) {
         break;
       }
-
-      await waitUntilInProgress();
 
       try {
         if (networkStatusRef.current[tx.networkId ?? '']?.isInsufficientFunds) {
@@ -265,10 +264,9 @@ function BulkRevoke() {
             accountId: tx.accountId,
           });
 
-        if (isAborted.current) {
+        if (!(await waitUntilInProgress())) {
           break;
         }
-        await waitUntilInProgress();
 
         const { encodedTx, estimateFeeParams } =
           await backgroundApiProxy.serviceGas.buildEstimateFeeParams({
@@ -343,10 +341,9 @@ function BulkRevoke() {
           continue;
         }
 
-        if (isAborted.current) {
+        if (!(await waitUntilInProgress())) {
           break;
         }
-        await waitUntilInProgress();
 
         const isFeeInfoOverflow =
           await backgroundApiProxy.serviceSend.preCheckIsFeeInfoOverflow({
@@ -357,10 +354,9 @@ function BulkRevoke() {
             accountAddress,
           });
 
-        if (isAborted.current) {
+        if (!(await waitUntilInProgress())) {
           break;
         }
-        await waitUntilInProgress();
 
         if (isFeeInfoOverflow) {
           setRevokeTxsStatusMap((prev) => ({
@@ -392,10 +388,9 @@ function BulkRevoke() {
             feeInfo,
           });
         }
-        if (isAborted.current) {
+        if (!(await waitUntilInProgress())) {
           break;
         }
-        await waitUntilInProgress();
 
         const sendSelectedFeeInfo: ISendSelectedFeeInfo = {
           feeInfo,
@@ -425,16 +420,19 @@ function BulkRevoke() {
               .minus(feeResult.totalNativeForDisplay ?? feeResult.totalNative)
               .toFixed();
         }
-        if (isAborted.current) {
+        if (!(await waitUntilInProgress())) {
           break;
         }
-        await waitUntilInProgress();
 
+        // Read the result here, inside the try: a state updater runs during
+        // render, where a malformed result would take the whole page down
+        // instead of marking this tx as failed.
+        const txId = result[0].signedTx.txid;
         setRevokeTxsStatusMap((prev) => ({
           ...prev,
           [uuid]: {
             status: ERevokeTxStatus.Succeeded,
-            txId: result[0].signedTx.txid,
+            txId,
             feeBalance: feeResult.totalNativeForDisplay,
             feeSymbol: resp.common.nativeSymbol,
             feeFiat: feeResult.totalFiatForDisplay,
@@ -588,7 +586,7 @@ function BulkRevoke() {
         setProgressState(ERevokeProgressState.Paused);
         setRevokeTxsStatusMap((prev) => ({
           ...prev,
-          [unsignedTxs[currentProcessIndex].uuid ?? '']: {
+          [unsignedTxs[currentProcessIndex]?.uuid ?? '']: {
             status: ERevokeTxStatus.Paused,
           },
         }));
@@ -614,7 +612,7 @@ function BulkRevoke() {
       setProgressState(ERevokeProgressState.Paused);
       setRevokeTxsStatusMap((prev) => ({
         ...prev,
-        [unsignedTxs[currentProcessIndex].uuid ?? '']: {
+        [unsignedTxs[currentProcessIndex]?.uuid ?? '']: {
           status: ERevokeTxStatus.Paused,
         },
       }));
@@ -622,7 +620,7 @@ function BulkRevoke() {
       setProgressState(ERevokeProgressState.InProgress);
       setRevokeTxsStatusMap((prev) => ({
         ...prev,
-        [unsignedTxs[currentProcessIndex].uuid ?? '']: {
+        [unsignedTxs[currentProcessIndex]?.uuid ?? '']: {
           status: ERevokeTxStatus.Processing,
         },
       }));
@@ -636,14 +634,28 @@ function BulkRevoke() {
   ]);
 
   const handleOnCancel = useCallback(() => {
-    if (skippedTxCount === 0 && failedTxCount === 0) {
+    // The button only reads "Retry" once the run has finished with failed or
+    // skipped txs. While a run is still going (or paused) it reads "Cancel"
+    // and must stop that run: restarting here would leave the first loop
+    // alive and start a second one on top of it, both driving the device and
+    // the shared progress state.
+    const canRetry =
+      progressState === ERevokeProgressState.Finished &&
+      (skippedTxCount !== 0 || failedTxCount !== 0);
+    if (!canRetry) {
       isAborted.current = true;
       setProgressState(ERevokeProgressState.Aborted);
       navigation.popStack();
       return;
     }
     setProgressState(ERevokeProgressState.InProgress);
+    // The restarted loop reads the ref before the effect syncing it has run;
+    // without this it idles one poll interval before the first tx.
+    progressStateRef.current = ERevokeProgressState.InProgress;
     networkStatusRef.current = {};
+    // The retried list is shorter than the finished one; the index from the
+    // previous run must not outlive it.
+    setCurrentProcessIndex(0);
     setUnsignedTxs((prev) =>
       prev.filter(
         (tx) =>
@@ -652,7 +664,13 @@ function BulkRevoke() {
       ),
     );
     setRevokeTxsStatusMap({});
-  }, [skippedTxCount, failedTxCount, navigation, revokeTxsStatusMap]);
+  }, [
+    progressState,
+    skippedTxCount,
+    failedTxCount,
+    navigation,
+    revokeTxsStatusMap,
+  ]);
 
   return (
     <Page
