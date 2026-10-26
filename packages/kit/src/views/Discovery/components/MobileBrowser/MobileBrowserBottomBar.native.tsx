@@ -1,11 +1,13 @@
 import {
   type ComponentProps,
+  type PropsWithChildren,
   memo,
   useCallback,
   useMemo,
   useState,
 } from 'react';
 
+import MaskedView from '@react-native-masked-view/masked-view';
 import { useIntl } from 'react-intl';
 import { StyleSheet, View } from 'react-native';
 import Animated, {
@@ -15,8 +17,10 @@ import Animated, {
 } from 'react-native-reanimated';
 
 import {
+  BlurView,
   GlassView,
   IconButton,
+  LinearGradient,
   SizableText,
   Stack,
   Theme,
@@ -59,6 +63,7 @@ import {
   PILL_RADIUS,
   PageBaseColorFill,
   useCapsuleFadeStyle,
+  useChromeGlassTint,
 } from './BrowserChromeCapsule';
 import { ChromePressable } from './ChromePressable';
 import RefreshButton from './RefreshButton';
@@ -310,6 +315,7 @@ function MorphingAddressBackground({
   capsuleBottom: number;
   pillBottom: number;
 }) {
+  const glassTint = useChromeGlassTint();
   const rowStyle = useAnimatedStyle(() => ({
     bottom: interpolate(progress.value, [0, 1], [pillBottom, capsuleBottom]),
     height: interpolate(
@@ -325,7 +331,7 @@ function MorphingAddressBackground({
     <Animated.View pointerEvents="none" style={[styles.morphRow, rowStyle]}>
       <Animated.View style={[styles.morphBackground, widthStyle]}>
         {isLiquidGlassAvailable() ? (
-          <GlassView style={styles.glassFill} />
+          <GlassView style={styles.glassFill} tintColor={glassTint} />
         ) : (
           <Stack flex={1} bg="$bgStrong" borderRadius={PILL_RADIUS} />
         )}
@@ -334,25 +340,17 @@ function MorphingAddressBackground({
   );
 }
 
-// The WebView ends above the bar: the strip behind the bar takes the page's
-// base color (body/html), which is what the page ends on, rather than its top
-// color (e.g. a colored banner), so there is no seam above the bar. It
-// follows the bar, not the WebView's edge: during a morph the WebView reaches
-// further down (it resizes once, when the chrome settles), and the opaque
-// strip keeps that part hidden, so the glass always sits on the page color
-// rather than on page content passing behind it. Laid out at
-// its full height and slid down as the bar collapses (a transform, not a
-// per-frame height change). No fade above it: a plain alpha fade (no blur)
-// over page content of another color looks muddy.
-function BarPageStrip({
-  id,
+// Behind the bar's capsules, from the screen bottom: laid out at the bar's
+// full height and slid down as the bar collapses (a transform, not a
+// per-frame height change), so it follows the bar, not the WebView's edge.
+function BarBackdrop({
   progress,
   bottom,
-}: {
-  id: string;
+  children,
+}: PropsWithChildren<{
   progress: SharedValue<number>;
   bottom: number;
-}) {
+}>) {
   const fullHeight = getBarReservedHeight(bottom);
   const collapsedHeight = getCollapsedReservedHeight(bottom);
   const style = useAnimatedStyle(() => ({
@@ -365,10 +363,31 @@ function BarPageStrip({
       pointerEvents="none"
       style={[styles.strip, { height: fullHeight }, style]}
     >
-      <PageBaseColorFill tabId={id} style={StyleSheet.absoluteFill} />
+      {children}
     </Animated.View>
   );
 }
+
+const EDGE_BLUR_INTENSITY = 24;
+// Clear at the top, full blur from 60% down.
+const edgeBlurMask = (
+  <LinearGradient
+    flex={1}
+    colors={['rgba(0,0,0,0)', 'rgba(0,0,0,1)']}
+    locations={[0, 0.6]}
+  />
+);
+
+// iPhone, where the page draws under the bar: a blur that fades in towards
+// the screen bottom, like Telegram's toolbar edge effect, so the glass sits
+// on a soft backdrop rather than on sharp page content. If the blur doesn't
+// render inside the mask on a device (masking a visual effect view's
+// parent view is not officially supported), render nothing here instead.
+const barEdgeBlur = (
+  <MaskedView style={StyleSheet.absoluteFill} maskElement={edgeBlurMask}>
+    <BlurView flex={1} intensity={EDGE_BLUR_INTENSITY} tint="default" />
+  </MaskedView>
+);
 
 // Bar: [tabs] [back · address · reload] [menu]. Forward,
 // translate, bookmark etc. live in the menu. While scrolling down the bar
@@ -478,9 +497,19 @@ function MobileBrowserBottomBar({
     // in-flow height on tablets.
     <Theme name={pageThemeName ?? appThemeName}>
       <Stack h="100%" zIndex={1} pointerEvents="box-none">
-        {PAGE_DRAWS_UNDER_BROWSER_BAR ? null : (
-          <BarPageStrip id={id} progress={progress} bottom={bottom} />
-        )}
+        <BarBackdrop progress={progress} bottom={bottom}>
+          {PAGE_DRAWS_UNDER_BROWSER_BAR ? (
+            barEdgeBlur
+          ) : (
+            // The WebView ends above the bar: the strip behind it takes the
+            // page's base color (what the page ends on, rather than e.g. a
+            // colored top banner), so there is no seam above the bar, and
+            // hides the WebView's part that passes behind the bar mid-morph.
+            // No fade above it: a plain alpha fade (no blur) over page
+            // content of another color looks muddy.
+            <PageBaseColorFill tabId={id} style={StyleSheet.absoluteFill} />
+          )}
+        </BarBackdrop>
         <MorphingAddressBackground
           progress={progress}
           capsuleWidth={capsuleWidth}

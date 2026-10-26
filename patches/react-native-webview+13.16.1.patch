@@ -442,7 +442,7 @@ index 974337f..d4f774d 100644
      protected void addEventEmitters(@NonNull ThemedReactContext reactContext, RNCWebViewWrapper viewWrapper) {
          // Do not register default touch emitter and let WebView implementation handle touches
 diff --git a/node_modules/react-native-webview/apple/RNCWebView.mm b/node_modules/react-native-webview/apple/RNCWebView.mm
-index c0816b6..57a532a 100644
+index c0816b6..2b3ced1 100644
 --- a/node_modules/react-native-webview/apple/RNCWebView.mm
 +++ b/node_modules/react-native-webview/apple/RNCWebView.mm
 @@ -65,6 +65,7 @@ static inline std::string nullSafeStringWithLength(id value) {
@@ -461,7 +461,25 @@ index c0816b6..57a532a 100644
      [_view destroyWebView];
  }
  #endif // !TARGET_OS_OSX
-@@ -322,6 +324,7 @@ static inline std::string nullSafeStringWithLength(id value) {
+@@ -223,6 +225,7 @@ static inline std::string nullSafeStringWithLength(id value) {
+                 NSDictionary* contentSize = [dictionary valueForKey:@"contentSize"];
+                 NSDictionary* layoutMeasurement = [dictionary valueForKey:@"layoutMeasurement"];
+                 double zoomScale = [[dictionary valueForKey:@"zoomScale"] doubleValue];
++                BOOL isInteracting = [[dictionary valueForKey:@"isInteracting"] boolValue];
+ 
+                 auto webViewEventEmitter = std::static_pointer_cast<RNCWebViewEventEmitter const>(_eventEmitter);
+                 facebook::react::RNCWebViewEventEmitter::OnScroll data = {
+@@ -243,7 +246,8 @@ static inline std::string nullSafeStringWithLength(id value) {
+                     .layoutMeasurement = {
+                         .width = [[layoutMeasurement valueForKey:@"width"] doubleValue],
+                         .height = [[layoutMeasurement valueForKey:@"height"] doubleValue]                    },
+-                    .zoomScale = zoomScale
++                    .zoomScale = zoomScale,
++                    .isInteracting = (bool)isInteracting
+                 };
+                 webViewEventEmitter->onScroll(data);
+             }
+@@ -322,6 +326,7 @@ static inline std::string nullSafeStringWithLength(id value) {
      REMAP_WEBVIEW_PROP(pullToRefreshEnabled)
      REMAP_WEBVIEW_PROP(refreshControlLightMode)
      REMAP_WEBVIEW_PROP(bounces)
@@ -469,7 +487,7 @@ index c0816b6..57a532a 100644
      REMAP_WEBVIEW_PROP(useSharedProcessPool)
      REMAP_WEBVIEW_STRING_PROP(userAgent)
      REMAP_WEBVIEW_PROP(sharedCookiesEnabled)
-@@ -512,7 +515,11 @@ static inline std::string nullSafeStringWithLength(id value) {
+@@ -512,7 +517,11 @@ static inline std::string nullSafeStringWithLength(id value) {
      if (!newViewProps.newSource.method.empty()) {
          [source setValue:RCTNSStringFromString(newViewProps.newSource.method) forKey:@"method"];
      }
@@ -482,7 +500,7 @@ index c0816b6..57a532a 100644
  
      [super updateProps:props oldProps:oldProps];
  }
-@@ -540,7 +547,7 @@ Class<RCTComponentViewProtocol> RNCWebViewCls(void)
+@@ -540,7 +549,7 @@ Class<RCTComponentViewProtocol> RNCWebViewCls(void)
  }
  
  - (void)loadUrl:(nonnull NSString *)url {
@@ -514,7 +532,7 @@ index 1f6bbfd..5aa97b5 100644
  #if !TARGET_OS_OSX
  @property (nonatomic, assign) WKDataDetectorTypes dataDetectorTypes;
 diff --git a/node_modules/react-native-webview/apple/RNCWebViewImpl.m b/node_modules/react-native-webview/apple/RNCWebViewImpl.m
-index 7f5c24d..a555dbb 100644
+index 7f5c24d..7311c9e 100644
 --- a/node_modules/react-native-webview/apple/RNCWebViewImpl.m
 +++ b/node_modules/react-native-webview/apple/RNCWebViewImpl.m
 @@ -23,6 +23,61 @@ static NSString *const MessageHandlerName = @"ReactNativeWebView";
@@ -627,7 +645,49 @@ index 7f5c24d..a555dbb 100644
  - (void)setScrollEnabled:(BOOL)scrollEnabled
  {
    _scrollEnabled = scrollEnabled;
-@@ -1149,6 +1215,11 @@ RCTAutoInsetsProtocol>
+@@ -1050,7 +1116,32 @@ RCTAutoInsetsProtocol>
+   if (!_scrollEnabled) {
+     scrollView.bounds = _webView.bounds;
+   }
+-  else if (_onScroll != nil) {
++  else {
++    [self sendScrollEvent:scrollView
++            isInteracting:scrollView.isDragging || scrollView.isDecelerating];
++  }
++}
++
++// OneKey patch: report whether a finger or its fling still drives the scroll
++// (isInteracting), and send one last event with it off when the scroll
++// stops, so a toolbar can follow the finger and settle on release.
++- (void)scrollViewDidEndDragging:(UIScrollView *)scrollView willDecelerate:(BOOL)decelerate
++{
++  if (!decelerate && _scrollEnabled) {
++    [self sendScrollEvent:scrollView isInteracting:NO];
++  }
++}
++
++- (void)scrollViewDidEndDecelerating:(UIScrollView *)scrollView
++{
++  if (_scrollEnabled) {
++    [self sendScrollEvent:scrollView isInteracting:NO];
++  }
++}
++
++- (void)sendScrollEvent:(UIScrollView *)scrollView isInteracting:(BOOL)isInteracting
++{
++  if (_onScroll != nil) {
+     NSDictionary *event = @{
+       @"contentOffset": @{
+         @"x": @(scrollView.contentOffset.x),
+@@ -1071,6 +1162,7 @@ RCTAutoInsetsProtocol>
+         @"height": @(scrollView.frame.size.height)
+       },
+       @"zoomScale": @(scrollView.zoomScale ?: 1),
++      @"isInteracting": @(isInteracting),
+     };
+     _onScroll(event);
+   }
+@@ -1149,6 +1241,11 @@ RCTAutoInsetsProtocol>
    customCertificatesForHost = certificates;
  }
  
@@ -639,7 +699,7 @@ index 7f5c24d..a555dbb 100644
  - (void)                    webView:(WKWebView *)webView
    didReceiveAuthenticationChallenge:(NSURLAuthenticationChallenge *)challenge
                    completionHandler:(void (^)(NSURLSessionAuthChallengeDisposition disposition, NSURLCredential * _Nullable))completionHandler
-@@ -1245,44 +1316,8 @@ RCTAutoInsetsProtocol>
+@@ -1245,44 +1342,8 @@ RCTAutoInsetsProtocol>
   * prompt
   */
  - (void)webView:(WKWebView *)webView runJavaScriptTextInputPanelWithPrompt:(NSString *)prompt defaultText:(NSString *)defaultText initiatedByFrame:(WKFrameInfo *)frame completionHandler:(void (^)(NSString *))completionHandler{
@@ -685,7 +745,7 @@ index 7f5c24d..a555dbb 100644
  }
  
  #if defined(__IPHONE_OS_VERSION_MAX_ALLOWED) && __IPHONE_OS_VERSION_MAX_ALLOWED >= 150000 /* iOS 15 */
-@@ -1294,6 +1329,12 @@ RCTAutoInsetsProtocol>
+@@ -1294,6 +1355,12 @@ RCTAutoInsetsProtocol>
                          initiatedByFrame:(WKFrameInfo *)frame
                                      type:(WKMediaCaptureType)type
                           decisionHandler:(void (^)(WKPermissionDecision decision))decisionHandler {
@@ -760,10 +820,18 @@ index a3eef13..b7c14a1 100644
       * Executes the JavaScript string.
       */
 diff --git a/node_modules/react-native-webview/lib/RNCWebViewNativeComponent.d.ts b/node_modules/react-native-webview/lib/RNCWebViewNativeComponent.d.ts
-index 8dd6cef..7e87fb0 100644
+index 8dd6cef..668cf77 100644
 --- a/node_modules/react-native-webview/lib/RNCWebViewNativeComponent.d.ts
 +++ b/node_modules/react-native-webview/lib/RNCWebViewNativeComponent.d.ts
-@@ -147,6 +147,7 @@ export interface NativeProps extends ViewProps {
+@@ -105,6 +105,7 @@ type ScrollEvent = Readonly<{
+     };
+     zoomScale?: Double;
+     responderIgnoreScroll?: boolean;
++    isInteracting?: boolean;
+ }>;
+ type WebViewRenderProcessGoneEvent = Readonly<{
+     didCrash: boolean;
+@@ -147,6 +148,7 @@ export interface NativeProps extends ViewProps {
      automaticallyAdjustContentInsets?: WithDefault<boolean, true>;
      autoManageStatusBarEnabled?: WithDefault<boolean, true>;
      bounces?: WithDefault<boolean, true>;
@@ -771,7 +839,7 @@ index 8dd6cef..7e87fb0 100644
      contentInset?: Readonly<{
          top?: Double;
          left?: Double;
-@@ -226,6 +227,7 @@ export interface NativeProps extends ViewProps {
+@@ -226,6 +228,7 @@ export interface NativeProps extends ViewProps {
      userAgent?: string;
      injectedJavaScriptObject?: string;
      paymentRequestEnabled?: boolean;
@@ -780,10 +848,26 @@ index 8dd6cef..7e87fb0 100644
  export interface NativeCommands {
      goBack: (viewRef: React.ElementRef<HostComponent<NativeProps>>) => void;
 diff --git a/node_modules/react-native-webview/lib/WebViewTypes.d.ts b/node_modules/react-native-webview/lib/WebViewTypes.d.ts
-index 998cc88..d8155cf 100644
+index 998cc88..b2f7260 100644
 --- a/node_modules/react-native-webview/lib/WebViewTypes.d.ts
 +++ b/node_modules/react-native-webview/lib/WebViewTypes.d.ts
-@@ -277,6 +277,13 @@ export interface IOSWebViewProps extends WebViewSharedProps {
+@@ -98,7 +98,14 @@ export type WebViewTerminatedEvent = NativeSyntheticEvent<WebViewNativeEvent>;
+ export type WebViewHttpErrorEvent = NativeSyntheticEvent<WebViewHttpError>;
+ export type WebViewRenderProcessGoneEvent = NativeSyntheticEvent<WebViewRenderProcessGoneDetail>;
+ export type WebViewOpenWindowEvent = NativeSyntheticEvent<WebViewOpenWindow>;
+-export type WebViewScrollEvent = NativeSyntheticEvent<NativeScrollEvent>;
++export type WebViewScrollEvent = NativeSyntheticEvent<NativeScrollEvent & {
++    /**
++     * Whether a finger or its fling still drives the scroll; the last event
++     * of a scroll has it `false`.
++     * @platform ios
++     */
++    isInteracting?: boolean;
++}>;
+ export type DataDetectorTypes = 'phoneNumber' | 'link' | 'address' | 'calendarEvent' | 'trackingNumber' | 'flightNumber' | 'lookupSuggestion' | 'none' | 'all';
+ export type OverScrollModeType = 'always' | 'content' | 'never';
+ export type CacheMode = 'LOAD_DEFAULT' | 'LOAD_CACHE_ONLY' | 'LOAD_CACHE_ELSE_NETWORK' | 'LOAD_NO_CACHE';
+@@ -277,6 +284,13 @@ export interface IOSWebViewProps extends WebViewSharedProps {
       * @platform ios
       */
      bounces?: boolean;
@@ -797,7 +881,7 @@ index 998cc88..d8155cf 100644
      /**
       * A floating-point number that determines how quickly the scroll view
       * decelerates after the user lifts their finger. You may also use the
-@@ -1113,5 +1120,11 @@ export interface WebViewSharedProps extends ViewProps {
+@@ -1113,5 +1127,11 @@ export interface WebViewSharedProps extends ViewProps {
       * Enables support for the Payment Request API for the WebView
       */
      paymentRequestEnabled?: boolean;
@@ -810,10 +894,18 @@ index 998cc88..d8155cf 100644
  }
  export {};
 diff --git a/node_modules/react-native-webview/src/RNCWebViewNativeComponent.ts b/node_modules/react-native-webview/src/RNCWebViewNativeComponent.ts
-index 7f4e6c4..99dfed5 100644
+index 7f4e6c4..6766a62 100644
 --- a/node_modules/react-native-webview/src/RNCWebViewNativeComponent.ts
 +++ b/node_modules/react-native-webview/src/RNCWebViewNativeComponent.ts
-@@ -188,6 +188,7 @@ export interface NativeProps extends ViewProps {
+@@ -130,6 +130,7 @@ type ScrollEvent = Readonly<{
+   };
+   zoomScale?: Double;
+   responderIgnoreScroll?: boolean;
++  isInteracting?: boolean;
+ }>;
+ 
+ type WebViewRenderProcessGoneEvent = Readonly<{
+@@ -188,6 +189,7 @@ export interface NativeProps extends ViewProps {
    automaticallyAdjustContentInsets?: WithDefault<boolean, true>;
    autoManageStatusBarEnabled?: WithDefault<boolean, true>;
    bounces?: WithDefault<boolean, true>;
@@ -821,7 +913,7 @@ index 7f4e6c4..99dfed5 100644
    contentInset?: Readonly<{
      top?: Double;
      left?: Double;
-@@ -295,6 +296,7 @@ export interface NativeProps extends ViewProps {
+@@ -295,6 +297,7 @@ export interface NativeProps extends ViewProps {
    userAgent?: string;
    injectedJavaScriptObject?: string;
    paymentRequestEnabled?: boolean;
@@ -897,10 +989,28 @@ index 3b0a38b..52e4bce 100644
        // !patch for Android only
        onLoadProgress?.(event);
 diff --git a/node_modules/react-native-webview/src/WebViewTypes.ts b/node_modules/react-native-webview/src/WebViewTypes.ts
-index eca8141..1dd4e14 100644
+index eca8141..8fe21a6 100644
 --- a/node_modules/react-native-webview/src/WebViewTypes.ts
 +++ b/node_modules/react-native-webview/src/WebViewTypes.ts
-@@ -405,6 +405,14 @@ export interface IOSWebViewProps extends WebViewSharedProps {
+@@ -159,7 +159,16 @@ export type WebViewRenderProcessGoneEvent =
+ 
+ export type WebViewOpenWindowEvent = NativeSyntheticEvent<WebViewOpenWindow>;
+ 
+-export type WebViewScrollEvent = NativeSyntheticEvent<NativeScrollEvent>;
++export type WebViewScrollEvent = NativeSyntheticEvent<
++  NativeScrollEvent & {
++    /**
++     * Whether a finger or its fling still drives the scroll; the last event
++     * of a scroll has it `false`.
++     * @platform ios
++     */
++    isInteracting?: boolean;
++  }
++>;
+ 
+ export type DataDetectorTypes =
+   | 'phoneNumber'
+@@ -405,6 +414,14 @@ export interface IOSWebViewProps extends WebViewSharedProps {
     */
    bounces?: boolean;
  
@@ -915,7 +1025,7 @@ index eca8141..1dd4e14 100644
    /**
     * A floating-point number that determines how quickly the scroll view
     * decelerates after the user lifts their finger. You may also use the
-@@ -1357,4 +1365,11 @@ export interface WebViewSharedProps extends ViewProps {
+@@ -1357,4 +1374,11 @@ export interface WebViewSharedProps extends ViewProps {
     * Enables support for the Payment Request API for the WebView
     */
    paymentRequestEnabled?: boolean;

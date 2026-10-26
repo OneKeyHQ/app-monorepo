@@ -193,8 +193,8 @@ function MobileBrowserHeader({
   // The row fades out in the first half of a collapse while it slides up
   // under the status bar. iOS 26: the exit button and the account chip are
   // Liquid Glass capsules, like the bottom bar; glass must not sit under a
-  // fading parent, so there the row only slides and each capsule fades its
-  // own glass and contents (same range).
+  // fading parent, so there the row only slides and each capsule shrinks its
+  // glass away and fades its contents (same range).
   const isGlass = isLiquidGlassAvailable();
   const fade = useMemo<ICapsuleFade>(
     () => ({ progress, range: [BROWSER_CHROME_CROSSFADE_POINT, 1] }),

@@ -1,4 +1,3 @@
-import { useMemo } from 'react';
 import type { PropsWithChildren } from 'react';
 
 import Animated, {
@@ -12,13 +11,12 @@ import {
   Stack,
   XStack,
   isLiquidGlassAvailable,
+  useThemeName,
 } from '@onekeyhq/components';
 import type { IXStackProps } from '@onekeyhq/components';
 
 import { BROWSER_CHROME_CAPSULE_HEIGHT } from '../../config/Animation.constants';
 import { usePageBaseColor } from '../../utils/pageThemeColor';
-
-import { useIsProgressPast } from './browserChrome';
 
 import type { StyleProp, ViewStyle } from 'react-native';
 import type { SharedValue } from 'react-native-reanimated';
@@ -51,11 +49,6 @@ export interface ICapsuleFade {
   reverse?: boolean;
 }
 
-// Where a capsule's fade is half done: its glass switches there.
-function getCapsuleFadeMidpoint([start, end]: [number, number]) {
-  return (start + end) / 2;
-}
-
 // Opacity of a capsule's contents along its fade. Callers that fade some
 // children differently (the address capsule's domain) apply it per child.
 export function useCapsuleFadeStyle(fade: ICapsuleFade | undefined) {
@@ -77,7 +70,42 @@ export function useCapsuleFadeStyle(fade: ICapsuleFade | undefined) {
   }, [progress, start, end, reverse]);
 }
 
-const GLASS_FADE_SECONDS = 0.2;
+// A glass capsule shrinks to this along its fade (contents fading too), like
+// Telegram's toolbar glass, rather than switching its glass off: the glass
+// draws into a point instead of vanishing mid-morph, and nothing switches
+// on the JS thread while a finger scrubs the chrome back and forth.
+const GLASS_COLLAPSED_SCALE = 0.001;
+
+function useCapsuleShrinkStyle(fade: ICapsuleFade | undefined) {
+  const progress = fade?.progress;
+  const [start, end] = fade?.range ?? [0, 0];
+  const reverse = !!fade?.reverse;
+  return useAnimatedStyle(() => {
+    if (!progress) {
+      return {};
+    }
+    return {
+      transform: [
+        {
+          scale: interpolate(
+            progress.value,
+            [start, end],
+            reverse ? [1, GLASS_COLLAPSED_SCALE] : [GLASS_COLLAPSED_SCALE, 1],
+            'clamp',
+          ),
+        },
+      ],
+    };
+  }, [progress, start, end, reverse]);
+}
+
+// Telegram's panel glass tint: a faint white, so icons and text keep their
+// contrast over busy page content passing behind the glass.
+export function useChromeGlassTint() {
+  return useThemeName() === 'dark'
+    ? 'rgba(255,255,255,0.025)'
+    : 'rgba(255,255,255,0.1)';
+}
 
 type IBrowserChromeCapsuleProps = PropsWithChildren<{
   flex?: number;
@@ -100,9 +128,8 @@ type IBrowserChromeCapsuleProps = PropsWithChildren<{
 //
 // A glass capsule is never faded with opacity: glass under an ancestor whose
 // opacity animates to 0 stops rendering and can leave later glass broken
-// (expo/expo#50097, #41024, #51575). Its glass fades natively instead (an
-// animated glassEffectStyle switch at the middle of the fade, Expo's
-// recommended way) and its contents fade on their own.
+// (expo/expo#50097, #41024, #51575). Its glass shrinks away instead (a
+// transform, see GLASS_COLLAPSED_SCALE) and its contents fade on their own.
 export function BrowserChromeCapsule({
   children,
   flex,
@@ -114,20 +141,8 @@ export function BrowserChromeCapsule({
 }: IBrowserChromeCapsuleProps) {
   const isGlass = isLiquidGlassAvailable();
   const fadeStyle = useCapsuleFadeStyle(fade);
-  const glassHidden = useIsProgressPast(
-    // Only glass needs the switch; without it no JS update at the midpoint.
-    isGlass ? fade?.progress : undefined,
-    fade ? getCapsuleFadeMidpoint(fade.range) : 0,
-    fade?.reverse ? 'above' : 'below',
-  );
-  const glassEffectStyle = useMemo(
-    () => ({
-      style: glassHidden ? ('none' as const) : ('regular' as const),
-      animate: true,
-      animationDuration: GLASS_FADE_SECONDS,
-    }),
-    [glassHidden],
-  );
+  const shrinkStyle = useCapsuleShrinkStyle(isGlass ? fade : undefined);
+  const glassTint = useChromeGlassTint();
   const row = (
     <XStack
       h={height}
@@ -148,16 +163,21 @@ export function BrowserChromeCapsule({
     );
   }
   if (isGlass) {
-    return (
+    const glass = (
       <GlassView
         isInteractive
-        glassEffectStyle={glassEffectStyle}
+        tintColor={glassTint}
         style={{ borderRadius, flex }}
       >
         <GlassHeaderProvider>
           {fade ? <Animated.View style={fadeStyle}>{row}</Animated.View> : row}
         </GlassHeaderProvider>
       </GlassView>
+    );
+    return fade ? (
+      <Animated.View style={[{ flex }, shrinkStyle]}>{glass}</Animated.View>
+    ) : (
+      glass
     );
   }
   // No glass here, so the solid pill simply fades as a whole. A column
