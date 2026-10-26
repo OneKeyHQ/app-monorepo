@@ -44,6 +44,7 @@ const settings: IVaultSettings = {
   accountDeriveInfo,
   impl: IMPL_ZCASH,
   coinTypeDefault: COINTYPE_ZCASH,
+  hideTxUtxoListWhenPending: true,
   // No minTransferAmount/utxoDustAmount override: the real dust floor is
   // ZCASH_SHIELDING_THRESHOLD_ZAT, enforced by the Shield action.
   // Frozen = total - spendable (pending confirmations + in-flight locks);
