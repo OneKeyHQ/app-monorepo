@@ -595,11 +595,18 @@ export function useUniversalBorrowAction({
     [amount, effectiveCheckAmountState.checkAmountMessage],
   );
 
-  // Supplying with nothing typed: until the market answers, its last answer
-  // for an empty amount, so the form opens with the market's rows
+  // Supplying with nothing typed: until the market first answers, its last
+  // answer for an empty amount, so the form opens with the market's rows.
+  // Only until then: a box emptied later keeps its last figures a moment
+  // (dimmed), which this answer would replace at once
   let { transactionConfirmation } = effectiveTransactionConfirmationState;
+  const hasAnsweredRef = useRef(false);
+  if (transactionConfirmation) {
+    hasAnsweredRef.current = true;
+  }
   if (
     !transactionConfirmation &&
+    !hasAnsweredRef.current &&
     supplyEmptyKey &&
     normalizedAmount === '0' &&
     shouldFetchTransactionConfirmation

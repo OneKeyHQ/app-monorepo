@@ -350,7 +350,11 @@ export function EarnFormValue({
       minHeight={VALUE_LINE_HEIGHT}
       minWidth={showsPlaceholder ? VALUE_PLACEHOLDER_WIDTH : undefined}
     >
-      <EarnFadingPlaceholder visible={showsPlaceholder} bottom={0}>
+      <EarnFadingPlaceholder
+        visible={showsPlaceholder}
+        leavesAtOnce={!hasValue}
+        bottom={0}
+      >
         <Skeleton.BodyMd w={VALUE_PLACEHOLDER_WIDTH} />
       </EarnFadingPlaceholder>
       {hasValue ? (
@@ -409,6 +413,7 @@ function OutcomeValues({
     <YStack position="relative" ai="flex-end">
       <EarnFadingPlaceholder
         visible={!hasValues && Boolean(isLoading)}
+        leavesAtOnce={!hasValues}
         height="$6"
       >
         <Skeleton.BodyLg w={96} />

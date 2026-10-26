@@ -15,13 +15,21 @@ const entries = new Map<string, IEntry>();
 
 const isFresh = (entry: IEntry) => Date.now() - entry.at < FRESH_MS;
 
-export function readFirstFrame<T>(key: string): T | undefined {
+export function readFirstFrame<T>(
+  key: string,
+  {
+    orOlder = false,
+  }: {
+    // The rows before an amount are labels and terms: an older answer still
+    // opens the form complete, and the form asks again at once
+    orOlder?: boolean;
+  } = {},
+): T | undefined {
   const entry = entries.get(key);
   if (!entry || entry.value === undefined) {
     return undefined;
   }
-  if (!isFresh(entry)) {
-    entries.delete(key);
+  if (!orOlder && !isFresh(entry)) {
     return undefined;
   }
   return entry.value as T;

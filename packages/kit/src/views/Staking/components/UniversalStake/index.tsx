@@ -998,7 +998,7 @@ export function UniversalStake({
   });
   const [emptyAmountConfirmation, setEmptyAmountConfirmation] = useState<
     IStakeTransactionConfirmation | undefined
-  >(() => readFirstFrame(emptyAmountKey));
+  >(() => readFirstFrame(emptyAmountKey, { orOlder: true }));
   useEffect(() => {
     let cancelled = false;
     fetchTransactionConfirmation('0')

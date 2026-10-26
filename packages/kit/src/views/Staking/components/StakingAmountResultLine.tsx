@@ -35,7 +35,11 @@ export function StakingAmountResultLine({
       <XStack position="relative" flexShrink={1} jc="flex-end" minHeight={20}>
         {/* The placeholder sits where the figure goes and fades out as it
             fades in */}
-        <EarnFadingPlaceholder visible={showsPlaceholder} bottom={0}>
+        <EarnFadingPlaceholder
+          visible={showsPlaceholder}
+          leavesAtOnce={isPlaceholder}
+          bottom={0}
+        >
           <Skeleton.BodyMd w={96} />
         </EarnFadingPlaceholder>
         {/* A figure fades in as the placeholder fades out; one that

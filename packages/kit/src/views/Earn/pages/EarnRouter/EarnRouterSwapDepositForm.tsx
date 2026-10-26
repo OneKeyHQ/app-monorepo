@@ -214,6 +214,7 @@ function useDepositSummary({
         symbol: request.symbol,
         vault: request.vault,
       }),
+      { orOlder: true },
     );
     return staking
       ? { staking, stakingAmount: '0', lendingLoading: false }
@@ -351,6 +352,7 @@ function useDepositSummary({
           symbol: request.symbol,
           vault: request.vault,
         }),
+        { orOlder: true },
       );
       if (staking) {
         return { ...summary, staking, stakingAmount: '0' };
@@ -585,6 +587,16 @@ export function EarnRouterSwapDepositForm({
   // form do: the line says what it would bring, the alert why it can't, and
   // a dash keeps meaning no route
   const [quoteState, setQuoteState] = useState<IQuoteState>(NO_QUOTE);
+  const quoteStateRef = useRef(quoteState);
+  quoteStateRef.current = quoteState;
+  // The quote in hand when the box was emptied: the same amount typed again
+  // while the emptied box keeps its figures takes it back as it was, so every
+  // figure returns at once. Left empty, it goes. The press asks for a fresh
+  // quote anyway
+  const emptiedQuoteRef = useRef<{
+    amount: string;
+    quote: IFetchQuoteResult;
+  }>(undefined);
   const canQuote = hasAmount && isSwappable;
   useEffect(() => {
     // While the swap runs the estimate stays as it went to the wallet
@@ -592,7 +604,18 @@ export function EarnRouterSwapDepositForm({
       return;
     }
     if (!canQuote) {
+      const shown = quoteStateRef.current;
+      emptiedQuoteRef.current =
+        shown.quote && shown.amount
+          ? { amount: shown.amount, quote: shown.quote }
+          : undefined;
       setQuoteState(NO_QUOTE);
+      return;
+    }
+    const emptied = emptiedQuoteRef.current;
+    emptiedQuoteRef.current = undefined;
+    if (emptied?.amount === amount) {
+      setQuoteState({ amount, quote: emptied.quote, isLoading: false });
       return;
     }
     const controller = new AbortController();
@@ -626,7 +649,13 @@ export function EarnRouterSwapDepositForm({
       controller.abort();
     };
   }, [account, amount, canQuote, fromToken, isIdle, toToken]);
-  const quote = quoteState.amount === amount ? quoteState.quote : undefined;
+  // The emptied box's quote, taken back as the same amount is typed again
+  const takenBackQuote =
+    hasAmount && emptiedQuoteRef.current?.amount === amount
+      ? emptiedQuoteRef.current.quote
+      : undefined;
+  const quote =
+    quoteState.amount === amount ? quoteState.quote : takenBackQuote;
   const isQuoting =
     isIdle && canQuote && !quote && quoteState.reason === undefined;
   const hasNoRoute =
@@ -657,6 +686,8 @@ export function EarnRouterSwapDepositForm({
   const lineShownSummaryAmountRef = useRef<string | undefined>(undefined);
   const shownSummaryAmountRef = useRef<string | undefined>(undefined);
   const shownLendingAmountRef = useRef<string | undefined>(undefined);
+  // The provider's answer whose figures are on screen
+  const shownSummaryRef = useRef<IDepositSummary | undefined>(undefined);
   // Emptied: what was on screen stays a moment (the figures dimmed, or the
   // placeholders of an estimate on its way), so a digit deleted and typed
   // again is a change rather than a blink or a restart; left empty, dashes
@@ -672,11 +703,16 @@ export function EarnRouterSwapDepositForm({
   wasNoRouteRef.current = hasNoRoute;
   const [, setSettleTick] = useState(0);
   useEffect(() => {
-    if (hasAmount || !isEmptiedRef.current) {
+    if (hasAmount) {
+      return undefined;
+    }
+    if (!isEmptiedRef.current) {
+      emptiedQuoteRef.current = undefined;
       return undefined;
     }
     const timer = setTimeout(() => {
       isEmptiedRef.current = false;
+      emptiedQuoteRef.current = undefined;
       setSettleTick((tick) => tick + 1);
     }, EMPTY_SETTLE_MS);
     return () => clearTimeout(timer);
@@ -703,7 +739,7 @@ export function EarnRouterSwapDepositForm({
   const payFiat = hasAmount
     ? toFiat(amountValue.times(payToken.priceUsd).toFixed())
     : '';
-  const depositSummary = useDepositSummary({
+  const answeredSummary = useDepositSummary({
     networkId,
     request: summaryRequest,
     amount: shownDeposit,
@@ -712,7 +748,25 @@ export function EarnRouterSwapDepositForm({
   // An answer shows when it is for this amount's estimate, or is the one on
   // screen (dimmed while the next is worked out). One for an earlier
   // estimate that was never on screen (it came in after the amount
-  // changed, or under the red line) waits behind placeholders instead
+  // changed, or under the red line) doesn't take that one's place: the
+  // figures on screen stay, dimmed, until this amount's replace them, as
+  // the market's rows do. With none on screen, placeholders
+  const answeredAmount = answeredSummary.stakingAmount;
+  const keptSummary = shownSummaryRef.current;
+  const canShowAnswered =
+    (Boolean(depositAmount) && answeredAmount === depositAmount) ||
+    (answeredAmount !== undefined &&
+      answeredAmount === shownSummaryAmountRef.current);
+  const depositSummary =
+    !canShowAnswered &&
+    keptSummary?.stakingAmount !== undefined &&
+    keptSummary.stakingAmount === shownSummaryAmountRef.current
+      ? {
+          ...answeredSummary,
+          staking: keptSummary.staking,
+          stakingAmount: keptSummary.stakingAmount,
+        }
+      : answeredSummary;
   const summaryAmount = depositSummary.stakingAmount;
   const isSummaryCurrent =
     Boolean(depositAmount) && summaryAmount === depositAmount;
@@ -725,6 +779,11 @@ export function EarnRouterSwapDepositForm({
     (summaryAmount !== undefined &&
       summaryAmount === lineShownSummaryAmountRef.current);
   const lendingAmount = depositSummary.lendingAmount;
+  // Left empty, dashes: nothing of the last amount's is on screen any more,
+  // so its answer can't come back as the one shown
+  if (!hasAmount && !isEmptySettling) {
+    shownLendingAmountRef.current = undefined;
+  }
   const canShowLending =
     lendingAmount !== undefined &&
     (lendingAmount === shownLendingAmountRef.current ||
@@ -1062,10 +1121,12 @@ export function EarnRouterSwapDepositForm({
   const isSummaryLoading = isQuoting || isSummaryUpdating || isEmptySettling;
   if (!isSummaryPlaceholder) {
     shownSummaryAmountRef.current = summaryAmount;
+    shownSummaryRef.current = depositSummary;
   } else if (!isSummaryLoading) {
     // Dashes: nothing of the last amount's is on screen any more
     shownSummaryAmountRef.current = undefined;
     lineShownSummaryAmountRef.current = undefined;
+    shownSummaryRef.current = undefined;
   }
   // Pendle's quote split as its own form splits it: what you get at
   // maturity is the result, the rates are rows

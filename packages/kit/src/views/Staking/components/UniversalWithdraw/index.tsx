@@ -245,6 +245,27 @@ const EMPTY_SHOWN_WITHDRAW_QUOTE: IShownWithdrawQuote = {
   amount: '',
 };
 
+// Sell Early before its first quote. Pendle quotes nothing for an empty
+// amount (its answer has the maturity alone), so the form holds the rows a
+// sell quote brings in place with dashes, with the note under them: as the
+// last sell quote had them (every market has the same), else their titles
+let lastPendleSellQuote: IStakeTransactionConfirmation | undefined;
+const PENDLE_SELL_TITLES_QUOTE: IStakeTransactionConfirmation = {
+  rewards: EARN_DESKTOP_DEMO_COPY.pendleSellRowTitles.map((title) => ({
+    title: { text: title },
+    description: { text: '–' },
+  })),
+  transactionDetails: {
+    type: 'view',
+    data: {
+      transactionDetails: EARN_DESKTOP_DEMO_COPY.pendleSellDetailTitles.map(
+        (title) => ({ title: { text: title }, description: { text: '–' } }),
+      ),
+    },
+  },
+  tip: { type: 'info', text: { text: EARN_DESKTOP_DEMO_COPY.pendleSellNote } },
+};
+
 // The ways out side by side, as Lido shows its two withdrawal routes: each
 // card says when it pays and what it costs, in the server's words. The one
 // picked is a lighter card with a check, no border, as the guide's vault
@@ -490,7 +511,7 @@ export function UniversalWithdraw({
   });
   const [emptyAmountConfirmation, setEmptyAmountConfirmation] = useState<
     IStakeTransactionConfirmation | undefined
-  >(() => readFirstFrame(emptyAmountKey));
+  >(() => readFirstFrame(emptyAmountKey, { orOlder: true }));
 
   const withdrawPathConfirmBoxes = useMemo(() => {
     return (
@@ -1775,7 +1796,15 @@ export function UniversalWithdraw({
   );
   if (transactionConfirmation) {
     lastConfirmationRef.current = transactionConfirmation;
+    if (isPendleProvider && transactionConfirmation.transactionDetails) {
+      lastPendleSellQuote = transactionConfirmation;
+    }
   }
+  // Sell Early before its first quote: the rows and the note a quote brings
+  const pendleSellStandIn =
+    isPendleProvider && !isCancelWithdrawal
+      ? (lastPendleSellQuote ?? PENDLE_SELL_TITLES_QUOTE)
+      : undefined;
   // A box emptied keeps what was on screen a moment (the figures dimmed, or
   // the placeholders of a quote on its way), so a digit deleted and typed
   // again is a change rather than a blink or a restart; left empty, the
@@ -1804,7 +1833,10 @@ export function UniversalWithdraw({
     : shownQuote.confirmation;
   const showDashes = !shownConfirmation;
   const rowsConfirmation =
-    shownConfirmation ?? lastConfirmationRef.current ?? emptyAmountConfirmation;
+    shownConfirmation ??
+    lastConfirmationRef.current ??
+    pendleSellStandIn ??
+    emptyAmountConfirmation;
   let isQuoteUpdating = quoteLoading;
   if (!isCancelWithdrawal) {
     isQuoteUpdating = isPositiveAmount
@@ -1867,9 +1899,17 @@ export function UniversalWithdraw({
   const isLidoWithdraw = earnUtils.isLidoProvider({
     providerName: providerName ?? '',
   });
+  // The last estimate stays with its amount, as the deposit form's does: an
+  // emptied box clears the request, and the same amount typed again shows
+  // its fee at once with the other figures
+  const lastEstimateFeeRef = useRef(estimateFee);
+  if (estimateFee) {
+    lastEstimateFeeRef.current = estimateFee;
+  }
+  const keptEstimateFee = estimateFee ?? lastEstimateFeeRef.current;
   const feeFigure = useEarnFeeFigure({
-    fee: estimateFee?.resp,
-    feeAmount: estimateFee?.amount,
+    fee: keptEstimateFee?.resp,
+    feeAmount: keptEstimateFee?.amount,
     amountValue,
     isPositiveAmount,
     hasShownFigures: shownQuote.amount !== '' || isEmptiedHolding,
@@ -2217,7 +2257,9 @@ export function UniversalWithdraw({
       ? formTransactionTip
       : undefined;
   const footnoteText =
-    pendleTipText ?? (isFormTipNote ? formTransactionTip?.text : undefined);
+    pendleTipText ??
+    (transactionConfirmation ? undefined : pendleSellStandIn?.tip?.text) ??
+    (isFormTipNote ? formTransactionTip?.text : undefined);
 
   // What is wrong with the amount, in red: under the amount box, or under
   // the second box where there is one

@@ -13,13 +13,16 @@ const LEAVE_MS = 220;
  * A placeholder over a figure's place while the figure is on its way. It
  * fades out by its own opacity and goes once faded: a fade done by leaving
  * (exitStyle) is cut short when the form renders again as it starts, which
- * it does as the figures come in
+ * it does as the figures come in. Followed by a dash rather than a figure,
+ * it goes at once, as the dash shows at once: fading, it would show as a
+ * bar ending in the dash
  */
 export function EarnFadingPlaceholder({
   visible,
+  leavesAtOnce,
   children,
   ...props
-}: { visible: boolean } & IYStackProps) {
+}: { visible: boolean; leavesAtOnce?: boolean } & IYStackProps) {
   const [isLeaving, setIsLeaving] = useState(false);
   const [wasVisible, setWasVisible] = useState(visible);
   if (wasVisible !== visible) {
@@ -33,7 +36,7 @@ export function EarnFadingPlaceholder({
     const timer = setTimeout(() => setIsLeaving(false), LEAVE_MS);
     return () => clearTimeout(timer);
   }, [isLeaving]);
-  if (!visible && !isLeaving) {
+  if (!visible && (!isLeaving || leavesAtOnce)) {
     return null;
   }
   return (

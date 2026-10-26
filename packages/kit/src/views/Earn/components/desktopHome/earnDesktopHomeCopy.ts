@@ -24,6 +24,17 @@ export const EARN_DESKTOP_DEMO_COPY = {
   // The rows a Pendle quote brings first, also in its own words, held in
   // place with dashes until the first quote is in
   pendleRowTitles: [...PENDLE_RATE_ROW_TITLES, 'Min. Received'],
+  // Sell Early before its first quote, in the server's own words for them:
+  // the rows a sell quote brings, held in place with dashes, the rows in
+  // "Details" and the note under them
+  pendleSellRowTitles: [
+    'Effective Fixed APY',
+    'Maturity',
+    'At Maturity You Get',
+  ],
+  pendleSellDetailTitles: ['Market Reference APY', 'Min. Received', 'Fee'],
+  pendleSellNote:
+    'Selling Early May Result in a Lower Value Than Holding to Maturity',
   // Paying with a token Pendle doesn't take, swap then buy: the rates only,
   // as the buy's own figures come with its quote at the second step
   pendleRateRowTitles: PENDLE_RATE_ROW_TITLES,
