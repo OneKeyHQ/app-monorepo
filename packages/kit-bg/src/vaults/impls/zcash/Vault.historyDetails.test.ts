@@ -9,14 +9,26 @@ import { EOnChainHistoryTransferType } from '@onekeyhq/shared/types/history';
 
 import Vault from './Vault';
 
-it.each([
-  [false, false],
-  [true, false],
-  [false, true],
-  [true, true],
-])(
-  'keeps known payment facts, withUTXOs=%s, selfPayment=%s',
-  async (withUTXOs, selfPayment) => {
+it.each(
+  (
+    [
+      [false, false, 1],
+      [true, false, 1],
+      [false, true, 1],
+      [true, true, 1],
+      [false, false, 2],
+      [true, false, 2],
+      [false, true, 2],
+      [true, true, 2],
+    ] as const
+  ).flatMap((entry) =>
+    [false, true].flatMap((pending) =>
+      [false, true].map((paused) => [...entry, pending, paused] as const),
+    ),
+  ),
+)(
+  'keeps known payment facts, withUTXOs=%s, selfPayment=%s, outputCount=%s, pending=%s, paused=%s',
+  async (withUTXOs, selfPayment, outputCount, pending, paused) => {
     const memoBinary = { hex: 'ff'.repeat(512), hash: '11'.repeat(32) };
     const payment = {
       pool: 'ironwood',
@@ -32,7 +44,10 @@ it.each([
       backgroundApi: {
         simpleDb: {
           privacyChainState: {
-            getZcashPrivacyModeState: async () => ({ intent: 'on' }),
+            getZcashPrivacyModeState: async () =>
+              paused
+                ? { intent: 'off', resumeFromHeight: 100 }
+                : { intent: 'on' },
           },
         },
         // The self-payment reached the u1 that Receive displays.
@@ -47,18 +62,28 @@ it.each([
         getHistory: async () => [
           {
             txid: 'synthetic-tx',
-            minedHeight: 100,
+            minedHeight: pending ? null : 100,
             timestamp: 1,
             fee: '10000',
-            pending: false,
+            pending,
             poolIds: [4],
           },
         ],
         getSyncProgress: async () => ({ chainTip: 110 }),
         getTxDetails: async () => ({
-          spent: [{ pool: 'ironwood', value: '222345', address: null }],
+          spent: [
+            {
+              pool: 'ironwood',
+              value: String(210_000 + 12_345 * outputCount),
+              address: null,
+            },
+          ],
           received: [
-            ...(selfPayment ? [payment] : []),
+            ...(selfPayment
+              ? Array.from({ length: outputCount }, () => ({
+                  ...payment,
+                }))
+              : []),
             {
               pool: 'ironwood',
               value: '200000',
@@ -67,7 +92,11 @@ it.each([
               memo: 'change memo',
             },
           ],
-          external: selfPayment ? [] : [payment],
+          external: selfPayment
+            ? []
+            : Array.from({ length: outputCount }, () => ({
+                ...payment,
+              })),
         }),
       }),
     });
@@ -88,16 +117,21 @@ it.each([
       poolId: 4,
       isOwn: selfPayment,
     });
-    expect(detail.receives).toHaveLength(withUTXOs ? 2 : 1);
+    expect(detail.receives).toHaveLength(outputCount + (withUTXOs ? 1 : 0));
     if (withUTXOs)
-      expect(detail.receives?.[1]).toMatchObject({
+      expect(detail.receives?.[outputCount]).toMatchObject({
         amount: '0.002',
         isChange: true,
         isOwn: true,
       });
-    expect(detail.memo).toBe('payment memo');
-    expect(detail.binaryMemos).toEqual([memoBinary]);
+    expect(detail.memo).toBe(
+      Array.from({ length: outputCount }, () => 'payment memo').join('\n'),
+    );
+    expect(detail.binaryMemos).toEqual(
+      Array.from({ length: outputCount }, () => memoBinary),
+    );
     expect(detail.gasFee).toBe('0.0001');
-    expect(detail.confirmations).toBe(11);
+    expect(detail.confirmations).toBe(pending ? undefined : 11);
+    expect(detail.broadcastOutcomeUnknown ?? true).toBe(false);
   },
 );

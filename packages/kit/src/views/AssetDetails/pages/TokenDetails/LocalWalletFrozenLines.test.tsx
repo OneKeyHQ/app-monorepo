@@ -3,6 +3,8 @@ import type { ReactNode } from 'react';
 
 import { render, screen } from '@testing-library/react';
 
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+
 import { LocalWalletFrozenLines } from './LocalWalletFrozenLines';
 
 jest.mock('react-intl', () => ({
@@ -10,7 +12,9 @@ jest.mock('react-intl', () => ({
     formatMessage: ({ id }: { id: string }, values?: Record<string, string>) =>
       Object.entries(values ?? {}).reduce(
         (text, [key, value]) => text.replace(`{${key}}`, value),
-        id,
+        id === ETranslations.privacy_balance_small_change__msg
+          ? 'Includes {amount} of small change that’s too small to send on its own.'
+          : id,
       ),
   }),
 }));

@@ -52,6 +52,31 @@ describe('getZcashConfirmFrom', () => {
     });
   });
 
+  it('omits a single spending address already shown by the account row', () => {
+    const tx = buildTx({
+      zcashMode: 'transparent',
+      inputs: [input(T1_A, 0), input(T1_A, 1)],
+    });
+    expect(getZcashConfirmFrom(tx, T1_A)).toBeUndefined();
+  });
+
+  it('keeps distinct or multiple spending addresses visible', () => {
+    const tx = buildTx({
+      zcashMode: 'transparent',
+      inputs: [input(T1_B, 0)],
+    });
+    expect(getZcashConfirmFrom(tx, T1_A)).toEqual({
+      kind: 'addresses',
+      addresses: [T1_B],
+    });
+    expect(
+      getZcashConfirmFrom(
+        { ...tx, inputs: [input(T1_A, 0), input(T1_B, 1)] },
+        T1_A,
+      ),
+    ).toEqual({ kind: 'addresses', addresses: [T1_A, T1_B] });
+  });
+
   it('shows the shielded pool name', () => {
     expect(
       getZcashConfirmFrom(buildTx({ zcashSpendSource: 'ironwood' })),

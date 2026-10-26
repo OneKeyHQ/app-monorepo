@@ -7,6 +7,7 @@ import {
   Checkbox,
   DatePicker,
   Dialog,
+  Input,
   ScrollView,
   SegmentControl,
   SizableText,
@@ -22,30 +23,32 @@ import type {
   ILocalWalletAccountState,
   ILocalWalletSyncProgress,
 } from '@onekeyhq/kit-bg/src/vaults/localWallet/types';
+import { IMPL_ZCASH } from '@onekeyhq/shared/src/engine/engineConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
 // Recovery controls for a local-wallet account. Every action goes through
 // servicePrivacyChain; the copy speaks of "the chain" rather than a coin.
 
 export type IBirthdayFormState = {
-  mode: 'saved-birthday' | 'month';
-  month: Date | null;
+  mode: 'saved-birthday' | 'date' | 'height';
+  date: Date | null;
+  height?: string;
   // Overrides `mode`: start at the chain's earliest birthday.
   fromEarliest?: boolean;
 };
 
 export type IEarliestBirthday = { height: number; timestamp: number };
 
-// Enable defaults to a month, like Ledger: the recommended one when known,
-// otherwise the current month, with the disclosure saying when to change it.
+// Preserve the previous fallback scan date while offering day precision.
 export function createEnableBirthdayForm(hintTimestamp?: number): {
   current: IBirthdayFormState;
 } {
   const now = new Date();
   return {
     current: {
-      mode: 'month',
-      month:
+      mode: 'date',
+      date:
         typeof hintTimestamp === 'number'
           ? new Date(hintTimestamp)
           : new Date(now.getFullYear(), now.getMonth(), 1),
@@ -56,18 +59,43 @@ export function createEnableBirthdayForm(hintTimestamp?: number): {
 export function readEnableBirthday(
   form: IBirthdayFormState,
   earliest: IEarliestBirthday | undefined,
+  networkId: string,
 ): { birthdayHeight?: number; birthdayTimestamp?: number } | undefined {
   if (form.fromEarliest && earliest) {
     return { birthdayHeight: earliest.height };
   }
-  if (!form.month) return undefined;
+  if (form.mode === 'height') {
+    const value = form.height?.trim() ?? '';
+    const height = Number(value);
+    // wasm-bindgen passes Zcash heights as u32; larger integers would wrap.
+    const exceedsRuntimeHeight =
+      networkUtils.getNetworkImpl({ networkId }) === IMPL_ZCASH &&
+      height > 4_294_967_295;
+    if (
+      !/^\d+$/.test(value) ||
+      !Number.isSafeInteger(height) ||
+      exceedsRuntimeHeight ||
+      height < Math.max(1, earliest?.height ?? 1)
+    ) {
+      return undefined;
+    }
+    return { birthdayHeight: height };
+  }
+  if (form.mode !== 'date') return undefined;
+  if (!form.date || !Number.isFinite(form.date.getTime())) return undefined;
   return {
     birthdayTimestamp: new Date(
-      form.month.getFullYear(),
-      form.month.getMonth(),
-      1,
+      form.date.getFullYear(),
+      form.date.getMonth(),
+      form.date.getDate(),
     ).getTime(),
   };
+}
+
+export function getBirthdayInputError(mode: IBirthdayFormState['mode']) {
+  return mode === 'height'
+    ? ETranslations.global_bulk_accounts_page_number_error
+    : ETranslations.global_select_date;
 }
 
 // Shared by both enable entry points. Repair dialogs must NOT show it: the
@@ -95,14 +123,16 @@ export function PrivacyEnableDisclosure({
 }
 
 export function BirthdayDialogForm({
+  networkId,
   formRef,
   currentBirthdayHeight,
-  monthOnly = false,
+  allowSavedBirthday = true,
   earliestBirthday,
 }: {
+  networkId: string;
   formRef: { current: IBirthdayFormState };
   currentBirthdayHeight?: number;
-  monthOnly?: boolean;
+  allowSavedBirthday?: boolean;
   earliestBirthday?: IEarliestBirthday;
 }) {
   const intl = useIntl();
@@ -110,18 +140,25 @@ export function BirthdayDialogForm({
   const [fromEarliest, setFromEarliest] = useState(
     formRef.current.fromEarliest ?? false,
   );
-  const [month, setMonth] = useState(formRef.current.month);
+  const [date, setDate] = useState(formRef.current.date);
+  const [height, setHeight] = useState(formRef.current.height ?? '');
+  const invalidHeight =
+    height.length > 0 &&
+    !readEnableBirthday(
+      { mode: 'height', date: null, height },
+      earliestBirthday,
+      networkId,
+    );
   let editor: React.ReactNode = null;
-  if (mode === 'month') {
+  if (mode === 'date') {
     editor = (
-      <YStack gap="$2">
-        <DatePicker.Month
-          testID="local-wallet-birthday-month-input"
+      <YStack testID="local-wallet-birthday-date-input">
+        <DatePicker
           title={intl.formatMessage({
-            id: ETranslations.privacy_sync_start_month__title,
+            id: ETranslations.global_select_date,
           })}
           placeholder={intl.formatMessage({
-            id: ETranslations.global_select_month,
+            id: ETranslations.global_select_date,
           })}
           minDate={
             earliestBirthday
@@ -129,16 +166,37 @@ export function BirthdayDialogForm({
               : new Date(2022, 4, 1)
           }
           maxDate={new Date()}
-          value={month}
+          value={date}
           onChange={(value) => {
-            setMonth(value);
-            formRef.current.month = value;
+            setDate(value);
+            formRef.current.date = value;
           }}
         />
-        <SizableText size="$bodySm" color="$textSubdued">
-          {intl.formatMessage({
-            id: ETranslations.privacy_sync_start_month__desc,
+      </YStack>
+    );
+  } else if (mode === 'height') {
+    editor = (
+      <YStack gap="$2">
+        <Input
+          testID="local-wallet-birthday-height-input"
+          keyboardType="number-pad"
+          placeholder={intl.formatMessage({
+            id: ETranslations.global_block_height,
           })}
+          value={height}
+          error={invalidHeight}
+          onChangeText={(value) => {
+            setHeight(value);
+            formRef.current.height = value;
+          }}
+        />
+        <SizableText
+          testID="local-wallet-birthday-height-range"
+          size="$bodySm"
+          color={invalidHeight ? '$textCritical' : '$textSubdued'}
+        >
+          {intl.formatMessage({ id: ETranslations.global_block_height })} ≥{' '}
+          {Math.max(1, earliestBirthday?.height ?? 1).toLocaleString('en-US')}
         </SizableText>
       </YStack>
     );
@@ -156,8 +214,9 @@ export function BirthdayDialogForm({
           )}
         </SizableText>
       ) : null}
-      {monthOnly || fromEarliest ? null : (
+      {fromEarliest ? null : (
         <SegmentControl
+          testID="local-wallet-birthday-mode"
           fullWidth
           value={mode}
           onChange={(v) => {
@@ -166,17 +225,28 @@ export function BirthdayDialogForm({
             formRef.current.mode = next;
           }}
           options={[
+            ...(allowSavedBirthday
+              ? [
+                  {
+                    label: intl.formatMessage({
+                      id: ETranslations.privacy_sync_start_saved__title,
+                    }),
+                    value: 'saved-birthday',
+                    testID: 'local-wallet-birthday-mode-saved',
+                  },
+                ]
+              : []),
             {
-              label: intl.formatMessage({
-                id: ETranslations.privacy_sync_start_saved__title,
-              }),
-              value: 'saved-birthday',
+              label: intl.formatMessage({ id: ETranslations.global_date }),
+              value: 'date',
+              testID: 'local-wallet-birthday-mode-date',
             },
             {
               label: intl.formatMessage({
-                id: ETranslations.privacy_sync_start_approx_month__title,
+                id: ETranslations.global_block_height,
               }),
-              value: 'month',
+              value: 'height',
+              testID: 'local-wallet-birthday-mode-height',
             },
           ]}
         />
@@ -262,7 +332,11 @@ export function ScanRepairControl({
   const intl = useIntl();
   const handlePress = useCallback(() => {
     const formRef: { current: IBirthdayFormState } = {
-      current: { mode: 'saved-birthday', month: null },
+      current: {
+        mode: 'saved-birthday',
+        date: null,
+        height: currentBirthdayHeight?.toString(),
+      },
     };
     Dialog.confirm({
       title: intl.formatMessage({
@@ -274,6 +348,7 @@ export function ScanRepairControl({
       }),
       renderContent: (
         <BirthdayDialogForm
+          networkId={networkId}
           formRef={formRef}
           currentBirthdayHeight={currentBirthdayHeight}
           earliestBirthday={earliestBirthday}
@@ -283,33 +358,36 @@ export function ScanRepairControl({
         id: ETranslations.privacy_sync_resync__action,
       }),
       onConfirm: async ({ preventClose }) => {
-        const { month, fromEarliest } = formRef.current;
-        let mode: IBirthdayFormState['mode'] | 'height' = formRef.current.mode;
+        const { fromEarliest } = formRef.current;
+        let mode = formRef.current.mode;
         let birthdayTimestamp: number | undefined;
         let birthdayHeightValue: number | undefined;
         if (fromEarliest && earliestBirthday) {
           mode = 'height';
           birthdayHeightValue = earliestBirthday.height;
-        } else if (mode === 'month') {
-          if (!month) {
+        } else if (mode === 'date' || mode === 'height') {
+          const birthday = readEnableBirthday(
+            formRef.current,
+            earliestBirthday,
+            networkId,
+          );
+          if (!birthday) {
             Toast.error({
               title: intl.formatMessage({
-                id: ETranslations.global_select_month,
+                id: getBirthdayInputError(mode),
               }),
             });
             preventClose();
             return;
           }
-          birthdayTimestamp = new Date(
-            month.getFullYear(),
-            month.getMonth(),
-            1,
-          ).getTime();
+          birthdayTimestamp = birthday.birthdayTimestamp;
+          birthdayHeightValue = birthday.birthdayHeight;
         }
         await backgroundApiProxy.servicePrivacyChain.repairLocalChainData({
           networkId,
           accountId,
-          mode,
+          // The existing timestamp API accepts any day, despite its mode name.
+          mode: mode === 'date' ? 'month' : mode,
           birthdayTimestamp,
           birthdayHeight: birthdayHeightValue,
         });

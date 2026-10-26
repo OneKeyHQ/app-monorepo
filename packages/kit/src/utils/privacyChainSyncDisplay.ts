@@ -1,9 +1,10 @@
+import type { IPrivacyChainScanState } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type {
   ILocalWalletSyncErrorKind,
   ILocalWalletSyncProgress,
 } from '@onekeyhq/kit-bg/src/vaults/localWallet/types';
 import type { IVaultSettings } from '@onekeyhq/kit-bg/src/vaults/types';
-import { ETranslations, ETranslationsMock } from '@onekeyhq/shared/src/locale';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import type { IntlShape } from 'react-intl';
 
@@ -68,9 +69,9 @@ export function formatPrivacyChainSyncError(
   }
   const id =
     kind === 'runtimeUnavailable'
-      ? ETranslationsMock.privacy_error_runtime_unavailable__msg
-      : ETranslationsMock.privacy_sync_failed_retrying__msg;
-  return intl.formatMessage({ id, defaultMessage: id });
+      ? ETranslations.privacy_error_runtime_unavailable__msg
+      : ETranslations.privacy_sync_failed_retrying__msg;
+  return intl.formatMessage({ id });
 }
 
 // One decimal: a multi-year backfill advances well under 1% per minute, and a
@@ -121,6 +122,61 @@ export function getPrivacyChainBackfillProgress(
         !worst || remaining(value) > remaining(worst) ? value : worst,
       undefined,
     );
+}
+
+// A queued account with no cursor must not hide work already advancing on the same chain.
+export function getPrivacyChainNetworkSyncDisplay({
+  state,
+  networkId,
+  accountPaused = false,
+}: {
+  state: IPrivacyChainScanState;
+  networkId: string;
+  accountPaused?: boolean;
+}) {
+  const isStorageUnsupported =
+    state.storageUnsupportedNetworkIds.includes(networkId);
+  const isRunning =
+    !isStorageUnsupported && state.boostingNetworkIds.includes(networkId);
+  const isPaused =
+    !isStorageUnsupported &&
+    !isRunning &&
+    (accountPaused || state.pausedNetworkIds.includes(networkId));
+  const isHeldByData =
+    !isStorageUnsupported &&
+    !isRunning &&
+    !isPaused &&
+    state.dataBlockedNetworkIds.includes(networkId);
+  const entries = Object.entries(state.progress).filter(([key]) =>
+    key.startsWith(`${networkId}:`),
+  );
+  const known = Object.fromEntries(
+    entries.filter(([, value]) => value.backfillScannedHeight !== null),
+  );
+  const backfilling =
+    isRunning || entries.some(([, value]) => !value.isBackfillComplete);
+  const entry =
+    getPrivacyChainBackfillProgress(known, networkId) ??
+    (backfilling ? undefined : Object.values(known)[0]);
+  const hasSyncError =
+    isStorageUnsupported ||
+    (!isPaused && state.syncErrorByNetworkId[networkId] !== undefined);
+  const labelId = hasSyncError
+    ? ETranslations.global_sync_error
+    : getPrivacyChainSyncLabel({
+        paused: isPaused,
+        held: isHeldByData,
+        preparing: Object.keys(known).length === 0,
+        backfilling,
+      });
+  return {
+    entry,
+    labelId,
+    isRunning,
+    isPaused,
+    isHeldByData,
+    isStorageUnsupported,
+  };
 }
 
 // The chain furthest from done, by fraction: block counts are not comparable

@@ -4,7 +4,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
-import { ETranslations, ETranslationsMock } from '@onekeyhq/shared/src/locale';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { localWalletText } from './messages';
 import {
@@ -39,7 +39,7 @@ describe('toLocalWalletUserFacingError', () => {
       workerFailure('zcash worker: handshake timed out'),
     );
     expect(out).toMatchObject({
-      message: ETranslationsMock.privacy_error_runtime_unavailable__msg,
+      message: ETranslations.privacy_error_runtime_unavailable__msg,
       autoToast: true,
     });
   });
@@ -50,7 +50,7 @@ describe('toLocalWalletUserFacingError', () => {
         new OneKeyLocalError('WebEmbed bridge call timeout (60s)'),
       ),
     ).toMatchObject({
-      message: ETranslationsMock.privacy_error_runtime_unavailable__msg,
+      message: ETranslations.privacy_error_runtime_unavailable__msg,
       autoToast: true,
     });
   });
@@ -144,7 +144,7 @@ it('reaches the standard error toast', async () => {
       EAppEventBusNames.ShowToast,
       expect.objectContaining({
         method: 'error',
-        title: ETranslationsMock.privacy_error_runtime_unavailable__msg,
+        title: ETranslations.privacy_error_runtime_unavailable__msg,
       }),
     );
   } finally {
@@ -174,7 +174,7 @@ describe('toastLocalWalletError', () => {
     await expect(
       new Service().enable(workerFailure('xmr worker: crashed')),
     ).rejects.toMatchObject({
-      message: ETranslationsMock.privacy_error_runtime_unavailable__msg,
+      message: ETranslations.privacy_error_runtime_unavailable__msg,
       autoToast: true,
     });
   });

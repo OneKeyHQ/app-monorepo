@@ -1,3 +1,4 @@
+import { Mutex } from 'async-mutex';
 import { debounce } from 'lodash';
 
 import {
@@ -23,12 +24,17 @@ import { EDecodedTxActionType } from '@onekeyhq/shared/types/tx';
 
 import localDb from '../dbs/local/localDb';
 import { ELocalDBStoreNames } from '../dbs/local/localDBStoreNames';
-import { getVaultSettings } from '../vaults/settings';
+import { getVaultSettings, getVaultSettingsImpls } from '../vaults/settings';
 
 import ServiceBase from './ServiceBase';
 
 @backgroundClass()
 class ServiceSignature extends ServiceBase {
+  // The archive row and its ID counter are written in different DB buckets.
+  private transactionArchiveMutex = new Mutex();
+
+  private zcashArchiveGeneration = new Map<string, number>();
+
   private debouncedAddConnectedSite:
     | ((url: string, networkIds: string[], addresses: string[]) => void)
     | null = null;
@@ -94,7 +100,9 @@ class ServiceSignature extends ServiceBase {
   @backgroundMethod()
   public async addSignedTransaction(params: ICreateSignedTransactionParams) {
     try {
-      await localDb.addSignedTransaction(params);
+      await this.transactionArchiveMutex.runExclusive(() =>
+        localDb.addSignedTransaction(params),
+      );
     } catch (e: unknown) {
       const errMsg = (e as Error).message;
       defaultLogger.signatureRecord.normal.failToCreateSignedTransaction({
@@ -113,17 +121,37 @@ class ServiceSignature extends ServiceBase {
     const networkId =
       _networkId !== getNetworkIdsMap().onekeyall ? _networkId : undefined;
     const isSearch = Boolean(networkId || address);
-    const limitOffset = isSearch ? undefined : { limit, offset };
     const { records } = await localDb.getAllRecords({
       name: ELocalDBStoreNames.SignedTransaction,
-      ...limitOffset,
     });
-    const promises = records.map(async (item) => {
+    const { networks } =
+      await this.backgroundApi.serviceNetwork.getAllNetworks();
+    const supportedImpls = new Set(getVaultSettingsImpls());
+    const networkById = new Map(
+      networks
+        .filter((network) => supportedImpls.has(network.impl))
+        .map((network) => [network.id, network]),
+    );
+    // Unsupported old records must not poison a selected network or consume a page.
+    let selected = records
+      .filter(
+        (item) =>
+          networkById.has(item.networkId) &&
+          (!networkId || item.networkId === networkId) &&
+          (!address ||
+            item.address.toLowerCase().includes(address.toLowerCase())),
+      )
+      .toSorted((a, b) => b.createdAt - a.createdAt);
+    if (!isSearch) {
+      selected = selected.slice(
+        offset ?? 0,
+        limit === undefined ? undefined : (offset ?? 0) + limit,
+      );
+    }
+    const promises = selected.map(async (item) => {
       const { dataStringify, ...rest } = item;
       const data = JSON.parse(dataStringify) as ISignedTransaction['data'];
-      const network = await this.backgroundApi.serviceNetwork.getNetwork({
-        networkId: item.networkId,
-      });
+      const network = networkById.get(item.networkId)!;
       const vaultSettings =
         await this.backgroundApi.serviceNetwork.getVaultSettings({
           networkId: network.id,
@@ -135,22 +163,7 @@ class ServiceSignature extends ServiceBase {
         vaultSettings,
       };
     });
-    let items = await Promise.all(promises);
-    if (isSearch) {
-      items = items
-        .filter((item) => {
-          let match = true;
-          if (networkId) {
-            match = item.networkId === networkId;
-          }
-          if (address && match) {
-            match = item.address.toLowerCase().includes(address.toLowerCase());
-          }
-          return match;
-        })
-        .toSorted((a, b) => b.createdAt - a.createdAt);
-    }
-    return items;
+    return Promise.all(promises);
   }
 
   @backgroundMethod()
@@ -273,7 +286,23 @@ class ServiceSignature extends ServiceBase {
   private async addSignedTransactionFromSend(
     data: ISendTxOnSuccessData,
     sourceInfo?: IDappSourceInfo,
+    privacyChainAccountId?: string,
+    signatureEpoch?: string,
   ) {
+    const addRecord = async (params: ICreateSignedTransactionParams) => {
+      if (privacyChainAccountId) {
+        await localDb.addSignedTransaction({
+          ...params,
+          data: {
+            ...params.data,
+            privacyChainAccountId,
+            ...(signatureEpoch ? { privacyChainEpoch: signatureEpoch } : {}),
+          },
+        });
+      } else {
+        await this.addSignedTransaction(params);
+      }
+    };
     const { signedTx, decodedTx } = data;
     const actions = decodedTx.actions;
     const networkId = decodedTx.networkId;
@@ -294,7 +323,7 @@ class ServiceSignature extends ServiceBase {
     if (swapInfo) {
       const fromToken = swapInfo.sender.token;
       const toToken = swapInfo.receiver.token;
-      await this.addSignedTransaction({
+      await addRecord({
         networkId,
         address,
         title,
@@ -322,7 +351,7 @@ class ServiceSignature extends ServiceBase {
       return;
     }
     if (stakingInfo) {
-      await this.addSignedTransaction({
+      await addRecord({
         networkId,
         address,
         title,
@@ -345,7 +374,7 @@ class ServiceSignature extends ServiceBase {
     if (approveAction && approveAction.tokenApprove) {
       const tokenApprove = approveAction.tokenApprove;
       if (tokenApprove) {
-        await this.addSignedTransaction({
+        await addRecord({
           networkId,
           address,
           title,
@@ -372,7 +401,7 @@ class ServiceSignature extends ServiceBase {
       const tokens = transferAction.assetTransfer.sends;
       const tokenSent = tokens.find((token) => !token.isNative) || tokens[0];
       if (tokenSent) {
-        await this.addSignedTransaction({
+        await addRecord({
           networkId,
           address,
           title,
@@ -391,7 +420,7 @@ class ServiceSignature extends ServiceBase {
         return;
       }
     }
-    await this.addSignedTransaction({
+    await addRecord({
       networkId,
       address,
       title,
@@ -406,11 +435,38 @@ class ServiceSignature extends ServiceBase {
   async addItemFromSendProcess(
     data: ISendTxOnSuccessData,
     sourceInfo?: IDappSourceInfo,
+    zcashSignatureContext?: { generation: number; signatureEpoch?: string },
   ) {
+    const isZcash = data.decodedTx.networkId === getNetworkIdsMap().zec;
     try {
-      // A chain that discovers funds locally keeps its private activity off
-      // this archive: deleting local privacy data is supposed to remove what
-      // ties this device to that activity, and an archive entry outlives it.
+      if (isZcash) {
+        const { accountId } = data.decodedTx;
+        if (!accountId) return;
+        const context =
+          zcashSignatureContext ??
+          (await this.getZcashSignatureRecordContext(accountId));
+        await this.transactionArchiveMutex.runExclusive(async () => {
+          if (
+            context.generation !==
+              this.getZcashSignatureRecordGeneration(accountId) ||
+            context.signatureEpoch !==
+              (await this.backgroundApi.simpleDb.privacyChainState.getAccountSignatureEpoch(
+                { accountId },
+              )) ||
+            !(await this.backgroundApi.serviceAccount.getDBAccountSafe({
+              accountId,
+            }))
+          )
+            return;
+          await this.addSignedTransactionFromSend(
+            data,
+            sourceInfo,
+            accountId,
+            context.signatureEpoch,
+          );
+        });
+        return;
+      }
       const settings = await getVaultSettings({
         networkId: data.decodedTx.networkId,
       });
@@ -419,8 +475,38 @@ class ServiceSignature extends ServiceBase {
       }
       await this.addSignedTransactionFromSend(data, sourceInfo);
     } catch (e) {
-      console.error(e);
+      if (isZcash) {
+        // Recording must not turn an already broadcast payment into a retry.
+        console.error('[zcash] signature archive write failed');
+      } else {
+        console.error(e);
+      }
     }
+  }
+
+  // In-flight sends cannot outlive this background JS runtime. Full removal
+  // and Clear all use this fence; privacy deletion has its own persisted epoch.
+  getZcashSignatureRecordGeneration(accountId: string): number {
+    const generation = this.zcashArchiveGeneration.get(accountId) ?? 0;
+    this.zcashArchiveGeneration.set(accountId, generation);
+    return generation;
+  }
+
+  async getZcashSignatureRecordContext(
+    accountId: string,
+  ): Promise<{ generation: number; signatureEpoch?: string }> {
+    const generation = this.getZcashSignatureRecordGeneration(accountId);
+    const signatureEpoch =
+      await this.backgroundApi.simpleDb.privacyChainState.getAccountSignatureEpoch(
+        { accountId },
+      );
+    return { generation, signatureEpoch };
+  }
+
+  async listZcashSignedTransactionAccountIds(): Promise<string[]> {
+    return localDb.listSignedTransactionAccountIds({
+      networkId: getNetworkIdsMap().zec,
+    });
   }
 
   // Everything this device recorded about what the account signed. The chain
@@ -429,10 +515,48 @@ class ServiceSignature extends ServiceBase {
   async removeSignedTransactionsForAccount({
     networkId,
     accountId,
+    deletionRequestId,
   }: {
     networkId: string;
     accountId: string;
+    deletionRequestId?: string;
   }): Promise<void> {
+    if (networkId === getNetworkIdsMap().zec) {
+      await this.transactionArchiveMutex.runExclusive(async () => {
+        if (deletionRequestId) {
+          if (
+            !(await this.backgroundApi.simpleDb.privacyChainState.isAccountDeletionPending(
+              { accountId, requestId: deletionRequestId },
+            ))
+          )
+            return;
+        } else {
+          this.zcashArchiveGeneration.set(
+            accountId,
+            this.getZcashSignatureRecordGeneration(accountId) + 1,
+          );
+        }
+        const account =
+          await this.backgroundApi.serviceAccount.getDBAccountSafe({
+            accountId,
+          });
+        const address = account
+          ? await this.backgroundApi.serviceAccount.getAccountAddressForApi({
+              networkId,
+              accountId,
+            })
+          : undefined;
+        await localDb.removeSignedTransactions({
+          networkId,
+          accountId,
+          address,
+          ...(deletionRequestId
+            ? { preservePrivacyChainEpoch: deletionRequestId }
+            : {}),
+        });
+      });
+      return;
+    }
     const address =
       await this.backgroundApi.serviceAccount.getAccountAddressForApi({
         networkId,
@@ -441,7 +565,9 @@ class ServiceSignature extends ServiceBase {
     if (!address) {
       return;
     }
-    await localDb.removeSignedTransactionsByAddress({ networkId, address });
+    await this.transactionArchiveMutex.runExclusive(() =>
+      localDb.removeSignedTransactions({ networkId, address }),
+    );
   }
 
   private async addSignMessageFromDapp(data: {
@@ -492,9 +618,14 @@ class ServiceSignature extends ServiceBase {
 
   @backgroundMethod()
   async deleteAllSignatureRecords() {
-    await localDb.removeAllSignedTransaction();
-    await localDb.removeAllSignedMessage();
-    await localDb.removeAllConnectedSite();
+    for (const [accountId, generation] of this.zcashArchiveGeneration) {
+      this.zcashArchiveGeneration.set(accountId, generation + 1);
+    }
+    await this.transactionArchiveMutex.runExclusive(async () => {
+      await localDb.removeAllSignedTransaction();
+      await localDb.removeAllSignedMessage();
+      await localDb.removeAllConnectedSite();
+    });
   }
 }
 

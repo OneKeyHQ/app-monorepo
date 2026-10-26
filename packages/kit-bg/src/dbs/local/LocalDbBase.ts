@@ -958,6 +958,31 @@ type IResolveExistingDeviceParams = {
   vendor?: EHardwareVendor;
 };
 
+function signatureRecordOwnership(dataStringify: string): {
+  accountId?: string;
+  epoch?: string;
+} {
+  try {
+    const data: unknown = JSON.parse(dataStringify);
+    if (data && typeof data === 'object' && 'privacyChainAccountId' in data) {
+      return {
+        accountId:
+          typeof data.privacyChainAccountId === 'string'
+            ? data.privacyChainAccountId
+            : undefined,
+        epoch:
+          'privacyChainEpoch' in data &&
+          typeof data.privacyChainEpoch === 'string'
+            ? data.privacyChainEpoch
+            : undefined,
+      };
+    }
+  } catch {
+    // Legacy rows without readable ownership can only match an exact address.
+  }
+  return {};
+}
+
 export abstract class LocalDbBase extends LocalDbBaseContainer {
   private deviceStateEventOrderByDeviceId = new Map<
     string,
@@ -10460,24 +10485,57 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     );
   }
 
-  async removeSignedTransactionsByAddress({
+  async listSignedTransactionAccountIds({
     networkId,
-    address,
   }: {
     networkId: string;
-    address: string;
-  }) {
-    const all = await this.getAllRecords({
+  }): Promise<string[]> {
+    const { records } = await this.getAllRecords({
       name: ELocalDBStoreNames.SignedTransaction,
     });
-    const ids = all.records
-      .filter(
-        (item) => item.networkId === networkId && item.address === address,
-      )
+    return [
+      ...new Set(
+        records.flatMap((item) => {
+          const accountId =
+            item.networkId === networkId
+              ? signatureRecordOwnership(item.dataStringify).accountId
+              : undefined;
+          return accountId ? [accountId] : [];
+        }),
+      ),
+    ];
+  }
+
+  async removeSignedTransactions({
+    networkId,
+    accountId,
+    address,
+    preservePrivacyChainEpoch,
+  }: {
+    networkId: string;
+    accountId?: string;
+    address?: string;
+    preservePrivacyChainEpoch?: string;
+  }): Promise<void> {
+    const { records } = await this.getAllRecords({
+      name: ELocalDBStoreNames.SignedTransaction,
+    });
+    const ids = records
+      .filter((item) => {
+        if (item.networkId !== networkId) return false;
+        if (accountId === undefined)
+          return address !== undefined && item.address === address;
+        const { accountId: owner, epoch } = signatureRecordOwnership(
+          item.dataStringify,
+        );
+        return owner !== undefined
+          ? owner === accountId &&
+              (!preservePrivacyChainEpoch ||
+                epoch !== preservePrivacyChainEpoch)
+          : !!address && item.address === address;
+      })
       .map((item) => item.id);
-    if (ids.length === 0) {
-      return;
-    }
+    if (!ids.length) return;
     await this.withSpaceFreeingTransaction(
       EIndexedDBBucketNames.archive,
       async (tx) => {

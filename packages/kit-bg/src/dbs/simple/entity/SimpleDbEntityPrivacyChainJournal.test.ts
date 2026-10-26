@@ -67,6 +67,40 @@ it('ignores only expired signing reservations while retaining signed pending inp
 });
 
 describe('privacy chain journal: zcash transparent', () => {
+  it('does not settle a replaced journal or release its reservations', async () => {
+    const { entity } = createEntity();
+    const accountId = 'account';
+    const tx: IZcashTransparentPendingTx = {
+      ownerId: 'old-owner',
+      rawTx: '00',
+      txid: 'aa'.repeat(32),
+      spentOutpoints: [{ txid: 'bb'.repeat(32), vout: 0 }],
+      expiryHeight: 100,
+      createdAt: 1,
+      broadcastState: 'unknown',
+    };
+    await entity.saveTransparentPendingTx({ accountId, tx });
+    const replacement = { ...tx, ownerId: 'new-owner', rawTx: '01' };
+    await entity.saveTransparentPendingTx({ accountId, tx: replacement });
+    await entity.settleTransparentPendingTx({
+      accountId,
+      txid: tx.txid,
+      expectedTx: tx,
+    });
+    expect(await entity.listTransparentPendingTxs({ accountId })).toEqual([
+      replacement,
+    ]);
+    expect(await entity.listTransparentOutpointsInUse({ accountId })).toEqual(
+      new Set([`${tx.spentOutpoints[0].txid}:0`]),
+    );
+    await entity.settleTransparentPendingTx({
+      accountId,
+      txid: tx.txid,
+      expectedTx: replacement,
+    });
+    expect(await entity.listTransparentPendingTxs({ accountId })).toEqual([]);
+  });
+
   it('does not restore a pending transaction after its account reservation was deleted', async () => {
     const { entity } = createEntity();
     const outpoint = { txid: '11'.repeat(32), vout: 0 };

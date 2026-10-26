@@ -1,3 +1,7 @@
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+
+import { localWalletText } from '../vaults/localWallet/messages';
+
 import type {
   ILocalWalletAccount,
   ILocalWalletAccountState,
@@ -79,7 +83,10 @@ function createService({
   const service = Object.assign(Object.create(ServicePrivacyChain.prototype), {
     backgroundApi: {
       simpleDb: {
-        privacyChainState: { listPendingAccountDeletions: async () => [] },
+        privacyChainState: {
+          listPendingAccountDeletions: async () => [],
+          getAccountEpoch: async () => undefined,
+        },
       },
       serviceAccount: {
         getWalletSafe,
@@ -95,6 +102,7 @@ function createService({
     enableMutexByNetwork: new Map<string, Mutex>(),
     repairMutexByAccount: new Map<string, Mutex>(),
     storageUnsupportedNetworkIds: new Set<string>(),
+    orphanCleanupGeneration: new Map<string, number>(),
     ...overrides,
   }) as IService;
   return { service, getWalletSafe };
@@ -119,7 +127,9 @@ describe('temp wallets cannot turn on privacy', () => {
 
     await expect(
       service.enableLocalWalletAccount({ networkId, accountId: tempAccountId }),
-    ).rejects.toThrow('hidden wallets');
+    ).rejects.toThrow(
+      localWalletText(ETranslations.privacy_temp_wallet_unavailable__desc),
+    );
     expect(enableAccount).not.toHaveBeenCalled();
   });
 

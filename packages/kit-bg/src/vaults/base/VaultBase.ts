@@ -1063,6 +1063,7 @@ export abstract class VaultBase extends VaultBaseChainOnly {
       amount: transfer.amount,
       label: transfer.label,
       isOwn: transfer.isOwn,
+      isChange: transfer.isChange,
       isShielded,
       icon,
       name,

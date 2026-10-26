@@ -6,13 +6,14 @@ import {
   backgroundMethod,
   backgroundMethodForDev,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { getPresetNetworks } from '@onekeyhq/shared/src/config/presetNetworks';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
-import { ETranslationsMock } from '@onekeyhq/shared/src/locale';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -30,6 +31,7 @@ import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 import { privacyChainAtom } from '../states/jotai/atoms';
 import { vaultFactory } from '../vaults/factory';
 import { planLocalWalletLifecycle } from '../vaults/localWallet/lifecycle';
+import { localWalletText } from '../vaults/localWallet/messages';
 import {
   clearLocalWalletBalances,
   listLastLocalWalletBalanceAccountIds,
@@ -167,6 +169,7 @@ type ILocalWalletLifecycleTarget = {
   runtimeAccountIds?: string[];
   // A newer, durably authorized enable survives the old runtime cleanup.
   preserveAuthorization?: boolean;
+  deletionRequestId?: string;
 };
 
 // Chain-agnostic singleton behind vaultSettings.localWallet: runs the
@@ -808,6 +811,54 @@ class ServicePrivacyChain extends ServiceBase {
     this.scheduleBackgroundSync(0);
   }
 
+  @backgroundMethod()
+  @toastLocalWalletError()
+  async refreshLocalWalletAccount({
+    networkId,
+    accountId,
+  }: {
+    networkId: string;
+    accountId: string;
+  }): Promise<void> {
+    const capability = await this.requireAccountCapability(networkId);
+    const state = await capability.getAccountState({ accountId });
+    if (!state.enabled) return;
+    await this.assertNotTempWalletAccount(accountId);
+    // An explicit refresh checks even an unchanged tip. It also resumes a
+    // manual pause through the same path as the floating control.
+    for (const key of this.runtimeSyncState.keys()) {
+      if (key.startsWith(`${networkId}|`)) this.runtimeSyncState.delete(key);
+    }
+    await this.startForegroundBoost({
+      networkId,
+      accountId,
+      trigger: 'manual-sync',
+    });
+  }
+
+  @backgroundMethod()
+  async getLocalWalletLastSyncedAt({
+    networkId,
+    accountId,
+  }: {
+    networkId: string;
+    accountId: string;
+  }): Promise<number | undefined> {
+    const record =
+      await this.backgroundApi.simpleDb.privacyChainCache.getLastSync({
+        accountId,
+      });
+    if (
+      record?.networkId !== networkId ||
+      !(await this.backgroundApi.simpleDb.privacyChainState.isAccountSyncCurrent(
+        { accountId, epoch: record.epoch, allowPaused: true },
+      ))
+    ) {
+      return undefined;
+    }
+    return record.syncedAt;
+  }
+
   async onLocalWalletAccountsChanged({
     networkId,
     accountIds,
@@ -823,6 +874,7 @@ class ServicePrivacyChain extends ServiceBase {
     });
     this.clearSyncFailureBackoff(networkId);
     this.markLocalWalletOrphanCleanupDue(networkId);
+    const generation = this.orphanCleanupGeneration.get(networkId);
     for (const accountId of accountIds) {
       if (backfillActive) {
         this.backfillActiveByAccount[accountId] = true;
@@ -832,20 +884,31 @@ class ServicePrivacyChain extends ServiceBase {
     }
     if (!backfillActive) {
       await privacyChainAtom.set((value) => {
+        if (generation !== this.orphanCleanupGeneration.get(networkId)) {
+          return value;
+        }
         const progress = { ...value.progress };
         for (const accountId of accountIds) {
           delete progress[`${networkId}:${accountId}`];
         }
         return { ...value, progress };
       });
+      await this.refreshAutoBoost({
+        networkId,
+        capability: await this.requireAccountCapability(networkId),
+      });
     }
-    await this.init();
-    if (backfillActive && !this.boostPausedByNetwork[networkId]) {
+    if (
+      backfillActive &&
+      generation === this.orphanCleanupGeneration.get(networkId) &&
+      !this.boostPausedByNetwork[networkId]
+    ) {
       // An explicit enable needs a visible progress/consent control even
       // before the scheduler can publish the first scanned block.
       this.foregroundBoostRequestedByNetwork[networkId] = true;
       await this.publishBoostingNetworks();
     }
+    await this.init();
     this.scheduleBackgroundSync(0);
     appEventBus.emit(EAppEventBusNames.RefreshTokenList, undefined);
     appEventBus.emit(EAppEventBusNames.RefreshHistoryList, undefined);
@@ -901,7 +964,11 @@ class ServicePrivacyChain extends ServiceBase {
         )
           throw e;
         // Finish cache/UI cleanup, but never report a successful key deletion.
-        if (step === 'viewingKeys:delete' || event === 'deleteLocalData')
+        if (
+          step === 'viewingKeys:delete' ||
+          step === 'signatureRecords:delete' ||
+          event === 'deleteLocalData'
+        )
           cleanupResult.error ??=
             e instanceof Error
               ? e
@@ -1035,6 +1102,7 @@ class ServicePrivacyChain extends ServiceBase {
       case 'deviceState:rewritePendingDrop':
       case 'genericStorage:clearedWithAppStorage':
       case 'localHistory:clearedWithAppStorage':
+      case 'signatureRecords:clearedWithAppStorage':
       case 'walletState:clearedWithAppStorage':
         return;
       case 'runtimeRows:unlessAlias':
@@ -1121,6 +1189,18 @@ class ServicePrivacyChain extends ServiceBase {
         await backgroundApi.simpleDb.privacyChainXmrSent.removeAccounts({
           accountIds,
         });
+        return;
+      case 'signatureRecords:delete':
+        if (networkId && networkId !== getNetworkIdsMap().zec) return;
+        await forEachAccount((accountId) =>
+          backgroundApi.serviceSignature.removeSignedTransactionsForAccount({
+            networkId: getNetworkIdsMap().zec,
+            accountId,
+            ...(target.deletionRequestId
+              ? { deletionRequestId: target.deletionRequestId }
+              : {}),
+          }),
+        );
         return;
       case 'displayCaches:delete':
         if (scope === 'app') {
@@ -1672,6 +1752,7 @@ class ServicePrivacyChain extends ServiceBase {
       const seenRuntimeStateKeys = new Set<string>();
       const prunableNetworkIds = new Set<string>();
       const liveNetworkIds = new Set<string>();
+      const enumerationGenerations = new Map(this.orphanCleanupGeneration);
       const candidates: IPrivacyChainSyncCandidate[] = [];
       for (const networkId of await this.getLocalWalletNetworkIds()) {
         try {
@@ -1798,6 +1879,19 @@ class ServicePrivacyChain extends ServiceBase {
           ILocalWalletCapability['syncGroup']
         > | null = null;
         try {
+          const syncEpochs = new Map(
+            await Promise.all(
+              candidate.accountIds.map(
+                async (accountId) =>
+                  [
+                    accountId,
+                    await this.backgroundApi.simpleDb.privacyChainState.getAccountEpoch(
+                      { accountId },
+                    ),
+                  ] as const,
+              ),
+            ),
+          );
           // One bounded group turn (journal replay + registration + sync).
           syncPromise = candidate.capability.syncGroup({
             accountIds: candidate.accountIds,
@@ -1845,7 +1939,17 @@ class ServicePrivacyChain extends ServiceBase {
           }
           // Publish while the wallet is still ours, so readers subscribe to this
           // instead of each polling (and queuing behind a pass).
-          await this.publishScanProgress(candidate);
+          await this.publishScanProgress(
+            candidate,
+            result.synced
+              ? new Map(
+                  (result.caughtUpAccountIds ?? []).map((id) => [
+                    id,
+                    syncEpochs.get(id),
+                  ]),
+                )
+              : undefined,
+          );
           if (result.synced) {
             await this.runLocalWalletOrphanCleanupIfDue(candidate);
           }
@@ -1944,21 +2048,33 @@ class ServicePrivacyChain extends ServiceBase {
 
       // prune accounts that no longer exist so stale entries can't block
       // future rescans
-      for (const staleId of Object.keys(this.backfillActiveByAccount)) {
-        if (!seenAccountIds.has(staleId)) {
-          delete this.backfillActiveByAccount[staleId];
+      const accountSetUnchanged = [...this.orphanCleanupGeneration].every(
+        ([networkId, generation]) =>
+          generation === (enumerationGenerations.get(networkId) ?? 0),
+      );
+      if (accountSetUnchanged) {
+        for (const staleId of Object.keys(this.backfillActiveByAccount)) {
+          if (!seenAccountIds.has(staleId)) {
+            delete this.backfillActiveByAccount[staleId];
+          }
+        }
+        for (const runtimeStateKey of this.runtimeSyncState.keys()) {
+          if (!seenRuntimeStateKeys.has(runtimeStateKey)) {
+            this.runtimeSyncState.delete(runtimeStateKey);
+          }
         }
       }
-      for (const runtimeStateKey of this.runtimeSyncState.keys()) {
-        if (!seenRuntimeStateKeys.has(runtimeStateKey)) {
-          this.runtimeSyncState.delete(runtimeStateKey);
-        }
-      }
+      const canPruneNetwork = (networkId: string) =>
+        prunableNetworkIds.has(networkId) &&
+        (this.orphanCleanupGeneration.get(networkId) ?? 0) ===
+          (enumerationGenerations.get(networkId) ?? 0);
       let boostStateChanged = false;
       for (const networkId of prunableNetworkIds) {
         if (
+          canPruneNetwork(networkId) &&
           !liveNetworkIds.has(networkId) &&
-          this.foregroundBoostRequestedByNetwork[networkId]
+          (this.foregroundBoostRequestedByNetwork[networkId] ||
+            this.boostPausedByNetwork[networkId])
         ) {
           delete this.foregroundBoostRequestedByNetwork[networkId];
           delete this.boostPausedByNetwork[networkId];
@@ -1971,17 +2087,13 @@ class ServicePrivacyChain extends ServiceBase {
             const separator = key.indexOf(':');
             const networkId = separator >= 0 ? key.slice(0, separator) : '';
             const accountId = separator >= 0 ? key.slice(separator + 1) : key;
-            return (
-              !prunableNetworkIds.has(networkId) ||
-              seenAccountIds.has(accountId)
-            );
+            return !canPruneNetwork(networkId) || seenAccountIds.has(accountId);
           }),
         );
         const syncErrorByNetworkId = Object.fromEntries(
           Object.entries(value.syncErrorByNetworkId).filter(
             ([networkId]) =>
-              !prunableNetworkIds.has(networkId) ||
-              liveNetworkIds.has(networkId),
+              !canPruneNetwork(networkId) || liveNetworkIds.has(networkId),
           ),
         );
         return { ...value, progress, syncErrorByNetworkId };
@@ -2274,6 +2386,10 @@ class ServicePrivacyChain extends ServiceBase {
             listOrEmpty(
               'xmrSent',
               this.backgroundApi.simpleDb.privacyChainXmrSent.listAccountIds(),
+            ),
+            listOrEmpty(
+              'signatures',
+              this.backgroundApi.serviceSignature.listZcashSignedTransactionAccountIds(),
             ),
           ])
         ).flat(),
@@ -2675,7 +2791,9 @@ class ServicePrivacyChain extends ServiceBase {
   private async assertNotTempWalletAccount(accountId: string): Promise<void> {
     if (await this.isTempWalletAccount({ accountId })) {
       throw new OneKeyLocalError({
-        message: ETranslationsMock.privacy_temp_wallet_unavailable__desc,
+        message: localWalletText(
+          ETranslations.privacy_temp_wallet_unavailable__desc,
+        ),
         autoToast: true,
       });
     }
@@ -2865,6 +2983,7 @@ class ServicePrivacyChain extends ServiceBase {
             accountIds: [request.accountId],
             runtimeAccountIds: [],
             preserveAuthorization: current.reenabled,
+            deletionRequestId: request.requestId,
           },
         ],
       });
@@ -3045,7 +3164,7 @@ class ServicePrivacyChain extends ServiceBase {
     }
     if (enabledKeys.size >= limit) {
       throw new OneKeyLocalError({
-        message: `Privacy Mode is limited to ${limit} accounts at a time. Every enabled account is scanned against every block, so more of them slows syncing for all of them. Turn one off before enabling another.`,
+        message: localWalletText(ETranslations.privacy_slots_delete__desc),
         autoToast: true,
       });
     }
@@ -3626,11 +3745,15 @@ class ServicePrivacyChain extends ServiceBase {
 
   // Publishes this group's progress to the atom every reader subscribes to,
   // right after the pass that produced the new state.
-  async publishScanProgress(candidate: IPrivacyChainSyncCandidate) {
+  async publishScanProgress(
+    candidate: IPrivacyChainSyncCandidate,
+    successfulEpochs?: ReadonlyMap<string, string | undefined>,
+  ) {
     await this.publishAccountsScanProgress({
       networkId: candidate.networkId,
       accountIds: candidate.accountIds,
       capability: candidate.capability,
+      successfulEpochs,
     });
   }
 
@@ -3664,15 +3787,30 @@ class ServicePrivacyChain extends ServiceBase {
     accountIds,
     capability,
     pruneOthers = true,
+    successfulEpochs,
   }: {
     networkId: string;
     accountIds: string[];
     capability: ILocalWalletCapability;
     pruneOthers?: boolean;
+    successfulEpochs?: ReadonlyMap<string, string | undefined>;
   }) {
     try {
       const entries = await Promise.all(
         accountIds.map(async (accountId) => {
+          const epoch = successfulEpochs?.get(accountId);
+          if (epoch !== undefined) {
+            await this.backgroundApi.simpleDb.privacyChainCache
+              .setLastSync({
+                accountId,
+                record: { networkId, epoch, syncedAt: Date.now() },
+                isCurrent: () =>
+                  this.backgroundApi.simpleDb.privacyChainState.isAccountSyncCurrent(
+                    { accountId, epoch },
+                  ),
+              })
+              .catch(() => undefined);
+          }
           const progress = await capability.getSyncProgress({ accountId });
           return [`${networkId}:${accountId}`, progress] as const;
         }),
@@ -3737,37 +3875,49 @@ class ServicePrivacyChain extends ServiceBase {
   // skips the metered-data check: a boost refused by gate two must stay
   // REQUESTED, or the consent prompt never reaches the user.
   async refreshAutoBoost(
-    candidate: Pick<
-      IPrivacyChainSyncCandidate,
-      'networkId' | 'accountIds' | 'capability'
-    >,
+    candidate: Pick<IPrivacyChainSyncCandidate, 'networkId' | 'capability'>,
   ): Promise<void> {
     const { networkId } = candidate;
-    // The account furthest behind decides: the light means "not usable yet",
-    // and one account that cannot send yet is enough to say so.
-    let mostRemaining: number | null = null;
-    for (const accountId of candidate.accountIds) {
-      // eslint-disable-next-line no-await-in-loop
-      const remaining = await this.getPublishedRemainingBlocks({
-        networkId,
-        accountId,
-      });
-      if (remaining !== null) {
-        mostRemaining = Math.max(mostRemaining ?? 0, remaining);
-      }
+    const generation = this.orphanCleanupGeneration.get(networkId) ?? 0;
+    // A completed turn can describe accounts deleted or replaced while it ran.
+    const accounts = await this.listScannableAccounts(candidate.capability);
+    const { progress } = await privacyChainAtom.get();
+    if ((this.orphanCleanupGeneration.get(networkId) ?? 0) !== generation) {
+      return;
     }
     const wasRequested = !!this.foregroundBoostRequestedByNetwork[networkId];
-    const wanted = shouldStartBoost({
-      trigger: 'auto-backfill',
-      networkId,
-      remainingBlocks: mostRemaining,
-      pausedByUser: this.boostPausedByNetwork[networkId],
-    });
-    // While paused `wanted` is false, and dropping the request here would
-    // erase the paused light on the next pass.
+    if (!accounts.length) {
+      if (wasRequested || this.boostPausedByNetwork[networkId]) {
+        delete this.foregroundBoostRequestedByNetwork[networkId];
+        delete this.boostPausedByNetwork[networkId];
+        await this.publishBoostingNetworks();
+      }
+      return;
+    }
     if (this.boostPausedByNetwork[networkId]) {
       return;
     }
+    // The account furthest behind decides: the light means "not usable yet",
+    // and one account that cannot send yet is enough to say so.
+    let mostRemaining: number | null = null;
+    let hasUnknownProgress = false;
+    for (const { accountId } of accounts) {
+      const remaining = getPrivacyChainBlocksLeft(
+        progress[`${networkId}:${accountId}`],
+      );
+      if (remaining !== null) {
+        mostRemaining = Math.max(mostRemaining ?? 0, remaining);
+      } else {
+        hasUnknownProgress = true;
+      }
+    }
+    const wanted =
+      shouldStartBoost({
+        trigger: 'auto-backfill',
+        networkId,
+        remainingBlocks: mostRemaining,
+      }) ||
+      (wasRequested && hasUnknownProgress);
     if (wanted === wasRequested) {
       return;
     }

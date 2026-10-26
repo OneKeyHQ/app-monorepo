@@ -39,6 +39,14 @@ describe('resolvePrivacyChainHistorySide', () => {
 });
 
 describe('findZcashLocalHistoryItem', () => {
+  it('finds the local private row when the backend supplied another hash casing', async () => {
+    const item = historyItem('ab'.repeat(32));
+    const fetchPage = jest.fn().mockResolvedValue([item]);
+    await expect(
+      findZcashLocalHistoryItem({ txid: item.txid.toUpperCase(), fetchPage }),
+    ).resolves.toBe(item);
+    expect(fetchPage).toHaveBeenCalledTimes(1);
+  });
   it('finds shielded detail beyond the first local history page', async () => {
     const fetchPage = jest
       .fn()

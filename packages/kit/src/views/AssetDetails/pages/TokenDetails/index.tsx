@@ -62,6 +62,7 @@ import type {
 } from '@onekeyhq/shared/src/routes/assetDetails';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import { getPrivacyChainMainPools } from '@onekeyhq/shared/src/utils/privacyChainDisplayUtils';
 import { waitAsync } from '@onekeyhq/shared/src/utils/promiseUtils';
 import {
   buildTokenListMapKey,
@@ -741,29 +742,38 @@ function TokenDetailsView() {
     }
 
     if (networkId && walletId) {
-      // Each tab is one protocol pool. The stable pool ID is shared by the
-      // balance and history paths, so a future pool remains distinguishable.
+      // Keep public/private navigation stable as the current private pool changes.
       if (
         vaultSettings?.localWallet?.balanceShape === 'pooled' &&
         vaultSettings.localWallet.pools
       ) {
-        return vaultSettings.localWallet.pools.map((pool) => (
-          <Tabs.Tab key={pool.id} name={pool.label}>
-            <TokenDetailsViews
-              inTabList
-              isTabView
-              accountId={tokenInfo.accountId ?? ''}
-              networkId={tokenInfo.networkId ?? ''}
-              walletId={walletId}
-              tokenInfo={tokenInfo}
-              tokenMap={tokenMap}
-              isAllNetworks={isAllNetworks}
-              listViewContentContainerStyle={listViewContentContainerStyle}
-              indexedAccountId={indexedAccountId}
-              privacyHistoryPoolId={pool.id}
-            />
-          </Tabs.Tab>
-        ));
+        return getPrivacyChainMainPools(vaultSettings.localWallet.pools).map(
+          (pool) => (
+            <Tabs.Tab
+              key={pool.id}
+              name={intl.formatMessage({
+                id:
+                  pool.kind === 'public'
+                    ? ETranslations.privacy_balance_public__title
+                    : ETranslations.private_send_private_option,
+              })}
+            >
+              <TokenDetailsViews
+                inTabList
+                isTabView
+                accountId={tokenInfo.accountId ?? ''}
+                networkId={tokenInfo.networkId ?? ''}
+                walletId={walletId}
+                tokenInfo={tokenInfo}
+                tokenMap={tokenMap}
+                isAllNetworks={isAllNetworks}
+                listViewContentContainerStyle={listViewContentContainerStyle}
+                indexedAccountId={indexedAccountId}
+                privacyHistoryPoolId={pool.id}
+              />
+            </Tabs.Tab>
+          ),
+        );
       }
 
       if (vaultSettings?.mergeDeriveAssetsEnabled) {

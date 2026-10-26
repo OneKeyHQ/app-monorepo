@@ -111,21 +111,25 @@ function createRuntime({
 }: {
   accountStatus: {
     birthdayHeight: number;
-    chainTip: number;
-    scannedToHeight: number;
+    chainTip: number | null;
+    scannedToHeight: number | null;
     remainingBlocks: number;
     isComplete: boolean;
   };
-  fullyScannedHeight: number;
+  fullyScannedHeight: number | null;
 }) {
   return {
-    listAccounts: () => JSON.stringify(['account-uuid']),
-    accountBalance: () =>
+    syncPeek: jest.fn(() =>
+      JSON.stringify({ totalBlocks: accountStatus.remainingBlocks }),
+    ),
+    listAccounts: jest.fn(() => JSON.stringify(['account-uuid'])),
+    accountBalance: jest.fn(() =>
       JSON.stringify({
         chainTip: accountStatus.chainTip,
         fullyScannedHeight,
       }),
-    accountSyncStatus: () => JSON.stringify(accountStatus),
+    ),
+    accountSyncStatus: jest.fn(() => JSON.stringify(accountStatus)),
   } as unknown as Parameters<typeof readSyncProgress>[0];
 }
 
@@ -310,6 +314,126 @@ describe('readBalance', () => {
 });
 
 describe('readSyncProgress', () => {
+  it.each([1099, null])(
+    'reads current progress without a balance query when the scanned height is %s',
+    (fullyScannedHeight) => {
+      const status = {
+        birthdayHeight: 1000,
+        chainTip: 2000,
+        scannedToHeight: 1100,
+        remainingBlocks: 900,
+        isComplete: false,
+        fullyScannedHeight,
+      };
+      const rt = createRuntime({ accountStatus: status, fullyScannedHeight });
+
+      expect(readSyncProgress(rt, 'account-uuid')).toMatchObject({
+        chainTip: 2000,
+        tipScannedHeight: fullyScannedHeight,
+        isBackfillComplete: false,
+      });
+      expect(rt.accountSyncStatus).toHaveBeenCalledTimes(1);
+      expect(rt.syncPeek).not.toHaveBeenCalled();
+      expect(rt.listAccounts).not.toHaveBeenCalled();
+      expect(rt.accountBalance).not.toHaveBeenCalled();
+    },
+  );
+
+  it('uses the lightweight scan mark when only account status lacks the new field', () => {
+    const rt = createRuntime({
+      accountStatus: {
+        birthdayHeight: 1000,
+        chainTip: 2000,
+        scannedToHeight: 1100,
+        remainingBlocks: 900,
+        isComplete: false,
+      },
+      fullyScannedHeight: 1099,
+    });
+    jest.spyOn(rt, 'syncPeek').mockReturnValue(
+      JSON.stringify({
+        chainTip: 2000,
+        fullyScannedHeight: null,
+      }),
+    );
+
+    expect(readSyncProgress(rt, 'account-uuid').tipScannedHeight).toBeNull();
+    expect(rt.syncPeek).toHaveBeenCalledTimes(1);
+    expect(rt.listAccounts).not.toHaveBeenCalled();
+    expect(rt.accountBalance).not.toHaveBeenCalled();
+  });
+
+  it('counts disjoint scanned work while the contiguous cursor stays unchanged', () => {
+    const status = {
+      birthdayHeight: 1000,
+      chainTip: 2000,
+      scannedToHeight: 1100,
+      remainingBlocks: 900,
+      isComplete: false,
+    };
+    const first = readSyncProgress(
+      createRuntime({ accountStatus: status, fullyScannedHeight: 1099 }),
+      'account-uuid',
+    );
+    const next = readSyncProgress(
+      createRuntime({
+        accountStatus: { ...status, remainingBlocks: 500 },
+        fullyScannedHeight: 1099,
+      }),
+      'account-uuid',
+    );
+    expect(next.backfillScannedHeight).toBe(first.backfillScannedHeight);
+    expect(first.backfillProgress).toBeCloseTo(101 / 1001);
+    expect(next.backfillProgress).toBeCloseTo(501 / 1001);
+    expect(next.isBackfillComplete).toBe(false);
+    expect(next.tipLag).toBe(first.tipLag);
+  });
+
+  it('does not show a single pending birthday block as fully scanned', () => {
+    const progress = readSyncProgress(
+      createRuntime({
+        accountStatus: {
+          birthdayHeight: 42,
+          chainTip: 42,
+          scannedToHeight: 42,
+          remainingBlocks: 1,
+          isComplete: false,
+        },
+        fullyScannedHeight: 41,
+      }),
+      'account-uuid',
+    );
+    expect(progress.backfillProgress).toBe(0);
+    expect(progress.isBackfillComplete).toBe(false);
+  });
+
+  it.each([
+    { birthdayHeight: 42, chainTip: null, remainingBlocks: 0 },
+    { birthdayHeight: 42, chainTip: 41, remainingBlocks: 0 },
+    { birthdayHeight: -1, chainTip: 42, remainingBlocks: 0 },
+    { birthdayHeight: 42, chainTip: 100, remainingBlocks: -1 },
+    { birthdayHeight: 42, chainTip: 100, remainingBlocks: 0.5 },
+    {
+      birthdayHeight: 0,
+      chainTip: Number.MAX_SAFE_INTEGER,
+      remainingBlocks: 0,
+    },
+  ])('keeps unknown or invalid scan coverage unavailable: %o', (status) => {
+    const progress = readSyncProgress(
+      createRuntime({
+        accountStatus: {
+          ...status,
+          scannedToHeight: null,
+          isComplete: true,
+        },
+        fullyScannedHeight: null,
+      }),
+      'account-uuid',
+    );
+    expect(progress.backfillProgress).toBeNull();
+    expect(progress.isBackfillComplete).toBe(true);
+  });
+
   it('uses account-level backfill progress when the shared DB tip is ahead', () => {
     const rt = createRuntime({
       accountStatus: {
@@ -322,11 +446,11 @@ describe('readSyncProgress', () => {
       fullyScannedHeight: 3_000_000,
     });
 
-    expect(readSyncProgress(rt, 'account-uuid', account)).toEqual({
+    expect(readSyncProgress(rt, 'account-uuid')).toEqual({
       birthdayHeight: 1_000_000,
       backfillScannedHeight: 1_500_000,
       backfillTargetHeight: 3_000_000,
-      backfillProgress: 0.25,
+      backfillProgress: expect.closeTo(0.25, 5),
       backfillRemainingBlocks: 1_500_000,
       isBackfillComplete: false,
       tipScannedHeight: 3_000_000,
@@ -349,11 +473,12 @@ describe('readSyncProgress', () => {
       fullyScannedHeight: 3_000_000,
     });
 
-    const progress = readSyncProgress(rt, 'account-uuid', account);
+    const progress = readSyncProgress(rt, 'account-uuid');
 
     expect(progress.isBackfillComplete).toBe(true);
     expect(progress.backfillProgress).toBe(1);
     expect(progress.isSyncing).toBe(false);
+    expect(rt.accountBalance).toHaveBeenCalledTimes(1);
   });
 });
 

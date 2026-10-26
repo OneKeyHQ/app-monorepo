@@ -64,6 +64,12 @@ describe('Privacy sync light pause state', () => {
         publishBoostingNetworks: () => Promise<void>;
         pauseLocalWalletScan: (params: { networkId: string }) => Promise<void>;
         refreshAutoBoost: (candidate: unknown) => Promise<void>;
+        onLocalWalletAccountsChanged: (params: {
+          networkId: string;
+          accountIds: string[];
+          backfillActive: boolean;
+        }) => Promise<void>;
+        markLocalWalletOrphanCleanupDue: (networkId: string) => void;
         foregroundBoostRequestedByNetwork: Record<string, boolean>;
         boostPausedByNetwork: Record<string, boolean>;
       },
@@ -72,7 +78,15 @@ describe('Privacy sync light pause state', () => {
         boostPausedByNetwork: {} as Record<string, boolean>,
         deviceIsCellular: cellularBlocked,
         allowPrivacySyncOnCellularCache: !cellularBlocked,
+        orphanCleanupGeneration: new Map<string, number>(),
+        syncFailureBackoff: new Map(),
+        backfillActiveByAccount: {},
+        init: jest.fn(async (): Promise<void> => undefined),
+        scheduleBackgroundSync: jest.fn(),
         backgroundApi: {
+          serviceAccount: {
+            getWalletSafe: async () => ({ isTemp: false }),
+          },
           simpleDb: {
             privacyChainState: {
               saveScanPaused: jest.fn(async () => undefined),
@@ -81,6 +95,20 @@ describe('Privacy sync light pause state', () => {
         },
       },
     );
+  }
+
+  function capabilityForAccounts(accountIds: string[]) {
+    return {
+      listAccounts: async () => ({
+        accounts: accountIds.map((accountId) => ({
+          accountId,
+          runtimeKey: 'main',
+          accountRuntimeKey: accountId,
+          syncEnabled: true,
+        })),
+        cleanupAccountIds: [],
+      }),
+    };
   }
 
   it('keeps the paused network published so the light stays on screen', async () => {
@@ -117,7 +145,7 @@ describe('Privacy sync light pause state', () => {
     await service.refreshAutoBoost({
       networkId,
       accountIds: ['account'],
-      capability: { syncPolicy: {} },
+      capability: capabilityForAccounts(['account']),
     });
 
     expect(service.foregroundBoostRequestedByNetwork[networkId]).toBe(true);
@@ -144,7 +172,7 @@ describe('Privacy sync light pause state', () => {
       service.refreshAutoBoost({
         networkId,
         accountIds,
-        capability: { syncPolicy: {} },
+        capability: capabilityForAccounts(accountIds),
       });
 
     it('turns on at the threshold and off once below it', async () => {
@@ -211,6 +239,157 @@ describe('Privacy sync light pause state', () => {
     expect(mockPublished.pausedNetworkIds).toEqual([networkId]);
     expect(mockPublished.boostingNetworkIds).toEqual([]);
     expect(mockPublished.dataBlockedNetworkIds).toEqual([]);
+  });
+
+  it('removes a paused control when its last enabled account is gone', async () => {
+    const service = createService();
+    await service.pauseLocalWalletScan({ networkId });
+    await service.refreshAutoBoost({
+      networkId,
+      accountIds: ['deleted'],
+      capability: capabilityForAccounts([]),
+    });
+    expect(service.boostPausedByNetwork[networkId]).toBeUndefined();
+    expect(mockPublished.pausedNetworkIds).toEqual([]);
+    expect(mockPublished.boostingNetworkIds).toEqual([]);
+  });
+
+  it('hides the last deleted account before deferred runtime preparation', async () => {
+    const service = createService();
+    service.foregroundBoostRequestedByNetwork[networkId] = true;
+    await service.publishBoostingNetworks();
+    mockGetChainOnlyVault.mockResolvedValue({
+      getLocalWalletCapability: () => capabilityForAccounts([]),
+    });
+    await service.onLocalWalletAccountsChanged({
+      networkId,
+      accountIds: ['deleted'],
+      backfillActive: false,
+    });
+    expect(
+      service.foregroundBoostRequestedByNetwork[networkId],
+    ).toBeUndefined();
+    expect(mockPublished.boostingNetworkIds).toEqual([]);
+  });
+
+  it('preserves an explicit request while a live new account has no progress', async () => {
+    const service = createService();
+    service.foregroundBoostRequestedByNetwork[networkId] = true;
+    await service.publishBoostingNetworks();
+    await service.refreshAutoBoost({
+      networkId,
+      accountIds: ['new'],
+      capability: capabilityForAccounts(['new']),
+    });
+    expect(mockPublished.boostingNetworkIds).toEqual([networkId]);
+  });
+
+  it('uses another currently enabled account instead of a stale completed group', async () => {
+    const service = createService();
+    mockPublished.progress[`${networkId}:old`] = {
+      isBackfillComplete: true,
+      tipLag: 0,
+    };
+    mockPublished.progress[`${networkId}:behind`] = {
+      isBackfillComplete: false,
+      backfillScannedHeight: 0,
+      backfillTargetHeight: PRIVACY_CHAIN_LIGHT_MIN_BLOCKS_LEFT,
+      tipLag: 0,
+    };
+    await service.refreshAutoBoost({
+      networkId,
+      accountIds: ['old'],
+      capability: capabilityForAccounts(['behind']),
+    });
+    expect(mockPublished.boostingNetworkIds).toEqual([networkId]);
+  });
+
+  it('does not clear a re-enable that races an older account enumeration', async () => {
+    const service = createService();
+    let finishList!: (value: { accounts: []; cleanupAccountIds: [] }) => void;
+    const listing = new Promise<{ accounts: []; cleanupAccountIds: [] }>(
+      (resolve) => {
+        finishList = resolve;
+      },
+    );
+    const refresh = service.refreshAutoBoost({
+      networkId,
+      accountIds: [],
+      capability: { listAccounts: () => listing },
+    });
+    service.markLocalWalletOrphanCleanupDue(networkId);
+    service.foregroundBoostRequestedByNetwork[networkId] = true;
+    await service.publishBoostingNetworks();
+    finishList({ accounts: [], cleanupAccountIds: [] });
+    await refresh;
+    expect(service.foregroundBoostRequestedByNetwork[networkId]).toBe(true);
+    expect(mockPublished.boostingNetworkIds).toEqual([networkId]);
+  });
+
+  it('does not recreate a deleted control when an earlier enable finishes init', async () => {
+    const service = createService();
+    let finishInit!: () => void;
+    let initRequested!: () => void;
+    const requested = new Promise<void>((resolve) => {
+      initRequested = resolve;
+    });
+    service.init.mockImplementationOnce(() => {
+      initRequested();
+      return new Promise<void>((resolve) => {
+        finishInit = resolve;
+      });
+    });
+    const enabling = service.onLocalWalletAccountsChanged({
+      networkId,
+      accountIds: ['deleted'],
+      backfillActive: true,
+    });
+    await requested;
+    mockGetChainOnlyVault.mockResolvedValue({
+      getLocalWalletCapability: () => capabilityForAccounts([]),
+    });
+    await service.onLocalWalletAccountsChanged({
+      networkId,
+      accountIds: ['deleted'],
+      backfillActive: false,
+    });
+    finishInit();
+    await enabling;
+    expect(mockPublished.boostingNetworkIds).toEqual([]);
+    expect(
+      service.foregroundBoostRequestedByNetwork[networkId],
+    ).toBeUndefined();
+  });
+  it('keeps a new account visible when another account is deleted during init', async () => {
+    const service = createService();
+    let finishInit!: () => void;
+    let initRequested!: () => void;
+    const requested = new Promise<void>((resolve) => {
+      initRequested = resolve;
+    });
+    service.init.mockImplementationOnce(() => {
+      initRequested();
+      return new Promise<void>((resolve) => {
+        finishInit = resolve;
+      });
+    });
+    const enabling = service.onLocalWalletAccountsChanged({
+      networkId,
+      accountIds: ['new'],
+      backfillActive: true,
+    });
+    await requested;
+    mockGetChainOnlyVault.mockResolvedValue({
+      getLocalWalletCapability: () => capabilityForAccounts(['new']),
+    });
+    await service.onLocalWalletAccountsChanged({
+      networkId,
+      accountIds: ['old'],
+      backfillActive: false,
+    });
+    finishInit();
+    await enabling;
+    expect(mockPublished.boostingNetworkIds).toEqual([networkId]);
   });
 });
 

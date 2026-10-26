@@ -34,6 +34,7 @@ import { formatDistanceStrict } from '@onekeyhq/shared/src/utils/dateUtils';
 import { getLocalWalletPoolDisplayAddress } from '@onekeyhq/shared/src/utils/privacyChainDisplayUtils';
 import {
   PRIVACY_CHAIN_SYNC_POLL_MS,
+  PRIVACY_CHAIN_TIP_POLL_MS,
   isTipLagWorthMentioning,
 } from '@onekeyhq/shared/src/utils/privacyChainSyncPolicy';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
@@ -295,8 +296,11 @@ export function useLocalWalletPool({
   const freshState =
     stateResult?.scope === accountScope ? stateResult.state : undefined;
   const state = freshState ?? lastSeen?.state;
-  const enabled = state?.enabled === true;
-  const canRead = isActive && hasPooledBalance && !!accountId && enabled;
+  const accountPaused = state?.paused === true;
+  // A pause retains authorization and saved data; only scanning is off.
+  const enabled = state?.enabled === true || accountPaused;
+  const canRead =
+    isActive && hasPooledBalance && !!accountId && enabled && !accountPaused;
   const canReadBalance =
     isActive &&
     hasPooledBalance &&
@@ -312,12 +316,22 @@ export function useLocalWalletPool({
     async () => {
       if (!canReadBalance) return null;
       try {
+        const [balance, lastSyncedAt] = await Promise.all([
+          backgroundApiProxy.servicePrivacyChain.getLocalWalletAccountBalance({
+            networkId,
+            accountId,
+          }),
+          backgroundApiProxy.servicePrivacyChain
+            .getLocalWalletLastSyncedAt({
+              networkId,
+              accountId,
+            })
+            .catch(() => undefined),
+        ]);
         return {
           scope: readScope,
-          balance:
-            await backgroundApiProxy.servicePrivacyChain.getLocalWalletAccountBalance(
-              { networkId, accountId },
-            ),
+          balance,
+          lastSyncedAt,
         };
       } finally {
         if (readScopeRef.current === readScope) {
@@ -327,7 +341,11 @@ export function useLocalWalletPool({
     },
     [readScope, canReadBalance, accountId, networkId],
     {
-      pollingInterval: canReadBalance ? PRIVACY_CHAIN_SYNC_POLL_MS : undefined,
+      pollingInterval:
+        canReadBalance && (!accountPaused || pool?.source === 'backend')
+          ? PRIVACY_CHAIN_TIP_POLL_MS
+          : undefined,
+      revalidateOnFocus: true,
       overrideIsFocused: (isPageFocused) => isPageFocused && isActive,
     },
   );
@@ -335,6 +353,8 @@ export function useLocalWalletPool({
     canReadBalance && balanceResult?.scope === readScope
       ? balanceResult.balance
       : undefined;
+  const lastSyncedAt =
+    balanceResult?.scope === readScope ? balanceResult.lastSyncedAt : undefined;
   // A balance that landed after its read gave up; the poll alone would leave
   // the saved one up for a full interval.
   useEffect(() => {
@@ -423,6 +443,35 @@ export function useLocalWalletPool({
       ? progressResult.progress
       : undefined;
 
+  const balanceProgressMarker = syncProgress
+    ? [
+        syncProgress.backfillScannedHeight,
+        syncProgress.backfillRemainingBlocks,
+        syncProgress.isBackfillComplete,
+        syncProgress.tipScannedHeight,
+      ].join(':')
+    : undefined;
+  const lastBalanceProgressRef = useRef<{
+    scope: ILocalWalletReadScope;
+    marker: string;
+  } | null>(null);
+  useEffect(() => {
+    if (!canReadBalance || balanceProgressMarker === undefined) return;
+    const previous = lastBalanceProgressRef.current;
+    if (
+      previous?.scope === readScope &&
+      previous.marker === balanceProgressMarker
+    ) {
+      return;
+    }
+    // Include the first known progress: the initial balance may have come from an older cache.
+    lastBalanceProgressRef.current = {
+      scope: readScope,
+      marker: balanceProgressMarker,
+    };
+    void refreshBalance();
+  }, [balanceProgressMarker, canReadBalance, readScope, refreshBalance]);
+
   // Turning the interval on schedules the first polled run one interval
   // out; read once right away instead of leaving the page empty until then.
   const readableRef = useRef({ canReadBalance, canRead });
@@ -472,9 +521,10 @@ export function useLocalWalletPool({
   );
   const {
     storageUnsupported: isStorageUnsupported,
-    paused: isSyncPaused,
+    paused: networkPaused,
     error: syncError,
   } = useAtomValue(syncStateAtom);
+  const isSyncPaused = networkPaused || accountPaused;
   const hasSyncError = isStorageUnsupported || syncError !== undefined;
   const isPreparing =
     enabled &&
@@ -596,23 +646,10 @@ export function useLocalWalletPool({
       }),
     [accountId, networkId, runBusy],
   );
-  const disableAccount = useCallback(
+  const refreshBalanceNow = useCallback(
     () =>
       runBusy(async () => {
-        await backgroundApiProxy.servicePrivacyChain.disableLocalWalletAccount({
-          networkId,
-          accountId,
-        });
-        setPoolDisplay(undefined);
-        setAttemptedBalanceScope(undefined);
-        void refreshState();
-      }),
-    [accountId, networkId, refreshState, runBusy, setPoolDisplay],
-  );
-  const resetLocalData = useCallback(
-    () =>
-      runBusy(async () => {
-        await backgroundApiProxy.servicePrivacyChain.resetLocalChainData({
+        await backgroundApiProxy.servicePrivacyChain.refreshLocalWalletAccount({
           networkId,
           accountId,
         });
@@ -654,6 +691,7 @@ export function useLocalWalletPool({
     isReady,
     enabled,
     balance,
+    lastSyncedAt,
     poolBalance,
     poolAddress,
     addresses,
@@ -668,9 +706,8 @@ export function useLocalWalletPool({
     // A wallet the user chose not to keep: unsupported, with its own reason.
     isTempWallet: accountSupport === 'tempWallet',
     refresh,
+    refreshBalanceNow,
     enableAccount,
-    disableAccount,
-    resetLocalData,
     deleteLocalData,
   };
 }

@@ -22,11 +22,7 @@ import { selectAtom } from 'jotai/utils';
 
 import { isAgg } from '@onekeyhq/kit-bg/src/states/jotai/contexts/tokenList/cellsPure/pure';
 import tokenRebaseUtils from '@onekeyhq/shared/src/utils/tokenRebaseUtils';
-import type {
-  IBalanceStatus,
-  IToken,
-  ITokenFiat,
-} from '@onekeyhq/shared/types/token';
+import type { IToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 
 import { useTokenListContextData } from '../../states/jotai/contexts/tokenList/atoms';
 import {
@@ -148,7 +144,6 @@ export interface ITokenValueSlice {
   /** DISPLAY basis: balanceParsed × balanceMultiplier. See `selectBalanceParsed`. */
   balanceParsed: string | undefined;
   currency: string | undefined;
-  balanceStatus: IBalanceStatus | undefined;
 }
 const selectValueSlice = (f: ITokenFiat | undefined): ITokenValueSlice => ({
   has: !!f,
@@ -159,7 +154,6 @@ const selectValueSlice = (f: ITokenFiat | undefined): ITokenValueSlice => ({
     balanceMultiplier: f?.balanceMultiplier,
   }),
   currency: f?.currency,
-  balanceStatus: f?.balanceStatus,
 });
 
 // --- public per-field hooks ------------------------------------------------

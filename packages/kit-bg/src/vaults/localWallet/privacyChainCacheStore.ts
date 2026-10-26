@@ -20,6 +20,20 @@ export type ILocalWalletBalanceRead<T> = {
   stale: boolean;
 };
 
+type IDisplayBalanceRead = {
+  networkId: string;
+  accountId: string;
+  epoch: string | undefined;
+  pending?: Promise<string | null>;
+  landed?: { serialized: string | null; at: number };
+  needsNotification: boolean;
+};
+const displayBalanceReads = new WeakMap<
+  IBackgroundApi,
+  Map<string, IDisplayBalanceRead>
+>();
+const DISPLAY_BALANCE_HANDOFF_MS = 5000;
+
 // The account's epoch now (see privacyChainState). A value is saved only
 // under the epoch read before it was fetched, and read back only under the
 // current one.
@@ -100,12 +114,14 @@ async function save({
   accountId,
   epoch,
   serialized,
+  shouldSave,
 }: {
   backgroundApi: IBackgroundApi;
   networkId: string;
   accountId: string;
   epoch: string | undefined;
   serialized: string;
+  shouldSave?: () => boolean;
 }): Promise<void> {
   if (
     (await readSaved({ backgroundApi, networkId, accountId, epoch })) ===
@@ -116,8 +132,12 @@ async function save({
   await backgroundApi.simpleDb.privacyChainCache.setLastBalance({
     accountId,
     record: { networkId, epoch, value: serialized, savedAt: Date.now() },
-    isCurrent: () =>
-      isLocalWalletCacheEpochCurrent({ backgroundApi, accountId, epoch }),
+    isCurrent: async () =>
+      (await isLocalWalletCacheEpochCurrent({
+        backgroundApi,
+        accountId,
+        epoch,
+      })) && shouldSave?.() !== false,
   });
 }
 
@@ -176,19 +196,102 @@ export async function readLocalWalletBalanceStaleFirst<T>({
       : { value: JSON.parse(saved) as T, stale: true as const };
   if (skipLive) return savedRead;
 
-  const live = (async () => {
+  const readLive = async (shouldSave?: () => boolean) => {
     const value = await read();
-    if (value !== null) {
+    if (value !== null && shouldSave?.() !== false) {
       await save({
         backgroundApi,
         networkId,
         accountId,
         epoch,
         serialized: JSON.stringify(value),
+        shouldSave,
       });
     }
     return value;
-  })();
+  };
+
+  let entry: IDisplayBalanceRead | undefined;
+  let pending: Promise<string | null> | undefined;
+  let live: Promise<T | null>;
+  if (liveWaitMs === undefined) {
+    live = readLive();
+  } else {
+    let reads = displayBalanceReads.get(backgroundApi);
+    if (!reads) {
+      reads = new Map();
+      displayBalanceReads.set(backgroundApi, reads);
+    }
+    const currentReads = reads;
+    const key = [networkId, accountId].join(':');
+    entry = currentReads.get(key);
+    if (!entry || entry.epoch !== epoch) {
+      entry = { networkId, accountId, epoch, needsNotification: false };
+      currentReads.set(key, entry);
+    }
+    const current = entry;
+    if (!current.pending) {
+      const running: Promise<string | null> = readLive(
+        () => currentReads.get(key) === current && current.pending === running,
+      )
+        .then(async (value) => {
+          const serialized = value === null ? null : JSON.stringify(value);
+          if (
+            !(await isLocalWalletCacheEpochCurrent({
+              backgroundApi,
+              accountId,
+              epoch,
+            })) ||
+            currentReads.get(key) !== current ||
+            current.pending !== running
+          ) {
+            return serialized;
+          }
+          const previous = current.landed;
+          current.pending = undefined;
+          current.landed = { serialized, at: Date.now() };
+          const notify =
+            current.needsNotification ||
+            (previous !== undefined && previous.serialized !== serialized);
+          current.needsNotification = false;
+          if (notify) {
+            if (serialized !== (previous ? previous.serialized : saved)) {
+              appEventBus.emit(EAppEventBusNames.RefreshTokenList, undefined);
+            }
+            appEventBus.emit(EAppEventBusNames.LocalWalletBalanceLanded, {
+              networkId,
+              accountId,
+            });
+          }
+          return serialized;
+        })
+        .catch((error: unknown) => {
+          if (
+            currentReads.get(key) === current &&
+            current.pending === running
+          ) {
+            current.pending = undefined;
+            current.needsNotification = false;
+          }
+          throw error;
+        });
+      current.pending = running;
+    }
+    pending = current.pending;
+    live = pending.then((serialized) =>
+      serialized === null ? null : (JSON.parse(serialized) as T),
+    );
+    // A handoff never suppresses a live read: a scan may have advanced without changing the epoch.
+    if (
+      current.landed &&
+      Date.now() - current.landed.at < DISPLAY_BALANCE_HANDOFF_MS
+    ) {
+      void live.catch(() => undefined);
+      return current.landed.serialized === null
+        ? null
+        : { value: JSON.parse(current.landed.serialized) as T, stale: false };
+    }
+  }
 
   if (!savedRead) {
     const value = await live;
@@ -204,7 +307,12 @@ export async function readLocalWalletBalanceStaleFirst<T>({
       ? await settled
       : await Promise.race([
           settled,
-          timerUtils.wait(liveWaitMs).then(() => ({ settled: false as const })),
+          timerUtils.wait(liveWaitMs).then(() => {
+            if (entry && entry.pending === pending) {
+              entry.needsNotification = true;
+            }
+            return { settled: false as const };
+          }),
         ]);
   if (outcome.settled) {
     if (outcome.failed) return savedRead;
@@ -212,16 +320,6 @@ export async function readLocalWalletBalanceStaleFirst<T>({
       ? null
       : { value: outcome.value, stale: false };
   }
-  // Too slow for this page; lists refetch once the live value lands.
-  void settled.then(({ failed, value }) => {
-    if (!failed && value !== null && JSON.stringify(value) !== saved) {
-      appEventBus.emit(EAppEventBusNames.RefreshTokenList, undefined);
-      appEventBus.emit(EAppEventBusNames.LocalWalletBalanceLanded, {
-        networkId,
-        accountId,
-      });
-    }
-  });
   return savedRead;
 }
 
@@ -310,6 +408,10 @@ export async function removeLastLocalWalletBalances({
   accountIds: string[];
 }): Promise<void> {
   if (accountIds.length === 0) return;
+  const reads = displayBalanceReads.get(backgroundApi);
+  for (const [key, entry] of reads ?? []) {
+    if (accountIds.includes(entry.accountId)) reads?.delete(key);
+  }
   await backgroundApi.simpleDb.privacyChainCache.removeLastBalances({
     accountIds,
   });
@@ -322,6 +424,10 @@ export async function removeNetworkLastLocalWalletBalances({
   backgroundApi: IBackgroundApi;
   networkId: string;
 }): Promise<void> {
+  const reads = displayBalanceReads.get(backgroundApi);
+  for (const [key, entry] of reads ?? []) {
+    if (entry.networkId === networkId) reads?.delete(key);
+  }
   await backgroundApi.simpleDb.privacyChainCache.removeNetworkLastBalances({
     networkId,
   });
@@ -332,6 +438,7 @@ export async function clearLocalWalletBalances({
 }: {
   backgroundApi: IBackgroundApi;
 }): Promise<void> {
+  displayBalanceReads.get(backgroundApi)?.clear();
   await backgroundApi.simpleDb.privacyChainCache.clearBalances();
 }
 

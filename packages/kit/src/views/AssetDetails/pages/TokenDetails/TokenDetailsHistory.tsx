@@ -90,7 +90,9 @@ function TokenDetailsHistoryContent({
       },
     );
   const isPrivateHistoryEnabled =
-    !isLocalScanPool || privacyModeState?.enabled === true;
+    !isLocalScanPool ||
+    privacyModeState?.enabled === true ||
+    privacyModeState?.paused === true;
 
   const ListComponentRef = useRef<typeof SectionList>(null);
   const isRouteFocused = useRouteIsFocused();

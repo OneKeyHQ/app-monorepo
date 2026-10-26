@@ -275,6 +275,22 @@ describe('mergePrivacyChainHistoryTxs', () => {
     expect(merged).toHaveLength(1);
     expect(merged[0].id).toBe('backend-id$key');
   });
+
+  it('merges differently cased hashes without losing private pools or duplicating public rows', () => {
+    const hash = 'ab'.repeat(32);
+    const merged = mergePrivacyChainHistoryTxs({
+      privateTxs: [
+        { ...tx(hash, 'private'), privacyChainHistoryPoolIds: [0, 4] },
+      ],
+      publicTxs: [tx(hash.toUpperCase(), 'public'), tx(hash, 'public')],
+    });
+    expect(merged).toHaveLength(1);
+    expect(merged[0]).toMatchObject({
+      source: 'public',
+      privacyChainHistoryPoolIds: [0, 4],
+      privacyChainHistorySide: 'mixed',
+    });
+  });
 });
 
 describe('projectPrivacyChainHistoryTxToPool fee handling', () => {
@@ -392,9 +408,14 @@ describe('projectPrivacyChainHistoryTxToPool on an indexer-backed mixed row', ()
     },
   } as unknown as IAccountHistoryTx;
 
-  it('keeps a runtime-known fee when the indexer omits it', () => {
+  it('keeps an explicit zero fee from the backend', () => {
     const [merged] = mergePrivacyChainHistoryTxs({
-      publicTxs: [withdraw],
+      publicTxs: [
+        {
+          ...withdraw,
+          decodedTx: { ...withdraw.decodedTx, totalFeeInNative: '0' },
+        },
+      ],
       privateTxs: [
         {
           ...withdraw,
@@ -402,13 +423,34 @@ describe('projectPrivacyChainHistoryTxToPool on an indexer-backed mixed row', ()
         },
       ],
     });
-    expect(merged.decodedTx.nativeAmount).toBe('0.028112');
-    expect(merged.decodedTx.totalFeeInNative).toBe('0.0001');
-    expect(
-      projectPrivacyChainHistoryTxToPool({ tx: merged, selectedPoolId: 4 })
-        .decodedTx.nativeAmount,
-    ).toBe('0.028112');
+    expect(merged.decodedTx.totalFeeInNative).toBe('0');
   });
+
+  it.each([undefined, ''])(
+    'keeps a runtime-known fee when the indexer fee is %s',
+    (fee) => {
+      const [merged] = mergePrivacyChainHistoryTxs({
+        publicTxs: [
+          {
+            ...withdraw,
+            decodedTx: { ...withdraw.decodedTx, totalFeeInNative: fee },
+          },
+        ],
+        privateTxs: [
+          {
+            ...withdraw,
+            decodedTx: { ...withdraw.decodedTx, totalFeeInNative: '0.0001' },
+          },
+        ],
+      });
+      expect(merged.decodedTx.nativeAmount).toBe('0.028112');
+      expect(merged.decodedTx.totalFeeInNative).toBe('0.0001');
+      expect(
+        projectPrivacyChainHistoryTxToPool({ tx: merged, selectedPoolId: 4 })
+          .decodedTx.nativeAmount,
+      ).toBe('0.028112');
+    },
+  );
 
   it('shows the shielded side of a withdraw as a send to the own address', () => {
     const projected = projectPrivacyChainHistoryTxToPool({
@@ -418,12 +460,58 @@ describe('projectPrivacyChainHistoryTxToPool on an indexer-backed mixed row', ()
     const transfer = projected.decodedTx.actions[0].assetTransfer;
     expect(transfer?.sends).toEqual([
       expect.objectContaining({
-        from: 't1own',
+        from: '',
+        shieldedFrom: { poolId: 4, isOwn: true },
         to: 't1own',
         amount: '0.028212',
       }),
     ]);
     expect(transfer?.receives).toEqual([]);
+    expect(transfer).toMatchObject({
+      from: '',
+      shieldedFrom: { poolId: 4, isOwn: true },
+      to: 't1own',
+    });
+  });
+
+  it('projects a shield into the own private pool without inventing a public recipient', () => {
+    const projected = projectPrivacyChainHistoryTxToPool({
+      tx: {
+        ...withdraw,
+        privacyChainHistoryPoolDeltas: { '0': '-1.0001', '4': '1' },
+        decodedTx: {
+          ...withdraw.decodedTx,
+          actions: [
+            {
+              ...withdraw.decodedTx.actions[0],
+              assetTransfer: {
+                from: 't1own',
+                to: '',
+                shieldedTo: {},
+                sends: [{ from: 't1own', to: '', amount: '1' }],
+                receives: [],
+              },
+            },
+          ],
+        },
+      } as unknown as IAccountHistoryTx,
+      selectedPoolId: 4,
+    });
+    const transfer = projected.decodedTx.actions[0].assetTransfer;
+    expect(transfer).toMatchObject({
+      from: 't1own',
+      to: '',
+      shieldedTo: { poolId: 4, isOwn: true },
+      sends: [],
+      receives: [
+        {
+          from: 't1own',
+          to: '',
+          shieldedTo: { poolId: 4, isOwn: true },
+          amount: '1',
+        },
+      ],
+    });
   });
 
   it('leaves the public side as the indexer described it', () => {
@@ -439,6 +527,26 @@ describe('projectPrivacyChainHistoryTxToPool on an indexer-backed mixed row', ()
 });
 
 describe('appendMissingPrivacyChainHistoryTxs', () => {
+  it('does not restore a stale pending row with another hash casing', () => {
+    const hash = 'ab'.repeat(32);
+    const current = {
+      ...tx(hash.toUpperCase(), 'public'),
+      decodedTx: {
+        txid: hash.toUpperCase(),
+        status: EDecodedTxStatus.Confirmed,
+      },
+    };
+    const cached = {
+      ...tx(hash, 'public'),
+      decodedTx: { txid: hash, status: EDecodedTxStatus.Pending },
+    };
+    expect(
+      appendMissingPrivacyChainHistoryTxs({
+        currentTxs: [current],
+        cachedTxs: [cached],
+      }),
+    ).toEqual([current]);
+  });
   it('does not restore stale pool metadata for a current txid', () => {
     const current = {
       source: 'current',
@@ -600,7 +708,11 @@ describe('projectPrivacyChainHistoryTxToPool with shielded endpoints', () => {
     const [send] =
       projectPrivacyChainHistoryTxToPool({ tx: row, selectedPoolId: 4 })
         .decodedTx.actions[0].assetTransfer?.sends ?? [];
-    expect(send).toMatchObject({ from: 't1own', to: '', shieldedTo: {} });
-    expect(send.shieldedFrom).toBeUndefined();
+    expect(send).toMatchObject({
+      from: '',
+      to: '',
+      shieldedFrom: { poolId: 4, isOwn: true },
+      shieldedTo: {},
+    });
   });
 });

@@ -34,7 +34,9 @@ export async function findZcashLocalHistoryItem({
       limit: Math.min(pageSize, maxItems - offset),
       offset,
     });
-    const item = page.find((row) => row.txid === txid);
+    const item = page.find(
+      (row) => row.txid.toLowerCase() === txid.toLowerCase(),
+    );
     if (item) {
       return item;
     }

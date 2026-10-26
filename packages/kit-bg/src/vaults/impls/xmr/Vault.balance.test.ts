@@ -98,7 +98,7 @@ describe('xmr balance for display', () => {
     });
   });
 
-  it('hides a paused account balance, as it hides every private surface', async () => {
+  it('keeps a paused account balance in the home list and account totals', async () => {
     const vault = createVault({
       enabled: false,
       paused: true,
@@ -109,10 +109,13 @@ describe('xmr balance for display', () => {
       }),
     });
     await expect(readBalance(vault)).resolves.toMatchObject({
-      data: { data: { balance: '', totalBalance: '' } },
+      data: {
+        data: { balance: '1000000000000', totalBalance: '1000000000000' },
+      },
     });
     await expect(readTokenFiat(vault)).resolves.toMatchObject({
-      balanceStatus: 'notEnabled',
+      balance: '1000000000000',
+      balanceParsed: '1',
     });
   });
 

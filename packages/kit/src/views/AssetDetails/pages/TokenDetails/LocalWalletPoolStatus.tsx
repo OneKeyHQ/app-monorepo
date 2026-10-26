@@ -5,22 +5,23 @@ import { useIntl } from 'react-intl';
 import {
   Button,
   Dialog,
-  Divider,
   Icon,
+  IconButton,
   SizableText,
   Stack,
+  Toast,
   XStack,
   YStack,
 } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { ETranslations, ETranslationsMock } from '@onekeyhq/shared/src/locale';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   EAccountManagerStacksRoutes,
   EModalRoutes,
 } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
 
-import { LocalWalletFrozenLines } from './LocalWalletFrozenLines';
 import { LocalWalletPasswordAlert } from './LocalWalletPasswordAlert';
 import {
   BirthdayDialogForm,
@@ -29,6 +30,7 @@ import {
   ScanRepairControl,
   SetupRepairControl,
   createEnableBirthdayForm,
+  getBirthdayInputError,
   readEnableBirthday,
 } from './LocalWalletRepairControls';
 
@@ -44,7 +46,7 @@ function logLocalWalletActionError(action: string) {
   };
 }
 
-// Opt-in card when scanning is off, otherwise hints/notes/sync line; with `settingsMode` also carries the account controls.
+// Opt-in and password verification; `settingsMode` also carries account controls.
 export function LocalWalletPoolStatus({
   networkId,
   accountId,
@@ -64,7 +66,7 @@ export function LocalWalletPoolStatus({
       accountUtils.isHwAccount({ accountId }));
 
   const openEnable = useCallback(async () => {
-    if (!lw.settings?.accountSetup.requiresBirthday) {
+    if (lw.state?.paused || !lw.settings?.accountSetup.requiresBirthday) {
       await lw.enableAccount({}).catch(logLocalWalletActionError('enable'));
       return;
     }
@@ -81,23 +83,33 @@ export function LocalWalletPoolStatus({
             hasRecommendedMonth={typeof hintTimestamp === 'number'}
           />
           <BirthdayDialogForm
+            networkId={networkId}
             formRef={formRef}
-            monthOnly
+            allowSavedBirthday={false}
             earliestBirthday={earliestBirthday}
           />
         </YStack>
       ),
       onConfirmText: intl.formatMessage({ id: ETranslations.global_enable }),
       onConfirm: async ({ preventClose }) => {
-        const birthday = readEnableBirthday(formRef.current, earliestBirthday);
+        const birthday = readEnableBirthday(
+          formRef.current,
+          earliestBirthday,
+          networkId,
+        );
         if (!birthday) {
+          Toast.error({
+            title: intl.formatMessage({
+              id: getBirthdayInputError(formRef.current.mode),
+            }),
+          });
           preventClose();
           return;
         }
         await lw.enableAccount(birthday);
       },
     });
-  }, [intl, lw]);
+  }, [intl, lw, networkId]);
 
   // Guards against a second tap opening a second dialog in the gap before the first one opens.
   const openingEnableRef = useRef(false);
@@ -110,29 +122,6 @@ export function LocalWalletPoolStatus({
       openingEnableRef.current = false;
     }
   }, [openEnable]);
-
-  const handleResume = useCallback(async () => {
-    await lw.enableAccount({}).catch(logLocalWalletActionError('resume'));
-  }, [lw]);
-
-  const handleDisable = useCallback(async () => {
-    await lw.disableAccount().catch(logLocalWalletActionError('pause'));
-  }, [lw]);
-
-  const handleReset = useCallback(() => {
-    Dialog.confirm({
-      title: intl.formatMessage({
-        id: ETranslations.privacy_sync_resync__action,
-      }),
-      description: intl.formatMessage({
-        id: ETranslations.privacy_sync_resync__desc,
-      }),
-      onConfirmText: intl.formatMessage({ id: ETranslations.global_reset }),
-      onConfirm: async () => {
-        await lw.resetLocalData();
-      },
-    });
-  }, [intl, lw]);
 
   const handleDelete = useCallback(() => {
     Dialog.confirm({
@@ -155,17 +144,14 @@ export function LocalWalletPoolStatus({
     return null;
   }
 
-  const isPaused = lw.state?.paused === true;
-
-  let disabledDescriptionId: ETranslations | ETranslationsMock =
+  let disabledDescriptionId: ETranslations =
     ETranslations.privacy_balance_privacy_off__desc;
   if (lw.isTempWallet) {
-    disabledDescriptionId =
-      ETranslationsMock.privacy_temp_wallet_unavailable__desc;
+    disabledDescriptionId = ETranslations.privacy_temp_wallet_unavailable__desc;
   } else if (lw.isUnsupportedWallet) {
     disabledDescriptionId =
       ETranslations.privacy_balance_wallet_not_supported__desc;
-  } else if (isPaused) {
+  } else if (lw.state?.paused) {
     disabledDescriptionId = ETranslations.syncing_paused__title;
   }
 
@@ -204,26 +190,11 @@ export function LocalWalletPoolStatus({
               >
                 {intl.formatMessage({
                   id: disabledDescriptionId,
-                  defaultMessage: disabledDescriptionId,
                 })}
               </SizableText>
             </YStack>
           </XStack>
-          {/* Resume already has its recovery position on disk; asking for the month again would be ignored. */}
-          {isPaused && !lw.isUnsupportedWallet ? (
-            <Button
-              testID="local-wallet-resume-button"
-              size="medium"
-              variant="primary"
-              loading={lw.busy}
-              onPress={handleResume}
-            >
-              {intl.formatMessage({
-                id: ETranslations.global_resume,
-              })}
-            </Button>
-          ) : null}
-          {!isPaused && canEnable ? (
+          {canEnable ? (
             <Button
               testID="local-wallet-enable-button"
               size="medium"
@@ -231,7 +202,11 @@ export function LocalWalletPoolStatus({
               loading={lw.busy}
               onPress={handleEnable}
             >
-              {intl.formatMessage({ id: ETranslations.global_enable })}
+              {intl.formatMessage({
+                id: lw.state?.paused
+                  ? ETranslations.global_resume
+                  : ETranslations.global_enable,
+              })}
             </Button>
           ) : null}
         </YStack>
@@ -268,77 +243,9 @@ export function LocalWalletPoolStatus({
     </Button>
   ) : null;
 
-  let balanceNote: React.ReactNode = null;
-  if (identityMismatch) {
-    balanceNote = (
-      <SizableText
-        testID="local-wallet-identity-mismatch"
-        size="$bodySm"
-        color="$textCaution"
-      >
-        {intl.formatMessage({
-          id: ETranslationsMock.privacy_error_identity_mismatch__msg,
-          defaultMessage:
-            ETranslationsMock.privacy_error_identity_mismatch__msg,
-        })}
-      </SizableText>
-    );
-  } else if (
-    !isPreparing &&
-    canRepairSetup &&
-    !lw.addresses &&
-    lw.hasAttemptedBalance
-  ) {
-    balanceNote = (
-      <SizableText size="$bodySm" color="$textCaution">
-        {intl.formatMessage({
-          id: ETranslations.privacy_error_setup_incomplete__msg,
-        })}
-      </SizableText>
-    );
-  } else if (
-    !isPreparing &&
-    canRepairSetup &&
-    !lw.balance &&
-    lw.hasAttemptedBalance
-  ) {
-    balanceNote = (
-      <SizableText size="$bodySm" color="$textCritical">
-        {intl.formatMessage({
-          id: ETranslations.privacy_balance_unavailable__msg,
-        })}
-      </SizableText>
-    );
-  }
-
-  // A balance problem outranks a breakdown; hints are ordered most-specific-first.
-  const hintText = lw.poolBalance?.hints[0];
-  const hintLine = hintText ? (
-    <SizableText size="$bodySm" color="$textSubdued" numberOfLines={1}>
-      {hintText}
-    </SizableText>
-  ) : null;
-  // Unspendable reasons outrank a pool note; password-only causes get the full alert.
   const needsPassword = lw.poolBalance?.frozen?.some(
     ({ reason }) => reason === 'needsPassword',
   );
-  let frozenLine: React.ReactNode = null;
-  if (needsPassword) {
-    frozenLine = (
-      <LocalWalletPasswordAlert networkId={networkId} accountId={accountId} />
-    );
-  } else if (lw.poolBalance?.frozen?.length) {
-    frozenLine = (
-      <LocalWalletFrozenLines
-        networkId={networkId}
-        accountId={accountId}
-        frozen={lw.poolBalance.frozen}
-        maxLines={1}
-        onVerified={lw.refresh}
-      />
-    );
-  }
-  const statusLine = (lw.pool ? balanceNote : null) ?? frozenLine ?? hintLine;
   // Repair controls only; the sync line and its settings shortcut live under the address (LocalWalletSyncRow).
   let syncActions: React.ReactNode = null;
   if (settingsMode && identityMismatch) {
@@ -365,33 +272,15 @@ export function LocalWalletPoolStatus({
     }
   }
 
-  // The note says "Tap Retry"; nothing else on the token page offers it, under the same condition statusLine uses.
-  const setupIncomplete =
-    !isPreparing &&
-    canRepairSetup &&
-    !!lw.pool &&
-    !lw.addresses &&
-    lw.hasAttemptedBalance;
-  let inlineSetupRetry: React.ReactNode = null;
-  if (!settingsMode && identityMismatch) {
-    inlineSetupRetry = deleteForMismatch;
-  } else if (!settingsMode && setupIncomplete) {
-    inlineSetupRetry = (
-      <SetupRepairControl
-        networkId={networkId}
-        accountId={accountId}
-        onDone={lw.refresh}
-      />
-    );
+  if (!settingsMode && !needsPassword) {
+    return null;
   }
 
   return (
     <YStack pt="$3" gap="$2">
-      {/* Reserved height: polling toggles this line and would shift the page. */}
-      <XStack minHeight="$5" alignItems="center" gap="$2">
-        <Stack flexShrink={1}>{statusLine}</Stack>
-        {inlineSetupRetry}
-      </XStack>
+      {needsPassword ? (
+        <LocalWalletPasswordAlert networkId={networkId} accountId={accountId} />
+      ) : null}
       {settingsMode ? (
         <XStack
           pt="$1"
@@ -409,41 +298,15 @@ export function LocalWalletPoolStatus({
       ) : null}
       {settingsMode ? (
         <>
-          <XStack gap="$2" flexWrap="wrap">
-            <Button
-              testID="local-wallet-pause-btn"
-              size="small"
-              variant="tertiary"
-              loading={lw.busy}
-              onPress={handleDisable}
-            >
-              {intl.formatMessage({ id: ETranslations.global_pause })}
-            </Button>
-          </XStack>
-          <Divider my="$2" />
-          <SizableText size="$bodyMdMedium">
-            {intl.formatMessage({ id: ETranslations.global_advanced_settings })}
-          </SizableText>
-          <XStack gap="$2" flexWrap="wrap">
-            <Button
-              testID="local-wallet-reset-btn"
-              size="small"
-              variant="tertiary"
-              disabled={lw.busy}
-              onPress={handleReset}
-            >
-              {intl.formatMessage({ id: ETranslations.global_reset })}
-            </Button>
-            <Button
-              testID="local-wallet-delete-btn"
-              size="small"
-              variant="tertiary"
-              disabled={lw.busy}
-              onPress={handleDelete}
-            >
-              {intl.formatMessage({ id: ETranslations.global_delete })}
-            </Button>
-          </XStack>
+          <Button
+            testID="local-wallet-delete-btn"
+            size="small"
+            variant="tertiary"
+            disabled={lw.busy}
+            onPress={handleDelete}
+          >
+            {intl.formatMessage({ id: ETranslations.global_delete })}
+          </Button>
           <LocalWalletDebugControl
             networkId={networkId}
             accountId={accountId}
@@ -458,7 +321,7 @@ export function LocalWalletPoolStatus({
   );
 }
 
-// Scan progress under the address; keeps its height when empty so the history below does not jump.
+// Balance freshness and its explicit refresh action share one stable row.
 export function LocalWalletSyncRow({
   networkId,
   accountId,
@@ -470,6 +333,7 @@ export function LocalWalletSyncRow({
 }) {
   const intl = useIntl();
   const navigation = useAppNavigation();
+  const accountPaused = lw.state?.paused === true;
 
   const openSettings = useCallback(() => {
     navigation.pushModal(EModalRoutes.AccountManagerStacks, {
@@ -481,7 +345,12 @@ export function LocalWalletSyncRow({
     });
   }, [accountId, navigation, networkId]);
 
-  if (!lw.hasPooledBalance || !lw.isReady || !lw.enabled) {
+  if (
+    !lw.hasPooledBalance ||
+    !lw.isReady ||
+    !lw.enabled ||
+    lw.pool?.source !== 'localScan'
+  ) {
     return null;
   }
 
@@ -494,23 +363,67 @@ export function LocalWalletSyncRow({
       justifyContent="space-between"
       gap="$2"
     >
-      <SizableText
-        size="$bodySm"
-        color="$textSubdued"
-        flexShrink={1}
-        numberOfLines={1}
-      >
-        {/* Unknown until the first figures arrive, never an empty row. */}
-        {lw.syncStatusText ?? '— / —'}
-      </SizableText>
+      <YStack flex={1} minWidth={0} gap="$0.5">
+        <XStack alignItems="center" gap="$1" minWidth={0}>
+          <SizableText
+            size="$bodyXs"
+            color="$textSubdued"
+            numberOfLines={1}
+            flexShrink={1}
+          >
+            {intl.formatMessage({ id: ETranslations.market_last_updated })}
+          </SizableText>
+          <SizableText
+            testID="local-wallet-last-synced-at"
+            size="$bodyXs"
+            color="$textSubdued"
+            numberOfLines={1}
+            flexShrink={0}
+          >
+            {typeof lw.lastSyncedAt === 'number' &&
+            Number.isFinite(lw.lastSyncedAt) &&
+            lw.lastSyncedAt > 0
+              ? formatDate(new Date(lw.lastSyncedAt), {
+                  hideTheYear: true,
+                  hideSeconds: true,
+                })
+              : '—'}
+          </SizableText>
+        </XStack>
+        {lw.hasSyncError && !lw.isSyncPaused ? (
+          <SizableText size="$bodyXs" color="$textCaution">
+            {lw.syncStatusText}
+          </SizableText>
+        ) : null}
+      </YStack>
       <Button
-        testID="local-wallet-open-settings-btn"
+        testID="local-wallet-refresh-balance-btn"
+        mr="$0"
         size="small"
         variant="tertiary"
-        onPress={openSettings}
+        icon={accountPaused ? 'PlayOutline' : 'RefreshCcwOutline'}
+        loading={lw.busy}
+        onPress={() => {
+          void (
+            accountPaused ? lw.enableAccount({}) : lw.refreshBalanceNow()
+          ).catch(logLocalWalletActionError('refresh'));
+        }}
       >
-        {intl.formatMessage({ id: ETranslations.global_settings })}
+        {intl.formatMessage({
+          id: accountPaused
+            ? ETranslations.global_resume
+            : ETranslations.privacy_balance_refresh__action,
+        })}
       </Button>
+      <IconButton
+        testID="local-wallet-open-settings-btn"
+        ml="$2"
+        size="small"
+        variant="tertiary"
+        icon="SettingsOutline"
+        title={intl.formatMessage({ id: ETranslations.global_settings })}
+        onPress={openSettings}
+      />
     </XStack>
   );
 }

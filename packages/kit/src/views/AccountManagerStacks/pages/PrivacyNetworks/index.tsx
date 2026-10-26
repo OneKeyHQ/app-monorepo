@@ -1,3 +1,4 @@
+import { StackActions } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
 import { Page, ScrollView, Spinner, Stack } from '@onekeyhq/components';
@@ -11,9 +12,8 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EAccountManagerStacksRoutes } from '@onekeyhq/shared/src/routes/accountManagerStacks';
 import type { IAccountManagerStacksParamList } from '@onekeyhq/shared/src/routes/accountManagerStacks';
 
-// The settings page always covers one chain. Opened from the wallet menu with
-// no chain named, pick one first; a wallet with a single privacy chain skips
-// the pick.
+// The wallet menu always starts with the picker, even for one network.
+// Token details can still open the specified network directly.
 export default function PrivacyNetworks({
   route,
 }: IPageScreenProps<
@@ -49,14 +49,6 @@ export default function PrivacyNetworks({
   if (networkId) {
     return <PrivacyNetworkSettings walletId={walletId} networkId={networkId} />;
   }
-  if (networks && networks.length <= 1) {
-    return (
-      <PrivacyNetworkSettings
-        walletId={walletId}
-        networkId={networks[0]?.networkId}
-      />
-    );
-  }
   return (
     <Page testID="privacy-networks-picker-page">
       <Page.Header
@@ -75,10 +67,13 @@ export default function PrivacyNetworks({
                 title={network.name}
                 drillIn
                 onPress={() =>
-                  navigation.push(EAccountManagerStacksRoutes.PrivacyNetworks, {
-                    walletId,
-                    networkId: network.networkId,
-                  })
+                  // Keep the picker on the stack; navigate would reuse this route.
+                  navigation.dispatch(
+                    StackActions.push(
+                      EAccountManagerStacksRoutes.PrivacyNetworks,
+                      { walletId, networkId: network.networkId },
+                    ),
+                  )
                 }
               />
             ))}

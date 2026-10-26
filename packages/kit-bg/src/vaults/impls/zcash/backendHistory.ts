@@ -188,9 +188,8 @@ function shieldedCounterparty(amount: string): IOnChainHistoryTxTransfer {
   };
 }
 
-// The indexer only sees the transparent leg, so a shielded counterparty comes
-// back as an empty `from` or missing receive and renders as "unknown". Add the
-// shielded side as an address-less entry and mark it on the tx.
+// Older account-scoped receive rows omit the shielded sender. Missing send
+// details or owned outputs alone do not identify a shielded recipient.
 export function normalizeZcashBackendHistoryTx(
   tx: IOnChainHistoryTx,
 ): IOnChainHistoryTx {
@@ -199,11 +198,29 @@ export function normalizeZcashBackendHistoryTx(
   const receives = tx.receives ?? [];
   const isShieldedEntry = (transfer: IOnChainHistoryTxTransfer) =>
     transfer.type === EOnChainHistoryTransferType.Shielded;
+  const isDestination = (transfer: IOnChainHistoryTxTransfer) =>
+    (transfer.to || transfer.address) === tx.to;
+  const destinationIsOnlyChange =
+    !!tx.to &&
+    receives.some(
+      (receive) =>
+        !isShieldedEntry(receive) &&
+        receive.isOwn === true &&
+        receive.isChange === true &&
+        isDestination(receive),
+    ) &&
+    !receives.some(
+      (receive) =>
+        !isShieldedEntry(receive) &&
+        receive.isChange !== true &&
+        isDestination(receive),
+    );
   // Older indexer rows list no sends on a receive; newer ones list the shielded
   // side themselves. Either way only an empty `from` means a shielded sender.
   if (
     tx.type === EOnChainHistoryTxType.Receive &&
     sends.every(isShieldedEntry) &&
+    !receives.some((receive) => !isShieldedEntry(receive) && !!receive.from) &&
     !tx.from
   ) {
     return {
@@ -214,19 +231,31 @@ export function normalizeZcashBackendHistoryTx(
   }
   if (
     tx.type === EOnChainHistoryTxType.Send &&
-    receives.every((receive) => receive.isOwn || isShieldedEntry(receive))
+    (!tx.to || destinationIsOnlyChange) &&
+    receives.some(
+      (receive) =>
+        isShieldedEntry(receive) &&
+        receive.isChange !== true &&
+        (receive.isOwn === false || receive.isChange === false),
+    ) &&
+    receives.every(
+      (receive) =>
+        isShieldedEntry(receive) ||
+        (receive.isOwn === true && receive.isChange === true),
+    )
   ) {
-    // Change returns to the sending t1, so an indexer row "to" itself paid a
-    // shielded address (a true t1 -> same t1 transfer reads the same way).
-    const to = tx.to === tx.from ? '' : tx.to;
+    // An explicit private payment can disambiguate the sender's public change.
+    // Keep the supplied transfers and amounts; a sparse summary cannot do so.
     return {
       ...tx,
-      to,
-      ...(to ? {} : { shieldedCounterparty: 'to' as const }),
-      receives: receives.some(isShieldedEntry)
-        ? receives
-        : [...receives, shieldedCounterparty(tx.value ?? '0')],
+      to: '',
+      shieldedCounterparty: 'to',
     };
+  }
+  // Mixed payments can name public recipients too. Remove only a destination
+  // explicitly identified as change, before the own-address gate hides it.
+  if (tx.type === EOnChainHistoryTxType.Send && destinationIsOnlyChange) {
+    return { ...tx, to: '' };
   }
   return tx;
 }

@@ -6,10 +6,22 @@ import type {
   IZcashTransparentOutpoint,
 } from '@onekeyhq/core/src/chains/zcash/sdkZcash/types/sdk';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
-import { ETranslations, ETranslationsMock } from '@onekeyhq/shared/src/locale';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
 
 import { localWalletText } from '../../localWallet/messages';
+
+import type { IZcashPrivacyModeStateView } from '../../../dbs/simple/entity/SimpleDbEntityPrivacyChainState';
+
+// Read-only views retain scanned data while a paused account stops scheduling and spending.
+export function canReadZcashPrivateData(
+  state: IZcashPrivacyModeStateView,
+): boolean {
+  return (
+    state.intent === 'on' ||
+    (state.operation === undefined && state.resumeFromHeight !== undefined)
+  );
+}
 
 // ZIP-317 fee (display estimate); pczt_create computes the exact fee.
 export const ZCASH_DISPLAY_FEE_ZAT = '10000';
@@ -18,29 +30,6 @@ export const ZCASH_TRANSPARENT_PATH_RE =
   /^m\/44'\/133'\/(\d+)'\/([01])\/(\d+)$/;
 
 export const ZCASH_TRANSPARENT_P2PKH_SCRIPT_RE = /^76a914[0-9a-f]{40}88ac$/i;
-
-// A 4xx can follow a successful upstream submission -- it doesn't prove
-// the node rejected the tx. Surface the server's own reason text too.
-export function describeZcashBroadcastFailure(e: unknown): {
-  reason?: string;
-  serverCode?: number;
-  httpStatusCode?: number;
-} {
-  if (!e || typeof e !== 'object') {
-    return {};
-  }
-  const err = e as {
-    message?: unknown;
-    code?: unknown;
-    httpStatusCode?: unknown;
-  };
-  const serverCode = typeof err.code === 'number' ? err.code : undefined;
-  const httpStatusCode =
-    typeof err.httpStatusCode === 'number' ? err.httpStatusCode : undefined;
-  const raw = typeof err.message === 'string' ? err.message.trim() : '';
-  const reason = raw && raw !== 'OneKeyServer Unknown Error' ? raw : undefined;
-  return { reason, serverCode, httpStatusCode };
-}
 
 export function zcashTransparentError(
   code: string,
@@ -161,7 +150,9 @@ export function createZcashIdentityMismatchError(): Error {
   // Shown from Retry and Enable, whose callers only log; a balance poll
   // that hits it catches it in bg.
   const error = new OneKeyLocalError({
-    message: ETranslationsMock.privacy_error_identity_mismatch__msg,
+    message: localWalletText(
+      ETranslations.privacy_error_identity_mismatch__msg,
+    ),
     autoToast: true,
   });
   (error as unknown as Record<string, unknown>)[ZCASH_SETUP_INCOMPLETE] = true;

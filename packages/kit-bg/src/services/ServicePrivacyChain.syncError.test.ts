@@ -63,17 +63,25 @@ describe('Privacy sync failure state', () => {
   function createService({
     syncGroup,
     getChainTip = async () => 100,
+    listAccounts = async () => ({
+      accounts: [
+        { accountId: 'account', runtimeKey: 'main', syncEnabled: true },
+      ],
+    }),
   }: {
     syncGroup: jest.Mock;
     getChainTip?: () => Promise<number>;
+    listAccounts?: () => Promise<{
+      accounts: {
+        accountId: string;
+        runtimeKey: string;
+        syncEnabled: boolean;
+      }[];
+    }>;
   }) {
     mockGetChainOnlyVault.mockResolvedValue({
       getLocalWalletCapability: () => ({
-        listAccounts: async () => ({
-          accounts: [
-            { accountId: 'account', runtimeKey: 'main', syncEnabled: true },
-          ],
-        }),
+        listAccounts,
         getChainTip,
         syncPolicy: { maxSyncDurationMs: 60_000 },
         syncGroup,
@@ -89,10 +97,13 @@ describe('Privacy sync failure state', () => {
           networkId: string;
           trigger: 'manual-sync';
         }) => Promise<void>;
+        markLocalWalletOrphanCleanupDue: (id: string) => void;
       },
       {
         backgroundApi: {
-          simpleDb: { privacyChainState: {} },
+          simpleDb: {
+            privacyChainState: { getAccountEpoch: async () => undefined },
+          },
           serviceAccount: {
             getDBAccountSafe: async () => ({ id: 'account' }),
             getWalletSafe: async () => ({ isTemp: false }),
@@ -105,9 +116,10 @@ describe('Privacy sync failure state', () => {
         storageUnsupportedNetworkIds: new Set<string>(),
         syncFailureBackoff: new Map(),
         runtimeSyncState: new Map(),
-        backfillActiveByAccount: {},
-        foregroundBoostRequestedByNetwork: {},
-        boostPausedByNetwork: {},
+        orphanCleanupGeneration: new Map<string, number>(),
+        backfillActiveByAccount: {} as Record<string, boolean>,
+        foregroundBoostRequestedByNetwork: {} as Record<string, boolean>,
+        boostPausedByNetwork: {} as Record<string, boolean>,
         getLocalWalletNetworkIds: async () => [networkId],
         isPrivacySyncOnCellularAllowed: async () => true,
         isNetworkForegroundHot: () => false,
@@ -115,6 +127,8 @@ describe('Privacy sync failure state', () => {
         publishScanProgress: jest.fn(),
         publishBoostingNetworks: jest.fn(),
         refreshAutoBoost: jest.fn(),
+        runLocalWalletOrphanCleanupIfDue: jest.fn(),
+        doLocalWalletPasswordWork: jest.fn(async () => false),
         init: jest.fn(),
       },
     );
@@ -170,6 +184,65 @@ describe('Privacy sync failure state', () => {
     await service.startForegroundBoost({ networkId, trigger: 'manual-sync' });
 
     expect(mockPublished.syncErrorByNetworkId).toEqual({});
+  });
+
+  it('prunes a paused network with no remaining account or boost request', async () => {
+    const service = createService({
+      syncGroup: jest.fn(),
+      listAccounts: async () => ({ accounts: [] }),
+    });
+    service.boostPausedByNetwork[networkId] = true;
+
+    await service.backgroundSyncTick();
+
+    expect(service.boostPausedByNetwork[networkId]).toBeUndefined();
+    expect(service.publishBoostingNetworks).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not prune a new enable from an older empty enumeration', async () => {
+    let resolveList!: (value: { accounts: [] }) => void;
+    let requested!: () => void;
+    const listing = new Promise<{ accounts: [] }>((resolve) => {
+      resolveList = resolve;
+    });
+    const listRequested = new Promise<void>((resolve) => {
+      requested = resolve;
+    });
+    const service = createService({
+      syncGroup: jest.fn(),
+      listAccounts: () => {
+        requested();
+        return listing;
+      },
+    });
+    const tick = service.backgroundSyncTick();
+    await listRequested;
+    service.markLocalWalletOrphanCleanupDue(networkId);
+    service.foregroundBoostRequestedByNetwork[networkId] = true;
+    service.backfillActiveByAccount.new = true;
+    const newProgress = {
+      birthdayHeight: 0,
+      backfillScannedHeight: 0,
+      backfillTargetHeight: 100,
+      backfillProgress: 0,
+      isBackfillComplete: false,
+      tipScannedHeight: 90,
+      chainTip: 100,
+      tipLag: 10,
+      isTipCaughtUp: false,
+      isSyncing: true,
+    };
+    mockPublished.progress[`${networkId}:new`] = newProgress;
+    mockPublished.syncErrorByNetworkId[networkId] = 'nodeUnreachable';
+    resolveList({ accounts: [] });
+    await tick;
+
+    expect(service.foregroundBoostRequestedByNetwork[networkId]).toBe(true);
+    expect(service.backfillActiveByAccount.new).toBe(true);
+    expect(mockPublished.progress[`${networkId}:new`]).toBe(newProgress);
+    expect(mockPublished.syncErrorByNetworkId[networkId]).toBe(
+      'nodeUnreachable',
+    );
   });
 
   it('honors a pause made while the node tip is loading and resumes only on an explicit request', async () => {

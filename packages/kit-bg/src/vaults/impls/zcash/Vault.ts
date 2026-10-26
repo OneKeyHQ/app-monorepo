@@ -414,7 +414,7 @@ export default class Vault extends VaultBtc {
   async zcashPrepareAccounts(params: {
     accountIds: string[];
     chainTip?: number | null;
-  }): Promise<IZcashWalletAccount[]> {
+  }): Promise<{ accountId: string; account: IZcashWalletAccount }[]> {
     return zcashLifecycle.zcashPrepareAccounts(this, params);
   }
 
@@ -464,6 +464,7 @@ export default class Vault extends VaultBtc {
     stateChanged?: boolean;
     chainTip?: number | null;
     backfillRemaining?: boolean;
+    caughtUpAccountIds?: string[];
   }> {
     return zcashLifecycle.syncLocalWalletGroup(this, params);
   }
@@ -493,6 +494,7 @@ export default class Vault extends VaultBtc {
     stateChanged?: boolean;
     chainTip?: number | null;
     backfillRemaining?: boolean;
+    caughtUpAccountIds?: string[];
   }> {
     return zcashLifecycle.syncLocalWalletGroupImpl(this, params);
   }

@@ -122,6 +122,10 @@ function createHarness() {
       getAccountAddressForApi: jest.fn(async () => 't1account'),
       getAccountXpub: jest.fn(async () => undefined),
     },
+    serviceSignature: {
+      removeSignedTransactionsForAccount: jest.fn(record('signatureRecords')),
+      listZcashSignedTransactionAccountIds: jest.fn(async () => []),
+    },
   } as unknown as IBackgroundApi;
   const service = Object.assign(
     Object.create(ServicePrivacyChain.prototype) as IService,
@@ -182,6 +186,7 @@ const STEP_OF: Record<IRecorded, ILocalWalletLifecycleStep> = {
   viewingKeys: 'hostRecords',
   zcashTransparentJournal: 'hostRecords',
   xmrSent: 'hostRecords',
+  signatureRecords: 'hostRecords',
   displayCaches: 'hostRecords',
   chainTips: 'hostRecords',
   walletState: 'hostRecords',
@@ -330,6 +335,27 @@ describe('privacy chain lifecycle executor', () => {
       }),
     ).rejects.toThrow('runtime down');
     expect(calls).toEqual(['rotateEpoch']);
+  });
+
+  it('reports account archive cleanup failure after finishing cache cleanup', async () => {
+    const { service, capability, backgroundApi, calls } = createHarness();
+    const error = new Error('archive temporarily unavailable');
+    (
+      backgroundApi.serviceSignature
+        .removeSignedTransactionsForAccount as jest.Mock
+    ).mockRejectedValueOnce(error);
+    const log = jest
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
+    await expect(
+      service.runLocalWalletLifecycle({
+        event: 'deleteAccount',
+        targets: [targetFor('deleteAccount', capability)],
+      }),
+    ).rejects.toBe(error);
+    expect(calls).toContain('displayCaches');
+    expect(calls).toContain('memoryCaches');
+    log.mockRestore();
   });
 
   it('App Reset skips the host records of a network whose drop failed and reports it', async () => {

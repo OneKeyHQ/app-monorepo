@@ -8,7 +8,7 @@ import type {
   ILocalWalletFrozenPart,
   ILocalWalletFrozenReason,
 } from '@onekeyhq/kit-bg/src/vaults/localWallet/types';
-import { ETranslations, ETranslationsMock } from '@onekeyhq/shared/src/locale';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import type { IntlShape } from 'react-intl';
 
@@ -43,8 +43,7 @@ function frozenLineText(
   if (reason === 'smallChange') {
     return intl.formatMessage(
       {
-        id: ETranslationsMock.privacy_balance_small_change__msg,
-        defaultMessage: ETranslationsMock.privacy_balance_small_change__msg,
+        id: ETranslations.privacy_balance_small_change__msg,
       },
       { amount },
     );

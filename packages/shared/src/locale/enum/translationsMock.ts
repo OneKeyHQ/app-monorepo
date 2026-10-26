@@ -36,13 +36,4 @@ export enum ETranslationsMock {
   prime_gift_session_changed = 'Your account changed. Confirm the receiving account to continue.',
   prime_gift_result_unknown = 'Your previous claim is not yet confirmed. Retrying will use the same redemption code.',
   // ----------------------------------------------
-  privacy_history_pool__label = '{pool} pool',
-  privacy_history_shielded__label = 'Shielded',
-  privacy_history_private__label = 'Private',
-  privacy_temp_wallet_unavailable__desc = 'Unavailable for hidden wallets that clear on app close. Turn on “Keep accessible” to use it.',
-  privacy_error_identity_mismatch__msg = 'This account’s privacy data was set up with a different key. Turn off privacy mode, delete its privacy data, then turn privacy mode on again.',
-  privacy_error_runtime_unavailable__msg = 'Privacy sync isn’t responding. Restart the app and try again.',
-  privacy_sync_failed_retrying__msg = 'Sync failed. Retrying automatically.',
-  privacy_balance_small_change__msg = 'Includes {amount} of small change that’s too small to send on its own.',
-  // ----------------------------------------------
 }

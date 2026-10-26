@@ -1,6 +1,5 @@
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
-import { ETranslationsMock } from '@onekeyhq/shared/src/locale/enum/translationsMock';
 import { loadLocaleMessages } from '@onekeyhq/shared/src/locale/localeLoaders';
 
 import { toUserFacingZcashError, zcashUserMessage } from './errorCopy';
@@ -159,18 +158,23 @@ it('names the node reason for a rejected broadcast', () => {
 
 // QA: a Worker that crashed at load surfaced "handshake timed out" (no code)
 // and the enable dialog said nothing.
-it('words a Worker that never started for the user, with a toast', () => {
-  const crashed = Object.assign(
-    new Error('zcash worker: handshake timed out'),
-    {
-      data: { privacyChainRuntimeFailure: 'handshake' },
-    },
-  );
-  expect(zcashUserMessage(crashed)).toBe(
-    ETranslationsMock.privacy_error_runtime_unavailable__msg,
-  );
-  expect(toUserFacingZcashError(crashed)).toMatchObject({
-    message: ETranslationsMock.privacy_error_runtime_unavailable__msg,
-    autoToast: true,
-  });
-});
+it.each([
+  ['en-US', 'Privacy sync isn’t responding. Restart the app and try again.'],
+  ['zh-CN', '隐私同步无响应。重启应用后重试。'],
+] as const)(
+  'words a Worker that never started in %s, with a toast',
+  async (locale, message) => {
+    appLocale.setLocale(locale, await loadLocaleMessages(locale));
+    const crashed = Object.assign(
+      new Error('zcash worker: handshake timed out'),
+      {
+        data: { privacyChainRuntimeFailure: 'handshake' },
+      },
+    );
+    expect(zcashUserMessage(crashed)).toBe(message);
+    expect(toUserFacingZcashError(crashed)).toMatchObject({
+      message,
+      autoToast: true,
+    });
+  },
+);

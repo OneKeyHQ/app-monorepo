@@ -23,7 +23,9 @@ jest.mock('onekey-zcash-runtime', () => ({
   deleteWallet: jest.fn(),
 }));
 
-const extended = runtime as typeof runtime & { rescanAccount?: jest.Mock };
+const extended = runtime as Omit<typeof runtime, 'rescanAccount'> & {
+  rescanAccount?: jest.Mock;
+};
 const safeRescan = extended.rescanAccount;
 const account: IZcashWalletAccount = {
   network: 'main',

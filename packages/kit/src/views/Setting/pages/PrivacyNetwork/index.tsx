@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -10,7 +10,6 @@ import {
   Divider,
   ESwitchSize,
   Page,
-  Progress,
   ScrollView,
   SizableText,
   Spinner,
@@ -20,7 +19,6 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
-import type { IKeyOfIcons } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { LazyLoadPage } from '@onekeyhq/kit/src/components/LazyLoadPage';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
@@ -28,12 +26,9 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useRouteIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import {
-  formatPrivacyChainRemainingBlocks,
   formatPrivacyChainSyncError,
   formatPrivacyChainSyncProgress,
-  getPrivacyChainBackfillProgress,
-  getPrivacyChainScanRegionLabelId,
-  getPrivacyChainSyncLabel,
+  getPrivacyChainNetworkSyncDisplay,
 } from '@onekeyhq/kit/src/utils/privacyChainSyncDisplay';
 import { AccountManagerTestIDs } from '@onekeyhq/kit/src/views/AccountManagerStacks/testIDs';
 import {
@@ -42,24 +37,24 @@ import {
   type IEarliestBirthday,
   PrivacyEnableDisclosure,
   createEnableBirthdayForm,
+  getBirthdayInputError,
   readEnableBirthday,
 } from '@onekeyhq/kit/src/views/AssetDetails/pages/TokenDetails/LocalWalletRepairControls';
 import {
   useDevSettingsPersistAtom,
   usePrivacyChainAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import type {
-  ILocalWalletSlotUsage,
-  ILocalWalletSyncErrorKind,
-  ILocalWalletSyncProgress,
-} from '@onekeyhq/kit-bg/src/vaults/localWallet/types';
 import { IMPL_ZCASH } from '@onekeyhq/shared/src/engine/engineConsts';
-import { ETranslations, ETranslationsMock } from '@onekeyhq/shared/src/locale';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalSettingRoutes } from '@onekeyhq/shared/src/routes/setting';
 import type { IModalSettingParamList } from '@onekeyhq/shared/src/routes/setting';
-import { formatMonth } from '@onekeyhq/shared/src/utils/dateUtils';
+import { formatDate, formatMonth } from '@onekeyhq/shared/src/utils/dateUtils';
 
 import type { RouteProp } from '@react-navigation/core';
 import type { IntlShape } from 'react-intl';
@@ -109,70 +104,6 @@ function formatBytes(bytes: number): string {
     unit += 1;
   }
   return `${value < 10 ? value.toFixed(1) : Math.round(value)} ${units[unit]}`;
-}
-
-type ISlotOccupant = ILocalWalletSlotUsage['occupants'][number];
-
-type ISlotSelection = { accountId?: string };
-
-// The list comes from the background: slots are held across wallets this page cannot see.
-function SlotReplaceForm({
-  occupants,
-  hiddenCount,
-  selectionRef,
-}: {
-  occupants: ISlotOccupant[];
-  hiddenCount: number;
-  selectionRef: { current: ISlotSelection };
-}) {
-  const intl = useIntl();
-  const [selected, setSelected] = useState<string | undefined>(
-    occupants.length === 1 ? occupants[0].accountId : undefined,
-  );
-  useEffect(() => {
-    selectionRef.current.accountId = selected;
-  }, [selected, selectionRef]);
-  return (
-    <YStack>
-      {occupants.map((occupant) => (
-        <ListItem
-          key={occupant.accountId}
-          testID={`privacy-slot-occupant-${occupant.accountId}`}
-          title={occupant.accountName}
-          subtitle={[
-            occupant.walletName,
-            occupant.aliasCount > 1
-              ? intl.formatMessage(
-                  {
-                    id: ETranslations.privacy_slots_shared_key__msg,
-                  },
-                  { count: occupant.aliasCount },
-                )
-              : '',
-          ]
-            .filter(Boolean)
-            .join(' · ')}
-          checkMark={selected === occupant.accountId}
-          onPress={() => setSelected(occupant.accountId)}
-        />
-      ))}
-      {hiddenCount > 0 ? (
-        <SizableText size="$bodySm" color="$textSubdued" px="$5" pt="$2">
-          {intl.formatMessage(
-            {
-              id: ETranslations.privacy_slots_locked_wallets__msg,
-            },
-            { count: hiddenCount },
-          )}
-        </SizableText>
-      ) : null}
-      <SizableText size="$bodySm" color="$textCaution" px="$5" pt="$2">
-        {intl.formatMessage({
-          id: ETranslations.privacy_slots_replace__desc,
-        })}
-      </SizableText>
-    </YStack>
-  );
 }
 
 // Per-account attribution is impossible by design: the block cache and
@@ -253,12 +184,6 @@ function PrivacyChainStorageSection({
 // scan, so a birthday shown here would have no owner.
 function PrivacyChainNetworkSections({
   networkId,
-  enabledAccountCount,
-  isPaused,
-  isHeldByData,
-  isStorageUnsupported,
-  syncError,
-  progress,
   endpointUrl,
   endpointDefaultUrl,
   endpointIsCustom,
@@ -266,12 +191,6 @@ function PrivacyChainNetworkSections({
   onChanged,
 }: {
   networkId: string;
-  enabledAccountCount?: number;
-  isPaused: boolean;
-  isHeldByData: boolean;
-  isStorageUnsupported: boolean;
-  syncError: ILocalWalletSyncErrorKind | undefined;
-  progress: Record<string, ILocalWalletSyncProgress>;
   endpointUrl: string | undefined;
   endpointDefaultUrl: string | undefined;
   endpointIsCustom: boolean;
@@ -300,72 +219,6 @@ function PrivacyChainNetworkSections({
       backgroundApiProxy.servicePrivacyChain.getAllowPrivacySyncOnCellular(),
     [],
   );
-  const { result: scanRegionHints } = usePromiseResult(async () => {
-    const settings = await backgroundApiProxy.serviceNetwork.getVaultSettings({
-      networkId,
-    });
-    return settings.localWallet?.scanRegionHints;
-  }, [networkId]);
-  // Accounts share one scan queue, so the slowest one is the headline.
-  const behind = getPrivacyChainBackfillProgress(progress, networkId);
-
-  // Once backfill is done every account is at the same height; a chain
-  // never "finishes", it only keeps up.
-  const atTip = Object.entries(progress)
-    .filter(([key]) => key.startsWith(`${networkId}:`))
-    .map(([, value]) => value)
-    .find(
-      (value) =>
-        typeof value.tipScannedHeight === 'number' &&
-        typeof value.chainTip === 'number',
-    );
-
-  const heldByData = isHeldByData;
-  const stateLabel = intl.formatMessage({
-    id: getPrivacyChainSyncLabel({
-      storageUnsupported: isStorageUnsupported,
-      disabled: enabledAccountCount === 0,
-      paused: isPaused,
-      held: heldByData,
-      preparing: enabledAccountCount === undefined || (!behind && !atTip),
-      backfilling: Boolean(behind),
-    }),
-  });
-  // Only while it is meant to be syncing; the scheduler keeps retrying.
-  const isMeantToSync = (enabledAccountCount ?? 0) > 0 && !isPaused;
-  const syncErrorText = isMeantToSync
-    ? formatPrivacyChainSyncError(syncError, intl)
-    : undefined;
-  let stateIcon: IKeyOfIcons = 'RefreshCcwOutline';
-  if (isStorageUnsupported || syncErrorText) {
-    stateIcon = 'ErrorOutline';
-  } else if (enabledAccountCount === 0 || isPaused) {
-    stateIcon = 'PauseOutline';
-  } else if (heldByData) {
-    stateIcon = 'SignalOutline';
-  }
-  const ratio = behind?.backfillProgress ?? null;
-  const regionLabelId = getPrivacyChainScanRegionLabelId(
-    scanRegionHints,
-    behind?.backfillScannedHeight,
-  );
-  const detail = behind
-    ? [
-        formatPrivacyChainSyncProgress({
-          scanned: behind.backfillScannedHeight,
-          target: behind.backfillTargetHeight,
-          progress: behind.backfillProgress,
-        }),
-        formatPrivacyChainRemainingBlocks(behind, intl),
-        regionLabelId ? intl.formatMessage({ id: regionLabelId }) : '',
-      ]
-        .filter(Boolean)
-        .join(' · ')
-    : formatPrivacyChainSyncProgress({
-        scanned: atTip?.tipScannedHeight,
-        target: atTip?.chainTip,
-      });
-
   const run = useCallback(
     async (fn: () => Promise<void>) => {
       setBusy(true);
@@ -381,64 +234,6 @@ function PrivacyChainNetworkSections({
 
   return (
     <>
-      <SectionTitle>
-        {intl.formatMessage({
-          id: ETranslations.global_status,
-        })}
-      </SectionTitle>
-      <ListItem
-        testID="privacy-sync-status"
-        icon={stateIcon}
-        title={stateLabel}
-        // Before figures arrive the row stays "— / —": unknown, not missing.
-        subtitle={
-          enabledAccountCount === 0
-            ? undefined
-            : syncErrorText || detail || '— / —'
-        }
-      >
-        {!isStorageUnsupported &&
-        enabledAccountCount !== undefined &&
-        enabledAccountCount > 0 ? (
-          <Button
-            testID="privacy-sync-toggle-btn"
-            size="small"
-            variant={isPaused ? 'primary' : 'secondary'}
-            disabled={busy}
-            onPress={() =>
-              void run(async () => {
-                if (isPaused) {
-                  await backgroundApiProxy.servicePrivacyChain.startForegroundBoost(
-                    { networkId, trigger: 'manual-sync' },
-                  );
-                } else {
-                  await backgroundApiProxy.servicePrivacyChain.pauseLocalWalletScan(
-                    { networkId },
-                  );
-                }
-              })
-            }
-          >
-            {intl.formatMessage({
-              id: isPaused
-                ? ETranslations.global_resume
-                : ETranslations.global_pause,
-            })}
-          </Button>
-        ) : null}
-      </ListItem>
-      {/* own row: shares a slot with the pause button otherwise */}
-      {ratio === null ? null : (
-        <Stack px="$5" pb="$3">
-          <Progress
-            testID="privacy-sync-progress"
-            animated
-            value={Math.floor(ratio * 100)}
-            height="$1"
-          />
-        </Stack>
-      )}
-
       {showMobileDataRow || showNodeRow ? (
         <SectionTitle>
           {intl.formatMessage({
@@ -512,16 +307,13 @@ type IPrivacyAccountEntry = {
   walletName: string;
   networkId: string;
   enabled: boolean;
-  operation?: 'enable' | 'disable';
-  // Turned off with its resume position kept: turning it back on resumes.
-  paused?: boolean;
+  paused: boolean;
   birthdayTimestamp?: number;
   birthdayHintTimestamp?: number;
   birthdayHeight?: number;
   earliestBirthdayHeight?: number;
-  // Never scannable: shown without a switch (see isTempWalletAccount).
+  // Never scannable: privacy cannot be enabled for a temporary wallet.
   walletIsTemp: boolean;
-  deriveLabel?: string;
 };
 
 function formatShownBirthday(
@@ -535,7 +327,9 @@ function formatShownBirthday(
   intl: IntlShape,
 ): string | undefined {
   if (entry.birthdayTimestamp !== undefined) {
-    return formatMonth(new Date(entry.birthdayTimestamp));
+    return formatDate(new Date(entry.birthdayTimestamp), {
+      hideTimeForever: true,
+    });
   }
   if (entry.birthdayHeight !== undefined) {
     if (
@@ -558,6 +352,62 @@ function formatShownBirthday(
     : formatMonth(new Date(entry.birthdayHintTimestamp));
 }
 
+function PrivacyChainSettingsProgress({
+  networkId,
+  entries,
+}: {
+  networkId: string;
+  entries: IPrivacyAccountEntry[];
+}) {
+  const intl = useIntl();
+  const [state] = usePrivacyChainAtom();
+  const accounts = entries.filter(
+    (entry) =>
+      entry.networkId === networkId &&
+      !entry.walletIsTemp &&
+      (entry.enabled || entry.paused),
+  );
+  if (!accounts.length) return null;
+  const { entry, labelId, isPaused, isStorageUnsupported } =
+    getPrivacyChainNetworkSyncDisplay({
+      state,
+      networkId,
+      accountPaused: accounts.every((account) => account.paused),
+    });
+  const error = isStorageUnsupported
+    ? intl.formatMessage({
+        id: ETranslations.privacy_error_webview_outdated__msg,
+      })
+    : formatPrivacyChainSyncError(
+        isPaused ? undefined : state.syncErrorByNetworkId[networkId],
+        intl,
+      );
+  const label = intl.formatMessage({ id: labelId });
+  const figures =
+    !error && entry
+      ? formatPrivacyChainSyncProgress({
+          scanned: entry.backfillScannedHeight,
+          target: entry.backfillTargetHeight,
+          progress: entry.backfillProgress,
+        })
+      : '';
+  return (
+    <YStack testID="privacy-sync-progress" px="$5" py="$3" gap="$1">
+      <SizableText
+        size="$bodySm"
+        color={error ? '$textCaution' : '$textSubdued'}
+      >
+        {[label, figures].filter(Boolean).join(' · ')}
+      </SizableText>
+      {error ? (
+        <SizableText size="$bodyXs" color="$textCaution">
+          {error}
+        </SizableText>
+      ) : null}
+    </YStack>
+  );
+}
+
 // Everything goes through servicePrivacyChain; nothing here knows which chain it is.
 export default function PrivacyNetworkSettings({
   walletId: walletIdProp,
@@ -578,6 +428,7 @@ export default function PrivacyNetworkSettings({
   const intl = useIntl();
   const isFocused = useRouteIsFocused();
   const [devSettings] = useDevSettingsPersistAtom();
+  const [{ storageUnsupportedNetworkIds }] = usePrivacyChainAtom();
   const [busyAccountId, setBusyAccountId] = useState<string | undefined>();
 
   const { result: filteredNetwork } = usePromiseResult(async () => {
@@ -618,17 +469,28 @@ export default function PrivacyNetworkSettings({
               networkId: account.networkId,
               enabled: state.enabled,
               paused: state.paused,
-              operation: state.pendingOperation,
               birthdayTimestamp: state.birthdayTimestamp,
               birthdayHintTimestamp: state.birthdayHintTimestamp,
               birthdayHeight: state.birthdayHeight,
               earliestBirthdayHeight: earliestBirthday?.height,
               walletIsTemp: account.walletIsTemp,
-              deriveLabel: account.deriveLabel,
             };
           }),
       );
     }, [isFocused, walletId, networkIdFilter]);
+
+  useEffect(() => {
+    if (!isFocused) return;
+    const refresh = ({ networkId }: { networkId: string }) => {
+      if (!networkIdFilter || networkId === networkIdFilter) {
+        void refreshEntries();
+      }
+    };
+    appEventBus.on(EAppEventBusNames.LocalWalletAccountsChanged, refresh);
+    return () => {
+      appEventBus.off(EAppEventBusNames.LocalWalletAccountsChanged, refresh);
+    };
+  }, [isFocused, networkIdFilter, refreshEntries]);
 
   // The route may not name a network (the per-wallet entry lists every
   // chain); the network-wide sections below then stay hidden.
@@ -640,45 +502,6 @@ export default function PrivacyNetworkSettings({
       ? entries[0].networkId
       : undefined);
 
-  const [
-    {
-      dataBlockedNetworkIds,
-      pausedNetworkIds,
-      storageUnsupportedNetworkIds,
-      syncErrorByNetworkId,
-      progress,
-    },
-  ] = usePrivacyChainAtom();
-
-  // Read progress once on open so figures show at once; published values
-  // take over as they arrive from the scheduler.
-  const { result: openedProgress } = usePromiseResult(async () => {
-    if (!soleNetworkId || !entries) return undefined;
-    const enabled = entries.filter(
-      (entry) => entry.networkId === soleNetworkId && entry.enabled,
-    );
-    const read = await Promise.all(
-      enabled.map(async (entry) => {
-        const value = await backgroundApiProxy.servicePrivacyChain
-          .getLocalWalletSyncProgress({
-            networkId: entry.networkId,
-            accountId: entry.accountId,
-          })
-          .catch(() => undefined);
-        return [`${entry.networkId}:${entry.accountId}`, value] as const;
-      }),
-    );
-    const known: Record<string, ILocalWalletSyncProgress> = {};
-    for (const [key, value] of read) {
-      if (value) known[key] = value;
-    }
-    return known;
-  }, [soleNetworkId, entries]);
-  const shownProgress = useMemo(
-    () => ({ ...openedProgress, ...progress }),
-    [openedProgress, progress],
-  );
-
   const { result: networkInfo, run: refreshNetworkInfo } = usePromiseResult(
     async () => {
       if (!soleNetworkId) return undefined;
@@ -689,23 +512,6 @@ export default function PrivacyNetworkSettings({
     [soleNetworkId],
     { revalidateOnFocus: true },
   );
-
-  // Includes slots this page cannot show.
-  const { result: slotUsages } = usePromiseResult(async () => {
-    if (!entries || entries.length === 0) return undefined;
-    const networkIds = Array.from(
-      new Set(entries.map((entry) => entry.networkId)),
-    );
-    return Promise.all(
-      networkIds.map(async (networkId) => ({
-        networkId,
-        usage:
-          await backgroundApiProxy.servicePrivacyChain.getLocalWalletSlotUsage({
-            networkId,
-          }),
-      })),
-    );
-  }, [entries]);
 
   const askBirthdayAndEnable = useCallback(
     async (entry: IPrivacyAccountEntry) => {
@@ -721,8 +527,9 @@ export default function PrivacyNetworkSettings({
               }
             />
             <BirthdayDialogForm
+              networkId={entry.networkId}
               formRef={formRef}
-              monthOnly
+              allowSavedBirthday={false}
               earliestBirthday={earliestBirthday}
             />
           </YStack>
@@ -732,8 +539,14 @@ export default function PrivacyNetworkSettings({
           const birthday = readEnableBirthday(
             formRef.current,
             earliestBirthday,
+            entry.networkId,
           );
           if (!birthday) {
+            Toast.error({
+              title: intl.formatMessage({
+                id: getBirthdayInputError(formRef.current.mode),
+              }),
+            });
             preventClose();
             return;
           }
@@ -756,116 +569,48 @@ export default function PrivacyNetworkSettings({
     [intl, refreshEntries],
   );
 
-  // A paused account resumes from where it stopped; asking for a month would
-  // reset the position and rescan from it.
-  const startAccount = useCallback(
+  const enableAccount = askBirthdayAndEnable;
+
+  const toggleAccountPause = useCallback(
     async (entry: IPrivacyAccountEntry) => {
-      if (!entry.paused) {
-        await askBirthdayAndEnable(entry);
-        return;
-      }
       setBusyAccountId(entry.accountId);
       try {
-        await backgroundApiProxy.servicePrivacyChain.enableLocalWalletAccount({
+        const params = {
           networkId: entry.networkId,
           accountId: entry.accountId,
-        });
+        };
+        if (entry.paused) {
+          await backgroundApiProxy.servicePrivacyChain.enableLocalWalletAccount(
+            params,
+          );
+        } else {
+          await backgroundApiProxy.servicePrivacyChain.disableLocalWalletAccount(
+            params,
+          );
+        }
         await refreshEntries();
+      } catch (error) {
+        // Background methods already report the actionable failure to the user.
+        console.error('[privacyChain] account sync control failed', error);
       } finally {
         setBusyAccountId(undefined);
       }
     },
-    [askBirthdayAndEnable, refreshEntries],
-  );
-
-  const enableAccount = useCallback(
-    async (entry: IPrivacyAccountEntry) => {
-      // Unreadable counts as room: enable enforces the limit itself and
-      // reports its own failure, so the switch never stalls silently.
-      const usage = await backgroundApiProxy.servicePrivacyChain
-        .getLocalWalletSlotUsage({
-          networkId: entry.networkId,
-        })
-        .catch(() => undefined);
-      if (
-        !usage ||
-        entry.enabled ||
-        usage.max === undefined ||
-        usage.used < usage.max
-      ) {
-        await startAccount(entry);
-        return;
-      }
-      if (usage.occupants.length === 0) {
-        Dialog.show({
-          title: intl.formatMessage({
-            id: ETranslations.privacy_slots_full__title,
-          }),
-          description: intl.formatMessage(
-            {
-              id: ETranslations.privacy_slots_full_locked__desc,
-            },
-            { max: usage.max },
-          ),
-          onConfirmText: intl.formatMessage({ id: ETranslations.global_ok }),
-        });
-        return;
-      }
-      const selectionRef: { current: ISlotSelection } = { current: {} };
-      Dialog.show({
-        title: intl.formatMessage({
-          id: ETranslations.privacy_slots_full__title,
-        }),
-        description: intl.formatMessage(
-          {
-            id: ETranslations.privacy_slots_full__desc,
-          },
-          {
-            used: usage.used,
-            max: usage.max,
-            accountName: entry.accountName,
-          },
-        ),
-        renderContent: (
-          <SlotReplaceForm
-            occupants={usage.occupants}
-            hiddenCount={usage.hiddenCount}
-            selectionRef={selectionRef}
-          />
-        ),
-        onConfirmText: intl.formatMessage({
-          id: ETranslations.privacy_slots_turn_off_continue__action,
-        }),
-        onConfirm: async ({ preventClose }) => {
-          const accountId = selectionRef.current.accountId;
-          if (!accountId) {
-            preventClose();
-            return;
-          }
-          setBusyAccountId(entry.accountId);
-          try {
-            await backgroundApiProxy.servicePrivacyChain.disableLocalWalletAccount(
-              {
-                networkId: entry.networkId,
-                accountId,
-              },
-            );
-            await refreshEntries();
-          } finally {
-            setBusyAccountId(undefined);
-          }
-          await startAccount(entry);
-        },
-      });
-    },
-    [intl, refreshEntries, startAccount],
+    [refreshEntries],
   );
 
   const editBirthday = useCallback(
     async (entry: IPrivacyAccountEntry) => {
       const earliestBirthday = await getEarliestBirthday(entry.networkId);
       const formRef: { current: IBirthdayFormState } = {
-        current: { mode: 'saved-birthday', month: null },
+        current: {
+          mode: 'saved-birthday',
+          date:
+            entry.birthdayTimestamp === undefined
+              ? null
+              : new Date(entry.birthdayTimestamp),
+          height: entry.birthdayHeight?.toString(),
+        },
       };
       Dialog.confirm({
         title: intl.formatMessage({
@@ -877,6 +622,7 @@ export default function PrivacyNetworkSettings({
         tone: 'warning',
         renderContent: (
           <BirthdayDialogForm
+            networkId={entry.networkId}
             formRef={formRef}
             currentBirthdayHeight={entry.birthdayHeight}
             earliestBirthday={earliestBirthday}
@@ -886,34 +632,35 @@ export default function PrivacyNetworkSettings({
           id: ETranslations.privacy_sync_resync__action,
         }),
         onConfirm: async ({ preventClose }) => {
-          const { month, fromEarliest } = formRef.current;
-          let mode: IBirthdayFormState['mode'] | 'height' =
-            formRef.current.mode;
+          const { fromEarliest } = formRef.current;
+          let mode = formRef.current.mode;
           let birthdayTimestamp: number | undefined;
           let birthdayHeight: number | undefined;
           if (fromEarliest && earliestBirthday) {
             mode = 'height';
             birthdayHeight = earliestBirthday.height;
-          } else if (mode === 'month') {
-            if (!month) {
+          } else if (mode === 'date' || mode === 'height') {
+            const birthday = readEnableBirthday(
+              formRef.current,
+              earliestBirthday,
+              entry.networkId,
+            );
+            if (!birthday) {
               Toast.error({
                 title: intl.formatMessage({
-                  id: ETranslations.global_select_month,
+                  id: getBirthdayInputError(mode),
                 }),
               });
               preventClose();
               return;
             }
-            birthdayTimestamp = new Date(
-              month.getFullYear(),
-              month.getMonth(),
-              1,
-            ).getTime();
+            birthdayTimestamp = birthday.birthdayTimestamp;
+            birthdayHeight = birthday.birthdayHeight;
           }
           await backgroundApiProxy.servicePrivacyChain.repairLocalChainData({
             networkId: entry.networkId,
             accountId: entry.accountId,
-            mode,
+            mode: mode === 'date' ? 'month' : mode,
             birthdayTimestamp,
             birthdayHeight,
           });
@@ -924,7 +671,7 @@ export default function PrivacyNetworkSettings({
     [intl, refreshEntries],
   );
 
-  // Turning the switch off keeps the viewing key and scanned history; this removes both.
+  // Deleting also stops synchronization; authorization is required on a later enable.
   const deleteAccountData = useCallback(
     (entry: IPrivacyAccountEntry) => {
       Dialog.confirm({
@@ -952,34 +699,14 @@ export default function PrivacyNetworkSettings({
     [intl, refreshEntries],
   );
 
-  const disableAccount = useCallback(
-    async (entry: IPrivacyAccountEntry) => {
-      setBusyAccountId(entry.accountId);
-      try {
-        await backgroundApiProxy.servicePrivacyChain.disableLocalWalletAccount({
-          networkId: entry.networkId,
-          accountId: entry.accountId,
-        });
-        await refreshEntries();
-      } finally {
-        setBusyAccountId(undefined);
-      }
-    },
-    [refreshEntries],
-  );
-
   const renderAccount = (entry: IPrivacyAccountEntry) => {
-    const busy = busyAccountId !== undefined || !!entry.operation;
-    let statusId: ETranslations = entry.enabled
+    const busy = busyAccountId !== undefined;
+    const statusId: ETranslations = entry.enabled
       ? ETranslations.global_enabled
       : ETranslations.global_disabled;
-    if (entry.paused) {
-      statusId = ETranslations.syncing_paused__title;
-    }
-    let status = intl.formatMessage({ id: statusId });
-    if (entry.operation) {
-      status = intl.formatMessage({ id: ETranslations.global_processing });
-    }
+    let status = intl.formatMessage({
+      id: entry.paused ? ETranslations.syncing_paused__title : statusId,
+    });
     if (entry.walletIsTemp) {
       status = intl.formatMessage({ id: ETranslations.global_not_available });
     }
@@ -998,25 +725,36 @@ export default function PrivacyNetworkSettings({
           testID={AccountManagerTestIDs.privacyNetworkAccount(entry.accountId)}
           icon="ShieldOutline"
           title={entry.accountName}
-          subtitle={[entry.walletName, entry.deriveLabel, status]
-            .filter(Boolean)
-            .join(' · ')}
+          subtitle={[entry.walletName, status].filter(Boolean).join(' · ')}
         >
-          {entry.walletIsTemp ? null : (
-            <Switch
-              testID={`privacy-network-switch-${entry.accountId}`}
-              size={ESwitchSize.small}
-              value={entry.enabled || entry.operation === 'enable'}
+          {!entry.walletIsTemp && (entry.enabled || entry.paused) ? (
+            <Button
+              testID={`privacy-network-${entry.paused ? 'resume' : 'pause'}-${entry.accountId}`}
+              size="small"
+              variant="secondary"
+              loading={busyAccountId === entry.accountId}
               disabled={busy}
-              onChange={(next) => {
-                if (next) {
-                  void enableAccount(entry);
-                } else {
-                  void disableAccount(entry);
-                }
-              }}
-            />
-          )}
+              onPress={() => void toggleAccountPause(entry)}
+            >
+              {intl.formatMessage({
+                id: entry.paused
+                  ? ETranslations.global_resume
+                  : ETranslations.global_pause,
+              })}
+            </Button>
+          ) : null}
+          {!entry.walletIsTemp && !entry.enabled && !entry.paused ? (
+            <Button
+              testID={`privacy-network-enable-${entry.accountId}`}
+              size="small"
+              variant="primary"
+              loading={busyAccountId === entry.accountId}
+              disabled={busy}
+              onPress={() => void enableAccount(entry)}
+            >
+              {intl.formatMessage({ id: ETranslations.global_enable })}
+            </Button>
+          ) : null}
         </ListItem>
         {/* belongs to the account above, not to the list */}
         <YStack testID={`privacy-network-account-detail-${entry.accountId}`}>
@@ -1030,13 +768,25 @@ export default function PrivacyNetworkSettings({
               color="$textSubdued"
             >
               {intl.formatMessage({
-                id: ETranslationsMock.privacy_temp_wallet_unavailable__desc,
-                defaultMessage:
-                  ETranslationsMock.privacy_temp_wallet_unavailable__desc,
+                id: ETranslations.privacy_temp_wallet_unavailable__desc,
               })}
             </SizableText>
           ) : null}
-          {entry.enabled ? (
+          {entry.enabled &&
+          storageUnsupportedNetworkIds.includes(entry.networkId) ? (
+            <SizableText
+              testID={`privacy-network-storage-error-${entry.accountId}`}
+              px="$5"
+              py="$3"
+              size="$bodySm"
+              color="$textCaution"
+            >
+              {intl.formatMessage({
+                id: ETranslations.privacy_error_webview_outdated__msg,
+              })}
+            </SizableText>
+          ) : null}
+          {entry.enabled || entry.paused ? (
             <ListItem
               mx="$0"
               testID={`privacy-network-birthday-${entry.accountId}`}
@@ -1045,6 +795,7 @@ export default function PrivacyNetworkSettings({
                 id: ETranslations.privacy_sync_start__title,
               })}
               subtitle={formatShownBirthday(entry, intl)}
+              disabled={busy || entry.paused}
               drillIn
               onPress={() => void editBirthday(entry)}
             />
@@ -1060,6 +811,7 @@ export default function PrivacyNetworkSettings({
               id: ETranslations.privacy_delete_data__desc,
             })}
             titleProps={{ color: '$textCritical' }}
+            disabled={busy}
             onPress={() => deleteAccountData(entry)}
           />
         </YStack>
@@ -1079,20 +831,14 @@ export default function PrivacyNetworkSettings({
         {entries ? (
           <ScrollView>
             {soleNetworkId ? (
+              <PrivacyChainSettingsProgress
+                networkId={soleNetworkId}
+                entries={entries}
+              />
+            ) : null}
+            {soleNetworkId ? (
               <PrivacyChainNetworkSections
                 networkId={soleNetworkId}
-                enabledAccountCount={
-                  slotUsages?.find(
-                    ({ networkId }) => networkId === soleNetworkId,
-                  )?.usage.used
-                }
-                isPaused={pausedNetworkIds.includes(soleNetworkId)}
-                isHeldByData={dataBlockedNetworkIds.includes(soleNetworkId)}
-                isStorageUnsupported={storageUnsupportedNetworkIds.includes(
-                  soleNetworkId,
-                )}
-                syncError={syncErrorByNetworkId[soleNetworkId]}
-                progress={shownProgress}
                 endpointUrl={networkInfo?.endpointUrl}
                 endpointDefaultUrl={networkInfo?.endpointDefaultUrl}
                 endpointIsCustom={networkInfo?.endpointIsCustom ?? false}
@@ -1117,7 +863,7 @@ export default function PrivacyNetworkSettings({
             ) : (
               entries.map(renderAccount)
             )}
-            {soleNetworkId ? (
+            {devSettings.enabled && soleNetworkId ? (
               <PrivacyChainStorageSection
                 networkId={soleNetworkId}
                 storageBytes={networkInfo?.storageBytes}

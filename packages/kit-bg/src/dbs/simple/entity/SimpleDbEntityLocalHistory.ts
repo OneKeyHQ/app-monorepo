@@ -3,6 +3,8 @@ import { assign, isEmpty, isNil, uniqBy } from 'lodash';
 import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { gateLocalWalletHistoryTx } from '@onekeyhq/shared/src/utils/privacyChainHistoryAddressGate';
+import type { ILocalWalletHistoryAddressGate } from '@onekeyhq/shared/src/utils/privacyChainHistoryAddressGate';
 import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
 import type { IDecodedTxAction } from '@onekeyhq/shared/types/tx';
 import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
@@ -50,6 +52,55 @@ function sanitizeLocalHistoryTxs({
   return clearHistoryTxsDisplayStatus(
     txs.filter((tx) => canPersistLocalHistoryTx({ networkId, tx })),
   );
+}
+
+// An older concurrent poll must not put an expired public local-wallet send
+// back into Pending. A subsequently mined/terminal backend row still wins.
+function preserveDroppedLocalWalletHistory({
+  currentConfirmed,
+  pending,
+  confirmed,
+}: {
+  currentConfirmed: IAccountHistoryTx[];
+  pending: IAccountHistoryTx[];
+  confirmed: IAccountHistoryTx[];
+}) {
+  const dropped = currentConfirmed.filter(
+    (tx) =>
+      tx.privacyChainHistorySide === 'public' &&
+      tx.decodedTx.status === EDecodedTxStatus.Dropped &&
+      tx.decodedTx.broadcastOutcomeUnknown === false,
+  );
+  if (!dropped.length) return { pending, confirmed };
+  const ids = new Set(dropped.map((tx) => tx.decodedTx.txid.toLowerCase()));
+  const minedPendingIds = new Set(
+    pending
+      .filter((tx) => (tx.decodedTx.block ?? 0) > 0)
+      .map((tx) => tx.decodedTx.txid.toLowerCase()),
+  );
+  return {
+    pending: pending.filter(
+      (tx) =>
+        !ids.has(tx.decodedTx.txid.toLowerCase()) ||
+        minedPendingIds.has(tx.decodedTx.txid.toLowerCase()),
+    ),
+    confirmed: [
+      ...dropped
+        .filter((tx) => !minedPendingIds.has(tx.decodedTx.txid.toLowerCase()))
+        .map(
+          (tx) =>
+            confirmed.find(
+              (candidate) =>
+                candidate.decodedTx.txid.toLowerCase() ===
+                  tx.decodedTx.txid.toLowerCase() &&
+                (candidate.decodedTx.status === EDecodedTxStatus.Confirmed ||
+                  candidate.decodedTx.status === EDecodedTxStatus.Failed ||
+                  (candidate.decodedTx.block ?? 0) > 0),
+            ) ?? tx,
+        ),
+      ...confirmed.filter((tx) => !ids.has(tx.decodedTx.txid.toLowerCase())),
+    ],
+  };
 }
 
 function getStoredLocalHistoryNetworkId({
@@ -106,6 +157,105 @@ export class SimpleDbEntityLocalHistory extends SimpleDbEntityBase<ILocalHistory
 
   override enableCache = false;
 
+  // Background-only: an unsuccessful broadcast may have an input journal but
+  // no history row. Serialize its cleanup against concurrent history writers.
+  async runIfHistoryTxAbsent({
+    networkId,
+    accountAddress,
+    xpub,
+    txid,
+    operation,
+  }: {
+    networkId: string;
+    accountAddress: string;
+    xpub?: string;
+    txid: string;
+    operation: () => Promise<void>;
+  }): Promise<void> {
+    const key = buildAccountLocalAssetsKey({ networkId, accountAddress, xpub });
+    await this.mutex.runExclusive(async () => {
+      const raw = await this.getRawData();
+      if (
+        [
+          ...(raw?.pendingTxs?.[key] ?? []),
+          ...(raw?.confirmedTxs?.[key] ?? []),
+        ].some((tx) => tx.decodedTx.txid.toLowerCase() === txid.toLowerCase())
+      )
+        return;
+      await operation();
+    });
+  }
+
+  // Background-only: read and change the current row under the same mutex as
+  // cache/account deletion. Never rebuild a row from a pre-network snapshot.
+  async dropPendingLocalHistoryTx({
+    networkId,
+    accountAddress,
+    xpub,
+    txid,
+    addressGate,
+    isCurrent,
+  }: {
+    networkId: string;
+    accountAddress: string;
+    xpub?: string;
+    txid: string;
+    addressGate: ILocalWalletHistoryAddressGate;
+    isCurrent: () => Promise<boolean>;
+  }): Promise<boolean> {
+    const key = buildAccountLocalAssetsKey({ networkId, accountAddress, xpub });
+    const matches = (tx: IAccountHistoryTx) =>
+      tx.decodedTx.txid.toLowerCase() === txid.toLowerCase();
+    const result = await this.setRawDataTransaction({
+      shouldCommit: () => true,
+      beforePublish: isCurrent,
+      build: async (raw) => {
+        const pending = raw?.pendingTxs?.[key] ?? [];
+        const confirmed = raw?.confirmedTxs?.[key] ?? [];
+        const row = confirmed.find(matches) ?? pending.find(matches);
+        if (
+          !raw ||
+          !row ||
+          row.decodedTx.networkId !== networkId ||
+          !canPersistLocalHistoryTx({ networkId, tx: row }) ||
+          (row.decodedTx.block ?? 0) > 0 ||
+          (row.decodedTx.status !== EDecodedTxStatus.Pending &&
+            row.decodedTx.status !== EDecodedTxStatus.Dropped) ||
+          !(await isCurrent())
+        )
+          return undefined;
+        const dropped = gateLocalWalletHistoryTx(
+          addressGate,
+          clearHistoryTxDisplayStatus({
+            ...row,
+            decodedTx: {
+              ...row.decodedTx,
+              status: EDecodedTxStatus.Dropped,
+              broadcastOutcomeUnknown: false,
+            },
+          }),
+        );
+        return {
+          data: {
+            ...raw,
+            pendingTxs: {
+              ...raw.pendingTxs,
+              [key]: pending.filter((tx) => !matches(tx)),
+            },
+            confirmedTxs: {
+              ...raw.confirmedTxs,
+              [key]: [dropped, ...confirmed.filter((tx) => !matches(tx))].slice(
+                0,
+                50,
+              ),
+            },
+          },
+        };
+      },
+    });
+    return result.committed;
+  }
+
   @backgroundMethod()
   override async getRawData() {
     const data = await super.getRawData();
@@ -131,7 +281,6 @@ export class SimpleDbEntityLocalHistory extends SimpleDbEntityBase<ILocalHistory
     const key = buildAccountLocalAssetsKey({ networkId, accountAddress, xpub });
 
     const rawData = await this.getRawData();
-
     const pendingTxs = rawData?.pendingTxs?.[key] || [];
     const confirmedTxs = rawData?.confirmedTxs?.[key] || [];
 
@@ -351,57 +500,72 @@ export class SimpleDbEntityLocalHistory extends SimpleDbEntityBase<ILocalHistory
 
     if (isEmpty(pendingTxs) && isEmpty(confirmedTxs)) return;
     const now = Date.now();
-    const rawData = await this.getRawData();
+    const result = await this.setRawDataTransaction({
+      shouldCommit: () => true,
+      build: (rawData) => {
+        let finalPendingTxs = rawData?.pendingTxs?.[key] ?? [];
+        let finalConfirmedTxs = rawData?.confirmedTxs?.[key] ?? [];
 
-    let finalPendingTxs = rawData?.pendingTxs?.[key] ?? [];
-    let finalConfirmedTxs = rawData?.confirmedTxs?.[key] ?? [];
+        if (pendingTxs) {
+          const previousById = new Map(
+            finalPendingTxs.map((tx) => [tx.id, tx]),
+          );
+          const storablePendingTxs = sanitizeLocalHistoryTxs({
+            networkId,
+            txs: pendingTxs,
+          });
+          finalPendingTxs = uniqBy(
+            [
+              ...storablePendingTxs.map((tx) => {
+                const previous = previousById.get(tx.id)?.decodedTx;
+                const createdAt = Math.min(
+                  previous?.createdAt ?? now,
+                  tx.decodedTx.createdAt ?? now,
+                );
+                return {
+                  ...tx,
+                  decodedTx: {
+                    ...tx.decodedTx,
+                    createdAt,
+                    updatedAt: createdAt,
+                  },
+                };
+              }),
+              ...finalPendingTxs,
+            ],
+            (tx) => tx.id,
+          ).filter((tx) => tx.decodedTx.status === EDecodedTxStatus.Pending);
+        }
 
-    if (pendingTxs) {
-      const previousById = new Map(finalPendingTxs.map((tx) => [tx.id, tx]));
-      const storablePendingTxs = sanitizeLocalHistoryTxs({
-        networkId,
-        txs: pendingTxs,
-      });
-      finalPendingTxs = uniqBy(
-        [
-          ...storablePendingTxs.map((tx) => {
-            const previous = previousById.get(tx.id)?.decodedTx;
-            const createdAt = Math.min(
-              previous?.createdAt ?? now,
-              tx.decodedTx.createdAt ?? now,
-            );
-            return {
-              ...tx,
-              decodedTx: {
-                ...tx.decodedTx,
-                createdAt,
-                updatedAt: createdAt,
-              },
-            };
-          }),
-          ...finalPendingTxs,
-        ],
-        (tx) => tx.id,
-      ).filter((tx) => tx.decodedTx.status === EDecodedTxStatus.Pending);
-    }
+        if (confirmedTxs) {
+          finalConfirmedTxs = uniqBy(
+            [
+              ...sanitizeLocalHistoryTxs({ networkId, txs: confirmedTxs }),
+              ...finalConfirmedTxs.map((tx) => clearHistoryTxDisplayStatus(tx)),
+            ],
+            (tx) => tx.id,
+          ).filter((tx) => tx.decodedTx.status !== EDecodedTxStatus.Pending);
+        }
 
-    if (confirmedTxs) {
-      finalConfirmedTxs = uniqBy(
-        [
-          ...sanitizeLocalHistoryTxs({ networkId, txs: confirmedTxs }),
-          ...finalConfirmedTxs.map((tx) => clearHistoryTxDisplayStatus(tx)),
-        ],
-        (tx) => tx.id,
-      ).filter((tx) => tx.decodedTx.status !== EDecodedTxStatus.Pending);
-    }
-
-    return this.setRawData({
-      ...rawData,
-      pendingTxs: assign({}, rawData?.pendingTxs, { [key]: finalPendingTxs }),
-      confirmedTxs: assign({}, rawData?.confirmedTxs, {
-        [key]: finalConfirmedTxs.slice(0, 50),
-      }),
+        const preserved = preserveDroppedLocalWalletHistory({
+          currentConfirmed: rawData?.confirmedTxs?.[key] ?? [],
+          pending: finalPendingTxs,
+          confirmed: finalConfirmedTxs,
+        });
+        return {
+          data: {
+            ...rawData,
+            pendingTxs: assign({}, rawData?.pendingTxs, {
+              [key]: preserved.pending,
+            }),
+            confirmedTxs: assign({}, rawData?.confirmedTxs, {
+              [key]: preserved.confirmed.slice(0, 50),
+            }),
+          },
+        };
+      },
     });
+    return result.committed ? (result.data ?? undefined) : undefined;
   }
 
   @backgroundMethod()
@@ -446,130 +610,160 @@ export class SimpleDbEntityLocalHistory extends SimpleDbEntityBase<ILocalHistory
       pendingTxsToModify?: IAccountHistoryTx[];
     }[],
   ) {
-    const rawData = await this.getRawData();
+    const result = await this.setRawDataTransaction({
+      shouldCommit: () => true,
+      build: (rawData) => {
+        const pendingTxsToUpdateMap: Record<string, IAccountHistoryTx[]> = {};
+        const confirmedTxsToUpdateMap: Record<string, IAccountHistoryTx[]> = {};
 
-    const pendingTxsToUpdateMap: Record<string, IAccountHistoryTx[]> = {};
-    const confirmedTxsToUpdateMap: Record<string, IAccountHistoryTx[]> = {};
-
-    for (const param of params) {
-      const {
-        networkId,
-        accountAddress,
-        xpub,
-        confirmedTxs,
-        onChainHistoryTxs,
-        pendingTxs: pendingTxsFromOut,
-        confirmedTxsToSave,
-        confirmedTxsToRemove,
-        pendingTxsToModify,
-      } = param;
-      if (!accountAddress && !xpub) {
-        throw new OneKeyInternalError('accountAddress or xpub is required');
-      }
-      const key = buildAccountLocalAssetsKey({
-        networkId,
-        accountAddress,
-        xpub,
-      });
-
-      // pendingTxsToUpdate build
-      let pendingTxsToUpdate: IAccountHistoryTx[] | undefined;
-      const currentPendingTxs = rawData?.pendingTxs?.[key];
-      if (pendingTxsFromOut) {
-        if (isEmpty(pendingTxsFromOut) && isEmpty(currentPendingTxs)) {
-          pendingTxsToUpdate = undefined;
-        } else {
-          pendingTxsToUpdate = pendingTxsFromOut;
-
-          if (pendingTxsToModify?.length) {
-            pendingTxsToUpdate = uniqBy(
-              [...pendingTxsToModify, ...pendingTxsToUpdate],
-              (tx) => tx.id,
-            );
+        for (const param of params) {
+          const {
+            networkId,
+            accountAddress,
+            xpub,
+            confirmedTxs,
+            onChainHistoryTxs,
+            pendingTxs: pendingTxsFromOut,
+            confirmedTxsToSave,
+            confirmedTxsToRemove,
+            pendingTxsToModify,
+          } = param;
+          if (!accountAddress && !xpub) {
+            throw new OneKeyInternalError('accountAddress or xpub is required');
           }
-        }
-      } else {
-        // eslint-disable-next-line no-lonely-if
-        if (isEmpty(confirmedTxs) && isEmpty(onChainHistoryTxs)) {
-          pendingTxsToUpdate = undefined;
-        } else if (currentPendingTxs?.length) {
-          //
-          const newPendingTxs: IAccountHistoryTx[] = [];
-          for (const pendingTx of currentPendingTxs) {
-            const onChainHistoryTx = onChainHistoryTxs?.find(
-              (item) =>
-                item.id === pendingTx.id ||
-                (item.originalId && item.originalId === pendingTx.id),
-            );
+          const key = buildAccountLocalAssetsKey({
+            networkId,
+            accountAddress,
+            xpub,
+          });
 
-            const confirmedTx = confirmedTxs?.find(
-              (item) =>
-                item.id === pendingTx.id ||
-                (item.originalId && item.originalId === pendingTx.id),
-            );
+          // pendingTxsToUpdate build
+          let pendingTxsToUpdate: IAccountHistoryTx[] | undefined;
+          const currentPendingTxs = rawData?.pendingTxs?.[key];
+          if (pendingTxsFromOut) {
+            if (isEmpty(pendingTxsFromOut) && isEmpty(currentPendingTxs)) {
+              pendingTxsToUpdate = undefined;
+            } else {
+              pendingTxsToUpdate = pendingTxsFromOut;
 
-            if (!onChainHistoryTx && !confirmedTx) {
-              const modifiedTx = pendingTxsToModify?.find(
-                (modTx) => modTx.id === pendingTx.id,
-              );
-              newPendingTxs.push(modifiedTx || pendingTx);
+              if (pendingTxsToModify?.length) {
+                pendingTxsToUpdate = uniqBy(
+                  [...pendingTxsToModify, ...pendingTxsToUpdate],
+                  (tx) => tx.id,
+                );
+              }
+            }
+          } else {
+            // eslint-disable-next-line no-lonely-if
+            if (isEmpty(confirmedTxs) && isEmpty(onChainHistoryTxs)) {
+              pendingTxsToUpdate = undefined;
+            } else if (currentPendingTxs?.length) {
+              //
+              const newPendingTxs: IAccountHistoryTx[] = [];
+              for (const pendingTx of currentPendingTxs) {
+                const onChainHistoryTx = onChainHistoryTxs?.find(
+                  (item) =>
+                    item.id === pendingTx.id ||
+                    (item.originalId && item.originalId === pendingTx.id),
+                );
+
+                const confirmedTx = confirmedTxs?.find(
+                  (item) =>
+                    item.id === pendingTx.id ||
+                    (item.originalId && item.originalId === pendingTx.id),
+                );
+
+                if (!onChainHistoryTx && !confirmedTx) {
+                  const modifiedTx = pendingTxsToModify?.find(
+                    (modTx) => modTx.id === pendingTx.id,
+                  );
+                  newPendingTxs.push(modifiedTx || pendingTx);
+                }
+              }
+
+              if (pendingTxsToModify?.length) {
+                const existingIds = new Set(newPendingTxs.map((tx) => tx.id));
+                const newModifiedTxs = pendingTxsToModify.filter(
+                  (tx) => !existingIds.has(tx.id),
+                );
+                newPendingTxs.push(...newModifiedTxs);
+              }
+              pendingTxsToUpdate = newPendingTxs;
             }
           }
-
-          if (pendingTxsToModify?.length) {
-            const existingIds = new Set(newPendingTxs.map((tx) => tx.id));
-            const newModifiedTxs = pendingTxsToModify.filter(
-              (tx) => !existingIds.has(tx.id),
-            );
-            newPendingTxs.push(...newModifiedTxs);
-          }
-          pendingTxsToUpdate = newPendingTxs;
-        }
-      }
-      if (pendingTxsToUpdate) {
-        pendingTxsToUpdateMap[key] = sanitizeLocalHistoryTxs({
-          networkId,
-          txs: pendingTxsToUpdate,
-        });
-      }
-
-      // confirmedTxsToUpdate build
-      let confirmedTxsToUpdate: IAccountHistoryTx[] | undefined;
-      if (isEmpty(confirmedTxsToSave) && isEmpty(confirmedTxsToRemove)) {
-        confirmedTxsToUpdate = undefined;
-      } else {
-        let finalConfirmedTxs = rawData?.confirmedTxs?.[key] || [];
-        finalConfirmedTxs = uniqBy(
-          [
-            ...sanitizeLocalHistoryTxs({
+          if (pendingTxsToUpdate) {
+            pendingTxsToUpdateMap[key] = sanitizeLocalHistoryTxs({
               networkId,
-              txs: confirmedTxsToSave ?? [],
-            }),
-            ...finalConfirmedTxs.map((tx) => clearHistoryTxDisplayStatus(tx)),
-          ],
-          (tx) => tx.id,
-        );
-        if (confirmedTxsToRemove && !isEmpty(confirmedTxsToRemove)) {
-          finalConfirmedTxs = finalConfirmedTxs.filter(
-            (tx) => !confirmedTxsToRemove.find((item) => item.id === tx.id),
-          );
+              txs: pendingTxsToUpdate,
+            });
+          }
+
+          // confirmedTxsToUpdate build
+          let confirmedTxsToUpdate: IAccountHistoryTx[] | undefined;
+          if (isEmpty(confirmedTxsToSave) && isEmpty(confirmedTxsToRemove)) {
+            confirmedTxsToUpdate = undefined;
+          } else {
+            let finalConfirmedTxs = rawData?.confirmedTxs?.[key] || [];
+            finalConfirmedTxs = uniqBy(
+              [
+                ...sanitizeLocalHistoryTxs({
+                  networkId,
+                  txs: confirmedTxsToSave ?? [],
+                }),
+                ...finalConfirmedTxs.map((tx) =>
+                  clearHistoryTxDisplayStatus(tx),
+                ),
+              ],
+              (tx) => tx.id,
+            );
+            if (confirmedTxsToRemove && !isEmpty(confirmedTxsToRemove)) {
+              finalConfirmedTxs = finalConfirmedTxs.filter(
+                (tx) => !confirmedTxsToRemove.find((item) => item.id === tx.id),
+              );
+            }
+            confirmedTxsToUpdate = finalConfirmedTxs.slice(0, 50);
+          }
+          if (confirmedTxsToUpdate) {
+            confirmedTxsToUpdateMap[key] = confirmedTxsToUpdate;
+          }
+          if (pendingTxsToUpdate || confirmedTxsToUpdate) {
+            const preserved = preserveDroppedLocalWalletHistory({
+              currentConfirmed: (rawData?.confirmedTxs?.[key] ?? []).filter(
+                (tx) =>
+                  !confirmedTxsToRemove?.some(
+                    (removed) => removed.id === tx.id,
+                  ),
+              ),
+              pending: pendingTxsToUpdate ?? rawData?.pendingTxs?.[key] ?? [],
+              confirmed:
+                confirmedTxsToUpdate ?? rawData?.confirmedTxs?.[key] ?? [],
+            });
+            pendingTxsToUpdateMap[key] = preserved.pending;
+            confirmedTxsToUpdateMap[key] = preserved.confirmed.slice(0, 50);
+          }
         }
-        confirmedTxsToUpdate = finalConfirmedTxs.slice(0, 50);
-      }
-      if (confirmedTxsToUpdate) {
-        confirmedTxsToUpdateMap[key] = confirmedTxsToUpdate;
-      }
-    }
 
-    if (isEmpty(pendingTxsToUpdateMap) && isEmpty(confirmedTxsToUpdateMap)) {
-      return;
-    }
+        if (
+          isEmpty(pendingTxsToUpdateMap) &&
+          isEmpty(confirmedTxsToUpdateMap)
+        ) {
+          return undefined;
+        }
 
-    return this.setRawData({
-      ...rawData,
-      pendingTxs: assign({}, rawData?.pendingTxs, pendingTxsToUpdateMap),
-      confirmedTxs: assign({}, rawData?.confirmedTxs, confirmedTxsToUpdateMap),
+        return {
+          data: {
+            ...rawData,
+            pendingTxs: assign({}, rawData?.pendingTxs, pendingTxsToUpdateMap),
+            confirmedTxs: assign(
+              {},
+              rawData?.confirmedTxs,
+              confirmedTxsToUpdateMap,
+            ),
+          },
+        };
+      },
     });
+    return result.committed ? (result.data ?? undefined) : undefined;
   }
 
   @backgroundMethod()
@@ -587,40 +781,52 @@ export class SimpleDbEntityLocalHistory extends SimpleDbEntityBase<ILocalHistory
     }
     const key = buildAccountLocalAssetsKey({ networkId, accountAddress, xpub });
 
-    const rawData = await this.getRawData();
+    const result = await this.setRawDataTransaction({
+      shouldCommit: () => true,
+      build: (rawData) => {
+        const confirmedTxs = rawData?.confirmedTxs?.[key] || [];
 
-    const confirmedTxs = rawData?.confirmedTxs?.[key] || [];
+        const targetTxIndex = confirmedTxs.findIndex(
+          (tx) => tx.decodedTx.txid === txid,
+        );
 
-    const targetTxIndex = confirmedTxs.findIndex(
-      (tx) => tx.decodedTx.txid === txid,
-    );
+        if (targetTxIndex === -1) {
+          return undefined;
+        }
 
-    if (targetTxIndex === -1) {
-      return;
-    }
+        const targetTx = confirmedTxs[targetTxIndex];
+        const updatedTx = clearHistoryTxDisplayStatus({
+          ...targetTx,
+          decodedTx: {
+            ...targetTx.decodedTx,
+            status,
+          },
+        });
 
-    const targetTx = confirmedTxs[targetTxIndex];
-    const updatedTx = clearHistoryTxDisplayStatus({
-      ...targetTx,
-      decodedTx: {
-        ...targetTx.decodedTx,
-        status,
+        if (targetTx.decodedTx.status === status && targetTx === updatedTx) {
+          return undefined;
+        }
+
+        const updatedConfirmedTxs = [...confirmedTxs];
+        updatedConfirmedTxs[targetTxIndex] = updatedTx;
+
+        const preserved = preserveDroppedLocalWalletHistory({
+          currentConfirmed: confirmedTxs,
+          pending: rawData?.pendingTxs?.[key] ?? [],
+          confirmed: updatedConfirmedTxs,
+        });
+        return {
+          data: {
+            ...rawData,
+            pendingTxs: { ...rawData?.pendingTxs, [key]: preserved.pending },
+            confirmedTxs: assign({}, rawData?.confirmedTxs, {
+              [key]: preserved.confirmed,
+            }),
+          },
+        };
       },
     });
-
-    if (targetTx.decodedTx.status === status && targetTx === updatedTx) {
-      return;
-    }
-
-    const updatedConfirmedTxs = [...confirmedTxs];
-    updatedConfirmedTxs[targetTxIndex] = updatedTx;
-
-    return this.setRawData({
-      pendingTxs: rawData?.pendingTxs || {},
-      confirmedTxs: assign({}, rawData?.confirmedTxs, {
-        [key]: updatedConfirmedTxs,
-      }),
-    });
+    return result.committed ? (result.data ?? undefined) : undefined;
   }
 
   @backgroundMethod()

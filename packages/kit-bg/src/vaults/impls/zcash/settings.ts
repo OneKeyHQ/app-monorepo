@@ -19,7 +19,7 @@ import {
   IMPL_ZCASH,
   INDEX_PLACEHOLDER,
 } from '@onekeyhq/shared/src/engine/engineConsts';
-import { ETranslations, ETranslationsMock } from '@onekeyhq/shared/src/locale';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import settingsBtc from '../btc/settings';
 
@@ -66,7 +66,7 @@ const settings: IVaultSettings = {
     publicAddressPattern:
       '^(t[13][1-9A-HJ-NP-Za-km-z]{33}|tex1[02-9ac-hj-np-z]{38})$',
     privateAddressPattern: '^u1[02-9ac-hj-np-z]+$',
-    hiddenEndpointLabelId: ETranslationsMock.privacy_history_shielded__label,
+    hiddenEndpointLabelId: ETranslations.privacy_history_shielded__title,
     historySource: 'vault-authoritative',
     tipLagWarningBlocks: 48,
     // Orchard stays listed: imported seeds may still hold value there (it

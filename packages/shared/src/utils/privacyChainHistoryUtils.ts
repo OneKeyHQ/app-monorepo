@@ -27,7 +27,7 @@ type IPrivacyChainMergeableTx = {
 };
 
 function getPrivacyChainHistoryKey<T extends IPrivacyChainMergeableTx>(tx: T) {
-  return tx.decodedTx.txid || tx.id;
+  return tx.decodedTx.txid?.toLowerCase() || tx.id;
 }
 
 // Current snapshot wins every collision; an old cache must never enrich a row with stale state.
@@ -138,13 +138,12 @@ export function projectPrivacyChainHistoryTxToPool({
     : (transfer.receives[0] ?? transfer.sends[0]);
   if (!template) return tx;
   // Seen from a shielded pool, the indexer's public-leg row points the other way.
-  const owner = tx.decodedTx.owner ?? '';
   let endpoints: Partial<IDecodedTxTransferInfo> | undefined;
   // A shielded side has no address; never fill it from the template.
   if (isPublicBackedRow && isSend) {
     endpoints = {
-      from: owner,
-      shieldedFrom: undefined,
+      from: '',
+      shieldedFrom: { poolId: selectedPoolId, isOwn: true },
       ...(transfer.shieldedTo
         ? { to: '', shieldedTo: transfer.shieldedTo }
         : { to: transfer.to || template.to }),
@@ -155,8 +154,8 @@ export function projectPrivacyChainHistoryTxToPool({
       ...(transfer.shieldedFrom
         ? { from: '', shieldedFrom: transfer.shieldedFrom }
         : { from: transfer.from || template.from }),
-      to: owner,
-      shieldedTo: undefined,
+      to: '',
+      shieldedTo: { poolId: selectedPoolId, isOwn: true },
       isOwn: undefined,
     };
   }
@@ -173,6 +172,7 @@ export function projectPrivacyChainHistoryTxToPool({
           ...action,
           assetTransfer: {
             ...transfer,
+            ...endpoints,
             sends: isSend ? [projectedTransfer] : [],
             receives: isReceive ? [projectedTransfer] : [],
           },
@@ -266,7 +266,7 @@ export function mergePrivacyChainHistoryTxs<
       decodedTx: {
         ...publicTx.decodedTx,
         totalFeeInNative:
-          publicTx.decodedTx.totalFeeInNative ??
+          publicTx.decodedTx.totalFeeInNative ||
           privateTx.decodedTx.totalFeeInNative,
       },
       privacyChainHistoryPoolIds: poolIds,

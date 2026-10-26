@@ -3,6 +3,8 @@ import type { ReactNode } from 'react';
 
 import { act, fireEvent, render, screen } from '@testing-library/react';
 
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+
 import {
   LocalWalletPoolStatus,
   LocalWalletSyncRow,
@@ -21,9 +23,6 @@ jest.mock('@onekeyhq/kit/src/hooks/useAppNavigation', () => ({
   default: () => ({ pushModal: jest.fn() }),
 }));
 
-jest.mock('./LocalWalletFrozenLines', () => ({
-  LocalWalletFrozenLines: () => null,
-}));
 jest.mock('./LocalWalletPasswordAlert', () => ({
   LocalWalletPasswordAlert: () => null,
 }));
@@ -46,12 +45,15 @@ jest.mock('./LocalWalletRepairControls', () => ({
     />
   ),
   createEnableBirthdayForm: () => ({ current: {} }),
+  getBirthdayInputError: () => 'global.bulk_accounts_page_number_error',
   // `var` below: jest hoists this factory above it.
   // eslint-disable-next-line @typescript-eslint/no-use-before-define
   readEnableBirthday: () => mockBirthday,
 }));
 // eslint-disable-next-line no-var, vars-on-top
-var mockBirthday: { birthdayTimestamp?: number } | undefined;
+var mockBirthday:
+  | { birthdayTimestamp?: number; birthdayHeight?: number }
+  | undefined;
 
 jest.mock('@onekeyhq/components', () => {
   const Wrapper = ({
@@ -65,17 +67,20 @@ jest.mock('@onekeyhq/components', () => {
     children,
     testID,
     loading,
+    disabled,
     onPress,
   }: {
     children?: ReactNode;
     testID?: string;
     loading?: boolean;
+    disabled?: boolean;
     onPress?: () => unknown;
   }) => (
     <button
       type="button"
       data-testid={testID}
       data-loading={String(Boolean(loading))}
+      disabled={disabled || loading}
       onClick={() => {
         void onPress?.();
       }}
@@ -85,7 +90,9 @@ jest.mock('@onekeyhq/components', () => {
   );
   return {
     Button,
+    IconButton: Button,
     Dialog: { confirm: jest.fn() },
+    Toast: { error: jest.fn() },
     Divider: () => null,
     Icon: () => null,
     SizableText: Wrapper,
@@ -121,9 +128,9 @@ describe('LocalWalletPoolStatus for a temp wallet', () => {
       />,
     );
 
-    expect(
-      screen.getByTestId('local-wallet-disabled-desc').textContent,
-    ).toContain('hidden wallets');
+    expect(screen.getByTestId('local-wallet-disabled-desc').textContent).toBe(
+      ETranslations.privacy_temp_wallet_unavailable__desc,
+    );
     expect(screen.queryByTestId('local-wallet-enable-button')).toBeNull();
     expect(screen.queryByTestId('local-wallet-resume-button')).toBeNull();
   });
@@ -144,9 +151,9 @@ describe('LocalWalletPoolStatus for a temp wallet', () => {
   });
 });
 
-describe('LocalWalletPoolStatus for an identity mismatch', () => {
-  it('names the way out and offers Delete instead of Retry', () => {
-    render(
+describe('LocalWalletPoolStatus for an enabled account', () => {
+  it('keeps identity mismatch controls out of the balance area', () => {
+    const { container } = render(
       <LocalWalletPoolStatus
         networkId="zec--0"
         accountId="hd-1--0"
@@ -158,14 +165,11 @@ describe('LocalWalletPoolStatus for an identity mismatch', () => {
       />,
     );
 
-    expect(
-      screen.getByTestId('local-wallet-identity-mismatch').textContent,
-    ).toContain('delete its privacy data');
-    expect(screen.getByTestId('local-wallet-identity-delete-btn')).toBeTruthy();
+    expect(container.firstChild).toBeNull();
   });
 
-  it('keeps Retry for an ordinary unfinished setup', () => {
-    render(
+  it('keeps unfinished setup hints out of the balance area', () => {
+    const { container } = render(
       <LocalWalletPoolStatus
         networkId="zec--0"
         accountId="hd-1--0"
@@ -177,9 +181,7 @@ describe('LocalWalletPoolStatus for an identity mismatch', () => {
       />,
     );
 
-    expect(screen.queryByTestId('local-wallet-identity-mismatch')).toBeNull();
-    expect(screen.queryByTestId('local-wallet-identity-delete-btn')).toBeNull();
-    expect(screen.getByTestId('mock-setup-repair')).toBeTruthy();
+    expect(container.firstChild).toBeNull();
   });
 });
 
@@ -222,7 +224,7 @@ it.each([false, true])(
         />
       </>,
     );
-    expect(screen.getAllByText('global.preparing').length).toBeGreaterThan(0);
+    expect(screen.queryByText('global.preparing') !== null).toBe(settingsMode);
     expect(
       screen.queryByText('privacy_error_setup_incomplete__msg'),
     ).toBeNull();
@@ -269,7 +271,10 @@ it.each([
     </>,
   );
 
-  expect(screen.getAllByText(status.syncStatusText).length).toBeGreaterThan(0);
+  expect(screen.queryByText(status.syncStatusText) !== null).toBe(
+    status.hasSyncError,
+  );
+  expect(screen.getByTestId('local-wallet-refresh-balance-btn')).toBeTruthy();
   expect(screen.queryByTestId('mock-setup-repair')).toBeNull();
   expect(screen.queryByText('privacy_error_setup_incomplete__msg')).toBeNull();
   expect(screen.queryByText('privacy_balance_unavailable__msg')).toBeNull();
@@ -290,6 +295,36 @@ describe('LocalWalletPoolStatus enable failure', () => {
     expect(call).toBeDefined();
     return (call as [IConfirmArgs])[0];
   }
+
+  it.each([undefined, { birthdayHeight: 2_500_000 }])(
+    'only enables after valid birthday input',
+    async (birthday) => {
+      mockBirthday = birthday;
+      const enableAccount = jest.fn(async () => undefined);
+      render(
+        <LocalWalletPoolStatus
+          networkId="zec--0"
+          accountId="hd-1--0"
+          pool={pool({
+            enableAccount,
+            settings: { accountSetup: { requiresBirthday: true } },
+          } as unknown as Partial<ILocalWalletPool>)}
+        />,
+      );
+      fireEvent.click(screen.getByTestId('local-wallet-enable-button'));
+      const preventClose = jest.fn();
+      await act(async () => {
+        await lastDialog().onConfirm({ preventClose });
+      });
+      if (birthday) {
+        expect(enableAccount).toHaveBeenCalledWith(birthday);
+        expect(preventClose).not.toHaveBeenCalled();
+      } else {
+        expect(enableAccount).not.toHaveBeenCalled();
+        expect(preventClose).toHaveBeenCalled();
+      }
+    },
+  );
 
   // QA: the Worker crashed at load, enable timed out its handshake, and the
   // dialog showed nothing. The rejection is what carries the toast (the
@@ -371,7 +406,7 @@ describe('LocalWalletPoolStatus enable failure', () => {
     ).toBe('false');
   });
 
-  it('handles a failed resume without an unhandled rejection', async () => {
+  it('resumes a legacy paused account without a birthday prompt and handles its failure', async () => {
     const consoleError = jest
       .spyOn(console, 'error')
       .mockImplementation(() => undefined);
@@ -383,20 +418,121 @@ describe('LocalWalletPoolStatus enable failure', () => {
         pool={pool({
           enableAccount,
           state: { enabled: false, paused: true },
+          settings: { accountSetup: { requiresBirthday: true } },
         } as unknown as Partial<ILocalWalletPool>)}
       />,
     );
 
     await act(async () => {
-      fireEvent.click(screen.getByTestId('local-wallet-resume-button'));
+      fireEvent.click(screen.getByTestId('local-wallet-enable-button'));
       await Promise.resolve();
     });
 
     expect(enableAccount).toHaveBeenCalledWith({});
+    expect(screen.getByTestId('local-wallet-enable-button').textContent).toBe(
+      'global.resume',
+    );
+    expect(Dialog.confirm).not.toHaveBeenCalled();
     expect(consoleError).toHaveBeenCalledWith(
-      '[privacyChain] resume failed',
+      '[privacyChain] enable failed',
       expect.objectContaining({ error: 'offline' }),
     );
     consoleError.mockRestore();
+  });
+});
+
+describe('LocalWalletSyncRow balance refresh', () => {
+  it('offers Resume for a paused account without changing its last successful time', async () => {
+    const enableAccount = jest.fn(async () => undefined);
+    const refreshBalanceNow = jest.fn(async () => undefined);
+    render(
+      <LocalWalletSyncRow
+        networkId="zec--0"
+        accountId="hd-1--0"
+        pool={pool({
+          enabled: true,
+          state: { enabled: false, paused: true },
+          enableAccount,
+          refreshBalanceNow,
+          lastSyncedAt: 1_700_000_000_000,
+        })}
+      />,
+    );
+    const time = screen.getByTestId('local-wallet-last-synced-at').textContent;
+    const button = screen.getByTestId('local-wallet-refresh-balance-btn');
+    expect(button.textContent).toBe('global.resume');
+    await act(async () => fireEvent.click(button));
+    expect(enableAccount).toHaveBeenCalledWith({});
+    expect(refreshBalanceNow).not.toHaveBeenCalled();
+    expect(screen.getByTestId('local-wallet-last-synced-at').textContent).toBe(
+      time,
+    );
+    expect(screen.queryByTestId('local-wallet-disabled-card')).toBeNull();
+  });
+
+  it('does not invent a successful update while a refresh is being scheduled', async () => {
+    const refreshBalanceNow = jest.fn(async () => undefined);
+    render(
+      <LocalWalletSyncRow
+        networkId="zec--0"
+        accountId="hd-1--0"
+        pool={pool({
+          enabled: true,
+          refreshBalanceNow,
+          syncStatusText: 'scanning 30%',
+        })}
+      />,
+    );
+    expect(screen.getByTestId('local-wallet-last-synced-at').textContent).toBe(
+      '—',
+    );
+    expect(screen.queryByText('scanning 30%')).toBeNull();
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('local-wallet-refresh-balance-btn'));
+    });
+    expect(refreshBalanceNow).toHaveBeenCalledTimes(1);
+    expect(screen.getByTestId('local-wallet-last-synced-at').textContent).toBe(
+      '—',
+    );
+  });
+
+  it('shows only the recorded successful time and hides private controls on the public pool', () => {
+    const lw = pool({ enabled: true, lastSyncedAt: 1_700_000_000_000 });
+    const { rerender } = render(
+      <LocalWalletSyncRow networkId="zec--0" accountId="hd-1--0" pool={lw} />,
+    );
+    expect(
+      screen.getByTestId('local-wallet-last-synced-at').textContent,
+    ).not.toBe('—');
+    rerender(
+      <LocalWalletSyncRow
+        networkId="zec--0"
+        accountId="hd-1--0"
+        pool={pool({
+          ...lw,
+          pool: { id: 0, source: 'backend' },
+        } as Partial<ILocalWalletPool>)}
+      />,
+    );
+    expect(screen.queryByTestId('local-wallet-sync-row')).toBeNull();
+  });
+
+  it('keeps errors that require user action visible alongside the last successful time', () => {
+    render(
+      <LocalWalletSyncRow
+        networkId="zec--0"
+        accountId="hd-1--0"
+        pool={pool({
+          enabled: true,
+          hasSyncError: true,
+          syncStatusText: 'storage permission required',
+          lastSyncedAt: 1_700_000_000_000,
+        })}
+      />,
+    );
+    expect(screen.getByText('storage permission required')).toBeTruthy();
+    expect(
+      screen.getByTestId('local-wallet-last-synced-at').textContent,
+    ).not.toBe('—');
   });
 });

@@ -30,6 +30,7 @@ export type ILocalWalletDataClass =
   | 'viewingKeys'
   | 'zcashTransparentJournal'
   | 'xmrSent'
+  | 'signatureRecords'
   // Saved balances (private and public).
   | 'displayCaches'
   | 'chainTips'
@@ -110,6 +111,7 @@ const HOST_RECORD_CLASSES: ILocalWalletDataClass[] = [
   'viewingKeys',
   'zcashTransparentJournal',
   'xmrSent',
+  'signatureRecords',
   'displayCaches',
   'chainTips',
   'walletState',
@@ -134,6 +136,7 @@ const KEEP_ALL: Record<ILocalWalletDataClass, ILocalWalletLifecycleEffect> = {
   viewingKeys: 'keep',
   zcashTransparentJournal: 'keep',
   xmrSent: 'keep',
+  signatureRecords: 'keep',
   displayCaches: 'keep',
   chainTips: 'keep',
   runtimeRows: 'keep',
@@ -153,6 +156,7 @@ const DELETE_ACCOUNT_EFFECTS: Record<
   viewingKeys: 'delete',
   zcashTransparentJournal: 'delete',
   xmrSent: 'delete',
+  signatureRecords: 'delete',
   displayCaches: 'delete',
   runtimeRows: 'unlessAlias',
   memoryCaches: 'delete',
@@ -201,6 +205,7 @@ export const LOCAL_WALLET_LIFECYCLE: Record<
       viewingKeys: 'delete',
       zcashTransparentJournal: 'dropExpired',
       xmrSent: 'delete',
+      signatureRecords: 'delete',
       displayCaches: 'delete',
       runtimeRows: 'unlessAlias',
       memoryCaches: 'delete',
@@ -259,6 +264,7 @@ export const LOCAL_WALLET_LIFECYCLE: Record<
       viewingKeys: 'delete',
       zcashTransparentJournal: 'delete',
       xmrSent: 'delete',
+      signatureRecords: 'clearedWithAppStorage',
       displayCaches: 'delete',
       chainTips: 'delete',
       runtimeRows: 'dropNetwork',

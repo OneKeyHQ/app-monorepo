@@ -539,7 +539,7 @@ export async function zcashPrepareAccounts(
     accountIds: string[];
     chainTip?: number | null;
   },
-): Promise<IZcashWalletAccount[]> {
+): Promise<{ accountId: string; account: IZcashWalletAccount }[]> {
   const accounts: IZcashWalletAccount[] = [];
   const owners: {
     epoch: string | undefined;
@@ -670,7 +670,11 @@ export async function zcashPrepareAccounts(
     prepared = await api.prepareWalletAccounts(accounts);
   }
   const readyUfvks = new Set(prepared.map(({ ufvk }) => ufvk));
-  return accounts.filter(({ ufvk }) => readyUfvks.has(ufvk));
+  return accounts.flatMap((account, index) =>
+    readyUfvks.has(account.ufvk)
+      ? [{ accountId: eligibleIds[index], account }]
+      : [],
+  );
 }
 
 // Clamping a birthday only ever costs scan time, never funds. Left
@@ -870,6 +874,7 @@ export async function syncLocalWalletGroup(
   stateChanged?: boolean;
   chainTip?: number | null;
   backfillRemaining?: boolean;
+  caughtUpAccountIds?: string[];
 }> {
   try {
     return await vault.syncLocalWalletGroupImpl(params);
@@ -945,6 +950,7 @@ export async function syncLocalWalletGroupImpl(
   stateChanged?: boolean;
   chainTip?: number | null;
   backfillRemaining?: boolean;
+  caughtUpAccountIds?: string[];
 }> {
   return getZcashSyncMutex(ZCASH_NETWORK_MAIN).runExclusive(async () => {
     // Enabling only touches the control plane (chain tip, birthday treestate); checked before the runtime loads.
@@ -1083,10 +1089,11 @@ export async function syncLocalWalletGroupImpl(
         fromHeight: checkIsDefined(meta?.birthdayHeight),
       };
     }
-    const accounts = await vault.zcashPrepareAccounts({
+    const prepared = await vault.zcashPrepareAccounts({
       accountIds,
       chainTip,
     });
+    const accounts = prepared.map((item) => item.account);
     // After registration: an account not yet registered (first enable, or just purged) can't be requeued.
     if (effectiveRescanFrom) {
       try {
@@ -1146,6 +1153,13 @@ export async function syncLocalWalletGroupImpl(
       synced: true,
       stateChanged: result.stateChanged,
       chainTip: result.chainTip,
+      caughtUpAccountIds:
+        result.backfillRemaining === false &&
+        result.chainTip !== null &&
+        result.fullyScanned !== null &&
+        result.fullyScanned >= result.chainTip
+          ? prepared.map((item) => item.accountId)
+          : [],
       backfillRemaining:
         result.backfillRemaining ||
         (accounts.length < accountIds.length && result.stateChanged),

@@ -1,5 +1,5 @@
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
-import { ETranslations, ETranslationsMock } from '@onekeyhq/shared/src/locale';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { localWalletText } from '../vaults/localWallet/messages';
 
@@ -154,7 +154,7 @@ describe('Privacy Mode enabled-account ceiling', () => {
         accountId: "hd-1--m/44'/133'/0'",
       }),
     ).rejects.toMatchObject({
-      message: ETranslationsMock.privacy_error_runtime_unavailable__msg,
+      message: ETranslations.privacy_error_runtime_unavailable__msg,
       autoToast: true,
     });
   });
@@ -188,7 +188,9 @@ describe('Privacy Mode enabled-account ceiling', () => {
         networkId,
         accountId: "hd-1--m/44'/133'/9'",
       }),
-    ).rejects.toThrow(/limited to 5 accounts/i);
+    ).rejects.toThrow(
+      localWalletText(ETranslations.privacy_slots_delete__desc),
+    );
     expect(enableAccount).not.toHaveBeenCalled();
   });
 
@@ -205,7 +207,9 @@ describe('Privacy Mode enabled-account ceiling', () => {
         networkId,
         accountId: "hd-1--m/44'/133'/9'",
       }),
-    ).rejects.toThrow(/limited to 5 accounts/i);
+    ).rejects.toThrow(
+      localWalletText(ETranslations.privacy_slots_delete__desc),
+    );
     expect(enableAccount).not.toHaveBeenCalled();
   });
 
@@ -302,7 +306,7 @@ describe('Privacy Mode enabled-account ceiling', () => {
       {
         status: 'rejected',
         reason: expect.objectContaining({
-          message: expect.stringMatching(/limited to 5 accounts/i),
+          message: localWalletText(ETranslations.privacy_slots_delete__desc),
         }),
       },
     ]);

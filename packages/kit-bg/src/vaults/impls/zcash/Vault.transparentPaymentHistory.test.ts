@@ -7,6 +7,14 @@ jest.mock('../../../dbs/local/localDbInstance', () => ({
 
 import { getOnChainHistoryTxStatus } from '@onekeyhq/shared/src/utils/historyUtils';
 import {
+  getPrivacyChainEndpointFlow,
+  getPrivacyChainPublicDisplayFlow,
+} from '@onekeyhq/shared/src/utils/privacyChainDisplayUtils';
+import {
+  buildLocalWalletHistoryAddressGate,
+  gateLocalWalletHistoryTx,
+} from '@onekeyhq/shared/src/utils/privacyChainHistoryAddressGate';
+import {
   EOnChainHistoryTransferType,
   EOnChainHistoryTxStatus,
   EOnChainHistoryTxType,
@@ -23,7 +31,10 @@ import {
 import { mergeLocalTxDisplayFields } from '../../../services/ServiceHistory';
 import VaultBtc from '../btc/Vault';
 
-import { restoreZcashLocalTransparentPayment } from './backendHistory';
+import {
+  normalizeZcashBackendHistoryTx,
+  restoreZcashLocalTransparentPayment,
+} from './backendHistory';
 import Vault from './Vault';
 
 import type { IEncodedTxZcash } from './types';
@@ -37,6 +48,89 @@ const params = {
   accountAddress: sender,
   xpub: 'test-xpub',
 };
+
+it.each(['zec--0', 'btc--0'])(
+  'retains explicit change metadata without rewriting transfers, network=%s',
+  async (networkId) => {
+    const vault = Object.create(VaultBtc.prototype) as VaultBtc;
+    const raw = backendPayment();
+    raw.networkId = networkId;
+    raw.receives = [{ ...raw.sends[0], to: sender, isChange: true }];
+    const action = await vault.buildHistoryTransferAction({
+      tx: raw,
+      tokens: {},
+      nfts: {},
+    });
+    expect(action.assetTransfer?.receives[0]).toMatchObject({
+      from: sender,
+      to: sender,
+      amount: raw.receives[0].amount,
+      isOwn: true,
+      isChange: true,
+    });
+    expect(action.assetTransfer?.from).toBe(raw.from);
+    expect(action.assetTransfer?.to).toBe(raw.to);
+  },
+);
+
+it('keeps mixed recipients after gating a summary that points at public change', async () => {
+  const vault = Object.create(VaultBtc.prototype) as VaultBtc;
+  const raw = backendPayment();
+  const publicRecipient = 't1external';
+  const change = 't1change';
+  raw.to = change;
+  raw.receives = [
+    { ...raw.sends[0], to: publicRecipient, isOwn: false, isChange: false },
+    {
+      ...raw.sends[0],
+      type: EOnChainHistoryTransferType.Shielded,
+      from: '',
+      to: '',
+      poolId: 4,
+      isOwn: false,
+      isChange: false,
+    },
+    { ...raw.sends[0], to: change, isOwn: true, isChange: true },
+  ];
+  const action = await vault.buildHistoryTransferAction({
+    tx: normalizeZcashBackendHistoryTx(raw),
+    tokens: {},
+    nfts: {},
+  });
+  const pools = [
+    { id: 0, kind: 'public' as const, label: 'Public' },
+    { id: 4, kind: 'private' as const, label: 'Private' },
+  ];
+  const row = localPayment();
+  row.decodedTx.actions = [action];
+  const gated = gateLocalWalletHistoryTx(
+    buildLocalWalletHistoryAddressGate({
+      addresses: { publicAddress: sender },
+      ownerAddress: sender,
+      localWallet: {
+        pools,
+        publicAddressPattern: '^t1',
+        addressForms: { publicLabel: 'Public' },
+      },
+    }),
+    row,
+  );
+  const transfer = gated.decodedTx.actions[0].assetTransfer;
+  expect(
+    getPrivacyChainPublicDisplayFlow({ publicAddressPattern: '^t1', transfer })
+      .to,
+  ).toEqual([publicRecipient]);
+  expect(
+    getPrivacyChainEndpointFlow({
+      pools,
+      publicAddressPattern: '^t1',
+      transfer,
+      outputTransfers: raw.receives,
+      isSent: true,
+    }).to,
+  ).toEqual([{ kind: 'pool', poolId: 4 }]);
+  expect(raw.receives).toHaveLength(3);
+});
 
 function encoded(): IEncodedTxZcash {
   return {
@@ -237,6 +331,27 @@ it('retains the signed payment across confirmation, serialization and repeated r
   expect(restarted.runtime).not.toHaveBeenCalled();
 });
 
+it.each([false, true])(
+  'clears legacy Unknown in public details, withUTXOs=%s',
+  async (withUTXOs) => {
+    const legacy = localPayment();
+    legacy.decodedTx.broadcastOutcomeUnknown = true;
+    legacy.decodedTx.status = EDecodedTxStatus.Pending;
+    const { vault, raw } = createVault(legacy);
+    raw.status = EOnChainHistoryTxStatus.Pending;
+    raw.broadcastOutcomeUnknown = true;
+    const detail = (
+      await vault.fetchAccountHistoryDetail({ ...params, txid, withUTXOs })
+    ).data.data.data;
+    expect(detail.status).toBe(EOnChainHistoryTxStatus.Pending);
+    // The details page falls back to the old row's flag only when this is absent.
+    expect(
+      detail.broadcastOutcomeUnknown ??
+        legacy.decodedTx.broadcastOutcomeUnknown,
+    ).toBe(false);
+  },
+);
+
 it('restores summary facts while preserving the real input/output arrays and chain status', async () => {
   const { vault, raw } = createVault();
   const summary = (await vault.fetchAccountHistoryDetail({ ...params, txid }))
@@ -286,6 +401,10 @@ function createLegacySelfTransfer() {
     value: '0.00015',
     gasFee: '0.00015',
   });
+  context.raw.sends = context.raw.sends.map((send) => ({
+    ...send,
+    to: sender,
+  }));
   const detail: IOnChainHistoryTx = {
     ...context.raw,
     sends: ['0.0006', '0.00035', '0.0001'].map((amount) => ({
@@ -317,19 +436,20 @@ function createLegacySelfTransfer() {
   return { ...context, detail, fetchDetail };
 }
 
-// t1 -> same t1 that this device did not sign: change back to t1 with the
-// payment shielded. Shown as a payment to a hidden shielded counterparty.
-it('shows an unsigned t1 -> t1 row as a shielded payment with the backend value', async () => {
+it('preserves a sparse backend summary without inferring a private recipient', async () => {
   const { vault, fetchDetail, runtime } = createLegacySelfTransfer();
   const rows = await vault.fetchAccountHistoryFromLocal(params);
   expect(rows?.[0].decodedTx).toMatchObject({
     nativeAmount: '0.00015',
     totalFeeInNative: '0.00015',
-    to: '',
+    to: sender,
     status: EDecodedTxStatus.Confirmed,
   });
   expect(rows?.[0].decodedTx.nativeAmountIsUnknown).not.toBe(true);
   expect(rows?.[0].isLocalCreated).not.toBe(true);
+  expect(
+    rows?.[0].decodedTx.actions[0]?.assetTransfer?.shieldedTo,
+  ).toBeUndefined();
   expect(fetchDetail).not.toHaveBeenCalled();
   expect(runtime).not.toHaveBeenCalled();
 });
@@ -341,9 +461,9 @@ it('keeps the public I/O of an unsigned t1 -> t1 row as the backend reports it',
   expect(summary).toMatchObject({
     value: '0.00015',
     gasFee: '0.00015',
-    to: '',
-    shieldedCounterparty: 'to',
+    to: sender,
   });
+  expect(summary.shieldedCounterparty).toBeUndefined();
   const io = (
     await vault.fetchAccountHistoryDetail({
       accountId: params.accountId,

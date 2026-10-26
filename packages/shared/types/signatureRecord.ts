@@ -36,6 +36,8 @@ export enum ETransactionType {
 
 interface IBaseTransactionData {
   type: ETransactionType;
+  privacyChainAccountId?: string;
+  privacyChainEpoch?: string;
 }
 
 export interface ISendTransactionData extends IBaseTransactionData {

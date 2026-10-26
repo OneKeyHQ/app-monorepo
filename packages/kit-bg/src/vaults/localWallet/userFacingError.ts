@@ -1,7 +1,7 @@
 import { getPrivacyChainRuntimeFailure } from '@onekeyhq/core/src/utils/privacyChainWorkerClient';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
-import { ETranslations, ETranslationsMock } from '@onekeyhq/shared/src/locale';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { localWalletText } from './messages';
 import {
@@ -46,7 +46,9 @@ function isLocalWalletRuntimeUnavailableError(error: unknown): boolean {
 // worded by the chain's own mapper before they get here.
 function getLocalWalletUserMessage(error: unknown): string | undefined {
   if (isLocalWalletRuntimeUnavailableError(error)) {
-    return ETranslationsMock.privacy_error_runtime_unavailable__msg;
+    return localWalletText(
+      ETranslations.privacy_error_runtime_unavailable__msg,
+    );
   }
   switch (readLocalWalletErrorCode(error)) {
     case 'NETWORK_ERROR':

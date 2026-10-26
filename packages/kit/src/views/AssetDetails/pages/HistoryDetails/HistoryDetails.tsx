@@ -44,6 +44,7 @@ import {
   maybeOpenPrivateSendHistoryDetail,
 } from '@onekeyhq/kit/src/views/Swap/utils/privateSendHistory';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import {
   POLLING_DEBOUNCE_INTERVAL,
   POLLING_INTERVAL_FOR_HISTORY,
@@ -1132,8 +1133,10 @@ function HistoryDetails() {
       status = EDecodedTxStatus.Dropped;
     const { key, color, isConfirming } = getTxStatusTextProps(
       status,
-      txDetails?.broadcastOutcomeUnknown ??
-        historyTx?.decodedTx.broadcastOutcomeUnknown,
+      networkId === getNetworkIdsMap().zec
+        ? false
+        : (txDetails?.broadcastOutcomeUnknown ??
+            historyTx?.decodedTx.broadcastOutcomeUnknown),
     );
 
     const broadcastTimeMs = txDetails?.timestamp
@@ -1182,6 +1185,7 @@ function HistoryDetails() {
       </YStack>
     );
   }, [
+    networkId,
     isLocalWalletHistory,
     txDetails?.block,
     historyTx?.decodedTx.block,

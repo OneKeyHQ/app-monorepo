@@ -91,6 +91,27 @@ describe('Zcash private history when the runtime read fails', () => {
     ]);
   });
 
+  it.each([true, false])(
+    'reads retained private history only when an off account is paused=%s',
+    async (paused) => {
+      const getHistory = jest
+        .fn()
+        .mockResolvedValue([{ txid: 'paused-private-tx' }]);
+      const vault = createVault(getHistory);
+      Object.assign(vault.backgroundApi.simpleDb.privacyChainState, {
+        getZcashPrivacyModeState: async () => ({
+          intent: 'off',
+          ...(paused ? { resumeFromHeight: 100 } : {}),
+        }),
+      });
+      const rows = await vault.fetchAccountHistoryFromLocal(params);
+      expect(rows?.map((tx) => tx.decodedTx.txid)).toEqual(
+        paused ? ['paused-private-tx'] : [],
+      );
+      expect(getHistory).toHaveBeenCalledTimes(paused ? 1 : 0);
+    },
+  );
+
   // The full list always comes from the runtime; memory holds one page.
   it('keeps only the first page for the fallback', async () => {
     const rows = Array.from({ length: HISTORY_PAGE_SIZE + 5 }, (_, index) => ({
@@ -268,8 +289,8 @@ describe('Zcash private balance when the runtime read fails', () => {
   });
 });
 
-// A transparent send whose broadcast outcome is unknown is not in the
-// backend's list yet; it stays visible as pending so nobody sends it again.
+// Existing sends keep the ordinary BTC Pending presentation, independently of
+// the internal journal's input holds and broadcast acceptance marker.
 describe('Zcash transparent send the backend has not seen yet', () => {
   function fixture({
     observed = false,
@@ -283,6 +304,7 @@ describe('Zcash transparent send the backend has not seen yet', () => {
       decodedTx: {
         txid: 'AB',
         status: 'Pending',
+        broadcastOutcomeUnknown: true,
         createdAt: 1,
         encodedTx: locallyCreated
           ? { zcashMode: 'transparent', expiry: 100 }
@@ -352,14 +374,14 @@ describe('Zcash transparent send the backend has not seen yet', () => {
     const { read } = fixture();
     const rows = await read();
     expect(rows?.map((tx) => tx.id)).toEqual(['row-ab']);
-    expect(rows?.[0].decodedTx.broadcastOutcomeUnknown).toBe(true);
+    expect(rows?.[0].decodedTx.broadcastOutcomeUnknown).toBe(false);
   });
   it('does not treat a backend Pending row as node acceptance', async () => {
     const { read, settle } = fixture({ observed: true });
     const rows = await read();
     expect(rows?.[0].decodedTx).toMatchObject({
       status: 'Pending',
-      broadcastOutcomeUnknown: true,
+      broadcastOutcomeUnknown: false,
       createdAt: 1,
       encodedTx: { expiry: 100 },
     });
@@ -369,7 +391,7 @@ describe('Zcash transparent send the backend has not seen yet', () => {
     const { read } = fixture({ withJournal: false });
     const rows = await read();
     expect(rows?.map((tx) => tx.id)).toEqual(['row-ab']);
-    expect(rows?.[0].decodedTx.broadcastOutcomeUnknown).toBe(true);
+    expect(rows?.[0].decodedTx.broadcastOutcomeUnknown).toBe(false);
   });
   it('keeps known node acceptance while the backend still reports Pending', async () => {
     const { read } = fixture({ observed: true, accepted: true });

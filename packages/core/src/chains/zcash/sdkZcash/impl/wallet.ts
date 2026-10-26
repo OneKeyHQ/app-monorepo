@@ -193,11 +193,22 @@ export async function prepareWalletAccounts(
   return registered;
 }
 
-function readScanMark(
-  rt: Awaited<ReturnType<typeof withWallet>>['rt'],
-  account: IZcashWalletAccount,
-): { chainTip: number | null; fullyScanned: number | null } {
+function readScanMark(rt: Awaited<ReturnType<typeof withWallet>>['rt']): {
+  chainTip: number | null;
+  fullyScanned: number | null;
+} {
   try {
+    const peek = JSON.parse(rt.syncPeek()) as {
+      chainTip?: number | null;
+      fullyScannedHeight?: number | null;
+    };
+    if (peek.fullyScannedHeight !== undefined) {
+      return {
+        chainTip: peek.chainTip ?? null,
+        fullyScanned: peek.fullyScannedHeight,
+      };
+    }
+    // Older runtimes expose scan heights only through the balance summary.
     const accounts = JSON.parse(rt.listAccounts()) as string[];
     if (!accounts.length) return { chainTip: null, fullyScanned: null };
     const b = JSON.parse(
@@ -212,20 +223,33 @@ function readScanMark(
   } catch (error) {
     if (error instanceof WebAssembly.RuntimeError) throw error;
     // Before the first scan there is no summary at all; that is not an error.
-    void account;
     return { chainTip: null, fullyScanned: null };
   }
 }
 
-function ratio(
-  from: number | null,
-  current: number | null,
-  target: number | null,
+function getBackfillProgress(
+  birthdayHeight: number,
+  chainTip: number | null,
+  remainingBlocks: number,
 ): number | null {
-  if (from === null || current === null || target === null) return null;
-  const span = target - from;
-  if (span <= 0) return 1;
-  return Math.min(1, Math.max(0, (current - from) / span));
+  if (
+    chainTip === null ||
+    !Number.isSafeInteger(birthdayHeight) ||
+    birthdayHeight < 0 ||
+    !Number.isSafeInteger(chainTip) ||
+    chainTip < birthdayHeight ||
+    !Number.isSafeInteger(remainingBlocks) ||
+    remainingBlocks < 0
+  ) {
+    return null;
+  }
+  const totalBlocks = chainTip - birthdayHeight + 1;
+  if (!Number.isSafeInteger(totalBlocks)) return null;
+  // Pending ranges account for completed work beyond the contiguous scan cursor.
+  return Math.min(
+    1,
+    Math.max(0, (totalBlocks - remainingBlocks) / totalBlocks),
+  );
 }
 
 // Per-database TTL for downloaded subtree roots, so backfill doesn't re-pay syncPrepare's full download every round.
@@ -257,7 +281,7 @@ export async function syncWallet(
   }
   const { rt } = await withWallet(account);
 
-  const before = readScanMark(rt, account);
+  const before = readScanMark(rt);
 
   // Idle fast path: a local syncPeek plus one chainTip call skip the synchronous prepare/step work that blocks the UI thread.
   const queued = JSON.parse(rt.syncPeek()) as { totalBlocks: number };
@@ -372,7 +396,7 @@ export async function syncWallet(
     backfillRemaining = true;
   }
 
-  const after = readScanMark(rt, account);
+  const after = readScanMark(rt);
 
   // fullyScanned alone can't tell if THIS account's birthday range was ever queued — an account
   // registered at the tip can report "caught up" while it never scanned its own history.
@@ -461,16 +485,22 @@ export async function rescanWallet(
 export function readSyncProgress(
   rt: Awaited<ReturnType<typeof withWallet>>['rt'],
   accountUuid: string,
-  account: IZcashWalletAccount,
 ): IZcashSyncProgress {
-  const mark = readScanMark(rt, account);
   const status = JSON.parse(rt.accountSyncStatus(accountUuid)) as {
     birthdayHeight: number;
     chainTip: number | null;
+    fullyScannedHeight?: number | null;
     scannedToHeight: number | null;
     remainingBlocks: number;
     isComplete: boolean;
   };
+  const mark =
+    status.fullyScannedHeight !== undefined
+      ? {
+          chainTip: status.chainTip,
+          fullyScanned: status.fullyScannedHeight,
+        }
+      : readScanMark(rt);
 
   const birthdayHeight = status.birthdayHeight;
   const chainTip = status.chainTip ?? mark.chainTip;
@@ -491,10 +521,10 @@ export function readSyncProgress(
     birthdayHeight,
     backfillScannedHeight,
     backfillTargetHeight,
-    backfillProgress: ratio(
+    backfillProgress: getBackfillProgress(
       birthdayHeight,
-      backfillScannedHeight,
       backfillTargetHeight,
+      status.remainingBlocks,
     ),
     isBackfillComplete,
     backfillRemainingBlocks: status.remainingBlocks,
@@ -510,7 +540,7 @@ export async function getSyncProgress(
   account: IZcashWalletAccount,
 ): Promise<IZcashSyncProgress> {
   const { rt, accountUuid } = await withWallet(account);
-  return readSyncProgress(rt, accountUuid, account);
+  return readSyncProgress(rt, accountUuid);
 }
 
 // Pure synchronous read (see readSyncProgress above).

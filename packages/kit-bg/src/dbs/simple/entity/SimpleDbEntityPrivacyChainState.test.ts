@@ -6,6 +6,7 @@ import {
 } from './SimpleDbEntityPrivacyChainState';
 
 import type {
+  IPrivacyChainAccountRecord,
   IPrivacyChainStateDB,
   IZcashAccountMeta,
 } from './SimpleDbEntityPrivacyChainState';
@@ -59,6 +60,63 @@ async function enableZcash(
 }
 
 describe('privacy chain state: durable account deletion', () => {
+  it('normalizes an older pending deletion and persists its archive fence through completion', async () => {
+    const entity = createEntity();
+    const accountId = 'hd-1--legacy-archive';
+    await enableZcash(entity, accountId);
+    const request = await entity.requestAccountDeletion({
+      networkId: ZEC,
+      accountId,
+    });
+    const raw = (await entity.getRawData())!;
+    const { signatureEpoch: _signatureEpoch, ...legacy } = raw.accounts![
+      accountId
+    ] as IPrivacyChainAccountRecord;
+    const restored = createEntity({
+      ...raw,
+      accounts: { ...raw.accounts, [accountId]: legacy },
+    });
+    expect(await restored.getAccountSignatureEpoch({ accountId })).toBe(
+      request.requestId,
+    );
+    await restored.beginAccountReenable(request);
+    await restored.completeAccountDeletion(request);
+    const restarted = createEntity((await restored.getRawData()) ?? undefined);
+    expect(await restarted.getAccountSignatureEpoch({ accountId })).toBe(
+      request.requestId,
+    );
+    expect(await restarted.listPendingAccountDeletions()).toEqual([]);
+  });
+
+  it('keeps the signature deletion fence across scan changes, cleanup and restart', async () => {
+    const entity = createEntity();
+    const accountId = 'hd-1--archive';
+    await enableZcash(entity, accountId);
+    const request = await entity.requestAccountDeletion({
+      networkId: ZEC,
+      accountId,
+    });
+    await entity.rotateAccountEpochs({ accountIds: [accountId] });
+    await entity.clearAccountScanData({ accountId });
+    await entity.completeAccountDeletion(request);
+    const restored = createEntity((await entity.getRawData()) ?? undefined);
+    expect(await restored.getAccountSignatureEpoch({ accountId })).toBe(
+      request.requestId,
+    );
+    await enableZcash(restored, accountId);
+    expect(await restored.getAccountSignatureEpoch({ accountId })).toBe(
+      request.requestId,
+    );
+    const next = await restored.requestAccountDeletion({
+      networkId: ZEC,
+      accountId,
+    });
+    expect(next.requestId).not.toBe(request.requestId);
+    expect(await restored.getAccountSignatureEpoch({ accountId })).toBe(
+      next.requestId,
+    );
+  });
+
   it.each([ZEC, XMR])(
     '%s stops admission before cleanup and retains its request across restart',
     async (networkId) => {

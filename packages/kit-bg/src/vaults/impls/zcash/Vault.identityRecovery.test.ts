@@ -21,7 +21,7 @@ jest.mock('../../../states/jotai/atoms', () => ({
   privacyChainAtom: { set: jest.fn(async () => undefined) },
 }));
 
-import { ETranslationsMock } from '@onekeyhq/shared/src/locale';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { SimpleDbEntityPrivacyChainCache } from '../../../dbs/simple/entity/SimpleDbEntityPrivacyChainCache';
 import { SimpleDbEntityPrivacyChainJournal } from '../../../dbs/simple/entity/SimpleDbEntityPrivacyChainJournal';
@@ -89,6 +89,9 @@ describe('Zcash identity mismatch recovery', () => {
         getDBAccountSafe: jest.fn(async () => account),
         getAccount: jest.fn(async () => ({ address: 't1account' })),
       },
+      serviceSignature: {
+        removeSignedTransactionsForAccount: jest.fn(async () => undefined),
+      },
     } as unknown as IBackgroundApi;
     const derived = {
       ufvk: 'ufvk-before-firmware-change',
@@ -124,7 +127,7 @@ describe('Zcash identity mismatch recovery', () => {
       (e: unknown) => e,
     );
     expect((mismatch as Error).message).toBe(
-      ETranslationsMock.privacy_error_identity_mismatch__msg,
+      ETranslations.privacy_error_identity_mismatch__msg,
     );
     // Retry and Enable only log what they catch; the toast is the message.
     expect((mismatch as { autoToast?: boolean }).autoToast).toBe(true);

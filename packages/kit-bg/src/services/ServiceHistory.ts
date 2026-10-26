@@ -1145,6 +1145,12 @@ class ServiceHistory extends ServiceBase {
     return rest;
   }
 
+  private isSameHistoryTxId(networkId: string, a: string, b?: string) {
+    return networkId === getNetworkIdsMap().zec
+      ? a.toLowerCase() === b?.toLowerCase()
+      : a === b;
+  }
+
   private isSameScopedHistoryTx(a: IAccountHistoryTx, b: IAccountHistoryTx) {
     if (
       a.decodedTx.networkId &&
@@ -1187,13 +1193,15 @@ class ServiceHistory extends ServiceBase {
     const aTxIds = [a.decodedTx.txid, a.decodedTx.originalTxId].filter(
       (txId): txId is string => !!txId,
     );
-    const bTxIds = new Set(
-      [b.decodedTx.txid, b.decodedTx.originalTxId].filter(
-        (txId): txId is string => !!txId,
-      ),
+    const bTxIds = [b.decodedTx.txid, b.decodedTx.originalTxId].filter(
+      (txId): txId is string => !!txId,
     );
 
-    return aTxIds.some((txId) => bTxIds.has(txId));
+    return aTxIds.some((txId) =>
+      bTxIds.some((other) =>
+        this.isSameHistoryTxId(a.decodedTx.networkId, txId, other),
+      ),
+    );
   }
 
   private async _resolveHistoryRequestParams(
@@ -1520,7 +1528,12 @@ class ServiceHistory extends ServiceBase {
     for (const localHistoryPendingTx of localHistoryPendingTxs) {
       const confirmedTx = onChainHistoryTxsDetails.find(
         (txDetails) =>
-          localHistoryPendingTx.decodedTx.txid === txDetails?.data.tx &&
+          !!txDetails &&
+          this.isSameHistoryTxId(
+            localHistoryPendingTx.decodedTx.networkId,
+            localHistoryPendingTx.decodedTx.txid,
+            txDetails.data.tx,
+          ) &&
           (txDetails.data.status === EOnChainHistoryTxStatus.Success ||
             txDetails.data.status === EOnChainHistoryTxStatus.Failed),
       );

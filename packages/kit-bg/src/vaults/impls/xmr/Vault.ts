@@ -27,7 +27,6 @@ import {
   OneKeyLocalError,
 } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
-import { ETranslationsMock } from '@onekeyhq/shared/src/locale/enum/translationsMock';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import { gateLocalWalletHistoryTx } from '@onekeyhq/shared/src/utils/privacyChainHistoryAddressGate';
@@ -161,7 +160,7 @@ async function readXmrNodeNetwork(url: string): Promise<string | undefined> {
 function toXmrUserFacingError(error: unknown): unknown {
   if (getPrivacyChainRuntimeFailure(error)) {
     return new OneKeyLocalError(
-      ETranslationsMock.privacy_error_runtime_unavailable__msg,
+      localWalletText(ETranslations.privacy_error_runtime_unavailable__msg),
     );
   }
   const runtime = readXmrRuntimeError(error);
@@ -858,9 +857,8 @@ export default class Vault extends VaultBase {
       const state = await capability.getAccountState({
         accountId: this.accountId,
       });
-      // Never scanned is not a known zero, and paused privacy hides the
-      // private balance (all of Monero's): blank, and left out of totals.
-      if (!state.enabled) {
+      // Pausing retains the saved balance; a never-enabled account has no known figure.
+      if (!state.enabled && !state.paused) {
         return { ...unknown, balanceStatus: 'notEnabled' };
       }
       const balance = await capability.getAccountBalance({
