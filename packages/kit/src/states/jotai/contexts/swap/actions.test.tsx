@@ -80,10 +80,12 @@ import {
   swapAllNetworkTokenListMapAtom,
   swapAllNetworkTokenListStatusAtom,
   swapBalanceDisplayCacheAtom,
+  swapDefaultConfigStatusAtom,
   swapFromTokenAmountAtom,
   swapInitialSelectedTokensSyncedAtom,
   swapInputAmountDraftsAtom,
   swapLastNonLimitSelectedTokensAtom,
+  swapNetworkConfigStatusAtom,
   swapNetworks,
   swapProDirectionAtom,
   swapProInputAmountAtom,
@@ -5297,6 +5299,78 @@ describe('useSwapActions', () => {
       expect(store.get(swapSelectToTokenAtom())?.symbol).toBe(
         direction === 'reverse' ? 'ETH' : 'USDC',
       );
+    },
+  );
+
+  it.each(['success', 'failed'] as const)(
+    'uses the network result for manual selection after automatic defaults settled locally (network=%s)',
+    async (networkStatus) => {
+      const { store, Wrapper } = createWrapperWithStore((instance) => {
+        instance.set(swapDefaultConfigStatusAtom(), 'failed');
+        instance.set(swapNetworkConfigStatusAtom(), networkStatus);
+        instance.set(swapSelectToTokenAtom(), undefined);
+        instance.set(swapNetworks(), [
+          {
+            ...instance.get(swapNetworks())[0],
+            defaultSelectTokenDetail: {
+              from: ethToken,
+              to: { ...usdtToken, networkId: ethToken.networkId },
+            },
+          },
+        ]);
+      });
+      const { result } = renderHook(() => useSwapActions().current, {
+        wrapper: Wrapper,
+      });
+      await act(async () => result.current.selectFromToken(ethToken));
+      expect(store.get(swapSelectToTokenAtom())?.symbol).toBe(
+        networkStatus === 'success' ? 'USDT' : 'USDC',
+      );
+      expect(store.get(swapDefaultConfigStatusAtom())).toBe('failed');
+    },
+  );
+
+  it.each([true, false])(
+    'defers cold Stock-to-Swap defaults only for the Home-owned entry (%s)',
+    async (initializeSwapDefaultsFromHome) => {
+      const { store, Wrapper } = createWrapperWithStore((instance) => {
+        instance.set(swapTypeSwitchAtom(), ESwapTabSwitchType.STOCK);
+        instance.set(swapSelectFromTokenAtom(), usdcToken);
+        instance.set(swapSelectToTokenAtom(), appleStockToken);
+        instance.set(swapSelectedTokensColdStartContextAtom(), {
+          accountKey: 'test-account',
+          networkId: 'evm--56',
+          swapType: ESwapTabSwitchType.STOCK,
+          updatedAt: 1,
+        });
+        instance.set(swapInitialSelectedTokensSyncedAtom(), true);
+      });
+      const { result } = renderHook(() => useSwapActions().current, {
+        wrapper: Wrapper,
+      });
+
+      await act(async () =>
+        result.current.swapTypeSwitchAction(
+          ESwapTabSwitchType.SWAP,
+          'evm--56',
+          {
+            initializeSwapDefaultsFromHome,
+          },
+        ),
+      );
+
+      expect(store.get(swapTypeSwitchAtom())).toBe(ESwapTabSwitchType.SWAP);
+      if (initializeSwapDefaultsFromHome) {
+        expect(store.get(swapSelectFromTokenAtom())).toBeUndefined();
+        expect(store.get(swapSelectToTokenAtom())).toBeUndefined();
+      } else {
+        expect(store.get(swapSelectFromTokenAtom())?.symbol).toBe('BNB');
+        expect(store.get(swapSelectToTokenAtom())?.networkId).toBe('evm--56');
+      }
+      expect(
+        store.get(swapSelectedTokensColdStartContextAtom()),
+      ).toBeUndefined();
+      expect(store.get(swapInitialSelectedTokensSyncedAtom())).toBe(false);
     },
   );
 

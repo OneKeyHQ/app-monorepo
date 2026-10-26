@@ -5,6 +5,7 @@ import { useIntl } from 'react-intl';
 import { useIsOverlayPage } from '@onekeyhq/components';
 import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import {
+  EJotaiContextStoreNames,
   useInAppNotificationAtom,
   useSwapFromMarketJumpTokenAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -298,6 +299,10 @@ export function useSwapInit(params?: ISwapInitParams) {
       isNative: Boolean(platformEnv.isNative),
       swapType: swapTypeSwitch,
     });
+  const rootSwapInitType =
+    swapColdStartScopeKey === `store:${EJotaiContextStoreNames.swap}`
+      ? swapTypeSwitch
+      : undefined;
   const fromTokenAmountRef = useRef<{ value: string; isInput: boolean }>(
     fromTokenAmount,
   );
@@ -1361,14 +1366,18 @@ export function useSwapInit(params?: ISwapInitParams) {
     }
     hasSelectedTokens = Boolean(fromTokenRef.current || toTokenRef.current);
     if (hasImportParams && params?.importNetworkId && !hasImportTokenParams) {
-      if (!swapNetworksRef.current.length) {
-        return;
-      }
       const importNetwork = swapNetworksRef.current.find(
         (net) => net.networkId === params.importNetworkId,
       );
       const importSupportCheckType =
         supportCheckSwapTabSwitchType ?? ESwapTabSwitchType.SWAP;
+      const canUseLocalSwapDefaults =
+        defaultConfigStatusRef.current === 'failed' &&
+        importSupportCheckType === ESwapTabSwitchType.SWAP &&
+        !importNetwork;
+      if (!swapNetworksRef.current.length && !canUseLocalSwapDefaults) {
+        return;
+      }
       const isImportNetworkSupported =
         importNetwork &&
         getSwapNetworkSupportTabSwitchTypes({
@@ -1377,7 +1386,7 @@ export function useSwapInit(params?: ISwapInitParams) {
           supportLimit: importNetwork.supportLimit,
           supportStock: importNetwork.supportStock,
         }).includes(importSupportCheckType);
-      if (!isImportNetworkSupported) {
+      if (!isImportNetworkSupported && !canUseLocalSwapDefaults) {
         clearSelectedTokensColdStartCache();
         finishSwapInitParamsSync();
         return;
@@ -2083,6 +2092,7 @@ export function useSwapInit(params?: ISwapInitParams) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     swapAddressInfo.accountInfo?.ready,
+    rootSwapInitType,
     swapNetworks,
     defaultConfigStatus,
     swapAddressInfo.networkId,

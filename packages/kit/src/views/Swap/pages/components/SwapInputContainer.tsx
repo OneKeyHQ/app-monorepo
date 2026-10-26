@@ -235,7 +235,8 @@ const SwapInputContainer = ({
   const tokenSelectorMinWidth = platformEnv.isNative ? 112 : 132;
   const showTokenSelectorSkeleton =
     !tokenSelectorDisplayToken?.symbol &&
-    (selectTokenLoading || tokenSelectionState.status === 'loading');
+    (tokenSelectionState.status === 'loading' ||
+      (selectTokenLoading && swapTypeSwitch !== ESwapTabSwitchType.SWAP));
   const handleSelectToken = useCallback(() => {
     onSelectToken(direction);
   }, [direction, onSelectToken]);
