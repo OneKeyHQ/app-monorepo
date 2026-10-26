@@ -24,6 +24,7 @@ import {
   TRADING_VIEW_NATIVE_WATERMARK_DARK_OPACITY as WATERMARK_DARK_OPACITY,
   TRADING_VIEW_NATIVE_WATERMARK_LIGHT_OPACITY as WATERMARK_LIGHT_OPACITY,
 } from '../chartConstants';
+import { useDrawingCanvasText } from '../drawings/useDrawingCanvasText';
 import { IndicatorPaneHandles } from '../indicatorPanes/IndicatorPaneHandles';
 import { useIndicatorPanes } from '../indicatorPanes/useIndicatorPanes';
 import { getTradingViewNativeChartComponentPriceAxisLabel } from '../utils/chartComponentTree';
@@ -214,6 +215,7 @@ export const TradingViewNativeChart = memo(
     const containerRef = useRef<HTMLDivElement>(null);
     const drawingRootRef = useRef<HTMLDivElement>(null);
     const drawingProjectionRef = useRef<IDrawingProjection | null>(null);
+    const drawingText = useDrawingCanvasText();
     const drawingRedrawRef = useRef<() => void>(() => undefined);
     const referenceLineHitRegionsRef = useRef<
       ITradingViewNativeReferenceLineHitRegion[]
@@ -604,6 +606,7 @@ export const TradingViewNativeChart = memo(
                   height: canvas.clientHeight,
                 },
                 showPriceAxis: chartSettings.options.yAxis,
+                text: drawingText,
               }
             : null;
         updatePriceSelectionControl();
@@ -649,6 +652,7 @@ export const TradingViewNativeChart = memo(
         priceDecimalPlaces,
         drawDrawings,
         drawingsEnabled,
+        drawingText,
         updateData,
         extendTimeAxisBorderToCanvasEdge,
         grid,

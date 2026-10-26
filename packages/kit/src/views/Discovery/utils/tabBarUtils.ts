@@ -1,7 +1,9 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 
+import useListenTabFocusState from '@onekeyhq/kit/src/hooks/useListenTabFocusState';
 import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { setHideTabBarRequest } from '@onekeyhq/shared/src/tabBar/hideTabBarRequests';
 
 const isNative = platformEnv.isNative;
@@ -29,8 +31,18 @@ export const showTabBar = () => {
 export const useNotifyTabBarDisplay = isNative
   ? (isActive: boolean) => {
       const isFocused = useIsFocused({ disableLockScreenCheck: true });
+      // A modal on top (search, tab list, account selector...) takes focus from
+      // the browser screen. Keep the tab bar hidden then: otherwise it pops up
+      // behind the modal for a moment (e.g. when tapping the address bar).
+      const [isCoveredByModal, setIsCoveredByModal] = useState(false);
+      useListenTabFocusState(
+        ETabRoutes.Discovery,
+        (isTabFocus, isHideByModal) => {
+          setIsCoveredByModal(isTabFocus && isHideByModal);
+        },
+      );
 
-      const hideTabBar = isActive && isFocused;
+      const hideTabBar = isActive && (isFocused || isCoveredByModal);
 
       useEffect(() => {
         if (hideTabBar) {

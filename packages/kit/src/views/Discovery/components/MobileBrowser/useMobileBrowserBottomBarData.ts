@@ -2,7 +2,6 @@ import { useCallback, useEffect } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import type { IStackProps } from '@onekeyhq/components';
 import { Toast, useClipboard, useSafeAreaInsets } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
@@ -27,30 +26,24 @@ import {
 import { webviewRefs } from '../../utils/explorerUtils';
 import { showTabBar } from '../../utils/tabBarUtils';
 
+import type { IMobileBrowserChrome } from './browserChrome';
 import type { ESiteMode } from '../../types';
 import type WebView from 'react-native-webview';
 
-export const ACTION_LIST_CLOSE_ANIMATION_DELAY_MS = 350;
-
-export interface IMobileBrowserBottomBarProps extends IStackProps {
+export interface IMobileBrowserBottomBarProps {
   id: string;
-  onGoBackHomePage?: () => void;
+  // Scroll-driven chrome state and address actions.
+  chrome: IMobileBrowserChrome;
 }
 
-export function useMobileBrowserBottomBarData({
-  id,
-  onGoBackHomePage,
-}: {
-  id: string;
-  onGoBackHomePage?: () => void;
-}) {
+export function useMobileBrowserBottomBarData({ id }: { id: string }) {
   const intl = useIntl();
   const { bottom } = useSafeAreaInsets();
 
   const { tab } = useWebTabDataById(id);
 
   const origin = tab?.url ? new URL(tab.url).origin : null;
-  const { result: hasConnectedAccount, run: refreshConnectState } =
+  const { result: hasConnectedAccount = false, run: refreshConnectState } =
     usePromiseResult(async () => {
       try {
         if (!origin) {
@@ -191,10 +184,9 @@ export function useMobileBrowserBottomBarData({
   }, [tab?.displayUrl, tab?.url]);
 
   const disabledGoBack = displayHomePage || !tab?.canGoBack;
-  const disabledGoForward = displayHomePage ? true : !tab?.canGoForward;
+  const disabledGoForward = displayHomePage || !tab?.canGoForward;
 
   return {
-    intl,
     bottom,
     tab,
     hasConnectedAccount,
@@ -212,7 +204,6 @@ export function useMobileBrowserBottomBarData({
     handleBrowserOpen,
     disabledGoBack,
     disabledGoForward,
-    onGoBackHomePage,
     isTranslated,
     handleTranslate,
     handleRetranslate,
