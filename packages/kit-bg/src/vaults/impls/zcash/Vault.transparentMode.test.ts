@@ -441,6 +441,28 @@ describe('Zcash hardware transparent send', () => {
       expect(build).toHaveBeenCalledWith({ transferInfo, sendMax });
     },
   );
+
+  // A swap route instruction (OP_RETURN) cannot be carried; silently dropping
+  // it would pay the swap vault with no instruction.
+  it('refuses a transfer that carries a swap route instruction', async () => {
+    const build = jest.fn();
+    const vault = createVault();
+    Object.assign(vault, { zcashBuildTransparentEncodedTx: build });
+
+    await expect(
+      vault.buildEncodedTx({
+        transfersInfo: [
+          {
+            from: 't1-account',
+            to: 't1-vault',
+            amount: '0.1',
+            opReturn: '=:BTC.BTC:bc1-destination',
+          },
+        ],
+      }),
+    ).rejects.toThrow();
+    expect(build).not.toHaveBeenCalled();
+  });
 });
 
 describe('Zcash private history detail routing', () => {

@@ -209,6 +209,12 @@ export async function buildEncodedTx(
   if (transferInfo.hexData && transferInfo.hexData !== '0x') {
     throw new OneKeyLocalError('Zcash transaction messages are not supported');
   }
+  // A swap route instruction cannot be carried; never pay without it.
+  if (transferInfo.opReturn) {
+    throw new OneKeyLocalError(
+      'Zcash swap route instructions are not supported',
+    );
+  }
   if (!transferInfo.to) {
     throw new OneKeyLocalError(
       'buildEncodedTx ERROR: transferInfo.to is missing',

@@ -57,6 +57,11 @@ describe('zcash vault settings invariants', () => {
     expect(settings.supportExportedSecretKeys).toEqual([]);
   });
 
+  // Swaps need a route instruction a Zcash send cannot carry.
+  it('turns the swap entry off', () => {
+    expect(settings.disabledSwapAction).toBe(true);
+  });
+
   it('matches the PCZT send-path contract', () => {
     expect(settings.editFeeEnabled).toBe(false);
     // A fully authorized PCZT must provide the txid used for pending-state

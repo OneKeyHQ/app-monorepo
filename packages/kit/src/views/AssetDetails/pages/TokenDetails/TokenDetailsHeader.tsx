@@ -561,6 +561,7 @@ function TokenDetailsHeaderContent({
 
   const disableSwapAction = useMemo(
     () =>
+      !!vaultSettings?.disabledSwapAction ||
       accountUtils.isUrlAccountFn({ accountId }) ||
       isSwapEntryDisabledToken({
         contractAddress: tokenInfo.address,
@@ -578,6 +579,7 @@ function TokenDetailsHeaderContent({
       tokenDetailsBalanceMultiplier,
       tokenInfo.address,
       tokenInfo.isNative,
+      vaultSettings?.disabledSwapAction,
     ],
   );
 
