@@ -1,7 +1,7 @@
 import { useCallback } from 'react';
 
 import { useShortcuts } from '@onekeyhq/components';
-import { EModalRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
+import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EUniversalSearchPages } from '@onekeyhq/shared/src/routes/universalSearch';
 import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 
@@ -19,7 +19,6 @@ export const useGlobalShortcuts = () => {
     (data: EShortcutEvents) => {
       switch (data) {
         case EShortcutEvents.UniversalSearch:
-          if (currentTabRoute.current === ETabRoutes.Perp) break;
           navigation.pushModal(EModalRoutes.UniversalSearchModal, {
             screen: EUniversalSearchPages.UniversalSearch,
             params: {

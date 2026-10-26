@@ -5,7 +5,7 @@ import type { PropsWithChildren, ReactNode } from 'react';
 import { act, fireEvent, render, screen } from '@testing-library/react';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
+import type { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 import type {
   IPerpsUniverse,
   ISpotUniverse,
@@ -42,7 +42,6 @@ const mockScrollIntoView = jest.fn();
 let mockShortcutHandler: ((event: EShortcutEvents) => void) | undefined;
 let mockRouteStatus = { focused: true, hidden: false };
 const mockRouteListeners = new Set<() => void>();
-let mockOverlayBlocked = false;
 let mockPageFocused = true;
 const mockCtxs = { assetCtxsByDex: [] };
 const mockOrder = { sequence: [] };
@@ -224,11 +223,6 @@ jest.mock('@onekeyhq/components', () => {
     }),
   };
 });
-jest.mock('@onekeyfe/react-native-native-overlay', () => ({
-  overlayStore: {
-    resolveBack: () => ({ kind: mockOverlayBlocked ? 'block' : 'pass' }),
-  },
-}));
 jest.mock('@onekeyhq/kit/src/hooks/useListenTabFocusState', () => {
   const React = jest.requireActual<typeof import('react')>('react');
   return {
@@ -421,7 +415,6 @@ describe('Perps selector keyboard navigation', () => {
     mockSpotUniverses = [];
     mockSpotContexts = {};
     mockRouteStatus = { focused: true, hidden: false };
-    mockOverlayBlocked = false;
     mockPageFocused = true;
   });
   afterEach(() => {
@@ -710,78 +703,30 @@ describe('Perps selector keyboard navigation', () => {
     expect(mockToggleFavorite).toHaveBeenCalledTimes(2);
   });
 
-  it.each(['metaKey', 'ctrlKey'])(
-    'opens the selector on Web with %s+K only on the focused Perps page',
-    async (modifier) => {
-      render(<PerpTokenSelector />);
-      await act(async () => {
-        fireEvent.keyDown(document.body, { key: 'k', [modifier]: true });
-      });
-      expect(screen.getByRole('dialog')).toBeDefined();
-      fireEvent.keyDown(document.body, {
-        key: 'k',
-        [modifier]: true,
-        repeat: true,
-      });
-      expect(screen.getAllByRole('dialog')).toHaveLength(1);
-      act(() => {
-        mockRouteStatus = { focused: false, hidden: false };
-        mockRouteListeners.forEach((listener) => listener());
-      });
+  it.each([false, true])(
+    'does not claim Cmd/Ctrl+K in wide or narrow layouts (desktop=%s)',
+    (isDesktop) => {
+      jest.replaceProperty(platformEnv, 'isDesktop', isDesktop);
+      mockShortcutHandler = undefined;
+      const view = render(<PerpTokenSelector />);
+      for (const modifier of ['metaKey', 'ctrlKey']) {
+        expect(
+          fireEvent.keyDown(document.body, { key: 'k', [modifier]: true }),
+        ).toBe(true);
+      }
       expect(screen.queryByRole('dialog')).toBeNull();
-      fireEvent.keyDown(document.body, { key: 'k', [modifier]: true });
-      expect(screen.queryByRole('dialog')).toBeNull();
+      expect(mockShortcutHandler).toBeUndefined();
+      view.rerender(<PerpTokenSelectorMobile />);
+      for (const modifier of ['metaKey', 'ctrlKey']) {
+        expect(
+          fireEvent.keyDown(document.body, { key: 'k', [modifier]: true }),
+        ).toBe(true);
+      }
+      expect(mockPushFullModal).not.toHaveBeenCalled();
+      expect(mockPushModal).not.toHaveBeenCalled();
+      expect(mockShortcutHandler).toBeUndefined();
     },
   );
-
-  it('does not open over modal routes, overlays or an editing input', async () => {
-    mockRouteStatus = { focused: true, hidden: true };
-    const view = render(<PerpTokenSelector />);
-    fireEvent.keyDown(document.body, { key: 'k', metaKey: true });
-    expect(screen.queryByRole('dialog')).toBeNull();
-    act(() => {
-      mockRouteStatus = { focused: true, hidden: false };
-      mockRouteListeners.forEach((listener) => listener());
-    });
-    mockOverlayBlocked = true;
-    fireEvent.keyDown(document.body, { key: 'k', metaKey: true });
-    expect(screen.queryByRole('dialog')).toBeNull();
-    mockOverlayBlocked = false;
-    const input = document.createElement('input');
-    input.type = 'password';
-    document.body.append(input);
-    input.focus();
-    fireEvent.keyDown(input, { key: 'k', metaKey: true });
-    expect(screen.queryByRole('dialog')).toBeNull();
-    input.remove();
-    fireEvent.keyDown(document.body, {
-      key: 'k',
-      metaKey: true,
-      isComposing: true,
-    });
-    fireEvent.keyDown(document.body, { key: 'k', metaKey: true, repeat: true });
-    expect(screen.queryByRole('dialog')).toBeNull();
-    view.unmount();
-    await act(async () => {
-      fireEvent.keyDown(document.body, { key: 'k', metaKey: true });
-    });
-    expect(screen.queryByRole('dialog')).toBeNull();
-  });
-
-  it('uses the desktop shortcut signal instead of installing a duplicate Web handler', async () => {
-    jest.replaceProperty(platformEnv, 'isDesktop', true);
-    render(<PerpTokenSelector />);
-    fireEvent.keyDown(document.body, { key: 'k', metaKey: true });
-    expect(screen.queryByRole('dialog')).toBeNull();
-    await act(async () => {
-      mockShortcutHandler?.(EShortcutEvents.UniversalSearch);
-    });
-    expect(screen.getByRole('dialog')).toBeDefined();
-    act(() => {
-      mockShortcutHandler?.(EShortcutEvents.UniversalSearch);
-    });
-    expect(screen.getAllByRole('dialog')).toHaveLength(1);
-  });
 
   it('announces the current keyboard target without moving input focus', async () => {
     const input = await openSelector();
@@ -793,52 +738,8 @@ describe('Perps selector keyboard navigation', () => {
     expect(document.activeElement).toBe(input);
   });
 
-  it('hands shortcut ownership between wide and narrow Web layouts', async () => {
-    const view = render(<PerpTokenSelector />);
-    view.rerender(<PerpTokenSelectorMobile />);
-    await act(async () => {
-      fireEvent.keyDown(document.body, { key: 'k', ctrlKey: true });
-    });
-    expect(mockPushFullModal).toHaveBeenCalledTimes(1);
-    expect(screen.queryByRole('dialog')).toBeNull();
-    view.rerender(<PerpTokenSelector />);
-    await act(async () => {
-      fireEvent.keyDown(document.body, { key: 'k', ctrlKey: true });
-    });
-    expect(screen.getAllByRole('dialog')).toHaveLength(1);
-    expect(mockPushFullModal).toHaveBeenCalledTimes(1);
-  });
-
-  it('opens the narrow desktop selector once from the existing shortcut signal', async () => {
-    jest.replaceProperty(platformEnv, 'isDesktop', true);
-    render(<PerpTokenSelectorMobile />);
-    act(() => {
-      mockShortcutHandler?.(EShortcutEvents.UniversalSearch);
-      mockShortcutHandler?.(EShortcutEvents.UniversalSearch);
-    });
-    expect(mockPushFullModal).toHaveBeenCalledTimes(1);
-    act(() => {
-      mockRouteStatus = { focused: false, hidden: false };
-      mockRouteListeners.forEach((listener) => listener());
-      mockShortcutHandler?.(EShortcutEvents.UniversalSearch);
-    });
-    expect(mockPushFullModal).toHaveBeenCalledTimes(1);
-  });
-
-  it('ignores the shortcut and closes an existing popover when its leaf page loses focus', async () => {
-    mockPageFocused = false;
-    render(<PerpTokenSelector />);
-    fireEvent.keyDown(document.body, { key: 'k', metaKey: true });
-    expect(screen.queryByRole('dialog')).toBeNull();
-    act(() => {
-      mockPageFocused = true;
-      mockRouteStatus = { focused: true, hidden: false };
-      mockRouteListeners.forEach((listener) => listener());
-    });
-    await act(async () => {
-      fireEvent.keyDown(document.body, { key: 'k', metaKey: true });
-    });
-    expect(screen.getByRole('dialog')).toBeDefined();
+  it('closes an existing popover when its leaf page loses focus', async () => {
+    await openSelector();
     act(() => {
       mockPageFocused = false;
       mockRouteStatus = { focused: true, hidden: false };

@@ -10,7 +10,6 @@ import {
   useState,
 } from 'react';
 
-import { overlayStore } from '@onekeyfe/react-native-native-overlay';
 import { useIsFocused } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 import { useWindowDimensions } from 'react-native';
@@ -34,7 +33,6 @@ import {
   YStack,
   useIsSplitMainActive,
   usePopoverContext,
-  useShortcuts,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { Token } from '@onekeyhq/kit/src/components/Token';
@@ -66,7 +64,6 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalPerpRoutes } from '@onekeyhq/shared/src/routes/perp';
-import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 import { shortcutsKeys } from '@onekeyhq/shared/src/shortcuts/shortcutsKeys.enum';
 import {
   getKeyboardEventKey,
@@ -174,71 +171,6 @@ function waitForTokenSelectorOpenPrewarm(task: Promise<unknown>) {
     task.catch(() => undefined),
     timerUtils.wait(TOKEN_SELECTOR_OPEN_PREWARM_TIMEOUT_MS),
   ]);
-}
-
-function usePerpTokenSelectorShortcut({
-  onOpen,
-  onBlur,
-  isOpen = false,
-}: {
-  onOpen: () => void;
-  onBlur?: () => void;
-  isOpen?: boolean;
-}) {
-  const pageFocused = useIsFocused();
-  const onBlurRef = useRef(onBlur);
-  onBlurRef.current = onBlur;
-  useEffect(() => {
-    if (!pageFocused) onBlurRef.current?.();
-  }, [pageFocused]);
-  const shortcutRouteFocused = useRef(false);
-  useListenTabFocusState(ETabRoutes.Perp, (focused, hiddenByModal) => {
-    shortcutRouteFocused.current = focused && !hiddenByModal;
-    if (!shortcutRouteFocused.current) {
-      onBlurRef.current?.();
-    }
-  });
-  const openFromShortcut = useCallback(() => {
-    if (platformEnv.isNative || !pageFocused || !shortcutRouteFocused.current)
-      return false;
-    if (isOpen) return true;
-    const activeElement = document.activeElement;
-    if (
-      overlayStore.resolveBack().kind !== 'pass' ||
-      activeElement?.closest(
-        'input, textarea, select, [contenteditable]:not([contenteditable="false"])',
-      )
-    ) {
-      return false;
-    }
-    onOpen();
-    return true;
-  }, [isOpen, onOpen, pageFocused]);
-  const handleShortcut = useCallback(
-    (event: EShortcutEvents) => {
-      if (event === EShortcutEvents.UniversalSearch) openFromShortcut();
-    },
-    [openFromShortcut],
-  );
-  useShortcuts(EShortcutEvents.UniversalSearch, handleShortcut);
-  useEffect(() => {
-    if (platformEnv.isNative || platformEnv.isDesktop) return;
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (
-        event.defaultPrevented ||
-        event.repeat ||
-        isImeComposingKeyboardEvent(event) ||
-        event.key.toLowerCase() !== 'k' ||
-        !(event.metaKey || event.ctrlKey) ||
-        event.altKey ||
-        event.shiftKey
-      )
-        return;
-      if (openFromShortcut()) event.preventDefault();
-    };
-    globalThis.addEventListener('keydown', handleKeyDown);
-    return () => globalThis.removeEventListener('keydown', handleKeyDown);
-  }, [openFromShortcut]);
 }
 
 const PrimaryTabItem = memo(
@@ -1781,18 +1713,16 @@ function BasePerpTokenSelector() {
       activePerpsAccount.walletType,
     ],
   );
-  const openFromShortcut = useCallback(
-    () => handleOpenChange(true),
-    [handleOpenChange],
-  );
   const closeOnBlur = useCallback(() => {
     isOpeningRef.current = false;
     setIsOpen(false);
   }, []);
-  usePerpTokenSelectorShortcut({
-    onOpen: openFromShortcut,
-    onBlur: closeOnBlur,
-    isOpen,
+  const pageFocused = useIsFocused();
+  useEffect(() => {
+    if (!pageFocused) closeOnBlur();
+  }, [closeOnBlur, pageFocused]);
+  useListenTabFocusState(ETabRoutes.Perp, (focused, hiddenByModal) => {
+    if (!focused || hiddenByModal) closeOnBlur();
   });
   const triggerLabel = mode === 'spot' ? displayName : `${displayName}USDC`;
   const content = useMemo(
@@ -2039,8 +1969,6 @@ function BasePerpTokenSelectorMobile() {
     navigation,
     prewarmTokenSelectorImages,
   ]);
-
-  usePerpTokenSelectorShortcut({ onOpen: onPressTokenSelector });
 
   return (
     <BasePerpTokenSelectorMobileView
