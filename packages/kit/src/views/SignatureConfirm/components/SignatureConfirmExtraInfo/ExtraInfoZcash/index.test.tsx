@@ -82,26 +82,24 @@ beforeEach(() => {
   };
 });
 
-it('hides only the repeated local account source and keeps Memo visible', () => {
+// Inputs can include change addresses that are not the receive address.
+it.each([
+  ['a locally parsed send', () => undefined],
+  [
+    'a send that was not locally parsed',
+    () => {
+      mockDecodedTx.isLocalParsed = false;
+    },
+  ],
+  [
+    'a send whose first address is not the signer',
+    () => {
+      mockDecodedTx.signer = otherAddress;
+    },
+  ],
+])('never lists transparent input addresses for %s', (_label, arrange) => {
+  arrange();
   render(<TxExtraInfoZcash />);
   expect(screen.queryByText(inputAddress)).toBeNull();
   expect(screen.getByText('test memo')).toBeTruthy();
-});
-
-it('keeps the spending source when the transaction was not locally parsed', () => {
-  mockDecodedTx.isLocalParsed = false;
-  render(<TxExtraInfoZcash />);
-  expect(screen.getByText(inputAddress)).toBeTruthy();
-});
-
-it('keeps the spending source when the first address is not the signer', () => {
-  mockDecodedTx.signer = otherAddress;
-  render(<TxExtraInfoZcash />);
-  expect(screen.getByText(inputAddress)).toBeTruthy();
-});
-
-it('keeps the spending source when no account address row was rendered', () => {
-  mockDecodedTx.txDisplay = { title: 'Send', alerts: [], components: [] };
-  render(<TxExtraInfoZcash />);
-  expect(screen.getByText(inputAddress)).toBeTruthy();
 });
